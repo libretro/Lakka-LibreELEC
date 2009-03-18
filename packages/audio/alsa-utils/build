@@ -4,6 +4,13 @@
 
 $SCRIPTS/build toolchain
 $SCRIPTS/build alsa-lib
+[ "$DEVTOOLS" = yes ] && $SCRIPTS/build ncurses
+
+export CPPFLAGS="$CPPFLAGS -I$LIB_PREFIX/include/ncurses"
+export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/usr/lib64 -L$LIB_PREFIX/lib"
+
+ALSAMIXER_CONFIG="--disable-alsamixer"
+[ "$DEVTOOLS" = yes ] && ALSAMIXER_CONFIG="--enable-alsamixer"
 
 cd $BUILD/$1*
 ./configure --host=$TARGET_NAME \
@@ -11,10 +18,15 @@ cd $BUILD/$1*
             --prefix=/usr \
             --sysconfdir=/etc \
             --localstatedir=/var \
-            --disable-static \
-            --enable-shared \
             --disable-dependency-tracking \
-            --disable-alsamixer
+            $ALSAMIXER_CONFIG
 
-$MAKE -C amixer
-$STRIP amixer/amixer
+make -C amixer
+
+if [ "$DEVTOOLS" = yes ]; then
+  make -C alsamixer
+  make -C aplay
+  make -C iecset
+fi
+
+exit 0
