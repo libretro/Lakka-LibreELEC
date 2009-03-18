@@ -1,0 +1,748 @@
+diff -Naur linux-2.6.29-rc3.orig/drivers/block/Kconfig linux-2.6.29-rc3/drivers/block/Kconfig
+--- linux-2.6.29-rc3.orig/drivers/block/Kconfig	2009-01-31 18:44:26.000000000 +0100
++++ linux-2.6.29-rc3/drivers/block/Kconfig	2009-01-31 18:45:21.000000000 +0100
+@@ -358,6 +358,47 @@
+ 	  will prevent RAM block device backing store memory from being
+ 	  allocated from highmem (only a problem for highmem systems).
+ 
++config LZMA_INITRD
++	boolean "Allow LZMA compression on initrd"
++	depends on BLK_DEV_INITRD=y
++	default "y"
++	help
++	  Use lzma compression on initrd, example 'lzma e initrd initrd.7z -d16'.
++	  If you have sufficient memory, you could compress using bigger dictionary size,
++	  'lzma e initrd initrd.7z'.
++	  
++config LZMA_INITRD_KMALLOC_ONLY
++	boolean "Use only kmalloc, do not use vmalloc on lzma initrd"
++	depends on LZMA_INITRD=y
++	default "n"
++	help
++	  Set to y if you do not want to use vmalloc, ie use only kmalloc.
++	  
++config LZMA_INITRAM_FS	  
++	boolean "Allow LZMA compression on initramfs"
++	depends on BLK_DEV_RAM=y
++	default "y"
++	help
++	  Use lzma compression on initramfs, example 'lzma e initramfs.cpio initramfs.cpio.lzma'.
++	
++config LZMA_INITRAM_FS_SMALLMEM
++	boolean "Use lzma compression with small dictonary size."
++	depends on LZMA_INITRAM_FS=y
++	default "y"
++	help
++	  Use lzma compression on initramfs with small dictionary size, example 
++	  'lzma e initramfs.cpio initramfs.cpio.lzma -d16'.
++	  Affects only the initramfs.cpio in the ~usr directory, which is compiled into 
++	  the kernel. If you prepared initramfs.cpio for use with bootloader, you would
++	  need to specify the commandline options (-d16) yourself.
++	  
++config LZMA_INITRAM_FS_KMALLOC_ONLY
++	boolean "Use only kmalloc, do not use vmalloc on lzma initramfs"
++	depends on LZMA_INITRAM_FS=y
++	default "n"
++	help
++	  Set to y if you do not want to use vmalloc, ie use only kmalloc.
++	  
+ config CDROM_PKTCDVD
+ 	tristate "Packet writing on CD/DVD media"
+ 	depends on !UML
+diff -Naur linux-2.6.29-rc3.orig/init/do_mounts_rd.c linux-2.6.29-rc3/init/do_mounts_rd.c
+--- linux-2.6.29-rc3.orig/init/do_mounts_rd.c	2009-01-31 18:44:40.000000000 +0100
++++ linux-2.6.29-rc3/init/do_mounts_rd.c	2009-01-31 18:45:21.000000000 +0100
+@@ -7,6 +7,7 @@
+ #include <linux/cramfs_fs.h>
+ #include <linux/initrd.h>
+ #include <linux/string.h>
++#include <linux/vmalloc.h>
+ 
+ #include "do_mounts.h"
+ #include "../fs/squashfs/squashfs_fs.h"
+@@ -30,6 +31,9 @@
+ __setup("ramdisk_start=", ramdisk_start_setup);
+ 
+ static int __init crd_load(int in_fd, int out_fd);
++#ifdef CONFIG_LZMA_INITRD
++static int __init lzma_rd_load(int in_fd, int out_fd);
++#endif
+ 
+ /*
+  * This routine tries to find a RAM disk image to load, and returns the
+@@ -84,6 +88,17 @@
+ 		nblocks = 0;
+ 		goto done;
+ 	}
++	/* 
++	 * handle lzma compressed initrd, returns nblocks=1 as indication
++	 */
++	if( buf[0] < 9 * 5 * 5 && buf[9] == 0 && buf[10] == 0 && buf[11] == 0 
++	   && buf[12] == 0 )
++        {
++               printk( KERN_NOTICE "RAMDISK: LZMA image found at block %d\n",
++                    start_block);
++                nblocks = 1; // just a convenient return flag
++                goto done;
++        } 	   
+ 
+ 	/* romfs is at block zero too */
+ 	if (romfsb->word0 == ROMSB_WORD0 &&
+@@ -178,7 +193,22 @@
+ 			goto successful_load;
+ 		goto done;
+ 	}
+-
++#ifdef CONFIG_LZMA_INITRD
++	/*
++	 * handle lzma compressed image
++	 */
++	if ( nblocks == 1 )
++	{
++	    nblocks = 0;
++	    if ( lzma_rd_load(in_fd, out_fd) == 0 )
++	    {
++	    	printk("\nLZMA initrd loaded successfully\n");
++	    	goto successful_load;
++	    }
++	    printk(KERN_NOTICE "LZMA initrd is not in the correct format\n");
++	    goto done;
++	}    	
++#endif
+ 	/*
+ 	 * NOTE NOTE: nblocks is not actually blocks but
+ 	 * the number of kibibytes of data to load into a ramdisk.
+@@ -376,6 +406,134 @@
+ 	unzip_error = 1;
+ }
+ 
++#ifdef CONFIG_LZMA_INITRD
++#define _LZMA_IN_CB
++#define _LZMA_OUT_READ
++#include "LzmaDecode.h"
++#include "LzmaDecode.c"
++
++static int read_byte(void *object, const unsigned char **buffer, SizeT *bufferSize);
++
++/*
++ * Do the lzma decompression
++ */
++static int __init lzma_rd_load(int in_fd, int out_fd)
++{
++	unsigned int i;
++	CLzmaDecoderState state;
++	unsigned char* outputbuffer;
++	unsigned int uncompressedSize = 0;
++	unsigned char* p;
++	unsigned int kBlockSize =  0x10000;
++	unsigned int nowPos = 0;
++	unsigned int outsizeProcessed = 0;
++	int res;
++        ILzmaInCallback callback;
++        
++	insize = 0;		/* valid bytes in inbuf */
++	inptr = 0;		/* index of next byte to be processed in inbuf */
++	exit_code = 0;
++	crd_infd = in_fd;
++	inbuf = kmalloc(INBUFSIZ, GFP_KERNEL);
++	if (inbuf == 0) 
++	{
++		printk(KERN_ERR "RAMDISK: Couldn't allocate lzma input buffer\n");
++		return -1;
++        }
++	
++        callback.Read = read_byte;
++
++	/* lzma args */
++	i = get_byte();
++	state.Properties.lc = i % 9, i = i / 9;
++        state.Properties.lp = i % 5, state.Properties.pb = i / 5;
++        
++        /* read dictionary size */
++        p = (char*)&state.Properties.DictionarySize;
++        for (i = 0; i < 4; i++) 
++          *p++ = get_byte();
++          
++        /* get uncompressedSize */ 	
++        p= (char*)&uncompressedSize;	
++        for (i = 0; i < 4; i++) 
++            *p++ = get_byte();
++            
++        /* skip big file */ 
++        for (i = 0; i < 4; i++) 
++        	get_byte();
++        	
++        printk( KERN_NOTICE "RAMDISK: LZMA lc=%d,lp=%d,pb=%d,dictSize=%d,origSize=%d\n",
++           state.Properties.lc, state.Properties.lp, state.Properties.pb, state.Properties.DictionarySize, uncompressedSize);
++	outputbuffer = kmalloc(kBlockSize, GFP_KERNEL);
++	if (outputbuffer == 0) {
++		printk(KERN_ERR "RAMDISK: Couldn't allocate lzma output buffer\n");
++		return -1;
++	}
++	
++        state.Probs =  (CProb*)kmalloc( LzmaGetNumProbs(&state.Properties)*sizeof(CProb), GFP_KERNEL);
++	if ( state.Probs == 0) {
++		printk(KERN_ERR "RAMDISK: Couldn't allocate lzma workspace\n");
++		return -1;
++	}
++	
++#ifdef CONFIG_LZMA_INITRD_KMALLOC_ONLY	
++	state.Dictionary = kmalloc( state.Properties.DictionarySize, GFP_KERNEL);
++#else	
++	state.Dictionary = vmalloc( state.Properties.DictionarySize);
++#endif	
++	if ( state.Dictionary == 0) {
++		printk(KERN_ERR "RAMDISK: Couldn't allocate lzma dictionary\n");
++		return -1;
++	}
++	
++	printk( KERN_NOTICE "LZMA initrd by Ming-Ching Tiew <mctiew@yahoo.com> " );
++	
++	LzmaDecoderInit( &state );
++	  
++	for( nowPos =0; nowPos < uncompressedSize ; )
++	{
++	  UInt32 blockSize = uncompressedSize - nowPos;
++	  if( blockSize > kBlockSize)
++	    blockSize = kBlockSize;
++	  res = LzmaDecode( &state, &callback, outputbuffer, blockSize, &outsizeProcessed);
++	  if( res != 0 ) {
++	     printk( KERN_ERR "RAMDISK: Lzma decode failure\n");
++	     return -1;
++	  }
++	  if( outsizeProcessed == 0 )
++	  {
++	     uncompressedSize = nowPos;
++	     printk( KERN_NOTICE "RAMDISK nowPos=%d, uncompressedSize=%d\n",
++	        nowPos, uncompressedSize ); 
++	     break;
++	  }
++	  sys_write(out_fd, outputbuffer, outsizeProcessed );
++	  nowPos += outsizeProcessed;
++	  printk( ".");
++	}
++	
++#ifdef CONFIG_LZMA_INITRD_KMALLOC_ONLY	
++	kfree(state.Dictionary);
++#else
++	vfree(state.Dictionary);
++#endif
++	kfree(inbuf);
++	kfree(outputbuffer);
++	kfree(state.Probs);
++	return 0;
++}
++
++static int read_byte(void *object, const unsigned char **buffer, SizeT *bufferSize)
++{
++	static unsigned char val;
++	*bufferSize = 1;
++	val = get_byte();
++	*buffer = &val;
++	return LZMA_RESULT_OK;
++}	
++
++#endif /*CONFIG_LZMA_INITRD*/
++
+ static int __init crd_load(int in_fd, int out_fd)
+ {
+ 	int result;
+diff -Naur linux-2.6.29-rc3.orig/init/initramfs.c linux-2.6.29-rc3/init/initramfs.c
+--- linux-2.6.29-rc3.orig/init/initramfs.c	2009-01-31 18:44:40.000000000 +0100
++++ linux-2.6.29-rc3/init/initramfs.c	2009-01-31 18:46:08.000000000 +0100
+@@ -7,6 +7,7 @@
+ #include <linux/string.h>
+ #include <linux/syscalls.h>
+ #include <linux/utime.h>
++#include <linux/vmalloc.h>
+ 
+ static __initdata char *message;
+ static void __init error(char *x)
+@@ -476,6 +477,118 @@
+ 	outcnt = 0;
+ }
+ 
++#ifdef CONFIG_LZMA_INITRAM_FS
++#define _LZMA_IN_CB
++#define _LZMA_OUT_READ
++#include "LzmaDecode.h"
++#ifndef CONFIG_LZMA_INITRD
++ #include "LzmaDecode.c"
++#endif
++static int read_byte(void *object, const unsigned char **buffer, SizeT *bufferSize)
++{
++	static unsigned char val;
++        *bufferSize = 1;
++        val = get_byte();
++        *buffer = &val;
++        return LZMA_RESULT_OK;
++}
++                                        
++static int __init lzma_unzip(void)
++{
++	unsigned int i;
++	CLzmaDecoderState state;
++	unsigned char* outputbuffer;
++	unsigned int uncompressedSize = 0;
++	unsigned char* p;
++	unsigned int kBlockSize =  0x10000;
++	unsigned int nowPos = 0;
++	unsigned int outsizeProcessed = 0;
++	int res;
++        ILzmaInCallback callback;
++        
++        callback.Read = read_byte;
++
++	// lzma args
++	i = get_byte();
++	state.Properties.lc = i % 9, i = i / 9;
++        state.Properties.lp = i % 5, state.Properties.pb = i / 5;
++        
++        // read dictionary size
++        p = (char*)&state.Properties.DictionarySize;
++        for (i = 0; i < 4; i++) 
++          *p++ = get_byte();
++          
++        // get uncompressedSize
++        p= (char*)&uncompressedSize;	
++        for (i = 0; i < 4; i++) 
++            *p++ = get_byte();
++            
++        // skip big file
++        for (i = 0; i < 4; i++) 
++        	get_byte();
++        	
++        printk( KERN_NOTICE "initramfs: LZMA lc=%d,lp=%d,pb=%d,dictSize=%d,origSize=%d\n",
++           state.Properties.lc,state.Properties.lp,state.Properties.pb,state.Properties.DictionarySize, uncompressedSize);
++	outputbuffer = kmalloc(kBlockSize, GFP_KERNEL); 	
++	if (outputbuffer == 0) {
++	   printk(KERN_ERR "initramfs: Couldn't allocate lzma output buffer\n");
++	   return -1;
++	}
++	
++        state.Probs =  (CProb*) kmalloc( LzmaGetNumProbs(&state.Properties)*sizeof(CProb), GFP_KERNEL);
++	if ( state.Probs == 0) {
++		printk(KERN_ERR "initramfs: Couldn't allocate lzma workspace\n");
++		return -1;
++	}
++	
++#ifdef CONFIG_LZMA_INITRAM_FS_KMALLOC_ONLY
++	state.Dictionary = kmalloc( state.Properties.DictionarySize, GFP_KERNEL);
++#else
++	state.Dictionary = vmalloc( state.Properties.DictionarySize);
++#endif
++	if ( state.Dictionary == 0) {
++		printk(KERN_ERR "initramfs: Couldn't allocate lzma dictionary\n");
++		return -1;
++	}
++	
++	printk( KERN_NOTICE "LZMA initramfs by Ming-Ching Tiew <mctiew@yahoo.com> " );
++	
++	LzmaDecoderInit( &state );
++	  
++	for( nowPos =0; nowPos < uncompressedSize ; )
++	{
++	  UInt32 blockSize = uncompressedSize - nowPos;
++	  if( blockSize > kBlockSize)
++	    blockSize = kBlockSize;
++	  res = LzmaDecode( &state, &callback, outputbuffer, blockSize, &outsizeProcessed);
++	  if( res != 0 ) {
++	     panic( KERN_ERR "initramfs: Lzma decode failure\n");
++	     return -1;
++	  }
++	  if( outsizeProcessed == 0 )
++	  {
++	     uncompressedSize = nowPos;
++	     printk( KERN_NOTICE "initramfs: nowPos=%d, uncompressedSize=%d\n",
++	        nowPos, uncompressedSize ); 
++	     break;
++	  }
++	  flush_buffer(outputbuffer, outsizeProcessed);
++	  nowPos += outsizeProcessed;
++	  printk( ".");
++	}
++	
++#ifdef CONFIG_LZMA_INITRAM_FS_KMALLOC_ONLY
++	kfree(state.Dictionary);
++#else
++	vfree(state.Dictionary);
++#endif
++	kfree(outputbuffer);
++	kfree(state.Probs);
++	return 0;
++}
++
++#endif /*CONFIG LZMA_INITRAM_FS*/
++
+ static char * __init unpack_to_rootfs(char *buf, unsigned len, int check_only)
+ {
+ 	int written;
+@@ -510,12 +623,31 @@
+ 		inptr = 0;
+ 		outcnt = 0;		/* bytes in output buffer */
+ 		bytes_out = 0;
+-		crc = (ulg)0xffffffffL; /* shift register contents */
+-		makecrc();
+-		gunzip();
+-		if (state != Reset)
++		if( inbuf[0] == 037 && ((inbuf[1] == 0213) || (inbuf[1] == 0236)))
++		{  
++		   printk( KERN_NOTICE "detected gzip initramfs\n");
++		   crc = (ulg)0xffffffffL; /* shift register contents */
++		   makecrc();
++		   gunzip();
++		   if (state != Reset)
+ 			error("junk in gzipped archive");
+-		this_header = saved_offset + inptr;
++		}
++#ifdef CONFIG_LZMA_INITRAM_FS
++		else if( inbuf[0] < 9 * 5 * 5 && buf[9] == 0 && buf[10] == 0 
++		  && buf[11] == 0 && buf[12] == 0 )
++		{
++		   printk( KERN_NOTICE "detected lzma initramfs\n");
++		   lzma_unzip();
++		}
++#endif	
++		else
++		{  
++		   // skip forward ?
++		   crc = (ulg)0xffffffffL; /* shift register contents */
++		   makecrc();
++		   gunzip();
++		}
++	        this_header = saved_offset + inptr;
+ 		buf += inptr;
+ 		len -= inptr;
+ 	}
+diff -Naur linux-2.6.29-rc3.orig/scripts/gen_lzma_initramfs_list.sh linux-2.6.29-rc3/scripts/gen_lzma_initramfs_list.sh
+--- linux-2.6.29-rc3.orig/scripts/gen_lzma_initramfs_list.sh	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.29-rc3/scripts/gen_lzma_initramfs_list.sh	2009-01-31 18:45:21.000000000 +0100
+@@ -0,0 +1,292 @@
++#!/bin/bash
++# Copyright (C) Martin Schlemmer <azarah@nosferatu.za.org>
++# Copyright (c) 2006           Sam Ravnborg <sam@ravnborg.org>
++#
++# Released under the terms of the GNU GPL
++#
++# Generate a cpio packed initramfs. It uses gen_init_cpio to generate
++# the cpio archive, and gzip to pack it.
++# The script may also be used to generate the inputfile used for gen_init_cpio
++# This script assumes that gen_init_cpio is located in usr/ directory
++
++# error out on errors
++set -e
++
++usage() {
++cat << EOF
++Usage:
++$0 [-o <file>] [-u <uid>] [-g <gid>] { -s | -d | <cpio_source>} ...
++	-o <file>      Create lzma initramfs file named <file> using
++	               gen_init_cpio and lzma
++	-u <uid>       User ID to map to user ID 0 (root).
++	               <uid> is only meaningful if <cpio_source>
++	               is a directory.
++	-g <gid>       Group ID to map to group ID 0 (root).
++	               <gid> is only meaningful if <cpio_source>
++	               is a directory.
++	<cpio_source>  File list or directory for cpio archive.
++	               If <cpio_source> is a .cpio file it will be used
++		       as direct input to initramfs.
++	-s	       Create lzma file with small dictionary size
++	-d             Output the default cpio list.
++
++All options except -o and -l may be repeated and are interpreted
++sequentially and immediately.  -u and -g states are preserved across
++<cpio_source> options so an explicit "-u 0 -g 0" is required
++to reset the root/group mapping.
++EOF
++}
++
++list_default_initramfs() {
++	# echo usr/kinit/kinit
++	:
++}
++
++default_initramfs() {
++	cat <<-EOF >> ${output}
++		# This is a very simple, default initramfs
++
++		dir /dev 0755 0 0
++		nod /dev/console 0600 0 0 c 5 1
++		dir /root 0700 0 0
++		# file /kinit usr/kinit/kinit 0755 0 0
++		# slink /init kinit 0755 0 0
++	EOF
++}
++
++filetype() {
++	local argv1="$1"
++
++	# symlink test must come before file test
++	if [ -L "${argv1}" ]; then
++		echo "slink"
++	elif [ -f "${argv1}" ]; then
++		echo "file"
++	elif [ -d "${argv1}" ]; then
++		echo "dir"
++	elif [ -b "${argv1}" -o -c "${argv1}" ]; then
++		echo "nod"
++	elif [ -p "${argv1}" ]; then
++		echo "pipe"
++	elif [ -S "${argv1}" ]; then
++		echo "sock"
++	else
++		echo "invalid"
++	fi
++	return 0
++}
++
++list_print_mtime() {
++	:
++}
++
++print_mtime() {
++	local my_mtime="0"
++
++	if [ -e "$1" ]; then
++		my_mtime=$(find "$1" -printf "%T@\n" | sort -r | head -n 1)
++	fi
++
++	echo "# Last modified: ${my_mtime}" >> ${output}
++	echo "" >> ${output}
++}
++
++list_parse() {
++	echo "$1 \\"
++}
++
++# for each file print a line in following format
++# <filetype> <name> <path to file> <octal mode> <uid> <gid>
++# for links, devices etc the format differs. See gen_init_cpio for details
++parse() {
++	local location="$1"
++	local name="${location/${srcdir}//}"
++	# change '//' into '/'
++	name="${name//\/\///}"
++	local mode="$2"
++	local uid="$3"
++	local gid="$4"
++	local ftype=$(filetype "${location}")
++	# remap uid/gid to 0 if necessary
++	[ "$uid" -eq "$root_uid" ] && uid=0
++	[ "$gid" -eq "$root_gid" ] && gid=0
++	local str="${mode} ${uid} ${gid}"
++
++	[ "${ftype}" == "invalid" ] && return 0
++	[ "${location}" == "${srcdir}" ] && return 0
++
++	case "${ftype}" in
++		"file")
++			str="${ftype} ${name} ${location} ${str}"
++			;;
++		"nod")
++			local dev_type=
++			local maj=$(LC_ALL=C ls -l "${location}" | \
++					gawk '{sub(/,/, "", $5); print $5}')
++			local min=$(LC_ALL=C ls -l "${location}" | \
++					gawk '{print $6}')
++
++			if [ -b "${location}" ]; then
++				dev_type="b"
++			else
++				dev_type="c"
++			fi
++			str="${ftype} ${name} ${str} ${dev_type} ${maj} ${min}"
++			;;
++		"slink")
++			local target=$(LC_ALL=C ls -l "${location}" | \
++					gawk '{print $11}')
++			str="${ftype} ${name} ${target} ${str}"
++			;;
++		*)
++			str="${ftype} ${name} ${str}"
++			;;
++	esac
++
++	echo "${str}" >> ${output}
++
++	return 0
++}
++
++unknown_option() {
++	printf "ERROR: unknown option \"$arg\"\n" >&2
++	printf "If the filename validly begins with '-', " >&2
++	printf "then it must be prefixed\n" >&2
++	printf "by './' so that it won't be interpreted as an option." >&2
++	printf "\n" >&2
++	usage >&2
++	exit 1
++}
++
++list_header() {
++	:
++}
++
++header() {
++	printf "\n#####################\n# $1\n" >> ${output}
++}
++
++# process one directory (incl sub-directories)
++dir_filelist() {
++	${dep_list}header "$1"
++
++	srcdir=$(echo "$1" | sed -e 's://*:/:g')
++	dirlist=$(find "${srcdir}" -printf "%p %m %U %G\n" 2>/dev/null)
++
++	# If $dirlist is only one line, then the directory is empty
++	if [  "$(echo "${dirlist}" | wc -l)" -gt 1 ]; then
++		${dep_list}print_mtime "$1"
++
++		echo "${dirlist}" | \
++		while read x; do
++			${dep_list}parse ${x}
++		done
++	fi
++}
++
++# if only one file is specified and it is .cpio file then use it direct as fs
++# if a directory is specified then add all files in given direcotry to fs
++# if a regular file is specified assume it is in gen_initramfs format
++input_file() {
++	source="$1"
++	if [ -f "$1" ]; then
++		${dep_list}header "$1"
++		is_cpio="$(echo "$1" | sed 's/^.*\.cpio/cpio/')"
++		if [ $2 -eq 0 -a ${is_cpio} == "cpio" ]; then
++			cpio_file=$1
++			[ ! -z ${dep_list} ] && echo "$1"
++			return 0
++		fi
++		if [ -z ${dep_list} ]; then
++			print_mtime "$1" >> ${output}
++			cat "$1"         >> ${output}
++		else
++			cat "$1" | while read type dir file perm ; do
++				if [ "$type" == "file" ]; then
++					echo "$file \\";
++				fi
++			done
++		fi
++	elif [ -d "$1" ]; then
++		dir_filelist "$1"
++	else
++		echo "  ${prog}: Cannot open '$1'" >&2
++		exit 1
++	fi
++}
++
++prog=$0
++root_uid=0
++root_gid=0
++dep_list=
++cpio_file=
++cpio_list=
++output="/dev/stdout"
++output_file=""
++opt=""
++
++arg="$1"
++case "$arg" in
++	"-l")	# files included in initramfs - used by kbuild
++		dep_list="list_"
++		echo "deps_initramfs := \\"
++		shift
++		;;
++	"-o")	# generate lzma-ed cpio image named $1
++		shift
++		output_file="$1"
++		cpio_list="$(mktemp ${TMPDIR:-/tmp}/cpiolist.XXXXXX)"
++		output=${cpio_list}
++		shift
++		;;
++esac
++while [ $# -gt 0 ]; do
++	arg="$1"
++	shift
++	case "$arg" in
++		"-u")	# map $1 to uid=0 (root)
++			root_uid="$1"
++			shift
++			;;
++		"-g")	# map $1 to gid=0 (root)
++			root_gid="$1"
++			shift
++			;;
++		"-s")
++			opt="-d16"
++			;;
++		"-d")	# display default initramfs list
++			default_list="$arg"
++			${dep_list}default_initramfs
++			;;
++		"-h")
++			usage
++			exit 0
++			;;
++		*)
++			case "$arg" in
++				"-"*)
++					unknown_option
++					;;
++				*)	# input file/dir - process it
++					input_file "$arg" "$#"
++					;;
++			esac
++			;;
++	esac
++done
++
++# If output_file is set we will generate cpio archive and lzma it
++# we are carefull to delete tmp files
++if [ ! -z ${output_file} ]; then
++	if [ -z ${cpio_file} ]; then
++		cpio_tfile="$(mktemp ${TMPDIR:-/tmp}/cpiofile.XXXXXX)"
++		usr/gen_init_cpio ${cpio_list} > ${cpio_tfile}
++	else
++		cpio_tfile=${cpio_file}
++	fi
++	rm ${cpio_list}
++	lzma e ${cpio_tfile} ${output_file} ${opt}
++	[ -z ${cpio_file} ] && rm ${cpio_tfile}
++fi
++exit 0
+diff -Naur linux-2.6.29-rc3.orig/usr/Makefile linux-2.6.29-rc3/usr/Makefile
+--- linux-2.6.29-rc3.orig/usr/Makefile	2009-01-31 18:44:42.000000000 +0100
++++ linux-2.6.29-rc3/usr/Makefile	2009-01-31 18:45:21.000000000 +0100
+@@ -19,6 +19,7 @@
+ 
+ hostprogs-y := gen_init_cpio
+ initramfs   := $(CONFIG_SHELL) $(srctree)/scripts/gen_initramfs_list.sh
++lzma_initramfs := $(CONFIG_SHELL) $(srctree)/scripts/gen_lzma_initramfs_list.sh
+ ramfs-input := $(if $(filter-out "",$(CONFIG_INITRAMFS_SOURCE)), \
+ 			$(shell echo $(CONFIG_INITRAMFS_SOURCE)),-d)
+ ramfs-args  := \
+@@ -36,6 +37,14 @@
+ quiet_cmd_initfs = GEN     $@
+       cmd_initfs = $(initramfs) -o $@ $(ramfs-args) $(ramfs-input)
+ 
++ifdef CONFIG_LZMA_INITRAM_FS_SMALLMEM
++quiet_cmd_lzma_initfs = LZRAMFS $@
++      cmd_lzma_initfs = $(lzma_initramfs) -o $@ $(ramfs-args) -s $(ramfs-input)
++else
++quiet_cmd_lzma_initfs = LZRAMFS $@
++      cmd_lzma_initfs = $(lzma_initramfs) -o $@ $(ramfs-args) $(ramfs-input)
++endif
++
+ targets := initramfs_data.cpio.gz
+ # do not try to update files included in initramfs
+ $(deps_initramfs): ;
+@@ -48,5 +57,9 @@
+ # 4) arguments to gen_initramfs.sh changes
+ $(obj)/initramfs_data.cpio.gz: $(obj)/gen_init_cpio $(deps_initramfs) klibcdirs
+ 	$(Q)$(initramfs) -l $(ramfs-input) > $(obj)/.initramfs_data.cpio.gz.d
++ifdef CONFIG_LZMA_INITRAM_FS
++	$(call if_changed,lzma_initfs)
++else
+ 	$(call if_changed,initfs)
++endif
+ 

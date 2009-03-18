@@ -1,0 +1,109 @@
+#!/bin/sh
+
+. config/options
+
+deps=
+deps_pkg=
+files=
+files_pkg=
+
+case $1 in
+  get)
+    deps="wget"
+    deps_pkg="wget"
+    ;;
+  build)
+    deps="gcc g++ sed patch touch nasm tar bzip2 gzip perl flex bison cp gawk mkfontscale cpio makedepend glib-genmarshal"
+    deps_pkg="gcc g++ sed patch fileutils nasm tar bzip2 gzip perl flex bison coreutils gawk xfonts-utils cpio glib2-devel"
+    files="/usr/include/stdio.h /usr/include/readline/readline.h /usr/include/zlib.h /usr/include/ncurses.h"
+    files_pkg="libc6-dev libreadline5-dev zlib1g-dev libncurses5-dev"
+    ;;
+esac
+
+getarg() {
+  eval echo \${$(($1+2))}
+}
+
+i=0
+while dep=`getarg $i $deps` && [ -n "$dep" ]; do
+  [ -z "`which $dep 2>/dev/null`" ] && need="$need $dep" && need_pkg="$need_pkg `getarg $i $deps_pkg`"
+  i=$(($i+1))
+done
+
+i=0
+while file=`getarg $i $files` && [ -n "$file" ]; do
+  [ ! -f $file ] && need="$need $file" && need_pkg="$need_pkg `getarg $i $files_pkg`"
+  i=$(($i+1))
+done
+
+if [ -n "$need" ]; then
+  echo "**** Your system lacks the following tools needed to $1 GeeXboX ****"
+  echo $need
+
+  [ -f /etc/lsb-release ] && . /etc/lsb-release
+
+  if [ $DISTRIB_ID = "Ubuntu" -a -n "`which apt-get 2>/dev/null`" ]; then
+    echo "**** You seem to use an Ubuntu system ****"
+    read -p "would you like to sudo apt-get install the needed tools ? (y/n) " ans
+    [ "$ans" = "y" ] && sudo apt-get install $need_pkg
+  elif [ -f /etc/debian_version -a -n "`which apt-get 2>/dev/null`" ]; then
+    echo "**** You seem to use a debian system ****"
+    if [ "$UID" -ne 0 ]; then
+      echo "**** I could install those packages but you need to be root for this ****"
+      exit 1
+    else
+      read -p "would you like to apt-get install the needed tools ? (y/n) " ans
+      [ "$ans" = "y" ] && apt-get install $need_pkg
+    fi
+  elif [ -f /etc/mandrake-release -a -n "`which urpmi 2>/dev/null`" ]; then
+    echo "**** You seem to use a mandrake system ****"
+    if [ "$UID" -ne 0 ]; then
+      echo "**** I could install those packages but you need to be root for this ****"
+      exit 1
+    else
+      read -p "would you like to urpmi the needed tools ? (y/n) " ans
+      [ "$ans" = "y" ] && urpmi $need_pkg
+    fi
+  elif [ -f /etc/gentoo-release -a -n "`which emerge 2>/dev/null`" ]; then
+    echo "**** You seem to use a gentoo system ****"
+    if [ "$UID" -ne 0 ]; then
+      echo "**** I could install those packages but you need to be root for this ****"
+      exit 1
+    else
+      read -p "would you like to emerge the needed tools ? (y/n) " ans
+      [ "$ans" = "y" ] && emerge -D $need_pkg
+    fi
+  else
+    echo "********"
+    exit 1
+  fi
+fi
+
+
+need=""
+need_pkg=""
+
+i=0
+while dep=`getarg $i $deps` && [ -n "$dep" ]; do
+  [ -z "`which $dep 2>/dev/null`" ] && need="$need $dep" && need_pkg="$need_pkg `getarg $i $deps_pkg`"
+  i=$(($i+1))
+done
+
+i=0
+while file=`getarg $i $files` && [ -n "$file" ]; do
+  [ ! -f $file ] && need="$need $file" && need_pkg="$need_pkg `getarg $i $files_pkg`"
+  i=$(($i+1))
+done
+
+if [ -n "$need" ]; then
+  if [ "$need" = " mkzftree" ]; then
+    echo "**** mkzftree was not installed correctly."
+    echo "**** It is not included in debian woody."
+    echo "**** You will need for example a sarge version of mkisofs."
+  else
+    echo "**** The following packages were not installed correctly ****"
+    echo $need_pkg
+    echo "********"
+  fi
+  exit 1
+fi

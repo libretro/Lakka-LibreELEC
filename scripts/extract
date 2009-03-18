@@ -1,0 +1,48 @@
+#!/bin/sh
+
+. config/options
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+if [ -z "$3" ]; then
+  echo "usage: $0 package_name file_pattern target_dir"
+  exit 1
+fi
+
+[ ! -d "$SOURCES/$1" -o ! -f $PKG_DIR/url -o ! -d "$3" ] && exit 1
+
+for s in `sed 's%.*/\(.*\)\$%\1%' $PKG_DIR/url`; do
+  case $s in
+  $2)
+    f="$SOURCES/$1/$s"
+    if [ ! -f $f ]; then
+      echo "error: File $s doesn't exists in package $1 sources directory"
+      echo "have you called scripts/extract before scripts/get ?"
+      exit 1
+    fi
+    case $s in
+      *.tar)
+        tar xf $f -C $3
+        ;;
+      *.tar.bz2 | *.tbz)
+        tar xjf $f -C $3
+        ;;
+      *.tar.gz | *.tgz)
+        tar xzf $f -C $3
+        ;;
+      *.diff | *.patch)
+        cat $f | patch -d $3 -p1
+        ;;
+      *.diff.bz2 | *.patch.bz2 | patch-*.bz2)
+        bzcat $f | patch -d $3 -p1
+        ;;
+      *.diff.gz | *.patch.gz | patch-*.gz)
+        zcat $f | patch -d $3 -p1
+        ;;
+      *)
+        cp -pPR $f $3
+        ;;
+    esac
+    ;;
+  esac
+done

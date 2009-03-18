@@ -1,0 +1,54 @@
+#!/bin/sh
+
+TYPE="$1"
+DEVICE="$2"
+MP="$3"
+FSTYPE="$4"
+
+do_mount () {
+  MNT="/mnt/$2"
+  mkdir -p "$MNT"
+  mount -o ro -t $3 $1 "$MNT" && echo "$1        $MNT        $3" >> /var/tmp/mnts
+}
+
+autoplay () {
+  if [ -n "`pidof mplayer`" ]; then
+    [ -e /var/autoplay ] && return 0
+  fi
+
+  return 1
+}
+
+mp_load () {
+  echo "loadfile \"$1\"" > /var/mp_control
+}
+
+case $TYPE in
+  HDD)
+    do_mount "$DEVICE" "$MP" "$FSTYPE"
+    hdparm -S24 "$DEVICE" >/dev/null 2>&1
+  ;;
+
+  CD)
+    do_mount "$DEVICE" "$MP"
+    autoplay && mp_loader "/mnt/$MP" l
+    ;;
+
+  CDDA)
+    # Audio CDs can't be mounted
+    autoplay && mp_load "cdda:///$DEVICE"
+    ;;
+
+  VCD|SVCD)
+    do_mount "$DEVICE" "$MP"
+    autoplay && play_vcd "$DEVICE"
+    ;;
+
+  DVD)
+    # VideoDVD do not require being mounted to be played
+    autoplay && play_dvd "$DEVICE"
+    ;;
+
+  *)
+    ;;
+esac

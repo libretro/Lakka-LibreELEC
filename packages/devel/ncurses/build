@@ -1,0 +1,80 @@
+#!/bin/sh
+
+. config/options
+
+CWD=`pwd`
+
+setup_toolchain host
+
+cd $BUILD/$1*/ncurses-host
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --prefix=/usr \
+            --sysconfdir=/etc \
+            --without-shared \
+
+make -C include
+make -C progs tic
+
+cd "$CWD"
+
+setup_toolchain target
+
+$SCRIPTS/build toolchain
+
+cd $BUILD/$1*
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --prefix=/usr \
+            --sysconfdir=/etc \
+            --with-build-cc=$HOST_CC \
+            --with-build-cppflags="$HOST_CPPFLAGS -I../include" \
+            --with-build-cflags="$HOST_CFLAGS" \
+            --with-build-ldflags="$HOST_LDFLAGS" \
+            --without-cxx \
+            --without-cxx-binding \
+            --without-ada \
+            --without-progs \
+            --without-shared \
+            --without-normal \
+            --without-debug \
+            --without-profile \
+            --without-termlib \
+            --without-dbmalloc \
+            --without-dmalloc \
+            --without-gpm \
+            --disable-rpath \
+            --disable-overwrite \
+            --enable-database \
+            --disable-big-core \
+            --enable-termcap \
+            --enable-getcap \
+            --disable-getcap-cache \
+            --disable-bsdpad \
+            --without-rcs-ids \
+            --enable-ext-funcs \
+            --disable-const \
+            --enable-no-padding \
+            --disable-sigwinch \
+            --disable-tcap-names \
+            --without-develop \
+            --disable-hard-tabs \
+            --disable-xmc-glitch \
+            --disable-hashmap \
+            --enable-safe-sprintf \
+            --disable-scroll-hints \
+            --disable-widec \
+            --disable-echo \
+            --disable-warnings \
+            --disable-assertions
+
+make -C include
+make -C ncurses
+
+#$AR cru lib/libncurses.a obj_s/*.o
+
+$MAKEINSTALL -C include
+$MAKEINSTALL -C ncurses
+
+cd $SYSROOT_PREFIX/usr/include/ncurses
+cp curses.h term.h ../

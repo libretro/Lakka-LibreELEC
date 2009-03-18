@@ -1,0 +1,82 @@
+diff -Naur uClibc.orig/libc/misc/mntent/mntent.c uClibc/libc/misc/mntent/mntent.c
+--- uClibc.orig/libc/misc/mntent/mntent.c	Wed Jul  6 09:10:45 2005
++++ uClibc/libc/misc/mntent/mntent.c	Sat Jul 23 13:04:32 2005
+@@ -13,6 +13,54 @@
+ # define UNLOCK
+ #endif
+ 
++/* Since the values in a line are separated by spaces, a name cannot
++   contain a space.  Therefore some programs encode spaces in names
++   by the strings "\040".  We undo the encoding when reading an entry.
++   The decoding happens in place.  */
++static char *
++decode_name (char *buf)
++{
++  char *rp = buf;
++  char *wp = buf;
++
++  do
++    if (rp[0] == '\\' && rp[1] == '0' && rp[2] == '4' && rp[3] == '0')
++      {
++	/* \040 is a SPACE.  */
++	*wp++ = ' ';
++	rp += 3;
++      }
++    else if (rp[0] == '\\' && rp[1] == '0' && rp[2] == '1' && rp[3] == '1')
++      {
++	/* \011 is a TAB.  */
++	*wp++ = '\t';
++	rp += 3;
++      }
++    else if (rp[0] == '\\' && rp[1] == '0' && rp[2] == '1' && rp[3] == '2')
++      {
++	/* \012 is a NEWLINE.  */
++	*wp++ = '\n';
++	rp += 3;
++      }
++    else if (rp[0] == '\\' && rp[1] == '\\')
++      {
++	/* We have to escape \\ to be able to represent all characters.  */
++	*wp++ = '\\';
++	rp += 1;
++      }
++    else if (rp[0] == '\\' && rp[1] == '1' && rp[2] == '3' && rp[3] == '4')
++      {
++	/* \134 is also \\.  */
++	*wp++ = '\\';
++	rp += 3;
++      }
++    else
++      *wp++ = *rp;
++  while (*rp++ != '\0');
++
++  return buf;
++}
++
+ /* Reentrant version of getmntent.  */
+ struct mntent *getmntent_r (FILE *filep, 
+ 	struct mntent *mnt, char *buff, int bufsize)
+@@ -37,19 +85,19 @@
+ 		return NULL;
+ 
+ 	ptrptr = 0;
+-	mnt->mnt_fsname = strtok_r(buff, sep, &ptrptr);
++	mnt->mnt_fsname = decode_name(strtok_r(buff, sep, &ptrptr));
+ 	if (mnt->mnt_fsname == NULL)
+ 		return NULL;
+ 
+-	mnt->mnt_dir = strtok_r(NULL, sep, &ptrptr);
++	mnt->mnt_dir = decode_name(strtok_r(NULL, sep, &ptrptr));
+ 	if (mnt->mnt_dir == NULL)
+ 		return NULL;
+ 
+-	mnt->mnt_type = strtok_r(NULL, sep, &ptrptr);
++	mnt->mnt_type = decode_name(strtok_r(NULL, sep, &ptrptr));
+ 	if (mnt->mnt_type == NULL)
+ 		return NULL;
+ 
+-	mnt->mnt_opts = strtok_r(NULL, sep, &ptrptr);
++	mnt->mnt_opts = decode_name(strtok_r(NULL, sep, &ptrptr));
+ 	if (mnt->mnt_opts == NULL)
+ 		mnt->mnt_opts = "";
+ 

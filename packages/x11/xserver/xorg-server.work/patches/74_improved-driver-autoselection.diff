@@ -1,0 +1,338 @@
+From: Alan Coopersmith <alan.coopersmith@sun.com>
+Date: Tue, 8 Jul 2008 00:08:01 +0000 (-0700)
+Subject: Improved driver selection when autoconfiguring driver without xorg.conf
+X-Git-Url: http://gitweb.freedesktop.org/?p=xorg/xserver.git;a=commitdiff;h=5e847c1d4fc30a0d263a861a76982660f11998cd
+
+Improved driver selection when autoconfiguring driver without xorg.conf
+
+- Allow returning multiple drivers to try for a given PCI id (for instance,
+  try "geode" then "amd" for AMD Geode hardware)
+- On Solaris, use VIS_GETIDENTIFIER ioctl as well as PCI id to choose drivers
+- Use wsfb instead of fbdev as a fallback on non-Linux SPARC platforms
+---
+
+--- a/hw/xfree86/common/xf86AutoConfig.c
++++ b/hw/xfree86/common/xf86AutoConfig.c
+@@ -41,6 +41,11 @@
+ #include "xf86_OSlib.h"
+ #include "dirent.h"
+ 
++#ifdef sun
++# include <sys/visual_io.h>
++# include <ctype.h>
++#endif
++
+ /* Sections for the default built-in configuration. */
+ 
+ #define BUILTIN_DEVICE_NAME \
+@@ -79,11 +84,8 @@
+ 
+ static const char **builtinConfig = NULL;
+ static int builtinLines = 0;
+-static const char *deviceList[] = {
+-	"fbdev",
+-	"vesa",
+-	NULL
+-};
++
++static void listPossibleVideoDrivers(char *matches[], int nmatches);
+ 
+ /*
+  * A built-in config file is stored as an array of strings, with each string
+@@ -135,87 +137,91 @@ AppendToConfig(const char *s)
+     AppendToList(s, &builtinConfig, &builtinLines);
+ }
+ 
+-static const char *
+-videoPtrToDriverName(struct pci_device *dev)
++static int
++videoPtrToDriverList(struct pci_device *dev,
++		     char *returnList[], int returnListMax)
+ {
+     /*
+      * things not handled yet:
+      * cyrix/nsc.  should be merged into geode anyway.
+      * xgi.
+      */
++    int i;
++    /* Add more entries here if we ever return more than 4 drivers for
++       any device */
++    char *driverList[5] = { NULL, NULL, NULL, NULL, NULL };
+ 
+     switch (dev->vendor_id)
+     {
+ 	case 0x1022:
+-		if (dev->device_id == 0x2081)
+-			return "geode";
+-		else
+-			return NULL;
+-	case 0x1142:		    return "apm";
+-	case 0xedd8:		    return "ark";
+-	case 0x1a03:		    return "ast";
+-	case 0x1002:		    return "ati";
+-	case 0x102c:		    return "chips";
+-	case 0x1013:		    return "cirrus";
++	    if (dev->device_id == 0x2081) {
++		driverList[0] = "geode";
++		driverList[1] = "amd";
++	    }
++	    break;
++	case 0x1142:		    driverList[0] = "apm"; break;
++	case 0xedd8:		    driverList[0] = "ark"; break;
++	case 0x1a03:		    driverList[0] = "ast"; break;
++	case 0x1002:		    driverList[0] = "ati"; break;
++	case 0x102c:		    driverList[0] = "chips"; break;
++	case 0x1013:		    driverList[0] = "cirrus"; break;
+ 	case 0x8086:
+-	    if ((dev->device_id == 0x00d1) || (dev->device_id == 0x7800))
+-		return "i740";
+-	    else return "intel";
+-	case 0x102b:		    return "mga";
+-	case 0x10c8:		    return "neomagic";
+-	case 0x105d:		    return "i128";
+-	case 0x10de: case 0x12d2:   return "nv";
+-	case 0x1163:		    return "rendition";
++	    if ((dev->device_id == 0x00d1) || (dev->device_id == 0x7800)) {
++		driverList[0] = "i740";
++	    } else {
++		driverList[0] = "intel";
++		driverList[1] = "i810";
++	    }
++	    break;
++	case 0x102b:		    driverList[0] = "mga";	break;
++	case 0x10c8:		    driverList[0] = "neomagic"; break;
++	case 0x105d:		    driverList[0] = "i128";	break;
++	case 0x10de: case 0x12d2:   driverList[0] = "nv";	break;
++	case 0x1163:		    driverList[0] = "rendition"; break;
+ 	case 0x5333:
+ 	    switch (dev->device_id)
+ 	    {
+ 		case 0x88d0: case 0x88d1: case 0x88f0: case 0x8811:
+ 		case 0x8812: case 0x8814: case 0x8901:
+-		    return "s3";
++		    driverList[0] = "s3"; break;
+ 		case 0x5631: case 0x883d: case 0x8a01: case 0x8a10:
+ 		case 0x8c01: case 0x8c03: case 0x8904: case 0x8a13:
+-		    return "s3virge";
++		    driverList[0] = "s3virge"; break;
+ 		default:
+-		    return "savage";
++		    driverList[0] = "savage"; break;
+ 	    }
+-	case 0x1039:		    return "sis";
+-	case 0x126f:		    return "siliconmotion";
++	    break;
++	case 0x1039:		    driverList[0] = "sis";	break;
++	case 0x126f:		    driverList[0] = "siliconmotion"; break;
+ 	case 0x121a:
+ 	    if (dev->device_id < 0x0003)
+-	        return "voodoo";
++	        driverList[0] = "voodoo";
+ 	    else
+-	        return "tdfx";
+-	case 0x3d3d:		    return "glint";
+-	case 0x1023:		    return "trident";
+-	case 0x100c:		    return "tseng";
+-	case 0x1106:		    return "openchrome";
+-	case 0x15ad:		    return "vmware";
++	        driverList[0] = "tdfx";
++	    break;
++	case 0x3d3d:		    driverList[0] = "glint";	break;
++	case 0x1023:		    driverList[0] = "trident"; break;
++	case 0x100c:		    driverList[0] = "tseng";	break;
++	case 0x1106:		    driverList[0] = "openchrome"; break;
++	case 0x15ad:		    driverList[0] = "vmware";	break;
+ 	default: break;
+     }
+-    return NULL;
++    for (i = 0; (i < returnListMax) && (driverList[i] != NULL); i++) {
++	returnList[i] = xnfstrdup(driverList[i]);
++    }
++    return i;	/* Number of entries added */
+ }
+ 
+ Bool
+ xf86AutoConfig(void)
+ {
+-    const char **p;
++    char *deviceList[20];
++    char **p;
++    const char **cp;
+     char buf[1024];
+-    const char *driver = NULL;
+     ConfigStatus ret;
+ 
+-    driver = chooseVideoDriver();
+-
+-    if (driver) {
+-	snprintf(buf, sizeof(buf), BUILTIN_DEVICE_SECTION_PRE,
+-		 driver, 0, driver);
+-	AppendToConfig(buf);
+-	ErrorF("New driver is \"%s\"\n", driver);
+-	buf[0] = '\t';
+-	AppendToConfig(BUILTIN_DEVICE_SECTION_POST);
+-	snprintf(buf, sizeof(buf), BUILTIN_SCREEN_SECTION,
+-		 driver, 0, driver, 0);
+-	AppendToConfig(buf);
+-    }
++    listPossibleVideoDrivers(deviceList, 20);
+ 
+     for (p = deviceList; *p; p++) {
+ 	snprintf(buf, sizeof(buf), BUILTIN_DEVICE_SECTION, *p, 0, *p);
+@@ -225,23 +231,23 @@ xf86AutoConfig(void)
+     }
+ 
+     AppendToConfig(BUILTIN_LAYOUT_SECTION_PRE);
+-    if (driver) {
+-	snprintf(buf, sizeof(buf), BUILTIN_LAYOUT_SCREEN_LINE, driver, 0);
+-	AppendToConfig(buf);
+-    }
+     for (p = deviceList; *p; p++) {
+ 	snprintf(buf, sizeof(buf), BUILTIN_LAYOUT_SCREEN_LINE, *p, 0);
+ 	AppendToConfig(buf);
+     }
+     AppendToConfig(BUILTIN_LAYOUT_SECTION_POST);
+ 
++    for (p = deviceList; *p; p++) {
++	xfree(*p);
++    }
++
+     xf86MsgVerb(X_DEFAULT, 0,
+ 		"Using default built-in configuration (%d lines)\n",
+ 		builtinLines);
+ 
+     xf86MsgVerb(X_DEFAULT, 3, "--- Start of built-in configuration ---\n");
+-    for (p = builtinConfig; *p; p++)
+-	xf86ErrorFVerb(3, "\t%s", *p);
++    for (cp = builtinConfig; *cp; cp++)
++	xf86ErrorFVerb(3, "\t%s", *cp);
+     xf86MsgVerb(X_DEFAULT, 3, "--- End of built-in configuration ---\n");
+     
+     xf86setBuiltinConfig(builtinConfig);
+@@ -416,17 +422,51 @@ matchDriverFromFiles (char** matches, ui
+ }
+ #endif /* __linux__ */
+ 
+-char*
+-chooseVideoDriver(void)
++static void
++listPossibleVideoDrivers(char *matches[], int nmatches)
+ {
+     struct pci_device * info = NULL;
+     struct pci_device_iterator *iter;
+-    char *chosen_driver = NULL;
+     int i;
+-    char *matches[20]; /* If we have more than 20 drivers we're in trouble */
+     
+-    for (i=0 ; i<20 ; i++)
++    for (i = 0 ; i < nmatches ; i++) {
+         matches[i] = NULL;
++    }
++    i = 0;
++
++#ifdef sun
++    /* Check for driver type based on /dev/fb type and if valid, use
++       it instead of PCI bus probe results */
++    if (xf86Info.consoleFd >= 0) {
++	struct vis_identifier   visid;
++	const char *cp;
++
++	if (ioctl(xf86Info.consoleFd, VIS_GETIDENTIFIER, &visid) >= 0) {
++	    xf86Msg(X_PROBED, "console driver: %s\n", visid.name);
++
++	    /* Special case from before the general case was set */
++	    if (strcmp(visid.name, "NVDAnvda") == 0) {
++		matches[i++] = xnfstrdup("nvidia");
++	    }
++
++	    /* General case - split into vendor name (initial all-caps
++	       prefix) & driver name (rest of the string). */
++	    if (strcmp(visid.name, "SUNWtext") != 0) {
++		for (cp = visid.name; (*cp != '\0') && isupper(*cp); cp++) {
++		    /* find end of all uppercase vendor section */
++		}
++		if ((cp != visid.name) && (*cp != '\0')) {
++		    char *driverName = xnfstrdup(cp);
++		    char *vendorName = xnfstrdup(visid.name);
++		    vendorName[cp - visid.name] = '\0';
++
++		    matches[i++] = vendorName;
++		    matches[i++] = driverName;
++		}
++	    }
++	}
++    }
++#endif
+ 
+     /* Find the primary device, and get some information about it. */
+     iter = pci_slot_match_iterator_create(NULL);
+@@ -447,31 +487,52 @@ chooseVideoDriver(void)
+     }
+ #endif /* __linux__ */
+ 
+-    /* TODO Handle multiple drivers claiming to support the same PCI ID */
+-    if (matches[0]) {
+-        chosen_driver = matches[0];
+-    } else {
+-	if (info != NULL)
+-	    chosen_driver = videoPtrToDriverName(info);
+-	if (chosen_driver == NULL) {
+-#if defined  __i386__ || defined __amd64__ || defined __x86_64__ || defined __hurd__
+-	    chosen_driver = "vesa";
+-#elif defined __sparc__
+-	    chosen_driver = "sunffb";
++    for (i = 0; (i < nmatches) && (matches[i]); i++) {
++	/* find end of matches list */
++    }
++
++    if ((info != NULL) && (i < nmatches)) {
++	i += videoPtrToDriverList(info, &(matches[i]), nmatches - i);
++    }
++
++    /* Fallback to platform default hardware */
++    if (i < (nmatches - 1)) {
++#if defined(__i386__) || defined(__amd64__) || defined(__hurd__)
++	matches[i++] = xnfstrdup("vesa");
++#elif defined(__sparc__) && !defined(sun)
++	matches[i++] = xnfstrdup("sunffb");
++#endif
++    }
++
++    /* Fallback to platform default frame buffer driver */
++    if (i < (nmatches - 1)) {
++#if !defined(__linux__) && defined(__sparc__)
++	matches[i++] = xnfstrdup("wsfb");
+ #else
+-	    chosen_driver = "fbdev";
++	matches[i++] = xnfstrdup("fbdev");
+ #endif
+-	}
+     }
++}
++
++char*
++chooseVideoDriver(void)
++{
++    char *chosen_driver = NULL;
++    int i;
++    char *matches[20]; /* If we have more than 20 drivers we're in trouble */
+ 
+-    xf86Msg(X_DEFAULT, "Matched %s for the autoconfigured driver\n", chosen_driver);
++    listPossibleVideoDrivers(matches, 20);
+ 
+-    i = 0;
+-    while (matches[i]) {
++    /* TODO Handle multiple drivers claiming to support the same PCI ID */
++    chosen_driver = matches[0];
++
++    xf86Msg(X_DEFAULT, "Matched %s for the autoconfigured driver\n",
++	    chosen_driver);
++
++    for (i = 0; matches[i] ; i++) {
+         if (matches[i] != chosen_driver) {
+             xfree(matches[i]);
+         }
+-        i++;
+     }
+ 
+     return chosen_driver;

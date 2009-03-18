@@ -1,0 +1,36 @@
+#!/bin/sh
+
+. config/options
+
+RAMFS_DRV_SUBSYSTEMS="ata ide scsi"
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+VER=`ls $BUILD/$1*/modules/lib/modules`
+
+    mkdir -p $INSTALL/lib/modules/$VER
+    cp -r $BUILD/$1*/modules/* $INSTALL
+    rm -f $INSTALL/lib/modules/$VER/modules.*
+
+    for MOD in `find $INSTALL/lib/modules/ -name *.ko`; do
+      $STRIP --strip-debug $MOD
+    done
+
+    $BUILD/module-init-tool*/depmod -b $INSTALL -v $VER > /dev/null
+
+    for i in `ls $INSTALL/lib/modules/*/modules.* | grep -v modules.dep | grep -v modules.alias | grep -v modules.symbols`; do
+      rm -f $i
+    done
+
+    # copy kernel firmwares (if present)
+    rm -rf $INSTALL/lib/firmware
+    mkdir -p $INSTALL/lib/firmware
+    cp -rf $BUILD/$1*/modules/lib/firmware/* $INSTALL/lib/firmware || echo "no firmware"
+
+    mkdir -p $INSTALL/sbin
+    cp $PKG_DIR/scripts/setup_tvcard_options $INSTALL/sbin
+    mkdir -p $INSTALL/etc
+    cp $PKG_DIR/config/modules $INSTALL/etc
+    cp $PKG_DIR/config/tvcard $INSTALL/etc
+    cp $PKG_DIR/config/pvr $INSTALL/etc
+    mkdir -p $INSTALL/etc/modprobe.d
+    cp $PKG_DIR/config/tv $INSTALL/etc/modprobe.d

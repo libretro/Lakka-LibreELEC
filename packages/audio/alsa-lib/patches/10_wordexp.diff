@@ -1,0 +1,37 @@
+diff -Nur alsa-lib-1.0.11rc1.orig/src/userfile.c alsa-lib-1.0.11rc1/src/userfile.c
+--- alsa-lib-1.0.11rc1.orig/src/userfile.c	2005-12-05 16:27:28.000000000 +0200
++++ alsa-lib-1.0.11rc1/src/userfile.c	2005-12-17 16:47:45.000000000 +0200
+@@ -61,11 +61,31 @@
+ }
+ 
+ #else /* !HAVE_WORDEXP_H */
++#include <glob.h>
++#include <assert.h>
++
+ /* just copy the string - would be nicer to expand by ourselves, though... */
+ int snd_user_file(const char *file, char **result)
+ {
+-	*result = strdup(file);
+-	if (! *result)
++	glob_t globbuf;
++	int err;
++
++	assert(file && result);
++	err = glob(file, 0, NULL, &globbuf);
++	switch (err) {
++	case GLOB_NOSPACE:
++		return -ENOMEM;
++	case 0:
++		if (globbuf.gl_pathc == 1)
++			break;
++		/* Fall through */
++	default:
++		globfree(&globbuf);
++		return -EINVAL;
++	}
++	*result = strdup(globbuf.gl_pathv[0]);
++	globfree(&globbuf);
++	if (*result == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+ }

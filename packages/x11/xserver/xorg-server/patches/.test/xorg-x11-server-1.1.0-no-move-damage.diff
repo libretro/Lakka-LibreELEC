@@ -1,0 +1,48 @@
+From c7e37fc93d9efa010f60be260f741539600db597 Mon Sep 17 00:00:00 2001
+From: Adam Jackson <ajax@redhat.com>
+Date: Fri, 19 Dec 2008 13:42:52 +1000
+Subject: [PATCH] Send less damage for manually redirected windows.
+
+Disable damage notifications on move for manually redirected windows.
+The automatic compositor needs damage notification on move, but a
+compositing manager doesn't.
+
+Forward-ported to 1.6 by whot.
+---
+ composite/compwindow.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/composite/compwindow.c b/composite/compwindow.c
+index 577fa73..f838a24 100644
+--- a/composite/compwindow.c
++++ b/composite/compwindow.c
+@@ -580,12 +580,15 @@ compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
+     }
+     else
+     {
++	CompWindowPtr cw = GetCompWindow(pWin);
++
+ 	ptOldOrg.x -= dx;
+ 	ptOldOrg.y -= dy;
+ 	REGION_TRANSLATE (prgnSrc, prgnSrc,
+ 			  pWin->drawable.x - ptOldOrg.x,
+ 			  pWin->drawable.y - ptOldOrg.y);
+-	DamageRegionAppend(&pWin->drawable, prgnSrc);
++	if (pWin->redirectDraw && cw->update == CompositeRedirectAutomatic)
++	    DamageRegionAppend(&pWin->drawable, prgnSrc);
+     }
+     cs->CopyWindow = pScreen->CopyWindow;
+     pScreen->CopyWindow = compCopyWindow;
+@@ -664,7 +667,8 @@ compSetRedirectBorderClip (WindowPtr pWin, RegionPtr pRegion)
+     /*
+      * Report that as damaged so it will be redrawn
+      */
+-    DamageRegionAppend(&pWin->drawable, &damage);
++    if (pWin->redirectDraw && cw->update == CompositeRedirectAutomatic)
++	DamageRegionAppend(&pWin->drawable, &damage);
+     REGION_UNINIT (pScreen, &damage);
+     /*
+      * Save the new border clip region
+-- 
+1.6.0.4
+

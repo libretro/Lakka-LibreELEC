@@ -1,0 +1,24 @@
+* change fxsave to be global variable (static) instand of stack variable,
+to really make it 16 bytes aligned.
+
+this bug happens because we compile our code with -Os
+which effects the stack preferred stack boundary (-mpreferred-stack-boundary)
+to be 2^2 = 4 bytes instand of 2^4 = 16 bytes
+
+and then __attribute__ ((aligned (16))) does always work for stack variables.
+
+this adds (atleast) 512 bytes to programs which uses -ffast-math
+but allows them to use DAZ optimization.
+
+diff -Nur gcc-4.1.0.orig/gcc/config/i386/crtfastmath.c gcc-4.1.0/gcc/config/i386/crtfastmath.c
+--- gcc-4.1.0.orig/gcc/config/i386/crtfastmath.c	Wed Aug 17 06:07:06 2005
++++ gcc-4.1.0/gcc/config/i386/crtfastmath.c	Fri Mar 17 12:43:50 2006
+@@ -75,7 +75,7 @@
+       if (edx & FXSAVE)
+ 	{
+ 	  /* Check if DAZ is available.  */
+-	  struct
++	  static struct
+ 	    {
+ 	      unsigned short int cwd;
+ 	      unsigned short int swd;

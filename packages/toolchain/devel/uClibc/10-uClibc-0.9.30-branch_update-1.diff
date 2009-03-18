@@ -1,0 +1,2516 @@
+Submitted By: Jim Gifford (jim at cross-lfs dot org)
+Date: 01-24-2009
+Initial Package Version: 0.9.30
+Origin: Upstream
+Upstream Status: Applied
+Description: This is a branch update for uClibc-0.9.30, and should be
+             rechecked periodically.
+
+diff -Naur uClibc-0.9.30.orig/extra/locale/gen_wc8bit.c uClibc-0.9.30/extra/locale/gen_wc8bit.c
+--- uClibc-0.9.30.orig/extra/locale/gen_wc8bit.c	2008-10-09 05:21:41.000000000 -0700
++++ uClibc-0.9.30/extra/locale/gen_wc8bit.c	2008-11-25 04:33:55.200309000 -0800
+@@ -219,8 +219,8 @@
+ 			fprintf(out, "\t{ /* %.*s */", n, s0);
+ 		}
+ 
+-		memset(&csd[numsets],sizeof(charset_data),0);
+-		memset(xi, sizeof(xi), 0);
++		memset(&csd[numsets], 0, sizeof(charset_data));
++		memset(xi, 0, sizeof(xi));
+ 		{
+ 			unsigned long c, wc;
+ 			int lines;
+diff -Naur uClibc-0.9.30.orig/extra/scripts/conf-header.sh uClibc-0.9.30/extra/scripts/conf-header.sh
+--- uClibc-0.9.30.orig/extra/scripts/conf-header.sh	2007-03-16 19:45:59.000000000 -0700
++++ uClibc-0.9.30/extra/scripts/conf-header.sh	2009-01-21 14:13:07.946159000 -0800
+@@ -8,7 +8,7 @@
+ fi
+ 
+ cat <<EOF
+-#if !defined __FEATURES_H && !defined __need_uClibc_config_h
++#if !defined _FEATURES_H && !defined __need_uClibc_config_h
+ # error Never include <bits/uClibc_config.h> directly; use <features.h> instead
+ #endif
+ 
+diff -Naur uClibc-0.9.30.orig/include/math.h uClibc-0.9.30/include/math.h
+--- uClibc-0.9.30.orig/include/math.h	2008-10-03 07:24:28.000000000 -0700
++++ uClibc-0.9.30/include/math.h	2008-12-22 03:55:13.991752000 -0800
+@@ -46,6 +46,10 @@
+ /* Get general and ISO C99 specific information.  */
+ #include <bits/mathdef.h>
+ 
++#if !(defined _LIBC && (defined NOT_IN_libc && defined IS_IN_libm))
++# define libm_hidden_proto(name, attrs...)
++#endif
++
+ /* The file <bits/mathcalls.h> contains the prototypes for all the
+    actual math functions.  These macros are used for those prototypes,
+    so we can easily declare each function as both `name' and `__name',
+@@ -54,16 +58,30 @@
+ #define __MATHCALL(function,suffix, args)	\
+   __MATHDECL (_Mdouble_,function,suffix, args)
+ #define __MATHDECL(type, function,suffix, args) \
+-  __MATHDECL_1(type, function,suffix, args); \
+-  __MATHDECL_1(type, __CONCAT(__,function),suffix, args)
++  __MATHDECL_1(type, function,suffix, args);
+ #define __MATHCALLX(function,suffix, args, attrib)	\
+   __MATHDECLX (_Mdouble_,function,suffix, args, attrib)
+ #define __MATHDECLX(type, function,suffix, args, attrib) \
+   __MATHDECL_1(type, function,suffix, args) __attribute__ (attrib); \
+-  __MATHDECL_1(type, __CONCAT(__,function),suffix, args) __attribute__ (attrib)
++  __MATHDECLI_MAINVARIANT(function)
+ #define __MATHDECL_1(type, function,suffix, args) \
+   extern type __MATH_PRECNAME(function,suffix) args __THROW
++/* Decls which are also used internally in libm.
++   Only the main variant is used internally, no need to try to avoid relocs
++   for the {l,f} variants.  */
++#define __MATHCALLI(function,suffix, args)	\
++  __MATHDECLI (_Mdouble_,function,suffix, args)
++#define __MATHDECLI(type, function,suffix, args) \
++  __MATHDECL_1(type, function,suffix, args); \
++  __MATHDECLI_MAINVARIANT(function)
++/* Private helpers for purely macro impls below.
++   Only make __foo{,f,l} visible but not (the macro-only) foo.  */
++#define __MATHDECL_PRIV(type, function,suffix, args, attrib) \
++  __MATHDECL_1(type, __CONCAT(__,function),suffix, args) \
++						__attribute__ (attrib); \
++  libm_hidden_proto(__MATH_PRECNAME(__##function,suffix))
+ 
++#define __MATHDECLI_MAINVARIANT libm_hidden_proto
+ #define _Mdouble_		double
+ #define __MATH_PRECNAME(name,r)	__CONCAT(name,r)
+ # define _Mdouble_BEGIN_NAMESPACE __BEGIN_NAMESPACE_STD
+@@ -72,7 +90,9 @@
+ #undef	_Mdouble_
+ #undef _Mdouble_BEGIN_NAMESPACE
+ #undef _Mdouble_END_NAMESPACE
+-#undef	__MATH_PRECNAME
++#undef __MATH_PRECNAME
++#undef __MATHDECLI_MAINVARIANT
++#define __MATHDECLI_MAINVARIANT(x)
+ 
+ #if defined __USE_MISC || defined __USE_ISOC99
+ 
+diff -Naur uClibc-0.9.30.orig/include/sched.h uClibc-0.9.30/include/sched.h
+--- uClibc-0.9.30.orig/include/sched.h	2007-02-12 14:52:32.000000000 -0800
++++ uClibc-0.9.30/include/sched.h	2008-11-15 07:55:31.019090000 -0800
+@@ -63,7 +63,7 @@
+ extern int sched_rr_get_interval (__pid_t __pid, struct timespec *__t) __THROW;
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Access macros for `cpu_set'.  */
+ #define CPU_SETSIZE __CPU_SETSIZE
+ #define CPU_SET(cpu, cpusetp)	__CPU_SET (cpu, cpusetp)
+diff -Naur uClibc-0.9.30.orig/include/sys/mman.h uClibc-0.9.30/include/sys/mman.h
+--- uClibc-0.9.30.orig/include/sys/mman.h	2008-07-23 04:19:00.000000000 -0700
++++ uClibc-0.9.30/include/sys/mman.h	2008-11-15 07:55:31.019090000 -0800
+@@ -157,11 +157,13 @@
+ extern void *mremap (void *__addr, size_t __old_len, size_t __new_len,
+ 		     int __flags, ...) __THROW;
+ 
++#ifdef __UCLIBC_LINUX_SPECIFIC__
+ /* Remap arbitrary pages of a shared backing store within an existing
+    VMA.  */
+ extern int remap_file_pages (void *__start, size_t __size, int __prot,
+ 			     size_t __pgoff, int __flags) __THROW;
+ #endif
++#endif
+ 
+ 
+ /* Open shared memory segment.  */
+diff -Naur uClibc-0.9.30.orig/include/sys/sysinfo.h uClibc-0.9.30/include/sys/sysinfo.h
+--- uClibc-0.9.30.orig/include/sys/sysinfo.h	2003-10-22 02:15:57.000000000 -0700
++++ uClibc-0.9.30/include/sys/sysinfo.h	2008-11-15 07:55:31.019090000 -0800
+@@ -48,7 +48,7 @@
+ /* Returns information on overall system statistics.  */
+ extern int sysinfo (struct sysinfo *__info) __THROW;
+ 
+-
++#if 0
+ /* Return number of configured processors.  */
+ extern int get_nprocs_conf (void) __THROW;
+ 
+@@ -61,6 +61,7 @@
+ 
+ /* Return number of available physical pages of memory in the system.  */
+ extern long int get_avphys_pages (void) __THROW;
++#endif
+ 
+ __END_DECLS
+ 
+diff -Naur uClibc-0.9.30.orig/include/unistd.h uClibc-0.9.30/include/unistd.h
+--- uClibc-0.9.30.orig/include/unistd.h	2008-07-07 19:41:21.000000000 -0700
++++ uClibc-0.9.30/include/unistd.h	2008-11-15 07:55:31.019090000 -0800
+@@ -869,10 +869,12 @@
+      __THROW __nonnull ((1)) __wur;
+ #endif
+ 
++#if defined __UCLIBC_LINUX_SPECIFIC__
+ /* Revoke access permissions to all processes currently communicating
+    with the control terminal, and then send a SIGHUP signal to the process
+    group of the control terminal.  */
+ extern int vhangup (void) __THROW;
++#endif
+ 
+ #if 0
+ /* Revoke the access of all descriptors currently open on FILE.  */
+diff -Naur uClibc-0.9.30.orig/ldso/ldso/dl-elf.c uClibc-0.9.30/ldso/ldso/dl-elf.c
+--- uClibc-0.9.30.orig/ldso/ldso/dl-elf.c	2008-09-23 08:07:43.000000000 -0700
++++ uClibc-0.9.30/ldso/ldso/dl-elf.c	2008-11-18 06:01:35.928405000 -0800
+@@ -928,29 +928,3 @@
+ {
+ 	__dl_parse_dynamic_info(dpnt, dynamic_info, debug_addr, load_off);
+ }
+-
+-/* we want this in ldso.so and libdl.a but nowhere else */
+-#ifdef __USE_GNU
+-#if defined IS_IN_rtld || (defined IS_IN_libdl && ! defined SHARED)
+-extern __typeof(dl_iterate_phdr) __dl_iterate_phdr;
+-int
+-__dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info, size_t size, void *data), void *data)
+-{
+-	struct elf_resolve *l;
+-	struct dl_phdr_info info;
+-	int ret = 0;
+-
+-	for (l = _dl_loaded_modules; l != NULL; l = l->next) {
+-		info.dlpi_addr = l->loadaddr;
+-		info.dlpi_name = l->libname;
+-		info.dlpi_phdr = l->ppnt;
+-		info.dlpi_phnum = l->n_phent;
+-		ret = callback (&info, sizeof (struct dl_phdr_info), data);
+-		if (ret)
+-			break;
+-	}
+-	return ret;
+-}
+-strong_alias(__dl_iterate_phdr, dl_iterate_phdr)
+-#endif
+-#endif
+diff -Naur uClibc-0.9.30.orig/ldso/ldso/dl-hash.c uClibc-0.9.30/ldso/ldso/dl-hash.c
+--- uClibc-0.9.30.orig/ldso/ldso/dl-hash.c	2008-07-23 04:19:00.000000000 -0700
++++ uClibc-0.9.30/ldso/ldso/dl-hash.c	2008-11-18 06:01:35.928405000 -0800
+@@ -32,14 +32,6 @@
+ 
+ 
+ /* Various symbol table handling functions, including symbol lookup */
+-
+-/*
+- * This is the start of the linked list that describes all of the files present
+- * in the system with pointers to all of the symbol, string, and hash tables,
+- * as well as all of the other good stuff in the binary.
+- */
+-struct elf_resolve *_dl_loaded_modules = NULL;
+-
+ /*
+  * This is the list of modules that are loaded when the image is first
+  * started.  As we add more via dlopen, they get added into other
+diff -Naur uClibc-0.9.30.orig/ldso/ldso/dl-symbols.c uClibc-0.9.30/ldso/ldso/dl-symbols.c
+--- uClibc-0.9.30.orig/ldso/ldso/dl-symbols.c	1969-12-31 16:00:00.000000000 -0800
++++ uClibc-0.9.30/ldso/ldso/dl-symbols.c	2008-11-18 06:01:35.928405000 -0800
+@@ -0,0 +1,21 @@
++/*
++ * This contains all symbols shared between
++ * dynamic linker ld.so and into static libc
++ *
++ * Copyright (c) 2008  STMicroelectronics Ltd
++ * Author: Carmelo Amoroso <carmelo.amoroso@st.com>
++ *
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ *
++ */
++
++/*
++ * This is the start of the linked list that describes all of the files present
++ * in the system with pointers to all of the symbol, string, and hash tables,
++ * as well as all of the other good stuff in the binary.
++ */
++#include <ldso.h>
++
++struct elf_resolve *_dl_loaded_modules = NULL;
++
+diff -Naur uClibc-0.9.30.orig/ldso/ldso/ldso.c uClibc-0.9.30/ldso/ldso/ldso.c
+--- uClibc-0.9.30.orig/ldso/ldso/ldso.c	2008-09-30 05:09:55.000000000 -0700
++++ uClibc-0.9.30/ldso/ldso/ldso.c	2008-11-18 06:01:35.928405000 -0800
+@@ -67,6 +67,7 @@
+ unsigned long attribute_hidden _dl_skip_args = 0;
+ const char *_dl_progname = UCLIBC_LDSO;      /* The name of the executable being run */
+ #include "dl-startup.c"
++#include "dl-symbols.c"
+ #include "dl-array.c"
+ /* Forward function declarations */
+ static int _dl_suid_ok(void);
+diff -Naur uClibc-0.9.30.orig/libc/inet/getaddrinfo.c uClibc-0.9.30/libc/inet/getaddrinfo.c
+--- uClibc-0.9.30.orig/libc/inet/getaddrinfo.c	2008-10-28 09:25:10.000000000 -0700
++++ uClibc-0.9.30/libc/inet/getaddrinfo.c	2008-12-08 08:29:41.229254000 -0800
+@@ -186,7 +186,7 @@
+ 			return seen;
+ 		}
+ 
+-		for (runp = ifa; runp != NULL; runp = runp->ifa_next)
++		for (runp = ifa; runp != NULL; runp = runp->ifa_next) {
+ #if defined __UCLIBC_HAS_IPV4__
+ 			if (runp->ifa_addr->sa_family == PF_INET)
+ 				seen |= SEEN_IPV4;
+@@ -195,7 +195,7 @@
+ 			if (runp->ifa_addr->sa_family == PF_INET6)
+ 				seen |= SEEN_IPV6;
+ #endif /* __UCLIBC_HAS_IPV6__ */
+-
++		}
+ 		freeifaddrs(ifa);
+ 	}
+ #else
+diff -Naur uClibc-0.9.30.orig/libc/inet/ifaddrs.c uClibc-0.9.30/libc/inet/ifaddrs.c
+--- uClibc-0.9.30.orig/libc/inet/ifaddrs.c	2008-10-28 02:55:44.000000000 -0700
++++ uClibc-0.9.30/libc/inet/ifaddrs.c	2008-11-15 07:55:31.019090000 -0800
+@@ -330,7 +330,7 @@
+    that a RTM_NEWADDR index is not known to this map.  */
+ static int
+ internal_function
+-map_newlink (int index, struct ifaddrs_storage *ifas, int *map, int max)
++map_newlink (int idx, struct ifaddrs_storage *ifas, int *map, int max)
+ {
+   int i;
+ 
+@@ -338,12 +338,12 @@
+     {
+       if (map[i] == -1)
+ 	{
+-	  map[i] = index;
++	  map[i] = idx;
+ 	  if (i > 0)
+ 	    ifas[i - 1].ifa.ifa_next = &ifas[i].ifa;
+ 	  return i;
+ 	}
+-      else if (map[i] == index)
++      else if (map[i] == idx)
+ 	return i;
+     }
+   /* This should never be reached. If this will be reached, we have
+diff -Naur uClibc-0.9.30.orig/libc/misc/elf/dl-core.c uClibc-0.9.30/libc/misc/elf/dl-core.c
+--- uClibc-0.9.30.orig/libc/misc/elf/dl-core.c	1969-12-31 16:00:00.000000000 -0800
++++ uClibc-0.9.30/libc/misc/elf/dl-core.c	2008-11-18 06:01:35.928405000 -0800
+@@ -0,0 +1,20 @@
++/*
++ * This contains all symbols and functions to support
++ * dynamic linking into static libc.
++
++ * Copyright (c) 2008  STMicroelectronics Ltd
++ * Author: Carmelo Amoroso <carmelo.amoroso@st.com>
++ *
++ * Based on draft work by Peter S. Mazinger <ps.m@gmx.net>
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ *
++ */
++
++#ifdef SHARED
++#error "This file is not suitable for linking into dynamic libc"
++#else
++/* Include ldso symbols and functions used into static libc */
++#include "../../../ldso/ldso/dl-symbols.c"
++#endif
++
+diff -Naur uClibc-0.9.30.orig/libc/misc/elf/dl-iterate-phdr.c uClibc-0.9.30/libc/misc/elf/dl-iterate-phdr.c
+--- uClibc-0.9.30.orig/libc/misc/elf/dl-iterate-phdr.c	1969-12-31 16:00:00.000000000 -0800
++++ uClibc-0.9.30/libc/misc/elf/dl-iterate-phdr.c	2008-11-18 06:01:35.928405000 -0800
+@@ -0,0 +1,76 @@
++/* Get loaded objects program headers.
++
++  Based on GNU C library (file: libc/elf/dl-iteratephdr.c)
++
++  Copyright (C) 2001,2002,2003,2004,2006,2007 Free Software Foundation, Inc.
++  Contributed by Jakub Jelinek <jakub@redhat.com>, 2001.
++
++  Copyright (C) 2008 STMicroelectronics Ltd.
++  Author: Carmelo Amoroso <carmelo.amoroso@st.com>
++
++  Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++*/
++
++
++#include <link.h>
++#include <ldso.h>
++
++/* we want this in libc but nowhere else */
++#ifdef __USE_GNU
++
++extern __typeof(dl_iterate_phdr) __dl_iterate_phdr;
++
++hidden_proto(__dl_iterate_phdr)
++int
++__dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info, size_t size, void *data), void *data)
++{
++	struct elf_resolve *l;
++	struct dl_phdr_info info;
++	int ret = 0;
++
++	for (l = _dl_loaded_modules; l != NULL; l = l->next) {
++		info.dlpi_addr = l->loadaddr;
++		info.dlpi_name = l->libname;
++		info.dlpi_phdr = l->ppnt;
++		info.dlpi_phnum = l->n_phent;
++		ret = callback (&info, sizeof (struct dl_phdr_info), data);
++		if (ret)
++			break;
++	}
++	return ret;
++}
++hidden_def (__dl_iterate_phdr)
++
++# ifdef SHARED
++
++weak_alias(__dl_iterate_phdr, dl_iterate_phdr)
++
++# else
++
++/* dl-support.c defines these and initializes them early on.  */
++extern ElfW(Phdr) *_dl_phdr;
++extern size_t _dl_phnum;
++
++int
++dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info,
++                                  size_t size, void *data), void *data)
++{
++  if (_dl_phnum != 0)
++    {
++      /* This entry describes this statically-linked program itself.  */
++      struct dl_phdr_info info;
++      int ret;
++      info.dlpi_addr = 0;
++      info.dlpi_name = "";
++      info.dlpi_phdr = _dl_phdr;
++      info.dlpi_phnum = _dl_phnum;
++      ret = (*callback) (&info, sizeof (struct dl_phdr_info), data);
++      if (ret)
++        return ret;
++    }
++   /* Then invoke callback on loaded modules, if any */
++  return __dl_iterate_phdr (callback, data);
++}
++
++# endif
++#endif
+diff -Naur uClibc-0.9.30.orig/libc/misc/elf/dl-support.c uClibc-0.9.30/libc/misc/elf/dl-support.c
+--- uClibc-0.9.30.orig/libc/misc/elf/dl-support.c	1969-12-31 16:00:00.000000000 -0800
++++ uClibc-0.9.30/libc/misc/elf/dl-support.c	2008-11-18 06:01:35.928405000 -0800
+@@ -0,0 +1,29 @@
++/*
++ * Support for dynamic linking code in static libc.
++ * Copyright (C) 1996-2002, 2003, 2004, 2005 Free Software Foundation, Inc.
++ *
++ * Partially based on GNU C Library (file: libc/elf/dl-support.c)
++ *
++ * Copyright (C) 2008 STMicroelectronics Ltd.
++ * Author: Carmelo Amoroso <carmelo.amoroso@st.com>
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ *
++ */
++
++#include <link.h>
++#include <elf.h>
++
++ElfW(Phdr) *_dl_phdr;
++size_t _dl_phnum;
++
++void
++internal_function
++_dl_aux_init (ElfW(auxv_t) *av)
++{
++   /* Get the program headers base address from the aux vect */
++   _dl_phdr = (ElfW(Phdr) *) av[AT_PHDR].a_un.a_val;
++
++   /* Get the number of program headers from the aux vect */
++   _dl_phnum = (size_t) av[AT_PHNUM].a_un.a_val;
++}
+diff -Naur uClibc-0.9.30.orig/libc/misc/elf/Makefile uClibc-0.9.30/libc/misc/elf/Makefile
+--- uClibc-0.9.30.orig/libc/misc/elf/Makefile	1969-12-31 16:00:00.000000000 -0800
++++ uClibc-0.9.30/libc/misc/elf/Makefile	2008-11-18 06:01:35.928405000 -0800
+@@ -0,0 +1,12 @@
++# Copyright (C) 2008 STMicroelectronics Ltd.
++# Author: Carmelo Amoroso <carmelo.amoroso@st.com>
++
++# Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++#
++
++top_srcdir=../../../
++top_builddir=../../../
++all: objs
++include $(top_builddir)Rules.mak
++include Makefile.in
++include $(top_srcdir)Makerules
+diff -Naur uClibc-0.9.30.orig/libc/misc/elf/Makefile.in uClibc-0.9.30/libc/misc/elf/Makefile.in
+--- uClibc-0.9.30.orig/libc/misc/elf/Makefile.in	1969-12-31 16:00:00.000000000 -0800
++++ uClibc-0.9.30/libc/misc/elf/Makefile.in	2008-11-18 06:01:35.928405000 -0800
+@@ -0,0 +1,20 @@
++# Copyright (C) 2008 STMicroelectronics Ltd.
++# Author: Carmelo Amoroso <carmelo.amoroso@st.com>
++
++# Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++#
++
++libc_a_CSRC = dl-support.c dl-core.c dl-iterate-phdr.c
++CFLAGS-dl-iterate-phdr.c=-D_GNU_SOURCE -I$(top_srcdir)ldso/ldso/$(TARGET_ARCH) -I$(top_srcdir)ldso/include
++CFLAGS-dl-core.c=-I$(top_srcdir)ldso/ldso/$(TARGET_ARCH) -I$(top_srcdir)ldso/include
++
++MISC_ELF_OUT:=$(top_builddir)libc/misc/elf
++MISC_ELF_OBJ:=$(patsubst %.c,$(MISC_ELF_OUT)/%.o,$(libc_a_CSRC))
++
++libc-static-y += $(MISC_ELF_OBJ)
++libc-shared-y += $(MISC_ELF_OUT)/dl-iterate-phdr.oS
++
++objclean-y+= misc_elf_objclean
++
++misc_elf_objclean:
++	$(RM) $(MISC_ELF_OUT)/*.{o,os,oS}
+diff -Naur uClibc-0.9.30.orig/libc/misc/internals/__uClibc_main.c uClibc-0.9.30/libc/misc/internals/__uClibc_main.c
+--- uClibc-0.9.30.orig/libc/misc/internals/__uClibc_main.c	2008-06-27 12:12:50.000000000 -0700
++++ uClibc-0.9.30/libc/misc/internals/__uClibc_main.c	2008-11-18 06:01:35.928405000 -0800
+@@ -72,6 +72,11 @@
+ #  endif
+ # endif
+ 
++/*
++ * Needed to initialize _dl_phdr when statically linked
++ */
++
++void internal_function _dl_aux_init (ElfW(auxv_t) *av);
+ #endif /* !SHARED */
+ 
+ /*
+@@ -114,9 +119,8 @@
+ #endif
+ 
+ /*
+- * Declare the __environ global variable and create a strong alias environ.
+- * Note: Apparently we must initialize __environ to ensure that the strong
+- * environ symbol is also included.
++ * Declare the __environ global variable and create a weak alias environ.
++ * This must be initialized; we cannot have a weak alias into bss.
+  */
+ char **__environ = 0;
+ weak_alias(__environ, environ)
+@@ -310,6 +314,12 @@
+ 	}
+ 	aux_dat += 2;
+     }
++#ifndef SHARED
++    /* Get the program headers (_dl_phdr) from the aux vector
++       It will be used into __libc_setup_tls. */
++
++    _dl_aux_init (auxvt);
++#endif
+ #endif
+ 
+     /* We need to initialize uClibc.  If we are dynamically linked this
+diff -Naur uClibc-0.9.30.orig/libc/misc/Makefile.in uClibc-0.9.30/libc/misc/Makefile.in
+--- uClibc-0.9.30.orig/libc/misc/Makefile.in	2007-01-10 14:03:34.000000000 -0800
++++ uClibc-0.9.30/libc/misc/Makefile.in	2008-11-18 06:01:35.928405000 -0800
+@@ -12,6 +12,7 @@
+ include $(top_srcdir)libc/misc/ctype/Makefile.in
+ include $(top_srcdir)libc/misc/dirent/Makefile.in
+ include $(top_srcdir)libc/misc/error/Makefile.in
++include $(top_srcdir)libc/misc/elf/Makefile.in
+ include $(top_srcdir)libc/misc/file/Makefile.in
+ include $(top_srcdir)libc/misc/fnmatch/Makefile.in
+ include $(top_srcdir)libc/misc/ftw/Makefile.in
+diff -Naur uClibc-0.9.30.orig/libc/misc/wchar/wchar.c uClibc-0.9.30/libc/misc/wchar/wchar.c
+--- uClibc-0.9.30.orig/libc/misc/wchar/wchar.c	2008-09-29 01:51:31.000000000 -0700
++++ uClibc-0.9.30/libc/misc/wchar/wchar.c	2008-12-02 09:15:35.191305000 -0800
+@@ -1143,6 +1143,13 @@
+ {
+ 	int count;
+ 	wchar_t wc;
++	size_t i;
++
++	for (i = 0 ; (i < n) && pwcs[i] ; i++) {
++		if (pwcs[i] != (pwcs[i] & 0x7f)) {
++			return -1;
++		}
++	}
+ 
+     for (count = 0 ; n && (wc = *pwcs++) ; n--) {
+ 		if (wc <= 0xff) {
+@@ -1246,7 +1253,7 @@
+ 	"\x08\xec""UCS-4\x00"		/* always BE */
+ 	"\x0a\xec""UCS-4BE\x00"
+ 	"\x0a\xed""UCS-4LE\x00"
+-	"\x09\fe4""UTF-32\x00"		/* platform endian with BOM */
++	"\x09\xe4""UTF-32\x00"		/* platform endian with BOM */
+ 	"\x0b\xe4""UTF-32BE\x00"
+ 	"\x0b\xe5""UTF-32LE\x00"
+ 	"\x08\xe2""UCS-2\x00"		/* always BE */
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/alpha/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/alpha/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/alpha/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/alpha/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -159,7 +159,6 @@
+   };
+ #endif
+ 
+-
+ /* Define some more compatibility macros to be backward compatible with
+    BSD systems which did not managed to hide these kernel macros.  */
+ #ifdef	__USE_BSD
+@@ -181,7 +180,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -204,7 +203,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/arm/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/arm/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/arm/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/arm/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -189,7 +189,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -212,7 +212,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/arm/crt1.S uClibc-0.9.30/libc/sysdeps/linux/arm/crt1.S
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/arm/crt1.S	2008-03-26 06:40:36.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/arm/crt1.S	2008-11-25 04:27:50.759727000 -0800
+@@ -238,7 +238,11 @@
+ 
+ #ifdef __PIC__
+ .L_GOT:
++#ifdef __thumb__
++	.word	_GLOBAL_OFFSET_TABLE_-(.L_GOT_OFF+4)
++#else /* __thumb2__ */
+ 	.word	_GLOBAL_OFFSET_TABLE_-(.L_GOT_OFF+8)
++#endif
+ 	.word _fini(GOT)
+ 	.word _init(GOT)
+ 	.word main(GOT)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/avr32/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/avr32/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/avr32/bits/fcntl.h	2008-11-03 07:48:07.000000000 -0800
++++ uClibc-0.9.30/libc/sysdeps/linux/avr32/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -167,8 +167,8 @@
+ # define POSIX_FADV_NOREUSE     5 /* Data will be accessed once.  */
+ #endif
+ 
+-#ifdef __USE_GNU
+ 
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/bfin/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/bfin/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/bfin/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/bfin/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -185,7 +185,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -208,7 +208,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/common/bits/mathcalls.h uClibc-0.9.30/libc/sysdeps/linux/common/bits/mathcalls.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/common/bits/mathcalls.h	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/common/bits/mathcalls.h	2008-12-22 03:55:13.991752000 -0800
+@@ -52,59 +52,45 @@
+ 
+ _Mdouble_BEGIN_NAMESPACE
+ /* Arc cosine of X.  */
+-__MATHCALL (acos,, (_Mdouble_ __x));
+-libm_hidden_proto(acos)
++__MATHCALLI (acos,, (_Mdouble_ __x));
+ /* Arc sine of X.  */
+-__MATHCALL (asin,, (_Mdouble_ __x));
+-libm_hidden_proto(asin)
++__MATHCALLI (asin,, (_Mdouble_ __x));
+ /* Arc tangent of X.  */
+-__MATHCALL (atan,, (_Mdouble_ __x));
+-libm_hidden_proto(atan)
++__MATHCALLI (atan,, (_Mdouble_ __x));
+ /* Arc tangent of Y/X.  */
+-__MATHCALL (atan2,, (_Mdouble_ __y, _Mdouble_ __x));
+-libm_hidden_proto(atan2)
++__MATHCALLI (atan2,, (_Mdouble_ __y, _Mdouble_ __x));
+ 
+ /* Cosine of X.  */
+-__MATHCALL (cos,, (_Mdouble_ __x));
+-libm_hidden_proto(cos)
++__MATHCALLI (cos,, (_Mdouble_ __x));
+ /* Sine of X.  */
+-__MATHCALL (sin,, (_Mdouble_ __x));
+-libm_hidden_proto(sin)
++__MATHCALLI (sin,, (_Mdouble_ __x));
+ /* Tangent of X.  */
+-__MATHCALL (tan,, (_Mdouble_ __x));
+-libm_hidden_proto(tan)
++__MATHCALLI (tan,, (_Mdouble_ __x));
+ 
+ /* Hyperbolic functions.  */
+ 
+ /* Hyperbolic cosine of X.  */
+-__MATHCALL (cosh,, (_Mdouble_ __x));
+-libm_hidden_proto(cosh)
++__MATHCALLI (cosh,, (_Mdouble_ __x));
+ /* Hyperbolic sine of X.  */
+-__MATHCALL (sinh,, (_Mdouble_ __x));
+-libm_hidden_proto(sinh)
++__MATHCALLI (sinh,, (_Mdouble_ __x));
+ /* Hyperbolic tangent of X.  */
+-__MATHCALL (tanh,, (_Mdouble_ __x));
+-libm_hidden_proto(tanh)
++__MATHCALLI (tanh,, (_Mdouble_ __x));
+ _Mdouble_END_NAMESPACE
+ 
+ #if 0 /*def __USE_GNU*/
+ /* Cosine and sine of X.  */
+ __MATHDECL (void,sincos,,
+ 	    (_Mdouble_ __x, _Mdouble_ *__sinx, _Mdouble_ *__cosx));
+-libm_hidden_proto(sincos)
+ #endif
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN_EXTENDED || defined __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* Hyperbolic arc cosine of X.  */
+-__MATHCALL (acosh,, (_Mdouble_ __x));
+-libm_hidden_proto(acosh)
++__MATHCALLI (acosh,, (_Mdouble_ __x));
+ /* Hyperbolic arc sine of X.  */
+-__MATHCALL (asinh,, (_Mdouble_ __x));
+-libm_hidden_proto(asinh)
++__MATHCALLI (asinh,, (_Mdouble_ __x));
+ /* Hyperbolic arc tangent of X.  */
+-__MATHCALL (atanh,, (_Mdouble_ __x));
+-libm_hidden_proto(atanh)
++__MATHCALLI (atanh,, (_Mdouble_ __x));
+ __END_NAMESPACE_C99
+ #endif
+ 
+@@ -112,64 +98,51 @@
+ 
+ _Mdouble_BEGIN_NAMESPACE
+ /* Exponential function of X.  */
+-__MATHCALL (exp,, (_Mdouble_ __x));
+-libm_hidden_proto(exp)
++__MATHCALLI (exp,, (_Mdouble_ __x));
+ 
+ /* Break VALUE into a normalized fraction and an integral power of 2.  */
+-__MATHCALL (frexp,, (_Mdouble_ __x, int *__exponent));
+-libm_hidden_proto(frexp)
++__MATHCALLI (frexp,, (_Mdouble_ __x, int *__exponent));
+ 
+ /* X times (two to the EXP power).  */
+-__MATHCALL (ldexp,, (_Mdouble_ __x, int __exponent));
+-libm_hidden_proto(ldexp)
++__MATHCALLI (ldexp,, (_Mdouble_ __x, int __exponent));
+ 
+ /* Natural logarithm of X.  */
+-__MATHCALL (log,, (_Mdouble_ __x));
+-libm_hidden_proto(log)
++__MATHCALLI (log,, (_Mdouble_ __x));
+ 
+ /* Base-ten logarithm of X.  */
+-__MATHCALL (log10,, (_Mdouble_ __x));
+-libm_hidden_proto(log10)
++__MATHCALLI (log10,, (_Mdouble_ __x));
+ 
+ /* Break VALUE into integral and fractional parts.  */
+-__MATHCALL (modf,, (_Mdouble_ __x, _Mdouble_ *__iptr));
+-libm_hidden_proto(modf)
++__MATHCALLI (modf,, (_Mdouble_ __x, _Mdouble_ *__iptr));
+ _Mdouble_END_NAMESPACE
+ 
+ #if 0 /*def __USE_GNU*/
+ /* A function missing in all standards: compute exponent to base ten.  */
+ __MATHCALL (exp10,, (_Mdouble_ __x));
+-libm_hidden_proto(exp10)
+ /* Another name occasionally used.  */
+ __MATHCALL (pow10,, (_Mdouble_ __x));
+-libm_hidden_proto(pow10)
+ #endif
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN_EXTENDED || defined __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* Return exp(X) - 1.  */
+-__MATHCALL (expm1,, (_Mdouble_ __x));
+-libm_hidden_proto(expm1)
++__MATHCALLI (expm1,, (_Mdouble_ __x));
+ 
+ /* Return log(1 + X).  */
+-__MATHCALL (log1p,, (_Mdouble_ __x));
+-libm_hidden_proto(log1p)
++__MATHCALLI (log1p,, (_Mdouble_ __x));
+ 
+ /* Return the base 2 signed integral exponent of X.  */
+-__MATHCALL (logb,, (_Mdouble_ __x));
+-libm_hidden_proto(logb)
++__MATHCALLI (logb,, (_Mdouble_ __x));
+ __END_NAMESPACE_C99
+ #endif
+ 
+ #ifdef __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* Compute base-2 exponential of X.  */
+-__MATHCALL (exp2,, (_Mdouble_ __x));
+-libm_hidden_proto(exp2)
++__MATHCALLI (exp2,, (_Mdouble_ __x));
+ 
+ /* Compute base-2 logarithm of X.  */
+ __MATHCALL (log2,, (_Mdouble_ __x));
+-libm_hidden_proto(log2)
+ __END_NAMESPACE_C99
+ #endif
+ 
+@@ -178,27 +151,23 @@
+ 
+ _Mdouble_BEGIN_NAMESPACE
+ /* Return X to the Y power.  */
+-__MATHCALL (pow,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(pow)
++__MATHCALLI (pow,, (_Mdouble_ __x, _Mdouble_ __y));
+ 
+ /* Return the square root of X.  */
+-__MATHCALL (sqrt,, (_Mdouble_ __x));
+-libm_hidden_proto(sqrt)
++__MATHCALLI (sqrt,, (_Mdouble_ __x));
+ _Mdouble_END_NAMESPACE
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN || defined __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* Return `sqrt(X*X + Y*Y)'.  */
+-__MATHCALL (hypot,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(hypot)
++__MATHCALLI (hypot,, (_Mdouble_ __x, _Mdouble_ __y));
+ __END_NAMESPACE_C99
+ #endif
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN_EXTENDED || defined __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* Return the cube root of X.  */
+-__MATHCALL (cbrt,, (_Mdouble_ __x));
+-libm_hidden_proto(cbrt)
++__MATHCALLI (cbrt,, (_Mdouble_ __x));
+ __END_NAMESPACE_C99
+ #endif
+ 
+@@ -208,56 +177,46 @@
+ _Mdouble_BEGIN_NAMESPACE
+ /* Smallest integral value not less than X.  */
+ __MATHCALLX (ceil,, (_Mdouble_ __x), (__const__));
+-libm_hidden_proto(ceil)
+ 
+ /* Absolute value of X.  */
+ __MATHCALLX (fabs,, (_Mdouble_ __x), (__const__));
+-libm_hidden_proto(fabs)
+ 
+ /* Largest integer not greater than X.  */
+ __MATHCALLX (floor,, (_Mdouble_ __x), (__const__));
+-libm_hidden_proto(floor)
+ 
+ /* Floating-point modulo remainder of X/Y.  */
+-__MATHCALL (fmod,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(fmod)
++__MATHCALLI (fmod,, (_Mdouble_ __x, _Mdouble_ __y));
+ 
+ 
+ /* Return 0 if VALUE is finite or NaN, +1 if it
+    is +Infinity, -1 if it is -Infinity.  */
+-__MATHDECL_1 (int,__isinf,, (_Mdouble_ __value)) __attribute__ ((__const__));
+-libm_hidden_proto(__isinf)
++__MATHDECL_PRIV (int,isinf,, (_Mdouble_ __value), (__const__));
+ 
+ /* Return nonzero if VALUE is finite and not NaN.  */
+-__MATHDECL_1 (int,__finite,, (_Mdouble_ __value)) __attribute__ ((__const__));
+-libm_hidden_proto(__finite)
++__MATHDECL_PRIV (int,finite,, (_Mdouble_ __value), (__const__));
+ _Mdouble_END_NAMESPACE
+ 
+ #ifdef __USE_MISC
++#if 0
+ /* Return 0 if VALUE is finite or NaN, +1 if it
+    is +Infinity, -1 if it is -Infinity.  */
+-__MATHDECL_1 (int,isinf,, (_Mdouble_ __value)) __attribute__ ((__const__));
+-libm_hidden_proto(isinf)
++__MATHDECL_PRIV (int,isinf,, (_Mdouble_ __value), (__const__));
+ 
+ /* Return nonzero if VALUE is finite and not NaN.  */
+-__MATHDECL_1 (int,finite,, (_Mdouble_ __value)) __attribute__ ((__const__));
+-libm_hidden_proto(finite)
+-
++__MATHDECL_PRIV (int,finite,, (_Mdouble_ __value), (__const__));
++#endif
+ /* Return the remainder of X/Y.  */
+ __MATHCALL (drem,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(drem)
+ 
+ 
+ /* Return the fractional part of X after dividing out `ilogb (X)'.  */
+ __MATHCALL (significand,, (_Mdouble_ __x));
+-libm_hidden_proto(significand)
+ #endif /* Use misc.  */
+ 
+ #if defined __USE_MISC || defined __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* Return X with its signed changed to Y's.  */
+ __MATHCALLX (copysign,, (_Mdouble_ __x, _Mdouble_ __y), (__const__));
+-libm_hidden_proto(copysign)
+ __END_NAMESPACE_C99
+ #endif
+ 
+@@ -265,60 +224,46 @@
+ __BEGIN_NAMESPACE_C99
+ /* Return representation of NaN for double type.  */
+ __MATHCALLX (nan,, (__const char *__tagb), (__const__));
+-libm_hidden_proto(nan)
+ __END_NAMESPACE_C99
+ #endif
+ 
+ 
+ /* Return nonzero if VALUE is not a number.  */
+-__MATHDECL_1 (int,__isnan,, (_Mdouble_ __value)) __attribute__ ((__const__));
+-libm_hidden_proto(__isnan)
++__MATHDECL_PRIV (int,__isnan,, (_Mdouble_ __value), (__const__));
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN
+ /* Return nonzero if VALUE is not a number.  */
+-__MATHDECL_1 (int,isnan,, (_Mdouble_ __value)) __attribute__ ((__const__));
+-libm_hidden_proto(isnan)
++__MATHDECL_PRIV (int,isnan,, (_Mdouble_ __value), (__const__));
+ 
+ /* Bessel functions.  */
+ __MATHCALL (j0,, (_Mdouble_));
+-libm_hidden_proto(j0)
+ __MATHCALL (j1,, (_Mdouble_));
+-libm_hidden_proto(j1)
+ __MATHCALL (jn,, (int, _Mdouble_));
+-libm_hidden_proto(jn)
+ __MATHCALL (y0,, (_Mdouble_));
+-libm_hidden_proto(y0)
+ __MATHCALL (y1,, (_Mdouble_));
+-libm_hidden_proto(y1)
+ __MATHCALL (yn,, (int, _Mdouble_));
+-libm_hidden_proto(yn)
+ #endif
+ 
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN || defined __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* Error and gamma functions.  */
+-__MATHCALL (erf,, (_Mdouble_));
+-libm_hidden_proto(erf)
+-__MATHCALL (erfc,, (_Mdouble_));
+-libm_hidden_proto(erfc)
+-__MATHCALL (lgamma,, (_Mdouble_));
+-libm_hidden_proto(lgamma)
++__MATHCALLI (erf,, (_Mdouble_));
++__MATHCALLI (erfc,, (_Mdouble_));
++__MATHCALLI (lgamma,, (_Mdouble_));
+ __END_NAMESPACE_C99
+ #endif
+ 
+ #ifdef __USE_ISOC99
+ __BEGIN_NAMESPACE_C99
+ /* True gamma function.  */
+-__MATHCALL (tgamma,, (_Mdouble_));
+-libm_hidden_proto(tgamma)
++__MATHCALLI (tgamma,, (_Mdouble_));
+ __END_NAMESPACE_C99
+ #endif
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN
+ /* Obsolete alias for `lgamma'.  */
+ __MATHCALL (gamma,, (_Mdouble_));
+-libm_hidden_proto(gamma)
+ #endif
+ 
+ #ifdef __USE_MISC
+@@ -326,7 +271,6 @@
+    `signgam'.  The reentrant version instead takes a pointer and stores
+    the value through it.  */
+ __MATHCALL (lgamma,_r, (_Mdouble_, int *__signgamp));
+-libm_hidden_proto(lgamma_r)
+ #endif
+ 
+ 
+@@ -334,103 +278,80 @@
+ __BEGIN_NAMESPACE_C99
+ /* Return the integer nearest X in the direction of the
+    prevailing rounding mode.  */
+-__MATHCALL (rint,, (_Mdouble_ __x));
+-libm_hidden_proto(rint)
++__MATHCALLI (rint,, (_Mdouble_ __x));
+ 
+ /* Return X + epsilon if X < Y, X - epsilon if X > Y.  */
+ __MATHCALLX (nextafter,, (_Mdouble_ __x, _Mdouble_ __y), (__const__));
+-libm_hidden_proto(nextafter)
+ # if defined __USE_ISOC99 && !defined __LDBL_COMPAT
+ __MATHCALLX (nexttoward,, (_Mdouble_ __x, long double __y), (__const__));
+-libm_hidden_proto(nexttoward)
+ # endif
+ 
+ /* Return the remainder of integer divison X / Y with infinite precision.  */
+-__MATHCALL (remainder,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(remainder)
++__MATHCALLI (remainder,, (_Mdouble_ __x, _Mdouble_ __y));
+ 
+ # if defined __USE_MISC || defined __USE_ISOC99
+ /* Return X times (2 to the Nth power).  */
+-__MATHCALL (scalbn,, (_Mdouble_ __x, int __n));
+-libm_hidden_proto(scalbn)
++__MATHCALLI (scalbn,, (_Mdouble_ __x, int __n));
+ # endif
+ 
+ /* Return the binary exponent of X, which must be nonzero.  */
+-__MATHDECL (int,ilogb,, (_Mdouble_ __x));
+-libm_hidden_proto(ilogb)
++__MATHDECLI (int,ilogb,, (_Mdouble_ __x));
+ #endif
+ 
+ #ifdef __USE_ISOC99
+ /* Return X times (2 to the Nth power).  */
+-__MATHCALL (scalbln,, (_Mdouble_ __x, long int __n));
+-libm_hidden_proto(scalbln)
++__MATHCALLI (scalbln,, (_Mdouble_ __x, long int __n));
+ 
+ /* Round X to integral value in floating-point format using current
+    rounding direction, but do not raise inexact exception.  */
+-__MATHCALL (nearbyint,, (_Mdouble_ __x));
+-libm_hidden_proto(nearbyint)
++__MATHCALLI (nearbyint,, (_Mdouble_ __x));
+ 
+ /* Round X to nearest integral value, rounding halfway cases away from
+    zero.  */
+ __MATHCALLX (round,, (_Mdouble_ __x), (__const__));
+-libm_hidden_proto(round)
+ 
+ /* Round X to the integral value in floating-point format nearest but
+    not larger in magnitude.  */
+ __MATHCALLX (trunc,, (_Mdouble_ __x), (__const__));
+-libm_hidden_proto(trunc)
+ 
+ /* Compute remainder of X and Y and put in *QUO a value with sign of x/y
+    and magnitude congruent `mod 2^n' to the magnitude of the integral
+    quotient x/y, with n >= 3.  */
+-__MATHCALL (remquo,, (_Mdouble_ __x, _Mdouble_ __y, int *__quo));
+-libm_hidden_proto(remquo)
++__MATHCALLI (remquo,, (_Mdouble_ __x, _Mdouble_ __y, int *__quo));
+ 
+ 
+ /* Conversion functions.  */
+ 
+ /* Round X to nearest integral value according to current rounding
+    direction.  */
+-__MATHDECL (long int,lrint,, (_Mdouble_ __x));
+-libm_hidden_proto(lrint)
+-__MATHDECL (long long int,llrint,, (_Mdouble_ __x));
+-libm_hidden_proto(llrint)
++__MATHDECLI (long int,lrint,, (_Mdouble_ __x));
++__MATHDECLI (long long int,llrint,, (_Mdouble_ __x));
+ 
+ /* Round X to nearest integral value, rounding halfway cases away from
+    zero.  */
+-__MATHDECL (long int,lround,, (_Mdouble_ __x));
+-libm_hidden_proto(lround)
+-__MATHDECL (long long int,llround,, (_Mdouble_ __x));
+-libm_hidden_proto(llround)
++__MATHDECLI (long int,lround,, (_Mdouble_ __x));
++__MATHDECLI (long long int,llround,, (_Mdouble_ __x));
+ 
+ 
+ /* Return positive difference between X and Y.  */
+-__MATHCALL (fdim,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(fdim)
++__MATHCALLI (fdim,, (_Mdouble_ __x, _Mdouble_ __y));
+ 
+ /* Return maximum numeric value from X and Y.  */
+-__MATHCALL (fmax,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(fmax)
++__MATHCALLI (fmax,, (_Mdouble_ __x, _Mdouble_ __y));
+ 
+ /* Return minimum numeric value from X and Y.  */
+-__MATHCALL (fmin,, (_Mdouble_ __x, _Mdouble_ __y));
+-libm_hidden_proto(fmin)
++__MATHCALLI (fmin,, (_Mdouble_ __x, _Mdouble_ __y));
+ 
+ 
+ /* Classify given number.  */
+-__MATHDECL_1 (int, __fpclassify,, (_Mdouble_ __value))
+-     __attribute__ ((__const__));
+-libm_hidden_proto(__fpclassify)
++__MATHDECL_PRIV (int, fpclassify,, (_Mdouble_ __value), (__const__));
+ 
+ /* Test for negative number.  */
+-__MATHDECL_1 (int, __signbit,, (_Mdouble_ __value))
+-     __attribute__ ((__const__));
+-libm_hidden_proto(__signbit)
++__MATHDECL_PRIV (int, signbit,, (_Mdouble_ __value), (__const__));
+ 
+ 
+ /* Multiply-add function computed as a ternary operation.  */
+-__MATHCALL (fma,, (_Mdouble_ __x, _Mdouble_ __y, _Mdouble_ __z));
+-libm_hidden_proto(fma)
++__MATHCALLI (fma,, (_Mdouble_ __x, _Mdouble_ __y, _Mdouble_ __z));
+ #endif /* Use ISO C99.  */
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN_EXTENDED || defined __USE_ISOC99
+@@ -440,5 +361,4 @@
+ #if defined __USE_MISC || defined __USE_XOPEN_EXTENDED
+ /* Return X times (2 to the Nth power).  */
+ __MATHCALL (scalb,, (_Mdouble_ __x, _Mdouble_ __n));
+-libm_hidden_proto(scalb)
+ #endif
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/cris/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/cris/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/cris/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/cris/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -186,7 +186,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -209,7 +209,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/e1/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/e1/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/e1/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/e1/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -182,7 +182,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -205,7 +205,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+@@ -231,4 +231,4 @@
+ 
+ #endif
+ __END_DECLS
+-
++#endif /* LINUX_SPECIFIC */
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/frv/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/frv/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/frv/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/frv/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -164,7 +164,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -187,7 +187,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/h8300/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/h8300/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/h8300/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/h8300/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -182,7 +182,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -205,7 +205,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/hppa/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/hppa/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/hppa/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/hppa/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -176,7 +176,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -199,7 +199,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/i386/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/i386/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/i386/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/i386/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -189,7 +189,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -212,7 +212,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/i386/bits/kernel_types.h uClibc-0.9.30/libc/sysdeps/linux/i386/bits/kernel_types.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/i386/bits/kernel_types.h	2008-07-23 04:23:36.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/i386/bits/kernel_types.h	2009-01-12 07:04:25.958006000 -0800
+@@ -7,9 +7,14 @@
+ 
+ /* a hack for compiling a 32 bit user space with 64 bit
+  * kernel on x86_64  */
+-#if !defined(__ARCH_I386_POSIX_TYPES_H) && !defined(_ASM_X86_64_POSIX_TYPES_H)
++#if !defined(__ARCH_I386_POSIX_TYPES_H) && \
++    !defined(_ASM_X86_64_POSIX_TYPES_H) && \
++    !defined(_ASM_X86_POSIX_TYPES_32_H) && \
++    !defined(_ASM_X86_POSIX_TYPES_64_H)
+ #define _ASM_X86_64_POSIX_TYPES_H
+ #define __ARCH_I386_POSIX_TYPES_H
++#define _ASM_X86_POSIX_TYPES_32_H
++#define _ASM_X86_POSIX_TYPES_64_H
+ 
+ typedef unsigned short	__kernel_dev_t;
+ typedef unsigned long	__kernel_ino_t;
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/i960/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/i960/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/i960/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/i960/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -182,7 +182,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -205,7 +205,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/ia64/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/ia64/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/ia64/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/ia64/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -161,7 +161,6 @@
+   };
+ #endif
+ 
+-
+ /* Define some more compatibility macros to be backward compatible with
+    BSD systems which did not managed to hide these kernel macros.  */
+ #ifdef	__USE_BSD
+@@ -183,7 +182,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -206,7 +205,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/m68k/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/m68k/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/m68k/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/m68k/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -185,7 +185,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -208,7 +208,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/microblaze/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/microblaze/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/microblaze/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/microblaze/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -182,7 +182,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -205,7 +205,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/mips/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/mips/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/mips/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/mips/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -209,7 +209,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -232,7 +232,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/mips/bits/socket.h uClibc-0.9.30/libc/sysdeps/linux/mips/bits/socket.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/mips/bits/socket.h	2008-10-06 01:54:40.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/mips/bits/socket.h	2008-12-04 12:06:41.248672000 -0800
+@@ -268,8 +268,8 @@
+ 			 + CMSG_ALIGN (sizeof (struct cmsghdr)))
+ #define CMSG_LEN(len)   (CMSG_ALIGN (sizeof (struct cmsghdr)) + (len))
+ 
+-extern struct cmsghdr * __NTH (__cmsg_nxthdr (struct msghdr *__mhdr,
+-				      struct cmsghdr *__cmsg)) __THROW;
++extern struct cmsghdr *__cmsg_nxthdr (struct msghdr *__mhdr,
++				      struct cmsghdr *__cmsg) __THROW;
+ #ifdef __USE_EXTERN_INLINES
+ # ifndef _EXTERN_INLINE
+ #  define _EXTERN_INLINE extern __inline
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/nios/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/nios/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/nios/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/nios/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -185,7 +185,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -208,7 +208,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/nios2/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/nios2/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/nios2/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/nios2/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -185,7 +185,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -208,7 +208,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/powerpc/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/powerpc/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/powerpc/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/powerpc/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -189,7 +189,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -212,7 +212,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/sh/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/sh/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/sh/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/sh/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -189,7 +189,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -212,7 +212,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/sh64/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/sh64/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/sh64/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/sh64/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -164,7 +164,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -187,7 +187,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/sparc/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/sparc/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/sparc/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/sparc/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -208,7 +208,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -231,7 +231,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/v850/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/v850/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/v850/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/v850/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -182,7 +182,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -205,7 +205,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/vax/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/vax/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/vax/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/vax/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -162,7 +162,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -185,7 +185,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/x86_64/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/x86_64/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/x86_64/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/x86_64/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -203,7 +203,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -226,7 +226,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/x86_64/bits/kernel_types.h uClibc-0.9.30/libc/sysdeps/linux/x86_64/bits/kernel_types.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/x86_64/bits/kernel_types.h	2008-07-23 04:23:36.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/x86_64/bits/kernel_types.h	2009-01-12 07:04:25.958006000 -0800
+@@ -4,8 +4,17 @@
+  * our private content, and not the kernel header, will win.
+  *  -Erik
+  */
+-#ifndef _ASM_X86_64_POSIX_TYPES_H
++
++/* a hack for compiling a 32 bit user space with 64 bit
++ * kernel on x86_64  */
++#if !defined(__ARCH_I386_POSIX_TYPES_H) && \
++    !defined(_ASM_X86_64_POSIX_TYPES_H) && \
++    !defined(_ASM_X86_POSIX_TYPES_32_H) && \
++    !defined(_ASM_X86_POSIX_TYPES_64_H)
+ #define _ASM_X86_64_POSIX_TYPES_H
++#define __ARCH_I386_POSIX_TYPES_H
++#define _ASM_X86_POSIX_TYPES_32_H
++#define _ASM_X86_POSIX_TYPES_64_H
+ 
+ typedef unsigned long	__kernel_dev_t;
+ typedef unsigned long	__kernel_ino_t;
+diff -Naur uClibc-0.9.30.orig/libc/sysdeps/linux/xtensa/bits/fcntl.h uClibc-0.9.30/libc/sysdeps/linux/xtensa/bits/fcntl.h
+--- uClibc-0.9.30.orig/libc/sysdeps/linux/xtensa/bits/fcntl.h	2008-09-16 07:02:54.000000000 -0700
++++ uClibc-0.9.30/libc/sysdeps/linux/xtensa/bits/fcntl.h	2008-11-15 07:55:31.019090000 -0800
+@@ -186,7 +186,7 @@
+ #endif
+ 
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ /* Flags for SYNC_FILE_RANGE.  */
+ # define SYNC_FILE_RANGE_WAIT_BEFORE	1 /* Wait upon writeout of all pages
+ 					     in the range before performing the
+@@ -209,7 +209,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-#ifdef __USE_GNU
++#if defined __USE_GNU && defined __UCLIBC_LINUX_SPECIFIC__
+ 
+ /* Provide kernel hint to read ahead.  */
+ extern ssize_t readahead (int __fd, __off64_t __offset, size_t __count)
+diff -Naur uClibc-0.9.30.orig/libm/e_scalb.c uClibc-0.9.30/libm/e_scalb.c
+--- uClibc-0.9.30.orig/libm/e_scalb.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/e_scalb.c	2008-12-22 03:55:13.991752000 -0800
+@@ -44,7 +44,7 @@
+ 	return scalbn(x,fn);
+ #else
+ 	if (isnan(x)||isnan(fn)) return x*fn;
+-	if (!finite(fn)) {
++	if (!isfinite(fn)) {
+ 	    if(fn>0.0) return x*fn;
+ 	    else       return x/(-fn);
+ 	}
+diff -Naur uClibc-0.9.30.orig/libm/float_wrappers.c uClibc-0.9.30/libm/float_wrappers.c
+--- uClibc-0.9.30.orig/libm/float_wrappers.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/float_wrappers.c	2008-12-22 03:55:13.991752000 -0800
+@@ -36,6 +36,7 @@
+ float       atan2f(float, float);
+ float       atanf(float);
+ float       atanhf(float);
++float       cargf(float complex);
+ float       cbrtf(float);
+ float       ceilf(float);
+ float       copysignf(float, float);
+@@ -133,7 +134,7 @@
+ #ifdef L_cargf
+ float cargf (float complex x)
+ {
+-	return (float) carg( (double)x );
++	return (float) carg( (double complex)x );
+ }
+ #endif
+ 
+@@ -532,3 +533,10 @@
+ 	return (float) trunc( (double)x );
+ }
+ #endif
++
++#ifdef L_fmaf
++float fmaf (float x, float y, float z)
++{
++	return (float) fma( (double)x, (double)y, (double)z );
++}
++#endif
+diff -Naur uClibc-0.9.30.orig/libm/ldouble_wrappers.c uClibc-0.9.30/libm/ldouble_wrappers.c
+--- uClibc-0.9.30.orig/libm/ldouble_wrappers.c	2008-10-03 07:24:28.000000000 -0700
++++ uClibc-0.9.30/libm/ldouble_wrappers.c	2009-01-22 05:37:09.015514000 -0800
+@@ -11,6 +11,8 @@
+  */
+ 
+ #include "math.h"
++#include <complex.h>
++
+ 
+ /* Implement the following, as defined by SuSv3 */
+ #if 0
+@@ -21,6 +23,7 @@
+ long double atan2l(long double, long double);
+ long double atanhl(long double);
+ long double atanl(long double);
++long double cargl(long double complex);
+ long double cbrtl(long double);
+ long double ceill(long double);
+ long double copysignl(long double, long double);
+@@ -128,6 +131,14 @@
+ #endif
+ 
+ 
++#ifdef L_cargl
++long double cargl (long double complex x)
++{
++	return (long double) carg( (double complex)x );
++}
++#endif
++
++
+ #ifdef L_cbrtl
+ long double cbrtl (long double x)
+ {
+@@ -521,3 +532,43 @@
+ 	return (long double) trunc( (double)x );
+ }
+ #endif
++
++
++#ifdef __DO_C99_MATH__
++
++#ifdef L_fpclassifyl
++int __fpclassifyl (long double x)
++{
++	return __fpclassify ( (double) x );
++}
++#endif
++
++#ifdef L_finitel
++int __finitel (long double x)
++{
++	return __finite ( (double)x );
++}
++#endif
++
++#ifdef L_signbitl
++int __signbitl (long double x)
++{
++	return __signbitl ( (double)x );
++}
++#endif
++
++#ifdef L_isnanl
++int __isnanl (long double x)
++{
++	return __isnan ( (double)x );
++}
++#endif
++
++#ifdef L_isinfl
++int __isinfl (long double x)
++{
++	return __isinf ( (double)x );
++}
++#endif
++
++#endif
+diff -Naur uClibc-0.9.30.orig/libm/Makefile.in uClibc-0.9.30/libm/Makefile.in
+--- uClibc-0.9.30.orig/libm/Makefile.in	2008-11-07 13:15:53.000000000 -0800
++++ uClibc-0.9.30/libm/Makefile.in	2008-12-22 03:55:13.991752000 -0800
+@@ -86,13 +86,13 @@
+ 	scalblnf.o scalbnf.o sinf.o sinhf.o sqrtf.o tanf.o tanhf.o \
+ 	tgammaf.o truncf.o cargf.o llrintf.o
+ 
+-LD_MOBJ := acoshl.o acosl.o asinhl.o asinl.o atan2l.o atanhl.o atanl.o cbrtl.o \
++LD_MOBJ := acoshl.o acosl.o asinhl.o asinl.o atan2l.o atanhl.o atanl.o cargl.o cbrtl.o \
+ 	ceill.o copysignl.o coshl.o cosl.o erfcl.o erfl.o exp2l.o expl.o \
+-	expm1l.o fabsl.o fdiml.o floorl.o fmal.o fmaxl.o fminl.o fmodl.o \
+-	frexpl.o gammal.o hypotl.o ilogbl.o ldexpl.o lgammal.o llrintl.o \
++	expm1l.o fabsl.o finitel.o fdiml.o floorl.o fmal.o fmaxl.o fminl.o fmodl.o fpclassifyl.o \
++	frexpl.o gammal.o hypotl.o ilogbl.o isinfl.o isnanl.o ldexpl.o lgammal.o llrintl.o \
+ 	llroundl.o log10l.o log1pl.o XXXlog2l.o logbl.o logl.o lrintl.o lroundl.o \
+ 	modfl.o nearbyintl.o nextafterl.o XXXnexttowardl.o powl.o remainderl.o \
+-	remquol.o rintl.o roundl.o scalblnl.o scalbnl.o sinhl.o sinl.o sqrtl.o \
++	remquol.o rintl.o roundl.o scalblnl.o scalbnl.o signbitl.o sinhl.o sinl.o sqrtl.o \
+ 	tanhl.o tanl.o tgammal.o truncl.o
+ else
+ # This list of math functions was taken from POSIX/IEEE 1003.1b-1993
+@@ -139,21 +139,21 @@
+ libm_OBJ := $(patsubst $(libm_DIR)/%.c,$(libm_OUT)/%.o,$(libm_SRC))
+ 
+ ifeq ($(strip $(UCLIBC_HAS_LONG_DOUBLE_MATH)),y)
+-libm_MSRC2 := $(libm_DIR)/$(LD_MSRC)
+-libm_MOBJ2 := $(patsubst %.o,$(libm_OUT)/%.o,$(LD_MOBJ))
++libm_MSRC_LD := $(libm_DIR)/$(LD_MSRC)
++libm_MOBJ_LD := $(patsubst %.o,$(libm_OUT)/%.o,$(LD_MOBJ))
+ endif
+-libm_MSRC := $(libm_DIR)/$(FL_MSRC)
+-libm_MOBJ := $(patsubst %.o,$(libm_OUT)/%.o,$(FL_MOBJ))
++libm_MSRC_FL := $(libm_DIR)/$(FL_MSRC)
++libm_MOBJ_FL := $(patsubst %.o,$(libm_OUT)/%.o,$(FL_MOBJ))
+ 
+ 
+ ifneq ($(DOMULTI),n)
+-CFLAGS-libm += $(patsubst %,-DL_%,$(subst .o,,$(notdir $(libm_MOBJ))))
++CFLAGS-libm += $(patsubst %,-DL_%,$(subst .o,,$(notdir $(libm_MOBJ_FL))))
+ ifeq ($(strip $(UCLIBC_HAS_LONG_DOUBLE_MATH)),y)
+-CFLAGS-libm += $(patsubst %,-DL_%,$(subst .o,,$(notdir $(libm_MOBJ2))))
++CFLAGS-libm += $(patsubst %,-DL_%,$(subst .o,,$(notdir $(libm_MOBJ_LD))))
+ endif
+ endif
+ 
+-libm_OBJS := $(libm_OBJ) $(libm_MOBJ) $(libm_MOBJ2)
++libm_OBJS := $(libm_OBJ) $(libm_MOBJ_FL) $(libm_MOBJ_LD)
+ 
+ ifeq ($(DOPIC),y)
+ libm-a-y += $(libm_OBJS:.o=.os)
+@@ -182,7 +182,7 @@
+ 	$(Q)$(RM) $@
+ 	$(do_ar)
+ 
+-$(libm_OUT)/libm.oS: $(libm_SRC) $(libm_MSRC) $(libm_MSRC2) $(libm_ARCH_SRC)
++$(libm_OUT)/libm.oS: $(libm_SRC) $(libm_MSRC_FL) $(libm_MSRC_LD) $(libm_ARCH_SRC)
+ 	$(Q)$(RM) $@
+ 	$(compile-m)
+ 
+@@ -191,17 +191,24 @@
+ 	$(Q)$(RM) $@
+ 	$(do_ar)
+ 
+-$(libm_MOBJ): $(libm_MSRC)
++$(libm_MOBJ_FL): $(libm_MSRC_FL)
+ 	$(compile.m)
+ 
+-$(libm_MOBJ2): $(libm_MSRC2)
++$(libm_MOBJ_LD): $(libm_MSRC_LD)
+ 	$(compile.m)
+ 
+-$(libm_MOBJ:.o=.os): $(libm_MSRC)
++$(libm_MOBJ_FL:.o=.os): $(libm_MSRC_FL)
+ 	$(compile.m)
+ 
+-$(libm_MOBJ2:.o=.os): $(libm_MSRC2)
++$(libm_MOBJ_LD:.o=.os): $(libm_MSRC_LD)
+ 	$(compile.m)
+ 
++# spare us from adding a gazillion dummy two-liner files
++$(libm_MOBJ_FL:.o=.i): $(libm_MSRC_FL)
++	$(compile.mi)
++
++$(libm_MOBJ_LD:.o=.i): $(libm_MSRC_LD)
++	$(compile.mi)
++
+ libm_clean:
+ 	$(do_rm) $(addprefix $(libm_OUT)/,$(foreach e, o os oS a,$(foreach d, *. */*. */*/*.,$(d)$(e))))
+diff -Naur uClibc-0.9.30.orig/libm/s_finite.c uClibc-0.9.30/libm/s_finite.c
+--- uClibc-0.9.30.orig/libm/s_finite.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_finite.c	2008-12-22 03:55:13.991752000 -0800
+@@ -25,5 +25,3 @@
+ 	return (int)((u_int32_t)((hx&0x7fffffff)-0x7ff00000)>>31);
+ }
+ libm_hidden_def(__finite)
+-weak_alias(__finite,finite)
+-libm_hidden_weak(finite)
+diff -Naur uClibc-0.9.30.orig/libm/s_finitef.c uClibc-0.9.30/libm/s_finitef.c
+--- uClibc-0.9.30.orig/libm/s_finitef.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_finitef.c	2008-12-22 03:55:13.991752000 -0800
+@@ -21,7 +21,6 @@
+ #include "math.h"
+ #include "math_private.h"
+ 
+-libm_hidden_proto(__finitef)
+ int __finitef(float x)
+ {
+ 	int32_t ix;
+@@ -29,4 +28,3 @@
+ 	return (int)((u_int32_t)((ix&0x7fffffff)-0x7f800000)>>31);
+ }
+ libm_hidden_def(__finitef)
+-strong_alias(__finitef,finitef)
+diff -Naur uClibc-0.9.30.orig/libm/s_fma.c uClibc-0.9.30/libm/s_fma.c
+--- uClibc-0.9.30.orig/libm/s_fma.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_fma.c	2008-12-22 03:55:13.991752000 -0800
+@@ -20,11 +20,9 @@
+ 
+ #include <math.h>
+ 
+-libm_hidden_proto(__fma)
+ double
+-__fma (double x, double y, double z)
++fma (double x, double y, double z)
+ {
+   return (x * y) + z;
+ }
+-libm_hidden_def(__fma)
+-strong_alias (__fma, fma)
++libm_hidden_def(fma)
+diff -Naur uClibc-0.9.30.orig/libm/s_fpclassify.c uClibc-0.9.30/libm/s_fpclassify.c
+--- uClibc-0.9.30.orig/libm/s_fpclassify.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_fpclassify.c	2008-12-22 03:55:13.991752000 -0800
+@@ -40,4 +40,4 @@
+ 
+   return retval;
+ }
+-libm_hidden_def (__fpclassify)
++libm_hidden_def(__fpclassify)
+diff -Naur uClibc-0.9.30.orig/libm/s_fpclassifyf.c uClibc-0.9.30/libm/s_fpclassifyf.c
+--- uClibc-0.9.30.orig/libm/s_fpclassifyf.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_fpclassifyf.c	2008-12-22 03:55:13.991752000 -0800
+@@ -21,9 +21,7 @@
+ #include <math.h>
+ #include "math_private.h"
+ 
+-libm_hidden_proto (__fpclassifyf)
+-int
+-__fpclassifyf (float x)
++int __fpclassifyf (float x)
+ {
+   u_int32_t wx;
+   int retval = FP_NORMAL;
+@@ -39,4 +37,4 @@
+ 
+   return retval;
+ }
+-libm_hidden_def (__fpclassifyf)
++libm_hidden_def(__fpclassifyf)
+diff -Naur uClibc-0.9.30.orig/libm/s_isinf.c uClibc-0.9.30/libm/s_isinf.c
+--- uClibc-0.9.30.orig/libm/s_isinf.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_isinf.c	2008-12-22 03:55:13.991752000 -0800
+@@ -22,5 +22,3 @@
+ 	return ~(lx >> 31) & (hx >> 30);
+ }
+ libm_hidden_def(__isinf)
+-weak_alias (__isinf, isinf)
+-libm_hidden_weak(isinf)
+diff -Naur uClibc-0.9.30.orig/libm/s_isinff.c uClibc-0.9.30/libm/s_isinff.c
+--- uClibc-0.9.30.orig/libm/s_isinff.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_isinff.c	2008-12-22 03:55:13.991752000 -0800
+@@ -11,7 +11,6 @@
+ #include "math.h"
+ #include "math_private.h"
+ 
+-libm_hidden_proto(__isinff)
+ int
+ __isinff (float x)
+ {
+@@ -23,4 +22,3 @@
+ 	return ~(t >> 31) & (ix >> 30);
+ }
+ libm_hidden_def(__isinff)
+-strong_alias (__isinff, isinff)
+diff -Naur uClibc-0.9.30.orig/libm/s_isnan.c uClibc-0.9.30/libm/s_isnan.c
+--- uClibc-0.9.30.orig/libm/s_isnan.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_isnan.c	2008-12-22 03:55:13.991752000 -0800
+@@ -18,12 +18,7 @@
+ #include "math.h"
+ #include "math_private.h"
+ 
+-#ifdef __STDC__
+-	int __isnan(double x)
+-#else
+-	int __isnan(x)
+-	double x;
+-#endif
++int __isnan(double x)
+ {
+ 	int32_t hx,lx;
+ 	EXTRACT_WORDS(hx,lx,x);
+@@ -33,5 +28,3 @@
+ 	return (int)(((u_int32_t)hx)>>31);
+ }
+ libm_hidden_def(__isnan)
+-weak_alias(__isnan,isnan)
+-libm_hidden_weak(isnan)
+diff -Naur uClibc-0.9.30.orig/libm/s_isnanf.c uClibc-0.9.30/libm/s_isnanf.c
+--- uClibc-0.9.30.orig/libm/s_isnanf.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_isnanf.c	2008-12-22 03:55:13.991752000 -0800
+@@ -21,7 +21,6 @@
+ #include "math.h"
+ #include "math_private.h"
+ 
+-libm_hidden_proto (__isnanf)
+ int __isnanf(float x)
+ {
+ 	int32_t ix;
+@@ -30,5 +29,4 @@
+ 	ix = 0x7f800000 - ix;
+ 	return (int)(((u_int32_t)(ix))>>31);
+ }
+-libm_hidden_def (__isnanf)
+-weak_alias (__isnanf, isnanf)
++libm_hidden_def(__isnanf)
+diff -Naur uClibc-0.9.30.orig/libm/s_ldexp.c uClibc-0.9.30/libm/s_ldexp.c
+--- uClibc-0.9.30.orig/libm/s_ldexp.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_ldexp.c	2008-12-22 03:55:13.991752000 -0800
+@@ -26,9 +26,9 @@
+ 	double value; int exp;
+ #endif
+ {
+-	if(!finite(value)||value==0.0) return value;
++	if(!isfinite(value)||value==0.0) return value;
+ 	value = scalbn(value,exp);
+-	if(!finite(value)||value==0.0) errno = ERANGE;
++	if(!isfinite(value)||value==0.0) errno = ERANGE;
+ 	return value;
+ }
+ libm_hidden_def(ldexp)
+diff -Naur uClibc-0.9.30.orig/libm/s_signbitf.c uClibc-0.9.30/libm/s_signbitf.c
+--- uClibc-0.9.30.orig/libm/s_signbitf.c	2008-09-25 10:43:58.000000000 -0700
++++ uClibc-0.9.30/libm/s_signbitf.c	2008-12-22 03:55:13.991752000 -0800
+@@ -22,7 +22,6 @@
+ 
+ #include "math_private.h"
+ 
+-libm_hidden_proto(__signbitf)
+ int
+ __signbitf (float x)
+ {
+diff -Naur uClibc-0.9.30.orig/libm/s_significand.c uClibc-0.9.30/libm/s_significand.c
+--- uClibc-0.9.30.orig/libm/s_significand.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/s_significand.c	2008-12-22 03:55:13.991752000 -0800
+@@ -33,4 +33,3 @@
+ {
+ 	return __ieee754_scalb(x,(double) -ilogb(x));
+ }
+-libm_hidden_def(significand)
+diff -Naur uClibc-0.9.30.orig/libm/w_drem.c uClibc-0.9.30/libm/w_drem.c
+--- uClibc-0.9.30.orig/libm/w_drem.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_drem.c	2008-12-22 03:55:13.991752000 -0800
+@@ -12,4 +12,3 @@
+ {
+ 	return remainder(x, y);
+ }
+-libm_hidden_def(drem)
+diff -Naur uClibc-0.9.30.orig/libm/w_exp.c uClibc-0.9.30/libm/w_exp.c
+--- uClibc-0.9.30.orig/libm/w_exp.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_exp.c	2008-12-22 03:55:13.991752000 -0800
+@@ -42,7 +42,7 @@
+ 	double z;
+ 	z = __ieee754_exp(x);
+ 	if(_LIB_VERSION == _IEEE_) return z;
+-	if(finite(x)) {
++	if(isfinite(x)) {
+ 	    if(x>o_threshold)
+ 	        return __kernel_standard(x,x,6); /* exp overflow */
+ 	    else if(x<u_threshold)
+diff -Naur uClibc-0.9.30.orig/libm/w_gamma.c uClibc-0.9.30/libm/w_gamma.c
+--- uClibc-0.9.30.orig/libm/w_gamma.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_gamma.c	2008-12-22 03:55:13.991752000 -0800
+@@ -37,7 +37,7 @@
+         double y;
+         y = __ieee754_lgamma_r(x,&signgam);
+         if(_LIB_VERSION == _IEEE_) return y;
+-        if(!finite(y)&&finite(x)) {
++        if(!isfinite(y)&&isfinite(x)) {
+             if(floor(x)==x&&x<=0.0)
+                 return __kernel_standard(x,x,41); /* gamma pole */
+             else
+@@ -46,4 +46,3 @@
+             return y;
+ #endif
+ }
+-libm_hidden_def(gamma)
+diff -Naur uClibc-0.9.30.orig/libm/w_gamma_r.c uClibc-0.9.30/libm/w_gamma_r.c
+--- uClibc-0.9.30.orig/libm/w_gamma_r.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_gamma_r.c	2008-12-22 03:55:13.991752000 -0800
+@@ -37,7 +37,7 @@
+         double y;
+         y = __ieee754_lgamma_r(x,signgamp);
+         if(_LIB_VERSION == _IEEE_) return y;
+-        if(!finite(y)&&finite(x)) {
++        if(!isfinite(y)&&isfinite(x)) {
+             if(floor(x)==x&&x<=0.0)
+                 return __kernel_standard(x,x,41); /* gamma pole */
+             else
+diff -Naur uClibc-0.9.30.orig/libm/w_hypot.c uClibc-0.9.30/libm/w_hypot.c
+--- uClibc-0.9.30.orig/libm/w_hypot.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_hypot.c	2008-12-22 03:55:13.991752000 -0800
+@@ -34,7 +34,7 @@
+ 	double z;
+ 	z = __ieee754_hypot(x,y);
+ 	if(_LIB_VERSION == _IEEE_) return z;
+-	if((!finite(z))&&finite(x)&&finite(y))
++	if((!isfinite(z))&&isfinite(x)&&isfinite(y))
+ 	    return __kernel_standard(x,y,4); /* hypot overflow */
+ 	else
+ 	    return z;
+diff -Naur uClibc-0.9.30.orig/libm/w_j0.c uClibc-0.9.30/libm/w_j0.c
+--- uClibc-0.9.30.orig/libm/w_j0.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_j0.c	2008-12-22 03:55:13.991752000 -0800
+@@ -39,7 +39,6 @@
+ 	    return z;
+ #endif
+ }
+-libm_hidden_def(j0)
+ 
+ #ifdef __STDC__
+ 	double y0(double x)		/* wrapper y0 */
+@@ -68,4 +67,3 @@
+ 	    return z;
+ #endif
+ }
+-libm_hidden_def(y0)
+diff -Naur uClibc-0.9.30.orig/libm/w_j1.c uClibc-0.9.30/libm/w_j1.c
+--- uClibc-0.9.30.orig/libm/w_j1.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_j1.c	2008-12-22 03:55:13.991752000 -0800
+@@ -40,7 +40,6 @@
+ 	    return z;
+ #endif
+ }
+-libm_hidden_def(j1)
+ 
+ #ifdef __STDC__
+ 	double y1(double x)		/* wrapper y1 */
+@@ -69,4 +68,3 @@
+ 	    return z;
+ #endif
+ }
+-libm_hidden_def(y1)
+diff -Naur uClibc-0.9.30.orig/libm/w_jn.c uClibc-0.9.30/libm/w_jn.c
+--- uClibc-0.9.30.orig/libm/w_jn.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_jn.c	2008-12-22 03:55:13.991752000 -0800
+@@ -62,7 +62,6 @@
+ 	    return z;
+ #endif
+ }
+-libm_hidden_def(jn)
+ 
+ #ifdef __STDC__
+ 	double yn(int n, double x)	/* wrapper yn */
+@@ -91,4 +90,3 @@
+ 	    return z;
+ #endif
+ }
+-libm_hidden_def(yn)
+diff -Naur uClibc-0.9.30.orig/libm/w_lgamma.c uClibc-0.9.30/libm/w_lgamma.c
+--- uClibc-0.9.30.orig/libm/w_lgamma.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_lgamma.c	2008-12-22 03:55:13.991752000 -0800
+@@ -37,7 +37,7 @@
+         double y;
+         y = __ieee754_lgamma_r(x,&signgam);
+         if(_LIB_VERSION == _IEEE_) return y;
+-        if(!finite(y)&&finite(x)) {
++        if(!isfinite(y)&&isfinite(x)) {
+             if(floor(x)==x&&x<=0.0)
+                 return __kernel_standard(x,x,15); /* lgamma pole */
+             else
+diff -Naur uClibc-0.9.30.orig/libm/w_lgamma_r.c uClibc-0.9.30/libm/w_lgamma_r.c
+--- uClibc-0.9.30.orig/libm/w_lgamma_r.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_lgamma_r.c	2008-12-22 03:55:13.991752000 -0800
+@@ -34,7 +34,7 @@
+         double y;
+         y = __ieee754_lgamma_r(x,signgamp);
+         if(_LIB_VERSION == _IEEE_) return y;
+-        if(!finite(y)&&finite(x)) {
++        if(!isfinite(y)&&isfinite(x)) {
+             if(floor(x)==x&&x<=0.0)
+                 return __kernel_standard(x,x,15); /* lgamma pole */
+             else
+@@ -43,4 +43,3 @@
+             return y;
+ #endif
+ }
+-libm_hidden_def(lgamma_r)
+diff -Naur uClibc-0.9.30.orig/libm/w_log2.c uClibc-0.9.30/libm/w_log2.c
+--- uClibc-0.9.30.orig/libm/w_log2.c	2008-10-06 03:24:41.000000000 -0700
++++ uClibc-0.9.30/libm/w_log2.c	2008-12-22 03:55:13.991752000 -0800
+@@ -11,4 +11,3 @@
+ {
+ 	return __ieee754_log2 (d);
+ }
+-libm_hidden_def(log2)
+diff -Naur uClibc-0.9.30.orig/libm/w_pow.c uClibc-0.9.30/libm/w_pow.c
+--- uClibc-0.9.30.orig/libm/w_pow.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_pow.c	2008-12-22 03:55:13.991752000 -0800
+@@ -41,19 +41,19 @@
+ 	if(x==0.0){
+ 	    if(y==0.0)
+ 	        return __kernel_standard(x,y,20); /* pow(0.0,0.0) */
+-	    if(finite(y)&&y<0.0)
++	    if(isfinite(y)&&y<0.0)
+ 	        return __kernel_standard(x,y,23); /* pow(0.0,negative) */
+ 	    return z;
+ 	}
+-	if(!finite(z)) {
+-	    if(finite(x)&&finite(y)) {
++	if(!isfinite(z)) {
++	    if(isfinite(x)&&isfinite(y)) {
+ 	        if(isnan(z))
+ 	            return __kernel_standard(x,y,24); /* pow neg**non-int */
+ 	        else
+ 	            return __kernel_standard(x,y,21); /* pow overflow */
+ 	    }
+ 	}
+-	if(z==0.0&&finite(x)&&finite(y))
++	if(z==0.0&&isfinite(x)&&isfinite(y))
+ 	    return __kernel_standard(x,y,22); /* pow underflow */
+ 	return z;
+ #endif
+diff -Naur uClibc-0.9.30.orig/libm/w_scalb.c uClibc-0.9.30/libm/w_scalb.c
+--- uClibc-0.9.30.orig/libm/w_scalb.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_scalb.c	2008-12-22 03:55:13.991752000 -0800
+@@ -46,16 +46,15 @@
+ 	double z;
+ 	z = __ieee754_scalb(x,fn);
+ 	if(_LIB_VERSION == _IEEE_) return z;
+-	if(!(finite(z)||isnan(z))&&finite(x)) {
++	if(!(isfinite(z)||isnan(z))&&isfinite(x)) {
+ 	    return __kernel_standard(x,(double)fn,32); /* scalb overflow */
+ 	}
+ 	if(z==0.0&&z!=x) {
+ 	    return __kernel_standard(x,(double)fn,33); /* scalb underflow */
+ 	}
+ #ifndef _SCALB_INT
+-	if(!finite(fn)) errno = ERANGE;
++	if(!isfinite(fn)) errno = ERANGE;
+ #endif
+ 	return z;
+ #endif
+ }
+-libm_hidden_def(scalb)
+diff -Naur uClibc-0.9.30.orig/libm/w_sinh.c uClibc-0.9.30/libm/w_sinh.c
+--- uClibc-0.9.30.orig/libm/w_sinh.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_sinh.c	2008-12-22 03:55:13.991752000 -0800
+@@ -34,7 +34,7 @@
+ 	double z;
+ 	z = __ieee754_sinh(x);
+ 	if(_LIB_VERSION == _IEEE_) return z;
+-	if(!finite(z)&&finite(x)) {
++	if(!isfinite(z)&&isfinite(x)) {
+ 	    return __kernel_standard(x,x,25); /* sinh overflow */
+ 	} else
+ 	    return z;
+diff -Naur uClibc-0.9.30.orig/libm/w_tgamma.c uClibc-0.9.30/libm/w_tgamma.c
+--- uClibc-0.9.30.orig/libm/w_tgamma.c	2008-09-26 07:50:16.000000000 -0700
++++ uClibc-0.9.30/libm/w_tgamma.c	2008-12-22 03:55:13.991752000 -0800
+@@ -35,7 +35,7 @@
+ #else
+ 	if(_LIB_VERSION == _IEEE_) return y;
+ 
+-	if(!finite(y)&&finite(x)) {
++	if(!isfinite(y)&&isfinite(x)) {
+ 	  if(floor(x)==x&&x<=0.0)
+ 	    return __kernel_standard(x,x,41); /* tgamma pole */
+ 	  else
+diff -Naur uClibc-0.9.30.orig/libnsl/Makefile.in uClibc-0.9.30/libnsl/Makefile.in
+--- uClibc-0.9.30.orig/libnsl/Makefile.in	2008-11-07 13:15:53.000000000 -0800
++++ uClibc-0.9.30/libnsl/Makefile.in	2009-01-22 01:50:29.175100000 -0800
+@@ -7,7 +7,7 @@
+ 
+ CFLAGS-libnsl := -DNOT_IN_libc -DIS_IN_libnsl $(SSP_ALL_CFLAGS)
+ 
+-LDFLAGS-libnsl.so := $(LDFLAGS)
++LDFLAGS-libnsl.so := $(LDFLAGS) $(call link.asneeded,-lc)
+ 
+ LIBS-libnsl.so := $(LIBS)
+ 
+diff -Naur uClibc-0.9.30.orig/libpthread/linuxthreads/sysdeps/pthread/pthread.h uClibc-0.9.30/libpthread/linuxthreads/sysdeps/pthread/pthread.h
+--- uClibc-0.9.30.orig/libpthread/linuxthreads/sysdeps/pthread/pthread.h	2006-12-07 19:19:36.000000000 -0800
++++ uClibc-0.9.30/libpthread/linuxthreads/sysdeps/pthread/pthread.h	2009-01-21 15:19:15.303392000 -0800
+@@ -290,7 +290,7 @@
+ 
+ #ifdef __USE_GNU
+ /* Initialize thread attribute *ATTR with attributes corresponding to the
+-   already running thread TH.  It shall be called on unitialized ATTR
++   already running thread TH.  It shall be called on uninitialized ATTR
+    and destroyed with pthread_attr_destroy when no longer needed.  */
+ extern int pthread_getattr_np (pthread_t __th, pthread_attr_t *__attr) __THROW;
+ #endif
+diff -Naur uClibc-0.9.30.orig/libpthread/linuxthreads.old/sysdeps/mips/pt-machine.h uClibc-0.9.30/libpthread/linuxthreads.old/sysdeps/mips/pt-machine.h
+--- uClibc-0.9.30.orig/libpthread/linuxthreads.old/sysdeps/mips/pt-machine.h	2008-07-23 04:19:00.000000000 -0700
++++ uClibc-0.9.30/libpthread/linuxthreads.old/sysdeps/mips/pt-machine.h	2008-11-18 00:01:04.405155000 -0800
+@@ -25,40 +25,13 @@
+ #define _PT_MACHINE_H   1
+ 
+ #include <features.h>
++#include <sgidefs.h>
++#include <sys/tas.h>
+ 
+ #ifndef PT_EI
+ # define PT_EI __extern_always_inline
+ #endif
+ 
+-/* Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+-   This file is part of the GNU C Library.
+-   Contributed by Maciej W. Rozycki <macro@ds2.pg.gda.pl>, 2000.  */
+-static __inline__ int
+-__NTH (_test_and_set (int *p, int v))
+-{
+-  int r, t;
+-
+-  __asm__ __volatile__
+-    ("/* Inline test and set */\n"
+-     "1:\n\t"
+-     ".set	push\n\t"
+-     ".set	mips2\n\t"
+-     "ll	%0,%3\n\t"
+-     "move	%1,%4\n\t"
+-     "beq	%0,%4,2f\n\t"
+-     "sc	%1,%2\n\t"
+-     ".set	pop\n\t"
+-     "beqz	%1,1b\n"
+-     "2:\n\t"
+-     "/* End test and set */"
+-     : "=&r" (r), "=&r" (t), "=m" (*p)
+-     : "m" (*p), "r" (v)
+-     : "memory");
+-
+-  return r;
+-}
+-
+-
+ /* Spinlock implementation; required.  */
+ 
+ PT_EI long int
+@@ -86,12 +59,22 @@
+     ("/* Inline compare & swap */\n"
+      "1:\n\t"
+      ".set	push\n\t"
++#if _MIPS_SIM == _ABIO32
+      ".set	mips2\n\t"
++#endif
++#if _MIPS_SIM == _ABI64
++     "lld	%1,%5\n\t"
++#else
+      "ll	%1,%5\n\t"
++#endif
+      "move	%0,$0\n\t"
+      "bne	%1,%3,2f\n\t"
+      "move	%0,%4\n\t"
++#if _MIPS_SIM == _ABI64
++     "scd	%0,%2\n\t"
++#else
+      "sc	%0,%2\n\t"
++#endif
+      ".set	pop\n\t"
+      "beqz	%0,1b\n"
+      "2:\n\t"
+diff -Naur uClibc-0.9.30.orig/libpthread/linuxthreads.old/sysdeps/pthread/pthread.h uClibc-0.9.30/libpthread/linuxthreads.old/sysdeps/pthread/pthread.h
+--- uClibc-0.9.30.orig/libpthread/linuxthreads.old/sysdeps/pthread/pthread.h	2007-11-22 08:55:08.000000000 -0800
++++ uClibc-0.9.30/libpthread/linuxthreads.old/sysdeps/pthread/pthread.h	2009-01-21 15:19:15.303392000 -0800
+@@ -293,7 +293,7 @@
+ 
+ #ifdef __USE_GNU
+ /* Initialize thread attribute *ATTR with attributes corresponding to the
+-   already running thread TH.  It shall be called on unitialized ATTR
++   already running thread TH.  It shall be called on uninitialized ATTR
+    and destroyed with pthread_attr_destroy when no longer needed.  */
+ extern int pthread_getattr_np (pthread_t __th, pthread_attr_t *__attr) __THROW;
+ #endif
+diff -Naur uClibc-0.9.30.orig/libresolv/Makefile.in uClibc-0.9.30/libresolv/Makefile.in
+--- uClibc-0.9.30.orig/libresolv/Makefile.in	2008-11-07 13:15:53.000000000 -0800
++++ uClibc-0.9.30/libresolv/Makefile.in	2009-01-22 01:50:29.175100000 -0800
+@@ -7,7 +7,7 @@
+ 
+ CFLAGS-libresolv := -DNOT_IN_libc -DIS_IN_libresolv $(SSP_ALL_CFLAGS)
+ 
+-LDFLAGS-libresolv.so := $(LDFLAGS)
++LDFLAGS-libresolv.so := $(LDFLAGS) $(call link.asneeded,-lc)
+ 
+ LIBS-libresolv.so := $(LIBS)
+ 
+diff -Naur uClibc-0.9.30.orig/librt/Makefile.in uClibc-0.9.30/librt/Makefile.in
+--- uClibc-0.9.30.orig/librt/Makefile.in	2008-11-07 13:15:53.000000000 -0800
++++ uClibc-0.9.30/librt/Makefile.in	2009-01-22 01:50:29.175100000 -0800
+@@ -7,7 +7,7 @@
+ 
+ CFLAGS-librt := -DNOT_IN_libc -DIS_IN_librt $(SSP_ALL_CFLAGS)
+ 
+-LDFLAGS-librt.so := $(LDFLAGS)
++LDFLAGS-librt.so := $(LDFLAGS) $(call link.asneeded,-lc)
+ 
+ LIBS-librt.so := $(LIBS)
+ 
+diff -Naur uClibc-0.9.30.orig/Makefile.in uClibc-0.9.30/Makefile.in
+--- uClibc-0.9.30.orig/Makefile.in	2008-11-07 13:15:53.000000000 -0800
++++ uClibc-0.9.30/Makefile.in	2008-11-17 14:38:34.243941000 -0800
+@@ -159,7 +159,7 @@
+ 	@$(disp_gen)
+ 	$(Q)set -e; \
+ 	cd $(top_builddir); \
+-	tmp=`mktemp include/bits/sysnum.h.XXXXXX 2>/dev/null`; \
++	tmp=`mktemp include/bits/sysnum.h.XXXXXX 2>/dev/null || true`; \
+ 	[ -z "$$tmp" ] && tmp='include/bits/sysnum.h.new'; \
+ 	KERNEL_HEADERS="${KERNEL_HEADERS}" top_builddir=. CC="$(CC) $(CPU_CFLAGS)" $(SHELL) extra/scripts/gen_bits_syscall_h.sh > $$tmp; \
+ 	if cmp include/bits/sysnum.h $$tmp >/dev/null 2>&1; then \
+@@ -167,6 +167,15 @@
+ 	else \
+ 		mv -f $$tmp include/bits/sysnum.h; \
+ 	fi
++	@# Ugly linux specific hack..
++	$(Q)if grep -q __NR_ $@; then true; else \
++		rm -f $@; \
++		echo "ERROR: Could not generate syscalls."; \
++		echo "Make sure that you have proper kernel headers."; \
++		echo "Your .config in KERNEL_HEADERS=\"\" was set to:"; \
++		echo "${KERNEL_HEADERS}"; \
++		exit 1; \
++	fi
+ 
+ $(LOCAL_INSTALL_PATH):
+ 	$(Q)$(MAKE) PREFIX=$(shell pwd)/ RUNTIME_PREFIX=./ \
+@@ -315,7 +324,13 @@
+ 	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/inotify.h
+ 	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/perm.h
+ 	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/personality.h
++	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/prctl.h
++	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/reboot.h
++	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/sendfile.h
++	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/fsuid.h
+ 	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/signalfd.h
++	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/swap.h
++	$(RM) $(PREFIX)$(DEVEL_PREFIX)include/sys/sysctl.h
+ endif
+ ifneq ($(UCLIBC_SV4_DEPRECATED),y)
+ 	# Remove ustat.h since deprecated SV4 support was disabled upon request
+diff -Naur uClibc-0.9.30.orig/Makerules uClibc-0.9.30/Makerules
+--- uClibc-0.9.30.orig/Makerules	2008-11-07 13:15:53.000000000 -0800
++++ uClibc-0.9.30/Makerules	2009-01-14 08:03:24.358149000 -0800
+@@ -80,6 +80,7 @@
+ pur_disp_compile.u = echo "  "CC $(show_objs)
+ pur_disp_compile.S = echo "  "AS $(show_objs)
+ pur_disp_compile.m = $(pur_disp_compile.c)
++pur_disp_compile.mi= echo "  "CPP-m $(show_objs)
+ pur_disp_compile-m = echo "  "CC-m $(show_objs)
+ pur_disp_hcompile.u= echo "  "HOSTCC $(show_objs)
+ pur_disp_hcompile.o= echo "  "HOSTCC-o $(show_objs)
+@@ -99,6 +100,7 @@
+ sil_disp_compile.u = true
+ sil_disp_compile.S = true
+ sil_disp_compile.m = true
++sil_disp_compile.mi= true
+ sil_disp_compile-m = true
+ sil_disp_hcompile.u= true
+ sil_disp_hcompile.o= true
+@@ -118,6 +120,7 @@
+ ver_disp_compile.u = echo $(cmd_compile.u)
+ ver_disp_compile.S = echo $(cmd_compile.S)
+ ver_disp_compile.m = echo $(cmd_compile.m)
++ver_disp_compile.mi= echo $(cmd_compile.mi)
+ ver_disp_compile-m = echo $(cmd_compile-m)
+ ver_disp_hcompile.u= echo $(cmd_hcompile.u)
+ ver_disp_hcompile.o= echo $(cmd_hcompile.o)
+@@ -137,6 +140,7 @@
+ disp_compile.u = $($(DISP)_disp_compile.u)
+ disp_compile.S = $($(DISP)_disp_compile.S)
+ disp_compile.m = $($(DISP)_disp_compile.m)
++disp_compile.mi= $($(DISP)_disp_compile.mi)
+ disp_compile-m = $($(DISP)_disp_compile-m)
+ disp_hcompile.u= $($(DISP)_disp_hcompile.u)
+ disp_hcompile.o= $($(DISP)_disp_hcompile.o)
+@@ -189,6 +193,7 @@
+ cmd_compile.u = $(CC) $^ $(DEPS-$(notdir $@)) -o $@ $(CFLAGS) $(CFLAGS-$(notdir $(^D))) $(CFLAGS-$(notdir $@)) $(CFLAGS_gen.dep)
+ cmd_compile.S = $(filter-out -std=gnu99, $(cmd_compile.c)) -D__ASSEMBLER__ $(ASFLAGS) $(ARCH_ASFLAGS) $(ASFLAGS-$(suffix $@)) $(ASFLAGS-$(notdir $<)) $(ASFLAGS-$(notdir $@))
+ cmd_compile.m = $(cmd_compile.c) -DL_$(patsubst %$(suffix $(notdir $@)),%,$(notdir $@))
++cmd_compile.mi= $(cmd_compile.m:-c=-E -dD $(EXTRA_CPPFLAGS))
+ 
+ cmd_compile-m = $(CC) $^ -c -o $@ $(CFLAGS) $(ARCH_CFLAGS) $(CFLAGS-$(suffix $@)) $(CFLAGS-$(notdir $(@D))) $(CFLAGS-$(notdir $@))
+ cmd_strip     = $(STRIPTOOL) $(STRIP_FLAGS) $^
+@@ -211,7 +216,8 @@
+ compile.s =  $(call maybe_exec,compile.s)
+ compile.S = @$(call maybe_exec,compile.S)
+ compile.m = @$(call maybe_exec,compile.m)
+-compile-m = @$(disp_compile-m) ; $(cmd_compile-m) ; $(cmd_t_strip)
++compile.mi=  $(call maybe_exec,compile.mi)
++compile-m = @$(disp_compile-m) ; $(cmd_compile-m) && $(cmd_t_strip)
+ do_strip  = @$(disp_strip)     ; $(cmd_strip)
+ do_t_strip= @$(disp_t_strip)   ; $(cmd_t_strip)
+ do_unifdef= @$(disp_unifdef)   ; $(cmd_unifdef)
+@@ -302,7 +308,7 @@
+ 	$(Q)$(INSTALL) -d $(dir $@)
+ 	$(Q)echo "/* Force shared libraries to know about the correct library loader */" > $@
+ 	$(Q)echo "#include <features.h>" >> $@
+-	$(Q)echo "const char __dl_ldso__[] __attribute__ ((section " \
++	$(Q)echo "const char __dl_ldso__[] attribute_hidden __attribute__ ((weak)) __attribute__ ((section " \
+ 		"(\".interp\"))) =\""$(SHARED_LIB_LOADER_PREFIX)/$(UCLIBC_LDSO)"\";" >> $@
+ 
+ $(interp): $(top_builddir)lib/interp.c
+diff -Naur uClibc-0.9.30.orig/Rules.mak uClibc-0.9.30/Rules.mak
+--- uClibc-0.9.30.orig/Rules.mak	2008-11-12 04:24:16.000000000 -0800
++++ uClibc-0.9.30/Rules.mak	2009-01-22 01:50:29.175100000 -0800
+@@ -417,22 +417,39 @@
+ 
+ # Keep the check_gcc from being needlessly executed
+ ifndef PIEFLAG
+-ifneq ($(UCLIBC_BUILD_PIE),y)
+-export PIEFLAG:=
+-else
+ export PIEFLAG:=$(call check_gcc,$(PIEFLAG_NAME),$(PICFLAG))
+ endif
+-endif
+ # We need to keep track of both the CC PIE flag (above) as
+ # well as the LD PIE flag (below) because we can't rely on
+-# gcc passing -pie if we used -fPIE
++# gcc passing -pie if we used -fPIE. We need to directly use -pie
++# instead of -Wl,-pie as gcc picks up the wrong startfile/endfile
+ ifndef LDPIEFLAG
+-ifneq ($(UCLIBC_BUILD_PIE),y)
+-export LDPIEFLAG:=
+-else
+-export LDPIEFLAG:=$(shell $(LD) --help 2>/dev/null | grep -q -- -pie && echo "-Wl,-pie")
++export LDPIEFLAG:=$(shell $(LD) --help 2>/dev/null | grep -q -- -pie && echo "-pie")
++endif
++
++# Check for --as-needed support in linker
++ifndef LD_FLAG_ASNEEDED
++_LD_FLAG_ASNEEDED:=$(shell $(LD) --help 2>/dev/null | grep -- --as-needed)
++ifneq ($(_LD_FLAG_ASNEEDED),)
++export LD_FLAG_ASNEEDED:=--as-needed
++endif
++endif
++ifndef LD_FLAG_NO_ASNEEDED
++ifdef LD_FLAG_ASNEEDED
++export LD_FLAG_NO_ASNEEDED:=--no-as-needed
++endif
++endif
++ifndef CC_FLAG_ASNEEDED
++ifdef LD_FLAG_ASNEEDED
++export CC_FLAG_ASNEEDED:=-Wl,$(LD_FLAG_ASNEEDED)
++endif
++endif
++ifndef CC_FLAG_NO_ASNEEDED
++ifdef LD_FLAG_NO_ASNEEDED
++export CC_FLAG_NO_ASNEEDED:=-Wl,$(LD_FLAG_NO_ASNEEDED)
+ endif
+ endif
++link.asneeded = $(if $(and $(CC_FLAG_ASNEEDED),$(CC_FLAG_NO_ASNEEDED)),$(CC_FLAG_ASNEEDED) $(1) $(CC_FLAG_NO_ASNEEDED))
+ 
+ # Check for AS_NEEDED support in linker script (binutils>=2.16.1 has it)
+ ifndef ASNEEDED
+diff -Naur uClibc-0.9.30.orig/test/locale-mbwc/dat_iswctype.c uClibc-0.9.30/test/locale-mbwc/dat_iswctype.c
+--- uClibc-0.9.30.orig/test/locale-mbwc/dat_iswctype.c	2008-07-10 03:30:28.000000000 -0700
++++ uClibc-0.9.30/test/locale-mbwc/dat_iswctype.c	2008-12-02 09:15:35.191305000 -0800
+@@ -240,7 +240,7 @@
+       {	 { 0x007B, "cntrl"  }, { 0,1,0 }  },
+       {	 { 0x007E, "cntrl"  }, { 0,1,0 }  },
+       {	 { 0x007F, "cntrl"  }, { 0,0,0 }  },
+-      {	 { 0x0080, "cntrl"  }, { 0,0,0 }  },
++      {	 { 0x0080, "cntrl"  }, { 0,1,0 }  },
+       {	 { 0x0000, "digit"  }, { 0,1,0 }  },
+       {	 { 0x001F, "digit"  }, { 0,1,0 }  },
+       {	 { 0x0020, "digit"  }, { 0,1,0 }  },
+diff -Naur uClibc-0.9.30.orig/utils/Makefile.in uClibc-0.9.30/utils/Makefile.in
+--- uClibc-0.9.30.orig/utils/Makefile.in	2008-11-09 05:10:50.000000000 -0800
++++ uClibc-0.9.30/utils/Makefile.in	2009-01-14 07:54:12.372155000 -0800
+@@ -8,7 +8,10 @@
+ CFLAGS-utils := -DNOT_IN_libc $(SSP_ALL_CFLAGS) -B$(top_builddir)lib -Wl,-rpath-link,$(top_builddir)lib
+ 
+ CFLAGS-utils-common := -I$(top_srcdir)ldso/include -DUCLIBC_RUNTIME_PREFIX=\"$(RUNTIME_PREFIX)\" -DUCLIBC_LDSO=$(UCLIBC_LDSO)
++CFLAGS-utils-shared :=
++ifeq ($(UCLIBC_BUILD_PIE),y)
+ CFLAGS-utils-shared := $(PIEFLAG) $(LDPIEFLAG)
++endif
+ 
+ CFLAGS-ldconfig := $(CFLAGS-utils-common)
+ 

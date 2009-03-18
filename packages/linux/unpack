@@ -1,0 +1,45 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/install make
+$SCRIPTS/install sed
+$SCRIPTS/unpack lzma
+
+LINUX=`ls -d $BUILD/$1*`
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+#make -C $LINUX mrproper
+#make -C $LINUX ARCH=$TARGET_ARCH headers_check
+make -C $LINUX ARCH=$TARGET_ARCH INSTALL_HDR_PATH=dest headers_install
+
+KERNEL_CFG_FILE=$PKG_DIR/config/$1.$TARGET_ARCH.conf
+[ -f $PKG_DIR/config/$1.$TARGET_PLATFORM.conf ] && KERNEL_CFG_FILE=$PKG_DIR/config/$1.$TARGET_PLATFORM.conf
+
+sed -i -e "s|^HOSTCC[[:space:]]*=.*$|HOSTCC = $HOST_CC|" \
+       -e "s|^HOSTCXX[[:space:]]*=.*$|HOSTCXX = $HOST_CXX|" \
+       -e "s|^ARCH[[:space:]]*?=.*$|ARCH = $TARGET_ARCH|" \
+       -e "s|^CROSS_COMPILE[[:space:]]*?=.*$|CROSS_COMPILE = $TARGET_PREFIX|" \
+       $LINUX/Makefile
+
+cp $KERNEL_CFG_FILE $LINUX/.config
+sed -i -e "s|^CONFIG_INITRAMFS_SOURCE=.*$|CONFIG_INITRAMFS_SOURCE=\"$ROOT/$PKG_DIR/config/initramfs\"|" \
+  $LINUX/.config
+
+if [ "$DEVTOOLS" = yes ]; then
+  echo "CONFIG_KALLSYMS=y" >> $LINUX/.config
+  echo "CONFIG_KALLSYMS_EXTRA_PASS=y" >> $LINUX/.config
+  echo "# CONFIG_KPROBES is not set" >> $LINUX/.config
+fi
+
+LZMA_DIR="$ROOT/`ls -d $BUILD/lzma*`/C/Compress/Lzma"
+for i in LzmaDecode.c LzmaDecode.h LzmaTypes.h; do
+  # needed by 20_lzma-vmlinux.diff
+  ln -s "$LZMA_DIR/$i" $LINUX/arch/*86/boot/compressed/
+  # needed by 21_lzma-initrd.diff
+  ln -s "$LZMA_DIR/$i" $LINUX/init/
+done
+
+make -C $LINUX oldconfig
+#make -C $LINUX prepare1
+

@@ -1,0 +1,119 @@
+#!/bin/sh
+
+. config/options
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+case "$2" in
+  system)
+
+    $SCRIPTS/install squashfs
+
+    export INSTALL=$BUILD/$1/$2
+
+    rm -rf $INSTALL
+    mkdir -p $INSTALL
+
+    mkdir -p $INSTALL/bin
+    mkdir -p $INSTALL/etc
+    mkdir -p $INSTALL/lib
+    mkdir -p $INSTALL/sbin
+    mkdir -p $INSTALL/dev
+    mkdir -p $INSTALL/proc
+    mkdir -p $INSTALL/sys
+    mkdir -p $INSTALL/usr
+    mkdir -p $INSTALL/var
+    mkdir -p $INSTALL/flash
+    mkdir -p $INSTALL/storage
+
+    cp -PR $PKG_DIR/config/etc/* $INSTALL/etc
+
+# Basissystem...
+    $SCRIPTS/install uClibc
+    $SCRIPTS/install gcc-final
+    $SCRIPTS/install linux $2
+    $SCRIPTS/install busybox $2
+#    $SCRIPTS/install exquisite
+    $SCRIPTS/install automountd
+#    $SCRIPTS/install ntfs-3g
+
+    echo $TARGET_ARCH > $INSTALL/etc/arch
+    echo "$GEEXBOX_VERSION" > $INSTALL/etc/version
+    echo "OpenELEC" > $INSTALL/etc/openelec-release
+
+# Audio Driver...
+    $SCRIPTS/install alsa
+
+# Xorg...
+    $SCRIPTS/install Xorg
+
+# Network...
+    $SCRIPTS/install network
+
+# Elisa...
+#    $SCRIPTS/install Python
+    $SCRIPTS/install elisa
+    $SCRIPTS/install elisa-plugins-good
+    $SCRIPTS/install elisa-plugins-bad
+    $SCRIPTS/install elisa-plugins-ugly
+
+    $SCRIPTS/install gst-plugins-good
+    $SCRIPTS/install gst-plugins-bad
+    $SCRIPTS/install gst-plugins-ugly
+    $SCRIPTS/install gst-ffmpeg
+
+
+#    if [ "$BOOTCHART" = yes ]; then
+#      $SCRIPTS/install acct
+#      cp $PACKAGES/$1/scripts/bootchartd $INSTALL/sbin
+#      sed -i "s/EXIT_PROC=.*/EXIT_PROC=\"$GUI\"/" $INSTALL/sbin/bootchartd
+#    fi
+
+    #[ "$EMULATORS" = yes ] && $SCRIPTS/install emulators $1
+    #[ "$GAMES" = yes ] && $SCRIPTS/install games $1
+    #[ "$GAMES" = yes ] && $SCRIPTS/install pygame $1
+    #[ "$LCD4LINUX" = yes ] && $SCRIPTS/install lcd4linux $1
+
+# Devtools... (not for Release)
+#   [ "$DEVTOOLS" = yes ] && $SCRIPTS/install gdb
+#   [ "$DEVTOOLS" = yes ] && $SCRIPTS/install mrxvt
+
+    #[ "$EXTRACODECS" = yes ] && $SCRIPTS/install extra-codecs-nonfree $1
+    #[ "$EXTRAFIRMWARES" = yes ] && $SCRIPTS/install extra-firmwares-nonfree $1
+
+    mkdir -p $INSTALL/usr/config
+    tar cf - -C $INSTALL etc | lzma e $INSTALL/usr/config/etc.tar.lzma -si -a2
+    rm -rf $INSTALL/etc
+
+    ln -sf /storage/etc $INSTALL/etc
+    ln -sf /var $INSTALL/usr/var
+    ln -sf /var/tmp $INSTALL/tmp
+    ln -sf /var/mnt $INSTALL/mnt
+
+    rm -rf openelec.$2
+    $ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL openelec.$2 -noappend -all-root
+#    $ROOT/$TOOLCHAIN/bin/mkfs.axfs $INSTALL openelec.$2
+  ;;
+
+  img)
+    rm -rf openelec.flash
+    qemu-img create -f raw openelec.flash 50M
+    /sbin/mkfs.ext3 -L OpenELEC -F openelec.flash
+
+    mkdir -p $ROOT/.tmp
+    sudo mount -o loop openelec.flash $ROOT/.tmp
+    cp -R openelec.system $ROOT/.tmp
+    sudo umount $ROOT/.tmp
+
+    rm -rf openelec.store
+    qemu-img create -f raw openelec.store 40M
+    /sbin/mkfs.ext3 -L OpenELEC -F openelec.store
+
+  ;;
+
+  full)
+
+    $SCRIPTS/install image system
+    $SCRIPTS/install image img
+  ;;
+esac

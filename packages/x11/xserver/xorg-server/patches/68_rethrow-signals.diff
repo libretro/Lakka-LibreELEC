@@ -1,0 +1,43 @@
+diff -Nurp xorg-server-1.4.99.906-patched/hw/xfree86/common/xf86Events.c xorg-server-1.4.99.906-working/hw/xfree86/common/xf86Events.c
+--- xorg-server-1.4.99.906-patched/hw/xfree86/common/xf86Events.c	2008-09-01 13:17:47.000000000 -0700
++++ xorg-server-1.4.99.906-working/hw/xfree86/common/xf86Events.c	2008-09-01 13:19:35.000000000 -0700
+@@ -741,6 +741,8 @@ static __inline__ void xorg_backtrace(vo
+ void
+ xf86SigHandler(int signo)
+ {
++  static Bool beenhere = FALSE;
++
+   if ((signo == SIGILL) && xf86SigIllHandler) {
+     (*xf86SigIllHandler)();
+     /* Re-arm handler just in case we unexpectedly return here */
+@@ -763,6 +765,30 @@ xf86SigHandler(int signo)
+ 
+   xorg_backtrace();
+ 
++  switch (signo) {
++  case SIGSEGV:
++  case SIGBUS:
++  case SIGILL:
++  case SIGFPE:
++      signal(signo,SIG_DFL);
++      ErrorF ("Saw signal %d.  Server aborting.\n", signo);
++#ifdef DDXOSFATALERROR
++      if (!beenhere) {
++          OsVendorFatalError();
++      }
++#endif
++#ifdef ABORTONFATALERROR
++      abort();
++#endif
++      if (!beenhere) {
++          beenhere = TRUE;
++          AbortServer();
++      } else {
++          abort();
++      }
++      return;
++  }
++
+   FatalError("Caught signal %d.  Server aborting\n", signo);
+ }
+ 

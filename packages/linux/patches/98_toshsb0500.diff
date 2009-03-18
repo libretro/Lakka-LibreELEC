@@ -1,0 +1,86 @@
+diff -Naur linux-2.6.29-rc3.orig/sound/usb/usbmixer.c linux-2.6.29-rc3/sound/usb/usbmixer.c
+--- linux-2.6.29-rc3.orig/sound/usb/usbmixer.c	2009-01-31 18:44:42.000000000 +0100
++++ linux-2.6.29-rc3/sound/usb/usbmixer.c	2009-01-31 18:52:44.000000000 +0100
+@@ -66,6 +66,7 @@
+ 	{ USB_ID(0x041e, 0x3000), 0, 1, 2, 1,  18, 0x0013 }, /* Extigy       */
+ 	{ USB_ID(0x041e, 0x3020), 2, 1, 6, 6,  18, 0x0013 }, /* Audigy 2 NX  */
+ 	{ USB_ID(0x041e, 0x3040), 2, 2, 6, 6,  2,  0x6e91 }, /* Live! 24-bit */
++	{ USB_ID(0x041e, 0x3048), 2, 2, 6, 6,  2,  0x6e91 }, /* Toshiba SB0500 */
+ };
+ 
+ struct usb_mixer_interface {
+@@ -1706,7 +1707,8 @@
+ 		break;
+ 	/* live24ext: 4 = line-in jack */
+ 	case 3:	/* hp-out jack (may actuate Mute) */
+-		if (mixer->chip->usb_id == USB_ID(0x041e, 0x3040))
++		if (mixer->chip->usb_id == USB_ID(0x041e, 0x3040) ||
++		    mixer->chip->usb_id == USB_ID(0x041e, 0x3048))
+ 			snd_usb_mixer_notify_id(mixer, mixer->rc_cfg->mute_mixer_id);
+ 		break;
+ 	default:
+@@ -1957,7 +1959,8 @@
+ 
+ 	for (i = 0; i < ARRAY_SIZE(snd_audigy2nx_controls); ++i) {
+ 		if (i > 1 &&  /* Live24ext has 2 LEDs only */
+-			mixer->chip->usb_id == USB_ID(0x041e, 0x3040))
++		    (mixer->chip->usb_id == USB_ID(0x041e, 0x3040) ||
++		     mixer->chip->usb_id == USB_ID(0x041e, 0x3048)))
+ 			break; 
+ 		err = snd_ctl_add(mixer->chip->card,
+ 				  snd_ctl_new1(&snd_audigy2nx_controls[i], mixer));
+@@ -1994,7 +1997,8 @@
+ 	snd_iprintf(buffer, "%s jacks\n\n", mixer->chip->card->shortname);
+ 	if (mixer->chip->usb_id == USB_ID(0x041e, 0x3020))
+ 		jacks = jacks_audigy2nx;
+-	else if (mixer->chip->usb_id == USB_ID(0x041e, 0x3040))
++	else if (mixer->chip->usb_id == USB_ID(0x041e, 0x3040) ||
++		 mixer->chip->usb_id == USB_ID(0x041e, 0x3048))
+ 		jacks = jacks_live24ext;
+ 	else
+ 		return;
+@@ -2044,7 +2048,8 @@
+ 		goto _error;
+ 
+ 	if (mixer->chip->usb_id == USB_ID(0x041e, 0x3020) ||
+-	    mixer->chip->usb_id == USB_ID(0x041e, 0x3040)) {
++	    mixer->chip->usb_id == USB_ID(0x041e, 0x3040) ||
++	    mixer->chip->usb_id == USB_ID(0x041e, 0x3048)) {
+ 		struct snd_info_entry *entry;
+ 
+ 		if ((err = snd_audigy2nx_controls_create(mixer)) < 0)
+diff -Naur linux-2.6.29-rc3.orig/sound/usb/usbmixer_maps.c linux-2.6.29-rc3/sound/usb/usbmixer_maps.c
+--- linux-2.6.29-rc3.orig/sound/usb/usbmixer_maps.c	2009-01-31 18:44:42.000000000 +0100
++++ linux-2.6.29-rc3/sound/usb/usbmixer_maps.c	2009-01-31 18:53:29.000000000 +0100
+@@ -284,6 +284,11 @@
+ 		.id = USB_ID(0x041e, 0x3040),
+ 		.map = live24ext_map,
+ 	},
++        {
++		.id = USB_ID(0x041e, 0x3048),
++		.map = audigy2nx_map,
++		.selector_map = audigy2nx_selectors,
++	},
+ 	{
+ 		/* Hercules DJ Console (Windows Edition) */
+ 		.id = USB_ID(0x06f8, 0xb000),
+diff -Naur linux-2.6.29-rc3.orig/sound/usb/usbquirks.h linux-2.6.29-rc3/sound/usb/usbquirks.h
+--- linux-2.6.29-rc3.orig/sound/usb/usbquirks.h	2009-01-31 18:44:42.000000000 +0100
++++ linux-2.6.29-rc3/sound/usb/usbquirks.h	2009-01-31 18:54:49.000000000 +0100
+@@ -39,6 +39,16 @@
+ 	.idProduct = prod, \
+ 	.bInterfaceClass = USB_CLASS_VENDOR_SPEC
+ 
++/* Creative/Toshiba Multimedia Center SB-0500 */
++{
++	USB_DEVICE(0x041e, 0x3048),
++	.driver_info = (unsigned long) & (const struct snd_usb_audio_quirk) {
++               .vendor_name = "Toshiba",
++               .product_name = "SB-0500",
++               .ifnum = QUIRK_NO_INTERFACE
++	}
++},
++
+ /* Creative/E-Mu devices */
+ {
+ 	USB_DEVICE(0x041e, 0x3010),

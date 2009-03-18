@@ -1,0 +1,209 @@
+diff -ruNp udev-103~/extras/usb_device_name/Makefile udev-103/extras/usb_device_name/Makefile
+--- udev-103~/extras/usb_device_name/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ udev-103/extras/usb_device_name/Makefile	2006-11-02 12:57:53.000000000 +0000
+@@ -0,0 +1,67 @@
++# Copyright © 2005 Canonical Ltd.
++# Author: Scott James Remnant <scott@ubuntu.com>
++#
++# Released under the GNU General Public License, version 2.
++
++PROG = usb_device_name
++OBJ =
++HEADERS =
++GEN_HEADERS =
++MAN_PAGES =
++
++prefix =
++etcdir =	${prefix}/etc
++sbindir =	${prefix}/sbin
++usrbindir =	${prefix}/usr/bin
++usrsbindir =	${prefix}/usr/sbin
++libudevdir =	${prefix}/lib/udev
++mandir =	${prefix}/usr/share/man
++configdir =	${etcdir}/udev/
++
++INSTALL = /usr/bin/install -c
++INSTALL_PROGRAM = ${INSTALL}
++INSTALL_DATA  = ${INSTALL} -m 644
++INSTALL_SCRIPT = ${INSTALL_PROGRAM}
++
++all: $(PROG) $(MAN_PAGES)
++.PHONY: all
++.DEFAULT: all
++
++%.o: %.c $(GEN_HEADERS)
++	$(E) "  CC      " $@
++	$(Q) $(CC) -c $(CFLAGS) $< -o $@
++
++$(PROG): %: $(HEADERS) %.o $(OBJS)
++	$(E) "  LD      " $@
++	$(Q) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
++
++# man pages
++%.8: %.xml
++	$(E) "  XMLTO   " $@
++	$(Q) xmlto man $?
++.PRECIOUS: %.8
++
++clean:
++	$(E) "  CLEAN   "
++	$(Q) rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
++.PHONY: clean
++
++install-bin: all
++	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
++.PHONY: install-bin
++
++uninstall-bin:
++	- rm $(DESTDIR)$(libudevdir)/$(PROG)
++.PHONY: uninstall-bin
++
++install-man:
++	$(INSTALL_DATA) -D $(PROG).8 $(DESTDIR)$(mandir)/man8/$(PROG).8
++.PHONY: uninstall-man
++
++uninstall-man:
++	-rm -f $(DESTDIR)$(mandir)/man8/$(PROG).8
++.PHONY: uninstall-man
++
++install-config:
++	@echo "no config file to install"
++.PHONY: install-config
+diff -ruNp udev-103~/extras/usb_device_name/usb_device_name.8 udev-103/extras/usb_device_name/usb_device_name.8
+--- udev-103~/extras/usb_device_name/usb_device_name.8	1970-01-01 01:00:00.000000000 +0100
++++ udev-103/extras/usb_device_name/usb_device_name.8	2006-11-02 12:57:53.000000000 +0000
+@@ -0,0 +1,28 @@
++.TH USB_DEVICE_NAME 8 "November 2005" "" "Linux Administrator's Manual"
++.SH NAME
++usb_device_name \- udev callout to split kernel name for usb devices
++.SH SYNOPSIS
++.BI usb_device_name
++[\fI--export\fP] \fIdevicename\fP
++.SH DESCRIPTION
++.B usb_device_name
++is normally called from a udev rule to split the kernel-assigned name for a
++device in the usb_device subsystem into bus and device numbers.  Udev can use
++this information to construct a name under /dev/bus/usb for the real device
++node.
++.SH USAGE
++.B usb_device_name
++splits the kernel-assigned name specified on the command-line and prints the
++information chosen by the options.
++.SH OPTIONS
++The following command-line switches are supported to specify what
++usb_device_name should print:
++.TP
++.BI --export
++print bus and device numbers as USB_BUS and USB_DEV environment variables,
++for use with an IMPORT{program} rule.
++.RE
++.SH SEE ALSO
++.BR udev (8)
++.SH AUTHORS
++Scott James Remnant <scott@ubuntu.com>
+diff -ruNp udev-103~/extras/usb_device_name/usb_device_name.c udev-103/extras/usb_device_name/usb_device_name.c
+--- udev-103~/extras/usb_device_name/usb_device_name.c	1970-01-01 01:00:00.000000000 +0100
++++ udev-103/extras/usb_device_name/usb_device_name.c	2006-11-02 12:57:53.000000000 +0000
+@@ -0,0 +1,102 @@
++/*
++ * usb_device_name - splits kernel name for usb_device subsystem
++ *
++ * Copyright © 2006 Canonical Ltd.
++ * Author: Scott James Remnant <scott@ubuntu.com>
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License as published by the
++ *	Free Software Foundation version 2 of the License.
++ *
++ *	This program is distributed in the hope that it will be useful, but
++ *	WITHOUT ANY WARRANTY; without even the implied warranty of
++ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ *	General Public License for more details.
++ *
++ *	You should have received a copy of the GNU General Public License along
++ *	with this program; if not, write to the Free Software Foundation, Inc.,
++ *	51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
++ *
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include "../../udev.h"
++
++#ifdef USE_LOG
++void log_message(int priority, const char *format, ...)
++{
++	va_list args;
++	static int udev_log = -1;
++
++	if (udev_log == -1) {
++		const char *value;
++
++		value = getenv("UDEV_LOG");
++		if (value)
++			udev_log = log_priority(value);
++		else
++			udev_log = LOG_ERR;
++	}
++
++	if (priority > udev_log)
++		return;
++
++	va_start(args, format);
++	vsyslog(priority, format, args);
++	va_end(args);
++}
++#endif
++
++int main(int argc, char *argv[])
++{
++	const char *name = NULL, *ptr;
++	int export = 0, ret = 0;
++	int i, bus, dev;
++
++	logging_init("usb_device_name");
++
++	for (i = 1; i < argc; i++) {
++		if (strcmp(argv[i], "--export") == 0) {
++			export = 1;
++		} else {
++			name = argv[i];
++		}
++	}
++
++	if (!name) {
++		err("no device name specified");
++		ret = 1;
++		goto exit;
++	}
++
++	if (strncmp(name, "usbdev", 6) != 0) {
++		info("device not usb_device");
++		ret = 1;
++		goto exit;
++	}
++
++	ptr = strchr(name, '.');
++	if (!ptr) {
++		err("device name contains no device");
++		ret = 1;
++		goto exit;
++	}
++
++	name += 6;
++	bus = atoi(name);
++	dev = atoi(ptr + 1);
++
++	if (export) {
++		printf("USB_BUS=%03d\n", bus);
++		printf("USB_DEV=%03d\n", dev);
++	} else {
++		printf("%03d.%03d\n", bus, dev);
++	}
++
++exit:
++	logging_close();
++	return ret;
++}

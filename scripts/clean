@@ -1,0 +1,49 @@
+#!/bin/sh
+
+. config/options
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+clean ()
+{
+  echo " CLEAN    $1" >&$SILENT_OUT
+
+  if [ "$CLEAN_SOURCES" = true ]; then
+    if [ -f $PKG_DIR/url ]; then
+      for i in `ls $SOURCES/$1 2>/dev/null`; do
+        grep -q $i $PKG_DIR/url || rm -f $SOURCES/$1/$i
+      done
+    fi
+    return
+  fi
+
+  if [ "$FULL" = true ]; then
+    rm -rf $BUILD_BASE*/$STAMPS_NOARCH/$1*
+    rm -rf $BUILD_BASE*/$1*
+    rm -rf $STAMPS_NOARCH/$1
+    rm -rf $SOURCES/$1
+  else
+    rm -rf $BUILD/$1*
+    rm -f $STAMPS/$1*/unpack
+    rm -f $STAMPS/$1*/build
+  fi
+}
+
+if [ "$1" = "--full" ]; then
+  FULL=true
+  shift
+elif [ "$1" = "--sources" ]; then
+  CLEAN_SOURCES=true
+  shift
+fi
+
+if [ -z "$1" ]; then
+  for i in $PACKAGES/*; do clean ${i#$PACKAGES/}; done
+  rm -rf $BUILD/iso
+  rm -rf $BUILD/ziso
+  [ "$FULL" = true ] && rm -rf $CCACHE_DIR
+else
+  clean $1
+fi
+
+exit 0

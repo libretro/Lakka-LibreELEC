@@ -1,0 +1,2795 @@
+diff -Naur linux-2.6.26-rc8.orig/drivers/char/keyboard.c linux-2.6.26-rc8/drivers/char/keyboard.c
+--- linux-2.6.26-rc8.orig/drivers/char/keyboard.c	2008-06-28 11:36:17.000000000 +0200
++++ linux-2.6.26-rc8/drivers/char/keyboard.c	2008-06-28 11:36:42.000000000 +0200
+@@ -1178,6 +1178,15 @@
+ 			if (keycode < BTN_MISC && printk_ratelimit())
+ 				printk(KERN_WARNING "keyboard.c: can't emulate rawmode for keycode %d\n", keycode);
+ 
++#ifdef CONFIG_BOOTSPLASH
++	/* This code has to be redone for some non-x86 platforms */
++	if (down == 1 && (keycode == 0x3c || keycode == 0x01)) {        /* F2 and ESC on PC keyboard */
++		extern int splash_verbose(void);
++		if (splash_verbose())
++			return; 
++	}       
++#endif
++
+ #ifdef CONFIG_MAGIC_SYSRQ	       /* Handle the SysRq Hack */
+ 	if (keycode == KEY_SYSRQ && (sysrq_down || (down == 1 && sysrq_alt))) {
+ 		if (!sysrq_down) {
+diff -Naur linux-2.6.26-rc8.orig/drivers/char/n_tty.c linux-2.6.26-rc8/drivers/char/n_tty.c
+--- linux-2.6.26-rc8.orig/drivers/char/n_tty.c	2008-06-28 11:36:17.000000000 +0200
++++ linux-2.6.26-rc8/drivers/char/n_tty.c	2008-06-28 11:36:42.000000000 +0200
+@@ -1325,6 +1325,15 @@
+ 			tty->minimum_to_wake = (minimum - (b - buf));
+ 
+ 		if (!input_available_p(tty, 0)) {
++#ifdef CONFIG_BOOTSPLASH
++			if (file->f_dentry->d_inode->i_rdev == MKDEV(TTY_MAJOR,0) ||
++			    file->f_dentry->d_inode->i_rdev == MKDEV(TTY_MAJOR,1) ||
++			    file->f_dentry->d_inode->i_rdev == MKDEV(TTYAUX_MAJOR,0) ||
++			    file->f_dentry->d_inode->i_rdev == MKDEV(TTYAUX_MAJOR,1)) {
++				extern int splash_verbose(void);
++				(void)splash_verbose();
++			}
++#endif
+ 			if (test_bit(TTY_OTHER_CLOSED, &tty->flags)) {
+ 				retval = -EIO;
+ 				break;
+diff -Naur linux-2.6.26-rc8.orig/drivers/char/vt.c linux-2.6.26-rc8/drivers/char/vt.c
+--- linux-2.6.26-rc8.orig/drivers/char/vt.c	2008-06-28 11:36:17.000000000 +0200
++++ linux-2.6.26-rc8/drivers/char/vt.c	2008-06-28 11:36:42.000000000 +0200
+@@ -4050,6 +4050,31 @@
+ 	}
+ }
+ 
++#ifdef CONFIG_BOOTSPLASH
++void con_remap_def_color(struct vc_data *vc, int new_color)
++{
++       unsigned short *sbuf = vc->vc_screenbuf;
++       unsigned c, len = vc->vc_screenbuf_size >> 1;
++       int old_color;
++
++       if (sbuf) {
++	       old_color = vc->vc_def_color << 8;
++	       new_color <<= 8;
++	       while(len--) {
++		       c = *sbuf;
++		       if (((c ^ old_color) & 0xf000) == 0)
++			       *sbuf ^= (old_color ^ new_color) & 0xf000; 
++		       if (((c ^ old_color) & 0x0f00) == 0)
++			       *sbuf ^= (old_color ^ new_color) & 0x0f00;
++		       sbuf++;
++	       }
++	       new_color >>= 8;
++       }
++       vc->vc_def_color = vc->vc_color = new_color;
++       update_attr(vc);
++}
++#endif
++
+ /*
+  *	Visible symbols for modules
+  */
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/bootsplash/bootsplash.c linux-2.6.26-rc8/drivers/video/bootsplash/bootsplash.c
+--- linux-2.6.26-rc8.orig/drivers/video/bootsplash/bootsplash.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.26-rc8/drivers/video/bootsplash/bootsplash.c	2008-06-28 11:36:42.000000000 +0200
+@@ -0,0 +1,983 @@
++/* 
++ *           linux/drivers/video/bootsplash/bootsplash.c - 
++ *                 splash screen handling functions.
++ *	
++ *	(w) 2001-2004 by Volker Poplawski, <volker@poplawski.de>,
++ * 		    Stefan Reinauer, <stepan@suse.de>,
++ * 		    Steffen Winterfeldt, <snwint@suse.de>,
++ *                  Michael Schroeder <mls@suse.de>
++ * 		    
++ *        Ideas & SuSE screen work by Ken Wimer, <wimer@suse.de>
++ *
++ *  For more information on this code check http://www.bootsplash.org/
++ */
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/fb.h>
++#include <linux/vt_kern.h>
++#include <linux/vmalloc.h>
++#include <linux/unistd.h>
++#include <linux/syscalls.h>
++
++#include <asm/irq.h>
++#include <asm/system.h>
++
++#include "../console/fbcon.h"
++#include "bootsplash.h"
++#include "decode-jpg.h"
++
++/* extern struct fb_ops vesafb_ops; */
++extern signed char con2fb_map[MAX_NR_CONSOLES];
++
++#define SPLASH_VERSION "3.1.6-2004/03/31"
++
++/* These errors have to match fbcon-jpegdec.h */
++static unsigned char *jpg_errors[] = {
++	"no SOI found", 
++	"not 8 bit", 
++	"height mismatch", 
++	"width mismatch",
++	"bad width or height", 
++	"too many COMPPs", 
++	"illegal HV", 
++	"quant table selector",
++	"picture is not YCBCR 221111",
++	"unknow CID in scan",
++	"dct not sequential",
++	"wrong marker",
++	"no EOI",
++	"bad tables",
++	"depth mismatch"
++};
++
++static struct jpeg_decdata *decdata = 0; /* private decoder data */
++
++static int splash_registered = 0;
++static int splash_usesilent = 0;	/* shall we display the silentjpeg? */
++int splash_default = 0xf01;
++
++static int splash_check_jpeg(unsigned char *jpeg, int width, int height, int depth);
++
++static int __init splash_setup(char *options)
++{
++	if(!strncmp("silent", options, 6)) {
++		printk(KERN_INFO "bootsplash: silent mode.\n");
++		splash_usesilent = 1;
++		/* skip "silent," */
++		if (strlen(options) == 6)
++			return 0;
++		options += 7;
++	}
++	if(!strncmp("verbose", options, 7)) {
++		printk(KERN_INFO "bootsplash: verbose mode.\n");
++		splash_usesilent = 0;
++		return 0;
++	}
++	splash_default = simple_strtoul(options, NULL, 0);
++	return 0;
++}
++
++__setup("splash=", splash_setup);
++
++
++static int splash_hasinter(unsigned char *buf, int num)
++{
++    unsigned char *bufend = buf + num * 12;
++    while(buf < bufend) {
++	if (buf[1] > 127)		/* inter? */
++	    return 1;
++	buf += buf[3] > 127 ? 24 : 12;	/* blend? */
++    }
++    return 0;
++}
++
++static int boxextract(unsigned char *buf, unsigned short *dp, unsigned char *cols, int *blendp)
++{
++    dp[0] = buf[0] | buf[1] << 8;
++    dp[1] = buf[2] | buf[3] << 8;
++    dp[2] = buf[4] | buf[5] << 8;
++    dp[3] = buf[6] | buf[7] << 8;
++    *(unsigned int *)(cols + 0) =
++	*(unsigned int *)(cols + 4) =
++	*(unsigned int *)(cols + 8) =
++	*(unsigned int *)(cols + 12) = *(unsigned int *)(buf + 8);
++    if (dp[1] > 32767) {
++	dp[1] = ~dp[1];
++	*(unsigned int *)(cols + 4) = *(unsigned int *)(buf + 12);
++	*(unsigned int *)(cols + 8) = *(unsigned int *)(buf + 16);
++	*(unsigned int *)(cols + 12) = *(unsigned int *)(buf + 20);
++	*blendp = 1;
++	return 24;
++    }
++    return 12;
++}
++
++static void boxit(unsigned char *pic, int bytes, unsigned char *buf, int num, int percent, int overpaint)
++{
++    int x, y, i, p, doblend, r, g, b, a, add;
++    unsigned short data1[4];
++    unsigned char cols1[16];
++    unsigned short data2[4];
++    unsigned char cols2[16];
++    unsigned char *bufend;
++    unsigned short *picp;
++    unsigned int stipple[32], sti, stin, stinn, stixs, stixe, stiys, stiye;
++    int xs, xe, ys, ye, xo, yo;
++
++    if (num == 0)
++	return;
++    bufend = buf + num * 12;
++    stipple[0] = 0xffffffff;
++    stin = 1;
++    stinn = 0;
++    stixs = stixe = 0;
++    stiys = stiye = 0;
++    while(buf < bufend) {
++	doblend = 0;
++	buf += boxextract(buf, data1, cols1, &doblend);
++	if (data1[0] == 32767 && data1[1] == 32767) {
++	    /* box stipple */
++	    if (stinn == 32)
++		continue;
++	    if (stinn == 0) {
++		stixs = data1[2];
++		stixe = data1[3];
++		stiys = stiye = 0;
++	    } else if (stinn == 4) {
++		stiys = data1[2];
++		stiye = data1[3];
++	    }
++	    stipple[stinn++] = (cols1[ 0] << 24) | (cols1[ 1] << 16) | (cols1[ 2] << 8) | cols1[ 3] ;
++	    stipple[stinn++] = (cols1[ 4] << 24) | (cols1[ 5] << 16) | (cols1[ 6] << 8) | cols1[ 7] ;
++	    stipple[stinn++] = (cols1[ 8] << 24) | (cols1[ 9] << 16) | (cols1[10] << 8) | cols1[11] ;
++	    stipple[stinn++] = (cols1[12] << 24) | (cols1[13] << 16) | (cols1[14] << 8) | cols1[15] ;
++	    stin = stinn;
++	    continue;
++	}
++	stinn = 0;
++	if (data1[0] > 32767)
++	    buf += boxextract(buf, data2, cols2, &doblend);
++	if (data1[0] == 32767 && data1[1] == 32766) {
++	    /* box copy */
++	    i = 12 * (short)data1[3];
++	    doblend = 0;
++	    i += boxextract(buf + i, data1, cols1, &doblend);
++	    if (data1[0] > 32767)
++		boxextract(buf + i, data2, cols2, &doblend);
++	}
++	if (data1[0] == 32767)
++	    continue;
++	if (data1[2] > 32767) {
++	    if (overpaint)
++		continue;
++	    data1[2] = ~data1[2];
++	}
++	if (data1[3] > 32767) {
++	    if (percent == 65536)
++		continue;
++	    data1[3] = ~data1[3];
++	}
++	if (data1[0] > 32767) {
++	    data1[0] = ~data1[0];
++	    for (i = 0; i < 4; i++)
++		data1[i] = (data1[i] * (65536 - percent) + data2[i] * percent) >> 16;
++	    for (i = 0; i < 16; i++)
++		cols1[i] = (cols1[i] * (65536 - percent) + cols2[i] * percent) >> 16;
++	}
++	*(unsigned int *)cols2 = *(unsigned int *)cols1;
++	a = cols2[3];
++	if (a == 0 && !doblend)
++	    continue;
++
++	if (stixs >= 32768) {
++	    xo = xs = (stixs ^ 65535) + data1[0];
++	    xe = stixe ? stixe + data1[0] : data1[2];
++	} else if (stixe >= 32768) {
++	    xs = stixs ? data1[2] - stixs : data1[0];
++	    xe = data1[2] - (stixe ^ 65535);
++	    xo = xe + 1;
++	} else {
++	    xo = xs = stixs;
++	    xe = stixe ? stixe : data1[2];
++	}
++	if (stiys >= 32768) {
++	    yo = ys = (stiys ^ 65535) + data1[1];
++	    ye = stiye ? stiye + data1[1] : data1[3];
++	} else if (stiye >= 32768) {
++	    ys = stiys ? data1[3] - stiys : data1[1];
++	    ye = data1[3] - (stiye ^ 65535);
++	    yo = ye + 1;
++	} else {
++	    yo = ys = stiys;
++	    ye = stiye ? stiye : data1[3];
++	}
++	xo = 32 - (xo & 31);
++	yo = stin - (yo % stin);
++	if (xs < data1[0])
++	    xs = data1[0];
++	if (xe > data1[2])
++	    xe = data1[2];
++	if (ys < data1[1])
++	    ys = data1[1];
++	if (ye > data1[3])
++	    ye = data1[3];
++
++	for (y = ys; y <= ye; y++) {
++	    sti = stipple[(y + yo) % stin];
++	    x = (xs + xo) & 31;
++	    if (x)
++		sti = (sti << x) | (sti >> (32 - x));
++	    if (doblend) {
++		if ((p = data1[3] - data1[1]) != 0)
++		    p = ((y - data1[1]) << 16) / p;
++		for (i = 0; i < 8; i++)
++		    cols2[i + 8] = (cols1[i] * (65536 - p) + cols1[i + 8] * p) >> 16;
++	    }
++	    add = (xs & 1);
++	    add ^= (add ^ y) & 1 ? 1 : 3;		/* 2x2 ordered dithering */
++	    picp = (unsigned short *)(pic + xs * 2 + y * bytes);
++	    for (x = xs; x <= xe; x++) {
++		if (!(sti & 0x80000000)) {
++		    sti <<= 1;
++		    picp++;
++		    add ^= 3;
++		    continue;
++		}
++		sti = (sti << 1) | 1;
++		if (doblend) {
++		    if ((p = data1[2] - data1[0]) != 0)
++			p = ((x - data1[0]) << 16) / p;
++		    for (i = 0; i < 4; i++)
++			cols2[i] = (cols2[i + 8] * (65536 - p) + cols2[i + 12] * p) >> 16;
++		    a = cols2[3];
++		}
++		r = cols2[0];
++		g = cols2[1];
++		b = cols2[2];
++		if (a != 255) {
++		    i = *picp;
++		    r = ((i >> 8 & 0xf8) * (255 - a) + r * a) / 255;
++		    g = ((i >> 3 & 0xfc) * (255 - a) + g * a) / 255;
++		    b = ((i << 3 & 0xf8) * (255 - a) + b * a) / 255;
++		}
++  #define CLAMP(x) ((x) >= 256 ? 255 : (x))
++		i = ((CLAMP(r + add*2+1) & 0xf8) <<  8) |
++		    ((CLAMP(g + add    ) & 0xfc) <<  3) |
++		    ((CLAMP(b + add*2+1)       ) >>  3);
++		*picp++ = i;
++		add ^= 3;
++	    }
++	}
++    }
++}
++
++static int splash_check_jpeg(unsigned char *jpeg, int width, int height, int depth)
++{
++    int size, err;
++    unsigned char *mem;
++
++    size = ((width + 15) & ~15) * ((height + 15) & ~15) * (depth >> 3);
++    mem = vmalloc(size);
++    if (!mem) {
++	printk(KERN_INFO "bootsplash: no memory for decoded picture.\n");
++	return -1;
++    }
++    if (!decdata)
++	decdata = vmalloc(sizeof(*decdata));
++    if ((err = jpeg_decode(jpeg, mem, ((width + 15) & ~15), ((height + 15) & ~15), depth, decdata)))
++	  printk(KERN_INFO "bootsplash: error while decompressing picture: %s (%d)\n",jpg_errors[err - 1], err);
++    vfree(mem);
++    return err ? -1 : 0;
++}
++
++static void splash_free(struct vc_data *vc, struct fb_info *info)
++{
++    if (!vc->vc_splash_data)
++	return;
++    if (info->silent_screen_base)
++	    info->screen_base = info->silent_screen_base;
++    info->silent_screen_base = 0;
++    if (vc->vc_splash_data->splash_silentjpeg)
++	    vfree(vc->vc_splash_data->splash_sboxes);
++    vfree(vc->vc_splash_data);
++    vc->vc_splash_data = 0;
++    info->splash_data = 0;
++}
++
++static int splash_mkpenguin(struct splash_data *data, int pxo, int pyo, int pwi, int phe, int pr, int pg, int pb)
++{
++    unsigned char *buf;
++    int i;
++
++    if (pwi ==0 || phe == 0)
++	return 0;
++    buf = (unsigned char *)data + sizeof(*data);
++    pwi += pxo - 1;
++    phe += pyo - 1;
++    *buf++ = pxo;
++    *buf++ = pxo >> 8;
++    *buf++ = pyo;
++    *buf++ = pyo >> 8;
++    *buf++ = pwi;
++    *buf++ = pwi >> 8;
++    *buf++ = phe;
++    *buf++ = phe >> 8;
++    *buf++ = pr;
++    *buf++ = pg;
++    *buf++ = pb;
++    *buf++ = 0;
++    for (i = 0; i < 12; i++, buf++)
++	*buf = buf[-12];
++    buf[-24] ^= 0xff;
++    buf[-23] ^= 0xff;
++    buf[-1] = 0xff;
++    return 2;
++}
++
++static const int splash_offsets[3][16] = {
++    /* len, unit, size, state, fgcol, col, xo, yo, wi, he
++       boxcnt, ssize, sboxcnt, percent, overok, palcnt */
++    /* V1 */
++    {   20,   -1,   16,    -1,    -1,  -1,  8, 10, 12, 14,
++           -1,    -1,      -1,      -1,     -1,     -1 },
++    /* V2 */
++    {   35,    8,   12,     9,    10,  11, 16, 18, 20, 22,
++           -1,    -1,      -1,      -1,     -1,     -1 },
++    /* V3 */
++    {   38,    8,   12,     9,    10,  11, 16, 18, 20, 22,
++           24,    28,      32,      34,     36,     37 },
++};
++
++#define SPLASH_OFF_LEN     offsets[0]
++#define SPLASH_OFF_UNIT    offsets[1]
++#define SPLASH_OFF_SIZE    offsets[2]
++#define SPLASH_OFF_STATE   offsets[3]
++#define SPLASH_OFF_FGCOL   offsets[4]
++#define SPLASH_OFF_COL     offsets[5]
++#define SPLASH_OFF_XO      offsets[6]
++#define SPLASH_OFF_YO      offsets[7]
++#define SPLASH_OFF_WI      offsets[8]
++#define SPLASH_OFF_HE      offsets[9]
++#define SPLASH_OFF_BOXCNT  offsets[10]
++#define SPLASH_OFF_SSIZE   offsets[11]
++#define SPLASH_OFF_SBOXCNT offsets[12]
++#define SPLASH_OFF_PERCENT offsets[13]
++#define SPLASH_OFF_OVEROK  offsets[14]
++#define SPLASH_OFF_PALCNT  offsets[15]
++
++static inline int splash_getb(unsigned char *pos, int off)
++{
++    return off == -1 ? 0 : pos[off];
++}
++
++static inline int splash_gets(unsigned char *pos, int off)
++{
++    return off == -1 ? 0 : pos[off] | pos[off + 1] << 8;
++}
++
++static inline int splash_geti(unsigned char *pos, int off)
++{
++    return off == -1 ? 0 :
++           pos[off] | pos[off + 1] << 8 | pos[off + 2] << 16 | pos[off + 3] << 24;
++}
++
++static int splash_getraw(unsigned char *start, unsigned char *end, int *update)
++{
++    unsigned char *ndata;
++    int version;
++    int splash_size;
++    int unit;
++    int width, height;
++    int silentsize;
++    int boxcnt;
++    int sboxcnt;
++    int palcnt;
++    int i, len;
++    const int *offsets;
++    struct vc_data *vc;
++    struct fb_info *info;
++    struct splash_data *sd;
++
++    if (update)
++	*update = -1;
++
++    if (!update || start[7] < '2' || start[7] > '3' || splash_geti(start, 12) != (int)0xffffffff)
++	printk(KERN_INFO "bootsplash %s: looking for picture...", SPLASH_VERSION);
++
++    for (ndata = start; ndata < end; ndata++) {
++	if (ndata[0] != 'B' || ndata[1] != 'O' || ndata[2] != 'O' || ndata[3] != 'T')
++	    continue;
++	if (ndata[4] != 'S' || ndata[5] != 'P' || ndata[6] != 'L' || ndata[7] < '1' || ndata[7] > '3')
++	    continue;
++	version = ndata[7] - '0';
++	offsets = splash_offsets[version - 1];
++	len = SPLASH_OFF_LEN;
++	unit = splash_getb(ndata, SPLASH_OFF_UNIT);
++	if (unit >= MAX_NR_CONSOLES)
++	    continue;
++	if (unit) {
++		vc_allocate(unit);
++	}
++	vc = vc_cons[unit].d;
++	info = registered_fb[(int)con2fb_map[unit]];
++	width = info->var.xres;
++	height = info->var.yres;
++	splash_size = splash_geti(ndata, SPLASH_OFF_SIZE);
++	if (splash_size == (int)0xffffffff && version > 1) {
++	    if ((sd = vc->vc_splash_data) != 0) {
++		int up = 0;
++		i = splash_getb(ndata, SPLASH_OFF_STATE);
++		if (i != 255) {
++		    sd->splash_state = i;
++		    up = -1;
++		}
++		i = splash_getb(ndata, SPLASH_OFF_FGCOL);
++		if (i != 255) {
++		    sd->splash_fg_color = i;
++		    up = -1;
++		}
++		i = splash_getb(ndata, SPLASH_OFF_COL);
++		if (i != 255) {
++		    sd->splash_color = i;
++		    up = -1;
++		}
++		boxcnt = sboxcnt = 0;
++		if (ndata + len <= end) {
++		    boxcnt = splash_gets(ndata, SPLASH_OFF_BOXCNT);
++		    sboxcnt = splash_gets(ndata, SPLASH_OFF_SBOXCNT);
++		}
++		if (boxcnt) {
++		    i = splash_gets(ndata, len);
++		    if (boxcnt + i <= sd->splash_boxcount && ndata + len + 2 + boxcnt * 12 <= end) {
++
++			if (splash_geti(ndata, len + 2) != 0x7ffd7fff || !memcmp(ndata + len + 2, sd->splash_boxes + i * 12, 8)) {
++
++			    memcpy(sd->splash_boxes + i * 12, ndata + len + 2, boxcnt * 12);
++			    up |= 1;
++			}
++		    }
++		    len += boxcnt * 12 + 2;
++		}
++		if (sboxcnt) {
++		    i = splash_gets(ndata, len);
++		    if (sboxcnt + i <= sd->splash_sboxcount && ndata + len + 2 + sboxcnt * 12 <= end) {
++			if (splash_geti(ndata, len + 2) != 0x7ffd7fff || !memcmp(ndata + len + 2, sd->splash_sboxes + i * 12, 8)) {
++			    memcpy(sd->splash_sboxes + i * 12, ndata + len + 2, sboxcnt * 12);
++			    up |= 2;
++			}
++		    }
++		}
++		if (update)
++		    *update = up;
++	    }
++	    return unit;
++	}
++	if (splash_size == 0) {
++	    printk(KERN_INFO"...found, freeing memory.\n");
++	    if (vc->vc_splash_data)
++		splash_free(vc, info);
++	    return unit;
++	}
++	boxcnt = splash_gets(ndata, SPLASH_OFF_BOXCNT);
++	palcnt = 3 * splash_getb(ndata, SPLASH_OFF_PALCNT);
++	if (ndata + len + splash_size > end) {
++	    printk(KERN_INFO "...found, but truncated!\n");
++	    return -1;
++	}
++	if (!jpeg_check_size(ndata + len + boxcnt * 12 + palcnt, width, height)) {
++	    ndata += len + splash_size - 1;
++	    continue;
++	}
++	if (splash_check_jpeg(ndata + len + boxcnt * 12 + palcnt, width, height, info->var.bits_per_pixel))
++	    return -1;
++	silentsize = splash_geti(ndata, SPLASH_OFF_SSIZE);
++	if (silentsize)
++	    printk(KERN_INFO" silentjpeg size %d bytes,", silentsize);
++	if (silentsize >= splash_size) {
++	    printk(KERN_INFO " bigger than splashsize!\n");
++	    return -1;
++	}
++	splash_size -= silentsize;
++	if (!splash_usesilent)
++	    silentsize = 0;
++	else if (height * 2 * info->fix.line_length > info->fix.smem_len) {
++	    printk(KERN_INFO " does not fit into framebuffer.\n");
++	    silentsize = 0;
++	}
++	sboxcnt = splash_gets(ndata, SPLASH_OFF_SBOXCNT);
++	if (silentsize) {
++	    unsigned char *simage = ndata + len + splash_size + 12 * sboxcnt;
++	    if (!jpeg_check_size(simage, width, height) ||
++		splash_check_jpeg(simage, width, height, info->var.bits_per_pixel)) {
++		    printk(KERN_INFO " error in silent jpeg.\n");
++		    silentsize = 0;
++		}
++	}
++	if (vc->vc_splash_data)
++	    splash_free(vc, info);
++	vc->vc_splash_data = sd = vmalloc(sizeof(*sd) + splash_size + (version < 3 ? 2 * 12 : 0));
++	if (!sd)
++	    break;
++	sd->splash_silentjpeg = 0;
++	sd->splash_sboxes = 0;
++	sd->splash_sboxcount = 0;
++	if (silentsize) {
++	    sd->splash_silentjpeg = vmalloc(silentsize);
++	    if (sd->splash_silentjpeg) {
++		memcpy(sd->splash_silentjpeg, ndata + len + splash_size, silentsize);
++		sd->splash_sboxes = vc->vc_splash_data->splash_silentjpeg;
++		sd->splash_silentjpeg += 12 * sboxcnt;
++		sd->splash_sboxcount = sboxcnt;
++	    }
++	}
++	sd->splash_state = splash_getb(ndata, SPLASH_OFF_STATE);
++	sd->splash_fg_color = splash_getb(ndata, SPLASH_OFF_FGCOL);
++	sd->splash_color = splash_getb(ndata, SPLASH_OFF_COL);
++	sd->splash_overpaintok = splash_getb(ndata, SPLASH_OFF_OVEROK);
++	sd->splash_text_xo = splash_gets(ndata, SPLASH_OFF_XO);
++	sd->splash_text_yo = splash_gets(ndata, SPLASH_OFF_YO);
++	sd->splash_text_wi = splash_gets(ndata, SPLASH_OFF_WI);
++	sd->splash_text_he = splash_gets(ndata, SPLASH_OFF_HE);
++	sd->splash_percent = splash_gets(ndata, SPLASH_OFF_PERCENT);
++	if (version == 1) {
++	    sd->splash_text_xo *= 8;
++	    sd->splash_text_wi *= 8;
++	    sd->splash_text_yo *= 16;
++	    sd->splash_text_he *= 16;
++	    sd->splash_color    = (splash_default >> 8) & 0x0f;
++	    sd->splash_fg_color = (splash_default >> 4) & 0x0f;
++	    sd->splash_state    = splash_default & 1;
++	}
++	if (sd->splash_text_xo + sd->splash_text_wi > width || sd->splash_text_yo + sd->splash_text_he > height) {
++	    splash_free(vc, info);
++	    printk(KERN_INFO " found, but has oversized text area!\n");
++	    return -1;
++	}
++/*	if (!vc_cons[unit].d || info->fbops != &vesafb_ops) {
++	    splash_free(vc, info);
++	    printk(KERN_INFO " found, but framebuffer can't handle it!\n");
++	    return -1;
++	} */
++	printk(KERN_INFO "...found (%dx%d, %d bytes, v%d).\n", width, height, splash_size, version);
++	if (version == 1) {
++	    printk(KERN_WARNING "bootsplash: Using deprecated v1 header. Updating your splash utility recommended.\n");
++	    printk(KERN_INFO    "bootsplash: Find the latest version at http://www.bootsplash.org/\n");
++	}
++
++	/* fake penguin box for older formats */
++	if (version == 1)
++	    boxcnt = splash_mkpenguin(sd, sd->splash_text_xo + 10, sd->splash_text_yo + 10, sd->splash_text_wi - 20, sd->splash_text_he - 20, 0xf0, 0xf0, 0xf0);
++	else if (version == 2)
++	    boxcnt = splash_mkpenguin(sd, splash_gets(ndata, 24), splash_gets(ndata, 26), splash_gets(ndata, 28), splash_gets(ndata, 30), splash_getb(ndata, 32), splash_getb(ndata, 33), splash_getb(ndata, 34));
++
++	memcpy((char *)sd + sizeof(*sd) + (version < 3 ? boxcnt * 12 : 0), ndata + len, splash_size);
++	sd->splash_boxcount = boxcnt;
++	sd->splash_boxes = (unsigned char *)sd + sizeof(*sd);
++	sd->splash_palette = sd->splash_boxes + boxcnt * 12;
++	sd->splash_jpeg = sd->splash_palette + palcnt;
++	sd->splash_palcnt = palcnt / 3;
++	sd->splash_dosilent = sd->splash_silentjpeg != 0;
++	return unit;
++    }
++    printk(KERN_INFO "...no good signature found.\n");
++    return -1;
++}
++
++int splash_verbose(void) 
++{
++    struct vc_data *vc;
++    struct fb_info *info;
++
++    if (!splash_usesilent)
++        return 0;
++
++    vc = vc_cons[0].d;
++
++    if (!vc || !vc->vc_splash_data || !vc->vc_splash_data->splash_state)
++	return 0;
++    if (fg_console != vc->vc_num)
++	return 0;
++    if (!vc->vc_splash_data->splash_silentjpeg || !vc->vc_splash_data->splash_dosilent)
++	return 0;
++    vc->vc_splash_data->splash_dosilent = 0;
++    info = registered_fb[(int)con2fb_map[0]];
++    if (!info->silent_screen_base)
++	return 0;
++    splashcopy(info->silent_screen_base, info->screen_base, info->var.yres, info->var.xres, info->fix.line_length, info->fix.line_length);
++    info->screen_base = info->silent_screen_base;
++    info->silent_screen_base = 0;
++    return 1;
++}
++
++static void splash_off(struct fb_info *info)
++{
++	if (info->silent_screen_base)
++		info->screen_base = info->silent_screen_base;
++	info->silent_screen_base = 0;
++	info->splash_data = 0;
++	if (info->splash_pic)
++		vfree(info->splash_pic);
++	info->splash_pic = 0;
++	info->splash_pic_size = 0;
++}
++
++int splash_prepare(struct vc_data *vc, struct fb_info *info)
++{
++	int err;
++        int width, height, depth, size, sbytes;
++
++	if (!vc->vc_splash_data || !vc->vc_splash_data->splash_state) {
++		if (decdata)
++			vfree(decdata);
++		decdata = 0;
++		splash_off(info);
++		return -1;
++	}
++
++        width = info->var.xres;
++        height = info->var.yres;
++        depth = info->var.bits_per_pixel;
++	if (depth != 16) {	/* Other targets might need fixing */
++		splash_off(info);
++		return -2;
++	}
++
++	sbytes = ((width + 15) & ~15) * (depth >> 3);
++	size = sbytes * ((height + 15) & ~15);
++	if (size != info->splash_pic_size)
++		splash_off(info);
++	if (!info->splash_pic)
++		info->splash_pic = vmalloc(size);
++
++	if (!info->splash_pic) {
++		printk(KERN_INFO "bootsplash: not enough memory.\n");
++		splash_off(info);
++		return -3;
++	}
++
++	if (!decdata)
++		decdata = vmalloc(sizeof(*decdata));
++
++	if (vc->vc_splash_data->splash_silentjpeg && vc->vc_splash_data->splash_dosilent) {
++		/* fill area after framebuffer with other jpeg */
++		if ((err = jpeg_decode(vc->vc_splash_data->splash_silentjpeg, info->splash_pic, 
++			 ((width + 15) & ~15), ((height + 15) & ~15), depth, decdata))) {
++			printk(KERN_INFO "bootsplash: error while decompressing silent picture: %s (%d)\n", jpg_errors[err - 1], err);
++			if (info->silent_screen_base)
++				info->screen_base = info->silent_screen_base;
++			vc->vc_splash_data->splash_dosilent = 0;
++		} else {
++			if (vc->vc_splash_data->splash_sboxcount)
++				boxit(info->splash_pic, sbytes, vc->vc_splash_data->splash_sboxes, 
++					vc->vc_splash_data->splash_sboxcount, vc->vc_splash_data->splash_percent, 0);
++
++			if (!info->silent_screen_base)
++				info->silent_screen_base = info->screen_base;
++			splashcopy(info->silent_screen_base, info->splash_pic, info->var.yres, info->var.xres, info->fix.line_length, sbytes);
++			info->screen_base = info->silent_screen_base + info->fix.line_length * info->var.yres;
++		}
++	} else if (info->silent_screen_base)
++		info->screen_base = info->silent_screen_base;
++
++	if ((err = jpeg_decode(vc->vc_splash_data->splash_jpeg, info->splash_pic, 
++		 ((width + 15) & ~15), ((height + 15) & ~15), depth, decdata))) {
++		printk(KERN_INFO "bootsplash: error while decompressing picture: %s (%d) .\n", jpg_errors[err - 1], err);
++		splash_off(info);
++		return -4;
++	}
++	info->splash_pic_size = size;
++	info->splash_bytes = sbytes;
++	if (vc->vc_splash_data->splash_boxcount)
++		boxit(info->splash_pic, sbytes, vc->vc_splash_data->splash_boxes, vc->vc_splash_data->splash_boxcount, vc->vc_splash_data->splash_percent, 0);
++	if (vc->vc_splash_data->splash_state)
++		info->splash_data = vc->vc_splash_data;
++	else
++		splash_off(info);
++	return 0;
++}
++
++
++#ifdef CONFIG_PROC_FS
++
++#include <linux/proc_fs.h>
++
++static int splash_read_proc(char *buffer, char **start, off_t offset, int size,
++			int *eof, void *data);
++static int splash_write_proc(struct file *file, const char *buffer,
++			unsigned long count, void *data);
++static int splash_status(struct vc_data *vc);
++static int splash_recolor(struct vc_data *vc);
++static int splash_proc_register(void);
++
++static struct proc_dir_entry *proc_splash;
++
++static int splash_recolor(struct vc_data *vc)
++{
++	if (!vc->vc_splash_data)
++	    return -1;
++	if (!vc->vc_splash_data->splash_state)
++	    return 0;
++	con_remap_def_color(vc, vc->vc_splash_data->splash_color << 4 | vc->vc_splash_data->splash_fg_color);
++	if (fg_console == vc->vc_num) {
++		update_region(vc, vc->vc_origin + vc->vc_size_row * vc->vc_top,
++			      vc->vc_size_row * (vc->vc_bottom - vc->vc_top) / 2);
++	}
++	return 0;
++}
++
++static int splash_status(struct vc_data *vc)
++{
++	struct fb_info *info;
++	printk(KERN_INFO "bootsplash: status on console %d changed to %s\n", vc->vc_num, vc->vc_splash_data && vc->vc_splash_data->splash_state ? "on" : "off");
++
++	info = registered_fb[(int) con2fb_map[vc->vc_num]];
++	if (fg_console == vc->vc_num)
++		splash_prepare(vc, info);
++	if (vc->vc_splash_data && vc->vc_splash_data->splash_state) {
++		con_remap_def_color(vc, vc->vc_splash_data->splash_color << 4 | vc->vc_splash_data->splash_fg_color);
++		/* vc_resize also calls con_switch which resets yscroll */
++		vc_resize(vc, vc->vc_splash_data->splash_text_wi / vc->vc_font.width, vc->vc_splash_data->splash_text_he / vc->vc_font.height);
++		if (fg_console == vc->vc_num) {
++			update_region(vc, vc->vc_origin + vc->vc_size_row * vc->vc_top,
++				      vc->vc_size_row * (vc->vc_bottom - vc->vc_top) / 2);
++			splash_clear_margins(vc->vc_splash_data, vc, info, 0);
++		}
++	} else {
++	  	/* Switch bootsplash off */
++		con_remap_def_color(vc, 0x07);
++		vc_resize(vc, info->var.xres / vc->vc_font.width, info->var.yres / vc->vc_font.height);
++	}
++	return 0;
++}
++
++static int splash_read_proc(char *buffer, char **start, off_t offset, int size,
++			int *eof, void *data)
++{
++	int len = 0;
++	off_t begin = 0;
++	struct vc_data *vc = vc_cons[0].d;
++	struct fb_info *info = registered_fb[(int)con2fb_map[0]];
++	int color = vc->vc_splash_data ? vc->vc_splash_data->splash_color << 4 |
++			vc->vc_splash_data->splash_fg_color : splash_default >> 4;
++	int status = vc->vc_splash_data ? vc->vc_splash_data->splash_state & 1 : 0;
++	len += sprintf(buffer + len, "Splash screen v%s (0x%02x, %dx%d%s): %s\n",
++		        SPLASH_VERSION, color, info->var.xres, info->var.yres,
++			(vc->vc_splash_data ?  vc->vc_splash_data->splash_dosilent : 0)? ", silent" : "",
++					status ? "on" : "off");
++	if (offset >= begin + len)
++		return 0;
++
++	*start = buffer + (begin - offset);
++
++	return (size < begin + len - offset ? size : begin + len - offset);
++}
++
++static int splash_write_proc(struct file *file, const char *buffer,
++		      unsigned long count, void *data)
++{
++        int new, unit;
++	struct vc_data *vc;
++	
++	if (!buffer || !splash_default)
++		return count;
++
++	acquire_console_sem();
++	if (!strncmp(buffer, "show", 4) || !strncmp(buffer, "hide", 4)) {
++		int pe, oldpe;
++
++		vc = vc_cons[0].d;
++		if (buffer[4] == ' ' && buffer[5] == 'p')
++			pe = 0;
++		else if (buffer[4] == '\n')
++			pe = 65535;
++		else
++			pe = simple_strtoul(buffer + 5, NULL, 0);
++		if (pe < 0)
++			pe = 0;
++		if (pe > 65535)
++			pe = 65535;
++		if (*buffer == 'h')
++			pe = 65535 - pe;
++		pe += pe > 32767;
++		if (vc->vc_splash_data && vc->vc_splash_data->splash_percent != pe) {
++			struct fb_info *info;
++			struct fbcon_ops *ops;
++
++			oldpe = vc->vc_splash_data->splash_percent;
++			vc->vc_splash_data->splash_percent = pe;
++			if (fg_console != 0 || !vc->vc_splash_data->splash_state) {
++				release_console_sem();
++				return count;
++			}
++			info = registered_fb[(int) con2fb_map[vc->vc_num]];
++			ops = info->fbcon_par;
++			if (ops->blank_state) {
++				release_console_sem();
++				return count;
++			}
++			if (!vc->vc_splash_data->splash_overpaintok || pe == 65536 || pe < oldpe) {
++				if (splash_hasinter(vc->vc_splash_data->splash_boxes, vc->vc_splash_data->splash_boxcount))
++					splash_status(vc);
++				else
++					splash_prepare(vc, info);
++			} else {
++				if (vc->vc_splash_data->splash_silentjpeg && vc->vc_splash_data->splash_dosilent && info->silent_screen_base)
++					boxit(info->silent_screen_base, info->fix.line_length, vc->vc_splash_data->splash_sboxes, vc->vc_splash_data->splash_sboxcount, vc->vc_splash_data->splash_percent, 1);
++				boxit(info->screen_base, info->fix.line_length, vc->vc_splash_data->splash_boxes, vc->vc_splash_data->splash_boxcount, vc->vc_splash_data->splash_percent, 1);
++			}
++		}
++		release_console_sem();
++		return count;
++	}
++	if (!strncmp(buffer,"silent\n",7) || !strncmp(buffer,"verbose\n",8)) {
++		vc = vc_cons[0].d;
++		if (vc->vc_splash_data && vc->vc_splash_data->splash_silentjpeg) {
++		    if (vc->vc_splash_data->splash_dosilent != (buffer[0] == 's')) {
++			vc->vc_splash_data->splash_dosilent = buffer[0] == 's';
++			splash_status(vc);
++		    }
++		}
++		release_console_sem();
++		return count;
++	}
++	if (!strncmp(buffer,"freesilent\n",11)) {
++		vc = vc_cons[0].d;
++		if (vc->vc_splash_data && vc->vc_splash_data->splash_silentjpeg) {
++		    printk(KERN_INFO "bootsplash: freeing silent jpeg\n");
++		    vc->vc_splash_data->splash_silentjpeg = 0;
++		    vfree(vc->vc_splash_data->splash_sboxes);
++		    vc->vc_splash_data->splash_sboxes = 0;
++		    vc->vc_splash_data->splash_sboxcount = 0;
++		    if (vc->vc_splash_data->splash_dosilent)
++			splash_status(vc);
++		    vc->vc_splash_data->splash_dosilent = 0;
++		}
++		release_console_sem();
++		return count;
++	}
++
++	if (!strncmp(buffer, "BOOTSPL", 7)) {
++	    int up = -1;
++	    unit = splash_getraw((unsigned char *)buffer, (unsigned char *)buffer + count, &up);
++	    if (unit >= 0) {
++		vc = vc_cons[unit].d;
++		if (up == -1)
++		    splash_status(vc);
++		else {
++		    struct fb_info *info = registered_fb[(int) con2fb_map[vc->vc_num]];
++		    struct fbcon_ops *ops = info->fbcon_par;
++		    if (ops->blank_state)
++			up = 0;
++		    if ((up & 2) != 0 && vc->vc_splash_data->splash_silentjpeg && vc->vc_splash_data->splash_dosilent && info->silent_screen_base)
++			boxit(info->silent_screen_base, info->fix.line_length, vc->vc_splash_data->splash_sboxes, vc->vc_splash_data->splash_sboxcount, vc->vc_splash_data->splash_percent, 1);
++		    if ((up & 1) != 0)
++			    boxit(info->screen_base, info->fix.line_length, vc->vc_splash_data->splash_boxes, vc->vc_splash_data->splash_boxcount, vc->vc_splash_data->splash_percent, 1);
++		}
++	    }
++	    release_console_sem();
++	    return count;
++	}
++	vc = vc_cons[0].d;
++	if (!vc->vc_splash_data) {
++		release_console_sem();
++		return count;
++	}
++	if (buffer[0] == 't') {
++	        vc->vc_splash_data->splash_state ^= 1;
++		splash_status(vc);
++		release_console_sem();
++		return count;
++	}
++	new = simple_strtoul(buffer, NULL, 0);
++	if (new > 1) {
++		/* expert user */
++		vc->vc_splash_data->splash_color    = new >> 8 & 0xff;
++		vc->vc_splash_data->splash_fg_color = new >> 4 & 0x0f;
++	}
++	if ((new & 1) == vc->vc_splash_data->splash_state)
++		splash_recolor(vc);
++	else {
++		vc->vc_splash_data->splash_state = new & 1;
++		splash_status(vc);
++	}
++	release_console_sem();
++	return count;
++}
++
++static int splash_proc_register(void)
++{
++	if ((proc_splash = create_proc_entry("splash", 0, 0))) {
++		proc_splash->read_proc = splash_read_proc;
++		proc_splash->write_proc = splash_write_proc;
++		return 0;
++	}
++	return 1;
++}
++
++# if 0
++static int splash_proc_unregister(void)
++{
++	if (proc_splash)
++		remove_proc_entry("splash", 0);
++	return 0;
++}
++# endif
++#endif	/* CONFIG_PROC_FS */
++
++void splash_init(void)
++{
++	struct fb_info *info;
++	struct vc_data *vc;
++	int isramfs = 1;
++	int fd;
++	int len;
++	int max_len = 1024*1024*2;
++	char *mem;
++
++	if (splash_registered)
++		return;
++	vc = vc_cons[0].d;
++	info = registered_fb[0];
++	if (!vc || !info || info->var.bits_per_pixel != 16)
++		return;
++#ifdef CONFIG_PROC_FS
++	splash_proc_register();
++#endif
++	splash_registered = 1;
++	if (vc->vc_splash_data)
++		return;
++	if ((fd = sys_open("/bootsplash", O_RDONLY, 0)) < 0) {
++		isramfs = 0;
++		fd = sys_open("/initrd.image", O_RDONLY, 0);
++	}
++	if (fd < 0)
++		return;
++	if ((len = (int)sys_lseek(fd, (off_t)0, 2)) <= 0) {
++		sys_close(fd);
++		return;
++	}
++	/* Don't look for more than the last 2MB */
++	if (len > max_len) {
++		printk( KERN_INFO "bootsplash: scanning last %dMB of initrd for signature\n",
++				max_len>>20);
++		sys_lseek(fd, (off_t)(len - max_len), 0);
++		len = max_len;
++	} else {
++		sys_lseek(fd, (off_t)0, 0);
++	}
++
++	mem = vmalloc(len);
++	if (mem) {
++		acquire_console_sem();
++		if ((int)sys_read(fd, mem, len) == len && splash_getraw((unsigned char *)mem, (unsigned char *)mem + len, (int *)0) == 0 && vc->vc_splash_data)
++			vc->vc_splash_data->splash_state = splash_default & 1;
++		release_console_sem();
++		vfree(mem);
++	}
++	sys_close(fd);
++	if (isramfs)
++		sys_unlink("/bootsplash");
++	return;
++}
++
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/bootsplash/bootsplash.h linux-2.6.26-rc8/drivers/video/bootsplash/bootsplash.h
+--- linux-2.6.26-rc8.orig/drivers/video/bootsplash/bootsplash.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.26-rc8/drivers/video/bootsplash/bootsplash.h	2008-06-28 11:36:42.000000000 +0200
+@@ -0,0 +1,44 @@
++/* 
++ *    linux/drivers/video/bootsplash/bootsplash.h - splash screen definition.
++ *	
++ *	(w) 2001-2003 by Volker Poplawski, <volker@poplawski.de>
++ * 		    Stefan Reinauer, <stepan@suse.de>
++ * 		    
++ * 		    
++ * 	idea and SuSE screen work by Ken Wimer, <wimer@suse.de>
++ */
++
++#ifndef __BOOTSPLASH_H
++#define __BOOTSPLASH_H
++
++struct fb_info;
++
++/* splash.c */
++extern int splash_prepare(struct vc_data *, struct fb_info *);
++extern void splash_init(void);
++
++/* splash_render.c */
++extern void splash_putcs(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++			const unsigned short *s, int count, int ypos, int xpos);
++extern void splash_putc(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++			int c, int ypos, int xpos);
++extern void splashcopy(u8 *dst, u8 *src, int height, int width, int dstbytes, int srcbytes);
++extern void splash_clear(struct splash_data *sd, struct vc_data *vc, struct fb_info *info, int sy,
++			int sx, int height, int width);
++extern void splash_bmove(struct splash_data *sd, struct vc_data *vc, struct fb_info *info, int sy, 
++			int sx, int dy, int dx, int height, int width);
++extern void splash_clear_margins(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++			int bottom_only);
++extern int splash_cursor(struct splash_data *sd, struct fb_info *info, struct fb_cursor *cursor);
++extern void splash_bmove_redraw(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++			int y, int sx, int dx, int width);
++extern void splash_blank(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++			int blank);
++
++/* vt.c */
++extern void con_remap_def_color(struct vc_data *, int new_color);
++
++extern void acquire_console_sem(void);
++extern void release_console_sem(void);
++
++#endif
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/bootsplash/decode-jpg.c linux-2.6.26-rc8/drivers/video/bootsplash/decode-jpg.c
+--- linux-2.6.26-rc8.orig/drivers/video/bootsplash/decode-jpg.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.26-rc8/drivers/video/bootsplash/decode-jpg.c	2008-06-28 11:36:42.000000000 +0200
+@@ -0,0 +1,957 @@
++/* 
++ *    linux/drivers/video/bootsplash/decode-jpg.c - a tiny jpeg decoder.
++ *      
++ *      (w) August 2001 by Michael Schroeder, <mls@suse.de>
++ *                  
++ */
++
++#include <linux/string.h>
++#include <asm/byteorder.h>
++
++#include "decode-jpg.h"
++
++#define ISHIFT 11
++
++#define IFIX(a) ((int)((a) * (1 << ISHIFT) + .5))
++#define IMULT(a, b) (((a) * (b)) >> ISHIFT)
++#define ITOINT(a) ((a) >> ISHIFT)
++
++#ifndef __P
++# define __P(x) x
++#endif
++
++/* special markers */
++#define M_BADHUFF	-1
++#define M_EOF		0x80
++
++struct in {
++	unsigned char *p;
++	unsigned int bits;
++	int left;
++	int marker;
++
++	int (*func) __P((void *));
++	void *data;
++};
++
++/*********************************/
++struct dec_hufftbl;
++struct enc_hufftbl;
++
++union hufftblp {
++	struct dec_hufftbl *dhuff;
++	struct enc_hufftbl *ehuff;
++};
++
++struct scan {
++	int dc;			/* old dc value */
++
++	union hufftblp hudc;
++	union hufftblp huac;
++	int next;		/* when to switch to next scan */
++
++	int cid;		/* component id */
++	int hv;			/* horiz/vert, copied from comp */
++	int tq;			/* quant tbl, copied from comp */
++};
++
++/*********************************/
++
++#define DECBITS 10		/* seems to be the optimum */
++
++struct dec_hufftbl {
++	int maxcode[17];
++	int valptr[16];
++	unsigned char vals[256];
++	unsigned int llvals[1 << DECBITS];
++};
++
++static void decode_mcus __P((struct in *, int *, int, struct scan *, int *));
++static int dec_readmarker __P((struct in *));
++static void dec_makehuff __P((struct dec_hufftbl *, int *, unsigned char *));
++
++static void setinput __P((struct in *, unsigned char *));
++/*********************************/
++
++#undef PREC
++#define PREC int
++
++static void idctqtab __P((unsigned char *, PREC *));
++static void idct __P((int *, int *, PREC *, PREC, int));
++static void scaleidctqtab __P((PREC *, PREC));
++
++/*********************************/
++
++static void initcol __P((PREC[][64]));
++
++static void col221111 __P((int *, unsigned char *, int));
++static void col221111_16 __P((int *, unsigned char *, int));
++
++/*********************************/
++
++#define M_SOI	0xd8
++#define M_APP0	0xe0
++#define M_DQT	0xdb
++#define M_SOF0	0xc0
++#define M_DHT   0xc4
++#define M_DRI	0xdd
++#define M_SOS	0xda
++#define M_RST0	0xd0
++#define M_EOI	0xd9
++#define M_COM	0xfe
++
++static unsigned char *datap;
++
++static int getbyte(void)
++{
++	return *datap++;
++}
++
++static int getword(void)
++{
++	int c1, c2;
++	c1 = *datap++;
++	c2 = *datap++;
++	return c1 << 8 | c2;
++}
++
++struct comp {
++	int cid;
++	int hv;
++	int tq;
++};
++
++#define MAXCOMP 4
++struct jpginfo {
++	int nc;			/* number of components */
++	int ns;			/* number of scans */
++	int dri;		/* restart interval */
++	int nm;			/* mcus til next marker */
++	int rm;			/* next restart marker */
++};
++
++static struct jpginfo info;
++static struct comp comps[MAXCOMP];
++
++static struct scan dscans[MAXCOMP];
++
++static unsigned char quant[4][64];
++
++static struct dec_hufftbl dhuff[4];
++
++#define dec_huffdc (dhuff + 0)
++#define dec_huffac (dhuff + 2)
++
++static struct in in;
++
++static int readtables(int till)
++{
++	int m, l, i, j, lq, pq, tq;
++	int tc, th, tt;
++
++	for (;;) {
++		if (getbyte() != 0xff)
++			return -1;
++		if ((m = getbyte()) == till)
++			break;
++
++		switch (m) {
++		case 0xc2:
++			return 0;
++
++		case M_DQT:
++			lq = getword();
++			while (lq > 2) {
++				pq = getbyte();
++				tq = pq & 15;
++				if (tq > 3)
++					return -1;
++				pq >>= 4;
++				if (pq != 0)
++					return -1;
++				for (i = 0; i < 64; i++)
++					quant[tq][i] = getbyte();
++				lq -= 64 + 1;
++			}
++			break;
++
++		case M_DHT:
++			l = getword();
++			while (l > 2) {
++				int hufflen[16], k;
++				unsigned char huffvals[256];
++
++				tc = getbyte();
++				th = tc & 15;
++				tc >>= 4;
++				tt = tc * 2 + th;
++				if (tc > 1 || th > 1)
++					return -1;
++				for (i = 0; i < 16; i++)
++					hufflen[i] = getbyte();
++				l -= 1 + 16;
++				k = 0;
++				for (i = 0; i < 16; i++) {
++					for (j = 0; j < hufflen[i]; j++)
++						huffvals[k++] = getbyte();
++					l -= hufflen[i];
++				}
++				dec_makehuff(dhuff + tt, hufflen,
++					     huffvals);
++			}
++			break;
++
++		case M_DRI:
++			l = getword();
++			info.dri = getword();
++			break;
++
++		default:
++			l = getword();
++			while (l-- > 2)
++				getbyte();
++			break;
++		}
++	}
++	return 0;
++}
++
++static void dec_initscans(void)
++{
++	int i;
++
++	info.nm = info.dri + 1;
++	info.rm = M_RST0;
++	for (i = 0; i < info.ns; i++)
++		dscans[i].dc = 0;
++}
++
++static int dec_checkmarker(void)
++{
++	int i;
++
++	if (dec_readmarker(&in) != info.rm)
++		return -1;
++	info.nm = info.dri;
++	info.rm = (info.rm + 1) & ~0x08;
++	for (i = 0; i < info.ns; i++)
++		dscans[i].dc = 0;
++	return 0;
++}
++
++int jpeg_check_size(unsigned char *buf, int width, int height)
++{
++  	datap = buf;
++	getbyte(); 
++	getbyte(); 
++	readtables(M_SOF0);
++	getword();
++	getbyte();
++        if (height != getword() || width != getword())
++		return 0;
++        return 1;
++}
++
++int jpeg_decode(buf, pic, width, height, depth, decdata)
++unsigned char *buf, *pic;
++int width, height, depth;
++struct jpeg_decdata *decdata;
++{
++	int i, j, m, tac, tdc;
++	int mcusx, mcusy, mx, my;
++	int max[6];
++
++	if (!decdata || !buf || !pic)
++		return -1;
++	datap = buf;
++	if (getbyte() != 0xff)
++		return ERR_NO_SOI;
++	if (getbyte() != M_SOI)
++		return ERR_NO_SOI;
++	if (readtables(M_SOF0))
++		return ERR_BAD_TABLES;
++	getword();
++	i = getbyte();
++	if (i != 8)
++		return ERR_NOT_8BIT;
++	if (((getword() + 15) & ~15) != height)
++		return ERR_HEIGHT_MISMATCH;
++	if (((getword() + 15) & ~15) != width)
++		return ERR_WIDTH_MISMATCH;
++	if ((height & 15) || (width & 15))
++		return ERR_BAD_WIDTH_OR_HEIGHT;
++	info.nc = getbyte();
++	if (info.nc > MAXCOMP)
++		return ERR_TOO_MANY_COMPPS;
++	for (i = 0; i < info.nc; i++) {
++		int h, v;
++		comps[i].cid = getbyte();
++		comps[i].hv = getbyte();
++		v = comps[i].hv & 15;
++		h = comps[i].hv >> 4;
++		comps[i].tq = getbyte();
++		if (h > 3 || v > 3)
++			return ERR_ILLEGAL_HV;
++		if (comps[i].tq > 3)
++			return ERR_QUANT_TABLE_SELECTOR;
++	}
++	if (readtables(M_SOS))
++		return ERR_BAD_TABLES;
++	getword();
++	info.ns = getbyte();
++	if (info.ns != 3)
++		return ERR_NOT_YCBCR_221111;
++	for (i = 0; i < 3; i++) {
++		dscans[i].cid = getbyte();
++		tdc = getbyte();
++		tac = tdc & 15;
++		tdc >>= 4;
++		if (tdc > 1 || tac > 1)
++			return ERR_QUANT_TABLE_SELECTOR;
++		for (j = 0; j < info.nc; j++)
++			if (comps[j].cid == dscans[i].cid)
++				break;
++		if (j == info.nc)
++			return ERR_UNKNOWN_CID_IN_SCAN;
++		dscans[i].hv = comps[j].hv;
++		dscans[i].tq = comps[j].tq;
++		dscans[i].hudc.dhuff = dec_huffdc + tdc;
++		dscans[i].huac.dhuff = dec_huffac + tac;
++	}
++	
++	i = getbyte();
++	j = getbyte();
++	m = getbyte();
++	
++	if (i != 0 || j != 63 || m != 0)
++		return ERR_NOT_SEQUENTIAL_DCT;
++	
++	if (dscans[0].cid != 1 || dscans[1].cid != 2 || dscans[2].cid != 3)
++		return ERR_NOT_YCBCR_221111;
++
++	if (dscans[0].hv != 0x22 || dscans[1].hv != 0x11 || dscans[2].hv != 0x11)
++		return ERR_NOT_YCBCR_221111;
++
++	mcusx = width >> 4;
++	mcusy = height >> 4;
++
++
++	idctqtab(quant[dscans[0].tq], decdata->dquant[0]);
++	idctqtab(quant[dscans[1].tq], decdata->dquant[1]);
++	idctqtab(quant[dscans[2].tq], decdata->dquant[2]);
++	initcol(decdata->dquant);
++	setinput(&in, datap);
++
++#if 0
++	/* landing zone */
++	img[len] = 0;
++	img[len + 1] = 0xff;
++	img[len + 2] = M_EOF;
++#endif
++
++	dec_initscans();
++
++	dscans[0].next = 6 - 4;
++	dscans[1].next = 6 - 4 - 1;
++	dscans[2].next = 6 - 4 - 1 - 1;	/* 411 encoding */
++	for (my = 0; my < mcusy; my++) {
++		for (mx = 0; mx < mcusx; mx++) {
++			if (info.dri && !--info.nm)
++				if (dec_checkmarker())
++					return ERR_WRONG_MARKER;
++			
++			decode_mcus(&in, decdata->dcts, 6, dscans, max);
++			idct(decdata->dcts, decdata->out, decdata->dquant[0], IFIX(128.5), max[0]);
++			idct(decdata->dcts + 64, decdata->out + 64, decdata->dquant[0], IFIX(128.5), max[1]);
++			idct(decdata->dcts + 128, decdata->out + 128, decdata->dquant[0], IFIX(128.5), max[2]);
++			idct(decdata->dcts + 192, decdata->out + 192, decdata->dquant[0], IFIX(128.5), max[3]);
++			idct(decdata->dcts + 256, decdata->out + 256, decdata->dquant[1], IFIX(0.5), max[4]);
++			idct(decdata->dcts + 320, decdata->out + 320, decdata->dquant[2], IFIX(0.5), max[5]);
++
++			switch (depth) {
++			case 24:
++				col221111(decdata->out, pic + (my * 16 * mcusx + mx) * 16 * 3, mcusx * 16 * 3);
++				break;
++			case 16:
++				col221111_16(decdata->out, pic + (my * 16 * mcusx + mx) * (16 * 2), mcusx * (16 * 2));
++				break;
++			default:
++				return ERR_DEPTH_MISMATCH;
++				break;
++			}
++		}
++	}
++	
++	m = dec_readmarker(&in);
++	if (m != M_EOI)
++		return ERR_NO_EOI;
++
++	return 0;
++}
++
++/****************************************************************/
++/**************       huffman decoder             ***************/
++/****************************************************************/
++
++static int fillbits __P((struct in *, int, unsigned int));
++static int dec_rec2
++__P((struct in *, struct dec_hufftbl *, int *, int, int));
++
++static void setinput(in, p)
++struct in *in;
++unsigned char *p;
++{
++	in->p = p;
++	in->left = 0;
++	in->bits = 0;
++	in->marker = 0;
++}
++
++static int fillbits(in, le, bi)
++struct in *in;
++int le;
++unsigned int bi;
++{
++	int b, m;
++
++	if (in->marker) {
++		if (le <= 16)
++			in->bits = bi << 16, le += 16;
++		return le;
++	}
++	while (le <= 24) {
++		b = *in->p++;
++		if (b == 0xff && (m = *in->p++) != 0) {
++			if (m == M_EOF) {
++				if (in->func && (m = in->func(in->data)) == 0)
++					continue;
++			}
++			in->marker = m;
++			if (le <= 16)
++				bi = bi << 16, le += 16;
++			break;
++		}
++		bi = bi << 8 | b;
++		le += 8;
++	}
++	in->bits = bi;		/* tmp... 2 return values needed */
++	return le;
++}
++
++static int dec_readmarker(in)
++struct in *in;
++{
++	int m;
++
++	in->left = fillbits(in, in->left, in->bits);
++	if ((m = in->marker) == 0)
++		return 0;
++	in->left = 0;
++	in->marker = 0;
++	return m;
++}
++
++#define LEBI_DCL	int le, bi
++#define LEBI_GET(in)	(le = in->left, bi = in->bits)
++#define LEBI_PUT(in)	(in->left = le, in->bits = bi)
++
++#define GETBITS(in, n) (					\
++  (le < (n) ? le = fillbits(in, le, bi), bi = in->bits : 0),	\
++  (le -= (n)),							\
++  bi >> le & ((1 << (n)) - 1)					\
++)
++
++#define UNGETBITS(in, n) (	\
++  le += (n)			\
++)
++
++
++static int dec_rec2(in, hu, runp, c, i)
++struct in *in;
++struct dec_hufftbl *hu;
++int *runp;
++int c, i;
++{
++	LEBI_DCL;
++
++	LEBI_GET(in);
++	if (i) {
++		UNGETBITS(in, i & 127);
++		*runp = i >> 8 & 15;
++		i >>= 16;
++	} else {
++		for (i = DECBITS; (c = ((c << 1) | GETBITS(in, 1))) >= (hu->maxcode[i]); i++);
++		if (i >= 16) {
++			in->marker = M_BADHUFF;
++			return 0;
++		}
++		i = hu->vals[hu->valptr[i] + c - hu->maxcode[i - 1] * 2];
++		*runp = i >> 4;
++		i &= 15;
++	}
++	if (i == 0) {		/* sigh, 0xf0 is 11 bit */
++		LEBI_PUT(in);
++		return 0;
++	}
++	/* receive part */
++	c = GETBITS(in, i);
++	if (c < (1 << (i - 1)))
++		c += (-1 << i) + 1;
++	LEBI_PUT(in);
++	return c;
++}
++
++#define DEC_REC(in, hu, r, i)	 (	\
++  r = GETBITS(in, DECBITS),		\
++  i = hu->llvals[r],			\
++  i & 128 ?				\
++    (					\
++      UNGETBITS(in, i & 127),		\
++      r = i >> 8 & 15,			\
++      i >> 16				\
++    )					\
++  :					\
++    (					\
++      LEBI_PUT(in),			\
++      i = dec_rec2(in, hu, &r, r, i),	\
++      LEBI_GET(in),			\
++      i					\
++    )					\
++)
++
++static void decode_mcus(in, dct, n, sc, maxp)
++struct in *in;
++int *dct;
++int n;
++struct scan *sc;
++int *maxp;
++{
++	struct dec_hufftbl *hu;
++	int i, r, t;
++	LEBI_DCL;
++
++	memset(dct, 0, n * 64 * sizeof(*dct));
++	LEBI_GET(in);
++	while (n-- > 0) {
++		hu = sc->hudc.dhuff;
++		*dct++ = (sc->dc += DEC_REC(in, hu, r, t));
++
++		hu = sc->huac.dhuff;
++		i = 63;
++		while (i > 0) {
++			t = DEC_REC(in, hu, r, t);
++			if (t == 0 && r == 0) {
++				dct += i;
++				break;
++			}
++			dct += r;
++			*dct++ = t;
++			i -= r + 1;
++		}
++		*maxp++ = 64 - i;
++		if (n == sc->next)
++			sc++;
++	}
++	LEBI_PUT(in);
++}
++
++static void dec_makehuff(hu, hufflen, huffvals)
++struct dec_hufftbl *hu;
++int *hufflen;
++unsigned char *huffvals;
++{
++	int code, k, i, j, d, x, c, v;
++	for (i = 0; i < (1 << DECBITS); i++)
++		hu->llvals[i] = 0;
++
++/*
++ * llvals layout:
++ *
++ * value v already known, run r, backup u bits:
++ *  vvvvvvvvvvvvvvvv 0000 rrrr 1 uuuuuuu
++ * value unknown, size b bits, run r, backup u bits:
++ *  000000000000bbbb 0000 rrrr 0 uuuuuuu
++ * value and size unknown:
++ *  0000000000000000 0000 0000 0 0000000
++ */
++	code = 0;
++	k = 0;
++	for (i = 0; i < 16; i++, code <<= 1) {	/* sizes */
++		hu->valptr[i] = k;
++		for (j = 0; j < hufflen[i]; j++) {
++			hu->vals[k] = *huffvals++;
++			if (i < DECBITS) {
++				c = code << (DECBITS - 1 - i);
++				v = hu->vals[k] & 0x0f;	/* size */
++				for (d = 1 << (DECBITS - 1 - i); --d >= 0;) {
++					if (v + i < DECBITS) {	/* both fit in table */
++						x = d >> (DECBITS - 1 - v -
++							  i);
++						if (v && x < (1 << (v - 1)))
++							x += (-1 << v) + 1;
++						x = x << 16 | (hu-> vals[k] & 0xf0) << 4 |
++							(DECBITS - (i + 1 + v)) | 128;
++					} else
++						x = v << 16 | (hu-> vals[k] & 0xf0) << 4 |
++						        (DECBITS - (i + 1));
++					hu->llvals[c | d] = x;
++				}
++			}
++			code++;
++			k++;
++		}
++		hu->maxcode[i] = code;
++	}
++	hu->maxcode[16] = 0x20000;	/* always terminate decode */
++}
++
++/****************************************************************/
++/**************             idct                  ***************/
++/****************************************************************/
++
++#define ONE ((PREC)IFIX(1.))
++#define S2  ((PREC)IFIX(0.382683432))
++#define C2  ((PREC)IFIX(0.923879532))
++#define C4  ((PREC)IFIX(0.707106781))
++
++#define S22 ((PREC)IFIX(2 * 0.382683432))
++#define C22 ((PREC)IFIX(2 * 0.923879532))
++#define IC4 ((PREC)IFIX(1 / 0.707106781))
++
++#define C3IC1 ((PREC)IFIX(0.847759065))	/* c3/c1 */
++#define C5IC1 ((PREC)IFIX(0.566454497))	/* c5/c1 */
++#define C7IC1 ((PREC)IFIX(0.198912367))	/* c7/c1 */
++
++#define XPP(a,b) (t = a + b, b = a - b, a = t)
++#define XMP(a,b) (t = a - b, b = a + b, a = t)
++#define XPM(a,b) (t = a + b, b = b - a, a = t)
++
++#define ROT(a,b,s,c) (	t = IMULT(a + b, s),	\
++			a = IMULT(a, c - s) + t,	\
++			b = IMULT(b, c + s) - t)
++
++#define IDCT		\
++(			\
++  XPP(t0, t1),		\
++  XMP(t2, t3),		\
++  t2 = IMULT(t2, IC4) - t3,	\
++  XPP(t0, t3),		\
++  XPP(t1, t2),		\
++  XMP(t4, t7),		\
++  XPP(t5, t6),		\
++  XMP(t5, t7),		\
++  t5 = IMULT(t5, IC4),	\
++  ROT(t4, t6, S22, C22),\
++  t6 -= t7,		\
++  t5 -= t6,		\
++  t4 -= t5,		\
++  XPP(t0, t7),		\
++  XPP(t1, t6),		\
++  XPP(t2, t5),		\
++  XPP(t3, t4)		\
++)
++
++static unsigned char zig2[64] = {
++	0, 2, 3, 9, 10, 20, 21, 35,
++	14, 16, 25, 31, 39, 46, 50, 57,
++	5, 7, 12, 18, 23, 33, 37, 48,
++	27, 29, 41, 44, 52, 55, 59, 62,
++	15, 26, 30, 40, 45, 51, 56, 58,
++	1, 4, 8, 11, 19, 22, 34, 36,
++	28, 42, 43, 53, 54, 60, 61, 63,
++	6, 13, 17, 24, 32, 38, 47, 49
++};
++
++void idct(in, out, quant, off, max)
++int *in;
++int *out;
++PREC *quant;
++PREC off;
++int max;
++{
++	PREC t0, t1, t2, t3, t4, t5, t6, t7, t;
++	PREC tmp[64], *tmpp;
++	int i, j;
++	unsigned char *zig2p;
++
++	t0 = off;
++	if (max == 1) {
++		t0 += in[0] * quant[0];
++		for (i = 0; i < 64; i++)
++			out[i] = ITOINT(t0);
++		return;
++	}
++	zig2p = zig2;
++	tmpp = tmp;
++	for (i = 0; i < 8; i++) {
++		j = *zig2p++;
++		t0 += in[j] * quant[j];
++		j = *zig2p++;
++		t5 = in[j] * quant[j];
++		j = *zig2p++;
++		t2 = in[j] * quant[j];
++		j = *zig2p++;
++		t7 = in[j] * quant[j];
++		j = *zig2p++;
++		t1 = in[j] * quant[j];
++		j = *zig2p++;
++		t4 = in[j] * quant[j];
++		j = *zig2p++;
++		t3 = in[j] * quant[j];
++		j = *zig2p++;
++		t6 = in[j] * quant[j];
++		IDCT;
++		tmpp[0 * 8] = t0;
++		tmpp[1 * 8] = t1;
++		tmpp[2 * 8] = t2;
++		tmpp[3 * 8] = t3;
++		tmpp[4 * 8] = t4;
++		tmpp[5 * 8] = t5;
++		tmpp[6 * 8] = t6;
++		tmpp[7 * 8] = t7;
++		tmpp++;
++		t0 = 0;
++	}
++	for (i = 0; i < 8; i++) {
++		t0 = tmp[8 * i + 0];
++		t1 = tmp[8 * i + 1];
++		t2 = tmp[8 * i + 2];
++		t3 = tmp[8 * i + 3];
++		t4 = tmp[8 * i + 4];
++		t5 = tmp[8 * i + 5];
++		t6 = tmp[8 * i + 6];
++		t7 = tmp[8 * i + 7];
++		IDCT;
++		out[8 * i + 0] = ITOINT(t0);
++		out[8 * i + 1] = ITOINT(t1);
++		out[8 * i + 2] = ITOINT(t2);
++		out[8 * i + 3] = ITOINT(t3);
++		out[8 * i + 4] = ITOINT(t4);
++		out[8 * i + 5] = ITOINT(t5);
++		out[8 * i + 6] = ITOINT(t6);
++		out[8 * i + 7] = ITOINT(t7);
++	}
++}
++
++static unsigned char zig[64] = {
++	0, 1, 5, 6, 14, 15, 27, 28,
++	2, 4, 7, 13, 16, 26, 29, 42,
++	3, 8, 12, 17, 25, 30, 41, 43,
++	9, 11, 18, 24, 31, 40, 44, 53,
++	10, 19, 23, 32, 39, 45, 52, 54,
++	20, 22, 33, 38, 46, 51, 55, 60,
++	21, 34, 37, 47, 50, 56, 59, 61,
++	35, 36, 48, 49, 57, 58, 62, 63
++};
++
++static PREC aaidct[8] = {
++	IFIX(0.3535533906), IFIX(0.4903926402),
++	IFIX(0.4619397663), IFIX(0.4157348062),
++	IFIX(0.3535533906), IFIX(0.2777851165),
++	IFIX(0.1913417162), IFIX(0.0975451610)
++};
++
++
++static void idctqtab(qin, qout)
++unsigned char *qin;
++PREC *qout;
++{
++	int i, j;
++
++	for (i = 0; i < 8; i++)
++		for (j = 0; j < 8; j++)
++			qout[zig[i * 8 + j]] = qin[zig[i * 8 + j]] * 
++			  			IMULT(aaidct[i], aaidct[j]);
++}
++
++static void scaleidctqtab(q, sc)
++PREC *q;
++PREC sc;
++{
++	int i;
++
++	for (i = 0; i < 64; i++)
++		q[i] = IMULT(q[i], sc);
++}
++
++/****************************************************************/
++/**************          color decoder            ***************/
++/****************************************************************/
++
++#define ROUND
++
++/*
++ * YCbCr Color transformation:
++ *
++ * y:0..255   Cb:-128..127   Cr:-128..127
++ *
++ *      R = Y                + 1.40200 * Cr
++ *      G = Y - 0.34414 * Cb - 0.71414 * Cr
++ *      B = Y + 1.77200 * Cb
++ *
++ * =>
++ *      Cr *= 1.40200;
++ *      Cb *= 1.77200;
++ *      Cg = 0.19421 * Cb + .50937 * Cr;
++ *      R = Y + Cr;
++ *      G = Y - Cg;
++ *      B = Y + Cb;
++ *
++ * =>
++ *      Cg = (50 * Cb + 130 * Cr + 128) >> 8;
++ */
++
++static void initcol(q)
++PREC q[][64];
++{
++	scaleidctqtab(q[1], IFIX(1.77200));
++	scaleidctqtab(q[2], IFIX(1.40200));
++}
++
++/* This is optimized for the stupid sun SUNWspro compiler. */
++#define STORECLAMP(a,x)				\
++(						\
++  (a) = (x),					\
++  (unsigned int)(x) >= 256 ? 			\
++    ((a) = (x) < 0 ? 0 : 255)			\
++  :						\
++    0						\
++)
++
++#define CLAMP(x) ((unsigned int)(x) >= 256 ? ((x) < 0 ? 0 : 255) : (x))
++
++#ifdef ROUND
++
++#define CBCRCG(yin, xin)			\
++(						\
++  cb = outc[0 +yin*8+xin],			\
++  cr = outc[64+yin*8+xin],			\
++  cg = (50 * cb + 130 * cr + 128) >> 8		\
++)
++
++#else
++
++#define CBCRCG(yin, xin)			\
++(						\
++  cb = outc[0 +yin*8+xin],			\
++  cr = outc[64+yin*8+xin],			\
++  cg = (3 * cb + 8 * cr) >> 4			\
++)
++
++#endif
++
++#define PIC(yin, xin, p, xout)			\
++(						\
++  y = outy[(yin) * 8 + xin],			\
++  STORECLAMP(p[(xout) * 3 + 0], y + cr),	\
++  STORECLAMP(p[(xout) * 3 + 1], y - cg),	\
++  STORECLAMP(p[(xout) * 3 + 2], y + cb)		\
++)
++
++#ifdef __LITTLE_ENDIAN
++#define PIC_16(yin, xin, p, xout, add)		 \
++(                                                \
++  y = outy[(yin) * 8 + xin],                     \
++  y = ((CLAMP(y + cr + add*2+1) & 0xf8) <<  8) | \
++      ((CLAMP(y - cg + add    ) & 0xfc) <<  3) | \
++      ((CLAMP(y + cb + add*2+1)       ) >>  3),  \
++  p[(xout) * 2 + 0] = y & 0xff,                  \
++  p[(xout) * 2 + 1] = y >> 8                     \
++)
++#else
++#ifdef CONFIG_PPC
++#define PIC_16(yin, xin, p, xout, add)		 \
++(                                                \
++  y = outy[(yin) * 8 + xin],                     \
++  y = ((CLAMP(y + cr + add*2+1) & 0xf8) <<  7) | \
++      ((CLAMP(y - cg + add*2+1) & 0xf8) <<  2) | \
++      ((CLAMP(y + cb + add*2+1)       ) >>  3),  \
++  p[(xout) * 2 + 0] = y >> 8,                    \
++  p[(xout) * 2 + 1] = y & 0xff                   \
++)
++#else
++#define PIC_16(yin, xin, p, xout, add)	 	 \
++(                                                \
++  y = outy[(yin) * 8 + xin],                     \
++  y = ((CLAMP(y + cr + add*2+1) & 0xf8) <<  8) | \
++      ((CLAMP(y - cg + add    ) & 0xfc) <<  3) | \
++      ((CLAMP(y + cb + add*2+1)       ) >>  3),  \
++  p[(xout) * 2 + 0] = y >> 8,                    \
++  p[(xout) * 2 + 1] = y & 0xff                   \
++)
++#endif
++#endif
++
++#define PIC221111(xin)						\
++(								\
++  CBCRCG(0, xin),						\
++  PIC(xin / 4 * 8 + 0, (xin & 3) * 2 + 0, pic0, xin * 2 + 0),	\
++  PIC(xin / 4 * 8 + 0, (xin & 3) * 2 + 1, pic0, xin * 2 + 1),	\
++  PIC(xin / 4 * 8 + 1, (xin & 3) * 2 + 0, pic1, xin * 2 + 0),	\
++  PIC(xin / 4 * 8 + 1, (xin & 3) * 2 + 1, pic1, xin * 2 + 1)	\
++)
++
++#define PIC221111_16(xin)                                               \
++(                                                               	\
++  CBCRCG(0, xin),                                               	\
++  PIC_16(xin / 4 * 8 + 0, (xin & 3) * 2 + 0, pic0, xin * 2 + 0, 3),     \
++  PIC_16(xin / 4 * 8 + 0, (xin & 3) * 2 + 1, pic0, xin * 2 + 1, 0),     \
++  PIC_16(xin / 4 * 8 + 1, (xin & 3) * 2 + 0, pic1, xin * 2 + 0, 1),     \
++  PIC_16(xin / 4 * 8 + 1, (xin & 3) * 2 + 1, pic1, xin * 2 + 1, 2)      \
++)
++
++static void col221111(out, pic, width)
++int *out;
++unsigned char *pic;
++int width;
++{
++	int i, j, k;
++	unsigned char *pic0, *pic1;
++	int *outy, *outc;
++	int cr, cg, cb, y;
++
++	pic0 = pic;
++	pic1 = pic + width;
++	outy = out;
++	outc = out + 64 * 4;
++	for (i = 2; i > 0; i--) {
++		for (j = 4; j > 0; j--) {
++			for (k = 0; k < 8; k++) {
++				PIC221111(k);
++			}
++			outc += 8;
++			outy += 16;
++			pic0 += 2 * width;
++			pic1 += 2 * width;
++		}
++		outy += 64 * 2 - 16 * 4;
++	}
++}
++
++static void col221111_16(out, pic, width)
++int *out;
++unsigned char *pic;
++int width;
++{
++	int i, j, k;
++	unsigned char *pic0, *pic1;
++	int *outy, *outc;
++	int cr, cg, cb, y;
++
++	pic0 = pic;
++	pic1 = pic + width;
++	outy = out;
++	outc = out + 64 * 4;
++	for (i = 2; i > 0; i--) {
++		for (j = 4; j > 0; j--) {
++			for (k = 0; k < 8; k++) {
++			    PIC221111_16(k);
++			}
++			outc += 8;
++			outy += 16;
++			pic0 += 2 * width;
++			pic1 += 2 * width;
++		}
++		outy += 64 * 2 - 16 * 4;
++	}
++}
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/bootsplash/decode-jpg.h linux-2.6.26-rc8/drivers/video/bootsplash/decode-jpg.h
+--- linux-2.6.26-rc8.orig/drivers/video/bootsplash/decode-jpg.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.26-rc8/drivers/video/bootsplash/decode-jpg.h	2008-06-28 11:36:42.000000000 +0200
+@@ -0,0 +1,35 @@
++/*
++ *    linux/drivers/video/bootsplash/decode-jpg.h - a tiny jpeg decoder.
++ *
++ *      (w) August 2001 by Michael Schroeder, <mls@suse.de>
++ */
++
++#ifndef __DECODE_JPG_H
++#define __DECODE_JPG_H
++
++#define ERR_NO_SOI 1
++#define ERR_NOT_8BIT 2
++#define ERR_HEIGHT_MISMATCH 3
++#define ERR_WIDTH_MISMATCH 4
++#define ERR_BAD_WIDTH_OR_HEIGHT 5
++#define ERR_TOO_MANY_COMPPS 6
++#define ERR_ILLEGAL_HV 7
++#define ERR_QUANT_TABLE_SELECTOR 8
++#define ERR_NOT_YCBCR_221111 9
++#define ERR_UNKNOWN_CID_IN_SCAN 10
++#define ERR_NOT_SEQUENTIAL_DCT 11
++#define ERR_WRONG_MARKER 12
++#define ERR_NO_EOI 13
++#define ERR_BAD_TABLES 14
++#define ERR_DEPTH_MISMATCH 15
++
++struct jpeg_decdata {
++	int dcts[6 * 64 + 16];
++	int out[64 * 6];
++	int dquant[3][64];
++};
++
++extern int jpeg_decode(unsigned char *, unsigned char *, int, int, int, struct jpeg_decdata *);
++extern int jpeg_check_size(unsigned char *, int, int);
++
++#endif
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/bootsplash/Kconfig linux-2.6.26-rc8/drivers/video/bootsplash/Kconfig
+--- linux-2.6.26-rc8.orig/drivers/video/bootsplash/Kconfig	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.26-rc8/drivers/video/bootsplash/Kconfig	2008-06-28 11:36:42.000000000 +0200
+@@ -0,0 +1,17 @@
++#
++# Bootsplash configuration
++#
++
++menu "Bootsplash configuration"
++
++config BOOTSPLASH
++	bool "Bootup splash screen"
++	depends on FRAMEBUFFER_CONSOLE && FB_VESA
++	default n
++        ---help---
++          This option enables the Linux bootsplash screen. For more 
++          information on the bootsplash screen have a look at 
++          http://www.bootsplash.org/.
++          If you are unsure, say N
++endmenu
++
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/bootsplash/Makefile linux-2.6.26-rc8/drivers/video/bootsplash/Makefile
+--- linux-2.6.26-rc8.orig/drivers/video/bootsplash/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.26-rc8/drivers/video/bootsplash/Makefile	2008-06-28 11:36:42.000000000 +0200
+@@ -0,0 +1,5 @@
++# Makefile for the Linux bootsplash
++
++obj-$(CONFIG_BOOTSPLASH)		+= bootsplash.o
++obj-$(CONFIG_BOOTSPLASH)		+= decode-jpg.o
++obj-$(CONFIG_BOOTSPLASH)		+= render.o
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/bootsplash/render.c linux-2.6.26-rc8/drivers/video/bootsplash/render.c
+--- linux-2.6.26-rc8.orig/drivers/video/bootsplash/render.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.26-rc8/drivers/video/bootsplash/render.c	2008-06-28 11:36:42.000000000 +0200
+@@ -0,0 +1,315 @@
++/* 
++ *    linux/drivers/video/bootsplash/render.c - splash screen render functions.
++ */
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/fb.h>
++#include <linux/vt_kern.h>
++#include <asm/irq.h>
++#include <asm/system.h>
++
++#include "../console/fbcon.h"
++#include "bootsplash.h"
++
++void splash_putcs(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++			const unsigned short *s, int count, int ypos, int xpos)
++{
++	unsigned short charmask = vc->vc_hi_font_mask ? 0x1ff : 0xff;
++	int bgshift = (vc->vc_hi_font_mask) ? 13 : 12;
++	int fgshift = (vc->vc_hi_font_mask) ? 9 : 8;
++	u8 *src;
++        u8 *dst, *splashsrc;
++	unsigned int d, x, y;
++	u32 dd, fgx, bgx;
++	u16 c = scr_readw(s);
++
++	int fg_color, bg_color, transparent;
++        fg_color = attr_fgcol(fgshift, c);
++        bg_color = attr_bgcol(bgshift, c);
++	transparent = sd->splash_color == bg_color;
++	xpos = xpos * vc->vc_font.width + sd->splash_text_xo;
++	ypos = ypos * vc->vc_font.height + sd->splash_text_yo;
++        splashsrc = (u8 *)(info->splash_pic + ypos * info->splash_bytes + xpos * 2);
++        dst = (u8 *)(info->screen_base + ypos * info->fix.line_length + xpos * 2);
++
++	fgx = ((u32 *)info->pseudo_palette)[fg_color];
++	if (transparent && sd->splash_color == 15) {
++	    if (fgx == 0xffea)
++		fgx = 0xfe4a;
++	    else if (fgx == 0x57ea)
++		fgx = 0x0540;
++	    else if (fgx == 0xffff)
++		fgx = 0x52aa;
++	}
++	bgx = ((u32 *)info->pseudo_palette)[bg_color];
++	d = 0;
++
++	while (count--) {
++	    c = scr_readw(s++);
++	    src = vc->vc_font.data + (c & charmask) * vc->vc_font.height * ((vc->vc_font.width + 7) >> 3);
++
++	    for (y = 0; y < vc->vc_font.height; y++) {
++		for (x = 0; x < vc->vc_font.width; x += 2) {
++		    if ((x & 7) == 0)
++			d = *src++;
++		    if (d & 0x80)
++			dd = fgx;
++		    else
++			dd = transparent ? *(u16 *)splashsrc : bgx;
++		    splashsrc += 2;
++		    if (d & 0x40)
++			dd |= fgx << 16;
++		    else
++			dd |= (transparent ? *(u16 *)splashsrc : bgx) << 16;
++		    splashsrc += 2;
++		    d <<= 2;
++		    fb_writel(dd, dst);
++		    dst += 4;
++		}
++		dst += info->fix.line_length - vc->vc_font.width * 2;
++		splashsrc += info->splash_bytes - vc->vc_font.width * 2;
++	    }
++	    dst -= info->fix.line_length * vc->vc_font.height - vc->vc_font.width * 2;
++	    splashsrc -= info->splash_bytes * vc->vc_font.height - vc->vc_font.width * 2;
++	}
++}
++
++static void splash_renderc(struct splash_data *sd, struct fb_info *info, int fg_color, int bg_color, u8 *src, int ypos, int xpos, int height, int width)
++{
++	int transparent = sd->splash_color == bg_color;
++	u32 dd, fgx, bgx;
++	u8 *dst, *splashsrc;
++	unsigned int d, x, y;
++
++	splashsrc = (u8 *)(info->splash_pic + ypos * info->splash_bytes + xpos * 2);
++	dst = (u8 *)(info->screen_base + ypos * info->fix.line_length + xpos * 2);
++	fgx = ((u32 *)info->pseudo_palette)[fg_color];
++	if (transparent && sd->splash_color == 15) {
++	    if (fgx == 0xffea)
++		fgx = 0xfe4a;
++	    else if (fgx == 0x57ea)
++		fgx = 0x0540;
++	    else if (fgx == 0xffff)
++		fgx = 0x52aa;
++	}
++	bgx = ((u32 *)info->pseudo_palette)[bg_color];
++	d = 0;
++	for (y = 0; y < height; y++) {
++	    for (x = 0; x < width; x += 2) {
++		if ((x & 7) == 0)
++		    d = *src++;
++		if (d & 0x80)
++		    dd = fgx;
++		else
++		    dd = transparent ? *(u16 *)splashsrc : bgx;
++		splashsrc += 2;
++		if (d & 0x40)
++		    dd |= fgx << 16;
++		else
++		    dd |= (transparent ? *(u16 *)splashsrc : bgx) << 16;
++		splashsrc += 2;
++		d <<= 2;
++		fb_writel(dd, dst);
++		dst += 4;
++	    }
++	    dst += info->fix.line_length - width * 2;
++	    splashsrc += info->splash_bytes - width * 2;
++	}
++}
++
++void splash_putc(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++                      int c, int ypos, int xpos)
++{
++	unsigned short charmask = vc->vc_hi_font_mask ? 0x1ff : 0xff;
++	int bgshift = (vc->vc_hi_font_mask) ? 13 : 12;
++	int fgshift = (vc->vc_hi_font_mask) ? 9 : 8;
++	u8 *src = vc->vc_font.data + (c & charmask) * vc->vc_font.height * ((vc->vc_font.width + 7) >> 3);
++	xpos = xpos * vc->vc_font.width + sd->splash_text_xo;
++	ypos = ypos * vc->vc_font.height + sd->splash_text_yo;
++	splash_renderc(sd, info, attr_fgcol(fgshift, c), attr_bgcol(bgshift, c), src, ypos, xpos, vc->vc_font.height, vc->vc_font.width);
++}
++
++void splashcopy(u8 *dst, u8 *src, int height, int width, int dstbytes, int srcbytes)
++{
++	int i;
++
++	while (height-- > 0) {
++	    u32 *p = (u32 *)dst;
++	    u32 *q = (u32 *)src;
++	    for (i=0; i < width/4; i++) {
++		fb_writel(*q++,p++);
++		fb_writel(*q++,p++);
++	    }
++	    if (width & 2)
++		fb_writel(*q++,p++);
++	    if (width & 1)
++		fb_writew(*(u16*)q,(u16*)p);
++	    dst += dstbytes;
++	    src += srcbytes;
++	}
++}
++
++static void splashset(u8 *dst, int height, int width, int dstbytes, u32 bgx) {
++	int i;
++
++	bgx |= bgx << 16;
++	while (height-- > 0) {
++	    u32 *p = (u32 *)dst;
++	    for (i=0; i < width/4; i++) {
++		fb_writel(bgx,p++);
++		fb_writel(bgx,p++);
++	    }
++	    if (width & 2)
++		fb_writel(bgx,p++);
++	    if (width & 1)
++		fb_writew(bgx,(u16*)p);
++	    dst += dstbytes;
++	}
++}
++
++static void splashfill(struct fb_info *info, int sy, int sx, int height, int width) {
++	splashcopy((u8 *)(info->screen_base + sy * info->fix.line_length + sx * 2), (u8 *)(info->splash_pic + sy * info->splash_bytes + sx * 2), height, width, info->fix.line_length, info->splash_bytes);
++}
++
++void splash_clear(struct splash_data *sd, struct vc_data *vc, struct fb_info *info, int sy,
++			int sx, int height, int width)
++{
++	int bgshift = (vc->vc_hi_font_mask) ? 13 : 12;
++	int bg_color = attr_bgcol_ec(bgshift, vc, info);
++	int transparent = sd->splash_color == bg_color;
++	u32 bgx;
++	u8 *dst;
++
++	sy = sy * vc->vc_font.height + sd->splash_text_yo;
++	sx = sx * vc->vc_font.width + sd->splash_text_xo;
++	height *= vc->vc_font.height;
++	width *= vc->vc_font.width;
++	if (transparent) {
++		splashfill(info, sy, sx, height, width);
++		return;
++	}
++        dst = (u8 *)(info->screen_base + sy * info->fix.line_length + sx * 2);
++	bgx = ((u32 *)info->pseudo_palette)[bg_color];
++	splashset(dst, height, width, info->fix.line_length, bgx);
++}
++
++void splash_bmove(struct splash_data *sd, struct vc_data *vc, struct fb_info *info, int sy, 
++		int sx, int dy, int dx, int height, int width)
++{
++	struct fb_copyarea area;
++
++	area.sx = sx * vc->vc_font.width;
++	area.sy = sy * vc->vc_font.height;
++	area.dx = dx * vc->vc_font.width;
++	area.dy = dy * vc->vc_font.height;
++	area.sx += sd->splash_text_xo;
++	area.sy += sd->splash_text_yo;
++	area.dx += sd->splash_text_xo;
++	area.dy += sd->splash_text_yo;
++	area.height = height * vc->vc_font.height;
++	area.width = width * vc->vc_font.width;
++
++	info->fbops->fb_copyarea(info, &area);
++}
++
++void splash_clear_margins(struct splash_data *sd, struct vc_data *vc, struct fb_info *info,
++				int bottom_only)
++{
++	unsigned int tw = vc->vc_cols*vc->vc_font.width;
++	unsigned int th = vc->vc_rows*vc->vc_font.height;
++	
++	if (!bottom_only) {
++		/* top margin */
++		splashfill(info, 0, 0, sd->splash_text_yo, info->var.xres);
++		/* left margin */
++		splashfill(info, sd->splash_text_yo, 0, th, sd->splash_text_xo);
++		/* right margin */
++		splashfill(info, sd->splash_text_yo, sd->splash_text_xo + tw, th, info->var.xres - sd->splash_text_xo - tw);
++
++	}
++	splashfill(info, sd->splash_text_yo + th, 0, info->var.yres - sd->splash_text_yo - th, info->var.xres);
++}
++
++int splash_cursor(struct splash_data *sd, struct fb_info *info, struct fb_cursor *cursor)
++{
++	int i;
++	unsigned int dsize, s_pitch;
++
++	if (info->state != FBINFO_STATE_RUNNING)
++		return 0;
++	
++	s_pitch = (cursor->image.width + 7) >> 3;
++        dsize = s_pitch * cursor->image.height;
++        if (cursor->enable) {
++                switch (cursor->rop) {
++                case ROP_XOR:
++                        for (i = 0; i < dsize; i++)
++                                info->fb_cursordata[i] = cursor->image.data[i] ^ cursor->mask[i];
++                        break;
++                case ROP_COPY:
++                default:
++                        for (i = 0; i < dsize; i++)
++                                info->fb_cursordata[i] = cursor->image.data[i] & cursor->mask[i];
++                        break;
++                }
++        } else if (info->fb_cursordata != cursor->image.data)
++                memcpy(info->fb_cursordata, cursor->image.data, dsize);
++	cursor->image.data = info->fb_cursordata;
++	splash_renderc(sd, info, cursor->image.fg_color, cursor->image.bg_color, (u8 *)info->fb_cursordata, cursor->image.dy + sd->splash_text_yo, cursor->image.dx + sd->splash_text_xo, cursor->image.height, cursor->image.width);
++	return 0;
++}
++
++void splash_bmove_redraw(struct splash_data *sd, struct vc_data *vc, struct fb_info *info, int y, int sx, int dx, int width)
++{
++	unsigned short *d = (unsigned short *) (vc->vc_origin + vc->vc_size_row * y + dx * 2);
++	unsigned short *s = d + (dx - sx);
++	unsigned short *start = d;
++	unsigned short *ls = d;
++	unsigned short *le = d + width;
++	unsigned short c;
++	int x = dx;
++	unsigned short attr = 1;
++
++	do {
++		c = scr_readw(d);
++		if (attr != (c & 0xff00)) {
++			attr = c & 0xff00;
++			if (d > start) {
++				splash_putcs(sd, vc, info, start, d - start, y, x);
++				x += d - start;
++				start = d;
++			}
++		}
++		if (s >= ls && s < le && c == scr_readw(s)) {
++			if (d > start) {
++				splash_putcs(sd, vc, info, start, d - start, y, x);
++				x += d - start + 1;
++				start = d + 1;
++			} else {
++				x++;
++				start++;
++			}
++		}
++		s++;
++		d++;
++	} while (d < le);
++	if (d > start)
++		splash_putcs(sd, vc, info, start, d - start, y, x);
++}
++
++void splash_blank(struct splash_data *sd, struct vc_data *vc, struct fb_info *info, int blank)
++{
++	if (blank) {
++		if (info->silent_screen_base)
++		    splashset((u8 *)info->silent_screen_base, info->var.yres, info->var.xres, info->fix.line_length, 0);
++		splashset((u8 *)info->screen_base, info->var.yres, info->var.xres, info->fix.line_length, 0);
++	} else {
++		if (info->silent_screen_base)
++			splash_prepare(vc, info);
++		splash_clear_margins(vc->vc_splash_data, vc, info, 0);
++		/* no longer needed, done in fbcon_blank */
++		/* update_screen(vc->vc_num); */
++	}
++}
++
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/console/bitblit.c linux-2.6.26-rc8/drivers/video/console/bitblit.c
+--- linux-2.6.26-rc8.orig/drivers/video/console/bitblit.c	2008-06-28 11:36:22.000000000 +0200
++++ linux-2.6.26-rc8/drivers/video/console/bitblit.c	2008-06-28 11:36:42.000000000 +0200
+@@ -17,6 +17,9 @@
+ #include <linux/console.h>
+ #include <asm/types.h>
+ #include "fbcon.h"
++#ifdef CONFIG_BOOTSPLASH
++#include "../bootsplash/bootsplash.h"
++#endif
+ 
+ /*
+  * Accelerated handlers.
+@@ -47,6 +50,13 @@
+ {
+ 	struct fb_copyarea area;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	if (info->splash_data) {
++		splash_bmove(info->splash_data, vc, info,
++			sy, sx, dy, dx, height, width);
++		return;
++	}
++#endif
+ 	area.sx = sx * vc->vc_font.width;
+ 	area.sy = sy * vc->vc_font.height;
+ 	area.dx = dx * vc->vc_font.width;
+@@ -63,6 +73,13 @@
+ 	int bgshift = (vc->vc_hi_font_mask) ? 13 : 12;
+ 	struct fb_fillrect region;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	if (info->splash_data) {
++		splash_clear(info->splash_data, vc, info,
++						sy, sx, height, width);
++		return;
++	}
++#endif
+ 	region.color = attr_bgcol_ec(bgshift, vc, info);
+ 	region.dx = sx * vc->vc_font.width;
+ 	region.dy = sy * vc->vc_font.height;
+@@ -160,6 +177,13 @@
+ 	image.height = vc->vc_font.height;
+ 	image.depth = 1;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	if (info->splash_data) {
++		splash_putcs(info->splash_data, vc, info, s, count, yy, xx);
++		return;
++	}
++#endif
++
+ 	if (attribute) {
+ 		buf = kmalloc(cellsize, GFP_KERNEL);
+ 		if (!buf)
+@@ -213,6 +237,13 @@
+ 	unsigned int bs = info->var.yres - bh;
+ 	struct fb_fillrect region;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	if (info->splash_data) {
++		splash_clear_margins(info->splash_data, vc, info, bottom_only);
++		return;
++	}
++#endif
++
+ 	region.color = attr_bgcol_ec(bgshift, vc, info);
+ 	region.rop = ROP_COPY;
+ 
+@@ -379,6 +410,14 @@
+ 	cursor.image.depth = 1;
+ 	cursor.rop = ROP_XOR;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	if (info->splash_data) {
++		splash_cursor(info->splash_data, info, &cursor);
++		ops->cursor_reset = 0;
++		return;
++	}
++#endif
++
+ 	if (info->fbops->fb_cursor)
+ 		err = info->fbops->fb_cursor(info, &cursor);
+ 
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/console/fbcon.c linux-2.6.26-rc8/drivers/video/console/fbcon.c
+--- linux-2.6.26-rc8.orig/drivers/video/console/fbcon.c	2008-06-28 11:36:22.000000000 +0200
++++ linux-2.6.26-rc8/drivers/video/console/fbcon.c	2008-06-28 11:36:42.000000000 +0200
+@@ -91,6 +91,10 @@
+ 
+ #include "fbcon.h"
+ 
++#ifdef CONFIG_BOOTSPLASH
++#include "../bootsplash/bootsplash.h"
++#endif
++
+ #ifdef FBCONDEBUG
+ #  define DPRINTK(fmt, args...) printk(KERN_DEBUG "%s: " fmt, __func__ , ## args)
+ #else
+@@ -104,8 +108,7 @@
+ };
+ 
+ static struct display fb_display[MAX_NR_CONSOLES];
+-
+-static signed char con2fb_map[MAX_NR_CONSOLES];
++signed char con2fb_map[MAX_NR_CONSOLES];
+ static signed char con2fb_map_boot[MAX_NR_CONSOLES];
+ #ifndef MODULE
+ static int logo_height;
+@@ -580,6 +583,10 @@
+ 	for (i = first_fb_vc; i <= last_fb_vc; i++)
+ 		con2fb_map[i] = info_idx;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	splash_init();
++#endif
++
+ 	err = take_over_console(&fb_con, first_fb_vc, last_fb_vc,
+ 				fbcon_is_default);
+ 
+@@ -1181,6 +1188,16 @@
+ 	new_rows = FBCON_SWAP(ops->rotate, info->var.yres, info->var.xres);
+ 	new_cols /= vc->vc_font.width;
+ 	new_rows /= vc->vc_font.height;
++
++#ifdef CONFIG_BOOTSPLASH
++	if (vc->vc_splash_data && vc->vc_splash_data->splash_state) {
++		new_cols = vc->vc_splash_data->splash_text_wi / vc->vc_font.width;
++		new_rows = vc->vc_splash_data->splash_text_he / vc->vc_font.height;
++		logo = 0;
++		con_remap_def_color(vc, vc->vc_splash_data->splash_color << 4 | vc->vc_splash_data->splash_fg_color);
++	}
++#endif
++				
+ 	vc_resize(vc, new_cols, new_rows);
+ 
+ 	/*
+@@ -1880,6 +1897,10 @@
+ 			fbcon_softback_note(vc, t, count);
+ 		if (logo_shown >= 0)
+ 			goto redraw_up;
++#ifdef CONFIG_BOOTSPLASH
++		if (info->splash_data)
++			goto redraw_up;
++#endif
+ 		switch (p->scrollmode) {
+ 		case SCROLL_MOVE:
+ 			fbcon_redraw_blit(vc, info, p, t, b - t - count,
+@@ -1970,6 +1991,10 @@
+ 	case SM_DOWN:
+ 		if (count > vc->vc_rows)	/* Maximum realistic size */
+ 			count = vc->vc_rows;
++#ifdef CONFIG_BOOTSPLASH
++		if (info->splash_data)
++			goto redraw_down;
++#endif
+ 		if (logo_shown >= 0)
+ 			goto redraw_down;
+ 		switch (p->scrollmode) {
+@@ -2123,6 +2148,14 @@
+ 		}
+ 		return;
+ 	}
++
++#ifdef CONFIG_BOOTSPLASH
++	if (info->splash_data && sy == dy && height == 1) {
++		/* must use slower redraw bmove to keep background pic intact */
++		splash_bmove_redraw(info->splash_data, vc, info, sy, sx, dx, width);
++		return;
++	}
++#endif
+ 	ops->bmove(vc, info, real_y(p, sy), sx, real_y(p, dy), dx,
+ 		   height, width);
+ }
+@@ -2231,6 +2264,10 @@
+ 	info = registered_fb[con2fb_map[vc->vc_num]];
+ 	ops = info->fbcon_par;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	splash_prepare(vc, info);
++#endif
++
+ 	if (softback_top) {
+ 		if (softback_lines)
+ 			fbcon_set_origin(vc);
+@@ -2358,6 +2395,12 @@
+ {
+ 	struct fb_event event;
+ 
++#ifdef CONFIG_BOOTSPLASH
++	if (info->splash_data) {
++		splash_blank(info->splash_data, vc, info, blank);
++		return;
++	}
++#endif
+ 	if (blank) {
+ 		unsigned short charmask = vc->vc_hi_font_mask ?
+ 			0x1ff : 0xff;
+@@ -2564,10 +2607,19 @@
+ 	if (resize) {
+ 		int cols, rows;
+ 
++		u32 xres = info->var.xres, yres = info->var.yres;
+ 		cols = FBCON_SWAP(ops->rotate, info->var.xres, info->var.yres);
+ 		rows = FBCON_SWAP(ops->rotate, info->var.yres, info->var.xres);
+ 		cols /= w;
+ 		rows /= h;
++
++#ifdef CONFIG_BOOTSPLASH
++		if (info->splash_data) {
++			xres = info->splash_data->splash_text_wi;
++			yres = info->splash_data->splash_text_he;
++		}
++#endif
++					
+ 		vc_resize(vc, cols, rows);
+ 		if (CON_IS_VISIBLE(vc) && softback_buf)
+ 			fbcon_update_softback(vc);
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/console/fbcon.h linux-2.6.26-rc8/drivers/video/console/fbcon.h
+--- linux-2.6.26-rc8.orig/drivers/video/console/fbcon.h	2008-06-28 11:36:22.000000000 +0200
++++ linux-2.6.26-rc8/drivers/video/console/fbcon.h	2008-06-28 11:36:42.000000000 +0200
+@@ -25,6 +25,34 @@
+     *    low-level frame buffer device
+     */
+ 
++#ifdef CONFIG_BOOTSPLASH
++struct splash_data {
++    int splash_state;			/* show splash? */
++    int splash_color;			/* transparent color */
++    int splash_fg_color;		/* foreground color */
++    int splash_width;			/* width of image */
++    int splash_height;			/* height of image */
++    int splash_text_xo;			/* text area origin */
++    int splash_text_yo;
++    int splash_text_wi;			/* text area size */ 
++    int splash_text_he;
++    int splash_showtext;		/* silent/verbose mode */
++    int splash_boxcount;
++    int splash_percent;
++    int splash_overpaintok;		/* is it ok to overpaint boxes */
++    int splash_palcnt;
++    char *oldscreen_base;		/* pointer to top of virtual screen */
++    unsigned char *splash_boxes;
++    unsigned char *splash_jpeg;		/* jpeg */
++    unsigned char *splash_palette;	/* palette for 8-bit */
++
++    int splash_dosilent;		/* show silent jpeg */
++    unsigned char *splash_silentjpeg;
++    unsigned char *splash_sboxes;
++    int splash_sboxcount;
++};
++#endif
++
+ struct display {
+     /* Filled in by the low-level console driver */
+     const u_char *fontdata;
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/Kconfig linux-2.6.26-rc8/drivers/video/Kconfig
+--- linux-2.6.26-rc8.orig/drivers/video/Kconfig	2008-06-28 11:36:22.000000000 +0200
++++ linux-2.6.26-rc8/drivers/video/Kconfig	2008-06-28 11:36:42.000000000 +0200
+@@ -2000,4 +2000,8 @@
+ 	source "drivers/video/logo/Kconfig"
+ endif
+ 
++if FB
++	source "drivers/video/bootsplash/Kconfig"
++endif
++
+ endmenu
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/Makefile linux-2.6.26-rc8/drivers/video/Makefile
+--- linux-2.6.26-rc8.orig/drivers/video/Makefile	2008-06-28 11:36:22.000000000 +0200
++++ linux-2.6.26-rc8/drivers/video/Makefile	2008-06-28 11:36:42.000000000 +0200
+@@ -14,6 +14,7 @@
+ obj-$(CONFIG_VT)		  += console/
+ obj-$(CONFIG_LOGO)		  += logo/
+ obj-y				  += backlight/ display/
++obj-$(CONFIG_BOOTSPLASH)	  += bootsplash/
+ 
+ obj-$(CONFIG_FB_CFB_FILLRECT)  += cfbfillrect.o
+ obj-$(CONFIG_FB_CFB_COPYAREA)  += cfbcopyarea.o
+diff -Naur linux-2.6.26-rc8.orig/drivers/video/vesafb.c linux-2.6.26-rc8/drivers/video/vesafb.c
+--- linux-2.6.26-rc8.orig/drivers/video/vesafb.c	2008-06-28 11:36:22.000000000 +0200
++++ linux-2.6.26-rc8/drivers/video/vesafb.c	2008-06-28 11:36:42.000000000 +0200
+@@ -174,7 +174,10 @@
+ 	return err;
+ }
+ 
+-static struct fb_ops vesafb_ops = {
++#ifndef CONFIG_BOOTSPLASH
++static
++#endif
++struct fb_ops vesafb_ops = {
+ 	.owner		= THIS_MODULE,
+ 	.fb_setcolreg	= vesafb_setcolreg,
+ 	.fb_pan_display	= vesafb_pan_display,
+@@ -258,6 +261,11 @@
+ 	 *                 option to simply use size_total as that
+ 	 *                 wastes plenty of kernel address space. */
+ 	size_remap  = size_vmode * 2;
++	
++#ifdef CONFIG_BOOTSPLASH
++	size_remap *= 2;	/* some more for the images */
++#endif
++
+ 	if (vram_remap)
+ 		size_remap = vram_remap * 1024 * 1024;
+ 	if (size_remap < size_vmode)
+diff -Naur linux-2.6.26-rc8.orig/include/linux/console_struct.h linux-2.6.26-rc8/include/linux/console_struct.h
+--- linux-2.6.26-rc8.orig/include/linux/console_struct.h	2008-06-28 11:36:26.000000000 +0200
++++ linux-2.6.26-rc8/include/linux/console_struct.h	2008-06-28 11:36:42.000000000 +0200
+@@ -107,6 +107,11 @@
+ 	struct vc_data **vc_display_fg;		/* [!] Ptr to var holding fg console for this display */
+ 	unsigned long	vc_uni_pagedir;
+ 	unsigned long	*vc_uni_pagedir_loc;  /* [!] Location of uni_pagedir variable for this console */
++	
++#ifdef CONFIG_BOOTSPLASH
++        struct splash_data *vc_splash_data;
++#endif
++
+ 	/* additional information is in vt_kern.h */
+ };
+ 
+diff -Naur linux-2.6.26-rc8.orig/include/linux/fb.h linux-2.6.26-rc8/include/linux/fb.h
+--- linux-2.6.26-rc8.orig/include/linux/fb.h	2008-06-28 11:36:26.000000000 +0200
++++ linux-2.6.26-rc8/include/linux/fb.h	2008-06-28 11:36:42.000000000 +0200
+@@ -846,6 +846,14 @@
+ 	void *fbcon_par;                /* fbcon use-only private area */
+ 	/* From here on everything is device dependent */
+ 	void *par;	
++#ifdef CONFIG_BOOTSPLASH
++	struct splash_data *splash_data;
++	unsigned char *splash_pic;
++	int splash_pic_size;
++	int splash_bytes;
++	char *silent_screen_base;	/* real screen base */
++	char fb_cursordata[64];
++#endif
+ };
+ 
+ #ifdef MODULE

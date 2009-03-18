@@ -1,0 +1,46 @@
+#!/bin/sh
+
+. config/options
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+mkdir -p $STAMPS_NOARCH/$1
+STAMP=$STAMPS_NOARCH/$1/get
+
+if [ -f $PKG_DIR/url ]; then
+  if [ -f $STAMP ]; then
+    [ ! $STAMP -ot $PKG_DIR/url -o $AUTOUPDATE = no ] && exit 0
+    if [ $AUTOUPDATE = ask ]; then
+      echo "Package $1 is not up to date."
+      echo -n "Do you want to download an up to date version ? (y/n) "
+      read UPDATE
+      [ "$UPDATE" = y ] || exit 0
+    fi
+  fi
+
+  $SCRIPTS/checkdeps get
+
+  rm -f $STAMP
+
+  printf "%${INDENT}c GET      $1\n" >&$SILENT_OUT
+  export INDENT=$((${INDENT:-1}+$INDENT_SIZE))
+
+  [ "$VERBOSE" != yes ] && WGET_OPT=-q
+
+  mkdir -p $SOURCES/$1
+
+  for i in `sed s%GEEXBOX_SRCS%$GEEXBOX_SRCS% $PKG_DIR/url`; do
+    NBWGET=1
+    until wget --passive-ftp -c $WGET_OPT -P $SOURCES/$1 $i; do
+      NBWGET=$(($NBWGET+1))
+      if [ $NBWGET -gt 10 ]; then
+        echo -e "\nCant't get $1 sources : $i\n Try later !!"
+        exit 1
+      fi
+    done
+  done
+
+  cp -p $PKG_DIR/url $STAMP
+  rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
+  rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
+fi

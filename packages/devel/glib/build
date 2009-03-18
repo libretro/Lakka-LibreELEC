@@ -1,0 +1,38 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/build toolchain
+$SCRIPTS/build libiconv
+$SCRIPTS/build glib-host
+
+export ac_cv_func_posix_getpwuid_r=yes
+export ac_cv_func_posix_getgrgid_r=yes
+export glib_cv_stack_grows=no
+export glib_cv_uscore=no
+
+cd $BUILD/$1*
+
+mkdir -p .build-target
+
+cd .build-target
+../configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --prefix=/usr \
+            --sysconfdir=/etc \
+            --localstatedir=/var \
+            --enable-shared \
+            --disable-static \
+            --with-libiconv=gnu \
+            --enable-debug=no \
+            --disable-man \
+            --disable-rebuilds \
+            --disable-gtk-doc \
+
+make
+
+$STRIP `find . -name *.so*`
+
+make DESTDIR=$SYSROOT_PREFIX install
+
+cp g*-2.0.pc $SYSROOT_PREFIX/usr/lib/pkgconfig

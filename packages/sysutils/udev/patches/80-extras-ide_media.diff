@@ -1,0 +1,267 @@
+diff -ruNp udev-103~/extras/ide_media/Makefile udev-103/extras/ide_media/Makefile
+--- udev-103~/extras/ide_media/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ udev-103/extras/ide_media/Makefile	2006-11-02 12:57:27.000000000 +0000
+@@ -0,0 +1,67 @@
++# Copyright © 2005 Canonical Ltd.
++# Author: Scott James Remnant <scott@ubuntu.com>
++#
++# Released under the GNU General Public License, version 2.
++
++PROG = ide_media
++OBJ =
++HEADERS =
++GEN_HEADERS =
++MAN_PAGES =
++
++prefix =
++etcdir =	${prefix}/etc
++sbindir =	${prefix}/sbin
++usrbindir =	${prefix}/usr/bin
++usrsbindir =	${prefix}/usr/sbin
++libudevdir =	${prefix}/lib/udev
++mandir =	${prefix}/usr/share/man
++configdir =	${etcdir}/udev/
++
++INSTALL = /usr/bin/install -c
++INSTALL_PROGRAM = ${INSTALL}
++INSTALL_DATA  = ${INSTALL} -m 644
++INSTALL_SCRIPT = ${INSTALL_PROGRAM}
++
++all: $(PROG) $(MAN_PAGES)
++.PHONY: all
++.DEFAULT: all
++
++%.o: %.c $(GEN_HEADERS)
++	$(E) "  CC      " $@
++	$(Q) $(CC) -c $(CFLAGS) $< -o $@
++
++$(PROG): %: $(HEADERS) %.o $(OBJS)
++	$(E) "  LD      " $@
++	$(Q) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
++
++# man pages
++%.8: %.xml
++	$(E) "  XMLTO   " $@
++	$(Q) xmlto man $?
++.PRECIOUS: %.8
++
++clean:
++	$(E) "  CLEAN   "
++	$(Q) rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
++.PHONY: clean
++
++install-bin: all
++	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
++.PHONY: install-bin
++
++uninstall-bin:
++	- rm $(DESTDIR)$(libudevdir)/$(PROG)
++.PHONY: uninstall-bin
++
++install-man:
++	$(INSTALL_DATA) -D $(PROG).8 $(DESTDIR)$(mandir)/man8/$(PROG).8
++.PHONY: uninstall-man
++
++uninstall-man:
++	-rm -f $(DESTDIR)$(mandir)/man8/$(PROG).8
++.PHONY: uninstall-man
++
++install-config:
++	@echo "no config file to install"
++.PHONY: install-config
+diff -ruNp udev-103~/extras/ide_media/ide_media.8 udev-103/extras/ide_media/ide_media.8
+--- udev-103~/extras/ide_media/ide_media.8	1970-01-01 01:00:00.000000000 +0100
++++ udev-103/extras/ide_media/ide_media.8	2006-11-02 12:57:27.000000000 +0000
+@@ -0,0 +1,29 @@
++.TH IDE_MEDIA 8 "November 2005" "" "Linux Administrator's Manual"
++.SH NAME
++ide_media \- udev callout to identify media of IDE device
++.SH SYNOPSIS
++.BI ide_media
++[\fI--export\fP] \fIdevpath\fP
++.SH DESCRIPTION
++.B ide_media
++is normally called from a udev rule to identify the media type of an IDE
++device.  Udev can use this information to assign appropriate permissions to
++the device or load an appropriate module.
++.SH USAGE
++.B ide_media
++takes a path under /sys, if not given it uses the value of the
++.I DEVPATH
++environment variable instead.  It then prints the information chosen by the
++options.
++.SH OPTIONS
++The following command-line switches are supported to specify what
++ide_media should print:
++.TP
++.BI --export
++print media type as IDE_MEDIA environment variable for use with an
++IMPORT{program} rule.
++.RE
++.SH SEE ALSO
++.BR udev (8)
++.SH AUTHORS
++Scott James Remnant <scott@ubuntu.com>
+diff -ruNp udev-103~/extras/ide_media/ide_media.c udev-103/extras/ide_media/ide_media.c
+--- udev-103~/extras/ide_media/ide_media.c	1970-01-01 01:00:00.000000000 +0100
++++ udev-103/extras/ide_media/ide_media.c	2006-11-02 12:57:27.000000000 +0000
+@@ -0,0 +1,159 @@
++/*
++ * ide_media - identify media type of an IDE device
++ *
++ * Copyright © 2006 Canonical Ltd.
++ * Author: Scott James Remnant <scott@ubuntu.com>
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License as published by the
++ *	Free Software Foundation version 2 of the License.
++ *
++ *	This program is distributed in the hope that it will be useful, but
++ *	WITHOUT ANY WARRANTY; without even the implied warranty of
++ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ *	General Public License for more details.
++ *
++ *	You should have received a copy of the GNU General Public License along
++ *	with this program; if not, write to the Free Software Foundation, Inc.,
++ *	51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
++ *
++ */
++
++#include <sys/types.h>
++#include <sys/stat.h>
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <fcntl.h>
++
++#include "../../udev.h"
++
++#ifdef USE_LOG
++void log_message(int priority, const char *format, ...)
++{
++	va_list args;
++	static int udev_log = -1;
++
++	if (udev_log == -1) {
++		const char *value;
++
++		value = getenv("UDEV_LOG");
++		if (value)
++			udev_log = log_priority(value);
++		else
++			udev_log = LOG_ERR;
++	}
++
++	if (priority > udev_log)
++		return;
++
++	va_start(args, format);
++	vsyslog(priority, format, args);
++	va_end(args);
++}
++#endif
++
++int main(int argc, char *argv[])
++{
++	struct stat buf;
++	const char *devpath = NULL, *name, *ptr;
++	char filename[PATH_SIZE], media[256];
++	int ret = 0, export = 0;
++	int host, drive, dev;
++	int i, fd, len;
++
++	logging_init("ide_media");
++
++	for (i = 1; i < argc; i++) {
++		if (strcmp(argv[i], "--export") == 0) {
++			export = 1;
++		} else {
++			devpath = argv[i];
++		}
++	}
++
++	if (!devpath) {
++		devpath = getenv("DEVPATH");
++		if (!devpath) {
++			err("no devpath specified and DEVPATH not set");
++			ret = 1;
++			goto exit;
++		}
++	}
++
++	name = strstr(devpath, "/ide");
++	if (name)
++		name = strchr(name + 1, '/');
++	if (!name) {
++		info("devpath is not ide device");
++		ret = 1;
++		goto exit;
++	}
++
++	ptr = strchr(name, '.');
++	if (!ptr) {
++		err("device name contains no drive");
++		ret = 1;
++		goto exit;
++	}
++
++	name += 1;
++	host = atoi(name);
++	drive = atoi(ptr + 1);
++
++	/* evil, evil, evil */
++	dev = drive + host * 2;
++	if (dev >= 26) {
++		err("ide device %d out of range", dev);
++		ret = 1;
++		goto exit;
++	}
++
++	snprintf(filename, sizeof(filename), "/proc/ide/ide%d/hd%c/media",
++		 host, dev + 'a');
++	filename[sizeof(filename)-1] = '\0';
++
++	/* hang around for /proc to catch up */
++	for (i = 100; i; i--) {
++		if (stat(filename, &buf) == 0)
++			break;
++
++		usleep(30000);
++	}
++
++	fd = open(filename, O_RDONLY);
++	if (!fd) {
++		err("unable to open '%s'", filename);
++		ret = 1;
++		goto exit;
++	}
++
++	len = read(fd, media, sizeof(media));
++	if (len <= 0) {
++		err("unable to read from '%s'", filename);
++		ret = 1;
++		goto close;
++	}
++
++	media[len] = '\0';
++	if (media[len-1] == '\n')
++		media[len-1] = '\0';
++
++	if (export) {
++		printf("IDE_HOST=%d\n", host);
++		printf("IDE_DRIVE=%d\n", drive);
++		printf("IDE_DEVICE=hd%x\n", dev);
++		printf("IDE_MEDIA=%s\n", media);
++	} else {
++		printf("%s\n", media);
++	}
++
++close:
++	close(fd);
++exit:
++	logging_close();
++	return ret;
++}

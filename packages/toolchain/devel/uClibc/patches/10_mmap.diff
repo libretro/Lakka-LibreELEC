@@ -1,0 +1,24 @@
+"The problem is that offset is first shortened from 64 bits to 32 bits
+and then it is re-expended to 64 bits to do the comparison.
+As off_t is a signed type, ((off_t) offset) is negative and the expansion
+to 64 bits keep the sign giving a negative 64 bits number which is
+obviously not equal to offset." - Aurel
+
+more information at: http://www.uclibc.org/lists/uclibc/2003-May/006192.html
+
+diff -Naur uClibc.orig/libc/sysdeps/linux/common/mmap64.c uClibc/libc/sysdeps/linux/common/mmap64.c
+--- uClibc.orig/libc/sysdeps/linux/common/mmap64.c	2006-03-18 09:38:13.000000000 +0200
++++ uClibc/libc/sysdeps/linux/common/mmap64.c	2006-03-18 09:38:17.000000000 +0200
+@@ -29,12 +29,6 @@
+ 
+ __ptr_t mmap64(__ptr_t addr, size_t len, int prot, int flags, int fd, __off64_t offset)
+ {
+-	if (offset != (off_t) offset ||
+-	    (offset + len) != (off_t) (offset + len)) {
+-		__set_errno(EINVAL);
+-		return MAP_FAILED;
+-	}
+-
+ 	return mmap(addr, len, prot, flags, fd, (off_t) offset);
+ }
+ 

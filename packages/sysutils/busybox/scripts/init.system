@@ -1,0 +1,52 @@
+#!/bin/sh
+
+  /bin/busybox test ! -e /proc/cpuinfo && \
+    /bin/busybox mount -t proc none /proc
+  /bin/busybox test ! -e /sys/kernel && \
+    /bin/busybox mount -t sysfs none /sys
+
+  export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+  mount -t ramfs none /dev
+  mount -t ramfs none /var
+  mknod /dev/null c 1 3
+  mknod /dev/fb0 c 29 0
+
+  BOOT=`cat /proc/cmdline | sed 's/.*boot=// ; s/ .*//'`
+  DISK=`cat /proc/cmdline | sed 's/.*disk=// ; s/ .*//'`
+  #VERSION=`cat /proc/version | cut -f3 -d" "`
+
+
+# make variable directory structure
+  mkdir -p /var/run
+  mkdir -p /var/log
+  mkdir -p /var/lock
+  mkdir -p /var/tmp
+  mkdir -p /var/mnt
+
+# setting hostname
+  echo openelec > /proc/sys/kernel/hostname
+
+# copying config into ram
+  [ -f "/usr/config/etc.tar.lzma" ] && \
+  tar xaf "/usr/config/etc.tar.lzma" -C /storage
+
+  count=0
+  for script in /etc/init.d/*; do
+    grep -q -e "^# runlevels:.*$1" $script && count=$(($count+1));
+  done
+
+  RET=0
+
+  for script in /etc/init.d/*; do
+    if grep -q -e "^# runlevels:.*$1" $script; then
+      /bin/sh $script
+      S_RET=$?
+      test $S_RET -ge $RET && RET=$S_RET
+    fi
+  done
+
+  exit $RET
+
+echo "starting emergency shell"
+  exec /bin/busybox sh </dev/tty1 >/dev/tty1 2>&1

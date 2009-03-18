@@ -1,0 +1,23 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/unpack linux
+
+UCLIBC=`ls -d $BUILD/$1*`
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+sed -i -e "s|^HOSTCC[[:space:]]*=.*$|HOSTCC = $HOST_CC|" \
+       -e "s|^CROSS[[:space:]]*=.*$|CROSS = $TARGET_PREFIX|" \
+       $UCLIBC/Rules.mak
+
+# Mandatory for GCC >= 4.3.x
+echo 'CFLAGS+=-isystem $(shell $(CC) -print-file-name=include-fixed)' >> $UCLIBC/Rules.mak
+
+sed -e "s%^KERNEL_HEADERS=.*%KERNEL_HEADERS=\"$(kernel_path)/dest/include\"%" \
+    $PKG_DIR/config/$1.$TARGET_ARCH.conf > $UCLIBC/.config
+
+[ "$DEVTOOLS" = yes ] && cat $PKG_DIR/config/$1.devtools.conf >> $UCLIBC/.config
+
+make -C $UCLIBC oldconfig
+make -C $UCLIBC pregen

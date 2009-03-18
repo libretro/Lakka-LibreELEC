@@ -1,0 +1,95 @@
+#!/bin/sh
+
+  busybox mkdir -p /bin
+  busybox mkdir -p /lib
+  busybox mkdir -p /etc
+  busybox mkdir -p /sbin
+  busybox mkdir -p /tmp
+  busybox mkdir -p /mnt
+  busybox mkdir -p /dev
+  busybox mkdir -p /dev/shm
+  busybox mkdir -p /dev/mapper
+  busybox mkdir -p /proc
+  busybox mkdir -p /sys
+  busybox mkdir -p /usr
+  busybox mkdir -p /root
+  busybox mkdir -p /var
+  busybox mkdir -p /var/run
+  busybox mkdir -p /var/log
+  busybox mkdir -p /var/lock
+
+  busybox mknod /dev/null c 1 3
+
+  busybox mount -t proc none /proc
+  busybox mount -t sysfs none /sys
+
+  export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+  BOOT=`cat /proc/cmdline | sed 's/.*boot=// ; s/ .*//'`
+  #VERSION=`cat /proc/version | cut -f3 -d" "`
+
+  progress() {
+    [ -f /proc/splash ] && echo "show $1" > /proc/splash
+    echo "### $2 ###"
+  }
+
+progress 12000 "setting hostname"
+  echo openelec > /proc/sys/kernel/hostname
+
+progress 13000 "starting Udev"
+  echo > /proc/sys/kernel/hotplug
+  udevd --daemon
+  udevadm trigger
+  udevadm settle --timeout=180
+  udevadm monitor 2>&1 >/var/log/udev &
+#  start-stop-daemon --start --quiet --pidfile /var/run/hotplug2.pid --exec /sbin/hotplug2 -- --persistent --no-coldplug || return 2
+
+progress 15000 "mounting flashdisk"
+  mkdir /mnt/.flash
+  mount -t ext3 -o ro,noatime $BOOT /mnt/.flash
+  if [ $? -ne 0 ] ; then
+      echo Could not mount flashdisk on $BOOT. Starting debugging shell....
+      /bin/busybox sh
+  fi
+
+#progress 17000 "mounting system"
+#  busybox mkdir /mnt/.system
+#  if [ -f "/mnt/.flash/openelec.system" ]; then
+#    mkdir -p /mnt/system
+#    mount -o loop -t squashfs "/mnt/.flash/openelec.system" /mnt/.system
+#    if [ $? -ne 0 ] ; then
+#      echo Could not mount system on /mnt/.system. Starting debugging shell....
+#      /bin/busybox sh
+#    fi
+#  fi
+
+#if test -n "$OPENELEC" ; then
+#  progress 25000 "copying system into ram (/etc)"
+#    ln -s /mnt/.system/etc/* /etc
+#  progress 27000 "copying system into ram (/lib)"
+#    ln -s /mnt/.system/lib/* /lib
+#  progress 29000 "copying system into ram (/sbin)"
+#    ln -s /mnt/.system/sbin/* /sbin
+#  progress 30000 "binding system (/usr)"
+#    mount --bind /mnt/.system/usr /usr
+#    if [ $? -ne 0 ] ; then
+#      echo Could not bind system on /usr. Starting debugging shell....
+#      /bin/busybox sh
+#    fi
+
+##else
+##  INIT=/sbin/nosystem
+##  progress 65535 "cleaning ram disk"
+##fi
+
+#progress 35000 "running Udev with all modules"
+#  udevadm trigger
+#  udevadm settle --timeout=180
+
+#progress 37000 "loading modules"
+#  for module in `cat /etc/modules|grep "^[^#]"`; do
+#    /sbin/modprobe $module >/dev/null 2>&1
+#  done
+
+progress 42000 "starting shell"
+  exec /bin/busybox sh

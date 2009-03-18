@@ -1,0 +1,196 @@
+set -e
+
+test -f config/target-$TARGET_PLATFORM && . config/target-$TARGET_PLATFORM
+
+# determine architecture's family
+TARGET_FAMILY=i686
+TARGET_NAME=$TARGET_FAMILY-openelec-linux-uclibc
+#determines TARGET_CPU, if not forced by user
+TARGET_CPU=generic
+
+GEEXBOX_VERSION=`cat VERSION`
+CONFIG=config
+SCRIPTS=scripts
+PACKAGES=packages
+SOURCES=sources
+BUILD_BASE=build
+BUILD=$BUILD_BASE.$TARGET_ARCH.$TARGET_LIBC
+[ -n "$TARGET_PLATFORM" ] && BUILD=$BUILD.$TARGET_PLATFORM
+STAMPS_NOARCH=.stamps
+STAMPS=$BUILD/$STAMPS_NOARCH
+DOCS=DOCS
+ROOT=`pwd`
+TOOLCHAIN=$BUILD/toolchain
+SYSROOT_PREFIX=$ROOT/$TOOLCHAIN/$TARGET_NAME/sysroot
+LIB_PREFIX=$SYSROOT_PREFIX/usr
+TARGET_PREFIX=$ROOT/$TOOLCHAIN/bin/$TARGET_NAME-
+
+HOST_NAME_CACHE=$BUILD/configtools/host_name
+if [ -f $HOST_NAME_CACHE ]; then
+  HOST_NAME=`cat $HOST_NAME_CACHE`
+elif [ -x $BUILD/configtools/config.guess ]; then
+  HOST_NAME=`$BUILD/configtools/config.guess`
+fi
+
+MAKE="$ROOT/$TOOLCHAIN/bin/make"
+MAKEINSTALL="$ROOT/$TOOLCHAIN/bin/make DESTDIR=$SYSROOT_PREFIX install"
+SED="sed -i"
+
+CONFIGURE=" ./configure --host=$TARGET_NAME
+            --build=$HOST_NAME
+            --prefix=/usr
+            --sysconfdir=/etc
+            --localstatedir=/var
+            --disable-static
+            --enable-shared"
+
+CONFIGURESTATIC=" ./configure --host=$TARGET_NAME
+            --build=$HOST_NAME
+            --prefix=/usr
+            --sysconfdir=/etc
+            --localstatedir=/var
+            --enable-static
+            --disable-shared"
+
+XORG_PATH_ENCODINGS=/usr/share/X11/encodings
+XORG_PATH_FONTS=/usr/share/X11/fonts
+XORG_PATH_MAPS=$XORG_PATH_FONTS/util
+XORG_PATH_DRI=/usr/lib/dri
+XORG_PATH_XKB=/usr/share/X11/xkb
+XORG_PATH_XKB_OUTPUT=/var/lib/xkb
+XORG_PATH_RGB=/usr/lib/X11/rgb
+XORG_PATH_MODULES=/usr/lib/xorg/modules
+
+TOOLCHAIN_LANGUAGES=c
+[ "$TOOLCHAIN_CXX" = yes ] && TOOLCHAIN_LANGUAGES=${TOOLCHAIN_LANGUAGES},c++
+
+[ "$OPTIMIZATIONS" = speed ] && GCC_OPTIM="-O3" || GCC_OPTIM="-Os"
+
+TARGET_CC=${TARGET_PREFIX}gcc
+TARGET_CXX=${TARGET_PREFIX}g++
+TARGET_LD=${TARGET_PREFIX}ld
+TARGET_AS=${TARGET_PREFIX}as
+TARGET_AR=${TARGET_PREFIX}ar
+TARGET_NM=${TARGET_PREFIX}nm
+TARGET_RANLIB=${TARGET_PREFIX}ranlib
+TARGET_OBJCOPY=${TARGET_PREFIX}objcopy
+TARGET_STRIP=${TARGET_PREFIX}strip
+TARGET_CPPFLAGS=
+TARGET_CFLAGS="$GCC_OPTIM -Wall -pipe -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -mtune=$TARGET_CPU"
+TARGET_CXXFLAGS="$GCC_OPTIM -Wall -pipe -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -mtune=$TARGET_CPU"
+TARGET_LDFLAGS=
+
+#if [ "$DEBUG" = yes ]; then
+#  TARGET_CFLAGS="$TARGET_CFLAGS -g3"
+#  TARGET_CXXFLAGS="$TARGET_CXXFLAGS -g3"
+#  TARGET_STRIP=true
+#else
+  TARGET_CFLAGS="$TARGET_CFLAGS -s -fomit-frame-pointer"
+  TARGET_CXXFLAGS="$TARGET_CXXFLAGS -s -fomit-frame-pointer"
+  TARGET_LDFLAGS="$TARGET_LDFLAGS -s"
+#fi
+
+HOST_AWK=gawk
+HOST_CC=$ROOT/$TOOLCHAIN/bin/host-gcc
+HOST_CXX=$ROOT/$TOOLCHAIN/bin/host-g++
+HOST_LD=ld
+HOST_AS=as
+HOST_AR=ar
+HOST_NM=nm
+HOST_RANLIB=ranlib
+HOST_OBJCOPY=objcopy
+HOST_STRIP=strip
+HOST_CPPFLAGS=""
+HOST_CFLAGS="-O2 -Wall -pipe"
+HOST_LDFLAGS=""
+
+export CCACHE_DIR=$ROOT/$BUILD/.ccache
+export MAKEFLAGS=-j$CONCURRENCY_MAKE_LEVEL
+export PKG_CONFIG=$ROOT/$TOOLCHAIN/bin/pkg-config
+
+if [ -z "$PATH" -o "$PATH" = "${PATH#$ROOT/$TOOLCHAIN/bin:}" ]; then
+  export PATH="$ROOT/$TOOLCHAIN/bin:$PATH"
+fi
+
+setup_toolchain() {
+  if [ "$1" = "--optimize" ]; then
+    OPTIMIZE=yes
+    shift
+  fi
+
+  if [ "$1" = target ]; then
+    export CC=$TARGET_CC
+    export CXX=$TARGET_CXX
+    export LD=$TARGET_LD
+    export AS=$TARGET_AS
+    export AR=$TARGET_AR
+    export NM=$TARGET_NM
+    export RANLIB=$TARGET_RANLIB
+    export OBJCOPY=$TARGET_OBJCOPY
+    export STRIP=$TARGET_STRIP
+    export CPPFLAGS="$TARGET_CPPFLAGS"
+    export CFLAGS="$TARGET_CFLAGS"
+    export CXXFLAGS="$TARGET_CXXFLAGS"
+    export LDFLAGS="$TARGET_LDFLAGS"
+  elif [ "$1" = host ]; then
+    export AWK=$HOST_AWK
+    export CC=$HOST_CC
+    export CXX=$HOST_CXX
+    export LD=$HOST_LD
+    export AS=$HOST_AS
+    export AR=$HOST_AR
+    export NM=$HOST_NM
+    export RANLIB=$HOST_RANLIB
+    export OBJCOPY=$HOST_OBJCOPY
+    export STRIP=$HOST_STRIP
+    export CPPFLAGS="$HOST_CPPFLAGS"
+    export CFLAGS="$HOST_CFLAGS"
+    export CXXFLAGS="$HOST_CXXFLAGS"
+    export LDFLAGS="$HOST_LDFLAGS"
+  fi
+}
+setup_toolchain target
+
+SILENT_OUT=3
+VERBOSE_OUT=4
+if [ "$VERBOSE" = yes ]; then
+  exec 3>&1
+  exec 4>&2
+else
+  exec 3>&2
+  exec 4>/dev/null
+fi
+INDENT_SIZE=4
+
+GEEXBOX_SRCS=http://www.geexbox.org/src/$GEEXBOX_VERSION
+[ "$GEEXBOX_VERSION" = devel ] && GEEXBOX_VERSION=$GEEXBOX_VERSION-`date +%Y%m%d` #-r`hg tip --template={rev}`
+[ -n "$GEEXBOX_VERSION_EXTRA" ] && GEEXBOX_VERSION=$GEEXBOX_VERSION-$GEEXBOX_VERSION_EXTRA
+
+VERSION_SUFFIX=$TARGET_ARCH
+[ -n "$TARGET_PLATFORM" ] && VERSION_SUFFIX=$TARGET_PLATFORM
+
+ISO=geexbox-$GEEXBOX_VERSION-$MENU_LANG.$VERSION_SUFFIX.iso
+GENERATOR_NAME=geexbox-generator-$GEEXBOX_VERSION.$VERSION_SUFFIX
+PXE_NAME=geexbox-pxe/GEEXBOX.$VERSION_SUFFIX
+VMX_NAME=geexbox-vmx
+
+
+kernel_path() {
+  ls -d $ROOT/$BUILD/linux*
+}
+
+require_glibc() {
+  if [ "$TARGET_LIBC" != glibc ]; then
+    echo "$1 requires glibc, aborting."
+    exit 1
+  fi
+}
+
+require_cxx() {
+  if [ "$TOOLCHAIN_CXX" != yes ]; then
+    echo "$1 requires C++ toolchain support, aborting."
+    exit 1
+  fi
+}
+
+INCLUDED_LANGS="en $MENU_LANG $INCLUDED_LANGS"

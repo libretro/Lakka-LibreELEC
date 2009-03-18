@@ -1,0 +1,51 @@
+#!/bin/sh
+
+. config/options
+
+REAL_ARCH=$TARGET_ARCH
+[ $TARGET_ARCH = "powerpc" ] && REAL_ARCH=ppc
+
+LIB=$1
+LIBA=$2
+PROG=$3
+SO=$4
+PROG_SYMS=$5
+LDSCRIPT=`ls $ROOT/$TOOLCHAIN/lib/ldscripts/elf*$REAL_ARCH.xs`
+
+if [ ! -f $LIBA ]; then
+  echo "ERROR $LIBA doesn't exists."
+  exit 1
+fi
+
+if [ -f $LIB -a $LIB -nt $LIBA ]; then
+  for i in $PROG $LDSCRIPT $0; do
+    [ $i -nt $LIB ] && NEED_TO_STRIP=yes && break
+  done
+  [ "$NEED_TO_STRIP" = yes ] || exit 0
+fi
+
+echo -n "stripping $LIB ..."
+
+for i in $SO; do
+  SO_SYMS="$SO_SYMS `$TARGET_NM --dynamic $i | sed -n 's/^........ [ABDGTW] \(..*\)/\1/p'`"
+done
+
+for i in $PROG; do
+  if [ -f $i ]; then
+    for j in `$TARGET_NM --dynamic $i | sed -n 's/^........ [BUV] \(..*\)/\1/p'`; do
+      (echo "$SO_SYMS" | grep $j >/dev/null) || (echo "$PROG_SYMS" | grep $j >/dev/null) || PROG_SYMS="$PROG_SYMS $j"
+    done
+  fi
+done
+
+echo "INCLUDE $LDSCRIPT" > /tmp/ldscript
+for i in $PROG_SYMS; do
+  [ $i != "BD" -a $i != "DD" ] && echo "EXTERN($i)" >> /tmp/ldscript
+done
+
+[ "$DEBUG" != yes ] && SFLAG=-s
+$TARGET_CC $SFLAG -Wl,-warn-common -shared -o $LIB -Wl,-soname,`basename $LIB` -Wl,--script=/tmp/ldscript $LIBA
+
+echo " done"
+
+rm -f /tmp/ldscript

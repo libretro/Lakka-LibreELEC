@@ -1,0 +1,34 @@
+From 0d4beba90ad82998f123f05dc0a03003f031b6f0 Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@redhat.com>
+Date: Fri, 16 Jan 2009 20:38:57 +1000
+Subject: [PATCH] mi: force the paired kbd device before CopyKeyClass. (#19574)
+
+Some multi-media keyboards send the key events for multimedia keys through the
+device file used by the mouse. Sending a key event through the VCP however
+will fail. The VCP doesn't have a key class so the server crashes or (with an
+appropriate fix) the event is simply swallowed.
+
+Thus, for key events if the master does not have a key class, get the device
+paired with the master (i.e. the VCK) before processing the event any further.
+
+X.Org Bug 19574 <http://bugs.freedesktop.org/show_bug.cgi?id=19574>
+---
+ mi/mieq.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/mi/mieq.c b/mi/mieq.c
+index 226caa6..213ad5b 100644
+--- a/mi/mieq.c
++++ b/mi/mieq.c
+@@ -451,7 +451,11 @@ mieqProcessInputEvents(void)
+                    is transferred. */
+                 if (event->u.u.type == DeviceKeyPress ||
+                     event->u.u.type == DeviceKeyRelease)
++                {
++                    if (!master->key)
++                        master = GetPairedDevice(master);
+ 		    CopyKeyClass(dev, master);
++                }
+ 
+                 CopyGetMasterEvent(master, dev, event, masterEvents, nevents);
+             }

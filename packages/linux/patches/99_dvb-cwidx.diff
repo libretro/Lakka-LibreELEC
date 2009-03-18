@@ -1,0 +1,75 @@
+diff -ur linux/drivers/media/dvb/ttpci/av7110_ca.c linux/drivers/media/dvb/ttpci/av7110_ca.c
+--- linux/drivers/media/dvb/ttpci/av7110_ca.c	2004-01-09 14:44:57.000000000 +0100
++++ linux/drivers/media/dvb/ttpci/av7110_ca.c	2006-05-09 19:49:42.000000000 +0200
+@@ -263,10 +266,31 @@
+ 	}
+ 
+ 	case CA_GET_MSG:
+-		break;
++        {
++                ca_pid_t *arg = (ca_pid_t*) parg;
++                u16 buf[4], res[2];
++                buf[0]=0x0745;
++                buf[1]=2;
++                buf[2]=arg->pid >> 16;
++                buf[3]=arg->pid & 0xFFFF;
++                av7110_fw_request(av7110,buf,sizeof(buf),res,2);
++                arg->index=(res[0]<<16) + res[1];
++                break;
++        }
+ 
+ 	case CA_SEND_MSG:
+-		break;
++        {
++                ca_pid_t *arg = (ca_pid_t*) parg;
++                u16 buf[6], res[2];
++                buf[0]=0x0746;
++                buf[1]=4;
++                buf[2]=arg->pid >> 16;
++                buf[3]=arg->pid & 0xFFFF;
++                buf[4]=arg->index >> 16;
++                buf[5]=arg->index & 0xFFFF;
++                av7110_fw_request(av7110,buf,sizeof(buf),res,2);
++                break;
++        }
+ 
+ 	case CA_GET_DESCR_INFO:
+ 	{
+@@ -295,6 +319,37 @@
+ 		break;
+ 	}
+ 
++        case CA_SET_PID:
++        {
++                int handle;
++                ca_pid_t *pid = (ca_pid_t*) parg;
++
++                if (pid->pid >= 0x1fff)
++                        return -EINVAL;
++                if (pid->index < 0 || pid->index >= 16)
++                        return -EINVAL;
++
++                if (mutex_lock_interruptible (&av7110->demux.mutex))
++		        return -ERESTARTSYS;
++
++                for(handle=0; handle<32; handle++) {
++                  struct dvb_demux_filter *dvbdmxfilter=av7110->handle2filter[handle];
++                  if(dvbdmxfilter) {
++                    struct dvb_demux_feed *feed=dvbdmxfilter->feed;
++                    if(feed && feed->state==DMX_STATE_GO && feed->pid==pid->pid) {
++                      /* we map the new cmd to CacheError as it's not
++                         implemented anyways, i.e. free. */
++                      av7110_fw_cmd(av7110, COMTYPE_PIDFILTER, CacheError, 1,
++                                  (handle<<8)|pid->index); /* hw handle / cw index*/
++                      break;
++                      }
++                    }
++                  }
++
++                mutex_unlock(&av7110->demux.mutex);
++                break;
++        }
++
+ 	default:
+ 		return -EINVAL;
+ 	}

@@ -1,0 +1,41 @@
+#!/bin/sh
+
+. config/options
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+if [ -z "$1" ]; then
+  echo "usage: $0 package_name"
+  exit 1
+fi
+
+if [ -f $PKG_DIR/arch ]; then
+  grep -q "$TARGET_ARCH" "$PKG_DIR/arch" || exit 0
+fi
+
+if [ -f $PKG_DIR/platform ]; then
+  grep -q "$TARGET_PLATFORM" "$PKG_DIR/platform" || exit 0
+fi
+
+if [ -d $PKG_DIR/init.d ]; then
+  mkdir -p $INSTALL/etc/init.d
+  cp $PKG_DIR/init.d/* $INSTALL/etc/init.d/
+fi
+
+if [ -d $PKG_DIR/minit ]; then
+  mkdir -p $INSTALL/etc/minit
+  cp -R $PKG_DIR/minit/* $INSTALL/etc/minit/
+fi
+
+$SCRIPTS/build $@
+
+printf  "%${INDENT}c INSTALL  $1\n" >&$SILENT_OUT
+#dialog --infobox "%${INDENT}c INSTALL  $1\n" 15 40
+export INDENT=$((${INDENT:-1}+$INDENT_SIZE))
+
+if [ -f $PKG_DIR/install ]; then
+  $PKG_DIR/install $@ >&$VERBOSE_OUT
+else
+  mkdir -p $INSTALL/usr/bin
+  cp $BUILD/$1*/$1 $INSTALL/usr/bin
+fi
