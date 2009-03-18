@@ -6,18 +6,6 @@
   BOOT=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*boot=// ; s/ .*//'`
   DISK=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*disk=// ; s/ .*//'`
 
-# parse command line arguments
-for arg in $(cat /proc/cmdline); do
-  case $arg in
-    debugging)
-      DEBUG=yes
-      ;;
-    configure)
-      CONFIGURE=yes
-      ;;
-  esac
-done
-
   /bin/busybox mdev -s
 
   /bin/busybox mount -t ext3 -o ro,noatime $BOOT /flash
@@ -25,20 +13,11 @@ done
 
   if [ -f "/flash/openelec.system" ]; then
     /bin/busybox mount /flash/openelec.system /sysroot
-    INIT=/sbin/init.system
     if [ $? -ne 0 ] ; then
       echo Could not mount system on /sysroot. Starting debugging shell....
-      INIT=/sbin/nosystem
       /bin/busybox sh </dev/tty1 >/dev/tty1 2>&1
     fi
   fi
-
-RUNLEVEL="openelec"
-if test "$DEBUG" = yes; then
-  RUNLEVEL="debug"
-elif test "$CONFIGURE" = yes; then
-  RUNLEVEL="configure"
-fi
 
   /bin/busybox mount --bind /flash /sysroot/flash
   /bin/busybox mount --bind /storage /sysroot/storage
@@ -46,4 +25,4 @@ fi
   /bin/busybox umount /proc
   /bin/busybox umount /sys
 
-  exec /bin/busybox switch_root /sysroot $INIT $RUNLEVEL
+  exec /bin/busybox switch_root /sysroot /sbin/init.system
