@@ -1,4 +1,4 @@
-BUILD_DIRS="build*1"
+BUILD_DIRS="build.*"
 
 all: image
 
