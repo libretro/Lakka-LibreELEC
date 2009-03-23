@@ -1,0 +1,53 @@
+From: Takashi Iwai <tiwai@suse.de>
+Date: Wed, 21 Jan 2009 08:25:48 +0000 (+0100)
+Subject: Fix build with softfloat option
+X-Git-Url: http://git.alsa-project.org/?p=alsa-lib.git;a=commitdiff_plain;h=a789b66d00644eeeb72fd424d686c7fe8faa5daa
+
+Fix build with softfloat option
+
+Fix build of alsa-lib when --with-softfloat is used:
+ - disable ladspa plugin
+ - don't use sqrt() function
+
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+
+diff --git a/configure.in b/configure.in
+index 9a71d95..ea6a8a0 100644
+--- a/configure.in
++++ b/configure.in
+@@ -367,6 +367,7 @@ AC_ARG_ENABLE(seq,
+ AC_ARG_ENABLE(alisp,
+   AS_HELP_STRING([--disable-alisp], [disable the alisp component]),
+   [build_alisp="$enableval"], [build_alisp="yes"])
++test "$softfloat" = "yes" && build_alisp="no"
+ AC_ARG_ENABLE(old-symbols,
+   AS_HELP_STRING([--disable-old-symbols], [disable old obsoleted symbols]),
+   [keep_old_symbols="$enableval"], [keep_old_symbols="yes"])
+@@ -474,6 +475,7 @@ fi
+ 
+ if test "$softfloat" = "yes"; then
+   build_pcm_lfloat="no"
++  build_pcm_ladspa="no"
+ fi
+ 
+ AM_CONDITIONAL(BUILD_PCM_PLUGIN, test x$build_pcm_plugin = xyes)
+diff --git a/src/mixer/simple_none.c b/src/mixer/simple_none.c
+index 0f4dd3a..4802200 100644
+--- a/src/mixer/simple_none.c
++++ b/src/mixer/simple_none.c
+@@ -1450,7 +1450,14 @@ static int simple_add1(snd_mixer_class_t *class, const char *name,
+ 		}
+ 		if (ctype != SND_CTL_ELEM_TYPE_BOOLEAN)
+ 			return 0;
++#ifdef HAVE_SOFT_FLOAT
++		/* up to 256 channels */
++		for (n = 1; n < 256; n++)
++			if (n * n == values)
++				break;
++#else
+ 		n = sqrt((double)values);
++#endif
+ 		if (n * n != values)
+ 			return 0;
+ 		values = n;

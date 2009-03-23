@@ -1,0 +1,115 @@
+#!/bin/sh
+#
+# setup alsa (especially the mixer config)
+#
+# runlevels: openelec, debug, configure
+
+echo "### Setting up sound card ###"
+
+# include audio configuration file
+. /etc/audio
+
+[ ! -f /etc/asound.conf ] && echo "" > /etc/asound.conf
+
+mixer() {
+  parm=${3:-on}
+  amixer -c $ALSA_CARD sset "$1" "$2" $parm >/dev/null 2>&1
+  amixer -c $ALSA_CARD sset "$1" $parm >/dev/null 2>&1
+}
+
+# set alsa channel mode (6ch, 4ch, 2ch)
+mixer 'Channel Mode' "${CHANNELS}ch"
+
+# set common mixer params
+mixer Master 90%
+mixer Front 90%
+mixer PCM 90%
+mixer Synth 90%
+# mute CD, since using digital audio instead
+mixer CD 0% mute
+# Only unmute Line and Aux if they are possibly used.
+if [ -e /var/use_dxr3 -o -e /var/tvcard -o -e /var/dvbcard -o -e /var/digimatrix ]; then
+  mixer Line 90%
+  mixer Aux 90%
+else
+  mixer Line 0% mute
+  mixer Aux 0% mute
+fi
+# mute mic
+mixer Mic 0% mute
+# ESS 1969 chipset has 2 PCM channels
+mixer PCM,1 90%
+# Trident/YMFPCI/emu10k1
+mixer Wave 100%
+mixer Music 100%
+mixer AC97 100%
+mixer Surround 90%
+mixer 'Surround Digital' 90%
+mixer 'Wave Surround' 90%
+if [ "$CHANNELS" = 6 ]; then
+  mixer 'Duplicate Front' 0% off
+else
+  mixer 'Duplicate Front' 90%
+fi
+mixer 'Sigmatel 4-Speaker Stereo' 90%
+# CS4237B chipset:
+mixer 'Master Digital' 90%
+# DRC
+mixer 'Dynamic Range Compression' 90%
+# Envy24 chips with analog outs
+mixer DAC 90%
+mixer DAC,0 90%
+mixer DAC,1 90%
+# some notebooks use headphone instead of master
+mixer Headphone 90%
+mixer 'Internal Speaker' 75%
+mixer Playback 100%
+
+mixer Center 90%
+mixer LFE 90%
+mixer Center/LFE 90%
+
+# Required for newer Via hardware
+mixer 'VIA DXS,0' 80%
+mixer 'VIA DXS,1' 80%
+mixer 'VIA DXS,2' 80%
+mixer 'VIA DXS,3' 80%
+
+# Intel P4P800-MX  (Ubuntu bug #5813)
+mixer 'Master Playback Switch' on
+
+# Required at least for Via 823x hardware on DFI K8M800-MLVF Mobo
+mixer 'IEC958 Capture Monitor' 0% off
+
+# Required on some notebooks with ICH4:
+mixer 'Headphone Jack Sense' 0% off
+mixer 'Line Jack Sense' 0% off
+
+# Required on some Vaio notebooks (B3XP):
+mixer 'External Amplifier' 0% mute
+
+# Required for either Analog or Digital output
+mixer 'SB Live Analog/Digital Output Jack' $SBL_AUDIGY
+mixer 'Audigy Analog/Digital Output Jack' $SBL_AUDIGY
+
+# set SPDIF mixer params
+if [ "$SOUNDCARD_MODE" = SPDIF ]; then
+  mixer 'IEC958' 90% on
+  mixer 'IEC958 Output' 90%
+  mixer 'IEC958 Playback AC97-SPSA' $AC97_SPSA
+  mixer 'IEC958 Coaxial' 90%
+  mixer 'IEC958 LiveDrive' 90%
+  mixer 'IEC958 Optical Raw' 90%
+  mixer 'SPDIF Out' 90%
+  mixer 'SPDIF Front' 90%
+  mixer 'SPDIF Rear' 90%
+  mixer 'SPDIF Center/LFE' 90%
+  mixer 'Master Digital' 80%
+else
+  mixer 'SPDIF Out' 0% off
+  mixer 'Analog Front' 90%
+  mixer 'Analog Rear' 90%
+  mixer 'Analog Center/LFE' 90%
+fi
+
+exit 0
