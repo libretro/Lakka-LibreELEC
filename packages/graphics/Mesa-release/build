@@ -1,0 +1,63 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/build expat
+$SCRIPTS/build glproto
+$SCRIPTS/build dri2proto
+$SCRIPTS/build libdrm
+$SCRIPTS/build libXext
+$SCRIPTS/build libXdamage
+$SCRIPTS/build libXfixes
+$SCRIPTS/build libXxf86vm
+$SCRIPTS/build libX11
+#$SCRIPTS/build libwsbm
+
+cd $BUILD/$1*
+HOST_CC=$HOST_CC \
+OPT_FLAGS="$CFLAGS -D_GNU_SOURCE" \
+HOST_OPT_FLAGS="$HOST_CFLAGS" \
+X11_INCLUDES= \
+DRI_DRIVER_INSTALL_DIR="$XORG_PATH_DRI" \
+DRI_DRIVER_SEARCH_DIR="$XORG_PATH_DRI" \
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --prefix=/usr \
+            --sysconfdir=/etc \
+            --localstatedir=/var \
+            --disable-static \
+            --enable-shared \
+            --disable-debug \
+            --disable-selinux \
+            --disable-xcb \
+            --disable-glx-tls \
+            --enable-driglx-direct \
+            --disable-gl-osmesa \
+            --disable-glu \
+            --disable-glut \
+            --disable-glw \
+            --disable-motif \
+            --with-driver=dri \
+            --with-dri-drivers=swrast,unichrome \
+            --with-dri-driverdir="$XORG_PATH_DRI" \
+            --with-x \
+            --without-demos
+
+make
+
+# strip libmesa
+#$STRIP src/mesa/libmesa.so*
+
+# strip libglapi
+#$STRIP src/mesa/libglapi.so*
+
+# strip DRI drivers
+$STRIP lib*/*.so*
+
+## copy GLX headers for xorg-server to build
+#cp -PR include/* $LIB_PREFIX/include
+
+$MAKEINSTALL -C src/mesa
+#$MAKEINSTALL -C src/glu
+
+#DRI_DRIVER_INSTALL_DIR=$SYSROOT_PREFIX/$XORG_PATH_DRI
