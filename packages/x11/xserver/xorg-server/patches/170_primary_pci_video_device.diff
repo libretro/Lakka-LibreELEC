@@ -1,0 +1,108 @@
+From 69e53f2493c142ef5569af01ce52565be5b2976e Mon Sep 17 00:00:00 2001
+From: Adam Jackson <ajax@redhat.com>
+Date: Tue, 3 Mar 2009 10:58:33 -0500
+Subject: [PATCH] Primary video device hack
+
+---
+ hw/xfree86/common/xf86pciBus.c |   60 ++++++++++++++++++++++++++++++++--------
+ 1 files changed, 48 insertions(+), 12 deletions(-)
+
+diff --git a/hw/xfree86/common/xf86pciBus.c b/hw/xfree86/common/xf86pciBus.c
+index 467a0c3..0d2d01c 100644
+--- a/hw/xfree86/common/xf86pciBus.c
++++ b/hw/xfree86/common/xf86pciBus.c
+@@ -60,11 +60,7 @@ static struct pci_device ** xf86PciVideoInfo = NULL;	/* PCI probe for video hw *
+ /* PCI classes that get included in xf86PciVideoInfo */
+ #define PCIINFOCLASSES(c) \
+     ( (((c) & 0x00ff0000) == (PCI_CLASS_PREHISTORIC << 16)) \
+-      || (((c) & 0x00ff0000) == (PCI_CLASS_DISPLAY << 16)) \
+-      || ((((c) & 0x00ffff00) \
+-	   == ((PCI_CLASS_MULTIMEDIA << 16) | (PCI_SUBCLASS_MULTIMEDIA_VIDEO << 8)))) \
+-      || ((((c) & 0x00ffff00) \
+-	   == ((PCI_CLASS_PROCESSOR << 16) | (PCI_SUBCLASS_PROCESSOR_COPROC << 8)))) )
++      || (((c) & 0x00ffff00) == (PCI_CLASS_DISPLAY << 16)) )
+ 
+ /*
+  * PCI classes that have messages printed always.  The others are only
+@@ -341,6 +337,39 @@ restorePciBusState(BusAccPtr ptr)
+ }
+ #undef MASKBITS
+ 
++/* oh god what have i done */
++static Bool
++looks_like_bios_primary(struct pci_device *info)
++{
++    unsigned char *bios;
++    unsigned short vendor, device;
++    int offset;
++    Bool ret = FALSE;
++
++    bios = xf86MapVidMem(-1, VIDMEM_MMIO, 0xc0000, 0x10000);
++    if (!bios)
++        return FALSE;
++
++    if (bios[0] != 0x55 || bios[1] != 0xAA)
++        goto out;
++
++    offset = (bios[0x19] << 8) + bios[0x18];
++
++    if (bios[offset] != 'P' ||
++        bios[offset+1] != 'C' ||
++        bios[offset+2] != 'I' ||
++        bios[offset+3] != 'R')
++        goto out;
++
++    vendor = (bios[offset+5] << 8) + bios[offset+4];
++    device = (bios[offset+7] << 8) + bios[offset+6];
++
++    ret = (info->vendor_id == vendor) && (info->device_id == device);
++
++out:
++    xf86UnMapVidMem(-1, bios, 0x10000);
++    return ret;
++}
+ 
+ /*
+  * xf86Bus.c interface
+@@ -375,24 +404,31 @@ xf86PciProbe(void)
+ 	}
+     }
+ 
+-
+     /* If we haven't found a primary device try a different heuristic */
+     if (primaryBus.type == BUS_NONE && num) {
+ 	for (i = 0; i < num; i++) {
+ 	    uint16_t  command;
+ 
+ 	    info = xf86PciVideoInfo[i];
++            if (!IS_VGA(info->device_class))
++                continue;
++
+ 	    pci_device_cfg_read_u16(info, & command, 4);
+ 
+-	    if ((command & PCI_CMD_MEM_ENABLE) 
+-		&& ((num == 1) || IS_VGA(info->device_class))) {
+-		if (primaryBus.type == BUS_NONE) {
++	    if ((command & PCI_CMD_MEM_ENABLE)) {
++                if (num == 1) {
+ 		    primaryBus.type = BUS_PCI;
+ 		    primaryBus.id.pci = info;
+-		} else {
+-		    xf86Msg(X_NOTICE,
++                    break;
++                } else if (looks_like_bios_primary(info)) {
++                    if (primaryBus.type == BUS_NONE) {
++                        primaryBus.type = BUS_PCI;
++                        primaryBus.id.pci = info;
++                    } else {
++		        xf86Msg(X_NOTICE,
+ 			    "More than one possible primary device found\n");
+-		    primaryBus.type ^= (BusType)(-1);
++		        primaryBus.type ^= (BusType)(-1);
++                    }
+ 		}
+ 	    }
+ 	}
+-- 
+1.6.1.3
+
