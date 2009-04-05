@@ -1,9 +1,12 @@
 BUILD_DIRS="build.*"
 
-all: image
+all: system
 
-image:
-	./scripts/install image full
+system:
+	./scripts/install image system
+
+qemu:
+	./scripts/install image qemu
 
 clean:
 	rm -rf $(BUILD_DIRS)
