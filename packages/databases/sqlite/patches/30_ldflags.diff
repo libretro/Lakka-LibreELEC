@@ -1,67 +1,61 @@
---- sqlite-3.3.7/Makefile.in.orig	2006-08-20 23:05:36.000000000 +0200
-+++ sqlite-3.3.7/Makefile.in	2006-08-20 23:42:49.000000000 +0200
-@@ -31,6 +31,10 @@
- #
- TCC = @TARGET_CC@ @TARGET_CFLAGS@ -I. -I${TOP}/src
+diff -Naur sqlite-3.6.13.orig/Makefile.in sqlite-3.6.13/Makefile.in
+--- sqlite-3.6.13.orig/Makefile.in.orig	2009-04-17 09:11:59.000000000 +0200
++++ sqlite-3.6.13/Makefile.in	2009-04-17 09:11:59.000000000 +0200
+@@ -36,6 +36,10 @@
+ # 
+ TCC += -D_HAVE_SQLITE_CONFIG_H
  
 +# OE overrides
 +#
-+TARGET_LFLAGS = @TARGET_LFLAGS@
++TARGET_LFLAGS = $(config_TARGET_LFLAGS)
 +
  # Define -DNDEBUG to compile without debugging (i.e., for production usage)
  # Omitting the define will cause extra debugging code to be inserted and
  # includes extra comments when "EXPLAIN stmt" is used.
-@@ -257,17 +261,17 @@
+@@ -465,18 +469,18 @@
            | $(NAWK) '{print $$5,$$6}' >last_change
  
  libsqlite3.la:	$(LIBOBJ)
--	$(LTLINK) -o libsqlite3.la $(LIBOBJ) $(LIBPTHREAD) \
-+	$(LTLINK) -o libsqlite3.la $(LIBOBJ) $(TARGET_LFLAGS) $(LIBPTHREAD) \
- 		${ALLOWRELEASE} -rpath $(libdir) -version-info "8:6:8"
+-	$(LTLINK) -o $@ $(LIBOBJ) $(TLIBS) \
++	$(LTLINK) -o $@ $(LIBOBJ) $(TARGET_LFLAGS) $(TLIBS) \
+ 		${ALLOWRELEASE} -rpath "$(libdir)" -version-info "8:6:8"
  
  libtclsqlite3.la:	tclsqlite.lo libsqlite3.la
- 	$(LTLINK) -o libtclsqlite3.la tclsqlite.lo \
--		$(LIBOBJ) @TCL_STUB_LIB_SPEC@ $(LIBPTHREAD) \
-+		$(LIBOBJ) @TCL_STUB_LIB_SPEC@ $(TARGET_LFLAGS) $(LIBPTHREAD) \
-                 -rpath $(libdir)/sqlite \
- 		-version-info "8:6:8"
+ 	$(LTLINK) -o $@ tclsqlite.lo \
+-		libsqlite3.la @TCL_STUB_LIB_SPEC@ $(TLIBS) \
++		libsqlite3.la @TCL_STUB_LIB_SPEC@ $(TARGET_LFLAGS) $(TLIBS) \
+ 		-rpath "$(TCLLIBDIR)" \
+ 		-version-info "8:6:8" \
+ 		-avoid-version
  
  sqlite3$(TEXE):	$(TOP)/src/shell.c libsqlite3.la sqlite3.h
--	$(LTLINK) $(READLINE_FLAGS) $(LIBPTHREAD) \
-+	$(LTLINK) $(TARGET_LFLAGS) $(READLINE_FLAGS) $(LIBPTHREAD) \
+-	$(LTLINK) $(READLINE_FLAGS) \
++	$(LTLINK) $(READLINE_FLAGS) $(TARGET_LFLAGS) \
  		-o $@ $(TOP)/src/shell.c libsqlite3.la \
- 		$(LIBREADLINE) $(TLIBS)
+ 		$(LIBREADLINE) $(TLIBS) -rpath "$(libdir)"
  
-@@ -456,12 +460,12 @@
+@@ -747,13 +751,13 @@
  
- tclsqlite3:	tclsqlite-shell.lo libsqlite3.la
- 	$(LTLINK) -o tclsqlite3 tclsqlite-shell.lo \
+ tclsqlite3$(TEXE):	tclsqlite-shell.lo libsqlite3.la
+ 	$(LTLINK) -o $@ tclsqlite-shell.lo \
 -		 libsqlite3.la $(LIBTCL)
 +		 libsqlite3.la $(TARGET_LFLAGS) $(LIBTCL)
  
- testfixture$(TEXE):	$(TOP)/src/tclsqlite.c libsqlite3.la $(TESTSRC)
- 	$(LTLINK) -DTCLSH=1 -DSQLITE_TEST=1 -DSQLITE_CRASH_TEST=1 \
- 		$(TEMP_STORE) -o testfixture $(TESTSRC) $(TOP)/src/tclsqlite.c \
--		libsqlite3.la $(LIBTCL)
-+		libsqlite3.la $(TARGET_LFLAGS) $(LIBTCL)
+ testfixture$(TEXE):	$(TESTFIXTURE_SRC)
+ 	$(LTLINK) -DTCLSH=1 -DSQLITE_TEST=1 -DSQLITE_NO_SYNC=1\
+ 		-DSQLITE_CRASH_TEST=1 \
+                 -DSQLITE_SERVER=1 -DSQLITE_PRIVATE="" -DSQLITE_CORE $(TEMP_STORE) \
+-		-o $@ $(TESTFIXTURE_SRC) $(LIBTCL) $(TLIBS)
++		-o $@ $(TESTFIXTURE_SRC) $(TARGET_LFLAGS) $(LIBTCL) $(TLIBS)
  
  
  fulltest:	testfixture$(TEXE) sqlite3$(TEXE)
-@@ -471,7 +475,7 @@
- 	./testfixture $(TOP)/test/quick.test
- 
- sqlite3_analyzer$(TEXE):	$(TOP)/src/tclsqlite.c libtclsqlite3.la \
--				$(TESTSRC) $(TOP)/tool/spaceanal.tcl
-+				$(TARGET_LFLAGS) $(TESTSRC) $(TOP)/tool/spaceanal.tcl
- 	sed \
- 	  -e '/^#/d' \
- 	  -e 's,\\,\\\\,g' \
-@@ -481,7 +485,7 @@
+@@ -772,7 +776,7 @@
  	  $(TOP)/tool/spaceanal.tcl >spaceanal_tcl.h
- 	$(LTLINK) -DTCLSH=2 -DSQLITE_TEST=1 $(TEMP_STORE)\
-                 -o sqlite3_analyzer$(EXE) $(TESTSRC) $(TOP)/src/tclsqlite.c \
--		libtclsqlite3.la $(LIBTCL)
-+		libtclsqlite3.la $(TARGET_LFLAGS) $(LIBTCL)
+ 	$(LTLINK) -DTCLSH=2 -DSQLITE_TEST=1 -DSQLITE_CRASH_TEST=1 \
+ 		-DSQLITE_SERVER=1 -DSQLITE_PRIVATE="" -DSQLITE_CORE \
+-		$(TEMP_STORE) -o $@ $(TESTFIXTURE_SRC) $(LIBTCL)
++		$(TEMP_STORE) -o $@ $(TESTFIXTURE_SRC) $(TARGET_LFLAGS) $(LIBTCL)
  
- # Rules used to build documentation
- #
+ 
+ lib_install:	libsqlite3.la
