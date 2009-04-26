@@ -1,0 +1,102 @@
+diff -Naur Mesa-7.4.1/src/mesa/drivers/dri/Makefile Mesa-7.4.1.patch/src/mesa/drivers/dri/Makefile
+--- Mesa-7.4.1/src/mesa/drivers/dri/Makefile	2009-03-13 04:28:49.000000000 +0100
++++ Mesa-7.4.1.patch/src/mesa/drivers/dri/Makefile	2009-04-25 22:26:13.000000000 +0200
+@@ -6,12 +6,16 @@
+ 
+ 
+ 
+-default: $(TOP)/$(LIB_DIR) subdirs
+-
++default: $(TOP)/$(LIB_DIR) $(TOP)/$(LIB_DIR)/libdricore.so subdirs
+ 
+ $(TOP)/$(LIB_DIR):
+ 	-mkdir $(TOP)/$(LIB_DIR)
+ 
++libdricore.so:
++	$(CC) -shared -o libdricore.so -Wl,--whole-archive ../../libmesa.a -Wl,--no-whole-archive -lm -lpthread -lc
++
++$(TOP)/$(LIB_DIR)/libdricore.so: $(TOP)/$(LIB_DIR) libdricore.so
++	$(INSTALL) libdricore.so $(TOP)/$(LIB_DIR) 
+ 
+ subdirs:
+ 	@for dir in $(DRI_DIRS) ; do \
+@@ -32,12 +36,14 @@
+ 	$(pcedit) $< > $@
+ 
+ 
+-install: dri.pc
++install: dri.pc $(TOP)/$(LIB_DIR)/libdricore.so
+ 	@for dir in $(DRI_DIRS) ; do \
+ 		if [ -d $$dir ] ; then \
+ 			(cd $$dir && $(MAKE) install) || exit 1 ; \
+ 		fi \
+ 	done
++	$(INSTALL) -d $(DESTDIR)$(DRI_DRIVER_INSTALL_DIR)
++	$(INSTALL) -m 755 $(TOP)/$(LIB_DIR)/libdricore.so $(DESTDIR)$(DRI_DRIVER_INSTALL_DIR)
+ 	$(INSTALL) -d $(DESTDIR)$(INSTALL_INC_DIR)/GL/internal
+ 	$(INSTALL) -m 0644 $(TOP)/include/GL/internal/dri_interface.h \
+ 	  $(DESTDIR)$(INSTALL_INC_DIR)/GL/internal
+@@ -51,5 +57,6 @@
+ 			(cd $$dir && $(MAKE) clean) ; \
+ 		fi \
+ 	done
++	-rm -f libdricore.so $(TOP)/$(LIB_DIR)/libdricore.so
+ 	-rm -f common/*.o
+ 	-rm -f *.pc
+diff -Naur Mesa-7.4.1/src/mesa/drivers/dri/Makefile.template Mesa-7.4.1.patch/src/mesa/drivers/dri/Makefile.template
+--- Mesa-7.4.1/src/mesa/drivers/dri/Makefile.template	2009-03-13 04:28:49.000000000 +0100
++++ Mesa-7.4.1.patch/src/mesa/drivers/dri/Makefile.template	2009-04-25 22:22:59.000000000 +0200
+@@ -1,6 +1,6 @@
+ # -*-makefile-*-
+ 
+-MESA_MODULES = $(TOP)/src/mesa/libmesa.a
++MESA_MODULES = $(TOP)/$(LIB_DIR)/libdricore.so
+ 
+ COMMON_SOURCES = \
+         ../common/utils.c \
+@@ -61,7 +61,9 @@
+ 
+ $(LIBNAME): $(OBJECTS) $(MESA_MODULES) $(WINOBJ) Makefile $(TOP)/src/mesa/drivers/dri/Makefile.template
+ 	$(MKLIB) -o $@ -noprefix -linker '$(CC)' -ldflags '$(LDFLAGS)' \
+-		$(OBJECTS) $(MESA_MODULES) $(WINOBJ) $(DRI_LIB_DEPS)
++		$(OBJECTS) $(WINOBJ) \
++		-L$(TOP)/$(LIB_DIR) -Wl,-R$(DRI_DRIVER_INSTALL_DIR) -ldricore \
++		$(DRI_LIB_DEPS)
+ 
+ 
+ $(TOP)/$(LIB_DIR)/$(LIBNAME): $(LIBNAME)
+diff -Naur Mesa-7.4.1/src/mesa/x86/read_rgba_span_x86.S Mesa-7.4.1.patch/src/mesa/x86/read_rgba_span_x86.S
+--- Mesa-7.4.1/src/mesa/x86/read_rgba_span_x86.S	2008-08-25 16:46:47.000000000 +0200
++++ Mesa-7.4.1.patch/src/mesa/x86/read_rgba_span_x86.S	2009-04-25 22:20:15.000000000 +0200
+@@ -77,7 +77,6 @@
+  */
+ 
+ .globl _generic_read_RGBA_span_BGRA8888_REV_MMX
+-.hidden _generic_read_RGBA_span_BGRA8888_REV_MMX
+ 	.type	_generic_read_RGBA_span_BGRA8888_REV_MMX, @function
+ _generic_read_RGBA_span_BGRA8888_REV_MMX:
+ 	pushl	%ebx
+@@ -172,7 +171,6 @@
+  */
+ 
+ .globl _generic_read_RGBA_span_BGRA8888_REV_SSE
+-.hidden _generic_read_RGBA_span_BGRA8888_REV_SSE
+ 	.type	_generic_read_RGBA_span_BGRA8888_REV_SSE, @function
+ _generic_read_RGBA_span_BGRA8888_REV_SSE:
+ 	pushl	%esi
+@@ -335,7 +333,6 @@
+ 
+ 	.text
+ .globl _generic_read_RGBA_span_BGRA8888_REV_SSE2
+-.hidden _generic_read_RGBA_span_BGRA8888_REV_SSE2
+ 	.type	_generic_read_RGBA_span_BGRA8888_REV_SSE2, @function
+ _generic_read_RGBA_span_BGRA8888_REV_SSE2:
+ 	pushl	%esi
+@@ -494,7 +491,6 @@
+ 
+ 	.text
+ 	.globl	_generic_read_RGBA_span_RGB565_MMX
+-        .hidden _generic_read_RGBA_span_RGB565_MMX
+ 	.type	_generic_read_RGBA_span_RGB565_MMX, @function
+ 
+ _generic_read_RGBA_span_RGB565_MMX:

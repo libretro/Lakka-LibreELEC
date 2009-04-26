@@ -1,0 +1,50 @@
+http://lists.freedesktop.org/archives/intel-gfx/2009-February/001313.html
+
+--- a/drivers/gpu/drm/i915/i915_suspend.c.orig	2009-02-18 22:59:19.000000000 -0500
++++ b/drivers/gpu/drm/i915/i915_suspend.c	2009-02-18 22:59:58.000000000 -0500
+@@ -28,6 +28,7 @@
+ #include "drm.h"
+ #include "i915_drm.h"
+ #include "i915_drv.h"
++#include <drm/drm_crtc_helper.h>
+ 
+ static bool i915_pipe_enabled(struct drm_device *dev, enum pipe pipe)
+ {
+@@ -519,6 +520,8 @@
+ 
+ 	i915_restore_vga(dev);
+ 
++	drm_helper_resume_force_mode(dev);
++
+ 	return 0;
+ }
+ 
+From f5192bce8be69e5b33d7579bc282fef4d673e2c1 Mon Sep 17 00:00:00 2001
+From: Lubomir Rintel <lkundrak@v3.sk>
+Date: Sun, 15 Mar 2009 13:55:55 +0100
+Subject: [PATCH] Fix i915 nomodeset NULL deref. during PM resume
+
+drm_helper_resume_force_mode() would crash while attempting to
+iterate through crtc_list, which is uninitialized when is modesetting
+disabled.
+---
+ drivers/gpu/drm/i915/i915_suspend.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/i915_suspend.c b/drivers/gpu/drm/i915/i915_suspend.c
+index ef5fb6e..b138032 100644
+--- a/drivers/gpu/drm/i915/i915_suspend.c
++++ b/drivers/gpu/drm/i915/i915_suspend.c
+@@ -520,7 +520,8 @@ int i915_restore_state(struct drm_device *dev)
+ 
+ 	i915_restore_vga(dev);
+ 
+-	drm_helper_resume_force_mode(dev);
++	if (drm_core_check_feature(dev, DRIVER_MODESET))
++		drm_helper_resume_force_mode(dev);
+ 
+ 	return 0;
+ }
+-- 
+1.6.2
+

@@ -1,0 +1,51 @@
+From 514eb5a03b8ca223a4d832e1675cda3a6a56b02d Mon Sep 17 00:00:00 2001
+From: Ben Skeggs <skeggsb@gmail.com>
+Date: Mon, 13 Apr 2009 19:13:26 +1000
+Subject: [PATCH 2/6] bios/f11: store a copy of used vbios image in /var/run
+
+---
+ src/nv_bios.c |   13 +++++++++++++
+ 1 files changed, 13 insertions(+), 0 deletions(-)
+
+diff --git a/src/nv_bios.c b/src/nv_bios.c
+index ebf4027..ad4ff1f 100644
+--- a/src/nv_bios.c
++++ b/src/nv_bios.c
+@@ -22,6 +22,9 @@
+  * SOFTWARE.
+  */
+ 
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
+ #include "nv_include.h"
+ 
+ #if defined(__FreeBSD__) || defined(__NetBSD__)
+@@ -4492,7 +4495,10 @@ uint8_t * nouveau_bios_embedded_edid(ScrnInfoPtr pScrn)
+ 
+ bool NVInitVBIOS(ScrnInfoPtr pScrn)
+ {
++	NVPtr pNv = NVPTR(pScrn);
+ 	struct nvbios *bios = &NVPTR(pScrn)->VBIOS;
++	char img[128];
++	int fd;
+ 
+ 	memset(bios, 0, sizeof(struct nvbios));
+ 
+@@ -4503,6 +4509,13 @@ bool NVInitVBIOS(ScrnInfoPtr pScrn)
+ 	if (bios->length > NV_PROM_SIZE)
+ 		bios->length = NV_PROM_SIZE;
+ 
++	sprintf(img, "/var/run/nv%02x_%04x.rom", pNv->NVArch, pNv->Chipset);
++	fd = open(img, O_CREAT|O_RDWR|O_EXCL, 0700);
++	if (fd >= 0) {
++		write(fd, bios->data, bios->length);
++		close(fd);
++	}
++
+ 	return true;
+ }
+ 
+-- 
+1.6.2.2
+

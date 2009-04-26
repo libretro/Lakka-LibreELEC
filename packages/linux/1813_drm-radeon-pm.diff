@@ -1,0 +1,586 @@
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/atombios_crtc.c.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/atombios_crtc.c
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/atombios_crtc.c.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/atombios_crtc.c	2009-03-03 20:53:05.000000000 +0000
+@@ -441,14 +441,23 @@ static bool atombios_crtc_mode_fixup(str
+ 
+ static void atombios_crtc_prepare(struct drm_crtc *crtc)
+ {
++	struct drm_device *dev = crtc->dev;
++	struct drm_radeon_private *dev_priv = dev->dev_private;
++
++	mutex_lock(&dev_priv->mode_info.power.pll_mutex);
++
+ 	atombios_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
+ 	atombios_lock_crtc(crtc, 1);
+ }
+ 
+ static void atombios_crtc_commit(struct drm_crtc *crtc)
+ {
++	struct drm_device *dev = crtc->dev;
++	struct drm_radeon_private *dev_priv = dev->dev_private;
++
+ 	atombios_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
+ 	atombios_lock_crtc(crtc, 0);
++	mutex_unlock(&dev_priv->mode_info.power.pll_mutex);
+ }
+ 
+ static const struct drm_crtc_helper_funcs atombios_helper_funcs = {
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_atombios.c.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_atombios.c
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_atombios.c.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_atombios.c	2009-03-03 20:53:05.000000000 +0000
+@@ -620,6 +620,34 @@ void radeon_atom_static_pwrmgt_setup(str
+ 	atom_execute_table(dev_priv->mode_info.atom_context, index, (uint32_t *)&args);
+ }
+ 
++void radeon_atom_get_mc_arb_info(struct drm_device *dev)
++{
++	struct drm_radeon_private *dev_priv = dev->dev_private;
++	struct radeon_mode_info *mode_info = &dev_priv->mode_info;
++	struct atom_context *ctx = mode_info->atom_context;
++	int index = GetIndexIntoMasterTable(DATA, MC_InitParameter);
++	uint8_t frev, crev;
++	uint16_t size, data_offset;
++
++	atom_parse_data_header(ctx, index, &size, &frev, &crev, &data_offset);
++	dev_priv->mode_info.power.mc_arb_init_values =
++		kmalloc(size*sizeof(int), GFP_KERNEL);
++	memcpy(dev_priv->mode_info.power.mc_arb_init_values,
++	       ctx->bios + data_offset, size * sizeof(int));
++}
++
++void radeon_atom_get_engine_clock(struct drm_device *dev, int *engine_clock)
++{
++	struct drm_radeon_private *dev_priv = dev->dev_private;
++	struct radeon_mode_info *mode_info = &dev_priv->mode_info;
++	struct atom_context *ctx = mode_info->atom_context;
++	GET_ENGINE_CLOCK_PS_ALLOCATION args;
++	int index = GetIndexIntoMasterTable(COMMAND, GetEngineClock);
++
++	atom_execute_table(ctx, index, (uint32_t *)&args);
++	*engine_clock = args.ulReturnEngineClock;
++}
++
+ void radeon_atom_set_engine_clock(struct drm_device *dev, int eng_clock)
+ {
+ 	struct drm_radeon_private *dev_priv = dev->dev_private;
+@@ -633,6 +661,18 @@ void radeon_atom_set_engine_clock(struct
+ 	atom_execute_table(dev_priv->mode_info.atom_context, index, (uint32_t *)&args);
+ }
+ 
++void radeon_atom_get_memory_clock(struct drm_device *dev, int *mem_clock)
++{
++	struct drm_radeon_private *dev_priv = dev->dev_private;
++	struct radeon_mode_info *mode_info = &dev_priv->mode_info;
++	struct atom_context *ctx = mode_info->atom_context;
++	GET_MEMORY_CLOCK_PS_ALLOCATION args;
++	int index = GetIndexIntoMasterTable(COMMAND, GetMemoryClock);
++	
++	atom_execute_table(ctx, index, (uint32_t *)&args);
++	*mem_clock = args.ulReturnMemoryClock;
++}
++
+ void radeon_atom_set_memory_clock(struct drm_device *dev, int mem_clock)
+ {
+ 	struct drm_radeon_private *dev_priv = dev->dev_private;
+@@ -646,6 +686,16 @@ void radeon_atom_set_memory_clock(struct
+ 	atom_execute_table(dev_priv->mode_info.atom_context, index, (uint32_t *)&args);
+ }
+ 
++void radeon_atom_initialize_memory_controller(struct drm_device *dev)
++{
++	struct drm_radeon_private *dev_priv = dev->dev_private;
++	struct atom_context *ctx = dev_priv->mode_info.atom_context;
++	int index = GetIndexIntoMasterTable(COMMAND, MemoryDeviceInit);
++	MEMORY_PLLINIT_PS_ALLOCATION args;
++
++	atom_execute_table(ctx, index, (uint32_t *)&args);
++}
++
+ void radeon_atom_initialize_bios_scratch_regs(struct drm_device *dev)
+ {
+ 	struct drm_radeon_private *dev_priv = dev->dev_private;
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cp.c.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cp.c
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cp.c.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cp.c	2009-03-03 20:53:05.000000000 +0000
+@@ -3223,6 +3223,8 @@ int radeon_driver_load(struct drm_device
+ 		if (ret)
+ 			goto modeset_fail;
+ 
++		mutex_init(&dev_priv->mode_info.power.pll_mutex);
++
+ 		radeon_modeset_init(dev);
+ 
+ 		radeon_modeset_cp_init(dev);
+@@ -3231,7 +3233,7 @@ int radeon_driver_load(struct drm_device
+ 		drm_irq_install(dev);
+ 	}
+ 
+-
++	radeon_pm_init(dev);
+ 	return ret;
+ modeset_fail:
+ 	dev->driver->driver_features &= ~DRIVER_MODESET;
+@@ -3303,6 +3305,8 @@ int radeon_driver_unload(struct drm_devi
+ {
+ 	drm_radeon_private_t *dev_priv = dev->dev_private;
+ 
++	radeon_pm_exit(dev);
++
+ 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+ 		drm_irq_uninstall(dev);
+ 		radeon_modeset_cleanup(dev);
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cs.c.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cs.c
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cs.c.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_cs.c	2009-03-03 20:53:05.000000000 +0000
+@@ -41,6 +41,8 @@ int radeon_cs_ioctl(struct drm_device *d
+ 	long size;
+ 	int r, i;
+ 
++	radeon_pm_timer_reset(dev);
++
+ 	mutex_lock(&dev_priv->cs.cs_mutex);
+ 	/* set command stream id to 0 which is fake id */
+ 	cs_id = 0;
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_drv.h.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_drv.h
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_drv.h.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_drv.h	2009-03-03 20:53:05.000000000 +0000
+@@ -612,6 +612,9 @@ extern int radeon_modeset_cp_resume(stru
+ /* radeon_pm.c */
+ int radeon_suspend(struct drm_device *dev, pm_message_t state);
+ int radeon_resume(struct drm_device *dev);
++void radeon_pm_init(struct drm_device *dev);
++void radeon_pm_exit(struct drm_device *dev);
++void radeon_pm_timer_reset(struct drm_device *dev);
+ 
+ /* Flags for stats.boxes
+  */
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_irq.c.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_irq.c
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_irq.c.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_irq.c	2009-03-03 20:53:05.000000000 +0000
+@@ -185,8 +185,10 @@ irqreturn_t radeon_driver_irq_handler(DR
+ 	struct drm_device *dev = (struct drm_device *) arg;
+ 	drm_radeon_private_t *dev_priv =
+ 	    (drm_radeon_private_t *) dev->dev_private;
++	struct radeon_powermanagement_info *power = &dev_priv->mode_info.power;
+ 	u32 stat;
+ 	u32 r500_disp_int;
++	unsigned long flags;
+ 
+ 	/* Only consider the bits we're interested in - others could be used
+ 	 * outside the DRM
+@@ -206,15 +208,47 @@ irqreturn_t radeon_driver_irq_handler(DR
+ 
+ 	/* VBLANK interrupt */
+ 	if ((dev_priv->flags & RADEON_FAMILY_MASK) >= CHIP_RS690) {
+-		if (r500_disp_int & R500_D1_VBLANK_INTERRUPT)
++		if (r500_disp_int & R500_D1_VBLANK_INTERRUPT) {
++			spin_lock_irqsave(&power->power_lock, flags);
++			if (power->reclock_head & 1) {
++				power->reclock_head &= ~1;
++				schedule_work(&power->reclock_work);
++				drm_vblank_put(dev, 0);
++			}
++			spin_unlock_irqrestore(&power->power_lock, flags);
+ 			drm_handle_vblank(dev, 0);
+-		if (r500_disp_int & R500_D2_VBLANK_INTERRUPT)
++		}
++		if (r500_disp_int & R500_D2_VBLANK_INTERRUPT) {
++			spin_lock_irqsave(&power->power_lock, flags);
++			if (power->reclock_head & 2) {
++				power->reclock_head &= ~2;
++				schedule_work(&power->reclock_work);
++				drm_vblank_put(dev, 1);
++			}
++			spin_unlock_irqrestore(&power->power_lock, flags);
+ 			drm_handle_vblank(dev, 1);
++		}
+ 	} else {
+-		if (stat & RADEON_CRTC_VBLANK_STAT)
++		if (stat & RADEON_CRTC_VBLANK_STAT) {
++			spin_lock_irqsave(&power->power_lock, flags);
++			if (power->reclock_head & 1) {
++				power->reclock_head &= ~1;
++				schedule_work(&power->reclock_work);
++				drm_vblank_put(dev, 0);
++			}
++			spin_unlock_irqrestore(&power->power_lock, flags);
+ 			drm_handle_vblank(dev, 0);
+-		if (stat & RADEON_CRTC2_VBLANK_STAT)
++		}
++		if (stat & RADEON_CRTC2_VBLANK_STAT) {
++			spin_lock_irqsave(&power->power_lock, flags);
++			if (power->reclock_head & 2) {
++				power->reclock_head &= ~2;
++				schedule_work(&power->reclock_work);
++				drm_vblank_put(dev, 1);
++			}
++			spin_unlock_irqrestore(&power->power_lock, flags);
+ 			drm_handle_vblank(dev, 1);
++		}
+ 	}
+ 	return IRQ_HANDLED;
+ }
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_mode.h.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_mode.h
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_mode.h.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_mode.h	2009-03-03 20:53:05.000000000 +0000
+@@ -173,6 +173,22 @@ struct radeon_i2c_chan {
+ 	struct radeon_i2c_bus_rec rec;
+ };
+ 
++struct radeon_powermanagement_info {
++	struct timer_list idle_power_timer;
++	struct work_struct reclock_work;
++	struct drm_device *dev;
++	uint32_t orig_memory_clock;
++	uint32_t orig_engine_clock;
++	uint32_t *mc_arb_init_values;
++	uint8_t orig_fbdiv;
++	int new_mem_clock;
++	int new_engine_clock;
++	int current_clock_state;
++	int reclock_head;
++	struct mutex pll_mutex;
++	spinlock_t power_lock;
++};
++
+ struct radeon_mode_info {
+ 	struct atom_context *atom_context;
+ 	struct radeon_bios_connector bios_connector[RADEON_MAX_BIOS_CONNECTOR];
+@@ -182,6 +198,9 @@ struct radeon_mode_info {
+ 	struct radeon_pll mpll;
+ 	uint32_t mclk;
+ 	uint32_t sclk;
++
++	/* power management */
++	struct radeon_powermanagement_info power;
+ };
+ 
+ struct radeon_crtc {
+@@ -307,6 +326,12 @@ extern int radeon_crtc_cursor_move(struc
+ 
+ extern bool radeon_atom_get_clock_info(struct drm_device *dev);
+ extern bool radeon_combios_get_clock_info(struct drm_device *dev);
++extern void radeon_atom_get_engine_clock(struct drm_device *dev, int *engine_clock);
++extern void radeon_atom_get_memory_clock(struct drm_device *dev, int *memory_clock);
++extern void radeon_atom_set_engine_clock(struct drm_device *dev, int engine_clock);
++extern void radeon_atom_set_memory_clock(struct drm_device *dev, int memory_clock);
++extern void radeon_atom_initialize_memory_controller(struct drm_device *dev);
++extern void radeon_atom_get_mc_arb_info(struct drm_device *dev);
+ extern void radeon_atombios_get_lvds_info(struct radeon_encoder *encoder);
+ extern void radeon_atombios_get_tmds_info(struct radeon_encoder *encoder);
+ extern bool radeon_combios_get_lvds_info(struct radeon_encoder *encoder);
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_pm.c.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_pm.c
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_pm.c.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_pm.c	2009-03-03 20:53:05.000000000 +0000
+@@ -31,6 +31,8 @@
+ 
+ #include "drm_crtc_helper.h"
+ 
++#define RADEON_DOWNCLOCK_IDLE_MS 30
++
+ int radeon_suspend(struct drm_device *dev, pm_message_t state)
+ {
+ 	struct drm_radeon_private *dev_priv = dev->dev_private;
+@@ -255,3 +257,214 @@ bool radeon_set_pcie_lanes(struct drm_de
+ 		return false;
+ }
+ 
++static void radeon_pm_set_engine_clock(struct drm_device *dev, int freq)
++{
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++
++	if (dev_priv->is_atom_bios)
++		radeon_atom_set_engine_clock(dev, freq);
++}
++
++static void radeon_pm_set_memory_clock(struct drm_device *dev, int freq)
++{
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++	struct radeon_powermanagement_info *power = &dev_priv->mode_info.power;
++
++	mutex_lock(&power->pll_mutex);
++	radeon_do_cp_idle(dev_priv);
++	if (dev_priv->is_atom_bios) {
++		int mpll, spll, hclk, sclk, fbdiv, index, factor;
++		switch (dev_priv->chip_family) {
++		case CHIP_R520:
++		case CHIP_RV530:
++		case CHIP_RV560:
++		case CHIP_RV570:
++		case CHIP_R580:
++			mpll = RADEON_READ_PLL(dev_priv, MPLL_FUNC_CNTL);
++			fbdiv = (mpll & 0x1fe0) >> 5;
++
++			/* Set new fbdiv */
++			factor = power->orig_memory_clock / freq;
++			fbdiv = power->orig_fbdiv / factor;
++
++			mpll &= ~0x1fe0;
++			mpll |= ((fbdiv << 5) | (1 << 24));
++			mpll &= ~(1 << 25);
++
++			spll = RADEON_READ_PLL(dev_priv, SPLL_FUNC_CNTL);
++
++			hclk = fbdiv << 5;
++			hclk += 0x20;
++			hclk *= 8;
++
++			sclk = spll & 0x1fe0;
++			sclk += 0x20;
++			sclk *= 6;
++			sclk = sclk >> 5;
++
++			index = (hclk/sclk);
++
++			R500_WRITE_MCIND(R530_MC_ARB_RATIO_CLK_SEQ,
++					 power->mc_arb_init_values[index]);
++			RADEON_WRITE_PLL(dev_priv, MPLL_FUNC_CNTL, mpll);
++			radeon_atom_initialize_memory_controller(dev);
++			break;
++		}
++	}
++
++	mutex_unlock(&power->pll_mutex);
++}
++
++static int radeon_pm_get_active_crtcs(struct drm_device *dev, int *crtcs)
++{
++	struct drm_crtc *crtc;
++	int count = 0;
++	struct radeon_crtc *radeon_crtc;
++	
++	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
++		radeon_crtc = to_radeon_crtc(crtc);
++		if (crtc->enabled) {
++			count++;
++			*crtcs |= (1 << radeon_crtc->crtc_id);
++		}
++	}
++	return count;
++}
++
++
++static void radeon_pm_perform_transition(struct drm_device *dev)
++{
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++	struct radeon_powermanagement_info *power = &dev_priv->mode_info.power;
++	int crtcs = 0, count;
++	unsigned long flags;
++
++	count = radeon_pm_get_active_crtcs(dev, &crtcs);
++
++	spin_lock_irqsave(&power->power_lock, flags);
++	switch (count) {
++	case 0:
++		schedule_work(&power->reclock_work);
++		break;
++	case 1:
++		if (power->reclock_head)
++			break;
++		if (crtcs & 1) {
++			power->reclock_head |= 1;
++			drm_vblank_get(dev, 0);
++		} else {
++			power->reclock_head |= 2;
++			drm_vblank_get(dev, 1);
++		}
++		break;
++	default:
++		/* Too many active heads */
++		break;
++	}
++	spin_unlock_irqrestore(&power->power_lock, flags);
++}
++
++
++static int radeon_pm_set_runtime_power(struct drm_device *dev, int value)
++{
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++	struct radeon_powermanagement_info *power = &dev_priv->mode_info.power;
++
++	if (power->current_clock_state == value)
++		return 1;
++
++	switch (value) {
++	case 0:
++		power->new_engine_clock = 100*100;
++		power->new_mem_clock = 100*100;
++		break;
++	case 1:
++		power->new_engine_clock = power->orig_engine_clock;
++		power->new_mem_clock = power->orig_memory_clock;
++		break;
++	}
++
++	power->current_clock_state = value;
++	radeon_pm_perform_transition(dev);
++
++	return 0;
++}
++
++static void radeon_pm_idle_timeout(unsigned long d)
++{
++	struct drm_device *dev = (struct drm_device *)d;
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++
++	radeon_pm_set_runtime_power(dev, 0);
++}
++
++static void radeon_pm_reclock_callback(struct work_struct *work)
++{
++	struct radeon_powermanagement_info *power =
++		container_of(work, struct radeon_powermanagement_info,
++			     reclock_work);
++	struct drm_device *dev = power->dev;	
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++
++	mutex_lock(&dev_priv->cs.cs_mutex);
++	radeon_pm_set_memory_clock(dev, power->new_mem_clock);
++	radeon_pm_set_engine_clock(dev, power->new_engine_clock);
++	mutex_unlock(&dev_priv->cs.cs_mutex);
++}
++
++void radeon_pm_timer_reset(struct drm_device *dev)
++{
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++	struct radeon_powermanagement_info *power = &dev_priv->mode_info.power;
++
++	if (!drm_core_check_feature(dev, DRIVER_MODESET))
++		return;
++
++	radeon_pm_set_runtime_power(dev, 1);
++
++	mod_timer(&power->idle_power_timer,
++		  jiffies + msecs_to_jiffies(RADEON_DOWNCLOCK_IDLE_MS));
++}
++
++void radeon_pm_init(struct drm_device *dev)
++{
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++	struct radeon_powermanagement_info *power = &dev_priv->mode_info.power;
++
++	power->dev = dev;
++
++	if (!drm_core_check_feature(dev, DRIVER_MODESET))
++		return;
++
++	if (dev_priv->is_atom_bios) {
++		int mpll;
++		radeon_atom_get_mc_arb_info(dev);
++		radeon_atom_get_engine_clock(dev, &power->orig_engine_clock);
++		radeon_atom_get_memory_clock(dev, &power->orig_memory_clock);
++
++		mpll = RADEON_READ_PLL(dev_priv, MPLL_FUNC_CNTL);
++		dev_priv->mode_info.power.orig_fbdiv = (mpll & 0x1fe0) >> 5;
++	}
++
++	setup_timer(&power->idle_power_timer, radeon_pm_idle_timeout,
++		    (unsigned long)dev);
++	INIT_WORK(&power->reclock_work, radeon_pm_reclock_callback);
++
++	spin_lock_init(&power->power_lock);
++
++	power->current_clock_state = 1;
++	power->reclock_head = 0;
++
++	radeon_pm_timer_reset(dev);
++}
++
++void radeon_pm_exit(struct drm_device *dev)
++{
++	drm_radeon_private_t *dev_priv = dev->dev_private;
++	struct radeon_powermanagement_info *power = &dev_priv->mode_info.power;
++
++	if (!drm_core_check_feature(dev, DRIVER_MODESET))
++		return;
++
++	del_timer_sync(&power->idle_power_timer);
++}
+diff -up linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_reg.h.mjg linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_reg.h
+--- linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_reg.h.mjg	2009-03-03 19:41:48.000000000 +0000
++++ linux-2.6.28.x86_64/drivers/gpu/drm/radeon/radeon_reg.h	2009-03-03 20:53:05.000000000 +0000
+@@ -303,6 +303,28 @@
+ #       define RADEON_PLL_WR_EN             (1 << 7)
+ #       define RADEON_PLL_DIV_SEL           (3 << 8)
+ #       define RADEON_PLL2_DIV_SEL_MASK     ~(3 << 8)
++#define SPLL_FUNC_CNTL                     0x0000
++#define MPLL_FUNC_CNTL                     0x0004
++#define GENERAL_PWRMGT                     0x0008
++#      define RADEON_GLOBAL_PWRMGT_EN      (1 << 0)
++#define SCLK_PWRMGT_CNTL                   0x0009
++#      define RADEON_SCLK_PWRMGT_OFF       (1 << 0)
++#define MCLK_PWRMGT_CNTL                   0x000a
++#      define RADEON_MCLK_PWRMGT_OFF       (1 << 0)
++#define DYN_PWRMGT_SCLK_CNTL               0x000b
++#      define RADEON_ENGINE_DYNCLK_MODE    (1 << 0)
++#      define RADEON_STATIC_SCREEN_EN      (1 << 20)
++#      define RADEON_CLIENT_SELECT_POWER_EN (1 << 21)
++#define DYN_SCLK_PWMEN_PIPE                0x000d
++#      define RADEON_PIPE_3D_NOT_AUTO      (1 << 8)
++#define DYN_SCLK_VOL_CNTL                  0x000e
++#      define RADEON_IO_CG_VOLTAGE_DROP    (1 << 0)
++#      define RADEON_VOLTAGE_DROP_SYNC     (1 << 2)
++#define CP_DYN_CNTL                        0x000f
++#      define RADEON_CP_FORCEON            (1 << 0)
++#      define RADEON_CP_LOWER_POWER_IGNORE (1 << 20)
++#      define RADEON_CP_NORMAL_POWER_IGNORE (1 << 21)
++#      define RADEON_CP_NORMAL_POWER_BUSY  (1 << 24)
+ #define RADEON_CLK_PWRMGT_CNTL              0x0014
+ #       define RADEON_ENGIN_DYNCLK_MODE     (1 << 12)
+ #       define RADEON_ACTIVE_HILO_LAT_MASK  (3 << 13)
+@@ -3961,7 +3983,48 @@
+ #	define AVIVO_I2C_RESET						(1 << 8)
+ 
+ #define R600_GENERAL_PWRMGT                                        0x618
++#	define R600_GLOBAL_PWRMGT_EN                               (1 << 0)
++#	define R600_STATIC_PM_EN                                   (1 << 1)
++#	define R600_MOBILE_SU                                      (1 << 2)
++#	define R600_THERMAL_PROTECTION_DIS                         (1 << 3)
++#	define R600_THERMAL_PROTECTION_TYPE                        (1 << 4)
++#	define R600_ENABLE_GEN2PCIE                                (1 << 5)
++#	define R600_SW_GPIO_INDEX                                  (1 << 6)
++#	define R600_LOW_VOLT_D2_ACPI                               (1 << 8)
++#	define R600_LOW_VOLT_D3_ACPI                               (1 << 9)
++#	define R600_VOLT_PWRMGT_EN                                 (1 << 10)
+ #	define R600_OPEN_DRAIN_PADS				   (1 << 11)
++#	define R600_AVP_SCLK_EN                                    (1 << 12)
++#	define R600_IDCT_SCLK_EN                                   (1 << 13)
++#	define R600_GPU_COUNTER_ACPI                               (1 << 14)
++#	define R600_COUNTER_CLK                                    (1 << 15)
++#	define R600_BACKBIAS_PAD_EN                                (1 << 16)
++#	define R600_BACKBIAS_VALUE                                 (1 << 17)
++#	define R600_BACKBIAS_DPM_CNTL                              (1 << 18)
++#	define R600_SPREAD_SPECTRUM_INDEX                          (1 << 19)
++#	define R600_DYN_SPREAD_SPECTRUM_EN                         (1 << 21)
++
++#define R600_SCLK_PWRMGT_CNTL                                     0x620
++#	define R600_SCLK_PWRMGT_OFF                                (1 << 0)
++#	define R600_SCLK_TURNOFF                                   (1 << 1)
++#	define R600_SPLL_TURNOFF                                   (1 << 2)
++#	define R600_SU_SCLK_USE_BCLK                               (1 << 3)
++#	define R600_DYNAMIC_GFX_ISLAND_PWR_DOWN                    (1 << 4)
++#	define R600_DYNAMIC_GFX_ISLAND_LP                          (1 << 5)
++#	define R600_CLK_TURN_ON_STAGGER                            (1 << 6)
++#	define R600_CLK_TURN_OFF_STAGGER                           (1 << 7)
++#	define R600_FIR_FORCE_TREND_SEL                            (1 << 8)
++#	define R600_FIR_TREND_MODE                                 (1 << 9)
++#	define R600_DYN_GFX_CLK_OFF_EN                             (1 << 10)
++#	define R600_VDDC3D_TURNOFF_D1                              (1 << 11)
++#	define R600_VDDC3D_TURNOFF_D2                              (1 << 12)
++#	define R600_VDDC3D_TURNOFF_D3                              (1 << 13)
++#	define R600_SPLL_TURNOFF_D2                                (1 << 14)
++#	define R600_SCLK_LOW_D1                                    (1 << 15)
++#	define R600_DYN_GFX_CLK_OFF_MC_EN                          (1 << 16)
++
++#define R600_MCLK_PWRMGT_CNTL                                     0x624
++#      define R600_MPLL_PWRMGT_OFF                                (1 << 0)
+ 
+ #define R600_LOWER_GPIO_ENABLE                                     0x710
+ #define R600_CTXSW_VID_LOWER_GPIO_CNTL                             0x718
+@@ -5331,5 +5394,6 @@
+ #   define R500_RS_IP_OFFSET_EN 			(1 << 31)
+ 
+ #define R500_DYN_SCLK_PWMEM_PIPE                        0x000d /* PLL */
++#define R530_MC_ARB_RATIO_CLK_SEQ			0x0016 /* MC */
+ 
+ #endif

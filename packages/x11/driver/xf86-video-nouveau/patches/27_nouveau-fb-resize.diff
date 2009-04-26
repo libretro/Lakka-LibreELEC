@@ -1,0 +1,395 @@
+From 7e4b7775589cff4433de1f3dfa1416c66cdfe060 Mon Sep 17 00:00:00 2001
+From: Ben Skeggs <skeggsb@caspar.localdomain>
+Date: Tue, 14 Apr 2009 09:23:07 +1000
+Subject: [PATCH 6/6] f11: support framebuffer resize without driver pixmaps
+
+---
+ src/drmmode_display.c |   75 +++++++++++++++++++++++++++++++--
+ src/nouveau_exa.c     |   17 ++++----
+ src/nv50_randr.c      |    6 +++
+ src/nv_crtc.c         |   16 ++++++-
+ src/nv_driver.c       |  108 ++++++++++++++++++++++++++++++++++++++++++++++---
+ src/nv_type.h         |    9 ++++-
+ 6 files changed, 209 insertions(+), 22 deletions(-)
+
+diff --git a/src/drmmode_display.c b/src/drmmode_display.c
+index ca1a60b..c666c9f 100644
+--- a/src/drmmode_display.c
++++ b/src/drmmode_display.c
+@@ -1069,6 +1069,59 @@ drmmode_output_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
+ }
+ 
+ static Bool
++nv_xf86crtc_resize(ScrnInfoPtr pScrn, int width, int height)
++{
++	ScreenPtr pScreen = pScrn->pScreen;
++	NVPtr pNv = NVPTR(pScrn);
++	const int cpp = pScrn->bitsPerPixel >> 3;
++	int pitch = NOUVEAU_ALIGN(width * cpp, 256);
++	int ret = 0;
++	PixmapPtr ppix;
++
++	if (pScrn->virtualX == width && pScrn->virtualY == height &&
++	    (pNv->NoAccel || pNv->exa_onscreen))
++		return TRUE;
++
++	if (!pNv->dev)
++		goto out_done;
++
++	nouveau_fb_free(pScrn);
++
++	ret = nouveau_fb_alloc(pScrn, pitch, height, cpp);
++	if (ret) {
++		width = pScrn->virtualX;
++		height = pScrn->virtualY;
++		pitch = (*pScreen->GetScreenPixmap)(pScreen)->devKind;
++
++		ret = nouveau_fb_alloc(pScrn, pitch, height, cpp);
++		/* famous last words: "this should never happen!" */
++		if (ret)
++			FatalError("couldn't allocate framebuffer!\n");
++
++		ret = -ENOMEM;
++	}
++
++out_done:
++	if (!ret && pNv->ShadowFB) {
++		xfree(pNv->ShadowPtr);
++		pNv->ShadowPtr = xalloc(pitch * height);
++		pNv->ShadowPitch = pitch;
++	}
++
++	ppix = (*pScreen->GetScreenPixmap)(pScreen);
++
++	(*pScreen->ModifyPixmapHeader)(ppix, width, height, -1, -1, pitch,
++				       (!pNv->NoAccel || pNv->ShadowFB) ?
++				       pNv->ShadowPtr : pNv->FBMap);
++	pScrn->pixmapPrivate.ptr = ppix->devPrivate.ptr;
++
++	pScrn->virtualX = width;
++	pScrn->virtualY = height;
++	pScrn->displayWidth = pitch / cpp;
++	return ret == 0;
++}
++
++static Bool
+ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
+ {
+ 	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(scrn);
+@@ -1083,10 +1136,23 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
+ 	ErrorF("resize called %d %d\n", width, height);
+ 
+ 	if (!pNv->exa_driver_pixmaps) {
+-		if (width > scrn->virtualX || height > scrn->virtualY)
++		if (!nv_xf86crtc_resize(scrn, width, height))
+ 			return FALSE;
+ 
+-		scrn->displayWidth = NOUVEAU_ALIGN(width, 64);
++		if (drmmode->fb_id)
++			drmModeRmFB(drmmode->fd, drmmode->fb_id);
++		drmmode->fb_id = 0;
++
++		for (i = 0; i < config->num_crtc; i++) {
++			xf86CrtcPtr crtc = config->crtc[i];
++
++			if (!crtc->enabled)
++				continue;
++			
++			xf86CrtcSetMode(crtc, &crtc->mode, crtc->rotation,
++					crtc->x, crtc->y);
++		}
++
+ 		return TRUE;
+ 	}
+ 
+@@ -1149,7 +1215,7 @@ static const xf86CrtcConfigFuncsRec drmmode_xf86crtc_config_funcs = {
+ 
+ Bool drmmode_pre_init(ScrnInfoPtr pScrn, int fd, int cpp)
+ {
+-	xf86CrtcConfigPtr   xf86_config;
++	xf86CrtcConfigPtr xf86_config;
+ 	drmmode_ptr drmmode;
+ 	int i;
+ 
+@@ -1173,8 +1239,7 @@ Bool drmmode_pre_init(ScrnInfoPtr pScrn, int fd, int cpp)
+ 	for (i = 0; i < drmmode->mode_res->count_connectors; i++)
+ 		drmmode_output_init(pScrn, drmmode, i);
+ 
+-	xf86InitialConfiguration(pScrn, NVPTR(pScrn)->exa_driver_pixmaps);
+-
++	xf86InitialConfiguration(pScrn, TRUE);
+ 	return TRUE;
+ }
+ 
+diff --git a/src/nouveau_exa.c b/src/nouveau_exa.c
+index aee2794..41e3f85 100644
+--- a/src/nouveau_exa.c
++++ b/src/nouveau_exa.c
+@@ -279,7 +279,10 @@ nouveau_exa_prepare_access(PixmapPtr ppix, int index)
+ 	} else
+ 	if (ppix == pScreen->GetScreenPixmap(pScreen)) {
+ 		nouveau_bo_map(pNv->scanout, NOUVEAU_BO_RDWR);
+-		ppix->devPrivate.ptr = pNv->scanout->map;
++		if (pNv->scanout != pNv->FB)
++			ppix->devPrivate.ptr = pNv->scanout->map;
++		else
++			ppix->devPrivate.ptr = pNv->FB->map + pNv->exa_onscreen->offset; 
+ 	} else {
+ 		/* force migration */
+ 		return FALSE;
+@@ -301,7 +304,8 @@ nouveau_exa_finish_access(PixmapPtr ppix, int index)
+ 	if (ppix == pScreen->GetScreenPixmap(pScreen)) {
+ 		ppix->devPrivate.ptr = NULL;
+ 		nouveau_bo_unmap(pNv->scanout);
+-		nv50_shadow_damage_frontbuffer_fallback(pScrn);
++		if (pNv->Architecture == NV_ARCH_50)
++			nv50_shadow_damage_frontbuffer_fallback(pScrn);
+ 	}
+ }
+ 
+@@ -543,10 +547,9 @@ Bool
+ nouveau_exa_pixmap_is_onscreen(PixmapPtr ppix)
+ {
+ 	ScrnInfoPtr pScrn = xf86Screens[ppix->drawable.pScreen->myNum];
+-	NVPtr pNv = NVPTR(pScrn);
+ 	unsigned long offset = exaGetPixmapOffset(ppix);
+ 
+-	if (offset < pNv->EXADriverPtr->offScreenBase)
++	if (offset == 0)
+ 		return TRUE;
+ 
+ 	return FALSE;
+@@ -630,10 +633,8 @@ nouveau_exa_init(ScreenPtr pScreen)
+ 	}
+ 
+ 	/* Needed for frontbuffer fallbacks (to ensure it accesses the linear fb). */
+-	if (pNv->Architecture >= NV_ARCH_50) {
+-		exa->PrepareAccess = nouveau_exa_prepare_access;
+-		exa->FinishAccess = nouveau_exa_finish_access;
+-	}
++	exa->PrepareAccess = nouveau_exa_prepare_access;
++	exa->FinishAccess = nouveau_exa_finish_access;
+ 
+ 	exa->MarkSync = nouveau_exa_mark_sync;
+ 	exa->WaitMarker = nouveau_exa_wait_marker;
+diff --git a/src/nv50_randr.c b/src/nv50_randr.c
+index 538c883..c451ba3 100644
+--- a/src/nv50_randr.c
++++ b/src/nv50_randr.c
+@@ -289,8 +289,14 @@ nv50_crtc_set_origin(xf86CrtcPtr crtc, int x, int y)
+ {
+ 	ScrnInfoPtr pScrn = crtc->scrn;
+ 	NV50CrtcPrivatePtr nv_crtc = crtc->driver_private;
++	NVPtr pNv = NVPTR(pScrn);
+ 
+ 	nv_crtc->crtc->SetFBOffset(nv_crtc->crtc, x, y);
++	if (nv_crtc->crtc->front_buffer &&
++	    nv_crtc->crtc->front_buffer != pNv->scanout) {
++		nv_crtc->crtc->SetFB(nv_crtc->crtc, pNv->scanout);
++		nv_crtc->crtc->ModeSet(nv_crtc->crtc, &crtc->mode);
++	}
+ 
+ 	NV50DisplayCommand(pScrn, NV50_UPDATE_DISPLAY, 0);
+ }
+diff --git a/src/nv_crtc.c b/src/nv_crtc.c
+index 1d50874..cfa06e1 100644
+--- a/src/nv_crtc.c
++++ b/src/nv_crtc.c
+@@ -1154,7 +1154,10 @@ void NVCrtcSetBase(xf86CrtcPtr crtc, int x, int y)
+ 	ScrnInfoPtr pScrn = crtc->scrn;
+ 	NVPtr pNv = NVPTR(pScrn);    
+ 	struct nouveau_crtc *nv_crtc = to_nouveau_crtc(crtc);
+-	uint32_t start = (y * pScrn->displayWidth + x) * pScrn->bitsPerPixel / 8;
++	uint32_t cpp = pScrn->bitsPerPixel / 8;
++	uint32_t start = (y * pScrn->displayWidth + x) * cpp;
++	uint32_t pitch = pScrn->displayWidth * cpp;
++	NVCrtcRegPtr regp = &pNv->ModeReg.crtc_reg[nv_crtc->head];
+ 
+ 	if (crtc->rotatedData != NULL) /* we do not exist on the real framebuffer */
+ #if NOUVEAU_EXA_PIXMAPS
+@@ -1162,8 +1165,17 @@ void NVCrtcSetBase(xf86CrtcPtr crtc, int x, int y)
+ #else
+ 		start = pNv->FB->offset + nv_crtc->shadow->offset; /* We do exist relative to the framebuffer */
+ #endif
+-	else
++	else {
++		if (pNv->exa_onscreen)
++			start += pNv->exa_onscreen->offset;
+ 		start += pNv->FB->offset;
++	}
++
++	regp->CRTC[NV_CIO_CR_OFFSET_INDEX] = pitch >> 3;
++	regp->CRTC[NV_CIO_CRE_RPC0_INDEX] =
++		XLATE(pitch >> 3, 8, NV_CIO_CRE_RPC0_OFFSET_10_8);
++	crtc_wr_cio_state(crtc, regp, NV_CIO_CRE_RPC0_INDEX);
++	crtc_wr_cio_state(crtc, regp, NV_CIO_CR_OFFSET_INDEX);
+ 
+ 	start &= ~3;
+ 	pNv->ModeReg.crtc_reg[nv_crtc->head].fb_start = start;
+diff --git a/src/nv_driver.c b/src/nv_driver.c
+index f097fb9..0cc81ae 100644
+--- a/src/nv_driver.c
++++ b/src/nv_driver.c
+@@ -900,16 +900,112 @@ Bool NVI2CInit(ScrnInfoPtr pScrn)
+ 	return TRUE;
+ }
+ 
++void
++nouveau_fb_free(ScrnInfoPtr pScrn)
++{
++	ScreenPtr pScreen = pScrn->pScreen;
++	NVPtr pNv = NVPTR(pScrn);
++
++	if (!pNv->NoAccel && pNv->exa_onscreen) {
++		exaOffscreenFree(pScreen, pNv->exa_onscreen);
++		pNv->exa_onscreen = NULL;
++	}
++
++	if (pNv->scanout && pNv->FB != pNv->scanout)
++		nouveau_bo_ref(NULL, &pNv->scanout);
++}
++
++int
++nouveau_fb_alloc(ScrnInfoPtr pScrn, int pitch, int height, int cpp)
++{
++	ScreenPtr pScreen = pScrn->pScreen;
++	NVPtr pNv = NVPTR(pScrn);
++	int ret;
++
++	if (!pNv->NoAccel) {
++		pNv->exa_onscreen = exaOffscreenAlloc(pScreen, pitch * height,
++						      256, TRUE, NULL, NULL);
++		if (!pNv->exa_onscreen)
++			return -ENOMEM;
++	}
++
++	if (!pNv->scanout) {
++		ret = nouveau_bo_new(pNv->dev, NOUVEAU_BO_VRAM | NOUVEAU_BO_PIN,
++				     256, pitch * height, &pNv->scanout);
++		if (ret) {
++			nouveau_fb_free(pScrn);
++			return ret;
++		}
++	}
++
++
++	return 0;
++}
++
+ static Bool
+ nv_xf86crtc_resize(ScrnInfoPtr pScrn, int width, int height)
+ {
+-#if 0
+-	do not change virtual* for now, as it breaks multihead server regeneration
+-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv_xf86crtc_resize is called with %dx%d resolution.\n", width, height);
++	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(pScrn);
++	ScreenPtr pScreen = pScrn->pScreen;
++	NVPtr pNv = NVPTR(pScrn);
++	const int cpp = pScrn->bitsPerPixel >> 3;
++	int pitch = NOUVEAU_ALIGN(width * cpp, 256);
++	int ret = 0, i;
++	PixmapPtr ppix;
++
++	if (pScrn->virtualX == width && pScrn->virtualY == height &&
++	    (pNv->NoAccel || pNv->exa_onscreen))
++		return TRUE;
++
++	if (!pNv->dev)
++		goto out_done;
++
++	nouveau_fb_free(pScrn);
++
++	ret = nouveau_fb_alloc(pScrn, pitch, height, cpp);
++	if (ret) {
++		width = pScrn->virtualX;
++		height = pScrn->virtualY;
++		pitch = (*pScreen->GetScreenPixmap)(pScreen)->devKind;
++
++		ret = nouveau_fb_alloc(pScrn, pitch, height, cpp);
++		/* famous last words: "this should never happen!" */
++		if (ret)
++			FatalError("couldn't allocate framebuffer!\n");
++
++		ret = -ENOMEM;
++	}
++
++out_done:
++
++	if (!ret && pNv->ShadowFB) {
++		xfree(pNv->ShadowPtr);
++		pNv->ShadowPtr = xalloc(pitch * height);
++		pNv->ShadowPitch = pitch;
++	}
++
++	ppix = pScreen->GetScreenPixmap(pScreen);
++
++	(*pScreen->ModifyPixmapHeader)(ppix, width, height, -1, -1, pitch,
++				       (!pNv->NoAccel || pNv->ShadowFB) ?
++				       pNv->ShadowPtr : pNv->FBMap);
++	pScrn->pixmapPrivate.ptr = ppix->devPrivate.ptr;
++
+ 	pScrn->virtualX = width;
+ 	pScrn->virtualY = height;
+-#endif
+-	return TRUE;
++	pScrn->displayWidth = pitch / cpp;
++
++	for (i = 0; i < config->num_crtc; i++) {
++		xf86CrtcPtr crtc = config->crtc[i];
++
++		if (!crtc->enabled)
++			continue;
++		
++		xf86CrtcSetMode(crtc, &crtc->mode, crtc->rotation,
++				crtc->x, crtc->y);
++	}
++
++	return ret == 0;
+ }
+ 
+ static const xf86CrtcConfigFuncsRec nv_xf86crtc_config_funcs = {
+@@ -1423,7 +1519,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
+ 		} else
+ 			nv50_output_create(pScrn); /* create randr-1.2 "outputs". */
+ 
+-		if (!xf86InitialConfiguration(pScrn, FALSE))
++		if (!xf86InitialConfiguration(pScrn, TRUE))
+ 			NVPreInitFail("No valid modes.\n");
+ 	}
+ 
+diff --git a/src/nv_type.h b/src/nv_type.h
+index 5396cc8..1a9b9ed 100644
+--- a/src/nv_type.h
++++ b/src/nv_type.h
+@@ -304,8 +304,11 @@ typedef struct _NVRec {
+     volatile CARD8 *PDIO1;
+ 
+     uint8_t cur_head;
++
+     ExaDriverPtr	EXADriverPtr;
+     Bool		exa_driver_pixmaps;
++    ExaOffscreenArea *  exa_onscreen;
++
+     ScreenBlockHandlerProcPtr BlockHandler;
+     CloseScreenProcPtr  CloseScreen;
+     /* Cursor */
+@@ -494,11 +497,15 @@ nouveau_pixmap_offset(PixmapPtr ppix)
+ {
+ 	ScrnInfoPtr pScrn = xf86Screens[ppix->drawable.pScreen->myNum];
+ 	NVPtr pNv = NVPTR(pScrn);
++	unsigned offset;
+ 
+ 	if (pNv->exa_driver_pixmaps)
+ 		return 0;
+ 
+-	return exaGetPixmapOffset(ppix);
++	offset = exaGetPixmapOffset(ppix);
++	if (offset == 0)
++		offset = pNv->exa_onscreen->offset;
++	return offset;
+ }
+ 
+ #endif /* __NV_STRUCT_H__ */
+-- 
+1.6.2.2
+
