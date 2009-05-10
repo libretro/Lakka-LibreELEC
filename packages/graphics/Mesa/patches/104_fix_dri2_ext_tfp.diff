@@ -1,0 +1,337 @@
+Index: mesa/include/GL/internal/dri_interface.h
+===================================================================
+--- mesa.orig/include/GL/internal/dri_interface.h	2009-01-25 17:28:10.000000000 +0200
++++ mesa/include/GL/internal/dri_interface.h	2009-04-03 11:45:43.000000000 +0300
+@@ -230,7 +230,7 @@
+ 
+ 
+ #define __DRI_TEX_BUFFER "DRI_TexBuffer"
+-#define __DRI_TEX_BUFFER_VERSION 1
++#define __DRI_TEX_BUFFER_VERSION 2
+ struct __DRItexBufferExtensionRec {
+     __DRIextension base;
+ 
+@@ -238,11 +238,23 @@
+      * Method to override base texture image with the contents of a
+      * __DRIdrawable. 
+      *
+-     * For GLX_EXT_texture_from_pixmap with AIGLX.
++     * For GLX_EXT_texture_from_pixmap with AIGLX.  Deprecated in favor of
++     * setTexBuffer2 in version 2 of this interface
+      */
+     void (*setTexBuffer)(__DRIcontext *pDRICtx,
+ 			 GLint target,
+ 			 __DRIdrawable *pDraw);
++
++    /**
++     * Method to override base texture image with the contents of a
++     * __DRIdrawable, including the required texture format attribute.
++     *
++     * For GLX_EXT_texture_from_pixmap with AIGLX.
++     */
++    void (*setTexBuffer2)(__DRIcontext *pDRICtx,
++			  GLint target,
++			  GLint format,
++			  __DRIdrawable *pDraw);
+ };
+ 
+ 
+Index: mesa/include/GL/internal/glcore.h
+===================================================================
+--- mesa.orig/include/GL/internal/glcore.h	2009-01-16 21:37:10.000000000 +0200
++++ mesa/include/GL/internal/glcore.h	2009-04-03 11:45:43.000000000 +0300
+@@ -176,4 +176,8 @@
+ #define GLX_TEXTURE_2D_BIT_EXT             0x00000002
+ #define GLX_TEXTURE_RECTANGLE_BIT_EXT      0x00000004
+ 
++#define GLX_TEXTURE_FORMAT_NONE_EXT        0x20D8
++#define GLX_TEXTURE_FORMAT_RGB_EXT         0x20D9
++#define GLX_TEXTURE_FORMAT_RGBA_EXT        0x20DA
++
+ #endif /* __gl_core_h_ */
+Index: mesa/src/glx/x11/glx_pbuffer.c
+===================================================================
+--- mesa.orig/src/glx/x11/glx_pbuffer.c	2009-01-16 23:12:40.000000000 +0200
++++ mesa/src/glx/x11/glx_pbuffer.c	2009-04-03 11:45:43.000000000 +0300
+@@ -189,6 +189,21 @@
+ 
+    return target;
+ }
++
++
++static GLenum
++determineTextureFormat(const int *attribs, int numAttribs)
++{
++   GLenum target = 0;
++   int i;
++
++   for (i = 0; i < numAttribs; i++) {
++      if (attribs[2 * i] == GLX_TEXTURE_FORMAT_EXT)
++	 return attribs[2 * i + 1];
++   }
++
++   return 0;
++}
+ #endif
+ 
+ /**
+@@ -294,6 +309,9 @@
+             if (pdraw != NULL && !pdraw->textureTarget)
+                pdraw->textureTarget =
+                   determineTextureTarget((const int *) data, num_attributes);
++            if (pdraw != NULL && !pdraw->textureFormat)
++               pdraw->textureFormat =
++                  determineTextureFormat((const int *) data, num_attributes);
+          }
+ #endif
+ 
+@@ -374,6 +392,7 @@
+       }
+ 
+       pdraw->textureTarget = determineTextureTarget(attrib_list, i);
++      pdraw->textureFormat = determineTextureFormat(attrib_list, i);
+    } while (0);
+ #endif
+ 
+Index: mesa/src/glx/x11/glxclient.h
+===================================================================
+--- mesa.orig/src/glx/x11/glxclient.h	2009-03-30 10:47:17.000000000 +0300
++++ mesa/src/glx/x11/glxclient.h	2009-04-03 11:45:43.000000000 +0300
+@@ -161,6 +161,7 @@
+     __GLXscreenConfigs *psc;
+     GLenum textureTarget;
+     __DRIdrawable *driDrawable;
++    GLenum textureFormat; /* EXT_texture_from_pixmap support */
+ };
+ 
+ /*
+Index: mesa/src/glx/x11/glxcmds.c
+===================================================================
+--- mesa.orig/src/glx/x11/glxcmds.c	2009-03-30 10:34:15.000000000 +0300
++++ mesa/src/glx/x11/glxcmds.c	2009-04-03 11:45:43.000000000 +0300
+@@ -2631,11 +2631,19 @@
+     if (gc->driContext) {
+ 	__GLXDRIdrawable *pdraw = GetGLXDRIDrawable(dpy, drawable, NULL);
+ 
+-	if (pdraw != NULL)
+-	    (*pdraw->psc->texBuffer->setTexBuffer)(gc->__driContext,
+-						   pdraw->textureTarget,
+-						   pdraw->driDrawable);
+-
++	if (pdraw != NULL) {
++	    if (pdraw->psc->texBuffer->base.version >= 2 &&
++		pdraw->psc->texBuffer->setTexBuffer2 != NULL) {
++		(*pdraw->psc->texBuffer->setTexBuffer2)(gc->__driContext,
++							pdraw->textureTarget,
++							pdraw->textureFormat,
++							pdraw->driDrawable);
++	    } else {
++		(*pdraw->psc->texBuffer->setTexBuffer)(gc->__driContext,
++						       pdraw->textureTarget,
++						       pdraw->driDrawable);
++	    }
++	}
+ 	return;
+     }
+ #endif
+Index: mesa/src/mesa/drivers/dri/i915/i830_texstate.c
+===================================================================
+--- mesa.orig/src/mesa/drivers/dri/i915/i830_texstate.c	2009-01-16 21:37:10.000000000 +0200
++++ mesa/src/mesa/drivers/dri/i915/i830_texstate.c	2009-04-03 11:45:43.000000000 +0300
+@@ -38,7 +38,7 @@
+ 
+ 
+ static GLuint
+-translate_texture_format(GLuint mesa_format)
++translate_texture_format(GLuint mesa_format, GLuint internal_format)
+ {
+    switch (mesa_format) {
+    case MESA_FORMAT_L8:
+@@ -56,7 +56,10 @@
+    case MESA_FORMAT_ARGB4444:
+       return MAPSURF_16BIT | MT_16BIT_ARGB4444;
+    case MESA_FORMAT_ARGB8888:
+-      return MAPSURF_32BIT | MT_32BIT_ARGB8888;
++      if (internal_format == GL_RGB)
++	 return MAPSURF_32BIT | MT_32BIT_XRGB8888;
++      else
++	 return MAPSURF_32BIT | MT_32BIT_ARGB8888;
+    case MESA_FORMAT_YCBCR_REV:
+       return (MAPSURF_422 | MT_422_YCRCB_NORMAL);
+    case MESA_FORMAT_YCBCR:
+@@ -162,7 +165,8 @@
+ 								0, intelObj->
+ 								firstLevel);
+ 
+-      format = translate_texture_format(firstImage->TexFormat->MesaFormat);
++      format = translate_texture_format(firstImage->TexFormat->MesaFormat,
++					firstImage->InternalFormat);
+       pitch = intelObj->mt->pitch * intelObj->mt->cpp;
+    }
+ 
+Index: mesa/src/mesa/drivers/dri/i915/i915_texstate.c
+===================================================================
+--- mesa.orig/src/mesa/drivers/dri/i915/i915_texstate.c	2009-01-16 21:40:22.000000000 +0200
++++ mesa/src/mesa/drivers/dri/i915/i915_texstate.c	2009-04-03 11:45:43.000000000 +0300
+@@ -37,7 +37,8 @@
+ 
+ 
+ static GLuint
+-translate_texture_format(GLuint mesa_format, GLenum DepthMode)
++translate_texture_format(GLuint mesa_format, GLuint internal_format,
++			 GLenum DepthMode)
+ {
+    switch (mesa_format) {
+    case MESA_FORMAT_L8:
+@@ -55,7 +56,10 @@
+    case MESA_FORMAT_ARGB4444:
+       return MAPSURF_16BIT | MT_16BIT_ARGB4444;
+    case MESA_FORMAT_ARGB8888:
+-      return MAPSURF_32BIT | MT_32BIT_ARGB8888;
++      if (internal_format == GL_RGB)
++	 return MAPSURF_32BIT | MT_32BIT_XRGB8888;
++      else
++	 return MAPSURF_32BIT | MT_32BIT_ARGB8888;
+    case MESA_FORMAT_YCBCR_REV:
+       return (MAPSURF_422 | MT_422_YCRCB_NORMAL);
+    case MESA_FORMAT_YCBCR:
+@@ -173,7 +177,8 @@
+ 								 firstLevel);
+ 
+       format = translate_texture_format(firstImage->TexFormat->MesaFormat, 
+-		tObj->DepthMode);
++					firstImage->InternalFormat,
++					tObj->DepthMode);
+       pitch = intelObj->mt->pitch * intelObj->mt->cpp;
+    }
+ 
+Index: mesa/src/mesa/drivers/dri/i965/brw_wm_surface_state.c
+===================================================================
+--- mesa.orig/src/mesa/drivers/dri/i965/brw_wm_surface_state.c	2009-03-30 10:34:15.000000000 +0300
++++ mesa/src/mesa/drivers/dri/i965/brw_wm_surface_state.c	2009-04-03 11:45:43.000000000 +0300
+@@ -69,7 +69,8 @@
+ }
+ 
+ 
+-static GLuint translate_tex_format( GLuint mesa_format, GLenum depth_mode )
++static GLuint translate_tex_format( GLuint mesa_format, GLenum internal_format,
++				    GLenum depth_mode )
+ {
+    switch( mesa_format ) {
+    case MESA_FORMAT_L8:
+@@ -89,10 +90,16 @@
+       return BRW_SURFACEFORMAT_R8G8B8_UNORM;      
+ 
+    case MESA_FORMAT_ARGB8888:
+-      return BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
++      if (internal_format == GL_RGB)
++	 return BRW_SURFACEFORMAT_B8G8R8X8_UNORM;
++      else
++	 return BRW_SURFACEFORMAT_B8G8R8A8_UNORM;
+ 
+    case MESA_FORMAT_RGBA8888_REV:
+-      return BRW_SURFACEFORMAT_R8G8B8A8_UNORM;
++      if (internal_format == GL_RGB)
++	 return BRW_SURFACEFORMAT_R8G8B8X8_UNORM;
++      else
++	 return BRW_SURFACEFORMAT_R8G8B8A8_UNORM;
+ 
+    case MESA_FORMAT_RGB565:
+       return BRW_SURFACEFORMAT_B5G6R5_UNORM;
+@@ -150,7 +157,7 @@
+ struct brw_wm_surface_key {
+    GLenum target, depthmode;
+    dri_bo *bo;
+-   GLint format;
++   GLint format, internal_format;
+    GLint first_level, last_level;
+    GLint width, height, depth;
+    GLint pitch, cpp;
+@@ -188,9 +195,11 @@
+ 
+    surf.ss0.mipmap_layout_mode = BRW_SURFACE_MIPMAPLAYOUT_BELOW;
+    surf.ss0.surface_type = translate_tex_target(key->target);
+-
+-   if (key->bo) 
+-      surf.ss0.surface_format = translate_tex_format(key->format, key->depthmode);
++   if (key->bo) {
++      surf.ss0.surface_format = translate_tex_format(key->format,
++						     key->internal_format,
++						     key->depthmode);
++   }
+    else {
+       switch (key->depth) {
+       case 32:
+@@ -267,6 +276,7 @@
+       key.offset = intelObj->textureOffset;
+    } else {
+       key.format = firstImage->TexFormat->MesaFormat;
++      key.internal_format = firstImage->InternalFormat;
+       key.pitch = intelObj->mt->pitch;
+       key.depth = firstImage->Depth;
+       key.bo = intelObj->mt->region->buffer;
+Index: mesa/src/mesa/drivers/dri/intel/intel_screen.c
+===================================================================
+--- mesa.orig/src/mesa/drivers/dri/intel/intel_screen.c	2009-04-03 11:45:43.000000000 +0300
++++ mesa/src/mesa/drivers/dri/intel/intel_screen.c	2009-04-03 11:45:43.000000000 +0300
+@@ -210,6 +210,7 @@
+ static const __DRItexBufferExtension intelTexBufferExtension = {
+     { __DRI_TEX_BUFFER, __DRI_TEX_BUFFER_VERSION },
+    intelSetTexBuffer,
++   intelSetTexBuffer2,
+ };
+ 
+ static const __DRIextension *intelScreenExtensions[] = {
+Index: mesa/src/mesa/drivers/dri/intel/intel_tex.h
+===================================================================
+--- mesa.orig/src/mesa/drivers/dri/intel/intel_tex.h	2009-01-16 21:40:22.000000000 +0200
++++ mesa/src/mesa/drivers/dri/intel/intel_tex.h	2009-04-03 11:45:43.000000000 +0300
+@@ -149,6 +149,8 @@
+ 		       unsigned long long offset, GLint depth, GLuint pitch);
+ void intelSetTexBuffer(__DRIcontext *pDRICtx,
+ 		       GLint target, __DRIdrawable *pDraw);
++void intelSetTexBuffer2(__DRIcontext *pDRICtx,
++			GLint target, GLint format, __DRIdrawable *pDraw);
+ 
+ GLuint intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit);
+ 
+Index: mesa/src/mesa/drivers/dri/intel/intel_tex_image.c
+===================================================================
+--- mesa.orig/src/mesa/drivers/dri/intel/intel_tex_image.c	2009-03-30 10:34:15.000000000 +0300
++++ mesa/src/mesa/drivers/dri/intel/intel_tex_image.c	2009-04-03 11:45:43.000000000 +0300
+@@ -712,7 +712,9 @@
+ }
+ 
+ void
+-intelSetTexBuffer(__DRIcontext *pDRICtx, GLint target, __DRIdrawable *dPriv)
++intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
++		   GLint glx_texture_format,
++		   __DRIdrawable *dPriv)
+ {
+    struct intel_framebuffer *intel_fb = dPriv->driverPrivate;
+    struct intel_context *intel = pDRICtx->driverPrivate;
+@@ -743,7 +745,10 @@
+ 
+    type = GL_BGRA;
+    format = GL_UNSIGNED_BYTE;
+-   internalFormat = (rb->region->cpp == 3 ? 3 : 4);
++   if (glx_texture_format == GLX_TEXTURE_FORMAT_RGB_EXT)
++      internalFormat = GL_RGB;
++   else
++      internalFormat = GL_RGBA;
+ 
+    mt = intel_miptree_create_for_region(intel, target,
+ 					internalFormat,
+@@ -783,3 +788,12 @@
+ 
+    _mesa_unlock_texture(&intel->ctx, texObj);
+ }
++
++void
++intelSetTexBuffer(__DRIcontext *pDRICtx, GLint target, __DRIdrawable *dPriv)
++{
++   /* The old interface didn't have the format argument, so copy our
++    * implementation's behavior at the time.
++    */
++   intelSetTexBuffer2(pDRICtx, target, GLX_TEXTURE_FORMAT_RGBA_EXT, dPriv);
++}
