@@ -1,0 +1,123 @@
+http://tobias.rautenkranz.ch/libdvdread_ifo.html.en
+--- a/src/dvd_input.c	2005-09-19 15:43:08.000000000 +0200
++++ b/src/dvd_input.c	2008-02-21 09:42:01.000000000 +0100
+@@ -376,6 +376,8 @@
+   }
+ #endif /* HAVE_DVDCSS_DVDCSS_H */
+ 
++	fprintf(stderr, "libdvdread patched to play DVDs with DVD-Movie-Protect\n");
++
+   if(dvdcss_library != NULL) {
+     /*
+     char *psz_method = getenv( "DVDCSS_METHOD" );
+--- a/src/dvd_udf.c	2005-09-19 15:43:08.000000000 +0200
++++ b/dvd_udf.c	2008-02-21 09:42:01.000000000 +0100
+@@ -39,10 +39,15 @@
+ #include <sys/stat.h>
+ #include <unistd.h>
+ #include <inttypes.h>
++#ifndef __WIN32__
++#include <fnmatch.h>
++#endif
+ 
+ #include "dvd_reader.h"
+ #include "dvd_udf.h"
++#include "ifo_types.h"
++#include "ifo_read.h"
+ 
+ /* Private but located in/shared with dvd_reader.c */
+ extern int UDFReadBlocksRaw( dvd_reader_t *device, uint32_t lb_number,
+ 				size_t block_count, unsigned char *data,
+@@ -962,7 +968,7 @@
+     return part->valid;
+ }
+ 
+-uint32_t UDFFindFile( dvd_reader_t *device, char *filename,
++uint32_t UDFFindFileReal( dvd_reader_t *device, char *filename,
+ 		      uint32_t *filesize )
+ {
+     uint8_t LogBlock_base[ DVD_VIDEO_LB_LEN + 2048 ];
+@@ -1065,6 +1071,83 @@
+   }
+ }
+ 
++/**
++ * Get the offset from the ifo files to allow playback of DVDs
++ * with a deliberately broken UDF file system (aka DVD-Movie-Protect).
++ * When the file is not an IFO or VOB, it calls the real UDF routine.
++ */
++uint32_t UDFFindFile( dvd_reader_t *device, char *filename,
++		      uint32_t *filesize )
++{
++#ifndef __WIN32__
++  if (!fnmatch("/VIDEO_TS/VTS_[0-9][0-9]_[0-9].???", filename, FNM_PATHNAME)) {
++#else
++  if (strlen("/VIDEO_TS/VTS_01_1.VOB") == strlen(filename)
++      && !strncmp(filename, "/VIDEO_TS/VTS_", strlen("/VIDEO_TS/VTS_"))	) {
++#endif
++		size_t len = strlen(filename);
++		char *extension = &filename[len-3];
++		if (!strcmp(extension, "IFO") || !strcmp(extension, "VOB")) {
++			int title = atoi(&filename[len-8]);
++			int part = atoi(&filename[len-5]);
++
++			ifo_handle_t *ifo_handle = ifoOpen(device, 0);
++			if (0 == ifo_handle)
++				return 0;
++
++			uint32_t tmp_filesize;
++			uint32_t offset = UDFFindFileReal(device, "/VIDEO_TS/VIDEO_TS.IFO", &tmp_filesize);
++
++			int i;
++			for (i=0; i<ifo_handle->tt_srpt->nr_of_srpts; i++)
++				if (title == ifo_handle->tt_srpt->title[i].title_set_nr)
++					break;
++
++			if (i == ifo_handle->tt_srpt->nr_of_srpts) {
++				/* not found */
++				ifoClose(ifo_handle);
++				return 0;
++			}
++			offset += ifo_handle->tt_srpt->title[i].title_set_sector;
++			ifoClose(ifo_handle);
++
++			if (!strcmp(extension, "VOB")) {
++				ifo_handle = ifoOpen(device, title);
++				if (0 == ifo_handle)
++					return 0;
++
++				switch(part) {
++					case 0:
++						if (0 == ifo_handle->vtsi_mat->vtsm_vobs) {
++							ifoClose(ifo_handle);
++							return 0;
++						}
++						offset += ifo_handle->vtsi_mat->vtsm_vobs;
++						break;
++					case 1:
++						if (0 == ifo_handle->vtsi_mat->vtstt_vobs) {
++							ifoClose(ifo_handle);
++							return 0;
++						}
++						offset += ifo_handle->vtsi_mat->vtstt_vobs;
++						break;
++					default: /* can't get other parts (also no need to) */
++						offset = 0;
++						break;
++				}
++
++				ifoClose(ifo_handle);
++			}
++
++
++			*filesize = 1000000; /* File size unknown */
++			if (offset != 0)
++				return offset;
++		}
++	}
++
++	return UDFFindFileReal( device, filename, filesize);
++}
+ 
+ 
+ /**
