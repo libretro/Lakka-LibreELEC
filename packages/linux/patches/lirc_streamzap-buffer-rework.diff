@@ -1,0 +1,429 @@
+Rework the lirc_streamzap buffers a bit, see if we can't get it behaving
+better when the receiver is pulled... (rhbz#508952)
+
+---
+ drivers/input/lirc/lirc_streamzap.c |  207 +++++++++++++++++++----------------
+ 1 files changed, 112 insertions(+), 95 deletions(-)
+
+diff --git a/drivers/input/lirc/lirc_streamzap.c b/drivers/input/lirc/lirc_streamzap.c
+index d1ce354..a5f3140 100644
+--- a/drivers/input/lirc/lirc_streamzap.c
++++ b/drivers/input/lirc/lirc_streamzap.c
+@@ -73,7 +73,7 @@ MODULE_DEVICE_TABLE(usb, streamzap_table);
+ #define STREAMZAP_RESOLUTION 256
+ 
+ /* number of samples buffered */
+-#define STREAMZAP_BUFFER_SIZE 128
++#define STREAMZAP_BUF_LEN 128
+ 
+ enum StreamzapDecoderState {
+ 	PulseSpace,
+@@ -121,9 +121,8 @@ struct usb_streamzap {
+ 	struct urb		*urb_in;
+ 
+ 	/* lirc */
+-	struct lirc_driver	driver;
+-	struct lirc_buffer	delay_buf;
+-	struct lirc_buffer	lirc_buf;
++	struct lirc_driver	*driver;
++	struct lirc_buffer	*delay_buf;
+ 
+ 	/* timer used to support delay buffering */
+ 	struct timer_list	delay_timer;
+@@ -199,18 +198,18 @@ static void delay_timeout(unsigned long arg)
+ 
+ 	spin_lock_irqsave(&sz->timer_lock, flags);
+ 
+-	if (!lirc_buffer_empty(&sz->delay_buf) &&
+-	    !lirc_buffer_full(&sz->lirc_buf)) {
+-		lirc_buffer_read(&sz->delay_buf, (unsigned char *) &data);
+-		lirc_buffer_write(&sz->lirc_buf, (unsigned char *) &data);
++	if (!lirc_buffer_empty(sz->delay_buf) &&
++	    !lirc_buffer_full(sz->driver->rbuf)) {
++		lirc_buffer_read(sz->delay_buf, (unsigned char *) &data);
++		lirc_buffer_write(sz->driver->rbuf, (unsigned char *) &data);
+ 	}
+-	if (!lirc_buffer_empty(&sz->delay_buf)) {
+-		while (lirc_buffer_available(&sz->delay_buf) <
+-		      STREAMZAP_BUFFER_SIZE/2 &&
+-		      !lirc_buffer_full(&sz->lirc_buf)) {
+-			lirc_buffer_read(&sz->delay_buf,
++	if (!lirc_buffer_empty(sz->delay_buf)) {
++		while (lirc_buffer_available(sz->delay_buf) <
++		       STREAMZAP_BUF_LEN / 2 &&
++		       !lirc_buffer_full(sz->driver->rbuf)) {
++			lirc_buffer_read(sz->delay_buf,
+ 					   (unsigned char *) &data);
+-			lirc_buffer_write(&sz->lirc_buf,
++			lirc_buffer_write(sz->driver->rbuf,
+ 					    (unsigned char *) &data);
+ 		}
+ 		if (sz->timer_running) {
+@@ -221,8 +220,8 @@ static void delay_timeout(unsigned long arg)
+ 		sz->timer_running = 0;
+ 	}
+ 
+-	if (!lirc_buffer_empty(&sz->lirc_buf))
+-		wake_up(&sz->lirc_buf.wait_poll);
++	if (!lirc_buffer_empty(sz->driver->rbuf))
++		wake_up(&sz->driver->rbuf->wait_poll);
+ 
+ 	spin_unlock_irqrestore(&sz->timer_lock, flags);
+ }
+@@ -232,18 +231,18 @@ static void flush_delay_buffer(struct usb_streamzap *sz)
+ 	int data;
+ 	int empty = 1;
+ 
+-	while (!lirc_buffer_empty(&sz->delay_buf)) {
++	while (!lirc_buffer_empty(sz->delay_buf)) {
+ 		empty = 0;
+-		lirc_buffer_read(&sz->delay_buf, (unsigned char *) &data);
+-		if (!lirc_buffer_full(&sz->lirc_buf)) {
+-			lirc_buffer_write(&sz->lirc_buf,
++		lirc_buffer_read(sz->delay_buf, (unsigned char *) &data);
++		if (!lirc_buffer_full(sz->driver->rbuf)) {
++			lirc_buffer_write(sz->driver->rbuf,
+ 					    (unsigned char *) &data);
+ 		} else {
+-			dprintk("buffer overflow", sz->driver.minor);
++			dprintk("buffer overflow", sz->driver->minor);
+ 		}
+ 	}
+ 	if (!empty)
+-		wake_up(&sz->lirc_buf.wait_poll);
++		wake_up(&sz->driver->rbuf->wait_poll);
+ }
+ 
+ static void push(struct usb_streamzap *sz, unsigned char *data)
+@@ -251,20 +250,20 @@ static void push(struct usb_streamzap *sz, unsigned char *data)
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&sz->timer_lock, flags);
+-	if (lirc_buffer_full(&sz->delay_buf)) {
++	if (lirc_buffer_full(sz->delay_buf)) {
+ 		int read_data;
+ 
+-		lirc_buffer_read(&sz->delay_buf,
++		lirc_buffer_read(sz->delay_buf,
+ 				   (unsigned char *) &read_data);
+-		if (!lirc_buffer_full(&sz->lirc_buf)) {
+-			lirc_buffer_write(&sz->lirc_buf,
++		if (!lirc_buffer_full(sz->driver->rbuf)) {
++			lirc_buffer_write(sz->driver->rbuf,
+ 					    (unsigned char *) &read_data);
+ 		} else {
+-			dprintk("buffer overflow", sz->driver.minor);
++			dprintk("buffer overflow", sz->driver->minor);
+ 		}
+ 	}
+ 
+-	lirc_buffer_write(&sz->delay_buf, data);
++	lirc_buffer_write(sz->delay_buf, data);
+ 
+ 	if (!sz->timer_running) {
+ 		sz->delay_timer.expires = jiffies + HZ/10;
+@@ -296,7 +295,7 @@ static void push_full_pulse(struct usb_streamzap *sz,
+ 					sz->signal_last.tv_usec);
+ 			tmp -= sz->sum;
+ 		}
+-		dprintk("ls %u", sz->driver.minor, tmp);
++		dprintk("ls %u", sz->driver->minor, tmp);
+ 		push(sz, (char *)&tmp);
+ 
+ 		sz->idle = 0;
+@@ -308,7 +307,7 @@ static void push_full_pulse(struct usb_streamzap *sz,
+ 	sz->sum += pulse;
+ 	pulse |= PULSE_BIT;
+ 
+-	dprintk("p %u", sz->driver.minor, pulse & PULSE_MASK);
++	dprintk("p %u", sz->driver->minor, pulse & PULSE_MASK);
+ 	push(sz, (char *)&pulse);
+ }
+ 
+@@ -326,7 +325,7 @@ static void push_full_space(struct usb_streamzap *sz,
+ 	space = ((int) value)*STREAMZAP_RESOLUTION;
+ 	space += STREAMZAP_RESOLUTION/2;
+ 	sz->sum += space;
+-	dprintk("s %u", sz->driver.minor, space);
++	dprintk("s %u", sz->driver->minor, space);
+ 	push(sz, (char *)&space);
+ }
+ 
+@@ -368,10 +367,10 @@ static void usb_streamzap_irq(struct urb *urb)
+ 		break;
+ 	}
+ 
+-	dprintk("received %d", sz->driver.minor, urb->actual_length);
++	dprintk("received %d", sz->driver->minor, urb->actual_length);
+ 	if (!sz->flush) {
+ 		for (i = 0; i < urb->actual_length; i++) {
+-			dprintk("%d: %x", sz->driver.minor,
++			dprintk("%d: %x", sz->driver->minor,
+ 				i, (unsigned char) sz->buf_in[i]);
+ 			switch (sz->decoder_state) {
+ 			case PulseSpace:
+@@ -443,14 +442,18 @@ static int streamzap_probe(struct usb_interface *interface,
+ {
+ 	struct usb_device *udev = interface_to_usbdev(interface);
+ 	struct usb_host_interface *iface_host;
+-	int retval = -ENOMEM;
+-	struct usb_streamzap *sz = NULL;
++	struct usb_streamzap *sz;
++	struct lirc_driver *driver;
++	struct lirc_buffer *lirc_buf;
++	struct lirc_buffer *delay_buf;
+ 	char buf[63], name[128] = "";
++	int retval = -ENOMEM;
++	int minor = 0;
+ 
+ 	/* Allocate space for device driver specific data */
+ 	sz = kzalloc(sizeof(struct usb_streamzap), GFP_KERNEL);
+ 	if (sz == NULL)
+-		goto error;
++		return -ENOMEM;
+ 
+ 	sz->udev = udev;
+ 	sz->interface = interface;
+@@ -462,7 +465,7 @@ static int streamzap_probe(struct usb_interface *interface,
+ 		err("%s: Unexpected desc.bNumEndpoints (%d)", __func__,
+ 		    iface_host->desc.bNumEndpoints);
+ 		retval = -ENODEV;
+-		goto error;
++		goto free_sz;
+ 	}
+ 
+ 	sz->endpoint = &(iface_host->endpoint[0].desc);
+@@ -471,7 +474,7 @@ static int streamzap_probe(struct usb_interface *interface,
+ 		err("%s: endpoint doesn't match input device 02%02x",
+ 		    __func__, sz->endpoint->bEndpointAddress);
+ 		retval = -ENODEV;
+-		goto error;
++		goto free_sz;
+ 	}
+ 
+ 	if ((sz->endpoint->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
+@@ -479,13 +482,13 @@ static int streamzap_probe(struct usb_interface *interface,
+ 		err("%s: endpoint attributes don't match xfer 02%02x",
+ 		    __func__, sz->endpoint->bmAttributes);
+ 		retval = -ENODEV;
+-		goto error;
++		goto free_sz;
+ 	}
+ 
+ 	if (sz->endpoint->wMaxPacketSize == 0) {
+ 		err("%s: endpoint message size==0? ", __func__);
+ 		retval = -ENODEV;
+-		goto error;
++		goto free_sz;
+ 	}
+ 
+ 	/* Allocate the USB buffer and IRQ URB */
+@@ -494,36 +497,43 @@ static int streamzap_probe(struct usb_interface *interface,
+ 	sz->buf_in = usb_buffer_alloc(sz->udev, sz->buf_in_len,
+ 				      GFP_ATOMIC, &sz->dma_in);
+ 	if (sz->buf_in == NULL)
+-		goto error;
++		goto free_sz;
+ 
+ 	sz->urb_in = usb_alloc_urb(0, GFP_KERNEL);
+ 	if (sz->urb_in == NULL)
+-		goto error;
++		goto free_sz;
+ 
+ 	/* Connect this device to the LIRC sub-system */
+-
+-	if (lirc_buffer_init(&sz->lirc_buf, sizeof(int),
+-			     STREAMZAP_BUFFER_SIZE))
+-		goto error;
+-
+-	if (lirc_buffer_init(&sz->delay_buf, sizeof(int),
+-			     STREAMZAP_BUFFER_SIZE)) {
+-		lirc_buffer_free(&sz->lirc_buf);
+-		goto error;
+-	}
+-
+-	strcpy(sz->driver.name, DRIVER_NAME);
+-	sz->driver.minor = -1;
+-	sz->driver.sample_rate = 0;
+-	sz->driver.code_length = sizeof(int) * 8;
+-	sz->driver.features = LIRC_CAN_REC_MODE2 | LIRC_CAN_GET_REC_RESOLUTION;
+-	sz->driver.data = sz;
+-	sz->driver.rbuf = &sz->lirc_buf;
+-	sz->driver.set_use_inc = &streamzap_use_inc;
+-	sz->driver.set_use_dec = &streamzap_use_dec;
+-	sz->driver.fops = &streamzap_fops;
+-	sz->driver.dev = &interface->dev;
+-	sz->driver.owner = THIS_MODULE;
++	driver = kzalloc(sizeof(struct lirc_driver), GFP_KERNEL);
++	if (!driver)
++		goto free_sz;
++
++	lirc_buf = kmalloc(sizeof(struct lirc_buffer), GFP_KERNEL);
++	if (!lirc_buf)
++		goto free_driver;
++	if (lirc_buffer_init(lirc_buf, sizeof(int), STREAMZAP_BUF_LEN))
++		goto kfree_lirc_buf;
++
++	delay_buf = kmalloc(sizeof(struct lirc_buffer), GFP_KERNEL);
++	if (!delay_buf)
++		goto free_lirc_buf;
++	if (lirc_buffer_init(delay_buf, sizeof(int), STREAMZAP_BUF_LEN))
++		goto kfree_delay_buf;
++
++	sz->driver = driver;
++	strcpy(sz->driver->name, DRIVER_NAME);
++	sz->driver->minor = -1;
++	sz->driver->sample_rate = 0;
++	sz->driver->code_length = sizeof(int) * 8;
++	sz->driver->features = LIRC_CAN_REC_MODE2 | LIRC_CAN_GET_REC_RESOLUTION;
++	sz->driver->data = sz;
++	sz->driver->rbuf = lirc_buf;
++	sz->delay_buf = delay_buf;
++	sz->driver->set_use_inc = &streamzap_use_inc;
++	sz->driver->set_use_dec = &streamzap_use_dec;
++	sz->driver->fops = &streamzap_fops;
++	sz->driver->dev = &interface->dev;
++	sz->driver->owner = THIS_MODULE;
+ 
+ 	sz->idle = 1;
+ 	sz->decoder_state = PulseSpace;
+@@ -556,28 +566,32 @@ static int streamzap_probe(struct usb_interface *interface,
+ 		snprintf(name + strlen(name), sizeof(name) - strlen(name),
+ 			 " %s", buf);
+ 
+-	printk(KERN_INFO DRIVER_NAME "[%d]: %s on usb%d:%d attached\n",
+-	       sz->driver.minor, name,
+-	       udev->bus->busnum, sz->udev->devnum);
++	minor = lirc_register_driver(driver);
+ 
+-	usb_set_intfdata(interface, sz);
++	if (minor < 0)
++		goto free_delay_buf;
+ 
+-	if (lirc_register_driver(&sz->driver) < 0) {
+-		lirc_buffer_free(&sz->delay_buf);
+-		lirc_buffer_free(&sz->lirc_buf);
+-		goto error;
+-	}
++	sz->driver->minor = minor;
+ 
+-	return 0;
++	usb_set_intfdata(interface, sz);
+ 
+-error:
++	printk(KERN_INFO DRIVER_NAME "[%d]: %s on usb%d:%d attached\n",
++	       sz->driver->minor, name,
++	       udev->bus->busnum, sz->udev->devnum);
+ 
+-	/*
+-	 * Premise is that a 'goto error' can be invoked from inside the
+-	 * probe function and all necessary cleanup actions will be taken
+-	 * including freeing any necessary memory blocks
+-	 */
++	return 0;
+ 
++free_delay_buf:
++	lirc_buffer_free(sz->delay_buf);
++kfree_delay_buf:
++	kfree(delay_buf);
++free_lirc_buf:
++	lirc_buffer_free(sz->driver->rbuf);
++kfree_lirc_buf:
++	kfree(lirc_buf);
++free_driver:
++	kfree(driver);
++free_sz:
+ 	if (retval == -ENOMEM)
+ 		err("Out of memory");
+ 
+@@ -598,10 +612,10 @@ static int streamzap_use_inc(void *data)
+ 		dprintk("%s called with no context", -1, __func__);
+ 		return -EINVAL;
+ 	}
+-	dprintk("set use inc", sz->driver.minor);
++	dprintk("set use inc", sz->driver->minor);
+ 
+-	lirc_buffer_clear(&sz->lirc_buf);
+-	lirc_buffer_clear(&sz->delay_buf);
++	lirc_buffer_clear(sz->driver->rbuf);
++	lirc_buffer_clear(sz->delay_buf);
+ 
+ 	sz->flush_timer.expires = jiffies + HZ;
+ 	sz->flush = 1;
+@@ -610,7 +624,7 @@ static int streamzap_use_inc(void *data)
+ 	sz->urb_in->dev = sz->udev;
+ 	if (usb_submit_urb(sz->urb_in, GFP_ATOMIC)) {
+ 		dprintk("open result = -EIO error submitting urb",
+-			sz->driver.minor);
++			sz->driver->minor);
+ 		return -EIO;
+ 	}
+ 	sz->in_use++;
+@@ -626,7 +640,7 @@ static void streamzap_use_dec(void *data)
+ 		dprintk("%s called with no context", -1, __func__);
+ 		return;
+ 	}
+-	dprintk("set use dec", sz->driver.minor);
++	dprintk("set use dec", sz->driver->minor);
+ 
+ 	if (sz->flush) {
+ 		sz->flush = 0;
+@@ -677,13 +691,13 @@ static void streamzap_disconnect(struct usb_interface *interface)
+ 
+ 	/* unregister from the LIRC sub-system */
+ 
+-	errnum = lirc_unregister_driver(sz->driver.minor);
++	errnum = lirc_unregister_driver(sz->driver->minor);
+ 	if (errnum != 0)
+ 		dprintk("error in lirc_unregister: (returned %d)",
+-			sz->driver.minor, errnum);
++			sz->driver->minor, errnum);
+ 
+-	lirc_buffer_free(&sz->delay_buf);
+-	lirc_buffer_free(&sz->lirc_buf);
++	lirc_buffer_free(sz->delay_buf);
++	lirc_buffer_free(sz->driver->rbuf);
+ 
+ 	/* unregister from the USB sub-system */
+ 
+@@ -691,7 +705,10 @@ static void streamzap_disconnect(struct usb_interface *interface)
+ 
+ 	usb_buffer_free(sz->udev, sz->buf_in_len, sz->buf_in, sz->dma_in);
+ 
+-	minor = sz->driver.minor;
++	minor = sz->driver->minor;
++	kfree(sz->driver->rbuf);
++	kfree(sz->driver);
++	kfree(sz->delay_buf);
+ 	kfree(sz);
+ 
+ 	printk(KERN_INFO DRIVER_NAME "[%d]: disconnected\n", minor);
+@@ -701,7 +718,7 @@ static int streamzap_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct usb_streamzap *sz = usb_get_intfdata(intf);
+ 
+-	printk(KERN_INFO DRIVER_NAME "[%d]: suspend\n", sz->driver.minor);
++	printk(KERN_INFO DRIVER_NAME "[%d]: suspend\n", sz->driver->minor);
+ 	if (sz->in_use) {
+ 		if (sz->flush) {
+ 			sz->flush = 0;
+@@ -719,8 +736,8 @@ static int streamzap_resume(struct usb_interface *intf)
+ {
+ 	struct usb_streamzap *sz = usb_get_intfdata(intf);
+ 
+-	lirc_buffer_clear(&sz->lirc_buf);
+-	lirc_buffer_clear(&sz->delay_buf);
++	lirc_buffer_clear(sz->driver->rbuf);
++	lirc_buffer_clear(sz->delay_buf);
+ 
+ 	if (sz->in_use) {
+ 		sz->flush_timer.expires = jiffies + HZ;
+@@ -730,7 +747,7 @@ static int streamzap_resume(struct usb_interface *intf)
+ 		sz->urb_in->dev = sz->udev;
+ 		if (usb_submit_urb(sz->urb_in, GFP_ATOMIC)) {
+ 			dprintk("open result = -EIO error submitting urb",
+-				sz->driver.minor);
++				sz->driver->minor);
+ 			return -EIO;
+ 		}
+ 	}
