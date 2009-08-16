@@ -1,0 +1,811 @@
+diff -Naur uClibc-0.9.30.1/include/dirent.h uClibc-0.9.30.1.patch/include/dirent.h
+--- uClibc-0.9.30.1/include/dirent.h	2005-11-03 20:13:24.000000000 +0100
++++ uClibc-0.9.30.1.patch/include/dirent.h	2009-08-15 10:03:32.679480228 +0200
+@@ -134,6 +134,14 @@
+    marked with __THROW.  */
+ extern DIR *opendir (__const char *__name) __nonnull ((1));
+ 
++#ifdef __USE_XOPEN2K8
++/* Same as opendir, but open the stream on the file descriptor FD.
++
++   This function is a possible cancellation point and therefore not
++   marked with __THROW.  */
++extern DIR *fdopendir (int __fd);
++#endif
++
+ /* Close the directory stream DIRP.
+    Return 0 if successful, -1 if not.
+ 
+@@ -210,7 +218,7 @@
+ extern long int telldir (DIR *__dirp) __THROW __nonnull ((1));
+ #endif
+ 
+-#if defined __USE_BSD || defined __USE_MISC
++#if defined __USE_BSD || defined __USE_MISC || defined __XOPEN_2K8
+ 
+ /* Return the file descriptor used by DIRP.  */
+ extern int dirfd (DIR *__dirp) __THROW __nonnull ((1));
+diff -Naur uClibc-0.9.30.1/include/fcntl.h uClibc-0.9.30.1.patch/include/fcntl.h
+--- uClibc-0.9.30.1/include/fcntl.h	2008-10-03 15:59:52.000000000 +0200
++++ uClibc-0.9.30.1.patch/include/fcntl.h	2009-08-15 10:03:32.680479250 +0200
+@@ -56,13 +56,16 @@
+ # define SEEK_END	2	/* Seek from end of file.  */
+ #endif	/* XPG */
+ 
+-#if 0 /*def __USE_GNU*/
++#ifdef __USE_ATFILE
+ # define AT_FDCWD		-100	/* Special value used to indicate
+-					   openat should use the current
+-					   working directory. */
++					   the *at functions should use the
++					   current working directory. */
+ # define AT_SYMLINK_NOFOLLOW	0x100	/* Do not follow symbolic links.  */
+ # define AT_REMOVEDIR		0x200	/* Remove directory instead of
+ 					   unlinking file.  */
++# define AT_SYMLINK_FOLLOW	0x400	/* Follow symbolic links.  */
++# define AT_EACCESS		0x200	/* Test access permitted for
++					   effective IDs, not real IDs.  */
+ #endif
+ 
+ /* Do the file control operation described by CMD on FD.
+@@ -103,11 +106,11 @@
+ extern int open64 (__const char *__file, int __oflag, ...) __nonnull ((1));
+ #endif
+ 
+-#if 0 /*def __USE_GNU*/
+-/* Similar to OPEN but a relative path name is interpreted relative to
++#ifdef __USE_ATFILE
++/* Similar to `open' but a relative path name is interpreted relative to
+    the directory for which FD is a descriptor.
+ 
+-   NOTE: some other OPENAT implementation support additional functionality
++   NOTE: some other `openat' implementation support additional functionality
+    through this interface, especially using the O_XATTR flag.  This is not
+    yet supported here.
+ 
+diff -Naur uClibc-0.9.30.1/include/features.h uClibc-0.9.30.1.patch/include/features.h
+--- uClibc-0.9.30.1/include/features.h	2008-09-06 18:45:07.000000000 +0200
++++ uClibc-0.9.30.1.patch/include/features.h	2009-08-15 10:44:21.810477838 +0200
+@@ -1,4 +1,4 @@
+-/* Copyright (C) 1991-1993,1995-2003,2004,2005 Free Software Foundation, Inc.
++/* Copyright (C) 1991-1993,1995-2006,2007,2009 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+    The GNU C Library is free software; you can redistribute it and/or
+@@ -50,9 +50,10 @@
+ 			if >=199309L, add IEEE Std 1003.1b-1993;
+ 			if >=199506L, add IEEE Std 1003.1c-1995;
+ 			if >=200112L, all of IEEE 1003.1-2004
++			if >=200809L, all of IEEE 1003.1-2008
+    _XOPEN_SOURCE	Includes POSIX and XPG things.  Set to 500 if
+ 			Single Unix conformance is wanted, to 600 for the
+-			upcoming sixth revision.
++			sixth revision, to 700 for the seventh revision.
+    _XOPEN_SOURCE_EXTENDED XPG things and X/Open Unix extensions.
+    _LARGEFILE_SOURCE	Some more functions for correct standard I/O.
+    _LARGEFILE64_SOURCE	Additional functionality from LFS for large files.
+@@ -69,7 +70,7 @@
+    The `-ansi' switch to the GNU C compiler defines __STRICT_ANSI__.
+    If none of these are defined, the default is to have _SVID_SOURCE,
+    _BSD_SOURCE, and _POSIX_SOURCE set to one and _POSIX_C_SOURCE set to
+-   199506L.  If more than one of these are defined, they accumulate.
++   200112L.  If more than one of these are defined, they accumulate.
+    For example __STRICT_ANSI__, _POSIX_SOURCE and _POSIX_C_SOURCE
+    together give you ISO C, 1003.1, and 1003.2, but nothing else.
+ 
+@@ -77,6 +78,7 @@
+    header files to decide what to declare or define:
+ 
+    __USE_ISOC99		Define ISO C99 things.
++   __USE_ISOC95		Define ISO C90 AMD1 (C95) things.
+    __USE_POSIX		Define IEEE Std 1003.1 things.
+    __USE_POSIX2		Define IEEE Std 1003.2 things.
+    __USE_POSIX199309	Define IEEE Std 1003.1, and .1b things.
+@@ -85,6 +87,7 @@
+    __USE_XOPEN_EXTENDED	Define X/Open Unix things.
+    __USE_UNIX98		Define Single Unix V2 things.
+    __USE_XOPEN2K        Define XPG6 things.
++   __USE_XOPEN2K8       Define XPG7 things.
+    __USE_LARGEFILE	Define correct standard I/O things.
+    __USE_LARGEFILE64	Define LFS things with separate names.
+    __USE_FILE_OFFSET64	Define 64bit interface as default.
+@@ -111,6 +114,7 @@
+ 
+ /* Undefine everything, so we get a clean slate.  */
+ #undef	__USE_ISOC99
++#undef	__USE_ISOC95
+ #undef	__USE_POSIX
+ #undef	__USE_POSIX2
+ #undef	__USE_POSIX199309
+@@ -119,6 +123,7 @@
+ #undef	__USE_XOPEN_EXTENDED
+ #undef	__USE_UNIX98
+ #undef	__USE_XOPEN2K
++#undef	__USE_XOPEN2K8
+ #undef	__USE_LARGEFILE
+ #undef	__USE_LARGEFILE64
+ #undef	__USE_FILE_OFFSET64
+@@ -171,9 +176,9 @@
+ # undef  _POSIX_SOURCE
+ # define _POSIX_SOURCE	1
+ # undef  _POSIX_C_SOURCE
+-# define _POSIX_C_SOURCE	199506L
++# define _POSIX_C_SOURCE	200809L
+ # undef  _XOPEN_SOURCE
+-# define _XOPEN_SOURCE	600
++# define _XOPEN_SOURCE	700
+ # undef  _XOPEN_SOURCE_EXTENDED
+ # define _XOPEN_SOURCE_EXTENDED	1
+ # ifdef __UCLIBC_HAS_LFS__
+@@ -207,6 +212,12 @@
+ # define __USE_ISOC99	1
+ #endif
+ 
++/* This is to enable the ISO C90 Amendment 1:1995 extension.  */
++#if (defined _ISOC99_SOURCE || defined _ISOC9X_SOURCE \
++     || (defined __STDC_VERSION__ && __STDC_VERSION__ >= 199409L))
++# define __USE_ISOC95	1
++#endif
++
+ /* If none of the ANSI/POSIX macros are defined, use POSIX.1 and POSIX.2
+    (and IEEE Std 1003.1b-1993 unless _XOPEN_SOURCE is defined).  */
+ #if ((!defined __STRICT_ANSI__ || (_XOPEN_SOURCE - 0) >= 500) && \
+@@ -214,9 +225,14 @@
+ # define _POSIX_SOURCE	1
+ # if defined _XOPEN_SOURCE && (_XOPEN_SOURCE - 0) < 500
+ #  define _POSIX_C_SOURCE	2
+-# else
++# elif defined _XOPEN_SOURCE && (_XOPEN_SOURCE - 0) < 600
+ #  define _POSIX_C_SOURCE	199506L
++# elif defined _XOPEN_SOURCE && (_XOPEN_SOURCE - 0) < 700
++#  define _POSIX_C_SOURCE	200112L
++# else
++#  define _POSIX_C_SOURCE	200809L
+ # endif
++# define __USE_POSIX_IMPLICITLY	1
+ #endif
+ 
+ #if defined _POSIX_SOURCE || _POSIX_C_SOURCE >= 1 || defined _XOPEN_SOURCE
+@@ -237,6 +253,14 @@
+ 
+ #if (_POSIX_C_SOURCE - 0) >= 200112L
+ # define __USE_XOPEN2K		1
++# undef __USE_ISOC99
++# define __USE_ISOC99		1
++#endif
++
++#if (_POSIX_C_SOURCE - 0) >= 200809L
++# define __USE_XOPEN2K8		1
++# undef  _ATFILE_SOURCE
++# define _ATFILE_SOURCE	1
+ #endif
+ 
+ #ifdef	_XOPEN_SOURCE
+@@ -247,6 +271,9 @@
+ #  undef _LARGEFILE_SOURCE
+ #  define _LARGEFILE_SOURCE	1
+ #  if (_XOPEN_SOURCE - 0) >= 600
++#   if (_XOPEN_SOURCE - 0) >= 700
++#    define __USE_XOPEN2K8	1
++#   endif
+ #   define __USE_XOPEN2K	1
+ #   undef __USE_ISOC99
+ #   define __USE_ISOC99		1
+@@ -313,7 +340,7 @@
+ 
+ #ifdef __UCLIBC_HAS_WCHAR__
+ /* wchar_t uses ISO 10646-1 (2nd ed., published 2000-09-15) / Unicode 3.1.  */
+-# define __STDC_ISO_10646__		200009L
++#define __STDC_ISO_10646__		200009L
+ #endif
+ 
+ /*  There is an unwholesomely huge amount of code out there that depends on the
+@@ -406,10 +433,6 @@
+ # define __USE_LARGEFILE64       1
+ #endif
+ 
+-/* uClibc does not support *at interfaces. */
+-#undef _ATFILE_SOURCE
+-#undef __USE_ATFILE
+-
+ #ifdef _LIBC
+ # include <libc-internal.h>
+ #endif
+diff -Naur uClibc-0.9.30.1/include/stdio.h uClibc-0.9.30.1.patch/include/stdio.h
+--- uClibc-0.9.30.1/include/stdio.h	2008-09-30 14:17:04.000000000 +0200
++++ uClibc-0.9.30.1.patch/include/stdio.h	2009-08-15 10:03:32.684355210 +0200
+@@ -147,6 +147,11 @@
+ extern int rename (__const char *__old, __const char *__new) __THROW;
+ __END_NAMESPACE_STD
+ 
++#ifdef __USE_ATFILE
++/* Rename file OLD relative to OLDFD to NEW relative to NEWFD.  */
++extern int renameat (int __oldfd, __const char *__old, int __newfd,
++		     __const char *__new) __THROW;
++#endif
+ 
+ __BEGIN_NAMESPACE_STD
+ /* Create a temporary file and open it read/write.
+diff -Naur uClibc-0.9.30.1/include/sys/stat.h uClibc-0.9.30.1.patch/include/sys/stat.h
+--- uClibc-0.9.30.1/include/sys/stat.h	2006-03-01 10:55:06.000000000 +0100
++++ uClibc-0.9.30.1.patch/include/sys/stat.h	2009-08-15 11:56:12.531353835 +0200
+@@ -1,4 +1,5 @@
+-/* Copyright (C) 1991,1992,1995-2004,2005,2006 Free Software Foundation, Inc.
++/* Copyright (C) 1991, 1992, 1995-2004, 2005, 2006, 2007, 2009
++   Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+    The GNU C Library is free software; you can redistribute it and/or
+@@ -27,11 +28,12 @@
+ 
+ #include <bits/types.h>		/* For __mode_t and __dev_t.  */
+ 
+-#if defined __USE_XOPEN || defined __USE_MISC
++#if defined __USE_XOPEN || defined __USE_XOPEN2K || defined __USE_MISC \
++         || defined __USE_ATFILE
+ # if defined __USE_XOPEN || defined __USE_XOPEN2K
+ #  define __need_time_t
+ # endif
+-# ifdef __USE_MISC
++# if defined __USE_MISC || defined __USE_ATFILE
+ #  define __need_timespec
+ # endif
+ # include <time.h>		/* For time_t resp. timespec.  */
+@@ -247,12 +249,14 @@
+ #  endif
+ # endif
+ 
++# ifdef __USE_LARGEFILE64
+ extern int fstatat64 (int __fd, __const char *__restrict __file,
+ 		      struct stat64 *__restrict __buf, int __flag)
+      __THROW __nonnull ((2, 3));
++# endif
+ #endif
+ 
+-#if defined __USE_BSD || defined __USE_XOPEN_EXTENDED
++#if defined __USE_BSD || defined __USE_XOPEN_EXTENDED || defined __USE_XOPEN2K
+ # ifndef __USE_FILE_OFFSET64
+ /* Get file attributes about FILE and put them in BUF.
+    If FILE is a symbolic link, do not follow it.  */
+@@ -296,7 +300,8 @@
+ #ifdef __USE_ATFILE
+ /* Set file access permissions of FILE relative to
+    the directory FD is open on.  */
+-extern int fchmodat (int __fd, __const char *__file, __mode_t mode, int __flag)
++extern int fchmodat (int __fd, __const char *__file, __mode_t __mode,
++		     int __flag)
+      __THROW __nonnull ((2)) __wur;
+ #endif /* Use ATFILE.  */
+ 
+@@ -330,14 +335,15 @@
+ #if defined __USE_MISC || defined __USE_BSD || defined __USE_XOPEN_EXTENDED
+ extern int mknod (__const char *__path, __mode_t __mode, __dev_t __dev)
+      __THROW __nonnull ((1));
+-#endif
+ 
+-#ifdef __USE_ATFILE
++# ifdef __USE_ATFILE
+ /* Like mknod, create a new device file with permission bits MODE and
+    device number DEV.  But interpret relative PATH names relative to
+    the directory associated with FD.  */
+ extern int mknodat (int __fd, __const char *__path, __mode_t __mode,
+ 		    __dev_t __dev) __THROW __nonnull ((2));
++libc_hidden_proto(mknodat)
++# endif
+ #endif
+ 
+ 
+@@ -352,7 +358,21 @@
+ extern int mkfifoat (int __fd, __const char *__path, __mode_t __mode)
+      __THROW __nonnull ((2));
+ #endif
++
++#ifdef __USE_ATFILE
++/* Set file access and modification times relative to directory file
++   descriptor.  */
++extern int utimensat (int __fd, __const char *__path,
++		      __const struct timespec __times[2],
++		      int __flags)
++     __THROW __nonnull ((2));
++#endif
+ 
++#ifdef __USE_XOPEN2K8
++/* Set file access and modification times of the file associated with FD.  */
++extern int futimens (int __fd, __const struct timespec __times[2]) __THROW;
++#endif
++
+ /* on uClibc we have unversioned struct stat and mknod.
+  * bits/stat.h is filled with wrong info, so we undo it here.  */
+ #undef _STAT_VER
+diff -Naur uClibc-0.9.30.1/include/sys/time.h uClibc-0.9.30.1.patch/include/sys/time.h
+--- uClibc-0.9.30.1/include/sys/time.h	2005-11-30 18:07:06.000000000 +0100
++++ uClibc-0.9.30.1.patch/include/sys/time.h	2009-08-15 10:03:32.697354509 +0200
+@@ -148,7 +148,7 @@
+ extern int futimes (int __fd, __const struct timeval __tvp[2]) __THROW;
+ #endif
+ 
+-#if 0 /*def __USE_GNU*/
++#ifdef __USE_GNU
+ /* Change the access time of FILE relative to FD to TVP[0] and the
+    modification time of FILE to TVP[1].  If TVP is a null pointer, use
+    the current time instead.  Returns 0 on success, -1 on errors.  */
+diff -Naur uClibc-0.9.30.1/libc/misc/dirent/opendir.c uClibc-0.9.30.1.patch/libc/misc/dirent/opendir.c
+--- uClibc-0.9.30.1/libc/misc/dirent/opendir.c	2008-09-09 14:04:00.000000000 +0200
++++ uClibc-0.9.30.1.patch/libc/misc/dirent/opendir.c	2009-08-15 12:21:21.758478373 +0200
+@@ -12,6 +12,7 @@
+ #include <unistd.h>
+ #include <sys/dir.h>
+ #include <sys/stat.h>
++#include <dirent.h>
+ #include "dirstream.h"
+ 
+ libc_hidden_proto(opendir)
+@@ -21,6 +22,53 @@
+ libc_hidden_proto(stat)
+ libc_hidden_proto(fstat)
+ 
++static DIR *fd_to_DIR(int fd, __blksize_t size)
++{
++	DIR *ptr;
++
++	ptr = malloc(sizeof(*ptr));
++	if (!ptr)
++		return NULL;
++
++	ptr->dd_fd = fd;
++	ptr->dd_nextloc = ptr->dd_size = ptr->dd_nextoff = 0;
++	ptr->dd_max = size;
++	if (ptr->dd_max < 512)
++		ptr->dd_max = 512;
++
++	ptr->dd_buf = calloc(1, ptr->dd_max);
++	if (!ptr->dd_buf) {
++		free(ptr);
++		return NULL;
++	}
++	__pthread_mutex_init(&ptr->dd_lock, NULL);
++
++	return ptr;
++}
++
++DIR *fdopendir(int fd)
++{
++	int flags;
++	struct stat st;
++
++	if (fstat(fd, &st))
++		return NULL;
++	if (!S_ISDIR(st.st_mode)) {
++		__set_errno(ENOTDIR);
++		return NULL;
++	}
++
++	flags = fcntl(fd, F_GETFL);
++	if (flags == -1)
++		return NULL;
++	if ((flags & O_ACCMODE) == O_WRONLY) {
++		__set_errno(EINVAL);
++		return NULL;
++	}
++
++	return fd_to_DIR(fd, st.st_blksize);
++}
++
+ /* opendir just makes an open() call - it return NULL if it fails
+  * (open sets errno), otherwise it returns a DIR * pointer.
+  */
+@@ -61,23 +109,12 @@
+ 		__set_errno(saved_errno);
+ 		return NULL;
+ 	}
+-	if (!(ptr = malloc(sizeof(*ptr))))
+-		goto nomem_close_and_ret;
+ 
+-	ptr->dd_fd = fd;
+-	ptr->dd_nextloc = ptr->dd_size = ptr->dd_nextoff = 0;
+-	ptr->dd_max = statbuf.st_blksize;
+-	if (ptr->dd_max < 512)
+-		ptr->dd_max = 512;
+-
+-	if (!(ptr->dd_buf = calloc(1, ptr->dd_max))) {
+-		free(ptr);
+-nomem_close_and_ret:
++	ptr = fd_to_DIR(fd, statbuf.st_blksize);
++	if (!ptr) {
+ 		close(fd);
+ 		__set_errno(ENOMEM);
+-		return NULL;
+ 	}
+-	__pthread_mutex_init(&(ptr->dd_lock), NULL);
+ 	return ptr;
+ }
+ libc_hidden_def(opendir)
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/faccessat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/faccessat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/faccessat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/faccessat.c	2009-08-15 10:03:32.699355556 +0200
+@@ -0,0 +1,16 @@
++/*
++ * faccessat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#ifdef __NR_faccessat
++_syscall4(int, faccessat, int, fd, const char *, file, int, type, int, flag)
++#else
++/* should add emulation with faccess() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/fchmodat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fchmodat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/fchmodat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fchmodat.c	2009-08-15 10:03:32.728479172 +0200
+@@ -0,0 +1,16 @@
++/*
++ * fchmodat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/stat.h>
++
++#ifdef __NR_fchmodat
++_syscall4(int, fchmodat, int, fd, const char *, file, mode_t, mode, int, flag)
++#else
++/* should add emulation with fchmod() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/fchownat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fchownat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/fchownat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fchownat.c	2009-08-15 10:03:32.729480080 +0200
+@@ -0,0 +1,16 @@
++/*
++ * fchownat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#ifdef __NR_fchownat
++_syscall5(int, fchownat, int, fd, const char *, file, uid_t, owner, gid_t, group, int, flag)
++#else
++/* should add emulation with fchown() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/fstatat64.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fstatat64.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/fstatat64.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fstatat64.c	2009-08-15 10:03:32.732479171 +0200
+@@ -0,0 +1,31 @@
++/*
++ * fstatat64() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/stat.h>
++#include "xstatconv.h"
++
++#ifdef __UCLIBC_HAS_LFS__
++
++#ifdef __NR_fstatat64
++int fstatat64(int fd, const char *file, struct stat64 *buf, int flag)
++{
++	int ret;
++	struct kernel_stat64 kbuf;
++
++	ret = INLINE_SYSCALL(fstatat64, 4, fd, file, &kbuf, flag);
++	if (ret == 0)
++		__xstat64_conv(&kbuf, buf);
++
++	return ret;
++}
++#else
++/* should add emulation with fstat64() and /proc/self/fd/ ... */
++#endif
++
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/fstatat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fstatat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/fstatat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/fstatat.c	2009-08-15 10:03:32.731479102 +0200
+@@ -0,0 +1,27 @@
++/*
++ * fstatat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/stat.h>
++#include "xstatconv.h"
++
++#ifdef __NR_fstatat64
++int fstatat(int fd, const char *file, struct stat *buf, int flag)
++{
++	int ret;
++	struct kernel_stat kbuf;
++
++	ret = INLINE_SYSCALL(fstatat64, 4, fd, file, &kbuf, flag);
++	if (ret == 0)
++		__xstat_conv(&kbuf, buf);
++
++	return ret;
++}
++#else
++/* should add emulation with fstat() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/futimesat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/futimesat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/futimesat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/futimesat.c	2009-08-15 10:03:32.733494676 +0200
+@@ -0,0 +1,16 @@
++/*
++ * futimesat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/time.h>
++
++#ifdef __NR_futimesat
++_syscall3(int, futimesat, int, fd, const char *, file, const struct timeval *, tvp)
++#else
++/* should add emulation with futimes() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/linkat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/linkat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/linkat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/linkat.c	2009-08-15 10:03:32.734479799 +0200
+@@ -0,0 +1,16 @@
++/*
++ * linkat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#ifdef __NR_linkat
++_syscall5(int, linkat, int, fromfd, const char *, from, int, tofd, const char *, to, int, flags)
++#else
++/* should add emulation with link() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/mkdirat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/mkdirat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/mkdirat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/mkdirat.c	2009-08-15 10:03:32.738479729 +0200
+@@ -0,0 +1,16 @@
++/*
++ * mkdirat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/stat.h>
++
++#ifdef __NR_mkdirat
++_syscall3(int, mkdirat, int, fd, const char *, path, mode_t, mode)
++#else
++/* should add emulation with mkdir() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/mkfifoat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/mkfifoat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/mkfifoat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/mkfifoat.c	2009-08-15 10:03:32.744479868 +0200
+@@ -0,0 +1,19 @@
++/*
++ * mkfifoat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/stat.h>
++
++#ifdef __NR_mknodat
++int mkfifoat(int fd, const char *path, mode_t mode)
++{
++	return mknodat(fd, path, mode | S_IFIFO, 0);
++}
++#else
++/* should add emulation with mkfifo() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/mknodat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/mknodat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/mknodat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/mknodat.c	2009-08-15 10:03:32.751479587 +0200
+@@ -0,0 +1,25 @@
++/*
++ * mknodat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/stat.h>
++
++#ifdef __NR_mknodat
++int mknodat(int fd, const char *path, mode_t mode, dev_t dev)
++{
++	unsigned long long int k_dev;
++
++	/* We must convert the value to dev_t type used by the kernel.  */
++	k_dev = (dev) & ((1ULL << 32) - 1);
++
++	return INLINE_SYSCALL(mknodat, 4, fd, path, mode, (unsigned int)k_dev);
++}
++libc_hidden_def(mknodat)
++#else
++/* should add emulation with mknod() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/openat64.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/openat64.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/openat64.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/openat64.c	2009-08-15 10:03:32.759359038 +0200
+@@ -0,0 +1,25 @@
++/*
++ * openat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#define openat64 __xx_openat
++#include <sys/syscall.h>
++#include <fcntl.h>
++#undef openat64
++
++#ifdef __UCLIBC_HAS_LFS__
++
++#ifdef __NR_openat
++int openat64(int fd, const char *file, int oflag, mode_t mode)
++{
++	return openat(fd, file, oflag | O_LARGEFILE, mode);
++}
++#else
++/* should add emulation with open() and /proc/self/fd/ ... */
++#endif
++
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/openat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/openat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/openat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/openat.c	2009-08-15 10:03:32.755477351 +0200
+@@ -0,0 +1,18 @@
++/*
++ * openat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#define openat __xx_openat
++#include <sys/syscall.h>
++#include <fcntl.h>
++#undef openat
++
++#ifdef __NR_openat
++_syscall4(int, openat, int, fd, const char *, file, int, oflag, mode_t, mode)
++#else
++/* should add emulation with open() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/readlinkat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/readlinkat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/readlinkat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/readlinkat.c	2009-08-15 10:03:32.762393051 +0200
+@@ -0,0 +1,16 @@
++/*
++ * readlinkat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#ifdef __NR_readlinkat
++_syscall4(ssize_t, readlinkat, int, fd, const char *, path, char *, buf, size_t, len)
++#else
++/* should add emulation with readlink() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/renameat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/renameat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/renameat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/renameat.c	2009-08-15 10:03:32.767352332 +0200
+@@ -0,0 +1,16 @@
++/*
++ * renameat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <stdio.h>
++
++#ifdef __NR_renameat
++_syscall4(int, renameat, int, oldfd, const char *, old, int, newfd, const char *, new)
++#else
++/* should add emulation with rename() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/symlinkat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/symlinkat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/symlinkat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/symlinkat.c	2009-08-15 10:03:32.770352122 +0200
+@@ -0,0 +1,16 @@
++/*
++ * symlinkat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#ifdef __NR_symlinkat
++_syscall3(int, symlinkat, const char *, from, int, tofd, const char *, to)
++#else
++/* should add emulation with symlink() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/unlinkat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/unlinkat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/unlinkat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/unlinkat.c	2009-08-15 10:03:32.773353309 +0200
+@@ -0,0 +1,16 @@
++/*
++ * unlinkat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#ifdef __NR_unlinkat
++_syscall3(int, unlinkat, int, fd, const char *, file, int, flag)
++#else
++/* should add emulation with unlink() and /proc/self/fd/ ... */
++#endif
+diff -Naur uClibc-0.9.30.1/libc/sysdeps/linux/common/utimensat.c uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/utimensat.c
+--- uClibc-0.9.30.1/libc/sysdeps/linux/common/utimensat.c	1970-01-01 01:00:00.000000000 +0100
++++ uClibc-0.9.30.1.patch/libc/sysdeps/linux/common/utimensat.c	2009-08-15 10:03:32.777355124 +0200
+@@ -0,0 +1,16 @@
++/*
++ * utimensat() for uClibc
++ *
++ * Copyright (C) 2009 Analog Devices Inc.
++ *
++ * Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
++ */
++
++#include <sys/syscall.h>
++#include <sys/stat.h>
++
++#ifdef __NR_utimensat
++_syscall4(int, utimensat, int, fd, const char *, path, const struct timespec *, times, int, flags)
++#else
++/* should add emulation with utimens() and /proc/self/fd/ ... */
++#endif
