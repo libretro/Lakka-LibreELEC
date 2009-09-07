@@ -1,0 +1,329 @@
+From 8c7897870af76e1e6ce809ec81b99f33383053d7 Mon Sep 17 00:00:00 2001
+From: Chia-I Wu <olvaffe@gmail.com>
+Date: Thu, 3 Sep 2009 11:05:06 +0800
+Subject: [PATCH 05/14] glapi: Add OpenGL ES compatibility mode to scripts.
+
+When the mode is on, the scripts would generate headers that are
+suitable for OpenGL ES overlay, that will be later introduced.
+---
+ src/mesa/glapi/gl_offsets.py |   25 +++++++++++----
+ src/mesa/glapi/gl_procs.py   |   27 ++++++++++++++---
+ src/mesa/glapi/gl_table.py   |   67 +++++++++++++++++++++++++++++------------
+ 3 files changed, 87 insertions(+), 32 deletions(-)
+
+diff --git a/src/mesa/glapi/gl_offsets.py b/src/mesa/glapi/gl_offsets.py
+index 59f8d37..197efca 100644
+--- a/src/mesa/glapi/gl_offsets.py
++++ b/src/mesa/glapi/gl_offsets.py
+@@ -30,9 +30,10 @@ import license
+ import sys, getopt
+ 
+ class PrintGlOffsets(gl_XML.gl_print_base):
+-	def __init__(self):
++	def __init__(self, es=False):
+ 		gl_XML.gl_print_base.__init__(self)
+ 
++		self.es = es
+ 		self.name = "gl_offsets.py (from Mesa)"
+ 		self.header_tag = '_GLAPI_OFFSETS_H_'
+ 		self.license = license.bsd_license_template % ( \
+@@ -56,7 +57,9 @@ class PrintGlOffsets(gl_XML.gl_print_base):
+ 
+ 
+ 		for f in abi_functions:
+-			print '#define _gloffset_%s %d' % (f.name, f.offset)
++			for name in f.entry_points:
++				if name == f.name or self.es:
++					print '#define _gloffset_%s %d' % (name, f.offset)
+ 			last_static = f.offset
+ 
+ 		print ''
+@@ -64,7 +67,9 @@ class PrintGlOffsets(gl_XML.gl_print_base):
+ 		print ''
+ 
+ 		for [f, index] in functions:
+-			print '#define _gloffset_%s %d' % (f.name, f.offset)
++			for name in f.entry_points:
++				if name == f.name or self.es:
++					print '#define _gloffset_%s %d' % (name, f.offset)
+ 
+ 		print '#define _gloffset_FIRST_DYNAMIC %d' % (api.next_offset)
+ 
+@@ -73,7 +78,9 @@ class PrintGlOffsets(gl_XML.gl_print_base):
+ 		print ''
+ 
+ 		for [f, index] in functions:
+-			print '#define _gloffset_%s driDispatchRemapTable[%s_remap_index]' % (f.name, f.name)
++			for name in f.entry_points:
++				if name == f.name or self.es:
++					print '#define _gloffset_%s driDispatchRemapTable[%s_remap_index]' % (name, f.name)
+ 
+ 		print ''
+ 		print '#endif /* !defined(IN_DRI_DRIVER) */'
+@@ -82,22 +89,26 @@ class PrintGlOffsets(gl_XML.gl_print_base):
+ 
+ 
+ def show_usage():
+-	print "Usage: %s [-f input_file_name]" % sys.argv[0]
++	print "Usage: %s [-f input_file_name] [-c]" % sys.argv[0]
++	print "    -c        Enable compability with OpenGL ES."
+ 	sys.exit(1)
+ 
+ if __name__ == '__main__':
+ 	file_name = "gl_API.xml"
+     
+ 	try:
+-		(args, trail) = getopt.getopt(sys.argv[1:], "f:")
++		(args, trail) = getopt.getopt(sys.argv[1:], "f:c")
+ 	except Exception,e:
+ 		show_usage()
+ 
++	es = False
+ 	for (arg,val) in args:
+ 		if arg == "-f":
+ 			file_name = val
++		elif arg == "-c":
++			es = True
+ 
+ 	api = gl_XML.parse_GL_API( file_name )
+ 
+-	printer = PrintGlOffsets()
++	printer = PrintGlOffsets(es)
+ 	printer.Print( api )
+diff --git a/src/mesa/glapi/gl_procs.py b/src/mesa/glapi/gl_procs.py
+index cd1a68c..4af96ad 100644
+--- a/src/mesa/glapi/gl_procs.py
++++ b/src/mesa/glapi/gl_procs.py
+@@ -30,9 +30,10 @@ import gl_XML, glX_XML
+ import sys, getopt
+ 
+ class PrintGlProcs(gl_XML.gl_print_base):
+-	def __init__(self, long_strings):
++	def __init__(self, long_strings, es=False):
+ 		gl_XML.gl_print_base.__init__(self)
+ 
++		self.es = es
+ 		self.long_strings = long_strings
+ 		self.name = "gl_procs.py (from Mesa)"
+ 		self.license = license.bsd_license_template % ( \
+@@ -85,6 +86,18 @@ typedef struct {
+ 
+ 	def printBody(self, api):
+ 		print ''
++		if self.es:
++			print '/* OpenGL ES specific prototypes */'
++			for func in api.functionIterateByOffset():
++				for n in func.entry_points:
++					cat, num = api.get_category_for_name(n)
++					if ((cat.startswith("es") and not (cat.endswith("core") or cat.endswith("compat"))) or
++						cat.startswith("GL_OES")):
++					    print '/* category %s */' % api.get_category_for_name(n)[0]
++					    print 'GLAPI %s GLAPIENTRY %s(%s);' \
++							    % (func.return_type, "gl" + n, func.get_parameter_string(n))
++			print ''
++
+ 		if self.long_strings:
+ 			print 'static const char gl_string_table[] ='
+ 		else:
+@@ -155,8 +168,9 @@ typedef struct {
+ 
+ 
+ def show_usage():
+-	print "Usage: %s [-f input_file_name] [-m mode]" % sys.argv[0]
+-	print "mode can be one of:"
++	print "Usage: %s [-f input_file_name] [-m mode] [-c]" % sys.argv[0]
++	print "-c          Enable compability with OpenGL ES."
++	print "-m mode     mode can be one of:"
+ 	print "    long  - Create code for compilers that can handle very"
+ 	print "            long string constants. (default)"
+ 	print "    short - Create code for compilers that can only handle"
+@@ -167,11 +181,12 @@ if __name__ == '__main__':
+ 	file_name = "gl_API.xml"
+ 
+ 	try:
+-		(args, trail) = getopt.getopt(sys.argv[1:], "f:m:")
++		(args, trail) = getopt.getopt(sys.argv[1:], "f:m:c")
+ 	except Exception,e:
+ 		show_usage()
+ 
+ 	long_string = 1
++	es = False
+ 	for (arg,val) in args:
+ 		if arg == "-f":
+ 			file_name = val
+@@ -182,7 +197,9 @@ if __name__ == '__main__':
+ 				long_string = 1
+ 			else:
+ 				show_usage()
++		elif arg == "-c":
++		    es = True
+ 
+ 	api = gl_XML.parse_GL_API(file_name, glX_XML.glx_item_factory())
+-	printer = PrintGlProcs(long_string)
++	printer = PrintGlProcs(long_string, es)
+ 	printer.Print(api)
+diff --git a/src/mesa/glapi/gl_table.py b/src/mesa/glapi/gl_table.py
+index 55a3374..611dfd2 100644
+--- a/src/mesa/glapi/gl_table.py
++++ b/src/mesa/glapi/gl_table.py
+@@ -30,9 +30,10 @@ import license
+ import sys, getopt
+ 
+ class PrintGlTable(gl_XML.gl_print_base):
+-	def __init__(self):
++	def __init__(self, es=False):
+ 		gl_XML.gl_print_base.__init__(self)
+ 
++		self.es = es
+ 		self.header_tag = '_GLAPI_TABLE_H_'
+ 		self.name = "gl_table.py (from Mesa)"
+ 		self.license = license.bsd_license_template % ( \
+@@ -42,10 +43,27 @@ class PrintGlTable(gl_XML.gl_print_base):
+ 
+ 
+ 	def printBody(self, api):
++		if self.es:
++			typedefs = []
++			for t in api.typeIterate():
++				if t.name == "fixed":
++					typedefs.append("typedef int GLfixed;")
++				elif t.name == "clampx":
++					typedefs.append("typedef int GLclampx;")
++			if typedefs:
++				print '#ifndef HAVE_GLES_TYPES'
++				print "\n".join(typedefs)
++				print '#endif'
++		print ''
++		print 'struct _glapi_table'
++		print '{'
++
+ 		for f in api.functionIterateByOffset():
+ 			arg_string = f.get_parameter_string()
+ 			print '   %s (GLAPIENTRYP %s)(%s); /* %d */' % (f.return_type, f.name, arg_string, f.offset)
+ 
++		print '};'
++
+ 
+ 	def printRealHeader(self):
+ 		print '#ifndef GLAPIENTRYP'
+@@ -56,21 +74,18 @@ class PrintGlTable(gl_XML.gl_print_base):
+ 		print '# define GLAPIENTRYP GLAPIENTRY *'
+ 		print '#endif'
+ 		print ''
+-		print ''
+-		print 'struct _glapi_table'
+-		print '{'
+ 		return
+ 
+ 
+ 	def printRealFooter(self):
+-		print '};'
+ 		return
+ 
+ 
+ class PrintRemapTable(gl_XML.gl_print_base):
+-	def __init__(self):
++	def __init__(self, es=False):
+ 		gl_XML.gl_print_base.__init__(self)
+ 
++		self.es = es
+ 		self.header_tag = '_DISPATCH_H_'
+ 		self.name = "gl_table.py (from Mesa)"
+ 		self.license = license.bsd_license_template % ("(C) Copyright IBM Corporation 2005", "IBM")
+@@ -127,9 +142,11 @@ class PrintRemapTable(gl_XML.gl_print_base):
+ 
+ 
+ 		for f in abi_functions:
+-			print '#define CALL_%s(disp, parameters) (*((disp)->%s)) parameters' % (f.name, f.name)
+-			print '#define GET_%s(disp) ((disp)->%s)' % (f.name, f.name)
+-			print '#define SET_%s(disp, fn) ((disp)->%s = fn)' % (f.name, f.name)
++			for name in f.entry_points:
++				if name == f.name or self.es:
++					print '#define CALL_%s(disp, parameters) (*((disp)->%s)) parameters' % (name, f.name)
++					print '#define GET_%s(disp) ((disp)->%s)' % (name, f.name)
++					print '#define SET_%s(disp, fn) ((disp)->%s = fn)' % (name, f.name)
+ 
+ 
+ 		print ''
+@@ -137,9 +154,11 @@ class PrintRemapTable(gl_XML.gl_print_base):
+ 		print ''
+ 
+ 		for [f, index] in functions:
+-			print '#define CALL_%s(disp, parameters) (*((disp)->%s)) parameters' % (f.name, f.name)
+-			print '#define GET_%s(disp) ((disp)->%s)' % (f.name, f.name)
+-			print '#define SET_%s(disp, fn) ((disp)->%s = fn)' % (f.name, f.name)
++			for name in f.entry_points:
++				if name == f.name or self.es:
++					print '#define CALL_%s(disp, parameters) (*((disp)->%s)) parameters' % (name, f.name)
++					print '#define GET_%s(disp) ((disp)->%s)' % (name, f.name)
++					print '#define SET_%s(disp, fn) ((disp)->%s = fn)' % (name, f.name)
+ 
+ 		print ''
+ 		print '#else'
+@@ -149,7 +168,9 @@ class PrintRemapTable(gl_XML.gl_print_base):
+ 		print ''
+ 
+ 		for [f, index] in functions:
+-			print '#define %s_remap_index %u' % (f.name, index)
++			for name in f.entry_points:
++				if name == f.name or self.es:
++					print '#define %s_remap_index %u' % (name, index)
+ 
+ 		print ''
+ 
+@@ -157,9 +178,11 @@ class PrintRemapTable(gl_XML.gl_print_base):
+ 			arg_string = gl_XML.create_parameter_string( f.parameters, 0 )
+ 			cast = '%s (GLAPIENTRYP)(%s)' % (f.return_type, arg_string)
+ 
+-			print '#define CALL_%s(disp, parameters) CALL_by_offset(disp, (%s), driDispatchRemapTable[%s_remap_index], parameters)' % (f.name, cast, f.name)
+-			print '#define GET_%s(disp) GET_by_offset(disp, driDispatchRemapTable[%s_remap_index])' % (f.name, f.name)
+-			print '#define SET_%s(disp, fn) SET_by_offset(disp, driDispatchRemapTable[%s_remap_index], fn)' % (f.name, f.name)
++			for name in f.entry_points:
++				if name == f.name or self.es:
++					print '#define CALL_%s(disp, parameters) CALL_by_offset(disp, (%s), driDispatchRemapTable[%s_remap_index], parameters)' % (name, cast, f.name)
++					print '#define GET_%s(disp) GET_by_offset(disp, driDispatchRemapTable[%s_remap_index])' % (name, f.name)
++					print '#define SET_%s(disp, fn) SET_by_offset(disp, driDispatchRemapTable[%s_remap_index], fn)' % (name, f.name)
+ 
+ 
+ 		print ''
+@@ -168,29 +191,33 @@ class PrintRemapTable(gl_XML.gl_print_base):
+ 
+ 
+ def show_usage():
+-	print "Usage: %s [-f input_file_name] [-m mode]" % sys.argv[0]
++	print "Usage: %s [-f input_file_name] [-m mode] [-c]" % sys.argv[0]
+ 	print "    -m mode   Mode can be 'table' or 'remap_table'."
++	print "    -c        Enable compability with OpenGL ES."
+ 	sys.exit(1)
+ 
+ if __name__ == '__main__':
+ 	file_name = "gl_API.xml"
+     
+ 	try:
+-		(args, trail) = getopt.getopt(sys.argv[1:], "f:m:")
++		(args, trail) = getopt.getopt(sys.argv[1:], "f:m:c")
+ 	except Exception,e:
+ 		show_usage()
+ 
+ 	mode = "table"
++	es = False
+ 	for (arg,val) in args:
+ 		if arg == "-f":
+ 			file_name = val
+ 		elif arg == "-m":
+ 			mode = val
++		elif arg == "-c":
++			es = True
+ 
+ 	if mode == "table":
+-		printer = PrintGlTable()
++		printer = PrintGlTable(es)
+ 	elif mode == "remap_table":
+-		printer = PrintRemapTable()
++		printer = PrintRemapTable(es)
+ 	else:
+ 		show_usage()
+ 
+-- 
+1.6.2.4
+
