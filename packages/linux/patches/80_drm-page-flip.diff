@@ -1,0 +1,845 @@
+diff --git a/drivers/gpu/drm/drm_crtc.c b/drivers/gpu/drm/drm_crtc.c
+index ba728ad..4b7e748 100644
+--- a/drivers/gpu/drm/drm_crtc.c
++++ b/drivers/gpu/drm/drm_crtc.c
+@@ -34,6 +34,8 @@
+ #include "drmP.h"
+ #include "drm_crtc.h"
+ 
++#undef set_base
++
+ struct drm_prop_enum_list {
+ 	int type;
+ 	char *name;
+@@ -330,6 +332,34 @@ void drm_framebuffer_cleanup(struct drm_framebuffer *fb)
+ EXPORT_SYMBOL(drm_framebuffer_cleanup);
+ 
+ /**
++ * drm_crtc_async_flip - do a set_base call from a work queue
++ * @work: work struct
++ *
++ * Called when a set_base call is queued by the page flip code.  This
++ * allows the flip ioctl itself to return immediately and allow userspace
++ * to continue working.
++ */
++static void drm_crtc_async_flip(struct work_struct *work)
++{
++	struct drm_crtc *crtc = container_of(work, struct drm_crtc, async_flip);
++	struct drm_device *dev = crtc->dev;
++	struct drm_pending_flip *pending;
++
++	BUG_ON(crtc->pending_flip == NULL);
++
++	mutex_lock(&dev->struct_mutex);
++	crtc->funcs->set_base(crtc, crtc->x, crtc->y, NULL);
++
++	pending = crtc->pending_flip;
++	crtc->pending_flip = NULL;
++
++	pending->frame = drm_vblank_count(dev, crtc->pipe);
++	list_add_tail(&pending->link, &dev->flip_list);
++
++	mutex_unlock(&dev->struct_mutex);
++}
++
++/**
+  * drm_crtc_init - Initialise a new CRTC object
+  * @dev: DRM device
+  * @crtc: CRTC object to init
+@@ -340,17 +370,19 @@ EXPORT_SYMBOL(drm_framebuffer_cleanup);
+  *
+  * Inits a new object created as base part of an driver crtc object.
+  */
+-void drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
++void drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc, int pipe,
+ 		   const struct drm_crtc_funcs *funcs)
+ {
+ 	crtc->dev = dev;
+ 	crtc->funcs = funcs;
++	crtc->pipe = pipe;
+ 
+ 	mutex_lock(&dev->mode_config.mutex);
+ 	drm_mode_object_get(dev, &crtc->base, DRM_MODE_OBJECT_CRTC);
+ 
+ 	list_add_tail(&crtc->head, &dev->mode_config.crtc_list);
+ 	dev->mode_config.num_crtc++;
++	INIT_WORK(&crtc->async_flip, drm_crtc_async_flip);
+ 	mutex_unlock(&dev->mode_config.mutex);
+ }
+ EXPORT_SYMBOL(drm_crtc_init);
+@@ -369,6 +401,9 @@ void drm_crtc_cleanup(struct drm_crtc *crtc)
+ {
+ 	struct drm_device *dev = crtc->dev;
+ 
++	mutex_lock(&dev->mode_config.mutex);
++	flush_work(&crtc->async_flip);
++
+ 	if (crtc->gamma_store) {
+ 		kfree(crtc->gamma_store);
+ 		crtc->gamma_store = NULL;
+@@ -376,6 +411,7 @@ void drm_crtc_cleanup(struct drm_crtc *crtc)
+ 
+ 	drm_mode_object_put(dev, &crtc->base);
+ 	list_del(&crtc->head);
++	mutex_unlock(&dev->mode_config.mutex);
+ 	dev->mode_config.num_crtc--;
+ }
+ EXPORT_SYMBOL(drm_crtc_cleanup);
+@@ -2479,3 +2515,134 @@ out:
+ 	mutex_unlock(&dev->mode_config.mutex);
+ 	return ret;
+ }
++
++/**
++ * drm_mode_page_flip_ioctl - page flip ioctl
++ * @dev: DRM device
++ * @data: ioctl args
++ * @file_priv: file private data
++ *
++ * The page flip ioctl replaces the current front buffer with a new
++ * one, using the CRTC's set_base function, which should just update
++ * the front buffer base pointer.  It's up to set_base to make
++ * sure the update doesn't result in tearing (on some hardware the
++ * base register is double buffered, so this is easy).
++ *
++ * Note that this covers just the simple case of flipping the front
++ * buffer immediately.  Interval handling and interlaced modes have to
++ * be handled by userspace, or with new ioctls.
++ */
++int drm_mode_page_flip_ioctl(struct drm_device *dev, void *data,
++			     struct drm_file *file_priv)
++{
++	struct drm_pending_flip *pending;
++	struct drm_mode_page_flip *flip_data = data;
++	struct drm_mode_object *drm_obj, *fb_obj;
++	struct drm_crtc *crtc;
++	int ret = 0;
++
++	if (!(drm_core_check_feature(dev, DRIVER_MODESET)))
++		return -ENODEV;
++
++	/*
++	 * Reject unknown flags so future userspace knows what we (don't)
++	 * support
++	 */
++	if (flip_data->flags & (~DRM_MODE_PAGE_FLIP_FLAGS_MASK)) {
++		DRM_DEBUG("bad page flip flags\n");
++		return -EINVAL;
++	}
++
++	pending = kzalloc(sizeof *pending, GFP_KERNEL);
++	if (pending == NULL)
++		return -ENOMEM;
++
++	mutex_lock(&dev->struct_mutex);
++
++	fb_obj = drm_mode_object_find(dev, flip_data->fb_id,
++				      DRM_MODE_OBJECT_FB);
++	if (!fb_obj) {
++		DRM_DEBUG("unknown fb %d\n", flip_data->fb_id);
++		ret = -ENOENT;
++		goto out_unlock;
++	}
++
++	drm_obj = drm_mode_object_find(dev, flip_data->crtc_id,
++				       DRM_MODE_OBJECT_CRTC);
++	if (!drm_obj) {
++		DRM_DEBUG("unknown crtc %d\n", flip_data->crtc_id);
++		ret = -ENOENT;
++		goto out_unlock;
++	}
++	crtc = obj_to_crtc(drm_obj);
++	if (!crtc->enabled) {
++		DRM_DEBUG("crtc %d not enabled\n", flip_data->crtc_id);
++		ret = -EINVAL;
++		goto out_unlock;
++	}
++
++	if (crtc->fb->funcs->unpin == NULL) {
++		DRM_DEBUG("fb for crtc %d does not support delayed unpin\n",
++			  flip_data->crtc_id);
++		ret = -ENODEV;
++		goto out_unlock;
++	}
++
++	pending->crtc = crtc;
++	pending->old_fb = crtc->fb;
++	pending->pipe = crtc->pipe;
++	pending->event.base.type = DRM_EVENT_MODE_PAGE_FLIP;
++	pending->event.base.length = sizeof pending->event;
++	pending->event.user_data = flip_data->user_data;
++	pending->pending_event.event = &pending->event.base;
++	pending->pending_event.file_priv = file_priv;
++	pending->pending_event.destroy =
++		(void (*) (struct drm_pending_event *)) kfree;
++
++	/* Get vblank ref for completion handling */
++	ret = drm_vblank_get(dev, crtc->pipe);
++	if (ret) {
++		DRM_DEBUG("failed to take vblank ref\n");
++		goto out_unlock;
++	}
++
++	/*
++	 * The set_base call will change the domain on the new fb,
++	 * which will force the rendering to finish and block the
++	 * ioctl.  We need to do this last part from a work queue, to
++	 * avoid blocking userspace here.
++	 */
++	crtc->fb = obj_to_fb(fb_obj);
++
++	if (crtc->pending_flip != NULL) {
++	    struct drm_pending_flip *old_flip;
++
++	    /* We have an outstanding flip request for this crtc/pipe.
++	     * In order to satisfy the user we can either queue the requests
++	     * and apply them on sequential vblanks, or we can drop old
++	     * requests.
++	     *
++	     * Here we choose to discard the previous request for
++	     * simplicity. Note that since we have not yet applied the
++	     * previous flip, we need to preserve the original (i.e. still
++	     * current) fb.
++	     */
++
++	    old_flip = crtc->pending_flip;
++	    pending->old_fb = old_flip->old_fb;
++	    old_flip->old_fb = NULL;
++	    drm_finish_pending_flip (dev, old_flip, 0);
++	} else
++	    schedule_work(&crtc->async_flip);
++	crtc->pending_flip = pending;
++
++	mutex_unlock(&dev->struct_mutex);
++
++	return 0;
++
++out_unlock:
++	mutex_unlock(&dev->struct_mutex);
++	kfree(pending);
++
++	return ret;
++}
+diff --git a/drivers/gpu/drm/drm_crtc_helper.c b/drivers/gpu/drm/drm_crtc_helper.c
+index ff447f1..fec66f9 100644
+--- a/drivers/gpu/drm/drm_crtc_helper.c
++++ b/drivers/gpu/drm/drm_crtc_helper.c
+@@ -872,8 +872,10 @@ int drm_crtc_helper_set_config(struct drm_mode_set *set)
+ 		old_fb = set->crtc->fb;
+ 		if (set->crtc->fb != set->fb)
+ 			set->crtc->fb = set->fb;
++		mutex_lock(&dev->struct_mutex);
+ 		ret = crtc_funcs->mode_set_base(set->crtc,
+ 						set->x, set->y, old_fb);
++		mutex_unlock(&dev->struct_mutex);
+ 		if (ret != 0)
+ 			goto fail;
+ 	}
+@@ -1095,3 +1097,13 @@ int drm_helper_resume_force_mode(struct drm_device *dev)
+ 	return 0;
+ }
+ EXPORT_SYMBOL(drm_helper_resume_force_mode);
++
++int
++drm_crtc_helper_set_base(struct drm_crtc *crtc, int x, int y,
++			 struct drm_framebuffer *old_fb)
++{
++	struct drm_crtc_helper_funcs *crtc_funcs = crtc->helper_private;
++
++	return crtc_funcs->mode_set_base(crtc, x, y, old_fb);
++}
++EXPORT_SYMBOL(drm_crtc_helper_set_base);
+diff --git a/drivers/gpu/drm/drm_drv.c b/drivers/gpu/drm/drm_drv.c
+index a75ca63..672f473 100644
+--- a/drivers/gpu/drm/drm_drv.c
++++ b/drivers/gpu/drm/drm_drv.c
+@@ -145,6 +145,7 @@ static struct drm_ioctl_desc drm_ioctls[] = {
+ 	DRM_IOCTL_DEF(DRM_IOCTL_MODE_GETFB, drm_mode_getfb, DRM_MASTER|DRM_CONTROL_ALLOW),
+ 	DRM_IOCTL_DEF(DRM_IOCTL_MODE_ADDFB, drm_mode_addfb, DRM_MASTER|DRM_CONTROL_ALLOW),
+ 	DRM_IOCTL_DEF(DRM_IOCTL_MODE_RMFB, drm_mode_rmfb, DRM_MASTER|DRM_CONTROL_ALLOW),
++	DRM_IOCTL_DEF(DRM_IOCTL_MODE_PAGE_FLIP, drm_mode_page_flip_ioctl, DRM_MASTER|DRM_CONTROL_ALLOW),
+ };
+ 
+ #define DRM_CORE_IOCTL_COUNT	ARRAY_SIZE( drm_ioctls )
+diff --git a/drivers/gpu/drm/drm_fops.c b/drivers/gpu/drm/drm_fops.c
+index 251bc0e..dcd9c66 100644
+--- a/drivers/gpu/drm/drm_fops.c
++++ b/drivers/gpu/drm/drm_fops.c
+@@ -257,6 +257,8 @@ static int drm_open_helper(struct inode *inode, struct file *filp,
+ 
+ 	INIT_LIST_HEAD(&priv->lhead);
+ 	INIT_LIST_HEAD(&priv->fbs);
++	INIT_LIST_HEAD(&priv->event_list);
++	init_waitqueue_head(&priv->event_wait);
+ 
+ 	if (dev->driver->driver_features & DRIVER_GEM)
+ 		drm_gem_open(dev, priv);
+@@ -429,6 +431,9 @@ int drm_release(struct inode *inode, struct file *filp)
+ {
+ 	struct drm_file *file_priv = filp->private_data;
+ 	struct drm_device *dev = file_priv->minor->dev;
++	struct drm_pending_flip *f, *ft;
++	struct drm_pending_event *e, *et;
++
+ 	int retcode = 0;
+ 
+ 	lock_kernel();
+@@ -451,6 +456,19 @@ int drm_release(struct inode *inode, struct file *filp)
+ 	if (file_priv->minor->master)
+ 		drm_master_release(dev, filp);
+ 
++	mutex_lock(&dev->struct_mutex);
++
++	/* Remove pending flips */
++	list_for_each_entry_safe(f, ft, &dev->flip_list, link)
++		if (f->pending_event.file_priv == file_priv)
++			drm_finish_pending_flip(dev, f, 0);
++
++	/* Remove unconsumed events */
++	list_for_each_entry_safe(e, et, &file_priv->event_list, link)
++		e->destroy(e);
++
++	mutex_unlock(&dev->struct_mutex);
++
+ 	if (dev->driver->driver_features & DRIVER_GEM)
+ 		drm_gem_release(dev, file_priv);
+ 
+@@ -544,9 +562,55 @@ int drm_release(struct inode *inode, struct file *filp)
+ }
+ EXPORT_SYMBOL(drm_release);
+ 
+-/** No-op. */
++ssize_t drm_read(struct file *filp, char __user *buffer,
++		 size_t count, loff_t *offset)
++{
++	struct drm_file *file_priv = filp->private_data;
++	struct drm_device *dev = file_priv->minor->dev;
++	struct drm_pending_event *event;
++	ssize_t total, ret;
++
++	ret = wait_event_interruptible(file_priv->event_wait,
++				       !list_empty(&file_priv->event_list));
++	if (ret < 0)
++		return ret;
++
++	total = 0;
++	while (!list_empty(&file_priv->event_list)) {
++		mutex_lock(&dev->struct_mutex);
++		event = list_first_entry(&file_priv->event_list,
++					 struct drm_pending_event, link);
++		if (total + event->event->length > count) {
++			mutex_unlock(&dev->struct_mutex);
++			break;
++		}
++		list_del(&event->link);
++		mutex_unlock(&dev->struct_mutex);
++
++		if (copy_to_user(buffer + total,
++				 event->event, event->event->length)) {
++			total = -EFAULT;
++			break;
++		}
++
++		total += event->event->length;
++		event->destroy(event);
++	}
++
++	return total;
++}
++EXPORT_SYMBOL(drm_read);
++
+ unsigned int drm_poll(struct file *filp, struct poll_table_struct *wait)
+ {
+-	return 0;
++	struct drm_file *file_priv = filp->private_data;
++	unsigned int mask = 0;
++
++	poll_wait(filp, &file_priv->event_wait, wait);
++
++	if (!list_empty(&file_priv->event_list))
++		mask |= POLLIN | POLLRDNORM;
++
++	return mask;
+ }
+ EXPORT_SYMBOL(drm_poll);
+diff --git a/drivers/gpu/drm/drm_irq.c b/drivers/gpu/drm/drm_irq.c
+index f85aaf2..102d19d 100644
+--- a/drivers/gpu/drm/drm_irq.c
++++ b/drivers/gpu/drm/drm_irq.c
+@@ -34,6 +34,7 @@
+  */
+ 
+ #include "drmP.h"
++#include "drm_crtc_helper.h"
+ 
+ #include <linux/interrupt.h>	/* For task queue support */
+ 
+@@ -71,6 +72,44 @@ int drm_irq_by_busid(struct drm_device *dev, void *data,
+ 	return 0;
+ }
+ 
++#define vblank_passed(a,b) ((long)(a - b) > 0)
++
++void drm_finish_pending_flip(struct drm_device *dev,
++			     struct drm_pending_flip *f, u32 frame)
++{
++	struct timeval now;
++
++	f->event.frame = frame;
++	do_gettimeofday(&now);
++	f->event.tv_sec = now.tv_sec;
++	f->event.tv_usec = now.tv_usec;	
++	drm_vblank_put(dev, f->pipe);
++	list_del_init(&f->link);
++	list_add_tail(&f->pending_event.link,
++		      &f->pending_event.file_priv->event_list);
++	if (f->old_fb)
++	    f->old_fb->funcs->unpin(f->old_fb);
++	wake_up_interruptible(&f->pending_event.file_priv->event_wait);
++}
++
++static void drm_flip_work_func(struct work_struct *work)
++{
++	struct drm_device *dev =
++		container_of(work, struct drm_device, flip_work);
++	struct drm_pending_flip *f, *t;
++	u32 frame;
++
++	mutex_lock(&dev->struct_mutex);
++
++	list_for_each_entry_safe(f, t, &dev->flip_list, link) {
++		frame = drm_vblank_count(dev, f->pipe);
++		if (vblank_passed(frame, f->frame))
++			drm_finish_pending_flip(dev, f, frame);
++	}
++
++	mutex_unlock(&dev->struct_mutex);
++}
++
+ static void vblank_disable_fn(unsigned long arg)
+ {
+ 	struct drm_device *dev = (struct drm_device *)arg;
+@@ -161,6 +200,8 @@ int drm_vblank_init(struct drm_device *dev, int num_crtcs)
+ 		atomic_set(&dev->vblank_refcount[i], 0);
+ 	}
+ 
++	INIT_WORK(&dev->flip_work, drm_flip_work_func);
++
+ 	dev->vblank_disable_allowed = 0;
+ 
+ 	return 0;
+@@ -626,5 +667,7 @@ void drm_handle_vblank(struct drm_device *dev, int crtc)
+ {
+ 	atomic_inc(&dev->_vblank_count[crtc]);
+ 	DRM_WAKEUP(&dev->vbl_queue[crtc]);
++	schedule_work(&dev->flip_work);
+ }
+ EXPORT_SYMBOL(drm_handle_vblank);
++
+diff --git a/drivers/gpu/drm/drm_stub.c b/drivers/gpu/drm/drm_stub.c
+index 55bb8a8..65c8662 100644
+--- a/drivers/gpu/drm/drm_stub.c
++++ b/drivers/gpu/drm/drm_stub.c
+@@ -220,6 +220,7 @@ static int drm_fill_in_dev(struct drm_device * dev, struct pci_dev *pdev,
+ 	INIT_LIST_HEAD(&dev->ctxlist);
+ 	INIT_LIST_HEAD(&dev->vmalist);
+ 	INIT_LIST_HEAD(&dev->maplist);
++	INIT_LIST_HEAD(&dev->flip_list);
+ 
+ 	spin_lock_init(&dev->count_lock);
+ 	spin_lock_init(&dev->drw_lock);
+diff --git a/drivers/gpu/drm/i915/i915_drv.c b/drivers/gpu/drm/i915/i915_drv.c
+index dbe568c..b81305e 100644
+--- a/drivers/gpu/drm/i915/i915_drv.c
++++ b/drivers/gpu/drm/i915/i915_drv.c
+@@ -206,6 +206,7 @@ static struct drm_driver driver = {
+ 		 .mmap = drm_gem_mmap,
+ 		 .poll = drm_poll,
+ 		 .fasync = drm_fasync,
++		 .read = drm_read,
+ #ifdef CONFIG_COMPAT
+ 		 .compat_ioctl = i915_compat_ioctl,
+ #endif
+diff --git a/drivers/gpu/drm/i915/intel_display.c b/drivers/gpu/drm/i915/intel_display.c
+index 155719f..0d6e677 100644
+--- a/drivers/gpu/drm/i915/intel_display.c
++++ b/drivers/gpu/drm/i915/intel_display.c
+@@ -973,6 +973,8 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
+ 	u32 dspcntr, alignment;
+ 	int ret;
+ 
++	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
++
+ 	/* no fb bound */
+ 	if (!crtc->fb) {
+ 		DRM_DEBUG("No FB bound\n");
+@@ -1008,17 +1010,14 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
+ 		BUG();
+ 	}
+ 
+-	mutex_lock(&dev->struct_mutex);
+ 	ret = i915_gem_object_pin(obj, alignment);
+ 	if (ret != 0) {
+-		mutex_unlock(&dev->struct_mutex);
+ 		return ret;
+ 	}
+ 
+ 	ret = i915_gem_object_set_to_gtt_domain(obj, 1);
+ 	if (ret != 0) {
+ 		i915_gem_object_unpin(obj);
+-		mutex_unlock(&dev->struct_mutex);
+ 		return ret;
+ 	}
+ 
+@@ -1029,7 +1028,6 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
+ 		ret = i915_gem_object_get_fence_reg(obj);
+ 		if (ret != 0) {
+ 			i915_gem_object_unpin(obj);
+-			mutex_unlock(&dev->struct_mutex);
+ 			return ret;
+ 		}
+ 	}
+@@ -1054,7 +1052,6 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
+ 	default:
+ 		DRM_ERROR("Unknown color depth\n");
+ 		i915_gem_object_unpin(obj);
+-		mutex_unlock(&dev->struct_mutex);
+ 		return -EINVAL;
+ 	}
+ 	if (IS_I965G(dev)) {
+@@ -1086,17 +1083,14 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
+ 		I915_READ(dspbase);
+ 	}
+ 
+-	intel_wait_for_vblank(dev);
+-
+ 	if (old_fb) {
+ 		intel_fb = to_intel_framebuffer(old_fb);
+ 		obj_priv = intel_fb->obj->driver_private;
++		intel_wait_for_vblank(dev);
+ 		i915_gem_object_unpin(intel_fb->obj);
+ 	}
+ 	intel_increase_pllclock(crtc, true);
+ 
+-	mutex_unlock(&dev->struct_mutex);
+-
+ 	if (!dev->primary->master)
+ 		return 0;
+ 
+@@ -2732,7 +2726,9 @@ static int intel_crtc_mode_set(struct drm_crtc *crtc,
+ 	I915_WRITE(dspcntr_reg, dspcntr);
+ 
+ 	/* Flush the plane changes */
++	mutex_lock(&dev->struct_mutex);
+ 	ret = intel_pipe_set_base(crtc, x, y, old_fb);
++	mutex_unlock(&dev->struct_mutex);
+ 
+ 	intel_update_watermarks(dev);
+ 
+@@ -3521,6 +3517,7 @@ static const struct drm_crtc_funcs intel_crtc_funcs = {
+ 	.gamma_set = intel_crtc_gamma_set,
+ 	.set_config = drm_crtc_helper_set_config,
+ 	.destroy = intel_crtc_destroy,
++	.set_base = drm_crtc_helper_set_base,
+ };
+ 
+ 
+@@ -3533,7 +3530,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
+ 	if (intel_crtc == NULL)
+ 		return;
+ 
+-	drm_crtc_init(dev, &intel_crtc->base, &intel_crtc_funcs);
++	drm_crtc_init(dev, &intel_crtc->base, pipe, &intel_crtc_funcs);
+ 
+ 	drm_mode_crtc_set_gamma_size(&intel_crtc->base, 256);
+ 	intel_crtc->pipe = pipe;
+@@ -3717,9 +3714,18 @@ static int intel_user_framebuffer_create_handle(struct drm_framebuffer *fb,
+ 	return drm_gem_handle_create(file_priv, object, handle);
+ }
+ 
++static void intel_user_framebuffer_unpin(struct drm_framebuffer *fb)
++{
++	struct intel_framebuffer *intel_fb;
++
++	intel_fb = to_intel_framebuffer(fb);
++	i915_gem_object_unpin(intel_fb->obj);
++}
++
+ static const struct drm_framebuffer_funcs intel_fb_funcs = {
+ 	.destroy = intel_user_framebuffer_destroy,
+ 	.create_handle = intel_user_framebuffer_create_handle,
++	.unpin = intel_user_framebuffer_unpin
+ };
+ 
+ int intel_framebuffer_create(struct drm_device *dev,
+diff --git a/drivers/gpu/drm/radeon/radeon_display.c b/drivers/gpu/drm/radeon/radeon_display.c
+index f5739e2..0ec45bc 100644
+--- a/drivers/gpu/drm/radeon/radeon_display.c
++++ b/drivers/gpu/drm/radeon/radeon_display.c
+@@ -168,6 +168,7 @@ static const struct drm_crtc_funcs radeon_crtc_funcs = {
+ 	.gamma_set = radeon_crtc_gamma_set,
+ 	.set_config = drm_crtc_helper_set_config,
+ 	.destroy = radeon_crtc_destroy,
++	.set_base = drm_crtc_helper_set_base,
+ };
+ 
+ static void radeon_crtc_init(struct drm_device *dev, int index)
+@@ -180,7 +181,7 @@ static void radeon_crtc_init(struct drm_device *dev, int index)
+ 	if (radeon_crtc == NULL)
+ 		return;
+ 
+-	drm_crtc_init(dev, &radeon_crtc->base, &radeon_crtc_funcs);
++	drm_crtc_init(dev, &radeon_crtc->base, index, &radeon_crtc_funcs);
+ 
+ 	drm_mode_crtc_set_gamma_size(&radeon_crtc->base, 256);
+ 	radeon_crtc->crtc_id = index;
+diff --git a/include/drm/drm.h b/include/drm/drm.h
+index 7cb50bd..1920323 100644
+--- a/include/drm/drm.h
++++ b/include/drm/drm.h
+@@ -686,6 +686,7 @@ struct drm_gem_open {
+ #define DRM_IOCTL_MODE_GETFB		DRM_IOWR(0xAD, struct drm_mode_fb_cmd)
+ #define DRM_IOCTL_MODE_ADDFB		DRM_IOWR(0xAE, struct drm_mode_fb_cmd)
+ #define DRM_IOCTL_MODE_RMFB		DRM_IOWR(0xAF, unsigned int)
++#define DRM_IOCTL_MODE_PAGE_FLIP	DRM_IOW( 0xB0, struct drm_mode_page_flip)
+ 
+ /**
+  * Device specific ioctls should only be in their respective headers
+@@ -698,6 +699,30 @@ struct drm_gem_open {
+ #define DRM_COMMAND_BASE                0x40
+ #define DRM_COMMAND_END			0xA0
+ 
++/**
++ * Header for events written back to userspace on the drm fd.  The
++ * type defines the type of event, the length specifies the total
++ * length of the event (including the header), and user_data is
++ * typically a 64 bit value passed with the ioctl that triggered the
++ * event.  A read on the drm fd will always only return complete
++ * events, that is, if for example the read buffer is 100 bytes, and
++ * there are two 64 byte events pending, only one will be returned.
++ */
++struct drm_event {
++	__u32 type;
++	__u32 length;
++};
++
++#define DRM_EVENT_MODE_PAGE_FLIP 0x01
++
++struct drm_event_page_flip {
++	struct drm_event base;
++	__u64 user_data;
++	__u32 tv_sec;
++	__u32 tv_usec;
++	__u32 frame;
++};
++
+ /* typedef area */
+ #ifndef __KERNEL__
+ typedef struct drm_clip_rect drm_clip_rect_t;
+diff --git a/include/drm/drmP.h b/include/drm/drmP.h
+index eeefb63..5431888 100644
+--- a/include/drm/drmP.h
++++ b/include/drm/drmP.h
+@@ -426,6 +426,14 @@ struct drm_buf_entry {
+ 	struct drm_freelist freelist;
+ };
+ 
++/* Event queued up for userspace to read */
++struct drm_pending_event {
++	struct drm_event *event;
++	struct list_head link;
++	struct drm_file *file_priv;
++	void (*destroy) (struct drm_pending_event *event);
++};
++
+ /** File private data */
+ struct drm_file {
+ 	int authenticated;
+@@ -449,6 +457,9 @@ struct drm_file {
+ 	struct drm_master *master; /* master this node is currently associated with
+ 				      N.B. not always minor->master */
+ 	struct list_head fbs;
++
++	wait_queue_head_t event_wait;
++	struct list_head event_list;
+ };
+ 
+ /** Wait queue */
+@@ -897,6 +908,16 @@ struct drm_minor {
+ 	struct drm_mode_group mode_group;
+ };
+ 
++struct drm_pending_flip {
++	struct drm_pending_event pending_event;
++	struct drm_framebuffer *old_fb;
++	struct drm_crtc *crtc;
++	u32 frame;
++	int pipe;
++	struct list_head link;
++	struct drm_event_page_flip event;
++};
++
+ /**
+  * DRM device structure. This structure represent a complete card that
+  * may contain multiple heads.
+@@ -996,6 +1017,13 @@ struct drm_device {
+ 
+ 	u32 max_vblank_count;           /**< size of vblank counter register */
+ 
++	struct work_struct flip_work;
++
++	/**
++	 * List of objects waiting on flip completion
++	 */
++	struct list_head flip_list;
++
+ 	/*@} */
+ 	cycles_t ctx_start;
+ 	cycles_t lck_start;
+@@ -1132,6 +1160,8 @@ extern int drm_lastclose(struct drm_device *dev);
+ extern int drm_open(struct inode *inode, struct file *filp);
+ extern int drm_stub_open(struct inode *inode, struct file *filp);
+ extern int drm_fasync(int fd, struct file *filp, int on);
++extern ssize_t drm_read(struct file *filp, char __user *buffer,
++			size_t count, loff_t *offset);
+ extern int drm_release(struct inode *inode, struct file *filp);
+ 
+ 				/* Mapping support (drm_vm.h) */
+@@ -1298,6 +1328,8 @@ extern void drm_vblank_pre_modeset(struct drm_device *dev, int crtc);
+ extern void drm_vblank_post_modeset(struct drm_device *dev, int crtc);
+ extern int drm_modeset_ctl(struct drm_device *dev, void *data,
+ 			   struct drm_file *file_priv);
++extern void drm_finish_pending_flip(struct drm_device *dev,
++				   struct drm_pending_flip *f, u32 frame);
+ 
+ 				/* AGP/GART support (drm_agpsupport.h) */
+ extern struct drm_agp_head *drm_agp_init(struct drm_device *dev);
+diff --git a/include/drm/drm_crtc.h b/include/drm/drm_crtc.h
+index ae1e9e1..525f770 100644
+--- a/include/drm/drm_crtc.h
++++ b/include/drm/drm_crtc.h
+@@ -238,6 +238,12 @@ struct drm_display_info {
+ };
+ 
+ struct drm_framebuffer_funcs {
++	/*
++	 * Unpin the old fb after setting a mode.  Must be called
++	 * after the old framebuffer is no longer visible, ie, after
++	 * the next vblank, typically.
++	 */
++	void (*unpin)(struct drm_framebuffer *fb);
+ 	void (*destroy)(struct drm_framebuffer *framebuffer);
+ 	int (*create_handle)(struct drm_framebuffer *fb,
+ 			     struct drm_file *file_priv,
+@@ -290,6 +296,7 @@ struct drm_property {
+ struct drm_crtc;
+ struct drm_connector;
+ struct drm_encoder;
++struct drm_pending_flip;
+ 
+ /**
+  * drm_crtc_funcs - control CRTCs for a given device
+@@ -333,17 +340,29 @@ struct drm_crtc_funcs {
+ 	void (*destroy)(struct drm_crtc *crtc);
+ 
+ 	int (*set_config)(struct drm_mode_set *set);
++
++	/*
++	 * Move the crtc on the current fb to the given position.
++	 * This function is optional.  If old_fb is provided, the
++	 * function will wait for vblank and unpin it.  If old_fb is
++	 * NULL, nothing is unpinned and the caller must call
++	 * mode_unpin_fb to release the old framebuffer.
++	 */
++	int (*set_base)(struct drm_crtc *crtc, int x, int y,
++			struct drm_framebuffer *old_fb);
+ };
+ 
+ /**
+  * drm_crtc - central CRTC control structure
+  * @enabled: is this CRTC enabled?
++ * @pipe: pipe number (as seen by DRM vblank functions)
+  * @x: x position on screen
+  * @y: y position on screen
+  * @desired_mode: new desired mode
+  * @desired_x: desired x for desired_mode
+  * @desired_y: desired y for desired_mode
+  * @funcs: CRTC control functions
++ * @async_work: work queue for async set base calls
+  *
+  * Each CRTC may have one or more connectors associated with it.  This structure
+  * allows the CRTC to be controlled.
+@@ -361,6 +380,7 @@ struct drm_crtc {
+ 
+ 	struct drm_display_mode mode;
+ 
++	int pipe;
+ 	int x, y;
+ 	struct drm_display_mode *desired_mode;
+ 	int desired_x, desired_y;
+@@ -370,6 +390,10 @@ struct drm_crtc {
+ 	uint32_t gamma_size;
+ 	uint16_t *gamma_store;
+ 
++	/* Allow async set_pipe_base calls for flipping */
++	struct work_struct async_flip;
++	struct drm_pending_flip *pending_flip;
++
+ 	/* if you are using the helper */
+ 	void *helper_private;
+ };
+@@ -597,6 +621,7 @@ struct drm_mode_config {
+ 
+ extern void drm_crtc_init(struct drm_device *dev,
+ 			  struct drm_crtc *crtc,
++			  int pipe,
+ 			  const struct drm_crtc_funcs *funcs);
+ extern void drm_crtc_cleanup(struct drm_crtc *crtc);
+ 
+@@ -744,6 +769,8 @@ extern int drm_mode_gamma_get_ioctl(struct drm_device *dev,
+ extern int drm_mode_gamma_set_ioctl(struct drm_device *dev,
+ 				    void *data, struct drm_file *file_priv);
+ extern bool drm_detect_hdmi_monitor(struct edid *edid);
++extern int drm_mode_page_flip_ioctl(struct drm_device *dev, void *data,
++				    struct drm_file *file_priv);
+ extern struct drm_display_mode *drm_cvt_mode(struct drm_device *dev,
+ 				int hdisplay, int vdisplay, int vrefresh,
+ 				bool reduced, bool interlaced);
+diff --git a/include/drm/drm_crtc_helper.h b/include/drm/drm_crtc_helper.h
+index 4c8daca..b5bd0b8 100644
+--- a/include/drm/drm_crtc_helper.h
++++ b/include/drm/drm_crtc_helper.h
+@@ -126,4 +126,8 @@ static inline void drm_connector_helper_add(struct drm_connector *connector,
+ }
+ 
+ extern int drm_helper_resume_force_mode(struct drm_device *dev);
++
++extern int drm_crtc_helper_set_base(struct drm_crtc *crtc, int x, int y,
++				    struct drm_framebuffer *old_fb);
++
+ #endif
+diff --git a/include/drm/drm_mode.h b/include/drm/drm_mode.h
+index 1f90841..6f08a77 100644
+--- a/include/drm/drm_mode.h
++++ b/include/drm/drm_mode.h
+@@ -268,4 +268,20 @@ struct drm_mode_crtc_lut {
+ 	__u64 blue;
+ };
+ 
++#define DRM_MODE_PAGE_FLIP_WAIT		(1<<0) /* block on previous page flip */
++#define DRM_MODE_PAGE_FLIP_FLAGS_MASK	(DRM_MODE_PAGE_FLIP_WAIT)
++
++struct drm_mode_page_flip {
++	/** Handle of new front buffer */
++	__u32 fb_id;
++	__u32 crtc_id;
++
++	/* 64 bit cookie returned to userspace in the page flip event. */
++	__u64 user_data;
++	/**
++	 * page flip flags (wait on flip only for now)
++	 */
++	__u32 flags;
++};
++
+ #endif
