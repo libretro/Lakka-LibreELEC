@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# start mysql server
+#
+# runlevels: openelec, text, debug
+
+. /etc/sysconfig
+
+if test "$OE_MYSQL_START" = "yes"; then
+
+  # creating Logfile
+  touch $OE_MYSQL_LOGFILE
+  chown mysqld:mysqld $OE_MYSQL_LOGFILE
+  chmod 0640 $OE_MYSQL_LOGFILE
+
+  if test ! -d $OE_MYSQL_DATADIR/mysql; then
+    progress "prepare MySQL Systemdatabase"
+
+    # First, make sure $OE_MYSQL_DATADIR is there with correct permissions
+    if test ! -e "$OE_MYSQL_DATADIR" -a ! -h "$OE_MYSQL_DATADIR"; then
+      mkdir -p "$OE_MYSQL_DATADIR" || exit 1
+    fi
+    chown mysqld:mysqld "$OE_MYSQL_DATADIR"
+    chmod 0755 "$OE_MYSQL_DATADIR"
+
+    # Now create the database
+    /usr/bin/mysql_install_db \
+      --datadir=$OE_MYSQL_DATADIR \
+      --user=mysqld
+    chown -R mysqld:mysqld "$OE_MYSQL_DATADIR"
+  fi
+
+  progress "Starting MySQL server"
+
+  chown mysqld:mysqld "$OE_MYSQL_DATADIR"
+  chmod 0755 "$OE_MYSQL_DATADIR"
+  /usr/bin/mysqld_safe \
+    --datadir=$OE_MYSQL_DATADIR \
+    --socket="$OE_MYSQL_SOCKETFILE" \
+    --log-error="$OE_MYSQL_LOGFILE" \
+    --pid-file="$OE_MYSQL_PIDFILE" \
+    --user=mysqld >/dev/null 2>&1 &
+
+  STARTTIMEOUT=60
+  while [ $STARTTIMEOUT -gt 0 ]; do
+    RESPONSE=`/usr/bin/mysqladmin \
+                --socket="$OE_MYSQL_SOCKETFILE" \
+                --user=UNKNOWN_MYSQL_USER ping 2>&1` && break
+    echo "$RESPONSE" | grep -q "Access denied for user" && break
+    sleep 1
+    let STARTTIMEOUT=${STARTTIMEOUT}-1
+  done
+
+fi
+
+exit 0
