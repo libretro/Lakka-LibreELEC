@@ -1,0 +1,100 @@
+diff --git a/dri2proto.h b/dri2proto.h
+index 8d76079..37873c4 100644
+--- a/dri2proto.h
++++ b/dri2proto.h
+@@ -35,7 +35,7 @@
+ 
+ #define DRI2_NAME			"DRI2"
+ #define DRI2_MAJOR			1
+-#define DRI2_MINOR			1
++#define DRI2_MINOR			2
+ 
+ #define DRI2NumberErrors		0
+ #define DRI2NumberEvents		0
+@@ -49,6 +49,7 @@
+ #define X_DRI2GetBuffers		5
+ #define X_DRI2CopyRegion		6
+ #define X_DRI2GetBuffersWithFormat	7
++#define X_DRI2SwapBuffers		8
+ 
+ typedef struct {
+     CARD32  attachment B32;
+@@ -191,4 +192,12 @@ typedef struct {
+ } xDRI2CopyRegionReply;
+ #define sz_xDRI2CopyRegionReply	32
+ 
++typedef struct {
++    CARD8   reqType;
++    CARD8   dri2ReqType;
++    CARD16  length B16;
++    CARD32  drawable B32;
++} xDRI2SwapBuffersReq;
++#define sz_xDRI2SwapBuffersReq   8
++
+ #endif
+diff --git a/dri2proto.txt b/dri2proto.txt
+index e931bfb..1bad3b9 100644
+--- a/dri2proto.txt
++++ b/dri2proto.txt
+@@ -105,6 +105,11 @@ DRI2 implementation of direct rendering GLX, should use these enty
+ points to copy contents back and forth to as necessary to ensure
+ consistent rendering.
+ 
++The client may also use the DRI2SwapBuffers function to request a swap
++of the front and back buffers.  If the display server supports it, this
++operation may be preferred, since it may be easier and/or more performant
++for the server to perform a simple buffer swap rather than a blit.
++
+ 
+ 			     ⚙ ⚙ ⚙  ⚙ ⚙ ⚙
+ 
+@@ -288,6 +293,21 @@ The name of this extension is "DRI2".
+ 	the server has seen the request before proceeding with
+ 	rendering the next frame.
+ 
++┌───
++    DRI2SwapBuffers
++	drawable: DRAWABLE
++      ▶	
++	buffers: LISTofDRI2BUFFER
++└───
++	Errors: Window
++
++	Schedule a swap of the front and back buffers with the display
++	server.
++
++	This request has no reply.  The server is expected to either perform
++	a buffer exchange or queue one before returning.  The client should
++	invalidate its render buffers after sending this request, causing
++	a subsequent GetBuffers request to get updated buffer info.
+ 
+ ┌───
+     DRI2GetBuffersWithFormat
+@@ -542,6 +562,27 @@ A.3 Protocol Events
+ 
+ The DRI2 extension specifies no events.
+ 
++┌───
++    DRI2SwapBuffers
++	1	CARD8			major opcode
++	1	7			DRI2 opcode
++	2	8			length
++	4	DRAWABLE		drawable
++      ▶	
++	1	1			Reply
++        1				unused
++	2	CARD16			sequence number
++	4	0			reply length
++	4	CARD32			buffer count
++	4	CARD32			unused
++	4	CARD32			unused
++	4	CARD32			unused
++	4	CARD32			unused
++	4	CARD32			unused
++	4	CARD32			unused
++	5n	LISTofDRI2BUFFER	buffers
++└───
++
+ 
+ A.4 Protocol Errors
+ 
