@@ -5,36 +5,70 @@
 
   BOOT=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*boot=// ; s/ .*//'`
   DISK=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*disk=// ; s/ .*//'`
+  UPDATE_DIR=/storage/.update
 
-  /bin/busybox mount -o ro,noatime $BOOT /flash
-  /bin/busybox mount -o rw,noatime $DISK /storage
+  # parse command line arguments
+  for arg in $(cat /proc/cmdline); do
+    case $arg in
+      debugging)
+        DEBUG=yes
+        ;;
+    esac
+  done
 
-  if [ -f "/storage/.update/openelec.kernel" ]; then
-    echo "updating Kernel..."
-    /bin/busybox mount -o remount,rw /flash
-    /bin/busybox mv /storage/.update/openelec.kernel /flash/openelec.kernel
-    /bin/busybox mount -o remount,ro /flash
-    /bin/busybox sync
-    echo "... done"
-    echo "System reboots now"
-    /bin/busybox reboot
-  fi
-
-  if [ -f "/storage/.update/openelec.system" ]; then
-    echo "updating System..."
-    /bin/busybox mount -o remount,rw /flash
-    /bin/busybox mv /storage/.update/openelec.system /flash/openelec.system
-    /bin/busybox mount -o remount,ro /flash
-    /bin/busybox sync
-    echo "... done"
-  fi
-
-  if [ -f "/flash/openelec.system" ]; then
-    /bin/busybox mount /flash/openelec.system /sysroot
-    if [ $? -ne 0 ] ; then
-      echo "Could not mount system on /sysroot. Starting debugging shell..."
-      /bin/busybox sh </dev/tty1 >/dev/tty1 2>&1
+  progress() {
+    if test "$DEBUG" = yes; then
+      echo "### $1 ###"
     fi
+  }
+
+  error() {
+    echo "Error Code: $1 that means: $2"
+  }
+
+  debug_shell() {
+    echo "### Starting debugging shell... type  exit  to quit ###"
+    /bin/busybox sh </dev/tty1 >/dev/tty1 2>&1
+  }
+
+  mount_part() {
+    progress "trying to mount $1 ..."
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+      ERR_ENV=1
+      /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
+      [ $? -eq 0 ] && ERR_ENV=0 && break
+      sleep 1
+    done
+    [ $ERR_ENV -ne 0 ] && error "INIT_4" "Could not mount $1" && debug_shell
+  }
+
+  update() {
+    if [ -f "$UPDATE_DIR/$2" ]; then
+      progress "updating $1..."
+        /bin/busybox mount -o remount,rw /flash
+        /bin/busybox mv $UPDATE_DIR/$2 $3
+        /bin/busybox mount -o remount,ro /flash
+        /bin/busybox sync
+      progress "... done"
+      if [ $4 = reboot ]; then
+        progress "System reboots now"
+        /bin/busybox reboot
+      fi
+    fi
+  }
+    
+  mount_part "$BOOT" "/flash" "ro,noatime"
+  mount_part "$DISK" "/storage" "rw,noatime"
+
+  update "Kernel" "openelec.kernel" "/flash/openelec.kernel" "reboot"
+  update "System" "openelec.system" "/flash/openelec.system" "noreboot"
+  
+  if [ -f "/flash/openelec.system" ]; then
+    mount_part "/flash/openelec.system" "/sysroot" "loop"
+    [ $ERR_ENV -ne 0 ] && debug_shell
+  else
+    error "INIT_2" "Could not find system."
+    debug_shell
   fi
 
   /bin/busybox mount --bind /flash /sysroot/flash
@@ -44,6 +78,5 @@
   /bin/busybox umount /sys
 
   exec /bin/busybox switch_root /sysroot /sbin/init.system
-
-  echo "Error in initramfs. Starting debugging shell..."
-  /bin/busybox sh </dev/tty1 >/dev/tty1 2>&1
+  error "INIT_3" "Error in initramfs. Could not switch to new root"
+  debug_shell
