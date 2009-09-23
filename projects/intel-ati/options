@@ -1,7 +1,7 @@
 # Welcome Message for e.g. SSH Server (up to 5 Lines)
   GREATING0="#######################################################"
   GREATING1="# Welcome to OpenELEC - the powerfull Mediacenter4you #"
-  GREATING2="#            visit  http://www.openelec.tv            #"
+  GREATING2="# .......... visit  http://www.openelec.tv .......... #"
   GREATING3="#######################################################"
   GREATING4=""
 
@@ -17,13 +17,9 @@
 # Displayserver to use (wayland / xorg-server / no)
   DISPLAYSERVER=xorg-server
 
-# X.org drivers to use (all / ati,intel)
-# Space separated list is supported, e.g. XORG_DRIVERS="ati intel"
-  XORG_DRIVERS="ati"
-
-# DRI drivers to use (i915, i965, radeon)
-# Comma separated list is supported, e.g. DRIDRIVERS="i915,i965,radeon,swrast"
-  DRIDRIVERS="radeon"
+# Graphic drivers to use (all / i915,i965,r200,r300,r600,radeon,nouveau)
+# Space separated list is supported, e.g. GRAPHIC_DRIVERS="i915 i965 radeon nouveau"
+  GRAPHIC_DRIVERS="radeon r600"
 
 # MESA to use (Mesa / Mesa-master)
   MESA=Mesa-master
@@ -49,3 +45,37 @@ if [ "$DISPLAYSERVER" = xorg-server ]; then
 elif [ "$DISPLAYSERVER" = wayland ]; then
   CAIRO=cairo-drm
 fi
+
+get_graphicdrivers() {
+  if [ "$GRAPHIC_DRIVERS" = all ]; then
+    GRAPHIC_DRIVERS="i915 i965 r200 r300 r600 radeon nouveau"
+  fi
+
+  for drv in $GRAPHIC_DRIVERS; do
+    [ $drv = i915 ] && MESA_DRIVERS="$MESA_DRIVERS,i915"
+    [ $drv = i965 ] && MESA_DRIVERS="$MESA_DRIVERS,i965"
+    [ $drv = r200 ] && MESA_DRIVERS="$MESA_DRIVERS,r200"
+    [ $drv = r300 ] && MESA_DRIVERS="$MESA_DRIVERS,r300"
+    [ $drv = r600 ] && MESA_DRIVERS="$MESA_DRIVERS,r600"
+    [ $drv = radeon ] && MESA_DRIVERS="$MESA_DRIVERS,radeon"
+
+    if [ $drv = i915 -o $drv = i965 ]; then
+      MESA_CONFIG="$MESA_CONFIG --enable-gallium-intel"
+      XORG_DRIVERS="$XORG_DRIVERS intel"
+      DRM_DRIVERS="$DRM_DRIVERS intel"
+    fi
+
+    if [ $drv = r200 -o $drv = r300 -o $drv = r600 -o  $drv = radeon ]; then
+      MESA_CONFIG="$MESA_CONFIG --enable-gallium-radeon"
+      XORG_DRIVERS="$XORG_DRIVERS ati"
+      DRM_DRIVERS="$DRM_DRIVERS radeon"
+    fi
+  
+    if [ $drv = nouveau ]; then
+      MESA_CONFIG="$MESA_CONFIG --enable-gallium-nouveau"
+      XORG_DRIVERS="$XORG_DRIVERS nouveau"
+      DRM_DRIVERS="$DRM_DRIVERS nouveau"
+    fi
+
+  done
+}
