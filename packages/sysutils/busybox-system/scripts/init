@@ -1,21 +1,21 @@
 #!/bin/sh
 
-  /bin/busybox test ! -e /proc/cpuinfo && \
-    /bin/busybox mount -t proc none /proc
-  /bin/busybox test ! -e /sys/kernel && \
-    /bin/busybox mount -t sysfs none /sys
+# funktions
+  mount_sys() {
+    if ! /bin/mountpoint -q $1; then
+      echo "### $1 does not exist, create it ###"
+      /bin/mount -t $2 none $1
+    fi
+  }
 
+# mounting needed filesystems
+  mount_sys "/dev" "devtmpfs"
+  mount_sys "/proc" "proc"
+  mount_sys "/sys" "sysfs"
+  mount_sys "/var" "ramfs"
+
+# setting up $PATH
   export PATH=/bin:/sbin:/usr/bin:/usr/sbin
-
-  mount -t ramfs none /dev
-#  mount -t ramfs none /etc
-  mount -t ramfs none /var
-  mknod /dev/null c 1 3
-  mknod /dev/fb0 c 29 0
-  mknod /dev/tty1 c 4 1
-  mknod /dev/tty2 c 4 2
-  mknod /dev/tty3 c 4 3
-  mknod /dev/console c 5 1
 
 # parse command line arguments
   BOOT=`cat /proc/cmdline | sed 's/.*boot=// ; s/ .*//'`
@@ -27,11 +27,18 @@
       textmode)
         TEXTMODE=yes
         ;;
-      configure)
-        CONFIGURE=yes
+      debugging)
+        DEBUG=yes
         ;;
     esac
   done
+
+# starting debugging shell
+  if test "$DEBUG" = yes; then
+    echo "### starting debugging shell on console 3 ###"
+    echo "### ...... switch with ctrl-alt-f3 ...... ###"
+    exec /bin/sh </dev/tty3 >/dev/tty3 2>&1 &
+  fi
 
 # make variable directory structure
   install -m 1777 -d /var/run
@@ -72,7 +79,7 @@
     fi
   done
 
-  exit $RET
+#  exit $RET
 
-echo "starting emergency shell"
-  exec /bin/busybox sh </dev/tty3 >/dev/tty3 2>&1
+  echo "starting emergency shell"
+  exec /bin/sh </dev/tty3 >/dev/tty3 2>&1
