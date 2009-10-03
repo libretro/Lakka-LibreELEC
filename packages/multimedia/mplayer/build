@@ -1,0 +1,289 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/build toolchain
+$SCRIPTS/build zlib
+$SCRIPTS/build alsa-lib
+$SCRIPTS/build freetype
+$SCRIPTS/build fribidi
+$SCRIPTS/build libiconv
+$SCRIPTS/build libcdio
+$SCRIPTS/build lame
+$SCRIPTS/build ffmpeg-mt
+$SCRIPTS/build libdvdread
+$SCRIPTS/build libdvdcss
+$SCRIPTS/build libdvdnav
+
+if [ "$DISPLAYSERVER" = xorg-server ]; then
+  $SCRIPTS/build libX11
+  $SCRIPTS/build libXv
+  $SCRIPTS/build libXvMC
+  $SCRIPTS/build $MESA
+  $SCRIPTS/build xorg-server
+  $SCRIPTS/build xf86-video-intel
+
+  MPLAYER_CONFIGOPTS="--enable-xv \
+                      --enable-xvmc \
+                      --disable-vdpau \
+                      --disable-vm \
+                      --disable-xinerama \
+                      --enable-x11 \
+                      --enable-xf86keysym"
+else
+  MPLAYER_CONFIGOPTS="--disable-xv \
+                      --disable-xvmc \
+                      --disable-vdpau \
+                      --disable-vm \
+                      --disable-xinerama \
+                      --disable-x11 \
+                      --disable-xf86keysym"
+fi
+
+#$SCRIPTS/build vesautils
+
+# setup_toolchain --optimize target
+
+EXTRA_LIBDIR="-L$SYSROOT_PREFIX/usr/lib"
+EXTRA_INCDIR="-I$SYSROOT_PREFIX/usr/include"
+EXTRA_LIBS="-liconv"
+EXTRA_LIBS="$EXTRA_LIBS -lavcodec -lavformat -lavutil -lpostproc -lswscale"
+CFLAGS="$CFLAGS -ffast-math -DFIXED_POINT"
+
+VIDIX_DRV="cyberblade,ivtv,mach64,mga,mga_crtc2,nvidia,pm2,pm3,radeon,rage128,s3,sis,unichrome"
+CODECS_DIR="/storage/.codecs"
+
+if [ "$DEBUG" = yes ]; then
+  DEBUG_CONFIG="--enable-debug=3 \
+                --enable-sighandler \
+                --enable-crash-debug"
+else
+  DEBUG_CONFIG="--disable-debug \
+                --disable-sighandler \
+                --disable-crash-debug"
+fi
+
+#            --nm=$NM \
+#            --ar=$AR \
+#            --ranlib=$RANLIB \
+#\
+
+cd $PKG_BUILD
+./configure --prefix=/usr \
+            --confdir=/usr/etc/mplayer \
+            --libdir=/usr/lib \
+            --codecsdir=$CODECS_DIR \
+            --win32codecsdir=$CODECS_DIR \
+            --xanimcodecsdir=$CODECS_DIR \
+            --realcodecsdir=$CODECS_DIR \
+\
+            --enable-runtime-cpudetection \
+            --enable-cross-compile \
+            --cc=$TARGET_CC \
+            --host-cc=$HOST_CC \
+            --as=$TARGET_AS \
+            --target="$TARGET_ARCH-linux" \
+            --disable-static \
+            --disable-dynamic-plugins \
+            --disable-profile \
+            --extra-ldflags="$EXTRA_LIBDIR" \
+            --extra-cflags="$EXTRA_INCDIR" \
+            --extra-libs="$EXTRA_LIBS" \
+\
+            $DEBUG_CONFIG \
+            $MPLAYER_CONFIG \
+\
+            --disable-dynamic-plugins \
+            --disable-shm \
+\
+            --charset=utf8 \
+            --language-msg=en \
+            --language=all \
+\
+            --disable-mencoder \
+            --enable-mplayer \
+            --disable-gui \
+            --disable-gtk1 \
+            --enable-largefiles \
+            --disable-linux-devfs \
+            --disable-termcap \
+            --disable-termios \
+            --enable-iconv \
+            --disable-langinfo \
+\
+            --disable-lirc \
+            --disable-lircc \
+            --disable-joystick \
+            --disable-apple-remote \
+            --disable-apple-ir \
+\
+            --disable-radio \
+            --disable-radio-capture \
+            --disable-radio-v4l2 \
+            --disable-radio-bsdbt848 \
+            --enable-tv \
+            --disable-tv-v4l1 \
+            --enable-tv-v4l2 \
+            --disable-tv-bsdbt848 \
+            --enable-tv-teletext \
+            --disable-pvr \
+            --enable-rtc \
+            --enable-network \
+            --disable-winsock2_h \
+            --disable-smb \
+            --disable-live \
+            --disable-nemesi \
+            --enable-vcd \
+            --enable-dvdnav \
+            --with-dvdnav-config="$ROOT/$TOOLCHAIN/bin/dvdnav-config" \
+            --enable-dvdread \
+            --with-dvdread-config="$ROOT/$TOOLCHAIN/bin/dvdread-config" \
+            --disable-dvdread-internal \
+            --disable-libdvdcss-internal \
+            --disable-cdparanoia \
+            --disable-cddb \
+            --enable-bitmap-font \
+            --enable-freetype \
+            --with-freetype-config="$ROOT/$TOOLCHAIN/bin/freetype-config" \
+            --disable-fontconfig \
+            --disable-unrarexec \
+            --enable-menu \
+            --disable-sortsub \
+            --enable-fribidi \
+            --with-fribidi-config="$ROOT/$TOOLCHAIN/bin/fribidi-config" \
+            --disable-enca \
+            --disable-maemo \
+            --disable-macosx-finder \
+            --disable-macosx-bundle \
+            --enable-inet6 \
+            --enable-gethostbyname2 \
+            --enable-ftp \
+            --disable-vstream \
+            --enable-pthreads \
+            --disable-w32threads \
+            --enable-ass \
+            --disable-rpath \
+\
+            --disable-libnut \
+            --disable-libavutil_a \
+            --disable-libavcodec_a \
+            --disable-libavformat_a \
+            --disable-libpostproc_a \
+            --disable-libswscale_a \
+            --enable-libavutil_so \
+            --enable-libavcodec_so \
+            --enable-libavformat_so \
+            --enable-libpostproc_so \
+            --enable-libswscale_so \
+            --enable-libavcodec_mpegaudio_hp \
+\
+            --disable-gif \
+            --enable-png \
+            --disable-mng \
+            --disable-jpeg \
+            --disable-libcdio \
+            --disable-liblzo \
+            --enable-win32dll \
+            --enable-qtx \
+            --enable-xanim \
+            --enable-real \
+            --disable-xvid \
+            --enable-xvid-lavc \
+            --disable-x264 \
+            --enable-x264-lavc \
+            --disable-libdirac-lavc \
+            --disable-libschroedinger-lavc \
+\
+            --disable-tremor-internal \
+            --disable-tremor-low \
+            --disable-tremor \
+            --disable-libvorbis \
+            --disable-speex \
+            --disable-theora \
+            --disable-faad \
+            --enable-faad-internal \
+            --disable-faad-fixed \
+            --disable-faac \
+            --enable-faac-lavc \
+            --disable-ladspa \
+            --disable-libbs2b \
+            --disable-libdv \
+            --disable-mad \
+            --disable-mp3lame \
+            --enable-mp3lame-lavc \
+            --disable-toolame \
+            --disable-twolame \
+            --disable-xmms \
+            --disable-libdca \
+            --enable-mp3lib \
+            --disable-liba52 \
+            --enable-liba52-internal \
+            --enable-libmpeg2 \
+            --disable-musepack \
+            --disable-libopencore_amrnb \
+            --disable-libopencore_amrwb \
+\
+            --disable-vidix \
+            --with-vidix-drivers="$VIDIX_DRV" \
+            --disable-vidix-pcidb \
+            --disable-dhahelper \
+            --disable-svgalib_helper \
+            --enable-gl \
+            --disable-dga2 \
+            --disable-dga1 \
+            --disable-vesa \
+            --disable-svga \
+            --disable-sdl \
+            --disable-kva \
+            --disable-aa \
+            --disable-caca \
+            --disable-ggi \
+            --disable-ggiwmh \
+            --disable-direct3d \
+            --disable-directx \
+            --disable-dxr2 \
+            --disable-dxr3 \
+            --disable-ivtv \
+            --disable-v4l2 \
+            --disable-dvb \
+            --disable-dvbhead \
+            --disable-mga \
+            --disable-xmga \
+            --disable-xshape \
+            --disable-xss \
+            --disable-fbdev \
+            --disable-mlib \
+            --disable-3dfx \
+            --disable-tdfxfb \
+            --disable-s3fb \
+            --disable-wii \
+            --disable-directfb \
+            --disable-zr \
+            --disable-bl \
+            --disable-tdfxvid \
+            --disable-xvr100 \
+            --disable-tga \
+            --disable-pnm \
+            --disable-md5sum \
+            --disable-yuv4mpeg \
+            --disable-corevideo \
+            --disable-quartz \
+\
+            --enable-alsa \
+            --disable-ossaudio \
+            --disable-arts \
+            --disable-esd \
+            --disable-pulse \
+            --disable-jack \
+            --disable-openal \
+            --disable-nas \
+            --disable-sgiaudio \
+            --disable-sunaudio \
+            --disable-dart \
+            --disable-win32waveout \
+            --disable-coreaudio \
+            --disable-select \
+\
+            --disable-demuxer=matroska \
+
+make

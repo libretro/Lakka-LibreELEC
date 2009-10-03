@@ -1,0 +1,855 @@
+Index: Makefile
+===================================================================
+--- a/Makefile    (revision 29136)
++++ b/Makefile    (working copy)
+@@ -618,6 +618,7 @@
+ SRCS_MPLAYER-$(OSS)           += libao2/ao_oss.c
+ SRCS_MPLAYER-$(PNG)           += libvo/vo_png.c
+ SRCS_MPLAYER-$(PNM)           += libvo/vo_pnm.c
++SRCS_MPLAYER-$(PS3)           += libvo/vo_ps3.c
+ SRCS_MPLAYER-$(PULSE)         += libao2/ao_pulse.c
+ SRCS_MPLAYER-$(QUARTZ)        += libvo/vo_quartz.c
+ SRCS_MPLAYER-$(S3FB)          += libvo/vo_s3fb.c
+Index: libvo/video_out.c
+===================================================================
+--- a/libvo/video_out.c    (revision 29136)
++++ b/libvo/video_out.c    (working copy)
+@@ -114,6 +114,7 @@
+ extern vo_functions_t video_out_directx;
+ extern vo_functions_t video_out_kva;
+ extern vo_functions_t video_out_dxr2;
++extern vo_functions_t video_out_ps3;
+ extern vo_functions_t video_out_dxr3;
+ extern vo_functions_t video_out_ivtv;
+ extern vo_functions_t video_out_v4l2;
+@@ -201,6 +202,9 @@
+ &video_out_fbdev,
+ &video_out_fbdev2,
+ #endif
++#ifdef CONFIG_PS3
++    &video_out_ps3,
++#endif
+ #ifdef CONFIG_SVGALIB
+ &video_out_svga,
+ #endif
+Index: libvo/vo_ps3.c
+===================================================================
+--- a/libvo/vo_ps3.c    (revision 0)
++++ b/libvo/vo_ps3.c    (revision 0)
+@@ -0,0 +1,744 @@
++/*
++ * video driver for cell / BE Playstation3 framebuffer
++ * Copyright 2007 by Bill Garrett <wgarrett@???>
++ * Copyright 2009 by Kristian Jerpetjøn <kristian.jerpetjoen@???>
++ *
++ * This video out device uses the Cell Broadband Engine spes to accelerate
++ * scaling and colorspace conversion
++ *
++ * This vo depends on spu-medialib which is a BSDv2 library
++ *
++ * This file is part of MPlayer.
++ *
++ * MPlayer is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * MPlayer is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with MPlayer; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++
++#include <libspe2.h>
++
++#include "config.h"
++#include "mplayer.h"
++#include "aspect.h"
++#include "mp_msg.h"
++#include "help_mp.h"
++#include "video_out.h"
++#include "video_out_internal.h"
++#include "subopt-helper.h"
++#include "fastmemcpy.h"
++#include "osd.h"
++#include "sub.h"
++
++#if HAVE_MALLOC_H
++#include <malloc.h>
++#endif
++
++#include <spu-medialib/spu_control.h>
++#include <spu-medialib/yuv2argb_scaler.h>
++
++#include <sys/mman.h>
++#include <fcntl.h>
++#include <sys/ioctl.h>
++#include <linux/kd.h>
++#include <linux/fb.h>
++#include <asm/ps3fb.h>
++
++#define NUM_BUFFERS 2
++#define FB_DEV "/dev/fb0"
++#define CONSOLE "/dev/tty"
++#define FALLBACK "/dev/console"
++
++static vo_info_t info =
++{
++ "PS3 framebuffer w/ spe offload courtesy of spu_medialib (https://sourceforge.net/projects/spu-medialib)",
++ "ps3",
++ "Bill Garrett <wgarrett@xxx>",
++ "Kristian JerpetjÃ¸n <kristian.jerpetjoen@xxx>"
++};
++
++LIBVO_EXTERN(ps3)
++
++static int maxW=1920, maxH=1200;
++
++static int page, parking_lot_page, offset;
++
++static uint8_t *inbuf_y[NUM_BUFFERS], *inbuf_u[NUM_BUFFERS], *inbuf_v[NUM_BUFFERS];
++
++static uint8_t *parking_lot_y[NUM_BUFFERS],*parking_lot_u[NUM_BUFFERS], *parking_lot_v[NUM_BUFFERS];
++static uint32_t srcW, srcH, src_buf_siz, src_stride[3], src_p_siz[3], src_fmt, src_bpp;
++static uint32_t dstW, dstH;
++static uint32_t suggestedW, suggestedH;
++static uint8_t *buf_plane_ptr[3];
++
++static char *src_title;
++
++static struct ps3fb_ioctl_res ps3_fb;
++static void *fb_buf0;
++static int fb, console, fb_length;
++
++
++static int debug, snap;
++
++static yuvscaler2argb_t *yuvcsc;
++static unsigned int yuvcsc_msg;
++static int wait_yuvcsc, yuvcsc_not_ready;
++
++static int draw_slice_count, draw_image_count, get_image_count , flip_count;
++
++/**
++ * Makes a copy of inbufs to .yuv files in current directory
++ *
++ * handy for testing - try with single stepping! '.'
++ */
++static void snapshot(void)
++{
++
++ int i;
++ FILE * snapshot;
++ char *inbuf_file[]={"inbuf0.yuv", "inbuf1.yuv"};
++
++ for (i = 0; i < 2; i++) {
++
++ snapshot = fopen(inbuf_file[i], "wb");
++ fwrite ( inbuf_y[i], 1, src_p_siz[0], snapshot );
++ fwrite ( inbuf_u[i], 1, src_p_siz[1], snapshot );
++ fwrite ( inbuf_v[i], 1, src_p_siz[2], snapshot );
++ fclose ( snapshot );
++ }
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] snapshot: wrote current inbuf_*[]"
++ "to inbuf0.yuv & inbuf1.yuv\n");
++}
++
++/**
++ * yuvcsc_check - check spu_yuv2argb_scaler process
++ * make sure it's ready to run, and if not wait for it to finish
++ */
++static void yuvcsc_check(void)
++{
++
++ if (!wait_yuvcsc)
++ return;
++
++ yuvcsc_msg = yuvscsc_receive_message(yuvcsc);
++
++ while (yuvcsc_msg != RDY) {
++
++ yuvcsc_not_ready++;
++ mp_msg(MSGT_VO, MSGL_WARN,
++ "[vo_ps3] yuvcsc_check: ***yuvcsc not ready to run! :(\n" );
++
++ yuvcsc_msg = yuvscsc_receive_message(yuvcsc);
++ }
++
++ wait_yuvcsc = 0;
++}
++
++/**
++ * yuvcsc_run - put the image on the framebuffer
++ *
++ */
++static void yuvcsc_run(void)
++{
++ //confirm last run finished
++ yuvcsc_check();
++
++ wait_yuvcsc = 1;
++
++ yuvscsc_send_message(yuvcsc, RUN);
++}
++
++
++static void draw_alpha(int x0, int y0, int w, int h, int dp, unsigned char* src,
++ unsigned char *srca, int stride)
++{
++ switch(src_fmt)
++ {
++ case IMGFMT_I420: //Planar I420 0x30323449
++ case IMGFMT_YV12: //Planar YV12 0x32315659
++ case IMGFMT_IYUV: //Planar IYUV 0x56555949
++ vo_draw_alpha_yv12(w, h, dp, src, srca, stride,
++ buf_plane_ptr[0] + ( y0 * src_stride[0] + x0 ),
++ src_stride[0] );
++ }
++}
++
++
++
++/**
++ * Initiates the spu medialib spe vo accellerator
++ * TODO change spu-medialib api to handle a struct
++ */
++static void init_spu_medialib(void)
++{
++ //init spu-medialib's scaler & colorspace converter on an spe
++ yuvcsc = yuvscsc_init_yuv2argb_scaler(srcW, srcH, dstW, dstH, offset, maxW,
++ ( ea_t * ) inbuf_y[0], ( ea_t * ) inbuf_y[1],
++ ( ea_t * ) inbuf_u[0], ( ea_t * ) inbuf_u[1],
++ ( ea_t * ) inbuf_v[0], ( ea_t * ) inbuf_v[1],
++ fb_buf0, fb_buf0 );
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] init_spu_medialib:"
++ " Initialized spu-medialib's spu_yuv2argb_scaler with:\n"
++ " %ix%i=>%ix%i, offset:%i, maxW:%i\n",
++ srcW, srcH, dstW, dstH, offset, maxW);
++}
++
++/**
++ * Updates the spu-medialib accellerator
++ * TODO change spu-medialib api to handle a struct
++ */
++static void update_spu_medialib(void)
++{
++ yuvscsc_set_srcW(yuvcsc, srcW);
++ yuvscsc_set_srcH(yuvcsc, srcH);
++ yuvscsc_set_dstW(yuvcsc, dstW);
++ yuvscsc_set_dstH(yuvcsc, dstH);
++ yuvscsc_set_offset(yuvcsc, offset);
++ yuvscsc_set_maxwidth(yuvcsc, maxW);
++ yuvscsc_send_message(yuvcsc, UPDATE);
++}
++
++
++/**
++ * Waits for any running spu-medialib operations and closes spu-medialib
++ */
++static void cleanup_spu_medialib(void)
++{
++
++ yuvcsc_check();
++
++ yuvscsc_destroy(yuvcsc);
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] cleanup_spu_medialib:"
++ " Destroyed spu-medialib's scaler/converter\n" );
++}
++
++/**
++ * Clears the ps3 framebuffer
++ */
++static void clear_framebuffer(void)
++{
++ //make sure spu medialib is not currently drawing to the surface
++ yuvcsc_check();
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] clear: Clearing buffers\n");
++
++ //clear target framebuffer
++ memset(fb_buf0, 0, fb_length);
++}
++
++static void setup_screen(void)
++{
++
++ vo_dx = vo_dy = 0;
++ vo_screenwidth=ps3_fb.xres - (ps3_fb.xoff * 2);
++ vo_screenheight=ps3_fb.yres- (ps3_fb.yoff * 2);
++
++ dstW = suggestedW;
++ dstH = suggestedH;
++
++ if (vo_fs || dstW > vo_screenwidth || dstH > vo_screenheight)
++ /* DISABLED BY GEEXBOX PORTER */ // aspect_fit(&dstW, &dstH, vo_screenwidth, vo_screenheight);
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] setup_scale: Using dest WxH:%ix%i\n", dstW, dstH);
++
++ //set aspect stuff
++ aspect_save_orig(srcW, srcH);
++ aspect_save_screenres(vo_screenwidth, vo_screenheight);
++ aspect_save_prescale(dstW, dstH);
++
++ geometry(&vo_dx, &vo_dy, &dstW, &dstH, vo_screenwidth, vo_screenheight);
++ aspect(&dstW, &dstH, A_NOZOOM);
++
++ //take care of scaling and scaler requirements/restrictions
++ aspect_fit(&dstW, &dstH, (dstW&(~0xF)), (dstH&(~0x3)));
++
++ //center image -because
++ //spu-medialib handles this and we don't have to draw the extra black bars
++ vo_dx = (((vo_screenwidth - dstW)/2)&(~0x3));
++ vo_dy = (vo_screenheight - dstH)/2;
++ offset = vo_dx + (ps3_fb.xres * vo_dy);
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] setup_screen: After mplayer aspectchanges:\n"
++ " vo_dx/dy=%ix%i, vo_screenwidth/height=%ix%i, offset=%i\n"
++ " desired image size=%ix%i\n",
++ vo_dx, vo_dy, vo_screenwidth, vo_screenheight, offset, dstW, dstH);
++
++ clear_framebuffer();
++}
++
++static int query_format(uint32_t format)
++{
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] query_format: Called for %s (0x%x)\n",
++ vo_format_name(format), format);
++
++ switch(format)
++ {
++ case IMGFMT_I420: //Planar I420 0x30323449
++ case IMGFMT_YV12: //Planar YV12 0x32315659
++ case IMGFMT_IYUV: //Planar IYUV 0x56555949
++ return VFCAP_CSP_SUPPORTED | VFCAP_CSP_SUPPORTED_BY_HW | VFCAP_HWSCALE_UP | \
++ VFCAP_ACCEPT_STRIDE;
++ default:
++ return VO_FALSE; //not supporting anything else yet
++ }
++}
++
++static int config(uint32_t width, uint32_t height, uint32_t d_width,
++ uint32_t d_height, uint32_t flags, char *title, uint32_t format)
++{
++
++ int i;
++
++ srcW = dstW = width;
++ srcH = dstH = height;
++
++ src_fmt = format;
++ src_title = title;
++
++ suggestedW = d_width;
++ suggestedH = d_height;
++
++ maxW=ps3_fb.xres;
++ maxH=ps3_fb.yres;
++
++ if (flags && VOFLAG_FULLSCREEN)
++ vo_fs = 1;
++
++ switch(format)
++ {
++ case IMGFMT_I420: //Planar I420 0x30323449
++ case IMGFMT_YV12: //Planar YV12 0x32315659
++ case IMGFMT_IYUV: //Planar IYUV 0x56555949
++ src_buf_siz = srcW*srcH + srcW*srcH/2;
++ src_stride[0] = srcW; //buffer plane strides 0=y, 1=u, 2=v
++ src_stride[1] = src_stride[2] = src_stride[0]/2;
++ src_p_siz[0] = srcW * srcH; //buffer plane sizes 0=y, 1=u, 2=v
++ src_p_siz[1] = src_p_siz[2] = srcW/2 * srcH/2;
++ src_bpp = 12;
++ break;
++ default:
++ mp_msg(MSGT_VO, MSGL_FATAL,
++ "[vo_ps3] config: Unsupported format: %i\n", format );
++ return 1;
++ }
++
++ for (i=0; i < NUM_BUFFERS; i++) {
++
++ inbuf_y[i]= memalign ( 128, src_p_siz[0]*2 );
++ inbuf_u[i]= memalign ( 128, src_p_siz[1]*2 );
++ inbuf_v[i]= memalign ( 128, src_p_siz[2]*2 );
++ parking_lot_y[i]= memalign ( 128, src_p_siz[0]*2 );
++ parking_lot_u[i]= memalign ( 128, src_p_siz[1]*2 );
++ parking_lot_v[i]= memalign ( 128, src_p_siz[2]*2 );
++ }
++
++ clear_framebuffer();
++
++ setup_screen();
++
++ init_spu_medialib();
++
++ return 0;
++}
++
++static uint32_t get_image(mp_image_t * mpi)
++{
++ //TODO fix this whole mess somehow
++ get_image_count++;
++
++ if ( ( mpi->flags & MP_IMGFLAG_READABLE ) && ( mpi->type == MP_IMGTYPE_IPB
++ || mpi->type == MP_IMGTYPE_IP ) ) {
++
++ buf_plane_ptr[0] = parking_lot_y[parking_lot_page];
++ buf_plane_ptr[1] = parking_lot_u[parking_lot_page];
++ buf_plane_ptr[2] = parking_lot_v[parking_lot_page];
++ //mpi->flags |=MP_IMGFLAG_DIRECT;
++ //FIXME crash without understand what Bill was thinking here
++ mpi->flags |= MP_IMGFLAG_ALLOCATED;
++ parking_lot_page^=1;
++ }
++ else {
++
++ buf_plane_ptr[0] = inbuf_y[page];
++ buf_plane_ptr[1] = inbuf_u[page];
++ buf_plane_ptr[2] = inbuf_v[page];
++ mpi->flags |= MP_IMGFLAG_DIRECT;
++ }
++
++ mpi->planes[0] = buf_plane_ptr[0];
++ mpi->planes[1] = buf_plane_ptr[1];
++ mpi->planes[2] = buf_plane_ptr[2];
++
++ mpi->stride[0] = src_stride[0];
++ mpi->stride[1] = src_stride[1];
++ mpi->stride[2] = src_stride[2];
++
++ mpi->priv = buf_plane_ptr[0];
++
++ return 0;
++}
++
++static int draw_slice(uint8_t *src[], int stride[], int w, int h, int x, int y)
++{
++
++ int i;
++ int slice_siz[3], slice_p_w[3], slice_p_h[3], offset[3];
++
++ draw_slice_count++;
++
++ //todo: should we care about MP_IMGFLAG_PRESERVE for a slice?
++
++ buf_plane_ptr[0] = inbuf_y[page];
++ buf_plane_ptr[1] = inbuf_u[page];
++ buf_plane_ptr[2] = inbuf_v[page];
++
++ // setup for YV12 - should add switch statement to 'check' format
++ slice_siz[0] = stride[0] * h;
++ slice_siz[1] = stride[1] * h/2;
++ slice_siz[2] = stride[2] * h/2;
++
++ slice_p_w[0] = w;
++ slice_p_w[1] = slice_p_w[2] = w/2;
++
++ slice_p_h[0] = h;
++ slice_p_h[1] = slice_p_h[2] = h/2;
++
++ offset[0] = y * src_stride[0] + x;
++ offset[1] = y/2 * src_stride[1] + x/2;
++ offset[2] = y/2 * src_stride[2] + x/2;
++
++ for ( i=0; i<3; i++ ) {
++
++ memcpy_pic(buf_plane_ptr[i]+offset[i], src[i], slice_p_w[i],
++ slice_p_h[i], src_stride[i], stride[i] );
++ }
++ return 0;
++}
++
++
++static uint32_t draw_image(mp_image_t *mpi)
++{
++
++ int i;
++
++ int mpi_p_siz[3], mpi_p_w[3], mpi_p_h[3];
++
++ draw_image_count++;
++
++ if (mpi->flags & MP_IMGFLAG_DIRECT)
++ return 0;
++
++
++ //TODO Understand what bill was trying to do here
++ //not (mpi->flags & MP_IMGFLAG_DIRECT) (no -dr flag for direct rendering),
++ // may need to handle MP_IMGFLAG_READABLE IPB (B) frames differently
++ // When direct rendering is enabled (-dr), I moved the B frames to a
++ // non-direct
++ // buffer and then when drawn with draw_image, they (seem) to work fine
++ // BUT, without direct rendering, don't know how to handle them :(
++ // Just drawing them as called makes a mess of the video.
++
++ // if ( ( mpi->flags & MP_IMGFLAG_READABLE ) &&
++ // ( mpi->type == MP_IMGTYPE_IPB || mpi->type == MP_IMGTYPE_IP ) )
++ // {
++ // buf_plane_ptr[0] = inbuf_y[page];
++ // buf_plane_ptr[1] = inbuf_u[page];
++ // buf_plane_ptr[2] = inbuf_v[page];
++ // }
++ // else
++ // {
++ buf_plane_ptr[0] = inbuf_y[page];
++ buf_plane_ptr[1] = inbuf_u[page];
++ buf_plane_ptr[2] = inbuf_v[page];
++ // }
++
++
++ // draw_slice(mpi->planes, buf_plane_ptr,mpi->w, mpi->h, 0, 0);
++
++ //messing with strides
++ mpi_p_siz[0] = mpi->stride[0] * mpi->height;
++ mpi_p_siz[1] = mpi->stride[1] * mpi->chroma_height;
++ mpi_p_siz[2] = mpi->stride[2] * mpi->chroma_height;
++
++ mpi_p_w[0] = mpi->w;
++ mpi_p_w[1] = mpi_p_w[2] = mpi->chroma_width;
++
++ mpi_p_h[0] = mpi->h;
++ mpi_p_h[1] = mpi_p_h[2] = mpi->chroma_height;
++
++ for (i = 0; i < 3; i++){
++
++ memcpy_pic(buf_plane_ptr[i], mpi->planes[i], mpi_p_w[i],
++ mpi_p_h[i], src_stride[i], mpi->stride[i]);
++ }
++
++ return 0;
++}
++
++//FIXME Cannot remove compile issues sort this
++static int draw_frame(uint8_t *src[])
++{
++ return 0;
++}
++
++static void draw_osd(void)
++{
++
++ vo_draw_text (srcW, srcH, draw_alpha);
++}
++
++static void flip_page(void)
++{
++ int frame = 0;
++
++ int crt = 0;
++
++ flip_count++;
++
++ //make sure last frame is done
++ yuvcsc_check();
++
++ //flip output to monitor
++ ioctl(fb, PS3FB_IOCTL_FSEL, (unsigned long)&frame);
++
++ //make sure flip is complete
++ ioctl(fb, FBIO_WAITFORVSYNC, (unsigned long)&crt);
++
++ //run process next frame
++ yuvcsc_run();
++
++ //flip input buffer
++ page = page^1;
++}
++
++
++/**
++ * Toggles fullscreen off and on
++ */
++static void toggle_fullscreen(void)
++{
++
++ vo_fs = !vo_fs;
++
++ setup_screen();
++
++ update_spu_medialib();
++}
++
++static int control (uint32_t request, void *data, ...)
++{
++
++ switch(request)
++ {
++ case VOCTRL_QUERY_FORMAT:
++ return query_format (*(uint32_t*)data);
++
++ case VOCTRL_FULLSCREEN:
++ toggle_fullscreen();
++ return 0;
++
++ case VOCTRL_PAUSE:
++ if (snap)
++ snapshot();
++ return 0;
++
++ case VOCTRL_RESUME:
++ return 0;
++
++ case VOCTRL_GET_IMAGE:
++ return get_image(data);
++
++ case VOCTRL_DRAW_IMAGE:
++ return draw_image(data);
++
++ //TODO Handle upate screeninfo
++ case VOCTRL_UPDATE_SCREENINFO:
++ return VO_NOTIMPL;
++
++ default:
++ return VO_NOTIMPL;
++ }
++}
++
++static void check_events(void)
++{
++ //no events to check or is there ?
++}
++
++static void uninit(void)
++{
++
++ int i;
++
++ cleanup_spu_medialib();
++
++ /* Cleanup FrameBuffer and re-enable console */
++ ioctl(fb, PS3FB_IOCTL_OFF);
++
++ ioctl(console, KDSETMODE, KD_TEXT);
++
++ if (console >= 0)
++ close(console);
++
++ if (console >= 0)
++ close(fb);
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] uninit: Cleaned up FB and re-enabled console.\n" );
++
++ for ( i=0; i<NUM_BUFFERS; i++ ) {
++
++ free(inbuf_y[i]);
++ free(inbuf_u[i]);
++ free(inbuf_v[i]);
++ free(parking_lot_y[i]);
++ free(parking_lot_u[i]);
++ free(parking_lot_v[i]);
++ }
++}
++
++/**
++ * Initiates the ps3 framebuffer and disables the console
++ * @return -1 if unsuccessful
++ */
++static int init_framebuffer(void)
++{
++ int arg;
++ int res = 0;
++
++ console = open(CONSOLE, O_NONBLOCK);
++
++
++ if (console >= 0)
++ res = ioctl(console, KDGETMODE, &arg);
++
++ //ok the previous failed lets attempt to open as root
++ if (console < 0 || res < 0) {
++
++ if (console >= 0)
++ close(console);
++ //This will only work if you are root
++ console = open(FALLBACK, O_NONBLOCK);
++ res = ioctl(console, KDGETMODE, &arg);
++ }
++
++ //all options to open the FB has failed but we continue in good fait
++ //it will only annoy you slightly
++ if (console >= 0) {
++
++ if (arg !=KD_GRAPHICS && ioctl(console, KDSETMODE, KD_GRAPHICS) < 0)
++ mp_msg(MSGT_VO,MSGL_INFO,"[vo_ps3] failed to disable console\n");
++ }
++ //we got this far now even if the console failed we continue
++ res = 0;
++
++ fb = open(FB_DEV, O_RDWR);
++
++ if (fb < 0) {
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] init_framebuffer: failed to open fb\n" );
++ goto fail;
++ }
++
++ if (ioctl(fb, PS3FB_IOCTL_SCREENINFO, (unsigned long)&ps3_fb) < 0) {
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] init_framebuffer: failed to get fb info\n" );
++ goto fail;
++ }
++
++ if (ioctl(fb, PS3FB_IOCTL_ON ) < 0) {
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "[vo_ps3] init_framebuffer: failed to set manual swap control\n"
++ );
++ goto fail;
++ }
++
++ fb_length = ps3_fb.xres*ps3_fb.yres*4;
++
++ //get the FB mmap
++ fb_buf0 = mmap(NULL, fb_length, PROT_WRITE, MAP_SHARED, fb, 0);
++
++ mp_msg(MSGT_VO, MSGL_INFO, "[vo_ps3] init_framebuffer:"
++ " Initialized framebuffer & disabled console\n"
++ "FB is %ix%i at offset %ix%i\n",
++ ps3_fb.xres, ps3_fb.yres, ps3_fb.xoff, ps3_fb.yoff);
++
++
++ return 0;
++
++fail:
++ if (fb >= 0) {
++ ioctl(fb,PS3FB_IOCTL_OFF);
++ close(fb);
++ }
++
++ if (console >= 0) {
++
++ ioctl (console, KDSETMODE, KD_TEXT);
++ close(console);
++ }
++
++ return -1;
++}
++
++static int preinit (const char *arg)
++{
++
++ const opt_t subopts[] =
++ {
++ /* name arg type arg var test */
++ { "debug", OPT_ARG_BOOL, &debug, NULL },
++ { "snapshot", OPT_ARG_BOOL, &snap, NULL },
++ { NULL, 0, NULL, NULL }
++ };
++
++ if (subopt_parse(arg, subopts)) {
++
++ mp_msg(MSGT_VO, MSGL_WARN,
++ "Suboptions for -vo ps3:\n"
++ " debug - turn on debugging output specific to vo_ps3\n"
++ " snapshot - take a raw yuv snapshot of input buffers on pause"
++ "\n\n" );
++ return -1;
++ }
++
++ mp_msg(MSGT_VO, MSGL_INFO,
++ "ps3 suboptions:\n"
++ " debug:%i\n"
++ " snapshot:%i\n",
++ debug, snap);
++
++ /* init PS3 FrameBuffer */
++ if (init_framebuffer() < 0)
++ return -1;
++
++ return 0;
++}
+Index: configure
+===================================================================
+--- a/configure    (revision 29136)
++++ b/configure    (working copy)
+@@ -391,6 +391,7 @@
+   --enable-xshape          enable XShape support [autodetect]
+   --disable-xss            disable screensaver support via xss [autodetect]
+   --enable-fbdev           enable FBDev video output [autodetect]
++  --enable-ps3 enable FBDev video output SPU optimized for PS3 [autodetect]
+   --enable-mlib            enable mediaLib video output (Solaris) [disable]
+   --enable-3dfx            enable obsolete /dev/3dfx video output [disable]
+   --enable-tdfxfb          enable tdfxfb video output [disable]
+@@ -577,6 +578,7 @@
+ _svga=auto
+ _vesa=auto
+ _fbdev=auto
++_ps3=auto
+ _dvb=auto
+ _dvbhead=auto
+ _dxr2=auto
+@@ -931,6 +933,8 @@
+   --disable-vesa)	_vesa=no	;;
+   --enable-fbdev)	_fbdev=yes	;;
+   --disable-fbdev)	_fbdev=no	;;
++  --enable-ps3)	_ps3=yes	;;
++  --disable-ps3)	_ps3=no		;;
+   --enable-dvb)		_dvb=yes	;;
+   --disable-dvb)        _dvb=no		;;
+   --enable-dvbhead)	_dvbhead=yes	;;
+@@ -4758,6 +4762,26 @@
+ echores "$_fbdev"
+ 
+ 
++echocheck "PS3"
++if test "$_ps3" = auto ; then
++ cat > $TMPC << EOF
++#include <libspe2.h>
++#include <spu-medialib/spu_control.h>
++#include <spu-medialib/yuv2argb_scaler.h>
++int main(void) { return 0; }
++EOF
++ _ps3=no
++ cc_check -lspu-medialib -lspe2 && _ps3=yes
++fi
++if test "$_ps3" = yes; then
++ def_ps3='#define CONFIG_PS3 1'
++ _libs_mplayer="$_libs_mplayer -lspu-medialib -lspe2"
++ _vomodules="ps3 $_vomodules"
++else
++ def_ps3='#undef CONFIG_PS3'
++ _novomodules="ps3 $_novomodules"
++fi
++echores "$_ps3"
+
+ echocheck "DVB"
+ if test "$_dvb" = auto ; then
+@@ -8257,6 +8281,7 @@
+ PNG = $_png
+ PNM = $_pnm
+ PRIORITY = $_priority
++PS3 = $_ps3
+ PULSE = $_pulse
+ PVR = $_pvr
+ QTX_CODECS = $_qtx
+@@ -8730,6 +8755,7 @@
+ $def_mng
+ $def_png
+ $def_pnm
++$def_ps3
+ $def_quartz
+ $def_s3fb
+ $def_sdl 
