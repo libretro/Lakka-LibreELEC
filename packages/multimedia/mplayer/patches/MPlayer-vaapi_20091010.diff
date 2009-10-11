@@ -1,0 +1,2003 @@
+diff -Naur mplayer-29746/cfg-common-opts.h mplayer-29746.patch/cfg-common-opts.h
+--- mplayer-29746/cfg-common-opts.h	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/cfg-common-opts.h	2009-10-11 01:04:05.510657179 +0200
+@@ -228,6 +228,7 @@
+ //	{"ac", &audio_codec, CONF_TYPE_STRING, 0, 0, 0, NULL},
+ 	{"ac", &audio_codec_list, CONF_TYPE_STRING_LIST, 0, 0, 0, NULL},
+ 	{"vc", &video_codec_list, CONF_TYPE_STRING_LIST, 0, 0, 0, NULL},
++	{"va", &video_hwaccel_name, CONF_TYPE_STRING, 0, 0, 0, NULL},
+ 
+ 	// postprocessing:
+ #ifdef CONFIG_LIBAVCODEC
+diff -Naur mplayer-29746/codec-cfg.c mplayer-29746.patch/codec-cfg.c
+--- mplayer-29746/codec-cfg.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/codec-cfg.c	2009-10-11 01:04:13.245782745 +0200
+@@ -187,6 +187,13 @@
+ 		{"IDCT_MPEG2",IMGFMT_XVMC_IDCT_MPEG2},
+ 		{"MOCO_MPEG2",IMGFMT_XVMC_MOCO_MPEG2},
+ 
++                {"VAAPI_MPEG2", IMGFMT_VAAPI_MPEG2},
++                {"VAAPI_MPEG4", IMGFMT_VAAPI_MPEG4},
++                {"VAAPI_H263",  IMGFMT_VAAPI_H263},
++                {"VAAPI_H264",  IMGFMT_VAAPI_H264},
++                {"VAAPI_WMV3",  IMGFMT_VAAPI_WMV3},
++                {"VAAPI_VC1",   IMGFMT_VAAPI_VC1},
++
+ 		{"VDPAU_MPEG1",IMGFMT_VDPAU_MPEG1},
+ 		{"VDPAU_MPEG2",IMGFMT_VDPAU_MPEG2},
+ 		{"VDPAU_H264",IMGFMT_VDPAU_H264},
+diff -Naur mplayer-29746/configure mplayer-29746.patch/configure
+--- mplayer-29746/configure	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/configure	2009-10-11 01:04:17.984657798 +0200
+@@ -354,6 +354,9 @@
+   --disable-muxer=MUXER     disable specified FFmpeg muxer
+   --enable-muxer=MUXER      enable specified FFmpeg muxer
+ 
++Hardware acceleration:
++  --enable-vaapi            enable VA API acceleration [disable]
++
+ Video output:
+   --disable-vidix          disable VIDIX [for x86 *nix]
+   --with-vidix-drivers[=*] list of VIDIX drivers to be compiled in
+@@ -539,6 +542,8 @@
+ _libavcodec_a=auto
+ _libopencore_amrnb=auto
+ _libopencore_amrwb=auto
++_libavhwaccels_all=$(sed -n 's/^[^#]*HWACCEL.*(.*, *\(.*\)).*/\1_hwaccel/p' libavcodec/allcodecs.c | tr '[a-z]' '[A-Z]')
++_libavhwaccels="$_libavhwaccels_all"
+ _libavdecoders_all=$(sed -n 's/^[^#]*DEC.*(.*, *\(.*\)).*/\1_decoder/p' libavcodec/allcodecs.c | tr '[a-z]' '[A-Z]')
+ _libavdecoders=$(echo $_libavdecoders_all | sed -e 's/ LIB[A-Z0-9_]*_DECODER//g' -e s/MPEG4AAC_DECODER//)
+ _libavencoders_all=$(sed -n 's/^[^#]*ENC.*(.*, *\(.*\)).*/\1_encoder/p' libavcodec/allcodecs.c | tr '[a-z]' '[A-Z]')
+@@ -562,6 +567,8 @@
+ _libavcodec_mpegaudio_hp=yes
+ _mencoder=yes
+ _mplayer=yes
++_vaapi=auto
++_vaapi_glx=no
+ _x11=auto
+ _xshape=auto
+ _xss=auto
+@@ -904,6 +911,8 @@
+   --disable-mplayer)	_mplayer=no	;;
+   --enable-dynamic-plugins) _dynamic_plugins=yes ;;
+   --disable-dynamic-plugins) _dynamic_plugins=no ;;
++  --enable-vaapi)       _vaapi=yes      ;;
++  --disable-vaapi)      _vaapi=no       ;;
+   --enable-x11)		_x11=yes	;;
+   --disable-x11)	_x11=no		;;
+   --enable-xshape)	_xshape=yes	;;
+@@ -4221,7 +4230,7 @@
+   _novomodules="x11 $_novomodules"
+   _res_comment="check if the dev(el) packages are installed"
+   # disable stuff that depends on X
+-  _xv=no ; _xvmc=no ; _xinerama=no ; _vm=no ; _xf86keysym=no ; _vdpau=no
++  _xv=no ; _xvmc=no ; _xinerama=no ; _vm=no ; _xf86keysym=no ; _vaapi=no ; _vdpau=no
+ fi
+ echores "$_x11"
+ 
+@@ -4349,7 +4358,7 @@
+ else
+   def_vdpau='#define CONFIG_VDPAU 0'
+   _novomodules="vdpau $_novomodules"
+-  _libavdecoders=$(echo $_libavdecoders | sed -e s/MPEG_VDPAU_DECODER// -e s/MPEG1_VDPAU_DECODER// -e s/H264_VDPAU_DECODER// -e s/WMV3_VDPAU_DECODER// -e s/VC1_VDPAU_DECODER//)
++  _libavdecoders=$(echo $_libavdecoders | sed -e "s/\(MPEG\|MPEG[124]\|H26[34]\|WMV3\|VC1\)_VDPAU_DECODER//g")
+ fi
+ echores "$_vdpau"
+ 
+@@ -4929,6 +4938,65 @@
+ fi
+ echores "$_gl"
+ 
++echocheck "OpenGL utilities (GLU)"
++_glu=no
++if test "$_gl" = yes; then
++  cat > $TMPC << EOF
++#include <GL/glu.h>
++int main(void) {
++  gluPerspective(0.0, 0.0, 0.0, 0.0);
++  return 0;
++}
++EOF
++  cc_check -lGLU && _glu=yes
++fi
++if test "$_glu" = yes; then
++  libs_mplayer="$libs_mplayer -lGLU"
++fi
++echores "$_glu"
++
++
++echocheck "VA API"
++if test "$_vaapi" = yes -o "$_vaapi" = auto; then
++  _vaapi=no
++  cat > $TMPC <<EOF
++#include <va/va_x11.h>
++int main(void) { (void) vaGetDisplay(0); return 0; }
++EOF
++  cc_check -lva-x11 && _vaapi=yes
++fi
++
++if test "$_vaapi" = yes ; then
++  def_vaapi='#define CONFIG_VAAPI 1'
++  libs_mencoder="$libs_mencoder -lva"
++  libs_mplayer="$libs_mplayer -lva-x11"
++  _vomodules="vaapi $_vomodules"
++else
++  def_vaapi='#define CONFIG_VAAPI 0'
++  _novomodules="vaapi $_novomodules"
++  _libavhwaccels=`echo $_libavhwaccels | sed -e "s/\(MPEG[124]\|H26[34]\|WMV3\|VC1\)_VAAPI_HWACCEL//g"`
++fi
++echores "$_vaapi"
++
++echocheck "VA API (with GLX support)"
++if test "$_vaapi" = yes; then
++  _vaapi_glx=no
++  if test "$_gl" = "yes" -a "$_glu" = yes; then
++    cat > $TMPC <<EOF
++#include <va/va_glx.h>
++int main(void) { (void) vaGetDisplayGLX(0); return 0; }
++EOF
++    cc_check -lva-glx && _vaapi_glx=yes
++  fi
++fi
++if test "$_vaapi_glx" = yes; then
++  def_vaapi_glx='#define CONFIG_VAAPI_GLX 1'
++  libs_mplayer="$libs_mplayer -lva-glx"
++else
++  def_vaapi_glx='#define CONFIG_VAAPI_GLX 0'
++fi
++echores "$_vaapi_glx"
++
+ 
+ echocheck "PNG support"
+ if test "$_png" = auto ; then
+@@ -8381,6 +8449,7 @@
+ TWOLAME=$_twolame
+ UNRAR_EXEC = $_unrar_exec
+ V4L2 = $_v4l2
++VAAPI = $_vaapi
+ VCD = $_vcd
+ VDPAU = $_vdpau
+ VESA = $_vesa
+@@ -8474,6 +8543,7 @@
+ CONFIG_POSTPROC = yes
+ # Prevent building libavcodec/imgresample.c with conflicting symbols
+ CONFIG_SWSCALE=yes
++CONFIG_VAAPI=$_vaapi
+ CONFIG_VDPAU=$_vdpau
+ CONFIG_XVMC=$_xvmc
+ CONFIG_ZLIB=$_zlib
+@@ -8483,6 +8553,7 @@
+ HAVE_W32THREADS = $_w32threads
+ HAVE_YASM = $_have_yasm
+ 
++$(echo $_libavhwaccels | tr '[a-z] ' '[A-Z]\n' | sed 's/^/CONFIG_/;s/$/=yes/')
+ $(echo $_libavdecoders | tr '[a-z] ' '[A-Z]\n' | sed 's/^/CONFIG_/;s/$/=yes/')
+ $(echo $_libavencoders | tr '[a-z] ' '[A-Z]\n' | sed 's/^/CONFIG_/;s/$/=yes/')
+ $(echo $_libavparsers | tr '[a-z] ' '[A-Z]\n' | sed 's/^/CONFIG_/;s/$/=yes/')
+@@ -8842,6 +8913,8 @@
+ $def_tdfxvid
+ $def_tga
+ $def_v4l2
++$def_vaapi
++$def_vaapi_glx
+ $def_vdpau
+ $def_vesa
+ $def_vidix
+@@ -8958,6 +9031,7 @@
+ $def_x264_lavc
+ $def_xvid_lavc
+ 
++$(ff_config_enable "$_libavhwaccels_all" "$_libavhwaccels")
+ $(ff_config_enable "$_libavdecoders_all" "$_libavdecoders")
+ $(ff_config_enable "$_libavencoders_all" "$_libavencoders")
+ $(ff_config_enable "$_libavparsers_all"  "$_libavparsers")
+@@ -8966,13 +9040,6 @@
+ $(ff_config_enable "$_libavprotocols_all" "$_libavprotocols")
+ $(ff_config_enable "$_libavbsfs_all" "$_libavbsfs")
+ 
+-#define CONFIG_H263_VAAPI_HWACCEL 0
+-#define CONFIG_MPEG2_VAAPI_HWACCEL 0
+-#define CONFIG_MPEG4_VAAPI_HWACCEL 0
+-#define CONFIG_H264_VAAPI_HWACCEL 0
+-#define CONFIG_VC1_VAAPI_HWACCEL 0
+-#define CONFIG_WMV3_VAAPI_HWACCEL 0
+-
+ #endif /* MPLAYER_CONFIG_H */
+ EOF
+ 
+diff -Naur mplayer-29746/etc/codecs.conf mplayer-29746.patch/etc/codecs.conf
+--- mplayer-29746/etc/codecs.conf	2009-10-01 21:52:59.000000000 +0200
++++ mplayer-29746.patch/etc/codecs.conf	2009-10-11 01:04:25.408658537 +0200
+@@ -164,6 +164,7 @@
+   fourcc LMP2 ; Lead mpeg2 in avi
+   driver ffmpeg
+   dll "mpeg2video"
++  out VAAPI_MPEG2
+   out YV12,I420,IYUV
+   out 422P,444P
+ 
+@@ -847,6 +848,7 @@
+   fourcc WMV3,wmv3
+   driver ffmpeg
+   dll wmv3
++  out VAAPI_WMV3
+   out YV12,I420,IYUV
+ 
+ videocodec ffwmv3vdpau
+@@ -864,6 +866,7 @@
+   fourcc vc-1,VC-1
+   driver ffmpeg
+   dll vc1
++  out VAAPI_VC1
+   out YV12,I420,IYUV
+ 
+ videocodec ffvc1vdpau
+@@ -885,6 +888,7 @@
+   format 0x10000005
+   driver ffmpeg
+   dll h264
++  out VAAPI_H264
+   out YV12,I420,IYUV
+ 
+ videocodec ffh264vdpau
+@@ -952,6 +956,7 @@
+   fourcc EPHV,SN40
+   driver ffmpeg
+   dll mpeg4 ;opendivx
++  out VAAPI_MPEG4
+   out YV12,I420,IYUV
+ 
+ videocodec ffwv1f
+@@ -1461,6 +1466,7 @@
+   fourcc VX1K     ; Agora Labs VX1000S H263
+   driver ffmpeg
+   dll h263
++  out VAAPI_H263
+   out YV12,I420,IYUV
+ 
+ videocodec ffzygo
+diff -Naur mplayer-29746/fmt-conversion.c mplayer-29746.patch/fmt-conversion.c
+--- mplayer-29746/fmt-conversion.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/fmt-conversion.c	2009-10-11 01:04:31.485657984 +0200
+@@ -18,12 +18,14 @@
+ 
+ #include "mp_msg.h"
+ #include "libavutil/avutil.h"
++#include "libavcodec/avcodec.h"
+ #include "libmpcodecs/img_format.h"
+ #include "fmt-conversion.h"
+ 
+ static const struct {
+     int fmt;
+     enum PixelFormat pix_fmt;
++    enum CodecID codec_id;
+ } conversion_map[] = {
+     {IMGFMT_BGR32, PIX_FMT_RGB32},
+     {IMGFMT_BGR24, PIX_FMT_BGR24},
+@@ -73,6 +75,17 @@
+     {IMGFMT_VDPAU_H264,      PIX_FMT_VDPAU_H264},
+     {IMGFMT_VDPAU_WMV3,      PIX_FMT_VDPAU_WMV3},
+     {IMGFMT_VDPAU_VC1,       PIX_FMT_VDPAU_VC1},
++
++    /* VA API formats */
++    {IMGFMT_VAAPI_MPEG2,     PIX_FMT_VAAPI_VLD,  CODEC_ID_MPEG2VIDEO},
++    {IMGFMT_VAAPI_MPEG2_IDCT,PIX_FMT_VAAPI_IDCT, CODEC_ID_MPEG2VIDEO},
++    {IMGFMT_VAAPI_MPEG2_MOCO,PIX_FMT_VAAPI_MOCO, CODEC_ID_MPEG2VIDEO},
++    {IMGFMT_VAAPI_MPEG4,     PIX_FMT_VAAPI_VLD,  CODEC_ID_MPEG4},
++    {IMGFMT_VAAPI_H263,      PIX_FMT_VAAPI_VLD,  CODEC_ID_H263},
++    {IMGFMT_VAAPI_H264,      PIX_FMT_VAAPI_VLD,  CODEC_ID_H264},
++    {IMGFMT_VAAPI_WMV3,      PIX_FMT_VAAPI_VLD,  CODEC_ID_WMV3},
++    {IMGFMT_VAAPI_VC1,       PIX_FMT_VAAPI_VLD,  CODEC_ID_VC1},
++
+     {0, PIX_FMT_NONE}
+ };
+ 
+@@ -89,12 +102,14 @@
+     return pix_fmt;
+ }
+ 
+-int pixfmt2imgfmt(enum PixelFormat pix_fmt)
++int pixfmt2imgfmt(enum PixelFormat pix_fmt, int codec_id)
+ {
+     int i;
+     int fmt;
+     for (i = 0; conversion_map[i].pix_fmt != PIX_FMT_NONE; i++)
+-        if (conversion_map[i].pix_fmt == pix_fmt)
++        if (conversion_map[i].pix_fmt == pix_fmt &&
++            (conversion_map[i].codec_id == 0 ||
++             conversion_map[i].codec_id == codec_id))
+             break;
+     fmt = conversion_map[i].fmt;
+     if (!fmt)
+diff -Naur mplayer-29746/fmt-conversion.h mplayer-29746.patch/fmt-conversion.h
+--- mplayer-29746/fmt-conversion.h	2009-10-01 21:52:59.000000000 +0200
++++ mplayer-29746.patch/fmt-conversion.h	2009-10-11 01:04:35.742657222 +0200
+@@ -4,6 +4,6 @@
+ #include "libavutil/avutil.h"
+ 
+ enum PixelFormat imgfmt2pixfmt(int fmt);
+-int pixfmt2imgfmt(enum PixelFormat pix_fmt);
++int pixfmt2imgfmt(enum PixelFormat pix_fmt, int codec_id);
+ 
+ #endif /* MPLAYER_FMT_CONVERSION_H */
+diff -Naur mplayer-29746/gui/mplayer/gtk/opts.c mplayer-29746.patch/gui/mplayer/gtk/opts.c
+--- mplayer-29746/gui/mplayer/gtk/opts.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/gui/mplayer/gtk/opts.c	2009-10-11 01:04:42.838683318 +0200
+@@ -63,9 +63,11 @@
+        GtkWidget * prEFontName;
+        GtkWidget * prEDVDDevice;
+        GtkWidget * prECDRomDevice;
++static GtkWidget * EVHW;
+ static GtkWidget * EVFM;
+ static GtkWidget * EAFM;
+ 
++static GtkWidget * CBVHW;
+ static GtkWidget * CBVFM;
+ static GtkWidget * CBAFM;
+ static GtkWidget * CBAudioEqualizer;
+@@ -353,6 +355,26 @@
+ // -- 5. page
+  gtk_toggle_button_set_active( GTK_TOGGLE_BUTTON( CBNonInterlaved ),force_ni );
+  if ( index_mode == 1 ) gtk_toggle_button_set_active( GTK_TOGGLE_BUTTON( CBIndex ),1 );
++
++ {
++     int     i;
++     GList * Items = NULL;
++     char  * name  = NULL;
++
++     Items = g_list_append(Items, MSGTR_PREFERENCES_None);
++     for (i = 0; i < HWACCEL_COUNT; i++) {
++         const char *hwaccel_name = get_video_hwaccel_name(i);
++         if (!hwaccel_name)
++             continue;
++         Items = g_list_append(Items, hwaccel_name);
++         if (video_hwaccel_name && !gstrcmp(video_hwaccel_name, get_video_hwaccel_short_name(i) ) ) name = hwaccel_name;
++     }
++     gtk_combo_set_popdown_strings(GTK_COMBO(CBVHW), Items);
++     g_list_free(Items);
++     if (name)
++         gtk_entry_set_text(GTK_ENTRY(EVHW), name);
++ }
++
+  {
+   int     i;
+   GList * Items = NULL;
+@@ -599,6 +621,17 @@
+ 	if ( gtk_toggle_button_get_active( GTK_TOGGLE_BUTTON( CBIndex ) ) ) index_mode=1;
+ 
+ 	{
++            int i;
++            const char *tmp = gtk_entry_get_text(GTK_ENTRY(EVHW));
++            for (i = 0; i < HWACCEL_COUNT; i++) {
++                if (!gstrcmp(tmp, get_video_hwaccel_name(i))) {
++                    video_hwaccel_name = get_video_hwaccel_short_name(i);
++                    break;
++                }
++            }
++        }
++
++	{
+ 	 int i;
+ 	 const char * tmp = gtk_entry_get_text( GTK_ENTRY( EVFM ) );
+          for( i=0;mpcodecs_vd_drivers[i];i++ )
+@@ -1198,6 +1231,20 @@
+ 
+   hbox5=AddHBox( vbox602,1 );
+ 
++  AddLabel( MSGTR_PREFERENCES_VideoHardwareAcceleration,hbox5 );
++
++  CBVHW=gtk_combo_new();
++  gtk_widget_set_name( CBVHW,"CBVHW" );
++  gtk_widget_show( CBVHW );
++  gtk_box_pack_start( GTK_BOX( hbox5 ),CBVHW,TRUE,TRUE,0 );
++
++  EVHW=GTK_COMBO( CBVHW )->entry;
++  gtk_widget_set_name( EVHW,"CEVHW" );
++  gtk_entry_set_editable( GTK_ENTRY( EVHW ),FALSE );
++  gtk_widget_show( EVHW );
++
++  hbox5=AddHBox( vbox602,1 );
++
+   AddLabel( MSGTR_PREFERENCES_VideoCodecFamily,hbox5 );
+ 
+   CBVFM=gtk_combo_new();
+diff -Naur mplayer-29746/help/help_mp-en.h mplayer-29746.patch/help/help_mp-en.h
+--- mplayer-29746/help/help_mp-en.h	2009-10-01 21:52:59.000000000 +0200
++++ mplayer-29746.patch/help/help_mp-en.h	2009-10-11 01:04:48.607657819 +0200
+@@ -718,6 +718,7 @@
+ #define MSGTR_PREFERENCES_IDX "Rebuild index table, if needed"
+ #define MSGTR_PREFERENCES_VideoCodecFamily "Video codec family:"
+ #define MSGTR_PREFERENCES_AudioCodecFamily "Audio codec family:"
++#define MSGTR_PREFERENCES_VideoHardwareAcceleration "Video hardware acceleration:"
+ #define MSGTR_PREFERENCES_FRAME_OSD_Level "OSD level"
+ #define MSGTR_PREFERENCES_FRAME_Subtitle "Subtitle"
+ #define MSGTR_PREFERENCES_FRAME_Font "Font"
+@@ -1657,6 +1658,7 @@
+ #define MSGTR_MPCODECS_UnexpectedInitVoError "[VD_FFMPEG] Unexpected init_vo error.\n"
+ #define MSGTR_MPCODECS_UnrecoverableErrorRenderBuffersNotTaken "[VD_FFMPEG] Unrecoverable error, render buffers not taken.\n"
+ #define MSGTR_MPCODECS_OnlyBuffersAllocatedByVoXvmcAllowed "[VD_FFMPEG] Only buffers allocated by vo_xvmc allowed.\n"
++#define MSGTR_MPCODECS_VAAPIAcceleratedCodec "[VD_FFMPEG] VA API accelerated codec.\n"
+ 
+ // libmpcodecs/ve_lavc.c
+ #define MSGTR_MPCODECS_HighQualityEncodingSelected "[VE_LAVC] High quality encoding selected (non-realtime)!\n"
+diff -Naur mplayer-29746/libmpcodecs/dec_video.c mplayer-29746.patch/libmpcodecs/dec_video.c
+--- mplayer-29746/libmpcodecs/dec_video.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/dec_video.c	2009-10-11 01:05:00.374657820 +0200
+@@ -39,9 +39,47 @@
+ int field_dominance=-1;
+ 
+ int divx_quality=0;
++char *video_hwaccel_name=NULL;
+ 
+ vd_functions_t* mpvdec=NULL;
+ 
++int get_video_hwaccel(void)
++{
++    static int video_hwaccel = -1;
++    if (video_hwaccel < 0) {
++        video_hwaccel = HWACCEL_NONE;
++        if (video_hwaccel_name) {
++            if (!strcmp(video_hwaccel_name,"xvmc"))
++                video_hwaccel = HWACCEL_XVMC;
++            else if (!strcmp(video_hwaccel_name,"vaapi"))
++                video_hwaccel = HWACCEL_VAAPI;
++            else if (!strcmp(video_hwaccel_name,"vdpau"))
++                video_hwaccel = HWACCEL_VDPAU;
++        }
++    }
++    return video_hwaccel;
++}
++
++const char *get_video_hwaccel_name(int hwaccel)
++{
++    switch (hwaccel) {
++    case HWACCEL_XVMC:  return "XvMC";
++    case HWACCEL_VAAPI: return "VA API";
++    case HWACCEL_VDPAU: return "VDPAU";
++    }
++    return NULL;
++}
++
++const char *get_video_hwaccel_short_name(int hwaccel)
++{
++    switch (hwaccel) {
++    case HWACCEL_XVMC:  return "xvmc";
++    case HWACCEL_VAAPI: return "vaapi";
++    case HWACCEL_VDPAU: return "vdpau";
++    }
++    return NULL;
++}
++
+ int get_video_quality_max(sh_video_t *sh_video){
+   vf_instance_t* vf=sh_video->vfilter;
+   if(vf){
+diff -Naur mplayer-29746/libmpcodecs/dec_video.h mplayer-29746.patch/libmpcodecs/dec_video.h
+--- mplayer-29746/libmpcodecs/dec_video.h	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/dec_video.h	2009-10-11 01:05:03.454659098 +0200
+@@ -3,6 +3,14 @@
+ 
+ #include "libmpdemux/stheader.h"
+ 
++enum {
++  HWACCEL_NONE = 0,
++  HWACCEL_XVMC,
++  HWACCEL_VAAPI,
++  HWACCEL_VDPAU,
++  HWACCEL_COUNT
++};
++
+ // dec_video.c:
+ void vfm_help(void);
+ 
+@@ -21,6 +29,11 @@
+ void resync_video_stream(sh_video_t *sh_video);
+ int get_current_video_decoder_lag(sh_video_t *sh_video);
+ 
++int get_video_hwaccel(void);
++const char *get_video_hwaccel_name(int hwaccel);
++const char *get_video_hwaccel_short_name(int hwaccel);
++
+ extern int divx_quality;
++extern char *video_hwaccel_name;
+ 
+ #endif /* MPLAYER_DEC_VIDEO_H */
+diff -Naur mplayer-29746/libmpcodecs/img_format.c mplayer-29746.patch/libmpcodecs/img_format.c
+--- mplayer-29746/libmpcodecs/img_format.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/img_format.c	2009-10-11 01:05:08.827781855 +0200
+@@ -69,6 +69,14 @@
+ 	case IMGFMT_ZRMJPEGIB: return "Zoran MJPEG bottom field first";
+ 	case IMGFMT_XVMC_MOCO_MPEG2: return "MPEG1/2 Motion Compensation";
+ 	case IMGFMT_XVMC_IDCT_MPEG2: return "MPEG1/2 Motion Compensation and IDCT";
++        case IMGFMT_VAAPI_MPEG2: return "MPEG-2 VA API Acceleration";
++        case IMGFMT_VAAPI_MPEG2_IDCT: return "MPEG-2 VA API Acceleration (Motion Compensation and IDCT)";
++        case IMGFMT_VAAPI_MPEG2_MOCO: return "MPEG-2 VA API Acceleration (Motion Compensation)";
++        case IMGFMT_VAAPI_MPEG4: return "MPEG-4 VA API Acceleration";
++        case IMGFMT_VAAPI_H263:  return "H.263 VA API Acceleration";
++        case IMGFMT_VAAPI_H264:  return "H.264 VA API Acceleration";
++        case IMGFMT_VAAPI_WMV3:  return "WMV3 VA API Acceleration";
++        case IMGFMT_VAAPI_VC1:   return "VC-1 VA API Acceleration";
+ 	case IMGFMT_VDPAU_MPEG1: return "MPEG1 VDPAU acceleration";
+ 	case IMGFMT_VDPAU_MPEG2: return "MPEG2 VDPAU acceleration";
+ 	case IMGFMT_VDPAU_H264: return "H.264 VDPAU acceleration";
+diff -Naur mplayer-29746/libmpcodecs/img_format.h mplayer-29746.patch/libmpcodecs/img_format.h
+--- mplayer-29746/libmpcodecs/img_format.h	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/img_format.h	2009-10-11 01:05:11.673791151 +0200
+@@ -109,6 +109,26 @@
+ #define IMGFMT_XVMC_MOCO_MPEG2 (IMGFMT_XVMC|0x02)
+ #define IMGFMT_XVMC_IDCT_MPEG2 (IMGFMT_XVMC|0x82)
+ 
++/* VA API Formats */
++
++#define IMGFMT_VAAPI               0x56410000 /* 'VA'00 */
++#define IMGFMT_VAAPI_MASK          0xFFFF0000
++#define IMGFMT_IS_VAAPI(fmt)       (((fmt) & IMGFMT_VAAPI_MASK) == IMGFMT_VAAPI)
++#define IMGFMT_VAAPI_CODEC_MASK    0x000000F0
++#define IMGFMT_VAAPI_CODEC(fmt)    ((fmt) & IMGFMT_VAAPI_CODEC_MASK)
++#define IMGFMT_VAAPI_CODEC_MPEG2   (0x10)
++#define IMGFMT_VAAPI_CODEC_MPEG4   (0x20)
++#define IMGFMT_VAAPI_CODEC_H264    (0x30)
++#define IMGFMT_VAAPI_CODEC_VC1     (0x40)
++#define IMGFMT_VAAPI_MPEG2         (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_MPEG2)
++#define IMGFMT_VAAPI_MPEG2_IDCT    (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_MPEG2|1)
++#define IMGFMT_VAAPI_MPEG2_MOCO    (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_MPEG2|2)
++#define IMGFMT_VAAPI_MPEG4         (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_MPEG4)
++#define IMGFMT_VAAPI_H263          (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_MPEG4|1)
++#define IMGFMT_VAAPI_H264          (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_H264)
++#define IMGFMT_VAAPI_VC1           (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_VC1)
++#define IMGFMT_VAAPI_WMV3          (IMGFMT_VAAPI|IMGFMT_VAAPI_CODEC_VC1|1)
++
+ // VDPAU specific format.
+ #define IMGFMT_VDPAU               0x1DC80000
+ #define IMGFMT_VDPAU_MASK          0xFFFF0000
+diff -Naur mplayer-29746/libmpcodecs/mp_image.h mplayer-29746.patch/libmpcodecs/mp_image.h
+--- mplayer-29746/libmpcodecs/mp_image.h	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/mp_image.h	2009-10-11 01:05:18.423658026 +0200
+@@ -111,6 +111,7 @@
+     // compressed formats
+     if(out_fmt == IMGFMT_MPEGPES ||
+        out_fmt == IMGFMT_ZRMJPEGNI || out_fmt == IMGFMT_ZRMJPEGIT || out_fmt == IMGFMT_ZRMJPEGIB ||
++       IMGFMT_IS_VAAPI(out_fmt) ||
+        IMGFMT_IS_VDPAU(out_fmt) || IMGFMT_IS_XVMC(out_fmt)){
+ 	mpi->bpp=0;
+ 	return;
+diff -Naur mplayer-29746/libmpcodecs/vd.c mplayer-29746.patch/libmpcodecs/vd.c
+--- mplayer-29746/libmpcodecs/vd.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/vd.c	2009-10-11 01:05:26.010782203 +0200
+@@ -348,3 +348,12 @@
+   if(vf->draw_slice)
+     vf->draw_slice(vf,src,stride,w,h,x,y);
+ }
++
++void *mpcodecs_get_hwaccel_context(sh_video_t *sh)
++{
++    void *ctx = NULL;
++    struct vf_instance_s *vf = sh->vfilter;
++    if (vf->control(vf, VFCTRL_GET_HWACCEL_CONTEXT, &ctx) == CONTROL_TRUE)
++        return ctx;
++    return NULL;
++}
+diff -Naur mplayer-29746/libmpcodecs/vd_ffmpeg.c mplayer-29746.patch/libmpcodecs/vd_ffmpeg.c
+--- mplayer-29746/libmpcodecs/vd_ffmpeg.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/vd_ffmpeg.c	2009-10-11 01:05:36.322660521 +0200
+@@ -14,6 +14,7 @@
+ #include "fmt-conversion.h"
+ 
+ #include "vd_internal.h"
++#include "dec_video.h"
+ 
+ static vd_info_t info = {
+     "FFmpeg's libavcodec codec family",
+@@ -202,8 +203,8 @@
+ 
+ static void set_format_params(struct AVCodecContext *avctx, enum PixelFormat fmt){
+     int imgfmt;
+-    imgfmt = pixfmt2imgfmt(fmt);
+-    if (IMGFMT_IS_XVMC(imgfmt) || IMGFMT_IS_VDPAU(imgfmt)) {
++    imgfmt = pixfmt2imgfmt(fmt, avctx->codec_id);
++    if (IMGFMT_IS_XVMC(imgfmt) || IMGFMT_IS_VDPAU(imgfmt) || IMGFMT_IS_VAAPI(imgfmt)) {
+         sh_video_t *sh     = avctx->opaque;
+         vd_ffmpeg_ctx *ctx = sh->context;
+         ctx->do_dr1    = 1;
+@@ -260,6 +261,12 @@
+     avctx->codec_type = CODEC_TYPE_VIDEO;
+     avctx->codec_id = lavc_codec->id;
+ 
++#if CONFIG_VAAPI
++    if(get_video_hwaccel() == HWACCEL_VAAPI){
++        mp_msg(MSGT_DECVIDEO, MSGL_INFO, MSGTR_MPCODECS_VAAPIAcceleratedCodec);
++        avctx->get_format = get_format;
++    }
++#endif /* CONFIG_VAAPI */
+ #if CONFIG_VDPAU
+     if(lavc_codec->capabilities & CODEC_CAP_HWACCEL_VDPAU){
+         avctx->get_format = get_format;
+@@ -453,7 +460,7 @@
+                         AVFrame *src, int offset[4],
+                         int y, int type, int height){
+     sh_video_t *sh = s->opaque;
+-    uint8_t *source[MP_MAX_PLANES]= {src->data[0] + offset[0], src->data[1] + offset[1], src->data[2] + offset[2]};
++    uint8_t *source[MP_MAX_PLANES]= {src->data[0] + offset[0], src->data[1] + offset[1], src->data[2] + offset[2], src->data[3] + offset[3]};
+ #if 0
+     int start=0, i;
+     int width= s->width;
+@@ -519,9 +526,10 @@
+         sh->disp_w = width;
+         sh->disp_h = height;
+         ctx->pix_fmt = pix_fmt;
+-        ctx->best_csp = pixfmt2imgfmt(pix_fmt);
++        ctx->best_csp = pixfmt2imgfmt(pix_fmt, avctx->codec_id);
+         if (!mpcodecs_config_vo(sh, sh->disp_w, sh->disp_h, ctx->best_csp))
+             return -1;
++        avctx->hwaccel_context = mpcodecs_get_hwaccel_context(sh);
+         ctx->vo_initialized = 1;
+     }
+     return 0;
+@@ -574,7 +582,9 @@
+         return avctx->get_buffer(avctx, pic);
+     }
+ 
+-    if (IMGFMT_IS_XVMC(ctx->best_csp) || IMGFMT_IS_VDPAU(ctx->best_csp)) {
++    if (IMGFMT_IS_XVMC(ctx->best_csp) ||
++        IMGFMT_IS_VAAPI(ctx->best_csp) ||
++        IMGFMT_IS_VDPAU(ctx->best_csp)) {
+         type =  MP_IMGTYPE_NUMBERED | (0xffff << 16);
+     } else
+     if (!pic->buffer_hints) {
+@@ -605,6 +615,11 @@
+         avctx->draw_horiz_band= draw_slice;
+     } else
+         avctx->draw_horiz_band= NULL;
++#if CONFIG_VAAPI
++    if(IMGFMT_IS_VAAPI(mpi->imgfmt)) {
++        avctx->draw_horiz_band= draw_slice;
++    }
++#endif
+     if(IMGFMT_IS_VDPAU(mpi->imgfmt)) {
+         avctx->draw_horiz_band= draw_slice;
+     }
+@@ -639,6 +654,7 @@
+     pic->data[0]= mpi->planes[0];
+     pic->data[1]= mpi->planes[1];
+     pic->data[2]= mpi->planes[2];
++    pic->data[3]= mpi->planes[3];
+ 
+ #if 0
+     assert(mpi->width >= ((width +align)&(~align)));
+@@ -663,6 +679,7 @@
+     pic->linesize[0]= mpi->stride[0];
+     pic->linesize[1]= mpi->stride[1];
+     pic->linesize[2]= mpi->stride[2];
++    pic->linesize[3]= mpi->stride[3];
+ 
+     pic->opaque = mpi;
+ //printf("%X\n", (int)mpi->planes[0]);
+@@ -884,9 +901,11 @@
+         mpi->planes[0]=pic->data[0];
+         mpi->planes[1]=pic->data[1];
+         mpi->planes[2]=pic->data[2];
++        mpi->planes[3]=pic->data[3];
+         mpi->stride[0]=pic->linesize[0];
+         mpi->stride[1]=pic->linesize[1];
+         mpi->stride[2]=pic->linesize[2];
++        mpi->stride[3]=pic->linesize[3];
+     }
+ 
+     if (!mpi->planes[0])
+@@ -916,24 +935,62 @@
+     return mpi;
+ }
+ 
+-#if CONFIG_XVMC || CONFIG_VDPAU
++#if CONFIG_XVMC || CONFIG_VAAPI || CONFIG_VDPAU
++static inline int is_hwaccel_format(int imgfmt)
++{
++    switch (get_video_hwaccel()) {
++    case HWACCEL_VAAPI: return IMGFMT_IS_VAAPI(imgfmt) != 0;
++    case HWACCEL_VDPAU: return IMGFMT_IS_VDPAU(imgfmt) != 0;
++    case HWACCEL_XVMC:  return IMGFMT_IS_XVMC(imgfmt)  != 0;
++    }
++    return 0;
++}
++
++static int query_format(sh_video_t *sh, int fmt)
++{
++    vd_ffmpeg_ctx * const ctx = sh->context;
++    AVCodecContext * const avctx = ctx->avctx;
++    int r, width, height;
++    /* XXX: some codecs have not initialized width and height yet at
++       this point, so we are faking the dimensions so that init_vo()
++       doesn't fail because of 0x0 size */
++    if ((width = avctx->width) == 0)
++        avctx->width = 64;
++    if ((height = avctx->height) == 0)
++        avctx->height = 64;
++    r = init_vo(sh, fmt);
++    avctx->width = width;
++    avctx->height = height;
++    return r;
++}
++
+ static enum PixelFormat get_format(struct AVCodecContext *avctx,
+-                                    const enum PixelFormat *fmt){
+-    enum PixelFormat selected_format;
++                                   const enum PixelFormat *fmt){
++    enum PixelFormat selected_format = PIX_FMT_NONE;
+     int imgfmt;
+     sh_video_t *sh = avctx->opaque;
+-    int i;
++    int i, try_hwaccel;
+ 
+-    for(i=0;fmt[i]!=PIX_FMT_NONE;i++){
+-        imgfmt = pixfmt2imgfmt(fmt[i]);
+-        if(!IMGFMT_IS_XVMC(imgfmt) && !IMGFMT_IS_VDPAU(imgfmt)) continue;
+-        mp_msg(MSGT_DECVIDEO, MSGL_INFO, MSGTR_MPCODECS_TryingPixfmt, i);
+-        if(init_vo(sh, fmt[i]) >= 0) {
+-            break;
++    for (try_hwaccel = 1; try_hwaccel >= 0; --try_hwaccel) {
++        for (i = 0; fmt[i] != PIX_FMT_NONE; i++){
++            imgfmt = pixfmt2imgfmt(fmt[i], avctx->codec_id);
++            if ((try_hwaccel ^ is_hwaccel_format(imgfmt)) != 0)
++                continue;
++            mp_msg(MSGT_DECVIDEO, MSGL_INFO, MSGTR_MPCODECS_TryingPixfmt, i);
++            if (query_format(sh, fmt[i]) >= 0) {
++                if (try_hwaccel) {
++                    /* don't allow format conversion for HW acceleration */
++                    if (sh->codec->outfmt[sh->outfmtidx] != imgfmt)
++                        continue;
++                }
++                selected_format = fmt[i];
++                break;
++            }
+         }
++        if (selected_format != PIX_FMT_NONE)
++            break;
+     }
+-    selected_format = fmt[i];
+     set_format_params(avctx, selected_format);
+     return selected_format;
+ }
+-#endif /* CONFIG_XVMC || CONFIG_VDPAU */
++#endif /* CONFIG_XVMC || CONFIG_VAAPI || CONFIG_VDPAU */
+diff -Naur mplayer-29746/libmpcodecs/vd.h mplayer-29746.patch/libmpcodecs/vd.h
+--- mplayer-29746/libmpcodecs/vd.h	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/vd.h	2009-10-11 01:05:30.070783401 +0200
+@@ -34,6 +34,7 @@
+ int mpcodecs_config_vo(sh_video_t *sh, int w, int h, unsigned int preferred_outfmt);
+ mp_image_t* mpcodecs_get_image(sh_video_t *sh, int mp_imgtype, int mp_imgflag, int w, int h);
+ void mpcodecs_draw_slice(sh_video_t *sh, unsigned char** src, int* stride, int w,int h, int x, int y);
++void *mpcodecs_get_hwaccel_context(sh_video_t *sh);
+ 
+ #define VDFLAGS_DROPFRAME 3
+ 
+diff -Naur mplayer-29746/libmpcodecs/vf_vo.c mplayer-29746.patch/libmpcodecs/vf_vo.c
+--- mplayer-29746/libmpcodecs/vf_vo.c	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/vf_vo.c	2009-10-11 01:06:03.827659782 +0200
+@@ -151,6 +151,12 @@
+ 	*(double *)data = vf->priv->pts;
+ 	return CONTROL_TRUE;
+     }
++    case VFCTRL_GET_HWACCEL_CONTEXT:
++    {
++        if(!video_out) return CONTROL_FALSE; // vo not configured?
++        return(video_out->control(VOCTRL_GET_HWACCEL_CONTEXT, data)
++               == VO_TRUE) ? CONTROL_TRUE : CONTROL_FALSE;
++    }
+     }
+     // return video_out->control(request,data);
+     return CONTROL_UNKNOWN;
+@@ -170,6 +176,7 @@
+     if(!vo_config_count) return;
+     // GET_IMAGE is required for hardware-accelerated formats
+     if(vo_directrendering ||
++       IMGFMT_IS_VAAPI(mpi->imgfmt) ||
+        IMGFMT_IS_XVMC(mpi->imgfmt) || IMGFMT_IS_VDPAU(mpi->imgfmt))
+ 	video_out->control(VOCTRL_GET_IMAGE,mpi);
+ }
+diff -Naur mplayer-29746/libvo/video_out.c mplayer-29746.patch/libvo/video_out.c
+--- mplayer-29746/libvo/video_out.c	2009-10-01 21:52:59.000000000 +0200
++++ mplayer-29746.patch/libvo/video_out.c	2009-10-11 01:06:21.584659559 +0200
+@@ -132,6 +132,7 @@
+ extern vo_functions_t video_out_quartz;
+ extern vo_functions_t video_out_pnm;
+ extern vo_functions_t video_out_md5sum;
++extern vo_functions_t video_out_vaapi;
+ 
+ const vo_functions_t* const video_out_drivers[] =
+ {
+@@ -274,6 +275,9 @@
+ #ifdef CONFIG_MD5SUM
+         &video_out_md5sum,
+ #endif
++#if CONFIG_VAAPI
++        &video_out_vaapi,
++#endif
+         NULL
+ };
+ 
+diff -Naur mplayer-29746/libvo/video_out.h mplayer-29746.patch/libvo/video_out.h
+--- mplayer-29746/libvo/video_out.h	2009-10-01 21:52:59.000000000 +0200
++++ mplayer-29746.patch/libvo/video_out.h	2009-10-11 01:06:28.035657331 +0200
+@@ -97,6 +97,10 @@
+   int w,h;
+ } mp_win_t;
+ 
++// Return current HW acceleration context
++// void *get_hwaccel_context(void);
++#define VOCTRL_GET_HWACCEL_CONTEXT 33
++
+ #define VO_TRUE		1
+ #define VO_FALSE	0
+ #define VO_ERROR	-1
+diff -Naur mplayer-29746/libvo/vo_vaapi.c mplayer-29746.patch/libvo/vo_vaapi.c
+--- mplayer-29746/libvo/vo_vaapi.c	1970-01-01 01:00:00.000000000 +0100
++++ mplayer-29746.patch/libvo/vo_vaapi.c	2009-10-11 01:06:34.634665887 +0200
+@@ -0,0 +1,1146 @@
++/*
++ * VA API output module
++ *
++ * Copyright (C) 2008-2009 Splitted-Desktop Systems
++ *
++ * This file is part of MPlayer.
++ *
++ * MPlayer is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * MPlayer is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with MPlayer; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include "config.h"
++#include "mp_msg.h"
++#include "help_mp.h"
++#include "subopt-helper.h"
++#include "video_out.h"
++#include "video_out_internal.h"
++#include "x11_common.h"
++#include "libavutil/common.h"
++#include "libavcodec/vaapi.h"
++#include "gui/interface.h"
++
++#if CONFIG_GL
++#include "gl_common.h"
++#include <GL/glu.h>
++#endif
++
++#include <assert.h>
++#include <X11/Xlib.h>
++#include <X11/Xutil.h>
++#include <va/va_x11.h>
++#if CONFIG_VAAPI_GLX
++#include <va/va_glx.h>
++#endif
++
++static vo_info_t info = {
++    "VA API with X11",
++    "vaapi",
++    "Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>",
++    ""
++};
++
++LIBVO_EXTERN(vaapi)
++
++/* Numbers of video surfaces */
++#define MAX_OUTPUT_SURFACES       2 /* Maintain synchronisation points in flip_page() */
++#define MAX_VIDEO_SURFACES       21 /* Maintain free surfaces in a queue (use least-recently-used) */
++#define NUM_VIDEO_SURFACES_MPEG2  3 /* 1 decode frame, up to  2 references */
++#define NUM_VIDEO_SURFACES_MPEG4  3 /* 1 decode frame, up to  2 references */
++#define NUM_VIDEO_SURFACES_H264  17 /* 1 decode frame, up to 16 references */
++#define NUM_VIDEO_SURFACES_VC1    3 /* 1 decode frame, up to  2 references */
++
++static int                      g_is_paused;
++static uint32_t                 g_image_width;
++static uint32_t                 g_image_height;
++static uint32_t                 g_image_format;
++static struct vo_rect           g_output_rect;
++static VASurfaceID              g_output_surfaces[MAX_OUTPUT_SURFACES];
++static unsigned int             g_output_surface;
++
++#if CONFIG_GL
++static int                      gl_enabled;
++static int                      gl_binding;
++static int                      gl_reflect;
++static GLuint                   gl_texture;
++#endif
++
++#if CONFIG_VAAPI_GLX
++static GLXContext               gl_context;
++static XVisualInfo             *gl_visual_info;
++static int                      gl_visual_attr[] = {
++    GLX_RGBA,
++    GLX_RED_SIZE, 1,
++    GLX_GREEN_SIZE, 1,
++    GLX_BLUE_SIZE, 1,
++    GLX_DOUBLEBUFFER,
++    GL_NONE
++};
++static void                    *gl_surface;
++#endif
++
++static struct vaapi_context    *va_context;
++static VAProfile               *va_profiles;
++static int                      va_num_profiles;
++static VAEntrypoint            *va_entrypoints;
++static int                      va_num_entrypoints;
++static VASurfaceID             *va_surface_ids;
++static int                      va_num_surfaces;
++static VASurfaceID            **va_free_surfaces;
++static int                      va_free_surfaces_head_index;
++static int                      va_free_surfaces_tail_index;
++static VAImageFormat           *va_image_formats;
++static int                      va_num_image_formats;
++
++///< Flag: direct surface mapping: use mpi->number to select free VA surface?
++static int                      va_dm;
++
++static int check_status(VAStatus status, const char *msg)
++{
++    if (status != VA_STATUS_SUCCESS) {
++        mp_msg(MSGT_VO, MSGL_ERR, "[vo_vaapi] %s: %s\n", msg, vaErrorStr(status));
++        return 0;
++    }
++    return 1;
++}
++
++static const char *string_of_VAImageFormat(VAImageFormat *imgfmt)
++{
++    static char str[5];
++    str[0] = imgfmt->fourcc;
++    str[1] = imgfmt->fourcc >> 8;
++    str[2] = imgfmt->fourcc >> 16;
++    str[3] = imgfmt->fourcc >> 24;
++    str[4] = '\0';
++    return str;
++}
++
++static const char *string_of_VAProfile(VAProfile profile)
++{
++    switch (profile) {
++#define PROFILE(profile) \
++        case VAProfile##profile: return "VAProfile" #profile
++        PROFILE(MPEG2Simple);
++        PROFILE(MPEG2Main);
++        PROFILE(MPEG4Simple);
++        PROFILE(MPEG4AdvancedSimple);
++        PROFILE(MPEG4Main);
++        PROFILE(H264Baseline);
++        PROFILE(H264Main);
++        PROFILE(H264High);
++        PROFILE(VC1Simple);
++        PROFILE(VC1Main);
++        PROFILE(VC1Advanced);
++#undef PROFILE
++    }
++    return "<unknown>";
++}
++
++static const char *string_of_VAEntrypoint(VAEntrypoint entrypoint)
++{
++    switch (entrypoint) {
++#define ENTRYPOINT(entrypoint) \
++        case VAEntrypoint##entrypoint: return "VAEntrypoint" #entrypoint
++        ENTRYPOINT(VLD);
++        ENTRYPOINT(IZZ);
++        ENTRYPOINT(IDCT);
++        ENTRYPOINT(MoComp);
++        ENTRYPOINT(Deblocking);
++#undef ENTRYPOINT
++    }
++    return "<unknown>";
++}
++
++static int has_profile(VAProfile profile)
++{
++    if (va_profiles && va_num_profiles > 0) {
++        int i;
++        for (i = 0; i < va_num_profiles; i++) {
++            if (va_profiles[i] == profile)
++                return 1;
++        }
++    }
++    return 0;
++}
++
++static int VAProfile_from_imgfmt(uint32_t format)
++{
++    static const int mpeg2_profiles[] =
++        { VAProfileMPEG2Main, VAProfileMPEG2Simple, -1 };
++    static const int mpeg4_profiles[] =
++        { VAProfileMPEG4Main, VAProfileMPEG4AdvancedSimple, VAProfileMPEG4Simple, -1 };
++    static const int h264_profiles[] =
++        { VAProfileH264High, VAProfileH264Main, VAProfileH264Baseline, -1 };
++    static const int wmv3_profiles[] =
++        { VAProfileVC1Main, VAProfileVC1Simple, -1 };
++    static const int vc1_profiles[] =
++        { VAProfileVC1Advanced, -1 };
++
++    const int *profiles = NULL;
++    switch (IMGFMT_VAAPI_CODEC(format)) {
++    case IMGFMT_VAAPI_CODEC_MPEG2:
++        profiles = mpeg2_profiles;
++        break;
++    case IMGFMT_VAAPI_CODEC_MPEG4:
++        profiles = mpeg4_profiles;
++        break;
++    case IMGFMT_VAAPI_CODEC_H264:
++        profiles = h264_profiles;
++        break;
++    case IMGFMT_VAAPI_CODEC_VC1:
++        switch (format) {
++        case IMGFMT_VAAPI_WMV3:
++            profiles = wmv3_profiles;
++            break;
++        case IMGFMT_VAAPI_VC1:
++            profiles = vc1_profiles;
++            break;
++        }
++        break;
++    }
++
++    if (profiles) {
++        for (int i = 0; profiles[i] != -1; i++) {
++            if (has_profile(profiles[i]))
++                return profiles[i];
++        }
++    }
++    return -1;
++}
++
++static int has_entrypoint(VAEntrypoint entrypoint)
++{
++    if (va_entrypoints && va_num_entrypoints > 0) {
++        int i;
++        for (i = 0; i < va_num_entrypoints; i++) {
++            if (va_entrypoints[i] == entrypoint)
++                return 1;
++        }
++    }
++    return 0;
++}
++
++static int VAEntrypoint_from_imgfmt(uint32_t format)
++{
++    int entrypoint = 0;
++    switch (format) {
++    case IMGFMT_VAAPI_MPEG2:
++    case IMGFMT_VAAPI_MPEG4:
++    case IMGFMT_VAAPI_H263:
++    case IMGFMT_VAAPI_H264:
++    case IMGFMT_VAAPI_WMV3:
++    case IMGFMT_VAAPI_VC1:
++        entrypoint = VAEntrypointVLD;
++        break;
++    case IMGFMT_VAAPI_MPEG2_IDCT:
++        entrypoint = VAEntrypointIDCT;
++        break;
++    case IMGFMT_VAAPI_MPEG2_MOCO:
++        entrypoint = VAEntrypointMoComp;
++        break;
++    }
++
++    if (entrypoint)
++        return has_entrypoint(entrypoint);
++
++    return -1;
++}
++
++static void resize(void)
++{
++    struct vo_rect src;
++
++    calc_src_dst_rects(g_image_width, g_image_height,
++                       &src, &g_output_rect, NULL, NULL);
++
++    vo_x11_clearwindow(mDisplay, vo_window);
++
++#if CONFIG_GL
++#define FOVY     60.0f
++#define ASPECT   1.0f
++#define Z_NEAR   0.1f
++#define Z_FAR    100.0f
++#define Z_CAMERA 0.869f
++
++    if (gl_enabled) {
++        glViewport(0, 0, vo_dwidth, vo_dheight);
++        glMatrixMode(GL_PROJECTION);
++        glLoadIdentity();
++        gluPerspective(FOVY, ASPECT, Z_NEAR, Z_FAR);
++        glMatrixMode(GL_MODELVIEW);
++        glLoadIdentity();
++
++        glTranslatef(-0.5f, -0.5f, -Z_CAMERA);
++        glScalef(1.0f / (GLfloat)vo_dwidth,
++                 -1.0f / (GLfloat)vo_dheight,
++                 1.0f / (GLfloat)vo_dwidth);
++        glTranslatef(0.0f, -1.0f * (GLfloat)vo_dheight, 0.0f);
++    }
++#endif
++
++    flip_page();
++}
++
++static int is_direct_mapping_init(void)
++{
++    VADisplayAttribute attr;
++    VAStatus status;
++
++    if (va_dm < 2)
++        return va_dm;
++
++    attr.type  = VADisplayAttribDirectSurface;
++    attr.flags = VA_DISPLAY_ATTRIB_GETTABLE;
++
++    status = vaGetDisplayAttributes(va_context->display, &attr, 1);
++    if (!check_status(status, "vaGetDisplayAttributes()") &&
++        status != VA_STATUS_ERROR_ATTR_NOT_SUPPORTED)
++        return 0;
++
++    return !attr.value;
++}
++
++static inline int is_direct_mapping(void)
++{
++    static int dm = -1;
++    if (dm < 0) {
++        dm = is_direct_mapping_init();
++        if (dm)
++            mp_msg(MSGT_VO, MSGL_INFO,
++                   "[vo_vaapi] Using 1:1 VA surface mapping\n");
++    }
++    return dm;
++}
++
++static int int_012(int *n)
++{
++    return *n >= 0 && *n <= 2;
++}
++
++static const opt_t subopts[] = {
++    { "dm",          OPT_ARG_INT,  &va_dm,        (opt_test_f)int_012 },
++#if CONFIG_GL
++    { "gl",          OPT_ARG_BOOL, &gl_enabled,   NULL },
++    { "bind",        OPT_ARG_BOOL, &gl_binding,   NULL },
++    { "reflect",     OPT_ARG_BOOL, &gl_reflect,   NULL },
++#endif
++    { NULL, }
++};
++
++static int preinit(const char *arg)
++{
++    VAStatus status;
++    int va_major_version, va_minor_version;
++    int i, max_image_formats, max_profiles;
++
++    va_dm = 2;
++    if (subopt_parse(arg, subopts) != 0) {
++        mp_msg(MSGT_VO, MSGL_FATAL,
++               "\n-vo vaapi command line help:\n"
++               "Example: mplayer -vo vaapi:gl\n"
++               "\nOptions:\n"
++               "  dm=0|1|2\n"
++               "    Use direct surface mapping (default: 2 - autodetect)\n"
++#if CONFIG_GL
++               "  gl\n"
++               "    Enable OpenGL rendering\n"
++               "  bind\n"
++               "    Use VA surface binding instead of copy\n"
++               "  reflect\n"
++               "    Enable OpenGL reflection effects\n"
++#endif
++               "\n" );
++        return -1;
++    }
++#if CONFIG_GL
++    if (gl_enabled)
++        mp_msg(MSGT_VO, MSGL_INFO, "[vo_vaapi] Using OpenGL rendering%s\n",
++               gl_reflect ? ", with reflection effects" : "");
++#endif
++
++    if (!vo_init())
++        return -1;
++
++    va_context = calloc(1, sizeof(*va_context));
++    if (!va_context)
++        return -1;
++
++#if CONFIG_VAAPI_GLX
++    if (gl_enabled)
++        va_context->display = vaGetDisplayGLX(mDisplay);
++    else
++#endif
++        va_context->display = vaGetDisplay(mDisplay);
++    if (!va_context->display)
++        return -1;
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] preinit(): VA display %p\n", va_context->display);
++
++    status = vaInitialize(va_context->display, &va_major_version, &va_minor_version);
++    if (!check_status(status, "vaInitialize()"))
++        return -1;
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] preinit(): VA API version %d.%d\n",
++           va_major_version, va_minor_version);
++
++    max_image_formats = vaMaxNumImageFormats(va_context->display);
++    va_image_formats = calloc(max_image_formats, sizeof(*va_image_formats));
++    if (!va_image_formats)
++        return -1;
++    status = vaQueryImageFormats(va_context->display, va_image_formats, &va_num_image_formats);
++    if (!check_status(status, "vaQueryImageFormats()"))
++        return -1;
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] preinit(): %d image formats available\n",
++           va_num_image_formats);
++    for (i = 0; i < va_num_image_formats; i++)
++        mp_msg(MSGT_VO, MSGL_DBG2, "  %s\n", string_of_VAImageFormat(&va_image_formats[i]));
++
++    max_profiles = vaMaxNumProfiles(va_context->display);
++    va_profiles = calloc(max_profiles, sizeof(*va_profiles));
++    if (!va_profiles)
++        return -1;
++    status = vaQueryConfigProfiles(va_context->display, va_profiles, &va_num_profiles);
++    if (!check_status(status, "vaQueryConfigProfiles()"))
++        return -1;
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] preinit(): %d profiles available\n",
++           va_num_profiles);
++    for (i = 0; i < va_num_profiles; i++)
++        mp_msg(MSGT_VO, MSGL_DBG2, "  %s\n", string_of_VAProfile(va_profiles[i]));
++
++    return 0;
++}
++
++static void free_video_specific(void)
++{
++#if CONFIG_VAAPI_GLX
++    if (gl_surface) {
++        VAStatus status;
++        status = vaDestroySurfaceGLX(va_context->display, gl_surface);
++        check_status(status, "vaDestroySurfaceGLX()");
++        gl_surface = NULL;
++    }
++#endif
++
++    if (va_context && va_context->context_id) {
++        vaDestroyContext(va_context->display, va_context->context_id);
++        va_context->context_id = 0;
++    }
++
++    if (va_free_surfaces) {
++        free(va_free_surfaces);
++        va_free_surfaces = NULL;
++    }
++
++    if (va_surface_ids) {
++        vaDestroySurfaces(va_context->display, va_surface_ids, va_num_surfaces);
++        free(va_surface_ids);
++        va_surface_ids = NULL;
++    }
++
++    if (va_context && va_context->config_id) {
++        vaDestroyConfig(va_context->display, va_context->config_id);
++        va_context->config_id = 0;
++    }
++
++    if (va_entrypoints) {
++        free(va_entrypoints);
++        va_entrypoints = NULL;
++    }
++
++#if CONFIG_GL
++    if (gl_texture) {
++        glDeleteTextures(1, &gl_texture);
++        gl_texture = GL_NONE;
++    }
++#endif
++
++#if CONFIG_VAAPI_GLX
++    if (gl_enabled) {
++        releaseGlContext(&gl_visual_info, &gl_context);
++        gl_visual_info = NULL;
++    }
++#endif
++}
++
++static void uninit(void)
++{
++    free_video_specific();
++
++    if (va_profiles) {
++        free(va_profiles);
++        va_profiles = NULL;
++    }
++
++    if (va_image_formats) {
++        free(va_image_formats);
++        va_image_formats = NULL;
++    }
++
++    if (va_context && va_context->display) {
++        vaTerminate(va_context->display);
++        va_context->display = NULL;
++    }
++
++    if (va_context) {
++        free(va_context);
++        va_context = NULL;
++    }
++
++#ifdef CONFIG_XF86VM
++    vo_vm_close();
++#endif
++    vo_x11_uninit();
++}
++
++static int config_x11(uint32_t width, uint32_t height,
++                      uint32_t display_width, uint32_t display_height,
++                      uint32_t flags, char *title)
++{
++    Colormap cmap;
++    XVisualInfo visualInfo;
++    XVisualInfo *vi;
++    XSetWindowAttributes xswa;
++    unsigned long xswa_mask;
++    XWindowAttributes wattr;
++    int depth;
++
++#ifdef CONFIG_GUI
++    if (use_gui)
++        guiGetEvent(guiSetShVideo, 0);  // the GUI will set up / resize our window
++    else
++#endif
++    {
++#ifdef CONFIG_XF86VM
++        if (flags & VOFLAG_MODESWITCHING)
++            vo_vm_switch();
++#endif
++        XGetWindowAttributes(mDisplay, DefaultRootWindow(mDisplay), &wattr);
++        depth = wattr.depth;
++        if (depth != 15 && depth != 16 && depth != 24 && depth != 32)
++            depth = 24;
++        XMatchVisualInfo(mDisplay, mScreen, depth, TrueColor, &visualInfo);
++
++#if CONFIG_VAAPI_GLX
++        if (gl_enabled) {
++            vi = glXChooseVisual(mDisplay, mScreen, gl_visual_attr);
++            if (!vi)
++                return -1;
++            cmap = XCreateColormap(mDisplay, mRootWin, vi->visual, AllocNone);
++            if (cmap == None)
++                return -1;
++        }
++        else
++#endif
++        {
++            vi = &visualInfo;
++            XMatchVisualInfo(mDisplay, mScreen, depth, TrueColor, vi);
++            cmap = CopyFromParent;
++        }
++
++        vo_x11_create_vo_window(vi,
++                                vo_dx, vo_dy, display_width, display_height,
++                                flags, cmap, "vaapi", title);
++
++        if (vi != &visualInfo)
++            XFree(vi);
++
++        xswa_mask             = CWBorderPixel | CWBackPixel;
++        xswa.border_pixel     = 0;
++        xswa.background_pixel = 0;
++        XChangeWindowAttributes(mDisplay, vo_window, xswa_mask, &xswa);
++
++#ifdef CONFIG_XF86VM
++        if (flags & VOFLAG_MODESWITCHING) {
++            /* Grab the mouse pointer in our window */
++            if (vo_grabpointer)
++                XGrabPointer(mDisplay, vo_window, True, 0,
++                             GrabModeAsync, GrabModeAsync,
++                             vo_window, None, CurrentTime);
++            XSetInputFocus(mDisplay, vo_window, RevertToNone, CurrentTime);
++        }
++#endif
++    }
++
++    if ((flags & VOFLAG_FULLSCREEN) && WinID <= 0)
++        vo_fs = VO_TRUE;
++    return 0;
++}
++
++#if CONFIG_VAAPI_GLX
++static int config_glx(unsigned int width, unsigned int height)
++{
++    if (setGlWindow(&gl_visual_info, &gl_context, vo_window) < 0)
++        return -1;
++
++    glDisable(GL_DEPTH_TEST);
++    glDepthMask(GL_FALSE);
++    glDisable(GL_CULL_FACE);
++    glEnable(GL_TEXTURE_2D);
++    glDrawBuffer(vo_doublebuffering ? GL_BACK : GL_FRONT);
++    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
++    glEnable(GL_BLEND);
++    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
++
++    /* Create OpenGL texture */
++    /* XXX: assume GL_ARB_texture_non_power_of_two is available */
++    glEnable(GL_TEXTURE_2D);
++    glGenTextures(1, &gl_texture);
++    BindTexture(GL_TEXTURE_2D, gl_texture);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
++    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
++    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
++                 GL_BGRA, GL_UNSIGNED_BYTE, NULL);
++    BindTexture(GL_TEXTURE_2D, 0);
++    glDisable(GL_TEXTURE_2D);
++
++    glClearColor(0.0, 0.0, 0.0, 1.0);
++    glClear(GL_COLOR_BUFFER_BIT);
++    return 0;
++}
++#endif
++
++static int config_vaapi(uint32_t width, uint32_t height, uint32_t format)
++{
++    VAConfigAttrib attrib;
++    VAStatus status;
++    int i, profile, entrypoint, max_entrypoints;
++
++    /* Check profile */
++    profile = VAProfile_from_imgfmt(format);
++    if (profile < 0)
++        return -1;
++
++    /* Check entry-point (only VLD for now) */
++    max_entrypoints = vaMaxNumEntrypoints(va_context->display);
++    va_entrypoints = calloc(max_entrypoints, sizeof(*va_entrypoints));
++    if (!va_entrypoints)
++        return -1;
++
++    status = vaQueryConfigEntrypoints(va_context->display, profile,
++                                      va_entrypoints, &va_num_entrypoints);
++    if (!check_status(status, "vaQueryConfigEntrypoints()"))
++        return -1;
++
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] config_vaapi(%s): %d entrypoints available\n",
++           string_of_VAProfile(profile), va_num_entrypoints);
++    for (i = 0; i < va_num_entrypoints; i++)
++        mp_msg(MSGT_VO, MSGL_DBG2, "  %s\n", string_of_VAEntrypoint(va_entrypoints[i]));
++
++    entrypoint = VAEntrypoint_from_imgfmt(format);
++    if (entrypoint != VAEntrypointVLD)
++        return -1;
++
++    /* Check chroma format (only 4:2:0 for now) */
++    attrib.type = VAConfigAttribRTFormat;
++    status = vaGetConfigAttributes(va_context->display, profile, entrypoint, &attrib, 1);
++    if (!check_status(status, "vaGetConfigAttributes()"))
++        return -1;
++    if ((attrib.value & VA_RT_FORMAT_YUV420) == 0)
++        return -1;
++
++    /* Create a configuration for the decode pipeline */
++    status = vaCreateConfig(va_context->display, profile, entrypoint, &attrib, 1, &va_context->config_id);
++    if (!check_status(status, "vaCreateConfig()"))
++        return -1;
++
++    /* Create video surfaces */
++    switch (IMGFMT_VAAPI_CODEC(format)) {
++    case IMGFMT_VAAPI_CODEC_MPEG2:
++        va_num_surfaces = NUM_VIDEO_SURFACES_MPEG2;
++        break;
++    case IMGFMT_VAAPI_CODEC_MPEG4:
++        va_num_surfaces = NUM_VIDEO_SURFACES_MPEG4;
++        break;
++    case IMGFMT_VAAPI_CODEC_H264:
++        va_num_surfaces = NUM_VIDEO_SURFACES_H264;
++        break;
++    case IMGFMT_VAAPI_CODEC_VC1:
++        va_num_surfaces = NUM_VIDEO_SURFACES_VC1;
++        break;
++    default:
++        va_num_surfaces = 0;
++        break;
++    }
++    if (va_num_surfaces == 0)
++        return -1;
++    if (!is_direct_mapping())
++        va_num_surfaces = FFMIN(2 * va_num_surfaces, MAX_VIDEO_SURFACES);
++
++    va_surface_ids = calloc(va_num_surfaces, sizeof(*va_surface_ids));
++    if (!va_surface_ids)
++        return -1;
++
++    status = vaCreateSurfaces(va_context->display, width, height, VA_RT_FORMAT_YUV420,
++                              va_num_surfaces, va_surface_ids);
++    if (!check_status(status, "vaCreateSurfaces()"))
++        return -1;
++
++    va_free_surfaces = calloc(va_num_surfaces, sizeof(*va_free_surfaces));
++    if (!va_free_surfaces)
++        return -1;
++    for (i = 0; i < va_num_surfaces; i++)
++        va_free_surfaces[i] = &va_surface_ids[i];
++
++#if CONFIG_VAAPI_GLX
++    /* Create GLX surfaces */
++    if (gl_enabled) {
++        status = vaCreateSurfaceGLX(va_context->display,
++                                    GL_TEXTURE_2D, gl_texture,
++                                    &gl_surface);
++        if (!check_status(status, "vaCreateSurfaceGLX()"))
++            return -1;
++    }
++#endif
++
++    /* Create a context for the decode pipeline */
++    status = vaCreateContext(va_context->display, va_context->config_id,
++                             width, height, VA_PROGRESSIVE,
++                             va_surface_ids, va_num_surfaces,
++                             &va_context->context_id);
++    if (!check_status(status, "vaCreateContext()"))
++        return -1;
++
++    g_output_surface = 0;
++    for (i = 0; i < MAX_OUTPUT_SURFACES; i++)
++        g_output_surfaces[i] = VA_INVALID_SURFACE;
++    return 0;
++}
++
++static int config(uint32_t width, uint32_t height,
++                  uint32_t display_width, uint32_t display_height,
++                  uint32_t flags, char *title, uint32_t format)
++{
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] config(): size %dx%d, display size %dx%d, flags %x, title '%s', format %x (%s)\n",
++           width, height, display_width, display_height, flags, title, format, vo_format_name(format));
++
++    free_video_specific();
++
++    if (config_x11(width, height, display_width, display_height, flags, title) < 0)
++        return -1;
++
++#if CONFIG_VAAPI_GLX
++    if (gl_enabled && config_glx(width, height) < 0)
++        return -1;
++#endif
++
++    if (config_vaapi(width, height, format) < 0)
++        return -1;
++
++    g_is_paused    = 0;
++    g_image_width  = width;
++    g_image_height = height;
++    g_image_format = format;
++    resize();
++    return 0;
++}
++
++static int query_format(uint32_t format)
++{
++    const int default_caps = (VFCAP_CSP_SUPPORTED |
++                              VFCAP_CSP_SUPPORTED_BY_HW |
++                              VFCAP_HWSCALE_UP |
++                              VFCAP_HWSCALE_DOWN);
++
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] query_format(): format %x (%s)\n",
++           format, vo_format_name(format));
++
++    switch (format) {
++    case IMGFMT_VAAPI_MPEG2:
++    case IMGFMT_VAAPI_MPEG4:
++    case IMGFMT_VAAPI_H263:
++    case IMGFMT_VAAPI_H264:
++    case IMGFMT_VAAPI_WMV3:
++    case IMGFMT_VAAPI_VC1:
++        return default_caps | VOCAP_NOSLICES;
++    }
++    return 0;
++}
++
++static void put_surface_x11(VASurfaceID surface)
++{
++    VAStatus status;
++
++    status = vaPutSurface(va_context->display,
++                          surface,
++                          vo_window,
++                          0, 0, g_image_width, g_image_height,
++                          g_output_rect.left,
++                          g_output_rect.top,
++                          g_output_rect.width,
++                          g_output_rect.height,
++                          NULL, 0,
++                          VA_FRAME_PICTURE);
++    if (!check_status(status, "vaPutSurface()"))
++        return;
++}
++
++#if CONFIG_VAAPI_GLX
++static void put_surface_glx(VASurfaceID surface)
++{
++    VAStatus status;
++
++    if (surface == VA_INVALID_SURFACE)
++        return;
++
++    if (gl_binding) {
++        status = vaAssociateSurfaceGLX(va_context->display,
++                                       gl_surface,
++                                       surface,
++                                       VA_FRAME_PICTURE);
++        if (!check_status(status, "vaAssociateSurfaceGLX()"))
++            return;
++    }
++    else {
++        status = vaCopySurfaceGLX(va_context->display,
++                                  gl_surface,
++                                  surface,
++                                  VA_FRAME_PICTURE);
++        if (status == VA_STATUS_ERROR_UNIMPLEMENTED) {
++            mp_msg(MSGT_VO, MSGL_WARN,
++                   "[vaapi] vaCopySurfaceGLX() is not implemented\n");
++            gl_binding = 1;
++        }
++        else {
++            if (!check_status(status, "vaCopySurfaceGLX()"))
++                return;
++        }
++    }
++    g_output_surfaces[g_output_surface] = surface;
++}
++
++static int glx_bind_texture(void)
++{
++    VAStatus status;
++
++    glEnable(GL_TEXTURE_2D);
++    BindTexture(GL_TEXTURE_2D, gl_texture);
++
++    if (gl_binding) {
++        status = vaBeginRenderSurfaceGLX(va_context->display, gl_surface);
++        if (!check_status(status, "vaBeginRenderSurfaceGLX()"))
++            return -1;
++    }
++    return 0;
++}
++
++static int glx_unbind_texture(void)
++{
++    VAStatus status;
++
++    if (gl_binding) {
++        status = vaEndRenderSurfaceGLX(va_context->display, gl_surface);
++        if (!check_status(status, "vaEndRenderSurfaceGLX()"))
++            return -1;
++    }
++
++    BindTexture(GL_TEXTURE_2D, 0);
++    glDisable(GL_TEXTURE_2D);
++    return 0;
++}
++
++static void render_background(void)
++{
++    /* Original code from Mirco Muller (MacSlow):
++       <http://cgit.freedesktop.org/~macslow/gl-gst-player/> */
++    GLfloat fStartX = 0.0f;
++    GLfloat fStartY = 0.0f;
++    GLfloat fWidth  = (GLfloat)vo_dwidth;
++    GLfloat fHeight = (GLfloat)vo_dheight;
++
++    glBegin(GL_QUADS);
++    {
++        /* top third, darker grey to white */
++        glColor3f(0.85f, 0.85f, 0.85f);
++        glVertex3f(fStartX, fStartY, 0.0f);
++        glColor3f(0.85f, 0.85f, 0.85f);
++        glVertex3f(fStartX + fWidth, fStartY, 0.0f);
++        glColor3f(1.0f, 1.0f, 1.0f);
++        glVertex3f(fStartX + fWidth, fStartY + fHeight / 3.0f, 0.0f);
++        glColor3f(1.0f, 1.0f, 1.0f);
++        glVertex3f(fStartX, fStartY + fHeight / 3.0f, 0.0f);
++
++        /* middle third, just plain white */
++        glColor3f(1.0f, 1.0f, 1.0f);
++        glVertex3f(fStartX, fStartY + fHeight / 3.0f, 0.0f);
++        glVertex3f(fStartX + fWidth, fStartY + fHeight / 3.0f, 0.0f);
++        glVertex3f(fStartX + fWidth, fStartY + 2.0f * fHeight / 3.0f, 0.0f);
++        glVertex3f(fStartX, fStartY + 2.0f * fHeight / 3.0f, 0.0f);
++
++        /* bottom third, white to lighter grey */
++        glColor3f(1.0f, 1.0f, 1.0f);
++        glVertex3f(fStartX, fStartY + 2.0f * fHeight / 3.0f, 0.0f);
++        glColor3f(1.0f, 1.0f, 1.0f);
++        glVertex3f(fStartX + fWidth, fStartY + 2.0f * fHeight / 3.0f, 0.0f);
++        glColor3f(0.62f, 0.66f, 0.69f);
++        glVertex3f(fStartX + fWidth, fStartY + fHeight, 0.0f);
++        glColor3f(0.62f, 0.66f, 0.69f);
++        glVertex3f(fStartX, fStartY + fHeight, 0.0f);
++    }
++    glEnd();
++}
++
++static void render_frame(void)
++{
++    struct vo_rect * const r = &g_output_rect;
++
++    if (glx_bind_texture() < 0)
++        return;
++    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
++    glBegin(GL_QUADS);
++    {
++        glTexCoord2f(0.0f, 0.0f); glVertex2i(r->left, r->top);
++        glTexCoord2f(0.0f, 1.0f); glVertex2i(r->left, r->bottom);
++        glTexCoord2f(1.0f, 1.0f); glVertex2i(r->right, r->bottom);
++        glTexCoord2f(1.0f, 0.0f); glVertex2i(r->right, r->top);
++    }
++    glEnd();
++    if (glx_unbind_texture() < 0)
++        return;
++}
++
++static void render_reflection(void)
++{
++    struct vo_rect * const r = &g_output_rect;
++    const unsigned int rh  = g_output_rect.height / 5;
++    GLfloat ry = 1.0f - (GLfloat)rh / (GLfloat)r->height;
++
++    if (glx_bind_texture() < 0)
++        return;
++    glBegin(GL_QUADS);
++    {
++        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
++        glTexCoord2f(0.0f, 1.0f); glVertex2i(r->left, r->top);
++        glTexCoord2f(1.0f, 1.0f); glVertex2i(r->right, r->top);
++
++        glColor4f(1.0f, 1.0f, 1.0f, 0.0f);
++        glTexCoord2f(1.0f, ry); glVertex2i(r->right, r->top + rh);
++        glTexCoord2f(0.0f, ry); glVertex2i(r->left, r->top + rh);
++    }
++    glEnd();
++    if (glx_unbind_texture() < 0)
++        return;
++}
++
++static void flip_page_glx(void)
++{
++    VAStatus status;
++
++    glClear(GL_COLOR_BUFFER_BIT);
++
++    if (gl_reflect) {
++        render_background();
++
++        glPushMatrix();
++        glRotatef(20.0f, 0.0f, 1.0f, 0.0f);
++        glTranslatef(50.0f, 0.0f, 0.0f);
++    }
++
++    render_frame();
++
++    if (gl_reflect) {
++        glPushMatrix();
++        glTranslatef(0.0, (GLfloat)g_output_rect.height + 5.0f, 0.0f);
++        render_reflection();
++        glPopMatrix();
++        glPopMatrix();
++    }
++
++    swapGlBuffers();
++
++    if (vo_fs) /* avoid flickering borders in fullscreen mode */
++        glClear(GL_COLOR_BUFFER_BIT);
++}
++#endif
++
++static void put_surface(VASurfaceID surface)
++{
++    if (surface == VA_INVALID_SURFACE)
++        return;
++
++#if CONFIG_VAAPI_GLX
++    if (gl_enabled)
++        put_surface_glx(surface);
++    else
++#endif
++        put_surface_x11(surface);
++}
++
++static inline int sync_surface(VASurfaceID surface)
++{
++    VAStatus status;
++
++    status = vaSyncSurface(va_context->display,
++#if !VA_CHECK_VERSION(0,31,0)
++                           va_context->context_id,
++#endif
++                           surface);
++    if (!check_status(status, "vaSyncSurface()"))
++        return -1;
++    return 0;
++}
++
++static int draw_slice(uint8_t * image[], int stride[],
++                      int w, int h, int x, int y)
++{
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] draw_slice(): location (%d,%d), size %dx%d\n", x, y, w, h);
++
++    return VO_TRUE;
++}
++
++static int draw_frame(uint8_t * src[])
++{
++    mp_msg(MSGT_VO,MSGL_INFO, MSGTR_LIBVO_X11_DrawFrameCalled);
++
++    return -1;
++}
++
++static void draw_osd(void)
++{
++    // XXX: not implemented
++}
++
++static void flip_page(void)
++{
++    VASurfaceID surface;
++
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] flip_page()\n");
++
++    surface = g_output_surfaces[g_output_surface];
++    if (surface != VA_INVALID_SURFACE)
++        put_surface(surface);
++
++    surface = g_output_surfaces[(g_output_surface - 1) % MAX_OUTPUT_SURFACES];
++    if (surface != VA_INVALID_SURFACE)
++        sync_surface(surface);
++    g_output_surface = (g_output_surface + 1) % MAX_OUTPUT_SURFACES;
++
++#if CONFIG_VAAPI_GLX
++    if (gl_enabled && surface != VA_INVALID_SURFACE)
++        flip_page_glx();
++#endif
++}
++
++static VASurfaceID *get_surface(mp_image_t *mpi)
++{
++    VASurfaceID *surface;
++
++    if (is_direct_mapping()) {
++        assert(mpi->number < va_num_surfaces);
++        surface = va_free_surfaces[mpi->number];
++        return surface;
++    }
++
++    /* Push current surface to a free slot */
++    if (mpi->priv) {
++        assert(!va_free_surfaces[va_free_surfaces_tail_index]);
++        va_free_surfaces[va_free_surfaces_tail_index] = mpi->priv;
++        va_free_surfaces_tail_index = (va_free_surfaces_tail_index + 1) % va_num_surfaces;
++    }
++
++    /* Pop the least recently used free surface */
++    assert(va_free_surfaces[va_free_surfaces_head_index]);
++    surface = va_free_surfaces[va_free_surfaces_head_index];
++    va_free_surfaces[va_free_surfaces_head_index] = NULL;
++    va_free_surfaces_head_index = (va_free_surfaces_head_index + 1) % va_num_surfaces;
++    return surface;
++}
++
++static uint32_t get_image(mp_image_t *mpi)
++{
++    VASurfaceID *surface;
++
++    if (mpi->type != MP_IMGTYPE_NUMBERED)
++        return VO_FALSE;
++
++    if (!IMGFMT_IS_VAAPI(g_image_format))
++        return VO_FALSE;
++
++    surface = get_surface(mpi);
++    if (!surface)
++        return VO_FALSE;
++
++    mpi->flags |= MP_IMGFLAG_DIRECT;
++    mpi->stride[0] = mpi->stride[1] = mpi->stride[2] = mpi->stride[3] = 0;
++    mpi->planes[0] = mpi->planes[1] = mpi->planes[2] = mpi->planes[3] = NULL;
++    mpi->planes[0] = mpi->planes[3] = (char *)(uintptr_t)*surface;
++    mpi->num_planes = 1;
++    mpi->priv = surface;
++
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] get_image(): surface 0x%08x\n", *surface);
++
++    return VO_TRUE;
++}
++
++static uint32_t draw_image(mp_image_t *mpi)
++{
++    VASurfaceID surface = (uintptr_t)mpi->planes[3];
++
++    mp_msg(MSGT_VO, MSGL_DBG2, "[vo_vaapi] draw_image(): surface 0x%08x\n", surface);
++
++    g_output_surfaces[g_output_surface] = surface;
++    return VO_TRUE;
++}
++
++static void check_events(void)
++{
++    int events = vo_x11_check_events(mDisplay);
++
++    if (events & VO_EVENT_RESIZE)
++        resize();
++
++    if ((events & (VO_EVENT_EXPOSE|VO_EVENT_RESIZE)) && g_is_paused) {
++        VASurfaceID surface = g_output_surfaces[g_output_surface];
++        if (surface != VA_INVALID_SURFACE)
++            put_surface(surface);
++    }
++}
++
++static int control(uint32_t request, void *data, ...)
++{
++    switch (request) {
++    case VOCTRL_PAUSE:
++        return (g_is_paused = 1);
++    case VOCTRL_RESUME:
++        return (g_is_paused = 0);
++    case VOCTRL_QUERY_FORMAT:
++        return query_format(*((uint32_t *)data));
++    case VOCTRL_GET_IMAGE:
++        return get_image(data);
++    case VOCTRL_DRAW_IMAGE:
++        return draw_image(data);
++    case VOCTRL_GUISUPPORT:
++        return VO_TRUE;
++    case VOCTRL_BORDER:
++        vo_x11_border();
++        resize();
++        return VO_TRUE;
++    case VOCTRL_FULLSCREEN:
++        vo_x11_fullscreen();
++        resize();
++        return VO_TRUE;
++    case VOCTRL_ONTOP:
++        vo_x11_ontop();
++        return VO_TRUE;
++    case VOCTRL_GET_PANSCAN:
++        return VO_TRUE;
++    case VOCTRL_SET_PANSCAN:
++        resize();
++        return VO_TRUE;
++    case VOCTRL_GET_HWACCEL_CONTEXT:
++        *((void **)data) = va_context;
++        return VO_TRUE;
++    }
++    return VO_NOTIMPL;
++}
+diff -Naur mplayer-29746/Makefile mplayer-29746.patch/Makefile
+--- mplayer-29746/Makefile	2009-10-01 21:52:59.000000000 +0200
++++ mplayer-29746.patch/Makefile	2009-10-11 01:06:44.394658083 +0200
+@@ -621,6 +621,7 @@
+ SRCS_MPLAYER-$(TGA)           += libvo/vo_tga.c
+ SRCS_MPLAYER-$(V4L2)          += libvo/vo_v4l2.c
+ SRCS_MPLAYER-$(V4L2)          += libao2/ao_v4l2.c
++SRCS_MPLAYER-$(VAAPI)         += libvo/vo_vaapi.c
+ SRCS_MPLAYER-$(VDPAU)         += libvo/vo_vdpau.c
+ SRCS_MPLAYER-$(VESA)          += libvo/gtf.c libvo/vo_vesa.c libvo/vesa_lvo.c
+ SRCS_MPLAYER-$(VIDIX)         += libvo/vo_cvidix.c \
+diff -Naur mplayer-29746/libmpcodecs/vf.h mplayer-29746.patch/libmpcodecs/vf.h
+--- mplayer-29746/libmpcodecs/vf.h	2009-10-01 21:53:00.000000000 +0200
++++ mplayer-29746.patch/libmpcodecs/vf.h	2009-10-11 01:07:49.157658679 +0200
+@@ -89,6 +89,7 @@
+ #define VFCTRL_GET_PTS         17 /* Return last pts value that reached vf_vo*/
+ #define VFCTRL_SET_DEINTERLACE 18 /* Set deinterlacing status */
+ #define VFCTRL_GET_DEINTERLACE 19 /* Get deinterlacing status */
+ #define VFCTRL_GET_OSD_FORMAT  20 /* Query format to color osd */
++#define VFCTRL_GET_HWACCEL_CONTEXT 21 /* Get HW accelerator context */
+ 
+ #include "vfcap.h"
+ 
