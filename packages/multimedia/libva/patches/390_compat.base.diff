@@ -1,0 +1,174 @@
+diff -Naur libva-0.31.0/src/Makefile.am libva-0.31.0.diff/src/Makefile.am
+--- libva-0.31.0/src/Makefile.am	2009-10-10 23:26:31.663789932 +0200
++++ libva-0.31.0.diff/src/Makefile.am	2009-10-10 23:26:55.590658410 +0200
+@@ -58,7 +58,7 @@
+ 
+ DIST_SUBDIRS = x11 glx
+ 
+-libva_la_SOURCES = va.c
++libva_la_SOURCES = va.c va_compat.c
+ 
+ libvaincludedir = ${includedir}/va
+ libvainclude_HEADERS = va.h va_backend.h va_version.h
+@@ -67,4 +67,8 @@
+ 	va_version.h
+ 
+ EXTRA_DIST = \
+-	va_version.h.in
++	va_version.h.in \
++	va_compat.h \
++	va_compat_template.h
++
++va_compat.c: va_compat_template.h
+diff -Naur libva-0.31.0/src/Makefile.in libva-0.31.0.diff/src/Makefile.in
+--- libva-0.31.0/src/Makefile.in	2009-10-10 23:26:31.664783096 +0200
++++ libva-0.31.0.diff/src/Makefile.in	2009-10-10 23:27:11.668782308 +0200
+@@ -104,7 +104,7 @@
+ 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+ 	$(libva_x11_la_LDFLAGS) $(LDFLAGS) -o $@
+ libva_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
+-am_libva_la_OBJECTS = va.lo
++am_libva_la_OBJECTS = va.lo va_compat.lo
+ libva_la_OBJECTS = $(am_libva_la_OBJECTS)
+ libva_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(libva_la_LDFLAGS) \
+@@ -331,14 +331,16 @@
+ libva_glx_la_DEPENDENCIES = $(libvacorelib) glx/libva_glx.la libva-x11.la
+ SUBDIRS = $(libva_x11_backenddir) $(libva_glx_backenddir)
+ DIST_SUBDIRS = x11 glx
+-libva_la_SOURCES = va.c
++libva_la_SOURCES = va.c va_compat.c
+ libvaincludedir = ${includedir}/va
+ libvainclude_HEADERS = va.h va_backend.h va_version.h
+ DISTCLEANFILES = \
+ 	va_version.h
+ 
+ EXTRA_DIST = \
+-	va_version.h.in
++	va_version.h.in \
++	va_compat.h \
++	va_compat_template.h
+ 
+ all: all-recursive
+ 
+@@ -421,6 +423,7 @@
+ 	-rm -f *.tab.c
+ 
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/va.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/va_compat.Plo@am__quote@
+ 
+ .c.o:
+ @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+@@ -788,6 +791,8 @@
+ 	uninstall-libLTLIBRARIES uninstall-libvaincludeHEADERS
+ 
+ 
++va_compat.c: va_compat_template.h
++
+ # Tell versions [3.59,3.63) of GNU make to not export all variables.
+ # Otherwise a system limit (for SysV at least) may be exceeded.
+ .NOEXPORT:
+diff -Naur libva-0.31.0/src/va_backend.h libva-0.31.0.diff/src/va_backend.h
+--- libva-0.31.0/src/va_backend.h	2009-10-10 23:26:31.665782195 +0200
++++ libva-0.31.0.diff/src/va_backend.h	2009-10-10 23:26:55.596657968 +0200
+@@ -400,6 +400,7 @@
+     
+     void *dri_state;
+     void *glx;                          /* opaque for GLX code */
++    void *compat;			/* opaque for compat code */
+ };
+ 
+ struct VADisplayContext
+diff -Naur libva-0.31.0/src/va.c libva-0.31.0.diff/src/va.c
+--- libva-0.31.0/src/va.c	2009-10-10 23:20:23.923657687 +0200
++++ libva-0.31.0.diff/src/va.c	2009-10-10 23:26:55.592659404 +0200
+@@ -25,6 +25,7 @@
+ #define _GNU_SOURCE 1
+ #include "va.h"
+ #include "va_backend.h"
++#include "va_compat.h"
+ 
+ #include <assert.h>
+ #include <stdarg.h>
+@@ -41,6 +42,8 @@
+ 
+ #define DRIVER_INIT_FUNC	"__vaDriverInit_0_31"
+ #define DRIVER_INIT_FUNC_SDS	"__vaDriverInit_0_31_sds"
++#define DRIVER_INIT_FUNC_0_29	"__vaDriverInit_0_29"
++#define DRIVER_INIT_FUNC_0_30	"__vaDriverInit_0_30"
+ 
+ #define DRIVER_EXTENSION	"_drv_video.so"
+ 
+@@ -168,11 +171,22 @@
+         else
+         {
+             VADriverInit init_func;
+-            init_func = (VADriverInit) dlsym(handle, DRIVER_INIT_FUNC);
++            int compat_version = 0;
++            /* First, try SDS extensions (VDPAU and XvBA backends) */
++            init_func = (VADriverInit) dlsym(handle, DRIVER_INIT_FUNC_SDS);
+             if (!init_func)
+             {
+-                /* Then try SDS extensions (VDPAU and XvBA backends) */
+-                init_func = (VADriverInit) dlsym(handle, DRIVER_INIT_FUNC_SDS);
++                /* Otherwise, we need the compatibility layer for some buffers */
++                init_func = (VADriverInit) dlsym(handle, DRIVER_INIT_FUNC);
++                compat_version = VA_MINOR_VERSION;
++                if (!init_func) {
++                    init_func = (VADriverInit) dlsym(handle, DRIVER_INIT_FUNC_0_29);
++                    compat_version = 29;
++                }
++                if (!init_func) {
++                    init_func = (VADriverInit) dlsym(handle, DRIVER_INIT_FUNC_0_30);
++                    compat_version = 30;
++                }
+             }
+             if (!init_func)
+             {
+@@ -181,7 +195,36 @@
+             }
+             else
+             {
+-                vaStatus = (*init_func)(ctx);
++                struct VADriverContext_0_29 ctx_0_29;
++                struct VADriverContext_0_30 ctx_0_30;
++                void *compat_ctx = NULL;
++
++                switch (compat_version) {
++                case 29:
++                    compat_ctx           = &ctx_0_29;
++                    ctx_0_29.pDriverData = NULL;
++                    ctx_0_29.x11_dpy     = ctx->x11_dpy;
++                    ctx_0_29.x11_screen  = ctx->x11_screen;
++                    break;
++                case 30:
++                    compat_ctx           = &ctx_0_30;
++                    ctx_0_30.pDriverData = NULL;
++                    ctx_0_30.x11_dpy     = ctx->x11_dpy;
++                    ctx_0_30.x11_screen  = ctx->x11_screen;
++                    break;
++                case VA_MINOR_VERSION:
++                    compat_ctx           = ctx;
++                    break;
++                default:
++                    ASSERT(compat_version == 0);
++                    vaStatus = VA_STATUS_ERROR_UNKNOWN;
++                    break;
++                }
++
++                vaStatus = (*init_func)(compat_ctx ? compat_ctx : ctx);
++
++                if (VA_STATUS_SUCCESS == vaStatus)
++                    vaStatus = va_compat_init(dpy, compat_version, compat_ctx);
+ 
+                 if (VA_STATUS_SUCCESS == vaStatus)
+                 {
+@@ -379,6 +422,8 @@
+       old_ctx->handle = NULL;
+   }
+ 
++  va_compat_fini(dpy);
++
+   if (VA_STATUS_SUCCESS == vaStatus)
+       pDisplayContext->vaDestroy(pDisplayContext);
+   return vaStatus;
