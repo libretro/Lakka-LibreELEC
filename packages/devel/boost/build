@@ -1,0 +1,39 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/build toolchain
+$SCRIPTS/build boost-jam
+$SCRIPTS/build Python
+
+cd $PKG_BUILD
+sh bootstrap.sh \
+     --prefix=/usr \
+     --with-bjam=$ROOT/$TOOLCHAIN/bin/bjam \
+     --with-python=$ROOT/$TOOLCHAIN/bin/python \
+
+echo "using gcc : `$TARGET_CC -v 2>&1  | tail -n 1 |awk '{print $3}'` : $TARGET_CC  ; " \
+  > tools/build/v2/user-config.jam
+
+$ROOT/$TOOLCHAIN/bin/bjam -d2 --toolset=gcc  \
+  link=static \
+  --prefix=$SYSROOT_PREFIX/usr \
+  --layout=system \
+  --with-thread \
+  install
+
+
+# this are code for an alternative build with cmake (not done)
+# remove this after testing
+
+# $SCRIPTS/build cmake
+
+# mkdir -p .build
+# cd .build
+
+# cmake -D CMAKE_INSTALL_PREFIX:PATH=/usr \
+#       -D CMAKE_FIND_ROOT_PATH:PATH=$SYSROOT_PREFIX \
+#       -D CMAKE_IS_EXPERIMENTAL=YES_I_KNOW \
+#       ..
+
+# make
