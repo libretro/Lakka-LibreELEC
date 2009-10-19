@@ -1,0 +1,73 @@
+diff -Naur samba-3.0.28a/source/utils/smbtree.c samba-3.0.28a.edit/source/utils/smbtree.c
+--- samba-3.0.28a/source/utils/smbtree.c	2008-04-05 16:11:02.000000000 +0200
++++ samba-3.0.28a.edit/source/utils/smbtree.c	2008-04-05 16:10:17.000000000 +0200
+@@ -181,16 +181,18 @@
+ }
+ 
+ 
+-static BOOL get_shares(char *server_name, struct user_auth_info *user_info)
++static BOOL get_shares(char *server_name, struct in_addr *server_ip, struct user_auth_info *user_info)
+ {
+         struct cli_state *cli;
+ 
+         if (!(cli = get_ipc_connect(server_name, NULL, user_info)))
+                 return False;
+ 
++        *server_ip = cli->dest_ip;
++        
+ 	if (get_rpc_shares(cli, add_name, &shares))
+ 		return True;
+-	
++        
+         if (!cli_RNetShareEnum(cli, add_name, &shares))
+                 return False;
+ 
+@@ -200,7 +202,8 @@
+ static BOOL print_tree(struct user_auth_info *user_info)
+ {
+         struct name_list *wg, *sv, *sh;
+-
++        struct in_addr server_ip;
++        
+         /* List workgroups */
+ 
+         if (!get_workgroups(user_info))
+@@ -208,8 +211,6 @@
+ 
+         for (wg = workgroups; wg; wg = wg->next) {
+ 
+-                printf("%s\n", wg->name);
+-
+                 /* List servers */
+ 
+                 free_name_list(servers);
+@@ -221,21 +222,23 @@
+ 
+                 for (sv = servers; sv; sv = sv->next) {
+ 
+-                        printf("\t\\\\%-15s\t\t%s\n", 
+-			       sv->name, sv->comment);
+-
+                         /* List shares */
+ 
+                         free_name_list(shares);
+                         shares = NULL;
+ 
+                         if (level == LEV_SERVER ||
+-                            !get_shares(sv->name, user_info))
++                            !get_shares(sv->name, &server_ip, user_info))
+                                 continue;
+ 
+                         for (sh = shares; sh; sh = sh->next) {
+-                                printf("\t\t\\\\%s\\%-15s\t%s\n", 
+-				       sv->name, sh->name, sh->comment);
++                                if (sh->server_type == STYPE_DISKTREE &&
++                                    sh->name[strlen(sh->name)-1] != '$') {
++                                  printf("%s/%s/%s\n",
++                                         sv->name, inet_ntoa(server_ip),
++                                         sh->name);
++                                  fflush(stdout);
++                                }
+                         }
+                 }
+         }

@@ -1,0 +1,47 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/build toolchain
+$SCRIPTS/build libiconv
+
+export samba_cv_HAVE_GETTIMEOFDAY_TZ=yes
+export samba_cv_USE_SETEUID=yes
+export samba_cv_HAVE_IFACE_IFCONF=yes
+export SMB_BUILD_CC_NEGATIVE_ENUM_VALUES=no
+export samba_cv_have_longlong=yes
+
+cd $PKG_BUILD/source
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --prefix=/usr \
+            --localstatedir=/var \
+            --with-configdir=/etc \
+            --with-privatedir=/etc \
+            --disable-pie \
+            --disable-cups \
+            --without-smbmount \
+            --with-cifsmount \
+            --without-ldap \
+            --without-winbind \
+            --with-included-popt \
+            --with-libsmbclient \
+            --without-ads \
+            --without-quotas \
+            --without-sys-quotas \
+            --with-syslog \
+            --with-libiconv=$LIB_PREFIX \
+
+make include/proto.h
+make bin/mount.cifs \
+     bin/smbtree \
+     bin/libsmbclient.so
+[ "$SAMBA_SERVER" = yes ] && make \
+     bin/smbd
+
+mkdir -p $SYSROOT_PREFIX/usr/lib
+cp bin/libsmbclient.so $SYSROOT_PREFIX/usr/lib
+
+mkdir -p $SYSROOT_PREFIX/usr/include
+cp include/libsmbclient.h $SYSROOT_PREFIX/usr/include
+cp include/libmsrpc.h $SYSROOT_PREFIX/usr/include

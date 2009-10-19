@@ -1,0 +1,62 @@
+#!/bin/sh
+
+#
+# Samba AutoMounter
+#
+
+MOUNT_POINT=/mnt/shares
+
+mount_samba () {
+  user=$1
+  pass=$2
+  name=$3
+  ip=$4
+  shift 4
+  while [ $# -gt 0 ]; do
+    dir="$MOUNT_POINT/$name/$1"
+    if [ ! -e "$dir" ]; then
+      mkdir -p "$dir"
+      mount "//$ip/$1" "$dir" -t cifs -o "ro,iocharset=utf8,user=$user,pass=$pass" || mount.cifs "//$name/$1" "$dir" -o "ro,iocharset=utf8,ip=$ip,username=$user,passwd=$pass" || rmdir -p "$dir"
+    fi
+    shift
+  done
+}
+
+do_static_mount () {
+  for STATIC_SMB in `sed -n "s/^STATIC_SMB=\"\(.*\)\"/\1/p" /etc/network`; do
+  (
+      USER=`echo $STATIC_SMB | sed "s/<%>.*//"`
+      PASS=`echo $STATIC_SMB | sed -e "s/.*<%>//" -e "s/<@>.*//"`
+        IP=`echo $STATIC_SMB | sed -e "s/.*<@>//" -e "s/<&>.*//"`
+      NAME=`echo $STATIC_SMB | sed -e "s/.*<&>//" -e "s/<#>.*//"`
+    MOUNTS="`echo $STATIC_SMB | sed "s/.*$NAME<#>//" | sed "s/<#>/ /g"`"
+    mount_samba "$USER" "$PASS" "$NAME" "$IP" $MOUNTS
+  )&
+  done
+}
+
+do_dynamic_mount () {
+  . /etc/network
+  OPT="-N"
+  test -n "$SMB_USER" && OPT="-U$SMB_USER%$SMB_PWD"
+  saveifs=$IFS
+  smbtree "$OPT" | while read mounts; do
+  (
+    IFS=/
+    mount_samba "$SMB_USER" "$SMB_PWD" $mounts
+    IFS=$saveifs
+  )&
+  done
+}
+
+. /etc/network.scripts
+
+wait_for_network
+
+if [ "$1" = static ]; then
+  do_static_mount
+else
+  do_dynamic_mount
+fi
+
+exit 0
