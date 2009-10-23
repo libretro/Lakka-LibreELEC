@@ -1,0 +1,82 @@
+#!/bin/sh
+################################################################################
+# Start XBMC Mediacenter program.
+#
+# The XBMC Mediacenter program (not the window manager) is the application that 
+# runs in the foreground because it is the only application that we can be sure
+# will be running.
+################################################################################
+
+. /etc/sysconfig
+
+export XBMC_HOME="/usr/share/xbmc"
+args="--standalone -fs --lircdev $LIRC_OUTPUT"
+LOOP=1
+
+print_crash_report()
+{
+  FILE="/storage/OpenELEC_crashlog-`date +%Y%m%d_%H%M%S`.log"
+  CORE=`ls -d core* | head -n1`
+  echo "############## XBMC CRASH LOG ###############" >> $FILE
+  echo >> $FILE
+  echo "################ SYSTEM INFO ################" >> $FILE
+  echo -n " Date: " >> $FILE
+  date >> $FILE
+  echo " XBMC Options: $*" >> $FILE
+  echo -n " Arch: " >> $FILE
+  uname -m >> $FILE
+  echo -n " Kernel: " >> $FILE
+  uname -rvs >> $FILE
+  echo -n " Release: " >> $FILE
+  if which lsb_release &> /dev/null; then
+    echo >> $FILE
+    lsb_release -a 2> /dev/null | sed -e 's/^/    /' >> $FILE
+  else
+    echo "lsb_release not available" >> $FILE
+  fi
+  echo "############## END SYSTEM INFO ##############" >> $FILE
+  echo >> $FILE
+  echo "############### STACK TRACE #################" >> $FILE
+  gdb /usr/share/xbmc/xbmc.bin --core=$CORE --batch -ex "thread apply all bt" 2> /dev/null >> $FILE
+  rm -f $CORE
+  echo "############# END STACK TRACE ###############" >> $FILE
+  echo >> $FILE
+  echo "################# LOG FILE ##################" >> $FILE
+  echo >> $FILE
+  if [ -f ~/.xbmc/temp/xbmc.log ]; then
+    cat ~/.xbmc/temp/xbmc.log >> $FILE
+    echo >> $FILE
+  else
+    echo "Logfile not found in the usual place." >> $FILE
+    echo "Please attach it seperately." >> $FILE
+    echo "Use pastebin.com or similar for forums or IRC." >> $FILE
+  fi
+  echo >> $FILE
+  echo "############### END LOG FILE ################" >> $FILE
+  echo >> $FILE
+  echo "############ END XBMC CRASH LOG #############" >> $FILE
+  echo "Crash report available at $FILE"
+}
+
+ulimit -c unlimited
+
+while true; do
+  DISPLAY=:0.0 /usr/bin/xbmc ${args} > /dev/null 2>&1
+  RET=$?
+  echo "Exited with code $RET"
+  if [[ $RET >= 131 && $RET <= 136] || $RET == 139 ]; then
+    print_crash_report
+  elif [ $RET == 0 ]; then
+    break
+  elif [ $RET == 64 ]; then
+    break
+    sync
+    poweroff
+    break
+  elif [ $RET == 65 || $RET == 66 ]; then
+    break
+    sync
+    reboot
+    break
+  fi
+done
