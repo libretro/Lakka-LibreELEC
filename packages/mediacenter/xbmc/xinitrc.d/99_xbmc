@@ -11,7 +11,6 @@
 
 export XBMC_HOME="/usr/share/xbmc"
 args="--standalone -fs --lircdev $LIRC_OUTPUT"
-LOOP=1
 
 print_crash_report()
 {
@@ -28,12 +27,7 @@ print_crash_report()
   echo -n " Kernel: " >> $FILE
   uname -rvs >> $FILE
   echo -n " Release: " >> $FILE
-  if which lsb_release &> /dev/null; then
-    echo >> $FILE
-    lsb_release -a 2> /dev/null | sed -e 's/^/    /' >> $FILE
-  else
-    echo "lsb_release not available" >> $FILE
-  fi
+  cat /etc/openelec-release >> $FILE
   echo "############## END SYSTEM INFO ##############" >> $FILE
   echo >> $FILE
   echo "############### STACK TRACE #################" >> $FILE
@@ -60,23 +54,31 @@ print_crash_report()
 
 ulimit -c unlimited
 
-while true; do
+while true
+do
   DISPLAY=:0.0 /usr/bin/xbmc ${args} > /dev/null 2>&1
   RET=$?
   echo "Exited with code $RET"
-  if [[ $RET >= 131 && $RET <= 136] || $RET == 139 ]; then
-    print_crash_report
-  elif [ $RET == 0 ]; then
+
+  if [ "$RET" == 0 ]; then
     break
-  elif [ $RET == 64 ]; then
-    break
+
+  elif [ "$RET" == 64 ]; then
     sync
     poweroff
-    break
-  elif [ $RET == 65 || $RET == 66 ]; then
-    break
+
+  elif [ "$RET" == 65 ]; then
+    LOOP=1
+
+  elif [ "$RET" == 66 ]; then
     sync
     reboot
-    break
+
+  elif [ "$RET" >= 131 ] && [ "$RET" <= 136 ]; then
+    print_crash_report
+
+  elif [ "$RET" == 139 ]; then
+    print_crash_report
+
   fi
 done
