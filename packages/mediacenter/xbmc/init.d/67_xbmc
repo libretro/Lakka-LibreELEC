@@ -1,0 +1,87 @@
+#!/bin/sh
+#
+# configure X.Org video settings
+#
+# runlevels: openelec
+
+. /etc/sysconfig
+
+progress "starting Mediacenter"
+
+. /etc/sysconfig
+
+export XBMC_HOME="/usr/share/xbmc"
+args="--standalone -fs --lircdev $LIRC_OUTPUT"
+
+print_crash_report()
+{
+  FILE="/storage/OpenELEC_crashlog-`date +%Y%m%d_%H%M%S`.log"
+  CORE=`ls -d core* | head -n1`
+  echo "############## XBMC CRASH LOG ###############" >> $FILE
+  echo >> $FILE
+  echo "################ SYSTEM INFO ################" >> $FILE
+  echo -n " Date: " >> $FILE
+  date >> $FILE
+  echo " XBMC Options: $*" >> $FILE
+  echo -n " Arch: " >> $FILE
+  uname -m >> $FILE
+  echo -n " Kernel: " >> $FILE
+  uname -rvs >> $FILE
+  echo -n " Release: " >> $FILE
+  cat /etc/openelec-release >> $FILE
+  echo "############## END SYSTEM INFO ##############" >> $FILE
+  echo >> $FILE
+  echo "############### STACK TRACE #################" >> $FILE
+  gdb /usr/share/xbmc/xbmc.bin --core=$CORE --batch -ex "thread apply all bt" 2> /dev/null >> $FILE
+  rm -f $CORE
+  echo "############# END STACK TRACE ###############" >> $FILE
+  echo >> $FILE
+  echo "################# LOG FILE ##################" >> $FILE
+  echo >> $FILE
+  if [ -f ~/.xbmc/temp/xbmc.log ]; then
+    cat ~/.xbmc/temp/xbmc.log >> $FILE
+    echo >> $FILE
+  else
+    echo "Logfile not found in the usual place." >> $FILE
+    echo "Please attach it seperately." >> $FILE
+    echo "Use pastebin.com or similar for forums or IRC." >> $FILE
+  fi
+  echo >> $FILE
+  echo "############### END LOG FILE ################" >> $FILE
+  echo >> $FILE
+  echo "############ END XBMC CRASH LOG #############" >> $FILE
+  echo "Crash report available at $FILE"
+}
+
+ulimit -c unlimited
+killall xsplash
+
+while true; do
+  if [ -f /tmp/.X0-lock ]; then
+    DISPLAY=:0.0 /usr/bin/xbmc ${args} > /dev/null 2>&1
+    RET=$?
+    echo "Exited with code $RET"
+
+    if [ "$RET" == 0 ]; then
+      break
+
+    elif [ "$RET" == 64 ]; then
+      sync
+      poweroff
+
+    elif [ "$RET" == 65 ]; then
+      LOOP=1
+
+    elif [ "$RET" == 66 ]; then
+      sync
+      reboot
+
+    elif [ "$RET" >= 131 ] && [ "$RET" <= 136 ]; then
+      print_crash_report
+
+    elif [ "$RET" == 139 ]; then
+      print_crash_report
+
+    fi
+  fi
+done
