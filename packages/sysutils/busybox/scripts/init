@@ -1,41 +1,37 @@
 #!/bin/sh
 
-# funktions
-  mount_sys() {
-    if ! /bin/mountpoint -q $1; then
-#      echo "### $1 does not exist, create it ###"
-      /bin/mount -t $2 none $1
-    fi
-  }
-
 # mounting needed filesystems
-  mount_sys "/dev" "devtmpfs"
-  mount_sys "/proc" "proc"
-  mount_sys "/sys" "sysfs"
-  mount_sys "/var" "ramfs"
+  /bin/mount -t devtmpfs none /dev
+  /bin/mount -t proc none /proc
+  /bin/mount -t sysfs none /sys
+  /bin/mount -t ramfs none /var
 
-# setting up $PATH
-  export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+# read config
+  . /etc/sysconfig
 
-# showing splash
-  test -f /usr/share/splash/splash.ppm && \
-  fbsplash -s /usr/share/splash/splash.ppm
+# make variable directory structure
+  install -m 755 -d /var/log
+  install -m 755 -d /var/log/gdm
+  install -m 755 -d /var/lock
+  install -m 755 -d /var/media
+  install -m 1777 -d /var/run
+  install -m 1777 -d /var/tmp
 
-# parse command line arguments
-  BOOT=`cat /proc/cmdline | sed 's/.*boot=// ; s/ .*//'`
-  DISK=`cat /proc/cmdline | sed 's/.*disk=// ; s/ .*//'`
-  #VERSION=`cat /proc/version | cut -f3 -d" "`
+# starting Xorg
+  start_xorg
 
-  for arg in $(cat /proc/cmdline); do
-    case $arg in
-      textmode)
-        TEXTMODE=yes
-        ;;
-      debugging)
-        DEBUG=yes
-        ;;
-    esac
+# starting Splash
+#  start_splash &
+
+# copying config into storage
+  mkdir -p $HOME/.config
+  for i in `ls /usr/config`; do
+    [ ! -f "$HOME/.config/$i" ] && \
+      cp -PR /usr/config/$i $HOME/.config
   done
+
+# setting hostname
+  echo localhost > /proc/sys/kernel/hostname
 
 # starting debugging shell
 #  if test "$DEBUG" = yes; then
@@ -43,23 +39,6 @@
     echo "### ...... switch with ctrl-alt-f3 ...... ###"
     exec /bin/sh </dev/tty3 >/dev/tty3 2>&1 &
 #  fi
-
-# make variable directory structure
-  install -m 1777 -d /var/run
-  install -m 755 -d /var/log
-  install -m 755 -d /var/lock
-  install -m 1777 -d /var/tmp
-  install -m 755 -d /var/media
-
-# setting hostname
-  echo localhost > /proc/sys/kernel/hostname
-
-  echo 0 > /proc/sys/dev/cdrom/autoclose
-  echo 0 > /proc/sys/dev/cdrom/lock
-
-# copying config into ram
-  [ -f "/usr/config/etc.tar.lzma" ] && \
-  tar xaf "/usr/config/etc.tar.lzma" -C /var
 
   RUNLEVEL="openelec"
   if test "$TEXTMODE" = yes; then
@@ -69,13 +48,13 @@
   fi
 
   count=0
-  for script in /etc/init.d/*; do
+  for script in /sbin/init.d/*; do
     grep -q -e "^# runlevels:.*$RUNLEVEL" $script && count=$(($count+1));
   done
 
   RET=0
 
-  for script in /etc/init.d/*; do
+  for script in /sbin/init.d/*; do
     if grep -q -e "^# runlevels:.*$RUNLEVEL" $script; then
       /bin/sh $script
       S_RET=$?
