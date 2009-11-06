@@ -1,0 +1,47 @@
+From dce8113d033975f56630cf6d2a6a908cfb66059d Mon Sep 17 00:00:00 2001
+From: Arjan van de Ven <arjan@linux.intel.com>
+Date: Sun, 20 Jul 2008 13:12:16 -0700
+Subject: [PATCH] fastboot: remove "wait for all devices before mounting root" delay
+
+In the non-initrd case, we wait for all devices to finish their
+probing before we try to mount the rootfs.
+In practice, this means that we end up waiting 2 extra seconds for
+the PS/2 mouse probing even though the root holding device has been
+ready since a long time.
+
+The previous two patches in this series made the RAID autodetect code
+do it's own "wait for probing to be done" code, and added
+"wait and retry" functionality in case the root device isn't actually
+available.
+
+These two changes should make it safe to remove the delay itself,
+and this patch does this. On my test laptop, this reduces the boot time
+by 2 seconds (kernel time goes from 3.9 to 1.9 seconds).
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+---
+---
+ init/do_mounts.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+Index: linux-2.6.29/init/do_mounts.c
+===================================================================
+--- linux-2.6.29.orig/init/do_mounts.c
++++ linux-2.6.29/init/do_mounts.c
+@@ -370,6 +370,7 @@ void __init prepare_namespace(void)
+ 		ssleep(root_delay);
+ 	}
+ 
++#if 0
+ 	/*
+ 	 * wait for the known devices to complete their probing
+ 	 *
+@@ -378,6 +379,8 @@ void __init prepare_namespace(void)
+ 	 * for the touchpad of a laptop to initialize.
+ 	 */
+ 	wait_for_device_probe();
++#endif
++	async_synchronize_full();
+ 
+ 	md_run_setup();
+ 
