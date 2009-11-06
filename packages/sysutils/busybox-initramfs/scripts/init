@@ -1,7 +1,8 @@
 #!/bin/sh
 
+  /bin/busybox clear
+
   /bin/busybox mount -t proc none /proc
-  /bin/busybox mount -t sysfs none /sys
   /bin/busybox mount -t devtmpfs none /dev
 
   BOOT=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*boot=// ; s/ .*//'`
@@ -19,14 +20,6 @@
         ;;
     esac
   done
-
-  show_splash() {
-    if [ "$SPLASH" = yes ]; then
-      if [ -f "/bin/ply-image" -a -f "/splash.png" ]; then
-        /bin/ply-image /splash.png
-      fi
-    fi
-  }
 
   progress() {
     if test "$DEBUG" = yes; then
@@ -57,9 +50,9 @@
   update() {
     if [ -f "$UPDATE_DIR/$2" ]; then
       echo "updating $1..."
-        /bin/busybox mount -o remount,rw,nobarrier /flash
+        /bin/busybox mount -o remount,rw /flash
         /bin/busybox mv $UPDATE_DIR/$2 $3
-        /bin/busybox mount -o remount,ro,nobarrier /flash
+        /bin/busybox mount -o remount,ro /flash
         /bin/busybox sync
       if [ $4 = reboot ]; then
         echo "System reboots now"
@@ -68,10 +61,8 @@
     fi
   }
 
-  show_splash
-
-  mount_part "$BOOT" "/flash" "ro,noatime,nobarrier"
-  [ -n $DISK ] && mount_part "$DISK" "/storage" "rw,noatime,nobarrier"
+  mount_part "$BOOT" "/flash" "ro,noatime"
+  [ -n $DISK ] && mount_part "$DISK" "/storage" "rw,noatime"
 #  mount_part "$DISK" "/storage" "rw,noatime"
 
   update "Kernel" "openelec.kernel" "/flash/openelec.kernel" "reboot"
@@ -87,10 +78,10 @@
 
   /bin/busybox mount --bind /flash /sysroot/flash
   /bin/busybox mount --bind /storage /sysroot/storage
-
   /bin/busybox umount /proc
-  /bin/busybox umount /sys
 
   exec /bin/busybox switch_root /sysroot /sbin/init.system
+#  exec /bin/busybox switch_root /sysroot /sbin/cinit
+
   error "INIT_3" "Error in initramfs. Could not switch to new root"
   debug_shell
