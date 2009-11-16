@@ -1,0 +1,38 @@
+diff --git a/os/log.c b/os/log.c
+index 0860847..2c46f1a 100644
+--- a/os/log.c
++++ b/os/log.c
+@@ -255,6 +255,33 @@ LogVWrite(int verb, const char *f, va_list args)
+     static char tmpBuffer[1024];
+     int len = 0;
+ 
++    struct timeval time;
++    time_t tv_sec;
++    suseconds_t tv_usec;
++    static Bool first = TRUE;
++    static time_t start_tv_sec;
++    static suseconds_t start_usec;
++    int diff_sec, diff_usec;
++
++    gettimeofday(&time, NULL);
++    tv_sec = time.tv_sec;
++    tv_usec = time.tv_usec;
++    if (first == TRUE) {
++        start_tv_sec = tv_sec;
++        start_usec = tv_usec;
++        first = FALSE;
++    }
++    diff_sec = (int)difftime(tv_sec, start_tv_sec);
++    diff_usec = (tv_usec - start_usec);
++    if (diff_usec < 0) {
++        diff_sec--;
++        diff_usec += 1000000;
++    }
++    sprintf(tmpBuffer, "[%d sec: %06d usec]", diff_sec , diff_usec);
++    len = strlen(tmpBuffer);
++    if (logFile)
++          fwrite(tmpBuffer, len, 1, logFile);
++
+     /*
+      * Since a va_list can only be processed once, write the string to a
+      * buffer, and then write the buffer out to the appropriate output
