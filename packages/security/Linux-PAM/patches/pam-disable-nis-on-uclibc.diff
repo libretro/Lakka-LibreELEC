@@ -1,0 +1,251 @@
+Index: Linux-PAM-1.0.2/Makefile.in
+===================================================================
+--- Linux-PAM-1.0.2.orig/Makefile.in	2008-08-29 01:14:12.000000000 -0700
++++ Linux-PAM-1.0.2/Makefile.in	2009-09-04 01:06:22.571466501 -0700
+@@ -71,8 +71,7 @@
+   distclean-recursive maintainer-clean-recursive
+ ETAGS = etags
+ CTAGS = ctags
+-DIST_SUBDIRS = libpam tests libpamc libpam_misc modules po conf doc \
+-	examples xtests
++DIST_SUBDIRS = libpam libpamc libpam_misc modules po conf
+ DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
+ distdir = $(PACKAGE)-$(VERSION)
+ top_distdir = $(distdir)
+@@ -244,8 +243,8 @@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ AUTOMAKE_OPTIONS = 1.9 gnu dist-bzip2 check-news
+-@STATIC_MODULES_FALSE@SUBDIRS = libpam tests libpamc libpam_misc modules po conf doc examples xtests
+-@STATIC_MODULES_TRUE@SUBDIRS = modules libpam libpamc libpam_misc tests po conf doc examples xtests
++@STATIC_MODULES_FALSE@SUBDIRS = libpam libpamc libpam_misc modules po conf
++@STATIC_MODULES_TRUE@SUBDIRS = modules libpam libpamc libpam_misc po conf
+ CLEANFILES = *~
+ M4_FILES = m4/codeset.m4 m4/gettext.m4 m4/glibc21.m4 m4/glibc2.m4 \
+ 	m4/iconv.m4 m4/intdiv0.m4 m4/intmax.m4 m4/inttypes_h.m4 \
+Index: Linux-PAM-1.0.2/modules/pam_access/pam_access.c
+===================================================================
+--- Linux-PAM-1.0.2.orig/modules/pam_access/pam_access.c	2007-12-07 07:40:01.000000000 -0800
++++ Linux-PAM-1.0.2/modules/pam_access/pam_access.c	2009-09-04 01:06:22.575455835 -0700
+@@ -41,7 +41,11 @@
+ #include <errno.h>
+ #include <ctype.h>
+ #include <sys/utsname.h>
++
++#ifdef NIS
+ #include <rpcsvc/ypclnt.h>
++#endif
++
+ #include <arpa/inet.h>
+ #include <netdb.h>
+ #include <sys/socket.h>
+@@ -479,8 +483,9 @@
+   char *mydomain = NULL;
+   int retval;
+ 
++#ifdef NIS
+   yp_get_default_domain(&mydomain);
+-
++#endif
+ 
+   retval = innetgr (netgroup, machine, user, mydomain);
+   if (debug == YES)
+Index: Linux-PAM-1.0.2/modules/pam_unix/Makefile.am
+===================================================================
+--- Linux-PAM-1.0.2.orig/modules/pam_unix/Makefile.am	2008-02-29 07:22:03.000000000 -0800
++++ Linux-PAM-1.0.2/modules/pam_unix/Makefile.am	2009-09-04 01:09:46.519457167 -0700
+@@ -32,7 +32,7 @@
+ 
+ securelib_LTLIBRARIES = pam_unix.la
+ 
+-noinst_HEADERS = md5.h support.h yppasswd.h bigcrypt.h passverify.h
++noinst_HEADERS = md5.h support.h bigcrypt.h passverify.h
+ 
+ sbin_PROGRAMS = unix_chkpwd unix_update
+ 
+@@ -40,7 +40,7 @@
+ 
+ pam_unix_la_SOURCES = bigcrypt.c pam_unix_acct.c \
+ 	pam_unix_auth.c pam_unix_passwd.c pam_unix_sess.c support.c \
+-	passverify.c yppasswd_xdr.c md5_good.c md5_broken.c
++	passverify.c md5_good.c md5_broken.c
+ 
+ bigcrypt_SOURCES = bigcrypt.c bigcrypt_main.c
+ bigcrypt_CFLAGS = $(AM_CFLAGS)
+Index: Linux-PAM-1.0.2/modules/pam_unix/Makefile.in
+===================================================================
+--- Linux-PAM-1.0.2.orig/modules/pam_unix/Makefile.in	2008-08-29 01:14:10.000000000 -0700
++++ Linux-PAM-1.0.2/modules/pam_unix/Makefile.in	2009-09-04 01:13:42.939510044 -0700
+@@ -74,7 +74,7 @@
+ pam_unix_la_DEPENDENCIES =
+ am_pam_unix_la_OBJECTS = bigcrypt.lo pam_unix_acct.lo pam_unix_auth.lo \
+ 	pam_unix_passwd.lo pam_unix_sess.lo support.lo passverify.lo \
+-	yppasswd_xdr.lo md5_good.lo md5_broken.lo
++	md5_good.lo md5_broken.lo
+ pam_unix_la_OBJECTS = $(am_pam_unix_la_OBJECTS)
+ pam_unix_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+ 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+@@ -310,10 +310,10 @@
+ 	@LIBCRYPT@ @LIBSELINUX@
+ 
+ securelib_LTLIBRARIES = pam_unix.la
+-noinst_HEADERS = md5.h support.h yppasswd.h bigcrypt.h passverify.h
++noinst_HEADERS = md5.h support.h bigcrypt.h passverify.h
+ pam_unix_la_SOURCES = bigcrypt.c pam_unix_acct.c \
+ 	pam_unix_auth.c pam_unix_passwd.c pam_unix_sess.c support.c \
+-	passverify.c yppasswd_xdr.c md5_good.c md5_broken.c
++	passverify.c md5_good.c md5_broken.c
+ 
+ bigcrypt_SOURCES = bigcrypt.c bigcrypt_main.c
+ bigcrypt_CFLAGS = $(AM_CFLAGS)
+@@ -465,7 +465,6 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unix_update-md5_good.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unix_update-passverify.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unix_update-unix_update.Po@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yppasswd_xdr.Plo@am__quote@
+ 
+ .c.o:
+ @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+Index: Linux-PAM-1.0.2/modules/pam_unix/pam_unix_passwd.c
+===================================================================
+--- Linux-PAM-1.0.2.orig/modules/pam_unix/pam_unix_passwd.c	2008-02-29 07:22:03.000000000 -0800
++++ Linux-PAM-1.0.2/modules/pam_unix/pam_unix_passwd.c	2009-09-04 01:06:22.579455994 -0700
+@@ -55,8 +55,11 @@
+ #include <sys/time.h>
+ #include <sys/stat.h>
+ #include <rpc/rpc.h>
++
++#ifdef NIS
+ #include <rpcsvc/yp_prot.h>
+ #include <rpcsvc/ypclnt.h>
++#endif
+ 
+ #include <signal.h>
+ #include <errno.h>
+@@ -77,7 +80,10 @@
+ #include <security/pam_ext.h>
+ #include <security/pam_modutil.h>
+ 
++#ifdef NIS
+ #include "yppasswd.h"
++#endif
++
+ #include "md5.h"
+ #include "support.h"
+ #include "passverify.h"
+@@ -105,6 +111,7 @@
+ 
+ static char *getNISserver(pam_handle_t *pamh)
+ {
++#ifdef NIS
+ 	char *master;
+ 	char *domainname;
+ 	int port, err;
+@@ -131,6 +138,9 @@
+ 		return NULL;
+ 	}
+ 	return master;
++#else
++	return NULL;
++#endif
+ }
+ 
+ #ifdef WITH_SELINUX
+@@ -301,6 +311,7 @@
+ 
+ 	if (on(UNIX_NIS, ctrl) && _unix_comesfromsource(pamh, forwho, 0, 1)) {
+ 	    if ((master=getNISserver(pamh)) != NULL) {
++#ifdef NIS
+ 		struct timeval timeout;
+ 		struct yppasswd yppwd;
+ 		CLIENT *clnt;
+@@ -362,6 +373,7 @@
+ #ifdef DEBUG
+ 		sleep(5);
+ #endif
++#endif
+ 	    } else {
+ 		    retval = PAM_TRY_AGAIN;
+ 	    }
+Index: Linux-PAM-1.0.2/modules/pam_unix/support.c
+===================================================================
+--- Linux-PAM-1.0.2.orig/modules/pam_unix/support.c	2008-01-23 07:35:13.000000000 -0800
++++ Linux-PAM-1.0.2/modules/pam_unix/support.c	2009-09-04 01:06:22.579455994 -0700
+@@ -19,7 +19,10 @@
+ #include <ctype.h>
+ #include <syslog.h>
+ #include <sys/resource.h>
++
++#ifdef NIS
+ #include <rpcsvc/ypclnt.h>
++#endif
+ 
+ #include <security/_pam_macros.h>
+ #include <security/pam_modules.h>
+@@ -266,6 +269,7 @@
+ 	if (!matched && nis) {
+ 		char *userinfo = NULL, *domain = NULL;
+ 		int len = 0, i;
++#ifdef NIS
+ 		len = yp_get_default_domain(&domain);
+ 		if (len == YPERR_SUCCESS) {
+ 			len = yp_bind(domain);
+@@ -280,6 +284,7 @@
+ 				matched = 1;
+ 			}
+ 		}
++#endif
+ 	}
+ 
+ 	if (matched && (ret != NULL)) {
+Index: Linux-PAM-1.0.2/modules/pam_unix/yppasswd.h
+===================================================================
+--- Linux-PAM-1.0.2.orig/modules/pam_unix/yppasswd.h	2000-06-20 15:12:08.000000000 -0700
++++ Linux-PAM-1.0.2/modules/pam_unix/yppasswd.h	2009-09-04 01:06:22.579455994 -0700
+@@ -13,6 +13,8 @@
+ #ifndef _YPPASSWD_H_
+ #define _YPPASSWD_H_
+ 
++#ifdef NIS
++
+ #define YPPASSWDPROG ((u_long)100009)
+ #define YPPASSWDVERS ((u_long)1)
+ #define YPPASSWDPROC_UPDATE ((u_long)1)
+@@ -48,4 +50,6 @@
+ bool_t xdr_xpasswd(XDR * xdrs, xpasswd * objp);
+ bool_t xdr_yppasswd(XDR * xdrs, yppasswd * objp);
+ 
++#endif
++
+ #endif	/* _YPPASSWD_H_ */
+Index: Linux-PAM-1.0.2/modules/pam_unix/yppasswd_xdr.c
+===================================================================
+--- Linux-PAM-1.0.2.orig/modules/pam_unix/yppasswd_xdr.c	2005-07-20 02:46:19.000000000 -0700
++++ Linux-PAM-1.0.2/modules/pam_unix/yppasswd_xdr.c	2009-09-04 01:06:22.579455994 -0700
+@@ -10,6 +10,8 @@
+  * editied manually.
+  */
+ 
++#ifdef NIS
++
+ #include "config.h"
+ 
+ #include <rpc/rpc.h>
+@@ -36,3 +38,5 @@
+ 	return xdr_string(xdrs, &objp->oldpass, ~0)
+ 	    && xdr_xpasswd(xdrs, &objp->newpw);
+ }
++
++#endif
+Index: Linux-PAM-1.0.2/po/POTFILES.in
+===================================================================
+--- Linux-PAM-1.0.2.orig/po/POTFILES.in	2008-02-13 06:39:41.000000000 -0800
++++ Linux-PAM-1.0.2/po/POTFILES.in	2009-09-04 01:06:22.579455994 -0700
+@@ -85,7 +85,6 @@
+ ./modules/pam_unix/passverify.c
+ ./modules/pam_unix/support.c
+ ./modules/pam_unix/unix_chkpwd.c
+-./modules/pam_unix/yppasswd_xdr.c
+ ./modules/pam_userdb/pam_userdb.c
+ ./modules/pam_warn/pam_warn.c
+ ./modules/pam_wheel/pam_wheel.c
