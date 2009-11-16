@@ -1,0 +1,61 @@
+#!/bin/sh
+
+# NOTE: The directory /var/lib/polkit-1 must be owned
+#       by root and have mode 700
+# NOTE: The file /usr/lib/polkit/polkit-agent-helper-1 must be owned
+#       by root and have mode 4755 (setuid root binary)
+# NOTE: The file ${exec_prefix}/bin/pkexec must be owned by root and
+#       have mode 4755 (setuid root binary)                  
+
+. config/options
+
+$SCRIPTS/install zlib
+$SCRIPTS/install sg3_utils
+$SCRIPTS/install glib
+$SCRIPTS/install udev
+$SCRIPTS/install eggdbus
+$SCRIPTS/install expat
+$SCRIPTS/install Linux-PAM
+
+  add_user polkit x 87 87 "PolicyKit User" "/" "/bin/sh"
+  add_group polkit 87
+
+mkdir -p $INSTALL/etc/dbus-1/system.d
+  cp -PR $PKG_BUILD/data/org.freedesktop.PolicyKit1.conf $INSTALL/etc/dbus-1/system.d
+
+mkdir -p $INSTALL/etc/pam.d
+  cp -PR $PKG_BUILD/data/polkit-1 $INSTALL/etc/pam.d
+
+mkdir -p $INSTALL/etc/polkit-1/localauthority.conf.d
+  cp -PR $PKG_BUILD/src/polkitbackend/50-localauthority.conf $INSTALL/etc/polkit-1/localauthority.conf.d
+
+mkdir -p $INSTALL/etc/polkit-1/nullbackend.conf.d
+  cp -PR $PKG_BUILD/src/nullbackend/50-nullbackend.conf $INSTALL/etc/polkit-1/nullbackend.conf.d
+
+mkdir -p $INSTALL/usr/bin
+  cp -PR $PKG_BUILD/src/programs/.libs/pkaction $INSTALL/usr/bin
+  cp -PR $PKG_BUILD/src/programs/.libs/pkcheck $INSTALL/usr/bin
+  cp -PR $PKG_BUILD/src/programs/.libs/pkexec $INSTALL/usr/bin
+    chmod 4755 $INSTALL/usr/bin/pkexec
+
+mkdir -p $INSTALL/usr/lib
+  cp -PR $PKG_BUILD/src/polkitagent/.libs/libpolkit-agent-1.so* $INSTALL/usr/lib
+  rm -rf $INSTALL/usr/lib/libpolkit-agent-1.so*T
+  cp -PR $PKG_BUILD/src/polkitbackend/.libs/libpolkit-backend-1.so* $INSTALL/usr/lib
+  rm -rf $INSTALL/usr/lib/libpolkit-backend-1.so*T
+  cp -PR $PKG_BUILD/src/polkit/.libs/libpolkit-gobject-1.so* $INSTALL/usr/lib
+
+mkdir -p $INSTALL/usr/lib/polkit-1/extensions
+  cp -PR $PKG_BUILD/src/nullbackend/.libs/*.so $INSTALL/usr/lib/polkit-1/extensions
+  cp -PR $PKG_BUILD/src/programs/.libs/*.so $INSTALL/usr/lib/polkit-1/extensions
+
+mkdir -p $INSTALL/usr/lib/polkit-1
+  cp -PR $PKG_BUILD/src/polkitagent/.libs/polkit-agent-helper-1 $INSTALL/usr/lib/polkit-1
+    chmod 4755 $INSTALL/usr/lib/polkit-1/polkit-agent-helper-1
+  cp -PR $PKG_BUILD/src/polkitd/.libs/polkitd $INSTALL/usr/lib/polkit-1
+
+mkdir -p $INSTALL/usr/share/dbus-1/system-services
+  cp -PR $PKG_BUILD/data/org.freedesktop.PolicyKit1.service $INSTALL/usr/share/dbus-1/system-services
+
+mkdir -p $INSTALL/usr/share/polkit-1/actions
+  cp -PR $PKG_BUILD/actions/org.freedesktop.policykit.policy $INSTALL/usr/share/polkit-1/actions
