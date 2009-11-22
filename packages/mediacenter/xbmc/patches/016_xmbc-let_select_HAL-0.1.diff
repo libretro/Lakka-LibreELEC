@@ -1,0 +1,76 @@
+diff -Naur xbmc-24572/configure.in xbmc-24572.patch/configure.in
+--- xbmc-24572/configure.in	2009-11-13 18:24:10.534620149 +0100
++++ xbmc-24572.patch/configure.in	2009-11-17 22:31:58.527230919 +0100
+@@ -39,6 +39,8 @@
+ faac_disabled="== FAAC support manually disabled. =="
+ dvdcss_enabled="== DVDCSS support enabled. =="
+ dvdcss_disabled="== DVDCSS support disabled. =="
++hal_not_found="== Could not find hal and hal-storage. HAL support disabled. =="
++hal_disabled="== HAL support disabled. =="
+ avahi_not_found="== Could not find libavahi-common or libavahi-client. Avahi support disabled. =="
+ avahi_disabled="== Avahi support disabled. =="
+ vdpau_not_found="== Could not find libvdpau. VDPAU support disabled. =="
+@@ -171,6 +173,11 @@
+                [enable MID support (default is no)])],
+             [use_mid=$enableval],
+             [use_mid=no])
++AC_ARG_ENABLE([hal],
++             [AS_HELP_STRING([--disable-hal],
++                [disable HAL support (default is enabled if hal and hal-storage is found)])],
++             [use_hal=$enableval],
++             [use_hal=yes])
+ AC_ARG_ENABLE([avahi],
+              [AS_HELP_STRING([--disable-avahi],
+                 [disable Avahi support (default is enabled if libavahi-common and libavahi-client is found)])],
+@@ -417,15 +424,9 @@
+   PKG_CHECK_MODULES([DBUS],         [dbus-1],
+                     [INCLUDES+=" $DBUS_CFLAGS"; LIBS+=" $DBUS_LIBS"],
+                     AC_MSG_ERROR($missing_library))
+-  PKG_CHECK_MODULES([HAL_STORAGE],  [hal-storage],
+-                    [INCLUDES+=" $HAL_STORAGE_CFLAGS"; LIBS+=" $HAL_STORAGE_LIBS"], 
+-                    AC_MSG_ERROR($missing_library))
+   PKG_CHECK_MODULES([SDL],          [sdl],
+                     [INCLUDES+=" $SDL_CFLAGS"; LIBS+=" $SDL_LIBS"],
+                     AC_MSG_ERROR($missing_library))
+-  PKG_CHECK_MODULES([HAL],          [hal],
+-                    [INCLUDES+=" $HAL_CFLAGS"; LIBS+=" $HAL_LIBS"],
+-                    AC_MSG_ERROR($missing_library))
+ fi
+ 
+ # PulseAudio
+@@ -454,6 +455,24 @@
+   fi
+ fi
+ 
++# HAL
++if test "$host_vendor" = "apple" ; then
++  use_hal="no"
++  AC_MSG_RESULT($hal_disabled)
++else
++  if test "$use_hal" = "yes"; then
++    PKG_CHECK_MODULES([HAL],  [hal],
++                    [INCLUDES+=" $HAL_CFLAGS"; LIBS+=" $HAL_LIBS"],
++                    use_hal=no;AC_MSG_ERROR($missing_library))
++    PKG_CHECK_MODULES([HAL_STORAGE],  [hal-storage],
++                    [INCLUDES+=" $HAL_STORAGE_CFLAGS"; LIBS+=" $HAL_STORAGE_LIBS"],
++                    use_hal=no;AC_MSG_ERROR($missing_library))
++    AC_DEFINE([HAS_HAL], [1], [Define to 1 if you have HAL installed])
++  else
++AC_MSG_RESULT($hal_disabled)
++  fi
++fi
++
+ # avahi
+ if test "$host_vendor" = "apple" ; then
+   use_avahi="no"
+diff -Naur xbmc-24572/guilib/system.h xbmc-24572.patch/guilib/system.h
+--- xbmc-24572/guilib/system.h	2009-11-13 18:24:28.712620840 +0100
++++ xbmc-24572.patch/guilib/system.h	2009-11-17 22:32:21.807233214 +0100
+@@ -110,7 +110,6 @@
+ #define HAS_AVAHI
+ #endif
+ #define HAS_LCD
+-#define HAS_HAL
+ #define HAS_DBUS
+ #define HAS_DBUS_SERVER
+ #define HAS_GL
