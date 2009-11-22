@@ -16,8 +16,14 @@ case "$2" in
   system)
 
     $SCRIPTS/install squashfs
-
+    $SCRIPTS/build fakeroot
+    
     export INSTALL=$BUILD/$1/$2
+
+    rm -rf $ROOT/.fakeroot   # remove /.fakeroot if it exist
+    touch $ROOT/.fakeroot    # create an empty /.fakeroot
+    chmod +x $ROOT/.fakeroot # make /.fakeroot executable
+    echo "chown -R 0:0 $INSTALL" >> $ROOT/.fakeroot
 
     rm -rf $INSTALL
     mkdir -p $INSTALL
@@ -34,11 +40,18 @@ case "$2" in
     mkdir -p $INSTALL/flash
     mkdir -p $INSTALL/storage
 
+    ln -sf /var $INSTALL/usr/var
+    ln -sf /var/tmp $INSTALL/tmp
+    ln -sf /var/media $INSTALL/media
+
 # Basissystem...
     $SCRIPTS/install uClibc
     $SCRIPTS/install gcc-final
     $SCRIPTS/install linux $2
     $SCRIPTS/install busybox
+
+#    $SCRIPTS/install ConsoleKit
+#    $SCRIPTS/install DeviceKit-disks
 
     echo $TARGET_ARCH > $INSTALL/etc/arch
     echo "$OPENELEC_VERSION" > $INSTALL/etc/version
@@ -58,26 +71,25 @@ case "$2" in
     [ "$EMULATORS" = yes ] && $SCRIPTS/install emulators
 
 # Devtools... (not for Release)
-   [ "$DEVTOOLS" = yes ] && $SCRIPTS/install debug
+    [ "$DEVTOOLS" = yes ] && $SCRIPTS/install debug
 
 # Devtools for Coreboot... (not for Release)
-   [ "$COREBOOT" = yes ] && $SCRIPTS/install superiotool
-   [ "$COREBOOT" = yes ] && $SCRIPTS/install flashrom
-   [ "$COREBOOT" = yes ] && $SCRIPTS/install getpir
+    [ "$COREBOOT" = yes ] && $SCRIPTS/install superiotool
+    [ "$COREBOOT" = yes ] && $SCRIPTS/install flashrom
+    [ "$COREBOOT" = yes ] && $SCRIPTS/install getpir
 
 # setting up hostname
-   echo "127.0.0.1 mobile.openelec.tv localhost" > $INSTALL/etc/hosts
+    echo "127.0.0.1 mobile.openelec.tv localhost" > $INSTALL/etc/hosts
 
-    ln -sf /var $INSTALL/usr/var
-    ln -sf /var/tmp $INSTALL/tmp
-    ln -sf /var/media $INSTALL/media
+  mkdir -p $ROOT/target
+    rm -rf $ROOT/target/OpenELEC-$PROJECT-$OPENELEC_VERSION.kernel
+    cp -PR $BUILD/linux-*/arch/x86/boot/bzImage $ROOT/target/OpenELEC-$PROJECT-$OPENELEC_VERSION.kernel
 
-    mkdir -p $ROOT/target
-      rm -rf $ROOT/target/OpenELEC-$PROJECT-$OPENELEC_VERSION.kernel
-      cp -PR $BUILD/linux-*/arch/x86/boot/bzImage $ROOT/target/OpenELEC-$PROJECT-$OPENELEC_VERSION.kernel
-    
-      rm -rf $ROOT/target/OpenELEC-$PROJECT-$MEDIACENTER-$OPENELEC_VERSION.system
-      $ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$PROJECT-$OPENELEC_VERSION.system -noappend -all-root
+    echo "rm -rf $ROOT/target/OpenELEC-$PROJECT-$MEDIACENTER-$OPENELEC_VERSION.system" >> $ROOT/.fakeroot
+    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$PROJECT-$OPENELEC_VERSION.system -noappend" >> $ROOT/.fakeroot #  -all-root
+    $ROOT/$TOOLCHAIN/bin/fakeroot -- $ROOT/.fakeroot
+    chmod 0644 $ROOT/target/OpenELEC-$PROJECT-$OPENELEC_VERSION.system
+    rm -rf $ROOT/.fakeroot
   ;;
 
   qemu)
