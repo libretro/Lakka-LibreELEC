@@ -3,10 +3,38 @@ set -e
 test -f config/target-$TARGET_PLATFORM && . config/target-$TARGET_PLATFORM
 
 # determine architecture's family
-TARGET_FAMILY=i686
-TARGET_NAME=$TARGET_FAMILY-linux-uclibc
-#determines TARGET_CPU, if not forced by user
-TARGET_CPU=generic
+case $TARGET_ARCH in
+  i386)
+    TARGET_FAMILY=i686
+    ;;
+
+  x86_64)
+    TARGET_FAMILY=x86_64
+    ;;
+esac
+
+case $TARGET_LIBC in
+  uClibc)
+    TARGET_NAME=$TARGET_FAMILY-openelec-linux-uclibc
+    ;;
+
+  eglibc)
+    TARGET_NAME=$TARGET_FAMILY-openelec-linux-gnu
+    ;;
+esac
+
+# determines TARGET_CPU, if not forced by user
+if [ -z "$TARGET_CPU" ]; then
+  case $TARGET_ARCH in
+    i386)
+      TARGET_CPU=generic
+      ;;
+
+    x86_64)
+      TARGET_CPU=generic
+      ;;
+  esac
+fi
 
 OPENELEC_VERSION=`cat VERSION`
 CONFIG=config
@@ -72,9 +100,20 @@ TARGET_RANLIB=${TARGET_PREFIX}ranlib
 TARGET_OBJCOPY=${TARGET_PREFIX}objcopy
 TARGET_STRIP=${TARGET_PREFIX}strip
 TARGET_CPPFLAGS=
-TARGET_CFLAGS="$GCC_OPTIM -Wall -pipe -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -march=$TARGET_FAMILY -mtune=$TARGET_CPU"
+TARGET_CFLAGS="$GCC_OPTIM -Wall -pipe -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -mtune=$TARGET_CPU"
 TARGET_CXXFLAGS="$TARGET_CFLAGS"
 TARGET_LDFLAGS=
+ 
+case $TARGET_ARCH in
+    i386)
+     TARGET_CFLAGS="$TARGET_CFLAGS -march=$TARGET_FAMILY"
+     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -march=$TARGET_FAMILY"
+     ;;
+    powerpc|powerpc64|x86_64)
+     TARGET_CFLAGS="$TARGET_CFLAGS -fPIC"
+     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -fPIC"
+     ;;
+esac
 
 if [ "$DEBUG" = yes ]; then
   TARGET_CFLAGS="$TARGET_CFLAGS -ggdb"
@@ -180,9 +219,9 @@ kernel_path() {
   ls -d $ROOT/$BUILD/linux*
 }
 
-require_glibc() {
-  if [ "$TARGET_LIBC" != glibc ]; then
-    echo "$1 requires glibc, aborting."
+require_eglibc() {
+  if [ "$TARGET_LIBC" != eglibc ]; then
+    echo "$1 requires eglibc, aborting."
     exit 1
   fi
 }
@@ -226,6 +265,6 @@ add_group() {
 INCLUDED_LANGS="en $MENU_LANG $INCLUDED_LANGS"
 
 # read personal options if available
-if [ -f $PROJECT_DIR/$PROJECT/options ]; then
-. $PROJECT_DIR/$PROJECT/options
-fi
+ if [ -f $PROJECT_DIR/$PROJECT/options ]; then
+ . $PROJECT_DIR/$PROJECT/options
+ fi

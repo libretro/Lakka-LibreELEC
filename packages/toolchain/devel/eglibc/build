@@ -1,0 +1,81 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/install gcc-core
+
+export BUILD_CC=$HOST_CC
+export OBJDUMP_FOR_HOST=objdump
+
+if [ "$TARGET_ARCH" = i386 ]; then
+  CFLAGS="-march=$(echo $TARGET_NAME | cut -d- -f 1) -mtune=generic"
+else
+  CFLAGS="-mtune=generic"
+fi
+CFLAGS="$CFLAGS -g -O2 -fno-stack-protector"
+#CFLAGS="$CFLAGS -g -Os"
+
+if [ "$DEBUG" = yes ]; then
+  DEBUG_CONFIG="--enable-debug"
+else
+  DEBUG_CONFIG="--disable-debug"
+  DEBUG_OPTIONS="OPTION_EGLIBC_BACKTRACE = n
+                 OPTION_EGLIBC_MEMUSAGE = n"
+fi
+
+NSS_CONF_DIR=`ls -d $ROOT/$BUILD/eglibc*/nss`
+
+cd $PKG_BUILD
+
+autoconf
+
+mkdir -p objdir-$1
+cd objdir-$1
+
+cat >config.cache <<EOF
+libc_cv_forced_unwind=yes
+libc_cv_c_cleanup=yes
+libc_cv_gnu89_inline=yes
+libc_cv_ssp=no
+EOF
+
+# needed by glib: OPTION_EGLIBC_LOCALE_CODE = y
+# needed by PAM:  OPTION_EGLIBC_GETLOGIN = y
+# needed by PAM:  OPTION_EGLIBC_UTMP = y
+
+cat >options-groups.conf <<EOF
+OPTION_EGLIBC_ADVANCED_INET6 = n
+OPTION_EGLIBC_BIG_MACROS = n
+OPTION_EGLIBC_BSD = n
+OPTION_EGLIBC_CATGETS = n
+OPTION_EGLIBC_CHARSETS = n
+OPTION_EGLIBC_DB_ALIASES = n
+OPTION_EGLIBC_LOCALES = n
+OPTION_EGLIBC_NIS = n
+OPTION_EGLIBC_NSSWITCH = n
+OPTION_EGLIBC_NSSWITCH_FIXED_CONFIG = $NSS_CONF_DIR/fixed-nsswitch.conf
+OPTION_EGLIBC_NSSWITCH_FIXED_FUNCTIONS = $NSS_CONF_DIR/fixed-nsswitch.functions
+OPTION_EGLIBC_RCMD = n
+OPTION_EGLIBC_UTMPX = n
+OPTION_POSIX_REGEXP_GLIBC = n
+$DEBUG_OPTIONS
+EOF
+
+../configure --host=$TARGET_NAME \
+             --build=$HOST_NAME \
+             --prefix=/usr \
+             --libexecdir=/usr/lib/eglibc \
+             --disable-profile \
+             --disable-sanity-checks \
+             --enable-add-ons=nptl \
+             --with-tls \
+             --enable-kernel=2.6.32 \
+             --with-__thread \
+             --with-binutils=$BUILD/toolchain/bin \
+             --with-headers=$SYSROOT_PREFIX/usr/include \
+             --cache-file=config.cache \
+             --without-cvs \
+             --without-gd \
+             $DEBUG_CONFIG \
+
+make

@@ -1,0 +1,47 @@
+#!/bin/sh
+
+. config/options
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+if [ "$2" = toolchain ]; then
+  rm -rf "$SYSROOT_PREFIX/lib" "$SYSROOT_PREFIX/usr/lib" "$SYSROOT_PREFIX/usr/include"
+  $SCRIPTS/install linux-headers
+
+  cd $PKG_BUILD/objdir-$1
+  cat >configparms <<EOF
+install_root=$SYSROOT_PREFIX
+EOF
+  make install
+  exit 0
+fi
+
+mkdir -p $INSTALL/lib $INSTALL/bin
+
+cp $PKG_BUILD/objdir-$1/elf/ld*.so.* $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/libc.so.6 $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/dlfcn/libdl.so.2 $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/nptl/libpthread.so.0 $INSTALL/lib
+[ "$GDB" = yes ] && cp $PKG_BUILD/objdir-$1/nptl_db/libthread_db.so.1 $INSTALL/lib
+if [ "$DEVTOOLS" = yes ]; then
+  cp $PKG_BUILD/objdir-$1/elf/ldd $INSTALL/bin
+  sed -i 's%bash%sh%g' $INSTALL/bin/ldd
+fi
+cp $PKG_BUILD/objdir-$1/math/libm.so.6 $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/login/libutil.so.1 $INSTALL/lib # e.g. for utmp support, needed by PAM_filter
+cp $PKG_BUILD/objdir-$1/rt/librt.so.1 $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/resolv/libnss_dns.so.2 $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/nis/libnsl.so.1 $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/nis/libnss_compat.so.2 $INSTALL/lib
+cp $PKG_BUILD/objdir-$1/nss/libnss_files.so.2 $INSTALL/lib
+if [ "$NETWORK" = yes ]; then
+  cp $PKG_BUILD/objdir-$1/crypt/libcrypt.so.1 $INSTALL/lib
+  cp $PKG_BUILD/objdir-$1/resolv/libresolv.so.2 $INSTALL/lib
+fi
+
+#$SCRIPTS/install timezone-data
+
+#mkdir -p $INSTALL/etc
+#cp $PKG_DIR/config/nsswitch.conf $INSTALL/etc
+
+exit 0
