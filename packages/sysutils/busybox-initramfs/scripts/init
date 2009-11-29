@@ -2,10 +2,14 @@
 
   /bin/busybox mount -t proc none /proc
   /bin/busybox mount -t devtmpfs none /dev
+  /bin/busybox mount -t sysfs none /sys
 
   BOOT=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*boot=// ; s/ .*//'`
   DISK=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*disk=// ; s/ .*//'`
   UPDATE_DIR=/storage/.update
+
+  IMAGE_SYSTEM="SYSTEM"
+  IMAGE_KERNEL="KERNEL"
 
   # parse command line arguments
   for arg in $(cat /proc/cmdline); do
@@ -52,10 +56,7 @@
         /bin/busybox mv $UPDATE_DIR/$2 $3
         /bin/busybox mount -o remount,ro /flash
         /bin/busybox sync
-      if [ $4 = reboot ]; then
-        echo "System reboots now"
-        /bin/busybox reboot
-      fi
+        [ $4 = "reboot" ] && REBOOT="reboot"
     fi
   }
 
@@ -63,21 +64,23 @@
   [ -n $DISK ] && mount_part "$DISK" "/storage" "rw,noatime"
 #  mount_part "$DISK" "/storage" "rw,noatime"
 
-  update "Kernel" "openelec.kernel" "/flash/openelec.kernel" "reboot"
-  update "System" "openelec.system" "/flash/openelec.system" "noreboot"
-  
-  if [ -f "/flash/openelec.system" ]; then
-    mount_part "/flash/openelec.system" "/sysroot" "loop"
+  update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL" "reboot"
+  update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+  [ $REBOOT = "reboot" ] && echo "System reboots now..." && /bin/busybox reboot
+
+  if [ -f "/flash/$IMAGE_SYSTEM" ]; then
+    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "loop"
     [ $ERR_ENV -ne 0 ] && debug_shell
   else
     error "INIT_2" "Could not find system."
     debug_shell
   fi
 
-  /bin/busybox mount --bind /flash /sysroot/flash
-  /bin/busybox mount --bind /storage /sysroot/storage
-  /bin/busybox umount /proc
-  /bin/busybox umount /dev
+  /bin/busybox mount --move /proc /sysroot/proc
+  /bin/busybox mount --move /sys /sysroot/sys
+  /bin/busybox mount --move /dev /sysroot/dev
+  /bin/busybox mount --move /flash /sysroot/flash
+  /bin/busybox mount --move /storage /sysroot/storage
 
   exec /bin/busybox switch_root /sysroot /sbin/init.system
 #  exec /bin/busybox switch_root /sysroot /sbin/cinit
