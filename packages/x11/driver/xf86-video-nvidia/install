@@ -1,0 +1,41 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/install linux
+
+require_eglibc $1
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+VER=`ls $BUILD/linux*/modules/lib/modules`
+
+mkdir -p $INSTALL/$XORG_PATH_MODULES/drivers
+  cp $BUILD/$1/usr/X11R6/lib/modules/drivers/*_drv.so $INSTALL/$XORG_PATH_MODULES/drivers
+
+mkdir -p $INSTALL/$XORG_PATH_MODULES/extensions
+  cp $BUILD/$1/usr/X11R6/lib/modules/extensions/libglx.so* $INSTALL/$XORG_PATH_MODULES/extensions/libglx_nvidia.so
+
+mkdir -p $INSTALL/usr/lib
+  cp $BUILD/$1/usr/lib/libGLcore.so* $INSTALL/usr/lib/libGLcore.so.1
+  cp $BUILD/$1/usr/lib/libGL.so* $INSTALL/usr/lib/libGL_nvidia.so.1
+  cp $BUILD/$1/usr/lib/tls/*tls*.so* $INSTALL/usr/lib/libnvidia-tls.so.1
+
+mkdir -p $INSTALL/lib/modules/$VER/nvidia
+  cp $BUILD/$1/usr/src/nv/nvidia.ko $INSTALL/lib/modules/$VER/nvidia
+
+  for MOD in `find $INSTALL/lib/modules/$VER/nvidia -name *.ko`; do
+    $STRIP --strip-debug $MOD
+  done
+
+  $BUILD/module-init-tool*/build/depmod -b $INSTALL -v $VER > /dev/null
+  for i in `ls $INSTALL/lib/modules/*/modules.* | grep -v modules.dep | grep -v modules.alias | grep -v modules.symbols`; do
+    rm -f $i
+  done
+
+if [ "$VDPAU" = yes ]; then
+  $SCRIPTS/install libvdpau
+  [ "$DEVTOOLS" = yes ] && $SCRIPTS/install vdpauinfo
+
+  cp $BUILD/$1/usr/lib/libvdpau_nvidia.so* $INSTALL/usr/lib/libvdpau_nvidia.so.1
+  ln -s libvdpau_nvidia.so.1 $INSTALL/usr/lib/libvdpau_nvidia.so
+fi

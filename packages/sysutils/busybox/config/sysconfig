@@ -11,12 +11,30 @@
   done
 
 # functions
+  progress() {
+    if test "$DEBUG" = yes; then
+      echo "### $1 ###"
+    fi
+  }
+
   start_xorg() {
     args="-s 0 -br -noreset -allowMouseOpenFail "
 
+    if lspci -n | grep 0300 | grep -q 10de; then
+      progress "### Found nVidia card, enabling binary driver as requested ###"
+      mkdir -p /var/lib
+        ln -sf /usr/lib/libGL_nvidia.so.1 /var/lib/libGL.so
+        ln -sf /usr/lib/xorg/modules/extensions/libglx_nvidia.so /var/lib/libglx.so
+    else
+      progress "### Not found nVidia card, enabling OSS driver as requested ###"
+      mkdir -p /var/lib
+        ln -sf /usr/lib/libGL_mesa.so.1 /var/lib/libGL.so
+        ln -sf /usr/lib/xorg/modules/extensions/libglx_mesa.so /var/lib/libglx.so
+    fi
+
     mkdir -p /var/cache/xkb
     exec /usr/bin/Xorg :0.0 vt01 ${args} > /dev/null 2>&1 &
-  }  
+  }
 
   start_splash() {
     while true; do 
@@ -26,12 +44,6 @@
         break
       fi
     done 
-  }
-
-  progress() {
-    if test "$DEBUG" = yes; then
-      echo "### $1 ###"
-    fi
   }
 
 # read config files
