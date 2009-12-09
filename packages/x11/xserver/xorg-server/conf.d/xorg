@@ -9,11 +9,37 @@
 # X environment variables.
 #-------------------------------------------------------------------------------
 DISPLAY=':0.0'
-TTY=1
-XINITRC='/usr/lib/X11/xinit/xinitrc'
-XSERVERRC='/usr/lib/X11/xinit/xserverrc'
+XORG_ARGS="-s 0 -br -noreset -allowMouseOpenFail -nocursor"
 
 export DISPLAY
-export XINITRC
-export XSERVERRC
-export TTY
+
+#-------------------------------------------------------------------------------
+# do not change anything below
+#-------------------------------------------------------------------------------
+
+  start_xorg() {
+
+    if lspci -n | grep 0300 | grep -q 10de; then
+      progress "Found nVidia card, enabling binary driver as requested"
+      mkdir -p /var/lib
+        ln -sf /usr/lib/libGL_nvidia.so.1 /var/lib/libGL.so
+        ln -sf /usr/lib/xorg/modules/extensions/libglx_nvidia.so /var/lib/libglx.so
+    else
+      progress "Not found nVidia card, enabling OSS driver as requested"
+      mkdir -p /var/lib
+        ln -sf /usr/lib/libGL_mesa.so.1 /var/lib/libGL.so
+        ln -sf /usr/lib/xorg/modules/extensions/libglx_mesa.so /var/lib/libglx.so
+    fi
+
+    mkdir -p /var/run
+      acpid 2>&1 > /dev/null
+
+    mkdir -p /var/cache/xkb
+      exec /usr/bin/Xorg $DISPLAY vt01 $XORG_ARGS > /dev/null 2>&1 &
+  }
+
+  wait_for_xorg () {
+    while [ ! -f /tmp/.X0-lock ]; do
+      true
+    done
+  }
