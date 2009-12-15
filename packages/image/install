@@ -7,10 +7,10 @@ PKG_DIR=`find $PACKAGES -type d -name $1`
 BUILD_DATE=`date +%Y%m%d`
 BZR_BUILD=`bzr version-info --custom --template={revno}`
 
-[ "$OPENELEC_VERSION" = devel ] && \
+[ "$OPENELEC_VERSION" = devel -o "$OPENELEC_VERSION" = debug ] && \
   OPENELEC_VERSION=$OPENELEC_VERSION-$BUILD_DATE-r$BZR_BUILD
-[ "$OPENELEC_VERSION" = debug ] && \
-  OPENELEC_VERSION=$OPENELEC_VERSION-$BUILD_DATE-r$BZR_BUILD
+
+TARGET_VERSION="$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION"
 
 case "$2" in
   system)
@@ -80,14 +80,23 @@ case "$2" in
     echo "127.0.0.1 mobile.openelec.tv localhost" > $INSTALL/etc/hosts
 
   mkdir -p $ROOT/target
-    rm -rf $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION.kernel
-    cp -PR $BUILD/linux-*/arch/x86/boot/bzImage $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION.kernel
+    rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.kernel
+    cp -PR $BUILD/linux-*/arch/x86/boot/bzImage $ROOT/target/OpenELEC-$TARGET_VERSION.kernel
 
-    echo "rm -rf $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION.system" >> $ROOT/.fakeroot.$PROJECT
-    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION.system -noappend -comp lzma" >> $ROOT/.fakeroot.$PROJECT
+    echo "rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.system" >> $ROOT/.fakeroot.$PROJECT
+    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.system -noappend -comp lzma" >> $ROOT/.fakeroot.$PROJECT
     $ROOT/$TOOLCHAIN/bin/fakeroot -- $ROOT/.fakeroot.$PROJECT
-    chmod 0644 $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION.system
+    chmod 0644 $ROOT/target/OpenELEC-$TARGET_VERSION.system
     rm -rf $ROOT/.fakeroot.$PROJECT
+  ;;
+
+  release)
+
+    $SCRIPTS/install image system
+
+    mkdir -p $ROOT/release
+      rm -rf $ROOT/release/OpenELEC-$TARGET_VERSION.tar.bz2
+
   ;;
 
   qemu)
@@ -95,18 +104,18 @@ case "$2" in
     $SCRIPTS/install image system
 
     mkdir -p $ROOT/target
-      rm -rf $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION-qemu.flash
-      qemu-img create -f raw $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION-qemu.flash 128M
-      /sbin/mkfs.ext3 -L OpenELEC -F $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION-qemu.flash
+      rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.flash
+      qemu-img create -f raw $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.flash 128M
+      /sbin/mkfs.ext3 -L OpenELEC -F $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.flash
 
     mkdir -p $ROOT/.tmp
-      sudo mount -o loop $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION-qemu.flash $ROOT/.tmp
-      cp -R $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION.system $ROOT/.tmp/openelec.system
+      sudo mount -o loop $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.flash $ROOT/.tmp
+      cp -R $ROOT/target/OpenELEC-$TARGET_VERSION.system $ROOT/.tmp/openelec.system
       sudo umount $ROOT/.tmp
 
-    rm -rf $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION-qemu.store
-    qemu-img create -f raw $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION-qemu.store 40M
-    /sbin/mkfs.ext3 -L OpenELEC -F $ROOT/target/OpenELEC-$PROJECT-$TARGET_LIBC-$OPENELEC_VERSION-qemu.store
+    rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.store
+    qemu-img create -f raw $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.store 40M
+    /sbin/mkfs.ext3 -L OpenELEC -F $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.store
   ;;
 
 esac
