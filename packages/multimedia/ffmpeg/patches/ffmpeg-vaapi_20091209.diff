@@ -1,28 +1,10 @@
-diff -Naur ffmpeg-20063.29725-old/configure ffmpeg-20063.29725-new/configure
---- ffmpeg-20063.29725-old/configure	2009-09-27 15:35:31.000000000 -0700
-+++ ffmpeg-20063.29725-new/configure	2009-09-27 15:35:31.000000000 -0700
-@@ -2788,6 +2788,65 @@
+diff -Naur ffmpeg-20520.29903-old/configure ffmpeg-20520.29903-new/configure
+--- ffmpeg-20520.29903-old/configure	2009-11-11 16:46:17.000000000 -0800
++++ ffmpeg-20520.29903-new/configure	2009-12-10 06:54:49.000000000 -0800
+@@ -2832,6 +2832,27 @@
      done
  fi
  
-+echocheck "OpenGL utilities (GLU)"
-+_glu=no
-+if test "$_gl" = yes; then
-+  cat > $TMPC << EOF
-+#include <GL/glu.h>
-+int main(void) {
-+  gluPerspective(0.0, 0.0, 0.0, 0.0);
-+  return 0;
-+}
-+EOF
-+  cc_check -lGLU && _glu=yes
-+fi
-+if test "$_glu" = yes; then
-+  libs_mplayer="$libs_mplayer -lGLU"
-+fi
-+echores "$_glu"
-+
-+
 +echocheck "VA API"
 +if test "$_vaapi" = yes -o "$_vaapi" = auto; then
 +  _vaapi=no
@@ -44,32 +26,12 @@ diff -Naur ffmpeg-20063.29725-old/configure ffmpeg-20063.29725-new/configure
 +  _libavhwaccels=`echo $_libavhwaccels | sed -e "s/\(MPEG[124]\|H26[34]\|WMV3\|VC1\)_VAAPI_HWACCEL//g"`
 +fi
 +echores "$_vaapi"
-+
-+echocheck "VA API (with GLX support)"
-+if test "$_vaapi" = yes; then
-+  _vaapi_glx=no
-+  if test "$_gl" = "yes" -a "$_glu" = yes; then
-+    cat > $TMPC <<EOF
-+#include <va/va_glx.h>
-+int main(void) { (void) vaGetDisplayGLX(0); return 0; }
-+EOF
-+    cc_check -lva-glx && _vaapi_glx=yes
-+  fi
-+fi
-+if test "$_vaapi_glx" = yes; then
-+  def_vaapi_glx='#define CONFIG_VAAPI_GLX 1'
-+  libs_mplayer="$libs_mplayer -lva-glx"
-+else
-+  def_vaapi_glx='#define CONFIG_VAAPI_GLX 0'
-+fi
-+echores "$_vaapi_glx"
-+
  
  # build pkg-config files
  
-diff -Naur ffmpeg-20063.29725-old/libavcodec/allcodecs.c ffmpeg-20063.29725-new/libavcodec/allcodecs.c
---- ffmpeg-20063.29725-old/libavcodec/allcodecs.c	2009-09-27 15:35:31.000000000 -0700
-+++ ffmpeg-20063.29725-new/libavcodec/allcodecs.c	2009-09-27 15:35:31.000000000 -0700
+diff -Naur ffmpeg-20520.29903-old/libavcodec/allcodecs.c ffmpeg-20520.29903-new/libavcodec/allcodecs.c
+--- ffmpeg-20520.29903-old/libavcodec/allcodecs.c	2009-11-11 16:46:14.000000000 -0800
++++ ffmpeg-20520.29903-new/libavcodec/allcodecs.c	2009-12-10 06:49:39.000000000 -0800
 @@ -55,6 +55,7 @@
  
      /* hardware accelerators */
@@ -78,9 +40,9 @@ diff -Naur ffmpeg-20063.29725-old/libavcodec/allcodecs.c ffmpeg-20063.29725-new/
      REGISTER_HWACCEL (MPEG2_VAAPI, mpeg2_vaapi);
      REGISTER_HWACCEL (MPEG4_VAAPI, mpeg4_vaapi);
      REGISTER_HWACCEL (VC1_VAAPI, vc1_vaapi);
-diff -Naur ffmpeg-20063.29725-old/libavcodec/Makefile ffmpeg-20063.29725-new/libavcodec/Makefile
---- ffmpeg-20063.29725-old/libavcodec/Makefile	2009-09-27 15:35:31.000000000 -0700
-+++ ffmpeg-20063.29725-new/libavcodec/Makefile	2009-09-27 15:35:31.000000000 -0700
+diff -Naur ffmpeg-20520.29903-old/libavcodec/Makefile ffmpeg-20520.29903-new/libavcodec/Makefile
+--- ffmpeg-20520.29903-old/libavcodec/Makefile	2009-11-11 16:46:15.000000000 -0800
++++ ffmpeg-20520.29903-new/libavcodec/Makefile	2009-12-10 06:49:39.000000000 -0800
 @@ -3,7 +3,7 @@
  NAME = avcodec
  FFLIBS = avutil
@@ -90,17 +52,17 @@ diff -Naur ffmpeg-20063.29725-old/libavcodec/Makefile ffmpeg-20063.29725-new/lib
  
  OBJS = allcodecs.o                                                      \
         audioconvert.o                                                   \
-@@ -108,6 +108,7 @@
- OBJS-$(CONFIG_H263_ENCODER)            += mpegvideo_enc.o motion_est.o ratecontrol.o h263.o mpeg12data.o mpegvideo.o error_resilience.o
- OBJS-$(CONFIG_H264_DECODER)            += h264.o h264idct.o h264pred.o h264_parser.o cabac.o mpegvideo.o error_resilience.o
+@@ -138,6 +138,7 @@
+                                           h264_parser.o cabac.o        \
+                                           mpegvideo.o error_resilience.o
  OBJS-$(CONFIG_H264_ENCODER)            += h264enc.o h264dspenc.o
 +OBJS-$(CONFIG_H264_VAAPI_HWACCEL)      += vaapi_h264.o
  OBJS-$(CONFIG_HUFFYUV_DECODER)         += huffyuv.o
  OBJS-$(CONFIG_HUFFYUV_ENCODER)         += huffyuv.o
  OBJS-$(CONFIG_IDCIN_DECODER)           += idcinvideo.o
-diff -Naur ffmpeg-20063.29725-old/libavcodec/vaapi_h264.c ffmpeg-20063.29725-new/libavcodec/vaapi_h264.c
---- ffmpeg-20063.29725-old/libavcodec/vaapi_h264.c	1969-12-31 16:00:00.000000000 -0800
-+++ ffmpeg-20063.29725-new/libavcodec/vaapi_h264.c	2009-09-27 15:35:31.000000000 -0700
+diff -Naur ffmpeg-20520.29903-old/libavcodec/vaapi_h264.c ffmpeg-20520.29903-new/libavcodec/vaapi_h264.c
+--- ffmpeg-20520.29903-old/libavcodec/vaapi_h264.c	1969-12-31 16:00:00.000000000 -0800
++++ ffmpeg-20520.29903-new/libavcodec/vaapi_h264.c	2009-12-10 06:49:39.000000000 -0800
 @@ -0,0 +1,353 @@
 +/*
 + * H.264 HW decode acceleration through VA API
@@ -455,3 +417,36 @@ diff -Naur ffmpeg-20063.29725-old/libavcodec/vaapi_h264.c ffmpeg-20063.29725-new
 +    .decode_slice   = decode_slice,
 +    .priv_data_size = 0,
 +};
+diff -Naur ffmpeg-20520.29903-old/libavcodec/vaapi_mpeg4.c ffmpeg-20520.29903-new/libavcodec/vaapi_mpeg4.c
+--- ffmpeg-20520.29903-old/libavcodec/vaapi_mpeg4.c	2009-11-11 16:46:15.000000000 -0800
++++ ffmpeg-20520.29903-new/libavcodec/vaapi_mpeg4.c	2009-12-10 06:49:39.000000000 -0800
+@@ -69,6 +69,7 @@
+     pic_param->vol_fields.bits.quarter_sample           = s->quarter_sample;
+     pic_param->vol_fields.bits.data_partitioned         = s->data_partitioning;
+     pic_param->vol_fields.bits.reversible_vlc           = s->rvlc;
++    pic_param->vol_fields.bits.resync_marker_disable    = !s->resync_marker;
+     pic_param->no_of_sprite_warping_points              = s->num_sprite_warping_points;
+     for (i = 0; i < s->num_sprite_warping_points && i < 3; i++) {
+         pic_param->sprite_trajectory_du[i]              = s->sprite_traj[i][0];
+@@ -84,6 +85,7 @@
+     pic_param->vop_fields.bits.alternate_vertical_scan_flag = s->alternate_scan;
+     pic_param->vop_fcode_forward                        = s->f_code;
+     pic_param->vop_fcode_backward                       = s->b_code;
++    pic_param->vop_time_increment_resolution            = avctx->time_base.den;
+     pic_param->num_macroblocks_in_gob                   = s->mb_width * ff_h263_get_gob_height(s);
+     pic_param->num_gobs_in_vop                          = (s->mb_width * s->mb_height) / pic_param->num_macroblocks_in_gob;
+     pic_param->TRB                                      = s->pb_time;
+diff -Naur ffmpeg-20520.29903-old/libavcodec/x86/dsputil_mmx.c ffmpeg-20520.29903-new/libavcodec/x86/dsputil_mmx.c
+--- ffmpeg-20520.29903-old/libavcodec/x86/dsputil_mmx.c	2009-12-10 06:49:10.000000000 -0800
++++ ffmpeg-20520.29903-new/libavcodec/x86/dsputil_mmx.c	2009-12-10 06:49:39.000000000 -0800
+@@ -2670,7 +2670,9 @@
+         c->add_pixels_clamped = add_pixels_clamped_mmx;
+         c->clear_block  = clear_block_mmx;
+         c->clear_blocks = clear_blocks_mmx;
+-        if (mm_flags & FF_MM_SSE){
++        if ((mm_flags & FF_MM_SSE) &&
++            !(CONFIG_MPEG_XVMC_DECODER && avctx->xvmc_acceleration > 1)){
++            /* XvMCCreateBlocks() may not allocate 16-byte aligned blocks */
+             c->clear_block  = clear_block_sse;
+             c->clear_blocks = clear_blocks_sse;
+         }
