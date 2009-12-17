@@ -10,6 +10,7 @@
 
   IMAGE_SYSTEM="SYSTEM"
   IMAGE_KERNEL="KERNEL"
+  REBOOT=0
 
   # parse command line arguments
   for arg in $(cat /proc/cmdline); do
@@ -56,16 +57,20 @@
         /bin/busybox mv $UPDATE_DIR/$2 $3
         /bin/busybox mount -o remount,ro /flash
         /bin/busybox sync
-        [ $4 = "reboot" ] && REBOOT="reboot"
+        [ $2 = $IMAGE_KERNEL ] && REBOOT=1
     fi
   }
 
   mount_part "$boot" "/flash" "ro,noatime"
   mount_part "$disk" "/storage" "rw,noatime"
 
-  update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL" "reboot"
+  update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
   update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
-  [ $REBOOT = "reboot" ] && echo "System reboots now..." && /bin/busybox reboot
+
+  if test "$REBOOT" -eq 1; then
+    echo "System reboots now..." && \
+    /bin/busybox reboot
+  fi
 
   if [ -f "/flash/$IMAGE_SYSTEM" ]; then
     mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "loop"
