@@ -1,0 +1,130 @@
+#!/bin/sh
+
+. config/options
+
+$SCRIPTS/build toolchain
+$SCRIPTS/build boost
+$SCRIPTS/build Python
+$SCRIPTS/build zlib
+$SCRIPTS/build bzip2
+$SCRIPTS/build lzo
+$SCRIPTS/build pcre
+
+$SCRIPTS/build alsa-lib
+$SCRIPTS/build enca
+$SCRIPTS/build curl
+
+$SCRIPTS/build dbus
+$SCRIPTS/build hal
+
+$SCRIPTS/build libXt
+$SCRIPTS/build libXtst
+$SCRIPTS/build libXmu
+$SCRIPTS/build libXinerama
+$SCRIPTS/build libXrandr
+
+$SCRIPTS/build $MESA #GL/GLU
+$SCRIPTS/build glew
+$SCRIPTS/build fontconfig
+$SCRIPTS/build fribidi
+
+$SCRIPTS/build jpeg
+$SCRIPTS/build libpng
+$SCRIPTS/build tiff
+$SCRIPTS/build freetype
+$SCRIPTS/build jasper
+# $SCRIPTS/build libass
+
+# $SCRIPTS/build a52dec
+$SCRIPTS/build libmad
+$SCRIPTS/build libsamplerate
+$SCRIPTS/build libogg
+$SCRIPTS/build libvorbis
+$SCRIPTS/build libcdio
+$SCRIPTS/build libmms
+$SCRIPTS/build faac
+$SCRIPTS/build faad2
+$SCRIPTS/build flac
+# $SCRIPTS/build libmpeg2
+# $SCRIPTS/build musepack
+
+$SCRIPTS/build SDL         #?
+$SCRIPTS/build SDL_mixer   #?
+$SCRIPTS/build SDL_image   #?
+
+$SCRIPTS/build avahi
+$SCRIPTS/build sqlite
+$SCRIPTS/build mysql #lib  #?
+$SCRIPTS/build samba #lib
+
+if [ "$VDPAU" = yes ]; then
+  $SCRIPTS/build libvdpau
+  XBMC_VDPAU="--enable-vdpau"
+else
+  XBMC_VDPAU="--disable-vdpau"
+fi
+
+if [ "$FFMPEG" = external ]; then
+  $SCRIPTS/build ffmpeg
+  XBMC_FFMPEG="--enable-external-ffmpeg"
+else
+  XBMC_FFMPEG="--disable-external-ffmpeg"
+fi
+
+LDFLAGS="$LDFLAGS -lpython2.6"
+
+cd $PKG_BUILD
+
+cd xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss
+./bootstrap
+cd -
+
+./bootstrap
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --prefix=/usr \
+            --exec-prefix=/usr \
+            --sysconfdir=/etc \
+            --datadir=/usr/share \
+            --enable-debug \
+            --enable-optimizations \
+            --enable-gl \
+            $XBMC_VDPAU \
+            --disable-profiling \
+            --disable-joystick \
+               --enable-xrandr \
+            --disable-ccache \
+            --disable-pulse \
+            --enable-faac \
+            --enable-dvdcss \
+            --disable-mid \
+            --disable-goom \
+            --disable-xbmcprojectm \
+            --disable-rsxs \
+            --enable-avahi \
+            --enable-hal \
+            $XBMC_FFMPEG \
+            --disable-external-liba52 \
+            --disable-external-libdts \
+            --disable-external-libmpeg2 \
+            --disable-external-libass \
+            --enable-external-libogg \
+            --enable-external-python \
+
+make externals
+make xbmc.bin
+make xbmc-xrandr
+
+# make -C tools/TexturePacker \
+#   CC=$HOST_CC \
+#   CXX=$HOST_CXX \
+#   INCLUDES="-I../../xbmc/utils -I../../guilib -I../../xbmc/linux -I../../xbmc/lib/libsquish" \
+#   CFLAGS="" \
+#   LDFLAGS=""
+
+# mkdir -p $ROOT/$TOOLCHAIN/bin
+#   cp -PR tools/TexturePacker $ROOT/$TOOLCHAIN/bin
+
+# make XBMXTEX=$ROOT/$TOOLCHAIN/bin/TexturePacker skins
+
+# make prefix=`pwd`/.install-data install-datas
