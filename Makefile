@@ -1,8 +1,3 @@
-# Use shell variables, if defined
-ifeq ($(PROJECT),)
-export PROJECT=generic
-endif
-
 BUILD_DIRS="build.*"
 
 all: system
