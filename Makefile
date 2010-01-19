@@ -5,6 +5,9 @@ all: system
 system:
 	./scripts/install image system
 
+release:
+	./scripts/install image release
+
 qemu:
 	./scripts/install image qemu
 

@@ -2,13 +2,13 @@
 
 . config/options
 
-PKG_DIR=`find $PACKAGES -type d -name $1`
+#PKG_DIR=`find $PACKAGES -type d -name $1`
 
-BUILD_DATE=`date +%Y%m%d`
-BZR_BUILD=`bzr version-info --custom --template={revno}`
-
-[ "$OPENELEC_VERSION" = devel -o "$OPENELEC_VERSION" = debug ] && \
+if [ "$OPENELEC_VERSION" = devel -o "$OPENELEC_VERSION" = debug ]; then
+  BUILD_DATE=`date +%Y%m%d`
+  BZR_BUILD=`bzr version-info --custom --template={revno}`
   OPENELEC_VERSION=$OPENELEC_VERSION-$BUILD_DATE-r$BZR_BUILD
+fi
 
 TARGET_VERSION="$PROJECT.$TARGET_ARCH-$OPENELEC_VERSION"
 
@@ -79,6 +79,9 @@ case "$2" in
 # setting up hostname
     echo "127.0.0.1 mobile.openelec.tv localhost" > $INSTALL/etc/hosts
 
+# setting
+    echo $TARGET_VERSION > $INSTALL/etc/release
+
   mkdir -p $ROOT/target
     rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.kernel
     cp -PR $BUILD/linux-*/arch/x86/boot/bzImage $ROOT/target/OpenELEC-$TARGET_VERSION.kernel
@@ -94,9 +97,27 @@ case "$2" in
 
     $SCRIPTS/install image system
 
-    mkdir -p $ROOT/release
-      rm -rf $ROOT/release/OpenELEC-$TARGET_VERSION.tar.bz2
+# cleanup
+    rm -rf $BUILD/$2/OpenELEC-$TARGET_VERSION
 
+    mkdir -p $BUILD/$2/OpenELEC-$TARGET_VERSION
+      cp -R $CONFIG/release/* $BUILD/$2/OpenELEC-$TARGET_VERSION
+      echo "$TARGET_VERSION" > $BUILD/$2/OpenELEC-$TARGET_VERSION/RELEASE
+      cp $ROOT/CHANGELOG $BUILD/$2/OpenELEC-$TARGET_VERSION
+
+    mkdir -p $BUILD/$2/OpenELEC-$TARGET_VERSION/licenses
+      cp $ROOT/licenses/* $BUILD/$2/OpenELEC-$TARGET_VERSION/licenses
+
+    mkdir -p $BUILD/$2/OpenELEC-$TARGET_VERSION/target
+      cp $ROOT/target/OpenELEC-$TARGET_VERSION.system $BUILD/$2/OpenELEC-$TARGET_VERSION/target/SYSTEM
+      cp $ROOT/target/OpenELEC-$TARGET_VERSION.kernel $BUILD/$2/OpenELEC-$TARGET_VERSION/target/KERNEL
+
+# create release directory
+    mkdir -p $ROOT/target
+
+# remove an previous created release tarball
+    rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.tar.bz2
+    tar cjf $ROOT/target/OpenELEC-$TARGET_VERSION.tar.bz2 -C $BUILD/$2 OpenELEC-$TARGET_VERSION
   ;;
 
   qemu)
@@ -116,6 +137,7 @@ case "$2" in
     rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.store
     qemu-img create -f raw $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.store 40M
     /sbin/mkfs.ext3 -L OpenELEC -F $ROOT/target/OpenELEC-$TARGET_VERSION-qemu.store
+
   ;;
 
 esac
