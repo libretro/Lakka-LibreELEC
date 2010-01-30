@@ -1,6 +1,100 @@
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_defs.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bc_dts_defs.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_defs.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bc_dts_defs.h	2010-01-21 10:38:25.000000000 +0100
+Broadcom Crystal HD video decoder driver from upstream staging/linux-next.
+
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+
+---
+ drivers/staging/Kconfig                     |    2 +
+ drivers/staging/Makefile                    |    1 +
+ drivers/staging/crystalhd/Kconfig           |    6 +
+ drivers/staging/crystalhd/Makefile          |    6 +
+ drivers/staging/crystalhd/TODO              |   16 +
+ drivers/staging/crystalhd/bc_dts_defs.h     |  498 ++++++
+ drivers/staging/crystalhd/bc_dts_glob_lnx.h |  299 ++++
+ drivers/staging/crystalhd/bc_dts_types.h    |  121 ++
+ drivers/staging/crystalhd/bcm_70012_regs.h  |  757 +++++++++
+ drivers/staging/crystalhd/crystalhd_cmds.c  | 1058 ++++++++++++
+ drivers/staging/crystalhd/crystalhd_cmds.h  |   88 +
+ drivers/staging/crystalhd/crystalhd_fw_if.h |  369 ++++
+ drivers/staging/crystalhd/crystalhd_hw.c    | 2395 +++++++++++++++++++++++++++
+ drivers/staging/crystalhd/crystalhd_hw.h    |  398 +++++
+ drivers/staging/crystalhd/crystalhd_lnx.c   |  780 +++++++++
+ drivers/staging/crystalhd/crystalhd_lnx.h   |   96 ++
+ drivers/staging/crystalhd/crystalhd_misc.c  | 1029 ++++++++++++
+ drivers/staging/crystalhd/crystalhd_misc.h  |  229 +++
+ 18 files changed, 8148 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
+index 94eb863..61ec152 100644
+--- a/drivers/staging/Kconfig
++++ b/drivers/staging/Kconfig
+@@ -145,5 +145,7 @@ source "drivers/staging/netwave/Kconfig"
+ 
+ source "drivers/staging/sm7xx/Kconfig"
+ 
++source "drivers/staging/crystalhd/Kconfig"
++
+ endif # !STAGING_EXCLUDE_BUILD
+ endif # STAGING
+diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
+index b5e67b8..dc40493 100644
+--- a/drivers/staging/Makefile
++++ b/drivers/staging/Makefile
+@@ -53,3 +53,4 @@ obj-$(CONFIG_WAVELAN)		+= wavelan/
+ obj-$(CONFIG_PCMCIA_WAVELAN)	+= wavelan/
+ obj-$(CONFIG_PCMCIA_NETWAVE)	+= netwave/
+ obj-$(CONFIG_FB_SM7XX)		+= sm7xx/
++obj-$(CONFIG_CRYSTALHD)		+= crystalhd/
+diff --git a/drivers/staging/crystalhd/Kconfig b/drivers/staging/crystalhd/Kconfig
+new file mode 100644
+index 0000000..56b414b
+--- /dev/null
++++ b/drivers/staging/crystalhd/Kconfig
+@@ -0,0 +1,6 @@
++config CRYSTALHD
++	tristate "Broadcom Crystal HD video decoder support"
++	depends on PCI
++	default n
++	help
++	  Support for the Broadcom Crystal HD video decoder chipset
+diff --git a/drivers/staging/crystalhd/Makefile b/drivers/staging/crystalhd/Makefile
+new file mode 100644
+index 0000000..e2af0ce
+--- /dev/null
++++ b/drivers/staging/crystalhd/Makefile
+@@ -0,0 +1,6 @@
++obj-$(CONFIG_CRYSTALHD)	+= crystalhd.o
++
++crystalhd-objs		:= crystalhd_cmds.o	\
++			   crystalhd_hw.o	\
++			   crystalhd_lnx.o	\
++			   crystalhd_misc.o
+diff --git a/drivers/staging/crystalhd/TODO b/drivers/staging/crystalhd/TODO
+new file mode 100644
+index 0000000..69be5d0
+--- /dev/null
++++ b/drivers/staging/crystalhd/TODO
+@@ -0,0 +1,16 @@
++- Testing
++- Cleanup return codes
++- Cleanup typedefs
++- Cleanup all WIN* references
++- Allocate an Accelerator device class specific Major number,
++  since we don't have any other open sourced accelerators, it is the only
++  one in that category for now.
++  A somewhat similar device is the DXR2/3
++
++Please send patches to:
++Greg Kroah-Hartman <greg@kroah.com>
++Naren Sankar <nsankar@broadcom.com>
++Jarod Wilson <jarod@wilsonet.com>
++Scott Davilla <davilla@4pi.com>
++Manu Abraham <abraham.manu@gmail.com>
++
+diff --git a/drivers/staging/crystalhd/bc_dts_defs.h b/drivers/staging/crystalhd/bc_dts_defs.h
+new file mode 100644
+index 0000000..c34cc07
+--- /dev/null
++++ b/drivers/staging/crystalhd/bc_dts_defs.h
 @@ -0,0 +1,498 @@
 +/********************************************************************
 + * Copyright(c) 2006-2009 Broadcom Corporation.
@@ -500,9 +594,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_defs.h linux-2.6.33
 +
 +
 +#endif	/* _BC_DTS_DEFS_H_ */
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_glob_lnx.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bc_dts_glob_lnx.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_glob_lnx.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bc_dts_glob_lnx.h	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/bc_dts_glob_lnx.h b/drivers/staging/crystalhd/bc_dts_glob_lnx.h
+new file mode 100644
+index 0000000..b3125e3
+--- /dev/null
++++ b/drivers/staging/crystalhd/bc_dts_glob_lnx.h
 @@ -0,0 +1,299 @@
 +/********************************************************************
 + * Copyright(c) 2006-2009 Broadcom Corporation.
@@ -803,9 +899,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_glob_lnx.h linux-2.
 +};
 +
 +#endif
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_types.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bc_dts_types.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bc_dts_types.h	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/bc_dts_types.h b/drivers/staging/crystalhd/bc_dts_types.h
+new file mode 100644
+index 0000000..ac0c817
+--- /dev/null
++++ b/drivers/staging/crystalhd/bc_dts_types.h
 @@ -0,0 +1,121 @@
 +/********************************************************************
 + * Copyright(c) 2006-2009 Broadcom Corporation.
@@ -928,9 +1026,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bc_dts_types.h linux-2.6.3
 +
 +#endif
 +
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bcm_70012_regs.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bcm_70012_regs.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/bcm_70012_regs.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/bcm_70012_regs.h	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/bcm_70012_regs.h b/drivers/staging/crystalhd/bcm_70012_regs.h
+new file mode 100644
+index 0000000..6922f54
+--- /dev/null
++++ b/drivers/staging/crystalhd/bcm_70012_regs.h
 @@ -0,0 +1,757 @@
 +/***************************************************************************
 + * Copyright (c) 1999-2009, Broadcom Corporation.
@@ -1689,9 +1789,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/bcm_70012_regs.h linux-2.6
 +
 +/* End of File */
 +
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_cmds.c linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_cmds.c
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_cmds.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_cmds.c	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_cmds.c b/drivers/staging/crystalhd/crystalhd_cmds.c
+new file mode 100644
+index 0000000..39c641d
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_cmds.c
 @@ -0,0 +1,1058 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
@@ -2751,9 +2853,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_cmds.c linux-2.6
 +
 +	return crystalhd_hw_interrupt(ctx->adp, &ctx->hw_ctx);
 +}
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_cmds.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_cmds.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_cmds.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_cmds.h	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_cmds.h b/drivers/staging/crystalhd/crystalhd_cmds.h
+new file mode 100644
+index 0000000..6b290ae
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_cmds.h
 @@ -0,0 +1,88 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
@@ -2843,9 +2947,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_cmds.h linux-2.6
 +bool crystalhd_cmd_interrupt(struct crystalhd_cmd *ctx);
 +
 +#endif
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_fw_if.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_fw_if.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_fw_if.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_fw_if.h	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_fw_if.h b/drivers/staging/crystalhd/crystalhd_fw_if.h
+new file mode 100644
+index 0000000..261cd19
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_fw_if.h
 @@ -0,0 +1,369 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
@@ -3216,9 +3322,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_fw_if.h linux-2.
 +} eC011_TS_CMD;
 +
 +#endif
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_hw.c linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_hw.c
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_hw.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_hw.c	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_hw.c b/drivers/staging/crystalhd/crystalhd_hw.c
+new file mode 100644
+index 0000000..01819d3
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_hw.c
 @@ -0,0 +1,2395 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
@@ -5615,9 +5723,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_hw.c linux-2.6.3
 +	BCMLOG(BCMLOG_INFO, "clk change failed\n");
 +	return BC_STS_CLK_NOCHG;
 +}
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_hw.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_hw.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_hw.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_hw.h	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_hw.h b/drivers/staging/crystalhd/crystalhd_hw.h
+new file mode 100644
+index 0000000..1c6318e
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_hw.h
 @@ -0,0 +1,398 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
@@ -6017,9 +6127,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_hw.h linux-2.6.3
 +BC_STATUS crystalhd_hw_set_core_clock(struct crystalhd_hw *);
 +
 +#endif
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_lnx.c linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_lnx.c
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_lnx.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_lnx.c	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_lnx.c b/drivers/staging/crystalhd/crystalhd_lnx.c
+new file mode 100644
+index 0000000..1f36b4d
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_lnx.c
 @@ -0,0 +1,780 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
@@ -6801,10 +6913,12 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_lnx.c linux-2.6.
 +module_init(chd_dec_module_init);
 +module_exit(chd_dec_module_cleanup);
 +
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_lnx.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_lnx.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_lnx.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_lnx.h	2010-01-21 10:38:25.000000000 +0100
-@@ -0,0 +1,95 @@
+diff --git a/drivers/staging/crystalhd/crystalhd_lnx.h b/drivers/staging/crystalhd/crystalhd_lnx.h
+new file mode 100644
+index 0000000..d338ae9
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_lnx.h
+@@ -0,0 +1,96 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
 + *
@@ -6847,6 +6961,7 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_lnx.h linux-2.6.
 +#include <linux/init.h>
 +#include <linux/interrupt.h>
 +#include <linux/pagemap.h>
++#include <linux/vmalloc.h>
 +
 +#include <asm/io.h>
 +#include <asm/irq.h>
@@ -6900,9 +7015,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_lnx.h linux-2.6.
 +
 +#endif
 +
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_misc.c linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_misc.c
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_misc.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_misc.c	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_misc.c b/drivers/staging/crystalhd/crystalhd_misc.c
+new file mode 100644
+index 0000000..32e632c
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_misc.c
 @@ -0,0 +1,1029 @@
 +/***************************************************************************
 + *	   Copyright (c) 2005-2009, Broadcom Corporation.
@@ -7933,9 +8050,11 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_misc.c linux-2.6
 +		}
 +	}
 +}
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_misc.h linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_misc.h
---- linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_misc.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/crystalhd_misc.h	2010-01-21 10:38:25.000000000 +0100
+diff --git a/drivers/staging/crystalhd/crystalhd_misc.h b/drivers/staging/crystalhd/crystalhd_misc.h
+new file mode 100644
+index 0000000..a2aa6ad
+--- /dev/null
++++ b/drivers/staging/crystalhd/crystalhd_misc.h
 @@ -0,0 +1,229 @@
 +/***************************************************************************
 + * Copyright (c) 2005-2009, Broadcom Corporation.
@@ -8166,62 +8285,3 @@ diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/crystalhd_misc.h linux-2.6
 +} while (0);
 +
 +#endif
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/Kconfig linux-2.6.33-rc4.patch/drivers/staging/crystalhd/Kconfig
---- linux-2.6.33-rc4/drivers/staging/crystalhd/Kconfig	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/Kconfig	2010-01-21 10:38:25.000000000 +0100
-@@ -0,0 +1,6 @@
-+config CRYSTALHD
-+	tristate "Broadcom Crystal HD video decoder support"
-+	depends on PCI
-+	default n
-+	help
-+	  Support for the Broadcom Crystal HD video decoder chipset
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/Makefile linux-2.6.33-rc4.patch/drivers/staging/crystalhd/Makefile
---- linux-2.6.33-rc4/drivers/staging/crystalhd/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/Makefile	2010-01-21 10:38:25.000000000 +0100
-@@ -0,0 +1,6 @@
-+obj-$(CONFIG_CRYSTALHD)	+= crystalhd.o
-+
-+crystalhd-objs		:= crystalhd_cmds.o	\
-+			   crystalhd_hw.o	\
-+			   crystalhd_lnx.o	\
-+			   crystalhd_misc.o
-diff -Naur linux-2.6.33-rc4/drivers/staging/crystalhd/TODO linux-2.6.33-rc4.patch/drivers/staging/crystalhd/TODO
---- linux-2.6.33-rc4/drivers/staging/crystalhd/TODO	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/crystalhd/TODO	2010-01-21 10:38:25.000000000 +0100
-@@ -0,0 +1,16 @@
-+- Testing
-+- Cleanup return codes
-+- Cleanup typedefs
-+- Cleanup all WIN* references
-+- Allocate an Accelerator device class specific Major number,
-+  since we don't have any other open sourced accelerators, it is the only
-+  one in that category for now.
-+  A somewhat similar device is the DXR2/3
-+
-+Please send patches to:
-+Greg Kroah-Hartman <greg@kroah.com>
-+Naren Sankar <nsankar@broadcom.com>
-+Jarod Wilson <jarod@wilsonet.com>
-+Scott Davilla <davilla@4pi.com>
-+Manu Abraham <abraham.manu@gmail.com>
-+
-diff -Naur linux-2.6.33-rc4/drivers/staging/Kconfig linux-2.6.33-rc4.patch/drivers/staging/Kconfig
---- linux-2.6.33-rc4/drivers/staging/Kconfig	2010-01-13 06:15:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/Kconfig	2010-01-21 11:14:58.017474354 +0100
-@@ -145,5 +145,7 @@
- 
- source "drivers/staging/sm7xx/Kconfig"
- 
-+source "drivers/staging/crystalhd/Kconfig"
-+
- endif # !STAGING_EXCLUDE_BUILD
- endif # STAGING
-diff -Naur linux-2.6.33-rc4/drivers/staging/Makefile linux-2.6.33-rc4.patch/drivers/staging/Makefile
---- linux-2.6.33-rc4/drivers/staging/Makefile	2010-01-13 06:15:00.000000000 +0100
-+++ linux-2.6.33-rc4.patch/drivers/staging/Makefile	2010-01-21 11:15:23.593475195 +0100
-@@ -53,3 +53,4 @@
- obj-$(CONFIG_PCMCIA_WAVELAN)	+= wavelan/
- obj-$(CONFIG_PCMCIA_NETWAVE)	+= netwave/
- obj-$(CONFIG_FB_SM7XX)		+= sm7xx/
-+obj-$(CONFIG_CRYSTALHD)		+= crystalhd/
