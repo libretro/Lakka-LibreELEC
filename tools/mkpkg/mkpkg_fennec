@@ -1,0 +1,46 @@
+#!/bin/sh
+
+echo "getting Mozilla sources..."
+  [ ! -d fennec-latest ] && \
+  hg clone http://hg.mozilla.org/mozilla-central fennec-latest || \
+  cd fennec-latest && \
+    hg pull && \
+    hg update && \
+  cd ..
+
+echo "getting Fennec sources..."
+  [ ! -d fennec-latest/mobile ] && \
+  hg clone http://hg.mozilla.org/mobile-browser fennec-latest/mobile || \
+  cd fennec-latest/mobile && \
+    hg pull && \
+    hg update && \
+  cd ../..
+
+echo "getting Mozilla Revision..."
+  cd fennec-latest
+    MOZ_REV=`LANG=C hg tip --template={rev}`
+  cd ..
+
+echo "getting Fennec Revision..."
+  cd fennec-latest/mobile
+    FEN_REV=`LANG=C hg tip --template={rev}`
+  cd ../..
+
+echo "copying sources..."
+  rm -rf fennec-$MOZ_REV.$FEN_REV
+  cp -R fennec-latest fennec-$MOZ_REV.$FEN_REV
+
+echo "creating configfiles..."
+  cd fennec-$MOZ_REV.$FEN_REV
+    autoconf-2.13
+    rm -rf autom*
+  cd ..
+
+echo "cleaning sources..."
+  find fennec-$MOZ_REV.$FEN_REV -name ".hg*" -exec rm -rf {} ";"
+
+echo "packing sources..."
+  tar cvjf fennec-$MOZ_REV.$FEN_REV.tar.bz2 fennec-$MOZ_REV.$FEN_REV
+
+echo "remove temporary sourcedir..."
+  rm -rf fennec-$MOZ_REV.$FEN_REV
