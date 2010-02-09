@@ -1,0 +1,402 @@
+diff -rupN vdr-1.7.11/config.c vdr-1.7.11.gotox_patched/config.c
+--- vdr-1.7.11/config.c	2009-12-05 16:30:30.000000000 +0100
++++ vdr-1.7.11.gotox_patched/config.c	2010-01-06 23:57:02.650640016 +0100
+@@ -231,6 +231,11 @@ cSetup::cSetup(void)
+   LnbFrequLo =  9750;
+   LnbFrequHi = 10600;
+   DiSEqC = 0;
++  UseGotox = 0;
++  GotoxSpeed = 100;
++  GotoxRepeat = 0;
++  GotoxSN = 0; GotoxLat = 613; GotoxEW = 1; GotoxLong = 236; // Somewhere at Tampere, Finland :^)
++  GotoxPrevSource = 0;
+   SetSystemTime = 0;
+   TimeSource = 0;
+   TimeTransponder = 0;
+@@ -418,6 +423,14 @@ bool cSetup::Parse(const char *Name, con
+   else if (!strcasecmp(Name, "LnbFrequLo"))          LnbFrequLo         = atoi(Value);
+   else if (!strcasecmp(Name, "LnbFrequHi"))          LnbFrequHi         = atoi(Value);
+   else if (!strcasecmp(Name, "DiSEqC"))              DiSEqC             = atoi(Value);
++  else if (!strcasecmp(Name, "UseGotox"))            UseGotox           = atoi(Value);
++  else if (!strcasecmp(Name, "GotoxSpeed"))          GotoxSpeed         = atoi(Value);
++  else if (!strcasecmp(Name, "GotoxRepeat"))         GotoxRepeat        = atoi(Value);
++  else if (!strcasecmp(Name, "GotoxSN"))             GotoxSN            = atoi(Value);
++  else if (!strcasecmp(Name, "GotoxLat"))            GotoxLat           = atoi(Value);
++  else if (!strcasecmp(Name, "GotoxEW"))             GotoxEW            = atoi(Value);
++  else if (!strcasecmp(Name, "GotoxLong"))           GotoxLong          = atoi(Value);
++  else if (!strcasecmp(Name, "GotoxPrevSource"))     GotoxPrevSource    = atoi(Value);
+   else if (!strcasecmp(Name, "SetSystemTime"))       SetSystemTime      = atoi(Value);
+   else if (!strcasecmp(Name, "TimeSource"))          TimeSource         = cSource::FromString(Value);
+   else if (!strcasecmp(Name, "TimeTransponder"))     TimeTransponder    = atoi(Value);
+@@ -510,6 +523,14 @@ bool cSetup::Save(void)
+   Store("LnbFrequLo",         LnbFrequLo);
+   Store("LnbFrequHi",         LnbFrequHi);
+   Store("DiSEqC",             DiSEqC);
++  Store("UseGotox",           UseGotox);
++  Store("GotoxSpeed",         GotoxSpeed);
++  Store("GotoxRepeat",        GotoxRepeat);
++  Store("GotoxSN",            GotoxSN);
++  Store("GotoxLat",           GotoxLat);
++  Store("GotoxEW",            GotoxEW);
++  Store("GotoxLong",          GotoxLong);
++  Store("GotoxPrevSource",    GotoxPrevSource);
+   Store("SetSystemTime",      SetSystemTime);
+   Store("TimeSource",         cSource::ToString(TimeSource));
+   Store("TimeTransponder",    TimeTransponder);
+diff -rupN vdr-1.7.11/config.h vdr-1.7.11.gotox_patched/config.h
+--- vdr-1.7.11/config.h	2009-11-22 20:55:04.000000000 +0100
++++ vdr-1.7.11.gotox_patched/config.h	2010-01-06 23:57:02.650640016 +0100
+@@ -215,6 +215,14 @@ public:
+   int LnbFrequLo;
+   int LnbFrequHi;
+   int DiSEqC;
++  int GotoxRepeat;
++  int GotoxSN;
++  int GotoxEW;
++  int GotoxSpeed;
++  int GotoxLat;
++  int GotoxLong;
++  int UseGotox;
++  int GotoxPrevSource;
+   int SetSystemTime;
+   int TimeSource;
+   int TimeTransponder;
+diff -rupN vdr-1.7.11/diseqc.c vdr-1.7.11.gotox_patched/diseqc.c
+--- vdr-1.7.11/diseqc.c	2009-12-05 16:57:02.000000000 +0100
++++ vdr-1.7.11.gotox_patched/diseqc.c	2010-01-06 23:57:02.650640016 +0100
+@@ -114,6 +114,7 @@ cDiseqc::eDiseqcActions cDiseqc::Execute
+           case 'V': return daVoltage18;
+           case 'A': return daMiniA;
+           case 'B': return daMiniB;
++	  case 'G': return daGotoX;
+           case 'W': *CurrentAction = Wait(*CurrentAction); break;
+           case '[': *CurrentAction = Codes(*CurrentAction); return *CurrentAction ? daCodes : daNone;
+           default: return daNone;
+diff -rupN vdr-1.7.11/diseqc.h vdr-1.7.11.gotox_patched/diseqc.h
+--- vdr-1.7.11/diseqc.h	2002-12-07 14:54:02.000000000 +0100
++++ vdr-1.7.11.gotox_patched/diseqc.h	2010-01-06 23:57:02.650640016 +0100
+@@ -22,6 +22,7 @@ public:
+     daVoltage18,
+     daMiniA,
+     daMiniB,
++    daGotoX,
+     daCodes,
+     };
+   enum { MaxDiseqcCodes = 6 };
+diff -rupN vdr-1.7.11/dvbdevice.c vdr-1.7.11.gotox_patched/dvbdevice.c
+--- vdr-1.7.11/dvbdevice.c	2010-01-04 15:06:24.000000000 +0100
++++ vdr-1.7.11.gotox_patched/dvbdevice.c	2010-01-06 23:57:39.170642833 +0100
+@@ -14,9 +14,11 @@
+ #include <linux/dvb/frontend.h>
+ #include <sys/ioctl.h>
+ #include <sys/mman.h>
++#include <math.h>
+ #include "channels.h"
+ #include "diseqc.h"
+ #include "dvbci.h"
++#include "skins.h"
+ 
+ #define DVBS_TUNE_TIMEOUT  9000 //ms
+ #define DVBS_LOCK_TIMEOUT  2000 //ms
+@@ -149,6 +151,95 @@ static unsigned int FrequencyToHz(unsign
+   return f;
+ }
+ 
++void HandleGotox(int fd_frontend, int new_source)
++{
++  
++  int gotoXTable[10] = { 0x00, 0x02, 0x03, 0x05, 0x06, 0x08, 0x0A, 0x0B, 0x0D, 0x0E };
++  int satlong;
++  int satprev;
++  float waitseconds = 0;
++
++  if (Setup.UseGotox == 0)
++    return;
++
++  // Check if zapped into new source position?
++  if (new_source != Setup.GotoxPrevSource) {
++    satlong = (new_source & ~0xC800);
++    satprev = (Setup.GotoxPrevSource & ~0xC800);
++    if ((new_source & 0xC000) != 0x8000) 
++      return; // Fail
++    if (new_source & 0x0800)
++      satlong = satlong * (-1);
++    if (Setup.GotoxPrevSource & 0x0800)
++      satprev = satprev * (-1);
++    if (Setup.GotoxSpeed > 0) {
++      waitseconds = fabs(satlong-satprev)/(float)(Setup.GotoxSpeed);
++      if (waitseconds < 0.0) waitseconds = 0.0; // Should not happen but ...
++      if (waitseconds > 60.0) waitseconds = 60.0; // Limit wait time to 60s
++    }
++    int Long=Setup.GotoxEW ? -Setup.GotoxLong : Setup.GotoxLong;
++    int Lat=Setup.GotoxSN ? -Setup.GotoxLat : Setup.GotoxLat;
++    double azimuth=M_PI+atan(tan((satlong-Long)*M_PI/1800)/sin(Lat*M_PI/1800));
++    double x=acos(cos((satlong-Long)*M_PI/1800)*cos(Lat*M_PI/1800));
++    double elevation=atan((cos(x)-0.1513)/sin(x));
++    double SatHourangle=180+atan((-cos(elevation)*sin(azimuth))/(sin(elevation)*cos(Lat*M_PI/1800)
++			   -cos(elevation)*sin(Lat*M_PI/1800)*cos(azimuth)))*180/M_PI;
++    int tmp=(int)(fabs(180-SatHourangle)*10);
++    tmp=(tmp/10)*0x10 + gotoXTable[ tmp % 10 ];
++    int p2=(tmp%0x0100);
++    int p1=(tmp/0x0100);
++    if (SatHourangle < 180)
++      p1 |= 0xe0;
++    else
++      p1 |= 0xd0;
++
++    dsyslog("DiSEqC GotoX %d (%d) -> %d (%d), wait time %4.1fs",
++	    satprev, Setup.GotoxPrevSource, satlong, new_source, waitseconds);
++
++#if 1
++    // Set high LNB voltage and tone off, then wait > 15ms
++    CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_18));
++    CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF));
++    usleep(20000);
++    
++    // Send 1st GotoX command, then wait > 15ms
++    uchar gotox_bytes[5] = { 0xe0, 0x31, 0x6e, p1, p2};
++    struct dvb_diseqc_master_cmd gotox_cmd;
++    memcpy(gotox_cmd.msg, gotox_bytes, 5);
++    gotox_cmd.msg_len = 5;
++    CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_MASTER_CMD, &gotox_cmd));
++    usleep(20000);
++
++    // Send repeated GotoX command, then wait > 15ms
++    if (Setup.GotoxRepeat) {
++      gotox_bytes[0] = 0xe1;
++      memcpy(gotox_cmd.msg, gotox_bytes, 5);
++      CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_MASTER_CMD, &gotox_cmd));
++      usleep(20000);
++    }
++    
++ 	 {
++ 	   char mess_move[60];
++        snprintf(mess_move,sizeof(mess_move),"Moving dish to %d.%d%s - %ds", \
++       	(new_source & 0x0800)?-satlong/10:satlong/10, \
++       	(new_source & 0x0800)?-satlong%10:satlong%10, \
++       	(new_source & 0x0800)?"E":"W", (int)waitseconds);
++      // Wait for dish movement and display message approx. for that time
++      Skins.QueueMessage(mtWarning, mess_move, int(1 + waitseconds - Setup.ChannelInfoTime), 0);
++      while (waitseconds > 0.0) {
++        usleep(100000); // 100ms
++        waitseconds = waitseconds - 100e-3;
++      }
++    }
++
++#endif
++
++    Setup.GotoxPrevSource = new_source;
++    dsyslog("DiSEqC GotoX done.");
++  }
++}
++
++
+ bool cDvbTuner::SetFrontend(void)
+ {
+ #define MAXFRONTENDCMDS 16
+@@ -187,6 +278,7 @@ bool cDvbTuner::SetFrontend(void)
+                     case cDiseqc::daVoltage18: CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_18)); break;
+                     case cDiseqc::daMiniA:     CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_A)); break;
+                     case cDiseqc::daMiniB:     CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_B)); break;
++                    case cDiseqc::daGotoX:     HandleGotox(fd_frontend, channel.Source()); break;
+                     case cDiseqc::daCodes: {
+                          int n = 0;
+                          uchar *codes = diseqc->Codes(n);
+@@ -211,6 +303,10 @@ bool cDvbTuner::SetFrontend(void)
+            }
+         }
+      else {
++         // Send GotoX DiSEqC command if activated in vdr setup. Then wait with high LNB voltage
++         // estimated time for dish movement
++        HandleGotox(fd_frontend, channel.Source()); 
++
+         int tone = SEC_TONE_OFF;
+         if (frequency < (unsigned int)Setup.LnbSLOF) {
+            frequency -= Setup.LnbFrequLo;
+diff -rupN vdr-1.7.11/menu.c vdr-1.7.11.gotox_patched/menu.c
+--- vdr-1.7.11/menu.c	2009-12-06 12:29:05.000000000 +0100
++++ vdr-1.7.11.gotox_patched/menu.c	2010-01-06 23:57:02.662652058 +0100
+@@ -2541,8 +2541,14 @@ void cMenuSetupLNB::Setup(void)
+      Add(new cMenuEditIntItem( tr("Setup.LNB$SLOF (MHz)"),               &data.LnbSLOF));
+      Add(new cMenuEditIntItem( tr("Setup.LNB$Low LNB frequency (MHz)"),  &data.LnbFrequLo));
+      Add(new cMenuEditIntItem( tr("Setup.LNB$High LNB frequency (MHz)"), &data.LnbFrequHi));
+-     }
+-
++  }
++  Add(new cMenuEditBoolItem(tr("Setup.LNB$Use GotoX dish positioning"), &data.UseGotox));
++  if (data.UseGotox) {
++     Add(new cMenuEditBoolItem(tr("Setup.LNB$Repeat GotoX commands"), &data.GotoxRepeat));
++     Add(new cMenuEditIntpItem(tr("Setup.LNB$Latitude"), &data.GotoxLat,0,900,&data.GotoxSN,tr("North"),tr("South")));
++     Add(new cMenuEditIntpItem(tr("Setup.LNB$Longitude"), &data.GotoxLong,0,1800,&data.GotoxEW,tr("West"),tr("East")));
++     Add(new cMenuEditIntdItem(tr("Setup.LNB$Rotor speed (deg/s)"), &data.GotoxSpeed, 1, 100));
++  }
+   SetCurrent(Get(current));
+   Display();
+ }
+@@ -2550,10 +2556,15 @@ void cMenuSetupLNB::Setup(void)
+ eOSState cMenuSetupLNB::ProcessKey(eKeys Key)
+ {
+   int oldDiSEqC = data.DiSEqC;
++  int oldUseGotox = data.UseGotox;
+   eOSState state = cMenuSetupBase::ProcessKey(Key);
+ 
+   if (Key != kNone && data.DiSEqC != oldDiSEqC)
+      Setup();
++
++  if (Key != kNone && data.UseGotox != oldUseGotox)
++     Setup();
++
+   return state;
+ }
+ 
+diff -rupN vdr-1.7.11/menuitems.c vdr-1.7.11.gotox_patched/menuitems.c
+--- vdr-1.7.11/menuitems.c	2009-12-06 12:31:20.000000000 +0100
++++ vdr-1.7.11.gotox_patched/menuitems.c	2010-01-06 23:57:02.662652058 +0100
+@@ -1106,3 +1106,121 @@ void cMenuSetupPage::SetupStore(const ch
+   if (plugin)
+      plugin->SetupStore(Name, Value);
+ }
++
++// cMenuEditIntpItem & cMenuEditIntdItem for GotoX function
++
++void cMenuEditIntpItem::Set(void)
++{
++  char buf[16];
++  snprintf(buf, sizeof(buf), "%d.%d %s", *value/10, *value % 10, *value2 ? trueString : falseString);
++  SetValue(buf);
++}
++
++void cMenuEditIntdItem::Set(void)
++{
++  char buf[16];
++  snprintf(buf, sizeof(buf), "%d.%d", *value/10, *value % 10);
++  SetValue(buf);
++}
++
++
++cMenuEditIntpItem::cMenuEditIntpItem(const char *Name, int *Value, int Min, int Max,int *Value2, const char *FalseString,const char *TrueString):cMenuEditIntItem(Name, Value, Min, Max)
++{
++  value = Value;
++  value2= Value2;
++  trueString = TrueString;
++  falseString = FalseString;
++  min = Min;
++  max = Max;
++  Set();
++}
++
++cMenuEditIntdItem::cMenuEditIntdItem(const char *Name, int *Value, int Min, int Max):cMenuEditIntItem(Name, Value, Min, Max)
++{
++  value = Value;
++  min = Min;
++  max = Max;
++  Set();
++}
++
++eOSState cMenuEditIntpItem::ProcessKey(eKeys Key)
++{
++  eOSState state = cMenuEditItem::ProcessKey(Key);
++  if (state == osUnknown)
++  {
++    int newValue = *value;
++    int newValue2= *value2;
++    Key = NORMALKEY(Key);
++    switch (Key) {
++      case kNone  : break;
++      case k0...k9:
++                    if (fresh)
++                    {
++                      *value = 0;
++                      fresh = false;
++                    }
++                    newValue = *value * 10 + (Key - k0);
++                    break;
++      case kLeft  :
++                    newValue2 = 0;
++                    fresh = true;
++                    break;
++      case kRight :
++                    newValue2 = 1;
++                    fresh = true;
++                    break;
++      default     :
++                    if (*value < min) { *value = min; Set(); }
++                    if (*value > max) { *value = max; Set(); }
++                    return state;
++                 }
++    if ((!fresh || min <= newValue) && newValue <= max)
++    {
++      *value = newValue;
++      *value2 = newValue2;
++      Set();
++    }
++ state = osContinue;
++  }
++  return state;
++}
++
++eOSState cMenuEditIntdItem::ProcessKey(eKeys Key)
++{
++  eOSState state = cMenuEditItem::ProcessKey(Key);
++  if (state == osUnknown)
++  {
++    int newValue = *value;
++    Key = NORMALKEY(Key);
++    switch (Key) {
++      case kNone  : break;
++      case k0...k9:
++                    if (fresh)
++                    {
++                      *value = 0;
++                      fresh = false;
++                    }
++                    newValue = *value * 10 + (Key - k0);
++                    break;
++      case kLeft  :
++	            newValue = *value - 1;
++                    fresh = true;
++                    break;
++      case kRight :
++                    newValue = *value + 1;
++                    fresh = true;
++                    break;
++      default     :
++                    if (*value < min) { *value = min; Set(); }
++                    if (*value > max) { *value = max; Set(); }
++                    return state;
++                 }
++    if ((!fresh || min <= newValue) && newValue <= max)
++    {
++      *value = newValue;
++      Set();
++    }
++    state = osContinue;
++  }
++  return state;
++}
+diff -rupN vdr-1.7.11/menuitems.h vdr-1.7.11.gotox_patched/menuitems.h
+--- vdr-1.7.11/menuitems.h	2009-05-03 14:50:34.000000000 +0200
++++ vdr-1.7.11.gotox_patched/menuitems.h	2010-01-06 23:57:02.666651684 +0100
+@@ -199,4 +199,22 @@ public:
+   void SetPlugin(cPlugin *Plugin);
+   };
+ 
++class cMenuEditIntpItem : public cMenuEditIntItem {
++protected:
++  virtual void Set(void);
++  const char *falseString, *trueString;
++  int *value2;
++public:
++  cMenuEditIntpItem(const char *Name, int *Value, int Min = 0, int Max = INT_MAX, int *Value2=0, const char *FalseString = "", const char *TrueSting = NULL);
++  virtual eOSState ProcessKey(eKeys Key);
++};
++
++class cMenuEditIntdItem : public cMenuEditIntItem {
++protected:
++  virtual void Set(void);
++public:
++  cMenuEditIntdItem(const char *Name, int *Value, int Min = 0, int Max = INT_MAX);
++  virtual eOSState ProcessKey(eKeys Key);
++};
++
+ #endif //__MENUITEMS_H
