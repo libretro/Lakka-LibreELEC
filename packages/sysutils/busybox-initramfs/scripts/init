@@ -46,7 +46,8 @@
     progress "trying to mount $1 ..."
     for i in 1 2 3 4 5 6 7 8 9 10; do
       ERR_ENV=1
-      /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
+      /bin/busybox ionice -c 1 -n 0 \
+        /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
       [ $? -eq 0 ] && ERR_ENV=0 && break
       sleep 1
     done
@@ -56,10 +57,14 @@
   update() {
     if [ -f "$UPDATE_DIR/$2" ]; then
       echo "updating $1..."
-        /bin/busybox mount -o remount,rw /flash
-        /bin/busybox mv $UPDATE_DIR/$2 $3
-        /bin/busybox mount -o remount,ro /flash
-        /bin/busybox sync
+        /bin/busybox ionice -c 1 -n 0 \
+          /bin/busybox mount -o remount,rw /flash
+        /bin/busybox ionice -c 1 -n 0 \
+          /bin/busybox mv $UPDATE_DIR/$2 $3
+        /bin/busybox ionice -c 1 -n 0 \
+          /bin/busybox mount -o remount,ro /flash
+        /bin/busybox ionice -c 1 -n 0 \
+          /bin/busybox sync
         [ $2 = $IMAGE_KERNEL ] && REBOOT=1
     fi
   }
@@ -83,19 +88,26 @@
     debug_shell
   fi
 
-  /bin/busybox mount --move /proc /sysroot/proc
-  /bin/busybox mount --move /sys /sysroot/sys
-  /bin/busybox mount --move /dev /sysroot/dev
-  /bin/busybox mount --move /flash /sysroot/flash
-  /bin/busybox mount --move /storage /sysroot/storage
+  /bin/busybox ionice -c 1 -n 0 \
+    /bin/busybox mount --move /proc /sysroot/proc
+  /bin/busybox ionice -c 1 -n 0 \
+    /bin/busybox mount --move /sys /sysroot/sys
+  /bin/busybox ionice -c 1 -n 0 \
+    /bin/busybox mount --move /dev /sysroot/dev
+  /bin/busybox ionice -c 1 -n 0 \
+    /bin/busybox mount --move /flash /sysroot/flash
+  /bin/busybox ionice -c 1 -n 0 \
+    /bin/busybox mount --move /storage /sysroot/storage
 
   if [ "$BOOTCHART" = "yes" -a -f "/sysroot/sbin/bootchartd" ] ; then
     progress "Starting Bootchart logging"
-    mkdir -p /sysroot/storage/.bootchart
-    exec /bin/busybox switch_root /sysroot \
-      /sbin/bootchartd -o /storage/.bootchart
+    /bin/busybox ionice -c 1 -n 0 \
+      /bin/busybox mkdir -p /sysroot/storage/.bootchart
+    exec /bin/busybox ionice -c 1 -n 0 \
+      /bin/busybox switch_root /sysroot /sbin/bootchartd -o /storage/.bootchart
   else
-    exec /bin/busybox switch_root /sysroot /sbin/init
+    exec /bin/busybox ionice -c 1 -n 0 \
+      /bin/busybox switch_root /sysroot /sbin/init
   fi
 
   error "INIT_3" "Error in initramfs. Could not switch to new root"
