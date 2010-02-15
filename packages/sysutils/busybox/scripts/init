@@ -4,43 +4,73 @@
   . /etc/sysconfig
 
 # Starting Splash
-  [ "$DEBUG" != "yes" -a "$TEXTMODE" != "yes" -a -f /usr/bin/ply-image -a -f $SPLASH ] && \
-    ply-image $SPLASH
+  [ "$DEBUG" != "yes" -a "$TEXTMODE" != "yes" -a -f /usr/bin/ply-image -a \
+    -f /usr/share/splash/Splash.png ] && \
+      ply-image /usr/share/splash/Splash.png &
 
-HOSTNAME="openelec"
+  HOSTNAME="openelec"
 
 # mounting needed filesystems
-  /bin/mount -n -t ramfs none /var
+  progress "mounting needed filesystems"
+    ionice -c 1 -n 0 mount -n -t ramfs none /var
 
 # make variable directory structure
-  install -m 755 -d /var/log
-  install -m 755 -d /var/lock
-  install -m 755 -d /var/media
-  install -m 1777 -d /var/run
-  install -m 1777 -d /var/tmp
-  install -m 755 -d /var/run/sepermit # for LinuxPAM
-
-# caching xbmc
-  [ "$XBMC_CACHING" = "yes" ] && cache_xbmc &
+  progress "make variable directory structure"
+    ionice -c 1 -n 0 mkdir -p /var/log /var/lock /var/media /var/run /var/tmp \
+                              /var/run/sepermit
+    ionice -c 1 -n 0 chmod 1777 /var/run /var/tmp
 
 # bring lo up, whether we have network card or not
-  ifconfig lo 127.0.0.1 up
+  progress "starting Loopback Network interface"
+    ifconfig lo 127.0.0.1 up
+
+# setup hostname
+  progress "Setup hostname"
+    echo $HOSTNAME > /proc/sys/kernel/hostname
 
 # create /etc/hosts file, useful for gethostbyname(localhost)
   echo -e "127.0.0.1\tlocalhost $HOSTNAME" > /var/run/hosts
 
-# starting Xorg
-  [ ! "$TEXTMODE" = "yes" ] && start_xorg &
-
 # copying config into storage
-  mkdir -p $HOME/.config
-  for i in `ls /usr/config`; do
-    [ ! -f "$HOME/.config/$i" ] && \
-      cp -PR /usr/config/$i $HOME/.config
-  done
+  progress "copying config into storage"
+    mkdir -p $HOME/.config
+    for i in `ls /usr/config`; do
+      [ ! -f "$HOME/.config/$i" ] && \
+        cp -PR /usr/config/$i $HOME/.config
+    done
 
-# setting hostname
-  echo localhost > /proc/sys/kernel/hostname
+# loading NVidia driver
+  if lspci -n | grep 0300 | grep -q 10de; then
+    progress "loading NVidia driver"
+      ionice -c 1 -n 0 modprobe nvidia
+  fi
+
+# caching xbmc
+  [ "$XBMC_CACHING" = "yes" ] && cache_xbmc
+
+# starting Udev
+  progress "starting Udev"
+    echo -e '\000\000\000\000' > /proc/sys/kernel/hotplug
+    nice -n 20 udevd --daemon
+    nice -n 20 udevadm monitor 2>&1 >/var/log/udev.log &
+    nice -n 20 udevadm control --env STARTUP=1
+    (
+      nice -n 20 udevadm trigger
+      nice -n 20 udevadm settle --timeout=5
+      nice -n 20 udevadm control --env STARTUP=
+    )&
+
+# starting dbus
+  progress "Starting D-BUS"
+    mkdir -p /var/lib/dbus /var/run/dbus
+    dbus-daemon --system
+    dbus-uuidgen --ensure
+
+# starting Connman
+  progress "Starting Connection Manager"
+    mkdir -p /var/run
+    touch /var/run/resolv.conf
+    connmand
 
 # starting debugging shell
   if test "$DEBUG" = yes; then
@@ -61,17 +91,18 @@ HOSTNAME="openelec"
   fi
 
 # starting init scripts for wanted runlevel
-  RET=0
+  progress "Starting Init Scripts"
+    RET=0
 
-  for script in /etc/init.d/*; do
-    if grep -q -e "^# runlevels:.*$RUNLEVEL" $script; then
-      . $script
-      S_RET=$?
-      test $S_RET -ge $RET && RET=$S_RET
-    fi
-  done
+    for script in /etc/init.d/*; do
+      if grep -q -e "^# runlevels:.*$RUNLEVEL" $script; then
+        . $script
+        S_RET=$?
+        test $S_RET -ge $RET && RET=$S_RET
+      fi
+    done
 
-# when we have an problem we must look where is this problem
+# if we have an problem we must look where is this problem
   echo "###################################"
   echo "### it seems we have an problem ###"
   echo "### starting emergency shell... ###"
