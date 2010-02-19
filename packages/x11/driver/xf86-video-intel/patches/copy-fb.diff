@@ -1,7 +1,6 @@
-diff --git a/src/drmmode_display.c b/src/drmmode_display.c
-index a469f6c..8c14b25 100644
---- a/src/drmmode_display.c
-+++ b/src/drmmode_display.c
+diff -up xf86-video-intel-2.10.0/src/drmmode_display.c.jx xf86-video-intel-2.10.0/src/drmmode_display.c
+--- xf86-video-intel-2.10.0/src/drmmode_display.c.jx	2010-02-08 11:23:25.000000000 -0500
++++ xf86-video-intel-2.10.0/src/drmmode_display.c	2010-02-08 11:23:46.000000000 -0500
 @@ -35,6 +35,8 @@
  #include <unistd.h>
  #include <errno.h>
@@ -11,30 +10,24 @@ index a469f6c..8c14b25 100644
  #include "xorgVersion.h"
  
  #include "i830.h"
-@@ -911,6 +913,13 @@ drmmode_output_dpms(xf86OutputPtr output, int mode)
- 	drmmode_ptr drmmode = drmmode_output->drmmode;
- 	int i;
- 	drmModePropertyPtr props;
-+	intel_screen_private *intel = intel_get_screen_private(output->scrn);
-+
-+	/* xf86Crtc.c calls dpms off in set desired modes, so ignore
-+	 * the request if we're starting up. */
-+
-+	if (intel->starting)
-+		return;
- 
- 	for (i = 0; i < koutput->count_props; i++) {
- 		props = drmModeGetProperty(drmmode->fd, koutput->props[i]);
-@@ -1412,6 +1421,8 @@ Bool drmmode_pre_init(ScrnInfoPtr scrn, int fd, int cpp)
- 
- 	xf86InitialConfiguration(scrn, TRUE);
+@@ -1375,6 +1377,8 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scr
+ 	if (old_front)
+ 		i830_free_memory(scrn, old_front);
  
 +	scrn->canDoBGNoneRoot = TRUE;
 +
  	return TRUE;
- }
  
-@@ -1446,3 +1457,96 @@ void drmmode_closefb(ScrnInfoPtr scrn)
+  fail:
+@@ -1414,6 +1418,7 @@ Bool drmmode_pre_init(ScrnInfoPtr scrn, 
+ 		return FALSE;
+ 	}
+ 
++	scrn->canDoBGNoneRoot = TRUE;
+ 	xf86CrtcSetSizeRange(scrn, 320, 200, drmmode->mode_res->max_width,
+ 			     drmmode->mode_res->max_height);
+ 	for (i = 0; i < drmmode->mode_res->count_crtcs; i++)
+@@ -1458,3 +1463,98 @@ void drmmode_closefb(ScrnInfoPtr scrn)
  	drmModeRmFB(drmmode->fd, drmmode->fb_id);
  	drmmode->fb_id = 0;
  }
@@ -47,7 +40,7 @@ index a469f6c..8c14b25 100644
 +	ScreenPtr pScreen = screenInfo.screens[scrn->scrnIndex];
 +	drmmode_ptr drmmode = drmmode_crtc->drmmode;
 +	intel_screen_private *intel = intel_get_screen_private(scrn);
-+	drmModeFBPtr fbcon = NULL;
++	drmModeFBPtr fbcon;
 +	struct drm_gem_flink flink;
 +	drm_intel_bo *bo;
 +	PixmapPtr pixmap = NULL;
@@ -126,53 +119,17 @@ index a469f6c..8c14b25 100644
 +
 +	intel->uxa_driver->done_copy(dst);
 +
-+	intel_sync(scrn);
++	/* I830EmitFlush(scrn); */
++	intel_batch_submit(scrn);
 +
 +	(*pScreen->DestroyPixmap)(src);
 +	(*pScreen->DestroyPixmap)(dst);
 +}
-diff --git a/src/i830.h b/src/i830.h
-index a66038a..d0df26e 100644
---- a/src/i830.h
-+++ b/src/i830.h
-@@ -376,6 +376,7 @@ typedef struct intel_screen_private {
- 	OptionInfoPtr Options;
- 
- 	/* Driver phase/state information */
-+	Bool starting;
- 	Bool suspended;
- 
- 	enum last_3d last_3d;
-@@ -432,6 +433,7 @@ extern int drmmode_get_pipe_from_crtc_id(drm_intel_bufmgr * bufmgr,
- extern int drmmode_output_dpms_status(xf86OutputPtr output);
- extern int drmmode_crtc_id(xf86CrtcPtr crtc);
- void drmmode_crtc_set_cursor_bo(xf86CrtcPtr crtc, dri_bo * cursor);
-+extern void drmmode_copy_fb(ScrnInfoPtr scrn);
- 
- extern Bool i830_crtc_on(xf86CrtcPtr crtc);
- extern int i830_crtc_to_pipe(xf86CrtcPtr crtc);
-diff --git a/src/i830_driver.c b/src/i830_driver.c
-index e94a60c..da3230c 100644
---- a/src/i830_driver.c
-+++ b/src/i830_driver.c
-@@ -1276,6 +1276,8 @@ I830ScreenInit(int scrnIndex, ScreenPtr screen, int argc, char **argv)
- 
- 	i830_fixup_mtrrs(scrn);
- 
-+	intel->starting = TRUE;
 +
- 	miClearVisualTypes();
- 	if (!miSetVisualTypes(scrn->depth,
- 			      miGetDefaultVisualMask(scrn->depth),
-@@ -1423,6 +1425,7 @@ I830ScreenInit(int scrnIndex, ScreenPtr screen, int argc, char **argv)
- 	if (serverGeneration == 1)
- 		xf86ShowUnusedOptions(scrn->scrnIndex, scrn->options);
- 
-+	intel->starting = FALSE;
- 	intel->suspended = FALSE;
- 
- 	return TRUE;
-@@ -1507,6 +1510,8 @@ static Bool I830EnterVT(int scrnIndex, int flags)
+diff -up xf86-video-intel-2.10.0/src/i830_driver.c.jx xf86-video-intel-2.10.0/src/i830_driver.c
+--- xf86-video-intel-2.10.0/src/i830_driver.c.jx	2010-01-04 17:09:52.000000000 -0500
++++ xf86-video-intel-2.10.0/src/i830_driver.c	2010-02-08 11:23:46.000000000 -0500
+@@ -1507,6 +1507,8 @@ static Bool I830EnterVT(int scrnIndex, i
  	if (IS_I965G(intel))
  		gen4_render_state_init(scrn);
  
@@ -180,4 +137,15 @@ index e94a60c..da3230c 100644
 +
  	if (!xf86SetDesiredModes(scrn))
  		return FALSE;
+ 
+diff -up xf86-video-intel-2.10.0/src/i830.h.jx xf86-video-intel-2.10.0/src/i830.h
+--- xf86-video-intel-2.10.0/src/i830.h.jx	2010-01-04 17:09:52.000000000 -0500
++++ xf86-video-intel-2.10.0/src/i830.h	2010-02-08 11:23:46.000000000 -0500
+@@ -430,6 +430,7 @@ extern void drmmode_closefb(ScrnInfoPtr 
+ extern int drmmode_get_pipe_from_crtc_id(drm_intel_bufmgr * bufmgr,
+ 					 xf86CrtcPtr crtc);
+ extern int drmmode_output_dpms_status(xf86OutputPtr output);
++extern void drmmode_copy_fb(ScrnInfoPtr scrn);
+ extern int drmmode_crtc_id(xf86CrtcPtr crtc);
+ void drmmode_crtc_set_cursor_bo(xf86CrtcPtr crtc, dri_bo * cursor);
  
