@@ -10,7 +10,7 @@
 #-------------------------------------------------------------------------------
 DISPLAY=':0.0'
 XORG_NVIDIA_CONF="/etc/X11/xorg-nvidia.conf"
-XORG_ARGS="-s 0 -nr -noreset -allowMouseOpenFail -nocursor -nolisten tcp"
+XORG_ARGS="-s 0 -nr -noreset -allowMouseOpenFail -nocursor -nohwaccess -nolisten tcp"
 
 export DISPLAY
 
@@ -18,34 +18,9 @@ export DISPLAY
 # do not change anything below
 #-------------------------------------------------------------------------------
 
-[ "$DEBUG" = yes ] && XORG_ARGS="$XORG_ARGS -logverbose 6 -verbose 6"
+[ "$RUNLEVEL" = debug ] && XORG_ARGS="$XORG_ARGS -logverbose 6 -verbose 6"
 
-  start_xorg() {
-
-    if lspci -n | grep 0300 | grep -q 10de; then
-
-      XORG_ARGS="$XORG_ARGS -ignoreABI"
-      [ -f $XORG_NVIDIA_CONF ] && XORG_ARGS="$XORG_ARGS -config $XORG_NVIDIA_CONF"
-
-      progress "Found nVidia card, enabling binary driver as requested"
-        mkdir -p /var/lib
-          ln -sf /usr/lib/libGL_nvidia.so.1 /var/lib/libGL.so
-          ln -sf /usr/lib/xorg/modules/extensions/libglx_nvidia.so /var/lib/libglx.so
-
-    else
-
-      progress "Not found nVidia card, enabling OSS driver as requested"
-        mkdir -p /var/lib
-          ln -sf /usr/lib/libGL_mesa.so.1 /var/lib/libGL.so
-          ln -sf /usr/lib/xorg/modules/extensions/libglx_mesa.so /var/lib/libglx.so
-    fi
-
-    mkdir -p /var/cache/xkb
-      /usr/bin/Xorg $DISPLAY vt01 $XORG_ARGS > /dev/null 2>&1 &
-  }
-
-  wait_for_xorg () {
-    while [ ! -f /tmp/.X0-lock ]; do
-      sleep 1
-    done
-  }
+if lspci -n | grep 0300 | grep -q 10de; then
+  XORG_ARGS="$XORG_ARGS -ignoreABI"
+  [ -f $XORG_NVIDIA_CONF ] && XORG_ARGS="$XORG_ARGS -config $XORG_NVIDIA_CONF"
+fi
