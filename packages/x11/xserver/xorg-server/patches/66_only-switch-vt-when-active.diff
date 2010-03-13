@@ -1,0 +1,32 @@
+Index: xorg-server/hw/xfree86/os-support/linux/lnx_init.c
+===================================================================
+--- xorg-server.orig/hw/xfree86/os-support/linux/lnx_init.c	2008-06-18 12:06:06.000000000 +0300
++++ xorg-server/hw/xfree86/os-support/linux/lnx_init.c	2008-06-18 12:06:25.000000000 +0300
+@@ -344,10 +344,25 @@
+ 
+     if (VTSwitch)
+     {
++        struct vt_stat vts;
++
+         /*
+-         * Perform a switch back to the active VT when we were started
++         * Perform a switch back to the active VT when we were started.
++         * We cannot rely on vtSema to determine if the server was the
++         * active VT at the time of shutdown since it has already been
++         * released.  Instead, we manually check the current VT and
++         * compare it with the VT we were running on.
+          */
+-        if (activeVT >= 0) {
++        if (ioctl(xf86Info.consoleFd, VT_GETSTATE, &vts) < 0)
++        {
++            /* If this failed, fall back to old behaviour
++             * of always switching. */
++            xf86Msg(X_WARNING,"xf86OpenConsole: VT_GETSTATE failed: %s\n",
++                    strerror(errno));
++            vts.v_active = xf86Info.vtno;
++        }
++
++        if (activeVT >= 0 && vts.v_active == xf86Info.vtno) {
+ 	    if (ioctl(xf86Info.consoleFd, VT_ACTIVATE, activeVT) < 0)
+ 	        xf86Msg(X_WARNING, "xf86CloseConsole: VT_ACTIVATE failed: %s\n",
+ 		        strerror(errno));
