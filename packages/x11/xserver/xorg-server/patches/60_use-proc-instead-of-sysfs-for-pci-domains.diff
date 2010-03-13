@@ -1,0 +1,32 @@
+/* Upstream commit 56f21bda1ce95741c88c423b60bd709eef26eb12 was supposed to
+ * only avoid multiple scans of the PCI devices, but it actually also added
+ * an "optimization" based on using sysfs files instead of /proc. However,
+ * this code is broken, for instance because there are no ioctl handler on
+ * /sys/bus/pci/devices/*/config files while there some on /proc/bus/pci/*
+ *
+ * It breaks the Xserver on architectures that require such ioctls to scan
+ * the PCI devices and/or deal with PCI domains:
+ * #422077: xserver-xorg: Fatal server error on sparc: xf86MapPciMem failed
+ * #422095: xserver-xorg-core: fails to start on powerpc, no devices detected
+ *
+ * The following patch forces the server to behave as if we were running on
+ * a 2.4 kernel while scanning PCI devices, so that the sysfs code is disabled.
+ * 
+ * Upstream doesn't apply this patch since they want to fix the sysfs-code.
+ * See https://bugs.freedesktop.org/show_bug.cgi?id=7248
+ *
+ * Thanks to Jim Watson for testing!
+ */
+
+diff -Naur xorg-server-1.5.1.orig/hw/xfree86/os-support/bus/linuxPci.c xorg-server-1.5.1/hw/xfree86/os-support/bus/linuxPci.c
+--- xorg-server-1.5.1.orig/hw/xfree86/os-support/bus/linuxPci.c	2008-10-04 18:50:24.000000000 +0200
++++ xorg-server-1.5.1/hw/xfree86/os-support/bus/linuxPci.c	2008-10-04 18:52:08.000000000 +0200
+@@ -131,7 +131,7 @@
+     static int	fd = -1,is_write = 0;
+     char		file[64];
+     struct stat	ignored;
+-    static int is26 = -1;
++    static int is26 = 0;
+ 
+     if (dev == NULL) {
+ 	return -1;
