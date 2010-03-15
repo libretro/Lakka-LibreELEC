@@ -3,70 +3,10 @@
 # read config
   . /etc/sysconfig
 
-# Starting Splash
-  [ "$DEBUG" != "yes" \
-  -a "$TEXTMODE" != "yes" \
-  -a -f /usr/bin/ply-image \
-  -a -f /usr/share/splash/Splash.png \
-  ] && ply-image /usr/share/splash/Splash.png &
-
-# mounting needed filesystems
-  progress "mounting needed filesystems"
-    $IONICE mount -n -t ramfs none /var
-
-# make variable directory structure
-  progress "make variable directory structure"
-    $IONICE mkdir -p /var/log \
-                     /var/lock \
-                     /var/media \
-                     /var/run \
-                     /var/tmp \
-                     /var/run/sepermit
-
-    $IONICE chmod 1777 /var/run /var/tmp
-
-# copying config into storage
-  progress "copying config into storage"
-    mkdir -p $HOME/.config
-    for i in `ls /usr/config`; do
-      [ ! -f "$HOME/.config/$i" ] && \
-        cp -PR /usr/config/$i $HOME/.config
-    done
-
-# caching xbmc
-  [ "$XBMC_CACHING" = "yes" ] && cache_xbmc
-
-# starting Udev
-  progress "starting Udev"
-    echo -e '\000\000\000\000' > /proc/sys/kernel/hotplug
-    $NICE_20 udevd --daemon
-    $NICE_20 udevadm monitor 2>&1 >/var/log/udev.log &
-    $NICE_20 udevadm control --env STARTUP=1
-    (
-      $NICE_20 udevadm trigger
-      $NICE_20 udevadm settle --timeout=5
-      $NICE_20 udevadm control --env STARTUP=
-    )&
-
-# starting dbus
-  progress "Starting D-BUS"
-    $IONICE mkdir -p /var/lib/dbus /var/run/dbus
-    dbus-daemon --system
-    dbus-uuidgen --ensure
-
-# starting HAL
-  progress "Starting Hardware Abstraction Layer"
-    $IONICE mkdir -p /var/cache/hald
-    $IONICE mkdir -p /var/run/dbus/hald-local
-    $IONICE mkdir -p /var/run/dbus/hald-runner
-    hald --verbose=no --daemon=yes --use-syslog
-
 # getting runlevel
   RUNLEVEL="openelec"
   if test "$TEXTMODE" = yes; then
     RUNLEVEL="text"
-  elif test "$CONFIGURE" = yes; then
-    RUNLEVEL="configure"
   fi
 
 # starting init scripts for wanted runlevel
@@ -80,10 +20,3 @@
         test $S_RET -ge $RET && RET=$S_RET
       fi
     done
-
-# if we have an problem we must look where is this problem
-  echo "###################################"
-  echo "### it seems we have an problem ###"
-  echo "### starting emergency shell... ###"
-  echo "###################################"
-  exec /bin/sh </dev/tty1 >/dev/tty1 2>&1
