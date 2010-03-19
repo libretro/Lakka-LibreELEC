@@ -1,0 +1,26 @@
+#!/bin/sh
+
+. /etc/sysconfig
+
+XBMC_ARGS="--standalone -fs --lircdev $LIRC_OUTPUT"
+
+if test "$XBMC_CACHING" = "yes" ; then
+  wait_for_xbmc_cache
+  XBMC_BIN="/var/cache/bin/xbmc.bin"
+else
+  XBMC_BIN="/usr/share/xbmc/xbmc.bin"
+fi
+
+while true; do
+
+  [ "$START_WM" = "yes" ] && $WINDOWMANAGER &
+
+  $IONICE $XBMC_BIN $XBMC_ARGS $@ > /dev/null 2>&1
+  RET=$?
+  echo "Exited with code $RET"
+
+  [ "$RET" == 0 ] && sync && poweroff
+  [ "$RET" == 64 ] && sync && poweroff
+  [ "$RET" == 66 ] && sync && reboot
+
+done
