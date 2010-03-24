@@ -1,7 +1,53 @@
-diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
---- xbmc-28584/configure.in	2010-03-14 21:06:24.000000000 +0100
-+++ xbmc-28584.patch/configure.in	2010-03-15 00:50:53.680149619 +0100
-@@ -1154,7 +1154,9 @@
+diff -Naur xbmc-28745/configure.in xbmc-28745.patch/configure.in
+--- xbmc-28745/configure.in	2010-03-22 06:50:58.000000000 +0100
++++ xbmc-28745.patch/configure.in	2010-03-22 13:17:49.917999744 +0100
+@@ -24,6 +24,10 @@
+ 
+ AC_CANONICAL_HOST
+ 
++tolower(){
++    echo "$@" | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz
++}
++
+ # General message strings
+ configure_debug="ERROR: this is a configure debug statement"
+ missing_library="Could not find a required library. Please see the README for your platform."
+@@ -102,6 +106,18 @@
+             [use_debug=$enableval],
+             [use_debug=yes])
+ 
++AC_ARG_WITH([arch],
++            [AS_HELP_STRING([--with-arch],
++               [build with given arch passing to internal ffmpeg (default is no, needed for crosscompiling)])],
++            [use_arch=$withval],
++            [use_arch=no])
++
++AC_ARG_WITH([cpu],
++            [AS_HELP_STRING([--with-cpu],
++               [build with given cpu passing to ffmpeg (default is no)])],
++            [use_cpu=$withval],
++            [use_cpu=no])
++
+ AC_ARG_ENABLE([optimizations],
+             [AS_HELP_STRING([--enable-optimizations],
+                [enable optimization (default is yes)])],
+@@ -805,6 +821,15 @@
+   fi
+ fi
+ 
++if test "$cross_compiling" = "yes"; then
++  final_message="$final_message\n  Crosscomp.:\tYes"
++else
++  final_message="$final_message\n  Crosscomp.:\tNo"
++fi
++
++final_message="$final_message\n  target ARCH:\t$use_arch"
++final_message="$final_message\n  target CPU:\t$use_cpu"
++
+ if test "$use_optimizations" = "yes"; then
+   final_message="$final_message\n  Optimization:\tYes"
+   CXXFLAGS="$CXXFLAGS -O2"
+@@ -1154,7 +1179,9 @@
      cp pyconfig.h Include	
    else
      ./configure \
@@ -12,15 +58,18 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        --enable-unicode=ucs4 \
        --without-cxx \
        --enable-shared \
-@@ -1219,6 +1221,7 @@
+@@ -1217,6 +1244,10 @@
+     ./configure \
        --disable-static \
-       --disable-ipv6 \
        `if test "$use_debug" = "no"; then echo --disable-debug; fi` \
 +      `if test "$cross_compiling" = "yes"; then echo --enable-cross-compile; fi` \
++      `if test "$use_arch" != "no"; then echo --arch=$use_arch; fi`\
++      `if test "$use_cpu" != "no"; then echo --cpu=$use_cpu; fi`\
++      --target-os=$(tolower $(uname -s)) \
        --disable-muxers \
        --enable-muxer=spdif \
        --enable-muxer=adts \
-@@ -1235,6 +1238,7 @@
+@@ -1233,6 +1264,7 @@
        --enable-postproc \
        --enable-gpl \
        `if test "$use_vdpau" = "yes"; then echo --enable-vdpau; else echo --disable-vdpau; fi` \
@@ -28,7 +77,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        --enable-libfaad \
        --enable-protocol=http \
        --enable-pthreads \
-@@ -1254,6 +1258,8 @@
+@@ -1252,6 +1284,8 @@
        --disable-win
    else
      ./configure \
@@ -37,7 +86,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        --disable-oss \
        --disable-solaris-audio \
        --disable-al-audio \
-@@ -1271,6 +1277,8 @@
+@@ -1269,6 +1303,8 @@
        --with-pic
    else
      ./configure \
@@ -46,7 +95,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        --disable-doc \
        --enable-static \
        --with-pic
-@@ -1289,6 +1297,8 @@
+@@ -1287,6 +1323,8 @@
      cp `pwd`/../libdvdread/src/*.h `pwd`/../includes/dvdread
    else
      ./configure2 \
@@ -55,7 +104,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        --extra-cflags="$CFLAGS $DVDREAD_CFLAGS -fPIC -DPIC -I`pwd`/../libdvdcss/src" \
        --prefix="${prefix}" --includedir="${includedir}" --libdir="${libdir}" --datadir="${datadir}" \
        --enable-static \
-@@ -1314,6 +1324,8 @@
+@@ -1312,6 +1350,8 @@
        --cc="$CC"
    else
      ./configure2 \
@@ -64,7 +113,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        --extra-cflags="$DVDREAD_CFLAGS -fPIC -DPIC -I`pwd`/../includes" \
        --extra-ldflags="-L`pwd`/../libdvdread/obj" \
        --with-dvdread-config="`pwd`/../libdvdread/obj/dvdread-config" \
-@@ -1346,6 +1358,8 @@
+@@ -1344,6 +1384,8 @@
        --disable-al-audio
    else
      ./configure \
@@ -73,7 +122,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        --with-pic \
        --disable-static \
        --enable-shared \
-@@ -1381,7 +1395,9 @@
+@@ -1379,7 +1421,9 @@
      ./configure MACOSX_DEPLOYMENT_TARGET=10.4
    else
      CFLAGS="$CFLAGS -fPIC" \
@@ -84,7 +133,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
    fi
  ], [$USE_EXTERNAL_LIBASS])
  
-@@ -1395,6 +1411,8 @@
+@@ -1393,6 +1437,8 @@
        --with-pic
    else
      ./configure \
@@ -93,7 +142,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        CPPFLAGS="$CPPFLAGS" \
        CFLAGS="$CFLAGS -fPIC" \ 
        CXXFLAGS="$CXXFLAGS -fPIC" \
-@@ -1421,6 +1439,8 @@
+@@ -1419,6 +1465,8 @@
  XB_CONFIG_MODULE([xbmc/visualizations/Goom/goom2k4-0],[
    if test "$host_vendor" != "apple" ; then
      ./configure  \
@@ -102,7 +151,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
          CPPFLAGS="$CPPFLAGS" \
          CFLAGS="$CFLAGS -fPIC" \ 
          CXXFLAGS="$CXXFLAGS -fPIC" \
-@@ -1451,6 +1471,8 @@
+@@ -1449,6 +1497,8 @@
        --disable-skyrocket
    else
      ./configure \
@@ -111,7 +160,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
        CPPFLAGS="$CPPFLAGS" \
        CFLAGS="$CFLAGS -fPIC" \ 
        CXXFLAGS="$CXXFLAGS -fPIC" \
-@@ -1470,9 +1492,11 @@
+@@ -1468,9 +1518,11 @@
  
  XB_CONFIG_MODULE([xbmc/cores/dvdplayer/Codecs/libbdnav/], [
    if test "$host_vendor" = "apple" ; then
@@ -125,7 +174,7 @@ diff -Naur xbmc-28584/configure.in xbmc-28584.patch/configure.in
    fi
  ], [0])
  
-@@ -1481,7 +1505,9 @@
+@@ -1479,7 +1531,9 @@
      CFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -fno-common" \
      ./configure MACOSX_DEPLOYMENT_TARGET=10.4 --disable-shared
    else
