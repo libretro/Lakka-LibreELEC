@@ -1,0 +1,69 @@
+commit 0b18b60ccc4df5e2dc30ad301451c3bd8b55b49d
+Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
+Date:   Thu Mar 18 12:25:20 2010 +0100
+
+    [G45] Add I420 image format.
+
+diff --git a/i965_drv_video/i965_drv_video.c b/i965_drv_video/i965_drv_video.c
+index 98a824f..7b3a206 100644
+--- a/i965_drv_video/i965_drv_video.c
++++ b/i965_drv_video/i965_drv_video.c
+@@ -64,6 +64,8 @@ static const i965_image_format_map_t
+ i965_image_formats_map[I965_MAX_IMAGE_FORMATS + 1] = {
+     { I965_SURFACETYPE_YUV,
+       { VA_FOURCC('Y','V','1','2'), VA_LSB_FIRST, 12, } },
++    { I965_SURFACETYPE_YUV,
++      { VA_FOURCC('I','4','2','0'), VA_LSB_FIRST, 12, } },
+ };
+ 
+ static const i965_image_format_map_t *
+@@ -1301,6 +1303,16 @@ i965_CreateImage_impl(
+         image->offsets[2] = size;
+         image->data_size  = size + 2 * size2;
+         break;
++    case VA_FOURCC('I','4','2','0'):
++        image->num_planes = 3;
++        image->pitches[0] = width;
++        image->offsets[0] = 0;
++        image->pitches[1] = width2;
++        image->offsets[1] = size;
++        image->pitches[2] = width2;
++        image->offsets[2] = size + size2;
++        image->data_size  = size + 2 * size2;
++        break;
+     default:
+         goto error;
+     }
+@@ -1485,7 +1497,8 @@ i965_GetImage(VADriverContextP ctx,
+     dri_bo_map(obj_surface->bo, 0);
+ 
+     switch (obj_image->image.format.fourcc) {
+-    case VA_FOURCC('Y','V','1','2'): /* YV12 is native format here */
++    case VA_FOURCC('Y','V','1','2'):
++    case VA_FOURCC('I','4','2','0'): /* I420 is native format here */
+         memcpy(image_data, obj_surface->bo->virtual, obj_surface->bo->size);
+         break;
+     default:
+@@ -1550,7 +1563,8 @@ i965_PutImage(VADriverContextP ctx,
+     dri_bo_map(obj_surface->bo, 1);
+ 
+     switch (obj_image->image.format.fourcc) {
+-    case VA_FOURCC('Y','V','1','2'): /* YV12 is native format here */
++    case VA_FOURCC('Y','V','1','2'):
++    case VA_FOURCC('I','4','2','0'): /* I420 is native format here */
+         memcpy(obj_surface->bo->virtual, image_data, obj_surface->bo->size);
+         break;
+     default:
+diff --git a/i965_drv_video/i965_drv_video.h b/i965_drv_video/i965_drv_video.h
+index 7f410ab..9e5707b 100644
+--- a/i965_drv_video/i965_drv_video.h
++++ b/i965_drv_video/i965_drv_video.h
+@@ -43,7 +43,7 @@
+ #define I965_MAX_PROFILES                       11
+ #define I965_MAX_ENTRYPOINTS                    5
+ #define I965_MAX_CONFIG_ATTRIBUTES              10
+-#define I965_MAX_IMAGE_FORMATS                  1
++#define I965_MAX_IMAGE_FORMATS                  2
+ #define I965_MAX_SUBPIC_FORMATS                 4
+ #define I965_MAX_DISPLAY_ATTRIBUTES             4
+ #define I965_STR_VENDOR                         "i965 Driver 0.1"

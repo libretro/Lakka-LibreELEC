@@ -1,0 +1,305 @@
+commit 1eb1e3e56d3c7a83aea7361a02167d382619fea8
+Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
+Date:   Mon Mar 8 17:22:06 2010 +0100
+
+    [G45] Implement vaDeriveImage().
+
+diff --git a/i965_drv_video/i965_drv_video.c b/i965_drv_video/i965_drv_video.c
+index eb3b49d..98a824f 100644
+--- a/i965_drv_video/i965_drv_video.c
++++ b/i965_drv_video/i965_drv_video.c
+@@ -336,12 +336,27 @@ VAStatus i965_QueryConfigAttributes(VADriverContextP ctx,
+     return vaStatus;
+ }
+ 
++static struct object_image *
++i965_CreateImage_impl(
++    VADriverContextP     ctx,
++    const VAImageFormat *format,
++    unsigned int         width,
++    unsigned int         height,
++    VASurfaceID          surface
++);
++
++static void
++i965_DestroyImage_impl(
++    VADriverContextP     ctx,
++    struct object_image *obj_image,
++    int                  from_surface
++);
++
+ static void 
+ i965_destroy_surface(struct object_heap *heap, struct object_base *obj)
+ {
+     struct object_surface *obj_surface = (struct object_surface *)obj;
+ 
+-    dri_bo_unreference(obj_surface->bo);
+     obj_surface->bo = NULL;
+     object_heap_free(heap, obj);
+ }
+@@ -358,6 +373,13 @@ i965_CreateSurfaces(VADriverContextP ctx,
+     int i;
+     VAStatus vaStatus = VA_STATUS_SUCCESS;
+ 
++    /* Internal format: linear I420 (compatible with YV12 VA image) */
++    static const VAImageFormat vaFormat = {
++        .fourcc = VA_FOURCC('Y','V','1','2'),
++        .byte_order = VA_LSB_FIRST,
++        .bits_per_pixel = 12
++    };
++
+     /* We only support one format */
+     if (VA_RT_FORMAT_YUV420 != format) {
+         return VA_STATUS_ERROR_UNSUPPORTED_RT_FORMAT;
+@@ -366,28 +388,36 @@ i965_CreateSurfaces(VADriverContextP ctx,
+     for (i = 0; i < num_surfaces; i++) {
+         int surfaceID = NEW_SURFACE_ID();
+         struct object_surface *obj_surface = SURFACE(surfaceID);
++        struct object_image *obj_image;
++        struct object_buffer *obj_buffer;
+ 
+         if (NULL == obj_surface) {
+             vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+             break;
+         }
+ 
++        obj_image = i965_CreateImage_impl(ctx, &vaFormat, width, height, surfaceID);
++        if (!obj_image) {
++            vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
++            break;
++        }
++
++        obj_buffer = BUFFER(obj_image->image.buf);
++        if (!obj_buffer) {
++            vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
++            break;
++        }
++        assert(obj_buffer->buffer_store);
++
+         surfaces[i] = surfaceID;
+         obj_surface->status = VASurfaceReady;
+         obj_surface->subpic = VA_INVALID_ID;
+         obj_surface->width = width;
+         obj_surface->height = height;
+         obj_surface->size = SIZE_YUV420(width, height);
+-        obj_surface->bo = dri_bo_alloc(i965->intel.bufmgr,
+-                                       "vaapi surface",
+-                                       obj_surface->size,
+-                                       64);
+-
+-        assert(obj_surface->bo);
+-        if (NULL == obj_surface->bo) {
+-            vaStatus = VA_STATUS_ERROR_UNKNOWN;
+-            break;
+-        }
++        obj_surface->image = obj_image->image;
++        obj_surface->is_derived = 0;
++        obj_surface->bo = obj_buffer->buffer_store->bo;
+     }
+ 
+     /* Error recovery */
+@@ -417,6 +447,7 @@ i965_DestroySurfaces(VADriverContextP ctx,
+         struct object_surface *obj_surface = SURFACE(surface_list[i]);
+ 
+         assert(obj_surface);
++        i965_DestroyImage_impl(ctx, IMAGE(obj_surface->image.image_id), 1);
+         i965_destroy_surface(&i965->surface_heap, (struct object_base *)obj_surface);
+     }
+ 
+@@ -1200,29 +1231,28 @@ i965_destroy_heap(struct object_heap *heap,
+ VAStatus 
+ i965_DestroyImage(VADriverContextP ctx, VAImageID image);
+ 
+-VAStatus 
+-i965_CreateImage(VADriverContextP ctx,
+-                 VAImageFormat *format,
+-                 int width,
+-                 int height,
+-                 VAImage *out_image)        /* out */
++static struct object_image *
++i965_CreateImage_impl(
++    VADriverContextP     ctx,
++    const VAImageFormat *format,
++    unsigned int         width,
++    unsigned int         height,
++    VASurfaceID          surface
++)
+ {
+     struct i965_driver_data *i965 = i965_driver_data(ctx);
+     struct object_image *obj_image;
+-    VAStatus va_status = VA_STATUS_ERROR_OPERATION_FAILED;
+     VAImageID image_id;
+     unsigned int width2, height2, size2, size;
+ 
+-    out_image->image_id = VA_INVALID_ID;
+-    out_image->buf      = VA_INVALID_ID;
+-
+     image_id = NEW_IMAGE_ID();
+     if (image_id == VA_INVALID_ID)
+-        return VA_STATUS_ERROR_ALLOCATION_FAILED;
++        return NULL;
+ 
+     obj_image = IMAGE(image_id);
+     if (!obj_image)
+-        return VA_STATUS_ERROR_ALLOCATION_FAILED;
++        return NULL;
++    obj_image->surface    = surface;
+     obj_image->bo         = NULL;
+     obj_image->palette    = NULL;
+ 
+@@ -1275,9 +1305,9 @@ i965_CreateImage(VADriverContextP ctx,
+         goto error;
+     }
+ 
+-    va_status = i965_CreateBuffer(ctx, 0, VAImageBufferType,
+-                                  image->data_size, 1, NULL, &image->buf);
+-    if (va_status != VA_STATUS_SUCCESS)
++    if (i965_CreateBuffer(ctx, 0, VAImageBufferType,
++                          image->data_size, 1, NULL,
++                          &image->buf) != VA_STATUS_SUCCESS)
+         goto error;
+ 
+     obj_image->bo = BUFFER(image->buf)->buffer_store->bo;
+@@ -1292,21 +1322,47 @@ i965_CreateImage(VADriverContextP ctx,
+     image->format               = *format;
+     image->width                = width;
+     image->height               = height;
+-
+-    *out_image                  = *image;
+-    return VA_STATUS_SUCCESS;
++    return obj_image;
+ 
+  error:
+-    i965_DestroyImage(ctx, image_id);
+-    return va_status;
++    i965_DestroyImage_impl(ctx, obj_image, 0);
++    return NULL;
++}
++
++VAStatus 
++i965_CreateImage(VADriverContextP ctx,
++                 VAImageFormat *format,
++                 int width,
++                 int height,
++                 VAImage *out_image)        /* out */
++{
++    struct object_image *obj_image;
++
++    obj_image = i965_CreateImage_impl(ctx, format, width, height, VA_INVALID_ID);
++    if (!obj_image)
++        return VA_STATUS_ERROR_ALLOCATION_FAILED;
++
++    *out_image = obj_image->image;
++    return VA_STATUS_SUCCESS;
+ }
+ 
+ VAStatus i965_DeriveImage(VADriverContextP ctx,
+                           VASurfaceID surface,
+                           VAImage *image)        /* out */
+ {
+-    /* TODO */
+-    return VA_STATUS_ERROR_OPERATION_FAILED;
++    struct i965_driver_data *i965 = i965_driver_data(ctx);
++
++    struct object_surface *obj_surface = SURFACE(surface);
++    if (!obj_surface)
++        return VA_STATUS_ERROR_INVALID_SURFACE;
++
++    struct object_image *obj_image = IMAGE(obj_surface->image.image_id);
++    if (!obj_image)
++        return VA_STATUS_ERROR_INVALID_IMAGE;
++
++    obj_surface->is_derived = 1;
++    *image = obj_surface->image;
++    return VA_STATUS_SUCCESS;
+ }
+ 
+ static void 
+@@ -1315,15 +1371,24 @@ i965_destroy_image(struct object_heap *heap, struct object_base *obj)
+     object_heap_free(heap, obj);
+ }
+ 
+-
+-VAStatus 
+-i965_DestroyImage(VADriverContextP ctx, VAImageID image)
++static void
++i965_DestroyImage_impl(
++    VADriverContextP     ctx,
++    struct object_image *obj_image,
++    int                  from_surface
++)
+ {
+-    struct i965_driver_data *i965 = i965_driver_data(ctx);
+-    struct object_image *obj_image = IMAGE(image); 
++    struct i965_driver_data * const i965 = i965_driver_data(ctx);
+ 
+     if (!obj_image)
+-        return VA_STATUS_SUCCESS;
++        return;
++
++    if (!from_surface && obj_image->surface != VA_INVALID_ID) {
++        /* only destroy when called from vaDestroySurfaces() */
++        struct object_surface *obj_surface = SURFACE(obj_image->surface);
++        obj_surface->is_derived = 0;
++        return;
++    }
+ 
+     if (obj_image->image.buf != VA_INVALID_ID) {
+         i965_DestroyBuffer(ctx, obj_image->image.buf);
+@@ -1336,6 +1401,15 @@ i965_DestroyImage(VADriverContextP ctx, VAImageID image)
+     }
+ 
+     i965_destroy_image(&i965->image_heap, (struct object_base *)obj_image);
++}
++
++VAStatus 
++i965_DestroyImage(VADriverContextP ctx, VAImageID image)
++{
++    struct i965_driver_data *i965 = i965_driver_data(ctx);
++    struct object_image *obj_image = IMAGE(image); 
++
++    i965_DestroyImage_impl(ctx, obj_image, 0);
+ 	
+     return VA_STATUS_SUCCESS;
+ }
+@@ -1382,6 +1456,9 @@ i965_GetImage(VADriverContextP ctx,
+     if (!obj_surface)
+         return VA_STATUS_ERROR_INVALID_SURFACE;
+ 
++    if (obj_surface->is_derived)
++        return VA_STATUS_ERROR_SURFACE_BUSY;
++
+     struct object_image *obj_image = IMAGE(image);
+     if (!obj_image)
+         return VA_STATUS_ERROR_INVALID_IMAGE;
+@@ -1441,6 +1518,9 @@ i965_PutImage(VADriverContextP ctx,
+     if (!obj_surface)
+         return VA_STATUS_ERROR_INVALID_SURFACE;
+ 
++    if (obj_surface->is_derived)
++        return VA_STATUS_ERROR_SURFACE_BUSY;
++
+     struct object_image *obj_image = IMAGE(image);
+     if (!obj_image)
+         return VA_STATUS_ERROR_INVALID_IMAGE;
+diff --git a/i965_drv_video/i965_drv_video.h b/i965_drv_video/i965_drv_video.h
+index be253ed..7f410ab 100644
+--- a/i965_drv_video/i965_drv_video.h
++++ b/i965_drv_video/i965_drv_video.h
+@@ -96,6 +96,8 @@ struct object_surface
+     int width;
+     int height;
+     int size;
++    VAImage image;
++    int is_derived;
+     dri_bo *bo;
+ };
+ 
+@@ -113,6 +115,7 @@ struct object_image
+ {
+     struct object_base base;
+     VAImage image;
++    VASurfaceID surface;
+     dri_bo *bo;
+     unsigned int *palette;
+ };
