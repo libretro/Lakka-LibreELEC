@@ -1,6 +1,6 @@
 diff -Naur linux-2.6.33.2/drivers/input/Kconfig linux-2.6.33.2.patch/drivers/input/Kconfig
 --- linux-2.6.33.2/drivers/input/Kconfig	2010-04-02 01:02:33.000000000 +0200
-+++ linux-2.6.33.2.patch/drivers/input/Kconfig	2010-04-05 14:03:57.390481468 +0200
++++ linux-2.6.33.2.patch/drivers/input/Kconfig	2010-04-07 22:05:13.550124631 +0200
 @@ -183,6 +183,8 @@
  
  source "drivers/input/touchscreen/Kconfig"
@@ -12,7 +12,7 @@ diff -Naur linux-2.6.33.2/drivers/input/Kconfig linux-2.6.33.2.patch/drivers/inp
  endif
 diff -Naur linux-2.6.33.2/drivers/input/lirc/Kconfig linux-2.6.33.2.patch/drivers/input/lirc/Kconfig
 --- linux-2.6.33.2/drivers/input/lirc/Kconfig	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/Kconfig	2010-04-05 14:03:57.391483335 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/Kconfig	2010-04-07 22:05:13.551124752 +0200
 @@ -0,0 +1,116 @@
 +#
 +# LIRC driver(s) configuration
@@ -132,7 +132,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/Kconfig linux-2.6.33.2.patch/driver
 +endif
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_bt829.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_bt829.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_bt829.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_bt829.c	2010-04-05 14:03:57.393483507 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_bt829.c	2010-04-06 23:47:20.000000000 +0200
 @@ -0,0 +1,383 @@
 +/*
 + * Remote control driver for the TV-card based on bt829
@@ -519,8 +519,8 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_bt829.c linux-2.6.33.2.patch/d
 +MODULE_PARM_DESC(debug, "Debug enabled or not");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_dev.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_dev.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_dev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_dev.c	2010-04-05 14:03:57.396482822 +0200
-@@ -0,0 +1,749 @@
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_dev.c	2010-04-07 21:56:14.000000000 +0200
+@@ -0,0 +1,850 @@
 +/*
 + * LIRC base driver
 + *
@@ -558,6 +558,10 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_dev.c linux-2.6.33.2.patch/dri
 +#include <linux/bitops.h>
 +#include <linux/device.h>
 +#include <linux/cdev.h>
++#include <linux/smp_lock.h>
++#ifdef CONFIG_COMPAT
++#include <linux/compat.h>
++#endif
 +
 +#include <linux/lirc.h>
 +#include "lirc_dev.h"
@@ -684,6 +688,9 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_dev.c linux-2.6.33.2.patch/dri
 +	.write		= lirc_dev_fop_write,
 +	.poll		= lirc_dev_fop_poll,
 +	.ioctl		= lirc_dev_fop_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl	= lirc_dev_fop_compat_ioctl,
++#endif
 +	.open		= lirc_dev_fop_open,
 +	.release	= lirc_dev_fop_close,
 +};
@@ -1107,6 +1114,100 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_dev.c linux-2.6.33.2.patch/dri
 +}
 +EXPORT_SYMBOL(lirc_dev_fop_ioctl);
 +
++#ifdef CONFIG_COMPAT
++#define LIRC_GET_FEATURES_COMPAT32     _IOR('i', 0x00000000, __u32)
++
++#define LIRC_GET_SEND_MODE_COMPAT32    _IOR('i', 0x00000001, __u32)
++#define LIRC_GET_REC_MODE_COMPAT32     _IOR('i', 0x00000002, __u32)
++
++#define LIRC_GET_LENGTH_COMPAT32       _IOR('i', 0x0000000f, __u32)
++
++#define LIRC_SET_SEND_MODE_COMPAT32    _IOW('i', 0x00000011, __u32)
++#define LIRC_SET_REC_MODE_COMPAT32     _IOW('i', 0x00000012, __u32)
++
++long lirc_dev_fop_compat_ioctl(struct file *file,
++			       unsigned int cmd32,
++			       unsigned long arg)
++{
++	mm_segment_t old_fs;
++	int ret;
++	unsigned long val;
++	unsigned int cmd;
++
++	switch (cmd32) {
++	case LIRC_GET_FEATURES_COMPAT32:
++	case LIRC_GET_SEND_MODE_COMPAT32:
++	case LIRC_GET_REC_MODE_COMPAT32:
++	case LIRC_GET_LENGTH_COMPAT32:
++	case LIRC_SET_SEND_MODE_COMPAT32:
++	case LIRC_SET_REC_MODE_COMPAT32:
++		/*
++		 * These commands expect (unsigned long *) arg
++		 * but the 32-bit app supplied (__u32 *).
++		 * Conversion is required.
++		 */
++		if (get_user(val, (__u32 *)compat_ptr(arg)))
++			return -EFAULT;
++		lock_kernel();
++		/*
++		 * tell lirc_dev_fop_ioctl that it's safe to use the pointer
++		 * to val which is in kernel address space and not in
++		 * user address space.
++		 */
++		old_fs = get_fs();
++		set_fs(KERNEL_DS);
++
++		cmd = _IOC(_IOC_DIR(cmd32), _IOC_TYPE(cmd32), _IOC_NR(cmd32),
++		(_IOC_TYPECHECK(unsigned long)));
++		ret = lirc_dev_fop_ioctl(file->f_path.dentry->d_inode, file,
++					 cmd, (unsigned long)(&val));
++
++		set_fs(old_fs);
++		unlock_kernel();
++	switch (cmd) {
++	case LIRC_GET_FEATURES:
++	case LIRC_GET_SEND_MODE:
++	case LIRC_GET_REC_MODE:
++	case LIRC_GET_LENGTH:
++		if (!ret && put_user(val, (__u32 *)compat_ptr(arg)))
++			return -EFAULT;
++		break;
++	}
++	return ret;
++
++	case LIRC_GET_SEND_CARRIER:
++	case LIRC_GET_REC_CARRIER:
++	case LIRC_GET_SEND_DUTY_CYCLE:
++	case LIRC_GET_REC_DUTY_CYCLE:
++	case LIRC_GET_REC_RESOLUTION:
++	case LIRC_SET_SEND_CARRIER:
++	case LIRC_SET_REC_CARRIER:
++	case LIRC_SET_SEND_DUTY_CYCLE:
++	case LIRC_SET_REC_DUTY_CYCLE:
++	case LIRC_SET_TRANSMITTER_MASK:
++	case LIRC_SET_REC_DUTY_CYCLE_RANGE:
++	case LIRC_SET_REC_CARRIER_RANGE:
++		/*
++		 * These commands expect (unsigned int *)arg
++		 * so no problems here. Just handle the locking.
++		 */
++		lock_kernel();
++		cmd = cmd32;
++		ret = lirc_dev_fop_ioctl(file->f_path.dentry->d_inode,
++					 file, cmd, arg);
++		unlock_kernel();
++		return ret;
++	default:
++		/* unknown */
++		printk(KERN_ERR "lirc_dev: %s(%s:%d): Unknown cmd %08x\n",
++		       __func__, current->comm, current->pid, cmd32);
++		return -ENOIOCTLCMD;
++	}
++}
++EXPORT_SYMBOL(lirc_dev_fop_compat_ioctl);
++#endif
++
++
 +ssize_t lirc_dev_fop_read(struct file *file,
 +			  char *buffer,
 +			  size_t length,
@@ -1272,7 +1373,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_dev.c linux-2.6.33.2.patch/dri
 +MODULE_PARM_DESC(debug, "Enable debugging messages");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_dev.h linux-2.6.33.2.patch/drivers/input/lirc/lirc_dev.h
 --- linux-2.6.33.2/drivers/input/lirc/lirc_dev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_dev.h	2010-04-05 14:03:57.398483343 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_dev.h	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,228 @@
 +/*
 + * LIRC base driver
@@ -1504,7 +1605,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_dev.h linux-2.6.33.2.patch/dri
 +#endif
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ene0100.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_ene0100.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_ene0100.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ene0100.c	2010-04-05 14:03:57.404483928 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ene0100.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,646 @@
 +/*
 + * driver for ENE KB3926 B/C/D CIR (also known as ENE0100)
@@ -2154,7 +2255,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ene0100.c linux-2.6.33.2.patch
 +module_exit(ene_exit);
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ene0100.h linux-2.6.33.2.patch/drivers/input/lirc/lirc_ene0100.h
 --- linux-2.6.33.2/drivers/input/lirc/lirc_ene0100.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ene0100.h	2010-04-05 14:03:57.405483211 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ene0100.h	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,169 @@
 +/*
 + * driver for ENE KB3926 B/C/D CIR (also known as ENE0100)
@@ -2327,7 +2428,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ene0100.h linux-2.6.33.2.patch
 +};
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_i2c.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_i2c.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_i2c.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_i2c.c	2010-04-05 14:03:57.407483033 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_i2c.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,536 @@
 +/*
 + * lirc_i2c.c
@@ -2867,7 +2968,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_i2c.c linux-2.6.33.2.patch/dri
 +module_exit(lirc_i2c_exit);
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_igorplugusb.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_igorplugusb.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_igorplugusb.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_igorplugusb.c	2010-04-05 14:03:57.410483676 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_igorplugusb.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,555 @@
 +/*
 + * lirc_igorplugusb - USB remote support for LIRC
@@ -3426,7 +3527,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_igorplugusb.c linux-2.6.33.2.p
 +
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_imon.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_imon.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_imon.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_imon.c	2010-04-05 14:03:57.418483525 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_imon.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,1053 @@
 +/*
 + *   lirc_imon.c:  LIRC/VFD/LCD driver for SoundGraph iMON IR/VFD/LCD
@@ -4483,8 +4584,8 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_imon.c linux-2.6.33.2.patch/dr
 +module_exit(imon_exit);
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_it87.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_it87.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_it87.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_it87.c	2010-04-05 14:03:57.420481602 +0200
-@@ -0,0 +1,1019 @@
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_it87.c	2010-04-07 21:56:14.000000000 +0200
+@@ -0,0 +1,1021 @@
 +/*
 + * LIRC driver for ITE IT8712/IT8705 CIR port
 + *
@@ -5411,18 +5512,16 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_it87.c linux-2.6.33.2.patch/dr
 +	return 0;
 +}
 +
-+
-+static int __init lirc_it87_init(void)
++static int it87_probe(struct pnp_dev *pnp_dev,
++		      const struct pnp_device_id *dev_id)
 +{
 +	int retval;
 +
-+	retval = pnp_register_driver(&it87_pnp_driver);
-+	if (retval < 0)
-+		return retval;
++	driver.dev = &pnp_dev->dev;
 +
 +	retval = init_chrdev();
 +	if (retval < 0)
-+		goto init_chrdev_failed;
++		return retval;
 +
 +	retval = init_lirc_it87();
 +	if (retval)
@@ -5433,9 +5532,12 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_it87.c linux-2.6.33.2.patch/dr
 +init_lirc_it87_failed:
 +	drop_chrdev();
 +
-+init_chrdev_failed:
-+	pnp_unregister_driver(&it87_pnp_driver);
 +	return retval;
++}
++
++static int __init lirc_it87_init(void)
++{
++	return pnp_register_driver(&it87_pnp_driver);
 +}
 +
 +
@@ -5460,6 +5562,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_it87.c linux-2.6.33.2.patch/dr
 +static struct pnp_driver it87_pnp_driver = {
 +	.name           = LIRC_DRIVER_NAME,
 +	.id_table       = pnp_dev_table,
++	.probe		= it87_probe,
 +};
 +
 +module_init(lirc_it87_init);
@@ -5506,7 +5609,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_it87.c linux-2.6.33.2.patch/dr
 +#endif
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_it87.h linux-2.6.33.2.patch/drivers/input/lirc/lirc_it87.h
 --- linux-2.6.33.2/drivers/input/lirc/lirc_it87.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_it87.h	2010-04-05 14:03:57.420481602 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_it87.h	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,116 @@
 +/* lirc_it87.h */
 +/* SECTION: Definitions */
@@ -5626,7 +5729,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_it87.h linux-2.6.33.2.patch/dr
 +/********************************* ITE IT87xx ************************/
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ite8709.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_ite8709.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_ite8709.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ite8709.c	2010-04-05 14:03:57.421489055 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ite8709.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,540 @@
 +/*
 + * LIRC driver for ITE8709 CIR port
@@ -6170,7 +6273,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ite8709.c linux-2.6.33.2.patch
 +MODULE_PARM_DESC(debug, "Enable debugging messages");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_mceusb.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_mceusb.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_mceusb.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_mceusb.c	2010-04-05 14:03:57.423481614 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_mceusb.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,1385 @@
 +/*
 + * LIRC driver for Windows Media Center Edition USB Infrared Transceivers
@@ -7559,7 +7662,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_mceusb.c linux-2.6.33.2.patch/
 +MODULE_PARM_DESC(debug, "Debug enabled or not");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_parallel.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_parallel.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_parallel.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_parallel.c	2010-04-05 14:03:57.425481507 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_parallel.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,709 @@
 +/*
 + * lirc_parallel.c
@@ -8272,7 +8375,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_parallel.c linux-2.6.33.2.patc
 +MODULE_PARM_DESC(debug, "Check for printer (default: 0)");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_parallel.h linux-2.6.33.2.patch/drivers/input/lirc/lirc_parallel.h
 --- linux-2.6.33.2/drivers/input/lirc/lirc_parallel.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_parallel.h	2010-04-05 14:03:57.425481507 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_parallel.h	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,26 @@
 +/* lirc_parallel.h */
 +
@@ -8302,7 +8405,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_parallel.h linux-2.6.33.2.patc
 +#endif
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_sasem.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_sasem.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_sasem.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_sasem.c	2010-04-05 14:03:57.427481190 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_sasem.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,931 @@
 +/*
 + * lirc_sasem.c - USB remote support for LIRC
@@ -9237,7 +9340,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_sasem.c linux-2.6.33.2.patch/d
 +module_exit(sasem_exit);
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_serial.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_serial.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_serial.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_serial.c	2010-04-05 14:03:57.430480715 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_serial.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,1317 @@
 +/*
 + * lirc_serial.c
@@ -10558,7 +10661,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_serial.c linux-2.6.33.2.patch/
 +MODULE_PARM_DESC(debug, "Enable debugging messages");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_sir.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_sir.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_sir.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_sir.c	2010-04-05 14:03:57.432481306 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_sir.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,1283 @@
 +/*
 + * LIRC SIR driver, (C) 2000 Milan Pikula <www@fornax.sk>
@@ -11845,7 +11948,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_sir.c linux-2.6.33.2.patch/dri
 +MODULE_PARM_DESC(debug, "Enable debugging messages");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_streamzap.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_streamzap.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_streamzap.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_streamzap.c	2010-04-05 14:03:57.433481356 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_streamzap.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,821 @@
 +/*
 + * Streamzap Remote Control driver
@@ -12670,7 +12773,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_streamzap.c linux-2.6.33.2.pat
 +MODULE_PARM_DESC(debug, "Enable debugging messages");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ttusbir.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_ttusbir.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_ttusbir.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ttusbir.c	2010-04-05 14:03:57.434481058 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_ttusbir.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,397 @@
 +/*
 + * lirc_ttusbir.c
@@ -13071,7 +13174,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_ttusbir.c linux-2.6.33.2.patch
 +module_exit(ttusbir_exit_module);
 diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_zilog.c linux-2.6.33.2.patch/drivers/input/lirc/lirc_zilog.c
 --- linux-2.6.33.2/drivers/input/lirc/lirc_zilog.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_zilog.c	2010-04-05 14:03:57.436481440 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/lirc_zilog.c	2010-04-06 23:47:21.000000000 +0200
 @@ -0,0 +1,1388 @@
 +/*
 + * i2c IR lirc driver for devices with zilog IR processors
@@ -14463,7 +14566,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/lirc_zilog.c linux-2.6.33.2.patch/d
 +MODULE_PARM_DESC(disable_tx, "Disable the IR transmitter device");
 diff -Naur linux-2.6.33.2/drivers/input/lirc/Makefile linux-2.6.33.2.patch/drivers/input/lirc/Makefile
 --- linux-2.6.33.2/drivers/input/lirc/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/lirc/Makefile	2010-04-05 14:03:57.437480792 +0200
++++ linux-2.6.33.2.patch/drivers/input/lirc/Makefile	2010-04-07 22:05:13.630122819 +0200
 @@ -0,0 +1,21 @@
 +# Makefile for the lirc drivers.
 +#
@@ -14488,7 +14591,7 @@ diff -Naur linux-2.6.33.2/drivers/input/lirc/Makefile linux-2.6.33.2.patch/drive
 +obj-$(CONFIG_LIRC_ZILOG)	+= lirc_zilog.o
 diff -Naur linux-2.6.33.2/drivers/input/Makefile linux-2.6.33.2.patch/drivers/input/Makefile
 --- linux-2.6.33.2/drivers/input/Makefile	2010-04-02 01:02:33.000000000 +0200
-+++ linux-2.6.33.2.patch/drivers/input/Makefile	2010-04-05 14:03:57.437480792 +0200
++++ linux-2.6.33.2.patch/drivers/input/Makefile	2010-04-07 22:05:13.630122819 +0200
 @@ -26,3 +26,5 @@
  obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
  
@@ -14497,7 +14600,7 @@ diff -Naur linux-2.6.33.2/drivers/input/Makefile linux-2.6.33.2.patch/drivers/in
 +obj-$(CONFIG_INPUT_LIRC)       += lirc/
 diff -Naur linux-2.6.33.2/drivers/input/misc/imon.c linux-2.6.33.2.patch/drivers/input/misc/imon.c
 --- linux-2.6.33.2/drivers/input/misc/imon.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/drivers/input/misc/imon.c	2010-04-05 14:03:57.440481155 +0200
++++ linux-2.6.33.2.patch/drivers/input/misc/imon.c	2010-04-07 22:05:13.633152235 +0200
 @@ -0,0 +1,2537 @@
 +/*
 + *   imon.c:	input and display driver for SoundGraph iMON IR/VFD/LCD
@@ -17038,7 +17141,7 @@ diff -Naur linux-2.6.33.2/drivers/input/misc/imon.c linux-2.6.33.2.patch/drivers
 +module_exit(imon_exit);
 diff -Naur linux-2.6.33.2/drivers/input/misc/Kconfig linux-2.6.33.2.patch/drivers/input/misc/Kconfig
 --- linux-2.6.33.2/drivers/input/misc/Kconfig	2010-04-02 01:02:33.000000000 +0200
-+++ linux-2.6.33.2.patch/drivers/input/misc/Kconfig	2010-04-05 14:03:57.441489307 +0200
++++ linux-2.6.33.2.patch/drivers/input/misc/Kconfig	2010-04-07 22:05:13.635247879 +0200
 @@ -319,4 +319,16 @@
  	  To compile this driver as a module, choose M here: the
  	  module will be called pcap_keys.
@@ -17058,7 +17161,7 @@ diff -Naur linux-2.6.33.2/drivers/input/misc/Kconfig linux-2.6.33.2.patch/driver
  endif
 diff -Naur linux-2.6.33.2/drivers/input/misc/Makefile linux-2.6.33.2.patch/drivers/input/misc/Makefile
 --- linux-2.6.33.2/drivers/input/misc/Makefile	2010-04-02 01:02:33.000000000 +0200
-+++ linux-2.6.33.2.patch/drivers/input/misc/Makefile	2010-04-05 14:03:57.442514711 +0200
++++ linux-2.6.33.2.patch/drivers/input/misc/Makefile	2010-04-07 22:05:13.635247879 +0200
 @@ -13,6 +13,7 @@
  obj-$(CONFIG_INPUT_COBALT_BTNS)		+= cobalt_btns.o
  obj-$(CONFIG_INPUT_DM355EVM)		+= dm355evm_keys.o
@@ -17069,21 +17172,18 @@ diff -Naur linux-2.6.33.2/drivers/input/misc/Makefile linux-2.6.33.2.patch/drive
  obj-$(CONFIG_INPUT_M68K_BEEP)		+= m68kspkr.o
 diff -Naur linux-2.6.33.2/include/linux/lirc.h linux-2.6.33.2.patch/include/linux/lirc.h
 --- linux-2.6.33.2/include/linux/lirc.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.33.2.patch/include/linux/lirc.h	2010-01-30 15:55:16.000000000 +0100
-@@ -0,0 +1,160 @@
-+/*      $Id: lirc.h,v 5.24 2010/01/30 14:55:16 lirc Exp $      */
++++ linux-2.6.33.2.patch/include/linux/lirc.h	2010-04-07 21:56:14.000000000 +0200
+@@ -0,0 +1,159 @@
++/*
++ * lirc.h - linux infrared remote control header file
++ * last modified 2007/09/27
++ */
 +
 +#ifndef _LINUX_LIRC_H
 +#define _LINUX_LIRC_H
 +
-+#if defined(__linux__)
++#include <linux/types.h>
 +#include <linux/ioctl.h>
-+#elif defined(_NetBSD_)
-+#include <sys/ioctl.h> 
-+#elif defined(_CYGWIN_)
-+#define __USE_LINUX_IOCTL_DEFS
-+#include <sys/ioctl.h>
-+#endif
 +
 +/* <obsolete> */
 +#define PULSE_BIT       0x01000000
@@ -17111,8 +17211,6 @@ diff -Naur linux-2.6.33.2/include/linux/lirc.h linux-2.6.33.2.patch/include/linu
 +#define LIRC_IS_FREQUENCY(val) (LIRC_MODE2(val) == LIRC_MODE2_FREQUENCY)
 +#define LIRC_IS_TIMEOUT(val) (LIRC_MODE2(val) == LIRC_MODE2_TIMEOUT)
 +
-+typedef int lirc_t;
-+
 +/*** lirc compatible hardware features ***/
 +
 +#define LIRC_MODE2SEND(x) (x)
@@ -17123,17 +17221,13 @@ diff -Naur linux-2.6.33.2/include/linux/lirc.h linux-2.6.33.2.patch/include/linu
 +#define LIRC_MODE_RAW                  0x00000001
 +#define LIRC_MODE_PULSE                0x00000002
 +#define LIRC_MODE_MODE2                0x00000004
-+/* obsolete: #define LIRC_MODE_CODE                 0x00000008 */
 +#define LIRC_MODE_LIRCCODE             0x00000010
-+/* obsolete: #define LIRC_MODE_STRING               0x00000020 */
 +
 +
 +#define LIRC_CAN_SEND_RAW              LIRC_MODE2SEND(LIRC_MODE_RAW)
 +#define LIRC_CAN_SEND_PULSE            LIRC_MODE2SEND(LIRC_MODE_PULSE)
 +#define LIRC_CAN_SEND_MODE2            LIRC_MODE2SEND(LIRC_MODE_MODE2)
-+/* obsolete: #define LIRC_CAN_SEND_CODE             LIRC_MODE2SEND(LIRC_MODE_CODE) */
 +#define LIRC_CAN_SEND_LIRCCODE         LIRC_MODE2SEND(LIRC_MODE_LIRCCODE)
-+/* obsolete: #define LIRC_CAN_SEND_STRING           LIRC_MODE2SEND(LIRC_MODE_STRING) */
 +
 +#define LIRC_CAN_SEND_MASK             0x0000003f
 +
@@ -17144,9 +17238,7 @@ diff -Naur linux-2.6.33.2/include/linux/lirc.h linux-2.6.33.2.patch/include/linu
 +#define LIRC_CAN_REC_RAW               LIRC_MODE2REC(LIRC_MODE_RAW)
 +#define LIRC_CAN_REC_PULSE             LIRC_MODE2REC(LIRC_MODE_PULSE)
 +#define LIRC_CAN_REC_MODE2             LIRC_MODE2REC(LIRC_MODE_MODE2)
-+/* obsolete: #define LIRC_CAN_REC_CODE              LIRC_MODE2REC(LIRC_MODE_CODE) */
 +#define LIRC_CAN_REC_LIRCCODE          LIRC_MODE2REC(LIRC_MODE_LIRCCODE)
-+/* obsolete: #define LIRC_CAN_REC_STRING            LIRC_MODE2REC(LIRC_MODE_STRING) */
 +
 +#define LIRC_CAN_REC_MASK              LIRC_MODE2REC(LIRC_CAN_SEND_MASK)
 +
@@ -17178,13 +17270,13 @@ diff -Naur linux-2.6.33.2/include/linux/lirc.h linux-2.6.33.2.patch/include/linu
 +#define LIRC_GET_REC_DUTY_CYCLE        _IOR('i', 0x00000006, unsigned int)
 +#define LIRC_GET_REC_RESOLUTION        _IOR('i', 0x00000007, unsigned int)
 +
-+#define LIRC_GET_MIN_TIMEOUT           _IOR('i', 0x00000008, lirc_t)
-+#define LIRC_GET_MAX_TIMEOUT           _IOR('i', 0x00000009, lirc_t)
++#define LIRC_GET_MIN_TIMEOUT           _IOR('i', 0x00000008, uint32_t)
++#define LIRC_GET_MAX_TIMEOUT           _IOR('i', 0x00000009, uint32_t)
 +
-+#define LIRC_GET_MIN_FILTER_PULSE      _IOR('i', 0x0000000a, lirc_t)
-+#define LIRC_GET_MAX_FILTER_PULSE      _IOR('i', 0x0000000b, lirc_t)
-+#define LIRC_GET_MIN_FILTER_SPACE      _IOR('i', 0x0000000c, lirc_t)
-+#define LIRC_GET_MAX_FILTER_SPACE      _IOR('i', 0x0000000d, lirc_t)
++#define LIRC_GET_MIN_FILTER_PULSE      _IOR('i', 0x0000000a, uint32_t)
++#define LIRC_GET_MAX_FILTER_PULSE      _IOR('i', 0x0000000b, uint32_t)
++#define LIRC_GET_MIN_FILTER_SPACE      _IOR('i', 0x0000000c, uint32_t)
++#define LIRC_GET_MAX_FILTER_SPACE      _IOR('i', 0x0000000d, uint32_t)
 +
 +/* code length in bits, currently only for LIRC_MODE_LIRCCODE */
 +#define LIRC_GET_LENGTH                _IOR('i', 0x0000000f, unsigned long)
@@ -17198,20 +17290,28 @@ diff -Naur linux-2.6.33.2/include/linux/lirc.h linux-2.6.33.2.patch/include/linu
 +#define LIRC_SET_REC_DUTY_CYCLE        _IOW('i', 0x00000016, unsigned int)
 +#define LIRC_SET_TRANSMITTER_MASK      _IOW('i', 0x00000017, unsigned int)
 +
-+/* when a timeout != 0 is set the driver will send a
-+   LIRC_MODE2_TIMEOUT data packet, otherwise LIRC_MODE2_TIMEOUT is
-+   never sent, timeout is disabled by default */
-+#define LIRC_SET_REC_TIMEOUT           _IOW('i', 0x00000018, lirc_t)
++/*
++ * when a timeout != 0 is set the driver will send a
++ * LIRC_MODE2_TIMEOUT data packet, otherwise LIRC_MODE2_TIMEOUT is
++ * never sent, timeout is disabled by default
++ */
++#define LIRC_SET_REC_TIMEOUT           _IOW('i', 0x00000018, uint32_t)
 +
-+/* pulses shorter than this are filtered out by hardware (software
-+   emulation in lirc_dev?) */
-+#define LIRC_SET_REC_FILTER_PULSE      _IOW('i', 0x00000019, lirc_t)
-+/* spaces shorter than this are filtered out by hardware (software
-+   emulation in lirc_dev?) */
-+#define LIRC_SET_REC_FILTER_SPACE      _IOW('i', 0x0000001a, lirc_t)
-+/* if filter cannot be set independantly for pulse/space, this should
-+   be used */
-+#define LIRC_SET_REC_FILTER            _IOW('i', 0x0000001b, lirc_t)
++/*
++ * pulses shorter than this are filtered out by hardware (software
++ * emulation in lirc_dev?)
++ */
++#define LIRC_SET_REC_FILTER_PULSE      _IOW('i', 0x00000019, uint32_t)
++/*
++ * spaces shorter than this are filtered out by hardware (software
++ * emulation in lirc_dev?)
++ */
++#define LIRC_SET_REC_FILTER_SPACE      _IOW('i', 0x0000001a, uint32_t)
++/*
++ * if filter cannot be set independantly for pulse/space, this should
++ * be used
++ */
++#define LIRC_SET_REC_FILTER            _IOW('i', 0x0000001b, uint32_t)
 +
 +/*
 + * to set a range use
@@ -17225,8 +17325,10 @@ diff -Naur linux-2.6.33.2/include/linux/lirc.h linux-2.6.33.2.patch/include/linu
 +
 +#define LIRC_NOTIFY_DECODE             _IO('i', 0x00000020)
 +
-+/* from the next key press on the driver will send
-+   LIRC_MODE2_FREQUENCY packets */
++/*
++ * from the next key press on the driver will send
++ * LIRC_MODE2_FREQUENCY packets
++ */
 +#define LIRC_MEASURE_CARRIER_ENABLE    _IO('i', 0x00000021)
 +#define LIRC_MEASURE_CARRIER_DISABLE   _IO('i', 0x00000022)
 +
