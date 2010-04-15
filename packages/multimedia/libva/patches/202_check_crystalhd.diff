@@ -1,0 +1,155 @@
+commit 0eeee71bcd334512a6b86702ee612b35feb644b2
+Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
+Date:   Tue Feb 23 10:05:25 2010 +0000
+
+    Detect Broadcom Crystal HD chip.
+
+diff --git a/va/Makefile.am b/va/Makefile.am
+index aeaf82f..f382c0e 100644
+--- a/va/Makefile.am
++++ b/va/Makefile.am
+@@ -42,7 +42,7 @@ libva_x11_la_DEPENDENCIES = $(libvacorelib) x11/libva_x11.la
+ 
+ SUBDIRS = x11
+ 
+-libva_la_SOURCES = va.c
++libva_la_SOURCES = va.c va_crystalhd.c
+ 
+ libvaincludedir = ${includedir}/va
+ libvainclude_HEADERS = va.h va_x11.h va_backend.h va_version.h
+@@ -51,4 +51,5 @@ DISTCLEANFILES = \
+ 	va_version.h
+ 
+ EXTRA_DIST = \
+-	va_version.h.in
++	va_version.h.in \
++	va_crystalhd.h
+diff --git a/va/va.c b/va/va.c
+index b5940e5..fd68481 100644
+--- a/va/va.c
++++ b/va/va.c
+@@ -24,8 +24,10 @@
+ 
+ #define _GNU_SOURCE 1
+ 
++#include "config.h"
+ #include "va.h"
+ #include "va_backend.h"
++#include "va_crystalhd.h"
+ 
+ #include <assert.h>
+ #include <stdarg.h>
+@@ -349,6 +351,15 @@ VAStatus vaInitialize (
+         vaStatus = va_openDriver(dpy, driver_name);
+         va_infoMessage("va_openDriver() returns %d\n", vaStatus);
+ 
++        if (vaStatus != VA_STATUS_SUCCESS && !driver_name_env)
++        {
++            if (va_hasCrystalHD())
++            {
++                vaStatus = va_openDriver(dpy, "crystalhd");
++                va_infoMessage("va_openDriver() returns %d\n", vaStatus);
++            }
++        }
++
+         *major_version = VA_MAJOR_VERSION;
+         *minor_version = VA_MINOR_VERSION;
+     }
+diff --git a/va/va_crystalhd.c b/va/va_crystalhd.c
+new file mode 100644
+index 0000000..1ddd4fe
+--- /dev/null
++++ b/va/va_crystalhd.c
+@@ -0,0 +1,54 @@
++/*
++ * Copyright (C) 2010 Splitted-Desktop Systems. All Rights Reserved.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the
++ * "Software"), to deal in the Software without restriction, including
++ * without limitation the rights to use, copy, modify, merge, publish,
++ * distribute, sub license, and/or sell copies of the Software, and to
++ * permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ * 
++ * The above copyright notice and this permission notice (including the
++ * next paragraph) shall be included in all copies or substantial portions
++ * of the Software.
++ * 
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
++ * IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
++ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "config.h"
++#include "va_crystalhd.h"
++
++/* Checks if the Broadcom Crystal HD decoder is available */
++int va_hasCrystalHD(void)
++{
++    char line[1024];
++    int len, vendor, device, dummy, found = 0;
++    FILE *fp;
++
++    fp = fopen("/proc/bus/pci/devices", "r");
++    if (!fp)
++        return 0;
++
++    while (!found && fgets(line, sizeof(line), fp)) {
++        len = strlen(line);
++        if (len == 0)
++            continue;
++        line[len - 1] = 0;
++        if (sscanf(line, "%x %04x%04x", &dummy, &vendor, &device) == 3) {
++            if (vendor == 0x14e4 && device == 0x1612) /* BCM70012 */
++                found = 1;
++        }
++    }
++    fclose(fp);
++    return found;
++}
+diff --git a/va/va_crystalhd.h b/va/va_crystalhd.h
+new file mode 100644
+index 0000000..44a39d9
+--- /dev/null
++++ b/va/va_crystalhd.h
+@@ -0,0 +1,32 @@
++/*
++ * Copyright (C) 2010 Splitted-Desktop Systems. All Rights Reserved.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the
++ * "Software"), to deal in the Software without restriction, including
++ * without limitation the rights to use, copy, modify, merge, publish,
++ * distribute, sub license, and/or sell copies of the Software, and to
++ * permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ * 
++ * The above copyright notice and this permission notice (including the
++ * next paragraph) shall be included in all copies or substantial portions
++ * of the Software.
++ * 
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
++ * IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
++ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++#ifndef VA_CRYSTALHD_H
++#define VA_CRYSTALHD_H
++
++/** Checks if the Broadcom Crystal HD decoder is available */
++int va_hasCrystalHD(void)
++    ATTRIBUTE_HIDDEN;
++
++#endif /* VA_CRYSTALHD_H */

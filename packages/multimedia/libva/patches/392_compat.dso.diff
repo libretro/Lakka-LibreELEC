@@ -1,0 +1,183 @@
+commit 23dc87f7a37ea245e9797b947df6fbd3c911dd76
+Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
+Date:   Fri Oct 16 12:39:06 2009 +0000
+
+    Fix compatibility with older programs linked against libva.so.0.
+
+diff --git a/va/Makefile.am b/va/Makefile.am
+index 1752526..f92ba8a 100644
+--- a/va/Makefile.am
++++ b/va/Makefile.am
+@@ -72,3 +72,8 @@ EXTRA_DIST = \
+ 	va_compat_template.h
+ 
+ va_compat.c: va_compat_template.h
++
++lib_LTLIBRARIES			+= libva-compat.la
++libva_compat_la_SOURCES		= va_compat_lib.c
++libva_compat_la_LIBADD		= libva-x11.la -ldl
++libva_compat_la_DEPENDENCIES	= libva-x11.la
+diff --git a/va/va_compat_lib.c b/va/va_compat_lib.c
+new file mode 100644
+index 0000000..b7e9ea5
+--- /dev/null
++++ b/va/va_compat_lib.c
+@@ -0,0 +1,158 @@
++/*
++ * Copyright (C) 2009 Splitted-Desktop Systems. All Rights Reserved.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the
++ * "Software"), to deal in the Software without restriction, including
++ * without limitation the rights to use, copy, modify, merge, publish,
++ * distribute, sub license, and/or sell copies of the Software, and to
++ * permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ * 
++ * The above copyright notice and this permission notice (including the
++ * next paragraph) shall be included in all copies or substantial portions
++ * of the Software.
++ * 
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
++ * IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
++ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++#define _GNU_SOURCE 1
++#include <dlfcn.h>
++#include <assert.h>
++#include <stddef.h>
++
++typedef void           *VADisplay;
++typedef int             VAStatus;
++typedef unsigned int    VAGenericID;
++typedef VAGenericID     VAContextID;
++typedef VAGenericID     VASurfaceID;
++typedef VAGenericID     VAImageID;
++typedef VAGenericID     VASubpictureID;
++
++#define PREPARE_FUNC(NAME, RET, ARGS)           \
++    static RET (*lib_##NAME) ARGS;              \
++    if (lib_##NAME == NULL)                     \
++        lib_##NAME = dlsym(RTLD_NEXT, #NAME);   \
++    assert(lib_##NAME != NULL)
++
++VAStatus
++vaSyncSurface(
++    VADisplay           dpy,
++    VAContextID         context,
++    VASurfaceID         render_target
++)
++{
++    PREPARE_FUNC(vaSyncSurface, VAStatus, (VADisplay, VASurfaceID));
++
++    return lib_vaSyncSurface(dpy, render_target);
++}
++
++VAStatus
++vaPutImage(
++    VADisplay           dpy,
++    VASurfaceID         surface,
++    VAImageID           image,
++    int                 src_x,
++    int                 src_y,
++    unsigned int        width,
++    unsigned int        height,
++    int                 dest_x,
++    int                 dest_y
++)
++{
++    PREPARE_FUNC(vaPutImage, VAStatus, (VADisplay, VASurfaceID, VAImageID,
++                                        int, int, unsigned int, unsigned int,
++                                        int, int, unsigned int, unsigned int));
++
++    return lib_vaPutImage(dpy, surface, image,
++                          src_x, src_y, width, height,
++                          dest_x, dest_y, width, height);
++}
++
++VAStatus
++vaPutImage2(
++    VADisplay           dpy,
++    VASurfaceID         surface,
++    VAImageID           image,
++    int                 src_x,
++    int                 src_y,
++    unsigned int        src_width,
++    unsigned int        src_height,
++    int                 dest_x,
++    int                 dest_y,
++    unsigned int        dest_width,
++    unsigned int        dest_height
++)
++{
++    PREPARE_FUNC(vaPutImage, VAStatus, (VADisplay, VASurfaceID, VAImageID,
++                                        int, int, unsigned int, unsigned int,
++                                        int, int, unsigned int, unsigned int));
++
++    return lib_vaPutImage(dpy, surface, image,
++                          src_x, src_y, src_width, src_height,
++                          dest_x, dest_y, dest_width, dest_height);
++}
++
++VAStatus
++vaAssociateSubpicture(
++    VADisplay           dpy,
++    VASubpictureID      subpicture,
++    VASurfaceID        *target_surfaces,
++    int                 num_surfaces,
++    short               src_x,
++    short               src_y,
++    short               dest_x,
++    short               dest_y,
++    unsigned short      width,
++    unsigned short      height,
++    unsigned int        flags
++)
++{
++    PREPARE_FUNC(vaAssociateSubpicture,
++                 VAStatus, (VADisplay, VASubpictureID, VASurfaceID *, int,
++                            short, short, unsigned short, unsigned short,
++                            short, short, unsigned short, unsigned short,
++                            unsigned int));
++
++    return lib_vaAssociateSubpicture(dpy, subpicture,
++                                     target_surfaces, num_surfaces,
++                                     src_x, src_y, width, height,
++                                     dest_x, dest_y, width, height,
++                                     flags);
++}
++
++VAStatus
++vaAssociateSubpicture2(
++    VADisplay           dpy,
++    VASubpictureID      subpicture,
++    VASurfaceID        *target_surfaces,
++    int                 num_surfaces,
++    short               src_x,
++    short               src_y,
++    unsigned short      src_width,
++    unsigned short      src_height,
++    short               dest_x,
++    short               dest_y,
++    unsigned short      dest_width,
++    unsigned short      dest_height,
++    unsigned int        flags
++)
++{
++    PREPARE_FUNC(vaAssociateSubpicture,
++                 VAStatus, (VADisplay, VASubpictureID, VASurfaceID *, int,
++                            short, short, unsigned short, unsigned short,
++                            short, short, unsigned short, unsigned short,
++                            unsigned int));
++
++    return lib_vaAssociateSubpicture(dpy, subpicture,
++                                     target_surfaces, num_surfaces,
++                                     src_x, src_y, src_width, src_height,
++                                     dest_x, dest_y, dest_width, dest_height,
++                                     flags);
++}
