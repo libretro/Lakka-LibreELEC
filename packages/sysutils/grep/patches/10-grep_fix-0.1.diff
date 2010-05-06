@@ -1,0 +1,42 @@
+Hi Nelson,
+
+Thanks for the report.
+I debated whether to add an entry to NEWS, but opted not to,
+since it is unlikely that anyone will see the result of this fix.
+
+Here's the patch:
+
+From 651d212abe771d2a32db746895ae28dd434527b6 Mon Sep 17 00:00:00 2001
+From: Jim Meyering <meyering <at> redhat.com>
+Date: Wed, 7 Apr 2010 13:36:02 +0200
+Subject: [PATCH] grep: make kwset's obstack use xmalloc, not malloc
+
+This insidious bug could make grep fail to diagnose a failed malloc,
+and then proceed to dereference the resulting NULL pointer.
+Note that this bug was unlikely ever to cause real trouble; without
+the fix, grep would segfault upon OOM, now it exits with a diagnostic.
+* src/kwset.c (malloc) [GREP]: Define without the "(s)" macro
+parameter, so that unadorned uses of malloc are also mapped to xmalloc.
+One such use is in the expansion of obstack_init.
+Report and patch by Nelson H. F. Beebe, in
+http://thread.gmane.org/gmane.comp.gnu.grep.bugs/2995
+---
+ src/kwset.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/src/kwset.c b/src/kwset.c
+index 050562e..995be79 100644
+--- a/src/kwset.c
++++ b/src/kwset.c
+@@ -40,7 +40,7 @@
+ #ifdef GREP
+ # include "xalloc.h"
+ # undef malloc
+-# define malloc(s) xmalloc(s)
++# define malloc xmalloc
+ #endif
+
+ #define NCHAR (UCHAR_MAX + 1)
+--
+1.7.1.rc0.212.gbd88f
+
