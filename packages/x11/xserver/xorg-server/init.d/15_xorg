@@ -1,0 +1,43 @@
+# starting xorg
+#
+# runlevels: openelec
+
+. /etc/profile
+
+  XORG_DEFAULT_CONF="/etc/X11/xorg.conf"
+  XORG_NVIDIA_CONF="/etc/X11/xorg-nvidia.conf"
+  XORG_USER_CONF="/storage/.config/xorg.conf"
+  XORG_ARGS="-s 0 -nr -noreset -allowMouseOpenFail -nocursor -nolisten tcp"
+
+  [ "$DEBUG" = yes ] && XORG_ARGS="$XORG_ARGS -logverbose 6 -verbose 6"
+
+(
+  progress "creating directories needed for Xorg"
+
+    mkdir -p /var/cache/xkb
+    mkdir -p /var/lib
+    mkdir -m 1777 -p /tmp/.ICE-unix
+    chown root:root /tmp/.ICE-unix
+
+    if lspci -n | grep 0300 | grep -q 10de; then
+
+      ln -sf /usr/lib/libGL_nvidia.so.1 /var/lib/libGL.so
+      ln -sf /usr/lib/xorg/modules/extensions/libglx_nvidia.so /var/lib/libglx.so
+      XORG_ARGS="$XORG_ARGS -ignoreABI"
+      XORG_CONF="$XORG_NVIDIA_CONF"
+
+    else
+
+      ln -sf /usr/lib/libGL_mesa.so.1 /var/lib/libGL.so
+      ln -sf /usr/lib/xorg/modules/extensions/libglx_mesa.so /var/lib/libglx.so
+      XORG_CONF="$XORG_DEFAULT_CONF"
+
+    fi
+
+    [ -f $XORG_USER_CONF ] && XORG_CONF="$XORG_USER_CONF"
+
+  progress "starting xorg"
+
+    XORG_ARGS="$XORG_ARGS -config $XORG_CONF"
+    Xorg $DISPLAY vt01 $XORG_ARGS > /dev/null 2>&1
+)&
