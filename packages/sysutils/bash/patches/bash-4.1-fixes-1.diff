@@ -1,0 +1,99 @@
+Submitted By:            Matt Burgess <matthew_at_linuxfromscratch_dot_org>
+Date:                    2010-04-14
+Initial Package Version: 4.1
+Upstream Status:         Already in upstream patch repo
+Origin:                  Upstream
+Description:             This patch contains upstream patch numbers 1 thru 5.
+
+diff -Naur bash-4.1.orig/bashline.c bash-4.1/bashline.c
+--- bash-4.1.orig/bashline.c	2009-10-24 19:10:19.000000000 +0100
++++ bash-4.1/bashline.c	2010-04-14 20:15:22.075440836 +0100
+@@ -1680,7 +1680,7 @@
+      a single match (multiple matches that end up reducing the number of
+      characters in the common prefix are bad) will ever be returned on
+      regular completion. */
+-  if (glob_pattern_p (hint))
++  if (globpat)
+     {
+       if (state == 0)
+ 	{
+diff -Naur bash-4.1.orig/builtins/printf.def bash-4.1/builtins/printf.def
+--- bash-4.1.orig/builtins/printf.def	2009-11-20 20:31:23.000000000 +0000
++++ bash-4.1/builtins/printf.def	2010-04-14 20:15:22.055434803 +0100
+@@ -172,7 +172,7 @@
+ #endif
+ 
+ #if !HAVE_VSNPRINTF
+-extern int vsnprintf __P((char *, size_t, const char *, ...)) __attribute__((__format__ (printf, 3, 4)));
++extern int vsnprintf __P((char *, size_t, const char *, va_list)) __attribute__((__format__ (printf, 3, 0)));
+ #endif
+ 
+ static void printf_erange __P((char *));
+diff -Naur bash-4.1.orig/builtins/read.def bash-4.1/builtins/read.def
+--- bash-4.1.orig/builtins/read.def	2009-10-08 16:35:46.000000000 +0100
++++ bash-4.1/builtins/read.def	2010-04-14 20:15:22.095436083 +0100
+@@ -615,14 +615,15 @@
+   if (unbuffered_read == 0)
+     zsyncfd (fd);
+ 
+-  interrupt_immediately--;
+-  terminate_immediately--;
+   discard_unwind_frame ("read_builtin");
+ 
+   retval = eof ? EXECUTION_FAILURE : EXECUTION_SUCCESS;
+ 
+ assign_vars:
+ 
++  interrupt_immediately--;
++  terminate_immediately--;
++
+ #if defined (ARRAY_VARS)
+   /* If -a was given, take the string read, break it into a list of words,
+      an assign them to `arrayname' in turn. */
+diff -Naur bash-4.1.orig/lib/readline/complete.c bash-4.1/lib/readline/complete.c
+--- bash-4.1.orig/lib/readline/complete.c	2009-11-29 23:39:30.000000000 +0000
++++ bash-4.1/lib/readline/complete.c	2010-04-14 20:15:22.064194346 +0100
+@@ -2138,7 +2138,7 @@
+ 	 All other entries except "." and ".." match. */
+       if (filename_len == 0)
+ 	{
+-	  if (_rl_match_hidden_files == 0 && HIDDEN_FILE (entry->d_name))
++	  if (_rl_match_hidden_files == 0 && HIDDEN_FILE (convfn))
+ 	    continue;
+ 
+ 	  if (convfn[0] != '.' ||
+@@ -2219,7 +2219,7 @@
+ 		temp[dirlen++] = '/';
+ 	    }
+ 
+-	  strcpy (temp + dirlen, entry->d_name);
++	  strcpy (temp + dirlen, convfn);
+ 	}
+       else
+ 	temp = savestring (convfn);
+diff -Naur bash-4.1.orig/patchlevel.h bash-4.1/patchlevel.h
+--- bash-4.1.orig/patchlevel.h	2009-10-01 21:39:22.000000000 +0100
++++ bash-4.1/patchlevel.h	2010-04-14 20:15:22.099440845 +0100
+@@ -25,6 +25,6 @@
+    regexp `^#define[ 	]*PATCHLEVEL', since that's what support/mkversion.sh
+    looks for to find the patch level (for the sccs version string). */
+ 
+-#define PATCHLEVEL 0
++#define PATCHLEVEL 5
+ 
+ #endif /* _PATCHLEVEL_H_ */
+diff -Naur bash-4.1.orig/variables.c bash-4.1/variables.c
+--- bash-4.1.orig/variables.c	2009-11-03 19:13:58.000000000 +0000
++++ bash-4.1/variables.c	2010-04-14 20:15:22.088697241 +0100
+@@ -3808,6 +3808,11 @@
+ 
+   if (tempvar_p (var) && (posixly_correct || (var->attributes & att_propagate)))
+     {
++      /* Make sure we have a hash table to store the variable in while it is
++	 being propagated down to the global variables table.  Create one if
++	 we have to */
++      if ((vc_isfuncenv (shell_variables) || vc_istempenv (shell_variables)) && shell_variables->table == 0)
++	shell_variables->table = hash_create (0);
+       /* XXX - should we set v->context here? */
+       v = bind_variable_internal (var->name, value_cell (var), shell_variables->table, 0, 0);
+       if (shell_variables == global_variables)

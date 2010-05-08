@@ -1,0 +1,91 @@
+#!/bin/sh
+
+[ -f /storage/.config/update.conf ] && \
+  . /storage/.config/update.conf
+
+if [ ! -f /var/lock/update.lock ]; then
+
+  if [ "$AUTOUPDATE" = "manually" -o "$AUTOUPDATE" = "auto" ]; then
+
+  # sleep a bit, maybe we have a lot of work ;-)
+    usleep 30000000
+
+    send_message () {
+      xbmc-send --host=127.0.0.1 -a "Notification(Automatic Update Service:,$1,20000)"
+    }
+
+    UPDATEURL="http://releases.openelec.tv"
+
+  # getting this version
+    THIS_DISTRIBUTION="`cat /etc/distribution`"
+    THIS_ARCH="`cat /etc/arch`"
+    THIS_VERSION="`cat /etc/version`"
+    THIS_MAJOR="`echo "$THIS_VERSION" | cut -d "." -f1`"
+    THIS_MINOR="`echo "$THIS_VERSION" | cut -d "." -f2`"
+    THIS_PATCH="`echo "$THIS_VERSION" | cut -d "." -f3`"
+
+  # get infofile with the latest released version
+    rm -rf /tmp/latest
+    wget $UPDATEURL/latest -P /tmp
+
+    NEW_IMAGE="`cat /tmp/latest |grep "$THIS_DISTRIBUTION-$THIS_ARCH"`"
+    NEW_VERSION="`echo "$NEW_IMAGE" | cut -d "-" -f3`"
+
+    rm -rf /tmp/latest
+
+  # compare installed version with latest released version
+    NEW_MAJOR="`echo "$NEW_VERSION" | cut -d "." -f1`"
+    NEW_MINOR="`echo "$NEW_VERSION" | cut -d "." -f2`"
+    NEW_PATCH="`echo "$NEW_VERSION" | cut -d "." -f3`"
+
+    if [ "$THIS_MAJOR" -lt "$NEW_MAJOR" -o \
+         "$THIS_MINOR" -lt "$NEW_MINOR" -o \
+         "$THIS_PATCH" -lt "$NEW_PATCH" ]; then
+
+      if [ "$AUTOUPDATE" = "manually" ]; then
+
+      # show a message if a new version is avaible
+        send_message "New update avaible: $NEW_VERSION - please update manually"
+
+      elif [ "$AUTOUPDATE" = "auto" ]; then
+
+      # show a message if a new version is avaible
+        send_message "New update avaible: $NEW_VERSION - downloading and extract the new version..."
+
+      # locking autoupdate
+        touch /var/lock/update.lock
+
+      # downloading the new version
+        wget -c $UPDATEURL/$NEW_IMAGE.tar.bz2 -P /tmp
+
+      # extract the image
+        rm -rf /tmp/$NEW_IMAGE
+        tar -xjvf /tmp/$NEW_IMAGE.tar.bz2 -C /tmp
+
+      # move KERNEL and SYSTEM to an temporary file
+        mkdir -p /storage/.update
+
+        [ -f /tmp/$NEW_IMAGE/target/KERNEL ] && \
+          mv /tmp/$NEW_IMAGE/target/KERNEL /storage/.update/KERNEL.tmp
+
+        [ -f /tmp/$NEW_IMAGE/target/SYSTEM ] && \
+          mv /tmp/$NEW_IMAGE/target/SYSTEM /storage/.update/SYSTEM.tmp
+        sync
+
+      # move KERNEL and SYSTEM to the right place
+        mv /storage/.update/KERNEL.tmp /storage/.update/KERNEL
+        mv /storage/.update/SYSTEM.tmp /storage/.update/SYSTEM
+
+        touch /var/
+      # cleanup tmp files
+        rm -rf /tmp/$NEW_IMAGE
+        rm -rf /tmp/$NEW_IMAGE.tar.bz2
+        rm -rf /storage/.update/*.tmp
+
+      # we are ready (hopefully)
+        send_message "Update $NEW_VERSION - downloaded and extracted - please reboot to install"
+
+      fi
+    fi
+  fi
+fi

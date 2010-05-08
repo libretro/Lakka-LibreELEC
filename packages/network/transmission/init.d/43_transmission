@@ -1,0 +1,43 @@
+# start transmission bt daemon
+#
+# runlevels: openelec, textmode
+
+[ -f /storage/.config/transmission.conf ] && . /storage/.config/transmission.conf || exit 0
+
+(
+  if [ "$TRANSMISSION_START" = "yes" ]; then
+
+    progress "Starting Transmission BT daemon"
+
+    TRANSMISSION_ARG="$TRANSMISSION_ARG -w /storage/downloads"
+    TRANSMISSION_ARG="$TRANSMISSION_ARG -e /var/log/transmission.log"
+    TRANSMISSION_ARG="$TRANSMISSION_ARG -g /storage/.cache/transmission"
+    TRANSMISSION_ARG="$TRANSMISSION_ARG -a $TRANSMISSION_IP"
+
+    if [ "$TRANSMISSION_AUTH" = "yes" ]; then
+      TRANSMISSION_ARG="$TRANSMISSION_ARG -t"
+      TRANSMISSION_ARG="$TRANSMISSION_ARG -u $TRANSMISSION_USER"
+      TRANSMISSION_ARG="$TRANSMISSION_ARG -v $TRANSMISSION_PWD"
+    else
+      TRANSMISSION_ARG="$TRANSMISSION_ARG -T"
+    fi
+
+    if [ "$TRANSMISSION_INCDIR" = "none" ]; then
+      TRANSMISSION_ARG="$TRANSMISSION_ARG --no-incomplete-dir"
+    else
+      TRANSMISSION_ARG="$TRANSMISSION_ARG --incomplete-dir \
+        /storage/downloads/$TRANSMISSION_INCDIR"
+      $IONICE mkdir -p /storage/downloads/$TRANSMISSION_INCDIR
+    fi
+
+    if [ "$TRANSMISSION_WATCHDIR" = "none" ]; then
+      TRANSMISSION_ARG="$TRANSMISSION_ARG --no-watch-dir"
+    else
+      TRANSMISSION_ARG="$TRANSMISSION_ARG --watch-dir \
+        /storage/downloads/$TRANSMISSION_WATCHDIR"
+      $IONICE mkdir -p /storage/downloads/$TRANSMISSION_WATCHDIR
+    fi
+
+    transmission-daemon $TRANSMISSION_ARG
+  fi
+)&
