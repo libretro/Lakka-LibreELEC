@@ -22,13 +22,28 @@
 
 clear
 
-# starting init scripts for wanted runlevel
-  RET=0
+# mounting needed special filesystems
+  mount -n -t proc none /proc
+  mount -n -t sysfs none /sys
 
-  for script in /etc/init.d/*; do
-    if grep -q -e "^# runlevels:.*$RUNLEVEL" $script; then
-      /bin/sh $script
-      S_RET=$?
-      test $S_RET -ge $RET && RET=$S_RET
-    fi
-  done
+  echo 0 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+
+  mount -n -t devtmpfs none /dev
+
+  mkdir -p /dev/pts
+  mount -n -t devpts -o gid=5,mode=620 none /dev/pts
+
+# starting init scripts for wanted runlevel
+
+. /etc/profile
+
+  progress "Starting Init Scripts"
+    RET=0
+
+    for script in /etc/init.d/*; do
+      if grep -q -e "^# runlevels:.*$RUNLEVEL" $script; then
+        /bin/sh $script
+        S_RET=$?
+        test $S_RET -ge $RET && RET=$S_RET
+      fi
+    done
