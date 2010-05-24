@@ -1,0 +1,125 @@
+commit 8ca9ac4f628ea3d01c570293b6fa904ce0bb607e
+Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
+Date:   Wed Apr 28 18:43:04 2010 +0200
+
+    [G45] Fix build without proper libdrm updates.
+
+diff --git a/i965_drv_video/i965_drv_video.c b/i965_drv_video/i965_drv_video.c
+index 369ebdf..a482848 100644
+--- a/i965_drv_video/i965_drv_video.c
++++ b/i965_drv_video/i965_drv_video.c
+@@ -134,9 +134,11 @@ i965_QueryConfigProfiles(VADriverContextP ctx,
+ 
+     profile_list[i++] = VAProfileMPEG2Simple;
+     profile_list[i++] = VAProfileMPEG2Main;
++#ifndef DISABLE_H264_DECODER
+     profile_list[i++] = VAProfileH264Baseline;
+     profile_list[i++] = VAProfileH264Main;
+     profile_list[i++] = VAProfileH264High;
++#endif
+ 
+     /* If the assert fails then I965_MAX_PROFILES needs to be bigger */
+     assert(i <= I965_MAX_PROFILES);
+@@ -160,12 +162,14 @@ i965_QueryConfigEntrypoints(VADriverContextP ctx,
+         entrypoint_list[0] = VAEntrypointVLD;
+         break;
+ 
++#ifndef DISABLE_H264_DECODER
+     case VAProfileH264Baseline:
+     case VAProfileH264Main:
+     case VAProfileH264High:
+         *num_entrypoints = 1;
+         entrypoint_list[0] = VAEntrypointVLD;
+         break;
++#endif
+ 
+     default:
+         vaStatus = VA_STATUS_ERROR_UNSUPPORTED_PROFILE;
+@@ -262,6 +266,7 @@ i965_CreateConfig(VADriverContextP ctx,
+         }
+         break;
+ 
++#ifndef DISABLE_H264_DECODER
+     case VAProfileH264Baseline:
+     case VAProfileH264Main:
+     case VAProfileH264High:
+@@ -270,8 +275,8 @@ i965_CreateConfig(VADriverContextP ctx,
+         } else {
+             vaStatus = VA_STATUS_ERROR_UNSUPPORTED_ENTRYPOINT;
+         }
+-
+         break;
++#endif
+ 
+     default:
+         vaStatus = VA_STATUS_ERROR_UNSUPPORTED_PROFILE;
+@@ -983,11 +988,13 @@ i965_BeginPicture(VADriverContextP ctx,
+         vaStatus = VA_STATUS_SUCCESS;
+         break;
+ 
++#ifndef DISABLE_H264_DECODER
+     case VAProfileH264Baseline:
+     case VAProfileH264Main:
+     case VAProfileH264High:
+         vaStatus = VA_STATUS_SUCCESS;
+         break;
++#endif
+ 
+     default:
+         assert(0);
+@@ -1156,12 +1163,13 @@ i965_EndPicture(VADriverContextP ctx, VAContextID context)
+     assert(obj_config);
+ 
+     switch (obj_config->profile) {
++#ifndef DISABLE_H264_DECODER
+     case VAProfileH264Baseline:
+     case VAProfileH264Main:
+     case VAProfileH264High:
+         render_state->interleaved_uv = 1;
+         break;
+-
++#endif
+     default:
+         render_state->interleaved_uv = 0;
+     }
+diff --git a/i965_drv_video/intel_batchbuffer.c b/i965_drv_video/intel_batchbuffer.c
+index 4c622d6..455c6a1 100644
+--- a/i965_drv_video/intel_batchbuffer.c
++++ b/i965_drv_video/intel_batchbuffer.c
+@@ -33,6 +33,16 @@
+ 
+ #include "intel_batchbuffer.h"
+ 
++#ifdef DISABLE_H264_DECODER
++#define drm_intel_bo_mrb_exec local_drm_intel_bo_mrb_exec
++static int drm_intel_bo_mrb_exec(drm_intel_bo *bo, int used,
++                                 drm_clip_rect_t * cliprects, int num_cliprects,
++                                 int DR4, int ring_flag)
++{
++    return drm_intel_bo_exec(bo, used, cliprects, num_cliprects, DR4);
++}
++#endif
++
+ static void 
+ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
+ {
+diff --git a/i965_drv_video/intel_driver.h b/i965_drv_video/intel_driver.h
+index e7cbaaa..8a3ce93 100644
+--- a/i965_drv_video/intel_driver.h
++++ b/i965_drv_video/intel_driver.h
+@@ -17,6 +17,15 @@
+ #define INLINE
+ #endif
+ 
++#ifndef ON_RENDER_RING
++#define ON_RENDER_RING  (1 << 0)
++#define DISABLE_H264_DECODER
++#endif
++#ifndef ON_BSD_RING
++#define ON_BSD_RING     (1 << 1)
++#define DISABLE_H264_DECODER
++#endif
++
+ #define BATCH_SIZE      0x100000
+ #define BATCH_RESERVED  0x10
+ 
