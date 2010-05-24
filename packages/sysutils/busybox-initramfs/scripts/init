@@ -1,22 +1,16 @@
 #!/bin/sh
 
+UPDATE_DIR=/storage/.update
+
+IMAGE_SYSTEM="SYSTEM"
+IMAGE_KERNEL="KERNEL"
+REBOOT=0
+
 # mount all needed special filesystems
-  /bin/busybox mount -t proc none /proc
   /bin/busybox mount -t devtmpfs none /dev
-  /bin/busybox mount -t sysfs none /sys
+  /bin/busybox mount -t proc none /proc
 
-  mkdir /dev/pts
-  /bin/busybox mount -t devpts -o gid=5,mode=620 none /dev/pts
-
-#  BOOT=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*boot=// ; s/ .*//'`
-#  DISK=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*disk=// ; s/ .*//'`
-  UPDATE_DIR=/storage/.update
-
-  IMAGE_SYSTEM="SYSTEM"
-  IMAGE_KERNEL="KERNEL"
-  REBOOT=0
-
-  # parse command line arguments
+# parse command line arguments
   for arg in $(cat /proc/cmdline); do
     case $arg in
       debugging)
@@ -57,8 +51,7 @@
     progress "trying to mount $1 ..."
     for i in 1 2 3 4 5 6 7 8 9 10; do
       ERR_ENV=1
-      /bin/busybox ionice -c 1 -n 0 \
-        /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
+      $IONICE /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
       [ $? -eq 0 ] && ERR_ENV=0 && break
       /bin/busybox usleep 1000000
     done
@@ -100,11 +93,10 @@
   /bin/busybox mount --move /storage /sysroot/storage
 
 # unmount all other filesystems
-  /bin/busybox umount /proc
-  /bin/busybox umount /sys
-  /bin/busybox umount /dev/pts
   /bin/busybox umount /dev
+  /bin/busybox umount /proc
 
+# switch to new sysroot and start real init
   exec /bin/busybox switch_root /sysroot /sbin/init
 
   error "INIT_3" "Error in initramfs. Could not switch to new root"
