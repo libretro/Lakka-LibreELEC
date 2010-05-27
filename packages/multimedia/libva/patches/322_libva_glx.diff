@@ -1,6 +1,6 @@
-commit acf3ec6b5176bf4cd09136a1d8c9bc3ff63f9d4e
+commit 80ae27a4546b90faaa29bd3e77f5fa91a89b1b16
 Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
-Date:   Sun Apr 4 08:06:59 2010 +0200
+Date:   Tue Apr 13 04:54:11 2010 +0200
 
     Add OpenGL extensions (v3) and generic implementation with TFP and FBO.
 
@@ -417,10 +417,10 @@ index 0000000..1a0624d
 +#endif /* VA_GLX_H */
 diff --git a/va/glx/va_glx_impl.c b/va/glx/va_glx_impl.c
 new file mode 100644
-index 0000000..7c26648
+index 0000000..adc4560
 --- /dev/null
 +++ b/va/glx/va_glx_impl.c
-@@ -0,0 +1,1050 @@
+@@ -0,0 +1,1078 @@
 +/*
 + * Copyright (C) 2009 Splitted-Desktop Systems. All Rights Reserved.
 + *
@@ -714,7 +714,6 @@ index 0000000..7c26648
 +struct OpenGLContextState {
 +    Display     *display;
 +    Window       window;
-+    XVisualInfo *visual;
 +    GLXContext   context;
 +};
 +
@@ -723,11 +722,6 @@ index 0000000..7c26648
 +{
 +    if (!cs)
 +        return;
-+
-+    if (cs->visual) {
-+        XFree(cs->visual);
-+        cs->visual = NULL;
-+    }
 +
 +    if (cs->display && cs->context) {
 +        if (glXGetCurrentContext() == cs->context)
@@ -744,15 +738,16 @@ index 0000000..7c26648
 +{
 +    OpenGLContextStateP cs;
 +    GLXFBConfig *fbconfigs = NULL;
-+    int n_fbconfigs;
++    int fbconfig_id, val, n, n_fbconfigs;
++    Status status;
 +
 +    static GLint fbconfig_attrs[] = {
 +        GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
 +        GLX_RENDER_TYPE,   GLX_RGBA_BIT,
 +        GLX_DOUBLEBUFFER,  True,
-+        GLX_RED_SIZE,      1,
-+        GLX_GREEN_SIZE,    1, 
-+        GLX_BLUE_SIZE,     1,
++        GLX_RED_SIZE,      8,
++        GLX_GREEN_SIZE,    8, 
++        GLX_BLUE_SIZE,     8,
 +        None
 +    };
 +
@@ -762,25 +757,58 @@ index 0000000..7c26648
 +
 +    cs->display = ctx->x11_dpy;
 +    cs->window  = parent ? parent->window : None;
-+    cs->visual  = NULL;
 +    cs->context = NULL;
 +
-+    fbconfigs = glXChooseFBConfig(
-+        ctx->x11_dpy,
-+        ctx->x11_screen,
-+        fbconfig_attrs,
-+        &n_fbconfigs
-+    );
-+    if (!fbconfigs)
-+        goto error;
++    if (parent && parent->context) {
++        status = glXQueryContext(
++            parent->display,
++            parent->context,
++            GLX_FBCONFIG_ID, &fbconfig_id
++        );
++        if (status != Success)
++            goto error;
 +
-+    cs->visual = glXGetVisualFromFBConfig(ctx->x11_dpy, fbconfigs[0]);
-+    if (!cs->visual)
-+        goto error;
++        if (fbconfig_id == GLX_DONT_CARE)
++            goto choose_fbconfig;
++
++        fbconfigs = glXGetFBConfigs(
++            ctx->x11_dpy,
++            ctx->x11_screen,
++            &n_fbconfigs
++        );
++        if (!fbconfigs)
++            goto error;
++
++        /* Find out a GLXFBConfig compatible with the parent context */
++        for (n = 0; n < n_fbconfigs; n++) {
++            status = glXGetFBConfigAttrib(
++                ctx->x11_dpy,
++                fbconfigs[n],
++                GLX_FBCONFIG_ID, &val
++            );
++            if (status == Success && val == fbconfig_id)
++                break;
++        }
++        if (n == n_fbconfigs)
++            goto error;
++    }
++    else {
++    choose_fbconfig:
++        fbconfigs = glXChooseFBConfig(
++            ctx->x11_dpy,
++            ctx->x11_screen,
++            fbconfig_attrs, &n_fbconfigs
++        );
++        if (!fbconfigs)
++            goto error;
++
++        /* Select the first one */
++        n = 0;
++    }
 +
 +    cs->context = glXCreateNewContext(
 +        ctx->x11_dpy,
-+        fbconfigs[0],
++        fbconfigs[n],
 +        GLX_RGBA_TYPE,
 +        parent ? parent->context : NULL,
 +        True

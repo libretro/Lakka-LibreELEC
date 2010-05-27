@@ -1,0 +1,180 @@
+diff -Naur udisks-1.0.1/configure udisks-1.0.1.patch/configure
+--- udisks-1.0.1/configure	2010-03-25 17:29:49.000000000 +0100
++++ udisks-1.0.1.patch/configure	2010-05-26 21:05:46.015857380 +0200
+@@ -13772,12 +13772,12 @@
+     pkg_cv_LVM2_CFLAGS="$LVM2_CFLAGS"
+  elif test -n "$PKG_CONFIG"; then
+     if test -n "$PKG_CONFIG" && \
+-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"lvm2app >= 2.1\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "lvm2app >= 2.1") 2>&5
++    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"lvm2app >= 2.2\""; } >&5
++  ($PKG_CONFIG --exists --print-errors "lvm2app >= 2.2") 2>&5
+   ac_status=$?
+   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+   test $ac_status = 0; }; then
+-  pkg_cv_LVM2_CFLAGS=`$PKG_CONFIG --cflags "lvm2app >= 2.1" 2>/dev/null`
++  pkg_cv_LVM2_CFLAGS=`$PKG_CONFIG --cflags "lvm2app >= 2.2" 2>/dev/null`
+ else
+   pkg_failed=yes
+ fi
+@@ -13788,12 +13788,12 @@
+     pkg_cv_LVM2_LIBS="$LVM2_LIBS"
+  elif test -n "$PKG_CONFIG"; then
+     if test -n "$PKG_CONFIG" && \
+-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"lvm2app >= 2.1\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "lvm2app >= 2.1") 2>&5
++    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"lvm2app >= 2.2\""; } >&5
++  ($PKG_CONFIG --exists --print-errors "lvm2app >= 2.2") 2>&5
+   ac_status=$?
+   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+   test $ac_status = 0; }; then
+-  pkg_cv_LVM2_LIBS=`$PKG_CONFIG --libs "lvm2app >= 2.1" 2>/dev/null`
++  pkg_cv_LVM2_LIBS=`$PKG_CONFIG --libs "lvm2app >= 2.2" 2>/dev/null`
+ else
+   pkg_failed=yes
+ fi
+@@ -13811,9 +13811,9 @@
+         _pkg_short_errors_supported=no
+ fi
+         if test $_pkg_short_errors_supported = yes; then
+-	        LVM2_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors "lvm2app >= 2.1" 2>&1`
++	        LVM2_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors "lvm2app >= 2.2" 2>&1`
+         else
+-	        LVM2_PKG_ERRORS=`$PKG_CONFIG --print-errors "lvm2app >= 2.1" 2>&1`
++	        LVM2_PKG_ERRORS=`$PKG_CONFIG --print-errors "lvm2app >= 2.2" 2>&1`
+         fi
+ 	# Put the nasty error message in config.log where it belongs
+ 	echo "$LVM2_PKG_ERRORS" >&5
+diff -Naur udisks-1.0.1/configure.ac udisks-1.0.1.patch/configure.ac
+--- udisks-1.0.1/configure.ac	2010-03-16 00:38:25.000000000 +0100
++++ udisks-1.0.1.patch/configure.ac	2010-05-26 21:05:38.349732788 +0200
+@@ -170,7 +170,7 @@
+ have_lvm2=no
+ AC_ARG_ENABLE(lvm2, AS_HELP_STRING([--disable-lvm2], [disable LVM2 support]))
+ if test "x$enable_lvm2" != "xno"; then
+-  PKG_CHECK_MODULES(LVM2, lvm2app >= 2.1,
++  PKG_CHECK_MODULES(LVM2, lvm2app >= 2.2,
+                     [AC_DEFINE(HAVE_LVM2, 1, [Define if LVM2 is available]) have_lvm2=yes],
+                     have_lvm2=no)
+   AC_SUBST(LVM2_CFLAGS)
+diff -Naur udisks-1.0.1/data/80-udisks.rules udisks-1.0.1.patch/data/80-udisks.rules
+--- udisks-1.0.1/data/80-udisks.rules	2010-04-09 17:42:46.000000000 +0200
++++ udisks-1.0.1.patch/data/80-udisks.rules	2010-05-26 21:05:32.076733082 +0200
+@@ -80,6 +80,9 @@
+ # don't scan for partition tables on empty discs
+ KERNEL=="sr*", ENV{ID_CDROM_MEDIA}!="?*", GOTO="probe_parttable_end"
+ 
++# skip non-data discs (see https://bugzilla.kernel.org/show_bug.cgi?id=15757 for the udev bits)
++KERNEL=="sr*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DATA}=="", GOTO="probe_parttable_end"
++
+ # scan for partition tables both on whole-disk and partitions
+ #
+ IMPORT{program}="udisks-part-id $tempnode"
+diff -Naur udisks-1.0.1/src/device.c udisks-1.0.1.patch/src/device.c
+--- udisks-1.0.1/src/device.c	2010-04-09 17:42:46.000000000 +0200
++++ udisks-1.0.1.patch/src/device.c	2010-05-26 21:05:27.683730357 +0200
+@@ -5848,8 +5848,8 @@
+ 
+ /* ---------------------- vfat -------------------- */
+ 
+-static const char *vfat_defaults[] = { "uid=", "gid=", "shortname=mixed", "dmask=0077", "utf8=1", NULL };
+-static const char *vfat_allow[] = { "flush", "utf8=", "shortname=", "umask=", "dmask=", "fmask=", "codepage=", "iocharset=", "usefree", NULL };
++static const char *vfat_defaults[] = { "uid=", "gid=", "shortname=mixed", "dmask=0077", "utf8=1", "showexec", NULL };
++static const char *vfat_allow[] = { "flush", "utf8=", "shortname=", "umask=", "dmask=", "fmask=", "codepage=", "iocharset=", "usefree", "showexec", NULL };
+ static const char *vfat_allow_uid_self[] = { "uid=", NULL };
+ static const char *vfat_allow_gid_self[] = { "gid=", NULL };
+ 
+diff -Naur udisks-1.0.1/src/probers/udisks-lvm-pv-export.c udisks-1.0.1.patch/src/probers/udisks-lvm-pv-export.c
+--- udisks-1.0.1/src/probers/udisks-lvm-pv-export.c	2010-03-15 22:52:37.000000000 +0100
++++ udisks-1.0.1.patch/src/probers/udisks-lvm-pv-export.c	2010-05-26 21:05:38.351732821 +0200
+@@ -47,7 +47,7 @@
+               struct lvm_pv_list *pv_list;
+               dm_list_iterate_items (pv_list, pvs)
+                 {
+-                  char *uuid;
++                  const char *uuid;
+                   pv_t pv = pv_list->pv;
+ 
+                   uuid = lvm_pv_get_uuid (pv);
+@@ -58,10 +58,8 @@
+                           if (out_pv != NULL)
+                             *out_pv = pv;
+                           ret = vg;
+-                          dm_free (uuid);
+                           goto out;
+                         }
+-                      dm_free (uuid);
+                     }
+                 }
+             }
+@@ -79,12 +77,12 @@
+ static void
+ print_vg (vg_t vg)
+ {
+-  char *s;
++  const char *s;
+   struct dm_list *pvs;
+   struct dm_list *lvs;
+ 
+-  s = lvm_vg_get_uuid (vg); g_print ("UDISKS_LVM2_PV_VG_UUID=%s\n", s); dm_free (s);
+-  s = lvm_vg_get_name (vg); g_print ("UDISKS_LVM2_PV_VG_NAME=%s\n", s); dm_free (s);
++  s = lvm_vg_get_uuid (vg); g_print ("UDISKS_LVM2_PV_VG_UUID=%s\n", s);
++  s = lvm_vg_get_name (vg); g_print ("UDISKS_LVM2_PV_VG_NAME=%s\n", s);
+   g_print ("UDISKS_LVM2_PV_VG_SIZE=%" G_GUINT64_FORMAT "\n", lvm_vg_get_size (vg));
+   g_print ("UDISKS_LVM2_PV_VG_FREE_SIZE=%" G_GUINT64_FORMAT "\n", lvm_vg_get_free_size (vg));
+   g_print ("UDISKS_LVM2_PV_VG_EXTENT_SIZE=%" G_GUINT64_FORMAT "\n", lvm_vg_get_extent_size (vg));
+@@ -117,17 +115,14 @@
+       str = g_string_new (NULL);
+       dm_list_iterate_items (pv_list, pvs)
+         {
+-          char *uuid;
++          const char *uuid;
+           guint64 size;
+           guint64 free_size;
+           pv_t pv = pv_list->pv;
+ 
+           uuid = lvm_pv_get_uuid (pv);
+           if (uuid != NULL)
+-            {
+-              g_string_append_printf (str, "uuid=%s", uuid);
+-              dm_free (uuid);
+-            }
++            g_string_append_printf (str, "uuid=%s", uuid);
+           size = lvm_pv_get_size (pv);
+           g_string_append_printf (str, ";size=%" G_GUINT64_FORMAT, size);
+           free_size = lvm_pv_get_free (pv);
+@@ -173,8 +168,8 @@
+       str = g_string_new (NULL);
+       dm_list_iterate_items (lv_list, lvs)
+         {
+-          char *uuid;
+-          char *name;
++          const char *uuid;
++          const char *name;
+           gboolean is_active;
+           guint64 size;
+           lv_t lv = lv_list->lv;
+@@ -195,11 +190,6 @@
+               g_string_append_printf (str, "active=%d", is_active);
+               g_string_append_c (str, ' ');
+             }
+-
+-          if (uuid != NULL)
+-            dm_free (uuid);
+-          if (name != NULL)
+-            dm_free (name);
+         }
+       g_print ("UDISKS_LVM2_PV_VG_LV_LIST=%s\n", str->str);
+       g_string_free (str, TRUE);
+@@ -212,9 +202,9 @@
+ static void
+ print_pv (pv_t pv)
+ {
+-  char *s;
++  const char *s;
+ 
+-  s = lvm_pv_get_uuid (pv); g_print ("UDISKS_LVM2_PV_UUID=%s\n", s); dm_free (s);
++  s = lvm_pv_get_uuid (pv); g_print ("UDISKS_LVM2_PV_UUID=%s\n", s);
+   g_print ("UDISKS_LVM2_PV_NUM_MDA=%" G_GUINT64_FORMAT "\n", lvm_pv_get_mda_count (pv));
+ 
+   /* TODO: ask for more API in liblvm - pvdisplay(8) suggests more information

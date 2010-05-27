@@ -1,0 +1,73 @@
+commit 3e0d91566ca828f0a40013704a90369a11a631ef
+Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
+Date:   Wed Apr 28 15:27:21 2010 +0200
+
+    [G45] Add NV12 image format.
+
+diff --git a/i965_drv_video/i965_drv_video.c b/i965_drv_video/i965_drv_video.c
+index ddb9ae9..f2f4c25 100644
+--- a/i965_drv_video/i965_drv_video.c
++++ b/i965_drv_video/i965_drv_video.c
+@@ -66,6 +66,8 @@ i965_image_formats_map[I965_MAX_IMAGE_FORMATS + 1] = {
+       { VA_FOURCC('Y','V','1','2'), VA_LSB_FIRST, 12, } },
+     { I965_SURFACETYPE_YUV,
+       { VA_FOURCC('I','4','2','0'), VA_LSB_FIRST, 12, } },
++    { I965_SURFACETYPE_YUV,
++      { VA_FOURCC('N','V','1','2'), VA_LSB_FIRST, 12, } },
+ };
+ 
+ static const i965_image_format_map_t *
+@@ -1402,6 +1404,14 @@ i965_CreateImage_impl(
+         image->offsets[2] = size + size2;
+         image->data_size  = size + 2 * size2;
+         break;
++    case VA_FOURCC('N','V','1','2'):
++        image->num_planes = 2;
++        image->pitches[0] = width;
++        image->offsets[0] = 0;
++        image->pitches[1] = width;
++        image->offsets[1] = size;
++        image->data_size  = size + 2 * size2;
++        break;
+     default:
+         goto error;
+     }
+@@ -1594,6 +1604,12 @@ i965_GetImage(VADriverContextP ctx,
+             goto operation_failed;
+         memcpy(image_data, obj_surface->bo->virtual, obj_surface->bo->size);
+         break;
++    case VA_FOURCC('N','V','1','2'):
++        /* NV12 is native format for H.264 decoded surfaces */
++        if (!render_state->interleaved_uv)
++            goto operation_failed;
++        memcpy(image_data, obj_surface->bo->virtual, obj_surface->bo->size);
++        break;
+     default:
+     operation_failed:
+         va_status = VA_STATUS_ERROR_OPERATION_FAILED;
+@@ -1665,6 +1681,12 @@ i965_PutImage(VADriverContextP ctx,
+             goto operation_failed;
+         memcpy(obj_surface->bo->virtual, image_data, obj_surface->bo->size);
+         break;
++    case VA_FOURCC('N','V','1','2'):
++        /* NV12 is native format for H.264 decoded surfaces */
++        if (!render_state->interleaved_uv)
++            goto operation_failed;
++        memcpy(obj_surface->bo->virtual, image_data, obj_surface->bo->size);
++        break;
+     default:
+     operation_failed:
+         va_status = VA_STATUS_ERROR_OPERATION_FAILED;
+diff --git a/i965_drv_video/i965_drv_video.h b/i965_drv_video/i965_drv_video.h
+index f2a20f2..d762a47 100644
+--- a/i965_drv_video/i965_drv_video.h
++++ b/i965_drv_video/i965_drv_video.h
+@@ -43,7 +43,7 @@
+ #define I965_MAX_PROFILES                       11
+ #define I965_MAX_ENTRYPOINTS                    5
+ #define I965_MAX_CONFIG_ATTRIBUTES              10
+-#define I965_MAX_IMAGE_FORMATS                  2
++#define I965_MAX_IMAGE_FORMATS                  3
+ #define I965_MAX_SUBPIC_FORMATS                 4
+ #define I965_MAX_DISPLAY_ATTRIBUTES             4
+ #define I965_STR_VENDOR                         "i965 Driver 0.1"

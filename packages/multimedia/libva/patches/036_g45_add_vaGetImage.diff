@@ -1,19 +1,20 @@
-commit c833a4ef4efa20ab8df18d13bdab1e5c5e4671a8
+commit 446cd618ec79c55e0044c7bdd565a66a768d0e6e
 Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
 Date:   Wed Nov 4 13:16:34 2009 +0000
 
     [G45] Implement vaGetImage() for full-sized surface readback.
 
 diff --git a/i965_drv_video/i965_drv_video.c b/i965_drv_video/i965_drv_video.c
-index ebaf1ae..59ebdd7 100644
+index ad51b6c..80c61ca 100644
 --- a/i965_drv_video/i965_drv_video.c
 +++ b/i965_drv_video/i965_drv_video.c
-@@ -1392,7 +1392,50 @@ i965_GetImage(VADriverContextP ctx,
+@@ -1481,7 +1481,54 @@ i965_GetImage(VADriverContextP ctx,
                unsigned int height,
                VAImageID image)
  {
 -    return VA_STATUS_SUCCESS;
 +    struct i965_driver_data *i965 = i965_driver_data(ctx);
++    struct i965_render_state *render_state = &i965->render_state;
 +
 +    struct object_surface *obj_surface = SURFACE(surface);
 +    if (!obj_surface)
@@ -46,9 +47,12 @@ index ebaf1ae..59ebdd7 100644
 +
 +    switch (obj_image->image.format.fourcc) {
 +    case VA_FOURCC('Y','V','1','2'): /* YV12 is native format here */
++        if (render_state->interleaved_uv)
++            goto operation_failed;
 +        memcpy(image_data, obj_surface->bo->virtual, obj_surface->bo->size);
 +        break;
 +    default:
++    operation_failed:
 +        va_status = VA_STATUS_ERROR_OPERATION_FAILED;
 +        break;
 +    }

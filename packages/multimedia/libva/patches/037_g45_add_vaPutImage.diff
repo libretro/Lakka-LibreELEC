@@ -1,14 +1,14 @@
-commit c00ac73b0fa1f5c4ff9cdc76b7556c5db03c5335
+commit 3de13e8bda7efadbdb681299d0d161f383b7cb5b
 Author: Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>
 Date:   Wed Nov 4 13:36:39 2009 +0000
 
     [G45] Implement vaPutImage() for full-sized surface uploads.
 
 diff --git a/i965_drv_video/i965_drv_video.c b/i965_drv_video/i965_drv_video.c
-index 59ebdd7..5c15439 100644
+index 80c61ca..da2fbd6 100644
 --- a/i965_drv_video/i965_drv_video.c
 +++ b/i965_drv_video/i965_drv_video.c
-@@ -443,22 +443,6 @@ i965_QueryImageFormats(VADriverContextP ctx,
+@@ -472,22 +472,6 @@ i965_QueryImageFormats(VADriverContextP ctx,
  }
  
  VAStatus 
@@ -31,7 +31,7 @@ index 59ebdd7..5c15439 100644
  i965_QuerySubpictureFormats(VADriverContextP ctx,
                              VAImageFormat *format_list,         /* out */
                              unsigned int *flags,                /* out */
-@@ -1439,6 +1423,68 @@ i965_GetImage(VADriverContextP ctx,
+@@ -1532,6 +1516,72 @@ i965_GetImage(VADriverContextP ctx,
  }
  
  VAStatus 
@@ -48,6 +48,7 @@ index 59ebdd7..5c15439 100644
 +               unsigned int dest_height)
 +{
 +    struct i965_driver_data *i965 = i965_driver_data(ctx);
++    struct i965_render_state *render_state = &i965->render_state;
 +
 +    struct object_surface *obj_surface = SURFACE(surface);
 +    if (!obj_surface)
@@ -83,9 +84,12 @@ index 59ebdd7..5c15439 100644
 +
 +    switch (obj_image->image.format.fourcc) {
 +    case VA_FOURCC('Y','V','1','2'): /* YV12 is native format here */
++        if (render_state->interleaved_uv)
++            goto operation_failed;
 +        memcpy(obj_surface->bo->virtual, image_data, obj_surface->bo->size);
 +        break;
 +    default:
++    operation_failed:
 +        va_status = VA_STATUS_ERROR_OPERATION_FAILED;
 +        break;
 +    }

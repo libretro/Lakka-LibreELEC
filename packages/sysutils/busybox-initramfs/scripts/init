@@ -1,18 +1,16 @@
 #!/bin/sh
 
-  /bin/busybox mount -t proc none /proc
+UPDATE_DIR=/storage/.update
+
+IMAGE_SYSTEM="SYSTEM"
+IMAGE_KERNEL="KERNEL"
+REBOOT=0
+
+# mount all needed special filesystems
   /bin/busybox mount -t devtmpfs none /dev
-  /bin/busybox mount -t sysfs none /sys
+  /bin/busybox mount -t proc none /proc
 
-#  BOOT=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*boot=// ; s/ .*//'`
-#  DISK=`/bin/busybox cat /proc/cmdline | /bin/busybox sed 's/.*disk=// ; s/ .*//'`
-  UPDATE_DIR=/storage/.update
-
-  IMAGE_SYSTEM="SYSTEM"
-  IMAGE_KERNEL="KERNEL"
-  REBOOT=0
-
-  # parse command line arguments
+# parse command line arguments
   for arg in $(cat /proc/cmdline); do
     case $arg in
       debugging)
@@ -53,8 +51,7 @@
     progress "trying to mount $1 ..."
     for i in 1 2 3 4 5 6 7 8 9 10; do
       ERR_ENV=1
-      /bin/busybox ionice -c 1 -n 0 \
-        /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
+      $IONICE /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
       [ $? -eq 0 ] && ERR_ENV=0 && break
       /bin/busybox usleep 1000000
     done
@@ -91,19 +88,16 @@
     debug_shell
   fi
 
-    $IONICE /bin/busybox mount --move /proc /sysroot/proc
-    $IONICE /bin/busybox mount --move /sys /sysroot/sys
-    $IONICE /bin/busybox mount --move /dev /sysroot/dev
-    $IONICE /bin/busybox mount --move /flash /sysroot/flash
-    $IONICE /bin/busybox mount --move /storage /sysroot/storage
+# move /flash and /storage to /sysroot
+  /bin/busybox mount --move /flash /sysroot/flash
+  /bin/busybox mount --move /storage /sysroot/storage
 
-  if [ "$BOOTCHART" = "yes" -a -f "/sysroot/sbin/bootchartd" ] ; then
-    progress "Starting Bootchart logging"
-      $IONICE /bin/busybox mkdir -p /sysroot/storage/.bootchart
-    exec $IONICE /bin/busybox switch_root /sysroot /sbin/bootchartd -o /storage/.bootchart
-  else
-    exec $IONICE /bin/busybox switch_root /sysroot /sbin/init
-  fi
+# unmount all other filesystems
+  /bin/busybox umount /dev
+  /bin/busybox umount /proc
+
+# switch to new sysroot and start real init
+  exec /bin/busybox switch_root /sysroot /sbin/init
 
   error "INIT_3" "Error in initramfs. Could not switch to new root"
   debug_shell
