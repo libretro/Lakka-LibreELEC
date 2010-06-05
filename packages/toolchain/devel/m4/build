@@ -1,0 +1,41 @@
+#!/bin/sh
+
+. config/options
+
+# build for host
+  setup_toolchain host
+
+  cd $BUILD/$1*
+  mkdir -p .objdir-host
+  cd .objdir-host
+
+  gl_cv_func_gettimeofday_clobber=no \
+  ../configure --host=$HOST_NAME \
+               --build=$HOST_NAME \
+               --target=$TARGET_NAME \
+               --prefix=$ROOT/$TOOLCHAIN \
+
+  make
+  make install
+
+  cd $ROOT
+
+# build for target
+  setup_toolchain target
+
+# Fails to compile with GCC's link time optimization.
+  CFLAGS=`echo $CFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||" -e "s|-fwhole-program||"`
+
+  cd $BUILD/$1*
+  mkdir -p .objdir-target
+  cd .objdir-target
+
+  gl_cv_func_gettimeofday_clobber=no \
+  ../configure --host=$TARGET_NAME \
+               --build=$HOST_NAME \
+               --prefix=$SYSROOT_PREFIX/usr \
+
+  make
+  make install
