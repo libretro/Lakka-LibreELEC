@@ -79,7 +79,7 @@ XORG_PATH_DRIVERS=/usr/lib/xorg/modules/drivers
 TOOLCHAIN_LANGUAGES=c
 [ "$TOOLCHAIN_CXX" = yes ] && TOOLCHAIN_LANGUAGES=${TOOLCHAIN_LANGUAGES},c++
 
-[ "$OPTIMIZATIONS" = speed ] && GCC_OPTIM="-O3 -ffast-math $PROJECT_CFLAGS" || GCC_OPTIM="-Os"
+[ "$OPTIMIZATIONS" = speed ] && GCC_OPTIM="-Os -ffast-math $PROJECT_CFLAGS" || GCC_OPTIM="-Os"
 [ "$TARGET_ARCH" = i386 -o "$TARGET_ARCH" = x86_64 ] && GCC_OPTIM="$GCC_OPTIM -fexcess-precision=fast"
 
 TARGET_CC=${TARGET_PREFIX}gcc
@@ -99,12 +99,12 @@ TARGET_PKG_CONFIG_PATH="$SYSROOT_PREFIX/usr/lib/pkgconfig"
 
 case $TARGET_ARCH in
     i386)
-     TARGET_CFLAGS="$TARGET_CFLAGS -march=$TARGET_FAMILY"
-     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -march=$TARGET_FAMILY"
+     TARGET_CFLAGS="$TARGET_CFLAGS -march=$TARGET_FAMILY -m32"
+     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -march=$TARGET_FAMILY -m32"
      ;;
-    powerpc|powerpc64|x86_64)
-     TARGET_CFLAGS="$TARGET_CFLAGS -fPIC"
-     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -fPIC"
+    x86_64)
+     TARGET_CFLAGS="$TARGET_CFLAGS -fPIC -m64"
+     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -fPIC -m64"
      ;;
 esac
 
@@ -120,7 +120,6 @@ fi
 
 if [ "$OPTIMIZATIONS" = speed -a "$DEBUG" != yes ]; then
   TARGET_CFLAGS="$TARGET_CFLAGS -flto"
-  TARGET_CFLAGS="$TARGET_CFLAGS -fwhole-program"
   TARGET_CFLAGS="$TARGET_CFLAGS -fuse-linker-plugin"
   TARGET_CFLAGS="$TARGET_CFLAGS -fuse-ld=gold"
   TARGET_CFLAGS="$TARGET_CFLAGS -ftree-loop-distribution"
@@ -128,7 +127,6 @@ if [ "$OPTIMIZATIONS" = speed -a "$DEBUG" != yes ]; then
   TARGET_CFLAGS="$TARGET_CFLAGS -floop-strip-mine"
   TARGET_CFLAGS="$TARGET_CFLAGS -floop-block"
   TARGET_CFLAGS="$TARGET_CFLAGS -fgraphite-identity"
-  TARGET_CFLAGS="$TARGET_CFLAGS -fno-ipa-sra"
 
   TARGET_CXXFLAGS="$TARGET_CFLAGS"
 
@@ -184,6 +182,23 @@ setup_toolchain() {
     export CXXFLAGS="$TARGET_CXXFLAGS"
     export LDFLAGS="$TARGET_LDFLAGS"
     export PKG_CONFIG_PATH="$TARGET_PKG_CONFIG_PATH"
+
+    if [ -f $ROOT/$TOOLCHAIN/bin/libtool ]; then
+      export LIBTOOL=$ROOT/$TOOLCHAIN/bin/libtool
+      export LIBTOOLIZE=$ROOT/$TOOLCHAIN/bin/libtoolize
+    fi
+
+    if [ -f $ROOT/$TOOLCHAIN/bin/automake ]; then
+      export AUTOMAKE=$ROOT/$TOOLCHAIN/bin/automake
+      export ACLOCAL_DIR=$SYSROOT_PREFIX/usr/share/aclocal
+      export ACLOCAL="$ROOT/$TOOLCHAIN/bin/aclocal -I $ACLOCAL_DIR"
+    fi
+
+    if [ -f $ROOT/$TOOLCHAIN/bin/autoconf ]; then
+      export AUTOCONF=$ROOT/$TOOLCHAIN/bin/autoconf
+      export AUTOHEADER=$ROOT/$TOOLCHAIN/bin/autoheader
+      export AUTORECONF="$ROOT/$TOOLCHAIN/bin/autoreconf -v -f -i -I $ACLOCAL_DIR"
+    fi
 
   # set CMAKE configfile for target
     export CMAKE_CONF=$ROOT/$TOOLCHAIN/etc/cmake-$TARGET_NAME.conf
