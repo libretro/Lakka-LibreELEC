@@ -2,15 +2,29 @@
 
 . config/options
 
+$SCRIPTS/install linux-headers
 $SCRIPTS/install gcc-core
+
+# Fails to compile with GCC's link time optimization.
+  CFLAGS=`echo $CFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||" -e "s|-fwhole-program||"`
+
+# Fails to compile using the gold linker.
+  CFLAGS=`echo $CFLAGS | sed -e "s|-fuse-linker-plugin||" -e "s|-fuse-ld=gold||"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-fuse-linker-plugin||" -e "s|-fuse-ld=gold||"`
+
+# Filter out some problematic CFLAGS
+  CFLAGS=`echo $CFLAGS | sed -e "s|-D_FILE_OFFSET_BITS=64||" -e "s|-D_LARGEFILE_SOURCE||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-ffast-math||"`
+
+# set some CFLAGS we need
+  CFLAGS="$CFLAGS -fno-stack-protector"
+
+# dont do an parallel build
+  MAKEFLAGS=-j1
 
 export BUILD_CC=$HOST_CC
 export OBJDUMP_FOR_HOST=objdump
-
-CFLAGS="-Os -fno-stack-protector"
-
-# eglibc fails to compile with GCC 4.5.0's link time optimization.
-  LDFLAGS=`echo $LDFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||" -e "s|-fwhole-program||" -e "s|-fuse-ld=gold||"`
 
 if [ "$DEBUG" = yes ]; then
   DEBUG_CONFIG="--enable-debug"
@@ -60,6 +74,11 @@ OPTION_POSIX_REGEXP_GLIBC = n
 $DEBUG_OPTIONS
 EOF
 
+cat >configparms <<EOF
+install_root=$SYSROOT_PREFIX
+slibdir=/lib
+EOF
+
 ../configure --host=$TARGET_NAME \
              --build=$HOST_NAME \
              --prefix=/usr \
@@ -79,4 +98,4 @@ EOF
 
 make
 
-#--enable-add-ons=nptl \
+make install
