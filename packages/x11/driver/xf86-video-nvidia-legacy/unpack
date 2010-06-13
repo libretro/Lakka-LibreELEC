@@ -1,0 +1,22 @@
+#!/bin/sh
+
+. config/options
+
+require_eglibc $1
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+NV_ARCH=x86
+[ "$TARGET_ARCH" = x86_64 ] && NV_ARCH=x86_64
+
+NV_PKG="`grep $NV_ARCH- $PKG_DIR/url | sed 's%.*/\(.*\)$%\1%'`"
+[ -d $BUILD/$1 ] && rm -rf $BUILD/$1
+
+sh $SOURCES/$1/$NV_PKG --extract-only --target $BUILD/$1
+
+echo "### Applying upstream patches ###"
+
+for patch in `ls $PKG_DIR/patches.upstream`; do
+  cat $PKG_DIR/patches.upstream/$patch | patch -d \
+    `echo $BUILD/$1 | cut -f1 -d\ ` -p1
+done
