@@ -79,8 +79,16 @@ XORG_PATH_DRIVERS=/usr/lib/xorg/modules/drivers
 TOOLCHAIN_LANGUAGES=c
 [ "$TOOLCHAIN_CXX" = yes ] && TOOLCHAIN_LANGUAGES=${TOOLCHAIN_LANGUAGES},c++
 
-#[ "$OPTIMIZATIONS" = speed ] && GCC_OPTIM="-O3 -ffast-math $PROJECT_CFLAGS" || GCC_OPTIM="-Os"
-[ "$OPTIMIZATIONS" = speed ] && GCC_OPTIM="-Os $PROJECT_CFLAGS" || GCC_OPTIM="-Os"
+if [ "$OPTIMIZATIONS" = speed ];then
+  GCC_OPTIM="-Os -ffast-math $PROJECT_CFLAGS"
+  GCC_OPTIM="$GCC_OPTIM -ftree-loop-distribution"
+  GCC_OPTIM="$GCC_OPTIM -floop-interchange"
+  GCC_OPTIM="$GCC_OPTIM -floop-strip-mine"
+  GCC_OPTIM="$GCC_OPTIM -floop-block"
+  GCC_OPTIM="$GCC_OPTIM -fgraphite-identity"
+else
+  GCC_OPTIM="-Os"
+fi
 
 TARGET_CC=${TARGET_PREFIX}gcc
 TARGET_CXX=${TARGET_PREFIX}g++
@@ -92,9 +100,9 @@ TARGET_RANLIB=${TARGET_PREFIX}ranlib
 TARGET_OBJCOPY=${TARGET_PREFIX}objcopy
 TARGET_STRIP=${TARGET_PREFIX}strip
 TARGET_CPPFLAGS=
-TARGET_CFLAGS="$GCC_OPTIM -Wall -pipe -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+TARGET_CFLAGS="$GCC_OPTIM -Wall -pipe"
 TARGET_CXXFLAGS="$TARGET_CFLAGS"
-TARGET_LDFLAGS=
+TARGET_LDFLAGS=""
 TARGET_PKG_CONFIG_PATH="$SYSROOT_PREFIX/usr/lib/pkgconfig"
 
 case $TARGET_ARCH in
@@ -116,25 +124,6 @@ else
   TARGET_CFLAGS="$TARGET_CFLAGS -s -fomit-frame-pointer"
   TARGET_CXXFLAGS="$TARGET_CXXFLAGS -s -fomit-frame-pointer"
   TARGET_LDFLAGS="$TARGET_LDFLAGS -s"
-fi
-
-if [ "$OPTIMIZATIONS" = speed -a "$DEBUG" != yes ]; then
-  TARGET_CFLAGS="$TARGET_CFLAGS -flto"
-  TARGET_CFLAGS="$TARGET_CFLAGS -fuse-linker-plugin"
-  TARGET_CFLAGS="$TARGET_CFLAGS -fuse-ld=gold"
-  TARGET_CFLAGS="$TARGET_CFLAGS -ftree-loop-distribution"
-  TARGET_CFLAGS="$TARGET_CFLAGS -floop-interchange"
-  TARGET_CFLAGS="$TARGET_CFLAGS -floop-strip-mine"
-  TARGET_CFLAGS="$TARGET_CFLAGS -floop-block"
-  TARGET_CFLAGS="$TARGET_CFLAGS -fgraphite-identity"
-
-  TARGET_CXXFLAGS="$TARGET_CFLAGS"
-
-  TARGET_LDFLAGS="$TARGET_LDFLAGS -flto"
-#  TARGET_LDFLAGS="$TARGET_LDFLAGS -fwhole-program"
-  TARGET_LDFLAGS="$TARGET_LDFLAGS -fuse-linker-plugin"
-  TARGET_LDFLAGS="$TARGET_LDFLAGS -fuse-ld=gold"
-  TARGET_LDFLAGS="$TARGET_LDFLAGS -Wl,--as-needed"
 fi
 
 HOST_AWK=gawk
