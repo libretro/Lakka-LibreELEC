@@ -2,24 +2,21 @@
 
 . config/options
 
+$SCRIPTS/install ccache
+
+rm -rf "$SYSROOT_PREFIX/lib"
+rm -rf "$SYSROOT_PREFIX/usr/lib"
+rm -rf "$SYSROOT_PREFIX/usr/include"
+
 $SCRIPTS/install linux-headers
-$SCRIPTS/install gcc-core
-
-# Fails to compile with GCC's link time optimization.
-  CFLAGS=`echo $CFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
-  LDFLAGS=`echo $LDFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
-
-# Fails to compile using the gold linker.
-  CFLAGS=`echo $CFLAGS | sed -e "s|-fuse-linker-plugin||" -e "s|-fuse-ld=gold||"`
-  LDFLAGS=`echo $LDFLAGS | sed -e "s|-fuse-linker-plugin||" -e "s|-fuse-ld=gold||"`
+$SCRIPTS/build gcc-core
 
 # Filter out some problematic CFLAGS
-  CFLAGS=`echo $CFLAGS | sed -e "s|-D_FILE_OFFSET_BITS=64||" -e "s|-D_LARGEFILE_SOURCE||"`
   CFLAGS=`echo $CFLAGS | sed -e "s|-ffast-math||"`
   CFLAGS=`echo $CFLAGS | sed -e "s|-Os|-O3|"`
 
 # set some CFLAGS we need
-#  CFLAGS="$CFLAGS -fno-stack-protector"
+  CFLAGS="$CFLAGS -g -fno-stack-protector"
 
 # dont do an parallel build
   MAKEFLAGS=-j1
@@ -76,7 +73,6 @@ $DEBUG_OPTIONS
 EOF
 
 cat >configparms <<EOF
-install_root=$SYSROOT_PREFIX
 slibdir=/lib
 EOF
 
@@ -87,8 +83,10 @@ EOF
              --disable-profile \
              --disable-sanity-checks \
              --enable-add-ons \
+             --enable-bind-now \
+             --with-elf \
              --with-tls \
-             --enable-kernel=2.6.33 \
+             --enable-kernel=2.6.34 \
              --with-__thread \
              --with-binutils=$BUILD/toolchain/bin \
              --with-headers=$SYSROOT_PREFIX/usr/include \
@@ -98,5 +96,4 @@ EOF
              $DEBUG_CONFIG \
 
 make
-
-make install
+make install_root=$SYSROOT_PREFIX install
