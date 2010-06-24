@@ -130,9 +130,70 @@ case "$2" in
     rm -rf $FAKEROOT_SCRIPT
   ;;
 
+  installator)
+
+    $SCRIPTS/install squashfs
+
+    export INSTALL=$BUILD/$1/$2
+
+    rm -rf $INSTALL
+    mkdir -p $INSTALL
+
+    mkdir -p $INSTALL/bin
+    mkdir -p $INSTALL/etc
+    mkdir -p $INSTALL/lib
+    mkdir -p $INSTALL/sbin
+    mkdir -p $INSTALL/dev
+    mkdir -p $INSTALL/proc
+    mkdir -p $INSTALL/sys
+    mkdir -p $INSTALL/usr
+    mkdir -p $INSTALL/var
+    mkdir -p $INSTALL/flash
+    mkdir -p $INSTALL/storage
+
+    ln -sf /var $INSTALL/usr/var
+    ln -sf /var/tmp $INSTALL/tmp
+    ln -sf /var/media $INSTALL/media
+
+    if [ $TARGET_ARCH = x86_64 ]; then
+      ln -s /lib $INSTALL/lib64
+      ln -s lib $INSTALL/usr/lib64
+    fi
+
+# Basissystem...
+    $SCRIPTS/install eglibc
+    $SCRIPTS/install gcc-final
+    $SCRIPTS/install linux $2
+    $SCRIPTS/install busybox
+    $SCRIPTS/install util-linux-ng
+
+    echo "OpenELEC" > $INSTALL/etc/distribution
+    echo "$PROJECT.$TARGET_ARCH" > $INSTALL/etc/arch
+    echo "$OPENELEC_VERSION" > $INSTALL/etc/version
+    echo "OpenELEC.tv - Date of build: $BUILD_DATE Build: $BZR_BUILD" > $INSTALL/etc/openelec-release
+
+# Devtools for Coreboot... (not for Release)
+    [ "$COREBOOT" = yes ] && $SCRIPTS/install flashrom
+
+# setting
+    echo $TARGET_VERSION > $INSTALL/etc/release
+
+# strip kernel modules
+  for MOD in `find $INSTALL/lib/modules/ -name *.ko`; do
+    $STRIP --strip-debug $MOD
+  done
+
+  mkdir -p $ROOT/target
+    rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.$2
+#    $ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.$2 -noappend -comp lzma
+    $ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.$2 -noappend
+    chmod 0644 $ROOT/target/OpenELEC-$TARGET_VERSION.$2
+  ;;
+
   release)
 
     $SCRIPTS/install image system
+    $SCRIPTS/install image installator
 
 # cleanup
     rm -rf $BUILD/$2/OpenELEC-$TARGET_VERSION
@@ -148,6 +209,7 @@ case "$2" in
     mkdir -p $BUILD/$2/OpenELEC-$TARGET_VERSION/target
       cp $ROOT/target/OpenELEC-$TARGET_VERSION.system $BUILD/$2/OpenELEC-$TARGET_VERSION/target/SYSTEM
       cp $ROOT/target/OpenELEC-$TARGET_VERSION.kernel $BUILD/$2/OpenELEC-$TARGET_VERSION/target/KERNEL
+      cp $ROOT/target/OpenELEC-$TARGET_VERSION.installator $BUILD/$2/OpenELEC-$TARGET_VERSION/target/INSTALLATOR
 
 # create release directory
     mkdir -p $ROOT/target
