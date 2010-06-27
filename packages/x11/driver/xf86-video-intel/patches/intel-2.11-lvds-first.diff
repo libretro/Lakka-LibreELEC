@@ -1,0 +1,36 @@
+diff -up xf86-video-intel-20100319/src/drmmode_display.c.jx xf86-video-intel-20100319/src/drmmode_display.c
+--- xf86-video-intel-20100319/src/drmmode_display.c.jx	2010-03-22 13:24:13.483183499 -0400
++++ xf86-video-intel-20100319/src/drmmode_display.c	2010-03-22 13:25:59.810184060 -0400
+@@ -1452,7 +1452,7 @@ Bool drmmode_pre_init(ScrnInfoPtr scrn, 
+ 	intel_screen_private *intel = intel_get_screen_private(scrn);
+ 	struct drm_i915_getparam gp;
+ 	drmmode_ptr drmmode;
+-	unsigned int i;
++	unsigned int i, lvds = -1;
+ 	int has_flipping = 0;
+ 
+ 	drmmode = xnfalloc(sizeof *drmmode);
+@@ -1473,9 +1473,22 @@ Bool drmmode_pre_init(ScrnInfoPtr scrn, 
+ 			     drmmode->mode_res->max_height);
+ 	for (i = 0; i < drmmode->mode_res->count_crtcs; i++)
+ 		drmmode_crtc_init(scrn, drmmode, i);
++ 
++        /* do LVDS first */
++        for (i = 0; i < drmmode->mode_res->count_connectors; i++) {
++                drmModeConnectorPtr koutput =
++                    drmModeGetConnector(drmmode->fd,
++                                        drmmode->mode_res->connectors[i]);
++                if (koutput->connector_type == DRM_MODE_CONNECTOR_LVDS) {
++                        drmmode_output_init(scrn, drmmode, i);
++                        lvds = i;
++                }
++                drmModeFreeConnector(koutput);
++        }
+ 
+ 	for (i = 0; i < drmmode->mode_res->count_connectors; i++)
+-		drmmode_output_init(scrn, drmmode, i);
++                if (i != lvds)
++		        drmmode_output_init(scrn, drmmode, i);
+ 
+ 	xf86InitialConfiguration(scrn, TRUE);
+ 
