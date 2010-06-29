@@ -3,6 +3,7 @@
 UPDATE_DIR=/storage/.update
 
 IMAGE_SYSTEM="SYSTEM"
+IMAGE_INSTALLATOR="INSTALLATOR"
 IMAGE_KERNEL="KERNEL"
 REBOOT=0
 
@@ -25,8 +26,17 @@ REBOOT=0
       fastboot)
         FASTBOOT=yes
         ;;
+      installer)
+        INSTALLATOR=yes
+        ;;
     esac
   done
+
+  if [ ! "$INSTALLATOR" = "yes" ]; then
+    IMAGE="$IMAGE_SYSTEM"
+  else
+    IMAGE="$IMAGE_INSTALLATOR"
+  fi
 
   if test "$FASTBOOT" = yes; then
     IONICE="/bin/busybox ionice -c 1 -n 0"
@@ -80,18 +90,21 @@ REBOOT=0
   show_splash
 
   mount_part "$boot" "/flash" "ro,noatime"
-  mount_part "$disk" "/storage" "rw,noatime"
 
-  update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
-  update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+  if [ ! "$INSTALLATOR" = "yes" ]; then
+    mount_part "$disk" "/storage" "rw,noatime"
+    update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
+    update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+    update "Installator" "$IMAGE_INSTALLATOR" "/flash/$IMAGE_INSTALLATOR"
 
-  if test "$REBOOT" -eq 1; then
-    echo "System reboots now..." && \
-    /bin/busybox reboot
+    if test "$REBOOT" -eq 1; then
+      echo "System reboots now..." && \
+      /bin/busybox reboot
+    fi
   fi
 
-  if [ -f "/flash/$IMAGE_SYSTEM" ]; then
-    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "loop"
+  if [ -f "/flash/$IMAGE" ]; then
+    mount_part "/flash/$IMAGE" "/sysroot" "loop"
     [ $ERR_ENV -ne 0 ] && debug_shell
   else
     error "INIT_2" "Could not find system."
@@ -100,7 +113,10 @@ REBOOT=0
 
 # move /flash and /storage to /sysroot
   /bin/busybox mount --move /flash /sysroot/flash
-  /bin/busybox mount --move /storage /sysroot/storage
+
+  if [ ! "$INSTALLATOR" = "yes" ]; then
+    /bin/busybox mount --move /storage /sysroot/storage
+  fi
 
 # unmount all other filesystems
   /bin/busybox umount /dev
