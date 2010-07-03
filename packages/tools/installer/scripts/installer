@@ -1,0 +1,488 @@
+#!/bin/sh
+
+################################################################################
+#      Copyright (C) 2009-2010 OpenELEC.tv
+#      http://www.openelec.tv
+#
+#      This file is part of OpenELEC.tv Mediacenter OS
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# some DOCs:
+
+# list devices:
+# cat /proc/partitions | sed -n "s/\ *[0-9][0-9]*\ *[0-9][0-9]*\ *[0-9][0-9]*\ \([a-z]*\)$/\1/p"
+
+# list all partitionnumbers from /dev/sda:
+# parted -m /dev/sda print |grep -v ^/dev |grep -v ^BYT | cut -f1 -d ":"
+
+# list device data from /dev/sda:
+# parted -m /dev/sda print |grep /dev/sda
+
+# list mounted partitions:
+# mount |grep ^/dev
+
+# list modelnumber:
+# parted -m /dev/sda print |grep /dev/sda | cut -f7 -d ":" | sed "s/;//"
+# list size:
+# parted -m /dev/sda print |grep /dev/sda | cut -f2 -d ":"
+
+# exclude mounted partitions
+# for i in `cat /proc/mounts | grep ^/dev/ | cut -f1 -d " " | sed "s/[0-9]//"`; do TEST="$TEST `echo "| grep -v $i"`"; done
+
+# Interpret embedded "\Z" sequences in the dialog text by the following 
+# character, which tells dialog to set colors or video attributes: 0 through 7 
+# are the ANSI used in curses: black, red, green, yellow, blue, magenta, cyan 
+# and white respectively. Bold is set by 'b', reset by 'B'. Reverse is set 
+# by 'r', reset by 'R'. Underline is set by 'u', reset by 'U'. The settings are 
+# cumulative, e.g., "\Zb\Z1" makes the following text bold (perhaps bright) 
+# red. Restore normal settings with "\Zn".
+
+function dbglg() {
+  # Acts just like echo cmd, with automatic redirection
+
+    echo "" >> $LOGFILE
+    echo "###################################################################" >> $LOGFILE
+    echo "# $@" >> $LOGFILE
+    echo "###################################################################" >> $LOGFILE
+    echo "" >> $LOGFILE
+}
+
+function get_device_unmount() {
+  # get all unmounted devices
+  # usage: get_devices_unmount
+  # uses:     -
+  # provides: DEVICES
+
+    DEVICES=""
+    DEVICES=$(parted -m -l | grep ^/dev/sd | cut -f1 -d ":")
+
+    for i in $(cat /proc/mounts | grep ^/dev/sd | cut -f1 -d " " | sed "s/[0-9]//"); do
+      DEVICES=$(echo $DEVICES |sed -e "s|$i||")
+    done
+}
+
+function get_partition() {
+  # get all partitions of an specifed device
+  # usage:    get_partitions /dev/sda
+  # uses:     -
+  # provides: PARTITIONS
+
+    PARTITIONS=$(parted -m $1 print |grep -v ^/dev |grep -v BYT | cut -f1 -d ":")
+}
+
+function create_device_list() {
+  # create devices list for menu
+  # usage:    create_devices_list
+  # uses:     get_device_unmount
+  # provides: DEVICE_MODEL, DEVICE_SIZE, DEVICE_LIST, DEVICE_NAME,
+  #           DEVICES (get_device_unmount)
+
+    DEVICE_MODEL=""
+    DEVICE_SIZE=""
+    DEVICE_LIST=""
+    DEVICE_NAME=""
+
+    get_device_unmount
+
+    if [ "$DEVICES" = "" ]; then
+      msg_no_device
+    fi
+
+    for i in $DEVICES; do
+      DEVICE_MODEL=$(parted $i -m print | grep ^$i | cut -f7 -d ":" | sed "s/;//")
+      DEVICE_SIZE=$(parted $i -m print | grep ^$i | cut -f2 -d ":")
+      DEVICE_NAME=`echo $DEVICE_MODEL ${DEVICE_SIZE} | sed 's/ /_/g'`
+      DEVICE_LIST="$DEVICE_LIST $i $DEVICE_NAME"
+    done
+}
+
+function create_partition_list() {
+  # get an overview of all partitions of an specifed device
+  # usage:    get_partition_list /dev/sda
+  # uses:     get_partition
+  # provides: PARTITION_NUMBER, PARTITION_SIZE, PARTITION_FORMAT,
+  #           PARTITION_LIST, PARTITIONS (get_partition)
+
+    PARTITION_NUMBER=""
+    PARTITION_SIZE=""
+    PARTITION_FORMAT=""
+    PARTITION_LIST=""
+
+    get_partition $1
+
+    for partition in $PARTITIONS; do
+      PARTITION_NUMBER=$(parted -m $1 print |grep -v ^/dev |grep -v BYT | cut -f1 -d ":")
+      PARTITION_SIZE=$(parted -m $1 print |grep -v ^/dev |grep -v BYT | cut -f4 -d ":")
+      PARTITION_FORMAT=$(parted -m $1 print |grep -v ^/dev |grep -v BYT | cut -f5 -d ":")
+      PARTITION_LIST=" $PARTITION_LIST \n Partition $1$PARTITION_NUMBER Size: $PARTITION_SIZE Format: $PARTITION_FORMAT"
+    done
+}
+
+function do_install_mbr() {
+
+  # show menu
+    MSG_TITLE="\Z4[ (RE)INSTALL MBR ]\Zn"
+    MSG_MENU="\n Please select the Device to install MBR\n\n Please choose an item:"
+    MSG_CANCEL="Back"
+
+    create_device_list
+
+    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+      --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
+      $DEVICE_LIST 2> $TMPDIR/device_for_install
+
+  # now we must do anything
+    case $? in
+      0)
+        INSTALL_DEVICE=$(< "$TMPDIR/device_for_install" )
+
+        # installing mbr
+          cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+
+          msg_install_ready "Master Boot Record installed on $INSTALL_DEVICE"
+        ;;
+      1)
+        menu_main
+        ;;
+      255)
+        echo 255
+        ;;
+    esac
+}
+
+function do_install_quick() {
+
+  # show menu
+    MSG_TITLE="\Z4[ QUICK INSTALL MENU ]\Zn"
+    MSG_MENU="\n You can use the UP/DOWN arrow keys,\n the No. of the choice as a hot key,\n to choose an option.\n\n Please choose an item:"
+    MSG_CANCEL="Back"
+
+    create_device_list
+
+    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+      --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
+      $DEVICE_LIST 2> $TMPDIR/device_for_install
+
+  # now we must do anything
+    case $? in
+      0)
+        INSTALL_DEVICE=$(< "$TMPDIR/device_for_install" )
+
+        # remove all partitions
+          msg_progress_install "1" "get all partitions $INSTALL_DEVICE"
+            get_partition $INSTALL_DEVICE
+
+          for i in $PARTITIONS; do
+            msg_progress_install "5" "remove partition $1 from $INSTALL_DEVICE"
+              parted -s $INSTALL_DEVICE rm $i >> $LOGFILE 2>&1
+          done
+
+        # create 2 new partitions (first $PARTSIZE_SYSTEM, second rest)
+
+          PARTFIRST_SYSTEM=$(echo 0.1)
+          PARTLAST_SYSTEM=$(echo $PARTSIZE_SYSTEM - 0.1 | bc)
+          PARTFIRST_STORAGE=$(echo $PARTLAST_SYSTEM + 0.1 | bc)
+          PARTLAST_STORAGE=$(echo -0)
+
+          msg_progress_install "10" "creating partition on $INSTALL_DEVICE from $PARTFIRST_SYSTEM to $PARTLAST_SYSTEM"
+            parted -s $INSTALL_DEVICE mkpart primary ext2 -- $PARTFIRST_SYSTEM $PARTLAST_SYSTEM >> $LOGFILE 2>&1
+            parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
+
+          msg_progress_install "15" "creating partition on $INSTALL_DEVICE from $PARTFIRST_STORAGE to $PARTLAST_STORAGE"
+            parted -s $INSTALL_DEVICE mkpart primary ext2 -- $PARTFIRST_STORAGE $PARTLAST_STORAGE >> $LOGFILE 2>&1
+
+          msg_progress_install "17" "tell kernel we have a new partitiontable on $INSTALL_DEVICE"
+            partprobe $INSTALL_DEVICE >> $LOGFILE 2>&1
+
+        # create filesystem
+          msg_progress_install "20" "creating filesystem on ${INSTALL_DEVICE}1"
+            mke2fs -t ext3 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+
+          msg_progress_install "23" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
+            tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+
+          msg_progress_install "25" "creating filesystem on ${INSTALL_DEVICE}2"
+            mke2fs -t ext3 ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
+
+          msg_progress_install "28" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}2"
+            tune2fs -U random -L $DISKLABEL_STORAGE  ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
+
+        # mount system partition
+          msg_progress_install "30" "creating $TMPDIR/part1"
+            mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
+
+          msg_progress_install "35" "mounting ${INSTALL_DEVICE}1 to $TMPDIR/part1"
+            mount ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+
+        # installing extlinux
+          msg_progress_install "50" "installing extlinux to $TMPDIR/part1"
+            extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
+
+        # install system files
+          msg_progress_install "70" "installing system files"
+            cp /flash/KERNEL $TMPDIR/part1 >> $LOGFILE 2>&1
+            cp /flash/SYSTEM $TMPDIR/part1 >> $LOGFILE 2>&1
+            sync
+
+        # configuring bootloader
+          msg_progress_install "90" "setup bootloader with boot label = $DISKLABEL_SYSTEM and disk label = $DISKLABEL_STORAGE"
+            echo "DEFAULT linux" > $TMPDIR/part1/extlinux.conf
+            echo "PROMPT 0" >> $TMPDIR/part1/extlinux.conf
+            echo " " >> $TMPDIR/part1/extlinux.conf
+            echo "LABEL linux" >> $TMPDIR/part1/extlinux.conf
+            echo " KERNEL /KERNEL" >> $TMPDIR/part1/extlinux.conf
+            echo " APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE quiet debugging" >> $TMPDIR/part1/extlinux.conf
+            sync
+
+        # umount system partition, remove mountpoint
+          msg_progress_install "95" "unmount $TMPDIR/part1"
+            umount $TMPDIR/part1 >> $LOGFILE 2>&1
+
+          msg_progress_install "100" "remove $TMPDIR/part1"
+            rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
+
+        menu_main
+        ;;
+      1)
+        menu_main
+        ;;
+      255)
+        echo 255
+        ;;
+    esac
+}
+
+function msg_not_implemented() {
+  # show an dialog that this function is not yet implemented
+    MSG_TITLE="\Z2[ WORK IN PROGRESS ]\Zn"
+    MSG_INFOBOX=" This function is not yet implemented \n stay tuned!!!"
+
+    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
+}
+
+function msg_warning_beta() {
+  # show an warning dialog if we use beta software
+    MSG_TITLE="\Z1[ BETA WARNING ]\Zn"
+    MSG_INFOBOX=" This installer is Beta \n use it on your own risk!!! \n Please make first an backup !"
+
+    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
+}
+
+function msg_no_device() {
+  # show an warning dialog if we dont find not mounted devices for install and return to main menu
+    MSG_TITLE="\Z1[ INFORMATION ]\Zn"
+    MSG_INFOBOX=" Not found any devices to install. \n be sure you have connected your device via USB or (e)SATA. \n Please try again !"
+
+    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
+
+    menu_main
+}
+
+function msg_install_ready() {
+  # show an dialog that we have installed
+    MSG_TITLE="\Z1[ INFORMATION ]\Zn"
+
+    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox " $1" 7 70
+
+    menu_main
+}
+
+function msg_progress_install() {
+  # show the progress dialog
+    MSG_TITLE="\Z1[ INSTALLING ]\Zn"
+
+    dbglg "$2"
+    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --gauge "$2 ..." 6 70 $1 &
+}
+
+function menu_main() {
+  # show the mainmenu
+    MSG_TITLE="\Z4[ MAIN MENU ]\Zn"
+    MSG_MENU="\n\ZbQuick Install:\Zn..do an default installation on an specific devices \
+              \n................\Z1\Zb(this will delete all your data on this device)\Zn \
+              \n\ZbCustom Install:\Zn.do an custom installation \
+              \n\ZbSetup:\Zn..........change some settings to run OpenELEC.tv \
+              \n\ZbBIOS Update:\Zn....backup and update your BIOS (only for OEMs) \
+              \n\ZbShow logfile:\Zn...show and save the logfile \
+              \n \
+              \nPlease select:"
+    MSG_CANCEL="Reboot"
+
+    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+      --title "$MSG_TITLE" --menu "$MSG_MENU" 25 70 8 \
+        1 "Quick Install OpenELEC.tv" \
+        2 "Custom Install OpenELEC.tv" \
+        3 "Setup OpenELEC.tv" \
+        4 "BIOS update (only for OEM's)" \
+        5 "(Re)Install Master Boot Record" \
+        6 "Show logfile" 2> $TMPDIR/mainmenu
+
+    case $? in
+      0)
+        ITEM_MAINMENU=$(< "$TMPDIR/mainmenu" )
+        case $ITEM_MAINMENU in
+          1) do_install_quick; break;;
+          2) menu_custom; break;;
+          3) menu_setup; break;;
+          4) menu_bios; break;;
+          5) do_install_mbr; break;;
+          6) logfile_show; break;;
+        esac;;
+      1)
+        do_reboot;;
+      255)
+        echo 255;;
+    esac
+}
+
+function menu_setup() {
+  # TODO: show the setupmenu
+    msg_not_implemented
+    menu_main
+
+#    MSG_TITLE="\Z4[ SETUP MENU ]\Zn"
+#    MSG_MENU="\n You can use the UP/DOWN arrow keys,\n the No. of the choice as a hot key,\n to choose an option.\n\n Please choose an item:"
+#    MSG_CANCEL="Back"
+
+#    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+#      --title "$MSG_TITLE" --menu "$MSG_MENU" 25 70 5 \
+#        1 "Backup installed BIOS" \
+#        2 "Update BIOS" 2> $TMPDIR/setupmenu
+
+#    case $? in
+#      0)
+#        ITEM_BIOSMENU=$(< "$TMPDIR/setupmenu" )
+#        case $ITEM_SETUPMENU in
+#          1) bios_backup; break;;
+#          2) bios_update; break;;
+#        esac;;
+#      1)
+#        menu_main;;
+#      255)
+#        echo 255;;
+#    esac
+}
+
+function menu_bios() {
+  # show the biosmenu
+    MSG_TITLE="\Z4[ BIOS MENU ]\Zn"
+    MSG_MENU="\n You can use the UP/DOWN arrow keys,\n the No. of the choice as a hot key,\n to choose an option.\n\n Please choose an item:"
+    MSG_CANCEL="Back"
+
+    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+      --title "$MSG_TITLE" --menu "$MSG_MENU" 25 70 5 \
+        1 "Backup installed BIOS" \
+        2 "Update BIOS" 2> $TMPDIR/biosmenu
+
+    case $? in
+      0)
+        ITEM_BIOSMENU=$(< "$TMPDIR/biosmenu" )
+        case $ITEM_BIOSMENU in
+          1) bios_backup; break;;
+          2) bios_update; break;;
+        esac;;
+      1)
+        menu_main;;
+      255)
+        echo 255;;
+    esac
+}
+
+function menu_custom() {
+  # TODO: show the installmenu
+    msg_not_implemented
+    menu_main
+
+#    MSG_TITLE="\Z4[ INSTALL MENU ]\Zn"
+#    MSG_MENU="\n You can use the UP/DOWN arrow keys,\n the No. of the choice as a hot key,\n to choose an option.\n\n Please choose an item:"
+#    MSG_CANCEL="Back"
+
+#    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+#      --title "$MSG_TITLE" --menu "$MSG_MENU" 25 70 5 \
+#        1 "Create New System partition" \
+#        2 "Create New Storage partition" \
+#        3 "Set already formated System partition " \
+#        4 "Set already formated Storage partition " \
+#        5 "Install bootloader " 2> $TMPDIR/installmenu
+
+#    case $? in
+#      0)
+#        ITEM_BIOSMENU=$(< "$TMPDIR/installmenu" )
+#        case $ITEM_INSTALLMENU in
+#          1) partition_create_system; break;;
+#          2) partition_create_storage; break;;
+#          3) partition_set_system; break;;
+#          4) partition_set_storage; break;;
+#          5) bootloader_install; break;;
+#        esac;;
+#      1)
+#        menu_main;;
+#      255)
+#        echo 255;;
+#    esac
+}
+
+function bios_backup() {
+  # TODO: create an backup from installed bios
+    msg_not_implemented
+    menu_bios
+}
+
+function bios_update() {
+  # TODO: update the bios
+    msg_not_implemented
+    menu_bios
+}
+
+function logfile_show() {
+  # TODO: show the logfile
+    msg_not_implemented
+    menu_main
+}
+
+function do_reboot() {
+  # reboot on request
+    clear
+    sync
+    reboot
+}
+
+# setup needed variables
+  TMPDIR="/tmp/installer"
+  BETA="yes"
+  VERSION="0.1.0"
+  BACKTITLE="OpenELEC.tv Installer $VERSION"
+
+  DISKLABEL_SYSTEM="System"
+  DISKLABEL_STORAGE="Storage"
+  PARTSIZE_SYSTEM="128"          # Defaultsize of system partition
+  LOGFILE="$TMPDIR/install.log"
+
+# prepare temporary directory
+  rm -rf $TMPDIR
+  mkdir -p $TMPDIR
+
+# main
+  [ $BETA = "yes" ] && msg_warning_beta
+
+  while true; do
+    menu_main
+  done
+
+# exit cleanly
+  exit 0
