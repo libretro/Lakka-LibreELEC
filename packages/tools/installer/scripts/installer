@@ -201,41 +201,49 @@ function do_install_quick() {
 
           msg_progress_install "10" "creating partition on $INSTALL_DEVICE from $PARTFIRST_SYSTEM to $PARTLAST_SYSTEM"
             parted -s $INSTALL_DEVICE mkpart primary ext2 -- $PARTFIRST_SYSTEM $PARTLAST_SYSTEM >> $LOGFILE 2>&1
-            parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
 
-          msg_progress_install "15" "creating partition on $INSTALL_DEVICE from $PARTFIRST_STORAGE to $PARTLAST_STORAGE"
+          msg_progress_install "13" "creating partition on $INSTALL_DEVICE from $PARTFIRST_STORAGE to $PARTLAST_STORAGE"
             parted -s $INSTALL_DEVICE mkpart primary ext2 -- $PARTFIRST_STORAGE $PARTLAST_STORAGE >> $LOGFILE 2>&1
 
-          msg_progress_install "17" "tell kernel we have a new partitiontable on $INSTALL_DEVICE"
+          msg_progress_install "16" "setup bootflag on partition 1 of $INSTALL_DEVICE"
+            parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
+
+          msg_progress_install "20" "tell kernel we have a new partitiontable on $INSTALL_DEVICE"
             partprobe $INSTALL_DEVICE >> $LOGFILE 2>&1
 
         # create filesystem
-          msg_progress_install "20" "creating filesystem on ${INSTALL_DEVICE}1"
+          msg_progress_install "23" "creating filesystem on ${INSTALL_DEVICE}1"
             mke2fs -t ext3 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
 
-          msg_progress_install "23" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
+          msg_progress_install "25" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
             tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
 
-          msg_progress_install "25" "creating filesystem on ${INSTALL_DEVICE}2"
+          msg_progress_install "28" "creating filesystem on ${INSTALL_DEVICE}2"
             mke2fs -t ext3 ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
 
-          msg_progress_install "28" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}2"
+          msg_progress_install "30" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}2"
             tune2fs -U random -L $DISKLABEL_STORAGE  ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
 
         # mount system partition
-          msg_progress_install "30" "creating $TMPDIR/part1"
+          msg_progress_install "35" "creating $TMPDIR/part1"
             mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
 
-          msg_progress_install "35" "mounting ${INSTALL_DEVICE}1 to $TMPDIR/part1"
+          msg_progress_install "40" "mounting ${INSTALL_DEVICE}1 to $TMPDIR/part1"
             mount ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
 
         # installing extlinux
           msg_progress_install "50" "installing extlinux to $TMPDIR/part1"
             extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
 
+        # installing MBR
+          msg_progress_install "55" "installing MBR to $INSTALL_DEVICE"
+            cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+
         # install system files
-          msg_progress_install "70" "installing system files"
+          msg_progress_install "70" "installing Kernel"
             cp /flash/KERNEL $TMPDIR/part1 >> $LOGFILE 2>&1
+
+          msg_progress_install "75" "installing System"
             cp /flash/SYSTEM $TMPDIR/part1 >> $LOGFILE 2>&1
             sync
 
@@ -246,7 +254,7 @@ function do_install_quick() {
             echo " " >> $TMPDIR/part1/extlinux.conf
             echo "LABEL linux" >> $TMPDIR/part1/extlinux.conf
             echo " KERNEL /KERNEL" >> $TMPDIR/part1/extlinux.conf
-            echo " APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE quiet debugging" >> $TMPDIR/part1/extlinux.conf
+            echo " APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE quiet" >> $TMPDIR/part1/extlinux.conf
             sync
 
         # umount system partition, remove mountpoint
@@ -313,12 +321,12 @@ function msg_progress_install() {
 function menu_main() {
   # show the mainmenu
     MSG_TITLE="\Z4[ MAIN MENU ]\Zn"
-    MSG_MENU="\n\ZbQuick Install:\Zn..do an default installation on an specific devices \
-              \n................\Z1\Zb(this will delete all your data on this device)\Zn \
-              \n\ZbCustom Install:\Zn.do an custom installation \
-              \n\ZbSetup:\Zn..........change some settings to run OpenELEC.tv \
-              \n\ZbBIOS Update:\Zn....backup and update your BIOS (only for OEMs) \
-              \n\ZbShow logfile:\Zn...show and save the logfile \
+    MSG_MENU="\n\ZbQuick Install:\Zn do an default installation on an specific devices, \
+              \Z1\Zb(this will delete all your data on this device)\Zn \
+              \n\ZbCustom Install:\Zn do an custom installation \
+              \n\ZbSetup:\Zn change some settings to run OpenELEC.tv \
+              \n\ZbBIOS Update:\Zn backup and update your BIOS (only for OEMs) \
+              \n\ZbShow logfile:\Zn show and save the logfile \
               \n \
               \nPlease select:"
     MSG_CANCEL="Reboot"
@@ -329,8 +337,7 @@ function menu_main() {
         2 "Custom Install OpenELEC.tv" \
         3 "Setup OpenELEC.tv" \
         4 "BIOS update (only for OEM's)" \
-        5 "(Re)Install Master Boot Record" \
-        6 "Show logfile" 2> $TMPDIR/mainmenu
+        5 "Show logfile" 2> $TMPDIR/mainmenu
 
     case $? in
       0)
@@ -340,8 +347,7 @@ function menu_main() {
           2) menu_custom; break;;
           3) menu_setup; break;;
           4) menu_bios; break;;
-          5) do_install_mbr; break;;
-          6) logfile_show; break;;
+          5) logfile_show; break;;
         esac;;
       1)
         do_reboot;;
@@ -354,28 +360,6 @@ function menu_setup() {
   # TODO: show the setupmenu
     msg_not_implemented
     menu_main
-
-#    MSG_TITLE="\Z4[ SETUP MENU ]\Zn"
-#    MSG_MENU="\n You can use the UP/DOWN arrow keys,\n the No. of the choice as a hot key,\n to choose an option.\n\n Please choose an item:"
-#    MSG_CANCEL="Back"
-
-#    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-#      --title "$MSG_TITLE" --menu "$MSG_MENU" 25 70 5 \
-#        1 "Backup installed BIOS" \
-#        2 "Update BIOS" 2> $TMPDIR/setupmenu
-
-#    case $? in
-#      0)
-#        ITEM_BIOSMENU=$(< "$TMPDIR/setupmenu" )
-#        case $ITEM_SETUPMENU in
-#          1) bios_backup; break;;
-#          2) bios_update; break;;
-#        esac;;
-#      1)
-#        menu_main;;
-#      255)
-#        echo 255;;
-#    esac
 }
 
 function menu_bios() {
@@ -407,34 +391,6 @@ function menu_custom() {
   # TODO: show the installmenu
     msg_not_implemented
     menu_main
-
-#    MSG_TITLE="\Z4[ INSTALL MENU ]\Zn"
-#    MSG_MENU="\n You can use the UP/DOWN arrow keys,\n the No. of the choice as a hot key,\n to choose an option.\n\n Please choose an item:"
-#    MSG_CANCEL="Back"
-
-#    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-#      --title "$MSG_TITLE" --menu "$MSG_MENU" 25 70 5 \
-#        1 "Create New System partition" \
-#        2 "Create New Storage partition" \
-#        3 "Set already formated System partition " \
-#        4 "Set already formated Storage partition " \
-#        5 "Install bootloader " 2> $TMPDIR/installmenu
-
-#    case $? in
-#      0)
-#        ITEM_BIOSMENU=$(< "$TMPDIR/installmenu" )
-#        case $ITEM_INSTALLMENU in
-#          1) partition_create_system; break;;
-#          2) partition_create_storage; break;;
-#          3) partition_set_system; break;;
-#          4) partition_set_storage; break;;
-#          5) bootloader_install; break;;
-#        esac;;
-#      1)
-#        menu_main;;
-#      255)
-#        echo 255;;
-#    esac
 }
 
 function bios_backup() {
