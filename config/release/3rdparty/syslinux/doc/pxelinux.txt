@@ -1,0 +1,418 @@
+                               PXELINUX
+
+    A bootloader for Linux using the PXE network booting protocol
+
+       Copyright 1994-2008 H. Peter Anvin - All Rights Reserved
+
+This program is provided under the terms of the GNU General Public
+License, version 2 or, at your option, any later version.  There is no
+warranty, neither expressed nor implied, to the function of this
+program.  Please see the included file COPYING for details.
+
+----------------------------------------------------------------------
+
+PXELINUX is a Syslinux derivative, for booting Linux off a network
+server, using a network ROM conforming to the Intel PXE (Pre-Execution
+Environment) specification.  PXELINUX is *not* a program that is
+intended to be flashed or burned into a PROM on the network card; if
+you want that, check out Etherboot (http://www.etherboot.org/).
+Etherboot 5.4 or later can also be used to create a PXE-compliant boot
+PROM for many network cards.
+
+
+    ++++ HOW TO CONFIGURE PXELINUX ++++
+
+PXELINUX operates in many ways like SYSLINUX.  If you are not familiar
+with SYSLINUX, read syslinux.txt first, since this documentation only
+explains the differences.
+
+On the TFTP server, create the directory "/tftpboot", and copy the
+following files to it:
+
+	pxelinux.0		- from the Syslinux distribution
+
+	any kernel or initrd images you want to boot
+
+Finally, create the directory "/tftpboot/pxelinux.cfg".  The
+configuration file (equivalent of syslinux.cfg -- see syslinux.txt for
+the options here) will live in this directory.  Because more than one
+system may be booted from the same server, the configuration file name
+depends on the IP address of the booting machine.  PXELINUX will
+search for its config file on the boot server in the following way:
+
+  First, it will search for the config file using the client UUID, if
+  one is provided by the PXE stack (note, some BIOSes don't have a
+  valid UUID, and you might end up with something like all 1's.)  This is
+  in the standard UUID format using lower case hexadecimal digits, e.g.
+  b8945908-d6a6-41a9-611d-74a6ab80b83d.
+
+  Next, it will search for the config file using the hardware type
+  (using its ARP type code) and address, all in lower case hexadecimal
+  with dash separators; for example, for an Ethernet (ARP type 1)
+  with address 88:99:AA:BB:CC:DD it would search for the filename
+  01-88-99-aa-bb-cc-dd.
+
+  Next, it will search for the config file using its own IP address
+  in upper case hexadecimal, e.g. 192.0.2.91 -> C000025B
+  (you can use the included progam "gethostip" to compute the
+  hexadecimal IP address for any host.)
+
+  If that file is not found, it will remove one hex digit and try
+  again.  Ultimately, it will try looking for a file named "default"
+  (in lower case).
+
+  As an example, if the boot file name is /mybootdir/pxelinux.0, the
+  UUID is b8945908-d6a6-41a9-611d-74a6ab80b83d, the Ethernet MAC
+  address is 88:99:AA:BB:CC:DD and the IP address 192.0.2.91, it will
+  try:
+
+	/mybootdir/pxelinux.cfg/b8945908-d6a6-41a9-611d-74a6ab80b83d
+	/mybootdir/pxelinux.cfg/01-88-99-aa-bb-cc-dd
+	/mybootdir/pxelinux.cfg/C000025B
+	/mybootdir/pxelinux.cfg/C000025
+	/mybootdir/pxelinux.cfg/C00002
+	/mybootdir/pxelinux.cfg/C0000
+	/mybootdir/pxelinux.cfg/C000
+	/mybootdir/pxelinux.cfg/C00
+	/mybootdir/pxelinux.cfg/C0
+	/mybootdir/pxelinux.cfg/C
+	/mybootdir/pxelinux.cfg/default
+
+  ... in that order.
+
+Note that all filename references are relative to the directory
+pxelinux.0 lives in.  PXELINUX generally requires that filenames
+(including any relative path) are 127 characters or shorter in length.
+
+Starting in release 3.20, PXELINUX will no longer apply a built-in
+default if it cannot find any configuration file at all; instead it
+will reboot after the timeout interval has expired.  This keeps a
+machine from getting stuck indefinitely due to a boot server failure.
+
+Starting in release 3.50, PXELINUX displays network information at
+the boot prompt pressing <Ctrl-N>.
+
+PXELINUX does not support MTFTP, and I have no plans of doing so, as
+MTFTP is inherently broken for files more than 65535 packets (about
+92 MB) in size.  It is of course possible to use MTFTP for the initial
+boot, if you have such a setup.  MTFTP server setup is beyond the
+scope of this document.
+
+
+    ++++ SETTING UP THE TFTP SERVER ++++
+
+PXELINUX currently requires that the boot server has a TFTP server
+which supports the "tsize" TFTP option (RFC 1784/RFC 2349).  The
+"tftp-hpa" TFTP server, which support options, is available at:
+
+	http://www.kernel.org/pub/software/network/tftp/
+	ftp://www.kernel.org/pub/software/network/tftp/
+
+... and on any kernel.org mirror (see http://www.kernel.org/mirrors/).
+
+Another TFTP server which supports this is atftp by Jean-Pierre
+Lefebvre:
+
+	ftp://ftp.mamalinux.com/pub/atftp/
+
+If your boot server is running Windows (and you can't fix that), try
+tftpd32 by Philippe Jounin (you need version 2.11 or later; previous
+versions had a bug which made it incompatible with PXELINUX):
+
+	http://tftpd32.jounin.net/
+
+
+    ++++ SETTING UP THE DHCP SERVER ++++
+
+The PXE protocol uses a very complex set of extensions to DHCP or
+BOOTP.  However, most PXE implementations -- this includes all Intel
+ones version 0.99n and later -- seem to be able to boot in a
+"conventional" DHCP/TFTP configuration.  Assuming you don't have to
+support any very old or otherwise severely broken clients, this is
+probably the best configuration unless you already have a PXE boot
+server on your network.
+
+A sample DHCP setup, using the "conventional TFTP" configuration,
+would look something like the following, using ISC dhcp 2.0 dhcpd.conf
+syntax:
+
+        allow booting;
+        allow bootp;
+
+	# Standard configuration directives...
+
+        option domain-name "<domain name>";
+        option subnet-mask <subnet mask>;
+        option broadcast-address <broadcast address>;
+        option domain-name-servers <dns servers>;
+        option routers <default router>;
+
+	# Group the PXE bootable hosts together
+	group {
+		# PXE-specific configuration directives...
+		next-server <TFTP server address>;
+		filename "/tftpboot/pxelinux.0";
+
+		# You need an entry like this for every host
+		# unless you're using dynamic addresses
+	        host <hostname> {
+		        hardware ethernet <ethernet address>;
+			fixed-address <hostname>;
+		}
+	}
+
+Note that if your particular TFTP daemon runs under chroot (tftp-hpa
+will do this if you specify the -s (secure) option; this is highly
+recommended), you almost certainly should not include the /tftpboot
+prefix in the filename statement.
+
+If this does not work for your configuration, you probably should set
+up a "PXE boot server" on port 4011 of your TFTP server; a free PXE
+boot server is available at:
+
+	http://www.kano.org.uk/projects/pxe/
+
+With such a boot server defined, your DHCP configuration should look
+the same except for an "option dhcp-class-identifier" ("option
+vendor-class-identifier" if you are using DHCP 3.0):
+
+        allow booting;
+        allow bootp;
+
+	# Standard configuration directives...
+
+        option domain-name "<domain name>";
+        option subnet-mask <subnet mask>;
+        option broadcast-address <broadcast address>;
+        option domain-name-servers <dns servers>;
+        option routers <default router>;
+
+	# Group the PXE bootable hosts together
+	group {
+		# PXE-specific configuration directives...
+	        option dhcp-class-identifier "PXEClient";
+		next-server <pxe boot server address>;
+
+		# You need an entry like this for every host
+		# unless you're using dynamic addresses
+	        host <hostname> {
+		        hardware ethernet <ethernet address>;
+			fixed-address <hostname>;
+		}
+	}
+
+Here, the boot file name is obtained from the PXE server.
+
+If the "conventional TFTP" configuration doesn't work on your clients,
+and setting up a PXE boot server is not an option, you can attempt the
+following configuration.  It has been known to boot some
+configurations correctly; however, there are no guarantees:
+
+        allow booting;
+        allow bootp;
+
+	# Standard configuration directives...
+
+        option domain-name "<domain name>";
+        option subnet-mask <subnet mask>;
+        option broadcast-address <broadcast address>;
+        option domain-name-servers <dns servers>;
+        option routers <default router>;
+
+	# Group the PXE bootable hosts together
+	group {
+		# PXE-specific configuration directives...
+	        option dhcp-class-identifier "PXEClient";
+		option vendor-encapsulated-options 09:0f:80:00:0c:4e:65:74:77:6f:72:6b:20:62:6f:6f:74:0a:07:00:50:72:6f:6d:70:74:06:01:02:08:03:80:00:00:47:04:80:00:00:00:ff;
+		next-server <TFTP server>;
+		filename "/tftpboot/pxelinux.0";
+
+		# You need an entry like this for every host
+		# unless you're using dynamic addresses
+	        host <hostname> {
+		        hardware ethernet <ethernet address>;
+			fixed-address <hostname>;
+		}
+	}
+
+Note that this *will not* boot some clients that *will* boot with the
+"conventional TFTP" configuration; Intel Boot Client 3.0 and later are
+known to fall into this category.
+
+
+    ++++ SPECIAL DHCP OPTIONS ++++
+
+PXELINUX (starting with version 1.62) supports the following
+nonstandard DHCP options, which depending on your DHCP server you may
+be able to use to customize the specific behaviour of PXELINUX.  See
+RFC 5071 for some additional information about these options.
+
+Option 208	pxelinux.magic
+	- Earlier versions of PXELINUX required this to be set to
+	  F1:00:74:7E (241.0.116.126) for PXELINUX to
+	  recognize any special DHCP options whatsoever.  As of
+	  PXELINUX 3.55, this option is deprecated and is no longer
+	  required.
+
+Option 209	pxelinux.configfile
+	- Specifies the PXELINUX configuration file name.
+
+Option 210	pxelinux.pathprefix
+	- Specifies the PXELINUX common path prefix, instead of
+	  deriving it from the boot file name.  This almost certainly
+	  needs to end in whatever character the TFTP server OS uses
+	  as a pathname separator, e.g. slash (/) for Unix.
+
+Option 211	pxelinux.reboottime
+	- Specifies, in seconds, the time to wait before reboot in the
+	  event of TFTP failure.  0 means wait "forever" (in reality,
+	  it waits approximately 136 years.)
+
+ISC dhcp 3.0 supports a rather nice syntax for specifying custom
+options; you can use the following syntax in dhcpd.conf if you are
+running this version of dhcpd:
+
+	option space pxelinux;
+	option pxelinux.magic      code 208 = string;
+	option pxelinux.configfile code 209 = text;
+	option pxelinux.pathprefix code 210 = text;
+	option pxelinux.reboottime code 211 = unsigned integer 32;
+
+    NOTE: In earlier versions of PXELINUX, this would only work as a
+    "site-option-space".  Since PXELINUX 2.07, this will work both as a
+    "site-option-space" (unencapsulated) and as a "vendor-option-space"
+    (type 43 encapsulated.)  This may avoid messing with the
+    dhcp-parameter-request-list, as detailed below.
+
+Then, inside your PXELINUX-booting group or class (whereever you have
+the PXELINUX-related options, such as the filename option), you can
+add, for example:
+
+	# Always include the following lines for all PXELINUX clients
+	site-option-space "pxelinux";
+	option pxelinux.magic f1:00:74:7e;
+	if exists dhcp-parameter-request-list {
+		# Always send the PXELINUX options (specified in hexadecimal)
+		option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list,d0,d1,d2,d3);
+	}
+	# These lines should be customized to your setup
+	option pxelinux.configfile "configs/common";
+	option pxelinux.pathprefix "/tftpboot/pxelinux/files/";
+	option pxelinux.reboottime 30;
+	filename "/tftpboot/pxelinux/pxelinux.bin";
+
+Note that the configfile is relative to the pathprefix: this will look
+for a config file called /tftpboot/pxelinux/files/configs/common on
+the TFTP server.
+
+The "option dhcp-parameter-request-list" statement forces the DHCP
+server to send the PXELINUX-specific options, even though they are not
+explicitly requested.  Since the DHCP request is done before PXELINUX
+is loaded, the PXE client won't know to request them.
+
+Using ISC dhcp 3.0 you can create a lot of these strings on the fly.
+For example, to use the hexadecimal form of the hardware address as
+the configuration file name, you could do something like:
+
+	site-option-space "pxelinux";
+	option pxelinux.magic f1:00:74:7e;
+	if exists dhcp-parameter-request-list {
+		# Always send the PXELINUX options (specified in hexadecimal)
+		option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list,d0,d1,d2,d3);
+	}
+	option pxelinux.configfile =
+		concat("pxelinux.cfg/", binary-to-ascii(16, 8, ":", hardware));
+	filename "/tftpboot/pxelinux.bin";
+
+If you used this from a client whose Ethernet address was
+58:FA:84:CF:55:0E, this would look for a configuration file named
+"/tftpboot/pxelinux.cfg/1:58:fa:84:cf:55:e".
+
+
+    ++++ ALTERNATE TFTP SERVERS ++++
+
+PXELINUX supports the following special pathname conventions:
+
+::filename
+
+	Suppresses the common filename prefix, i.e. passes the string
+	"filename" unmodified to the server.
+
+IP address::filename		(e.g. 192.0.2.1::filename)
+
+	Suppresses the common filename prefix, *and* sends a request
+	to an alternate TFTP server.  Instead of an IP address, a
+	DNS name can be used.  It will be assumed to be fully
+	qualified if it contains dots; otherwise the local domain as
+	reported by the DHCP server (option 15) will be added.
+
+:: was chosen because it is unlikely to conflict with operating system
+usage.  However, if you happen to have an environment for which the
+special treatment of :: is a problem, please contact the Syslinux
+mailing list.
+
+
+    ++++ SOME NOTES ++++
+
+If the boot fails, PXELINUX (unlike SYSLINUX) will not wait forever;
+rather, if it has not received any input for approximately five
+minutes after displaying an error message, it will reset the machine.
+This allows an unattended machine to recover in case it had bad enough
+luck of trying to boot at the same time the TFTP server goes down.
+
+Lots of PXE stacks, especially old ones, have various problems of
+varying degrees of severity.  Please see:
+
+	http://syslinux.zytor.com/hardware.php
+
+... for a list of currently known hardware problems, with workarounds
+if known.
+
+
+    ++++ KEEPING THE PXE STACK AROUND ++++
+
+Normally, PXELINUX will unload the PXE and UNDI stacks before invoking
+the kernel.  In special circumstances (for example, when using MEMDISK
+to boot an operating system with an UNDI network driver) it might be
+desirable to keep the PXE stack in memory.  If the option "keeppxe"
+is given on the kernel command line, PXELINUX will keep the PXE and
+UNDI stacks in memory.  (If you don't know what this means, you
+probably don't need it.)
+
+
+    ++++ PROBLEMS WITH YOUR PXE STACK ++++
+
+There are a number of extremely broken PXE stacks in the field.  The
+gPXE project (formerly known as Etherboot) provides an open-source PXE
+stack that works with a number of cards, and which can be loaded from
+a CD-ROM, USB key, or floppy if desired.
+
+Information on gPXE is available from:
+
+	http://www.etherboot.org/
+
+... and ready-to-use ROM or disk images from:
+
+	http://www.rom-o-matic.net/
+
+Some cards, like may systems with the SiS 900, has a PXE stack which
+works just barely well enough to load a single file, but doesn't
+handle the more advanced items required by PXELINUX.  If so, it is
+possible to use the built-in PXE stack to load gPXE, which can then
+load PXELINUX.  See:
+
+	http://www.etherboot.org/wiki/pxechaining
+
+
+    ++++ CURRENTLY KNOWN PROBLEMS ++++
+
+The following problems are known with PXELINUX, so far:
+
++ The error recovery routine doesn't work quite right.  For right now,
+  it just does a hard reset - seems good enough.
++ We should probably call the UDP receive function in the keyboard
+  entry loop, so that we answer ARP requests.
++ Boot sectors/disk images are not supported yet.
+
+If you have additional problems, please contact the Syslinux mailing
+list (see syslinux.txt for the address.)

@@ -1,0 +1,69 @@
+			  GPT boot protocol
+
+There are two ways to boot a GPT-formatted disk on a BIOS system.
+Hybrid booting, and the new GPT-only booting protocol originally
+proposed by the author, and later adopted by the T13 committee in
+slightly modified form.
+
+
+	*** Hybrid booting ***
+
+Hybrid booting uses a standard MBR, and has bootable ("active")
+partitions present, as partitions, in the GPT PMBR sector.  This means
+the PMBR, instead of containing only one "protective" partition (type
+EE), may contain up to three partitions: a protective partition (EE)
+*before* the active partition, the active partition, and a protective
+partition (EE) *after* the active partition.  The active partition is
+limited to the first 2^32 sectors (2 TB) of the disk.
+
+All partitions, including the active partition, should have GPT
+partition entries.  Thus, changing which partition is active does NOT
+change the GPT partition table.
+
+This is the only known way to boot Microsoft operating systems from a
+GPT disk with BIOS firmware.
+
+
+	*** New protocol ***
+
+This defines the T13-approved protocol for GPT partitions with BIOS
+firmware.  It maintains backwards compatibility to the extent
+possible.  It is implemented by the file mbr/gptmbr.bin.
+
+The (P)MBR format is the normal PMBR specified in the UEFI
+documentation, with the first 440 bytes used for the boot code.  The
+partition to be booted is marked by setting bit 2 in the GPT Partition
+Entry Attributes field (offset 48); this bit is reserved by the UEFI
+Forum for "Legacy BIOS Bootable".
+
+
+    -> The handover protocol
+
+The PMBR boot code loads the first sector of the bootable partition,
+and passes in DL=<disk number>, ES:DI=<pointer to $PnP>, sets EAX to
+0x54504721 ("!GPT") and points DS:SI to a structure of the following
+form:
+
+	Offset	Size	Contents
+	---------------------------------------------------------
+	  0	  1	0x80 (this is a bootable partition)
+	  1	  3	CHS of partition (using INT 13h geometry)
+	  4	  1	0xED (partition type: synthetic)
+	  5	  3	CHS of partition end
+	  8	  4	Partition start LBA
+	 12	  4	Partition end LBA
+	 16	  4	Length of the GPT entry
+	 20	varies	GPT partition entry
+
+The CHS information is optional; gptmbr.bin currently does *NOT*
+calculate them, and just leaves them as zero.
+
+Bytes 0-15 matches the standard MBR handover (DS:SI points to the
+partition entry), except that the information is provided
+synthetically.  The MBR-compatible fields are directly usable if they
+are < 2 TB, otherwise these fields should contain 0xFFFFFFFF and the
+OS will need to understand the GPT partition entry which follows the
+MBR one.  The "!GPT" magic number in EAX and the 0xED partition type
+also informs the OS that the GPT partition information is present.
+
+Syslinux 4.00 and later fully implements this protocol.

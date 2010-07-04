@@ -1,0 +1,149 @@
+		       SDI files
+
+
+Syslinux supports SDI files ( *.sdi ).
+
+Features:
+ * Support for gzipped SDI images
+ * When used with gpxelinux.0, images can be downloaded by HTTP or FTP,
+   leading to fastest boot times.
+
+"System Deployment Image" is a file format created by Microsoft and mostly used
+in its products to provide in a single file a boot loader, an OS loader
+(like NTLDR) and a disk or partition image to boot from it without any
+other installed program. This is typically used in a PXE environment to boot
+embedded Windows versions without boot disk support.
+
+The support of SDI images in Syslinux is based on a white
+paper from Saad Syed. You can find the paper here:
+
+http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dnxpesp1/html/ram_sdi.asp
+
+SDI support has been only been tested with SDI v1.0 with Windows XP Embedded
+images and may not work with later versions or alternative uses.
+
+
+   ++++ Supported SDI images ++++
+
+To make a SDI image supported by pxelinux/isolinux/syslinux, you need to
+follow the steps below (detailed instructions are in the white paper
+cited above):
+
+You need to install "Windows Embedded Studio" and to run the
+"Remote Boot Service Setup".
+
+1) Create a new SDI file (eg: sdimgr /new xpe.sdi).
+
+2) Before importing your target partition, add the following files
+in the root folder:
+	* ntdetect.com
+	* boot.ini
+	Its content should be:
+		[boot loader]
+		  default=ramdisk(0)\WINDOWS
+		  [operating systems]
+		  ramdisk(0)\WINDOWS="Windows XPE  From RAM" /fastdetect
+(you can customize the name and add options like /debug)
+
+Note: Your partition may be compressed (using compressed NTFS), but these two
+files need to be uncompressed.
+
+3) Import the partition in the SDI file (eg: sdimgr xpe.sdi /readpart:D:).
+The size of the partition must be less than 500 MB.
+
+4) Import the boot program STARTROM.COM
+(eg: sdimgr xpe.sdi /import:BOOT,0,C:\Program Files\Windows Embedded\Remote Boot Service\Downloads\startrom.com)
+
+5) Import the nt loader NTLDR in the SDI file
+(eg: sdimgr xpe.sdi /import:LOAD,0,C:\Program Files\Windows Embedded\Remote Boot Service\Downloads\ntldr)
+
+Note: only the version of NTLDR provided by Remote Boot Service Setup
+and located in this directory has been tested. According to
+"http://skolk.livejournal.com/667.html", "osloader.exe" from retail XP
+can also be used to replace this NTLDR version.
+
+6) Pack the SDI file (eg: sdimgr xpe.sdi /pack)
+
+7) Gzip your image
+If you want to speed the download time, you can gzip the image as it will
+be uncompressed by syslinux during the loading. You can use some programs
+like ntfsclone ("http://www.linux-ntfs.org/doku.php?id=ntfsclone") to
+remove unused blocks from the NTFS filesystem before deploying your image.
+
+8) You are now ready to boot your image.
+Unlike the traditional way of using SDI images (startrom.n12), you don't need
+other files than your SDI image in the tftpboot (for pxelinux), the CD
+(for isolinux), or the hard disk for syslinux.
+
+* You can use the usual options of pxelinux/isolinux/syslinux (config file,
+config path, reboot time...)
+
+For example, a simple configuration with pxelinux:
+/tftpboot/xpe.sdi
+/tftpboot/pxelinux.0
+/tftpboot/pxelinux.cfg/default with the following content:
+
+	DEFAULT 0
+	label 0 [WinXpe]
+		KERNEL sdi.c32
+		APPEND xpe.sdi
+
+
+   ++++ Error messages ++++
+
+* No $SDI signature in file
+        A SDI image should begin by a signature "$SDI", the signature has not
+been found in your file. Perhaps your file is corrupted or has not been created
+correctly. Run sdimgr on it to see if everything is correct.
+
+* No BOOT BLOB in image
+        You have to import a boot program (eg: startrom.com) when you make
+your SDI image (see above). The offset of this program in the SDI file
+is in the SDI header (begining of the file). However, the offset
+found in your SDI file is null.
+You probably forgot to include the boot program. Run the sdimgr program
+and look if you see a line like:
+BOOT 0x00000000.00001000 0x00000000.00005EC2...
+                --------
+                This is the
+                offset and
+                should not
+                be null
+
+* BOOT BLOB is empty
+        See above. The size of your boot program included in the SDI
+is null. You probably imported a corrupted version of startrom.com.
+Run sdimgr and check the size in the following line:
+BOOT 0x00000000.00001000 0x00000000.00005EC2...
+                                    --------
+                                    this is the
+                                    size and
+                                    should not
+                                    be null
+
+* BOOT BLOB extends beyond file
+        You have a BOOT BLOB in your SDI file, but its size is invalid
+because its goes beyond the total image size. Check the tools you used
+to build the image file.
+
+* BOOT BLOB too large for memory
+        Your BOOT BLOB seems correct, however there is not enough memory
+to load it. Increase your RAM or reduce the SDI size. This is a very
+abnormal situation as the BOOT BLOB is usually very small. Your SDI
+file might be corrupted.
+
+* Image too large for memory
+        Your SDI file seems correct, however there is not enough memory
+to load it. Increase your RAM or reduce the SDI size.
+
+* SDI header is corrupted
+        Your SDI file seems correct, but its header contains a checksum
+that is invalid. You most likely have a corrupted SDI file.
+
+
+   ++++ Warning messages ++++
+
+* Warning: unknown SDI version
+You are using a newer version of SDI than the one with which this program
+has been tested. It may not work. Please give feedback and provide your
+SDI version.
