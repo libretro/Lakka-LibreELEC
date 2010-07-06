@@ -4,7 +4,6 @@ all: system
 
 system:
 	./scripts/install image system
-	./scripts/install image installer
 
 release:
 	./scripts/install image release

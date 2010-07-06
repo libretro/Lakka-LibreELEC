@@ -97,6 +97,9 @@ case "$2" in
 # Update support
     [ "$UPDATE_SUPPORT" = yes ] && $SCRIPTS/install autoupdate
 
+# Update support
+    [ "$INSTALLER_SUPPORT" = yes ] && $SCRIPTS/install installer
+
 # Games support
     [ "$GAMES" = yes ] && $SCRIPTS/install games
     [ "$EMULATORS" = yes ] && $SCRIPTS/install emulators
@@ -118,82 +121,16 @@ case "$2" in
     cp -PR $BUILD/linux-*/arch/x86/boot/bzImage $ROOT/target/OpenELEC-$TARGET_VERSION.kernel
 
     echo "rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.system" >> $FAKEROOT_SCRIPT
-#    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.system -noappend -comp lzma" >> $FAKEROOT_SCRIPT
-    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.system -noappend" >> $FAKEROOT_SCRIPT
+    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.system -noappend -comp lzma" >> $FAKEROOT_SCRIPT
+#    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.system -noappend" >> $FAKEROOT_SCRIPT
     $ROOT/$TOOLCHAIN/bin/fakeroot -- $FAKEROOT_SCRIPT
     chmod 0644 $ROOT/target/OpenELEC-$TARGET_VERSION.system
-    rm -rf $FAKEROOT_SCRIPT
-  ;;
-
-  installer)
-
-    $SCRIPTS/install squashfs
-
-    export INSTALL=$BUILD/$1/$2
-
-    rm -rf $FAKEROOT_SCRIPT   # remove $FAKEROOT_SCRIPT if it exist
-    touch $FAKEROOT_SCRIPT    # create an empty $FAKEROOT_SCRIPT
-    chmod +x $FAKEROOT_SCRIPT # make $FAKEROOT_SCRIPT executable
-    echo "chown -R 0:0 $INSTALL" >> $FAKEROOT_SCRIPT
-
-    rm -rf $INSTALL
-    mkdir -p $INSTALL
-
-    mkdir -p $INSTALL/bin
-    mkdir -p $INSTALL/etc
-    mkdir -p $INSTALL/lib
-    mkdir -p $INSTALL/sbin
-    mkdir -p $INSTALL/dev
-    mkdir -p $INSTALL/proc
-    mkdir -p $INSTALL/sys
-    mkdir -p $INSTALL/usr
-    mkdir -p $INSTALL/var
-    mkdir -p $INSTALL/flash
-    mkdir -p $INSTALL/storage
-
-    ln -sf /var $INSTALL/usr/var
-    ln -sf /var/tmp $INSTALL/tmp
-    ln -sf /var/media $INSTALL/media
-
-    if [ $TARGET_ARCH = x86_64 ]; then
-      ln -s /lib $INSTALL/lib64
-      ln -s lib $INSTALL/usr/lib64
-    fi
-
-# Basissystem...
-    $SCRIPTS/install eglibc
-    $SCRIPTS/install gcc-final
-    $SCRIPTS/install linux $2
-    $SCRIPTS/install busybox
-    $SCRIPTS/install installer
-
-    echo "OpenELEC" > $INSTALL/etc/distribution
-    echo "$PROJECT.$TARGET_ARCH" > $INSTALL/etc/arch
-    echo "$OPENELEC_VERSION" > $INSTALL/etc/version
-    echo "OpenELEC.tv - Date of build: $BUILD_DATE Build: $BZR_BUILD" > $INSTALL/etc/openelec-release
-
-# setting
-    echo $TARGET_VERSION > $INSTALL/etc/release
-
-# strip kernel modules
-  for MOD in `find $INSTALL/lib/modules/ -name *.ko`; do
-    $STRIP --strip-debug $MOD
-  done
-
-  mkdir -p $ROOT/target
-    rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.$2
-    echo "rm -rf $ROOT/target/OpenELEC-$TARGET_VERSION.$2" >> $FAKEROOT_SCRIPT
-#    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.$2 -noappend -comp lzma" >> $FAKEROOT_SCRIPT
-    echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $INSTALL $ROOT/target/OpenELEC-$TARGET_VERSION.$2 -noappend" >> $FAKEROOT_SCRIPT
-    $ROOT/$TOOLCHAIN/bin/fakeroot -- $FAKEROOT_SCRIPT
-    chmod 0644 $ROOT/target/OpenELEC-$TARGET_VERSION.$2
     rm -rf $FAKEROOT_SCRIPT
   ;;
 
   release)
 
     $SCRIPTS/install image system
-    $SCRIPTS/install image installer
 
 # cleanup
     rm -rf $BUILD/$2/OpenELEC-$TARGET_VERSION
@@ -209,7 +146,6 @@ case "$2" in
     mkdir -p $BUILD/$2/OpenELEC-$TARGET_VERSION/target
       cp $ROOT/target/OpenELEC-$TARGET_VERSION.system $BUILD/$2/OpenELEC-$TARGET_VERSION/target/SYSTEM
       cp $ROOT/target/OpenELEC-$TARGET_VERSION.kernel $BUILD/$2/OpenELEC-$TARGET_VERSION/target/KERNEL
-      cp $ROOT/target/OpenELEC-$TARGET_VERSION.installer $BUILD/$2/OpenELEC-$TARGET_VERSION/target/INSTALLER
 
 # create release directory
     mkdir -p $ROOT/target
