@@ -1,0 +1,99 @@
+diff -Naur libtool-2.2.10-old/ChangeLog libtool-2.2.10-new/ChangeLog
+--- libtool-2.2.10-old/ChangeLog	2010-06-09 06:04:52.000000000 -0700
++++ libtool-2.2.10-new/ChangeLog	2010-07-04 15:48:14.000000000 -0700
+@@ -236,6 +236,21 @@
+ 
+ 2010-04-04  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+ 
++	Support GCC LTO on GNU/Linux.
++	* NEWS: Update.
++	* libltdl/config/ltmain.m4sh (func_mode_link): Allow through
++	flags matching -O*, -flto*, -fwhopr, -fuse-linker-plugin.
++	* libltdl/m4/libtool.m4 (_LT_CMD_GLOBAL_SYMBOLS): Drop symbols
++	starting with __gnu_lto.
++	(_LT_LINKER_SHLIBS) [linux] <archive_cmds, archive_expsyms_cmds>:
++	Add $pic_flag for GCC.
++	(_LT_LANG_CXX_CONFIG) [linux] <archive_cmds, archive_expsyms_cmds>:
++	Likewise.
++	<output_verbose_link_cmd>: Only list lines starting with a space
++	and containing 'collect'.
++	(_LT_SYS_HIDDEN_LIBDEPS): Ignore files matching *.lto.o.
++	Suggested by Török Edwin and Simon Richter.
++
+ 	Use linker_flags not compiler_flags with $LD.
+ 	* libltdl/m4/libtool.m4 (_LT_LINKER_SHLIBS) [linux]
+ 	<archive_cmds, archive_expsym_cmds>: With xlf and bgxlf
+diff -Naur libtool-2.2.10-old/libltdl/config/ltmain.m4sh libtool-2.2.10-new/libltdl/config/ltmain.m4sh
+--- libtool-2.2.10-old/libltdl/config/ltmain.m4sh	2010-06-09 06:06:43.000000000 -0700
++++ libtool-2.2.10-new/libltdl/config/ltmain.m4sh	2010-07-04 15:48:14.000000000 -0700
+@@ -4494,8 +4494,10 @@
+       # -p, -pg, --coverage, -fprofile-*  profiling flags for GCC
+       # @file                GCC response files
+       # -tp=*                Portland pgcc target processor selection
++      # -O*, -flto*, -fwhopr, -fuse-linker-plugin GCC link-time optimization
+       -64|-mips[0-9]|-r[0-9][0-9]*|-xarch=*|-xtarget=*|+DA*|+DD*|-q*|-m*| \
+-      -t[45]*|-txscale*|-p|-pg|--coverage|-fprofile-*|-F*|@*|-tp=*)
++      -t[45]*|-txscale*|-p|-pg|--coverage|-fprofile-*|-F*|@*|-tp=*| \
++      -O*|-flto*|-fwhopr|-fuse-linker-plugin)
+         func_quote_for_eval "$arg"
+ 	arg="$func_quote_for_eval_result"
+         func_append compile_command " $arg"
+diff -Naur libtool-2.2.10-old/libltdl/m4/libtool.m4 libtool-2.2.10-new/libltdl/m4/libtool.m4
+--- libtool-2.2.10-old/libltdl/m4/libtool.m4	2010-05-20 14:22:02.000000000 -0700
++++ libtool-2.2.10-new/libltdl/m4/libtool.m4	2010-07-04 15:48:14.000000000 -0700
+@@ -3436,6 +3436,7 @@
+   else
+     lt_cv_sys_global_symbol_pipe="sed -n -e 's/^.*[[	 ]]\($symcode$symcode*\)[[	 ]][[	 ]]*$ac_symprfx$sympat$opt_cr$/$symxfrm/p'"
+   fi
++  lt_cv_sys_global_symbol_pipe="$lt_cv_sys_global_symbol_pipe | sed -e '/ __gnu_lto/d'"
+ 
+   # Check to see that the pipe works correctly.
+   pipe_works=no
+@@ -4453,7 +4454,7 @@
+       if $LD --help 2>&1 | $EGREP ': supported targets:.* elf' > /dev/null \
+ 	 && test "$tmp_diet" = no
+       then
+-	tmp_addflag=
++	tmp_addflag=' $pic_flag'
+ 	tmp_sharedflag='-shared'
+ 	case $cc_basename,$host_cpu in
+         pgcc*)				# Portland Group C compiler
+@@ -5523,8 +5524,8 @@
+       # Check if GNU C++ uses GNU ld as the underlying linker, since the
+       # archiving commands below assume that GNU ld is being used.
+       if test "$with_gnu_ld" = yes; then
+-        _LT_TAGVAR(archive_cmds, $1)='$CC -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname -o $lib'
+-        _LT_TAGVAR(archive_expsym_cmds, $1)='$CC -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname ${wl}-retain-symbols-file $wl$export_symbols -o $lib'
++        _LT_TAGVAR(archive_cmds, $1)='$CC $pic_flag -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname -o $lib'
++        _LT_TAGVAR(archive_expsym_cmds, $1)='$CC $pic_flag -shared -nostdlib $predep_objects $libobjs $deplibs $postdep_objects $compiler_flags ${wl}-soname $wl$soname ${wl}-retain-symbols-file $wl$export_symbols -o $lib'
+ 
+         _LT_TAGVAR(hardcode_libdir_flag_spec, $1)='${wl}-rpath ${wl}$libdir'
+         _LT_TAGVAR(export_dynamic_flag_spec, $1)='${wl}--export-dynamic'
+@@ -5556,7 +5557,7 @@
+       # Commands to make compiler produce verbose output that lists
+       # what "hidden" libraries, object files and flags are used when
+       # linking a shared library.
+-      output_verbose_link_cmd='$CC -shared $CFLAGS -v conftest.$objext 2>&1 | $GREP -v "^Configured with:" | $GREP "\-L"'
++      output_verbose_link_cmd='$CC -shared $CFLAGS -v conftest.$objext 2>&1 | $GREP "^ .*collect"'
+ 
+     else
+       GXX=no
+@@ -6549,6 +6550,7 @@
+        fi
+        ;;
+ 
++    *.lto.$objext) ;; # Ignore GCC LTO objects
+     *.$objext)
+        # This assumes that the test object file only shows up
+        # once in the compiler output.
+diff -Naur libtool-2.2.10-old/NEWS libtool-2.2.10-new/NEWS
+--- libtool-2.2.10-old/NEWS	2010-06-09 07:02:19.000000000 -0700
++++ libtool-2.2.10-new/NEWS	2010-07-04 15:48:14.000000000 -0700
+@@ -53,6 +53,7 @@
+   - With binutils 2.19.50+, shared libraries can be built on AIX.
+   - Initial support for the Cuda Compiler Driver on GNU/Linux.
+   - Support for Haiku (i586-pc-haiku).
++  - Support for GCC link-time optimization (LTO) flags.
+ 
+ * Bug fixes:
+ 
