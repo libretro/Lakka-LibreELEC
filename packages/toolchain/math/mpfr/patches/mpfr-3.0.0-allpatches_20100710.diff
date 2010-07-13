@@ -1,6 +1,6 @@
 diff -Naur mpfr-3.0.0-old/acinclude.m4 mpfr-3.0.0-new/acinclude.m4
 --- mpfr-3.0.0-old/acinclude.m4	2010-06-10 04:00:14.000000000 -0700
-+++ mpfr-3.0.0-new/acinclude.m4	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/acinclude.m4	2010-07-11 08:07:36.000000000 -0700
 @@ -59,6 +59,9 @@
  dnl sys/fpu.h - MIPS specific
  AC_CHECK_HEADERS([sys/time.h sys/fpu.h])
@@ -13,7 +13,7 @@ diff -Naur mpfr-3.0.0-old/acinclude.m4 mpfr-3.0.0-new/acinclude.m4
  
 diff -Naur mpfr-3.0.0-old/configure mpfr-3.0.0-new/configure
 --- mpfr-3.0.0-old/configure	2010-06-10 04:00:51.000000000 -0700
-+++ mpfr-3.0.0-new/configure	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/configure	2010-07-11 08:07:36.000000000 -0700
 @@ -783,6 +783,7 @@
  OBJDUMP
  DLLTOOL
@@ -320,9 +320,32 @@ diff -Naur mpfr-3.0.0-old/configure mpfr-3.0.0-new/configure
  #include "confdefs.h"
  
  #if HAVE_DLFCN_H
+diff -Naur mpfr-3.0.0-old/gamma.c mpfr-3.0.0-new/gamma.c
+--- mpfr-3.0.0-old/gamma.c	2010-06-10 04:00:14.000000000 -0700
++++ mpfr-3.0.0-new/gamma.c	2010-07-11 08:07:36.000000000 -0700
+@@ -274,7 +274,7 @@
+       /* we want an upper bound for x * [log(2-x)-1].
+          since x < 0, we need a lower bound on log(2-x) */
+       mpfr_ui_sub (xp, 2, x, MPFR_RNDD);
+-      mpfr_log (xp, xp, MPFR_RNDD);
++      mpfr_log2 (xp, xp, MPFR_RNDD);
+       mpfr_sub_ui (xp, xp, 1, MPFR_RNDD);
+       mpfr_mul (xp, xp, x, MPFR_RNDU);
+ 
+@@ -303,8 +303,8 @@
+         {
+           mpfr_sub (tmp, tmp, tmp2, MPFR_RNDZ); /* low bnd on |sin(Pi*(2-x))| */
+           mpfr_ui_div (tmp, 12, tmp, MPFR_RNDU); /* upper bound */
+-          mpfr_log (tmp, tmp, MPFR_RNDU);
+-          mpfr_add (tmp, tmp, xp, MPFR_RNDU);
++          mpfr_log2 (tmp, tmp, MPFR_RNDU);
++          mpfr_add (xp, tmp, xp, MPFR_RNDU);
+           underflow = mpfr_cmp_si (xp, expo.saved_emin - 2) <= 0;
+         }
+ 
 diff -Naur mpfr-3.0.0-old/Makefile.in mpfr-3.0.0-new/Makefile.in
 --- mpfr-3.0.0-old/Makefile.in	2010-06-10 04:00:52.000000000 -0700
-+++ mpfr-3.0.0-new/Makefile.in	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/Makefile.in	2010-07-11 08:07:36.000000000 -0700
 @@ -239,6 +239,7 @@
  distuninstallcheck_listfiles = find . -type f -print
  distcleancheck_listfiles = find . -type f -print
@@ -333,19 +356,19 @@ diff -Naur mpfr-3.0.0-old/Makefile.in mpfr-3.0.0-new/Makefile.in
  AS = @AS@
 diff -Naur mpfr-3.0.0-old/mpfr.h mpfr-3.0.0-new/mpfr.h
 --- mpfr-3.0.0-old/mpfr.h	2010-06-10 04:00:14.000000000 -0700
-+++ mpfr-3.0.0-new/mpfr.h	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/mpfr.h	2010-07-11 08:07:36.000000000 -0700
 @@ -27,7 +27,7 @@
  #define MPFR_VERSION_MAJOR 3
  #define MPFR_VERSION_MINOR 0
  #define MPFR_VERSION_PATCHLEVEL 0
 -#define MPFR_VERSION_STRING "3.0.0"
-+#define MPFR_VERSION_STRING "3.0.0-p2"
++#define MPFR_VERSION_STRING "3.0.0-p3"
  
  /* Macros dealing with MPFR VERSION */
  #define MPFR_VERSION_NUM(a,b,c) (((a) << 16L) | ((b) << 8) | (c))
 diff -Naur mpfr-3.0.0-old/mpfr.texi mpfr-3.0.0-new/mpfr.texi
 --- mpfr-3.0.0-old/mpfr.texi	2010-06-10 04:00:14.000000000 -0700
-+++ mpfr-3.0.0-new/mpfr.texi	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/mpfr.texi	2010-07-11 08:07:36.000000000 -0700
 @@ -2050,7 +2050,7 @@
  are printed. If @var{base} is greater than 10, @samp{@@} will be used
  instead of @samp{e} as exponent delimiter.
@@ -357,7 +380,7 @@ diff -Naur mpfr-3.0.0-old/mpfr.texi mpfr-3.0.0-new/mpfr.texi
  @deftypefun size_t mpfr_inp_str (mpfr_t @var{rop}, FILE *@var{stream}, int @var{base}, mpfr_rnd_t @var{rnd})
 diff -Naur mpfr-3.0.0-old/out_str.c mpfr-3.0.0-new/out_str.c
 --- mpfr-3.0.0-old/out_str.c	2010-06-10 04:00:14.000000000 -0700
-+++ mpfr-3.0.0-new/out_str.c	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/out_str.c	2010-07-11 08:07:36.000000000 -0700
 @@ -22,6 +22,16 @@
  
  #include "mpfr-impl.h"
@@ -469,13 +492,14 @@ diff -Naur mpfr-3.0.0-old/out_str.c mpfr-3.0.0-new/out_str.c
    return l;
 diff -Naur mpfr-3.0.0-old/PATCHES mpfr-3.0.0-new/PATCHES
 --- mpfr-3.0.0-old/PATCHES	2010-06-10 04:00:14.000000000 -0700
-+++ mpfr-3.0.0-new/PATCHES	2010-06-26 12:46:07.000000000 -0700
-@@ -0,0 +1,2 @@
++++ mpfr-3.0.0-new/PATCHES	2010-07-11 08:07:36.000000000 -0700
+@@ -0,0 +1,3 @@
++gamma_underflow
 +alloca
 +mpfr_out_str
 diff -Naur mpfr-3.0.0-old/tests/Makefile.in mpfr-3.0.0-new/tests/Makefile.in
 --- mpfr-3.0.0-old/tests/Makefile.in	2010-06-10 04:00:52.000000000 -0700
-+++ mpfr-3.0.0-new/tests/Makefile.in	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/tests/Makefile.in	2010-07-11 08:07:36.000000000 -0700
 @@ -960,6 +960,7 @@
  red=; grn=; lgn=; blu=; std=
  DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -484,9 +508,41 @@ diff -Naur mpfr-3.0.0-old/tests/Makefile.in mpfr-3.0.0-new/tests/Makefile.in
  AMTAR = @AMTAR@
  AR = @AR@
  AS = @AS@
+diff -Naur mpfr-3.0.0-old/tests/tgamma.c mpfr-3.0.0-new/tests/tgamma.c
+--- mpfr-3.0.0-old/tests/tgamma.c	2010-06-10 04:00:13.000000000 -0700
++++ mpfr-3.0.0-new/tests/tgamma.c	2010-07-11 08:07:36.000000000 -0700
+@@ -461,6 +461,20 @@
+   mpfr_clear (x);
+ }
+ 
++/* bug found by Stathis, only occurs on 32-bit machines */
++static void
++test20100709 (void)
++{
++  mpfr_t x;
++  int inex;
++
++  mpfr_init2 (x, 100);
++  mpfr_set_str (x, "-4.6308260837372266e+07", 10, MPFR_RNDN);
++  inex = mpfr_gamma (x, x, MPFR_RNDN);
++  MPFR_ASSERTN(MPFR_IS_ZERO(x) && MPFR_IS_NEG(x) && inex > 0);
++  mpfr_clear (x);
++}
++
+ int
+ main (int argc, char *argv[])
+ {
+@@ -471,6 +485,7 @@
+   test_generic (2, 100, 2);
+   gamma_integer ();
+   test20071231 ();
++  test20100709 ();
+ 
+   data_check ("data/gamma", mpfr_gamma, "mpfr_gamma");
+ 
 diff -Naur mpfr-3.0.0-old/tests/tout_str.c mpfr-3.0.0-new/tests/tout_str.c
 --- mpfr-3.0.0-old/tests/tout_str.c	2010-06-10 04:00:13.000000000 -0700
-+++ mpfr-3.0.0-new/tests/tout_str.c	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/tests/tout_str.c	2010-07-11 08:07:36.000000000 -0700
 @@ -46,22 +46,54 @@
  special (void)
  {
@@ -549,17 +605,17 @@ diff -Naur mpfr-3.0.0-old/tests/tout_str.c mpfr-3.0.0-new/tests/tout_str.c
  }
 diff -Naur mpfr-3.0.0-old/VERSION mpfr-3.0.0-new/VERSION
 --- mpfr-3.0.0-old/VERSION	2010-06-10 04:00:14.000000000 -0700
-+++ mpfr-3.0.0-new/VERSION	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/VERSION	2010-07-11 08:07:36.000000000 -0700
 @@ -1 +1 @@
 -3.0.0
-+3.0.0-p2
++3.0.0-p3
 diff -Naur mpfr-3.0.0-old/version.c mpfr-3.0.0-new/version.c
 --- mpfr-3.0.0-old/version.c	2010-06-10 04:00:14.000000000 -0700
-+++ mpfr-3.0.0-new/version.c	2010-06-26 12:46:07.000000000 -0700
++++ mpfr-3.0.0-new/version.c	2010-07-11 08:07:36.000000000 -0700
 @@ -25,5 +25,5 @@
  const char *
  mpfr_get_version (void)
  {
 -  return "3.0.0";
-+  return "3.0.0-p2";
++  return "3.0.0-p3";
  }
