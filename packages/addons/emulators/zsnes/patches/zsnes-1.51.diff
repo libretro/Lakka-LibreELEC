@@ -1,0 +1,174 @@
+diff -Naur zsnes_1_51/src/acinclude.m4 zsnes_1_51.patch/src/acinclude.m4
+--- zsnes_1_51/src/acinclude.m4	2006-12-27 11:59:22.000000000 +0100
++++ zsnes_1_51.patch/src/acinclude.m4	2010-07-12 19:24:51.537522194 +0200
+@@ -107,7 +107,7 @@
+   with_zlib=yes,
+   with_zlib=no,
+   [AC_MSG_RESULT(cross-compiling)
+-  with_zlib=""
++  with_zlib=yes
+   AC_MSG_WARN(Assuming zlib is available)])
+ 
+ if test x$with_zlib != x; then
+@@ -239,7 +239,7 @@
+   with_libpng=yes,
+   with_libpng=no,
+   [AC_MSG_RESULT(cross-compiling)
+-  with_libpng=""
++  with_libpng=yes
+   AC_MSG_WARN(Assuming libpng is available)])
+ 
+   if test x$with_libpng != x; then
+diff -Naur zsnes_1_51/src/configure.in zsnes_1_51.patch/src/configure.in
+--- zsnes_1_51/src/configure.in	2007-01-20 19:30:31.000000000 +0100
++++ zsnes_1_51.patch/src/configure.in	2010-07-12 19:24:51.538522174 +0200
+@@ -26,20 +26,76 @@
+ 
+ VERSION=1.51
+ 
+-CFLAGS="$CFLAGS -pipe -I. -I/usr/local/include -I/usr/include"
++CFLAGS="$CFLAGS -pipe -I."
+ dnl - You might wanna change -I/usr/include if you're trying to do this with
+ dnl Mingw, because it doesnt have a standard file tree. Maybe if ming do this
+ dnl else do -I/usr/include. Or some shit. You figure it out.
+ 
+-LDFLAGS="$LDFLAGS -L/usr/local/lib -L/usr/lib"
++LDFLAGS="$LDFLAGS"
+ dnl - Same thing here.
+ 
+ dnl - Where are our compilers, and who are we compiling for?
++AC_CANONICAL_BUILD
++AC_CANONICAL_HOST
+ AC_CANONICAL_TARGET
+ AC_PROG_INSTALL
+ AC_PROG_CC
+ AC_PROG_CXX
+ 
++AC_MSG_CHECKING([for CC_FOR_BUILD])
++if test x$host != x$build ; then
++    CC_FOR_BUILD=${CC_FOR_BUILD-gcc}
++else
++    CC_FOR_BUILD=${CC}
++fi
++AC_MSG_RESULT([$CC_FOR_BUILD])
++AC_SUBST(CC_FOR_BUILD)
++
++AC_MSG_CHECKING([for CXX_FOR_BUILD])
++if test x$host != x$build ; then
++    CXX_FOR_BUILD=${CXX_FOR_BUILD-gcc}
++else
++    CXX_FOR_BUILD=${CXX}
++fi
++AC_MSG_RESULT([$CXX_FOR_BUILD])
++AC_SUBST(CXX_FOR_BUILD)
++
++AC_MSG_CHECKING([for CPPFLAGS_FOR_BUILD])
++if test x$host != x$build ; then
++    CPPFLAGS_FOR_BUILD=${CPPFLAGS_FOR_BUILD}
++else
++    CPPFLAGS_FOR_BUILD=${CPPFLAGS}
++fi
++AC_MSG_RESULT([$CPPFLAGS_FOR_BUILD])
++AC_SUBST(CPPFLAGS_FOR_BUILD)
++
++AC_MSG_CHECKING([for CFLAGS_FOR_BUILD])
++if test x$host != x$build ; then
++    CFLAGS_FOR_BUILD=${CFLAGS_FOR_BUILD}
++else
++    CFLAGS_FOR_BUILD=${CFLAGS}
++fi
++AC_MSG_RESULT([$CFLAGS_FOR_BUILD])
++AC_SUBST(CFLAGS_FOR_BUILD)
++
++AC_MSG_CHECKING([for CXXFLAGS_FOR_BUILD])
++if test x$host != x$build ; then
++    CXXFLAGS_FOR_BUILD=${CXXFLAGS_FOR_BUILD}
++else
++    CXXFLAGS_FOR_BUILD=${CXXFLAGS}
++fi
++AC_MSG_RESULT([$CXXFLAGS_FOR_BUILD])
++AC_SUBST(CXXFLAGS_FOR_BUILD)
++
++AC_MSG_CHECKING([for LDFLAGS_FOR_BUILD])
++if test x$host != x$build ; then
++    LDFLAGS_FOR_BUILD=${LDFLAGS_FOR_BUILD}
++else
++    LDFLAGS_FOR_BUILD=${LDFLAGS}
++fi
++AC_MSG_RESULT([$LDFLAGS_FOR_BUILD])
++AC_SUBST(LDFLAGS_FOR_BUILD)
++
+ AC_ARG_WITH(nasm-prefix,
+   [  --with-nasm-prefix=PFX  Prefix where nasm is installed (optional)],
+   nasm_prefix="$withval",
+diff -Naur zsnes_1_51/src/Makefile.in zsnes_1_51.patch/src/Makefile.in
+--- zsnes_1_51/src/Makefile.in	2007-01-24 21:54:12.000000000 +0100
++++ zsnes_1_51.patch/src/Makefile.in	2010-07-12 19:29:28.343520583 +0200
+@@ -104,32 +104,38 @@
+ 	rm -f version.o
+ 
+ $(PSR): parsegen.cpp
+-	@CXX@ @CXXFLAGS@ -o $@ $< -lz
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $< -lz
+ 
+ TOOLSEXE=$(TOOL_D)/archopt $(TOOL_D)/cutrtype $(TOOL_D)/extraext\
+ 	$(TOOL_D)/macroll $(TOOL_D)/minwhite $(TOOL_D)/nreplace\
+ 	$(TOOL_D)/sec-test $(TOOL_D)/srccount $(TOOL_D)/varrep
+ tools: $(TOOLSEXE) $(TOOL_D)/depbuild
++$(TOOL_D)/fileutil.o: $(TOOL_D)/fileutil.cpp
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ -c $<
++$(TOOL_D)/strutil.o: $(TOOL_D)/strutil.cpp
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ -c $<
+ $(TOOL_D)/archopt: $(TOOL_D)/archopt.c
+-	@CC@ @CFLAGS@ -m32 -o $@ $@.c
++	@CC_FOR_BUILD@ @CFLAGS_FOR_BUILD@ -o $@ $@.c
+ $(TOOL_D)/cutrtype: $(TOOL_D)/cutrtype.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_O)
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_O)
+ $(TOOL_D)/depbuild: $(TOOL_D)/depbuild.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_O)
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_O)
+ $(TOOL_D)/extraext: $(TOOL_D)/extraext.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_O)
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_O)
+ $(TOOL_D)/macroll: $(TOOL_D)/macroll.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_O)
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_O)
+ $(TOOL_D)/minwhite: $(TOOL_D)/minwhite.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_D)/fileutil.o
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_D)/fileutil.o
+ $(TOOL_D)/nreplace: $(TOOL_D)/nreplace.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_D)/fileutil.o
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_D)/fileutil.o
+ $(TOOL_D)/sec-test: $(TOOL_D)/sec-test.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_O)
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_O)
+ $(TOOL_D)/srccount: $(TOOL_D)/srccount.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_D)/fileutil.o
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_D)/fileutil.o
+ $(TOOL_D)/varrep: $(TOOL_D)/varrep.cpp $(TOOL_O)
+-	@CXX@ @CXXFLAGS@ -o $@ $@.cpp $(TOOL_O)
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ $@.cpp $(TOOL_O)
++$(TOOL_O): %.o: %.cpp
++	@CXX_FOR_BUILD@ @CXXFLAGS_FOR_BUILD@ -o $@ -c $<
+ 
+ include makefile.dep
+ makefile.dep: $(TOOL_D)/depbuild Makefile
+@@ -142,12 +148,12 @@
+ 	./autogen.sh --recheck
+ 
+ install:
+-	@INSTALL@ -d -m 0755 $(DESTDIR)/@prefix@/bin
+-	@INSTALL@ -m 0755 @ZSNESEXE@ $(DESTDIR)/@prefix@/bin
+-	@INSTALL@ -d -m 0755 $(DESTDIR)/@prefix@/man/man1
+-	@INSTALL@ -m 0644 linux/zsnes.1 $(DESTDIR)/@prefix@/man/man1
++	@INSTALL@ -d -m 0755 $(DESTDIR)/@bindir@
++	@INSTALL@ -m 0755 @ZSNESEXE@ $(DESTDIR)/@bindir@
++	@INSTALL@ -d -m 0755 $(DESTDIR)/@mandir@/man1
++	@INSTALL@ -m 0644 linux/zsnes.1 $(DESTDIR)/@mandir@/man1
+ uninstall:
+-	rm -f @prefix@/bin/$(notdir @ZSNESEXE@) @prefix@/man/man1/zsnes.1
++	rm -f $(DESTDIR)/@bindir@/$(notdir @ZSNESEXE@) $(DESTDIR)/@mandir@/man1/zsnes.1
+ 
+ clean:
+ 	rm -f $(Z_OBJS) $(PSR) $(PSR_H) @ZSNESEXE@
