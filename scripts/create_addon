@@ -1,0 +1,29 @@
+#!/bin/sh
+
+. config/options
+
+PKG_DIR=`find $PACKAGES -type d -name $1`
+
+if [ -z "$1" ]; then
+  echo "usage: $0 package_name"
+  exit 1
+fi
+
+if [ -f $PKG_DIR/arch ]; then
+  grep -q "$TARGET_ARCH" "$PKG_DIR/arch" || exit 0
+  grep -q "\-$TARGET_ARCH" "$PKG_DIR/arch" && exit 0
+fi
+
+if [ -f $PKG_DIR/platform ]; then
+  grep -q "$TARGET_PLATFORM" "$PKG_DIR/platform" || exit 0
+  grep -q "\-$TARGET_PLATFORM" "$PKG_DIR/platform" && exit 0
+fi
+
+$SCRIPTS/build $@
+
+printf  "%${INDENT}c CREATE ADDON  $1\n" >&$SILENT_OUT
+export INDENT=$((${INDENT:-1}+$INDENT_SIZE))
+
+if [ -f $PKG_DIR/addon ]; then
+  $PKG_DIR/addon $@ >&$VERBOSE_OUT
+fi
