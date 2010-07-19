@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      Copyright (C) 2009-2010 OpenELEC.tv
 #      http://www.openelec.tv
@@ -20,17 +18,9 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-#
-# make directory structure for mame
-#
-# runlevels: openelec, textmode
+import sys
+import xbmcaddon
+import os
 
-. /etc/profile
-
-progress "make diretorys for MAME"
-
-(
-  for dir in roms samples artwork ctrlr ini fonts cheat crosshair; do
-    mkdir -p $HOME/emulators/mame/$dir
-  done
-)&
+if ( __name__ == "__main__" ):
+    os.system("sh start.sh")
