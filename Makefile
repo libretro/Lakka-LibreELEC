@@ -8,6 +8,9 @@ system:
 release:
 	./scripts/install image release
 
+addons:
+	./scripts/install image addons
+
 qemu:
 	./scripts/install image qemu
 
