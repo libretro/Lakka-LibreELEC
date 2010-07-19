@@ -30,4 +30,7 @@
   mkdir -p $HOME/emulators/mame/cheat
   mkdir -p $HOME/emulators/mame/crosshair
 
+# fix permissions lost after unpack
+  chmod +x ./bin/mame
+
 ./bin/mame $@
