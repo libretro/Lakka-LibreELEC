@@ -30,7 +30,11 @@
   mkdir -p $HOME/emulators/mame/cheat
   mkdir -p $HOME/emulators/mame/crosshair
 
-# fix permissions lost after unpack
-  chmod +x ./bin/mame
+mkdir -p image
+  mount -o loop mame.img image
 
+ln -sf image/* .
 ./bin/mame $@
+
+umount image
+
