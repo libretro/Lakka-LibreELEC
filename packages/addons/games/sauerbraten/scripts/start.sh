@@ -25,10 +25,12 @@ RESOLUTION_WIDTH=`echo $RESOLUTION | cut -f1 -d "x"`
 RESOLUTION_HEIGHT=`echo $RESOLUTION | cut -f2 -d "x"`
 
 SAUER_DATA=.
-SAUER_OPTIONS="-q${HOME}/.sauerbraten -r"
+SAUER_OPTIONS="-q${HOME}/.config/.sauerbraten -r"
 
-# fix permissions lost after unpack
-  chmod +x ./bin/sauer_client
-  chmod +x ./bin/sauer_server
+mkdir -p image
+  mount -o loop,ro sauerbraten.img image
 
+ln -sf image/* .
 ./bin/sauer_client ${SAUER_OPTIONS} "$@"
+
+umount image
