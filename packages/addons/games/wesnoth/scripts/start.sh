@@ -24,7 +24,10 @@ RESOLUTION=`xrandr | grep Screen | cut -f2 -d"," | sed -e "s/ //g" -e "s/current
 RESOLUTION_WIDTH=`echo $RESOLUTION | cut -f1 -d "x"`
 RESOLUTION_HEIGHT=`echo $RESOLUTION | cut -f2 -d "x"`
 
-# fix permissions lost after unpack
-  chmod +x ./bin/wesnoth
+mkdir -p image
+  mount -o loop,ro wesnoth.img image
 
-./bin/wesnoth . -f -r ${RESOLUTION_WIDTH}x${RESOLUTION_HEIGHT}
+ln -sf image/* .
+./bin/wesnoth . -f # -r ${RESOLUTION_WIDTH}x${RESOLUTION_HEIGHT}
+
+umount image
