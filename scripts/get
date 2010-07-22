@@ -5,17 +5,21 @@
 mkdir -p $STAMPS_NOARCH/$1
 STAMP=$STAMPS_NOARCH/$1/get
 
-if [ -f $PKG_DIR/url ]; then
+if [ -f $PACKAGE_URL ]; then
   if [ -f $STAMP ]; then
-    [ ! $STAMP -ot $PKG_DIR/url -o $AUTOUPDATE = no ] && exit 0
-    if [ $AUTOUPDATE = ask ]; then
-      echo "Package $1 is not up to date."
-      echo -n "Do you want to download an up to date version ? (y/n) "
-      read UPDATE
-      [ "$UPDATE" = y ] || exit 0
-    fi
+    [ ! $STAMP -ot $PACKAGE_URL ] && exit 0
   fi
+  DL="yes"
+fi
 
+if [ -n "$PKG_URL" ]; then
+  if [ -f $STAMP ]; then
+    [ ! $STAMP -ot $PKG_DIR/meta ] && exit 0
+  fi
+  DL="yes"
+fi
+
+if [ "$DL" = yes ]; then
   $SCRIPTS/checkdeps get
 
   rm -f $STAMP
@@ -27,7 +31,13 @@ if [ -f $PKG_DIR/url ]; then
 
   mkdir -p $SOURCES/$1
 
-  for i in `sed s%GEEXBOX_SRCS%$GEEXBOX_SRCS% $PKG_DIR/url`; do
+  [ -f $PACKAGE_URL ] && \
+    URLS=`sed s%GEEXBOX_SRCS%$GEEXBOX_SRCS% $PACKAGE_URL`
+
+  [ -n "$PKG_URL" ] && \
+    URLS="$URLS `echo $PKG_URL | sed s%GEEXBOX_SRCS%$GEEXBOX_SRCS%`"
+
+  for i in $URLS; do
     NBWGET=1
     until [ -f $STAMPS_NOARCH/$1/`basename $i`.ok ] || wget --passive-ftp -c $WGET_OPT -P $SOURCES/$1 $i; do
       NBWGET=$(($NBWGET+1))
@@ -39,7 +49,12 @@ if [ -f $PKG_DIR/url ]; then
     touch $STAMPS_NOARCH/$1/`basename $i`.ok
   done
 
-  cp -p $PKG_DIR/url $STAMP
+  [ -f $PACKAGE_URL ] && \
+    cp -p $PACKAGE_URL $STAMP
+
+  [ -n "$PKG_URL" ] && \
+    cp -p $PKG_DIR/meta $STAMP
+
   rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
   rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
 fi
