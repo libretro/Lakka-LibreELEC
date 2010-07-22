@@ -32,7 +32,10 @@ sed -e "s|^ScreenHeight=.*|ScreenHeight=$RESOLUTION_HEIGHT|g" \
     -e "s|^DebugNetwork=.*|DebugNetwork=false|g" \
     -i glest.ini
 
-# fix permissions lost after unpack
-  chmod +x ./bin/glest.bin
+mkdir -p image
+  mount -o loop,ro megaglest.img image
 
+ln -sf image/* .
 ./bin/glest.bin
+
+umount image
