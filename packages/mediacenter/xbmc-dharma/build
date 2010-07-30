@@ -1,0 +1,112 @@
+#!/bin/sh
+
+. config/options $1
+
+if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
+  XBMC_PULSEAUDIO="--enable-pulse"
+else
+  XBMC_PULSEAUDIO="--disable-pulse"
+fi
+
+if [ "$NONFREE_SUPPORT" = yes ]; then
+  XBMC_NONFREE="--enable-non-free"
+else
+  XBMC_NONFREE="--disable-non-free"
+fi
+
+if [ "$DVDCSS_SUPPORT" = yes ]; then
+  XBMC_DVDCSS="--enable-dvdcss"
+else
+  XBMC_DVDCSS="--disable-dvdcss"
+fi
+
+if [ "$FAAC_SUPPORT" = yes ]; then
+  XBMC_FAAC="--enable-faac"
+else
+  XBMC_FAAC="--disable-faac"
+fi
+
+if [ "$AVAHI_DAEMON" = yes ]; then
+  XBMC_AVAHI="--enable-avahi"
+else
+  XBMC_AVAHI="--disable-avahi"
+fi
+
+if [ "$WEBSERVER" = yes ]; then
+  XBMC_WEBSERVER="--enable-webserver"
+else
+  XBMC_WEBSERVER="--disable-webserver"
+fi
+
+if [ "$VDPAU" = yes ]; then
+  XBMC_VDPAU="--enable-vdpau"
+else
+  XBMC_VDPAU="--disable-vdpau"
+fi
+
+if [ "$VAAPI" = yes ]; then
+  XBMC_VAAPI="--enable-vaapi"
+else
+  XBMC_VAAPI="--disable-vaapi"
+fi
+
+if [ "$CRYSTALHD" = yes ]; then
+  XBMC_CRYSTALHD="--enable-crystalhd"
+else
+  XBMC_CRYSTALHD="--disable-crystalhd"
+fi
+
+# ensure we dont use size optimization.
+  CFLAGS=`echo $CFLAGS | sed -e "s|-Os|-O2|"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-Os|-O2|"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+
+cd $PKG_BUILD
+
+./bootstrap
+
+$AUTORECONF xbmc/lib/libid3tag/libid3tag
+
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --with-arch=$TARGET_ARCH \
+            --with-cpu=$TARGET_CPU \
+            --prefix=/usr \
+            --exec-prefix=/usr \
+            --sysconfdir=/etc \
+            --datadir=/usr/share \
+            --disable-debug \
+            --disable-optimizations \
+            --enable-gl \
+            $XBMC_VDPAU \
+            $XBMC_VAAPI \
+            $XBMC_CRYSTALHD \
+            --disable-vdadecoder \
+            --disable-profiling \
+            --disable-joystick \
+            --enable-xrandr \
+            --disable-goom \
+            --disable-xbmcprojectm \
+            --disable-rsxs \
+            --disable-ccache \
+            $XBMC_PULSEAUDIO \
+            --enable-ffmpeg-libvorbis \
+            $XBMC_FAAC \
+            $XBMC_DVDCSS \
+            --disable-mid \
+            $XBMC_AVAHI \
+            --disable-hal \
+            $XBMC_NONFREE \
+            --disable-asap-codec \
+            $XBMC_WEBSERVER \
+            --disable-libdts \
+            --disable-liba52 \
+            --disable-external-ffmpeg \
+            --disable-external-liba52 \
+            --disable-external-libdts \
+            --enable-external-libz \
+            --enable-external-python \
+
+make externals
+make xbmc.bin
+make xbmc-xrandr
