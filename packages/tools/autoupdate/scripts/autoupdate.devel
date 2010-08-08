@@ -20,8 +20,16 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-[ -f /storage/.config/update.conf ] && \
-  . /storage/.config/update.conf
+[ -f /storage/.config/update.conf ] && . /storage/.config/update.conf
+[ -f /etc/repo.conf ] && . /etc/repo.conf || exit0
+
+download () {
+  wget -c $1 -P /tmp
+}
+
+send_message () {
+  xbmc-send --host=127.0.0.1 -a "Notification(Automatic update service:,$1,20000)"
+}
 
 if [ ! -f /var/lock/update.lock ]; then
 
@@ -30,12 +38,6 @@ if [ ! -f /var/lock/update.lock ]; then
   # sleep a bit, maybe we have a lot of work ;-)
     usleep 30000000
 
-    send_message () {
-      xbmc-send --host=127.0.0.1 -a "Notification(Automatic update service:,$1,20000)"
-    }
-
-    UPDATEURL="http://snapshots.openelec.tv"
-
   # getting this version
     THIS_DISTRIBUTION="`cat /etc/distribution`"
     THIS_ARCH="`cat /etc/arch`"
@@ -43,7 +45,7 @@ if [ ! -f /var/lock/update.lock ]; then
 
   # get infofile with the latest released version
     rm -rf /tmp/latest
-    wget $UPDATEURL/latest -P /tmp
+    download "$UPDATEURL/latest"
 
     NEW_IMAGE="`cat /tmp/latest |grep "$THIS_DISTRIBUTION-$THIS_ARCH"`"
     NEW_VERSION="`echo "$NEW_IMAGE" | cut -d "-" -f5 | tr -d "r"`"
@@ -69,7 +71,7 @@ if [ ! -f /var/lock/update.lock ]; then
         touch /var/lock/update.lock
 
       # downloading the new version
-        wget -c $UPDATEURL/$NEW_IMAGE.tar.bz2 -P /tmp
+        download "$UPDATEURL/$NEW_IMAGE.tar.bz2"
 
       # extract the image
         rm -rf /tmp/$NEW_IMAGE
