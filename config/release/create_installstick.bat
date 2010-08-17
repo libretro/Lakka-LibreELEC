@@ -17,7 +17,7 @@ ECHO eg. d:
 ECHO.
 SET /P DRIVE= -- 
 format %DRIVE% /V:INSTALL /Q /FS:FAT32
-3rdparty\syslinux\win32\syslinux.exe %DRIVE%
+3rdparty\syslinux\win32\syslinux.exe -f -m -a %DRIVE%
 copy target\* %DRIVE%
 copy sample.conf\syslinux_installer.cfg %DRIVE%\syslinux.cfg
 SET DRIVE=
