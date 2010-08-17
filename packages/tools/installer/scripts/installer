@@ -187,23 +187,19 @@ function do_install_quick() {
           msg_progress_install "1" "get all partitions $INSTALL_DEVICE"
             get_partition $INSTALL_DEVICE
 
-          for i in $PARTITIONS; do
-            msg_progress_install "5" "remove partition $1 from $INSTALL_DEVICE"
-              parted -s $INSTALL_DEVICE rm $i >> $LOGFILE 2>&1
-          done
+          msg_progress_install "5" "wiping disk $INSTALL_DEVICE"
+            dd if=/dev/zero of=$INSTALL_DEVICE bs=4096 count=1024
 
         # create 2 new partitions (first $PARTSIZE_SYSTEM, second rest)
 
-          PARTFIRST_SYSTEM=$(echo 0.1)
-          PARTLAST_SYSTEM=$(echo $PARTSIZE_SYSTEM - 0.1 | bc)
-          PARTFIRST_STORAGE=$(echo $PARTLAST_SYSTEM + 0.1 | bc)
-          PARTLAST_STORAGE=$(echo -0)
+          msg_progress_install "7" "creating label on $INSTALL_DEVICE"
+            parted -s $INSTALL_DEVICE mklabel msdos >> $LOGFILE 2>&1
 
-          msg_progress_install "10" "creating partition on $INSTALL_DEVICE from $PARTFIRST_SYSTEM to $PARTLAST_SYSTEM"
-            parted -s $INSTALL_DEVICE mkpart primary ext2 -- $PARTFIRST_SYSTEM $PARTLAST_SYSTEM >> $LOGFILE 2>&1
+          msg_progress_install "10" "creating partition on $INSTALL_DEVICE"
+            parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
 
-          msg_progress_install "13" "creating partition on $INSTALL_DEVICE from $PARTFIRST_STORAGE to $PARTLAST_STORAGE"
-            parted -s $INSTALL_DEVICE mkpart primary ext2 -- $PARTFIRST_STORAGE $PARTLAST_STORAGE >> $LOGFILE 2>&1
+          msg_progress_install "13" "creating partition on $INSTALL_DEVICE"
+            parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- $PARTSIZE_SYSTEM -2 >> $LOGFILE 2>&1
 
           msg_progress_install "16" "setup bootflag on partition 1 of $INSTALL_DEVICE"
             parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
@@ -213,14 +209,12 @@ function do_install_quick() {
 
         # create filesystem
           msg_progress_install "23" "creating filesystem on ${INSTALL_DEVICE}1"
-#            mke2fs -t ext3 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
             mke2fs ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
 
           msg_progress_install "25" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
             tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
 
           msg_progress_install "28" "creating filesystem on ${INSTALL_DEVICE}2"
-#            mke2fs ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
             mke2fs ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
 
           msg_progress_install "30" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}2"
@@ -236,10 +230,6 @@ function do_install_quick() {
         # installing extlinux
           msg_progress_install "50" "installing extlinux to $TMPDIR/part1"
             extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
-
-        # installing MBR
-          msg_progress_install "55" "installing MBR to $INSTALL_DEVICE"
-            cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
 
         # install system files
           msg_progress_install "70" "installing Kernel"
@@ -436,12 +426,12 @@ function do_poweroff() {
 # setup needed variables
   TMPDIR="/tmp/installer"
   BETA="yes"
-  VERSION="0.1.0"
+  VERSION="0.2.0"
   BACKTITLE="OpenELEC.tv Installer $VERSION"
 
   DISKLABEL_SYSTEM="System"
   DISKLABEL_STORAGE="Storage"
-  PARTSIZE_SYSTEM="128"          # Defaultsize of system partition
+  PARTSIZE_SYSTEM="16"          # Defaultsize of system partition (Cylinder: 16=132MB, 31=255MB)
   LOGFILE="$TMPDIR/install.log"
 
 # prepare temporary directory
