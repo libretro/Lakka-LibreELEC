@@ -29,36 +29,33 @@
   NETMOUNT_USERCONF="/storage/.config/netmount.conf"
 
   if [ -f $NETMOUNT_USERCONF ]; then
+
+    wait_for_network
+
     progress  "Mounting Network shares"
 
-    if [ -f /usr/bin/mount.cifs ]; then
+      if [ -f /usr/bin/mount.cifs ]; then
 
 IFS="
 "
-      for i in `cat $NETMOUNT_USERCONF |grep -v "^#"`; do
-        SERVICE=`echo $i | sed -e "s@ @@g" | cut -f1 -d "|"`
-        SHARE=`echo $i | sed -e "s@ @@g" | cut -f2 -d "|"`
-        MOUNTPOINT=`echo $i | sed -e "s@ @@g" | cut -f3 -d "|"`
-        OPTIONS=`echo $i | sed -e "s@ @@g" | cut -f4 -d "|"`
+        for i in `cat $NETMOUNT_USERCONF |grep -v "^#"`; do
+          SERVICE=`echo $i | sed -e "s@ @@g" | cut -f1 -d "|"`
+          SHARE=`echo $i | sed -e "s@ @@g" | cut -f2 -d "|"`
+          MOUNTPOINT=`echo $i | sed -e "s@ @@g" | cut -f3 -d "|"`
+          OPTIONS=`echo $i | sed -e "s@ @@g" | cut -f4 -d "|"`
 
-        progress "... mounting $SHARE to $MOUNTPOINT ..."
+          progress "... mounting $SHARE to $MOUNTPOINT ..."
 
-        mkdir -p $MOUNTPOINT
+          mkdir -p $MOUNTPOINT
 
-        case "$SERVICE" in
-          cifs|smb|samba)
-            for i in 1 2 3 4 5 6 7 8 9 10; do
-              ERR_ENV=1
-              mount -n -t cifs "$SHARE" "$MOUNTPOINT" -o "$OPTIONS" > /dev/null 2>&1
-              [ $? -eq 0 ] && ERR_ENV=0 && break
-              usleep 750000
-            done
-            ;;
-#          nfs)
-#            mount.nfs $SHARE $MOUNTPOINT -o $OPTIONS
-#            ;;
-        esac
-        [ "$ERR_ENV" -ne 0 ] && echo "... could not mount $SHARE to $MOUNTPOINT"
-      done
-    fi
+          case "$SERVICE" in
+            cifs|smb|samba)
+              mount.cifs "$SHARE" "$MOUNTPOINT" -o "$OPTIONS" > /dev/null 2>&1
+              ;;
+#            nfs)
+#              mount.nfs $SHARE $MOUNTPOINT -o $OPTIONS
+#              ;;
+          esac
+        done
+      fi
   fi
