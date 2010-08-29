@@ -1,11 +1,11 @@
-From d2d3bcc9e23b9a4bea9f67a06cd23aa3ce7f4b59 Mon Sep 17 00:00:00 2001
-Message-Id: <d2d3bcc9e23b9a4bea9f67a06cd23aa3ce7f4b59.1268201183.git.yan.i.li@intel.com>
 From: Yan Li <yan.i.li@intel.com>
 Date: Wed, 10 Mar 2010 14:06:17 +0800
-Subject: [PATCH] XKB: cache xkbcomp output for fast start-up v6 for 1.7.99.901
+Subject: [PATCH] XKB: cache xkbcomp output for fast start-up v7 for 1.8.99.903
 
 xkbcomp outputs will be cached in files with hashed keymap as
 names. This saves boot time for around 1s on commodity netbooks.
+
+V7: reworked Li Yan's patch for v1.8.99.903
 
 v6: rebased to v1.7.99.901
 
@@ -14,17 +14,12 @@ v5: now using a much bigger xkbKeyMapBuf (100k) since the XKB to be
     gnome-keyboard-properties), rebased to v1.6.1
 
 Signed-off-by: Yan Li <yan.i.li@intel.com>
----
- configure.ac        |    6 +-
- xkb/README.compiled |    8 +-
- xkb/ddxLoad.c       |  187 +++++++++++++++++++++++++++++++++++++++++----------
- 3 files changed, 159 insertions(+), 42 deletions(-)
-
+Signed-off-by: Liu Xinyun <xinyun.liu@intel.com>
 diff --git a/configure.ac b/configure.ac
-index de252f3..54a0327 100644
+index 1a1f2d3..7c3224a 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -527,9 +527,9 @@ AC_MSG_RESULT([$FONTPATH])
+@@ -540,9 +540,9 @@ AC_MSG_RESULT([$FONTPATH])
  AC_ARG_WITH(xkb-path,         AS_HELP_STRING([--with-xkb-path=PATH], [Path to XKB base dir (default: ${datadir}/X11/xkb)]),
  				[ XKBPATH="$withval" ],
  				[ XKBPATH="${datadir}/X11/xkb" ])
@@ -36,7 +31,7 @@ index de252f3..54a0327 100644
  AC_ARG_WITH(default-xkb-rules, AS_HELP_STRING([--with-default-xkb-rules=RULES],
                                     [Keyboard ruleset (default: base/evdev)]),
                                  [ XKB_DFLT_RULES="$withval" ],
-@@ -1148,7 +1148,7 @@ AC_DEFINE_DIR(XKB_BIN_DIRECTORY, XKB_BIN_DIRECTORY, [Path to XKB bin dir])
+@@ -1175,7 +1175,7 @@ AC_DEFINE_DIR(XKB_BIN_DIRECTORY, XKB_BIN_DIRECTORY, [Path to XKB bin dir])
  dnl Make sure XKM_OUTPUT_DIR is an absolute path
  XKBOUTPUT_FIRSTCHAR=`echo $XKBOUTPUT | cut -b 1`
  if [[ x$XKBOUTPUT_FIRSTCHAR != x/ -a x$XKBOUTPUT_FIRSTCHAR != 'x$' ]] ; then
@@ -65,7 +60,7 @@ index 71caa2f..a4a2ae0 100644
  Unless the X server is modified, sharing this directory between servers on
  different hosts could cause problems.
 diff --git a/xkb/ddxLoad.c b/xkb/ddxLoad.c
-index 4ccddda..63b9f97 100644
+index 5e6ab87..dec3644 100644
 --- a/xkb/ddxLoad.c
 +++ b/xkb/ddxLoad.c
 @@ -30,6 +30,12 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
@@ -153,7 +148,7 @@ index 4ccddda..63b9f97 100644
  XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
  				XkbComponentNamesPtr	names,
  				unsigned		want,
-@@ -183,7 +217,11 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
+@@ -183,10 +217,14 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
  				int			nameRtrnLen)
  {
      FILE *	out;
@@ -165,7 +160,11 @@ index 4ccddda..63b9f97 100644
 +    int	ret, result;
  
      const char	*emptystring = "";
-     const char	*xkbbasedirflag = emptystring;
+-    char *xkbbasedirflag = NULL;
++    char	*xkbbasedirflag = NULL;
+     const char	*xkbbindir = emptystring;
+     const char	*xkbbindirsep = emptystring;
+ 
 @@ -194,15 +232,67 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
      /* WIN32 has no popen. The input must be stored in a file which is
         used as input for xkbcomp. xkbcomp does not read from stdin. */
@@ -237,7 +236,7 @@ index 4ccddda..63b9f97 100644
  #ifdef WIN32
      strcpy(tmpname, Win32TempDir());
      strcat(tmpname, "\\xkb_XXXXXX");
-@@ -225,19 +315,30 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
+@@ -225,14 +315,20 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
  	}
      }
  
@@ -253,14 +252,16 @@ index 4ccddda..63b9f97 100644
  		  xkbbindir, xkbbindirsep,
  		  ( (xkbDebugFlags < 2) ? 1 :
  		    ((xkbDebugFlags > 10) ? 10 : (int)xkbDebugFlags) ),
--		  xkbbasedirflag, xkmfile,
-+		  xkbbasedirflag, xkbfile,
+-		  xkbbasedirflag ? xkbbasedirflag : "", xkmfile,
++		  xkbbasedirflag ? xkbbasedirflag : "", xkbfile,
  		  PRE_ERROR_MSG, ERROR_PREFIX, POST_ERROR_MSG1,
 -		  xkm_output_dir, keymap);
 +		  tmpXkmFile);
  
-     if (xkbbasedirflag != emptystring) {
- 	xfree(xkbbasedirflag);
+     free(xkbbasedirflag);
+ 
+@@ -241,6 +337,11 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
+         return FALSE;
      }
      
 +    /* there's a potential race condition between calling tempnam()
@@ -271,7 +272,7 @@ index 4ccddda..63b9f97 100644
  #ifndef WIN32
      out= Popen(buf,"w");
  #else
-@@ -245,31 +346,41 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
+@@ -248,31 +349,41 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
  #endif
      
      if (out!=NULL) {
@@ -316,7 +317,7 @@ index 4ccddda..63b9f97 100644
 +                goto _ret;
  	    }
 -            if (buf != NULL)
--                xfree (buf);
+-                free(buf);
 -	    return TRUE;
 +        result = TRUE;
 +        goto _ret;
@@ -327,7 +328,7 @@ index 4ccddda..63b9f97 100644
  #ifdef WIN32
          /* remove the temporary file */
          unlink(tmpname);
-@@ -284,9 +395,16 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
+@@ -287,9 +398,16 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
      }
      if (nameRtrn)
  	nameRtrn[0]= '\0';
@@ -337,15 +338,16 @@ index 4ccddda..63b9f97 100644
 +    if (tmpXkmFile)
 +        free(tmpXkmFile);
 +    if (canonicalXkmFileName)
-+        xfree(canonicalXkmFileName);
++        free(canonicalXkmFileName);
      if (buf != NULL)
-         xfree (buf);
+-        free(buf);
 -    return FALSE;
++        free (buf);
 +    return result;
  }
  
  static FILE *
-@@ -370,7 +488,6 @@ unsigned	missing;
+@@ -373,7 +491,6 @@ unsigned	missing;
  	DebugF("Loaded XKB keymap %s, defined=0x%x\n",fileName,(*xkbRtrn)->defined);
      }
      fclose(file);
@@ -353,6 +355,3 @@ index 4ccddda..63b9f97 100644
      return (need|want)&(~missing);
  }
  
--- 
-1.5.6.5
-
