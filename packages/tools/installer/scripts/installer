@@ -280,7 +280,7 @@ function msg_not_implemented() {
 function msg_oem_only() {
   # show an dialog that this function is only implemented on special builds
     MSG_TITLE="\Z2[ FOR OEM ONLY ]\Zn"
-    MSG_INFOBOX=" OEM only feature, this function is not implemented in this build! \n if you have questions about this feature visit http://www.openelec.tv!!!"
+    MSG_INFOBOX=" OEM only feature, this function is not implemented in this build! \n if you have questions about this feature \n visit http://www.openelec.tv!!!"
 
     dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
 }
@@ -374,7 +374,7 @@ function menu_bios() {
     MSG_CANCEL="Back"
 
     dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-      --title "$MSG_TITLE" --menu "$MSG_MENU" 25 70 5 \
+      --title "$MSG_TITLE" --menu "$MSG_MENU" 20 70 5 \
         1 "Backup installed BIOS" \
         2 "Update BIOS" \
         3 "Erase BIOS (not recommended)" 2> $TMPDIR/biosmenu
@@ -385,7 +385,7 @@ function menu_bios() {
         case $ITEM_BIOSMENU in
           1) bios_backup; break;;
           2) bios_update; break;;
-          2) bios_erase; break;;
+          3) bios_erase; break;;
         esac
         ;;
       1)
@@ -404,20 +404,57 @@ function menu_custom() {
 }
 
 function bios_backup() {
-  # TODO: create an backup from installed bios
-    msg_not_implemented
+  # create an backup from installed bios
+    if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+
+      echo "##### backup old BIOS to $BIOS_BACKUP #####"
+        usleep 1000000
+        flashrom --read "$BIOS_BACKUP"
+
+      echo "##### Please control the output and press any key to continue #####"
+      read -sn1
+
+    else
+      msg_oem_only
+    fi
     menu_bios
 }
 
 function bios_update() {
-  # TODO: update the bios
-    msg_not_implemented
+  # update the bios
+    if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+
+      echo "##### erasing BIOS #####"
+        usleep 1000000
+        flashrom --erase
+
+      echo "##### writing new BIOS from $BIOS_FILE #####"
+        usleep 1000000
+        flashrom --write "$BIOS_FILE"
+
+      echo "##### Please control the output and press any key to continue #####"
+      read -sn1
+
+    else
+      msg_oem_only
+    fi
     menu_bios
 }
 
 function bios_erase() {
-  # TODO: update the bios
-    msg_not_implemented
+  # erase the bios
+    if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+
+      echo "##### erasing BIOS #####"
+        usleep 1000000
+        flashrom --erase
+
+      echo "##### Please control the output and press any key to continue #####"
+      read -sn1
+
+    else
+      msg_oem_only
+    fi
     menu_bios
 }
 
@@ -443,7 +480,7 @@ function do_poweroff() {
 
 # setup needed variables
   BETA="yes"
-  VERSION="0.2.2"
+  VERSION="0.2.3"
   BACKTITLE="OpenELEC.tv Installer $VERSION"
 
   TMPDIR="/tmp/installer"
