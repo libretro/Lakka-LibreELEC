@@ -20,12 +20,8 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-if [ "$(pidof xbmc.bin)" -a -f /usr/bin/xbmc-send ]; then
-  # shutdown via xbmc
-    xbmc-send --host=127.0.0.1 -a "Powerdown"
-else
-  # shudown normally
-    /bin/sync
-    /sbin/poweroff
-fi
+# shudown normally
+  /bin/sync
+  /sbin/poweroff
+
 
