@@ -1,0 +1,63 @@
+#!/bin/sh
+
+################################################################################
+#      Copyright (C) 2009-2010 OpenELEC.tv
+#      http://www.openelec.tv
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# setup networking
+#
+# runlevels: openelec, installer, textmode
+
+. /etc/profile
+
+HOSTNAME="openelec"     # default hostname
+NETWORK_TYPE="wired"    # default network type
+CONNECTION="dhcp"       # default connection
+
+[ -f $HOME/.config/network.conf ] && . $HOME/.config/network.conf
+
+# bring lo up, whether we have network card or not
+  progress "starting Loopback Network interface"
+  ifconfig lo 127.0.0.1 up
+
+# setup hostname
+  progress "Setup hostname"
+  echo "$HOSTNAME" > /proc/sys/kernel/hostname
+
+# create /etc/hosts file, useful for gethostbyname(localhost)
+  progress "creating /etc/hosts"
+  echo -e "127.0.0.1\tlocalhost $HOSTNAME" > /etc/hosts
+
+(
+  # starting Connection manager
+    progress "starting Connection manager"
+
+    mkdir -p /var/run
+    touch /var/run/resolv.conf
+    [ -x /usr/sbin/connmand ] && /usr/sbin/connmand || exit 0
+
+    usleep 2000
+
+    if [ "$CONNECTION" = "dhcp" -a -x /usr/bin/cmcc ]; then
+       /usr/bin/cmcc edit Wired ipv4 dhcp
+    elif [ "$CONNECTION" = "static" -a -n "$IPADDRESS" -a -n "$NETMASK" -a -n "$GATEWAY" -a -x /usr/bin/cmcc ]; then
+       /usr/bin/cmcc edit Wired ipv4 manual "$IPADDRESS" "$NETMASK" "$GATEWAY"
+       /usr/bin/cmcc edit Wired nameservers "$NAMESERVER1" "$NAMESERVER2" "$NAMESERVER3"
+    fi
+)&
