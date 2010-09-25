@@ -26,11 +26,15 @@
 
 . /etc/profile
 
-HOSTNAME="openelec"     # default hostname
-NETWORK_TYPE="wired"    # default network type
-CONNECTION="dhcp"       # default connection
-
 [ -f $HOME/.config/network.conf ] && . $HOME/.config/network.conf
+
+[ -z "$HOSTNAME" ] && HOSTNAME="openelec"
+[ -z "$IFACE" ] && IFACE=eth0
+[ -f /sys/class/net/$IFACE/address ] && IFACE=`cat /sys/class/net/$IFACE/address`
+
+CONNMAN_PROFILE="/var/lib/connman/default.profile"
+IP=`echo $IPADDRESS | cut -f1 -d/`
+PREFIX=`echo $IPADDRESS | cut -f2 -d/`
 
 # bring lo up, whether we have network card or not
   progress "starting Loopback Network interface"
@@ -44,20 +48,23 @@ CONNECTION="dhcp"       # default connection
   progress "creating /etc/hosts"
   echo -e "127.0.0.1\tlocalhost $HOSTNAME" > /etc/hosts
 
-(
-  # starting Connection manager
-    progress "starting Connection manager"
+# starting Connection manager
+  progress "starting Connection manager"
 
-    mkdir -p /var/run
-    touch /var/run/resolv.conf
-    [ -x /usr/sbin/connmand ] && /usr/sbin/connmand || exit 0
+  mkdir -p /var/run/connman
+  mkdir -p /var/lib/connman
 
-    usleep 2000
+  echo "[ethernet_`echo $IFACE | sed 's/://g'`_cable]" > $CONNMAN_PROFILE
 
-    if [ "$CONNECTION" = "dhcp" -a -x /usr/bin/cmcc ]; then
-       /usr/bin/cmcc edit Wired ipv4 dhcp
-    elif [ "$CONNECTION" = "static" -a -n "$IPADDRESS" -a -n "$NETMASK" -a -n "$GATEWAY" -a -x /usr/bin/cmcc ]; then
-       /usr/bin/cmcc edit Wired ipv4 manual "$IPADDRESS" "$NETMASK" "$GATEWAY"
-       /usr/bin/cmcc edit Wired nameservers "$NAMESERVER1" "$NAMESERVER2" "$NAMESERVER3"
-    fi
-)&
+  if [ -z "$IPADDRESS" ]; then
+    echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
+  else
+    echo "IPv4.method=manual" >> $CONNMAN_PROFILE
+    echo "IPv4.local_address=$IP" >> $CONNMAN_PROFILE
+    [ -n "$PREFIX" ] && echo "IPv4.netmask_prefixlen=$PREFIX" >> $CONNMAN_PROFILE
+    [ -n "$GATEWAY" ] && echo "IPv4.gateway=$GATEWAY" >> $CONNMAN_PROFILE
+    [ -n "$NAMESERVER" ] && echo "Nameservers=$NAMESERVER;" >> $CONNMAN_PROFILE
+  fi
+
+  touch /var/run/resolv.conf
+  /usr/sbin/connmand
