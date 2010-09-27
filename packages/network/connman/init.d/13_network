@@ -24,21 +24,15 @@
 #
 # runlevels: openelec, installer, textmode
 
+# LAN:  no security: no SSID, NAME:Wired, no PASSPHRASE, tech: ethernet, mode: _cable
+# WLAN: no security: SSID,    NAME,       no PASSPHRASE, tech: wifi      mode: _managed_none
+# WLAN: (WPA2):      SSID,    NAME,       PASSPHRASE,    tech: wifi      mode: _managed_psk
+# WLAN: (WEP):       SSID,    NAME,       PASSPHRASE,    tect: wifi      mode: _managed_wep
+
 . /etc/profile
 
 [ -f $HOME/.config/network.conf ] && . $HOME/.config/network.conf
-
 [ -z "$HOSTNAME" ] && HOSTNAME="openelec"
-[ -z "$IFACE" ] && IFACE=eth0
-[ -f /sys/class/net/$IFACE/address ] && IFACE=`cat /sys/class/net/$IFACE/address`
-
-CONNMAN_PROFILE="/var/lib/connman/default.profile"
-IP=`echo $IPADDRESS | cut -f1 -d/`
-PREFIX=`echo $IPADDRESS | cut -f2 -d/`
-
-# bring lo up, whether we have network card or not
-  progress "starting Loopback Network interface"
-  ifconfig lo 127.0.0.1 up
 
 # setup hostname
   progress "Setup hostname"
@@ -48,23 +42,65 @@ PREFIX=`echo $IPADDRESS | cut -f2 -d/`
   progress "creating /etc/hosts"
   echo -e "127.0.0.1\tlocalhost $HOSTNAME" > /etc/hosts
 
-# starting Connection manager
-  progress "starting Connection manager"
+(
+  # setup Networking
+    progress "setup Networking"
 
-  mkdir -p /var/run/connman
-  mkdir -p /var/lib/connman
+    CONNMAN_PROFILE="/var/lib/connman/default.profile"
 
-  echo "[ethernet_`echo $IFACE | sed 's/://g'`_cable]" > $CONNMAN_PROFILE
+    mkdir -p /var/run/connman
+    mkdir -p /var/lib/connman
 
-  if [ -z "$IPADDRESS" ]; then
-    echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
-  else
-    echo "IPv4.method=manual" >> $CONNMAN_PROFILE
-    echo "IPv4.local_address=$IP" >> $CONNMAN_PROFILE
-    [ -n "$PREFIX" ] && echo "IPv4.netmask_prefixlen=$PREFIX" >> $CONNMAN_PROFILE
-    [ -n "$GATEWAY" ] && echo "IPv4.gateway=$GATEWAY" >> $CONNMAN_PROFILE
-    [ -n "$NAMESERVER" ] && echo "Nameservers=$NAMESERVER;" >> $CONNMAN_PROFILE
-  fi
+  # NETWORK: ( LAN / WLAN )
+    usleep 2000000 # TODO: wait on udev to load all drivers
 
-  touch /var/run/resolv.conf
-  /usr/sbin/connmand
+    [ -z "$IFACE" ] && IFACE="eth0"
+    [ -f /sys/class/net/$IFACE/address ] && \
+      IFACE=`cat /sys/class/net/$IFACE/address | sed 's/://g'`
+
+    if [ "$NETWORK" = "WLAN" -a -n "$SSID" ]; then
+      SSID_HEX=`echo -n "$SSID" | od -tx1 | cut -c8-| tr -d ' \n'`
+
+      # SECURITY: ( NONE / WEP / PSK )
+        if [ "$SECURITY" = "WEP" -a -n "$PASSPHRASE" ]; then
+          MODE="managed_wep"
+        elif [ "$SECURITY" = "PSK" -a -n "$PASSPHRASE"  ]; then
+          MODE="managed_psk"
+        else
+          MODE="managed_none"
+        fi
+
+        echo "[wifi_${IFACE}_${SSID_HEX}_${MODE}]" > $CONNMAN_PROFILE
+        echo "Name=$SSID"  >> $CONNMAN_PROFILE
+        echo "SSID=$SSID_HEX"  >> $CONNMAN_PROFILE
+        [ -n "$PASSPHRASE" ] && echo "Passphrase=$PASSPHRASE" >> $CONNMAN_PROFILE
+        echo "Favorite=true" >> $CONNMAN_PROFILE
+        echo "AutoConnect=true" >> $CONNMAN_PROFILE
+
+    else
+      MODE="cable"
+      echo "[ethernet_${IFACE}_${MODE}]" > $CONNMAN_PROFILE
+    fi
+
+  # IP settings
+    if [ -z "$IPADDRESS" ]; then
+      echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
+    else
+      IP=`echo $IPADDRESS | cut -f1 -d/`
+      PREFIX=`echo $IPADDRESS | cut -f2 -d/`
+      echo "IPv4.method=manual" >> $CONNMAN_PROFILE
+      echo "IPv4.local_address=$IP" >> $CONNMAN_PROFILE
+      [ -n "$PREFIX" ] && echo "IPv4.netmask_prefixlen=$PREFIX" >> $CONNMAN_PROFILE
+      [ -n "$GATEWAY" ] && echo "IPv4.gateway=$GATEWAY" >> $CONNMAN_PROFILE
+      [ -n "$NAMESERVER" ] && echo "Nameservers=$NAMESERVER;" >> $CONNMAN_PROFILE
+    fi
+
+  # starting Connection manager
+    progress "starting Connection manager"
+
+    touch /var/run/resolv.conf
+    /usr/sbin/connmand
+
+    usleep 2000000 #TODO: wait for connman
+    touch /var/run/network
+)&
