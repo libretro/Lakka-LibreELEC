@@ -1,0 +1,44 @@
+################################################################################
+# An example udev rules file for lircd.
+################################################################################
+
+# lircd_helper only does something for "add" and "remove" actions.
+ACTION!="add|remove", GOTO="end"
+
+KERNEL=="hiddev[0-9]*", SUBSYSTEM=="usb",  SUBSYSTEMS=="usb", GOTO="begin"
+KERNEL=="lirc[0-9]*",   SUBSYSTEM=="lirc", SUBSYSTEMS=="i2c", GOTO="begin"
+KERNEL=="lirc[0-9]*",   SUBSYSTEM=="lirc", SUBSYSTEMS=="usb", GOTO="begin"
+GOTO="end"
+LABEL="begin"
+
+#-------------------------------------------------------------------------------
+# Ask lircd_helper to lirc devices.
+#-------------------------------------------------------------------------------
+SUBSYSTEM=="lirc", \
+  ENV{lircd_driver}="default", \
+  ENV{lircd_conf}="/etc/lirc/lircd.conf"
+
+#-------------------------------------------------------------------------------
+# Ask lircd_helper to handle USB devices that do not show up as lirc devices
+# and are supported by lircd. Remote controls that are USB HID devices that show
+# up as event devices are not included as as they are handled by eventlircd.
+#-------------------------------------------------------------------------------
+SUBSYSTEMS=="usb", GOTO="begin-usb"
+SUBSYSTEMS=="usb", GOTO="begin-usb"
+GOTO="end-usb"
+LABEL="begin-usb"
+
+ENV{ID_USB_INTERFACES}=="", IMPORT{program}="usb_id --export %p"
+
+ENV{ID_VENDOR_ID}=="0fe9", ENV{ID_MODEL_ID}=="9010", \
+  ENV{lircd_driver}="dvico", \
+  ENV{lircd_conf}="/etc/lirc/lircd.conf"
+
+# Enable wake-on-usb for the USB remotes.
+ENV{lircd_driver}=="?*", ENV{lircd_conf}=="?*", RUN+="wakeup_enable"
+
+LABEL="end-usb"
+
+ENV{lircd_driver}=="?*", ENV{lircd_conf}=="?*", RUN+="lircd_helper"
+
+LABEL="end"
