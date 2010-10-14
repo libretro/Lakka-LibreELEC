@@ -1,0 +1,108 @@
+From 9edb8ba5f8217f6f8ed80e064d57a97f4f3e9201 Mon Sep 17 00:00:00 2001
+From: Fedora X Ninjas <x@fedoraproject.org>
+Date: Tue, 16 Feb 2010 11:38:17 +1000
+Subject: [PATCH 07/17] autoconfig: select nouveau by default for NVIDIA GPUs
+
+Also, don't treat DRI setup failure as an error for nouveau.
+---
+ glx/glxdri.c                   |    7 +++++--
+ glx/glxdri2.c                  |    7 +++++--
+ hw/xfree86/common/xf86pciBus.c |   18 +++++++++++++++++-
+ 3 files changed, 27 insertions(+), 5 deletions(-)
+
+diff --git a/glx/glxdri.c b/glx/glxdri.c
+index 32b35db..f3a501e 100644
+--- a/glx/glxdri.c
++++ b/glx/glxdri.c
+@@ -968,6 +968,7 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
+     const __DRIconfig **driConfigs;
+     const __DRIextension **extensions;
+     int i;
++    int from = X_ERROR;
+ 
+     if (!xf86LoaderCheckSymbol("DRIQueryDirectRenderingCapable") ||
+ 	!DRIQueryDirectRenderingCapable(pScreen, &isCapable) ||
+@@ -1047,7 +1048,9 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
+ 
+     screen->driver = dlopen(filename, RTLD_LAZY | RTLD_LOCAL);
+     if (screen->driver == NULL) {
+-	LogMessage(X_ERROR, "AIGLX error: dlopen of %s failed (%s)\n",
++	if (!strcmp(driverName, "nouveau"))
++	    from = X_INFO;
++	LogMessage(from, "AIGLX error: dlopen of %s failed (%s)\n",
+ 		   filename, dlerror());
+         goto handle_error;
+     }
+@@ -1185,7 +1188,7 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
+ 
+     free(screen);
+ 
+-    LogMessage(X_ERROR, "AIGLX: reverting to software rendering\n");
++    LogMessage(from, "AIGLX: reverting to software rendering\n");
+ 
+     return NULL;
+ }
+diff --git a/glx/glxdri2.c b/glx/glxdri2.c
+index 970a51a..c78d4b3 100644
+--- a/glx/glxdri2.c
++++ b/glx/glxdri2.c
+@@ -696,6 +696,7 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
+     const __DRIextension **extensions;
+     const __DRIconfig **driConfigs;
+     int i;
++    int from = X_ERROR;
+ 
+     screen = calloc(1, sizeof *screen);
+     if (screen == NULL)
+@@ -722,7 +723,9 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
+ 
+     screen->driver = dlopen(filename, RTLD_LAZY | RTLD_LOCAL);
+     if (screen->driver == NULL) {
+-	LogMessage(X_ERROR, "AIGLX error: dlopen of %s failed (%s)\n",
++	if (!strcmp(driverName, "nouveau"))
++	    from = X_INFO;
++	LogMessage(from, "AIGLX error: dlopen of %s failed (%s)\n",
+ 		   filename, dlerror());
+         goto handle_error;
+     }
+@@ -816,7 +819,7 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
+ 
+     free(screen);
+ 
+-    LogMessage(X_ERROR, "AIGLX: reverting to software rendering\n");
++    LogMessage(from, "AIGLX: reverting to software rendering\n");
+ 
+     return NULL;
+ }
+diff --git a/hw/xfree86/common/xf86pciBus.c b/hw/xfree86/common/xf86pciBus.c
+index 74016af..9c296f5 100644
+--- a/hw/xfree86/common/xf86pciBus.c
++++ b/hw/xfree86/common/xf86pciBus.c
+@@ -1118,7 +1118,23 @@ videoPtrToDriverList(struct pci_device *dev,
+ 	    break;
+ 	case 0x102b:		    driverList[0] = "mga";	break;
+ 	case 0x10c8:		    driverList[0] = "neomagic"; break;
+-	case 0x10de: case 0x12d2:   driverList[0] = "nv";	break;
++	case 0x10de: case 0x12d2:
++	    switch (dev->device_id) {
++	    /* NV1 */
++	    case 0x0008:
++	    case 0x0009:
++		driverList[0] = "vesa";
++		break;
++	    /* NV3 */
++	    case 0x0018:
++	    case 0x0019:
++		driverList[0] = "nv";
++		break;
++	    default:
++		driverList[0] = "nouveau";
++		break;
++	    }
++	    break;
+ 	case 0x1106:		    driverList[0] = "openchrome"; break;
+         case 0x1b36:		    driverList[0] = "qxl"; break;
+ 	case 0x1163:		    driverList[0] = "rendition"; break;
+-- 
+1.7.1
+
