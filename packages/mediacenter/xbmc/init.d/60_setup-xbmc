@@ -28,8 +28,18 @@
 
 progress "setup XBMC"
 
-nvidiaGpuType=$(lspci -nn | grep 'VGA' | grep 'nVidia Corporation')
-amdGpuType=$(lspci -nn | grep 'VGA' | grep 1002)
+  # find used graphic driver
+  if [ -d /sys/module/i915 ]; then
+    DRIVER="intel"
+  elif [ -d /sys/module/nouveau ]; then
+    DRIVER="nouveau"
+  elif [ -d /sys/module/nvidia ]; then
+    DRIVER="nvidia"
+  elif [ -d /sys/module/radeon ]; then
+    DRIVER="radeon"
+  else
+    DRIVER="other"
+  fi
 
 #
 # clean temp dir
@@ -99,7 +109,7 @@ EOF
   fi
 
 #
-# common setup guisettings for amd and nvidia graphic
+# common setup guisettings
 #
 
   mkdir -p $HOME/.xbmc/userdata
@@ -120,12 +130,13 @@ EOF
 #
 
   # Always sync to vblank
-    if [ -n "$amdGpuType" -o -n "$nvidiaGpuType" ] ; then
+    if [ "$DRIVER" = "radeon" -o "$DRIVER" = "nvidia" ] ; then
       cat >> $HOME/.xbmc/userdata/guisettings.xml << EOF
     <videoscreen>
         <vsync>2</vsync>
     </videoscreen>
 EOF
     fi
+
     echo "</settings>" >> $HOME/.xbmc/userdata/guisettings.xml
   fi
