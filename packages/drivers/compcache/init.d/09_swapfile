@@ -29,26 +29,24 @@
 
 INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
 
-if [ $INSTALLED_MEMORY -le 500000 -a -f $HOME/.config/swapon ]; then
+if [ "$INSTALLED_MEMORY" -le 500000 ]; then
 
-  if [ ! -f $HOME/.cache/swapfile ]; then
-    progress "creating swapfile"
+  progress "creating swapfile"
 
-      mkdir -p $HOME/.cache
-      dd if=/dev/zero of=$HOME/.cache/swapfile bs=1024 count=524288
-      mkswap $HOME/.cache/swapfile
-  fi
+  # load zram module
+    modprobe zram
 
-  progress "enable swapfile"
-    swapon -p 10000 $HOME/.cache/swapfile
+  # setup space for zram
+    echo "$INSTALLED_MEMORY"/2*1024 | bc > /sys/block/zram0/disksize
 
-    [ $INSTALLED_MEMORY -le 260000 ] \
-      && sysctl -w vm.swappiness=100 \
-      || sysctl -w vm.swappiness=60
+  # create swap
+    mkswap /dev/zram0 >/dev/null 2>&1
 
-else
+  progress "activating swapfile"
 
-  sysctl -w vm.swappiness=0
+  # create swap
+    swapon -p 10000 /dev/zram0 >/dev/null 2>&1
+    sysctl -w vm.swappiness=100 >/dev/null 2>&1
 
 fi
 
