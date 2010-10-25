@@ -26,26 +26,11 @@
 
 . /etc/profile
 
-(
-  XORG_DEFAULT_CONF="/etc/X11/xorg.conf"
-  XORG_NVIDIA_CONF="/etc/X11/xorg-nvidia.conf"
-  XORG_NVIDIA_CHD_CONF="/etc/X11/xorg-nvidia-chd.conf"
-  XORG_USER_CONF="/storage/.config/xorg.conf"
   XORG_ARGS="-s 0 -nr -noreset -allowMouseOpenFail -nocursor -nolisten tcp"
 
   [ "$DEBUG" = yes ] && XORG_ARGS="$XORG_ARGS -logverbose 6 -verbose 6"
 
-  # find used graphic driver
-  if [ -d /sys/module/i915 ]; then
-    DRIVER="intel"
-  elif [ -d /sys/module/nouveau ]; then
-    DRIVER="nouveau"
-  elif [ -d /sys/module/nvidia ]; then
-    DRIVER="nvidia"
-  else
-    DRIVER="other"
-  fi
-
+(
   progress "creating directories needed for Xorg"
 
     mkdir -p /var/cache/xkb
@@ -53,26 +38,14 @@
     mkdir -m 1777 -p /tmp/.ICE-unix
     chown root:root /tmp/.ICE-unix
 
-    # test if nvidia kernel driver is loaded,
-    if [ "$DRIVER" = "nvidia" ]; then
+    if [ "$GPUTYPE" = "NVIDIA" ]; then
       ln -sf /usr/lib/libGL_nvidia.so.1 /var/lib/libGL.so
       ln -sf /usr/lib/xorg/modules/extensions/libglx_nvidia.so /var/lib/libglx.so
       XORG_ARGS="$XORG_ARGS -ignoreABI"
-
-      # check if we have an Broadcom CrystalHD card installed, so we can disable
-      # the use of shared memory
-      if lspci -n | grep 0480 | grep -q 14e4; then
-        XORG_CONF="$XORG_NVIDIA_CHD_CONF"
-      else
-        XORG_CONF="$XORG_NVIDIA_CONF"
-      fi
     else
       ln -sf /usr/lib/libGL_mesa.so.1 /var/lib/libGL.so
       ln -sf /usr/lib/xorg/modules/extensions/libglx_mesa.so /var/lib/libglx.so
-      XORG_CONF="$XORG_DEFAULT_CONF"
     fi
-
-    [ -f $XORG_USER_CONF ] && XORG_CONF="$XORG_USER_CONF"
 
   progress "starting xorg"
 
