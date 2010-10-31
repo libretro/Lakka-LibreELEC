@@ -1,0 +1,1235 @@
+This patch adds additional PS3 remote support to bluez (4.76).
+The latest patch will always be located at http://kitlaan.twinaxis.com/project/bluez-ps3remote
+
+diff -Nur a/input/device.c b/input/device.c
+--- a/input/device.c	2010-09-08 11:27:53.000000000 -0400
++++ b/input/device.c	2010-10-19 13:08:36.553574553 -0400
+@@ -465,14 +465,14 @@
+ 
+ static gboolean fake_hid_connect(struct input_conn *iconn, GError **err)
+ {
+-	struct fake_hid *fhid = iconn->fake->priv;
++	struct fake_hid *fhid = iconn->fake->hidd;
+ 
+ 	return fhid->connect(iconn->fake, err);
+ }
+ 
+ static int fake_hid_disconnect(struct input_conn *iconn)
+ {
+-	struct fake_hid *fhid = iconn->fake->priv;
++	struct fake_hid *fhid = iconn->fake->hidd;
+ 
+ 	return fhid->disconnect(iconn->fake);
+ }
+@@ -602,7 +602,7 @@
+ }
+ 
+ static int hidp_add_connection(const struct input_device *idev,
+-				const struct input_conn *iconn)
++				struct input_conn *iconn)
+ {
+ 	struct hidp_connadd_req *req;
+ 	struct fake_hid *fake_hid;
+@@ -639,13 +639,17 @@
+ 		fake = g_new0(struct fake_input, 1);
+ 		fake->connect = fake_hid_connect;
+ 		fake->disconnect = fake_hid_disconnect;
+-		fake->priv = fake_hid;
+ 		fake->idev = idev;
++		fake->hidd = fake_hid;
++		bacpy(&fake->ba_src, &idev->src);
++		bacpy(&fake->ba_dst, &idev->dst);
++		fake->idle_timeout = iconn->timeout;
+ 		fake = fake_hid_connadd(fake, iconn->intr_io, fake_hid);
+ 		if (fake == NULL)
+ 			err = -ENOMEM;
+ 		else
+ 			fake->flags |= FI_FLAG_CONNECTED;
++		iconn->fake = fake;
+ 		goto cleanup;
+ 	}
+ 
+@@ -785,7 +789,7 @@
+ 	struct input_device *idev = user_data;
+ 	int flags;
+ 
+-	info("Input: disconnect %s", idev->path);
++	DBG("Input: disconnect %s", idev->path);
+ 
+ 	flags = removal ? (1 << HIDP_VIRTUAL_CABLE_UNPLUG) : 0;
+ 
+@@ -1291,3 +1295,15 @@
+ 
+ 	return 0;
+ }
++
++void input_device_request_disconnect(const bdaddr_t *src, const bdaddr_t *dst)
++{
++	struct input_device *idev = find_device(src, dst);
++
++	if (!idev)
++		return;
++
++	// or call disconnect() ?
++	device_request_disconnect(idev->device, NULL);
++}
++
+diff -Nur a/input/device.h b/input/device.h
+--- a/input/device.h	2010-09-08 11:27:53.000000000 -0400
++++ b/input/device.h	2010-10-19 13:10:01.273608173 -0400
+@@ -29,6 +29,7 @@
+ 
+ struct input_device;
+ struct input_conn;
++struct fake_hid;
+ 
+ struct fake_input {
+ 	int		flags;
+@@ -36,9 +37,14 @@
+ 	int		uinput;		/* uinput socket */
+ 	int		rfcomm;		/* RFCOMM socket */
+ 	uint8_t		ch;		/* RFCOMM channel number */
++	int		idle_timeout;
++	guint		timer;
+ 	gboolean	(*connect) (struct input_conn *iconn, GError **err);
+ 	int		(*disconnect) (struct input_conn *iconn);
+-	void		*priv;
++	bdaddr_t	ba_src, ba_dst;
++	struct fake_hid *hidd;
++ 	void		*priv;
++	guint		sid_in;
+ 	const struct input_device *idev;
+ };
+ 
+@@ -54,3 +60,5 @@
+ int input_device_set_channel(const bdaddr_t *src, const bdaddr_t *dst, int psm,
+ 							GIOChannel *io);
+ int input_device_close_channels(const bdaddr_t *src, const bdaddr_t *dst);
++void input_device_request_disconnect(const bdaddr_t *src, const bdaddr_t *dst);
++
+diff -Nur a/input/fakehid.c b/input/fakehid.c
+--- a/input/fakehid.c	2010-09-08 11:27:53.000000000 -0400
++++ b/input/fakehid.c	2010-10-19 13:24:55.243569928 -0400
+@@ -48,8 +48,479 @@
+ #include "fakehid.h"
+ #include "uinput.h"
+ 
++static int fake_hid_common_connect(struct fake_input *fake, GError **err);
++static int fake_hid_common_disconnect(struct fake_input *fake);
++static gboolean fake_hid_common_timeout(gpointer data);
++
++/* Possible inputs, based off of keys in uinput.h */
++#define ENTRY(x) [x] = #x
++static char *uinput_map[] = {
++	ENTRY(KEY_ESC),
++	ENTRY(KEY_1),
++	ENTRY(KEY_2),
++	ENTRY(KEY_3),
++	ENTRY(KEY_4),
++	ENTRY(KEY_5),
++	ENTRY(KEY_6),
++	ENTRY(KEY_7),
++	ENTRY(KEY_8),
++	ENTRY(KEY_9),
++	ENTRY(KEY_0),
++	ENTRY(KEY_MINUS),
++	ENTRY(KEY_EQUAL),
++	ENTRY(KEY_BACKSPACE),
++	ENTRY(KEY_TAB),
++	ENTRY(KEY_Q),
++	ENTRY(KEY_W),
++	ENTRY(KEY_E),
++	ENTRY(KEY_R),
++	ENTRY(KEY_T),
++	ENTRY(KEY_Y),
++	ENTRY(KEY_U),
++	ENTRY(KEY_I),
++	ENTRY(KEY_O),
++	ENTRY(KEY_P),
++	ENTRY(KEY_LEFTBRACE),
++	ENTRY(KEY_RIGHTBRACE),
++	ENTRY(KEY_ENTER),
++	ENTRY(KEY_LEFTCTRL),
++	ENTRY(KEY_A),
++	ENTRY(KEY_S),
++	ENTRY(KEY_D),
++	ENTRY(KEY_F),
++	ENTRY(KEY_G),
++	ENTRY(KEY_H),
++	ENTRY(KEY_J),
++	ENTRY(KEY_K),
++	ENTRY(KEY_L),
++	ENTRY(KEY_SEMICOLON),
++	ENTRY(KEY_APOSTROPHE),
++	ENTRY(KEY_GRAVE),
++	ENTRY(KEY_LEFTSHIFT),
++	ENTRY(KEY_BACKSLASH),
++	ENTRY(KEY_Z),
++	ENTRY(KEY_X),
++	ENTRY(KEY_C),
++	ENTRY(KEY_V),
++	ENTRY(KEY_B),
++	ENTRY(KEY_N),
++	ENTRY(KEY_M),
++	ENTRY(KEY_COMMA),
++	ENTRY(KEY_DOT),
++	ENTRY(KEY_SLASH),
++	ENTRY(KEY_RIGHTSHIFT),
++	ENTRY(KEY_KPASTERISK),
++	ENTRY(KEY_LEFTALT),
++	ENTRY(KEY_SPACE),
++	ENTRY(KEY_CAPSLOCK),
++	ENTRY(KEY_F1),
++	ENTRY(KEY_F2),
++	ENTRY(KEY_F3),
++	ENTRY(KEY_F4),
++	ENTRY(KEY_F5),
++	ENTRY(KEY_F6),
++	ENTRY(KEY_F7),
++	ENTRY(KEY_F8),
++	ENTRY(KEY_F9),
++	ENTRY(KEY_F10),
++	ENTRY(KEY_NUMLOCK),
++	ENTRY(KEY_SCROLLLOCK),
++	ENTRY(KEY_KP7),
++	ENTRY(KEY_KP8),
++	ENTRY(KEY_KP9),
++	ENTRY(KEY_KPMINUS),
++	ENTRY(KEY_KP4),
++	ENTRY(KEY_KP5),
++	ENTRY(KEY_KP6),
++	ENTRY(KEY_KPPLUS),
++	ENTRY(KEY_KP1),
++	ENTRY(KEY_KP2),
++	ENTRY(KEY_KP3),
++	ENTRY(KEY_KP0),
++	ENTRY(KEY_KPDOT),
++
++	ENTRY(KEY_ZENKAKUHANKAKU),
++	ENTRY(KEY_102ND),
++	ENTRY(KEY_F11),
++	ENTRY(KEY_F12),
++	ENTRY(KEY_RO),
++	ENTRY(KEY_KATAKANA),
++	ENTRY(KEY_HIRAGANA),
++	ENTRY(KEY_HENKAN),
++	ENTRY(KEY_KATAKANAHIRAGANA),
++	ENTRY(KEY_MUHENKAN),
++	ENTRY(KEY_KPJPCOMMA),
++	ENTRY(KEY_KPENTER),
++	ENTRY(KEY_RIGHTCTRL),
++	ENTRY(KEY_KPSLASH),
++	ENTRY(KEY_SYSRQ),
++	ENTRY(KEY_RIGHTALT),
++	ENTRY(KEY_LINEFEED),
++	ENTRY(KEY_HOME),
++	ENTRY(KEY_UP),
++	ENTRY(KEY_PAGEUP),
++	ENTRY(KEY_LEFT),
++	ENTRY(KEY_RIGHT),
++	ENTRY(KEY_END),
++	ENTRY(KEY_DOWN),
++	ENTRY(KEY_PAGEDOWN),
++	ENTRY(KEY_INSERT),
++	ENTRY(KEY_DELETE),
++	ENTRY(KEY_MACRO),
++	ENTRY(KEY_MUTE),
++	ENTRY(KEY_VOLUMEDOWN),
++	ENTRY(KEY_VOLUMEUP),
++	ENTRY(KEY_POWER),
++	ENTRY(KEY_KPEQUAL),
++	ENTRY(KEY_KPPLUSMINUS),
++	ENTRY(KEY_PAUSE),
++
++	ENTRY(KEY_KPCOMMA),
++	ENTRY(KEY_HANGEUL),
++	ENTRY(KEY_HANGUEL),
++	ENTRY(KEY_HANJA),
++	ENTRY(KEY_YEN),
++	ENTRY(KEY_LEFTMETA),
++	ENTRY(KEY_RIGHTMETA),
++	ENTRY(KEY_COMPOSE),
++
++	ENTRY(KEY_STOP),
++	ENTRY(KEY_AGAIN),
++	ENTRY(KEY_PROPS),
++	ENTRY(KEY_UNDO),
++	ENTRY(KEY_FRONT),
++	ENTRY(KEY_COPY),
++	ENTRY(KEY_OPEN),
++	ENTRY(KEY_PASTE),
++	ENTRY(KEY_FIND),
++	ENTRY(KEY_CUT),
++	ENTRY(KEY_HELP),
++	ENTRY(KEY_MENU),
++	ENTRY(KEY_CALC),
++	ENTRY(KEY_SETUP),
++	ENTRY(KEY_SLEEP),
++	ENTRY(KEY_WAKEUP),
++	ENTRY(KEY_FILE),
++	ENTRY(KEY_SENDFILE),
++	ENTRY(KEY_DELETEFILE),
++	ENTRY(KEY_XFER),
++	ENTRY(KEY_PROG1),
++	ENTRY(KEY_PROG2),
++	ENTRY(KEY_WWW),
++	ENTRY(KEY_MSDOS),
++	ENTRY(KEY_COFFEE),
++	ENTRY(KEY_SCREENLOCK),
++	ENTRY(KEY_DIRECTION),
++	ENTRY(KEY_CYCLEWINDOWS),
++	ENTRY(KEY_MAIL),
++	ENTRY(KEY_BOOKMARKS),
++	ENTRY(KEY_COMPUTER),
++	ENTRY(KEY_BACK),
++	ENTRY(KEY_FORWARD),
++	ENTRY(KEY_CLOSECD),
++	ENTRY(KEY_EJECTCD),
++	ENTRY(KEY_EJECTCLOSECD),
++	ENTRY(KEY_NEXTSONG),
++	ENTRY(KEY_PLAYPAUSE),
++	ENTRY(KEY_PREVIOUSSONG),
++	ENTRY(KEY_STOPCD),
++	ENTRY(KEY_RECORD),
++	ENTRY(KEY_REWIND),
++	ENTRY(KEY_PHONE),
++	ENTRY(KEY_ISO),
++	ENTRY(KEY_CONFIG),
++	ENTRY(KEY_HOMEPAGE),
++	ENTRY(KEY_REFRESH),
++	ENTRY(KEY_EXIT),
++	ENTRY(KEY_MOVE),
++	ENTRY(KEY_EDIT),
++	ENTRY(KEY_SCROLLUP),
++	ENTRY(KEY_SCROLLDOWN),
++	ENTRY(KEY_KPLEFTPAREN),
++	ENTRY(KEY_KPRIGHTPAREN),
++	ENTRY(KEY_NEW),
++	ENTRY(KEY_REDO),
++
++	ENTRY(KEY_F13),
++	ENTRY(KEY_F14),
++	ENTRY(KEY_F15),
++	ENTRY(KEY_F16),
++	ENTRY(KEY_F17),
++	ENTRY(KEY_F18),
++	ENTRY(KEY_F19),
++	ENTRY(KEY_F20),
++	ENTRY(KEY_F21),
++	ENTRY(KEY_F22),
++	ENTRY(KEY_F23),
++	ENTRY(KEY_F24),
++
++	ENTRY(KEY_PLAYCD),
++	ENTRY(KEY_PAUSECD),
++	ENTRY(KEY_PROG3),
++	ENTRY(KEY_PROG4),
++	ENTRY(KEY_SUSPEND),
++	ENTRY(KEY_CLOSE),
++	ENTRY(KEY_PLAY),
++	ENTRY(KEY_FASTFORWARD),
++	ENTRY(KEY_BASSBOOST),
++	ENTRY(KEY_PRINT),
++	ENTRY(KEY_HP),
++	ENTRY(KEY_CAMERA),
++	ENTRY(KEY_SOUND),
++	ENTRY(KEY_QUESTION),
++	ENTRY(KEY_EMAIL),
++	ENTRY(KEY_CHAT),
++	ENTRY(KEY_SEARCH),
++	ENTRY(KEY_CONNECT),
++	ENTRY(KEY_FINANCE),
++	ENTRY(KEY_SPORT),
++	ENTRY(KEY_SHOP),
++	ENTRY(KEY_ALTERASE),
++	ENTRY(KEY_CANCEL),
++	ENTRY(KEY_BRIGHTNESSDOWN),
++	ENTRY(KEY_BRIGHTNESSUP),
++	ENTRY(KEY_MEDIA),
++
++	ENTRY(KEY_SWITCHVIDEOMODE),
++	ENTRY(KEY_KBDILLUMTOGGLE),
++	ENTRY(KEY_KBDILLUMDOWN),
++	ENTRY(KEY_KBDILLUMUP),
++
++	ENTRY(KEY_SEND),
++	ENTRY(KEY_REPLY),
++	ENTRY(KEY_FORWARDMAIL),
++	ENTRY(KEY_SAVE),
++	ENTRY(KEY_DOCUMENTS),
++
++	ENTRY(KEY_BATTERY),
++
++	ENTRY(KEY_BLUETOOTH),
++	ENTRY(KEY_WLAN),
++	ENTRY(KEY_UWB),
++
++	ENTRY(KEY_UNKNOWN),
++
++	ENTRY(KEY_VIDEO_NEXT),
++	ENTRY(KEY_VIDEO_PREV),
++	ENTRY(KEY_BRIGHTNESS_CYCLE),
++	ENTRY(KEY_BRIGHTNESS_ZERO),
++	ENTRY(KEY_DISPLAY_OFF),
++
++	ENTRY(KEY_WIMAX),
++
++	ENTRY(BTN_MISC),
++	ENTRY(BTN_0),
++	ENTRY(BTN_1),
++	ENTRY(BTN_2),
++	ENTRY(BTN_3),
++	ENTRY(BTN_4),
++	ENTRY(BTN_5),
++	ENTRY(BTN_6),
++	ENTRY(BTN_7),
++	ENTRY(BTN_8),
++	ENTRY(BTN_9),
++
++	ENTRY(BTN_MOUSE),
++	ENTRY(BTN_LEFT),
++	ENTRY(BTN_RIGHT),
++	ENTRY(BTN_MIDDLE),
++	ENTRY(BTN_SIDE),
++	ENTRY(BTN_EXTRA),
++	ENTRY(BTN_FORWARD),
++	ENTRY(BTN_BACK),
++	ENTRY(BTN_TASK),
++
++	ENTRY(BTN_JOYSTICK),
++	ENTRY(BTN_TRIGGER),
++	ENTRY(BTN_THUMB),
++	ENTRY(BTN_THUMB2),
++	ENTRY(BTN_TOP),
++	ENTRY(BTN_TOP2),
++	ENTRY(BTN_PINKIE),
++	ENTRY(BTN_BASE),
++	ENTRY(BTN_BASE2),
++	ENTRY(BTN_BASE3),
++	ENTRY(BTN_BASE4),
++	ENTRY(BTN_BASE5),
++	ENTRY(BTN_BASE6),
++	ENTRY(BTN_DEAD),
++
++	ENTRY(BTN_GAMEPAD),
++	ENTRY(BTN_A),
++	ENTRY(BTN_B),
++	ENTRY(BTN_C),
++	ENTRY(BTN_X),
++	ENTRY(BTN_Y),
++	ENTRY(BTN_Z),
++	ENTRY(BTN_TL),
++	ENTRY(BTN_TR),
++	ENTRY(BTN_TL2),
++	ENTRY(BTN_TR2),
++	ENTRY(BTN_SELECT),
++	ENTRY(BTN_START),
++	ENTRY(BTN_MODE),
++	ENTRY(BTN_THUMBL),
++	ENTRY(BTN_THUMBR),
++
++	ENTRY(BTN_DIGI),
++	ENTRY(BTN_TOOL_PEN),
++	ENTRY(BTN_TOOL_RUBBER),
++	ENTRY(BTN_TOOL_BRUSH),
++	ENTRY(BTN_TOOL_PENCIL),
++	ENTRY(BTN_TOOL_AIRBRUSH),
++	ENTRY(BTN_TOOL_FINGER),
++	ENTRY(BTN_TOOL_MOUSE),
++	ENTRY(BTN_TOOL_LENS),
++	ENTRY(BTN_TOUCH),
++	ENTRY(BTN_STYLUS),
++	ENTRY(BTN_STYLUS2),
++	ENTRY(BTN_TOOL_DOUBLETAP),
++	ENTRY(BTN_TOOL_TRIPLETAP),
++
++	ENTRY(BTN_WHEEL),
++	ENTRY(BTN_GEAR_DOWN),
++	ENTRY(BTN_GEAR_UP),
++
++	ENTRY(KEY_OK),
++	ENTRY(KEY_SELECT),
++	ENTRY(KEY_GOTO),
++	ENTRY(KEY_CLEAR),
++	ENTRY(KEY_POWER2),
++	ENTRY(KEY_OPTION),
++	ENTRY(KEY_INFO),
++	ENTRY(KEY_TIME),
++	ENTRY(KEY_VENDOR),
++	ENTRY(KEY_ARCHIVE),
++	ENTRY(KEY_PROGRAM),
++	ENTRY(KEY_CHANNEL),
++	ENTRY(KEY_FAVORITES),
++	ENTRY(KEY_EPG),
++	ENTRY(KEY_PVR),
++	ENTRY(KEY_MHP),
++	ENTRY(KEY_LANGUAGE),
++	ENTRY(KEY_TITLE),
++	ENTRY(KEY_SUBTITLE),
++	ENTRY(KEY_ANGLE),
++	ENTRY(KEY_ZOOM),
++	ENTRY(KEY_MODE),
++	ENTRY(KEY_KEYBOARD),
++	ENTRY(KEY_SCREEN),
++	ENTRY(KEY_PC),
++	ENTRY(KEY_TV),
++	ENTRY(KEY_TV2),
++	ENTRY(KEY_VCR),
++	ENTRY(KEY_VCR2),
++	ENTRY(KEY_SAT),
++	ENTRY(KEY_SAT2),
++	ENTRY(KEY_CD),
++	ENTRY(KEY_TAPE),
++	ENTRY(KEY_RADIO),
++	ENTRY(KEY_TUNER),
++	ENTRY(KEY_PLAYER),
++	ENTRY(KEY_TEXT),
++	ENTRY(KEY_DVD),
++	ENTRY(KEY_AUX),
++	ENTRY(KEY_MP3),
++	ENTRY(KEY_AUDIO),
++	ENTRY(KEY_VIDEO),
++	ENTRY(KEY_DIRECTORY),
++	ENTRY(KEY_LIST),
++	ENTRY(KEY_MEMO),
++	ENTRY(KEY_CALENDAR),
++	ENTRY(KEY_RED),
++	ENTRY(KEY_GREEN),
++	ENTRY(KEY_YELLOW),
++	ENTRY(KEY_BLUE),
++	ENTRY(KEY_CHANNELUP),
++	ENTRY(KEY_CHANNELDOWN),
++	ENTRY(KEY_FIRST),
++	ENTRY(KEY_LAST),
++	ENTRY(KEY_AB),
++	ENTRY(KEY_NEXT),
++	ENTRY(KEY_RESTART),
++	ENTRY(KEY_SLOW),
++	ENTRY(KEY_SHUFFLE),
++	ENTRY(KEY_BREAK),
++	ENTRY(KEY_PREVIOUS),
++	ENTRY(KEY_DIGITS),
++	ENTRY(KEY_TEEN),
++	ENTRY(KEY_TWEN),
++	ENTRY(KEY_VIDEOPHONE),
++	ENTRY(KEY_GAMES),
++	ENTRY(KEY_ZOOMIN),
++	ENTRY(KEY_ZOOMOUT),
++	ENTRY(KEY_ZOOMRESET),
++	ENTRY(KEY_WORDPROCESSOR),
++	ENTRY(KEY_EDITOR),
++	ENTRY(KEY_SPREADSHEET),
++	ENTRY(KEY_GRAPHICSEDITOR),
++	ENTRY(KEY_PRESENTATION),
++	ENTRY(KEY_DATABASE),
++	ENTRY(KEY_NEWS),
++	ENTRY(KEY_VOICEMAIL),
++	ENTRY(KEY_ADDRESSBOOK),
++	ENTRY(KEY_MESSENGER),
++	ENTRY(KEY_DISPLAYTOGGLE),
++	ENTRY(KEY_SPELLCHECK),
++	ENTRY(KEY_LOGOFF),
++
++	ENTRY(KEY_DOLLAR),
++	ENTRY(KEY_EURO),
++
++	ENTRY(KEY_FRAMEBACK),
++	ENTRY(KEY_FRAMEFORWARD),
++	ENTRY(KEY_CONTEXT_MENU),
++	ENTRY(KEY_MEDIA_REPEAT),
++
++	ENTRY(KEY_DEL_EOL),
++	ENTRY(KEY_DEL_EOS),
++	ENTRY(KEY_INS_LINE),
++	ENTRY(KEY_DEL_LINE),
++
++	ENTRY(KEY_FN),
++	ENTRY(KEY_FN_ESC),
++	ENTRY(KEY_FN_F1),
++	ENTRY(KEY_FN_F2),
++	ENTRY(KEY_FN_F3),
++	ENTRY(KEY_FN_F4),
++	ENTRY(KEY_FN_F5),
++	ENTRY(KEY_FN_F6),
++	ENTRY(KEY_FN_F7),
++	ENTRY(KEY_FN_F8),
++	ENTRY(KEY_FN_F9),
++	ENTRY(KEY_FN_F10),
++	ENTRY(KEY_FN_F11),
++	ENTRY(KEY_FN_F12),
++	ENTRY(KEY_FN_1),
++	ENTRY(KEY_FN_2),
++	ENTRY(KEY_FN_D),
++	ENTRY(KEY_FN_E),
++	ENTRY(KEY_FN_F),
++	ENTRY(KEY_FN_S),
++	ENTRY(KEY_FN_B),
++
++	ENTRY(KEY_BRL_DOT1),
++	ENTRY(KEY_BRL_DOT2),
++	ENTRY(KEY_BRL_DOT3),
++	ENTRY(KEY_BRL_DOT4),
++	ENTRY(KEY_BRL_DOT5),
++	ENTRY(KEY_BRL_DOT6),
++	ENTRY(KEY_BRL_DOT7),
++	ENTRY(KEY_BRL_DOT8),
++	ENTRY(KEY_BRL_DOT9),
++	ENTRY(KEY_BRL_DOT10),
++
++	ENTRY(KEY_MAX)
++};
++
+ #define PS3_FLAGS_MASK 0xFFFFFF00
+ 
++struct ps3remote_data {
++	unsigned int lastkey;
++	unsigned int lastval;
++	unsigned int lastmask;
++};
++
+ enum ps3remote_special_keys {
+ 	PS3R_BIT_PS = 0,
+ 	PS3R_BIT_ENTER = 3,
+@@ -92,6 +563,8 @@
+ 	[PS3R_BIT_SELECT] = 0x50,
+ };
+ 
++static const char *ps3remote_mapname = "PS3 Remote Map";
++
+ static unsigned int ps3remote_keymap[] = {
+ 	[0x16] = KEY_EJECTCD,
+ 	[0x64] = KEY_AUDIO,
+@@ -147,10 +620,38 @@
+ 	[0xff] = KEY_MAX,
+ };
+ 
+-static int ps3remote_decode(char *buff, int size, unsigned int *value)
++static int ps3remote_uinput = -1;
++
++static gboolean uinput_sendkey(int uinput, unsigned int key,
++				unsigned int value)
++{
++	struct uinput_event event;
++
++	memset(&event, 0, sizeof(event));
++	gettimeofday(&event.time, NULL);
++	event.type = EV_KEY;
++	event.code = key;
++	event.value = value;
++	if (write(uinput, &event, sizeof(event)) != sizeof(event)) {
++		error("Error writing to uinput device");
++		return FALSE;
++	}
++
++	memset(&event, 0, sizeof(event));
++	gettimeofday(&event.time, NULL);
++	event.type = EV_SYN;
++	event.code = SYN_REPORT;
++	if (write(uinput, &event, sizeof(event)) != sizeof(event)) {
++		error("Error writing to uinput device");
++		return FALSE;
++	}
++
++	return TRUE;
++}
++
++static int ps3remote_decode(char *buff, int size, unsigned int *value,
++				struct ps3remote_data *ps3data)
+ {
+-	static unsigned int lastkey = 0;
+-	static unsigned int lastmask = 0;
+ 	unsigned int i, mask;
+ 	int retval;
+ 	guint8 key;
+@@ -165,17 +666,18 @@
+ 
+ 	/* first, check flags */
+ 	for (i = 0; i < 24; i++) {
+-		if ((lastmask & (1 << i)) == (mask & (1 << i)))
++		if ((ps3data->lastmask & (1 << i)) == (mask & (1 << i)))
+ 			continue;
+ 		if (ps3remote_bits[i] == 0)
+ 			goto error;
+ 		retval = ps3remote_keymap[ps3remote_bits[i]];
+-		if (mask & (1 << i))
++		if (mask & (1 << i)) {
+ 			/* key pressed */
+ 			*value = 1;
+-		else
++		} else {
+ 			/* key released */
+ 			*value = 0;
++		}
+ 
+ 		goto out;
+ 	}
+@@ -183,20 +685,21 @@
+ 	*value = buff[11];
+ 	if (buff[11] == 1) {
+ 		retval = ps3remote_keymap[key];
+-	} else
+-		retval = lastkey;
++	} else {
++		retval = ps3data->lastkey;
++	}
+ 
+ 	if (retval == KEY_RESERVED)
+ 		goto error;
+ 	if (retval == KEY_MAX)
+ 		return retval;
+ 
+-	lastkey = retval;
++	ps3data->lastkey = retval;
+ 
+ out:
+ 	fflush(stdout);
+ 
+-	lastmask = mask;
++	ps3data->lastmask = mask;
+ 
+ 	return retval;
+ 
+@@ -204,8 +707,8 @@
+ 	error("ps3remote: unrecognized sequence [%#x][%#x][%#x][%#x] [%#x],"
+ 			"last: [%#x][%#x][%#x][%#x]",
+ 			buff[2], buff[3], buff[4], buff[5], buff[11],
+-				lastmask >> 16, lastmask >> 8 & 0xff,
+-						lastmask & 0xff, lastkey);
++			ps3data->lastmask >> 16, ps3data->lastmask >> 8 & 0xff,
++			ps3data->lastmask & 0xff, ps3data->lastkey);
+ 	return -1;
+ }
+ 
+@@ -213,19 +716,28 @@
+ 				gpointer data)
+ {
+ 	struct fake_input *fake = data;
+-	struct uinput_event event;
++	struct ps3remote_data *ps3data = fake->priv;
+ 	unsigned int key, value = 0;
+ 	gsize size;
+ 	char buff[50];
+-
+-	if (cond & G_IO_NVAL)
+-		return FALSE;
++	
++	if (cond & G_IO_NVAL) {
++		goto failed;
++	}
+ 
+ 	if (cond & (G_IO_HUP | G_IO_ERR)) {
+-		error("Hangup or error on rfcomm server socket");
++		if (ps3data)
++			error("Hangup or error on ps3remote server socket");
+ 		goto failed;
+ 	}
+ 
++	/* reset the timeout if needed */
++	if (fake->timer > 0) {
++		g_source_remove(fake->timer);
++		fake->timer = g_timeout_add_seconds(fake->idle_timeout,
++					fake_hid_common_timeout, fake);
++	}
++
+ 	memset(buff, 0, sizeof(buff));
+ 
+ 	if (g_io_channel_read(chan, buff, sizeof(buff), &size) !=
+@@ -234,55 +746,114 @@
+ 		goto failed;
+ 	}
+ 
+-	key = ps3remote_decode(buff, size, &value);
+-	if (key == KEY_RESERVED) {
+-		error("Got invalid key from decode");
+-		goto failed;
+-	} else if (key == KEY_MAX)
++	/* detect if a button press occurred during disconnect...
++	   just accept it; we'll reconnect soon enough */
++	if (!ps3data)
++	{
++		return FALSE;
++	}
++
++	key = ps3remote_decode(buff, size, &value, ps3data);
++	DBG("Got key: %d [%d]", key, value);
++	if (key == KEY_RESERVED || key == KEY_MAX)
+ 		return TRUE;
+ 
+-	memset(&event, 0, sizeof(event));
+-	gettimeofday(&event.time, NULL);
+-	event.type = EV_KEY;
+-	event.code = key;
+-	event.value = value;
+-	if (write(fake->uinput, &event, sizeof(event)) != sizeof(event)) {
+-		error("Error writing to uinput device");
+-		goto failed;
++	if (key == KEY_HOMEPAGE) {
++		/* delay transmit of this key til release, assuming possible turn-off */
++		if (ps3data->lastkey == KEY_HOMEPAGE &&
++				value == 0 && ps3data->lastval == 1) {
++			DBG("homepage key released");
++			uinput_sendkey(fake->uinput, key, 1);
++			uinput_sendkey(fake->uinput, key, 0);
++		}
+ 	}
+-
+-	memset(&event, 0, sizeof(event));
+-	gettimeofday(&event.time, NULL);
+-	event.type = EV_SYN;
+-	event.code = SYN_REPORT;
+-	if (write(fake->uinput, &event, sizeof(event)) != sizeof(event)) {
+-		error("Error writing to uinput device");
++	else if (!uinput_sendkey(fake->uinput, key, value)) {
+ 		goto failed;
+ 	}
++	
++	ps3data->lastkey = key;
++	ps3data->lastval = value;
+ 
+ 	return TRUE;
+ 
+ failed:
+-	ioctl(fake->uinput, UI_DEV_DESTROY);
+-	close(fake->uinput);
+-	fake->uinput = -1;
++	g_source_remove(fake->timer);
++	fake->timer = 0;
++	g_source_remove(fake->sid_in);
+ 	g_io_channel_unref(fake->io);
+ 
+ 	return FALSE;
+ }
+ 
++static gboolean ps3remote_connect(struct fake_input *fake, GError **err)
++{
++	struct ps3remote_data *ps3data;
++	char devaddr[18];
++	GKeyFile *config;
++	GError *cfgerr;
++
++	ps3data = g_new0(struct ps3remote_data, 1);
++	fake->priv = ps3data;
++
++	ba2str(&fake->ba_dst, devaddr);
++	DBG("Processing PS3 device: %s", devaddr);
++
++	/* Load config file */
++	config = g_key_file_new();
++	cfgerr = NULL;
++	if (!g_key_file_load_from_file(config, CONFIGDIR "/input.conf", 0, &cfgerr)) {
++		g_error_free(cfgerr);
++	} else {
++		if (g_key_file_has_group(config, devaddr)) {
++			int timeout;
++
++			cfgerr = NULL;
++			timeout = g_key_file_get_integer(config, devaddr,
++						"IdleTimeout", &cfgerr);
++			if (cfgerr) {
++				g_error_free(cfgerr);
++			} else {
++				fake->idle_timeout = timeout;
++				DBG("[%s] Using timeout of %d seconds",
++				    devaddr, fake->idle_timeout);
++			}
++		}
++
++		g_key_file_free(config);
++	}
++
++	return fake_hid_common_connect(fake, err);
++}
++
++static int ps3remote_disconnect(struct fake_input *fake)
++{
++	DBG("Disconnecting PS3 remote");
++
++	g_free(fake->priv);
++	fake->priv = NULL;
++
++	return fake_hid_common_disconnect(fake);
++}
++
+ static int ps3remote_setup_uinput(struct fake_input *fake,
+ 						struct fake_hid *fake_hid)
+ {
+ 	struct uinput_dev dev;
+ 	int i;
+ 
+-	fake->uinput = open("/dev/input/uinput", O_RDWR);
+-	if (fake->uinput < 0) {
+-		fake->uinput = open("/dev/uinput", O_RDWR);
+-		if (fake->uinput < 0) {
+-			fake->uinput = open("/dev/misc/uinput", O_RDWR);
+-			if (fake->uinput < 0) {
++	if (ps3remote_uinput >= 0) {
++		fake->uinput = ps3remote_uinput;
++		return 0;
++	}
++
++	DBG("Setting up PS3 Remote uinput");
++
++	ps3remote_uinput = open("/dev/input/uinput", O_RDWR);
++	if (ps3remote_uinput < 0) {
++		ps3remote_uinput = open("/dev/uinput", O_RDWR);
++		if (ps3remote_uinput < 0) {
++			ps3remote_uinput = open("/dev/misc/uinput", O_RDWR);
++			if (ps3remote_uinput < 0) {
+ 				error("Error opening uinput device file");
+ 				return 1;
+ 			}
+@@ -295,13 +866,13 @@
+ 	dev.id.vendor = fake_hid->vendor;
+ 	dev.id.product = fake_hid->product;
+ 
+-	if (write(fake->uinput, &dev, sizeof(dev)) != sizeof(dev)) {
++	if (write(ps3remote_uinput, &dev, sizeof(dev)) != sizeof(dev)) {
+ 		error("Error creating uinput device");
+ 		goto err;
+ 	}
+ 
+ 	/* enabling key events */
+-	if (ioctl(fake->uinput, UI_SET_EVBIT, EV_KEY) < 0) {
++	if (ioctl(ps3remote_uinput, UI_SET_EVBIT, EV_KEY) < 0) {
+ 		error("Error enabling uinput device key events");
+ 		goto err;
+ 	}
+@@ -309,43 +880,79 @@
+ 	/* enabling keys */
+ 	for (i = 0; i < 256; i++)
+ 		if (ps3remote_keymap[i] != KEY_RESERVED)
+-			if (ioctl(fake->uinput, UI_SET_KEYBIT,
+-						ps3remote_keymap[i]) < 0) {
+-				error("Error enabling uinput key %i",
+-							ps3remote_keymap[i]);
++			if (ioctl(ps3remote_uinput, UI_SET_KEYBIT, ps3remote_keymap[i]) < 0) {
++				error("Error enabling uinput key %i", ps3remote_keymap[i]);
+ 				goto err;
+ 			}
+ 
+ 	/* creating the device */
+-	if (ioctl(fake->uinput, UI_DEV_CREATE) < 0) {
++	if (ioctl(ps3remote_uinput, UI_DEV_CREATE) < 0) {
+ 		error("Error creating uinput device");
+ 		goto err;
+ 	}
+ 
++	fake->uinput = ps3remote_uinput;
++
+ 	return 0;
+ 
+ err:
+-	close(fake->uinput);
++	close(ps3remote_uinput);
++	ps3remote_uinput = -1;
++
+ 	return 1;
+ }
+ 
+ static gboolean fake_hid_common_connect(struct fake_input *fake, GError **err)
+ {
++	fake->timer = 0;
++	if (fake->idle_timeout > 0) {
++		DBG("Creating timeout");
++		fake->timer = g_timeout_add_seconds(fake->idle_timeout,
++					fake_hid_common_timeout, fake);
++	}
++
+ 	return TRUE;
+ }
+ 
+ static int fake_hid_common_disconnect(struct fake_input *fake)
+ {
++	if (fake->timer > 0) {
++		DBG("Destroying timer");
++		g_source_remove(fake->timer);
++		fake->timer = 0;
++	}
++
+ 	return 0;
+ }
+ 
++static gboolean fake_hid_common_timeout(gpointer data)
++{
++	struct fake_input *fake = data;
++
++	DBG("Disconnecting device because of timeout");
++	input_device_request_disconnect(&fake->ba_src, &fake->ba_dst);
++	
++	fake->timer = 0;
++	return FALSE;
++}
++
+ static struct fake_hid fake_hid_table[] = {
+ 	/* Sony PS3 remote device */
+ 	{
+ 		.vendor		= 0x054c,
+ 		.product	= 0x0306,
+-		.connect	= fake_hid_common_connect,
+-		.disconnect	= fake_hid_common_disconnect,
++		.connect	= ps3remote_connect,
++		.disconnect	= ps3remote_disconnect,
++		.event		= ps3remote_event,
++		.setup_uinput	= ps3remote_setup_uinput,
++	},
++
++	/* Blu-Link PS3 remote device */
++	{
++		.vendor		= 0x0609,
++		.product	= 0x0306,
++		.connect	= ps3remote_connect,
++		.disconnect	= ps3remote_disconnect,
+ 		.event		= ps3remote_event,
+ 		.setup_uinput	= ps3remote_setup_uinput,
+ 		.devices	= NULL,
+@@ -393,6 +1000,11 @@
+ 	/* New device? Add it to the list of known devices,
+ 	 * and create the uinput necessary */
+ 	if (old == NULL) {
++		if (!fake_hid->connect(fake, NULL)) {
++			error("Error connecting device");
++			return ENOMEM;
++		}
++
+ 		if (fake_hid->setup_uinput(fake, fake_hid)) {
+ 			error("Error setting up uinput");
+ 			g_free(fake);
+@@ -403,8 +1015,73 @@
+ 
+ 	fake->io = g_io_channel_ref(intr_io);
+ 	g_io_channel_set_close_on_unref(fake->io, TRUE);
+-	g_io_add_watch(fake->io, G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
++	fake->sid_in = g_io_add_watch(fake->io, G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
+ 					(GIOFunc) fake_hid->event, fake);
+ 
+ 	return fake;
+ }
++
++void fake_hid_init(GKeyFile *config)
++{
++	/* Load PS3 keymap */
++	if (config && g_key_file_has_group(config, ps3remote_mapname)) {
++		GHashTable *maphash;
++		int i;
++		GError *err;
++
++		info("Loading PS3 Remote Map...");
++
++		maphash = g_hash_table_new(g_str_hash, g_str_equal);
++		for (i = 0; i <= KEY_MAX; i++)
++			if (uinput_map[i])
++				g_hash_table_insert(maphash, uinput_map[i], GINT_TO_POINTER(i));
++
++		err = NULL;
++		if (!g_key_file_get_boolean(config, ps3remote_mapname,
++					"OverlayBuiltin", &err) && !err) {
++			DBG("Clearing Default PS3 Remote Map");
++			memset(ps3remote_keymap, 0, sizeof(ps3remote_keymap));
++		}
++
++		for (i = 0; i < 0x100; i++) {
++			char keyindex[5];
++			char *keyvalue;
++
++			snprintf(keyindex, 5, "0x%2.2x", i);
++
++			err = NULL;
++			keyvalue = g_key_file_get_string(config, ps3remote_mapname,
++						keyindex, &err);
++			if (err)
++				g_error_free(err);
++			if (keyvalue) {
++				/* blindly ignore anything after any whitespace/comments */
++				char *whitespace = g_strstr_len(keyvalue, -1, "#");
++				if (whitespace)
++					*whitespace = '\0';
++				g_strstrip(keyvalue);
++			
++				ps3remote_keymap[i] =
++						GPOINTER_TO_INT(g_hash_table_lookup(maphash, keyvalue));
++				if (ps3remote_keymap[i] == 0)
++					ps3remote_keymap[i] = strtoul(keyvalue, NULL, 10);
++				if (ps3remote_keymap[i] == 0)
++					info("input key '%s' not valid", keyvalue);
++			
++				g_free(keyvalue);
++			}
++		}
++
++		g_hash_table_destroy(maphash);
++	}
++}
++
++void fake_hid_exit(void)
++{
++	/* Clean up PS3 uinput device */
++	if (ps3remote_uinput >= 0) {
++		ioctl(ps3remote_uinput, UI_DEV_DESTROY);
++		close(ps3remote_uinput);
++	}
++}
++
+diff -Nur a/input/fakehid.h b/input/fakehid.h
+--- a/input/fakehid.h	2010-09-08 11:27:53.000000000 -0400
++++ b/input/fakehid.h	2010-10-19 13:05:34.503528246 -0400
+@@ -38,3 +38,8 @@
+ 
+ struct fake_input *fake_hid_connadd(struct fake_input *fake, GIOChannel *intr_io,
+ 						struct fake_hid *fake_hid);
++
++void fake_hid_init(GKeyFile *config);
++
++void fake_hid_exit(void);
++
+diff -Nur a/input/input.conf b/input/input.conf
+--- a/input/input.conf	2008-08-05 17:14:56.000000000 -0400
++++ b/input/input.conf	2010-10-19 13:05:34.503528246 -0400
+@@ -4,6 +4,79 @@
+ # particular interface
+ [General]
+ 
+-# Set idle timeout (in minutes) before the connection will
++# Set idle timeout (in seconds) before the connection will
+ # be disconnect (defaults to 0 for no timeout)
++#IdleTimeout=600
++
++
++
++# This section contains options that are specific to a device
++#[00:11:22:33:44:55]
++#
++# Set a custom idle timeout (in seconds) for this specific device
+ #IdleTimeout=30
++
++
++
++# This section is the PS3 Remote keymap.  It is loaded when bluez starts.
++# Use 'uinput.h' from bluez sources or '/usr/include/linux/input.h' for
++# a list of possible KEY_* values.
++#
++[PS3 Remote Map]
++# When the 'OverlayBuiltin' option is TRUE (the default), the keymap uses
++# the built-in keymap as a starting point.  When FALSE, an empty keymap is
++# the starting point.
++#OverlayBuiltin = TRUE
++0x16 = KEY_EJECTCD        # EJECT
++0x64 = KEY_AUDIO          # AUDIO             (XBMC recommendation: KEY_A)
++0x65 = KEY_ANGLE          # ANGLE             (XBMC recommendation: KEY_Z)
++0x63 = KEY_SUBTITLE       # SUBTITLE          (XBMC recommendation: KEY_T)
++0x0f = KEY_CLEAR          # CLEAR             (XBMC recommendation: KEY_DELETE)
++0x28 = KEY_TIME           # TIMER             (XBMC recommendation: KEY_END)
++0x00 = KEY_1              # NUM-1
++0x01 = KEY_2              # NUM-2
++0x02 = KEY_3              # NUM-3
++0x03 = KEY_4              # NUM-4
++0x04 = KEY_5              # NUM-5
++0x05 = KEY_6              # NUM-6
++0x06 = KEY_7              # NUM-7
++0x07 = KEY_8              # NUM-8
++0x08 = KEY_9              # NUM-9
++0x09 = KEY_0              # NUM-0
++0x81 = KEY_RED            # RED               (XBMC recommendation: KEY_F7)
++0x82 = KEY_GREEN          # GREEN             (XBMC recommendation: KEY_F8)
++0x80 = KEY_BLUE           # BLUE              (XBMC recommendation: KEY_F9)
++0x83 = KEY_YELLOW         # YELLOW            (XBMC recommendation: KEY_F10)
++0x70 = KEY_INFO           # DISPLAY           (XBMC recommendation: KEY_D)
++0x1a = KEY_MENU           # TOP MENU
++0x40 = KEY_CONTEXT_MENU   # POP UP/MENU       (XBMC recommendation: KEY_F11)
++0x0e = KEY_ESC            # RETURN
++0x5c = KEY_OPTION         # TRIANGLE/OPTIONS  (XBMC recommendation: KEY_C)
++0x5d = KEY_BACK           # CIRCLE/BACK
++0x5f = KEY_SCREEN         # SQUARE/VIEW       (XBMC recommendation: KEY_V)
++0x5e = BTN_0              # CROSS             (XBMC recommendation: KEY_X)
++0x54 = KEY_UP             # UP
++0x56 = KEY_DOWN           # DOWN
++0x57 = KEY_LEFT           # LEFT
++0x55 = KEY_RIGHT          # RIGHT
++0x0b = KEY_ENTER          # ENTER
++0x5a = BTN_TL             # L1                (XBMC recommendation: KEY_F1)
++0x58 = BTN_TL2            # L2                (XBMC recommendation: KEY_F2)
++0x51 = BTN_THUMBL         # L3                (XBMC recommendation: KEY_F3)
++0x5b = BTN_TR             # R1                (XBMC recommendation: KEY_F4)
++0x59 = BTN_TR2            # R2                (XBMC recommendation: KEY_F5)
++0x52 = BTN_THUMBR         # R3                (XBMC recommendation: KEY_F6)
++0x43 = KEY_HOMEPAGE       # PS button
++0x50 = KEY_SELECT         # SELECT            (XBMC recommendation: KEY_INSERT)
++0x53 = BTN_START          # START             (XBMC recommendation: KEY_HOME)
++0x33 = KEY_REWIND         # SCAN BACK         (XBMC recommendation: KEY_R)
++0x32 = KEY_PLAY           # PLAY
++0x34 = KEY_FORWARD        # SCAN FORWARD      (XBMC recommendation: KEY_F)
++0x30 = KEY_PREVIOUS       # PREVIOUS          (XBMC recommendationL KEY_PAGEUP)
++0x38 = KEY_STOP           # STOP
++0x31 = KEY_NEXT           # NEXT              (XBMC recommendation: KEY_PAGEDOWN)
++0x60 = KEY_FRAMEBACK      # SLOW/STEP BACK    (XBMC recommendation: KEY_COMMA)
++0x39 = KEY_PAUSE          # PAUSE
++0x61 = KEY_FRAMEFORWARD   # SLOW/STEP FORWARD (XBMC recommendation: KEY_DOT)
++0xff = KEY_MAX
++
+diff -Nur a/input/manager.c b/input/manager.c
+--- a/input/manager.c	2010-05-23 08:47:19.000000000 -0400
++++ b/input/manager.c	2010-10-19 13:05:34.503528246 -0400
+@@ -41,6 +41,7 @@
+ #include "device.h"
+ #include "server.h"
+ #include "manager.h"
++#include "fakehid.h"
+ 
+ static int idle_timeout = 0;
+ 
+@@ -72,7 +73,7 @@
+ 	device_get_address(device, &dst);
+ 
+ 	return input_device_register(connection, device, path, &src, &dst,
+-				HID_UUID, rec->handle, idle_timeout * 60);
++				HID_UUID, rec->handle, idle_timeout);
+ }
+ 
+ static void hid_device_remove(struct btd_device *device)
+@@ -184,6 +185,8 @@
+ 		}
+ 	}
+ 
++	fake_hid_init(config);
++
+ 	connection = dbus_connection_ref(conn);
+ 
+ 	btd_register_adapter_driver(&input_server_driver);
+@@ -203,5 +206,7 @@
+ 
+ 	dbus_connection_unref(connection);
+ 
++	fake_hid_exit();
++
+ 	connection = NULL;
+ }
+diff -Nur a/src/device.c b/src/device.c
+--- a/src/device.c	2010-10-02 19:25:27.000000000 -0400
++++ b/src/device.c	2010-10-19 13:05:34.503528246 -0400
+@@ -968,6 +968,7 @@
+ 	const gchar *adapter_path = adapter_get_path(adapter);
+ 	bdaddr_t src;
+ 	char srcaddr[18], alias[MAX_NAME_LENGTH + 1];
++	uint16_t vendor, product, version;
+ 
+ 	device = g_try_malloc0(sizeof(struct btd_device));
+ 	if (device == NULL)
+@@ -999,6 +1000,10 @@
+ 	if (read_blocked(&src, &device->bdaddr))
+ 		device_block(conn, device);
+ 
++	read_device_id(srcaddr, address, NULL, &vendor, &product, &version);
++	DBG("Device %s has vendor=0x%04x product=0x%04x version=0x%04x",
++	    device->path, vendor, product, version);
++
+ 	device->auth = 0xff;
+ 
+ 	if (read_link_key(&src, &device->bdaddr, NULL, NULL) == 0)
+@@ -1206,6 +1211,8 @@
+ 		if (!probe_uuids)
+ 			continue;
+ 
++		DBG("Driver match %s for %s", driver->name, device->path);
++
+ 		driver_data = g_new0(struct btd_driver_data, 1);
+ 
+ 		err = driver->probe(device, probe_uuids);
