@@ -14,11 +14,15 @@ $SCRIPTS/build libXfixes
 $SCRIPTS/build libXxf86vm
 $SCRIPTS/build libxcb
 $SCRIPTS/build libX11
+$SCRIPTS/build xorg-server
 
 get_graphicdrivers
 
+# dont use strip because of use from mklib
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-s||"`
+
 MESA_CONFIG=" --disable-gallium --disable-gallium-nouveau --disable-gallium-i915 --disable-gallium-i965"
-MESA_CONFIG="$MESA_CONFIG --disable-gallium-radeon --disable-gallium-r600 --disable-gallium-svga"
+MESA_CONFIG="$MESA_CONFIG --disable-gallium-radeon --disable-gallium-r600 --disable-gallium-svga --disable-gallium-swrast"
 
 for drv in $GRAPHIC_DRIVERS; do
   [ $drv = i915 ] && \
@@ -36,10 +40,17 @@ for drv in $GRAPHIC_DRIVERS; do
   [ $drv = nouveau ] && \
     MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium/enable-gallium/'` && \
     MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-nouveau/enable-gallium-nouveau/'` && \
-    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx"
+    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx,xorg"
+
+  [ $drv = vmware ] && \
+    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium/enable-gallium/'` && \
+    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-svga/enable-gallium-svga/'` && \
+    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx,xorg"
 done
 
 cd $PKG_BUILD
+
+make clean
 
 HOST_CC=$HOST_CC \
 HOST_OPT_FLAGS="$HOST_CFLAGS" \
