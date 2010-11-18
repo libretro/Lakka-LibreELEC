@@ -28,27 +28,29 @@
 . /etc/profile
 
 INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
+SWAP=`blkid -t TYPE="swap" -o device`
+SWAPFILE="$HOME/.cache/swapfile"
 
-if [ $INSTALLED_MEMORY -le 500000 -a -f $HOME/.config/swapon ]; then
-
-  if [ ! -f $HOME/.cache/swapfile ]; then
+if [ $INSTALLED_MEMORY -le 500000 ]; then
+  if [ -z "$SWAP" -a ! -f $SWAPFILE ]; then
     progress "creating swapfile"
-
-      mkdir -p $HOME/.cache
-      dd if=/dev/zero of=$HOME/.cache/swapfile bs=1024 count=524288 2>&1 > /dev/null
-      mkswap $HOME/.cache/swapfile 2>&1 > /dev/null
+    mkdir -p $HOME/.cache
+    dd if=/dev/zero of=$SWAPFILE bs=1024 count=262144 2>&1 > /dev/null
+    mkswap $SWAPFILE 2>&1 > /dev/null
   fi
 
-  progress "enable swapfile"
-    swapon -p 10000 $HOME/.cache/swapfile
+  progress "enable swap"
+    [ -z "$SWAP" -a -f $SWAPFILE ] && SWAP=$SWAPFILE
+    for i in $SWAP; do
+      swapon -p 10000 $SWAP 2>&1 > /dev/null
+    done
 
-    [ $INSTALLED_MEMORY -le 260000 ] \
-      && sysctl -w vm.swappiness=100 2>&1 > /dev/null \
-      || sysctl -w vm.swappiness=60 2>&1 > /dev/null
-
+  if [ $INSTALLED_MEMORY -le 260000 ]; then
+    sysctl -w vm.swappiness=100 2>&1 > /dev/null
+  else
+    sysctl -w vm.swappiness=60 2>&1 > /dev/null
+  fi
 else
-
   sysctl -w vm.swappiness=0 2>&1 > /dev/null
-
 fi
 
