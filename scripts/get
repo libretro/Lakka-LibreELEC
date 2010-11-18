@@ -2,6 +2,13 @@
 
 . config/options $1
 
+if [ -z $1 ]; then
+  for i in `find packages/ -type f -name meta`; do
+    GET_PKG=`grep ^PKG_NAME= $i | sed -e "s,\",,g" -e "s,PKG_NAME=,,"`
+    $SCRIPTS/get $GET_PKG
+  done
+fi
+
 mkdir -p $STAMPS_NOARCH/$1
 STAMP=$STAMPS_NOARCH/$1/get
 
@@ -12,9 +19,16 @@ if [ -f $PACKAGE_URL ]; then
   DL="yes"
 fi
 
+# if [ -n "$PKG_URL" ]; then
+#   if [ -f $STAMP ]; then
+#     [ ! $STAMP -ot $PKG_DIR/meta ] && exit 0
+#   fi
+#   DL="yes"
+# fi
+
 if [ -n "$PKG_URL" ]; then
   if [ -f $STAMP ]; then
-    [ ! $STAMP -ot $PKG_DIR/meta ] && exit 0
+    [ `cat $STAMP` = "$PKG_URL" ] && exit 0
   fi
   DL="yes"
 fi
@@ -53,7 +67,8 @@ if [ "$DL" = yes ]; then
     cp -p $PACKAGE_URL $STAMP
 
   [ -n "$PKG_URL" ] && \
-    cp -p $PKG_DIR/meta $STAMP
+    echo $PKG_URL > $STAMP
+#    cp -p $PKG_DIR/meta $STAMP
 
   rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
   rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
