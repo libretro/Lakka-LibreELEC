@@ -1,16 +1,5 @@
 set -e
 
-# setup initial directorys
-  CONFIG=config
-  SCRIPTS=scripts
-  PACKAGES=packages
-  SOURCES=sources
-  BUILD_BASE=build
-  TARGET=target
-  ADDONS=addons
-
-test -f config/target-$TARGET_PLATFORM && . config/target-$TARGET_PLATFORM
-
 # determine architecture's family
 case $TARGET_ARCH in
   i386)
@@ -35,12 +24,20 @@ if [ -z "$TARGET_CPU" ]; then
   esac
 fi
 
+# setup initial directorys
+  CONFIG=config
+  SCRIPTS=scripts
+  PACKAGES=packages
+  SOURCES=sources
+  BUILD_BASE=build
+  TARGET=target
+  ADDONS=addons
+
 HOST_NAME=`$SCRIPTS/configtools/config.guess`
 TARGET_NAME=$TARGET_FAMILY-openelec-linux-gnu
 
 OPENELEC_SRC=http://sources.openelec.tv/src/$OPENELEC_VERSION
 BUILD=$BUILD_BASE.OpenELEC-$PROJECT.$TARGET_ARCH.$OPENELEC_VERSION
-[ -n "$TARGET_PLATFORM" ] && BUILD=$BUILD.$TARGET_PLATFORM
 TARGET_IMG=$ROOT/$TARGET
 TARGET_ADDONS="$TARGET_IMG/$ADDONS/$ADDON_PATH"
 ADDON_BUILD="$BUILD/$ADDONS/$1"
@@ -212,57 +209,10 @@ if [ -f $ROOT/$TOOLCHAIN/bin/autoconf ]; then
   export AUTORECONF="$ROOT/$TOOLCHAIN/bin/autoreconf -v -f -i -I $ACLOCAL_DIR"
 fi
 
-setup_toolchain() {
-  if [ "$1" = "--optimize" ]; then
-    OPTIMIZE=yes
-    shift
-  fi
+VERSION_SUFFIX=$TARGET_ARCH
 
-  if [ "$1" = target ]; then
-    export CC=$TARGET_CC
-    export CXX=$TARGET_CXX
-    export LD=$TARGET_LD
-    export AS=$TARGET_AS
-    export AR=$TARGET_AR
-    export NM=$TARGET_NM
-    export RANLIB=$TARGET_RANLIB
-    export OBJCOPY=$TARGET_OBJCOPY
-    export STRIP=$TARGET_STRIP
-    export CPPFLAGS="$TARGET_CPPFLAGS"
-    export CFLAGS="$TARGET_CFLAGS"
-    export CXXFLAGS="$TARGET_CXXFLAGS"
-    export LDFLAGS="$TARGET_LDFLAGS"
-    export PKG_CONFIG_PATH="$TARGET_PKG_CONFIG_PATH"
-    export PKG_CONFIG_LIBDIR="$TARGET_PKG_CONFIG_LIBDIR"
-    export PKG_CONFIG_SYSROOT_DIR="$TARGET_PKG_CONFIG_SYSROOT_DIR"
+. config/functions
 
-  # set CMAKE configfile for target
-    export CMAKE_CONF=$ROOT/$TOOLCHAIN/etc/cmake-$TARGET_NAME.conf
-
-  elif [ "$1" = host ]; then
-    export AWK=$HOST_AWK
-    export CC=$HOST_CC
-    export CXX=$HOST_CXX
-    export LD=$HOST_LD
-    export AS=$HOST_AS
-    export AR=$HOST_AR
-    export NM=$HOST_NM
-    export RANLIB=$HOST_RANLIB
-    export OBJCOPY=$HOST_OBJCOPY
-    export STRIP=$HOST_STRIP
-    export CPPFLAGS="$HOST_CPPFLAGS"
-    export CFLAGS="$HOST_CFLAGS"
-    export CXXFLAGS="$HOST_CXXFLAGS"
-    export LDFLAGS="$HOST_LDFLAGS"
-    export PKG_CONFIG_PATH="$HOST_PKG_CONFIG_PATH"
-    export PKG_CONFIG_LIBDIR="$HOST_PKG_CONFIG_LIBDIR"
-    export PKG_CONFIG_SYSROOT_DIR="$HOST_PKG_CONFIG_SYSROOT_DIR"
-
-  # set CMAKE configfile for host
-    export CMAKE_CONF=$ROOT/$TOOLCHAIN/etc/cmake-$HOST_NAME.conf
-
-  fi
-}
 setup_toolchain target
 
 SILENT_OUT=3
@@ -276,76 +226,3 @@ else
 fi
 INDENT_SIZE=4
 
-VERSION_SUFFIX=$TARGET_ARCH
-[ -n "$TARGET_PLATFORM" ] && VERSION_SUFFIX=$TARGET_PLATFORM
-
-# read generic personal options if available
- if [ -f ~/.openelec/options ]; then
-   . ~/.openelec/options
- fi
-
-# read project based personal options if available
- if [ -f ~/.openelec/$PROJECT/options ]; then
-   . ~/.openelec/$PROJECT/options
- fi
-
-kernel_path() {
-  ls -d $ROOT/$BUILD/linux-[0-9]*
-}
-
-tolower(){
-  echo "$@" | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz
-}
-
-require_eglibc() {
-  if [ "$TARGET_LIBC" != eglibc ]; then
-    echo "$1 requires eglibc, aborting."
-    exit 1
-  fi
-}
-
-require_cxx() {
-  if [ "$TOOLCHAIN_CXX" != yes ]; then
-    echo "$1 requires C++ toolchain support, aborting."
-    exit 1
-  fi
-}
-
-xorg_drv_configure_prepend() {
-  incdir=${SYSROOT_PREFIX}/usr/include/xorg
-  for f in dri.h sarea.h dristruct.h exa.h damage.h xf86Module.h; do
-    incfile="$incdir/$f"
-    if [ -f "$incfile" ]; then
-      p=`echo "$incfile" | sed 'y%*+%pp%;s%[^_[:alnum:]]%_%g'`
-      eval "export ac_cv_file_$p=yes"
-    fi
-  done
-}
-
-add_user() {
-  # Usage: add_user "username" "password" "userid" "groupid" "description" "home" "shell"
-  mkdir -p ${INSTALL}/etc
-  touch ${INSTALL}/etc/passwd
-  if [ -z "`grep "$1:" ${INSTALL}/etc/passwd`" ]; then
-    echo "$1:$2:$3:$4:$5:$6:$7" >> ${INSTALL}/etc/passwd
-  fi
-}
-
-add_group() {
-  # Usage: add_group "groupname" "groupid" ("members")
-  mkdir -p ${INSTALL}/etc
-  touch ${INSTALL}/etc/group
-  if [ -z "`grep "$1:" ${INSTALL}/etc/group`" ]; then
-    echo "$1:x:$2:$3" >> ${INSTALL}/etc/group
-  fi
-}
-
-get_version() {
-  if [ "$OPENELEC_VERSION" = devel -o "$OPENELEC_VERSION" = debug ]; then
-    BUILD_DATE=`date +%Y%m%d`
-    GIT_BUILD=`git log --pretty=format:'' | wc -l`
-    OPENELEC_VERSION=$OPENELEC_VERSION-$BUILD_DATE-r$GIT_BUILD
-  fi
-
-  TARGET_VERSION="$PROJECT.$TARGET_ARCH-$OPENELEC_VERSION"
-}

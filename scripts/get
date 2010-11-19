@@ -1,5 +1,5 @@
 #!/bin/sh
-set -x
+
 . config/options $1
 
 if [ -z $1 ]; then
@@ -9,54 +9,47 @@ if [ -z $1 ]; then
   done
 fi
 
-mkdir -p $STAMPS_NOARCH/$1
-STAMP=$STAMPS_NOARCH/$1/get
-
-# if [ -n "$PKG_URL" ]; then
-#   if [ -f $STAMP ]; then
-#     [ ! $STAMP -ot $PKG_DIR/meta ] && exit 0
-#   fi
-#   DL="yes"
-# fi
+[ -z "$PKG_URL" ] && exit 0
 
 if [ -n "$PKG_URL" ]; then
-  if [ -f $STAMP ]; then
-    [ `cat $STAMP` = "$PKG_URL" ] && exit 0
-  fi
-  DL="yes"
-fi
-
-if [ "$DL" = yes ]; then
-  $SCRIPTS/checkdeps get
-
-  rm -f $STAMP
-
-  printf "%${INDENT}c GET      $1\n" >&$SILENT_OUT
-  export INDENT=$((${INDENT:-1}+$INDENT_SIZE))
-
-  [ "$VERBOSE" != yes ] && WGET_OPT=-q
-
-  mkdir -p $SOURCES/$1
-
-  [ -n "$PKG_URL" ] && \
-    URLS="$URLS `echo $PKG_URL | sed s%GEEXBOX_SRCS%$GEEXBOX_SRCS%`"
+  URLS="$URLS `echo $PKG_URL | sed s%GEEXBOX_SRCS%$GEEXBOX_SRCS%`"
 
   for i in $URLS; do
+    PACKAGE="$SOURCES/$1/`basename $i`"
+    STAMP="$PACKAGE.url"
+    MD5SUM="$PACKAGE.md5"
+
+    mkdir -p $SOURCES/$1
+
+    if [ -f $STAMP ]; then
+      [ `cat $STAMP` = "$i" ] && continue
+    fi
+    DL="yes"
+
+    $SCRIPTS/checkdeps get
+
+    rm -f $STAMP
+
+    printf "%${INDENT}c GET      $1\n" >&$SILENT_OUT
+    export INDENT=$((${INDENT:-1}+$INDENT_SIZE))
+
+    [ "$VERBOSE" != yes ] && WGET_OPT=-q
+
     NBWGET=1
-    until [ -f $STAMPS_NOARCH/$1/`basename $i`.ok ] || wget --passive-ftp -c $WGET_OPT -P $SOURCES/$1 $i; do
+    until [ -f $STAMP ] || wget --passive-ftp -c $WGET_OPT -P $SOURCES/$1 $i; do
       NBWGET=$(($NBWGET+1))
       if [ $NBWGET -gt 10 ]; then
         echo -e "\nCant't get $1 sources : $i\n Try later !!"
         exit 1
       fi
     done
-    touch $STAMPS_NOARCH/$1/`basename $i`.ok
+
+    echo $i > $STAMP
+    md5sum -t $PACKAGE > $MD5SUM
+
+    rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
+    rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
+
   done
-
-  [ -n "$PKG_URL" ] && \
-    echo $PKG_URL > $STAMP
-#    cp -p $PKG_DIR/meta $STAMP
-
-  rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
-  rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
 fi
+

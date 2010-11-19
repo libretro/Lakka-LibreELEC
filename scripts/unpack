@@ -17,12 +17,14 @@ mkdir -p $STAMPS/$1
 STAMP=$STAMPS/$1/unpack
 
 [ -f $STAMP -a -f $PKG_DIR/need_unpack ] && $PKG_DIR/need_unpack $@
+
 for patch in $PKG_DIR/patches/*; do
   if [ $patch -nt $STAMP ]; then
     rm -f $STAMP
     break
   fi
 done
+
 [ -f $STAMP ] && exit 0
 
 printf "%${INDENT}c UNPACK   $1\n" >&$SILENT_OUT
@@ -46,13 +48,11 @@ if [ -d $PKG_DIR/sources ]; then
   cp -PRf $PKG_DIR/sources/* $BUILD/$1*/
 fi
 
-[ -f $PKG_DIR/after_unpack ] && $PKG_DIR/after_unpack $@ >&$VERBOSE_OUT
-
-for i in $PKG_DIR/patches/*.diff $PKG_DIR/patches/$PKG_NAME-$PKG_VERSION*.patch ; do
+for i in $PKG_DIR/patches/$PKG_NAME-$PKG_VERSION*.patch ; do
   if [ -f $i ]; then
     PATCH=`basename $i`
     PT=`echo $PATCH | sed 's/.*\.\(.*\)$/\1/'`
-    if [ "$PT" != patch -a "$PT" != diff -a "$PT" != "$TARGET_ARCH" -a "$PT" != "$TARGET_PLATFORM" ]; then
+    if [ "$PT" != "patch" -a "$PT" != "$TARGET_ARCH" ]; then
       echo "## Skipping patch: $i"
       continue;
     else
@@ -67,7 +67,7 @@ $SCRIPTS/fixconfigtools $BUILD/$1*
 [ -f $PKG_DIR/unpack ] && $PKG_DIR/unpack $@ >&$VERBOSE_OUT
 
 rm -f $STAMPS/$1/build
-. $PROJECT_DIR/$PROJECT/options
+
 for i in `sed -n "s/^\([^#].*\)=\".*$/\1/p" $PROJECT_DIR/$PROJECT/options | grep -v "#"`; do
   eval val=\$$i
   echo "STAMP_$i=\"$val"\" >> $STAMP

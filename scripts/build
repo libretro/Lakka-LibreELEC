@@ -7,14 +7,9 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-if [ -f $PKG_DIR/arch ]; then
-  grep -q "$TARGET_ARCH" "$PKG_DIR/arch" || exit 0
-  grep -q "\-$TARGET_ARCH" "$PKG_DIR/arch" && exit 0
-fi
-
-if [ -f $PKG_DIR/platform ]; then
-  grep -q "$TARGET_PLATFORM" "$PKG_DIR/platform" || exit 0
-  grep -q "\-$TARGET_PLATFORM" "$PKG_DIR/platform" && exit 0
+if [ -n "$PKG_ARCH" -a ! "$PKG_ARCH" = "any" ]; then
+  echo "$PKG_ARCH" | grep -q "$TARGET_ARCH" || exit 0
+  echo "$PKG_ARCH" | grep -q "\-$TARGET_ARCH" && exit 0
 fi
 
 unset INSTALL
@@ -23,9 +18,11 @@ mkdir -p $STAMPS/$1
 STAMP=$STAMPS/$1/build
 
 $SCRIPTS/unpack $1
+
 if [ -f $STAMP -a -f $PKG_DIR/need_build ]; then
   $PKG_DIR/need_build $@
 fi
+
 if [ -f $STAMP -a $PKG_DIR/build -nt $STAMP ]; then
   rm -f $STAMP
 fi
@@ -62,7 +59,6 @@ if [ ! -f $STAMP ]; then
     make -C $PKG_BUILD $1 >&$VERBOSE_OUT
   fi
 
-  . $PROJECT_DIR/$PROJECT/options
   for i in `sed -n "s/^\([^#].*\)=\".*$/\1/p" $PROJECT_DIR/$PROJECT/options | grep -v "#"`; do
     eval val=\$$i
     echo "STAMP_$i=\"$val\"" >> $STAMP
