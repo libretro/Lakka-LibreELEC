@@ -49,6 +49,10 @@ cmd /k "start %CD%\3rdparty\syslinux\win32"
 GOTO END
 
 :INSTALL
+3rdparty\md5sum\md5sum.exe -c --status %CD%\target\SYSTEM.md5
+IF ERRORLEVEL 1 GOTO BADMD5
+3rdparty\md5sum\md5sum.exe -c --status %CD%\target\KERNEL.md5
+IF ERRORLEVEL 1 GOTO BADMD5
 CLS
 ECHO.
 ECHO              OpenELEC.tv USB Installer
@@ -72,8 +76,22 @@ format %DRIVE% /V:INSTALL /Q /FS:FAT32
 3rdparty\syslinux\win32\syslinux.exe -f -m -a %DRIVE%
 copy target\* %DRIVE%
 copy sample.conf\syslinux_installer.cfg %DRIVE%\syslinux.cfg
-SET DRIVE=
 GOTO END
 
+:BADMD5
+CLS
+ECHO.
+ECHO.
+ECHO  ***** OpenELEC.tv failed md5 check - Installation will quit *****
+ECHO.
+ECHO.
+ECHO.
+ECHO          Your original download was probably corrupt.
+ECHO          Please visit www.openelec.tv and get another copy
+ECHO.
+ECHO.
+PAUSE
+
 :END
+SET DRIVE=
 SET OS=
