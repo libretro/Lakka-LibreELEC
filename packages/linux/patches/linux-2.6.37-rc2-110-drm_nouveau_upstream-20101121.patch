@@ -1,6 +1,6 @@
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/Makefile linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/Makefile
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/Makefile	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/Makefile	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/Makefile	2010-11-20 14:43:51.000000000 +0100
 @@ -5,7 +5,7 @@
  ccflags-y := -Iinclude/drm
  nouveau-y := nouveau_drv.o nouveau_state.o nouveau_channel.o nouveau_mem.o \
@@ -23,7 +23,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/Makefile linux-2.6.37-rc2.no
               nv04_crtc.o nv04_display.o nv04_cursor.o nv04_fbcon.o \
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_backlight.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_backlight.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_backlight.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_backlight.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_backlight.c	2010-11-20 14:43:51.000000000 +0100
 @@ -31,6 +31,7 @@
   */
  
@@ -49,7 +49,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_backlight.c linux-2.
  		return nouveau_nv40_backlight_init(dev);
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_bios.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_bios.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_bios.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_bios.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_bios.c	2010-11-20 14:43:51.000000000 +0100
 @@ -6039,7 +6039,6 @@
  			if (type != cte->type)
  				NV_WARN(dev, " -> type 0x%02x\n", cte->type);
@@ -58,7 +58,141 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_bios.c linux-2.6.37-
  	}
  }
  
-@@ -6829,7 +6828,7 @@
+@@ -6053,52 +6052,17 @@
+ 	return entry;
+ }
+ 
+-static void fabricate_vga_output(struct dcb_table *dcb, int i2c, int heads)
++static void fabricate_dcb_output(struct dcb_table *dcb, int type, int i2c,
++				 int heads, int or)
+ {
+ 	struct dcb_entry *entry = new_dcb_entry(dcb);
+ 
+-	entry->type = 0;
++	entry->type = type;
+ 	entry->i2c_index = i2c;
+ 	entry->heads = heads;
+-	entry->location = DCB_LOC_ON_CHIP;
+-	entry->or = 1;
+-}
+-
+-static void fabricate_dvi_i_output(struct dcb_table *dcb, bool twoHeads)
+-{
+-	struct dcb_entry *entry = new_dcb_entry(dcb);
+-
+-	entry->type = 2;
+-	entry->i2c_index = LEGACY_I2C_PANEL;
+-	entry->heads = twoHeads ? 3 : 1;
+-	entry->location = !DCB_LOC_ON_CHIP;	/* ie OFF CHIP */
+-	entry->or = 1;	/* means |0x10 gets set on CRE_LCD__INDEX */
+-	entry->duallink_possible = false; /* SiI164 and co. are single link */
+-
+-#if 0
+-	/*
+-	 * For dvi-a either crtc probably works, but my card appears to only
+-	 * support dvi-d.  "nvidia" still attempts to program it for dvi-a,
+-	 * doing the full fp output setup (program 0x6808.. fp dimension regs,
+-	 * setting 0x680848 to 0x10000111 to enable, maybe setting 0x680880);
+-	 * the monitor picks up the mode res ok and lights up, but no pixel
+-	 * data appears, so the board manufacturer probably connected up the
+-	 * sync lines, but missed the video traces / components
+-	 *
+-	 * with this introduction, dvi-a left as an exercise for the reader.
+-	 */
+-	fabricate_vga_output(dcb, LEGACY_I2C_PANEL, entry->heads);
+-#endif
+-}
+-
+-static void fabricate_tv_output(struct dcb_table *dcb, bool twoHeads)
+-{
+-	struct dcb_entry *entry = new_dcb_entry(dcb);
+-
+-	entry->type = 1;
+-	entry->i2c_index = LEGACY_I2C_TV;
+-	entry->heads = twoHeads ? 3 : 1;
+-	entry->location = !DCB_LOC_ON_CHIP;	/* ie OFF CHIP */
++	if (type != OUTPUT_ANALOG)
++		entry->location = !DCB_LOC_ON_CHIP; /* ie OFF CHIP */
++	entry->or = or;
+ }
+ 
+ static bool
+@@ -6365,8 +6329,36 @@
+ 	return true;
+ }
+ 
++static void
++fabricate_dcb_encoder_table(struct drm_device *dev, struct nvbios *bios)
++{
++	struct dcb_table *dcb = &bios->dcb;
++	int all_heads = (nv_two_heads(dev) ? 3 : 1);
++
++#ifdef __powerpc__
++	/* Apple iMac G4 NV17 */
++	if (of_machine_is_compatible("PowerMac4,5")) {
++		fabricate_dcb_output(dcb, OUTPUT_TMDS, 0, all_heads, 1);
++		fabricate_dcb_output(dcb, OUTPUT_ANALOG, 1, all_heads, 2);
++		return;
++	}
++#endif
++
++	/* Make up some sane defaults */
++	fabricate_dcb_output(dcb, OUTPUT_ANALOG, LEGACY_I2C_CRT, 1, 1);
++
++	if (nv04_tv_identify(dev, bios->legacy.i2c_indices.tv) >= 0)
++		fabricate_dcb_output(dcb, OUTPUT_TV, LEGACY_I2C_TV,
++				     all_heads, 0);
++
++	else if (bios->tmds.output0_script_ptr ||
++		 bios->tmds.output1_script_ptr)
++		fabricate_dcb_output(dcb, OUTPUT_TMDS, LEGACY_I2C_PANEL,
++				     all_heads, 1);
++}
++
+ static int
+-parse_dcb_table(struct drm_device *dev, struct nvbios *bios, bool twoHeads)
++parse_dcb_table(struct drm_device *dev, struct nvbios *bios)
+ {
+ 	struct drm_nouveau_private *dev_priv = dev->dev_private;
+ 	struct dcb_table *dcb = &bios->dcb;
+@@ -6386,12 +6378,7 @@
+ 
+ 	/* this situation likely means a really old card, pre DCB */
+ 	if (dcbptr == 0x0) {
+-		NV_INFO(dev, "Assuming a CRT output exists\n");
+-		fabricate_vga_output(dcb, LEGACY_I2C_CRT, 1);
+-
+-		if (nv04_tv_identify(dev, bios->legacy.i2c_indices.tv) >= 0)
+-			fabricate_tv_output(dcb, twoHeads);
+-
++		fabricate_dcb_encoder_table(dev, bios);
+ 		return 0;
+ 	}
+ 
+@@ -6451,21 +6438,7 @@
+ 		 */
+ 		NV_TRACEWARN(dev, "No useful information in BIOS output table; "
+ 				  "adding all possible outputs\n");
+-		fabricate_vga_output(dcb, LEGACY_I2C_CRT, 1);
+-
+-		/*
+-		 * Attempt to detect TV before DVI because the test
+-		 * for the former is more accurate and it rules the
+-		 * latter out.
+-		 */
+-		if (nv04_tv_identify(dev,
+-				     bios->legacy.i2c_indices.tv) >= 0)
+-			fabricate_tv_output(dcb, twoHeads);
+-
+-		else if (bios->tmds.output0_script_ptr ||
+-			 bios->tmds.output1_script_ptr)
+-			fabricate_dvi_i_output(dcb, twoHeads);
+-
++		fabricate_dcb_encoder_table(dev, bios);
+ 		return 0;
+ 	}
+ 
+@@ -6829,7 +6802,7 @@
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
  	unsigned htotal;
  
@@ -67,9 +201,18 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_bios.c linux-2.6.37-
  		if (NVReadVgaCrtc(dev, 0, 0x00) == 0 &&
  		    NVReadVgaCrtc(dev, 0, 0x1a) == 0)
  			return false;
+@@ -6859,7 +6832,7 @@
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = parse_dcb_table(dev, bios, nv_two_heads(dev));
++	ret = parse_dcb_table(dev, bios);
+ 	if (ret)
+ 		return ret;
+ 
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_bo.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_bo.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_bo.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_bo.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_bo.c	2010-11-20 14:43:51.000000000 +0100
 @@ -46,9 +46,7 @@
  	if (unlikely(nvbo->gem))
  		DRM_ERROR("bo %p still attached to GEM object\n", bo);
@@ -283,7 +426,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_bo.c linux-2.6.37-rc
  	.io_mem_free = &nouveau_ttm_io_mem_free,
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_channel.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_channel.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_channel.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_channel.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_channel.c	2010-11-20 14:43:51.000000000 +0100
 @@ -39,22 +39,22 @@
  
  	if (dev_priv->card_type >= NV_50) {
@@ -791,7 +934,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_channel.c linux-2.6.
  int nouveau_max_ioctl = DRM_ARRAY_SIZE(nouveau_ioctls);
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_connector.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_connector.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_connector.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_connector.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_connector.c	2010-11-20 14:43:51.000000000 +0100
 @@ -37,6 +37,8 @@
  #include "nouveau_connector.h"
  #include "nouveau_hw.h"
@@ -1007,7 +1150,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_connector.c linux-2.
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_connector.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_connector.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_connector.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_connector.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_connector.h	2010-11-20 14:43:51.000000000 +0100
 @@ -52,9 +52,6 @@
  struct drm_connector *
  nouveau_connector_create(struct drm_device *, int index);
@@ -1020,7 +1163,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_connector.h linux-2.
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_display.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_display.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_display.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_display.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_display.c	2010-11-20 14:43:51.000000000 +0100
 @@ -29,6 +29,9 @@
  #include "nouveau_drv.h"
  #include "nouveau_fb.h"
@@ -1241,7 +1384,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_display.c linux-2.6.
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_dp.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_dp.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_dp.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_dp.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_dp.c	2010-11-20 14:43:51.000000000 +0100
 @@ -279,7 +279,7 @@
  	struct bit_displayport_encoder_table *dpe;
  	int dpe_headerlen;
@@ -1271,7 +1414,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_dp.c linux-2.6.37-rc
  }
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_drv.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_drv.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_drv.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_drv.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_drv.c	2010-11-20 14:43:51.000000000 +0100
 @@ -115,6 +115,10 @@
  int nouveau_perflvl_wr;
  module_param_named(perflvl_wr, nouveau_perflvl_wr, int, 0400);
@@ -1389,7 +1532,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_drv.c linux-2.6.37-r
  }
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_drv.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_drv.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_drv.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_drv.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_drv.h	2010-11-20 14:43:51.000000000 +0100
 @@ -54,6 +54,7 @@
  #include "nouveau_drm.h"
  #include "nouveau_reg.h"
@@ -2197,7 +2340,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_drv.h linux-2.6.37-r
  #endif /* __NOUVEAU_DRV_H__ */
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fbcon.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fbcon.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fbcon.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fbcon.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fbcon.c	2010-11-20 14:43:51.000000000 +0100
 @@ -49,6 +49,96 @@
  #include "nouveau_fbcon.h"
  #include "nouveau_dma.h"
@@ -2420,7 +2563,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fbcon.c linux-2.6.37
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fbcon.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fbcon.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fbcon.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fbcon.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fbcon.h	2010-11-20 14:43:51.000000000 +0100
 @@ -40,13 +40,13 @@
  
  void nouveau_fbcon_restore(void);
@@ -2443,7 +2586,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fbcon.h linux-2.6.37
  void nouveau_fbcon_gpu_lockup(struct fb_info *info);
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fence.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fence.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fence.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fence.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_fence.c	2010-11-20 14:43:51.000000000 +0100
 @@ -64,6 +64,7 @@
  	struct nouveau_fence *fence =
  		container_of(ref, struct nouveau_fence, refcount);
@@ -2651,7 +2794,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_fence.c linux-2.6.37
  int
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_gem.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_gem.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_gem.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_gem.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_gem.c	2010-11-20 14:43:51.000000000 +0100
 @@ -48,9 +48,6 @@
  		return;
  	nvbo->gem = NULL;
@@ -2988,7 +3131,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_gem.c linux-2.6.37-r
  int
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_hw.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_hw.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_hw.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_hw.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_hw.c	2010-11-20 14:43:51.000000000 +0100
 @@ -519,11 +519,11 @@
  
  	struct pll_lims pll_lim;
@@ -3036,7 +3179,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_hw.c linux-2.6.37-rc
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_hw.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_hw.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_hw.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_hw.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_hw.h	2010-11-20 14:43:51.000000000 +0100
 @@ -416,6 +416,25 @@
  }
  
@@ -3065,7 +3208,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_hw.h linux-2.6.37-rc
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_i2c.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_i2c.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_i2c.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_i2c.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_i2c.c	2010-11-20 14:43:51.000000000 +0100
 @@ -256,7 +256,7 @@
  	if (index >= DCB_MAX_NUM_I2C_ENTRIES)
  		return NULL;
@@ -3077,7 +3220,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_i2c.c linux-2.6.37-r
  		if (i2c->port_type == 6) {
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_irq.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_irq.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_irq.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_irq.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_irq.c	2010-11-20 14:43:51.000000000 +0100
 @@ -36,11 +36,7 @@
  #include "nouveau_drv.h"
  #include "nouveau_reg.h"
@@ -4346,7 +4489,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_irq.c linux-2.6.37-r
  }
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_mem.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_mem.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_mem.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_mem.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_mem.c	2010-11-20 14:43:51.000000000 +0100
 @@ -33,92 +33,113 @@
  #include "drmP.h"
  #include "drm.h"
@@ -4605,7 +4748,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_mem.c linux-2.6.37-r
  			 timing->reg_100228, timing->reg_10022c);
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_notifier.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_notifier.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_notifier.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_notifier.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_notifier.c	2010-11-20 14:43:51.000000000 +0100
 @@ -99,7 +99,6 @@
  		       int size, uint32_t *b_offset)
  {
@@ -4671,7 +4814,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_notifier.c linux-2.6
  }
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_object.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_object.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_object.c	2010-11-20 14:43:51.000000000 +0100
 @@ -36,6 +36,101 @@
  #include "nouveau_drm.h"
  #include "nouveau_ramht.h"
@@ -4794,7 +4937,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	gpuobj = kzalloc(sizeof(*gpuobj), GFP_KERNEL);
  	if (!gpuobj)
  		return -ENOMEM;
-@@ -98,88 +190,45 @@
+@@ -98,88 +190,41 @@
  	spin_unlock(&dev_priv->ramin_lock);
  
  	if (chan) {
@@ -4835,25 +4978,22 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
 -			ramin = drm_mm_get_block_atomic(ramin, size, align);
 -			spin_unlock(&dev_priv->ramin_lock);
 -		} while (ramin == NULL);
-+		gpuobj->pinst = chan->ramin->pinst;
-+		if (gpuobj->pinst != ~0)
-+			gpuobj->pinst += ramin->start;
- 
+-
 -		/* on nv50 it's ok to fail, we have a fallback path */
 -		if (!ramin && dev_priv->card_type < NV_50) {
 -			nouveau_gpuobj_ref(NULL, &gpuobj);
 -			return -ENOMEM;
 -		}
 -	}
-+		if (dev_priv->card_type < NV_50)
-+			gpuobj->cinst = gpuobj->pinst;
-+		else
-+			gpuobj->cinst = ramin->start;
++		gpuobj->pinst = chan->ramin->pinst;
++		if (gpuobj->pinst != ~0)
++			gpuobj->pinst += ramin->start;
  
 -	/* if we got a chunk of the aperture, map pages into it */
 -	gpuobj->im_pramin = ramin;
 -	if (!chan && gpuobj->im_pramin && dev_priv->ramin_available) {
 -		ret = engine->instmem.bind(dev, gpuobj);
++		gpuobj->cinst = ramin->start;
 +		gpuobj->vinst = ramin->start + chan->ramin->vinst;
 +		gpuobj->node  = ramin;
 +	} else {
@@ -4901,7 +5041,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	}
  
  
-@@ -195,6 +244,7 @@
+@@ -195,6 +240,7 @@
  	NV_DEBUG(dev, "\n");
  
  	INIT_LIST_HEAD(&dev_priv->gpuobj_list);
@@ -4909,7 +5049,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	spin_lock_init(&dev_priv->ramin_lock);
  	dev_priv->ramin_base = ~0;
  
-@@ -205,13 +255,23 @@
+@@ -205,13 +251,23 @@
  nouveau_gpuobj_takedown(struct drm_device *dev)
  {
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
@@ -4934,7 +5074,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  static void
  nouveau_gpuobj_del(struct kref *ref)
  {
-@@ -219,26 +279,34 @@
+@@ -219,26 +275,34 @@
  		container_of(ref, struct nouveau_gpuobj, refcount);
  	struct drm_device *dev = gpuobj->dev;
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
@@ -4976,7 +5116,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	list_del(&gpuobj->list);
  	spin_unlock(&dev_priv->ramin_lock);
  
-@@ -278,7 +346,7 @@
+@@ -278,7 +342,7 @@
  	kref_init(&gpuobj->refcount);
  	gpuobj->size  = size;
  	gpuobj->pinst = pinst;
@@ -4985,7 +5125,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	gpuobj->vinst = vinst;
  
  	if (gpuobj->flags & NVOBJ_FLAG_ZERO_ALLOC) {
-@@ -335,113 +403,157 @@
+@@ -335,113 +399,157 @@
     The method below creates a DMA object in instance RAM and returns a handle
     to it that can be used to set up context objects.
  */
@@ -5049,11 +5189,18 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
 -		NV_ERROR(dev, "Error creating gpuobj: %d\n", ret);
 -		return ret;
 -	}
--
--	if (dev_priv->card_type < NV_50) {
--		uint32_t frame, adjust, pte_flags = 0;
 +	/* convert to base + limit */
 +	size = (base + size) - 1;
+ 
+-	if (dev_priv->card_type < NV_50) {
+-		uint32_t frame, adjust, pte_flags = 0;
++	nv_wo32(obj, offset + 0x00, flags0);
++	nv_wo32(obj, offset + 0x04, lower_32_bits(size));
++	nv_wo32(obj, offset + 0x08, lower_32_bits(base));
++	nv_wo32(obj, offset + 0x0c, upper_32_bits(size) << 24 |
++				    upper_32_bits(base));
++	nv_wo32(obj, offset + 0x10, 0x00000000);
++	nv_wo32(obj, offset + 0x14, 0x00000000);
  
 -		if (access != NV_DMA_ACCESS_RO)
 -			pte_flags |= (1<<1);
@@ -5069,14 +5216,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
 -	} else {
 -		uint64_t limit = offset + size - 1;
 -		uint32_t flags0, flags5;
-+	nv_wo32(obj, offset + 0x00, flags0);
-+	nv_wo32(obj, offset + 0x04, lower_32_bits(size));
-+	nv_wo32(obj, offset + 0x08, lower_32_bits(base));
-+	nv_wo32(obj, offset + 0x0c, upper_32_bits(size) << 24 |
-+				    upper_32_bits(base));
-+	nv_wo32(obj, offset + 0x10, 0x00000000);
-+	nv_wo32(obj, offset + 0x14, 0x00000000);
- 
+-
 -		if (target == NV_DMA_TARGET_VIDMEM) {
 -			flags0 = 0x00190000;
 -			flags5 = 0x00010000;
@@ -5227,7 +5367,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  }
  
  /* Context objects in the instance RAM have the following structure.
-@@ -495,23 +607,86 @@
+@@ -495,23 +603,86 @@
     entry[5]:
     set to 0?
  */
@@ -5316,7 +5456,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  		return ret;
  	}
  
-@@ -541,35 +716,8 @@
+@@ -541,35 +712,8 @@
  	}
  	dev_priv->engine.instmem.flush(dev);
  
@@ -5354,7 +5494,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	return 0;
  }
  
-@@ -585,7 +733,7 @@
+@@ -585,7 +729,7 @@
  	NV_DEBUG(dev, "ch%d\n", chan->id);
  
  	/* Base amount for object storage (4KiB enough?) */
@@ -5363,7 +5503,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	base = 0;
  
  	/* PGRAPH context */
-@@ -701,8 +849,8 @@
+@@ -701,8 +845,8 @@
  	if (dev_priv->card_type >= NV_50) {
  		ret = nouveau_gpuobj_dma_new(chan, NV_CLASS_DMA_IN_MEMORY,
  					     0, dev_priv->vm_end,
@@ -5374,7 +5514,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  		if (ret) {
  			NV_ERROR(dev, "Error creating VRAM ctxdma: %d\n", ret);
  			return ret;
-@@ -710,8 +858,8 @@
+@@ -710,8 +854,8 @@
  	} else {
  		ret = nouveau_gpuobj_dma_new(chan, NV_CLASS_DMA_IN_MEMORY,
  					     0, dev_priv->fb_available_size,
@@ -5385,7 +5525,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  		if (ret) {
  			NV_ERROR(dev, "Error creating VRAM ctxdma: %d\n", ret);
  			return ret;
-@@ -729,20 +877,13 @@
+@@ -729,20 +873,13 @@
  	if (dev_priv->card_type >= NV_50) {
  		ret = nouveau_gpuobj_dma_new(chan, NV_CLASS_DMA_IN_MEMORY,
  					     0, dev_priv->vm_end,
@@ -5412,7 +5552,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	}
  
  	if (ret) {
-@@ -791,119 +932,69 @@
+@@ -791,119 +928,69 @@
  	struct nouveau_gpuobj *gpuobj;
  	int i;
  
@@ -5550,7 +5690,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  	}
  
  	ret = nouveau_ramht_insert(chan, init->handle, gr);
-@@ -911,27 +1002,27 @@
+@@ -911,27 +998,27 @@
  	if (ret) {
  		NV_ERROR(dev, "Error referencing object: %d (%d/0x%08x)\n",
  			 ret, init->channel, init->handle);
@@ -5590,7 +5730,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_object.c linux-2.6.3
  u32
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_pm.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_pm.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_pm.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_pm.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_pm.c	2010-11-20 14:43:51.000000000 +0100
 @@ -27,6 +27,10 @@
  #include "nouveau_drv.h"
  #include "nouveau_pm.h"
@@ -5690,8 +5830,20 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_pm.c linux-2.6.37-rc
  }
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_ramht.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_ramht.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_ramht.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_ramht.c	2010-11-17 02:20:11.000000000 +0100
-@@ -114,7 +114,7 @@
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_ramht.c	2010-11-20 14:43:51.000000000 +0100
+@@ -104,17 +104,17 @@
+ 	nouveau_gpuobj_ref(gpuobj, &entry->gpuobj);
+ 
+ 	if (dev_priv->card_type < NV_40) {
+-		ctx = NV_RAMHT_CONTEXT_VALID | (gpuobj->cinst >> 4) |
++		ctx = NV_RAMHT_CONTEXT_VALID | (gpuobj->pinst >> 4) |
+ 		      (chan->id << NV_RAMHT_CONTEXT_CHANNEL_SHIFT) |
+ 		      (gpuobj->engine << NV_RAMHT_CONTEXT_ENGINE_SHIFT);
+ 	} else
+ 	if (dev_priv->card_type < NV_50) {
+-		ctx = (gpuobj->cinst >> 4) |
++		ctx = (gpuobj->pinst >> 4) |
+ 		      (chan->id << NV40_RAMHT_CONTEXT_CHANNEL_SHIFT) |
  		      (gpuobj->engine << NV40_RAMHT_CONTEXT_ENGINE_SHIFT);
  	} else {
  		if (gpuobj->engine == NVOBJ_ENGINE_DISPLAY) {
@@ -5825,7 +5977,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_ramht.c linux-2.6.37
  	}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_ramht.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_ramht.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_ramht.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_ramht.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_ramht.h	2010-11-20 14:43:51.000000000 +0100
 @@ -48,7 +48,7 @@
  
  extern int  nouveau_ramht_insert(struct nouveau_channel *, u32 handle,
@@ -5837,7 +5989,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_ramht.h linux-2.6.37
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_reg.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_reg.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_reg.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_reg.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_reg.h	2010-11-20 14:43:51.000000000 +0100
 @@ -45,6 +45,11 @@
  #	define NV04_PFB_REF_CMD_REFRESH				(1 << 0)
  #define NV04_PFB_PRE						0x001002d4
@@ -5961,7 +6113,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_reg.h linux-2.6.37-r
  #define NV50_PDISPLAY_CRTC_C(i, r)    (4 + (i) * 0x540 + NV50_PDISPLAY_CRTC_##r)
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_sgdma.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_sgdma.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_sgdma.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_sgdma.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_sgdma.c	2010-11-20 14:43:51.000000000 +0100
 @@ -120,8 +120,8 @@
  	dev_priv->engine.instmem.flush(nvbe->dev);
  
@@ -6022,7 +6174,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_sgdma.c linux-2.6.37
  		obj_size  = (aper_size >> NV_CTXDMA_PAGE_SHIFT) * 4;
  		obj_size += 8; /* ctxdma header */
  	} else {
-@@ -241,22 +240,6 @@
+@@ -241,42 +240,15 @@
  		return ret;
  	}
  
@@ -6043,12 +6195,12 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_sgdma.c linux-2.6.37
 -	}
 -
  	if (dev_priv->card_type < NV_50) {
- 		/* special case, allocated from global instmem heap so
- 		 * cinst is invalid, we use it on all channels though so
-@@ -264,19 +247,14 @@
- 		 */
- 		gpuobj->cinst = gpuobj->pinst;
- 
+-		/* special case, allocated from global instmem heap so
+-		 * cinst is invalid, we use it on all channels though so
+-		 * cinst needs to be valid, set it the same as pinst
+-		 */
+-		gpuobj->cinst = gpuobj->pinst;
+-
 -		/* Maybe use NV_DMA_TARGET_AGP for PCIE? NVIDIA do this, and
 -		 * confirmed to work on c51.  Perhaps means NV_DMA_TARGET_PCIE
 -		 * on those cards? */
@@ -6069,7 +6221,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_sgdma.c linux-2.6.37
  	} else {
  		for (i = 0; i < obj_size; i += 8) {
  			nv_wo32(gpuobj, i + 0, 0x00000000);
-@@ -297,15 +275,6 @@
+@@ -297,15 +269,6 @@
  {
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
  
@@ -6087,7 +6239,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_sgdma.c linux-2.6.37
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_state.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_state.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_state.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_state.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_state.c	2010-11-20 14:43:51.000000000 +0100
 @@ -53,10 +53,10 @@
  		engine->instmem.takedown	= nv04_instmem_takedown;
  		engine->instmem.suspend		= nv04_instmem_suspend;
@@ -6705,7 +6857,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_state.c linux-2.6.37
  		return false;
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_temp.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_temp.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_temp.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_temp.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_temp.c	2010-11-20 14:43:51.000000000 +0100
 @@ -191,7 +191,7 @@
  	int offset = sensor->offset_mult / sensor->offset_div;
  	int core_temp;
@@ -6717,7 +6869,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_temp.c linux-2.6.37-
  		core_temp = nv_rd32(dev, 0x0015b4) & 0x1fff;
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_util.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_util.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_util.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_util.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_util.c	2010-11-20 14:43:51.000000000 +0100
 @@ -0,0 +1,69 @@
 +/*
 + * Copyright (C) 2010 Nouveau Project
@@ -6790,7 +6942,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_util.c linux-2.6.37-
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_util.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_util.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_util.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_util.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nouveau_util.h	2010-11-20 14:43:51.000000000 +0100
 @@ -0,0 +1,45 @@
 +/*
 + * Copyright (C) 2010 Nouveau Project
@@ -6839,7 +6991,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nouveau_util.h linux-2.6.37-
 +#endif
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_crtc.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_crtc.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_crtc.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_crtc.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_crtc.c	2010-11-20 14:43:51.000000000 +0100
 @@ -158,7 +158,6 @@
  {
  	struct nouveau_crtc *nv_crtc = nouveau_crtc(crtc);
@@ -6906,7 +7058,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_crtc.c linux-2.6.37-rc2
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_dfp.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_dfp.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_dfp.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_dfp.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_dfp.c	2010-11-20 14:43:51.000000000 +0100
 @@ -185,14 +185,15 @@
  	struct nouveau_encoder *nv_encoder = nouveau_encoder(encoder);
  	struct nouveau_connector *nv_connector = nouveau_encoder_connector_get(nv_encoder);
@@ -6931,7 +7083,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_dfp.c linux-2.6.37-rc2.
  	return true;
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_display.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_display.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_display.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_display.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_display.c	2010-11-20 14:43:51.000000000 +0100
 @@ -32,6 +32,9 @@
  #include "nouveau_encoder.h"
  #include "nouveau_connector.h"
@@ -6980,7 +7132,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_display.c linux-2.6.37-
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_fbcon.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_fbcon.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_fbcon.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_fbcon.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_fbcon.c	2010-11-20 14:43:51.000000000 +0100
 @@ -28,52 +28,39 @@
  #include "nouveau_ramht.h"
  #include "nouveau_fbcon.h"
@@ -7112,7 +7264,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_fbcon.c linux-2.6.37-rc
  static int
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_fifo.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_fifo.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_fifo.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_fifo.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_fifo.c	2010-11-20 14:43:51.000000000 +0100
 @@ -28,6 +28,7 @@
  #include "drm.h"
  #include "nouveau_drv.h"
@@ -7387,7 +7539,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_fifo.c linux-2.6.37-rc2
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_graph.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_graph.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_graph.c	2010-11-20 14:43:51.000000000 +0100
 @@ -26,6 +26,11 @@
  #include "drm.h"
  #include "nouveau_drm.h"
@@ -7413,7 +7565,15 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  nv04_graph_context_switch(struct drm_device *dev)
  {
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
-@@ -376,7 +381,7 @@
+@@ -368,7 +373,6 @@
+ 	struct nouveau_channel *chan = NULL;
+ 	int chid;
+ 
+-	pgraph->fifo_access(dev, false);
+ 	nouveau_wait_for_idle(dev);
+ 
+ 	/* If previous context is valid, we need to save it */
+@@ -376,11 +380,9 @@
  
  	/* Load context for next channel */
  	chid = dev_priv->engine.fifo.channel_id(dev);
@@ -7421,8 +7581,12 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 +	chan = dev_priv->channels.ptr[chid];
  	if (chan)
  		nv04_graph_load_context(chan);
+-
+-	pgraph->fifo_access(dev, true);
+ }
  
-@@ -412,10 +417,25 @@
+ static uint32_t *ctx_reg(struct graph_state *ctx, uint32_t reg)
+@@ -412,10 +414,25 @@
  
  void nv04_graph_destroy_context(struct nouveau_channel *chan)
  {
@@ -7448,7 +7612,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  }
  
  int nv04_graph_load_context(struct nouveau_channel *chan)
-@@ -468,13 +488,19 @@
+@@ -468,13 +485,19 @@
  {
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
  	uint32_t tmp;
@@ -7468,7 +7632,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  	nv_wr32(dev, NV03_PGRAPH_INTR, 0xFFFFFFFF);
  	nv_wr32(dev, NV03_PGRAPH_INTR_EN, 0xFFFFFFFF);
  
-@@ -510,6 +536,8 @@
+@@ -510,6 +533,8 @@
  
  void nv04_graph_takedown(struct drm_device *dev)
  {
@@ -7477,7 +7641,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  }
  
  void
-@@ -524,13 +552,27 @@
+@@ -524,13 +549,27 @@
  }
  
  static int
@@ -7507,7 +7671,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  /*
   * Software methods, why they are needed, and how they all work:
   *
-@@ -606,12 +648,12 @@
+@@ -606,12 +645,12 @@
   */
  
  static void
@@ -7523,7 +7687,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  
  	tmp  = nv_ri32(dev, instance);
  	tmp &= ~mask;
-@@ -623,11 +665,11 @@
+@@ -623,11 +662,11 @@
  }
  
  static void
@@ -7538,7 +7702,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  	int class, op, valid = 1;
  
  	ctx1 = nv_ri32(dev, instance);
-@@ -672,13 +714,13 @@
+@@ -672,13 +711,13 @@
  }
  
  static int
@@ -7555,7 +7719,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  		return 1;
  	nv04_graph_set_ctx1(chan, 0x00038000, data << 15);
  	/* changing operation changes set of objects needed for validation */
-@@ -687,8 +729,8 @@
+@@ -687,8 +726,8 @@
  }
  
  static int
@@ -7566,7 +7730,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	uint32_t min = data & 0xffff, max;
  	uint32_t w = data >> 16;
-@@ -706,8 +748,8 @@
+@@ -706,8 +745,8 @@
  }
  
  static int
@@ -7577,7 +7741,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	uint32_t min = data & 0xffff, max;
  	uint32_t w = data >> 16;
-@@ -725,8 +767,8 @@
+@@ -725,8 +764,8 @@
  }
  
  static int
@@ -7588,7 +7752,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -742,8 +784,8 @@
+@@ -742,8 +781,8 @@
  }
  
  static int
@@ -7599,7 +7763,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -763,8 +805,8 @@
+@@ -763,8 +802,8 @@
  }
  
  static int
@@ -7610,7 +7774,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -778,8 +820,8 @@
+@@ -778,8 +817,8 @@
  }
  
  static int
@@ -7621,7 +7785,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -793,8 +835,8 @@
+@@ -793,8 +832,8 @@
  }
  
  static int
@@ -7632,7 +7796,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -808,8 +850,8 @@
+@@ -808,8 +847,8 @@
  }
  
  static int
@@ -7643,7 +7807,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -823,8 +865,8 @@
+@@ -823,8 +862,8 @@
  }
  
  static int
@@ -7654,7 +7818,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -838,8 +880,8 @@
+@@ -838,8 +877,8 @@
  }
  
  static int
@@ -7665,7 +7829,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -853,8 +895,8 @@
+@@ -853,8 +892,8 @@
  }
  
  static int
@@ -7676,7 +7840,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -868,8 +910,8 @@
+@@ -868,8 +907,8 @@
  }
  
  static int
@@ -7687,7 +7851,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -883,8 +925,8 @@
+@@ -883,8 +922,8 @@
  }
  
  static int
@@ -7698,7 +7862,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -898,8 +940,8 @@
+@@ -898,8 +937,8 @@
  }
  
  static int
@@ -7709,7 +7873,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -913,8 +955,8 @@
+@@ -913,8 +952,8 @@
  }
  
  static int
@@ -7720,7 +7884,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
  {
  	switch (nv_ri32(chan->dev, data << 4) & 0xff) {
  	case 0x30:
-@@ -930,194 +972,346 @@
+@@ -930,194 +969,346 @@
  	return 1;
  }
  
@@ -7783,11 +7947,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 -	{ 0x03e4, nv04_graph_mthd_set_operation },
 -	{},
 -};
-+static int
-+nv04_graph_register(struct drm_device *dev)
-+{
-+	struct drm_nouveau_private *dev_priv = dev->dev_private;
- 
+-
 -static struct nouveau_pgraph_object_method nv04_graph_mthds_nv01_ifc[] = {
 -	{ 0x0184, nv04_graph_mthd_bind_chroma },
 -	{ 0x0188, nv04_graph_mthd_bind_clip },
@@ -7798,9 +7958,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 -	{ 0x02fc, nv04_graph_mthd_set_operation },
 -	{},
 -};
-+	if (dev_priv->engine.graph.registered)
-+		return 0;
- 
+-
 -static struct nouveau_pgraph_object_method nv04_graph_mthds_nv03_sifc[] = {
 -	{ 0x0184, nv04_graph_mthd_bind_chroma },
 -	{ 0x0188, nv04_graph_mthd_bind_nv01_patt },
@@ -7810,8 +7968,10 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 -	{ 0x02fc, nv04_graph_mthd_set_operation },
 -	{},
 -};
-+	/* dvd subpicture */
-+	NVOBJ_CLASS(dev, 0x0038, GR);
++static int
++nv04_graph_register(struct drm_device *dev)
++{
++	struct drm_nouveau_private *dev_priv = dev->dev_private;
  
 -static struct nouveau_pgraph_object_method nv04_graph_mthds_nv04_sifc[] = {
 -	{ 0x0184, nv04_graph_mthd_bind_chroma },
@@ -7823,8 +7983,8 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 -	{ 0x02fc, nv04_graph_mthd_set_operation },
 -	{},
 -};
-+	/* m2mf */
-+	NVOBJ_CLASS(dev, 0x0039, GR);
++	if (dev_priv->engine.graph.registered)
++		return 0;
  
 -static struct nouveau_pgraph_object_method nv04_graph_mthds_nv03_sifm[] = {
 -	{ 0x0188, nv04_graph_mthd_bind_nv01_patt },
@@ -7832,6 +7992,30 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 -	{ 0x0190, nv04_graph_mthd_bind_beta1 },
 -	{ 0x0194, nv04_graph_mthd_bind_surf_dst },
 -	{ 0x0304, nv04_graph_mthd_set_operation },
+-	{},
+-};
++	/* dvd subpicture */
++	NVOBJ_CLASS(dev, 0x0038, GR);
+ 
+-static struct nouveau_pgraph_object_method nv04_graph_mthds_nv04_sifm[] = {
+-	{ 0x0188, nv04_graph_mthd_bind_nv04_patt },
+-	{ 0x018c, nv04_graph_mthd_bind_rop },
+-	{ 0x0190, nv04_graph_mthd_bind_beta1 },
+-	{ 0x0194, nv04_graph_mthd_bind_beta4 },
+-	{ 0x0198, nv04_graph_mthd_bind_surf2d_swzsurf },
+-	{ 0x0304, nv04_graph_mthd_set_operation },
+-	{},
+-};
++	/* m2mf */
++	NVOBJ_CLASS(dev, 0x0039, GR);
+ 
+-static struct nouveau_pgraph_object_method nv04_graph_mthds_nv01_shape[] = {
+-	{ 0x0184, nv04_graph_mthd_bind_clip },
+-	{ 0x0188, nv04_graph_mthd_bind_nv01_patt },
+-	{ 0x018c, nv04_graph_mthd_bind_rop },
+-	{ 0x0190, nv04_graph_mthd_bind_beta1 },
+-	{ 0x0194, nv04_graph_mthd_bind_surf_dst },
+-	{ 0x02fc, nv04_graph_mthd_set_operation },
 -	{},
 -};
 +	/* nv03 gdirect */
@@ -8074,26 +8258,6 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 +	NVOBJ_MTHD (dev, 0x506e, 0x0150, nv04_graph_mthd_set_ref);
 +	NVOBJ_MTHD (dev, 0x506e, 0x0500, nv04_graph_mthd_page_flip);
  
--static struct nouveau_pgraph_object_method nv04_graph_mthds_nv04_sifm[] = {
--	{ 0x0188, nv04_graph_mthd_bind_nv04_patt },
--	{ 0x018c, nv04_graph_mthd_bind_rop },
--	{ 0x0190, nv04_graph_mthd_bind_beta1 },
--	{ 0x0194, nv04_graph_mthd_bind_beta4 },
--	{ 0x0198, nv04_graph_mthd_bind_surf2d_swzsurf },
--	{ 0x0304, nv04_graph_mthd_set_operation },
--	{},
--};
--
--static struct nouveau_pgraph_object_method nv04_graph_mthds_nv01_shape[] = {
--	{ 0x0184, nv04_graph_mthd_bind_clip },
--	{ 0x0188, nv04_graph_mthd_bind_nv01_patt },
--	{ 0x018c, nv04_graph_mthd_bind_rop },
--	{ 0x0190, nv04_graph_mthd_bind_beta1 },
--	{ 0x0194, nv04_graph_mthd_bind_surf_dst },
--	{ 0x02fc, nv04_graph_mthd_set_operation },
--	{},
--};
--
 -static struct nouveau_pgraph_object_method nv04_graph_mthds_nv04_shape[] = {
 -	{ 0x0184, nv04_graph_mthd_bind_clip },
 -	{ 0x0188, nv04_graph_mthd_bind_nv04_patt },
@@ -8246,7 +8410,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_graph.c linux-2.6.37-rc
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_instmem.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_instmem.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_instmem.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_instmem.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_instmem.c	2010-11-20 14:43:51.000000000 +0100
 @@ -98,42 +98,66 @@
  }
  
@@ -8328,7 +8492,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_instmem.c linux-2.6.37-
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_pm.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_pm.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_pm.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_pm.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv04_pm.c	2010-11-20 14:43:51.000000000 +0100
 @@ -76,6 +76,15 @@
  		reg += 4;
  
@@ -8347,7 +8511,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv04_pm.c linux-2.6.37-rc2.n
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_fb.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_fb.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_fb.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_fb.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_fb.c	2010-11-20 14:43:51.000000000 +0100
 @@ -3,23 +3,109 @@
  #include "nouveau_drv.h"
  #include "nouveau_drm.h"
@@ -8501,7 +8665,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_fb.c linux-2.6.37-rc2.n
  }
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_fifo.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_fifo.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_fifo.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_fifo.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_fifo.c	2010-11-20 14:43:51.000000000 +0100
 @@ -73,17 +73,6 @@
  	return 0;
  }
@@ -8539,7 +8703,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_fifo.c linux-2.6.37-rc2
  		}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_graph.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_graph.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv10_graph.c	2010-11-20 14:43:51.000000000 +0100
 @@ -26,6 +26,10 @@
  #include "drm.h"
  #include "nouveau_drm.h"
@@ -8551,7 +8715,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
  
  #define NV10_FIFO_NUMBER 32
  
-@@ -786,7 +790,7 @@
+@@ -786,15 +790,13 @@
  	return 0;
  }
  
@@ -8560,7 +8724,15 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
  nv10_graph_context_switch(struct drm_device *dev)
  {
  	struct drm_nouveau_private *dev_priv = dev->dev_private;
-@@ -802,7 +806,7 @@
+-	struct nouveau_pgraph_engine *pgraph = &dev_priv->engine.graph;
+ 	struct nouveau_channel *chan = NULL;
+ 	int chid;
+ 
+-	pgraph->fifo_access(dev, false);
+ 	nouveau_wait_for_idle(dev);
+ 
+ 	/* If previous context is valid, we need to save it */
+@@ -802,11 +804,9 @@
  
  	/* Load context for next channel */
  	chid = (nv_rd32(dev, NV04_PGRAPH_TRAPPED_ADDR) >> 20) & 0x1f;
@@ -8568,8 +8740,12 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
 +	chan = dev_priv->channels.ptr[chid];
  	if (chan && chan->pgraph_ctx)
  		nv10_graph_load_context(chan);
+-
+-	pgraph->fifo_access(dev, true);
+ }
  
-@@ -833,7 +837,7 @@
+ #define NV_WRITE_CTX(reg, val) do { \
+@@ -833,7 +833,7 @@
  	if (chid >= dev_priv->engine.fifo.channels)
  		return NULL;
  
@@ -8578,7 +8754,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
  }
  
  int nv10_graph_create_context(struct nouveau_channel *chan)
-@@ -875,37 +879,54 @@
+@@ -875,37 +875,54 @@
  
  void nv10_graph_destroy_context(struct nouveau_channel *chan)
  {
@@ -8587,14 +8763,14 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
 +	struct nouveau_pgraph_engine *pgraph = &dev_priv->engine.graph;
  	struct graph_state *pgraph_ctx = chan->pgraph_ctx;
 +	unsigned long flags;
- 
++
 +	spin_lock_irqsave(&dev_priv->context_switch_lock, flags);
 +	pgraph->fifo_access(dev, false);
 +
 +	/* Unload the context if it's the currently active one */
 +	if (pgraph->channel(dev) == chan)
 +		pgraph->unload_context(dev);
-+
+ 
 +	/* Free the context resources */
  	kfree(pgraph_ctx);
  	chan->pgraph_ctx = NULL;
@@ -8643,7 +8819,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
  	nv_wr32(dev, NV03_PGRAPH_INTR   , 0xFFFFFFFF);
  	nv_wr32(dev, NV03_PGRAPH_INTR_EN, 0xFFFFFFFF);
  
-@@ -928,7 +949,7 @@
+@@ -928,7 +945,7 @@
  
  	/* Turn all the tiling regions off. */
  	for (i = 0; i < NV10_PFB_TILE__SIZE; i++)
@@ -8652,7 +8828,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
  
  	nv_wr32(dev, NV10_PGRAPH_CTX_SWITCH(0), 0x00000000);
  	nv_wr32(dev, NV10_PGRAPH_CTX_SWITCH(1), 0x00000000);
-@@ -948,11 +969,13 @@
+@@ -948,17 +965,17 @@
  
  void nv10_graph_takedown(struct drm_device *dev)
  {
@@ -8668,7 +8844,19 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
  {
  	struct drm_device *dev = chan->dev;
  	struct graph_state *ctx = chan->pgraph_ctx;
-@@ -1031,8 +1054,8 @@
+ 	struct pipe_state *pipe = &ctx->pipe_state;
+-	struct drm_nouveau_private *dev_priv = dev->dev_private;
+-	struct nouveau_pgraph_engine *pgraph = &dev_priv->engine.graph;
+ 	uint32_t pipe_0x0040[1], pipe_0x64c0[8], pipe_0x6a80[3], pipe_0x6ab0[3];
+ 	uint32_t xfmode0, xfmode1;
+ 	int i;
+@@ -1025,18 +1042,14 @@
+ 
+ 	nouveau_wait_for_idle(dev);
+ 
+-	pgraph->fifo_access(dev, true);
+-
+ 	return 0;
  }
  
  static int
@@ -8678,17 +8866,19 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
 +			   u32 class, u32 mthd, u32 data)
  {
  	struct drm_device *dev = chan->dev;
- 	struct drm_nouveau_private *dev_priv = dev->dev_private;
-@@ -1050,35 +1073,115 @@
- 	return 0;
- }
+-	struct drm_nouveau_private *dev_priv = dev->dev_private;
+-	struct nouveau_pgraph_engine *pgraph = &dev_priv->engine.graph;
  
--static struct nouveau_pgraph_object_method nv17_graph_celsius_mthds[] = {
--	{ 0x1638, nv17_graph_mthd_lma_window },
--	{ 0x163c, nv17_graph_mthd_lma_window },
--	{ 0x1640, nv17_graph_mthd_lma_window },
--	{ 0x1644, nv17_graph_mthd_lma_window },
--	{ 0x1658, nv17_graph_mthd_lma_enable },
+ 	nouveau_wait_for_idle(dev);
+ 
+@@ -1045,40 +1058,118 @@
+ 	nv_wr32(dev, 0x004006b0,
+ 		nv_rd32(dev, 0x004006b0) | 0x8 << 24);
+ 
+-	pgraph->fifo_access(dev, true);
++	return 0;
++}
++
 +static int
 +nv10_graph_register(struct drm_device *dev)
 +{
@@ -8734,11 +8924,17 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
 +	/* nvsw */
 +	NVOBJ_CLASS(dev, 0x506e, SW);
 +	NVOBJ_MTHD (dev, 0x506e, 0x0500, nv04_graph_mthd_page_flip);
-+
+ 
 +	dev_priv->engine.graph.registered = true;
-+	return 0;
-+}
-+
+ 	return 0;
+ }
+ 
+-static struct nouveau_pgraph_object_method nv17_graph_celsius_mthds[] = {
+-	{ 0x1638, nv17_graph_mthd_lma_window },
+-	{ 0x163c, nv17_graph_mthd_lma_window },
+-	{ 0x1640, nv17_graph_mthd_lma_window },
+-	{ 0x1644, nv17_graph_mthd_lma_window },
+-	{ 0x1658, nv17_graph_mthd_lma_enable },
 +struct nouveau_bitfield nv10_graph_intr[] = {
 +	{ NV_PGRAPH_INTR_NOTIFY, "NOTIFY" },
 +	{ NV_PGRAPH_INTR_ERROR,  "ERROR"  },
@@ -8824,7 +9020,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv10_graph.c linux-2.6.37-rc
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv20_graph.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv20_graph.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv20_graph.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv20_graph.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv20_graph.c	2010-11-20 14:43:51.000000000 +0100
 @@ -32,6 +32,10 @@
  #define NV34_GRCTX_SIZE    (18140)
  #define NV35_36_GRCTX_SIZE (22396)
@@ -9157,7 +9353,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv20_graph.c linux-2.6.37-rc
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv30_fb.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv30_fb.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv30_fb.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv30_fb.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv30_fb.c	2010-11-20 14:43:51.000000000 +0100
 @@ -29,6 +29,27 @@
  #include "nouveau_drv.h"
  #include "nouveau_drm.h"
@@ -9197,7 +9393,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv30_fb.c linux-2.6.37-rc2.n
  	if (dev_priv->chipset == 0x30 ||
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_fb.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_fb.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_fb.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_fb.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_fb.c	2010-11-20 14:43:51.000000000 +0100
 @@ -4,26 +4,22 @@
  #include "nouveau_drm.h"
  
@@ -9244,7 +9440,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_fb.c linux-2.6.37-rc2.n
  }
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_fifo.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_fifo.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_fifo.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_fifo.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_fifo.c	2010-11-20 14:43:51.000000000 +0100
 @@ -70,17 +70,6 @@
  	return 0;
  }
@@ -9282,7 +9478,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_fifo.c linux-2.6.37-rc2
  		}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_graph.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_graph.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_graph.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_graph.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv40_graph.c	2010-11-20 14:43:51.000000000 +0100
 @@ -29,6 +29,9 @@
  #include "nouveau_drv.h"
  #include "nouveau_grctx.h"
@@ -9553,7 +9749,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv40_graph.c linux-2.6.37-rc
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_calc.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_calc.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_calc.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_calc.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_calc.c	2010-11-20 14:43:51.000000000 +0100
 @@ -51,24 +51,28 @@
  	       int *N, int *fN, int *M, int *P)
  {
@@ -9591,7 +9787,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_calc.c linux-2.6.37-rc2
  	/* *N = floor(fb_div); */
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_crtc.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_crtc.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_crtc.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_crtc.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_crtc.c	2010-11-20 14:43:51.000000000 +0100
 @@ -437,6 +437,7 @@
  	.cursor_move = nv50_crtc_cursor_move,
  	.gamma_set = nv50_crtc_gamma_set,
@@ -9636,7 +9832,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_crtc.c linux-2.6.37-rc2
  
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_display.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_display.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_display.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_display.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_display.c	2010-11-20 14:43:51.000000000 +0100
 @@ -33,6 +33,8 @@
  #include "nouveau_ramht.h"
  #include "drm_crtc_helper.h"
@@ -10219,7 +10415,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_display.c linux-2.6.37-
 -
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_display.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_display.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_display.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_display.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_display.h	2010-11-20 14:43:51.000000000 +0100
 @@ -35,9 +35,7 @@
  #include "nouveau_crtc.h"
  #include "nv50_evo.h"
@@ -10232,7 +10428,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_display.h linux-2.6.37-
  int nv50_display_create(struct drm_device *dev);
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_evo.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_evo.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_evo.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_evo.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_evo.c	2010-11-20 14:43:51.000000000 +0100
 @@ -0,0 +1,318 @@
 +/*
 + * Copyright 2010 Red Hat Inc.
@@ -10554,7 +10750,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_evo.c linux-2.6.37-rc2.
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_evo.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_evo.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_evo.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_evo.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_evo.h	2010-11-20 14:43:51.000000000 +0100
 @@ -24,6 +24,15 @@
   *
   */
@@ -10578,7 +10774,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_evo.h linux-2.6.37-rc2.
 +#endif
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fb.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fb.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fb.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fb.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fb.c	2010-11-20 14:43:51.000000000 +0100
 @@ -3,30 +3,75 @@
  #include "nouveau_drv.h"
  #include "nouveau_drm.h"
@@ -10707,7 +10903,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fb.c linux-2.6.37-rc2.n
  		     "channel %d (0x%08x)\n",
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fbcon.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fbcon.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fbcon.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fbcon.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fbcon.c	2010-11-20 14:43:51.000000000 +0100
 @@ -4,26 +4,18 @@
  #include "nouveau_ramht.h"
  #include "nouveau_fbcon.h"
@@ -10841,7 +11037,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fbcon.c linux-2.6.37-rc
  int
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fifo.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fifo.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fifo.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fifo.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_fifo.c	2010-11-20 14:43:51.000000000 +0100
 @@ -44,7 +44,8 @@
  
  	/* We never schedule channel 0 or 127 */
@@ -10943,7 +11139,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_fifo.c linux-2.6.37-rc2
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_gpio.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_gpio.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_gpio.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_gpio.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_gpio.c	2010-11-20 14:43:51.000000000 +0100
 @@ -26,6 +26,28 @@
  #include "nouveau_drv.h"
  #include "nouveau_hw.h"
@@ -11182,7 +11378,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_gpio.c linux-2.6.37-rc2
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_graph.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_graph.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_graph.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_graph.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_graph.c	2010-11-20 14:43:51.000000000 +0100
 @@ -29,6 +29,11 @@
  #include "nouveau_drv.h"
  #include "nouveau_ramht.h"
@@ -11976,7 +12172,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_graph.c linux-2.6.37-rc
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_instmem.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_instmem.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_instmem.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_instmem.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv50_instmem.c	2010-11-20 14:43:51.000000000 +0100
 @@ -131,10 +131,10 @@
  	}
  
@@ -12258,7 +12454,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv50_instmem.c linux-2.6.37-
  void
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv84_crypt.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv84_crypt.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv84_crypt.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv84_crypt.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nv84_crypt.c	2010-11-20 14:43:51.000000000 +0100
 @@ -0,0 +1,137 @@
 +/*
 + * Copyright 2010 Red Hat Inc.
@@ -12399,7 +12595,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nv84_crypt.c linux-2.6.37-rc
 +}
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nvc0_instmem.c linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nvc0_instmem.c
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nvc0_instmem.c	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nvc0_instmem.c	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nvc0_instmem.c	2010-11-20 14:43:51.000000000 +0100
 @@ -26,67 +26,89 @@
  
  #include "nouveau_drv.h"
@@ -12574,7 +12770,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nvc0_instmem.c linux-2.6.37-
  void
 diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nvreg.h linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nvreg.h
 --- linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nvreg.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nvreg.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/drivers/gpu/drm/nouveau/nvreg.h	2010-11-20 14:43:51.000000000 +0100
 @@ -153,7 +153,8 @@
  #define NV_PCRTC_START					0x00600800
  #define NV_PCRTC_CONFIG					0x00600804
@@ -12587,7 +12783,7 @@ diff -Naur linux-2.6.37-rc2/drivers/gpu/drm/nouveau/nvreg.h linux-2.6.37-rc2.nou
  #	define NV_PCRTC_CURSOR_CONFIG_DOUBLE_SCAN_ENABLE	(1 << 4)
 diff -Naur linux-2.6.37-rc2/include/drm/nouveau_drm.h linux-2.6.37-rc2.nouveau/include/drm/nouveau_drm.h
 --- linux-2.6.37-rc2/include/drm/nouveau_drm.h	2010-11-16 03:31:02.000000000 +0100
-+++ linux-2.6.37-rc2.nouveau/include/drm/nouveau_drm.h	2010-11-17 02:20:11.000000000 +0100
++++ linux-2.6.37-rc2.nouveau/include/drm/nouveau_drm.h	2010-11-20 14:43:51.000000000 +0100
 @@ -71,15 +71,14 @@
  #define NOUVEAU_GETPARAM_PCI_VENDOR      3
  #define NOUVEAU_GETPARAM_PCI_DEVICE      4
