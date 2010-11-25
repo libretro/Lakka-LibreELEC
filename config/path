@@ -85,7 +85,8 @@ SED="sed -i"
   [ -r $PKG_DIR/meta ] && . $PKG_DIR/meta
   [ "$PKG_IS_ADDON" = "yes" ] && PKG_ADDON_ID="addon.$PKG_SECTION.$PKG_NAME"
 
-  PKG_BUILD=`[ -d $BUILD/${PKG_NAME}*${PKG_VERSION} ] && ls -d $BUILD/${PKG_NAME}*${PKG_VERSION} || echo ""`
+  [ -d $BUILD/${PKG_NAME}[-_.]${PKG_VERSION} ] && PKG_BUILD=`ls -d $BUILD/${PKG_NAME}[-_.]${PKG_VERSION}`
+  [ -d $BUILD/${PKG_NAME}${PKG_VERSION} ] && PKG_BUILD=`ls -d $BUILD/${PKG_NAME}${PKG_VERSION}`
 
 XORG_PATH_ENCODINGS=/usr/share/X11/encodings
 XORG_PATH_FONTS=/usr/share/X11/fonts
@@ -107,7 +108,13 @@ if [ "$OPTIMIZATIONS" = speed ];then
   GCC_OPTIM="$GCC_OPTIM -floop-strip-mine"
   GCC_OPTIM="$GCC_OPTIM -floop-block"
   GCC_OPTIM="$GCC_OPTIM -fgraphite-identity"
-else
+fi
+
+if [ "$OPTIMIZATIONS" = normal ];then
+  GCC_OPTIM="-O2 -ffast-math $PROJECT_CFLAGS"
+fi
+
+if [ "$OPTIMIZATIONS" = size ];then
   GCC_OPTIM="-Os -ffast-math $PROJECT_CFLAGS"
   GCC_OPTIM="$GCC_OPTIM -ftree-loop-distribution"
   GCC_OPTIM="$GCC_OPTIM -floop-interchange"
@@ -149,9 +156,9 @@ if [ "$DEBUG" = yes ]; then
   TARGET_CXXFLAGS="$TARGET_CXXFLAGS -ggdb"
   TARGET_LDFLAGS="$TARGET_LDFLAGS -ggdb"
 else
-  TARGET_CFLAGS="$TARGET_CFLAGS -s -fomit-frame-pointer"
-  TARGET_CXXFLAGS="$TARGET_CXXFLAGS -s -fomit-frame-pointer"
-  TARGET_LDFLAGS="$TARGET_LDFLAGS -s -Wl,--as-needed"
+  TARGET_CFLAGS="$TARGET_CFLAGS -s -fuse-linker-plugin -fomit-frame-pointer"
+  TARGET_CXXFLAGS="$TARGET_CXXFLAGS -s -fuse-linker-plugin -fomit-frame-pointer"
+  TARGET_LDFLAGS="$TARGET_LDFLAGS -s -fuse-linker-plugin -fuse-ld=gold -Wl,--as-needed"
 fi
 
 HOST_AWK=gawk
@@ -186,23 +193,6 @@ export PKG_CONFIG=$ROOT/$TOOLCHAIN/bin/pkg-config
 
 if [ -z "$PATH" -o "$PATH" = "${PATH#$ROOT/$TOOLCHAIN/bin:}" ]; then
   export PATH="$ROOT/$TOOLCHAIN/bin:$PATH"
-fi
-
-if [ -f $ROOT/$TOOLCHAIN/bin/libtool ]; then
-  export LIBTOOL=$ROOT/$TOOLCHAIN/bin/libtool
-  export LIBTOOLIZE=$ROOT/$TOOLCHAIN/bin/libtoolize
-fi
-
-if [ -f $ROOT/$TOOLCHAIN/bin/automake ]; then
-  export AUTOMAKE=$ROOT/$TOOLCHAIN/bin/automake
-  export ACLOCAL_DIR=$SYSROOT_PREFIX/usr/share/aclocal
-  export ACLOCAL="$ROOT/$TOOLCHAIN/bin/aclocal -I $ACLOCAL_DIR"
-fi
-
-if [ -f $ROOT/$TOOLCHAIN/bin/autoconf ]; then
-  export AUTOCONF=$ROOT/$TOOLCHAIN/bin/autoconf
-  export AUTOHEADER=$ROOT/$TOOLCHAIN/bin/autoheader
-  export AUTORECONF="$ROOT/$TOOLCHAIN/bin/autoreconf -v -f -i -I $ACLOCAL_DIR"
 fi
 
 VERSION_SUFFIX=$TARGET_ARCH
