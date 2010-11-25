@@ -5,6 +5,8 @@ setup_toolchain() {
   fi
 
   if [ "$1" = target ]; then
+    export DESTIMAGE="target"
+
     export CC=$TARGET_CC
     export CXX=$TARGET_CXX
     export LD=$TARGET_LD
@@ -26,6 +28,8 @@ setup_toolchain() {
     export CMAKE_CONF=$ROOT/$TOOLCHAIN/etc/cmake-$TARGET_NAME.conf
 
   elif [ "$1" = host ]; then
+    export DESTIMAGE="host"
+
     export AWK=$HOST_AWK
     export CC=$HOST_CC
     export CXX=$HOST_CXX
@@ -109,4 +113,43 @@ get_version() {
   fi
 
   TARGET_VERSION="$PROJECT.$TARGET_ARCH-$OPENELEC_VERSION"
+}
+
+do_autoreconf() {
+  if [ -e $ROOT/$TOOLCHAIN/bin/autoreconf ] &&
+     [ -e $ROOT/$TOOLCHAIN/bin/autoconf ] &&
+     [ -e $ROOT/$TOOLCHAIN/bin/automake ] &&
+     [ -e $ROOT/$TOOLCHAIN/bin/libtoolize ] &&
+     [ -e $ROOT/$TOOLCHAIN/bin/intltoolize ]; then
+       export LIBTOOL=$ROOT/$TOOLCHAIN/bin/libtool
+       export LIBTOOLIZE=$ROOT/$TOOLCHAIN/bin/libtoolize
+       export AUTOMAKE=$ROOT/$TOOLCHAIN/bin/automake
+       export ACLOCAL_DIR=$SYSROOT_PREFIX/usr/share/aclocal
+       export ACLOCAL="$ROOT/$TOOLCHAIN/bin/aclocal -I $ACLOCAL_DIR"
+       export AUTOCONF=$ROOT/$TOOLCHAIN/bin/autoconf
+       export AUTOHEADER=$ROOT/$TOOLCHAIN/bin/autoheader
+       export AUTORECONF="$ROOT/$TOOLCHAIN/bin/autoreconf -v -f -i -I $ACLOCAL_DIR"
+
+       mkdir -p $ACLOCAL_DIR
+       autoreconf --verbose --force --install -I $ACLOCAL_DIR $@
+  fi
+}
+
+strip_lto() {
+  # strip out LTO optimization from *FLAGS
+  CFLAGS=`echo $CFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-flto||" -e "s|-fuse-linker-plugin||"`
+}
+
+strip_gold() {
+  # strip out usage from GOLD linker
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-fuse-ld=gold||"`
+}
+
+strip_linker_plugin() {
+  # strip out usage from linker plugin
+  CFLAGS=`echo $CFLAGS | sed -e "s|-fuse-linker-plugin||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-fuse-linker-plugin||"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-fuse-linker-plugin||"`
 }
