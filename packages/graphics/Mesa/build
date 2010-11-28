@@ -2,23 +2,19 @@
 
 . config/options $1
 
-$SCRIPTS/build libxml2-host
-$SCRIPTS/build talloc
-$SCRIPTS/build expat
-$SCRIPTS/build glproto
-$SCRIPTS/build dri2proto
-$SCRIPTS/build $LIBDRM
-$SCRIPTS/build libXext
-$SCRIPTS/build libXdamage
-$SCRIPTS/build libXfixes
-$SCRIPTS/build libXxf86vm
-$SCRIPTS/build libxcb
-$SCRIPTS/build libX11
-
 get_graphicdrivers
 
-MESA_CONFIG="--disable-gallium-nouveau --disable-gallium-i915 --disable-gallium-i965"
-MESA_CONFIG="$MESA_CONFIG --disable-gallium-radeon --disable-gallium-r600 --disable-gallium-svga"
+# dont use gold linker because of compiling issues
+  strip_gold
+  strip_linker_plugin
+  strip_lto # Mesa fails to build with LTO optimization
+
+# dont use strip or ggdb because of use from mklib
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-s | |"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-ggdb | |"`
+
+MESA_CONFIG=" --disable-gallium --disable-gallium-nouveau --disable-gallium-i915 --disable-gallium-i965"
+MESA_CONFIG="$MESA_CONFIG --disable-gallium-radeon --disable-gallium-r600 --disable-gallium-svga --disable-gallium-swrast"
 
 for drv in $GRAPHIC_DRIVERS; do
   [ $drv = i915 ] && \
@@ -34,11 +30,19 @@ for drv in $GRAPHIC_DRIVERS; do
     MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-r600/disable-gallium-r600/'`
 
   [ $drv = nouveau ] && \
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-nouveau/enable-gallium-nouveau/'`
-    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx"
+    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium/enable-gallium/'` && \
+    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-nouveau/enable-gallium-nouveau/'` && \
+    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx,xorg"
+
+  [ $drv = vmware ] && \
+    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium/enable-gallium/'` && \
+    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-svga/enable-gallium-svga/'` && \
+    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx,xorg"
 done
 
 cd $PKG_BUILD
+
+make clean
 
 HOST_CC=$HOST_CC \
 HOST_OPT_FLAGS="$HOST_CFLAGS" \

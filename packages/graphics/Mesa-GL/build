@@ -1,0 +1,50 @@
+#!/bin/sh
+
+. config/options $1
+
+$SCRIPTS/unpack Mesa
+
+# dont use gold linker because of compiling issues
+  strip_gold
+  strip_linker_plugin
+
+cd $BUILD/Mesa*
+
+do_autoreconf
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --prefix=/usr \
+            --sysconfdir=/etc \
+            --localstatedir=/var \
+            --disable-static \
+            --enable-shared \
+            --disable-debug \
+            --disable-selinux \
+            --enable-xcb \
+            --disable-glx-tls \
+            --enable-driglx-direct \
+            --disable-egl \
+            --disable-glu \
+            --disable-gl-osmesa \
+            --disable-glut \
+            --disable-glw \
+            --disable-motif \
+            --with-driver=dri \
+            --with-dri-drivers="" \
+            --disable-gallium
+
+  make -C src/glx
+  make -C src/mesa gl.pc
+  make -C src/mesa/drivers/dri dri.pc
+
+  mkdir -p $SYSROOT_PREFIX/usr/include/GL
+    cp include/GL/*.h $SYSROOT_PREFIX/usr/include/GL
+  mkdir -p $SYSROOT_PREFIX/usr/lib
+    cp -P lib/libGL.so* $SYSROOT_PREFIX/usr/lib/pkgconfig
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp src/mesa/gl.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+
+  mkdir -p $SYSROOT_PREFIX/usr/include/GL/internal
+    cp include/GL/internal/dri_interface.h $SYSROOT_PREFIX/usr/include/GL/internal
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp src/mesa/drivers/dri/dri.pc $SYSROOT_PREFIX/usr/lib/pkgconfig

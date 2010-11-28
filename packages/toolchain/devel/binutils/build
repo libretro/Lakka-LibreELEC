@@ -2,23 +2,19 @@
 
 . config/options $1
 
-$SCRIPTS/install ccache
-$SCRIPTS/install linux-headers
-$SCRIPTS/build gmp
-$SCRIPTS/build mpfr
-$SCRIPTS/build ppl
-$SCRIPTS/build cloog-ppl
-$SCRIPTS/build libelf
-
 if [ $TARGET_ARCH = "x86_64" ]; then
   WITH_64B_BFD="--enable-64-bit-bfd"
 fi
 
 setup_toolchain host
 
+CPPFLAGS=""
+CFLAGS=""
+CXXFLAGS=""
+LDFLAGS=""
+
 cd $PKG_BUILD
-mkdir -p objdir
-cd objdir
+mkdir -p objdir && cd objdir
 ../configure --host=$HOST_NAME \
              --build=$HOST_NAME \
              --target=$TARGET_NAME \
@@ -35,6 +31,9 @@ cd objdir
              --disable-libssp \
              --enable-version-specific-runtime-libs \
              $WITH_64B_BFD \
+             --enable-plugins \
+             --enable-gold=both/ld \
+             --enable-lto \
              --disable-nls
 
 make configure-host
@@ -44,7 +43,5 @@ cp -v ../include/libiberty.h $SYSROOT_PREFIX/usr/include
 
 make install
 
-# add a link named 'strip' in the toolchain, it overrides the host
-# 'strip' with `install -s`
-  ln -s $TARGET_NAME-strip $ROOT/$TOOLCHAIN/bin/strip
-
+cp ${TARGET_PREFIX}ld.gold ${TARGET_PREFIX}gold
+cp $ROOT/$TOOLCHAIN/$TARGET_NAME/bin/ld.gold $ROOT/$TOOLCHAIN/$TARGET_NAME/bin/gold

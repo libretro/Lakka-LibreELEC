@@ -8,12 +8,20 @@ else
   BUSYBOX_CFG_FILE=$ROOT/$PKG_DIR/config/$1.conf
 fi
 
+# optimize for size
+  CFLAGS=`echo $CFLAGS | sed -e "s|-O.|-Os|"`
+
+LDFLAGS="$LDFLAGS -fwhole-program"
+
 cd $BUILD/busybox*
 
 # Build Busybox for system
   make distclean
   cp $BUSYBOX_CFG_FILE .config
-  [ -n "$TIMEZONE" ] && sed -i -e 's/^# CONFIG_HWCLOCK .*$/CONFIG_HWCLOCK=yes/g' -e 's/^# CONFIG_FEATURE_HWCLOCK_LONG_OPTIONS .*/CONFIG_FEATURE_HWCLOCK_LONG_OPTIONS=yes/g' $BUSYBOX/.config
   make oldconfig
 
-  ARCH=$TARGET_ARCH make install
+  make ARCH=$TARGET_ARCH \
+       HOSTCC=$HOST_CC \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       KBUILD_VERBOSE="1" \
+       install

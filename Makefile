@@ -1,18 +1,24 @@
 BUILD_DIRS="build.*"
 
-all: system
+all: squashfs
 
 system:
-	./scripts/install image system
+	./scripts/image
 
 release:
-	./scripts/install image release
+	./scripts/image_release
 
-addons:
-	./scripts/install image addons
+squashfs:
+	./scripts/image_squashfs
 
 qemu:
-	./scripts/install image qemu
+	./scripts/image_qemu
+
+vmware:
+	./scripts/image_vmware
+
+addons:
+	./scripts/image_addons
 
 clean:
 	rm -rf $(BUILD_DIRS)

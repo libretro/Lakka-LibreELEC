@@ -2,30 +2,17 @@
 
 . config/options $1
 
-$SCRIPTS/build binutils
-$SCRIPTS/build gmp
-$SCRIPTS/build mpfr
-$SCRIPTS/build mpc
-$SCRIPTS/build ppl
-$SCRIPTS/build cloog-ppl
-$SCRIPTS/build libelf
-$SCRIPTS/build eglibc
 $SCRIPTS/unpack gcc
 
 setup_toolchain host
 
 cd $BUILD/gcc*
-
-mkdir -p objdir-$1
-cd objdir-$1
-
+mkdir -p objdir-$1 && cd objdir-$1
 ../configure --host=$HOST_NAME \
              --build=$HOST_NAME \
              --target=$TARGET_NAME \
              --prefix=$ROOT/$TOOLCHAIN \
              --with-sysroot=$SYSROOT_PREFIX \
-             --with-as=$TARGET_AS \
-             --with-ld=$TARGET_LD \
              --with-gmp=$ROOT/$TOOLCHAIN \
              --with-mpfr=$ROOT/$TOOLCHAIN \
              --with-mpc=$ROOT/$TOOLCHAIN \
@@ -33,12 +20,17 @@ cd objdir-$1
              --with-cloog=$ROOT/$TOOLCHAIN \
              --with-libelf=$ROOT/$TOOLCHAIN \
              --enable-languages=${TOOLCHAIN_LANGUAGES} \
+             --with-gnu-as \
+             --with-gnu-ld \
              --enable-__cxa_atexit \
              --disable-libada \
              --enable-decimal-float \
              --disable-libmudflap \
              --disable-libssp \
              --disable-multilib \
+             --enable-gold=both/ld \
+             --enable-plugin \
+             --enable-lto \
              --enable-tls \
              --enable-shared \
              --enable-c99 \
@@ -51,3 +43,27 @@ make
 make install
 cp -PR $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.so* $SYSROOT_PREFIX/usr/lib
 
+GCC_VERSION=`$ROOT/$TOOLCHAIN/$TARGET_NAME/bin/gcc -dumpversion`
+DATE="0501`echo $GCC_VERSION | sed 's/\([0-9]\)/0\1/g' | sed 's/\.//g'`"
+CROSS_CC=$TARGET_CC-$GCC_VERSION
+CROSS_CXX=$TARGET_CXX-$GCC_VERSION
+
+rm -f $TARGET_CC
+cat > $TARGET_CC <<EOF
+#!/bin/sh
+$ROOT/$TOOLCHAIN/bin/ccache $CROSS_CC "\$@"
+EOF
+chmod +x $TARGET_CC
+
+# To avoid cache trashing
+  touch -c -t $DATE $CROSS_CC
+
+[ ! -f "$CROSS_CXX" ] && mv $TARGET_CXX $CROSS_CXX
+cat > $TARGET_CXX <<EOF
+#!/bin/sh
+$ROOT/$TOOLCHAIN/bin/ccache $CROSS_CXX "\$@"
+EOF
+chmod +x $TARGET_CXX
+
+# To avoid cache trashing
+  touch -c -t $DATE $CROSS_CXX
