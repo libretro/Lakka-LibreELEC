@@ -24,6 +24,14 @@ import dbus.mainloop.glib
 import gobject
 import time
 
+WPAS_DBUS_SERVICE = "fi.w1.wpa_supplicant1"
+WPAS_DBUS_INTERFACE = "fi.w1.wpa_supplicant1"
+WPAS_DBUS_PATH = "/fi/w1/wpa_supplicant1"
+
+WPAS_DBUS_INTERFACES_INTERFACE = "fi.w1.wpa_supplicant1.Interface"
+WPAS_DBUS_INTERFACES_OPATH = "/fi/w1/wpa_supplicant1/Interfaces"
+WPAS_DBUS_BSS_INTERFACE = "fi.w1.wpa_supplicant1.BSS"
+
 stamp = False
 
 class ArgumentException(Exception):
@@ -43,8 +51,8 @@ def get_manager(bus=None):
 	if bus == None:
 		bus = get_bus()
 
-	return dbus.Interface(bus.get_object("org.moblin.connman", "/"),
-			      "org.moblin.connman.Manager")
+	return dbus.Interface(bus.get_object("net.connman", "/"),
+			      "net.connman.Manager")
 
 def usage(name):
 	print "Usage: %s <command>" % (name)
@@ -66,6 +74,9 @@ def usage(name):
 	print "  modem list"
 	print "  modem pin <number>"
 	print "  modem puk <number>"
+	print "  wpas list"
+	print "  wpas networks"
+	print "  wpas bss"
 	print ""
 	print "Properties:"
 	print "  apn <name>"
@@ -78,12 +89,21 @@ def usage(name):
 	return
 
 def is_connected(state):
-	connected = [ "ready", "online"]
+	connected = [ "ready", "offline", "online"]
 
 	if state in connected:
 		return True
 	else:
 		return False
+
+def is_associating(state):
+	return state == "association"
+
+def is_configuration(state):
+	return state == "configuration"
+
+def is_failed(state):
+	return state == "failure"
 
 def find_service(name):
 	bus = get_bus()
@@ -93,9 +113,9 @@ def find_service(name):
 	path = "/profile/default/" + name
 
 	if path in manager_properties["Services"]:
-		service = dbus.Interface(bus.get_object("org.moblin.connman",
+		service = dbus.Interface(bus.get_object("net.connman",
 							path),
-					 "org.moblin.connman.Service")
+					 "net.connman.Service")
 		return service
 
 	# service not found with the path, let's try find it with name
@@ -103,9 +123,9 @@ def find_service(name):
 	found = []
 
 	for path in manager_properties["Services"]:
-		service = dbus.Interface(bus.get_object("org.moblin.connman",
+		service = dbus.Interface(bus.get_object("net.connman",
 							path),
-					 "org.moblin.connman.Service")
+					 "net.connman.Service")
 
 		properties = service.GetProperties()
 
@@ -125,9 +145,9 @@ def get_service_name(path):
 	bus = get_bus()
 
 	try:
-		service = dbus.Interface(bus.get_object("org.moblin.connman",
+		service = dbus.Interface(bus.get_object("net.connman",
 							path),
-					 "org.moblin.connman.Service")
+					 "net.connman.Service")
 		properties = service.GetProperties()
 		name = properties["Name"]
 		if len(name) == 0:
@@ -141,6 +161,8 @@ def get_service_name(path):
 def extract_dict(values):
 	s = ""
 	for k, v in values.items():
+		if type(v) is dbus.Array:
+			v = extract_list(v)
 		s += " %s=%s" % (k,v)
 	return "{ %s }" % s
 
@@ -174,15 +196,15 @@ def get_devices():
 
 	properties = manager.GetProperties()
 	for path in properties["Technologies"]:
-		technology = dbus.Interface(bus.get_object("org.moblin.connman",
+		technology = dbus.Interface(bus.get_object("net.connman",
 							   path),
-					    "org.moblin.connman.Technology")
+					    "net.connman.Technology")
 		properties = technology.GetProperties()
 
 		for path in properties["Devices"]:
-			d = dbus.Interface(bus.get_object("org.moblin.connman",
+			d = dbus.Interface(bus.get_object("net.connman",
 							  path),
-					   "org.moblin.connman.Device")
+					   "net.connman.Device")
 			result.append(d)
 
 	return result
@@ -215,16 +237,23 @@ def cmd_services():
 	manager_properties = manager.GetProperties()
 
 	for path in manager_properties["Services"]:
-		service = dbus.Interface(bus.get_object("org.moblin.connman",
+		service = dbus.Interface(bus.get_object("net.connman",
 							path),
-					 "org.moblin.connman.Service")
+					 "net.connman.Service")
 
 		properties = service.GetProperties()
 
 		identifier = path[path.rfind("/") + 1:]
+		state = properties["State"]
 
-		if is_connected(properties["State"]):
+		if is_connected(state):
 			connected = "*"
+		elif is_configuration(state):
+			connected = "+"
+		elif is_associating(state):
+			connected = "-"
+		elif is_failed(state):
+			connected = "f"
 		else:
 			connected = " "
 
@@ -459,6 +488,7 @@ def cmd_show(argv):
 
 	order = [ "Name", "Type", "State", "Strength", "Mode", "Security",
 		  "IPv4", "IPv4.Configuration",
+		  "IPv6", "IPv6.Configuration",
 		  "Ethernet",
 		  "Nameservers", "Nameservers.Configuration",
 		  "Domains", "Domains.Configuration",
@@ -469,16 +499,18 @@ def cmd_show(argv):
 
 	keys = properties.keys()
 
+	print "[ %s ]" % service.object_path
+
 	for key in order:
 		if key in keys:
 			keys.remove(key)
 			val = convert_dbus_value(properties[key])
-			print "%s: %s" % (key, val)
+			print "  %s = %s" % (key, val)
 
 	# print properties missing in the order
 	for key in keys:
 		val = convert_dbus_value(properties[key])
-		print "%s: %s" % (key, val)
+		print "  %s = %s" % (key, val)
 
 def connman_property_changed(name, value, path, interface):
 	global stamp
@@ -488,11 +520,11 @@ def connman_property_changed(name, value, path, interface):
 	else:
 		timestamp = ""
 
-	if interface == "org.moblin.connman.Service":
+	if interface == "net.connman.Service":
 		val = convert_dbus_value(value)
 		print "%s[%s] %s: %s" % (timestamp, get_service_name(path),
 					  name, val)
-	elif interface == "org.moblin.connman.Manager":
+	elif interface == "net.connman.Manager":
 		val = convert_dbus_value(value)
 		print "%s%s: %s" % (timestamp, name, val)
 
@@ -504,7 +536,7 @@ def cmd_event(argv):
 
 	bus = get_bus(async=True)
 	bus.add_signal_receiver(connman_property_changed,
-				bus_name="org.moblin.connman",
+				bus_name="net.connman",
 				signal_name = "PropertyChanged",
 				path_keyword="path",
 				interface_keyword="interface")
@@ -525,22 +557,16 @@ def print_sms_manager(path):
 		value = convert_dbus_value(properties[key])
 		print "        %s = %s" % (key, value)
 
-def print_context(path):
-	bus = get_bus()
-	interface = "org.ofono.PrimaryDataContext"
-	manager = dbus.Interface(bus.get_object("org.ofono", path),
-				 interface)
-
+def print_context(path, properties):
 	print "        [ %s ]" % path
 
-	properties = manager.GetProperties()
 	for key in properties.keys():
 		value = convert_dbus_value(properties[key])
 		print "            %s = %s" % (key, value)
 
 def print_data_manager(path):
 	bus = get_bus()
-	interface = "org.ofono.DataConnectionManager"
+	interface = "org.ofono.ConnectionManager"
 	manager = dbus.Interface(bus.get_object("org.ofono", path),
 				 interface)
 
@@ -551,11 +577,10 @@ def print_data_manager(path):
 		value = convert_dbus_value(properties[key])
 		print "        %s = %s" % (key, value)
 
-	if "PrimaryContexts" not in properties:
-		return
+	contexts = manager.GetContexts()
 
-	for context in properties["PrimaryContexts"]:
-		print_context(context)
+	for path, properties in contexts:
+		print_context(path, properties)
 
 def print_cell_broadcast(path):
 	bus = get_bus()
@@ -609,14 +634,9 @@ def print_sim_manager(path):
 		value = convert_dbus_value(properties[key])
 		print "        %s = %s" % (key, value)
 
-def print_modem(path):
-	bus = get_bus()
-	manager = dbus.Interface(bus.get_object("org.ofono", path),
-				 "org.ofono.Modem")
-
+def print_modem(path, properties):
 	print "[ %s ]" % path
 
-	properties = manager.GetProperties()
 	for key in properties.keys():
 		value = convert_dbus_value(properties[key])
 		print "    %s = %s" % (key, value)
@@ -627,7 +647,7 @@ def print_modem(path):
 	for interface in properties["Interfaces"]:
 		if interface == "org.ofono.SmsManager":
 			print_sms_manager(path)
-		elif interface == "org.ofono.DataConnectionManager":
+		elif interface == "org.ofono.ConnectionManager":
 			print_data_manager(path)
 		elif interface == "org.ofono.CellBroadcast":
 			print_cell_broadcast(path)
@@ -642,16 +662,18 @@ def cmd_modem_list(argv):
 	bus = get_bus()
 	manager = dbus.Interface(bus.get_object("org.ofono", "/"),
 				 "org.ofono.Manager")
-	properties = manager.GetProperties()
 
-	if "Modems" not in properties or len(properties["Modems"]) == 0:
+	try:
+		modems = manager.GetModems()
+	except dbus.exceptions.DBusException as e:
+		raise ArgumentException("Failed to contact ofonod:", e)
+
+	if len(modems) == 0:
 		print "No modems found"
 		return
 
-	modems = properties["Modems"]
-
-	for path in modems:
-		print_modem(path)
+	for path, properties in modems:
+		print_modem(path, properties)
 
 def cmd_modem_pin(pin_type, argv):
 	if len(argv) < 1:
@@ -662,13 +684,13 @@ def cmd_modem_pin(pin_type, argv):
 	bus = get_bus()
 	manager = dbus.Interface(bus.get_object("org.ofono", "/"),
 				 "org.ofono.Manager")
-	properties = manager.GetProperties()
+	modems = manager.GetModems()
 
-	if "Modems" not in properties or len(properties["Modems"]) == 0:
+	if len(modems) == 0:
 		print "No modems found"
 		return
 
-	modem = properties["Modems"][0]
+	(modem, properties) = modems[0]
 
 	print "Using modem %s" % modem
 
@@ -683,8 +705,9 @@ def cmd_modem_pin(pin_type, argv):
 		return
 
 	if properties["PinRequired"] != pin_type:
-		print "pin type '%s' not required by modem (%s)" % (pin_type,
-								    properties["PinRequired"])
+		print "pin type '%s' not required by modem %s (%s)" % (pin_type,
+								       modem,
+								       properties["PinRequired"])
 		return
 	try:
 		sim_manager.EnterPin(pin_type, pin)
@@ -703,6 +726,124 @@ def cmd_modem(argv):
 		cmd_modem_pin(cmd, argv)
 	else:
 		raise ArgumentException("unknown modem commmand: %s" % cmd)
+
+def print_wpas_network_properties(properties):
+	print "  Properties = {"
+
+	for p in properties:
+		print "    %s = %s" % (p, convert_dbus_value(properties[p]))
+
+	print "  }"
+
+def print_wpas_network(props):
+	for prop in props:
+		if prop == "Properties":
+			print_wpas_network_properties(props["Properties"])
+		else:
+			print "  %s = %s" % (prop,
+					     convert_dbus_value(props[prop]))
+
+def print_wpas_networks(networks):
+	bus = get_bus()
+
+        for path in networks:
+		print
+		network = bus.get_object("fi.w1.wpa_supplicant1", path)
+		props = network.GetAll("fi.w1.wpa_supplicant1.Network",
+				       dbus_interface=dbus.PROPERTIES_IFACE)
+		print "[ %s ]" % path
+		print_wpas_network(props)
+
+def print_wpas_bss(props):
+	for prop in props:
+		if prop in ["RSN", "IEs", "Rates"]:
+			pass
+		elif prop in ["SSID", "BSSID"]:
+			print "  %s =" % prop,
+
+			for b in props[prop]:
+				print "%x" % b,
+
+			print
+		else:
+			print "  %s = %s" % (prop,
+					       convert_dbus_value(props[prop]))
+
+def print_wpas_bsss(bsss):
+	bus = get_bus()
+
+	for path in bsss:
+		print
+		bss = bus.get_object("fi.w1.wpa_supplicant1", path)
+		props = bss.GetAll("fi.w1.wpa_supplicant1.BSS",
+				   dbus_interface=dbus.PROPERTIES_IFACE)
+		print "[ %s ]" % path
+		print_wpas_bss(props)
+
+def print_wpas_interface(props):
+    for prop in props:
+	    if prop == "Capabilities":
+		    pass
+	    else:
+		    print "  %s = %s" % (prop, convert_dbus_value(props[prop]))
+
+def print_wpas(props):
+	print "[ %s ]" % WPAS_DBUS_PATH
+
+	for prop in props:
+		print "  %s = %s " % (prop, convert_dbus_value(props[prop]))
+
+def cmd_wpas_list(argv, show_bss=False, show_networks=False):
+	bus = get_bus()
+	wpas = bus.get_object(WPAS_DBUS_SERVICE, WPAS_DBUS_PATH)
+
+	try:
+		props = wpas.GetAll("fi.w1.wpa_supplicant1",
+				    dbus_interface=dbus.PROPERTIES_IFACE)
+	except dbus.exceptions.DBusException as e:
+		raise ArgumentException("Failed to contact wpasupplicant: %s"
+					"\nAre you root?" % e)
+
+
+	print_wpas(props)
+
+	if "Interfaces" not in props:
+		raise ArgumentException("No Interfaces in properties")
+
+	bsss = []
+	networks = []
+
+	for path in props["Interfaces"]:
+		print
+		print "[ %s ]" % path
+		interface = bus.get_object("fi.w1.wpa_supplicant1", path)
+		props = interface.GetAll("fi.w1.wpa_supplicant1.Interface",
+					 dbus_interface=dbus.PROPERTIES_IFACE)
+		print_wpas_interface(props)
+
+		bsss = bsss + props["BSSs"]
+		networks = networks + props["Networks"]
+
+	if show_bss:
+		print_wpas_bsss(bsss)
+
+	if show_networks:
+		print_wpas_networks(networks)
+
+def cmd_wpas(argv):
+	if len(argv) < 1:
+		raise ArgumentException("wpas command missing")
+	
+	cmd = argv.pop(0)
+
+	if cmd == "list":
+		cmd_wpas_list(argv)
+	elif cmd == "networks":
+		cmd_wpas_list(argv, show_networks=True)
+	elif cmd == "bss":
+		cmd_wpas_list(argv, show_bss=True, show_networks=True)
+	else:
+		raise ArgumentException("unknown wpas commmand: %s" % cmd)
 
 def cmd_connect_hidden(argv):
 
@@ -762,6 +903,8 @@ def handle_cmd(cmd, argv, name):
 		cmd_event(argv)
 	elif cmd == "modem":
 		cmd_modem(argv)
+	elif cmd == "wpas":
+		cmd_wpas(argv)
 	elif cmd == "connect-hidden":
 		cmd_connect_hidden(argv)
 	else:
