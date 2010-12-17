@@ -2,6 +2,12 @@
 
 . config/options $1
 
+if [ "$XBMC_VIS_PROJECTM" = yes ]; then
+  XBMC_PROJECTM="--enable-xbmcprojectm"
+else
+  XBMC_PROJECTM="--disable-xbmcprojectm"
+fi
+
 if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
   XBMC_PULSEAUDIO="--enable-pulse"
 else
@@ -58,6 +64,8 @@ fi
 
 # xbmc (ffmpeg) fails to build with LTO optimization
   strip_lto
+  strip_gold
+  strip_linker_plugin
 
 # dont use some optimizations because of problems
 # this fixes problems with faac implementation of ffmpeg
@@ -81,9 +89,13 @@ fi
 
 cd $PKG_BUILD
 
-./bootstrap
-
-$AUTORECONF xbmc/lib/libid3tag/libid3tag
+do_autoreconf
+do_autoreconf lib/cpluff
+[ -d lib/libass ] && do_autoreconf lib/libass
+[ -d xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss ] && do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss
+do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdread
+do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdnav
+do_autoreconf xbmc/lib/libid3tag/libid3tag
 
 ./configure --host=$TARGET_NAME \
             --build=$HOST_NAME \
@@ -93,7 +105,7 @@ $AUTORECONF xbmc/lib/libid3tag/libid3tag
             --exec-prefix=/usr \
             --sysconfdir=/etc \
             --datadir=/usr/share \
-            SVN_REV=$PKG_VERSION \
+            SVN_REV=`cat svn.version` \
             --disable-debug \
             --disable-optimizations \
             --enable-gl \
@@ -105,7 +117,7 @@ $AUTORECONF xbmc/lib/libid3tag/libid3tag
             --enable-joystick \
             --enable-xrandr \
             --disable-goom \
-            --disable-xbmcprojectm \
+            $XBMC_PROJECTM \
             --disable-rsxs \
             --disable-ccache \
             $XBMC_PULSEAUDIO \
