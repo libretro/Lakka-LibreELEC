@@ -38,20 +38,23 @@ ECHO 2. Click on 'Properties'
 ECHO 3. Change to the 'Compatibility' tab
 ECHO 4. Check the 'Run this program as an administrator' checkbox
 ECHO.
-ECHO Click Ok and run 'create_installstick.bat' again,
-ECHO answering 'N' to the first prompt
 ECHO.
 ECHO.
 ECHO ******************************************************
 ECHO.
-pause
-cmd /k "start %CD%\3rdparty\syslinux\win32"
-GOTO END
+ECHO Press any key to open the syslinux directory
+ECHO.
+pause >NUL
+explorer "%CD%\3rdparty\syslinux\win32"
+ECHO When finished changing the administrator rights,
+ECHO please press any key to continue with the installation
+pause >NUL
+GOTO :INSTALL 
 
 :INSTALL
-3rdparty\md5sum\md5sum.exe -c --status %CD%\target\SYSTEM.md5
+3rdparty\md5sum\md5sum.exe -c "%CD%\target\SYSTEM.md5"
 IF ERRORLEVEL 1 GOTO BADMD5
-3rdparty\md5sum\md5sum.exe -c --status %CD%\target\KERNEL.md5
+3rdparty\md5sum\md5sum.exe -c "%CD%\target\KERNEL.md5"
 IF ERRORLEVEL 1 GOTO BADMD5
 CLS
 ECHO.
@@ -74,6 +77,7 @@ SET /P DRIVE= --
 if %DRIVE%!==! goto INSTALL
 format %DRIVE% /V:INSTALL /Q /FS:FAT32
 3rdparty\syslinux\win32\syslinux.exe -f -m -a %DRIVE%
+ECHO Copying necessary files to %DRIVE%
 copy target\* %DRIVE%
 copy sample.conf\syslinux_installer.cfg %DRIVE%\syslinux.cfg
 GOTO END
