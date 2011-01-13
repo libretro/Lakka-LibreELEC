@@ -1,3 +1,51 @@
+The Brain Fuck Scheduler v0.363 by Con Kolivas.
+
+A single shared runqueue O(n) strict fairness earliest deadline first design.
+
+Ultra low latency and excellent desktop performance for 1 to many CPUs.
+Not recommended for 4096 cpus.
+
+Scalability is optimal when your workload is equal to the number of CPUs on
+bfs. ie you should ONLY do make -j4 on quad core, -j2 on dual core and so on.
+
+Features SCHED_IDLEPRIO and SCHED_ISO scheduling policies as well.
+You do NOT need to use these policies for good performance, they are purely
+optional for even better performance in extreme conditions.
+
+To run something idleprio, use schedtool like so:
+
+schedtool -D -e make -j4
+
+To run something isoprio, use schedtool like so:
+
+schedtool -I -e amarok
+
+Includes accurate sub-tick accounting of tasks so userspace reported
+cpu usage may be very different if you have very short lived tasks.
+
+-ck
+
+---
+ Documentation/scheduler/sched-BFS.txt     |  351 +
+ Documentation/sysctl/kernel.txt           |   26 
+ arch/powerpc/platforms/cell/spufs/sched.c |    5 
+ fs/proc/base.c                            |    2 
+ include/linux/init_task.h                 |   63 
+ include/linux/ioprio.h                    |    2 
+ include/linux/jiffies.h                   |    2 
+ include/linux/sched.h                     |   91 
+ init/Kconfig                              |   16 
+ init/main.c                               |    1 
+ kernel/delayacct.c                        |    2 
+ kernel/exit.c                             |    2 
+ kernel/kthread.c                          |    2 
+ kernel/posix-cpu-timers.c                 |   14 
+ kernel/sched.c                            |    4 
+ kernel/sched_bfs.c                        | 7223 ++++++++++++++++++++++++++++++
+ kernel/sysctl.c                           |   31 
+ lib/Kconfig.debug                         |    2 
+ 18 files changed, 7812 insertions(+), 27 deletions(-)
+
 Index: linux-2.6.37-ck1/arch/powerpc/platforms/cell/spufs/sched.c
 ===================================================================
 --- linux-2.6.37-ck1.orig/arch/powerpc/platforms/cell/spufs/sched.c	2010-05-17 18:51:19.000000000 +1000
@@ -538,7 +586,7 @@ Index: linux-2.6.37-ck1/include/linux/ioprio.h
 Index: linux-2.6.37-ck1/include/linux/sched.h
 ===================================================================
 --- linux-2.6.37-ck1.orig/include/linux/sched.h	2011-01-06 14:04:10.485805089 +1100
-+++ linux-2.6.37-ck1/include/linux/sched.h	2011-01-06 14:07:58.442334300 +1100
++++ linux-2.6.37-ck1/include/linux/sched.h	2011-01-06 14:07:00.648901485 +1100
 @@ -36,8 +36,15 @@
  #define SCHED_FIFO		1
  #define SCHED_RR		2
@@ -546,9 +594,9 @@ Index: linux-2.6.37-ck1/include/linux/sched.h
 -/* SCHED_ISO: reserved but not implemented yet */
 +/* SCHED_ISO: Implemented on BFS only */
  #define SCHED_IDLE		5
-+#define SCHED_IDLEPRIO		SCHED_IDLE
 +#ifdef CONFIG_SCHED_BFS
 +#define SCHED_ISO		4
++#define SCHED_IDLEPRIO		SCHED_IDLE
 +#define SCHED_MAX		(SCHED_IDLEPRIO)
 +#define SCHED_RANGE(policy)	((policy) <= SCHED_MAX)
 +#endif
@@ -607,7 +655,7 @@ Index: linux-2.6.37-ck1/include/linux/sched.h
  	cputime_t gtime;
  #ifndef CONFIG_VIRT_CPU_ACCOUNTING
  	cputime_t prev_utime, prev_stime;
-@@ -1514,6 +1536,60 @@ struct task_struct {
+@@ -1514,6 +1536,53 @@ struct task_struct {
  #endif
  };
  
@@ -633,7 +681,6 @@ Index: linux-2.6.37-ck1/include/linux/sched.h
 +	return (p->policy == SCHED_ISO);
 +}
 +extern void remove_cpu(unsigned long cpu);
-+extern int above_background_load(void);
 +#else /* CFS */
 +extern int runqueue_is_locked(int cpu);
 +#define tsk_seruntime(t)	((t)->se.sum_exec_runtime)
@@ -657,18 +704,12 @@ Index: linux-2.6.37-ck1/include/linux/sched.h
 +static inline void remove_cpu(unsigned long cpu)
 +{
 +}
-+
-+/* Anyone feel like implementing this? */
-+static inline int above_background_load(void)
-+{
-+	return 1;
-+}
 +#endif /* CONFIG_SCHED_BFS */
 +
  /* Future-safe accessor for struct task_struct's cpus_allowed. */
  #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
  
-@@ -1531,10 +1607,20 @@ struct task_struct {
+@@ -1531,10 +1600,20 @@ struct task_struct {
   */
  
  #define MAX_USER_RT_PRIO	100
@@ -691,7 +732,7 @@ Index: linux-2.6.37-ck1/include/linux/sched.h
  
  static inline int rt_prio(int prio)
  {
-@@ -1862,7 +1948,7 @@ task_sched_runtime(struct task_struct *t
+@@ -1862,7 +1941,7 @@ task_sched_runtime(struct task_struct *t
  extern unsigned long long thread_group_sched_runtime(struct task_struct *task);
  
  /* sched_exec is called by processes performing an exec */
@@ -863,8 +904,8 @@ Index: linux-2.6.37-ck1/kernel/posix-cpu-timers.c
 Index: linux-2.6.37-ck1/kernel/sched_bfs.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.37-ck1/kernel/sched_bfs.c	2011-01-06 14:07:19.972049048 +1100
-@@ -0,0 +1,7243 @@
++++ linux-2.6.37-ck1/kernel/sched_bfs.c	2011-01-06 14:07:00.653901784 +1100
+@@ -0,0 +1,7223 @@
 +/*
 + *  kernel/sched_bfs.c, was sched.c
 + *
@@ -1424,26 +1465,6 @@ Index: linux-2.6.37-ck1/kernel/sched_bfs.c
 +	__releases(grq.lock)
 +{
 +	grq_unlock();
-+}
-+
-+/*
-+ * Look for any tasks *anywhere* that are running nice 0 or better. We do
-+ * this lockless for overhead reasons since the occasional wrong result
-+ * is harmless.
-+ */
-+int above_background_load(void)
-+{
-+	struct task_struct *cpu_curr;
-+	unsigned long cpu;
-+
-+	for_each_online_cpu(cpu) {
-+		cpu_curr = cpu_rq(cpu)->curr;
-+		if (unlikely(!cpu_curr))
-+			continue;
-+		if (PRIO_TO_NICE(cpu_curr->static_prio) < 1)
-+			return 1;
-+	}
-+	return 0;
 +}
 +
 +#ifndef __ARCH_WANT_UNLOCKED_CTXSW
@@ -8220,885 +8241,3 @@ Index: linux-2.6.37-ck1/include/linux/jiffies.h
  
  /*
   * Change timeval to jiffies, trying to avoid the
-Index: linux-2.6.37-ck1/mm/vmscan.c
-===================================================================
---- linux-2.6.37-ck1.orig/mm/vmscan.c	2011-01-06 14:04:10.584810957 +1100
-+++ linux-2.6.37-ck1/mm/vmscan.c	2011-01-06 14:07:58.443334359 +1100
-@@ -36,6 +36,7 @@
- #include <linux/rwsem.h>
- #include <linux/delay.h>
- #include <linux/kthread.h>
-+#include <linux/timer.h>
- #include <linux/freezer.h>
- #include <linux/memcontrol.h>
- #include <linux/delayacct.h>
-@@ -133,7 +134,7 @@ struct scan_control {
- /*
-  * From 0 .. 100.  Higher means more swappy.
-  */
--int vm_swappiness = 60;
-+int vm_swappiness;
- long vm_total_pages;	/* The total number of pages which the VM controls */
- 
- static LIST_HEAD(shrinker_list);
-@@ -900,7 +901,7 @@ cull_mlocked:
- 
- activate_locked:
- 		/* Not a candidate for swapping, so reclaim swap space. */
--		if (PageSwapCache(page) && vm_swap_full())
-+		if (PageSwapCache(page))
- 			try_to_free_swap(page);
- 		VM_BUG_ON(PageActive(page));
- 		SetPageActive(page);
-@@ -1718,6 +1719,7 @@ static void get_scan_count(struct zone *
- 	u64 fraction[2], denominator;
- 	enum lru_list l;
- 	int noswap = 0;
-+	int tmp_priority;
- 
- 	/* If we have no swap space, do not bother scanning anon pages. */
- 	if (!sc->may_swap || (nr_swap_pages <= 0)) {
-@@ -1796,7 +1798,11 @@ out:
- 
- 		scan = zone_nr_lru_pages(zone, sc, l);
- 		if (priority || noswap) {
--			scan >>= priority;
-+			tmp_priority = priority;
-+
-+			if (file && priority > 0)
-+				tmp_priority = DEF_PRIORITY;
-+			scan >>= tmp_priority;
- 			scan = div64_u64(scan * fraction[file], denominator);
- 		}
- 		nr[l] = nr_scan_try_batch(scan,
-@@ -1855,6 +1861,35 @@ static void shrink_zone(int priority, st
- }
- 
- /*
-+ * Helper functions to adjust nice level of kswapd, based on the priority of
-+ * the task (p) that called it. If it is already higher priority we do not
-+ * demote its nice level since it is still working on behalf of a higher
-+ * priority task. With kernel threads we leave it at nice 0.
-+ *
-+ * We don't ever run kswapd real time, so if a real time task calls kswapd we
-+ * set it to highest SCHED_NORMAL priority.
-+ */
-+static inline int effective_sc_prio(struct task_struct *p)
-+{
-+	if (likely(p->mm)) {
-+		if (rt_task(p))
-+			return -20;
-+		if (p->policy == SCHED_IDLEPRIO)
-+			return 19;
-+		return task_nice(p);
-+	}
-+	return 0;
-+}
-+
-+static void set_kswapd_nice(struct task_struct *kswapd, int active)
-+{
-+	long nice = effective_sc_prio(current);
-+
-+	if (task_nice(kswapd) > nice || !active)
-+		set_user_nice(kswapd, nice);
-+}
-+
-+/*
-  * This is the direct reclaim path, for page-allocating processes.  We only
-  * try to reclaim pages from zones which will satisfy the caller's allocation
-  * request.
-@@ -2371,6 +2406,8 @@ out:
- 	return sc.nr_reclaimed;
- }
- 
-+#define WT_EXPIRY	(HZ * 5)	/* Time to wakeup watermark_timer */
-+
- /*
-  * The background pageout daemon, started as a kernel thread
-  * from the init process.
-@@ -2421,6 +2458,8 @@ static int kswapd(void *p)
- 		unsigned long new_order;
- 		int ret;
- 
-+		/* kswapd has been busy so delay watermark_timer */
-+		mod_timer(&pgdat->watermark_timer, jiffies + WT_EXPIRY);
- 		prepare_to_wait(&pgdat->kswapd_wait, &wait, TASK_INTERRUPTIBLE);
- 		new_order = pgdat->kswapd_max_order;
- 		pgdat->kswapd_max_order = 0;
-@@ -2457,6 +2496,7 @@ static int kswapd(void *p)
- 				}
- 			}
- 
-+			set_user_nice(tsk, 0);
- 			order = pgdat->kswapd_max_order;
- 		}
- 		finish_wait(&pgdat->kswapd_wait, &wait);
-@@ -2483,6 +2523,7 @@ static int kswapd(void *p)
- void wakeup_kswapd(struct zone *zone, int order)
- {
- 	pg_data_t *pgdat;
-+	int active;
- 
- 	if (!populated_zone(zone))
- 		return;
-@@ -2495,7 +2536,9 @@ void wakeup_kswapd(struct zone *zone, in
- 	trace_mm_vmscan_wakeup_kswapd(pgdat->node_id, zone_idx(zone), order);
- 	if (!cpuset_zone_allowed_hardwall(zone, GFP_KERNEL))
- 		return;
--	if (!waitqueue_active(&pgdat->kswapd_wait))
-+	active = waitqueue_active(&pgdat->kswapd_wait);
-+	set_kswapd_nice(pgdat->kswapd, active);
-+	if (!active)
- 		return;
- 	wake_up_interruptible(&pgdat->kswapd_wait);
- }
-@@ -2601,20 +2644,57 @@ static int __devinit cpu_callback(struct
- }
- 
- /*
-+ * We wake up kswapd every WT_EXPIRY till free ram is above pages_lots
-+ */
-+static void watermark_wakeup(unsigned long data)
-+{
-+	pg_data_t *pgdat = (pg_data_t *)data;
-+	struct timer_list *wt = &pgdat->watermark_timer;
-+	int i;
-+
-+	if (!waitqueue_active(&pgdat->kswapd_wait) || above_background_load())
-+		goto out;
-+	for (i = pgdat->nr_zones - 1; i >= 0; i--) {
-+		struct zone *z = pgdat->node_zones + i;
-+
-+		if (!populated_zone(z) || is_highmem(z)) {
-+			/* We are better off leaving highmem full */
-+			continue;
-+		}
-+		if (!zone_watermark_ok(z, 0, lots_wmark_pages(z), 0, 0)) {
-+			wake_up_interruptible(&pgdat->kswapd_wait);
-+			goto out;
-+		}
-+	}
-+out:
-+	mod_timer(wt, jiffies + WT_EXPIRY);
-+	return;
-+}
-+
-+/*
-  * This kswapd start function will be called by init and node-hot-add.
-  * On node-hot-add, kswapd will moved to proper cpus if cpus are hot-added.
-  */
- int kswapd_run(int nid)
- {
- 	pg_data_t *pgdat = NODE_DATA(nid);
-+	struct timer_list *wt;
- 	int ret = 0;
- 
- 	if (pgdat->kswapd)
- 		return 0;
- 
-+	wt = &pgdat->watermark_timer;
-+	init_timer(wt);
-+	wt->data = (unsigned long)pgdat;
-+	wt->function = watermark_wakeup;
-+	wt->expires = jiffies + WT_EXPIRY;
-+	add_timer(wt);
-+
- 	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d", nid);
- 	if (IS_ERR(pgdat->kswapd)) {
- 		/* failure at boot is fatal */
-+		del_timer(wt);
- 		BUG_ON(system_state == SYSTEM_BOOTING);
- 		printk("Failed to start kswapd on node %d\n",nid);
- 		ret = -1;
-Index: linux-2.6.37-ck1/include/linux/swap.h
-===================================================================
---- linux-2.6.37-ck1.orig/include/linux/swap.h	2011-01-06 14:04:10.493805562 +1100
-+++ linux-2.6.37-ck1/include/linux/swap.h	2011-01-06 14:07:58.578342381 +1100
-@@ -192,7 +192,7 @@ struct swap_list_t {
- 	int next;	/* swapfile to be used next */
- };
- 
--/* Swap 50% full? Release swapcache more aggressively.. */
-+/* Swap 50% full? */
- #define vm_swap_full() (nr_swap_pages*2 < total_swap_pages)
- 
- /* linux/mm/page_alloc.c */
-@@ -206,6 +206,7 @@ extern unsigned int nr_free_pagecache_pa
- 
- 
- /* linux/mm/swap.c */
-+extern void ____lru_cache_add(struct page *, enum lru_list lru, int tail);
- extern void __lru_cache_add(struct page *, enum lru_list lru);
- extern void lru_cache_add_lru(struct page *, enum lru_list lru);
- extern void activate_page(struct page *);
-@@ -226,9 +227,14 @@ static inline void lru_cache_add_anon(st
- 	__lru_cache_add(page, LRU_INACTIVE_ANON);
- }
- 
-+static inline void lru_cache_add_file_tail(struct page *page, int tail)
-+{
-+	____lru_cache_add(page, LRU_INACTIVE_FILE, tail);
-+}
-+
- static inline void lru_cache_add_file(struct page *page)
- {
--	__lru_cache_add(page, LRU_INACTIVE_FILE);
-+	____lru_cache_add(page, LRU_INACTIVE_FILE, 0);
- }
- 
- /* LRU Isolation modes. */
-@@ -348,9 +354,10 @@ extern struct mm_struct *swap_token_mm;
- extern void grab_swap_token(struct mm_struct *);
- extern void __put_swap_token(struct mm_struct *);
- 
-+/* Only allow swap token to have effect if swap is full */
- static inline int has_swap_token(struct mm_struct *mm)
- {
--	return (mm == swap_token_mm);
-+	return (mm == swap_token_mm && vm_swap_full());
- }
- 
- static inline void put_swap_token(struct mm_struct *mm)
-Index: linux-2.6.37-ck1/mm/memory.c
-===================================================================
---- linux-2.6.37-ck1.orig/mm/memory.c	2011-01-06 14:04:10.573810305 +1100
-+++ linux-2.6.37-ck1/mm/memory.c	2011-01-06 14:07:58.019309165 +1100
-@@ -2754,7 +2754,7 @@ static int do_swap_page(struct mm_struct
- 	mem_cgroup_commit_charge_swapin(page, ptr);
- 
- 	swap_free(entry);
--	if (vm_swap_full() || (vma->vm_flags & VM_LOCKED) || PageMlocked(page))
-+	if ((vma->vm_flags & VM_LOCKED) || PageMlocked(page))
- 		try_to_free_swap(page);
- 	unlock_page(page);
- 	if (swapcache) {
-Index: linux-2.6.37-ck1/mm/swapfile.c
-===================================================================
---- linux-2.6.37-ck1.orig/mm/swapfile.c	2011-01-06 14:04:10.582810838 +1100
-+++ linux-2.6.37-ck1/mm/swapfile.c	2011-01-06 14:07:58.020309225 +1100
-@@ -321,7 +321,7 @@ checks:
- 		scan_base = offset = si->lowest_bit;
- 
- 	/* reuse swap entry of cache-only swap if not busy. */
--	if (vm_swap_full() && si->swap_map[offset] == SWAP_HAS_CACHE) {
-+	if (si->swap_map[offset] == SWAP_HAS_CACHE) {
- 		int swap_was_freed;
- 		spin_unlock(&swap_lock);
- 		swap_was_freed = __try_to_reclaim_swap(si, offset);
-@@ -410,7 +410,7 @@ scan:
- 			spin_lock(&swap_lock);
- 			goto checks;
- 		}
--		if (vm_swap_full() && si->swap_map[offset] == SWAP_HAS_CACHE) {
-+		if (si->swap_map[offset] == SWAP_HAS_CACHE) {
- 			spin_lock(&swap_lock);
- 			goto checks;
- 		}
-@@ -425,7 +425,7 @@ scan:
- 			spin_lock(&swap_lock);
- 			goto checks;
- 		}
--		if (vm_swap_full() && si->swap_map[offset] == SWAP_HAS_CACHE) {
-+		if (si->swap_map[offset] == SWAP_HAS_CACHE) {
- 			spin_lock(&swap_lock);
- 			goto checks;
- 		}
-@@ -739,8 +739,7 @@ int free_swap_and_cache(swp_entry_t entr
- 		 * Not mapped elsewhere, or swap space full? Free it!
- 		 * Also recheck PageSwapCache now page is locked (above).
- 		 */
--		if (PageSwapCache(page) && !PageWriteback(page) &&
--				(!page_mapped(page) || vm_swap_full())) {
-+		if (PageSwapCache(page) && !PageWriteback(page)) {
- 			delete_from_swap_cache(page);
- 			SetPageDirty(page);
- 		}
-Index: linux-2.6.37-ck1/include/linux/mmzone.h
-===================================================================
---- linux-2.6.37-ck1.orig/include/linux/mmzone.h	2011-01-06 14:04:10.468804082 +1100
-+++ linux-2.6.37-ck1/include/linux/mmzone.h	2011-01-06 14:07:58.304326100 +1100
-@@ -15,6 +15,7 @@
- #include <linux/seqlock.h>
- #include <linux/nodemask.h>
- #include <linux/pageblock-flags.h>
-+#include <linux/timer.h>
- #include <generated/bounds.h>
- #include <asm/atomic.h>
- #include <asm/page.h>
-@@ -161,12 +162,14 @@ enum zone_watermarks {
- 	WMARK_MIN,
- 	WMARK_LOW,
- 	WMARK_HIGH,
-+	WMARK_LOTS,
- 	NR_WMARK
- };
- 
- #define min_wmark_pages(z) (z->watermark[WMARK_MIN])
- #define low_wmark_pages(z) (z->watermark[WMARK_LOW])
- #define high_wmark_pages(z) (z->watermark[WMARK_HIGH])
-+#define lots_wmark_pages(z) (z->watermark[WMARK_LOTS])
- 
- struct per_cpu_pages {
- 	int count;		/* number of pages in the list */
-@@ -343,7 +346,7 @@ struct zone {
- 	ZONE_PADDING(_pad1_)
- 
- 	/* Fields commonly accessed by the page reclaim scanner */
--	spinlock_t		lru_lock;	
-+	spinlock_t		lru_lock;
- 	struct zone_lru {
- 		struct list_head list;
- 	} lru[NR_LRU_LISTS];
-@@ -645,6 +648,7 @@ typedef struct pglist_data {
- 	wait_queue_head_t kswapd_wait;
- 	struct task_struct *kswapd;
- 	int kswapd_max_order;
-+	struct timer_list watermark_timer;
- } pg_data_t;
- 
- #define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)
-Index: linux-2.6.37-ck1/include/linux/mm_inline.h
-===================================================================
---- linux-2.6.37-ck1.orig/include/linux/mm_inline.h	2009-12-03 21:40:09.000000000 +1100
-+++ linux-2.6.37-ck1/include/linux/mm_inline.h	2011-01-06 14:07:58.577342321 +1100
-@@ -20,14 +20,24 @@ static inline int page_is_file_cache(str
- }
- 
- static inline void
--add_page_to_lru_list(struct zone *zone, struct page *page, enum lru_list l)
-+__add_page_to_lru_list(struct zone *zone, struct page *page, enum lru_list l, int tail)
- {
--	list_add(&page->lru, &zone->lru[l].list);
-+	/* See if this should be added to the tail of this lru list */
-+	if (tail)
-+		list_add_tail(&page->lru, &zone->lru[l].list);
-+	else
-+		list_add(&page->lru, &zone->lru[l].list);
- 	__inc_zone_state(zone, NR_LRU_BASE + l);
- 	mem_cgroup_add_lru_list(page, l);
- }
- 
- static inline void
-+add_page_to_lru_list(struct zone *zone, struct page *page, enum lru_list l)
-+{
-+	__add_page_to_lru_list(zone, page, l, 0);
-+}
-+
-+static inline void
- del_page_from_lru_list(struct zone *zone, struct page *page, enum lru_list l)
- {
- 	list_del(&page->lru);
-Index: linux-2.6.37-ck1/mm/filemap.c
-===================================================================
---- linux-2.6.37-ck1.orig/mm/filemap.c	2011-01-06 14:04:10.569810068 +1100
-+++ linux-2.6.37-ck1/mm/filemap.c	2011-01-06 14:07:58.578342381 +1100
-@@ -439,8 +439,8 @@ out:
- }
- EXPORT_SYMBOL(add_to_page_cache_locked);
- 
--int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
--				pgoff_t offset, gfp_t gfp_mask)
-+int __add_to_page_cache_lru(struct page *page, struct address_space *mapping,
-+				pgoff_t offset, gfp_t gfp_mask, int tail)
- {
- 	int ret;
- 
-@@ -456,12 +456,18 @@ int add_to_page_cache_lru(struct page *p
- 	ret = add_to_page_cache(page, mapping, offset, gfp_mask);
- 	if (ret == 0) {
- 		if (page_is_file_cache(page))
--			lru_cache_add_file(page);
-+			lru_cache_add_file_tail(page, tail);
- 		else
- 			lru_cache_add_anon(page);
- 	}
- 	return ret;
- }
-+
-+int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
-+				pgoff_t offset, gfp_t gfp_mask)
-+{
-+	return __add_to_page_cache_lru(page, mapping, offset, gfp_mask, 0);
-+}
- EXPORT_SYMBOL_GPL(add_to_page_cache_lru);
- 
- #ifdef CONFIG_NUMA
-@@ -968,6 +974,28 @@ static void shrink_readahead_size_eio(st
- 	ra->ra_pages /= 4;
- }
- 
-+static inline int nr_mapped(void)
-+{
-+	return global_page_state(NR_FILE_MAPPED) +
-+		global_page_state(NR_ANON_PAGES);
-+}
-+
-+/*
-+ * This examines how large in pages a file size is and returns 1 if it is
-+ * more than half the unmapped ram. Avoid doing read_page_state which is
-+ * expensive unless we already know it is likely to be large enough.
-+ */
-+static int large_isize(unsigned long nr_pages)
-+{
-+	if (nr_pages * 6 > vm_total_pages) {
-+		 unsigned long unmapped_ram = vm_total_pages - nr_mapped();
-+
-+		if (nr_pages * 2 > unmapped_ram)
-+			return 1;
-+	}
-+	return 0;
-+}
-+
- /**
-  * do_generic_file_read - generic file read routine
-  * @filp:	the file to read
-@@ -992,7 +1020,7 @@ static void do_generic_file_read(struct
- 	pgoff_t prev_index;
- 	unsigned long offset;      /* offset into pagecache page */
- 	unsigned int prev_offset;
--	int error;
-+	int error, tail = 0;
- 
- 	index = *ppos >> PAGE_CACHE_SHIFT;
- 	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
-@@ -1003,7 +1031,7 @@ static void do_generic_file_read(struct
- 	for (;;) {
- 		struct page *page;
- 		pgoff_t end_index;
--		loff_t isize;
-+		loff_t isize = 0;
- 		unsigned long nr, ret;
- 
- 		cond_resched();
-@@ -1177,8 +1205,16 @@ no_cached_page:
- 			desc->error = -ENOMEM;
- 			goto out;
- 		}
--		error = add_to_page_cache_lru(page, mapping,
--						index, GFP_KERNEL);
-+		/*
-+		 * If we know the file is large we add the pages read to the
-+		 * end of the lru as we're unlikely to be able to cache the
-+		 * whole file in ram so make those pages the first to be
-+		 * dropped if not referenced soon.
-+		 */
-+		if (large_isize(end_index))
-+			tail = 1;
-+		error = __add_to_page_cache_lru(page, mapping,
-+						index, GFP_KERNEL, tail);
- 		if (error) {
- 			page_cache_release(page);
- 			if (error == -EEXIST)
-Index: linux-2.6.37-ck1/mm/swap.c
-===================================================================
---- linux-2.6.37-ck1.orig/mm/swap.c	2011-01-06 14:04:10.582810838 +1100
-+++ linux-2.6.37-ck1/mm/swap.c	2011-01-06 14:07:58.578342381 +1100
-@@ -215,15 +215,23 @@ void mark_page_accessed(struct page *pag
- 
- EXPORT_SYMBOL(mark_page_accessed);
- 
--void __lru_cache_add(struct page *page, enum lru_list lru)
-+void ______pagevec_lru_add(struct pagevec *pvec, enum lru_list lru, int tail);
-+
-+void ____lru_cache_add(struct page *page, enum lru_list lru, int tail)
- {
- 	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs)[lru];
- 
- 	page_cache_get(page);
- 	if (!pagevec_add(pvec, page))
--		____pagevec_lru_add(pvec, lru);
-+		______pagevec_lru_add(pvec, lru, tail);
- 	put_cpu_var(lru_add_pvecs);
- }
-+EXPORT_SYMBOL(____lru_cache_add);
-+
-+void __lru_cache_add(struct page *page, enum lru_list lru)
-+{
-+	____lru_cache_add(page, lru, 0);
-+}
- EXPORT_SYMBOL(__lru_cache_add);
- 
- /**
-@@ -231,7 +239,7 @@ EXPORT_SYMBOL(__lru_cache_add);
-  * @page: the page to be added to the LRU.
-  * @lru: the LRU list to which the page is added.
-  */
--void lru_cache_add_lru(struct page *page, enum lru_list lru)
-+void __lru_cache_add_lru(struct page *page, enum lru_list lru, int tail)
- {
- 	if (PageActive(page)) {
- 		VM_BUG_ON(PageUnevictable(page));
-@@ -242,7 +250,12 @@ void lru_cache_add_lru(struct page *page
- 	}
- 
- 	VM_BUG_ON(PageLRU(page) || PageActive(page) || PageUnevictable(page));
--	__lru_cache_add(page, lru);
-+	____lru_cache_add(page, lru, tail);
-+}
-+
-+void lru_cache_add_lru(struct page *page, enum lru_list lru)
-+{
-+	__lru_cache_add_lru(page, lru, 0);
- }
- 
- /**
-@@ -403,7 +416,7 @@ EXPORT_SYMBOL(__pagevec_release);
-  * Add the passed pages to the LRU, then drop the caller's refcount
-  * on them.  Reinitialises the caller's pagevec.
-  */
--void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
-+void ______pagevec_lru_add(struct pagevec *pvec, enum lru_list lru, int tail)
- {
- 	int i;
- 	struct zone *zone = NULL;
-@@ -431,7 +444,7 @@ void ____pagevec_lru_add(struct pagevec
- 		if (active)
- 			SetPageActive(page);
- 		update_page_reclaim_stat(zone, page, file, active);
--		add_page_to_lru_list(zone, page, lru);
-+		__add_page_to_lru_list(zone, page, lru, tail);
- 	}
- 	if (zone)
- 		spin_unlock_irq(&zone->lru_lock);
-@@ -439,6 +452,11 @@ void ____pagevec_lru_add(struct pagevec
- 	pagevec_reinit(pvec);
- }
- 
-+void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
-+{
-+	______pagevec_lru_add(pvec, lru, 0);
-+}
-+
- EXPORT_SYMBOL(____pagevec_lru_add);
- 
- /*
-Index: linux-2.6.37-ck1/mm/page-writeback.c
-===================================================================
---- linux-2.6.37-ck1.orig/mm/page-writeback.c	2011-01-06 14:04:10.576810484 +1100
-+++ linux-2.6.37-ck1/mm/page-writeback.c	2011-01-06 14:07:58.729351350 +1100
-@@ -78,7 +78,7 @@ int vm_highmem_is_dirtyable;
- /*
-  * The generator of dirty data starts writeback at this percentage
-  */
--int vm_dirty_ratio = 20;
-+int vm_dirty_ratio = 5;
- 
- /*
-  * vm_dirty_bytes starts at 0 (disabled) so that it is a function of
-Index: linux-2.6.37-ck1/arch/x86/Kconfig
-===================================================================
---- linux-2.6.37-ck1.orig/arch/x86/Kconfig	2011-01-06 14:04:08.122664999 +1100
-+++ linux-2.6.37-ck1/arch/x86/Kconfig	2011-01-06 14:07:58.859359075 +1100
-@@ -1046,7 +1046,7 @@ endchoice
- 
- choice
- 	depends on EXPERIMENTAL
--	prompt "Memory split" if EMBEDDED
-+	prompt "Memory split"
- 	default VMSPLIT_3G
- 	depends on X86_32
- 	---help---
-@@ -1066,17 +1066,17 @@ choice
- 	  option alone!
- 
- 	config VMSPLIT_3G
--		bool "3G/1G user/kernel split"
-+		bool "Default 896MB lowmem (3G/1G user/kernel split)"
- 	config VMSPLIT_3G_OPT
- 		depends on !X86_PAE
--		bool "3G/1G user/kernel split (for full 1G low memory)"
-+		bool "1GB lowmem (3G/1G user/kernel split)"
- 	config VMSPLIT_2G
--		bool "2G/2G user/kernel split"
-+		bool "2GB lowmem (2G/2G user/kernel split)"
- 	config VMSPLIT_2G_OPT
- 		depends on !X86_PAE
--		bool "2G/2G user/kernel split (for full 2G low memory)"
-+		bool "2GB lowmem (2G/2G user/kernel split)"
- 	config VMSPLIT_1G
--		bool "1G/3G user/kernel split"
-+		bool "3GB lowmem (1G/3G user/kernel split)"
- endchoice
- 
- config PAGE_OFFSET
-Index: linux-2.6.37-ck1/kernel/Kconfig.hz
-===================================================================
---- linux-2.6.37-ck1.orig/kernel/Kconfig.hz	2009-06-10 13:05:27.000000000 +1000
-+++ linux-2.6.37-ck1/kernel/Kconfig.hz	2011-01-06 14:07:59.251382368 +1100
-@@ -4,7 +4,7 @@
- 
- choice
- 	prompt "Timer frequency"
--	default HZ_250
-+	default HZ_1000
- 	help
- 	 Allows the configuration of the timer frequency. It is customary
- 	 to have the timer interrupt run at 1000 Hz but 100 Hz may be more
-@@ -23,13 +23,14 @@ choice
- 	  with lots of processors that may show reduced performance if
- 	  too many timer interrupts are occurring.
- 
--	config HZ_250
-+	config HZ_250_NODEFAULT
- 		bool "250 HZ"
- 	help
--	 250 Hz is a good compromise choice allowing server performance
--	 while also showing good interactive responsiveness even
--	 on SMP and NUMA systems. If you are going to be using NTSC video
--	 or multimedia, selected 300Hz instead.
-+	 250 HZ is a lousy compromise choice allowing server interactivity
-+	 while also showing desktop throughput and no extra power saving on
-+	 laptops. No good for anything.
-+
-+	 Recommend 100 or 1000 instead.
- 
- 	config HZ_300
- 		bool "300 HZ"
-@@ -43,16 +44,82 @@ choice
- 		bool "1000 HZ"
- 	help
- 	 1000 Hz is the preferred choice for desktop systems and other
--	 systems requiring fast interactive responses to events.
-+	 systems requiring fast interactive responses to events. Laptops
-+	 can also benefit from this choice without sacrificing battery life
-+	 if dynticks is also enabled.
-+
-+	config HZ_1500
-+		bool "1500 HZ"
-+	help
-+	 1500 Hz is an insane value to use to run broken software that is Hz
-+	 limited.
-+
-+	 Being over 1000, driver breakage is likely.
-+
-+	config HZ_2000
-+		bool "2000 HZ"
-+	help
-+	 2000 Hz is an insane value to use to run broken software that is Hz
-+	 limited.
-+
-+	 Being over 1000, driver breakage is likely.
-+
-+	config HZ_3000
-+		bool "3000 HZ"
-+	help
-+	 3000 Hz is an insane value to use to run broken software that is Hz
-+	 limited.
-+
-+	 Being over 1000, driver breakage is likely.
-+
-+	config HZ_4000
-+		bool "4000 HZ"
-+	help
-+	 4000 Hz is an insane value to use to run broken software that is Hz
-+	 limited.
-+
-+	 Being over 1000, driver breakage is likely.
-+
-+	config HZ_5000
-+		bool "5000 HZ"
-+	help
-+	 5000 Hz is an obscene value to use to run broken software that is Hz
-+	 limited.
-+
-+	 Being over 1000, driver breakage is likely.
-+
-+	config HZ_7500
-+		bool "7500 HZ"
-+	help
-+	 7500 Hz is an obscene value to use to run broken software that is Hz
-+	 limited.
-+
-+	 Being over 1000, driver breakage is likely.
-+
-+	config HZ_10000
-+		bool "10000 HZ"
-+	help
-+	 10000 Hz is an obscene value to use to run broken software that is Hz
-+	 limited.
-+
-+	 Being over 1000, driver breakage is likely.
-+
- 
- endchoice
- 
- config HZ
- 	int
- 	default 100 if HZ_100
--	default 250 if HZ_250
-+	default 250 if HZ_250_NODEFAULT
- 	default 300 if HZ_300
- 	default 1000 if HZ_1000
-+	default 1500 if HZ_1500
-+	default 2000 if HZ_2000
-+	default 3000 if HZ_3000
-+	default 4000 if HZ_4000
-+	default 5000 if HZ_5000
-+	default 7500 if HZ_7500
-+	default 10000 if HZ_10000
- 
- config SCHED_HRTICK
- 	def_bool HIGH_RES_TIMERS && (!SMP || USE_GENERIC_SMP_HELPERS)
-Index: linux-2.6.37-ck1/arch/x86/kernel/cpu/proc.c
-===================================================================
---- linux-2.6.37-ck1.orig/arch/x86/kernel/cpu/proc.c	2009-12-03 21:39:58.000000000 +1100
-+++ linux-2.6.37-ck1/arch/x86/kernel/cpu/proc.c	2011-01-06 14:07:59.250382309 +1100
-@@ -109,7 +109,7 @@ static int show_cpuinfo(struct seq_file
- 
- 	seq_printf(m, "\nbogomips\t: %lu.%02lu\n",
- 		   c->loops_per_jiffy/(500000/HZ),
--		   (c->loops_per_jiffy/(5000/HZ)) % 100);
-+		   (c->loops_per_jiffy * 10 /(50000/HZ)) % 100);
- 
- #ifdef CONFIG_X86_64
- 	if (c->x86_tlbsize > 0)
-Index: linux-2.6.37-ck1/arch/x86/kernel/smpboot.c
-===================================================================
---- linux-2.6.37-ck1.orig/arch/x86/kernel/smpboot.c	2011-01-06 14:04:08.473685806 +1100
-+++ linux-2.6.37-ck1/arch/x86/kernel/smpboot.c	2011-01-06 14:07:59.251382368 +1100
-@@ -497,7 +497,7 @@ static void impress_friends(void)
- 		"Total of %d processors activated (%lu.%02lu BogoMIPS).\n",
- 		num_online_cpus(),
- 		bogosum/(500000/HZ),
--		(bogosum/(5000/HZ))%100);
-+		(bogosum * 10/(50000/HZ))%100);
- 
- 	pr_debug("Before bogocount - setting activated=1.\n");
- }
-Index: linux-2.6.37-ck1/include/linux/nfsd/stats.h
-===================================================================
---- linux-2.6.37-ck1.orig/include/linux/nfsd/stats.h	2009-06-10 13:05:27.000000000 +1000
-+++ linux-2.6.37-ck1/include/linux/nfsd/stats.h	2011-01-06 14:07:59.251382368 +1100
-@@ -11,8 +11,8 @@
- 
- #include <linux/nfs4.h>
- 
--/* thread usage wraps very million seconds (approx one fortnight) */
--#define	NFSD_USAGE_WRAP	(HZ*1000000)
-+/* thread usage wraps every one hundred thousand seconds (approx one day) */
-+#define	NFSD_USAGE_WRAP	(HZ*100000)
- 
- #ifdef __KERNEL__
- 
-Index: linux-2.6.37-ck1/include/net/inet_timewait_sock.h
-===================================================================
---- linux-2.6.37-ck1.orig/include/net/inet_timewait_sock.h	2010-08-02 11:12:25.000000000 +1000
-+++ linux-2.6.37-ck1/include/net/inet_timewait_sock.h	2011-01-06 14:07:59.251382368 +1100
-@@ -39,8 +39,8 @@ struct inet_hashinfo;
-  * If time > 4sec, it is "slow" path, no recycling is required,
-  * so that we select tick to get range about 4 seconds.
-  */
--#if HZ <= 16 || HZ > 4096
--# error Unsupported: HZ <= 16 or HZ > 4096
-+#if HZ <= 16 || HZ > 16384
-+# error Unsupported: HZ <= 16 or HZ > 16384
- #elif HZ <= 32
- # define INET_TWDR_RECYCLE_TICK (5 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
- #elif HZ <= 64
-@@ -55,8 +55,12 @@ struct inet_hashinfo;
- # define INET_TWDR_RECYCLE_TICK (10 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
- #elif HZ <= 2048
- # define INET_TWDR_RECYCLE_TICK (11 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
--#else
-+#elif HZ <= 4096
- # define INET_TWDR_RECYCLE_TICK (12 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-+#elif HZ <= 8192
-+# define INET_TWDR_RECYCLE_TICK (13 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
-+#else
-+# define INET_TWDR_RECYCLE_TICK (14 + 2 - INET_TWDR_RECYCLE_SLOTS_LOG)
- #endif
- 
- /* TIME_WAIT reaping mechanism. */
-Index: linux-2.6.37-ck1/init/calibrate.c
-===================================================================
---- linux-2.6.37-ck1.orig/init/calibrate.c	2010-02-25 21:51:52.000000000 +1100
-+++ linux-2.6.37-ck1/init/calibrate.c	2011-01-06 14:07:59.251382368 +1100
-@@ -176,7 +176,7 @@ void __cpuinit calibrate_delay(void)
- 	if (!printed)
- 		pr_cont("%lu.%02lu BogoMIPS (lpj=%lu)\n",
- 			loops_per_jiffy/(500000/HZ),
--			(loops_per_jiffy/(5000/HZ)) % 100, loops_per_jiffy);
-+			(loops_per_jiffy * 10 /(50000/HZ)) % 100, loops_per_jiffy);
- 
- 	printed = true;
- }
-Index: linux-2.6.37-ck1/kernel/Kconfig.preempt
-===================================================================
---- linux-2.6.37-ck1.orig/kernel/Kconfig.preempt	2009-06-10 13:05:27.000000000 +1000
-+++ linux-2.6.37-ck1/kernel/Kconfig.preempt	2011-01-06 14:07:59.416392169 +1100
-@@ -1,7 +1,7 @@
- 
- choice
- 	prompt "Preemption Model"
--	default PREEMPT_NONE
-+	default PREEMPT
- 
- config PREEMPT_NONE
- 	bool "No Forced Preemption (Server)"
-@@ -17,7 +17,7 @@ config PREEMPT_NONE
- 	  latencies.
- 
- config PREEMPT_VOLUNTARY
--	bool "Voluntary Kernel Preemption (Desktop)"
-+	bool "Voluntary Kernel Preemption (Nothing)"
- 	help
- 	  This option reduces the latency of the kernel by adding more
- 	  "explicit preemption points" to the kernel code. These new
-@@ -31,7 +31,8 @@ config PREEMPT_VOLUNTARY
- 	  applications to run more 'smoothly' even when the system is
- 	  under load.
- 
--	  Select this if you are building a kernel for a desktop system.
-+	  Select this for no system in particular (choose Preemptible
-+	  instead on a desktop if you know what's good for you).
- 
- config PREEMPT
- 	bool "Preemptible Kernel (Low-Latency Desktop)"
-Index: linux-2.6.37-ck1/drivers/cpufreq/cpufreq_ondemand.c
-===================================================================
---- linux-2.6.37-ck1.orig/drivers/cpufreq/cpufreq_ondemand.c	2011-01-06 14:04:08.000000000 +1100
-+++ linux-2.6.37-ck1/drivers/cpufreq/cpufreq_ondemand.c	2011-01-06 14:08:56.522785888 +1100
-@@ -28,12 +28,12 @@
-  * It helps to keep variable names smaller, simpler
-  */
- 
--#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
--#define DEF_FREQUENCY_UP_THRESHOLD		(80)
-+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(17)
-+#define DEF_FREQUENCY_UP_THRESHOLD		(63)
- #define DEF_SAMPLING_DOWN_FACTOR		(1)
- #define MAX_SAMPLING_DOWN_FACTOR		(100000)
- #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
--#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
-+#define MICRO_FREQUENCY_UP_THRESHOLD		(80)
- #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
- #define MIN_FREQUENCY_UP_THRESHOLD		(11)
- #define MAX_FREQUENCY_UP_THRESHOLD		(100)
-@@ -513,10 +513,10 @@ static void dbs_check_cpu(struct cpu_dbs
- 
- 	/*
- 	 * Every sampling_rate, we check, if current idle time is less
--	 * than 20% (default), then we try to increase frequency
-+	 * than 37% (default), then we try to increase frequency
- 	 * Every sampling_rate, we look for a the lowest
- 	 * frequency which can sustain the load while keeping idle time over
--	 * 30%. If such a frequency exist, we try to decrease to this frequency.
-+	 * 50%. If such a frequency exist, we try to decrease to this frequency.
- 	 *
- 	 * Any frequency increase takes it to the maximum frequency.
- 	 * Frequency reduction happens at minimum steps of
-Index: linux-2.6.37-ck1/Makefile
-===================================================================
---- linux-2.6.37-ck1.orig/Makefile	2011-01-06 14:04:07.612634764 +1100
-+++ linux-2.6.37-ck1/Makefile	2011-01-06 14:09:14.006825250 +1100
-@@ -10,6 +10,10 @@ NAME = Flesh-Eating Bats with Fangs
- # Comments in this file are targeted only to the developer, do not
- # expect to learn how to build the kernel reading this file.
- 
-+CKVERSION = -ck1
-+CKNAME = BFS Powered
-+EXTRAVERSION := $(EXTRAVERSION)$(CKVERSION)
-+
- # Do not:
- # o  use make's built-in rules and variables
- #    (this increases performance and avoids hard-to-debug behaviour);
