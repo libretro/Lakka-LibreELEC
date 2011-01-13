@@ -1,0 +1,102 @@
+################################################################################
+#      Copyright (C) 2009-2010 OpenELEC.tv
+#      http://www.openelec.tv
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# setup networking
+#
+# runlevels: openelec, installer, textmode
+
+# LAN:  no security: no SSID, NAME:Wired, no PASSPHRASE, tech: ethernet, mode: _cable
+# WLAN: no security: SSID,    NAME,       no PASSPHRASE, tech: wifi      mode: _managed_none
+# WLAN: (WPA2):      SSID,    NAME,       PASSPHRASE,    tech: wifi      mode: _managed_psk
+# WLAN: (WEP):       SSID,    NAME,       PASSPHRASE,    tect: wifi      mode: _managed_wep
+
+[ -f $HOME/.config/network.conf ] && . $HOME/.config/network.conf
+[ -z "$HOSTNAME" ] && HOSTNAME="openelec"
+
+# setup hostname
+  progress "Setup hostname"
+  echo "$HOSTNAME" > /proc/sys/kernel/hostname
+
+# create /etc/hosts file, useful for gethostbyname(localhost)
+  progress "creating /etc/hosts"
+  echo -e "127.0.0.1\tlocalhost $HOSTNAME" > /etc/hosts
+
+# add user defined hosts.conf entry's
+  [ -f $HOME/.config/hosts.conf ] && cat $HOME/.config/hosts.conf >> /etc/hosts
+
+(
+  # setup Networking
+    progress "setup Networking"
+
+    CONNMAN_PROFILE="/var/lib/connman/default.profile"
+
+    mkdir -p /var/run/connman
+    mkdir -p /var/lib/connman
+
+  # NETWORK: ( LAN / WLAN )
+    usleep 2000000 # TODO: wait on udev to load all drivers
+
+    [ -z "$IFACE" ] && IFACE="eth0"
+    [ -f /sys/class/net/$IFACE/address ] && \
+      IFACE=`cat /sys/class/net/$IFACE/address | sed 's/://g'`
+
+    if [ "$NETWORK" = "WLAN" -a -n "$SSID" ]; then
+      SSID_HEX=`echo -n "$SSID" | od -tx1 | cut -c8-| tr -d ' \n'`
+
+      # SECURITY: ( NONE / WEP / PSK )
+        if [ "$SECURITY" = "WEP" -a -n "$PASSPHRASE" ]; then
+          MODE="managed_wep"
+        elif [ "$SECURITY" = "PSK" -a -n "$PASSPHRASE"  ]; then
+          MODE="managed_psk"
+        else
+          MODE="managed_none"
+        fi
+
+        echo "[wifi_${IFACE}_${SSID_HEX}_${MODE}]" > $CONNMAN_PROFILE
+        echo "Name=$SSID"  >> $CONNMAN_PROFILE
+        echo "SSID=$SSID_HEX"  >> $CONNMAN_PROFILE
+        [ -n "$PASSPHRASE" ] && echo "Passphrase=$PASSPHRASE" >> $CONNMAN_PROFILE
+        echo "Favorite=true" >> $CONNMAN_PROFILE
+        echo "AutoConnect=true" >> $CONNMAN_PROFILE
+
+    else
+      MODE="cable"
+      echo "[ethernet_${IFACE}_${MODE}]" > $CONNMAN_PROFILE
+    fi
+
+  # IP settings
+    if [ -z "$IPADDRESS" ]; then
+      echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
+    else
+      IP=`echo $IPADDRESS | cut -f1 -d/`
+      PREFIX=`echo $IPADDRESS | cut -f2 -d/`
+      echo "IPv4.method=manual" >> $CONNMAN_PROFILE
+      echo "IPv4.local_address=$IP" >> $CONNMAN_PROFILE
+      [ -n "$PREFIX" ] && echo "IPv4.netmask_prefixlen=$PREFIX" >> $CONNMAN_PROFILE
+      [ -n "$GATEWAY" ] && echo "IPv4.gateway=$GATEWAY" >> $CONNMAN_PROFILE
+      [ -n "$NAMESERVER" ] && echo "Nameservers=$NAMESERVER;" >> $CONNMAN_PROFILE
+    fi
+
+  # starting Connection manager
+    progress "starting Connection manager"
+
+    touch /var/run/resolv.conf
+    /usr/sbin/connmand
+)&

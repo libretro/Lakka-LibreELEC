@@ -1,8 +1,8 @@
 #!/bin/sh
 
 ################################################################################
-#      Copyright (C) 2009-2010 OpenELEC.tv
-#      http://www.openelec.tv
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
+
 
 RESOLUTION=`xrandr | grep Screen | cut -f2 -d"," | sed -e "s/ //g" -e "s/current//g"`
 RESOLUTION_WIDTH=`echo $RESOLUTION | cut -f1 -d "x"`
