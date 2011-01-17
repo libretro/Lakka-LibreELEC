@@ -1,6 +1,6 @@
 ################################################################################
-#      Copyright (C) 2009-2010 OpenELEC.tv
-#      http://www.openelec.tv
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,46 +18,14 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# starting XBMC
-#
-# runlevels: openelec
+# only does something with "bluetooth" subsystem devices.
+SUBSYSTEM!="bluetooth", GOTO="end"
 
-LIRCDEV="/var/run/lirc/lircd"
-[ -e /var/run/lirc/lircd.irtrans ] && LIRCDEV="/var/run/lirc/lircd.irtrans"
-XBMC_ARGS="--standalone -fs --lircdev $LIRCDEV"
+# Start PS3 Remote support if bluetooth is starting
+ACTION=="add", RUN+="/usr/bin/xbmc-ps3remote localhost 9777"
+ACTION=="change", RUN+="/usr/bin/xbmc-ps3remote localhost 9777"
 
-progress "starting XBMC"
+# remove PS3 Remote support if bluetooth is stopping
+ACTION=="remove", RUN+="killall xbmc-ps3remote"
 
-# starting autoupdate
-  [ -f /usr/bin/autoupdate ] && /usr/bin/autoupdate &
-
-# waiting for Xorg to start
-  wait_for_xorg
-
-# starting XBMC
-  while true; do
-
-    DISPLAY=:0.0 /usr/lib/xbmc/xbmc.bin $XBMC_ARGS > /dev/null 2>&1
-    RET=$?
-
-    case "$RET" in
-      0)
-        poweroff -f
-        ;;
-      64)
-        poweroff -f
-        ;;
-      66)
-        reboot
-        ;;
-      255)
-        echo "Abnormal Exit. Exited with code $RET"
-        echo "is Xorg running? check /var/log/Xorg.log"
-        ;;
-      *)
-        echo "Abnormal Exit. Exited with code $RET"
-        ;;
-    esac
-
-    usleep 250000
-  done
+LABEL="end"
