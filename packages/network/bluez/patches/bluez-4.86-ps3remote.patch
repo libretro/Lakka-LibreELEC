@@ -1,10 +1,7 @@
-This patch adds additional PS3 remote support to bluez (4.76).
-The latest patch will always be located at http://kitlaan.twinaxis.com/project/bluez-ps3remote
-
-diff -Nur a/input/device.c b/input/device.c
---- a/input/device.c	2010-09-08 11:27:53.000000000 -0400
-+++ b/input/device.c	2010-10-19 13:08:36.553574553 -0400
-@@ -465,14 +465,14 @@
+diff -Naur bluez-4.86/input/device.c bluez-4.86.patch/input/device.c
+--- bluez-4.86/input/device.c	2011-01-20 08:49:26.000000000 +0100
++++ bluez-4.86.patch/input/device.c	2011-01-21 13:59:29.759613759 +0100
+@@ -437,14 +437,14 @@
  
  static gboolean fake_hid_connect(struct input_conn *iconn, GError **err)
  {
@@ -21,7 +18,7 @@ diff -Nur a/input/device.c b/input/device.c
  
  	return fhid->disconnect(iconn->fake);
  }
-@@ -602,7 +602,7 @@
+@@ -574,7 +574,7 @@
  }
  
  static int hidp_add_connection(const struct input_device *idev,
@@ -30,7 +27,7 @@ diff -Nur a/input/device.c b/input/device.c
  {
  	struct hidp_connadd_req *req;
  	struct fake_hid *fake_hid;
-@@ -639,13 +639,17 @@
+@@ -611,13 +611,17 @@
  		fake = g_new0(struct fake_input, 1);
  		fake->connect = fake_hid_connect;
  		fake->disconnect = fake_hid_disconnect;
@@ -49,7 +46,7 @@ diff -Nur a/input/device.c b/input/device.c
  		goto cleanup;
  	}
  
-@@ -785,7 +789,7 @@
+@@ -760,7 +764,7 @@
  	struct input_device *idev = user_data;
  	int flags;
  
@@ -58,7 +55,7 @@ diff -Nur a/input/device.c b/input/device.c
  
  	flags = removal ? (1 << HIDP_VIRTUAL_CABLE_UNPLUG) : 0;
  
-@@ -1291,3 +1295,15 @@
+@@ -1260,3 +1264,15 @@
  
  	return 0;
  }
@@ -74,9 +71,9 @@ diff -Nur a/input/device.c b/input/device.c
 +	device_request_disconnect(idev->device, NULL);
 +}
 +
-diff -Nur a/input/device.h b/input/device.h
---- a/input/device.h	2010-09-08 11:27:53.000000000 -0400
-+++ b/input/device.h	2010-10-19 13:10:01.273608173 -0400
+diff -Naur bluez-4.86/input/device.h bluez-4.86.patch/input/device.h
+--- bluez-4.86/input/device.h	2010-09-08 17:27:53.000000000 +0200
++++ bluez-4.86.patch/input/device.h	2011-01-21 13:59:29.759613759 +0100
 @@ -29,6 +29,7 @@
  
  struct input_device;
@@ -107,10 +104,10 @@ diff -Nur a/input/device.h b/input/device.h
  int input_device_close_channels(const bdaddr_t *src, const bdaddr_t *dst);
 +void input_device_request_disconnect(const bdaddr_t *src, const bdaddr_t *dst);
 +
-diff -Nur a/input/fakehid.c b/input/fakehid.c
---- a/input/fakehid.c	2010-09-08 11:27:53.000000000 -0400
-+++ b/input/fakehid.c	2010-10-19 13:24:55.243569928 -0400
-@@ -48,8 +48,479 @@
+diff -Naur bluez-4.86/input/fakehid.c bluez-4.86.patch/input/fakehid.c
+--- bluez-4.86/input/fakehid.c	2011-01-20 08:49:26.000000000 +0100
++++ bluez-4.86.patch/input/fakehid.c	2011-01-21 14:04:17.768938794 +0100
+@@ -47,8 +47,479 @@
  #include "fakehid.h"
  #include "uinput.h"
  
@@ -590,7 +587,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  enum ps3remote_special_keys {
  	PS3R_BIT_PS = 0,
  	PS3R_BIT_ENTER = 3,
-@@ -92,6 +563,8 @@
+@@ -91,6 +562,8 @@
  	[PS3R_BIT_SELECT] = 0x50,
  };
  
@@ -599,7 +596,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  static unsigned int ps3remote_keymap[] = {
  	[0x16] = KEY_EJECTCD,
  	[0x64] = KEY_AUDIO,
-@@ -147,10 +620,38 @@
+@@ -146,10 +619,38 @@
  	[0xff] = KEY_MAX,
  };
  
@@ -641,7 +638,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  	unsigned int i, mask;
  	int retval;
  	guint8 key;
-@@ -165,17 +666,18 @@
+@@ -164,17 +665,18 @@
  
  	/* first, check flags */
  	for (i = 0; i < 24; i++) {
@@ -663,7 +660,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  
  		goto out;
  	}
-@@ -183,20 +685,21 @@
+@@ -182,20 +684,21 @@
  	*value = buff[11];
  	if (buff[11] == 1) {
  		retval = ps3remote_keymap[key];
@@ -689,7 +686,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  
  	return retval;
  
-@@ -204,8 +707,8 @@
+@@ -203,8 +706,8 @@
  	error("ps3remote: unrecognized sequence [%#x][%#x][%#x][%#x] [%#x],"
  			"last: [%#x][%#x][%#x][%#x]",
  			buff[2], buff[3], buff[4], buff[5], buff[11],
@@ -700,19 +697,19 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  	return -1;
  }
  
-@@ -213,19 +716,28 @@
+@@ -212,19 +715,27 @@
  				gpointer data)
  {
  	struct fake_input *fake = data;
 -	struct uinput_event event;
 +	struct ps3remote_data *ps3data = fake->priv;
  	unsigned int key, value = 0;
- 	gsize size;
+ 	ssize_t size;
  	char buff[50];
--
+ 	int fd;
+ 
 -	if (cond & G_IO_NVAL)
 -		return FALSE;
-+	
 +	if (cond & G_IO_NVAL) {
 +		goto failed;
 +	}
@@ -723,18 +720,16 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
 +			error("Hangup or error on ps3remote server socket");
  		goto failed;
  	}
- 
 +	/* reset the timeout if needed */
 +	if (fake->timer > 0) {
 +		g_source_remove(fake->timer);
 +		fake->timer = g_timeout_add_seconds(fake->idle_timeout,
 +					fake_hid_common_timeout, fake);
 +	}
-+
- 	memset(buff, 0, sizeof(buff));
  
- 	if (g_io_channel_read(chan, buff, sizeof(buff), &size) !=
-@@ -234,55 +746,114 @@
+ 	fd = g_io_channel_unix_get_fd(chan);
+ 
+@@ -235,55 +746,114 @@
  		goto failed;
  	}
  
@@ -878,7 +873,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  				error("Error opening uinput device file");
  				return 1;
  			}
-@@ -295,13 +866,13 @@
+@@ -296,13 +866,13 @@
  	dev.id.vendor = fake_hid->vendor;
  	dev.id.product = fake_hid->product;
  
@@ -894,7 +889,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  		error("Error enabling uinput device key events");
  		goto err;
  	}
-@@ -309,43 +880,79 @@
+@@ -310,43 +880,79 @@
  	/* enabling keys */
  	for (i = 0; i < 256; i++)
  		if (ps3remote_keymap[i] != KEY_RESERVED)
@@ -982,7 +977,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  		.event		= ps3remote_event,
  		.setup_uinput	= ps3remote_setup_uinput,
  		.devices	= NULL,
-@@ -393,6 +1000,11 @@
+@@ -394,6 +1000,11 @@
  	/* New device? Add it to the list of known devices,
  	 * and create the uinput necessary */
  	if (old == NULL) {
@@ -994,7 +989,7 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
  		if (fake_hid->setup_uinput(fake, fake_hid)) {
  			error("Error setting up uinput");
  			g_free(fake);
-@@ -403,8 +1015,73 @@
+@@ -404,8 +1015,73 @@
  
  	fake->io = g_io_channel_ref(intr_io);
  	g_io_channel_set_close_on_unref(fake->io, TRUE);
@@ -1069,9 +1064,9 @@ diff -Nur a/input/fakehid.c b/input/fakehid.c
 +	}
 +}
 +
-diff -Nur a/input/fakehid.h b/input/fakehid.h
---- a/input/fakehid.h	2010-09-08 11:27:53.000000000 -0400
-+++ b/input/fakehid.h	2010-10-19 13:05:34.503528246 -0400
+diff -Naur bluez-4.86/input/fakehid.h bluez-4.86.patch/input/fakehid.h
+--- bluez-4.86/input/fakehid.h	2010-09-08 17:27:53.000000000 +0200
++++ bluez-4.86.patch/input/fakehid.h	2011-01-21 13:59:29.844614740 +0100
 @@ -38,3 +38,8 @@
  
  struct fake_input *fake_hid_connadd(struct fake_input *fake, GIOChannel *intr_io,
@@ -1081,9 +1076,9 @@ diff -Nur a/input/fakehid.h b/input/fakehid.h
 +
 +void fake_hid_exit(void);
 +
-diff -Nur a/input/input.conf b/input/input.conf
---- a/input/input.conf	2008-08-05 17:14:56.000000000 -0400
-+++ b/input/input.conf	2010-10-19 13:05:34.503528246 -0400
+diff -Naur bluez-4.86/input/input.conf bluez-4.86.patch/input/input.conf
+--- bluez-4.86/input/input.conf	2008-08-05 23:14:56.000000000 +0200
++++ bluez-4.86.patch/input/input.conf	2011-01-21 13:59:29.845614753 +0100
 @@ -4,6 +4,79 @@
  # particular interface
  [General]
@@ -1165,9 +1160,9 @@ diff -Nur a/input/input.conf b/input/input.conf
 +0x61 = KEY_FRAMEFORWARD   # SLOW/STEP FORWARD (XBMC recommendation: KEY_DOT)
 +0xff = KEY_MAX
 +
-diff -Nur a/input/manager.c b/input/manager.c
---- a/input/manager.c	2010-05-23 08:47:19.000000000 -0400
-+++ b/input/manager.c	2010-10-19 13:05:34.503528246 -0400
+diff -Naur bluez-4.86/input/manager.c bluez-4.86.patch/input/manager.c
+--- bluez-4.86/input/manager.c	2010-05-23 14:47:19.000000000 +0200
++++ bluez-4.86.patch/input/manager.c	2011-01-21 13:59:29.845614753 +0100
 @@ -41,6 +41,7 @@
  #include "device.h"
  #include "server.h"
@@ -1202,10 +1197,10 @@ diff -Nur a/input/manager.c b/input/manager.c
 +
  	connection = NULL;
  }
-diff -Nur a/src/device.c b/src/device.c
---- a/src/device.c	2010-10-02 19:25:27.000000000 -0400
-+++ b/src/device.c	2010-10-19 13:05:34.503528246 -0400
-@@ -968,6 +968,7 @@
+diff -Naur bluez-4.86/src/device.c bluez-4.86.patch/src/device.c
+--- bluez-4.86/src/device.c	2011-01-11 15:51:27.000000000 +0100
++++ bluez-4.86.patch/src/device.c	2011-01-21 13:59:29.847614776 +0100
+@@ -936,6 +936,7 @@
  	const gchar *adapter_path = adapter_get_path(adapter);
  	bdaddr_t src;
  	char srcaddr[18], alias[MAX_NAME_LENGTH + 1];
@@ -1213,7 +1208,7 @@ diff -Nur a/src/device.c b/src/device.c
  
  	device = g_try_malloc0(sizeof(struct btd_device));
  	if (device == NULL)
-@@ -999,6 +1000,10 @@
+@@ -968,6 +969,10 @@
  	if (read_blocked(&src, &device->bdaddr))
  		device_block(conn, device);
  
@@ -1224,7 +1219,7 @@ diff -Nur a/src/device.c b/src/device.c
  	device->auth = 0xff;
  
  	if (read_link_key(&src, &device->bdaddr, NULL, NULL) == 0)
-@@ -1206,6 +1211,8 @@
+@@ -1187,6 +1192,8 @@
  		if (!probe_uuids)
  			continue;
  
