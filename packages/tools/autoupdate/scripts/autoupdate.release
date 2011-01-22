@@ -20,10 +20,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-[ -f /etc/update.conf ] && . /etc/update.conf
-[ -f /storage/.config/update.conf ] && . /storage/.config/update.conf
-[ -f /etc/repo.conf ] && . /etc/repo.conf || exit 0
-[ -n "$KEYFILE" ] && SCP_ARG="-i $KEYFILE"
+OPENELEC_SETTINGS="$HOME/.xbmc/userdata/addon_data/os.openelec.settings/settings.xml"
+
+if [ -f /etc/update.conf ]; then
+  . /etc/update.conf
+elif [ -f "$OPENELEC_SETTINGS" ]; then
+  AUTOUPDATE=`grep UPDATE_AUTO $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+else
+  exit 0
+fi
+
+if [ -f /etc/repo.conf ]; then
+  . /etc/repo.conf
+  if [ -n "$KEYFILE" ]; then
+    SCP_ARG="-i $KEYFILE"
+  fi
+else
+  exit 0
+fi
 
 download () {
   case "$DL_METHOD" in
@@ -81,7 +95,7 @@ if [ ! -f /var/lock/update.lock ]; then
       elif [ "$AUTOUPDATE" = "auto" ]; then
 
       # show a message if a new version is avaible
-        send_message "New update avaible: $NEW_VERSION - downloading and extract the new version..."
+        send_message "New update avaible: $NEW_VERSION - downloading and extracting the new version..."
 
       # locking autoupdate
         touch /var/lock/update.lock
