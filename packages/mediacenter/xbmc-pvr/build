@@ -1,0 +1,172 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+. config/options $1
+
+if [ "$XBMC_VIS_PROJECTM" = yes ]; then
+  XBMC_PROJECTM="--enable-xbmcprojectm"
+else
+  XBMC_PROJECTM="--disable-xbmcprojectm"
+fi
+
+if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
+  XBMC_PULSEAUDIO="--enable-pulse"
+else
+  XBMC_PULSEAUDIO="--disable-pulse"
+fi
+
+if [ "$NONFREE_SUPPORT" = yes ]; then
+  XBMC_NONFREE="--enable-non-free"
+else
+  XBMC_NONFREE="--disable-non-free"
+fi
+
+if [ "$DVDCSS_SUPPORT" = yes ]; then
+  XBMC_DVDCSS="--enable-dvdcss"
+else
+  XBMC_DVDCSS="--disable-dvdcss"
+fi
+
+if [ "$FAAC_SUPPORT" = yes ]; then
+  XBMC_FAAC="--enable-faac"
+else
+  XBMC_FAAC="--disable-faac"
+fi
+
+if [ "$AVAHI_DAEMON" = yes ]; then
+  XBMC_AVAHI="--enable-avahi"
+else
+  XBMC_AVAHI="--disable-avahi"
+fi
+
+if [ "$WEBSERVER" = yes ]; then
+  XBMC_WEBSERVER="--enable-webserver"
+else
+  XBMC_WEBSERVER="--disable-webserver"
+fi
+
+if [ "$VDPAU" = yes ]; then
+  XBMC_VDPAU="--enable-vdpau"
+else
+  XBMC_VDPAU="--disable-vdpau"
+fi
+
+if [ "$VAAPI" = yes ]; then
+  XBMC_VAAPI="--enable-vaapi"
+else
+  XBMC_VAAPI="--disable-vaapi"
+fi
+
+if [ "$CRYSTALHD" = yes ]; then
+  XBMC_CRYSTALHD="--enable-crystalhd"
+else
+  XBMC_CRYSTALHD="--disable-crystalhd"
+fi
+
+# xbmc (ffmpeg) fails to build with LTO optimization
+  strip_lto
+  strip_gold
+  strip_linker_plugin
+
+# dont use some optimizations because of problems
+# this fixes problems with faac implementation of ffmpeg
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+
+# this fixes the "stretching picture bug"
+  CFLAGS=`echo $CFLAGS | sed -e "s|-ftree-loop-distribution||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-floop-interchange||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-floop-strip-mine||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-floop-block||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-fgraphite-identity||"`
+
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-ftree-loop-distribution||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-floop-interchange||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-floop-strip-mine||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-floop-block||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-fgraphite-identity||"`
+
+# setup skin dir from default skin
+  SKIN_DIR="skin.`tolower $SKIN_DEFAULT`"
+
+cd $PKG_BUILD
+
+do_autoreconf
+do_autoreconf lib/cpluff
+[ -d lib/libass ] && do_autoreconf lib/libass
+[ -d xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss ] && do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss
+do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdread
+do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdnav
+do_autoreconf xbmc/lib/libid3tag/libid3tag
+
+./configure --host=$TARGET_NAME \
+            --build=$HOST_NAME \
+            --with-arch=$TARGET_ARCH \
+            --with-cpu=$TARGET_CPU \
+            --prefix=/usr \
+            --exec-prefix=/usr \
+            --sysconfdir=/etc \
+            --datadir=/usr/share \
+            SVN_REV=`cat svn.version` \
+            --disable-debug \
+            --disable-optimizations \
+            --enable-gl \
+            $XBMC_VDPAU \
+            $XBMC_VAAPI \
+            $XBMC_CRYSTALHD \
+            --disable-vdadecoder \
+            --disable-profiling \
+            --enable-joystick \
+            --enable-xrandr \
+            --disable-goom \
+            $XBMC_PROJECTM \
+            --disable-rsxs \
+            --disable-ccache \
+            $XBMC_PULSEAUDIO \
+            --enable-ffmpeg-libvorbis \
+            $XBMC_FAAC \
+            $XBMC_DVDCSS \
+            --disable-mid \
+            $XBMC_AVAHI \
+            --disable-hal \
+            $XBMC_NONFREE \
+            --disable-asap-codec \
+            $XBMC_WEBSERVER \
+            --disable-libdts \
+            --disable-liba52 \
+            --enable-libbluray \
+            --disable-external-ffmpeg \
+            --disable-external-liba52 \
+            --disable-external-libdts \
+            --enable-external-python \
+
+# setup default skin inside the sources
+  sed -i -e "s|skin.confluence|$SKIN_DIR|g" xbmc/Settings.h
+
+make externals
+make xbmc.bin
+make xbmc-xrandr
+
+if [ "$WIIMOTE_SUPPORT" = yes ]; then
+  (cd tools/EventClients/Clients/WiiRemote;
+    $CXX $CFLAGS -lwiiuse WiiUse_WiiRemote.cpp -o WiiUse_WiiRemote;
+  )
+fi
