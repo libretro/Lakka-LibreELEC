@@ -22,12 +22,23 @@
 #
 # runlevels: openelec, installer, textmode
 
-# LAN:  no security: no SSID, NAME:Wired, no PASSPHRASE, tech: ethernet, mode: _cable
-# WLAN: no security: SSID,    NAME,       no PASSPHRASE, tech: wifi      mode: _managed_none
-# WLAN: (WPA2):      SSID,    NAME,       PASSPHRASE,    tech: wifi      mode: _managed_psk
-# WLAN: (WEP):       SSID,    NAME,       PASSPHRASE,    tect: wifi      mode: _managed_wep
+OPENELEC_SETTINGS="$HOME/.xbmc/userdata/addon_data/os.openelec.settings/settings.xml"
 
-[ -f $HOME/.config/network.conf ] && . $HOME/.config/network.conf
+if [ -f "$OPENELEC_SETTINGS" ]; then
+  HOSTNAME=`grep NET_HOSTNAME $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  NETWORK=`grep NET_NETWORK $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  IFACE=`grep NET_IFACE $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  IPADDRESS=`grep NET_IPADDRESS $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  PREFIXLEN=`grep NET_PREFIXLEN $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  GATEWAY=`grep NET_GATEWAY $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  DNS1=`grep NET_DNS1 $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  DNS2=`grep NET_DNS2 $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  DNS3=`grep NET_DNS3 $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  SSID=`grep NET_SSID $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  SECURITY=`grep NET_SECURITY $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+  PASSPHRASE=`grep NET_PASSPHRASE $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+fi
+
 [ -z "$HOSTNAME" ] && HOSTNAME="openelec"
 
 # setup hostname
@@ -53,7 +64,6 @@
   # NETWORK: ( LAN / WLAN )
     usleep 2000000 # TODO: wait on udev to load all drivers
 
-    [ -z "$IFACE" ] && IFACE="eth0"
     [ -f /sys/class/net/$IFACE/address ] && \
       IFACE=`cat /sys/class/net/$IFACE/address | sed 's/://g'`
 
@@ -85,12 +95,14 @@
     if [ -z "$IPADDRESS" ]; then
       echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
     else
-      IP=`echo $IPADDRESS | cut -f1 -d/`
-      PREFIX=`echo $IPADDRESS | cut -f2 -d/`
       echo "IPv4.method=manual" >> $CONNMAN_PROFILE
-      echo "IPv4.local_address=$IP" >> $CONNMAN_PROFILE
-      [ -n "$PREFIX" ] && echo "IPv4.netmask_prefixlen=$PREFIX" >> $CONNMAN_PROFILE
+      echo "IPv4.local_address=$IPADDRESS" >> $CONNMAN_PROFILE
+      [ -n "$PREFIXLEN" ] && echo "IPv4.netmask_prefixlen=$PREFIXLEN" >> $CONNMAN_PROFILE
       [ -n "$GATEWAY" ] && echo "IPv4.gateway=$GATEWAY" >> $CONNMAN_PROFILE
+
+      [ -n "$DNS1" ] && NAMESERVER="$DNS1"
+      [ -n "$DNS2" ] && NAMESERVER="$NAMESERVER;$DNS2"
+      [ -n "$DNS3" ] && NAMESERVER="$NAMESERVER;$DNS3"
       [ -n "$NAMESERVER" ] && echo "Nameservers=$NAMESERVER;" >> $CONNMAN_PROFILE
     fi
 

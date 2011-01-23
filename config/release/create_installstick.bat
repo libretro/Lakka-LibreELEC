@@ -75,11 +75,23 @@ ECHO.
 
 SET /P DRIVE= -- 
 if %DRIVE%!==! goto INSTALL
-format %DRIVE% /V:INSTALL /Q /FS:FAT32
+format %DRIVE% /V:OPENELEC /Q /FS:FAT32
 3rdparty\syslinux\win32\syslinux.exe -f -m -a %DRIVE%
 ECHO Copying necessary files to %DRIVE%
 copy target\* %DRIVE%
-copy sample.conf\syslinux_installer.cfg %DRIVE%\syslinux.cfg
+copy Autorun.inf %DRIVE%
+copy CHANGELOG %DRIVE%
+copy INSTALL %DRIVE%
+copy README %DRIVE%
+copy RELEASE %DRIVE%
+copy openelec.ico %DRIVE%
+FOR /F "tokens=5" %%G IN ('vol %DRIVE% ^|find "-"') DO SET DRIVEUUID=%%G
+echo DEFAULT linux > %DRIVE%\syslinux.cfg
+echo PROMPT 0 >> %DRIVE%\syslinux.cfg
+echo. >> %DRIVE%\syslinux.cfg
+echo LABEL linux >> %DRIVE%\syslinux.cfg
+echo KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
+echo APPEND boot=UUID=%DRIVEUUID% installer quiet >> %DRIVE%\syslinux.cfg
 GOTO END
 
 :BADMD5
@@ -99,3 +111,4 @@ PAUSE
 :END
 SET DRIVE=
 SET OS=
+SET DRIVEUUID=

@@ -1,0 +1,91 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# create logfile
+
+DATE=`date -u +%Y-%m-%d-%H.%M.%S`
+BASEDIR="/tmp"
+LOGDIR="log-$DATE"
+
+getlog_cmd() {
+  echo "################################################################################" >> $BASEDIR/$LOGDIR/$LOGFILE
+  echo "# ... output of $@" >> $BASEDIR/$LOGDIR/$LOGFILE
+  echo "################################################################################" >> $BASEDIR/$LOGDIR/$LOGFILE
+  $@ >> $BASEDIR/$LOGDIR/$LOGFILE
+  echo "" >> $BASEDIR/$LOGDIR/$LOGFILE
+}
+
+rm -rf $BASEDIR/$LOGDIR
+mkdir -p $BASEDIR/$LOGDIR
+
+# OS Info
+  LOGFILE="00_OS.log"
+  getlog_cmd cat /etc/issue
+
+# XBMC.log
+  LOGFILE="01_XBMC.log"
+  for i in `find /storage/.xbmc/temp/ -type f -name "*.log"`; do
+    getlog_cmd cat $i
+  done
+
+# Kernel.log
+  LOGFILE="02_Kernel.log"
+  getlog_cmd lsmod
+  getlog_cmd dmesg
+
+# Hardware.log
+  LOGFILE="03_Hardware.log"
+  getlog_cmd lspci -vvv
+  getlog_cmd lsusb -vvv
+  getlog_cmd cat /proc/cpuinfo
+
+# Audio.log
+  LOGFILE="04_Audio.log"
+  getlog_cmd aplay -l
+  getlog_cmd aplay -L
+  getlog_cmd amixer
+
+# Network.log
+  LOGFILE="05_Network.log"
+  getlog_cmd ifconfig
+
+# varlog.log
+  LOGFILE="06_varlog.log"
+  for i in `find /var/log -type f`; do
+    getlog_cmd cat $i
+  done
+
+# Input.log
+  LOGFILE="07_input.log"
+  getlog_cmd cat /proc/bus/input/devices
+  getlog_cmd cat /proc/acpi/wakeup
+
+# DMI.log
+  LOGFILE="08_dmi.log"
+  getlog_cmd dmidecode
+
+# pack logfiles
+  mkdir -p /storage/logfiles
+  tar cvjf /storage/logfiles/log-$DATE.tar.bz2 $LOGDIR -C $BASEDIR
+
+# remove logdir
+  rm -rf $BASEDIR/$LOGDIR
