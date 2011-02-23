@@ -1,0 +1,60 @@
+Fix a failure to build if CPU hotplug is disabled with BFS.
+
+-ck
+
+---
+ kernel/sched_bfs.c |   34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
+
+Index: linux-2.6.37-ck2/kernel/sched_bfs.c
+===================================================================
+--- linux-2.6.37-ck2.orig/kernel/sched_bfs.c	2011-02-14 09:50:24.351252002 +1100
++++ linux-2.6.37-ck2/kernel/sched_bfs.c	2011-02-14 09:53:53.820252000 +1100
+@@ -4812,6 +4812,23 @@
+ 	grq_unlock_irqrestore(&flags);
+ }
+ 
++/*
++ * Ensures that the idle task is using init_mm right before its cpu goes
++ * offline.
++ */
++void idle_task_exit(void)
++{
++	struct mm_struct *mm = current->active_mm;
++
++	BUG_ON(cpu_online(smp_processor_id()));
++
++	if (mm != &init_mm)
++		switch_mm(mm, &init_mm, current);
++	mmdrop(mm);
++}
++
++#endif /* CONFIG_HOTPLUG_CPU */
++
+ void sched_set_stop_task(int cpu, struct task_struct *stop)
+ {
+ 	struct sched_param stop_param = { .sched_priority = STOP_PRIO };
+@@ -4841,23 +4858,6 @@
+ 	}
+ }
+ 
+-/*
+- * Ensures that the idle task is using init_mm right before its cpu goes
+- * offline.
+- */
+-void idle_task_exit(void)
+-{
+-	struct mm_struct *mm = current->active_mm;
+-
+-	BUG_ON(cpu_online(smp_processor_id()));
+-
+-	if (mm != &init_mm)
+-		switch_mm(mm, &init_mm, current);
+-	mmdrop(mm);
+-}
+-
+-#endif /* CONFIG_HOTPLUG_CPU */
+-
+ #if defined(CONFIG_SCHED_DEBUG) && defined(CONFIG_SYSCTL)
+ 
+ static struct ctl_table sd_ctl_dir[] = {
