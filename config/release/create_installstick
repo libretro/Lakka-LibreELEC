@@ -110,7 +110,7 @@ fi
 
 # find UUID
   echo -n "finding UUID from $PART ..."
-  UUID=`blkid $PART -s UUID -o export`
+  UUID=`blkid $PART -s UUID -o value`
   echo "$UUID"
 
 # create bootloader
@@ -121,7 +121,7 @@ fi
   echo " " >> /tmp/usb_install/syslinux.cfg
   echo "LABEL linux" >> /tmp/usb_install/syslinux.cfg
   echo "  KERNEL /KERNEL" >> /tmp/usb_install/syslinux.cfg
-  echo "  APPEND boot=$UUID installer quiet" >> /tmp/usb_install/syslinux.cfg
+  echo "  APPEND boot=UUID=$UUID installer quiet" >> /tmp/usb_install/syslinux.cfg
 
 # copy files
   echo "copy files to $PART..."
@@ -136,13 +136,27 @@ fi
   cp README /tmp/usb_install
   cp RELEASE /tmp/usb_install
 
-# syncing disk
-  echo "syncing disk..."
-  sync
-
 # unmount partition
   echo "unmounting partition $PART..."
   umount "$PART"
+
+# write mbr
+  echo "writing mbr..."
+  if [ -f /usr/lib/syslinux/mbr.bin ]; then
+    MBR="/usr/lib/syslinux/mbr.bin"       # example: ubuntu
+  elif [ -f /usr/share/syslinux/mbr.bin ]; then
+    MBR="/usr/share/syslinux/mbr.bin"     # example: fedora
+  else
+    echo "Dont find mbr.bin on Host OS"
+  fi
+
+  if [ -n "$MBR" ]; then
+    cat "$MBR" > "$DISK"
+  fi
+
+# syncing disk
+  echo "syncing disk..."
+  sync
 
 # cleaning
   echo "cleaning tempdir..."
