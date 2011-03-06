@@ -22,26 +22,34 @@
 
 . config/options $1
 
-export INSTALL=$(kernel_path)
-$SCRIPTS/install busybox-initramfs
-
-if [ "$BOOTLOADER" = "u-boot" ]; then
-  $SCRIPTS/build u-boot
-  KERNEL_IMAGE="uImage"
-else
-  KERNEL_IMAGE="bzImage"
-fi
+BOOT_CFG="$PROJECT_DIR/$PROJECT/boot.cfg"
 
 unset LDFLAGS
 
-cd $(kernel_path)
-rm -rf modules
-mkdir -p modules
+# dont use some optimizations because of problems
+  MAKEFLAGS=-j1
 
-make modules
-make INSTALL_MOD_PATH=modules DEPMOD="$ROOT/$TOOLCHAIN/sbin/depmod" modules_install
-rm -f modules/lib/modules/*/build
-rm -f modules/lib/modules/*/source
+if [ -z "$UBOOT_CONFIG" ]; then
+  echo "$TARGET_PLATFORM does not define any u-boot configuration, aborting."
+  echo "Please add MACHINE_UBOOT_CONFIG to your platform meta file"
+  exit 1
+fi
 
-make $KERNEL_IMAGE
+cd $PKG_BUILD
 
+make CROSS_COMPILE="$TARGET_PREFIX" ARCH="$TARGET_ARCH" "$UBOOT_CONFIG"
+make CROSS_COMPILE="$TARGET_PREFIX" ARCH="$TARGET_ARCH" HOSTCC="$HOST_CC" HOSTSTRIP="true"
+
+mkdir -p $ROOT/$TOOLCHAIN/bin
+  cp tools/mkimage $ROOT/$TOOLCHAIN/bin
+
+if [ -r "$BOOT_CFG" ]; then
+  cp $BOOT_CFG boot.cfg
+  mkimage -A "$TARGET_ARCH" \
+          -O u-boot \
+          -T script \
+          -C none \
+          -n "$DISTRONAME Boot" \
+          -d boot.cfg \
+          boot.ini
+fi
