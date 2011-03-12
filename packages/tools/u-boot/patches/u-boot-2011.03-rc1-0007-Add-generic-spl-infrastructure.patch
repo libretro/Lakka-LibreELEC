@@ -1,0 +1,91 @@
+From 9b4dfdc49a0e88f6a5292dbcb6c4260888258380 Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Thu, 17 Feb 2011 01:23:29 +0530
+Subject: [PATCH 07/22] Add generic spl infrastructure
+
+Define a new type of SPL that is not tied to any particular media.
+- Create a top level directory 'spl' that has a structure similar
+  to the existing 'nand_spl'
+- Make necessary changes to top-level Makefile to build such an spl
+
+Rationale for this approach:
+- There may be SPLs(like the OMAP x-loader) that support booting from
+  multiple media.
+- Also, there is no harm in keeping SPLs specific to a particular media
+  also under this directory. In fact it makes sense to merge all the
+  different spl directories into this one.
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ Makefile                           |   11 +++++++++++
+ arch/arm/include/asm/global_data.h |    5 +++++
+ 2 files changed, 16 insertions(+), 0 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index dc2e3d8..21e51c8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -293,6 +293,11 @@ NAND_SPL = nand_spl
+ U_BOOT_NAND = $(obj)u-boot-nand.bin
+ endif
+ 
++ifeq ($(CONFIG_SPL),y)
++.PHONEY : SPL
++ALL += SPL
++endif
++
+ ifeq ($(CONFIG_ONENAND_U_BOOT),y)
+ ONENAND_IPL = onenand_ipl
+ U_BOOT_ONENAND = $(obj)u-boot-onenand.bin
+@@ -402,6 +407,9 @@ $(LDSCRIPT):	depend
+ $(obj)u-boot.lds: $(LDSCRIPT)
+ 		$(CPP) $(CPPFLAGS) $(LDPPFLAGS) -ansi -D__ASSEMBLY__ -P - <$^ >$@
+ 
++SPL		:$(TIMESTAMP_FILE) $(VERSION_FILE) depend tools
++		$(MAKE) -C spl/board/$(BOARDDIR) all
++
+ $(NAND_SPL):	$(TIMESTAMP_FILE) $(VERSION_FILE) depend
+ 		$(MAKE) -C nand_spl/board/$(BOARDDIR) all
+ 
+@@ -1138,6 +1146,7 @@ clean:
+ 	@rm -f $(obj)include/bmp_logo.h
+ 	@rm -f $(obj)lib/asm-offsets.s
+ 	@rm -f $(obj)nand_spl/{u-boot.lds,u-boot-spl,u-boot-spl.map,System.map}
++	@rm -f $(obj)spl/{u-boot-spl-generated.lds,u-boot-spl,u-boot-spl.map}
+ 	@rm -f $(obj)onenand_ipl/onenand-{ipl,ipl.bin,ipl.map}
+ 	@rm -f $(ONENAND_BIN)
+ 	@rm -f $(obj)onenand_ipl/u-boot.lds
+@@ -1157,12 +1166,14 @@ clobber:	clean
+ 	@rm -f $(obj)u-boot $(obj)u-boot.map $(obj)u-boot.hex $(ALL)
+ 	@rm -f $(obj)u-boot.kwb
+ 	@rm -f $(obj)u-boot.imx
++	@rm -f $(obj)MLO
+ 	@rm -f $(obj)tools/{env/crc32.c,inca-swap-bytes}
+ 	@rm -f $(obj)arch/powerpc/cpu/mpc824x/bedbug_603e.c
+ 	@rm -fr $(obj)include/asm/proc $(obj)include/asm/arch $(obj)include/asm
+ 	@rm -fr $(obj)include/generated
+ 	@[ ! -d $(obj)nand_spl ] || find $(obj)nand_spl -name "*" -type l -print | xargs rm -f
+ 	@[ ! -d $(obj)onenand_ipl ] || find $(obj)onenand_ipl -name "*" -type l -print | xargs rm -f
++	@[ ! -d $(obj)spl ] || find $(obj)spl -name "*" -type l -print | xargs rm -f
+ 
+ ifeq ($(OBJTREE),$(SRCTREE))
+ mrproper \
+diff --git a/arch/arm/include/asm/global_data.h b/arch/arm/include/asm/global_data.h
+index 2a84d27..2ce020e 100644
+--- a/arch/arm/include/asm/global_data.h
++++ b/arch/arm/include/asm/global_data.h
+@@ -89,6 +89,11 @@ typedef	struct	global_data {
+ #define GD_FLG_DISABLE_CONSOLE	0x00040	/* Disable console (in & out)		*/
+ #define GD_FLG_ENV_READY	0x00080	/* Environment imported into hash table	*/
+ 
++#ifdef CONFIG_PRELOADER
++/* SPL works from internal RAM. gd pointer can be in .data section */
++#define DECLARE_GLOBAL_DATA_PTR     extern gd_t *gd
++#else
+ #define DECLARE_GLOBAL_DATA_PTR     register volatile gd_t *gd asm ("r8")
++#endif
+ 
+ #endif /* __ASM_GBL_DATA_H */
+-- 
+1.7.2.3
+
