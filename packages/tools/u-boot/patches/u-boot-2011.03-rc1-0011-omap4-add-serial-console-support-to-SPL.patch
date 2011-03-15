@@ -1,0 +1,110 @@
+From eb26c57b60b026cd827be2470697111418b5ca61 Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Sun, 27 Feb 2011 19:45:01 +0530
+Subject: [PATCH 11/22] omap4: add serial console support to SPL
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ arch/arm/cpu/armv7/omap4/board.c   |    3 ++
+ arch/arm/include/asm/omap_common.h |    1 +
+ spl/board/ti/sdp4430/Makefile      |   40 ++++++++++++++++++++++++++++++++++++
+ spl/board/ti/spl-omap.c            |   10 +++++++++
+ 4 files changed, 54 insertions(+), 0 deletions(-)
+
+diff --git a/arch/arm/cpu/armv7/omap4/board.c b/arch/arm/cpu/armv7/omap4/board.c
+index a5d585b..da79669 100644
+--- a/arch/arm/cpu/armv7/omap4/board.c
++++ b/arch/arm/cpu/armv7/omap4/board.c
+@@ -57,6 +57,9 @@ u32 omap_boot_mode(void)
+ void s_init(void)
+ {
+ 	watchdog_init();
++#ifdef CONFIG_PRELOADER
++	preloader_console_init();
++#endif
+ }
+ 
+ /*
+diff --git a/arch/arm/include/asm/omap_common.h b/arch/arm/include/asm/omap_common.h
+index 06c511c..95116f4 100644
+--- a/arch/arm/include/asm/omap_common.h
++++ b/arch/arm/include/asm/omap_common.h
+@@ -67,5 +67,6 @@
+ 
+ u32 omap_boot_device(void);
+ u32 omap_boot_mode(void);
++void preloader_console_init(void);
+ 
+ #endif /* _OMAP_COMMON_H_ */
+diff --git a/spl/board/ti/sdp4430/Makefile b/spl/board/ti/sdp4430/Makefile
+index dd56a40..6a6aa42 100644
+--- a/spl/board/ti/sdp4430/Makefile
++++ b/spl/board/ti/sdp4430/Makefile
+@@ -28,6 +28,46 @@ include $(TOPDIR)/config.mk
+ SOBJS =
+ COBJS =
+ 
++# serial console
++$(obj)eabi_compat.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/lib/eabi_compat.c $@
++
++$(obj)string.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/string.c $@
++
++$(obj)vsprintf.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/vsprintf.c $@
++
++$(obj)console.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/common/console.c $@
++
++$(obj)stdio.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/common/stdio.c $@
++
++$(obj)serial.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/serial/serial.c $@
++
++$(obj)ns16550.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/serial/ns16550.c $@
++
++$(obj)div64.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/div64.c $@
++
++$(obj)ctype.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/ctype.c $@
++
++COBJS	+= serial.o ns16550.o string.o vsprintf.o console.o stdio.o
++COBJS	+= ctype.o eabi_compat.o div64.o
++
+ # armv7
+ $(obj)start.S:
+ 	@rm -f $@
+diff --git a/spl/board/ti/spl-omap.c b/spl/board/ti/spl-omap.c
+index 0e08f4f..57ddb7d 100644
+--- a/spl/board/ti/spl-omap.c
++++ b/spl/board/ti/spl-omap.c
+@@ -45,3 +45,13 @@ void board_init_r(gd_t *id, ulong dummy)
+ 	for (;;)
+ 		;
+ }
++
++void preloader_console_init(void)
++{
++	gd->bd = &bdata;
++	gd->flags |= GD_FLG_RELOC;
++	gd->baudrate = CONFIG_BAUDRATE;
++	serial_init();		/* serial communications setup */
++	printf("\nU-Boot SPL for Texas Instruments OMAP4 (%s - %s)\n",
++		U_BOOT_DATE, U_BOOT_TIME);
++}
+-- 
+1.7.2.3
+

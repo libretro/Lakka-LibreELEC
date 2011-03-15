@@ -1,0 +1,303 @@
+From 1f516cf960c96e77f722706726f273cf3f117d9c Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Fri, 18 Feb 2011 03:24:01 +0530
+Subject: [PATCH 22/22] omap4: add spl support for OMAP4 Panda
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ arch/arm/include/asm/arch-omap4/emif.h |   10 +-
+ include/configs/omap4_panda.h          |   24 ++++
+ spl/board/ti/panda/Makefile            |  219 ++++++++++++++++++++++++++++++++
+ 3 files changed, 248 insertions(+), 5 deletions(-)
+ create mode 100644 spl/board/ti/panda/Makefile
+
+diff --git a/arch/arm/include/asm/arch-omap4/emif.h b/arch/arm/include/asm/arch-omap4/emif.h
+index 8cc3230..b95e545 100644
+--- a/arch/arm/include/asm/arch-omap4/emif.h
++++ b/arch/arm/include/asm/arch-omap4/emif.h
+@@ -520,11 +520,11 @@
+ 
+ /* Trap for invalid TILER PAT entries */
+ #define DMM_LISA_MAP_0_INVAL_ADDR_TRAP		(\
+-		(0  << OMAP44XX_SDRC_ADDR_SHIFT) |\
+-		(DMM_SDRC_MAP_EMIF1_ONLY << OMAP44XX_SDRC_MAP_SHIFT)|\
+-		(DMM_SDRC_ADDR_SPC_INVALID << OMAP44XX_SDRC_ADDRSPC_SHIFT)|\
+-		(DMM_SDRC_INTL_NONE << OMAP44XX_SDRC_INTL_SHIFT)|\
+-		(0xFF << OMAP44XX_SYS_ADDR_SHIFT))
++	(0  << OMAP44XX_SDRC_ADDR_SHIFT) |\
++	(DMM_SDRC_MAP_EMIF1_ONLY << OMAP44XX_SDRC_MAP_SHIFT)|\
++	(DMM_SDRC_ADDR_SPC_INVALID << OMAP44XX_SDRC_ADDRSPC_SHIFT)|\
++	(DMM_SDRC_INTL_NONE << OMAP44XX_SDRC_INTL_SHIFT)|\
++	(0xFF << OMAP44XX_SYS_ADDR_SHIFT))
+ 
+ 
+ /* Reg mapping structure */
+diff --git a/include/configs/omap4_panda.h b/include/configs/omap4_panda.h
+index 2b03b0f..b389035 100644
+--- a/include/configs/omap4_panda.h
++++ b/include/configs/omap4_panda.h
+@@ -117,7 +117,9 @@
+ 
+ /* USB device configuration */
+ #define CONFIG_USB_DEVICE		1
++#ifndef CONFIG_PRELOADER
+ #define CONFIG_USB_TTY			1
++#endif
+ #define CONFIG_SYS_CONSOLE_IS_IN_ENV	1
+ 
+ /* Flash */
+@@ -234,4 +236,26 @@
+ 					 CONFIG_SYS_INIT_RAM_SIZE - \
+ 					 GENERATED_GBL_DATA_SIZE)
+ 
++/* Defines for Clock init */
++#define CONFIG_SYS_OMAP4_ABE_SYSCK
++
++/* Defines for SDRAM init */
++#ifndef CONFIG_SYS_EMIF_PRECALCULATED_TIMING_REGS
++#define CONFIG_SYS_AUTOMATIC_SDRAM_DETECTION	1
++#define CONFIG_SYS_DEFAULT_LPDDR2_TIMINGS	1
++#endif
++
++/* Defines for SPL */
++#define CONFIG_SPL
++#define CONFIG_SYS_SPL_TEXT_BASE	0x40304360
++#define CONFIG_SYS_SPL_MAX_SIZE		0x7800	/* 30 K */
++#define CONFIG_SYS_SPL_STACK		LOW_LEVEL_SRAM_STACK
++
++#define CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR	0x300 /* address 0x60000 */
++#define CONFIG_SYS_U_BOOT_MAX_SIZE_SECTORS	0x200 /* 256 KB */
++#define CONFIG_SYS_MMC_SD_FAT_BOOT_PARTITION	1
++
++#define CONFIG_SYS_SPL_BSS_START_ADDR	0x80000000
++#define CONFIG_SYS_SPL_BSS_MAX_SIZE		0x80000		/* 512 KB */
++
+ #endif /* __CONFIG_H */
+diff --git a/spl/board/ti/panda/Makefile b/spl/board/ti/panda/Makefile
+new file mode 100644
+index 0000000..8310db9
+--- /dev/null
++++ b/spl/board/ti/panda/Makefile
+@@ -0,0 +1,219 @@
++#
++# (C) Copyright 2006-2007
++# Stefan Roese, DENX Software Engineering, sr@denx.de.
++#
++# (C) Copyright 2008
++# Guennadi Liakhovetki, DENX Software Engineering, <lg@denx.de>
++#
++# See file CREDITS for list of people who contributed to this
++# project.
++#
++# This program is free software; you can redistribute it and/or
++# modify it under the terms of the GNU General Public License as
++# published by the Free Software Foundation; either version 2 of
++# the License, or (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++# MA 02111-1307 USA
++#
++splobj	:= $(OBJTREE)/spl/
++include $(TOPDIR)/config.mk
++SOBJS =
++COBJS =
++
++# serial console
++$(obj)eabi_compat.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/lib/eabi_compat.c $@
++
++$(obj)string.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/string.c $@
++
++$(obj)vsprintf.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/vsprintf.c $@
++
++$(obj)console.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/common/console.c $@
++
++$(obj)stdio.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/common/stdio.c $@
++
++$(obj)serial.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/serial/serial.c $@
++
++$(obj)ns16550.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/serial/ns16550.c $@
++
++$(obj)div64.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/div64.c $@
++
++$(obj)ctype.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/ctype.c $@
++
++COBJS	+= serial.o ns16550.o string.o vsprintf.o console.o stdio.o
++COBJS	+= ctype.o eabi_compat.o div64.o
++
++
++# mmc
++$(obj)mmc.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/mmc/mmc.c $@
++
++$(obj)omap_hsmmc.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/mmc/omap_hsmmc.c $@
++
++$(obj)omap24xx_i2c.c: $(obj)omap24xx_i2c.h
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/i2c/omap24xx_i2c.c $@
++
++$(obj)omap24xx_i2c.h:
++	@rm -f $@
++	@ln -s $(TOPDIR)/drivers/i2c/omap24xx_i2c.h $@
++
++$(obj)time.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/lib/time.c $@
++
++$(obj)part.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/disk/part.c $@
++
++$(obj)part_dos.c: $(obj)part_dos.h
++	@rm -f $@
++	@ln -s $(TOPDIR)/disk/part_dos.c $@
++
++$(obj)part_dos.h:
++	@rm -f $@
++	@ln -s $(TOPDIR)/disk/part_dos.h $@
++
++COBJS	+= omap_hsmmc.o omap24xx_i2c.o mmc.o time.o part.o part_dos.o
++
++# fat
++$(obj)fat.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/fs/fat/fat.c $@
++
++COBJS	+=  fat.o
++
++# armv7
++$(obj)start.S:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/start.S $@
++
++$(obj)syslib.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/syslib.c $@
++
++SOBJS	+= start.o
++COBJS	+= syslib.o
++
++# omap-common
++$(obj)utils.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap-common/utils.c $@
++
++$(obj)timer.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap-common/timer.c $@
++
++$(obj)reset.S:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap-common/reset.S $@
++
++$(obj)spl-omap.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/spl/board/ti/spl-omap.c $@
++
++SOBJS	+= reset.o
++COBJS	+= utils.o timer.o spl-omap.o
++
++$(OBJTREE)/MLO:	$(splobj)u-boot-spl.bin
++	$(OBJTREE)/tools/mkimage -T omapimage \
++		-a $(CONFIG_SYS_SPL_TEXT_BASE) -d $< $@
++
++LDSCRIPT_SOURCE = $(TOPDIR)/spl/board/ti/spl-omap.lds
++
++# omap4
++$(obj)lowlevel_init.S:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/lowlevel_init.S $@
++
++$(obj)omap4_mux_data.h:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/omap4_mux_data.h $@
++
++$(obj)board.c:$(obj)omap4_mux_data.h
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/board.c $@
++
++$(obj)emif.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/emif.c $@
++
++$(obj)sdram_elpida.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/sdram_elpida.c $@
++
++$(obj)clocks.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/clocks.c $@
++
++SOBJS	+= lowlevel_init.o
++COBJS	+= board.o clocks.o emif.o sdram_elpida.o
++
++# rules
++LDPPFLAGS += -include $(TOPDIR)/include/config.h
++LDSCRIPT = $(splobj)u-boot-spl-generated.lds
++$(LDSCRIPT): $(LDSCRIPT_SOURCE)
++	$(CPP) $(CPPFLAGS) $(LDPPFLAGS) -ansi -D__ASSEMBLY__ -P - <$^ >$@
++LDFLAGS	= -Bstatic -T $(LDSCRIPT) \
++	$(PLATFORM_LDFLAGS) --gc-sections
++AFLAGS	+= -DCONFIG_PRELOADER -Os -ffixed-r8
++CFLAGS	+= -DCONFIG_PRELOADER -Os -ffixed-r8 -ffunction-sections \
++	-fdata-sections -march=armv7-a -mthumb
++PLATFORM_LIBGCC = -L $(shell dirname `$(CC) $(CFLAGS) \
++		-print-libgcc-file-name`) -lgcc
++
++$(obj)%.o:	$(obj)%.S
++	$(CC) $(AFLAGS) -c -o $@ $<
++
++$(obj)%.o:	$(obj)%.c
++	$(CC) $(CFLAGS) -c -o $@ $<
++
++SRCS	:= $(addprefix $(obj),$(SOBJS:.o=.S) $(COBJS:.o=.c))
++OBJS	:= $(addprefix $(obj),$(SOBJS) $(COBJS))
++__OBJS	:= $(SOBJS) $(COBJS)
++LNDIR	:= $(OBJTREE)/spl/board/$(BOARDDIR)
++
++$(splobj)u-boot-spl.bin:	$(splobj)u-boot-spl
++	$(OBJCOPY) ${OBJCFLAGS} -O binary $< $@
++
++$(splobj)u-boot-spl:	$(OBJS) $(LDSCRIPT)
++	cd $(LNDIR) && $(LD) $(LDFLAGS) $(__OBJS) \
++		$(PLATFORM_LIBGCC) \
++		-Map $(splobj)u-boot-spl.map \
++		-o $(splobj)u-boot-spl
++
++ALL	= $(OBJTREE)/MLO
++all:	$(obj).depend $(ALL)
++
++# defines $(obj).depend target
++include $(SRCTREE)/rules.mk
++
++sinclude $(obj).depend
+-- 
+1.7.2.3
+
