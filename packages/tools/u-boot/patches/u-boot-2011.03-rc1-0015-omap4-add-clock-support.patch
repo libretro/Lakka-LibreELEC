@@ -1,0 +1,1335 @@
+From d669bac9f088cb5b0291e1c059c54ba95d527112 Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Wed, 16 Feb 2011 23:25:54 +0530
+Subject: [PATCH 15/22] omap4: add clock support
+
+Add support for:
+1. DPLL locking
+2. Initialization of clock domains and clock modules
+
+This work draws upon previous work done for x-loader mainly by:
+	Santosh Shilimkar <santosh.shilimkar@ti.com>
+	Rajendra Nayak <rnayak@ti.com>
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ arch/arm/cpu/armv7/omap4/Makefile           |    1 +
+ arch/arm/cpu/armv7/omap4/board.c            |    1 +
+ arch/arm/cpu/armv7/omap4/clocks.c           |  717 +++++++++++++++++++++++++++
+ arch/arm/include/asm/arch-omap4/clocks.h    |  504 +++++++++++++++++++
+ arch/arm/include/asm/arch-omap4/sys_proto.h |    6 +
+ arch/arm/include/asm/omap_common.h          |    3 +
+ spl/board/ti/sdp4430/Makefile               |    6 +-
+ 7 files changed, 1237 insertions(+), 1 deletions(-)
+ create mode 100644 arch/arm/cpu/armv7/omap4/clocks.c
+ create mode 100644 arch/arm/include/asm/arch-omap4/clocks.h
+
+diff --git a/arch/arm/cpu/armv7/omap4/Makefile b/arch/arm/cpu/armv7/omap4/Makefile
+index 987dc9d..6154e86 100644
+--- a/arch/arm/cpu/armv7/omap4/Makefile
++++ b/arch/arm/cpu/armv7/omap4/Makefile
+@@ -30,6 +30,7 @@ SOBJS	+= lowlevel_init.o
+ COBJS	+= board.o
+ COBJS	+= mem.o
+ COBJS	+= sys_info.o
++COBJS	+= clocks.o
+ 
+ SRCS	:= $(SOBJS:.o=.S) $(COBJS:.o=.c)
+ OBJS	:= $(addprefix $(obj),$(COBJS) $(SOBJS))
+diff --git a/arch/arm/cpu/armv7/omap4/board.c b/arch/arm/cpu/armv7/omap4/board.c
+index 95b6a96..62a59ad 100644
+--- a/arch/arm/cpu/armv7/omap4/board.c
++++ b/arch/arm/cpu/armv7/omap4/board.c
+@@ -105,6 +105,7 @@ void s_init(void)
+ {
+ 	watchdog_init();
+ 	set_mux_conf_regs();
++	prcm_init();
+ #ifdef CONFIG_PRELOADER
+ 	preloader_console_init();
+ #endif
+diff --git a/arch/arm/cpu/armv7/omap4/clocks.c b/arch/arm/cpu/armv7/omap4/clocks.c
+new file mode 100644
+index 0000000..317f30f
+--- /dev/null
++++ b/arch/arm/cpu/armv7/omap4/clocks.c
+@@ -0,0 +1,717 @@
++/*
++ *
++ * Clock initialization for OMAP4
++ *
++ * (C) Copyright 2010
++ * Texas Instruments, <www.ti.com>
++ *
++ * Aneesh V <aneesh@ti.com>
++ *
++ * Based on previous work by:
++ *	Santosh Shilimkar <santosh.shilimkar@ti.com>
++ *	Rajendra Nayak <rnayak@ti.com>
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++#include <common.h>
++#include <asm/omap_common.h>
++#include <asm/arch/clocks.h>
++#include <asm/arch/sys_proto.h>
++
++#define abs(x) (((x) < 0) ? ((x)*-1) : (x))
++
++static const u32 sys_clk_array[8] = {
++	0,		      /* Uninitialized */
++	12000000,	       /* 12 MHz */
++	13000000,	       /* 13 MHz */
++	16800000,	       /* 16.8 MHz */
++	19200000,	       /* 19.2 MHz */
++	26000000,	       /* 26 MHz */
++	27000000,	       /* 27 MHz */
++	38400000,	       /* 38.4 MHz */
++};
++
++static const struct dpll_params core_dpll_params_opp100 = {
++	0, 0, 1600000, 1, 5, 8, 4, 6, 5
++};
++
++static const struct dpll_params core_dpll_params_opp100_ddr200 = {
++	0, 0, 1600000, 2, 5, 8, 4, 6, 5
++};
++
++static const struct dpll_params core_dpll_params_es1_l3_190 = {
++	0, 0, 1523712, 1, 5, 8, 4, 6, 5
++};
++
++static const struct dpll_params per_dpll_params_opp100 = {
++	0, 0, 1536000, 8, 6, 12, 9, 4, 5
++};
++
++/* TODO - fix MPU mult */
++static const struct dpll_params mpu_dpll_params_600mhz = {
++	0, 0, 1200000, 1, -1, -1, -1, -1, -1
++};
++
++static const struct dpll_params mpu_dpll_params_1000mhz = {
++	0, 0, 2000000, 1, -1, -1, -1, -1, -1
++};
++
++static const struct dpll_params usb_dpll_params = {
++	0, 0, 1920000, 2, -1, -1, -1, -1, -1
++};
++
++static const struct dpll_params iva_dpll_params = {
++	0, 0, 1862000, -1, -1, 4, 7, -1, -1
++};
++
++static const struct dpll_params abe_dpll_params = {
++	0, 0, 196608, 1, 1, -1, -1, -1, -1
++};
++
++static const u32 clk_domains_essential[] = {
++	CM_L4PER_CLKSTCTRL,
++	CM_L3INIT_CLKSTCTRL,
++	CM_MEMIF_CLKSTCTRL,
++	CM_L4CFG_CLKSTCTRL,
++	0
++};
++
++static const u32 clk_domains_non_essential[] = {
++	CM_MPU_M3_CLKSTCTRL,
++	CM_IVAHD_CLKSTCTRL,
++	CM_DSP_CLKSTCTRL,
++	CM_DSS_CLKSTCTRL,
++	CM_SGX_CLKSTCTRL,
++	CM1_ABE_CLKSTCTRL,
++	CM_C2C_CLKSTCTRL,
++	CM_CAM_CLKSTCTRL,
++	CM_DSS_CLKSTCTRL,
++	CM_SDMA_CLKSTCTRL,
++	0
++};
++
++static const u32 clk_modules_hw_auto_essential[] = {
++	CM_WKUP_GPIO1_CLKCTRL,
++	CM_L4PER_GPIO2_CLKCTRL,
++	CM_L4PER_GPIO3_CLKCTRL,
++	CM_L4PER_GPIO4_CLKCTRL,
++	CM_L4PER_GPIO5_CLKCTRL,
++	CM_L4PER_GPIO6_CLKCTRL,
++	CM_MEMIF_EMIF_1_CLKCTRL,
++	CM_MEMIF_EMIF_2_CLKCTRL,
++	CM_L3INIT_HSUSBOTG_CLKCTRL,
++	CM_L3INIT_USBPHY_CLKCTRL,
++	CM_L4CFG_L4_CFG_CLKCTRL,
++	0
++};
++
++static const u32 clk_modules_hw_auto_non_essential[] = {
++	CM_MPU_M3_MPU_M3_CLKCTRL,
++	CM_IVAHD_IVAHD_CLKCTRL,
++	CM_IVAHD_SL2_CLKCTRL,
++	CM_DSP_DSP_CLKCTRL,
++	CM_L3_2_GPMC_CLKCTRL,
++	CM_L3INSTR_L3_3_CLKCTRL,
++	CM_L3INSTR_L3_INSTR_CLKCTRL,
++	CM_L3INSTR_INTRCONN_WP1_CLKCTRL,
++	CM_L3INIT_HSI_CLKCTRL,
++	CM_L3INIT_HSUSBTLL_CLKCTRL,
++	0
++};
++
++static const u32 clk_modules_explicit_en_essential[] = {
++	CM_L4PER_GPTIMER2_CLKCTRL,
++	CM_L3INIT_HSMMC1_CLKCTRL,
++	CM_L3INIT_HSMMC2_CLKCTRL,
++	CM_L4PER_MCSPI1_CLKCTRL,
++	CM_WKUP_GPTIMER1_CLKCTRL,
++	CM_L4PER_I2C1_CLKCTRL,
++	CM_L4PER_I2C2_CLKCTRL,
++	CM_L4PER_I2C3_CLKCTRL,
++	CM_L4PER_I2C4_CLKCTRL,
++	CM_WKUP_WDTIMER2_CLKCTRL,
++	CM_L4PER_UART3_CLKCTRL,
++	0
++};
++
++static const u32 clk_modules_explicit_en_non_essential[] = {
++	CM1_ABE_AESS_CLKCTRL,
++	CM1_ABE_PDM_CLKCTRL,
++	CM1_ABE_DMIC_CLKCTRL,
++	CM1_ABE_MCASP_CLKCTRL,
++	CM1_ABE_MCBSP1_CLKCTRL,
++	CM1_ABE_MCBSP2_CLKCTRL,
++	CM1_ABE_MCBSP3_CLKCTRL,
++	CM1_ABE_SLIMBUS_CLKCTRL,
++	CM1_ABE_TIMER5_CLKCTRL,
++	CM1_ABE_TIMER6_CLKCTRL,
++	CM1_ABE_TIMER7_CLKCTRL,
++	CM1_ABE_TIMER8_CLKCTRL,
++	CM1_ABE_WDT3_CLKCTRL,
++	CM_L4PER_GPTIMER9_CLKCTRL,
++	CM_L4PER_GPTIMER10_CLKCTRL,
++	CM_L4PER_GPTIMER11_CLKCTRL,
++	CM_L4PER_GPTIMER3_CLKCTRL,
++	CM_L4PER_GPTIMER4_CLKCTRL,
++	CM_L4PER_HDQ1W_CLKCTRL,
++	CM_L4PER_MCBSP4_CLKCTRL,
++	CM_L4PER_MCSPI2_CLKCTRL,
++	CM_L4PER_MCSPI3_CLKCTRL,
++	CM_L4PER_MCSPI4_CLKCTRL,
++	CM_L4PER_MMCSD3_CLKCTRL,
++	CM_L4PER_MMCSD4_CLKCTRL,
++	CM_L4PER_MMCSD5_CLKCTRL,
++	CM_L4PER_UART1_CLKCTRL,
++	CM_L4PER_UART2_CLKCTRL,
++	CM_L4PER_UART4_CLKCTRL,
++	CM_WKUP_KEYBOARD_CLKCTRL,
++	CM_WKUP_WDTIMER2_CLKCTRL,
++	CM_CAM_ISS_CLKCTRL,
++	CM_CAM_FDIF_CLKCTRL,
++	CM_DSS_DSS_CLKCTRL,
++	CM_SGX_SGX_CLKCTRL,
++	CM_L3INIT_HSUSBHOST_CLKCTRL,
++	CM_L3INIT_FSUSB_CLKCTRL,
++	0
++};
++
++static u32 get_m_n(u32 target_freq_khz, u32 ref_freq_khz, u32 *m, u32 *n,
++		   u32 tolerance_khz)
++{
++	u32 min_freq = target_freq_khz - tolerance_khz;
++	u32 max_freq = target_freq_khz;
++	u32 freq, freq_old;
++	*n = 1;
++	while (1) {
++		*m = min_freq / ref_freq_khz / 2 * (*n);
++		freq_old = 0;
++		while (1) {
++			freq = ref_freq_khz * 2 * (*m) / (*n);
++			if (abs(target_freq_khz - freq_old) <=
++			    abs(target_freq_khz - freq)) {
++				freq = freq_old;
++				(*m)--;
++				break;
++			}
++			(*m)++;
++			freq_old = freq;
++		}
++		if (freq >= min_freq && freq <= max_freq)
++			break;
++		(*n)++;
++		if ((*n) > OMAP_DPLL_MAX_N + 1)
++			return 1;
++	}
++	(*n)--;
++	return 0;
++}
++
++static u32 __get_syc_clk_freq(void)
++{
++	/*
++	 * For ES1 the ROM code calibration of sys clock is not reliable
++	 * due to hw issue. So, use hard-coded value. If this value is not
++	 * correct for any board over-ride this function in board file
++	 * From ES2.0 onwards you will get this information from
++	 * CM_SYS_CLKSEL
++	 */
++	if (omap4_revision() == OMAP4430_ES1_0)
++		return OMAP_SYS_CLK_FREQ_38_4_MHZ;
++	else {
++		u32 sys_clk_ind = readl(CM_SYS_CLKSEL) &
++				  CM_SYS_CLKSEL_SYS_CLKSEL_MASK;
++		return sys_clk_array[sys_clk_ind];
++	}
++}
++
++static inline void do_bypass_dpll(u32 base)
++{
++	struct dpll_regs *dpll_regs = (struct dpll_regs *)base;
++
++	modify_reg_32(&dpll_regs->cm_clkmode_dpll,
++		      CM_CLKMODE_DPLL_DPLL_EN_SHIFT,
++		      CM_CLKMODE_DPLL_DPLL_EN_MASK, DPLL_EN_FAST_RELOCK_BYPASS);
++}
++
++static inline void wait_for_bypass(u32 base)
++{
++	struct dpll_regs *dpll_regs = (struct dpll_regs *)base;
++
++	while (readl(&dpll_regs->cm_idlest_dpll) & ST_DPLL_CLK_MASK)
++		;
++}
++
++static inline void do_lock_dpll(u32 base)
++{
++	struct dpll_regs *dpll_regs = (struct dpll_regs *)base;
++
++	modify_reg_32(&dpll_regs->cm_clkmode_dpll,
++		      CM_CLKMODE_DPLL_DPLL_EN_SHIFT,
++		      CM_CLKMODE_DPLL_DPLL_EN_MASK, DPLL_EN_LOCK);
++}
++
++static inline void wait_for_lock(u32 base)
++{
++	struct dpll_regs *dpll_regs = (struct dpll_regs *)base;
++
++	while (!(readl(&dpll_regs->cm_idlest_dpll) & ST_DPLL_CLK_MASK))
++		;
++}
++
++static void do_setup_dpll(u32 base, const struct dpll_params *params,
++			  u32 ref_clk_khz, u32 tolerance, u8 lock)
++{
++	u32 temp, m, n;
++	struct dpll_regs *dpll_regs = (struct dpll_regs *)base;
++
++	do_bypass_dpll(base);
++
++	/* Get the M & N values */
++	m = params->m;
++	n = params->n;
++	/* if m & n are not specified calculate them */
++	if (!(m && n)) {
++		if (get_m_n(params->locked_freq_khz, ref_clk_khz,
++			    &m, &n, tolerance)) {
++			/* DPLL locking is critical if it fails just hang */
++			for (;;)
++				;
++			return;
++		}
++	}
++
++	/* Wait till the DPLL is in BYPASS */
++	wait_for_bypass(base);
++
++	/* Set M & N */
++	temp = readl(&dpll_regs->cm_clksel_dpll);
++	set_bit_field(temp, CM_CLKSEL_DPLL_M_SHIFT, CM_CLKSEL_DPLL_M_MASK, m);
++	set_bit_field(temp, CM_CLKSEL_DPLL_N_SHIFT, CM_CLKSEL_DPLL_N_MASK, n);
++	writel(temp, &dpll_regs->cm_clksel_dpll);
++
++	/* Lock */
++	if (lock)
++		do_lock_dpll(base);
++
++	/* Setup post-dividers */
++	if (params->m2 >= 0)
++		writel(params->m2, &dpll_regs->cm_div_m2_dpll);
++	if (params->m3 >= 0)
++		writel(params->m3, &dpll_regs->cm_div_m3_dpll);
++	if (params->m4 >= 0)
++		writel(params->m4, &dpll_regs->cm_div_m4_dpll);
++	if (params->m5 >= 0)
++		writel(params->m5, &dpll_regs->cm_div_m5_dpll);
++	if (params->m6 >= 0)
++		writel(params->m6, &dpll_regs->cm_div_m6_dpll);
++	if (params->m7 >= 0)
++		writel(params->m7, &dpll_regs->cm_div_m7_dpll);
++
++	/* Wait till the DPLL locks */
++	if (lock)
++		wait_for_lock(base);
++}
++
++const struct dpll_params *get_core_dpll_params(void)
++{
++	switch (omap4_revision()) {
++	case OMAP4430_ES1_0:
++		return &core_dpll_params_es1_l3_190;
++	case OMAP4430_ES2_0:
++	case OMAP4430_SILICON_ID_INVALID:
++		return &core_dpll_params_opp100_ddr200; /* safest */
++	case OMAP4430_ES2_1:
++	case OMAP4430_ES2_2:
++		return &core_dpll_params_opp100;
++	default:
++		return NULL;
++	}
++}
++
++u32 omap4_ddr_clk(void)
++{
++	u32 ddr_clk;
++	const struct dpll_params *core_dpll_params;
++
++	core_dpll_params = get_core_dpll_params();
++	/*
++	 * DDR frequency is PHY_ROOT_CLK/2
++	 * PHY_ROOT_CLK = Fdpll/2/M2
++	 */
++	ddr_clk = core_dpll_params->locked_freq_khz / 4 / core_dpll_params->m2;
++	ddr_clk *= 1000;	/* convert to Hz */
++	return ddr_clk;
++}
++
++static void setup_dplls(void)
++{
++	u32 sys_clk_khz, temp;
++	const struct dpll_params *params;
++
++	sys_clk_khz = get_syc_clk_freq() / 1000;
++
++	/* CORE dpll */
++	params = get_core_dpll_params();	/* default - safest */
++	/*
++	 * Do not lock the core DPLL now. Just set it up.
++	 * Core DPLL will be locked after setting up EMIF
++	 * using the FREQ_UPDATE method(freq_update_core())
++	 */
++	do_setup_dpll(CM_CLKMODE_DPLL_CORE, params, sys_clk_khz,
++		      DPLL_LOCKED_FREQ_TOLERANCE_0, CONFIGURE_NO_LOCK);
++	/* Set the ratios for CORE_CLK, L3_CLK, L4_CLK */
++	temp = (CLKSEL_CORE_X2_DIV_1 << CLKSEL_CORE_SHIFT) |
++	    (CLKSEL_L3_CORE_DIV_2 << CLKSEL_L3_SHIFT) |
++	    (CLKSEL_L4_L3_DIV_2 << CLKSEL_L4_SHIFT);
++	writel(temp, CM_CLKSEL_CORE);
++
++	/* lock PER dpll */
++	do_setup_dpll(CM_CLKMODE_DPLL_PER, &per_dpll_params_opp100, sys_clk_khz,
++		      DPLL_LOCKED_FREQ_TOLERANCE_0, CONFIGURE_AND_LOCK);
++
++	/* MPU dpll */
++	if (omap4_revision() == OMAP4430_ES1_0)
++		params = &mpu_dpll_params_600mhz;
++	else
++		params = &mpu_dpll_params_1000mhz;
++	do_setup_dpll(CM_CLKMODE_DPLL_MPU, params, sys_clk_khz,
++		      DPLL_LOCKED_FREQ_TOLERANCE_0, CONFIGURE_AND_LOCK);
++}
++
++static void setup_non_essential_dplls(void)
++{
++	u32 sys_clk_khz, temp, abe_ref_clk;
++	u32 m, n, sd_div, num, den;
++	struct dpll_params tmp_params;
++
++	sys_clk_khz = get_syc_clk_freq() / 1000;
++
++	/* IVA */
++	do_setup_dpll(CM_CLKMODE_DPLL_IVA, &iva_dpll_params, sys_clk_khz,
++		      DPLL_LOCKED_FREQ_TOLERANCE_500_KHZ, CONFIGURE_AND_LOCK);
++
++	/* USB */
++	tmp_params = usb_dpll_params;
++	get_m_n(tmp_params.locked_freq_khz, sys_clk_khz, &m, &n,
++		DPLL_LOCKED_FREQ_TOLERANCE_0);
++	/*
++	 * USB dpll is J-type. Need to set DPLL_SD_DIV for jitter correction
++	 * DPLL_SD_DIV = CEILING ([DPLL_MULT/(DPLL_DIV+1)]* CLKINP / 250)
++	 *      - where CLKINP is sys_clk in MHz
++	 * Use CLKINP in KHz and adjust the denominator accordingly so
++	 * that we have enough accuracy and at the same time no overflow
++	 */
++	num = m * sys_clk_khz;
++	den = (n + 1) * 250 * 1000;
++	num += den - 1;
++	sd_div = num / den;
++	temp = readl(CM_CLKSEL_DPLL_USB);
++	set_bit_field(temp, CM_CLKSEL_DPLL_DPLL_SD_DIV_SHIFT,
++		      CM_CLKSEL_DPLL_DPLL_SD_DIV_MASK, sd_div);
++	writel(temp, CM_CLKSEL_DPLL_USB);
++	/* Now setup the dpll with the regular function */
++	tmp_params.m = m;
++	tmp_params.n = n;
++	do_setup_dpll(CM_CLKMODE_DPLL_USB, &tmp_params, sys_clk_khz,
++		      DPLL_LOCKED_FREQ_TOLERANCE_0, CONFIGURE_AND_LOCK);
++
++	/* ABE dpll */
++	tmp_params = abe_dpll_params;
++#ifdef CONFIG_SYS_OMAP4_ABE_SYSCK
++	abe_ref_clk = sys_clk_khz;
++#else
++	/* Enable REGM4XEN to achieve 196.608MHz from 32768 Hz */
++	writel(readl(CM_CLKMODE_DPLL_ABE) | CM_CLKMODE_DPLL_DPLL_REGM4XEN_MASK,
++		CM_CLKMODE_DPLL_ABE);
++
++	/*
++	 * Converting the input clock 32768 Hz to KHz would result in accuracy
++	 * loss. Instead make both target frequency and reference clock to be
++	 * in terms of Hz.
++	 *
++	 * Also, REGM4XEN is enabled so there is an additional
++	 * multiplier of 4 for M. So adjust for this while passing target
++	 * frequency to get_m_n()
++	 */
++	tmp_params.locked_freq_khz = tmp_params.locked_freq_khz * 1000 / 4;
++	abe_ref_clk = OMAP_32K_CLK_FREQ;
++#endif
++	temp = (abe_ref_clk == OMAP_32K_CLK_FREQ) ?
++			CM_ABE_PLL_REF_CLKSEL_CLKSEL_32KCLK :
++			CM_ABE_PLL_REF_CLKSEL_CLKSEL_SYSCLK;
++	/* Select the right reference clk */
++	modify_reg_32(CM_ABE_PLL_REF_CLKSEL,
++			CM_ABE_PLL_REF_CLKSEL_CLKSEL_SHIFT,
++			CM_ABE_PLL_REF_CLKSEL_CLKSEL_MASK,
++			temp);
++	/* Lock the dpll */
++	do_setup_dpll(CM_CLKMODE_DPLL_ABE, &tmp_params, abe_ref_clk,
++		      DPLL_LOCKED_FREQ_TOLERANCE_0, CONFIGURE_AND_LOCK);
++}
++
++static void do_scale_vcore(u32 vcore_reg, u32 volt)
++{
++	u32 temp;
++
++	temp = SMPS_I2C_SLAVE_ADDR |
++	    (vcore_reg << PRM_VC_VAL_BYPASS_REGADDR_SHIFT) |
++	    (volt << PRM_VC_VAL_BYPASS_DATA_SHIFT) |
++	    PRM_VC_VAL_BYPASS_VALID_BIT;
++	writel(temp, PRM_VC_VAL_BYPASS);
++	while (readl(PRM_VC_VAL_BYPASS) & PRM_VC_VAL_BYPASS_VALID_BIT)
++		;
++}
++
++static void scale_vcores(void)
++{
++	u32 volt, sys_clk_khz, cycles_hi, cycles_low, temp;
++	u32 omap4_rev = omap4_revision();
++
++	sys_clk_khz = get_syc_clk_freq() / 1000;
++
++	/*
++	 * Setup the dedicated I2C controller for Voltage Control
++	 * I2C clk - high period 40% low period 60%
++	 */
++	cycles_hi = sys_clk_khz * 4 / PRM_VC_I2C_CHANNEL_FREQ_KHZ / 10;
++	cycles_low = sys_clk_khz * 6 / PRM_VC_I2C_CHANNEL_FREQ_KHZ / 10;
++	/* values to be set in register - less by 5 & 7 respectively */
++	cycles_hi -= 5;
++	cycles_low -= 7;
++	temp = (cycles_hi << PRM_VC_CFG_I2C_CLK_SCLH_SHIFT) |
++	       (cycles_low << PRM_VC_CFG_I2C_CLK_SCLL_SHIFT);
++	writel(temp, PRM_VC_CFG_I2C_CLK);
++
++	/* Disable high speed mode and all advanced features */
++	writel(0x0, PRM_VC_CFG_I2C_MODE);
++
++	/* VCORE 1 */
++	if ((omap4_rev == OMAP4430_ES2_0) || (omap4_rev == OMAP4430_ES2_1))
++		volt = SMPS_VOLT_1_3500_V;
++	else
++		volt = SMPS_VOLT_1_5000_V;
++	do_scale_vcore(SMPS_REG_ADDR_VCORE1, volt);
++
++	/* VCORE 2 */
++	if ((omap4_rev == OMAP4430_ES2_0) || (omap4_rev == OMAP4430_ES2_1))
++		volt = SMPS_VOLT_1_1000_V;
++	else
++		volt = SMPS_VOLT_1_2000_V;
++	do_scale_vcore(SMPS_REG_ADDR_VCORE2, volt);
++
++	/* VCORE 3 */
++	if (omap4_rev == OMAP4430_ES2_0)
++		volt = SMPS_VOLT_1_1000_V;
++	else if (omap4_rev == OMAP4430_ES2_1)
++		volt = SMPS_VOLT_1_1125_V;
++	else
++		volt = SMPS_VOLT_1_2000_V;
++
++	do_scale_vcore(SMPS_REG_ADDR_VCORE3, volt);
++}
++
++static void enable_clock_domain(u32 clkctrl_reg, u32 enable_mode)
++{
++	modify_reg_32(clkctrl_reg, CD_CLKCTRL_CLKTRCTRL_SHIFT,
++		      CD_CLKCTRL_CLKTRCTRL_MASK, enable_mode);
++}
++
++static inline void wait_for_clk_enable(u32 clkctrl_addr)
++{
++	u32 idlest = MODULE_CLKCTRL_IDLEST_DISABLED;
++
++	while ((idlest == MODULE_CLKCTRL_IDLEST_DISABLED) ||
++	       (idlest == MODULE_CLKCTRL_IDLEST_TRANSITIONING)) {
++		idlest = readl(clkctrl_addr);
++		idlest = get_bit_field(idlest, MODULE_CLKCTRL_IDLEST_SHIFT,
++				       MODULE_CLKCTRL_IDLEST_MASK);
++	}
++}
++
++static void enable_clock_module(u32 clkctrl_addr, u32 enable_mode,
++				u32 wait_for_enable)
++{
++	modify_reg_32(clkctrl_addr, MODULE_CLKCTRL_MODULEMODE_SHIFT,
++			MODULE_CLKCTRL_MODULEMODE_MASK, enable_mode);
++	if (wait_for_enable)
++		wait_for_clk_enable(clkctrl_addr);
++}
++
++/*
++ * Enable a set of clock domains and clock modules associated with them
++ */
++static void enable_clocks(const u32 *clock_domains,
++			  const u32 *clock_modules_hw_auto,
++			  const u32 *clock_modules_explicit_en,
++			  u32 wait_for_enable)
++{
++	int i = 0, max = 100;
++	/* Put the clock domains in SW_WKUP mode */
++	for (i = 0; (i < max) && clock_domains[i]; i++) {
++		enable_clock_domain(clock_domains[i],
++				    CD_CLKCTRL_CLKTRCTRL_SW_WKUP);
++	}
++
++	/* Clock modules that need to be put in HW_AUTO */
++	for (i = 0; (i < max) && clock_modules_hw_auto[i]; i++) {
++		enable_clock_module(clock_modules_hw_auto[i],
++				    MODULE_CLKCTRL_MODULEMODE_HW_AUTO,
++				    wait_for_enable);
++	};
++
++	/* Clock modules that need to be put in SW_EXPLICIT_EN mode */
++	for (i = 0; (i < max) && clock_modules_explicit_en[i]; i++) {
++		enable_clock_module(clock_modules_explicit_en[i],
++				    MODULE_CLKCTRL_MODULEMODE_SW_EXPLICIT_EN,
++				    wait_for_enable);
++	};
++
++	/* Put the clock domains in HW_AUTO mode now */
++	for (i = 0; (i < max) && clock_domains[i]; i++) {
++		enable_clock_domain(clock_domains[i],
++				    CD_CLKCTRL_CLKTRCTRL_HW_AUTO);
++	}
++}
++
++/*
++ * Enable essential clock domains, modules and
++ * do some additional special settings needed
++ */
++static void enable_basic_clocks(void)
++{
++	/* Enable optional additional functional clock for GPIO4 */
++	writel(readl(CM_L4PER_GPIO4_CLKCTRL) | GPIO4_CLKCTRL_OPTFCLKEN_SHIFT,
++	       CM_L4PER_GPIO4_CLKCTRL);
++
++	/* Enable 96 MHz clock for MMC1 & MMC2 */
++	writel(readl(CM_L3INIT_HSMMC1_CLKCTRL) | HSMMC_CLKCTRL_CLKSEL_SHIFT,
++	       CM_L3INIT_HSMMC1_CLKCTRL);
++	writel(readl(CM_L3INIT_HSMMC2_CLKCTRL) | HSMMC_CLKCTRL_CLKSEL_SHIFT,
++	       CM_L3INIT_HSMMC2_CLKCTRL);
++
++	/* Select 32KHz clock as the source of GPTIMER1 */
++	writel(readl(CM_WKUP_GPTIMER1_CLKCTRL) | GPTIMER1_CLKCTRL_CLKSEL_SHIFT,
++	       CM_WKUP_GPTIMER1_CLKCTRL);
++
++	/* Enable optional 48M functional clock for USB  PHY */
++	writel(readl(CM_L3INIT_USBPHY_CLKCTRL) |
++	       USBPHY_CLKCTRL_OPTFCLKEN_PHY_48M_MASK, CM_L3INIT_USBPHY_CLKCTRL);
++
++	/* Enable all essential clock domains and modules */
++	enable_clocks(clk_domains_essential,
++		      clk_modules_hw_auto_essential,
++		      clk_modules_explicit_en_essential, 1);
++}
++
++/*
++ * Enable non-essential clock domains, modules and
++ * do some additional special settings needed
++ */
++static void enable_non_essential_clocks(void)
++{
++	u32 tmp;
++	/* Enable optional functional clock for ISS */
++	writel(readl(CM_CAM_ISS_CLKCTRL) | ISS_CLKCTRL_OPTFCLKEN_SHIFT,
++	       CM_CAM_ISS_CLKCTRL);
++
++	/* Enable all optional functional clocks of DSS */
++	writel(readl(CM_DSS_DSS_CLKCTRL) | DSS_CLKCTRL_OPTFCLKEN_MASK,
++	       CM_DSS_DSS_CLKCTRL);
++
++	/* Enable all non-essential clock domains and modules */
++	enable_clocks(clk_domains_non_essential,
++		      clk_modules_hw_auto_non_essential,
++		      clk_modules_explicit_en_non_essential, 0);
++
++	/* Put camera module in no sleep mode */
++	tmp = readl(CM_CAM_CLKSTCTRL);
++	set_bit_field(tmp, MODULE_CLKCTRL_MODULEMODE_SHIFT,
++		      MODULE_CLKCTRL_MODULEMODE_MASK,
++		      CD_CLKCTRL_CLKTRCTRL_NO_SLEEP);
++	writel(tmp, CM_CAM_CLKSTCTRL);
++}
++
++void freq_update_core(void)
++{
++	u32 freq_config1 = 0;
++	const struct dpll_params *core_dpll_params;
++
++	core_dpll_params = get_core_dpll_params();
++	/* Put EMIF clock domain in sw wakeup mode */
++	enable_clock_domain(CM_MEMIF_CLKSTCTRL, CD_CLKCTRL_CLKTRCTRL_SW_WKUP);
++	wait_for_clk_enable(CM_MEMIF_EMIF_1_CLKCTRL);
++	wait_for_clk_enable(CM_MEMIF_EMIF_2_CLKCTRL);
++
++	freq_config1 = SHADOW_FREQ_CONFIG1_FREQ_UPDATE_MASK |
++	    SHADOW_FREQ_CONFIG1_DLL_RESET_MASK;
++
++	set_bit_field(freq_config1, SHADOW_FREQ_CONFIG1_DPLL_EN_SHIFT,
++		      SHADOW_FREQ_CONFIG1_DPLL_EN_MASK, DPLL_EN_LOCK);
++
++	set_bit_field(freq_config1, SHADOW_FREQ_CONFIG1_M2_DIV_SHIFT,
++		      SHADOW_FREQ_CONFIG1_M2_DIV_MASK, core_dpll_params->m2);
++
++	writel(freq_config1, CM_SHADOW_FREQ_CONFIG1);
++	while (readl(CM_SHADOW_FREQ_CONFIG1) &
++		SHADOW_FREQ_CONFIG1_FREQ_UPDATE_MASK)
++		;
++
++	/* Put EMIF clock domain back in hw auto mode */
++	enable_clock_domain(CM_MEMIF_CLKSTCTRL, CD_CLKCTRL_CLKTRCTRL_HW_AUTO);
++	wait_for_clk_enable(CM_MEMIF_EMIF_1_CLKCTRL);
++	wait_for_clk_enable(CM_MEMIF_EMIF_2_CLKCTRL);
++}
++
++void bypass_dpll(u32 base)
++{
++	do_bypass_dpll(base);
++	wait_for_bypass(base);
++}
++
++void lock_dpll(u32 base)
++{
++	do_lock_dpll(base);
++	wait_for_lock(base);
++}
++
++u32 get_syc_clk_freq(void)
++	__attribute__ ((weak, alias("__get_syc_clk_freq")));
++
++void prcm_init(void)
++{
++	switch (omap4_hw_init_context()) {
++	case OMAP_INIT_CONTEXT_SPL:
++		scale_vcores();
++		setup_dplls();
++		enable_basic_clocks();
++		break;
++	case OMAP_INIT_CONTEXT_UBOOT_LOADED_BY_SPL:
++		setup_non_essential_dplls();
++		enable_non_essential_clocks();
++		break;
++	case OMAP_INIT_CONTEXT_XIP_UBOOT:
++	case OMAP_INIT_CONTEXT_UBOOT_LOADED_BY_CH:
++		scale_vcores();
++		setup_dplls();
++		enable_basic_clocks();
++		setup_non_essential_dplls();
++		enable_non_essential_clocks();
++		break;
++	}
++}
+diff --git a/arch/arm/include/asm/arch-omap4/clocks.h b/arch/arm/include/asm/arch-omap4/clocks.h
+new file mode 100644
+index 0000000..fdbe632
+--- /dev/null
++++ b/arch/arm/include/asm/arch-omap4/clocks.h
+@@ -0,0 +1,504 @@
++/*
++ * (C) Copyright 2010
++ * Texas Instruments, <www.ti.com>
++ *
++ * Aneesh V <aneesh@ti.com>
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++#ifndef _CLOCKS_OMAP4_H_
++#define _CLOCKS_OMAP4_H_
++#include <common.h>
++
++#define CM_CLKMODE_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4120)
++#define CM_CLKMODE_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8140)
++#define CM_CLKMODE_DPLL_MPU		(OMAP44XX_L4_CORE_BASE + 0x4160)
++#define CM_CLKSEL_CORE			(OMAP44XX_L4_CORE_BASE + 0x4100)
++
++/* PRM.CKGEN module registers */
++#define CM_ABE_PLL_REF_CLKSEL		(OMAP44XX_L4_WKUP_BASE + 0x610C)
++#define CM_SYS_CLKSEL			(OMAP44XX_L4_WKUP_BASE + 0x6110)
++
++/* PRM.WKUP_CM module registers */
++#define CM_WKUP_CLKSTCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7800)
++#define CM_WKUP_L4WKUP_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7820)
++#define CM_WKUP_WDTIMER1_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7828)
++#define CM_WKUP_WDTIMER2_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7830)
++#define CM_WKUP_GPIO1_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7838)
++#define CM_WKUP_GPTIMER1_CLKCTRL	(OMAP44XX_L4_WKUP_BASE + 0x7840)
++#define CM_WKUP_GPTIMER12_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7848)
++#define CM_WKUP_SYNCTIMER_CLKCTRL	(OMAP44XX_L4_WKUP_BASE + 0x7850)
++#define CM_WKUP_USIM_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7858)
++#define CM_WKUP_SARRAM_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7860)
++#define CM_WKUP_KEYBOARD_CLKCTRL	(OMAP44XX_L4_WKUP_BASE + 0x7878)
++#define CM_WKUP_RTC_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7880)
++#define CM_WKUP_BANDGAP_CLKCTRL		(OMAP44XX_L4_WKUP_BASE + 0x7888)
++
++/* DEVICE_PRM Registers */
++#define PRM_VC_VAL_BYPASS		(OMAP44XX_L4_WKUP_BASE + 0x7BA0)
++#define PRM_VC_CFG_CHANNEL		(OMAP44XX_L4_WKUP_BASE + 0x7BA4)
++#define PRM_VC_CFG_I2C_MODE		(OMAP44XX_L4_WKUP_BASE + 0x7BA8)
++#define PRM_VC_CFG_I2C_CLK		(OMAP44XX_L4_WKUP_BASE + 0x7BAC)
++
++/* CM1.CKGEN module registers */
++#define CM_CLKSEL_CORE			(OMAP44XX_L4_CORE_BASE + 0x4100)
++#define CM_CLKSEL_ABE			(OMAP44XX_L4_CORE_BASE + 0x4108)
++#define CM_DLL_CTRL			(OMAP44XX_L4_CORE_BASE + 0x4110)
++#define CM_CLKMODE_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4120)
++#define CM_IDLEST_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4124)
++#define CM_AUTOIDLE_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4128)
++#define CM_CLKSEL_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x412c)
++#define CM_DIV_M2_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4130)
++#define CM_DIV_M3_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4134)
++#define CM_DIV_M4_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4138)
++#define CM_DIV_M5_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x413c)
++#define CM_DIV_M6_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4140)
++#define CM_DIV_M7_DPLL_CORE		(OMAP44XX_L4_CORE_BASE + 0x4144)
++#define CM_SSC_DELTAMSTEP_DPLL_CORE	(OMAP44XX_L4_CORE_BASE + 0x4148)
++#define CM_SSC_MODFREQDIV_DPLL_CORE	(OMAP44XX_L4_CORE_BASE + 0x414c)
++#define CM_EMU_OVERRIDE_DPLL_CORE	(OMAP44XX_L4_CORE_BASE + 0x4150)
++#define CM_CLKMODE_DPLL_MPU		(OMAP44XX_L4_CORE_BASE + 0x4160)
++#define CM_IDLEST_DPLL_MPU		(OMAP44XX_L4_CORE_BASE + 0x4164)
++#define CM_AUTOIDLE_DPLL_MPU		(OMAP44XX_L4_CORE_BASE + 0x4168)
++#define CM_CLKSEL_DPLL_MPU		(OMAP44XX_L4_CORE_BASE + 0x416c)
++#define CM_DIV_M2_DPLL_MPU		(OMAP44XX_L4_CORE_BASE + 0x4170)
++#define CM_SSC_DELTAMSTEP_DPLL_MPU	(OMAP44XX_L4_CORE_BASE + 0x4188)
++#define CM_SSC_MODFREQDIV_DPLL_MPU	(OMAP44XX_L4_CORE_BASE + 0x418c)
++#define CM_BYPCLK_DPLL_MPU		(OMAP44XX_L4_CORE_BASE + 0x419c)
++#define CM_CLKMODE_DPLL_IVA		(OMAP44XX_L4_CORE_BASE + 0x41a0)
++#define CM_IDLEST_DPLL_IVA		(OMAP44XX_L4_CORE_BASE + 0x41a4)
++#define CM_AUTOIDLE_DPLL_IVA		(OMAP44XX_L4_CORE_BASE + 0x41a8)
++#define CM_CLKSEL_DPLL_IVA		(OMAP44XX_L4_CORE_BASE + 0x41ac)
++#define CM_DIV_M4_DPLL_IVA		(OMAP44XX_L4_CORE_BASE + 0x41b8)
++#define CM_DIV_M5_DPLL_IVA		(OMAP44XX_L4_CORE_BASE + 0x41bc)
++#define CM_SSC_DELTAMSTEP_DPLL_IVA	(OMAP44XX_L4_CORE_BASE + 0x41c8)
++#define CM_SSC_MODFREQDIV_DPLL_IVA	(OMAP44XX_L4_CORE_BASE + 0x41cc)
++#define CM_BYPCLK_DPLL_IVA		(OMAP44XX_L4_CORE_BASE + 0x41dc)
++#define CM_CLKMODE_DPLL_ABE		(OMAP44XX_L4_CORE_BASE + 0x41e0)
++#define CM_IDLEST_DPLL_ABE		(OMAP44XX_L4_CORE_BASE + 0x41e4)
++#define CM_AUTOIDLE_DPLL_ABE		(OMAP44XX_L4_CORE_BASE + 0x41e8)
++#define CM_CLKSEL_DPLL_ABE		(OMAP44XX_L4_CORE_BASE + 0x41ec)
++#define CM_DIV_M2_DPLL_ABE		(OMAP44XX_L4_CORE_BASE + 0x41f0)
++#define CM_DIV_M3_DPLL_ABE		(OMAP44XX_L4_CORE_BASE + 0x41f4)
++#define CM_SSC_DELTAMSTEP_DPLL_ABE	(OMAP44XX_L4_CORE_BASE + 0x4208)
++#define CM_SSC_MODFREQDIV_DPLL_ABE	(OMAP44XX_L4_CORE_BASE + 0x420c)
++#define CM_CLKMODE_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x4220)
++#define CM_IDLEST_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x4224)
++#define CM_AUTOIDLE_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x4228)
++#define CM_CLKSEL_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x422c)
++#define CM_DIV_M2_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x4230)
++#define CM_DIV_M4_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x4238)
++#define CM_DIV_M5_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x423c)
++#define CM_DIV_M6_DPLL_DDRPHY		(OMAP44XX_L4_CORE_BASE + 0x4240)
++#define CM_SSC_DELTAMSTEP_DPLL_DDRPHY	(OMAP44XX_L4_CORE_BASE + 0x4248)
++#define CM_SHADOW_FREQ_CONFIG1		(OMAP44XX_L4_CORE_BASE + 0x4260)
++
++/* CM1.ABE register offsets */
++#define CM1_ABE_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x4500)
++#define CM1_ABE_L4ABE_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4520)
++#define CM1_ABE_AESS_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4528)
++#define CM1_ABE_PDM_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4530)
++#define CM1_ABE_DMIC_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4538)
++#define CM1_ABE_MCASP_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4540)
++#define CM1_ABE_MCBSP1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4548)
++#define CM1_ABE_MCBSP2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4550)
++#define CM1_ABE_MCBSP3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4558)
++#define CM1_ABE_SLIMBUS_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4560)
++#define CM1_ABE_TIMER5_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4568)
++#define CM1_ABE_TIMER6_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4570)
++#define CM1_ABE_TIMER7_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4578)
++#define CM1_ABE_TIMER8_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4580)
++#define CM1_ABE_WDT3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x4588)
++
++/* CM1.DSP register offsets */
++#define CM_DSP_CLKSTCTRL			(OMAP44XX_L4_CORE_BASE + 0x4400)
++#define	CM_DSP_DSP_CLKCTRL			(OMAP44XX_L4_CORE_BASE + 0x4420)
++
++/* CM2.CKGEN module registers */
++#define CM_CLKSEL_MPU_M3_ISS_ROOT	(OMAP44XX_L4_CORE_BASE + 0x8100)
++#define CM_CLKSEL_USB_60MHz		(OMAP44XX_L4_CORE_BASE + 0x8104)
++#define CM_SCALE_FCLK			(OMAP44XX_L4_CORE_BASE + 0x8108)
++#define CM_CORE_DVFS_PERF1		(OMAP44XX_L4_CORE_BASE + 0x8110)
++#define CM_CORE_DVFS_PERF2		(OMAP44XX_L4_CORE_BASE + 0x8114)
++#define CM_CORE_DVFS_PERF3		(OMAP44XX_L4_CORE_BASE + 0x8118)
++#define CM_CORE_DVFS_PERF4		(OMAP44XX_L4_CORE_BASE + 0x811c)
++#define CM_CORE_DVFS_CURRENT		(OMAP44XX_L4_CORE_BASE + 0x8124)
++#define CM_IVA_DVFS_PERF_TESLA		(OMAP44XX_L4_CORE_BASE + 0x8128)
++#define CM_IVA_DVFS_PERF_IVAHD		(OMAP44XX_L4_CORE_BASE + 0x812c)
++#define CM_IVA_DVFS_PERF_ABE		(OMAP44XX_L4_CORE_BASE + 0x8130)
++#define CM_IVA_DVFS_CURRENT		(OMAP44XX_L4_CORE_BASE + 0x8138)
++#define CM_CLKMODE_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8140)
++#define CM_IDLEST_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8144)
++#define CM_AUTOIDLE_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8148)
++#define CM_CLKSEL_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x814c)
++#define CM_DIV_M2_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8150)
++#define CM_DIV_M3_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8154)
++#define CM_DIV_M4_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8158)
++#define CM_DIV_M5_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x815c)
++#define CM_DIV_M6_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8160)
++#define CM_DIV_M7_DPLL_PER		(OMAP44XX_L4_CORE_BASE + 0x8164)
++#define CM_SSC_DELTAMSTEP_DPLL_PER	(OMAP44XX_L4_CORE_BASE + 0x8168)
++#define CM_SSC_MODFREQDIV_DPLL_PER	(OMAP44XX_L4_CORE_BASE + 0x816c)
++#define CM_EMU_OVERRIDE_DPLL_PER	(OMAP44XX_L4_CORE_BASE + 0x8170)
++#define CM_CLKMODE_DPLL_USB		(OMAP44XX_L4_CORE_BASE + 0x8180)
++#define CM_IDLEST_DPLL_USB		(OMAP44XX_L4_CORE_BASE + 0x8184)
++#define CM_AUTOIDLE_DPLL_USB		(OMAP44XX_L4_CORE_BASE + 0x8188)
++#define CM_CLKSEL_DPLL_USB		(OMAP44XX_L4_CORE_BASE + 0x818c)
++#define CM_DIV_M2_DPLL_USB		(OMAP44XX_L4_CORE_BASE + 0x8190)
++#define CM_SSC_DELTAMSTEP_DPLL_USB	(OMAP44XX_L4_CORE_BASE + 0x81a8)
++#define CM_SSC_MODFREQDIV_DPLL_USB	(OMAP44XX_L4_CORE_BASE + 0x81ac)
++#define CM_CLKDCOLDO_DPLL_USB		(OMAP44XX_L4_CORE_BASE + 0x81b4)
++#define CM_CLKMODE_DPLL_UNIPRO		(OMAP44XX_L4_CORE_BASE + 0x81c0)
++#define CM_IDLEST_DPLL_UNIPRO		(OMAP44XX_L4_CORE_BASE + 0x81c4)
++#define CM_AUTOIDLE_DPLL_UNIPRO		(OMAP44XX_L4_CORE_BASE + 0x81c8)
++#define CM_CLKSEL_DPLL_UNIPRO		(OMAP44XX_L4_CORE_BASE + 0x81cc)
++#define CM_DIV_M2_DPLL_UNIPRO		(OMAP44XX_L4_CORE_BASE + 0x81d0)
++#define CM_SSC_DELTAMSTEP_DPLL_UNIPRO	(OMAP44XX_L4_CORE_BASE + 0x81e8)
++#define CM_SSC_MODFREQDIV_DPLL_UNIPRO	(OMAP44XX_L4_CORE_BASE + 0x81ec)
++
++/* CM2.CORE module registers */
++#define CM_L3_1_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8700)
++#define CM_L3_1_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x8708)
++#define CM_L3_1_L3_1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8720)
++#define CM_L3_2_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8800)
++#define CM_L3_2_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x8808)
++#define CM_L3_2_L3_2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8820)
++#define CM_L3_2_GPMC_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8828)
++#define CM_L3_2_OCMC_RAM_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8830)
++#define CM_MPU_M3_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8900)
++#define CM_MPU_M3_STATICDEP		(OMAP44XX_L4_CORE_BASE + 0x8904)
++#define CM_MPU_M3_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x8908)
++#define CM_MPU_M3_MPU_M3_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8920)
++#define CM_SDMA_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8a00)
++#define CM_SDMA_STATICDEP		(OMAP44XX_L4_CORE_BASE + 0x8a04)
++#define CM_SDMA_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x8a08)
++#define CM_SDMA_SDMA_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8a20)
++#define CM_MEMIF_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8b00)
++#define CM_MEMIF_DMM_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8b20)
++#define CM_MEMIF_EMIF_FW_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8b28)
++#define CM_MEMIF_EMIF_1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8b30)
++#define CM_MEMIF_EMIF_2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8b38)
++#define CM_MEMIF_DLL_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8b40)
++#define CM_MEMIF_EMIF_H1_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8b50)
++#define CM_MEMIF_EMIF_H2_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8b58)
++#define CM_MEMIF_DLL_H_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8b60)
++#define CM_C2C_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8c00)
++#define CM_C2C_STATICDEP		(OMAP44XX_L4_CORE_BASE + 0x8c04)
++#define CM_C2C_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x8c08)
++#define CM_C2C_SAD2D_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8c20)
++#define CM_C2C_MODEM_ICR_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8c28)
++#define CM_C2C_SAD2D_FW_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8c30)
++#define CM_L4CFG_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8d00)
++#define CM_L4CFG_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x8d08)
++#define CM_L4CFG_L4_CFG_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8d20)
++#define CM_L4CFG_HW_SEM_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8d28)
++#define CM_L4CFG_MAILBOX_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8d30)
++#define CM_L4CFG_SAR_ROM_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8d38)
++#define CM_L3INSTR_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x8e00)
++#define CM_L3INSTR_L3_3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8e20)
++#define CM_L3INSTR_L3_INSTR_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8e28)
++#define CM_L3INSTR_INTRCONN_WP1_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x8e40)
++
++/* CM2.L3INIT register offsets */
++#define CM_L3INIT_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x9300)
++
++/* CM2.L4PER register offsets */
++#define CM_L4PER_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x9400)
++#define CM_L4PER_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x9408)
++#define CM_L4PER_ADC_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9420)
++#define CM_L4PER_GPTIMER10_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9428)
++#define CM_L4PER_GPTIMER11_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9430)
++#define CM_L4PER_GPTIMER2_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9438)
++#define CM_L4PER_GPTIMER3_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9440)
++#define CM_L4PER_GPTIMER4_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9448)
++#define CM_L4PER_GPTIMER9_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9450)
++#define CM_L4PER_ELM_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9458)
++#define CM_L4PER_GPIO2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9460)
++#define CM_L4PER_GPIO3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9468)
++#define CM_L4PER_GPIO4_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9470)
++#define CM_L4PER_GPIO5_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9478)
++#define CM_L4PER_GPIO6_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9480)
++#define CM_L4PER_HDQ1W_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9488)
++#define CM_L4PER_HECC1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9490)
++#define CM_L4PER_HECC2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9498)
++#define CM_L4PER_I2C1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94a0)
++#define CM_L4PER_I2C2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94a8)
++#define CM_L4PER_I2C3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94b0)
++#define CM_L4PER_I2C4_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94b8)
++#define CM_L4PER_L4PER_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94c0)
++#define CM_L4PER_MCASP2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94d0)
++#define CM_L4PER_MCASP3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94d8)
++#define CM_L4PER_MCBSP4_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94e0)
++#define CM_L4PER_MGATE_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94e8)
++#define CM_L4PER_MCSPI1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94f0)
++#define CM_L4PER_MCSPI2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x94f8)
++#define CM_L4PER_MCSPI3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9500)
++#define CM_L4PER_MCSPI4_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9508)
++#define CM_L4PER_MMCSD3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9520)
++#define CM_L4PER_MMCSD4_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9528)
++#define CM_L4PER_MSPROHG_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9530)
++#define CM_L4PER_SLIMBUS2_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9538)
++#define CM_L4PER_UART1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9540)
++#define CM_L4PER_UART2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9548)
++#define CM_L4PER_UART3_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9550)
++#define CM_L4PER_UART4_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9558)
++#define CM_L4PER_MMCSD5_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9560)
++#define CM_L4PER_I2C5_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x9568)
++#define CM_L4SEC_CLKSTCTRL		(OMAP44XX_L4_CORE_BASE + 0x9580)
++#define CM_L4SEC_STATICDEP		(OMAP44XX_L4_CORE_BASE + 0x9584)
++#define CM_L4SEC_DYNAMICDEP		(OMAP44XX_L4_CORE_BASE + 0x9588)
++#define CM_L4SEC_AES1_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x95a0)
++#define CM_L4SEC_AES2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x95a8)
++#define CM_L4SEC_DES3DES_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x95b0)
++#define CM_L4SEC_PKAEIP29_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x95b8)
++#define CM_L4SEC_RNG_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x95c0)
++#define CM_L4SEC_SHA2MD51_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x95c8)
++#define CM_L4SEC_CRYPTODMA_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x95d8)
++
++/* CM2.IVAHD */
++#define CM_IVAHD_CLKSTCTRL			(OMAP44XX_L4_CORE_BASE + 0x8f00)
++#define CM_IVAHD_IVAHD_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8f20)
++#define CM_IVAHD_SL2_CLKCTRL		(OMAP44XX_L4_CORE_BASE + 0x8f28)
++
++/* CM2.L3INIT */
++#define CM_L3INIT_HSMMC1_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9328)
++#define CM_L3INIT_HSMMC2_CLKCTRL	(OMAP44XX_L4_CORE_BASE + 0x9330)
++#define CM_L3INIT_HSI_CLKCTRL           (OMAP44XX_L4_CORE_BASE + 0x9338)
++#define CM_L3INIT_HSUSBHOST_CLKCTRL     (OMAP44XX_L4_CORE_BASE + 0x9358)
++#define CM_L3INIT_HSUSBOTG_CLKCTRL      (OMAP44XX_L4_CORE_BASE + 0x9360)
++#define CM_L3INIT_HSUSBTLL_CLKCTRL      (OMAP44XX_L4_CORE_BASE + 0x9368)
++#define CM_L3INIT_P1500_CLKCTRL         (OMAP44XX_L4_CORE_BASE + 0x9378)
++#define CM_L3INIT_FSUSB_CLKCTRL         (OMAP44XX_L4_CORE_BASE + 0x93d0)
++#define CM_L3INIT_USBPHY_CLKCTRL        (OMAP44XX_L4_CORE_BASE + 0x93e0)
++
++/* CM2.CAM */
++#define CM_CAM_CLKSTCTRL                (OMAP44XX_L4_CORE_BASE + 0x9000)
++#define CM_CAM_ISS_CLKCTRL              (OMAP44XX_L4_CORE_BASE + 0x9020)
++#define CM_CAM_FDIF_CLKCTRL             (OMAP44XX_L4_CORE_BASE + 0x9028)
++
++/* CM2.DSS */
++#define CM_DSS_CLKSTCTRL                (OMAP44XX_L4_CORE_BASE + 0x9100)
++#define CM_DSS_DSS_CLKCTRL              (OMAP44XX_L4_CORE_BASE + 0x9120)
++
++/* CM2.SGX */
++#define CM_SGX_CLKSTCTRL                (OMAP44XX_L4_CORE_BASE + 0x9200)
++#define CM_SGX_SGX_CLKCTRL              (OMAP44XX_L4_CORE_BASE + 0x9220)
++
++/* DPLL register offsets */
++#define CM_CLKMODE_DPLL		0
++#define CM_IDLEST_DPLL		0x4
++#define CM_AUTOIDLE_DPLL	0x8
++#define CM_CLKSEL_DPLL		0xC
++#define CM_DIV_M2_DPLL		0x10
++#define CM_DIV_M3_DPLL		0x14
++#define CM_DIV_M4_DPLL		0x18
++#define CM_DIV_M5_DPLL		0x1C
++#define CM_DIV_M6_DPLL		0x20
++#define CM_DIV_M7_DPLL		0x24
++
++#define DPLL_CLKOUT_DIV_MASK	0x1F /* post-divider mask */
++
++/* CM_CLKMODE_DPLL */
++#define CM_CLKMODE_DPLL_DPLL_REGM4XEN_MASK	11
++#define CM_CLKMODE_DPLL_DPLL_EN_SHIFT		0
++#define CM_CLKMODE_DPLL_DPLL_EN_SHIFT		0
++#define CM_CLKMODE_DPLL_DPLL_EN_MASK		7
++
++#define DPLL_EN_STOP			1
++#define DPLL_EN_MN_BYPASS		4
++#define DPLL_EN_LOW_POWER_BYPASS	5
++#define DPLL_EN_FAST_RELOCK_BYPASS	6
++#define DPLL_EN_LOCK			7
++
++/* CM_IDLEST_DPLL fields */
++#define ST_DPLL_CLK_MASK		1
++
++/* CM_CLKSEL_DPLL */
++#define CM_CLKSEL_DPLL_DPLL_SD_DIV_SHIFT	24
++#define CM_CLKSEL_DPLL_DPLL_SD_DIV_MASK		(0xFF << 24)
++#define CM_CLKSEL_DPLL_M_SHIFT			8
++#define CM_CLKSEL_DPLL_M_MASK			(0x7FF << 8)
++#define CM_CLKSEL_DPLL_N_SHIFT			0
++#define CM_CLKSEL_DPLL_N_MASK			0x7F
++
++#define OMAP4_DPLL_MAX_N	127
++
++/* CM_SYS_CLKSEL */
++#define CM_SYS_CLKSEL_SYS_CLKSEL_MASK	7
++
++/* CM_CLKSEL_CORE */
++#define CLKSEL_CORE_SHIFT	0
++#define CLKSEL_L3_SHIFT		4
++#define CLKSEL_L4_SHIFT		8
++
++#define CLKSEL_CORE_X2_DIV_1	0
++#define CLKSEL_L3_CORE_DIV_2	1
++#define CLKSEL_L4_L3_DIV_2	1
++
++/* CM_ABE_PLL_REF_CLKSEL */
++#define CM_ABE_PLL_REF_CLKSEL_CLKSEL_SHIFT	0
++#define CM_ABE_PLL_REF_CLKSEL_CLKSEL_MASK	1
++#define CM_ABE_PLL_REF_CLKSEL_CLKSEL_SYSCLK	0
++#define CM_ABE_PLL_REF_CLKSEL_CLKSEL_32KCLK	1
++
++
++/* CM_SHADOW_FREQ_CONFIG1 */
++#define SHADOW_FREQ_CONFIG1_FREQ_UPDATE_MASK	1
++#define SHADOW_FREQ_CONFIG1_DLL_OVERRIDE_MASK	4
++#define SHADOW_FREQ_CONFIG1_DLL_RESET_MASK	8
++
++#define SHADOW_FREQ_CONFIG1_DPLL_EN_SHIFT	8
++#define SHADOW_FREQ_CONFIG1_DPLL_EN_MASK	(7 << 8)
++
++#define SHADOW_FREQ_CONFIG1_M2_DIV_SHIFT	11
++#define SHADOW_FREQ_CONFIG1_M2_DIV_MASK		(0x1F << 11)
++
++/*CM_<clock_domain>__CLKCTRL */
++#define CD_CLKCTRL_CLKTRCTRL_SHIFT		0
++#define CD_CLKCTRL_CLKTRCTRL_MASK		3
++
++#define CD_CLKCTRL_CLKTRCTRL_NO_SLEEP		0
++#define CD_CLKCTRL_CLKTRCTRL_SW_SLEEP		1
++#define CD_CLKCTRL_CLKTRCTRL_SW_WKUP		2
++#define CD_CLKCTRL_CLKTRCTRL_HW_AUTO		3
++
++
++/* CM_<clock_domain>_<module>_CLKCTRL */
++#define MODULE_CLKCTRL_MODULEMODE_SHIFT		0
++#define MODULE_CLKCTRL_MODULEMODE_MASK		3
++#define MODULE_CLKCTRL_IDLEST_SHIFT		16
++#define MODULE_CLKCTRL_IDLEST_MASK		(3 << 16)
++
++#define MODULE_CLKCTRL_MODULEMODE_SW_DISABLE		0
++#define MODULE_CLKCTRL_MODULEMODE_HW_AUTO		1
++#define MODULE_CLKCTRL_MODULEMODE_SW_EXPLICIT_EN	2
++
++#define MODULE_CLKCTRL_IDLEST_FULLY_FUNCTIONAL	0
++#define MODULE_CLKCTRL_IDLEST_TRANSITIONING	1
++#define MODULE_CLKCTRL_IDLEST_IDLE		2
++#define MODULE_CLKCTRL_IDLEST_DISABLED		3
++
++/* CM_L4PER_GPIO4_CLKCTRL */
++#define GPIO4_CLKCTRL_OPTFCLKEN_SHIFT		8
++
++/* CM_L3INIT_HSMMCn_CLKCTRL */
++#define HSMMC_CLKCTRL_CLKSEL_SHIFT		24
++
++/* CM_WKUP_GPTIMER1_CLKCTRL */
++#define GPTIMER1_CLKCTRL_CLKSEL_SHIFT		24
++
++/* CM_CAM_ISS_CLKCTRL */
++#define ISS_CLKCTRL_OPTFCLKEN_SHIFT		8
++
++/* CM_DSS_DSS_CLKCTRL */
++#define DSS_CLKCTRL_OPTFCLKEN_MASK		0xF00
++
++/* CM_L3INIT_USBPHY_CLKCTRL */
++#define USBPHY_CLKCTRL_OPTFCLKEN_PHY_48M_MASK	8
++
++/* Clock frequencies */
++#define OMAP_SYS_CLK_FREQ_38_4_MHZ	38400000
++#define OMAP_32K_CLK_FREQ		32768
++
++/* PRM_VC_CFG_I2C_CLK */
++#define PRM_VC_CFG_I2C_CLK_SCLH_SHIFT		0
++#define PRM_VC_CFG_I2C_CLK_SCLH_MASK		0xFF
++#define PRM_VC_CFG_I2C_CLK_SCLL_SHIFT		8
++#define PRM_VC_CFG_I2C_CLK_SCLL_MASK		(0xFF << 8)
++
++/* PRM_VC_VAL_BYPASS */
++#define PRM_VC_I2C_CHANNEL_FREQ_KHZ	400
++
++#define PRM_VC_VAL_BYPASS_VALID_BIT	0x1000000
++#define PRM_VC_VAL_BYPASS_SLAVEADDR_SHIFT	0
++#define PRM_VC_VAL_BYPASS_SLAVEADDR_MASK	0x7F
++#define PRM_VC_VAL_BYPASS_REGADDR_SHIFT		8
++#define PRM_VC_VAL_BYPASS_REGADDR_MASK		0xFF
++#define PRM_VC_VAL_BYPASS_DATA_SHIFT		16
++#define PRM_VC_VAL_BYPASS_DATA_MASK		0xFF
++
++#define SMPS_I2C_SLAVE_ADDR	0x12
++#define SMPS_REG_ADDR_VCORE1	0x55
++#define SMPS_REG_ADDR_VCORE2	0x5B
++#define SMPS_REG_ADDR_VCORE3	0x61
++
++#define SMPS_VOLT_1_0000_V	0x21
++#define SMPS_VOLT_1_0125_V	0x22
++#define SMPS_VOLT_1_0250_V	0x23
++#define SMPS_VOLT_1_0375_V	0x24
++#define SMPS_VOLT_1_0500_V	0x25
++#define SMPS_VOLT_1_0625_V	0x26
++#define SMPS_VOLT_1_0750_V	0x27
++#define SMPS_VOLT_1_0875_V	0x28
++#define SMPS_VOLT_1_1000_V	0x29
++#define SMPS_VOLT_1_1125_V	0x2A
++#define SMPS_VOLT_1_1250_V	0x2B
++#define SMPS_VOLT_1_1375_V	0x2C
++#define SMPS_VOLT_1_1500_V	0x2D
++#define SMPS_VOLT_1_1625_V	0x2E
++#define SMPS_VOLT_1_1750_V	0x2F
++#define SMPS_VOLT_1_1875_V	0x30
++#define SMPS_VOLT_1_2000_V	0x31
++#define SMPS_VOLT_1_2125_V	0x32
++#define SMPS_VOLT_1_2250_V	0x33
++#define SMPS_VOLT_1_2375_V	0x34
++#define SMPS_VOLT_1_2500_V	0x35
++#define SMPS_VOLT_1_2625_V	0x36
++#define SMPS_VOLT_1_2750_V	0x37
++#define SMPS_VOLT_1_2875_V	0x38
++#define SMPS_VOLT_1_3000_V	0x39
++#define SMPS_VOLT_1_3500_V	0x3A
++#define SMPS_VOLT_1_5000_V	0x3B
++#define SMPS_VOLT_1_5000_V	0x3B
++
++/* Defines for DPLL setup */
++#define DPLL_LOCKED_FREQ_TOLERANCE_0		0
++#define DPLL_LOCKED_FREQ_TOLERANCE_500_KHZ	500
++#define DPLL_LOCKED_FREQ_TOLERANCE_1_MHZ	1000
++
++#define CONFIGURE_NO_LOCK	0
++#define CONFIGURE_AND_LOCK	1
++
++struct dpll_regs {
++	u32 cm_clkmode_dpll;
++	u32 cm_idlest_dpll;
++	u32 cm_autoidle_dpll;
++	u32 cm_clksel_dpll;
++	u32 cm_div_m2_dpll;
++	u32 cm_div_m3_dpll;
++	u32 cm_div_m4_dpll;
++	u32 cm_div_m5_dpll;
++	u32 cm_div_m6_dpll;
++	u32 cm_div_m7_dpll;
++};
++
++/* DPLL parameter table */
++struct dpll_params {
++	s32 m;
++	s32 n;
++	u32 locked_freq_khz;
++	s32 m2;
++	s32 m3;
++	s32 m4;
++	s32 m5;
++	s32 m6;
++	s32 m7;
++};
++
++#endif /* _CLOCKS_OMAP4_H_ */
+diff --git a/arch/arm/include/asm/arch-omap4/sys_proto.h b/arch/arm/include/asm/arch-omap4/sys_proto.h
+index 33a1666..fd21afd 100644
+--- a/arch/arm/include/asm/arch-omap4/sys_proto.h
++++ b/arch/arm/include/asm/arch-omap4/sys_proto.h
+@@ -39,6 +39,12 @@ void set_muxconf_regs_non_essential(void);
+ void sr32(void *, u32, u32, u32);
+ u32 wait_on_value(u32, u32, void *, u32);
+ void sdelay(unsigned long);
++void prcm_init(void);
++void bypass_dpll(u32 base);
++void freq_update_core(void);
++u32 get_syc_clk_freq(void);
++u32 omap4_ddr_clk(void);
++u32 omap4_revision(void);
+ 
+ static inline u32 running_from_sdram(void)
+ {
+diff --git a/arch/arm/include/asm/omap_common.h b/arch/arm/include/asm/omap_common.h
+index 50247af..49daa85 100644
+--- a/arch/arm/include/asm/omap_common.h
++++ b/arch/arm/include/asm/omap_common.h
+@@ -25,6 +25,9 @@
+ #ifndef	_OMAP_COMMON_H_
+ #define	_OMAP_COMMON_H_
+ 
++/* Max value for DPLL multiplier M */
++#define OMAP_DPLL_MAX_N	127
++
+ /* extract a bit field from a bit vector */
+ #define get_bit_field(nr, start, mask)\
+ 	(((nr) & (mask)) >> (start))
+diff --git a/spl/board/ti/sdp4430/Makefile b/spl/board/ti/sdp4430/Makefile
+index 6a6aa42..40e3e79 100644
+--- a/spl/board/ti/sdp4430/Makefile
++++ b/spl/board/ti/sdp4430/Makefile
+@@ -115,8 +115,12 @@ $(obj)board.c:$(obj)omap4_mux_data.h
+ 	@rm -f $@
+ 	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/board.c $@
+ 
++$(obj)clocks.c:
++	@rm -f $@
++	@ln -s $(TOPDIR)/arch/arm/cpu/armv7/omap4/clocks.c $@
++
+ SOBJS	+= lowlevel_init.o
+-COBJS	+= board.o
++COBJS	+= board.o clocks.o
+ 
+ # rules
+ LDPPFLAGS += -include $(TOPDIR)/include/config.h
+-- 
+1.7.2.3
+

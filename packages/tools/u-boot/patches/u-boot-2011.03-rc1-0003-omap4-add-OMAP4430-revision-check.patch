@@ -1,0 +1,137 @@
+From 3130b153ed6d6d1e486973a5d782e0480db748d6 Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Wed, 16 Feb 2011 23:51:21 +0530
+Subject: [PATCH 03/22] omap4: add OMAP4430 revision check
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ arch/arm/cpu/armv7/omap4/board.c        |   35 +++++++++++++++++++++++++++++++
+ arch/arm/include/asm/arch-omap4/omap4.h |   17 +++++++++-----
+ arch/arm/include/asm/armv7.h            |   31 +++++++++++++++++++++++++++
+ 3 files changed, 77 insertions(+), 6 deletions(-)
+ create mode 100644 arch/arm/include/asm/armv7.h
+
+diff --git a/arch/arm/cpu/armv7/omap4/board.c b/arch/arm/cpu/armv7/omap4/board.c
+index fcd29a7..7583a0d 100644
+--- a/arch/arm/cpu/armv7/omap4/board.c
++++ b/arch/arm/cpu/armv7/omap4/board.c
+@@ -28,6 +28,7 @@
+  * MA 02111-1307 USA
+  */
+ #include <common.h>
++#include <asm/armv7.h>
+ #include <asm/arch/cpu.h>
+ #include <asm/arch/sys_proto.h>
+ #include <asm/sizes.h>
+@@ -127,3 +128,37 @@ int arch_cpu_init(void)
+ 	set_muxconf_regs();
+ 	return 0;
+ }
++
++static u32 cortex_a9_rev(void)
++{
++
++	unsigned int rev;
++
++	/* Read Main ID Register (MIDR) */
++	asm ("mrc p15, 0, %0, c0, c0, 0" : "=r" (rev));
++
++	return rev;
++}
++
++u32 omap4_revision(void)
++{
++	if (readl(CONTROL_ID_CODE) == OMAP4_CONTROL_ID_CODE_ES2_1)
++		return OMAP4430_ES2_1;
++	else if (readl(CONTROL_ID_CODE) == OMAP4_CONTROL_ID_CODE_ES2_2)
++		return OMAP4430_ES2_2;
++	/*
++	 * For some of the ES2/ES1 boards ID_CODE is not reliable:
++	 * Also, ES1 and ES2 have different ARM revisions
++	 * So use ARM revision for identification
++	 */
++	unsigned int rev = cortex_a9_rev();
++
++	switch (rev) {
++	case MIDR_CORTEX_A9_R0P1:
++		return OMAP4430_ES1_0;
++	case MIDR_CORTEX_A9_R1P2:
++		return OMAP4430_ES2_0;
++	default:
++		return OMAP4430_SILICON_ID_INVALID;
++	}
++}
+diff --git a/arch/arm/include/asm/arch-omap4/omap4.h b/arch/arm/include/asm/arch-omap4/omap4.h
+index a30bb33..1f88732 100644
+--- a/arch/arm/include/asm/arch-omap4/omap4.h
++++ b/arch/arm/include/asm/arch-omap4/omap4.h
+@@ -51,6 +51,11 @@
+ #define CONTROL_PADCONF_CORE	(OMAP44XX_L4_CORE_BASE + 0x100000)
+ #define CONTROL_PADCONF_WKUP	(OMAP44XX_L4_CORE_BASE + 0x31E000)
+ 
++/* CONTROL_ID_CODE */
++#define CONTROL_ID_CODE		(CTRL_BASE + 0x204)
++
++#define OMAP4_CONTROL_ID_CODE_ES2_1	0x3B95C02F
++#define OMAP4_CONTROL_ID_CODE_ES2_2	0x4B95C02F
+ /* UART */
+ #define UART1_BASE		(OMAP44XX_L4_PER_BASE + 0x6a000)
+ #define UART2_BASE		(OMAP44XX_L4_PER_BASE + 0x6c000)
+@@ -121,11 +126,11 @@ struct s32ktimer {
+ /* Temporary SRAM stack used while low level init is done */
+ #define LOW_LEVEL_SRAM_STACK	NON_SECURE_SRAM_END
+ 
+-/*
+- * OMAP4 real hardware:
+- * TODO: Change this to the IDCODE in the hw regsiter
+- */
+-#define CPU_OMAP4430_ES10	1
+-#define CPU_OMAP4430_ES20	2
++/* Silicon revisions */
++#define OMAP4430_SILICON_ID_INVALID	0
++#define OMAP4430_ES1_0	1
++#define OMAP4430_ES2_0	2
++#define OMAP4430_ES2_1	3
++#define OMAP4430_ES2_2	4
+ 
+ #endif
+diff --git a/arch/arm/include/asm/armv7.h b/arch/arm/include/asm/armv7.h
+new file mode 100644
+index 0000000..6c24a80
+--- /dev/null
++++ b/arch/arm/include/asm/armv7.h
+@@ -0,0 +1,31 @@
++/*
++ * (C) Copyright 2010
++ * Texas Instruments Incorporated - http://www.ti.com/
++ *
++ * Aneesh V <aneesh@ti.com>
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++#ifndef ARMV7_H
++#define ARMV7_H
++
++#define MIDR_CORTEX_A9_R0P1	0x410FC091
++#define MIDR_CORTEX_A9_R1P2	0x411FC092
++
++#endif /* ARMV7_H */
+-- 
+1.7.2.3
+
