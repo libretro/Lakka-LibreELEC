@@ -1,8 +1,7 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2011 Anthony Nash (nash.ant@gmail.com)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -20,29 +19,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+# Starting Sickbeard downloader daemon
+#
+# runlevels: openelec, textmode
 
-add_user system x 430 430 "service" "/var/run/connman" "/bin/sh"
-add_group system 430
+(
+  if [ -f /var/config/settings.conf ]; then
+    . /var/config/settings.conf
 
-mkdir -p $INSTALL/etc
-  cp $PKG_DIR/config/services $INSTALL/etc
-  cp $PKG_DIR/config/resolv.conf $INSTALL/etc
+    if [ "$SABNZBD_START" = "true" ]; then
 
-mkdir -p $INSTALL/etc/connman
-  cp $PKG_BUILD/src/main.conf $INSTALL/etc/connman
+      mkdir -p /var/run
+      mkdir -p $HOME/.sickbeard
 
-mkdir -p $INSTALL/etc/dbus-1/system.d
-  cp $PKG_BUILD/src/connman.conf $INSTALL/etc/dbus-1/system.d
+      wait_for_network
 
-mkdir -p $INSTALL/usr/sbin
-  cp -P $PKG_BUILD/src/connmand $INSTALL/usr/sbin
-
-mkdir -p $INSTALL/usr/config
-  cp $PKG_DIR/config/hosts.conf $INSTALL/usr/config
-
-if [ "$DEVTOOLS" = yes ]; then
-  mkdir -p $INSTALL/usr/bin
-    cp $PKG_DIR/scripts/cmcc $INSTALL/usr/bin
-fi
-
+      progress "Starting sickbeard downloader daemon"
+      python /usr/lib/SickBeard/SickBeard.py --daemon \
+                                             --pidfile=/var/run/sickbeard.pid \
+                                             --datadir $HOME/.sickbeard
+    fi
+  fi
+)&
