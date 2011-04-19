@@ -21,33 +21,42 @@
 ################################################################################
 
 export TRANSMISSION_WEB_HOME="./web"
+export PATH="$PATH:./bin"
+
+OPENELEC_SETTINGS="$HOME/.xbmc/userdata/addon_data/addon.downloadmanager.transmission/settings.xml"
+
+if [ ! -f "$OPENELEC_SETTINGS" ]; then
+  cp settings.xml $OPENELEC_SETTINGS
+fi
+
+TRANSMISSION_START=`grep TRANSMISSION_START $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+TRANSMISSION_AUTH=`grep TRANSMISSION_AUTH $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+TRANSMISSION_USER=`grep TRANSMISSION_USER $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+TRANSMISSION_PWD=`grep TRANSMISSION_PWD $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+TRANSMISSION_IP=`grep TRANSMISSION_IP $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
 
 mkdir -p /storage/downloads
 mkdir -p /storage/downloads/incoming
 mkdir -p /storage/downloads/watch
 
-#if [ -f /tmp/transmisson.conf ]; then
-#  . /tmp/transmission.conf
+if [ -z "$TRANSMISSION_IP" ]; then
+  TRANSMISSION_IP="*.*.*.*"
+fi
 
-  if [ -z "$TRANSMISSION_IP" ]; then
-    TRANSMISSION_IP="*.*.*.*"
-  fi
+TRANSMISSION_ARG="$TRANSMISSION_ARG -w /storage/downloads"
+TRANSMISSION_ARG="$TRANSMISSION_ARG --incomplete-dir /storage/downloads/incoming"
+TRANSMISSION_ARG="$TRANSMISSION_ARG --watch-dir /storage/downloads/watch"
+TRANSMISSION_ARG="$TRANSMISSION_ARG -e /var/log/transmission.log"
+TRANSMISSION_ARG="$TRANSMISSION_ARG -g /storage/.cache/transmission"
+TRANSMISSION_ARG="$TRANSMISSION_ARG -a $TRANSMISSION_IP"
 
-  TRANSMISSION_ARG="$TRANSMISSION_ARG -w /storage/downloads"
-  TRANSMISSION_ARG="$TRANSMISSION_ARG --incomplete-dir /storage/downloads/incoming"
-  TRANSMISSION_ARG="$TRANSMISSION_ARG --watch-dir /storage/downloads/watch"
-  TRANSMISSION_ARG="$TRANSMISSION_ARG -e /var/log/transmission.log"
-  TRANSMISSION_ARG="$TRANSMISSION_ARG -g /storage/.cache/transmission"
-  TRANSMISSION_ARG="$TRANSMISSION_ARG -a $TRANSMISSION_IP"
+if [ "$TRANSMISSION_AUTH" = "true" ]; then
+  TRANSMISSION_ARG="$TRANSMISSION_ARG -t"
+  TRANSMISSION_ARG="$TRANSMISSION_ARG -u $TRANSMISSION_USER"
+  TRANSMISSION_ARG="$TRANSMISSION_ARG -v $TRANSMISSION_PWD"
+else
+  TRANSMISSION_ARG="$TRANSMISSION_ARG -T"
+fi
 
-  if [ "$TRANSMISSION_AUTH" = "true" ]; then
-    TRANSMISSION_ARG="$TRANSMISSION_ARG -t"
-    TRANSMISSION_ARG="$TRANSMISSION_ARG -u $TRANSMISSION_USER"
-    TRANSMISSION_ARG="$TRANSMISSION_ARG -v $TRANSMISSION_PWD"
-  else
-    TRANSMISSION_ARG="$TRANSMISSION_ARG -T"
-  fi
-
-  chmod +x ./bin/transmission-daemon
-  ./bin/transmission-daemon $TRANSMISSION_ARG
-#fi
+chmod +x ./bin/transmission-daemon
+transmission-daemon $TRANSMISSION_ARG
