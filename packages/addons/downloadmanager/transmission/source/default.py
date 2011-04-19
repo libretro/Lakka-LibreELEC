@@ -18,19 +18,9 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="transmission"
-PKG_VERSION="2.20"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="OSS"
-PKG_SITE="http://www.transmissionbt.com/"
-PKG_URL="http://download.transmissionbt.com/files/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="zlib libiconv openssl curl libevent connman"
-PKG_BUILD_DEPENDS="toolchain libiconv zlib openssl curl libevent"
-PKG_PRIORITY="optional"
-PKG_SECTION="system"
-PKG_SHORTDESC="transmission: a fast, easy and free BitTorrent client"
-PKG_LONGDESC="transmission is a fast, easy and free BitTorrent client"
-PKG_IS_ADDON="no"
+import sys
+import xbmcaddon
+import os
 
-PKG_AUTORECONF="yes"
+if ( __name__ == "__main__" ):
+    os.system("sh start.sh")
