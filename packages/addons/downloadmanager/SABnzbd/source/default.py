@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
@@ -20,11 +18,9 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+import sys
+import xbmcaddon
+import os
 
-mkdir -p $INSTALL/usr/lib/$1
-  cp -PR $PKG_BUILD/* $INSTALL/usr/lib/$1
-
-mkdir -p $INSTALL/etc/avahi/services
-  cp $PKG_DIR/config/sabnzbd-http.service $INSTALL/etc/avahi/services
-  cp $PKG_DIR/config/sabnzbd-https.service $INSTALL/etc/avahi/services
+if ( __name__ == "__main__" ):
+    os.system("sh start.sh")
