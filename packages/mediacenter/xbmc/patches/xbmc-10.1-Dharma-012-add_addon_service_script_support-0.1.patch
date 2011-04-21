@@ -1,0 +1,390 @@
+diff -Naur xbmc-10.1-Dharma/language/English/strings.xml xbmc-10.1-Dharma.patch/language/English/strings.xml
+--- xbmc-10.1-Dharma/language/English/strings.xml	2011-03-08 02:49:12.000000000 +0100
++++ xbmc-10.1-Dharma.patch/language/English/strings.xml	2011-04-19 00:23:35.019973088 +0200
+@@ -2193,6 +2193,7 @@
+   <string id="24015">Music video information</string>
+   <string id="24016">Album information</string>
+   <string id="24017">Artist information</string>
++  <string id="24018">Services</string>
+ 
+   <string id="24020">Configure</string>
+   <string id="24021">Disable</string>
+diff -Naur xbmc-10.1-Dharma/language/English/strings.xml.orig xbmc-10.1-Dharma.patch/language/English/strings.xml.orig
+diff -Naur xbmc-10.1-Dharma/xbmc/AddonDatabase.cpp xbmc-10.1-Dharma.patch/xbmc/AddonDatabase.cpp
+--- xbmc-10.1-Dharma/xbmc/AddonDatabase.cpp	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/AddonDatabase.cpp	2011-04-19 00:23:35.020973069 +0200
+@@ -24,6 +24,7 @@
+ #include "utils/log.h"
+ #include "DateTime.h"
+ #include "StringUtils.h"
++#include "addons/Service.h"
+ 
+ using namespace ADDON;
+ using namespace std;
+@@ -578,6 +579,16 @@
+         m_pDS->close();
+         sql = PrepareSQL("insert into disabled(id, addonID) values(NULL, '%s')", addonID.c_str());
+         m_pDS->exec(sql);
++
++        AddonPtr addon;
++        // If the addon is a service, stop it
++        if (CAddonMgr::Get().GetAddon(addonID, addon, ADDON_SERVICE, false) && addon)
++        {
++          boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(addon);
++          if (service)
++            service->Stop();
++        }
++
+         return true;
+       }
+       return false; // already disabled or failed query
+@@ -586,6 +597,16 @@
+     {
+       CStdString sql = PrepareSQL("delete from disabled where addonID='%s'", addonID.c_str());
+       m_pDS->exec(sql);
++
++      AddonPtr addon;
++      // If the addon is a service, start it
++      if (CAddonMgr::Get().GetAddon(addonID, addon, ADDON_SERVICE, false) && addon)
++      {
++        boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(addon);
++        if (service)
++          service->Start();
++      }
++
+     }
+     return true;
+   }
+diff -Naur xbmc-10.1-Dharma/xbmc/addons/Addon.cpp xbmc-10.1-Dharma.patch/xbmc/addons/Addon.cpp
+--- xbmc-10.1-Dharma/xbmc/addons/Addon.cpp	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/addons/Addon.cpp	2011-04-19 00:23:35.029972895 +0200
+@@ -153,7 +153,8 @@
+    {"xbmc.addon.video",                  ADDON_VIDEO,                1037, "DefaultAddonVideo.png" },
+    {"xbmc.addon.audio",                  ADDON_AUDIO,                1038, "DefaultAddonMusic.png" },
+    {"xbmc.addon.image",                  ADDON_IMAGE,                1039, "DefaultAddonPicture.png" },
+-   {"xbmc.addon.executable",             ADDON_EXECUTABLE,           1043, "DefaultAddonProgram.png" }};
++   {"xbmc.addon.executable",             ADDON_EXECUTABLE,           1043, "DefaultAddonProgram.png" },
++   {"xbmc.service",                      ADDON_SERVICE,             24018, "DefaultAddonService.png" }};
+ 
+ const CStdString TranslateType(const ADDON::TYPE &type, bool pretty/*=false*/)
+ {
+@@ -367,6 +368,7 @@
+     case ADDON_SCRIPT_WEATHER:
+     case ADDON_SCRIPT_SUBTITLES:
+     case ADDON_PLUGIN:
++    case ADDON_SERVICE:
+       ext = ADDON_PYTHON_EXT;
+       break;
+     default:
+@@ -396,6 +398,7 @@
+       case ADDON_SCRAPER_TVSHOWS:
+       case ADDON_SCRAPER_LIBRARY:
+       case ADDON_PLUGIN:
++      case ADDON_SERVICE:
+         {
+           CStdString temp = CAddonMgr::Get().GetExtValue(extension->configuration, "@library");
+           m_strLibName = temp;
+diff -Naur xbmc-10.1-Dharma/xbmc/addons/AddonManager.cpp xbmc-10.1-Dharma.patch/xbmc/addons/AddonManager.cpp
+--- xbmc-10.1-Dharma/xbmc/addons/AddonManager.cpp	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/addons/AddonManager.cpp	2011-04-19 00:27:58.785878189 +0200
+@@ -48,6 +48,7 @@
+ #include "PluginSource.h"
+ #include "Repository.h"
+ #include "Skin.h"
++#include "Service.h"
+ 
+ using namespace std;
+ 
+@@ -89,6 +90,8 @@
+     case ADDON_SCRIPT_MODULE:
+     case ADDON_WEB_INTERFACE:
+       return AddonPtr(new CAddon(props));
++    case ADDON_SERVICE:
++      return AddonPtr(new CService(props));
+     case ADDON_SCRAPER_ALBUMS:
+     case ADDON_SCRAPER_ARTISTS:
+     case ADDON_SCRAPER_MOVIES:
+@@ -481,6 +484,8 @@
+     case ADDON_SCRIPT_MODULE:
+     case ADDON_WEB_INTERFACE:
+       return AddonPtr(new CAddon(addonProps));
++    case ADDON_SERVICE:
++      return AddonPtr(new CService(addonProps));
+     case ADDON_SCRAPER_ALBUMS:
+     case ADDON_SCRAPER_ARTISTS:
+     case ADDON_SCRAPER_MOVIES:
+@@ -725,7 +730,42 @@
+   m_cpluff->destroy_context(context);
+   return addon != NULL;
+ }
+-  
++
++bool CAddonMgr::StartServices()
++{
++  CLog::Log(LOGDEBUG, "ADDON: Starting service addons.");
++
++  VECADDONS services;
++  if (!GetAddons(ADDON_SERVICE, services))
++    return false;
++
++  bool ret = true;
++  for (IVECADDONS it = services.begin(); it != services.end(); ++it)
++  {
++    boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(*it);
++    if (service)
++      ret &= service->Start();
++  }
++
++  return ret;
++}
++
++void CAddonMgr::StopServices()
++{
++  CLog::Log(LOGDEBUG, "ADDON: Stopping service addons.");
++
++  VECADDONS services;
++  if (!GetAddons(ADDON_SERVICE, services))
++    return;
++
++  for (IVECADDONS it = services.begin(); it != services.end(); ++it)
++  {
++    boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(*it);
++    if (service)
++      service->Stop();
++  }
++}
++
+ int cp_to_clog(cp_log_severity_t lvl)
+ {
+   if (lvl >= CP_LOG_ERROR)
+diff -Naur xbmc-10.1-Dharma/xbmc/addons/AddonManager.h xbmc-10.1-Dharma.patch/xbmc/addons/AddonManager.h
+--- xbmc-10.1-Dharma/xbmc/addons/AddonManager.h	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/addons/AddonManager.h	2011-04-19 00:23:35.031972857 +0200
+@@ -154,6 +154,15 @@
+      */
+     bool AddonsFromRepoXML(const TiXmlElement *root, VECADDONS &addons);
+     ADDONDEPS GetDeps(const CStdString& id);
++
++    /*! \brief Start all services addons.
++        \return True is all addons are started, false otherwise
++    */
++    bool StartServices();
++    /*! \brief Stop all services addons.
++    */
++    void StopServices();
++
+   private:
+     void LoadAddons(const CStdString &path, 
+                     std::map<CStdString, AddonPtr>& unresolved);
+diff -Naur xbmc-10.1-Dharma/xbmc/addons/IAddon.h xbmc-10.1-Dharma.patch/xbmc/addons/IAddon.h
+--- xbmc-10.1-Dharma/xbmc/addons/IAddon.h	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/addons/IAddon.h	2011-04-19 00:23:35.032972838 +0200
+@@ -47,6 +47,7 @@
+     ADDON_PLUGIN,
+     ADDON_REPOSITORY,
+     ADDON_WEB_INTERFACE,
++    ADDON_SERVICE,
+     ADDON_VIDEO, // virtual addon types
+     ADDON_AUDIO,
+     ADDON_IMAGE,
+diff -Naur xbmc-10.1-Dharma/xbmc/addons/Makefile xbmc-10.1-Dharma.patch/xbmc/addons/Makefile
+--- xbmc-10.1-Dharma/xbmc/addons/Makefile	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/addons/Makefile	2011-04-19 00:32:56.915120508 +0200
+@@ -6,6 +6,7 @@
+ 		 PluginSource.cpp \
+ 		 ScreenSaver.cpp \
+ 		 Scraper.cpp \
++		 Service.cpp \
+ 		 Skin.cpp \
+ 		 Visualisation.cpp \
+ 		 fft.cpp \
+diff -Naur xbmc-10.1-Dharma/xbmc/addons/Service.cpp xbmc-10.1-Dharma.patch/xbmc/addons/Service.cpp
+--- xbmc-10.1-Dharma/xbmc/addons/Service.cpp	1970-01-01 01:00:00.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/addons/Service.cpp	2011-04-19 00:23:35.033972819 +0200
+@@ -0,0 +1,109 @@
++/*
++ *      Copyright (C) 2005-2009 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, write to
++ *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
++ *  http://www.gnu.org/copyleft/gpl.html
++ *
++ */
++#include "Service.h"
++#include "AddonManager.h"
++#include "log.h"
++#ifdef HAS_PYTHON
++#include "lib/libPython/XBPython.h"
++#endif
++
++using namespace std;
++
++namespace ADDON
++{
++
++CService::CService(const cp_extension_t *ext)
++  : CAddon(ext), m_type(UNKNOWN)
++{
++  BuildServiceType();
++}
++
++
++CService::CService(const AddonProps &props)
++  : CAddon(props), m_type(UNKNOWN)
++{
++  BuildServiceType();
++}
++
++bool CService::Start()
++{
++  bool ret = true;
++  switch (m_type)
++  {
++#ifdef HAS_PYTHON
++  case PYTHON:
++    ret = (g_pythonParser.evalFile(LibPath()) != -1);
++    break;
++#endif
++
++  case UNKNOWN:
++  default:
++    ret = false;
++    break;
++  }
++
++  return ret;
++}
++
++bool CService::Stop()
++{
++  bool ret = true;
++
++  switch (m_type)
++  {
++#ifdef HAS_PYTHON
++  case PYTHON:
++    ret = g_pythonParser.StopScript(LibPath());
++    break;
++#endif
++
++  case UNKNOWN:
++  default:
++    ret = false;
++    break;
++  }
++
++  return ret;
++}
++
++void CService::BuildServiceType()
++{
++  CStdString str = LibPath();
++  CStdString ext;
++
++  size_t p = str.find_last_of('.');
++  if (p != string::npos)
++    ext = str.substr(p + 1);
++
++#ifdef HAS_PYTHON
++  CStdString pythonExt = ADDON_PYTHON_EXT;
++  pythonExt.erase(0, 2);
++  if ( ext.Equals(pythonExt) )
++    m_type = PYTHON;
++  else
++#endif
++  {
++    m_type = UNKNOWN;
++    CLog::Log(LOGERROR, "ADDON: extension '%s' is not currently supported for service addon", ext.c_str());
++  }
++}
++
++}
+diff -Naur xbmc-10.1-Dharma/xbmc/addons/Service.h xbmc-10.1-Dharma.patch/xbmc/addons/Service.h
+--- xbmc-10.1-Dharma/xbmc/addons/Service.h	1970-01-01 01:00:00.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/addons/Service.h	2011-04-19 00:23:35.033972819 +0200
+@@ -0,0 +1,50 @@
++#pragma once
++/*
++ *      Copyright (C) 2005-2009 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, write to
++ *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
++ *  http://www.gnu.org/copyleft/gpl.html
++ *
++ */
++#include "Addon.h"
++
++namespace ADDON
++{
++
++  class CService: public CAddon
++  {
++  public:
++
++    enum TYPE
++    {
++      UNKNOWN,
++      PYTHON
++    };
++
++    CService(const cp_extension_t *ext);
++    CService(const AddonProps &props);
++
++    bool Start();
++    bool Stop();
++    TYPE GetServiceType() { return m_type; }
++
++  protected:
++    void BuildServiceType();
++
++  private:
++    TYPE m_type;
++  };
++}
+\ Kein Zeilenumbruch am Dateiende.
+diff -Naur xbmc-10.1-Dharma/xbmc/Application.cpp xbmc-10.1-Dharma.patch/xbmc/Application.cpp
+--- xbmc-10.1-Dharma/xbmc/Application.cpp	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/Application.cpp	2011-04-19 00:23:35.028972914 +0200
+@@ -1163,6 +1163,8 @@
+   CCrystalHD::GetInstance();
+ #endif
+ 
++  CAddonMgr::Get().StartServices();
++
+   CLog::Log(LOGNOTICE, "initialize done");
+ 
+   m_bInitializing = false;
+@@ -3360,6 +3362,9 @@
+ 
+   g_mediaManager.Stop();
+ 
++  // Stop services before unloading Python
++  CAddonMgr::Get().StopServices();
++
+ /* Python resource freeing must be done after skin has been unloaded, not before
+    some windows still need it when deinitializing during skin unloading. */
+ #ifdef HAS_PYTHON
