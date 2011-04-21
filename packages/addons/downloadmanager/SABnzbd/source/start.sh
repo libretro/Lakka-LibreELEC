@@ -26,40 +26,51 @@ export PYTHONPATH="$PYTHONPATH:./pylib"
 SABNZBD_HOME="$HOME/.xbmc/userdata/addon_data/addon.downloadmanager.SABnzbd"
 SABNZBD_SETTINGS="$SABNZBD_HOME/settings.xml"
 
-mkdir -p $SABNZBD_HOME
+SABNZBD_DISABLEAPIKEY="0"
+SABNZBD_HTTPPORT="8081"
+SABNZBD_HTTPSPORT="9081"
+SABNZBD_SKIN="Plush"
+SABNZBD_SKIN2="Plush"
+SABNZBD_WEBCOLOR="gold"
+SABNZBD_WEBCOLOR2="gold"
 
-# if [ ! -f "$SABNZBD_SETTINGS" ]; then
-#   cp settings.xml $SABNZBD_SETTINGS
-# fi
+write_ini() {
+python bin/ini_tool --action=write \
+                    --file=$SABNZBD_HOME/sabnzbd.ini \
+                    --section="$1" \
+                    --option="$2" \
+                    --value="$3"
+}
+
+mkdir -p $SABNZBD_HOME
+chmod +x ./bin/*
+
+if [ ! -f "$SABNZBD_SETTINGS" ]; then
+  cp settings-default.xml $SABNZBD_SETTINGS
+fi
 
 mkdir -p /storage/downloads
 mkdir -p /storage/downloads/incoming
 mkdir -p /storage/downloads/watch
 
-# TRANSMISSION_START=`grep TRANSMISSION_START $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-# TRANSMISSION_AUTH=`grep TRANSMISSION_AUTH $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-# TRANSMISSION_USER=`grep TRANSMISSION_USER $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-# TRANSMISSION_PWD=`grep TRANSMISSION_PWD $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-# TRANSMISSION_IP=`grep TRANSMISSION_IP $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+# use settings from xbmc setup dialog
+SABNZBD_USER=`grep SABNZBD_USER $SABNZBD_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+SABNZBD_PWD=`grep SABNZBD_PWD $SABNZBD_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+SABNZBD_IP=`grep SABNZBD_IP $SABNZBD_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
 
-# if [ -z "$TRANSMISSION_IP" ]; then
-#   TRANSMISSION_IP="*.*.*.*"
-# fi
+if [ -z "$SABNZBD_IP" ]; then
+  SABNZBD_IP="0.0.0.0"
+fi
 
-# TRANSMISSION_ARG="$TRANSMISSION_ARG -w /storage/downloads"
-# TRANSMISSION_ARG="$TRANSMISSION_ARG --incomplete-dir /storage/downloads/incoming"
-# TRANSMISSION_ARG="$TRANSMISSION_ARG --watch-dir /storage/downloads/watch"
-# TRANSMISSION_ARG="$TRANSMISSION_ARG -e /var/log/transmission.log"
-# TRANSMISSION_ARG="$TRANSMISSION_ARG -g /storage/.cache/transmission"
-# TRANSMISSION_ARG="$TRANSMISSION_ARG -a $TRANSMISSION_IP"
+write_ini misc disable_api_key $SABNZBD_DISABLEAPIKEY
+write_ini misc username $SABNZBD_USER
+write_ini misc password $SABNZBD_PWD
+write_ini misc port $SABNZBD_HTTPPORT
+write_ini misc https_port $SABNZBD_HTTPSPORT
+write_ini misc host $SABNZBD_IP
+write_ini misc web_dir $SABNZBD_SKIN
+write_ini misc web_dir2 $SABNZBD_SKIN2
+write_ini misc web_color $SABNZBD_WEBCOLOR
+write_ini misc web_color2 $SABNZBD_WEBCOLOR2
 
-# if [ "$TRANSMISSION_AUTH" = "true" ]; then
-#   TRANSMISSION_ARG="$TRANSMISSION_ARG -t"
-#   TRANSMISSION_ARG="$TRANSMISSION_ARG -u $TRANSMISSION_USER"
-#   TRANSMISSION_ARG="$TRANSMISSION_ARG -v $TRANSMISSION_PWD"
-# else
-#   TRANSMISSION_ARG="$TRANSMISSION_ARG -T"
-# fi
-
-chmod +x ./bin/*
-python ./SABnzbd/SABnzbd.py -d -f $SABNZBD_HOME/sabnzbd.conf -l 0 > /dev/null 2>&1
+python ./SABnzbd/SABnzbd.py -d -f $SABNZBD_HOME/sabnzbd.ini -l 0 > /dev/null 2>&1

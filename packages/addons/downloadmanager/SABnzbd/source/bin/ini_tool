@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+
+from configobj import ConfigObj
+import sys
+import os
+
+python_major = sys.version_info[0]
+python_minor = sys.version_info[1]
+
+prog="ini_tool"
+description="""Read/Write config files.
+
+Examples:
+	%(prog)s --file config.ini --action read --section "general" --option username
+	%(prog)s --file config.ini --action write --section "general" --option username --value foo""" % {'prog':prog}
+
+def option_required_error(option):
+	parser.print_usage()
+	print prog + ": error: " + option + " is required"
+	exit(2)
+
+if python_major > 2 or (python_major == 2 and python_minor >= 7):
+	import argparse
+	
+	parser = argparse.ArgumentParser(
+		prog=prog,
+		description=description,
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		)
+
+	parser.add_argument('--file', help='file to read/write to/from', required=True)
+	parser.add_argument('--action', help='read|write', required=True)
+	parser.add_argument('--section', help='the config section', required=True)
+	parser.add_argument('--option', help='the option key', required=True)
+	parser.add_argument('--value', help='value to store in the given option (only for write action)')
+
+	options = parser.parse_args()
+
+else:
+	import optparse
+	
+	parser = optparse.OptionParser(
+		prog=prog,
+		description=description,
+		)
+
+	parser.add_option('--file', help='file to read/write to/from')
+	parser.add_option('--action', help='read|write')
+	parser.add_option('--section', help='the config section')
+	parser.add_option('--option', help='the option key')
+	parser.add_option('--value', help='value to store in the given option (only for write action)')
+
+	(options, args) = parser.parse_args()
+
+	if not options.file:
+		option_required_error("--file")
+	if not options.action:
+		option_required_error("--action")
+	if not options.section:
+		option_required_error("--section")
+	if not options.option:
+		option_required_error("--option")
+
+
+if options.action != "read" and options.action != "write":
+	print "'" + options.action + "' is not a valid action"
+	parser.print_help()
+	exit(2)
+
+if options.action == "read" and not os.path.isfile(options.file):
+	print "'" + options.file + "' is not a file"
+	exit(2)
+
+config = ConfigObj(options.file)
+
+if options.action == 'read':
+	print config[options.section][options.option]
+elif options.action == 'write':
+	config[options.section][options.option] = options.value
+	config.write()
+else:
+	exit(1)
