@@ -37,8 +37,7 @@ SABNZBD_WEBCOLOR2="gold"
 write_ini() {
 python bin/ini_tool --action=write \
                     --file=$SABNZBD_HOME/sabnzbd.ini \
-                    --section="$1" \
-                    --option="$2" \
+                    --option="$1:$2" \
                     --value="$3"
 }
 
