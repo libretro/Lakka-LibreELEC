@@ -1,9 +1,6 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2011 Anthony Nash (nash.ant@gmail.com)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,8 +18,9 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+import sys
+import xbmcaddon
+import os
 
-mkdir -p $INSTALL/usr/lib/SickBeard
-  cp -PR $PKG_BUILD/* $INSTALL/usr/lib/SickBeard
-
+if ( __name__ == "__main__" ):
+    os.system("sh start.sh")
