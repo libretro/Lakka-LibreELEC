@@ -107,5 +107,4 @@ if [ "$SABNZBD_FIRSTRUN" = "yes" ]; then
   write_ini servers:localhost enable "0"
 fi
 
-
-python ./SABnzbd/SABnzbd.py -d -f $SABNZBD_HOME/sabnzbd.ini -l 0 > /dev/null 2>&1
+python ./SABnzbd/SABnzbd.py -d -f $SABNZBD_HOME/sabnzbd.ini -l 0
