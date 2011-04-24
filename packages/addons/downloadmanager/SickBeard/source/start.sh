@@ -48,9 +48,7 @@ grep "<$1>" $XBMC_SETTINGS | sed -e "s,[[:space:]]*<$1>,," -e "s,</$1>,,"
 mkdir -p $SICKBEARD_HOME
 chmod +x ./bin/*
 
-if [ ! -f "$SICKBEARD_HOME/settings.xml" ]; then
-  cp settings-default.xml $SICKBEARD_HOME/settings.xml
-fi
+sleep 5
 
 if [ ! -f "$SICKBEARD_HOME/config.ini" ]; then
   SICKBEARD_FIRSTRUN="yes"
@@ -110,6 +108,4 @@ if [ "$SICKBEARD_FIRSTRUN" = "yes" ]; then
 write_ini General metadata_xbmc $SICKBEARD_METADATAXBMC
 fi
 
-python ./SickBeard/SickBeard.py --daemon \
-                                --pidfile=/var/run/sickbeard.pid \
-                                --datadir $SICKBEARD_HOME > /dev/null 2>&1
+python ./SickBeard/SickBeard.py --daemon --datadir $SICKBEARD_HOME
