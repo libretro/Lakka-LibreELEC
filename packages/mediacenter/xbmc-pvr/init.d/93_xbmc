@@ -1,0 +1,63 @@
+################################################################################
+#      Copyright (C) 2009-2010 OpenELEC.tv
+#      http://www.openelec.tv
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# starting XBMC
+#
+# runlevels: openelec
+
+LIRCDEV="/var/run/lirc/lircd"
+[ -e /var/run/lirc/lircd.irtrans ] && LIRCDEV="/var/run/lirc/lircd.irtrans"
+XBMC_ARGS="--standalone -fs --lircdev $LIRCDEV"
+
+progress "starting XBMC"
+
+# starting autoupdate
+  [ -f /usr/bin/autoupdate ] && /usr/bin/autoupdate &
+
+# waiting for Xorg to start
+  wait_for_xorg
+
+# starting XBMC
+  while true; do
+
+    DISPLAY=:0.0 /usr/lib/xbmc/xbmc.bin $XBMC_ARGS > /dev/null 2>&1
+    RET=$?
+
+    case "$RET" in
+      0)
+        poweroff -f
+        ;;
+      64)
+        poweroff -f
+        ;;
+      66)
+        reboot
+        ;;
+      255)
+        echo "Abnormal Exit. Exited with code $RET"
+        echo "is Xorg running? check /var/log/Xorg.log"
+        ;;
+      *)
+        echo "Abnormal Exit. Exited with code $RET"
+        ;;
+    esac
+
+    usleep 250000
+  done
