@@ -20,12 +20,13 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-OPENELEC_SETTINGS="$HOME/.xbmc/userdata/addon_data/os.openelec.settings/settings.xml"
+TMP_DIR="$HOME/.xbmc/temp"
 
 if [ -f /etc/update.conf ]; then
   . /etc/update.conf
-elif [ -f "$OPENELEC_SETTINGS" ]; then
-  AUTOUPDATE=`grep UPDATE_AUTO $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+elif [ -f /var/config/settings.conf ]; then
+  . /var/config/settings.conf
+  AUTOUPDATE="$UPDATE_AUTO"
 else
   exit 0
 fi
@@ -42,10 +43,10 @@ fi
 download () {
   case "$DL_METHOD" in
           wget)
-            wget -c $1 -P /tmp
+            wget -c $1 -P $TMP_DIR
             ;;
           scp)
-            scp $SCP_ARG "$1" /tmp
+            scp $SCP_ARG "$1" $TMP_DIR
             ;;
         esac
 }
@@ -56,7 +57,7 @@ send_message () {
 
 if [ ! -f /var/lock/update.lock ]; then
 
-  if [ "$AUTOUPDATE" = "manually" -o "$AUTOUPDATE" = "auto" ]; then
+  if [ "$AUTOUPDATE" = "manually" -o "$AUTOUPDATE" = "manual" -o "$AUTOUPDATE" = "auto" ]; then
 
   # sleep a bit, maybe we have a lot of work ;-)
     usleep 30000000
@@ -70,13 +71,13 @@ if [ ! -f /var/lock/update.lock ]; then
     THIS_PATCH="`echo "$THIS_VERSION" | cut -d "." -f3`"
 
   # get infofile with the latest released version
-    rm -rf /tmp/latest
+    rm -rf $TMP_DIR/latest
     download "$UPDATEURL/latest"
 
-    NEW_IMAGE="`cat /tmp/latest |grep "$THIS_DISTRIBUTION-$THIS_ARCH"`"
+    NEW_IMAGE="`cat $TMP_DIR/latest |grep "$THIS_DISTRIBUTION-$THIS_ARCH"`"
     NEW_VERSION="`echo "$NEW_IMAGE" | cut -d "-" -f3`"
 
-    rm -rf /tmp/latest
+    rm -rf $TMP_DIR/latest
 
   # compare installed version with latest released version
     NEW_MAJOR="`echo "$NEW_VERSION" | cut -d "." -f1`"
@@ -87,7 +88,7 @@ if [ ! -f /var/lock/update.lock ]; then
          "$THIS_MINOR" -lt "$NEW_MINOR" -o \
          "$THIS_PATCH" -lt "$NEW_PATCH" ]; then
 
-      if [ "$AUTOUPDATE" = "manually" ]; then
+      if [ "$AUTOUPDATE" = "manually" -o "$AUTOUPDATE" = "manual" ]; then
 
       # show a message if a new version is avaible
         send_message "New update avaible: $NEW_VERSION - please update manually"
@@ -101,20 +102,21 @@ if [ ! -f /var/lock/update.lock ]; then
         touch /var/lock/update.lock
 
       # downloading the new version
+        rm -rf $TMP_DIR/$NEW_IMAGE.tar.bz2
         download "$UPDATEURL/$NEW_IMAGE.tar.bz2"
 
       # extract the image
-        rm -rf /tmp/$NEW_IMAGE
-        tar -xjvf /tmp/$NEW_IMAGE.tar.bz2 -C /tmp
+        rm -rf $TMP_DIR/$NEW_IMAGE
+        tar -xjvf $TMP_DIR/$NEW_IMAGE.tar.bz2 -C $TMP_DIR
 
       # move KERNEL and SYSTEM to an temporary file
         mkdir -p /storage/.update
 
-        [ -f /tmp/$NEW_IMAGE/target/KERNEL ] && \
-          mv /tmp/$NEW_IMAGE/target/KERNEL /storage/.update/KERNEL.tmp
+        [ -f $TMP_DIR/$NEW_IMAGE/target/KERNEL ] && \
+          mv $TMP_DIR/$NEW_IMAGE/target/KERNEL /storage/.update/KERNEL.tmp
 
-        [ -f /tmp/$NEW_IMAGE/target/SYSTEM ] && \
-          mv /tmp/$NEW_IMAGE/target/SYSTEM /storage/.update/SYSTEM.tmp
+        [ -f $TMP_DIR/$NEW_IMAGE/target/SYSTEM ] && \
+          mv $TMP_DIR/$NEW_IMAGE/target/SYSTEM /storage/.update/SYSTEM.tmp
         sync
 
       # move KERNEL and SYSTEM to the right place
@@ -122,8 +124,8 @@ if [ ! -f /var/lock/update.lock ]; then
         mv /storage/.update/SYSTEM.tmp /storage/.update/SYSTEM
 
       # cleanup tmp files
-        rm -rf /tmp/$NEW_IMAGE
-        rm -rf /tmp/$NEW_IMAGE.tar.bz2
+        rm -rf $TMP_DIR/$NEW_IMAGE
+        rm -rf $TMP_DIR/$NEW_IMAGE.tar.bz2
         rm -rf /storage/.update/*.tmp
 
       # we are ready (hopefully)

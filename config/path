@@ -1,30 +1,6 @@
 set -e
 
-# determine architecture's family
-case $TARGET_ARCH in
-  i386)
-    TARGET_FAMILY=i686
-    ;;
-
-  x86_64)
-    TARGET_FAMILY=x86_64
-    ;;
-esac
-
-# determines TARGET_CPU, if not forced by user
-if [ -z "$TARGET_CPU" ]; then
-  case $TARGET_ARCH in
-    i386)
-      TARGET_CPU=i686
-      ;;
-
-    x86_64)
-      TARGET_CPU=i686
-      ;;
-  esac
-fi
-
-# setup initial directorys
+# setup initial directorys (relative to root)
   CONFIG=config
   SCRIPTS=scripts
   PACKAGES=packages
@@ -33,8 +9,11 @@ fi
   TARGET=target
   ADDONS=addons
 
+# include ARCH specific options
+  . config/arch.$TARGET_ARCH
+
 HOST_NAME=`$SCRIPTS/configtools/config.guess`
-TARGET_NAME=$TARGET_FAMILY-openelec-linux-gnu
+TARGET_NAME=$(echo $TARGET_SUBARCH | sed -e "s,-,,")-openelec-linux-gnu${TARGET_ABI}
 
 BUILD=$BUILD_BASE.$DISTRONAME-$PROJECT.$TARGET_ARCH-$OPENELEC_VERSION
 TARGET_IMG=$ROOT/$TARGET
@@ -85,9 +64,6 @@ SED="sed -i"
   [ -d $BUILD/${PKG_NAME}[-_.]${PKG_VERSION} ] && PKG_BUILD=`ls -d $BUILD/${PKG_NAME}[-_.]${PKG_VERSION}`
   [ -d $BUILD/${PKG_NAME}${PKG_VERSION} ] && PKG_BUILD=`ls -d $BUILD/${PKG_NAME}${PKG_VERSION}`
 
-XORG_PATH_ENCODINGS=/usr/share/X11/encodings
-XORG_PATH_FONTS=/usr/share/X11/fonts
-XORG_PATH_MAPS=$XORG_PATH_FONTS/util
 XORG_PATH_DRI=/usr/lib/dri
 XORG_PATH_XKB=/usr/share/X11/xkb
 XORG_PATH_XKB_OUTPUT=/var/lib/xkb
@@ -97,8 +73,6 @@ XORG_PATH_DRIVERS=/usr/lib/xorg/modules/drivers
 
 TOOLCHAIN_LANGUAGES=c
 [ "$TOOLCHAIN_CXX" = yes ] && TOOLCHAIN_LANGUAGES=${TOOLCHAIN_LANGUAGES},c++
-
-. config/optimize
 
 TARGET_CC=${TARGET_PREFIX}gcc
 TARGET_CXX=${TARGET_PREFIX}g++
@@ -110,37 +84,11 @@ TARGET_RANLIB=${TARGET_PREFIX}ranlib
 TARGET_OBJCOPY=${TARGET_PREFIX}objcopy
 TARGET_STRIP=${TARGET_PREFIX}strip
 
-TARGET_CPPFLAGS=
-TARGET_CFLAGS="-Wall -pipe $GCC_OPTIM $PROJECT_CFLAGS"
-TARGET_CXXFLAGS="$TARGET_CFLAGS"
-TARGET_LDFLAGS="$GCC_OPTIM $LD_OPTIM"
-
-case $TARGET_ARCH in
-    i386)
-     TARGET_CFLAGS="$TARGET_CFLAGS -march=$TARGET_CPU -m32"
-     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -march=$TARGET_CPU -m32"
-     TARGET_LDFLAGS="$TARGET_LDFLAGS -march=$TARGET_CPU -m32"
-     ;;
-    x86_64)
-     TARGET_CFLAGS="$TARGET_CFLAGS -fPIC -march=$TARGET_CPU -m64"
-     TARGET_CXXFLAGS="$TARGET_CXXFLAGS -fPIC -march=$TARGET_CPU -m64"
-     TARGET_LDFLAGS="$TARGET_LDFLAGS -fPIC -march=$TARGET_CPU -m64"
-     ;;
-esac
+. config/optimize
 
 TARGET_PKG_CONFIG_PATH=""
 TARGET_PKG_CONFIG_LIBDIR="$SYSROOT_PREFIX/usr/lib/pkgconfig:$SYSROOT_PREFIX/usr/share/pkgconfig"
 TARGET_PKG_CONFIG_SYSROOT_DIR="$SYSROOT_PREFIX"
-
-if [ "$DEBUG" = yes ]; then
-  TARGET_CFLAGS="$TARGET_CFLAGS -ggdb"
-  TARGET_CXXFLAGS="$TARGET_CXXFLAGS -ggdb"
-  TARGET_LDFLAGS="$TARGET_LDFLAGS -ggdb"
-else
-  TARGET_CFLAGS="$TARGET_CFLAGS -fomit-frame-pointer"
-  TARGET_CXXFLAGS="$TARGET_CXXFLAGS -fomit-frame-pointer"
-  TARGET_LDFLAGS="$TARGET_LDFLAGS -s"
-fi
 
 HOST_AWK=gawk
 HOST_CC=$ROOT/$TOOLCHAIN/bin/host-gcc
@@ -152,20 +100,6 @@ HOST_NM=nm
 HOST_RANLIB=ranlib
 HOST_OBJCOPY=objcopy
 HOST_STRIP=strip
-
-HOST_CPPFLAGS=""
-HOST_CFLAGS="-O2 -Wall -pipe -I$ROOT/$TOOLCHAIN/include"
-HOST_CXXFLAGS="$HOST_CFLAGS"
-HOST_LDFLAGS="-Wl,-rpath,$ROOT/$TOOLCHAIN/lib -L$ROOT/$TOOLCHAIN/lib"
-
-# use -fPIC when necessary
-  case "`uname -m`" in
-    x86_64|ppc64|arm|armeb|armel)
-    HOST_CFLAGS="$HOST_CFLAGS -fPIC"
-    HOST_CXXFLAGS="$HOST_CXXFLAGS -fPIC"
-    HOST_LDFLAGS="$HOST_LDFLAGS -fPIC"
-    ;;
-  esac
 
 HOST_PKG_CONFIG_PATH=""
 HOST_PKG_CONFIG_LIBDIR="$ROOT/$TOOLCHAIN/lib/pkgconfig:$ROOT/$TOOLCHAIN/share/pkgconfig"

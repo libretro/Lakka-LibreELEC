@@ -22,32 +22,19 @@
 #
 # runlevels: openelec, installer, textmode
 
-OPENELEC_SETTINGS="$HOME/.xbmc/userdata/addon_data/os.openelec.settings/settings.xml"
-
-if [ -f "$OPENELEC_SETTINGS" ]; then
-  HOSTNAME=`grep NET_HOSTNAME $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  NETWORK=`grep NET_NETWORK $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  IFACE=`grep NET_IFACE $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  IPADDRESS=`grep NET_IPADDRESS $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  PREFIXLEN=`grep NET_PREFIXLEN $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  GATEWAY=`grep NET_GATEWAY $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  DNS1=`grep NET_DNS1 $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  DNS2=`grep NET_DNS2 $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  DNS3=`grep NET_DNS3 $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  SSID=`grep NET_SSID $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  SECURITY=`grep NET_SECURITY $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
-  PASSPHRASE=`grep NET_PASSPHRASE $OPENELEC_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+if [ -f /var/config/settings.conf ]; then
+  . /var/config/settings.conf
 fi
 
-[ -z "$HOSTNAME" ] && HOSTNAME="openelec"
+[ -z "$NET_HOSTNAME" ] && NET_HOSTNAME="openelec"
 
 # setup hostname
   progress "Setup hostname"
-  echo "$HOSTNAME" > /proc/sys/kernel/hostname
+  echo "$NET_HOSTNAME" > /proc/sys/kernel/hostname
 
 # create /etc/hosts file, useful for gethostbyname(localhost)
   progress "creating /etc/hosts"
-  echo -e "127.0.0.1\tlocalhost $HOSTNAME" > /etc/hosts
+  echo -e "127.0.0.1\tlocalhost $NET_HOSTNAME" > /etc/hosts
 
 # add user defined hosts.conf entry's
   [ -f $HOME/.config/hosts.conf ] && cat $HOME/.config/hosts.conf >> /etc/hosts
@@ -62,53 +49,64 @@ fi
     mkdir -p /var/lib/connman
 
   # NETWORK: ( LAN / WLAN )
-    usleep 2000000 # TODO: wait on udev to load all drivers
 
-    [ -f /sys/class/net/$IFACE/address ] && \
-      IFACE=`cat /sys/class/net/$IFACE/address | sed 's/://g'`
+    for i in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+      if [ ! -f /sys/class/net/$NET_IFACE/address ]; then
+        logger -t Connman "### [$i] cannot find /sys/class/net/$NET_IFACE/address ###"
+      else
+        logger -t Connman "### [$i] found /sys/class/net/$NET_IFACE/address, continue ###"
+        NET_IFACE=`cat /sys/class/net/$NET_IFACE/address | sed 's/://g'`
+        break
+      fi
+      usleep 500000
+    done
 
-    if [ "$NETWORK" = "WLAN" -a -n "$SSID" ]; then
-      SSID_HEX=`echo -n "$SSID" | od -tx1 | cut -c8-| tr -d ' \n'`
+    if [ "$NET_NETWORK" = "WLAN" -a -n "$NET_SSID" ]; then
+      NET_SSID_HEX=`echo -n "$NET_SSID" | od -tx1 | cut -c8-| tr -d ' \n'`
 
-      # SECURITY: ( NONE / WEP / PSK )
-        if [ "$SECURITY" = "WEP" -a -n "$PASSPHRASE" ]; then
+      # NET_SECURITY: ( NONE / WEP / PSK )
+        if [ "$NET_SECURITY" = "WEP" -a -n "$NET_PASSPHRASE" ]; then
           MODE="managed_wep"
-        elif [ "$SECURITY" = "PSK" -a -n "$PASSPHRASE"  ]; then
+        elif [ "$NET_SECURITY" = "PSK" -a -n "$NET_PASSPHRASE"  ]; then
           MODE="managed_psk"
         else
           MODE="managed_none"
         fi
 
-        echo "[wifi_${IFACE}_${SSID_HEX}_${MODE}]" > $CONNMAN_PROFILE
-        echo "Name=$SSID"  >> $CONNMAN_PROFILE
-        echo "SSID=$SSID_HEX"  >> $CONNMAN_PROFILE
-        [ -n "$PASSPHRASE" ] && echo "Passphrase=$PASSPHRASE" >> $CONNMAN_PROFILE
+        if [ "$NET_HIDDEN" = "true" ]; then
+          echo "[wifi_${NET_IFACE}_hidden_${MODE}]" > $CONNMAN_PROFILE
+        else
+          echo "[wifi_${NET_IFACE}_${NET_SSID_HEX}_${MODE}]" > $CONNMAN_PROFILE
+        fi
+
+        echo "Name=$NET_SSID"  >> $CONNMAN_PROFILE
+        echo "SSID=$NET_SSID_HEX"  >> $CONNMAN_PROFILE
+        [ -n "$NET_PASSPHRASE" ] && echo "Passphrase=$NET_PASSPHRASE" >> $CONNMAN_PROFILE
         echo "Favorite=true" >> $CONNMAN_PROFILE
         echo "AutoConnect=true" >> $CONNMAN_PROFILE
 
     else
       MODE="cable"
-      echo "[ethernet_${IFACE}_${MODE}]" > $CONNMAN_PROFILE
+      echo "[ethernet_${NET_IFACE}_${MODE}]" > $CONNMAN_PROFILE
     fi
 
   # IP settings
-    if [ -z "$IPADDRESS" ]; then
+    if [ -z "$NET_IPADDRESS" ]; then
       echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
     else
       echo "IPv4.method=manual" >> $CONNMAN_PROFILE
-      echo "IPv4.local_address=$IPADDRESS" >> $CONNMAN_PROFILE
-      [ -n "$PREFIXLEN" ] && echo "IPv4.netmask_prefixlen=$PREFIXLEN" >> $CONNMAN_PROFILE
-      [ -n "$GATEWAY" ] && echo "IPv4.gateway=$GATEWAY" >> $CONNMAN_PROFILE
+      echo "IPv4.local_address=$NET_IPADDRESS" >> $CONNMAN_PROFILE
+      [ -n "$NET_PREFIXLEN" ] && echo "IPv4.netmask_prefixlen=$NET_PREFIXLEN" >> $CONNMAN_PROFILE
+      [ -n "$NET_GATEWAY" ] && echo "IPv4.gateway=$NET_GATEWAY" >> $CONNMAN_PROFILE
 
-      [ -n "$DNS1" ] && NAMESERVER="$DNS1"
-      [ -n "$DNS2" ] && NAMESERVER="$NAMESERVER;$DNS2"
-      [ -n "$DNS3" ] && NAMESERVER="$NAMESERVER;$DNS3"
-      [ -n "$NAMESERVER" ] && echo "Nameservers=$NAMESERVER;" >> $CONNMAN_PROFILE
+      [ -n "$NET_DNS1" ] && NET_NAMESERVER="$NET_DNS1"
+      [ -n "$NET_DNS2" ] && NET_NAMESERVER="$NET_NAMESERVER;$NET_DNS2"
+      [ -n "$NET_DNS3" ] && NET_NAMESERVER="$NET_NAMESERVER;$NET_DNS3"
+      [ -n "$NET_NAMESERVER" ] && echo "Nameservers=$NET_NAMESERVER;" >> $CONNMAN_PROFILE
     fi
 
   # starting Connection manager
     progress "starting Connection manager"
 
-    touch /var/run/resolv.conf
     /usr/sbin/connmand
 )&

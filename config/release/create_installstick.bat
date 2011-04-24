@@ -91,7 +91,7 @@ echo PROMPT 0 >> %DRIVE%\syslinux.cfg
 echo. >> %DRIVE%\syslinux.cfg
 echo LABEL linux >> %DRIVE%\syslinux.cfg
 echo KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
-echo APPEND boot=UUID=%DRIVEUUID% installer quiet >> %DRIVE%\syslinux.cfg
+echo APPEND boot=LABEL=OPENELEC installer quiet >> %DRIVE%\syslinux.cfg
 GOTO END
 
 :BADMD5

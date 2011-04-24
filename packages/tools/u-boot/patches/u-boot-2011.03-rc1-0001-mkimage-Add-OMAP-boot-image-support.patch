@@ -1,0 +1,380 @@
+From b295d8676ccb5b01d4ea7ba75ec6321a3c8837b7 Mon Sep 17 00:00:00 2001
+From: John Rigby <john.rigby@linaro.org>
+Date: Thu, 17 Feb 2011 19:43:43 +0530
+Subject: [PATCH 01/22] mkimage: Add OMAP boot image support
+
+Signed-off-by: John Rigby <john.rigby@linaro.org>
+---
+ common/image.c    |    1 +
+ include/image.h   |    1 +
+ tools/Makefile    |    2 +
+ tools/mkimage.c   |    2 +
+ tools/mkimage.h   |    1 +
+ tools/omapimage.c |  229 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ tools/omapimage.h |   50 ++++++++++++
+ 7 files changed, 286 insertions(+), 0 deletions(-)
+ create mode 100644 tools/omapimage.c
+ create mode 100644 tools/omapimage.h
+
+diff --git a/common/image.c b/common/image.c
+index f63a2ff..4198d76 100644
+--- a/common/image.c
++++ b/common/image.c
+@@ -141,6 +141,7 @@ static const table_entry_t uimage_type[] = {
+ 	{	IH_TYPE_FLATDT,     "flat_dt",    "Flat Device Tree",	},
+ 	{	IH_TYPE_KWBIMAGE,   "kwbimage",   "Kirkwood Boot Image",},
+ 	{	IH_TYPE_IMXIMAGE,   "imximage",   "Freescale i.MX Boot Image",},
++	{	IH_TYPE_OMAPIMAGE,  "omapimage",  "TI OMAP CH/GP Boot Image",},
+ 	{	-1,		    "",		  "",			},
+ };
+ 
+diff --git a/include/image.h b/include/image.h
+index 005e0d2..f74e2b9 100644
+--- a/include/image.h
++++ b/include/image.h
+@@ -157,6 +157,7 @@
+ #define IH_TYPE_FLATDT		8	/* Binary Flat Device Tree Blob	*/
+ #define IH_TYPE_KWBIMAGE	9	/* Kirkwood Boot Image		*/
+ #define IH_TYPE_IMXIMAGE	10	/* Freescale IMXBoot Image	*/
++#define IH_TYPE_OMAPIMAGE	11	/* TI OMAP Config Header Image	*/
+ 
+ /*
+  * Compression Types
+diff --git a/tools/Makefile b/tools/Makefile
+index 623f908..a1c4ed7 100644
+--- a/tools/Makefile
++++ b/tools/Makefile
+@@ -84,6 +84,7 @@ OBJ_FILES-$(CONFIG_CMD_LOADS) += img2srec.o
+ OBJ_FILES-$(CONFIG_INCA_IP) += inca-swap-bytes.o
+ NOPED_OBJ_FILES-y += kwbimage.o
+ NOPED_OBJ_FILES-y += imximage.o
++NOPED_OBJ_FILES-y += omapimage.o
+ NOPED_OBJ_FILES-y += mkimage.o
+ OBJ_FILES-$(CONFIG_NETCONSOLE) += ncb.o
+ NOPED_OBJ_FILES-y += os_support.o
+@@ -180,6 +181,7 @@ $(obj)mkimage$(SFX):	$(obj)crc32.o \
+ 			$(obj)fit_image.o \
+ 			$(obj)image.o \
+ 			$(obj)imximage.o \
++			$(obj)omapimage.o \
+ 			$(obj)kwbimage.o \
+ 			$(obj)md5.o \
+ 			$(obj)mkimage.o \
+diff --git a/tools/mkimage.c b/tools/mkimage.c
+index f5859d7..ec6d75e 100644
+--- a/tools/mkimage.c
++++ b/tools/mkimage.c
+@@ -155,6 +155,8 @@ main (int argc, char **argv)
+ 	init_imx_image_type ();
+ 	/* Init FIT image generation/list support */
+ 	init_fit_image_type ();
++	/* Init TI OMAP Boot image generation/list support */
++	init_omap_image_type();
+ 	/* Init Default image generation/list support */
+ 	init_default_image_type ();
+ 
+diff --git a/tools/mkimage.h b/tools/mkimage.h
+index 9033a7d..3b49645 100644
+--- a/tools/mkimage.h
++++ b/tools/mkimage.h
+@@ -143,5 +143,6 @@ void init_kwb_image_type (void);
+ void init_imx_image_type (void);
+ void init_default_image_type (void);
+ void init_fit_image_type (void);
++void init_omap_image_type(void);
+ 
+ #endif /* _MKIIMAGE_H_ */
+diff --git a/tools/omapimage.c b/tools/omapimage.c
+new file mode 100644
+index 0000000..67fa056
+--- /dev/null
++++ b/tools/omapimage.c
+@@ -0,0 +1,229 @@
++/*
++ * (C) Copyright 2010
++ * Linaro LTD, www.linaro.org
++ * Author: John Rigby <john.rigby@linaro.org>
++ * Based on TI's signGP.c
++ *
++ * (C) Copyright 2009
++ * Stefano Babic, DENX Software Engineering, sbabic@denx.de.
++ *
++ * (C) Copyright 2008
++ * Marvell Semiconductor <www.marvell.com>
++ * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++/* Required to obtain the getline prototype from stdio.h */
++#define _GNU_SOURCE
++
++#include "mkimage.h"
++#include <image.h>
++#include "omapimage.h"
++
++/* Header size is CH header rounded up to 512 bytes plus GP header */
++#define OMAP_CH_HDR_SIZE 512
++#define OMAP_GP_HDR_SIZE (sizeof(struct gp_header))
++#define OMAP_FILE_HDR_SIZE (OMAP_CH_HDR_SIZE+OMAP_GP_HDR_SIZE)
++
++static uint8_t omapimage_header[OMAP_FILE_HDR_SIZE];
++
++static int omapimage_check_image_types(uint8_t type)
++{
++	if (type == IH_TYPE_OMAPIMAGE)
++		return EXIT_SUCCESS;
++	else
++		return EXIT_FAILURE;
++}
++
++/*
++ * Only the simplest image type is currently supported:
++ * TOC pointing to CHSETTINGS
++ * TOC terminator
++ * CHSETTINGS
++ *
++ * padding to OMAP_CH_HDR_SIZE bytes
++ *
++ * gp header
++ *   size
++ *   load_addr
++ */
++static int valid_gph_size(uint32_t size)
++{
++	return size;
++}
++
++static int valid_gph_load_addr(uint32_t load_addr)
++{
++	return load_addr;
++}
++
++static int omapimage_verify_header(unsigned char *ptr, int image_size,
++			struct mkimage_params *params)
++{
++	struct ch_toc *toc = (struct ch_toc *)ptr;
++	struct gp_header *gph = (struct gp_header *)(ptr+OMAP_CH_HDR_SIZE);
++	uint32_t offset, size;
++
++	while (toc->section_offset != 0xffffffff
++			&& toc->section_size != 0xffffffff) {
++		offset = toc->section_offset;
++		size = toc->section_size;
++		if (!offset || !size)
++			return -1;
++		if (offset >= OMAP_CH_HDR_SIZE ||
++		    offset+size >= OMAP_CH_HDR_SIZE)
++			return -1;
++		toc++;
++	}
++	if (!valid_gph_size(gph->size))
++		return -1;
++	if (!valid_gph_load_addr(gph->load_addr))
++		return -1;
++
++	return 0;
++}
++
++static void omapimage_print_section(struct ch_settings *chs)
++{
++	switch (chs->section_key) {
++	case KEY_CHSETTINGS:
++		printf("CHSETTINGS (%x) "
++			"valid:%x "
++			"version:%x "
++			"reserved:%x "
++			"flags:%x\n",
++			chs->section_key,
++			chs->valid,
++			chs->version,
++			chs->reserved,
++			chs->flags);
++		break;
++	default:
++		printf("UNKNOWNKEY (%x) "
++			"valid:%x "
++			"version:%x "
++			"reserved:%x "
++			"flags:%x\n",
++			chs->section_key,
++			chs->valid,
++			chs->version,
++			chs->reserved,
++			chs->flags);
++		break;
++	}
++}
++
++static void omapimage_print_header(const void *ptr)
++{
++	struct ch_toc *toc = (struct ch_toc *)ptr;
++	struct gp_header *gph = (struct gp_header *)(ptr+OMAP_CH_HDR_SIZE);
++	uint32_t offset, size;
++
++	while (toc->section_offset != 0xffffffff
++			&& toc->section_size != 0xffffffff) {
++		offset = toc->section_offset;
++		size = toc->section_size;
++
++		if (offset >= OMAP_CH_HDR_SIZE ||
++		    offset+size >= OMAP_CH_HDR_SIZE)
++			exit(EXIT_FAILURE);
++
++		printf("Section %s offset %x length %x\n",
++			toc->section_name,
++			toc->section_offset,
++			toc->section_size);
++
++		omapimage_print_section((struct ch_settings *)(ptr+offset));
++		toc++;
++	}
++
++	if (!valid_gph_size(gph->size)) {
++		fprintf(stderr,
++			"Error: invalid image size %x\n",
++			gph->size);
++		exit(EXIT_FAILURE);
++	}
++
++	if (!valid_gph_load_addr(gph->load_addr)) {
++		fprintf(stderr,
++			"Error: invalid image load address %x\n",
++			gph->size);
++		exit(EXIT_FAILURE);
++	}
++
++	printf("GP Header: Size %x LoadAddr %x\n",
++		gph->size, gph->load_addr);
++}
++
++static int toc_offset(void *hdr, void *member)
++{
++	return member - hdr;
++}
++
++static void omapimage_set_header(void *ptr, struct stat *sbuf, int ifd,
++				struct mkimage_params *params)
++{
++	struct ch_toc *toc = (struct ch_toc *)ptr;
++	struct ch_settings *chs = (struct ch_settings *)
++					(ptr + 2 * sizeof(*toc));
++	struct gp_header *gph = (struct gp_header *)(ptr + OMAP_CH_HDR_SIZE);
++
++	toc->section_offset = toc_offset(ptr, chs);
++	toc->section_size = sizeof(struct ch_settings);
++	strcpy((char *)toc->section_name, "CHSETTINGS");
++
++	chs->section_key = KEY_CHSETTINGS;
++	chs->valid = 0;
++	chs->version = 1;
++	chs->reserved = 0;
++	chs->flags = 0;
++
++	toc++;
++	memset(toc, 0xff, sizeof(*toc));
++
++	gph->size = sbuf->st_size - OMAP_FILE_HDR_SIZE;
++	gph->load_addr = params->addr;
++}
++
++int omapimage_check_params(struct mkimage_params *params)
++{
++	return	(params->dflag && (params->fflag || params->lflag)) ||
++		(params->fflag && (params->dflag || params->lflag)) ||
++		(params->lflag && (params->dflag || params->fflag));
++}
++
++/*
++ * omapimage parameters
++ */
++static struct image_type_params omapimage_params = {
++	.name		= "TI OMAP CH/GP Boot Image support",
++	.header_size	= OMAP_FILE_HDR_SIZE,
++	.hdr		= (void *)&omapimage_header,
++	.check_image_type = omapimage_check_image_types,
++	.verify_header	= omapimage_verify_header,
++	.print_header	= omapimage_print_header,
++	.set_header	= omapimage_set_header,
++	.check_params	= omapimage_check_params,
++};
++
++void init_omap_image_type(void)
++{
++	mkimage_register(&omapimage_params);
++}
+diff --git a/tools/omapimage.h b/tools/omapimage.h
+new file mode 100644
+index 0000000..7ff5404
+--- /dev/null
++++ b/tools/omapimage.h
+@@ -0,0 +1,50 @@
++/*
++ * (C) Copyright 2010
++ * Linaro LTD, www.linaro.org
++ * Author John Rigby <john.rigby@linaro.org>
++ * Based on TI's signGP.c
++ *
++ * See file CREDITS for list of people who contributed to this
++ * project.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ */
++
++#ifndef _OMAPIMAGE_H_
++#define _OMAPIMAGE_H_
++
++struct ch_toc {
++	uint32_t section_offset;
++	uint32_t section_size;
++	uint8_t unused[12];
++	uint8_t section_name[12];
++} __attribute__ ((__packed__));
++
++struct ch_settings {
++	uint32_t section_key;
++	uint8_t valid;
++	uint8_t version;
++	uint16_t reserved;
++	uint32_t flags;
++} __attribute__ ((__packed__));
++
++struct gp_header {
++	uint32_t size;
++	uint32_t load_addr;
++} __attribute__ ((__packed__));
++
++#define KEY_CHSETTINGS 0xC0C0C0C1
++#endif /* _OMAPIMAGE_H_ */
+-- 
+1.7.2.3
+
