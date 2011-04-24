@@ -59,4 +59,5 @@ else
 fi
 
 chmod +x ./bin/transmission-daemon
+
 transmission-daemon $TRANSMISSION_ARG
