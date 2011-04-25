@@ -1,0 +1,98 @@
+diff -Naur xbmc-pvr-3513480/configure.in xbmc-pvr-3513480.patch/configure.in
+--- xbmc-pvr-3513480/configure.in	2011-04-25 04:31:28.000000000 +0200
++++ xbmc-pvr-3513480.patch/configure.in	2011-04-25 04:45:06.195606164 +0200
+@@ -68,6 +68,8 @@
+ goom_disabled="== GOOM disabled. =="
+ xbmcprojectm_enabled="== XBMCProjectM enabled. =="
+ xbmxprojectm_disabled="== XBMCProjectM disabled. =="
++rsxs_enabled="== RSXS enabled. =="
++rsxs_disabled="== RSXS disabled. =="
+ pulse_not_found="== Could not find libpulse. PulseAudio support disabled. =="
+ pulse_disabled="== PulseAudio support manually disabled. =="
+ dvdcss_enabled="== DVDCSS support enabled. =="
+@@ -212,6 +214,12 @@
+   [use_xbmcprojectm=$enableval],
+   [use_xbmcprojectm=yes])
+ 
++AC_ARG_ENABLE([rsxs],
++  [AS_HELP_STRING([--enable-rsxs],
++  [enable RSXS Screensaver (default is yes)])],
++  [use_rsxs=$enableval],
++  [use_rsxs=yes])
++
+ AC_ARG_ENABLE([ccache],
+   [AS_HELP_STRING([--enable-ccache],
+   [enable building with ccache feature (default is auto)])],
+@@ -824,6 +832,15 @@
+   DISABLE_XBMCPROJECTM=1
+ fi
+ 
++# RSXS
++if test "$use_rsxs" = "yes" && test "use_gl" == "yes"; then
++  AC_MSG_NOTICE($rsxs_enabled)
++  DISABLE_RSXS=0
++else
++  AC_MSG_NOTICE($rsxs_disabled)
++  DISABLE_RSXS=1
++fi
++
+ # libRTMP
+ if test "$use_librtmp" != "no"; then
+   AC_CHECK_HEADERS([librtmp/log.h librtmp/amf.h librtmp/rtmp.h],,
+@@ -1239,6 +1256,12 @@
+   final_message="$final_message\n  XBMCProjectM:\tNo"
+ fi
+ 
++if test "$use_rsxs" = "yes"; then
++  final_message="$final_message\n  RSXS:\t\tYes"
++else
++  final_message="$final_message\n  RSXS:\t\tNo"
++fi
++
+ if test "$use_libbluray" = "yes"; then
+   final_message="$final_message\n  Bluray:\tYes"
+ else
+@@ -1445,6 +1468,7 @@
+ AC_SUBST(BUILD_DVDCSS)
+ AC_SUBST(DISABLE_GOOM)
+ AC_SUBST(DISABLE_XBMCPROJECTM)
++AC_SUBST(DISABLE_RSXS)
+ AC_SUBST(USE_EXTERNAL_FFMPEG)
+ AC_SUBST(PYTHON_VERSION)
+ AC_SUBST(OUTPUT_FILES)
+@@ -1708,7 +1732,7 @@
+     --disable-lattice \
+     --disable-skyrocket
+ fi
+-], [0])
++], [$DISABLE_RSXS])
+ 
+ XB_CONFIG_MODULE([lib/libapetag], [
+   ./configure \
+diff -Naur xbmc-pvr-3513480/Makefile.in xbmc-pvr-3513480.patch/Makefile.in
+--- xbmc-pvr-3513480/Makefile.in	2011-04-25 04:23:50.000000000 +0200
++++ xbmc-pvr-3513480.patch/Makefile.in	2011-04-25 04:40:31.819562758 +0200
+@@ -133,8 +133,10 @@
+ 	lib/xbmc-dll-symbols \
+ 	lib/jsoncpp/src/lib_json
+ 
+-SS_DIRS=\
+-	xbmc/screensavers/rsxs-0.9/xbmc
++SS_DIRS=
++ifneq (@DISABLE_RSXS@,1)
++SS_DIRS=+xbmc/screensavers/rsxs-0.9/xbmc
++endif
+ 
+ VIS_DIRS=
+ ifeq (@USE_OPENGL@,1)
+@@ -421,8 +423,10 @@
+ 	$(MAKE) -C xbmc/pvrclients/tvheadend
+ screensavers: exports
+ ifeq (@USE_OPENGL@,1)
++ifneq (@DISABLE_RSXS@,1)
+ 	$(MAKE) -C xbmc/screensavers/rsxs-0.9/xbmc
+ endif
++endif
+ libaddon: exports
+ 	$(MAKE) -C lib/addons/library.xbmc.addon
+ 	$(MAKE) -C lib/addons/library.xbmc.gui
