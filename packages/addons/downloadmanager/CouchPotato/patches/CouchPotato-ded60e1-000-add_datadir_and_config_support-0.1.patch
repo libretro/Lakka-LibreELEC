@@ -1,0 +1,186 @@
+diff -Naur CouchPotato-ded60e1/app/config/db.py CouchPotato-ded60e1.patch/app/config/db.py
+--- CouchPotato-ded60e1/app/config/db.py	2011-04-23 19:55:33.000000000 +0200
++++ CouchPotato-ded60e1.patch/app/config/db.py	2011-04-23 20:26:44.495557932 +0200
+@@ -10,6 +10,7 @@
+ import datetime
+ import os
+ import sys
++import app.config
+ 
+ log = CPLog(__name__)
+ 
+@@ -24,7 +25,7 @@
+     else:
+         path = os.path.join(os.path.abspath(os.path.curdir), 'data.db')
+ else:
+-    path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data.db')
++    path = os.path.join(app.config.DATADIR, 'data.db')
+ 
+ engine = create_engine('sqlite:///%s' % path)
+ metadata = MetaData(engine)
+diff -Naur CouchPotato-ded60e1/app/config/__init__.py CouchPotato-ded60e1.patch/app/config/__init__.py
+--- CouchPotato-ded60e1/app/config/__init__.py	2011-04-23 19:55:33.000000000 +0200
++++ CouchPotato-ded60e1.patch/app/config/__init__.py	2011-04-23 20:26:44.480558230 +0200
+@@ -0,0 +1 @@
++DATADIR=None
+diff -Naur CouchPotato-ded60e1/app/controllers/log.py CouchPotato-ded60e1.patch/app/controllers/log.py
+--- CouchPotato-ded60e1/app/controllers/log.py	2011-04-23 19:55:33.000000000 +0200
++++ CouchPotato-ded60e1.patch/app/controllers/log.py	2011-04-23 20:26:44.505557734 +0200
+@@ -4,6 +4,7 @@
+ from markupsafe import escape
+ import cherrypy
+ import os
++import app.config
+ 
+ log = CPLog(__name__)
+ file = 'CouchPotato.log'
+@@ -56,7 +57,7 @@
+         return redirect(url(controller = 'log', action = 'index'))
+ 
+     def logDir(self):
+-        return os.path.join(cherrypy.config.get('runPath'), 'logs')
++        return os.path.join(app.config.DATADIR, 'logs')
+ 
+     def logFile(self):
+         return os.path.join(self.logDir(), file)
+diff -Naur CouchPotato-ded60e1/CouchPotato.py CouchPotato-ded60e1.patch/CouchPotato.py
+--- CouchPotato-ded60e1/CouchPotato.py	2011-04-23 19:55:33.000000000 +0200
++++ CouchPotato-ded60e1.patch/CouchPotato.py	2011-04-23 20:26:50.127445945 +0200
+@@ -3,6 +3,7 @@
+ import os
+ 
+ rundir = os.path.dirname(os.path.abspath(__file__))
++
+ try:
+     frozen = sys.frozen
+ except AttributeError:
+@@ -20,28 +21,9 @@
+ sys.path.insert(0, path_base)
+ sys.path.insert(0, os.path.join(path_base, 'library'))
+ 
+-# Configure logging
+-from app.config.cplog import CPLog
+-debug = os.path.isfile(os.path.join(path_base, 'debug.conf'))
+-log = CPLog()
+-log.config(os.path.join(rundir, 'logs'), debug)
+-
+-# Create cache dir
+-cachedir = os.path.join(rundir, 'cache')
+-if not os.path.isdir(cachedir):
+-    os.mkdir(cachedir)
+-
+-import cherrypy
+-import app.config.render
+-from app.config.db import initDb
+-from optparse import OptionParser
+-from app.config.configApp import configApp
+-from app.config.routes import setup as Routes
+-from app.lib.cron import CronJobs
+-from app.config.updater import Updater
+-from cherrypy.process import plugins
+-
+ def server_start():
++    from optparse import OptionParser
++
+     p = OptionParser()
+     p.add_option('-d', action = "store_true",
+                  dest = 'daemonize', help = "Run the server as a daemon")
+@@ -50,19 +32,80 @@
+     p.add_option('-p', '--pidfile',
+                  dest = 'pidfile', default = None,
+                  help = "Store the process id in the given file")
++    p.add_option('--config',
++                 dest = 'config', default = None,
++                 help = "Path to config.ini file")
++    p.add_option('--datadir',
++                 dest = 'datadir', default = None,
++                 help = "Path to the data directory")
++
+ 
+     options, args = p.parse_args()
++    
++    if options.datadir:
++        datadir = options.datadir
++
++        if not os.path.isdir(datadir):
++            os.makedirs(datadir)
++
++    else:
++        datadir = rundir
++	
++    datadir = os.path.abspath(datadir)
++    
++    if not os.access(datadir, os.W_OK):
++        raise SystemExit("Data dir must be writeable '" + datadir + "'")
++    
++    import app.config
++    app.config.DATADIR = datadir
++   
++    if options.config:
++        config = options.config
++    else:
++        config = os.path.join(datadir, 'config.ini')
++
++    config = os.path.abspath(config)
+ 
+-    config = os.path.join(rundir, 'config.ini')
++    if not os.access(os.path.dirname(config), os.W_OK) and not os.access(config, os.W_OK):
++        if not os.path.exists(os.path.dirname(config)):
++            os.makedirs(os.path.dirname(config))
++        else:
++            raise SystemExit("Directory for config file must be writeable")
++
++    import cherrypy
++    import app.config.render
++
++    # Configure logging
++    from app.config.cplog import CPLog
++    
++    # Setup logging
++    debug = os.path.isfile(os.path.join(datadir, 'debug.conf'))
++    log = CPLog()
++    log.config(os.path.join(datadir, 'logs'), debug)
++
++    # Create cache dir
++    cachedir = os.path.join(datadir, 'cache')
++    if not os.path.isdir(cachedir):
++        os.mkdir(cachedir)
+ 
+     # Stop logging
+     if options.quiet or options.daemonize:
+         cherrypy.config.update({'log.screen': False})
++    
+ 
+     # Config app
++    from app.config.configApp import configApp
+     ca = configApp(config)
++
++    # Setup db
++    from app.config.db import initDb
+     initDb()
+ 
++    from app.config.routes import setup as Routes
++    from app.lib.cron import CronJobs
++    from app.config.updater import Updater
++    from cherrypy.process import plugins
++
+     # Check an see if CP is already running
+     import socket
+     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+@@ -129,7 +172,7 @@
+         },
+         '/cache':{
+             'tools.staticdir.on': True,
+-            'tools.staticdir.root': rundir,
++            'tools.staticdir.root': datadir,
+             'tools.staticdir.dir': "cache",
+             'tools.expires.on': True,
+             'tools.expires.secs': 3600 * 24 * 7
+@@ -173,7 +216,6 @@
+     if hasattr(cherrypy.engine, "console_control_handler"):
+         cherrypy.engine.console_control_handler.subscribe()
+ 
+-
+     ## start the app
+     try:
+         cherrypy.engine.start()

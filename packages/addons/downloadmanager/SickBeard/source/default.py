@@ -18,13 +18,9 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# only does something with adding "dvb" subsystem devices.
-ACTION!="add|remove", GOTO="end"
-SUBSYSTEM!="dvb", GOTO="end"
-ENV{DVB_DEVICE_TYPE}!="frontend", GOTO="end"
+import sys
+import xbmcaddon
+import os
 
-# Start TVHeadend if dvb frontend is starting
-ACTION=="add", RUN+="/lib/udev/tvheadend_startup"
-ACTION=="remove", RUN+="/usr/bin/killall tvheadend"
-
-LABEL="end"
+if ( __name__ == "__main__" ):
+    os.system("sh start.sh")

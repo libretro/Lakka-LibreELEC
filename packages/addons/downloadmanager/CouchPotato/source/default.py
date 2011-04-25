@@ -1,7 +1,6 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2011 Anthony Nash (nash.ant@gmail.com)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,25 +18,9 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# Starting Sickbeard downloader daemon
-#
-# runlevels: openelec, textmode
+import sys
+import xbmcaddon
+import os
 
-(
-  if [ -f /var/config/settings.conf ]; then
-    . /var/config/settings.conf
-
-    if [ "$SABNZBD_START" = "true" ]; then
-
-      mkdir -p /var/run
-      mkdir -p $HOME/.sickbeard
-
-      wait_for_network
-
-      progress "Starting sickbeard downloader daemon"
-      python /usr/lib/SickBeard/SickBeard.py --daemon \
-                                             --pidfile=/var/run/sickbeard.pid \
-                                             --datadir $HOME/.sickbeard
-    fi
-  fi
-)&
+if ( __name__ == "__main__" ):
+    os.system("start.sh")
