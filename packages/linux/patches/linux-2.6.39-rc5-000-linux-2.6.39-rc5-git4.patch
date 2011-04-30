@@ -237,6 +237,123 @@ index b6ed61c..7c16347 100644
  6. Hierarchy support
  
  The memory controller supports a deep hierarchy and hierarchical accounting.
+diff --git a/Documentation/hwmon/adm1021 b/Documentation/hwmon/adm1021
+index 03d02bf..02ad96c 100644
+--- a/Documentation/hwmon/adm1021
++++ b/Documentation/hwmon/adm1021
+@@ -14,10 +14,6 @@ Supported chips:
+     Prefix: 'gl523sm'
+     Addresses scanned: I2C 0x18 - 0x1a, 0x29 - 0x2b, 0x4c - 0x4e
+     Datasheet:
+-  * Intel Xeon Processor
+-    Prefix: - any other - may require 'force_adm1021' parameter
+-    Addresses scanned: none
+-    Datasheet: Publicly available at Intel website
+   * Maxim MAX1617
+     Prefix: 'max1617'
+     Addresses scanned: I2C 0x18 - 0x1a, 0x29 - 0x2b, 0x4c - 0x4e
+@@ -91,21 +87,27 @@ will do no harm, but will return 'old' values. It is possible to make
+ ADM1021-clones do faster measurements, but there is really no good reason
+ for that.
+ 
+-Xeon support
+-------------
+ 
+-Some Xeon processors have real max1617, adm1021, or compatible chips
+-within them, with two temperature sensors.
++Netburst-based Xeon support
++---------------------------
+ 
+-Other Xeons have chips with only one sensor.
++Some Xeon processors based on the Netburst (early Pentium 4, from 2001 to
++2003) microarchitecture had real MAX1617, ADM1021, or compatible chips
++within them, with two temperature sensors. Other Xeon processors of this
++era (with 400 MHz FSB) had chips with only one temperature sensor.
+ 
+-If you have a Xeon, and the adm1021 module loads, and both temperatures
+-appear valid, then things are good.
++If you have such an old Xeon, and you get two valid temperatures when
++loading the adm1021 module, then things are good.
+ 
+-If the adm1021 module doesn't load, you should try this:
+-	modprobe adm1021 force_adm1021=BUS,ADDRESS
+-	ADDRESS can only be 0x18, 0x1a, 0x29, 0x2b, 0x4c, or 0x4e.
++If nothing happens when loading the adm1021 module, and you are certain
++that your specific Xeon processor model includes compatible sensors, you
++will have to explicitly instantiate the sensor chips from user-space. See
++method 4 in Documentation/i2c/instantiating-devices. Possible slave
++addresses are 0x18, 0x1a, 0x29, 0x2b, 0x4c, or 0x4e. It is likely that
++only temp2 will be correct and temp1 will have to be ignored.
+ 
+-If you have dual Xeons you may have appear to have two separate
+-adm1021-compatible chips, or two single-temperature sensors, at distinct
+-addresses.
++Previous generations of the Xeon processor (based on Pentium II/III)
++didn't have these sensors. Next generations of Xeon processors (533 MHz
++FSB and faster) lost them, until the Core-based generation which
++introduced integrated digital thermal sensors. These are supported by
++the coretemp driver.
+diff --git a/Documentation/hwmon/lm90 b/Documentation/hwmon/lm90
+index fa475c0..f3efd18 100644
+--- a/Documentation/hwmon/lm90
++++ b/Documentation/hwmon/lm90
+@@ -32,6 +32,16 @@ Supported chips:
+     Addresses scanned: I2C 0x4c and 0x4d
+     Datasheet: Publicly available at the ON Semiconductor website
+                http://www.onsemi.com/PowerSolutions/product.do?id=ADT7461
++  * Analog Devices ADT7461A
++    Prefix: 'adt7461a'
++    Addresses scanned: I2C 0x4c and 0x4d
++    Datasheet: Publicly available at the ON Semiconductor website
++               http://www.onsemi.com/PowerSolutions/product.do?id=ADT7461A
++  * ON Semiconductor NCT1008
++    Prefix: 'nct1008'
++    Addresses scanned: I2C 0x4c and 0x4d
++    Datasheet: Publicly available at the ON Semiconductor website
++               http://www.onsemi.com/PowerSolutions/product.do?id=NCT1008
+   * Maxim MAX6646
+     Prefix: 'max6646'
+     Addresses scanned: I2C 0x4d
+@@ -149,7 +159,7 @@ ADM1032:
+   * ALERT is triggered by open remote sensor.
+   * SMBus PEC support for Write Byte and Receive Byte transactions.
+ 
+-ADT7461:
++ADT7461, ADT7461A, NCT1008:
+   * Extended temperature range (breaks compatibility)
+   * Lower resolution for remote temperature
+ 
+@@ -195,9 +205,9 @@ are exported, one for each channel, but these values are of course linked.
+ Only the local hysteresis can be set from user-space, and the same delta
+ applies to the remote hysteresis.
+ 
+-The lm90 driver will not update its values more frequently than every
+-other second; reading them more often will do no harm, but will return
+-'old' values.
++The lm90 driver will not update its values more frequently than configured with
++the update_interval attribute; reading them more often will do no harm, but will
++return 'old' values.
+ 
+ SMBus Alert Support
+ -------------------
+@@ -205,11 +215,12 @@ SMBus Alert Support
+ This driver has basic support for SMBus alert. When an alert is received,
+ the status register is read and the faulty temperature channel is logged.
+ 
+-The Analog Devices chips (ADM1032 and ADT7461) do not implement the SMBus
+-alert protocol properly so additional care is needed: the ALERT output is
+-disabled when an alert is received, and is re-enabled only when the alarm
+-is gone. Otherwise the chip would block alerts from other chips in the bus
+-as long as the alarm is active.
++The Analog Devices chips (ADM1032, ADT7461 and ADT7461A) and ON
++Semiconductor chips (NCT1008) do not implement the SMBus alert protocol
++properly so additional care is needed: the ALERT output is disabled when
++an alert is received, and is re-enabled only when the alarm is gone.
++Otherwise the chip would block alerts from other chips in the bus as long
++as the alarm is active.
+ 
+ PEC Support
+ -----------
 diff --git a/Documentation/video4linux/sh_mobile_ceu_camera.txt b/Documentation/video4linux/sh_mobile_ceu_camera.txt
 index cb47e72..1e96ce6 100644
 --- a/Documentation/video4linux/sh_mobile_ceu_camera.txt
@@ -335,7 +452,7 @@ index 1380312..2199ba1 100644
  P:	Silicon Graphics Inc
  M:	Alex Elder <aelder@sgi.com>
 diff --git a/Makefile b/Makefile
-index 5a7a2e4..87bf242 100644
+index 5a7a2e4..6bc5e73 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,7 +1,7 @@
@@ -343,7 +460,7 @@ index 5a7a2e4..87bf242 100644
  PATCHLEVEL = 6
  SUBLEVEL = 39
 -EXTRAVERSION = -rc5
-+EXTRAVERSION = -rc5-git2
++EXTRAVERSION = -rc5-git4
  NAME = Flesh-Eating Bats with Fangs
  
  # *DOCUMENTATION*
@@ -373,6 +490,342 @@ index 5f8a654..4c82c27 100644
  };
  
  static struct clk_lookup dm644x_clks[] = {
+diff --git a/arch/arm/mach-omap2/Makefile b/arch/arm/mach-omap2/Makefile
+index a45cd64..512b152 100644
+--- a/arch/arm/mach-omap2/Makefile
++++ b/arch/arm/mach-omap2/Makefile
+@@ -68,7 +68,7 @@ obj-$(CONFIG_OMAP_SMARTREFLEX)          += sr_device.o smartreflex.o
+ obj-$(CONFIG_OMAP_SMARTREFLEX_CLASS3)	+= smartreflex-class3.o
+ 
+ AFLAGS_sleep24xx.o			:=-Wa,-march=armv6
+-AFLAGS_sleep34xx.o			:=-Wa,-march=armv7-a
++AFLAGS_sleep34xx.o			:=-Wa,-march=armv7-a$(plus_sec)
+ 
+ ifeq ($(CONFIG_PM_VERBOSE),y)
+ CFLAGS_pm_bus.o				+= -DDEBUG
+diff --git a/arch/arm/mach-omap2/board-rx51.c b/arch/arm/mach-omap2/board-rx51.c
+index e964895..f8ba20a 100644
+--- a/arch/arm/mach-omap2/board-rx51.c
++++ b/arch/arm/mach-omap2/board-rx51.c
+@@ -141,14 +141,19 @@ static void __init rx51_init(void)
+ static void __init rx51_map_io(void)
+ {
+ 	omap2_set_globals_3xxx();
+-	rx51_video_mem_init();
+ 	omap34xx_map_common_io();
+ }
+ 
++static void __init rx51_reserve(void)
++{
++	rx51_video_mem_init();
++	omap_reserve();
++}
++
+ MACHINE_START(NOKIA_RX51, "Nokia RX-51 board")
+ 	/* Maintainer: Lauri Leukkunen <lauri.leukkunen@nokia.com> */
+ 	.boot_params	= 0x80000100,
+-	.reserve	= omap_reserve,
++	.reserve	= rx51_reserve,
+ 	.map_io		= rx51_map_io,
+ 	.init_early	= rx51_init_early,
+ 	.init_irq	= omap_init_irq,
+diff --git a/arch/arm/mach-omap2/clock44xx_data.c b/arch/arm/mach-omap2/clock44xx_data.c
+index 276992d..8c96567 100644
+--- a/arch/arm/mach-omap2/clock44xx_data.c
++++ b/arch/arm/mach-omap2/clock44xx_data.c
+@@ -3116,14 +3116,9 @@ static struct omap_clk omap44xx_clks[] = {
+ 	CLK(NULL,	"dsp_fck",			&dsp_fck,	CK_443X),
+ 	CLK("omapdss_dss",	"sys_clk",			&dss_sys_clk,	CK_443X),
+ 	CLK("omapdss_dss",	"tv_clk",			&dss_tv_clk,	CK_443X),
+-	CLK("omapdss_dss",	"dss_clk",			&dss_dss_clk,	CK_443X),
+ 	CLK("omapdss_dss",	"video_clk",			&dss_48mhz_clk,	CK_443X),
+-	CLK("omapdss_dss",	"fck",				&dss_fck,	CK_443X),
+-	/*
+-	 * On OMAP4, DSS ick is a dummy clock; this is needed for compatibility
+-	 * with OMAP2/3.
+-	 */
+-	CLK("omapdss_dss",	"ick",				&dummy_ck,	CK_443X),
++	CLK("omapdss_dss",	"fck",				&dss_dss_clk,	CK_443X),
++	CLK("omapdss_dss",	"ick",				&dss_fck,	CK_443X),
+ 	CLK(NULL,	"efuse_ctrl_cust_fck",		&efuse_ctrl_cust_fck,	CK_443X),
+ 	CLK(NULL,	"emif1_fck",			&emif1_fck,	CK_443X),
+ 	CLK(NULL,	"emif2_fck",			&emif2_fck,	CK_443X),
+diff --git a/arch/arm/mach-omap2/cm2xxx_3xxx.c b/arch/arm/mach-omap2/cm2xxx_3xxx.c
+index 9d0dec8..38830d8 100644
+--- a/arch/arm/mach-omap2/cm2xxx_3xxx.c
++++ b/arch/arm/mach-omap2/cm2xxx_3xxx.c
+@@ -247,6 +247,7 @@ struct omap3_cm_regs {
+ 	u32 per_cm_clksel;
+ 	u32 emu_cm_clksel;
+ 	u32 emu_cm_clkstctrl;
++	u32 pll_cm_autoidle;
+ 	u32 pll_cm_autoidle2;
+ 	u32 pll_cm_clksel4;
+ 	u32 pll_cm_clksel5;
+@@ -319,6 +320,15 @@ void omap3_cm_save_context(void)
+ 		omap2_cm_read_mod_reg(OMAP3430_EMU_MOD, CM_CLKSEL1);
+ 	cm_context.emu_cm_clkstctrl =
+ 		omap2_cm_read_mod_reg(OMAP3430_EMU_MOD, OMAP2_CM_CLKSTCTRL);
++	/*
++	 * As per erratum i671, ROM code does not respect the PER DPLL
++	 * programming scheme if CM_AUTOIDLE_PLL.AUTO_PERIPH_DPLL == 1.
++	 * In this case, even though this register has been saved in
++	 * scratchpad contents, we need to restore AUTO_PERIPH_DPLL
++	 * by ourselves. So, we need to save it anyway.
++	 */
++	cm_context.pll_cm_autoidle =
++		omap2_cm_read_mod_reg(PLL_MOD, CM_AUTOIDLE);
+ 	cm_context.pll_cm_autoidle2 =
+ 		omap2_cm_read_mod_reg(PLL_MOD, CM_AUTOIDLE2);
+ 	cm_context.pll_cm_clksel4 =
+@@ -441,6 +451,13 @@ void omap3_cm_restore_context(void)
+ 			       CM_CLKSEL1);
+ 	omap2_cm_write_mod_reg(cm_context.emu_cm_clkstctrl, OMAP3430_EMU_MOD,
+ 			       OMAP2_CM_CLKSTCTRL);
++	/*
++	 * As per erratum i671, ROM code does not respect the PER DPLL
++	 * programming scheme if CM_AUTOIDLE_PLL.AUTO_PERIPH_DPLL == 1.
++	 * In this case, we need to restore AUTO_PERIPH_DPLL by ourselves.
++	 */
++	omap2_cm_write_mod_reg(cm_context.pll_cm_autoidle, PLL_MOD,
++			       CM_AUTOIDLE);
+ 	omap2_cm_write_mod_reg(cm_context.pll_cm_autoidle2, PLL_MOD,
+ 			       CM_AUTOIDLE2);
+ 	omap2_cm_write_mod_reg(cm_context.pll_cm_clksel4, PLL_MOD,
+diff --git a/arch/arm/mach-omap2/control.c b/arch/arm/mach-omap2/control.c
+index 6952794..da53ba3 100644
+--- a/arch/arm/mach-omap2/control.c
++++ b/arch/arm/mach-omap2/control.c
+@@ -316,8 +316,14 @@ void omap3_save_scratchpad_contents(void)
+ 			omap2_cm_read_mod_reg(WKUP_MOD, CM_CLKSEL);
+ 	prcm_block_contents.cm_clken_pll =
+ 			omap2_cm_read_mod_reg(PLL_MOD, CM_CLKEN);
++	/*
++	 * As per erratum i671, ROM code does not respect the PER DPLL
++	 * programming scheme if CM_AUTOIDLE_PLL..AUTO_PERIPH_DPLL == 1.
++	 * Then,  in anycase, clear these bits to avoid extra latencies.
++	 */
+ 	prcm_block_contents.cm_autoidle_pll =
+-			omap2_cm_read_mod_reg(PLL_MOD, OMAP3430_CM_AUTOIDLE_PLL);
++			omap2_cm_read_mod_reg(PLL_MOD, CM_AUTOIDLE) &
++			~OMAP3430_AUTO_PERIPH_DPLL_MASK;
+ 	prcm_block_contents.cm_clksel1_pll =
+ 			omap2_cm_read_mod_reg(PLL_MOD, OMAP3430_CM_CLKSEL1_PLL);
+ 	prcm_block_contents.cm_clksel2_pll =
+diff --git a/arch/arm/mach-omap2/omap_hwmod_2420_data.c b/arch/arm/mach-omap2/omap_hwmod_2420_data.c
+index 8eb3ce1..c4d0ae8 100644
+--- a/arch/arm/mach-omap2/omap_hwmod_2420_data.c
++++ b/arch/arm/mach-omap2/omap_hwmod_2420_data.c
+@@ -1639,6 +1639,7 @@ static struct omap_hwmod_ocp_if *omap2420_gpio1_slaves[] = {
+ 
+ static struct omap_hwmod omap2420_gpio1_hwmod = {
+ 	.name		= "gpio1",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap242x_gpio1_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap242x_gpio1_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1669,6 +1670,7 @@ static struct omap_hwmod_ocp_if *omap2420_gpio2_slaves[] = {
+ 
+ static struct omap_hwmod omap2420_gpio2_hwmod = {
+ 	.name		= "gpio2",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap242x_gpio2_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap242x_gpio2_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1699,6 +1701,7 @@ static struct omap_hwmod_ocp_if *omap2420_gpio3_slaves[] = {
+ 
+ static struct omap_hwmod omap2420_gpio3_hwmod = {
+ 	.name		= "gpio3",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap242x_gpio3_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap242x_gpio3_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1729,6 +1732,7 @@ static struct omap_hwmod_ocp_if *omap2420_gpio4_slaves[] = {
+ 
+ static struct omap_hwmod omap2420_gpio4_hwmod = {
+ 	.name		= "gpio4",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap242x_gpio4_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap242x_gpio4_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1782,7 +1786,7 @@ static struct omap_hwmod_irq_info omap2420_dma_system_irqs[] = {
+ static struct omap_hwmod_addr_space omap2420_dma_system_addrs[] = {
+ 	{
+ 		.pa_start	= 0x48056000,
+-		.pa_end		= 0x4a0560ff,
++		.pa_end		= 0x48056fff,
+ 		.flags		= ADDR_TYPE_RT
+ 	},
+ };
+diff --git a/arch/arm/mach-omap2/omap_hwmod_2430_data.c b/arch/arm/mach-omap2/omap_hwmod_2430_data.c
+index e6e3810..9682dd5 100644
+--- a/arch/arm/mach-omap2/omap_hwmod_2430_data.c
++++ b/arch/arm/mach-omap2/omap_hwmod_2430_data.c
+@@ -1742,6 +1742,7 @@ static struct omap_hwmod_ocp_if *omap2430_gpio1_slaves[] = {
+ 
+ static struct omap_hwmod omap2430_gpio1_hwmod = {
+ 	.name		= "gpio1",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap243x_gpio1_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap243x_gpio1_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1772,6 +1773,7 @@ static struct omap_hwmod_ocp_if *omap2430_gpio2_slaves[] = {
+ 
+ static struct omap_hwmod omap2430_gpio2_hwmod = {
+ 	.name		= "gpio2",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap243x_gpio2_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap243x_gpio2_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1802,6 +1804,7 @@ static struct omap_hwmod_ocp_if *omap2430_gpio3_slaves[] = {
+ 
+ static struct omap_hwmod omap2430_gpio3_hwmod = {
+ 	.name		= "gpio3",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap243x_gpio3_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap243x_gpio3_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1832,6 +1835,7 @@ static struct omap_hwmod_ocp_if *omap2430_gpio4_slaves[] = {
+ 
+ static struct omap_hwmod omap2430_gpio4_hwmod = {
+ 	.name		= "gpio4",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap243x_gpio4_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap243x_gpio4_irqs),
+ 	.main_clk	= "gpios_fck",
+@@ -1862,6 +1866,7 @@ static struct omap_hwmod_ocp_if *omap2430_gpio5_slaves[] = {
+ 
+ static struct omap_hwmod omap2430_gpio5_hwmod = {
+ 	.name		= "gpio5",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap243x_gpio5_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap243x_gpio5_irqs),
+ 	.main_clk	= "gpio5_fck",
+@@ -1915,7 +1920,7 @@ static struct omap_hwmod_irq_info omap2430_dma_system_irqs[] = {
+ static struct omap_hwmod_addr_space omap2430_dma_system_addrs[] = {
+ 	{
+ 		.pa_start	= 0x48056000,
+-		.pa_end		= 0x4a0560ff,
++		.pa_end		= 0x48056fff,
+ 		.flags		= ADDR_TYPE_RT
+ 	},
+ };
+diff --git a/arch/arm/mach-omap2/omap_hwmod_3xxx_data.c b/arch/arm/mach-omap2/omap_hwmod_3xxx_data.c
+index b98e2df..909a84d 100644
+--- a/arch/arm/mach-omap2/omap_hwmod_3xxx_data.c
++++ b/arch/arm/mach-omap2/omap_hwmod_3xxx_data.c
+@@ -2141,6 +2141,7 @@ static struct omap_hwmod_ocp_if *omap3xxx_gpio1_slaves[] = {
+ 
+ static struct omap_hwmod omap3xxx_gpio1_hwmod = {
+ 	.name		= "gpio1",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap3xxx_gpio1_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap3xxx_gpio1_irqs),
+ 	.main_clk	= "gpio1_ick",
+@@ -2177,6 +2178,7 @@ static struct omap_hwmod_ocp_if *omap3xxx_gpio2_slaves[] = {
+ 
+ static struct omap_hwmod omap3xxx_gpio2_hwmod = {
+ 	.name		= "gpio2",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap3xxx_gpio2_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap3xxx_gpio2_irqs),
+ 	.main_clk	= "gpio2_ick",
+@@ -2213,6 +2215,7 @@ static struct omap_hwmod_ocp_if *omap3xxx_gpio3_slaves[] = {
+ 
+ static struct omap_hwmod omap3xxx_gpio3_hwmod = {
+ 	.name		= "gpio3",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap3xxx_gpio3_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap3xxx_gpio3_irqs),
+ 	.main_clk	= "gpio3_ick",
+@@ -2249,6 +2252,7 @@ static struct omap_hwmod_ocp_if *omap3xxx_gpio4_slaves[] = {
+ 
+ static struct omap_hwmod omap3xxx_gpio4_hwmod = {
+ 	.name		= "gpio4",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap3xxx_gpio4_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap3xxx_gpio4_irqs),
+ 	.main_clk	= "gpio4_ick",
+@@ -2285,6 +2289,7 @@ static struct omap_hwmod_ocp_if *omap3xxx_gpio5_slaves[] = {
+ 
+ static struct omap_hwmod omap3xxx_gpio5_hwmod = {
+ 	.name		= "gpio5",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap3xxx_gpio5_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap3xxx_gpio5_irqs),
+ 	.main_clk	= "gpio5_ick",
+@@ -2321,6 +2326,7 @@ static struct omap_hwmod_ocp_if *omap3xxx_gpio6_slaves[] = {
+ 
+ static struct omap_hwmod omap3xxx_gpio6_hwmod = {
+ 	.name		= "gpio6",
++	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET,
+ 	.mpu_irqs	= omap3xxx_gpio6_irqs,
+ 	.mpu_irqs_cnt	= ARRAY_SIZE(omap3xxx_gpio6_irqs),
+ 	.main_clk	= "gpio6_ick",
+@@ -2386,7 +2392,7 @@ static struct omap_hwmod_irq_info omap3xxx_dma_system_irqs[] = {
+ static struct omap_hwmod_addr_space omap3xxx_dma_system_addrs[] = {
+ 	{
+ 		.pa_start	= 0x48056000,
+-		.pa_end		= 0x4a0560ff,
++		.pa_end		= 0x48056fff,
+ 		.flags		= ADDR_TYPE_RT
+ 	},
+ };
+diff --git a/arch/arm/mach-omap2/omap_hwmod_44xx_data.c b/arch/arm/mach-omap2/omap_hwmod_44xx_data.c
+index 3e88dd3..abc548a 100644
+--- a/arch/arm/mach-omap2/omap_hwmod_44xx_data.c
++++ b/arch/arm/mach-omap2/omap_hwmod_44xx_data.c
+@@ -885,7 +885,7 @@ static struct omap_hwmod_ocp_if *omap44xx_dma_system_masters[] = {
+ static struct omap_hwmod_addr_space omap44xx_dma_system_addrs[] = {
+ 	{
+ 		.pa_start	= 0x4a056000,
+-		.pa_end		= 0x4a0560ff,
++		.pa_end		= 0x4a056fff,
+ 		.flags		= ADDR_TYPE_RT
+ 	},
+ };
+diff --git a/arch/arm/mach-omap2/omap_l3_smx.c b/arch/arm/mach-omap2/omap_l3_smx.c
+index 5f2da756..4321e79 100644
+--- a/arch/arm/mach-omap2/omap_l3_smx.c
++++ b/arch/arm/mach-omap2/omap_l3_smx.c
+@@ -196,11 +196,11 @@ static irqreturn_t omap3_l3_app_irq(int irq, void *_l3)
+ 		/* No timeout error for debug sources */
+ 	}
+ 
+-	base = ((l3->rt) + (*(omap3_l3_bases[int_type] + err_source)));
+-
+ 	/* identify the error source */
+ 	for (err_source = 0; !(status & (1 << err_source)); err_source++)
+ 									;
++
++	base = l3->rt + *(omap3_l3_bases[int_type] + err_source);
+ 	error = omap3_l3_readll(base, L3_ERROR_LOG);
+ 
+ 	if (error) {
+diff --git a/arch/arm/mach-omap2/pm.c b/arch/arm/mach-omap2/pm.c
+index 30af335..49486f5 100644
+--- a/arch/arm/mach-omap2/pm.c
++++ b/arch/arm/mach-omap2/pm.c
+@@ -89,6 +89,7 @@ static void omap2_init_processor_devices(void)
+ 	if (cpu_is_omap44xx()) {
+ 		_init_omap_device("l3_main_1", &l3_dev);
+ 		_init_omap_device("dsp", &dsp_dev);
++		_init_omap_device("iva", &iva_dev);
+ 	} else {
+ 		_init_omap_device("l3_main", &l3_dev);
+ 	}
+diff --git a/arch/arm/mach-omap2/voltage.c b/arch/arm/mach-omap2/voltage.c
+index 6fb5209..0c1552d 100644
+--- a/arch/arm/mach-omap2/voltage.c
++++ b/arch/arm/mach-omap2/voltage.c
+@@ -114,7 +114,6 @@ static int __init _config_common_vdd_data(struct omap_vdd_info *vdd)
+ 	sys_clk_speed /= 1000;
+ 
+ 	/* Generic voltage parameters */
+-	vdd->curr_volt = 1200000;
+ 	vdd->volt_scale = vp_forceupdate_scale_voltage;
+ 	vdd->vp_enabled = false;
+ 
 diff --git a/arch/m68k/mm/motorola.c b/arch/m68k/mm/motorola.c
 index 02b7a03..8b3db1c 100644
 --- a/arch/m68k/mm/motorola.c
@@ -688,6 +1141,249 @@ index 0000000..1e901d3
 +	jmp 3b
 +	CFI_ENDPROC
 +ENDPROC(atomic64_inc_not_zero_cx8)
+diff --git a/arch/x86/boot/memory.c b/arch/x86/boot/memory.c
+index cae3feb..db75d07 100644
+--- a/arch/x86/boot/memory.c
++++ b/arch/x86/boot/memory.c
+@@ -91,7 +91,7 @@ static int detect_memory_e801(void)
+ 	if (oreg.ax > 15*1024) {
+ 		return -1;	/* Bogus! */
+ 	} else if (oreg.ax == 15*1024) {
+-		boot_params.alt_mem_k = (oreg.dx << 6) + oreg.ax;
++		boot_params.alt_mem_k = (oreg.bx << 6) + oreg.ax;
+ 	} else {
+ 		/*
+ 		 * This ignores memory above 16MB if we have a memory
+diff --git a/arch/x86/include/asm/io_apic.h b/arch/x86/include/asm/io_apic.h
+index c4bd267..a97a240 100644
+--- a/arch/x86/include/asm/io_apic.h
++++ b/arch/x86/include/asm/io_apic.h
+@@ -150,7 +150,7 @@ void setup_IO_APIC_irq_extra(u32 gsi);
+ extern void ioapic_and_gsi_init(void);
+ extern void ioapic_insert_resources(void);
+ 
+-int io_apic_setup_irq_pin(unsigned int irq, int node, struct io_apic_irq_attr *attr);
++int io_apic_setup_irq_pin_once(unsigned int irq, int node, struct io_apic_irq_attr *attr);
+ 
+ extern struct IO_APIC_route_entry **alloc_ioapic_entries(void);
+ extern void free_ioapic_entries(struct IO_APIC_route_entry **ioapic_entries);
+diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
+index 68df09b..45fd33d 100644
+--- a/arch/x86/kernel/apic/io_apic.c
++++ b/arch/x86/kernel/apic/io_apic.c
+@@ -128,8 +128,8 @@ static int __init parse_noapic(char *str)
+ }
+ early_param("noapic", parse_noapic);
+ 
+-static int io_apic_setup_irq_pin_once(unsigned int irq, int node,
+-				      struct io_apic_irq_attr *attr);
++static int io_apic_setup_irq_pin(unsigned int irq, int node,
++				 struct io_apic_irq_attr *attr);
+ 
+ /* Will be called in mpparse/acpi/sfi codes for saving IRQ info */
+ void mp_save_irq(struct mpc_intsrc *m)
+@@ -3570,7 +3570,7 @@ int arch_setup_ht_irq(unsigned int irq, struct pci_dev *dev)
+ }
+ #endif /* CONFIG_HT_IRQ */
+ 
+-int
++static int
+ io_apic_setup_irq_pin(unsigned int irq, int node, struct io_apic_irq_attr *attr)
+ {
+ 	struct irq_cfg *cfg = alloc_irq_and_cfg_at(irq, node);
+@@ -3585,8 +3585,8 @@ io_apic_setup_irq_pin(unsigned int irq, int node, struct io_apic_irq_attr *attr)
+ 	return ret;
+ }
+ 
+-static int io_apic_setup_irq_pin_once(unsigned int irq, int node,
+-				      struct io_apic_irq_attr *attr)
++int io_apic_setup_irq_pin_once(unsigned int irq, int node,
++			       struct io_apic_irq_attr *attr)
+ {
+ 	unsigned int id = attr->ioapic, pin = attr->ioapic_pin;
+ 	int ret;
+diff --git a/arch/x86/kernel/cpu/perf_event.c b/arch/x86/kernel/cpu/perf_event.c
+index 632e5dc..e638689 100644
+--- a/arch/x86/kernel/cpu/perf_event.c
++++ b/arch/x86/kernel/cpu/perf_event.c
+@@ -613,8 +613,8 @@ static int x86_setup_perfctr(struct perf_event *event)
+ 	/*
+ 	 * Branch tracing:
+ 	 */
+-	if ((attr->config == PERF_COUNT_HW_BRANCH_INSTRUCTIONS) &&
+-	    (hwc->sample_period == 1)) {
++	if (attr->config == PERF_COUNT_HW_BRANCH_INSTRUCTIONS &&
++	    !attr->freq && hwc->sample_period == 1) {
+ 		/* BTS is not supported by this architecture. */
+ 		if (!x86_pmu.bts_active)
+ 			return -EOPNOTSUPP;
+@@ -1288,6 +1288,16 @@ static int x86_pmu_handle_irq(struct pt_regs *regs)
+ 
+ 	cpuc = &__get_cpu_var(cpu_hw_events);
+ 
++	/*
++	 * Some chipsets need to unmask the LVTPC in a particular spot
++	 * inside the nmi handler.  As a result, the unmasking was pushed
++	 * into all the nmi handlers.
++	 *
++	 * This generic handler doesn't seem to have any issues where the
++	 * unmasking occurs so it was left at the top.
++	 */
++	apic_write(APIC_LVTPC, APIC_DM_NMI);
++
+ 	for (idx = 0; idx < x86_pmu.num_counters; idx++) {
+ 		if (!test_bit(idx, cpuc->active_mask)) {
+ 			/*
+@@ -1374,8 +1384,6 @@ perf_event_nmi_handler(struct notifier_block *self,
+ 		return NOTIFY_DONE;
+ 	}
+ 
+-	apic_write(APIC_LVTPC, APIC_DM_NMI);
+-
+ 	handled = x86_pmu.handle_irq(args->regs);
+ 	if (!handled)
+ 		return NOTIFY_DONE;
+diff --git a/arch/x86/kernel/cpu/perf_event_intel.c b/arch/x86/kernel/cpu/perf_event_intel.c
+index 43fa20b..e61539b 100644
+--- a/arch/x86/kernel/cpu/perf_event_intel.c
++++ b/arch/x86/kernel/cpu/perf_event_intel.c
+@@ -25,7 +25,7 @@ struct intel_percore {
+ /*
+  * Intel PerfMon, used on Core and later.
+  */
+-static const u64 intel_perfmon_event_map[] =
++static u64 intel_perfmon_event_map[PERF_COUNT_HW_MAX] __read_mostly =
+ {
+   [PERF_COUNT_HW_CPU_CYCLES]		= 0x003c,
+   [PERF_COUNT_HW_INSTRUCTIONS]		= 0x00c0,
+@@ -933,6 +933,16 @@ static int intel_pmu_handle_irq(struct pt_regs *regs)
+ 
+ 	cpuc = &__get_cpu_var(cpu_hw_events);
+ 
++	/*
++	 * Some chipsets need to unmask the LVTPC in a particular spot
++	 * inside the nmi handler.  As a result, the unmasking was pushed
++	 * into all the nmi handlers.
++	 *
++	 * This handler doesn't seem to have any issues with the unmasking
++	 * so it was left at the top.
++	 */
++	apic_write(APIC_LVTPC, APIC_DM_NMI);
++
+ 	intel_pmu_disable_all();
+ 	handled = intel_pmu_drain_bts_buffer();
+ 	status = intel_pmu_get_status();
+@@ -998,6 +1008,9 @@ intel_bts_constraints(struct perf_event *event)
+ 	struct hw_perf_event *hwc = &event->hw;
+ 	unsigned int hw_event, bts_event;
+ 
++	if (event->attr.freq)
++		return NULL;
++
+ 	hw_event = hwc->config & INTEL_ARCH_EVENT_MASK;
+ 	bts_event = x86_pmu.event_map(PERF_COUNT_HW_BRANCH_INSTRUCTIONS);
+ 
+@@ -1305,7 +1318,7 @@ static void intel_clovertown_quirks(void)
+ 	 * AJ106 could possibly be worked around by not allowing LBR
+ 	 *       usage from PEBS, including the fixup.
+ 	 * AJ68  could possibly be worked around by always programming
+-	 * 	 a pebs_event_reset[0] value and coping with the lost events.
++	 *	 a pebs_event_reset[0] value and coping with the lost events.
+ 	 *
+ 	 * But taken together it might just make sense to not enable PEBS on
+ 	 * these chips.
+@@ -1409,6 +1422,18 @@ static __init int intel_pmu_init(void)
+ 		x86_pmu.percore_constraints = intel_nehalem_percore_constraints;
+ 		x86_pmu.enable_all = intel_pmu_nhm_enable_all;
+ 		x86_pmu.extra_regs = intel_nehalem_extra_regs;
++
++		if (ebx & 0x40) {
++			/*
++			 * Erratum AAJ80 detected, we work it around by using
++			 * the BR_MISP_EXEC.ANY event. This will over-count
++			 * branch-misses, but it's still much better than the
++			 * architectural event which is often completely bogus:
++			 */
++			intel_perfmon_event_map[PERF_COUNT_HW_BRANCH_MISSES] = 0x7f89;
++
++			pr_cont("erratum AAJ80 worked around, ");
++		}
+ 		pr_cont("Nehalem events, ");
+ 		break;
+ 
+diff --git a/arch/x86/kernel/cpu/perf_event_p4.c b/arch/x86/kernel/cpu/perf_event_p4.c
+index d1f77e2..e93fcd5 100644
+--- a/arch/x86/kernel/cpu/perf_event_p4.c
++++ b/arch/x86/kernel/cpu/perf_event_p4.c
+@@ -950,11 +950,20 @@ static int p4_pmu_handle_irq(struct pt_regs *regs)
+ 			x86_pmu_stop(event, 0);
+ 	}
+ 
+-	if (handled) {
+-		/* p4 quirk: unmask it again */
+-		apic_write(APIC_LVTPC, apic_read(APIC_LVTPC) & ~APIC_LVT_MASKED);
++	if (handled)
+ 		inc_irq_stat(apic_perf_irqs);
+-	}
++
++	/*
++	 * When dealing with the unmasking of the LVTPC on P4 perf hw, it has
++	 * been observed that the OVF bit flag has to be cleared first _before_
++	 * the LVTPC can be unmasked.
++	 *
++	 * The reason is the NMI line will continue to be asserted while the OVF
++	 * bit is set.  This causes a second NMI to generate if the LVTPC is
++	 * unmasked before the OVF bit is cleared, leading to unknown NMI
++	 * messages.
++	 */
++	apic_write(APIC_LVTPC, APIC_DM_NMI);
+ 
+ 	return handled;
+ }
+diff --git a/arch/x86/kernel/devicetree.c b/arch/x86/kernel/devicetree.c
+index 706a9fb..e90f084 100644
+--- a/arch/x86/kernel/devicetree.c
++++ b/arch/x86/kernel/devicetree.c
+@@ -391,7 +391,7 @@ static int ioapic_xlate(struct irq_domain *id, const u32 *intspec, u32 intsize,
+ 
+ 	set_io_apic_irq_attr(&attr, idx, line, it->trigger, it->polarity);
+ 
+-	return io_apic_setup_irq_pin(*out_hwirq, cpu_to_node(0), &attr);
++	return io_apic_setup_irq_pin_once(*out_hwirq, cpu_to_node(0), &attr);
+ }
+ 
+ static void __init ioapic_add_ofnode(struct device_node *np)
+diff --git a/arch/x86/platform/ce4100/falconfalls.dts b/arch/x86/platform/ce4100/falconfalls.dts
+index 2d6d226..e70be38 100644
+--- a/arch/x86/platform/ce4100/falconfalls.dts
++++ b/arch/x86/platform/ce4100/falconfalls.dts
+@@ -347,7 +347,7 @@
+ 						   "pciclass0c03";
+ 
+ 					reg = <0x16800 0x0 0x0 0x0 0x0>;
+-					interrupts = <22 3>;
++					interrupts = <22 1>;
+ 				};
+ 
+ 				usb@d,1 {
+@@ -357,7 +357,7 @@
+ 						   "pciclass0c03";
+ 
+ 					reg = <0x16900 0x0 0x0 0x0 0x0>;
+-					interrupts = <22 3>;
++					interrupts = <22 1>;
+ 				};
+ 
+ 				sata@e,0 {
+@@ -367,7 +367,7 @@
+ 						   "pciclass0106";
+ 
+ 					reg = <0x17000 0x0 0x0 0x0 0x0>;
+-					interrupts = <23 3>;
++					interrupts = <23 1>;
+ 				};
+ 
+ 				flash@f,0 {
 diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
 index b136c9c..449c556 100644
 --- a/drivers/acpi/scan.c
@@ -864,6 +1560,130 @@ index af0da4a..92f1900 100644
  0x00028D2C DB_SRESULTS_COMPARE_STATE1
  0x00028430 DB_STENCILREFMASK
  0x00028434 DB_STENCILREFMASK_BF
+diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
+index 060ef63..50e40db 100644
+--- a/drivers/hwmon/Kconfig
++++ b/drivers/hwmon/Kconfig
+@@ -110,8 +110,7 @@ config SENSORS_ADM1021
+ 	help
+ 	  If you say yes here you get support for Analog Devices ADM1021
+ 	  and ADM1023 sensor chips and clones: Maxim MAX1617 and MAX1617A,
+-	  Genesys Logic GL523SM, National Semiconductor LM84, TI THMC10,
+-	  and the XEON processor built-in sensor.
++	  Genesys Logic GL523SM, National Semiconductor LM84 and TI THMC10.
+ 
+ 	  This driver can also be built as a module.  If so, the module
+ 	  will be called adm1021.
+@@ -618,10 +617,10 @@ config SENSORS_LM90
+ 	depends on I2C
+ 	help
+ 	  If you say yes here you get support for National Semiconductor LM90,
+-	  LM86, LM89 and LM99, Analog Devices ADM1032 and ADT7461, Maxim
+-	  MAX6646, MAX6647, MAX6648, MAX6649, MAX6657, MAX6658, MAX6659,
+-	  MAX6680, MAX6681, MAX6692, MAX6695, MAX6696, and Winbond/Nuvoton
+-	  W83L771W/G/AWG/ASG sensor chips.
++	  LM86, LM89 and LM99, Analog Devices ADM1032, ADT7461, and ADT7461A,
++	  Maxim MAX6646, MAX6647, MAX6648, MAX6649, MAX6657, MAX6658, MAX6659,
++	  MAX6680, MAX6681, MAX6692, MAX6695, MAX6696, ON Semiconductor NCT1008,
++	  and Winbond/Nuvoton W83L771W/G/AWG/ASG sensor chips.
+ 
+ 	  This driver can also be built as a module.  If so, the module
+ 	  will be called lm90.
+diff --git a/drivers/hwmon/lm85.c b/drivers/hwmon/lm85.c
+index 250d099..da72dc1 100644
+--- a/drivers/hwmon/lm85.c
++++ b/drivers/hwmon/lm85.c
+@@ -1094,6 +1094,7 @@ static struct attribute *lm85_attributes_minctl[] = {
+ 	&sensor_dev_attr_pwm1_auto_pwm_minctl.dev_attr.attr,
+ 	&sensor_dev_attr_pwm2_auto_pwm_minctl.dev_attr.attr,
+ 	&sensor_dev_attr_pwm3_auto_pwm_minctl.dev_attr.attr,
++	NULL
+ };
+ 
+ static const struct attribute_group lm85_group_minctl = {
+@@ -1104,6 +1105,7 @@ static struct attribute *lm85_attributes_temp_off[] = {
+ 	&sensor_dev_attr_temp1_auto_temp_off.dev_attr.attr,
+ 	&sensor_dev_attr_temp2_auto_temp_off.dev_attr.attr,
+ 	&sensor_dev_attr_temp3_auto_temp_off.dev_attr.attr,
++	NULL
+ };
+ 
+ static const struct attribute_group lm85_group_temp_off = {
+@@ -1329,11 +1331,11 @@ static int lm85_probe(struct i2c_client *client,
+ 	if (data->type != emc6d103s) {
+ 		err = sysfs_create_group(&client->dev.kobj, &lm85_group_minctl);
+ 		if (err)
+-			goto err_kfree;
++			goto err_remove_files;
+ 		err = sysfs_create_group(&client->dev.kobj,
+ 					 &lm85_group_temp_off);
+ 		if (err)
+-			goto err_kfree;
++			goto err_remove_files;
+ 	}
+ 
+ 	/* The ADT7463/68 have an optional VRM 10 mode where pin 21 is used
+diff --git a/drivers/hwmon/lm90.c b/drivers/hwmon/lm90.c
+index c43b4e9..2f94f95 100644
+--- a/drivers/hwmon/lm90.c
++++ b/drivers/hwmon/lm90.c
+@@ -49,10 +49,10 @@
+  * chips, but support three temperature sensors instead of two. MAX6695
+  * and MAX6696 only differ in the pinout so they can be treated identically.
+  *
+- * This driver also supports the ADT7461 chip from Analog Devices.
+- * It's supported in both compatibility and extended mode. It is mostly
+- * compatible with LM90 except for a data format difference for the
+- * temperature value registers.
++ * This driver also supports ADT7461 and ADT7461A from Analog Devices as well as
++ * NCT1008 from ON Semiconductor. The chips are supported in both compatibility
++ * and extended mode. They are mostly compatible with LM90 except for a data
++ * format difference for the temperature value registers.
+  *
+  * Since the LM90 was the first chipset supported by this driver, most
+  * comments will refer to this chipset, but are actually general and
+@@ -88,9 +88,10 @@
+  * Addresses to scan
+  * Address is fully defined internally and cannot be changed except for
+  * MAX6659, MAX6680 and MAX6681.
+- * LM86, LM89, LM90, LM99, ADM1032, ADM1032-1, ADT7461, MAX6649, MAX6657,
+- * MAX6658 and W83L771 have address 0x4c.
+- * ADM1032-2, ADT7461-2, LM89-1, LM99-1 and MAX6646 have address 0x4d.
++ * LM86, LM89, LM90, LM99, ADM1032, ADM1032-1, ADT7461, ADT7461A, MAX6649,
++ * MAX6657, MAX6658, NCT1008 and W83L771 have address 0x4c.
++ * ADM1032-2, ADT7461-2, ADT7461A-2, LM89-1, LM99-1, MAX6646, and NCT1008D
++ * have address 0x4d.
+  * MAX6647 has address 0x4e.
+  * MAX6659 can have address 0x4c, 0x4d or 0x4e.
+  * MAX6680 and MAX6681 can have address 0x18, 0x19, 0x1a, 0x29, 0x2a, 0x2b,
+@@ -174,6 +175,7 @@ enum chips { lm90, adm1032, lm99, lm86, max6657, max6659, adt7461, max6680,
+ static const struct i2c_device_id lm90_id[] = {
+ 	{ "adm1032", adm1032 },
+ 	{ "adt7461", adt7461 },
++	{ "adt7461a", adt7461 },
+ 	{ "lm90", lm90 },
+ 	{ "lm86", lm86 },
+ 	{ "lm89", lm86 },
+@@ -188,6 +190,7 @@ static const struct i2c_device_id lm90_id[] = {
+ 	{ "max6681", max6680 },
+ 	{ "max6695", max6696 },
+ 	{ "max6696", max6696 },
++	{ "nct1008", adt7461 },
+ 	{ "w83l771", w83l771 },
+ 	{ }
+ };
+@@ -1153,6 +1156,11 @@ static int lm90_detect(struct i2c_client *new_client,
+ 		 && (reg_config1 & 0x1B) == 0x00
+ 		 && reg_convrate <= 0x0A) {
+ 			name = "adt7461";
++		} else
++		if (chip_id == 0x57 /* ADT7461A, NCT1008 */
++		 && (reg_config1 & 0x1B) == 0x00
++		 && reg_convrate <= 0x0A) {
++			name = "adt7461a";
+ 		}
+ 	} else
+ 	if (man_id == 0x4D) { /* Maxim */
 diff --git a/drivers/infiniband/hw/qib/qib_iba6120.c b/drivers/infiniband/hw/qib/qib_iba6120.c
 index 7de4b7e..d8ca0a0 100644
 --- a/drivers/infiniband/hw/qib/qib_iba6120.c
@@ -2306,6 +3126,172 @@ index fe77e82..e8c19de 100644
  		mutex_unlock(&s->ops_mutex);
  		return -EACCES;
  	}
+diff --git a/drivers/rtc/rtc-max8925.c b/drivers/rtc/rtc-max8925.c
+index 174036d..20494b5 100644
+--- a/drivers/rtc/rtc-max8925.c
++++ b/drivers/rtc/rtc-max8925.c
+@@ -257,6 +257,8 @@ static int __devinit max8925_rtc_probe(struct platform_device *pdev)
+ 		goto out_irq;
+ 	}
+ 
++	dev_set_drvdata(&pdev->dev, info);
++
+ 	info->rtc_dev = rtc_device_register("max8925-rtc", &pdev->dev,
+ 					&max8925_rtc_ops, THIS_MODULE);
+ 	ret = PTR_ERR(info->rtc_dev);
+@@ -265,7 +267,6 @@ static int __devinit max8925_rtc_probe(struct platform_device *pdev)
+ 		goto out_rtc;
+ 	}
+ 
+-	dev_set_drvdata(&pdev->dev, info);
+ 	platform_set_drvdata(pdev, info);
+ 
+ 	return 0;
+diff --git a/drivers/scsi/device_handler/scsi_dh.c b/drivers/scsi/device_handler/scsi_dh.c
+index 564e6ec..0119b81 100644
+--- a/drivers/scsi/device_handler/scsi_dh.c
++++ b/drivers/scsi/device_handler/scsi_dh.c
+@@ -394,12 +394,14 @@ int scsi_dh_activate(struct request_queue *q, activate_complete fn, void *data)
+ 	unsigned long flags;
+ 	struct scsi_device *sdev;
+ 	struct scsi_device_handler *scsi_dh = NULL;
++	struct device *dev = NULL;
+ 
+ 	spin_lock_irqsave(q->queue_lock, flags);
+ 	sdev = q->queuedata;
+ 	if (sdev && sdev->scsi_dh_data)
+ 		scsi_dh = sdev->scsi_dh_data->scsi_dh;
+-	if (!scsi_dh || !get_device(&sdev->sdev_gendev) ||
++	dev = get_device(&sdev->sdev_gendev);
++	if (!scsi_dh || !dev ||
+ 	    sdev->sdev_state == SDEV_CANCEL ||
+ 	    sdev->sdev_state == SDEV_DEL)
+ 		err = SCSI_DH_NOSYS;
+@@ -410,12 +412,13 @@ int scsi_dh_activate(struct request_queue *q, activate_complete fn, void *data)
+ 	if (err) {
+ 		if (fn)
+ 			fn(data, err);
+-		return err;
++		goto out;
+ 	}
+ 
+ 	if (scsi_dh->activate)
+ 		err = scsi_dh->activate(sdev, fn, data);
+-	put_device(&sdev->sdev_gendev);
++out:
++	put_device(dev);
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(scsi_dh_activate);
+diff --git a/drivers/scsi/mpt2sas/mpt2sas_ctl.c b/drivers/scsi/mpt2sas/mpt2sas_ctl.c
+index 1c6d2b4..d72f1f2 100644
+--- a/drivers/scsi/mpt2sas/mpt2sas_ctl.c
++++ b/drivers/scsi/mpt2sas/mpt2sas_ctl.c
+@@ -688,6 +688,13 @@ _ctl_do_mpt_command(struct MPT2SAS_ADAPTER *ioc,
+ 		goto out;
+ 	}
+ 
++	/* Check for overflow and wraparound */
++	if (karg.data_sge_offset * 4 > ioc->request_sz ||
++	    karg.data_sge_offset > (UINT_MAX / 4)) {
++		ret = -EINVAL;
++		goto out;
++	}
++
+ 	/* copy in request message frame from user */
+ 	if (copy_from_user(mpi_request, mf, karg.data_sge_offset*4)) {
+ 		printk(KERN_ERR "failure at %s:%d/%s()!\n", __FILE__, __LINE__,
+@@ -1963,7 +1970,7 @@ _ctl_diag_read_buffer(void __user *arg, enum block_state state)
+ 	Mpi2DiagBufferPostReply_t *mpi_reply;
+ 	int rc, i;
+ 	u8 buffer_type;
+-	unsigned long timeleft;
++	unsigned long timeleft, request_size, copy_size;
+ 	u16 smid;
+ 	u16 ioc_status;
+ 	u8 issue_reset = 0;
+@@ -1999,6 +2006,8 @@ _ctl_diag_read_buffer(void __user *arg, enum block_state state)
+ 		return -ENOMEM;
+ 	}
+ 
++	request_size = ioc->diag_buffer_sz[buffer_type];
++
+ 	if ((karg.starting_offset % 4) || (karg.bytes_to_read % 4)) {
+ 		printk(MPT2SAS_ERR_FMT "%s: either the starting_offset "
+ 		    "or bytes_to_read are not 4 byte aligned\n", ioc->name,
+@@ -2006,13 +2015,23 @@ _ctl_diag_read_buffer(void __user *arg, enum block_state state)
+ 		return -EINVAL;
+ 	}
+ 
++	if (karg.starting_offset > request_size)
++		return -EINVAL;
++
+ 	diag_data = (void *)(request_data + karg.starting_offset);
+ 	dctlprintk(ioc, printk(MPT2SAS_INFO_FMT "%s: diag_buffer(%p), "
+ 	    "offset(%d), sz(%d)\n", ioc->name, __func__,
+ 	    diag_data, karg.starting_offset, karg.bytes_to_read));
+ 
++	/* Truncate data on requests that are too large */
++	if ((diag_data + karg.bytes_to_read < diag_data) ||
++	    (diag_data + karg.bytes_to_read > request_data + request_size))
++		copy_size = request_size - karg.starting_offset;
++	else
++		copy_size = karg.bytes_to_read;
++
+ 	if (copy_to_user((void __user *)uarg->diagnostic_data,
+-	    diag_data, karg.bytes_to_read)) {
++	    diag_data, copy_size)) {
+ 		printk(MPT2SAS_ERR_FMT "%s: Unable to write "
+ 		    "mpt_diag_read_buffer_t data @ %p\n", ioc->name,
+ 		    __func__, diag_data);
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index 96d5ad0..7f636b1 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -3814,6 +3814,9 @@ static long pmcraid_ioctl_passthrough(
+ 			rc = -EFAULT;
+ 			goto out_free_buffer;
+ 		}
++	} else if (request_size < 0) {
++		rc = -EINVAL;
++		goto out_free_buffer;
+ 	}
+ 
+ 	/* check if we have any additional command parameters */
+diff --git a/drivers/scsi/scsi_sysfs.c b/drivers/scsi/scsi_sysfs.c
+index e44ff64..e639125 100644
+--- a/drivers/scsi/scsi_sysfs.c
++++ b/drivers/scsi/scsi_sysfs.c
+@@ -322,14 +322,8 @@ static void scsi_device_dev_release_usercontext(struct work_struct *work)
+ 		kfree(evt);
+ 	}
+ 
+-	if (sdev->request_queue) {
+-		sdev->request_queue->queuedata = NULL;
+-		/* user context needed to free queue */
+-		scsi_free_queue(sdev->request_queue);
+-		/* temporary expedient, try to catch use of queue lock
+-		 * after free of sdev */
+-		sdev->request_queue = NULL;
+-	}
++	/* NULL queue means the device can't be used */
++	sdev->request_queue = NULL;
+ 
+ 	scsi_target_reap(scsi_target(sdev));
+ 
+@@ -937,6 +931,12 @@ void __scsi_remove_device(struct scsi_device *sdev)
+ 	if (sdev->host->hostt->slave_destroy)
+ 		sdev->host->hostt->slave_destroy(sdev);
+ 	transport_destroy_device(dev);
++
++	/* cause the request function to reject all I/O requests */
++	sdev->request_queue->queuedata = NULL;
++
++	/* Freeing the queue signals to block that we're done */
++	scsi_free_queue(sdev->request_queue);
+ 	put_device(dev);
+ }
+ 
 diff --git a/drivers/staging/rt2860/common/cmm_data_pci.c b/drivers/staging/rt2860/common/cmm_data_pci.c
 index bef0bbd..f01a51c 100644
 --- a/drivers/staging/rt2860/common/cmm_data_pci.c
@@ -3200,6 +4186,47 @@ index 7a71e0a..d886b1e 100644
  	bool "SLUB (Unqueued Allocator)"
  	help
  	   SLUB is a slab allocator that minimizes cache line usage
+diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+index 9017478..87fdb3f 100644
+--- a/kernel/hrtimer.c
++++ b/kernel/hrtimer.c
+@@ -81,7 +81,11 @@ DEFINE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases) =
+ 	}
+ };
+ 
+-static int hrtimer_clock_to_base_table[MAX_CLOCKS];
++static int hrtimer_clock_to_base_table[MAX_CLOCKS] = {
++	[CLOCK_REALTIME]	= HRTIMER_BASE_REALTIME,
++	[CLOCK_MONOTONIC]	= HRTIMER_BASE_MONOTONIC,
++	[CLOCK_BOOTTIME]	= HRTIMER_BASE_BOOTTIME,
++};
+ 
+ static inline int hrtimer_clockid_to_base(clockid_t clock_id)
+ {
+@@ -1722,10 +1726,6 @@ static struct notifier_block __cpuinitdata hrtimers_nb = {
+ 
+ void __init hrtimers_init(void)
+ {
+-	hrtimer_clock_to_base_table[CLOCK_REALTIME] = HRTIMER_BASE_REALTIME;
+-	hrtimer_clock_to_base_table[CLOCK_MONOTONIC] = HRTIMER_BASE_MONOTONIC;
+-	hrtimer_clock_to_base_table[CLOCK_BOOTTIME] = HRTIMER_BASE_BOOTTIME;
+-
+ 	hrtimer_cpu_notify(&hrtimers_nb, (unsigned long)CPU_UP_PREPARE,
+ 			  (void *)(long)smp_processor_id());
+ 	register_cpu_notifier(&hrtimers_nb);
+diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
+index 61d7d59f..2ad39e5 100644
+--- a/kernel/trace/Kconfig
++++ b/kernel/trace/Kconfig
+@@ -141,7 +141,7 @@ if FTRACE
+ config FUNCTION_TRACER
+ 	bool "Kernel Function Tracer"
+ 	depends on HAVE_FUNCTION_TRACER
+-	select FRAME_POINTER if !ARM_UNWIND && !S390
++	select FRAME_POINTER if !ARM_UNWIND && !S390 && !MICROBLAZE
+ 	select KALLSYMS
+ 	select GENERIC_TRACER
+ 	select CONTEXT_SWITCH_TRACER
 diff --git a/kernel/watchdog.c b/kernel/watchdog.c
 index 140dce7..14733d4 100644
 --- a/kernel/watchdog.c
