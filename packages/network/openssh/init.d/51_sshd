@@ -23,32 +23,35 @@
 # runlevels: openelec, textmode
 
 (
-  RSA_KEY_FILE="/storage/.cache/dropbear/dropbear_rsa_host_key"
-  RSAPUB_KEY_FILE="/storage/.cache/dropbear/dropbear_rsa_host_key.pub"
-  DSS_KEY_FILE="/storage/.cache/dropbear/dropbear_dss_host_key"
+  RSA1_KEY="/storage/.cache/ssh/ssh_host_key"
+  RSA2_KEY="/storage/.cache/ssh/ssh_host_rsa_key"
+  DSA2_KEY="/storage/.cache/ssh/ssh_host_dsa_key"
 
-  # Check for the Dropbear RSA key
-    if [ ! -f $RSA_KEY_FILE ] ; then
-      progress "SSH: generating rsa key"
+  KEYGEN="/usr/bin/ssh-keygen"
+  SSHD="/usr/sbin/sshd"
 
-      mkdir -p /storage/.cache/dropbear
-        dropbearkey -t rsa -f $RSA_KEY_FILE > /dev/null 2>&1
+  # Check for the SSH1 RSA key
+    if [ ! -f $RSA1_KEY ] ; then
+      progress "SSH: generating SSH1 RSA key"
+
+      mkdir -p /storage/.cache/ssh
+        $KEYGEN -q -t rsa1 -f $RSA1_KEY -C '' -N '' >&/dev/null
     fi
 
-  # Check for the Dropbear RSA public key
-    if [ ! -f $RSAPUB_KEY_FILE ] ; then
-      progress "SSH: generating rsa public key"
+  # Check for the SSH2 RSA key
+    if [ ! -f $RSA2_KEY ] ; then
+      progress "SSH: generating SSH2 RSA key"
 
-      mkdir -p /storage/.cache/dropbear
-        dropbearkey -f $RSA_KEY_FILE -y > $RSAPUB_KEY_FILE
+      mkdir -p /storage/.cache/ssh
+        $KEYGEN -q -t rsa -f $RSA2_KEY -C '' -N '' >&/dev/null
     fi
 
-  # Check for the Dropbear DSS key
-    if [ ! -f $DSS_KEY_FILE ] ; then
-      progress "SSH: generating dsa key"
+  # Check for the SSH2 DSA key
+    if [ ! -f $DSA2_KEY ] ; then
+      progress "SSH: generating SSH2 DSA key"
 
-      mkdir -p /storage/.cache/dropbear
-        dropbearkey -t dss -f $DSS_KEY_FILE > /dev/null 2>&1
+      mkdir -p /storage/.cache/ssh
+        $KEYGEN -q -t dsa -f $DSA2_KEY -C '' -N '' >&/dev/null
     fi
 
   # Check for predifined known hosts file
@@ -61,12 +64,9 @@
 
   progress "Starting SSH Server"
 
-  $IONICE mkdir -p /var/log
-  $IONICE touch /var/log/lastlog
-  $IONICE touch /var/log/wtmp
+    wait_for_network
 
-  wait_for_network
-
-  dropbear -b /etc/issue -P /var/run/dropbear.pid
+    mkdir -p /var/empty
+    $SSHD
 
 )&
