@@ -1,0 +1,49 @@
+diff -Naur openssh-5.8p1-old/channels.c openssh-5.8p1-new/channels.c
+--- openssh-5.8p1-old/channels.c	2010-11-30 17:02:35.000000000 -0800
++++ openssh-5.8p1-new/channels.c	2011-02-21 17:41:34.000000000 -0800
+@@ -61,6 +61,7 @@
+ #include <termios.h>
+ #include <unistd.h>
+ #include <stdarg.h>
++#include <stddef.h>
+ 
+ #include "openbsd-compat/sys-queue.h"
+ #include "xmalloc.h"
+@@ -3353,6 +3354,8 @@
+ {
+ 	int sock;
+ 	struct sockaddr_un addr;
++	int abstract = 0;
++	int addrsize = 0;
+ 
+ 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
+ 	if (sock < 0)
+@@ -3360,8 +3363,15 @@
+ 	memset(&addr, 0, sizeof(addr));
+ 	addr.sun_family = AF_UNIX;
+ 	strlcpy(addr.sun_path, pathname, sizeof addr.sun_path);
+-	if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0)
++	addrsize = offsetof(struct sockaddr_un, sun_path) + strlen(addr.sun_path);
++	if (addr.sun_path[0] = '@')
++		abstract = 1;
++	if (abstract)
++		addr.sun_path[0] = '\0';
++	if (connect(sock, (struct sockaddr *)&addr, addrsize) == 0)
+ 		return sock;
++	if (abstract)
++		addr.sun_path[0] = '@';
+ 	close(sock);
+ 	error("connect %.100s: %.100s", addr.sun_path, strerror(errno));
+ 	return -1;
+diff -Naur openssh-5.8p1-old/defines.h openssh-5.8p1-new/defines.h
+--- openssh-5.8p1-old/defines.h	2011-01-17 02:15:31.000000000 -0800
++++ openssh-5.8p1-new/defines.h	2011-02-21 17:41:34.000000000 -0800
+@@ -411,7 +411,7 @@
+ #  ifdef __hpux
+ #    define X_UNIX_PATH "/var/spool/sockets/X11/%u"
+ #  else
+-#    define X_UNIX_PATH "/tmp/.X11-unix/X%u"
++#    define X_UNIX_PATH "@/tmp/.X11-unix/X%u"
+ #  endif
+ #endif /* X_UNIX_PATH */
+ #define _PATH_UNIX_X X_UNIX_PATH
