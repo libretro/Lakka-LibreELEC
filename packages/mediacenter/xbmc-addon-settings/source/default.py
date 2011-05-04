@@ -27,7 +27,7 @@ __author__ = "OpenELEC"
 __url__ = "http://www.openelec.tv"
 __svn_url__ = ""
 __credits__ = ""
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 __XBMC_Revision__ = "22240"
 
 __settings__   = xbmcaddon.Addon(id='os.openelec.settings')
