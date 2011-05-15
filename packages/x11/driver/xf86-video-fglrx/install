@@ -1,0 +1,87 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+. config/options $1
+
+$SCRIPTS/build busybox-hosttools
+
+VER=`ls $BUILD/linux*/modules/lib/modules`
+
+if [ "$TARGET_ARCH" = i386 ]; then
+  ARCH=x86
+  LIBDIR=lib
+  BASEDIR=xpic
+elif [ "$TARGET_ARCH" = x86_64 ]; then
+  ARCH=x86_64
+  LIBDIR=lib64
+  BASEDIR=xpic_64a
+fi
+
+# ATI kernel driver
+mkdir -p $INSTALL/lib/modules/$VER/ati
+  cp $PKG_BUILD/common/lib/modules/fglrx/build_mod/2.6.x/fglrx.ko $INSTALL/lib/modules/$VER/ati
+
+$ROOT/$TOOLCHAIN/sbin/depmod -b $INSTALL $VER > /dev/null
+for i in `ls $INSTALL/lib/modules/*/modules.* | grep -v modules.dep | grep -v modules.alias | grep -v modules.symbols`; do
+  rm -f $i
+done
+
+# X.Org modules
+mkdir -p $INSTALL/$XORG_PATH_MODULES
+  cp -P $PKG_BUILD/$BASEDIR/usr/X11R6/$LIBDIR/modules/*.so $INSTALL/$XORG_PATH_MODULES
+
+mkdir -p $INSTALL/$XORG_PATH_MODULES/drivers
+  cp -P $PKG_BUILD/$BASEDIR/usr/X11R6/$LIBDIR/modules/drivers/*_drv.so $INSTALL/$XORG_PATH_MODULES/drivers
+
+mkdir -p $INSTALL/$XORG_PATH_MODULES/extensions/fglrx
+  cp -P $PKG_BUILD/$BASEDIR/usr/X11R6/$LIBDIR/modules/extensions/fglrx/*.so $INSTALL/$XORG_PATH_MODULES/extensions/fglrx
+
+mkdir -p $INSTALL/$XORG_PATH_MODULES/linux
+  cp -P $PKG_BUILD/$BASEDIR/usr/X11R6/$LIBDIR/modules/linux/*.so $INSTALL/$XORG_PATH_MODULES/linux
+
+mkdir -p $INSTALL/etc/X11
+  cp $PKG_DIR/config/*.conf $INSTALL/etc/X11
+
+# DRI driver
+mkdir -p $INSTALL/usr/lib/dri
+  cp $PKG_BUILD/arch/$ARCH/usr/X11R6/$LIBDIR/modules/dri/fglrx_dri.so* $INSTALL/usr/lib/dri
+
+# Ati's libGL has an hardcoded location for DRI modules
+mkdir -p $INSTALL/usr/X11R6/$LIBDIR/modules/
+  ln -sf /usr/lib/dri $INSTALL/usr/X11R6/$LIBDIR/modules/dri
+
+# OpenGL libs
+mkdir -p $INSTALL/usr/lib/fglrx
+  cp $PKG_BUILD/arch/$ARCH/usr/X11R6/$LIBDIR/fglrx/fglrx-libGL.so* $INSTALL/usr/lib/fglrx
+
+# System Libs
+mkdir -p $INSTALL/usr/lib
+  cp $PKG_BUILD/arch/$ARCH/usr/$LIBDIR/libati*.so* $INSTALL/usr/lib
+  cp $PKG_BUILD/arch/$ARCH/usr/X11R6/$LIBDIR/libati*.so* $INSTALL/usr/lib
+  cp $PKG_BUILD/arch/$ARCH/usr/X11R6/$LIBDIR/libfglrx*.so* $INSTALL/usr/lib
+
+if [ "$VAAPI" = yes ]; then
+  $SCRIPTS/install libva
+
+  cp $PKG_BUILD/arch/$ARCH/usr/X11R6/$LIBDIR/lib*XvBA*.so* $INSTALL/usr/lib
+  cp $PKG_BUILD/arch/$ARCH/usr/X11R6/$LIBDIR/libAMDXvBA.cap $INSTALL/usr/lib
+fi
