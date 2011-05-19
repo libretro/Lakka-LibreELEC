@@ -115,7 +115,25 @@ REBOOT="0"
     fi
   }
 
+  hfsdiskprep() {
+    for DEV in `/bin/busybox ls /dev/sd*`; do
+      FS_TYPE=$(/sbin/blkid -o value -s TYPE $DEV)
+      if [ "$FS_TYPE" = "hfs" -o "$FS_TYPE" = "hfsplus" ]; then
+        /sbin/fsck_hfs -r -y $DEV > /dev/null 2>&1
+      fi
+    done
+  }
+
+# deal with hfs partitions
+  if [ -x /sbin/fsck_hfs ]; then
+    hfsdiskprep
+  fi
+
   mount_part "$boot" "/flash" "ro,noatime"
+
+  if [ -f "/flash/atv_single_boot" ]; then
+    IMAGE_KERNEL="MACH_KERNEL"
+  fi
 
   show_splash
 
