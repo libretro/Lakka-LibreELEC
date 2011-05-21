@@ -143,6 +143,15 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
     fi
   }
 
+  hfsdiskprep() {
+    for DEV in `/bin/busybox ls /dev/sd*`; do
+      FS_TYPE=$(/sbin/blkid -o value -s TYPE $DEV)
+      if [ "$FS_TYPE" = "hfs" -o "$FS_TYPE" = "hfsplus" ]; then
+        /sbin/fsck_hfs -r -y $DEV > /dev/null 2>&1
+      fi
+    done
+  }
+
   mount_nbd() {
     retry_nr=0
     retry_delay=20
@@ -164,7 +173,7 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
       error "INIT_2" "Could not mount NBD root from $NBD_ROOT_SERVER port $NBD_ROOT_PORT"
       debug_shell
     fi
- 
+
     mount_part "$NFS_OVERLAY" "/sysroot/storage" "rw,nolock,retrans=10" "nfs"
 
     if [ ! -d /sysroot/storage/$OVERLAY_DIR ]; then
@@ -176,12 +185,22 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   }
 
   mount_disk() {
-    mount_part "$boot" "/flash" "ro,noatime"
 
+  # deal with hfs partitions
+    if [ -x /sbin/fsck_hfs ]; then
+      hfsdiskprep
+    fi
+
+    mount_part "$boot" "/flash" "ro,noatime"
     show_splash
 
     if [ -n "$disk" ]; then
       mount_part "$disk" "/storage" "rw,noatime"
+
+      if [ -f "/flash/atv_single_boot" ]; then
+        IMAGE_KERNEL="MACH_KERNEL"
+      fi
+
       update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
       update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
 
