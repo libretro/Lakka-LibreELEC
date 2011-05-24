@@ -95,13 +95,18 @@ REBOOT="0"
 
   mount_part() {
     progress "trying to mount $1 ..."
-    for i in 1 2 3 4 5 6 7 8 9 10; do
-      ERR_ENV=1
-      $IONICE /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
-      [ "$?" -eq "0" ] && ERR_ENV=0 && break
-      /bin/busybox usleep 1000000
-    done
-    [ "$ERR_ENV" -ne "0" ] && error "INIT_4" "Could not mount $1" && debug_shell
+
+      progress "check filesystem $1 ..."
+        /sbin/fsck -y $1 > /dev/null 2>&1
+
+      for i in 1 2 3 4 5 6 7 8 9 10; do
+        ERR_ENV=1
+        progress "mount filesystem $1 ..."
+        /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
+        [ "$?" -eq "0" ] && ERR_ENV=0 && break
+        /bin/busybox usleep 1000000
+      done
+      [ "$ERR_ENV" -ne "0" ] && error "INIT_4" "Could not mount $1" && debug_shell
   }
 
   update() {
@@ -114,20 +119,6 @@ REBOOT="0"
         [ "$2" = "$IMAGE_KERNEL" ] && REBOOT="1"
     fi
   }
-
-  hfsdiskprep() {
-    for DEV in `/bin/busybox ls /dev/sd*`; do
-      FS_TYPE=$(/sbin/blkid -o value -s TYPE $DEV)
-      if [ "$FS_TYPE" = "hfs" -o "$FS_TYPE" = "hfsplus" ]; then
-        /sbin/fsck_hfs -r -y $DEV > /dev/null 2>&1
-      fi
-    done
-  }
-
-# deal with hfs partitions
-  if [ -x /sbin/fsck_hfs ]; then
-    hfsdiskprep
-  fi
 
   mount_part "$boot" "/flash" "ro,noatime"
 
