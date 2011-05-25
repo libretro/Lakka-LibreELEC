@@ -18,9 +18,20 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import sys
-import xbmcaddon
-import os
+import xbmc, time, os, subprocess
 
-if ( __name__ == "__main__" ):
-    os.system("sh start.sh")
+dir = os.path.realpath(os.path.dirname(__file__))
+script = 'start.sh'
+
+launcher = os.path.join(dir, script)
+app = '/storage/.xbmc/addons/addon.downloadmanager.transmission/bin/transmission-daemon'
+
+os.chmod(launcher, 0755)
+os.chmod(app, 0755)
+
+args = [launcher, str(os.getpid()), app]
+
+p = subprocess.Popen(args)
+print p.pid
+p.wait()
+os.exit(1)
