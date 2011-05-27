@@ -1,17 +1,45 @@
-[media] fintek-cir: new device driver
+From 2988e952273e64d4a142f2c93cac99c8721d7909 Mon Sep 17 00:00:00 2001
+From: Jarod Wilson <jarod@redhat.com>
+Date: Wed, 18 May 2011 18:11:19 -0400
+Subject: [PATCH] [media] fintek-cir: new driver for Fintek LPC SuperIO CIR function
 
-Device driver for the Fintek F71809 LPC SuperIO Integrated CIR.
+This is a new driver for the Fintek LPC SuperIO CIR function, in the
+Fintek F71809 chip. Hardware and datasheets were provided by Fintek, so
+thanks go to them for supporting this effort.
 
-Only receive is supported at the moment, but the hardware does
-support transmit. This is just a first rough draft, if you will...
+This driver started out as a copy of the nuvoton-cir driver, and was
+then modified as needed for the Fintek chip. The two share many
+similaries, though the buffer handling for the Fintek chip is actually
+nearly identical to the mceusb buffer handling, so the parser routine is
+almost a drop-in copy of the mceusb buffer parser (a candidate for being
+abstracted out into shared code at some point).
 
+This initial code drop *only* supports receive, but the hardware does
+support transmit as well. I really haven't even started to look at
+what's required, but my guess is that its also pretty similar to mceusb.
+Most people are probably only really interested in RX anyway though, so
+I think its good to get this out there even with only RX.
+
+(Nb: there are also Fintek-made mceusb receivers, which presumably, this
+chip shares CIR hardware with).
+
+This hardware can be found on at least Jetway NC98 boards and derivative
+systems, and likely others as well. Functionality was tested with an
+NC98 development board, in-kernel decode of RC6 (mce), RC5 (hauppauge)
+and NEC-ish (tivo) remotes all successful, as was lirc userspace decode
+of the RC6 remote.
+
+CC: Aaron Huang <aaron_huang@fintek.com.tw>
+CC: Tom Tsai <tom_tsai@fintek.com.tw>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
  drivers/media/rc/Kconfig      |   12 +
  drivers/media/rc/Makefile     |    1 +
- drivers/media/rc/fintek-cir.c |  618 +++++++++++++++++++++++++++++++++++++++++
- drivers/media/rc/fintek-cir.h |  224 +++++++++++++++
- 4 files changed, 855 insertions(+), 0 deletions(-)
+ drivers/media/rc/fintek-cir.c |  684 +++++++++++++++++++++++++++++++++++++++++
+ drivers/media/rc/fintek-cir.h |  243 +++++++++++++++
+ 4 files changed, 940 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/media/rc/fintek-cir.c
+ create mode 100644 drivers/media/rc/fintek-cir.h
 
 diff --git a/drivers/media/rc/Kconfig b/drivers/media/rc/Kconfig
 index 154c337..7d4bbc2 100644
@@ -50,10 +78,10 @@ index 1f90a21..52830e5 100644
  obj-$(CONFIG_IR_REDRAT3) += redrat3.o
 diff --git a/drivers/media/rc/fintek-cir.c b/drivers/media/rc/fintek-cir.c
 new file mode 100644
-index 0000000..ae275ec
+index 0000000..8fa539d
 --- /dev/null
 +++ b/drivers/media/rc/fintek-cir.c
-@@ -0,0 +1,618 @@
+@@ -0,0 +1,684 @@
 +/*
 + * Driver for Feature Integration Technology Inc. (aka Fintek) LPC CIR
 + *
@@ -298,51 +326,123 @@ index 0000000..ae275ec
 +	/* Save state */
 +	fintek_set_reg_bit(fintek, ACPI_STATE_CIR_BIT, LDEV_ACPI_STATE_REG);
 +
-+	fintek_select_logical_dev(fintek, LOGICAL_DEV_CIR);
-+	fintek_cr_write(fintek, LOGICAL_DEV_ENABLE, CIR_CR_DEV_EN);
 +	fintek_config_mode_disable(fintek);
++}
++
++static int fintek_cmdsize(u8 cmd, u8 subcmd)
++{
++	int datasize = 0;
++
++	switch (cmd) {
++	case BUF_COMMAND_NULL:
++		if (subcmd == BUF_HW_CMD_HEADER)
++			datasize = 1;
++		break;
++	case BUF_HW_CMD_HEADER:
++		if (subcmd == BUF_CMD_G_REVISION)
++			datasize = 2;
++		break;
++	case BUF_COMMAND_HEADER:
++		switch (subcmd) {
++		case BUF_CMD_S_CARRIER:
++		case BUF_CMD_S_TIMEOUT:
++		case BUF_RSP_PULSE_COUNT:
++			datasize = 2;
++			break;
++		case BUF_CMD_SIG_END:
++		case BUF_CMD_S_TXMASK:
++		case BUF_CMD_S_RXSENSOR:
++			datasize = 1;
++			break;
++		}
++	}
++
++	return datasize;
++}
++
++/* process ir data stored in driver buffer */
++static void fintek_process_rx_ir_data(struct fintek_dev *fintek)
++{
++	DEFINE_IR_RAW_EVENT(rawir);
++	u8 sample;
++	int i;
++
++	for (i = 0; i < fintek->pkts; i++) {
++		sample = fintek->buf[i];
++		switch (fintek->parser_state) {
++		case CMD_HEADER:
++			fintek->cmd = sample;
++			if ((fintek->cmd == BUF_COMMAND_HEADER) ||
++			    ((fintek->cmd & BUF_COMMAND_MASK) !=
++			     BUF_PULSE_BIT)) {
++				fintek->parser_state = SUBCMD;
++				continue;
++			}
++			fintek->rem = (fintek->cmd & BUF_LEN_MASK);
++			fit_dbg("%s: rem: 0x%02x", __func__, fintek->rem);
++			if (fintek->rem)
++				fintek->parser_state = PARSE_IRDATA;
++			else
++				ir_raw_event_reset(fintek->rdev);
++			break;
++		case SUBCMD:
++			fintek->rem = fintek_cmdsize(fintek->cmd, sample);
++			fintek->parser_state = CMD_DATA;
++			break;
++		case CMD_DATA:
++			fintek->rem--;
++			break;
++		case PARSE_IRDATA:
++			fintek->rem--;
++			init_ir_raw_event(&rawir);
++			rawir.pulse = ((sample & BUF_PULSE_BIT) != 0);
++			rawir.duration = US_TO_NS((sample & BUF_SAMPLE_MASK)
++					  * CIR_SAMPLE_PERIOD);
++
++			fit_dbg("Storing %s with duration %d",
++				rawir.pulse ? "pulse" : "space",
++				rawir.duration);
++			ir_raw_event_store_with_filter(fintek->rdev, &rawir);
++			break;
++		}
++
++		if ((fintek->parser_state != CMD_HEADER) && !fintek->rem)
++			fintek->parser_state = CMD_HEADER;
++	}
++
++	fintek->pkts = 0;
++
++	fit_dbg("Calling ir_raw_event_handle");
++	ir_raw_event_handle(fintek->rdev);
 +}
 +
 +/* copy data from hardware rx register into driver buffer */
 +static void fintek_get_rx_ir_data(struct fintek_dev *fintek, u8 rx_irqs)
 +{
-+	DEFINE_IR_RAW_EVENT(rawir);
 +	unsigned long flags;
-+	u8 header, sample, status, len, i;
-+
-+	init_ir_raw_event(&rawir);
++	u8 sample, status;
 +
 +	spin_lock_irqsave(&fintek->fintek_lock, flags);
 +
-+	header = fintek_cir_reg_read(fintek, CIR_RX_DATA);
-+	fit_dbg("%s: sample header 0x%02x", __func__, header);
-+	len = header & BUF_LEN_MASK;
-+
-+	for (i = 0; i < len; i++) {
++	/*
++	 * We must read data from CIR_RX_DATA until the hardware IR buffer
++	 * is empty and clears the RX_TIMEOUT and/or RX_RECEIVE flags in
++	 * the CIR_STATUS register
++	 */
++	do {
 +		sample = fintek_cir_reg_read(fintek, CIR_RX_DATA);
-+		fit_dbg("%s: sample 0x%02x", __func__, sample);
++		fit_dbg("%s: sample: 0x%02x", __func__, sample);
++
++		fintek->buf[fintek->pkts] = sample;
++		fintek->pkts++;
++
 +		status = fintek_cir_reg_read(fintek, CIR_STATUS);
-+		if (!(status & rx_irqs))
-+			fit_dbg("RX irqs cleared");
++		if (!(status & CIR_STATUS_IRQ_EN))
++			break;
++	} while (status & rx_irqs);
 +
-+		rawir.pulse = ((sample & BUF_PULSE_BIT) != 0);
-+		rawir.duration = US_TO_NS((sample & BUF_LEN_MASK)
-+					  * CIR_SAMPLE_PERIOD);
++	fintek_process_rx_ir_data(fintek);
 +
-+		fit_dbg("Storing %s with duration %d",
-+			rawir.pulse ? "pulse" : "space", rawir.duration);
-+
-+		ir_raw_event_store_with_filter(fintek->rdev, &rawir);
-+	}
-+
-+	fit_dbg("Calling ir_raw_event_handle");
-+	ir_raw_event_handle(fintek->rdev);
-+
-+	while (fintek_cir_reg_read(fintek, CIR_STATUS) & rx_irqs) {
-+		fit_dbg("RX irqs not cleared");
-+		sample = fintek_cir_reg_read(fintek, CIR_RX_DATA);
-+		fit_dbg("%s: sample 0x%02x", __func__, sample);
-+	}
 +	spin_unlock_irqrestore(&fintek->fintek_lock, flags);
 +}
 +
@@ -378,8 +478,8 @@ index 0000000..ae275ec
 +	 *   0: RX_RECEIVE  - RX data received
 +	 */
 +	status = fintek_cir_reg_read(fintek, CIR_STATUS);
-+	if (!(status & CIR_STATUS_IRQ_MASK)) {
-+		fit_dbg_verbose("%s exiting, IRSTS 0x0", __func__);
++	if (!(status & CIR_STATUS_IRQ_MASK) || status == 0xff) {
++		fit_dbg_verbose("%s exiting, IRSTS 0x%02x", __func__, status);
 +		fintek_cir_reg_write(fintek, CIR_STATUS_IRQ_MASK, CIR_STATUS);
 +		return IRQ_RETVAL(IRQ_NONE);
 +	}
@@ -420,9 +520,6 @@ index 0000000..ae275ec
 +
 +static void fintek_disable_cir(struct fintek_dev *fintek)
 +{
-+	/* clear any and all pending interrupts and disable IRQ */
-+	fintek_cir_reg_write(fintek, CIR_STATUS_IRQ_MASK, CIR_STATUS);
-+
 +	fintek_config_mode_enable(fintek);
 +
 +	/* disable the CIR logical device */
@@ -438,7 +535,6 @@ index 0000000..ae275ec
 +	unsigned long flags;
 +
 +	spin_lock_irqsave(&fintek->fintek_lock, flags);
-+	fintek->in_use = true;
 +	fintek_enable_cir(fintek);
 +	spin_unlock_irqrestore(&fintek->fintek_lock, flags);
 +
@@ -451,7 +547,6 @@ index 0000000..ae275ec
 +	unsigned long flags;
 +
 +	spin_lock_irqsave(&fintek->fintek_lock, flags);
-+	fintek->in_use = false;
 +	fintek_disable_cir(fintek);
 +	spin_unlock_irqrestore(&fintek->fintek_lock, flags);
 +}
@@ -480,7 +575,7 @@ index 0000000..ae275ec
 +	}
 +
 +	if (!pnp_irq_valid(pdev, 0)) {
-+		dev_err(&pdev->dev, "PNP IRQ not valid!\n");
++		dev_err(&pdev->dev, "IR PNP IRQ not valid!\n");
 +		goto failure;
 +	}
 +
@@ -492,7 +587,6 @@ index 0000000..ae275ec
 +	fintek->cr_dp = CR_DATA_PORT;
 +
 +	spin_lock_init(&fintek->fintek_lock);
-+	init_ir_raw_event(&fintek->rawir);
 +
 +	ret = -EBUSY;
 +	/* now claim resources */
@@ -569,8 +663,8 @@ index 0000000..ae275ec
 +
 +	spin_lock_irqsave(&fintek->fintek_lock, flags);
 +	/* disable CIR */
-+	fintek_cir_reg_write(fintek, 0, CIR_STATUS);
 +	fintek_disable_cir(fintek);
++	fintek_cir_reg_write(fintek, CIR_STATUS_IRQ_MASK, CIR_STATUS);
 +	/* enable CIR Wake (for IR power-on) */
 +	fintek_enable_wake(fintek);
 +	spin_unlock_irqrestore(&fintek->fintek_lock, flags);
@@ -591,7 +685,7 @@ index 0000000..ae275ec
 +	fit_dbg("%s called", __func__);
 +
 +	/* disable all CIR interrupts */
-+	fintek_cir_reg_write(fintek, 0, CIR_STATUS);
++	fintek_cir_reg_write(fintek, CIR_STATUS_IRQ_MASK, CIR_STATUS);
 +
 +	fintek_config_mode_enable(fintek);
 +
@@ -674,10 +768,10 @@ index 0000000..ae275ec
 +module_exit(fintek_exit);
 diff --git a/drivers/media/rc/fintek-cir.h b/drivers/media/rc/fintek-cir.h
 new file mode 100644
-index 0000000..790c502
+index 0000000..1b10b20
 --- /dev/null
 +++ b/drivers/media/rc/fintek-cir.h
-@@ -0,0 +1,224 @@
+@@ -0,0 +1,243 @@
 +/*
 + * Driver for Feature Integration Technology Inc. (aka Fintek) LPC CIR
 + *
@@ -740,10 +834,8 @@ index 0000000..790c502
 +struct fintek_dev {
 +	struct pnp_dev *pdev;
 +	struct rc_dev *rdev;
-+	struct ir_raw_event rawir;
 +
 +	spinlock_t fintek_lock;
-+	bool in_use;
 +
 +	/* for rx */
 +	u8 buf[RX_BUF_LEN];
@@ -779,15 +871,36 @@ index 0000000..790c502
 +	bool learning_enabled;
 +	bool carrier_detect_enabled;
 +
++	enum {
++		CMD_HEADER = 0,
++		SUBCMD,
++		CMD_DATA,
++		PARSE_IRDATA,
++	} parser_state;
++
++	u8 cmd, rem;
++
 +	/* carrier period = 1 / frequency */
 +	u32 carrier;
 +};
 +
-+/* buffer packet constants */
++/* buffer packet constants, largely identical to mceusb.c */
 +#define BUF_PULSE_BIT		0x80
-+#define BUF_LEN_MASK		0x7f
-+#define BUF_REPEAT_BYTE		0x70
-+#define BUF_REPEAT_MASK		0xf0
++#define BUF_LEN_MASK		0x1f
++#define BUF_SAMPLE_MASK		0x7f
++
++#define BUF_COMMAND_HEADER	0x9f
++#define BUF_COMMAND_MASK	0xe0
++#define BUF_COMMAND_NULL	0x00
++#define BUF_HW_CMD_HEADER	0xff
++#define BUF_CMD_G_REVISION	0x0b
++#define BUF_CMD_S_CARRIER	0x06
++#define BUF_CMD_S_TIMEOUT	0x0c
++#define BUF_CMD_SIG_END		0x01
++#define BUF_CMD_S_TXMASK	0x08
++#define BUF_CMD_S_RXSENSOR	0x14
++#define BUF_RSP_PULSE_COUNT	0x15
++
 +#define CIR_SAMPLE_PERIOD	50
 +
 +/*
@@ -795,12 +908,12 @@ index 0000000..790c502
 + *  Index Port
 + *  Data Port
 + */
-+#define CR_INDEX_PORT		0x4e
-+#define CR_DATA_PORT		0x4f
++#define CR_INDEX_PORT		0x2e
++#define CR_DATA_PORT		0x2f
 +
 +/* Possible alternate values, depends on how the chip is wired */
-+#define CR_INDEX_PORT2		0x2e
-+#define CR_DATA_PORT2		0x2f
++#define CR_INDEX_PORT2		0x4e
++#define CR_DATA_PORT2		0x4f
 +
 +/*
 + * GCR_CONFIG_PORT_SEL bit 4 specifies which Index Port value is
@@ -902,3 +1015,6 @@ index 0000000..790c502
 +#define CIR_TX_CONTROL_TX_START	0x80
 +#define CIR_TX_CONTROL_TX_END	0x40
 +
+-- 
+1.7.1
+

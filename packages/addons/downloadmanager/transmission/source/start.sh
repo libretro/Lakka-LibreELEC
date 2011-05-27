@@ -59,6 +59,7 @@ app_prep() {
 
 export TRANSMISSION_WEB_HOME="$SCRIPT_DIR/web"
 
+mkdir -p $ADDON_HOME
 OPENELEC_SETTINGS="$ADDON_HOME/settings.xml"
 
 if [ ! -f "$OPENELEC_SETTINGS" ]; then
