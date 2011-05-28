@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
@@ -20,7 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
-
-mkdir -p $INSTALL/usr/bin
-  cp $PKG_BUILD/htop $INSTALL/usr/bin
+import os
+import sys
+import xbmcaddon
