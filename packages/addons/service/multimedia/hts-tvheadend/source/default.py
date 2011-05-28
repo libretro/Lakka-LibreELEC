@@ -18,13 +18,20 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# only does something with adding "dvb" subsystem devices.
-ACTION!="add|remove", GOTO="end"
-SUBSYSTEM!="dvb", GOTO="end"
-ENV{DVB_DEVICE_TYPE}!="frontend", GOTO="end"
+import xbmc, time, os, subprocess
 
-# Start TVHeadend if dvb frontend is starting
-ACTION=="add", RUN+="/lib/udev/tvheadend_startup"
-ACTION=="remove", RUN+="/usr/bin/killall tvheadend"
+dir = os.path.realpath(os.path.dirname(__file__))
+script = 'start.sh'
 
-LABEL="end"
+launcher = os.path.join(dir, script)
+app = '/storage/.xbmc/addons/service.multimedia.hts-tvheadend/bin/tvheadend'
+
+os.chmod(launcher, 0755)
+os.chmod(app, 0755)
+
+args = [launcher, str(os.getpid()), app]
+
+p = subprocess.Popen(args)
+print p.pid
+p.wait()
+os.exit(1)
