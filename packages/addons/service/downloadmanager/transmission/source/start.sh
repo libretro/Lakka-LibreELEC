@@ -23,7 +23,7 @@
 XBMC_PID=$1
 APP=$2
 SCRIPT_DIR=$(dirname `readlink -f $0`)
-ADDON_HOME="$HOME/.xbmc/userdata/addon_data/addon.downloadmanager.transmission"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.downloadmanager.transmission"
 PATH="${PATH}:${SCRIPT_DIR}/bin"
 LOG_FILE="${ADDON_HOME}/service.log"
 

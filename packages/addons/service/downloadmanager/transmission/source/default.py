@@ -24,7 +24,7 @@ dir = os.path.realpath(os.path.dirname(__file__))
 script = 'start.sh'
 
 launcher = os.path.join(dir, script)
-app = '/storage/.xbmc/addons/addon.downloadmanager.transmission/bin/transmission-daemon'
+app = '/storage/.xbmc/addons/service.downloadmanager.transmission/bin/transmission-daemon'
 
 os.chmod(launcher, 0755)
 os.chmod(app, 0755)
