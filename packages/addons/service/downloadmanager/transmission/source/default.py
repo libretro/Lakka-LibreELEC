@@ -20,18 +20,4 @@
 
 import xbmc, time, os, subprocess
 
-dir = os.path.realpath(os.path.dirname(__file__))
-script = 'start.sh'
-
-launcher = os.path.join(dir, script)
-app = '/storage/.xbmc/addons/service.downloadmanager.transmission/bin/transmission-daemon'
-
-os.chmod(launcher, 0755)
-os.chmod(app, 0755)
-
-args = [launcher, str(os.getpid()), app]
-
-p = subprocess.Popen(args)
-print p.pid
-p.wait()
-os.exit(1)
+os.system("transmission.service")
