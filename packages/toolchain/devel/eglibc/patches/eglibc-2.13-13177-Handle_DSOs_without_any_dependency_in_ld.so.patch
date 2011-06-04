@@ -1,0 +1,205 @@
+From glibc-cvs-return-51051-listarch-glibc-cvs=sources dot redhat dot com at sourceware dot org Mon May 30 16:32:22 2011
+Return-Path: <glibc-cvs-return-51051-listarch-glibc-cvs=sources dot redhat dot com at sourceware dot org>
+Delivered-To: listarch-glibc-cvs at sources dot redhat dot com
+Received: (qmail 24844 invoked by alias); 30 May 2011 16:32:18 -0000
+Received: (qmail 24805 invoked by uid 321); 30 May 2011 16:32:17 -0000
+Date: 30 May 2011 16:32:15 -0000
+Message-ID: <20110530163215.24780.qmail@sourceware.org>
+From: drepper at sourceware dot org
+To: glibc-cvs at sourceware dot org
+Subject: GNU C Library master sources branch, master, updated. glibc-2.13-254-g6b1e7d1
+X-Git-Refname: refs/heads/master
+X-Git-Reftype: branch
+X-Git-Oldrev: 4997db742946d08be4378cf91221f558f928bc73
+X-Git-Newrev: 6b1e7d1992cd89032df431c0e0d1418b97e57cd8
+Mailing-List: contact glibc-cvs-help at sourceware dot org; run by ezmlm
+Precedence: bulk
+List-Id: <glibc-cvs.sourceware.org>
+List-Archive: <http://sourceware.org/ml/glibc-cvs/>
+List-Post: <mailto:glibc-cvs at sourceware dot org>
+List-Help: <mailto:glibc-cvs-help at sourceware dot org>, <http://sourceware dot org/ml/#faqs>
+Sender: glibc-cvs-owner at sourceware dot org
+List-Subscribe: <mailto:glibc-cvs-subscribe at sourceware dot org>
+Delivered-To: mailing list glibc-cvs at sourceware dot org
+
+This is an automated email from the git hooks/post-receive script. It was
+generated because a ref change was pushed to the repository containing
+the project "GNU C Library master sources".
+
+The branch, master has been updated
+       via  6b1e7d1992cd89032df431c0e0d1418b97e57cd8 (commit)
+      from  4997db742946d08be4378cf91221f558f928bc73 (commit)
+
+Those revisions listed above that are new to this repository have
+not appeared on any other notification email; so we list those
+revisions in full, below.
+
+- Log -----------------------------------------------------------------
+http://sources.redhat.com/git/gitweb.cgi?p=glibc.git;a=commitdiff;h=6b1e7d1992cd89032df431c0e0d1418b97e57cd8
+
+commit 6b1e7d1992cd89032df431c0e0d1418b97e57cd8
+Author: Ulrich Drepper <drepper@gmail.com>
+Date:   Mon May 30 12:31:25 2011 -0400
+
+    Handle DSOs without any dependency in ld.so
+
+diff --git a/elf/dl-deps.c b/elf/dl-deps.c
+index d3c27f1..0b03b90 100644
+--- a/elf/dl-deps.c
++++ b/elf/dl-deps.c
+@@ -617,61 +617,64 @@ Filters not supported with LD_TRACE_PRELINKING"));
+ 	map->l_searchlist.r_list[i]->l_reserved = 0;
+     }
+ 
+-  /* Now determine the order in which the initialization has to happen.  */
++  /* Sort the initializer list to take dependencies into account.  The binary
++     itself will always be initialize last.  */
+   memcpy (l_initfini, map->l_searchlist.r_list,
+ 	  nlist * sizeof (struct link_map *));
+-
+-  /* We can skip looking for the binary itself which is at the front
+-     of the search list.  */
+-  assert (nlist > 1);
+-  i = 1;
+-  bool seen[nlist];
+-  memset (seen, false, nlist * sizeof (seen[0]));
+-  while (1)
++  if (__builtin_expect (nlist > 1, 1))
+     {
+-      /* Keep track of which object we looked at this round.  */
+-      seen[i] = true;
+-      struct link_map *thisp = l_initfini[i];
+-
+-      /* Find the last object in the list for which the current one is
+-	 a dependency and move the current object behind the object
+-	 with the dependency.  */
+-      unsigned int k = nlist - 1;
+-      while (k > i)
++      /* We can skip looking for the binary itself which is at the front
++	 of the search list.  */
++      i = 1;
++      bool seen[nlist];
++      memset (seen, false, nlist * sizeof (seen[0]));
++      while (1)
+ 	{
+-	  struct link_map **runp = l_initfini[k]->l_initfini;
+-	  if (runp != NULL)
+-	    /* Look through the dependencies of the object.  */
+-	    while (*runp != NULL)
+-	      if (__builtin_expect (*runp++ == thisp, 0))
+-		{
+-		  /* Move the current object to the back past the last
+-		     object with it as the dependency.  */
+-		  memmove (&l_initfini[i], &l_initfini[i + 1],
+-			   (k - i) * sizeof (l_initfini[0]));
+-		  l_initfini[k] = thisp;
+-
+-		  if (seen[i + 1])
++	  /* Keep track of which object we looked at this round.  */
++	  seen[i] = true;
++	  struct link_map *thisp = l_initfini[i];
++
++	  /* Find the last object in the list for which the current one is
++	     a dependency and move the current object behind the object
++	     with the dependency.  */
++	  unsigned int k = nlist - 1;
++	  while (k > i)
++	    {
++	      struct link_map **runp = l_initfini[k]->l_initfini;
++	      if (runp != NULL)
++		/* Look through the dependencies of the object.  */
++		while (*runp != NULL)
++		  if (__builtin_expect (*runp++ == thisp, 0))
+ 		    {
+-		      ++i;
+-		      goto next_clear;
++		      /* Move the current object to the back past the last
++			 object with it as the dependency.  */
++		      memmove (&l_initfini[i], &l_initfini[i + 1],
++			       (k - i) * sizeof (l_initfini[0]));
++		      l_initfini[k] = thisp;
++
++		      if (seen[i + 1])
++			{
++			  ++i;
++			  goto next_clear;
++			}
++
++		      memmove (&seen[i], &seen[i + 1],
++			       (k - i) * sizeof (seen[0]));
++		      seen[k] = true;
++
++		      goto next;
+ 		    }
+ 
+-		  memmove (&seen[i], &seen[i + 1], (k - i) * sizeof (seen[0]));
+-		  seen[k] = true;
++	      --k;
++	    }
+ 
+-		  goto next;
+-		}
++	  if (++i == nlist)
++	    break;
++	next_clear:
++	  memset (&seen[i], false, (nlist - i) * sizeof (seen[0]));
+ 
+-	  --k;
++	next:;
+ 	}
+-
+-      if (++i == nlist)
+-	break;
+-    next_clear:
+-      memset (&seen[i], false, (nlist - i) * sizeof (seen[0]));
+-
+-    next:;
+     }
+ 
+   /* Terminate the list of dependencies.  */
+diff --git a/elf/dl-fini.c b/elf/dl-fini.c
+index ba6c62a..269bcec 100644
+--- a/elf/dl-fini.c
++++ b/elf/dl-fini.c
+@@ -33,9 +33,12 @@ internal_function
+ _dl_sort_fini (struct link_map *l, struct link_map **maps, size_t nmaps,
+ 	       char *used, Lmid_t ns)
+ {
++  /* A list of one element need not be sorted.  */
++  if (nmaps == 1)
++    return;
++
+   /* We can skip looking for the binary itself which is at the front
+      of the search list for the main namespace.  */
+-  assert (nmaps > 1);
+   unsigned int i = ns == LM_ID_BASE;
+   bool seen[nmaps];
+   memset (seen, false, nmaps * sizeof (seen[0]));
+@@ -195,9 +198,8 @@ _dl_fini (void)
+       assert (ns == LM_ID_BASE || i == nloaded || i == nloaded - 1);
+       nmaps = i;
+ 
+-      if (nmaps > 1)
+-	/* Now we have to do the sorting.  */
+-	_dl_sort_fini (GL(dl_ns)[ns]._ns_loaded, maps, nmaps, NULL, ns);
++      /* Now we have to do the sorting.  */
++      _dl_sort_fini (GL(dl_ns)[ns]._ns_loaded, maps, nmaps, NULL, ns);
+ 
+       /* We do not rely on the linked list of loaded object anymore from
+ 	 this point on.  We have our own list here (maps).  The various
+
+-----------------------------------------------------------------------
+
+Summary of changes:
+ ChangeLog     |    6 ++++
+ NEWS          |    4 +-
+ elf/dl-deps.c |   93 +++++++++++++++++++++++++++++---------------------------
+ elf/dl-fini.c |   10 ++++--
+ elf/rtld.c    |    1 -
+ 5 files changed, 62 insertions(+), 52 deletions(-)
+
+
+hooks/post-receive
+-- 
+GNU C Library master sources
+
