@@ -1,6 +1,6 @@
 ################################################################################
-#      Copyright (C) 2009-2010 OpenELEC.tv
-#      http://www.openelec.tv
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,13 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# Starting Redis Server
-#
-# runlevels: openelec, textmode
+import xbmc, time, os, subprocess
 
-(
-  wait_for_network
-
-  progress "starting Redis server"
-    /usr/sbin/redis-server /etc/redis.conf
-)&
+os.system("SABnzbd.service")
