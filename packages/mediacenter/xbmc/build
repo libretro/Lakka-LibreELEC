@@ -52,6 +52,12 @@ else
   XBMC_AVAHI="--disable-avahi"
 fi
 
+if [ "$NFS_SUPPORT" = yes ]; then
+  XBMC_NFS="--enable-nfs"
+else
+  XBMC_NFS="--disable-nfs"
+fi
+
 if [ "$WEBSERVER" = yes ]; then
   XBMC_WEBSERVER="--enable-webserver"
 else
@@ -85,6 +91,12 @@ fi
 # this fixes problems with faac implementation of ffmpeg
   LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
 
+  export PYTHON_VERSION="2.6"
+  export PYTHON_CPPFLAGS="-I$SYSROOT_PREFIX/usr/include/python$PYTHON_VERSION"
+  export PYTHON_LDFLAGS="-L$SYSROOT_PREFIX/usr/lib/python$PYTHON_VERSION -lpython$PYTHON_VERSION"
+  export PYTHON_SITE_PKG="$SYSROOT_PREFIX/usr/lib/python$PYTHON_VERSION/site-packages"
+  export ac_python_version="$PYTHON_VERSION"
+
 # this fixes the "stretching picture bug"
   CFLAGS=`echo $CFLAGS | sed -e "s|-ftree-loop-distribution||"`
   CFLAGS=`echo $CFLAGS | sed -e "s|-floop-interchange||"`
@@ -103,13 +115,23 @@ fi
 
 cd $PKG_BUILD
 
-do_autoreconf
-do_autoreconf lib/cpluff
-[ -d lib/libass ] && do_autoreconf lib/libass
-[ -d xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss ] && do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss
-do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdread
-do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdnav
-do_autoreconf xbmc/lib/libid3tag/libid3tag
+# adding fake Makefile for stripped skin
+  mkdir -p addons/skin.confluence/media
+  touch addons/skin.confluence/media/Makefile.in
+
+# autoreconf
+  do_autoreconf
+  do_autoreconf lib/libid3tag/libid3tag
+  do_autoreconf xbmc/screensavers/rsxs-0.9
+  do_autoreconf lib/libapetag
+  do_autoreconf lib/cpluff
+  # order matters with libdvd and friends
+  [ -d lib/libdvd/libdvdcss ] && do_autoreconf lib/libdvd/libdvdcss
+  do_autoreconf lib/libdvd/libdvdread
+  do_autoreconf lib/libdvd/libdvdnav
+
+# Clean the generated files
+  find . -depth -type d -name "autom4te.cache" -exec rm -rf {} \;
 
 ./configure --host=$TARGET_NAME \
             --build=$HOST_NAME \
@@ -123,10 +145,14 @@ do_autoreconf xbmc/lib/libid3tag/libid3tag
             --disable-debug \
             --disable-optimizations \
             --enable-gl \
+            --disable-gles \
             $XBMC_VDPAU \
             $XBMC_VAAPI \
             $XBMC_CRYSTALHD \
             --disable-vdadecoder \
+            --disable-vtbdecoder \
+            --disable-openmax \
+            --disable-tegra \
             --disable-profiling \
             --enable-joystick \
             --enable-xrandr \
@@ -135,26 +161,25 @@ do_autoreconf xbmc/lib/libid3tag/libid3tag
             --disable-rsxs \
             --disable-ccache \
             $XBMC_PULSEAUDIO \
+            --enable-rtmp \
+            $XBMC_NFS \
             --enable-ffmpeg-libvorbis \
-            --disable-faac \
             --enable-lame \
             $XBMC_DVDCSS \
             --disable-mid \
-            $XBMC_AVAHI \
             --disable-hal \
+            $XBMC_AVAHI \
             $XBMC_NONFREE \
             --disable-asap-codec \
             $XBMC_WEBSERVER \
-            --disable-libdts \
-            --disable-liba52 \
+            --enable-optical-drive \
             --enable-libbluray \
+            --enable-texturepacker \
+            --disable-external-libraries \
             --disable-external-ffmpeg \
-            --disable-external-liba52 \
-            --disable-external-libdts \
-            --enable-external-python \
 
 # setup default skin inside the sources
-  sed -i -e "s|skin.confluence|$SKIN_DIR|g" xbmc/Settings.h
+  sed -i -e "s|skin.confluence|$SKIN_DIR|g" xbmc/settings/Settings.h
 
 make externals
 make xbmc.bin
