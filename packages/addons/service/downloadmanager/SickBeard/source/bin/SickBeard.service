@@ -24,7 +24,8 @@
 ADDON_DIR="$HOME/.xbmc/addons/service.downloadmanager.SickBeard"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.downloadmanager.SickBeard"
 LOG_FILE="$ADDON_HOME/service.log"
-SABNZBD_SETTINGS="$HOME/.xbmc/userdata/addon_data/service.downloadmanager.SABnzbd/sabnzbd.ini"
+SABNZBD_HOME="$HOME/.xbmc/userdata/addon_data/service.downloadmanager.SABnzbd"
+SABNZBD_SETTINGS="$SABNZBD_HOME/sabnzbd.ini"
 XBMC_SETTINGS="$HOME/.xbmc/userdata/guisettings.xml"
 
 export PYTHONPATH="$PYTHONPATH:$ADDON_DIR/pylib"
@@ -44,6 +45,13 @@ python $ADDON_DIR/bin/ini_tool --action=read \
 
 read_xbmcconfig() {
 grep "<$1>" $XBMC_SETTINGS | sed -e "s,[[:space:]]*<$1>,," -e "s,</$1>,,"
+}
+
+write_ini_postprocess() {
+python $ADDON_DIR/bin/ini_tool --action=write \
+                               --file=$SABNZBD_HOME/$SABNZBD_SCRIPTDIR/autoProcessTV.cfg \
+                               --option="$1:$2" \
+                               --value="$3"
 }
 
 mkdir -p $ADDON_HOME
@@ -76,6 +84,7 @@ fi
   SABNZBD_APIKEY=`read_sabconfig misc api_key`
   SABNZBD_WEBUSERNAME=`read_sabconfig misc username`
   SABNZBD_WEBPASSWORD=`read_sabconfig misc password`
+  SABNZBD_SCRIPTDIR=`read_sabconfig misc script_dir`
 
 if [ -z "$SICKBEARD_HOST" ]; then
   SICKBEARD_HOST="0.0.0.0"
@@ -105,5 +114,13 @@ write_ini XBMC xbmc_password $XBMC_PWD
 if [ "$SICKBEARD_FIRSTRUN" = "yes" ]; then
 write_ini General metadata_xbmc $SICKBEARD_METADATAXBMC
 fi
+
+mkdir -p $SABNZBD_HOME/$SABNZBD_SCRIPTDIR
+  cp -P $ADDON_DIR/SickBeard/autoProcessTV/*.py $SABNZBD_HOME/$SABNZBD_SCRIPTDIR
+  chmod +x $SABNZBD_HOME/$SABNZBD_SCRIPTDIR/*.py
+  write_ini_postprocess SickBeard host localhost
+  write_ini_postprocess SickBeard port $SICKBEARD_PORT
+  write_ini_postprocess SickBeard username $SABNZBD_WEBUSERNAME
+  write_ini_postprocess SickBeard password $SABNZBD_WEBPASSWORD
 
 python $ADDON_DIR/SickBeard/SickBeard.py --daemon --datadir $ADDON_HOME
