@@ -117,8 +117,8 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   }
 
   mount_part() {
-    progress "check filesystem $1 ..."
-      /sbin/fsck -M -T -a $1 > /dev/null 2>&1
+#    progress "check filesystem $1 ..."
+#      /sbin/fsck -M -T -a $1 > /dev/null 2>&1
 
       for i in 1 2 3 4 5 6 7 8 9 10; do
         ERR_ENV=1
@@ -146,6 +146,16 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
         $IONICE /bin/busybox sync
         [ "$2" = "$IMAGE_KERNEL" ] && REBOOT="1"
     fi
+  }
+
+  hfsdiskprep() {
+    for DEV in `/bin/busybox ls /dev/sd*`; do
+      FS_TYPE=$(/sbin/blkid -o value -s TYPE $DEV)
+      if [ "$FS_TYPE" = "hfs" -o "$FS_TYPE" = "hfsplus" ]; then
+        progress "check filesystem $DEV ..."
+        /sbin/fsck_hfs -r -y $DEV > /dev/null 2>&1
+      fi
+    done
   }
 
   mount_nbd() {
@@ -181,6 +191,11 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   }
 
   mount_disk() {
+
+  # deal with hfs partitions
+    if [ -x /sbin/fsck_hfs ]; then
+      hfsdiskprep
+    fi
 
     mount_part "$boot" "/flash" "ro,noatime"
     show_splash
