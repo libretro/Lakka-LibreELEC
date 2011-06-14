@@ -18,19 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="eglibc"
-PKG_VERSION="2.13-14178"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.eglibc.org/"
-PKG_URL="$OPENELEC_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="timezone-data"
-PKG_BUILD_DEPENDS="ccache autotools linux-headers gcc-core"
-PKG_PRIORITY="optional"
-PKG_SECTION="toolchain/devel"
-PKG_SHORTDESC="eglibc: The Embedded GNU C library"
-PKG_LONGDESC="The Embedded GLIBC (EGLIBC) is a variant of the GNU C Library (GLIBC) that is designed to work well on embedded systems. EGLIBC strives to be source and binary compatible with GLIBC. EGLIBC's goals include reduced footprint, configurable components, better support for cross-compilation and cross-testing. In contrast to what Ulrich Drepper makes out of GLIBC, in EGLIBC all patches assigned to the FSF will be considered regardless of individual or company affiliation and cooperation is encouraged, as well as communication, civility, and respect among developers."
-PKG_IS_ADDON="no"
+import xbmc, time, os, subprocess
 
-PKG_AUTORECONF="no"
+os.system("SABnzbd-Suite.service")
