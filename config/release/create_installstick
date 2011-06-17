@@ -56,24 +56,85 @@ echo "# Please read the instructions and use very carefully.. #"
 echo "#                                                       #"
 echo "#########################################################"
 
+# check for some required tools
+
+  # this is needed to create a bootloader
+  which syslinux > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"syslinux\"     #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed by syslinux
+  which mcopy > /dev/null
+    if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"mcopy\"        #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#      NOTE: Some distributions call this package       #"
+    echo "#      \"mtools\".                                      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to partion the stick
+  which parted > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"parted\"       #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+
 # check MD5 sums
   echo "checking MD5 sum..."
-  md5sum -c target/KERNEL.md5
-  MD5_ERROR="$?"
-  md5sum -c target/SYSTEM.md5
-  MD5_ERROR="$?"
 
-if [ "$MD5_ERROR" = "1" ]; then
-  echo "#########################################################"
-  echo "#                                                       #"
-  echo "# OpenELEC.tv failed md5 check - Installation will quit #"
-  echo "#                                                       #"
-  echo "#      Your original download was probably corrupt.     #"
-  echo "#   Please visit www.openelec.tv and get another copy   #"
-  echo "#                                                       #"
-  echo "#########################################################"
-  exit 1
-fi
+  md5sumFailed()
+  {
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv failed md5 check - Installation will quit #"
+    echo "#                                                       #"
+    echo "#      Your original download was probably corrupt.     #"
+    echo "#   Please visit www.openelec.tv and get another copy   #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  }
+
+  md5sum -c target/KERNEL.md5
+  if [ "$?" = "1" ]; then
+    md5sumFailed
+  fi
+
+  md5sum -c target/SYSTEM.md5
+  if [ "$?" = "1" ]; then
+    md5sumFailed
+  fi
 
 # (TODO) umount anything
   umount "$PART"
@@ -136,6 +197,10 @@ fi
   cp README /tmp/usb_install
   cp RELEASE /tmp/usb_install
 
+# syncing disk
+  echo "syncing disk..."
+  sync
+
 # unmount partition
   echo "unmounting partition $PART..."
   umount "$PART"
@@ -143,11 +208,11 @@ fi
 # write mbr
   echo "writing mbr..."
   if [ -f /usr/lib/syslinux/mbr.bin ]; then
-    MBR="/usr/lib/syslinux/mbr.bin"       # example: ubuntu
+    MBR="/usr/lib/syslinux/mbr.bin"       # example: debian, ubuntu
   elif [ -f /usr/share/syslinux/mbr.bin ]; then
     MBR="/usr/share/syslinux/mbr.bin"     # example: fedora
   else
-    echo "Dont find mbr.bin on Host OS"
+    echo "Can't find mbr.bin on Host OS"
   fi
 
   if [ -n "$MBR" ]; then
@@ -162,4 +227,4 @@ fi
   echo "cleaning tempdir..."
   rmdir /tmp/usb_install
 
-echo "...ready"
+echo "...finished installation"
