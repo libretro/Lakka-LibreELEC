@@ -1,6 +1,6 @@
 ################################################################################
-#      Copyright (C) 2009-2010 OpenELEC.tv
-#      http://www.openelec.tv
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,30 +18,13 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-#
-# automount internal disks
-#
-# runlevels: openelec, textmode
+ACTION!="add|change", GOTO="end"
+SUBSYSTEM!="block", GOTO="end"
 
-(
-  progress "automount internal disks"
+# mount the partition on add/change, if its a filesystem and on a ata drive
+  KERNEL=="sd[a-z][0-9]*", \
+  ENV{ID_BUS}=="ata", \
+  ENV{ID_FS_USAGE}=="filesystem", \
+  RUN+="/usr/bin/udisks --mount /dev/%k"
 
-  drive_dump () {
-    udisks --dump | tr -d ' ' | grep 'device-file:' | cut -d ':' -f2
-  }
-
-  show_info () {
-    udisks --show-info $2 | grep "$1:" | tr -d ' ' | cut -d ":" -f2
-  }
-
-  for DEVICE in `drive_dump`; do
-    REMOVABLE="`show_info "removable" $DEVICE`"
-    MOUNTED="`show_info "is mounted" $DEVICE`"
-    USAGE="`show_info "usage" $DEVICE`"
-
-    if [ "$REMOVABLE" = "0" -a "$MOUNTED" = "0" -a "$USAGE" = "filesystem" ]; then
-      udisks --mount "$DEVICE" >/dev/null
-    fi
-
-  done
-)&
+LABEL="end"
