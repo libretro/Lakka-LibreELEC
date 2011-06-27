@@ -32,47 +32,9 @@ get_graphicdrivers
 # TODO:
   LDFLAGS=""
 
-MESA_CONFIG=" --disable-gallium --disable-gallium-nouveau --disable-gallium-i915 --disable-gallium-i965"
-MESA_CONFIG="$MESA_CONFIG --disable-gallium-radeon --disable-gallium-r300 --disable-gallium-r600"
-MESA_CONFIG="$MESA_CONFIG --disable-gallium-svga --disable-gallium-swrast"
-
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config"
-  MESA_CONFIG="$MESA_CONFIG --enable-gallium --enable-gallium-llvm"
 fi
-
-for drv in $GRAPHIC_DRIVERS; do
-  if [ "$drv" = i915 ]; then
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-i915/disable-gallium-i915/'`
-    # MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx --enable-gallium"
-  fi
-
-  if [ "$drv" = i965 ]; then
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-i965/disable-gallium-i965/'`
-    # MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx --enable-gallium"
-  fi
-
-  if [ "$drv" = r300 -o "$drv" = radeon ]; then
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-radeon/enable-gallium-radeon/'`
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-r300/enable-gallium-r300/'`
-    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx --enable-gallium"
-  fi
-
-  if [ "$drv" = r600 ]; then
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-r600/enable-gallium-r600/'`
-    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx --enable-gallium"
-  fi
-
-  if [ "$drv" = nouveau ]; then
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-nouveau/enable-gallium-nouveau/'`
-    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx --enable-gallium"
-  fi
-
-  if [ "$drv" = vmware ]; then
-    MESA_CONFIG=`echo $MESA_CONFIG | sed -e 's/disable-gallium-svga/enable-gallium-svga/'`
-    MESA_CONFIG="$MESA_CONFIG --with-state-trackers=dri,glx --enable-gallium"
-  fi
-done
 
 cd $PKG_BUILD
 
@@ -99,10 +61,22 @@ DRI_DRIVER_SEARCH_DIR="$XORG_PATH_DRI" \
             --disable-glut \
             --disable-glw \
             --disable-motif \
-            $MESA_CONFIG \
+            --with-gallium-drivers="$GALLIUM_DRIVERS" \
             --with-driver="dri" \
-            --with-dri-drivers="$MESA_DRIVERS" \
+            --with-dri-drivers="$DRI_DRIVERS" \
             --with-xorg-driver-dir="$XORG_PATH_DRIVERS" \
+
+make CC="$HOST_CC" \
+     CXX="$HOST_CXX" \
+     CFLAGS="$HOST_CFLAGS" \
+     CXXFLAGS="$HOST_CXXFLAGS" \
+     LDFLAGS="$HOST_LDFLAGS" \
+     -C src/glsl builtin_compiler
+
+cp src/glsl/builtin_compiler $ROOT/$TOOLCHAIN/bin
+make -C src/glsl clean
+
+sed -e "s#\.\/builtin_compiler#$ROOT/$TOOLCHAIN/bin/builtin_compiler#g" -i src/glsl/Makefile
 
 make
 
