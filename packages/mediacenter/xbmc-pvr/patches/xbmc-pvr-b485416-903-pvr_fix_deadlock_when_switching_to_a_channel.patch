@@ -1,0 +1,54 @@
+From 5eb53947a50f951b019d16987630393ffabea008 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Tue, 19 Jul 2011 01:35:30 +0200
+Subject: [PATCH] pvr: fix deadlock when switching to a channel that's unavailable
+
+---
+ xbmc/cores/dvdplayer/DVDPlayer.cpp |    5 +++++
+ xbmc/pvr/PVRManager.cpp            |   14 ++++++++------
+ 2 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index 824391e..90bcc0c 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -2266,6 +2266,11 @@ void CDVDPlayer::HandleMessages()
+               SetCaching(CACHESTATE_PVR);
+             }
+           }
++          else
++          {
++            CLog::Log(LOGWARNING, "%s - failed to switch channel. playback stopped", __FUNCTION__);
++            CloseFile();
++          }
+         }
+       }
+       else if (pMsg->IsType(CDVDMsg::GENERAL_GUI_ACTION))
+diff --git a/xbmc/pvr/PVRManager.cpp b/xbmc/pvr/PVRManager.cpp
+index cfc8d3d..6cad52b 100644
+--- a/xbmc/pvr/PVRManager.cpp
++++ b/xbmc/pvr/PVRManager.cpp
+@@ -676,12 +676,14 @@ void CPVRManager::SetPlayingGroup(CPVRChannelGroup *group)
+ 
+ CPVRChannelGroup *CPVRManager::GetPlayingGroup(bool bRadio /* = false */)
+ {
+-  CSingleLock lock(m_critSection);
+-
+-  if (bRadio && !m_currentRadioGroup)
+-    SetPlayingGroup((CPVRChannelGroup *) m_channelGroups->GetGroupAllRadio());
+-  else if (!bRadio &&!m_currentTVGroup)
+-    SetPlayingGroup((CPVRChannelGroup *) m_channelGroups->GetGroupAllTV());
++  CSingleTryLock tryLock(m_critSection);
++  if(tryLock.IsOwner())
++  {
++    if (bRadio && !m_currentRadioGroup)
++      SetPlayingGroup((CPVRChannelGroup *) m_channelGroups->GetGroupAllRadio());
++    else if (!bRadio &&!m_currentTVGroup)
++      SetPlayingGroup((CPVRChannelGroup *) m_channelGroups->GetGroupAllTV());
++  }
+ 
+   return bRadio ? m_currentRadioGroup : m_currentTVGroup;
+ }
+-- 
+1.7.4.1
+
