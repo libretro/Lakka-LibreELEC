@@ -26,8 +26,22 @@ get_graphicdrivers
 
 # dont use gold linker because of compiling issues
   strip_gold
-  strip_linker_plugin
-  strip_lto # Mesa fails to build with LTO optimization
+
+# Mesa fails to build with LTO optimization
+  strip_lto
+
+# dont build with loop and graphite optimization
+  CFLAGS=`echo $CFLAGS | sed -e "s|-ftree-loop-distribution||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-floop-interchange||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-floop-strip-mine||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-floop-block||"`
+  CFLAGS=`echo $CFLAGS | sed -e "s|-fgraphite-identity||"`
+
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-ftree-loop-distribution||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-floop-interchange||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-floop-strip-mine||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-floop-block||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-fgraphite-identity||"`
 
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config"
@@ -50,23 +64,35 @@ DRI_DRIVER_SEARCH_DIR="$XORG_PATH_DRI" \
             --localstatedir=/var \
             --disable-static \
             --enable-shared \
-            --enable-shared-dricore \
             --disable-debug \
+            --disable-texture-float \
             --disable-selinux \
-            --enable-xcb \
+            --enable-opengl \
             --disable-glx-tls \
             --enable-driglx-direct \
-            --disable-egl \
+            --disable-gles1 \
+            --disable-gles2 \
+            --disable-openvg \
+            --disable-xorg \
             --enable-glu \
             --disable-gl-osmesa \
             --disable-glut \
             --disable-glw \
             --disable-motif \
-            --with-gallium-drivers="$GALLIUM_DRIVERS" \
+            --disable-d3d1x \
+            --disable-egl \
+            --disable-gbm \
+            --disable-gallium-egl \
+            --disable-gallium-gbm \
+            --enable-shared-glapi \
+            --enable-xcb \
+            --enable-shared-dricore \
+            --disable-egl \
             $MESA_GALLIUM_LLVM \
+            --with-gallium-drivers="$GALLIUM_DRIVERS" \
             --with-driver="dri" \
             --with-dri-drivers="$DRI_DRIVERS" \
-            --with-xorg-driver-dir="$XORG_PATH_DRIVERS" \
+            --with-x \
 
 make CC="$HOST_CC" \
      CXX="$HOST_CXX" \
@@ -82,5 +108,4 @@ sed -e "s#\.\/builtin_compiler#$ROOT/$TOOLCHAIN/bin/builtin_compiler#g" -i src/g
 
 make
 
-$MAKEINSTALL -C src/mesa
-$MAKEINSTALL -C src/glu
+$MAKEINSTALL
