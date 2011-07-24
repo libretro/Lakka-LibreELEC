@@ -1,18 +1,7 @@
-From 0af52fbdac270994d6f6c16e601a442cbbf53e9e Mon Sep 17 00:00:00 2001
-From: Feng, Boqun <boqun.feng@intel.com>
-Date: Mon, 16 May 2011 08:11:52 +0000
-Subject: i965_drv_video: enable H.264 decoding on G4x
-
-Currently only support single thread
-
-signed-off-by: Feng, Boqun <boqun.feng@intel.com>
-Signed-off-by: Xiang, Haihao <haihao.xiang@intel.com>
----
-diff --git a/i965_drv_video/i965_avc_ildb.c b/i965_drv_video/i965_avc_ildb.c
-index 0518a18..84ee3ed 100644
---- a/i965_drv_video/i965_avc_ildb.c
-+++ b/i965_drv_video/i965_avc_ildb.c
-@@ -600,8 +600,8 @@ i965_avc_ildb_decode_init(VADriverContextP ctx, void *h264_context)
+diff -Naur libva-270299f/i965_drv_video/i965_avc_ildb.c libva-270299f.patch/i965_drv_video/i965_avc_ildb.c
+--- libva-270299f/i965_drv_video/i965_avc_ildb.c	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/i965_avc_ildb.c	2011-07-24 06:27:10.631989839 +0200
+@@ -600,8 +600,8 @@
      avc_ildb_context->urb.vfe_start = 0;
      avc_ildb_context->urb.cs_start = avc_ildb_context->urb.vfe_start + 
          avc_ildb_context->urb.num_vfe_entries * avc_ildb_context->urb.size_vfe_entry;
@@ -23,25 +12,23 @@ index 0518a18..84ee3ed 100644
  
      for (i = 0; i < NUM_AVC_ILDB_SURFACES; i++) {
          dri_bo_unreference(avc_ildb_context->surface[i].s_bo);
-diff --git a/i965_drv_video/i965_drv_video.c b/i965_drv_video/i965_drv_video.c
-index 1a5e323..793b7a3 100644
---- a/i965_drv_video/i965_drv_video.c
-+++ b/i965_drv_video/i965_drv_video.c
-@@ -52,7 +52,8 @@
-                          (IS_GEN6((ctx)->intel.device_id) && (ctx)->intel.has_bsd))
+diff -Naur libva-270299f/i965_drv_video/i965_drv_video.c libva-270299f.patch/i965_drv_video/i965_drv_video.c
+--- libva-270299f/i965_drv_video/i965_drv_video.c	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/i965_drv_video.c	2011-07-24 06:27:49.090451589 +0200
+@@ -55,7 +55,8 @@
  
- #define HAS_H264(ctx)   ((IS_GEN6((ctx)->intel.device_id) ||            \
+ #define HAS_H264(ctx)   ((IS_GEN7((ctx)->intel.device_id) ||            \
+                           IS_GEN6((ctx)->intel.device_id) ||            \
 -                          IS_IRONLAKE((ctx)->intel.device_id)) &&       \
 +                          IS_IRONLAKE((ctx)->intel.device_id) ||        \
 +                          IS_G4X((ctx)->intel.device_id)) &&            \
                           (ctx)->intel.has_bsd)
  
- #define HAS_VC1(ctx)    (IS_GEN6((ctx)->intel.device_id) && (ctx)->intel.has_bsd)
-diff --git a/i965_drv_video/i965_media_h264.c b/i965_drv_video/i965_media_h264.c
-index ba87171..3879877 100644
---- a/i965_drv_video/i965_media_h264.c
-+++ b/i965_drv_video/i965_media_h264.c
-@@ -671,11 +671,15 @@ i965_media_h264_upload_constants(VADriverContextP ctx,
+ #define HAS_VC1(ctx)    ((IS_GEN7((ctx)->intel.device_id) ||    \
+diff -Naur libva-270299f/i965_drv_video/i965_media_h264.c libva-270299f.patch/i965_drv_video/i965_media_h264.c
+--- libva-270299f/i965_drv_video/i965_media_h264.c	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/i965_media_h264.c	2011-07-24 06:27:10.639989935 +0200
+@@ -673,11 +673,15 @@
              /* FIXME: Need to upload CURBE data to inter kernel interface 
               * to support weighted prediction work-around 
               */
@@ -62,7 +49,7 @@ index ba87171..3879877 100644
          }
      }
  
-@@ -891,7 +895,11 @@ i965_media_h264_dec_context_init(VADriverContextP ctx, struct i965_media_context
+@@ -893,7 +897,11 @@
      if (IS_IRONLAKE(i965->intel.device_id)) {
          media_context->urb.num_vfe_entries = 63;
      } else {
@@ -75,23 +62,9 @@ index ba87171..3879877 100644
      }
  
      media_context->urb.size_vfe_entry = 16;
-diff --git a/i965_drv_video/shaders/h264/mc/AVCMCInter.asm b/i965_drv_video/shaders/h264/mc/AVCMCInter.asm
-index 691fb33..bdaddad 100644
---- a/i965_drv_video/shaders/h264/mc/AVCMCInter.asm
-+++ b/i965_drv_video/shaders/h264/mc/AVCMCInter.asm
-@@ -228,7 +228,7 @@ INTERLABEL(EXIT_LOOP):
- 
- #ifdef SW_SCOREBOARD    
- 	wait	n0:ud		//	Now wait for scoreboard to response
--    #include "Soreboard_update.asm"	// scorboard update function
-+    #include "scoreboard_update.asm"	// scorboard update function
- #else
- // Check for write commit first if SW scoreboard is disabled
- 	mov	(1)	gREG_WRITE_COMMIT_Y<1>:ud	gREG_WRITE_COMMIT_Y<0;1,0>:ud		// Make sure Y write is committed
-diff --git a/i965_drv_video/shaders/h264/mc/AllAVC.asm b/i965_drv_video/shaders/h264/mc/AllAVC.asm
-index 045ddf3..8fc4fb3 100644
---- a/i965_drv_video/shaders/h264/mc/AllAVC.asm
-+++ b/i965_drv_video/shaders/h264/mc/AllAVC.asm
+diff -Naur libva-270299f/i965_drv_video/shaders/h264/mc/AllAVC.asm libva-270299f.patch/i965_drv_video/shaders/h264/mc/AllAVC.asm
+--- libva-270299f/i965_drv_video/shaders/h264/mc/AllAVC.asm	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/shaders/h264/mc/AllAVC.asm	2011-07-24 06:27:10.640989947 +0200
 @@ -36,12 +36,13 @@
  
  #ifdef DEV_CTG
@@ -107,41 +80,9 @@ index 045ddf3..8fc4fb3 100644
  #if defined(_EXPORT)
  	#include "AllAVC_Export.inc"
  #elif defined(_BUILD)
-diff --git a/i965_drv_video/shaders/h264/mc/Makefile.am b/i965_drv_video/shaders/h264/mc/Makefile.am
-index a4ab3c0..3c80c5d 100644
---- a/i965_drv_video/shaders/h264/mc/Makefile.am
-+++ b/i965_drv_video/shaders/h264/mc/Makefile.am
-@@ -7,6 +7,9 @@ INTEL_G4B = null.g4b
- 
- INTEL_G4B_GEN5 = null.g4b.gen5
- 
-+INTEL_MC_G4B = avc_mc.g4b
-+INTEL_MC_EXPORT = export.inc
-+
- INTEL_MC_G4B_GEN5 = avc_mc.g4b.gen5
- INTEL_MC_EXPORT_GEN5 = export.inc.gen5
- 
-@@ -163,6 +166,16 @@ SUFFIXES = .g4a .g4b
- .g4a.g4b:
- 	m4 $*.g4a > $*.g4m && intel-gen4asm -o $@ $*.g4m && intel-gen4asm -g 5 -o $@.gen5 $*.g4m && rm $*.g4m
- 
-+$(INTEL_MC_G4B): $(INTEL_MC_ASM) $(INTEL_ILDB_ASM)
-+	@cpp -D DEV_CTG -I ../ildb/ AllAVC.asm > a.asm; \
-+	../../gpp.py a.asm avc_mc.asm; \
-+	intel-gen4asm -l list -a -e _export.inc -o $@ -g 4 avc_mc.asm; \
-+	cpp -D DEV_CTG -I ../ildb/ AllAVC.asm > a.asm; \
-+	../../gpp.py a.asm avc_mc.asm; \
-+	intel-gen4asm -l list -a -e _export.inc -o $@ -g 4 avc_mc.asm; \
-+	cat _export.inc  > $(INTEL_MC_EXPORT); \
-+	rm a.asm avc_mc.asm _export.inc
-+
- $(INTEL_MC_G4B_GEN5): $(INTEL_MC_ASM) $(INTEL_ILDB_ASM)
- 	@cpp -D DEV_ILK -I ../ildb/ AllAVC.asm > a.asm; \
- 	../../gpp.py a.asm avc_mc.asm; \
-diff --git a/i965_drv_video/shaders/h264/mc/avc_mc.g4b b/i965_drv_video/shaders/h264/mc/avc_mc.g4b
-index cdee6ac..70c4610 100644
---- a/i965_drv_video/shaders/h264/mc/avc_mc.g4b
-+++ b/i965_drv_video/shaders/h264/mc/avc_mc.g4b
+diff -Naur libva-270299f/i965_drv_video/shaders/h264/mc/avc_mc.g4b libva-270299f.patch/i965_drv_video/shaders/h264/mc/avc_mc.g4b
+--- libva-270299f/i965_drv_video/shaders/h264/mc/avc_mc.g4b	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/shaders/h264/mc/avc_mc.g4b	2011-07-24 06:27:10.649990055 +0200
 @@ -1,7 +1,7 @@
     { 0x00600001, 0x27c00021, 0x008d0000, 0x00000000 },
     { 0x00200009, 0x27fa3e29, 0x00450064, 0x00040004 },
@@ -4213,10 +4154,21 @@ index cdee6ac..70c4610 100644
     { 0x00600040, 0x23e03d2d, 0x008d0200, 0x00010001 },
     { 0x00600040, 0x24003e2c, 0x00ae9800, 0x00040004 },
     { 0x00600048, 0x24003dac, 0x008d0400, 0x00040004 },
-diff --git a/i965_drv_video/shaders/h264/mc/export.inc b/i965_drv_video/shaders/h264/mc/export.inc
-index 5b81219..7e4ad5b 100644
---- a/i965_drv_video/shaders/h264/mc/export.inc
-+++ b/i965_drv_video/shaders/h264/mc/export.inc
+diff -Naur libva-270299f/i965_drv_video/shaders/h264/mc/AVCMCInter.asm libva-270299f.patch/i965_drv_video/shaders/h264/mc/AVCMCInter.asm
+--- libva-270299f/i965_drv_video/shaders/h264/mc/AVCMCInter.asm	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/shaders/h264/mc/AVCMCInter.asm	2011-07-24 06:27:10.639989935 +0200
+@@ -228,7 +228,7 @@
+ 
+ #ifdef SW_SCOREBOARD    
+ 	wait	n0:ud		//	Now wait for scoreboard to response
+-    #include "Soreboard_update.asm"	// scorboard update function
++    #include "scoreboard_update.asm"	// scorboard update function
+ #else
+ // Check for write commit first if SW scoreboard is disabled
+ 	mov	(1)	gREG_WRITE_COMMIT_Y<1>:ud	gREG_WRITE_COMMIT_Y<0;1,0>:ud		// Make sure Y write is committed
+diff -Naur libva-270299f/i965_drv_video/shaders/h264/mc/export.inc libva-270299f.patch/i965_drv_video/shaders/h264/mc/export.inc
+--- libva-270299f/i965_drv_video/shaders/h264/mc/export.inc	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/shaders/h264/mc/export.inc	2011-07-24 06:27:10.651990079 +0200
 @@ -1,345 +1,299 @@
  #define INTRA_16x16_IP 0
 -#define INTRA_16x16_VERTICAL_IP 14
@@ -4861,10 +4813,9 @@ index 5b81219..7e4ad5b 100644
 +#define MBAFF_UV_ENDIF2_IP 4713
 +#define MBAFF_UV_ENDIF1_IP 4713
 +#define AllAVC_END_IP 4715
-diff --git a/i965_drv_video/shaders/h264/mc/header.inc b/i965_drv_video/shaders/h264/mc/header.inc
-index 4a0eecf..0fac994 100644
---- a/i965_drv_video/shaders/h264/mc/header.inc
-+++ b/i965_drv_video/shaders/h264/mc/header.inc
+diff -Naur libva-270299f/i965_drv_video/shaders/h264/mc/header.inc libva-270299f.patch/i965_drv_video/shaders/h264/mc/header.inc
+--- libva-270299f/i965_drv_video/shaders/h264/mc/header.inc	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/shaders/h264/mc/header.inc	2011-07-24 06:27:10.652990091 +0200
 @@ -18,13 +18,13 @@
  #ifndef	COMBINED_KERNEL
  #ifdef DEV_CTG
@@ -4880,10 +4831,39 @@ index 4a0eecf..0fac994 100644
  //#define MONO				// Build Monochrome kernels
  
  //  Surface state definition
-diff --git a/i965_drv_video/shaders/h264/mc/scoreboard_update.asm b/i965_drv_video/shaders/h264/mc/scoreboard_update.asm
-index f519e4a..ea0cc28 100644
---- a/i965_drv_video/shaders/h264/mc/scoreboard_update.asm
-+++ b/i965_drv_video/shaders/h264/mc/scoreboard_update.asm
+diff -Naur libva-270299f/i965_drv_video/shaders/h264/mc/Makefile.am libva-270299f.patch/i965_drv_video/shaders/h264/mc/Makefile.am
+--- libva-270299f/i965_drv_video/shaders/h264/mc/Makefile.am	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/shaders/h264/mc/Makefile.am	2011-07-24 06:27:10.640989947 +0200
+@@ -7,6 +7,9 @@
+ 
+ INTEL_G4B_GEN5 = null.g4b.gen5
+ 
++INTEL_MC_G4B = avc_mc.g4b
++INTEL_MC_EXPORT = export.inc
++
+ INTEL_MC_G4B_GEN5 = avc_mc.g4b.gen5
+ INTEL_MC_EXPORT_GEN5 = export.inc.gen5
+ 
+@@ -163,6 +166,16 @@
+ .g4a.g4b:
+ 	m4 $*.g4a > $*.g4m && intel-gen4asm -o $@ $*.g4m && intel-gen4asm -g 5 -o $@.gen5 $*.g4m && rm $*.g4m
+ 
++$(INTEL_MC_G4B): $(INTEL_MC_ASM) $(INTEL_ILDB_ASM)
++	@cpp -D DEV_CTG -I ../ildb/ AllAVC.asm > a.asm; \
++	../../gpp.py a.asm avc_mc.asm; \
++	intel-gen4asm -l list -a -e _export.inc -o $@ -g 4 avc_mc.asm; \
++	cpp -D DEV_CTG -I ../ildb/ AllAVC.asm > a.asm; \
++	../../gpp.py a.asm avc_mc.asm; \
++	intel-gen4asm -l list -a -e _export.inc -o $@ -g 4 avc_mc.asm; \
++	cat _export.inc  > $(INTEL_MC_EXPORT); \
++	rm a.asm avc_mc.asm _export.inc
++
+ $(INTEL_MC_G4B_GEN5): $(INTEL_MC_ASM) $(INTEL_ILDB_ASM)
+ 	@cpp -D DEV_ILK -I ../ildb/ AllAVC.asm > a.asm; \
+ 	../../gpp.py a.asm avc_mc.asm; \
+diff -Naur libva-270299f/i965_drv_video/shaders/h264/mc/scoreboard_update.asm libva-270299f.patch/i965_drv_video/shaders/h264/mc/scoreboard_update.asm
+--- libva-270299f/i965_drv_video/shaders/h264/mc/scoreboard_update.asm	2011-07-20 05:11:18.000000000 +0200
++++ libva-270299f.patch/i965_drv_video/shaders/h264/mc/scoreboard_update.asm	2011-07-24 06:27:10.652990091 +0200
 @@ -35,7 +35,6 @@
  	mov	(1)	REG_WRITE_COMMIT_UV<1>:ud	REG_WRITE_COMMIT_UV<0;1,0>:ud		// Make sure U/V write is committed
  #endif	// INTER_KERNEL
@@ -4892,5 +4872,3 @@ index f519e4a..ea0cc28 100644
  	send (8)	NULLREG  MSGHDRY1	null:ud    MSG_GW	FWDMSGDSC
  
  // End of scoreboard_update
---
-cgit v0.8.3-6-g21f6
