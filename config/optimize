@@ -1,30 +1,48 @@
+if [ "$OPTIMIZATIONS" = fast ];then
+  GCC_OPTIM="-Ofast"
+  GCC_OPTIM="$GCC_OPTIM -fexcess-precision=fast"
+  LD_OPTIM="-Wl,--as-needed"
+fi
+
 if [ "$OPTIMIZATIONS" = speed ];then
-  GCC_OPTIM="-O3"
-  LD_OPTIM=""
+  GCC_OPTIM="$GCC_OPTIM -O3"
+  GCC_OPTIM="$GCC_OPTIM -fexcess-precision=fast"
+  GCC_OPTIM="$GCC_OPTIM -ffast-math"
+  LD_OPTIM="-Wl,--as-needed"
 fi
 
 if [ "$OPTIMIZATIONS" = normal ];then
-  GCC_OPTIM="-O2"
+  GCC_OPTIM="$GCC_OPTIM -O2"
   LD_OPTIM=""
 fi
 
 if [ "$OPTIMIZATIONS" = size ];then
-  GCC_OPTIM="-Os"
+  GCC_OPTIM="$GCC_OPTIM -Os"
   LD_OPTIM=""
 fi
 
-GCC_OPTIM="$GCC_OPTIM -ffast-math"
-GCC_OPTIM="$GCC_OPTIM -ftree-loop-distribution"
-GCC_OPTIM="$GCC_OPTIM -floop-interchange"
-GCC_OPTIM="$GCC_OPTIM -floop-strip-mine"
-GCC_OPTIM="$GCC_OPTIM -floop-block"
-GCC_OPTIM="$GCC_OPTIM -fgraphite-identity"
-GCC_OPTIM="$GCC_OPTIM -fexcess-precision=fast"
-GCC_OPTIM="$GCC_OPTIM -flto"
+if [ "$LOOP_SUPPORT" = yes ];then
+  GCC_OPTIM="$GCC_OPTIM -ftree-loop-distribution"
+  GCC_OPTIM="$GCC_OPTIM -floop-interchange"
+  GCC_OPTIM="$GCC_OPTIM -floop-strip-mine"
+  GCC_OPTIM="$GCC_OPTIM -floop-block"
+fi
 
-LD_OPTIM="$LD_OPTIM -fuse-linker-plugin"
-LD_OPTIM="$LD_OPTIM -fuse-ld=gold"
-LD_OPTIM="$LD_OPTIM -Wl,--as-needed"
+if [ "$GRAPHITE_SUPPORT" = yes ];then
+  GCC_OPTIM="$GCC_OPTIM -fgraphite-identity"
+fi
+
+if [ "$LTO_SUPPORT" = yes -o "$GOLD_SUPPORT" = yes ];then
+  LD_OPTIM="$LD_OPTIM -fuse-linker-plugin"
+fi
+
+if [ "$LTO_SUPPORT" = yes ];then
+  GCC_OPTIM="$GCC_OPTIM -flto"
+fi
+
+if [ "$GOLD_SUPPORT" = yes ];then
+  LD_OPTIM="$LD_OPTIM -fuse-ld=gold"
+fi
 
 if [ "$DEBUG" = yes ]; then
   TARGET_CFLAGS="$TARGET_CFLAGS -ggdb"
@@ -40,17 +58,54 @@ TARGET_CPPFLAGS=
 TARGET_CFLAGS="$TARGET_CFLAGS -Wall -pipe $GCC_OPTIM $PROJECT_CFLAGS"
 TARGET_CXXFLAGS="$TARGET_CFLAGS"
 TARGET_LDFLAGS="$TARGET_LDFLAGS $GCC_OPTIM $LD_OPTIM"
+TARGET_LIBDIR="$SYSROOT_PREFIX/lib $SYSROOT_PREFIX/usr/lib"
+TARGET_INCDIR="$SYSROOT_PREFIX/include $SYSROOT_PREFIX/usr/include"
 
 HOST_CPPFLAGS=""
 HOST_CFLAGS="-O2 -Wall -pipe -I$ROOT/$TOOLCHAIN/include"
 HOST_CXXFLAGS="$HOST_CFLAGS"
 HOST_LDFLAGS="-Wl,-rpath,$ROOT/$TOOLCHAIN/lib -L$ROOT/$TOOLCHAIN/lib"
+HOST_LIBDIR="$ROOT/$TOOLCHAIN/lib"
+
+# add distro specific library dirs
+  # ubuntu/debian specific "multiarch support"
+    FAMILY_TRIPLET=$(echo $HOST_NAME | sed -e "s,$(uname -m),$(uname -i),")
+    if [ -d /lib/$FAMILY_TRIPLET ]; then
+      HOST_LIBDIR="$HOST_LIBDIR /lib/$FAMILY_TRIPLET"
+    fi
+    if [ -d /usr/lib/$FAMILY_TRIPLET ]; then
+      HOST_LIBDIR="$HOST_LIBDIR /usr/lib/$FAMILY_TRIPLET"
+    fi
+
+  # default multiarch support
+    case "`uname -m`" in
+      i*86)
+        if [ -d /lib32 ]; then
+          HOST_LIBDIR="$HOST_LIBDIR /lib32"
+        fi
+        if [ -d /usr/lib32 ]; then
+          HOST_LIBDIR="$HOST_LIBDIR /usr/lib32"
+        fi
+      ;;
+      x86_64)
+        if [ -d /lib64 ]; then
+          HOST_LIBDIR="$HOST_LIBDIR /lib64"
+        fi
+        if [ -d /usr/lib64 ]; then
+          HOST_LIBDIR="$HOST_LIBDIR /usr/lib64"
+        fi
+      ;;
+    esac
+
+  # default dirs
+    HOST_LIBDIR="$HOST_LIBDIR /lib /usr/lib"
+    HOST_INCDIR="$ROOT/$TOOLCHAIN/include /usr/include"
 
 # use -fPIC when necessary
   case "`uname -m`" in
     x86_64|ppc64|arm|armeb|armel)
-    HOST_CFLAGS="$HOST_CFLAGS -fPIC"
-    HOST_CXXFLAGS="$HOST_CXXFLAGS -fPIC"
-    HOST_LDFLAGS="$HOST_LDFLAGS -fPIC"
+      HOST_CFLAGS="$HOST_CFLAGS -fPIC"
+      HOST_CXXFLAGS="$HOST_CXXFLAGS -fPIC"
+      HOST_LDFLAGS="$HOST_LDFLAGS -fPIC"
     ;;
   esac
