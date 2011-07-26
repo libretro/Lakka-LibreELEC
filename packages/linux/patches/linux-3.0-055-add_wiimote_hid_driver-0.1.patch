@@ -1,0 +1,2563 @@
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Fri, 22 Jul 2011 22:02:58 +0000 (-0700)
+Subject: Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jikos/hid
+X-Git-Url: http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Ftorvalds%2Flinux-2.6.git;a=commitdiff_plain;h=22a3b9771117d566def0150ea787fcc95f16e724;hp=acb41c0f928fdb84a1c3753ac92c534a2a0f08d2
+
+Merge branch 'for-linus' of git://git./linux/kernel/git/jikos/hid
+
+* 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jikos/hid: (31 commits)
+  HID: fix support for Microsoft comfort mouse 4500
+  HID: hid-multitouch: add one new multitouch device's VID/PID
+  HID: prodikeys: remove a redundant forward declaration of struct pcmidi_snd
+  HID: prodikeys: make needlessly global symbols static
+  HID: emsff: properly handle emsff_init failure
+  HID: ACRUX - add missing hid_hw_stop() in ax_probe() error path
+  HID: fix horizontal wheel for ms comfort mouse 4500
+  HID: uclogic: Add support for UC-Logic WP1062
+  HID: wiimote: Add sysfs support to wiimote driver
+  HID: wiimote: Cache wiimote led state
+  HID: wiimote: Add wiimote led request
+  HID: wiimote: Add wiimote input button parser
+  HID: wiimote: Add wiimote event handler
+  HID: wiimote: Add output queue for wiimote driver
+  HID: wiimote: Add wiimote send function
+  HID: wiimote: Synchronize wiimote input and hid event handling
+  HID: wiimote: Register input device in wiimote hid driver
+  HID: wiimote: Add wiimote device structure
+  HID: wiimote: Register wiimote hid driver stub
+  HID: wiimote: Add Nintendo Wii Remote driver stub
+  ...
+---
+
+diff --git a/Documentation/ABI/testing/sysfs-driver-hid-roccat-koneplus b/Documentation/ABI/testing/sysfs-driver-hid-roccat-koneplus
+index c1b53b8..65e6e5d 100644
+--- a/Documentation/ABI/testing/sysfs-driver-hid-roccat-koneplus
++++ b/Documentation/ABI/testing/sysfs-driver-hid-roccat-koneplus
+@@ -92,6 +92,14 @@ Description:	The mouse has a tracking- and a distance-control-unit. These
+ 		This file is writeonly.
+ Users:		http://roccat.sourceforge.net
+ 
++What:		/sys/bus/usb/devices/<busnum>-<devnum>:<config num>.<interface num>/<hid-bus>:<vendor-id>:<product-id>.<num>/koneplus/roccatkoneplus<minor>/talk
++Date:		May 2011
++Contact:	Stefan Achatz <erazor_de@users.sourceforge.net>
++Description:	Used to active some easy* functions of the mouse from outside.
++		The data has to be 16 bytes long.
++		This file is writeonly.
++Users:		http://roccat.sourceforge.net
++
+ What:		/sys/bus/usb/devices/<busnum>-<devnum>:<config num>.<interface num>/<hid-bus>:<vendor-id>:<product-id>.<num>/koneplus/roccatkoneplus<minor>/tcu
+ Date:		October 2010
+ Contact:	Stefan Achatz <erazor_de@users.sourceforge.net>
+diff --git a/Documentation/ABI/testing/sysfs-driver-hid-wiimote b/Documentation/ABI/testing/sysfs-driver-hid-wiimote
+new file mode 100644
+index 0000000..5d5a16e
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-driver-hid-wiimote
+@@ -0,0 +1,10 @@
++What:		/sys/bus/hid/drivers/wiimote/<dev>/led1
++What:		/sys/bus/hid/drivers/wiimote/<dev>/led2
++What:		/sys/bus/hid/drivers/wiimote/<dev>/led3
++What:		/sys/bus/hid/drivers/wiimote/<dev>/led4
++Date:		July 2011
++KernelVersion:	3.1
++Contact:	David Herrmann <dh.herrmann@googlemail.com>
++Description:	Make it possible to set/get current led state. Reading from it
++		returns 0 if led is off and 1 if it is on. Writing 0 to it
++		disables the led, writing 1 enables it.
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 36ca465..306b15f 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -172,6 +172,20 @@ config HID_EZKEY
+ 	---help---
+ 	Support for Ezkey BTC 8193 keyboard.
+ 
++config HID_HOLTEK
++	tristate "Holtek On Line Grip based game controller support"
++	depends on USB_HID
++	---help---
++	  Say Y here if you have a Holtek On Line Grip based game controller.
++
++config HOLTEK_FF
++	bool "Holtek On Line Grip force feedback support"
++	depends on HID_HOLTEK
++	select INPUT_FF_MEMLESS
++	---help---
++	  Say Y here if you have a Holtek On Line Grip based game controller
++	  and want to have force feedback support for it.
++
+ config HID_KEYTOUCH
+ 	tristate "Keytouch HID devices"
+ 	depends on USB_HID
+@@ -322,6 +336,7 @@ config HID_MULTITOUCH
+ 	  - Stantum multitouch panels
+ 	  - Touch International Panels
+ 	  - Unitec Panels
++	  - XAT optical touch panels
+ 
+ 	  If unsure, say N.
+ 
+@@ -435,6 +450,7 @@ config HID_QUANTA
+ config HID_ROCCAT
+ 	tristate "Roccat special event support"
+ 	depends on USB_HID
++	select HID_ROCCAT_COMMON
+ 	---help---
+ 	Support for Roccat special events.
+ 	Say Y here if you have a Roccat mouse or keyboard and want OSD or
+@@ -442,44 +458,40 @@ config HID_ROCCAT
+ 
+ config HID_ROCCAT_COMMON
+ 	tristate
++	depends on HID_ROCCAT
+ 
+ config HID_ROCCAT_ARVO
+ 	tristate "Roccat Arvo keyboard support"
+ 	depends on USB_HID
+-	select HID_ROCCAT
+-	select HID_ROCCAT_COMMON
++	depends on HID_ROCCAT
+ 	---help---
+ 	Support for Roccat Arvo keyboard.
+ 
+ config HID_ROCCAT_KONE
+ 	tristate "Roccat Kone Mouse support"
+ 	depends on USB_HID
+-	select HID_ROCCAT
+-	select HID_ROCCAT_COMMON
++	depends on HID_ROCCAT
+ 	---help---
+ 	Support for Roccat Kone mouse.
+ 
+ config HID_ROCCAT_KONEPLUS
+ 	tristate "Roccat Kone[+] mouse support"
+ 	depends on USB_HID
+-	select HID_ROCCAT
+-	select HID_ROCCAT_COMMON
++	depends on HID_ROCCAT
+ 	---help---
+ 	Support for Roccat Kone[+] mouse.
+ 
+ config HID_ROCCAT_KOVAPLUS
+ 	tristate "Roccat Kova[+] mouse support"
+ 	depends on USB_HID
+-	select HID_ROCCAT
+-	select HID_ROCCAT_COMMON
++	depends on HID_ROCCAT
+ 	---help---
+ 	Support for Roccat Kova[+] mouse.
+ 
+ config HID_ROCCAT_PYRA
+ 	tristate "Roccat Pyra mouse support"
+ 	depends on USB_HID
+-	select HID_ROCCAT
+-	select HID_ROCCAT_COMMON
++	depends on HID_ROCCAT
+ 	---help---
+ 	Support for Roccat Pyra mouse.
+ 
+@@ -495,6 +507,12 @@ config HID_SONY
+ 	---help---
+ 	Support for Sony PS3 controller.
+ 
++config HID_SPEEDLINK
++	tristate "Speedlink VAD Cezanne mouse support"
++	depends on USB_HID
++	---help---
++	Support for Speedlink Vicious and Divine Cezanne mouse.
++
+ config HID_SUNPLUS
+ 	tristate "Sunplus wireless desktop"
+ 	depends on USB_HID
+@@ -568,6 +586,12 @@ config HID_WACOM_POWER_SUPPLY
+ 	  Say Y here if you want to enable power supply status monitoring for
+ 	  Wacom Bluetooth devices.
+ 
++config HID_WIIMOTE
++	tristate "Nintendo Wii Remote support"
++	depends on BT_HIDP
++	---help---
++	Support for the Nintendo Wii Remote bluetooth device.
++
+ config HID_ZEROPLUS
+ 	tristate "Zeroplus based game controller support"
+ 	depends on USB_HID
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index f8cc4ea..0a0a38e 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -37,6 +37,7 @@ obj-$(CONFIG_HID_EMS_FF)	+= hid-emsff.o
+ obj-$(CONFIG_HID_ELECOM)	+= hid-elecom.o
+ obj-$(CONFIG_HID_EZKEY)		+= hid-ezkey.o
+ obj-$(CONFIG_HID_GYRATION)	+= hid-gyration.o
++obj-$(CONFIG_HID_HOLTEK)	+= hid-holtekff.o
+ obj-$(CONFIG_HID_KENSINGTON)	+= hid-kensington.o
+ obj-$(CONFIG_HID_KEYTOUCH)	+= hid-keytouch.o
+ obj-$(CONFIG_HID_KYE)		+= hid-kye.o
+@@ -63,6 +64,7 @@ obj-$(CONFIG_HID_ROCCAT_PYRA)	+= hid-roccat-pyra.o
+ obj-$(CONFIG_HID_SAMSUNG)	+= hid-samsung.o
+ obj-$(CONFIG_HID_SMARTJOYPLUS)	+= hid-sjoy.o
+ obj-$(CONFIG_HID_SONY)		+= hid-sony.o
++obj-$(CONFIG_HID_SPEEDLINK)	+= hid-speedlink.o
+ obj-$(CONFIG_HID_SUNPLUS)	+= hid-sunplus.o
+ obj-$(CONFIG_HID_GREENASIA)	+= hid-gaff.o
+ obj-$(CONFIG_HID_THRUSTMASTER)	+= hid-tmff.o
+@@ -73,6 +75,7 @@ obj-$(CONFIG_HID_ZEROPLUS)	+= hid-zpff.o
+ obj-$(CONFIG_HID_ZYDACRON)	+= hid-zydacron.o
+ obj-$(CONFIG_HID_WACOM)		+= hid-wacom.o
+ obj-$(CONFIG_HID_WALTOP)	+= hid-waltop.o
++obj-$(CONFIG_HID_WIIMOTE)	+= hid-wiimote.o
+ 
+ obj-$(CONFIG_USB_HID)		+= usbhid/
+ obj-$(CONFIG_USB_MOUSE)		+= usbhid/
+diff --git a/drivers/hid/hid-axff.c b/drivers/hid/hid-axff.c
+index b455428..1215141 100644
+--- a/drivers/hid/hid-axff.c
++++ b/drivers/hid/hid-axff.c
+@@ -154,6 +154,7 @@ static int ax_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 	error = hid_hw_open(hdev);
+ 	if (error) {
+ 		dev_err(&hdev->dev, "hw open failed\n");
++		hid_hw_stop(hdev);
+ 		return error;
+ 	}
+ 
+diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+index 6f3289a..1a5cf0c 100644
+--- a/drivers/hid/hid-core.c
++++ b/drivers/hid/hid-core.c
+@@ -1388,6 +1388,7 @@ static const struct hid_device_id hid_have_special_driver[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_GYRATION, USB_DEVICE_ID_GYRATION_REMOTE_2) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_GYRATION, USB_DEVICE_ID_GYRATION_REMOTE_3) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_HANVON, USB_DEVICE_ID_HANVON_MULTITOUCH) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_HOLTEK, USB_DEVICE_ID_HOLTEK_ON_LINE_GRIP) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ILITEK, USB_DEVICE_ID_ILITEK_MULTITOUCH) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_IRTOUCHSYSTEMS, USB_DEVICE_ID_IRTOUCH_INFRARED_USB) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_KENSINGTON, USB_DEVICE_ID_KS_SLIMBLADE) },
+@@ -1426,10 +1427,12 @@ static const struct hid_device_id hid_have_special_driver[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_LUMIO, USB_DEVICE_ID_CRYSTALTOUCH_DUAL) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROCHIP, USB_DEVICE_ID_PICOLCD) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROCHIP, USB_DEVICE_ID_PICOLCD_BOOTLOADER) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_COMFORT_MOUSE_4500) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_GV) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_NE4K) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_LK6K) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_PRESENTER_8K_USB) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_DIGITAL_MEDIA_3K) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_WIRELESS_OPTICAL_DESKTOP_3_0) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MONTEREY, USB_DEVICE_ID_GENIUS_KB29E) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_NTRIG, USB_DEVICE_ID_NTRIG_TOUCH_SCREEN) },
+@@ -1491,6 +1494,7 @@ static const struct hid_device_id hid_have_special_driver[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_UCLOGIC, USB_DEVICE_ID_UCLOGIC_TABLET_WP4030U) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_UCLOGIC, USB_DEVICE_ID_UCLOGIC_TABLET_WP5540U) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_UCLOGIC, USB_DEVICE_ID_UCLOGIC_TABLET_WP8060U) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_UCLOGIC, USB_DEVICE_ID_UCLOGIC_TABLET_WP1062) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_UNITEC, USB_DEVICE_ID_UNITEC_USB_TOUCH_0709) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_UNITEC, USB_DEVICE_ID_UNITEC_USB_TOUCH_0A19) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_SMARTJOY_PLUS) },
+@@ -1499,11 +1503,14 @@ static const struct hid_device_id hid_have_special_driver[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_WALTOP, USB_DEVICE_ID_WALTOP_SLIM_TABLET_12_1_INCH) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_WALTOP, USB_DEVICE_ID_WALTOP_MEDIA_TABLET_10_6_INCH) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_WALTOP, USB_DEVICE_ID_WALTOP_MEDIA_TABLET_14_1_INCH) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_XAT, USB_DEVICE_ID_XAT_CSR) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_X_TENSIONS, USB_DEVICE_ID_SPEEDLINK_VAD_CEZANNE) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ZEROPLUS, 0x0005) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ZEROPLUS, 0x0030) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ZYDACRON, USB_DEVICE_ID_ZYDACRON_REMOTE_CONTROL) },
+ 
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_PRESENTER_8K_BT) },
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO, USB_DEVICE_ID_NINTENDO_WIIMOTE) },
+ 	{ }
+ };
+ 
+@@ -1771,7 +1778,6 @@ static const struct hid_device_id hid_ignore_list[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_GTCO, USB_DEVICE_ID_GTCO_1006) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_GTCO, USB_DEVICE_ID_GTCO_1007) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_IMATION, USB_DEVICE_ID_DISC_STAKKA) },
+-	{ HID_USB_DEVICE(USB_VENDOR_ID_JESS, USB_DEVICE_ID_JESS_YUREX) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_KBGEAR, USB_DEVICE_ID_KBGEAR_JAMSTUDIO) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_KWORLD, USB_DEVICE_ID_KWORLD_RADIO_FM700) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_KYE, USB_DEVICE_ID_KYE_GPEN_560) },
+@@ -1912,6 +1918,11 @@ static bool hid_ignore(struct hid_device *hdev)
+ 		    hdev->product <= USB_DEVICE_ID_HANWANG_TABLET_LAST)
+ 			return true;
+ 		break;
++	case USB_VENDOR_ID_JESS:
++		if (hdev->product == USB_DEVICE_ID_JESS_YUREX &&
++				hdev->type == HID_TYPE_USBNONE)
++			return true;
++	break;
+ 	}
+ 
+ 	if (hdev->type == HID_TYPE_USBMOUSE &&
+diff --git a/drivers/hid/hid-emsff.c b/drivers/hid/hid-emsff.c
+index 81877c6..a5dc13f 100644
+--- a/drivers/hid/hid-emsff.c
++++ b/drivers/hid/hid-emsff.c
+@@ -126,7 +126,12 @@ static int ems_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 		goto err;
+ 	}
+ 
+-	emsff_init(hdev);
++	ret = emsff_init(hdev);
++	if (ret) {
++		dev_err(&hdev->dev, "force feedback init failed\n");
++		hid_hw_stop(hdev);
++		goto err;
++	}
+ 
+ 	return 0;
+ err:
+diff --git a/drivers/hid/hid-holtekff.c b/drivers/hid/hid-holtekff.c
+new file mode 100644
+index 0000000..91e3a03
+--- /dev/null
++++ b/drivers/hid/hid-holtekff.c
+@@ -0,0 +1,240 @@
++/*
++ *  Force feedback support for Holtek On Line Grip based gamepads
++ *
++ *  These include at least a Brazilian "Clone Joypad Super Power Fire"
++ *  which uses vendor ID 0x1241 and identifies as "HOLTEK On Line Grip".
++ *
++ *  Copyright (c) 2011 Anssi Hannula <anssi.hannula@iki.fi>
++ */
++
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ */
++
++#include <linux/hid.h>
++#include <linux/input.h>
++#include <linux/slab.h>
++#include <linux/usb.h>
++
++#include "hid-ids.h"
++
++#ifdef CONFIG_HOLTEK_FF
++#include "usbhid/usbhid.h"
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Anssi Hannula <anssi.hannula@iki.fi>");
++MODULE_DESCRIPTION("Force feedback support for Holtek On Line Grip based devices");
++
++/*
++ * These commands and parameters are currently known:
++ *
++ * byte 0: command id:
++ * 	01  set effect parameters
++ * 	02  play specified effect
++ * 	03  stop specified effect
++ * 	04  stop all effects
++ * 	06  stop all effects
++ * 	(the difference between 04 and 06 isn't known; win driver
++ * 	 sends 06,04 on application init, and 06 otherwise)
++ * 
++ * Commands 01 and 02 need to be sent as pairs, i.e. you need to send 01
++ * before each 02.
++ *
++ * The rest of the bytes are parameters. Command 01 takes all of them, and
++ * commands 02,03 take only the effect id.
++ *
++ * byte 1:
++ *	bits 0-3: effect id:
++ * 		1: very strong rumble
++ * 		2: periodic rumble, short intervals
++ * 		3: very strong rumble
++ * 		4: periodic rumble, long intervals
++ * 		5: weak periodic rumble, long intervals
++ * 		6: weak periodic rumble, short intervals
++ * 		7: periodic rumble, short intervals
++ * 		8: strong periodic rumble, short intervals
++ * 		9: very strong rumble
++ * 		a: causes an error
++ * 		b: very strong periodic rumble, very short intervals
++ * 		c-f: nothing
++ *	bit 6: right (weak) motor enabled
++ *	bit 7: left (strong) motor enabled
++ *
++ * bytes 2-3:  time in milliseconds, big-endian
++ * bytes 5-6:  unknown (win driver seems to use at least 10e0 with effect 1
++ * 		       and 0014 with effect 6)
++ * byte 7:
++ *	bits 0-3: effect magnitude
++ */
++
++#define HOLTEKFF_MSG_LENGTH     7
++
++static const u8 start_effect_1[] = { 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
++static const u8 stop_all4[] =	   { 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
++static const u8 stop_all6[] =	   { 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
++
++struct holtekff_device {
++	struct hid_field *field;
++};
++
++static void holtekff_send(struct holtekff_device *holtekff,
++			  struct hid_device *hid,
++			  const u8 data[HOLTEKFF_MSG_LENGTH])
++{
++	int i;
++
++	for (i = 0; i < HOLTEKFF_MSG_LENGTH; i++) {
++		holtekff->field->value[i] = data[i];
++	}
++
++	dbg_hid("sending %02x %02x %02x %02x %02x %02x %02x\n", data[0],
++		data[1], data[2], data[3], data[4], data[5], data[6]);
++
++	usbhid_submit_report(hid, holtekff->field->report, USB_DIR_OUT);
++}
++
++static int holtekff_play(struct input_dev *dev, void *data,
++			 struct ff_effect *effect)
++{
++	struct hid_device *hid = input_get_drvdata(dev);
++	struct holtekff_device *holtekff = data;
++	int left, right;
++	/* effect type 1, length 65535 msec */
++	u8 buf[HOLTEKFF_MSG_LENGTH] =
++		{ 0x01, 0x01, 0xff, 0xff, 0x10, 0xe0, 0x00 };
++
++	left = effect->u.rumble.strong_magnitude;
++	right = effect->u.rumble.weak_magnitude;
++	dbg_hid("called with 0x%04x 0x%04x\n", left, right);
++
++	if (!left && !right) {
++		holtekff_send(holtekff, hid, stop_all6);
++		return 0;
++	}
++
++	if (left)
++		buf[1] |= 0x80;
++	if (right)
++		buf[1] |= 0x40;
++
++	/* The device takes a single magnitude, so we just sum them up. */
++	buf[6] = min(0xf, (left >> 12) + (right >> 12));
++
++	holtekff_send(holtekff, hid, buf);
++	holtekff_send(holtekff, hid, start_effect_1);
++
++	return 0;
++}
++
++static int holtekff_init(struct hid_device *hid)
++{
++	struct holtekff_device *holtekff;
++	struct hid_report *report;
++	struct hid_input *hidinput = list_entry(hid->inputs.next,
++						struct hid_input, list);
++	struct list_head *report_list =
++			&hid->report_enum[HID_OUTPUT_REPORT].report_list;
++	struct input_dev *dev = hidinput->input;
++	int error;
++
++	if (list_empty(report_list)) {
++		hid_err(hid, "no output report found\n");
++		return -ENODEV;
++	}
++
++	report = list_entry(report_list->next, struct hid_report, list);
++
++	if (report->maxfield < 1 || report->field[0]->report_count != 7) {
++		hid_err(hid, "unexpected output report layout\n");
++		return -ENODEV;
++	}
++
++	holtekff = kzalloc(sizeof(*holtekff), GFP_KERNEL);
++	if (!holtekff)
++		return -ENOMEM;
++
++	set_bit(FF_RUMBLE, dev->ffbit);
++
++	holtekff->field = report->field[0];
++
++	/* initialize the same way as win driver does */
++	holtekff_send(holtekff, hid, stop_all4);
++	holtekff_send(holtekff, hid, stop_all6);
++
++	error = input_ff_create_memless(dev, holtekff, holtekff_play);
++	if (error) {
++		kfree(holtekff);
++		return error;
++	}
++
++	hid_info(hid, "Force feedback for Holtek On Line Grip based devices by Anssi Hannula <anssi.hannula@iki.fi>\n");
++
++	return 0;
++}
++#else
++static inline int holtekff_init(struct hid_device *hid)
++{
++	return 0;
++}
++#endif
++
++static int holtek_probe(struct hid_device *hdev, const struct hid_device_id *id)
++{
++	int ret;
++
++	ret = hid_parse(hdev);
++	if (ret) {
++		hid_err(hdev, "parse failed\n");
++		goto err;
++	}
++
++	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT & ~HID_CONNECT_FF);
++	if (ret) {
++		hid_err(hdev, "hw start failed\n");
++		goto err;
++	}
++
++	holtekff_init(hdev);
++
++	return 0;
++err:
++	return ret;
++}
++
++static const struct hid_device_id holtek_devices[] = {
++	{ HID_USB_DEVICE(USB_VENDOR_ID_HOLTEK, USB_DEVICE_ID_HOLTEK_ON_LINE_GRIP) },
++	{ }
++};
++MODULE_DEVICE_TABLE(hid, holtek_devices);
++
++static struct hid_driver holtek_driver = {
++	.name = "holtek",
++	.id_table = holtek_devices,
++	.probe = holtek_probe,
++};
++
++static int __init holtek_init(void)
++{
++	return hid_register_driver(&holtek_driver);
++}
++
++static void __exit holtek_exit(void)
++{
++	hid_unregister_driver(&holtek_driver);
++}
++
++module_init(holtek_init);
++module_exit(holtek_exit);
++
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index a756ee6..db63ccf 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -350,6 +350,9 @@
+ #define USB_VENDOR_ID_ILITEK		0x222a
+ #define USB_DEVICE_ID_ILITEK_MULTITOUCH	0x0001
+ 
++#define USB_VENDOR_ID_HOLTEK		0x1241
++#define USB_DEVICE_ID_HOLTEK_ON_LINE_GRIP	0x5015
++
+ #define USB_VENDOR_ID_IMATION		0x0718
+ #define USB_DEVICE_ID_DISC_STAKKA	0xd000
+ 
+@@ -472,6 +475,8 @@
+ #define USB_DEVICE_ID_MS_LK6K		0x00f9
+ #define USB_DEVICE_ID_MS_PRESENTER_8K_BT	0x0701
+ #define USB_DEVICE_ID_MS_PRESENTER_8K_USB	0x0713
++#define USB_DEVICE_ID_MS_DIGITAL_MEDIA_3K	0x0730
++#define USB_DEVICE_ID_MS_COMFORT_MOUSE_4500	0x076c
+ 
+ #define USB_VENDOR_ID_MOJO		0x8282
+ #define USB_DEVICE_ID_RETRO_ADAPTER	0x3201
+@@ -495,6 +500,9 @@
+ #define USB_VENDOR_ID_NEXTWINDOW	0x1926
+ #define USB_DEVICE_ID_NEXTWINDOW_TOUCHSCREEN	0x0003
+ 
++#define USB_VENDOR_ID_NINTENDO		0x057e
++#define USB_DEVICE_ID_NINTENDO_WIIMOTE	0x0306
++
+ #define USB_VENDOR_ID_NTRIG		0x1b96
+ #define USB_DEVICE_ID_NTRIG_TOUCH_SCREEN   0x0001
+ #define USB_DEVICE_ID_NTRIG_TOUCH_SCREEN_1   0x0003
+@@ -630,6 +638,7 @@
+ #define USB_DEVICE_ID_UCLOGIC_TABLET_WP4030U	0x0003
+ #define USB_DEVICE_ID_UCLOGIC_TABLET_WP5540U	0x0004
+ #define USB_DEVICE_ID_UCLOGIC_TABLET_WP8060U	0x0005
++#define USB_DEVICE_ID_UCLOGIC_TABLET_WP1062	0x0064
+ 
+ #define USB_VENDOR_ID_UNITEC	0x227d
+ #define USB_DEVICE_ID_UNITEC_USB_TOUCH_0709	0x0709
+@@ -663,6 +672,12 @@
+ #define USB_VENDOR_ID_WISEGROUP_LTD2	0x6677
+ #define USB_DEVICE_ID_SMARTJOY_DUAL_PLUS 0x8802
+ 
++#define USB_VENDOR_ID_X_TENSIONS               0x1ae7
++#define USB_DEVICE_ID_SPEEDLINK_VAD_CEZANNE    0x9001
++
++#define USB_VENDOR_ID_XAT	0x2505
++#define USB_DEVICE_ID_XAT_CSR	0x0220
++
+ #define USB_VENDOR_ID_YEALINK		0x6993
+ #define USB_DEVICE_ID_YEALINK_P1K_P4K_B2K	0xb001
+ 
+diff --git a/drivers/hid/hid-lg.c b/drivers/hid/hid-lg.c
+index 21f205f..a7f916e 100644
+--- a/drivers/hid/hid-lg.c
++++ b/drivers/hid/hid-lg.c
+@@ -41,6 +41,66 @@
+ #define LG_FF3			0x1000
+ #define LG_FF4			0x2000
+ 
++/* Size of the original descriptor of the Driving Force Pro wheel */
++#define DFP_RDESC_ORIG_SIZE	97
++
++/* Fixed report descriptor for Logitech Driving Force Pro wheel controller
++ *
++ * The original descriptor hides the separate throttle and brake axes in
++ * a custom vendor usage page, providing only a combined value as
++ * GenericDesktop.Y.
++ * This descriptor removes the combined Y axis and instead reports
++ * separate throttle (Y) and brake (RZ).
++ */
++static __u8 dfp_rdesc_fixed[] = {
++0x05, 0x01,         /*  Usage Page (Desktop),                   */
++0x09, 0x04,         /*  Usage (Joystik),                        */
++0xA1, 0x01,         /*  Collection (Application),               */
++0xA1, 0x02,         /*      Collection (Logical),               */
++0x95, 0x01,         /*          Report Count (1),               */
++0x75, 0x0E,         /*          Report Size (14),               */
++0x14,               /*          Logical Minimum (0),            */
++0x26, 0xFF, 0x3F,   /*          Logical Maximum (16383),        */
++0x34,               /*          Physical Minimum (0),           */
++0x46, 0xFF, 0x3F,   /*          Physical Maximum (16383),       */
++0x09, 0x30,         /*          Usage (X),                      */
++0x81, 0x02,         /*          Input (Variable),               */
++0x95, 0x0E,         /*          Report Count (14),              */
++0x75, 0x01,         /*          Report Size (1),                */
++0x25, 0x01,         /*          Logical Maximum (1),            */
++0x45, 0x01,         /*          Physical Maximum (1),           */
++0x05, 0x09,         /*          Usage Page (Button),            */
++0x19, 0x01,         /*          Usage Minimum (01h),            */
++0x29, 0x0E,         /*          Usage Maximum (0Eh),            */
++0x81, 0x02,         /*          Input (Variable),               */
++0x05, 0x01,         /*          Usage Page (Desktop),           */
++0x95, 0x01,         /*          Report Count (1),               */
++0x75, 0x04,         /*          Report Size (4),                */
++0x25, 0x07,         /*          Logical Maximum (7),            */
++0x46, 0x3B, 0x01,   /*          Physical Maximum (315),         */
++0x65, 0x14,         /*          Unit (Degrees),                 */
++0x09, 0x39,         /*          Usage (Hat Switch),             */
++0x81, 0x42,         /*          Input (Variable, Nullstate),    */
++0x65, 0x00,         /*          Unit,                           */
++0x26, 0xFF, 0x00,   /*          Logical Maximum (255),          */
++0x46, 0xFF, 0x00,   /*          Physical Maximum (255),         */
++0x75, 0x08,         /*          Report Size (8),                */
++0x81, 0x01,         /*          Input (Constant),               */
++0x09, 0x31,         /*          Usage (Y),                      */
++0x81, 0x02,         /*          Input (Variable),               */
++0x09, 0x35,         /*          Usage (Rz),                     */
++0x81, 0x02,         /*          Input (Variable),               */
++0x81, 0x01,         /*          Input (Constant),               */
++0xC0,               /*      End Collection,                     */
++0xA1, 0x02,         /*      Collection (Logical),               */
++0x09, 0x02,         /*          Usage (02h),                    */
++0x95, 0x07,         /*          Report Count (7),               */
++0x91, 0x02,         /*          Output (Variable),              */
++0xC0,               /*      End Collection,                     */
++0xC0                /*  End Collection                          */
++};
++
++
+ /*
+  * Certain Logitech keyboards send in report #3 keys which are far
+  * above the logical maximum described in descriptor. This extends
+@@ -74,6 +134,18 @@ static __u8 *lg_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+ 		rdesc[47] = 0x95;
+ 		rdesc[48] = 0x0B;
+ 	}
++
++	switch (hdev->product) {
++	case USB_DEVICE_ID_LOGITECH_DFP_WHEEL:
++		if (*rsize == DFP_RDESC_ORIG_SIZE) {
++			hid_info(hdev,
++				"fixing up Logitech Driving Force Pro report descriptor\n");
++			rdesc = dfp_rdesc_fixed;
++			*rsize = sizeof(dfp_rdesc_fixed);
++		}
++		break;
++	}
++
+ 	return rdesc;
+ }
+ 
+@@ -380,7 +452,7 @@ static const struct hid_device_id lg_devices[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_G27_WHEEL),
+ 		.driver_data = LG_FF },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_DFP_WHEEL),
+-		.driver_data = LG_FF },
++		.driver_data = LG_NOGET | LG_FF },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_WII_WHEEL),
+ 		.driver_data = LG_FF4 },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_WINGMAN_FFG ),
+diff --git a/drivers/hid/hid-microsoft.c b/drivers/hid/hid-microsoft.c
+index 0f6fc54..e5c699b 100644
+--- a/drivers/hid/hid-microsoft.c
++++ b/drivers/hid/hid-microsoft.c
+@@ -23,11 +23,12 @@
+ 
+ #include "hid-ids.h"
+ 
+-#define MS_HIDINPUT	0x01
+-#define MS_ERGONOMY	0x02
+-#define MS_PRESENTER	0x04
+-#define MS_RDESC	0x08
+-#define MS_NOGET	0x10
++#define MS_HIDINPUT		0x01
++#define MS_ERGONOMY		0x02
++#define MS_PRESENTER		0x04
++#define MS_RDESC		0x08
++#define MS_NOGET		0x10
++#define MS_DUPLICATE_USAGES	0x20
+ 
+ /*
+  * Microsoft Wireless Desktop Receiver (Model 1028) has
+@@ -109,6 +110,18 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
+ 	return 0;
+ }
+ 
++static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
++		struct hid_field *field, struct hid_usage *usage,
++		unsigned long **bit, int *max)
++{
++	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
++
++	if (quirks & MS_DUPLICATE_USAGES)
++		clear_bit(usage->code, *bit);
++
++	return 0;
++}
++
+ static int ms_event(struct hid_device *hdev, struct hid_field *field,
+ 		struct hid_usage *usage, __s32 value)
+ {
+@@ -179,8 +192,12 @@ static const struct hid_device_id ms_devices[] = {
+ 		.driver_data = MS_ERGONOMY | MS_RDESC },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_PRESENTER_8K_USB),
+ 		.driver_data = MS_PRESENTER },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_DIGITAL_MEDIA_3K),
++		.driver_data = MS_ERGONOMY },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_WIRELESS_OPTICAL_DESKTOP_3_0),
+ 		.driver_data = MS_NOGET },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_COMFORT_MOUSE_4500),
++		.driver_data = MS_DUPLICATE_USAGES },
+ 
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_PRESENTER_8K_BT),
+ 		.driver_data = MS_PRESENTER },
+@@ -193,6 +210,7 @@ static struct hid_driver ms_driver = {
+ 	.id_table = ms_devices,
+ 	.report_fixup = ms_report_fixup,
+ 	.input_mapping = ms_input_mapping,
++	.input_mapped = ms_input_mapped,
+ 	.event = ms_event,
+ 	.probe = ms_probe,
+ };
+diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
+index 62cac4d..58d0e7a 100644
+--- a/drivers/hid/hid-multitouch.c
++++ b/drivers/hid/hid-multitouch.c
+@@ -727,6 +727,10 @@ static const struct hid_device_id mt_devices[] = {
+ 	{ .driver_data = MT_CLS_DEFAULT,
+ 		HID_USB_DEVICE(USB_VENDOR_ID_UNITEC,
+ 			USB_DEVICE_ID_UNITEC_USB_TOUCH_0A19) },
++	/* XAT */
++	{ .driver_data = MT_CLS_DEFAULT,
++		HID_USB_DEVICE(USB_VENDOR_ID_XAT,
++			USB_DEVICE_ID_XAT_CSR) },
+ 
+ 	{ }
+ };
+diff --git a/drivers/hid/hid-prodikeys.c b/drivers/hid/hid-prodikeys.c
+index ab19f29..158b389 100644
+--- a/drivers/hid/hid-prodikeys.c
++++ b/drivers/hid/hid-prodikeys.c
+@@ -44,8 +44,6 @@ struct pk_device {
+ 	struct pcmidi_snd	*pm; /* pcmidi device context */
+ };
+ 
+-struct pcmidi_snd;
+-
+ struct pcmidi_sustain {
+ 	unsigned long		in_use;
+ 	struct pcmidi_snd	*pm;
+@@ -242,7 +240,7 @@ drop_note:
+ 	return;
+ }
+ 
+-void pcmidi_sustained_note_release(unsigned long data)
++static void pcmidi_sustained_note_release(unsigned long data)
+ {
+ 	struct pcmidi_sustain *pms = (struct pcmidi_sustain *)data;
+ 
+@@ -250,7 +248,7 @@ void pcmidi_sustained_note_release(unsigned long data)
+ 	pms->in_use = 0;
+ }
+ 
+-void init_sustain_timers(struct pcmidi_snd *pm)
++static void init_sustain_timers(struct pcmidi_snd *pm)
+ {
+ 	struct pcmidi_sustain *pms;
+ 	unsigned i;
+@@ -264,7 +262,7 @@ void init_sustain_timers(struct pcmidi_snd *pm)
+ 	}
+ }
+ 
+-void stop_sustain_timers(struct pcmidi_snd *pm)
++static void stop_sustain_timers(struct pcmidi_snd *pm)
+ {
+ 	struct pcmidi_sustain *pms;
+ 	unsigned i;
+@@ -499,7 +497,7 @@ static int pcmidi_handle_report4(struct pcmidi_snd *pm, u8 *data)
+ 	return 1;
+ }
+ 
+-int pcmidi_handle_report(
++static int pcmidi_handle_report(
+ 	struct pcmidi_snd *pm, unsigned report_id, u8 *data, int size)
+ {
+ 	int ret = 0;
+@@ -518,7 +516,8 @@ int pcmidi_handle_report(
+ 	return ret;
+ }
+ 
+-void pcmidi_setup_extra_keys(struct pcmidi_snd *pm, struct input_dev *input)
++static void pcmidi_setup_extra_keys(
++	struct pcmidi_snd *pm, struct input_dev *input)
+ {
+ 	/* reassigned functionality for N/A keys
+ 		MY PICTURES =>	KEY_WORDPROCESSOR
+@@ -602,7 +601,7 @@ static struct snd_rawmidi_ops pcmidi_in_ops = {
+ 	.trigger = pcmidi_in_trigger
+ };
+ 
+-int pcmidi_snd_initialise(struct pcmidi_snd *pm)
++static int pcmidi_snd_initialise(struct pcmidi_snd *pm)
+ {
+ 	static int dev;
+ 	struct snd_card *card;
+@@ -720,7 +719,7 @@ fail:
+ 	return err;
+ }
+ 
+-int pcmidi_snd_terminate(struct pcmidi_snd *pm)
++static int pcmidi_snd_terminate(struct pcmidi_snd *pm)
+ {
+ 	if (pm->card) {
+ 		stop_sustain_timers(pm);
+diff --git a/drivers/hid/hid-roccat-arvo.c b/drivers/hid/hid-roccat-arvo.c
+index 2307471..093bfad 100644
+--- a/drivers/hid/hid-roccat-arvo.c
++++ b/drivers/hid/hid-roccat-arvo.c
+@@ -39,7 +39,7 @@ static ssize_t arvo_sysfs_show_mode_key(struct device *dev,
+ 	int retval;
+ 
+ 	mutex_lock(&arvo->arvo_lock);
+-	retval = roccat_common_receive(usb_dev, ARVO_USB_COMMAND_MODE_KEY,
++	retval = roccat_common_receive(usb_dev, ARVO_COMMAND_MODE_KEY,
+ 			&temp_buf, sizeof(struct arvo_mode_key));
+ 	mutex_unlock(&arvo->arvo_lock);
+ 	if (retval)
+@@ -67,7 +67,7 @@ static ssize_t arvo_sysfs_set_mode_key(struct device *dev,
+ 	temp_buf.state = state;
+ 
+ 	mutex_lock(&arvo->arvo_lock);
+-	retval = roccat_common_send(usb_dev, ARVO_USB_COMMAND_MODE_KEY,
++	retval = roccat_common_send(usb_dev, ARVO_COMMAND_MODE_KEY,
+ 			&temp_buf, sizeof(struct arvo_mode_key));
+ 	mutex_unlock(&arvo->arvo_lock);
+ 	if (retval)
+@@ -87,7 +87,7 @@ static ssize_t arvo_sysfs_show_key_mask(struct device *dev,
+ 	int retval;
+ 
+ 	mutex_lock(&arvo->arvo_lock);
+-	retval = roccat_common_receive(usb_dev, ARVO_USB_COMMAND_KEY_MASK,
++	retval = roccat_common_receive(usb_dev, ARVO_COMMAND_KEY_MASK,
+ 			&temp_buf, sizeof(struct arvo_key_mask));
+ 	mutex_unlock(&arvo->arvo_lock);
+ 	if (retval)
+@@ -115,7 +115,7 @@ static ssize_t arvo_sysfs_set_key_mask(struct device *dev,
+ 	temp_buf.key_mask = key_mask;
+ 
+ 	mutex_lock(&arvo->arvo_lock);
+-	retval = roccat_common_send(usb_dev, ARVO_USB_COMMAND_KEY_MASK,
++	retval = roccat_common_send(usb_dev, ARVO_COMMAND_KEY_MASK,
+ 			&temp_buf, sizeof(struct arvo_key_mask));
+ 	mutex_unlock(&arvo->arvo_lock);
+ 	if (retval)
+@@ -130,7 +130,7 @@ static int arvo_get_actual_profile(struct usb_device *usb_dev)
+ 	struct arvo_actual_profile temp_buf;
+ 	int retval;
+ 
+-	retval = roccat_common_receive(usb_dev, ARVO_USB_COMMAND_ACTUAL_PROFILE,
++	retval = roccat_common_receive(usb_dev, ARVO_COMMAND_ACTUAL_PROFILE,
+ 			&temp_buf, sizeof(struct arvo_actual_profile));
+ 
+ 	if (retval)
+@@ -163,11 +163,14 @@ static ssize_t arvo_sysfs_set_actual_profile(struct device *dev,
+ 	if (retval)
+ 		return retval;
+ 
++	if (profile < 1 || profile > 5)
++		return -EINVAL;
++
+ 	temp_buf.command = ARVO_COMMAND_ACTUAL_PROFILE;
+ 	temp_buf.actual_profile = profile;
+ 
+ 	mutex_lock(&arvo->arvo_lock);
+-	retval = roccat_common_send(usb_dev, ARVO_USB_COMMAND_ACTUAL_PROFILE,
++	retval = roccat_common_send(usb_dev, ARVO_COMMAND_ACTUAL_PROFILE,
+ 			&temp_buf, sizeof(struct arvo_actual_profile));
+ 	if (!retval) {
+ 		arvo->actual_profile = profile;
+@@ -225,7 +228,7 @@ static ssize_t arvo_sysfs_write_button(struct file *fp,
+ 		loff_t off, size_t count)
+ {
+ 	return arvo_sysfs_write(fp, kobj, buf, off, count,
+-			sizeof(struct arvo_button), ARVO_USB_COMMAND_BUTTON);
++			sizeof(struct arvo_button), ARVO_COMMAND_BUTTON);
+ }
+ 
+ static ssize_t arvo_sysfs_read_info(struct file *fp,
+@@ -233,7 +236,7 @@ static ssize_t arvo_sysfs_read_info(struct file *fp,
+ 		loff_t off, size_t count)
+ {
+ 	return arvo_sysfs_read(fp, kobj, buf, off, count,
+-			sizeof(struct arvo_info), ARVO_USB_COMMAND_INFO);
++			sizeof(struct arvo_info), ARVO_COMMAND_INFO);
+ }
+ 
+ 
+@@ -399,7 +402,7 @@ static int arvo_raw_event(struct hid_device *hdev,
+ 	if (size != 3)
+ 		return 0;
+ 
+-	if (arvo->roccat_claimed)
++	if (arvo && arvo->roccat_claimed)
+ 		arvo_report_to_chrdev(arvo, data);
+ 
+ 	return 0;
+diff --git a/drivers/hid/hid-roccat-arvo.h b/drivers/hid/hid-roccat-arvo.h
+index d284a78..ce8415e 100644
+--- a/drivers/hid/hid-roccat-arvo.h
++++ b/drivers/hid/hid-roccat-arvo.h
+@@ -46,19 +46,6 @@ enum arvo_commands {
+ 	ARVO_COMMAND_ACTUAL_PROFILE = 0x7,
+ };
+ 
+-enum arvo_usb_commands {
+-	ARVO_USB_COMMAND_MODE_KEY = 0x303,
+-	/*
+-	 * read/write
+-	 * Read uses both index bytes as profile/key indexes
+-	 * Write has index 0, profile/key is determined by payload
+-	 */
+-	ARVO_USB_COMMAND_BUTTON = 0x304,
+-	ARVO_USB_COMMAND_INFO = 0x305,
+-	ARVO_USB_COMMAND_KEY_MASK = 0x306,
+-	ARVO_USB_COMMAND_ACTUAL_PROFILE = 0x307,
+-};
+-
+ struct arvo_special_report {
+ 	uint8_t unknown1; /* always 0x01 */
+ 	uint8_t event;
+diff --git a/drivers/hid/hid-roccat-common.c b/drivers/hid/hid-roccat-common.c
+index 13b1eb0..edf898d 100644
+--- a/drivers/hid/hid-roccat-common.c
++++ b/drivers/hid/hid-roccat-common.c
+@@ -11,10 +11,16 @@
+  * any later version.
+  */
+ 
++#include <linux/hid.h>
+ #include <linux/slab.h>
+ #include "hid-roccat-common.h"
+ 
+-int roccat_common_receive(struct usb_device *usb_dev, uint usb_command,
++static inline uint16_t roccat_common_feature_report(uint8_t report_id)
++{
++	return 0x300 | report_id;
++}
++
++int roccat_common_receive(struct usb_device *usb_dev, uint report_id,
+ 		void *data, uint size)
+ {
+ 	char *buf;
+@@ -25,9 +31,10 @@ int roccat_common_receive(struct usb_device *usb_dev, uint usb_command,
+ 		return -ENOMEM;
+ 
+ 	len = usb_control_msg(usb_dev, usb_rcvctrlpipe(usb_dev, 0),
+-			USB_REQ_CLEAR_FEATURE,
++			HID_REQ_GET_REPORT,
+ 			USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_IN,
+-			usb_command, 0, buf, size, USB_CTRL_SET_TIMEOUT);
++			roccat_common_feature_report(report_id),
++			0, buf, size, USB_CTRL_SET_TIMEOUT);
+ 
+ 	memcpy(data, buf, size);
+ 	kfree(buf);
+@@ -35,7 +42,7 @@ int roccat_common_receive(struct usb_device *usb_dev, uint usb_command,
+ }
+ EXPORT_SYMBOL_GPL(roccat_common_receive);
+ 
+-int roccat_common_send(struct usb_device *usb_dev, uint usb_command,
++int roccat_common_send(struct usb_device *usb_dev, uint report_id,
+ 		void const *data, uint size)
+ {
+ 	char *buf;
+@@ -48,9 +55,10 @@ int roccat_common_send(struct usb_device *usb_dev, uint usb_command,
+ 	memcpy(buf, data, size);
+ 
+ 	len = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
+-			USB_REQ_SET_CONFIGURATION,
++			HID_REQ_SET_REPORT,
+ 			USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT,
+-			usb_command, 0, buf, size, USB_CTRL_SET_TIMEOUT);
++			roccat_common_feature_report(report_id),
++			0, buf, size, USB_CTRL_SET_TIMEOUT);
+ 
+ 	kfree(buf);
+ 	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
+diff --git a/drivers/hid/hid-roccat-common.h b/drivers/hid/hid-roccat-common.h
+index fe45fae..9a5bc61 100644
+--- a/drivers/hid/hid-roccat-common.h
++++ b/drivers/hid/hid-roccat-common.h
+@@ -15,9 +15,9 @@
+ #include <linux/usb.h>
+ #include <linux/types.h>
+ 
+-int roccat_common_receive(struct usb_device *usb_dev, uint usb_command,
++int roccat_common_receive(struct usb_device *usb_dev, uint report_id,
+ 		void *data, uint size);
+-int roccat_common_send(struct usb_device *usb_dev, uint usb_command,
++int roccat_common_send(struct usb_device *usb_dev, uint report_id,
+ 		void const *data, uint size);
+ 
+ #endif
+diff --git a/drivers/hid/hid-roccat-kone.c b/drivers/hid/hid-roccat-kone.c
+index a57838d..2b8f3a3 100644
+--- a/drivers/hid/hid-roccat-kone.c
++++ b/drivers/hid/hid-roccat-kone.c
+@@ -37,6 +37,47 @@
+ 
+ static uint profile_numbers[5] = {0, 1, 2, 3, 4};
+ 
++static int kone_receive(struct usb_device *usb_dev, uint usb_command,
++		void *data, uint size)
++{
++	char *buf;
++	int len;
++
++	buf = kmalloc(size, GFP_KERNEL);
++	if (buf == NULL)
++		return -ENOMEM;
++
++	len = usb_control_msg(usb_dev, usb_rcvctrlpipe(usb_dev, 0),
++			HID_REQ_GET_REPORT,
++			USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_IN,
++			usb_command, 0, buf, size, USB_CTRL_SET_TIMEOUT);
++
++	memcpy(data, buf, size);
++	kfree(buf);
++	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
++}
++
++static int kone_send(struct usb_device *usb_dev, uint usb_command,
++		void const *data, uint size)
++{
++	char *buf;
++	int len;
++
++	buf = kmalloc(size, GFP_KERNEL);
++	if (buf == NULL)
++		return -ENOMEM;
++
++	memcpy(buf, data, size);
++
++	len = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
++			HID_REQ_SET_REPORT,
++			USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT,
++			usb_command, 0, buf, size, USB_CTRL_SET_TIMEOUT);
++
++	kfree(buf);
++	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
++}
++
+ /* kone_class is used for creating sysfs attributes via roccat char device */
+ static struct class *kone_class;
+ 
+@@ -68,7 +109,7 @@ static int kone_check_write(struct usb_device *usb_dev)
+ 		 */
+ 		msleep(80);
+ 
+-		retval = roccat_common_receive(usb_dev,
++		retval = kone_receive(usb_dev,
+ 				kone_command_confirm_write, &data, 1);
+ 		if (retval)
+ 			return retval;
+@@ -96,7 +137,7 @@ static int kone_check_write(struct usb_device *usb_dev)
+ static int kone_get_settings(struct usb_device *usb_dev,
+ 		struct kone_settings *buf)
+ {
+-	return roccat_common_receive(usb_dev, kone_command_settings, buf,
++	return kone_receive(usb_dev, kone_command_settings, buf,
+ 			sizeof(struct kone_settings));
+ }
+ 
+@@ -109,7 +150,7 @@ static int kone_set_settings(struct usb_device *usb_dev,
+ 		struct kone_settings const *settings)
+ {
+ 	int retval;
+-	retval = roccat_common_send(usb_dev, kone_command_settings,
++	retval = kone_send(usb_dev, kone_command_settings,
+ 			settings, sizeof(struct kone_settings));
+ 	if (retval)
+ 		return retval;
+@@ -182,7 +223,7 @@ static int kone_get_weight(struct usb_device *usb_dev, int *result)
+ 	int retval;
+ 	uint8_t data;
+ 
+-	retval = roccat_common_receive(usb_dev, kone_command_weight, &data, 1);
++	retval = kone_receive(usb_dev, kone_command_weight, &data, 1);
+ 
+ 	if (retval)
+ 		return retval;
+@@ -201,7 +242,7 @@ static int kone_get_firmware_version(struct usb_device *usb_dev, int *result)
+ 	int retval;
+ 	uint16_t data;
+ 
+-	retval = roccat_common_receive(usb_dev, kone_command_firmware_version,
++	retval = kone_receive(usb_dev, kone_command_firmware_version,
+ 			&data, 2);
+ 	if (retval)
+ 		return retval;
+@@ -384,7 +425,7 @@ static int kone_tcu_command(struct usb_device *usb_dev, int number)
+ {
+ 	unsigned char value;
+ 	value = number;
+-	return roccat_common_send(usb_dev, kone_command_calibrate, &value, 1);
++	return kone_send(usb_dev, kone_command_calibrate, &value, 1);
+ }
+ 
+ /*
+@@ -791,6 +832,9 @@ static int kone_raw_event(struct hid_device *hdev, struct hid_report *report,
+ 	if (size != sizeof(struct kone_mouse_event))
+ 		return 0;
+ 
++	if (kone == NULL)
++		return 0;
++
+ 	/*
+ 	 * Firmware 1.38 introduced new behaviour for tilt and special buttons.
+ 	 * Pressed button is reported in each movement event.
+diff --git a/drivers/hid/hid-roccat-kone.h b/drivers/hid/hid-roccat-kone.h
+index 4109a02..64abb5b 100644
+--- a/drivers/hid/hid-roccat-kone.h
++++ b/drivers/hid/hid-roccat-kone.h
+@@ -166,7 +166,7 @@ enum kone_mouse_events {
+ 	/* osd events are thought to be display on screen */
+ 	kone_mouse_event_osd_dpi = 0xa0,
+ 	kone_mouse_event_osd_profile = 0xb0,
+-	/* TODO clarify meaning and occurrence of kone_mouse_event_calibration */
++	/* TODO clarify meaning and occurence of kone_mouse_event_calibration */
+ 	kone_mouse_event_calibration = 0xc0,
+ 	kone_mouse_event_call_overlong_macro = 0xe0,
+ 	/* switch events notify if user changed values with mousebutton click */
+diff --git a/drivers/hid/hid-roccat-koneplus.c b/drivers/hid/hid-roccat-koneplus.c
+index 5b640a7..59e4777 100644
+--- a/drivers/hid/hid-roccat-koneplus.c
++++ b/drivers/hid/hid-roccat-koneplus.c
+@@ -50,7 +50,7 @@ static int koneplus_send_control(struct usb_device *usb_dev, uint value,
+ 	control.value = value;
+ 	control.request = request;
+ 
+-	return roccat_common_send(usb_dev, KONEPLUS_USB_COMMAND_CONTROL,
++	return roccat_common_send(usb_dev, KONEPLUS_COMMAND_CONTROL,
+ 			&control, sizeof(struct koneplus_control));
+ }
+ 
+@@ -60,7 +60,7 @@ static int koneplus_receive_control_status(struct usb_device *usb_dev)
+ 	struct koneplus_control control;
+ 
+ 	do {
+-		retval = roccat_common_receive(usb_dev, KONEPLUS_USB_COMMAND_CONTROL,
++		retval = roccat_common_receive(usb_dev, KONEPLUS_COMMAND_CONTROL,
+ 				&control, sizeof(struct koneplus_control));
+ 
+ 		/* check if we get a completely wrong answer */
+@@ -120,7 +120,7 @@ static int koneplus_select_profile(struct usb_device *usb_dev, uint number,
+ static int koneplus_get_info(struct usb_device *usb_dev,
+ 		struct koneplus_info *buf)
+ {
+-	return roccat_common_receive(usb_dev, KONEPLUS_USB_COMMAND_INFO,
++	return roccat_common_receive(usb_dev, KONEPLUS_COMMAND_INFO,
+ 			buf, sizeof(struct koneplus_info));
+ }
+ 
+@@ -134,14 +134,14 @@ static int koneplus_get_profile_settings(struct usb_device *usb_dev,
+ 	if (retval)
+ 		return retval;
+ 
+-	return roccat_common_receive(usb_dev, KONEPLUS_USB_COMMAND_PROFILE_SETTINGS,
++	return roccat_common_receive(usb_dev, KONEPLUS_COMMAND_PROFILE_SETTINGS,
+ 			buf, sizeof(struct koneplus_profile_settings));
+ }
+ 
+ static int koneplus_set_profile_settings(struct usb_device *usb_dev,
+ 		struct koneplus_profile_settings const *settings)
+ {
+-	return koneplus_send(usb_dev, KONEPLUS_USB_COMMAND_PROFILE_SETTINGS,
++	return koneplus_send(usb_dev, KONEPLUS_COMMAND_PROFILE_SETTINGS,
+ 			settings, sizeof(struct koneplus_profile_settings));
+ }
+ 
+@@ -155,14 +155,14 @@ static int koneplus_get_profile_buttons(struct usb_device *usb_dev,
+ 	if (retval)
+ 		return retval;
+ 
+-	return roccat_common_receive(usb_dev, KONEPLUS_USB_COMMAND_PROFILE_BUTTONS,
++	return roccat_common_receive(usb_dev, KONEPLUS_COMMAND_PROFILE_BUTTONS,
+ 			buf, sizeof(struct koneplus_profile_buttons));
+ }
+ 
+ static int koneplus_set_profile_buttons(struct usb_device *usb_dev,
+ 		struct koneplus_profile_buttons const *buttons)
+ {
+-	return koneplus_send(usb_dev, KONEPLUS_USB_COMMAND_PROFILE_BUTTONS,
++	return koneplus_send(usb_dev, KONEPLUS_COMMAND_PROFILE_BUTTONS,
+ 			buttons, sizeof(struct koneplus_profile_buttons));
+ }
+ 
+@@ -172,7 +172,7 @@ static int koneplus_get_actual_profile(struct usb_device *usb_dev)
+ 	struct koneplus_actual_profile buf;
+ 	int retval;
+ 
+-	retval = roccat_common_receive(usb_dev, KONEPLUS_USB_COMMAND_ACTUAL_PROFILE,
++	retval = roccat_common_receive(usb_dev, KONEPLUS_COMMAND_ACTUAL_PROFILE,
+ 			&buf, sizeof(struct koneplus_actual_profile));
+ 
+ 	return retval ? retval : buf.actual_profile;
+@@ -187,7 +187,7 @@ static int koneplus_set_actual_profile(struct usb_device *usb_dev,
+ 	buf.size = sizeof(struct koneplus_actual_profile);
+ 	buf.actual_profile = new_profile;
+ 
+-	return koneplus_send(usb_dev, KONEPLUS_USB_COMMAND_ACTUAL_PROFILE,
++	return koneplus_send(usb_dev, KONEPLUS_COMMAND_ACTUAL_PROFILE,
+ 			&buf, sizeof(struct koneplus_actual_profile));
+ }
+ 
+@@ -240,12 +240,20 @@ static ssize_t koneplus_sysfs_write(struct file *fp, struct kobject *kobj,
+ 	return real_size;
+ }
+ 
++static ssize_t koneplus_sysfs_write_talk(struct file *fp,
++		struct kobject *kobj, struct bin_attribute *attr, char *buf,
++		loff_t off, size_t count)
++{
++	return koneplus_sysfs_write(fp, kobj, buf, off, count,
++			sizeof(struct koneplus_talk), KONEPLUS_COMMAND_TALK);
++}
++
+ static ssize_t koneplus_sysfs_write_macro(struct file *fp,
+ 		struct kobject *kobj, struct bin_attribute *attr, char *buf,
+ 		loff_t off, size_t count)
+ {
+ 	return koneplus_sysfs_write(fp, kobj, buf, off, count,
+-			sizeof(struct koneplus_macro), KONEPLUS_USB_COMMAND_MACRO);
++			sizeof(struct koneplus_macro), KONEPLUS_COMMAND_MACRO);
+ }
+ 
+ static ssize_t koneplus_sysfs_read_sensor(struct file *fp,
+@@ -253,7 +261,7 @@ static ssize_t koneplus_sysfs_read_sensor(struct file *fp,
+ 		loff_t off, size_t count)
+ {
+ 	return koneplus_sysfs_read(fp, kobj, buf, off, count,
+-			sizeof(struct koneplus_sensor), KONEPLUS_USB_COMMAND_SENSOR);
++			sizeof(struct koneplus_sensor), KONEPLUS_COMMAND_SENSOR);
+ }
+ 
+ static ssize_t koneplus_sysfs_write_sensor(struct file *fp,
+@@ -261,7 +269,7 @@ static ssize_t koneplus_sysfs_write_sensor(struct file *fp,
+ 		loff_t off, size_t count)
+ {
+ 	return koneplus_sysfs_write(fp, kobj, buf, off, count,
+-			sizeof(struct koneplus_sensor), KONEPLUS_USB_COMMAND_SENSOR);
++			sizeof(struct koneplus_sensor), KONEPLUS_COMMAND_SENSOR);
+ }
+ 
+ static ssize_t koneplus_sysfs_write_tcu(struct file *fp,
+@@ -269,7 +277,7 @@ static ssize_t koneplus_sysfs_write_tcu(struct file *fp,
+ 		loff_t off, size_t count)
+ {
+ 	return koneplus_sysfs_write(fp, kobj, buf, off, count,
+-			sizeof(struct koneplus_tcu), KONEPLUS_USB_COMMAND_TCU);
++			sizeof(struct koneplus_tcu), KONEPLUS_COMMAND_TCU);
+ }
+ 
+ static ssize_t koneplus_sysfs_read_tcu_image(struct file *fp,
+@@ -277,7 +285,7 @@ static ssize_t koneplus_sysfs_read_tcu_image(struct file *fp,
+ 		loff_t off, size_t count)
+ {
+ 	return koneplus_sysfs_read(fp, kobj, buf, off, count,
+-			sizeof(struct koneplus_tcu_image), KONEPLUS_USB_COMMAND_TCU);
++			sizeof(struct koneplus_tcu_image), KONEPLUS_COMMAND_TCU);
+ }
+ 
+ static ssize_t koneplus_sysfs_read_profilex_settings(struct file *fp,
+@@ -423,6 +431,9 @@ static ssize_t koneplus_sysfs_set_actual_profile(struct device *dev,
+ 	if (retval)
+ 		return retval;
+ 
++	if (profile > 4)
++		return -EINVAL;
++
+ 	mutex_lock(&koneplus->koneplus_lock);
+ 
+ 	retval = koneplus_set_actual_profile(usb_dev, profile);
+@@ -431,7 +442,7 @@ static ssize_t koneplus_sysfs_set_actual_profile(struct device *dev,
+ 		return retval;
+ 	}
+ 
+-	koneplus->actual_profile = profile;
++	koneplus_profile_activated(koneplus, profile);
+ 
+ 	roccat_report.type = KONEPLUS_MOUSE_REPORT_BUTTON_TYPE_PROFILE;
+ 	roccat_report.data1 = profile + 1;
+@@ -557,6 +568,11 @@ static struct bin_attribute koneplus_bin_attributes[] = {
+ 		.size = sizeof(struct koneplus_macro),
+ 		.write = koneplus_sysfs_write_macro
+ 	},
++	{
++		.attr = { .name = "talk", .mode = 0220 },
++		.size = sizeof(struct koneplus_talk),
++		.write = koneplus_sysfs_write_talk
++	},
+ 	__ATTR_NULL
+ };
+ 
+@@ -738,6 +754,9 @@ static int koneplus_raw_event(struct hid_device *hdev,
+ 			!= USB_INTERFACE_PROTOCOL_MOUSE)
+ 		return 0;
+ 
++	if (koneplus == NULL)
++		return 0;
++
+ 	koneplus_keep_values_up_to_date(koneplus, data);
+ 
+ 	if (koneplus->roccat_claimed)
+diff --git a/drivers/hid/hid-roccat-koneplus.h b/drivers/hid/hid-roccat-koneplus.h
+index c57a376..c03332a 100644
+--- a/drivers/hid/hid-roccat-koneplus.h
++++ b/drivers/hid/hid-roccat-koneplus.h
+@@ -14,6 +14,12 @@
+ 
+ #include <linux/types.h>
+ 
++struct koneplus_talk {
++	uint8_t command; /* KONEPLUS_COMMAND_TALK */
++	uint8_t size; /* always 0x10 */
++	uint8_t data[14];
++} __packed;
++
+ /*
+  * case 1: writes request 80 and reads value 1
+  *
+@@ -137,26 +143,14 @@ enum koneplus_commands {
+ 	KONEPLUS_COMMAND_PROFILE_BUTTONS = 0x7,
+ 	KONEPLUS_COMMAND_MACRO = 0x8,
+ 	KONEPLUS_COMMAND_INFO = 0x9,
++	KONEPLUS_COMMAND_TCU = 0xc,
+ 	KONEPLUS_COMMAND_E = 0xe,
+ 	KONEPLUS_COMMAND_SENSOR = 0xf,
++	KONEPLUS_COMMAND_TALK = 0x10,
+ 	KONEPLUS_COMMAND_FIRMWARE_WRITE = 0x1b,
+ 	KONEPLUS_COMMAND_FIRMWARE_WRITE_CONTROL = 0x1c,
+ };
+ 
+-enum koneplus_usb_commands {
+-	KONEPLUS_USB_COMMAND_CONTROL = 0x304,
+-	KONEPLUS_USB_COMMAND_ACTUAL_PROFILE = 0x305,
+-	KONEPLUS_USB_COMMAND_PROFILE_SETTINGS = 0x306,
+-	KONEPLUS_USB_COMMAND_PROFILE_BUTTONS = 0x307,
+-	KONEPLUS_USB_COMMAND_MACRO = 0x308,
+-	KONEPLUS_USB_COMMAND_INFO = 0x309,
+-	KONEPLUS_USB_COMMAND_TCU = 0x30c,
+-	KONEPLUS_USB_COMMAND_E = 0x30e,
+-	KONEPLUS_USB_COMMAND_SENSOR = 0x30f,
+-	KONEPLUS_USB_COMMAND_FIRMWARE_WRITE = 0x31b,
+-	KONEPLUS_USB_COMMAND_FIRMWARE_WRITE_CONTROL = 0x31c,
+-};
+-
+ enum koneplus_mouse_report_numbers {
+ 	KONEPLUS_MOUSE_REPORT_NUMBER_HID = 1,
+ 	KONEPLUS_MOUSE_REPORT_NUMBER_AUDIO = 2,
+@@ -193,6 +187,7 @@ enum koneplus_mouse_report_button_types {
+ 	 * data2 = action
+ 	 */
+ 	KONEPLUS_MOUSE_REPORT_BUTTON_TYPE_MULTIMEDIA = 0xf0,
++	KONEPLUS_MOUSE_REPORT_TALK = 0xff,
+ };
+ 
+ enum koneplus_mouse_report_button_action {
+diff --git a/drivers/hid/hid-roccat-kovaplus.c b/drivers/hid/hid-roccat-kovaplus.c
+index 984be2f..1f8336e 100644
+--- a/drivers/hid/hid-roccat-kovaplus.c
++++ b/drivers/hid/hid-roccat-kovaplus.c
+@@ -58,7 +58,7 @@ static int kovaplus_send_control(struct usb_device *usb_dev, uint value,
+ 	control.value = value;
+ 	control.request = request;
+ 
+-	retval = roccat_common_send(usb_dev, KOVAPLUS_USB_COMMAND_CONTROL,
++	retval = roccat_common_send(usb_dev, KOVAPLUS_COMMAND_CONTROL,
+ 			&control, sizeof(struct kovaplus_control));
+ 
+ 	return retval;
+@@ -70,7 +70,7 @@ static int kovaplus_receive_control_status(struct usb_device *usb_dev)
+ 	struct kovaplus_control control;
+ 
+ 	do {
+-		retval = roccat_common_receive(usb_dev, KOVAPLUS_USB_COMMAND_CONTROL,
++		retval = roccat_common_receive(usb_dev, KOVAPLUS_COMMAND_CONTROL,
+ 				&control, sizeof(struct kovaplus_control));
+ 
+ 		/* check if we get a completely wrong answer */
+@@ -90,7 +90,7 @@ static int kovaplus_receive_control_status(struct usb_device *usb_dev)
+ 		if (control.value == KOVAPLUS_CONTROL_REQUEST_STATUS_OVERLOAD)
+ 			return -EINVAL;
+ 
+-		hid_err(usb_dev, "kovaplus_receive_control_status: "
++		hid_err(usb_dev, "roccat_common_receive_control_status: "
+ 				"unknown response value 0x%x\n", control.value);
+ 		return -EINVAL;
+ 	} while (1);
+@@ -119,7 +119,7 @@ static int kovaplus_select_profile(struct usb_device *usb_dev, uint number,
+ static int kovaplus_get_info(struct usb_device *usb_dev,
+ 		struct kovaplus_info *buf)
+ {
+-	return roccat_common_receive(usb_dev, KOVAPLUS_USB_COMMAND_INFO,
++	return roccat_common_receive(usb_dev, KOVAPLUS_COMMAND_INFO,
+ 			buf, sizeof(struct kovaplus_info));
+ }
+ 
+@@ -133,14 +133,14 @@ static int kovaplus_get_profile_settings(struct usb_device *usb_dev,
+ 	if (retval)
+ 		return retval;
+ 
+-	return roccat_common_receive(usb_dev, KOVAPLUS_USB_COMMAND_PROFILE_SETTINGS,
++	return roccat_common_receive(usb_dev, KOVAPLUS_COMMAND_PROFILE_SETTINGS,
+ 			buf, sizeof(struct kovaplus_profile_settings));
+ }
+ 
+ static int kovaplus_set_profile_settings(struct usb_device *usb_dev,
+ 		struct kovaplus_profile_settings const *settings)
+ {
+-	return kovaplus_send(usb_dev, KOVAPLUS_USB_COMMAND_PROFILE_SETTINGS,
++	return kovaplus_send(usb_dev, KOVAPLUS_COMMAND_PROFILE_SETTINGS,
+ 			settings, sizeof(struct kovaplus_profile_settings));
+ }
+ 
+@@ -154,14 +154,14 @@ static int kovaplus_get_profile_buttons(struct usb_device *usb_dev,
+ 	if (retval)
+ 		return retval;
+ 
+-	return roccat_common_receive(usb_dev, KOVAPLUS_USB_COMMAND_PROFILE_BUTTONS,
++	return roccat_common_receive(usb_dev, KOVAPLUS_COMMAND_PROFILE_BUTTONS,
+ 			buf, sizeof(struct kovaplus_profile_buttons));
+ }
+ 
+ static int kovaplus_set_profile_buttons(struct usb_device *usb_dev,
+ 		struct kovaplus_profile_buttons const *buttons)
+ {
+-	return kovaplus_send(usb_dev, KOVAPLUS_USB_COMMAND_PROFILE_BUTTONS,
++	return kovaplus_send(usb_dev, KOVAPLUS_COMMAND_PROFILE_BUTTONS,
+ 			buttons, sizeof(struct kovaplus_profile_buttons));
+ }
+ 
+@@ -171,7 +171,7 @@ static int kovaplus_get_actual_profile(struct usb_device *usb_dev)
+ 	struct kovaplus_actual_profile buf;
+ 	int retval;
+ 
+-	retval = roccat_common_receive(usb_dev, KOVAPLUS_USB_COMMAND_ACTUAL_PROFILE,
++	retval = roccat_common_receive(usb_dev, KOVAPLUS_COMMAND_ACTUAL_PROFILE,
+ 			&buf, sizeof(struct kovaplus_actual_profile));
+ 
+ 	return retval ? retval : buf.actual_profile;
+@@ -186,7 +186,7 @@ static int kovaplus_set_actual_profile(struct usb_device *usb_dev,
+ 	buf.size = sizeof(struct kovaplus_actual_profile);
+ 	buf.actual_profile = new_profile;
+ 
+-	return kovaplus_send(usb_dev, KOVAPLUS_USB_COMMAND_ACTUAL_PROFILE,
++	return kovaplus_send(usb_dev, KOVAPLUS_COMMAND_ACTUAL_PROFILE,
+ 			&buf, sizeof(struct kovaplus_actual_profile));
+ }
+ 
+@@ -337,7 +337,7 @@ static ssize_t kovaplus_sysfs_set_actual_profile(struct device *dev,
+ 
+ 	mutex_lock(&kovaplus->kovaplus_lock);
+ 	retval = kovaplus_set_actual_profile(usb_dev, profile);
+-	kovaplus->actual_profile = profile;
++	kovaplus_profile_activated(kovaplus, profile);
+ 	mutex_unlock(&kovaplus->kovaplus_lock);
+ 	if (retval)
+ 		return retval;
+@@ -662,6 +662,9 @@ static int kovaplus_raw_event(struct hid_device *hdev,
+ 			!= USB_INTERFACE_PROTOCOL_MOUSE)
+ 		return 0;
+ 
++	if (kovaplus == NULL)
++		return 0;
++
+ 	kovaplus_keep_values_up_to_date(kovaplus, data);
+ 
+ 	if (kovaplus->roccat_claimed)
+diff --git a/drivers/hid/hid-roccat-kovaplus.h b/drivers/hid/hid-roccat-kovaplus.h
+index ce40607..fb2aed4 100644
+--- a/drivers/hid/hid-roccat-kovaplus.h
++++ b/drivers/hid/hid-roccat-kovaplus.h
+@@ -83,15 +83,6 @@ enum kovaplus_commands {
+ 	KOVAPLUS_COMMAND_A = 0xa,
+ };
+ 
+-enum kovaplus_usb_commands {
+-	KOVAPLUS_USB_COMMAND_CONTROL = 0x304,
+-	KOVAPLUS_USB_COMMAND_ACTUAL_PROFILE = 0x305,
+-	KOVAPLUS_USB_COMMAND_PROFILE_SETTINGS = 0x306,
+-	KOVAPLUS_USB_COMMAND_PROFILE_BUTTONS = 0x307,
+-	KOVAPLUS_USB_COMMAND_INFO = 0x309,
+-	KOVAPLUS_USB_COMMAND_A = 0x30a,
+-};
+-
+ enum kovaplus_mouse_report_numbers {
+ 	KOVAPLUS_MOUSE_REPORT_NUMBER_MOUSE = 1,
+ 	KOVAPLUS_MOUSE_REPORT_NUMBER_AUDIO = 2,
+diff --git a/drivers/hid/hid-roccat-pyra.c b/drivers/hid/hid-roccat-pyra.c
+index 38280c0..8140776b 100644
+--- a/drivers/hid/hid-roccat-pyra.c
++++ b/drivers/hid/hid-roccat-pyra.c
+@@ -53,7 +53,7 @@ static int pyra_send_control(struct usb_device *usb_dev, int value,
+ 	control.value = value;
+ 	control.request = request;
+ 
+-	return roccat_common_send(usb_dev, PYRA_USB_COMMAND_CONTROL,
++	return roccat_common_send(usb_dev, PYRA_COMMAND_CONTROL,
+ 			&control, sizeof(struct pyra_control));
+ }
+ 
+@@ -64,7 +64,7 @@ static int pyra_receive_control_status(struct usb_device *usb_dev)
+ 
+ 	do {
+ 		msleep(10);
+-		retval = roccat_common_receive(usb_dev, PYRA_USB_COMMAND_CONTROL,
++		retval = roccat_common_receive(usb_dev, PYRA_COMMAND_CONTROL,
+ 				&control, sizeof(struct pyra_control));
+ 
+ 		/* requested too early, try again */
+@@ -89,7 +89,7 @@ static int pyra_get_profile_settings(struct usb_device *usb_dev,
+ 			PYRA_CONTROL_REQUEST_PROFILE_SETTINGS);
+ 	if (retval)
+ 		return retval;
+-	return roccat_common_receive(usb_dev, PYRA_USB_COMMAND_PROFILE_SETTINGS,
++	return roccat_common_receive(usb_dev, PYRA_COMMAND_PROFILE_SETTINGS,
+ 			buf, sizeof(struct pyra_profile_settings));
+ }
+ 
+@@ -101,20 +101,20 @@ static int pyra_get_profile_buttons(struct usb_device *usb_dev,
+ 			PYRA_CONTROL_REQUEST_PROFILE_BUTTONS);
+ 	if (retval)
+ 		return retval;
+-	return roccat_common_receive(usb_dev, PYRA_USB_COMMAND_PROFILE_BUTTONS,
++	return roccat_common_receive(usb_dev, PYRA_COMMAND_PROFILE_BUTTONS,
+ 			buf, sizeof(struct pyra_profile_buttons));
+ }
+ 
+ static int pyra_get_settings(struct usb_device *usb_dev,
+ 		struct pyra_settings *buf)
+ {
+-	return roccat_common_receive(usb_dev, PYRA_USB_COMMAND_SETTINGS,
++	return roccat_common_receive(usb_dev, PYRA_COMMAND_SETTINGS,
+ 			buf, sizeof(struct pyra_settings));
+ }
+ 
+ static int pyra_get_info(struct usb_device *usb_dev, struct pyra_info *buf)
+ {
+-	return roccat_common_receive(usb_dev, PYRA_USB_COMMAND_INFO,
++	return roccat_common_receive(usb_dev, PYRA_COMMAND_INFO,
+ 			buf, sizeof(struct pyra_info));
+ }
+ 
+@@ -131,26 +131,22 @@ static int pyra_send(struct usb_device *usb_dev, uint command,
+ static int pyra_set_profile_settings(struct usb_device *usb_dev,
+ 		struct pyra_profile_settings const *settings)
+ {
+-	return pyra_send(usb_dev, PYRA_USB_COMMAND_PROFILE_SETTINGS, settings,
++	return pyra_send(usb_dev, PYRA_COMMAND_PROFILE_SETTINGS, settings,
+ 			sizeof(struct pyra_profile_settings));
+ }
+ 
+ static int pyra_set_profile_buttons(struct usb_device *usb_dev,
+ 		struct pyra_profile_buttons const *buttons)
+ {
+-	return pyra_send(usb_dev, PYRA_USB_COMMAND_PROFILE_BUTTONS, buttons,
++	return pyra_send(usb_dev, PYRA_COMMAND_PROFILE_BUTTONS, buttons,
+ 			sizeof(struct pyra_profile_buttons));
+ }
+ 
+ static int pyra_set_settings(struct usb_device *usb_dev,
+ 		struct pyra_settings const *settings)
+ {
+-	int retval;
+-	retval = roccat_common_send(usb_dev, PYRA_USB_COMMAND_SETTINGS, settings,
++	return pyra_send(usb_dev, PYRA_COMMAND_SETTINGS, settings,
+ 			sizeof(struct pyra_settings));
+-	if (retval)
+-		return retval;
+-	return pyra_receive_control_status(usb_dev);
+ }
+ 
+ static ssize_t pyra_sysfs_read_profilex_settings(struct file *fp,
+@@ -641,6 +637,9 @@ static int pyra_raw_event(struct hid_device *hdev, struct hid_report *report,
+ 			!= USB_INTERFACE_PROTOCOL_MOUSE)
+ 		return 0;
+ 
++	if (pyra == NULL)
++		return 0;
++
+ 	pyra_keep_values_up_to_date(pyra, data);
+ 
+ 	if (pyra->roccat_claimed)
+diff --git a/drivers/hid/hid-roccat-pyra.h b/drivers/hid/hid-roccat-pyra.h
+index 14cbbe1..0442d7f 100644
+--- a/drivers/hid/hid-roccat-pyra.h
++++ b/drivers/hid/hid-roccat-pyra.h
+@@ -83,15 +83,6 @@ enum pyra_commands {
+ 	PYRA_COMMAND_B = 0xb
+ };
+ 
+-enum pyra_usb_commands {
+-	PYRA_USB_COMMAND_CONTROL = 0x304,
+-	PYRA_USB_COMMAND_SETTINGS = 0x305,
+-	PYRA_USB_COMMAND_PROFILE_SETTINGS = 0x306,
+-	PYRA_USB_COMMAND_PROFILE_BUTTONS = 0x307,
+-	PYRA_USB_COMMAND_INFO = 0x309,
+-	PYRA_USB_COMMAND_B = 0x30b /* writes 3 bytes */
+-};
+-
+ enum pyra_mouse_report_numbers {
+ 	PYRA_MOUSE_REPORT_NUMBER_HID = 1,
+ 	PYRA_MOUSE_REPORT_NUMBER_AUDIO = 2,
+diff --git a/drivers/hid/hid-sony.c b/drivers/hid/hid-sony.c
+index 936c911..5cd25bd 100644
+--- a/drivers/hid/hid-sony.c
++++ b/drivers/hid/hid-sony.c
+@@ -28,6 +28,12 @@
+ #define SIXAXIS_CONTROLLER_USB  (1 << 1)
+ #define SIXAXIS_CONTROLLER_BT   (1 << 2)
+ 
++static const u8 sixaxis_rdesc_fixup[] = {
++	0x95, 0x13, 0x09, 0x01, 0x81, 0x02, 0x95, 0x0C,
++	0x81, 0x01, 0x75, 0x10, 0x95, 0x04, 0x26, 0xFF,
++	0x03, 0x46, 0xFF, 0x03, 0x09, 0x01, 0x81, 0x02
++};
++
+ struct sony_sc {
+ 	unsigned long quirks;
+ };
+@@ -43,9 +49,37 @@ static __u8 *sony_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+ 		hid_info(hdev, "Fixing up Sony Vaio VGX report descriptor\n");
+ 		rdesc[55] = 0x06;
+ 	}
++
++	/* The HID descriptor exposed over BT has a trailing zero byte */
++	if ((((sc->quirks & SIXAXIS_CONTROLLER_USB) && *rsize == 148) ||
++			((sc->quirks & SIXAXIS_CONTROLLER_BT) && *rsize == 149)) &&
++			rdesc[83] == 0x75) {
++		hid_info(hdev, "Fixing up Sony Sixaxis report descriptor\n");
++		memcpy((void *)&rdesc[83], (void *)&sixaxis_rdesc_fixup,
++			sizeof(sixaxis_rdesc_fixup));
++	}
+ 	return rdesc;
+ }
+ 
++static int sony_raw_event(struct hid_device *hdev, struct hid_report *report,
++		__u8 *rd, int size)
++{
++	struct sony_sc *sc = hid_get_drvdata(hdev);
++
++	/* Sixaxis HID report has acclerometers/gyro with MSByte first, this
++	 * has to be BYTE_SWAPPED before passing up to joystick interface
++	 */
++	if ((sc->quirks & (SIXAXIS_CONTROLLER_USB | SIXAXIS_CONTROLLER_BT)) &&
++			rd[0] == 0x01 && size == 49) {
++		swap(rd[41], rd[42]);
++		swap(rd[43], rd[44]);
++		swap(rd[45], rd[46]);
++		swap(rd[47], rd[48]);
++	}
++
++	return 0;
++}
++
+ /*
+  * The Sony Sixaxis does not handle HID Output Reports on the Interrupt EP
+  * like it should according to usbhid/hid-core.c::usbhid_output_raw_report()
+@@ -194,6 +228,7 @@ static struct hid_driver sony_driver = {
+ 	.probe = sony_probe,
+ 	.remove = sony_remove,
+ 	.report_fixup = sony_report_fixup,
++	.raw_event = sony_raw_event
+ };
+ 
+ static int __init sony_init(void)
+diff --git a/drivers/hid/hid-speedlink.c b/drivers/hid/hid-speedlink.c
+new file mode 100644
+index 0000000..6020137
+--- /dev/null
++++ b/drivers/hid/hid-speedlink.c
+@@ -0,0 +1,89 @@
++/*
++ *  HID driver for Speedlink Vicious and Divine Cezanne (USB mouse).
++ *  Fixes "jumpy" cursor and removes nonexistent keyboard LEDS from
++ *  the HID descriptor.
++ *
++ *  Copyright (c) 2011 Stefan Kriwanek <mail@stefankriwanek.de>
++ */
++
++/*
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation; either version 2 of the License, or (at your option)
++ * any later version.
++ */
++
++#include <linux/device.h>
++#include <linux/hid.h>
++#include <linux/module.h>
++#include <linux/usb.h>
++
++#include "hid-ids.h"
++#include "usbhid/usbhid.h"
++
++static const struct hid_device_id speedlink_devices[] = {
++	{ HID_USB_DEVICE(USB_VENDOR_ID_X_TENSIONS, USB_DEVICE_ID_SPEEDLINK_VAD_CEZANNE)},
++	{ }
++};
++
++static int speedlink_input_mapping(struct hid_device *hdev,
++		struct hid_input *hi,
++		struct hid_field *field, struct hid_usage *usage,
++		unsigned long **bit, int *max)
++{
++	/*
++	 * The Cezanne mouse has a second "keyboard" USB endpoint for it is
++	 * able to map keyboard events to the button presses.
++	 * It sends a standard keyboard report descriptor, though, whose
++	 * LEDs we ignore.
++	 */
++	switch (usage->hid & HID_USAGE_PAGE) {
++	case HID_UP_LED:
++		return -1;
++	}
++	return 0;
++}
++
++static int speedlink_event(struct hid_device *hdev, struct hid_field *field,
++		struct hid_usage *usage, __s32 value)
++{
++	/* No other conditions due to usage_table. */
++	/* Fix "jumpy" cursor (invalid events sent by device). */
++	if (value == 256)
++		return 1;
++	/* Drop useless distance 0 events (on button clicks etc.) as well */
++	if (value == 0)
++		return 1;
++
++	return 0;
++}
++
++MODULE_DEVICE_TABLE(hid, speedlink_devices);
++
++static const struct hid_usage_id speedlink_grabbed_usages[] = {
++	{ HID_GD_X, EV_REL, 0 },
++	{ HID_GD_Y, EV_REL, 1 },
++	{ HID_ANY_ID - 1, HID_ANY_ID - 1, HID_ANY_ID - 1}
++};
++
++static struct hid_driver speedlink_driver = {
++	.name = "speedlink",
++	.id_table = speedlink_devices,
++	.usage_table = speedlink_grabbed_usages,
++	.input_mapping = speedlink_input_mapping,
++	.event = speedlink_event,
++};
++
++static int __init speedlink_init(void)
++{
++	return hid_register_driver(&speedlink_driver);
++}
++
++static void __exit speedlink_exit(void)
++{
++	hid_unregister_driver(&speedlink_driver);
++}
++
++module_init(speedlink_init);
++module_exit(speedlink_exit);
++MODULE_LICENSE("GPL");
+diff --git a/drivers/hid/hid-uclogic.c b/drivers/hid/hid-uclogic.c
+index 05fdc85a..e15732f 100644
+--- a/drivers/hid/hid-uclogic.c
++++ b/drivers/hid/hid-uclogic.c
+@@ -343,6 +343,193 @@ static __u8 wp8060u_rdesc_fixed[] = {
+ };
+ 
+ /*
++ * Original WP1062 report descriptor.
++ *
++ * Only report ID 9 is actually used.
++ *
++ *  Usage Page (Digitizer),         ; Digitizer (0Dh)
++ *  Usage (Pen),                    ; Pen (02h, application collection)
++ *  Collection (Application),
++ *    Report ID (7),
++ *    Usage (Stylus),               ; Stylus (20h, logical collection)
++ *    Collection (Physical),
++ *      Usage (Tip Switch),         ; Tip switch (42h, momentary control)
++ *      Usage (Barrel Switch),      ; Barrel switch (44h, momentary control)
++ *      Usage (Eraser),             ; Eraser (45h, momentary control)
++ *      Logical Minimum (0),
++ *      Logical Maximum (1),
++ *      Report Size (1),
++ *      Report Count (3),
++ *      Input (Variable),
++ *      Report Count (3),
++ *      Input (Constant, Variable),
++ *      Usage (In Range),           ; In range (32h, momentary control)
++ *      Report Count (1),
++ *      Input (Variable),
++ *      Report Count (1),
++ *      Input (Constant, Variable),
++ *      Usage Page (Desktop),       ; Generic desktop controls (01h)
++ *      Usage (X),                  ; X (30h, dynamic value)
++ *      Report Size (16),
++ *      Report Count (1),
++ *      Push,
++ *      Unit Exponent (13),
++ *      Unit (Inch),
++ *      Physical Minimum (0),
++ *      Physical Maximum (10000),
++ *      Logical Maximum (20000),
++ *      Input (Variable),
++ *      Usage (Y),                  ; Y (31h, dynamic value)
++ *      Physical Maximum (6583),
++ *      Logical Maximum (13166),
++ *      Input (Variable),
++ *      Pop,
++ *      Usage Page (Digitizer),     ; Digitizer (0Dh)
++ *      Usage (Tip Pressure),       ; Tip pressure (30h, dynamic value)
++ *      Logical Maximum (1023),
++ *      Input (Variable),
++ *      Report Size (16),
++ *    End Collection,
++ *  End Collection,
++ *  Usage Page (Desktop),           ; Generic desktop controls (01h)
++ *  Usage (Mouse),                  ; Mouse (02h, application collection)
++ *  Collection (Application),
++ *    Report ID (8),
++ *    Usage (Pointer),              ; Pointer (01h, physical collection)
++ *    Collection (Physical),
++ *      Usage Page (Button),        ; Button (09h)
++ *      Usage Minimum (01h),
++ *      Usage Maximum (03h),
++ *      Logical Minimum (0),
++ *      Logical Maximum (1),
++ *      Report Count (3),
++ *      Report Size (1),
++ *      Input (Variable),
++ *      Report Count (5),
++ *      Input (Constant),
++ *      Usage Page (Desktop),       ; Generic desktop controls (01h)
++ *      Usage (X),                  ; X (30h, dynamic value)
++ *      Usage (Y),                  ; Y (31h, dynamic value)
++ *      Usage (Wheel),              ; Wheel (38h, dynamic value)
++ *      Usage (00h),
++ *      Logical Minimum (-127),
++ *      Logical Maximum (127),
++ *      Report Size (8),
++ *      Report Count (4),
++ *      Input (Variable, Relative),
++ *    End Collection,
++ *  End Collection,
++ *  Usage Page (Desktop),           ; Generic desktop controls (01h)
++ *  Usage (Mouse),                  ; Mouse (02h, application collection)
++ *  Collection (Application),
++ *    Report ID (9),
++ *    Usage (Pointer),              ; Pointer (01h, physical collection)
++ *    Collection (Physical),
++ *      Usage Page (Button),        ; Button (09h)
++ *      Usage Minimum (01h),
++ *      Usage Maximum (03h),
++ *      Logical Minimum (0),
++ *      Logical Maximum (1),
++ *      Report Count (3),
++ *      Report Size (1),
++ *      Input (Variable),
++ *      Report Count (4),
++ *      Input (Constant),
++ *      Usage Page (Digitizer),     ; Digitizer (0Dh)
++ *      Usage (In Range),           ; In range (32h, momentary control)
++ *      Report Count (1),
++ *      Input (Variable),
++ *      Usage Page (Desktop),       ; Generic desktop controls (01h)
++ *      Usage (X),                  ; X (30h, dynamic value)
++ *      Report Size (16),
++ *      Report Count (1),
++ *      Push,
++ *      Unit Exponent (13),
++ *      Unit (Inch),
++ *      Physical Minimum (0),
++ *      Physical Maximum (10000),
++ *      Logical Maximum (20000),
++ *      Input (Variable),
++ *      Usage (Y),                  ; Y (31h, dynamic value)
++ *      Physical Maximum (6583),
++ *      Logical Maximum (13166),
++ *      Input (Variable),
++ *      Pop,
++ *      Usage Page (Digitizer),     ; Digitizer (0Dh)
++ *      Usage (Tip Pressure),       ; Tip pressure (30h, dynamic value)
++ *      Logical Maximum (1023),
++ *      Report Count (1),
++ *      Report Size (16),
++ *      Input (Variable),
++ *    End Collection,
++ *  End Collection,
++ *  Usage Page (Desktop),           ; Generic desktop controls (01h)
++ *  Usage (00h),
++ *  Collection (Application),
++ *    Report ID (4),
++ *    Logical Minimum (0),
++ *    Logical Maximum (255),
++ *    Usage (00h),
++ *    Report Size (8),
++ *    Report Count (3),
++ *    Feature (Variable),
++ *  End Collection
++ */
++
++/* Size of the original descriptor of WP1062 tablet */
++#define WP1062_RDESC_ORIG_SIZE	254
++
++/*
++ * Fixed WP1062 report descriptor.
++ *
++ * Removed unused reports, corrected second barrel button usage code, physical
++ * units.
++ */
++static __u8 wp1062_rdesc_fixed[] = {
++	0x05, 0x0D,         /*  Usage Page (Digitizer),             */
++	0x09, 0x02,         /*  Usage (Pen),                        */
++	0xA1, 0x01,         /*  Collection (Application),           */
++	0x85, 0x09,         /*      Report ID (9),                  */
++	0x09, 0x20,         /*      Usage (Stylus),                 */
++	0xA0,               /*      Collection (Physical),          */
++	0x75, 0x01,         /*          Report Size (1),            */
++	0x09, 0x42,         /*          Usage (Tip Switch),         */
++	0x09, 0x44,         /*          Usage (Barrel Switch),      */
++	0x09, 0x46,         /*          Usage (Tablet Pick),        */
++	0x14,               /*          Logical Minimum (0),        */
++	0x25, 0x01,         /*          Logical Maximum (1),        */
++	0x95, 0x03,         /*          Report Count (3),           */
++	0x81, 0x02,         /*          Input (Variable),           */
++	0x95, 0x04,         /*          Report Count (4),           */
++	0x81, 0x01,         /*          Input (Constant),           */
++	0x09, 0x32,         /*          Usage (In Range),           */
++	0x95, 0x01,         /*          Report Count (1),           */
++	0x81, 0x02,         /*          Input (Variable),           */
++	0x75, 0x10,         /*          Report Size (16),           */
++	0x95, 0x01,         /*          Report Count (1),           */
++	0x14,               /*          Logical Minimum (0),        */
++	0xA4,               /*          Push,                       */
++	0x05, 0x01,         /*          Usage Page (Desktop),       */
++	0x55, 0xFD,         /*          Unit Exponent (-3),         */
++	0x65, 0x13,         /*          Unit (Inch),                */
++	0x34,               /*          Physical Minimum (0),       */
++	0x09, 0x30,         /*          Usage (X),                  */
++	0x46, 0x10, 0x27,   /*          Physical Maximum (10000),   */
++	0x26, 0x20, 0x4E,   /*          Logical Maximum (20000),    */
++	0x81, 0x02,         /*          Input (Variable),           */
++	0x09, 0x31,         /*          Usage (Y),                  */
++	0x46, 0xB7, 0x19,   /*          Physical Maximum (6583),    */
++	0x26, 0x6E, 0x33,   /*          Logical Maximum (13166),    */
++	0x81, 0x02,         /*          Input (Variable),           */
++	0xB4,               /*          Pop,                        */
++	0x09, 0x30,         /*          Usage (Tip Pressure),       */
++	0x26, 0xFF, 0x03,   /*          Logical Maximum (1023),     */
++	0x81, 0x02,         /*          Input (Variable),           */
++	0xC0,               /*      End Collection,                 */
++	0xC0                /*  End Collection                      */
++};
++
++/*
+  * Original PF1209 report descriptor.
+  *
+  * The descriptor is similar to WPXXXXU descriptors, with an addition of a
+@@ -584,6 +771,12 @@ static __u8 *uclogic_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+ 			*rsize = sizeof(wp8060u_rdesc_fixed);
+ 		}
+ 		break;
++	case USB_DEVICE_ID_UCLOGIC_TABLET_WP1062:
++		if (*rsize == WP1062_RDESC_ORIG_SIZE) {
++			rdesc = wp1062_rdesc_fixed;
++			*rsize = sizeof(wp1062_rdesc_fixed);
++		}
++		break;
+ 	}
+ 
+ 	return rdesc;
+@@ -598,6 +791,8 @@ static const struct hid_device_id uclogic_devices[] = {
+ 				USB_DEVICE_ID_UCLOGIC_TABLET_WP5540U) },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_UCLOGIC,
+ 				USB_DEVICE_ID_UCLOGIC_TABLET_WP8060U) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_UCLOGIC,
++				USB_DEVICE_ID_UCLOGIC_TABLET_WP1062) },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(hid, uclogic_devices);
+diff --git a/drivers/hid/hid-wiimote.c b/drivers/hid/hid-wiimote.c
+new file mode 100644
+index 0000000..a594383
+--- /dev/null
++++ b/drivers/hid/hid-wiimote.c
+@@ -0,0 +1,489 @@
++/*
++ * HID driver for Nintendo Wiimote devices
++ * Copyright (c) 2011 David Herrmann
++ */
++
++/*
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation; either version 2 of the License, or (at your option)
++ * any later version.
++ */
++
++#include <linux/atomic.h>
++#include <linux/device.h>
++#include <linux/hid.h>
++#include <linux/input.h>
++#include <linux/module.h>
++#include <linux/spinlock.h>
++#include "hid-ids.h"
++
++#define WIIMOTE_VERSION "0.1"
++#define WIIMOTE_NAME "Nintendo Wii Remote"
++#define WIIMOTE_BUFSIZE 32
++
++struct wiimote_buf {
++	__u8 data[HID_MAX_BUFFER_SIZE];
++	size_t size;
++};
++
++struct wiimote_state {
++	spinlock_t lock;
++	__u8 flags;
++};
++
++struct wiimote_data {
++	atomic_t ready;
++	struct hid_device *hdev;
++	struct input_dev *input;
++
++	spinlock_t qlock;
++	__u8 head;
++	__u8 tail;
++	struct wiimote_buf outq[WIIMOTE_BUFSIZE];
++	struct work_struct worker;
++
++	struct wiimote_state state;
++};
++
++#define WIIPROTO_FLAG_LED1 0x01
++#define WIIPROTO_FLAG_LED2 0x02
++#define WIIPROTO_FLAG_LED3 0x04
++#define WIIPROTO_FLAG_LED4 0x08
++#define WIIPROTO_FLAGS_LEDS (WIIPROTO_FLAG_LED1 | WIIPROTO_FLAG_LED2 | \
++					WIIPROTO_FLAG_LED3 | WIIPROTO_FLAG_LED4)
++
++enum wiiproto_reqs {
++	WIIPROTO_REQ_LED = 0x11,
++	WIIPROTO_REQ_DRM_K = 0x30,
++};
++
++enum wiiproto_keys {
++	WIIPROTO_KEY_LEFT,
++	WIIPROTO_KEY_RIGHT,
++	WIIPROTO_KEY_UP,
++	WIIPROTO_KEY_DOWN,
++	WIIPROTO_KEY_PLUS,
++	WIIPROTO_KEY_MINUS,
++	WIIPROTO_KEY_ONE,
++	WIIPROTO_KEY_TWO,
++	WIIPROTO_KEY_A,
++	WIIPROTO_KEY_B,
++	WIIPROTO_KEY_HOME,
++	WIIPROTO_KEY_COUNT
++};
++
++static __u16 wiiproto_keymap[] = {
++	KEY_LEFT,	/* WIIPROTO_KEY_LEFT */
++	KEY_RIGHT,	/* WIIPROTO_KEY_RIGHT */
++	KEY_UP,		/* WIIPROTO_KEY_UP */
++	KEY_DOWN,	/* WIIPROTO_KEY_DOWN */
++	KEY_NEXT,	/* WIIPROTO_KEY_PLUS */
++	KEY_PREVIOUS,	/* WIIPROTO_KEY_MINUS */
++	BTN_1,		/* WIIPROTO_KEY_ONE */
++	BTN_2,		/* WIIPROTO_KEY_TWO */
++	BTN_A,		/* WIIPROTO_KEY_A */
++	BTN_B,		/* WIIPROTO_KEY_B */
++	BTN_MODE,	/* WIIPROTO_KEY_HOME */
++};
++
++#define dev_to_wii(pdev) hid_get_drvdata(container_of(pdev, struct hid_device, \
++									dev))
++
++static ssize_t wiimote_hid_send(struct hid_device *hdev, __u8 *buffer,
++								size_t count)
++{
++	__u8 *buf;
++	ssize_t ret;
++
++	if (!hdev->hid_output_raw_report)
++		return -ENODEV;
++
++	buf = kmemdup(buffer, count, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++
++	ret = hdev->hid_output_raw_report(hdev, buf, count, HID_OUTPUT_REPORT);
++
++	kfree(buf);
++	return ret;
++}
++
++static void wiimote_worker(struct work_struct *work)
++{
++	struct wiimote_data *wdata = container_of(work, struct wiimote_data,
++									worker);
++	unsigned long flags;
++
++	spin_lock_irqsave(&wdata->qlock, flags);
++
++	while (wdata->head != wdata->tail) {
++		spin_unlock_irqrestore(&wdata->qlock, flags);
++		wiimote_hid_send(wdata->hdev, wdata->outq[wdata->tail].data,
++						wdata->outq[wdata->tail].size);
++		spin_lock_irqsave(&wdata->qlock, flags);
++
++		wdata->tail = (wdata->tail + 1) % WIIMOTE_BUFSIZE;
++	}
++
++	spin_unlock_irqrestore(&wdata->qlock, flags);
++}
++
++static void wiimote_queue(struct wiimote_data *wdata, const __u8 *buffer,
++								size_t count)
++{
++	unsigned long flags;
++	__u8 newhead;
++
++	if (count > HID_MAX_BUFFER_SIZE) {
++		hid_warn(wdata->hdev, "Sending too large output report\n");
++		return;
++	}
++
++	/*
++	 * Copy new request into our output queue and check whether the
++	 * queue is full. If it is full, discard this request.
++	 * If it is empty we need to start a new worker that will
++	 * send out the buffer to the hid device.
++	 * If the queue is not empty, then there must be a worker
++	 * that is currently sending out our buffer and this worker
++	 * will reschedule itself until the queue is empty.
++	 */
++
++	spin_lock_irqsave(&wdata->qlock, flags);
++
++	memcpy(wdata->outq[wdata->head].data, buffer, count);
++	wdata->outq[wdata->head].size = count;
++	newhead = (wdata->head + 1) % WIIMOTE_BUFSIZE;
++
++	if (wdata->head == wdata->tail) {
++		wdata->head = newhead;
++		schedule_work(&wdata->worker);
++	} else if (newhead != wdata->tail) {
++		wdata->head = newhead;
++	} else {
++		hid_warn(wdata->hdev, "Output queue is full");
++	}
++
++	spin_unlock_irqrestore(&wdata->qlock, flags);
++}
++
++static void wiiproto_req_leds(struct wiimote_data *wdata, int leds)
++{
++	__u8 cmd[2];
++
++	leds &= WIIPROTO_FLAGS_LEDS;
++	if ((wdata->state.flags & WIIPROTO_FLAGS_LEDS) == leds)
++		return;
++	wdata->state.flags = (wdata->state.flags & ~WIIPROTO_FLAGS_LEDS) | leds;
++
++	cmd[0] = WIIPROTO_REQ_LED;
++	cmd[1] = 0;
++
++	if (leds & WIIPROTO_FLAG_LED1)
++		cmd[1] |= 0x10;
++	if (leds & WIIPROTO_FLAG_LED2)
++		cmd[1] |= 0x20;
++	if (leds & WIIPROTO_FLAG_LED3)
++		cmd[1] |= 0x40;
++	if (leds & WIIPROTO_FLAG_LED4)
++		cmd[1] |= 0x80;
++
++	wiimote_queue(wdata, cmd, sizeof(cmd));
++}
++
++#define wiifs_led_show_set(num)						\
++static ssize_t wiifs_led_show_##num(struct device *dev,			\
++			struct device_attribute *attr, char *buf)	\
++{									\
++	struct wiimote_data *wdata = dev_to_wii(dev);			\
++	unsigned long flags;						\
++	int state;							\
++									\
++	if (!atomic_read(&wdata->ready))				\
++		return -EBUSY;						\
++									\
++	spin_lock_irqsave(&wdata->state.lock, flags);			\
++	state = !!(wdata->state.flags & WIIPROTO_FLAG_LED##num);	\
++	spin_unlock_irqrestore(&wdata->state.lock, flags);		\
++									\
++	return sprintf(buf, "%d\n", state);				\
++}									\
++static ssize_t wiifs_led_set_##num(struct device *dev,			\
++	struct device_attribute *attr, const char *buf, size_t count)	\
++{									\
++	struct wiimote_data *wdata = dev_to_wii(dev);			\
++	int tmp = simple_strtoul(buf, NULL, 10);			\
++	unsigned long flags;						\
++	__u8 state;							\
++									\
++	if (!atomic_read(&wdata->ready))				\
++		return -EBUSY;						\
++									\
++	spin_lock_irqsave(&wdata->state.lock, flags);			\
++									\
++	state = wdata->state.flags;					\
++									\
++	if (tmp)							\
++		wiiproto_req_leds(wdata, state | WIIPROTO_FLAG_LED##num);\
++	else								\
++		wiiproto_req_leds(wdata, state & ~WIIPROTO_FLAG_LED##num);\
++									\
++	spin_unlock_irqrestore(&wdata->state.lock, flags);		\
++									\
++	return count;							\
++}									\
++static DEVICE_ATTR(led##num, S_IRUGO | S_IWUSR, wiifs_led_show_##num,	\
++						wiifs_led_set_##num)
++
++wiifs_led_show_set(1);
++wiifs_led_show_set(2);
++wiifs_led_show_set(3);
++wiifs_led_show_set(4);
++
++static int wiimote_input_event(struct input_dev *dev, unsigned int type,
++						unsigned int code, int value)
++{
++	struct wiimote_data *wdata = input_get_drvdata(dev);
++
++	if (!atomic_read(&wdata->ready))
++		return -EBUSY;
++	/* smp_rmb: Make sure wdata->xy is available when wdata->ready is 1 */
++	smp_rmb();
++
++	return 0;
++}
++
++static void handler_keys(struct wiimote_data *wdata, const __u8 *payload)
++{
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_LEFT],
++							!!(payload[0] & 0x01));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_RIGHT],
++							!!(payload[0] & 0x02));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_DOWN],
++							!!(payload[0] & 0x04));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_UP],
++							!!(payload[0] & 0x08));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_PLUS],
++							!!(payload[0] & 0x10));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_TWO],
++							!!(payload[1] & 0x01));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_ONE],
++							!!(payload[1] & 0x02));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_B],
++							!!(payload[1] & 0x04));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_A],
++							!!(payload[1] & 0x08));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_MINUS],
++							!!(payload[1] & 0x10));
++	input_report_key(wdata->input, wiiproto_keymap[WIIPROTO_KEY_HOME],
++							!!(payload[1] & 0x80));
++	input_sync(wdata->input);
++}
++
++struct wiiproto_handler {
++	__u8 id;
++	size_t size;
++	void (*func)(struct wiimote_data *wdata, const __u8 *payload);
++};
++
++static struct wiiproto_handler handlers[] = {
++	{ .id = WIIPROTO_REQ_DRM_K, .size = 2, .func = handler_keys },
++	{ .id = 0 }
++};
++
++static int wiimote_hid_event(struct hid_device *hdev, struct hid_report *report,
++							u8 *raw_data, int size)
++{
++	struct wiimote_data *wdata = hid_get_drvdata(hdev);
++	struct wiiproto_handler *h;
++	int i;
++	unsigned long flags;
++
++	if (!atomic_read(&wdata->ready))
++		return -EBUSY;
++	/* smp_rmb: Make sure wdata->xy is available when wdata->ready is 1 */
++	smp_rmb();
++
++	if (size < 1)
++		return -EINVAL;
++
++	spin_lock_irqsave(&wdata->state.lock, flags);
++
++	for (i = 0; handlers[i].id; ++i) {
++		h = &handlers[i];
++		if (h->id == raw_data[0] && h->size < size)
++			h->func(wdata, &raw_data[1]);
++	}
++
++	spin_unlock_irqrestore(&wdata->state.lock, flags);
++
++	return 0;
++}
++
++static struct wiimote_data *wiimote_create(struct hid_device *hdev)
++{
++	struct wiimote_data *wdata;
++	int i;
++
++	wdata = kzalloc(sizeof(*wdata), GFP_KERNEL);
++	if (!wdata)
++		return NULL;
++
++	wdata->input = input_allocate_device();
++	if (!wdata->input) {
++		kfree(wdata);
++		return NULL;
++	}
++
++	wdata->hdev = hdev;
++	hid_set_drvdata(hdev, wdata);
++
++	input_set_drvdata(wdata->input, wdata);
++	wdata->input->event = wiimote_input_event;
++	wdata->input->dev.parent = &wdata->hdev->dev;
++	wdata->input->id.bustype = wdata->hdev->bus;
++	wdata->input->id.vendor = wdata->hdev->vendor;
++	wdata->input->id.product = wdata->hdev->product;
++	wdata->input->id.version = wdata->hdev->version;
++	wdata->input->name = WIIMOTE_NAME;
++
++	set_bit(EV_KEY, wdata->input->evbit);
++	for (i = 0; i < WIIPROTO_KEY_COUNT; ++i)
++		set_bit(wiiproto_keymap[i], wdata->input->keybit);
++
++	spin_lock_init(&wdata->qlock);
++	INIT_WORK(&wdata->worker, wiimote_worker);
++
++	spin_lock_init(&wdata->state.lock);
++
++	return wdata;
++}
++
++static void wiimote_destroy(struct wiimote_data *wdata)
++{
++	kfree(wdata);
++}
++
++static int wiimote_hid_probe(struct hid_device *hdev,
++				const struct hid_device_id *id)
++{
++	struct wiimote_data *wdata;
++	int ret;
++
++	wdata = wiimote_create(hdev);
++	if (!wdata) {
++		hid_err(hdev, "Can't alloc device\n");
++		return -ENOMEM;
++	}
++
++	ret = device_create_file(&hdev->dev, &dev_attr_led1);
++	if (ret)
++		goto err;
++	ret = device_create_file(&hdev->dev, &dev_attr_led2);
++	if (ret)
++		goto err;
++	ret = device_create_file(&hdev->dev, &dev_attr_led3);
++	if (ret)
++		goto err;
++	ret = device_create_file(&hdev->dev, &dev_attr_led4);
++	if (ret)
++		goto err;
++
++	ret = hid_parse(hdev);
++	if (ret) {
++		hid_err(hdev, "HID parse failed\n");
++		goto err;
++	}
++
++	ret = hid_hw_start(hdev, HID_CONNECT_HIDRAW);
++	if (ret) {
++		hid_err(hdev, "HW start failed\n");
++		goto err;
++	}
++
++	ret = input_register_device(wdata->input);
++	if (ret) {
++		hid_err(hdev, "Cannot register input device\n");
++		goto err_stop;
++	}
++
++	/* smp_wmb: Write wdata->xy first before wdata->ready is set to 1 */
++	smp_wmb();
++	atomic_set(&wdata->ready, 1);
++	hid_info(hdev, "New device registered\n");
++
++	/* by default set led1 after device initialization */
++	spin_lock_irq(&wdata->state.lock);
++	wiiproto_req_leds(wdata, WIIPROTO_FLAG_LED1);
++	spin_unlock_irq(&wdata->state.lock);
++
++	return 0;
++
++err_stop:
++	hid_hw_stop(hdev);
++err:
++	input_free_device(wdata->input);
++	device_remove_file(&hdev->dev, &dev_attr_led1);
++	device_remove_file(&hdev->dev, &dev_attr_led2);
++	device_remove_file(&hdev->dev, &dev_attr_led3);
++	device_remove_file(&hdev->dev, &dev_attr_led4);
++	wiimote_destroy(wdata);
++	return ret;
++}
++
++static void wiimote_hid_remove(struct hid_device *hdev)
++{
++	struct wiimote_data *wdata = hid_get_drvdata(hdev);
++
++	hid_info(hdev, "Device removed\n");
++
++	device_remove_file(&hdev->dev, &dev_attr_led1);
++	device_remove_file(&hdev->dev, &dev_attr_led2);
++	device_remove_file(&hdev->dev, &dev_attr_led3);
++	device_remove_file(&hdev->dev, &dev_attr_led4);
++
++	hid_hw_stop(hdev);
++	input_unregister_device(wdata->input);
++
++	cancel_work_sync(&wdata->worker);
++	wiimote_destroy(wdata);
++}
++
++static const struct hid_device_id wiimote_hid_devices[] = {
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO,
++				USB_DEVICE_ID_NINTENDO_WIIMOTE) },
++	{ }
++};
++MODULE_DEVICE_TABLE(hid, wiimote_hid_devices);
++
++static struct hid_driver wiimote_hid_driver = {
++	.name = "wiimote",
++	.id_table = wiimote_hid_devices,
++	.probe = wiimote_hid_probe,
++	.remove = wiimote_hid_remove,
++	.raw_event = wiimote_hid_event,
++};
++
++static int __init wiimote_init(void)
++{
++	int ret;
++
++	ret = hid_register_driver(&wiimote_hid_driver);
++	if (ret)
++		pr_err("Can't register wiimote hid driver\n");
++
++	return ret;
++}
++
++static void __exit wiimote_exit(void)
++{
++	hid_unregister_driver(&wiimote_hid_driver);
++}
++
++module_init(wiimote_init);
++module_exit(wiimote_exit);
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("David Herrmann <dh.herrmann@gmail.com>");
++MODULE_DESCRIPTION(WIIMOTE_NAME " Device Driver");
++MODULE_VERSION(WIIMOTE_VERSION);
+diff --git a/drivers/hid/usbhid/hid-core.c b/drivers/hid/usbhid/hid-core.c
+index 38c261a..ad978f5 100644
+--- a/drivers/hid/usbhid/hid-core.c
++++ b/drivers/hid/usbhid/hid-core.c
+@@ -1191,6 +1191,8 @@ static int usbhid_probe(struct usb_interface *intf, const struct usb_device_id *
+ 	if (intf->cur_altsetting->desc.bInterfaceProtocol ==
+ 			USB_INTERFACE_PROTOCOL_MOUSE)
+ 		hid->type = HID_TYPE_USBMOUSE;
++	else if (intf->cur_altsetting->desc.bInterfaceProtocol == 0)
++		hid->type = HID_TYPE_USBNONE;
+ 
+ 	if (dev->manufacturer)
+ 		strlcpy(hid->name, dev->manufacturer, sizeof(hid->name));
+diff --git a/include/linux/hid.h b/include/linux/hid.h
+index 42f7e2f..9cf8e7a 100644
+--- a/include/linux/hid.h
++++ b/include/linux/hid.h
+@@ -453,7 +453,8 @@ struct hid_input {
+ 
+ enum hid_type {
+ 	HID_TYPE_OTHER = 0,
+-	HID_TYPE_USBMOUSE
++	HID_TYPE_USBMOUSE,
++	HID_TYPE_USBNONE
+ };
+ 
+ struct hid_driver;
