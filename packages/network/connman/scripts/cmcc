@@ -77,12 +77,14 @@ def usage(name):
 	print "  wpas list"
 	print "  wpas networks"
 	print "  wpas bss"
+	print "  technologies"
 	print ""
 	print "Properties:"
 	print "  apn <name>"
 	print "  passphrase <passphrase>"
 	print "  autoconnect <true|false>"
 	print "  ipv4 <dhcp|manual address netmask gateway>"
+	print "  ipv6 <auto | off | manual address netmask gateway>"
 	print "  nameservers auto | <nameserver> [nameserver] [nameserver]"
 	print "  domains [domain] [domain] ..."
 
@@ -161,9 +163,7 @@ def get_service_name(path):
 def extract_dict(values):
 	s = ""
 	for k, v in values.items():
-		if type(v) is dbus.Array:
-			v = extract_list(v)
-		s += " %s=%s" % (k,v)
+		s += " %s=%s" % (k, convert_dbus_value(v))
 	return "{ %s }" % s
 
 def extract_list(values):
@@ -188,27 +188,6 @@ def convert_dbus_value(value):
 
 	return result
 
-def get_devices():
-	bus = get_bus()
-	manager = get_manager()
-
-	result = []
-
-	properties = manager.GetProperties()
-	for path in properties["Technologies"]:
-		technology = dbus.Interface(bus.get_object("net.connman",
-							   path),
-					    "net.connman.Technology")
-		properties = technology.GetProperties()
-
-		for path in properties["Devices"]:
-			d = dbus.Interface(bus.get_object("net.connman",
-							  path),
-					   "net.connman.Device")
-			result.append(d)
-
-	return result
-
 def cmd_state():
 	manager = get_manager()
 	properties = manager.GetProperties()
@@ -218,18 +197,20 @@ def cmd_state():
 		 "Providers", "EnabledDebugs", "AvailableDebugs",
 		 "Technologies", "Services"]
 
+	print "[ / ]"
+
 	keys = properties.keys()
 
 	for key in order:
 		if key in keys:
 			keys.remove(key)
 			value = convert_dbus_value(properties[key])
-			print "%s: %s" % (key, value)
+			print "  %s = %s" % (key, value)
 
 	# print properties missing in the order
 	for key in keys:
 		value = convert_dbus_value(properties[key])
-		print "%s: %s" % (key, value)
+		print "  %s = %s" % (key, value)
 
 def cmd_services():
 	bus = get_bus()
@@ -295,6 +276,34 @@ def cmd_edit_autoconnect(service, argv):
 	print autoconnect
 	service.SetProperty("AutoConnect", autoconnect);
 
+def cmd_edit_ipv6(service, argv):
+	if len(argv) < 1:
+		raise ArgumentException("ipv6 method missing")
+
+	method = argv.pop(0)
+
+	if method == "auto":
+		value = { "Method": "auto" }
+	elif method == "off":
+		value = { "Method": "off" }
+	elif method == "manual":
+		if len(argv) < 3:
+			raise ArgumentException("invalid syntax for ipv6 "
+						"manual configuration")
+		
+		address = argv.pop(0)
+		prefix = argv.pop(0)
+		gateway = argv.pop(0)
+
+		value = { "Method": "manual",
+			  "Address": address,
+			  "PrefixLength": prefix,
+			  "Gateway": gateway }
+	else:
+		raise ArgumentException("Unknown ipv6 method: " + method)
+
+	service.SetProperty("IPv6.Configuration", value);
+
 def cmd_edit_ipv4(service, argv):
 	if len(argv) < 1:
 		raise ArgumentException("ipv4 method missing")
@@ -316,6 +325,9 @@ def cmd_edit_ipv4(service, argv):
 			  "Address": address,
 			  "Netmask": netmask,
 			  "Gateway": gateway }
+	else:
+		raise ArgumentException("Unknown ipv4 method: " + method)
+
 
 	service.SetProperty("IPv4.Configuration", value);
 
@@ -360,10 +372,15 @@ def cmd_edit(argv):
 			cmd_edit_autoconnect(service, argv)
 		elif prop in ["ipv4"]:
 			cmd_edit_ipv4(service, argv)
+		elif prop in ["ipv6"]:
+			cmd_edit_ipv6(service, argv)
 		elif prop in ["nameservers"]:
 			cmd_edit_nameservers(service, argv)
 		elif prop in ["domains"]:
 			cmd_edit_domains(service, argv)
+		else:
+			raise ArgumentException("unknown property: %s" % prop)
+
 
 def cmd_connect(argv):
 
@@ -415,32 +432,9 @@ def cmd_scan(argv):
 	manager = get_manager()
 	manager.RequestScan(arg)
 
-	devices = get_devices()
-
-	if len(devices) == 0:
-		# no devices available so no scan results either
-		return
-
-	# start waiting for scanning to end, but take into account
-	# that not all devices, if any (!), support scanning
-	scanning = False
-	scan_supported = False
-
-	while True:
-		scanning = False
-		for device in devices:
-			properties = device.GetProperties()
-
-			if "Scanning" not in properties:
-				continue
-
-			scan_supported = True
-
-			if properties["Scanning"]:
-				scanning = True
-
-		if not scanning or not scan_supported:
-			break;
+	# there's no way to know when scan has ended, so just wait and
+	# hope for best
+	time.sleep(10)
 
 	cmd_services()
 
@@ -874,6 +868,25 @@ def cmd_connect_hidden(argv):
 	except dbus.DBusException, error:
 		print "%s: %s" % (error._dbus_error_name, error.message)
 
+def cmd_technologies(argv):
+	bus = get_bus()
+	manager = get_manager()
+
+	result = []
+
+	properties = manager.GetProperties()
+	for path in properties["Technologies"]:
+		technology = dbus.Interface(bus.get_object("net.connman",
+							   path),
+					    "net.connman.Technology")
+		props = technology.GetProperties()
+
+		print "[ %s ]" % path
+
+		for key in props.keys():
+			value = convert_dbus_value(props[key])
+			print "  %s = %s" % (key, value)
+
 def handle_cmd(cmd, argv, name):
 	if cmd == "help":
 		usage(name)
@@ -907,6 +920,8 @@ def handle_cmd(cmd, argv, name):
 		cmd_wpas(argv)
 	elif cmd == "connect-hidden":
 		cmd_connect_hidden(argv)
+	elif cmd in ["technologies", "tech"]:
+		cmd_technologies(argv)
 	else:
 		print "Unknown command"
 
