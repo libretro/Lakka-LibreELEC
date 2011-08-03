@@ -1,0 +1,56 @@
+From 00e3095dd47d6474fa6befcbd85157e27f6f68fa Mon Sep 17 00:00:00 2001
+From: vdrfan <vdrfan-nospam-@xbmc.org>
+Date: Mon, 1 Aug 2011 16:53:16 +0200
+Subject: [PATCH] fixed: make sure libexif is using the correct byte order
+ (intel or motorola) when processing gps information (fixes
+ #8427)
+
+---
+ lib/libexif/ExifParse.cpp |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/lib/libexif/ExifParse.cpp b/xbmc/lib/libexif/ExifParse.cpp
+index 41690df..74ecbbe 100644
+--- a/xbmc/lib/libexif/ExifParse.cpp
++++ b/xbmc/lib/libexif/ExifParse.cpp
+@@ -810,15 +810,15 @@ void CExifParse::ProcessGpsInfo(
+                     const unsigned char* const OffsetBase,
+                     unsigned ExifLength)
+ {
+-  int NumDirEntries = Get16(DirStart);
++  int NumDirEntries = Get16(DirStart, m_MotorolaOrder);
+ 
+   for (int de=0;de<NumDirEntries;de++)
+   {
+     const unsigned char* DirEntry = DIR_ENTRY_ADDR(DirStart, de);
+ 
+-    unsigned Tag        = Get16(DirEntry);
+-    unsigned Format     = Get16(DirEntry+2);
+-    unsigned Components = (unsigned)Get32(DirEntry+4);
++    unsigned Tag        = Get16(DirEntry, m_MotorolaOrder);
++    unsigned Format     = Get16(DirEntry+2, m_MotorolaOrder);
++    unsigned Components = (unsigned)Get32(DirEntry+4, m_MotorolaOrder);
+     if ((Format-1) >= NUM_FORMATS)
+     {
+       // (-1) catches illegal zero case as unsigned underflows to positive large.
+@@ -834,7 +834,7 @@ void CExifParse::ProcessGpsInfo(
+ 
+     if (ByteCount > 4)
+     {
+-      unsigned OffsetVal = (unsigned)Get32(DirEntry+8);
++      unsigned OffsetVal = (unsigned)Get32(DirEntry+8, m_MotorolaOrder);
+       // If its bigger than 4 bytes, the dir entry contains an offset.
+       if (OffsetVal+ByteCount > ExifLength)
+       {
+@@ -878,7 +878,7 @@ void CExifParse::ProcessGpsInfo(
+       case TAG_GPS_ALT:
+         {
+           char temp[18];
+-          sprintf(temp,"%dm", Get32(ValuePtr));
++          sprintf(temp,"%dm", Get32(ValuePtr, m_MotorolaOrder));
+           strcat(m_ExifInfo->GpsAlt, temp);
+         }
+       break;
+-- 
+1.7.5.4
+
