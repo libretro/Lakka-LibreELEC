@@ -1,0 +1,1346 @@
+diff -Naur linux-3.0.1/drivers/media/dvb/dvb-usb/dib0700_core.c linux-3.0.1.patch/drivers/media/dvb/dvb-usb/dib0700_core.c
+--- linux-3.0.1/drivers/media/dvb/dvb-usb/dib0700_core.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/dvb-usb/dib0700_core.c	2011-08-07 11:10:34.034360743 +0200
+@@ -30,6 +30,11 @@
+ 	struct dib0700_state *st = d->priv;
+ 	int ret;
+ 
++	if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++		err("could not acquire lock");
++		return 0;
++	}
++
+ 	ret = usb_control_msg(d->udev, usb_rcvctrlpipe(d->udev, 0),
+ 				  REQUEST_GET_VERSION,
+ 				  USB_TYPE_VENDOR | USB_DIR_IN, 0, 0,
+@@ -46,6 +51,7 @@
+ 	if (fwtype != NULL)
+ 		*fwtype     = (st->buf[12] << 24) | (st->buf[13] << 16) |
+ 			(st->buf[14] << 8) | st->buf[15];
++	mutex_unlock(&d->usb_mutex);
+ 	return ret;
+ }
+ 
+@@ -108,7 +114,12 @@
+ int dib0700_set_gpio(struct dvb_usb_device *d, enum dib07x0_gpios gpio, u8 gpio_dir, u8 gpio_val)
+ {
+ 	struct dib0700_state *st = d->priv;
+-	s16 ret;
++	int ret;
++
++	if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++		err("could not acquire lock");
++		return 0;
++	}
+ 
+ 	st->buf[0] = REQUEST_SET_GPIO;
+ 	st->buf[1] = gpio;
+@@ -116,6 +127,7 @@
+ 
+ 	ret = dib0700_ctrl_wr(d, st->buf, 3);
+ 
++	mutex_unlock(&d->usb_mutex);
+ 	return ret;
+ }
+ 
+@@ -125,6 +137,11 @@
+ 	int ret;
+ 
+ 	if (st->fw_version >= 0x10201) {
++		if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++			err("could not acquire lock");
++			return 0;
++		}
++
+ 		st->buf[0] = REQUEST_SET_USB_XFER_LEN;
+ 		st->buf[1] = (nb_ts_packets >> 8) & 0xff;
+ 		st->buf[2] = nb_ts_packets & 0xff;
+@@ -132,6 +149,7 @@
+ 		deb_info("set the USB xfer len to %i Ts packet\n", nb_ts_packets);
+ 
+ 		ret = dib0700_ctrl_wr(d, st->buf, 3);
++		mutex_unlock(&d->usb_mutex);
+ 	} else {
+ 		deb_info("this firmware does not allow to change the USB xfer len\n");
+ 		ret = -EIO;
+@@ -208,6 +226,10 @@
+ 
+ 		} else {
+ 			/* Write request */
++			if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++				err("could not acquire lock");
++				return 0;
++			}
+ 			st->buf[0] = REQUEST_NEW_I2C_WRITE;
+ 			st->buf[1] = msg[i].addr << 1;
+ 			st->buf[2] = (en_start << 7) | (en_stop << 6) |
+@@ -227,6 +249,7 @@
+ 						 USB_TYPE_VENDOR | USB_DIR_OUT,
+ 						 0, 0, st->buf, msg[i].len + 4,
+ 						 USB_CTRL_GET_TIMEOUT);
++			mutex_unlock(&d->usb_mutex);
+ 			if (result < 0) {
+ 				deb_info("i2c write error (status = %d)\n", result);
+ 				break;
+@@ -249,6 +272,10 @@
+ 
+ 	if (mutex_lock_interruptible(&d->i2c_mutex) < 0)
+ 		return -EAGAIN;
++	if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++		err("could not acquire lock");
++		return 0;
++	}
+ 
+ 	for (i = 0; i < num; i++) {
+ 		/* fill in the address */
+@@ -279,6 +306,7 @@
+ 				break;
+ 		}
+ 	}
++	mutex_unlock(&d->usb_mutex);
+ 	mutex_unlock(&d->i2c_mutex);
+ 
+ 	return i;
+@@ -337,7 +365,12 @@
+ 	u16 pll_loopdiv, u16 free_div, u16 dsuScaler)
+ {
+ 	struct dib0700_state *st = d->priv;
+-	s16 ret;
++	int ret;
++
++	if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++		err("could not acquire lock");
++		return 0;
++	}
+ 
+ 	st->buf[0] = REQUEST_SET_CLOCK;
+ 	st->buf[1] = (en_pll << 7) | (pll_src << 6) |
+@@ -352,6 +385,7 @@
+ 	st->buf[9] =  dsuScaler         & 0xff; /* LSB */
+ 
+ 	ret = dib0700_ctrl_wr(d, st->buf, 10);
++	mutex_unlock(&d->usb_mutex);
+ 
+ 	return ret;
+ }
+@@ -360,10 +394,16 @@
+ {
+ 	struct dib0700_state *st = d->priv;
+ 	u16 divider;
++	int ret;
+ 
+ 	if (scl_kHz == 0)
+ 		return -EINVAL;
+ 
++	if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++		err("could not acquire lock");
++		return 0;
++	}
++
+ 	st->buf[0] = REQUEST_SET_I2C_PARAM;
+ 	divider = (u16) (30000 / scl_kHz);
+ 	st->buf[1] = 0;
+@@ -379,7 +419,11 @@
+ 	deb_info("setting I2C speed: %04x %04x %04x (%d kHz).",
+ 		(st->buf[2] << 8) | (st->buf[3]), (st->buf[4] << 8) |
+ 		st->buf[5], (st->buf[6] << 8) | st->buf[7], scl_kHz);
+-	return dib0700_ctrl_wr(d, st->buf, 8);
++
++	ret = dib0700_ctrl_wr(d, st->buf, 8);
++	mutex_unlock(&d->usb_mutex);
++
++	return ret;
+ }
+ 
+ 
+@@ -515,6 +559,11 @@
+ 		}
+ 	}
+ 
++	if (mutex_lock_interruptible(&adap->dev->usb_mutex) < 0) {
++		err("could not acquire lock");
++		return 0;
++	}
++
+ 	st->buf[0] = REQUEST_ENABLE_VIDEO;
+ 	/* this bit gives a kind of command,
+ 	 * rather than enabling something or not */
+@@ -548,7 +597,10 @@
+ 
+ 	deb_info("data for streaming: %x %x\n", st->buf[1], st->buf[2]);
+ 
+-	return dib0700_ctrl_wr(adap->dev, st->buf, 4);
++	ret = dib0700_ctrl_wr(adap->dev, st->buf, 4);
++	mutex_unlock(&adap->dev->usb_mutex);
++
++	return ret;
+ }
+ 
+ int dib0700_change_protocol(struct rc_dev *rc, u64 rc_type)
+@@ -557,6 +609,11 @@
+ 	struct dib0700_state *st = d->priv;
+ 	int new_proto, ret;
+ 
++	if (mutex_lock_interruptible(&d->usb_mutex) < 0) {
++		err("could not acquire lock");
++		return 0;
++	}
++
+ 	st->buf[0] = REQUEST_SET_RC;
+ 	st->buf[1] = 0;
+ 	st->buf[2] = 0;
+@@ -567,23 +624,29 @@
+ 	else if (rc_type == RC_TYPE_NEC)
+ 		new_proto = 0;
+ 	else if (rc_type == RC_TYPE_RC6) {
+-		if (st->fw_version < 0x10200)
+-			return -EINVAL;
++		if (st->fw_version < 0x10200) {
++			ret = -EINVAL;
++			goto out;
++		}
+ 
+ 		new_proto = 2;
+-	} else
+-		return -EINVAL;
++	} else {
++		ret = -EINVAL;
++		goto out;
++	}
+ 
+ 	st->buf[1] = new_proto;
+ 
+ 	ret = dib0700_ctrl_wr(d, st->buf, 3);
+ 	if (ret < 0) {
+ 		err("ir protocol setup failed");
+-		return ret;
++		goto out;
+ 	}
+ 
+ 	d->props.rc.core.protocol = rc_type;
+ 
++out:
++	mutex_unlock(&d->usb_mutex);
+ 	return ret;
+ }
+ 
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dib0070.c linux-3.0.1.patch/drivers/media/dvb/frontends/dib0070.c
+--- linux-3.0.1/drivers/media/dvb/frontends/dib0070.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dib0070.c	2011-08-07 11:10:22.886224030 +0200
+@@ -27,6 +27,7 @@
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+ #include <linux/i2c.h>
++#include <linux/mutex.h>
+ 
+ #include "dvb_frontend.h"
+ 
+@@ -78,10 +79,18 @@
+ 	struct i2c_msg msg[2];
+ 	u8 i2c_write_buffer[3];
+ 	u8 i2c_read_buffer[2];
++	struct mutex i2c_buffer_lock;
+ };
+ 
+-static uint16_t dib0070_read_reg(struct dib0070_state *state, u8 reg)
++static u16 dib0070_read_reg(struct dib0070_state *state, u8 reg)
+ {
++	u16 ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
+ 	state->i2c_write_buffer[0] = reg;
+ 
+ 	memset(state->msg, 0, 2 * sizeof(struct i2c_msg));
+@@ -96,13 +105,23 @@
+ 
+ 	if (i2c_transfer(state->i2c, state->msg, 2) != 2) {
+ 		printk(KERN_WARNING "DiB0070 I2C read failed\n");
+-		return 0;
+-	}
+-	return (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++		ret = 0;
++	} else
++		ret = (state->i2c_read_buffer[0] << 8)
++			| state->i2c_read_buffer[1];
++
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static int dib0070_write_reg(struct dib0070_state *state, u8 reg, u16 val)
+ {
++	int ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
+ 	state->i2c_write_buffer[0] = reg;
+ 	state->i2c_write_buffer[1] = val >> 8;
+ 	state->i2c_write_buffer[2] = val & 0xff;
+@@ -115,9 +134,12 @@
+ 
+ 	if (i2c_transfer(state->i2c, state->msg, 1) != 1) {
+ 		printk(KERN_WARNING "DiB0070 I2C write failed\n");
+-		return -EREMOTEIO;
+-	}
+-	return 0;
++		ret = -EREMOTEIO;
++	} else
++		ret = 0;
++
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ #define HARD_RESET(state) do { \
+@@ -734,6 +756,7 @@
+ 	state->cfg = cfg;
+ 	state->i2c = i2c;
+ 	state->fe  = fe;
++	mutex_init(&state->i2c_buffer_lock);
+ 	fe->tuner_priv = state;
+ 
+ 	if (dib0070_reset(fe) != 0)
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dib0090.c linux-3.0.1.patch/drivers/media/dvb/frontends/dib0090.c
+--- linux-3.0.1/drivers/media/dvb/frontends/dib0090.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dib0090.c	2011-08-07 11:10:22.888224054 +0200
+@@ -27,6 +27,7 @@
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+ #include <linux/i2c.h>
++#include <linux/mutex.h>
+ 
+ #include "dvb_frontend.h"
+ 
+@@ -196,6 +197,7 @@
+ 	struct i2c_msg msg[2];
+ 	u8 i2c_write_buffer[3];
+ 	u8 i2c_read_buffer[2];
++	struct mutex i2c_buffer_lock;
+ };
+ 
+ struct dib0090_fw_state {
+@@ -208,10 +210,18 @@
+ 	struct i2c_msg msg;
+ 	u8 i2c_write_buffer[2];
+ 	u8 i2c_read_buffer[2];
++	struct mutex i2c_buffer_lock;
+ };
+ 
+ static u16 dib0090_read_reg(struct dib0090_state *state, u8 reg)
+ {
++	u16 ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
+ 	state->i2c_write_buffer[0] = reg;
+ 
+ 	memset(state->msg, 0, 2 * sizeof(struct i2c_msg));
+@@ -226,14 +236,24 @@
+ 
+ 	if (i2c_transfer(state->i2c, state->msg, 2) != 2) {
+ 		printk(KERN_WARNING "DiB0090 I2C read failed\n");
+-		return 0;
+-	}
++		ret = 0;
++	} else
++		ret = (state->i2c_read_buffer[0] << 8)
++			| state->i2c_read_buffer[1];
+ 
+-	return (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static int dib0090_write_reg(struct dib0090_state *state, u32 reg, u16 val)
+ {
++	int ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
+ 	state->i2c_write_buffer[0] = reg & 0xff;
+ 	state->i2c_write_buffer[1] = val >> 8;
+ 	state->i2c_write_buffer[2] = val & 0xff;
+@@ -246,13 +266,23 @@
+ 
+ 	if (i2c_transfer(state->i2c, state->msg, 1) != 1) {
+ 		printk(KERN_WARNING "DiB0090 I2C write failed\n");
+-		return -EREMOTEIO;
+-	}
+-	return 0;
++		ret = -EREMOTEIO;
++	} else
++		ret = 0;
++
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static u16 dib0090_fw_read_reg(struct dib0090_fw_state *state, u8 reg)
+ {
++	u16 ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
+ 	state->i2c_write_buffer[0] = reg;
+ 
+ 	memset(&state->msg, 0, sizeof(struct i2c_msg));
+@@ -262,13 +292,24 @@
+ 	state->msg.len = 2;
+ 	if (i2c_transfer(state->i2c, &state->msg, 1) != 1) {
+ 		printk(KERN_WARNING "DiB0090 I2C read failed\n");
+-		return 0;
+-	}
+-	return (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++		ret = 0;
++	} else
++		ret = (state->i2c_read_buffer[0] << 8)
++			| state->i2c_read_buffer[1];
++
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static int dib0090_fw_write_reg(struct dib0090_fw_state *state, u8 reg, u16 val)
+ {
++	int ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
+ 	state->i2c_write_buffer[0] = val >> 8;
+ 	state->i2c_write_buffer[1] = val & 0xff;
+ 
+@@ -279,9 +320,12 @@
+ 	state->msg.len = 2;
+ 	if (i2c_transfer(state->i2c, &state->msg, 1) != 1) {
+ 		printk(KERN_WARNING "DiB0090 I2C write failed\n");
+-		return -EREMOTEIO;
+-	}
+-	return 0;
++		ret = -EREMOTEIO;
++	} else
++		ret = 0;
++
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ #define HARD_RESET(state) do {  if (cfg->reset) {  if (cfg->sleep) cfg->sleep(fe, 0); msleep(10);  cfg->reset(fe, 1); msleep(10);  cfg->reset(fe, 0); msleep(10);  }  } while (0)
+@@ -2440,6 +2484,7 @@
+ 	st->config = config;
+ 	st->i2c = i2c;
+ 	st->fe = fe;
++	mutex_init(&st->i2c_buffer_lock);
+ 	fe->tuner_priv = st;
+ 
+ 	if (config->wbd == NULL)
+@@ -2471,6 +2516,7 @@
+ 	st->config = config;
+ 	st->i2c = i2c;
+ 	st->fe = fe;
++	mutex_init(&st->i2c_buffer_lock);
+ 	fe->tuner_priv = st;
+ 
+ 	if (dib0090_fw_reset_digital(fe, st->config) != 0)
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dib7000m.c linux-3.0.1.patch/drivers/media/dvb/frontends/dib7000m.c
+--- linux-3.0.1/drivers/media/dvb/frontends/dib7000m.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dib7000m.c	2011-08-07 11:10:22.896224153 +0200
+@@ -11,6 +11,7 @@
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+ #include <linux/i2c.h>
++#include <linux/mutex.h>
+ 
+ #include "dvb_frontend.h"
+ 
+@@ -55,6 +56,7 @@
+ 	struct i2c_msg msg[2];
+ 	u8 i2c_write_buffer[4];
+ 	u8 i2c_read_buffer[2];
++	struct mutex i2c_buffer_lock;
+ };
+ 
+ enum dib7000m_power_mode {
+@@ -69,6 +71,13 @@
+ 
+ static u16 dib7000m_read_word(struct dib7000m_state *state, u16 reg)
+ {
++	u16 ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
+ 	state->i2c_write_buffer[0] = (reg >> 8) | 0x80;
+ 	state->i2c_write_buffer[1] = reg & 0xff;
+ 
+@@ -85,11 +94,21 @@
+ 	if (i2c_transfer(state->i2c_adap, state->msg, 2) != 2)
+ 		dprintk("i2c read error on %d",reg);
+ 
+-	return (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++	ret = (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++	mutex_unlock(&state->i2c_buffer_lock);
++
++	return ret;
+ }
+ 
+ static int dib7000m_write_word(struct dib7000m_state *state, u16 reg, u16 val)
+ {
++	int ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
+ 	state->i2c_write_buffer[0] = (reg >> 8) & 0xff;
+ 	state->i2c_write_buffer[1] = reg & 0xff;
+ 	state->i2c_write_buffer[2] = (val >> 8) & 0xff;
+@@ -101,7 +120,10 @@
+ 	state->msg[0].buf = state->i2c_write_buffer;
+ 	state->msg[0].len = 4;
+ 
+-	return i2c_transfer(state->i2c_adap, state->msg, 1) != 1 ? -EREMOTEIO : 0;
++	ret = (i2c_transfer(state->i2c_adap, state->msg, 1) != 1 ?
++			-EREMOTEIO : 0);
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ static void dib7000m_write_tab(struct dib7000m_state *state, u16 *buf)
+ {
+@@ -1385,6 +1407,7 @@
+ 	demod                   = &st->demod;
+ 	demod->demodulator_priv = st;
+ 	memcpy(&st->demod.ops, &dib7000m_ops, sizeof(struct dvb_frontend_ops));
++	mutex_init(&st->i2c_buffer_lock);
+ 
+ 	st->timf_default = cfg->bw->timf;
+ 
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dib7000p.c linux-3.0.1.patch/drivers/media/dvb/frontends/dib7000p.c
+--- linux-3.0.1/drivers/media/dvb/frontends/dib7000p.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dib7000p.c	2011-08-07 11:10:22.897224165 +0200
+@@ -10,6 +10,7 @@
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+ #include <linux/i2c.h>
++#include <linux/mutex.h>
+ 
+ #include "dvb_math.h"
+ #include "dvb_frontend.h"
+@@ -68,6 +69,7 @@
+ 	struct i2c_msg msg[2];
+ 	u8 i2c_write_buffer[4];
+ 	u8 i2c_read_buffer[2];
++	struct mutex i2c_buffer_lock;
+ };
+ 
+ enum dib7000p_power_mode {
+@@ -81,6 +83,13 @@
+ 
+ static u16 dib7000p_read_word(struct dib7000p_state *state, u16 reg)
+ {
++	u16 ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
+ 	state->i2c_write_buffer[0] = reg >> 8;
+ 	state->i2c_write_buffer[1] = reg & 0xff;
+ 
+@@ -97,11 +106,20 @@
+ 	if (i2c_transfer(state->i2c_adap, state->msg, 2) != 2)
+ 		dprintk("i2c read error on %d", reg);
+ 
+-	return (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++	ret = (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static int dib7000p_write_word(struct dib7000p_state *state, u16 reg, u16 val)
+ {
++	int ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
+ 	state->i2c_write_buffer[0] = (reg >> 8) & 0xff;
+ 	state->i2c_write_buffer[1] = reg & 0xff;
+ 	state->i2c_write_buffer[2] = (val >> 8) & 0xff;
+@@ -113,7 +131,10 @@
+ 	state->msg[0].buf = state->i2c_write_buffer;
+ 	state->msg[0].len = 4;
+ 
+-	return i2c_transfer(state->i2c_adap, state->msg, 1) != 1 ? -EREMOTEIO : 0;
++	ret = (i2c_transfer(state->i2c_adap, state->msg, 1) != 1 ?
++			-EREMOTEIO : 0);
++	mutex_unlock(&state->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static void dib7000p_write_tab(struct dib7000p_state *state, u16 * buf)
+@@ -1646,6 +1667,7 @@
+ 		return -ENOMEM;
+ 
+ 	dpst->i2c_adap = i2c;
++	mutex_init(&dpst->i2c_buffer_lock);
+ 
+ 	for (k = no_of_demods - 1; k >= 0; k--) {
+ 		dpst->cfg = cfg[k];
+@@ -2324,6 +2346,7 @@
+ 	demod = &st->demod;
+ 	demod->demodulator_priv = st;
+ 	memcpy(&st->demod.ops, &dib7000p_ops, sizeof(struct dvb_frontend_ops));
++	mutex_init(&st->i2c_buffer_lock);
+ 
+ 	dib7000p_write_word(st, 1287, 0x0003);	/* sram lead in, rdy */
+ 
+@@ -2333,8 +2356,9 @@
+ 	st->version = dib7000p_read_word(st, 897);
+ 
+ 	/* FIXME: make sure the dev.parent field is initialized, or else
+-		request_firmware() will hit an OOPS (this should be moved somewhere
+-		more common) */
++	   request_firmware() will hit an OOPS (this should be moved somewhere
++	   more common) */
++	st->i2c_master.gated_tuner_i2c_adap.dev.parent = i2c_adap->dev.parent;
+ 
+ 	dibx000_init_i2c_master(&st->i2c_master, DIB7000P, st->i2c_adap, st->i2c_addr);
+ 
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dib8000.c linux-3.0.1.patch/drivers/media/dvb/frontends/dib8000.c
+--- linux-3.0.1/drivers/media/dvb/frontends/dib8000.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dib8000.c	2011-08-07 11:10:22.899224189 +0200
+@@ -10,6 +10,8 @@
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+ #include <linux/i2c.h>
++#include <linux/mutex.h>
++
+ #include "dvb_math.h"
+ 
+ #include "dvb_frontend.h"
+@@ -37,6 +39,7 @@
+ 	u8 addr;
+ 	u8 *i2c_write_buffer;
+ 	u8 *i2c_read_buffer;
++	struct mutex *i2c_buffer_lock;
+ };
+ 
+ struct dib8000_state {
+@@ -77,6 +80,7 @@
+ 	struct i2c_msg msg[2];
+ 	u8 i2c_write_buffer[4];
+ 	u8 i2c_read_buffer[2];
++	struct mutex i2c_buffer_lock;
+ };
+ 
+ enum dib8000_power_mode {
+@@ -86,24 +90,39 @@
+ 
+ static u16 dib8000_i2c_read16(struct i2c_device *i2c, u16 reg)
+ {
++	u16 ret;
+ 	struct i2c_msg msg[2] = {
+-		{.addr = i2c->addr >> 1, .flags = 0,
+-			.buf = i2c->i2c_write_buffer, .len = 2},
+-		{.addr = i2c->addr >> 1, .flags = I2C_M_RD,
+-			.buf = i2c->i2c_read_buffer, .len = 2},
++		{.addr = i2c->addr >> 1, .flags = 0, .len = 2},
++		{.addr = i2c->addr >> 1, .flags = I2C_M_RD, .len = 2},
+ 	};
+ 
++	if (mutex_lock_interruptible(i2c->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
++	msg[0].buf    = i2c->i2c_write_buffer;
+ 	msg[0].buf[0] = reg >> 8;
+ 	msg[0].buf[1] = reg & 0xff;
++	msg[1].buf    = i2c->i2c_read_buffer;
+ 
+ 	if (i2c_transfer(i2c->adap, msg, 2) != 2)
+ 		dprintk("i2c read error on %d", reg);
+ 
+-	return (msg[1].buf[0] << 8) | msg[1].buf[1];
++	ret = (msg[1].buf[0] << 8) | msg[1].buf[1];
++	mutex_unlock(i2c->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static u16 dib8000_read_word(struct dib8000_state *state, u16 reg)
+ {
++	u16 ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
+ 	state->i2c_write_buffer[0] = reg >> 8;
+ 	state->i2c_write_buffer[1] = reg & 0xff;
+ 
+@@ -120,7 +139,10 @@
+ 	if (i2c_transfer(state->i2c.adap, state->msg, 2) != 2)
+ 		dprintk("i2c read error on %d", reg);
+ 
+-	return (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++	ret = (state->i2c_read_buffer[0] << 8) | state->i2c_read_buffer[1];
++	mutex_unlock(&state->i2c_buffer_lock);
++
++	return ret;
+ }
+ 
+ static u32 dib8000_read32(struct dib8000_state *state, u16 reg)
+@@ -135,22 +157,35 @@
+ 
+ static int dib8000_i2c_write16(struct i2c_device *i2c, u16 reg, u16 val)
+ {
+-	struct i2c_msg msg = {.addr = i2c->addr >> 1, .flags = 0,
+-		.buf = i2c->i2c_write_buffer, .len = 4};
++	struct i2c_msg msg = {.addr = i2c->addr >> 1, .flags = 0, .len = 4};
+ 	int ret = 0;
+ 
++	if (mutex_lock_interruptible(i2c->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
++	msg.buf    = i2c->i2c_write_buffer;
+ 	msg.buf[0] = (reg >> 8) & 0xff;
+ 	msg.buf[1] = reg & 0xff;
+ 	msg.buf[2] = (val >> 8) & 0xff;
+ 	msg.buf[3] = val & 0xff;
+ 
+ 	ret = i2c_transfer(i2c->adap, &msg, 1) != 1 ? -EREMOTEIO : 0;
++	mutex_unlock(i2c->i2c_buffer_lock);
+ 
+ 	return ret;
+ }
+ 
+ static int dib8000_write_word(struct dib8000_state *state, u16 reg, u16 val)
+ {
++	int ret;
++
++	if (mutex_lock_interruptible(&state->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
+ 	state->i2c_write_buffer[0] = (reg >> 8) & 0xff;
+ 	state->i2c_write_buffer[1] = reg & 0xff;
+ 	state->i2c_write_buffer[2] = (val >> 8) & 0xff;
+@@ -162,7 +197,11 @@
+ 	state->msg[0].buf = state->i2c_write_buffer;
+ 	state->msg[0].len = 4;
+ 
+-	return i2c_transfer(state->i2c.adap, state->msg, 1) != 1 ? -EREMOTEIO : 0;
++	ret = (i2c_transfer(state->i2c.adap, state->msg, 1) != 1 ?
++			-EREMOTEIO : 0);
++	mutex_unlock(&state->i2c_buffer_lock);
++
++	return ret;
+ }
+ 
+ static const s16 coeff_2k_sb_1seg_dqpsk[8] = {
+@@ -2434,8 +2473,15 @@
+ 	if (!client.i2c_read_buffer) {
+ 		dprintk("%s: not enough memory", __func__);
+ 		ret = -ENOMEM;
+-		goto error_memory;
++		goto error_memory_read;
++	}
++	client.i2c_buffer_lock = kzalloc(sizeof(struct mutex), GFP_KERNEL);
++	if (!client.i2c_buffer_lock) {
++		dprintk("%s: not enough memory", __func__);
++		ret = -ENOMEM;
++		goto error_memory_lock;
+ 	}
++	mutex_init(client.i2c_buffer_lock);
+ 
+ 	for (k = no_of_demods - 1; k >= 0; k--) {
+ 		/* designated i2c address */
+@@ -2476,8 +2522,10 @@
+ 	}
+ 
+ error:
++	kfree(client.i2c_buffer_lock);
++error_memory_lock:
+ 	kfree(client.i2c_read_buffer);
+-error_memory:
++error_memory_read:
+ 	kfree(client.i2c_write_buffer);
+ 
+ 	return ret;
+@@ -2581,6 +2629,8 @@
+ 	state->i2c.addr = i2c_addr;
+ 	state->i2c.i2c_write_buffer = state->i2c_write_buffer;
+ 	state->i2c.i2c_read_buffer = state->i2c_read_buffer;
++	mutex_init(&state->i2c_buffer_lock);
++	state->i2c.i2c_buffer_lock = &state->i2c_buffer_lock;
+ 	state->gpio_val = cfg->gpio_val;
+ 	state->gpio_dir = cfg->gpio_dir;
+ 
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dib9000.c linux-3.0.1.patch/drivers/media/dvb/frontends/dib9000.c
+--- linux-3.0.1/drivers/media/dvb/frontends/dib9000.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dib9000.c	2011-08-07 11:10:22.901224213 +0200
+@@ -38,6 +38,15 @@
+ #define DibInitLock(lock) mutex_init(lock)
+ #define DibFreeLock(lock)
+ 
++struct dib9000_pid_ctrl {
++#define DIB9000_PID_FILTER_CTRL 0
++#define DIB9000_PID_FILTER      1
++	u8 cmd;
++	u8 id;
++	u16 pid;
++	u8 onoff;
++};
++
+ struct dib9000_state {
+ 	struct i2c_device i2c;
+ 
+@@ -99,6 +108,10 @@
+ 	struct i2c_msg msg[2];
+ 	u8 i2c_write_buffer[255];
+ 	u8 i2c_read_buffer[255];
++	DIB_LOCK demod_lock;
++	u8 get_frontend_internal;
++	struct dib9000_pid_ctrl pid_ctrl[10];
++	s8 pid_ctrl_index; /* -1: empty list; -2: do not use the list */
+ };
+ 
+ static const u32 fe_info[44] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+@@ -1743,19 +1756,56 @@
+ int dib9000_fw_pid_filter_ctrl(struct dvb_frontend *fe, u8 onoff)
+ {
+ 	struct dib9000_state *state = fe->demodulator_priv;
+-	u16 val = dib9000_read_word(state, 294 + 1) & 0xffef;
++	u16 val;
++	int ret;
++
++	if ((state->pid_ctrl_index != -2) && (state->pid_ctrl_index < 9)) {
++		/* postpone the pid filtering cmd */
++		dprintk("pid filter cmd postpone");
++		state->pid_ctrl_index++;
++		state->pid_ctrl[state->pid_ctrl_index].cmd = DIB9000_PID_FILTER_CTRL;
++		state->pid_ctrl[state->pid_ctrl_index].onoff = onoff;
++		return 0;
++	}
++
++	DibAcquireLock(&state->demod_lock);
++
++	val = dib9000_read_word(state, 294 + 1) & 0xffef;
+ 	val |= (onoff & 0x1) << 4;
+ 
+ 	dprintk("PID filter enabled %d", onoff);
+-	return dib9000_write_word(state, 294 + 1, val);
++	ret = dib9000_write_word(state, 294 + 1, val);
++	DibReleaseLock(&state->demod_lock);
++	return ret;
++
+ }
+ EXPORT_SYMBOL(dib9000_fw_pid_filter_ctrl);
+ 
+ int dib9000_fw_pid_filter(struct dvb_frontend *fe, u8 id, u16 pid, u8 onoff)
+ {
+ 	struct dib9000_state *state = fe->demodulator_priv;
++	int ret;
++
++	if (state->pid_ctrl_index != -2) {
++		/* postpone the pid filtering cmd */
++		dprintk("pid filter postpone");
++		if (state->pid_ctrl_index < 9) {
++			state->pid_ctrl_index++;
++			state->pid_ctrl[state->pid_ctrl_index].cmd = DIB9000_PID_FILTER;
++			state->pid_ctrl[state->pid_ctrl_index].id = id;
++			state->pid_ctrl[state->pid_ctrl_index].pid = pid;
++			state->pid_ctrl[state->pid_ctrl_index].onoff = onoff;
++		} else
++			dprintk("can not add any more pid ctrl cmd");
++		return 0;
++	}
++
++	DibAcquireLock(&state->demod_lock);
+ 	dprintk("Index %x, PID %d, OnOff %d", id, pid, onoff);
+-	return dib9000_write_word(state, 300 + 1 + id, onoff ? (1 << 13) | pid : 0);
++	ret = dib9000_write_word(state, 300 + 1 + id,
++			onoff ? (1 << 13) | pid : 0);
++	DibReleaseLock(&state->demod_lock);
++	return ret;
+ }
+ EXPORT_SYMBOL(dib9000_fw_pid_filter);
+ 
+@@ -1778,6 +1828,7 @@
+ 	DibFreeLock(&state->platform.risc.mbx_lock);
+ 	DibFreeLock(&state->platform.risc.mem_lock);
+ 	DibFreeLock(&state->platform.risc.mem_mbx_lock);
++	DibFreeLock(&state->demod_lock);
+ 	dibx000_exit_i2c_master(&st->i2c_master);
+ 
+ 	i2c_del_adapter(&st->tuner_adap);
+@@ -1795,14 +1846,19 @@
+ {
+ 	struct dib9000_state *state = fe->demodulator_priv;
+ 	u8 index_frontend;
+-	int ret;
++	int ret = 0;
+ 
++	DibAcquireLock(&state->demod_lock);
+ 	for (index_frontend = 1; (index_frontend < MAX_NUMBER_OF_FRONTENDS) && (state->fe[index_frontend] != NULL); index_frontend++) {
+ 		ret = state->fe[index_frontend]->ops.sleep(state->fe[index_frontend]);
+ 		if (ret < 0)
+-			return ret;
++			goto error;
+ 	}
+-	return dib9000_mbx_send(state, OUT_MSG_FE_SLEEP, NULL, 0);
++	ret = dib9000_mbx_send(state, OUT_MSG_FE_SLEEP, NULL, 0);
++
++error:
++	DibReleaseLock(&state->demod_lock);
++	return ret;
+ }
+ 
+ static int dib9000_fe_get_tune_settings(struct dvb_frontend *fe, struct dvb_frontend_tune_settings *tune)
+@@ -1816,7 +1872,10 @@
+ 	struct dib9000_state *state = fe->demodulator_priv;
+ 	u8 index_frontend, sub_index_frontend;
+ 	fe_status_t stat;
+-	int ret;
++	int ret = 0;
++
++	if (state->get_frontend_internal == 0)
++		DibAcquireLock(&state->demod_lock);
+ 
+ 	for (index_frontend = 1; (index_frontend < MAX_NUMBER_OF_FRONTENDS) && (state->fe[index_frontend] != NULL); index_frontend++) {
+ 		state->fe[index_frontend]->ops.read_status(state->fe[index_frontend], &stat);
+@@ -1846,14 +1905,15 @@
+ 					    state->fe[index_frontend]->dtv_property_cache.rolloff;
+ 				}
+ 			}
+-			return 0;
++			ret = 0;
++			goto return_value;
+ 		}
+ 	}
+ 
+ 	/* get the channel from master chip */
+ 	ret = dib9000_fw_get_channel(fe, fep);
+ 	if (ret != 0)
+-		return ret;
++		goto return_value;
+ 
+ 	/* synchronize the cache with the other frontends */
+ 	for (index_frontend = 1; (index_frontend < MAX_NUMBER_OF_FRONTENDS) && (state->fe[index_frontend] != NULL); index_frontend++) {
+@@ -1866,8 +1926,12 @@
+ 		state->fe[index_frontend]->dtv_property_cache.code_rate_LP = fe->dtv_property_cache.code_rate_LP;
+ 		state->fe[index_frontend]->dtv_property_cache.rolloff = fe->dtv_property_cache.rolloff;
+ 	}
++	ret = 0;
+ 
+-	return 0;
++return_value:
++	if (state->get_frontend_internal == 0)
++		DibReleaseLock(&state->demod_lock);
++	return ret;
+ }
+ 
+ static int dib9000_set_tune_state(struct dvb_frontend *fe, enum frontend_tune_state tune_state)
+@@ -1912,6 +1976,10 @@
+ 		dprintk("dib9000: must specify bandwidth ");
+ 		return 0;
+ 	}
++
++	state->pid_ctrl_index = -1; /* postpone the pid filtering cmd */
++	DibAcquireLock(&state->demod_lock);
++
+ 	fe->dtv_property_cache.delivery_system = SYS_DVBT;
+ 
+ 	/* set the master status */
+@@ -1974,13 +2042,18 @@
+ 	/* check the tune result */
+ 	if (exit_condition == 1) {	/* tune failed */
+ 		dprintk("tune failed");
++		DibReleaseLock(&state->demod_lock);
++		/* tune failed; put all the pid filtering cmd to junk */
++		state->pid_ctrl_index = -1;
+ 		return 0;
+ 	}
+ 
+ 	dprintk("tune success on frontend%i", index_frontend_success);
+ 
+ 	/* synchronize all the channel cache */
++	state->get_frontend_internal = 1;
+ 	dib9000_get_frontend(state->fe[0], fep);
++	state->get_frontend_internal = 0;
+ 
+ 	/* retune the other frontends with the found channel */
+ 	channel_status.status = CHANNEL_STATUS_PARAMETERS_SET;
+@@ -2025,6 +2098,28 @@
+ 	/* turn off the diversity for the last frontend */
+ 	dib9000_fw_set_diversity_in(state->fe[index_frontend - 1], 0);
+ 
++	DibReleaseLock(&state->demod_lock);
++	if (state->pid_ctrl_index >= 0) {
++		u8 index_pid_filter_cmd;
++		u8 pid_ctrl_index = state->pid_ctrl_index;
++
++		state->pid_ctrl_index = -2;
++		for (index_pid_filter_cmd = 0;
++				index_pid_filter_cmd <= pid_ctrl_index;
++				index_pid_filter_cmd++) {
++			if (state->pid_ctrl[index_pid_filter_cmd].cmd == DIB9000_PID_FILTER_CTRL)
++				dib9000_fw_pid_filter_ctrl(state->fe[0],
++						state->pid_ctrl[index_pid_filter_cmd].onoff);
++			else if (state->pid_ctrl[index_pid_filter_cmd].cmd == DIB9000_PID_FILTER)
++				dib9000_fw_pid_filter(state->fe[0],
++						state->pid_ctrl[index_pid_filter_cmd].id,
++						state->pid_ctrl[index_pid_filter_cmd].pid,
++						state->pid_ctrl[index_pid_filter_cmd].onoff);
++		}
++	}
++	/* do not postpone any more the pid filtering */
++	state->pid_ctrl_index = -2;
++
+ 	return 0;
+ }
+ 
+@@ -2041,6 +2136,7 @@
+ 	u8 index_frontend;
+ 	u16 lock = 0, lock_slave = 0;
+ 
++	DibAcquireLock(&state->demod_lock);
+ 	for (index_frontend = 1; (index_frontend < MAX_NUMBER_OF_FRONTENDS) && (state->fe[index_frontend] != NULL); index_frontend++)
+ 		lock_slave |= dib9000_read_lock(state->fe[index_frontend]);
+ 
+@@ -2059,6 +2155,8 @@
+ 	if ((lock & 0x0008) || (lock_slave & 0x0008))
+ 		*stat |= FE_HAS_LOCK;
+ 
++	DibReleaseLock(&state->demod_lock);
++
+ 	return 0;
+ }
+ 
+@@ -2066,10 +2164,14 @@
+ {
+ 	struct dib9000_state *state = fe->demodulator_priv;
+ 	u16 *c;
++	int ret = 0;
+ 
++	DibAcquireLock(&state->demod_lock);
+ 	DibAcquireLock(&state->platform.risc.mem_mbx_lock);
+-	if (dib9000_fw_memmbx_sync(state, FE_SYNC_CHANNEL) < 0)
+-		return -EIO;
++	if (dib9000_fw_memmbx_sync(state, FE_SYNC_CHANNEL) < 0) {
++		ret = -EIO;
++		goto error;
++	}
+ 	dib9000_risc_mem_read(state, FE_MM_R_FE_MONITOR,
+ 			state->i2c_read_buffer, 16 * 2);
+ 	DibReleaseLock(&state->platform.risc.mem_mbx_lock);
+@@ -2077,7 +2179,10 @@
+ 	c = (u16 *)state->i2c_read_buffer;
+ 
+ 	*ber = c[10] << 16 | c[11];
+-	return 0;
++
++error:
++	DibReleaseLock(&state->demod_lock);
++	return ret;
+ }
+ 
+ static int dib9000_read_signal_strength(struct dvb_frontend *fe, u16 * strength)
+@@ -2086,7 +2191,9 @@
+ 	u8 index_frontend;
+ 	u16 *c = (u16 *)state->i2c_read_buffer;
+ 	u16 val;
++	int ret = 0;
+ 
++	DibAcquireLock(&state->demod_lock);
+ 	*strength = 0;
+ 	for (index_frontend = 1; (index_frontend < MAX_NUMBER_OF_FRONTENDS) && (state->fe[index_frontend] != NULL); index_frontend++) {
+ 		state->fe[index_frontend]->ops.read_signal_strength(state->fe[index_frontend], &val);
+@@ -2097,8 +2204,10 @@
+ 	}
+ 
+ 	DibAcquireLock(&state->platform.risc.mem_mbx_lock);
+-	if (dib9000_fw_memmbx_sync(state, FE_SYNC_CHANNEL) < 0)
+-		return -EIO;
++	if (dib9000_fw_memmbx_sync(state, FE_SYNC_CHANNEL) < 0) {
++		ret = -EIO;
++		goto error;
++	}
+ 	dib9000_risc_mem_read(state, FE_MM_R_FE_MONITOR, (u8 *) c, 16 * 2);
+ 	DibReleaseLock(&state->platform.risc.mem_mbx_lock);
+ 
+@@ -2107,7 +2216,10 @@
+ 		*strength = 65535;
+ 	else
+ 		*strength += val;
+-	return 0;
++
++error:
++	DibReleaseLock(&state->demod_lock);
++	return ret;
+ }
+ 
+ static u32 dib9000_get_snr(struct dvb_frontend *fe)
+@@ -2151,6 +2263,7 @@
+ 	u8 index_frontend;
+ 	u32 snr_master;
+ 
++	DibAcquireLock(&state->demod_lock);
+ 	snr_master = dib9000_get_snr(fe);
+ 	for (index_frontend = 1; (index_frontend < MAX_NUMBER_OF_FRONTENDS) && (state->fe[index_frontend] != NULL); index_frontend++)
+ 		snr_master += dib9000_get_snr(state->fe[index_frontend]);
+@@ -2161,6 +2274,8 @@
+ 	} else
+ 		*snr = 0;
+ 
++	DibReleaseLock(&state->demod_lock);
++
+ 	return 0;
+ }
+ 
+@@ -2168,15 +2283,22 @@
+ {
+ 	struct dib9000_state *state = fe->demodulator_priv;
+ 	u16 *c = (u16 *)state->i2c_read_buffer;
++	int ret = 0;
+ 
++	DibAcquireLock(&state->demod_lock);
+ 	DibAcquireLock(&state->platform.risc.mem_mbx_lock);
+-	if (dib9000_fw_memmbx_sync(state, FE_SYNC_CHANNEL) < 0)
+-		return -EIO;
++	if (dib9000_fw_memmbx_sync(state, FE_SYNC_CHANNEL) < 0) {
++		ret = -EIO;
++		goto error;
++	}
+ 	dib9000_risc_mem_read(state, FE_MM_R_FE_MONITOR, (u8 *) c, 16 * 2);
+ 	DibReleaseLock(&state->platform.risc.mem_mbx_lock);
+ 
+ 	*unc = c[12];
+-	return 0;
++
++error:
++	DibReleaseLock(&state->demod_lock);
++	return ret;
+ }
+ 
+ int dib9000_i2c_enumeration(struct i2c_adapter *i2c, int no_of_demods, u8 default_addr, u8 first_addr)
+@@ -2322,6 +2444,10 @@
+ 	DibInitLock(&st->platform.risc.mbx_lock);
+ 	DibInitLock(&st->platform.risc.mem_lock);
+ 	DibInitLock(&st->platform.risc.mem_mbx_lock);
++	DibInitLock(&st->demod_lock);
++	st->get_frontend_internal = 0;
++
++	st->pid_ctrl_index = -2;
+ 
+ 	st->fe[0] = fe;
+ 	fe->demodulator_priv = st;
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dibx000_common.c linux-3.0.1.patch/drivers/media/dvb/frontends/dibx000_common.c
+--- linux-3.0.1/drivers/media/dvb/frontends/dibx000_common.c	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dibx000_common.c	2011-08-07 11:10:22.903224237 +0200
+@@ -1,4 +1,5 @@
+ #include <linux/i2c.h>
++#include <linux/mutex.h>
+ 
+ #include "dibx000_common.h"
+ 
+@@ -10,6 +11,13 @@
+ 
+ static int dibx000_write_word(struct dibx000_i2c_master *mst, u16 reg, u16 val)
+ {
++	int ret;
++
++	if (mutex_lock_interruptible(&mst->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
+ 	mst->i2c_write_buffer[0] = (reg >> 8) & 0xff;
+ 	mst->i2c_write_buffer[1] = reg & 0xff;
+ 	mst->i2c_write_buffer[2] = (val >> 8) & 0xff;
+@@ -21,11 +29,21 @@
+ 	mst->msg[0].buf = mst->i2c_write_buffer;
+ 	mst->msg[0].len = 4;
+ 
+-	return i2c_transfer(mst->i2c_adap, mst->msg, 1) != 1 ? -EREMOTEIO : 0;
++	ret = i2c_transfer(mst->i2c_adap, mst->msg, 1) != 1 ? -EREMOTEIO : 0;
++	mutex_unlock(&mst->i2c_buffer_lock);
++
++	return ret;
+ }
+ 
+ static u16 dibx000_read_word(struct dibx000_i2c_master *mst, u16 reg)
+ {
++	u16 ret;
++
++	if (mutex_lock_interruptible(&mst->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return 0;
++	}
++
+ 	mst->i2c_write_buffer[0] = reg >> 8;
+ 	mst->i2c_write_buffer[1] = reg & 0xff;
+ 
+@@ -42,7 +60,10 @@
+ 	if (i2c_transfer(mst->i2c_adap, mst->msg, 2) != 2)
+ 		dprintk("i2c read error on %d", reg);
+ 
+-	return (mst->i2c_read_buffer[0] << 8) | mst->i2c_read_buffer[1];
++	ret = (mst->i2c_read_buffer[0] << 8) | mst->i2c_read_buffer[1];
++	mutex_unlock(&mst->i2c_buffer_lock);
++
++	return ret;
+ }
+ 
+ static int dibx000_is_i2c_done(struct dibx000_i2c_master *mst)
+@@ -257,6 +278,7 @@
+ 					struct i2c_msg msg[], int num)
+ {
+ 	struct dibx000_i2c_master *mst = i2c_get_adapdata(i2c_adap);
++	int ret;
+ 
+ 	if (num > 32) {
+ 		dprintk("%s: too much I2C message to be transmitted (%i).\
+@@ -264,10 +286,15 @@
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset(mst->msg, 0, sizeof(struct i2c_msg) * (2 + num));
+-
+ 	dibx000_i2c_select_interface(mst, DIBX000_I2C_INTERFACE_GPIO_6_7);
+ 
++	if (mutex_lock_interruptible(&mst->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++
++	memset(mst->msg, 0, sizeof(struct i2c_msg) * (2 + num));
++
+ 	/* open the gate */
+ 	dibx000_i2c_gate_ctrl(mst, &mst->i2c_write_buffer[0], msg[0].addr, 1);
+ 	mst->msg[0].addr = mst->i2c_addr;
+@@ -282,7 +309,11 @@
+ 	mst->msg[num + 1].buf = &mst->i2c_write_buffer[4];
+ 	mst->msg[num + 1].len = 4;
+ 
+-	return i2c_transfer(mst->i2c_adap, mst->msg, 2 + num) == 2 + num ? num : -EIO;
++	ret = (i2c_transfer(mst->i2c_adap, mst->msg, 2 + num) == 2 + num ?
++			num : -EIO);
++
++	mutex_unlock(&mst->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static struct i2c_algorithm dibx000_i2c_gated_gpio67_algo = {
+@@ -294,6 +325,7 @@
+ 					struct i2c_msg msg[], int num)
+ {
+ 	struct dibx000_i2c_master *mst = i2c_get_adapdata(i2c_adap);
++	int ret;
+ 
+ 	if (num > 32) {
+ 		dprintk("%s: too much I2C message to be transmitted (%i).\
+@@ -301,10 +333,14 @@
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset(mst->msg, 0, sizeof(struct i2c_msg) * (2 + num));
+-
+ 	dibx000_i2c_select_interface(mst, DIBX000_I2C_INTERFACE_TUNER);
+ 
++	if (mutex_lock_interruptible(&mst->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++	memset(mst->msg, 0, sizeof(struct i2c_msg) * (2 + num));
++
+ 	/* open the gate */
+ 	dibx000_i2c_gate_ctrl(mst, &mst->i2c_write_buffer[0], msg[0].addr, 1);
+ 	mst->msg[0].addr = mst->i2c_addr;
+@@ -319,7 +355,10 @@
+ 	mst->msg[num + 1].buf = &mst->i2c_write_buffer[4];
+ 	mst->msg[num + 1].len = 4;
+ 
+-	return i2c_transfer(mst->i2c_adap, mst->msg, 2 + num) == 2 + num ? num : -EIO;
++	ret = (i2c_transfer(mst->i2c_adap, mst->msg, 2 + num) == 2 + num ?
++			num : -EIO);
++	mutex_unlock(&mst->i2c_buffer_lock);
++	return ret;
+ }
+ 
+ static struct i2c_algorithm dibx000_i2c_gated_tuner_algo = {
+@@ -390,8 +429,18 @@
+ int dibx000_init_i2c_master(struct dibx000_i2c_master *mst, u16 device_rev,
+ 				struct i2c_adapter *i2c_adap, u8 i2c_addr)
+ {
+-	u8 tx[4];
+-	struct i2c_msg m = {.addr = i2c_addr >> 1,.buf = tx,.len = 4 };
++	int ret;
++
++	mutex_init(&mst->i2c_buffer_lock);
++	if (mutex_lock_interruptible(&mst->i2c_buffer_lock) < 0) {
++		dprintk("could not acquire lock");
++		return -EINVAL;
++	}
++	memset(mst->msg, 0, sizeof(struct i2c_msg));
++	mst->msg[0].addr = i2c_addr >> 1;
++	mst->msg[0].flags = 0;
++	mst->msg[0].buf = mst->i2c_write_buffer;
++	mst->msg[0].len = 4;
+ 
+ 	mst->device_rev = device_rev;
+ 	mst->i2c_adap = i2c_adap;
+@@ -431,9 +480,12 @@
+ 				"DiBX000: could not initialize the master i2c_adapter\n");
+ 
+ 	/* initialize the i2c-master by closing the gate */
+-	dibx000_i2c_gate_ctrl(mst, tx, 0, 0);
++	dibx000_i2c_gate_ctrl(mst, mst->i2c_write_buffer, 0, 0);
++
++	ret = (i2c_transfer(i2c_adap, mst->msg, 1) == 1);
++	mutex_unlock(&mst->i2c_buffer_lock);
+ 
+-	return i2c_transfer(i2c_adap, &m, 1) == 1;
++	return ret;
+ }
+ 
+ EXPORT_SYMBOL(dibx000_init_i2c_master);
+diff -Naur linux-3.0.1/drivers/media/dvb/frontends/dibx000_common.h linux-3.0.1.patch/drivers/media/dvb/frontends/dibx000_common.h
+--- linux-3.0.1/drivers/media/dvb/frontends/dibx000_common.h	2011-08-05 06:59:21.000000000 +0200
++++ linux-3.0.1.patch/drivers/media/dvb/frontends/dibx000_common.h	2011-08-07 11:10:22.904224250 +0200
+@@ -33,6 +33,7 @@
+ 	struct i2c_msg msg[34];
+ 	u8 i2c_write_buffer[8];
+ 	u8 i2c_read_buffer[2];
++	struct mutex i2c_buffer_lock;
+ };
+ 
+ extern int dibx000_init_i2c_master(struct dibx000_i2c_master *mst,
