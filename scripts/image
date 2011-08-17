@@ -24,18 +24,32 @@
 
 $SCRIPTS/checkdeps build
 $SCRIPTS/build toolchain
+$SCRIPTS/build squashfs
+$SCRIPTS/build fakeroot
 
 export INSTALL=$BUILD/image/system
 
-get_version
+BUILD_DATE=`date +%Y%m%d%H%M%S`
 
-rm -rf $INSTALL
-rm -rf $STAMPS_INSTALL
+if [ "$OPENELEC_VERSION" = devel -o "$OPENELEC_VERSION" = debug ]; then
+  GIT_BUILD=`git log --pretty=format:'' | wc -l`
+  GIT_HASH=`git log -n1 --format=%H`
+  OPENELEC_VERSION=$OPENELEC_VERSION-$BUILD_DATE-r$GIT_BUILD
+fi
 
-mkdir -p $INSTALL
+TARGET_VERSION="$PROJECT.$TARGET_ARCH-$OPENELEC_VERSION"
+IMAGE_NAME="$DISTRONAME-$TARGET_VERSION"
 
 # setup fakeroot
+  rm -rf $FAKEROOT_SCRIPT   # remove $FAKEROOT_SCRIPT if it exist
+  touch $FAKEROOT_SCRIPT    # create an empty $FAKEROOT_SCRIPT
+  chmod +x $FAKEROOT_SCRIPT # make $FAKEROOT_SCRIPT executable
   echo "chown -R 0:0 $INSTALL" >> $FAKEROOT_SCRIPT
+
+# clean old install dirs
+  rm -rf $INSTALL
+  rm -rf $STAMPS_INSTALL
+  mkdir -p $INSTALL
 
 # create baselayout
   mkdir -p $INSTALL/bin
@@ -50,7 +64,6 @@ mkdir -p $INSTALL
   mkdir -p $INSTALL/var
   mkdir -p $INSTALL/flash
   mkdir -p $INSTALL/storage
-
   ln -sf /var $INSTALL/usr/var
   ln -sf /var/tmp $INSTALL/tmp
   ln -sf /var/media $INSTALL/media
@@ -140,3 +153,89 @@ mkdir -p $INSTALL
   for MOD in `find $INSTALL/lib/modules/ -name *.ko`; do
     $STRIP --strip-debug $MOD
   done
+
+# make target dir
+  mkdir -p $TARGET_IMG
+    rm -rf $TARGET_IMG/$IMAGE_NAME.kernel
+    rm -rf $TARGET_IMG/$IMAGE_NAME.mach_kernel
+
+# copy kernel to target dir
+  if [ "$BOOTLOADER" = "u-boot" ]; then
+    KERNEL_IMAGE="uImage"
+  else
+    KERNEL_IMAGE="bzImage"
+  fi
+
+  if [ "$TARGET_ARCH" = i386 -o "$TARGET_ARCH" = x86_64 ]; then
+    KERNEL_ARCH="x86"
+  elif [ "$TARGET_ARCH" = arm ]; then
+    KERNEL_ARCH="arm"
+  fi
+
+  cp -PR $BUILD/linux-*/arch/$KERNEL_ARCH/boot/$KERNEL_IMAGE $TARGET_IMG/$IMAGE_NAME.kernel
+
+  if [ "$BOOTLOADER" = "atv-bootloader" ]; then
+    cp -PR $BUILD/atv-bootloader-*/mach_kernel $TARGET_IMG/$IMAGE_NAME.mach_kernel
+    chmod 0644 $TARGET_IMG/$IMAGE_NAME.mach_kernel
+  fi
+
+# create squashfs file
+  echo "rm -rf $TARGET_IMG/$IMAGE_NAME.system" >> $FAKEROOT_SCRIPT
+#  echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $BUILD/image/system $TARGET_IMG/$IMAGE_NAME.system -noappend -comp xz" >> $FAKEROOT_SCRIPT
+  echo "$ROOT/$TOOLCHAIN/bin/mksquashfs $BUILD/image/system $TARGET_IMG/$IMAGE_NAME.system -noappend" >> $FAKEROOT_SCRIPT
+
+# run fakeroot
+  $ROOT/$TOOLCHAIN/bin/fakeroot -- $FAKEROOT_SCRIPT
+  rm -rf $FAKEROOT_SCRIPT
+
+# set permissions
+  chmod 0644 $TARGET_IMG/$IMAGE_NAME.system
+  chmod 0644 $TARGET_IMG/$IMAGE_NAME.kernel
+
+  if [ "$1" = "release" ]; then
+
+    RELEASE_DIR="target/$IMAGE_NAME"
+
+    # cleanup
+      rm -rf $RELEASE_DIR
+
+    # create release dir
+      mkdir -p $RELEASE_DIR
+        cp $ROOT/README $RELEASE_DIR
+        cp $ROOT/CHANGELOG $RELEASE_DIR
+#      cp -R $CONFIG/image/* $RELEASE_DIR
+        cp -R $CONFIG/release/* $RELEASE_DIR
+        echo "$TARGET_VERSION" > $RELEASE_DIR/RELEASE
+
+      mkdir -p $RELEASE_DIR/licenses
+        cp $ROOT/licenses/* $RELEASE_DIR/licenses
+
+      mkdir -p $RELEASE_DIR/target
+        cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/target/SYSTEM
+        cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/target/KERNEL
+
+        if [ -f $TARGET_IMG/$IMAGE_NAME.mach_kernel ]; then
+          cp $TARGET_IMG/$IMAGE_NAME.mach_kernel $RELEASE_DIR/target/MACH_KERNEL
+        fi
+
+    # create md5sum's
+      ( cd $RELEASE_DIR;
+        md5sum -t target/SYSTEM > target/SYSTEM.md5;
+        md5sum -t target/KERNEL > target/KERNEL.md5;
+        if [ -f target/MACH_KERNEL ]; then
+          md5sum -t target/MACH_KERNEL > target/MACH_KERNEL.md5;
+        fi
+      )
+
+    # create target directory
+      mkdir -p $TARGET_IMG
+
+    # remove an previous created release tarball
+      rm -rf $TARGET_IMG/$IMAGE_NAME.tar.bz2
+
+    # create release tarball
+      tar cjf $TARGET_IMG/$IMAGE_NAME.tar.bz2 -C target $IMAGE_NAME
+
+    # cleanup release dir
+      rm -rf $RELEASE_DIR
+  fi
