@@ -28,6 +28,7 @@
   SABNZBD_SETTINGS="$ADDON_HOME/sabnzbd.ini"
   SICKBEARD_SETTINGS="$ADDON_HOME/config.ini"
   COUCHPOTATO_SETTINGS="$ADDON_HOME/couchpotato.ini"
+  HEADPHONES_SETTINGS="$ADDON_HOME/headphones.ini"
   XBMC_SETTINGS="$HOME/.xbmc/userdata/guisettings.xml"
 
   export PYTHONPATH="$PYTHONPATH:$ADDON_DIR/pylib"
@@ -82,6 +83,18 @@
   COUCHPOTATO_PORT="8083"
   COUCHPOTATO_USEXBMC="True"
   COUCHPOTATO_UPDATEXBMC="True"
+  
+################################################################################
+# default headphones values
+################################################################################
+
+  HEADPHONES_PORT="8084"
+  HEADPHONES_LAUNCHBROWSER="0"
+  HEADPHONES_MUSICDIR="/storage/music"
+  HEADPHONES_DESTDIR="/storage/music"
+  HEADPHONES_DOWNLOADDIR="/storage/music"
+  HEADPHONES_SABHOST="$SABNZBD_HOST:$SABNZBD_PORT"
+  HEADPHONES_SABCATEGORY="music"
 
 ################################################################################
 # setup functions
@@ -104,6 +117,13 @@ python $ADDON_DIR/bin/ini_tool --action=write \
 write_couchpotato_ini() {
 python $ADDON_DIR/bin/ini_tool --action=write \
                                --file=$COUCHPOTATO_SETTINGS \
+                               --option="$1:$2" \
+                               --value="$3"
+}
+
+write_headphones_ini() {
+python $ADDON_DIR/bin/ini_tool --action=write \
+                               --file=$HEADPHONES_SETTINGS \
                                --option="$1:$2" \
                                --value="$3"
 }
@@ -152,6 +172,7 @@ python $ADDON_DIR/bin/ini_tool --action=write \
   SABNZBD_IP=`grep SABNZBD_IP $SABNZBD_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
   SICKBEARD_IP="$SABNZBD_IP"
   COUCHPOTATO_IP="$SABNZBD_IP"
+  HEADPHONES_IP="$SABNZBD_IP"
 
 ################################################################################
 # setup sabnzbd ini file
@@ -297,3 +318,34 @@ python $ADDON_DIR/bin/ini_tool --action=write \
 # start couchpotato
 ################################################################################
   python $ADDON_DIR/CouchPotato/CouchPotato.py -d --datadir $ADDON_HOME --config $COUCHPOTATO_SETTINGS
+
+################################################################################
+# setup headphones ini file
+################################################################################
+
+  if [ -z "$HEADPHONES_IP" ]; then
+    HEADPHONES_IP="0.0.0.0"
+  fi
+
+  if [ ! -f "$HEADPHONES_SETTINGS" ]; then
+    HEADPHONES_FIRSTRUN="yes"
+  fi
+
+  if [ "$HEADPHONES_FIRSTRUN" = "yes" ]; then
+   write_headphones_ini General http_port $HEADPHONES_PORT
+   write_headphones_ini General http_host $HEADPHONES_IP
+   write_headphones_ini General launch_browser $HEADPHONES_LAUNCHBROWSER
+   write_headphones_ini General music_dir $HEADPHONES_MUSICDIR
+   write_headphones_ini General destination_dir $HEADPHONES_DESTDIR
+   write_headphones_ini General download_dir $HEADPHONES_DOWNLOADDIR
+
+   write_headphones_ini SABnzbd sab_host $HEADPHONES_SABHOST
+   write_headphones_ini SABnzbd sab_apikey $SABNZBD_APIKEY
+   write_headphones_ini SABnzbd sab_category $HEADPHONES_SABCATEGORY
+  fi
+
+
+################################################################################
+# start headphones
+################################################################################
+  python $ADDON_DIR/Headphones/Headphones.py -d --datadir $ADDON_HOME --config $HEADPHONES_SETTINGS
