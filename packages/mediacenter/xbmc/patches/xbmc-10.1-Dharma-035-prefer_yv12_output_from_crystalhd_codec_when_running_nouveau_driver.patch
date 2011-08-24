@@ -1,0 +1,89 @@
+diff -Naur xbmc-10.1-Dharma.patch1/xbmc/cores/dvdplayer/DVDCodecs/Video/CrystalHD.cpp xbmc-10.1-Dharma.patch2/xbmc/cores/dvdplayer/DVDCodecs/Video/CrystalHD.cpp
+--- xbmc-10.1-Dharma.patch1/xbmc/cores/dvdplayer/DVDCodecs/Video/CrystalHD.cpp	2011-08-22 05:07:59.915149830 +0200
++++ xbmc-10.1-Dharma.patch2/xbmc/cores/dvdplayer/DVDCodecs/Video/CrystalHD.cpp	2011-08-22 05:19:43.825427880 +0200
+@@ -39,6 +39,7 @@
+ #include "utils/fastmemcpy.h"
+ #include "Codecs/DllSwScale.h"
+ #include "utils/TimeUtils.h"
++#include "xbmc/WindowingFactory.h"
+ 
+ namespace BCM
+ {
+@@ -233,6 +234,7 @@
+   int                 m_width;
+   int                 m_height;
+   uint64_t            m_timestamp;
++  bool                m_output_YV12;
+   uint64_t            m_PictureNumber;
+   uint8_t             m_color_space;
+   unsigned int        m_color_range;
+@@ -335,6 +337,12 @@
+   m_sw_scale_ctx = NULL;
+   m_dllSwScale = new DllSwScale;
+   m_dllSwScale->Load();
++
++  
++  if (g_Windowing.GetRenderQuirks() & RENDER_QUIRKS_YV12_PREFERED)
++    m_output_YV12 = true;
++  else
++    m_output_YV12 = false;
+ }
+ 
+ CMPCOutputThread::~CMPCOutputThread()
+@@ -773,15 +781,20 @@
+           if (!pBuffer)
+           {
+             // No free pre-allocated buffers so make one
+-#ifdef _WIN32
+-            // force Windows to use YV12 until DX renderer gets NV12 or YUY2 capability.
+-            pBuffer = new CPictureBuffer(DVDVideoPicture::FMT_YUV420P, m_width, m_height);
+-#else
+-            if (m_color_space == BCM::MODE422_YUY2)
+-              pBuffer = new CPictureBuffer(DVDVideoPicture::FMT_YUY2, m_width, m_height);
++            if (m_output_YV12)
++            {
++              // output YV12, nouveau driver has slow NV12, YUY2 capability.
++              pBuffer = new CPictureBuffer(DVDVideoPicture::FMT_YUV420P, m_width, m_height);
++            }
++
+             else
+-              pBuffer = new CPictureBuffer(DVDVideoPicture::FMT_NV12, m_width, m_height);
+-#endif
++            {
++              if (m_color_space == BCM::MODE422_YUY2)
++                pBuffer = new CPictureBuffer(DVDVideoPicture::FMT_YUY2, m_width, m_height);
++              else
++                pBuffer = new CPictureBuffer(DVDVideoPicture::FMT_NV12, m_width, m_height);
++            }
++
+             CLog::Log(LOGDEBUG, "%s: Added a new Buffer, ReadyListCount: %d", __MODULE_NAME__, m_ReadyList.Count());
+             while (!m_bStop && m_ReadyList.Count() > 10)
+               Sleep(1);
+diff -Naur xbmc-10.1-Dharma.patch1/xbmc/RenderSystemGL.cpp xbmc-10.1-Dharma.patch2/xbmc/RenderSystemGL.cpp
+--- xbmc-10.1-Dharma.patch1/xbmc/RenderSystemGL.cpp	2011-08-22 05:10:58.079496562 +0200
++++ xbmc-10.1-Dharma.patch2/xbmc/RenderSystemGL.cpp	2011-08-22 05:20:56.265383606 +0200
+@@ -65,6 +65,9 @@
+     }
+   }
+ #endif
++  if (m_RenderVendor.ToLower() == "nouveau")
++    m_renderQuirks |= RENDER_QUIRKS_YV12_PREFERED;
++
+   if (m_RenderVendor.Equals("Tungsten Graphics, Inc.")
+   ||  m_RenderVendor.Equals("Tungsten Graphics, Inc"))
+   {
+diff -Naur xbmc-10.1-Dharma.patch1/xbmc/RenderSystem.h xbmc-10.1-Dharma.patch2/xbmc/RenderSystem.h
+--- xbmc-10.1-Dharma.patch1/xbmc/RenderSystem.h	2011-08-22 05:10:38.495238548 +0200
++++ xbmc-10.1-Dharma.patch2/xbmc/RenderSystem.h	2011-08-22 05:19:43.847428169 +0200
+@@ -57,6 +57,11 @@
+   RENDER_QUIRKS_MAJORMEMLEAK_OVERLAYRENDERER = 1 << 0,
+ };
+ 
++enum
++{
++  RENDER_QUIRKS_YV12_PREFERED                = 1 << 1,
++};
++
+ class CRenderSystemBase
+ {
+ public:
