@@ -1,0 +1,111 @@
+diff -Naur xbmc-10.1-Dharma/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp.rej xbmc-10.1-Dharma.patch1/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp.rej
+--- xbmc-10.1-Dharma/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp.rej	1970-01-01 01:00:00.000000000 +0100
++++ xbmc-10.1-Dharma.patch1/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp.rej	2011-08-22 05:09:40.801478536 +0200
+@@ -0,0 +1,38 @@
++--- xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+++++ xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
++@@ -20,6 +20,7 @@
++  */
++ 
++ #include "system.h"
+++#include "windowing/WindowingFactory.h"
++ #include "settings/AdvancedSettings.h"
++ #include "settings/GUISettings.h"
++ #include "settings/Settings.h"
++@@ -829,16 +830,17 @@
++ 
++   if(pSource->format == DVDVideoPicture::FMT_YUV420P)
++   {
++-#ifdef _LINUX
++-    // for now use cpu for ssa overlays as it currently allocates and
++-    // frees textures for each frame this causes a hugh memory leak
++-    // on some mesa intel drivers
++-
++-    if(m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SPU)
++-    || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_IMAGE)
++-    || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SSA) )
++-      render = OVERLAY_BUF;
++-#endif
+++    if(g_Windowing.GetRenderQuirks() & RENDER_QUIRKS_MAJORMEMLEAK_OVERLAYRENDERER)
+++    {
+++      // for now use cpu for ssa overlays as it currently allocates and
+++      // frees textures for each frame this causes a hugh memory leak
+++      // on some mesa intel drivers
+++
+++      if(m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SPU)
+++      || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_IMAGE)
+++      || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SSA) )
+++        render = OVERLAY_BUF;
+++    }
++ 
++     if(render == OVERLAY_BUF)
++     {
+diff -Naur xbmc-10.1-Dharma/xbmc/RenderSystem.cpp xbmc-10.1-Dharma.patch1/xbmc/RenderSystem.cpp
+--- xbmc-10.1-Dharma/xbmc/RenderSystem.cpp	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch1/xbmc/RenderSystem.cpp	2011-08-22 05:10:30.353131282 +0200
+@@ -29,6 +29,7 @@
+   m_RenderVersionMajor = 0;
+   m_RenderVersionMinor = 0;
+   m_renderCaps = 0;
++  m_renderQuirks = 0;
+   m_minDXTPitch = 0;
+ }
+ 
+diff -Naur xbmc-10.1-Dharma/xbmc/RenderSystemGL.cpp xbmc-10.1-Dharma.patch1/xbmc/RenderSystemGL.cpp
+--- xbmc-10.1-Dharma/xbmc/RenderSystemGL.cpp	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch1/xbmc/RenderSystemGL.cpp	2011-08-22 05:10:58.079496562 +0200
+@@ -65,8 +65,22 @@
+     }
+   }
+ #endif
+-  if (m_RenderVendor.Equals("Tungsten Graphics, Inc."))
++  if (m_RenderVendor.Equals("Tungsten Graphics, Inc.")
++  ||  m_RenderVendor.Equals("Tungsten Graphics, Inc"))
+   {
++	unsigned major, minor, micro;
++	if(sscanf(m_RenderVersion.c_str(), "%*s Mesa %u.%u.%u", &major, &minor, &micro) == 3)
++	{
++
++	  if((major  < 7)
++	  || (major == 7 && minor  < 7)
++	  || (major == 7 && minor == 7 && micro < 1))
++		m_renderQuirks |= RENDER_QUIRKS_MAJORMEMLEAK_OVERLAYRENDERER;
++
++	}
++	else
++	  CLog::Log(LOGNOTICE, "CRenderSystemGL::CheckOpenGLQuirks - unable to parse mesa version string");
++
+     if(m_RenderRenderer.Find("Poulsbo") >= 0)
+       m_renderCaps &= ~RENDER_CAPS_DXT_NPOT;
+   }
+diff -Naur xbmc-10.1-Dharma/xbmc/RenderSystem.h xbmc-10.1-Dharma.patch1/xbmc/RenderSystem.h
+--- xbmc-10.1-Dharma/xbmc/RenderSystem.h	2011-03-08 02:49:14.000000000 +0100
++++ xbmc-10.1-Dharma.patch1/xbmc/RenderSystem.h	2011-08-22 05:10:38.495238548 +0200
+@@ -52,6 +52,11 @@
+   RENDER_CAPS_DXT_NPOT = (1 << 2)
+ };
+ 
++enum
++{
++  RENDER_QUIRKS_MAJORMEMLEAK_OVERLAYRENDERER = 1 << 0,
++};
++
+ class CRenderSystemBase
+ {
+ public:
+@@ -94,6 +99,7 @@
+   bool SupportsNPOT(bool dxt) const;
+   unsigned int GetMaxTextureSize() const { return m_maxTextureSize; }
+   unsigned int GetMinDXTPitch() const { return m_minDXTPitch; }
++  unsigned int GetRenderQuirks() const { return m_renderQuirks; }
+ 
+ protected:
+   bool                m_bRenderCreated;
+@@ -108,6 +114,7 @@
+   int          m_RenderVersionMinor;
+   int          m_RenderVersionMajor;
+   unsigned int m_renderCaps;
++  unsigned int m_renderQuirks;
+ };
+ 
+ #endif // RENDER_SYSTEM_H
