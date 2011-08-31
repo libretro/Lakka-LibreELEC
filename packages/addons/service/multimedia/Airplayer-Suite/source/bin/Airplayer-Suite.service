@@ -1,0 +1,127 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# setup functions
+read_xbmcconfig() {
+  grep "<$1>" $XBMC_SETTINGS | sed -e "s,[[:space:]]*<$1>,," -e "s,</$1>,,"
+}
+
+  ADDON_ID="Airplayer-Suite"
+  ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.$ADDON_ID"
+  ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.$ADDON_ID"
+
+  AIRPLAYERSUITE_SETTINGS_XML="$ADDON_HOME/settings.xml"
+  AIRPLAYERSUITE_SETTINGS_CONF="/var/config/$ADDON_ID.conf"
+  XBMC_SETTINGS="$HOME/.xbmc/userdata/guisettings.xml"
+
+  # create default config
+  mkdir -p $ADDON_HOME
+  if [ ! -f "$AIRPLAYERSUITE_SETTINGS_XML" ]; then
+    cp $ADDON_DIR/settings-default.xml $AIRPLAYERSUITE_SETTINGS_XML
+  fi
+
+  # convert xml file to bash variables and use them
+  if [ -f "$AIRPLAYERSUITE_SETTINGS_XML" ]; then
+    mkdir -p /var/config/
+    awk -F\" '{print $2"=\""$4"\""}' "$AIRPLAYERSUITE_SETTINGS_XML" | sed '/^=/d' > $AIRPLAYERSUITE_SETTINGS_CONF
+    . $AIRPLAYERSUITE_SETTINGS_CONF
+    # replace spaces with underscore
+    SHAIRPORT_NAME=${SHAIRPORT_NAME// /_}
+    AIRPLAYER_NAME=${AIRPLAYER_NAME// /_}
+  else
+    LOG_FILES="true"
+    SHAIRPORT_DEVICENAME="default"
+    SHAIRPORT_DRIVER="alsa"
+    SHAIRPORT_NAME="ShairPort"
+    AIRPLAYER_NAME="Airplayer"
+  fi
+
+  export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ADDON_DIR/lib"
+  export PYTHONPATH="$ADDON_DIR/pylib"
+
+  if [ "$LOG_FILES" = "true" ]; then
+    LOG_FILE_SHAIRPORT="$ADDON_HOME/shairport.log"
+    LOG_FILE_AIRPLAYER="$ADDON_HOME/airplayer.log"
+    PID_FILE_AIRPLAYER="$ADDON_HOME/airplayer.pid"
+
+    ADDON_ARG_SHAIRPORT="-v --apname=$SHAIRPORT_NAME --ao_driver=$SHAIRPORT_DRIVER --ao_devicename=$SHAIRPORT_DEVICENAME"
+    ADDON_ARG_AIRPLAYER="-d -p $PID_FILE_AIRPLAYER -l $LOG_FILE_AIRPLAYER"
+  else
+    LOG_FILE_SHAIRPORT="/dev/null"
+    LOG_FILE_AIRPLAYER="/dev/null"
+    PID_FILE_AIRPLAYER="$ADDON_HOME/airplayer.pid"
+
+    ADDON_ARG_SHAIRPORT="--apname=$SHAIRPORT_NAME --ao_driver=$SHAIRPORT_DRIVER --ao_devicename=$SHAIRPORT_DEVICENAME"
+    ADDON_ARG_AIRPLAYER="-d -p $PID_FILE_AIRPLAYER -l $LOG_FILE_AIRPLAYER"
+  fi
+
+  AIRPLAYER_SETTINGS_TMP="/tmp/airplayer_settings.py"
+  AIRPLAYER_SETTINGS_ORIG="$ADDON_DIR/bin/airplayer/settings.py"
+
+  # first copy to tmp
+  cp "$AIRPLAYER_SETTINGS_ORIG" "$AIRPLAYER_SETTINGS_TMP"
+
+  # read xbmc settings
+  XBMC_PORT=`read_xbmcconfig webserverport`
+  XBMC_USER=`read_xbmcconfig webserverusername`
+  XBMC_PWD=`read_xbmcconfig webserverpassword`
+
+  # modify with real values
+  sed -i "s|MEDIA_BACKEND_PORT = .*|MEDIA_BACKEND_PORT = $XBMC_PORT|g" $AIRPLAYER_SETTINGS_TMP
+
+  if [ -n "XBMC_USER" ]; then
+    sed -i "s|MEDIA_BACKEND_USERNAME = .*|MEDIA_BACKEND_USERNAME = '$XBMC_USER'|g" $AIRPLAYER_SETTINGS_TMP
+  else
+    sed -i "s|MEDIA_BACKEND_USERNAME = .*|MEDIA_BACKEND_USERNAME = None|g" $AIRPLAYER_SETTINGS_TMP
+  fi
+  if [ -n "XBMC_PWD" ]; then
+    sed -i "s|MEDIA_BACKEND_PASSWORD = .*|MEDIA_BACKEND_PASSWORD = '$XBMC_PWD'|g" $AIRPLAYER_SETTINGS_TMP
+  else
+    sed -i "s|MEDIA_BACKEND_PASSWORD = .*|MEDIA_BACKEND_PASSWORD = None|g" $AIRPLAYER_SETTINGS_TMP
+  fi
+  if [ -n "AIRPLAYER_NAME" ]; then
+    sed -i "s|AIRPLAY_HOSTNAME = .*|AIRPLAY_HOSTNAME = '$AIRPLAYER_NAME'|g" $AIRPLAYER_SETTINGS_TMP
+  else
+    sed -i "s|AIRPLAY_HOSTNAME = .*|AIRPLAY_HOSTNAME = None|g" $AIRPLAYER_SETTINGS_TMP
+  fi
+
+  # if different copy it back
+  if [ "`md5sum "$AIRPLAYER_SETTINGS_TMP" | cut -d ' ' -f 1`" != "`md5sum "$AIRPLAYER_SETTINGS_ORIG" | cut -d ' ' -f 1`" ]; then
+    cp "$AIRPLAYER_SETTINGS_TMP" "$AIRPLAYER_SETTINGS_ORIG"
+  fi
+
+  rm "$AIRPLAYER_SETTINGS_TMP"
+
+  # restart avahi daemon because sometimes doesn't start correctly at boot time
+  avahi-daemon -k
+  /bin/sh /etc/init.d/53_avahi
+
+  # run shairport
+  if [ ! $(pidof shairport) ]; then
+    $ADDON_DIR/bin/shairport $ADDON_ARG_SHAIRPORT >$LOG_FILE_SHAIRPORT 2>&1 &
+  fi
+
+  # run airplayer
+  ps -ef | grep airplayer.py | grep -v grep >/dev/null 2>&1
+  if [ "$?" != "0" ]; then
+    python $ADDON_DIR/bin/airplayer/airplayer.py $ADDON_ARG_AIRPLAYER
+  fi
