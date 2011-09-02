@@ -18,19 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="boost"
-PKG_VERSION="1_47_0"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="OSS"
-PKG_SITE="http://www.boost.org/"
-PKG_URL="$SOURCEFORGE_SRC/boost/boost/1.45.0/${PKG_NAME}_${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS="zlib bzip2"
-PKG_BUILD_DEPENDS="toolchain boost-jam Python zlib bzip2"
-PKG_PRIORITY="optional"
-PKG_SECTION="devel"
-PKG_SHORTDESC="boost: Peer-reviewed STL style libraries for C++"
-PKG_LONGDESC="Boost provides free peer-reviewed portable C++ source libraries. The emphasis is on libraries which work well with the C++ Standard Library. One goal is to establish existing practice and provide reference implementations so that the Boost libraries are suitable for eventual standardization. Some of the libraries have already been proposed for inclusion in the C++ Standards Committee's upcoming C++ Standard Library Technical Report."
-PKG_IS_ADDON="no"
+import xbmc, time, os, subprocess
 
-PKG_AUTORECONF="no"
+os.system("Airplayer-Suite.service")
