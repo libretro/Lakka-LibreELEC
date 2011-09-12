@@ -22,38 +22,28 @@
 #
 # runlevels: openelec, textmode
 
-SMB_USERCONF="/storage/.config/samba.conf"
-SMB_DEFCONF="/etc/samba/smb.conf"
+(
+  if [ -f /var/config/settings.conf ]; then
+    . /var/config/settings.conf
 
-case $RUNLEVEL in
-  boot)
-    (
-      if [ -f /var/config/settings.conf ]; then
-        . /var/config/settings.conf
+    if [ "$SAMBA_START" = "true" ]; then
 
-        if [ "$SAMBA_START" = "true" ]; then
+      wait_for_network
 
-          wait_for_network
+      progress  "Starting Samba server"
 
-          progress  "Starting Samba server"
+      SMB_USERCONF="/storage/.config/samba.conf"
+      SMB_DEFCONF="/etc/samba/smb.conf"
 
-          if [ -f $SMB_USERCONF ]; then
-            SMB_ARG="--configfile=$SMB_USERCONF"
-          else
-            SMB_ARG="--configfile=$SMB_DEFCONF"
-          fi
-
-          mkdir -p /var/log/samba
-          smbd --daemon $SMB_ARG > /dev/null 2>&1
-          nmbd --daemon $SMB_ARG > /dev/null 2>&1
-        fi
+      if [ -f $SMB_USERCONF ]; then
+        SMB_ARG="--configfile=$SMB_USERCONF"
+      else
+        SMB_ARG="--configfile=$SMB_DEFCONF"
       fi
-    )&
-    ;;
 
-  poweroff|reboot)
-    progress  "Stopping Samba server"
-      killall nmbd
-      killall smbd
-    ;;
-esac
+      mkdir -p /var/log/samba
+      smbd --daemon $SMB_ARG > /dev/null 2>&1
+      nmbd --daemon $SMB_ARG > /dev/null 2>&1
+    fi
+  fi
+)&
