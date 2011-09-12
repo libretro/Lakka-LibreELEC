@@ -22,73 +22,66 @@
 #
 # runlevels: openelec
 
-case $RUNLEVEL in
-  boot)
-    LIRCDEV="/var/run/lirc/lircd"
-    [ -e /var/run/lirc/lircd.irtrans ] && LIRCDEV="/var/run/lirc/lircd.irtrans"
-    XBMC_ARGS="--standalone -fs --lircdev $LIRCDEV"
+LIRCDEV="/var/run/lirc/lircd"
+[ -e /var/run/lirc/lircd.irtrans ] && LIRCDEV="/var/run/lirc/lircd.irtrans"
+XBMC_ARGS="--standalone -fs --lircdev $LIRCDEV"
 
-    progress "starting XBMC"
+progress "starting XBMC"
 
-    # hack for Boxee Remote
-    if $(cat /proc/bus/input/devices | grep Vendor=0471 | grep -q Product=20d9);then
-      export SDL_MOUSE_RELATIVE=0
-    fi
+# hack for Boxee Remote
+if $(cat /proc/bus/input/devices | grep Vendor=0471 | grep -q Product=20d9);then
+  export SDL_MOUSE_RELATIVE=0
+fi
 
-    # hack: make addon-bins executable
-      chmod +x /storage/.xbmc/addons/*/bin/* > /dev/null 2>&1
+# hack: make addon-bins executable
+  chmod +x /storage/.xbmc/addons/*/bin/* > /dev/null 2>&1
 
-    # starting autostart script (will be removed later again, dont use it!!!)
-      AUTOSTART="/storage/.config/autostart.sh"
-      if [ -f $AUTOSTART ]; then
-        echo "!!! AUTOSTART script detected !!!" >> /var/log/messages
-        cat "$AUTOSTART" >> /var/log/messages
-        echo "!!! -End of autostart script- !!!" >> /var/log/messages
+# starting autostart script (will be removed later again, dont use it!!!)
+  AUTOSTART="/storage/.config/autostart.sh"
+  if [ -f $AUTOSTART ]; then
+    echo "!!! AUTOSTART script detected !!!" >> /var/log/messages
+    cat "$AUTOSTART" >> /var/log/messages
+    echo "!!! -End of autostart script- !!!" >> /var/log/messages
 
-        sh $AUTOSTART
-      fi
+    sh $AUTOSTART
+  fi
 
-    # starting autoupdate
-      [ -f /usr/bin/autoupdate ] && /usr/bin/autoupdate &
+# starting autoupdate
+  [ -f /usr/bin/autoupdate ] && /usr/bin/autoupdate &
 
-    # waiting for Xorg to start
-      wait_for_xorg
+# waiting for Xorg to start
+  wait_for_xorg
 
-    # set cpu's to 'on demand'
-      ( usleep 15000000
-        progress "set cpu's to 'on demand'"
-        cpupower frequency-set -g ondemand > /dev/null 2>&1
-      )&
+# set cpu's to 'on demand'
+  ( usleep 15000000
+    progress "set cpu's to 'on demand'"
+    cpupower frequency-set -g ondemand > /dev/null 2>&1
+  )&
 
-    # starting XBMC
-      while true; do
+# starting XBMC
+  while true; do
 
-        DISPLAY=:0.0 /usr/lib/xbmc/xbmc.bin $XBMC_ARGS > /dev/null 2>&1
-        RET=$?
+    DISPLAY=:0.0 /usr/lib/xbmc/xbmc.bin $XBMC_ARGS > /dev/null 2>&1
+    RET=$?
 
-        case "$RET" in
-          0)
-             RUNLEVEL="poweroff"
-            ;;
-          64)
-             RUNLEVEL="poweroff"
-            ;;
-          66)
-             RUNLEVEL="reboot"
-            ;;
-          255)
-            echo "Abnormal Exit. Exited with code $RET"
-            echo "is Xorg running? check /var/log/Xorg.log"
-            ;;
-          *)
-            echo "Abnormal Exit. Exited with code $RET"
-            ;;
-        esac
+    case "$RET" in
+      0)
+        poweroff -f
+        ;;
+      64)
+        poweroff -f
+        ;;
+      66)
+        reboot
+        ;;
+      255)
+        echo "Abnormal Exit. Exited with code $RET"
+        echo "is Xorg running? check /var/log/Xorg.log"
+        ;;
+      *)
+        echo "Abnormal Exit. Exited with code $RET"
+        ;;
+    esac
 
-        usleep 250000
-      done
-    ;;
-
-  poweroff|reboot)
-    ;;
-esac
+    usleep 250000
+  done
