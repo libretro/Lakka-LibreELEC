@@ -1,0 +1,280 @@
+diff -Naur afpfs-ng-0.8.1/cmdline/getstatus.c afpfs-ng-0.8.1.patch/cmdline/getstatus.c
+--- afpfs-ng-0.8.1/cmdline/getstatus.c	2011-09-10 12:14:34.164716403 +0200
++++ afpfs-ng-0.8.1.patch/cmdline/getstatus.c	2011-09-10 12:16:23.717188342 +0200
+@@ -1,4 +1,5 @@
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include <pthread.h>
+ 
+diff -Naur afpfs-ng-0.8.1/fuse/client.c afpfs-ng-0.8.1.patch/fuse/client.c
+--- afpfs-ng-0.8.1/fuse/client.c	2011-09-10 12:14:34.165716416 +0200
++++ afpfs-ng-0.8.1.patch/fuse/client.c	2011-09-10 12:16:23.737188610 +0200
+@@ -61,8 +61,9 @@
+ 			snprintf(filename, PATH_MAX,
+ 				"/usr/local/bin/%s",AFPFSD_FILENAME);
+ 			if (access(filename,X_OK)) {
+-				snprintf(filename, "/usr/bin/%s",
++				snprintf(filename, sizeof(filename), "/usr/bin/%s",
+ 					AFPFSD_FILENAME);
++				filename[sizeof(filename) - 1] = 0;
+ 				if (access(filename,X_OK)) {
+ 					printf("Could not find server (%s)\n",
+ 						filename);
+diff -Naur afpfs-ng-0.8.1/fuse/fuse_int.c afpfs-ng-0.8.1.patch/fuse/fuse_int.c
+--- afpfs-ng-0.8.1/fuse/fuse_int.c	2011-09-10 12:14:34.167716442 +0200
++++ afpfs-ng-0.8.1.patch/fuse/fuse_int.c	2011-09-10 12:16:23.745188717 +0200
+@@ -197,7 +197,7 @@
+ 	ret = ml_open(volume,path,flags,&fp);
+ 
+ 	if (ret==0) 
+-		fi->fh=(void *) fp;
++		fi->fh=(unsigned long) fp;
+ 
+ 	return ret;
+ }
+diff -Naur afpfs-ng-0.8.1/include/afpfs-ng/afp.h afpfs-ng-0.8.1.patch/include/afpfs-ng/afp.h
+--- afpfs-ng-0.8.1/include/afpfs-ng/afp.h	2011-09-10 12:14:34.168716455 +0200
++++ afpfs-ng-0.8.1.patch/include/afpfs-ng/afp.h	2011-09-10 12:16:37.588374712 +0200
+@@ -370,7 +370,7 @@
+ 
+ int afp_opendt(struct afp_volume *volume, unsigned short * refnum);
+ 
+-int afp_closedt(struct afp_server * server, unsigned short * refnum);
++int afp_closedt(struct afp_server * server, unsigned short refnum);
+ 
+ int afp_getcomment(struct afp_volume *volume, unsigned int did,
+         const char * pathname, struct afp_comment * comment);
+diff -Naur afpfs-ng-0.8.1/include/afpfs-ng/utils.h afpfs-ng-0.8.1.patch/include/afpfs-ng/utils.h
+--- afpfs-ng-0.8.1/include/afpfs-ng/utils.h	2011-09-10 12:14:34.173716523 +0200
++++ afpfs-ng-0.8.1.patch/include/afpfs-ng/utils.h	2011-09-10 12:16:47.234504316 +0200
+@@ -8,8 +8,8 @@
+ #define hton64(x)       (x)
+ #define ntoh64(x)       (x)
+ #else /* BYTE_ORDER == BIG_ENDIAN */
+-#define hton64(x)       ((u_int64_t) (htonl(((x) >> 32) & 0xffffffffLL)) | \
+-                         (u_int64_t) ((htonl(x) & 0xffffffffLL) << 32))
++#define hton64(x)       ((u_int64_t) (htonl((((unsigned long long)(x)) >> 32) & 0xffffffffLL)) | \
++                         (u_int64_t) ((htonl((unsigned long long)(x)) & 0xffffffffLL) << 32))
+ #define ntoh64(x)       (hton64(x))
+ #endif /* BYTE_ORDER == BIG_ENDIAN */
+ 
+diff -Naur afpfs-ng-0.8.1/lib/afp_url.c afpfs-ng-0.8.1.patch/lib/afp_url.c
+--- afpfs-ng-0.8.1/lib/afp_url.c	2011-09-10 12:14:34.182716644 +0200
++++ afpfs-ng-0.8.1.patch/lib/afp_url.c	2011-09-10 12:16:47.235504329 +0200
+@@ -33,7 +33,7 @@
+ static int check_uamname(const char * uam) 
+ {
+ 	char * p;
+-	for (p=uam;*p;p++) {
++	for (p=(char *)uam;*p;p++) {
+ 		if (*p==' ') continue;
+ 		if ((*p<'A') || (*p>'z')) return -1;
+ 	}
+@@ -188,7 +188,7 @@
+ 		return -1;
+ 
+ 	}
+-	if (p==NULL) p=toparse;
++	if (p==NULL) p=(char *)toparse;
+ 
+ 	/* Now split on the first / */
+ 	if (sscanf(p,"%[^/]/%[^$]",
+diff -Naur afpfs-ng-0.8.1/lib/did.c afpfs-ng-0.8.1.patch/lib/did.c
+--- afpfs-ng-0.8.1/lib/did.c	2011-09-10 12:14:34.184716670 +0200
++++ afpfs-ng-0.8.1.patch/lib/did.c	2011-09-10 12:16:47.235504329 +0200
+@@ -226,7 +226,7 @@
+ 
+ 
+ 	/* Go to the end of last known entry */
+-	p=path+(p-copy);
++	p=(char *)path+(p-copy);
+ 	p2=p;
+ 
+ 	while ((p=strchr(p+1,'/'))) {
+diff -Naur afpfs-ng-0.8.1/lib/dsi.c afpfs-ng-0.8.1.patch/lib/dsi.c
+--- afpfs-ng-0.8.1/lib/dsi.c	2011-09-10 12:14:34.185716683 +0200
++++ afpfs-ng-0.8.1.patch/lib/dsi.c	2011-09-10 12:16:47.236504342 +0200
+@@ -474,7 +474,7 @@
+ 	}
+ 	server->flags=ntohs(reply1->flags);
+ 
+-	p=(void *)((unsigned int) server->incoming_buffer + sizeof(*reply1));
++	p=(void *)((unsigned long) server->incoming_buffer + sizeof(*reply1));
+ 	p+=copy_from_pascal(server->server_name,p,AFP_SERVER_NAME_LEN)+1;
+ 
+ 	/* Now work our way through the variable bits */
+@@ -757,7 +757,7 @@
+ 		printf("<<< read() of rest of AFP, %d bytes\n",amount_to_read);
+ 		#endif
+ 		ret = read(server->fd, (void *)
+-		(((unsigned int) server->incoming_buffer)+server->data_read),
++		(((unsigned long) server->incoming_buffer)+server->data_read),
+ 			amount_to_read);
+ 		if (ret<0) return -1;
+ 		if (ret==0) {
+diff -Naur afpfs-ng-0.8.1/lib/loop.c afpfs-ng-0.8.1.patch/lib/loop.c
+--- afpfs-ng-0.8.1/lib/loop.c	2011-09-10 12:14:34.186716697 +0200
++++ afpfs-ng-0.8.1.patch/lib/loop.c	2011-09-10 12:16:47.257504624 +0200
+@@ -25,7 +25,7 @@
+ static unsigned char exit_program=0;
+ 
+ static pthread_t ending_thread;
+-static pthread_t main_thread = NULL;
++static pthread_t main_thread = (pthread_t)NULL;
+ 
+ static int loop_started=0;
+ static pthread_cond_t loop_started_condition;
+diff -Naur afpfs-ng-0.8.1/lib/lowlevel.c afpfs-ng-0.8.1.patch/lib/lowlevel.c
+--- afpfs-ng-0.8.1/lib/lowlevel.c	2011-09-10 12:14:34.186716697 +0200
++++ afpfs-ng-0.8.1.patch/lib/lowlevel.c	2011-09-10 12:16:47.288505041 +0200
+@@ -582,7 +582,7 @@
+ 	if (volume->server->using_version->av_number>=30)
+ 		stbuf->st_mode |= fp.unixprivs.permissions;
+ 	else
+-		set_nonunix_perms(stbuf,&fp);
++		set_nonunix_perms(&stbuf->st_mode,&fp);
+ 
+ 	stbuf->st_uid=fp.unixprivs.uid;
+ 	stbuf->st_gid=fp.unixprivs.gid;
+diff -Naur afpfs-ng-0.8.1/lib/midlevel.c afpfs-ng-0.8.1.patch/lib/midlevel.c
+--- afpfs-ng-0.8.1/lib/midlevel.c	2011-09-10 12:14:34.189716738 +0200
++++ afpfs-ng-0.8.1.patch/lib/midlevel.c	2011-09-10 12:16:47.316505416 +0200
+@@ -713,7 +713,7 @@
+ {
+ 
+ 	int ret,err=0;
+-	int totalwritten = 0;
++	size_t totalwritten = 0;
+ 	uint64_t sizetowrite, ignored;
+ 	unsigned char flags = 0;
+ 	unsigned int max_packet_size=volume->server->tx_quantum;
+diff -Naur afpfs-ng-0.8.1/lib/proto_attr.c afpfs-ng-0.8.1.patch/lib/proto_attr.c
+--- afpfs-ng-0.8.1/lib/proto_attr.c	2011-09-10 12:14:34.189716738 +0200
++++ afpfs-ng-0.8.1.patch/lib/proto_attr.c	2011-09-10 12:16:47.317505429 +0200
+@@ -166,7 +166,7 @@
+ 	copy_path(server,p,pathname,strlen(pathname));
+ 	unixpath_to_afppath(server,p);
+ 	p2=p+sizeof_path_header(server)+strlen(pathname);
+-	if (((unsigned int ) p2) & 0x1) p2++;
++	if (((unsigned long) p2) & 0x1) p2++;
+ 	req2=(void *) p2;
+ 
+ 	req2->len=htons(namelen);
+diff -Naur afpfs-ng-0.8.1/lib/proto_desktop.c afpfs-ng-0.8.1.patch/lib/proto_desktop.c
+--- afpfs-ng-0.8.1/lib/proto_desktop.c	2011-09-10 12:14:34.197716845 +0200
++++ afpfs-ng-0.8.1.patch/lib/proto_desktop.c	2011-09-10 12:16:47.317505429 +0200
+@@ -168,7 +168,7 @@
+ 	return 0;
+ }
+ 
+-int afp_closedt(struct afp_server * server, unsigned short * refnum) 
++int afp_closedt(struct afp_server * server, unsigned short refnum) 
+ {
+ 	struct {
+ 		struct dsi_header dsi_header __attribute__((__packed__));
+diff -Naur afpfs-ng-0.8.1/lib/proto_directory.c afpfs-ng-0.8.1.patch/lib/proto_directory.c
+--- afpfs-ng-0.8.1/lib/proto_directory.c	2011-09-10 12:14:34.205716953 +0200
++++ afpfs-ng-0.8.1.patch/lib/proto_directory.c	2011-09-10 12:16:47.317505429 +0200
+@@ -248,6 +248,7 @@
+ 
+ 	return 0;
+ }
++
+ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int size, void * other) 
+ {
+ 
+@@ -266,8 +267,7 @@
+ 	char * p = buf + sizeof(*reply);
+ 	int i;
+ 	char  *max=buf+size;
+-	struct afp_file_info * filebase = NULL, *filecur=NULL, *new_file=NULL;
+-	void ** x = other;
++	struct afp_file_info * filebase = NULL, *filecur = NULL, *new_file = NULL, **x = (struct afp_file_info **) other;
+ 
+ 	if (reply->dsi_header.return_code.error_code) {
+ 		return reply->dsi_header.return_code.error_code;
+diff -Naur afpfs-ng-0.8.1/lib/proto_map.c afpfs-ng-0.8.1.patch/lib/proto_map.c
+--- afpfs-ng-0.8.1/lib/proto_map.c	2011-09-10 12:14:34.207716979 +0200
++++ afpfs-ng-0.8.1.patch/lib/proto_map.c	2011-09-10 12:16:47.318505443 +0200
+@@ -122,7 +122,7 @@
+ 
+ 	if (reply->header.return_code.error_code!=kFPNoErr) return -1;
+ 
+-	copy_from_pascal_two(name,&reply->name,255);
++	copy_from_pascal_two(name,reply->name,255);
+ 
+ 	return 0;
+ }
+diff -Naur afpfs-ng-0.8.1/lib/proto_session.c afpfs-ng-0.8.1.patch/lib/proto_session.c
+--- afpfs-ng-0.8.1/lib/proto_session.c	2011-09-10 12:14:34.208716992 +0200
++++ afpfs-ng-0.8.1.patch/lib/proto_session.c	2011-09-10 12:16:47.318505443 +0200
+@@ -39,7 +39,7 @@
+ 	switch (type) {
+ 	case kLoginWithTimeAndID:
+ 	case kReconnWithTimeAndID: {
+-		uint32_t *p = (void *) (((unsigned int) request)+
++		uint32_t *p = (void *) (((unsigned long) request)+
+ 			sizeof(*request));
+ 
+ 		offset=sizeof(timestamp);
+@@ -63,7 +63,7 @@
+ 		goto error;
+ 	}
+ 
+-	data=(void *) (((unsigned int) request)+sizeof(*request)+offset);
++	data=(void *) (((unsigned long) request)+sizeof(*request)+offset);
+ 	request->idlength=htonl(datalen);
+ 	request->pad=0;
+ 	request->type=htons(type);
+@@ -127,7 +127,7 @@
+ 	if ((request=malloc(sizeof(*request) + AFP_TOKEN_MAX_LEN))==NULL)
+ 		return -1;
+ 
+-	token_data  = request + sizeof(*request);
++	token_data  = (char *)request + sizeof(*request);
+ 
+ 	request->type=htons(type);
+ 
+diff -Naur afpfs-ng-0.8.1/lib/uams.c afpfs-ng-0.8.1.patch/lib/uams.c
+--- afpfs-ng-0.8.1/lib/uams.c	2011-09-10 12:14:34.212717047 +0200
++++ afpfs-ng-0.8.1.patch/lib/uams.c	2011-09-10 12:16:47.319505457 +0200
+@@ -180,7 +180,7 @@
+ 		goto cleartxt_fail;
+ 
+ 	p += copy_to_pascal(p, username) + 1;
+-	if ((int)p & 0x1)
++	if ((long)p & 0x1)
+ 		len--;
+ 	else
+ 		p++;
+@@ -230,7 +230,7 @@
+ 		goto cleartxt_fail;
+ 
+ 	p += copy_to_pascal(p, username) + 1;
+-	if ((int)p & 0x1)
++	if ((long)p & 0x1)
+ 		len--;
+ 	else
+ 		p++;
+@@ -580,7 +580,7 @@
+ 	if (ai == NULL)
+ 		goto dhx_noctx_fail;
+ 	d += copy_to_pascal(ai, username) + 1;
+-	if (((int)d) % 2)
++	if (((long)d) % 2)
+ 		d++;
+ 	else
+ 		ai_len--;
+diff -Naur afpfs-ng-0.8.1/lib/utils.c afpfs-ng-0.8.1.patch/lib/utils.c
+--- afpfs-ng-0.8.1/lib/utils.c	2011-09-10 12:14:34.213717060 +0200
++++ afpfs-ng-0.8.1.patch/lib/utils.c	2011-09-10 12:16:47.319505457 +0200
+@@ -196,7 +196,7 @@
+ 			maxlen=255;
+ 
+ 
+-	p=filename+1;
++	p=(char *)filename+1;
+ 	while ((q=strchr(p,'/'))) {
+ 		if (q>p+maxlen)
+ 			return 1;
