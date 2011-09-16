@@ -1,0 +1,92 @@
+diff -Naur xbmc-8cb8ae1/configure.in xbmc-8cb8ae1.patch/configure.in
+--- xbmc-8cb8ae1/configure.in	2011-09-16 16:29:14.811482548 +0200
++++ xbmc-8cb8ae1.patch/configure.in	2011-09-16 16:36:21.700065520 +0200
+@@ -944,12 +944,15 @@
+ if test "x$use_samba" != "xno"; then
+   AC_CHECK_LIB([smbclient], [main],,
+     use_samba=no;AC_MSG_ERROR($missing_library))
++    USE_LIBSMBCLIENT=0
+ else
+   AC_MSG_RESULT($samba_disabled)
++  USE_LIBSMBCLIENT=0
+ fi
+ 
+ if test "x$use_samba" != "xno"; then
+   AC_DEFINE([HAVE_LIBSMBCLIENT], [1], [Define to 1 if you have Samba installed])
++  USE_LIBSMBCLIENT=1
+ fi
+ 
+ # libnfs
+@@ -1707,6 +1710,7 @@
+ AC_SUBST(USE_VDPAU)
+ AC_SUBST(USE_VAAPI)
+ AC_SUBST(USE_CRYSTALHD)
++AC_SUBST(USE_LIBSMBCLIENT)
+ AC_SUBST(USE_LIBNFS)
+ AC_SUBST(USE_LIBAFPCLIENT)
+ AC_SUBST(USE_VDA)
+diff -Naur xbmc-8cb8ae1/xbmc/filesystem/FileSmb.cpp xbmc-8cb8ae1.patch/xbmc/filesystem/FileSmb.cpp
+--- xbmc-8cb8ae1/xbmc/filesystem/FileSmb.cpp	2011-09-13 05:37:52.000000000 +0200
++++ xbmc-8cb8ae1.patch/xbmc/filesystem/FileSmb.cpp	2011-09-16 16:42:38.552999670 +0200
+@@ -24,8 +24,6 @@
+ //////////////////////////////////////////////////////////////////////
+ 
+ #include "system.h"
+-
+-#if defined(HAS_FILESYSTEM_SMB)
+ #include "FileSmb.h"
+ #include "PasswordManager.h"
+ #include "SMBDirectory.h"
+@@ -777,4 +775,3 @@
+   CPasswordManager::GetInstance().AuthenticateURL(authURL);
+   return smb.URLEncode(authURL);
+ }
+-#endif
+diff -Naur xbmc-8cb8ae1/xbmc/filesystem/Makefile.in xbmc-8cb8ae1.patch/xbmc/filesystem/Makefile.in
+--- xbmc-8cb8ae1/xbmc/filesystem/Makefile.in	2011-09-13 05:37:52.000000000 +0200
++++ xbmc-8cb8ae1.patch/xbmc/filesystem/Makefile.in	2011-09-16 16:41:58.828479325 +0200
+@@ -31,7 +31,6 @@
+      FileRTV.cpp \
+      FileShoutcast.cpp \
+      FileSFTP.cpp \
+-     FileSmb.cpp \
+      FileSpecialProtocol.cpp \
+      FileTuxBox.cpp \
+      FileUDF.cpp \
+@@ -70,7 +69,6 @@
+      SIDFileDirectory.cpp \
+      Slingbox.cpp \
+      SmartPlaylistDirectory.cpp \
+-     SMBDirectory.cpp \
+      SourcesDirectory.cpp \
+      SpecialProtocol.cpp \
+      SpecialProtocolDirectory.cpp \
+@@ -93,6 +91,11 @@
+ SRCS+=RarManager.cpp
+ endif
+ 
++ifeq (@USE_LIBSMBCLIENT@,1)
++SRCS+=FileSmb.cpp
++SRCS+=SMBDirectory.cpp
++endif
++
+ ifeq (@USE_LIBNFS@,1)
+ SRCS+=FileNFS.cpp
+ SRCS+=NFSDirectory.cpp
+diff -Naur xbmc-8cb8ae1/xbmc/filesystem/SMBDirectory.cpp xbmc-8cb8ae1.patch/xbmc/filesystem/SMBDirectory.cpp
+--- xbmc-8cb8ae1/xbmc/filesystem/SMBDirectory.cpp	2011-09-13 05:37:52.000000000 +0200
++++ xbmc-8cb8ae1.patch/xbmc/filesystem/SMBDirectory.cpp	2011-09-16 16:43:27.957646887 +0200
+@@ -33,7 +33,6 @@
+ 
+ #include "system.h"
+ 
+-#if defined(HAS_FILESYSTEM_SMB)
+ #include "SMBDirectory.h"
+ #include "Util.h"
+ #include "guilib/LocalizeStrings.h"
+@@ -501,5 +500,3 @@
+   return XBMC_SMB_MOUNT_PATH + strPath;
+ #endif
+ }
+-
+-#endif
