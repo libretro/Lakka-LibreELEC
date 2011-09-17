@@ -102,7 +102,7 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
       break
     else
       if [ -f "/sbin/ply-image" ]; then
-        /sbin/ply-image "$SPLASHIMAGE"
+        /sbin/ply-image "$SPLASHIMAGE" &
       fi
     fi
   }
@@ -149,11 +149,18 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   }
 
   hfsdiskprep() {
-    for DEV in `/bin/busybox ls /dev/sd*`; do
-      FS_TYPE=$(/sbin/blkid -o value -s TYPE $DEV)
-      if [ "$FS_TYPE" = "hfs" -o "$FS_TYPE" = "hfsplus" ]; then
-        progress "check filesystem $DEV ..."
-        /sbin/fsck_hfs -r -y $DEV > /dev/null 2>&1
+    for DEVICE in /dev/sd*; do
+      for device in $(/bin/busybox blkid $DEVICE); do
+        case $device in
+          TYPE=*)
+            FS_TYPE=${device#TYPE=}
+            ;;
+        esac
+      done
+
+      if [ "$FS_TYPE" = "\"hfs\"" -o "$FS_TYPE" = "\"hfsplus\"" ]; then
+        progress "check filesystem $DEVICE [$FS_TYPE]..."
+        /sbin/fsck_hfs -r -y $DEVICE > /dev/null 2>&1
       fi
     done
   }
