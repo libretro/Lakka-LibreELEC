@@ -1,0 +1,82 @@
+diff -Naur xbmc-10.1-Dharma/xbmc/cores/dvdplayer/DVDOverlayRenderer.h xbmc-10.1-Dharma.patch/xbmc/cores/dvdplayer/DVDOverlayRenderer.h
+--- xbmc-10.1-Dharma/xbmc/cores/dvdplayer/DVDOverlayRenderer.h	2011-03-08 02:49:16.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/cores/dvdplayer/DVDOverlayRenderer.h	2011-09-15 13:26:00.674107708 +0200
+@@ -72,6 +72,9 @@
+ 
+   static void Render(DVDVideoPicture* pPicture, CDVDOverlay* pOverlay, double pts)
+   {
++    if(pPicture->format != DVDVideoPicture::FMT_YUV420P)
++      return;
++
+     DVDPictureRenderer p;
+ 
+     p.data[0] = pPicture->data[0];
+diff -Naur xbmc-10.1-Dharma/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp xbmc-10.1-Dharma.patch/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+--- xbmc-10.1-Dharma/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp	2011-03-08 02:49:17.000000000 +0100
++++ xbmc-10.1-Dharma.patch/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp	2011-09-15 13:31:23.725399996 +0200
+@@ -793,33 +793,22 @@
+   enum EOverlay
+   { OVERLAY_AUTO // select mode auto
+   , OVERLAY_GPU  // render osd using gpu
+-  , OVERLAY_VID  // render osd directly on video memory
+   , OVERLAY_BUF  // render osd on buffer
+   } render = OVERLAY_AUTO;
+ 
+-  if(render == OVERLAY_AUTO)
++  if(pSource->format == DVDVideoPicture::FMT_YUV420P)
+   {
+-    render = OVERLAY_GPU;
+-
+ #ifdef _LINUX
+     // for now use cpu for ssa overlays as it currently allocates and
+     // frees textures for each frame this causes a hugh memory leak
+     // on some mesa intel drivers
+-    if(m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SSA) && pSource->format == DVDVideoPicture::FMT_YUV420P)
+-      render = OVERLAY_VID;
+-#endif
+ 
+-    if(render == OVERLAY_VID)
+-    {
+-      if( m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SPU)
+-       || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_IMAGE)
+-       || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SSA) )
+-        render = OVERLAY_BUF;
+-    }
+-  }
++    if(m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SPU)
++    || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_IMAGE)
++    || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SSA) )
++      render = OVERLAY_BUF;
++#endif
+ 
+-  if(pSource->format == DVDVideoPicture::FMT_YUV420P)
+-  {
+     if(render == OVERLAY_BUF)
+     {
+       // rendering spu overlay types directly on video memory costs a lot of processing power.
+@@ -848,6 +837,9 @@
+     }
+   }
+ 
++  if(render == OVERLAY_AUTO)
++    render = OVERLAY_GPU;
++
+   m_pOverlayContainer->Lock();
+ 
+   VecOverlays* pVecOverlays = m_pOverlayContainer->GetOverlays();
+@@ -871,13 +863,8 @@
+       if (render == OVERLAY_GPU)
+         g_renderManager.AddOverlay(pOverlay, pts2);
+ 
+-      if(pSource->format == DVDVideoPicture::FMT_YUV420P)
+-      {
+-        if     (render == OVERLAY_BUF)
+-          CDVDOverlayRenderer::Render(m_pTempOverlayPicture, pOverlay, pts2);
+-        else if(render == OVERLAY_VID)
+-          CDVDOverlayRenderer::Render(pDest, pOverlay, pts2);
+-      }
++      if (render == OVERLAY_BUF)
++        CDVDOverlayRenderer::Render(m_pTempOverlayPicture, pOverlay, pts2);
+ 
+     }
+   }
