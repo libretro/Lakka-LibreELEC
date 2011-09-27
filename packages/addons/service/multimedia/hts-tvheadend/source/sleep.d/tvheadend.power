@@ -1,3 +1,5 @@
+#!/bin/sh
+
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
@@ -18,22 +20,30 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="makemkv"
-PKG_VERSION="1.6.15"
-PKG_REV="3"
-PKG_ARCH="any"
-PKG_LICENSE="OSS"
-PKG_SITE="http://www.makemkv.com/forum2/viewforum.php?f=3"
-PKG_URL="http://www.makemkv.com/download/${PKG_NAME}_v${PKG_VERSION}_oss.tar.gz"
-PKG_URL="$PKG_URL http://www.makemkv.com/download/${PKG_NAME}_v${PKG_VERSION}_bin.tar.gz"
-PKG_DEPENDS="openssl"
-PKG_BUILD_DEPENDS="toolchain openssl"
-PKG_PRIORITY="optional"
-PKG_SECTION="lib/multimedia"
-PKG_SHORTDESC="MakeMKV converts the video clips from proprietary (and usually encrypted) disc into a set of MKV files, preserving most information but not changing it in any way."
-PKG_LONGDESC="MakeMKV can instantly stream decrypted video without intermediate conversion to wide range of players, so you may watch Blu-ray and DVD discs with your favorite player on your favorite OS or on your favorite device."
+. /etc/profile
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.python.script"
+LOCKDIR="/var/lock/"
+LOCKFILE="tvheadend"
 
-PKG_AUTORECONF="no"
+case "$1" in
+  hibernate|suspend)
+    if [ $(pidof tvheadend) ];then
+      progress "Shutting down HTS TVHeadend for suspending..."
+      mkdir -p "$LOCKDIR"
+      touch "$LOCKDIR/$LOCKFILE"
+      killall tvheadend
+    fi
+    ;;
+
+  thaw|resume)
+    if [ -f "$LOCKDIR/$LOCKFILE" ];then
+      progress "Restarting HTS TVHeadend for wakeup..."
+      tvheadend.service
+      rm -rf "$LOCKDIR/$LOCKFILE"
+    fi
+    ;;
+
+  *) exit $NA
+    ;;
+esac
+
