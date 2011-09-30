@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
@@ -20,40 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+import xbmc, time, os, subprocess
 
-cd $PKG_BUILD
-
-if [ $TARGET_ARCH == "x86_64" ] ; then
-  MAD_OPTIONS="--enable-accuracy --enable-fpm=64bit"
-fi
-
-# some fixes for autoreconf
-  touch NEWS AUTHORS ChangeLog
-  do_autoreconf
-
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --disable-static \
-            --enable-shared \
-            $MAD_OPTIONS
-
-make
-
-$MAKEINSTALL
-
-mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-cat > $SYSROOT_PREFIX/usr/lib/pkgconfig/mad.pc << "EOF"
-prefix=/usr
-exec_prefix=${prefix}
-libdir=${exec_prefix}/lib
-includedir=${prefix}/include
-
-Name: mad
-Description: MPEG audio decoder
-Requires:
-Version: 0.15.1b
-Libs: -L${libdir} -lmad
-Cflags: -I${includedir}
-EOF
+os.system("pyload.service")
