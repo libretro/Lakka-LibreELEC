@@ -22,38 +22,12 @@
 
 . config/options $1
 
+export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
+export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+
 cd $PKG_BUILD
 
-if [ $TARGET_ARCH == "x86_64" ] ; then
-  MAD_OPTIONS="--enable-accuracy --enable-fpm=64bit"
-fi
+python setup.py build --cross-compile
+python setup.py install -O0 --no-compile --prefix /usr --root .install
 
-# some fixes for autoreconf
-  touch NEWS AUTHORS ChangeLog
-  do_autoreconf
-
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --disable-static \
-            --enable-shared \
-            $MAD_OPTIONS
-
-make
-
-$MAKEINSTALL
-
-mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-cat > $SYSROOT_PREFIX/usr/lib/pkgconfig/mad.pc << "EOF"
-prefix=/usr
-exec_prefix=${prefix}
-libdir=${exec_prefix}/lib
-includedir=${prefix}/include
-
-Name: mad
-Description: MPEG audio decoder
-Requires:
-Version: 0.15.1b
-Libs: -L${libdir} -lmad
-Cflags: -I${includedir}
-EOF
+rm -rf .install/usr/bin
