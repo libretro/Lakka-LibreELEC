@@ -84,54 +84,66 @@ if [ ! -f /var/lock/update.lock ]; then
     NEW_MINOR="`echo "$NEW_VERSION" | cut -d "." -f2`"
     NEW_PATCH="`echo "$NEW_VERSION" | cut -d "." -f3`"
 
-    if [ "$THIS_MAJOR" -lt "$NEW_MAJOR" -o \
-         "$THIS_MINOR" -lt "$NEW_MINOR" -o \
-         "$THIS_PATCH" -lt "$NEW_PATCH" ]; then
+    if [ "$THIS_PATCH" -lt "$NEW_PATCH" -a \
+         "$THIS_MINOR" -eq "$NEW_MINOR" -a \
+         "$THIS_MAJOR" -eq "$NEW_MAJOR" ] || \
+       [ "$THIS_MINOR" -lt "$NEW_MINOR" -a \
+         "$THIS_MAJOR" -eq "$NEW_MAJOR" -a \
+         "$NEW_MINOR" -lt 90 ] || \
+       [ "$THIS_MINOR" -ge 90 -a \
+         "$NEW_MINOR" -lt 90 -a \
+         $(( $THIS_MAJOR + 1 )) -eq "$NEW_MAJOR" ]; then
+      AUTOUPDATE="$AUTOUPDATE"
+    elif [ "$THIS_MAJOR" -lt "$NEW_MAJOR" -a \
+        "$NEW_MINOR" -lt 90 ]; then
+      AUTOUPDATE="manually"
+    else
+      AUTOUPDATE="no"
+    fi
 
-      if [ "$AUTOUPDATE" = "manually" -o "$AUTOUPDATE" = "manual" ]; then
+    if [ "$AUTOUPDATE" = "manually" -o "$AUTOUPDATE" = "manual" ]; then
 
-      # show a message if a new version is avaible
-        send_message "New update avaible: $NEW_VERSION - please update manually"
+    # show a message if a new version is avaible
+      send_message "New update avaible: $NEW_VERSION - please update manually"
 
-      elif [ "$AUTOUPDATE" = "auto" ]; then
+    elif [ "$AUTOUPDATE" = "auto" ]; then
 
-      # show a message if a new version is avaible
-        send_message "New update avaible: $NEW_VERSION - downloading and extracting the new version..."
+    # show a message if a new version is avaible
+      send_message "New update avaible: $NEW_VERSION - downloading and extracting the new version..."
 
-      # locking autoupdate
-        touch /var/lock/update.lock
+    # locking autoupdate
+      touch /var/lock/update.lock
 
-      # downloading the new version
-        rm -rf $TMP_DIR/$NEW_IMAGE.tar.bz2
-        download "$UPDATEURL/$NEW_IMAGE.tar.bz2"
+    # downloading the new version
+      rm -rf $TMP_DIR/$NEW_IMAGE.tar.bz2
+      download "$UPDATEURL/$NEW_IMAGE.tar.bz2"
 
-      # extract the image
-        rm -rf $TMP_DIR/$NEW_IMAGE
-        tar -xjvf $TMP_DIR/$NEW_IMAGE.tar.bz2 -C $TMP_DIR
+    # extract the image
+      rm -rf $TMP_DIR/$NEW_IMAGE
+      tar -xjvf $TMP_DIR/$NEW_IMAGE.tar.bz2 -C $TMP_DIR
 
-      # move KERNEL and SYSTEM to an temporary file
-        mkdir -p /storage/.update
+    # move KERNEL and SYSTEM to an temporary file
+      mkdir -p /storage/.update
 
-        [ -f $TMP_DIR/$NEW_IMAGE/target/KERNEL ] && \
-          mv $TMP_DIR/$NEW_IMAGE/target/KERNEL /storage/.update/KERNEL.tmp
+      [ -f $TMP_DIR/$NEW_IMAGE/target/KERNEL ] && \
+        mv $TMP_DIR/$NEW_IMAGE/target/KERNEL /storage/.update/KERNEL.tmp
 
-        [ -f $TMP_DIR/$NEW_IMAGE/target/SYSTEM ] && \
-          mv $TMP_DIR/$NEW_IMAGE/target/SYSTEM /storage/.update/SYSTEM.tmp
+      [ -f $TMP_DIR/$NEW_IMAGE/target/SYSTEM ] && \
+        mv $TMP_DIR/$NEW_IMAGE/target/SYSTEM /storage/.update/SYSTEM.tmp
         sync
 
-      # move KERNEL and SYSTEM to the right place
-        mv /storage/.update/KERNEL.tmp /storage/.update/KERNEL
-        mv /storage/.update/SYSTEM.tmp /storage/.update/SYSTEM
+    # move KERNEL and SYSTEM to the right place
+      mv /storage/.update/KERNEL.tmp /storage/.update/KERNEL
+      mv /storage/.update/SYSTEM.tmp /storage/.update/SYSTEM
 
-      # cleanup tmp files
-        rm -rf $TMP_DIR/$NEW_IMAGE
-        rm -rf $TMP_DIR/$NEW_IMAGE.tar.bz2
-        rm -rf /storage/.update/*.tmp
+    # cleanup tmp files
+      rm -rf $TMP_DIR/$NEW_IMAGE
+      rm -rf $TMP_DIR/$NEW_IMAGE.tar.bz2
+      rm -rf /storage/.update/*.tmp
 
-      # we are ready (hopefully)
-        send_message "Update $NEW_VERSION - downloaded and extracted - please reboot to install"
+    # we are ready (hopefully)
+      send_message "Update $NEW_VERSION - downloaded and extracted - please reboot to install"
 
-      fi
     fi
   fi
 fi
