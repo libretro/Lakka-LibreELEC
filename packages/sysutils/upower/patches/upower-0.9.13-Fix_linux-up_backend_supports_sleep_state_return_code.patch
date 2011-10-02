@@ -1,0 +1,30 @@
+From ff23a9c6e229cd8a2c4226fdc281ab5853d6da35 Mon Sep 17 00:00:00 2001
+From: Christian Seiler <christian@iwakd.de>
+Date: Thu, 22 Sep 2011 15:34:45 +0000
+Subject: Fix linux up_backend_supports_sleep_state() return code.
+
+Under Linux, regardless of the exit code of /usr/bin/pm-is-supported, it will
+always set CanSuspend and CanHibernate to true due to a logic error in
+up_backend_supports_sleep_state in src/linux/up-backend.c: The 'ret' variable
+is re-used for the return code without being re-initialized to false after the
+call to g_spawn_command_line_sync.
+
+Signed-off-by: Martin Pitt <martin.pitt@ubuntu.com>
+---
+diff --git a/src/linux/up-backend.c b/src/linux/up-backend.c
+index 14435be..d126b5b 100644
+--- a/src/linux/up-backend.c
++++ b/src/linux/up-backend.c
+@@ -361,8 +361,8 @@ up_backend_supports_sleep_state (const gchar *state)
+ 		g_error_free (error);
+ 		goto out;
+ 	}
+-	if (WIFEXITED(exit_status) && (WEXITSTATUS(exit_status) == EXIT_SUCCESS))
+-		ret = TRUE;
++	ret = (WIFEXITED(exit_status) && (WEXITSTATUS(exit_status) == EXIT_SUCCESS));
++
+ out:
+ 	g_free (command);
+ 	return ret;
+--
+cgit v0.9.0.2-2-gbebe
