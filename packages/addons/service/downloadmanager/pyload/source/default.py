@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
@@ -20,24 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+import xbmc, time, os, subprocess
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --exec-prefix=/usr \
-            --sysconfdir=/etc \
-            --datadir=/usr/share \
-            --enable-shared \
-            --disable-static \
-            --disable-test \
-            --enable-enca \
-            --enable-fontconfig \
-            --disable-harfbuzz \
-            --disable-silent-rules \
-            --with-gnu-ld \
-
-make
-
-$MAKEINSTALL
+os.system("pyload.service")
