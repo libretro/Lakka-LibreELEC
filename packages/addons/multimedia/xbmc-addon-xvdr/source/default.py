@@ -18,22 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="makemkv"
-PKG_VERSION="1.6.15"
-PKG_REV="0"
-PKG_ARCH="any"
-PKG_LICENSE="OSS"
-PKG_SITE="http://www.makemkv.com/forum2/viewforum.php?f=3"
-PKG_URL="http://www.makemkv.com/download/${PKG_NAME}_v${PKG_VERSION}_oss.tar.gz"
-PKG_URL="$PKG_URL http://www.makemkv.com/download/${PKG_NAME}_v${PKG_VERSION}_bin.tar.gz"
-PKG_DEPENDS="openssl"
-PKG_BUILD_DEPENDS="toolchain openssl"
-PKG_PRIORITY="optional"
-PKG_SECTION="lib/multimedia"
-PKG_SHORTDESC="MakeMKV converts the video clips from proprietary (and usually encrypted) disc into a set of MKV files, preserving most information but not changing it in any way."
-PKG_LONGDESC="MakeMKV can instantly stream decrypted video without intermediate conversion to wide range of players, so you may watch Blu-ray and DVD discs with your favorite player on your favorite OS or on your favorite device."
-
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.python.script"
-
-PKG_AUTORECONF="no"
+import os
+import sys
+import xbmcaddon
