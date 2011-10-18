@@ -1,0 +1,112 @@
+From 3b407aa2053b1db3316873acd05c64319676eb34 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jernej=20Fija=C4=8Dko?= <jernej@jernej-ThinkCentre-M91p.(none)>
+Date: Fri, 30 Sep 2011 12:56:01 +0200
+Subject: [PATCH] Deliver raw teletext to clients that are able to display it (e.g. XBMC)
+
+---
+ src/parsers.c |   55 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/tsdemux.c |    7 +++----
+ 2 files changed, 58 insertions(+), 4 deletions(-)
+
+diff --git a/src/parsers.c b/src/parsers.c
+index 9b7337d..68c7996 100644
+--- a/src/parsers.c
++++ b/src/parsers.c
+@@ -102,6 +102,9 @@ static void parse_aac(service_t *t, elementary_stream_t *st, const uint8_t *data
+ static void parse_subtitles(service_t *t, elementary_stream_t *st, 
+ 			    const uint8_t *data, int len, int start);
+ 
++static void parse_teletext(service_t *t, elementary_stream_t *st, 
++			    const uint8_t *data, int len, int start);
++
+ static int parse_mpa(service_t *t, elementary_stream_t *st, size_t len,
+ 		     uint32_t next_startcode, int sc_offset);
+ 
+@@ -158,6 +161,10 @@ parse_mpeg_ts(service_t *t, elementary_stream_t *st, const uint8_t *data,
+     parse_aac(t, st, data, len, start);
+     break;
+ 
++  case SCT_TELETEXT:
++    parse_teletext(t, st, data, len, start);
++    break;
++
+   default:
+     break;
+   }
+@@ -1232,6 +1239,54 @@ parse_subtitles(service_t *t, elementary_stream_t *st, const uint8_t *data,
+   }
+ }
+ 
++/**
++ * Teletext parser
++ */
++static void
++parse_teletext(service_t *t, elementary_stream_t *st, const uint8_t *data,
++		int len, int start)
++{
++  th_pkt_t *pkt;
++  int psize, hlen;
++  const uint8_t *buf;
++  const uint8_t *d;
++  if(start) {
++    st->es_parser_state = 1;
++    st->es_buf.sb_err = 0;
++    st->es_parser_ptr = 0;
++    sbuf_reset(&st->es_buf);    
++  }
++
++  if(st->es_parser_state == 0)
++    return;
++
++  sbuf_append(&st->es_buf, data, len);
++
++  if(st->es_buf.sb_ptr < 6)
++    return;
++  d = st->es_buf.sb_data;
++
++  psize = d[4] << 8 | d[5];
++
++  if(st->es_buf.sb_ptr != psize + 6)
++    return;
++
++  st->es_parser_state = 0;
++
++  hlen = parse_pes_header(t, st, d + 6, st->es_buf.sb_ptr - 6);
++  if(hlen < 0)
++    return;
++
++  psize -= hlen;
++  buf = d + 6 + hlen;
++  
++  if(psize >= 46) {
++
++      pkt = pkt_alloc(buf, psize, st->es_curpts, st->es_curdts);
++      pkt->pkt_commercial = t->s_tt_commercial_advice;
++      parser_deliver(t, st, pkt);
++  }	
++}
+ 
+ /**
+  *
+diff --git a/src/tsdemux.c b/src/tsdemux.c
+index 897fe1d..5fdaf8b 100644
+--- a/src/tsdemux.c
++++ b/src/tsdemux.c
+@@ -110,11 +110,10 @@ ts_recv_packet0(service_t *t, elementary_stream_t *st, const uint8_t *tsb)
+ 			   got_section, st);
+     break;
+ 
+-  case SCT_TELETEXT:
+-    teletext_input(t, st, tsb);
+-    break;
+-
+   default:
++    if(st->es_type == SCT_TELETEXT)
++      teletext_input(t, st, tsb);
++
+     if(off > 188)
+       break;
+ 
+-- 
+1.7.3.1
+
