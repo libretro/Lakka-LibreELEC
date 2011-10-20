@@ -29,9 +29,15 @@ else
 fi
 
 if [ "$XBMC_VIS_PROJECTM" = yes ]; then
-  XBMC_PROJECTM="--enable-xbmcprojectm"
+  XBMC_PROJECTM="--enable-projectm"
 else
-  XBMC_PROJECTM="--disable-xbmcprojectm"
+  XBMC_PROJECTM="--disable-projectm"
+fi
+
+if [ "$XBMC_VIS_GOOM" = yes ]; then
+  XBMC_GOOM="--enable-goom"
+else
+  XBMC_GOOM="--disable-goom"
 fi
 
 if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
@@ -40,10 +46,28 @@ else
   XBMC_PULSEAUDIO="--disable-pulse"
 fi
 
+if [ "$CEC_SUPPORT" = yes ]; then
+  XBMC_CEC="--enable-libcec --enable-external-libcec --enable-udev --disable-libusb"
+else
+  XBMC_CEC="--disable-libcec --disable-udev --disable-libusb"
+fi
+
 if [ "$NONFREE_SUPPORT" = yes ]; then
   XBMC_NONFREE="--enable-non-free"
 else
   XBMC_NONFREE="--disable-non-free"
+fi
+
+if [ "$AIRPLAY_SUPPORT" = yes ]; then
+  XBMC_AIRPLAY="--enable-airplay"
+else
+  XBMC_AIRPLAY="--disable-airplay"
+fi
+
+if [ "$AIRTUNES_SUPPORT" = yes ]; then
+  XBMC_AIRTUNES="--enable-airtunes"
+else
+  XBMC_AIRTUNES="--disable-airtunes"
 fi
 
 if [ "$DVDCSS_SUPPORT" = yes ]; then
@@ -62,6 +86,18 @@ if [ "$AVAHI_DAEMON" = yes ]; then
   XBMC_AVAHI="--enable-avahi"
 else
   XBMC_AVAHI="--disable-avahi"
+fi
+
+if [ "$NFS_SUPPORT" = yes ]; then
+  XBMC_NFS="--enable-nfs"
+else
+  XBMC_NFS="--disable-nfs"
+fi
+
+if [ "$AFP_SUPPORT" = yes ]; then
+  XBMC_AFP="--enable-afpclient"
+else
+  XBMC_AFP="--disable-afpclient"
 fi
 
 if [ "$SAMBA_CLIENT" = yes ]; then
@@ -103,6 +139,12 @@ fi
 # this fixes problems with faac implementation of ffmpeg
   LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
 
+  export PYTHON_VERSION="2.6"
+  export PYTHON_CPPFLAGS="-I$SYSROOT_PREFIX/usr/include/python$PYTHON_VERSION"
+  export PYTHON_LDFLAGS="-L$SYSROOT_PREFIX/usr/lib/python$PYTHON_VERSION -lpython$PYTHON_VERSION"
+  export PYTHON_SITE_PKG="$SYSROOT_PREFIX/usr/lib/python$PYTHON_VERSION/site-packages"
+  export ac_python_version="$PYTHON_VERSION"
+
 # this fixes the "stretching picture bug"
   CFLAGS=`echo $CFLAGS | sed -e "s|-ftree-loop-distribution||"`
   CFLAGS=`echo $CFLAGS | sed -e "s|-floop-interchange||"`
@@ -121,13 +163,26 @@ fi
 
 cd $PKG_BUILD
 
-do_autoreconf
-do_autoreconf lib/cpluff
-[ -d lib/libass ] && do_autoreconf lib/libass
-[ -d xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss ] && do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdcss
-do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdread
-do_autoreconf xbmc/cores/dvdplayer/Codecs/libdvd/libdvdnav
-do_autoreconf xbmc/lib/libid3tag/libid3tag
+# adding fake Makefile for stripped skin
+  mkdir -p addons/skin.confluence/media
+  touch addons/skin.confluence/media/Makefile.in
+  mkdir -p addons/skin.touched/media
+  touch addons/skin.touched/media/Makefile.in
+
+# autoreconf
+  do_autoreconf
+  do_autoreconf lib/libid3tag/libid3tag
+  do_autoreconf xbmc/screensavers/rsxs-0.9
+  do_autoreconf xbmc/visualizations/Goom/goom2k4-0
+  do_autoreconf lib/libapetag
+  do_autoreconf lib/cpluff
+  # order matters with libdvd and friends
+  [ -d lib/libdvd/libdvdcss ] && do_autoreconf lib/libdvd/libdvdcss
+  do_autoreconf lib/libdvd/libdvdread
+  do_autoreconf lib/libdvd/libdvdnav
+
+# Clean the generated files
+  find . -depth -type d -name "autom4te.cache" -exec rm -rf {} \;
 
 ./configure --host=$TARGET_NAME \
             --build=$HOST_NAME \
@@ -141,39 +196,47 @@ do_autoreconf xbmc/lib/libid3tag/libid3tag
             --disable-debug \
             --disable-optimizations \
             --enable-gl \
+            --disable-gles \
             $XBMC_VDPAU \
             $XBMC_VAAPI \
             $XBMC_CRYSTALHD \
             --disable-vdadecoder \
+            --disable-vtbdecoder \
+            --disable-openmax \
+            --disable-tegra \
             --disable-profiling \
             --enable-joystick \
-            --enable-xrandr \
-            --disable-goom \
-            $XBMC_PROJECTM \
+            $XBMC_CEC \
+            $XBMC_GOOM \
             $XBMC_RSXS \
+            $XBMC_PROJECTM \
+            --enable-x11 \
+            --enable-xrandr \
             --disable-ccache \
             $XBMC_PULSEAUDIO \
+            --enable-rtmp \
+            $XBMC_SAMBA \
+            $XBMC_NFS \
+            $XBMC_AFP \
             --enable-ffmpeg-libvorbis \
-            --disable-faac \
             --enable-lame \
             $XBMC_DVDCSS \
             --disable-mid \
-            $XBMC_AVAHI \
-            $XBMC_SAMBA \
             --disable-hal \
+            $XBMC_AVAHI \
+            $XBMC_AIRPLAY \
+            $XBMC_AIRTUNES \
             $XBMC_NONFREE \
             --disable-asap-codec \
             $XBMC_WEBSERVER \
-            --disable-libdts \
-            --disable-liba52 \
+            --enable-optical-drive \
             $XBMC_BLURAY \
+            --enable-texturepacker \
+            --disable-external-libraries \
             --disable-external-ffmpeg \
-            --disable-external-liba52 \
-            --disable-external-libdts \
-            --enable-external-python \
 
 # setup default skin inside the sources
-  sed -i -e "s|skin.confluence|$SKIN_DIR|g" xbmc/Settings.h
+  sed -i -e "s|skin.confluence|$SKIN_DIR|g" xbmc/settings/Settings.h
 
 make externals
 make xbmc.bin

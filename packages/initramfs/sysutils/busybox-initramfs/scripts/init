@@ -27,9 +27,15 @@ IMAGE_SYSTEM="SYSTEM"
 IMAGE_KERNEL="KERNEL"
 REBOOT="0"
 
+# defaults for booting from an nbd root
+NBD_ROOT_SERVER="192.168.1.1"
+NBD_ROOT_PORT="2000"
+NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
+
 # mount all needed special filesystems
   /bin/busybox mount -t devtmpfs none /dev
   /bin/busybox mount -t proc none /proc
+  /bin/busybox mount -t sysfs none /sys
 
 # hide kernel log messages on console
   echo '1 4 1 7' > /proc/sys/kernel/printk
@@ -48,6 +54,23 @@ REBOOT="0"
         ;;
       fastboot)
         FASTBOOT=yes
+        ;;
+      netboot)
+        NETBOOT=yes
+        ;;
+      nbdroot=*)
+        nbdroot="${arg#nbdroot=}"
+        NBD_ROOT_SERVER=$( echo "${nbdroot}" | /bin/busybox sed 's/:.*//')
+        NBD_ROOT_PORT=$( echo "${nbdroot}" | /bin/busybox sed 's/.*://')
+        ;;
+      nbdserver=*)
+        NBD_ROOT_SERVER="${arg#nbdserver=}"
+        ;;
+      nbdport=*)
+        NBD_ROOT_PORT="${arg#nbdport=}"
+        ;;
+      nfsoverlay=*)
+        NFS_OVERLAY="${arg#nfsoverlay=}"
         ;;
     esac
   done
@@ -97,14 +120,21 @@ REBOOT="0"
 #    progress "check filesystem $1 ..."
 #      /sbin/fsck -M -T -a $1 > /dev/null 2>&1
 
-    for i in 1 2 3 4 5 6 7 8 9 10; do
-      ERR_ENV=1
-      progress "mount filesystem $1 ..."
-      /bin/busybox mount -o $3 $1 $2 > /dev/null 2>&1
-      [ "$?" -eq "0" ] && ERR_ENV=0 && break
-      /bin/busybox usleep 1000000
-    done
-    [ "$ERR_ENV" -ne "0" ] && error "INIT_4" "Could not mount $1" && debug_shell
+      for i in 1 2 3 4 5 6 7 8 9 10; do
+        ERR_ENV=1
+        MOUNT_OPTIONS="-o $3 $1 $2"
+
+        if [ -n "$4" ]; then
+          MOUNT_OPTIONS="-t $4 $MOUNT_OPTIONS"
+        fi
+
+        progress "mount filesystem $1 ..."
+          $IONICE /bin/busybox mount $MOUNT_OPTIONS > /dev/null 2>&1
+          [ "$?" -eq "0" ] && ERR_ENV=0 && break
+
+        /bin/busybox usleep 1000000
+      done
+      [ "$ERR_ENV" -ne "0" ] && error "INIT_4" "Could not mount $1" && debug_shell
   }
 
   update() {
@@ -135,48 +165,90 @@ REBOOT="0"
     done
   }
 
-# deal with hfs partitions
-  if [ -x /sbin/fsck_hfs ]; then
-    hfsdiskprep
-  fi
+  mount_nbd() {
+    retry_nr=0
+    retry_delay=20
+    OVERLAY_DIR=`cat /sys/class/net/eth0/address | /bin/busybox tr -d :`
 
-  mount_part "$boot" "/flash" "ro,noatime"
+    while [ ${retry_nr} -lt ${retry_delay} ] && [ ! -e /sysroot/sbin/init ]; do
+      [ ${retry_nr} -gt 0 ] && \
+      $IONICE /bin/busybox nbd-client $NBD_ROOT_SERVER $NBD_ROOT_PORT /dev/nbd0 && \
+      mount_part "/dev/nbd0" "/sysroot" "ro" "squashfs"
 
-  show_splash
+      retry_nr=$(( ${retry_nr} + 1 ))
 
-  if [ -f "/flash/MACH_KERNEL" ]; then
-    IMAGE_KERNEL="MACH_KERNEL"
-  fi
+      [ ! -e /sysroot/sbin/init ] && /bin/busybox usleep 1000000
 
-  if [ -n "$disk" ]; then
-    mount_part "$disk" "/storage" "rw,noatime"
-    update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
-    update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+      [ ${retry_nr} -gt 0 ]
+    done
 
-    if test "$REBOOT" -eq "1"; then
-      echo "System reboots now..." && \
-      /bin/busybox reboot
+    if [ ! -e /sysroot/sbin/init ]; then
+      error "INIT_2" "Could not mount NBD root from $NBD_ROOT_SERVER port $NBD_ROOT_PORT"
+      debug_shell
     fi
-  fi
 
-  if [ -f "/flash/$IMAGE_SYSTEM" ]; then
-    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-    [ "$ERR_ENV" -ne "0" ] && debug_shell
+    mount_part "$NFS_OVERLAY" "/sysroot/storage" "rw,nolock,retrans=10" "nfs"
+
+    if [ ! -d /sysroot/storage/$OVERLAY_DIR ]; then
+      mkdir /sysroot/storage/$OVERLAY_DIR
+    fi
+
+    /bin/busybox umount /sysroot/storage
+    mount_part "$NFS_OVERLAY/$OVERLAY_DIR" "/sysroot/storage" "rw,nolock" "nfs"
+  }
+
+  mount_disk() {
+
+  # deal with hfs partitions
+    if [ -x /sbin/fsck_hfs ]; then
+      hfsdiskprep
+    fi
+
+    mount_part "$boot" "/flash" "ro,noatime"
+    show_splash
+
+    if [ -n "$disk" ]; then
+      mount_part "$disk" "/storage" "rw,noatime"
+
+      if [ -f "/flash/MACH_KERNEL" ]; then
+        IMAGE_KERNEL="MACH_KERNEL"
+      fi
+
+      update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
+      update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+
+      if test "$REBOOT" -eq "1"; then
+        echo "System reboots now..." && \
+        /bin/busybox reboot
+      fi
+    fi
+
+    if [ -f "/flash/$IMAGE_SYSTEM" ]; then
+      mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+      [ "$ERR_ENV" -ne "0" ] && debug_shell
+    else
+      error "INIT_2" "Could not find system."
+      debug_shell
+    fi
+
+    # move /flash and /storage to /sysroot
+    /bin/busybox mount --move /flash /sysroot/flash
+
+    if [ -n "$disk" ]; then
+      /bin/busybox mount --move /storage /sysroot/storage
+    fi
+  }
+
+  if [ -z "$NETBOOT" ]; then
+    mount_disk
   else
-    error "INIT_2" "Could not find system."
-    debug_shell
-  fi
-
-# move /flash and /storage to /sysroot
-  /bin/busybox mount --move /flash /sysroot/flash
-
-  if [ -n "$disk" ]; then
-    /bin/busybox mount --move /storage /sysroot/storage
+    mount_nbd
   fi
 
 # move some special filesystems
   /bin/busybox mount --move /dev /sysroot/dev
   /bin/busybox mount --move /proc /sysroot/proc
+  /bin/busybox mount --move /sys /sysroot/sys
 
 # switch to new sysroot and start real init
   exec /bin/busybox switch_root /sysroot /sbin/init
