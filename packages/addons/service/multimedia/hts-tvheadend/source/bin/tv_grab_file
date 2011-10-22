@@ -1,0 +1,58 @@
+#!/bin/sh
+
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.hts-tvheadend"
+ADDON_SETTINGS="$ADDON_HOME/settings.xml"
+XMLTV_TYPE=`grep XMLTV_TYPE $ADDON_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+XMLTV_LOCATION=`grep XMLTV_LOCATION $ADDON_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+
+dflag=
+vflag=
+cflag=
+
+if [[ $# -lt 1 ]]; then
+  if [ "$XMLTV_TYPE" = "FILE" ]; then
+    cat "$XMLTV_LOCATION"
+    exit 0
+  elif [ "$XMLTV_TYPE" = "WEB" ]; then
+    wget -qO - "$XMLTV_LOCATION"
+    exit 0
+  fi
+fi
+
+for arg; do
+    delim=""
+    case "$arg" in
+    #translate --gnu-long-options to -g (short options)
+       --description) args="${args}-d ";;
+       --version) args="${args}-v ";;
+       --capabilities) args="${args}-c ";;
+       #pass through anything else
+       *) [[ "${arg:0:1}" == "-" ]] || delim="\""
+           args="${args}${delim}${arg}${delim} ";;
+    esac
+done
+
+#Reset the positional parameters to the short options
+eval set -- $args
+
+while getopts "dvc" option; do
+    case $option in
+        d)  dflag=1;;
+        v)  vflag=1;;
+        c)  cflag=1;;
+        \?) printf "unknown option: -%s\n" $OPTARG
+            printf "Usage: %s: [--description] [--version] [--capabilities] \n" $(basename $0)
+            exit 2
+            ;;
+    esac >&2
+done
+
+if [ "$dflag" ]; then
+   printf "tv_grab_file is a simple grabber that just read the local or web XMLTV formated file\n"
+fi
+if [ "$vflag" ]; then
+   printf "0.1\n"
+fi
+if [ "$cflag" ]; then
+   printf "baseline\n"
+fi
