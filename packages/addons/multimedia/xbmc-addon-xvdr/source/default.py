@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
@@ -20,12 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. /etc/profile
-
-case "$1" in
-  thaw|resume)
-    xbmc-send --host=127.0.0.1 -a "ReloadSkin()"
-    ;;
-  *) exit $NA
-    ;;
-esac
+import os
+import sys
+import xbmcaddon
