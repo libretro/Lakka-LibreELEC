@@ -18,10 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# only does something with "bluetooth" subsystem devices.
-SUBSYSTEM!="bluetooth", GOTO="end"
+import xbmc, time, os, subprocess
 
-# Start Wii Remote support if bluetooth is starting
-ACTION=="add|remove", RUN+="/lib/udev/wiiremote_helper"
-
-LABEL="end"
+os.system("wiimote.service")
