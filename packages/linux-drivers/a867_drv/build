@@ -27,21 +27,16 @@ cd $PKG_BUILD
 [ -z "$OBJDUMP" ] && OBJDUMP=${TARGET_PREFIX}objdump
 [ -z "$ECHO" ] && ECHO=/bin/echo
 
-# fix some directives after unpacking
-sed -i "s|KDIR = .*|KDIR = $(kernel_path)|" Makefile
-sed -i "s|KSRC = .*|KSRC = \$KDIR|" Makefile
-sed -i "s|KINS = .*|KINS = \./modules|" Makefile
-
-make CC=$CC
+make CC=$CC KSRC=$(kernel_path) KOBJ=$(kernel_path)
 
 # ultraman: Original build module doesn't depends on dvb-usb module
 # How to fix that? For now let's just modify .modinfo section in kernel module
 # and depmod will pick up appropriate dependend modules
-cp dvb-usb-af9035.ko dvb-usb-af9035.ko_orig
-$OBJDUMP -s -j .modinfo dvb-usb-af9035.ko_orig | awk 'BEGIN{v=0;} /Contents/ {v=1; next;} {if (v==1) print $0;}' >new.modinfo1
+cp a867.ko a867.ko_orig
+$OBJDUMP -s -j .modinfo a867.ko_orig | awk 'BEGIN{v=0;} /Contents/ {v=1; next;} {if (v==1) print $0;}' >new.modinfo1
 cat new.modinfo1 | cut -c7-41 | awk '{printf($0);}' | sed 's/ //g;s/../\\\x&/g;' >new.modinfo2
 $ECHO -ne `cat new.modinfo2` >new.modinfo3
 cat new.modinfo3 | tr '\000' '\n' | awk '/^depends=/ {next;} {print $0;}' | tr '\n' '\000' >new.modinfo4
 $ECHO -ne "depends=dvb-usb\0" >>new.modinfo4
-$OBJCOPY --remove-section=.modinfo --add-section=.modinfo=new.modinfo4 --set-section-flags .modinfo=contents,alloc,load,readonly,data dvb-usb-af9035.ko_orig dvb-usb-af9035.ko
+$OBJCOPY --remove-section=.modinfo --add-section=.modinfo=new.modinfo4 --set-section-flags .modinfo=contents,alloc,load,readonly,data a867.ko_orig a867.ko
 rm new.modinfo*
