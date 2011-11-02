@@ -1,0 +1,89 @@
+From gcc-patches-return-297783-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org Sat Jul 23 14:36:33 2011
+Return-Path: <gcc-patches-return-297783-listarch-gcc-patches=gcc dot gnu dot org at gcc dot gnu dot org>
+Delivered-To: listarch-gcc-patches at gcc dot gnu dot org
+Received: (qmail 13569 invoked by alias); 23 Jul 2011 14:36:33 -0000
+Received: (qmail 13561 invoked by uid 22791); 23 Jul 2011 14:36:32 -0000
+X-SWARE-Spam-Status: No, hits=-2.6 required=5.0	tests=AWL,BAYES_00,DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU,FREEMAIL_FROM,RCVD_IN_DNSWL_LOW,T_TO_NO_BRKTS_FREEMAIL
+X-Spam-Check-By: sourceware.org
+Received: from mail-gy0-f175.google.com (HELO mail-gy0-f175.google.com) (209.85.160.175)    by sourceware.org (qpsmtpd/0.43rc1) with ESMTP; Sat, 23 Jul 2011 14:36:10 +0000
+Received: by gyd12 with SMTP id 12so1979920gyd.20        for <gcc-patches@gcc.gnu.org>; Sat, 23 Jul 2011 07:36:10 -0700 (PDT)
+Received: by 10.236.76.197 with SMTP id b45mr3893810yhe.147.1311431770250;        Sat, 23 Jul 2011 07:36:10 -0700 (PDT)
+Received: from napoca (adsl-99-184-92-236.dsl.austtx.sbcglobal.net [99.184.92.236])        by mx.google.com with ESMTPS id j9sm565418yhn.81.2011.07.23.07.36.08        (version=TLSv1/SSLv3 cipher=OTHER);        Sat, 23 Jul 2011 07:36:09 -0700 (PDT)
+Received: by napoca (sSMTP sendmail emulation); Sat, 23 Jul 2011 09:36:01 -0500
+From: Sebastian Pop <sebpop at gmail dot com>
+To: gcc-patches at gcc dot gnu dot org
+Cc: rguenther at suse dot de,	Sebastian Pop <sebpop at gmail dot com>
+Subject: [PATCH] Fix PR48805: Do not instantiate ADDR_EXPRs
+Date: Sat, 23 Jul 2011 09:35:56 -0500
+Message-Id: <1311431756-16262-1-git-send-email-sebpop@gmail.com>
+X-IsSubscribed: yes
+Mailing-List: contact gcc-patches-help at gcc dot gnu dot org; run by ezmlm
+Precedence: bulk
+List-Id: <gcc-patches.gcc.gnu.org>
+List-Archive: <http://gcc.gnu.org/ml/gcc-patches/>
+List-Post: <mailto:gcc-patches at gcc dot gnu dot org>
+List-Help: <mailto:gcc-patches-help at gcc dot gnu dot org>
+Sender: gcc-patches-owner at gcc dot gnu dot org
+Delivered-To: mailing list gcc-patches at gcc dot gnu dot org
+
+With this patch we avoid instantiating ADDR_EXPR: it makes no sense
+to translate b[i] into b[{0, +, 1}_1].
+
+Bootstrapped and tested on amd64-linux.
+
+2011-07-22  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR middle-end/48805
+	* tree-scalar-evolution.c (instantiate_scev_r): Return
+	chrec_dont_know for ADDR_EXPR.
+
+	* gcc.dg/graphite/id-pr48805.c: New.
+---
+ gcc/ChangeLog                              |    6 ++++++
+ gcc/testsuite/ChangeLog                    |    5 +++++
+ gcc/testsuite/gcc.dg/graphite/id-pr48805.c |   20 ++++++++++++++++++++
+ gcc/tree-scalar-evolution.c                |    1 +
+ 4 files changed, 32 insertions(+), 0 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.dg/graphite/id-pr48805.c
+
+diff --git a/gcc/testsuite/gcc.dg/graphite/id-pr48805.c b/gcc/testsuite/gcc.dg/graphite/id-pr48805.c
+new file mode 100644
+index 0000000..f13a828
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/graphite/id-pr48805.c
+@@ -0,0 +1,20 @@
++void *A(const void *a);
++void C(void);
++
++static void B(unsigned short a[])
++{
++  long i, j, tmp;
++
++  for(i = 0; i < 3; i++) {
++    for(j = 1; j <= 3; j++)
++      tmp -= a[i - j];
++
++    a[i] = (unsigned short)(tmp >> 1);
++  }
++}
++void C(void)
++{
++  unsigned short a[3], b[3];
++  B(b + 1);
++  A(a);
++}
+diff --git a/gcc/tree-scalar-evolution.c b/gcc/tree-scalar-evolution.c
+index bfa8c93..00fcd3f 100644
+--- a/gcc/tree-scalar-evolution.c
++++ b/gcc/tree-scalar-evolution.c
+@@ -2645,6 +2645,7 @@ instantiate_scev_r (basic_block instantiate_below,
+ 				   TREE_OPERAND (chrec, 0),
+ 				   fold_conversions, cache, size_expr);
+ 
++    case ADDR_EXPR:
+     case SCEV_NOT_KNOWN:
+       return chrec_dont_know;
+ 
+-- 
+1.7.4.1
+
