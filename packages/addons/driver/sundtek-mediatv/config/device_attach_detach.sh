@@ -12,6 +12,8 @@ MUMUDVB=0
 ADDON_DIR="/storage/.xbmc/addons/driver.dvb.sundtek-mediatv"
 ADDON_HOME="/storage/.xbmc/userdata/addon_data/driver.dvb.sundtek-mediatv"
 ATTACH_DETACH_LOG="$ADDON_HOME/attach_detach.log"
+#ATTACH_DETACH_LOG="/dev/null"
+SUNDTEK_COUNTER_FILE="/var/run/sundtek-mediatv.counter"
 
 wait_process() {
   while [ -n "$(pidof $1)" ]; do
@@ -23,15 +25,19 @@ wait_process() {
   echo "Date: `date`"               >>$ATTACH_DETACH_LOG
   echo "Params: action=$1 devid=$2" >>$ATTACH_DETACH_LOG
 
+  . $SUNDTEK_COUNTER_FILE
+
   case "$1" in
     attach)
+      let SUNDTEK_COUNTER++
+      echo "SUNDTEK_COUNTER=$SUNDTEK_COUNTER" >$SUNDTEK_COUNTER_FILE
       export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ADDON_DIR/lib
       export LD_PRELOAD=$LD_PRELOAD:$ADDON_DIR/lib/libmediaclient.so
 
 (
       # save adapter serial number (in background)
       sleep 2
-      serial_number=`mediaclient -e | awk '/ID:/ {print $2}'`
+      serial_number=` mediaclient -e | awk '/device / {printf("%s\n", $0)} /ID:/ {printf("  serial: %s\n\n", $2)}'`
       if [ ! -f $ADDON_HOME/adapter_serial_number.txt ]; then
         echo -n "$serial_number" >$ADDON_HOME/adapter_serial_number.txt
       else
@@ -44,8 +50,15 @@ wait_process() {
       ;;
 
     detach)
-      export LD_LIBRARY_PATH=${LD_LIBRARY_PATH//:$ADDON_DIR\/lib/}
-      export LD_PRELOAD=${LD_PRELOAD//:$ADDON_DIR\/lib\/libmediaclient.so/}
+      let SUNDTEK_COUNTER--
+      echo "SUNDTEK_COUNTER=$SUNDTEK_COUNTER" >$SUNDTEK_COUNTER_FILE
+      if [ "$SUNDTEK_COUNTER" = "0" ] ; then
+        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH//:$ADDON_DIR\/lib/}
+        export LD_PRELOAD=${LD_PRELOAD//:$ADDON_DIR\/lib\/libmediaclient.so/}
+      else
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ADDON_DIR/lib
+        export LD_PRELOAD=$LD_PRELOAD:$ADDON_DIR/lib/libmediaclient.so
+      fi
       ;;
 
     *)
@@ -53,6 +66,7 @@ wait_process() {
       ;;
   esac
 
+  echo "SUNDTEK_COUNTER=$SUNDTEK_COUNTER" >>$ATTACH_DETACH_LOG
   echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >>$ATTACH_DETACH_LOG
   echo "LD_PRELOAD=$LD_PRELOAD"           >>$ATTACH_DETACH_LOG
 
