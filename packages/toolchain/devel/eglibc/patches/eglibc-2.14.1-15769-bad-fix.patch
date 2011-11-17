@@ -1,0 +1,134 @@
+From 675155e9084e060fd0e1e637b843f14e82898aa5 Mon Sep 17 00:00:00 2001
+From: Andreas Schwab <schwab@redhat.com>
+Date: Wed, 22 Sep 2010 12:06:30 +0200
+Subject: [PATCH] Fix memory leak on init/fini dependency list
+
+diff -Naur eglibc-2.14.1-15769/elf/dl-close.c eglibc-2.14.1-15769.patch/elf/dl-close.c
+--- eglibc-2.14.1-15769/elf/dl-close.c	2011-11-10 17:59:49.000000000 +0100
++++ eglibc-2.14.1-15769.patch/elf/dl-close.c	2011-11-11 13:11:54.317765891 +0100
+@@ -1,5 +1,5 @@
+ /* Close a shared object opened by `_dl_open'.
+-   Copyright (C) 1996-2007, 2009, 2010, 2011 Free Software Foundation, Inc.
++   Copyright (C) 1996-2007, 2009, 2010 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+    The GNU C Library is free software; you can redistribute it and/or
+@@ -119,17 +119,8 @@
+   if (map->l_direct_opencount > 0 || map->l_type != lt_loaded
+       || dl_close_state != not_pending)
+     {
+-      if (map->l_direct_opencount == 0)
+-	{
+-	  if (map->l_type == lt_loaded)
+-	    dl_close_state = rerun;
+-	  else if (map->l_type == lt_library)
+-	    {
+-	      struct link_map **oldp = map->l_initfini;
+-	      map->l_initfini = map->l_orig_initfini;
+-	      _dl_scope_free (oldp);
+-	    }
+-	}
++      if (map->l_direct_opencount == 0 && map->l_type == lt_loaded)
++	dl_close_state = rerun;
+ 
+       /* There are still references to this object.  Do nothing more.  */
+       if (__builtin_expect (GLRO_dl_debug_mask & DL_DEBUG_FILES, 0))
+diff -Naur eglibc-2.14.1-15769/elf/dl-deps.c eglibc-2.14.1-15769.patch/elf/dl-deps.c
+--- eglibc-2.14.1-15769/elf/dl-deps.c	2011-11-10 17:59:49.000000000 +0100
++++ eglibc-2.14.1-15769.patch/elf/dl-deps.c	2011-11-11 13:14:07.711207504 +0100
+@@ -478,6 +478,7 @@
+ 		  nneeded * sizeof needed[0]);
+ 	  atomic_write_barrier ();
+ 	  l->l_initfini = l_initfini;
++	  l->l_free_initfini = 1;
+ 	}
+ 
+       /* If we have no auxiliary objects just go on to the next map.  */
+@@ -678,6 +679,7 @@
+   l_initfini[nlist] = NULL;
+   atomic_write_barrier ();
+   map->l_initfini = l_initfini;
++  map->l_free_initfini = 1;
+   if (l_reldeps != NULL)
+     {
+       atomic_write_barrier ();
+@@ -686,7 +688,7 @@
+       _dl_scope_free (old_l_reldeps);
+     }
+   if (old_l_initfini != NULL)
+-      map->l_orig_initfini = old_l_initfini;
++    _dl_scope_free (old_l_initfini);
+ 
+   if (errno_reason)
+     _dl_signal_error (errno_reason == -1 ? 0 : errno_reason, objname,
+diff -Naur eglibc-2.14.1-15769/elf/dl-libc.c eglibc-2.14.1-15769.patch/elf/dl-libc.c
+--- eglibc-2.14.1-15769/elf/dl-libc.c	2011-11-10 17:59:49.000000000 +0100
++++ eglibc-2.14.1-15769.patch/elf/dl-libc.c	2011-11-11 13:11:54.319765853 +0100
+@@ -265,13 +265,13 @@
+ 
+   for (Lmid_t ns = 0; ns < GL(dl_nns); ++ns)
+     {
+-      /* Remove all additional names added to the objects.  */
+       for (l = GL(dl_ns)[ns]._ns_loaded; l != NULL; l = l->l_next)
+ 	{
+ 	  struct libname_list *lnp = l->l_libname->next;
+ 
+ 	  l->l_libname->next = NULL;
+ 
++	  /* Remove all additional names added to the objects.  */
+ 	  while (lnp != NULL)
+ 	    {
+ 	      struct libname_list *old = lnp;
+@@ -279,6 +279,10 @@
+ 	      if (! old->dont_free)
+ 		free (old);
+ 	    }
++
++	  /* Free the initfini dependency list.  */
++	  if (l->l_free_initfini)
++	    free (l->l_initfini);
+ 	}
+ 
+       if (__builtin_expect (GL(dl_ns)[ns]._ns_global_scope_alloc, 0) != 0
+diff -Naur eglibc-2.14.1-15769/elf/rtld.c eglibc-2.14.1-15769.patch/elf/rtld.c
+--- eglibc-2.14.1-15769/elf/rtld.c	2011-11-10 17:59:49.000000000 +0100
++++ eglibc-2.14.1-15769.patch/elf/rtld.c	2011-11-11 13:11:54.320765834 +0100
+@@ -2264,6 +2264,7 @@
+ 	      lnp->dont_free = 1;
+ 	      lnp = lnp->next;
+ 	    }
++	  l->l_free_initfini = 0;
+ 
+ 	  if (l != &GL(dl_rtld_map))
+ 	    _dl_relocate_object (l, l->l_scope, GLRO(dl_lazy) ? RTLD_LAZY : 0,
+diff -Naur eglibc-2.14.1-15769/include/link.h eglibc-2.14.1-15769.patch/include/link.h
+--- eglibc-2.14.1-15769/include/link.h	2011-11-10 17:59:51.000000000 +0100
++++ eglibc-2.14.1-15769.patch/include/link.h	2011-11-11 13:11:54.321765815 +0100
+@@ -1,6 +1,6 @@
+ /* Data structure for communication from the run-time dynamic linker for
+    loaded ELF shared objects.
+-   Copyright (C) 1995-2006, 2007, 2009, 2010, 2011 Free Software Foundation, Inc.
++   Copyright (C) 1995-2006, 2007, 2009, 2010 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+    The GNU C Library is free software; you can redistribute it and/or
+@@ -192,6 +192,9 @@
+ 						 during LD_TRACE_PRELINKING=1
+ 						 contains any DT_SYMBOLIC
+ 						 libraries.  */
++    unsigned int l_free_initfini:1; /* Nonzero if l_initfini can be
++				       freed, ie. not allocated with
++				       the dummy malloc in ld.so.  */
+ 
+     /* Collected information about own RPATH directories.  */
+     struct r_search_path_struct l_rpath_dirs;
+@@ -240,9 +243,6 @@
+ 
+     /* List of object in order of the init and fini calls.  */
+     struct link_map **l_initfini;
+-    /* The init and fini list generated at startup, saved when the
+-       object is also loaded dynamically.  */
+-    struct link_map **l_orig_initfini;
+ 
+     /* List of the dependencies introduced through symbol binding.  */
+     struct link_map_reldeps

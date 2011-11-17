@@ -24,51 +24,15 @@
 
 PY_DISABLED_MODULES="readline _curses _curses_panel _tkinter nis gdbm bsddb _codecs_kr _codecs_jp _codecs_cn _codecs_tw _codecs_hk"
 
-cd $PKG_BUILD
-
-mkdir -p .objdir-host && cd .objdir-host
-
-setup_toolchain host
-
-OPT="$HOST_CFLAGS" \
-LDFLAGS="$LDFLAGS -lexpat" \
-../configure --host=$HOST_NAME \
-             --build=$HOST_NAME \
-             --prefix=$ROOT/$TOOLCHAIN \
-             --cache-file=config.cache \
-             --enable-shared \
-             --without-cxx-main \
-             --with-threads \
-             --enable-unicode=ucs4 \
-             --with-system-expat \
-
-make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
-     PYTHON_MODULES_LIB="$HOST_LIBDIR"
-
-make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
-     PYTHON_MODULES_LIB="$HOST_LIBDIR" \
-     install
-
-# symlink python binary to python2 (needed for Mesa)
-  ln -sf python $ROOT/$TOOLCHAIN/bin/python2
-
-cp Parser/pgen ./hostpgen
-cp python ./hostpython
-
-cd ..
-
-mkdir -p .objdir-target && cd .objdir-target
-
-setup_toolchain target
-
 # dont use some optimizations because of problems
 # this fixes problems with expat (maybe)
   LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
 
   strip_lto
 
-#LDFLAGS="$LDFLAGS -lexpat -lffi" \
-#LDFLAGS="$LDFLAGS -lffi" \
+cd $PKG_BUILD
+mkdir -p .objdir-target && cd .objdir-target
+
 ac_cv_file_dev_ptc=no \
 ac_cv_file_dev_ptmx=yes \
 ac_cv_func_lchflags_works=no \
@@ -96,10 +60,10 @@ OPT="$CFLAGS -fno-strict-aliasing" \
              --with-system-expat \
 
 make  -j1 CC="$TARGET_CC" \
-      HOSTPYTHON=../.objdir-host/hostpython \
-      HOSTPGEN=../.objdir-host/hostpgen \
-      RUNSHARED="LD_LIBRARY_PATH=../.objdir-host:" \
+      HOSTPYTHON=$ROOT/$TOOLCHAIN/bin/python \
+      HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
       BLDSHARED="$CC -shared" \
+      RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/:$LD_LIBRARY_PATH" \
       PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
       CROSS_COMPILE="$TARGET_NAME" \
       CROSS_COMPILE_TARGET="yes" \
@@ -108,10 +72,10 @@ make  -j1 CC="$TARGET_CC" \
 
 make  -j1 CC="$TARGET_CC" \
       DESTDIR=$SYSROOT_PREFIX \
-      HOSTPYTHON=../.objdir-host/hostpython \
-      HOSTPGEN=../.objdir-host/hostpgen \
-      RUNSHARED="LD_LIBRARY_PATH=../.objdir-host:" \
+      HOSTPYTHON=$ROOT/$TOOLCHAIN/bin/python \
+      HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
       BLDSHARED="$CC -shared" \
+      RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/:$LD_LIBRARY_PATH" \
       PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
       CROSS_COMPILE="$TARGET_NAME" \
       CROSS_COMPILE_TARGET="yes" \
@@ -119,11 +83,3 @@ make  -j1 CC="$TARGET_CC" \
       PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
       install
 
-# replace python-config to make sure python uses $SYSROOT_PREFIX
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-  rm -rf $ROOT/$TOOLCHAIN/bin/python*-config
-
-  sed -e "s:%PREFIX%:$SYSROOT_PREFIX/usr:g" -e "s:%CFLAGS%:$TARGET_CFLAGS:g" \
-    $ROOT/$PKG_DIR/scripts/python-config > $ROOT/$TOOLCHAIN/bin/python2.7-config
-  chmod +x $ROOT/$TOOLCHAIN/bin/python2.7-config
-  ln -s python2.7-config $ROOT/$TOOLCHAIN/bin/python-config
