@@ -1,0 +1,102 @@
+Return-Path: <linux-kernel-owner@vger.kernel.org>
+Received: from mail05.solnet.ch (mail05.mlan.solnet.ch [212.101.1.58])
+	 by mail06.solnet.ch (Cyrus v2.3.16) with LMTPA;
+	 Mon, 28 Nov 2011 23:26:53 +0000
+X-Sieve: CMU Sieve 2.3
+Received: from mail05.solnet.ch (localhost.solnet.ch [127.0.0.1])
+	by mail05.solnet.ch (Postfix) with ESMTP id 80A5C3D6AD
+	for <stephan2@mail06.solnet.ch>; Mon, 28 Nov 2011 23:26:53 +0000 (UTC)
+X-Virus-Scanned: by SolNet-Check at mail05.solnet.ch
+X-Spam-Flag: NO
+X-Spam-Score: 2.186
+X-Spam-Level: **
+X-Spam-Status: No, score=2.186 tagged_above=-999 required=6.31
+	tests=[BAYES_40=-0.001, KB_DATE_CONTAINS_TAB=3.799, NO_RDNS2=0.01,
+	RP_MATCHES_RCVD=-1.891, TAB_IN_FROM=0.259, T_DKIM_INVALID=0.01]
+	autolearn=disabled
+Received: from mail05.solnet.ch ([127.0.0.1])
+	by mail05.solnet.ch (mail05.solnet.ch [127.0.0.1]) (SolNet-Check, port 10024)
+	with LMTP id F3ehZ9jizAA2 for <stephan2@mail06.solnet.ch>;
+	Mon, 28 Nov 2011 23:26:52 +0000 (UTC)
+Received: from vger.kernel.org (vger.kernel.org [209.132.180.67])
+	by mail05.solnet.ch (Postfix) with ESMTP id 842EA3D599
+	for <mailinglists@openelec.tv>; Mon, 28 Nov 2011 23:26:52 +0000 (UTC)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+	id S1755134Ab1K1X0a (ORCPT <rfc822;mailinglists@openelec.tv>);
+	Mon, 28 Nov 2011 18:26:30 -0500
+Received: from out3.smtp.messagingengine.com ([66.111.4.27]:38852 "EHLO
+	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755013Ab1K1X02 (ORCPT
+	<rfc822;linux-kernel@vger.kernel.org>);
+	Mon, 28 Nov 2011 18:26:28 -0500
+Received: from compute1.internal (compute1.nyi.mail.srv.osa [10.202.2.41])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 814D120936
+	for <linux-kernel@vger.kernel.org>; Mon, 28 Nov 2011 18:26:28 -0500 (EST)
+Received: from frontend1.nyi.mail.srv.osa ([10.202.2.160])
+  by compute1.internal (MEProxy); Mon, 28 Nov 2011 18:26:28 -0500
+DKIM-Signature:	v=1; a=rsa-sha1; c=relaxed/relaxed; d=
+	messagingengine.com; h=date:from:to:subject:message-id
+	:references:mime-version:content-type:in-reply-to; s=smtpout;
+	 bh=euLu9YhLnTREWmfwqMW7NKeQziE=; b=MmhPEr0AbtX4C7uiPHxpNTcJGB2p
+	xlMhe74MHoq9/FzHgnofXlYfa/dvMHYrUtBUYxjBm4QfCi9HxzcolBzJSR5gH+BK
+	/3hBS7K1AA9zilprFSgQ8RPk47BM4HyDd6SlQK7FAUk2pqYby6AFuimkR3bP++Vy
+	CQ52kgicZ1KZ5Z0=
+X-Sasl-enc: OmPHDy/yt4EQ4smlxkcx2Xv+0j7xoaaIpPhp5BwstHO6 1322522787
+Date:	Tue, 29 Nov 2011 08:25:58 +0900
+From:	Greg KH <gregkh@suse.de>
+To:	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	torvalds@linux-foundation.org, stable@vger.kernel.org, lwn@lwn.net
+Subject: Re: Linux 3.1.4
+Message-ID: <20111128232558.GB21133@kroah.com>
+References: <20111128232544.GA21133@kroah.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <20111128232544.GA21133@kroah.com>
+User-Agent: Mutt/1.5.21 (2010-09-15)
+Sender:	linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+List-ID: <linux-kernel.vger.kernel.org>
+X-Mailing-List:	linux-kernel@vger.kernel.org
+
+diff --git a/Makefile b/Makefile
+index d614254..7f8a93b 100644
+diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
+index afef3df..29bec34 100644
+--- a/drivers/usb/host/ehci-sched.c
++++ b/drivers/usb/host/ehci-sched.c
+@@ -1480,15 +1480,10 @@ iso_stream_schedule (
+ 
+ 		/* NOTE:  assumes URB_ISO_ASAP, to limit complexity/bugs */
+ 
+-		/* find a uframe slot with enough bandwidth.
+-		 * Early uframes are more precious because full-speed
+-		 * iso IN transfers can't use late uframes,
+-		 * and therefore they should be allocated last.
+-		 */
+-		next = start;
+-		start += period;
+-		do {
+-			start--;
++		/* find a uframe slot with enough bandwidth */
++		next = start + period;
++		for (; start < next; start++) {
++
+ 			/* check schedule: enough space? */
+ 			if (stream->highspeed) {
+ 				if (itd_slot_ok(ehci, mod, start,
+@@ -1501,7 +1496,7 @@ iso_stream_schedule (
+ 						start, sched, period))
+ 					break;
+ 			}
+-		} while (start > next);
++		}
+ 
+ 		/* no room in the schedule */
+ 		if (start == next) {
+--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
