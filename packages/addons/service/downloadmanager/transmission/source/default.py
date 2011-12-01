@@ -18,6 +18,15 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import xbmc, time, os, subprocess
+import os
+import sys
+import xbmcaddon
 
-os.system("transmission.service")
+__scriptname__ = "Transmission BT Client"
+__author__ = "OpenELEC"
+__url__ = "http://www.openelec.tv"
+__settings__   = xbmcaddon.Addon(id='service.downloadmanager.transmission')
+__cwd__        = __settings__.getAddonInfo('path')
+__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "transmission.service") )
+
+os.system(__path__)
