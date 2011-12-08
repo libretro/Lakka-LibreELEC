@@ -1,0 +1,40 @@
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
+index d4892b5..697431c 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
+@@ -943,6 +943,7 @@ bool CVDPAU::ConfigVDPAU(AVCodecContext* avctx, int ref_frames)
+ 
+   m_vdpauOutputMethod = OUTPUT_NONE;
+ 
++  m_binterlacedFrame = false;
+   return true;
+ }
+ 
+@@ -1203,8 +1204,14 @@ int CVDPAU::Decode(AVCodecContext *avctx, AVFrame *pFrame)
+         m_DVDVideoPics.pop();
+     }
+ 
++    if (!m_binterlacedFrame && m_DVDVideoPics.front().iFlags & DVP_FLAG_INTERLACED)
++    {
++      m_binterlacedFrame = m_DVDVideoPics.front().iFlags & DVP_FLAG_INTERLACED;
++      CLog::Log(LOGNOTICE, "CVDPAU::ConfigOutputMethod: detected interlaced frame");
++    }
++
+     if (mode == VS_DEINTERLACEMODE_FORCE
+-    || (mode == VS_DEINTERLACEMODE_AUTO && m_DVDVideoPics.front().iFlags & DVP_FLAG_INTERLACED))
++    || (mode == VS_DEINTERLACEMODE_AUTO && m_binterlacedFrame))
+     {
+       if((method == VS_INTERLACEMETHOD_AUTO_ION
+       ||  method == VS_INTERLACEMETHOD_VDPAU_BOB
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
+index 2056de1..fc1b9d0 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
+@@ -209,6 +209,7 @@ public:
+   uint32_t max_references;
+   Display* m_Display;
+   bool     vdpauConfigured;
++  bool     m_binterlacedFrame;
+ 
+ 
+   VdpVideoMixerPictureStructure m_mixerfield;

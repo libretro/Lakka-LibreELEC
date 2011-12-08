@@ -1,0 +1,40 @@
+diff -Naur xbmc-4c32cde/xbmc/windowing/X11/WinSystemX11GL.cpp xbmc-4c32cde.patch/xbmc/windowing/X11/WinSystemX11GL.cpp
+--- xbmc-4c32cde/xbmc/windowing/X11/WinSystemX11GL.cpp	2011-10-29 14:43:48.634117918 +0200
++++ xbmc-4c32cde.patch/xbmc/windowing/X11/WinSystemX11GL.cpp	2011-10-29 14:45:56.207774711 +0200
+@@ -45,7 +45,27 @@
+ {
+   CheckDisplayEvents();
+ 
+-  if(m_iVSyncMode == 3)
++  if(m_iVSyncMode == 2)
++  {
++    static unsigned int last = 0;
++    unsigned int now;
++    if(m_glXGetVideoSyncSGI(&now) != 0)
++      CLog::Log(LOGERROR, "%s - glXGetVideoSyncSGI - Failed to get current retrace count", __FUNCTION__);
++
++    if (now == last)
++    {
++      if (m_glXWaitVideoSyncSGI(2, (last + 1) % 2, &now) != 0)
++        CLog::Log(LOGERROR, "%s - glXWaitVideoSyncSGI - Returned error", __FUNCTION__);
++      if(m_glXGetVideoSyncSGI(&now) != 0)
++        CLog::Log(LOGERROR, "%s - glXGetVideoSyncSGI - Failed to get current retrace count", __FUNCTION__);
++      last = now + 1;
++    }
++    else
++      last = now;
++
++    glXSwapBuffers(m_dpy, m_glWindow);
++  }
++  else if(m_iVSyncMode == 3)
+   {
+     glFinish();
+     unsigned int before = 0, after = 0;
+@@ -238,7 +258,6 @@
+   else
+     m_glXSwapIntervalMESA = NULL;
+ 
+-
+   return true;
+ }
+ 
