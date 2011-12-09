@@ -1,0 +1,347 @@
+From da3e09a15d575cba0406d13ba090fd50ccb4249d Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Thu, 8 Dec 2011 01:25:52 +0100
+Subject: [PATCH] cec: added volume control on a CEC enabled amplifier when
+ one is found
+
+---
+ xbmc/Application.cpp                              |   64 ++++++++++
+ xbmc/Application.h                                |    1 +
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp |  128 ++++++++++++++++++++-
+ xbmc/peripherals/devices/PeripheralCecAdapter.h   |   17 +++
+ 4 files changed, 208 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index 36eb715..47bb339 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -2530,6 +2530,26 @@ bool CApplication::OnAction(const CAction &action)
+   // Check for global volume control
+   if (action.GetAmount() && (action.GetID() == ACTION_VOLUME_UP || action.GetID() == ACTION_VOLUME_DOWN))
+   {
++    /* try to set the volume on a connected amp */
++  #ifdef HAVE_LIBCEC
++    vector<CPeripheral *> peripherals;
++    if (g_peripherals.GetPeripheralsWithFeature(peripherals, FEATURE_CEC))
++    {
++      for (unsigned int iPeripheralPtr = 0; iPeripheralPtr < peripherals.size(); iPeripheralPtr++)
++      {
++        CPeripheralCecAdapter *cecDevice = (CPeripheralCecAdapter *) peripherals.at(iPeripheralPtr);
++        if (cecDevice && cecDevice->HasConnectedAudioSystem())
++        {
++          if (action.GetID() == ACTION_VOLUME_UP)
++            cecDevice->ScheduleVolumeUp();
++          else
++            cecDevice->ScheduleVolumeDown();
++          return true;
++        }
++      }
++    }
++  #endif
++
+     if (!m_pPlayer || !m_pPlayer->IsPassthrough())
+     {
+       // increase or decrease the volume
+@@ -4935,11 +4955,49 @@ void CApplication::ShowVolumeBar(const CAction *action)
+ 
+ bool CApplication::IsMuted() const
+ {
++  /* try to set the mute setting on a connected amp */
++#ifdef HAVE_LIBCEC
++  vector<CPeripheral *> peripherals;
++  if (g_peripherals.GetPeripheralsWithFeature(peripherals, FEATURE_CEC))
++  {
++    for (unsigned int iPeripheralPtr = 0; iPeripheralPtr < peripherals.size(); iPeripheralPtr++)
++    {
++      CPeripheralCecAdapter *cecDevice = (CPeripheralCecAdapter *) peripherals.at(iPeripheralPtr);
++      if (cecDevice && cecDevice->HasConnectedAudioSystem())
++        return false;
++    }
++  }
++#endif
+   return g_settings.m_bMute;
+ }
+ 
++bool CApplication::CecMute(void)
++{
++  /* try to set the mute setting on a connected amp */
++#ifdef HAVE_LIBCEC
++  vector<CPeripheral *> peripherals;
++  if (g_peripherals.GetPeripheralsWithFeature(peripherals, FEATURE_CEC))
++  {
++    for (unsigned int iPeripheralPtr = 0; iPeripheralPtr < peripherals.size(); iPeripheralPtr++)
++    {
++      CPeripheralCecAdapter *cecDevice = (CPeripheralCecAdapter *) peripherals.at(iPeripheralPtr);
++      if (cecDevice && cecDevice->HasConnectedAudioSystem())
++      {
++        cecDevice->ScheduleMute();
++        return true;
++      }
++    }
++  }
++#endif
++
++  return false;
++}
++
+ void CApplication::ToggleMute(void)
+ {
++  if (CecMute())
++    return;
++
+   if (g_settings.m_bMute)
+     UnMute();
+   else
+@@ -4948,6 +5006,9 @@ void CApplication::ToggleMute(void)
+ 
+ void CApplication::Mute()
+ {
++  if (CecMute())
++    return;
++
+   g_settings.m_iPreMuteVolumeLevel = GetVolume();
+   SetVolume(0);
+   g_settings.m_bMute = true;
+@@ -4955,6 +5016,9 @@ void CApplication::Mute()
+ 
+ void CApplication::UnMute()
+ {
++  if (CecMute())
++    return;
++
+   SetVolume(g_settings.m_iPreMuteVolumeLevel);
+   g_settings.m_iPreMuteVolumeLevel = 0;
+   g_settings.m_bMute = false;
+diff --git a/xbmc/Application.h b/xbmc/Application.h
+index d4bb9b3..cc07209 100644
+--- a/xbmc/Application.h
++++ b/xbmc/Application.h
+@@ -166,6 +166,7 @@ class CApplication : public CXBApplicationEx, public IPlayerCallback, public IMs
+   void SetVolume(long iValue, bool isPercentage = true);
+   bool IsMuted() const;
+   void ToggleMute(void);
++  bool CecMute(void);
+   void ShowVolumeBar(const CAction *action = NULL);
+   int GetPlaySpeed() const;
+   int GetSubtitleDelay() const;
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 21eb069..868a27c 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -31,6 +31,7 @@
+ #include "peripherals/Peripherals.h"
+ #include "peripherals/bus/PeripheralBus.h"
+ #include "settings/GUISettings.h"
++#include "settings/Settings.h"
+ #include "utils/log.h"
+ 
+ #include <cec.h>
+@@ -72,7 +73,8 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
+   m_bHasButton(false),
+   m_bIsReady(false),
+   m_strMenuLanguage("???"),
+-  m_lastKeypress(0)
++  m_lastKeypress(0),
++  m_lastChange(VOLUME_CHANGE_NONE)
+ {
+   m_button.iButton = 0;
+   m_button.iDuration = 0;
+@@ -284,8 +286,24 @@ void CPeripheralCecAdapter::Process(void)
+       SetMenuLanguage(language.language);
+   }
+ 
++  CStdString strNotification;
++  cec_osd_name tvName = m_cecAdapter->GetDeviceOSDName(CECDEVICE_TV);
++  strNotification.Format("%s: %s", g_localizeStrings.Get(36016), tvName.name);
++
++  /* disable the mute setting when an amp is found, because the amp handles the mute setting and
++     set PCM output to 100% */
++  if (HasConnectedAudioSystem())
++  {
++    cec_osd_name ampName = m_cecAdapter->GetDeviceOSDName(CECDEVICE_AUDIOSYSTEM);
++    CLog::Log(LOGDEBUG, "%s - CEC capable amplifier found (%s). volume will be controlled on the amp", __FUNCTION__, ampName.name);
++    strNotification.AppendFormat(" - %s", ampName.name);
++
++    g_settings.m_bMute = false;
++    g_settings.m_nVolumeLevel = VOLUME_MAXIMUM;
++  }
++
+   m_cecAdapter->SetOSDString(CECDEVICE_TV, CEC_DISPLAY_CONTROL_DISPLAY_FOR_DEFAULT_TIME, g_localizeStrings.Get(36016).c_str());
+-  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), g_localizeStrings.Get(36016));
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), strNotification);
+ 
+   while (!m_bStop)
+   {
+@@ -293,6 +311,8 @@ void CPeripheralCecAdapter::Process(void)
+     if (!m_bStop)
+       ProcessNextCommand();
+     if (!m_bStop)
++      ProcessVolumeChange();
++    if (!m_bStop)
+       Sleep(5);
+   }
+ 
+@@ -354,6 +374,110 @@ bool CPeripheralCecAdapter::SetHdmiPort(int iHdmiPort)
+   return bReturn;
+ }
+ 
++bool CPeripheralCecAdapter::HasConnectedAudioSystem(void)
++{
++  return m_cecAdapter && m_cecAdapter->IsActiveDeviceType(CEC_DEVICE_TYPE_AUDIO_SYSTEM);
++}
++
++void CPeripheralCecAdapter::ScheduleVolumeUp(void)
++{
++  CSingleLock lock(m_critSection);
++  m_volumeChangeQueue.push(VOLUME_CHANGE_UP);
++}
++
++void CPeripheralCecAdapter::ScheduleVolumeDown(void)
++{
++  CSingleLock lock(m_critSection);
++  m_volumeChangeQueue.push(VOLUME_CHANGE_DOWN);
++}
++
++void CPeripheralCecAdapter::ScheduleMute(void)
++{
++  CSingleLock lock(m_critSection);
++  m_volumeChangeQueue.push(VOLUME_CHANGE_MUTE);
++}
++
++void CPeripheralCecAdapter::ProcessVolumeChange(void)
++{
++  bool bSendRelease(false);
++  CecVolumeChange pendingVolumeChange = VOLUME_CHANGE_NONE;
++  {
++    CSingleLock lock(m_critSection);
++    if (m_volumeChangeQueue.size() > 0)
++    {
++      /* get the first change from the queue */
++      if (pendingVolumeChange == VOLUME_CHANGE_NONE)
++      {
++        pendingVolumeChange = m_volumeChangeQueue.front();
++        m_volumeChangeQueue.pop();
++      }
++
++      /* remove all dupe entries */
++      while (m_volumeChangeQueue.size() > 0 && m_volumeChangeQueue.front() == pendingVolumeChange)
++        m_volumeChangeQueue.pop();
++
++      m_lastKeypress = XbmcThreads::SystemClockMillis();
++
++      /* only send the keypress when it hasn't been sent yet */
++      if (pendingVolumeChange != m_lastChange)
++        m_lastChange = pendingVolumeChange;
++      else
++        pendingVolumeChange = VOLUME_CHANGE_NONE;
++    }
++    else if (m_lastKeypress > 0 && m_lastKeypress + CEC_BUTTON_TIMEOUT < XbmcThreads::SystemClockMillis())
++    {
++      /* send a key release */
++      bSendRelease = true;
++      m_lastKeypress = 0;
++      m_lastChange = VOLUME_CHANGE_NONE;
++    }
++  }
++
++  switch (pendingVolumeChange)
++  {
++  case VOLUME_CHANGE_UP:
++    m_cecAdapter->SendKeypress(CECDEVICE_AUDIOSYSTEM, CEC_USER_CONTROL_CODE_VOLUME_UP, false);
++    break;
++  case VOLUME_CHANGE_DOWN:
++    m_cecAdapter->SendKeypress(CECDEVICE_AUDIOSYSTEM, CEC_USER_CONTROL_CODE_VOLUME_DOWN, false);
++    break;
++  case VOLUME_CHANGE_MUTE:
++    m_cecAdapter->SendKeypress(CECDEVICE_AUDIOSYSTEM, CEC_USER_CONTROL_CODE_MUTE, false);
++    break;
++  case VOLUME_CHANGE_NONE:
++    if (bSendRelease)
++      m_cecAdapter->SendKeyRelease(CECDEVICE_AUDIOSYSTEM, false);
++    break;
++  }
++}
++
++void CPeripheralCecAdapter::VolumeUp(void)
++{
++  if (HasConnectedAudioSystem())
++  {
++    CSingleLock lock(m_critSection);
++    m_volumeChangeQueue.push(VOLUME_CHANGE_UP);
++  }
++}
++
++void CPeripheralCecAdapter::VolumeDown(void)
++{
++  if (HasConnectedAudioSystem())
++  {
++    CSingleLock lock(m_critSection);
++    m_volumeChangeQueue.push(VOLUME_CHANGE_DOWN);
++  }
++}
++
++void CPeripheralCecAdapter::Mute(void)
++{
++  if (HasConnectedAudioSystem())
++  {
++    CSingleLock lock(m_critSection);
++    m_volumeChangeQueue.push(VOLUME_CHANGE_MUTE);
++  }
++}
++
+ void CPeripheralCecAdapter::SetMenuLanguage(const char *strLanguage)
+ {
+   if (m_strMenuLanguage.Equals(strLanguage))
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.h b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+index 2fcbb1d..e1e302d 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.h
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+@@ -49,6 +49,13 @@
+     unsigned int iDuration;
+   } CecButtonPress;
+ 
++  typedef enum
++  {
++    VOLUME_CHANGE_NONE,
++    VOLUME_CHANGE_UP,
++    VOLUME_CHANGE_DOWN,
++    VOLUME_CHANGE_MUTE
++  } CecVolumeChange;
+ 
+   class CPeripheralCecAdapter : public CPeripheralHID, public ANNOUNCEMENT::IAnnouncer, private CThread
+   {
+@@ -59,6 +66,13 @@
+     virtual void Announce(ANNOUNCEMENT::EAnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
+     virtual bool PowerOnCecDevices(CEC::cec_logical_address iLogicalAddress);
+     virtual bool StandbyCecDevices(CEC::cec_logical_address iLogicalAddress);
++    virtual bool HasConnectedAudioSystem(void);
++    virtual void ScheduleVolumeUp(void);
++    virtual void VolumeUp(void);
++    virtual void ScheduleVolumeDown(void);
++    virtual void VolumeDown(void);
++    virtual void ScheduleMute(void);
++    virtual void Mute(void);
+ 
+     virtual bool SendPing(void);
+     virtual bool SetHdmiPort(int iHdmiPort);
+@@ -77,6 +91,7 @@
+     virtual bool InitialiseFeature(const PeripheralFeature feature);
+     virtual void Process(void);
+     virtual void ProcessNextCommand(void);
++    virtual void ProcessVolumeChange(void);
+     virtual void SetMenuLanguage(const char *strLanguage);
+     static bool FindConfigLocation(CStdString &strString);
+     static bool TranslateComPort(CStdString &strPort);
+@@ -90,7 +105,9 @@
+     CDateTime                     m_screensaverLastActivated;
+     CecButtonPress                m_button;
+     std::queue<CEC::cec_keypress> m_buttonQueue;
++    std::queue<CecVolumeChange>   m_volumeChangeQueue;
+     unsigned int                  m_lastKeypress;
++    CecVolumeChange               m_lastChange;
+     CCriticalSection              m_critSection;
+   };
+ }
+-- 
+1.7.5.4
+
