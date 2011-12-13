@@ -1,0 +1,710 @@
+From 26cde7b1d61b750a687ed2aaa211f18cc8b2623d Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Thu, 8 Dec 2011 00:47:35 +0100
+Subject: [PATCH] cec: temporary merge of PR556 and 570
+
+cec fixes:
+   - pose as a recording device instead of a playback device on the cec bus, so the tuner related buttons on the tv's remote work too.
+   - removed the option to mark xbmc as inactive view when stopping, but always send the command instead, as is required by the cec spec.
+   - corrections in repeated keypress handling. display a message when the CEC adapter is connecting and when it is connected and to which devices.
+
+changed: Set strings to empty instead of removing them
+
+cec: added volume control on a CEC enabled amplifier when one is found
+
+cec: set the HDMI port and the device to which the CEC adapter was connected, to be able to determine the correct physical address. this is a work around, until the CEC adapter's firmware supports physical address detection, but is needed for people who have connected XBMC to something else than the TV
+
+cec: audiosystem control and the previous commit require libcec v1.3 or higher
+---
+ configure.in                                      |    2 +-
+ language/Catalan/strings.xml                      |    2 +-
+ language/Chinese (Simple)/strings.xml             |    2 +-
+ language/Czech/strings.xml                        |    2 +-
+ language/Dutch/strings.xml                        |    2 +-
+ language/English/strings.xml                      |    2 +-
+ language/Finnish/strings.xml                      |    2 +-
+ language/German/strings.xml                       |    2 +-
+ language/Korean/strings.xml                       |    2 +-
+ language/Slovenian/strings.xml                    |    2 +-
+ language/Turkish/strings.xml                      |    2 +-
+ project/BuildDependencies/scripts/libcec_d.txt    |    2 +-
+ system/peripherals.xml                            |    4 +-
+ tools/darwin/depends/libcec/Makefile              |    2 +-
+ xbmc/Application.cpp                              |   64 +++++++
+ xbmc/Application.h                                |    1 +
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp |  193 +++++++++++++++++----
+ xbmc/peripherals/devices/PeripheralCecAdapter.h   |   20 ++-
+ 18 files changed, 260 insertions(+), 48 deletions(-)
+
+diff --git a/configure.in b/configure.in
+index e7045ba..f6c28ca 100755
+--- a/configure.in
++++ b/configure.in
+@@ -1173,7 +1173,7 @@ if test "x$use_libcec" != "xno"; then
+ 
+   # libcec is dyloaded, so we need to check for its headers and link any depends.
+   if test "x$use_libcec" != "xno"; then
+-    PKG_CHECK_MODULES([CEC],[libcec >= 1.1.0],,[use_libcec="no";AC_MSG_RESULT($libcec_disabled)])
++    PKG_CHECK_MODULES([CEC],[libcec >= 1.3.0],,[use_libcec="no";AC_MSG_RESULT($libcec_disabled)])
+ 
+     if test "x$use_libcec" != "xno"; then
+       INCLUDES="$INCLUDES $CEC_CFLAGS"
+diff --git a/language/Catalan/strings.xml b/language/Catalan/strings.xml
+index 61ecd11..645279b 100644
+--- a/language/Catalan/strings.xml
++++ b/language/Catalan/strings.xml
+@@ -2382,7 +2382,7 @@
+   <string id="36007">Power on the TV when starting XBMC</string>
+   <string id="36008">Power off devices when stopping XBMC</string>
+   <string id="36009">Put devices in standby mode when activating screensaver</string>
+-  <string id="36010">Set as inactive source when stopping XBMC</string>
++  <string id="36010"></string>
+   <string id="36011">Could not detect the CEC port. Set it up manually.</string>
+   <string id="36012">Could not detect the CEC adapter.</string>
+   <string id="36013">Unsupported libcec interface version. %d is greater than the version XBMC supports (%d)</string>
+diff --git a/language/Chinese (Simple)/strings.xml b/language/Chinese (Simple)/strings.xml
+index dbb07ee..6627bfd 100644
+--- a/language/Chinese (Simple)/strings.xml	
++++ b/language/Chinese (Simple)/strings.xml	
+@@ -2376,7 +2376,7 @@
+   <string id="36007">启动XBMC时开启电视</string>
+   <string id="36008">退出XBMC时关闭设备</string>
+   <string id="36009">激活屏幕保护程序时设备进入待机状态</string>
+-  <string id="36010">退出XBMC时设为禁用资源</string>
++  <string id="36010"></string>
+   <string id="36011">未检测到 CEC 端口。需人工设置。</string>
+   <string id="36012">未检测到 CEC 适配器。</string>
+   <string id="36013">不支持的 libcec 界面版本。%d 高于 XBMC 支持的版本（%d）</string>
+diff --git a/language/Czech/strings.xml b/language/Czech/strings.xml
+index be50357..898806d 100644
+--- a/language/Czech/strings.xml
++++ b/language/Czech/strings.xml
+@@ -2383,7 +2383,7 @@
+   <string id="36007">Zapnout TV při spouštění XBMC</string>
+   <string id="36008">Vypnout zařízení při ukončování XBMC</string>
+   <string id="36009">Uvést zařízení do pohotovostního režimu při aktivování spořiče obrazovky</string>
+-  <string id="36010">Nastavit jako neaktivní zdroj při ukončování XBMC</string>
++  <string id="36010"></string>
+   <string id="36011">Nepodařilo se najít CEC port. Nastavte jej ručně.</string>
+   <string id="36012">Nepodařilo se najít CEC adaptér.</string>
+   <string id="36013">Nepodporovaná verze libcec rozhraní. %d je vyšší než verze podporovaná XBMC (%d)</string>
+diff --git a/language/Dutch/strings.xml b/language/Dutch/strings.xml
+index 2269d55..d04d1bd 100644
+--- a/language/Dutch/strings.xml
++++ b/language/Dutch/strings.xml
+@@ -2883,7 +2883,7 @@
+   <string id="36007">Schakel de TV in bij het opstarten van XBMC</string>
+   <string id="36008">Schakel apparatuur uit bij het stoppen van XBMC</string>
+   <string id="36009">Schakel app. uit zolang de schermbeveiliging actief is</string>
+-  <string id="36010">Markeer als inactieve bron bij het stoppen van XBMC</string>
++  <string id="36010"></string>
+   <string id="36011">Kon de CEC poort niet detecteren. Stel het manueel in.</string>
+   <string id="36012">Kon de CEC adapter niet detecteren.</string>
+   <string id="36013">Versie %d van de libcec interface version wordt niet ondersteund door XBMC (> %d)</string>
+diff --git a/language/English/strings.xml b/language/English/strings.xml
+index 1b2afe5..090a1b9 100644
+--- a/language/English/strings.xml
++++ b/language/English/strings.xml
+@@ -2831,7 +2831,7 @@
+   <string id="36007">Power on the TV when starting XBMC</string>
+   <string id="36008">Power off devices when stopping XBMC</string>
+   <string id="36009">Put devices in standby mode when activating screensaver</string>
+-  <string id="36010">Set as inactive source when stopping XBMC</string>
++  <string id="36010"></string>
+   <string id="36011">Could not detect the CEC port. Set it up manually.</string>
+   <string id="36012">Could not detect the CEC adapter.</string>
+   <string id="36013">Unsupported libcec interface version. %d is greater than the version XBMC supports (%d)</string>
+diff --git a/language/Finnish/strings.xml b/language/Finnish/strings.xml
+index 9ef1ebd..82f6fc8 100644
+--- a/language/Finnish/strings.xml
++++ b/language/Finnish/strings.xml
+@@ -2823,7 +2823,7 @@
+   <string id="36007">Käynnistä laitteet kun XBMC käynnistetään</string>
+   <string id="36008">Sammuta laitteet kun XBMC sammutetaan</string>
+   <string id="36009">Aseta laitteet valmiustilaan näytönsäästäjän aktivoituessa</string>
+-  <string id="36010">Aseta laite toimettomaksi lähteeksi kun XBMC sammutetaan</string>
++  <string id="36010"></string>
+   <string id="36011">CEC-porttia ei havaittu. Määritä se käsin.</string>
+   <string id="36012">CEC-sovitinta ei havaittu.</string>
+   <string id="36013">Ei tuettu libcec-rajapinnan versio. %d on suurempi kuin versio, jota XBMC tukee (%d)</string>
+diff --git a/language/German/strings.xml b/language/German/strings.xml
+index a98c6f8..1d5a4ff 100644
+--- a/language/German/strings.xml
++++ b/language/German/strings.xml
+@@ -2816,7 +2816,7 @@
+   <string id="36007">Geräte anschalten wenn XBMC startet</string>
+   <string id="36008">Geräte ausschalten wenn XBMC beendet wird</string>
+   <string id="36009">Geräte in den Standby versetzen wenn der Bilschirmschoner aktiviert wird</string>
+-  <string id="36010">Als inaktiv markieren wenn XBMC beendet wird</string>
++  <string id="36010"></string>
+   <string id="36011">Der CEC Port konnte nicht gefunden werden. Manuell einstellen.</string>
+   <string id="36012">Der CEC Adapter konnte nicht gefunden werden.</string>
+   <string id="36013">Nicht unterstützte libcec Version. %d ist größer als die von XBMC unterstützte Version (%d)</string>
+diff --git a/language/Korean/strings.xml b/language/Korean/strings.xml
+index 7904e3c..373ac24 100644
+--- a/language/Korean/strings.xml
++++ b/language/Korean/strings.xml
+@@ -2379,7 +2379,7 @@
+   <string id="36007">Power on devices when starting XBMC</string>
+   <string id="36008">Power off devices when stopping XBMC</string>
+   <string id="36009">Put devices in standby mode when activating screensaver</string>
+-  <string id="36010">Set as inactive source when stopping XBMC</string>
++  <string id="36010"></string>
+   <string id="36011">Could not detect the CEC port. Set it up manually.</string>
+   <string id="36012">Could not detect the CEC adapter.</string>
+   <string id="36013">Unsupported libcec interface version. %d is greater than the version XBMC supports (%d)</string>
+diff --git a/language/Slovenian/strings.xml b/language/Slovenian/strings.xml
+index cd8bb14..78f8398 100644
+--- a/language/Slovenian/strings.xml
++++ b/language/Slovenian/strings.xml
+@@ -2817,7 +2817,7 @@
+   <string id="36007">Vključi TV ob zagonu XBMC</string>
+   <string id="36008">Izključi naprave ob izhodu iz XBMC</string>
+   <string id="36009">Postavi naprave v stanje pripravljenosti ob ohranjevalniku zaslona</string>
+-  <string id="36010">Nastavi kot neaktiven vir ob izhodu iz XBMC</string>
++  <string id="36010"></string>
+   <string id="36011">Ni mogoče zaznati vrat CEC. Nastavite jih ročno.</string>
+   <string id="36012">Ni mogoče zaznati adapterja CEC.</string>
+   <string id="36013">Nepodprta različica libcec. %d je višja, kot jo podpira XBMC (%d)</string>
+diff --git a/language/Turkish/strings.xml b/language/Turkish/strings.xml
+index f07f036..3ae7806 100644
+--- a/language/Turkish/strings.xml
++++ b/language/Turkish/strings.xml
+@@ -2389,7 +2389,7 @@
+   <string id="36007">XBMC başlatılınca Televizyonu aç</string>
+   <string id="36008">XBMC durdurulunca aygıtı kapat</string>
+   <string id="36009">Ekran koruyucu devreye girince aygıtı bekleme moduna geçir</string>
+-  <string id="36010">XBMC durdurulunca etkin olmayan kaynak olarak ayarla</string>
++  <string id="36010"></string>
+   <string id="36011">CEC portu algılanamadı. El ile ayarla.</string>
+   <string id="36012">CEC bağdaştırıcısı algılanamadı.</string>
+   <string id="36013">Desteklenmeyen libcec arabirim sürümü. %d is greater than the version XBMC supports (%d)</string>
+diff --git a/project/BuildDependencies/scripts/libcec_d.txt b/project/BuildDependencies/scripts/libcec_d.txt
+index ec9df80..fab03c5 100644
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 8f916ae..3882256 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -15,9 +15,9 @@
+     <setting key="cec_power_on_startup" type="bool" value="1" label="36007" />
+     <setting key="cec_power_off_shutdown" type="bool" value="1" label="36008" />
+     <setting key="cec_standby_screensaver" type="bool" value="1" label="36009" />
+-    <setting key="cec_mark_inactive_shutdown" type="bool" value="0" label="36010" />
+     <setting key="standby_pc_on_tv_standby" type="bool" value="1" label="36014" />
+     <setting key="cec_debug_logging" type="bool" value="0" label="20191" />
+-	<setting key="use_tv_menu_language" type="bool" value="1" label="36018" />
++    <setting key="use_tv_menu_language" type="bool" value="1" label="36018" />
++    <setting key="connected_device" type="int" label="21373" value="0" min="0" max="15" step="1" />
+   </peripheral>
+ </peripherals>
+diff --git a/tools/darwin/depends/libcec/Makefile b/tools/darwin/depends/libcec/Makefile
+index c6b44c0..38f9162 100644
+--- a/tools/darwin/depends/libcec/Makefile
++++ b/tools/darwin/depends/libcec/Makefile
+@@ -2,7 +2,7 @@ include ../Makefile.include
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=1.2.0
++VERSION=1.3.0
+ SOURCE=$(LIBNAME)-$(VERSION)
+ ARCHIVE=$(SOURCE).tar.gz
+ 
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index 0e0511e..2cfb8d3 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -2592,6 +2592,26 @@ bool CApplication::OnAction(const CAction &action)
+   // Check for global volume control
+   if (action.GetAmount() && (action.GetID() == ACTION_VOLUME_UP || action.GetID() == ACTION_VOLUME_DOWN))
+   {
++    /* try to set the volume on a connected amp */
++  #ifdef HAVE_LIBCEC
++    vector<CPeripheral *> peripherals;
++    if (g_peripherals.GetPeripheralsWithFeature(peripherals, FEATURE_CEC))
++    {
++      for (unsigned int iPeripheralPtr = 0; iPeripheralPtr < peripherals.size(); iPeripheralPtr++)
++      {
++        CPeripheralCecAdapter *cecDevice = (CPeripheralCecAdapter *) peripherals.at(iPeripheralPtr);
++        if (cecDevice && cecDevice->HasConnectedAudioSystem())
++        {
++          if (action.GetID() == ACTION_VOLUME_UP)
++            cecDevice->ScheduleVolumeUp();
++          else
++            cecDevice->ScheduleVolumeDown();
++          return true;
++        }
++      }
++    }
++  #endif
++
+     if (!m_pPlayer || !m_pPlayer->IsPassthrough())
+     {
+       // increase or decrease the volume
+@@ -5031,11 +5051,49 @@ void CApplication::ShowVolumeBar(const CAction *action)
+ 
+ bool CApplication::IsMuted() const
+ {
++  /* try to set the mute setting on a connected amp */
++#ifdef HAVE_LIBCEC
++  vector<CPeripheral *> peripherals;
++  if (g_peripherals.GetPeripheralsWithFeature(peripherals, FEATURE_CEC))
++  {
++    for (unsigned int iPeripheralPtr = 0; iPeripheralPtr < peripherals.size(); iPeripheralPtr++)
++    {
++      CPeripheralCecAdapter *cecDevice = (CPeripheralCecAdapter *) peripherals.at(iPeripheralPtr);
++      if (cecDevice && cecDevice->HasConnectedAudioSystem())
++        return false;
++    }
++  }
++#endif
+   return g_settings.m_bMute;
+ }
+ 
++bool CApplication::CecMute(void)
++{
++  /* try to set the mute setting on a connected amp */
++#ifdef HAVE_LIBCEC
++  vector<CPeripheral *> peripherals;
++  if (g_peripherals.GetPeripheralsWithFeature(peripherals, FEATURE_CEC))
++  {
++    for (unsigned int iPeripheralPtr = 0; iPeripheralPtr < peripherals.size(); iPeripheralPtr++)
++    {
++      CPeripheralCecAdapter *cecDevice = (CPeripheralCecAdapter *) peripherals.at(iPeripheralPtr);
++      if (cecDevice && cecDevice->HasConnectedAudioSystem())
++      {
++        cecDevice->ScheduleMute();
++        return true;
++      }
++    }
++  }
++#endif
++
++  return false;
++}
++
+ void CApplication::ToggleMute(void)
+ {
++  if (CecMute())
++    return;
++
+   if (g_settings.m_bMute)
+     UnMute();
+   else
+@@ -5044,6 +5102,9 @@ void CApplication::ToggleMute(void)
+ 
+ void CApplication::Mute()
+ {
++  if (CecMute())
++    return;
++
+   g_settings.m_iPreMuteVolumeLevel = GetVolume();
+   SetVolume(0);
+   g_settings.m_bMute = true;
+@@ -5051,6 +5112,9 @@ void CApplication::Mute()
+ 
+ void CApplication::UnMute()
+ {
++  if (CecMute())
++    return;
++
+   SetVolume(g_settings.m_iPreMuteVolumeLevel);
+   g_settings.m_iPreMuteVolumeLevel = 0;
+   g_settings.m_bMute = false;
+diff --git a/xbmc/Application.h b/xbmc/Application.h
+index 7688de7..26552ba 100644
+--- a/xbmc/Application.h
++++ b/xbmc/Application.h
+@@ -172,6 +172,7 @@ class CApplication : public CXBApplicationEx, public IPlayerCallback, public IMs
+   void SetVolume(long iValue, bool isPercentage = true);
+   bool IsMuted() const;
+   void ToggleMute(void);
++  bool CecMute(void);
+   void ShowVolumeBar(const CAction *action = NULL);
+   int GetPlaySpeed() const;
+   int GetSubtitleDelay() const;
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 7ebcf87..d0c4e6c 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -31,6 +31,7 @@
+ #include "peripherals/Peripherals.h"
+ #include "peripherals/bus/PeripheralBus.h"
+ #include "settings/GUISettings.h"
++#include "settings/Settings.h"
+ #include "utils/log.h"
+ 
+ #include <cec.h>
+@@ -71,7 +72,9 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
+   m_bStarted(false),
+   m_bHasButton(false),
+   m_bIsReady(false),
+-  m_strMenuLanguage("???")
++  m_strMenuLanguage("???"),
++  m_lastKeypress(0),
++  m_lastChange(VOLUME_CHANGE_NONE)
+ {
+   m_button.iButton = 0;
+   m_button.iDuration = 0;
+@@ -81,7 +84,7 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
+   {
+     cec_device_type_list typeList;
+     typeList.clear();
+-    typeList.add(CEC_DEVICE_TYPE_PLAYBACK_DEVICE);
++    typeList.add(CEC_DEVICE_TYPE_RECORDING_DEVICE);
+     m_cecAdapter = m_dll->CECInit("XBMC", typeList);
+   }
+   else
+@@ -128,10 +131,9 @@ void CPeripheralCecAdapter::Announce(EAnnouncementFlag flag, const char *sender,
+ {
+   if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnQuit") && m_bIsReady)
+   {
++    m_cecAdapter->SetInactiveView();
+     if (GetSettingBool("cec_power_off_shutdown"))
+       m_cecAdapter->StandbyDevices();
+-    else if (GetSettingBool("cec_mark_inactive_shutdown"))
+-      m_cecAdapter->SetInactiveView();
+   }
+   else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverDeactivated") && GetSettingBool("cec_standby_screensaver") && m_bIsReady)
+   {
+@@ -245,9 +247,20 @@ void CPeripheralCecAdapter::Process(void)
+   if (strPort.empty())
+     return;
+ 
++  // set correct physical address from peripheral settings
++  int iDevice = GetSettingInt("connected_device");
++  int iHdmiPort = GetSettingInt("cec_hdmi_port");
++  SetHdmiPort(iDevice, iHdmiPort);
++  FlushLog();
++
+   // open the CEC adapter
+   CLog::Log(LOGDEBUG, "%s - opening a connection to the CEC adapter: %s", __FUNCTION__, strPort.c_str());
+ 
++  // scanning the CEC bus takes about 5 seconds, so display a notification to inform users that we're busy
++  CStdString strMessage;
++  strMessage.Format(g_localizeStrings.Get(21336), g_localizeStrings.Get(36000));
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), strMessage);
++
+   if (!m_cecAdapter->Open(strPort.c_str(), 10000))
+   {
+     FlushLog();
+@@ -258,7 +271,6 @@ void CPeripheralCecAdapter::Process(void)
+   }
+ 
+   CLog::Log(LOGDEBUG, "%s - connection to the CEC adapter opened", __FUNCTION__);
+-
+   m_bIsReady = true;
+   CAnnouncementManager::AddAnnouncer(this);
+ 
+@@ -268,16 +280,6 @@ void CPeripheralCecAdapter::Process(void)
+     FlushLog();
+   }
+ 
+-  /* get the vendor id directly after connecting, because the TV might be using a non-standard CEC implementation */
+-  m_cecAdapter->GetDeviceVendorId(CECDEVICE_TV);
+-
+-  // set correct physical address from peripheral settings
+-  int iHdmiPort = GetSettingInt("cec_hdmi_port");
+-  if (iHdmiPort <= 0 || iHdmiPort > 16)
+-    iHdmiPort = 1;
+-  m_cecAdapter->SetPhysicalAddress((uint16_t) (iHdmiPort << 12));
+-  FlushLog();
+-
+   if (GetSettingBool("use_tv_menu_language"))
+   {
+     cec_menu_language language;
+@@ -285,7 +287,24 @@ void CPeripheralCecAdapter::Process(void)
+       SetMenuLanguage(language.language);
+   }
+ 
++  CStdString strNotification;
++  cec_osd_name tvName = m_cecAdapter->GetDeviceOSDName(CECDEVICE_TV);
++  strNotification.Format("%s: %s", g_localizeStrings.Get(36016), tvName.name);
++
++  /* disable the mute setting when an amp is found, because the amp handles the mute setting and
++     set PCM output to 100% */
++  if (HasConnectedAudioSystem())
++  {
++    cec_osd_name ampName = m_cecAdapter->GetDeviceOSDName(CECDEVICE_AUDIOSYSTEM);
++    CLog::Log(LOGDEBUG, "%s - CEC capable amplifier found (%s). volume will be controlled on the amp", __FUNCTION__, ampName.name);
++    strNotification.AppendFormat(" - %s", ampName.name);
++
++    g_settings.m_bMute = false;
++    g_settings.m_nVolumeLevel = VOLUME_MAXIMUM;
++  }
++
+   m_cecAdapter->SetOSDString(CECDEVICE_TV, CEC_DISPLAY_CONTROL_DISPLAY_FOR_DEFAULT_TIME, g_localizeStrings.Get(36016).c_str());
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), strNotification);
+ 
+   while (!m_bStop)
+   {
+@@ -293,6 +312,8 @@ void CPeripheralCecAdapter::Process(void)
+     if (!m_bStop)
+       ProcessNextCommand();
+     if (!m_bStop)
++      ProcessVolumeChange();
++    if (!m_bStop)
+       Sleep(5);
+   }
+ 
+@@ -308,7 +329,7 @@ bool CPeripheralCecAdapter::PowerOnCecDevices(cec_logical_address iLogicalAddres
+ 
+   if (m_cecAdapter && m_bIsReady)
+   {
+-    CLog::Log(LOGDEBUG, "%s - powering on CEC capable devices with address %1x", __FUNCTION__, iLogicalAddress);
++    CLog::Log(LOGDEBUG, "%s - powering on CEC capable device with address %1x", __FUNCTION__, iLogicalAddress);
+     bReturn = m_cecAdapter->PowerOnDevices(iLogicalAddress);
+   }
+ 
+@@ -340,20 +361,124 @@ bool CPeripheralCecAdapter::SendPing(void)
+   return bReturn;
+ }
+ 
+-bool CPeripheralCecAdapter::SetHdmiPort(int iHdmiPort)
++bool CPeripheralCecAdapter::SetHdmiPort(int iDevice, int iHdmiPort)
+ {
+   bool bReturn(false);
+   if (m_cecAdapter && m_bIsReady)
+   {
+     if (iHdmiPort <= 0 || iHdmiPort > 16)
+       iHdmiPort = 1;
+-    CLog::Log(LOGDEBUG, "%s - changing active HDMI port to %d", __FUNCTION__, iHdmiPort);
+-    bReturn = m_cecAdapter->SetPhysicalAddress(iHdmiPort << 12);
++    CLog::Log(LOGDEBUG, "%s - changing active HDMI port to %d on device %d", __FUNCTION__, iHdmiPort, iDevice);
++    bReturn = m_cecAdapter->SetHDMIPort((cec_logical_address)iDevice, iHdmiPort);
+   }
+ 
+   return bReturn;
+ }
+ 
++bool CPeripheralCecAdapter::HasConnectedAudioSystem(void)
++{
++  return m_cecAdapter && m_cecAdapter->IsActiveDeviceType(CEC_DEVICE_TYPE_AUDIO_SYSTEM);
++}
++
++void CPeripheralCecAdapter::ScheduleVolumeUp(void)
++{
++  CSingleLock lock(m_critSection);
++  m_volumeChangeQueue.push(VOLUME_CHANGE_UP);
++}
++
++void CPeripheralCecAdapter::ScheduleVolumeDown(void)
++{
++  CSingleLock lock(m_critSection);
++  m_volumeChangeQueue.push(VOLUME_CHANGE_DOWN);
++}
++
++void CPeripheralCecAdapter::ScheduleMute(void)
++{
++  CSingleLock lock(m_critSection);
++  m_volumeChangeQueue.push(VOLUME_CHANGE_MUTE);
++}
++
++void CPeripheralCecAdapter::ProcessVolumeChange(void)
++{
++  bool bSendRelease(false);
++  CecVolumeChange pendingVolumeChange = VOLUME_CHANGE_NONE;
++  {
++    CSingleLock lock(m_critSection);
++    if (m_volumeChangeQueue.size() > 0)
++    {
++      /* get the first change from the queue */
++      if (pendingVolumeChange == VOLUME_CHANGE_NONE)
++      {
++        pendingVolumeChange = m_volumeChangeQueue.front();
++        m_volumeChangeQueue.pop();
++      }
++
++      /* remove all dupe entries */
++      while (m_volumeChangeQueue.size() > 0 && m_volumeChangeQueue.front() == pendingVolumeChange)
++        m_volumeChangeQueue.pop();
++
++      m_lastKeypress = XbmcThreads::SystemClockMillis();
++
++      /* only send the keypress when it hasn't been sent yet */
++      if (pendingVolumeChange != m_lastChange)
++        m_lastChange = pendingVolumeChange;
++      else
++        pendingVolumeChange = VOLUME_CHANGE_NONE;
++    }
++    else if (m_lastKeypress > 0 && m_lastKeypress + CEC_BUTTON_TIMEOUT < XbmcThreads::SystemClockMillis())
++    {
++      /* send a key release */
++      bSendRelease = true;
++      m_lastKeypress = 0;
++      m_lastChange = VOLUME_CHANGE_NONE;
++    }
++  }
++
++  switch (pendingVolumeChange)
++  {
++  case VOLUME_CHANGE_UP:
++    m_cecAdapter->SendKeypress(CECDEVICE_AUDIOSYSTEM, CEC_USER_CONTROL_CODE_VOLUME_UP, false);
++    break;
++  case VOLUME_CHANGE_DOWN:
++    m_cecAdapter->SendKeypress(CECDEVICE_AUDIOSYSTEM, CEC_USER_CONTROL_CODE_VOLUME_DOWN, false);
++    break;
++  case VOLUME_CHANGE_MUTE:
++    m_cecAdapter->SendKeypress(CECDEVICE_AUDIOSYSTEM, CEC_USER_CONTROL_CODE_MUTE, false);
++    break;
++  case VOLUME_CHANGE_NONE:
++    if (bSendRelease)
++      m_cecAdapter->SendKeyRelease(CECDEVICE_AUDIOSYSTEM, false);
++    break;
++  }
++}
++
++void CPeripheralCecAdapter::VolumeUp(void)
++{
++  if (HasConnectedAudioSystem())
++  {
++    CSingleLock lock(m_critSection);
++    m_volumeChangeQueue.push(VOLUME_CHANGE_UP);
++  }
++}
++
++void CPeripheralCecAdapter::VolumeDown(void)
++{
++  if (HasConnectedAudioSystem())
++  {
++    CSingleLock lock(m_critSection);
++    m_volumeChangeQueue.push(VOLUME_CHANGE_DOWN);
++  }
++}
++
++void CPeripheralCecAdapter::Mute(void)
++{
++  if (HasConnectedAudioSystem())
++  {
++    CSingleLock lock(m_critSection);
++    m_volumeChangeQueue.push(VOLUME_CHANGE_MUTE);
++  }
++}
++
+ void CPeripheralCecAdapter::SetMenuLanguage(const char *strLanguage)
+ {
+   if (m_strMenuLanguage.Equals(strLanguage))
+@@ -504,16 +629,18 @@ bool CPeripheralCecAdapter::GetNextCecKey(cec_keypress &key)
+ 
+ bool CPeripheralCecAdapter::GetNextKey(void)
+ {
++  bool bHasButton(false);
+   CSingleLock lock(m_critSection);
+   if (m_bHasButton && m_button.iDuration > 0)
+-    return false;
++    return bHasButton;
+ 
+   cec_keypress key;
+   if (!m_bIsReady || !GetNextCecKey(key))
+-    return false;
++    return bHasButton;
+ 
+   CLog::Log(LOGDEBUG, "%s - received key %2x", __FUNCTION__, key.keycode);
+   DWORD iButton = 0;
++  bHasButton = true;
+ 
+   switch (key.keycode)
+   {
+@@ -681,22 +808,24 @@ bool CPeripheralCecAdapter::GetNextKey(void)
+   case CEC_USER_CONTROL_CODE_DATA:
+   case CEC_USER_CONTROL_CODE_UNKNOWN:
+   default:
+-    m_bHasButton = false;
+-    return false;
++    bHasButton = false;
++    return bHasButton;
+   }
+ 
+-  if (!m_bHasButton && iButton == m_button.iButton && m_button.iDuration == 0 && key.duration > 0)
++  if (!m_bHasButton && bHasButton && iButton == m_button.iButton && m_button.iDuration == 0 && key.duration > 0)
+   {
+     /* released button of the previous keypress */
+-    m_bHasButton = false;
+-    return false;
++    return m_bHasButton;
+   }
+ 
+-  m_bHasButton = true;
+-  m_button.iDuration = key.duration;
+-  m_button.iButton = iButton;
++  if (bHasButton)
++  {
++    m_bHasButton = true;
++    m_button.iDuration = key.duration;
++    m_button.iButton = iButton;
++  }
+ 
+-  return true;
++  return m_bHasButton;
+ }
+ 
+ WORD CPeripheralCecAdapter::GetButton(void)
+@@ -733,9 +862,9 @@ void CPeripheralCecAdapter::OnSettingChanged(const CStdString &strChangedSetting
+     else if (bEnabled && !m_cecAdapter && m_bStarted)
+       InitialiseFeature(FEATURE_CEC);
+   }
+-  else if (strChangedSetting.Equals("cec_hdmi_port"))
++  else if (strChangedSetting.Equals("connected_device") || strChangedSetting.Equals("cec_hdmi_port"))
+   {
+-    SetHdmiPort(GetSettingInt("cec_hdmi_port"));
++    SetHdmiPort(GetSettingInt("connected_device"), GetSettingInt("cec_hdmi_port"));
+   }
+ }
+ 
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.h b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+index b05e106..768e38a 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.h
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+@@ -49,6 +49,13 @@
+     unsigned int iDuration;
+   } CecButtonPress;
+ 
++  typedef enum
++  {
++    VOLUME_CHANGE_NONE,
++    VOLUME_CHANGE_UP,
++    VOLUME_CHANGE_DOWN,
++    VOLUME_CHANGE_MUTE
++  } CecVolumeChange;
+ 
+   class CPeripheralCecAdapter : public CPeripheralHID, public ANNOUNCEMENT::IAnnouncer, private CThread
+   {
+@@ -59,9 +66,16 @@
+     virtual void Announce(ANNOUNCEMENT::EAnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
+     virtual bool PowerOnCecDevices(CEC::cec_logical_address iLogicalAddress);
+     virtual bool StandbyCecDevices(CEC::cec_logical_address iLogicalAddress);
++    virtual bool HasConnectedAudioSystem(void);
++    virtual void ScheduleVolumeUp(void);
++    virtual void VolumeUp(void);
++    virtual void ScheduleVolumeDown(void);
++    virtual void VolumeDown(void);
++    virtual void ScheduleMute(void);
++    virtual void Mute(void);
+ 
+     virtual bool SendPing(void);
+-    virtual bool SetHdmiPort(int iHdmiPort);
++    virtual bool SetHdmiPort(int iDevice, int iHdmiPort);
+ 
+     virtual void OnSettingChanged(const CStdString &strChangedSetting);
+ 
+@@ -77,6 +91,7 @@
+     virtual bool InitialiseFeature(const PeripheralFeature feature);
+     virtual void Process(void);
+     virtual void ProcessNextCommand(void);
++    virtual void ProcessVolumeChange(void);
+     virtual void SetMenuLanguage(const char *strLanguage);
+     static bool FindConfigLocation(CStdString &strString);
+     static bool TranslateComPort(CStdString &strPort);
+@@ -90,6 +105,9 @@
+     CDateTime                     m_screensaverLastActivated;
+     CecButtonPress                m_button;
+     std::queue<CEC::cec_keypress> m_buttonQueue;
++    std::queue<CecVolumeChange>   m_volumeChangeQueue;
++    unsigned int                  m_lastKeypress;
++    CecVolumeChange               m_lastChange;
+     CCriticalSection              m_critSection;
+   };
+ }
+-- 
+1.7.5.4
+
