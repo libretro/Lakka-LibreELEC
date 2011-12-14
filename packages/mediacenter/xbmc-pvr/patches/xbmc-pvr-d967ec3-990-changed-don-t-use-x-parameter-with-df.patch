@@ -1,0 +1,55 @@
+From b368f01a3c2db51272e96941c936c8b170792066 Mon Sep 17 00:00:00 2001
+From: spiff <spiff@xbmc.org>
+Date: Sat, 3 Dec 2011 10:47:01 +0100
+Subject: [PATCH] changed: don't use -x parameter with 'df'
+
+we instead filter the list ourself. the busybox df does not support -x
+---
+ xbmc/addons/Scraper.cpp                        |  206 ++++++++++++++---------
+ xbmc/interfaces/python/xbmcmodule/listitem.cpp |   34 ++++-
+ xbmc/linux/PosixMountProvider.cpp              |   16 ++-
+ xbmc/utils/ScraperUrl.h                        |   19 +++
+ 4 files changed, 191 insertions(+), 84 deletions(-)
+
+diff --git a/xbmc/addons/Scraper.cpp b/xbmc/addons/Scraper.cpp
+index 4cdfd59..54061a0 100644
+diff --git a/xbmc/interfaces/python/xbmcmodule/listitem.cpp b/xbmc/interfaces/python/xbmcmodule/listitem.cpp
+index f116674..ae65f3e 100644
+diff --git a/xbmc/linux/PosixMountProvider.cpp b/xbmc/linux/PosixMountProvider.cpp
+index aa3986c..beae9e8 100644
+--- a/xbmc/linux/PosixMountProvider.cpp
++++ b/xbmc/linux/PosixMountProvider.cpp
+@@ -101,14 +101,26 @@ std::vector<CStdString> CPosixMountProvider::GetDiskUsage()
+ #elif defined(__FreeBSD__)
+   FILE* pipe = popen("df -h -t ufs,cd9660,hfs,udf,zfs", "r");
+ #else
+-  FILE* pipe = popen("df -hx tmpfs", "r");
++  FILE* pipe = popen("df -h", "r");
+ #endif
++  
++  static const char* excludes[] = {"rootfs","devtmpfs","tmpfs","none","/dev/loop", "udev", NULL};
+ 
+   if (pipe)
+   {
+     while (fgets(line, sizeof(line) - 1, pipe))
+     {
+-      result.push_back(line);
++      bool ok=true;
++      for (int i=0;excludes[i];++i)
++      {
++        if (strstr(line,excludes[i]))
++        {
++          ok=false;
++          break;
++        }
++      }
++      if (ok)
++        result.push_back(line);
+     }
+     pclose(pipe);
+   }
+diff --git a/xbmc/utils/ScraperUrl.h b/xbmc/utils/ScraperUrl.h
+index abe34e9..8ff35b6 100644
+-- 
+1.7.5.4
+
