@@ -1034,7 +1034,7 @@ index f0b4aeb..47d25e4 100644
    m_paused = false;
    m_clock = 0;
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-index 4961b7d..1c01ff0 100644
+index 4961b7d..f767eaa 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 @@ -60,6 +60,9 @@
@@ -1074,15 +1074,7 @@ index 4961b7d..1c01ff0 100644
    //m_iYV12RenderBuffer = 0;
    return;
  }
-@@ -273,6 +280,7 @@ bool CLinuxRendererGL::Configure(unsigned int width, unsigned int height, unsign
- 
-   // Ensure that textures are recreated and rendering starts only after the 1st
-   // frame is loaded after every call to Configure().
-+  Flush();
-   m_bValidated = false;
- 
-   for (int i = 0 ; i<m_NumYV12Buffers ; i++)
-@@ -568,6 +576,11 @@ void CLinuxRendererGL::Flush()
+@@ -568,6 +575,11 @@ void CLinuxRendererGL::Flush()
    m_bValidated = false;
  }
  
@@ -1094,7 +1086,7 @@ index 4961b7d..1c01ff0 100644
  void CLinuxRendererGL::Update(bool bPauseDrawing)
  {
    if (!m_bConfigured) return;
-@@ -729,14 +742,15 @@ unsigned int CLinuxRendererGL::PreInit()
+@@ -729,14 +741,15 @@ unsigned int CLinuxRendererGL::PreInit()
  {
    CSingleLock lock(g_graphicsContext);
    m_bConfigured = false;
@@ -1113,7 +1105,7 @@ index 4961b7d..1c01ff0 100644
  
    // setup the background colour
    m_clearColour = (float)(g_advancedSettings.m_videoBlackBarColour & 0xff) / 0xff;
-@@ -816,7 +830,7 @@ void CLinuxRendererGL::UpdateVideoFilter()
+@@ -816,7 +829,7 @@ void CLinuxRendererGL::UpdateVideoFilter()
    case VS_SCALINGMETHOD_LINEAR:
      SetTextureFilter(m_scalingMethod == VS_SCALINGMETHOD_NEAREST ? GL_NEAREST : GL_LINEAR);
      m_renderQuality = RQ_SINGLEPASS;
@@ -1122,7 +1114,7 @@ index 4961b7d..1c01ff0 100644
      {
        m_pVideoFilterShader = new StretchFilterShader();
        if (!m_pVideoFilterShader->CompileAndLink())
-@@ -897,6 +911,11 @@ void CLinuxRendererGL::LoadShaders(int field)
+@@ -897,6 +910,11 @@ void CLinuxRendererGL::LoadShaders(int field)
      CLog::Log(LOGNOTICE, "GL: Using VAAPI render method");
      m_renderMethod = RENDER_VAAPI;
    }
@@ -1134,7 +1126,7 @@ index 4961b7d..1c01ff0 100644
    else
    {
      int requestedMethod = g_guiSettings.GetInt("videoplayer.rendermethod");
-@@ -1031,6 +1050,18 @@ void CLinuxRendererGL::LoadShaders(int field)
+@@ -1031,6 +1049,18 @@ void CLinuxRendererGL::LoadShaders(int field)
      m_textureCreate = &CLinuxRendererGL::CreateVAAPITexture;
      m_textureDelete = &CLinuxRendererGL::DeleteVAAPITexture;
    }
@@ -1153,7 +1145,7 @@ index 4961b7d..1c01ff0 100644
    else
    {
      // setup default YV12 texture handlers
-@@ -1124,6 +1155,13 @@ void CLinuxRendererGL::Render(DWORD flags, int renderBuffer)
+@@ -1124,6 +1154,13 @@ void CLinuxRendererGL::Render(DWORD flags, int renderBuffer)
      RenderVDPAU(renderBuffer, m_currentField);
    }
  #endif
@@ -1167,7 +1159,7 @@ index 4961b7d..1c01ff0 100644
  #ifdef HAVE_LIBVA
    else if (m_renderMethod & RENDER_VAAPI)
    {
-@@ -1597,6 +1635,77 @@ void CLinuxRendererGL::RenderVAAPI(int index, int field)
+@@ -1597,6 +1634,77 @@ void CLinuxRendererGL::RenderVAAPI(int index, int field)
  #endif
  }
  
@@ -1245,7 +1237,7 @@ index 4961b7d..1c01ff0 100644
  void CLinuxRendererGL::RenderSoftware(int index, int field)
  {
    YUVPLANES &planes = m_buffers[index].fields[field];
-@@ -2351,6 +2460,375 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
+@@ -2351,6 +2459,390 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
  #endif
  }
  
@@ -1283,11 +1275,13 @@ index 4961b7d..1c01ff0 100644
 +  im.height = m_sourceHeight;
 +  im.width  = m_sourceWidth;
 +
-+  plane.texwidth  = im.width;
-+  plane.texheight = im.height;
-+
-+  plane.pixpertex_x = 1;
-+  plane.pixpertex_y = 1;
++  for(int f = 0;f<MAX_FIELDS;f++)
++  {
++    fields[f][0].texwidth  = im.width;
++    fields[f][0].texheight = im.height;
++    fields[f][0].pixpertex_x = 1;
++    fields[f][0].pixpertex_y = 1;
++  }
 +
 +  glGenTextures(1, &planeFallback.id);
 +  plane.id = planeFallback.id;
@@ -1303,13 +1297,14 @@ index 4961b7d..1c01ff0 100644
 +  XVBA::CDecoder   *xvba = m_buffers[index].xvba;
 +
 +  YUVFIELDS &fields = m_buffers[index].fields;
-+  YUVPLANE &plane = fields[0][1];
++  YUVPLANE &planeFallback = fields[0][1];
++  YUVPLANE &plane = fields[m_currentField][0];
 +
 +  if (!xvba)
 +  {
-+    fields[0][0].id = plane.id;
-+    fields[1][0].id = plane.id;
-+    fields[2][0].id = plane.id;
++    fields[0][0].id = planeFallback.id;
++    fields[1][0].id = planeFallback.id;
++    fields[2][0].id = planeFallback.id;
 +    m_eventTexturesDone[index]->Set();
 +    return;
 +  }
@@ -1324,14 +1319,26 @@ index 4961b7d..1c01ff0 100644
 +
 +  glEnable(m_textureTarget);
 +  if (xvba->UploadTexture(index, field, m_textureTarget) == 1)
-+    fields[m_currentField][0].id = xvba->GetTexture(index, field);
++    plane.id = xvba->GetTexture(index, field);
 +
++  // crop texture
 +  CRect crop = xvba->GetCropRect();
-+  m_sourceRect.x1 += crop.x1;
-+  m_sourceRect.x2 -= m_sourceWidth - crop.x2;
-+  m_sourceRect.y1 += crop.y1;
-+  m_sourceRect.y2 -= m_sourceHeight - crop.y2;
-+  CalculateTextureSourceRects(index, 1);
++  plane.rect = m_sourceRect;
++  plane.rect.x1 += crop.x1;
++  plane.rect.x2 -= m_sourceWidth - crop.x2;
++  plane.rect.y1 += crop.y1;
++  plane.rect.y2 -= m_sourceHeight - crop.y2;
++  plane.rect.y1 /= plane.pixpertex_y;
++  plane.rect.y2 /= plane.pixpertex_y;
++  plane.rect.x1 /= plane.pixpertex_x;
++  plane.rect.x2 /= plane.pixpertex_x;
++  if (m_textureTarget == GL_TEXTURE_2D)
++  {
++    plane.rect.y1 /= plane.texheight;
++    plane.rect.y2 /= plane.texheight;
++    plane.rect.x1 /= plane.texwidth;
++    plane.rect.x2 /= plane.texwidth;
++  }
 +
 +  glDisable(m_textureTarget);
 +
@@ -1621,7 +1628,7 @@ index 4961b7d..1c01ff0 100644
  void CLinuxRendererGL::UploadYUV422PackedTexture(int source)
  {
    YUVBUFFER& buf    =  m_buffers[source];
-@@ -2934,6 +3412,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2934,6 +3426,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1631,7 +1638,7 @@ index 4961b7d..1c01ff0 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2947,6 +3428,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2947,6 +3442,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1641,7 +1648,7 @@ index 4961b7d..1c01ff0 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2970,7 +3454,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2970,7 +3468,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
    if (feature == RENDERFEATURE_NONLINSTRETCH)
    {
      if (((m_renderMethod & RENDER_GLSL) && !(m_renderMethod & RENDER_POT)) ||
@@ -1651,7 +1658,7 @@ index 4961b7d..1c01ff0 100644
        return true;
    }
  
-@@ -3010,10 +3495,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
+@@ -3010,10 +3509,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
    if(m_renderMethod & RENDER_VAAPI)
      return false;
  
@@ -1678,7 +1685,7 @@ index 4961b7d..1c01ff0 100644
  
    if((method == VS_INTERLACEMETHOD_RENDER_BLEND
    ||  method == VS_INTERLACEMETHOD_RENDER_WEAVE_INVERTED
-@@ -3045,7 +3542,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
+@@ -3045,7 +3556,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
    || method == VS_SCALINGMETHOD_LANCZOS3)
    {
      if ((glewIsSupported("GL_EXT_framebuffer_object") && (m_renderMethod & RENDER_GLSL)) ||
@@ -1687,7 +1694,7 @@ index 4961b7d..1c01ff0 100644
      {
        // spline36 and lanczos3 are only allowed through advancedsettings.xml
        if(method != VS_SCALINGMETHOD_SPLINE36
-@@ -3104,7 +3601,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
+@@ -3104,7 +3615,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
      pbo = true;
  
      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, buff.pbo[plane]);
@@ -1696,7 +1703,7 @@ index 4961b7d..1c01ff0 100644
      buff.image.plane[plane] = (BYTE*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB) + PBO_OFFSET;
    }
    if(pbo)
-@@ -3128,4 +3625,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
+@@ -3128,4 +3639,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
  }
  #endif
  
@@ -1963,10 +1970,10 @@ index 1dce256..8b7d5fb 100644
  
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
 new file mode 100644
-index 0000000..a64ee7c
+index 0000000..c3b1ee7
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
-@@ -0,0 +1,1339 @@
+@@ -0,0 +1,1342 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -3226,6 +3233,7 @@ index 0000000..a64ee7c
 +        return -1;
 +      }
 +      m_flipBuffer[index].glSurface[i] = surfOutput.surface;
++      CLog::Log(LOGDEBUG, "XVBA::GetTexture - created shared surface");
 +    }
 +
 +    XVBA_Transfer_Surface_Input transInput;
@@ -3295,11 +3303,13 @@ index 0000000..a64ee7c
 +      {
 +        glDeleteTextures(1, &m_flipBuffer[i].glTexture[j]);
 +        m_flipBuffer[i].glTexture[j] = 0;
++        CLog::Log(LOGDEBUG, "XVBA::FinishGL - destroyed texture, index: %d, field %d", i, j);
 +      }
 +      if (m_flipBuffer[i].glSurface[j] && m_xvbaSession)
 +      {
 +        g_XVBA_vtable.DestroySurface(m_flipBuffer[i].glSurface[j]);
 +        m_flipBuffer[i].glSurface[j] = 0;
++        CLog::Log(LOGDEBUG, "XVBA::FinishGL - destroyed shared surface");
 +      }
 +    }
 +  }
