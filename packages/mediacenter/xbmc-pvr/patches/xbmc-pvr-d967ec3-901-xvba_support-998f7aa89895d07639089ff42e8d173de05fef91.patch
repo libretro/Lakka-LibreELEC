@@ -93,7 +93,7 @@ index e7045ba..e495665 100755
        --enable-pthreads \
        --enable-runtime-cpudetect \
 diff --git a/language/English/strings.xml b/language/English/strings.xml
-index 090a1b9..c7de09b 100644
+index 090a1b9..7a976cf 100644
 --- a/language/English/strings.xml
 +++ b/language/English/strings.xml
 @@ -1232,6 +1232,8 @@
@@ -101,7 +101,7 @@ index 090a1b9..c7de09b 100644
    <string id="13431">Pixel Shaders</string>
    <string id="13432">Allow hardware acceleration (VideoToolbox)</string>
 +  <string id="13433">Allow hardware acceleration (XVBA)</string>
-+  <string id="13434">Use XvBA shared surfaces (highly experimental)</string>
++  <string id="13434">Use XvBA shared surfaces</string>
  
    <string id="13500">A/V sync method</string>
    <string id="13501">Audio clock</string>
@@ -1970,10 +1970,10 @@ index 1dce256..8b7d5fb 100644
  
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
 new file mode 100644
-index 0000000..c3b1ee7
+index 0000000..25c0fb9
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
-@@ -0,0 +1,1342 @@
+@@ -0,0 +1,1360 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -2656,11 +2656,13 @@ index 0000000..c3b1ee7
 +
 +  for (unsigned int i=0; i<missing; ++i)
 +  {
-+    if (Success != g_XVBA_vtable.CreateDecodeBuffers(&bufferInput, &bufferOutput)
-+        || bufferOutput.num_of_buffers_in_list != 1)
-+    {
-+      SetError(__FUNCTION__, "failed to create data control buffer", __LINE__);
-+      return false;
++    { CSingleLock lock(m_apiSec);
++      if (Success != g_XVBA_vtable.CreateDecodeBuffers(&bufferInput, &bufferOutput)
++          || bufferOutput.num_of_buffers_in_list != 1)
++      {
++        SetError(__FUNCTION__, "failed to create data control buffer", __LINE__);
++        return false;
++      }
 +    }
 +    m_xvbaBufferPool.data_control_buffers.push_back(bufferOutput.buffer_list);
 +  }
@@ -2757,10 +2759,12 @@ index 0000000..c3b1ee7
 +  startInput.size = sizeof(startInput);
 +  startInput.session = xvba->m_xvbaSession;
 +  startInput.target_surface = render->surface;
-+  if (Success != g_XVBA_vtable.StartDecodePicture(&startInput))
-+  {
-+    xvba->SetError(__FUNCTION__, "failed to start decoding", __LINE__);
-+    return;
++  { CSingleLock lock(xvba->m_apiSec);
++    if (Success != g_XVBA_vtable.StartDecodePicture(&startInput))
++    {
++      xvba->SetError(__FUNCTION__, "failed to start decoding", __LINE__);
++      return;
++    }  
 +  }
 +  XVBA_Decode_Picture_Input picInput;
 +  picInput.size = sizeof(picInput);
@@ -2775,10 +2779,12 @@ index 0000000..c3b1ee7
 +    picInput.num_of_buffers_in_list = 2;
 +  }
 +
-+  if (Success != g_XVBA_vtable.DecodePicture(&picInput))
-+  {
-+    xvba->SetError(__FUNCTION__, "failed to decode picture 1", __LINE__);
-+    return;
++  { CSingleLock lock(xvba->m_apiSec);
++    if (Success != g_XVBA_vtable.DecodePicture(&picInput))
++    {
++      xvba->SetError(__FUNCTION__, "failed to decode picture 1", __LINE__);
++      return;
++    }
 +  }
 +
 +  if (!xvba->EnsureDataControlBuffers(render->num_slices))
@@ -2843,19 +2849,23 @@ index 0000000..c3b1ee7
 +    list[0]->data_offset = 0;
 +    list[1] = xvba->m_xvbaBufferPool.data_control_buffers[i];
 +    list[1]->data_size_in_buffer = sizeof(*dataControl);
-+    if (Success != g_XVBA_vtable.DecodePicture(&picInput))
-+    {
-+      xvba->SetError(__FUNCTION__, "failed to decode picture 2", __LINE__);
-+      return;
++    { CSingleLock lock(xvba->m_apiSec);
++      if (Success != g_XVBA_vtable.DecodePicture(&picInput))
++      {
++        xvba->SetError(__FUNCTION__, "failed to decode picture 2", __LINE__);
++        return;
++      }
 +    }
 +  }
 +  XVBA_Decode_Picture_End_Input endInput;
 +  endInput.size = sizeof(endInput);
 +  endInput.session = xvba->m_xvbaSession;
-+  if (Success != g_XVBA_vtable.EndDecodePicture(&endInput))
-+  {
-+    xvba->SetError(__FUNCTION__, "failed to decode picture 3", __LINE__);
-+    return;
++  { CSingleLock lock(xvba->m_apiSec);
++    if (Success != g_XVBA_vtable.EndDecodePicture(&endInput))
++    {
++      xvba->SetError(__FUNCTION__, "failed to decode picture 3", __LINE__);
++      return;
++    }
 +  }
 +
 +  // decode sync and error
@@ -2869,10 +2879,12 @@ index 0000000..c3b1ee7
 +  int64_t start = CurrentHostCounter();
 +  while (1)
 +  {
-+    if (Success != g_XVBA_vtable.SyncSurface(&syncInput, &syncOutput))
-+    {
-+      xvba->SetError(__FUNCTION__, "failed sync surface 1", __LINE__);
-+      return;
++    { CSingleLock lock(xvba->m_apiSec);
++      if (Success != g_XVBA_vtable.SyncSurface(&syncInput, &syncOutput))
++      {
++        xvba->SetError(__FUNCTION__, "failed sync surface 1", __LINE__);
++        return;
++      }
 +    }
 +    if (!(syncOutput.status_flags & XVBA_STILL_PENDING))
 +      break;
@@ -2945,10 +2957,12 @@ index 0000000..c3b1ee7
 +    surfaceInput.height = xvba->m_surfaceHeight;
 +    surfaceInput.session = xvba->m_xvbaSession;
 +    surfaceOutput.size = sizeof(surfaceOutput);
-+    if (Success != g_XVBA_vtable.CreateSurface(&surfaceInput, &surfaceOutput))
-+    {
-+      xvba->SetError(__FUNCTION__, "failed to create video surface", __LINE__);
-+      return -1;
++    { CSingleLock lock(xvba->m_apiSec);
++      if (Success != g_XVBA_vtable.CreateSurface(&surfaceInput, &surfaceOutput))
++      {
++        xvba->SetError(__FUNCTION__, "failed to create video surface", __LINE__);
++        return -1;
++      }
 +    }
 +    CSingleLock lock(xvba->m_videoSurfaceSec);
 +    render->surface = surfaceOutput.surface;
@@ -3157,9 +3171,11 @@ index 0000000..c3b1ee7
 +  input.target_width = m_surfaceWidth;
 +  input.target_height = m_surfaceHeight;
 +  input.target_parameter = target;
-+  if (Success != g_XVBA_vtable.GetSurface(&input))
-+  {
-+    CLog::Log(LOGERROR,"(XVBA::CopyYV12) failed to get  surface");
++  { CSingleLock lock(m_apiSec);
++    if (Success != g_XVBA_vtable.GetSurface(&input))
++    {
++      CLog::Log(LOGERROR,"(XVBA::CopyYV12) failed to get  surface");
++    }
 +  }
 +
 +  if (m_presentPicture->render)
@@ -3242,10 +3258,12 @@ index 0000000..c3b1ee7
 +    transInput.src_surface = m_flipBuffer[index].outPic->render->surface;
 +    transInput.target_surface = m_flipBuffer[index].glSurface[i];
 +    transInput.flag = field;
-+    if (Success != g_XVBA_vtable.TransferSurface(&transInput))
-+    {
-+      CLog::Log(LOGERROR,"(XVBA) failed to transfer surface");
-+      return -1;
++    { CSingleLock lock(m_apiSec);
++      if (Success != g_XVBA_vtable.TransferSurface(&transInput))
++      {
++        CLog::Log(LOGERROR,"(XVBA) failed to transfer surface");
++        return -1;
++      }
 +    }
 +  }
 +
@@ -3318,10 +3336,10 @@ index 0000000..c3b1ee7
 +#endif
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
 new file mode 100644
-index 0000000..8dfc1c2
+index 0000000..b3c5f5b
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
-@@ -0,0 +1,157 @@
+@@ -0,0 +1,158 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -3471,6 +3489,7 @@ index 0000000..8dfc1c2
 +    GLuint glTexture[3];
 +  };
 +  CCriticalSection m_outPicSec, m_videoSurfaceSec;
++  CCriticalSection m_apiSec;
 +  OutputPicture m_allOutPic[NUM_OUTPUT_PICS];
 +  std::deque<OutputPicture*> m_freeOutPic;
 +  std::deque<OutputPicture*> m_usedOutPic;
