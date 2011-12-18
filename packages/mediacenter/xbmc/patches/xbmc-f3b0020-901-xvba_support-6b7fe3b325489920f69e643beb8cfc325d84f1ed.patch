@@ -1034,7 +1034,7 @@ index f0b4aeb..47d25e4 100644
    m_paused = false;
    m_clock = 0;
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-index 4961b7d..f767eaa 100644
+index 4961b7d..56dd373 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 @@ -60,6 +60,9 @@
@@ -1237,7 +1237,7 @@ index 4961b7d..f767eaa 100644
  void CLinuxRendererGL::RenderSoftware(int index, int field)
  {
    YUVPLANES &planes = m_buffers[index].fields[field];
-@@ -2351,6 +2459,390 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
+@@ -2351,6 +2459,402 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
  #endif
  }
  
@@ -1354,6 +1354,11 @@ index 4961b7d..f767eaa 100644
 +  YV12Image &im     = m_buffers[index].image;
 +  YUVFIELDS &fields = m_buffers[index].fields;
 +  GLuint    *pbo    = m_buffers[index].pbo;
++
++  if (m_buffers[index].xvba)
++    m_buffers[index].xvba->FinishGL();
++
++  SAFE_RELEASE(m_buffers[index].xvba);
 +
 +  if( fields[FIELD_FULL][0].id == 0 ) return;
 +
@@ -1547,11 +1552,12 @@ index 4961b7d..f767eaa 100644
 +
 +void CLinuxRendererGL::UploadXVBAyv12Texture(int source)
 +{
-+  YUVBUFFER& buf    =  m_buffers[source];
-+  YV12Image* im     = &buf.image;
-+  YUVFIELDS& fields =  buf.fields;
++  YUVBUFFER& buf       =  m_buffers[source];
++  YV12Image* im        = &buf.image;
++  YUVFIELDS& fields    =  buf.fields;
++  XVBA::CDecoder *xvba = m_buffers[source].xvba;
 +
-+  if (!(im->flags&IMAGE_FLAG_READY))
++  if (!(im->flags&IMAGE_FLAG_READY) || !xvba)
 +  {
 +    m_eventTexturesDone[source]->Set();
 +    return;
@@ -1620,6 +1626,12 @@ index 4961b7d..f767eaa 100644
 +
 +  VerifyGLState();
 +
++  // crop texture
++  CRect crop = xvba->GetCropRect();
++  m_sourceRect.x1 += crop.x1;
++  m_sourceRect.x2 -= m_sourceWidth - crop.x2;
++  m_sourceRect.y1 += crop.y1;
++  m_sourceRect.y2 -= m_sourceHeight - crop.y2;
 +  CalculateTextureSourceRects(source, 3);
 +
 +  glDisable(m_textureTarget);
@@ -1628,7 +1640,7 @@ index 4961b7d..f767eaa 100644
  void CLinuxRendererGL::UploadYUV422PackedTexture(int source)
  {
    YUVBUFFER& buf    =  m_buffers[source];
-@@ -2934,6 +3426,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2934,6 +3438,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1638,7 +1650,7 @@ index 4961b7d..f767eaa 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2947,6 +3442,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2947,6 +3454,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1648,7 +1660,7 @@ index 4961b7d..f767eaa 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2970,7 +3468,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2970,7 +3480,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
    if (feature == RENDERFEATURE_NONLINSTRETCH)
    {
      if (((m_renderMethod & RENDER_GLSL) && !(m_renderMethod & RENDER_POT)) ||
@@ -1658,7 +1670,7 @@ index 4961b7d..f767eaa 100644
        return true;
    }
  
-@@ -3010,10 +3509,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
+@@ -3010,10 +3521,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
    if(m_renderMethod & RENDER_VAAPI)
      return false;
  
@@ -1685,7 +1697,7 @@ index 4961b7d..f767eaa 100644
  
    if((method == VS_INTERLACEMETHOD_RENDER_BLEND
    ||  method == VS_INTERLACEMETHOD_RENDER_WEAVE_INVERTED
-@@ -3045,7 +3556,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
+@@ -3045,7 +3568,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
    || method == VS_SCALINGMETHOD_LANCZOS3)
    {
      if ((glewIsSupported("GL_EXT_framebuffer_object") && (m_renderMethod & RENDER_GLSL)) ||
@@ -1694,7 +1706,7 @@ index 4961b7d..f767eaa 100644
      {
        // spline36 and lanczos3 are only allowed through advancedsettings.xml
        if(method != VS_SCALINGMETHOD_SPLINE36
-@@ -3104,7 +3615,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
+@@ -3104,7 +3627,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
      pbo = true;
  
      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, buff.pbo[plane]);
@@ -1703,7 +1715,7 @@ index 4961b7d..f767eaa 100644
      buff.image.plane[plane] = (BYTE*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB) + PBO_OFFSET;
    }
    if(pbo)
-@@ -3128,4 +3639,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
+@@ -3128,4 +3651,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
  }
  #endif
  
@@ -1801,7 +1813,7 @@ index f663380..cbe82c5 100644
  #define CONF_FLAGS_FORMAT_BYPASS 0x100000
  #endif
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index 31bb49a..f9a7aa2 100644
+index 31bb49a..25cd49a 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
 @@ -53,6 +53,10 @@
@@ -1835,7 +1847,7 @@ index 31bb49a..f9a7aa2 100644
  
    m_presentevent.Set();
  }
-@@ -779,6 +791,23 @@ int CXBMCRenderManager::AddVideoPicture(DVDVideoPicture& pic)
+@@ -779,6 +791,25 @@ int CXBMCRenderManager::AddVideoPicture(DVDVideoPicture& pic)
    else if(pic.format == DVDVideoPicture::FMT_VAAPI)
      m_pRenderer->AddProcessor(*pic.vaapi);
  #endif
@@ -1852,7 +1864,9 @@ index 31bb49a..f9a7aa2 100644
 +  {
 +    if (pic.xvba)
 +    {
-+      pic.xvba->CopyYV12(image.plane[0]);
++      m_pRenderer->AddProcessor(pic.xvba);
++      pic.xvba->Present(index);
++      pic.xvba->CopyYV12(index, image.plane[0]);
 +    }
 +  }
 +#endif
@@ -1970,10 +1984,10 @@ index 1dce256..8b7d5fb 100644
  
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
 new file mode 100644
-index 0000000..25c0fb9
+index 0000000..7478aa3
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
-@@ -0,0 +1,1360 @@
+@@ -0,0 +1,1356 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -3121,11 +3135,18 @@ index 0000000..25c0fb9
 +
 +  if (!m_presentPicture)
 +  {
-+    CLog::Log(LOGWARNING, "XVBA::Present: present picture is NULL");
-+    return;
++    // use last picture, we might processing a still frame here
++    int lastIndex = (index + m_numRenderBuffers -1) % m_numRenderBuffers;
++    m_presentPicture = m_flipBuffer[lastIndex].outPic;
++    m_flipBuffer[lastIndex].isDuplicate = true;
++    if (!m_presentPicture)
++    {
++      CLog::Log(LOGWARNING, "XVBA::Present: present picture is NULL");
++      return;
++    }
 +  }
 +
-+  if (m_flipBuffer[index].outPic)
++  if (m_flipBuffer[index].outPic && !m_flipBuffer[index].isDuplicate)
 +  {
 +    if (m_flipBuffer[index].outPic->render)
 +    {
@@ -3139,10 +3160,11 @@ index 0000000..25c0fb9
 +  }
 +
 +  m_flipBuffer[index].outPic = m_presentPicture;
++  m_flipBuffer[index].isDuplicate = false;
 +  m_presentPicture = NULL;
 +}
 +
-+void CDecoder::CopyYV12(uint8_t *dest)
++void CDecoder::CopyYV12(int index, uint8_t *dest)
 +{
 +  CSharedLock lock(m_decoderSection);
 +
@@ -3151,7 +3173,7 @@ index 0000000..25c0fb9
 +      return;
 +  }
 +
-+  if (!m_presentPicture)
++  if (!m_flipBuffer[index].outPic)
 +  {
 +    CLog::Log(LOGWARNING, "XVBA::Present: present picture is NULL");
 +    return;
@@ -3165,7 +3187,7 @@ index 0000000..25c0fb9
 +  XVBA_Get_Surface_Input input;
 +  input.size = sizeof(input);
 +  input.session = m_xvbaSession;
-+  input.src_surface = m_presentPicture->render->surface;
++  input.src_surface = m_flipBuffer[index].outPic->render->surface;
 +  input.target_buffer = dest;
 +  input.target_pitch = m_surfaceWidth;
 +  input.target_width = m_surfaceWidth;
@@ -3176,18 +3198,6 @@ index 0000000..25c0fb9
 +    {
 +      CLog::Log(LOGERROR,"(XVBA::CopyYV12) failed to get  surface");
 +    }
-+  }
-+
-+  if (m_presentPicture->render)
-+  {
-+    CSingleLock lock(m_videoSurfaceSec);
-+    m_presentPicture->render->state &= ~FF_XVBA_STATE_USED_FOR_RENDER;
-+    m_presentPicture->render = NULL;
-+  }
-+  {
-+    CSingleLock lock(m_outPicSec);
-+    m_freeOutPic.push_back(m_presentPicture);
-+    m_presentPicture = NULL;
 +  }
 +}
 +
@@ -3303,7 +3313,7 @@ index 0000000..25c0fb9
 +
 +  for (unsigned int i=0; i<m_numRenderBuffers;++i)
 +  {
-+    if (m_flipBuffer[i].outPic)
++    if (m_flipBuffer[i].outPic && !m_flipBuffer[i].isDuplicate)
 +    {
 +      { CSingleLock lock(m_videoSurfaceSec);
 +        m_flipBuffer[i].outPic->render->state &= ~FF_XVBA_STATE_USED_FOR_RENDER;
@@ -3336,10 +3346,10 @@ index 0000000..25c0fb9
 +#endif
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
 new file mode 100644
-index 0000000..b3c5f5b
+index 0000000..bbb7881
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,159 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -3431,7 +3441,7 @@ index 0000000..b3c5f5b
 +  virtual const std::string Name() { return "xvba"; }
 +
 +  void Present(int index);
-+  void CopyYV12(uint8_t *dest);
++  void CopyYV12(int index, uint8_t *dest);
 +  int UploadTexture(int index, XVBA_SURFACE_FLAG field, GLenum textureTarget);
 +  GLuint GetTexture(int index, XVBA_SURFACE_FLAG field);
 +  CRect GetCropRect();
@@ -3485,6 +3495,7 @@ index 0000000..b3c5f5b
 +  struct RenderPicture
 +  {
 +    OutputPicture *outPic;
++    bool isDuplicate;
 +    void *glSurface[3];
 +    GLuint glTexture[3];
 +  };
@@ -6971,7 +6982,7 @@ index b91477d..8a05568 100644
  
    // threaded lookup functions
 diff --git a/xbmc/video/VideoInfoScanner.cpp b/xbmc/video/VideoInfoScanner.cpp
-index 4fae348..7715dd9 100644
+index b9a1522..3750f7a 100644
 --- a/xbmc/video/VideoInfoScanner.cpp
 +++ b/xbmc/video/VideoInfoScanner.cpp
 @@ -53,7 +53,7 @@ using namespace ADDON;
