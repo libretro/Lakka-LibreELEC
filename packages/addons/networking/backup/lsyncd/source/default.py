@@ -18,19 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="lua"
-PKG_VERSION="5.1.4"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="MIT"
-PKG_SITE="http://www.lua.org/"
-PKG_URL="http://www.lua.org/ftp/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
-PKG_PRIORITY="optional"
-PKG_SECTION="lang"
-PKG_SHORTDESC="lua: A lightweight, extensible programming language"
-PKG_LONGDESC="Lua is a powerful light-weight programming language designed for extending applications. Lua is also frequently used as a general-purpose, stand-alone language."
-PKG_IS_ADDON="no"
-
-PKG_AUTORECONF="no"
+import os
+import sys
+import xbmcaddon
