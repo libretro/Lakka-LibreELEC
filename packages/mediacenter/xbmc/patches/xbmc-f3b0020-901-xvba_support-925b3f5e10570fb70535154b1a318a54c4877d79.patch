@@ -1034,7 +1034,7 @@ index f0b4aeb..47d25e4 100644
    m_paused = false;
    m_clock = 0;
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-index 4961b7d..56dd373 100644
+index 4961b7d..df3ec01 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 @@ -60,6 +60,9 @@
@@ -1237,7 +1237,7 @@ index 4961b7d..56dd373 100644
  void CLinuxRendererGL::RenderSoftware(int index, int field)
  {
    YUVPLANES &planes = m_buffers[index].fields[field];
-@@ -2351,6 +2459,402 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
+@@ -2351,6 +2459,408 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
  #endif
  }
  
@@ -1351,6 +1351,7 @@ index 4961b7d..56dd373 100644
 +//********************************************************************************************************
 +void CLinuxRendererGL::DeleteXVBAyv12Texture(int index)
 +{
++#ifdef HAVE_LIBXVBA
 +  YV12Image &im     = m_buffers[index].image;
 +  YUVFIELDS &fields = m_buffers[index].fields;
 +  GLuint    *pbo    = m_buffers[index].pbo;
@@ -1398,10 +1399,12 @@ index 4961b7d..56dd373 100644
 +      im.plane[0] = NULL;
 +    }
 +  }
++#endif
 +}
 +
 +bool CLinuxRendererGL::CreateXVBAyv12Texture(int index)
 +{
++#ifdef HAVE_LIBXVBA
 +  /* since we also want the field textures, pitch must be texture aligned */
 +  unsigned p;
 +
@@ -1547,11 +1550,13 @@ index 4961b7d..56dd373 100644
 +  }
 +  glDisable(m_textureTarget);
 +  m_eventTexturesDone[index]->Set();
++#endif
 +  return true;
 +}
 +
 +void CLinuxRendererGL::UploadXVBAyv12Texture(int source)
 +{
++#ifdef HAVE_LIBXVBA
 +  YUVBUFFER& buf       =  m_buffers[source];
 +  YV12Image* im        = &buf.image;
 +  YUVFIELDS& fields    =  buf.fields;
@@ -1635,12 +1640,13 @@ index 4961b7d..56dd373 100644
 +  CalculateTextureSourceRects(source, 3);
 +
 +  glDisable(m_textureTarget);
++#endif
 +}
 +
  void CLinuxRendererGL::UploadYUV422PackedTexture(int source)
  {
    YUVBUFFER& buf    =  m_buffers[source];
-@@ -2934,6 +3438,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2934,6 +3444,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1650,7 +1656,7 @@ index 4961b7d..56dd373 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2947,6 +3454,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2947,6 +3460,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1660,7 +1666,7 @@ index 4961b7d..56dd373 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2970,7 +3480,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2970,7 +3486,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
    if (feature == RENDERFEATURE_NONLINSTRETCH)
    {
      if (((m_renderMethod & RENDER_GLSL) && !(m_renderMethod & RENDER_POT)) ||
@@ -1670,7 +1676,7 @@ index 4961b7d..56dd373 100644
        return true;
    }
  
-@@ -3010,10 +3521,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
+@@ -3010,10 +3527,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
    if(m_renderMethod & RENDER_VAAPI)
      return false;
  
@@ -1697,7 +1703,7 @@ index 4961b7d..56dd373 100644
  
    if((method == VS_INTERLACEMETHOD_RENDER_BLEND
    ||  method == VS_INTERLACEMETHOD_RENDER_WEAVE_INVERTED
-@@ -3045,7 +3568,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
+@@ -3045,7 +3574,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
    || method == VS_SCALINGMETHOD_LANCZOS3)
    {
      if ((glewIsSupported("GL_EXT_framebuffer_object") && (m_renderMethod & RENDER_GLSL)) ||
@@ -1706,7 +1712,7 @@ index 4961b7d..56dd373 100644
      {
        // spline36 and lanczos3 are only allowed through advancedsettings.xml
        if(method != VS_SCALINGMETHOD_SPLINE36
-@@ -3104,7 +3627,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
+@@ -3104,7 +3633,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
      pbo = true;
  
      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, buff.pbo[plane]);
@@ -1715,7 +1721,7 @@ index 4961b7d..56dd373 100644
      buff.image.plane[plane] = (BYTE*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB) + PBO_OFFSET;
    }
    if(pbo)
-@@ -3128,4 +3651,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
+@@ -3128,4 +3657,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
  }
  #endif
  
@@ -5224,6 +5230,19 @@ index d4c58e4..3ac73f9 100644
  {
    m_port = port;
    m_nonlocal = nonlocal;
+diff --git a/xbmc/network/AirTunesServer.cpp b/xbmc/network/AirTunesServer.cpp
+index 16f6e41..4799a24 100644
+--- a/xbmc/network/AirTunesServer.cpp
++++ b/xbmc/network/AirTunesServer.cpp
+@@ -279,7 +279,7 @@ void CAirTunesServer::StopServer(bool bWait)
+   }
+ }
+ 
+-CAirTunesServer::CAirTunesServer(int port, bool nonlocal)
++CAirTunesServer::CAirTunesServer(int port, bool nonlocal) : CThread("CAirTunesServer")
+ {
+   m_port = port;
+   m_pLibShairport = new DllLibShairport();
 diff --git a/xbmc/network/Network.h b/xbmc/network/Network.h
 index cb0ea52..e514e05 100644
 --- a/xbmc/network/Network.h
@@ -6995,7 +7014,7 @@ index b9a1522..3750f7a 100644
      m_bRunning = false;
      m_pObserver = NULL;
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 076dc3a..4a997b0 100644
+index 076dc3a..3f8080e 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -106,7 +106,7 @@ using namespace std;
@@ -7007,6 +7026,106 @@ index 076dc3a..4a997b0 100644
  {
    m_SystemFrequency = CurrentHostFrequency();
    m_ClockSpeed = 1.0;
+@@ -159,6 +159,8 @@ void CVideoReferenceClock::Process()
+     m_RefreshChanged = 0;
+     m_Started.Set();
+ 
++    SetPriority(1);
++
+     if (SetupSuccess)
+     {
+       m_UseVblank = true;          //tell other threads we're using vblank as clock
+@@ -217,6 +219,7 @@ bool CVideoReferenceClock::SetupGLX()
+     GLX_RED_SIZE,      0,
+     GLX_GREEN_SIZE,    0,
+     GLX_BLUE_SIZE,     0,
++    GLX_DOUBLEBUFFER,
+     None
+   };
+ 
+@@ -463,6 +466,19 @@ void CVideoReferenceClock::RunGLX()
+   bool          IsReset = false;
+   int64_t       Now;
+ 
++  bool AtiWorkaround = false;
++  const char* VendorPtr = (const char*)glGetString(GL_VENDOR);
++  if (VendorPtr)
++  {
++    CStdString Vendor = VendorPtr;
++    Vendor.ToLower();
++    if (Vendor.compare(0, 3, "ati") == 0)
++    {
++      CLog::Log(LOGDEBUG, "CVideoReferenceClock: GL_VENDOR: %s, using ati workaround", VendorPtr);
++      AtiWorkaround = true;
++    }
++  }
++
+   CSingleLock SingleLock(m_CritSection);
+   SingleLock.Leave();
+ 
+@@ -473,7 +489,14 @@ void CVideoReferenceClock::RunGLX()
+   while(!m_bStop)
+   {
+     //wait for the next vblank
+-    ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
++    if (!AtiWorkaround)
++      ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
++    else
++    {
++      glXSwapBuffers(m_Dpy,m_Window);
++      ReturnV = 0;
++    }
++
+     m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
+     Now = CurrentHostCounter();         //get the timestamp of this vblank
+ 
+@@ -492,7 +515,6 @@ void CVideoReferenceClock::RunGLX()
+       SingleLock.Leave();
+       SendVblankSignal();
+       UpdateRefreshrate();
+-
+       IsReset = false;
+     }
+     else
+@@ -503,21 +525,24 @@ void CVideoReferenceClock::RunGLX()
+       if (IsReset)
+         return;
+ 
+-      //because of a bug in the nvidia driver, glXWaitVideoSyncSGI breaks when the vblank counter resets
+-      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detaching glX context");
+-      ReturnV = glXMakeCurrent(m_Dpy, None, NULL);
+-      if (ReturnV != True)
++      if (!AtiWorkaround)
+       {
+-        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
+-        return;
+-      }
+-
+-      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Attaching glX context");
+-      ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
+-      if (ReturnV != True)
+-      {
+-        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
+-        return;
++        //because of a bug in the nvidia driver, glXWaitVideoSyncSGI breaks when the vblank counter resets
++        CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detaching glX context");
++        ReturnV = glXMakeCurrent(m_Dpy, None, NULL);
++        if (ReturnV != True)
++        {
++          CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
++          return;
++        }
++
++        CLog::Log(LOGDEBUG, "CVideoReferenceClock: Attaching glX context");
++        ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
++        if (ReturnV != True)
++        {
++          CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
++          return;
++        }
+       }
+ 
+       m_glXGetVideoSyncSGI(&VblankCount);
 diff --git a/xbmc/win32/PlatformDefs.h b/xbmc/win32/PlatformDefs.h
 index 57cab8f..74e3d53 100644
 --- a/xbmc/win32/PlatformDefs.h
