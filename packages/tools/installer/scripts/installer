@@ -77,7 +77,7 @@ get_device_unmount() {
 }
 
 get_partition() {
-  # get all partitions of an specifed device
+  # get all partitions of a specifed device
   # usage:    get_partitions /dev/sda
   # uses:     -
   # provides: PARTITIONS
@@ -86,7 +86,7 @@ get_partition() {
 }
 
 create_device_list() {
-  # create devices list for menu
+  # creates device list to use in menus
   # usage:    create_devices_list
   # uses:     get_device_unmount
   # provides: DEVICE_MODEL, DEVICE_SIZE, DEVICE_LIST, DEVICE_NAME,
@@ -106,14 +106,14 @@ create_device_list() {
     for i in $DEVICES; do
       DEVICE_MODEL=$(parted $i -m print | grep ^$i | cut -f7 -d ":" | sed "s/;//")
       DEVICE_SIZE=$(parted $i -m print | grep ^$i | cut -f2 -d ":")
-      DEVICE_NAME=`echo $DEVICE_MODEL ${DEVICE_SIZE} | sed 's/ /_/g'`
+      DEVICE_NAME=$(echo $DEVICE_MODEL ${DEVICE_SIZE} | sed 's/ /_/g')
       DEVICE_LIST="$DEVICE_LIST $i $DEVICE_NAME"
     done
 }
 
 create_partition_list() {
-  # get an overview of all partitions of an specifed device
-  # usage:    get_partition_list /dev/sda
+  # get an overview of all partitions of a specified device
+  # usage:    create_partition_list /dev/sda
   # uses:     get_partition
   # provides: PARTITION_NUMBER, PARTITION_SIZE, PARTITION_FORMAT,
   #           PARTITION_LIST, PARTITIONS (get_partition)
@@ -146,13 +146,18 @@ do_install_mbr() {
       --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
       $DEVICE_LIST 2> $TMPDIR/device_for_install
 
-  # now we must do anything
+  # now we must do everything
     case $? in
       0)
-        INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install" )
+        INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install")
 
         # installing mbr
-          cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+          prompt_gpt
+          if [ "$GPT" = "1" ]; then
+            cat /usr/share/syslinux/gptmbr.bin > $INSTALL_DEVICE
+          else
+            cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+          fi
 
           msg_install_ready "Master Boot Record installed on $INSTALL_DEVICE"
         ;;
@@ -178,10 +183,12 @@ do_install_quick() {
       --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
       $DEVICE_LIST 2> $TMPDIR/device_for_install
 
-  # now we must do anything
+  # now we must do everything
     case $? in
       0)
-        INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install" )
+        INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install")
+
+        prompt_gpt
 
         # remove all partitions
           msg_progress_install "1" "get all partitions $INSTALL_DEVICE"
@@ -193,10 +200,18 @@ do_install_quick() {
         # create 2 new partitions (first $PARTSIZE_SYSTEM, second rest)
 
           msg_progress_install "7" "creating label on $INSTALL_DEVICE"
-            parted -s $INSTALL_DEVICE mklabel msdos >> $LOGFILE 2>&1
+            if [ "$GPT" = "1" ]; then
+              parted -s $INSTALL_DEVICE mklabel gpt >> $LOGFILE 2>&1
+            else
+              parted -s $INSTALL_DEVICE mklabel msdos >> $LOGFILE 2>&1
+            fi
 
           msg_progress_install "9" "writing Master Boot Record on $INSTALL_DEVICE"
-            cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+            if [ "$GPT" = "1" ]; then
+              cat /usr/share/syslinux/gptmbr.bin > $INSTALL_DEVICE
+            else
+              cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+            fi
 
           msg_progress_install "10" "creating partition on $INSTALL_DEVICE"
             parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
@@ -206,6 +221,9 @@ do_install_quick() {
 
           msg_progress_install "16" "setup bootflag on partition 1 of $INSTALL_DEVICE"
             parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
+            if [ "$GPT" = "1" ]; then
+              parted -s $INSTALL_DEVICE set 1 legacy_boot on >> $LOGFILE 2>&1
+            fi
 
           msg_progress_install "20" "tell the kernel we have a new partitiontable on $INSTALL_DEVICE"
             partprobe $INSTALL_DEVICE >> $LOGFILE 2>&1
@@ -271,7 +289,7 @@ do_install_quick() {
 }
 
 msg_not_implemented() {
-  # show an dialog that this function is not yet implemented
+  # show a dialog that this function is not yet implemented
     MSG_TITLE="\Z2[ WORK IN PROGRESS ]\Zn"
     MSG_INFOBOX=" This function is not implemented yet."
 
@@ -279,7 +297,7 @@ msg_not_implemented() {
 }
 
 msg_oem_only() {
-  # show an dialog that this function is only implemented on special builds
+  # show a dialog that this function is only implemented on special builds
     MSG_TITLE="\Z2[ FOR OEM ONLY ]\Zn"
     MSG_INFOBOX=" OEM only feature, this function is not implemented in this build. \n if you have questions about this feature \n visit http://www.openelec.tv"
 
@@ -287,7 +305,7 @@ msg_oem_only() {
 }
 
 msg_warning_beta() {
-  # show an warning dialog if we use beta software
+  # show a warning dialog if we use beta software
     MSG_TITLE="\Z1[ BETA WARNING ]\Zn"
     MSG_INFOBOX=" This installer is  for beta versions. \n This means this sofware have not been tested yet. \n Please make sure you have a backup of your files."
 
@@ -295,7 +313,7 @@ msg_warning_beta() {
 }
 
 msg_no_device() {
-  # show an warning dialog if we dont find not mounted devices for install and return to main menu
+  # show a warning dialog if we dont find not mounted devices for install and return to main menu
     MSG_TITLE="\Z1[ WARNING ]\Zn"
     MSG_INFOBOX=" No devices were found. \n If you are trying to install on a brand new harddisk you must \n create atleast one partition. \n Otherwise it won't be found. \n If you dont know how, ask in the forum or on IRC."
 
@@ -305,7 +323,7 @@ msg_no_device() {
 }
 
 msg_install_ready() {
-  # show an dialog that we have installed
+  # show a dialog that we have installed
     MSG_TITLE="\Z1[ INFORMATION ]\Zn"
 
     dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox " $1" 7 70
@@ -321,12 +339,40 @@ msg_progress_install() {
     dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --gauge "$2 ..." 6 70 $1 &
 }
 
+prompt_gpt() {
+  # Prompt for GPT use
+  # usage:    prompt_gpt
+  # uses:     INSTALL_DEVICE
+  # provides: GPT
+    MSG_TITLE="\Z1[ Partition Table Type ]\Zn"
+    # Get "msdos" or "gpt"
+    INSTALL_DEVICE_PARTITION_TYPE=$(parted -s -m $INSTALL_DEVICE print | grep $INSTALL_DEVICE | cut -f6 -d ":")
+    # Get size in GB
+    INSTALL_DEVICE_SIZE=$(($(cat /sys/block/${INSTALL_DEVICE#/dev/}/size)*512/1000/1000/1000))
+    if [ "$INSTALL_DEVICE_PARTITION_TYPE" = "gpt" ]; then
+        MSG_DETAIL="GUID Partition Table detected on the destination disk. It is recommended that you keep it."
+        DIALOG_OPTIONS=""
+    # 2^41 bytes is the DOS limit = 2199023255552 (2.2TB)
+    elif [ "$INSTALL_DEVICE_SIZE" -ge 2200 ] 2>/dev/null; then
+        MSG_DETAIL="Destination disk is too large to use a DOS partition table. You will need to use a GUID Partition Table."
+        DIALOG_OPTIONS=""
+    else
+        MSG_DETAIL="You should only use a GUID Partition Table if you know what you are doing."
+        DIALOG_OPTIONS="--defaultno"
+    fi
+    if dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" $DIALOG_OPTIONS --yesno "Use GPT partitions?\n$MSG_DETAIL" 0 0; then
+        GPT="1"
+    else
+        GPT="0"
+    fi
+}
+
 menu_main() {
   # show the mainmenu
     MSG_TITLE="\Z4[ MAIN MENU ]\Zn"
-    MSG_MENU="\n\ZbQuick Install:\Zn do an default installation on an specific device \
-              \Z1\Zb(this will delete all your data on this device)\Zn \
-              \n\ZbCustom Install:\Zn do an custom installation \
+    MSG_MENU="\n\ZbQuick Install:\Zn do a default installation on a specific device \
+              \Z1\Zb(this will delete ALL data on this device!)\Zn \
+              \n\ZbCustom Install:\Zn do a custom installation \
               \n\ZbSetup:\Zn change some settings to run OpenELEC \
               \n\ZbBIOS Update:\Zn backup and update your BIOS (only for OEMs) \
               \n\ZbShow logfile:\Zn show and save the logfile \
@@ -344,7 +390,7 @@ menu_main() {
 
     case $? in
       0)
-        ITEM_MAINMENU=$(cat "$TMPDIR/mainmenu" )
+        ITEM_MAINMENU=$(cat "$TMPDIR/mainmenu")
         case $ITEM_MAINMENU in
           1) do_install_quick; break;;
           2) menu_custom; break;;
@@ -382,7 +428,7 @@ menu_bios() {
 
     case $? in
       0)
-        ITEM_BIOSMENU=$(cat "$TMPDIR/biosmenu" )
+        ITEM_BIOSMENU=$(cat "$TMPDIR/biosmenu")
         case $ITEM_BIOSMENU in
           1) bios_backup; break;;
           2) bios_update; break;;
@@ -405,7 +451,7 @@ menu_custom() {
 }
 
 bios_backup() {
-  # create an backup from installed bios
+  # create a backup of the installed bios
     if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
 
       clear
