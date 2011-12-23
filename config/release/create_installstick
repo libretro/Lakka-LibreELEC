@@ -66,7 +66,7 @@ echo "#########################################################"
     echo "#                                                       #"
     echo "# OpenELEC.tv missing tool - Installation will quit     #"
     echo "#                                                       #"
-    echo "#      We can't find the required tool \"syslinux\"     #"
+    echo "#      We can't find the required tool \"syslinux\"       #"
     echo "#      on your system.                                  #"
     echo "#      Please install it via your package manager.      #"
     echo "#                                                       #"
@@ -82,17 +82,17 @@ echo "#########################################################"
     echo "#                                                       #"
     echo "# OpenELEC.tv missing tool - Installation will quit     #"
     echo "#                                                       #"
-    echo "#      We can't find the required tool \"mcopy\"        #"
+    echo "#      We can't find the required tool \"mcopy\"          #"
     echo "#      on your system.                                  #"
     echo "#      Please install it via your package manager.      #"
     echo "#      NOTE: Some distributions call this package       #"
-    echo "#      \"mtools\".                                      #"
+    echo "#      \"mtools\".                                        #"
     echo "#                                                       #"
     echo "#########################################################"
     exit 1
   fi
 
-  # this is needed to partion the stick
+  # this is needed to partion the drive
   which parted > /dev/null
   if [ "$?" = "1" ]; then
     clear
@@ -100,7 +100,7 @@ echo "#########################################################"
     echo "#                                                       #"
     echo "# OpenELEC.tv missing tool - Installation will quit     #"
     echo "#                                                       #"
-    echo "#      We can't find the required tool \"parted\"       #"
+    echo "#      We can't find the required tool \"parted\"         #"
     echo "#      on your system.                                  #"
     echo "#      Please install it via your package manager.      #"
     echo "#                                                       #"
@@ -136,46 +136,46 @@ echo "#########################################################"
     md5sumFailed
   fi
 
-# (TODO) umount anything
+# (TODO) umount everything (if more than one partition)
   umount "$PART"
 
-# remove any partition on your drive
-  echo "writing new disklabel on $DISK (remove any partition)..."
+# remove all partitions from the drive
+  echo "writing new disklabel on $DISK (removing all partitions)..."
   dd if=/dev/zero of="$DISK" bs=4096 count=1024
   parted -s "$DISK" mklabel msdos
 
-# create one partition
-  echo "create an partition on $DISK..."
+# create a single partition
+  echo "creating a partition on $DISK..."
   parted -s "$DISK" unit cyl mkpart primary fat32 -- 0 -0
 
 # make partition active (bootable)
-  echo "make partition active..."
+  echo "marking partition active..."
   parted -s "$DISK" set 1 boot on
 
-# tell kernel we have a new partitiontable
-  echo "tell kernel we have a new partitiontable..."
+# tell kernel we have a new partition table
+  echo "telling kernel we have a new partition table..."
   partprobe "$DISK"
 
-# make filesystem
-  echo "make filesystem on $PART..."
+# create filesystem
+  echo "creating filesystem on $PART..."
   mkfs.vfat "$PART" -n OpenELEC
 
 # install syslinux
-  echo "install syslinux to $PART..."
+  echo "installing syslinux to $PART..."
   syslinux -f "$PART"
 
 # mount partition
-  echo "mounting partition $PART to /tmp/usb_install..."
+  echo "mounting partition $PART on /tmp/usb_install..."
   mkdir -p /tmp/usb_install
   mount "$PART" /tmp/usb_install
 
 # find UUID
-  echo -n "finding UUID from $PART ..."
+  echo -n "finding partition UUID for $PART ..."
   UUID=`blkid $PART -s UUID -o value`
   echo "$UUID"
 
-# create bootloader
-  echo "create bootloader..."
+# create bootloader configuration
+  echo "creating bootloader configuration..."
 
   echo "DEFAULT linux" > /tmp/usb_install/syslinux.cfg
   echo "PROMPT 0" >> /tmp/usb_install/syslinux.cfg
@@ -185,7 +185,7 @@ echo "#########################################################"
   echo "  APPEND boot=UUID=$UUID installer quiet" >> /tmp/usb_install/syslinux.cfg
 
 # copy files
-  echo "copy files to $PART..."
+  echo "copying files to $PART..."
   cp target/KERNEL /tmp/usb_install
   cp target/KERNEL.md5 /tmp/usb_install
   cp target/SYSTEM /tmp/usb_install
@@ -197,7 +197,7 @@ echo "#########################################################"
   cp README /tmp/usb_install
   cp RELEASE /tmp/usb_install
 
-# syncing disk
+# sync disk
   echo "syncing disk..."
   sync
 
@@ -212,7 +212,7 @@ echo "#########################################################"
   elif [ -f /usr/share/syslinux/mbr.bin ]; then
     MBR="/usr/share/syslinux/mbr.bin"     # example: fedora
   else
-    echo "Can't find mbr.bin on Host OS"
+    echo "Can't find syslinux's mbr.bin on Host OS"
   fi
 
   if [ -n "$MBR" ]; then
@@ -227,4 +227,4 @@ echo "#########################################################"
   echo "cleaning tempdir..."
   rmdir /tmp/usb_install
 
-echo "...finished installation"
+echo "...installation finished"
