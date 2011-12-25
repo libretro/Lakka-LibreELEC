@@ -1,0 +1,104 @@
+commit 35ce4dd3c5871b5a700d4e07965d93a561299df0
+Author: Mariusz Bialonczyk <manio@skyboo.net>
+Date:   Mon Dec 19 13:45:08 2011 +0100
+
+    Include dvbapi_ca.c functionality in oscam
+
+diff --git a/module-dvbapi.c b/module-dvbapi.c
+index 89221b1..cfc2c41 100644
+--- a/module-dvbapi.c
++++ b/module-dvbapi.c
+@@ -232,6 +232,32 @@ int32_t dvbapi_open_device(int32_t type, int32_t num, int32_t adapter) {
+ 	return dmx_fd;
+ }
+ 
++int32_t dvbapi_open_netdevice(int32_t type, int32_t num, int32_t adapter) {
++	int32_t socket_fd;
++
++	socket_fd = socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
++	if(socket_fd==-1) {
++		cs_debug_mask(D_DVBAPI, "Failed to open socket (%d %s)", errno, strerror(errno));
++	}
++	else {
++		struct sockaddr_in saddr;
++		fcntl(socket_fd,F_SETFL,O_NONBLOCK);
++		bzero(&saddr,sizeof(saddr));
++		saddr.sin_family = AF_INET;
++		saddr.sin_port = htons(PORT + adapter); // port = PORT + adapter number
++		saddr.sin_addr.s_addr = inet_addr("127.0.0.1");
++		int r = connect(socket_fd, (struct sockaddr *) &saddr, sizeof(saddr));
++		if (r<0) {
++			cs_debug_mask(D_DVBAPI, "Failed to connect socket (%d %s), at localhost, port=%d", errno, strerror(errno), PORT + adapter);
++			close(socket_fd);
++			socket_fd=-1;
++		}
++	}
++
++	cs_debug_mask(D_DVBAPI, "NET DEVICE open (port = %d) fd %d", PORT + adapter, socket_fd);
++	return socket_fd;
++}
++
+ int32_t dvbapi_stop_filter(int32_t demux_index, int32_t type) {
+ 	int32_t g;
+ 
+@@ -515,16 +541,21 @@ void dvbapi_set_pid(int32_t demux_id, int32_t num, int32_t index) {
+ 			for (i=0;i<8;i++) {
+ 				if (demux[demux_id].ca_mask & (1 << i)) {
+ 					if (ca_fd[i]<=0)
+-						ca_fd[i]=dvbapi_open_device(1, i, demux[demux_id].adapter_index);
++						ca_fd[i]=dvbapi_open_netdevice(1, i, demux[demux_id].adapter_index);
+ 					if (ca_fd[i]>0) {
+ 						ca_pid_t ca_pid2;
+ 						memset(&ca_pid2,0,sizeof(ca_pid2));
+ 						ca_pid2.pid = demux[demux_id].STREAMpids[num];
+ 						ca_pid2.index = index;
+-						if (ioctl(ca_fd[i], CA_SET_PID, &ca_pid2)==-1)
+-							cs_debug_mask(D_DVBAPI, "Error CA_SET_PID pid=0x%04x index=%d (errno=%d %s)", ca_pid2.pid, ca_pid2.index, errno, strerror(errno));
+-						else
+-							cs_debug_mask(D_DVBAPI, "CA_SET_PID pid=0x%04x index=%d", ca_pid2.pid, ca_pid2.index);
++
++						int request=CA_SET_PID;
++						send(ca_fd[i],(void*)&request, sizeof(request), 0);
++						send(ca_fd[i],(void*)&ca_pid2, sizeof(ca_pid2), 0);
++
++//						if (ioctl(ca_fd[i], CA_SET_PID, &ca_pid2)==-1)
++//							cs_debug_mask(D_DVBAPI, "Error CA_SET_PID pid=0x%04x index=%d (errno=%d %s)", ca_pid2.pid, ca_pid2.index, errno, strerror(errno));
++//						else
++//							cs_debug_mask(D_DVBAPI, "CA_SET_PID pid=0x%04x index=%d", ca_pid2.pid, ca_pid2.index);
+ 					}
+ 				}
+ 			}
+@@ -1836,13 +1867,17 @@ static void dvbapi_write_cw(int32_t demux_id, uchar *cw, int32_t index) {
+ 				if (demux[demux_id].ca_mask & (1 << i)) {
+ 					cs_debug_mask(D_DVBAPI, "write cw%d index: %d (ca%d)", n, ca_descr.index, i);
+ 					if (ca_fd[i]<=0) {
+-						ca_fd[i]=dvbapi_open_device(1, i, demux[demux_id].adapter_index);
++						ca_fd[i]=dvbapi_open_netdevice(1, i, demux[demux_id].adapter_index);
+ 						if (ca_fd[i]<=0)
+ 							return;
+ 					}
+ 
+-					if (ioctl(ca_fd[i], CA_SET_DESCR, &ca_descr) < 0)
+-						cs_debug_mask(D_DVBAPI, "Error CA_SET_DESCR");
++					int request=CA_SET_DESCR;
++					send(ca_fd[i],(void*)&request, sizeof(request), 0);
++					send(ca_fd[i],(void*)&ca_descr, sizeof(ca_descr), 0);
++
++//					if (ioctl(ca_fd[i], CA_SET_DESCR, &ca_descr) < 0)
++//						cs_debug_mask(D_DVBAPI, "Error CA_SET_DESCR");
+ 				}
+ 			}
+ #endif
+diff --git a/module-dvbapi.h b/module-dvbapi.h
+index 2802b03..8720b01 100644
+--- a/module-dvbapi.h
++++ b/module-dvbapi.h
+@@ -16,6 +16,8 @@
+ #define STAPI		2
+ #define COOLAPI		3
+ 
++#define PORT		9000
++
+ #define TMPDIR	"/tmp/"
+ #define STANDBY_FILE	"/tmp/.pauseoscam"
+ #define ECMINFO_FILE	"/tmp/ecm.info"
