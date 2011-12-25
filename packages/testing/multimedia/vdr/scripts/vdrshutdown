@@ -1,0 +1,66 @@
+#!/bin/sh
+
+. /etc/wakeup
+
+do_shutdown()
+{
+  sleep 5
+}
+
+do_reboot()
+{
+  sleep 5
+#  reboot
+}
+
+osdmsg()
+{
+  sleep 2
+  echo "MESG $1" | nc localhost 2001
+}
+
+grep -q LOCAL /etc/adjtime && HWCLOCK_LOCAL_TIME="-l"
+
+TIMER=$1
+[ -z "$TIMER" ] && TIMER=`/usr/bin/getwakeup $HWCLOCK_LOCAL_TIME`
+[ -z "$TIMER" ] && TIMER=0
+
+[ -z "$WAKEUP" -o "$WAKEUP" = no -o -z "$TIMER" ] && do_shutdown
+
+if [ $REGULAR_DAYS -gt 0 ]; then
+  REGULAR_TIMER=$((`date -d "$REGULAR_TIME" +%s` + $REGULAR_DAYS * 24 * 60 * 60))
+
+  # when no vdr timer is set or vdr timer starts later than regular timer:
+  if [ $TIMER -eq 0 ] || [ $TIMER -gt 0 -a $REGULAR_TIMER -lt $TIMER ]; then
+    TIMER=$REGULAR_TIMER
+  fi
+fi
+
+if [ "$WAKEUP" = nvram -a -x /usr/bin/nvram-wakeup ]; then
+  if [ -r /etc/nvram-wakeup.conf ]; then
+    /usr/bin/nvram-wakeup -C /etc/nvram-wakeup.conf -ls $TIMER 
+  elif [ -n "$BOARD_TYPE" ]; then
+    /usr/bin/nvram-wakeup -I $BOARD_TYPE -ls $TIMER
+  else
+    /usr/bin/nvram-wakeup -ls $TIMER
+  fi
+  case $? in
+    0) 
+       do_shutdown
+       ;;
+    1) 
+       do_reboot
+       ;;
+    *) 
+       osdmsg "nvram-wakeup: cannot set time, shutdown aborted!"
+       ;;
+  esac
+elif [ "$WAKEUP" = acpi -a -e /sys/class/rtc/rtc0/wakealarm ]; then
+  echo 0 >/sys/class/rtc/rtc0/wakealarm
+  echo $TIMER >/sys/class/rtc/rtc0/wakealarm
+  echo $TIMER >/sys/class/rtc/rtc0/wakealarm
+  do_shutdown
+else
+  do_shutdown
+fi
+
