@@ -7014,7 +7014,7 @@ index b9a1522..3750f7a 100644
      m_bRunning = false;
      m_pObserver = NULL;
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 076dc3a..3f8080e 100644
+index 076dc3a..1f7c4c6 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -106,7 +106,7 @@ using namespace std;
@@ -7043,7 +7043,17 @@ index 076dc3a..3f8080e 100644
      None
    };
  
-@@ -463,6 +466,19 @@ void CVideoReferenceClock::RunGLX()
+@@ -323,6 +326,9 @@ bool CVideoReferenceClock::SetupGLX()
+     return false;
+   }
+ 
++  m_glXSwapIntervalMESA = NULL;
++  m_glXSwapIntervalMESA = (int (*)(int))glXGetProcAddress((const GLubyte*)"glXSwapIntervalMESA");
++
+   XRRSizes(m_Dpy, m_vInfo->screen, &ReturnV);
+   if (ReturnV == 0)
+   {
+@@ -463,6 +469,19 @@ void CVideoReferenceClock::RunGLX()
    bool          IsReset = false;
    int64_t       Now;
  
@@ -7053,7 +7063,7 @@ index 076dc3a..3f8080e 100644
 +  {
 +    CStdString Vendor = VendorPtr;
 +    Vendor.ToLower();
-+    if (Vendor.compare(0, 3, "ati") == 0)
++    if ((Vendor.compare(0, 3, "ati") == 0) && m_glXSwapIntervalMESA)
 +    {
 +      CLog::Log(LOGDEBUG, "CVideoReferenceClock: GL_VENDOR: %s, using ati workaround", VendorPtr);
 +      AtiWorkaround = true;
@@ -7063,7 +7073,15 @@ index 076dc3a..3f8080e 100644
    CSingleLock SingleLock(m_CritSection);
    SingleLock.Leave();
  
-@@ -473,7 +489,14 @@ void CVideoReferenceClock::RunGLX()
+@@ -470,10 +489,48 @@ void CVideoReferenceClock::RunGLX()
+   m_glXGetVideoSyncSGI(&VblankCount);
+   PrevVblankCount = VblankCount;
+ 
++  int precision = 1;
++  int proximity;
++  uint64_t lastVblankTime = CurrentHostCounter();
++  int sleepTime, correction;
++
    while(!m_bStop)
    {
      //wait for the next vblank
@@ -7072,14 +7090,40 @@ index 076dc3a..3f8080e 100644
 +      ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
 +    else
 +    {
-+      glXSwapBuffers(m_Dpy,m_Window);
++      //-------------------------------
++      proximity = 0;
++      sleepTime = precision * 100000LL / m_RefreshRate;
++      correction = CurrentHostCounter() - lastVblankTime;
++      if (sleepTime > correction)
++        sleepTime -= correction;
++      usleep(sleepTime);
++      m_glXGetVideoSyncSGI(&VblankCount);
++      if (VblankCount == PrevVblankCount)
++      {
++        usleep(sleepTime/2);
++        m_glXGetVideoSyncSGI(&VblankCount);
++        while (VblankCount == PrevVblankCount)
++        {
++          usleep(sleepTime/10);
++          m_glXGetVideoSyncSGI(&VblankCount);
++          proximity++;
++        }
++      }
++      else if (precision > 1)
++        precision--;
++
++      if (proximity > 4 && precision < 9)
++        precision++;
++
++      lastVblankTime = CurrentHostCounter();
++
 +      ReturnV = 0;
 +    }
 +
      m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
      Now = CurrentHostCounter();         //get the timestamp of this vblank
  
-@@ -492,7 +515,6 @@ void CVideoReferenceClock::RunGLX()
+@@ -492,13 +549,14 @@ void CVideoReferenceClock::RunGLX()
        SingleLock.Leave();
        SendVblankSignal();
        UpdateRefreshrate();
@@ -7087,45 +7131,26 @@ index 076dc3a..3f8080e 100644
        IsReset = false;
      }
      else
-@@ -503,21 +525,24 @@ void CVideoReferenceClock::RunGLX()
+     {
+       CLog::Log(LOGDEBUG, "CVideoReferenceClock: Vblank counter has reset");
+ 
++      precision = 1;
++
+       //only try reattaching once
        if (IsReset)
          return;
+diff --git a/xbmc/video/VideoReferenceClock.h b/xbmc/video/VideoReferenceClock.h
+index 9699cd4..5d1149a 100644
+--- a/xbmc/video/VideoReferenceClock.h
++++ b/xbmc/video/VideoReferenceClock.h
+@@ -114,6 +114,7 @@ class CVideoReferenceClock : public CThread
  
--      //because of a bug in the nvidia driver, glXWaitVideoSyncSGI breaks when the vblank counter resets
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detaching glX context");
--      ReturnV = glXMakeCurrent(m_Dpy, None, NULL);
--      if (ReturnV != True)
-+      if (!AtiWorkaround)
-       {
--        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
--        return;
--      }
--
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Attaching glX context");
--      ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
--      if (ReturnV != True)
--      {
--        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
--        return;
-+        //because of a bug in the nvidia driver, glXWaitVideoSyncSGI breaks when the vblank counter resets
-+        CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detaching glX context");
-+        ReturnV = glXMakeCurrent(m_Dpy, None, NULL);
-+        if (ReturnV != True)
-+        {
-+          CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
-+          return;
-+        }
-+
-+        CLog::Log(LOGDEBUG, "CVideoReferenceClock: Attaching glX context");
-+        ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
-+        if (ReturnV != True)
-+        {
-+          CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
-+          return;
-+        }
-       }
+     int  (*m_glXWaitVideoSyncSGI) (int, int, unsigned int*);
+     int  (*m_glXGetVideoSyncSGI)  (unsigned int*);
++    int  (*m_glXSwapIntervalMESA) (int);
  
-       m_glXGetVideoSyncSGI(&VblankCount);
+     Display*     m_Dpy;
+     XVisualInfo *m_vInfo;
 diff --git a/xbmc/win32/PlatformDefs.h b/xbmc/win32/PlatformDefs.h
 index 57cab8f..74e3d53 100644
 --- a/xbmc/win32/PlatformDefs.h
@@ -7173,3 +7198,144 @@ index afff390..2e8b869 100644
      switch(event.type)
      {
        case SDL_QUIT:
+diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
+index 62cf554..931700b 100644
+--- a/xbmc/windowing/X11/WinSystemX11.cpp
++++ b/xbmc/windowing/X11/WinSystemX11.cpp
+@@ -35,6 +35,8 @@
+ #include <X11/Xlib.h>
+ #include "cores/VideoRenderers/RenderManager.h"
+ #include "utils/TimeUtils.h"
++#include "settings/AdvancedSettings.h"
++#include "settings/GUISettings.h"
+ 
+ #if defined(HAS_XRANDR)
+ #include <X11/extensions/Xrandr.h>
+@@ -52,6 +54,7 @@ CWinSystemX11::CWinSystemX11() : CWinSystemBase()
+   m_wmWindow = 0;
+   m_bWasFullScreenBeforeMinimize = false;
+   m_dpyLostTime = 0;
++  m_internalModeSwitch = false;
+ }
+ 
+ CWinSystemX11::~CWinSystemX11()
+@@ -176,6 +179,45 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+   return false;
+ }
+ 
++void CWinSystemX11::RefreshWindow()
++{
++  // save current mode if this is not an internal request
++  if (!m_internalModeSwitch)
++  {
++    CLog::Log(LOGNOTICE, "CWinSystemX11::RefreshWindow - external or initial xrandr event");
++    m_xrandrOut = g_xrandr.GetCurrentOutput();
++    m_xrandrMode = g_xrandr.GetCurrentMode(m_xrandrOut.name);
++  }
++  m_internalModeSwitch = false;
++
++  g_xrandr.Query(true);
++  XOutput out  = g_xrandr.GetCurrentOutput();
++  XMode   mode = g_xrandr.GetCurrentMode(out.name);
++
++  RESOLUTION_INFO res;
++  unsigned int i;
++  bool found(false);
++  for (i = RES_DESKTOP; i < g_settings.m_ResInfo.size(); ++i)
++  {
++    if (g_settings.m_ResInfo[i].strId == mode.id)
++    {
++      found = true;
++      break;
++    }
++  }
++
++  if (!found)
++  {
++    CLog::Log(LOGERROR, "CWinSystemX11::RefreshWindow - could not find resolution");
++    return;
++  }
++
++  g_graphicsContext.SetVideoResolution((RESOLUTION)i, true);
++  g_guiSettings.SetInt("window.width", mode.w);
++  g_guiSettings.SetInt("window.height", mode.h);
++  g_settings.Save();
++}
++
+ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
+ {
+   m_nWidth      = res.iWidth;
+@@ -191,13 +233,32 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+   mode.hz  = res.fRefreshRate;
+   mode.id  = res.strId;
+  
+-  if(m_bFullScreen)
++  XOutput currout  = g_xrandr.GetCurrentOutput();
++  XMode   currmode = g_xrandr.GetCurrentMode(currout.name);
++
++  if (m_xrandrOut.name.empty())
++  {
++    m_xrandrOut = currout;
++    m_xrandrMode = currmode;
++  }
++
++  if(!m_bFullScreen)
+   {
++    // reset to mode we had before internal mode switch
++    out = m_xrandrOut;
++    mode = m_xrandrMode;
++  }
++
++  // only call xrandr if mode changes
++  if (currout.name != out.name || currmode.w != mode.w || currmode.h != mode.h ||
++      currmode.hz != mode.hz || currmode.id != mode.id)
++  {
++    CLog::Log(LOGNOTICE, "CWinSystemX11::SetFullScreen - calling xrandr");
+     OnLostDevice();
++    m_internalModeSwitch = true;
+     g_xrandr.SetMode(out, mode);
+   }
+-  else
+-    g_xrandr.RestoreState();
++
+ #endif
+ 
+   int options = SDL_OPENGL;
+@@ -491,6 +552,7 @@ void CWinSystemX11::CheckDisplayEvents()
+   if (bGotEvent || bTimeout)
+   {
+     CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
++    RefreshWindow();
+ 
+     CSingleLock lock(m_resourceSection);
+ 
+diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
+index 5b941be..be59c5c 100644
+--- a/xbmc/windowing/X11/WinSystemX11.h
++++ b/xbmc/windowing/X11/WinSystemX11.h
+@@ -27,6 +27,7 @@
+ #include "utils/Stopwatch.h"
+ #include <GL/glx.h>
+ #include "threads/CriticalSection.h"
++#include "XRandR.h"
+ 
+ class IDispResource;
+ 
+@@ -60,6 +61,7 @@ public:
+   // Local to WinSystemX11 only
+   Display*  GetDisplay() { return m_dpy; }
+   GLXWindow GetWindow() { return m_glWindow; }
++  void RefreshWindow();
+ 
+ protected:
+   bool RefreshGlxContext();
+@@ -76,6 +78,9 @@ protected:
+   CCriticalSection             m_resourceSection;
+   std::vector<IDispResource*>  m_resources;
+   uint64_t                     m_dpyLostTime;
++  XOutput      m_xrandrOut;
++  XMode        m_xrandrMode;
++  bool         m_internalModeSwitch;
+ 
+ private:
+   bool IsSuitableVisual(XVisualInfo *vInfo);
