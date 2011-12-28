@@ -1,0 +1,62 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+. /etc/profile
+
+ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.vdr-addon"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.vdr-addon"
+LOG_FILE="$ADDON_HOME/service.log"
+ADDON_SETTINGS="$ADDON_HOME/settings.xml"
+
+ADDON_CONFIG_DIR="$ADDON_HOME/config"
+ADDON_PLUGIN_DIR="$ADDON_DIR/plugin"
+ADDON_VIDEO_DIR="$HOME/videos"
+
+VDR_ARG="--daemon -g /tmp --no-kbd --log=3 --port=0"
+VDR_ARG="$VDR_ARG --config=$ADDON_CONFIG_DIR"
+VDR_ARG="$VDR_ARG --lib=$ADDON_PLUGIN_DIR"
+VDR_ARG="$VDR_ARG --video=$ADDON_VIDEO_DIR"
+VDR_ARG="$VDR_ARG -P xvdr -P sc -P wirbelscan"
+VDR_ARG="$VDR_ARG -P dynamite"
+
+if [ ! -f "$ADDON_SETTINGS" ]; then
+  cp $ADDON_DIR/settings-default.xml $ADDON_SETTINGS
+fi
+
+(
+  cd $ADDON_DIR/config
+  mkdir -p $ADDON_CONFIG_DIR
+
+  for dir in `find . -type d`; do
+    mkdir -p $ADDON_CONFIG_DIR/$dir
+  done
+
+  for config in `find . -type f -name "*.conf*"`; do
+    if [ ! -f $ADDON_CONFIG_DIR/$config ]; then
+      cp $config $ADDON_CONFIG_DIR/$config
+    fi
+  done
+)
+
+if [ ! $(pidof vdr.bin) ];then
+  LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" vdr.bin $VDR_ARG &>$LOG_FILE
+fi
