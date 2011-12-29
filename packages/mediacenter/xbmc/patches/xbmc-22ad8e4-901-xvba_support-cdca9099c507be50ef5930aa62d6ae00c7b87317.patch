@@ -3710,7 +3710,7 @@ index 2f0b5ac..e97a14c 100644
    CDVDMessageQueue*         m_pAudioQueue;
    CDVDMessageQueue*         m_pVideoQueue;
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 568ed10..abfdf2b 100644
+index b54e34e..504e348 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
 @@ -348,7 +348,7 @@ bool CDVDPlayer::OpenFile(const CFileItem& file, const CPlayerOptions &options)
@@ -3731,7 +3731,7 @@ index 568ed10..abfdf2b 100644
  
    CUtil::ClearTempFonts();
  }
-@@ -2884,7 +2884,7 @@ bool CDVDPlayer::OpenAudioStream(int iStream, int source)
+@@ -2878,7 +2878,7 @@ bool CDVDPlayer::OpenAudioStream(int iStream, int source)
    m_dvdPlayerAudio.SendMessage(new CDVDMsg(CDVDMsg::PLAYER_STARTED), 1);
  
    /* audio normally won't consume full cpu, so let it have prio */
@@ -3740,7 +3740,7 @@ index 568ed10..abfdf2b 100644
  
    return true;
  }
-@@ -2946,11 +2946,11 @@ bool CDVDPlayer::OpenVideoStream(int iStream, int source)
+@@ -2940,11 +2940,11 @@ bool CDVDPlayer::OpenVideoStream(int iStream, int source)
    // the CoreAudio audio device handler thread. We do the same for
    // the DVDPlayerVideo thread so it can run to sleep without getting
    // swapped out by a busy OS.
@@ -5354,7 +5354,7 @@ index e61aa23..1ea4b9c 100644
      //save current thread priority and set thread priority to THREAD_PRIORITY_TIME_CRITICAL
      int priority = GetThreadPriority(GetCurrentThread());
 diff --git a/xbmc/settings/GUISettings.cpp b/xbmc/settings/GUISettings.cpp
-index a36ef58..4f1e329 100644
+index e228621..b31dec0 100644
 --- a/xbmc/settings/GUISettings.cpp
 +++ b/xbmc/settings/GUISettings.cpp
 @@ -592,6 +592,10 @@ void CGUISettings::Initialize()
@@ -5366,7 +5366,7 @@ index a36ef58..4f1e329 100644
 +  AddBool(vp, "videoplayer.usexvbasharedsurface", 13434, true);
 +#endif
  #ifdef HAS_DX
-   AddBool(g_sysinfo.IsVistaOrHigher() ? vp: NULL, "videoplayer.usedxva2", 13427, false);
+   AddBool(g_sysinfo.IsVistaOrHigher() ? vp: NULL, "videoplayer.usedxva2", 13427, g_sysinfo.IsVistaOrHigher() ? true : false);
  #endif
 diff --git a/xbmc/settings/GUIWindowSettingsCategory.cpp b/xbmc/settings/GUIWindowSettingsCategory.cpp
 index 596967c..15db1bc 100644
@@ -7001,7 +7001,7 @@ index b91477d..8a05568 100644
  
    // threaded lookup functions
 diff --git a/xbmc/video/VideoInfoScanner.cpp b/xbmc/video/VideoInfoScanner.cpp
-index b9a1522..3750f7a 100644
+index 75b533b..258f9e0 100644
 --- a/xbmc/video/VideoInfoScanner.cpp
 +++ b/xbmc/video/VideoInfoScanner.cpp
 @@ -53,7 +53,7 @@ using namespace ADDON;
@@ -7177,7 +7177,7 @@ index 56856ac..8aa7da9 100644
    m_hwnd = NULL;
    m_hProcess = NULL;
 diff --git a/xbmc/windowing/WinEventsSDL.cpp b/xbmc/windowing/WinEventsSDL.cpp
-index afff390..2e8b869 100644
+index afff390..807d873 100644
 --- a/xbmc/windowing/WinEventsSDL.cpp
 +++ b/xbmc/windowing/WinEventsSDL.cpp
 @@ -216,8 +216,16 @@ bool CWinEventsSDL::MessagePump()
@@ -7189,7 +7189,7 @@ index afff390..2e8b869 100644
    {
 +    {
 +#if defined(HAS_GLX)
-+      CSingleLock lock(g_graphicsContext);
++      X11Lock xlock(g_Windowing);
 +#endif
 +      if (!SDL_PollEvent(&event))
 +        break;
@@ -7198,8 +7198,24 @@ index afff390..2e8b869 100644
      switch(event.type)
      {
        case SDL_QUIT:
+@@ -330,7 +338,14 @@ bool CWinEventsSDL::MessagePump()
+ 
+       case SDL_MOUSEMOTION:
+       {
+-        if (0 == (SDL_GetAppState() & SDL_APPMOUSEFOCUS))
++        Uint8 state;
++        {
++#if defined(HAS_GLX)
++          X11Lock xlock(g_Windowing);
++#endif
++          state = SDL_GetAppState() & SDL_APPMOUSEFOCUS;
++        }
++        if (0 == state)
+         {
+           g_Mouse.SetActive(false);
+ #if defined(__APPLE__)
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 62cf554..931700b 100644
+index 62cf554..0f35d64 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -35,6 +35,8 @@
@@ -7219,7 +7235,23 @@ index 62cf554..931700b 100644
  }
  
  CWinSystemX11::~CWinSystemX11()
-@@ -176,6 +179,45 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -160,13 +163,14 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+ 
+   m_nWidth  = newWidth;
+   m_nHeight = newHeight;
+-
++  Uint8 state;
+   int options = SDL_OPENGL;
+   if (m_bFullScreen)
+     options |= SDL_FULLSCREEN;
+   else
+     options |= SDL_RESIZABLE;
+ 
++  X11Lock xlock(*this);
+   if ((m_SDLSurface = SDL_SetVideoMode(m_nWidth, m_nHeight, 0, options)))
+   {
+     RefreshGlxContext();
+@@ -176,12 +180,53 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
    return false;
  }
  
@@ -7265,7 +7297,15 @@ index 62cf554..931700b 100644
  bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
  {
    m_nWidth      = res.iWidth;
-@@ -191,13 +233,32 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+   m_nHeight     = res.iHeight;
+   m_bFullScreen = fullScreen;
+ 
++  X11Lock xlock(*this);
++
+ #if defined(HAS_XRANDR)
+   XOutput out;
+   XMode mode;
+@@ -191,13 +236,32 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
    mode.hz  = res.fRefreshRate;
    mode.id  = res.strId;
   
@@ -7274,13 +7314,13 @@ index 62cf554..931700b 100644
 +  XMode   currmode = g_xrandr.GetCurrentMode(currout.name);
 +
 +  if (m_xrandrOut.name.empty())
-+  {
+   {
 +    m_xrandrOut = currout;
 +    m_xrandrMode = currmode;
 +  }
 +
 +  if(!m_bFullScreen)
-   {
++  {
 +    // reset to mode we had before internal mode switch
 +    out = m_xrandrOut;
 +    mode = m_xrandrMode;
@@ -7301,7 +7341,67 @@ index 62cf554..931700b 100644
  #endif
  
    int options = SDL_OPENGL;
-@@ -491,6 +552,7 @@ void CWinSystemX11::CheckDisplayEvents()
+@@ -318,6 +382,9 @@ bool CWinSystemX11::RefreshGlxContext()
+   bool retVal = false;
+   SDL_SysWMinfo info;
+   SDL_VERSION(&info.version);
++
++  X11Lock xlock(*this);
++
+   if (SDL_GetWMInfo(&info) <= 0)
+   {
+     CLog::Log(LOGERROR, "Failed to get window manager info from SDL");
+@@ -410,11 +477,15 @@ bool CWinSystemX11::RefreshGlxContext()
+ 
+ void CWinSystemX11::ShowOSMouse(bool show)
+ {
++  X11Lock xlock(*this);
++
+   SDL_ShowCursor(show ? 1 : 0);
+ }
+ 
+ void CWinSystemX11::ResetOSScreensaver()
+ {
++  X11Lock xlock(*this);
++
+   if (m_bFullScreen)
+   {
+     //disallow the screensaver when we're fullscreen by periodically calling XResetScreenSaver(),
+@@ -441,6 +512,8 @@ void CWinSystemX11::NotifyAppActiveChange(bool bActivated)
+ }
+ bool CWinSystemX11::Minimize()
+ {
++  X11Lock xlock(*this);
++
+   m_bWasFullScreenBeforeMinimize = g_graphicsContext.IsFullScreenRoot();
+   if (m_bWasFullScreenBeforeMinimize)
+     g_graphicsContext.ToggleFullScreenRoot();
+@@ -454,12 +527,16 @@ bool CWinSystemX11::Restore()
+ }
+ bool CWinSystemX11::Hide()
+ {
++  X11Lock xlock(*this);
++
+   XUnmapWindow(m_dpy, m_wmWindow);
+   XSync(m_dpy, False);
+   return true;
+ }
+ bool CWinSystemX11::Show(bool raise)
+ {
++  X11Lock xlock(*this);
++
+   XMapWindow(m_dpy, m_wmWindow);
+   XSync(m_dpy, False);
+   return true;
+@@ -471,6 +548,7 @@ void CWinSystemX11::CheckDisplayEvents()
+   bool bGotEvent(false);
+   bool bTimeout(false);
+   XEvent Event;
++
+   while (XCheckTypedEvent(m_dpy, m_RREventBase + RRScreenChangeNotify, &Event))
+   {
+     if (Event.type == m_RREventBase + RRScreenChangeNotify)
+@@ -491,6 +569,7 @@ void CWinSystemX11::CheckDisplayEvents()
    if (bGotEvent || bTimeout)
    {
      CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
@@ -7310,7 +7410,7 @@ index 62cf554..931700b 100644
      CSingleLock lock(m_resourceSection);
  
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 5b941be..be59c5c 100644
+index 5b941be..549d632 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -27,6 +27,7 @@
@@ -7339,3 +7439,67 @@ index 5b941be..be59c5c 100644
  
  private:
    bool IsSuitableVisual(XVisualInfo *vInfo);
+@@ -83,5 +88,14 @@ private:
+   CStopWatch m_screensaverReset;
+ };
+ 
++class X11Lock
++{
++public:
++  X11Lock(CWinSystemX11 &winX11) { dpy = winX11.GetDisplay(); if (dpy) XLockDisplay(dpy); };
++  virtual ~X11Lock() { if (dpy) XUnlockDisplay(dpy); };
++private:
++  Display *dpy;
++};
++
+ #endif // WINDOW_SYSTEM_H
+ 
+diff --git a/xbmc/windowing/X11/WinSystemX11GL.cpp b/xbmc/windowing/X11/WinSystemX11GL.cpp
+index ec02b10..71d7d94 100644
+--- a/xbmc/windowing/X11/WinSystemX11GL.cpp
++++ b/xbmc/windowing/X11/WinSystemX11GL.cpp
+@@ -43,6 +43,8 @@ CWinSystemX11GL::~CWinSystemX11GL()
+ 
+ bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
+ {
++  X11Lock xlock(*this);
++
+   CheckDisplayEvents();
+ 
+   if(m_iVSyncMode == 3)
+@@ -124,6 +126,8 @@ bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
+ 
+ void CWinSystemX11GL::SetVSyncImpl(bool enable)
+ {
++  X11Lock xlock(*this);
++
+   /* turn of current setting first */
+   if(m_glXSwapIntervalSGI)
+     m_glXSwapIntervalSGI(0);
+@@ -200,6 +204,8 @@ bool CWinSystemX11GL::IsExtSupported(const char* extension)
+ 
+ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, RESOLUTION_INFO& res, PHANDLE_EVENT_FUNC userFunction)
+ {
++  X11Lock xlock(*this);
++
+   if(!CWinSystemX11::CreateNewWindow(name, fullScreen, res, userFunction))
+     return false;
+ 
+@@ -246,6 +252,8 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
+ 
+ bool CWinSystemX11GL::ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop)
+ {
++  X11Lock xlock(*this);
++
+   CWinSystemX11::ResizeWindow(newWidth, newHeight, newLeft, newTop);
+   CRenderSystemGL::ResetRenderSystem(newWidth, newHeight, false, 0);
+ 
+@@ -254,6 +262,8 @@ bool CWinSystemX11GL::ResizeWindow(int newWidth, int newHeight, int newLeft, int
+ 
+ bool CWinSystemX11GL::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
+ {
++  X11Lock xlock(*this);
++
+   CWinSystemX11::SetFullScreen(fullScreen, res, blankOtherDisplays);
+   CRenderSystemGL::ResetRenderSystem(res.iWidth, res.iHeight, fullScreen, res.fRefreshRate);
+ 
