@@ -27,6 +27,6 @@ __author__ = "OpenELEC"
 __url__ = "http://www.openelec.tv"
 __settings__   = xbmcaddon.Addon(id='service.multimedia.boblightd')
 __cwd__        = __settings__.getAddonInfo('path')
-__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "boblightd") )
+__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "boblightd.service") )
 
 os.system(__path__)

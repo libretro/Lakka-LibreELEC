@@ -1,8 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2011 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2009-2010 OpenELEC.tv
+#      http://www.openelec.tv
+#
+#  Boblightd addon maintained by Adam Boeglin: adamrb@gmail.com
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,7 +25,38 @@
 . /etc/profile
 
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.boblightd"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.boblightd"
 
-chmod +x $ADDON_DIR/lib/*
+mkdir -p $ADDON_HOME
 
-LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" boblightd.bin $@
+LOG_FILE="$ADDON_HOME/service.log"
+
+# Boblight config file created by user
+BOBLIGHT_CONFIG="$ADDON_HOME/boblight.conf"
+
+# Flag file to start boblight-x11 daemon
+BOBLIGHT_X11="$ADDON_HOME/boblight.X11"
+
+export LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH"
+
+cp -R $ADDON_DIR/config/*.sample $ADDON_HOME > $LOG_FILE 2>&1
+
+if [ -e $BOBLIGHT_CONFIG ]; then
+
+	# Make sure the xserver has started up
+	wait_for_xorg
+	
+	# Start the boblight daemon
+	$ADDON_DIR/bin/boblightd -c $BOBLIGHT_CONFIG -f >> $LOG_FILE 2>&1
+
+fi
+
+if [ -e $BOBLIGHT_X11 ]; then
+
+        # Make sure the xserver has started up
+        wait_for_xorg
+
+        # Start the boblight daemon
+        $ADDON_DIR/bin/boblight-X11 -f >> $LOG_FILE 2>&1
+
+fi
