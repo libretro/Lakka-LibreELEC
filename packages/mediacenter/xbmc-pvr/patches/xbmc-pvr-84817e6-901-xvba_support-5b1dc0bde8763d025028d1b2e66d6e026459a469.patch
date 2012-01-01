@@ -1,5 +1,5 @@
 diff --git a/configure.in b/configure.in
-index e7045ba..e495665 100755
+index e1cc9d2..d0d3beb 100755
 --- a/configure.in
 +++ b/configure.in
 @@ -98,6 +98,8 @@ vaapi_not_found="== Could not find libva. VAAPI support disabled. =="
@@ -76,7 +76,7 @@ index e7045ba..e495665 100755
  if test "x$use_vdadecoder" != "xno"; then
    final_message="$final_message\n  VDADecoder:\tYes"
  else
-@@ -1951,6 +1997,7 @@ AC_SUBST(USE_OPENGLES)
+@@ -1952,6 +1998,7 @@ AC_SUBST(USE_OPENGLES)
  AC_SUBST(USE_VDPAU)
  AC_SUBST(USE_VAAPI)
  AC_SUBST(USE_CRYSTALHD)
@@ -84,7 +84,7 @@ index e7045ba..e495665 100755
  AC_SUBST(USE_LIBSMBCLIENT)
  AC_SUBST(USE_LIBNFS)
  AC_SUBST(USE_LIBAFPCLIENT)
-@@ -2093,6 +2140,7 @@ XB_CONFIG_MODULE([lib/ffmpeg], [
+@@ -2094,6 +2141,7 @@ XB_CONFIG_MODULE([lib/ffmpeg], [
        --enable-gpl \
        `if test "x$use_vdpau" != "xno"; then echo --enable-vdpau; else echo --disable-vdpau; fi` \
        `if test "x$use_vaapi" != "xno"; then echo --enable-vaapi; else echo --disable-vaapi; fi` \
@@ -3983,6 +3983,23 @@ index d8931b8..b997c12 100644
        g_sapsessions.Create();
  
      // check if we can find this session in our cache
+diff --git a/xbmc/guilib/GUIAudioManager.cpp b/xbmc/guilib/GUIAudioManager.cpp
+index 83f4e40..db58426 100644
+--- a/xbmc/guilib/GUIAudioManager.cpp
++++ b/xbmc/guilib/GUIAudioManager.cpp
+@@ -73,8 +73,10 @@ void CGUIAudioManager::Initialize(int iDevice)
+ #elif defined(HAS_SDL_AUDIO)
+     Mix_CloseAudio();
+     if (Mix_OpenAudio(44100, AUDIO_S16, 2, 4096))
+-       CLog::Log(LOGERROR, "Unable to open audio mixer");
+-    Mix_Volume(0, (int)(128.f * (g_settings.m_nVolumeLevel - VOLUME_MINIMUM) / (float)(VOLUME_MAXIMUM - VOLUME_MINIMUM)));
++      CLog::Log(LOGERROR, "Unable to open audio mixer");
++    else
++      Mix_Volume(0, (int)(128.f * (g_settings.m_nVolumeLevel - VOLUME_MINIMUM) / (float)(VOLUME_MAXIMUM - VOLUME_MINIMUM)));
++    
+     m_bInitialized = true;
+ #endif
+   }
 diff --git a/xbmc/interfaces/python/XBPython.cpp b/xbmc/interfaces/python/XBPython.cpp
 index 9f43894..8cb3e61 100644
 --- a/xbmc/interfaces/python/XBPython.cpp
@@ -7014,10 +7031,18 @@ index 75b533b..258f9e0 100644
      m_bRunning = false;
      m_pObserver = NULL;
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 076dc3a..1f7c4c6 100644
+index 076dc3a..4408f21 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
-@@ -106,7 +106,7 @@ using namespace std;
+@@ -30,6 +30,7 @@
+ #if defined(HAS_GLX) && defined(HAS_XRANDR)
+   #include <sstream>
+   #include <X11/extensions/Xrandr.h>
++  #include "windowing/WindowingFactory.h"
+   #define NVSETTINGSCMD "nvidia-settings -nt -q RefreshRate3"
+ #elif defined(__APPLE__) && !defined(__arm__)
+   #include <QuartzCore/CVDisplayLink.h>
+@@ -106,7 +107,7 @@ using namespace std;
  
  #endif
  
@@ -7026,7 +7051,7 @@ index 076dc3a..1f7c4c6 100644
  {
    m_SystemFrequency = CurrentHostFrequency();
    m_ClockSpeed = 1.0;
-@@ -159,6 +159,8 @@ void CVideoReferenceClock::Process()
+@@ -159,6 +160,8 @@ void CVideoReferenceClock::Process()
      m_RefreshChanged = 0;
      m_Started.Set();
  
@@ -7035,7 +7060,7 @@ index 076dc3a..1f7c4c6 100644
      if (SetupSuccess)
      {
        m_UseVblank = true;          //tell other threads we're using vblank as clock
-@@ -217,6 +219,7 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -217,6 +220,7 @@ bool CVideoReferenceClock::SetupGLX()
      GLX_RED_SIZE,      0,
      GLX_GREEN_SIZE,    0,
      GLX_BLUE_SIZE,     0,
@@ -7043,7 +7068,16 @@ index 076dc3a..1f7c4c6 100644
      None
    };
  
-@@ -323,6 +326,9 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -230,6 +234,8 @@ bool CVideoReferenceClock::SetupGLX()
+ 
+   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Setting up GLX");
+ 
++  X11Lock xlock(g_Windowing);
++
+   if (!m_Dpy)
+   {
+     m_Dpy = XOpenDisplay(NULL);
+@@ -323,6 +329,9 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7053,7 +7087,16 @@ index 076dc3a..1f7c4c6 100644
    XRRSizes(m_Dpy, m_vInfo->screen, &ReturnV);
    if (ReturnV == 0)
    {
-@@ -463,6 +469,19 @@ void CVideoReferenceClock::RunGLX()
+@@ -430,6 +439,8 @@ void CVideoReferenceClock::CleanupGLX()
+     }
+   }
+ 
++  X11Lock xlock(g_Windowing);
++
+   if (m_vInfo)
+   {
+     XFree(m_vInfo);
+@@ -463,6 +474,19 @@ void CVideoReferenceClock::RunGLX()
    bool          IsReset = false;
    int64_t       Now;
  
@@ -7073,7 +7116,7 @@ index 076dc3a..1f7c4c6 100644
    CSingleLock SingleLock(m_CritSection);
    SingleLock.Leave();
  
-@@ -470,10 +489,48 @@ void CVideoReferenceClock::RunGLX()
+@@ -470,10 +494,51 @@ void CVideoReferenceClock::RunGLX()
    m_glXGetVideoSyncSGI(&VblankCount);
    PrevVblankCount = VblankCount;
  
@@ -7093,7 +7136,7 @@ index 076dc3a..1f7c4c6 100644
 +      //-------------------------------
 +      proximity = 0;
 +      sleepTime = precision * 100000LL / m_RefreshRate;
-+      correction = CurrentHostCounter() - lastVblankTime;
++      correction = (CurrentHostCounter() - lastVblankTime) / 1000;
 +      if (sleepTime > correction)
 +        sleepTime -= correction;
 +      usleep(sleepTime);
@@ -7104,7 +7147,7 @@ index 076dc3a..1f7c4c6 100644
 +        m_glXGetVideoSyncSGI(&VblankCount);
 +        while (VblankCount == PrevVblankCount)
 +        {
-+          usleep(sleepTime/10);
++          usleep(sleepTime/20);
 +          m_glXGetVideoSyncSGI(&VblankCount);
 +          proximity++;
 +        }
@@ -7112,8 +7155,11 @@ index 076dc3a..1f7c4c6 100644
 +      else if (precision > 1)
 +        precision--;
 +
-+      if (proximity > 4 && precision < 9)
++      if (proximity > 4 && precision < 6)
 +        precision++;
++
++//      CLog::Log(LOGNOTICE, "----- diff: %ld, precision: %d, prox: %d, sleep: %d, correction: %d",
++//          CurrentHostCounter()- lastVblankTime, precision, proximity, sleepTime, correction);
 +
 +      lastVblankTime = CurrentHostCounter();
 +
@@ -7123,7 +7169,7 @@ index 076dc3a..1f7c4c6 100644
      m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
      Now = CurrentHostCounter();         //get the timestamp of this vblank
  
-@@ -492,13 +549,14 @@ void CVideoReferenceClock::RunGLX()
+@@ -492,13 +557,14 @@ void CVideoReferenceClock::RunGLX()
        SingleLock.Leave();
        SendVblankSignal();
        UpdateRefreshrate();
@@ -7410,7 +7456,7 @@ index 62cf554..0f35d64 100644
      CSingleLock lock(m_resourceSection);
  
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 5b941be..549d632 100644
+index 5b941be..224c80f 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -27,6 +27,7 @@
@@ -7439,15 +7485,17 @@ index 5b941be..549d632 100644
  
  private:
    bool IsSuitableVisual(XVisualInfo *vInfo);
-@@ -83,5 +88,14 @@ private:
+@@ -83,5 +88,16 @@ private:
    CStopWatch m_screensaverReset;
  };
  
 +class X11Lock
 +{
 +public:
-+  X11Lock(CWinSystemX11 &winX11) { dpy = winX11.GetDisplay(); if (dpy) XLockDisplay(dpy); };
-+  virtual ~X11Lock() { if (dpy) XUnlockDisplay(dpy); };
++//  X11Lock(CWinSystemX11 &winX11) { dpy = winX11.GetDisplay(); if (dpy) XLockDisplay(dpy); };
++//  virtual ~X11Lock() { if (dpy) XUnlockDisplay(dpy); };
++  X11Lock(CWinSystemX11 &winX11) { ; };
++  virtual ~X11Lock() { ; };
 +private:
 +  Display *dpy;
 +};
