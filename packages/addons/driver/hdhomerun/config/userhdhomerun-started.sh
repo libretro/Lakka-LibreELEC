@@ -20,13 +20,13 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-  # this script is executed when userhdhomerun program is started
+# this script is executed when userhdhomerun program is started
   while [ -z "$(pidof userhdhomerun)" ]; do
     usleep 200000
   done
   usleep 500000
 
-  # restart the services
+# restart the services
   killall tvheadend
   while [ -n "$(pidof tvheadend)" ]; do
     usleep 200000
