@@ -1,0 +1,51 @@
+diff -uNr dvbhdhomerun-0.0.9-orig/userhdhomerun/conf_inifile.cpp dvbhdhomerun-0.0.9/userhdhomerun/conf_inifile.cpp
+--- dvbhdhomerun-0.0.9-orig/userhdhomerun/conf_inifile.cpp	2011-03-06 21:00:01.000000000 +0100
++++ dvbhdhomerun-0.0.9/userhdhomerun/conf_inifile.cpp	2011-12-20 23:21:46.000000000 +0100
+@@ -8,6 +8,37 @@
+ 
+ using namespace std;
+ 
++// http://stackoverflow.com/questions/6089231/getting-std-ifstream-to-handle-lf-cr-and-crlf
++std::istream& safeGetline(std::istream& is, std::string& t)
++{
++    t.clear();
++
++    // The characters in the stream are read one-by-one using a std::streambuf.
++    // That is faster than reading them one-by-one using the std::istream.
++    // Code that uses streambuf this way must be guarded by a sentry object.
++    // The sentry object performs various tasks,
++    // such as thread synchronization and updating the stream state.
++
++    std::istream::sentry se(is);
++    std::streambuf* sb = is.rdbuf();
++
++    for(;;) {
++        int c = sb->sbumpc();
++        switch (c) {
++        case '\r':
++            c = sb->sgetc();
++            if(c == '\n')
++                sb->sbumpc();
++            return is;
++        case '\n':
++        case EOF:
++            return is;
++        default:
++            t += (char)c;
++        }
++    }
++}
++
+ bool ConfIniFile::OpenIniFile(const string& _filename)
+ {
+   ifstream conffile;
+@@ -15,7 +46,8 @@
+   if(conffile.is_open()) {
+     string line;
+     string section;
+-    while(getline(conffile, line)) {
++    //while(getline(conffile, line)) {
++    while(safeGetline(conffile, line)) {
+       if(line.empty()) {
+          //LOG() << " ignore, empty";
+       } 
