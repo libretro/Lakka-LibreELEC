@@ -3516,7 +3516,7 @@ index 0000000..bbb7881
 +
 +}
 diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
-index 036d31d..86a4bdd 100644
+index b0a3796..858a2ed 100644
 --- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
 @@ -19,7 +19,6 @@
@@ -3710,7 +3710,7 @@ index 2f0b5ac..e97a14c 100644
    CDVDMessageQueue*         m_pAudioQueue;
    CDVDMessageQueue*         m_pVideoQueue;
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index b54e34e..504e348 100644
+index 1d8cdf5..f7d31d4 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
 @@ -348,7 +348,7 @@ bool CDVDPlayer::OpenFile(const CFileItem& file, const CPlayerOptions &options)
@@ -3722,16 +3722,18 @@ index b54e34e..504e348 100644
        CloseFile();
  
      m_bAbortRequest = false;
-@@ -440,7 +440,7 @@ void CDVDPlayer::OnStartup()
+@@ -440,9 +440,8 @@ void CDVDPlayer::OnStartup()
  
    m_messenger.Init();
  
 -  g_dvdPerformanceCounter.EnableMainPerformance(ThreadHandle());
-+  g_dvdPerformanceCounter.EnableMainPerformance(this);
- 
+-
    CUtil::ClearTempFonts();
++  g_dvdPerformanceCounter.EnableMainPerformance(this);
  }
-@@ -2878,7 +2878,7 @@ bool CDVDPlayer::OpenAudioStream(int iStream, int source)
+ 
+ bool CDVDPlayer::OpenInputStream()
+@@ -2879,7 +2878,7 @@ bool CDVDPlayer::OpenAudioStream(int iStream, int source)
    m_dvdPlayerAudio.SendMessage(new CDVDMsg(CDVDMsg::PLAYER_STARTED), 1);
  
    /* audio normally won't consume full cpu, so let it have prio */
@@ -3740,7 +3742,7 @@ index b54e34e..504e348 100644
  
    return true;
  }
-@@ -2940,11 +2940,11 @@ bool CDVDPlayer::OpenVideoStream(int iStream, int source)
+@@ -2941,11 +2940,11 @@ bool CDVDPlayer::OpenVideoStream(int iStream, int source)
    // the CoreAudio audio device handler thread. We do the same for
    // the DVDPlayerVideo thread so it can run to sleep without getting
    // swapped out by a busy OS.
@@ -3862,27 +3864,18 @@ index c6af9d0..63937ef 100644
    m_pCache = pCache;
    m_bDeleteCache = bDeleteCache;
 diff --git a/xbmc/filesystem/FilePipe.cpp b/xbmc/filesystem/FilePipe.cpp
-index 8426af0..db02f17 100644
+index 8426af0..c99aa6e 100644
 --- a/xbmc/filesystem/FilePipe.cpp
 +++ b/xbmc/filesystem/FilePipe.cpp
-@@ -82,7 +82,7 @@ unsigned int CFilePipe::Read(void* lpBuf, int64_t uiBufSize)
-   if (!m_pipe)
-     return -1;
-   
--  return m_pipe->Read((char *)lpBuf,uiBufSize,INFINITE);
-+  return m_pipe->Read((char *)lpBuf,uiBufSize,0xFFFFFFFF);
- }
+@@ -24,6 +24,8 @@
+ #include "PipesManager.h"
+ #include "utils/StringUtils.h"
  
- int CFilePipe::Write(const void* lpBuf, int64_t uiBufSize)
-@@ -90,7 +90,7 @@ int CFilePipe::Write(const void* lpBuf, int64_t uiBufSize)
-   if (!m_pipe)
-     return -1;
-   
--  return (int)(m_pipe->Write((const char *)lpBuf,uiBufSize,INFINITE)); // its not the size. its bool. either all was written or not.
-+  return (int)(m_pipe->Write((const char *)lpBuf,uiBufSize,0xFFFFFFFF)); // its not the size. its bool. either all was written or not.
- }
++#define INFINITE 0xFFFFFFFF
++
+ using namespace XFILE;
  
- void CFilePipe::SetEof()
+ CFilePipe::CFilePipe() : m_pos(0), m_length(-1), m_pipe(NULL)
 diff --git a/xbmc/filesystem/FileRar.cpp b/xbmc/filesystem/FileRar.cpp
 index 9c87a35..202b3ee 100644
 --- a/xbmc/filesystem/FileRar.cpp
@@ -3936,18 +3929,18 @@ index 45de2cc..304ecdd 100644
    m_control   = NULL;
    m_event     = NULL;
 diff --git a/xbmc/filesystem/PipesManager.cpp b/xbmc/filesystem/PipesManager.cpp
-index 73f4aa2..1390020 100644
+index 73f4aa2..80a1044 100644
 --- a/xbmc/filesystem/PipesManager.cpp
 +++ b/xbmc/filesystem/PipesManager.cpp
-@@ -195,7 +195,7 @@ bool Pipe::Write(const char *buf, int nSize, int nWaitMillis)
-         break;
-       }
-       
--      if ((unsigned int) nWaitMillis != INFINITE)
-+      if ((unsigned int) nWaitMillis != 0xFFFFFFFF)
-         break;
-     }
-   }
+@@ -23,6 +23,8 @@
+ #include "threads/SingleLock.h"
+ #include "Application.h"
+ 
++#define INFINITE 0xFFFFFFFF
++
+ #ifndef min
+ #define min(a,b) ((a) < (b) ? (a) : (b))
+ #endif
 diff --git a/xbmc/filesystem/RarManager.h b/xbmc/filesystem/RarManager.h
 index dd4b2f0..6f93f79 100644
 --- a/xbmc/filesystem/RarManager.h
@@ -3983,23 +3976,6 @@ index d8931b8..b997c12 100644
        g_sapsessions.Create();
  
      // check if we can find this session in our cache
-diff --git a/xbmc/guilib/GUIAudioManager.cpp b/xbmc/guilib/GUIAudioManager.cpp
-index 83f4e40..db58426 100644
---- a/xbmc/guilib/GUIAudioManager.cpp
-+++ b/xbmc/guilib/GUIAudioManager.cpp
-@@ -73,8 +73,10 @@ void CGUIAudioManager::Initialize(int iDevice)
- #elif defined(HAS_SDL_AUDIO)
-     Mix_CloseAudio();
-     if (Mix_OpenAudio(44100, AUDIO_S16, 2, 4096))
--       CLog::Log(LOGERROR, "Unable to open audio mixer");
--    Mix_Volume(0, (int)(128.f * (g_settings.m_nVolumeLevel - VOLUME_MINIMUM) / (float)(VOLUME_MAXIMUM - VOLUME_MINIMUM)));
-+      CLog::Log(LOGERROR, "Unable to open audio mixer");
-+    else
-+      Mix_Volume(0, (int)(128.f * (g_settings.m_nVolumeLevel - VOLUME_MINIMUM) / (float)(VOLUME_MAXIMUM - VOLUME_MINIMUM)));
-+    
-     m_bInitialized = true;
- #endif
-   }
 diff --git a/xbmc/interfaces/python/XBPython.cpp b/xbmc/interfaces/python/XBPython.cpp
 index 9f43894..8cb3e61 100644
 --- a/xbmc/interfaces/python/XBPython.cpp
@@ -4128,7 +4104,7 @@ index c3a5877..43f552b 100644
  LIB=linux.a
  
 diff --git a/xbmc/linux/PlatformDefs.h b/xbmc/linux/PlatformDefs.h
-index 8910bbc..9679be5 100644
+index 33d1c96..55d20c5 100644
 --- a/xbmc/linux/PlatformDefs.h
 +++ b/xbmc/linux/PlatformDefs.h
 @@ -182,8 +182,6 @@
@@ -4453,7 +4429,7 @@ index 0e119bc..dd7f37d 100644
    bool      m_bManualEvent;
    time_t    m_tmCreation;
 diff --git a/xbmc/linux/XMemUtils.cpp b/xbmc/linux/XMemUtils.cpp
-index 906fe4e..ebc60cc 100644
+index 906fe4e..c0006fe 100644
 --- a/xbmc/linux/XMemUtils.cpp
 +++ b/xbmc/linux/XMemUtils.cpp
 @@ -25,6 +25,10 @@
@@ -4467,7 +4443,7 @@ index 906fe4e..ebc60cc 100644
  #undef ALIGN
  #define ALIGN(value, alignment) (((value)+(alignment-1))&~(alignment-1))
  
-@@ -49,4 +53,132 @@ void _aligned_free(void *p) {
+@@ -49,4 +53,130 @@ void _aligned_free(void *p) {
    free(pFull);
  }
  
@@ -4477,13 +4453,12 @@ index 906fe4e..ebc60cc 100644
 +static FILE* procMeminfoFP = NULL;
 +#endif
 +
-+void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer)
++void GlobalMemoryStatusEx(LPMEMORYSTATUSEX lpBuffer)
 +{
 +  if (!lpBuffer)
 +    return;
 +
-+  memset(lpBuffer, 0, sizeof(MEMORYSTATUS));
-+  lpBuffer->dwLength = sizeof(MEMORYSTATUS);
++  memset(lpBuffer, 0, sizeof(MEMORYSTATUSEX));
 +
 +#ifdef __APPLE__
 +  uint64_t physmem;
@@ -4493,7 +4468,7 @@ index 906fe4e..ebc60cc 100644
 +
 +  // Total physical memory.
 +  if (sysctl(mib, miblen, &physmem, &len, NULL, 0) == 0 && len == sizeof (physmem))
-+      lpBuffer->dwTotalPhys = physmem;
++      lpBuffer->ullTotalPhys = physmem;
 +
 +  // Virtual memory.
 +  mib[0] = CTL_VM; mib[1] = VM_SWAPUSAGE;
@@ -4501,8 +4476,8 @@ index 906fe4e..ebc60cc 100644
 +  len = sizeof(struct xsw_usage);
 +  if (sysctl(mib, miblen, &swap, &len, NULL, 0) == 0)
 +  {
-+      lpBuffer->dwAvailPageFile = swap.xsu_avail;
-+      lpBuffer->dwTotalVirtual = lpBuffer->dwTotalPhys + swap.xsu_total;
++      lpBuffer->ullAvailPageFile = swap.xsu_avail;
++      lpBuffer->ullTotalVirtual = lpBuffer->ullTotalPhys + swap.xsu_total;
 +  }
 +
 +  // In use.
@@ -4519,8 +4494,8 @@ index 906fe4e..ebc60cc 100644
 +      {
 +          uint64_t used = (vm_stat.active_count + vm_stat.inactive_count + vm_stat.wire_count) * pageSize;
 +
-+          lpBuffer->dwAvailPhys = lpBuffer->dwTotalPhys - used;
-+          lpBuffer->dwAvailVirtual  = lpBuffer->dwAvailPhys; // FIXME.
++          lpBuffer->ullAvailPhys = lpBuffer->ullTotalPhys - used;
++          lpBuffer->ullAvailVirtual  = lpBuffer->ullAvailPhys; // FIXME.
 +      }
 +  }
 +#elif defined(__FreeBSD__)
@@ -4531,8 +4506,8 @@ index 906fe4e..ebc60cc 100644
 +  /* physmem */
 +  len = sizeof(physmem);
 +  if (sysctlbyname("hw.physmem", &physmem, &len, NULL, 0) == 0) {
-+    lpBuffer->dwTotalPhys = physmem;
-+    lpBuffer->dwTotalVirtual = physmem;
++    lpBuffer->ullTotalPhys = physmem;
++    lpBuffer->ullTotalVirtual = physmem;
 +  }
 +  /* pagesize */
 +  len = sizeof(pagesize);
@@ -4552,11 +4527,11 @@ index 906fe4e..ebc60cc 100644
 +    mem_free *= pagesize;
 +
 +  /* mem_avail = mem_inactive + mem_cache + mem_free */
-+  lpBuffer->dwAvailPhys = mem_inactive + mem_cache + mem_free;
-+  lpBuffer->dwAvailVirtual = mem_inactive + mem_cache + mem_free;
++  lpBuffer->ullAvailPhys = mem_inactive + mem_cache + mem_free;
++  lpBuffer->ullAvailVirtual = mem_inactive + mem_cache + mem_free;
 +
 +  if (sysctlbyname("vm.stats.vm.v_swappgsout", &swap_free, &len, NULL, 0) == 0)
-+    lpBuffer->dwAvailPageFile = swap_free * pagesize;
++    lpBuffer->ullAvailPageFile = swap_free * pagesize;
 +#else
 +  struct sysinfo info;
 +  char name[32];
@@ -4589,19 +4564,18 @@ index 906fe4e..ebc60cc 100644
 +    rewind(procMeminfoFP);
 +    fflush(procMeminfoFP);
 +  }
-+  lpBuffer->dwLength        = sizeof(MEMORYSTATUS);
-+  lpBuffer->dwAvailPageFile = (info.freeswap * info.mem_unit);
-+  lpBuffer->dwAvailPhys     = ((info.freeram + info.bufferram) * info.mem_unit);
-+  lpBuffer->dwAvailVirtual  = ((info.freeram + info.bufferram) * info.mem_unit);
-+  lpBuffer->dwTotalPhys     = (info.totalram * info.mem_unit);
-+  lpBuffer->dwTotalVirtual  = (info.totalram * info.mem_unit);
++  lpBuffer->ullAvailPageFile = (info.freeswap * info.mem_unit);
++  lpBuffer->ullAvailPhys     = ((info.freeram + info.bufferram) * info.mem_unit);
++  lpBuffer->ullAvailVirtual  = ((info.freeram + info.bufferram) * info.mem_unit);
++  lpBuffer->ullTotalPhys     = (info.totalram * info.mem_unit);
++  lpBuffer->ullTotalVirtual  = (info.totalram * info.mem_unit);
 +#endif
 +}
 +
 +#endif
  
 diff --git a/xbmc/linux/XMemUtils.h b/xbmc/linux/XMemUtils.h
-index d6d314a..d368012 100644
+index d6d314a..83fc95d 100644
 --- a/xbmc/linux/XMemUtils.h
 +++ b/xbmc/linux/XMemUtils.h
 @@ -22,10 +22,14 @@
@@ -4615,16 +4589,16 @@ index d6d314a..d368012 100644
  void *_aligned_malloc(size_t s, size_t alignTo);
  void _aligned_free(void *p) ;
  
-+void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
++void GlobalMemoryStatusEx(LPMEMORYSTATUSEX lpBuffer);
 +
  #endif
  
 diff --git a/xbmc/linux/XSyncUtils.cpp b/xbmc/linux/XSyncUtils.cpp
 deleted file mode 100644
-index 454ff85..0000000
+index 19c4b5a..0000000
 --- a/xbmc/linux/XSyncUtils.cpp
 +++ /dev/null
-@@ -1,171 +0,0 @@
+@@ -1,169 +0,0 @@
 -/*
 - *      Copyright (C) 2005-2008 Team XBMC
 - *      http://www.xbmc.org
@@ -4674,13 +4648,12 @@ index 454ff85..0000000
 -static FILE* procMeminfoFP = NULL;
 -#endif
 -
--void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer)
+-void GlobalMemoryStatusEx(LPMEMORYSTATUSEX lpBuffer)
 -{
 -  if (!lpBuffer)
 -    return;
 -
--  memset(lpBuffer, 0, sizeof(MEMORYSTATUS));
--  lpBuffer->dwLength = sizeof(MEMORYSTATUS);
+-  memset(lpBuffer, 0, sizeof(MEMORYSTATUSEX));
 -
 -#ifdef __APPLE__
 -  uint64_t physmem;
@@ -4690,7 +4663,7 @@ index 454ff85..0000000
 -
 -  // Total physical memory.
 -  if (sysctl(mib, miblen, &physmem, &len, NULL, 0) == 0 && len == sizeof (physmem))
--      lpBuffer->dwTotalPhys = physmem;
+-      lpBuffer->ullTotalPhys = physmem;
 -
 -  // Virtual memory.
 -  mib[0] = CTL_VM; mib[1] = VM_SWAPUSAGE;
@@ -4698,8 +4671,8 @@ index 454ff85..0000000
 -  len = sizeof(struct xsw_usage);
 -  if (sysctl(mib, miblen, &swap, &len, NULL, 0) == 0)
 -  {
--      lpBuffer->dwAvailPageFile = swap.xsu_avail;
--      lpBuffer->dwTotalVirtual = lpBuffer->dwTotalPhys + swap.xsu_total;
+-      lpBuffer->ullAvailPageFile = swap.xsu_avail;
+-      lpBuffer->ullTotalVirtual = lpBuffer->ullTotalPhys + swap.xsu_total;
 -  }
 -
 -  // In use.
@@ -4716,8 +4689,8 @@ index 454ff85..0000000
 -      {
 -          uint64_t used = (vm_stat.active_count + vm_stat.inactive_count + vm_stat.wire_count) * pageSize;
 -
--          lpBuffer->dwAvailPhys = lpBuffer->dwTotalPhys - used;
--          lpBuffer->dwAvailVirtual  = lpBuffer->dwAvailPhys; // FIXME.
+-          lpBuffer->ullAvailPhys = lpBuffer->ullTotalPhys - used;
+-          lpBuffer->ullAvailVirtual  = lpBuffer->ullAvailPhys; // FIXME.
 -      }
 -  }
 -#elif defined(__FreeBSD__)                                                                                                                                                                   
@@ -4728,8 +4701,8 @@ index 454ff85..0000000
 -  /* physmem */                                                                                                                                                                              
 -  len = sizeof(physmem);                                                                                                                                                                     
 -  if (sysctlbyname("hw.physmem", &physmem, &len, NULL, 0) == 0) {                                                                                                                            
--    lpBuffer->dwTotalPhys = physmem;                                                                                                                                                         
--    lpBuffer->dwTotalVirtual = physmem;                                                                                                                                                      
+-    lpBuffer->ullTotalPhys = physmem;                                                                                                                                                         
+-    lpBuffer->ullTotalVirtual = physmem;                                                                                                                                                      
 -  }                                                                                                                                                                                          
 -  /* pagesize */                                                                                                                                                                             
 -  len = sizeof(pagesize);                                                                                                                                                                    
@@ -4749,11 +4722,11 @@ index 454ff85..0000000
 -    mem_free *= pagesize;
 -
 -  /* mem_avail = mem_inactive + mem_cache + mem_free */
--  lpBuffer->dwAvailPhys = mem_inactive + mem_cache + mem_free;
--  lpBuffer->dwAvailVirtual = mem_inactive + mem_cache + mem_free;
+-  lpBuffer->ullAvailPhys = mem_inactive + mem_cache + mem_free;
+-  lpBuffer->ullAvailVirtual = mem_inactive + mem_cache + mem_free;
 -
 -  if (sysctlbyname("vm.stats.vm.v_swappgsout", &swap_free, &len, NULL, 0) == 0)
--    lpBuffer->dwAvailPageFile = swap_free * pagesize;
+-    lpBuffer->ullAvailPageFile = swap_free * pagesize;
 -#else
 -  struct sysinfo info;
 -  char name[32];
@@ -4786,19 +4759,18 @@ index 454ff85..0000000
 -    rewind(procMeminfoFP);
 -    fflush(procMeminfoFP);
 -  }
--  lpBuffer->dwLength        = sizeof(MEMORYSTATUS);
--  lpBuffer->dwAvailPageFile = (info.freeswap * info.mem_unit);
--  lpBuffer->dwAvailPhys     = ((info.freeram + info.bufferram) * info.mem_unit);
--  lpBuffer->dwAvailVirtual  = ((info.freeram + info.bufferram) * info.mem_unit);
--  lpBuffer->dwTotalPhys     = (info.totalram * info.mem_unit);
--  lpBuffer->dwTotalVirtual  = (info.totalram * info.mem_unit);
+-  lpBuffer->ullAvailPageFile = (info.freeswap * info.mem_unit);
+-  lpBuffer->ullAvailPhys     = ((info.freeram + info.bufferram) * info.mem_unit);
+-  lpBuffer->ullAvailVirtual  = ((info.freeram + info.bufferram) * info.mem_unit);
+-  lpBuffer->ullTotalPhys     = (info.totalram * info.mem_unit);
+-  lpBuffer->ullTotalVirtual  = (info.totalram * info.mem_unit);
 -#endif
 -}
 -
 -#endif
 diff --git a/xbmc/linux/XSyncUtils.h b/xbmc/linux/XSyncUtils.h
 deleted file mode 100644
-index c8effa2..0000000
+index f3ad36f..0000000
 --- a/xbmc/linux/XSyncUtils.h
 +++ /dev/null
 @@ -1,44 +0,0 @@
@@ -4840,7 +4812,7 @@ index c8effa2..0000000
 -#define WAIT_ABANDONED         ((STATUS_ABANDONED_WAIT_0 ) + 0 )
 -#define WAIT_ABANDONED_0       ((STATUS_ABANDONED_WAIT_0 ) + 0 )
 -
--void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
+-void GlobalMemoryStatusEx(LPMEMORYSTATUSEX lpBuffer);
 -
 -#endif
 -
@@ -5333,7 +5305,7 @@ index cb08d1b..cf5f927 100644
  }
  
 diff --git a/xbmc/peripherals/Peripherals.cpp b/xbmc/peripherals/Peripherals.cpp
-index 3866165..8be05a3 100644
+index 3868cc7..ffd78d2 100644
 --- a/xbmc/peripherals/Peripherals.cpp
 +++ b/xbmc/peripherals/Peripherals.cpp
 @@ -19,6 +19,7 @@
@@ -5358,10 +5330,10 @@ index ffe47a5..a7b54d2 100644
    m_pCallback = NULL;
    m_isLoading = false;
 diff --git a/xbmc/rendering/dx/RenderSystemDX.cpp b/xbmc/rendering/dx/RenderSystemDX.cpp
-index e61aa23..1ea4b9c 100644
+index 938cb36..ed92a41 100644
 --- a/xbmc/rendering/dx/RenderSystemDX.cpp
 +++ b/xbmc/rendering/dx/RenderSystemDX.cpp
-@@ -553,7 +553,7 @@ bool CRenderSystemDX::PresentRenderImpl(const CDirtyRegionList &dirty)
+@@ -569,7 +569,7 @@ bool CRenderSystemDX::PresentRenderImpl(const CDirtyRegionList &dirty)
  
    //CVideoReferenceClock polls GetRasterStatus too,
    //polling it from two threads at the same time is bad
@@ -5386,10 +5358,10 @@ index e228621..b31dec0 100644
    AddBool(g_sysinfo.IsVistaOrHigher() ? vp: NULL, "videoplayer.usedxva2", 13427, g_sysinfo.IsVistaOrHigher() ? true : false);
  #endif
 diff --git a/xbmc/settings/GUIWindowSettingsCategory.cpp b/xbmc/settings/GUIWindowSettingsCategory.cpp
-index 596967c..15db1bc 100644
+index cdece6c..899ab93 100644
 --- a/xbmc/settings/GUIWindowSettingsCategory.cpp
 +++ b/xbmc/settings/GUIWindowSettingsCategory.cpp
-@@ -946,6 +946,15 @@ void CGUIWindowSettingsCategory::UpdateSettings()
+@@ -936,6 +936,15 @@ void CGUIWindowSettingsCategory::UpdateSettings()
          pControl->SetEnabled(enabled);
        }
      }
@@ -7018,10 +6990,10 @@ index b91477d..8a05568 100644
  
    // threaded lookup functions
 diff --git a/xbmc/video/VideoInfoScanner.cpp b/xbmc/video/VideoInfoScanner.cpp
-index 75b533b..258f9e0 100644
+index 4534aa1..c245679 100644
 --- a/xbmc/video/VideoInfoScanner.cpp
 +++ b/xbmc/video/VideoInfoScanner.cpp
-@@ -53,7 +53,7 @@ using namespace ADDON;
+@@ -54,7 +54,7 @@ using namespace ADDON;
  namespace VIDEO
  {
  
@@ -7031,18 +7003,73 @@ index 75b533b..258f9e0 100644
      m_bRunning = false;
      m_pObserver = NULL;
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 076dc3a..4408f21 100644
+index 076dc3a..a899273 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
-@@ -30,6 +30,7 @@
+@@ -30,6 +30,9 @@
  #if defined(HAS_GLX) && defined(HAS_XRANDR)
    #include <sstream>
    #include <X11/extensions/Xrandr.h>
 +  #include "windowing/WindowingFactory.h"
++  #include "settings/Settings.h"
++  #include "guilib/GraphicContext.h"
    #define NVSETTINGSCMD "nvidia-settings -nt -q RefreshRate3"
  #elif defined(__APPLE__) && !defined(__arm__)
    #include <QuartzCore/CVDisplayLink.h>
-@@ -106,7 +107,7 @@ using namespace std;
+@@ -51,6 +54,52 @@
+   #include "settings/AdvancedSettings.h"
+ #endif
+ 
++#if defined(HAS_GLX)
++void CDisplayCallback::OnLostDevice()
++{
++  CSingleLock lock(m_DisplaySection);
++  m_State = DISP_LOST;
++  m_DisplayEvent.Reset();
++}
++void CDisplayCallback::OnResetDevice()
++{
++  CSingleLock lock(m_DisplaySection);
++  m_State = DISP_RESET;
++  m_DisplayEvent.Set();
++}
++void CDisplayCallback::Register()
++{
++  CSingleLock lock(m_DisplaySection);
++  g_Windowing.Register(this);
++  m_State = DISP_OPEN;
++}
++void CDisplayCallback::Unregister()
++{
++  g_Windowing.Unregister(this);
++}
++bool CDisplayCallback::IsReset()
++{
++  DispState state;
++  { CSingleLock lock(m_DisplaySection);
++    state = m_State;
++  }
++  if (state == DISP_LOST)
++  {
++    CLog::Log(LOGDEBUG,"VideoReferenceClock - wait for display reset signal");
++    m_DisplayEvent.Wait();
++    CSingleLock lock(m_DisplaySection);
++    state = m_State;
++    CLog::Log(LOGDEBUG,"VideoReferenceClock - got display reset signal");
++  }
++  if (state == DISP_RESET)
++  {
++    m_State = DISP_OPEN;
++    return true;
++  }
++  return false;
++}
++#endif
++
+ using namespace std;
+ 
+ #if defined(_WIN32) && defined(HAS_DX)
+@@ -106,7 +155,7 @@ using namespace std;
  
  #endif
  
@@ -7051,7 +7078,7 @@ index 076dc3a..4408f21 100644
  {
    m_SystemFrequency = CurrentHostFrequency();
    m_ClockSpeed = 1.0;
-@@ -159,6 +160,8 @@ void CVideoReferenceClock::Process()
+@@ -159,6 +208,8 @@ void CVideoReferenceClock::Process()
      m_RefreshChanged = 0;
      m_Started.Set();
  
@@ -7060,7 +7087,7 @@ index 076dc3a..4408f21 100644
      if (SetupSuccess)
      {
        m_UseVblank = true;          //tell other threads we're using vblank as clock
-@@ -217,6 +220,7 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -217,6 +268,7 @@ bool CVideoReferenceClock::SetupGLX()
      GLX_RED_SIZE,      0,
      GLX_GREEN_SIZE,    0,
      GLX_BLUE_SIZE,     0,
@@ -7068,35 +7095,113 @@ index 076dc3a..4408f21 100644
      None
    };
  
-@@ -230,6 +234,8 @@ bool CVideoReferenceClock::SetupGLX()
- 
-   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Setting up GLX");
- 
-+  X11Lock xlock(g_Windowing);
-+
-   if (!m_Dpy)
-   {
-     m_Dpy = XOpenDisplay(NULL);
-@@ -323,6 +329,9 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -323,16 +375,10 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
+-  XRRSizes(m_Dpy, m_vInfo->screen, &ReturnV);
+-  if (ReturnV == 0)
+-  {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: RandR not supported");
+-    return false;
+-  }
 +  m_glXSwapIntervalMESA = NULL;
 +  m_glXSwapIntervalMESA = (int (*)(int))glXGetProcAddress((const GLubyte*)"glXSwapIntervalMESA");
-+
-   XRRSizes(m_Dpy, m_vInfo->screen, &ReturnV);
-   if (ReturnV == 0)
-   {
-@@ -430,6 +439,8 @@ void CVideoReferenceClock::CleanupGLX()
-     }
-   }
  
-+  X11Lock xlock(g_Windowing);
+-  //set up receiving of RandR events, we'll get one when the refreshrate changes
+-  XRRQueryExtension(m_Dpy, &m_RREventBase, &ReturnV);
+-  XRRSelectInput(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), RRScreenChangeNotifyMask);
++  m_DispCallback.Register();
+ 
+   UpdateRefreshrate(true); //forced refreshrate update
+   m_MissedVblanks = 0;
+@@ -340,83 +386,12 @@ bool CVideoReferenceClock::SetupGLX()
+   return true;
+ }
+ 
+-bool CVideoReferenceClock::ParseNvSettings(int& RefreshRate)
+-{
+-  double fRefreshRate;
+-  char   Buff[255];
+-  int    ReturnV;
+-  struct lconv *Locale = localeconv();
+-  FILE*  NvSettings;
+-
+-  const char* VendorPtr = (const char*)glGetString(GL_VENDOR);
+-  if (!VendorPtr)
+-  {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glGetString(GL_VENDOR) returned NULL, not using nvidia-settings");
+-    return false;
+-  }
+-
+-  CStdString Vendor = VendorPtr;
+-  Vendor.ToLower();
+-  if (Vendor.find("nvidia") == std::string::npos)
+-  {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: GL_VENDOR:%s, not using nvidia-settings", Vendor.c_str());
+-    return false;
+-  }
+-
+-  NvSettings = popen(NVSETTINGSCMD, "r");
+-  if (!NvSettings)
+-  {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: %s: %s", NVSETTINGSCMD, strerror(errno));
+-    return false;
+-  }
+-
+-  ReturnV = fscanf(NvSettings, "%254[^\n]", Buff);
+-  pclose(NvSettings);
+-  if (ReturnV != 1)
+-  {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: %s produced no output", NVSETTINGSCMD);
+-    return false;
+-  }
+-
+-  CLog::Log(LOGDEBUG, "CVideoReferenceClock: output of %s: %s", NVSETTINGSCMD, Buff);
+-
+-  for (int i = 0; i < 255 && Buff[i]; i++)
+-  {
+-      //workaround for locale mismatch
+-    if (Buff[i] == '.' || Buff[i] == ',')
+-      Buff[i] = *Locale->decimal_point;
+-  }
+-
+-  ReturnV = sscanf(Buff, "%lf", &fRefreshRate);
+-  if (ReturnV != 1 || fRefreshRate <= 0.0)
+-  {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: can't make sense of that");
+-    return false;
+-  }
+-
+-  RefreshRate = MathUtils::round_int(fRefreshRate);
+-  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate by nvidia-settings: %f hertz, rounding to %i hertz",
+-            fRefreshRate, RefreshRate);
+-
+-  return true;
+-}
+-
+-int CVideoReferenceClock::GetRandRRate()
+-{
+-  int RefreshRate;
+-  XRRScreenConfiguration *CurrInfo;
+-
+-  CurrInfo = XRRGetScreenInfo(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen));
+-  RefreshRate = XRRConfigCurrentRate(CurrInfo);
+-  XRRFreeScreenConfigInfo(CurrInfo);
+-
+-  return RefreshRate;
+-}
+-
+ void CVideoReferenceClock::CleanupGLX()
+ {
+   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up GLX");
+ 
++  m_DispCallback.Unregister();
 +
-   if (m_vInfo)
-   {
-     XFree(m_vInfo);
-@@ -463,6 +474,19 @@ void CVideoReferenceClock::RunGLX()
+   bool AtiWorkaround = false;
+   const char* VendorPtr = (const char*)glGetString(GL_VENDOR);
+   if (VendorPtr)
+@@ -463,6 +438,19 @@ void CVideoReferenceClock::RunGLX()
    bool          IsReset = false;
    int64_t       Now;
  
@@ -7116,7 +7221,7 @@ index 076dc3a..4408f21 100644
    CSingleLock SingleLock(m_CritSection);
    SingleLock.Leave();
  
-@@ -470,10 +494,51 @@ void CVideoReferenceClock::RunGLX()
+@@ -470,10 +458,55 @@ void CVideoReferenceClock::RunGLX()
    m_glXGetVideoSyncSGI(&VblankCount);
    PrevVblankCount = VblankCount;
  
@@ -7133,10 +7238,14 @@ index 076dc3a..4408f21 100644
 +      ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
 +    else
 +    {
-+      //-------------------------------
 +      proximity = 0;
-+      sleepTime = precision * 100000LL / m_RefreshRate;
-+      correction = (CurrentHostCounter() - lastVblankTime) / 1000;
++
++      // calculate sleep time in micro secs
++      // we start with 10% of interval multiplied with precision
++      sleepTime = m_SystemFrequency / m_RefreshRate / 10000LL * precision;
++
++      // correct sleepTime
++      correction = (CurrentHostCounter() - lastVblankTime) / m_SystemFrequency * 1000000LL;
 +      if (sleepTime > correction)
 +        sleepTime -= correction;
 +      usleep(sleepTime);
@@ -7169,10 +7278,21 @@ index 076dc3a..4408f21 100644
      m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
      Now = CurrentHostCounter();         //get the timestamp of this vblank
  
-@@ -492,13 +557,14 @@ void CVideoReferenceClock::RunGLX()
+@@ -483,6 +516,9 @@ void CVideoReferenceClock::RunGLX()
+       return;
+     }
+ 
++    if (m_DispCallback.IsReset())
++      UpdateRefreshrate(true);
++
+     if (VblankCount > PrevVblankCount)
+     {
+       //update the vblank timestamp, update the clock and send a signal that we got a vblank
+@@ -491,14 +527,14 @@ void CVideoReferenceClock::RunGLX()
+       UpdateClock((int)(VblankCount - PrevVblankCount), true);
        SingleLock.Leave();
        SendVblankSignal();
-       UpdateRefreshrate();
+-      UpdateRefreshrate();
 -
        IsReset = false;
      }
@@ -7185,11 +7305,90 @@ index 076dc3a..4408f21 100644
        //only try reattaching once
        if (IsReset)
          return;
+@@ -1020,44 +1056,17 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
+ 
+ #if defined(HAS_GLX) && defined(HAS_XRANDR)
+ 
+-  //check for RandR events
+-  bool   GotEvent = Forced || m_RefreshChanged == 2;
+-  XEvent Event;
+-  while (XCheckTypedEvent(m_Dpy, m_RREventBase + RRScreenChangeNotify, &Event))
+-  {
+-    if (Event.type == m_RREventBase + RRScreenChangeNotify)
+-    {
+-      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Received RandR event %i", Event.type);
+-      GotEvent = true;
+-    }
+-    XRRUpdateConfiguration(&Event);
+-  }
++  // the correct refresh rate is always stores in g_settings
++  bool   bUpdate = Forced || m_RefreshChanged == 2;
+ 
+   if (!Forced)
+     m_RefreshChanged = 0;
+ 
+-  if (!GotEvent) //refreshrate did not change
++  if (!bUpdate) //refreshrate did not change
+     return false;
+ 
+-  //the refreshrate can be wrong on nvidia drivers, so read it from nvidia-settings when it's available
+-  if (m_UseNvSettings || Forced)
+-  {
+-    int NvRefreshRate;
+-    //if this fails we can't get the refreshrate from nvidia-settings
+-    m_UseNvSettings = ParseNvSettings(NvRefreshRate);
+-
+-    if (m_UseNvSettings)
+-    {
+-      CSingleLock SingleLock(m_CritSection);
+-      m_RefreshRate = NvRefreshRate;
+-      return true;
+-    }
+-
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Using RandR for refreshrate detection");
+-  }
+-
+   CSingleLock SingleLock(m_CritSection);
+-  m_RefreshRate = GetRandRRate();
++  m_RefreshRate = MathUtils::round_int(g_settings.m_ResInfo[g_graphicsContext.GetVideoResolution()].fRefreshRate);
+ 
+   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate: %i hertz", (int)m_RefreshRate);
+ 
 diff --git a/xbmc/video/VideoReferenceClock.h b/xbmc/video/VideoReferenceClock.h
-index 9699cd4..5d1149a 100644
+index 9699cd4..34335e8 100644
 --- a/xbmc/video/VideoReferenceClock.h
 +++ b/xbmc/video/VideoReferenceClock.h
-@@ -114,6 +114,7 @@ class CVideoReferenceClock : public CThread
+@@ -55,6 +55,29 @@ class CD3DCallback : public ID3DResource
+ 
+ #endif
+ 
++#if defined(HAS_GLX)
++#include "guilib/DispResource.h"
++class CDisplayCallback : public IDispResource
++{
++public:
++  virtual void OnLostDevice();
++  virtual void OnResetDevice();
++  void Register();
++  void Unregister();
++  bool IsReset();
++private:
++  enum DispState
++  {
++    DISP_LOST,
++    DISP_RESET,
++    DISP_OPEN
++  };
++  DispState m_State;
++  CEvent m_DisplayEvent;
++  CCriticalSection m_DisplaySection;
++};
++#endif
++
+ class CVideoReferenceClock : public CThread
+ {
+   public:
+@@ -114,6 +137,7 @@ class CVideoReferenceClock : public CThread
  
      int  (*m_glXWaitVideoSyncSGI) (int, int, unsigned int*);
      int  (*m_glXGetVideoSyncSGI)  (unsigned int*);
@@ -7197,6 +7396,14 @@ index 9699cd4..5d1149a 100644
  
      Display*     m_Dpy;
      XVisualInfo *m_vInfo;
+@@ -122,6 +146,7 @@ class CVideoReferenceClock : public CThread
+     int          m_RREventBase;
+ 
+     bool         m_UseNvSettings;
++    CDisplayCallback m_DispCallback;
+ 
+ #elif defined(_WIN32) && defined(HAS_DX)
+     bool   SetupD3D();
 diff --git a/xbmc/win32/PlatformDefs.h b/xbmc/win32/PlatformDefs.h
 index 57cab8f..74e3d53 100644
 --- a/xbmc/win32/PlatformDefs.h
@@ -7222,46 +7429,8 @@ index 56856ac..8aa7da9 100644
  {
    m_hwnd = NULL;
    m_hProcess = NULL;
-diff --git a/xbmc/windowing/WinEventsSDL.cpp b/xbmc/windowing/WinEventsSDL.cpp
-index afff390..807d873 100644
---- a/xbmc/windowing/WinEventsSDL.cpp
-+++ b/xbmc/windowing/WinEventsSDL.cpp
-@@ -216,8 +216,16 @@ bool CWinEventsSDL::MessagePump()
-   SDL_Event event;
-   bool ret = false;
- 
--  while (SDL_PollEvent(&event))
-+  while (1)
-   {
-+    {
-+#if defined(HAS_GLX)
-+      X11Lock xlock(g_Windowing);
-+#endif
-+      if (!SDL_PollEvent(&event))
-+        break;
-+    }
-+
-     switch(event.type)
-     {
-       case SDL_QUIT:
-@@ -330,7 +338,14 @@ bool CWinEventsSDL::MessagePump()
- 
-       case SDL_MOUSEMOTION:
-       {
--        if (0 == (SDL_GetAppState() & SDL_APPMOUSEFOCUS))
-+        Uint8 state;
-+        {
-+#if defined(HAS_GLX)
-+          X11Lock xlock(g_Windowing);
-+#endif
-+          state = SDL_GetAppState() & SDL_APPMOUSEFOCUS;
-+        }
-+        if (0 == state)
-         {
-           g_Mouse.SetActive(false);
- #if defined(__APPLE__)
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 62cf554..0f35d64 100644
+index 62cf554..931700b 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -35,6 +35,8 @@
@@ -7281,23 +7450,7 @@ index 62cf554..0f35d64 100644
  }
  
  CWinSystemX11::~CWinSystemX11()
-@@ -160,13 +163,14 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
- 
-   m_nWidth  = newWidth;
-   m_nHeight = newHeight;
--
-+  Uint8 state;
-   int options = SDL_OPENGL;
-   if (m_bFullScreen)
-     options |= SDL_FULLSCREEN;
-   else
-     options |= SDL_RESIZABLE;
- 
-+  X11Lock xlock(*this);
-   if ((m_SDLSurface = SDL_SetVideoMode(m_nWidth, m_nHeight, 0, options)))
-   {
-     RefreshGlxContext();
-@@ -176,12 +180,53 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -176,6 +179,45 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
    return false;
  }
  
@@ -7343,15 +7496,7 @@ index 62cf554..0f35d64 100644
  bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
  {
    m_nWidth      = res.iWidth;
-   m_nHeight     = res.iHeight;
-   m_bFullScreen = fullScreen;
- 
-+  X11Lock xlock(*this);
-+
- #if defined(HAS_XRANDR)
-   XOutput out;
-   XMode mode;
-@@ -191,13 +236,32 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -191,13 +233,32 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
    mode.hz  = res.fRefreshRate;
    mode.id  = res.strId;
   
@@ -7360,13 +7505,13 @@ index 62cf554..0f35d64 100644
 +  XMode   currmode = g_xrandr.GetCurrentMode(currout.name);
 +
 +  if (m_xrandrOut.name.empty())
-   {
++  {
 +    m_xrandrOut = currout;
 +    m_xrandrMode = currmode;
 +  }
 +
 +  if(!m_bFullScreen)
-+  {
+   {
 +    // reset to mode we had before internal mode switch
 +    out = m_xrandrOut;
 +    mode = m_xrandrMode;
@@ -7387,67 +7532,7 @@ index 62cf554..0f35d64 100644
  #endif
  
    int options = SDL_OPENGL;
-@@ -318,6 +382,9 @@ bool CWinSystemX11::RefreshGlxContext()
-   bool retVal = false;
-   SDL_SysWMinfo info;
-   SDL_VERSION(&info.version);
-+
-+  X11Lock xlock(*this);
-+
-   if (SDL_GetWMInfo(&info) <= 0)
-   {
-     CLog::Log(LOGERROR, "Failed to get window manager info from SDL");
-@@ -410,11 +477,15 @@ bool CWinSystemX11::RefreshGlxContext()
- 
- void CWinSystemX11::ShowOSMouse(bool show)
- {
-+  X11Lock xlock(*this);
-+
-   SDL_ShowCursor(show ? 1 : 0);
- }
- 
- void CWinSystemX11::ResetOSScreensaver()
- {
-+  X11Lock xlock(*this);
-+
-   if (m_bFullScreen)
-   {
-     //disallow the screensaver when we're fullscreen by periodically calling XResetScreenSaver(),
-@@ -441,6 +512,8 @@ void CWinSystemX11::NotifyAppActiveChange(bool bActivated)
- }
- bool CWinSystemX11::Minimize()
- {
-+  X11Lock xlock(*this);
-+
-   m_bWasFullScreenBeforeMinimize = g_graphicsContext.IsFullScreenRoot();
-   if (m_bWasFullScreenBeforeMinimize)
-     g_graphicsContext.ToggleFullScreenRoot();
-@@ -454,12 +527,16 @@ bool CWinSystemX11::Restore()
- }
- bool CWinSystemX11::Hide()
- {
-+  X11Lock xlock(*this);
-+
-   XUnmapWindow(m_dpy, m_wmWindow);
-   XSync(m_dpy, False);
-   return true;
- }
- bool CWinSystemX11::Show(bool raise)
- {
-+  X11Lock xlock(*this);
-+
-   XMapWindow(m_dpy, m_wmWindow);
-   XSync(m_dpy, False);
-   return true;
-@@ -471,6 +548,7 @@ void CWinSystemX11::CheckDisplayEvents()
-   bool bGotEvent(false);
-   bool bTimeout(false);
-   XEvent Event;
-+
-   while (XCheckTypedEvent(m_dpy, m_RREventBase + RRScreenChangeNotify, &Event))
-   {
-     if (Event.type == m_RREventBase + RRScreenChangeNotify)
-@@ -491,6 +569,7 @@ void CWinSystemX11::CheckDisplayEvents()
+@@ -491,6 +552,7 @@ void CWinSystemX11::CheckDisplayEvents()
    if (bGotEvent || bTimeout)
    {
      CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
@@ -7456,7 +7541,7 @@ index 62cf554..0f35d64 100644
      CSingleLock lock(m_resourceSection);
  
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 5b941be..224c80f 100644
+index 5b941be..be59c5c 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -27,6 +27,7 @@
@@ -7485,69 +7570,3 @@ index 5b941be..224c80f 100644
  
  private:
    bool IsSuitableVisual(XVisualInfo *vInfo);
-@@ -83,5 +88,16 @@ private:
-   CStopWatch m_screensaverReset;
- };
- 
-+class X11Lock
-+{
-+public:
-+//  X11Lock(CWinSystemX11 &winX11) { dpy = winX11.GetDisplay(); if (dpy) XLockDisplay(dpy); };
-+//  virtual ~X11Lock() { if (dpy) XUnlockDisplay(dpy); };
-+  X11Lock(CWinSystemX11 &winX11) { ; };
-+  virtual ~X11Lock() { ; };
-+private:
-+  Display *dpy;
-+};
-+
- #endif // WINDOW_SYSTEM_H
- 
-diff --git a/xbmc/windowing/X11/WinSystemX11GL.cpp b/xbmc/windowing/X11/WinSystemX11GL.cpp
-index ec02b10..71d7d94 100644
---- a/xbmc/windowing/X11/WinSystemX11GL.cpp
-+++ b/xbmc/windowing/X11/WinSystemX11GL.cpp
-@@ -43,6 +43,8 @@ CWinSystemX11GL::~CWinSystemX11GL()
- 
- bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
- {
-+  X11Lock xlock(*this);
-+
-   CheckDisplayEvents();
- 
-   if(m_iVSyncMode == 3)
-@@ -124,6 +126,8 @@ bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
- 
- void CWinSystemX11GL::SetVSyncImpl(bool enable)
- {
-+  X11Lock xlock(*this);
-+
-   /* turn of current setting first */
-   if(m_glXSwapIntervalSGI)
-     m_glXSwapIntervalSGI(0);
-@@ -200,6 +204,8 @@ bool CWinSystemX11GL::IsExtSupported(const char* extension)
- 
- bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, RESOLUTION_INFO& res, PHANDLE_EVENT_FUNC userFunction)
- {
-+  X11Lock xlock(*this);
-+
-   if(!CWinSystemX11::CreateNewWindow(name, fullScreen, res, userFunction))
-     return false;
- 
-@@ -246,6 +252,8 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
- 
- bool CWinSystemX11GL::ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop)
- {
-+  X11Lock xlock(*this);
-+
-   CWinSystemX11::ResizeWindow(newWidth, newHeight, newLeft, newTop);
-   CRenderSystemGL::ResetRenderSystem(newWidth, newHeight, false, 0);
- 
-@@ -254,6 +262,8 @@ bool CWinSystemX11GL::ResizeWindow(int newWidth, int newHeight, int newLeft, int
- 
- bool CWinSystemX11GL::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
- {
-+  X11Lock xlock(*this);
-+
-   CWinSystemX11::SetFullScreen(fullScreen, res, blankOtherDisplays);
-   CRenderSystemGL::ResetRenderSystem(res.iWidth, res.iHeight, fullScreen, res.fRefreshRate);
- 
