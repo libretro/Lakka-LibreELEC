@@ -1,0 +1,35 @@
+From 93059cb9c601e3c49972d190a8e4267e139cbc67 Mon Sep 17 00:00:00 2001
+From: "Xiang, Haihao" <haihao.xiang@intel.com>
+Date: Wed, 21 Sep 2011 14:32:17 +0800
+Subject: [PATCH] workaround for implicit mode weighted prediction on
+ Sandybridge
+
+Signed-off-by: Xiang, Haihao <haihao.xiang@intel.com>
+---
+ src/gen6_mfd.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/src/gen6_mfd.c b/src/gen6_mfd.c
+index c4c93f7..823999b 100644
+--- a/src/gen6_mfd.c
++++ b/src/gen6_mfd.c
+@@ -709,7 +709,15 @@ gen6_mfd_avc_slice_state(VADriverContextP ctx,
+     } else {
+         num_ref_idx_l0 = slice_param->num_ref_idx_l0_active_minus1 + 1;
+         num_ref_idx_l1 = slice_param->num_ref_idx_l1_active_minus1 + 1;
+-        weighted_pred_idc = (pic_param->pic_fields.bits.weighted_bipred_idc == 1);
++        weighted_pred_idc = pic_param->pic_fields.bits.weighted_bipred_idc;
++
++        if (weighted_pred_idc == 2 &&
++            !mbaff_picture &&
++            num_ref_idx_l0 == 1 &&
++            num_ref_idx_l1 == 1 &&
++            (slice_param->RefPicList0[0].TopFieldOrderCnt + 
++             slice_param->RefPicList1[0].TopFieldOrderCnt) == 2 * pic_param->CurrPic.TopFieldOrderCnt)
++            weighted_pred_idc = 0;
+     }
+ 
+     first_mb_in_slice = slice_param->first_mb_in_slice << mbaff_picture;
+-- 
+1.7.5.4
+
