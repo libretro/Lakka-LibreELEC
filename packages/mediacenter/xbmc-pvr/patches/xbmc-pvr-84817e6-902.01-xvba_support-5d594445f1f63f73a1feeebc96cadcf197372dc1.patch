@@ -457,10 +457,10 @@ index 0000000..a62d649
 +#endif /* AVCODEC_XVBA_H */
 diff --git a/lib/ffmpeg/libavcodec/xvba_h264.c b/lib/ffmpeg/libavcodec/xvba_h264.c
 new file mode 100644
-index 0000000..d159376
+index 0000000..0d98dea
 --- /dev/null
 +++ b/lib/ffmpeg/libavcodec/xvba_h264.c
-@@ -0,0 +1,174 @@
+@@ -0,0 +1,180 @@
 +/*
 + * H.264 HW decode acceleration through XVBA
 + *
@@ -508,6 +508,9 @@ index 0000000..d159376
 +  render = (struct xvba_render_state *)s->current_picture_ptr->data[0];
 +  assert(render);
 +
++  if (render->picture_descriptor == 0)
++    return -1;
++
 +  pic_descriptor = render->picture_descriptor;
 +
 +  for (i = 0; i < 2; ++i) {
@@ -535,6 +538,9 @@ index 0000000..d159376
 +
 +  render = (struct xvba_render_state *)s->current_picture_ptr->data[0];
 +  assert(render);
++
++  if (render->picture_descriptor == 0 || render->iq_matrix == 0)
++    return -1;
 +
 +  pic_descriptor = render->picture_descriptor;
 +  iq_matrix = render->iq_matrix;
@@ -725,10 +731,10 @@ index 0000000..552ef95
 +};
 diff --git a/lib/ffmpeg/libavcodec/xvba_vc1.c b/lib/ffmpeg/libavcodec/xvba_vc1.c
 new file mode 100644
-index 0000000..36daf34
+index 0000000..e7b9211
 --- /dev/null
 +++ b/lib/ffmpeg/libavcodec/xvba_vc1.c
-@@ -0,0 +1,191 @@
+@@ -0,0 +1,194 @@
 +/*
 + * VC-1 HW decode acceleration through XVBA
 + *
@@ -788,6 +794,9 @@ index 0000000..36daf34
 +
 +    render = (struct xvba_render_state *)s->current_picture_ptr->data[0];
 +    assert(render);
++
++    if (render->picture_descriptor == 0)
++      return -1;
 +
 +    pic_descriptor = render->picture_descriptor;
 +    
@@ -1990,10 +1999,10 @@ index 1dce256..8b7d5fb 100644
  
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
 new file mode 100644
-index 0000000..7478aa3
+index 0000000..8f0106a
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
-@@ -0,0 +1,1356 @@
+@@ -0,0 +1,1380 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -2018,6 +2027,7 @@ index 0000000..7478aa3
 +#include "system.h"
 +#ifdef HAVE_LIBXVBA
 +#include <dlfcn.h>
++#include <string>
 +#include "XVBA.h"
 +#include "windowing/WindowingFactory.h"
 +#include "guilib/GraphicContext.h"
@@ -2300,6 +2310,13 @@ index 0000000..7478aa3
 +
 +bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat fmt, unsigned int surfaces)
 +{
++  std::string Vendor = g_Windowing.GetRenderVendor();
++  std::transform(Vendor.begin(), Vendor.end(), Vendor.begin(), ::tolower);
++  if (Vendor.compare(0, 3, "ati") != 0)
++  {
++    return false;
++  }
++
 +  CLog::Log(LOGNOTICE,"(XVBA::Open) opening dxva decoder");
 +
 +  if(avctx->coded_width  == 0
@@ -2479,10 +2496,20 @@ index 0000000..7478aa3
 +    m_context->Release();
 +  m_context = 0;
 +
++  while (!m_videoSurfaces.empty())
++  {
++    xvba_render_state *render = m_videoSurfaces.back();
++    if(render->buffers_alllocated > 0)
++      m_dllAvUtil.av_free(render->buffers);
++    m_videoSurfaces.pop_back();
++    free(render);
++  }
++
 +  if (m_flipBuffer)
 +    delete [] m_flipBuffer;
 +
 +  g_Windowing.Unregister(this);
++  m_dllAvUtil.Unload();
 +}
 +
 +void CDecoder::ResetState()
@@ -2642,21 +2669,48 @@ index 0000000..7478aa3
 +  }
 +  m_xvbaBufferPool.iq_matrix_buffer = 0;
 +
-+  while (!m_videoSurfaces.empty())
++  for (unsigned int i = 0; i < m_videoSurfaces.size(); ++i)
 +  {
-+    xvba_render_state *render = m_videoSurfaces.back();
-+    if(render->buffers_alllocated > 0)
-+      m_dllAvUtil.av_free(render->buffers);
-+
-+    m_videoSurfaces.pop_back();
-+    if (m_xvbaSession)
++    xvba_render_state *render = m_videoSurfaces[i];
++    if (m_xvbaSession && render->surface)
++    {
 +      g_XVBA_vtable.DestroySurface(render->surface);
-+    free(render);
++      render->surface = 0;
++      render->picture_descriptor = 0;
++      render->iq_matrix = 0;
++    }
 +  }
 +
 +  if (m_xvbaSession)
 +    g_XVBA_vtable.DestroyDecode(m_xvbaSession);
 +  m_xvbaSession = 0;
++}
++
++bool CDecoder::IsSurfaceValid(xvba_render_state *render)
++{
++  // find render state in queue
++  bool found(false);
++  unsigned int i;
++  for(i = 0; i < m_videoSurfaces.size(); ++i)
++  {
++    if(m_videoSurfaces[i] == render)
++    {
++      found = true;
++      break;
++    }
++  }
++  if (!found)
++  {
++    CLog::Log(LOGERROR,"%s - video surface not found", __FUNCTION__);
++    return false;
++  }
++  if (m_videoSurfaces[i]->surface == 0)
++  {
++    m_videoSurfaces[i]->state = 0;
++    return false;
++  }
++
++  return true;
 +}
 +
 +bool CDecoder::EnsureDataControlBuffers(unsigned int num)
@@ -2710,16 +2764,7 @@ index 0000000..7478aa3
 +    pic->data[i]= NULL;
 +
 +  // find render state in queue
-+  bool found(false);
-+  for(unsigned int i = 0; i < xvba->m_videoSurfaces.size(); ++i)
-+  {
-+    if(xvba->m_videoSurfaces[i] == render)
-+    {
-+      found = true;
-+      break;
-+    }
-+  }
-+  if (!found)
++  if (!xvba->IsSurfaceValid(render))
 +  {
 +    CLog::Log(LOGDEBUG, "XVBA::FFReleaseBuffer - ignoring invalid buffer");
 +    return;
@@ -2759,16 +2804,7 @@ index 0000000..7478aa3
 +  }
 +
 +  // ffmpeg vc-1 decoder does not flush, make sure the data buffer is still valid
-+  bool found(false);
-+  for(unsigned int i = 0; i < xvba->m_videoSurfaces.size(); ++i)
-+  {
-+    if(xvba->m_videoSurfaces[i] == render)
-+    {
-+      found = true;
-+      break;
-+    }
-+  }
-+  if (!found)
++  if (!xvba->IsSurfaceValid(render))
 +  {
 +    CLog::Log(LOGWARNING, "XVBA::FFDrawSlice - ignoring invalid buffer");
 +    return;
@@ -2960,7 +2996,7 @@ index 0000000..7478aa3
 +    }
 +  }
 +
-+  // create a new surface
++  // create a new render state
 +  if (render == NULL)
 +  {
 +    render = (xvba_render_state*)calloc(sizeof(xvba_render_state), 1);
@@ -2969,6 +3005,15 @@ index 0000000..7478aa3
 +      CLog::Log(LOGERROR, "XVBA::FFGetBuffer - calloc failed");
 +      return -1;
 +    }
++    render->surface = 0;
++    render->buffers_alllocated = 0;
++    CSingleLock lock(xvba->m_videoSurfaceSec);
++    xvba->m_videoSurfaces.push_back(render);
++  }
++
++  // create a new surface
++  if (render->surface == 0)
++  {
 +    XVBA_Create_Surface_Input surfaceInput;
 +    XVBA_Create_Surface_Output surfaceOutput;
 +    surfaceInput.size = sizeof(surfaceInput);
@@ -2984,12 +3029,9 @@ index 0000000..7478aa3
 +        return -1;
 +      }
 +    }
-+    CSingleLock lock(xvba->m_videoSurfaceSec);
 +    render->surface = surfaceOutput.surface;
-+    render->buffers_alllocated = 0;
 +    render->picture_descriptor = (XVBAPictureDescriptor *)xvba->m_xvbaBufferPool.picture_descriptor_buffer->bufferXVBA;
 +    render->iq_matrix = (XVBAQuantMatrixAvc *)xvba->m_xvbaBufferPool.iq_matrix_buffer->bufferXVBA;
-+    xvba->m_videoSurfaces.push_back(render);
 +    CLog::Log(LOGDEBUG, "XVBA::FFGetBuffer - created video surface");
 +  }
 +
@@ -3037,16 +3079,7 @@ index 0000000..7478aa3
 +      return VC_ERROR;
 +
 +    // ffmpeg vc-1 decoder does not flush, make sure the data buffer is still valid
-+    bool found(false);
-+    for(unsigned int i = 0; i < m_videoSurfaces.size(); ++i)
-+    {
-+      if(m_videoSurfaces[i] == render)
-+      {
-+        found = true;
-+        break;
-+      }
-+    }
-+    if (!found)
++    if (!IsSurfaceValid(render))
 +    {
 +      CLog::Log(LOGWARNING, "XVBA::Decode - ignoring invalid buffer");
 +      return VC_BUFFER;
@@ -3352,10 +3385,10 @@ index 0000000..7478aa3
 +#endif
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
 new file mode 100644
-index 0000000..bbb7881
+index 0000000..fdf605b
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
-@@ -0,0 +1,159 @@
+@@ -0,0 +1,160 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -3460,6 +3493,7 @@ index 0000000..bbb7881
 +  bool DiscardPresentPicture();
 +  void ResetState();
 +  void SetError(const char* function, const char* msg, int line);
++  bool IsSurfaceValid(xvba_render_state *render);
 +
 +  // callbacks for ffmpeg
 +  static void  FFReleaseBuffer(AVCodecContext *avctx, AVFrame *pic);
@@ -7003,7 +7037,7 @@ index 4534aa1..c245679 100644
      m_bRunning = false;
      m_pObserver = NULL;
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 076dc3a..a899273 100644
+index 076dc3a..3bd58ef 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -30,6 +30,9 @@
@@ -7087,15 +7121,88 @@ index 076dc3a..a899273 100644
      if (SetupSuccess)
      {
        m_UseVblank = true;          //tell other threads we're using vblank as clock
-@@ -217,6 +268,7 @@ bool CVideoReferenceClock::SetupGLX()
-     GLX_RED_SIZE,      0,
-     GLX_GREEN_SIZE,    0,
-     GLX_BLUE_SIZE,     0,
-+    GLX_DOUBLEBUFFER,
-     None
-   };
+@@ -266,6 +317,14 @@ bool CVideoReferenceClock::SetupGLX()
+     return false;
+   }
  
-@@ -323,16 +375,10 @@ bool CVideoReferenceClock::SetupGLX()
++  CStdString Vendor = g_Windowing.GetRenderVendor();
++  Vendor.ToLower();
++  if (Vendor.compare(0, 3, "ati") == 0)
++  {
++    CLog::Log(LOGDEBUG, "CVideoReferenceClock: GL_VENDOR: %s, using ati workaround", Vendor.c_str());
++    m_bIsATI = true;
++  }
++
+   m_vInfo = glXChooseVisual(m_Dpy, DefaultScreen(m_Dpy), singleBufferAttributes);
+   if (!m_vInfo)
+   {
+@@ -273,13 +332,16 @@ bool CVideoReferenceClock::SetupGLX()
+     return false;
+   }
+ 
+-  Swa.border_pixel = 0;
+-  Swa.event_mask = StructureNotifyMask;
+-  Swa.colormap = XCreateColormap(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), m_vInfo->visual, AllocNone );
+-  SwaMask = CWBorderPixel | CWColormap | CWEventMask;
++  if (!m_bIsATI)
++  {
++    Swa.border_pixel = 0;
++    Swa.event_mask = StructureNotifyMask;
++    Swa.colormap = XCreateColormap(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), m_vInfo->visual, AllocNone );
++    SwaMask = CWBorderPixel | CWColormap | CWEventMask;
+ 
+-  m_Window = XCreateWindow(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), 0, 0, 256, 256, 0,
++    m_Window = XCreateWindow(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), 0, 0, 256, 256, 0,
+                            m_vInfo->depth, InputOutput, m_vInfo->visual, SwaMask, &Swa);
++  }
+ 
+   m_Context = glXCreateContext(m_Dpy, m_vInfo, NULL, True);
+   if (!m_Context)
+@@ -288,25 +350,32 @@ bool CVideoReferenceClock::SetupGLX()
+     return false;
+   }
+ 
+-  ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
++  if (!m_bIsATI)
++    ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
++  else
++    ReturnV = glXMakeCurrent(m_Dpy, g_Windowing.GetwmWindow(), m_Context);
++
+   if (ReturnV != True)
+   {
+     CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
+     return false;
+   }
+ 
+-  m_glXWaitVideoSyncSGI = (int (*)(int, int, unsigned int*))glXGetProcAddress((const GLubyte*)"glXWaitVideoSyncSGI");
+-  if (!m_glXWaitVideoSyncSGI)
++  if (!m_bIsATI)
+   {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI not found");
+-    return false;
+-  }
++    m_glXWaitVideoSyncSGI = (int (*)(int, int, unsigned int*))glXGetProcAddress((const GLubyte*)"glXWaitVideoSyncSGI");
++    if (!m_glXWaitVideoSyncSGI)
++    {
++      CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI not found");
++      return false;
++    }
+ 
+-  ReturnV = m_glXWaitVideoSyncSGI(2, 0, &GlxTest);
+-  if (ReturnV)
+-  {
+-    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI returned %i", ReturnV);
+-    return false;
++    ReturnV = m_glXWaitVideoSyncSGI(2, 0, &GlxTest);
++    if (ReturnV)
++    {
++      CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI returned %i", ReturnV);
++      return false;
++    }
+   }
+ 
+   m_glXGetVideoSyncSGI = (int (*)(unsigned int*))glXGetProcAddress((const GLubyte*)"glXGetVideoSyncSGI");
+@@ -323,16 +392,7 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7105,9 +7212,7 @@ index 076dc3a..a899273 100644
 -    CLog::Log(LOGDEBUG, "CVideoReferenceClock: RandR not supported");
 -    return false;
 -  }
-+  m_glXSwapIntervalMESA = NULL;
-+  m_glXSwapIntervalMESA = (int (*)(int))glXGetProcAddress((const GLubyte*)"glXSwapIntervalMESA");
- 
+-
 -  //set up receiving of RandR events, we'll get one when the refreshrate changes
 -  XRRQueryExtension(m_Dpy, &m_RREventBase, &ReturnV);
 -  XRRSelectInput(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), RRScreenChangeNotifyMask);
@@ -7115,7 +7220,7 @@ index 076dc3a..a899273 100644
  
    UpdateRefreshrate(true); //forced refreshrate update
    m_MissedVblanks = 0;
-@@ -340,83 +386,12 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -340,95 +400,11 @@ bool CVideoReferenceClock::SetupGLX()
    return true;
  }
  
@@ -7196,32 +7301,32 @@ index 076dc3a..a899273 100644
  {
    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up GLX");
  
+-  bool AtiWorkaround = false;
+-  const char* VendorPtr = (const char*)glGetString(GL_VENDOR);
+-  if (VendorPtr)
+-  {
+-    CStdString Vendor = VendorPtr;
+-    Vendor.ToLower();
+-    if (Vendor.compare(0, 3, "ati") == 0)
+-    {
+-      CLog::Log(LOGDEBUG, "CVideoReferenceClock: GL_VENDOR: %s, using ati dpy workaround", VendorPtr);
+-      AtiWorkaround = true;
+-    }
+-  }
 +  m_DispCallback.Unregister();
-+
-   bool AtiWorkaround = false;
-   const char* VendorPtr = (const char*)glGetString(GL_VENDOR);
-   if (VendorPtr)
-@@ -463,6 +438,19 @@ void CVideoReferenceClock::RunGLX()
-   bool          IsReset = false;
-   int64_t       Now;
  
-+  bool AtiWorkaround = false;
-+  const char* VendorPtr = (const char*)glGetString(GL_VENDOR);
-+  if (VendorPtr)
-+  {
-+    CStdString Vendor = VendorPtr;
-+    Vendor.ToLower();
-+    if ((Vendor.compare(0, 3, "ati") == 0) && m_glXSwapIntervalMESA)
-+    {
-+      CLog::Log(LOGDEBUG, "CVideoReferenceClock: GL_VENDOR: %s, using ati workaround", VendorPtr);
-+      AtiWorkaround = true;
-+    }
-+  }
-+
-   CSingleLock SingleLock(m_CritSection);
-   SingleLock.Leave();
+   if (m_vInfo)
+   {
+@@ -448,7 +424,7 @@ void CVideoReferenceClock::CleanupGLX()
+   }
  
-@@ -470,10 +458,55 @@ void CVideoReferenceClock::RunGLX()
+   //ati saves the Display* in their libGL, if we close it here, we crash
+-  if (m_Dpy && !AtiWorkaround)
++  if (m_Dpy)
+   {
+     XCloseDisplay(m_Dpy);
+     m_Dpy = NULL;
+@@ -470,10 +446,55 @@ void CVideoReferenceClock::RunGLX()
    m_glXGetVideoSyncSGI(&VblankCount);
    PrevVblankCount = VblankCount;
  
@@ -7234,7 +7339,7 @@ index 076dc3a..a899273 100644
    {
      //wait for the next vblank
 -    ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
-+    if (!AtiWorkaround)
++    if (!m_bIsATI)
 +      ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
 +    else
 +    {
@@ -7278,7 +7383,7 @@ index 076dc3a..a899273 100644
      m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
      Now = CurrentHostCounter();         //get the timestamp of this vblank
  
-@@ -483,6 +516,9 @@ void CVideoReferenceClock::RunGLX()
+@@ -483,6 +504,9 @@ void CVideoReferenceClock::RunGLX()
        return;
      }
  
@@ -7288,7 +7393,7 @@ index 076dc3a..a899273 100644
      if (VblankCount > PrevVblankCount)
      {
        //update the vblank timestamp, update the clock and send a signal that we got a vblank
-@@ -491,14 +527,14 @@ void CVideoReferenceClock::RunGLX()
+@@ -491,14 +515,14 @@ void CVideoReferenceClock::RunGLX()
        UpdateClock((int)(VblankCount - PrevVblankCount), true);
        SingleLock.Leave();
        SendVblankSignal();
@@ -7305,7 +7410,7 @@ index 076dc3a..a899273 100644
        //only try reattaching once
        if (IsReset)
          return;
-@@ -1020,44 +1056,17 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
+@@ -1020,44 +1044,17 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
  
  #if defined(HAS_GLX) && defined(HAS_XRANDR)
  
@@ -7355,7 +7460,7 @@ index 076dc3a..a899273 100644
    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate: %i hertz", (int)m_RefreshRate);
  
 diff --git a/xbmc/video/VideoReferenceClock.h b/xbmc/video/VideoReferenceClock.h
-index 9699cd4..34335e8 100644
+index 9699cd4..ff993ff 100644
 --- a/xbmc/video/VideoReferenceClock.h
 +++ b/xbmc/video/VideoReferenceClock.h
 @@ -55,6 +55,29 @@ class CD3DCallback : public ID3DResource
@@ -7388,18 +7493,11 @@ index 9699cd4..34335e8 100644
  class CVideoReferenceClock : public CThread
  {
    public:
-@@ -114,6 +137,7 @@ class CVideoReferenceClock : public CThread
- 
-     int  (*m_glXWaitVideoSyncSGI) (int, int, unsigned int*);
-     int  (*m_glXGetVideoSyncSGI)  (unsigned int*);
-+    int  (*m_glXSwapIntervalMESA) (int);
- 
-     Display*     m_Dpy;
-     XVisualInfo *m_vInfo;
-@@ -122,6 +146,7 @@ class CVideoReferenceClock : public CThread
+@@ -122,6 +145,8 @@ class CVideoReferenceClock : public CThread
      int          m_RREventBase;
  
      bool         m_UseNvSettings;
++    bool         m_bIsATI;
 +    CDisplayCallback m_DispCallback;
  
  #elif defined(_WIN32) && defined(HAS_DX)
@@ -7541,7 +7639,7 @@ index 62cf554..931700b 100644
      CSingleLock lock(m_resourceSection);
  
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 5b941be..be59c5c 100644
+index 5b941be..5dfb05e 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -27,6 +27,7 @@
@@ -7552,15 +7650,16 @@ index 5b941be..be59c5c 100644
  
  class IDispResource;
  
-@@ -60,6 +61,7 @@ public:
+@@ -60,6 +61,8 @@ public:
    // Local to WinSystemX11 only
    Display*  GetDisplay() { return m_dpy; }
    GLXWindow GetWindow() { return m_glWindow; }
++  Window    GetwmWindow() { return m_wmWindow; };
 +  void RefreshWindow();
  
  protected:
    bool RefreshGlxContext();
-@@ -76,6 +78,9 @@ protected:
+@@ -76,6 +79,9 @@ protected:
    CCriticalSection             m_resourceSection;
    std::vector<IDispResource*>  m_resources;
    uint64_t                     m_dpyLostTime;
