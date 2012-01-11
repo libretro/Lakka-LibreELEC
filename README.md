@@ -1,6 +1,6 @@
-http://OpenELEC.tv
+[OpenELEC](http://www.openelec.tv)
 
-OpenELEC - Open Embedded Linux Entertainment Center
+# OpenELEC - Open Embedded Linux Entertainment Center
 
 OpenELEC runs XBMC, an award-winning free and open source (GPL) software media 
 player and entertainment hub for digital media (http://xbmc.org).
@@ -8,21 +8,26 @@ The base system has been designed and built from the ground up to be as
 efficient as possible – consuming only a tiny footprint, cutting edge hardware 
 support for a set-top box experience.
 
-Source code:
-- https://github.com/OpenELEC/OpenELEC.tv
+**Source code**
 
-Installation:
-- Please read INSTALL for instructions on how to install.
+* (https://github.com/OpenELEC/OpenELEC.tv)
 
-Known issues:
-- Testing snapshot
+**Installation**
 
-License:
-- OpenELEC is released under GPLv2. Please refer to the "licenses" folder and 
+* Please read INSTALL for instructions on how to install.
+
+**Known issues**
+
+* Testing snapshot
+
+**License**
+
+* OpenELEC is released under GPLv2. Please refer to the "licenses" folder and 
   source code for clarification on upstream licensing.
 
-Copyright:
-- Since OpenELEC includes code from many up stream projects it includes many 
+**Copyright**
+
+* Since OpenELEC includes code from many up stream projects it includes many 
   copyright owners. OpenELEC makes NO claim of copyright on any upstream code. 
   However all OpenELEC authored code is copyright openelec.tv.
   For a complete copyright list checkout the source code to examine the headers.
@@ -37,43 +42,46 @@ Copyright:
   If you are submitting code that is not your own work it is the submitters 
   responsibility to place a header stating the copyright. 
 
-Features:
-- System size ~ 90 - 130MB
-- Minimal hardware requirements
-- Ultra fast boot
-- Optimized builds for Atom, ION, Intel, Fusion
-- Simple configuration via XBMC
-- Plug and Play external storage
+**Features**
 
-Software:
-- XBMC HTPC software – View/Manage all your media.
-- Samba server – File transfer from any PC client
-- SSH - remote debugging console
-- IR/Bluetooth Remote Control
+* System size ~ 90 - 130MB
+* Minimal hardware requirements
+* Ultra fast boot
+* Optimized builds for Atom, ION, Intel, Fusion
+* Simple configuration via XBMC
+* Plug and Play external storage
 
-Notes:
-- Login details for SSH are user: “root” password: “openelec”.
+**Software**
+
+* XBMC HTPC software – View/Manage all your media.
+* Samba server – File transfer from any PC client
+* SSH - remote debugging console
+* IR/Bluetooth Remote Control
+
+**Notes**
+
+* Login details for SSH are user: “root” password: “openelec”.
   SSH allows command line access to your openelec.tv machine for configuration
   and file transfer. Linux/mac clients can natively use SSH, windows users 
   might want to try PuTTY for their terminal access.
-- $HOME is mounted on /storage (the second ext4 partition on the drive). 
+* $HOME is mounted on /storage (the second ext4 partition on the drive). 
   All data transfered to the machine will go here, the rest of the system is
   read-only with the exception of /var (containing runtime configuration data).
-- Manual update/downgrade procedure is as follows:
+* Manual update/downgrade procedure is as follows:
   Extract the snapshot and navigate to the 'target' directory.
   Copy KERNEL and SYSTEM to the 'Update' network share (or /storage/.update) on
   your openelec machine. Your system will automatically upgrade during the 
   next reboot.
-- Automatic mounting of filesystems is supported. Devices such as USB Flash 
+* Automatic mounting of filesystems is supported. Devices such as USB Flash 
   sticks can be plugged into a running machine and will be mounted to /media,
   showing up in xbmc’s GUI.
-- Comments and questions are more than welcome, help is even better and patches 
+* Comments and questions are more than welcome, help is even better and patches 
   are absolutely perfect!!
 
-Questions/Support:
- - Forums on http://openelec.tv
- - IRC chatroom #openelec on Freenode
+**Questions/Support**
 
-Happy OpenELEC'ing
+* Forums on [http://openelec.tv](http://openelec.tv)
+* IRC chatroom **#openelec** on Freenode
 
-OpenELEC Development Team
+**Happy OpenELEC'ing**
+
