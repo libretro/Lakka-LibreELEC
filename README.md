@@ -5,8 +5,8 @@
 OpenELEC runs XBMC, an award-winning free and open source (GPL) software media 
 player and entertainment hub for digital media (http://xbmc.org).
 The base system has been designed and built from the ground up to be as 
-efficient as possible – consuming only a tiny footprint, cutting edge hardware 
-support for a set-top box experience.
+efficient as possible – consuming only tiny disk and memory footprints and
+providing cutting edge hardware support to deliver a set-top box experience.
 
 **Source code**
 
@@ -47,23 +47,25 @@ support for a set-top box experience.
 * System size ~ 90 - 130MB
 * Minimal hardware requirements
 * Ultra fast boot
-* Optimized builds for Atom, ION, Intel, Fusion
-* Simple configuration via XBMC
+* Optimized builds for platforms such as ION, Intel, Fusion
+* Simple configuration via XBMC itself
 * Plug and Play external storage
 
 **Software**
 
 * XBMC HTPC software – View/Manage all your media.
 * Samba server – File transfer from any PC client
-* SSH - remote debugging console
+* SSH server – Remote console access for debugging
 * IR/Bluetooth Remote Control
 
 **Notes**
 
-* Login details for SSH are user: “root” password: “openelec”.
+* SSH login details are user: “root” password: “openelec”.
   SSH allows command line access to your openelec.tv machine for configuration
-  and file transfer. Linux/mac clients can natively use SSH, windows users 
-  might want to try PuTTY for their terminal access.
+  and file transfer. Linux/Mac clients can natively use SSH, while Windows
+  users might want to try PuTTY for their terminal access.
+  Starting with OpenELEC 2.0, SSH is disabled by default but all that is needed
+  is an empty “ssh_enable” file to exist in /storage/.config to enable it.
 * $HOME is mounted on /storage (the second ext4 partition on the drive). 
   All data transfered to the machine will go here, the rest of the system is
   read-only with the exception of /var (containing runtime configuration data).
