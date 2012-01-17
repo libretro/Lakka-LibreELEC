@@ -3,7 +3,7 @@
 # OpenELEC - Open Embedded Linux Entertainment Center
 
 OpenELEC runs [XBMC](http://xbmc.org), an award-winning free and open source (GPL) software media 
-player and entertainment hub for digital media. For more info see (http://xbmc.org).
+player and entertainment hub for digital media. For more info see http://xbmc.org .
 The base system has been designed and built from the ground up to be as 
 efficient as possible – consuming only tiny disk and memory footprints and
 providing cutting edge hardware support to deliver a set-top box experience.
