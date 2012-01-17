@@ -972,7 +972,7 @@ index 8ec91c8..4803dd7 100644
      PIX_FMT_RGB444BE,  ///< packed RGB 4:4:4, 16bpp, (msb)4A 4R 4G 4B(lsb), big-endian, most significant bits to 0
      PIX_FMT_RGB444LE,  ///< packed RGB 4:4:4, 16bpp, (msb)4A 4R 4G 4B(lsb), little-endian, most significant bits to 0
 diff --git a/xbmc/ApplicationMessenger.cpp b/xbmc/ApplicationMessenger.cpp
-index b43f765..e68c630 100644
+index e95ecdc..892948a 100644
 --- a/xbmc/ApplicationMessenger.cpp
 +++ b/xbmc/ApplicationMessenger.cpp
 @@ -72,7 +72,7 @@
@@ -1043,7 +1043,7 @@ index f0b4aeb..47d25e4 100644
    m_paused = false;
    m_clock = 0;
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-index 4961b7d..df3ec01 100644
+index 4961b7d..70f20d7 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 @@ -60,6 +60,9 @@
@@ -1056,17 +1056,18 @@ index 4961b7d..df3ec01 100644
  
  #ifdef HAS_GLX
  #include <GL/glx.h>
-@@ -120,6 +123,9 @@ CLinuxRendererGL::YUVBUFFER::YUVBUFFER()
+@@ -120,6 +123,10 @@ CLinuxRendererGL::YUVBUFFER::YUVBUFFER()
  #ifdef HAVE_LIBVDPAU
    vdpau = NULL;
  #endif
 +#ifdef HAVE_LIBXVBA
 +  xvba = NULL;
++  xvba_tmp = NULL;
 +#endif
  }
  
  CLinuxRendererGL::YUVBUFFER::~YUVBUFFER()
-@@ -159,6 +165,7 @@ CLinuxRendererGL::CLinuxRendererGL()
+@@ -159,6 +166,7 @@ CLinuxRendererGL::CLinuxRendererGL()
    m_rgbPbo = 0;
  
    m_dllSwScale = new DllSwScale;
@@ -1074,7 +1075,7 @@ index 4961b7d..df3ec01 100644
  }
  
  CLinuxRendererGL::~CLinuxRendererGL()
-@@ -223,7 +230,7 @@ bool CLinuxRendererGL::ValidateRenderer()
+@@ -223,7 +231,7 @@ bool CLinuxRendererGL::ValidateRenderer()
  
  void CLinuxRendererGL::ManageTextures()
  {
@@ -1083,7 +1084,7 @@ index 4961b7d..df3ec01 100644
    //m_iYV12RenderBuffer = 0;
    return;
  }
-@@ -568,6 +575,11 @@ void CLinuxRendererGL::Flush()
+@@ -568,6 +576,11 @@ void CLinuxRendererGL::Flush()
    m_bValidated = false;
  }
  
@@ -1095,7 +1096,7 @@ index 4961b7d..df3ec01 100644
  void CLinuxRendererGL::Update(bool bPauseDrawing)
  {
    if (!m_bConfigured) return;
-@@ -729,14 +741,15 @@ unsigned int CLinuxRendererGL::PreInit()
+@@ -729,14 +742,15 @@ unsigned int CLinuxRendererGL::PreInit()
  {
    CSingleLock lock(g_graphicsContext);
    m_bConfigured = false;
@@ -1114,7 +1115,7 @@ index 4961b7d..df3ec01 100644
  
    // setup the background colour
    m_clearColour = (float)(g_advancedSettings.m_videoBlackBarColour & 0xff) / 0xff;
-@@ -816,7 +829,7 @@ void CLinuxRendererGL::UpdateVideoFilter()
+@@ -816,7 +830,7 @@ void CLinuxRendererGL::UpdateVideoFilter()
    case VS_SCALINGMETHOD_LINEAR:
      SetTextureFilter(m_scalingMethod == VS_SCALINGMETHOD_NEAREST ? GL_NEAREST : GL_LINEAR);
      m_renderQuality = RQ_SINGLEPASS;
@@ -1123,7 +1124,7 @@ index 4961b7d..df3ec01 100644
      {
        m_pVideoFilterShader = new StretchFilterShader();
        if (!m_pVideoFilterShader->CompileAndLink())
-@@ -897,6 +910,11 @@ void CLinuxRendererGL::LoadShaders(int field)
+@@ -897,6 +911,11 @@ void CLinuxRendererGL::LoadShaders(int field)
      CLog::Log(LOGNOTICE, "GL: Using VAAPI render method");
      m_renderMethod = RENDER_VAAPI;
    }
@@ -1135,7 +1136,7 @@ index 4961b7d..df3ec01 100644
    else
    {
      int requestedMethod = g_guiSettings.GetInt("videoplayer.rendermethod");
-@@ -1031,6 +1049,18 @@ void CLinuxRendererGL::LoadShaders(int field)
+@@ -1031,6 +1050,18 @@ void CLinuxRendererGL::LoadShaders(int field)
      m_textureCreate = &CLinuxRendererGL::CreateVAAPITexture;
      m_textureDelete = &CLinuxRendererGL::DeleteVAAPITexture;
    }
@@ -1154,7 +1155,7 @@ index 4961b7d..df3ec01 100644
    else
    {
      // setup default YV12 texture handlers
-@@ -1124,6 +1154,13 @@ void CLinuxRendererGL::Render(DWORD flags, int renderBuffer)
+@@ -1124,6 +1155,13 @@ void CLinuxRendererGL::Render(DWORD flags, int renderBuffer)
      RenderVDPAU(renderBuffer, m_currentField);
    }
  #endif
@@ -1168,7 +1169,7 @@ index 4961b7d..df3ec01 100644
  #ifdef HAVE_LIBVA
    else if (m_renderMethod & RENDER_VAAPI)
    {
-@@ -1597,6 +1634,77 @@ void CLinuxRendererGL::RenderVAAPI(int index, int field)
+@@ -1597,6 +1635,77 @@ void CLinuxRendererGL::RenderVAAPI(int index, int field)
  #endif
  }
  
@@ -1246,7 +1247,7 @@ index 4961b7d..df3ec01 100644
  void CLinuxRendererGL::RenderSoftware(int index, int field)
  {
    YUVPLANES &planes = m_buffers[index].fields[field];
-@@ -2351,6 +2459,408 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
+@@ -2351,6 +2460,424 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
  #endif
  }
  
@@ -1259,6 +1260,7 @@ index 4961b7d..df3ec01 100644
 +    m_buffers[index].xvba->FinishGL();
 +
 +  SAFE_RELEASE(m_buffers[index].xvba);
++  SAFE_RELEASE(m_buffers[index].xvba_tmp);
 +
 +  if(plane.id && glIsTexture(plane.id))
 +    glDeleteTextures(1, &plane.id);
@@ -1304,6 +1306,13 @@ index 4961b7d..df3ec01 100644
 +{
 +#ifdef HAVE_LIBXVBA
 +  XVBA::CDecoder   *xvba = m_buffers[index].xvba;
++
++  if (m_buffers[index].xvba_tmp)
++  {
++    SAFE_RELEASE(m_buffers[index].xvba);
++    xvba = m_buffers[index].xvba = m_buffers[index].xvba_tmp;
++    m_buffers[index].xvba_tmp = NULL;
++  }
 +
 +  YUVFIELDS &fields = m_buffers[index].fields;
 +  YUVPLANE &planeFallback = fields[0][1];
@@ -1369,6 +1378,7 @@ index 4961b7d..df3ec01 100644
 +    m_buffers[index].xvba->FinishGL();
 +
 +  SAFE_RELEASE(m_buffers[index].xvba);
++  SAFE_RELEASE(m_buffers[index].xvba_tmp);
 +
 +  if( fields[FIELD_FULL][0].id == 0 ) return;
 +
@@ -1571,6 +1581,13 @@ index 4961b7d..df3ec01 100644
 +  YUVFIELDS& fields    =  buf.fields;
 +  XVBA::CDecoder *xvba = m_buffers[source].xvba;
 +
++  if (m_buffers[source].xvba_tmp)
++  {
++    SAFE_RELEASE(m_buffers[source].xvba);
++    xvba = m_buffers[source].xvba = m_buffers[source].xvba_tmp;
++    m_buffers[source].xvba_tmp = NULL;
++  }
++
 +  if (!(im->flags&IMAGE_FLAG_READY) || !xvba)
 +  {
 +    m_eventTexturesDone[source]->Set();
@@ -1655,7 +1672,7 @@ index 4961b7d..df3ec01 100644
  void CLinuxRendererGL::UploadYUV422PackedTexture(int source)
  {
    YUVBUFFER& buf    =  m_buffers[source];
-@@ -2934,6 +3444,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2934,6 +3461,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1665,7 +1682,7 @@ index 4961b7d..df3ec01 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2947,6 +3460,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2947,6 +3477,9 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
      if (m_renderMethod & RENDER_VAAPI)
        return false;
  
@@ -1675,7 +1692,7 @@ index 4961b7d..df3ec01 100644
      return (m_renderMethod & RENDER_GLSL)
          || (m_renderMethod & RENDER_ARB)
          || ((m_renderMethod & RENDER_SW) && glewIsSupported("GL_ARB_imaging") == GL_TRUE);
-@@ -2970,7 +3486,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
+@@ -2970,7 +3503,8 @@ bool CLinuxRendererGL::Supports(ERENDERFEATURE feature)
    if (feature == RENDERFEATURE_NONLINSTRETCH)
    {
      if (((m_renderMethod & RENDER_GLSL) && !(m_renderMethod & RENDER_POT)) ||
@@ -1685,7 +1702,7 @@ index 4961b7d..df3ec01 100644
        return true;
    }
  
-@@ -3010,10 +3527,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
+@@ -3010,10 +3544,22 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
    if(m_renderMethod & RENDER_VAAPI)
      return false;
  
@@ -1712,7 +1729,7 @@ index 4961b7d..df3ec01 100644
  
    if((method == VS_INTERLACEMETHOD_RENDER_BLEND
    ||  method == VS_INTERLACEMETHOD_RENDER_WEAVE_INVERTED
-@@ -3045,7 +3574,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
+@@ -3045,7 +3591,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
    || method == VS_SCALINGMETHOD_LANCZOS3)
    {
      if ((glewIsSupported("GL_EXT_framebuffer_object") && (m_renderMethod & RENDER_GLSL)) ||
@@ -1721,7 +1738,7 @@ index 4961b7d..df3ec01 100644
      {
        // spline36 and lanczos3 are only allowed through advancedsettings.xml
        if(method != VS_SCALINGMETHOD_SPLINE36
-@@ -3104,7 +3633,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
+@@ -3104,7 +3650,7 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
      pbo = true;
  
      glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, buff.pbo[plane]);
@@ -1730,7 +1747,7 @@ index 4961b7d..df3ec01 100644
      buff.image.plane[plane] = (BYTE*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB) + PBO_OFFSET;
    }
    if(pbo)
-@@ -3128,4 +3657,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
+@@ -3128,4 +3674,13 @@ void CLinuxRendererGL::AddProcessor(VAAPI::CHolder& holder)
  }
  #endif
  
@@ -1738,14 +1755,14 @@ index 4961b7d..df3ec01 100644
 +void CLinuxRendererGL::AddProcessor(XVBA::CDecoder* xvba)
 +{
 +  YUVBUFFER &buf = m_buffers[NextYV12Texture()];
-+  SAFE_RELEASE(buf.xvba);
-+  buf.xvba = (XVBA::CDecoder*)xvba->Acquire();
++  SAFE_RELEASE(buf.xvba_tmp);
++  buf.xvba_tmp = (XVBA::CDecoder*)xvba->Acquire();
 +}
 +#endif
 +
  #endif
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.h b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
-index 38c84aa..9b8a5ae 100644
+index 38c84aa..ae0b81b 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGL.h
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
 @@ -40,6 +40,7 @@ class CBaseTexture;
@@ -1805,12 +1822,13 @@ index 38c84aa..9b8a5ae 100644
  
    CFrameBufferObject m_fbo;
  
-@@ -270,6 +285,9 @@ protected:
+@@ -270,6 +285,10 @@ protected:
  #ifdef HAVE_LIBVA
      VAAPI::CHolder& vaapi;
  #endif
 +#ifdef HAVE_LIBXVBA
 +    XVBA::CDecoder* xvba;
++    XVBA::CDecoder* xvba_tmp;
 +#endif
    };
  
@@ -1999,10 +2017,10 @@ index 1dce256..8b7d5fb 100644
  
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
 new file mode 100644
-index 0000000..8f0106a
+index 0000000..d6317e0
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
-@@ -0,0 +1,1380 @@
+@@ -0,0 +1,1401 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -2264,6 +2282,8 @@ index 0000000..8f0106a
 +//-----------------------------------------------------------------------------
 +//-----------------------------------------------------------------------------
 +
++static unsigned int decoderId = 0;
++
 +CDecoder::CDecoder()
 +{
 +  m_context = 0;
@@ -2317,7 +2337,9 @@ index 0000000..8f0106a
 +    return false;
 +  }
 +
-+  CLog::Log(LOGNOTICE,"(XVBA::Open) opening dxva decoder");
++  m_decoderId = decoderId++;
++
++  CLog::Log(LOGNOTICE,"(XVBA::Open) opening xvba decoder, id: %d", m_decoderId);
 +
 +  if(avctx->coded_width  == 0
 +  || avctx->coded_height == 0)
@@ -2486,10 +2508,12 @@ index 0000000..8f0106a
 +
 +void CDecoder::Close()
 +{
-+  CLog::Log(LOGNOTICE, "XVBA::Close - closing decoder");
++  CLog::Log(LOGNOTICE, "XVBA::Close - closing decoder, id: %d", m_decoderId);
 +
 +  if (!m_context)
 +    return;
++
++  FinishGL();
 +
 +  DestroySession();
 +  if (m_context)
@@ -2590,6 +2614,14 @@ index 0000000..8f0106a
 +  if (Success != g_XVBA_vtable.CreateDecode(&sessionInput, &sessionOutput))
 +  {
 +    SetError(__FUNCTION__, "failed to create decoder session", __LINE__);
++    CLog::Log(LOGERROR, "Decoder failed with following stats: m_surfaceWidth %u, m_surfaceHeight %u,"
++                        " m_vidWidth %u, m_vidHeight %u, coded_width %d, coded_height %d",
++                        m_surfaceWidth,
++                        m_surfaceHeight,
++                        m_vidWidth,
++                        m_vidHeight,
++                        avctx->coded_width,
++                        avctx->coded_height);
 +    return false;
 +  }
 +  m_xvbaSession = sessionOutput.session;
@@ -3254,7 +3286,9 @@ index 0000000..8f0106a
 +      return -1;
 +  }
 +
-+  if (!m_flipBuffer[index].outPic)
++  if (!m_flipBuffer[index].outPic ||
++      !m_flipBuffer[index].outPic->render ||
++      !m_flipBuffer[index].outPic->render->surface)
 +    return -1;
 +
 +  int i = field;
@@ -3348,11 +3382,14 @@ index 0000000..8f0106a
 +{
 +  CLog::Log(LOGNOTICE, "XVBA::FinishGL - clearing down gl resources");
 +
-+  CSharedLock lock(m_decoderSection);
++  CExclusiveLock lock(m_decoderSection);
++  // if decoder was created with non supported codec, we would not have a flipBuffer and segfault
++  if(!m_flipBuffer)
++    return;
 +
 +  for (unsigned int i=0; i<m_numRenderBuffers;++i)
 +  {
-+    if (m_flipBuffer[i].outPic && !m_flipBuffer[i].isDuplicate)
++    if (m_flipBuffer[i].outPic && !m_flipBuffer[i].isDuplicate && m_flipBuffer[i].outPic->render)
 +    {
 +      { CSingleLock lock(m_videoSurfaceSec);
 +        m_flipBuffer[i].outPic->render->state &= ~FF_XVBA_STATE_USED_FOR_RENDER;
@@ -3364,7 +3401,7 @@ index 0000000..8f0106a
 +      }
 +    }
 +
-+    for (int j=0; j<3; ++j)
++    for (unsigned int j=0; j<3; ++j)
 +    {
 +      if (glIsTexture(m_flipBuffer[i].glTexture[j]))
 +      {
@@ -3374,7 +3411,9 @@ index 0000000..8f0106a
 +      }
 +      if (m_flipBuffer[i].glSurface[j] && m_xvbaSession)
 +      {
-+        g_XVBA_vtable.DestroySurface(m_flipBuffer[i].glSurface[j]);
++        { CSingleLock lock(m_apiSec);
++          g_XVBA_vtable.DestroySurface(m_flipBuffer[i].glSurface[j]);
++        }
 +        m_flipBuffer[i].glSurface[j] = 0;
 +        CLog::Log(LOGDEBUG, "XVBA::FinishGL - destroyed shared surface");
 +      }
@@ -3385,10 +3424,10 @@ index 0000000..8f0106a
 +#endif
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
 new file mode 100644
-index 0000000..fdf605b
+index 0000000..5ca39ab
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
-@@ -0,0 +1,160 @@
+@@ -0,0 +1,161 @@
 +/*
 + *      Copyright (C) 2005-2011 Team XBMC
 + *      http://www.xbmc.org
@@ -3514,6 +3553,7 @@ index 0000000..fdf605b
 +
 +  XVBADecodeCap m_decoderCap;
 +  void *m_xvbaSession;
++  unsigned int m_decoderId;
 +  struct XVBABufferPool
 +  {
 +    XVBABufferDescriptor *picture_descriptor_buffer;
@@ -5241,10 +5281,10 @@ index 09aeb14..aad726c 100644
    m_bSucceeded=false;
    m_bCanceled=false;
 diff --git a/xbmc/network/AirPlayServer.cpp b/xbmc/network/AirPlayServer.cpp
-index d4c58e4..3ac73f9 100644
+index 5a14773..dda7f0b 100644
 --- a/xbmc/network/AirPlayServer.cpp
 +++ b/xbmc/network/AirPlayServer.cpp
-@@ -168,7 +168,7 @@ void CAirPlayServer::StopServer(bool bWait)
+@@ -182,7 +182,7 @@ void CAirPlayServer::StopServer(bool bWait)
    }
  }
  
@@ -5254,10 +5294,10 @@ index d4c58e4..3ac73f9 100644
    m_port = port;
    m_nonlocal = nonlocal;
 diff --git a/xbmc/network/AirTunesServer.cpp b/xbmc/network/AirTunesServer.cpp
-index 16f6e41..4799a24 100644
+index 8779c7c..24ffa6f 100644
 --- a/xbmc/network/AirTunesServer.cpp
 +++ b/xbmc/network/AirTunesServer.cpp
-@@ -279,7 +279,7 @@ void CAirTunesServer::StopServer(bool bWait)
+@@ -295,7 +295,7 @@ void CAirTunesServer::StopServer(bool bWait)
    }
  }
  
@@ -5392,7 +5432,7 @@ index e228621..b31dec0 100644
    AddBool(g_sysinfo.IsVistaOrHigher() ? vp: NULL, "videoplayer.usedxva2", 13427, g_sysinfo.IsVistaOrHigher() ? true : false);
  #endif
 diff --git a/xbmc/settings/GUIWindowSettingsCategory.cpp b/xbmc/settings/GUIWindowSettingsCategory.cpp
-index cdece6c..899ab93 100644
+index eb04966..408152a 100644
 --- a/xbmc/settings/GUIWindowSettingsCategory.cpp
 +++ b/xbmc/settings/GUIWindowSettingsCategory.cpp
 @@ -936,6 +936,15 @@ void CGUIWindowSettingsCategory::UpdateSettings()
@@ -7037,7 +7077,7 @@ index 4534aa1..c245679 100644
      m_bRunning = false;
      m_pObserver = NULL;
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 076dc3a..3bd58ef 100644
+index 83fabfe..a2e6efc 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -30,6 +30,9 @@
@@ -7112,7 +7152,7 @@ index 076dc3a..3bd58ef 100644
  {
    m_SystemFrequency = CurrentHostFrequency();
    m_ClockSpeed = 1.0;
-@@ -159,6 +208,8 @@ void CVideoReferenceClock::Process()
+@@ -160,6 +209,8 @@ void CVideoReferenceClock::Process()
      m_RefreshChanged = 0;
      m_Started.Set();
  
@@ -7121,7 +7161,7 @@ index 076dc3a..3bd58ef 100644
      if (SetupSuccess)
      {
        m_UseVblank = true;          //tell other threads we're using vblank as clock
-@@ -266,6 +317,14 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -267,6 +318,14 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7136,7 +7176,7 @@ index 076dc3a..3bd58ef 100644
    m_vInfo = glXChooseVisual(m_Dpy, DefaultScreen(m_Dpy), singleBufferAttributes);
    if (!m_vInfo)
    {
-@@ -273,13 +332,16 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -274,13 +333,16 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7158,7 +7198,7 @@ index 076dc3a..3bd58ef 100644
  
    m_Context = glXCreateContext(m_Dpy, m_vInfo, NULL, True);
    if (!m_Context)
-@@ -288,25 +350,32 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -289,25 +351,32 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7202,7 +7242,7 @@ index 076dc3a..3bd58ef 100644
    }
  
    m_glXGetVideoSyncSGI = (int (*)(unsigned int*))glXGetProcAddress((const GLubyte*)"glXGetVideoSyncSGI");
-@@ -323,16 +392,7 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -324,16 +393,7 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7220,84 +7260,7 @@ index 076dc3a..3bd58ef 100644
  
    UpdateRefreshrate(true); //forced refreshrate update
    m_MissedVblanks = 0;
-@@ -340,95 +400,11 @@ bool CVideoReferenceClock::SetupGLX()
-   return true;
- }
- 
--bool CVideoReferenceClock::ParseNvSettings(int& RefreshRate)
--{
--  double fRefreshRate;
--  char   Buff[255];
--  int    ReturnV;
--  struct lconv *Locale = localeconv();
--  FILE*  NvSettings;
--
--  const char* VendorPtr = (const char*)glGetString(GL_VENDOR);
--  if (!VendorPtr)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glGetString(GL_VENDOR) returned NULL, not using nvidia-settings");
--    return false;
--  }
--
--  CStdString Vendor = VendorPtr;
--  Vendor.ToLower();
--  if (Vendor.find("nvidia") == std::string::npos)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: GL_VENDOR:%s, not using nvidia-settings", Vendor.c_str());
--    return false;
--  }
--
--  NvSettings = popen(NVSETTINGSCMD, "r");
--  if (!NvSettings)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: %s: %s", NVSETTINGSCMD, strerror(errno));
--    return false;
--  }
--
--  ReturnV = fscanf(NvSettings, "%254[^\n]", Buff);
--  pclose(NvSettings);
--  if (ReturnV != 1)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: %s produced no output", NVSETTINGSCMD);
--    return false;
--  }
--
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: output of %s: %s", NVSETTINGSCMD, Buff);
--
--  for (int i = 0; i < 255 && Buff[i]; i++)
--  {
--      //workaround for locale mismatch
--    if (Buff[i] == '.' || Buff[i] == ',')
--      Buff[i] = *Locale->decimal_point;
--  }
--
--  ReturnV = sscanf(Buff, "%lf", &fRefreshRate);
--  if (ReturnV != 1 || fRefreshRate <= 0.0)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: can't make sense of that");
--    return false;
--  }
--
--  RefreshRate = MathUtils::round_int(fRefreshRate);
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate by nvidia-settings: %f hertz, rounding to %i hertz",
--            fRefreshRate, RefreshRate);
--
--  return true;
--}
--
--int CVideoReferenceClock::GetRandRRate()
--{
--  int RefreshRate;
--  XRRScreenConfiguration *CurrInfo;
--
--  CurrInfo = XRRGetScreenInfo(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen));
--  RefreshRate = XRRConfigCurrentRate(CurrInfo);
--  XRRFreeScreenConfigInfo(CurrInfo);
--
--  return RefreshRate;
--}
--
- void CVideoReferenceClock::CleanupGLX()
+@@ -479,18 +539,7 @@ void CVideoReferenceClock::CleanupGLX()
  {
    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up GLX");
  
@@ -7317,16 +7280,17 @@ index 076dc3a..3bd58ef 100644
  
    if (m_vInfo)
    {
-@@ -448,7 +424,7 @@ void CVideoReferenceClock::CleanupGLX()
+@@ -509,8 +558,7 @@ void CVideoReferenceClock::CleanupGLX()
+     m_Window = 0;
    }
  
-   //ati saves the Display* in their libGL, if we close it here, we crash
+-  //ati saves the Display* in their libGL, if we close it here, we crash
 -  if (m_Dpy && !AtiWorkaround)
 +  if (m_Dpy)
    {
      XCloseDisplay(m_Dpy);
      m_Dpy = NULL;
-@@ -470,10 +446,55 @@ void CVideoReferenceClock::RunGLX()
+@@ -532,10 +580,55 @@ void CVideoReferenceClock::RunGLX()
    m_glXGetVideoSyncSGI(&VblankCount);
    PrevVblankCount = VblankCount;
  
@@ -7366,14 +7330,14 @@ index 076dc3a..3bd58ef 100644
 +          proximity++;
 +        }
 +      }
++      // we might have waited too long, reduce sleep time
 +      else if (precision > 1)
 +        precision--;
 +
++      // lets try to increase precision in order to reduce number
++      // of required steps
 +      if (proximity > 4 && precision < 6)
 +        precision++;
-+
-+//      CLog::Log(LOGNOTICE, "----- diff: %ld, precision: %d, prox: %d, sleep: %d, correction: %d",
-+//          CurrentHostCounter()- lastVblankTime, precision, proximity, sleepTime, correction);
 +
 +      lastVblankTime = CurrentHostCounter();
 +
@@ -7383,7 +7347,7 @@ index 076dc3a..3bd58ef 100644
      m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
      Now = CurrentHostCounter();         //get the timestamp of this vblank
  
-@@ -483,6 +504,9 @@ void CVideoReferenceClock::RunGLX()
+@@ -545,6 +638,9 @@ void CVideoReferenceClock::RunGLX()
        return;
      }
  
@@ -7393,7 +7357,7 @@ index 076dc3a..3bd58ef 100644
      if (VblankCount > PrevVblankCount)
      {
        //update the vblank timestamp, update the clock and send a signal that we got a vblank
-@@ -491,14 +515,14 @@ void CVideoReferenceClock::RunGLX()
+@@ -553,14 +649,14 @@ void CVideoReferenceClock::RunGLX()
        UpdateClock((int)(VblankCount - PrevVblankCount), true);
        SingleLock.Leave();
        SendVblankSignal();
@@ -7410,7 +7374,7 @@ index 076dc3a..3bd58ef 100644
        //only try reattaching once
        if (IsReset)
          return;
-@@ -1020,44 +1044,17 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
+@@ -1082,23 +1178,13 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
  
  #if defined(HAS_GLX) && defined(HAS_XRANDR)
  
@@ -7436,23 +7400,10 @@ index 076dc3a..3bd58ef 100644
 +  if (!bUpdate) //refreshrate did not change
      return false;
  
--  //the refreshrate can be wrong on nvidia drivers, so read it from nvidia-settings when it's available
--  if (m_UseNvSettings || Forced)
--  {
--    int NvRefreshRate;
--    //if this fails we can't get the refreshrate from nvidia-settings
--    m_UseNvSettings = ParseNvSettings(NvRefreshRate);
--
--    if (m_UseNvSettings)
--    {
--      CSingleLock SingleLock(m_CritSection);
--      m_RefreshRate = NvRefreshRate;
--      return true;
--    }
--
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Using RandR for refreshrate detection");
--  }
--
+   //the refreshrate can be wrong on nvidia drivers, so read it from nvidia-settings when it's available
+@@ -1119,7 +1205,7 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
+   }
+ 
    CSingleLock SingleLock(m_CritSection);
 -  m_RefreshRate = GetRandRRate();
 +  m_RefreshRate = MathUtils::round_int(g_settings.m_ResInfo[g_graphicsContext.GetVideoResolution()].fRefreshRate);
