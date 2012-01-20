@@ -1846,7 +1846,7 @@ index f663380..cbe82c5 100644
  #define CONF_FLAGS_FORMAT_BYPASS 0x100000
  #endif
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index 31bb49a..25cd49a 100644
+index 31bb49a..8f0506d 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
 @@ -53,6 +53,10 @@
@@ -1860,27 +1860,7 @@ index 31bb49a..25cd49a 100644
  #define MAXPRESENTDELAY 0.500
  
  /* at any point we want an exclusive lock on rendermanager */
-@@ -639,11 +643,19 @@ void CXBMCRenderManager::Present()
-     }
-   }
- 
-+#ifdef HAVE_LIBVA
-+  /* wait for this present to be valid */
-+  if(g_graphicsContext.IsFullScreenVideo())
-+    WaitPresentTime(m_presenttime);
-+#endif
-+
-   Render(true, 0, 255);
- 
-+#ifndef HAVE_LIBVA
-   /* wait for this present to be valid */
-   if(g_graphicsContext.IsFullScreenVideo())
-     WaitPresentTime(m_presenttime);
-+#endif
- 
-   m_presentevent.Set();
- }
-@@ -779,6 +791,25 @@ int CXBMCRenderManager::AddVideoPicture(DVDVideoPicture& pic)
+@@ -779,6 +783,25 @@ int CXBMCRenderManager::AddVideoPicture(DVDVideoPicture& pic)
    else if(pic.format == DVDVideoPicture::FMT_VAAPI)
      m_pRenderer->AddProcessor(*pic.vaapi);
  #endif
@@ -7077,73 +7057,18 @@ index 4534aa1..c245679 100644
      m_bRunning = false;
      m_pObserver = NULL;
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 83fabfe..a2e6efc 100644
+index 83fabfe..b5c8154 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
-@@ -30,6 +30,9 @@
+@@ -30,6 +30,7 @@
  #if defined(HAS_GLX) && defined(HAS_XRANDR)
    #include <sstream>
    #include <X11/extensions/Xrandr.h>
 +  #include "windowing/WindowingFactory.h"
-+  #include "settings/Settings.h"
-+  #include "guilib/GraphicContext.h"
    #define NVSETTINGSCMD "nvidia-settings -nt -q RefreshRate3"
  #elif defined(__APPLE__) && !defined(__arm__)
    #include <QuartzCore/CVDisplayLink.h>
-@@ -51,6 +54,52 @@
-   #include "settings/AdvancedSettings.h"
- #endif
- 
-+#if defined(HAS_GLX)
-+void CDisplayCallback::OnLostDevice()
-+{
-+  CSingleLock lock(m_DisplaySection);
-+  m_State = DISP_LOST;
-+  m_DisplayEvent.Reset();
-+}
-+void CDisplayCallback::OnResetDevice()
-+{
-+  CSingleLock lock(m_DisplaySection);
-+  m_State = DISP_RESET;
-+  m_DisplayEvent.Set();
-+}
-+void CDisplayCallback::Register()
-+{
-+  CSingleLock lock(m_DisplaySection);
-+  g_Windowing.Register(this);
-+  m_State = DISP_OPEN;
-+}
-+void CDisplayCallback::Unregister()
-+{
-+  g_Windowing.Unregister(this);
-+}
-+bool CDisplayCallback::IsReset()
-+{
-+  DispState state;
-+  { CSingleLock lock(m_DisplaySection);
-+    state = m_State;
-+  }
-+  if (state == DISP_LOST)
-+  {
-+    CLog::Log(LOGDEBUG,"VideoReferenceClock - wait for display reset signal");
-+    m_DisplayEvent.Wait();
-+    CSingleLock lock(m_DisplaySection);
-+    state = m_State;
-+    CLog::Log(LOGDEBUG,"VideoReferenceClock - got display reset signal");
-+  }
-+  if (state == DISP_RESET)
-+  {
-+    m_State = DISP_OPEN;
-+    return true;
-+  }
-+  return false;
-+}
-+#endif
-+
- using namespace std;
- 
- #if defined(_WIN32) && defined(HAS_DX)
-@@ -106,7 +155,7 @@ using namespace std;
+@@ -106,7 +107,7 @@ using namespace std;
  
  #endif
  
@@ -7152,7 +7077,7 @@ index 83fabfe..a2e6efc 100644
  {
    m_SystemFrequency = CurrentHostFrequency();
    m_ClockSpeed = 1.0;
-@@ -160,6 +209,8 @@ void CVideoReferenceClock::Process()
+@@ -160,6 +161,8 @@ void CVideoReferenceClock::Process()
      m_RefreshChanged = 0;
      m_Started.Set();
  
@@ -7161,7 +7086,16 @@ index 83fabfe..a2e6efc 100644
      if (SetupSuccess)
      {
        m_UseVblank = true;          //tell other threads we're using vblank as clock
-@@ -267,6 +318,14 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -228,6 +231,8 @@ bool CVideoReferenceClock::SetupGLX()
+   m_vInfo = NULL;
+   m_Context = NULL;
+   m_Window = 0;
++  m_pixmap = None;
++  m_glPixmap = None;
+ 
+   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Setting up GLX");
+ 
+@@ -267,6 +272,14 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7176,7 +7110,7 @@ index 83fabfe..a2e6efc 100644
    m_vInfo = glXChooseVisual(m_Dpy, DefaultScreen(m_Dpy), singleBufferAttributes);
    if (!m_vInfo)
    {
-@@ -274,13 +333,16 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -274,13 +287,26 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7195,10 +7129,20 @@ index 83fabfe..a2e6efc 100644
 +    m_Window = XCreateWindow(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), 0, 0, 256, 256, 0,
                             m_vInfo->depth, InputOutput, m_vInfo->visual, SwaMask, &Swa);
 +  }
++  else
++  {
++    m_pixmap = XCreatePixmap(m_Dpy, DefaultRootWindow(m_Dpy), 256, 256, m_vInfo->depth);
++    if (!m_pixmap)
++    {
++      CLog::Log(LOGDEBUG, "CVideoReferenceClock: unable to create pixmap");
++      return false;
++    }
++    m_glPixmap = glXCreateGLXPixmap(m_Dpy, m_vInfo, m_pixmap);
++  }
  
    m_Context = glXCreateContext(m_Dpy, m_vInfo, NULL, True);
    if (!m_Context)
-@@ -289,25 +351,32 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -289,25 +315,32 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -7206,7 +7150,7 @@ index 83fabfe..a2e6efc 100644
 +  if (!m_bIsATI)
 +    ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
 +  else
-+    ReturnV = glXMakeCurrent(m_Dpy, g_Windowing.GetwmWindow(), m_Context);
++    ReturnV = glXMakeCurrent(m_Dpy, m_glPixmap, m_Context);
 +
    if (ReturnV != True)
    {
@@ -7242,25 +7186,7 @@ index 83fabfe..a2e6efc 100644
    }
  
    m_glXGetVideoSyncSGI = (int (*)(unsigned int*))glXGetProcAddress((const GLubyte*)"glXGetVideoSyncSGI");
-@@ -324,16 +393,7 @@ bool CVideoReferenceClock::SetupGLX()
-     return false;
-   }
- 
--  XRRSizes(m_Dpy, m_vInfo->screen, &ReturnV);
--  if (ReturnV == 0)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: RandR not supported");
--    return false;
--  }
--
--  //set up receiving of RandR events, we'll get one when the refreshrate changes
--  XRRQueryExtension(m_Dpy, &m_RREventBase, &ReturnV);
--  XRRSelectInput(m_Dpy, RootWindow(m_Dpy, m_vInfo->screen), RRScreenChangeNotifyMask);
-+  m_DispCallback.Register();
- 
-   UpdateRefreshrate(true); //forced refreshrate update
-   m_MissedVblanks = 0;
-@@ -479,18 +539,7 @@ void CVideoReferenceClock::CleanupGLX()
+@@ -479,19 +512,6 @@ void CVideoReferenceClock::CleanupGLX()
  {
    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up GLX");
  
@@ -7276,13 +7202,24 @@ index 83fabfe..a2e6efc 100644
 -      AtiWorkaround = true;
 -    }
 -  }
-+  m_DispCallback.Unregister();
- 
+-
    if (m_vInfo)
    {
-@@ -509,8 +558,7 @@ void CVideoReferenceClock::CleanupGLX()
+     XFree(m_vInfo);
+@@ -508,9 +528,18 @@ void CVideoReferenceClock::CleanupGLX()
+     XDestroyWindow(m_Dpy, m_Window);
      m_Window = 0;
    }
++  if (m_glPixmap)
++  {
++    glXDestroyPixmap(m_Dpy, m_glPixmap);
++    m_glPixmap = None;
++  }
++  if (m_pixmap)
++  {
++    XFreePixmap(m_Dpy, m_pixmap);
++    m_pixmap = None;
++  }
  
 -  //ati saves the Display* in their libGL, if we close it here, we crash
 -  if (m_Dpy && !AtiWorkaround)
@@ -7290,7 +7227,7 @@ index 83fabfe..a2e6efc 100644
    {
      XCloseDisplay(m_Dpy);
      m_Dpy = NULL;
-@@ -532,10 +580,55 @@ void CVideoReferenceClock::RunGLX()
+@@ -532,10 +561,55 @@ void CVideoReferenceClock::RunGLX()
    m_glXGetVideoSyncSGI(&VblankCount);
    PrevVblankCount = VblankCount;
  
@@ -7347,21 +7284,10 @@ index 83fabfe..a2e6efc 100644
      m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
      Now = CurrentHostCounter();         //get the timestamp of this vblank
  
-@@ -545,6 +638,9 @@ void CVideoReferenceClock::RunGLX()
-       return;
-     }
- 
-+    if (m_DispCallback.IsReset())
-+      UpdateRefreshrate(true);
-+
-     if (VblankCount > PrevVblankCount)
-     {
-       //update the vblank timestamp, update the clock and send a signal that we got a vblank
-@@ -553,14 +649,14 @@ void CVideoReferenceClock::RunGLX()
-       UpdateClock((int)(VblankCount - PrevVblankCount), true);
+@@ -554,13 +628,14 @@ void CVideoReferenceClock::RunGLX()
        SingleLock.Leave();
        SendVblankSignal();
--      UpdateRefreshrate();
+       UpdateRefreshrate();
 -
        IsReset = false;
      }
@@ -7374,82 +7300,20 @@ index 83fabfe..a2e6efc 100644
        //only try reattaching once
        if (IsReset)
          return;
-@@ -1082,23 +1178,13 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
- 
- #if defined(HAS_GLX) && defined(HAS_XRANDR)
- 
--  //check for RandR events
--  bool   GotEvent = Forced || m_RefreshChanged == 2;
--  XEvent Event;
--  while (XCheckTypedEvent(m_Dpy, m_RREventBase + RRScreenChangeNotify, &Event))
--  {
--    if (Event.type == m_RREventBase + RRScreenChangeNotify)
--    {
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Received RandR event %i", Event.type);
--      GotEvent = true;
--    }
--    XRRUpdateConfiguration(&Event);
--  }
-+  // the correct refresh rate is always stores in g_settings
-+  bool   bUpdate = Forced || m_RefreshChanged == 2;
- 
-   if (!Forced)
-     m_RefreshChanged = 0;
- 
--  if (!GotEvent) //refreshrate did not change
-+  if (!bUpdate) //refreshrate did not change
-     return false;
- 
-   //the refreshrate can be wrong on nvidia drivers, so read it from nvidia-settings when it's available
-@@ -1119,7 +1205,7 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
-   }
- 
-   CSingleLock SingleLock(m_CritSection);
--  m_RefreshRate = GetRandRRate();
-+  m_RefreshRate = MathUtils::round_int(g_settings.m_ResInfo[g_graphicsContext.GetVideoResolution()].fRefreshRate);
- 
-   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate: %i hertz", (int)m_RefreshRate);
- 
 diff --git a/xbmc/video/VideoReferenceClock.h b/xbmc/video/VideoReferenceClock.h
-index 9699cd4..ff993ff 100644
+index 9699cd4..465d313 100644
 --- a/xbmc/video/VideoReferenceClock.h
 +++ b/xbmc/video/VideoReferenceClock.h
-@@ -55,6 +55,29 @@ class CD3DCallback : public ID3DResource
- 
- #endif
- 
-+#if defined(HAS_GLX)
-+#include "guilib/DispResource.h"
-+class CDisplayCallback : public IDispResource
-+{
-+public:
-+  virtual void OnLostDevice();
-+  virtual void OnResetDevice();
-+  void Register();
-+  void Unregister();
-+  bool IsReset();
-+private:
-+  enum DispState
-+  {
-+    DISP_LOST,
-+    DISP_RESET,
-+    DISP_OPEN
-+  };
-+  DispState m_State;
-+  CEvent m_DisplayEvent;
-+  CCriticalSection m_DisplaySection;
-+};
-+#endif
-+
- class CVideoReferenceClock : public CThread
- {
-   public:
-@@ -122,6 +145,8 @@ class CVideoReferenceClock : public CThread
+@@ -119,9 +119,12 @@ class CVideoReferenceClock : public CThread
+     XVisualInfo *m_vInfo;
+     Window       m_Window;
+     GLXContext   m_Context;
++    Pixmap       m_pixmap;
++    GLXPixmap    m_glPixmap;
      int          m_RREventBase;
  
      bool         m_UseNvSettings;
 +    bool         m_bIsATI;
-+    CDisplayCallback m_DispCallback;
  
  #elif defined(_WIN32) && defined(HAS_DX)
      bool   SetupD3D();
@@ -7590,7 +7454,7 @@ index 62cf554..931700b 100644
      CSingleLock lock(m_resourceSection);
  
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 5b941be..5dfb05e 100644
+index 5b941be..be59c5c 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -27,6 +27,7 @@
@@ -7601,16 +7465,15 @@ index 5b941be..5dfb05e 100644
  
  class IDispResource;
  
-@@ -60,6 +61,8 @@ public:
+@@ -60,6 +61,7 @@ public:
    // Local to WinSystemX11 only
    Display*  GetDisplay() { return m_dpy; }
    GLXWindow GetWindow() { return m_glWindow; }
-+  Window    GetwmWindow() { return m_wmWindow; };
 +  void RefreshWindow();
  
  protected:
    bool RefreshGlxContext();
-@@ -76,6 +79,9 @@ protected:
+@@ -76,6 +78,9 @@ protected:
    CCriticalSection             m_resourceSection;
    std::vector<IDispResource*>  m_resources;
    uint64_t                     m_dpyLostTime;
