@@ -1,6 +1,6 @@
 diff -Naur linux-3.2.1/drivers/media/common/tuners/tda18212.c linux-3.2.1.patch/drivers/media/common/tuners/tda18212.c
 --- linux-3.2.1/drivers/media/common/tuners/tda18212.c	2012-01-12 20:42:45.000000000 +0100
-+++ linux-3.2.1.patch/drivers/media/common/tuners/tda18212.c	2012-01-22 14:32:12.474382952 +0100
++++ linux-3.2.1.patch/drivers/media/common/tuners/tda18212.c	2012-01-22 16:07:33.176264363 +0100
 @@ -25,6 +25,8 @@
  struct tda18212_priv {
  	struct tda18212_config *cfg;
@@ -132,7 +132,7 @@ diff -Naur linux-3.2.1/drivers/media/common/tuners/tda18212.c linux-3.2.1.patch/
  struct dvb_frontend *tda18212_attach(struct dvb_frontend *fe,
 diff -Naur linux-3.2.1/drivers/media/common/tuners/tda18212.h linux-3.2.1.patch/drivers/media/common/tuners/tda18212.h
 --- linux-3.2.1/drivers/media/common/tuners/tda18212.h	2012-01-12 20:42:45.000000000 +0100
-+++ linux-3.2.1.patch/drivers/media/common/tuners/tda18212.h	2012-01-22 14:32:05.694265792 +0100
++++ linux-3.2.1.patch/drivers/media/common/tuners/tda18212.h	2012-01-22 16:07:33.176264363 +0100
 @@ -29,6 +29,10 @@
  	u16 if_dvbt_6;
  	u16 if_dvbt_7;
@@ -146,7 +146,7 @@ diff -Naur linux-3.2.1/drivers/media/common/tuners/tda18212.h linux-3.2.1.patch/
  
 diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/drivers/media/dvb/dvb-usb/anysee.c
 --- linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c	2012-01-12 20:42:45.000000000 +0100
-+++ linux-3.2.1.patch/drivers/media/dvb/dvb-usb/anysee.c	2012-01-22 14:14:31.806583440 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/dvb-usb/anysee.c	2012-01-22 16:09:04.983927302 +0100
 @@ -41,6 +41,7 @@
  #include "stv0900.h"
  #include "stv6110.h"
@@ -417,7 +417,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  		break;
  	case ANYSEE_HW_508S2: /* 19 */
  	case ANYSEE_HW_508PS2: /* 22 */
-@@ -803,19 +869,41 @@
+@@ -803,19 +869,35 @@
  		if (state->fe_id)
  			break;
  
@@ -439,33 +439,26 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
 +	case ANYSEE_HW_508T2C: /* 20 */
 +		/* E7 T2C */
 +
++		if (state->fe_id)
++			break;
++
 +		/* enable DVB-T/T2/C demod on IOE[5] */
  		ret = anysee_wr_reg_mask(adap->dev, REG_IOE, (1 << 5), 0x20);
  		if (ret)
  			goto error;
  
--		/* attach demod */
+ 		/* attach demod */
 -		adap->fe_adap[0].fe = dvb_attach(stv0900_attach, &anysee_stv0900_config,
 -			&adap->dev->i2c_adap, 0);
-+		if (state->fe_id == 0)  {
-+			/* DVB-T/T2 */
-+			adap->fe_adap[state->fe_id].fe =
-+				dvb_attach(cxd2820r_attach,
-+				&anysee_cxd2820r_config,
-+				&adap->dev->i2c_adap, NULL);
-+		} else {
-+			/* DVB-C */
-+			adap->fe_adap[state->fe_id].fe =
-+				dvb_attach(cxd2820r_attach,
-+				&anysee_cxd2820r_config,
-+				&adap->dev->i2c_adap, adap->fe_adap[0].fe);
-+		}
++		adap->fe_adap[state->fe_id].fe = dvb_attach(cxd2820r_attach,
++				&anysee_cxd2820r_config, &adap->dev->i2c_adap,
++				NULL);
 +
 +		state->has_ci = true;
  
  		break;
  	}
-@@ -842,24 +930,26 @@
+@@ -842,24 +924,26 @@
  		/* E30 */
  
  		/* attach tuner */
@@ -498,7 +491,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  
  		break;
  	case ANYSEE_HW_507SI: /* 11 */
-@@ -877,22 +967,12 @@
+@@ -877,22 +961,12 @@
  		/* Try first attach TDA18212 silicon tuner on IOE[4], if that
  		 * fails attach old simple PLL. */
  
@@ -521,7 +514,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  		/* attach tuner */
  		fe = dvb_attach(dvb_pll_attach, adap->fe_adap[state->fe_id].fe,
  			(0xc0 >> 1), &adap->dev->i2c_adap,
-@@ -904,11 +984,6 @@
+@@ -904,11 +978,6 @@
  		/* E7 TC */
  		/* E7 PTC */
  
@@ -533,7 +526,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  		/* attach tuner */
  		fe = dvb_attach(tda18212_attach, adap->fe_adap[state->fe_id].fe,
  			&adap->dev->i2c_adap, &anysee_tda18212_config);
-@@ -930,6 +1005,15 @@
+@@ -930,6 +999,15 @@
  		}
  
  		break;
@@ -549,7 +542,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  	default:
  		fe = NULL;
  	}
-@@ -939,7 +1023,6 @@
+@@ -939,7 +1017,6 @@
  	else
  		ret = -ENODEV;
  
@@ -557,7 +550,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  	return ret;
  }
  
-@@ -969,6 +1052,201 @@
+@@ -969,6 +1046,201 @@
  	return 0;
  }
  
@@ -759,7 +752,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  /* DVB USB Driver stuff */
  static struct dvb_usb_device_properties anysee_properties;
  
-@@ -1010,6 +1288,16 @@
+@@ -1010,6 +1282,16 @@
  	return anysee_init(d);
  }
  
@@ -776,7 +769,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  static struct usb_device_id anysee_table[] = {
  	{ USB_DEVICE(USB_VID_CYPRESS, USB_PID_ANYSEE) },
  	{ USB_DEVICE(USB_VID_AMT,     USB_PID_ANYSEE) },
-@@ -1029,7 +1317,7 @@
+@@ -1029,7 +1311,7 @@
  		{
  		.num_frontends    = 2,
  		.frontend_ctrl    = anysee_frontend_ctrl,
@@ -785,7 +778,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  			.streaming_ctrl   = anysee_streaming_ctrl,
  			.frontend_attach  = anysee_frontend_attach,
  			.tuner_attach     = anysee_tuner_attach,
-@@ -1057,7 +1345,7 @@
+@@ -1057,7 +1339,7 @@
  					}
  				}
  			},
@@ -794,7 +787,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  		}
  	},
  
-@@ -1087,7 +1375,7 @@
+@@ -1087,7 +1369,7 @@
  static struct usb_driver anysee_driver = {
  	.name       = "dvb_usb_anysee",
  	.probe      = anysee_probe,
@@ -805,7 +798,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.c linux-3.2.1.patch/driv
  
 diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.h linux-3.2.1.patch/drivers/media/dvb/dvb-usb/anysee.h
 --- linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.h	2012-01-12 20:42:45.000000000 +0100
-+++ linux-3.2.1.patch/drivers/media/dvb/dvb-usb/anysee.h	2012-01-22 14:14:20.107382315 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/dvb-usb/anysee.h	2012-01-22 16:07:33.178264400 +0100
 @@ -36,6 +36,7 @@
  
  #define DVB_USB_LOG_PREFIX "anysee"
@@ -841,7 +834,7 @@ diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/anysee.h linux-3.2.1.patch/driv
  
 diff -Naur linux-3.2.1/drivers/media/dvb/dvb-usb/Kconfig linux-3.2.1.patch/drivers/media/dvb/dvb-usb/Kconfig
 --- linux-3.2.1/drivers/media/dvb/dvb-usb/Kconfig	2012-01-12 20:42:45.000000000 +0100
-+++ linux-3.2.1.patch/drivers/media/dvb/dvb-usb/Kconfig	2012-01-22 14:14:11.662237130 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/dvb-usb/Kconfig	2012-01-22 16:07:33.179264419 +0100
 @@ -311,6 +311,7 @@
  	select DVB_STV0900 if !DVB_FE_CUSTOMISE
  	select DVB_STV6110 if !DVB_FE_CUSTOMISE
