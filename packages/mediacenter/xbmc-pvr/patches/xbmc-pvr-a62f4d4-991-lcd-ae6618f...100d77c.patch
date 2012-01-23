@@ -1,0 +1,359 @@
+From 2b0d7e9a765bf3e25469751248b9c5aedc5289b5 Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Sun, 22 Jan 2012 12:56:46 +0100
+Subject: [PATCH 1/6] [cleanup] - removed unused address variables for lcd
+ displays
+
+---
+ xbmc/settings/AdvancedSettings.cpp |    8 --------
+ xbmc/settings/AdvancedSettings.h   |    4 ----
+ 2 files changed, 0 insertions(+), 12 deletions(-)
+
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index a0e845d..b341dbf 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -117,10 +117,6 @@ void CAdvancedSettings::Initialize()
+ 
+   m_lcdRows = 4;
+   m_lcdColumns = 20;
+-  m_lcdAddress1 = 0;
+-  m_lcdAddress2 = 0x40;
+-  m_lcdAddress3 = 0x14;
+-  m_lcdAddress4 = 0x54;
+   m_lcdHeartbeat = false;
+   m_lcdDimOnScreenSave = false;
+   m_lcdScrolldelay = 1;
+@@ -597,10 +593,6 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+   {
+     XMLUtils::GetInt(pElement, "rows", m_lcdRows, 1, 4);
+     XMLUtils::GetInt(pElement, "columns", m_lcdColumns, 1, 40);
+-    XMLUtils::GetInt(pElement, "address1", m_lcdAddress1, 0, 0x100);
+-    XMLUtils::GetInt(pElement, "address2", m_lcdAddress2, 0, 0x100);
+-    XMLUtils::GetInt(pElement, "address3", m_lcdAddress3, 0, 0x100);
+-    XMLUtils::GetInt(pElement, "address4", m_lcdAddress4, 0, 0x100);
+     XMLUtils::GetBoolean(pElement, "heartbeat", m_lcdHeartbeat);
+     XMLUtils::GetBoolean(pElement, "dimonscreensave", m_lcdDimOnScreenSave);
+     XMLUtils::GetInt(pElement, "scrolldelay", m_lcdScrolldelay, -8, 8);
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index 47e25fc..3265630 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -141,10 +141,6 @@ class CAdvancedSettings
+ 
+     int m_lcdRows;
+     int m_lcdColumns;
+-    int m_lcdAddress1;
+-    int m_lcdAddress2;
+-    int m_lcdAddress3;
+-    int m_lcdAddress4;
+     bool m_lcdHeartbeat;
+     bool m_lcdDimOnScreenSave;
+     int m_lcdScrolldelay;
+-- 
+1.7.5.4
+
+
+From 001898bd485897e76380940cef186ee519741e27 Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Sun, 22 Jan 2012 13:07:23 +0100
+Subject: [PATCH 2/6] [cleanup] - remove unneeded vars rows and columns from
+ advancedsettings.xml - use the lcdproc driver to tell
+ us
+
+---
+ xbmc/linux/XLCDproc.cpp            |   10 ++++++++++
+ xbmc/linux/XLCDproc.h              |    6 ++----
+ xbmc/settings/AdvancedSettings.cpp |    4 ----
+ xbmc/settings/AdvancedSettings.h   |    2 --
+ xbmc/utils/LCD.cpp                 |    8 ++++----
+ xbmc/utils/LCD.h                   |    2 ++
+ 6 files changed, 18 insertions(+), 14 deletions(-)
+
+diff --git a/xbmc/linux/XLCDproc.cpp b/xbmc/linux/XLCDproc.cpp
+index 58d2a3d..80ef869 100644
+--- a/xbmc/linux/XLCDproc.cpp
++++ b/xbmc/linux/XLCDproc.cpp
+@@ -291,6 +291,16 @@ void XLCDproc::Resume()
+   }
+ }
+ 
++int XLCDproc::GetColumns()
++{
++  return m_iColumns;
++}
++
++int XLCDproc::GetRows()
++{
++  return m_iRows;
++}
++
+ void XLCDproc::SetLine(int iLine, const CStdString& strLine)
+ {
+   if (m_bStop || m_sockfd == -1)
+diff --git a/xbmc/linux/XLCDproc.h b/xbmc/linux/XLCDproc.h
+index f54b448..96285ef 100644
+--- a/xbmc/linux/XLCDproc.h
++++ b/xbmc/linux/XLCDproc.h
+@@ -40,6 +40,8 @@ class XLCDproc : public ILCD
+   virtual void Resume();
+   virtual void SetBackLight(int iLight);
+   virtual void SetContrast(int iContrast);
++  virtual int  GetColumns();
++  virtual int  GetRows(); 
+ 
+ protected:
+   virtual void Process();
+@@ -48,10 +50,6 @@ class XLCDproc : public ILCD
+   void         CloseSocket();
+   unsigned int m_iColumns;        // display columns for each line
+   unsigned int m_iRows;           // total number of rows
+-  unsigned int m_iRow1adr;
+-  unsigned int m_iRow2adr;
+-  unsigned int m_iRow3adr;
+-  unsigned int m_iRow4adr;
+   unsigned int m_iActualpos;      // actual cursor possition
+   int          m_iBackLight;
+   int          m_iLCDContrast;
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index b341dbf..63b6a34 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -115,8 +115,6 @@ void CAdvancedSettings::Initialize()
+   m_slideshowZoomAmount = 5.0f;
+   m_slideshowBlackBarCompensation = 20.0f;
+ 
+-  m_lcdRows = 4;
+-  m_lcdColumns = 20;
+   m_lcdHeartbeat = false;
+   m_lcdDimOnScreenSave = false;
+   m_lcdScrolldelay = 1;
+@@ -591,8 +589,6 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+   pElement = pRootElement->FirstChildElement("lcd");
+   if (pElement)
+   {
+-    XMLUtils::GetInt(pElement, "rows", m_lcdRows, 1, 4);
+-    XMLUtils::GetInt(pElement, "columns", m_lcdColumns, 1, 40);
+     XMLUtils::GetBoolean(pElement, "heartbeat", m_lcdHeartbeat);
+     XMLUtils::GetBoolean(pElement, "dimonscreensave", m_lcdDimOnScreenSave);
+     XMLUtils::GetInt(pElement, "scrolldelay", m_lcdScrolldelay, -8, 8);
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index 3265630..a232185 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -139,8 +139,6 @@ class CAdvancedSettings
+     float m_slideshowZoomAmount;
+     float m_slideshowPanAmount;
+ 
+-    int m_lcdRows;
+-    int m_lcdColumns;
+     bool m_lcdHeartbeat;
+     bool m_lcdDimOnScreenSave;
+     int m_lcdScrolldelay;
+diff --git a/xbmc/utils/LCD.cpp b/xbmc/utils/LCD.cpp
+index 43681ff..dff8422 100644
+--- a/xbmc/utils/LCD.cpp
++++ b/xbmc/utils/LCD.cpp
+@@ -168,14 +168,14 @@ CStdString ILCD::GetProgressBar(double tCurrent, double tTotal)
+   unsigned char cLCDsmallBlocks = 0xb0; //this char (0xAC-0xAF) will be translated in LCD.cpp to the smallBlock
+   unsigned char cLCDbigBlock = 0xab;  //this char will be translated in LCD.cpp to the right bigBlock
+   int iBigBlock = 5;      // a big block is a combination of 5 small blocks
+-  int m_iColumns = g_advancedSettings.m_lcdColumns - 2;
++  int iColumns = GetColumns()-2;
+ 
+-  if (m_iColumns > 0)
++  if (iColumns > 0)
+   {
+-    double dBlockSize = tTotal * 0.99 / m_iColumns / iBigBlock; // mult with 0.99 to show the last bar
++    double dBlockSize = tTotal * 0.99 / iColumns / iBigBlock; // mult with 0.99 to show the last bar
+ 
+     CStdString strProgressBar = "[";
+-    for (int i = 1;i <= m_iColumns;i++)
++    for (int i = 1;i <= iColumns;i++)
+     {
+       //set full blocks
+       if (tCurrent >= i * iBigBlock * dBlockSize)
+diff --git a/xbmc/utils/LCD.h b/xbmc/utils/LCD.h
+index 7892d64..b60bcf2 100644
+--- a/xbmc/utils/LCD.h
++++ b/xbmc/utils/LCD.h
+@@ -58,6 +58,8 @@ class ILCD : public CThread
+   virtual void Resume() = 0;
+   virtual void SetBackLight(int iLight) = 0;
+   virtual void SetContrast(int iContrast) = 0;
++  virtual int  GetColumns() = 0;
++  virtual int  GetRows() = 0;
+   virtual void SetLine(int iLine, const CStdString& strLine) = 0;
+   virtual void DisableOnPlayback(bool playingVideo, bool playingMusic);
+   CStdString GetProgressBar(double tCurrent, double tTotal);
+-- 
+1.7.5.4
+
+
+From c34228404d30c5bb9efdf6e7e666be48b304349f Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Sun, 22 Jan 2012 13:31:57 +0100
+Subject: [PATCH 3/6] [fix] - make LCD option visible in settings when HAS_LCD
+ is defined
+
+---
+ xbmc/settings/GUISettings.cpp |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/settings/GUISettings.cpp b/xbmc/settings/GUISettings.cpp
+index 48c2389..766c2c6 100644
+--- a/xbmc/settings/GUISettings.cpp
++++ b/xbmc/settings/GUISettings.cpp
+@@ -421,8 +421,8 @@ void CGUISettings::Initialize()
+   // Todo: Implement test pattern for DX
+   AddString(vs, "videoscreen.testpattern",226,"", BUTTON_CONTROL_STANDARD);
+ #endif
+-#if defined(_LINUX) && !defined(__APPLE__)
+-  AddBool(NULL, "videoscreen.haslcd", 4501, false);
++#if defined(HAS_LCD)
++  AddBool(vs, "videoscreen.haslcd", 4501, false);
+ #endif
+ 
+   CSettingsCategory* ao = AddCategory(4, "audiooutput", 772);
+-- 
+1.7.5.4
+
+
+From ae484f2410352db3f78bd0ed34d2f8917dcd56df Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Sun, 22 Jan 2012 13:54:21 +0100
+Subject: [PATCH 4/6] [addons] - allow a full blown InfoLabel in
+ xbmc.getInfoLabel - beside normal InfoTags. This allows
+ to translate something like "$INFO[LCD.PlayIcon]
+ $INFO[Player.Time]/$INFO[Player.Duration]" - old
+ behaviour is not altered - all single InfoTags work as
+ before
+
+---
+ xbmc/interfaces/python/xbmcmodule/xbmcmodule.cpp |   14 +++++++++++++-
+ 1 files changed, 13 insertions(+), 1 deletions(-)
+
+diff --git a/xbmc/interfaces/python/xbmcmodule/xbmcmodule.cpp b/xbmc/interfaces/python/xbmcmodule/xbmcmodule.cpp
+index fc6a57d..0de5cca 100644
+--- a/xbmc/interfaces/python/xbmcmodule/xbmcmodule.cpp
++++ b/xbmc/interfaces/python/xbmcmodule/xbmcmodule.cpp
+@@ -478,6 +478,8 @@
+     "getInfoLabel(infotag) -- Returns an InfoLabel as a string.\n"
+     "\n"
+     "infotag        : string - infoTag for value you want returned.\n"
++    "                 Also multiple InfoLabels are possible e.x.:\n"
++    "                 label = xbmc.getInfoLabel('$INFO[Weather.Conditions] - thats the weather')\n"
+     "\n"
+     "List of InfoTags - http://wiki.xbmc.org/?title=InfoLabels \n"
+     "\n"
+@@ -495,7 +497,17 @@
+       CPyThreadState gilRelease;
+ 
+       int ret = g_infoManager.TranslateString(cLine);
+-      cret = g_infoManager.GetLabel(ret);
++      //doesn't seem to be a single InfoTag?
++      //try full blown GuiInfoLabel then
++      if (ret == 0)
++      {
++        CGUIInfoLabel label(cLine);
++        cret = label.GetLabel(0);
++      }
++      else
++      {
++        cret = g_infoManager.GetLabel(ret);
++      }
+     }
+     return Py_BuildValue((char*)"s", cret.c_str());
+   }
+-- 
+1.7.5.4
+
+
+From fecda3ee2946dc667f8d86d474d354f30f9b9df0 Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Sun, 22 Jan 2012 14:00:24 +0100
+Subject: [PATCH 5/6] [fix] - answer the infolabel LCD_PROGRESS_BAR only when
+ an lcd is connected - else the progressbar accesses bad
+ column count
+
+---
+ xbmc/GUIInfoManager.cpp |    2 +-
+ xbmc/linux/XLCDproc.cpp |    2 ++
+ 2 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/xbmc/GUIInfoManager.cpp b/xbmc/GUIInfoManager.cpp
+index 0aae139..3ebfe3c 100644
+--- a/xbmc/GUIInfoManager.cpp
++++ b/xbmc/GUIInfoManager.cpp
+@@ -1519,7 +1519,7 @@ CStdString CGUIInfoManager::GetLabel(int info, int contextWindow)
+     break;
+ #ifdef HAS_LCD
+   case LCD_PROGRESS_BAR:
+-    if (g_lcd) strLabel = g_lcd->GetProgressBar(g_application.GetTime(), g_application.GetTotalTime());
++    if (g_lcd && g_lcd->IsConnected()) strLabel = g_lcd->GetProgressBar(g_application.GetTime(), g_application.GetTotalTime());
+     break;
+ #endif
+   case NETWORK_IP_ADDRESS:
+diff --git a/xbmc/linux/XLCDproc.cpp b/xbmc/linux/XLCDproc.cpp
+index 80ef869..01f59ad 100644
+--- a/xbmc/linux/XLCDproc.cpp
++++ b/xbmc/linux/XLCDproc.cpp
+@@ -40,6 +40,8 @@
+   m_iActualpos   = 0;
+   m_iBackLight   = 32;
+   m_iLCDContrast = 50;
++  m_iColumns     = 0;
++  m_iRows        = 0;
+   m_bStop        = true;
+   m_sockfd       = -1;
+   m_lastInitAttempt = 0;
+-- 
+1.7.5.4
+
+
+From 100d77cf6ce963a172351108249f883f4a12a174 Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Sun, 22 Jan 2012 17:39:52 +0100
+Subject: [PATCH 6/6] [add] - add System.ScreenSaverActive as InfoBool
+
+---
+ xbmc/GUIInfoManager.cpp |    3 +++
+ xbmc/GUIInfoManager.h   |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/xbmc/GUIInfoManager.cpp b/xbmc/GUIInfoManager.cpp
+index 3ebfe3c..5cfe9f3 100644
+--- a/xbmc/GUIInfoManager.cpp
++++ b/xbmc/GUIInfoManager.cpp
+@@ -218,6 +218,7 @@ int CGUIInfoManager::TranslateString(const CStdString &condition)
+                                   { "cansuspend",       SYSTEM_CAN_SUSPEND },
+                                   { "canhibernate",     SYSTEM_CAN_HIBERNATE },
+                                   { "canreboot",        SYSTEM_CAN_REBOOT },
++                                  { "screensaveractive",SYSTEM_SCREENSAVER_ACTIV },
+                                   { "cputemperature",   SYSTEM_CPU_TEMPERATURE },     // labels from here
+                                   { "cpuusage",         SYSTEM_CPU_USAGE },
+                                   { "gputemperature",   SYSTEM_GPU_TEMPERATURE },
+@@ -1904,6 +1905,8 @@ bool CGUIInfoManager::GetBool(int condition1, int contextWindow, const CGUIListI
+     bReturn = g_powerManager.CanHibernate();
+   else if (condition == SYSTEM_CAN_REBOOT)
+     bReturn = g_powerManager.CanReboot();
++  else if (condition == SYSTEM_SCREENSAVER_ACTIV)
++    bReturn = g_application.IsInScreenSaver();
+ 
+   else if (condition == PLAYER_SHOWINFO)
+     bReturn = m_playerShowInfo;
+diff --git a/xbmc/GUIInfoManager.h b/xbmc/GUIInfoManager.h
+index bfdedd4..312d15e 100644
+--- a/xbmc/GUIInfoManager.h
++++ b/xbmc/GUIInfoManager.h
+@@ -372,6 +372,7 @@
+ #define SYSTEM_BATTERY_LEVEL        714
+ #define SYSTEM_IDLE_TIME            715
+ #define SYSTEM_FRIENDLY_NAME        716
++#define SYSTEM_SCREENSAVER_ACTIV    717
+ 
+ #define LIBRARY_HAS_MUSIC           720
+ #define LIBRARY_HAS_VIDEO           721
+-- 
+1.7.5.4
+
