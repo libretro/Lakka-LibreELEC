@@ -1,0 +1,59 @@
+From 52409aa6a0e96337da137c069856298f4dd825a0 Mon Sep 17 00:00:00 2001
+From: Takashi Iwai <tiwai@suse.de>
+Date: Mon, 23 Jan 2012 17:10:24 +0100
+Subject: [PATCH] ALSA: hda - Fix buffer-alignment regression with Nvidia HDMI
+
+The commit 2ae66c26550cd94b0e2606a9275eb0ab7070ad0e
+    ALSA: hda: option to enable arbitrary buffer/period sizes
+introduced a regression on machines with Intel controller and Nvidia
+HDMI.  The reason is that the driver modifies the global variable
+align_buffer_size when an Intel controller is found, and the Nvidia
+HDMI controller is probed after Intel although Nvidia chips require
+the aligned buffers.
+
+This patch fixes the problem by moving the flag into the local struct
+so that it's not affected by other controllers.
+
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=42567
+
+Cc: <stable@kernel.org>
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+ sound/pci/hda/hda_intel.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/sound/pci/hda/hda_intel.c b/sound/pci/hda/hda_intel.c
+index fb35474..95dfb68 100644
+--- a/sound/pci/hda/hda_intel.c
++++ b/sound/pci/hda/hda_intel.c
+@@ -469,6 +469,7 @@ struct azx {
+ 	unsigned int irq_pending_warned :1;
+ 	unsigned int probing :1; /* codec probing phase */
+ 	unsigned int snoop:1;
++	unsigned int align_buffer_size:1;
+ 
+ 	/* for debugging */
+ 	unsigned int last_cmd[AZX_MAX_CODECS];
+@@ -1690,7 +1691,7 @@ static int azx_pcm_open(struct snd_pcm_substream *substream)
+ 	runtime->hw.rates = hinfo->rates;
+ 	snd_pcm_limit_hw_rates(runtime);
+ 	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
+-	if (align_buffer_size)
++	if (chip->align_buffer_size)
+ 		/* constrain buffer sizes to be multiple of 128
+ 		   bytes. This is more efficient in terms of memory
+ 		   access but isn't required by the HDA spec and
+@@ -2773,8 +2774,9 @@ static int __devinit azx_create(struct snd_card *card, struct pci_dev *pci,
+ 	}
+ 
+ 	/* disable buffer size rounding to 128-byte multiples if supported */
++	chip->align_buffer_size = align_buffer_size;
+ 	if (chip->driver_caps & AZX_DCAPS_BUFSIZE)
+-		align_buffer_size = 0;
++		chip->align_buffer_size = 0;
+ 
+ 	/* allow 64bit DMA address if supported by H/W */
+ 	if ((gcap & ICH6_GCAP_64OK) && !pci_set_dma_mask(pci, DMA_BIT_MASK(64)))
+-- 
+1.7.8.3
+
