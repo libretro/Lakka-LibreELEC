@@ -1,0 +1,3165 @@
+diff -Naur linux-3.2.2/drivers/mmc/host/bcm2708_mci.c linux-3.2.2.patch/drivers/mmc/host/bcm2708_mci.c
+--- linux-3.2.2/drivers/mmc/host/bcm2708_mci.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.2.2.patch/drivers/mmc/host/bcm2708_mci.c	2012-02-03 03:47:00.203972196 +0100
+@@ -0,0 +1,889 @@
++/*
++ *  linux/drivers/mmc/host/bcm2708_mci.c - Broadcom BCM2708 MCI driver
++ *
++ *  Copyright (C) 2010 Broadcom, All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/slab.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/init.h>
++#include <linux/ioport.h>
++#include <linux/device.h>
++#include <linux/interrupt.h>
++#include <linux/delay.h>
++#include <linux/err.h>
++#include <linux/highmem.h>
++#include <linux/log2.h>
++#include <linux/mmc/host.h>
++#include <linux/mmc/mmc.h>
++#include <linux/mmc/sd.h>
++#include <linux/platform_device.h>
++#include <linux/clk.h>
++#include <linux/scatterlist.h>
++#include <linux/dma-mapping.h>
++
++#include <asm/cacheflush.h>
++#include <asm/div64.h>
++#include <asm/io.h>
++#include <asm/sizes.h>
++//#include <asm/mach/mmc.h>
++
++#include <mach/gpio.h>
++
++#include "bcm2708_mci.h"
++
++#define DRIVER_NAME "bcm2708_mci"
++
++//#define PIO_DEBUG
++#ifdef PIO_DEBUG
++#define DBG(host,fmt,args...)	\
++	printk(KERN_ERR"%s: %s: " fmt, mmc_hostname(host->mmc), __func__ , args)
++#else
++#define DBG(host,fmt,args...)	\
++	pr_debug("%s: %s: " fmt, mmc_hostname(host->mmc), __func__ , args)
++#endif
++
++#define USE_DMA
++#define USE_DMA_IRQ
++
++#ifdef USE_DMA
++#define SDHOST_DMA_CHANNEL 5
++#endif
++
++#define BCM2708_DMA_ACTIVE	(1 << 0)
++#define BCM2708_DMA_INT		(1 << 2)
++
++#define BCM2708_DMA_INT_EN	(1 << 0)
++#define BCM2708_DMA_D_INC	(1 << 4)
++#define BCM2708_DMA_D_WIDTH	(1 << 5)
++#define BCM2708_DMA_D_DREQ	(1 << 6)
++#define BCM2708_DMA_S_INC	(1 << 8)
++#define BCM2708_DMA_S_WIDTH	(1 << 9)
++#define BCM2708_DMA_S_DREQ	(1 << 10)
++
++#define	BCM2708_DMA_PER_MAP(x)	((x) << 16)
++
++#define BCM2708_DMA_DREQ_SDHOST	13
++
++#define BCM2708_DMA_CS		0x00
++#define BCM2708_DMA_ADDR	0x04
++
++static void dump_sd_regs(void * mmc_base );
++static int bcm2708_mci_reset(struct bcm2708_mci_host *host);
++
++static void do_command(void __iomem *base, u32 c, u32 a)
++{
++	u32 cmdsts = 0;
++	writel(a, base + BCM2708_MCI_ARGUMENT);
++	writel(c | BCM2708_MCI_ENABLE, base + BCM2708_MCI_COMMAND);
++
++	/* check for error and command done */
++	cmdsts = readl(base + BCM2708_MCI_COMMAND);
++	while ((cmdsts & BCM2708_MCI_ENABLE) && (!(cmdsts & BCM2708_MCI_FAIL_FLAG)))
++		cmdsts = readl(base + BCM2708_MCI_COMMAND);
++	if (cmdsts & BCM2708_MCI_FAIL_FLAG) {
++		printk(KERN_DEBUG"%s: Command %d failed with arg %d\n", __func__, c, a);
++		dump_sd_regs(base);
++	}
++}
++
++//static void discard_words(void __iomem *base, int words)
++//{
++//	int i;
++//	for (i = 0; i < words; i++) {
++//		while (!(readl(base + BCM2708_MCI_STATUS) & BCM2708_MCI_DATAFLAG));
++//		readl(base + BCM2708_MCI_DATA);
++//	}
++//}
++
++#define CACHE_LINE_MASK 31
++
++static int suitable_for_dma(struct scatterlist *sg_ptr, int sg_len)
++{
++	int i;
++
++	for (i = 0; i < sg_len; i++) {
++		if (sg_ptr[i].offset & CACHE_LINE_MASK || sg_ptr[i].length & CACHE_LINE_MASK)
++			return 0;
++	}
++
++	return 1;
++}
++
++static void wait_for_complete(struct bcm2708_mci_host *host,
++			      void __iomem *mmc_base)
++{
++#ifdef USE_SDHOST_IRQ
++#error not implemented yet
++#else
++	while ((readl(mmc_base + BCM2708_MCI_STATUS) &
++		(BCM2708_MCI_HSTS_BUSY | BCM2708_MCI_HSTS_BLOCK)) == 0)
++		continue;
++
++	writel(BCM2708_MCI_HSTS_BUSY | BCM2708_MCI_HSTS_BLOCK,
++	       mmc_base + BCM2708_MCI_STATUS);
++#endif
++}
++
++static void dump_sd_regs(void * mmc_base )
++{
++	printk(KERN_DEBUG"Registers:\n");
++	printk(KERN_DEBUG"SDCMD:0x%x\n", readl(mmc_base + BCM2708_MCI_COMMAND));
++	printk(KERN_DEBUG"SDARG:0x%x\n", readl(mmc_base + BCM2708_MCI_ARGUMENT));
++	printk(KERN_DEBUG"SDTOUT:0x%x\n", readl(mmc_base + BCM2708_MCI_TIMEOUT));
++	printk(KERN_DEBUG"SDCDIV:0x%x\n", readl(mmc_base + BCM2708_MCI_CLKDIV));
++	printk(KERN_DEBUG"SDRSP0:0x%x\n", readl(mmc_base + BCM2708_MCI_RESPONSE0));
++	printk(KERN_DEBUG"SDRSP1:0x%x\n", readl(mmc_base + BCM2708_MCI_RESPONSE1));
++	printk(KERN_DEBUG"SDRSP2:0x%x\n", readl(mmc_base + BCM2708_MCI_RESPONSE2));
++	printk(KERN_DEBUG"SDRSP3:0x%x\n", readl(mmc_base + BCM2708_MCI_RESPONSE3));
++	printk(KERN_DEBUG"SDHSTS:0x%x\n", readl(mmc_base + BCM2708_MCI_STATUS));
++	printk(KERN_DEBUG"SDPO:0x%x\n", readl(mmc_base + BCM2708_MCI_VDD));
++	printk(KERN_DEBUG"SDEDM:0x%x\n", readl(mmc_base + BCM2708_MCI_EDM));
++	printk(KERN_DEBUG"SDHCFG:0x%x\n", readl(mmc_base + BCM2708_MCI_HOSTCONFIG));
++	printk(KERN_DEBUG"SDHBCT:0x%x\n", readl(mmc_base + BCM2708_MCI_HBCT));
++	//printk(KERN_ERR"SDDATA:0x%x\n", readl(mmc_base + BCM2708_MCI_DATA));
++	printk(KERN_DEBUG"SDHBLC:0x%x\n", readl(mmc_base + BCM2708_MCI_HBLC));
++}
++
++
++static void
++bcm2708_mci_start_command(struct bcm2708_mci_host *host, struct mmc_command *cmd, struct mmc_data *data)
++{
++	void __iomem *mmc_base = host->mmc_base;
++	void __iomem *dma_base = host->dma_base;
++	u32 status;
++	u32 c;
++	int redo = 0;
++
++	DBG(host, "op %02x arg %08x flags %08x\n",
++	    cmd->opcode, cmd->arg, cmd->flags);
++
++back:
++
++	/*
++	 * clear the controller status register
++	 */
++
++	writel(-1, mmc_base + BCM2708_MCI_STATUS);
++
++	/*
++	 * build the command register write, incorporating no
++         * response, long response, busy, read and write flags
++	 */
++
++	c = cmd->opcode;
++	if (cmd->flags & MMC_RSP_PRESENT) {
++		if (cmd->flags & MMC_RSP_136)
++			c |= BCM2708_MCI_LONGRESP;
++	} else
++		c |= BCM2708_MCI_NORESP;
++	if (cmd->flags & MMC_RSP_BUSY)
++		c |= BCM2708_MCI_BUSY;
++
++	if (data) {
++		if (data->flags & MMC_DATA_READ)
++			c |= BCM2708_MCI_READ;
++		else
++			c |= BCM2708_MCI_WRITE;
++
++		DBG(host, "BYTECOUT %d BLOCKCOUNT %d .. ",readl(mmc_base + BCM2708_MCI_HBCT), readl(mmc_base + BCM2708_MCI_HBLC));
++		DBG(host, "set blocksize to %d\n", data->blksz);
++		DBG(host, "set blockcnt to %d\n", data->blocks);
++		writel( data->blksz, mmc_base + BCM2708_MCI_HBCT);
++		writel(data->blocks, mmc_base + BCM2708_MCI_HBLC);
++	}
++
++	/*
++         * run the command and wait for it to complete
++	 */
++
++	DBG(host, "executing command=%d\n", cmd->opcode);
++
++	do_command(mmc_base, c, cmd->arg);
++
++	DBG(host, "done cmd=%d\n", cmd->opcode);
++
++	if (c & BCM2708_MCI_BUSY) {
++
++		DBG(host, "waiting for command(%d) to complete\n", cmd->opcode);
++		wait_for_complete(host, mmc_base);
++		DBG(host, "done waiting for command(%d)\n", cmd->opcode);
++	}
++
++	/*
++	 * retrieve the response and error (if any)
++	 */
++
++	status = readl(mmc_base + BCM2708_MCI_STATUS);
++
++	if (cmd->flags & MMC_RSP_136) {
++		cmd->resp[3] = readl(mmc_base + BCM2708_MCI_RESPONSE0);
++		cmd->resp[2] = readl(mmc_base + BCM2708_MCI_RESPONSE1);
++		cmd->resp[1] = readl(mmc_base + BCM2708_MCI_RESPONSE2);
++		cmd->resp[0] = readl(mmc_base + BCM2708_MCI_RESPONSE3);
++	} else {
++		cmd->resp[0] = readl(mmc_base + BCM2708_MCI_RESPONSE0);
++	}
++
++	if (status & BCM2708_MCI_CMDTIMEOUT) {
++		printk(KERN_DEBUG "mmc driver saw timeout with opcode = %d, data = 0x%08x, timeout = %d", cmd->opcode, (unsigned int)data, readl(mmc_base + BCM2708_MCI_TIMEOUT));
++		if (data)
++			printk(KERN_DEBUG " data->sg_len = %d\n", data->sg_len);
++		else
++			printk(KERN_DEBUG "\n");
++		if (!redo) {
++			printk(KERN_DEBUG "redo\n");
++			redo = 1;
++			goto back;
++		} else
++			cmd->error = -ETIMEDOUT;
++	}
++
++	/*
++	 * pump data if necessary
++	 */
++
++	if (data) {
++		unsigned int sg_len = data->sg_len;
++		struct scatterlist *sg_ptr = data->sg;
++
++		data->bytes_xfered = 0;
++
++#ifdef USE_DMA
++		if (suitable_for_dma(sg_ptr, sg_len)) {
++			int i, count = dma_map_sg(&host->dev->dev, sg_ptr, sg_len, data->flags & MMC_DATA_READ ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
++
++			for (i = 0; i < count; i++) {
++				BCM2708_DMA_CB_T *cb = &host->cb_base[i];
++
++				if (data->flags & MMC_DATA_READ) {
++					cb->info = BCM2708_DMA_PER_MAP(BCM2708_DMA_DREQ_SDHOST)|BCM2708_DMA_S_DREQ|BCM2708_DMA_D_WIDTH|BCM2708_DMA_D_INC;
++					cb->src = 0x7e202040;
++					cb->dst = sg_dma_address(&sg_ptr[i]);
++				} else {
++					cb->info = BCM2708_DMA_PER_MAP(BCM2708_DMA_DREQ_SDHOST)|BCM2708_DMA_S_WIDTH|BCM2708_DMA_S_INC|BCM2708_DMA_D_DREQ;
++					cb->src = sg_dma_address(&sg_ptr[i]);
++					cb->dst = 0x7e202040;
++				}
++ 
++				cb->length = sg_dma_len(&sg_ptr[i]);
++				cb->stride = 0;
++
++				if (i == count - 1) {
++#ifdef USE_DMA_IRQ
++					cb->info |= BCM2708_DMA_INT_EN;
++#endif
++					cb->next = 0;
++				} else 
++					cb->next = host->cb_handle + (i + 1) * sizeof(BCM2708_DMA_CB_T);
++
++				cb->pad[0] = 0;
++				cb->pad[1] = 0;
++
++				data->bytes_xfered += sg_ptr[i].length;
++			}
++
++			dsb();	// data barrier operation
++
++			writel(host->cb_handle, dma_base + BCM2708_DMA_ADDR);
++			writel(BCM2708_DMA_ACTIVE, dma_base + BCM2708_DMA_CS);
++
++#ifdef USE_DMA_IRQ
++			down(&host->sem);
++#else
++			while ((readl(dma_base + BCM2708_DMA_CS) & BCM2708_DMA_ACTIVE));
++#endif
++			dma_unmap_sg(&host->dev->dev, sg_ptr, sg_len, data->flags & MMC_DATA_READ ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
++		} else
++#endif
++		while (sg_len) {
++			unsigned long flags;
++			char *buffer;
++			u32 *ptr, *lim;
++
++			DBG(host, "sg_len=%d sg_ptr=%p len=%d\n", sg_len, sg_ptr, sg_ptr->length);
++
++			/*
++			 * map the current scatter buffer
++			 */
++
++			buffer = bcm2708_mci_kmap_atomic(sg_ptr, &flags);
++
++			/*
++			 * pump the data
++			 */
++
++			ptr = (u32 *)(buffer);
++			lim = (u32 *)(buffer + sg_ptr->length);
++
++			while (ptr < lim)
++			{
++#ifdef PIO_DEBUG
++				unsigned int wait_count = 1;
++#endif
++				while (!(readl(mmc_base + BCM2708_MCI_STATUS) & BCM2708_MCI_DATAFLAG)) 
++				{
++#ifdef PIO_DEBUG
++					wait_count++;
++					if ( 0 == (wait_count % 20000) ) {
++
++						printk(KERN_ERR"Timeout waiting for data flag\n");
++						dump_sd_regs(mmc_base);
++					}
++#endif
++				}
++
++				if (data->flags & MMC_DATA_READ)
++					*ptr++ = readl(mmc_base + BCM2708_MCI_DATA);
++				else
++				{
++#ifdef PIO_DEBUG
++					uint32_t fifo_bytes, fifo_wait_count = 1;
++
++					fifo_bytes = readl(mmc_base + BCM2708_MCI_EDM);
++					fifo_bytes = (fifo_bytes >> 4)  & 0xf;
++
++					while(fifo_bytes > 3)
++					{
++						fifo_wait_count++;
++						if ( 0 == (fifo_wait_count % 20000) ) {
++							printk(KERN_ERR"waiting for fifo_bytes < 3\n");
++							dump_sd_regs(mmc_base);
++						}
++
++						fifo_bytes = readl(mmc_base + BCM2708_MCI_EDM);
++						fifo_bytes = (fifo_bytes >> 4)  & 0xf;
++					}
++
++					BUG_ON(fifo_bytes > 3);
++#endif
++					writel(*ptr++, mmc_base + BCM2708_MCI_DATA);
++				}
++			}
++
++			DBG(host, "done reading/writing %d bytes from mmc\n", sg_ptr->length);
++
++
++			/*
++			 * unmap the buffer
++			 */
++
++			bcm2708_mci_kunmap_atomic(buffer, &flags);
++
++			/*
++			 * if we were reading, and we have completed this
++			 * page, ensure that the data cache is coherent
++			 */
++
++			if (data->flags & MMC_DATA_READ)
++				flush_dcache_page(sg_page(sg_ptr));
++
++			data->bytes_xfered += sg_ptr->length;
++
++			sg_ptr++;
++			sg_len--; 
++		}
++
++//		if (host->is_acmd && cmd->opcode == SD_APP_SEND_SCR)
++//			discard_words(mmc_base, 126);
++//		if (host->is_acmd && cmd->opcode == SD_APP_SEND_NUM_WR_BLKS) 
++//			discard_words(mmc_base, 127);
++//		if (!host->is_acmd && cmd->opcode == SD_SWITCH)
++//			discard_words(mmc_base, 112);
++
++		if (data->stop) {
++
++			DBG(host, "sending stop command %p\n", data->stop);
++			bcm2708_mci_start_command(host, data->stop, 0);
++
++			while ((readl(mmc_base + BCM2708_MCI_STATUS) &
++					 BCM2708_MCI_DATAFLAG))
++			{
++				DBG(host, "error data flag still set read=%d bytes\n", sg_ptr->length);
++				printk(KERN_ERR"SDDATA:0x%x\n", readl(mmc_base + BCM2708_MCI_DATA));
++				dump_sd_regs(mmc_base);
++			}
++		}
++	}
++	/*
++	 * remember if we're an application command
++	 */
++	host->is_acmd = cmd->opcode == MMC_APP_CMD;
++}
++
++static void bcm2708_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
++{
++	struct bcm2708_mci_host *host = mmc_priv(mmc);
++
++	if (mrq->data && !is_power_of_2(mrq->data->blksz)) {
++		printk(KERN_ERR "%s: Unsupported block size (%d bytes)\n",
++			mmc_hostname(mmc), mrq->data->blksz);
++		mrq->cmd->error = -EINVAL;
++		mmc_request_done(mmc, mrq);
++		return;
++	}
++
++	bcm2708_mci_start_command(host, mrq->cmd, mrq->data);
++
++	mmc_request_done(host->mmc, mrq);
++}
++
++static void bcm2708_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
++{
++
++	struct bcm2708_mci_host *host = mmc_priv(mmc);
++	void *mmc_base = host->mmc_base;
++
++
++	printk(KERN_DEBUG"%s: Want to set clock: %d width: %d\n", mmc_hostname(mmc),
++			ios->clock, ios->bus_width);
++
++	if (ios->clock == 25000000 || ios->clock == 26000000) {
++		printk(KERN_DEBUG"%s setting clock div to 10 (8+2)\n", mmc_hostname(mmc));
++		writel(0x8, mmc_base + BCM2708_MCI_CLKDIV);
++	} else if (ios->clock == 50000000 || ios->clock == 52000000) {
++		printk(KERN_DEBUG"%s setting clock div to 5 (3+2)\n", mmc_hostname(mmc));
++		writel(0x3, mmc_base + BCM2708_MCI_CLKDIV);
++	} else {
++		// On init or unknown clock, we set the clock really low
++		printk(KERN_DEBUG"%s Setting clock div to 0x4e0\n", mmc_hostname(mmc));
++		writel(0x4e0, mmc_base + BCM2708_MCI_CLKDIV);
++	}
++
++	if (ios->bus_width) {
++		uint32_t hcfg;
++		hcfg = readl(mmc_base + BCM2708_MCI_HOSTCONFIG);
++		printk(KERN_DEBUG"%s setting bus width to %d\n", mmc_hostname(mmc), ios->bus_width);
++
++		hcfg &= BCM2708_MCI_HOSTCONFIG_WIDEEXT_CLR;
++		hcfg |= (ios->bus_width == MMC_BUS_WIDTH_4) ? BCM2708_MCI_HOSTCONFIG_WIDEEXT_4BIT : 0;
++
++		writel(hcfg, mmc_base + BCM2708_MCI_HOSTCONFIG);
++	}
++}
++
++static int bcm2708_mci_get_cd(struct mmc_host *mmc)
++{
++	int present = -ENOSYS;
++
++	struct bcm2708_mci_host *host = mmc_priv(mmc);
++	void *gpio_base = host->gpio_base;
++
++	present = readl( (gpio_base + GP_LEV0) );
++	
++	if ((present & (1<<29))==(1<<29))
++		present = 0;
++	else
++		present = 1;
++
++	printk(KERN_DEBUG"***sdcard present***=%d\n", present);
++
++	// FIXME - For now force SD card present for 2835DK 
++	present = 1;
++	return present;
++}
++
++/*
++ * Handle completion of command and data transfers.
++ */
++
++//static irqreturn_t bcm2708_mci_command_irq(int irq, void *dev_id)
++//{
++//	struct bcm2708_mci_host *host = dev_id;
++//
++//	writel(BCM2708_DMA_INT, host->dma_base + BCM2708_DMA_CS);
++//
++//	printk(KERN_ERR "irq\n");
++//
++//	return IRQ_RETVAL(0);
++//}
++
++static irqreturn_t bcm2708_mci_sddet_irq(int irq, void *dev_id)
++{
++	struct bcm2708_mci_host *host = dev_id;
++	irqreturn_t handled = IRQ_NONE;
++	int present;
++
++	present = bcm2708_mci_get_cd(host->mmc);
++
++	if (present!=host->present)
++	{
++		host->present = present;
++		printk(KERN_DEBUG "SDDET IRQ: sdcard present: %d\n",present);
++		bcm2708_mci_reset(host);
++		mmc_detect_change(host->mmc, msecs_to_jiffies(500));
++	}
++
++	return IRQ_RETVAL(handled);
++}
++
++#ifdef USE_DMA_IRQ
++static irqreturn_t bcm2708_mci_data_irq(int irq, void *dev_id)
++{
++	struct bcm2708_mci_host *host = dev_id;
++        irqreturn_t handled = IRQ_NONE;
++
++	if (0 != (BCM2708_DMA_INT & readl(host->dma_base + BCM2708_DMA_CS))) {
++		writel(BCM2708_DMA_INT, host->dma_base + BCM2708_DMA_CS);
++		dsb();
++		handled = IRQ_HANDLED;
++		up(&host->sem);
++	} else {
++		printk(KERN_ERR"bcm2708_mci irq check failed !!\n");
++	}
++
++	return IRQ_RETVAL(handled);
++}
++#endif
++
++static const struct mmc_host_ops bcm2708_mci_ops = {
++	.request	= bcm2708_mci_request,
++	.set_ios	= bcm2708_mci_set_ios,
++	.get_cd		= bcm2708_mci_get_cd,
++};
++
++static int bcm2708_mci_reset(struct bcm2708_mci_host *host)
++{
++
++	void *mmc_base = host->mmc_base;
++
++	// pin muxing/gpios is done by vcloader
++
++	printk(KERN_DEBUG"%s:Resetting BCM2708 MCI Controller.\n", __func__ );
++
++	writel(0, mmc_base + BCM2708_MCI_COMMAND);
++	writel(0, mmc_base + BCM2708_MCI_ARGUMENT);
++	writel(0x00F00000, mmc_base + BCM2708_MCI_TIMEOUT);
++	writel(0, mmc_base + BCM2708_MCI_CLKDIV);
++	writel(0, mmc_base + BCM2708_MCI_STATUS);
++	writel(0, mmc_base + BCM2708_MCI_VDD);
++	writel(0, mmc_base + BCM2708_MCI_HOSTCONFIG);
++	writel(0, mmc_base + BCM2708_MCI_HBCT);
++	writel(0, mmc_base + BCM2708_MCI_HBLC);
++
++	writel( BCM2708_MCI_HOSTCONFIG_SLOW_CARD | BCM2708_MCI_HOSTCONFIG_BUSY_IRPT_EN |
++			BCM2708_MCI_HOSTCONFIG_BLOCK_IRPT_EN | BCM2708_MCI_HOSTCONFIG_WIDE_INT_BUS,
++			mmc_base + BCM2708_MCI_HOSTCONFIG);
++
++	// On A0 silicon it has been observed that the following must hold
++	// WRITE_THRESHOLD<=5 and READ_THRESHOLD<=WRITE_THRESHOLD+1
++	// with the chip running at 150MHz (with the interface running @ 150/22 = 6.8 MHz)
++	// the second requirement suggests that the verilog does not properly separate the read / write FIFOs
++	// On V3XDS Read=2 & Write=6
++
++#define READ_THRESHOLD  3
++#define WRITE_THRESHOLD 3
++#if 1 // !!! This is still required, without it we get CRC16 errors in data.
++	{
++		uint32_t temp;
++		temp = readl(mmc_base + BCM2708_MCI_EDM);
++		temp &= ~((0x1F<<14) | (0x1F<<9));
++		temp  |= (WRITE_THRESHOLD << 9) | (READ_THRESHOLD << 14);
++		writel(temp, mmc_base + BCM2708_MCI_EDM);
++	}
++#endif
++
++	// Power on delay
++	mdelay(10);
++	writel(BCM2708_MCI_VDD_ENABLE, mmc_base + BCM2708_MCI_VDD);
++	mdelay(10);
++
++	return 0;
++}
++
++
++static int __devinit bcm2708_mci_probe(struct platform_device *pdev)
++{
++	struct mmc_host *mmc;
++	struct bcm2708_mci_host *host;
++	struct resource *mmc_res;
++	struct resource *dma_res;
++	struct resource *gpio_res;
++	struct resource *dat_res;
++	struct resource *sddet_res;
++	int ret;
++
++	mmc = mmc_alloc_host(sizeof(struct bcm2708_mci_host), &pdev->dev);
++	if (!mmc) {
++		ret = -ENOMEM;
++		dev_dbg(&pdev->dev, "couldn't allocate mmc host\n");
++		goto fail0;
++	}
++
++	host = mmc_priv(mmc);
++	host->mmc = mmc;
++
++	host->dev = pdev;
++
++	sema_init(&host->sem, 0);
++
++#ifdef USE_DMA
++	host->cb_base = dma_alloc_writecombine(&pdev->dev, SZ_4K, &host->cb_handle, GFP_KERNEL);
++	if (!host->cb_base) {
++		ret = -ENOMEM;
++		dev_dbg(&pdev->dev, "couldn't allocate dma base\n");
++		goto fail1;
++	}
++#endif
++
++	mmc_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!mmc_res) {
++		ret = -ENXIO;
++		dev_dbg(&pdev->dev, "couldn't allocate mmc memory resource 0\n");
++		goto fail2;
++	}
++
++	if (!request_mem_region(mmc_res->start, mmc_res->end - mmc_res->start + 1, DRIVER_NAME)) {
++		ret = -EBUSY;
++		goto fail2;
++	}
++
++	dma_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	if (!dma_res) {
++		ret = -ENXIO;
++		dev_dbg(&pdev->dev, "couldn't allocate dma memory resource 1\n");
++		goto fail3;
++	}
++
++	/*
++	 * Map I/O regions
++	 */
++
++	host->mmc_base = ioremap(mmc_res->start, resource_size(mmc_res));
++	if (!host->mmc_base) {
++		ret = -ENOMEM;
++		goto fail3;
++	}
++
++	gpio_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
++	if (!gpio_res) {
++		ret = -ENXIO;
++		dev_dbg(&pdev->dev, "couldn't allocate gpio resource\n");
++		goto fail4;
++	}
++
++	/*
++	 * Map I/O regions
++	 */
++
++	host->gpio_base = ioremap(gpio_res->start, resource_size(gpio_res));
++	if (!host->gpio_base) {
++		ret = -ENOMEM;
++		goto fail4;
++	}
++
++#ifdef USE_DMA
++	host->dma_base = __io_address(dma_res->start);
++
++	if (!host->dma_base) {
++		ret = -ENOMEM;
++		goto fail5;
++	}
++
++	// USE DMA5 channel
++	host->dma_base = (void __iomem *)((char *) host->dma_base + (SDHOST_DMA_CHANNEL * 0x100));
++
++	dev_dbg(&pdev->dev, "%s: using dma channel %d for sdhost\n", __func__, SDHOST_DMA_CHANNEL);
++
++	/*
++	 * Grab interrupts.
++	 */
++#ifdef USE_DMA_IRQ
++	dat_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!dat_res) {
++		ret = -ENXIO;
++		dev_dbg(&pdev->dev, "couldn't allocate irq for dma\n");
++		goto fail5;
++	}
++
++	ret = request_irq(dat_res->start, bcm2708_mci_data_irq, 0, DRIVER_NAME " (dat)", host);
++	if (ret) {
++		goto fail5;
++	}
++	dev_dbg(&pdev->dev, "%s: using dma interrupt number %d for sdhost\n", __func__, dat_res->start);
++
++#endif
++#endif
++
++	host->present = bcm2708_mci_get_cd(host->mmc);
++
++	sddet_res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
++	if (!sddet_res) {
++		ret = -ENXIO;
++		dev_dbg(&pdev->dev, "couldn't allocate irq for sd detect\n");
++		goto fail6;
++	}
++
++	ret = request_irq(sddet_res->start, bcm2708_mci_sddet_irq, 0, DRIVER_NAME " (cmd)", host);
++	if (ret) {
++		goto fail6;
++	}
++
++	host->is_acmd = 0;
++
++	mmc->ops = &bcm2708_mci_ops;
++	mmc->f_min = 200000;
++	mmc->f_max = 52000000;
++	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
++
++	/*
++	 * We can do SGIO
++	 */
++	mmc->max_segs = NR_SG;
++
++	/*
++	 * Since we only have a 16-bit data length register, we must
++	 * ensure that we don't exceed 2^16-1 bytes in a single request.
++	 */
++	mmc->max_req_size = 65535;
++
++	/*
++	 * Set the maximum segment size.  Since we aren't doing DMA
++	 * (yet) we are only limited by the data length register.
++	 */
++	mmc->max_seg_size = mmc->max_req_size;
++
++	/*
++	 * Block size can be up to 2048 bytes, but must be a power of two.
++	 */
++	mmc->max_blk_size = 2048;
++
++	/*
++	 * No limit on the number of blocks transferred.
++	 */
++	mmc->max_blk_count = mmc->max_req_size;
++
++	/*
++	 * We support 4-bit data (at least on the DB)
++	 */
++
++	mmc->caps |= (MMC_CAP_4_BIT_DATA | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED) ;
++
++	bcm2708_mci_reset(host);
++
++	mmc_add_host(mmc);
++
++	printk(KERN_INFO "%s: BCM2708 SD host at 0x%08llx 0x%08llx\n",
++		mmc_hostname(mmc),
++		(unsigned long long)mmc_res->start, (unsigned long long)dma_res->start);
++
++	return 0;
++
++fail6:
++#ifdef USE_DMA_IRQ
++	free_irq(dat_res->start, host);
++#endif
++fail5:
++	iounmap(host->gpio_base);
++fail4:
++	iounmap(host->mmc_base);
++fail3:
++	release_mem_region(mmc_res->start, mmc_res->end - mmc_res->start + 1);
++fail2:
++	dma_free_writecombine(&pdev->dev, SZ_4K, host->cb_base, host->cb_handle);
++fail1:
++	mmc_free_host(mmc);
++fail0:
++	dev_err(&pdev->dev, "probe failed, err %d\n", ret);
++	return ret;
++}
++
++static int __devexit bcm2708_mci_remove(struct platform_device *pdev)
++{
++	struct mmc_host *mmc = platform_get_drvdata(pdev);
++
++	if (mmc) {
++		struct bcm2708_mci_host *host = mmc_priv(mmc);
++		struct resource *res;
++		struct resource *res2;
++
++		mmc_remove_host(mmc);
++#ifdef USE_DMA
++#ifdef USE_DMA_IRQ
++		res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++		free_irq(res->start, host);
++#endif
++#endif
++
++		res2 = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
++		free_irq(res2->start, host);
++
++		iounmap(host->mmc_base);
++		iounmap(host->gpio_base);
++		iounmap(host->dma_base);
++
++		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++		release_mem_region(res->start, resource_size(res));
++#ifdef USE_DMA
++		dma_free_writecombine(&pdev->dev, SZ_4K, host->cb_base, host->cb_handle);
++#endif
++
++		mmc_free_host(mmc);
++		platform_set_drvdata(pdev, NULL);
++
++		return 0;
++	} else
++		return -1;
++}
++
++#ifdef CONFIG_PM
++static int bcm2708_mci_suspend(struct platform_device *dev, pm_message_t state)
++{
++	struct mmc_host *mmc = platform_get_drvdata(dev);
++	int ret = 0;
++
++	if (mmc) {
++		ret = mmc_suspend_host(mmc);
++	}
++
++	return ret;
++}
++
++static int bcm2708_mci_resume(struct platform_device *dev)
++{
++	struct mmc_host *mmc = platform_get_drvdata(dev);
++	int ret = 0;
++
++	if (mmc) {
++		ret = mmc_resume_host(mmc);
++	}
++
++	return ret;
++}
++#else
++#define bcm2708_mci_suspend	NULL
++#define bcm2708_mci_resume	NULL
++#endif
++
++static struct platform_driver bcm2708_mci_driver = {
++	.probe		= bcm2708_mci_probe,
++	.remove		= bcm2708_mci_remove,
++	.suspend	= bcm2708_mci_suspend,
++	.resume		= bcm2708_mci_resume,
++	.driver		= {
++		.name	= DRIVER_NAME,
++		.owner  = THIS_MODULE,
++	},
++};
++
++static int __init bcm2708_mci_init(void)
++{
++	return platform_driver_register(&bcm2708_mci_driver);
++}
++
++static void __exit bcm2708_mci_exit(void)
++{
++	platform_driver_unregister(&bcm2708_mci_driver);
++}
++
++module_init(bcm2708_mci_init);
++module_exit(bcm2708_mci_exit);
++
++MODULE_DESCRIPTION("BCM2708 Multimedia Card Interface driver");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:bcm2708_mci");
+diff -Naur linux-3.2.2/drivers/mmc/host/bcm2708_mci.h linux-3.2.2.patch/drivers/mmc/host/bcm2708_mci.h
+--- linux-3.2.2/drivers/mmc/host/bcm2708_mci.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.2.2.patch/drivers/mmc/host/bcm2708_mci.h	2012-02-03 03:47:00.203972196 +0100
+@@ -0,0 +1,101 @@
++/*
++ *  linux/drivers/mmc/host/bcm2708_mci.c - Broadcom BCM2708 MCI driver
++ *
++ *  Copyright (C) 2010 Broadcom, All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++struct clk;
++
++#define BCM2708_MCI_COMMAND	0x00
++
++#define BCM2708_MCI_READ     	(1 << 6)
++#define BCM2708_MCI_WRITE    	(1 << 7)
++#define BCM2708_MCI_LONGRESP 	(1 << 9)
++#define BCM2708_MCI_NORESP   	(1 << 10)
++#define BCM2708_MCI_BUSY     	(1 << 11)
++#define BCM2708_MCI_FAIL_FLAG	(1 << 14)
++#define BCM2708_MCI_ENABLE   	(1 << 15)
++
++#define BCM2708_MCI_ARGUMENT	0x04
++
++#define BCM2708_MCI_TIMEOUT	0x08
++#define BCM2708_MCI_CLKDIV	0x0c
++
++
++#define BCM2708_MCI_RESPONSE0	0x10
++#define BCM2708_MCI_RESPONSE1	0x14
++#define BCM2708_MCI_RESPONSE2	0x18
++#define BCM2708_MCI_RESPONSE3	0x1c
++
++#define BCM2708_MCI_STATUS	0x20
++
++#define BCM2708_MCI_VDD	0x30
++#define BCM2708_MCI_VDD_ENABLE	(1 << 0)
++
++#define BCM2708_MCI_EDM	0x34
++
++#define BCM2708_MCI_HOSTCONFIG	0x38
++
++#define BCM2708_MCI_HOSTCONFIG_WIDE_INT_BUS 0x2
++#define BCM2708_MCI_HOSTCONFIG_WIDEEXT_4BIT 0x4
++#define BCM2708_MCI_HOSTCONFIG_SLOW_CARD 0x8
++#define BCM2708_MCI_HOSTCONFIG_BLOCK_IRPT_EN (1<<8)
++#define BCM2708_MCI_HOSTCONFIG_BUSY_IRPT_EN (1<<10)
++#define BCM2708_MCI_HOSTCONFIG_WIDEEXT_CLR 0xFFFFFFFB
++
++
++#define BCM2708_MCI_DATAFLAG	(1 << 0)
++#define BCM2708_MCI_CMDTIMEOUT	(1 << 6)
++#define BCM2708_MCI_HSTS_BLOCK	(1 << 9)	/**< block flag in status reg */
++#define BCM2708_MCI_HSTS_BUSY	(1 << 10)	/**< Busy flag in status reg */
++
++#define BCM2708_MCI_HBCT	0x3c
++#define BCM2708_MCI_DATA	0x40
++#define BCM2708_MCI_HBLC	0x50
++
++#define NR_SG		16
++
++typedef struct bulk_data_struct
++{
++   unsigned long info;
++   unsigned long src;
++   unsigned long dst;
++   unsigned long length;
++   unsigned long stride;
++   unsigned long next;
++   unsigned long pad[2];
++} BCM2708_DMA_CB_T;
++
++struct bcm2708_mci_host {
++	struct platform_device	*dev;
++
++	void __iomem		*mmc_base;
++	void __iomem		*dma_base;
++	void __iomem		*gpio_base;
++
++	BCM2708_DMA_CB_T	*cb_base;
++	dma_addr_t		cb_handle;
++
++	struct mmc_host		*mmc;
++
++	struct semaphore 	sem;
++
++	int is_acmd;
++	int present;
++};
++
++static inline char *bcm2708_mci_kmap_atomic(struct scatterlist *sg, unsigned long *flags)
++{
++//	local_irq_save(*flags);
++	return kmap_atomic(sg_page(sg), KM_BIO_SRC_IRQ) + sg->offset;
++}
++
++static inline void bcm2708_mci_kunmap_atomic(void *buffer, unsigned long *flags)
++{
++	kunmap_atomic(buffer, KM_BIO_SRC_IRQ);
++//	local_irq_restore(*flags);
++}
+diff -Naur linux-3.2.2/drivers/mmc/host/Kconfig linux-3.2.2.patch/drivers/mmc/host/Kconfig
+--- linux-3.2.2/drivers/mmc/host/Kconfig	2012-01-26 01:39:32.000000000 +0100
++++ linux-3.2.2.patch/drivers/mmc/host/Kconfig	2012-02-03 03:47:00.201972159 +0100
+@@ -229,6 +229,27 @@
+ 
+ 	  YMMV.
+ 
++config MMC_SDHCI_BCM2708
++	tristate "SDHCI support on BCM2708"
++	depends on MMC_SDHCI && MACH_BCM2708
++	select MMC_SDHCI_IO_ACCESSORS
++	help
++	  This selects the Secure Digital Host Controller Interface (SDHCI)
++	  often referrered to as the eMMC block.
++
++	  If you have a controller with this interface, say Y or M here.
++
++	  If unsure, say N.
++
++config MMC_SDHCI_BCM2708_DMA
++	bool "DMA support on BCM2708 Arasan controller"
++	depends on MMC_SDHCI_BCM2708 && EXPERIMENTAL
++	help
++	  Enable DMA support on the Arasan SDHCI controller in Broadcom 2708
++          based chips.
++
++          If unsure, say N.
++
+ config MMC_OMAP
+ 	tristate "TI OMAP Multimedia Card Interface support"
+ 	depends on ARCH_OMAP
+@@ -296,6 +317,14 @@
+ 	  If unsure, say N.
+ 
+ endchoice
++config MMC_BCM2708
++	tristate "BCM2708 Multimedia Card Interface support"
++	help
++	  This selects the BCM2708 Multimedia Card Interface driver. If
++	  you have a BCM2708 platform with a Multimedia Card
++	  slot, say Y or M here.
++
++	  If unsure, say N.
+ 
+ config MMC_ATMELMCI_DMA
+ 	bool "Atmel MCI DMA support"
+diff -Naur linux-3.2.2/drivers/mmc/host/Makefile linux-3.2.2.patch/drivers/mmc/host/Makefile
+--- linux-3.2.2/drivers/mmc/host/Makefile	2012-01-26 01:39:32.000000000 +0100
++++ linux-3.2.2.patch/drivers/mmc/host/Makefile	2012-02-03 03:47:00.202972178 +0100
+@@ -13,6 +13,7 @@
+ obj-$(CONFIG_MMC_SDHCI_PXAV2)	+= sdhci-pxav2.o
+ obj-$(CONFIG_MMC_SDHCI_S3C)	+= sdhci-s3c.o
+ obj-$(CONFIG_MMC_SDHCI_SPEAR)	+= sdhci-spear.o
++obj-$(CONFIG_MMC_SDHCI_BCM2708)	+= sdhci-bcm2708.o
+ obj-$(CONFIG_MMC_WBSD)		+= wbsd.o
+ obj-$(CONFIG_MMC_AU1X)		+= au1xmmc.o
+ obj-$(CONFIG_MMC_OMAP)		+= omap.o
+@@ -36,6 +37,7 @@
+ obj-$(CONFIG_MMC_SDHI)		+= sh_mobile_sdhi.o
+ obj-$(CONFIG_MMC_CB710)		+= cb710-mmc.o
+ obj-$(CONFIG_MMC_VIA_SDMMC)	+= via-sdmmc.o
++obj-$(CONFIG_MMC_BCM2708)       += bcm2708_mci.o
+ obj-$(CONFIG_SDH_BFIN)		+= bfin_sdh.o
+ obj-$(CONFIG_MMC_DW)		+= dw_mmc.o
+ obj-$(CONFIG_MMC_SH_MMCIF)	+= sh_mmcif.o
+diff -Naur linux-3.2.2/drivers/mmc/host/sdhci-bcm2708.c linux-3.2.2.patch/drivers/mmc/host/sdhci-bcm2708.c
+--- linux-3.2.2/drivers/mmc/host/sdhci-bcm2708.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.2.2.patch/drivers/mmc/host/sdhci-bcm2708.c	2012-02-03 03:47:00.206972250 +0100
+@@ -0,0 +1,1461 @@
++/*
++ * sdhci-bcm2708.c Support for SDHCI device on BCM2708
++ * Copyright (c) 2010 Broadcom
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
++
++/* Supports:
++ * SDHCI platform device - Arasan SD controller in BCM2708
++ *
++ * Inspired by sdhci-pci.c, by Pierre Ossman
++ */
++
++#include <linux/delay.h>
++#include <linux/highmem.h>
++#include <linux/platform_device.h>
++#include <linux/module.h>
++#include <linux/mmc/host.h>
++
++#include <linux/io.h>
++#include <linux/dma-mapping.h>
++#include <mach/dma.h>
++#include <mach/power.h>
++
++#include "sdhci.h"
++
++/*****************************************************************************\
++ *									     *
++ * Configuration							     *
++ *									     *
++\*****************************************************************************/
++
++#define DRIVER_NAME "bcm2708_sdhci"
++
++/* for the time being insist on DMA mode - PIO seems not to work */
++#ifndef CONFIG_MMC_SDHCI_BCM2708_DMA
++#warning Non-DMA (PIO) version of this driver currently unavailable
++#endif
++#undef CONFIG_MMC_SDHCI_BCM2708_DMA
++#define CONFIG_MMC_SDHCI_BCM2708_DMA y
++
++#define USE_SYNC_AFTER_DMA
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++/* #define CHECK_DMA_USE */
++#endif
++//#define LOG_REGISTERS
++
++#define USE_SCHED_TIME
++
++#define SDHCI_BCM_DMA_CHAN 4   /* this default is normally overriden */
++#define SDHCI_BCM_DMA_WAITS 0  /* delays slowing DMA transfers: 0-31 */
++/* We are worried that SD card DMA use may be blocking the AXI bus for others */
++
++/*! TODO: obtain these from the physical address */
++#define DMA_SDHCI_BASE	 0x7e300000  /* EMMC register block on Videocore */
++#define DMA_SDHCI_BUFFER (DMA_SDHCI_BASE + SDHCI_BUFFER)
++
++#define BCM2708_SDHCI_SLEEP_TIMEOUT 1000   /* msecs */
++
++#define POWER_OFF 0
++#define POWER_LAZY_OFF 1
++#define POWER_ON  2
++
++
++/*****************************************************************************\
++ *									     *
++ * Debug								     *
++ *									     *
++\*****************************************************************************/
++
++
++
++#define DBG(f, x...) \
++	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
++//	printk(KERN_INFO DRIVER_NAME " [%s()]: " f, __func__,## x)//GRAYG
++
++
++/*****************************************************************************\
++ *									     *
++ * High Precision Time							     *
++ *									     *
++\*****************************************************************************/
++
++#ifdef USE_SCHED_TIME
++
++#include <mach/frc.h>
++
++typedef unsigned long hptime_t;
++
++#define FMT_HPT "lu"
++
++static inline hptime_t hptime(void)
++{
++	return frc_clock_ticks32();
++}
++
++#define HPTIME_CLK_NS 1000ul
++
++#else
++
++typedef unsigned long hptime_t;
++
++#define FMT_HPT "lu"
++
++static inline hptime_t hptime(void)
++{
++	return jiffies;
++}
++
++#define HPTIME_CLK_NS (1000000000ul/HZ)
++
++#endif
++
++static inline unsigned long int since_ns(hptime_t t)
++{
++	return (unsigned long)((hptime() - t) * HPTIME_CLK_NS);
++}
++
++#if 0
++static void hptime_test(void)
++{
++	hptime_t now;
++	hptime_t later;
++
++	now = hptime();
++	msleep(10);
++	later = hptime();
++
++	printk(KERN_INFO DRIVER_NAME": 10ms = %"FMT_HPT" clks "
++	       "(from %"FMT_HPT" to %"FMT_HPT") = %luns\n",
++	       later-now, now, later,
++	       (unsigned long)(HPTIME_CLK_NS * (later - now)));
++
++	now = hptime();
++	msleep(1000);
++	later = hptime();
++
++	printk(KERN_INFO DRIVER_NAME": 1s = %"FMT_HPT" clks "
++	       "(from %"FMT_HPT" to %"FMT_HPT") = %luns\n",
++	       later-now, now, later,
++	       (unsigned long)(HPTIME_CLK_NS * (later - now)));
++}
++#endif
++
++/*****************************************************************************\
++ *									     *
++ * SDHCI core callbacks							     *
++ *									     *
++\*****************************************************************************/
++
++
++#ifdef CHECK_DMA_USE
++/*#define CHECK_DMA_REG_USE*/
++#endif
++
++#ifdef CHECK_DMA_REG_USE
++/* we don't expect anything to be using these registers during a
++   DMA (except the IRQ status) - so check */
++static void check_dma_reg_use(struct sdhci_host *host, int reg);
++#else
++#define check_dma_reg_use(host, reg)
++#endif
++
++
++static inline u32 sdhci_bcm2708_raw_readl(struct sdhci_host *host, int reg)
++{
++	return readl(host->ioaddr + reg);
++}
++
++u32 sdhci_bcm2708_readl(struct sdhci_host *host, int reg)
++{
++	u32 l = sdhci_bcm2708_raw_readl(host, reg);
++
++#ifdef LOG_REGISTERS
++	printk(KERN_ERR "%s: readl from 0x%02x, value 0x%08x\n",
++	       mmc_hostname(host->mmc), reg, l);
++#endif
++	check_dma_reg_use(host, reg);
++
++	return l;
++}
++
++u16 sdhci_bcm2708_readw(struct sdhci_host *host, int reg)
++{
++	u32 l = sdhci_bcm2708_raw_readl(host, reg & ~3);
++	u32 w = l >> (reg << 3 & 0x18) & 0xffff;
++
++#ifdef LOG_REGISTERS
++	printk(KERN_ERR "%s: readw from 0x%02x, value 0x%04x\n",
++	       mmc_hostname(host->mmc), reg, w);
++#endif
++	check_dma_reg_use(host, reg);
++
++	return (u16)w;
++}
++
++u8 sdhci_bcm2708_readb(struct sdhci_host *host, int reg)
++{
++	u32 l = sdhci_bcm2708_raw_readl(host, reg & ~3);
++	u32 b = l >> (reg << 3 & 0x18) & 0xff;
++
++#ifdef LOG_REGISTERS
++	printk(KERN_ERR "%s: readb from 0x%02x, value 0x%02x\n",
++	       mmc_hostname(host->mmc), reg, b);
++#endif
++	check_dma_reg_use(host, reg);
++
++	return (u8)b;
++}
++
++
++static void sdhci_bcm2708_raw_writel(struct sdhci_host *host, u32 val, int reg)
++{
++	/* The Arasan has a bugette whereby it may lose the content of
++	 * successive writes to registers that are within two SD-card clock
++	 * cycles of each other (a clock domain crossing problem).
++	 * It seems, however, that the data register does not have this problem.
++	 * (Which is just as well - otherwise we'd have to nobble the DMA engine
++	 * too)
++	 */
++#if 1
++	if (reg != SDHCI_BUFFER && host->clock != 0) {
++		/* host->clock is the clock freq in Hz */
++		static hptime_t last_write_hpt;
++		hptime_t now = hptime();
++		unsigned int ns_2clk = 2000000000/host->clock;
++
++		if (now == last_write_hpt || now == last_write_hpt+1) {
++			 /* we can't guarantee any significant time has
++			  * passed - we'll have to wait anyway ! */
++			udelay((ns_2clk+1000-1)/1000);
++		} else
++		{
++			/* we must have waited at least this many ns: */
++			unsigned int ns_wait = HPTIME_CLK_NS *
++					       (last_write_hpt - now - 1);
++			if (ns_wait < ns_2clk)
++				udelay((ns_2clk-ns_wait+500)/1000);
++		}
++		last_write_hpt = now;
++	}
++	writel(val, host->ioaddr + reg);
++#else
++	void __iomem * regaddr = host->ioaddr + reg;
++
++	writel(val, regaddr);
++
++	if (reg != SDHCI_BUFFER && reg != SDHCI_INT_STATUS && host->clock != 0)
++	{
++		int timeout = 100000;
++		while (val != readl(regaddr) && --timeout > 0)
++		   continue;
++
++		if (timeout <= 0)
++			printk(KERN_ERR "%s: writing 0x%X to reg 0x%X "
++			       "always gives 0x%X\n",
++			       mmc_hostname(host->mmc),
++			       val, reg, readl(regaddr));
++		BUG_ON(timeout <= 0);
++	}
++#endif
++}
++
++
++void sdhci_bcm2708_writel(struct sdhci_host *host, u32 val, int reg)
++{
++#ifdef LOG_REGISTERS
++	printk(KERN_ERR "%s: writel to 0x%02x, value 0x%08x\n",
++	       mmc_hostname(host->mmc), reg, val);
++#endif
++	check_dma_reg_use(host, reg);
++
++	sdhci_bcm2708_raw_writel(host, val, reg);
++}
++
++void sdhci_bcm2708_writew(struct sdhci_host *host, u16 val, int reg)
++{
++	static u32 shadow = 0;
++
++	u32 p = reg == SDHCI_COMMAND ? shadow :
++		       sdhci_bcm2708_raw_readl(host, reg & ~3);
++	u32 s = reg << 3 & 0x18;
++	u32 l = val << s;
++	u32 m = 0xffff << s;
++
++#ifdef LOG_REGISTERS
++	printk(KERN_ERR "%s: writew to 0x%02x, value 0x%04x\n",
++	       mmc_hostname(host->mmc), reg, val);
++#endif
++
++	if (reg == SDHCI_TRANSFER_MODE)
++		shadow = (p & ~m) | l;
++	else {
++		check_dma_reg_use(host, reg);
++		sdhci_bcm2708_raw_writel(host, (p & ~m) | l, reg & ~3);
++	}
++}
++
++void sdhci_bcm2708_writeb(struct sdhci_host *host, u8 val, int reg)
++{
++	u32 p = sdhci_bcm2708_raw_readl(host, reg & ~3);
++	u32 s = reg << 3 & 0x18;
++	u32 l = val << s;
++	u32 m = 0xff << s;
++
++#ifdef LOG_REGISTERS
++	printk(KERN_ERR "%s: writeb to 0x%02x, value 0x%02x\n",
++	       mmc_hostname(host->mmc), reg, val);
++#endif
++
++       check_dma_reg_use(host, reg);
++       sdhci_bcm2708_raw_writel(host, (p & ~m) | l, reg & ~3);
++}
++
++static unsigned int sdhci_bcm2708_get_max_clock(struct sdhci_host *host)
++{
++	return 100000000;	// this value is in Hz (100MHz/4)
++}
++
++static unsigned int sdhci_bcm2708_get_timeout_clock(struct sdhci_host *host)
++{
++	return 100000;		// this value is in kHz (100MHz/4)
++}
++
++/*****************************************************************************\
++ *									     *
++ * DMA Operation							     *
++ *									     *
++\*****************************************************************************/
++
++struct sdhci_bcm2708_priv {
++	int			dma_chan;
++	int			dma_irq;
++	void __iomem	       *dma_chan_base;
++	struct bcm2708_dma_cb  *cb_base;   /* DMA control blocks */
++	dma_addr_t		cb_handle;
++	/* tracking scatter gather progress */
++	unsigned		sg_ix;	   /* scatter gather list index */
++	unsigned		sg_done;   /* bytes in current sg_ix done */
++	/* power management */
++	BCM_POWER_HANDLE_T	power_handle;
++	unsigned char		power_state; /* enable/disable power state */
++	unsigned char		power_mode;  /* last set power mode */
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++	unsigned char		dma_wanted;  /* DMA transfer requested */
++	unsigned char		dma_waits;   /* wait states in DMAs */
++#ifdef CHECK_DMA_USE
++	unsigned char		dmas_pending; /* no of unfinished DMAs */
++	hptime_t		when_started;
++	hptime_t		when_reset;
++	hptime_t		when_stopped;
++#endif
++#endif
++	/* signalling the end of a transfer */
++	void		      (*complete)(struct sdhci_host *);
++};
++
++#define SDHCI_HOST_PRIV(host) \
++	(struct sdhci_bcm2708_priv *)((struct sdhci_host *)(host)+1)
++
++
++
++#ifdef CHECK_DMA_REG_USE
++static void check_dma_reg_use(struct sdhci_host *host, int reg)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	if (host_priv->dma_wanted && reg != SDHCI_INT_STATUS) {
++		printk(KERN_INFO"%s: accessing register 0x%x during DMA\n",
++		       mmc_hostname(host->mmc), reg);
++	}
++}
++#endif
++
++
++
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++
++static void sdhci_clear_set_irqgen(struct sdhci_host *host, u32 clear, u32 set)
++{
++	u32 ier;
++
++	ier = sdhci_bcm2708_raw_readl(host, SDHCI_SIGNAL_ENABLE);
++	ier &= ~clear;
++	ier |= set;
++	/* change which requests generate IRQs - makes no difference to
++	   the content of SDHCI_INT_STATUS, or the need to acknowledge IRQs */
++	sdhci_bcm2708_raw_writel(host, ier, SDHCI_SIGNAL_ENABLE);
++}
++
++static void sdhci_signal_irqs(struct sdhci_host *host, u32 irqs)
++{
++	sdhci_clear_set_irqgen(host, 0, irqs);
++}
++
++static void sdhci_unsignal_irqs(struct sdhci_host *host, u32 irqs)
++{
++	sdhci_clear_set_irqgen(host, irqs, 0);
++}
++
++
++
++static void schci_bcm2708_cb_read(struct sdhci_bcm2708_priv *host,
++				  int ix,
++				  dma_addr_t dma_addr, unsigned len,
++				  int /*bool*/ is_last)
++{
++	struct bcm2708_dma_cb *cb = &host->cb_base[ix];
++        unsigned char dmawaits = host->dma_waits;
++
++	cb->info   = BCM2708_DMA_PER_MAP(BCM2708_DMA_DREQ_EMMC) |
++		     BCM2708_DMA_WAITS(dmawaits) |
++		     BCM2708_DMA_S_DREQ	 |
++		     BCM2708_DMA_D_WIDTH |
++		     BCM2708_DMA_D_INC;
++	cb->src	   = DMA_SDHCI_BUFFER;	/* DATA register DMA address */
++	cb->dst	   = dma_addr;
++	cb->length = len;
++	cb->stride = 0;
++
++	if (is_last) {
++		cb->info |= BCM2708_DMA_INT_EN;
++		cb->next = 0;
++	} else
++		cb->next = host->cb_handle +
++			   (ix+1)*sizeof(struct bcm2708_dma_cb);
++
++	cb->pad[0] = 0;
++	cb->pad[1] = 0;
++}
++
++static void schci_bcm2708_cb_write(struct sdhci_bcm2708_priv *host,
++				   int ix,
++				   dma_addr_t dma_addr, unsigned len,
++				   int /*bool*/ is_last)
++{
++	struct bcm2708_dma_cb *cb = &host->cb_base[ix];
++        unsigned char dmawaits = host->dma_waits;
++
++	/* We can make arbitrarily large writes as long as we specify DREQ to
++	   pace the delivery of bytes to the Arasan hardware */
++	cb->info   = BCM2708_DMA_PER_MAP(BCM2708_DMA_DREQ_EMMC) |
++		     BCM2708_DMA_WAITS(dmawaits) |
++		     BCM2708_DMA_D_DREQ	 |
++		     BCM2708_DMA_S_WIDTH |
++		     BCM2708_DMA_S_INC;
++	cb->src	   = dma_addr;
++	cb->dst	   = DMA_SDHCI_BUFFER;	/* DATA register DMA address */
++	cb->length = len;
++	cb->stride = 0;
++
++	if (is_last) {
++		cb->info |= BCM2708_DMA_INT_EN;
++		cb->next = 0;
++	} else
++		cb->next = host->cb_handle +
++			   (ix+1)*sizeof(struct bcm2708_dma_cb);
++
++	cb->pad[0] = 0;
++	cb->pad[1] = 0;
++}
++
++
++static void schci_bcm2708_dma_go(struct sdhci_host *host)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	void __iomem *dma_chan_base = host_priv->dma_chan_base;
++
++	BUG_ON(host_priv->dma_wanted);
++#ifdef CHECK_DMA_USE
++	if (host_priv->dma_wanted)
++		printk(KERN_ERR "%s: DMA already in progress - "
++		       "now %"FMT_HPT", last started %lu "
++		       "reset %lu stopped %lu\n",
++		       mmc_hostname(host->mmc),
++		       hptime(), since_ns(host_priv->when_started),
++		       since_ns(host_priv->when_reset),
++		       since_ns(host_priv->when_stopped));
++	else if (host_priv->dmas_pending > 0)
++		printk(KERN_INFO "%s: note - new DMA when %d reset DMAs "
++		       "already in progress - "
++		       "now %"FMT_HPT", started %lu reset %lu stopped %lu\n",
++		       mmc_hostname(host->mmc),
++		       host_priv->dmas_pending,
++		       hptime(), since_ns(host_priv->when_started),
++		       since_ns(host_priv->when_reset),
++		       since_ns(host_priv->when_stopped));
++	host_priv->dmas_pending += 1;
++	host_priv->when_started = hptime();
++#endif
++	host_priv->dma_wanted = 1;
++	DBG("PDMA go - base %p handle %08X\n", dma_chan_base,
++	    host_priv->cb_handle);
++	bcm_dma_start(dma_chan_base, host_priv->cb_handle);
++}
++
++
++static void
++sdhci_platdma_read(struct sdhci_host *host, dma_addr_t dma_addr, size_t len)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++
++	DBG("PDMA to read %d bytes\n", len);
++	host_priv->sg_done += len;
++	schci_bcm2708_cb_read(host_priv, 0, dma_addr, len, 1/*TRUE*/);
++	schci_bcm2708_dma_go(host);
++}
++
++
++static void
++sdhci_platdma_write(struct sdhci_host *host, dma_addr_t dma_addr, size_t len)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++
++	DBG("PDMA to write %d bytes\n", len);
++	//BUG_ON(0 != (len & 0x1ff));
++
++	host_priv->sg_done += len;
++	schci_bcm2708_cb_write(host_priv, 0, dma_addr, len, 1/*TRUE*/);
++	schci_bcm2708_dma_go(host);
++}
++
++/*! space is avaiable to receive into or data is available to write
++  Platform DMA exported function
++*/
++void
++sdhci_bcm2708_platdma_avail(struct sdhci_host *host, unsigned int *ref_intmask,
++			    void(*completion_callback)(struct sdhci_host *host))
++{
++	struct mmc_data *data = host->data;
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	int sg_ix;
++	size_t bytes;
++	dma_addr_t addr;
++
++	BUG_ON(NULL == data);
++	BUG_ON(0 == data->blksz);
++
++	host_priv->complete = completion_callback;
++
++	sg_ix = host_priv->sg_ix;
++	BUG_ON(sg_ix >= data->sg_len);
++
++	/* we can DMA blocks larger than blksz - it may hang the DMA
++	   channel but we are its only user */
++	bytes = sg_dma_len(&data->sg[sg_ix]) - host_priv->sg_done;
++	addr = sg_dma_address(&data->sg[sg_ix]) + host_priv->sg_done;
++
++	if (bytes > 0) {
++		/* We're going to poll for read/write available state until
++		   we finish this DMA
++		*/
++
++		if (data->flags & MMC_DATA_READ) {
++			if (*ref_intmask & SDHCI_INT_DATA_AVAIL)  {
++				sdhci_unsignal_irqs(host, SDHCI_INT_DATA_AVAIL |
++						    SDHCI_INT_SPACE_AVAIL);
++				sdhci_platdma_read(host, addr, bytes);
++			}
++		} else {
++			if (*ref_intmask & SDHCI_INT_SPACE_AVAIL) {
++				sdhci_unsignal_irqs(host, SDHCI_INT_DATA_AVAIL |
++						    SDHCI_INT_SPACE_AVAIL);
++				sdhci_platdma_write(host, addr, bytes);
++			}
++		}
++	}
++	/* else:
++	   we have run out of bytes that need transferring (e.g. we may be in
++	   the middle of the last DMA transfer), or
++	   it is also possible that we've been called when another IRQ is
++	   signalled, even though we've turned off signalling of our own IRQ */
++
++	*ref_intmask &= ~SDHCI_INT_DATA_END;
++	/* don't let the main sdhci driver act on this .. we'll deal with it
++	   when we respond to the DMA - if one is currently in progress */
++}
++
++/* is it possible to DMA the given mmc_data structure?
++   Platform DMA exported function
++*/
++int /*bool*/
++sdhci_bcm2708_platdma_dmaable(struct sdhci_host *host, struct mmc_data *data)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	int ok = bcm_sg_suitable_for_dma(data->sg, data->sg_len);
++
++	if (!ok)
++		DBG("Reverting to PIO - bad cache alignment\n");
++
++	else {
++		host_priv->sg_ix = 0;	 /* first SG index */
++		host_priv->sg_done = 0;	 /* no bytes done */
++	}
++
++	return ok;
++}
++
++#include <mach/arm_control.h> //GRAYG
++/*! the current SD transacton has been abandonned
++  We need to tidy up if we were in the middle of a DMA
++  Platform DMA exported function
++*/
++void
++sdhci_bcm2708_platdma_reset(struct sdhci_host *host, struct mmc_data *data)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	unsigned long flags;
++
++	BUG_ON(NULL == host);
++
++	spin_lock_irqsave(&host->lock, flags);
++
++	if (host_priv->dma_wanted) {
++		if (NULL == data) {
++			printk(KERN_ERR "%s: ongoing DMA reset - no data!\n",
++			       mmc_hostname(host->mmc));
++			BUG_ON(NULL == data);
++		} else {
++			struct scatterlist *sg;
++			int sg_len;
++			int sg_todo;
++			int rc;
++			unsigned long cs;
++
++			sg = data->sg;
++			sg_len = data->sg_len;
++			sg_todo = sg_dma_len(&sg[host_priv->sg_ix]);
++
++			cs = readl(host_priv->dma_chan_base + BCM2708_DMA_CS);
++
++			if (!(BCM2708_DMA_ACTIVE & cs))
++				printk(KERN_INFO "%s: missed completion of "
++				       "cmd %d DMA (%d/%d [%d]/[%d]) - "
++				       "ignoring it\n",
++				       mmc_hostname(host->mmc),
++				       host->last_cmdop,
++				       host_priv->sg_done, sg_todo,
++				       host_priv->sg_ix+1, sg_len);
++			else
++				printk(KERN_INFO "%s: resetting ongoing cmd %d"
++				       "DMA before %d/%d [%d]/[%d] complete\n",
++				       mmc_hostname(host->mmc),
++				       host->last_cmdop,
++				       host_priv->sg_done, sg_todo,
++				       host_priv->sg_ix+1, sg_len);
++#ifdef CHECK_DMA_USE
++			printk(KERN_INFO "%s: now %"FMT_HPT" started %lu "
++			       "last reset %lu last stopped %lu\n",
++			       mmc_hostname(host->mmc),
++			       hptime(), since_ns(host_priv->when_started),
++			       since_ns(host_priv->when_reset),
++			       since_ns(host_priv->when_stopped));
++			{	unsigned long info, debug;
++				void __iomem *base;
++				unsigned long pend0, pend1, pend2;
++				   
++				base = host_priv->dma_chan_base;
++				cs = readl(base + BCM2708_DMA_CS);
++				info = readl(base + BCM2708_DMA_INFO);
++				debug = readl(base + BCM2708_DMA_DEBUG);
++				printk(KERN_INFO "%s: DMA%d CS=%08lX TI=%08lX "
++				       "DEBUG=%08lX\n",
++				       mmc_hostname(host->mmc),
++                                       host_priv->dma_chan,
++				       cs, info, debug);
++				pend0 = readl(__io_address(ARM_IRQ_PEND0));
++				pend1 = readl(__io_address(ARM_IRQ_PEND1));
++				pend2 = readl(__io_address(ARM_IRQ_PEND2));
++				
++				printk(KERN_INFO "%s: PEND0=%08lX "
++				       "PEND1=%08lX PEND2=%08lX\n",
++				       mmc_hostname(host->mmc),
++				       pend0, pend1, pend2);
++				
++				//gintsts = readl(__io_address(GINTSTS));
++				//gintmsk = readl(__io_address(GINTMSK));
++				//printk(KERN_INFO "%s: USB GINTSTS=%08lX"
++				//	 "GINTMSK=%08lX\n",
++				//	 mmc_hostname(host->mmc), gintsts, gintmsk);
++			}
++#endif
++			rc = bcm_dma_abort(host_priv->dma_chan_base);
++			BUG_ON(rc != 0);
++		}
++		host_priv->dma_wanted = 0;
++#ifdef CHECK_DMA_USE
++		host_priv->when_reset = hptime();
++#endif
++	}
++
++	spin_unlock_irqrestore(&host->lock, flags);
++}
++
++
++static void sdhci_bcm2708_dma_complete_irq(struct sdhci_host *host,
++					   u32 dma_cs)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	struct mmc_data *data;
++	struct scatterlist *sg;
++	int sg_len;
++	int sg_ix;
++	int sg_todo;
++	unsigned long flags;
++
++	BUG_ON(NULL == host);
++
++	spin_lock_irqsave(&host->lock, flags);
++	data = host->data;
++
++#ifdef CHECK_DMA_USE
++	if (host_priv->dmas_pending <= 0)
++		DBG("on completion no DMA in progress - "
++		    "now %"FMT_HPT" started %lu reset %lu stopped %lu\n",
++		    hptime(), since_ns(host_priv->when_started),
++		    since_ns(host_priv->when_reset),
++		    since_ns(host_priv->when_stopped));
++	else if (host_priv->dmas_pending > 1)
++		DBG("still %d DMA in progress after completion - "
++		    "now %"FMT_HPT" started %lu reset %lu stopped %lu\n",
++		    host_priv->dmas_pending - 1,
++		    hptime(), since_ns(host_priv->when_started),
++		    since_ns(host_priv->when_reset),
++		    since_ns(host_priv->when_stopped));
++	BUG_ON(host_priv->dmas_pending <= 0);
++	host_priv->dmas_pending -= 1;
++	host_priv->when_stopped = hptime();
++#endif
++	host_priv->dma_wanted = 0;
++
++	if (NULL == data) {
++		DBG("PDMA unused completion - status 0x%X\n", dma_cs);
++		spin_unlock_irqrestore(&host->lock, flags);
++		return;
++	}
++	sg = data->sg;
++	sg_len = data->sg_len;
++	sg_todo = sg_dma_len(&sg[host_priv->sg_ix]);
++
++	DBG("PDMA complete %d/%d [%d]/[%d]..\n",
++	    host_priv->sg_done, sg_todo,
++	    host_priv->sg_ix+1, sg_len);
++
++	BUG_ON(host_priv->sg_done > sg_todo);
++
++	if (host_priv->sg_done >= sg_todo) {
++		host_priv->sg_ix++;
++		host_priv->sg_done = 0;
++	}
++
++	sg_ix = host_priv->sg_ix;
++	if (sg_ix < sg_len) {
++		u32 irq_mask;
++		/* Set off next DMA if we've got the capacity */
++
++		if (data->flags & MMC_DATA_READ)
++			irq_mask = SDHCI_INT_DATA_AVAIL;
++		else
++			irq_mask = SDHCI_INT_SPACE_AVAIL;
++
++		/* We have to use the interrupt status register on the BCM2708
++		   rather than the SDHCI_PRESENT_STATE register because latency
++		   in the glue logic means that the information retrieved from
++		   the latter is not always up-to-date w.r.t the DMA engine -
++		   it may not indicate that a read or a write is ready yet */
++		if (sdhci_bcm2708_raw_readl(host, SDHCI_INT_STATUS) &
++		    irq_mask) {
++			size_t bytes = sg_dma_len(&sg[sg_ix]) -
++				       host_priv->sg_done;
++			dma_addr_t addr = sg_dma_address(&data->sg[sg_ix]) +
++					  host_priv->sg_done;
++
++			/* acknowledge interrupt */
++			sdhci_bcm2708_raw_writel(host, irq_mask,
++						 SDHCI_INT_STATUS);
++
++			BUG_ON(0 == bytes);
++
++			if (data->flags & MMC_DATA_READ)
++				sdhci_platdma_read(host, addr, bytes);
++			else
++				sdhci_platdma_write(host, addr, bytes);
++		} else {
++			DBG("PDMA - wait avail\n");
++			/* may generate an IRQ if already present */
++			sdhci_signal_irqs(host, SDHCI_INT_DATA_AVAIL |
++						SDHCI_INT_SPACE_AVAIL);
++		}
++	} else {
++#ifdef USE_SYNC_AFTER_DMA
++		/* On the Arasan controller the stop command (which will be
++		   scheduled after this completes) does not seem to work
++		   properly if we allow it to be issued when we are
++		   transferring data to/from the SD card.
++		   We get CRC and DEND errors unless we wait for
++		   the SD controller to finish reading/writing to the card. */
++		u32 state_mask;
++		int timeout=1000000;
++		hptime_t now = hptime();
++
++		DBG("PDMA over - sync card\n");
++		if (data->flags & MMC_DATA_READ)
++			state_mask = SDHCI_DOING_READ;
++		else
++			state_mask = SDHCI_DOING_WRITE;
++
++		while (0 != (sdhci_bcm2708_raw_readl(host,
++						     SDHCI_PRESENT_STATE) &
++			     state_mask) && --timeout > 0)
++			continue;
++
++		if (1000000-timeout > 4000) /*ave. is about 3250*/
++			printk(KERN_INFO "%s: note - long %s sync %luns - "
++			       "%d its.\n",
++			       mmc_hostname(host->mmc),
++			       data->flags & MMC_DATA_READ? "read": "write",
++			       since_ns(now), 1000000-timeout);
++		if (timeout <= 0)
++			printk(KERN_ERR"%s: final %s to SD card still "
++			       "running\n",
++			       mmc_hostname(host->mmc),
++			       data->flags & MMC_DATA_READ? "read": "write");
++#endif
++		if (host_priv->complete) {
++			(*host_priv->complete)(host);
++			DBG("PDMA %s complete\n",
++			    data->flags & MMC_DATA_READ?"read":"write");
++			sdhci_signal_irqs(host, SDHCI_INT_DATA_AVAIL |
++						SDHCI_INT_SPACE_AVAIL);
++		}
++	}
++	spin_unlock_irqrestore(&host->lock, flags);
++}
++
++static irqreturn_t sdhci_bcm2708_dma_irq(int irq, void *dev_id)
++{
++	irqreturn_t result = IRQ_NONE;
++	struct sdhci_host *host = dev_id;
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	u32 dma_cs; /* control and status register */
++	unsigned long flags;
++
++	BUG_ON(NULL == dev_id);
++	BUG_ON(NULL == host_priv->dma_chan_base);
++
++	spin_lock_irqsave(&host->lock, flags);
++
++	dma_cs = readl(host_priv->dma_chan_base + BCM2708_DMA_CS);
++
++	if (dma_cs & BCM2708_DMA_ERR) {
++		unsigned long debug;
++		debug = readl(host_priv->dma_chan_base +
++			      BCM2708_DMA_DEBUG);
++		printk(KERN_ERR "%s: DMA error - CS %lX DEBUG %lX\n",
++		       mmc_hostname(host->mmc), (unsigned long)dma_cs,
++		       (unsigned long)debug);
++		/* reset error */
++		writel(debug, host_priv->dma_chan_base +
++		       BCM2708_DMA_DEBUG);
++	}
++	if (dma_cs & BCM2708_DMA_INT) {
++		/* acknowledge interrupt */
++		writel(BCM2708_DMA_INT,
++		       host_priv->dma_chan_base + BCM2708_DMA_CS);
++
++		dsb(); /* ARM data synchronization (push) operation */
++
++		if (!host_priv->dma_wanted) {
++			/* ignore this interrupt - it was reset */
++			printk(KERN_INFO "%s: DMA IRQ %X ignored - "
++			       "results were reset\n",
++			       mmc_hostname(host->mmc), dma_cs);
++#ifdef CHECK_DMA_USE
++			printk(KERN_INFO "%s: now %"FMT_HPT
++			       " started %lu reset %lu stopped %lu\n",
++			       mmc_hostname(host->mmc), hptime(),
++			       since_ns(host_priv->when_started),
++			       since_ns(host_priv->when_reset),
++			       since_ns(host_priv->when_stopped));
++			host_priv->dmas_pending--;
++#endif
++		} else
++			sdhci_bcm2708_dma_complete_irq(host, dma_cs);
++
++		result = IRQ_HANDLED;
++	}
++
++	spin_unlock_irqrestore(&host->lock, flags);
++
++	return result;
++}
++#endif /* CONFIG_MMC_SDHCI_BCM2708_DMA */
++
++
++/***************************************************************************** \
++ *									     *
++ * Device Attributes							     *
++ *									     *
++\*****************************************************************************/
++
++
++/**
++ * Show the DMA-using status
++ */
++static ssize_t attr_dma_show(struct device *_dev,
++			     struct device_attribute *attr, char *buf)
++{
++	struct sdhci_host *host = (struct sdhci_host *)dev_get_drvdata(_dev);
++
++	if (host) {
++		int use_dma = (host->flags & SDHCI_USE_PLATDMA? 1:0);
++		return sprintf(buf, "%d\n", use_dma);
++	} else
++		return -EINVAL;
++}
++
++/**
++ * Set the DMA-using status
++ */
++static ssize_t attr_dma_store(struct device *_dev,
++			      struct device_attribute *attr,
++			      const char *buf, size_t count)
++{
++	struct sdhci_host *host = (struct sdhci_host *)dev_get_drvdata(_dev);
++
++	if (host) {
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++		int on = simple_strtol(buf, NULL, 0);
++		if (on) {
++			host->flags |= SDHCI_USE_PLATDMA;
++			printk(KERN_INFO "%s: DMA enabled\n",
++			       mmc_hostname(host->mmc));
++		} else {
++			host->flags &= ~(SDHCI_USE_PLATDMA | SDHCI_REQ_USE_DMA);
++			printk(KERN_INFO "%s: DMA disabled\n",
++			       mmc_hostname(host->mmc));
++		}
++#endif
++		return count;
++	} else
++		return -EINVAL;
++}
++
++static DEVICE_ATTR(use_dma, S_IRUGO | S_IWUGO, attr_dma_show, attr_dma_store);
++
++
++/**
++ * Show the DMA wait states used
++ */
++static ssize_t attr_dmawait_show(struct device *_dev,
++			         struct device_attribute *attr, char *buf)
++{
++	struct sdhci_host *host = (struct sdhci_host *)dev_get_drvdata(_dev);
++
++	if (host) {
++		struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++		int dmawait = host_priv->dma_waits;
++		return sprintf(buf, "%d\n", dmawait);
++	} else
++		return -EINVAL;
++}
++
++/**
++ * Set the DMA wait state used
++ */
++static ssize_t attr_dmawait_store(struct device *_dev,
++			          struct device_attribute *attr,
++    			          const char *buf, size_t count)
++{
++	struct sdhci_host *host = (struct sdhci_host *)dev_get_drvdata(_dev);
++
++	if (host) {
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++		struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++		int dma_waits = simple_strtol(buf, NULL, 0);
++		if (dma_waits >= 0 && dma_waits < 32) 
++                        host_priv->dma_waits = dma_waits;
++		else
++			printk(KERN_ERR "%s: illegal dma_waits value - %d",
++			       mmc_hostname(host->mmc), dma_waits);
++#endif
++		return count;
++	} else
++		return -EINVAL;
++}
++
++static DEVICE_ATTR(dma_wait, S_IRUGO | S_IWUGO,
++                   attr_dmawait_show, attr_dmawait_store);
++
++
++/**
++ * Show the DMA-using status
++ */
++static ssize_t attr_status_show(struct device *_dev,
++				struct device_attribute *attr, char *buf)
++{
++	struct sdhci_host *host = (struct sdhci_host *)dev_get_drvdata(_dev);
++
++	if (host) {
++		struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++		int power_state = host_priv->power_state;
++		return sprintf(buf,
++			       "present: yes\n"
++			       "power: %s\n"
++			       "clock: %u Hz\n"
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++			       "dma: %s (%d waits)\n",
++#else
++			       "dma: unconfigured\n",
++#endif
++			       power_state == POWER_ON? "on":
++			       power_state == POWER_OFF? "off":
++			       power_state == POWER_LAZY_OFF? "lazy-off":
++			       "<unknown>",
++			       host->clock
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++			       , (host->flags & SDHCI_USE_PLATDMA)? "on": "off"
++                               , host_priv->dma_waits
++#endif
++			       );
++	} else
++		return -EINVAL;
++}
++
++static DEVICE_ATTR(status, S_IRUGO, attr_status_show, NULL);
++
++/***************************************************************************** \
++ *									     *
++ * Power Management							     *
++ *									     *
++\*****************************************************************************/
++
++
++#ifdef CONFIG_PM
++static int sdhci_bcm2708_suspend(struct platform_device *dev, pm_message_t state)
++{
++	struct sdhci_host *host = (struct sdhci_host *)
++				  platform_get_drvdata(dev);
++	int ret = 0;
++
++	if (host->mmc) {
++		ret = mmc_suspend_host(host->mmc);
++	}
++
++	return ret;
++}
++
++static int sdhci_bcm2708_resume(struct platform_device *dev)
++{
++	struct sdhci_host *host = (struct sdhci_host *)
++				  platform_get_drvdata(dev);
++	int ret = 0;
++
++	if (host->mmc) {
++		ret = mmc_resume_host(host->mmc);
++	}
++
++	return ret;
++}
++#endif
++
++
++/* Click forwards one step towards fully on */
++static int sdhci_bcm2708_enable(struct sdhci_host *host)
++{
++	int rc;
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++
++	if (host_priv->power_state == POWER_OFF) {
++		/* warning: may schedule - don't call in irq mode */
++		rc = bcm_power_request(host_priv->power_handle,
++				       BCM_POWER_SDCARD);
++
++		if (rc == 0) {
++			mmc_power_restore_host(host->mmc);
++			host_priv->power_state = POWER_ON;
++		} else if (rc != -EINTR)
++			printk(KERN_ERR "%s: mmc power up request failed - "
++			       "rc %d\n",
++			       mmc_hostname(host->mmc), rc);
++	} else {
++		host_priv->power_state = POWER_ON;
++		rc = 0;
++	}
++
++	return rc;
++}
++
++/* Click backwards one step towards fully off */
++static int sdhci_bcm2708_disable(struct sdhci_host *host, int lazy)
++{
++	int rc;
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++
++	if ((host_priv->power_state == POWER_ON) && lazy) {
++		host_priv->power_state = POWER_LAZY_OFF;
++		return BCM2708_SDHCI_SLEEP_TIMEOUT;
++	}
++
++	/* warning: may schedule - don't call in irq mode */
++	rc = bcm_power_request(host_priv->power_handle, BCM_POWER_NONE);
++
++	if (rc == 0)
++		host_priv->power_state = POWER_OFF;
++	else if (rc != -EINTR)
++		printk(KERN_ERR "%s: mmc power down request failed - rc %d\n",
++		       mmc_hostname(host->mmc), rc);
++
++	return rc;
++}
++
++static int sdhci_bcm2708_set_plat_power(struct sdhci_host *host,
++					int power_mode)
++{
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	int rc;
++
++	do {
++		rc = mmc_host_enable(host->mmc);
++	} while (-EINTR == rc);
++
++	if (rc == 0) do {
++		if (rc == 0 && power_mode != host_priv->power_mode)
++		{
++			switch (power_mode)
++			{
++			case MMC_POWER_OFF:
++				rc = bcm_power_request(host_priv->power_handle,
++						       BCM_POWER_NONE);
++				break;
++
++			case MMC_POWER_UP:
++				rc = bcm_power_request(host_priv->power_handle,
++						       BCM_POWER_SDCARD);
++				/*
++				 * We need an extra 10ms delay of 10ms before we
++				 * can apply clock after applying power
++				 */
++				if (rc == 0)
++				    mdelay(10);
++				break;
++
++			case MMC_POWER_ON:
++				mdelay(10);
++				/* do_send_init_stream = 1; */
++				break;
++			}
++
++			if (rc == 0)
++			    host_priv->power_mode = power_mode;
++		}
++	} while (-EINTR == rc);
++
++	if (rc == 0) do {
++		if (rc == 0) {
++			if (power_mode == MMC_POWER_OFF)
++				rc = mmc_host_disable(host->mmc);
++			else
++				rc = mmc_host_lazy_disable(host->mmc);
++		}
++
++	} while (-EINTR == rc);
++
++	return rc;
++}
++
++/*****************************************************************************\
++ *                                                                           *
++ * Device quirk functions. Implemented as local ops because the flags        *
++ * field is out of space with newer kernels. This implementation can be      *
++ * back ported to older kernels as well.                                     *
++\****************************************************************************/
++static unsigned int sdhci_bcm2708_quirk_extra_ints(struct sdhci_host *host)
++{
++        return 1;
++}
++
++static unsigned int sdhci_bcm2708_quirk_spurious_crc(struct sdhci_host *host)
++{
++        return 1;
++}
++
++static unsigned int sdhci_bcm2708_quirk_voltage_broken(struct sdhci_host *host)
++{
++        return 1;
++}
++
++static unsigned int sdhci_bcm2708_uhs_broken(struct sdhci_host *host)
++{
++        return 1;
++}
++
++/***************************************************************************** \
++ *									     *
++ * Device ops								     *
++ *									     *
++\*****************************************************************************/
++
++static struct sdhci_ops sdhci_bcm2708_ops = {
++#ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
++	.read_l = sdhci_bcm2708_readl,
++	.read_w = sdhci_bcm2708_readw,
++	.read_b = sdhci_bcm2708_readb,
++	.write_l = sdhci_bcm2708_writel,
++	.write_w = sdhci_bcm2708_writew,
++	.write_b = sdhci_bcm2708_writeb,
++#else
++#error The BCM2708 SDHCI driver needs CONFIG_MMC_SDHCI_IO_ACCESSORS to be set
++#endif
++	//.enable_dma = NULL,
++	//.set_clock = NULL,
++	.get_max_clock = sdhci_bcm2708_get_max_clock,
++	//.get_min_clock = NULL,
++	.get_timeout_clock = sdhci_bcm2708_get_timeout_clock,
++
++	.enable = sdhci_bcm2708_enable,
++	.disable = sdhci_bcm2708_disable,
++	.set_plat_power = sdhci_bcm2708_set_plat_power,
++
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++	// Platform DMA operations
++	.pdma_able  = sdhci_bcm2708_platdma_dmaable,
++	.pdma_avail = sdhci_bcm2708_platdma_avail,
++	.pdma_reset = sdhci_bcm2708_platdma_reset,
++#endif
++	.extra_ints = sdhci_bcm2708_quirk_extra_ints,
++	.spurious_crc_acmd51 = sdhci_bcm2708_quirk_spurious_crc,
++	.voltage_broken = sdhci_bcm2708_quirk_voltage_broken,
++	.uhs_broken = sdhci_bcm2708_uhs_broken,
++};
++
++/*****************************************************************************\
++ *									     *
++ * Device probing/removal						     *
++ *									     *
++\*****************************************************************************/
++
++static int __devinit sdhci_bcm2708_probe(struct platform_device *pdev)
++{
++	struct sdhci_host *host;
++	struct resource *iomem;
++	struct sdhci_bcm2708_priv *host_priv;
++	int ret;
++
++	BUG_ON(pdev == NULL);
++
++	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!iomem) {
++		ret = -ENOMEM;
++		goto err;
++	}
++
++	if (resource_size(iomem) != 0x100)
++		dev_err(&pdev->dev, "Invalid iomem size. You may "
++			"experience problems.\n");
++
++	if (pdev->dev.parent)
++		host = sdhci_alloc_host(pdev->dev.parent,
++					sizeof(struct sdhci_bcm2708_priv));
++	else
++		host = sdhci_alloc_host(&pdev->dev,
++					sizeof(struct sdhci_bcm2708_priv));
++
++	if (IS_ERR(host)) {
++		ret = PTR_ERR(host);
++		goto err;
++	}
++
++	host->hw_name = "BCM2708_Arasan";
++	host->ops = &sdhci_bcm2708_ops;
++	host->irq = platform_get_irq(pdev, 0);
++
++	host->quirks = SDHCI_QUIRK_BROKEN_CARD_DETECTION |
++		       SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK;
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++	host->flags = SDHCI_USE_PLATDMA;
++#endif
++
++	if (!request_mem_region(iomem->start, resource_size(iomem),
++				mmc_hostname(host->mmc))) {
++		dev_err(&pdev->dev, "cannot request region\n");
++		ret = -EBUSY;
++		goto err_request;
++	}
++
++	host->ioaddr = ioremap(iomem->start, resource_size(iomem));
++	if (!host->ioaddr) {
++		dev_err(&pdev->dev, "failed to remap registers\n");
++		ret = -ENOMEM;
++		goto err_remap;
++	}
++
++	host_priv = SDHCI_HOST_PRIV(host);
++
++	host_priv->power_state = POWER_ON;
++	ret = bcm_power_open(&host_priv->power_handle);
++	if (ret != 0)
++		goto err_power;
++
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++	host_priv->dma_wanted = 0;
++#ifdef CHECK_DMA_USE
++	host_priv->dmas_pending = 0;
++	host_priv->when_started = 0;
++	host_priv->when_reset = 0;
++	host_priv->when_stopped = 0;
++#endif
++	host_priv->sg_ix = 0;
++	host_priv->sg_done = 0;
++	host_priv->complete = NULL;
++	host_priv->dma_waits = SDHCI_BCM_DMA_WAITS;
++
++	host_priv->cb_base = dma_alloc_writecombine(&pdev->dev, SZ_4K,
++						    &host_priv->cb_handle,
++						    GFP_KERNEL);
++	if (!host_priv->cb_base) {
++		dev_err(&pdev->dev, "cannot allocate DMA CBs\n");
++		ret = -ENOMEM;
++		goto err_alloc_cb;
++	}
++
++	ret = bcm_dma_chan_alloc(BCM_DMA_FEATURE_FAST,
++				 &host_priv->dma_chan_base,
++				 &host_priv->dma_irq);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "couldn't allocate a DMA channel\n");
++		goto err_add_dma;
++	}
++	host_priv->dma_chan = ret;
++
++	ret = request_irq(host_priv->dma_irq, sdhci_bcm2708_dma_irq,
++			  IRQF_SHARED, DRIVER_NAME " (dma)", host);
++	if (ret) {
++		dev_err(&pdev->dev, "cannot set DMA IRQ\n");
++		goto err_add_dma_irq;
++	}
++	DBG("DMA CBs %p handle %08X DMA%d %p DMA IRQ %d\n",
++	    host_priv->cb_base, (unsigned)host_priv->cb_handle,
++	    host_priv->dma_chan, host_priv->dma_chan_base,
++	    host_priv->dma_irq);
++#endif
++
++	ret = sdhci_add_host(host);
++	if (ret)
++		goto err_add_host;
++
++	platform_set_drvdata(pdev, host);
++	ret = device_create_file(&pdev->dev, &dev_attr_use_dma);
++	ret = device_create_file(&pdev->dev, &dev_attr_dma_wait);
++	ret = device_create_file(&pdev->dev, &dev_attr_status);
++
++	printk(KERN_INFO "%s: BCM2708 SDHC host at 0x%08llx DMA %d IRQ %d\n",
++	       mmc_hostname(host->mmc), (unsigned long long)iomem->start,
++	       host_priv->dma_chan, host_priv->dma_irq);
++
++	return 0;
++
++err_add_host:
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++	free_irq(host_priv->dma_irq, host);
++err_add_dma_irq:
++	bcm_dma_chan_free(host_priv->dma_chan);
++err_add_dma:
++	dma_free_writecombine(&pdev->dev, SZ_4K, host_priv->cb_base,
++			      host_priv->cb_handle);
++err_alloc_cb:
++#endif
++	bcm_power_close(host_priv->power_handle);
++err_power:
++	iounmap(host->ioaddr);
++err_remap:
++	release_mem_region(iomem->start, resource_size(iomem));
++err_request:
++	sdhci_free_host(host);
++err:
++	dev_err(&pdev->dev, "probe failed, err %d\n", ret);
++	return ret;
++}
++
++static int __devexit sdhci_bcm2708_remove(struct platform_device *pdev)
++{
++	struct sdhci_host *host = platform_get_drvdata(pdev);
++	struct resource *iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	struct sdhci_bcm2708_priv *host_priv = SDHCI_HOST_PRIV(host);
++	int dead;
++	u32 scratch;
++
++	dead = 0;
++	scratch = sdhci_bcm2708_readl(host, SDHCI_INT_STATUS);
++	if (scratch == (u32)-1)
++		dead = 1;
++
++	device_remove_file(&pdev->dev, &dev_attr_status);
++	device_remove_file(&pdev->dev, &dev_attr_dma_wait);
++	device_remove_file(&pdev->dev, &dev_attr_use_dma);
++
++#ifdef CONFIG_MMC_SDHCI_BCM2708_DMA
++	free_irq(host_priv->dma_irq, host);
++	dma_free_writecombine(&pdev->dev, SZ_4K, host_priv->cb_base,
++			      host_priv->cb_handle);
++#endif
++	bcm_power_close(host_priv->power_handle);
++	sdhci_remove_host(host, dead);
++	iounmap(host->ioaddr);
++	release_mem_region(iomem->start, resource_size(iomem));
++	sdhci_free_host(host);
++	platform_set_drvdata(pdev, NULL);
++
++	return 0;
++}
++
++static struct platform_driver sdhci_bcm2708_driver = {
++	.driver = {
++		.name	= DRIVER_NAME,
++		.owner	= THIS_MODULE,
++	},
++	.probe		= sdhci_bcm2708_probe,
++	.remove		= __devexit_p(sdhci_bcm2708_remove),
++
++#ifdef CONFIG_PM
++	.suspend = sdhci_bcm2708_suspend,
++	.resume = sdhci_bcm2708_resume,
++#endif
++
++};
++
++/*****************************************************************************\
++ *									     *
++ * Driver init/exit							     *
++ *									     *
++\*****************************************************************************/
++
++static int __init sdhci_drv_init(void)
++{
++	return platform_driver_register(&sdhci_bcm2708_driver);
++}
++
++static void __exit sdhci_drv_exit(void)
++{
++	platform_driver_unregister(&sdhci_bcm2708_driver);
++}
++
++module_init(sdhci_drv_init);
++module_exit(sdhci_drv_exit);
++
++MODULE_DESCRIPTION("Secure Digital Host Controller Interface platform driver");
++MODULE_AUTHOR("Broadcom <info@broadcom.com>");
++MODULE_LICENSE("GPL v2");
++MODULE_ALIAS("platform:"DRIVER_NAME);
++
+diff -Naur linux-3.2.2/drivers/mmc/host/sdhci.c linux-3.2.2.patch/drivers/mmc/host/sdhci.c
+--- linux-3.2.2/drivers/mmc/host/sdhci.c	2012-01-26 01:39:32.000000000 +0100
++++ linux-3.2.2.patch/drivers/mmc/host/sdhci.c	2012-02-03 04:56:26.000000000 +0100
+@@ -27,6 +27,7 @@
+ 
+ #include <linux/mmc/mmc.h>
+ #include <linux/mmc/host.h>
++#include <linux/mmc/sd.h>
+ 
+ #include "sdhci.h"
+ 
+@@ -296,7 +297,7 @@
+ 	u32 uninitialized_var(scratch);
+ 	u8 *buf;
+ 
+-	DBG("PIO reading\n");
++	DBG("PIO reading %db\n", host->data->blksz);
+ 
+ 	blksize = host->data->blksz;
+ 	chunk = 0;
+@@ -341,7 +342,7 @@
+ 	u32 scratch;
+ 	u8 *buf;
+ 
+-	DBG("PIO writing\n");
++	DBG("PIO writing %db\n", host->data->blksz);
+ 
+ 	blksize = host->data->blksz;
+ 	chunk = 0;
+@@ -380,19 +381,28 @@
+ 	local_irq_restore(flags);
+ }
+ 
+-static void sdhci_transfer_pio(struct sdhci_host *host)
++static void sdhci_transfer_pio(struct sdhci_host *host, u32 intstate)
+ {
+ 	u32 mask;
++	u32 state = 0;
++	u32 intmask;
++	int available;
+ 
+ 	BUG_ON(!host->data);
+ 
+ 	if (host->blocks == 0)
+ 		return;
+ 
+-	if (host->data->flags & MMC_DATA_READ)
++	if (host->data->flags & MMC_DATA_READ) {
+ 		mask = SDHCI_DATA_AVAILABLE;
+-	else
++		intmask = SDHCI_INT_DATA_AVAIL;
++	} else {
+ 		mask = SDHCI_SPACE_AVAILABLE;
++		intmask = SDHCI_INT_SPACE_AVAIL;
++	}
++
++	/* initially we can see whether we can procede using intstate */
++	available = (intstate & intmask);
+ 
+ 	/*
+ 	 * Some controllers (JMicron JMB38x) mess up the buffer bits
+@@ -403,7 +413,7 @@
+ 		(host->data->blocks == 1))
+ 		mask = ~0;
+ 
+-	while (sdhci_readl(host, SDHCI_PRESENT_STATE) & mask) {
++	while (available) {
+ 		if (host->quirks & SDHCI_QUIRK_PIO_NEEDS_DELAY)
+ 			udelay(100);
+ 
+@@ -415,9 +425,11 @@
+ 		host->blocks--;
+ 		if (host->blocks == 0)
+ 			break;
++		state = sdhci_readl(host, SDHCI_PRESENT_STATE);
++		available = state & mask;
+ 	}
+ 
+-	DBG("PIO transfer complete.\n");
++	DBG("PIO transfer complete - %d blocks left.\n", host->blocks);
+ }
+ 
+ static char *sdhci_kmap_atomic(struct scatterlist *sg, unsigned long *flags)
+@@ -690,7 +702,9 @@
+ 	u32 pio_irqs = SDHCI_INT_DATA_AVAIL | SDHCI_INT_SPACE_AVAIL;
+ 	u32 dma_irqs = SDHCI_INT_DMA_END | SDHCI_INT_ADMA_ERROR;
+ 
+-	if (host->flags & SDHCI_REQ_USE_DMA)
++	/* platform DMA will begin on receipt of PIO irqs */
++	if ((host->flags & SDHCI_REQ_USE_DMA) &&
++	    !(host->flags & SDHCI_USE_PLATDMA))
+ 		sdhci_clear_set_irqs(host, pio_irqs, dma_irqs);
+ 	else
+ 		sdhci_clear_set_irqs(host, dma_irqs, pio_irqs);
+@@ -722,44 +736,25 @@
+ 	host->data_early = 0;
+ 	host->data->bytes_xfered = 0;
+ 
+-	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA))
++	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA | SDHCI_USE_PLATDMA))
+ 		host->flags |= SDHCI_REQ_USE_DMA;
+ 
+ 	/*
+ 	 * FIXME: This doesn't account for merging when mapping the
+ 	 * scatterlist.
+ 	 */
+-	if (host->flags & SDHCI_REQ_USE_DMA) {
+-		int broken, i;
+-		struct scatterlist *sg;
+-
+-		broken = 0;
+-		if (host->flags & SDHCI_USE_ADMA) {
+-			if (host->quirks & SDHCI_QUIRK_32BIT_ADMA_SIZE)
+-				broken = 1;
+-		} else {
+-			if (host->quirks & SDHCI_QUIRK_32BIT_DMA_SIZE)
+-				broken = 1;
+-		}
+-
+-		if (unlikely(broken)) {
+-			for_each_sg(data->sg, sg, data->sg_len, i) {
+-				if (sg->length & 0x3) {
+-					DBG("Reverting to PIO because of "
+-						"transfer size (%d)\n",
+-						sg->length);
+-					host->flags &= ~SDHCI_REQ_USE_DMA;
+-					break;
+-				}
+-			}
+-		}
+-	}
+ 
+ 	/*
+ 	 * The assumption here being that alignment is the same after
+ 	 * translation to device address space.
+ 	 */
+-	if (host->flags & SDHCI_REQ_USE_DMA) {
++	if ((host->flags & (SDHCI_REQ_USE_DMA | SDHCI_USE_PLATDMA)) ==
++	    (SDHCI_REQ_USE_DMA | SDHCI_USE_PLATDMA)) {
++		
++		if (! sdhci_platdma_dmaable(host, data))
++			host->flags &= ~SDHCI_REQ_USE_DMA;
++
++	} else if (host->flags & SDHCI_REQ_USE_DMA) {
+ 		int broken, i;
+ 		struct scatterlist *sg;
+ 
+@@ -818,7 +813,8 @@
+ 				 */
+ 				WARN_ON(1);
+ 				host->flags &= ~SDHCI_REQ_USE_DMA;
+-			} else {
++			} else 
++			if (!(host->flags & SDHCI_USE_PLATDMA)) {
+ 				WARN_ON(sg_cnt != 1);
+ 				sdhci_writel(host, sg_dma_address(data->sg),
+ 					SDHCI_DMA_ADDRESS);
+@@ -834,11 +830,13 @@
+ 	if (host->version >= SDHCI_SPEC_200) {
+ 		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+ 		ctrl &= ~SDHCI_CTRL_DMA_MASK;
+-		if ((host->flags & SDHCI_REQ_USE_DMA) &&
+-			(host->flags & SDHCI_USE_ADMA))
+-			ctrl |= SDHCI_CTRL_ADMA32;
+-		else
+-			ctrl |= SDHCI_CTRL_SDMA;
++		if (! (host->flags & SDHCI_USE_PLATDMA)) {
++			if ((host->flags & SDHCI_REQ_USE_DMA) &&
++				(host->flags & SDHCI_USE_ADMA))
++				ctrl |= SDHCI_CTRL_ADMA32;
++			else
++				ctrl |= SDHCI_CTRL_SDMA;
++		}
+ 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
+ 	}
+ 
+@@ -890,7 +888,8 @@
+ 
+ 	if (data->flags & MMC_DATA_READ)
+ 		mode |= SDHCI_TRNS_READ;
+-	if (host->flags & SDHCI_REQ_USE_DMA)
++	if ((host->flags & SDHCI_REQ_USE_DMA) &&
++	    !(host->flags & SDHCI_USE_PLATDMA))
+ 		mode |= SDHCI_TRNS_DMA;
+ 
+ 	sdhci_writew(host, mode, SDHCI_TRANSFER_MODE);
+@@ -906,13 +905,16 @@
+ 	host->data = NULL;
+ 
+ 	if (host->flags & SDHCI_REQ_USE_DMA) {
+-		if (host->flags & SDHCI_USE_ADMA)
+-			sdhci_adma_table_post(host, data);
+-		else {
++		/* we may have to abandon an ongoing platform DMA */
++		if (host->flags & SDHCI_USE_PLATDMA)
++			sdhci_platdma_reset(host, data);
++
++		if (host->flags & (SDHCI_USE_PLATDMA | SDHCI_USE_SDMA)) {
+ 			dma_unmap_sg(mmc_dev(host->mmc), data->sg,
+ 				data->sg_len, (data->flags & MMC_DATA_READ) ?
+ 					DMA_FROM_DEVICE : DMA_TO_DEVICE);
+-		}
++		} else if (host->flags & SDHCI_USE_ADMA)
++                        sdhci_adma_table_post(host, data);
+ 	}
+ 
+ 	/*
+@@ -982,10 +984,16 @@
+ 		timeout--;
+ 		mdelay(1);
+ 	}
++	DBG("send cmd %d - wait 0x%X irq 0x%x\n", cmd->opcode, mask,
++	    sdhci_readl(host, SDHCI_INT_STATUS));
+ 
+ 	mod_timer(&host->timer, jiffies + 10 * HZ);
+ 
+ 	host->cmd = cmd;
++	if (host->last_cmdop == MMC_APP_CMD)
++		host->last_cmdop = -cmd->opcode;
++	else
++		host->last_cmdop = cmd->opcode;
+ 
+ 	sdhci_prepare_data(host, cmd);
+ 
+@@ -1218,6 +1226,35 @@
+ 		mdelay(10);
+ }
+ 
++/* Power on or off the circuitary supporting the register set */
++static int sdhci_set_plat_power(struct sdhci_host *host, int power_mode)
++{
++	if (host->ops->set_plat_power)
++		return host->ops->set_plat_power(host, power_mode);
++	else
++		return 0;
++}
++
++/* Click forwards one step towards fully on */
++static int sdhci_enable(struct mmc_host *mmc)
++{
++	struct sdhci_host *host;
++
++	host = mmc_priv(mmc);
++
++	return host->ops->enable? host->ops->enable(host): 0;
++}
++
++/* Click backwards one step towards fully off */
++static int sdhci_disable(struct mmc_host *mmc, int lazy)
++{
++	struct sdhci_host *host;
++
++	host = mmc_priv(mmc);
++
++	return host->ops->disable? host->ops->disable(host, lazy): 0;
++}
++
+ /*****************************************************************************\
+  *                                                                           *
+  * MMC callbacks                                                             *
+@@ -1298,6 +1335,7 @@
+ {
+ 	unsigned long flags;
+ 	u8 ctrl;
++	int rc;
+ 
+ 	spin_lock_irqsave(&host->lock, flags);
+ 
+@@ -1356,7 +1394,7 @@
+ 	else
+ 		ctrl &= ~SDHCI_CTRL_HISPD;
+ 
+-	if (host->version >= SDHCI_SPEC_300) {
++	if (host->version >= SDHCI_SPEC_300 && !(host->ops->uhs_broken)) {
+ 		u16 clk, ctrl_2;
+ 		unsigned int clock;
+ 
+@@ -1364,7 +1402,8 @@
+ 		if ((ios->timing == MMC_TIMING_UHS_SDR50) ||
+ 		    (ios->timing == MMC_TIMING_UHS_SDR104) ||
+ 		    (ios->timing == MMC_TIMING_UHS_DDR50) ||
+-		    (ios->timing == MMC_TIMING_UHS_SDR25))
++		    (ios->timing == MMC_TIMING_UHS_SDR25) ||
++		    (ios->timing == MMC_TIMING_UHS_SDR12))
+ 			ctrl |= SDHCI_CTRL_HISPD;
+ 
+ 		ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+@@ -1445,6 +1484,12 @@
+ out:
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&host->lock, flags);
++
++	if (ios->power_mode == MMC_POWER_OFF) {
++		do 
++			rc = sdhci_set_plat_power(host, ios->power_mode);
++		while (rc == -EINTR);
++	}
+ }
+ 
+ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -1888,6 +1933,8 @@
+ 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
+ 	.execute_tuning			= sdhci_execute_tuning,
+ 	.enable_preset_value		= sdhci_enable_preset_value,
++	.enable		= sdhci_enable,
++	.disable	= sdhci_disable,
+ };
+ 
+ /*****************************************************************************\
+@@ -2045,10 +2092,13 @@
+ 	BUG_ON(intmask == 0);
+ 
+ 	if (!host->cmd) {
+-		pr_err("%s: Got command interrupt 0x%08x even "
+-			"though no command operation was in progress.\n",
+-			mmc_hostname(host->mmc), (unsigned)intmask);
+-		sdhci_dumpregs(host);
++		if (!(host->ops->extra_ints)) {
++			pr_err("%s: Got command interrupt 0x%08x even "
++				"though no command operation was in progress.\n",
++				mmc_hostname(host->mmc), (unsigned)intmask);
++			sdhci_dumpregs(host);
++		} else
++			DBG("cmd irq 0x%08x cmd complete\n", (unsigned)intmask);
+ 		return;
+ 	}
+ 
+@@ -2118,6 +2168,19 @@
+ static void sdhci_show_adma_error(struct sdhci_host *host) { }
+ #endif
+ 
++static void sdhci_data_end(struct sdhci_host *host)
++{
++	if (host->cmd) {
++		/*
++		 * Data managed to finish before the
++		 * command completed. Make sure we do
++		 * things in the proper order.
++		 */
++		host->data_early = 1;
++	} else 
++		sdhci_finish_data(host);
++}
++
+ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
+ {
+ 	BUG_ON(intmask == 0);
+@@ -2144,34 +2207,56 @@
+ 				return;
+ 			}
+ 		}
+-
+-		pr_err("%s: Got data interrupt 0x%08x even "
+-			"though no data operation was in progress.\n",
+-			mmc_hostname(host->mmc), (unsigned)intmask);
+-		sdhci_dumpregs(host);
++		
++		if (!(host->ops->extra_ints)) {
++			pr_err("%s: Got data interrupt 0x%08x even "
++				"though no data operation was in progress.\n",
++				mmc_hostname(host->mmc), (unsigned)intmask);
++			sdhci_dumpregs(host);
++		} else
++			DBG("data irq 0x%08x but no data\n", (unsigned)intmask);
+ 
+ 		return;
+ 	}
+ 
+ 	if (intmask & SDHCI_INT_DATA_TIMEOUT)
+ 		host->data->error = -ETIMEDOUT;
+-	else if (intmask & SDHCI_INT_DATA_END_BIT)
+-		host->data->error = -EILSEQ;
+-	else if ((intmask & SDHCI_INT_DATA_CRC) &&
++	else if (intmask & SDHCI_INT_DATA_END_BIT) {
++		DBG("end error in cmd %d\n", host->last_cmdop);
++		if (host->ops->spurious_crc_acmd51 &&
++		    host->last_cmdop == -SD_APP_SEND_SCR) {
++			DBG("ignoring spurious data_end_bit error\n");
++			intmask = SDHCI_INT_DATA_AVAIL|SDHCI_INT_DATA_END;
++		} else
++			host->data->error = -EILSEQ;
++	} else if ((intmask & SDHCI_INT_DATA_CRC) &&
+ 		SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND))
+-			!= MMC_BUS_TEST_R)
+-		host->data->error = -EILSEQ;
+-	else if (intmask & SDHCI_INT_ADMA_ERROR) {
++			!= MMC_BUS_TEST_R) {
++		DBG("crc error in cmd %d\n", host->last_cmdop);
++		if (host->ops->spurious_crc_acmd51 &&
++		    host->last_cmdop == -SD_APP_SEND_SCR) {
++			DBG("ignoring spurious data_crc_bit error\n");
++			intmask = SDHCI_INT_DATA_AVAIL|SDHCI_INT_DATA_END;
++		} else
++			host->data->error = -EILSEQ;
++	} else if (intmask & SDHCI_INT_ADMA_ERROR) {
+ 		pr_err("%s: ADMA error\n", mmc_hostname(host->mmc));
+ 		sdhci_show_adma_error(host);
+ 		host->data->error = -EIO;
+ 	}
+ 
+-	if (host->data->error)
++	if (host->data->error) {
++		DBG("finish request early on error %d\n", host->data->error);
+ 		sdhci_finish_data(host);
+-	else {
+-		if (intmask & (SDHCI_INT_DATA_AVAIL | SDHCI_INT_SPACE_AVAIL))
+-			sdhci_transfer_pio(host);
++	} else {
++		if (intmask & (SDHCI_INT_DATA_AVAIL | SDHCI_INT_SPACE_AVAIL)) {
++			if (host->flags & SDHCI_REQ_USE_DMA) {
++				/* possible only in PLATDMA mode */
++				sdhci_platdma_avail(host, &intmask,
++						&sdhci_data_end);
++			} else
++				sdhci_transfer_pio(host, intmask);
++		}
+ 
+ 		/*
+ 		 * We currently don't do anything fancy with DMA
+@@ -2200,18 +2285,8 @@
+ 			sdhci_writel(host, dmanow, SDHCI_DMA_ADDRESS);
+ 		}
+ 
+-		if (intmask & SDHCI_INT_DATA_END) {
+-			if (host->cmd) {
+-				/*
+-				 * Data managed to finish before the
+-				 * command completed. Make sure we do
+-				 * things in the proper order.
+-				 */
+-				host->data_early = 1;
+-			} else {
+-				sdhci_finish_data(host);
+-			}
+-		}
++		if (intmask & SDHCI_INT_DATA_END)
++			sdhci_data_end(host);
+ 	}
+ }
+ 
+@@ -2266,6 +2341,22 @@
+ 		tasklet_schedule(&host->card_tasklet);
+ 	}
+ 
++	if (intmask & SDHCI_INT_ERROR_MASK & ~SDHCI_INT_ERROR)
++		DBG("controller reports error 0x%x -"
++				"%s%s%s%s%s%s%s%s%s%s",
++				intmask,
++				intmask & SDHCI_INT_TIMEOUT? " timeout": "",
++				intmask & SDHCI_INT_CRC     ? " crc": "",
++				intmask & SDHCI_INT_END_BIT? " endbit": "",
++				intmask & SDHCI_INT_INDEX? " index": "",
++				intmask & SDHCI_INT_DATA_TIMEOUT? " data_timeout": "",
++				intmask & SDHCI_INT_DATA_CRC? " data_crc": "",
++				intmask & SDHCI_INT_DATA_END_BIT? " data_endbit": "",
++				intmask & SDHCI_INT_BUS_POWER? " buspower": "",
++				intmask & SDHCI_INT_ACMD12ERR? " acmd12": "",
++				intmask & SDHCI_INT_ADMA_ERROR? " adma": ""
++		   );
++
+ 	if (intmask & SDHCI_INT_CMD_MASK) {
+ 		sdhci_writel(host, intmask & SDHCI_INT_CMD_MASK,
+ 			SDHCI_INT_STATUS);
+@@ -2280,7 +2371,13 @@
+ 
+ 	intmask &= ~(SDHCI_INT_CMD_MASK | SDHCI_INT_DATA_MASK);
+ 
+-	intmask &= ~SDHCI_INT_ERROR;
++	if (intmask & SDHCI_INT_ERROR_MASK) {
++		/* collect any uncovered errors */
++		sdhci_writel(host, intmask & SDHCI_INT_ERROR_MASK,
++				SDHCI_INT_STATUS);
++	}
++
++	intmask &= ~SDHCI_INT_ERROR_MASK;
+ 
+ 	if (intmask & SDHCI_INT_BUS_POWER) {
+ 		pr_err("%s: Card is consuming too much power!\n",
+@@ -2326,7 +2423,7 @@
+ 
+ #ifdef CONFIG_PM
+ 
+-int sdhci_suspend_host(struct sdhci_host *host)
++int sdhci_suspend_host(struct sdhci_host *host)
+ {
+ 	int ret;
+ 
+@@ -2335,8 +2432,9 @@
+ 	/* Disable tuning since we are suspending */
+ 	if (host->version >= SDHCI_SPEC_300 && host->tuning_count &&
+ 	    host->tuning_mode == SDHCI_TUNING_MODE_1) {
+-		del_timer_sync(&host->tuning_timer);
+ 		host->flags &= ~SDHCI_NEEDS_RETUNING;
++		mod_timer(&host->tuning_timer, jiffies +
++			host->tuning_count * HZ);
+ 	}
+ 
+ 	ret = mmc_suspend_host(host->mmc);
+@@ -2363,7 +2461,8 @@
+ 			return ret;
+ 	}
+ 
+-	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
++	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA | 
++			   SDHCI_USE_PLATDMA)) {
+ 		if (host->ops->enable_dma)
+ 			host->ops->enable_dma(host);
+ 	}
+@@ -2570,14 +2669,16 @@
+ 		host->flags &= ~SDHCI_USE_ADMA;
+ 	}
+ 
+-	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
++	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA | 
++			   SDHCI_USE_PLATDMA)) {
+ 		if (host->ops->enable_dma) {
+ 			if (host->ops->enable_dma(host)) {
+ 				pr_warning("%s: No suitable DMA "
+ 					"available. Falling back to PIO.\n",
+ 					mmc_hostname(mmc));
+ 				host->flags &=
+-					~(SDHCI_USE_SDMA | SDHCI_USE_ADMA);
++					~(SDHCI_USE_SDMA | SDHCI_USE_ADMA |
++					  SDHCI_USE_PLATDMA);
+ 			}
+ 		}
+ 	}
+@@ -2688,7 +2789,7 @@
+ 	/* Auto-CMD23 stuff only works in ADMA or PIO. */
+ 	if ((host->version >= SDHCI_SPEC_300) &&
+ 	    ((host->flags & SDHCI_USE_ADMA) ||
+-	     !(host->flags & SDHCI_USE_SDMA))) {
++	     !(host->flags & SDHCI_USE_SDMA) )) {
+ 		host->flags |= SDHCI_AUTO_CMD23;
+ 		DBG("%s: Auto-CMD23 available\n", mmc_hostname(mmc));
+ 	} else {
+@@ -2821,6 +2922,9 @@
+ 			mmc->caps |= MMC_CAP_MAX_CURRENT_200;
+ 	}
+ 
++	if(host->ops->voltage_broken)
++		ocr_avail |= MMC_VDD_29_30 | MMC_VDD_30_31;
++
+ 	mmc->ocr_avail = ocr_avail;
+ 	mmc->ocr_avail_sdio = ocr_avail;
+ 	if (host->ocr_avail_sdio)
+@@ -2953,6 +3057,7 @@
+ 
+ 	pr_info("%s: SDHCI controller on %s [%s] using %s\n",
+ 		mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
++		(host->flags & SDHCI_USE_PLATDMA) ? "platform's DMA" :
+ 		(host->flags & SDHCI_USE_ADMA) ? "ADMA" :
+ 		(host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO");
+ 
+diff -Naur linux-3.2.2/drivers/mmc/host/sdhci.h linux-3.2.2.patch/drivers/mmc/host/sdhci.h
+--- linux-3.2.2/drivers/mmc/host/sdhci.h	2012-01-26 01:39:32.000000000 +0100
++++ linux-3.2.2.patch/drivers/mmc/host/sdhci.h	2012-02-03 04:56:29.000000000 +0100
+@@ -273,6 +273,24 @@
+ 	void	(*platform_reset_enter)(struct sdhci_host *host, u8 mask);
+ 	void	(*platform_reset_exit)(struct sdhci_host *host, u8 mask);
+ 	int	(*set_uhs_signaling)(struct sdhci_host *host, unsigned int uhs);
++
++	int             (*enable)(struct sdhci_host *mmc);
++	int             (*disable)(struct sdhci_host *mmc, int lazy);
++	int             (*set_plat_power)(struct sdhci_host *mmc,
++					  int power_mode);
++
++	int             (*pdma_able)(struct sdhci_host *host,
++				     struct mmc_data *data);
++	void            (*pdma_avail)(struct sdhci_host *host,
++				      unsigned int *ref_intmask,
++				      void(*complete)(struct sdhci_host *));
++	void            (*pdma_reset)(struct sdhci_host *host,
++				      struct mmc_data *data);
++	unsigned int 	(*extra_ints)(struct sdhci_host *host);
++	unsigned int	(*spurious_crc_acmd51)(struct sdhci_host *host);
++	unsigned int	(*voltage_broken)(struct sdhci_host *host);
++	unsigned int	(*uhs_broken)(struct sdhci_host *host);
++
+ 	void	(*hw_reset)(struct sdhci_host *host);
+ };
+ 
+@@ -374,11 +392,34 @@
+ extern void sdhci_remove_host(struct sdhci_host *host, int dead);
+ 
+ #ifdef CONFIG_PM
+-extern int sdhci_suspend_host(struct sdhci_host *host);
++extern int sdhci_suspend_host(struct sdhci_host *host);
+ extern int sdhci_resume_host(struct sdhci_host *host);
+ extern void sdhci_enable_irq_wakeups(struct sdhci_host *host);
+ #endif
+ 
++static inline int /*bool*/
++sdhci_platdma_dmaable(struct sdhci_host *host, struct mmc_data *data)
++{
++	if (host->ops->pdma_able)
++		return host->ops->pdma_able(host, data);
++	else
++		return 1;
++}
++static inline void
++sdhci_platdma_avail(struct sdhci_host *host, unsigned int *ref_intmask,
++		void(*completion_callback)(struct sdhci_host *))
++{
++	if (host->ops->pdma_avail)
++		host->ops->pdma_avail(host, ref_intmask, completion_callback);
++}
++
++static inline void
++sdhci_platdma_reset(struct sdhci_host *host, struct mmc_data *data)
++{
++	if (host->ops->pdma_reset)
++		host->ops->pdma_reset(host, data);
++}
++   
+ #ifdef CONFIG_PM_RUNTIME
+ extern int sdhci_runtime_suspend_host(struct sdhci_host *host);
+ extern int sdhci_runtime_resume_host(struct sdhci_host *host);
+diff -Naur linux-3.2.2/include/linux/mmc/sdhci.h linux-3.2.2.patch/include/linux/mmc/sdhci.h
+--- linux-3.2.2/include/linux/mmc/sdhci.h	2012-01-26 01:39:32.000000000 +0100
++++ linux-3.2.2.patch/include/linux/mmc/sdhci.h	2012-02-03 03:54:53.766602291 +0100
+@@ -121,6 +121,7 @@
+ #define SDHCI_AUTO_CMD23	(1<<7)	/* Auto CMD23 support */
+ #define SDHCI_PV_ENABLED	(1<<8)	/* Preset value enabled */
+ #define SDHCI_SDIO_IRQ_ENABLED	(1<<9)	/* SDIO irq enabled */
++#define SDHCI_USE_PLATDMA	(1<<10)	/* Host uses 3rd party DMA */
+ 
+ 	unsigned int version;	/* SDHCI spec. version */
+ 
+@@ -135,6 +136,7 @@
+ 
+ 	struct mmc_request *mrq;	/* Current request */
+ 	struct mmc_command *cmd;	/* Current command */
++	int	last_cmdop;	/* Opcode of last cmd sent */
+ 	struct mmc_data *data;	/* Current data request */
+ 	unsigned int data_early:1;	/* Data finished before cmd */
+ 
