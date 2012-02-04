@@ -1,59 +1,6 @@
-From 4593b68d5da44244266737c3c18da81666fa6d15 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Tue, 17 Jan 2012 19:21:26 +0000
-Subject: [PATCH] bcm2708 framebuffer driver
-
-Signed-off-by: popcornmix <popcornmix@gmail.com>
----
- drivers/video/Kconfig                     |   14 +
- drivers/video/Makefile                    |    1 +
- drivers/video/bcm2708_fb.c                |  440 +++++
- drivers/video/logo/logo_linux_clut224.ppm | 2483 ++++++++++-------------------
- 4 files changed, 1336 insertions(+), 1602 deletions(-)
- create mode 100644 drivers/video/bcm2708_fb.c
-
-diff --git a/drivers/video/Kconfig b/drivers/video/Kconfig
-index 549b960..f343042 100644
---- a/drivers/video/Kconfig
-+++ b/drivers/video/Kconfig
-@@ -303,6 +303,20 @@ config FB_PM2_FIFO_DISCONNECT
- 	help
- 	  Support the Permedia2 FIFO disconnect feature.
- 
-+config FB_BCM2708
-+	tristate "BCM2708 framebuffer support"
-+	depends on FB && ARM
-+	select FB_CFB_FILLRECT
-+	select FB_CFB_COPYAREA
-+	select FB_CFB_IMAGEBLIT
-+	help
-+	  This framebuffer device driver is for the BCM2708 framebuffer.
-+
-+	  If you want to compile this as a module (=code which can be
-+	  inserted into and removed from the running kernel), say M
-+	  here and read <file:Documentation/kbuild/modules.txt>.  The module
-+	  will be called bcm2708_fb.
-+
- config FB_ARMCLCD
- 	tristate "ARM PrimeCell PL110 support"
- 	depends on FB && ARM && ARM_AMBA
-diff --git a/drivers/video/Makefile b/drivers/video/Makefile
-index 8b83129..0c5cee3 100644
---- a/drivers/video/Makefile
-+++ b/drivers/video/Makefile
-@@ -95,6 +95,7 @@ obj-$(CONFIG_FB_ATMEL)		  += atmel_lcdfb.o
- obj-$(CONFIG_FB_PVR2)             += pvr2fb.o
- obj-$(CONFIG_FB_VOODOO1)          += sstfb.o
- obj-$(CONFIG_FB_ARMCLCD)	  += amba-clcd.o
-+obj-$(CONFIG_FB_BCM2708)	  += bcm2708_fb.o
- obj-$(CONFIG_FB_68328)            += 68328fb.o
- obj-$(CONFIG_FB_GBE)              += gbefb.o
- obj-$(CONFIG_FB_CIRRUS)		  += cirrusfb.o
-diff --git a/drivers/video/bcm2708_fb.c b/drivers/video/bcm2708_fb.c
-new file mode 100644
-index 0000000..6bfdeef
---- /dev/null
-+++ b/drivers/video/bcm2708_fb.c
+diff -Naur linux-3.1.10/drivers/video/bcm2708_fb.c linux-3.1.10.patch/drivers/video/bcm2708_fb.c
+--- linux-3.1.10/drivers/video/bcm2708_fb.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.1.10.patch/drivers/video/bcm2708_fb.c	2012-02-03 23:07:41.648764812 +0100
 @@ -0,0 +1,440 @@
 +/*
 + *  linux/drivers/video/bcm2708_fb.c
@@ -495,10 +442,33 @@ index 0000000..6bfdeef
 +
 +MODULE_PARM_DESC(FBWIDTH, "Width of ARM Framebuffer");
 +MODULE_PARM_DESC(FBHEIGHT, "Height of ARM Framebuffer");
-diff --git a/drivers/video/logo/logo_linux_clut224.ppm b/drivers/video/logo/logo_linux_clut224.ppm
-index 3c14e43..7626beb 100644
---- a/drivers/video/logo/logo_linux_clut224.ppm
-+++ b/drivers/video/logo/logo_linux_clut224.ppm
+diff -Naur linux-3.1.10/drivers/video/Kconfig linux-3.1.10.patch/drivers/video/Kconfig
+--- linux-3.1.10/drivers/video/Kconfig	2012-01-18 16:33:18.000000000 +0100
++++ linux-3.1.10.patch/drivers/video/Kconfig	2012-02-03 23:07:41.646764773 +0100
+@@ -303,6 +303,20 @@
+ 	help
+ 	  Support the Permedia2 FIFO disconnect feature.
+ 
++config FB_BCM2708
++	tristate "BCM2708 framebuffer support"
++	depends on FB && ARM
++	select FB_CFB_FILLRECT
++	select FB_CFB_COPYAREA
++	select FB_CFB_IMAGEBLIT
++	help
++	  This framebuffer device driver is for the BCM2708 framebuffer.
++
++	  If you want to compile this as a module (=code which can be
++	  inserted into and removed from the running kernel), say M
++	  here and read <file:Documentation/kbuild/modules.txt>.  The module
++	  will be called bcm2708_fb.
++
+ config FB_ARMCLCD
+ 	tristate "ARM PrimeCell PL110 support"
+ 	depends on FB && ARM && ARM_AMBA
+diff -Naur linux-3.1.10/drivers/video/logo/logo_linux_clut224.ppm linux-3.1.10.patch/drivers/video/logo/logo_linux_clut224.ppm
+--- linux-3.1.10/drivers/video/logo/logo_linux_clut224.ppm	2012-01-18 16:33:18.000000000 +0100
++++ linux-3.1.10.patch/drivers/video/logo/logo_linux_clut224.ppm	2012-02-03 23:07:41.654764929 +0100
 @@ -1,1604 +1,883 @@
  P3
 -# Standard 224-color Linux logo
@@ -2985,6 +2955,14 @@ index 3c14e43..7626beb 100644
 +0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0
 +0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0
 +0 0 0  0 0 0  0 0 0
--- 
-1.7.5.4
-
+diff -Naur linux-3.1.10/drivers/video/Makefile linux-3.1.10.patch/drivers/video/Makefile
+--- linux-3.1.10/drivers/video/Makefile	2012-01-18 16:33:18.000000000 +0100
++++ linux-3.1.10.patch/drivers/video/Makefile	2012-02-03 23:07:41.647764792 +0100
+@@ -95,6 +95,7 @@
+ obj-$(CONFIG_FB_PVR2)             += pvr2fb.o
+ obj-$(CONFIG_FB_VOODOO1)          += sstfb.o
+ obj-$(CONFIG_FB_ARMCLCD)	  += amba-clcd.o
++obj-$(CONFIG_FB_BCM2708)	  += bcm2708_fb.o
+ obj-$(CONFIG_FB_68328)            += 68328fb.o
+ obj-$(CONFIG_FB_GBE)              += gbefb.o
+ obj-$(CONFIG_FB_CIRRUS)		  += cirrusfb.o
