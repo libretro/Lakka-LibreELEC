@@ -20,4 +20,4 @@
 
 import xbmc, time, os, subprocess
 
-os.system("maraschino.service")
+subprocess.Popen("maraschino.service", shell=True, close_fds=True)
