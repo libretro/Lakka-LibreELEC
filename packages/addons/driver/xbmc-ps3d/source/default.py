@@ -18,15 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import os
-import sys
-import xbmcaddon
+import xbmc, time, os, subprocess
 
-__scriptname__ = "PS3 Remote/Controller driver"
-__author__ = "OpenELEC"
-__url__ = "http://www.openelec.tv"
-__settings__   = xbmcaddon.Addon(id='driver.remote.xbmc-ps3d')
-__cwd__        = __settings__.getAddonInfo('path')
-__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "ps3d.service") )
-
-os.system(__path__)
+subprocess.Popen("ps3d.service", shell=True, close_fds=True)
