@@ -20,4 +20,4 @@
 
 import xbmc, time, os, subprocess
 
-os.system("pyload.service")
+subprocess.Popen("pyload.service", shell=True, close_fds=True)
