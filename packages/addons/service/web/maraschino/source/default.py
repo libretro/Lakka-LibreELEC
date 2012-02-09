@@ -18,21 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="boblightd"
-PKG_VERSION="2.0.4"
-PKG_REV="4"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://code.google.com/p/boblight"
-PKG_URL="http://dl.dropbox.com/u/10051534/$PKG_NAME.tar.gz"
-PKG_DEPENDS="libX11 libXext libX11 libXrender Mesa"
-PKG_BUILD_DEPENDS="toolchain libX11 libXext libXrender Mesa"
-PKG_PRIORITY="optional"
-PKG_SECTION="service/multimedia"
-PKG_SHORTDESC="boblightd: an ambilight controller."
-PKG_LONGDESC="Boblight's main purpose is to create light effects from an external input, such as a video stream.\n\nSee this thread on the Openelec forums for howto and demonstration: http://bit.ly/oe-boblight"
+import xbmc, time, os, subprocess
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.service"
-
-PKG_AUTORECONF="no"
+subprocess.Popen("maraschino.service", shell=True, close_fds=True)
