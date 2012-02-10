@@ -20,28 +20,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. /etc/profile
+SUNDTEK_READY="/var/run/sundtek.ready"
 
-LOCKDIR="/var/lock/"
-LOCKFILE="sundtek-mediatv"
-
-case "$1" in
-  hibernate|suspend)
-    if [ -n "$(pidof mediasrv)" ]; then
-      progress "Shutting down Sundtek MediaTV DVB driver for suspending..."
-      mkdir -p "$LOCKDIR"
-      touch "$LOCKDIR/$LOCKFILE"
-      mediaclient --shutdown
-    fi
-    ;;
-
-  thaw|resume)
-    if [ -f "$LOCKDIR/$LOCKFILE" ]; then
-      # driver started within Tvheadend/VDR
-      rm -rf "$LOCKDIR/$LOCKFILE"
-    fi
-    ;;
-
-  *) exit $NA
-    ;;
-esac
+touch $SUNDTEK_READY
