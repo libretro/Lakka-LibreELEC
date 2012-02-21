@@ -1,7 +1,7 @@
-From 220e74259c67e106acc106fbb9546d750605814f Mon Sep 17 00:00:00 2001
+From 474d259c0f89dfd33cfc4669e3bde8bd48f68731 Mon Sep 17 00:00:00 2001
 From: Lars Op den Kamp <lars@opdenkamp.eu>
 Date: Thu, 12 Jan 2012 22:16:49 +0100
-Subject: [PATCH 1/7] cec: added volume control on a CEC enabled amplifier
+Subject: [PATCH 01/17] cec: added volume control on a CEC enabled amplifier
  when one is found
 
 ---
@@ -12,10 +12,10 @@ Subject: [PATCH 1/7] cec: added volume control on a CEC enabled amplifier
  4 files changed, 225 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 5ed5de2..6f3fff7 100644
+index cedda60..8fcef58 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2574,6 +2574,26 @@ bool CApplication::OnAction(const CAction &action)
+@@ -2596,6 +2596,26 @@ bool CApplication::OnAction(const CAction &action)
    // Check for global volume control
    if (action.GetAmount() && (action.GetID() == ACTION_VOLUME_UP || action.GetID() == ACTION_VOLUME_DOWN))
    {
@@ -42,7 +42,7 @@ index 5ed5de2..6f3fff7 100644
      if (!m_pPlayer || !m_pPlayer->IsPassthrough())
      {
        // increase or decrease the volume
-@@ -5000,11 +5020,49 @@ void CApplication::ShowVolumeBar(const CAction *action)
+@@ -5033,11 +5053,49 @@ void CApplication::ShowVolumeBar(const CAction *action)
  
  bool CApplication::IsMuted() const
  {
@@ -92,7 +92,7 @@ index 5ed5de2..6f3fff7 100644
    if (g_settings.m_bMute)
      UnMute();
    else
-@@ -5013,6 +5071,9 @@ void CApplication::ToggleMute(void)
+@@ -5046,6 +5104,9 @@ void CApplication::ToggleMute(void)
  
  void CApplication::Mute()
  {
@@ -102,7 +102,7 @@ index 5ed5de2..6f3fff7 100644
    g_settings.m_iPreMuteVolumeLevel = GetVolume();
    SetVolume(0);
    g_settings.m_bMute = true;
-@@ -5020,6 +5081,9 @@ void CApplication::Mute()
+@@ -5053,6 +5114,9 @@ void CApplication::Mute()
  
  void CApplication::UnMute()
  {
@@ -125,7 +125,7 @@ index 6e6a005..2fd09aa 100644
    int GetPlaySpeed() const;
    int GetSubtitleDelay() const;
 diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
-index c1c3658..84d5464 100644
+index a117d82..ab95dab 100644
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 +++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 @@ -31,6 +31,7 @@
@@ -370,15 +370,15 @@ index 2fcbb1d..e1e302d 100644
 1.7.5.4
 
 
-From 19fcb081a184533fec42ef914a2a409ad2a99591 Mon Sep 17 00:00:00 2001
+From e681e81cddcef74c3e74c7dc5d43f7484f8a4162 Mon Sep 17 00:00:00 2001
 From: Lars Op den Kamp <lars@opdenkamp.eu>
 Date: Thu, 12 Jan 2012 22:18:31 +0100
-Subject: [PATCH 2/7] cec: set the HDMI port and the device to which the CEC
+Subject: [PATCH 02/17] cec: set the HDMI port and the device to which the CEC
  adapter was connected, to be able to determine the
- correct physical address. this is a work around, until
- the CEC adapter's firmware supports physical address
- detection, but is needed for people who have connected
- XBMC to something else than the TV
+ correct physical address. this is a work around,
+ until the CEC adapter's firmware supports physical
+ address detection, but is needed for people who have
+ connected XBMC to something else than the TV
 
 ---
  language/Dutch/strings.xml                        |    1 +
@@ -389,13 +389,21 @@ Subject: [PATCH 2/7] cec: set the HDMI port and the device to which the CEC
  5 files changed, 11 insertions(+), 7 deletions(-)
 
 diff --git a/language/Dutch/strings.xml b/language/Dutch/strings.xml
-index 7d7fa9b..d49143d 100644
+index 58d0003..721bd73 100644
+--- a/language/Dutch/strings.xml
++++ b/language/Dutch/strings.xml
+@@ -2403,4 +2403,5 @@
+   <string id="36016">Verbonden</string> <!-- max. 13 characters -->
+   <string id="36017">Adapter gevonden, maar libcec is niet beschikbaar</string>
+   <string id="36018">Gebruik de taalinstelling van de TV</string>
++  <string id="36019">Verbonden met HDMI apparaat</string>
+ </strings>
 \ No newline at end of file
 diff --git a/language/English/strings.xml b/language/English/strings.xml
-index ece866a..dd7fec7 100644
+index ca2ac4d..fb5b8fb 100644
 --- a/language/English/strings.xml
 +++ b/language/English/strings.xml
-@@ -2389,4 +2389,5 @@
+@@ -2404,4 +2404,5 @@
    <string id="36016">Connected</string> <!-- max. 13 characters -->
    <string id="36017">Adapter found, but libcec is not available</string>
    <string id="36018">Use the TV's language setting</string>
@@ -413,7 +421,7 @@ index f5cf50d..94b9d85 100644
    </peripheral>
  </peripherals>
 diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
-index 84d5464..1992b6a 100644
+index ab95dab..3e56070 100644
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 +++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 @@ -235,8 +235,9 @@ void CPeripheralCecAdapter::Process(void)
@@ -475,10 +483,10 @@ index e1e302d..768e38a 100644
 1.7.5.4
 
 
-From 4369707420b58f8151a4769181aa3a4d4b798c1e Mon Sep 17 00:00:00 2001
+From 83a9ecf3e1e7125be5c824fc8584f190a091f911 Mon Sep 17 00:00:00 2001
 From: Lars Op den Kamp <lars@opdenkamp.eu>
 Date: Tue, 3 Jan 2012 20:40:19 +0100
-Subject: [PATCH 3/7] cec: also mark XBMC as active source when powering up
+Subject: [PATCH 03/17] cec: also mark XBMC as active source when powering up
  devices
 
 ---
@@ -486,7 +494,7 @@ Subject: [PATCH 3/7] cec: also mark XBMC as active source when powering up
  1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
-index 1992b6a..380c40e 100644
+index 3e56070..f524a0d 100644
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 +++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 @@ -264,6 +264,7 @@ void CPeripheralCecAdapter::Process(void)
@@ -501,10 +509,10 @@ index 1992b6a..380c40e 100644
 1.7.5.4
 
 
-From ecfbe68309888cb5befa4a8359a23bffdb0e0fe0 Mon Sep 17 00:00:00 2001
+From 494f831383031c47858945595904cf0ed7d43e6c Mon Sep 17 00:00:00 2001
 From: Lars Op den Kamp <lars@opdenkamp.eu>
 Date: Tue, 10 Jan 2012 11:56:34 +0100
-Subject: [PATCH 4/7] cec: delete m_dll when it's been created. fixes leak
+Subject: [PATCH 04/17] cec: delete m_dll when it's been created. fixes leak
  when the libCEC version is invalid
 
 ---
@@ -512,7 +520,7 @@ Subject: [PATCH 4/7] cec: delete m_dll when it's been created. fixes leak
  1 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
-index 380c40e..9cb195d 100644
+index f524a0d..250e7c6 100644
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 +++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 @@ -119,11 +119,14 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
@@ -535,12 +543,13 @@ index 380c40e..9cb195d 100644
 1.7.5.4
 
 
-From 9434d5b9a5d8d5290f0af6bc0b85b17219c2eccd Mon Sep 17 00:00:00 2001
+From fec1ac30a1c5b1c4e352536578ab28d59826cda7 Mon Sep 17 00:00:00 2001
 From: Lars Op den Kamp <lars@opdenkamp.eu>
 Date: Wed, 11 Jan 2012 00:09:02 +0100
-Subject: [PATCH 5/7] cec: some TVs don't like us querying it while activating
- sources. moved the queries to a background thread, and
- only query after the TV reports power state active.
+Subject: [PATCH 05/17] cec: some TVs don't like us querying it while
+ activating sources. moved the queries to a background
+ thread, and only query after the TV reports power
+ state active.
 
 ---
  xbmc/peripherals/devices/PeripheralCecAdapter.cpp |  102 +++++++++++++++------
@@ -548,7 +557,7 @@ Subject: [PATCH 5/7] cec: some TVs don't like us querying it while activating
  2 files changed, 108 insertions(+), 40 deletions(-)
 
 diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
-index 9cb195d..a8632f2 100644
+index 250e7c6..67c37d5 100644
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 +++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 @@ -260,9 +260,8 @@ void CPeripheralCecAdapter::Process(void)
@@ -766,10 +775,10 @@ index 768e38a..f10f2ea 100644
 1.7.5.4
 
 
-From a621adb7400a65fca4afc9e25a3849de5cbd5d4e Mon Sep 17 00:00:00 2001
+From 28a24375bc43adaddb098569764593b54b649799 Mon Sep 17 00:00:00 2001
 From: Lars Op den Kamp <lars@opdenkamp.eu>
 Date: Thu, 12 Jan 2012 22:22:17 +0100
-Subject: [PATCH 6/7] cec: use callback methods instead of constant polling.
+Subject: [PATCH 06/17] cec: use callback methods instead of constant polling.
  this requires libCEC 1.4.0 or higher
 
 ---
@@ -778,7 +787,7 @@ Subject: [PATCH 6/7] cec: use callback methods instead of constant polling.
  2 files changed, 76 insertions(+), 57 deletions(-)
 
 diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
-index a8632f2..13338bb 100644
+index 67c37d5..e79972f 100644
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 +++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
 @@ -121,7 +121,6 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
@@ -1078,11 +1087,11 @@ index f10f2ea..085b683 100644
 1.7.5.4
 
 
-From 51ab157f8dbc79c3c5e13d589b8523c5d59cb48e Mon Sep 17 00:00:00 2001
+From 4243d50d70f631312a1d42497693d6827ff0fbc7 Mon Sep 17 00:00:00 2001
 From: Lars Op den Kamp <lars@opdenkamp.eu>
 Date: Thu, 12 Jan 2012 22:22:37 +0100
-Subject: [PATCH 7/7] cec: these new features and fixes need libCEC v1.4.0 or
- higher
+Subject: [PATCH 07/17] cec: these new features and fixes need libCEC v1.4.0
+ or higher
 
 ---
  configure.in                                   |    2 +-
@@ -1092,7 +1101,7 @@ Subject: [PATCH 7/7] cec: these new features and fixes need libCEC v1.4.0 or
  4 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/configure.in b/configure.in
-index bca9239..d6909cd 100755
+index c55488c..a4ea21d 100755
 --- a/configure.in
 +++ b/configure.in
 @@ -1173,7 +1173,7 @@ if test "x$use_libcec" != "xno"; then
@@ -1131,6 +1140,1878 @@ index c6b44c0..e72dc10 100644
 +VERSION=1.4.0
  SOURCE=$(LIBNAME)-$(VERSION)
  ARCHIVE=$(SOURCE).tar.gz
+ 
+-- 
+1.7.5.4
+
+
+From 3ed60a169464b04400e21177ae3e2830ff5eaf48 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Wed, 25 Jan 2012 16:11:57 +0100
+Subject: [PATCH 08/17] cec: only send an inactive source messages when not
+ sending a power off command, or AVR devices will
+ power up again
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index e79972f..8bb01d4 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -135,9 +135,10 @@ void CPeripheralCecAdapter::Announce(EAnnouncementFlag flag, const char *sender,
+ {
+   if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnQuit") && m_bIsReady)
+   {
+-    m_cecAdapter->SetInactiveView();
+     if (GetSettingBool("cec_power_off_shutdown"))
+       m_cecAdapter->StandbyDevices();
++    else
++      m_cecAdapter->SetInactiveView();
+   }
+   else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverDeactivated") && GetSettingBool("cec_standby_screensaver") && m_bIsReady)
+   {
+-- 
+1.7.5.4
+
+
+From 3147e96475ab2fe0ebc9deba99b55d2b66e7f2ce Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Wed, 25 Jan 2012 16:31:14 +0100
+Subject: [PATCH 09/17] cec: removed the cec_debug_logging setting. always
+ show cec debug logging when debugging in XBMC is
+ enabled
+
+---
+ system/peripherals.xml                            |    1 -
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp |    3 +--
+ 2 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 94b9d85..72042ec 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -16,7 +16,6 @@
+     <setting key="cec_power_off_shutdown" type="bool" value="1" label="36008" />
+     <setting key="cec_standby_screensaver" type="bool" value="1" label="36009" />
+     <setting key="standby_pc_on_tv_standby" type="bool" value="1" label="36014" />
+-    <setting key="cec_debug_logging" type="bool" value="0" label="20191" />
+     <setting key="use_tv_menu_language" type="bool" value="1" label="36018" />
+     <setting key="connected_device" type="int" label="36019" value="0" min="0" max="15" step="1" />
+   </peripheral>
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 8bb01d4..4d778ed 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -887,8 +887,7 @@ int CPeripheralCecAdapter::CecLogMessage(void *cbParam, const cec_log_message &m
+     break;
+   case CEC_LOG_TRAFFIC:
+   case CEC_LOG_DEBUG:
+-    if (adapter->GetSettingBool("cec_debug_logging"))
+-      iLevel = LOGDEBUG;
++    iLevel = LOGDEBUG;
+     break;
+   default:
+     break;
+-- 
+1.7.5.4
+
+
+From 133cd4d7994475047d65afc4a82a86118428b389 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Thu, 26 Jan 2012 21:28:53 +0100
+Subject: [PATCH 10/17] peripherals: added an optional order to settings
+
+---
+ system/peripherals.xml                             |   28 ++++++++++----------
+ xbmc/peripherals/Peripherals.cpp                   |   24 +++++++++++++++++
+ xbmc/peripherals/devices/Peripheral.cpp            |   25 +++++++++++++++---
+ xbmc/peripherals/devices/Peripheral.h              |    2 +
+ .../dialogs/GUIDialogPeripheralSettings.cpp        |   17 +++++-------
+ 5 files changed, 68 insertions(+), 28 deletions(-)
+
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 72042ec..6c91e49 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -1,22 +1,22 @@
+ <peripherals>
+   <peripheral vendor_product="1915:003B,22B8:003B" bus="usb" name="Motorola Nyxboard Hybrid" mapTo="nyxboard">
+-    <setting key="keymap_enabled" type="bool" value="1" label="35008" />
++    <setting key="keymap_enabled" type="bool" value="1" label="35008" order="1" />
+     <setting key="keymap" value="nyxboard" label="35007" configurable="0" />
+-    <setting key="enable_flip_commands" type="bool" value="1" label="36005" />
+-    <setting key="flip_keyboard" value="XBMC.VideoLibrary.Search" label="36002" />
+-    <setting key="flip_remote" value="Dialog.Close(virtualkeyboard)" label="36003" />
+-    <setting key="key_user" value="" label="36004" />
++    <setting key="enable_flip_commands" type="bool" value="1" label="36005" order="2" />
++    <setting key="flip_keyboard" value="XBMC.VideoLibrary.Search" label="36002" order="3" />
++    <setting key="flip_remote" value="Dialog.Close(virtualkeyboard)" label="36003" order="4" />
++    <setting key="key_user" value="" label="36004" order="5" />
+   </peripheral>
+ 
+   <peripheral vendor_product="2548:1001" bus="usb" name="Pulse-Eight CEC Adaptor" mapTo="cec">
+-    <setting key="enabled" type="bool" value="1" label="305" />
+-    <setting key="port" type="string" value="" label="792" />
+-    <setting key="cec_hdmi_port" type="int" value="1" min="1" max="16" label="36015" />
+-    <setting key="cec_power_on_startup" type="bool" value="1" label="36007" />
+-    <setting key="cec_power_off_shutdown" type="bool" value="1" label="36008" />
+-    <setting key="cec_standby_screensaver" type="bool" value="1" label="36009" />
+-    <setting key="standby_pc_on_tv_standby" type="bool" value="1" label="36014" />
+-    <setting key="use_tv_menu_language" type="bool" value="1" label="36018" />
+-    <setting key="connected_device" type="int" label="36019" value="0" min="0" max="15" step="1" />
++    <setting key="enabled" type="bool" value="1" label="305" order="1" />
++    <setting key="cec_hdmi_port" type="int" value="1" min="1" max="16" label="36015" order="2" />
++    <setting key="connected_device" type="int" label="36019" value="0" min="0" max="15" step="1" order="3" />
++    <setting key="use_tv_menu_language" type="bool" value="1" label="36018" order="4" />
++    <setting key="cec_power_on_startup" type="bool" value="1" label="36007" order="5" />
++    <setting key="cec_power_off_shutdown" type="bool" value="1" label="36008" order="6" />
++    <setting key="cec_standby_screensaver" type="bool" value="1" label="36009" order="7" />
++    <setting key="standby_pc_on_tv_standby" type="bool" value="1" label="36014" order="8" />
++    <setting key="port" type="string" value="" label="792" order="9" />
+   </peripheral>
+ </peripherals>
+diff --git a/xbmc/peripherals/Peripherals.cpp b/xbmc/peripherals/Peripherals.cpp
+index 3868cc7..b586163 100644
+--- a/xbmc/peripherals/Peripherals.cpp
++++ b/xbmc/peripherals/Peripherals.cpp
+@@ -438,6 +438,8 @@ bool CPeripherals::LoadMappings(void)
+ void CPeripherals::GetSettingsFromMappingsFile(TiXmlElement *xmlNode, map<CStdString, CSetting *> &m_settings)
+ {
+   TiXmlElement *currentNode = xmlNode->FirstChildElement("setting");
++  int iMaxOrder(0);
++
+   while (currentNode)
+   {
+     CSetting *setting = NULL;
+@@ -483,10 +485,32 @@ void CPeripherals::GetSettingsFromMappingsFile(TiXmlElement *xmlNode, map<CStdSt
+     }
+ 
+     //TODO add more types if needed
++
++    /* set the visibility */
+     setting->SetVisible(bConfigurable);
++
++    /* set the order */
++    int iOrder(0);
++    if (currentNode->Attribute("order"))
++      iOrder = atoi(currentNode->Attribute("order"));
++    if (iOrder < 0)
++      iOrder = 0;
++    setting->SetOrder(iOrder);
++    if (iOrder > iMaxOrder)
++      iMaxOrder = iOrder;
++
++    /* and add this new setting */
+     m_settings[strKey] = setting;
++
+     currentNode = currentNode->NextSiblingElement("setting");
+   }
++
++  /* add the settings without an order attribute set at the end */
++  for (map<CStdString, CSetting *>::iterator it = m_settings.begin(); it != m_settings.end(); it++)
++  {
++    if (it->second->GetOrder() == 0)
++      it->second->SetOrder(++iMaxOrder);
++  }
+ }
+ 
+ void CPeripherals::GetDirectory(const CStdString &strPath, CFileItemList &items) const
+diff --git a/xbmc/peripherals/devices/Peripheral.cpp b/xbmc/peripherals/devices/Peripheral.cpp
+index d07acaf..ab14e6c 100644
+--- a/xbmc/peripherals/devices/Peripheral.cpp
++++ b/xbmc/peripherals/devices/Peripheral.cpp
+@@ -30,6 +30,14 @@
+ using namespace PERIPHERALS;
+ using namespace std;
+ 
++struct SortBySettingsOrder
++{
++  bool operator()(const CSetting *left, const CSetting *right)
++  {
++    return left->GetOrder() < right->GetOrder();
++  }
++};
++
+ CPeripheral::CPeripheral(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+   m_type(type),
+   m_busType(busType),
+@@ -168,6 +176,15 @@ bool CPeripheral::IsMultiFunctional(void) const
+   return m_subDevices.size() > 0;
+ }
+ 
++vector<CSetting *> CPeripheral::GetSettings(void) const
++{
++  vector<CSetting *> settings;
++  for (map<CStdString, CSetting *>::const_iterator it = m_settings.begin(); it != m_settings.end(); it++)
++    settings.push_back(it->second);
++  sort(settings.begin(), settings.end(), SortBySettingsOrder());
++  return settings;
++}
++
+ void CPeripheral::AddSetting(const CStdString &strKey, const CSetting *setting)
+ {
+   if (!setting)
+@@ -183,7 +200,7 @@ void CPeripheral::AddSetting(const CStdString &strKey, const CSetting *setting)
+     case SETTINGS_TYPE_BOOL:
+       {
+         const CSettingBool *mappedSetting = (const CSettingBool *) setting;
+-        CSettingBool *boolSetting = new CSettingBool(0, strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData(), mappedSetting->GetControlType());
++        CSettingBool *boolSetting = new CSettingBool(mappedSetting->GetOrder(), strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData(), mappedSetting->GetControlType());
+         if (boolSetting)
+         {
+           boolSetting->SetVisible(mappedSetting->IsVisible());
+@@ -194,7 +211,7 @@ void CPeripheral::AddSetting(const CStdString &strKey, const CSetting *setting)
+     case SETTINGS_TYPE_INT:
+       {
+         const CSettingInt *mappedSetting = (const CSettingInt *) setting;
+-        CSettingInt *intSetting = new CSettingInt(0, strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData(), mappedSetting->m_iMin, mappedSetting->m_iStep, mappedSetting->m_iMax, mappedSetting->GetControlType(), mappedSetting->m_strFormat);
++        CSettingInt *intSetting = new CSettingInt(mappedSetting->GetOrder(), strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData(), mappedSetting->m_iMin, mappedSetting->m_iStep, mappedSetting->m_iMax, mappedSetting->GetControlType(), mappedSetting->m_strFormat);
+         if (intSetting)
+         {
+           intSetting->SetVisible(mappedSetting->IsVisible());
+@@ -205,7 +222,7 @@ void CPeripheral::AddSetting(const CStdString &strKey, const CSetting *setting)
+     case SETTINGS_TYPE_FLOAT:
+       {
+         const CSettingFloat *mappedSetting = (const CSettingFloat *) setting;
+-        CSettingFloat *floatSetting = new CSettingFloat(0, strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData(), mappedSetting->m_fMin, mappedSetting->m_fStep, mappedSetting->m_fMax, mappedSetting->GetControlType());
++        CSettingFloat *floatSetting = new CSettingFloat(mappedSetting->GetOrder(), strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData(), mappedSetting->m_fMin, mappedSetting->m_fStep, mappedSetting->m_fMax, mappedSetting->GetControlType());
+         if (floatSetting)
+         {
+           floatSetting->SetVisible(mappedSetting->IsVisible());
+@@ -216,7 +233,7 @@ void CPeripheral::AddSetting(const CStdString &strKey, const CSetting *setting)
+     case SETTINGS_TYPE_STRING:
+       {
+         const CSettingString *mappedSetting = (const CSettingString *) setting;
+-        CSettingString *stringSetting = new CSettingString(0, strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData().c_str(), mappedSetting->GetControlType(), mappedSetting->m_bAllowEmpty, mappedSetting->m_iHeadingString);
++        CSettingString *stringSetting = new CSettingString(mappedSetting->GetOrder(), strKey.c_str(), mappedSetting->GetLabel(), mappedSetting->GetData().c_str(), mappedSetting->GetControlType(), mappedSetting->m_bAllowEmpty, mappedSetting->m_iHeadingString);
+         if (stringSetting)
+         {
+           stringSetting->SetVisible(mappedSetting->IsVisible());
+diff --git a/xbmc/peripherals/devices/Peripheral.h b/xbmc/peripherals/devices/Peripheral.h
+index 7851554..00375bc 100644
+--- a/xbmc/peripherals/devices/Peripheral.h
++++ b/xbmc/peripherals/devices/Peripheral.h
+@@ -142,6 +142,8 @@
+     virtual void LoadPersistedSettings(void);
+     virtual void ResetDefaultSettings(void);
+ 
++    virtual std::vector<CSetting *> GetSettings(void) const;
++
+     virtual bool ErrorOccured(void) const { return m_bError; }
+ 
+   protected:
+diff --git a/xbmc/peripherals/dialogs/GUIDialogPeripheralSettings.cpp b/xbmc/peripherals/dialogs/GUIDialogPeripheralSettings.cpp
+index c79f961..cc801ef 100644
+--- a/xbmc/peripherals/dialogs/GUIDialogPeripheralSettings.cpp
++++ b/xbmc/peripherals/dialogs/GUIDialogPeripheralSettings.cpp
+@@ -66,17 +66,15 @@ void CGUIDialogPeripheralSettings::CreateSettings()
+ 
+   if (m_item)
+   {
+-    int iIndex = 1;
+     CPeripheral *peripheral = g_peripherals.GetByPath(m_item->GetPath());
+     if (peripheral)
+     {
+-      map<CStdString, CSetting *>::iterator it = peripheral->m_settings.begin();
+-      while (it != peripheral->m_settings.end())
++      vector<CSetting *> settings = peripheral->GetSettings();
++      for (size_t iPtr = 0; iPtr < settings.size(); iPtr++)
+       {
+-        CSetting *setting = (*it).second;
++        CSetting *setting = settings[iPtr];
+         if (!setting->IsVisible())
+         {
+-          ++it;
+           CLog::Log(LOGDEBUG, "%s - invisible", __FUNCTION__);
+           continue;
+         }
+@@ -89,7 +87,7 @@ void CGUIDialogPeripheralSettings::CreateSettings()
+             if (boolSetting)
+             {
+               m_boolSettings.insert(make_pair(CStdString(boolSetting->GetSetting()), boolSetting->GetData()));
+-              AddBool(iIndex++, boolSetting->GetLabel(), &m_boolSettings[boolSetting->GetSetting()], true);
++              AddBool(boolSetting->GetOrder(), boolSetting->GetLabel(), &m_boolSettings[boolSetting->GetSetting()], true);
+             }
+           }
+           break;
+@@ -99,7 +97,7 @@ void CGUIDialogPeripheralSettings::CreateSettings()
+             if (intSetting)
+             {
+               m_intSettings.insert(make_pair(CStdString(intSetting->GetSetting()), (float) intSetting->GetData()));
+-              AddSlider(iIndex++, intSetting->GetLabel(), &m_intSettings[intSetting->GetSetting()], (float)intSetting->m_iMin, (float)intSetting->m_iStep, (float)intSetting->m_iMax, CGUIDialogVideoSettings::FormatInteger, false);
++              AddSlider(intSetting->GetOrder(), intSetting->GetLabel(), &m_intSettings[intSetting->GetSetting()], (float)intSetting->m_iMin, (float)intSetting->m_iStep, (float)intSetting->m_iMax, CGUIDialogVideoSettings::FormatInteger, false);
+             }
+           }
+           break;
+@@ -109,7 +107,7 @@ void CGUIDialogPeripheralSettings::CreateSettings()
+             if (floatSetting)
+             {
+               m_floatSettings.insert(make_pair(CStdString(floatSetting->GetSetting()), floatSetting->GetData()));
+-              AddSlider(iIndex++, floatSetting->GetLabel(), &m_floatSettings[floatSetting->GetSetting()], floatSetting->m_fMin, floatSetting->m_fStep, floatSetting->m_fMax, CGUIDialogVideoSettings::FormatFloat, false);
++              AddSlider(floatSetting->GetOrder(), floatSetting->GetLabel(), &m_floatSettings[floatSetting->GetSetting()], floatSetting->m_fMin, floatSetting->m_fStep, floatSetting->m_fMax, CGUIDialogVideoSettings::FormatFloat, false);
+             }
+           }
+           break;
+@@ -119,7 +117,7 @@ void CGUIDialogPeripheralSettings::CreateSettings()
+             if (stringSetting)
+             {
+               m_stringSettings.insert(make_pair(CStdString(stringSetting->GetSetting()), stringSetting->GetData()));
+-              AddString(iIndex, stringSetting->GetLabel(), &m_stringSettings[stringSetting->GetSetting()]);
++              AddString(stringSetting->GetOrder(), stringSetting->GetLabel(), &m_stringSettings[stringSetting->GetSetting()]);
+             }
+           }
+           break;
+@@ -128,7 +126,6 @@ void CGUIDialogPeripheralSettings::CreateSettings()
+           CLog::Log(LOGDEBUG, "%s - unknown type", __FUNCTION__);
+           break;
+         }
+-        ++it;
+       }
+     }
+     else
+-- 
+1.7.5.4
+
+
+From 603eba55dd34c2846c87d5759ca106a0a718b5f8 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Fri, 27 Jan 2012 16:09:18 +0100
+Subject: [PATCH 11/17] peripherals: change the 'keymap_enabled' setting for
+ HID devices into 'do_not_use_custom_keymap', and hide
+ the setting when the keymap is not configurable
+
+---
+ language/English/strings.xml               |    1 +
+ system/peripherals.xml                     |    2 +-
+ xbmc/peripherals/devices/Peripheral.cpp    |   15 +++++++++++++++
+ xbmc/peripherals/devices/Peripheral.h      |    2 ++
+ xbmc/peripherals/devices/PeripheralHID.cpp |    9 ++++++---
+ 5 files changed, 25 insertions(+), 4 deletions(-)
+
+diff --git a/language/English/strings.xml b/language/English/strings.xml
+index fb5b8fb..9c7caaf 100644
+--- a/language/English/strings.xml
++++ b/language/English/strings.xml
+@@ -2378,6 +2378,7 @@
+   <string id="35006">Device removed</string>
+   <string id="35007">Keymap to use for this device</string>
+   <string id="35008">Keymap enabled</string>
++  <string id="35009">Do not use the custom keymap for this device</string>
+ 
+   <string id="35500">Location</string>
+   <string id="35501">Class</string>
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 6c91e49..4e2142d 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -1,6 +1,6 @@
+ <peripherals>
+   <peripheral vendor_product="1915:003B,22B8:003B" bus="usb" name="Motorola Nyxboard Hybrid" mapTo="nyxboard">
+-    <setting key="keymap_enabled" type="bool" value="1" label="35008" order="1" />
++    <setting key="do_not_use_custom_keymap" type="bool" value="0" label="35009" order="1" />
+     <setting key="keymap" value="nyxboard" label="35007" configurable="0" />
+     <setting key="enable_flip_commands" type="bool" value="1" label="36005" order="2" />
+     <setting key="flip_keyboard" value="XBMC.VideoLibrary.Search" label="36002" order="3" />
+diff --git a/xbmc/peripherals/devices/Peripheral.cpp b/xbmc/peripherals/devices/Peripheral.cpp
+index ab14e6c..11ec8b0 100644
+--- a/xbmc/peripherals/devices/Peripheral.cpp
++++ b/xbmc/peripherals/devices/Peripheral.cpp
+@@ -377,6 +377,21 @@ void CPeripheral::SetSetting(const CStdString &strKey, float fValue)
+   }
+ }
+ 
++void CPeripheral::SetSettingVisible(const CStdString &strKey, bool bSetTo)
++{
++  map<CStdString, CSetting *>::iterator it = m_settings.find(strKey);
++  if (it != m_settings.end())
++    (*it).second->SetVisible(bSetTo);
++}
++
++bool CPeripheral::IsSettingVisible(const CStdString &strKey) const
++{
++  map<CStdString, CSetting *>::const_iterator it = m_settings.find(strKey);
++  if (it != m_settings.end())
++    return (*it).second->IsVisible();
++  return false;
++}
++
+ void CPeripheral::SetSetting(const CStdString &strKey, const CStdString &strValue)
+ {
+   map<CStdString, CSetting *>::iterator it = m_settings.find(strKey);
+diff --git a/xbmc/peripherals/devices/Peripheral.h b/xbmc/peripherals/devices/Peripheral.h
+index 00375bc..237cd62 100644
+--- a/xbmc/peripherals/devices/Peripheral.h
++++ b/xbmc/peripherals/devices/Peripheral.h
+@@ -128,6 +128,8 @@
+      */
+     virtual const CStdString GetSettingString(const CStdString &strKey) const;
+     virtual void SetSetting(const CStdString &strKey, const CStdString &strValue);
++    virtual void SetSettingVisible(const CStdString &strKey, bool bSetTo);
++    virtual bool IsSettingVisible(const CStdString &strKey) const;
+ 
+     virtual int GetSettingInt(const CStdString &strKey) const;
+     virtual void SetSetting(const CStdString &strKey, int iValue);
+diff --git a/xbmc/peripherals/devices/PeripheralHID.cpp b/xbmc/peripherals/devices/PeripheralHID.cpp
+index ec0250d..48469cc 100644
+--- a/xbmc/peripherals/devices/PeripheralHID.cpp
++++ b/xbmc/peripherals/devices/PeripheralHID.cpp
+@@ -37,7 +37,7 @@
+ 
+ CPeripheralHID::~CPeripheralHID(void)
+ {
+-  if (!m_strKeymap.IsEmpty() && GetSettingBool("keymap_enabled"))
++  if (!m_strKeymap.IsEmpty() && !GetSettingBool("do_not_use_custom_keymap"))
+   {
+     CLog::Log(LOGDEBUG, "%s - switching active keymapping to: default", __FUNCTION__);
+     CButtonTranslator::GetInstance().RemoveDevice(m_strKeymap);
+@@ -59,9 +59,12 @@ bool CPeripheralHID::InitialiseFeature(const PeripheralFeature feature)
+       SetSetting("keymap", m_strKeymap);
+     }
+ 
++    if (!IsSettingVisible("keymap"))
++      SetSettingVisible("do_not_use_custom_keymap", false);
++
+     if (!m_strKeymap.IsEmpty())
+     {
+-      bool bKeymapEnabled(GetSettingBool("keymap_enabled"));
++      bool bKeymapEnabled(!GetSettingBool("do_not_use_custom_keymap"));
+       if (bKeymapEnabled)
+       {
+         CLog::Log(LOGDEBUG, "%s - adding keymapping for: %s", __FUNCTION__, m_strKeymap.c_str());
+@@ -82,7 +85,7 @@ bool CPeripheralHID::InitialiseFeature(const PeripheralFeature feature)
+ 
+ void CPeripheralHID::OnSettingChanged(const CStdString &strChangedSetting)
+ {
+-  if (m_bInitialised && ((strChangedSetting.Equals("keymap") && GetSettingBool("keymap_enabled")) || strChangedSetting.Equals("keymap_enabled")))
++  if (m_bInitialised && ((strChangedSetting.Equals("keymap") && !GetSettingBool("do_not_use_custom_keymap")) || strChangedSetting.Equals("keymap_enabled")))
+   {
+     m_bInitialised = false;
+     InitialiseFeature(FEATURE_HID);
+-- 
+1.7.5.4
+
+
+From 47c9aa665e5ffc62527f9b4d1e0aeca2cfbc1488 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Fri, 27 Jan 2012 19:41:01 +0100
+Subject: [PATCH 12/17] cec: updated to libCEC 1.4.2
+
+---
+ lib/libcec/Makefile                            |    2 +-
+ project/BuildDependencies/scripts/libcec_d.txt |    2 +-
+ tools/darwin/depends/libcec/Makefile           |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/lib/libcec/Makefile b/lib/libcec/Makefile
+index 5ca2a54..7da3164 100644
+--- a/lib/libcec/Makefile
++++ b/lib/libcec/Makefile
+@@ -7,7 +7,7 @@
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=1.4.0
++VERSION=1.4.2
+ SOURCE=$(LIBNAME)-$(VERSION)
+ 
+ # download location and format
+diff --git a/project/BuildDependencies/scripts/libcec_d.txt b/project/BuildDependencies/scripts/libcec_d.txt
+index 867d639..4f2e2f1 100644
+diff --git a/tools/darwin/depends/libcec/Makefile b/tools/darwin/depends/libcec/Makefile
+index e72dc10..abcaf2c 100644
+--- a/tools/darwin/depends/libcec/Makefile
++++ b/tools/darwin/depends/libcec/Makefile
+@@ -2,7 +2,7 @@ include ../Makefile.include
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=1.4.0
++VERSION=1.4.2
+ SOURCE=$(LIBNAME)-$(VERSION)
+ ARCHIVE=$(SOURCE).tar.gz
+ 
+-- 
+1.7.5.4
+
+
+From 6361244ae694c4a4bf96ceac49625fd71f4610e2 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Sun, 29 Jan 2012 19:06:24 +0100
+Subject: [PATCH 13/17] cec: don't call libCEC directly from the GUI thread
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp |   13 +++++++++++--
+ xbmc/peripherals/devices/PeripheralCecAdapter.h   |    2 ++
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 4d778ed..0683fa6 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -74,6 +74,7 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
+   m_bStarted(false),
+   m_bHasButton(false),
+   m_bIsReady(false),
++  m_bHasConnectedAudioSystem(false),
+   m_strMenuLanguage("???"),
+   m_lastKeypress(0),
+   m_lastChange(VOLUME_CHANGE_NONE)
+@@ -341,7 +342,14 @@ bool CPeripheralCecAdapter::SetHdmiPort(int iDevice, int iHdmiPort)
+ 
+ bool CPeripheralCecAdapter::HasConnectedAudioSystem(void)
+ {
+-  return m_cecAdapter && m_cecAdapter->IsActiveDeviceType(CEC_DEVICE_TYPE_AUDIO_SYSTEM);
++  CSingleLock lock(m_critSection);
++  return m_bHasConnectedAudioSystem;
++}
++
++void CPeripheralCecAdapter::SetAudioSystemConnected(bool bSetTo)
++{
++  CSingleLock lock(m_critSection);
++  m_bHasConnectedAudioSystem = bSetTo;
+ }
+ 
+ void CPeripheralCecAdapter::ScheduleVolumeUp(void)
+@@ -955,12 +963,13 @@ void CPeripheralCecAdapterQueryThread::Process(void)
+ 
+   /* disable the mute setting when an amp is found, because the amp handles the mute setting and
+      set PCM output to 100% */
+-  if (m_adapter->HasConnectedAudioSystem())
++  if (m_adapter->m_cecAdapter->IsActiveDeviceType(CEC_DEVICE_TYPE_AUDIO_SYSTEM))
+   {
+     cec_osd_name ampName = m_adapter->m_cecAdapter->GetDeviceOSDName(CECDEVICE_AUDIOSYSTEM);
+     CLog::Log(LOGDEBUG, "%s - CEC capable amplifier found (%s). volume will be controlled on the amp", __FUNCTION__, ampName.name);
+     strNotification.AppendFormat(" - %s", ampName.name);
+ 
++    m_adapter->SetAudioSystemConnected(true);
+     g_settings.m_bMute = false;
+     g_settings.m_nVolumeLevel = VOLUME_MAXIMUM;
+   }
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.h b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+index 085b683..54eef5f 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.h
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+@@ -71,6 +71,7 @@
+     virtual bool PowerOnCecDevices(CEC::cec_logical_address iLogicalAddress);
+     virtual bool StandbyCecDevices(CEC::cec_logical_address iLogicalAddress);
+     virtual bool HasConnectedAudioSystem(void);
++    virtual void SetAudioSystemConnected(bool bSetTo);
+     virtual void ScheduleVolumeUp(void);
+     virtual void VolumeUp(void);
+     virtual void ScheduleVolumeDown(void);
+@@ -108,6 +109,7 @@
+     bool                              m_bStarted;
+     bool                              m_bHasButton;
+     bool                              m_bIsReady;
++    bool                              m_bHasConnectedAudioSystem;
+     CStdString                        m_strMenuLanguage;
+     CDateTime                         m_screensaverLastActivated;
+     CecButtonPress                    m_button;
+-- 
+1.7.5.4
+
+
+From ef988c31181e743c94e84f18c8e3c5faad8ecf3d Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Tue, 7 Feb 2012 19:34:51 +0100
+Subject: [PATCH 14/17] cec: updated to libCEC 1.4.3
+
+---
+ lib/libcec/Makefile                            |    2 +-
+ project/BuildDependencies/scripts/libcec_d.txt |    2 +-
+ tools/darwin/depends/libcec/Makefile           |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/lib/libcec/Makefile b/lib/libcec/Makefile
+index 7da3164..4fb987a 100644
+--- a/lib/libcec/Makefile
++++ b/lib/libcec/Makefile
+@@ -7,7 +7,7 @@
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=1.4.2
++VERSION=1.4.3
+ SOURCE=$(LIBNAME)-$(VERSION)
+ 
+ # download location and format
+diff --git a/project/BuildDependencies/scripts/libcec_d.txt b/project/BuildDependencies/scripts/libcec_d.txt
+index 4f2e2f1..8aee2c4 100644
+diff --git a/tools/darwin/depends/libcec/Makefile b/tools/darwin/depends/libcec/Makefile
+index abcaf2c..3a37afe 100644
+--- a/tools/darwin/depends/libcec/Makefile
++++ b/tools/darwin/depends/libcec/Makefile
+@@ -2,7 +2,7 @@ include ../Makefile.include
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=1.4.2
++VERSION=1.4.3
+ SOURCE=$(LIBNAME)-$(VERSION)
+ ARCHIVE=$(SOURCE).tar.gz
+ 
+-- 
+1.7.5.4
+
+
+From 25a2708cac01b6e0b5a2addbf5210d3e7037a4c6 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Thu, 16 Feb 2012 19:40:16 +0100
+Subject: [PATCH 15/17] cec: updated to libCEC 1.5.0
+
+---
+ configure.in                                      |    2 +-
+ language/Dutch/strings.xml                        |   13 +-
+ language/English/strings.xml                      |   13 +-
+ lib/libcec/Makefile                               |    2 +-
+ project/BuildDependencies/scripts/libcec_d.bat    |    3 +-
+ project/BuildDependencies/scripts/libcec_d.txt    |    2 +-
+ system/peripherals.xml                            |   24 +-
+ tools/darwin/depends/libcec/Makefile              |    2 +-
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp |  425 ++++++++++++++-------
+ xbmc/peripherals/devices/PeripheralCecAdapter.h   |   17 +-
+ 10 files changed, 324 insertions(+), 179 deletions(-)
+
+diff --git a/configure.in b/configure.in
+index a4ea21d..270dab3 100755
+--- a/configure.in
++++ b/configure.in
+@@ -1173,7 +1173,7 @@ if test "x$use_libcec" != "xno"; then
+ 
+   # libcec is dyloaded, so we need to check for its headers and link any depends.
+   if test "x$use_libcec" != "xno"; then
+-    PKG_CHECK_MODULES([CEC],[libcec >= 1.4.0],,[use_libcec="no";AC_MSG_RESULT($libcec_disabled)])
++    PKG_CHECK_MODULES([CEC],[libcec >= 1.5.0],,[use_libcec="no";AC_MSG_RESULT($libcec_disabled)])
+ 
+     if test "x$use_libcec" != "xno"; then
+       INCLUDES="$INCLUDES $CEC_CFLAGS"
+diff --git a/language/Dutch/strings.xml b/language/Dutch/strings.xml
+index 721bd73..b398189 100644
+--- a/language/Dutch/strings.xml
++++ b/language/Dutch/strings.xml
+@@ -2391,17 +2391,20 @@
+   <string id="36004">Druk op "user" knop commando</string>
+   <string id="36005">Schakel commando's in bij het wisselen van kant</string>
+   <string id="36006">Kon de adapter niet openen</string>
+-  <string id="36007">Schakel de TV in bij het opstarten van XBMC</string>
++  <string id="36007">Schakel apparatuur in bij het opstarten van XBMC</string>
+   <string id="36008">Schakel apparatuur uit bij het stoppen van XBMC</string>
+   <string id="36009">Schakel app. uit zolang de schermbeveiliging actief is</string>
+   <string id="36010"></string>
+-  <string id="36011">Kon de CEC poort niet detecteren. Stel het manueel in.</string>
+-  <string id="36012">Kon de CEC adapter niet detecteren.</string>
+-  <string id="36013">Versie %d van de libcec interface version wordt niet ondersteund door XBMC (> %d)</string>
++  <string id="36011">Kon de COM poort niet detecteren. Stel het manueel in.</string>
++  <string id="36012">Kon de CEC adapter niet initialiseren.</string>
++  <string id="36013">Versie %d van de libCEC interface version wordt niet ondersteund door XBMC (> %d)</string>
+   <string id="36014">Zet XBMC in standby wanneer de TV uitgeschakeld wordt</string>
+   <string id="36015">HDMI poort nummer</string>
+   <string id="36016">Verbonden</string> <!-- max. 13 characters -->
+-  <string id="36017">Adapter gevonden, maar libcec is niet beschikbaar</string>
++  <string id="36017">Adapter gevonden, maar libCEC is niet beschikbaar</string>
+   <string id="36018">Gebruik de taalinstelling van de TV</string>
+   <string id="36019">Verbonden met HDMI apparaat</string>
++  <string id="36020">Maak XBMC de actieve bron bij het opstarten</string>
++  <string id="36021">Physiek adres (overschrijft HDMI poort)</string>
++  <string id="36022">COM poort (laat leeg, tenzij noodzakelijk)</string>
+ </strings>
+\ No newline at end of file
+diff --git a/language/English/strings.xml b/language/English/strings.xml
+index 9c7caaf..27487f4 100644
+--- a/language/English/strings.xml
++++ b/language/English/strings.xml
+@@ -2393,17 +2393,20 @@
+   <string id="36004">Press "user" button command</string>
+   <string id="36005">Enable switch side commands</string>
+   <string id="36006">Could not open the adapter</string>
+-  <string id="36007">Power on the TV when starting XBMC</string>
+-  <string id="36008">Power off devices when stopping XBMC</string>
++  <string id="36007">Devices to power on the TV when starting XBMC</string>
++  <string id="36008">Devices to power off devices when stopping XBMC</string>
+   <string id="36009">Put devices in standby mode when activating screensaver</string>
+   <string id="36010"></string>
+   <string id="36011">Could not detect the CEC port. Set it up manually.</string>
+-  <string id="36012">Could not detect the CEC adapter.</string>
+-  <string id="36013">Unsupported libcec interface version. %d is greater than the version XBMC supports (%d)</string>
++  <string id="36012">Could not initialise the CEC adapter. Check your settings.</string>
++  <string id="36013">Unsupported libCEC interface version. %d is greater than the version XBMC supports (%d)</string>
+   <string id="36014">Put this PC in standby mode when the TV is switched off</string>
+   <string id="36015">HDMI port number</string>
+   <string id="36016">Connected</string> <!-- max. 13 characters -->
+-  <string id="36017">Adapter found, but libcec is not available</string>
++  <string id="36017">Adapter found, but libCEC is not available</string>
+   <string id="36018">Use the TV's language setting</string>
+   <string id="36019">Connected to HDMI device</string>
++  <string id="36020">Make XBMC the active source when starting</string>
++  <string id="36021">Physical address (overrules HDMI port)</string>
++  <string id="36022">COM port (leave empty unless needed)</string>
+ </strings>
+diff --git a/lib/libcec/Makefile b/lib/libcec/Makefile
+index 4fb987a..d9af688 100644
+--- a/lib/libcec/Makefile
++++ b/lib/libcec/Makefile
+@@ -7,7 +7,7 @@
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=1.4.3
++VERSION=1.5.0
+ SOURCE=$(LIBNAME)-$(VERSION)
+ 
+ # download location and format
+diff --git a/project/BuildDependencies/scripts/libcec_d.bat b/project/BuildDependencies/scripts/libcec_d.bat
+index 27160b4..86a2797 100644
+diff --git a/project/BuildDependencies/scripts/libcec_d.txt b/project/BuildDependencies/scripts/libcec_d.txt
+index 8aee2c4..0f70461 100644
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 4e2142d..1df6f1a 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -8,15 +8,21 @@
+     <setting key="key_user" value="" label="36004" order="5" />
+   </peripheral>
+ 
+-  <peripheral vendor_product="2548:1001" bus="usb" name="Pulse-Eight CEC Adaptor" mapTo="cec">
++  <peripheral vendor_product="2548:1001" bus="usb" name="Pulse-Eight CEC Adapter" mapTo="cec">
+     <setting key="enabled" type="bool" value="1" label="305" order="1" />
+-    <setting key="cec_hdmi_port" type="int" value="1" min="1" max="16" label="36015" order="2" />
+-    <setting key="connected_device" type="int" label="36019" value="0" min="0" max="15" step="1" order="3" />
+-    <setting key="use_tv_menu_language" type="bool" value="1" label="36018" order="4" />
+-    <setting key="cec_power_on_startup" type="bool" value="1" label="36007" order="5" />
+-    <setting key="cec_power_off_shutdown" type="bool" value="1" label="36008" order="6" />
+-    <setting key="cec_standby_screensaver" type="bool" value="1" label="36009" order="7" />
+-    <setting key="standby_pc_on_tv_standby" type="bool" value="1" label="36014" order="8" />
+-    <setting key="port" type="string" value="" label="792" order="9" />
++	<setting key="activate_source" type="bool" value="1" label="36020" order="2" />
++	<setting key="wake_devices" type="string" value="0" label="36007" order="3" />
++	<setting key="standby_devices" type="string" value="0" label="36008" order="4" />
++    <setting key="cec_standby_screensaver" type="bool" value="1" label="36009" order="5" />
++	<setting key="standby_pc_on_tv_standby" type="bool" value="1" label="36014" order="6" />
++	<setting key="use_tv_menu_language" type="bool" value="1" label="36018" order="7" />
++	<setting key="physical_address" type="string" label="36021" value="0" order="8" />
++    <setting key="cec_hdmi_port" type="int" value="1" min="1" max="16" label="36015" order="9" />
++    <setting key="connected_device" type="int" label="36019" value="0" min="0" max="15" step="1" order="10" />
++    <setting key="port" type="string" value="" label="36022" order="11" />
++
++	<setting key="tv_vendor" type="int" value="0" configurable="0" />
++    <setting key="device_name" type="string" value="XBMC" configurable="0" />
++    <setting key="device_type" type="int" value="1" configurable="0" />
+   </peripheral>
+ </peripherals>
+diff --git a/tools/darwin/depends/libcec/Makefile b/tools/darwin/depends/libcec/Makefile
+index 3a37afe..be4ee35 100644
+--- a/tools/darwin/depends/libcec/Makefile
++++ b/tools/darwin/depends/libcec/Makefile
+@@ -2,7 +2,7 @@ include ../Makefile.include
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=1.4.3
++VERSION=1.5.0
+ SOURCE=$(LIBNAME)-$(VERSION)
+ ARCHIVE=$(SOURCE).tar.gz
+ 
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 0683fa6..7fed634 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -18,8 +18,8 @@
+  *  http://www.gnu.org/copyleft/gpl.html
+  *
+  */
+-#include "system.h"
+ 
++#include "system.h"
+ #if defined(HAVE_LIBCEC)
+ #include "PeripheralCecAdapter.h"
+ #include "input/XBIRRemote.h"
+@@ -34,13 +34,13 @@
+ #include "settings/Settings.h"
+ #include "utils/log.h"
+ 
+-#include <cec.h>
++#include <libcec/cec.h>
+ 
+ using namespace PERIPHERALS;
+ using namespace ANNOUNCEMENT;
+ using namespace CEC;
+ 
+-#define CEC_LIB_SUPPORTED_VERSION 1
++#define CEC_LIB_SUPPORTED_VERSION 0x1500
+ 
+ /* time in seconds to ignore standby commands from devices after the screensaver has been activated */
+ #define SCREENSAVER_TIMEOUT       10
+@@ -51,19 +51,19 @@ class DllLibCECInterface
+ {
+ public:
+   virtual ~DllLibCECInterface() {}
+-  virtual ICECAdapter* CECInit(const char *interfaceName, cec_device_type_list types)=0;
+-  virtual void* CECDestroy(ICECAdapter *adapter)=0;
++  virtual ICECAdapter* CECInitialise(libcec_configuration *configuration)=0;
++  virtual void*        CECDestroy(ICECAdapter *adapter)=0;
+ };
+ 
+ class DllLibCEC : public DllDynamic, DllLibCECInterface
+ {
+   DECLARE_DLL_WRAPPER(DllLibCEC, DLL_PATH_LIBCEC)
+ 
+-  DEFINE_METHOD2(ICECAdapter*, CECInit,   (const char *p1, cec_device_type_list p2))
+-  DEFINE_METHOD1(void*       , CECDestroy,  (ICECAdapter *p1))
++  DEFINE_METHOD1(ICECAdapter*, CECInitialise, (libcec_configuration *p1))
++  DEFINE_METHOD1(void*       , CECDestroy,    (ICECAdapter *p1))
+ 
+   BEGIN_METHOD_RESOLVE()
+-    RESOLVE_METHOD_RENAME(CECInit,  CECInit)
++    RESOLVE_METHOD_RENAME(CECInitialise,  CECInitialise)
+     RESOLVE_METHOD_RENAME(CECDestroy, CECDestroy)
+   END_METHOD_RESOLVE()
+ };
+@@ -82,35 +82,9 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
+   m_button.iButton = 0;
+   m_button.iDuration = 0;
+   m_screensaverLastActivated.SetValid(false);
+-  m_dll = new DllLibCEC;
+-  if (m_dll->Load() && m_dll->IsLoaded())
+-  {
+-    cec_device_type_list typeList;
+-    typeList.clear();
+-    typeList.add(CEC_DEVICE_TYPE_RECORDING_DEVICE);
+-    m_cecAdapter = m_dll->CECInit("XBMC", typeList);
+-  }
+-  else
+-    m_cecAdapter = NULL;
+-
+-  if (!m_cecAdapter || m_cecAdapter->GetMinLibVersion() > CEC_LIB_SUPPORTED_VERSION)
+-  {
+-    /* unsupported libcec version */
+-    CLog::Log(LOGERROR, g_localizeStrings.Get(36013).c_str(), CEC_LIB_SUPPORTED_VERSION, m_cecAdapter ? m_cecAdapter->GetMinLibVersion() : -1);
+ 
+-    CStdString strMessage;
+-    strMessage.Format(g_localizeStrings.Get(36013).c_str(), CEC_LIB_SUPPORTED_VERSION, m_cecAdapter ? m_cecAdapter->GetMinLibVersion() : -1);
+-    CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(36000), strMessage);
+-    m_bError = true;
+-    if (m_cecAdapter)
+-      m_dll->CECDestroy(m_cecAdapter);
+-    m_cecAdapter = NULL;
+-  }
+-  else
+-  {
+-    CLog::Log(LOGDEBUG, "%s - using libCEC v%d.%d", __FUNCTION__, m_cecAdapter->GetLibVersionMajor(), m_cecAdapter->GetLibVersionMinor());
+-    m_features.push_back(FEATURE_CEC);
+-  }
++  m_configuration.Clear();
++  m_features.push_back(FEATURE_CEC);
+ }
+ 
+ CPeripheralCecAdapter::~CPeripheralCecAdapter(void)
+@@ -136,49 +110,59 @@ void CPeripheralCecAdapter::Announce(EAnnouncementFlag flag, const char *sender,
+ {
+   if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnQuit") && m_bIsReady)
+   {
+-    if (GetSettingBool("cec_power_off_shutdown"))
+-      m_cecAdapter->StandbyDevices();
+-    else
+-      m_cecAdapter->SetInactiveView();
++    // only send power off and inactive source command when we're currently active
++    if (m_cecAdapter->IsLibCECActiveSource())
++    {
++      // if there are any devices to power off set, power them off
++      if (!m_configuration.powerOffDevices.IsEmpty())
++        m_cecAdapter->StandbyDevices(CECDEVICE_BROADCAST);
++      // send an inactive source command otherwise
++      else
++        m_cecAdapter->SetInactiveView();
++    }
+   }
+-  else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverDeactivated") && GetSettingBool("cec_standby_screensaver") && m_bIsReady)
++  else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverDeactivated") && m_bIsReady)
+   {
+-    m_cecAdapter->PowerOnDevices();
++    if (m_configuration.bPowerOffScreensaver == 1)
++    {
++      // power off/on on screensaver is set, and devices to wake are set
++      if (!m_configuration.wakeDevices.IsEmpty())
++        m_cecAdapter->PowerOnDevices(CECDEVICE_BROADCAST);
++
++      // the option to make XBMC the active source is set
++      if (m_configuration.bActivateSource == 1)
++        m_cecAdapter->SetActiveSource();
++    }
+   }
+-  else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverActivated") && GetSettingBool("cec_standby_screensaver"))
++  else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverActivated") && m_bIsReady)
+   {
+-    m_screensaverLastActivated = CDateTime::GetCurrentDateTime();
+-    m_cecAdapter->StandbyDevices();
++    if (m_configuration.bPowerOffScreensaver == 1)
++    {
++      m_screensaverLastActivated = CDateTime::GetCurrentDateTime();
++      // only power off when we're the active source
++      if (m_cecAdapter->IsLibCECActiveSource())
++        m_cecAdapter->StandbyDevices(CECDEVICE_BROADCAST);
++    }
+   }
+   else if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnSleep"))
+   {
+-    if (GetSettingBool("cec_power_off_shutdown") && m_bIsReady)
+-      m_cecAdapter->StandbyDevices();
++    // this will also power off devices when we're the active source
+     CSingleLock lock(m_critSection);
+     m_bStop = true;
+     WaitForThreadExit(0);
+   }
+   else if (flag == System && !strcmp(sender, "xbmc") && !strcmp(message, "OnWake"))
+   {
++    // reconnect to the device
+     CSingleLock lock(m_critSection);
+     CLog::Log(LOGDEBUG, "%s - reconnecting to the CEC adapter after standby mode", __FUNCTION__);
++
++    // close the previous connection
+     m_cecAdapter->Close();
+ 
+-    CStdString strPort = GetComPort();
+-    if (!strPort.empty())
+-    {
+-      if (!m_cecAdapter->Open(strPort.c_str(), 10000))
+-      {
+-        CLog::Log(LOGERROR, "%s - failed to reconnect to the CEC adapter", __FUNCTION__);
+-        m_bStop = true;
+-      }
+-      else
+-      {
+-        if (GetSettingBool("cec_power_on_startup"))
+-          PowerOnCecDevices(CECDEVICE_TV);
+-        m_cecAdapter->SetActiveView();
+-      }
+-    }
++    // and open a new one
++    m_bStop = false;
++    Create();
+   }
+ }
+ 
+@@ -186,6 +170,41 @@ bool CPeripheralCecAdapter::InitialiseFeature(const PeripheralFeature feature)
+ {
+   if (feature == FEATURE_CEC && !m_bStarted)
+   {
++    SetConfigurationFromSettings();
++    m_callbacks.CBCecLogMessage           = &CecLogMessage;
++    m_callbacks.CBCecKeyPress             = &CecKeyPress;
++    m_callbacks.CBCecCommand              = &CecCommand;
++    m_callbacks.CBCecConfigurationChanged = &CecConfiguration;
++    m_configuration.callbackParam         = this;
++    m_configuration.callbacks             = &m_callbacks;
++
++    m_dll = new DllLibCEC;
++    if (m_dll->Load() && m_dll->IsLoaded())
++      m_cecAdapter = m_dll->CECInitialise(&m_configuration);
++    else
++      return false;
++
++    if (m_configuration.serverVersion < CEC_LIB_SUPPORTED_VERSION)
++    {
++      /* unsupported libcec version */
++      CLog::Log(LOGERROR, g_localizeStrings.Get(36013).c_str(), CEC_LIB_SUPPORTED_VERSION, m_cecAdapter ? m_configuration.serverVersion : -1);
++
++      CStdString strMessage;
++      strMessage.Format(g_localizeStrings.Get(36013).c_str(), CEC_LIB_SUPPORTED_VERSION, m_cecAdapter ? m_configuration.serverVersion : -1);
++      CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(36000), strMessage);
++      m_bError = true;
++      if (m_cecAdapter)
++        m_dll->CECDestroy(m_cecAdapter);
++      m_cecAdapter = NULL;
++
++      m_features.clear();
++      return false;
++    }
++    else
++    {
++      CLog::Log(LOGDEBUG, "%s - using libCEC v%s", __FUNCTION__, m_cecAdapter->ToString((cec_server_version)m_configuration.serverVersion));
++    }
++
+     m_bStarted = true;
+     Create();
+   }
+@@ -224,25 +243,20 @@ CStdString CPeripheralCecAdapter::GetComPort(void)
+   return strPort;
+ }
+ 
+-void CPeripheralCecAdapter::Process(void)
++bool CPeripheralCecAdapter::OpenConnection(void)
+ {
++  bool bIsOpen(false);
++
+   if (!GetSettingBool("enabled"))
+   {
+     CLog::Log(LOGDEBUG, "%s - CEC adapter is disabled in peripheral settings", __FUNCTION__);
+     m_bStarted = false;
+-    return;
++    return bIsOpen;
+   }
+   
+   CStdString strPort = GetComPort();
+   if (strPort.empty())
+-    return;
+-
+-  EnableCallbacks();
+-
+-  // set correct physical address from peripheral settings
+-  int iDevice = GetSettingInt("connected_device");
+-  int iHdmiPort = GetSettingInt("cec_hdmi_port");
+-  m_cecAdapter->SetHDMIPort((cec_logical_address)iDevice, iHdmiPort);
++    return bIsOpen;
+ 
+   // open the CEC adapter
+   CLog::Log(LOGDEBUG, "%s - opening a connection to the CEC adapter: %s", __FUNCTION__, strPort.c_str());
+@@ -252,24 +266,43 @@ void CPeripheralCecAdapter::Process(void)
+   strMessage.Format(g_localizeStrings.Get(21336), g_localizeStrings.Get(36000));
+   CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), strMessage);
+ 
+-  if (!m_cecAdapter->Open(strPort.c_str(), 10000))
++  bool bConnectionFailedDisplayed(false);
++
++  while (!m_bStop && !bIsOpen)
+   {
+-    CLog::Log(LOGERROR, "%s - could not opening a connection to the CEC adapter", __FUNCTION__);
+-    CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(36000), g_localizeStrings.Get(36012));
+-    m_bStarted = false;
+-    return;
+-  }
++    if ((bIsOpen = m_cecAdapter->Open(strPort.c_str(), 10000)) == false)
++    {
++      CLog::Log(LOGERROR, "%s - could not opening a connection to the CEC adapter", __FUNCTION__);
++      if (!bConnectionFailedDisplayed)
++        CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(36000), g_localizeStrings.Get(36012));
++      bConnectionFailedDisplayed = true;
+ 
+-  CAnnouncementManager::AddAnnouncer(this);
+-  CLog::Log(LOGDEBUG, "%s - connection to the CEC adapter opened", __FUNCTION__);
++      Sleep(10000);
++    }
++  }
+ 
+-  if (GetSettingBool("cec_power_on_startup"))
++  if (bIsOpen)
+   {
+-    PowerOnCecDevices(CECDEVICE_TV);
+-    m_cecAdapter->SetActiveSource();
++    CLog::Log(LOGDEBUG, "%s - connection to the CEC adapter opened", __FUNCTION__);
++
++    if (!m_configuration.wakeDevices.IsEmpty())
++      m_cecAdapter->PowerOnDevices(CECDEVICE_BROADCAST);
++
++    if (m_configuration.bActivateSource == 1)
++      m_cecAdapter->SetActiveSource();
+   }
+ 
+-  m_queryThread = new CPeripheralCecAdapterQueryThread(this);
++  return bIsOpen;
++}
++
++void CPeripheralCecAdapter::Process(void)
++{
++  if (!OpenConnection())
++    return;
++
++  CAnnouncementManager::AddAnnouncer(this);
++
++  m_queryThread = new CPeripheralCecAdapterQueryThread(this, m_configuration.bUseTVMenuLanguage == 1);
+   m_queryThread->Create(false);
+ 
+   while (!m_bStop)
+@@ -282,62 +315,19 @@ void CPeripheralCecAdapter::Process(void)
+   }
+ 
+   delete m_queryThread;
+-  m_cecAdapter->Close();
+-
+-  CLog::Log(LOGDEBUG, "%s - CEC adapter processor thread ended", __FUNCTION__);
+-  m_bStarted = false;
+-}
+-
+-bool CPeripheralCecAdapter::PowerOnCecDevices(cec_logical_address iLogicalAddress)
+-{
+-  bool bReturn(false);
+-
+-  if (m_cecAdapter && m_bIsReady)
+-  {
+-    CLog::Log(LOGDEBUG, "%s - powering on CEC capable device with address %1x", __FUNCTION__, iLogicalAddress);
+-    bReturn = m_cecAdapter->PowerOnDevices(iLogicalAddress);
+-  }
+-
+-  return bReturn;
+-}
+ 
+-bool CPeripheralCecAdapter::StandbyCecDevices(cec_logical_address iLogicalAddress)
+-{
+-  bool bReturn(false);
+-
+-  if (m_cecAdapter && m_bIsReady)
+-  {
+-    CLog::Log(LOGDEBUG, "%s - putting CEC capable devices with address %1x in standby mode", __FUNCTION__, iLogicalAddress);
+-    bReturn = m_cecAdapter->StandbyDevices(iLogicalAddress);
+-  }
+-
+-  return bReturn;
+-}
+-
+-bool CPeripheralCecAdapter::SendPing(void)
+-{
+-  bool bReturn(false);
+-  if (m_cecAdapter && m_bIsReady)
++  if (m_cecAdapter->IsLibCECActiveSource())
+   {
+-    CLog::Log(LOGDEBUG, "%s - sending ping to the CEC adapter", __FUNCTION__);
+-    bReturn = m_cecAdapter->PingAdapter();
++    if (m_configuration.bPowerOffOnStandby == 1)
++      m_cecAdapter->StandbyDevices();
++    else
++      m_cecAdapter->SetInactiveView();
+   }
+ 
+-  return bReturn;
+-}
+-
+-bool CPeripheralCecAdapter::SetHdmiPort(int iDevice, int iHdmiPort)
+-{
+-  bool bReturn(false);
+-  if (m_cecAdapter && m_bIsReady)
+-  {
+-    if (iHdmiPort <= 0 || iHdmiPort > 16)
+-      iHdmiPort = 1;
+-    CLog::Log(LOGDEBUG, "%s - changing active HDMI port to %d on device %d", __FUNCTION__, iHdmiPort, iDevice);
+-    bReturn = m_cecAdapter->SetHDMIPort((cec_logical_address)iDevice, iHdmiPort);
+-  }
++  m_cecAdapter->Close();
+ 
+-  return bReturn;
++  CLog::Log(LOGDEBUG, "%s - CEC adapter processor thread ended", __FUNCTION__);
++  m_bStarted = false;
+ }
+ 
+ bool CPeripheralCecAdapter::HasConnectedAudioSystem(void)
+@@ -542,7 +532,7 @@ int CPeripheralCecAdapter::CecCommand(void *cbParam, const cec_command &command)
+     case CEC_OPCODE_STANDBY:
+       /* a device was put in standby mode */
+       CLog::Log(LOGDEBUG, "%s - device %1x was put in standby mode", __FUNCTION__, command.initiator);
+-      if (command.initiator == CECDEVICE_TV && adapter->GetSettingBool("standby_pc_on_tv_standby") &&
++      if (command.initiator == CECDEVICE_TV && adapter->m_configuration.bPowerOffOnStandby == 1 &&
+           (!adapter->m_screensaverLastActivated.IsValid() || CDateTime::GetCurrentDateTime() - adapter->m_screensaverLastActivated > CDateTimeSpan(0, 0, 0, SCREENSAVER_TIMEOUT)))
+       {
+         adapter->m_bStarted = false;
+@@ -550,7 +540,7 @@ int CPeripheralCecAdapter::CecCommand(void *cbParam, const cec_command &command)
+       }
+       break;
+     case CEC_OPCODE_SET_MENU_LANGUAGE:
+-      if (adapter->GetSettingBool("use_tv_menu_language") && command.initiator == CECDEVICE_TV && command.parameters.size == 3)
++      if (adapter->m_configuration.bUseTVMenuLanguage == 1 && command.initiator == CECDEVICE_TV && command.parameters.size == 3)
+       {
+         char strNewLanguage[4];
+         for (int iPtr = 0; iPtr < 3; iPtr++)
+@@ -609,6 +599,17 @@ int CPeripheralCecAdapter::CecCommand(void *cbParam, const cec_command &command)
+   return 1;
+ }
+ 
++int CPeripheralCecAdapter::CecConfiguration(void *cbParam, const libcec_configuration &config)
++{
++  CPeripheralCecAdapter *adapter = (CPeripheralCecAdapter *)cbParam;
++  if (!adapter)
++    return 0;
++
++  CSingleLock lock(adapter->m_critSection);
++  adapter->SetConfigurationFromLibCEC(config);
++  return 1;
++}
++
+ int CPeripheralCecAdapter::CecKeyPress(void *cbParam, const cec_keypress &key)
+ {
+   CPeripheralCecAdapter *adapter = (CPeripheralCecAdapter *)cbParam;
+@@ -869,9 +870,10 @@ void CPeripheralCecAdapter::OnSettingChanged(const CStdString &strChangedSetting
+     else if (bEnabled && !m_cecAdapter && m_bStarted)
+       InitialiseFeature(FEATURE_CEC);
+   }
+-  else if (strChangedSetting.Equals("connected_device") || strChangedSetting.Equals("cec_hdmi_port"))
++  else
+   {
+-    SetHdmiPort(GetSettingInt("connected_device"), GetSettingInt("cec_hdmi_port"));
++    SetConfigurationFromSettings();
++    m_cecAdapter->SetConfiguration(&m_configuration);
+   }
+ }
+ 
+@@ -919,9 +921,10 @@ bool CPeripheralCecAdapter::TranslateComPort(CStdString &strLocation)
+   return false;
+ }
+ 
+-CPeripheralCecAdapterQueryThread::CPeripheralCecAdapterQueryThread(CPeripheralCecAdapter *adapter) :
++CPeripheralCecAdapterQueryThread::CPeripheralCecAdapterQueryThread(CPeripheralCecAdapter *adapter, bool bGetMenuLanguage) :
+     CThread("CEC Adapter Query Thread"),
+-    m_adapter(adapter)
++    m_adapter(adapter),
++    m_bGetMenuLanguage(bGetMenuLanguage)
+ {
+   m_event.Reset();
+ }
+@@ -950,7 +953,7 @@ void CPeripheralCecAdapterQueryThread::Process(void)
+       bContinue = true;
+   }while(!bContinue);
+ 
+-  if (m_adapter->GetSettingBool("use_tv_menu_language"))
++  if (m_bGetMenuLanguage)
+   {
+     cec_menu_language language;
+     if (m_adapter->m_cecAdapter->GetDeviceMenuLanguage(CECDEVICE_TV, &language))
+@@ -980,12 +983,140 @@ void CPeripheralCecAdapterQueryThread::Process(void)
+   CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), strNotification);
+ }
+ 
+-void CPeripheralCecAdapter::EnableCallbacks(void)
++void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configuration &config)
++{
++  // set the primary device type
++  m_configuration.deviceTypes.Clear();
++  m_configuration.deviceTypes.Add(config.deviceTypes[0]);
++  SetSetting("device_type", (int)config.deviceTypes[0]);
++
++  // set the connected device
++  m_configuration.baseDevice = config.baseDevice;
++  SetSetting("connected_device", (int)config.baseDevice);
++
++  // set the HDMI port number
++  m_configuration.iHDMIPort = config.iHDMIPort;
++  SetSetting("cec_hdmi_port", config.iHDMIPort);
++
++  // set the physical address, when baseDevice or iHDMIPort are not set
++  if (m_configuration.baseDevice == CECDEVICE_UNKNOWN ||
++      m_configuration.iHDMIPort == 0 || m_configuration.iHDMIPort > 4)
++  {
++    m_configuration.iPhysicalAddress = config.iPhysicalAddress;
++    CStdString strPhysicalAddress;
++    strPhysicalAddress.Format("%x", config.iPhysicalAddress);
++    SetSetting("physical_address", strPhysicalAddress);
++  }
++
++  // set the tv vendor override
++  m_configuration.tvVendor = config.tvVendor;
++  SetSetting("tv_vendor", (int)config.tvVendor);
++
++  // set the devices to wake when starting
++  m_configuration.wakeDevices = config.wakeDevices;
++  CStdString strWakeDevices;
++  for (unsigned int iPtr = 0; iPtr <= 16; iPtr++)
++    if (config.wakeDevices[iPtr])
++      strWakeDevices.AppendFormat(" %X", iPtr);
++  SetSetting("wake_devices", strWakeDevices.Trim());
++
++  // set the devices to power off when stopping
++  m_configuration.powerOffDevices = config.powerOffDevices;
++  CStdString strPowerOffDevices;
++  for (unsigned int iPtr = 0; iPtr <= 16; iPtr++)
++    if (config.powerOffDevices[iPtr])
++      strPowerOffDevices.AppendFormat(" %X", iPtr);
++  SetSetting("wake_devices", strPowerOffDevices.Trim());
++
++  // set the boolean settings
++  m_configuration.bUseTVMenuLanguage = m_configuration.bUseTVMenuLanguage;
++  SetSetting("use_tv_menu_language", m_configuration.bUseTVMenuLanguage == 1);
++
++  m_configuration.bActivateSource = m_configuration.bActivateSource;
++  SetSetting("activate_source", m_configuration.bActivateSource == 1);
++
++  m_configuration.bPowerOffScreensaver = m_configuration.bPowerOffScreensaver;
++  SetSetting("cec_standby_screensaver", m_configuration.bPowerOffScreensaver == 1);
++
++  m_configuration.bPowerOffOnStandby = m_configuration.bPowerOffOnStandby;
++  SetSetting("standby_pc_on_tv_standby", m_configuration.bPowerOffOnStandby == 1);
++}
++
++void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
++{
++  // client version 1.5.0
++  m_configuration.clientVersion = CEC_CLIENT_VERSION_1_5_0;
++
++  // device name 'XBMC'
++  snprintf(m_configuration.strDeviceName, 13, "%s", GetSettingString("device_name").c_str());
++
++  // set the primary device type
++  m_configuration.deviceTypes.Clear();
++  int iDeviceType = GetSettingInt("device_type");
++  if (iDeviceType != (int)CEC_DEVICE_TYPE_RECORDING_DEVICE &&
++      iDeviceType != (int)CEC_DEVICE_TYPE_PLAYBACK_DEVICE &&
++      iDeviceType != (int)CEC_DEVICE_TYPE_TUNER)
++    iDeviceType = (int)CEC_DEVICE_TYPE_RECORDING_DEVICE;
++  m_configuration.deviceTypes.Add((cec_device_type)iDeviceType);
++
++  // always try to autodetect the address.
++  // when the firmware supports this, it will override the physical address, connected device and hdmi port settings
++  m_configuration.bAutodetectAddress = 1;
++
++  // set the physical address
++  // when set, it will override the connected device and hdmi port settings
++  CStdString strPhysicalAddress = GetSettingString("physical_address");
++  int iPhysicalAddress;
++  if (sscanf(strPhysicalAddress.c_str(), "%x", &iPhysicalAddress) == 1 && iPhysicalAddress > 0 && iPhysicalAddress < 0xFFFF)
++    m_configuration.iPhysicalAddress = iPhysicalAddress;
++
++  // set the connected device
++  int iConnectedDevice = GetSettingInt("connected_device");
++  if (iConnectedDevice == 0 || iConnectedDevice == 5)
++    m_configuration.baseDevice = (cec_logical_address)iConnectedDevice;
++
++  // set the HDMI port number
++  int iHDMIPort = GetSettingInt("cec_hdmi_port");
++  if (iHDMIPort >= 0 && iHDMIPort <= 4)
++    m_configuration.iHDMIPort = iHDMIPort;
++
++  // set the tv vendor override
++  int iVendor = GetSettingInt("tv_vendor");
++  if (iVendor > 0 && iVendor < 0xFFFFFF)
++    m_configuration.tvVendor = iVendor;
++
++  // read the devices to wake when starting
++  CStdString strWakeDevices = CStdString(GetSettingString("wake_devices")).Trim();
++  m_configuration.wakeDevices.Clear();
++  ReadLogicalAddresses(strWakeDevices, m_configuration.wakeDevices);
++
++  // read the devices to power off when stopping
++  CStdString strStandbyDevices = CStdString(GetSettingString("standby_devices")).Trim();
++  m_configuration.powerOffDevices.Clear();
++  ReadLogicalAddresses(strStandbyDevices, m_configuration.powerOffDevices);
++
++  // always get the settings from the rom, when supported by the firmware
++  m_configuration.bGetSettingsFromROM = 1;
++
++  // read the boolean settings
++  m_configuration.bUseTVMenuLanguage   = GetSettingBool("use_tv_menu_language") ? 1 : 0;
++  m_configuration.bActivateSource      = GetSettingBool("activate_source") ? 1 : 0;
++  m_configuration.bPowerOffScreensaver = GetSettingBool("cec_standby_screensaver") ? 1 : 0;
++  m_configuration.bPowerOffOnStandby   = GetSettingBool("standby_pc_on_tv_standby") ? 1 : 0;
++}
++
++void CPeripheralCecAdapter::ReadLogicalAddresses(const CStdString &strString, cec_logical_addresses &addresses)
+ {
+-  m_callbacks.CBCecLogMessage = &CecLogMessage;
+-  m_callbacks.CBCecKeyPress   = &CecKeyPress;
+-  m_callbacks.CBCecCommand    = &CecCommand;
+-  m_cecAdapter->EnableCallbacks(this, &m_callbacks);
++  for (size_t iPtr = 0; iPtr < strString.size(); iPtr++)
++  {
++    CStdString strDevice = CStdString(strString.substr(iPtr, 1)).Trim();
++    if (!strDevice.IsEmpty())
++    {
++      int iDevice(0);
++      if (sscanf(strDevice.c_str(), "%x", &iDevice) == 1 && iDevice >= 0 && iDevice <= 0xF)
++        addresses.Set((cec_logical_address)iDevice);
++    }
++  }
+ }
+ 
+ #endif
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.h b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+index 54eef5f..9de351d 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.h
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+@@ -32,7 +32,7 @@
+ #ifdef isset
+ #undef isset
+ #endif
+-#include <cectypes.h>
++#include <libcec/cectypes.h>
+ 
+ class DllLibCEC;
+ 
+@@ -68,8 +68,6 @@
+     virtual ~CPeripheralCecAdapter(void);
+ 
+     virtual void Announce(ANNOUNCEMENT::EAnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
+-    virtual bool PowerOnCecDevices(CEC::cec_logical_address iLogicalAddress);
+-    virtual bool StandbyCecDevices(CEC::cec_logical_address iLogicalAddress);
+     virtual bool HasConnectedAudioSystem(void);
+     virtual void SetAudioSystemConnected(bool bSetTo);
+     virtual void ScheduleVolumeUp(void);
+@@ -79,9 +77,6 @@
+     virtual void ScheduleMute(void);
+     virtual void Mute(void);
+ 
+-    virtual bool SendPing(void);
+-    virtual bool SetHdmiPort(int iDevice, int iHdmiPort);
+-
+     virtual void OnSettingChanged(const CStdString &strChangedSetting);
+ 
+     virtual WORD GetButton(void);
+@@ -90,10 +85,14 @@
+     virtual CStdString GetComPort(void);
+ 
+   protected:
+-    virtual void EnableCallbacks(void);
++    virtual bool OpenConnection(void);
++    virtual void SetConfigurationFromSettings(void);
++    virtual void SetConfigurationFromLibCEC(const CEC::libcec_configuration &config);
++    static void ReadLogicalAddresses(const CStdString &strString, CEC::cec_logical_addresses &addresses);
+     static int CecKeyPress(void *cbParam, const CEC::cec_keypress &key);
+     static int CecLogMessage(void *cbParam, const CEC::cec_log_message &message);
+     static int CecCommand(void *cbParam, const CEC::cec_command &command);
++    static int CecConfiguration(void *cbParam, const CEC::libcec_configuration &config);
+ 
+     virtual bool GetNextKey(void);
+     virtual bool GetNextCecKey(CEC::cec_keypress &key);
+@@ -120,12 +119,13 @@
+     CPeripheralCecAdapterQueryThread *m_queryThread;
+     CEC::ICECCallbacks                m_callbacks;
+     CCriticalSection                  m_critSection;
++    CEC::libcec_configuration         m_configuration;
+   };
+ 
+   class CPeripheralCecAdapterQueryThread : public CThread
+   {
+   public:
+-    CPeripheralCecAdapterQueryThread(CPeripheralCecAdapter *adapter);
++    CPeripheralCecAdapterQueryThread(CPeripheralCecAdapter *adapter, bool bGetMenuLanguage);
+     virtual ~CPeripheralCecAdapterQueryThread(void);
+ 
+     virtual void Signal(void);
+@@ -135,6 +135,7 @@
+ 
+     CPeripheralCecAdapter *m_adapter;
+     CEvent                 m_event;
++    bool                   m_bGetMenuLanguage;
+   };
+ }
+ 
+-- 
+1.7.5.4
+
+
+From 330968b652de0f357cc95e1aafa0aaf94f881cc5 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Fri, 17 Feb 2012 12:48:41 +0100
+Subject: [PATCH 16/17] peripherals: use std::set for changed settings instead
+ of std::vector
+
+---
+ xbmc/peripherals/devices/Peripheral.cpp |   12 ++++++------
+ xbmc/peripherals/devices/Peripheral.h   |    4 ++--
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/Peripheral.cpp b/xbmc/peripherals/devices/Peripheral.cpp
+index 11ec8b0..3d9a238 100644
+--- a/xbmc/peripherals/devices/Peripheral.cpp
++++ b/xbmc/peripherals/devices/Peripheral.cpp
+@@ -340,7 +340,7 @@ void CPeripheral::SetSetting(const CStdString &strKey, bool bValue)
+       bool bChanged(boolSetting->GetData() != bValue);
+       boolSetting->SetData(bValue);
+       if (bChanged && m_bInitialised)
+-        m_changedSettings.push_back(strKey);
++        m_changedSettings.insert(strKey);
+     }
+   }
+ }
+@@ -356,7 +356,7 @@ void CPeripheral::SetSetting(const CStdString &strKey, int iValue)
+       bool bChanged(intSetting->GetData() != iValue);
+       intSetting->SetData(iValue);
+       if (bChanged && m_bInitialised)
+-        m_changedSettings.push_back(strKey);
++        m_changedSettings.insert(strKey);
+     }
+   }
+ }
+@@ -372,7 +372,7 @@ void CPeripheral::SetSetting(const CStdString &strKey, float fValue)
+       bool bChanged(floatSetting->GetData() != fValue);
+       floatSetting->SetData(fValue);
+       if (bChanged && m_bInitialised)
+-        m_changedSettings.push_back(strKey);
++        m_changedSettings.insert(strKey);
+     }
+   }
+ }
+@@ -405,7 +405,7 @@ void CPeripheral::SetSetting(const CStdString &strKey, const CStdString &strValu
+         bool bChanged(!stringSetting->GetData().Equals(strValue));
+         stringSetting->SetData(strValue);
+         if (bChanged && m_bInitialised)
+-          m_changedSettings.push_back(strKey);
++          m_changedSettings.insert(strKey);
+       }
+     }
+     else if ((*it).second->GetType() == SETTINGS_TYPE_INT)
+@@ -468,7 +468,7 @@ void CPeripheral::PersistSettings(bool bExiting /* = false */)
+ 
+   if (!bExiting)
+   {
+-    for (vector<CStdString>::iterator it = m_changedSettings.begin(); it != m_changedSettings.end(); it++)
++    for (set<CStdString>::const_iterator it = m_changedSettings.begin(); it != m_changedSettings.end(); it++)
+       OnSettingChanged(*it);
+   }
+   m_changedSettings.clear();
+@@ -499,7 +499,7 @@ void CPeripheral::ResetDefaultSettings(void)
+   map<CStdString, CSetting *>::iterator it = m_settings.begin();
+   while (it != m_settings.end())
+   {
+-    m_changedSettings.push_back((*it).first);
++    m_changedSettings.insert((*it).first);
+     ++it;
+   }
+ 
+diff --git a/xbmc/peripherals/devices/Peripheral.h b/xbmc/peripherals/devices/Peripheral.h
+index 237cd62..1c6ca71b 100644
+--- a/xbmc/peripherals/devices/Peripheral.h
++++ b/xbmc/peripherals/devices/Peripheral.h
+@@ -20,7 +20,7 @@
+  *
+  */
+ 
+-#include <vector>
++#include <set>
+ #include "utils/StdString.h"
+ #include "peripherals/PeripheralTypes.h"
+ 
+@@ -167,6 +167,6 @@
+     std::vector<PeripheralFeature>   m_features;
+     std::vector<CPeripheral *>       m_subDevices;
+     std::map<CStdString, CSetting *> m_settings;
+-    std::vector<CStdString>          m_changedSettings;
++    std::set<CStdString>             m_changedSettings;
+   };
+ }
+-- 
+1.7.5.4
+
+
+From 7cf28db5f6868b86d90594d5ba503dced8ea5fca Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Fri, 17 Feb 2012 14:05:42 +0100
+Subject: [PATCH 17/17] cec: update settings async, so we don't block the gui
+ thread when the OK button is pressed
+
+---
+ language/English/strings.xml                      |    2 +
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp |  219 +++++++++++++++------
+ xbmc/peripherals/devices/PeripheralCecAdapter.h   |   25 ++-
+ 3 files changed, 173 insertions(+), 73 deletions(-)
+
+diff --git a/language/English/strings.xml b/language/English/strings.xml
+index 27487f4..1dc30d9 100644
+--- a/language/English/strings.xml
++++ b/language/English/strings.xml
+@@ -2409,4 +2409,6 @@
+   <string id="36020">Make XBMC the active source when starting</string>
+   <string id="36021">Physical address (overrules HDMI port)</string>
+   <string id="36022">COM port (leave empty unless needed)</string>
++  <string id="36023">Configuration updated</string>
++  <string id="36024">Failed to set the new configuration. Please check your settings.</string>
+ </strings>
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 7fed634..32e21ef 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -302,7 +302,7 @@ void CPeripheralCecAdapter::Process(void)
+ 
+   CAnnouncementManager::AddAnnouncer(this);
+ 
+-  m_queryThread = new CPeripheralCecAdapterQueryThread(this, m_configuration.bUseTVMenuLanguage == 1);
++  m_queryThread = new CPeripheralCecAdapterUpdateThread(this, &m_configuration);
+   m_queryThread->Create(false);
+ 
+   while (!m_bStop)
+@@ -873,7 +873,7 @@ void CPeripheralCecAdapter::OnSettingChanged(const CStdString &strChangedSetting
+   else
+   {
+     SetConfigurationFromSettings();
+-    m_cecAdapter->SetConfiguration(&m_configuration);
++    m_queryThread->UpdateConfiguration(&m_configuration);
+   }
+ }
+ 
+@@ -921,68 +921,6 @@ bool CPeripheralCecAdapter::TranslateComPort(CStdString &strLocation)
+   return false;
+ }
+ 
+-CPeripheralCecAdapterQueryThread::CPeripheralCecAdapterQueryThread(CPeripheralCecAdapter *adapter, bool bGetMenuLanguage) :
+-    CThread("CEC Adapter Query Thread"),
+-    m_adapter(adapter),
+-    m_bGetMenuLanguage(bGetMenuLanguage)
+-{
+-  m_event.Reset();
+-}
+-
+-CPeripheralCecAdapterQueryThread::~CPeripheralCecAdapterQueryThread(void)
+-{
+-  m_event.Set();
+-  StopThread(true);
+-}
+-
+-void CPeripheralCecAdapterQueryThread::Signal(void)
+-{
+-  m_event.Set();
+-}
+-
+-void CPeripheralCecAdapterQueryThread::Process(void)
+-{
+-  bool bContinue(false);
+-  do
+-  {
+-    m_event.WaitMSec(5000);
+-    if (m_adapter->m_bStop)
+-      return;
+-
+-    if (m_adapter->m_cecAdapter->GetDevicePowerStatus(CECDEVICE_TV) == CEC_POWER_STATUS_ON)
+-      bContinue = true;
+-  }while(!bContinue);
+-
+-  if (m_bGetMenuLanguage)
+-  {
+-    cec_menu_language language;
+-    if (m_adapter->m_cecAdapter->GetDeviceMenuLanguage(CECDEVICE_TV, &language))
+-      m_adapter->SetMenuLanguage(language.language);
+-  }
+-
+-  CStdString strNotification;
+-  cec_osd_name tvName = m_adapter->m_cecAdapter->GetDeviceOSDName(CECDEVICE_TV);
+-  strNotification.Format("%s: %s", g_localizeStrings.Get(36016), tvName.name);
+-
+-  /* disable the mute setting when an amp is found, because the amp handles the mute setting and
+-     set PCM output to 100% */
+-  if (m_adapter->m_cecAdapter->IsActiveDeviceType(CEC_DEVICE_TYPE_AUDIO_SYSTEM))
+-  {
+-    cec_osd_name ampName = m_adapter->m_cecAdapter->GetDeviceOSDName(CECDEVICE_AUDIOSYSTEM);
+-    CLog::Log(LOGDEBUG, "%s - CEC capable amplifier found (%s). volume will be controlled on the amp", __FUNCTION__, ampName.name);
+-    strNotification.AppendFormat(" - %s", ampName.name);
+-
+-    m_adapter->SetAudioSystemConnected(true);
+-    g_settings.m_bMute = false;
+-    g_settings.m_nVolumeLevel = VOLUME_MAXIMUM;
+-  }
+-
+-  m_adapter->m_bIsReady = true;
+-
+-  m_adapter->m_cecAdapter->SetOSDString(CECDEVICE_TV, CEC_DISPLAY_CONTROL_DISPLAY_FOR_DEFAULT_TIME, g_localizeStrings.Get(36016).c_str());
+-  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), strNotification);
+-}
+-
+ void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configuration &config)
+ {
+   // set the primary device type
+@@ -1119,4 +1057,157 @@ void CPeripheralCecAdapter::ReadLogicalAddresses(const CStdString &strString, ce
+   }
+ }
+ 
++CPeripheralCecAdapterUpdateThread::CPeripheralCecAdapterUpdateThread(CPeripheralCecAdapter *adapter, libcec_configuration *configuration) :
++    CThread("CEC Adapter Update Thread"),
++    m_adapter(adapter),
++    m_configuration(*configuration),
++    m_bNextConfigurationScheduled(false),
++    m_bIsUpdating(true)
++{
++  m_nextConfiguration.Clear();
++  m_event.Reset();
++}
++
++CPeripheralCecAdapterUpdateThread::~CPeripheralCecAdapterUpdateThread(void)
++{
++  StopThread(false);
++  m_event.Set();
++  StopThread(true);
++}
++
++void CPeripheralCecAdapterUpdateThread::Signal(void)
++{
++  m_event.Set();
++}
++
++bool CPeripheralCecAdapterUpdateThread::UpdateConfiguration(libcec_configuration *configuration)
++{
++  CSingleLock lock(m_critSection);
++  if (m_bIsUpdating)
++  {
++    m_bNextConfigurationScheduled = true;
++    m_nextConfiguration = *configuration;
++  }
++  else
++  {
++    m_configuration = *configuration;
++    m_event.Set();
++  }
++  return true;
++}
++
++bool CPeripheralCecAdapterUpdateThread::WaitReady(void)
++{
++  // don't wait if we're not powering up anything
++  if (m_configuration.wakeDevices.IsEmpty() && m_configuration.bActivateSource == 0)
++    return true;
++
++  // wait for the TV if we're configured to become the active source.
++  // wait for the first device in the wake list otherwise.
++  cec_logical_address waitFor = (m_configuration.bActivateSource == 1) ?
++      CECDEVICE_TV :
++      m_configuration.wakeDevices.primary;
++
++  cec_power_status powerStatus(CEC_POWER_STATUS_UNKNOWN);
++  bool bContinue(true);
++  while (bContinue && !m_adapter->m_bStop && !m_bStop &&powerStatus != CEC_POWER_STATUS_ON)
++  {
++    powerStatus = m_adapter->m_cecAdapter->GetDevicePowerStatus(waitFor);
++    if (powerStatus != CEC_POWER_STATUS_ON)
++      bContinue = !m_event.WaitMSec(5000);
++  }
++
++  return powerStatus == CEC_POWER_STATUS_ON;
++}
++
++bool CPeripheralCecAdapterUpdateThread::SetInitialConfiguration(void)
++{
++  // devices to wake are set
++  if (!m_configuration.wakeDevices.IsEmpty())
++    m_adapter->m_cecAdapter->PowerOnDevices(CECDEVICE_BROADCAST);
++
++  // the option to make XBMC the active source is set
++  if (m_configuration.bActivateSource == 1)
++    m_adapter->m_cecAdapter->SetActiveSource();
++
++  // wait until devices are powered up
++  if (!WaitReady())
++    return false;
++
++  // request the menu language of the TV
++  if (m_configuration.bUseTVMenuLanguage == 1)
++  {
++    cec_menu_language language;
++    if (m_adapter->m_cecAdapter->GetDeviceMenuLanguage(CECDEVICE_TV, &language))
++      m_adapter->SetMenuLanguage(language.language);
++  }
++
++  // request the OSD name of the TV
++  CStdString strNotification;
++  cec_osd_name tvName = m_adapter->m_cecAdapter->GetDeviceOSDName(CECDEVICE_TV);
++  strNotification.Format("%s: %s", g_localizeStrings.Get(36016), tvName.name);
++
++  /* disable the mute setting when an amp is found, because the amp handles the mute setting and
++     set PCM output to 100% */
++  if (m_adapter->m_cecAdapter->IsActiveDeviceType(CEC_DEVICE_TYPE_AUDIO_SYSTEM))
++  {
++    // request the OSD name of the amp
++    cec_osd_name ampName = m_adapter->m_cecAdapter->GetDeviceOSDName(CECDEVICE_AUDIOSYSTEM);
++    CLog::Log(LOGDEBUG, "%s - CEC capable amplifier found (%s). volume will be controlled on the amp", __FUNCTION__, ampName.name);
++    strNotification.AppendFormat(" - %s", ampName.name);
++
++    // set amp present
++    m_adapter->SetAudioSystemConnected(true);
++    g_settings.m_bMute = false;
++    g_settings.m_nVolumeLevel = VOLUME_MAXIMUM;
++  }
++
++  m_adapter->m_bIsReady = true;
++
++  // try to send an OSD string to the TV
++  m_adapter->m_cecAdapter->SetOSDString(CECDEVICE_TV, CEC_DISPLAY_CONTROL_DISPLAY_FOR_DEFAULT_TIME, g_localizeStrings.Get(36016).c_str());
++  // and let the gui know that we're done
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), strNotification);
++
++  CSingleLock lock(m_critSection);
++  m_bIsUpdating = false;
++  return true;
++}
++
++void CPeripheralCecAdapterUpdateThread::Process(void)
++{
++  // set the initial configuration
++  if (!SetInitialConfiguration())
++    return;
++
++  // and wait for updates
++  bool bUpdate(false);
++  while (!m_bStop)
++  {
++    // update received
++    if (m_event.WaitMSec(500) || bUpdate)
++    {
++      // set the new configuration
++      bool bConfigSet(m_adapter->m_cecAdapter->SetConfiguration(&m_configuration));
++      CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(36000), g_localizeStrings.Get(bConfigSet ? 36023 : 36024));
++      {
++        CSingleLock lock(m_critSection);
++        bUpdate = m_bNextConfigurationScheduled;
++        if (bUpdate)
++        {
++          // another update is scheduled
++          m_bNextConfigurationScheduled = false;
++          m_configuration = m_nextConfiguration;
++        }
++        else
++        {
++          // nothing left to do, wait for updates
++          m_bIsUpdating = false;
++          m_event.Reset();
++        }
++      }
++    }
++  }
++}
++
+ #endif
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.h b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+index 9de351d..1eadca2 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.h
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+@@ -43,7 +43,7 @@
+ 
+ namespace PERIPHERALS
+ {
+-  class CPeripheralCecAdapterQueryThread;
++  class CPeripheralCecAdapterUpdateThread;
+ 
+   typedef struct
+   {
+@@ -61,7 +61,7 @@
+ 
+   class CPeripheralCecAdapter : public CPeripheralHID, public ANNOUNCEMENT::IAnnouncer, private CThread
+   {
+-    friend class CPeripheralCecAdapterQueryThread;
++    friend class CPeripheralCecAdapterUpdateThread;
+ 
+   public:
+     CPeripheralCecAdapter(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
+@@ -116,26 +116,33 @@
+     std::queue<CecVolumeChange>       m_volumeChangeQueue;
+     unsigned int                      m_lastKeypress;
+     CecVolumeChange                   m_lastChange;
+-    CPeripheralCecAdapterQueryThread *m_queryThread;
++    CPeripheralCecAdapterUpdateThread*m_queryThread;
+     CEC::ICECCallbacks                m_callbacks;
+     CCriticalSection                  m_critSection;
+     CEC::libcec_configuration         m_configuration;
+   };
+ 
+-  class CPeripheralCecAdapterQueryThread : public CThread
++  class CPeripheralCecAdapterUpdateThread : public CThread
+   {
+   public:
+-    CPeripheralCecAdapterQueryThread(CPeripheralCecAdapter *adapter, bool bGetMenuLanguage);
+-    virtual ~CPeripheralCecAdapterQueryThread(void);
++    CPeripheralCecAdapterUpdateThread(CPeripheralCecAdapter *adapter, CEC::libcec_configuration *configuration);
++    virtual ~CPeripheralCecAdapterUpdateThread(void);
+ 
+     virtual void Signal(void);
++    virtual bool UpdateConfiguration(CEC::libcec_configuration *configuration);
+ 
+   protected:
++    virtual bool WaitReady(void);
++    virtual bool SetInitialConfiguration(void);
+     virtual void Process(void);
+ 
+-    CPeripheralCecAdapter *m_adapter;
+-    CEvent                 m_event;
+-    bool                   m_bGetMenuLanguage;
++    CPeripheralCecAdapter *    m_adapter;
++    CEvent                     m_event;
++    CCriticalSection           m_critSection;
++    CEC::libcec_configuration  m_configuration;
++    CEC::libcec_configuration  m_nextConfiguration;
++    bool                       m_bNextConfigurationScheduled;
++    bool                       m_bIsUpdating;
+   };
+ }
  
 -- 
 1.7.5.4
