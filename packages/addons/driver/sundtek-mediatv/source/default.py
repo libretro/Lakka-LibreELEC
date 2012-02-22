@@ -18,6 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import xbmc, time, os, subprocess
-
-os.system("sundtek-mediatv.service")
+import os
+import sys
+import xbmcaddon

@@ -22,26 +22,44 @@
 
 . /etc/profile
 
-LOCKDIR="/var/lock/"
-LOCKFILE="sundtek-mediatv"
+ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.hdhomerun"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.hdhomerun"
 
-case "$1" in
-  hibernate|suspend)
-    if [ -n "$(pidof mediasrv)" ]; then
-      progress "Shutting down Sundtek MediaTV DVB driver for suspending..."
-      mkdir -p "$LOCKDIR"
-      touch "$LOCKDIR/$LOCKFILE"
-      mediaclient --shutdown
-    fi
-    ;;
+mkdir -p $ADDON_HOME
 
-  thaw|resume)
-    if [ -f "$LOCKDIR/$LOCKFILE" ]; then
-      # driver started within Tvheadend/VDR
-      rm -rf "$LOCKDIR/$LOCKFILE"
-    fi
-    ;;
+if [ ! -f "$ADDON_HOME/dvbhdhomerun.sample" ]; then
+  cp $ADDON_DIR/config/* $ADDON_HOME/
+fi
 
-  *) exit $NA
-    ;;
-esac
+if [ -z "$(pidof userhdhomerun)" ]; then
+  rm -f /tmp/dvbhdhomerun
+  if [ -f $ADDON_HOME/dvbhdhomerun.conf ]; then
+    ln -s $ADDON_HOME/dvbhdhomerun.conf /tmp/dvbhdhomerun
+  fi
+
+  # if not already added
+  modprobe dvb_hdhomerun
+  modprobe dvb_hdhomerun_fe
+
+  mkdir -p /var/log/
+  rm -f /var/log/dvbhdhomerun.log
+  
+  export LD_LIBRARY_PATH=$ADDON_DIR/lib:$LD_LIBRARY_PATH
+
+  userhdhomerun -f
+  # how much time should we wait?
+  usleep 1000000
+  if [ -f $ADDON_HOME/extra-wait.sh ]; then
+    sh $ADDON_HOME/extra-wait.sh
+  fi
+
+# save adapter names in background
+(
+  sleep 4
+  sn_old=$(cat $ADDON_HOME/adapters.txt 2>/dev/null)
+  sn_new=$(grep "Name of device: " /var/log/dvbhdhomerun.log)
+  if [ "$sn_old" != "$sn_new" ]; then
+    echo -n $sn_new >$ADDON_HOME/adapters.txt
+  fi
+)&
+fi
