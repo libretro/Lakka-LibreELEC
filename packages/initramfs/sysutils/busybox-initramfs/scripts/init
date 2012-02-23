@@ -92,22 +92,21 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   }
 
   show_splash() {
-    if [ ! -e /dev/fb0 ]; then
-      SPLASH=no
-    fi
-
-    if [ -f /flash/oemsplash.ppm ]; then
-      SPLASHIMAGE="/flash/oemsplash.ppm"
-    elif [ -f /splash/splash.ppm ]; then
-      SPLASHIMAGE="/splash/splash.ppm"
-    else
+    if [ ! -e /dev/fb0 -a ! -d /etc/splash ]; then
       SPLASH=no
     fi
 
     if [ "$SPLASH" = "no" ]; then
       break
     else
-      /bin/busybox fbsplash -c -s "$SPLASHIMAGE" -d /dev/fb0
+      mkdir -p /run/splash/cache
+
+      /bin/fbsplashd --theme=openelec  --type=bootup
+      echo "set tty silent 2"  > /run/splash/cache/.splash
+      echo "set tty verbose 6" > /run/splash/cache/.splash
+      echo "set mode silent"   > /run/splash/cache/.splash
+      echo "repaint"           > /run/splash/cache/.splash
+      chvt 2
     fi
   }
 
@@ -202,14 +201,12 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   }
 
   mount_disk() {
-
   # deal with hfs partitions
     if [ -x /sbin/fsck_hfs ]; then
       hfsdiskprep
     fi
 
     mount_part "$boot" "/flash" "ro,noatime"
-    show_splash
 
     if [ -n "$disk" ]; then
       mount_part "$disk" "/storage" "rw,noatime"
@@ -243,6 +240,7 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
     fi
   }
 
+  show_splash
   if [ -z "$NETBOOT" ]; then
     mount_disk
   else
@@ -255,6 +253,7 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   /bin/busybox mount --move /sys /sysroot/sys
 
 # switch to new sysroot and start real init
+  echo "exit staysilent" > /run/splash/cache/.splash
   exec /bin/busybox switch_root /sysroot /sbin/init
 
   error "INIT_3" "Error in initramfs. Could not switch to new root"
