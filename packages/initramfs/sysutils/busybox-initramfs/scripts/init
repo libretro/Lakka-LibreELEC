@@ -40,14 +40,14 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
 # hide kernel log messages on console
   echo '1 4 1 7' > /proc/sys/kernel/printk
 
+# hide cursor
+  echo 0 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+
 # parse command line arguments
   for arg in $(cat /proc/cmdline); do
     case $arg in
       debugging)
         DEBUG=yes
-        ;;
-      nosplash)
-        SPLASH=no
         ;;
       bootchart)
         BOOTCHART=yes
@@ -91,31 +91,16 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
     fi
   }
 
-  show_splash() {
-    if [ ! -e /dev/fb0 -a ! -d /etc/splash ]; then
-      SPLASH=no
-    fi
-
-    if [ "$SPLASH" = "no" ]; then
-      break
-    else
-      mkdir -p /run/splash/cache
-
-      /bin/fbsplashd --theme=openelec  --type=bootup
-      echo "set tty silent 2"  > /run/splash/cache/.splash
-      echo "set tty verbose 6" > /run/splash/cache/.splash
-      echo "set mode silent"   > /run/splash/cache/.splash
-      echo "repaint"           > /run/splash/cache/.splash
-      chvt 2
-    fi
-  }
-
   error() {
     echo "Error Code: $1 that means: $2"
   }
 
   debug_shell() {
     echo "### Starting debugging shell... type  exit  to quit ###"
+
+    # show cursor
+      echo 0 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+
     /bin/busybox sh </dev/tty1 >/dev/tty1 2>&1
   }
 
@@ -240,7 +225,6 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
     fi
   }
 
-  show_splash
   if [ -z "$NETBOOT" ]; then
     mount_disk
   else
@@ -253,7 +237,6 @@ NFS_OVERLAY="192.168.1.1:/var/lib/overlay"
   /bin/busybox mount --move /sys /sysroot/sys
 
 # switch to new sysroot and start real init
-  echo "exit staysilent" > /run/splash/cache/.splash
   exec /bin/busybox switch_root /sysroot /sbin/init
 
   error "INIT_3" "Error in initramfs. Could not switch to new root"
