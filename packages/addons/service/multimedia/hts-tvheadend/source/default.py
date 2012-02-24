@@ -18,15 +18,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import os
-import sys
-import xbmcaddon
+import xbmc, xbmcaddon, time, os, subprocess
 
 __scriptname__ = "HTS TVheadend Service"
 __author__ = "OpenELEC"
 __url__ = "http://www.openelec.tv"
 __settings__   = xbmcaddon.Addon(id='service.multimedia.hts-tvheadend')
 __cwd__        = __settings__.getAddonInfo('path')
-__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "tvheadend.service") )
+__start__      = xbmc.translatePath( os.path.join( __cwd__, 'bin', "tvheadend.start") )
+__stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "tvheadend.stop") )
 
-os.system(__path__)
+#make binary files executable in adson bin folder
+subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
+
+subprocess.Popen(__start__, shell=True, close_fds=True)
+
+while (not xbmc.abortRequested):
+  time.sleep(0.250)
+
+subprocess.Popen(__stop__, shell=True, close_fds=True)
