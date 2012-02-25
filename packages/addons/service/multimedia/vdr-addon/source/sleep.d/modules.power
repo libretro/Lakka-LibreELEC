@@ -1,0 +1,32 @@
+#!/bin/sh
+
+. /etc/profile
+
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.vdr-addon"
+ADDON_CONFIG_DIR="$ADDON_HOME/config"
+
+if [ -f "$ADDON_CONFIG_DIR/vdr-sleep.conf" ]; then
+  . "$ADDON_CONFIG_DIR/vdr-sleep.conf"
+
+  if [ ! "$REMOVE_MODULES" == "" ] ; then
+    case "$1" in
+      hibernate|suspend)
+        killall -9 vdr.bin
+        # xbmc-send -a "Notification(suspend,unloading modules...)"
+        for module in $REMOVE_MODULES ; do
+          rmmod -w $module
+        done
+        ;;
+      thaw|resume)
+        # xbmc-send -a "Notification(resume,loading modules...)"
+        for module in $REMOVE_MODULES ; do
+          modprobe $module
+        done
+        # xbmc-send -a "Notification(resume,starting vdr service...)"
+        vdr.service
+        ;;
+      *) exit $NA
+        ;;
+    esac
+  fi
+fi
