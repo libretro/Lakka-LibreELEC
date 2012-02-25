@@ -1,0 +1,282 @@
+diff -r 442eee2f550d device-hd.c
+--- a/device-hd.c	Sun Oct 02 21:09:13 2011 +0200
++++ b/device-hd.c	Thu Oct 13 00:15:52 2011 +0200
+@@ -50,12 +50,18 @@
+ {
+   if(!initial) cCondWait::SleepMs(150);
+   cMutexLock lock(&cafdMutex);
++// BEGIN vdr-plugin-dynamite
++  if(fd_ca < 0) return false;
++// END vdr-plugin-dynamite
+   return ioctl(fd_ca,CA_SET_DESCR,ca_descr)>=0;
+ }
+ 
+ bool cScDvbHdFfDevice::SetCaPid(ca_pid_t *ca_pid)
+ {
+   cMutexLock lock(&cafdMutex);
++// BEGIN vdr-plugin-dynamite
++  if(fd_ca < 0) return false;
++// END vdr-plugin-dynamite
+   return ioctl(fd_ca,CA_SET_PID,ca_pid)>=0;
+ }
+ 
+diff -r 442eee2f550d device-sd.c
+--- a/device-sd.c	Sun Oct 02 21:09:13 2011 +0200
++++ b/device-sd.c	Thu Oct 13 00:15:52 2011 +0200
+@@ -59,12 +59,18 @@
+ bool cScDvbSdFfDevice::SetCaDescr(ca_descr_t *ca_descr, bool initial)
+ {
+   cMutexLock lock(&cafdMutex);
++// BEGIN vdr-plugin-dynamite
++  if(fd_ca < 0) return false;
++// END vdr-plugin-dynamite
+   return ioctl(fd_ca,CA_SET_DESCR,ca_descr)>=0;
+ }
+ 
+ bool cScDvbSdFfDevice::SetCaPid(ca_pid_t *ca_pid)
+ {
+   cMutexLock lock(&cafdMutex);
++// BEGIN vdr-plugin-dynamite
++  if(fd_ca < 0) return false;
++// END vdr-plugin-dynamite
+   return ioctl(fd_ca,CA_SET_PID,ca_pid)>=0;
+ }
+ 
+@@ -88,6 +94,9 @@
+ 
+ void cScDvbSdFfDevice::DumpAV(void)
+ {
++// BEGIN vdr-plugin-dynamite
++  if(fd_ca < 0) return;
++// END vdr-plugin-dynamite
+   if(LOG(L_CORE_AV7110)) {
+ #define CODEBASE (0x2e000404+0x1ce00)
+     cMutexLock lock(&cafdMutex);
+diff -r 442eee2f550d device-tmpl.c
+--- a/device-tmpl.c	Sun Oct 02 21:09:13 2011 +0200
++++ b/device-tmpl.c	Thu Oct 13 00:15:52 2011 +0200
+@@ -62,6 +62,14 @@
+ #else
+   cCam *Cam(void) { return cam; }
+ #endif //!SASC
++// BEGIN vdr-plugin-dynamite
++private:
++  bool lateInit;
++public:
++#ifdef __DYNAMIC_DEVICE_PROBE
++  virtual bool SetIdleDevice(bool Idle, bool TestOnly);
++#endif
++// END vdr-plugin-dynamite
+   };
+ 
+ SCDEVICE::SCDEVICE(cScDevicePlugin *DevPlugin, int Adapter, int Frontend, int cafd)
+@@ -75,6 +83,9 @@
+ :DVBDEVICE(Adapter)
+ #endif //APIVERSNUM >= 10711
+ {
++// BEGIN vdr-plugin-dynamite
++  lateInit = false;
++// END vdr-plugin-dynamite
+ #ifndef SASC
+   tsBuffer=0; hwciadapter=0;
+ #endif
+@@ -88,10 +99,18 @@
+ #ifdef SASC
+   cam=new cCam(this,Adapter,0,devId,devplugin,softcsa,fullts);
+ #endif // !SASC
++// BEGIN vdr-plugin-dynamite
++  cScDevices::AddScDevice(this);
++  if (cScDevices::AutoLateInit())
++     LateInit();
++// END vdr-plugin-dynamite
+ }
+ 
+ SCDEVICE::~SCDEVICE()
+ {
++// BEGIN vdr-plugin-dynamite
++  cScDevices::DelScDevice(this);
++// END vdr-plugin-dynamite
+ #ifndef SASC
+   DetachAllReceivers();
+   Cancel(3);
+@@ -139,6 +158,9 @@
+ 
+ void SCDEVICE::LateInit(void)
+ {
++  if (lateInit)
++     return;
++  lateInit = true;
+   int n=CardIndex();
+   if(DeviceNumber()!=n)
+     PRINTF(L_GEN_ERROR,"CardIndex - DeviceNumber mismatch! Put SC plugin first on VDR commandline!");
+@@ -155,8 +177,17 @@
+     if(fullts) PRINTF(L_GEN_INFO,"Enabling hybrid full-ts mode on card %s",devId);
+     else PRINTF(L_GEN_INFO,"Using software decryption on card %s",devId);
+     }
+-  if(fd_ca2>=0) hwciadapter=cDvbCiAdapter::CreateCiAdapter(this,fd_ca2);
+-  cam=new cCam(this,DVB_DEV_SPEC,devId,devplugin,softcsa,fullts);
++// BEGIN vdr-plugin-dynamite
++#ifdef __DYNAMIC_DEVICE_PROBE
++  cDevice *cidev = parentDevice ? parentDevice : this;
++#else
++//  cDevice *cidev = this;
++#endif
++  if(fd_ca2>=0) hwciadapter=cDvbCiAdapter::CreateCiAdapter(cidev,fd_ca2);
++  if (cidev != this)
++     fd_ca2 = -1; // will be closed by patched cDvbCiAdapter
++  cam=new cCam(cidev,DVB_DEV_SPEC,devId,devplugin,softcsa,fullts);
++// END vdr-plugin-dynamite
+ }
+ 
+ bool SCDEVICE::HasCi(void)
+@@ -225,6 +256,36 @@
+   return false;
+ }
+ 
++// BEGIN vdr-plugin-dynamite
++#ifdef __DYNAMIC_DEVICE_PROBE
++bool SCDEVICE::SetIdleDevice(bool Idle, bool TestOnly)
++{
++  if (TestOnly) {
++     if (hwciadapter)
++        return hwciadapter->SetIdle(Idle, true);
++     return DVBDEVICE::SetIdleDevice(Idle, true);
++     }
++  if (hwciadapter && !hwciadapter->SetIdle(Idle, false))
++     return false;
++  if (!DVBDEVICE::SetIdleDevice(Idle, false)) {
++     if (hwciadapter)
++        hwciadapter->SetIdle(!Idle, false);
++     return false;
++     }
++  if (Idle) {
++     if (fd_ca >= 0)
++        close(fd_ca);
++     fd_ca = -1;
++     }
++  else {
++     if (fd_ca < 0)
++        fd_ca = cScDevices::DvbOpen(DEV_DVB_CA,adapter,frontend,O_RDWR);
++     }
++  return true;
++}
++#endif
++// END vdr-plugin-dynamite
++
+ #endif // !SASC
+ 
+ #undef SCDEVICE
+diff -r 442eee2f550d device.c
+--- a/device.c	Sun Oct 02 21:09:13 2011 +0200
++++ b/device.c	Thu Oct 13 00:15:52 2011 +0200
+@@ -285,6 +285,58 @@
+ 
+ int cScDevices::budget=0;
+ 
++// BEGIN vdr-plugin-dynamite
++// dynamite fills the vdr::cDevice::device array with vdr::plugin::dynamite::cDynamicDevice
++// we have to maintain our own list of sc-devices
++int cScDevices::numScDevices = 0;
++cDevice *cScDevices::scdevice[MAXDEVICES] = { NULL };
++bool cScDevices::autoLateInit = false;
++
++int cScDevices::NumScDevices(void)
++{
++  return numScDevices;
++}
++
++cDevice *cScDevices::GetScDevice(int CardIndex)
++{
++  for (int n = 0; n < numScDevices; n++) {
++      if (scdevice[n] && (scdevice[n]->CardIndex() == CardIndex))
++         return scdevice[n];
++      }
++  return NULL;
++}
++
++void cScDevices::AddScDevice(cDevice *Device)
++{
++  if (Device == NULL)
++     return;
++  int i = 0;
++  while ((i < numScDevices) && (i < MAXDEVICES) && (scdevice[i] != Device))
++        i++;
++  if (i < MAXDEVICES) {
++     scdevice[i] = Device;
++     if (i == numScDevices)
++        numScDevices++;
++     }
++  else
++     esyslog("too many sc-devices!");
++}
++
++void cScDevices::DelScDevice(cDevice *Device)
++{
++  if (Device == NULL)
++     return;
++  int i = 0;
++  while ((i < numScDevices) && (i < MAXDEVICES)) {
++        if (scdevice[i] == Device) {
++           scdevice[i] = NULL;
++           break;
++           }
++        i++;
++        }
++}
++// END vdr-plugin-dynamite
++
+ void cScDevices::DvbName(const char *Name, int a, int f, char *buffer, int len)
+ {
+   snprintf(buffer,len,"%s%d/%s%d",DEV_DVB_ADAPTER,a,Name,f);
+@@ -393,17 +445,22 @@
+ {
+   if(ScSetup.ForceTransfer)
+     SetTransferModeForDolbyDigital(2);
+-  for(int n=cDevice::NumDevices(); --n>=0;) {
+-    cDevice *dev=cDevice::GetDevice(n);
++// BEGIN vdr-plugin-dynamite
++  for(int n=NumScDevices(); --n>=0;) {
++    cDevice *dev=GetScDevice(n);
+     for(cScDevicePlugin *dp=devplugins.First(); dp; dp=devplugins.Next(dp))
+       if(dp->LateInit(dev)) break;
+     }
++  autoLateInit = true;
++// END vdr-plugin-dynamite
+ }
+ 
+ void cScDevices::Shutdown(void)
+ {
+-  for(int n=cDevice::NumDevices(); --n>=0;) {
+-    cDevice *dev=cDevice::GetDevice(n);
++// BEGIN vdr-plugin-dynamite
++  for(int n=NumScDevices(); --n>=0;) {
++    cDevice *dev=GetScDevice(n);
++// END vdr-plugin-dynamite
+     for(cScDevicePlugin *dp=devplugins.First(); dp; dp=devplugins.Next(dp))
+       if(dp->EarlyShutdown(dev)) break;
+     }
+diff -r 442eee2f550d device.h
+--- a/device.h	Sun Oct 02 21:09:13 2011 +0200
++++ b/device.h	Thu Oct 13 00:15:52 2011 +0200
+@@ -84,6 +84,21 @@
+   static bool ForceBudget(int n);
+   static void DvbName(const char *Name, int a, int f, char *buffer, int len);
+   static int DvbOpen(const char *Name, int a, int f, int Mode, bool ReportError=false);
++
++// BEGIN vdr-plugin-dynamite
++// dynamite fills the vdr::cDevice::device array with vdr::plugin::dynamite::cDynamicDevice
++// we have to maintain our own list of sc-devices
++private:
++  static int numScDevices;
++  static cDevice *scdevice[MAXDEVICES];
++  static bool autoLateInit;
++public:
++  static int NumScDevices(void);
++  static cDevice *GetScDevice(int CardIndex);
++  static void AddScDevice(cDevice *Device);
++  static void DelScDevice(cDevice *Device);
++  static bool AutoLateInit() { return autoLateInit; };
++// END vdr-plugin-dynamite
+   };
+ 
+ // ----------------------------------------------------------------

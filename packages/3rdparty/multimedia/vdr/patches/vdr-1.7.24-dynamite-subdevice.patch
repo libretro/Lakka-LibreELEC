@@ -1,3 +1,16 @@
+diff --git a/ci.c b/ci.c
+index 59d62ef..6c5face 100644
+--- a/ci.c
++++ b/ci.c
+@@ -1571,6 +1571,8 @@ cCamSlot::cCamSlot(cCiAdapter *CiAdapter)
+ 
+ cCamSlot::~cCamSlot()
+ {
++  if (ciAdapter && ciAdapter->assignedDevice)
++     ciAdapter->assignedDevice->SetCamSlot(NULL);
+   CamSlots.Del(this, false);
+   DeleteAllConnections();
+ }
 diff --git a/ci.h b/ci.h
 index 71bbdf9..70303d1 100644
 --- a/ci.h
@@ -574,9 +587,9 @@ diff --git a/dvbdevice.c b/dvbdevice.c
 index 163fce3..fd3f212 100644
 --- a/dvbdevice.c
 +++ b/dvbdevice.c
-@@ -280,12 +280,16 @@ private:
-   bool bondedMaster;
+@@ -305,12 +305,16 @@ private:
    bool bondedMasterFailed;
+   bool SetFrontendType(const cChannel *Channel);
    cString GetBondingParams(const cChannel *Channel = NULL) const;
 -  void ClearEventQueue(void) const;
 -  bool GetFrontendStatus(fe_status_t &Status) const;
@@ -591,9 +604,9 @@ index 163fce3..fd3f212 100644
 +  bool OpenFrontend(void);
 +  bool CloseFrontend(void);
  public:
-   cDvbTuner(const cDvbDevice *Device, int Fd_Frontend, int Adapter, int Frontend, fe_delivery_system FrontendType);
+   cDvbTuner(const cDvbDevice *Device, int Fd_Frontend, int Adapter, int Frontend);
    virtual ~cDvbTuner();
-@@ -298,8 +302,11 @@ public:
+@@ -323,8 +327,11 @@ public:
    bool IsTunedTo(const cChannel *Channel) const;
    void SetChannel(const cChannel *Channel);
    bool Locked(int TimeoutMs = 0);
@@ -607,15 +620,15 @@ index 163fce3..fd3f212 100644
    };
  
  cMutex cDvbTuner::bondMutex;
-@@ -321,6 +328,7 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Fd_Frontend, int Adapter, int
+@@ -346,6 +353,7 @@ cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Fd_Frontend, int Adapter, int
    bondedTuner = NULL;
    bondedMaster = false;
    bondedMasterFailed = false;
 +  isIdle = false;
-   if (frontendType == SYS_DVBS || frontendType == SYS_DVBS2)
-      ResetToneAndVoltage(); // must explicitly turn on LNB power
    SetDescription("tuner on frontend %d/%d", adapter, frontend);
-@@ -340,6 +348,8 @@ cDvbTuner::~cDvbTuner()
+   Start();
+ }
+@@ -363,6 +371,8 @@ cDvbTuner::~cDvbTuner()
       ExecuteDiseqc(lastDiseqc, &Frequency);
       }
    */
@@ -645,7 +658,7 @@ index 163fce3..fd3f212 100644
  {
    ClearEventQueue();
    while (1) {
-@@ -522,7 +534,7 @@ bool cDvbTuner::GetFrontendStatus(fe_status_t &Status) const
+@@ -541,7 +553,7 @@ bool cDvbTuner::GetFrontendStatus(fe_status_t &Status) const
  //#define DEBUG_SIGNALSTRENGTH
  //#define DEBUG_SIGNALQUALITY
  
@@ -654,7 +667,7 @@ index 163fce3..fd3f212 100644
  {
    ClearEventQueue();
    uint16_t Signal;
-@@ -549,7 +561,7 @@ int cDvbTuner::GetSignalStrength(void) const
+@@ -568,7 +580,7 @@ int cDvbTuner::GetSignalStrength(void) const
  
  #define LOCK_THRESHOLD 5 // indicates that all 5 FE_HAS_* flags are set
  
@@ -663,7 +676,7 @@ index 163fce3..fd3f212 100644
  {
    fe_status_t Status;
    if (GetFrontendStatus(Status)) {
-@@ -664,6 +676,8 @@ void cDvbTuner::ResetToneAndVoltage(void)
+@@ -708,6 +720,8 @@ static int GetRequiredDeliverySystem(const cChannel *Channel, const cDvbTranspon
  
  bool cDvbTuner::SetFrontend(void)
  {
@@ -672,7 +685,7 @@ index 163fce3..fd3f212 100644
  #define MAXFRONTENDCMDS 16
  #define SETCMD(c, d) { Frontend[CmdSeq.num].cmd = (c);\
                         Frontend[CmdSeq.num].u.data = (d);\
-@@ -809,9 +823,11 @@ void cDvbTuner::Action(void)
+@@ -853,9 +867,11 @@ void cDvbTuner::Action(void)
    bool LostLock = false;
    fe_status_t Status = (fe_status_t)0;
    while (Running()) {
@@ -687,7 +700,7 @@ index 163fce3..fd3f212 100644
          cMutexLock MutexLock(&mutex);
          switch (tunerStatus) {
            case tsIdle:
-@@ -867,6 +883,42 @@ void cDvbTuner::Action(void)
+@@ -911,6 +927,40 @@ void cDvbTuner::Action(void)
          }
  }
  
@@ -709,8 +722,6 @@ index 163fce3..fd3f212 100644
 +  fd_frontend = cDvbDevice::DvbOpen(DEV_DVB_FRONTEND, adapter, frontend, O_RDWR | O_NONBLOCK);
 +  if (fd_frontend < 0)
 +     return false;
-+  if (frontendType == SYS_DVBS || frontendType == SYS_DVBS2)
-+     ResetToneAndVoltage(); // must explicitly turn on LNB power
 +  isIdle = false;
 +  return true;
 +}
@@ -730,7 +741,7 @@ index 163fce3..fd3f212 100644
  // --- cDvbSourceParam -------------------------------------------------------
  
  class cDvbSourceParam : public cSourceParam {
-@@ -948,7 +1000,8 @@ const char *DeliverySystems[] = {
+@@ -996,7 +1046,8 @@ const char *DeliverySystemNames[] = {
    NULL
    };
  
@@ -740,7 +751,7 @@ index 163fce3..fd3f212 100644
  {
    adapter = Adapter;
    frontend = Frontend;
-@@ -967,7 +1020,7 @@ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
+@@ -1015,7 +1066,7 @@ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
  
    fd_ca = DvbOpen(DEV_DVB_CA, adapter, frontend, O_RDWR);
    if (fd_ca >= 0)
@@ -760,8 +771,8 @@ index 163fce3..fd3f212 100644
 +                     Device2 = Device2->SubDevice();
                    if (cDvbDevice *DvbDevice1 = dynamic_cast<cDvbDevice *>(Device1)) {
                       if (cDvbDevice *DvbDevice2 = dynamic_cast<cDvbDevice *>(Device2)) {
-                         if (!DvbDevice2->Bond(DvbDevice1))
-@@ -1157,7 +1214,10 @@ bool cDvbDevice::BondDevices(const char *Bondings)
+                         if (!DvbDevice1->Bond(DvbDevice2))
+@@ -1242,7 +1297,10 @@ bool cDvbDevice::BondDevices(const char *Bondings)
  void cDvbDevice::UnBondDevices(void)
  {
    for (int i = 0; i < cDevice::NumDevices(); i++) {
@@ -822,13 +833,15 @@ index 2072ab2..d9f6e8d 100644
    static cString DvbName(const char *Name, int Adapter, int Frontend);
    static int DvbOpen(const char *Name, int Adapter, int Frontend, int Mode, bool ReportError = false);
  private:
-@@ -126,9 +126,11 @@ private:
-   cDvbDevice *bondedDevice;
+@@ -132,11 +132,13 @@ private:
    mutable bool needsDetachBondedReceivers;
+   bool QueryDeliverySystems(int fd_frontend);
  public:
 -  cDvbDevice(int Adapter, int Frontend);
 +  cDvbDevice(int Adapter, int Frontend, cDevice *ParentDevice = NULL);
    virtual ~cDvbDevice();
+   int Adapter(void) const { return adapter; }
+   int Frontend(void) const { return frontend; }
    virtual bool Ready(void);
 +  virtual bool SetIdleDevice(bool Idle, bool TestOnly);
 +
