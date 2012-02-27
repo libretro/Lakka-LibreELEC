@@ -22,6 +22,9 @@
 
 . /etc/profile
 
+LOCKDIR="/var/lock/"
+LOCKFILE="tvheadend.disabled"
+
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.hts-tvheadend"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.hts-tvheadend"
 ADDON_BIN="tvheadend"
@@ -40,7 +43,7 @@ if [ ! -f "$XMLTV_SETTINGS_FILE" ]; then
   cp $ADDON_DIR/xmltv-config $XMLTV_SETTINGS_FILE
 fi
 
-TVHEADEND_ARG="-f -C -s -u root -g video -c $ADDON_HOME"
+TVHEADEND_ARG="-C -s -u root -g video -c $ADDON_HOME"
 
 mkdir -p $ADDON_HOME
   if [ ! $(pidof $ADDON_BIN) ]; then
@@ -52,5 +55,15 @@ mkdir -p $ADDON_HOME
       . $driver_dvb
     done
 
-    $ADDON_BIN $TVHEADEND_ARG &>$LOG_FILE
+    if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+      rm -rf "$LOCKDIR/$LOCKFILE"
+    fi
+
+    while [ true ] ; do
+      if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+        break
+      fi
+      $ADDON_BIN $TVHEADEND_ARG &>$LOG_FILE
+      sleep 1
+    done &
   fi
