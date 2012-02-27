@@ -71,22 +71,39 @@ fi
     cpupower frequency-set -g ondemand > /dev/null 2>&1
   )&
 
+# prevent restrating XBMC at reboot or shutdown
+  XBMC_LOCKED="/storage/xbmc_locked"
+  [ -f $XBMC_LOCKED ] && rm -f $XBMC_LOCKED &
+
 # starting XBMC
   usleep $XBMC_STARTDELAY
   while true; do
 
+    while [ -f $XBMC_LOCKED ]; do
+      usleep 250000
+    done
+    
     DISPLAY=:0.0 /usr/lib/xbmc/xbmc.bin $XBMC_ARGS > /dev/null 2>&1
     RET=$?
 
     case "$RET" in
       0)
-        poweroff -f
+        if [ ! $(pidof console-kit-daemon) ]; then
+          touch $XBMC_LOCKED
+          poweroff -f
+        fi
         ;;
       64)
-        poweroff -f
+        if [ ! $(pidof console-kit-daemon) ]; then
+          touch $XBMC_LOCKED
+          poweroff -f
+        fi
         ;;
       66)
-        reboot
+        if [ ! $(pidof console-kit-daemon) ]; then
+          touch $XBMC_LOCKED
+          reboot
+        fi
         ;;
       255)
         echo "Abnormal Exit. Exited with code $RET"
