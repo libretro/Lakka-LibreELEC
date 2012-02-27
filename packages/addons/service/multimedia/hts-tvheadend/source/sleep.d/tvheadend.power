@@ -25,6 +25,10 @@
 LOCKDIR="/var/lock/"
 LOCKFILE="tvheadend"
 
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.hts-tvheadend"
+ADDON_SETTINGS="$ADDON_HOME/settings.xml"
+REMOVE_MODULES=`grep REMOVE_MODULES $ADDON_SETTINGS | awk '{print $3 }' | sed -e "s,value=,," -e "s,\",,g"`
+
 case "$1" in
   hibernate|suspend)
     if [ $(pidof tvheadend) ];then
@@ -32,11 +36,17 @@ case "$1" in
       mkdir -p "$LOCKDIR"
       touch "$LOCKDIR/$LOCKFILE"
       tvheadend.stop
+      for module in $REMOVE_MODULES ; do
+        rmmod -w $module
+      done      
     fi
     ;;
 
   thaw|resume)
     if [ -f "$LOCKDIR/$LOCKFILE" ];then
+      for module in $REMOVE_MODULES ; do
+        modprobe $module
+      done
       progress "Restarting HTS TVHeadend for wakeup..."
       tvheadend.start
       rm -rf "$LOCKDIR/$LOCKFILE"
