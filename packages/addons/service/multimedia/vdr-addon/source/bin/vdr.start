@@ -22,6 +22,9 @@
 
 . /etc/profile
 
+LOCKDIR="/var/lock/"
+LOCKFILE="vdr.disabled"
+
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.vdr-addon"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.vdr-addon"
 LOG_FILE="$ADDON_HOME/service.log"
@@ -31,7 +34,7 @@ ADDON_CONFIG_DIR="$ADDON_HOME/config"
 ADDON_PLUGIN_DIR="$ADDON_DIR/plugin"
 ADDON_VIDEO_DIR="$HOME/videos"
 
-VDR_ARG="--daemon -g /tmp --no-kbd --log=3 --port=0"
+VDR_ARG="-g /tmp --no-kbd --log=3 --port=0"
 VDR_ARG="$VDR_ARG --config=$ADDON_CONFIG_DIR"
 VDR_ARG="$VDR_ARG --lib=$ADDON_PLUGIN_DIR"
 VDR_ARG="$VDR_ARG --video=$ADDON_VIDEO_DIR"
@@ -66,5 +69,14 @@ if [ ! $(pidof vdr.bin) ];then
     . $driver_dvb
   done
     
-  LANG=en_US.UTF-8 LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" vdr.bin $VDR_ARG &>$LOG_FILE
+  if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+    rm -rf "$LOCKDIR/$LOCKFILE"
+  fi
+  while [ true ] ; do
+    if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+      break
+    fi
+    LANG=en_US.UTF-8 LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" vdr.bin $VDR_ARG &>$LOG_FILE
+    sleep 1
+  done &
 fi
