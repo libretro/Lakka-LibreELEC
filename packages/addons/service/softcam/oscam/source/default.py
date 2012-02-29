@@ -19,6 +19,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import xbmc, time, os, subprocess
+import xbmc, time, os, subprocess, xbmcaddon
 
-os.system("oscam.service")
+__scriptname__ = "OSCAM Service"
+__author__ = "OpenELEC"
+__url__ = "http://www.openelec.tv"
+__settings__   = xbmcaddon.Addon(id='service.softcam.oscam')
+__cwd__        = __settings__.getAddonInfo('path')
+__start__      = xbmc.translatePath( os.path.join( __cwd__, 'bin', "oscam.start") )
+__stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "oscam.stop") )
+
+#make binary files executable in adson bin folder
+subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
+
+subprocess.Popen(__start__, shell=True, close_fds=True)
+
+while (not xbmc.abortRequested):
+  time.sleep(0.250)
+
+subprocess.Popen(__stop__, shell=True, close_fds=True)
