@@ -1,7 +1,8 @@
+#!/bin/sh
+
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2011-2011 Gregor Fuis (gujs@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,19 +20,44 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="dcron"
-PKG_VERSION="4.5"
-PKG_REV="2"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.jimpryor.net/linux/dcron.html"
-PKG_URL="http://www.jimpryor.net/linux/releases/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain nano"
-PKG_PRIORITY="optional"
-PKG_SECTION="service/system"
-PKG_SHORTDESC="This lightweight cron daemon aims to be simple and secure, with just enough features to stay useful."
-PKG_LONGDESC="This lightweight cron daemon aims to be simple and secure, with just enough features to stay useful."
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.service"
-PKG_AUTORECONF="no"
+. /etc/profile
+
+LOCKDIR="/var/lock/"
+LOCKFILE="dcron.disabled"
+
+ADDON_NAME="service.system.dcron"
+ADDON_DIR="$HOME/.xbmc/addons/$ADDON_NAME"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/$ADDON_NAME"
+
+if [ ! "$(pidof crond)" ]; then
+  mkdir -p $ADDON_HOME
+
+  if [ ! -d $ADDON_HOME/crontabs ]; then
+    mkdir -p $ADDON_HOME/cron.hourly
+    mkdir -p $ADDON_HOME/cron.daily
+    mkdir -p $ADDON_HOME/cron.weekly
+    mkdir -p $ADDON_HOME/cron.monthly
+
+    mkdir -p $ADDON_HOME/crontabs
+    mkdir -p $ADDON_HOME/cronstamps
+    mkdir -p $ADDON_HOME/cron.d
+
+    cp $ADDON_DIR/config/root.crond $ADDON_HOME/cron.d/root
+    cp $ADDON_DIR/config/prune-cronstamps $ADDON_HOME/cron.d/
+    cp $ADDON_DIR/config/root.crontabs $ADDON_HOME/crontabs/root
+  fi
+
+  export PATH=$ADDON_DIR/bin:$PATH
+
+# Restart process if it terminates.
+  if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+    rm -rf "$LOCKDIR/$LOCKFILE"
+  fi
+  while [ true ] ; do
+    if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+      break
+    fi
+    crond -f -l info
+    sleep 1
+  done &
+fi
