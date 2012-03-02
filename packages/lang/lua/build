@@ -24,20 +24,42 @@
 
 cd $PKG_BUILD
 
-make -C src \
-     INSTALL_TOP=/usr \
-     PLAT=linux \
-     CC=$TARGET_CC \
-     AR="$TARGET_AR rcu" \
-     RANLIB=$TARGET_RANLIB \
-     liblua.a
+# build and install host packages
+  setup_toolchain host
 
-mkdir -p $SYSROOT_PREFIX/usr/lib
-  cp src/liblua.a $SYSROOT_PREFIX/usr/lib
+  cp -R src src.host
+  make -C src.host \
+       INSTALL_TOP=/usr \
+       PLAT=linux \
+       CC="$HOST_CC" \
+       AR="$HOST_AR rcu" \
+       RANLIB="$HOST_RANLIB" \
+       CFLAGS="$HOST_CFLAGS" \
+       LDFLAGS="$HOST_LDFLAGS" \
+       linux
 
-mkdir -p $SYSROOT_PREFIX/usr/include
-  cp src/lua.h $SYSROOT_PREFIX/usr/include
-  cp src/luaconf.h $SYSROOT_PREFIX/usr/include
-  cp src/lualib.h $SYSROOT_PREFIX/usr/include
-  cp src/lauxlib.h $SYSROOT_PREFIX/usr/include
-  cp etc/lua.hpp $SYSROOT_PREFIX/usr/include
+  mkdir -p $ROOT/$TOOLCHAIN/bin
+    cp -P src.host/lua $ROOT/$TOOLCHAIN/bin
+    cp -P src.host/luac $ROOT/$TOOLCHAIN/bin
+
+# build and install target packages
+  setup_toolchain target
+
+  make -C src \
+       INSTALL_TOP=/usr \
+       PLAT=linux \
+       CC="$TARGET_CC" \
+       CFLAGS="$TARGET_CFLAGS" \
+       AR="$TARGET_AR rcu" \
+       RANLIB="$TARGET_RANLIB" \
+       liblua.a
+
+  mkdir -p $SYSROOT_PREFIX/usr/lib
+    cp src/liblua.a $SYSROOT_PREFIX/usr/lib
+
+  mkdir -p $SYSROOT_PREFIX/usr/include
+    cp src/lua.h $SYSROOT_PREFIX/usr/include
+    cp src/luaconf.h $SYSROOT_PREFIX/usr/include
+    cp src/lualib.h $SYSROOT_PREFIX/usr/include
+    cp src/lauxlib.h $SYSROOT_PREFIX/usr/include
+    cp src/lua.hpp $SYSROOT_PREFIX/usr/include
