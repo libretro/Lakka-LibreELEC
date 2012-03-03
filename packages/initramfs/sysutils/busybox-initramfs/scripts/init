@@ -4,6 +4,7 @@
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
 #      Copyright (C) 2010-2011 Roman Weber (roman@openelec.tv)
+#      Copyright (C) 2012 Yann Cézard (eesprit@free.fr)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -65,6 +66,36 @@ NBD_DEVS="0"
         ;;
       break=*)
         BREAK="${arg#*=}"
+        ;;
+      iscsi_auto)
+        ISCSI_AUTO=yes
+        ;;
+      iscsi_initiator=*)
+        ISCSI_INITIATOR="${arg#iscsi_initiator=}"
+        ;;
+      iscsi_target_name=*)
+        ISCSI_TARGET_NAME="${arg#iscsi_target_name=}"
+        ;;
+      iscsi_target_ip=*)
+        ISCSI_TARGET_IP="${arg#iscsi_target_ip=}"
+        ;;
+      iscsi_target_port=*)
+        ISCSI_TARGET_PORT="${arg#iscsi_target_port=}"
+        ;;
+      iscsi_target_group=*)
+        ISCSI_TARGET_GROUP="${arg#iscsi_target_group=}"
+        ;;
+      iscsi_username=*)
+        ISCSI_USERNAME="${arg#iscsi_username=}"
+        ;;
+      iscsi_password=*)
+        ISCSI_PASSWORD="${arg#iscsi_password=}"
+        ;;
+      iscsi_in_username=*)
+        ISCSI_IN_USERNAME="${arg#iscsi_in_username=}"
+        ;;
+      iscsi_in_password=*)
+        ISCSI_IN_PASSWORD="${arg#iscsi_in_password=}"
         ;;
     esac
   done
@@ -230,6 +261,30 @@ NBD_DEVS="0"
         error "load_modules" "Failed to load kernel module $module"
     done
   }
+  
+  do_iscsi_login ()
+  {
+    
+    /bin/busybox modprobe iscsi_tcp
+
+    if [ -z $ISCSI_AUTO ]; then
+      for i in $ISCSI_TARGET_IP; do
+        /sbin/iscsistart -i $ISCSI_INITIATOR -t $ISCSI_TARGET_NAME \
+                         -g $ISCSI_TARGET_GROUP -a $i \
+                         -p $ISCSI_TARGET_PORT \
+                         ${ISCSI_USERNAME:+-u "$ISCSI_USERNAME"} \
+                         ${ISCSI_PASSWORD:+-w "$ISCSI_PASSWORD"} \
+                         ${ISCSI_IN_USERNAME:+-U "$ISCSI_IN_USERNAME"} \
+                         ${ISCSI_IN_PASSWORD:+-W "$ISCSI_IN_PASSWORD"}
+
+      done
+    else
+      echo "Network configuration based on iBFT."
+      /sbin/iscsistart -N
+      echo "iSCSI auto connect based on iBFT."
+      /sbin/iscsistart -b
+    fi
+  }
 
   check_disks() {
     progress "Checking disks"
@@ -301,6 +356,10 @@ NBD_DEVS="0"
 
     [ -f "/sysroot/sbin/init" ] || error "final_check" "Could not find system."
   }
+  
+  if [ -n "$ISCSI_AUTO" -o -n "$ISCSI_TARGET_NAME" ]; then
+    do_iscsi_login
+  fi
 
 # main boot sequence
   for BOOT_STEP in \
