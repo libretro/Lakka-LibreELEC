@@ -22,12 +22,23 @@
 import os
 import sys
 import xbmcaddon
+import time
+import subprocess
 
 __scriptname__ = "Lightweight cron daemon"
 __author__     = "OpenELEC"
 __url__        = "http://www.openelec.tv"
 __settings__   = xbmcaddon.Addon(id='service.system.dcron')
 __cwd__        = __settings__.getAddonInfo('path')
-__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "dcron.service") )
+__start__      = xbmc.translatePath( os.path.join( __cwd__, 'bin', "dcron.start") )
+__stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "dcron.stop") )
 
-os.system(__path__)
+#make binary files executable in adson bin folder
+subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
+
+subprocess.Popen(__start__, shell=True, close_fds=True)
+
+while (not xbmc.abortRequested):
+  time.sleep(0.250)
+
+subprocess.Popen(__stop__, shell=True, close_fds=True)
