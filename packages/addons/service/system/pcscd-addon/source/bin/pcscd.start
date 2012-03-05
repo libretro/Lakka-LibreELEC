@@ -3,7 +3,6 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2011-2011 Gregor Fuis (gujs@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,12 +20,36 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+ADDON_NAME="service.system.pcscd-addon"
+ADDON_DIR="$HOME/.xbmc/addons/$ADDON_NAME"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/$ADDON_NAME"
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $PKG_BUILD/build/oscam $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -PR $PKG_DIR/config/oscam.conf $ADDON_BUILD/$PKG_ADDON_ID/oscam-default.conf
+ADDON_CONFIG_DIR="$ADDON_HOME/config"
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -aP $BUILD/pcsc-lite-*/src/.libs/libpcsclite.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -aP $BUILD/pcsc-lite-*/src/.libs/libpcsclite.so.* $ADDON_BUILD/$PKG_ADDON_ID/lib
+LOCKDIR="/var/lock/"
+LOCKFILE="pcscd.disabled"
+
+mkdir -p $ADDON_HOME
+
+export PATH=$ADDON_DIR/bin:$PATH
+
+cd $ADDON_DIR/config
+mkdir -p $ADDON_CONFIG_DIR
+for config in `find . -type f -name "*.conf*"`; do
+  if [ ! -f $ADDON_CONFIG_DIR/$config ]; then
+    cp $config $ADDON_CONFIG_DIR/$config
+  fi
+done
+
+if [ ! "$(pidof pcscd.bin)" ];then
+  if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+    rm -rf "$LOCKDIR/$LOCKFILE"
+  fi
+  while [ true ] ; do
+    if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+      break
+    fi
+    pcscd.bin --foreground -c $ADDON_CONFIG_DIR/reader.conf
+    sleep 1
+  done &
+fi

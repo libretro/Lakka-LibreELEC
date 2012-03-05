@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -21,12 +19,26 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+import os
+import sys
+import xbmcaddon
+import time
+import subprocess
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $PKG_BUILD/build/oscam $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -PR $PKG_DIR/config/oscam.conf $ADDON_BUILD/$PKG_ADDON_ID/oscam-default.conf
+__scriptname__ = "PCSC lite"
+__author__     = "OpenELEC"
+__url__        = "http://www.openelec.tv"
+__settings__   = xbmcaddon.Addon(id='service.system.pcscd-addon')
+__cwd__        = __settings__.getAddonInfo('path')
+__start__      = xbmc.translatePath( os.path.join( __cwd__, 'bin', "pcscd.start") )
+__stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "pcscd.stop") )
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -aP $BUILD/pcsc-lite-*/src/.libs/libpcsclite.so $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -aP $BUILD/pcsc-lite-*/src/.libs/libpcsclite.so.* $ADDON_BUILD/$PKG_ADDON_ID/lib
+#make binary files executable in adson bin folder
+subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
+
+subprocess.Popen(__start__, shell=True, close_fds=True)
+
+while (not xbmc.abortRequested):
+  time.sleep(0.250)
+
+subprocess.Popen(__stop__, shell=True, close_fds=True)
