@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,8 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options
-
-mkdir -p $INSTALL/usr/bin
-  cp -P $PKG_BUILD/w_scan $INSTALL/usr/bin
-
+import os
+import sys
+import xbmcaddon
