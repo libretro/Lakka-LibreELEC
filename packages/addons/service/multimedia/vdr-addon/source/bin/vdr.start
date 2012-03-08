@@ -34,15 +34,41 @@ ADDON_CONFIG_DIR="$ADDON_HOME/config"
 ADDON_PLUGIN_DIR="$ADDON_DIR/plugin"
 ADDON_VIDEO_DIR="$HOME/videos"
 
+if [ ! -f "$ADDON_SETTINGS" ]; then
+  cp $ADDON_DIR/settings-default.xml $ADDON_SETTINGS
+fi
+
+mkdir -p /var/config
+cat "$ADDON_DIR/settings-default.xml" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/vdr.conf.default
+cat "$ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/vdr.conf
+
+. /var/config/vdr.conf.default
+. /var/config/vdr.conf
+
 VDR_ARG="-g /tmp --no-kbd --log=3 --port=0"
 VDR_ARG="$VDR_ARG --config=$ADDON_CONFIG_DIR"
 VDR_ARG="$VDR_ARG --lib=$ADDON_PLUGIN_DIR"
 VDR_ARG="$VDR_ARG --video=$ADDON_VIDEO_DIR"
-VDR_ARG="$VDR_ARG -P xvdr -P sc -P wirbelscan"
-VDR_ARG="$VDR_ARG -P dynamite"
+VDR_ARG="$VDR_ARG -P xvdr"
 
-if [ ! -f "$ADDON_SETTINGS" ]; then
-  cp $ADDON_DIR/settings-default.xml $ADDON_SETTINGS
+if [ "$ENABLE_SOFTCAM" == "true" ] ; then
+  VDR_ARG="$VDR_ARG -P $SOFTCAM_PLUGIN"
+fi
+if [ "$ENABLE_IPTV" == "true" ] ; then
+  VDR_ARG="$VDR_ARG -P iptv"
+fi
+if [ "$ENABLE_STREAMDEV_SERVER" == "true" ] ; then
+  VDR_ARG="$VDR_ARG -P streamdev-server"
+fi
+if [ "$ENABLE_STREAMDEV_CLIENT" == "true" ] ; then
+  VDR_ARG="$VDR_ARG -P streamdev-client"
+fi
+if [ "$ENABLE_WIRBELSCAN" == "true" ] ; then
+  VDR_ARG="$VDR_ARG -P wirbelscan"
+fi
+# dynamite must be LAST loaded plugin
+if [ "$ENABLE_DYNAMITE" == "true" ] ; then
+  VDR_ARG="$VDR_ARG -P dynamite"
 fi
 
 (
