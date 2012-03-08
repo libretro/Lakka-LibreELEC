@@ -26,6 +26,9 @@ ADDON_DIR="$HOME/.xbmc/addons/service.downloadmanager.transmission"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.downloadmanager.transmission"
 LOG_FILE="$ADDON_HOME/service.log"
 
+LOCKDIR="/var/lock/"
+LOCKFILE="transmission.disabled"
+
 export TRANSMISSION_WEB_HOME="$ADDON_DIR/web"
 
 mkdir -p $ADDON_HOME
@@ -65,7 +68,14 @@ else
 fi
 
 if [ ! "$(pidof transmission-daemon)" ];then
-  chmod +x $ADDON_DIR/lib/*
-
-  LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" transmission-daemon $TRANSMISSION_ARG &>$LOG_FILE
+  if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+    rm -rf "$LOCKDIR/$LOCKFILE"
+  fi
+  while [ true ] ; do
+    if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+      break
+    fi
+    LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" transmission-daemon -f $TRANSMISSION_ARG &>$LOG_FILE
+    sleep 1
+  done &
 fi
