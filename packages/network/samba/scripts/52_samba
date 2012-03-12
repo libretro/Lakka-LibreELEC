@@ -35,13 +35,49 @@
 
       SMB_USERCONF="/storage/.config/samba.conf"
       SMB_DEFCONF="/etc/samba/smb.conf"
+      SMB_CONF="/var/run/smb.conf"
 
+      mkdir -p /var/run
       if [ -f $SMB_USERCONF ]; then
-        SMB_ARG="--configfile=$SMB_USERCONF"
+        cp $SMB_USERCONF $SMB_CONF
       else
-        SMB_ARG="--configfile=$SMB_DEFCONF"
+        cp $SMB_DEFCONF $SMB_CONF
       fi
 
+      # only letters & numbers permitted for username & password
+      SAMBA_USERNAME=`echo $SAMBA_USERNAME | sed "s/[^a-zA-Z0-9]//g;"`
+      SAMBA_PASSWORD=`echo $SAMBA_PASSWORD | sed "s/[^a-zA-Z0-9]//g;"`
+
+      if [ "$SAMBA_SECURITY" == "true" -a ! "$SAMBA_USERNAME" == "" -a ! "$SAMBA_PASSWORD" == "" ] ; then
+        # username map: first line makes sure plain root does not work all the time
+        # processing continues, so if user chooses root as username, second line overrides the first
+        # this is done always in case user uses passwords in userconf.
+        # many thanks to viljoviitanen for this
+        echo -e "$SAMBA_PASSWORD\n$SAMBA_PASSWORD" | smbpasswd -s -a root >/dev/null 2>&1
+        echo -e "nobody = root\nroot = $SAMBA_USERNAME" > /var/run/samba.map
+
+        # set public = no
+        sed -e 's|^.[ \t]*.public.=.*|  public = no |' $SMB_CONF > $SMB_CONF.tmp && \
+          mv $SMB_CONF.tmp $SMB_CONF
+        # remove username map (if any in userconfig)
+        sed -e 's|^.[ \t]*.username map.=.*||' $SMB_CONF > $SMB_CONF.tmp && \
+          mv $SMB_CONF.tmp $SMB_CONF
+        # set security = share, add username map
+        sed -e 's|^.[ \t]*.security.=.*|  security = user\n  username map = /var/run/samba.map|' $SMB_CONF > $SMB_CONF.tmp && \
+          mv $SMB_CONF.tmp $SMB_CONF
+      else
+        # set public = yes
+        sed -e 's|^.[ \t]*.public.=.*|  public = yes |' $SMB_CONF > $SMB_CONF.tmp && \
+          mv $SMB_CONF.tmp $SMB_CONF
+        # remove username map (if any in userconfig)
+        sed -e 's|^.[ \t]*.username map.=.*||' $SMB_CONF > $SMB_CONF.tmp && \
+          mv $SMB_CONF.tmp $SMB_CONF
+        # set security = share
+        sed -e 's|^.[ \t]*.security.=.*|  security = share|' $SMB_CONF > $SMB_CONF.tmp && \
+          mv $SMB_CONF.tmp $SMB_CONF
+      fi
+
+      SMB_ARG="--configfile=$SMB_CONF"
       mkdir -p /var/log/samba
       nmbd --daemon $SMB_ARG > /dev/null 2>&1
       smbd --daemon $SMB_ARG > /dev/null 2>&1
