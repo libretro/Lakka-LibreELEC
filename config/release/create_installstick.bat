@@ -96,7 +96,7 @@ IF ERRORLEVEL 1 goto InvalidDrive
 >NUL copy Autorun.inf %DRIVE%
 >NUL copy CHANGELOG %DRIVE%
 >NUL copy INSTALL %DRIVE%
->NUL copy README %DRIVE%
+>NUL copy README.md %DRIVE%
 >NUL copy RELEASE %DRIVE%
 >NUL copy openelec.ico %DRIVE%
 FOR /F "tokens=5" %%G IN ('vol %DRIVE% ^|find "-"') DO SET DRIVEUUID=%%G
