@@ -1,0 +1,257 @@
+From bb048589ab4e09e69b2fba3f639e8287ea9cc7c3 Mon Sep 17 00:00:00 2001
+From: Tadej Novak <tadej@tano.si>
+Date: Thu, 26 Jan 2012 18:39:09 +0100
+Subject: [PATCH 1/2] IPTV Radio support
+
+Added service type for IPTV and IPTV radio for easier access in
+some software (like XBMC).
+---
+ src/iptv_input.c             |    6 ++++++
+ src/service.c                |    9 +++++++--
+ src/service.h                |    2 ++
+ src/webui/extjs.c            |   10 +++++++++-
+ src/webui/static/app/iptv.js |   11 +++++++++--
+ 5 files changed, 33 insertions(+), 5 deletions(-)
+
+diff --git a/src/iptv_input.c b/src/iptv_input.c
+index 0bfc311..361a151 100644
+--- a/src/iptv_input.c
++++ b/src/iptv_input.c
+@@ -428,6 +428,7 @@
+     inet_ntop(AF_INET6, &t->s_iptv_group6, abuf6, sizeof(abuf6));
+     htsmsg_add_str(m, "group", abuf6);
+   }
++  htsmsg_add_u32(m, "radio", t->s_servicetype == ST_IPTV_RADIO);
+   if(t->s_ch != NULL) {
+     htsmsg_add_str(m, "channelname", t->s_ch->ch_name);
+     htsmsg_add_u32(m, "mapped", 1);
+@@ -591,6 +592,11 @@
+     if(!htsmsg_get_u32(c, "port", &u32))
+       t->s_iptv_port = u32;
+ 
++    if(!htsmsg_get_u32(c, "radio", &u32) && u32)
++      t->s_servicetype = ST_IPTV_RADIO;
++    else
++      t->s_servicetype = ST_IPTV;
++
+     pthread_mutex_lock(&t->s_stream_mutex);
+     service_make_nicename(t);
+     psi_load_service_settings(c, t);
+diff --git a/src/service.c b/src/service.c
+index 1a405d1..6899e2e 100644
+--- a/src/service.c
++++ b/src/service.c
+@@ -732,6 +732,8 @@
+   { "HDTV",         ST_HDTV },
+   { "SDTV-AC",      ST_AC_SDTV },
+   { "HDTV-AC",      ST_AC_HDTV },
++  { "IPTV",         ST_IPTV },
++  { "IPTV Radio",   ST_IPTV_RADIO },
+ };
+ 
+ const char *
+@@ -750,7 +752,8 @@
+     t->s_servicetype == ST_SDTV    ||
+     t->s_servicetype == ST_HDTV    ||
+     t->s_servicetype == ST_AC_SDTV ||
+-    t->s_servicetype == ST_AC_HDTV;
++    t->s_servicetype == ST_AC_HDTV ||
++    t->s_servicetype == ST_IPTV;
+ }
+ 
+ /**
+@@ -759,7 +762,9 @@
+ int
+ service_is_radio(service_t *t)
+ {
+-  return t->s_servicetype == ST_RADIO;
++  return
++    t->s_servicetype == ST_RADIO ||
++    t->s_servicetype == ST_IPTV_RADIO;
+ }
+ 
+ /**
+diff --git a/src/service.h b/src/service.h
+index 2185e42..186278d 100644
+--- a/src/service.h
++++ b/src/service.h
+@@ -318,6 +318,8 @@ typedef void (pid_section_callback_t)(struct service *t,
+     ST_HDTV       = 0x11,   /* HDTV (MPEG2) */
+     ST_AC_SDTV    = 0x16,   /* Advanced codec SDTV */
+     ST_AC_HDTV    = 0x19,   /* Advanced codec HDTV */
++    ST_IPTV       = 0x30,   /* IPTV */
++    ST_IPTV_RADIO = 0x31,   /* Radio over IPTV */
+   } s_servicetype;
+ 
+ 
+diff --git a/src/webui/extjs.c b/src/webui/extjs.c
+index 3ed9f8b..4596005 100644
+--- a/src/webui/extjs.c
++++ b/src/webui/extjs.c
+@@ -1313,7 +1313,14 @@
+       }
+       save = 1;
+     }
+-    
++    if(!htsmsg_get_u32(c, "radio", &u32)) {
++        if(u32)
++          t->s_servicetype = ST_IPTV_RADIO;
++        else
++          t->s_servicetype = ST_IPTV;
++      save = 1;
++    }
++
+ 
+     save |= tvh_str_update(&t->s_iptv_iface, htsmsg_get_str(c, "interface"));
+     if(save)
+@@ -1347,6 +1354,7 @@
+   }
+ 
+   htsmsg_add_u32(r, "port", t->s_iptv_port);
++  htsmsg_add_u32(r, "radio", t->s_servicetype == ST_IPTV_RADIO);
+   htsmsg_add_u32(r, "enabled", t->s_enabled);
+   return r;
+ }
+diff --git a/src/webui/static/app/iptv.js b/src/webui/static/app/iptv.js
+index acdbfc0..b29e0b9 100644
+--- a/src/webui/static/app/iptv.js
++++ b/src/webui/static/app/iptv.js
+@@ -11,6 +11,12 @@ tvheadend.iptv = function(adapterId) {
+        width: 45
+     });
+ 
++    var radioColumn = new Ext.grid.CheckColumn({
++       header: "Radio",
++       dataIndex: 'radio',
++       width: 45
++    });
++
+     var actions = new Ext.ux.grid.RowActions({
+ 	header:'',
+ 	dataIndex: 'actions',
+@@ -82,6 +88,7 @@ tvheadend.iptv = function(adapterId) {
+ 		maxValue: 65535
+ 	    })
+ 	},
++	radioColumn,
+ 	{
+ 	    header: "Service ID",
+ 	    dataIndex: 'sid',
+@@ -105,7 +112,7 @@ tvheadend.iptv = function(adapterId) {
+     cm.defaultSortable = true;
+ 
+     var rec = Ext.data.Record.create([
+-	'id', 'enabled', 'channelname', 'interface', 'group', 'port',
++    'id', 'enabled', 'channelname', 'interface', 'group', 'port', 'radio',
+ 	'sid', 'pmt', 'pcr'
+     ]);
+ 
+@@ -246,7 +253,7 @@ tvheadend.iptv = function(adapterId) {
+ 	stripeRows: true,
+ 	title: 'IPTV',
+ 	iconCls: 'iptv',
+-	plugins: [enabledColumn, actions],
++	plugins: [enabledColumn, radioColumn, actions],
+ 	store: store,
+ 	clicksToEdit: 2,
+ 	cm: cm,
+-- 
+1.7.5.4
+
+
+From 18473dd11d983aecb6db6e49b454a5d6bb1a329f Mon Sep 17 00:00:00 2001
+From: Tadej Novak <tadej@tano.si>
+Date: Mon, 30 Jan 2012 16:55:25 +0100
+Subject: [PATCH 2/2] Use the same service type for all radio types
+
+Tvheadend now uses same radio type ST_RADIO for DVB and IPTV radios.
+Otherwise IPTV streams have ST_IPTV type.
+---
+ src/iptv_input.c  |    4 ++--
+ src/service.c     |    5 +----
+ src/service.h     |    1 -
+ src/webui/extjs.c |    4 ++--
+ 4 files changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/src/iptv_input.c b/src/iptv_input.c
+index 361a151..aeb0ab2 100644
+--- a/src/iptv_input.c
++++ b/src/iptv_input.c
+@@ -428,7 +428,7 @@
+     inet_ntop(AF_INET6, &t->s_iptv_group6, abuf6, sizeof(abuf6));
+     htsmsg_add_str(m, "group", abuf6);
+   }
+-  htsmsg_add_u32(m, "radio", t->s_servicetype == ST_IPTV_RADIO);
++  htsmsg_add_u32(m, "radio", t->s_servicetype == ST_RADIO);
+   if(t->s_ch != NULL) {
+     htsmsg_add_str(m, "channelname", t->s_ch->ch_name);
+     htsmsg_add_u32(m, "mapped", 1);
+@@ -593,7 +593,7 @@
+       t->s_iptv_port = u32;
+ 
+     if(!htsmsg_get_u32(c, "radio", &u32) && u32)
+-      t->s_servicetype = ST_IPTV_RADIO;
++      t->s_servicetype = ST_RADIO;
+     else
+       t->s_servicetype = ST_IPTV;
+ 
+diff --git a/src/service.c b/src/service.c
+index 6899e2e..015cd46 100644
+--- a/src/service.c
++++ b/src/service.c
+@@ -733,7 +733,6 @@
+   { "SDTV-AC",      ST_AC_SDTV },
+   { "HDTV-AC",      ST_AC_HDTV },
+   { "IPTV",         ST_IPTV },
+-  { "IPTV Radio",   ST_IPTV_RADIO },
+ };
+ 
+ const char *
+@@ -762,9 +761,7 @@
+ int
+ service_is_radio(service_t *t)
+ {
+-  return
+-    t->s_servicetype == ST_RADIO ||
+-    t->s_servicetype == ST_IPTV_RADIO;
++  return t->s_servicetype == ST_RADIO;
+ }
+ 
+ /**
+diff --git a/src/service.h b/src/service.h
+index 186278d..40d1174 100644
+--- a/src/service.h
++++ b/src/service.h
+@@ -319,7 +319,6 @@ typedef void (pid_section_callback_t)(struct service *t,
+     ST_AC_SDTV    = 0x16,   /* Advanced codec SDTV */
+     ST_AC_HDTV    = 0x19,   /* Advanced codec HDTV */
+     ST_IPTV       = 0x30,   /* IPTV */
+-    ST_IPTV_RADIO = 0x31,   /* Radio over IPTV */
+   } s_servicetype;
+ 
+ 
+diff --git a/src/webui/extjs.c b/src/webui/extjs.c
+index 4596005..4487deb 100644
+--- a/src/webui/extjs.c
++++ b/src/webui/extjs.c
+@@ -1315,7 +1315,7 @@
+     }
+     if(!htsmsg_get_u32(c, "radio", &u32)) {
+         if(u32)
+-          t->s_servicetype = ST_IPTV_RADIO;
++          t->s_servicetype = ST_RADIO;
+         else
+           t->s_servicetype = ST_IPTV;
+       save = 1;
+@@ -1354,7 +1354,7 @@
+   }
+ 
+   htsmsg_add_u32(r, "port", t->s_iptv_port);
+-  htsmsg_add_u32(r, "radio", t->s_servicetype == ST_IPTV_RADIO);
++  htsmsg_add_u32(r, "radio", t->s_servicetype == ST_RADIO);
+   htsmsg_add_u32(r, "enabled", t->s_enabled);
+   return r;
+ }
+-- 
+1.7.5.4
+
