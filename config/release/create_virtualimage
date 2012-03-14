@@ -1,0 +1,256 @@
+#!/bin/sh
+
+################################################################################
+#      Copyright (C) 2009-2010 OpenELEC.tv
+#      http://www.openelec.tv
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# usage:   sudo ./create_virtualmachine <path>
+# example: sudo ./create_virtualmachine /home/test/VM
+
+if [ "$(id -u)" != "0" ]; then
+  clear
+  echo "#########################################################"
+  echo "# please execute with 'sudo' or -DANGEROUS!!!- as root  #"
+  echo "# example: sudo ./create_virtualmachine <path>          #"
+  echo "#########################################################"
+  exit 1
+fi
+
+if [ -z "$1" ]; then
+  clear
+  echo "#########################################################"
+  echo "# please execute with target folder drive as option     #"
+  echo "# example: sudo ./create_virtualmachine /home/test/VM/  #"
+  echo "#########################################################"
+  exit 1
+fi
+
+DISK="$1/OpenELEC.img"
+VMDK="$1/OpenELEC.vmdk"
+LOOP="/dev/loop0"
+
+clear
+echo "#########################################################"
+echo "#                                                       #"
+echo "#             OpenELEC.tv USB Installer                 #"
+echo "#                                                       #"
+echo "#########################################################"
+echo "#                                                       #"
+echo "#     This will wipe any data off your chosen drive     #"
+echo "# Please read the instructions and use very carefully.. #"
+echo "#                                                       #"
+echo "#########################################################"
+
+# check for some required tools
+
+  # this is needed to create a bootloader
+  which syslinux > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"syslinux\"     #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed by syslinux
+  which mcopy > /dev/null
+    if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"mcopy\"        #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#      NOTE: Some distributions call this package       #"
+    echo "#      \"mtools\".                                      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to partion the drive
+  which parted > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"parted\"       #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed fo convert harddisk image to vmdk format
+  which qemu-img > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"qemu-img\"     #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+
+# check MD5 sums
+  echo "checking MD5 sum..."
+
+  md5sumFailed()
+  {
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv failed md5 check - Installation will quit #"
+    echo "#                                                       #"
+    echo "#      Your original download was probably corrupt.     #"
+    echo "#   Please visit www.openelec.tv and get another copy   #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  }
+
+  md5sum -c target/KERNEL.md5
+  if [ "$?" = "1" ]; then
+    md5sumFailed
+  fi
+
+  md5sum -c target/SYSTEM.md5
+  if [ "$?" = "1" ]; then
+    md5sumFailed
+  fi
+
+# ensure loop0 not in use
+  umount "$LOOP"
+  losetup -d "$LOOP"
+
+# create an image
+  echo "creating new empty harddisk image: $DISK..."
+  dd if=/dev/zero of="$DISK" bs=1M count=512
+
+# write a disklabel
+  echo "creating new partition table: $DISK..."
+  losetup "$LOOP" "$DISK"
+  parted -s "$LOOP" mklabel msdos
+
+# create partition1
+  echo "creating partition1 on $DISK..."
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 64 262208
+
+# create partition2
+  echo "creating partition2 on $DISK..."
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 262209 100%
+
+# make partition1 active (bootable)
+  echo "marking partition1 active..."
+  parted -s "$LOOP" set 1 boot on
+
+# write mbr
+  echo "writing mbr..."
+  if [ -f /usr/lib/syslinux/mbr.bin ]; then
+    MBR="/usr/lib/syslinux/mbr.bin"       # example: debian, ubuntu
+  elif [ -f /usr/share/syslinux/mbr.bin ]; then
+    MBR="/usr/share/syslinux/mbr.bin"     # example: fedora
+  else
+    echo "Can't find syslinux's mbr.bin on Host OS"
+  fi
+
+  if [ -n "$MBR" ]; then
+    cat "$MBR" > "$LOOP"
+  fi
+
+# create filesystem on partition1
+  echo "creating filesystem on partition1..."
+  losetup -d "$LOOP"
+  losetup -o 32768 --sizelimit 134218240 "$LOOP" "$DISK"
+  mke2fs -t ext4 -m 0 "$LOOP"
+  tune2fs -U random -L "System" "$LOOP"
+  sync
+
+# mount partition
+  echo "mounting partition1 on /tmp/vmware_install..."
+  mkdir -p /tmp/vmware_install
+  mount "$LOOP" /tmp/vmware_install
+
+# create bootloader configuration
+  echo "creating bootloader configuration..."
+
+  echo "DEFAULT linux" > /tmp/vmware_install/syslinux.cfg
+  echo "PROMPT 0" >> /tmp/vmware_install/syslinux.cfg
+  echo " " >> /tmp/vmware_install/syslinux.cfg
+  echo "LABEL linux" >> /tmp/vmware_install/syslinux.cfg
+  echo "  KERNEL /KERNEL" >> /tmp/vmware_install/syslinux.cfg
+  echo "  APPEND boot=LABEL=System disk=LABEL=Storage quiet ssh" >> /tmp/vmware_install/syslinux.cfg
+
+# install extlinux
+  echo "installing extlinux to partition1..."
+  extlinux --heads=4 --sector=32 -i /tmp/vmware_install
+
+# copy files
+  echo "copying files to partition1..."
+  cp target/KERNEL /tmp/vmware_install
+  cp target/SYSTEM /tmp/vmware_install
+
+# sync disk
+  echo "syncing disk..."
+  sync
+
+# unmount partition1
+  echo "unmounting partition1..."
+  umount "$LOOP"
+  sync
+
+# create filesystem on partition2
+  echo "creating filesystem on partition2..."
+  losetup -d "$LOOP"
+  losetup -o 134251008 "$LOOP" "$DISK"
+  mke2fs -t ext4 -m 0 "$LOOP"
+  tune2fs -U random -L "Storage" "$LOOP"
+  sync
+
+# detach loop0
+  losetup -d "$LOOP"
+
+# cleaning
+  echo "cleaning tempdir..."
+  rm -rf /tmp/vmware_install
+
+# convert image to vmdk
+  echo "converting $DISK to vmdk format..."
+  qemu-img convert -O vmdk "$DISK" "$VMDK"
+  rm -f "$DISK"
+
+echo "...installation finished"
