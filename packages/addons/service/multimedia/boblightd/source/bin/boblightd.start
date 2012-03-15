@@ -37,30 +37,41 @@ BOBLIGHT_CONFIG="$ADDON_HOME/boblight.conf"
 # Flag file to start boblight-x11 daemon
 BOBLIGHT_X11="$ADDON_HOME/boblight.X11"
 
+LOCKDIR="/var/lock/"
+LOCKFILE="boblightd.disabled"
+
 export LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH"
 
 cp -R $ADDON_DIR/config/*.sample $ADDON_HOME > $LOG_FILE 2>&1
 
-if [ ! "$(pidof boblightd)" ]; then
-	if [ -e $BOBLIGHT_CONFIG ]; then
-	
-		# Make sure the xserver has started up
-		wait_for_xorg
-		
-		# Start the boblight daemon
-		boblightd -c $BOBLIGHT_CONFIG -f >> $LOG_FILE 2>&1
-	
-	fi
+if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+  rm -rf "$LOCKDIR/$LOCKFILE"
 fi
 
-if [ ! "$(pidof boblight-X11)" ]; then                                               
-	if [ -e $BOBLIGHT_X11 ]; then
-	
-	        # Make sure the xserver has started up
-	        wait_for_xorg
-	
-	        # Start the boblight daemon
-	        boblight-X11 -f >> $LOG_FILE 2>&1
-	
-	fi
+if [ -f "$BOBLIGHT_CONFIG" ] ; then
+  if [ ! "$(pidof boblightd)" ]; then
+    while [ true ] ; do
+      if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+        break
+      fi
+      # Make sure the xserver has started up
+      wait_for_xorg
+      # Start the boblight daemon
+      boblightd -c $BOBLIGHT_CONFIG >> $LOG_FILE 2>&1
+    done &
+  fi
+
+  if [ -e $BOBLIGHT_X11 ]; then
+    if [ ! "$(pidof boblight-X11)" ]; then
+      while [ true ] ; do
+        if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+          break
+        fi
+        # Make sure the xserver has started up
+        wait_for_xorg
+        # Start the boblight daemon
+        boblight-X11 >> $LOG_FILE 2>&1
+      done &
+    fi
+  fi
 fi
