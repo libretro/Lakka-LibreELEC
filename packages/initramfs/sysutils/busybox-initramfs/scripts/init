@@ -28,6 +28,8 @@ IMAGE_SYSTEM="SYSTEM"
 IMAGE_KERNEL="KERNEL"
 REBOOT="0"
 
+NBD_DEVS="0"
+
 # mount all needed special filesystems
   /bin/busybox mount -t devtmpfs none /dev
   /bin/busybox mount -t proc none /proc
@@ -123,6 +125,20 @@ REBOOT="0"
     [ "$ERR_ENV" -ne "0" ] && error "mount_common" "Could not mount $1"
   }
 
+  mount_nbd() {
+  # Mount NBD device
+    NBD_SERVER="${1%%:*}"
+    NBD_PORT="${1#*:}"
+    NBD_DEV="/dev/nbd$NBD_DEVS"
+
+    $IONICE /bin/busybox nbd-client $NBD_SERVER $NBD_PORT $NBD_DEV > /dev/null 2>&1 || \
+      error "nbd-client" "Could not connect to NBD server $1"
+
+    mount_common "$NBD_DEV" "$2" "$3" "$4"
+
+    NBD_DEVS=$(( ${NBD_DEVS} + 1 ))
+  }
+
   mount_part() {
   # Mount a local or network filesystem
   # $1:[TYPE=]target, $2:mountpoint, $3:mount options, [$4:fs type]
@@ -133,6 +149,9 @@ REBOOT="0"
       LABEL=*|UUID=*|/*)
         MOUNT_CMD="mount_common"
         MOUNT_TARGET="$1"
+        ;;
+      NBD=*)
+        MOUNT_CMD="mount_nbd"
         ;;
       *)
         error "mount_part" "Unknown filesystem $1"
