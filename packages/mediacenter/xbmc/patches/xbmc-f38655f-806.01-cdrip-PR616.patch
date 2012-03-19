@@ -1,0 +1,144 @@
+From ab72a555c5dd8585ac6e101d9f5966e25500867d Mon Sep 17 00:00:00 2001
+From: Giftie <giftie61@hotmail.com>
+Date: Thu, 5 Jan 2012 19:32:14 -0700
+Subject: [PATCH] Updated auto cd rip 	modified:  
+ language/English/strings.xml 	modified:  
+ xbmc/cdrip/CDDARipper.cpp 	modified:  
+ xbmc/settings/GUISettings.cpp 	modified:  
+ xbmc/settings/GUISettings.h 	modified:  
+ xbmc/storage/MediaManager.cpp 	modified:   xbmc/Autorun.cpp
+
+ Author:    Giftie <giftie61@hotmail.com>
+ Committer: Giftie <giftie61@hotmail.com>
+---
+ language/English/strings.xml  |    5 ++++-
+ xbmc/Autorun.cpp              |   15 ++++++++++++---
+ xbmc/settings/GUISettings.cpp |    8 +++++++-
+ xbmc/settings/GUISettings.h   |    5 +++++
+ xbmc/storage/MediaManager.cpp |    7 +++++--
+ 5 files changed, 33 insertions(+), 7 deletions(-)
+
+diff --git a/language/English/strings.xml b/language/English/strings.xml
+index ca2ac4d..ae22214 100644
+--- a/language/English/strings.xml
++++ b/language/English/strings.xml
+@@ -1344,7 +1344,7 @@
+   <string id="14082">Show EXIF picture information</string>
+   <string id="14083">Use a fullscreen window rather than true fullscreen</string>
+   <string id="14084">Queue songs on selection</string>
+-  <string id="14085">Play audio CDs automatically</string>
++  <string id="14085"></string>
+   <string id="14086">Playback</string>
+   <string id="14087">DVDs</string>
+   <string id="14088">Play DVDs automatically</string>
+@@ -1355,6 +1355,9 @@
+   <string id="14093">Security</string>
+   <string id="14094">Input devices</string>
+   <string id="14095">Power saving</string>
++  <string id="14096">Rip</string>
++  <string id="14097">Audio CD Insert Action</string>
++  <string id="14098">Play</string>
+ 
+   <string id="15015">Remove</string>
+   <string id="15016">Games</string>
+diff --git a/xbmc/Autorun.cpp b/xbmc/Autorun.cpp
+index 846b28d..3cd6f75 100644
+--- a/xbmc/Autorun.cpp
++++ b/xbmc/Autorun.cpp
+@@ -43,6 +43,9 @@
+ #include "dialogs/GUIDialogYesNo.h"
+ #include "utils/URIUtils.h"
+ #include "utils/log.h"
++#ifdef HAS_CDDA_RIPPER
++#include "cdrip/CDDARipper.h"
++#endif
+ 
+ using namespace std;
+ using namespace XFILE;
+@@ -69,13 +72,19 @@ void CAutorun::ExecuteAutorun(const CStdString& path, bool bypassSettings, bool
+ 
+   g_application.ResetScreenSaver();
+   g_application.WakeUpScreenSaverAndDPMS();  // turn off the screensaver if it's active
+-
++#ifdef HAS_CDDA_RIPPER
++  if ( g_guiSettings.GetInt("audiocds.autoaction") == AUTOCD_RIP && pInfo->IsAudio(1) && !g_settings.GetCurrentProfile().musicLocked())
++  {
++    CCDDARipper ripper;
++    ripper.RipCD();
++  } 
++#endif
+   PlayDisc(path, bypassSettings, startFromBeginning);
+ }
+ 
+ bool CAutorun::PlayDisc(const CStdString& path, bool bypassSettings, bool startFromBeginning)
+ {
+-  if ( !bypassSettings && !g_guiSettings.GetBool("audiocds.autorun") && !g_guiSettings.GetBool("dvds.autorun"))
++  if ( !bypassSettings && !g_guiSettings.GetInt("audiocds.autoaction") == AUTOCD_PLAY && !g_guiSettings.GetBool("dvds.autorun"))
+     return false;
+ 
+   int nSize = g_playlistPlayer.GetPlaylist( PLAYLIST_MUSIC ).size();
+@@ -276,7 +285,7 @@ bool CAutorun::RunDisc(IDirectory* pDir, const CStdString& strDrive, int& nAdded
+     }
+   }
+   // then music
+-  if (!bPlaying && (bypassSettings || g_guiSettings.GetBool("audiocds.autorun")) && bAllowMusic)
++  if (!bPlaying && (bypassSettings || g_guiSettings.GetInt("audiocds.autoaction") == AUTOCD_PLAY) && bAllowMusic)
+   {
+     for (int i = 0; i < vecItems.Size(); i++)
+     {
+diff --git a/xbmc/settings/GUISettings.cpp b/xbmc/settings/GUISettings.cpp
+index 6cce6ac..a0c7bf5 100644
+--- a/xbmc/settings/GUISettings.cpp
++++ b/xbmc/settings/GUISettings.cpp
+@@ -318,7 +318,13 @@ void CGUISettings::Initialize()
+   AddString(scr, "scrobbler.librefmpass", 15219, "", EDIT_CONTROL_MD5_INPUT, false, 15219);
+ 
+   CSettingsCategory* acd = AddCategory(3, "audiocds", 620);
+-  AddBool(acd, "audiocds.autorun", 14085, false);
++  map<int,int> autocd;
++  autocd.insert(make_pair(16018, AUTOCD_NONE));
++  autocd.insert(make_pair(14098, AUTOCD_PLAY));
++#ifdef HAS_CDDA_RIPPER
++  autocd.insert(make_pair(14096, AUTOCD_RIP));
++#endif
++  AddInt(acd,"audiocds.autoaction",14097,AUTOCD_NONE, autocd, SPIN_CONTROL_TEXT);
+   AddBool(acd, "audiocds.usecddb", 227, true);
+   AddSeparator(acd, "audiocds.sep1");
+   AddPath(acd,"audiocds.recordingpath",20000,"select writable folder",BUTTON_CONTROL_PATH_INPUT,false,657);
+diff --git a/xbmc/settings/GUISettings.h b/xbmc/settings/GUISettings.h
+index 5501064..8751624 100644
+--- a/xbmc/settings/GUISettings.h
++++ b/xbmc/settings/GUISettings.h
+@@ -64,6 +64,11 @@
+ #define KARAOKE_COLOR_START  0
+ #define KARAOKE_COLOR_END    4
+ 
++// CDDA Autoaction defines
++#define AUTOCD_NONE              0
++#define AUTOCD_PLAY              1
++#define AUTOCD_RIP               2
++
+ // CDDA ripper defines
+ #define CDDARIP_ENCODER_LAME     0
+ #define CDDARIP_ENCODER_VORBIS   1
+diff --git a/xbmc/storage/MediaManager.cpp b/xbmc/storage/MediaManager.cpp
+index ced4ad0..316e8c9 100644
+--- a/xbmc/storage/MediaManager.cpp
++++ b/xbmc/storage/MediaManager.cpp
+@@ -624,8 +624,11 @@ void CMediaManager::ProcessEvents()
+ 
+ void CMediaManager::OnStorageAdded(const CStdString &label, const CStdString &path)
+ {
+-  if (g_guiSettings.GetBool("audiocds.autorun") || g_guiSettings.GetBool("dvds.autorun"))
+-    CJobManager::GetInstance().AddJob(new CAutorunMediaJob(label, path), this, CJob::PRIORITY_HIGH);
++  if (g_guiSettings.GetInt("audiocds.autoaction") != AUTOCD_NONE || g_guiSettings.GetBool("dvds.autorun"))
++    if ( g_guiSettings.GetInt("audiocds.autoaction") == AUTOCD_RIP)
++      CJobManager::GetInstance().AddJob(new CAutorunMediaJob(label, path), this, CJob::PRIORITY_LOW);
++    else
++      CJobManager::GetInstance().AddJob(new CAutorunMediaJob(label, path), this, CJob::PRIORITY_HIGH); 
+   else
+     CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(13021), label, TOAST_DISPLAY_TIME, false);
+ }
+-- 
+1.7.5.4
+
