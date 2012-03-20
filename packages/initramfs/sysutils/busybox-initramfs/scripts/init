@@ -168,9 +168,9 @@ NBD_DEVS="0"
   mount_part() {
   # Mount a local or network filesystem
   # $1:[TYPE=]target, $2:mountpoint, $3:mount options, [$4:fs type]
-    MOUNT_TARGET="${1#*=}"
-
     progress "mount filesystem $1 ..."
+
+    MOUNT_TARGET="${1#*=}"
     case $1 in
       LABEL=*|UUID=*|/*)
         MOUNT_CMD="mount_common"
@@ -222,6 +222,7 @@ NBD_DEVS="0"
 
   load_modules() {
     progress "Loading kernel modules"
+
     [ ! -f "/etc/modules" ] && return
     for module in $(cat /etc/modules); do
       progress "Loading kernel module $module"
@@ -232,6 +233,7 @@ NBD_DEVS="0"
 
   check_disks() {
     progress "Checking disks"
+
     if [ -x /sbin/fsck_hfs ]; then
     # deal with hfs partitions
       hfsdiskprep
@@ -240,30 +242,34 @@ NBD_DEVS="0"
 
   mount_disks() {
     progress "Mounting disks"
+
     mount_part "$boot" "/flash" "ro,noatime"
-    mount_part "$disk" "/storage" "rw,noatime"
 
-    [ -z "$OVERLAY" ] && return
-    OVERLAY_DIR=`cat /sys/class/net/eth0/address | /bin/busybox tr -d :`
-    if [ ! -d /storage/$OVERLAY_DIR ]; then
-      mkdir /storage/$OVERLAY_DIR
-    fi
-    /bin/busybox umount /storage
+    if [ -n "$disk" ]; then
+      if [ -n "$OVERLAY" ]; then
+        OVERLAY_DIR=`cat /sys/class/net/eth0/address | /bin/busybox tr -d :`
 
-    # split $disk into $target,$options so we can append $OVERLAY_DIR
-      options="${disk#*,}"
-      target="${disk%%,*}"
-      if [ "$options" = "$disk" ]; then
-        disk="$target/$OVERLAY_DIR"
-      else
-        disk="$target/$OVERLAY_DIR,$options"
+        mount_part "$disk" "/storage" "rw,noatime"
+        mkdir -p /storage/$OVERLAY_DIR
+        /bin/busybox umount /storage
+
+      # split $disk into $target,$options so we can append $OVERLAY_DIR
+        options="${disk#*,}"
+        target="${disk%%,*}"
+        if [ "$options" = "$disk" ]; then
+          disk="$target/$OVERLAY_DIR"
+        else
+          disk="$target/$OVERLAY_DIR,$options"
+        fi
       fi
 
-    mount_part "$disk" "/storage" "rw,noatime"
+      mount_part "$disk" "/storage" "rw,noatime"
+    fi
   }
 
   check_update() {
     progress "Checking for updates"
+
     if [ -f "/flash/MACH_KERNEL" ]; then
       IMAGE_KERNEL="MACH_KERNEL"
     fi
@@ -288,7 +294,10 @@ NBD_DEVS="0"
     # /flash is actual root filesystem
       /bin/busybox mount --move /flash /sysroot
     fi
-    /bin/busybox mount --move /storage /sysroot/storage
+
+    if [ -n "$disk" ]; then
+      /bin/busybox mount --move /storage /sysroot/storage
+    fi
 
     [ -f "/sysroot/sbin/init" ] || error "final_check" "Could not find system."
   }
