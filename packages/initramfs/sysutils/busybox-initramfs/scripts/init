@@ -73,6 +73,13 @@ NBD_DEVS="0"
     IONICE="/bin/busybox ionice -c 1 -n 0"
   fi
 
+  if test "$DEBUG" = "yes"; then
+    exec 3>&1
+  else
+    exec 3>/dev/null
+  fi
+  SILENT_OUT=3
+
   progress() {
     if test "$PROGRESS" = "yes"; then
       echo "### $1 ###"
@@ -120,7 +127,7 @@ NBD_DEVS="0"
     for i in 1 2 3 4 5 6 7 8 9 10; do
       ERR_ENV=1
 
-      $IONICE /bin/busybox mount $MOUNT_OPTIONS $1 $2 > /dev/null 2>&1
+      $IONICE /bin/busybox mount $MOUNT_OPTIONS $1 $2 >&$SILENT_OUT 2>&1
       [ "$?" -eq "0" ] && ERR_ENV=0 && break
 
       /bin/busybox usleep 1000000
@@ -143,7 +150,7 @@ NBD_DEVS="0"
     NBD_PORT="${1#*:}"
     NBD_DEV="/dev/nbd$NBD_DEVS"
 
-    $IONICE /bin/busybox nbd-client $NBD_SERVER $NBD_PORT $NBD_DEV > /dev/null 2>&1 || \
+    $IONICE /bin/busybox nbd-client $NBD_SERVER $NBD_PORT $NBD_DEV >&$SILENT_OUT 2>&1 || \
       error "nbd-client" "Could not connect to NBD server $1"
 
     mount_common "$NBD_DEV" "$2" "$3" "$4"
@@ -208,7 +215,7 @@ NBD_DEVS="0"
 
       if [ "$FS_TYPE" = "\"hfs\"" -o "$FS_TYPE" = "\"hfsplus\"" ]; then
         progress "check filesystem $DEVICE [$FS_TYPE]..."
-        /bin/fsck_hfs -r -y $DEVICE > /dev/null 2>&1
+        /bin/fsck_hfs -r -y $DEVICE >&$SILENT_OUT 2>&1
       fi
     done
   }
