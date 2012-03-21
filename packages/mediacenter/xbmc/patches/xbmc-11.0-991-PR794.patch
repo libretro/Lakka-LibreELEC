@@ -1,0 +1,295 @@
+From 311a9aeaf7e7fada18c2d1b8d844f69ad6bf0c1b Mon Sep 17 00:00:00 2001
+From: spiff <spiff@xbmc.org>
+Date: Wed, 21 Mar 2012 21:37:45 +0100
+Subject: [PATCH 1/4] changed: get rid of the cache map in button translator
+
+it prevents writing working code
+---
+ xbmc/input/ButtonTranslator.cpp |   16 ----------------
+ xbmc/input/ButtonTranslator.h   |    2 --
+ 2 files changed, 0 insertions(+), 18 deletions(-)
+
+diff --git a/xbmc/input/ButtonTranslator.cpp b/xbmc/input/ButtonTranslator.cpp
+index 7c640db..63ea6ec 100644
+--- a/xbmc/input/ButtonTranslator.cpp
++++ b/xbmc/input/ButtonTranslator.cpp
+@@ -363,7 +363,6 @@
+ 
+ CButtonTranslator::CButtonTranslator()
+ {
+-  m_baseMap.clear();
+   m_deviceList.clear();
+   m_Loaded = false;
+ }
+@@ -429,17 +428,6 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+   };
+   bool success = false;
+ 
+-  // If we've already loaded the m_baseMap we don't need to load it
+-  // again - this speeds up reloads caused by plugging and unplugging
+-  // HID devices. However if AlwaysLoad is true always load the keymaps
+-  // from scratch.
+-  if (m_Loaded && !AlwaysLoad)
+-  {
+-    m_translatorMap = m_baseMap;
+-  }
+-
+-  // Else load the standard mappings
+-  else
+   {
+     for(unsigned int dirIndex = 0; dirIndex < sizeof(DIRS_TO_CHECK)/sizeof(DIRS_TO_CHECK[0]); ++dirIndex) {
+       if( XFILE::CDirectory::Exists(DIRS_TO_CHECK[dirIndex]) )
+@@ -485,10 +473,6 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+       CLog::Log(LOGERROR, "CButtonTranslator::Load - unable to load remote map %s", REMOTEMAP);
+     // don't return false - it is to only indicate a fatal error (which this is not)
+ #endif
+-
+-    // Standard mappings have been loaded into m_translatorMap, copy them to
+-    // m_baseMap for future reuse.
+-    m_baseMap = m_translatorMap;
+   }
+ 
+   // Load mappings for any HID devices we have connected
+diff --git a/xbmc/input/ButtonTranslator.h b/xbmc/input/ButtonTranslator.h
+index 802f16b..0a8cec7 100644
+--- a/xbmc/input/ButtonTranslator.h
++++ b/xbmc/input/ButtonTranslator.h
+@@ -101,8 +101,6 @@ class CButtonTranslator
+ private:
+   typedef std::multimap<uint32_t, CButtonAction> buttonMap; // our button map to fill in
+ 
+-  // m_baseMap contains all the standard mappings
+-  std::map<int, buttonMap> m_baseMap;
+   // m_translatorMap contains all mappings i.e. m_BaseMap + HID device mappings
+   std::map<int, buttonMap> m_translatorMap;
+   // m_deviceList contains the list of connected HID devices
+-- 
+1.7.5.4
+
+
+From cc344423dcb353504502ecc17af29d88d47f202c Mon Sep 17 00:00:00 2001
+From: spiff <spiff@xbmc.org>
+Date: Wed, 21 Mar 2012 21:43:14 +0100
+Subject: [PATCH 2/4] fixed: load HID keymaps in proper priority order
+
+---
+ xbmc/input/ButtonTranslator.cpp |   42 +++++++++++++++++---------------------
+ 1 files changed, 19 insertions(+), 23 deletions(-)
+
+diff --git a/xbmc/input/ButtonTranslator.cpp b/xbmc/input/ButtonTranslator.cpp
+index 63ea6ec..012422e 100644
+--- a/xbmc/input/ButtonTranslator.cpp
++++ b/xbmc/input/ButtonTranslator.cpp
+@@ -440,6 +440,25 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+         for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
+           if (files[fileIndex]->GetPath().Right(4) == ".xml")
+             success |= LoadKeymap(files[fileIndex]->GetPath());
++
++      // Load mappings for any HID devices we have connected
++      std::list<CStdString>::iterator it;
++      for (it = m_deviceList.begin(); it != m_deviceList.end(); it++)
++      {
++        CStdString devicedir = DIRS_TO_CHECK[dirIndex];
++        devicedir.append(*it);
++        devicedir.append("/");
++        if( XFILE::CDirectory::Exists(devicedir) )
++        {
++          CFileItemList files;
++          XFILE::CDirectory::GetDirectory(devicedir, files, "*.xml");
++          // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
++          files.Sort(SORT_METHOD_FILE, SORT_ORDER_ASC);
++          for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
++            if (files[fileIndex]->GetPath().Right(4) == ".xml")
++              success |= LoadKeymap(files[fileIndex]->GetPath());
++        }
++      }
+       }
+     }
+ 
+@@ -475,29 +494,6 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+ #endif
+   }
+ 
+-  // Load mappings for any HID devices we have connected
+-  std::list<CStdString>::iterator it;
+-  for (it = m_deviceList.begin(); it != m_deviceList.end(); it++)
+-  {
+-    for(unsigned int dirIndex = 0; dirIndex < sizeof(DIRS_TO_CHECK)/sizeof(DIRS_TO_CHECK[0]); ++dirIndex)
+-    {
+-      CStdString devicedir = DIRS_TO_CHECK[dirIndex];
+-      devicedir.append(*it);
+-      devicedir.append("/");
+-      if( XFILE::CDirectory::Exists(devicedir) )
+-      {
+-        CFileItemList files;
+-        XFILE::CDirectory::GetDirectory(devicedir, files, "*.xml");
+-        // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
+-        files.Sort(SORT_METHOD_FILE, SORT_ORDER_ASC);
+-        // In (at least) Windows the GetDirectory returns all files not just *.xml files
+-        for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
+-          if (files[fileIndex]->GetPath().Right(4) == ".xml")
+-            success |= LoadKeymap(files[fileIndex]->GetPath());
+-      }
+-    }
+-  }
+-
+   // Done!
+   m_Loaded = true;
+   return true;
+-- 
+1.7.5.4
+
+
+From 6e3bfa012d43cf5eb9ebdfa528fc2ea224c31ca6 Mon Sep 17 00:00:00 2001
+From: spiff <spiff@xbmc.org>
+Date: Wed, 21 Mar 2012 21:23:25 +0100
+Subject: [PATCH 3/4] fixed: specify mask correctly instead of playing silly
+ games
+
+---
+ xbmc/input/ButtonTranslator.cpp |   11 ++++-------
+ 1 files changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/input/ButtonTranslator.cpp b/xbmc/input/ButtonTranslator.cpp
+index 012422e..13304a0 100644
+--- a/xbmc/input/ButtonTranslator.cpp
++++ b/xbmc/input/ButtonTranslator.cpp
+@@ -433,13 +433,11 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+       if( XFILE::CDirectory::Exists(DIRS_TO_CHECK[dirIndex]) )
+       {
+         CFileItemList files;
+-        XFILE::CDirectory::GetDirectory(DIRS_TO_CHECK[dirIndex], files, "*.xml");
++        XFILE::CDirectory::GetDirectory(DIRS_TO_CHECK[dirIndex], files, ".xml");
+         // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
+         files.Sort(SORT_METHOD_FILE, SORT_ORDER_ASC);
+-        // In (at least) Windows the GetDirectory returns all files not just *.xml files
+         for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
+-          if (files[fileIndex]->GetPath().Right(4) == ".xml")
+-            success |= LoadKeymap(files[fileIndex]->GetPath());
++          success |= LoadKeymap(files[fileIndex]->GetPath());
+ 
+       // Load mappings for any HID devices we have connected
+       std::list<CStdString>::iterator it;
+@@ -451,12 +449,11 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+         if( XFILE::CDirectory::Exists(devicedir) )
+         {
+           CFileItemList files;
+-          XFILE::CDirectory::GetDirectory(devicedir, files, "*.xml");
++          XFILE::CDirectory::GetDirectory(devicedir, files, ".xml");
+           // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
+           files.Sort(SORT_METHOD_FILE, SORT_ORDER_ASC);
+           for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
+-            if (files[fileIndex]->GetPath().Right(4) == ".xml")
+-              success |= LoadKeymap(files[fileIndex]->GetPath());
++            success |= LoadKeymap(files[fileIndex]->GetPath());
+         }
+       }
+       }
+-- 
+1.7.5.4
+
+
+From ce1bb1579888b92351d388352e547643d047e076 Mon Sep 17 00:00:00 2001
+From: spiff <spiff@xbmc.org>
+Date: Wed, 21 Mar 2012 21:46:23 +0100
+Subject: [PATCH 4/4] cosmetics
+
+---
+ xbmc/input/ButtonTranslator.cpp |   61 +++++++++++++++++++--------------------
+ 1 files changed, 30 insertions(+), 31 deletions(-)
+
+diff --git a/xbmc/input/ButtonTranslator.cpp b/xbmc/input/ButtonTranslator.cpp
+index 13304a0..c403237 100644
+--- a/xbmc/input/ButtonTranslator.cpp
++++ b/xbmc/input/ButtonTranslator.cpp
+@@ -428,16 +428,16 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+   };
+   bool success = false;
+ 
++  for (unsigned int dirIndex = 0; dirIndex < sizeof(DIRS_TO_CHECK)/sizeof(DIRS_TO_CHECK[0]); ++dirIndex)
+   {
+-    for(unsigned int dirIndex = 0; dirIndex < sizeof(DIRS_TO_CHECK)/sizeof(DIRS_TO_CHECK[0]); ++dirIndex) {
+-      if( XFILE::CDirectory::Exists(DIRS_TO_CHECK[dirIndex]) )
+-      {
+-        CFileItemList files;
+-        XFILE::CDirectory::GetDirectory(DIRS_TO_CHECK[dirIndex], files, ".xml");
+-        // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
+-        files.Sort(SORT_METHOD_FILE, SORT_ORDER_ASC);
+-        for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
+-          success |= LoadKeymap(files[fileIndex]->GetPath());
++    if (XFILE::CDirectory::Exists(DIRS_TO_CHECK[dirIndex]))
++    {
++      CFileItemList files;
++      XFILE::CDirectory::GetDirectory(DIRS_TO_CHECK[dirIndex], files, ".xml");
++      // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
++      files.Sort(SORT_METHOD_FILE, SORT_ORDER_ASC);
++      for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
++        success |= LoadKeymap(files[fileIndex]->GetPath());
+ 
+       // Load mappings for any HID devices we have connected
+       std::list<CStdString>::iterator it;
+@@ -456,14 +456,14 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+             success |= LoadKeymap(files[fileIndex]->GetPath());
+         }
+       }
+-      }
+     }
++  }
+ 
+-    if (!success)
+-    {
+-      CLog::Log(LOGERROR, "Error loading keymaps from: %s or %s or %s", DIRS_TO_CHECK[0], DIRS_TO_CHECK[1], DIRS_TO_CHECK[2]);
+-      return false;
+-    }
++  if (!success)
++  {
++    CLog::Log(LOGERROR, "Error loading keymaps from: %s or %s or %s", DIRS_TO_CHECK[0], DIRS_TO_CHECK[1], DIRS_TO_CHECK[2]);
++    return false;
++  }
+ 
+ #if defined(HAS_LIRC) || defined(HAS_IRSERVERSUITE)
+ #ifdef _LINUX
+@@ -471,25 +471,24 @@ bool CButtonTranslator::Load(bool AlwaysLoad)
+ #else
+ #define REMOTEMAP "IRSSmap.xml"
+ #endif
+-    CStdString lircmapPath;
+-    URIUtils::AddFileToFolder("special://xbmc/system/", REMOTEMAP, lircmapPath);
+-    lircRemotesMap.clear();
+-    if(CFile::Exists(lircmapPath))
+-      success |= LoadLircMap(lircmapPath);
+-    else
+-      CLog::Log(LOGDEBUG, "CButtonTranslator::Load - no system %s found, skipping", REMOTEMAP);
++  CStdString lircmapPath;
++  URIUtils::AddFileToFolder("special://xbmc/system/", REMOTEMAP, lircmapPath);
++  lircRemotesMap.clear();
++  if(CFile::Exists(lircmapPath))
++    success |= LoadLircMap(lircmapPath);
++  else
++    CLog::Log(LOGDEBUG, "CButtonTranslator::Load - no system %s found, skipping", REMOTEMAP);
+ 
+-    lircmapPath = g_settings.GetUserDataItem(REMOTEMAP);
+-    if(CFile::Exists(lircmapPath))
+-      success |= LoadLircMap(lircmapPath);
+-    else
+-      CLog::Log(LOGDEBUG, "CButtonTranslator::Load - no userdata %s found, skipping", REMOTEMAP);
++  lircmapPath = g_settings.GetUserDataItem(REMOTEMAP);
++  if(CFile::Exists(lircmapPath))
++    success |= LoadLircMap(lircmapPath);
++  else
++    CLog::Log(LOGDEBUG, "CButtonTranslator::Load - no userdata %s found, skipping", REMOTEMAP);
+ 
+-    if (!success)
+-      CLog::Log(LOGERROR, "CButtonTranslator::Load - unable to load remote map %s", REMOTEMAP);
+-    // don't return false - it is to only indicate a fatal error (which this is not)
++  if (!success)
++    CLog::Log(LOGERROR, "CButtonTranslator::Load - unable to load remote map %s", REMOTEMAP);
++  // don't return false - it is to only indicate a fatal error (which this is not)
+ #endif
+-  }
+ 
+   // Done!
+   m_Loaded = true;
+-- 
+1.7.5.4
+
