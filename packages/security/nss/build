@@ -1,0 +1,65 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+. config/options $1
+
+# dont build parallel
+  MAKEFLAGS=-j1
+
+cd $PKG_BUILD/mozilla/security/nss
+
+setup_toolchain host
+
+# make host part (we need shlibsign and nsinstall)
+make nss_build_all CC=$CC LDFLAGS="$LDFLAGS"
+
+# save host binary
+cp ../coreconf/nsinstall/Linux*PTH_DBG.OBJ/nsinstall nsinstall-host
+NSINSTALL_HOST=`pwd`/nsinstall-host
+
+# save library signatures to be used on target
+# the .chk file format is cross platform (so I read)
+find ./ -name "lib*.chk" -exec cp {} ../../dist/ \;
+
+# can't run in crosscompile (remove it from target)
+sed -i "/shlibsign/d" cmd/manifest.mn
+
+# clean up host part
+rm -rf `find ../../../ -type d -name Linux*PTH_DBG.OBJ`
+
+[ "$TARGET_ARCH" = "x86_64" ] && export USE_64=1
+
+setup_toolchain target
+
+NSPR_CONFIGURE_OPTS="--host=$TARGET_NAME --build=$HOST_NAME --target=$TARGET_NAME"
+NSPR_CONFIGURE_OPTS="$NSPR_CONFIGURE_OPTS --prefix=/usr --enable-strip --with-pthreads" \
+make nss_build_all \
+  BUILD_OPT=1 \
+  OS_TEST=$TARGET_ARCH \
+  CPU_ARCH_TAG=$TARGET_ARCH \
+  USE_SYSTEM_ZLIB=1 \
+  ZLIB_LIBS=-lz \
+  CC=$CC \
+  CCC=$CXX \
+  RANLIB=$RANLIB \
+  V=1 \
+  NSINSTALL=$NSINSTALL_HOST
