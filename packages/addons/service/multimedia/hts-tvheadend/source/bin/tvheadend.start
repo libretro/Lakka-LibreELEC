@@ -54,6 +54,14 @@ fi
 
 TVHEADEND_ARG="-C -s -u root -g video -c $ADDON_HOME"
 
+mkdir -p /var/config
+cat "$ADDON_DIR/settings-default.xml" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/tvheadend.conf.default
+cat "$ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/tvheadend.conf
+
+. /var/config/tvheadend.conf.default
+. /var/config/tvheadend.conf
+
+
 mkdir -p $ADDON_HOME
   if [ ! "$(pidof $ADDON_BIN)" ]; then
     # start userspace DVB driver/addon
@@ -71,6 +79,10 @@ mkdir -p $ADDON_HOME
     while [ true ] ; do
       if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
         break
+      fi
+      if [ "$WAIT_FOR_FEINIT" == "true" ] && [ ! -e /dev/dvb/adapter*/frontend* ] ; then
+        sleep 1
+        continue
       fi
       $ADDON_BIN $TVHEADEND_ARG &>$LOG_FILE
     done &
