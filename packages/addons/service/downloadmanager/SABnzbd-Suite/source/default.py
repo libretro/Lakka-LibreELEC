@@ -18,6 +18,21 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import xbmc, time, os, subprocess
+import os
+import sys
+import xbmcaddon
+import time
+import subprocess
+import xbmc
 
-subprocess.Popen("SABnzbd-Suite.service", shell=True, close_fds=True)
+__scriptname__ = "SABnzbd Suite"
+__author__ = "OpenELEC"
+__url__ = "http://www.openelec.tv"
+__settings__   = xbmcaddon.Addon(id='service.downloadmanager.SABnzbd-Suite')
+__cwd__        = __settings__.getAddonInfo('path')
+__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "SABnzbd-Suite.service") )
+
+#make binary files executable in adson bin folder
+subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
+
+subprocess.Popen(__path__, shell=True, close_fds=True)
