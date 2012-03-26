@@ -67,36 +67,6 @@ NBD_DEVS="0"
       break=*)
         BREAK="${arg#*=}"
         ;;
-      iscsi_auto)
-        ISCSI_AUTO=yes
-        ;;
-      iscsi_initiator=*)
-        ISCSI_INITIATOR="${arg#iscsi_initiator=}"
-        ;;
-      iscsi_target_name=*)
-        ISCSI_TARGET_NAME="${arg#iscsi_target_name=}"
-        ;;
-      iscsi_target_ip=*)
-        ISCSI_TARGET_IP="${arg#iscsi_target_ip=}"
-        ;;
-      iscsi_target_port=*)
-        ISCSI_TARGET_PORT="${arg#iscsi_target_port=}"
-        ;;
-      iscsi_target_group=*)
-        ISCSI_TARGET_GROUP="${arg#iscsi_target_group=}"
-        ;;
-      iscsi_username=*)
-        ISCSI_USERNAME="${arg#iscsi_username=}"
-        ;;
-      iscsi_password=*)
-        ISCSI_PASSWORD="${arg#iscsi_password=}"
-        ;;
-      iscsi_in_username=*)
-        ISCSI_IN_USERNAME="${arg#iscsi_in_username=}"
-        ;;
-      iscsi_in_password=*)
-        ISCSI_IN_PASSWORD="${arg#iscsi_in_password=}"
-        ;;
     esac
   done
 
@@ -175,6 +145,72 @@ NBD_DEVS="0"
     mount_common "$CIFS_SHARE" "$2" "$3,$CIFS_OPTIONS" "cifs"
   }
 
+  get_iscsistart_options() {
+  # Convert kernel commandline ISCSI= options to iscsistart options
+    IFS_SAVE="$IFS"
+    IFS=,
+
+    for arg in $1; do
+      val="${arg#*=}"
+      case "$arg" in
+        iscsi_initiator=*)
+          option="-i"
+          ;;
+        iscsi_target_name=*)
+          option="-t"
+          ;;
+        iscsi_target_ip=*)
+          option="-a"
+          ;;
+        iscsi_target_port=*)
+          option="-p"
+          ;;
+        iscsi_target_group=*)
+          option="-g"
+          ;;
+        iscsi_username=*)
+          option="-u"
+          ;;
+        iscsi_password=*)
+          option="-w"
+          ;;
+        iscsi_in_username=*)
+          option="-U"
+          ;;
+        iscsi_in_password=*)
+          option="-W"
+          ;;
+      esac
+      echo "$option $val"
+    done
+
+    IFS="$IFS_SAVE"
+  }
+
+  mount_iscsi() {
+  # Mount iSCSI target
+    ISCSI_DEV="${1##*,}"
+    ISCSI_OPTIONS="${1%,*}"
+
+    if [ ! -f "/sbin/iscsistart" ]; then
+      error "iscsistart" "iSCSI support not available"
+    fi
+
+    if [ "$ISCSI_OPTIONS" = "auto" ]; then
+      progress "Network configuration based on iBFT"
+      /sbin/iscsistart -N >&$SILENT_OUT 2>&1 || \
+        error "iscsistart" "Unable to configure network"
+      progress "iSCSI auto connect based on iBFT"
+      /sbin/iscsistart -b >&$SILENT_OUT 2>&1 || \
+        error "iscsistart" "Unable to auto connect"
+    else
+      /sbin/iscsistart $(get_iscsistart_options "$ISCSI_OPTIONS") >&$SILENT_OUT 2>&1 || \
+        error "iscsistart" "Unable to connect to ISCSI target"
+    fi
+
+    mount_common "$ISCSI_DEV" "$2" "$3" "$4"
+  }
+
   mount_nbd() {
   # Mount NBD device
     NBD_SERVER="${1%%:*}"
@@ -209,6 +245,9 @@ NBD_DEVS="0"
         ;;
       CIFS=*|SMB=*)
         MOUNT_CMD="mount_cifs"
+        ;;
+      ISCSI=*)
+        MOUNT_CMD="mount_iscsi"
         ;;
       NBD=*)
         MOUNT_CMD="mount_nbd"
@@ -260,27 +299,6 @@ NBD_DEVS="0"
       /bin/busybox insmod "$MODULE_DIR/$module" || \
         error "load_modules" "Failed to load kernel module $module"
     done
-  }
-  
-  do_iscsi_login ()
-  {
-    if [ -z $ISCSI_AUTO ]; then
-      for i in $ISCSI_TARGET_IP; do
-        /sbin/iscsistart -i $ISCSI_INITIATOR -t $ISCSI_TARGET_NAME \
-                         -g $ISCSI_TARGET_GROUP -a $i \
-                         -p $ISCSI_TARGET_PORT \
-                         ${ISCSI_USERNAME:+-u "$ISCSI_USERNAME"} \
-                         ${ISCSI_PASSWORD:+-w "$ISCSI_PASSWORD"} \
-                         ${ISCSI_IN_USERNAME:+-U "$ISCSI_IN_USERNAME"} \
-                         ${ISCSI_IN_PASSWORD:+-W "$ISCSI_IN_PASSWORD"}
-
-      done
-    else
-      echo "Network configuration based on iBFT."
-      /sbin/iscsistart -N
-      echo "iSCSI auto connect based on iBFT."
-      /sbin/iscsistart -b
-    fi
   }
 
   check_disks() {
@@ -353,10 +371,6 @@ NBD_DEVS="0"
 
     [ -f "/sysroot/sbin/init" ] || error "final_check" "Could not find system."
   }
-  
-  if [ -n "$ISCSI_AUTO" -o -n "$ISCSI_TARGET_NAME" ]; then
-    do_iscsi_login
-  fi
 
 # main boot sequence
   for BOOT_STEP in \
