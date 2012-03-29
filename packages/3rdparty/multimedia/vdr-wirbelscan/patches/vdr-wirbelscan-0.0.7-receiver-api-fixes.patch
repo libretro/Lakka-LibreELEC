@@ -1,0 +1,51 @@
+commit 64f969e39d18aefa263dc3a61172e33df33963fb
+Author: Stefan Saraev <stefan@saraev.ca>
+Date:   Thu Mar 29 20:22:11 2012 +0300
+
+    wirbelscan: receiver-api-fixes
+
+diff --git a/statemachine.c b/statemachine.c
+index 48a212e..bc0c8e5 100644
+--- a/statemachine.c
++++ b/statemachine.c
+@@ -36,12 +36,12 @@ protected:
+     while (Running()) cCondWait::SleepMs(5);
+     }; /*TODO: check here periodically for lock and wether we got any data!*/
+ public:
+-  cScanReceiver(tChannelID ChannelID, int AnyPid);
++  cScanReceiver(const cChannel* chan, int AnyPid);
+   virtual ~cScanReceiver() {cReceiver::Detach(); };
+   };
+ 
+-cScanReceiver::cScanReceiver(tChannelID ChannelID, int AnyPid) :
+-     cReceiver(ChannelID, 99, AnyPid), cThread("dummy receiver") { }
++cScanReceiver::cScanReceiver(const cChannel* chan, int AnyPid) :
++     cReceiver(chan, 99), cThread("dummy receiver") {  AddPid(AnyPid); }
+ 
+ ///!-----------------------------------------------------------------
+ ///!  v 0.0.5, store state in lastState if different and print state
+@@ -144,7 +144,7 @@ void cStateMachine::Action(void) {
+          ScannedTransponders.Add(ScannedTransponder);
+ 
+          dev->SwitchChannel(Transponder, false);
+-         aReceiver = new cScanReceiver(Transponder->GetChannelID(), 99);
++         aReceiver = new cScanReceiver(Transponder, 99);
+          dev->AttachReceiver(aReceiver);
+ 
+          cCondWait::SleepMs(1000);
+diff --git a/ttext.c b/ttext.c
+index 0053936..0864484 100644
+--- a/ttext.c
++++ b/ttext.c
+@@ -374,9 +374,9 @@ void cSwReceiver::Action() {
+      }
+ }
+ 
+-cSwReceiver::cSwReceiver(cChannel * Channel) : cReceiver(Channel->GetChannelID(),
+-   100, Channel->Tpid()), cThread("ttext") {
++cSwReceiver::cSwReceiver(cChannel * Channel) : cReceiver(Channel, 100), cThread("ttext") {
+ 
++   AddPid(Channel->Tpid());
+    stopped = fuzzy = false;
+    channel = Channel;
+    buffer  = new cRingBufferLinear(MEGABYTE(1),184);
