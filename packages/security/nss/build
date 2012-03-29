@@ -29,11 +29,13 @@ cd $PKG_BUILD/mozilla/security/nss
 
 setup_toolchain host
 
-# make host part (we need shlibsign and nsinstall)
-make nss_build_all CC=$CC LDFLAGS="$LDFLAGS"
+[ "`uname -m`" = "x86_64" ] && HOST_USE_64="USE_64=1"
+
+# make host part for nsinstall binary and created library signatures
+make nss_build_all CC=$CC LDFLAGS="$LDFLAGS" $HOST_USE_64
 
 # save host binary
-cp ../coreconf/nsinstall/Linux*PTH_DBG.OBJ/nsinstall nsinstall-host
+cp ../coreconf/nsinstall/Linux*_DBG.OBJ/nsinstall nsinstall-host
 NSINSTALL_HOST=`pwd`/nsinstall-host
 
 # save library signatures to be used on target
@@ -44,22 +46,19 @@ find ./ -name "lib*.chk" -exec cp {} ../../dist/ \;
 sed -i "/shlibsign/d" cmd/manifest.mn
 
 # clean up host part
-rm -rf `find ../../../ -type d -name Linux*PTH_DBG.OBJ`
+rm -rf `find ../../../ -type d -name Linux*_DBG.OBJ`
 
-[ "$TARGET_ARCH" = "x86_64" ] && export USE_64=1
+[ "$TARGET_ARCH" = "x86_64" ] && TARGET_USE_64="USE_64=1"
 
 setup_toolchain target
 
 NSPR_CONFIGURE_OPTS="--host=$TARGET_NAME --build=$HOST_NAME --target=$TARGET_NAME"
 NSPR_CONFIGURE_OPTS="$NSPR_CONFIGURE_OPTS --prefix=/usr --enable-strip --with-pthreads" \
 make nss_build_all \
-  BUILD_OPT=1 \
+  NSINSTALL=$NSINSTALL_HOST \
+  BUILD_OPT=1 $TARGET_USE_64 \
   OS_TEST=$TARGET_ARCH \
   CPU_ARCH_TAG=$TARGET_ARCH \
-  USE_SYSTEM_ZLIB=1 \
-  ZLIB_LIBS=-lz \
-  CC=$CC \
-  CCC=$CXX \
-  RANLIB=$RANLIB \
-  V=1 \
-  NSINSTALL=$NSINSTALL_HOST
+  USE_SYSTEM_ZLIB=1 ZLIB_LIBS=-lz \
+  CC=$CC CCC=$CXX RANLIB=$RANLIB \
+  V=1
