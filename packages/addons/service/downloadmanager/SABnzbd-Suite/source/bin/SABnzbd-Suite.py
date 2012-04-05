@@ -38,6 +38,7 @@ logging.basicConfig(filename='/storage/.xbmc/temp/sabnzbd-suite.log',
 
 
 
+
 # helper functions
 # ----------------
 
@@ -81,6 +82,7 @@ pHeadphonesSettings   = os.path.join(pAddonHome, 'headphones.ini')
 # directories
 pSabNzbdComplete      = '/storage/downloads'
 pSabNzbdCompleteMov   = '/storage/downloads/movies'
+pSabNzbdCompleteMusic = '/storage/downloads/music'
 pSabNzbdIncomplete    = '/storage/downloads/incomplete'
 pSickBeardTvScripts   = os.path.join(pAddon, 'SickBeard/autoProcessTV')
 pSabNzbdScripts       = os.path.join(pAddonHome, 'scripts')
@@ -104,6 +106,8 @@ sabNzbdHost           = '127.0.0.1:8081'
 addonId               = 'service.downloadmanager.SABnzbd-Suite'
 
 
+
+
 # create directories and settings on first launch
 # -----------------------------------------------
 
@@ -113,14 +117,9 @@ if firstLaunch:
     createDir(pAddonHome)
     createDir(pSabNzbdComplete)
     createDir(pSabNzbdCompleteMov)
+    createDir(pSabNzbdCompleteMusic)
     createDir(pSabNzbdIncomplete)
     createDir(pSabNzbdScripts)
-    # copy and sanitize sickbeards autoprocessing scripts
-    # text = open(pSickBeardTvScript, 'rb').read().replace('\r\n', '\n')
-    #     dest = open(pTvScriptDestination, 'wb')
-    #     dest.write('#!/usr/bin/python\n') # add missing shebang
-    #     dest.write(text)
-    #     dest.close()
     shutil.copy(os.path.join(pSickBeardTvScripts,'sabToSickBeard.py'), pSabNzbdScripts)
     shutil.copy(os.path.join(pSickBeardTvScripts,'autoProcessTV.py'), pSabNzbdScripts)
     os.chmod(os.path.join(pSabNzbdScripts,'sabToSickBeard.py'), 0755)
@@ -130,6 +129,7 @@ if firstLaunch:
     # make utilities executable
     for utility in {'par2','unrar','unzip'}:
         os.chmod(os.path.join(pAddon, 'bin', utility), 0755)
+
 
 
 
@@ -155,10 +155,6 @@ xbmcServices = xbmcSettings.getElementsByTagName('services')[0]
 xbmcPort         = xbmcServices.getElementsByTagName('webserverport')[0].firstChild.data
 xbmcUser         = xbmcServices.getElementsByTagName('webserverusername')[0].firstChild.data
 xbmcPwd          = xbmcServices.getElementsByTagName('webserverpassword')[0].firstChild.data
-logging.debug('User: ' + str(user) + ', Pwd: ' + str(pwd) + 
-              ', Ip: ' + str(host) + ', Keep Awake: ' + str(sabNzbdKeepAwake))
-logging.debug('XBMC User: ' + str(xbmcUser) + ', XBMC Pwd: ' + str(xbmcPwd) + 
-              ', XBMC Port: ' + str(xbmcPort))
 
 
 
@@ -214,6 +210,10 @@ if firstLaunch:
     categories['movies']['name']           = 'movies'
     categories['movies']['dir']            = 'movies'
     categories['movies']['priority']       = '-100'
+    categories['music'] = {}
+    categories['music']['name']            = 'music'
+    categories['music']['dir']             = 'music'
+    categories['music']['priority']        = '-100'
     defaultConfig['servers'] = servers
     defaultConfig['categories'] = categories
     
@@ -241,14 +241,14 @@ logging.debug('Launching SABnzbd...')
 subprocess.call(sabnzbd)
 logging.debug('...done')
 
-
-
 # SABnzbd will only complete the .ini file when we first access the web interface
 if firstLaunch:
     loadWebInterface('http://' + sabNzbdHost,user,pwd)
 sabNzbdConfig.reload()
 sabNzbdApiKey = sabNzbdConfig['misc']['api_key']
 logging.debug('SABnzbd api key: ' + sabNzbdApiKey)
+
+
 
 
 # write SickBeard settings
@@ -298,11 +298,13 @@ sickBeardConfig.write()
 
 
 
+
 # launch SickBeard
 # ----------------
 logging.debug('Launching SickBeard...')
 subprocess.call(sickBeard)
 logging.debug('...done')
+
 
 
 
@@ -344,6 +346,7 @@ couchPotatoConfig.write()
 
 
 
+
 # launch CouchPotato
 # ------------------
 
@@ -363,16 +366,25 @@ defaultConfig['General'] = {}
 defaultConfig['General']['launch_browser']   = '0'
 defaultConfig['General']['http_port']        = '8084'
 defaultConfig['General']['http_host']        = host
-defaultConfig['General']['music_dir']        = 'storage/music'
-defaultConfig['General']['destination_dir']  = 'storage/music'
-defaultConfig['General']['download_dir']     = 'storage/music' 
+defaultConfig['General']['http_username']    = user
+defaultConfig['General']['http_password']    = pwd
 defaultConfig['SABnzbd'] = {}
 defaultConfig['SABnzbd']['sab_apikey']       = sabNzbdApiKey
 defaultConfig['SABnzbd']['sab_host']         = sabNzbdHost
-defaultConfig['SABnzbd']['sab_category']     = 'music'
+defaultConfig['SABnzbd']['sab_username']     = user
+defaultConfig['SABnzbd']['sab_password']     = pwd
+
+if firstLaunch:
+    defaultConfig['SABnzbd']['sab_category']     = 'music'
+    defaultConfig['General']['music_dir']        = '/storage/music'
+    defaultConfig['General']['destination_dir']  = '/storage/music'
+    defaultConfig['General']['download_dir']     = '/storage/downloads/music' 
+    defaultConfig['General']['move_files']       = '1' 
+    defaultConfig['General']['rename_files']     = '1'
     
 headphonesConfig.merge(defaultConfig)
 headphonesConfig.write()
+
 
 
 
