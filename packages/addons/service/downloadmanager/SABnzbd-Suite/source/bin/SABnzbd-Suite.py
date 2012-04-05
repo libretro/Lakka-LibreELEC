@@ -153,9 +153,14 @@ fXbmcSettings.close
 xbmcSettings = parseString(data)
 xbmcServices = xbmcSettings.getElementsByTagName('services')[0]
 xbmcPort         = xbmcServices.getElementsByTagName('webserverport')[0].firstChild.data
-xbmcUser         = xbmcServices.getElementsByTagName('webserverusername')[0].firstChild.data
-xbmcPwd          = xbmcServices.getElementsByTagName('webserverpassword')[0].firstChild.data
-
+try:
+    xbmcUser     = xbmcServices.getElementsByTagName('webserverusername')[0].firstChild.data
+except:
+    xbmcUser = ''
+try:
+    xbmcPwd      = xbmcServices.getElementsByTagName('webserverpassword')[0].firstChild.data
+except:
+    xbmcPwd = ''
 
 
 
