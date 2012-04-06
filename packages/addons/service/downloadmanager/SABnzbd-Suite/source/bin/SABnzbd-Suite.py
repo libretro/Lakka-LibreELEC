@@ -342,7 +342,7 @@ if firstLaunch:
     defaultConfig['Renamer'] = {}
     defaultConfig['Renamer']['enabled']      = 'True'
     defaultConfig['Renamer']['download']     = pSabNzbdCompleteMov
-    defaultConfig['Renamer']['destination']  = '/storage/movies'
+    defaultConfig['Renamer']['destination']  = '/storage/videos'
     defaultConfig['Renamer']['separator']    = '.'
     defaultConfig['Renamer']['cleanup']      = 'True'
     
