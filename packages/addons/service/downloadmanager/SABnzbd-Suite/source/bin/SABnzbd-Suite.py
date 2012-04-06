@@ -31,10 +31,10 @@ from configobj import ConfigObj
 from xml.dom.minidom import parseString
 import logging
 
-logging.basicConfig(filename='/storage/.xbmc/temp/sabnzbd-suite.log',
+logging.basicConfig(filename='/var/log/sabnzbd-suite.log',
                     filemode='w',
                     format='%(asctime)s SABnzbd-Suite: %(message)s', 
-                    level=logging.DEBUG)
+                    level=logging.WARNING)
 
 
 
