@@ -60,10 +60,10 @@ if shouldKeepAwake:
     xbmc.log('SABnzbd-Suite: will prevent idle sleep/shutdown while downloading')
 
 while (not xbmc.abortRequested):
-    
+
     # reread setting in case it has changed
     shouldKeepAwake = __settings__.getSetting('SABNZBD_KEEP_AWAKE')
-    
+
     # check if SABnzbd is downloading
     sabIsActive = False
     req = urllib2.Request(sabNzbdQueue)
@@ -74,16 +74,16 @@ while (not xbmc.abortRequested):
         queue = handle.read()
         handle.close()
         sabIsActive = (queue.find('<status>Downloading</status>') >= 0)
-    
+
     # reset idle timer when we're close to idle sleep/shutdown
     if (shouldKeepAwake and sabIsActive):
         response = xbmc.executehttpapi("GetGUISetting(0;powermanagement.shutdowntime)").replace('<li>','')
         shutdownTime = int(response) * 60
         idleTime = xbmc.getGlobalIdleTime()
         timeToShutdown = shutdownTime - idleTime
-        
+
         if (sabIsActive and timeToShutdown <= checkInterval - timeout):
             xbmc.log('SABnzbd-Suite: still downloading. Resetting XBMC idle timer.')
             xbmc.executehttpapi("SendKey(0xF000)")
-        
+
     xbmc.sleep(checkInterval * 1000)

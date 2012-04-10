@@ -1,23 +1,22 @@
-################################################################################                                    
-#      This file is part of OpenELEC - http://www.openelec.tv                                                       
-#      Copyright (C) 2012 Lukas Heiniger
-#                                                                                                                   
-#  This Program is free software; you can redistribute it and/or modify                                             
-#  it under the terms of the GNU General Public License as published by                                             
-#  the Free Software Foundation; either version 2, or (at your option)                                              
-#  any later version.                                                                                               
-#                                                                                                                   
-#  This Program is distributed in the hope that it will be useful,                                                  
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of                                                   
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                                                     
-#  GNU General Public License for more details.                                                                     
-#                                                                                                                   
-#  You should have received a copy of the GNU General Public License                                                
-#  along with OpenELEC.tv; see the file COPYING.  If not, write to                                                  
-#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.                              
-#  http://www.gnu.org/copyleft/gpl.html                                                                             
 ################################################################################
-
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2012 Lukas Heiniger
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
 
 # Initializes and launches SABnzbd, Couchpotato, Sickbeard and Headphones
 
@@ -33,11 +32,8 @@ import logging
 
 logging.basicConfig(filename='/var/log/sabnzbd-suite.log',
                     filemode='w',
-                    format='%(asctime)s SABnzbd-Suite: %(message)s', 
+                    format='%(asctime)s SABnzbd-Suite: %(message)s',
                     level=logging.WARNING)
-
-
-
 
 # helper functions
 # ----------------
@@ -45,12 +41,12 @@ logging.basicConfig(filename='/var/log/sabnzbd-suite.log',
 def createDir(dir):
     if not os.path.isdir(dir):
         os.makedirs(dir)
-        
+
 def getAddonSetting(doc,id):
     for element in doc.getElementsByTagName('setting'):
         if element.getAttribute('id')==id:
             return element.getAttribute('value')
-            
+
 def loadWebInterface(url,user,pwd):
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, url, user, pwd)
@@ -59,9 +55,6 @@ def loadWebInterface(url,user,pwd):
     urllib2.install_opener(opener)
     pagehandle = urllib2.urlopen(url)
     return pagehandle.read()
-    
-
-
 
 # define some things that we're gonna need, mainly paths
 # ------------------------------------------------------
@@ -87,26 +80,22 @@ pSabNzbdIncomplete    = '/storage/downloads/incomplete'
 pSickBeardTvScripts   = os.path.join(pAddon, 'SickBeard/autoProcessTV')
 pSabNzbdScripts       = os.path.join(pAddonHome, 'scripts')
 
-
 # pylib
 pPylib                = os.path.join(pAddon, 'pylib')
 
 # service commands
-sabnzbd               = ['python', os.path.join(pAddon, 'SABnzbd/SABnzbd.py'), 
+sabnzbd               = ['python', os.path.join(pAddon, 'SABnzbd/SABnzbd.py'),
                          '-d', '-f',  pSabNzbdSettings, '-l 0']
-sickBeard             = ['python', os.path.join(pAddon, 'SickBeard/SickBeard.py'), 
+sickBeard             = ['python', os.path.join(pAddon, 'SickBeard/SickBeard.py'),
                          '--daemon', '--datadir', pAddonHome]
-couchPotato           = ['python', os.path.join(pAddon, 'CouchPotato/CouchPotato.py'), 
+couchPotato           = ['python', os.path.join(pAddon, 'CouchPotato/CouchPotato.py'),
                          '-d', '--datadir', pAddonHome, '--config', pCouchPotatoSettings]
-headphones            = ['python', os.path.join(pAddon, 'Headphones/Headphones.py'), 
+headphones            = ['python', os.path.join(pAddon, 'Headphones/Headphones.py'),
                          '-d', '--datadir', pAddonHome, '--config', pHeadphonesSettings]
 
 # Other stuff
 sabNzbdHost           = '127.0.0.1:8081'
 addonId               = 'service.downloadmanager.SABnzbd-Suite'
-
-
-
 
 # create directories and settings on first launch
 # -----------------------------------------------
@@ -129,9 +118,6 @@ if firstLaunch:
     # make utilities executable
     for utility in {'par2','unrar','unzip'}:
         os.chmod(os.path.join(pAddon, 'bin', utility), 0755)
-
-
-
 
 # read addon and xbmc settings
 # ----------------------------
@@ -162,16 +148,11 @@ try:
 except:
     xbmcPwd = ''
 
-
-
 # prepare execution environment
 # -----------------------------
 
 signal.signal(signal.SIGCHLD, signal.SIG_DFL)
 os.environ['PYTHONPATH'] = str(os.environ.get('PYTHONPATH')) + ':' + pPylib
-
-
-
 
 # write SABnzbd settings
 # ----------------------
@@ -207,7 +188,7 @@ if firstLaunch:
     servers['localhost']['port']           = '119'
     servers['localhost']['enable']         = '0'
     categories = {}
-    categories['tv'] = {}                                 
+    categories['tv'] = {}
     categories['tv']['name']               = 'tv'
     categories['tv']['script']             = 'sabToSickBeard.py'
     categories['tv']['priority']           = '-100'
@@ -221,7 +202,7 @@ if firstLaunch:
     categories['music']['priority']        = '-100'
     defaultConfig['servers'] = servers
     defaultConfig['categories'] = categories
-    
+
 sabNzbdConfig.merge(defaultConfig)
 sabNzbdConfig.write()
 
@@ -236,9 +217,6 @@ defaultConfig['SickBeard']['password']     = pwd
 autoProcessConfig.merge(defaultConfig)
 autoProcessConfig.write()
 
-
-
-
 # launch SABnzbd and get the API key
 # ----------------------------------
 
@@ -252,9 +230,6 @@ if firstLaunch:
 sabNzbdConfig.reload()
 sabNzbdApiKey = sabNzbdConfig['misc']['api_key']
 logging.debug('SABnzbd api key: ' + sabNzbdApiKey)
-
-
-
 
 # write SickBeard settings
 # ------------------------
@@ -297,21 +272,15 @@ if firstLaunch:
     defaultConfig['SABnzbd']['sab_host']              = sabNzbdHost
     defaultConfig['XBMC']['xbmc_notify_ondownload']   = '1'
     defaultConfig['XBMC']['xbmc_update_library']      = '1'
-    
+
 sickBeardConfig.merge(defaultConfig)
 sickBeardConfig.write()
-
-
-
 
 # launch SickBeard
 # ----------------
 logging.debug('Launching SickBeard...')
 subprocess.call(sickBeard)
 logging.debug('...done')
-
-
-
 
 # write CouchPotato settings
 # --------------------------
@@ -345,12 +314,9 @@ if firstLaunch:
     defaultConfig['Renamer']['destination']  = '/storage/videos'
     defaultConfig['Renamer']['separator']    = '.'
     defaultConfig['Renamer']['cleanup']      = 'True'
-    
+
 couchPotatoConfig.merge(defaultConfig)
 couchPotatoConfig.write()
-
-
-
 
 # launch CouchPotato
 # ------------------
@@ -358,9 +324,6 @@ couchPotatoConfig.write()
 logging.debug('Launching CouchPotato...')
 subprocess.call(couchPotato)
 logging.debug('...done')
-
-
-
 
 # write Headphones settings
 # -------------------------
@@ -383,15 +346,12 @@ if firstLaunch:
     defaultConfig['SABnzbd']['sab_category']     = 'music'
     defaultConfig['General']['music_dir']        = '/storage/music'
     defaultConfig['General']['destination_dir']  = '/storage/music'
-    defaultConfig['General']['download_dir']     = '/storage/downloads/music' 
-    defaultConfig['General']['move_files']       = '1' 
+    defaultConfig['General']['download_dir']     = '/storage/downloads/music'
+    defaultConfig['General']['move_files']       = '1'
     defaultConfig['General']['rename_files']     = '1'
-    
+
 headphonesConfig.merge(defaultConfig)
 headphonesConfig.write()
-
-
-
 
 # launch Headphones
 # -----------------
