@@ -27,10 +27,14 @@ ADDON_CONFIG_DIR="$ADDON_HOME/config"
 ADDON_SETTINGS="$ADDON_HOME/settings.xml"
 REMOVE_MODULES=`grep REMOVE_MODULES $ADDON_SETTINGS | awk '{print $3}' | sed -e "s,value=,," -e "s,\",,g"`
 
+LOCKFILE="/var/lock/vdr.sleep"
+
 if [ ! "$REMOVE_MODULES" == "" ] ; then
   case "$1" in
     hibernate|suspend)
+      progress "Shutting down vdr for suspending..."
       vdr.stop
+      touch $LOCKFILE
       for module in $REMOVE_MODULES ; do
         rmmod -w $module
       done
@@ -39,7 +43,11 @@ if [ ! "$REMOVE_MODULES" == "" ] ; then
       for module in $REMOVE_MODULES ; do
         modprobe $module
       done
-      xbmc-send --host=127.0.0.1 -a "XBMC.RunScript(service.multimedia.vdr-addon)" &
+      progress "Restarting vdr for wakeup..."
+      if [ -f "$LOCKFILE" ] ; then
+        rm -rf "$LOCKFILE"
+        vdr.start
+      fi
       ;;
     *) exit $NA
       ;;
