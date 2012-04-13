@@ -42,12 +42,12 @@
 # exclude mounted partitions
 # for i in `cat /proc/mounts | grep ^/dev/ | cut -f1 -d " " | sed "s/[0-9]//"`; do TEST="$TEST `echo "| grep -v $i"`"; done
 
-# Interpret embedded "\Z" sequences in the dialog text by the following 
-# character, which tells dialog to set colors or video attributes: 0 through 7 
-# are the ANSI used in curses: black, red, green, yellow, blue, magenta, cyan 
-# and white respectively. Bold is set by 'b', reset by 'B'. Reverse is set 
-# by 'r', reset by 'R'. Underline is set by 'u', reset by 'U'. The settings are 
-# cumulative, e.g., "\Zb\Z1" makes the following text bold (perhaps bright) 
+# Interpret embedded "\Z" sequences in the dialog text by the following
+# character, which tells dialog to set colors or video attributes: 0 through 7
+# are the ANSI used in curses: black, red, green, yellow, blue, magenta, cyan
+# and white respectively. Bold is set by 'b', reset by 'B'. Reverse is set
+# by 'r', reset by 'R'. Underline is set by 'u', reset by 'U'. The settings are
+# cumulative, e.g., "\Zb\Z1" makes the following text bold (perhaps bright)
 # red. Restore normal settings with "\Zn".
 
 [ -f /etc/installer.conf ] && . /etc/installer.conf || exit 0
@@ -190,6 +190,7 @@ do_install_quick() {
 
         prompt_gpt
         prompt_ssh
+        prompt_backup_unpack
 
         EXTLINUX_SSH=""
         if [ "$SSH" = "1" ]; then
@@ -259,15 +260,15 @@ do_install_quick() {
             extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
 
         # install system files
-          msg_progress_install "70" "installing Kernel"
+          msg_progress_install "60" "installing Kernel"
             cp /flash/KERNEL $TMPDIR/part1 >> $LOGFILE 2>&1
 
-          msg_progress_install "75" "installing System"
+          msg_progress_install "65" "installing System"
             cp /flash/SYSTEM $TMPDIR/part1 >> $LOGFILE 2>&1
             sync
 
         # configuring bootloader
-          msg_progress_install "90" "setup bootloader with boot label = $DISKLABEL_SYSTEM and disk label = $DISKLABEL_STORAGE"
+          msg_progress_install "80" "setup bootloader with boot label = $DISKLABEL_SYSTEM and disk label = $DISKLABEL_STORAGE"
             echo "DEFAULT linux" > $TMPDIR/part1/extlinux.conf
             echo "PROMPT 0" >> $TMPDIR/part1/extlinux.conf
             echo " " >> $TMPDIR/part1/extlinux.conf
@@ -277,11 +278,32 @@ do_install_quick() {
             sync
 
         # umount system partition, remove mountpoint
-          msg_progress_install "95" "unmount $TMPDIR/part1"
+          msg_progress_install "85" "unmount $TMPDIR/part1"
             umount $TMPDIR/part1 >> $LOGFILE 2>&1
 
-          msg_progress_install "100" "remove $TMPDIR/part1"
+          msg_progress_install "87" "remove $TMPDIR/part1"
             rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
+
+          if [ "$BACKUP_UNPACK" = "1" ]; then
+            # mount storage partition
+              msg_progress_install "89" "creating $TMPDIR/part2"
+                mkdir -p $TMPDIR/part2 >> $LOGFILE 2>&1
+
+              msg_progress_install "90" "mounting ${INSTALL_DEVICE}2 to $TMPDIR/part2"
+                mount -t ext4 ${INSTALL_DEVICE}2 $TMPDIR/part2 >> $LOGFILE 2>&1
+
+              msg_progress_install "92" "restoring backup"
+                [ -f /flash/backup.tar.bz2 ] && tar -xjf /flash/backup.tar.bz2 -C $TMPDIR/part2 >> $LOGFILE 2>&1
+                [ -f /flash/backup.zip ] && unzip -qq /flash/backup.zip -d $TMPDIR/part2 >> $LOGFILE 2>&1
+                sync
+
+            # umount system partition, remove mountpoint
+              msg_progress_install "97" "unmount $TMPDIR/part2"
+                umount $TMPDIR/part2 >> $LOGFILE 2>&1
+
+              msg_progress_install "100" "remove $TMPDIR/part2"
+                rmdir $TMPDIR/part2 >> $LOGFILE 2>&1
+          fi
 
         menu_main
         ;;
@@ -386,6 +408,22 @@ prompt_ssh() {
     else
         SSH="0"
     fi
+}
+
+prompt_backup_unpack() {
+  # Prompt for unpacking backup files to /storage
+  # usage:    prompt_backup_unpack
+  # uses:
+  # provides: BACKUP_UNPACK
+  BACKUP_UNPACK="0"
+  if [ -f /flash/backup.tar.bz2 -o -f /flash/backup.zip ]; then
+    MSG_TITLE="\Z1[ Restore backup files ]\Zn"
+    MSG_DETAIL="Restore backup files to storage partition.\nFile backup.tar.bz2 or/and backup.zip exist on\ninstallation USB stick."
+    DIALOG_OPTIONS="--defaultno"
+    if dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0; then
+        BACKUP_UNPACK="1"
+    fi
+  fi
 }
 
 menu_main() {
@@ -533,7 +571,8 @@ bios_erase() {
 
 logfile_show() {
   # TODO: show the logfile
-    msg_not_implemented
+    dialog --textbox "$LOGFILE" 20 70
+    clear
     menu_main
 }
 
