@@ -1,0 +1,258 @@
+Description: Patch for VDR to support external CI devices
+Origin: https://github.com/flensrocker/vdr-plugin-dynamite
+Forwarded: no
+Author: Lars Hanisch <dvb@flensrocker.de>
+Index: vdr-1.7.27/ci.h
+===================================================================
+--- vdr-1.7.27.orig/ci.h	2012-03-25 14:47:30.464975099 +0200
++++ vdr-1.7.27/ci.h	2012-03-25 14:51:11.824975107 +0200
+@@ -72,6 +72,7 @@
+   };
+ 
+ class cDevice;
++class cTSBufferBase;
+ class cCamSlot;
+ 
+ enum eModuleStatus { msNone, msReset, msPresent, msReady };
+@@ -115,6 +116,11 @@
+        ///< The derived class must call Cancel(3) in its destructor.
+   virtual bool Ready(void);
+        ///< Returns 'true' if all present CAMs in this adapter are ready.
++#define EXTERNALCI_PATCH
++  virtual cTSBufferBase *GetTSBuffer(int FdDvr) { return NULL; }
++       ///< Derived classes can return a special TS buffer with features
++       ///< like rerouting the stream through an external ci.
++       ///< The caller must delete the buffer.
+   virtual bool SetIdle(bool Idle, bool TestOnly) { return false; }
+   virtual bool IsIdle(void) const { return false; }
+   };
+Index: vdr-1.7.27/device.h
+===================================================================
+--- vdr-1.7.27.orig/device.h	2012-03-25 14:47:30.474975099 +0200
++++ vdr-1.7.27/device.h	2012-03-25 14:51:11.824975107 +0200
+@@ -795,7 +795,14 @@
+ /// sure the returned data points to a TS packet and automatically
+ /// re-synchronizes after broken packets.
+ 
+-class cTSBuffer : public cThread {
++class cTSBufferBase {
++public:
++  cTSBufferBase() {}
++  virtual ~cTSBufferBase() {}
++  virtual uchar *Get(void) = 0;
++  };
++
++class cTSBuffer : public cTSBufferBase, public cThread {
+ private:
+   int f;
+   int cardIndex;
+@@ -804,8 +811,8 @@
+   virtual void Action(void);
+ public:
+   cTSBuffer(int File, int Size, int CardIndex);
+-  ~cTSBuffer();
+-  uchar *Get(void);
++  virtual ~cTSBuffer();
++  virtual uchar *Get(void);
+   };
+ 
+ /// A plugin that want to create devices handled by the dynamite-plugin needs to create
+Index: vdr-1.7.27/dvbci.c
+===================================================================
+--- vdr-1.7.27.orig/dvbci.c	2012-03-25 14:47:30.474975099 +0200
++++ vdr-1.7.27/dvbci.c	2012-03-25 14:51:11.824975107 +0200
+@@ -22,23 +22,8 @@
+   adapter = Adapter;
+   frontend = Frontend;
+   idle = false;
+-  ca_caps_t Caps;
+-  if (ioctl(fd, CA_GET_CAP, &Caps) == 0) {
+-     if ((Caps.slot_type & CA_CI_LINK) != 0) {
+-        int NumSlots = Caps.slot_num;
+-        if (NumSlots > 0) {
+-           for (int i = 0; i < NumSlots; i++)
+-               new cCamSlot(this);
+-           Start();
+-           }
+-        else
+-           esyslog("ERROR: no CAM slots found on device %d", device->DeviceNumber());
+-        }
+-     else
+-        isyslog("device %d doesn't support CI link layer interface", device->DeviceNumber());
+-     }
+-  else
+-     esyslog("ERROR: can't get CA capabilities on device %d", device->DeviceNumber());
++  GetNumCamSlots(Device, Fd, this);
++  Start();
+ }
+ 
+ cDvbCiAdapter::~cDvbCiAdapter()
+@@ -48,6 +33,13 @@
+      CloseCa();
+ }
+ 
++cTSBufferBase *cDvbCiAdapter::GetTSBuffer(int FdDvr)
++{
++  if (device)
++     return new cTSBuffer(FdDvr, MEGABYTE(2), device->CardIndex() + 1);
++  return NULL;
++}
++
+ bool cDvbCiAdapter::OpenCa(void)
+ {
+   if (fd >= 0)
+@@ -142,10 +134,60 @@
+   return true;
+ }
+ 
++int cDvbCiAdapter::GetNumCamSlots(cDevice *Device, int Fd, cCiAdapter *CiAdapter)
++{
++  int NumSlots = -1;
++  if (Fd >= 0) {
++     ca_caps_t Caps;
++     if (ioctl(Fd, CA_GET_CAP, &Caps) == 0) {
++        if ((Caps.slot_type & CA_CI_LINK) != 0) {
++           NumSlots = Caps.slot_num;
++           if (NumSlots == 0)
++              esyslog("ERROR: no CAM slots found on device %d", Device->DeviceNumber());
++           else if (CiAdapter != NULL) {
++              for (int i = 0; i < NumSlots; i++)
++                  new cCamSlot(CiAdapter);
++              }
++           else
++              return NumSlots;
++           }
++        else
++           isyslog("device %d doesn't support CI link layer interface", Device->DeviceNumber());
++        }
++     else
++        esyslog("ERROR: can't get CA capabilities on device %d", Device->DeviceNumber());
++     }
++  return -1;
++}
++
+ cDvbCiAdapter *cDvbCiAdapter::CreateCiAdapter(cDevice *Device, int Fd, int Adapter, int Frontend)
+ {
+-  // TODO check whether a CI is actually present?
+-  if (Device)
++  // don't create a ci-adapter if it's not useable
++  if (Device && (Fd >= 0) && (GetNumCamSlots(Device, Fd, NULL) > 0))
+      return new cDvbCiAdapter(Device, Fd, Adapter, Frontend);
+-  return NULL;
++
++  if (Fd >= 0)
++     close(Fd);
++
++  // try to find an external ci-adapter
++  for (cDvbCiAdapterProbe *cp = DvbCiAdapterProbes.First(); cp; cp = DvbCiAdapterProbes.Next(cp)) {
++      cDvbCiAdapter *ca = cp->Probe(Device);
++      if (ca)
++         return ca;
++      }
++ return NULL;
++}
++
++// --- cDvbCiAdapterProbe -------------------------------------------------------
++
++cList<cDvbCiAdapterProbe> DvbCiAdapterProbes;
++
++cDvbCiAdapterProbe::cDvbCiAdapterProbe(void)
++{
++  DvbCiAdapterProbes.Add(this);
++}
++
++cDvbCiAdapterProbe::~cDvbCiAdapterProbe()
++{
++  DvbCiAdapterProbes.Del(this, false);
+ }
+Index: vdr-1.7.27/dvbci.h
+===================================================================
+--- vdr-1.7.27.orig/dvbci.h	2012-03-25 14:47:30.474975099 +0200
++++ vdr-1.7.27/dvbci.h	2012-03-25 14:51:11.824975107 +0200
+@@ -31,9 +31,33 @@
+   cDvbCiAdapter(cDevice *Device, int Fd, int Adapter = -1, int Frontend = -1);
+ public:
+   virtual ~cDvbCiAdapter();
++  virtual cTSBufferBase *GetTSBuffer(int FdDvr);
++  static int GetNumCamSlots(cDevice *Device, int Fd, cCiAdapter *CiAdapter);
++   ///< Tests if the CA device is usable for vdr.
++   ///< If CiAdapter is not NULL it will create the CamSlots for the given ci-adapter.
+   virtual bool SetIdle(bool Idle, bool TestOnly);
+   virtual bool IsIdle(void) const { return idle; }
+   static cDvbCiAdapter *CreateCiAdapter(cDevice *Device, int Fd, int Adapter = -1, int Frontend = -1);
+   };
+ 
++// A plugin that implements an external DVB ci-adapter derived from cDvbCiAdapter needs to create
++// a cDvbCiAdapterProbe derived object on the heap in order to have its Probe()
++// function called, where it can actually create the appropriate ci-adapter.
++// The cDvbCiAdapterProbe object must be created in the plugin's constructor,
++// and deleted in its destructor.
++// Every plugin has to track its own list of already used device nodes.
++// The Probes are always called if the base cDvbCiAdapter can't create a ci-adapter on its own.
++
++class cDvbCiAdapterProbe : public cListObject {
++public:
++  cDvbCiAdapterProbe(void);
++  virtual ~cDvbCiAdapterProbe();
++  virtual cDvbCiAdapter *Probe(cDevice *Device) = 0;
++     ///< Probes for a DVB ci-adapter for the given Device and creates the appropriate
++     ///< object derived from cDvbCiAdapter if applicable.
++     ///< Returns NULL if no adapter has been created.
++  };
++
++extern cList<cDvbCiAdapterProbe> DvbCiAdapterProbes;
++
+ #endif //__DVBCI_H
+Index: vdr-1.7.27/dvbdevice.c
+===================================================================
+--- vdr-1.7.27.orig/dvbdevice.c	2012-03-25 14:47:30.474975099 +0200
++++ vdr-1.7.27/dvbdevice.c	2012-03-25 14:51:11.824975107 +0200
+@@ -1106,9 +1106,8 @@
+ 
+   // Common Interface:
+ 
+-  fd_ca = DvbOpen(DEV_DVB_CA, adapter, frontend, O_RDWR);
+-  if (fd_ca >= 0)
+-     ciAdapter = cDvbCiAdapter::CreateCiAdapter(parentDevice ? parentDevice : this, fd_ca, adapter, frontend);
++  int fd_ca = DvbOpen(DEV_DVB_CA, adapter, frontend, O_RDWR);
++  ciAdapter = cDvbCiAdapter::CreateCiAdapter(parentDevice ? parentDevice : this, fd_ca, adapter, frontend);
+ 
+   // The DVR device (will be opened and closed as needed):
+ 
+@@ -1665,8 +1664,12 @@
+ {
+   CloseDvr();
+   fd_dvr = DvbOpen(DEV_DVB_DVR, adapter, frontend, O_RDONLY | O_NONBLOCK, true);
+-  if (fd_dvr >= 0)
+-     tsBuffer = new cTSBuffer(fd_dvr, MEGABYTE(2), CardIndex() + 1);
++  if (fd_dvr >= 0) {
++     if (ciAdapter)
++        tsBuffer = ciAdapter->GetTSBuffer(fd_dvr);
++     if (tsBuffer == NULL)
++        tsBuffer = new cTSBuffer(fd_dvr, MEGABYTE(2), CardIndex() + 1);
++     }
+   return fd_dvr >= 0;
+ }
+ 
+Index: vdr-1.7.27/dvbdevice.h
+===================================================================
+--- vdr-1.7.27.orig/dvbdevice.h	2012-03-25 14:50:28.174975106 +0200
++++ vdr-1.7.27/dvbdevice.h	2012-03-25 14:51:11.824975107 +0200
+@@ -127,7 +127,7 @@
+   int deliverySystems[MAXDELIVERYSYSTEMS];
+   int numDeliverySystems;
+   int numModulations;
+-  int fd_dvr, fd_ca;
++  int fd_dvr;
+   static cMutex bondMutex;
+   cDvbDevice *bondedDevice;
+   mutable bool needsDetachBondedReceivers;
+@@ -227,7 +227,7 @@
+ // Receiver facilities
+ 
+ private:
+-  cTSBuffer *tsBuffer;
++  cTSBufferBase *tsBuffer;
+ protected:
+   virtual bool OpenDvr(void);
+   virtual void CloseDvr(void);
