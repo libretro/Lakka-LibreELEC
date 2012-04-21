@@ -1,0 +1,84 @@
+Description: This patch allows tuning to encrypted channels which are
+ provided by a stremdev client device and therefore already are
+ decrypted on the streamdev server side.
+ See also: http://www.vdr-developer.org/mantisbt/view.php?id=429
+Author: Tobias Grimm <tg@e-tobi.net>
+
+Index: vdr-1.7.27/device.c
+===================================================================
+--- vdr-1.7.27.orig/device.c	2012-03-13 10:48:14.000000000 +0100
++++ vdr-1.7.27/device.c	2012-03-25 14:18:05.434975038 +0200
+@@ -236,6 +236,7 @@
+   int NumCamSlots = CamSlots.Count();
+   int SlotPriority[NumCamSlots];
+   int NumUsableSlots = 0;
++  bool InternalCamNeeded = false;
+   if (Channel->Ca() >= CA_ENCRYPTED_MIN) {
+      for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot)) {
+          SlotPriority[CamSlot->Index()] = MAXPRIORITY + 1; // assumes it can't be used
+@@ -249,7 +250,7 @@
+             }
+          }
+      if (!NumUsableSlots)
+-        return NULL; // no CAM is able to decrypt this channel
++        InternalCamNeeded = true; // no CAM is able to decrypt this channel
+      }
+ 
+   bool NeedsDetachReceivers = false;
+@@ -263,11 +264,13 @@
+       for (int i = 0; i < numDevices; i++) {
+           if (Channel->Ca() && Channel->Ca() <= CA_DVB_MAX && Channel->Ca() != device[i]->CardIndex() + 1)
+              continue; // a specific card was requested, but not this one
+-          if (NumUsableSlots && !CamSlots.Get(j)->Assign(device[i], true))
++          if (InternalCamNeeded && !device[i]->HasInternalCam())
++             continue; // no CAM is able to decrypt this channel and the device uses vdr handled CAMs
++          if (NumUsableSlots && !device[i]->HasInternalCam() && !CamSlots.Get(j)->Assign(device[i], true))
+              continue; // CAM slot can't be used with this device
+           bool ndr;
+           if (device[i]->ProvidesChannel(Channel, Priority, &ndr)) { // this device is basicly able to do the job
+-             if (NumUsableSlots && device[i]->CamSlot() && device[i]->CamSlot() != CamSlots.Get(j))
++             if (NumUsableSlots && !device[i]->HasInternalCam() && device[i]->CamSlot() && device[i]->CamSlot() != CamSlots.Get(j))
+                 ndr = true; // using a different CAM slot requires detaching receivers
+              // Put together an integer number that reflects the "impact" using
+              // this device would have on the overall system. Each condition is represented
+@@ -282,18 +285,18 @@
+              imp <<= 4; imp |= GetClippedNumProvidedSystems(4, device[i]) - 1;                                       // avoid cards which support multiple delivery systems
+              imp <<= 1; imp |= device[i] == cTransferControl::ReceiverDevice();                                      // avoid the Transfer Mode receiver device
+              imp <<= 8; imp |= device[i]->Priority() - IDLEPRIORITY;                                                 // use the device with the lowest priority (- IDLEPRIORITY to assure that values -100..99 can be used)
+-             imp <<= 8; imp |= (NumUsableSlots ? SlotPriority[j] : IDLEPRIORITY) - IDLEPRIORITY;                     // use the CAM slot with the lowest priority (- IDLEPRIORITY to assure that values -100..99 can be used)
++             imp <<= 8; imp |= ((NumUsableSlots && !device[i]->HasInternalCam()) ? SlotPriority[j] : IDLEPRIORITY) - IDLEPRIORITY;  // use the CAM slot with the lowest priority (- IDLEPRIORITY to assure that values -100..99 can be used)
+              imp <<= 1; imp |= ndr;                                                                                  // avoid devices if we need to detach existing receivers
+-             imp <<= 1; imp |= NumUsableSlots ? 0 : device[i]->HasCi();                                              // avoid cards with Common Interface for FTA channels
++             imp <<= 1; imp |= (NumUsableSlots || InternalCamNeeded) ? 0 : device[i]->HasCi();                                              // avoid cards with Common Interface for FTA channels
+              imp <<= 1; imp |= device[i]->AvoidRecording();                                                          // avoid SD full featured cards
+-             imp <<= 1; imp |= NumUsableSlots ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), j + 1) : 0; // prefer CAMs that are known to decrypt this channel
++             imp <<= 1; imp |= (NumUsableSlots && !device[i]->HasInternalCam()) ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), j + 1) : 0; // prefer CAMs that are known to decrypt this channel
+              imp <<= 1; imp |= device[i]->IsPrimaryDevice();                                                         // avoid the primary device
+              if (imp < Impact) {
+                 // This device has less impact than any previous one, so we take it.
+                 Impact = imp;
+                 d = device[i];
+                 NeedsDetachReceivers = ndr;
+-                if (NumUsableSlots)
++                if (NumUsableSlots && !device[i]->HasInternalCam())
+                    s = CamSlots.Get(j);
+                 }
+              }
+Index: vdr-1.7.27/device.h
+===================================================================
+--- vdr-1.7.27.orig/device.h	2012-03-13 11:17:16.000000000 +0100
++++ vdr-1.7.27/device.h	2012-03-25 14:18:05.434975038 +0200
+@@ -405,6 +405,13 @@
+ public:
+   virtual bool HasCi(void);
+          ///< Returns true if this device has a Common Interface.
++#define INTERNAL_CAM_DEVICES_PATCH 1
++  virtual bool HasInternalCam(void) { return false; }
++         ///< Returns true if this device handles encrypted channels itself
++         ///< without VDR assistance. This can be e.g. when the device is a
++         ///< client that gets the stream from another VDR instance that has
++         ///< already decrypted the stream. In this case ProvidesChannel()
++         ///< shall check whether the channel can be decrypted.
+   void SetCamSlot(cCamSlot *CamSlot);
+          ///< Sets the given CamSlot to be used with this device.
+   cCamSlot *CamSlot(void) const { return camSlot; }
