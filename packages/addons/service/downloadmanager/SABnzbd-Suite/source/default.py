@@ -26,6 +26,8 @@ import subprocess
 import xbmc
 import urllib2
 import socket
+import time
+import datetime
 from configobj import ConfigObj
 
 __scriptname__ = "SABnzbd Suite"
@@ -37,7 +39,7 @@ __path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "SABnzbd-Suit
 
 checkInterval  = 120
 timeout        = 20
-
+wake_times     = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00']
 
 # Launch Suite
 subprocess.call(['python',__path__])
@@ -55,14 +57,22 @@ sabNzbdQueue      = 'http://' + sabNzbdAddress + '/sabnzbd/api?mode=queue&output
 # start checking SABnzbd for activity and prevent sleeping if necessary
 socket.setdefaulttimeout(timeout)
 
+# perform some initial checks and log essential settings
 shouldKeepAwake = __settings__.getSetting('SABNZBD_KEEP_AWAKE')
+wakePeriodically = __settings__.getSetting('SABNZBD_PERIODIC_WAKE')
+wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
 if shouldKeepAwake:
     xbmc.log('SABnzbd-Suite: will prevent idle sleep/shutdown while downloading')
+if wakePeriodically:
+    xbmc.log('SABnzbd-Suite: will try to wake system daily at ' + wake_times[wakeHourIdx])
+
 
 while (not xbmc.abortRequested):
 
     # reread setting in case it has changed
     shouldKeepAwake = __settings__.getSetting('SABNZBD_KEEP_AWAKE')
+    wakePeriodically = __settings__.getSetting('SABNZBD_PERIODIC_WAKE')
+    wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
 
     # check if SABnzbd is downloading
     sabIsActive = False
@@ -85,5 +95,17 @@ while (not xbmc.abortRequested):
         if (sabIsActive and timeToShutdown <= checkInterval - timeout):
             xbmc.log('SABnzbd-Suite: still downloading. Resetting XBMC idle timer.')
             xbmc.executehttpapi("SendKey(0xF000)")
-
+            
+    # calculate and set the time to wake up at (if any)
+    if (wakePeriodically):
+        wakeHour = wakeHourIdx * 2 + 1
+        timeOfDay = datetime.time(hour=wakeHour)
+        now = datetime.datetime.now()
+        wakeTime = now.combine(now.date(),timeOfDay)
+        if now.time() > timeOfDay:
+            wakeTime += datetime.timedelta(days=1)
+        secondsSinceEpoch = time.mktime(wakeTime.timetuple())
+        open("/sys/class/rtc/rtc0/wakealarm", "w").write("0")
+        open("/sys/class/rtc/rtc0/wakealarm", "w").write(str(secondsSinceEpoch))
+        
     xbmc.sleep(checkInterval * 1000)
