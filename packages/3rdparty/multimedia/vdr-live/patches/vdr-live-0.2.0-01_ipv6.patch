@@ -1,0 +1,39 @@
+Description: Allows to use IPV6 addresses
+Forwarded: not-needed
+Origin: vendor, http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=630627#10
+Bug-Debian: http://bugs.debian.org/630627
+Author: Luboš Doležel <lubos@dolezel.info>
+
+--- live-0.2.0/setup.cpp.orig	2008-04-23 01:01:53.000000000 +0200
++++ live-0.2.0/setup.cpp	2011-06-15 20:22:36.577961061 +0200
+@@ -151,13 +151,28 @@
+ 
+ bool Setup::CheckServerIps()
+ {
++	bool v6supported = false;
++	int s = socket(AF_INET6, SOCK_STREAM, 0);
++	
++	if (s != -1) {
++		close(s);
++		v6supported = true;
++	}
++	
+ 	if ( m_serverIps.empty() ) {
+-		m_serverIps.push_back( "0.0.0.0" );
++		if (v6supported)
++			m_serverIps.push_back( "::" );
++		else
++			m_serverIps.push_back( "0.0.0.0" );
+ 		return true;
+ 	}
+ 
++        union {
++		in_addr in4;
++		in6_addr in6;
++	};
+ 	for ( IpList::const_iterator ip = m_serverIps.begin(); ip != m_serverIps.end(); ++ip ) {
+-		if ( inet_addr( ip->c_str() ) == static_cast< in_addr_t >( -1 ) ) {
++		if ( !inet_pton(AF_INET, ip->c_str(), &in4) && !inet_pton(AF_INET6, ip->c_str(), &in6) ) {
+ 			esyslog( "ERROR: live server ip %s is not a valid ip address", ip->c_str() );
+ 			cerr << "ERROR: live server ip " << *ip << " is not a valid ip address" << endl;
+ 			return false;
