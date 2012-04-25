@@ -221,7 +221,7 @@ autoProcessConfig.write()
 # ----------------------------------
 
 logging.debug('Launching SABnzbd...')
-subprocess.call(sabnzbd)
+subprocess.call(sabnzbd,close_fds=True)
 logging.debug('...done')
 
 # SABnzbd will only complete the .ini file when we first access the web interface
@@ -279,7 +279,7 @@ sickBeardConfig.write()
 # launch SickBeard
 # ----------------
 logging.debug('Launching SickBeard...')
-subprocess.call(sickBeard)
+subprocess.call(sickBeard,close_fds=True)
 logging.debug('...done')
 
 # write CouchPotato settings
@@ -322,7 +322,7 @@ couchPotatoConfig.write()
 # ------------------
 
 logging.debug('Launching CouchPotato...')
-subprocess.call(couchPotato)
+subprocess.call(couchPotato,close_fds=True)
 logging.debug('...done')
 
 # write Headphones settings
@@ -357,5 +357,5 @@ headphonesConfig.write()
 # -----------------
 
 logging.debug('Launching Headphones...')
-subprocess.call(headphones)
+subprocess.call(headphones,close_fds=True)
 logging.debug('...done')
