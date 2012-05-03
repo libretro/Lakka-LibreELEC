@@ -1,0 +1,60 @@
+diff -Naur plymouth-lite-0.6.0/ply-frame-buffer.c plymouth-lite-0.6.0.patch/ply-frame-buffer.c
+--- plymouth-lite-0.6.0/ply-frame-buffer.c	2012-05-02 22:29:21.505665089 +0200
++++ plymouth-lite-0.6.0.patch/ply-frame-buffer.c	2012-05-02 22:26:42.000000000 +0200
+@@ -149,6 +149,34 @@
+     }
+ }
+ 
++static void
++flush_xbgr32 (ply_frame_buffer_t *buffer)
++{
++  unsigned long x1, y1, x2, y2, x, y;
++  char *dst, *src;
++
++  x1 = buffer->area_to_flush.x;
++  y1 = buffer->area_to_flush.y;
++  x2 = x1 + buffer->area_to_flush.width;
++  y2 = y1 + buffer->area_to_flush.height;
++
++  dst = &buffer->map_address[(y1 * buffer->row_stride + x1) * 4];
++  src = (char *) &buffer->shadow_buffer[y1 * buffer->area.width + x1];
++
++  for (y = y1; y < y2; y++)
++    {
++     for (x = x1; y < x2; x++)
++       {
++         dst[0] = src[2];
++         dst[1] = src[1];
++         dst[2] = src[0];
++         dst[3] = src[3];
++         dst += 4;
++         src += 4;
++       }
++    }
++}
++
+ static const char const *p_visual(int visual)
+ {
+   static const char const *visuals[] =
+@@ -260,11 +288,21 @@
+   buffer->dither_green = 0;
+   buffer->dither_blue = 0;
+ 
++printf("%d,%d,%d,%d,%d,%d,%d\n", buffer->bytes_per_pixel,
++      buffer->red_bit_position, buffer->bits_for_red,
++      buffer->green_bit_position, buffer->bits_for_green,
++      buffer->blue_bit_position, buffer->bits_for_blue);
++
+   if (buffer->bytes_per_pixel == 4 &&
+       buffer->red_bit_position == 16 && buffer->bits_for_red == 8 &&
+       buffer->green_bit_position == 8 && buffer->bits_for_green == 8 &&
+       buffer->blue_bit_position == 0 && buffer->bits_for_blue == 8)
+     buffer->flush = flush_xrgb32;
++  else if (buffer->bytes_per_pixel == 4 &&
++      buffer->red_bit_position == 0 && buffer->bits_for_red == 8 &&
++      buffer->green_bit_position == 8 && buffer->bits_for_green == 8 &&
++      buffer->blue_bit_position == 16 && buffer->bits_for_blue == 8)
++    buffer->flush = flush_xbgr32;
+   else
+     buffer->flush = flush_generic;
+ 
