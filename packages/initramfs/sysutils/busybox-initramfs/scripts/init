@@ -28,6 +28,8 @@ UPDATE_DIR=/storage/.update
 IMAGE_SYSTEM="SYSTEM"
 IMAGE_KERNEL="KERNEL"
 REBOOT="0"
+MD5_FAILED="0"
+MD5_NOCHECK="0"
 
 NBD_DEVS="0"
 
@@ -377,8 +379,40 @@ NBD_DEVS="0"
       IMAGE_KERNEL="MACH_KERNEL"
     fi
 
-    update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
-    update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+    if [ -f "$UPDATE_DIR/$IMAGE_KERNEL" -a -f "$UPDATE_DIR/$IMAGE_SYSTEM" ] ; then
+      if [ -f "$UPDATE_DIR/.nocheck" ] ; then
+        MD5_NOCHECK="1"
+      fi
+
+      # check md5 sums if .nocheck doesn't exist
+      if [ "$MD5_NOCHECK" -eq "0" -a -f "$UPDATE_DIR/${IMAGE_KERNEL}.md5" -a -f "$UPDATE_DIR/${IMAGE_SYSTEM}.md5" ] ; then
+        /bin/busybox sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${IMAGE_KERNEL}.md5"
+        /bin/busybox sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${IMAGE_SYSTEM}.md5"
+
+        echo "Checking ${IMAGE_KERNEL}.md5..."
+        /bin/busybox md5sum -c "$UPDATE_DIR/${IMAGE_KERNEL}.md5" || MD5_FAILED="1"
+
+        echo "Checking ${IMAGE_SYSTEM}.md5..."
+        /bin/busybox md5sum -c "$UPDATE_DIR/${IMAGE_SYSTEM}.md5" || MD5_FAILED="1"
+      else
+        echo "missing ${IMAGE_KERNEL}.md5 or ${IMAGE_SYSTEM}.md5..."
+        MD5_FAILED="1"
+      fi
+
+      # update if md5 check is ok or .nocheck exists
+      if [ "$MD5_FAILED" -eq "0" -o "$MD5_NOCHECK" -eq "1" ] ; then
+        update "Kernel" "$IMAGE_KERNEL" "/flash/$IMAGE_KERNEL"
+        update "System" "$IMAGE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+      else
+        /bin/busybox rm "$UPDATE_DIR/$IMAGE_KERNEL"
+        /bin/busybox rm "$UPDATE_DIR/$IMAGE_SYSTEM"
+        echo "md5 check failed. normal startup in 30s..."
+        /bin/busybox sync
+        /bin/busybox usleep 30000000
+      fi
+      /bin/busybox rm "$UPDATE_DIR/${IMAGE_KERNEL}.md5" &>/dev/null
+      /bin/busybox rm "$UPDATE_DIR/${IMAGE_SYSTEM}.md5" &>/dev/null
+    fi
 
     if test "$REBOOT" -eq "1"; then
       echo "System reboots now..." && \
