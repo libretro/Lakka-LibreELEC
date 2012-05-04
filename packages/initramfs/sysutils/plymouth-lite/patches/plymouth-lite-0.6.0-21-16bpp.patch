@@ -1,7 +1,7 @@
 diff -Naur plymouth-lite-0.6.0/ply-frame-buffer.c plymouth-lite-0.6.0.patch/ply-frame-buffer.c
 --- plymouth-lite-0.6.0/ply-frame-buffer.c	2012-05-02 22:29:21.505665089 +0200
-+++ plymouth-lite-0.6.0.patch/ply-frame-buffer.c	2012-05-02 22:26:42.000000000 +0200
-@@ -149,6 +149,34 @@
++++ plymouth-lite-0.6.0.patch/ply-frame-buffer.c	2012-05-04 01:40:24.000000000 +0200
+@@ -149,6 +149,58 @@
      }
  }
  
@@ -21,7 +21,7 @@ diff -Naur plymouth-lite-0.6.0/ply-frame-buffer.c plymouth-lite-0.6.0.patch/ply-
 +
 +  for (y = y1; y < y2; y++)
 +    {
-+     for (x = x1; y < x2; x++)
++     for (x = x1; x < x2; x++)
 +       {
 +         dst[0] = src[2];
 +         dst[1] = src[1];
@@ -33,10 +33,34 @@ diff -Naur plymouth-lite-0.6.0/ply-frame-buffer.c plymouth-lite-0.6.0.patch/ply-
 +    }
 +}
 +
++static void
++flush_rgb16 (ply_frame_buffer_t *buffer)
++{
++  unsigned long x1, y1, x2, y2, x, y;
++  unsigned short *dst; unsigned char *src;
++
++  x1 = buffer->area_to_flush.x;
++  y1 = buffer->area_to_flush.y;
++  x2 = x1 + buffer->area_to_flush.width;
++  y2 = y1 + buffer->area_to_flush.height;
++
++  dst = (unsigned short *)&buffer->map_address[(y1 * buffer->row_stride + x1) * 2];
++  src = (unsigned char *) &buffer->shadow_buffer[y1 * buffer->area.width + x1];
++
++  for (y = y1; y < y2; y++)
++    {
++     for (x = x1; x < x2; x++)
++       {
++         *dst++ = (src[0]>>3) << 0 | (src[1]>>2) << 5 | (src[2]>>3) << 11;
++         src += 4;
++       }
++    }
++}
++
  static const char const *p_visual(int visual)
  {
    static const char const *visuals[] =
-@@ -260,11 +288,21 @@
+@@ -260,11 +312,26 @@
    buffer->dither_green = 0;
    buffer->dither_blue = 0;
  
@@ -55,6 +79,11 @@ diff -Naur plymouth-lite-0.6.0/ply-frame-buffer.c plymouth-lite-0.6.0.patch/ply-
 +      buffer->green_bit_position == 8 && buffer->bits_for_green == 8 &&
 +      buffer->blue_bit_position == 16 && buffer->bits_for_blue == 8)
 +    buffer->flush = flush_xbgr32;
++  else if (buffer->bytes_per_pixel == 2 &&
++      buffer->red_bit_position == 11 && buffer->bits_for_red == 5 &&
++      buffer->green_bit_position == 5 && buffer->bits_for_green == 6 &&
++      buffer->blue_bit_position == 0 && buffer->bits_for_blue == 5)
++    buffer->flush = flush_rgb16;
    else
      buffer->flush = flush_generic;
  
