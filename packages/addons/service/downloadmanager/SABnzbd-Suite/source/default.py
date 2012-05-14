@@ -58,8 +58,8 @@ sabNzbdQueue      = 'http://' + sabNzbdAddress + '/sabnzbd/api?mode=queue&output
 socket.setdefaulttimeout(timeout)
 
 # perform some initial checks and log essential settings
-shouldKeepAwake = __settings__.getSetting('SABNZBD_KEEP_AWAKE')
-wakePeriodically = __settings__.getSetting('SABNZBD_PERIODIC_WAKE')
+shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
+wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
 wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
 if shouldKeepAwake:
     xbmc.log('SABnzbd-Suite: will prevent idle sleep/shutdown while downloading')
@@ -70,8 +70,8 @@ if wakePeriodically:
 while (not xbmc.abortRequested):
 
     # reread setting in case it has changed
-    shouldKeepAwake = __settings__.getSetting('SABNZBD_KEEP_AWAKE')
-    wakePeriodically = __settings__.getSetting('SABNZBD_PERIODIC_WAKE')
+    shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
+    wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
     wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
 
     # check if SABnzbd is downloading
@@ -109,3 +109,4 @@ while (not xbmc.abortRequested):
         open("/sys/class/rtc/rtc0/wakealarm", "w").write(str(secondsSinceEpoch))
         
     xbmc.sleep(checkInterval * 1000)
+
