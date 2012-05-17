@@ -213,37 +213,46 @@ echo "#########################################################"
   mkfs.vfat "$PART1" -n System
 
   echo "creating filesystem on $PART2..."
-  mkfs.ext4 "$PART2" -n Storage
+  mkfs.ext4 "$PART2" -L Storage
 
 
 # mount partition
-  echo "mounting partition $PART1 on /tmp/usb_install..."
-  mkdir -p /tmp/usb_install
-  mount "$PART1" /tmp/usb_install
+  echo "mounting partition $PART1 ..."
+  if [ -d /dev/shm ]; then
+    rm -rf /dev/shm/openelec_install
+    mkdir -p /dev/shm/openelec_install
+    mount "$PART1" /dev/shm/openelec_install
+    MOUNTPOINT=/dev/shm/openelec_install
+  else
+    rm -rf /tmp/openelec_install
+    mkdir -p /tmp/openelec_install
+    mount "$PART1" /tmp/openelec_install
+    MOUNTPOINT=/tmp/openelec_install
+  fi
 
 # create bootloader configuration
   echo "creating bootloader configuration..."
 
-  echo "boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 ssh quiet" > /tmp/usb_install/cmdline.txt
+  echo "boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 ssh quiet" > $MOUNTPOINT/cmdline.txt
 
 # copy files
-  echo "copying files to $PART1..."
-  cp target/KERNEL /tmp/usb_install/kernel.img
-  cp target/SYSTEM /tmp/usb_install
-  cp 3rdparty/bootloader/* /tmp/usb_install
-  cp openelec.ico /tmp/usb_install
-  cp README.md /tmp/usb_install
+  echo "copying files to $MOUNTPOINT..."
+  cp target/KERNEL $MOUNTPOINT/kernel.img
+  cp target/SYSTEM $MOUNTPOINT
+  cp 3rdparty/bootloader/* $MOUNTPOINT
+  cp openelec.ico $MOUNTPOINT
+  cp README.md $MOUNTPOINT
 
 # sync disk
   echo "syncing disk..."
   sync
 
 # unmount partition
-  echo "unmounting partition $PART1..."
-  umount "$PART1"
+  echo "unmounting partition $MOUNTPOINT ..."
+  umount $MOUNTPOINT
 
 # cleaning
   echo "cleaning tempdir..."
-  rmdir /tmp/usb_install
+  rmdir $MOUNTPOINT
 
 echo "...installation finished"
