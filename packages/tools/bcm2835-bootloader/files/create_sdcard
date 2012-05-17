@@ -1,0 +1,249 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+# usage:   sudo ./create_sdcard <drive>
+# example: sudo ./create_sdcard /dev/sdb
+
+if [ "$(id -u)" != "0" ]; then
+  clear
+  echo "#########################################################"
+  echo "# please execute with 'sudo' or -DANGEROUS!!!- as root  #"
+  echo "# example: sudo ./create_sdcard <drive>                 #"
+  echo "#########################################################"
+  exit 1
+fi
+
+if [ -z "$1" ]; then
+  clear
+  echo "#########################################################"
+  echo "# please execute with your drive as option              #"
+  echo "# example: sudo ./create_sdcard /dev/sdb                #"
+  echo "# or:      sudo ./create_sdcard /dev/mmcblk0            #"
+  echo "#########################################################"
+  exit 1
+fi
+
+DISK="$1"
+if [ "$DISK" = "/dev/mmcblk0" ]; then
+  PART1="${DISK}p1"
+  PART2="${DISK}p2"
+else
+  PART1="${DISK}1"
+  PART2="${DISK}2"
+fi
+
+clear
+echo "#########################################################"
+echo "#                                                       #"
+echo "#             OpenELEC.tv USB Installer                 #"
+echo "#                                                       #"
+echo "#########################################################"
+echo "#                                                       #"
+echo "#     This will wipe any data off your chosen drive     #"
+echo "# Please read the instructions and use very carefully.. #"
+echo "#                                                       #"
+echo "#########################################################"
+
+# check for some required tools
+
+  # this is needed to create a bootloader
+  which syslinux > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"syslinux\"       #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to partion the drive
+  which parted > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"parted\"         #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to format the drive
+  which mkfs.vfat > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"mkfs.vfat\"       #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to format the drive
+  which mkfs.ext4 > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"mkfs.ext4\"       #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to tell the kernel for partition changes
+  which partprobe > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"partprobe\"       #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to tell the kernel for partition changes
+  which md5sum > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"md5sum\"         #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+# check MD5 sums
+  echo "checking MD5 sum..."
+
+  md5sumFailed()
+  {
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv failed md5 check - Installation will quit #"
+    echo "#                                                       #"
+    echo "#      Your original download was probably corrupt.     #"
+    echo "#   Please visit www.openelec.tv and get another copy   #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  }
+
+  md5sum -c target/KERNEL.md5
+  if [ "$?" = "1" ]; then
+    md5sumFailed
+  fi
+
+  md5sum -c target/SYSTEM.md5
+  if [ "$?" = "1" ]; then
+    md5sumFailed
+  fi
+
+# (TODO) umount everything (if more than one partition)
+  umount ${DISK}*
+
+# remove all partitions from the drive
+  echo "writing new disklabel on $DISK (removing all partitions)..."
+  parted -s "$DISK" mklabel msdos
+
+# create a single partition
+  echo "creating partitions on $DISK..."
+  parted -s "$DISK" unit cyl mkpart primary fat32 -- 0 16
+  parted -s "$DISK" unit cyl mkpart primary ext2 -- 16 -2
+
+# make partition active (bootable)
+  echo "marking partition active..."
+  parted -s "$DISK" set 1 boot on
+
+# tell kernel we have a new partition table
+  echo "telling kernel we have a new partition table..."
+  partprobe "$DISK"
+
+# create filesystem
+  echo "creating filesystem on $PART1..."
+  mkfs.vfat "$PART1" -n System
+
+  echo "creating filesystem on $PART2..."
+  mkfs.ext4 "$PART2" -n Storage
+
+
+# mount partition
+  echo "mounting partition $PART1 on /tmp/usb_install..."
+  mkdir -p /tmp/usb_install
+  mount "$PART1" /tmp/usb_install
+
+# create bootloader configuration
+  echo "creating bootloader configuration..."
+
+  echo "boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 ssh quiet" > /tmp/usb_install/cmdline.txt
+
+# copy files
+  echo "copying files to $PART1..."
+  cp target/KERNEL /tmp/usb_install/kernel.img
+  cp target/SYSTEM /tmp/usb_install
+  cp 3rdparty/bootloader/* /tmp/usb_install
+  cp openelec.ico /tmp/usb_install
+  cp README.md /tmp/usb_install
+
+# sync disk
+  echo "syncing disk..."
+  sync
+
+# unmount partition
+  echo "unmounting partition $PART1..."
+  umount "$PART1"
+
+# cleaning
+  echo "cleaning tempdir..."
+  rmdir /tmp/usb_install
+
+echo "...installation finished"
