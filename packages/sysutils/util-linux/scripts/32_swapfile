@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,27 +18,33 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+#
+# create and enable swapfile
+#
+# runlevels: openelec, textmode
 
-mkdir -p $INSTALL/usr/bin
-  cp $PKG_BUILD/misc-utils/.libs/blkid $INSTALL/usr/bin
-  cp $PKG_BUILD/sys-utils/fstrim $INSTALL/usr/bin
-  cp $PKG_BUILD/fsck/.libs/fsck $INSTALL/usr/bin
+. /etc/swap.conf
 
-mkdir -p $INSTALL/usr/lib
-  cp -PR $PKG_BUILD/libblkid/src/.libs/libblkid.so* $INSTALL/usr/lib
-  rm -rf $INSTALL/usr/lib/libblkid.so*T
-  cp -PR $PKG_BUILD/libuuid/src/.libs/libuuid.so* $INSTALL/usr/lib
-  rm -rf $INSTALL/usr/lib/libuuid.so*T
-
-if [ "$SWAP_SUPPORT" = "yes" ]; then
-  mkdir -p $INSTALL/usr/bin
-  cp $PKG_BUILD/sys-utils/.libs/swapon $INSTALL/usr/bin
-  ln -sf swapon $INSTALL/usr/bin/swapoff
-
-  mkdir -p $INSTALL/etc/init.d
-  cp $PKG_DIR/scripts/32_swapfile $INSTALL/etc/init.d
-
-  mkdir -p $INSTALL/etc
-  cat $PKG_DIR/config/swap.conf | sed -e "s,@SWAPFILESIZE@,$SWAPFILESIZE,g" > $INSTALL/etc/swap.conf
+if [ -f $HOME/.config/swap.conf ]; then
+  . $HOME/.config/swap.conf
 fi
+
+(
+  if [ -e /proc/swaps ]; then
+    SWAP=`blkid -t TYPE="swap" -o device`
+
+    if [ -z "$SWAP" -a ! -f "$SWAPFILE" ]; then
+      progress "creating swapfile"
+      mkdir -p `dirname $SWAPFILE`
+      dd if=/dev/zero of=$SWAPFILE bs=1024 count=$SWAPFILESIZE 2>&1 > /dev/null
+      mkswap $SWAPFILE 2>&1 > /dev/null
+    fi
+
+    progress "enable swap"
+      [ -z "$SWAP" -a -f "$SWAPFILE" ] && SWAP=$SWAPFILE
+      for i in $SWAP; do
+        swapon -p 10000 $SWAP 2>&1 > /dev/null
+      done
+      sysctl -w vm.swappiness=1 2>&1 > /dev/null
+  fi
+)&
