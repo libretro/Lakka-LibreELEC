@@ -26,7 +26,8 @@ PY_DISABLED_MODULES="readline _curses _curses_panel _tkinter nis gdbm bsddb"
 
 # dont use some optimizations because of problems
 # this fixes problems with expat (maybe)
-  LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+#  LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+#OPT="$CFLAGS -fno-strict-aliasing" \
 
 cd $PKG_BUILD
 mkdir -p .objdir-target && cd .objdir-target
@@ -36,10 +37,8 @@ ac_cv_file_dev_ptmx=yes \
 ac_cv_func_lchflags_works=no \
 ac_cv_func_chflags_works=no \
 ac_cv_func_printf_zd=yes \
-OPT="$CFLAGS -fno-strict-aliasing" \
 ../configure --host=$TARGET_NAME \
              --build=$HOST_NAME \
-             --cache-file=config.cache \
              --prefix=/usr \
              --sysconfdir=/etc \
              --enable-shared \
@@ -50,12 +49,15 @@ OPT="$CFLAGS -fno-strict-aliasing" \
              --without-pydebug \
              --without-doc-strings \
              --without-tsc \
-             --without-pymalloc \
+             --with-pymalloc \
              --without-fpectl \
-             --without-wctype-functions \
+             --with-wctype-functions \
              --without-cxx-main \
              --with-system-ffi \
              --with-system-expat \
+
+mkdir -p Modules
+  cp $ROOT/$PKG_DIR/config/Setup ./Modules
 
 make  -j1 CC="$TARGET_CC" \
       HOSTPYTHON=$ROOT/$TOOLCHAIN/bin/python \
@@ -80,6 +82,10 @@ make  -j1 CC="$TARGET_CC" \
       PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
       PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
       install
+
+cp -R ../Lib ./
+#  $ROOT/$TOOLCHAIN/bin/python -Wi -t ./Lib/compileall.py -f -x test ./Lib
+  $ROOT/$TOOLCHAIN/bin/python -Wi -OO -t ./Lib/compileall.py -f -x test ./Lib
 
 # python distutils per default adds -L$LIBDIR when linking binary extensions
 sed -e "s|^LIBDIR=.*|LIBDIR= $SYSROOT_PREFIX/usr/lib|" \
