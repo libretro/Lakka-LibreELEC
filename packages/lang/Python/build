@@ -27,7 +27,6 @@ PY_DISABLED_MODULES="readline _curses _curses_panel _tkinter nis gdbm bsddb"
 # dont use some optimizations because of problems
 # this fixes problems with expat (maybe)
 #  LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
-#OPT="$CFLAGS -fno-strict-aliasing" \
 
 cd $PKG_BUILD
 mkdir -p .objdir-target && cd .objdir-target
@@ -83,10 +82,24 @@ make  -j1 CC="$TARGET_CC" \
       PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
       install
 
-cp -R ../Lib ./
-#  $ROOT/$TOOLCHAIN/bin/python -Wi -t ./Lib/compileall.py -f -x test ./Lib
-  $ROOT/$TOOLCHAIN/bin/python -Wi -OO -t ./Lib/compileall.py -f -x test ./Lib
-
 # python distutils per default adds -L$LIBDIR when linking binary extensions
 sed -e "s|^LIBDIR=.*|LIBDIR= $SYSROOT_PREFIX/usr/lib|" \
     -i $SYSROOT_PREFIX/usr/lib/python*/config/Makefile
+
+EXCLUDE_DIRS="bsddb curses idlelib lib-tk lib2to3 msilib wsgiref"
+INCLUDE_DIRS="compiler ctypes ctypes/macholib distutils distutils/command email"
+INCLUDE_DIRS="$INCLUDE_DIRS email/mime encodings hotshot importlib json logging"
+INCLUDE_DIRS="$INCLUDE_DIRS multiprocessing plat-linux2 sqlite3 xml xml/dom xml/etree"
+INCLUDE_DIRS="$INCLUDE_DIRS xml/parsers xml/sax"
+
+mkdir ./Lib
+cp ../Lib/*.py ./Lib
+
+for dirs in $INCLUDE_DIRS; do
+  mkdir -p ./Lib/$dirs
+  cp ../Lib/$dirs/*.py ./Lib/$dirs
+done
+
+python -Wi -t -B ../Lib/compileall.py ./Lib -f
+
+rm -rf `find ./Lib -name "*.py"`
