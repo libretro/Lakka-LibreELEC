@@ -1,0 +1,88 @@
+diff -Naur samba-3.6.0rc2/lib/replace/libreplace_network.m4 samba-3.6.0rc2.patch/lib/replace/libreplace_network.m4
+--- samba-3.6.0rc2/lib/replace/libreplace_network.m4	2011-06-07 20:13:47.000000000 +0200
++++ samba-3.6.0rc2.patch/lib/replace/libreplace_network.m4	2011-07-03 00:23:27.924559484 +0200
+@@ -228,43 +228,6 @@
+ libreplace_cv_HAVE_GETADDRINFO=yes,libreplace_cv_HAVE_GETADDRINFO=no)])
+ 
+ if test x"$libreplace_cv_HAVE_GETADDRINFO" = x"yes"; then
+-	# getaddrinfo is broken on some AIX systems
+-	# see bug 5910, use our replacements if we detect
+-	# a broken system.
+-	AC_TRY_RUN([
+-		#include <stddef.h>
+-		#include <sys/types.h>
+-		#include <sys/socket.h>
+-		#include <netdb.h>
+-		int main(int argc, const char *argv[])
+-		{
+-			struct addrinfo hints = {0,};
+-			struct addrinfo *ppres;
+-			const char hostname1[] = "0.0.0.0";
+-			const char hostname2[] = "127.0.0.1";
+-			const char hostname3[] = "::";
+-			hints.ai_socktype = SOCK_STREAM;
+-			hints.ai_family = AF_UNSPEC;
+-			hints.ai_flags =
+-				AI_NUMERICHOST|AI_PASSIVE|AI_ADDRCONFIG;
+-			/* Test for broken flag combination on AIX. */
+-			if (getaddrinfo(hostname1, NULL, &hints, &ppres) == EAI_BADFLAGS) {
+-				/* This fails on an IPv6-only box, but not with
+-				   the EAI_BADFLAGS error. */
+-				return 1;
+-			}
+-			if (getaddrinfo(hostname2, NULL, &hints, &ppres) == 0) {
+-				/* IPv4 lookup works - good enough. */
+-				return 0;
+-			}
+-			/* Uh-oh, no IPv4. Are we IPv6-only ? */
+-			return getaddrinfo(hostname3, NULL, &hints, &ppres) != 0 ? 1 : 0;
+-		}],
+-		libreplace_cv_HAVE_GETADDRINFO=yes,
+-		libreplace_cv_HAVE_GETADDRINFO=no)
+-fi
+-
+-if test x"$libreplace_cv_HAVE_GETADDRINFO" = x"yes"; then
+ 	AC_DEFINE(HAVE_GETADDRINFO,1,[Whether the system has getaddrinfo])
+ 	AC_DEFINE(HAVE_GETNAMEINFO,1,[Whether the system has getnameinfo])
+ 	AC_DEFINE(HAVE_FREEADDRINFO,1,[Whether the system has freeaddrinfo])
+diff -Naur samba-3.6.0rc2/source3/configure.in samba-3.6.0rc2.patch/source3/configure.in
+--- samba-3.6.0rc2/source3/configure.in	2011-06-07 20:13:47.000000000 +0200
++++ samba-3.6.0rc2.patch/source3/configure.in	2011-07-03 00:02:08.391099610 +0200
+@@ -1275,36 +1275,7 @@
+ #
+ #
+ #
+-case "$host_os" in
+-    *linux* | gnu* | k*bsd*-gnu | kopensolaris*-gnu)
+-       # glibc <= 2.3.2 has a broken getgrouplist
+-       AC_CACHE_CHECK([for good getgrouplist],samba_cv_linux_getgrouplist_ok,[AC_TRY_RUN([
+-#include <unistd.h>
+-#include <sys/utsname.h>
+-main() {
+-       /* glibc up to 2.3 has a broken getgrouplist */
+-#if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+-       int libc_major = __GLIBC__;
+-       int libc_minor = __GLIBC_MINOR__;
+-
+-       if (libc_major < 2)
+-              exit(1);
+-       if ((libc_major == 2) && (libc_minor <= 3))
+-              exit(1);
+-#endif
+-       exit(0);
+-}
+-], [samba_cv_linux_getgrouplist_ok=yes],
+-   [samba_cv_linux_getgrouplist_ok=no],
+-   [samba_cv_linux_getgrouplist_ok=cross])])
+-       if test x"$samba_cv_linux_getgrouplist_ok" = x"yes"; then
+-          AC_DEFINE(HAVE_GETGROUPLIST, 1, [Have good getgrouplist])
+-       fi
+-       ;;
+-    *)
+-       AC_CHECK_FUNCS(getgrouplist)
+-       ;;
+-esac
++AC_CHECK_FUNCS(getgrouplist)
+ 
+ #
+ # stat64 family may need <sys/stat.h> on some systems, notably ReliantUNIX
