@@ -1,0 +1,411 @@
+diff -Nrup j1/sysdeps/unix/sysv/linux/arm/Makefile j2/sysdeps/unix/sysv/linux/arm/Makefile
+--- j1/sysdeps/unix/sysv/linux/arm/Makefile	2012-01-08 22:47:04.000000000 -0700
++++ j2/sysdeps/unix/sysv/linux/arm/Makefile	2012-04-30 14:02:33.999589709 -0600
+@@ -20,3 +20,7 @@ endif
+ ifeq ($(subdir),resource)
+ sysdep_routines += oldgetrlimit64
+ endif
++
++ifeq ($(subdir),stdlib)
++gen-as-const-headers += ucontext_i.sym
++endif
+diff -Nrup j1/sysdeps/unix/sysv/linux/arm/eabi/getcontext.S j2/sysdeps/unix/sysv/linux/arm/eabi/getcontext.S
+--- j1/sysdeps/unix/sysv/linux/arm/eabi/getcontext.S	1969-12-31 17:00:00.000000000 -0700
++++ j2/sysdeps/unix/sysv/linux/arm/eabi/getcontext.S	2012-04-30 14:02:34.000589703 -0600
+@@ -0,0 +1,113 @@
++/* Copyright (C) 2012 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <http://www.gnu.org/licenses/>.  */
++
++#include <sysdep.h>
++#include <rtld-global-offsets.h>
++
++#include "ucontext_i.h"
++
++	.syntax unified
++	.text
++
++/* int getcontext (ucontext_t *ucp) */
++
++ENTRY(__getcontext)
++	/* No need to save r0-r3, d0-d7, or d16-d31.  */
++	add	r1, r0, #MCONTEXT_ARM_R4
++	stmia   r1, {r4-r11}
++
++	/* Save R13 separately as Thumb can't STM it.  */
++	str     r13, [r0, #MCONTEXT_ARM_SP]
++	str     r14, [r0, #MCONTEXT_ARM_LR]
++	/* Return to LR */
++	str     r14, [r0, #MCONTEXT_ARM_PC]
++	/* Return zero */
++	mov     r2, #0
++	str     r2, [r0, #MCONTEXT_ARM_R0]
++
++	/* Save ucontext_t * across the next call.  */
++	mov	r4, r0
++	
++	/* __sigprocmask(SIG_BLOCK, NULL, &(ucontext->uc_sigmask)) */
++	mov     r0, #SIG_BLOCK
++	mov     r1, #0
++	add     r2, r4, #UCONTEXT_SIGMASK
++	bl      PLTJMP(__sigprocmask)
++	
++	/* Store FP regs.  Much of the FP code is copied from arm/eabi/setjmp.S.  */
++
++#ifdef PIC
++        ldr     r2, 1f
++        ldr     r1, Lrtld_global_ro
++0:      add     r2, pc, r2
++        ldr     r2, [r2, r1]
++        ldr     r2, [r2, #RTLD_GLOBAL_RO_DL_HWCAP_OFFSET]
++#else
++        ldr     r2, Lhwcap
++        ldr     r2, [r2, #0]
++#endif
++
++	add	r0, r4, #UCONTEXT_REGSPACE
++
++        tst     r2, #HWCAP_ARM_VFP
++        beq     Lno_vfp
++
++        /* Store the VFP registers.
++           Don't use VFP instructions directly because this code
++           is used in non-VFP multilibs.  */
++        /* Following instruction is vstmia r0!, {d8-d15}.  */
++        stc     p11, cr8, [r0], #64
++        /* Store the floating-point status register.  */
++        /* Following instruction is vmrs r1, fpscr.  */
++        mrc     p10, 7, r1, cr1, cr0, 0
++        str     r1, [r0], #4
++Lno_vfp:
++
++        tst     r2, #HWCAP_ARM_IWMMXT
++        beq     Lno_iwmmxt
++
++        /* Save the call-preserved iWMMXt registers.  */
++        /* Following instructions are wstrd wr10, [r0], #8 (etc.)  */
++        stcl    p1, cr10, [r0], #8
++        stcl    p1, cr11, [r0], #8
++        stcl    p1, cr12, [r0], #8
++        stcl    p1, cr13, [r0], #8
++        stcl    p1, cr14, [r0], #8
++        stcl    p1, cr15, [r0], #8
++Lno_iwmmxt:
++
++	/* Restore the clobbered R4 and LR.  */
++	ldr	r14, [r4, #MCONTEXT_ARM_LR]
++	ldr	r4, [r4, #MCONTEXT_ARM_R4]
++
++	mov	r0, #0
++
++	DO_RET(r14)
++
++END(__getcontext)
++
++#ifdef PIC
++1:      .long   _GLOBAL_OFFSET_TABLE_ - 0b - 8
++Lrtld_global_ro:
++        .long   C_SYMBOL_NAME(_rtld_global_ro)(GOT)
++#else
++Lhwcap:
++        .long   C_SYMBOL_NAME(_dl_hwcap)
++#endif
++
++
++weak_alias(__getcontext, getcontext)
+diff -Nrup j1/sysdeps/unix/sysv/linux/arm/eabi/makecontext.c j2/sysdeps/unix/sysv/linux/arm/eabi/makecontext.c
+--- j1/sysdeps/unix/sysv/linux/arm/eabi/makecontext.c	1969-12-31 17:00:00.000000000 -0700
++++ j2/sysdeps/unix/sysv/linux/arm/eabi/makecontext.c	2012-04-30 14:02:34.001589697 -0600
+@@ -0,0 +1,73 @@
++/* Copyright (C) 2012 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <http://www.gnu.org/licenses/>.  */
++
++#include <stdarg.h>
++#include <ucontext.h>
++
++/* Number of arguments that go in registers.  */
++#define NREG_ARGS  4
++
++/* Take a context previously prepared via getcontext() and set to
++   call func() with the given int only args.  */
++void
++__makecontext (ucontext_t *ucp, void (*func) (void), int argc, ...)
++{
++  extern void __startcontext (void);
++  unsigned long *funcstack;
++  va_list vl;
++  unsigned long *regptr;
++  unsigned int reg;
++  int misaligned;
++
++  /* Start at the top of stack.  */
++  funcstack = (unsigned long *) (ucp->uc_stack.ss_sp + ucp->uc_stack.ss_size);
++
++  /* Ensure the stack stays eight byte aligned.  */
++  misaligned = ((unsigned long) funcstack & 4) != 0;
++
++  if ((argc > NREG_ARGS) && (argc & 1) != 0)
++    misaligned = !misaligned;
++
++  if (misaligned)
++    funcstack -= 1;
++
++  va_start (vl, argc);
++
++  /* Reserve space for the on-stack arguments.  */
++  if (argc > NREG_ARGS)
++    funcstack -= (argc - NREG_ARGS);
++
++  ucp->uc_mcontext.arm_sp = (unsigned long) funcstack;
++  ucp->uc_mcontext.arm_pc = (unsigned long) func;
++
++  /* Exit to startcontext() with the next context in R4 */
++  ucp->uc_mcontext.arm_r4 = (unsigned long) ucp->uc_link;
++  ucp->uc_mcontext.arm_lr = (unsigned long) __startcontext;
++
++  /* The first four arguments go into registers.  */
++  regptr = &(ucp->uc_mcontext.arm_r0);
++
++  for (reg = 0; (reg < argc) && (reg < NREG_ARGS); reg++)
++    *regptr++ = va_arg (vl, unsigned long);
++
++  /* And the remainder on the stack.  */
++  for (; reg < argc; reg++)
++    *funcstack++ = va_arg (vl, unsigned long);
++
++  va_end (vl);
++}
++weak_alias (__makecontext, makecontext)
+diff -Nrup j1/sysdeps/unix/sysv/linux/arm/eabi/setcontext.S j2/sysdeps/unix/sysv/linux/arm/eabi/setcontext.S
+--- j1/sysdeps/unix/sysv/linux/arm/eabi/setcontext.S	1969-12-31 17:00:00.000000000 -0700
++++ j2/sysdeps/unix/sysv/linux/arm/eabi/setcontext.S	2012-04-30 14:02:34.049589449 -0600
+@@ -0,0 +1,101 @@
++/* Copyright (C) 2012 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <http://www.gnu.org/licenses/>.  */
++
++#include <sysdep.h>
++#include <rtld-global-offsets.h>
++
++#include "ucontext_i.h"
++
++	.syntax unified
++	.text
++
++/* int setcontext (const ucontext_t *ucp) */
++
++ENTRY(__setcontext)
++	mov	r4, r0
++	add	r0, r0, #UCONTEXT_REGSPACE
++
++        /* Restore the VFP registers.  Copied from arm/eabi/__longjmp.S.  */
++#ifdef PIC
++        ldr     r2, 1f
++        ldr     r1, Lrtld_global_ro
++0:      add     r2, pc, r2
++        ldr     r2, [r2, r1]
++        ldr     r2, [r2, #RTLD_GLOBAL_RO_DL_HWCAP_OFFSET]
++#else
++        ldr     r2, Lhwcap
++        ldr     r2, [r2, #0]
++#endif
++
++        tst     r2, #HWCAP_ARM_VFP
++        beq     Lno_vfp_sc
++
++        /* Following instruction is vldmia r0!, {d8-d15}.  */
++        ldc     p11, cr8, [r0], #64
++        /* Restore the floating-point status register.  */
++        ldr     r1, [r0], #4
++        /* Following instruction is fmxr fpscr, r1.  */
++        mcr     p10, 7, r1, cr1, cr0, 0
++Lno_vfp_sc:
++        tst     r2, #HWCAP_ARM_IWMMXT
++        beq     Lno_iwmmxt_sc
++
++        /* Restore the call-preserved iWMMXt registers.  */
++        /* Following instructions are wldrd wr10, [r0], #8 (etc.)  */
++        ldcl    p1, cr10, [r0], #8
++        ldcl    p1, cr11, [r0], #8
++        ldcl    p1, cr12, [r0], #8
++        ldcl    p1, cr13, [r0], #8
++        ldcl    p1, cr14, [r0], #8
++        ldcl    p1, cr15, [r0], #8
++Lno_iwmmxt_sc:
++
++	/* Now bring back the signal status.  */
++	mov	r0, #SIG_SETMASK
++	add	r1, r4, #UCONTEXT_SIGMASK
++	mov	r2, #0
++	bl	PLTJMP(__sigprocmask)
++
++        /* Loading r0-r3 makes makecontext easier.  */
++        add     r14, r4, #MCONTEXT_ARM_R0
++        ldmia   r14, {r0-r12}
++        ldr     r13, [r14, #(MCONTEXT_ARM_SP - MCONTEXT_ARM_R0)]
++        add     r14, r14, #(MCONTEXT_ARM_LR - MCONTEXT_ARM_R0)
++        ldmia   r14, {r14, pc}
++
++END(setcontext)
++weak_alias(__setcontext, setcontext)
++
++	/* Called when a makecontext() context returns.  Start the
++	   context in R4 or fall through to exit().  */
++ENTRY(__startcontext)
++        movs    r0, r4
++        bne     PLTJMP(__setcontext)
++
++        @ New context was 0 - exit
++        b       PLTJMP(_exit)
++END(__startcontext)
++
++#ifdef PIC
++1:      .long   _GLOBAL_OFFSET_TABLE_ - 0b - 8
++Lrtld_global_ro:
++        .long   C_SYMBOL_NAME(_rtld_global_ro)(GOT)
++#else
++Lhwcap:
++        .long   C_SYMBOL_NAME(_dl_hwcap)
++#endif
++
+diff -Nrup j1/sysdeps/unix/sysv/linux/arm/eabi/swapcontext.S j2/sysdeps/unix/sysv/linux/arm/eabi/swapcontext.S
+--- j1/sysdeps/unix/sysv/linux/arm/eabi/swapcontext.S	1969-12-31 17:00:00.000000000 -0700
++++ j2/sysdeps/unix/sysv/linux/arm/eabi/swapcontext.S	2012-04-30 14:02:34.050589444 -0600
+@@ -0,0 +1,63 @@
++/* Copyright (C) 2012 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <http://www.gnu.org/licenses/>.  */
++
++#include <sysdep.h>
++
++#include "ucontext_i.h"
++
++	.syntax unified
++	.text
++
++/* int swapcontext (ucontext_t *oucp, const ucontext_t *ucp) */
++
++ENTRY(swapcontext)
++
++	/* Have getcontext() do most of the work then fix up
++	   LR afterwards.  Save R3 to keep the stack aligned.  */
++	push	{r0,r1,r3,r14}
++	cfi_adjust_cfa_offset (16)
++	cfi_rel_offset (r0,0)
++	cfi_rel_offset (r1,4)
++	cfi_rel_offset (r3,8)
++	cfi_rel_offset (r14,12)
++
++	bl	__getcontext
++	mov	r4, r0
++
++	pop	{r0,r1,r3,r14}
++	cfi_adjust_cfa_offset (-16)
++	cfi_restore (r0)
++	cfi_restore (r1)
++	cfi_restore (r3)
++	cfi_restore (r14)
++
++	/* Exit if getcontext() failed.  */
++	cmp 	r4, #0
++	itt	ne
++	movne	r0, r4
++	RETINSTR(ne, r14)
++	
++	/* Fix up LR and the PC.  */
++	str	r13,[r0, #MCONTEXT_ARM_SP]
++	str	r14,[r0, #MCONTEXT_ARM_LR]
++	str	r14,[r0, #MCONTEXT_ARM_PC]
++
++	/* And swap using swapcontext().  */
++	mov	r0, r1
++	b	__setcontext
++
++END(swapcontext)
+diff -Nrup j1/sysdeps/unix/sysv/linux/arm/ucontext_i.sym j2/sysdeps/unix/sysv/linux/arm/ucontext_i.sym
+--- j1/sysdeps/unix/sysv/linux/arm/ucontext_i.sym	1969-12-31 17:00:00.000000000 -0700
++++ j2/sysdeps/unix/sysv/linux/arm/ucontext_i.sym	2012-04-30 14:02:34.051589439 -0600
+@@ -0,0 +1,30 @@
++#include <inttypes.h>
++#include <signal.h>
++#include <stddef.h>
++#include <sys/ucontext.h>
++
++SIG_BLOCK
++SIG_SETMASK
++
++-- Offsets of the fields in the ucontext_t structure.
++#define ucontext(member)	offsetof (ucontext_t, member)
++#define mcontext(member)	ucontext (uc_mcontext.member)
++
++UCONTEXT_FLAGS			ucontext (uc_flags)
++UCONTEXT_LINK			ucontext (uc_link)
++UCONTEXT_STACK			ucontext (uc_stack)
++UCONTEXT_MCONTEXT		ucontext (uc_mcontext)
++UCONTEXT_SIGMASK		ucontext (uc_sigmask)
++
++UCONTEXT_REGSPACE		ucontext (uc_regspace)
++
++MCONTEXT_TRAP_NO		mcontext (trap_no)
++MCONTEXT_ERROR_CODE		mcontext (error_code)
++MCONTEXT_OLDMASK		mcontext (oldmask)
++MCONTEXT_ARM_R0			mcontext (arm_r0)
++MCONTEXT_ARM_R4			mcontext (arm_r4)
++MCONTEXT_ARM_SP			mcontext (arm_sp)
++MCONTEXT_ARM_LR			mcontext (arm_lr)
++MCONTEXT_ARM_PC			mcontext (arm_pc)
++MCONTEXT_ARM_CPSR		mcontext (arm_cpsr)
++MCONTEXT_FAULT_ADDRESS		mcontext (fault_address)
