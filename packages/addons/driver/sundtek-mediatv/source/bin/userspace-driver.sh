@@ -46,10 +46,9 @@ if [ -z "$(pidof mediasrv)" ]; then
     if [ -f $SUNDTEK_READY ]; then
       rm -f $SUNDTEK_READY
       break
-    else if [ "$cnt" = "120" ]; then
-      logger -t Tvheadend "### No Sundtek device attached in 60 sec ###"
+    elif [ "$cnt" = "240" ]; then
+      logger -t Sundtek "### No Sundtek device attached in 120 sec ###"
       return
-    fi
     fi
     let cnt=cnt+1
     usleep 500000
@@ -62,9 +61,11 @@ if [ -z "$(pidof mediasrv)" ]; then
   # save adapter serial number in background
   sleep 4
   serial_number_old=$(cat $ADDON_HOME/adapters.txt 2>/dev/null)
-  serial_number_new=$(mediaclient -e | awk '/ID:/ {print $2}')
+  serial_number_new=$(mediaclient -e | awk '/device / {print $0} /ID:/ {print $2}')
   if [ "$serial_number_old" != "$serial_number_new" ]; then
     echo "$serial_number_new" >$ADDON_HOME/adapters.txt
   fi
 )&
+else
+  export LD_PRELOAD=$ADDON_DIR/lib/libmediaclient.so:$LD_PRELOAD
 fi
