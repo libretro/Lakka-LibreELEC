@@ -1,0 +1,147 @@
+From 44f2703700af1685c8e5fdc71af80923853ee8f1 Mon Sep 17 00:00:00 2001
+From: theuni <theuni-nospam-@xbmc.org>
+Date: Sat, 19 May 2012 22:05:13 -0400
+Subject: [PATCH 1/3] xml: read whole file rather than streaming it
+
+---
+ xbmc/utils/XBMCTinyXML.cpp |   19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/utils/XBMCTinyXML.cpp b/xbmc/utils/XBMCTinyXML.cpp
+index 82e2451..4a7374c 100644
+--- a/xbmc/utils/XBMCTinyXML.cpp
++++ b/xbmc/utils/XBMCTinyXML.cpp
+@@ -63,8 +63,9 @@ bool CXBMCTinyXML::LoadFile(const CStdString &_filename, TiXmlEncoding encoding)
+   // Add an extra string to avoid the crash.
+   CStdString filename(_filename);
+   value = filename;
+-
+-  XFILE::CFileStream file;
++  XFILE::CFile file;
++  const char *data = NULL;
++  int64_t length = 0, readSize = 0;
+   if (!file.Open(value))
+   {
+     SetError(TIXML_ERROR_OPENING_FILE, NULL, NULL, TIXML_ENCODING_UNKNOWN);
+@@ -74,13 +75,19 @@ bool CXBMCTinyXML::LoadFile(const CStdString &_filename, TiXmlEncoding encoding)
+   // Delete the existing data:
+   Clear();
+   location.Clear();
+-
+-  CStdString data;
+-  data.reserve(8 * 1000);
+-  StreamIn(&file, &data);
++  length = file.GetLength();
++  data = new char[file.GetLength()];
++  readSize = file.Read((void*)data, length);
+   file.Close();
++  if (readSize != length || !data)
++  {
++    SetError(TIXML_ERROR_OPENING_FILE, NULL, NULL, TIXML_ENCODING_UNKNOWN);
++    delete [] data;
++    return false;
++  }
+ 
+   Parse(data, NULL, encoding);
++  delete [] data;
+ 
+   if (Error())
+     return false;
+-- 
+1.7.10
+
+
+From 0a56ce6be121e48547037bce07091ff27adade02 Mon Sep 17 00:00:00 2001
+From: theuni <theuni-nospam-@xbmc.org>
+Date: Mon, 21 May 2012 12:27:47 -0400
+Subject: [PATCH 2/3] xml: fix stupid c/p. Thanks vdrfan
+
+---
+ xbmc/utils/XBMCTinyXML.cpp |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/utils/XBMCTinyXML.cpp b/xbmc/utils/XBMCTinyXML.cpp
+index 4a7374c..ffc0845 100644
+--- a/xbmc/utils/XBMCTinyXML.cpp
++++ b/xbmc/utils/XBMCTinyXML.cpp
+@@ -76,7 +76,7 @@ bool CXBMCTinyXML::LoadFile(const CStdString &_filename, TiXmlEncoding encoding)
+   Clear();
+   location.Clear();
+   length = file.GetLength();
+-  data = new char[file.GetLength()];
++  data = new char[length];
+   readSize = file.Read((void*)data, length);
+   file.Close();
+   if (readSize != length || !data)
+-- 
+1.7.10
+
+
+From dbaa317480a78c06eb21f72a96800207cec68412 Mon Sep 17 00:00:00 2001
+From: theuni <theuni-nospam-@xbmc.org>
+Date: Mon, 21 May 2012 16:00:53 -0400
+Subject: [PATCH 3/3] xml: fixed corrupt xml after last commit
+
+Due to non-native line-endings. We need to borrow tinyxml's hack for
+normalizing EOLs.
+---
+ xbmc/utils/XBMCTinyXML.cpp |   24 ++++++++++++++++++++++++
+ xbmc/utils/XBMCTinyXML.h   |    1 +
+ 2 files changed, 25 insertions(+)
+
+diff --git a/xbmc/utils/XBMCTinyXML.cpp b/xbmc/utils/XBMCTinyXML.cpp
+index ffc0845..ef3dbf6 100644
+--- a/xbmc/utils/XBMCTinyXML.cpp
++++ b/xbmc/utils/XBMCTinyXML.cpp
+@@ -86,6 +86,7 @@ bool CXBMCTinyXML::LoadFile(const CStdString &_filename, TiXmlEncoding encoding)
+     return false;
+   }
+ 
++  NormalizeEOL((char*)data, length);
+   Parse(data, NULL, encoding);
+   delete [] data;
+ 
+@@ -132,6 +133,29 @@ const char *CXBMCTinyXML::Parse(const char *_data, TiXmlParsingData *prevData, T
+   return Parse(data, prevData, encoding);
+ }
+ 
++void CXBMCTinyXML::NormalizeEOL(char *data, int64_t length)
++{
++  //Based on TinyXML's version in TiXmlDocument::LoadFile
++
++  const char* p = data;
++  char* q = (char*) data;
++  const char CR = 0x0d;
++  const char LF = 0x0a;
++
++  while( p != data+length)
++  {
++    if ( *p == CR )
++    {
++      *q++ = LF;
++      p++;
++      if ( *p == LF )
++      p++;
++    }
++    else
++      *q++ = *p++;
++  }
++}
++
+ const char *CXBMCTinyXML::Parse(CStdString &data, TiXmlParsingData *prevData, TiXmlEncoding encoding)
+ {
+   // Preprocess string, replacing '&' with '&amp; for invalid XML entities
+diff --git a/xbmc/utils/XBMCTinyXML.h b/xbmc/utils/XBMCTinyXML.h
+index c6b4fe2..0898be3 100644
+--- a/xbmc/utils/XBMCTinyXML.h
++++ b/xbmc/utils/XBMCTinyXML.h
+@@ -66,5 +66,6 @@ class CXBMCTinyXML : public TiXmlDocument
+   bool SaveFile(const CStdString&) const;
+   const char *Parse(const char*, TiXmlParsingData *prevData = NULL, TiXmlEncoding encoding = TIXML_DEFAULT_ENCODING);
+   const char *Parse(CStdString&, TiXmlParsingData *prevData = NULL, TiXmlEncoding encoding = TIXML_DEFAULT_ENCODING);
++  void NormalizeEOL(char *data, int64_t length);
+   static bool Test();
+ };
+-- 
+1.7.10
+
