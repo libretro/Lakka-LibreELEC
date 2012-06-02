@@ -17,6 +17,7 @@
 #  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
+
 # starting XBMC
 #
 # runlevels: openelec
@@ -34,9 +35,6 @@ fi
 
 # hack: make addon-bins executable
   chmod +x /storage/.xbmc/addons/*/bin/* > /dev/null 2>&1
-
-# hack: make addon-libs executable
-  chmod +x /storage/.xbmc/addons/*/lib/* > /dev/null 2>&1
 
 # hack to support user installed fonts
   SUBFONTS="/storage/.xbmc/userdata/fonts"
@@ -64,28 +62,46 @@ fi
 # waiting for Xorg to start
   wait_for_xorg
 
-# set cpu's to 'on demand'
+# set cpu's to 'conservative'
   ( usleep 15000000
-    progress "set cpu's to 'on demand'"
-    cpupower frequency-set -g ondemand > /dev/null 2>&1
+    progress "set cpu's to 'conservative'"
+    cpupower frequency-set -g conservative > /dev/null 2>&1
   )&
+
+# prevent restrating XBMC at reboot or shutdown
+  LOCKDIR="/var/lock/"
+  LOCKFILE="xbmc.disabled"
+  [ -f "$LOCKDIR/$LOCKFILE" ] && rm -f "$LOCKDIR/$LOCKFILE" &
 
 # starting XBMC
   usleep $XBMC_STARTDELAY
   while true; do
+
+    while [ -f "$LOCKDIR/$LOCKFILE" ]; do
+      usleep 250000
+    done
 
     DISPLAY=:0.0 /usr/lib/xbmc/xbmc.bin $XBMC_ARGS > /dev/null 2>&1
     RET=$?
 
     case "$RET" in
       0)
-        poweroff -f
+        if [ ! $(pidof console-kit-daemon) ]; then
+          touch "$LOCKDIR/$LOCKFILE"
+          poweroff -f
+        fi
         ;;
       64)
-        poweroff -f
+        if [ ! $(pidof console-kit-daemon) ]; then
+          touch "$LOCKDIR/$LOCKFILE"
+          poweroff -f
+        fi
         ;;
       66)
-        reboot
+        if [ ! $(pidof console-kit-daemon) ]; then
+          touch "$LOCKDIR/$LOCKFILE"
+          reboot
+        fi
         ;;
       255)
         echo "Abnormal Exit. Exited with code $RET"
