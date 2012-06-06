@@ -37,14 +37,24 @@ if [ -z "$(pidof userhdhomerun)" ]; then
     ln -s $ADDON_HOME/dvbhdhomerun.conf /tmp/dvbhdhomerun
   fi
 
+  # could be useful
+  if [ -f $ADDON_HOME/extra-wait.sh ]; then
+    sh $ADDON_HOME/extra-wait.sh
+  fi
+  
   # if not already added
   modprobe dvb_hdhomerun
   modprobe dvb_hdhomerun_fe
 
+  # could be useful
+  if [ -f $ADDON_HOME/extra-wait.sh ]; then
+    sh $ADDON_HOME/extra-wait.sh
+  fi
+
   mkdir -p /var/log/
   rm -f /var/log/dvbhdhomerun.log
   
-  export LD_LIBRARY_PATH=$ADDON_DIR/lib:$LD_LIBRARY_PATH
+  export LD_LIBRARY_PATH=$ADDON_DIR/lib
 
   userhdhomerun -f
   # how much time should we wait?
