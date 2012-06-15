@@ -25,6 +25,9 @@
 ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.sundtek-mediatv"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.sundtek-mediatv"
 SUNDTEK_READY="/var/run/sundtek.ready"
+ADAPTER_WAIT_TIME=120
+
+NETWORK_TUNER_IP=$(awk '/^network_tuner_ip=/ {split($0,a,"="); printf("%s", a[2])}' "$ADDON_HOME/sundtek.conf")
 
 mkdir -p $ADDON_HOME
 
@@ -35,27 +38,38 @@ fi
 SUNDTEK_ARG="--pluginpath=$ADDON_DIR/bin --daemon"
 
 if [ -z "$(pidof mediasrv)" ]; then
+  rm -f /var/log/mediasrv.log
+  rm -f /var/log/mediaclient.log
   rm -f $SUNDTEK_READY
   rm -f /tmp/sundtek.conf
+
   ln -sf $ADDON_HOME/sundtek.conf /tmp/sundtek.conf
   mediasrv $SUNDTEK_ARG
 
-  # wait for device to attach
+  if [ -n "$NETWORK_TUNER_IP" ]; then
+    logger -t Sundtek "### Trying to connect Sundtek device $NETWORK_TUNER_IP ###"
+    mediaclient --mount=$NETWORK_TUNER_IP
+  else
+    logger -t Sundtek "### Trying to attach Sundtek device ###"
+  fi
+
+  # wait for device to get attached or connected
   cnt=0
   while [ 1 ]; do
+    if [ -n "$NETWORK_TUNER_IP" -a -e /dev/dvb/adapter*/frontend* ]; then
+      sh $ADDON_DIR/bin/device-attached.sh
+    fi
+
     if [ -f $SUNDTEK_READY ]; then
       rm -f $SUNDTEK_READY
       break
-    elif [ "$cnt" = "240" ]; then
-      logger -t Sundtek "### No Sundtek device attached in 120 sec ###"
+    elif [ "$cnt" = "$ADAPTER_WAIT_TIME" ]; then
+      logger -t Sundtek "### No Sundtek device attached or connected ###"
       return
     fi
     let cnt=cnt+1
     usleep 500000
   done
-
-  export LD_LIBRARY_PATH=$ADDON_DIR/lib:$LD_LIBRARY_PATH
-  export LD_PRELOAD=$ADDON_DIR/lib/libmediaclient.so:$LD_PRELOAD
 
 (
   # save adapter serial number in background
@@ -66,6 +80,6 @@ if [ -z "$(pidof mediasrv)" ]; then
     echo "$serial_number_new" >$ADDON_HOME/adapters.txt
   fi
 )&
-else
-  export LD_PRELOAD=$ADDON_DIR/lib/libmediaclient.so:$LD_PRELOAD
 fi
+
+export LD_PRELOAD=$ADDON_DIR/lib/libmediaclient.so:$LD_PRELOAD
