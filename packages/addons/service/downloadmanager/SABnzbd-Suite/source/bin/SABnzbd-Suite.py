@@ -345,6 +345,8 @@ md5pwd =  hashlib.md5(pwd).hexdigest()
 
 couchPotatoServerConfig = ConfigObj(pCouchPotatoServerSettings,create_empty=True)
 defaultConfig = ConfigObj()
+defaultConfig['newznab'] = {}
+defaultConfig['newznab']['api_key']      = ''
 defaultConfig['core'] = {}
 defaultConfig['core']['username']            = user
 defaultConfig['core']['password']            = md5pwd
