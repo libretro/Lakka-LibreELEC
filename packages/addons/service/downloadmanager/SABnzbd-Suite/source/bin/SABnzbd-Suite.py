@@ -141,6 +141,22 @@ couchpotato_launch   = getAddonSetting(suiteSettings, 'COUCHPOTATO_LAUNCH')
 couchpotato_version  = getAddonSetting(suiteSettings, 'COUCHPOTATO_VERSION')
 headphones_launch    = getAddonSetting(suiteSettings, 'HEADPHONES_LAUNCH')
 
+##########
+# safe defaults. this is ugly
+# someone with better knowledge in xbmc addon api
+# please fix
+if not sabnzbd_launch:
+    sabnzbd_launch = true
+if not sickbeard_launch:
+    sickbeard_launch = "true"
+if not couchpotato_launch:
+    couchpotato_launch = "true"
+if not couchpotato_version:
+    couchpotato_version = "0"
+if not headphones_launch:
+    headphones_launch = "true"
+##########
+
 # XBMC
 fXbmcSettings = open(pXbmcSettings, 'r')
 data = fXbmcSettings.read()
