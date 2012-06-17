@@ -35,14 +35,18 @@ __author__     = "OpenELEC"
 __url__        = "http://www.openelec.tv"
 __settings__   = xbmcaddon.Addon(id='service.downloadmanager.SABnzbd-Suite')
 __cwd__        = __settings__.getAddonInfo('path')
-__path__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "SABnzbd-Suite.py") )
+__start__      = xbmc.translatePath( os.path.join( __cwd__, 'bin', "SABnzbd-Suite.py") )
+__stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "SABnzbd-Suite.stop") )
+
+#make binary files executable in adson bin folder
+subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
 
 checkInterval  = 120
 timeout        = 20
 wake_times     = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00']
 
 # Launch Suite
-subprocess.call(['python',__path__])
+subprocess.call(['python',__start__])
 
 
 # SABnzbd addresses and api key
@@ -108,5 +112,7 @@ while (not xbmc.abortRequested):
         open("/sys/class/rtc/rtc0/wakealarm", "w").write("0")
         open("/sys/class/rtc/rtc0/wakealarm", "w").write(str(secondsSinceEpoch))
         
-    xbmc.sleep(checkInterval * 1000)
+    time.sleep(0.250)
+
+subprocess.Popen(__stop__, shell=True, close_fds=True)
 
