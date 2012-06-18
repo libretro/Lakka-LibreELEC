@@ -22,51 +22,28 @@
 
 . config/options $1
 
-if [ "$DISPLAYSERVER" = "xorg-server" ]; then
-  SDL_X11="--enable-video --enable-x11-shared --disable-video-x11-dgamouse"
-  SDL_X11="$SDL_X11 --disable-video-x11-xinerama --disable-video-x11-xme"
-  SDL_X11="$SDL_X11 --enable-video-x11-xrandr --enable-video-x11"
-  SDL_X11="$SDL_X11 --disable-video-x11-vm --disable-video-x11-xv --with-x"
-else
-  SDL_X11="--disable-video --disable-x11-shared --disable-video-x11-dgamouse"
-  SDL_X11="$SDL_X11 --disable-video-x11-xinerama --disable-video-x11-xme"
-  SDL_X11="$SDL_X11 --disable-video-x11-xrandr --disable-video-x11"
-  SDL_X11="$SDL_X11 --disable-video-x11-vm --disable-video-x11-xv --without-x"
-fi
+$SCRIPTS/unpack SDL
 
-if [ "$OPENGL_SUPPORT" = yes ]; then
-  SDL_OPENGL="--enable-video-opengl"
-else
-  SDL_OPENGL="--disable-video-opengl"
-fi
+SDL_DIR=`ls -d $BUILD/SDL-[0-9]*`
 
-if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
-  SDL_PULSEAUDIO="--enable-pulseaudio --enable-pulseaudio-shared"
-else
-  SDL_PULSEAUDIO="--disable-pulseaudio --disable-pulseaudio-shared"
-fi
+setup_toolchain host
 
-cd $PKG_BUILD
+cd $SDL_DIR
 
-rm -f acinclude/alsa.m4
-# Skip autoheader because there is a problem with AC_DEFINE's in the configure.in of SDL 1.2.14.
-# Added include directory 'acinclude' because SDL 1.2.14 has no Makefile.am in which to specify it.
-  AUTOHEADER="true" autoreconf --verbose --install --force -I $SYSROOT_PREFIX/usr/share/aclocal -I acinclude
-
-mkdir -p .build-target && cd .build-target
-../configure --host=$TARGET_NAME \
+mkdir -p .build-host && cd .build-host
+../configure --host=$HOST_NAME \
              --build=$HOST_NAME \
-             --prefix=/usr \
-             --sysconfdir=/etc \
+             --prefix=$ROOT/$TOOLCHAIN \
+             --sysconfdir=$ROOT/$TOOLCHAIN/etc \
              --localstatedir=/var \
              --enable-shared \
              --disable-static \
              --disable-rpath \
              --enable-libc \
-             --enable-audio \
-             --enable-events \
-             --enable-joystick \
-             --enable-cdrom \
+             --disable-audio \
+             --disable-events \
+             --disable-joystick \
+             --disable-cdrom \
              --enable-threads \
              --enable-timers \
              --enable-file \
@@ -74,15 +51,14 @@ mkdir -p .build-target && cd .build-target
              --enable-cpuinfo \
              --enable-assembly \
              --disable-oss \
-             --enable-alsa \
+             --disable-alsa \
              --disable-alsatest \
-             --enable-alsa-shared \
-             --with-alsa-prefix=$SYSROOT_PREFIX/usr/lib \
-             --with-alsa-inc-prefix=$SYSROOT_PREFIX/usr/include \
+             --disable-alsa-shared \
              --disable-esd \
              --disable-esdtest \
              --disable-esd-shared \
-             $SDL_PULSEAUDIO \
+             --disable-pulseaudio \
+             --disable-pulseaudio-shared \
              --disable-arts \
              --disable-arts-shared \
              --disable-nas \
@@ -92,8 +68,17 @@ mkdir -p .build-target && cd .build-target
              --enable-nasm \
              --disable-altivec \
              --disable-ipod \
-             $SDL_X11 \
-             $SDL_OPENGL \
+             --disable-video \
+             --disable-x11-shared \
+             --disable-video-x11-dgamouse \
+             --disable-video-x11-xinerama \
+             --disable-video-x11-xme \
+             --disable-video-x11-xrandr \
+             --disable-video-x11 \
+             --disable-video-x11-vm \
+             --disable-video-x11-xv \
+             --without-x \
+             --disable-video-opengl \
              --disable-video-nanox \
              --disable-nanox-debug \
              --disable-nanox-share-memory \
@@ -115,7 +100,7 @@ mkdir -p .build-target && cd .build-target
              --disable-video-picogui \
              --disable-video-dummy \
              --disable-osmesa-shared \
-             --enable-input-events \
+             --disable-input-events \
              --disable-input-tslib \
              --disable-pth \
              --enable-pthreads \
@@ -127,10 +112,4 @@ mkdir -p .build-target && cd .build-target
              --disable-clock_gettime \
 
 make
-
-$MAKEINSTALL
-
-mkdir -p $ROOT/$TOOLCHAIN/bin
-  cp $SYSROOT_PREFIX/usr/bin/sdl-config $ROOT/$TOOLCHAIN/bin
-  $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $ROOT/$TOOLCHAIN/bin/sdl-config
-
+make install
