@@ -1,0 +1,99 @@
+diff -Naur xbmc-rpi-bffd7a7/lib/libsquish/Makefile.in xbmc-rpi-bffd7a7.patch/lib/libsquish/Makefile.in
+--- xbmc-rpi-bffd7a7/lib/libsquish/Makefile.in	2012-06-14 01:06:47.000000000 +0200
++++ xbmc-rpi-bffd7a7.patch/lib/libsquish/Makefile.in	2012-06-18 04:35:28.769262149 +0200
+@@ -11,31 +11,29 @@
+   singlecolourfit.cpp \
+   squish.cpp
+ 
+-CXXFLAGS+=-I.
+ ifeq ($(findstring powerpc,$(ARCH)),powerpc)
+-  CXXFLAGS+=-DSQUISH_USE_ALTIVEC=1 -maltivec
++  OPTS        = -DSQUISH_USE_ALTIVEC=1 -maltivec
+ else ifeq ($(findstring x86,$(ARCH)), x86)
+-  CXXFLAGS+=-DSQUISH_USE_SSE=2 -msse2
++  OPTS        = -DSQUISH_USE_SSE=2 -msse2
+ endif
+ 
+-LIB=libsquish.a
++LIB           = libsquish.a
++NATIVE_LIB    = libsquish-native.so
++CXXFLAGS     += -I. $(OPTS)
++HOST_CXX     ?= g++
++CLEAN_FILES  += $(NATIVE_LIB)
+ 
+-ifeq (@USE_TEXTUREPACKER_NATIVE@,1)
+-NATIVE_LIB=libsquish-native.so
+-CLEAN_FILES+=$(NATIVE_LIB)
++$(LIB): $(SRCS)
+ 
+-ifeq ($(findstring osx,$(ARCH)),osx)
+-NATIVE_ARCH=$(shell echo $(CXXFLAGS) | grep x86_64 >/dev/null && echo -m64 || echo -m32)
+-endif
+-
+-all: $(LIB) $(NATIVE_LIB)
+ # TexturePacker links to libsquish and needs to run on build system, so make a native flavor.
+ $(NATIVE_LIB): $(SRCS)
+ ifeq ($(findstring osx,$(ARCH)),osx)
+-	g++ $(NATIVE_ARCH) -DSQUISH_USE_SSE=2 -msse2 -I. $(SRCS) -dynamiclib -install_name `pwd`/libsquish-native.so -o $@
+-else
+-	g++ -DSQUISH_USE_SSE=2 -msse2 -I. $(SRCS) -shared -fPIC -Wl,-soname,`pwd`/libsquish-native.so -o $@
++  NATIVE_ARCH=$(shell echo $(CXXFLAGS) | grep x86_64 >/dev/null && echo -m64 || echo -m32)
+ endif
++ifeq ($(findstring osx,$(ARCH)),osx)
++	$(HOST_CXX) $(NATIVE_ARCH) -I. $(OPTS) $(SRCS) -dynamiclib -install_name `pwd`/libsquish-native.so -o $@
++else
++	$(HOST_CXX) -I.$(OPTS) $(SRCS) -shared -fPIC -Wl,-soname,`pwd`/libsquish-native.so -o $@
+ endif
+ 
+ include ../../Makefile.include
+diff -Naur xbmc-rpi-bffd7a7/tools/TexturePacker/Makefile.in xbmc-rpi-bffd7a7.patch/tools/TexturePacker/Makefile.in
+--- xbmc-rpi-bffd7a7/tools/TexturePacker/Makefile.in	2012-06-14 01:07:10.000000000 +0200
++++ xbmc-rpi-bffd7a7.patch/tools/TexturePacker/Makefile.in	2012-06-18 05:09:06.085353812 +0200
+@@ -3,12 +3,6 @@
+ DEFINES += -DHOST_BIGENDIAN
+ endif
+ 
+-CXXFLAGS+= \
+-  -I. \
+-  -I@abs_top_srcdir@/lib \
+-  -I@abs_top_srcdir@/xbmc \
+-  -I@abs_top_srcdir@/xbmc/linux
+-
+ ifeq (@USE_TEXTUREPACKER_NATIVE@,1)
+ NATIVE_ROOT_PATH=@USE_TEXTUREPACKER_NATIVE_ROOT@
+ ifdef NATIVE_ROOT_PATH
+@@ -16,8 +10,9 @@
+ DEFINES += -DTARGET_DARWIN
+ NATIVE_ARCH=$(shell echo $(CXXFLAGS) | grep x86_64 >/dev/null && echo -m64 || echo -m32)
+ endif
+-CXXFLAGS+= -I$(NATIVE_ROOT_PATH)/include
+-LIBS    += -L$(NATIVE_ROOT_PATH)/lib
++HOST_CXX?= g++
++CXXFLAGS = -I$(NATIVE_ROOT_PATH)/include
++LIBS     = -L$(NATIVE_ROOT_PATH)/lib
+ endif
+ LIBS    += -L@abs_top_srcdir@/lib/libsquish -lsquish-native
+ else
+@@ -26,6 +21,12 @@
+ 
+ LIBS    += -lSDL_image -lSDL -llzo2
+ 
++CXXFLAGS+= \
++  -I. \
++  -I@abs_top_srcdir@/lib \
++  -I@abs_top_srcdir@/xbmc \
++  -I@abs_top_srcdir@/xbmc/linux
++
+ SRCS = \
+   md5.cpp \
+   SDL_anigif.cpp \
+@@ -42,7 +43,8 @@
+ ifeq (@USE_TEXTUREPACKER_NATIVE@,1)
+ # TexturePacker run native on build system, build it with native tools
+ $(TARGET): $(SRCS)
+-	g++ $(DEFINES) $(NATIVE_ARCH) $(CXXFLAGS) $(SRCS) $(LIBS) -o $(TARGET)
++	make -C @abs_top_srcdir@/lib/libsquish libsquish-native.so
++	$(HOST_CXX) $(DEFINES) $(NATIVE_ARCH) $(CXXFLAGS) $(SRCS) $(LIBS) -o $(TARGET)
+ clean:
+ 	rm -f $(TARGET)
+ else
