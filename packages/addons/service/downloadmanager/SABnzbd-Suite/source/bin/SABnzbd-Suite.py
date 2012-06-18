@@ -146,7 +146,7 @@ headphones_launch    = getAddonSetting(suiteSettings, 'HEADPHONES_LAUNCH')
 # someone with better knowledge in xbmc addon api
 # please fix
 if not sabnzbd_launch:
-    sabnzbd_launch = true
+    sabnzbd_launch = "true"
 if not sickbeard_launch:
     sickbeard_launch = "true"
 if not couchpotato_launch:
