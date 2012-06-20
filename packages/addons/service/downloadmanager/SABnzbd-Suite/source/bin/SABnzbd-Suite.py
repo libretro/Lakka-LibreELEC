@@ -138,27 +138,24 @@ user                 = getAddonSetting(suiteSettings, 'SABNZBD_USER')
 pwd                  = getAddonSetting(suiteSettings, 'SABNZBD_PWD')
 host                 = getAddonSetting(suiteSettings, 'SABNZBD_IP')
 sabNzbdKeepAwake     = getAddonSetting(suiteSettings, 'SABNZBD_KEEP_AWAKE')
-sabnzbd_launch       = getAddonSetting(suiteSettings, 'SABNZBD_LAUNCH')
 sickbeard_launch     = getAddonSetting(suiteSettings, 'SICKBEARD_LAUNCH')
 couchpotato_launch   = getAddonSetting(suiteSettings, 'COUCHPOTATO_LAUNCH')
 couchpotato_version  = getAddonSetting(suiteSettings, 'COUCHPOTATO_VERSION')
 headphones_launch    = getAddonSetting(suiteSettings, 'HEADPHONES_LAUNCH')
 
-##########
-# safe defaults. this is ugly
-# someone with better knowledge in xbmc addon api
-# please fix
-if not sabnzbd_launch:
-    sabnzbd_launch = "true"
+# merge defaults
+fDefaultSuiteSettings = open(pDefaultSuiteSettings, 'r')
+data = fDefaultSuiteSettings.read()
+fDefaultSuiteSettings.close
+DefaultSuiteSettings = parseString(data)
 if not sickbeard_launch:
-    sickbeard_launch = "true"
+    sickbeard_launch     = getAddonSetting(DefaultSuiteSettings, 'SICKBEARD_LAUNCH')
 if not couchpotato_launch:
-    couchpotato_launch = "true"
+    couchpotato_launch   = getAddonSetting(DefaultSuiteSettings, 'COUCHPOTATO_LAUNCH')
 if not couchpotato_version:
-    couchpotato_version = "0"
+    couchpotato_version  = getAddonSetting(DefaultSuiteSettings, 'COUCHPOTATO_VERSION')
 if not headphones_launch:
-    headphones_launch = "true"
-##########
+    headphones_launch    = getAddonSetting(DefaultSuiteSettings, 'HEADPHONES_LAUNCH')
 
 # XBMC
 fXbmcSettings = open(pXbmcSettings, 'r')
@@ -247,17 +244,16 @@ autoProcessConfig.write()
 
 # launch SABnzbd and get the API key
 # ----------------------------------
-if "true" in sabnzbd_launch:
-    logging.debug('Launching SABnzbd...')
-    subprocess.call(sabnzbd,close_fds=True)
-    logging.debug('...done')
+logging.debug('Launching SABnzbd...')
+subprocess.call(sabnzbd,close_fds=True)
+logging.debug('...done')
 
 # SABnzbd will only complete the .ini file when we first access the web interface
-    if firstLaunch:
-        loadWebInterface('http://' + sabNzbdHost,user,pwd)
-    sabNzbdConfig.reload()
-    sabNzbdApiKey = sabNzbdConfig['misc']['api_key']
-    logging.debug('SABnzbd api key: ' + sabNzbdApiKey)
+if firstLaunch:
+    loadWebInterface('http://' + sabNzbdHost,user,pwd)
+sabNzbdConfig.reload()
+sabNzbdApiKey = sabNzbdConfig['misc']['api_key']
+logging.debug('SABnzbd api key: ' + sabNzbdApiKey)
 
 # write SickBeard settings
 # ------------------------
@@ -272,12 +268,11 @@ defaultConfig['General']['web_port']       = '8082'
 defaultConfig['General']['web_host']       = host
 defaultConfig['General']['web_username']   = user
 defaultConfig['General']['web_password']   = pwd
-if "true" in sabnzbd_launch:
-    defaultConfig['SABnzbd'] = {}
-    defaultConfig['SABnzbd']['sab_username']   = user
-    defaultConfig['SABnzbd']['sab_password']   = pwd
-    defaultConfig['SABnzbd']['sab_apikey']     = sabNzbdApiKey
-    defaultConfig['SABnzbd']['sab_host']       = 'http://' + sabNzbdHost + '/'
+defaultConfig['SABnzbd'] = {}
+defaultConfig['SABnzbd']['sab_username']   = user
+defaultConfig['SABnzbd']['sab_password']   = pwd
+defaultConfig['SABnzbd']['sab_apikey']     = sabNzbdApiKey
+defaultConfig['SABnzbd']['sab_host']       = 'http://' + sabNzbdHost + '/'
 defaultConfig['XBMC'] = {}
 defaultConfig['XBMC']['use_xbmc']          = '1'
 defaultConfig['XBMC']['xbmc_host']         = '127.0.0.1:' + xbmcPort
@@ -324,12 +319,11 @@ defaultConfig['global']['password']      = pwd
 defaultConfig['global']['username']      = user
 defaultConfig['global']['port']          = '8083'
 defaultConfig['global']['host']          = host
-if "true" in sabnzbd_launch:
-    defaultConfig['Sabnzbd'] = {}
-    defaultConfig['Sabnzbd']['username']     = user
-    defaultConfig['Sabnzbd']['password']     = pwd
-    defaultConfig['Sabnzbd']['apikey']       = sabNzbdApiKey
-    defaultConfig['Sabnzbd']['host']         = sabNzbdHost
+defaultConfig['Sabnzbd'] = {}
+defaultConfig['Sabnzbd']['username']     = user
+defaultConfig['Sabnzbd']['password']     = pwd
+defaultConfig['Sabnzbd']['apikey']       = sabNzbdApiKey
+defaultConfig['Sabnzbd']['host']         = sabNzbdHost
 defaultConfig['XBMC'] = {}
 defaultConfig['XBMC']['enabled']         = 'True'
 defaultConfig['XBMC']['host']            = '127.0.0.1:' + xbmcPort
@@ -382,12 +376,11 @@ defaultConfig['updater'] = {}
 defaultConfig['updater']['enabled']          = '0'
 defaultConfig['updater']['notification']     = '0'
 defaultConfig['updater']['automatic']        = '0'
-if "true" in sabnzbd_launch:
-    defaultConfig['Sabnzbd'] = {}
-    defaultConfig['Sabnzbd']['username']     = user
-    defaultConfig['Sabnzbd']['password']     = pwd
-    defaultConfig['Sabnzbd']['api_key']      = sabNzbdApiKey
-    defaultConfig['Sabnzbd']['host']         = sabNzbdHost
+defaultConfig['Sabnzbd'] = {}
+defaultConfig['Sabnzbd']['username']     = user
+defaultConfig['Sabnzbd']['password']     = pwd
+defaultConfig['Sabnzbd']['api_key']      = sabNzbdApiKey
+defaultConfig['Sabnzbd']['host']         = sabNzbdHost
 defaultConfig['xbmc'] = {}
 defaultConfig['xbmc']['enabled']         = '1'
 defaultConfig['xbmc']['host']            = '127.0.0.1:' + xbmcPort
@@ -425,12 +418,11 @@ defaultConfig['General']['http_port']        = '8084'
 defaultConfig['General']['http_host']        = host
 defaultConfig['General']['http_username']    = user
 defaultConfig['General']['http_password']    = pwd
-if "true" in sabnzbd_launch:
-    defaultConfig['SABnzbd'] = {}
-    defaultConfig['SABnzbd']['sab_apikey']       = sabNzbdApiKey
-    defaultConfig['SABnzbd']['sab_host']         = sabNzbdHost
-    defaultConfig['SABnzbd']['sab_username']     = user
-    defaultConfig['SABnzbd']['sab_password']     = pwd
+defaultConfig['SABnzbd'] = {}
+defaultConfig['SABnzbd']['sab_apikey']       = sabNzbdApiKey
+defaultConfig['SABnzbd']['sab_host']         = sabNzbdHost
+defaultConfig['SABnzbd']['sab_username']     = user
+defaultConfig['SABnzbd']['sab_password']     = pwd
 
 if firstLaunch:
     defaultConfig['SABnzbd']['sab_category']     = 'music'
