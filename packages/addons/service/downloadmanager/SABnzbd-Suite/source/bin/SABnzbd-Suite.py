@@ -121,7 +121,10 @@ if firstLaunch:
         shutil.copy(pDefaultSuiteSettings, pSuiteSettings)
     # make utilities executable
     for utility in {'par2','unrar','unzip'}:
-        os.chmod(os.path.join(pAddon, 'bin', utility), 0755)
+        try:
+            os.chmod(os.path.join(pAddon, 'bin', utility), 0755)
+        except:
+            pass
 
 # read addon and xbmc settings
 # ----------------------------
