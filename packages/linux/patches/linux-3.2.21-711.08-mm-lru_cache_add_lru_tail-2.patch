@@ -1,0 +1,277 @@
+When reading from large files through the generic file read functions into
+page cache we can detect when a file is so large that it is unlikely to be
+fully cached in ram. If that happens we can put it on the tail end of the
+inactive lru list so it can be the first thing evicted next time we need ram.
+
+Do lots of funny buggers with underscores to preserve most of the existing
+APIs.
+
+-ck
+
+---
+ include/linux/mm_inline.h |   15 ++++++++++++---
+ include/linux/pagemap.h   |    2 ++
+ include/linux/swap.h      |    8 +++++++-
+ mm/filemap.c              |   12 +++++++++---
+ mm/readahead.c            |   32 ++++++++++++++++++++++++++++----
+ mm/swap.c                 |   30 ++++++++++++++++++++++++------
+ 6 files changed, 82 insertions(+), 17 deletions(-)
+
+Index: linux-3.2-ck1/include/linux/mm_inline.h
+===================================================================
+--- linux-3.2-ck1.orig/include/linux/mm_inline.h	2012-01-16 10:07:27.614097289 +1100
++++ linux-3.2-ck1/include/linux/mm_inline.h	2012-01-16 10:07:32.751096930 +1100
+@@ -23,9 +23,12 @@ static inline int page_is_file_cache(str
+ 
+ static inline void
+ __add_page_to_lru_list(struct zone *zone, struct page *page, enum lru_list l,
+-		       struct list_head *head)
++		       struct list_head *head, bool tail)
+ {
+-	list_add(&page->lru, head);
++	if (tail)
++		list_add_tail(&page->lru, head);
++	else
++		list_add(&page->lru, head);
+ 	__mod_zone_page_state(zone, NR_LRU_BASE + l, hpage_nr_pages(page));
+ 	mem_cgroup_add_lru_list(page, l);
+ }
+@@ -33,7 +36,13 @@ __add_page_to_lru_list(struct zone *zone
+ static inline void
+ add_page_to_lru_list(struct zone *zone, struct page *page, enum lru_list l)
+ {
+-	__add_page_to_lru_list(zone, page, l, &zone->lru[l].list);
++	__add_page_to_lru_list(zone, page, l, &zone->lru[l].list, false);
++}
++
++static inline void
++add_page_to_lru_list_tail(struct zone *zone, struct page *page, enum lru_list l)
++{
++	__add_page_to_lru_list(zone, page, l, &zone->lru[l].list, 1);
+ }
+ 
+ static inline void
+Index: linux-3.2-ck1/include/linux/swap.h
+===================================================================
+--- linux-3.2-ck1.orig/include/linux/swap.h	2012-01-16 10:07:32.052096979 +1100
++++ linux-3.2-ck1/include/linux/swap.h	2012-01-16 10:07:32.751096930 +1100
+@@ -215,6 +215,7 @@ extern unsigned int nr_free_pagecache_pa
+ 
+ 
+ /* linux/mm/swap.c */
++extern void ____lru_cache_add(struct page *, enum lru_list lru, bool tail);
+ extern void __lru_cache_add(struct page *, enum lru_list lru);
+ extern void lru_cache_add_lru(struct page *, enum lru_list lru);
+ extern void lru_add_page_tail(struct zone* zone,
+@@ -238,9 +239,14 @@ static inline void lru_cache_add_anon(st
+ 	__lru_cache_add(page, LRU_INACTIVE_ANON);
+ }
+ 
++static inline void lru_cache_add_file_tail(struct page *page, bool tail)
++{
++	____lru_cache_add(page, LRU_INACTIVE_FILE, tail);
++}
++
+ static inline void lru_cache_add_file(struct page *page)
+ {
+-	__lru_cache_add(page, LRU_INACTIVE_FILE);
++	____lru_cache_add(page, LRU_INACTIVE_FILE, false);
+ }
+ 
+ /* linux/mm/vmscan.c */
+Index: linux-3.2-ck1/mm/filemap.c
+===================================================================
+--- linux-3.2-ck1.orig/mm/filemap.c	2012-01-16 10:07:27.615097289 +1100
++++ linux-3.2-ck1/mm/filemap.c	2012-01-16 10:07:32.752096930 +1100
+@@ -495,16 +495,22 @@ out:
+ }
+ EXPORT_SYMBOL(add_to_page_cache_locked);
+ 
+-int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
+-				pgoff_t offset, gfp_t gfp_mask)
++int __add_to_page_cache_lru(struct page *page, struct address_space *mapping,
++				pgoff_t offset, gfp_t gfp_mask, bool tail)
+ {
+ 	int ret;
+ 
+ 	ret = add_to_page_cache(page, mapping, offset, gfp_mask);
+ 	if (ret == 0)
+-		lru_cache_add_file(page);
++		lru_cache_add_file_tail(page, tail);
+ 	return ret;
+ }
++
++int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
++				pgoff_t offset, gfp_t gfp_mask)
++{
++	return __add_to_page_cache_lru(page, mapping, offset, gfp_mask, false);
++}
+ EXPORT_SYMBOL_GPL(add_to_page_cache_lru);
+ 
+ #ifdef CONFIG_NUMA
+Index: linux-3.2-ck1/mm/swap.c
+===================================================================
+--- linux-3.2-ck1.orig/mm/swap.c	2012-01-16 10:07:27.615097289 +1100
++++ linux-3.2-ck1/mm/swap.c	2012-01-16 10:07:32.753096930 +1100
+@@ -371,15 +371,23 @@ void mark_page_accessed(struct page *pag
+ 
+ EXPORT_SYMBOL(mark_page_accessed);
+ 
+-void __lru_cache_add(struct page *page, enum lru_list lru)
++void ______pagevec_lru_add(struct pagevec *pvec, enum lru_list lru, bool tail);
++
++void ____lru_cache_add(struct page *page, enum lru_list lru, bool tail)
+ {
+ 	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs)[lru];
+ 
+ 	page_cache_get(page);
+ 	if (!pagevec_add(pvec, page))
+-		____pagevec_lru_add(pvec, lru);
++		______pagevec_lru_add(pvec, lru, tail);
+ 	put_cpu_var(lru_add_pvecs);
+ }
++EXPORT_SYMBOL(____lru_cache_add);
++
++void __lru_cache_add(struct page *page, enum lru_list lru)
++{
++	____lru_cache_add(page, lru, false);
++}
+ EXPORT_SYMBOL(__lru_cache_add);
+ 
+ /**
+@@ -387,7 +395,7 @@ EXPORT_SYMBOL(__lru_cache_add);
+  * @page: the page to be added to the LRU.
+  * @lru: the LRU list to which the page is added.
+  */
+-void lru_cache_add_lru(struct page *page, enum lru_list lru)
++void __lru_cache_add_lru(struct page *page, enum lru_list lru, bool tail)
+ {
+ 	if (PageActive(page)) {
+ 		VM_BUG_ON(PageUnevictable(page));
+@@ -398,7 +406,12 @@ void lru_cache_add_lru(struct page *page
+ 	}
+ 
+ 	VM_BUG_ON(PageLRU(page) || PageActive(page) || PageUnevictable(page));
+-	__lru_cache_add(page, lru);
++	____lru_cache_add(page, lru, tail);
++}
++
++void lru_cache_add_lru(struct page *page, enum lru_list lru)
++{
++	__lru_cache_add_lru(page, lru, false);
+ }
+ 
+ /**
+@@ -685,7 +698,7 @@ void lru_add_page_tail(struct zone* zone
+ 			head = page->lru.prev;
+ 		else
+ 			head = &zone->lru[lru].list;
+-		__add_page_to_lru_list(zone, page_tail, lru, head);
++		__add_page_to_lru_list(zone, page_tail, lru, head, false);
+ 	} else {
+ 		SetPageUnevictable(page_tail);
+ 		add_page_to_lru_list(zone, page_tail, LRU_UNEVICTABLE);
+@@ -714,13 +727,18 @@ static void ____pagevec_lru_add_fn(struc
+  * Add the passed pages to the LRU, then drop the caller's refcount
+  * on them.  Reinitialises the caller's pagevec.
+  */
+-void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
++void ______pagevec_lru_add(struct pagevec *pvec, enum lru_list lru, bool tail)
+ {
+ 	VM_BUG_ON(is_unevictable_lru(lru));
+ 
+ 	pagevec_lru_move_fn(pvec, ____pagevec_lru_add_fn, (void *)lru);
+ }
+ 
++void ____pagevec_lru_add(struct pagevec *pvec, enum lru_list lru)
++{
++	______pagevec_lru_add(pvec, lru, false);
++}
++
+ EXPORT_SYMBOL(____pagevec_lru_add);
+ 
+ /*
+Index: linux-3.2-ck1/mm/readahead.c
+===================================================================
+--- linux-3.2-ck1.orig/mm/readahead.c	2012-01-16 10:07:27.615097289 +1100
++++ linux-3.2-ck1/mm/readahead.c	2012-01-16 10:07:32.753096930 +1100
+@@ -17,6 +17,7 @@
+ #include <linux/task_io_accounting_ops.h>
+ #include <linux/pagevec.h>
+ #include <linux/pagemap.h>
++#include <linux/swap.h>
+ 
+ /*
+  * Initialise a struct file's readahead state.  Assumes that the caller has
+@@ -107,7 +108,7 @@ int read_cache_pages(struct address_spac
+ EXPORT_SYMBOL(read_cache_pages);
+ 
+ static int read_pages(struct address_space *mapping, struct file *filp,
+-		struct list_head *pages, unsigned nr_pages)
++		struct list_head *pages, unsigned nr_pages, bool tail)
+ {
+ 	struct blk_plug plug;
+ 	unsigned page_idx;
+@@ -125,8 +126,8 @@ static int read_pages(struct address_spa
+ 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
+ 		struct page *page = list_to_page(pages);
+ 		list_del(&page->lru);
+-		if (!add_to_page_cache_lru(page, mapping,
+-					page->index, GFP_KERNEL)) {
++		if (!__add_to_page_cache_lru(page, mapping,
++					page->index, GFP_KERNEL, tail)) {
+ 			mapping->a_ops->readpage(filp, page);
+ 		}
+ 		page_cache_release(page);
+@@ -139,6 +140,28 @@ out:
+ 	return ret;
+ }
+ 
++static inline int nr_mapped(void)
++{
++	return global_page_state(NR_FILE_MAPPED) +
++		global_page_state(NR_ANON_PAGES);
++}
++
++/*
++ * This examines how large in pages a file size is and returns 1 if it is
++ * more than half the unmapped ram. Avoid doing read_page_state which is
++ * expensive unless we already know it is likely to be large enough.
++ */
++static int large_isize(unsigned long nr_pages)
++{
++	if (nr_pages * 6 > vm_total_pages) {
++		 unsigned long unmapped_ram = vm_total_pages - nr_mapped();
++
++		if (nr_pages * 2 > unmapped_ram)
++			return 1;
++	}
++	return 0;
++}
++
+ /*
+  * __do_page_cache_readahead() actually reads a chunk of disk.  It allocates all
+  * the pages first, then submits them all for I/O. This avoids the very bad
+@@ -196,7 +219,8 @@ __do_page_cache_readahead(struct address
+ 	 * will then handle the error.
+ 	 */
+ 	if (ret)
+-		read_pages(mapping, filp, &page_pool, ret);
++		read_pages(mapping, filp, &page_pool, ret,
++			   large_isize(end_index));
+ 	BUG_ON(!list_empty(&page_pool));
+ out:
+ 	return ret;
+Index: linux-3.2-ck1/include/linux/pagemap.h
+===================================================================
+--- linux-3.2-ck1.orig/include/linux/pagemap.h	2012-01-16 10:07:27.615097289 +1100
++++ linux-3.2-ck1/include/linux/pagemap.h	2012-01-16 10:07:32.754096930 +1100
+@@ -456,6 +456,8 @@ int add_to_page_cache_locked(struct page
+ 				pgoff_t index, gfp_t gfp_mask);
+ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
+ 				pgoff_t index, gfp_t gfp_mask);
++int __add_to_page_cache_lru(struct page *page, struct address_space *mapping,
++				pgoff_t offset, gfp_t gfp_mask, bool tail);
+ extern void delete_from_page_cache(struct page *page);
+ extern void __delete_from_page_cache(struct page *page);
+ int replace_page_cache_page(struct page *old, struct page *new, gfp_t gfp_mask);
