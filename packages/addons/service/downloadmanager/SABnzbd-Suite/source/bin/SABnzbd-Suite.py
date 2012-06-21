@@ -30,6 +30,7 @@ import hashlib
 from configobj import ConfigObj
 from xml.dom.minidom import parseString
 import logging
+import traceback
 
 logging.basicConfig(filename='/var/log/sabnzbd-suite.log',
                     filemode='w',
@@ -261,6 +262,7 @@ try:
         logging.debug('SABnzbd api key: ' + sabNzbdApiKey)
 except Exception,e:
     print 'SABnzbd: exception occurred:', e
+    print traceback.format_exc()
 # SABnzbd end
 
 # SickBeard start
@@ -318,6 +320,7 @@ try:
         logging.debug('...done')
 except Exception,e:
     print 'SickBeard: exception occurred:', e
+    print traceback.format_exc()
 # SickBeard end
 
 # CouchPotato start
@@ -366,6 +369,7 @@ try:
         logging.debug('...done')
 except Exception,e:
     print 'CouchPotato: exception occurred:', e
+    print traceback.format_exc()
 # CouchPotato end
 
 # CouchPotatoServer start
@@ -428,6 +432,7 @@ try:
         logging.debug('...done')
 except Exception,e:
     print 'CouchPotatoServer: exception occurred:', e
+    print traceback.format_exc()
 # CouchPotatoServer end
 
 # Headphones start
@@ -468,4 +473,5 @@ try:
         logging.debug('...done')
 except Exception,e:
     print 'Headphones: exception occurred:', e
+    print traceback.format_exc()
 # Headphones end
