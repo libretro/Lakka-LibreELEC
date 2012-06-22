@@ -1,0 +1,77 @@
+From d2743760a691469cebfa3bc23cedb62c38388380 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 21 Jun 2012 01:31:08 +0100
+Subject: [PATCH] Remove silence method, and use atomic flags for kmalloc
+
+---
+ sound/arm/bcm2835-pcm.c   |   24 ------------------------
+ sound/arm/bcm2835-vchiq.c |    4 ++--
+ 2 files changed, 2 insertions(+), 26 deletions(-)
+
+diff --git a/sound/arm/bcm2835-pcm.c b/sound/arm/bcm2835-pcm.c
+index 40a9fb5..ff3eb4e 100755
+--- a/sound/arm/bcm2835-pcm.c
++++ b/sound/arm/bcm2835-pcm.c
+@@ -345,29 +345,6 @@ static int snd_bcm2835_pcm_copy(struct snd_pcm_substream *substream,
+ 	return ret;
+ }
+ 
+-static int snd_bcm2835_pcm_silence(struct snd_pcm_substream *substream,
+-				   int channel, snd_pcm_uframes_t post,
+-				   snd_pcm_uframes_t count)
+-{
+-	int ret;
+-	struct snd_pcm_runtime *runtime = substream->runtime;
+-	bcm2835_alsa_stream_t *alsa_stream = runtime->private_data;
+-
+-	audio_info(" .. IN\n");
+-	audio_debug("silence....... (%d) hwptr=%d appl=%d pos=%d\n",
+-		      frames_to_bytes(runtime, count), frames_to_bytes(runtime,
+-								       runtime->
+-								       status->
+-								       hw_ptr),
+-		      frames_to_bytes(runtime, runtime->control->appl_ptr),
+-		      alsa_stream->pos);
+-	ret =
+-	    bcm2835_audio_write(alsa_stream, frames_to_bytes(runtime, count),
+-				NULL);
+-	audio_info(" .. OUT\n");
+-	return ret;
+-}
+-
+ static int snd_bcm2835_pcm_lib_ioctl(struct snd_pcm_substream *substream,
+ 				     unsigned int cmd, void *arg)
+ {
+@@ -388,7 +365,6 @@ static int snd_bcm2835_pcm_lib_ioctl(struct snd_pcm_substream *substream,
+ 	.trigger = snd_bcm2835_pcm_trigger,
+ 	.pointer = snd_bcm2835_pcm_pointer,
+ 	.copy = snd_bcm2835_pcm_copy,
+-	.silence = snd_bcm2835_pcm_silence,
+ };
+ 
+ /* create a pcm device */
+diff --git a/sound/arm/bcm2835-vchiq.c b/sound/arm/bcm2835-vchiq.c
+index 820063a..23c0aa3 100755
+--- a/sound/arm/bcm2835-vchiq.c
++++ b/sound/arm/bcm2835-vchiq.c
+@@ -102,7 +102,7 @@ int bcm2835_audio_start(bcm2835_alsa_stream_t * alsa_stream)
+ 	int ret = -1;
+ 	LOG_DBG(" .. IN\n");
+ 	if (alsa_stream->my_wq) {
+-		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_KERNEL);
++		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_ATOMIC);
+ 		/* Queue some work (item 1) */
+ 		if (work) {
+ 			INIT_WORK((struct work_struct *)work, my_wq_function);
+@@ -123,7 +123,7 @@ int bcm2835_audio_stop(bcm2835_alsa_stream_t * alsa_stream)
+ 	int ret = -1;
+ 	LOG_DBG(" .. IN\n");
+ 	if (alsa_stream->my_wq) {
+-		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_KERNEL);
++		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_ATOMIC);
+ 		/* Queue some work (item 1) */
+ 		if (work) {
+ 			INIT_WORK((struct work_struct *)work, my_wq_function);
+-- 
+1.7.10
+
