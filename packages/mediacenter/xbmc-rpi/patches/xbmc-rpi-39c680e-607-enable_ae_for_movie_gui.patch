@@ -1,0 +1,176 @@
+diff --git a/configure.in b/configure.in
+index 4639609..8110a98 100755
+--- a/configure.in
++++ b/configure.in
+@@ -585,7 +585,7 @@ case $use_platform in
+      use_armv6="yes"
+      use_armvfp="yes"
+      use_hardcoded_tables="yes"
+-     use_alsa="no"
++     use_alsa="yes"
+      USE_TEXTUREPACKER_NATIVE_ROOT="$TEXTUREPACKER_NATIVE_ROOT"
+      ARCH="arm"
+      AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX -D_ARMEL -DTARGET_RASPBERRY_PI")
+diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
+index 78b22d5..fdf797e 100644
+--- a/xbmc/cores/AudioEngine/AEFactory.cpp
++++ b/xbmc/cores/AudioEngine/AEFactory.cpp
+@@ -115,10 +115,6 @@ void CAEFactory::UnLoadEngine()
+ 
+ bool CAEFactory::StartEngine()
+ {
+-#if defined(TARGET_RASPBERRY_PI)
+-  return true;
+-#endif
+-
+   if (!AE)
+     return false;
+ 
+diff --git a/xbmc/cores/AudioEngine/AESinkFactory.cpp b/xbmc/cores/AudioEngine/AESinkFactory.cpp
+index cab4ff8..020ce3d 100644
+--- a/xbmc/cores/AudioEngine/AESinkFactory.cpp
++++ b/xbmc/cores/AudioEngine/AESinkFactory.cpp
+@@ -27,7 +27,7 @@
+ #if defined(TARGET_WINDOWS)
+   #include "Sinks/AESinkWASAPI.h"
+   #include "Sinks/AESinkDirectSound.h"
+-#elif (defined(TARGET_LINUX) || defined(TARGET_FREEBSD)) && !defined(TARGET_RASPBERRY_PI)
++#elif (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+   #if defined(HAS_ALSA)
+     #include "Sinks/AESinkALSA.h"
+   #endif
+@@ -105,7 +105,7 @@ IAESink *CAESinkFactory::Create(std::string &device, AEAudioFormat &desiredForma
+   else
+     TRY_SINK(DirectSound) /* Always fall back to DirectSound */
+ 
+-#elif (defined(TARGET_LINUX) || defined(TARGET_FREEBSD)) && !defined(TARGET_RASPBERRY_PI)
++#elif (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+ 
+   #if defined(HAS_ALSA)
+   if (driver.empty() || driver == "ALSA")
+@@ -153,7 +153,7 @@ void CAESinkFactory::EnumerateEx(AESinkInfoList &list)
+   ENUMERATE_SINK(ALSA);
+ #endif
+ 
+-#if (defined(TARGET_LINUX) || defined(TARGET_FREEBSD)) && !defined(TARGET_RASPBERRY_PI)
++#if (defined(TARGET_LINUX) || defined(TARGET_FREEBSD))
+   ENUMERATE_SINK(OSS);
+ #endif
+ 
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 7e26b38..b192f48 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -73,6 +73,9 @@
+ 
+ #include "LangInfo.h"
+ 
++#include "cores/AudioEngine/AEFactory.h"
++#include "cores/AudioEngine/Utils/AEUtil.h"
++
+ using namespace XFILE;
+ 
+ // ****************************************************************
+@@ -920,6 +923,9 @@ void COMXPlayer::Process()
+       return;
+     }
+ 
++    /* shutdown AE */
++    CAEFactory::Shutdown();
++
+     m_player_video.EnableFullscreen(true);
+ 
+     OpenDefaultStreams();
+@@ -1882,6 +1888,13 @@ void COMXPlayer::OnExit()
+ 
+   // set event to inform openfile something went wrong in case openfile is still waiting for this event
+   m_ready.Set();
++
++  /* start AE again */
++  CAEFactory::LoadEngine();
++  CAEFactory::StartEngine();
++
++  CAEFactory::SetMute     (g_settings.m_bMute);
++  CAEFactory::SetSoundMode(g_guiSettings.GetInt("audiooutput.guisoundmode"));
+ }
+ 
+ void COMXPlayer::HandleMessages()
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index c9c366c..eecc18e 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -72,11 +72,7 @@ void CAdvancedSettings::Initialize()
+   m_karaokeAlwaysEmptyOnCdgs = 1;
+   m_karaokeUseSongSpecificBackground = 0;
+ 
+-#if defined(HAVE_OMXPLAYER)
+-  m_audioDefaultPlayer = "omxplayer";
+-#else
+   m_audioDefaultPlayer = "paplayer";
+-#endif
+   m_audioPlayCountMinimumPercent = 90.0f;
+   m_audioHost = "default";
+ 
+diff --git a/xbmc/settings/GUISettings.cpp b/xbmc/settings/GUISettings.cpp
+index a18b102..4e664d3 100644
+--- a/xbmc/settings/GUISettings.cpp
++++ b/xbmc/settings/GUISettings.cpp
+@@ -476,7 +476,7 @@ void CGUISettings::Initialize()
+ #if !defined(TARGET_DARWIN_IOS) && !defined(TARGET_RASPBERRY_PI)
+   AddBool(aocat, "audiooutput.multichannellpcm" , 348, true );
+ #endif
+-#if !defined(TARGET_DARWIN) && !defined(TARGET_RASPBERRY_PI)
++#if !defined(TARGET_DARWIN)
+   AddBool(aocat, "audiooutput.truehdpassthrough", 349, true );
+   AddBool(aocat, "audiooutput.dtshdpassthrough" , 347, true );
+ #endif
+@@ -490,11 +490,6 @@ void CGUISettings::Initialize()
+   #endif
+   AddString(ao, "audiooutput.audiodevice", 545, defaultDeviceName.c_str(), SPIN_CONTROL_TEXT);
+   AddString(NULL, "audiooutput.passthroughdevice", 546, defaultDeviceName.c_str(), SPIN_CONTROL_TEXT);
+-#elif defined(TARGET_RASPBERRY_PI)
+-  CStdString defaultDeviceName = "Default";
+-  AddString(NULL, "audiooutput.audiodevice", 545, defaultDeviceName.c_str(), SPIN_CONTROL_TEXT);
+-  AddString(NULL, "audiooutput.passthroughdevice", 546, defaultDeviceName.c_str(), SPIN_CONTROL_TEXT);
+-#else
+   AddSeparator(ao, "audiooutput.sep1");
+   AddString   (ao, "audiooutput.audiodevice"      , 545, CStdString(CAEFactory::GetDefaultDevice(false)), SPIN_CONTROL_TEXT);
+   AddString   (ao, "audiooutput.passthroughdevice", 546, CStdString(CAEFactory::GetDefaultDevice(true )), SPIN_CONTROL_TEXT);
+diff --git a/xbmc/settings/GUIWindowSettingsCategory.cpp b/xbmc/settings/GUIWindowSettingsCategory.cpp
+index 19e5e00..84f92f7 100644
+--- a/xbmc/settings/GUIWindowSettingsCategory.cpp
++++ b/xbmc/settings/GUIWindowSettingsCategory.cpp
+@@ -1838,13 +1838,13 @@ void CGUIWindowSettingsCategory::OnSettingChanged(CBaseSettingControl *pSettingC
+     if (strSetting.Equals("audiooutput.audiodevice"))
+     {
+       CGUISpinControlEx *pControl = (CGUISpinControlEx *)GetControl(pSettingControl->GetID());
+-#if defined(TARGET_DARWIN) || defined(TARGET_RASPBERRY_PI)
++#if defined(TARGET_DARWIN)
+       g_guiSettings.SetString("audiooutput.audiodevice", pControl->GetCurrentLabel());
+ #else
+       g_guiSettings.SetString("audiooutput.audiodevice", m_AnalogAudioSinkMap[pControl->GetCurrentLabel()]);
+ #endif
+     }
+-#if !defined(TARGET_DARWIN) && !defined(TARGET_RASPBERRY_PI)
++#if !defined(TARGET_DARWIN)
+     else if (strSetting.Equals("audiooutput.passthroughdevice"))
+     {
+       CGUISpinControlEx *pControl = (CGUISpinControlEx *)GetControl(pSettingControl->GetID());
+@@ -2708,7 +2708,7 @@ void CGUIWindowSettingsCategory::FillInAudioDevices(CSetting* pSetting, bool Pas
+   int selectedValue = -1;
+   AEDeviceList sinkList;
+   CAEFactory::EnumerateOutputDevices(sinkList, Passthrough);
+-#if !defined(TARGET_DARWIN) && !defined(TARGET_RASPBERRY_PI)
++#if !defined(TARGET_DARWIN)
+   if (sinkList.size()==0)
+   {
+     pControl->AddLabel("Error - no devices found", 0);
+@@ -2737,7 +2737,7 @@ void CGUIWindowSettingsCategory::FillInAudioDevices(CSetting* pSetting, bool Pas
+     }
+ 
+     numberSinks = sinkList.size();
+-#if !defined(TARGET_DARWIN) && !defined(TARGET_RASPBERRY_PI)
++#if !defined(TARGET_DARWIN)
+   }
+ #endif
+ 
