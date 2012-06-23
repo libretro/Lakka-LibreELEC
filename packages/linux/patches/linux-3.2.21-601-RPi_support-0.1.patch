@@ -1,3 +1,5 @@
+diff --git a/Makefile b/Makefile
+index c7e9cc4..7eb465e 100644
 diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
 index 987c72d..98ea27e 100644
 --- a/arch/arm/Kconfig
@@ -26168,27 +26170,6 @@ index 0000000..25de671
 +typedef vcos_fourcc_t FOURCC_T;
 +
 +#endif
-diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
-index 34416d4..57fd0db 100644
---- a/drivers/mmc/card/block.c
-+++ b/drivers/mmc/card/block.c
-@@ -1062,6 +1062,16 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
- 
- 	if (brq->data.blocks > 1) {
- 		/*
-+		 * Some SD cards in SPI mode return a CRC error or even lock up
-+		 * completely when trying to read the last block using a
-+		 * multiblock read command.
-+		 */
-+		if (mmc_host_is_spi(card->host) && (rq_data_dir(req) == READ) &&
-+				(blk_rq_pos(req) + blk_rq_sectors(req) ==
-+					get_capacity(md->disk)))
-+			brq->data.blocks--;
-+
-+		/*
- 		 * After a read error, we redo the request one sector
- 		 * at a time in order to accurately determine which
- 		 * sectors can be read successfully.
 diff --git a/drivers/mmc/core/core.c b/drivers/mmc/core/core.c
 index 411a994..ad08933 100644
 --- a/drivers/mmc/core/core.c
@@ -27282,10 +27263,10 @@ index 0000000..b2851d9
 +}
 diff --git a/drivers/mmc/host/sdhci-bcm2708.c b/drivers/mmc/host/sdhci-bcm2708.c
 new file mode 100644
-index 0000000..2151ec6
+index 0000000..e383cc8
 --- /dev/null
 +++ b/drivers/mmc/host/sdhci-bcm2708.c
-@@ -0,0 +1,1473 @@
+@@ -0,0 +1,1477 @@
 +/*
 + * sdhci-bcm2708.c Support for SDHCI device on BCM2708
 + * Copyright (c) 2010 Broadcom
@@ -27422,6 +27403,7 @@ index 0000000..2151ec6
 +}
 +
 +static bool allow_highspeed = 1;
++static int emmc_clock_freq = BCM2708_EMMC_CLOCK_FREQ;
 +
 +#if 0
 +static void hptime_test(void)
@@ -27535,14 +27517,14 @@ index 0000000..2151ec6
 +		if (now == last_write_hpt || now == last_write_hpt+1) {
 +			 /* we can't guarantee any significant time has
 +			  * passed - we'll have to wait anyway ! */
-+			udelay((ns_2clk+1000-1)/1000);
++			ndelay(ns_2clk);
 +		} else
 +		{
 +			/* we must have waited at least this many ns: */
 +			unsigned int ns_wait = HPTIME_CLK_NS *
 +					       (last_write_hpt - now - 1);
 +			if (ns_wait < ns_2clk)
-+				udelay((ns_2clk-ns_wait+500)/1000);
++				ndelay(ns_2clk - ns_wait);
 +		}
 +		last_write_hpt = now;
 +	}
@@ -27621,7 +27603,7 @@ index 0000000..2151ec6
 +
 +static unsigned int sdhci_bcm2708_get_max_clock(struct sdhci_host *host)
 +{
-+	return BCM2708_EMMC_CLOCK_FREQ;
++	return emmc_clock_freq;
 +}
 +
 +/*****************************************************************************\
@@ -28751,6 +28733,7 @@ index 0000000..2151ec6
 +module_exit(sdhci_drv_exit);
 +
 +module_param(allow_highspeed, bool, 0444);
++module_param(emmc_clock_freq, int, 0444);
 +
 +MODULE_DESCRIPTION("Secure Digital Host Controller Interface platform driver");
 +MODULE_AUTHOR("Broadcom <info@broadcom.com>");
@@ -28758,6 +28741,8 @@ index 0000000..2151ec6
 +MODULE_ALIAS("platform:"DRIVER_NAME);
 +
 +MODULE_PARM_DESC(allow_highspeed, "Allow high speed transfers modes");
++MODULE_PARM_DESC(emmc_clock_freq, "Specify the speed of emmc clock");
++
 +
 diff --git a/drivers/mmc/host/sdhci.c b/drivers/mmc/host/sdhci.c
 index 6ce32a7..4cfad2e 100644
@@ -30208,10 +30193,10 @@ index 52d27ed..34eb283 100644
  	if (hub->hdev->parent ||
  			!hcd->driver->port_handed_over ||
 diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
-index ca717da..4148a1b 100644
+index ef116a5..113b44e 100644
 --- a/drivers/usb/core/message.c
 +++ b/drivers/usb/core/message.c
-@@ -1837,6 +1837,85 @@ free_interfaces:
+@@ -1838,6 +1838,85 @@ free_interfaces:
  	if (cp->string == NULL &&
  			!(dev->quirks & USB_QUIRK_CONFIG_INTF_STRINGS))
  		cp->string = usb_cache_string(dev, cp->desc.iConfiguration);
@@ -48491,10 +48476,10 @@ index 0000000..b8b2740
 +}
 diff --git a/drivers/usb/host/dwc_otg/dwc_otg_core_if.h b/drivers/usb/host/dwc_otg/dwc_otg_core_if.h
 new file mode 100644
-index 0000000..4a78b03
+index 0000000..25aae5e
 --- /dev/null
 +++ b/drivers/usb/host/dwc_otg/dwc_otg_core_if.h
-@@ -0,0 +1,641 @@
+@@ -0,0 +1,642 @@
 +/* ==========================================================================
 + * $File: //dwh/usb_iip/dev/software/otg/linux/drivers/dwc_otg_core_if.h $
 + * $Revision: #4 $
@@ -48764,7 +48749,8 @@ index 0000000..4a78b03
 +extern int dwc_otg_set_param_host_channels(dwc_otg_core_if_t * core_if,
 +					   int32_t val);
 +extern int32_t dwc_otg_get_param_host_channels(dwc_otg_core_if_t * core_if);
-+#define dwc_param_host_channels_default 12
++//#define dwc_param_host_channels_default 12
++#define dwc_param_host_channels_default 8// Broadcom BCM2708
 +
 +/** The number of endpoints in addition to EP0 available for device
 + * mode operations.
@@ -58679,7 +58665,7 @@ index 0000000..6e4bc60
 +#endif				/* DWC_DEVICE_ONLY */
 diff --git a/drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c b/drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c
 new file mode 100644
-index 0000000..2a3b689
+index 0000000..970b065
 --- /dev/null
 +++ b/drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c
 @@ -0,0 +1,848 @@
@@ -59449,8 +59435,8 @@ index 0000000..2a3b689
 +	if(urb->hcpriv != NULL) {
 +		dwc_otg_hcd_urb_dequeue(dwc_otg_hcd, (dwc_otg_hcd_urb_t *)urb->hcpriv);
 +
-+		urb->hcpriv = NULL;
 +		dwc_free(urb->hcpriv);
++		urb->hcpriv = NULL;
 +	}
 +
 +	/* Higher layer software sets URB status. */
@@ -74883,10 +74869,10 @@ index 0000000..c0546e35
 +}
 diff --git a/sound/arm/bcm2835-pcm.c b/sound/arm/bcm2835-pcm.c
 new file mode 100755
-index 0000000..40a9fb5
+index 0000000..ff3eb4e
 --- /dev/null
 +++ b/sound/arm/bcm2835-pcm.c
-@@ -0,0 +1,424 @@
+@@ -0,0 +1,400 @@
 +/*****************************************************************************
 +* Copyright 2011 Broadcom Corporation.  All rights reserved.
 +*
@@ -75234,29 +75220,6 @@ index 0000000..40a9fb5
 +	return ret;
 +}
 +
-+static int snd_bcm2835_pcm_silence(struct snd_pcm_substream *substream,
-+				   int channel, snd_pcm_uframes_t post,
-+				   snd_pcm_uframes_t count)
-+{
-+	int ret;
-+	struct snd_pcm_runtime *runtime = substream->runtime;
-+	bcm2835_alsa_stream_t *alsa_stream = runtime->private_data;
-+
-+	audio_info(" .. IN\n");
-+	audio_debug("silence....... (%d) hwptr=%d appl=%d pos=%d\n",
-+		      frames_to_bytes(runtime, count), frames_to_bytes(runtime,
-+								       runtime->
-+								       status->
-+								       hw_ptr),
-+		      frames_to_bytes(runtime, runtime->control->appl_ptr),
-+		      alsa_stream->pos);
-+	ret =
-+	    bcm2835_audio_write(alsa_stream, frames_to_bytes(runtime, count),
-+				NULL);
-+	audio_info(" .. OUT\n");
-+	return ret;
-+}
-+
 +static int snd_bcm2835_pcm_lib_ioctl(struct snd_pcm_substream *substream,
 +				     unsigned int cmd, void *arg)
 +{
@@ -75277,7 +75240,6 @@ index 0000000..40a9fb5
 +	.trigger = snd_bcm2835_pcm_trigger,
 +	.pointer = snd_bcm2835_pcm_pointer,
 +	.copy = snd_bcm2835_pcm_copy,
-+	.silence = snd_bcm2835_pcm_silence,
 +};
 +
 +/* create a pcm device */
@@ -75313,7 +75275,7 @@ index 0000000..40a9fb5
 +}
 diff --git a/sound/arm/bcm2835-vchiq.c b/sound/arm/bcm2835-vchiq.c
 new file mode 100755
-index 0000000..820063a
+index 0000000..23c0aa3
 --- /dev/null
 +++ b/sound/arm/bcm2835-vchiq.c
 @@ -0,0 +1,818 @@
@@ -75421,7 +75383,7 @@ index 0000000..820063a
 +	int ret = -1;
 +	LOG_DBG(" .. IN\n");
 +	if (alsa_stream->my_wq) {
-+		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_KERNEL);
++		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_ATOMIC);
 +		/* Queue some work (item 1) */
 +		if (work) {
 +			INIT_WORK((struct work_struct *)work, my_wq_function);
@@ -75442,7 +75404,7 @@ index 0000000..820063a
 +	int ret = -1;
 +	LOG_DBG(" .. IN\n");
 +	if (alsa_stream->my_wq) {
-+		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_KERNEL);
++		my_work_t *work = kmalloc(sizeof(my_work_t), GFP_ATOMIC);
 +		/* Queue some work (item 1) */
 +		if (work) {
 +			INIT_WORK((struct work_struct *)work, my_wq_function);
