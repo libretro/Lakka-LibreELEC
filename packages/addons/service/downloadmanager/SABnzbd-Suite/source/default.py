@@ -61,6 +61,9 @@ sabNzbdQueue      = 'http://' + sabNzbdAddress + '/sabnzbd/api?mode=queue&output
 # start checking SABnzbd for activity and prevent sleeping if necessary
 socket.setdefaulttimeout(timeout)
 
+# check for launching sabnzbd
+sabNzbdLaunch = (__settings__.getSetting('SABNZBD_LAUNCH').lower() == 'true')
+
 # perform some initial checks and log essential settings
 shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
 wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
@@ -73,45 +76,46 @@ if wakePeriodically:
 
 while (not xbmc.abortRequested):
 
-    # reread setting in case it has changed
-    shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
-    wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
-    wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
+    if sabNzbdLaunch:
+        # reread setting in case it has changed
+        shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
+        wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
+        wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
 
-    # check if SABnzbd is downloading
-    sabIsActive = False
-    req = urllib2.Request(sabNzbdQueue)
-    try: handle = urllib2.urlopen(req)
-    except IOError, e:
-        xbmc.log('SABnzbd-Suite: could not determine SABnzbds status', level=xbmc.LOGERROR)
-    else:
-        queue = handle.read()
-        handle.close()
-        sabIsActive = (queue.find('<status>Downloading</status>') >= 0)
+        # check if SABnzbd is downloading
+        sabIsActive = False
+        req = urllib2.Request(sabNzbdQueue)
+        try: handle = urllib2.urlopen(req)
+        except IOError, e:
+            xbmc.log('SABnzbd-Suite: could not determine SABnzbds status', level=xbmc.LOGERROR)
+        else:
+            queue = handle.read()
+            handle.close()
+            sabIsActive = (queue.find('<status>Downloading</status>') >= 0)
 
-    # reset idle timer when we're close to idle sleep/shutdown
-    if (shouldKeepAwake and sabIsActive):
-        response = xbmc.executehttpapi("GetGUISetting(0;powermanagement.shutdowntime)").replace('<li>','')
-        shutdownTime = int(response) * 60
-        idleTime = xbmc.getGlobalIdleTime()
-        timeToShutdown = shutdownTime - idleTime
+        # reset idle timer when we're close to idle sleep/shutdown
+        if (shouldKeepAwake and sabIsActive):
+            response = xbmc.executehttpapi("GetGUISetting(0;powermanagement.shutdowntime)").replace('<li>','')
+            shutdownTime = int(response) * 60
+            idleTime = xbmc.getGlobalIdleTime()
+            timeToShutdown = shutdownTime - idleTime
 
-        if (sabIsActive and timeToShutdown <= checkInterval - timeout):
-            xbmc.log('SABnzbd-Suite: still downloading. Resetting XBMC idle timer.')
-            xbmc.executehttpapi("SendKey(0xF000)")
-            
-    # calculate and set the time to wake up at (if any)
-    if (wakePeriodically):
-        wakeHour = wakeHourIdx * 2 + 1
-        timeOfDay = datetime.time(hour=wakeHour)
-        now = datetime.datetime.now()
-        wakeTime = now.combine(now.date(),timeOfDay)
-        if now.time() > timeOfDay:
-            wakeTime += datetime.timedelta(days=1)
-        secondsSinceEpoch = time.mktime(wakeTime.timetuple())
-        open("/sys/class/rtc/rtc0/wakealarm", "w").write("0")
-        open("/sys/class/rtc/rtc0/wakealarm", "w").write(str(secondsSinceEpoch))
-        
+            if (sabIsActive and timeToShutdown <= checkInterval - timeout):
+                xbmc.log('SABnzbd-Suite: still downloading. Resetting XBMC idle timer.')
+                xbmc.executehttpapi("SendKey(0xF000)")
+
+        # calculate and set the time to wake up at (if any)
+        if (wakePeriodically):
+            wakeHour = wakeHourIdx * 2 + 1
+            timeOfDay = datetime.time(hour=wakeHour)
+            now = datetime.datetime.now()
+            wakeTime = now.combine(now.date(),timeOfDay)
+            if now.time() > timeOfDay:
+                wakeTime += datetime.timedelta(days=1)
+            secondsSinceEpoch = time.mktime(wakeTime.timetuple())
+            open("/sys/class/rtc/rtc0/wakealarm", "w").write("0")
+            open("/sys/class/rtc/rtc0/wakealarm", "w").write(str(secondsSinceEpoch))
+
     time.sleep(0.250)
 
 subprocess.Popen(__stop__, shell=True, close_fds=True)
