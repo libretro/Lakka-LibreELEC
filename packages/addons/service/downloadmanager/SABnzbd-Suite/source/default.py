@@ -48,30 +48,30 @@ wake_times     = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00
 # Launch Suite
 subprocess.call(['python',__start__])
 
-
-# SABnzbd addresses and api key
-sabNzbdAddress    = '127.0.0.1:8081'
-sabNzbdConfigFile = '/storage/.xbmc/userdata/addon_data/service.downloadmanager.SABnzbd-Suite/sabnzbd.ini'
-sabConfiguration  = ConfigObj(sabNzbdConfigFile)
-sabNzbdApiKey     = sabConfiguration['misc']['api_key']
-sabNzbdUser       = sabConfiguration['misc']['username']
-sabNzbdPass       = sabConfiguration['misc']['password']
-sabNzbdQueue      = 'http://' + sabNzbdAddress + '/sabnzbd/api?mode=queue&output=xml&apikey=' + sabNzbdApiKey + '&ma_username=' + sabNzbdUser + '&ma_password=' + sabNzbdUser
-
-# start checking SABnzbd for activity and prevent sleeping if necessary
-socket.setdefaulttimeout(timeout)
-
 # check for launching sabnzbd
 sabNzbdLaunch = (__settings__.getSetting('SABNZBD_LAUNCH').lower() == 'true')
 
-# perform some initial checks and log essential settings
-shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
-wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
-wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
-if shouldKeepAwake:
-    xbmc.log('SABnzbd-Suite: will prevent idle sleep/shutdown while downloading')
-if wakePeriodically:
-    xbmc.log('SABnzbd-Suite: will try to wake system daily at ' + wake_times[wakeHourIdx])
+if sabNzbdLaunch:
+    # SABnzbd addresses and api key
+    sabNzbdAddress    = '127.0.0.1:8081'
+    sabNzbdConfigFile = '/storage/.xbmc/userdata/addon_data/service.downloadmanager.SABnzbd-Suite/sabnzbd.ini'
+    sabConfiguration  = ConfigObj(sabNzbdConfigFile)
+    sabNzbdApiKey     = sabConfiguration['misc']['api_key']
+    sabNzbdUser       = sabConfiguration['misc']['username']
+    sabNzbdPass       = sabConfiguration['misc']['password']
+    sabNzbdQueue      = 'http://' + sabNzbdAddress + '/sabnzbd/api?mode=queue&output=xml&apikey=' + sabNzbdApiKey + '&ma_username=' + sabNzbdUser + '&ma_password=' + sabNzbdUser
+
+    # start checking SABnzbd for activity and prevent sleeping if necessary
+    socket.setdefaulttimeout(timeout)
+    
+    # perform some initial checks and log essential settings
+    shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
+    wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
+    wakeHourIdx = int(__settings__.getSetting('SABNZBD_WAKE_AT'))
+    if shouldKeepAwake:
+        xbmc.log('SABnzbd-Suite: will prevent idle sleep/shutdown while downloading')
+    if wakePeriodically:
+        xbmc.log('SABnzbd-Suite: will try to wake system daily at ' + wake_times[wakeHourIdx])
 
 
 while (not xbmc.abortRequested):
