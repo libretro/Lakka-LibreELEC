@@ -374,8 +374,12 @@ except Exception,e:
 
 # CouchPotatoServer start
 try:
-    #convert password to md5
-    md5pwd =  hashlib.md5(pwd).hexdigest()
+    # empty password hack
+    if pwd == '':
+        md5pwd = ''
+    else:
+        #convert password to md5
+        md5pwd =  hashlib.md5(str(pwd)).hexdigest()
 
     # write CouchPotatoServer settings
     # --------------------------
