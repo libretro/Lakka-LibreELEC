@@ -1,6 +1,8 @@
+#!/bin/sh
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2010-2011 Roman Weber (roman@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,24 +20,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="samba"
-PKG_VERSION="3.6.6"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.samba.org"
-PKG_URL="http://samba.org/samba/ftp/stable/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="$ICONV zlib connman"
-PKG_BUILD_DEPENDS="toolchain zlib $ICONV"
-PKG_PRIORITY="optional"
-PKG_SECTION="network"
-PKG_SHORTDESC="samba: The free SMB / CIFS fileserver and client"
-PKG_LONGDESC="Samba is a SMB server that runs on Unix and other operating systems. It allows these operating systems (currently Unix, Netware, OS/2 and AmigaDOS) to act as a file and print server for SMB and CIFS clients. There are many Lan-Manager compatible clients such as LanManager for DOS, Windows for Workgroups, Windows NT, Windows 95, Linux smbfs, OS/2, Pathworks and more."
-PKG_IS_ADDON="no"
 
-PKG_AUTORECONF="no"
-
-if [ "$AVAHI_DAEMON" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS avahi"
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS avahi"
-fi
+for i in `ls samba-$1-*.patch`; do
+  mv $i `echo $i | sed "s,$1,$2,g"`
+done
