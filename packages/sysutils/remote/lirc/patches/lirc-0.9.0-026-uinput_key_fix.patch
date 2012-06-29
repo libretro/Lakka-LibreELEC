@@ -1,0 +1,63 @@
+diff -Naur lirc-0.9.0-old/daemons/input_map.c lirc-0.9.0-new/daemons/input_map.c
+--- lirc-0.9.0-old/daemons/input_map.c	2011-07-27 20:46:13.000000000 -0700
++++ lirc-0.9.0-new/daemons/input_map.c	2011-07-27 20:47:15.000000000 -0700
+@@ -25,6 +25,19 @@
+ 	NULL, 0}
+ };
+ 
++int get_input_code_by_index(int index, linux_input_code * code)
++{
++	int i;
++
++	for (i = 0; input_map[i].name != NULL; i++) {
++		if (i == index) {
++			*code = input_map[i].code;
++			return i;
++		}
++	}
++	return -1;
++}
++
+ int get_input_code(const char *name, linux_input_code * code)
+ {
+ 	int i;
+diff -Naur lirc-0.9.0-old/daemons/input_map.h lirc-0.9.0-new/daemons/input_map.h
+--- lirc-0.9.0-old/daemons/input_map.h	2011-07-27 20:46:13.000000000 -0700
++++ lirc-0.9.0-new/daemons/input_map.h	2011-07-27 20:47:15.000000000 -0700
+@@ -28,6 +28,7 @@
+ typedef unsigned short linux_input_code;
+ #endif
+ 
++int get_input_code_by_index(int index, linux_input_code * code);
+ int get_input_code(const char *name, linux_input_code * code);
+ void fprint_namespace(FILE * f);
+ int is_in_namespace(const char *name);
+diff -Naur lirc-0.9.0-old/daemons/lircd.c lirc-0.9.0-new/daemons/lircd.c
+--- lirc-0.9.0-old/daemons/lircd.c	2011-07-27 20:46:13.000000000 -0700
++++ lirc-0.9.0-new/daemons/lircd.c	2011-07-27 20:47:15.000000000 -0700
+@@ -406,6 +406,8 @@
+ #if defined(__linux__)
+ 	int fd;
+ 	int key;
++	linux_input_code code;
++	int i;
+ 	struct uinput_user_dev dev;
+ 
+ 	fd = open("/dev/input/uinput", O_RDWR);
+@@ -428,9 +430,13 @@
+ 		goto setup_error;
+ 	}
+ 
+-	for (key = KEY_RESERVED; key <= KEY_UNKNOWN; key++) {
+-		if (ioctl(fd, UI_SET_KEYBIT, key) != 0) {
+-			goto setup_error;
++	for(i = 0; get_input_code_by_index(i, &code) >= 0; i++) {
++		key = (int)code;
++		if (((key >= KEY_ESC) && (key <= KEY_RFKILL    )) ||
++		    ((key >= KEY_OK ) && (key <= KEY_WPS_BUTTON))) {
++			if (ioctl(fd, UI_SET_KEYBIT, key) != 0) {
++				goto setup_error;
++			}
+ 		}
+ 	}
+ 

@@ -1,0 +1,528 @@
+diff -Naur lirc-0.9.0-old/ANNOUNCE lirc-0.9.0-new/ANNOUNCE
+--- lirc-0.9.0-old/ANNOUNCE	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/ANNOUNCE	2012-02-29 21:44:36.000000000 -0800
+@@ -1,4 +1,4 @@
+-LIRC - Linux Infrared Remote Control, Version: 0.9.0
++LIRC - Linux Infrared Remote Control, Version: 0.9.1-git
+ 
+ Copyright (C) 1996 Ralph Metzler <rjkm@thp.uni-koeln.de>
+ Copyright (C) 1998-2010 Christoph Bartelmus <lirc@bartelmus.de>
+diff -Naur lirc-0.9.0-old/configure.ac lirc-0.9.0-new/configure.ac
+--- lirc-0.9.0-old/configure.ac	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/configure.ac	2012-02-29 21:46:37.000000000 -0800
+@@ -7,7 +7,7 @@
+ AC_CONFIG_SRCDIR([daemons/lircd.c])
+ AC_CONFIG_MACRO_DIR([m4])
+ 
+-AM_INIT_AUTOMAKE(lirc, 0.9.0)
++AM_INIT_AUTOMAKE(lirc, 0.9.1-git)
+ AM_CONFIG_HEADER(config.h)
+ 
+ CFLAGS="${CFLAGS--O2 -g -Wall}"
+@@ -20,11 +20,11 @@
+ AC_PATH_PROG(mknod, mknod, /bin/mknod)
+ AC_PATH_PROG(mkfifo, mkfifo, /usr/bin/mkfifo)
+ AC_PATH_PROG(depmod, depmod, /sbin/depmod, $PATH:/sbin)
+-AC_PATH_PROG(LIBUSB_CONFIG, libusb-config)
+ AC_PROG_LN_S
+ AC_PROG_LIBTOOL
+ AM_PATH_PYTHON(,, [:])
+ AM_CONDITIONAL([HAVE_PYTHON], [test "$PYTHON" != ""])
++LIBUSB_CONFIG="pkg-config libusb"
+ 
+ dnl Checks for header files.
+ AC_HEADER_STDC
+@@ -310,15 +310,14 @@
+ AH_TEMPLATE([USE_SYSLOG],
+ 	[define if you want to log to syslog instead of logfile])
+ 
+-if test -n "${LIBUSB_CONFIG}"; then
+-  AC_DEFINE(HAVE_LIBUSB)
+-  possible_drivers="${possible_drivers} (atilibusb) (awlibusb) (dfclibusb) (commandir) (srm7500libusb)" 
+-fi
+-
+ AC_CHECK_LIB(caraca_client, caraca_init,
+   AC_DEFINE(HAVE_LIBCARACA)
+   possible_drivers="${possible_drivers} (caraca)"
+ )
++AC_CHECK_HEADER(usb.h,
++  AC_DEFINE(HAVE_LIBUSB)
++  possible_drivers="${possible_drivers} (atilibusb) (awlibusb) (dfclibusb) (commandir) (srm7500libusb)" 
++)
+ AC_CHECK_HEADER(ftdi.h,
+   AC_DEFINE(HAVE_FTDI)
+   possible_drivers="${possible_drivers} (ftdi)"
+@@ -1449,7 +1448,7 @@
+ Or install these packages from your distro:
+ 
+    libusb
+-   libusb-dev
++   libusb-devel
+ 
+ ])
+     ;;
+@@ -1559,11 +1558,6 @@
+ [  --enable-dyncodes       use dynamic codes],
+ test x${enableval} = xyes && AC_DEFINE(DYNCODES))
+ 
+-AC_ARG_WITH(major,
+-[  --with-major=value      specify the device major for the driver (61)],
+-lirc_major=${withval},
+-lirc_major=61)
+-
+ AC_ARG_WITH(port,
+ [  --with-port=port        specify the port number for the lirc device.],
+ port=${withval}
+@@ -1678,7 +1672,6 @@
+ AC_SUBST(sysconfdir)
+ AC_SUBST(varrundir)
+ AC_SUBST(moduledir)
+-AC_SUBST(lirc_major)
+ AC_SUBST(driver)
+ AC_SUBST(lirc_driver)
+ AC_SUBST(hw_module_libs)
+@@ -1715,7 +1708,9 @@
+ 
+ AH_TOP([
+ /* device file names - beneath DEVDIR (default /dev) */
+-#define DEV_LIRC	"lirc"
++#define DEV_LIRC	"lirc0"
++
++/* daemon socket file names - beneath $varrundir (default /var/run/lirc) */
+ #define DEV_LIRCD	"lircd"
+ #define DEV_LIRCM	"lircm"
+ 
+diff -Naur lirc-0.9.0-old/contrib/release-process.txt lirc-0.9.0-new/contrib/release-process.txt
+--- lirc-0.9.0-old/contrib/release-process.txt	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/contrib/release-process.txt	2012-02-29 21:44:36.000000000 -0800
+@@ -22,7 +22,7 @@
+ 4) Switch back to master:
+ 	git checkout master
+ 5) Clean checkout in new directory:
+-	git clone -b lirc-<version>-preX-branch git://lirc.git.sourceforge.net/gitroot/lirc/lirc
++	git clone -b lirc-<version>-preX-branch git://lirc.git.sourceforge.net/gitroot/lirc/lirc lirc-<version>-preX
+ 6) Create tarball:
+ 	./autogen.sh
+ 	cp INSTALL.txt INSTALL
+@@ -45,7 +45,7 @@
+ 4) Switch back to master:
+ 	git checkout master
+ 5) Clean checkout in new directory:
+-	git clone -b lirc-<version>-branch git://lirc.git.sourceforge.net/gitroot/lirc/lirc
++	git clone -b lirc-<version>-branch git://lirc.git.sourceforge.net/gitroot/lirc/lirc lirc-<version>
+ 6) Create tarball:
+ 	./autogen.sh
+ 	cp INSTALL.txt INSTALL
+diff -Naur lirc-0.9.0-old/daemons/dump_config.c lirc-0.9.0-new/daemons/dump_config.c
+--- lirc-0.9.0-old/daemons/dump_config.c	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/daemons/dump_config.c	2012-02-29 21:44:36.000000000 -0800
+@@ -120,11 +120,11 @@
+ 	if (!is_raw(rem)) {
+ 		if (rem->pre_data_bits > 0) {
+ 			fprintf(f, "  pre_data_bits   %d\n", rem->pre_data_bits);
+-			fprintf(f, "  pre_data       0x%llX\n", rem->pre_data);
++			fprintf(f, "  pre_data       0x%llX\n", (unsigned long long)rem->pre_data);
+ 		}
+ 		if (rem->post_data_bits > 0) {
+ 			fprintf(f, "  post_data_bits  %d\n", rem->post_data_bits);
+-			fprintf(f, "  post_data      0x%llX\n", rem->post_data);
++			fprintf(f, "  post_data      0x%llX\n", (unsigned long long)rem->post_data);
+ 		}
+ 		if (rem->pre_p != 0 && rem->pre_s != 0) {
+ 			fprintf(f, "  pre         %5u %5u\n", (__u32) rem->pre_p, (__u32) rem->pre_s);
+@@ -151,15 +151,15 @@
+ 		if (rem->min_code_repeat > 0) {
+ 			fprintf(f, "  min_code_repeat %d\n", rem->min_code_repeat);
+ 		}
+-		fprintf(f, "  toggle_bit_mask 0x%llX\n", rem->toggle_bit_mask);
++		fprintf(f, "  toggle_bit_mask 0x%llX\n", (unsigned long long)rem->toggle_bit_mask);
+ 		if (has_toggle_mask(rem)) {
+-			fprintf(f, "  toggle_mask    0x%llX\n", rem->toggle_mask);
++			fprintf(f, "  toggle_mask    0x%llX\n", (unsigned long long)rem->toggle_mask);
+ 		}
+ 		if (rem->rc6_mask != 0) {
+-			fprintf(f, "  rc6_mask    0x%llX\n", rem->rc6_mask);
++			fprintf(f, "  rc6_mask    0x%llX\n", (unsigned long long)rem->rc6_mask);
+ 		}
+ 		if (has_ignore_mask(rem)) {
+-			fprintf(f, "  ignore_mask 0x%llX\n", rem->ignore_mask);
++			fprintf(f, "  ignore_mask 0x%llX\n", (unsigned long long)rem->ignore_mask);
+ 		}
+ 		if (is_serial(rem)) {
+ 			fprintf(f, "  baud            %d\n", rem->baud);
+diff -Naur lirc-0.9.0-old/daemons/ir_remote.c lirc-0.9.0-new/daemons/ir_remote.c
+--- lirc-0.9.0-old/daemons/ir_remote.c	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/daemons/ir_remote.c	2012-02-29 21:44:36.000000000 -0800
+@@ -490,7 +490,8 @@
+ {
+ 	int len;
+ 
+-	len = snprintf(buffer, size, "%016llx %02x %s%s %s\n", code, reps, button_name, button_suffix, remote_name);
++	len = snprintf(buffer, size, "%016llx %02x %s%s %s\n",
++		(unsigned long long)code, reps, button_name, button_suffix, remote_name);
+ 
+ 	return len;
+ }
+diff -Naur lirc-0.9.0-old/daemons/lircd.c lirc-0.9.0-new/daemons/lircd.c
+--- lirc-0.9.0-old/daemons/lircd.c	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/daemons/lircd.c	2012-02-29 21:44:36.000000000 -0800
+@@ -231,14 +231,10 @@
+ 	int done, todo = len;
+ 
+ 	while (todo) {
+-#ifdef SIM_REC
+ 		do {
+ 			done = write(fd, buf, todo);
+-		}
+-		while (done < 0 && errno == EAGAIN);
+-#else
+-		done = write(fd, buf, todo);
+-#endif
++		} while (done < 0 && errno == EAGAIN);
++
+ 		if (done <= 0)
+ 			return (done);
+ 		buf += done;
+@@ -1318,7 +1314,7 @@
+ 
+ 	codes = remote->codes;
+ 	while (codes->name != NULL) {
+-		len = snprintf(buffer, PACKET_SIZE, "%016llx %s\n", codes->code, codes->name);
++		len = snprintf(buffer, PACKET_SIZE, "%016llx %s\n", (unsigned long long)codes->code, codes->name);
+ 		if (len >= PACKET_SIZE + 1) {
+ 			len = sprintf(buffer, "code_too_long\n");
+ 		}
+@@ -1338,7 +1334,7 @@
+ 	    (write_socket_len(fd, protocol_string[P_BEGIN]) && write_socket_len(fd, message)
+ 	     && write_socket_len(fd, protocol_string[P_SUCCESS]) && write_socket_len(fd, protocol_string[P_DATA])))
+ 		return (0);
+-	len = snprintf(buffer, PACKET_SIZE, "1\n%016llx %s\n", code->code, code->name);
++	len = snprintf(buffer, PACKET_SIZE, "1\n%016llx %s\n", (unsigned long long)code->code, code->name);
+ 	if (len >= PACKET_SIZE + 1) {
+ 		len = sprintf(buffer, "1\ncode_too_long\n");
+ 	}
+diff -Naur lirc-0.9.0-old/drivers/lirc_atiusb/lirc_atiusb.c lirc-0.9.0-new/drivers/lirc_atiusb/lirc_atiusb.c
+--- lirc-0.9.0-old/drivers/lirc_atiusb/lirc_atiusb.c	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/drivers/lirc_atiusb/lirc_atiusb.c	2012-02-29 21:44:36.000000000 -0800
+@@ -1048,7 +1048,7 @@
+ 		goto new_irctl_failure_check;
+ 	}
+ 
+-	if (lirc_buffer_init(driver->rbuf, dclen, 1)) {
++	if (lirc_buffer_init(driver->rbuf, dclen, 2)) {
+ 		mem_failure = 4;
+ 		goto new_irctl_failure_check;
+ 	}
+diff -Naur lirc-0.9.0-old/drivers/lirc_dev/lirc_dev.c lirc-0.9.0-new/drivers/lirc_dev/lirc_dev.c
+--- lirc-0.9.0-old/drivers/lirc_dev/lirc_dev.c	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/drivers/lirc_dev/lirc_dev.c	2012-02-29 21:50:48.000000000 -0800
+@@ -236,7 +236,9 @@
+ 		cdev_init(cdev, &lirc_dev_fops);
+ 		cdev->owner = THIS_MODULE;
+ 	}
+-	kobject_set_name(&cdev->kobj, "lirc%d", d->minor);
++	retval = kobject_set_name(&cdev->kobj, "lirc%d", d->minor);
++	if (retval)
++		return retval;
+ 
+ 	retval = cdev_add(cdev, MKDEV(MAJOR(lirc_base_dev), d->minor), 1);
+ 	if (retval)
+@@ -583,6 +585,8 @@
+ 
+ 	mutex_unlock(&lirc_dev_lock);
+ 
++	nonseekable_open(inode, file);
++
+ 	return retval;
+ }
+ EXPORT_SYMBOL(lirc_dev_fop_open);
+@@ -746,10 +750,8 @@
+ }
+ EXPORT_SYMBOL(lirc_dev_fop_ioctl);
+ 
+-ssize_t lirc_dev_fop_read(struct file *file,
+-			  char *buffer,
+-			  size_t length,
+-			  loff_t *ppos)
++ssize_t lirc_dev_fop_read(struct file *file, char __user *buffer,
++			  size_t length, loff_t *ppos)
+ {
+ 	struct irctl *ir = irctls[iminor(file->f_dentry->d_inode)];
+ 	unsigned char *buf;
+@@ -767,18 +769,18 @@
+ 	if (!buf)
+ 		return -ENOMEM;
+ 
+-	if (mutex_lock_interruptible(&ir->irctl_lock))
+-		return -ERESTARTSYS;
++	if (mutex_lock_interruptible(&ir->irctl_lock)) {
++		ret = -ERESTARTSYS;
++		goto out_unlocked;
++	}
+ 	if (!ir->attached) {
+-		mutex_unlock(&ir->irctl_lock);
+-		return -ENODEV;
++		ret = -ENODEV;
++		goto out_locked;
+ 	}
+ 
+ 	if (length % ir->chunk_size) {
+-		dprintk(LOGHEAD "read result = -EINVAL\n",
+-			ir->d.name, ir->d.minor);
+-		mutex_unlock(&ir->irctl_lock);
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out_locked;
+ 	}
+ 
+ 	/*
+@@ -829,19 +831,23 @@
+ 			lirc_buffer_read(ir->buf, buf);
+ 			ret = copy_to_user((void *)buffer+written, buf,
+ 					   ir->buf->chunk_size);
+-			written += ir->buf->chunk_size;
++			if (!ret)
++				written += ir->buf->chunk_size;
++			else
++				ret = -EFAULT;
+ 		}
+ 	}
+ 
+ 	remove_wait_queue(&ir->buf->wait_poll, &wait);
+ 	set_current_state(TASK_RUNNING);
+ 
++out_locked:
+ 	mutex_unlock(&ir->irctl_lock);
+ 
+ out_unlocked:
+ 	kfree(buf);
+ 	dprintk(LOGHEAD "read result = %s (%d)\n",
+-		ir->d.name, ir->d.minor, ret ? "-EFAULT" : "OK", ret);
++		ir->d.name, ir->d.minor, ret ? "<fail>" : "OK", ret);
+ 
+ 	return ret ? ret : written;
+ }
+@@ -864,7 +870,7 @@
+ EXPORT_SYMBOL(lirc_get_pdata);
+ 
+ 
+-ssize_t lirc_dev_fop_write(struct file *file, const char *buffer,
++ssize_t lirc_dev_fop_write(struct file *file, const char __user *buffer,
+ 			   size_t length, loff_t *ppos)
+ {
+ 	struct irctl *ir = irctls[iminor(file->f_dentry->d_inode)];
+@@ -904,7 +910,7 @@
+ 	}
+ 
+ 	printk(KERN_INFO "lirc_dev: IR Remote Control driver registered, "
+-	       "major %d \n", IRCTL_DEV_MAJOR);
++	       "major %d \n", MAJOR(lirc_base_dev));
+ 
+ error:
+ 	return retval;
+diff -Naur lirc-0.9.0-old/drivers/lirc_dev/lirc_dev.h lirc-0.9.0-new/drivers/lirc_dev/lirc_dev.h
+--- lirc-0.9.0-old/drivers/lirc_dev/lirc_dev.h	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/drivers/lirc_dev/lirc_dev.h	2012-02-29 21:50:02.000000000 -0800
+@@ -257,9 +257,9 @@
+ #else
+ long lirc_dev_fop_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+ #endif
+-ssize_t lirc_dev_fop_read(struct file *file, char *buffer, size_t length,
++ssize_t lirc_dev_fop_read(struct file *file, char __user *buffer, size_t length,
+ 			  loff_t *ppos);
+-ssize_t lirc_dev_fop_write(struct file *file, const char *buffer, size_t length,
+-			   loff_t *ppos);
++ssize_t lirc_dev_fop_write(struct file *file, const char __user *buffer,
++			   size_t length, loff_t *ppos);
+ 
+ #endif
+diff -Naur lirc-0.9.0-old/drivers/lirc_sir/lirc_sir.c lirc-0.9.0-new/drivers/lirc_sir/lirc_sir.c
+--- lirc-0.9.0-old/drivers/lirc_sir/lirc_sir.c	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/drivers/lirc_sir/lirc_sir.c	2012-02-29 21:44:36.000000000 -0800
+@@ -203,8 +203,6 @@
+ /* SECTION: Prototypes */
+ 
+ /* Communication with user-space */
+-static int lirc_open(struct inode *inode, struct file *file);
+-static int lirc_close(struct inode *inode, struct file *file);
+ static unsigned int lirc_poll(struct file *file, poll_table *wait);
+ static ssize_t lirc_read(struct file *file, char *buf, size_t count,
+ 		loff_t *ppos);
+@@ -275,22 +273,6 @@
+ 
+ /* SECTION: Communication with user-space */
+ 
+-static int lirc_open(struct inode *inode, struct file *file)
+-{
+-	spin_lock(&dev_lock);
+-	if (MOD_IN_USE) {
+-		spin_unlock(&dev_lock);
+-		return -EBUSY;
+-	}
+-	spin_unlock(&dev_lock);
+-	return 0;
+-}
+-
+-static int lirc_close(struct inode *inode, struct file *file)
+-{
+-	return 0;
+-}
+-
+ static unsigned int lirc_poll(struct file *file, poll_table *wait)
+ {
+ 	poll_wait(file, &lirc_read_queue, wait);
+@@ -519,8 +501,8 @@
+ 	.compat_ioctl	= lirc_ioctl,
+ #endif
+ #endif
+-	.open		= lirc_open,
+-	.release	= lirc_close,
++	.open		= lirc_dev_fop_open,
++	.release	= lirc_dev_fop_close,
+ };
+ 
+ static int set_use_inc(void *data)
+diff -Naur lirc-0.9.0-old/drivers/lirc_wpc8769l/lirc_wpc8769l.c lirc-0.9.0-new/drivers/lirc_wpc8769l/lirc_wpc8769l.c
+--- lirc-0.9.0-old/drivers/lirc_wpc8769l/lirc_wpc8769l.c	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/drivers/lirc_wpc8769l/lirc_wpc8769l.c	2012-02-29 21:44:36.000000000 -0800
+@@ -816,10 +816,6 @@
+ 	/* Reset last timeout value. */
+ 	lastus = 0;
+ 
+-	/* Init the read buffer. */
+-	if (lirc_buffer_init(&rbuf, sizeof(lirc_t), RBUF_LEN) < 0)
+-		return -ENOMEM;
+-
+ 	/* Acquire the IRQ. */
+ 	result = request_irq(irq, irq_handler,
+ 			   IRQF_DISABLED | IRQF_SHARED,
+@@ -863,9 +859,6 @@
+ 	/* Free the IRQ. */
+ 	free_irq(irq, THIS_MODULE);
+ 	dprintk("Freed IRQ %d\n", irq);
+-
+-	/* Free the RX buffer. */
+-	lirc_buffer_free(&rbuf);
+ }
+ 
+ static struct lirc_driver driver = {
+@@ -1065,19 +1058,29 @@
+ 	/* Do load-time checks. */
+ 	wpc8769l_power_up_and_check_if_we_woke_us_up();
+ 
++	/* Init the read buffer. */
++	if (lirc_buffer_init(&rbuf, sizeof(lirc_t), RBUF_LEN) < 0) {
++		rc = -ENOMEM;
++		goto exit_platform_exit;
++	}
++
+ 	/* Configure the driver hooks. */
+ 	driver.features = LIRC_CAN_REC_MODE2;
++	driver.dev = &lirc_wpc8769l_platform_dev->dev;
+ 	driver.minor = lirc_register_driver(&driver);
+ 	if (driver.minor < 0) {
+ 		eprintk("lirc_register_driver failed!\n");
+ 		rc = -EIO;
+-		goto exit_platform_exit;
++		goto exit_release_buffer;
+ 	}
+ 
+ 	iprintk("Driver loaded.\n");
+ 
+ 	return 0; /* Everything OK. */
+ 
++exit_release_buffer:
++	lirc_buffer_free(&rbuf);
++
+ exit_platform_exit:
+ 	lirc_wpc8769l_platform_exit();
+ 
+@@ -1095,12 +1098,15 @@
+ 
+ static void __exit lirc_wpc8769l_module_exit(void)
+ {
+-	/* Unregister the platform driver and device. */
+-	lirc_wpc8769l_platform_exit();
+-
+ 	/* Unregister the LIRC driver. */
+ 	lirc_unregister_driver(driver.minor);
+ 
++	/* Free the buffer. */
++	lirc_buffer_free(&rbuf);
++
++	/* Unregister the platform driver and device. */
++	lirc_wpc8769l_platform_exit();
++
+ 	/* Release the second range. */
+ 	if (baseport2)
+ 		release_region(baseport2, WPC8769L_IO_REGION_2_SIZE);
+diff -Naur lirc-0.9.0-old/drivers/Makefile.am lirc-0.9.0-new/drivers/Makefile.am
+--- lirc-0.9.0-old/drivers/Makefile.am	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/drivers/Makefile.am	2012-02-29 21:44:36.000000000 -0800
+@@ -26,14 +26,3 @@
+ 
+ CLEANFILES = *~
+ 
+-if SANDBOXED
+-else
+-install-exec-local: mkdev
+-uninstall-local: mkdev
+-endif
+-
+-mkdev:
+-	test "@driver@" != "mediafocusI" || test -c $(DESTDIR)$(devdir)/lirc || ($(mkinstalldirs) $(DESTDIR)$(devdir) && @mknod@ $(DESTDIR)$(devdir)/lirc c @lirc_major@ 0)
+-
+-rmdev:
+-	-test "@driver@" != "mediafocusI" || test -c $(DESTDIR)$(devdir)/lirc || $(RM) $(DESTDIR)$(devdir)/lirc
+diff -Naur lirc-0.9.0-old/drivers/Makefile.common lirc-0.9.0-new/drivers/Makefile.common
+--- lirc-0.9.0-old/drivers/Makefile.common	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/drivers/Makefile.common	2012-02-29 21:44:36.000000000 -0800
+@@ -8,7 +8,7 @@
+ # some magic for using linux kernel settings
+ # when compiling module(s)
+ KBUILD_VERBOSE = 1
+-LIRC_EXTRA_CFLAGS = -DIRCTL_DEV_MAJOR=$(lirc_major) -DEXPORT_SYMTAB $(DEFS) \
++LIRC_EXTRA_CFLAGS = -DEXPORT_SYMTAB $(DEFS) \
+ 		$(DEFAULT_INCLUDES) -I$(LIRC_DEVDIR)/$(srcdir) -I$(LIRC_DEVDIR)/$(builddir) \
+ 		-I$(LIRC_DEVDIR)/$(top_srcdir) -I$(LIRC_DEVDIR)/$(top_builddir) \
+ 		-I$(KERNEL_LOCATION)/include/ \
+@@ -47,18 +47,6 @@
+ 
+ if SANDBOXED
+ else
+-install-exec-local: mkdev
+-uninstall-local: rmdev
+-endif
+-
+-mkdev:
+-	test -e $(DESTDIR)$(devdir)/lirc || ($(mkinstalldirs) $(DESTDIR)$(devdir) && @mknod@ $(DESTDIR)$(devdir)/lirc c @lirc_major@ 0)
+-
+-rmdev:
+-	-test -c $(DESTDIR)$(devdir)/lirc && $(RM) $(DESTDIR)$(devdir)/lirc
+-
+-if SANDBOXED
+-else
+ install-data-local: install-moduleDATA
+ 	-@depmod@ -a
+ endif
+diff -Naur lirc-0.9.0-old/NEWS lirc-0.9.0-new/NEWS
+--- lirc-0.9.0-old/NEWS	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/NEWS	2012-02-29 21:44:36.000000000 -0800
+@@ -1,3 +1,6 @@
++0.9.1-git: UNDER DEVELOPMENT
++  * TBD
++
+ 0.9.0: 03/25/11
+   * Remove mceusb, streamzap, it8x, ene0100 drivers, as they're
+     now redundant with upstream kernel drivers
+diff -Naur lirc-0.9.0-old/setup.sh lirc-0.9.0-new/setup.sh
+--- lirc-0.9.0-old/setup.sh	2011-03-25 15:28:18.000000000 -0700
++++ lirc-0.9.0-new/setup.sh	2012-02-29 21:44:36.000000000 -0800
+@@ -1,6 +1,6 @@
+ #! /bin/sh
+ 
+-LIRC_VERSION="0.9.0"
++LIRC_VERSION="0.9.1-git"
+ 
+ #############################################################################
+ ## Default Values
