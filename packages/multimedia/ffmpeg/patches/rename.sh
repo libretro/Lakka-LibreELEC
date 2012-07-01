@@ -1,6 +1,8 @@
+#!/bin/sh
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2010-2011 Roman Weber (roman@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,24 +20,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="ffmpeg"
-PKG_VERSION="0.10.4"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="LGPL"
-PKG_SITE="http://ffmpeg.org"
-PKG_URL="http://ffmpeg.org/releases/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="yasm zlib bzip2 libvorbis"
-PKG_BUILD_DEPENDS="toolchain yasm zlib bzip2 libvorbis"
-PKG_PRIORITY="optional"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
-PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
-
-if [ "$VAAPI" = yes ]; then
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS libva"
-  PKG_DEPENDS="$PKG_DEPENDS libva"
-fi
+for i in `ls ffmpeg-$1-*.patch`; do
+  mv $i `echo $i | sed "s,$1,$2,g"`
+done
