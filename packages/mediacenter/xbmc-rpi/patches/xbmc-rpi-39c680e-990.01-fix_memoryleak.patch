@@ -1,0 +1,37 @@
+From 9213ab6847e78007f8083b92794150397ffdc2f3 Mon Sep 17 00:00:00 2001
+From: Cory Fields <theuni-nospam-@xbmc.org>
+Date: Sun, 1 Jul 2012 18:41:48 -0400
+Subject: [PATCH] jpeg: fix nasty memory leak. Thanks vdrfan for finding and
+ jmarshall for the fix
+
+libjpeg was taking our allocated mem and eating it. If we're going to
+preallocate, we need to specify that size.
+---
+ xbmc/guilib/JpegIO.cpp |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/guilib/JpegIO.cpp b/xbmc/guilib/JpegIO.cpp
+index e496ad1..07dfe7f 100644
+--- a/xbmc/guilib/JpegIO.cpp
++++ b/xbmc/guilib/JpegIO.cpp
+@@ -435,7 +435,7 @@ bool CJpegIO::CreateThumbnailFromSurface(unsigned char* buffer, unsigned int wid
+   struct jpeg_compress_struct cinfo;
+   struct my_error_mgr jerr;
+   JSAMPROW row_pointer[1];
+-  long unsigned int outBufSize = 0;
++  long unsigned int outBufSize = width * height;
+   unsigned char* result;
+   unsigned char* src = buffer;
+   unsigned char* rgbbuf, *src2, *dst2;
+@@ -446,7 +446,7 @@ bool CJpegIO::CreateThumbnailFromSurface(unsigned char* buffer, unsigned int wid
+     return false;
+   }
+ 
+-  result = (unsigned char*) malloc(width * height); //Initial buffer. Grows as-needed.
++  result = (unsigned char*) malloc(outBufSize); //Initial buffer. Grows as-needed.
+   if (result == NULL)
+   {
+     CLog::Log(LOGERROR, "JpegIO::CreateThumbnailFromSurface error allocating memory for image buffer");
+-- 
+1.7.10
+
