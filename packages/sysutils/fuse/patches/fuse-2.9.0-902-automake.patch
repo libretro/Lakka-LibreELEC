@@ -1,0 +1,83 @@
+From a6a8bcbeefd6c9e9cf1c6c6f5e8224aff2beb51b Mon Sep 17 00:00:00 2001
+From: Olivier Blin <olivier.blin@softathome.com>
+Date: Mon, 2 Jul 2012 18:50:56 +0200
+Subject: [PATCH] Fix build with automake >= 1.12.1
+
+mkdir_p is deprecated since automake 1.12.1 (see automake commit
+7a1eb9ff9027929687f12905e131f6fda3fa6d0c).
+
+MKDIR_P should be used instead of mkdir_p.
+This is available since autoconf 2.59d (2006-06-05), by calling
+AC_PROG_MKDIR_P.
+
+The mkdir_p workaround was not working anyway for out-of-tree builds,
+since the ../mkinstalldirs path would be incorrect.
+---
+ ChangeLog        |    2 ++
+ configure.in     |    8 ++------
+ util/Makefile.am |    8 ++++----
+ 3 files changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/configure.in b/configure.in
+index a7448df..36171d1 100644
+--- a/configure.in
++++ b/configure.in
+@@ -1,4 +1,5 @@
+ AC_INIT(fuse, 2.9.0)
++AC_PREREQ(2.59d)
+ AC_CONFIG_MACRO_DIR([m4])
+ AC_CANONICAL_TARGET
+ AM_INIT_AUTOMAKE
+@@ -7,14 +8,9 @@ AM_CONFIG_HEADER(include/config.h)
+ 
+ AC_PROG_LIBTOOL
+ AC_PROG_CC
++AC_PROG_MKDIR_P
+ AM_PROG_CC_C_O
+ 
+-# compatibility for automake < 1.8
+-if test -z "$mkdir_p"; then
+-	mkdir_p="../mkinstalldirs"
+-	AC_SUBST(mkdir_p)
+-fi
+-
+ case $target_os in
+      *linux*)	arch=linux;;
+      *netbsd*)  arch=netbsd;;
+diff --git a/util/Makefile.am b/util/Makefile.am
+index b036164..059d5fc 100644
+--- a/util/Makefile.am
++++ b/util/Makefile.am
+@@ -23,7 +23,7 @@ ulockmgr_server_LDFLAGS = -pthread
+ install-exec-hook:
+ 	-chmod u+s $(DESTDIR)$(bindir)/fusermount
+ 	@if test ! -e $(DESTDIR)/dev/fuse; then \
+-		$(mkdir_p) $(DESTDIR)/dev; \
++		$(MKDIR_P) $(DESTDIR)/dev; \
+ 		echo "mknod $(DESTDIR)/dev/fuse -m 0666 c 10 229 || true"; \
+ 		mknod $(DESTDIR)/dev/fuse -m 0666 c 10 229 || true; \
+ 	fi
+@@ -35,9 +35,9 @@ UDEV_RULES_PATH = @UDEV_RULES_PATH@
+ INIT_D_PATH = @INIT_D_PATH@
+ 
+ install-exec-local:
+-	$(mkdir_p) $(DESTDIR)$(MOUNT_FUSE_PATH)
++	$(MKDIR_P) $(DESTDIR)$(MOUNT_FUSE_PATH)
+ 	$(INSTALL_PROGRAM) $(builddir)/mount.fuse $(DESTDIR)$(MOUNT_FUSE_PATH)/mount.fuse
+-	$(mkdir_p) $(DESTDIR)$(INIT_D_PATH)
++	$(MKDIR_P) $(DESTDIR)$(INIT_D_PATH)
+ 	$(INSTALL_SCRIPT) $(srcdir)/init_script $(DESTDIR)$(INIT_D_PATH)/fuse
+ 	@if test -x /usr/sbin/update-rc.d; then \
+ 		echo "/usr/sbin/update-rc.d fuse start 34 S . start 41 0 6 . || true"; \
+@@ -45,7 +45,7 @@ install-exec-local:
+ 	fi
+ 
+ install-data-local:
+-	$(mkdir_p) $(DESTDIR)$(UDEV_RULES_PATH)
++	$(MKDIR_P) $(DESTDIR)$(UDEV_RULES_PATH)
+ 	$(INSTALL_DATA) $(srcdir)/udev.rules $(DESTDIR)$(UDEV_RULES_PATH)/99-fuse.rules
+ 
+ uninstall-local:
+-- 
+1.7.4.1
+
