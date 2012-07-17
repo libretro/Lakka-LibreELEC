@@ -1,0 +1,355 @@
+From cdfe2c5eb3703ed964cbfdb6906b21ace2956385 Mon Sep 17 00:00:00 2001
+From: Joseph Myers <joseph@codesourcery.com>
+Date: Thu, 5 Jul 2012 11:02:13 +0000
+Subject: [PATCH] Fix csqrt underflow (bugs 14157, 14331).
+
+---
+ ChangeLog                         |   14 +++++++++++++
+ NEWS                              |    2 +-
+ math/libm-test.inc                |   39 ++++++++++++++++++++++++++++++++++--
+ math/s_csqrt.c                    |   26 ++++++++++++++++++------
+ math/s_csqrtf.c                   |   26 ++++++++++++++++++------
+ math/s_csqrtl.c                   |   26 ++++++++++++++++++------
+ sysdeps/i386/fpu/libm-test-ulps   |   28 ++++++++++++++++++++++++++
+ sysdeps/x86_64/fpu/libm-test-ulps |   30 ++++++++++++++++++++++++++++
+ 8 files changed, 166 insertions(+), 25 deletions(-)
+
+diff --git a/math/libm-test.inc b/math/libm-test.inc
+index 514ad06..6adbb61 100644
+--- a/math/libm-test.inc
++++ b/math/libm-test.inc
+@@ -3213,18 +3213,51 @@ csqrt_test (void)
+   TEST_c_c (csqrt, 0x1p-149L, 0x1p-149L, 4.112805464342778798097003462770175200803e-23L, 1.703579802732953750368659735601389709551e-23L);
+   TEST_c_c (csqrt, 0x1p-147L, 0x1p-147L, 8.225610928685557596194006925540350401606e-23L, 3.407159605465907500737319471202779419102e-23L);
+ 
++  TEST_c_c (csqrt, plus_zero, 0x1p-149L, 2.646977960169688559588507814623881131411e-23L, 2.646977960169688559588507814623881131411e-23L);
++  TEST_c_c (csqrt, 0x1p-50L, 0x1p-149L, 2.980232238769531250000000000000000000000e-8L, 2.350988701644575015937473074444491355637e-38L);
++#ifdef TEST_FLOAT
++  TEST_c_c (csqrt, 0x1p+127L, 0x1p-149L, 1.304381782533278221234957180625250836888e19L, plus_zero, UNDERFLOW_EXCEPTION);
++#endif
++  TEST_c_c (csqrt, 0x1p-149L, 0x1p+127L, 9.223372036854775808000000000000000000000e18L, 9.223372036854775808000000000000000000000e18L);
++  TEST_c_c (csqrt, 0x1.000002p-126L, 0x1.000002p-126L, 1.191195773697904627170323731331667740087e-19L, 4.934094449071842328766868579214125217132e-20L);
++  TEST_c_c (csqrt, -0x1.000002p-126L, -0x1.000002p-126L, 4.934094449071842328766868579214125217132e-20L, -1.191195773697904627170323731331667740087e-19L);
++
+ #ifndef TEST_FLOAT
+   TEST_c_c (csqrt, 0x1.fffffffffffffp+1023L, 0x1.fffffffffffffp+1023L, 1.473094556905565378990473658199034571917e+154L, 6.101757441282702188537080005372547713595e+153L);
+   TEST_c_c (csqrt, 0x1.fffffffffffffp+1023L, 0x1p+1023L, 1.379778091031440685006200821918878702861e+154L, 3.257214233483129514781233066898042490248e+153L);
+-  /* Bug 14157: spurious exception may occur.  */
+-  TEST_c_c (csqrt, 0x1p-1074L, 0x1p-1074L, 2.442109726130830256743814843868934877597e-162L, 1.011554969366634726113090867589031782487e-162L, UNDERFLOW_EXCEPTION_OK);
+-  TEST_c_c (csqrt, 0x1p-1073L, 0x1p-1073L, 3.453664695497464982856905711457966660085e-162L, 1.430554756764195530630723976279903095110e-162L, UNDERFLOW_EXCEPTION_OK);
++  TEST_c_c (csqrt, 0x1p-1074L, 0x1p-1074L, 2.442109726130830256743814843868934877597e-162L, 1.011554969366634726113090867589031782487e-162L);
++  TEST_c_c (csqrt, 0x1p-1073L, 0x1p-1073L, 3.453664695497464982856905711457966660085e-162L, 1.430554756764195530630723976279903095110e-162L);
++
++  TEST_c_c (csqrt, plus_zero, 0x1p-1074L, 1.571727784702628688909515672805082228285e-162L, 1.571727784702628688909515672805082228285e-162L);
++  TEST_c_c (csqrt, 0x1p-500L, 0x1p-1074L, 5.527147875260444560247265192192255725514e-76L, 4.469444793151709302716387622440056066334e-249L);
++#if defined TEST_DOUBLE || (defined TEST_LDOUBLE && LDBL_MAX_EXP == 1024)
++  TEST_c_c (csqrt, 0x1p+1023L, 0x1p-1074L, 9.480751908109176726832526455652159260085e153L, plus_zero, UNDERFLOW_EXCEPTION);
++#endif
++  TEST_c_c (csqrt, 0x1p-1074L, 0x1p+1023L, 6.703903964971298549787012499102923063740e153L, 6.703903964971298549787012499102923063740e153L);
++  TEST_c_c (csqrt, 0x1.0000000000001p-1022L, 0x1.0000000000001p-1022L, 1.638872094839911521020410942677082920935e-154L, 6.788430486774966350907249113759995429568e-155L);
++  TEST_c_c (csqrt, -0x1.0000000000001p-1022L, -0x1.0000000000001p-1022L, 6.788430486774966350907249113759995429568e-155L, -1.638872094839911521020410942677082920935e-154L);
+ #endif
+ 
+ #if defined TEST_LDOUBLE && LDBL_MAX_EXP >= 16384
+   TEST_c_c (csqrt, 0x1.fp+16383L, 0x1.fp+16383L, 1.179514222452201722651836720466795901016e+2466L, 4.885707879516577666702435054303191575148e+2465L);
+   TEST_c_c (csqrt, 0x1.fp+16383L, 0x1p+16383L, 1.106698967236475180613254276996359485630e+2466L, 2.687568007603946993388538156299100955642e+2465L);
+   TEST_c_c (csqrt, 0x1p-16440L, 0x1p-16441L, 3.514690655930285351254618340783294558136e-2475L,  8.297059146828716918029689466551384219370e-2476L);
++
++  TEST_c_c (csqrt, plus_zero, 0x1p-16445L, 4.269191686890197837775136325621239761720e-2476L, 4.269191686890197837775136325621239761720e-2476L);
++  TEST_c_c (csqrt, 0x1p-5000L, 0x1p-16445L, 2.660791472672778409283210520357607795518e-753L, 6.849840675828785164910701384823702064234e-4199L);
++  TEST_c_c (csqrt, 0x1p+16383L, 0x1p-16445L, 7.712754032630730034273323365543179095045e2465L, plus_zero, UNDERFLOW_EXCEPTION);
++  TEST_c_c (csqrt, 0x1p-16445L, 0x1p+16383L, 5.453740678097079647314921223668914312241e2465L, 5.453740678097079647314921223668914312241e2465L);
++  TEST_c_c (csqrt, 0x1.0000000000000002p-16382L, 0x1.0000000000000002p-16382L, 2.014551439675644900131815801350165472778e-2466L, 8.344545284118961664300307045791497724440e-2467L);
++  TEST_c_c (csqrt, -0x1.0000000000000002p-16382L, -0x1.0000000000000002p-16382L, 8.344545284118961664300307045791497724440e-2467L, -2.014551439675644900131815801350165472778e-2466L);
++
++# if LDBL_MANT_DIG >= 113
++  TEST_c_c (csqrt, plus_zero, 0x1p-16494L, 1.799329752913293143453817328207572571442e-2483L, 1.799329752913293143453817328207572571442e-2483L);
++  TEST_c_c (csqrt, 0x1p-5000L, 0x1p-16494L, 2.660791472672778409283210520357607795518e-753L, 1.216776133331049643422030716668249905907e-4213L);
++  TEST_c_c (csqrt, 0x1p+16383L, 0x1p-16494L, 7.712754032630730034273323365543179095045e2465L, plus_zero, UNDERFLOW_EXCEPTION);
++  TEST_c_c (csqrt, 0x1p-16494L, 0x1p+16383L, 5.453740678097079647314921223668914312241e2465L, 5.453740678097079647314921223668914312241e2465L);
++  TEST_c_c (csqrt, 0x1.0000000000000000000000000001p-16382L, 0x1.0000000000000000000000000001p-16382L, 2.014551439675644900022606748976158925145e-2466L, 8.344545284118961663847948339519226074126e-2467L);
++  TEST_c_c (csqrt, -0x1.0000000000000000000000000001p-16382L, -0x1.0000000000000000000000000001p-16382L, 8.344545284118961663847948339519226074126e-2467L, -2.014551439675644900022606748976158925145e-2466L);
++# endif
+ #endif
+ 
+   END (csqrt, complex);
+diff --git a/math/s_csqrt.c b/math/s_csqrt.c
+index 002ea5f..f4d0f99 100644
+--- a/math/s_csqrt.c
++++ b/math/s_csqrt.c
+@@ -75,7 +75,11 @@ __csqrt (__complex__ double x)
+ 	}
+       else if (__builtin_expect (rcls == FP_ZERO, 0))
+ 	{
+-	  double r = __ieee754_sqrt (0.5 * fabs (__imag__ x));
++	  double r;
++	  if (fabs (__imag__ x) >= 2.0 * DBL_MIN)
++	    r = __ieee754_sqrt (0.5 * fabs (__imag__ x));
++	  else
++	    r = 0.5 * __ieee754_sqrt (2.0 * fabs (__imag__ x));
+ 
+ 	  __real__ res = r;
+ 	  __imag__ res = __copysign (r, __imag__ x);
+@@ -85,13 +89,21 @@ __csqrt (__complex__ double x)
+ 	  double d, r, s;
+ 	  int scale = 0;
+ 
+-	  if (fabs (__real__ x) > DBL_MAX / 2.0
+-	      || fabs (__imag__ x) > DBL_MAX / 2.0)
++	  if (fabs (__real__ x) > DBL_MAX / 4.0)
+ 	    {
+ 	      scale = 1;
+ 	      __real__ x = __scalbn (__real__ x, -2 * scale);
+ 	      __imag__ x = __scalbn (__imag__ x, -2 * scale);
+ 	    }
++	  else if (fabs (__imag__ x) > DBL_MAX / 4.0)
++	    {
++	      scale = 1;
++	      if (fabs (__real__ x) >= 4.0 * DBL_MIN)
++		__real__ x = __scalbn (__real__ x, -2 * scale);
++	      else
++		__real__ x = 0.0;
++	      __imag__ x = __scalbn (__imag__ x, -2 * scale);
++	    }
+ 	  else if (fabs (__real__ x) < DBL_MIN
+ 		   && fabs (__imag__ x) < DBL_MIN)
+ 	    {
+@@ -105,13 +117,13 @@ __csqrt (__complex__ double x)
+ 	     to avoid cancellation error in  d +/- Re x.  */
+ 	  if (__real__ x > 0)
+ 	    {
+-	      r = __ieee754_sqrt (0.5 * d + 0.5 * __real__ x);
+-	      s = (0.5 * __imag__ x) / r;
++	      r = __ieee754_sqrt (0.5 * (d + __real__ x));
++	      s = 0.5 * (__imag__ x / r);
+ 	    }
+ 	  else
+ 	    {
+-	      s = __ieee754_sqrt (0.5 * d - 0.5 * __real__ x);
+-	      r = fabs ((0.5 * __imag__ x) / s);
++	      s = __ieee754_sqrt (0.5 * (d - __real__ x));
++	      r = fabs (0.5 * (__imag__ x / s));
+ 	    }
+ 
+ 	  if (scale)
+diff --git a/math/s_csqrtf.c b/math/s_csqrtf.c
+index 6539ba2..5a274fd 100644
+--- a/math/s_csqrtf.c
++++ b/math/s_csqrtf.c
+@@ -75,7 +75,11 @@ __csqrtf (__complex__ float x)
+ 	}
+       else if (__builtin_expect (rcls == FP_ZERO, 0))
+ 	{
+-	  float r = __ieee754_sqrtf (0.5 * fabsf (__imag__ x));
++	  float r;
++	  if (fabsf (__imag__ x) >= 2.0f * FLT_MIN)
++	    r = __ieee754_sqrtf (0.5f * fabsf (__imag__ x));
++	  else
++	    r = 0.5f * __ieee754_sqrtf (2.0f * fabsf (__imag__ x));
+ 
+ 	  __real__ res = r;
+ 	  __imag__ res = __copysignf (r, __imag__ x);
+@@ -85,13 +89,21 @@ __csqrtf (__complex__ float x)
+ 	  float d, r, s;
+ 	  int scale = 0;
+ 
+-	  if (fabsf (__real__ x) > FLT_MAX / 2.0f
+-	      || fabsf (__imag__ x) > FLT_MAX / 2.0f)
++	  if (fabsf (__real__ x) > FLT_MAX / 4.0f)
+ 	    {
+ 	      scale = 1;
+ 	      __real__ x = __scalbnf (__real__ x, -2 * scale);
+ 	      __imag__ x = __scalbnf (__imag__ x, -2 * scale);
+ 	    }
++	  else if (fabsf (__imag__ x) > FLT_MAX / 4.0f)
++	    {
++	      scale = 1;
++	      if (fabsf (__real__ x) >= 4.0f * FLT_MIN)
++		__real__ x = __scalbnf (__real__ x, -2 * scale);
++	      else
++		__real__ x = 0.0f;
++	      __imag__ x = __scalbnf (__imag__ x, -2 * scale);
++	    }
+ 	  else if (fabsf (__real__ x) < FLT_MIN
+ 		   && fabsf (__imag__ x) < FLT_MIN)
+ 	    {
+@@ -105,13 +117,13 @@ __csqrtf (__complex__ float x)
+ 	     to avoid cancellation error in  d +/- Re x.  */
+ 	  if (__real__ x > 0)
+ 	    {
+-	      r = __ieee754_sqrtf (0.5f * d + 0.5f * __real__ x);
+-	      s = (0.5f * __imag__ x) / r;
++	      r = __ieee754_sqrtf (0.5f * (d + __real__ x));
++	      s = 0.5f * (__imag__ x / r);
+ 	    }
+ 	  else
+ 	    {
+-	      s = __ieee754_sqrtf (0.5f * d - 0.5f * __real__ x);
+-	      r = fabsf ((0.5f * __imag__ x) / s);
++	      s = __ieee754_sqrtf (0.5f * (d - __real__ x));
++	      r = fabsf (0.5f * (__imag__ x / s));
+ 	    }
+ 
+ 	  if (scale)
+diff --git a/math/s_csqrtl.c b/math/s_csqrtl.c
+index 64332f6..579d976 100644
+--- a/math/s_csqrtl.c
++++ b/math/s_csqrtl.c
+@@ -75,7 +75,11 @@ __csqrtl (__complex__ long double x)
+ 	}
+       else if (__builtin_expect (rcls == FP_ZERO, 0))
+ 	{
+-	  long double r = __ieee754_sqrtl (0.5 * fabsl (__imag__ x));
++	  long double r;
++	  if (fabsl (__imag__ x) >= 2.0L * LDBL_MIN)
++	    r = __ieee754_sqrtl (0.5L * fabsl (__imag__ x));
++	  else
++	    r = 0.5L * __ieee754_sqrtl (2.0L * fabsl (__imag__ x));
+ 
+ 	  __real__ res = r;
+ 	  __imag__ res = __copysignl (r, __imag__ x);
+@@ -85,13 +89,21 @@ __csqrtl (__complex__ long double x)
+ 	  long double d, r, s;
+ 	  int scale = 0;
+ 
+-	  if (fabsl (__real__ x) > LDBL_MAX / 2.0L
+-	      || fabsl (__imag__ x) > LDBL_MAX / 2.0L)
++	  if (fabsl (__real__ x) > LDBL_MAX / 4.0L)
+ 	    {
+ 	      scale = 1;
+ 	      __real__ x = __scalbnl (__real__ x, -2 * scale);
+ 	      __imag__ x = __scalbnl (__imag__ x, -2 * scale);
+ 	    }
++	  else if (fabsl (__imag__ x) > LDBL_MAX / 4.0L)
++	    {
++	      scale = 1;
++	      if (fabsl (__real__ x) >= 4.0L * LDBL_MIN)
++		__real__ x = __scalbnl (__real__ x, -2 * scale);
++	      else
++		__real__ x = 0.0L;
++	      __imag__ x = __scalbnl (__imag__ x, -2 * scale);
++	    }
+ 	  else if (fabsl (__real__ x) < LDBL_MIN
+ 		   && fabsl (__imag__ x) < LDBL_MIN)
+ 	    {
+@@ -105,13 +117,13 @@ __csqrtl (__complex__ long double x)
+ 	     to avoid cancellation error in  d +/- Re x.  */
+ 	  if (__real__ x > 0)
+ 	    {
+-	      r = __ieee754_sqrtl (0.5L * d + 0.5L * __real__ x);
+-	      s = (0.5L * __imag__ x) / r;
++	      r = __ieee754_sqrtl (0.5L * (d + __real__ x));
++	      s = 0.5L * (__imag__ x / r);
+ 	    }
+ 	  else
+ 	    {
+-	      s = __ieee754_sqrtl (0.5L * d - 0.5L * __real__ x);
+-	      r = fabsl ((0.5L * __imag__ x) / s);
++	      s = __ieee754_sqrtl (0.5L * (d - __real__ x));
++	      r = fabsl (0.5L * (__imag__ x / s));
+ 	    }
+ 
+ 	  if (scale)
+diff --git a/sysdeps/i386/fpu/libm-test-ulps b/sysdeps/i386/fpu/libm-test-ulps
+index 6f41f02..9724919 100644
+--- a/sysdeps/i386/fpu/libm-test-ulps
++++ b/sysdeps/i386/fpu/libm-test-ulps
+@@ -1374,6 +1374,30 @@ float: 1
+ ifloat: 1
+ 
+ # csqrt
++Test "Real part of: csqrt (-0x1.0000000000000002p-16382 - 0x1.0000000000000002p-16382 i) == 8.344545284118961664300307045791497724440e-2467 - 2.014551439675644900131815801350165472778e-2466 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (-0x1.0000000000000002p-16382 - 0x1.0000000000000002p-16382 i) == 8.344545284118961664300307045791497724440e-2467 - 2.014551439675644900131815801350165472778e-2466 i":
++ildouble: 1
++ldouble: 1
++Test "Real part of: csqrt (-0x1.0000000000001p-1022 - 0x1.0000000000001p-1022 i) == 6.788430486774966350907249113759995429568e-155 - 1.638872094839911521020410942677082920935e-154 i":
++ildouble: 1
++ldouble: 1
++Test "Real part of: csqrt (-0x1.000002p-126 - 0x1.000002p-126 i) == 4.934094449071842328766868579214125217132e-20 - 1.191195773697904627170323731331667740087e-19 i":
++ildouble: 1
++ldouble: 1
++Test "Real part of: csqrt (0x1.0000000000000002p-16382 + 0x1.0000000000000002p-16382 i) == 2.014551439675644900131815801350165472778e-2466 + 8.344545284118961664300307045791497724440e-2467 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (0x1.0000000000000002p-16382 + 0x1.0000000000000002p-16382 i) == 2.014551439675644900131815801350165472778e-2466 + 8.344545284118961664300307045791497724440e-2467 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (0x1.0000000000001p-1022 + 0x1.0000000000001p-1022 i) == 1.638872094839911521020410942677082920935e-154 + 6.788430486774966350907249113759995429568e-155 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (0x1.000002p-126 + 0x1.000002p-126 i) == 1.191195773697904627170323731331667740087e-19 + 4.934094449071842328766868579214125217132e-20 i":
++ildouble: 1
++ldouble: 1
+ Test "Imaginary part of: csqrt (0x1.fffffffffffffp+1023 + 0x1p+1023 i) == 1.379778091031440685006200821918878702861e+154 + 3.257214233483129514781233066898042490248e+153 i":
+ ildouble: 1
+ ldouble: 1
+@@ -3032,6 +3056,10 @@ ifloat: 1
+ ildouble: 2
+ ldouble: 2
+ 
++Function: Real part of "csqrt":
++ildouble: 1
++ldouble: 1
++
+ Function: Imaginary part of "csqrt":
+ ildouble: 1
+ ldouble: 1
+diff --git a/sysdeps/x86_64/fpu/libm-test-ulps b/sysdeps/x86_64/fpu/libm-test-ulps
+index 765c7a0..b64e52d 100644
+--- a/sysdeps/x86_64/fpu/libm-test-ulps
++++ b/sysdeps/x86_64/fpu/libm-test-ulps
+@@ -1222,12 +1222,40 @@ float: 1
+ ifloat: 1
+ 
+ # csqrt
++Test "Real part of: csqrt (-0x1.0000000000000002p-16382 - 0x1.0000000000000002p-16382 i) == 8.344545284118961664300307045791497724440e-2467 - 2.014551439675644900131815801350165472778e-2466 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (-0x1.0000000000000002p-16382 - 0x1.0000000000000002p-16382 i) == 8.344545284118961664300307045791497724440e-2467 - 2.014551439675644900131815801350165472778e-2466 i":
++ildouble: 1
++ldouble: 1
++Test "Real part of: csqrt (-0x1.0000000000001p-1022 - 0x1.0000000000001p-1022 i) == 6.788430486774966350907249113759995429568e-155 - 1.638872094839911521020410942677082920935e-154 i":
++ildouble: 1
++ldouble: 1
++Test "Real part of: csqrt (-0x1.000002p-126 - 0x1.000002p-126 i) == 4.934094449071842328766868579214125217132e-20 - 1.191195773697904627170323731331667740087e-19 i":
++double: 1
++idouble: 1
++ildouble: 1
++ldouble: 1
+ Test "Real part of: csqrt (-2 + 3 i) == 0.89597747612983812471573375529004348 + 1.6741492280355400404480393008490519 i":
+ float: 1
+ ifloat: 1
+ Test "Real part of: csqrt (-2 - 3 i) == 0.89597747612983812471573375529004348 - 1.6741492280355400404480393008490519 i":
+ float: 1
+ ifloat: 1
++Test "Real part of: csqrt (0x1.0000000000000002p-16382 + 0x1.0000000000000002p-16382 i) == 2.014551439675644900131815801350165472778e-2466 + 8.344545284118961664300307045791497724440e-2467 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (0x1.0000000000000002p-16382 + 0x1.0000000000000002p-16382 i) == 2.014551439675644900131815801350165472778e-2466 + 8.344545284118961664300307045791497724440e-2467 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (0x1.0000000000001p-1022 + 0x1.0000000000001p-1022 i) == 1.638872094839911521020410942677082920935e-154 + 6.788430486774966350907249113759995429568e-155 i":
++ildouble: 1
++ldouble: 1
++Test "Imaginary part of: csqrt (0x1.000002p-126 + 0x1.000002p-126 i) == 1.191195773697904627170323731331667740087e-19 + 4.934094449071842328766868579214125217132e-20 i":
++double: 1
++idouble: 1
++ildouble: 1
++ldouble: 1
+ Test "Imaginary part of: csqrt (0x1.fffffep+127 + 1.0 i) == 1.844674352395372953599975585936590505260e+19 + 2.710505511993121390769065968615872097053e-20 i":
+ float: 1
+ ifloat: 1
+@@ -2818,6 +2846,8 @@ double: 1
+ float: 1
+ idouble: 1
+ ifloat: 1
++ildouble: 1
++ldouble: 1
+ 
+ Function: Imaginary part of "csqrt":
+ double: 1
+-- 
+1.7.3.4
+

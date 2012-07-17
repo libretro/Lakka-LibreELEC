@@ -1,0 +1,46 @@
+From 541428fecf21cdde271acbd280c53bfe5beaafe2 Mon Sep 17 00:00:00 2001
+From: Marek Polacek <polacek@redhat.com>
+Date: Thu, 12 Jul 2012 16:34:47 +0200
+Subject: [PATCH] Fix ynl return value with LDBL_MIN.
+
+---
+ ChangeLog                       |    7 +++++++
+ NEWS                            |    3 ++-
+ math/libm-test.inc              |    5 ++++-
+ sysdeps/ieee754/ldbl-96/e_jnl.c |    3 ++-
+ 4 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/math/libm-test.inc b/math/libm-test.inc
+index a9cc2bd..25a8f41 100644
+--- a/math/libm-test.inc
++++ b/math/libm-test.inc
+@@ -9015,8 +9015,11 @@ yn_test (void)
+   TEST_ff_f (yn, 10, 2.0, -129184.542208039282635913145923304214L);
+   TEST_ff_f (yn, 10, 10.0, -0.359814152183402722051986577343560609L);
+ 
+-  END (yn);
++  /* Check whether yn returns correct value for LDBL_MIN, DBL_MIN,
++     and FLT_MIN.  See Bug 14173.  */
++  TEST_ff_f (yn, 10, min_value, minus_infty, OVERFLOW_EXCEPTION);
+ 
++  END (yn);
+ }
+ 
+ 
+diff --git a/sysdeps/ieee754/ldbl-96/e_jnl.c b/sysdeps/ieee754/ldbl-96/e_jnl.c
+index 2e206e7..36b0d8b 100644
+--- a/sysdeps/ieee754/ldbl-96/e_jnl.c
++++ b/sysdeps/ieee754/ldbl-96/e_jnl.c
+@@ -360,7 +360,8 @@ __ieee754_ynl (int n, long double x)
+       b = __ieee754_y1l (x);
+       /* quit if b is -inf */
+       GET_LDOUBLE_WORDS (se, i0, i1, b);
+-      for (i = 1; i < n && se != 0xffff; i++)
++      /* Use 0xffffffff since GET_LDOUBLE_WORDS sign-extends SE.  */
++      for (i = 1; i < n && se != 0xffffffff; i++)
+ 	{
+ 	  temp = b;
+ 	  b = ((long double) (i + i) / x) * b - a;
+-- 
+1.7.3.4
+

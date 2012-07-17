@@ -1,0 +1,148 @@
+From 7a845b2c237434d4aad790aaba3a973e24ea802f Mon Sep 17 00:00:00 2001
+From: Joseph Myers <joseph@codesourcery.com>
+Date: Tue, 3 Jul 2012 17:10:42 +0000
+Subject: [PATCH] Fix float range reduction problems (bug 14283).
+
+---
+ ChangeLog                            |    9 ++++++++
+ NEWS                                 |    2 +
+ math/libm-test.inc                   |    4 +++
+ sysdeps/i386/fpu/libm-test-ulps      |   16 +++++++-------
+ sysdeps/ieee754/flt-32/k_rem_pio2f.c |   37 +++++++++++++++++++++------------
+ 5 files changed, 46 insertions(+), 22 deletions(-)
+
+diff --git a/math/libm-test.inc b/math/libm-test.inc
+index 48b05a6..3e33348 100644
+--- a/math/libm-test.inc
++++ b/math/libm-test.inc
+@@ -2589,6 +2589,8 @@ cos_test (void)
+   TEST_f_f (cos, 0.80190127184058835, 0.69534156199418473);
+ #endif
+ 
++  TEST_f_f (cos, 0x1.442f74p+15, 2.4407839902314016628485779006274989801517e-06L);
++
+ #ifndef TEST_FLOAT
+   TEST_f_f (cos, 1e22, 0.5232147853951389454975944733847094921409L);
+   TEST_f_f (cos, 0x1p1023, -0.826369834614147994500785680811743734805L);
+@@ -7692,6 +7694,8 @@ sin_test (void)
+   TEST_f_f (sin, 0x1p65, -0.047183876212354673805106149805700013943218L);
+   TEST_f_f (sin, -0x1p65, 0.047183876212354673805106149805700013943218L);
+ 
++  TEST_f_f (sin, 0x1.7f4134p+103, -6.6703229329788657073304190650534846045235e-08L);
++
+ #ifdef TEST_DOUBLE
+   TEST_f_f (sin, 0.80190127184058835, 0.71867942238767868);
+   TEST_f_f (sin, 2.522464e-1, 2.4957989804940911e-1);
+diff --git a/sysdeps/i386/fpu/libm-test-ulps b/sysdeps/i386/fpu/libm-test-ulps
+index 38a69e6..4661aea 100644
+--- a/sysdeps/i386/fpu/libm-test-ulps
++++ b/sysdeps/i386/fpu/libm-test-ulps
+@@ -1656,8 +1656,8 @@ Test "j1 (0.75) == 0.349243602174862192523281016426251335":
+ double: 1
+ idouble: 1
+ Test "j1 (0x1.3ffp+74) == 1.818984347516051243459364437186082741567e-12":
+-float: 1
+-ifloat: 1
++float: 2
++ifloat: 2
+ ildouble: 1
+ ldouble: 1
+ Test "j1 (0x1.ff00000000002p+840) == 1.846591691699331493194965158699937660696e-127":
+@@ -2359,8 +2359,8 @@ float: 1
+ idouble: 1
+ ifloat: 1
+ Test "y0 (0x1.3ffp+74) == 1.818984347516051243459467456433028748678e-12":
+-float: 1
+-ifloat: 1
++float: 2
++ifloat: 2
+ ildouble: 1
+ ldouble: 1
+ Test "y0 (0x1.ff00000000002p+840) == 1.846591691699331493194965158699937660696e-127":
+@@ -2956,9 +2956,9 @@ ldouble: 2
+ 
+ Function: "j1":
+ double: 2
+-float: 1
++float: 2
+ idouble: 2
+-ifloat: 1
++ifloat: 2
+ ildouble: 1
+ ldouble: 1
+ 
+@@ -3128,9 +3128,9 @@ ldouble: 1
+ 
+ Function: "y0":
+ double: 2
+-float: 1
++float: 2
+ idouble: 2
+-ifloat: 1
++ifloat: 2
+ ildouble: 1
+ ldouble: 1
+ 
+diff --git a/sysdeps/ieee754/flt-32/k_rem_pio2f.c b/sysdeps/ieee754/flt-32/k_rem_pio2f.c
+index 06c2f37..e54a067 100644
+--- a/sysdeps/ieee754/flt-32/k_rem_pio2f.c
++++ b/sysdeps/ieee754/flt-32/k_rem_pio2f.c
+@@ -88,7 +88,7 @@ recompute:
+ 	    iq[jz-1] -= i<<(8-q0);
+ 	    ih = iq[jz-1]>>(7-q0);
+ 	} 
+-	else if(q0==0) ih = iq[jz-1]>>8;
++	else if(q0==0) ih = iq[jz-1]>>7;
+ 	else if(z>=(float)0.5) ih=2;
+ 
+ 	if(ih>0) {	/* q > 0.5 */
+@@ -166,24 +166,33 @@ recompute:
+ 		y[0] = (ih==0)? fw: -fw; 
+ 		break;
+ 	    case 1:
+-	    case 2:
+-		fw = 0.0;
+-		for (i=jz;i>=0;i--) fw += fq[i]; 
+-		y[0] = (ih==0)? fw: -fw; 
+-		fw = fq[0]-fw;
+-		for (i=1;i<=jz;i++) fw += fq[i];
+-		y[1] = (ih==0)? fw: -fw; 
++	    case 2:;
++#if __FLT_EVAL_METHOD__ != 0
++		volatile
++#endif
++		float fv = 0.0;
++		for (i=jz;i>=0;i--) fv += fq[i];
++		y[0] = (ih==0)? fv: -fv;
++		fv = fq[0]-fv;
++		for (i=1;i<=jz;i++) fv += fq[i];
++		y[1] = (ih==0)? fv: -fv;
+ 		break;
+ 	    case 3:	/* painful */
+ 		for (i=jz;i>0;i--) {
+-		    fw      = fq[i-1]+fq[i]; 
+-		    fq[i]  += fq[i-1]-fw;
+-		    fq[i-1] = fw;
++#if __FLT_EVAL_METHOD__ != 0
++		    volatile
++#endif
++		    float fv = fq[i-1]+fq[i];
++		    fq[i]  += fq[i-1]-fv;
++		    fq[i-1] = fv;
+ 		}
+ 		for (i=jz;i>1;i--) {
+-		    fw      = fq[i-1]+fq[i]; 
+-		    fq[i]  += fq[i-1]-fw;
+-		    fq[i-1] = fw;
++#if __FLT_EVAL_METHOD__ != 0
++		    volatile
++#endif
++		    float fv = fq[i-1]+fq[i];
++		    fq[i]  += fq[i-1]-fv;
++		    fq[i-1] = fv;
+ 		}
+ 		for (fw=0.0,i=jz;i>=2;i--) fw += fq[i]; 
+ 		if(ih==0) {
+-- 
+1.7.3.4
+
