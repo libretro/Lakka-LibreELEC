@@ -1,0 +1,75 @@
+From 54718450dfd1e7fc9b5946f62765f7451a854385 Mon Sep 17 00:00:00 2001
+From: Marc-Antoine Perennou <Marc-Antoine@Perennou.com>
+Date: Thu, 17 May 2012 20:50:22 +0000
+Subject: udev: Don't use deprecated udev_get_*_path() functions
+
+[These symbols were removed in libudev.so.1.0.0. Replace them with
+hardcoded strings. -- heftig]
+
+Signed-off-by: Marc-Antoine Perennou <Marc-Antoine@Perennou.com>
+---
+diff --git a/src/modules/module-udev-detect.c b/src/modules/module-udev-detect.c
+index 1192194..31416bd 100644
+--- a/src/modules/module-udev-detect.c
++++ b/src/modules/module-udev-detect.c
+@@ -123,7 +123,7 @@ static char *card_get_sysattr(const char *card_idx, const char *name) {
+         goto finish;
+     }
+ 
+-    t = pa_sprintf_malloc("%s/class/sound/card%s", udev_get_sys_path(udev), card_idx);
++    t = pa_sprintf_malloc("/sys/class/sound/card%s", card_idx);
+     card = udev_device_new_from_syspath(udev, t);
+     pa_xfree(t);
+ 
+@@ -282,7 +282,7 @@ static void verify_access(struct userdata *u, struct device *d) {
+     pa_assert(u);
+     pa_assert(d);
+ 
+-    cd = pa_sprintf_malloc("%s/snd/controlC%s", udev_get_dev_path(u->udev), path_get_card_id(d->path));
++    cd = pa_sprintf_malloc("/dev/snd/controlC%s", path_get_card_id(d->path));
+     accessible = access(cd, R_OK|W_OK) >= 0;
+     pa_log_debug("%s is accessible: %s", cd, pa_yes_no(accessible));
+ 
+@@ -621,7 +621,6 @@ fail:
+ }
+ 
+ static int setup_inotify(struct userdata *u) {
+-    char *dev_snd;
+     int r;
+ 
+     if (u->inotify_fd >= 0)
+@@ -632,9 +631,7 @@ static int setup_inotify(struct userdata *u) {
+         return -1;
+     }
+ 
+-    dev_snd = pa_sprintf_malloc("%s/snd", udev_get_dev_path(u->udev));
+-    r = inotify_add_watch(u->inotify_fd, dev_snd, IN_ATTRIB|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF);
+-    pa_xfree(dev_snd);
++    r = inotify_add_watch(u->inotify_fd, "/dev/snd", IN_ATTRIB|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF);
+ 
+     if (r < 0) {
+         int saved_errno = errno;
+diff --git a/src/modules/udev-util.c b/src/modules/udev-util.c
+index 2f18bc4..b0bb17d 100644
+--- a/src/modules/udev-util.c
++++ b/src/modules/udev-util.c
+@@ -180,7 +180,7 @@ int pa_udev_get_info(int card_idx, pa_proplist *p) {
+         goto finish;
+     }
+ 
+-    t = pa_sprintf_malloc("%s/class/sound/card%i", udev_get_sys_path(udev), card_idx);
++    t = pa_sprintf_malloc("/sys/class/sound/card%i", card_idx);
+     card = udev_device_new_from_syspath(udev, t);
+     pa_xfree(t);
+ 
+@@ -277,7 +277,7 @@ char* pa_udev_get_property(int card_idx, const char *name) {
+         goto finish;
+     }
+ 
+-    t = pa_sprintf_malloc("%s/class/sound/card%i", udev_get_sys_path(udev), card_idx);
++    t = pa_sprintf_malloc("/sys/class/sound/card%i", card_idx);
+     card = udev_device_new_from_syspath(udev, t);
+     pa_xfree(t);
+ 
+--
+cgit v0.9.0.2-2-gbebe
