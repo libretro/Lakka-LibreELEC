@@ -22,188 +22,255 @@
 #
 # runlevels: openelec, installer, textmode
 
-if [ -f /var/config/settings.conf ]; then
-  . /var/config/settings.conf
+connman_state() {
+  local dbus_reply="$(mktemp)"
+  if [ -z "$1" ]; then
+    dbus-send --system --type=method_call --print-reply --dest=net.connman / net.connman.Manager.GetProperties >$dbus_reply 2>/dev/null
+  else
+    dbus-send --system --type=method_call --print-reply --dest=net.connman /net/connman/service/$1 net.connman.Service.GetProperties >$dbus_reply 2>/dev/null
+  fi
 
-# save original interface names (eth0, eth1)
-  NET_IFACE_NAME=$NET_IFACE
-  NET2_IFACE_NAME=$NET2_IFACE
-fi
+  ret=$(awk '
+  /string  *"State"/ {
+    getline line
+    if (line ~ /string "/){
+      sub(/.*string "/, "", line)
+      sub(/"/, "", line)
+      print line
+      break
+    }
+  }
+' $dbus_reply)
 
-[ -z "$NET_HOSTNAME" ] && NET_HOSTNAME="openelec"
+  rm -f $dbus_reply
+  echo $ret
+}
 
-# setup hostname
+set_basic() {
+  # run it from here too - debugging
+  if [ -f /etc/init.d/06_systemconfig ]; then
+    . /etc/init.d/06_systemconfig
+  fi
+	
+  if [ -f /var/config/settings.conf ]; then
+    . /var/config/settings.conf
+  fi
+
+  [ -z "$NET_HOSTNAME" ] && NET_HOSTNAME="openelec"
+
+  # setup hostname
   progress "Setup hostname"
   echo "$NET_HOSTNAME" > /proc/sys/kernel/hostname
 
-# create /etc/hosts file, useful for gethostbyname(localhost)
+  # create /etc/hosts file, useful for gethostbyname(localhost)
   progress "creating /etc/hosts"
   echo -e "127.0.0.1\tlocalhost $NET_HOSTNAME" > /etc/hosts
 
-# starting loopback device
+  # starting loopback device
   ifconfig lo up
 
-# add user defined hosts.conf entry's
+  # add user defined hosts.conf entry's
   [ -f $HOME/.config/hosts.conf ] && cat $HOME/.config/hosts.conf >> /etc/hosts
 
-(
-  # setup Networking 1
-    progress "setup Networking 1"
+  CONNMAN_SETTINGS="/var/lib/connman/settings"
 
-    CONNMAN_PROFILE="/var/lib/connman/default.profile"
+  rm -rf /var/lib/connman
+  mkdir -p /var/lib/connman
+  mkdir -p /var/run/connman
 
-    mkdir -p /var/run/connman
-    mkdir -p /var/lib/connman
+  cat > $CONNMAN_SETTINGS <<EOF
+[global]
+OfflineMode=false
+Timeservers=0.pool.ntp.org;1.pool.ntp.org;2.pool.ntp.org;3.pool.ntp.org
+[WiFi]
+Enable=true
+[Wired]
+Enable=true
+[Bluetooth]
+Enable=false
+[3G]
+Enable=false
+[WiMAX]
+Enable=false
+EOF
+}
 
-  # NETWORK 1: ( LAN / WLAN )
-    for i in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-      if [ ! -f /sys/class/net/$NET_IFACE/address ]; then
-        logger -t Connman "### [$i] cannot find /sys/class/net/$NET_IFACE/address ###"
-      else
-        logger -t Connman "### [$i] found /sys/class/net/$NET_IFACE/address, continue ###"
-        NET_IFACE=`cat /sys/class/net/$NET_IFACE/address | sed 's/://g'`
-        break
-      fi
-      usleep 500000
-    done
-
-    if [ "$NET_NETWORK" = "WLAN" -a -n "$NET_SSID" ]; then
-      NET_SSID_HEX=`echo -n "$NET_SSID" | od -tx1 | cut -c8-| tr -d ' \n'`
-
-      # NET_SECURITY: ( NONE / WEP / WPA/WPA2 )
-        if [ "$NET_SECURITY" = "WEP" -a -n "$NET_PASSPHRASE" ]; then
-          MODE="managed_wep"
-        elif [ "$NET_SECURITY" = "WPA/WPA2" -a -n "$NET_PASSPHRASE"  ]; then
-          MODE="managed_psk"
-        else
-          MODE="managed_none"
-        fi
-
-        if [ "$NET_HIDDEN" = "true" ]; then
-          echo "[wifi_${NET_IFACE}_hidden_${MODE}]" > $CONNMAN_PROFILE
-        else
-          echo "[wifi_${NET_IFACE}_${NET_SSID_HEX}_${MODE}]" > $CONNMAN_PROFILE
-        fi
-
-        echo "Name=$NET_SSID"  >> $CONNMAN_PROFILE
-        echo "SSID=$NET_SSID_HEX"  >> $CONNMAN_PROFILE
-        [ -n "$NET_PASSPHRASE" ] && echo "Passphrase=$NET_PASSPHRASE" >> $CONNMAN_PROFILE
-        echo "Favorite=true" >> $CONNMAN_PROFILE
-        echo "AutoConnect=true" >> $CONNMAN_PROFILE
-    else
-      MODE="cable"
-      echo "[ethernet_${NET_IFACE}_${MODE}]" > $CONNMAN_PROFILE
-    fi
-
-  # IP settings
-    if [ -z "$NET_IPADDRESS" -o "$NET_IPADDRESS" = "0.0.0.0" ]; then
-      echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
-    else
-      echo "IPv4.method=manual" >> $CONNMAN_PROFILE
-      echo "IPv4.local_address=$NET_IPADDRESS" >> $CONNMAN_PROFILE
-      [ -n "$NET_PREFIXLEN" ] && echo "IPv4.netmask_prefixlen=$NET_PREFIXLEN" >> $CONNMAN_PROFILE
-      [ -n "$NET_GATEWAY" ] && echo "IPv4.gateway=$NET_GATEWAY" >> $CONNMAN_PROFILE
-    fi
-
-      [ -n "$NET_DNS1" ] && NET_NAMESERVER="$NET_DNS1"
-      [ -n "$NET_DNS2" ] && NET_NAMESERVER="$NET_NAMESERVER;$NET_DNS2"
-      [ -n "$NET_DNS3" ] && NET_NAMESERVER="$NET_NAMESERVER;$NET_DNS3"
-      [ -n "$NET_NAMESERVER" ] && echo "Nameservers=$NET_NAMESERVER;" >> $CONNMAN_PROFILE
-
-  # END OF NETWORK 1
-
-  # NETWORK 2: ( LAN / WLAN )
-  if [ -n "$NET2_NETWORK" -a "$NET2_NETWORK" != "NONE" -a "$NET2_IFACE_NAME" != "$NET_IFACE_NAME" ]; then
-  # setup Networking 2
-    progress "setup Networking 2"
-
-    for i in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-      if [ ! -f /sys/class/net/$NET2_IFACE/address ]; then
-        logger -t Connman "### [$i] cannot find /sys/class/net/$NET2_IFACE/address ###"
-      else
-        logger -t Connman "### [$i] found /sys/class/net/$NET2_IFACE/address, continue ###"
-        NET2_IFACE=`cat /sys/class/net/$NET2_IFACE/address | sed 's/://g'`
-        break
-      fi
-      usleep 500000
-    done
-
-    if [ "$NET2_NETWORK" = "WLAN" -a -n "$NET2_SSID" ]; then
-      NET2_SSID_HEX=`echo -n "$NET2_SSID" | od -tx1 | cut -c8-| tr -d ' \n'`
-
-      # NET_SECURITY: ( NONE / WEP / WPA/WPA2 )
-        if [ "$NET2_SECURITY" = "WEP" -a -n "$NET2_PASSPHRASE" ]; then
-          MODE="managed_wep"
-        elif [ "$NET2_SECURITY" = "WPA/WPA2" -a -n "$NET2_PASSPHRASE"  ]; then
-          MODE="managed_psk"
-        else
-          MODE="managed_none"
-        fi
-
-        if [ "$NET2_HIDDEN" = "true" ]; then
-          echo "[wifi_${NET2_IFACE}_hidden_${MODE}]" >> $CONNMAN_PROFILE
-        else
-          echo "[wifi_${NET2_IFACE}_${NET2_SSID_HEX}_${MODE}]" >> $CONNMAN_PROFILE
-        fi
-
-        echo "Name=$NET2_SSID"  >> $CONNMAN_PROFILE
-        echo "SSID=$NET2_SSID_HEX"  >> $CONNMAN_PROFILE
-        [ -n "$NET2_PASSPHRASE" ] && echo "Passphrase=$NET2_PASSPHRASE" >> $CONNMAN_PROFILE
-        echo "Favorite=true" >> $CONNMAN_PROFILE
-        echo "AutoConnect=true" >> $CONNMAN_PROFILE
-    else
-      MODE="cable"
-      echo "[ethernet_${NET2_IFACE}_${MODE}]" >> $CONNMAN_PROFILE
-    fi
-
-  # IP settings
-    if [ -z "$NET2_IPADDRESS" -o "$NET2_IPADDRESS" = "0.0.0.0" ]; then
-      echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
-    else
-      echo "IPv4.method=manual" >> $CONNMAN_PROFILE
-      echo "IPv4.local_address=$NET2_IPADDRESS" >> $CONNMAN_PROFILE
-      [ -n "$NET2_PREFIXLEN" ] && echo "IPv4.netmask_prefixlen=$NET2_PREFIXLEN" >> $CONNMAN_PROFILE
-      [ -n "$NET2_GATEWAY" ] && echo "IPv4.gateway=$NET2_GATEWAY" >> $CONNMAN_PROFILE
-    fi
-
-      [ -n "$NET2_DNS1" ] && NET2_NAMESERVER="$NET2_DNS1"
-      [ -n "$NET2_DNS2" ] && NET2_NAMESERVER="$NET2_NAMESERVER;$NET2_DNS2"
-      [ -n "$NET2_DNS3" ] && NET2_NAMESERVER="$NET2_NAMESERVER;$NET2_DNS3"
-      [ -n "$NET2_NAMESERVER" ] && echo "Nameservers=$NET2_NAMESERVER;" >> $CONNMAN_PROFILE
-
-(
-    # wait some time, put eth1 (NET2_IFACE) down and then up
-    # this is just temporary solution until I figure out how to
-    # do properly with connman
-      usleep 5000000
-      ifconfig $NET2_IFACE_NAME down
-      usleep 1000000
-      ifconfig $NET2_IFACE_NAME up
-)&
-
-  fi
-  # END OF NETWORK 2
-
-  # overwrite created profile with custom one if exist (debug use only)
-    DEBUG_CONNMAN_PROFILE="/storage/.config/connman.profile"
-    [ -f "$DEBUG_CONNMAN_PROFILE" ] && cp $DEBUG_CONNMAN_PROFILE $CONNMAN_PROFILE
-    [ -f "$DEBUG_CONNMAN_PROFILE" ] && mv $DEBUG_CONNMAN_PROFILE ${DEBUG_CONNMAN_PROFILE}_saved
-
+set_hwclock() {
   # set hwclock
   if [ -f /proc/driver/rtc ]; then
     (
-    # sleep 30 seconds before hw clock is synced
-    usleep 30000000
-    progress "syncing hardware clock with system clock"
-    /sbin/hwclock --systohc --utc
+      # sleep 30 seconds before hw clock is synced
+      usleep 30000000
+      progress "syncing hardware clock with system clock"
+      /sbin/hwclock --systohc --utc
     )&
   fi
-  
-  # starting Connection manager
-    progress "starting Connection manager"
+}
 
-    while true; do
-      /usr/sbin/connmand -n > /dev/null 2>&1
-      usleep 250000
+set_ip_address() {
+  if [ -z "$NET_IPADDRESS" -o "$NET_IPADDRESS" = "0.0.0.0" ]; then
+    echo "IPv4.method=dhcp" >> $CONNMAN_PROFILE
+  else
+    echo "IPv4.method=manual" >> $CONNMAN_PROFILE
+    echo "IPv4.local_address=$NET_IPADDRESS" >> $CONNMAN_PROFILE
+    [ -n "$NET_PREFIXLEN" ] && echo "IPv4.netmask_prefixlen=$NET_PREFIXLEN" >> $CONNMAN_PROFILE
+    [ -n "$NET_GATEWAY" ] && echo "IPv4.gateway=$NET_GATEWAY" >> $CONNMAN_PROFILE
+  fi
+
+  [ -n "$NET_DNS1" ] && NET_NAMESERVER="$NET_DNS1;"
+  [ -n "$NET_DNS2" ] && NET_NAMESERVER="${NET_NAMESERVER}$NET_DNS2;"
+  [ -n "$NET_DNS3" ] && NET_NAMESERVER="${NET_NAMESERVER}$NET_DNS3;"
+  [ -n "$NET_NAMESERVER" ] && echo "Nameservers=$NET_NAMESERVER" >> $CONNMAN_PROFILE
+
+  (
+    local log_file="/tmp/${PROFILE_NAME}.log"
+
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40; do
+      echo "--- $i $PROFILE_NAME ------------" >>$log_file 2>&1
+      dbus-send --system --dest=net.connman --print-reply /net/connman/service/${PROFILE_NAME} net.connman.Service.Connect >>$log_file 2>&1
+      usleep 500000
+
+      state=$(connman_state $PROFILE_NAME)
+      echo "state: <$state>" >>$log_file 2>&1
+
+      if [ "$state" = "online" -o "$state" = "ready" ]; then
+        echo "Done." >>$log_file 2>&1
+        break
+      else
+        usleep 1000000
+      fi
     done
+  )&
+}
+
+set_wired_interface() {
+  local NET_MAC=""
+
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+    if [ ! -f /sys/class/net/$NET_IFACE/address ]; then
+      logger -t Connman "### [$i] cannot find /sys/class/net/$NET_IFACE/address ###"
+      usleep 500000
+    else
+      logger -t Connman "### [$i] found /sys/class/net/$NET_IFACE/address, continue ###"
+      NET_MAC=`cat /sys/class/net/$NET_IFACE/address | sed 's/://g'`
+      break
+    fi
+  done
+
+  # don't continue if interface is not found
+  [ -z "$NET_MAC" ] && return
+
+  PROFILE_NAME="ethernet_${NET_MAC}_cable"
+  CONNMAN_PROFILE=/var/lib/connman/${PROFILE_NAME}/settings
+
+  mkdir -p /var/lib/connman/${PROFILE_NAME}
+
+  echo "[${PROFILE_NAME}]" > $CONNMAN_PROFILE
+  echo "AutoConnect=true" >> $CONNMAN_PROFILE
+  if [ "$1" = "1" ]; then
+    echo "Favorite=true" >> $CONNMAN_PROFILE
+  else
+    echo "Favorite=false" >> $CONNMAN_PROFILE
+  fi
+
+  set_ip_address
+}
+
+set_wireless_interface() {
+  # we need ssid
+  [ -z "$NET_SSID" ] && return
+
+  local NET_SSID_HEX=`echo -n "$NET_SSID" | od -tx1 | cut -c8-| tr -d ' \n'`
+  local NET_MAC=""
+	
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+    if [ ! -f /sys/class/net/$NET_IFACE/address ]; then
+      logger -t Connman "### [$i] cannot find /sys/class/net/$NET_IFACE/address ###"
+      usleep 500000
+    else
+      logger -t Connman "### [$i] found /sys/class/net/$NET_IFACE/address, continue ###"
+      NET_MAC=`cat /sys/class/net/$NET_IFACE/address | sed 's/://g'`
+      break
+    fi
+  done
+
+  # don't continue if interface is not found
+  [ -z "$NET_MAC" ] && return
+  
+  # NET_SECURITY: ( NONE / WEP / WPA/WPA2 )
+  if [ "$NET_SECURITY" = "WEP" -a -n "$NET_PASSPHRASE" ]; then
+    MODE="managed_wep"
+  elif [ "$NET_SECURITY" = "WPA/WPA2" -a -n "$NET_PASSPHRASE"  ]; then
+    MODE="managed_psk"
+  else
+    MODE="managed_none"
+  fi
+
+  if [ "$NET_HIDDEN" = "true" ]; then
+    PROFILE_NAME="wifi_${NET_MAC}_hidden_${MODE}"
+  else
+    PROFILE_NAME="wifi_${NET_MAC}_${NET_SSID_HEX}_${MODE}"
+  fi
+
+  CONNMAN_PROFILE=/var/lib/connman/${PROFILE_NAME}/settings
+
+  mkdir -p /var/lib/connman/${PROFILE_NAME}
+
+  echo "[${PROFILE_NAME}]" > $CONNMAN_PROFILE
+  echo "Name=$NET_SSID" >> $CONNMAN_PROFILE
+  echo "SSID=$NET_SSID_HEX" >> $CONNMAN_PROFILE
+  [ -n "$NET_PASSPHRASE" ] && echo "Passphrase=$NET_PASSPHRASE" >> $CONNMAN_PROFILE
+  echo "AutoConnect=true" >> $CONNMAN_PROFILE	
+  if [ "$1" = "1" ]; then
+    echo "Favorite=true" >> $CONNMAN_PROFILE
+  else
+    echo "Favorite=false" >> $CONNMAN_PROFILE
+  fi
+  set_ip_address
+}
+
+set_interface() {
+  for i in 1 2; do
+    if [ "$i" = "2" ]; then
+      if [ -n "$NET2_NETWORK" -a "$NET2_NETWORK" != "NONE" -a "$NET2_IFACE" != "$NET_IFACE" ]; then
+        # set second interface
+        NET_DNS1="$NET2_DNS1"
+        NET_DNS2="$NET2_DNS2"
+        NET_DNS3="$NET2_DNS3"
+        NET_GATEWAY="$NET2_GATEWAY"
+        NET_HIDDEN="$NET2_HIDDEN"
+        NET_IFACE="$NET2_IFACE"
+        NET_IPADDRESS="$NET2_IPADDRESS"
+        NET_NETWORK="$NET2_NETWORK"
+        NET_PASSPHRASE="$NET2_PASSPHRASE"
+        NET_PREFIXLEN="$NET2_PREFIXLEN"
+        NET_SECURITY="$NET2_SECURITY"
+        NET_SSID="$NET2_SSID"
+      else
+        break
+      fi
+    fi
+
+    if [ "$NET_NETWORK" = "WLAN" ]; then
+      progress "Setup networking $i WLAN"
+      set_wireless_interface $i
+    elif [ "$NET_NETWORK" = "LAN" ]; then
+      progress "Setup networking $i LAN"
+      set_wired_interface $i
+    fi
+  done
+}
+
+(
+  # starting Connection manager
+  progress "starting Connection manager"
+
+  while true; do
+    set_basic
+    set_interface
+    set_hwclock
+
+    /usr/sbin/connmand -n > /dev/null 2>&1
+    usleep 250000
+  done
 )&
