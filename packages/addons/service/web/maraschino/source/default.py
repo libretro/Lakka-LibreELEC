@@ -18,6 +18,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-import xbmc, time, os, subprocess
+import xbmc, time, os, subprocess, xbmcaddon
 
-subprocess.Popen("maraschino.service", shell=True, close_fds=True)
+__scriptname__ = "maraschino service"
+__author__ = "OpenELEC"
+__url__ = "http://www.openelec.tv"
+__settings__   = xbmcaddon.Addon(id='service.web.maraschino')
+__cwd__        = __settings__.getAddonInfo('path')
+__start__      = xbmc.translatePath( os.path.join( __cwd__, 'bin', "maraschino.start") )
+__stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "maraschino.stop") )
+
+#make binary files executable in addon bin folder
+subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
+
+subprocess.Popen(__start__, shell=True, close_fds=True)
+
+while (not xbmc.abortRequested):
+  time.sleep(0.250)
+
+subprocess.Popen(__stop__, shell=True, close_fds=True)
