@@ -20,12 +20,19 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+[ -z "$BOOT_ROOT" ] && BOOT_ROOT="/flash"
+[ -z "$SYSTEM_ROOT" ] && SYSTEM_ROOT=""
 
-mkdir -p $INSTALL/usr/share/bootloader
-  cp $PKG_BUILD/LICENCE* $INSTALL/usr/share/bootloader
-  cp $PKG_BUILD/arm128_start.elf $INSTALL/usr/share/bootloader/start.elf
-  cp $PKG_BUILD/bootcode.bin $INSTALL/usr/share/bootloader
-  cp $PKG_BUILD/loader.bin $INSTALL/usr/share/bootloader
+# mount $BOOT_ROOT r/w
+  mount -o remount,rw $BOOT_ROOT
 
-  cp $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
+# update bootloader files
+  cp $SYSTEM_ROOT/usr/share/bootloader/LICENCE* $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/bootcode.bin $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/loader.bin $BOOT_ROOT
+
+# mount $BOOT_ROOT r/o
+  sync
+  mount -o remount,ro $BOOT_ROOT
+
