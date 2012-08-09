@@ -1,7 +1,7 @@
 diff -Naur xbmc-frodo-433f681/configure.in xbmc-frodo-433f681.patch/configure.in
 --- xbmc-frodo-433f681/configure.in	2012-06-15 02:52:26.000000000 +0200
 +++ xbmc-frodo-433f681.patch/configure.in	2012-06-19 05:26:41.472596903 +0200
-@@ -405,6 +405,12 @@
+@@ -430,6 +430,12 @@
    [use_texturepacker=$enableval],
    [use_texturepacker=auto])
  
@@ -14,7 +14,7 @@ diff -Naur xbmc-frodo-433f681/configure.in xbmc-frodo-433f681.patch/configure.in
  AC_ARG_WITH([lirc-device],
    [AS_HELP_STRING([--with-lirc-device=file],
    [specify the default LIRC device (default is /dev/lircd)])],
-@@ -516,8 +522,7 @@
+@@ -563,8 +569,7 @@
       use_cpu=cortex-a8
       check_sdl_arch=[`file /opt/local/lib/libSDL_image.dylib | awk '{V=7; print $V}'`]
       if test "x$check_sdl_arch" = "xi386"; then
@@ -24,16 +24,7 @@ diff -Naur xbmc-frodo-433f681/configure.in xbmc-frodo-433f681.patch/configure.in
       else
         use_texturepacker=no
       fi
-@@ -533,8 +538,6 @@
-   *86*-apple-darwin*)
-      use_joystick=no
-      use_vtbdecoder=no
--     use_texturepacker_native=yes
--     USE_TEXTUREPACKER_NATIVE_ROOT="$prefix"
-      ARCH="x86-osx"
-      AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_DARWIN -DTARGET_DARWIN_OSX -D_LINUX")
-      ;;
-@@ -1756,13 +1759,13 @@
+@@ -1869,13 +1874,13 @@
  
  USE_TEXTUREPACKER_NATIVE=0
  if test "x$use_texturepacker" != "xno"; then
@@ -84,8 +75,8 @@ diff -Naur xbmc-frodo-433f681/lib/libsquish/Makefile.in xbmc-frodo-433f681.patch
 -NATIVE_LIB=libsquish-native.so
 -CLEAN_FILES+=$(NATIVE_LIB)
 -
- ifeq ($(findstring osx,$(ARCH)),osx)
--NATIVE_ARCH=$(shell echo $(CXXFLAGS) | grep x86_64 >/dev/null && echo -m64 || echo -m32)
+ ifeq ($(findstring Darwin,$(shell uname -s)),Darwin)
+-NATIVE_ARCH=@DARWIN_NATIVE_ARCH@
 +  HOST_CXXFLAGS += $(shell echo $(CXXFLAGS) | grep x86_64 >/dev/null && echo -m64 || echo -m32)
  endif
  
@@ -94,7 +85,7 @@ diff -Naur xbmc-frodo-433f681/lib/libsquish/Makefile.in xbmc-frodo-433f681.patch
 +
  # TexturePacker links to libsquish and needs to run on build system, so make a native flavor.
  $(NATIVE_LIB): $(SRCS)
- ifeq ($(findstring osx,$(ARCH)),osx)
+ ifeq ($(findstring Darwin,$(shell uname -s)),Darwin)
 -	g++ $(NATIVE_ARCH) -DSQUISH_USE_SSE=2 -msse2 -I. $(SRCS) -dynamiclib -install_name `pwd`/libsquish-native.so -o $@
 +	$(HOST_CXX) $(HOST_CXXFLAGS) $(SRCS) -dynamiclib -install_name `pwd`/libsquish-native.so -o $@
  else
@@ -107,7 +98,7 @@ diff -Naur xbmc-frodo-433f681/lib/libsquish/Makefile.in xbmc-frodo-433f681.patch
 diff -Naur xbmc-frodo-433f681/tools/TexturePacker/Makefile.in xbmc-frodo-433f681.patch/tools/TexturePacker/Makefile.in
 --- xbmc-frodo-433f681/tools/TexturePacker/Makefile.in	2012-06-15 02:52:20.000000000 +0200
 +++ xbmc-frodo-433f681.patch/tools/TexturePacker/Makefile.in	2012-06-19 05:35:15.349564918 +0200
-@@ -1,48 +1,51 @@
+@@ -1,56 +1,52 @@
 -DEFINES += -D_LINUX -DUSE_LZO_PACKING
 +DEFINES       += -D_LINUX -DUSE_LZO_PACKING
  ifneq ($(or $(findstring powerpc,@ARCH@),$(findstring ppc, @ARCH@)),)
@@ -142,24 +133,31 @@ diff -Naur xbmc-frodo-433f681/tools/TexturePacker/Makefile.in xbmc-frodo-433f681
    -I@abs_top_srcdir@/xbmc \
    -I@abs_top_srcdir@/xbmc/linux
  
--ifeq (@USE_TEXTUREPACKER_NATIVE@,1)
--NATIVE_ROOT_PATH=@USE_TEXTUREPACKER_NATIVE_ROOT@
--ifdef NATIVE_ROOT_PATH
+-RPATH=-Wl,-rpath=$(NATIVE_ROOT_PATH)/lib
 +HOST_CXXFLAGS += \
 +  -I. \
 +  -I@abs_top_srcdir@/lib \
 +  -I@abs_top_srcdir@/xbmc \
 +  -I@abs_top_srcdir@/xbmc/linux \
 +  -I$(HOST_ROOT_PATH)/include
-+
- ifeq ($(findstring osx,@ARCH@),osx)
+ 
+-ifeq (@USE_TEXTUREPACKER_NATIVE@,1)
+-NATIVE_ROOT_PATH=@USE_TEXTUREPACKER_NATIVE_ROOT@
+-ifdef NATIVE_ROOT_PATH
+ ifeq ($(findstring Darwin,$(shell uname -s)),Darwin)
  DEFINES += -DTARGET_DARWIN
- NATIVE_ARCH=$(shell echo $(CXXFLAGS) | grep x86_64 >/dev/null && echo -m64 || echo -m32)
+ NATIVE_ARCH=@DARWIN_NATIVE_ARCH@
+ RPATH=
  endif
--CXXFLAGS+= -I$(NATIVE_ROOT_PATH)/include
--LIBS    += -L$(NATIVE_ROOT_PATH)/lib
+-NATIVE_CXXFLAGS+= -I. \
+-                  -I$(NATIVE_ROOT_PATH)/include \
+-                  -I@abs_top_srcdir@/lib \
+-                  -I@abs_top_srcdir@/xbmc \
+-                  -I@abs_top_srcdir@/xbmc/linux
+-NATIVE_LIBS    += -L$(NATIVE_ROOT_PATH)/lib
 -endif
--LIBS    += -L@abs_top_srcdir@/lib/libsquish -lsquish-native
+-NATIVE_LIBS    += -lSDL_image -lSDL -llzo2
+-NATIVE_LIBS    += -L@abs_top_srcdir@/lib/libsquish -lsquish-native
 -else
 -LIBS    += -L@abs_top_srcdir@/lib/libsquish -lsquish
 -endif
@@ -182,7 +180,7 @@ diff -Naur xbmc-frodo-433f681/tools/TexturePacker/Makefile.in xbmc-frodo-433f681
  ifeq (@USE_TEXTUREPACKER_NATIVE@,1)
  # TexturePacker run native on build system, build it with native tools
  $(TARGET): $(SRCS)
--	g++ $(DEFINES) $(NATIVE_ARCH) $(CXXFLAGS) $(SRCS) $(LIBS) -o $(TARGET)
+-	g++ $(DEFINES) $(NATIVE_ARCH) $(NATIVE_CXXFLAGS) $(SRCS) $(NATIVE_LIBS) $(RPATH) -o $(TARGET)
 +	make -C @abs_top_srcdir@/lib/libsquish libsquish-native.so
 +	$(HOST_CXX) $(DEFINES) $(NATIVE_ARCH) $(HOST_CXXFLAGS) $(SRCS) $(HOST_LIBS) -o $(TARGET)
  clean:
