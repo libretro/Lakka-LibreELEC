@@ -295,6 +295,25 @@ NBD_DEVS="0"
     fi
   }
 
+  update_bootloader() {
+    if [ -f "/flash/$IMAGE_SYSTEM" ]; then
+    # /flash is filesystem with system image file
+      export BOOT_ROOT="/flash"
+      export SYSTEM_ROOT="/sysroot"
+
+      mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+
+      if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
+        echo "updating Bootloader..."
+          $IONICE /bin/busybox sh $SYSTEM_ROOT/usr/share/bootloader/update.sh
+          $IONICE /bin/busybox sync
+      fi
+
+      umount /sysroot
+    fi
+  }
+
+
   hfsdiskprep() {
     for DEVICE in /dev/sd*; do
       for device in $(/bin/busybox blkid $DEVICE); do
@@ -353,10 +372,14 @@ NBD_DEVS="0"
     fi
   }
 
-  mount_disks() {
-    progress "Mounting disks"
+  mount_flash() {
+    progress "Mounting flash"
 
     mount_part "$boot" "/flash" "ro,noatime"
+  }
+
+  mount_storage() {
+    progress "Mounting storage"
 
     if [ -n "$disk" ]; then
       if [ -n "$OVERLAY" ]; then
@@ -411,6 +434,7 @@ NBD_DEVS="0"
       if [ "$MD5_FAILED" -eq "0" -o "$MD5_NOCHECK" -eq "1" ] ; then
         update "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
         update "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+        update_bootloader
         REBOOT="1"
       else
         /bin/busybox rm "$UPDATE_DIR/$UPDATE_KERNEL"
@@ -451,9 +475,10 @@ NBD_DEVS="0"
 # main boot sequence
   for BOOT_STEP in \
       load_modules \
-      load_splash \
       check_disks \
-      mount_disks \
+      mount_flash \
+      load_splash \
+      mount_storage \
       check_update \
       prepare_sysroot; do
     $BOOT_STEP
