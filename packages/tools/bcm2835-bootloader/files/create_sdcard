@@ -22,6 +22,10 @@
 
 # usage:   sudo ./create_sdcard <drive>
 # example: sudo ./create_sdcard /dev/sdb
+# loop example: sudo ./create_sdcard /dev/loop0 ~/vSD.img
+
+# create an empty image file for use with loop device like this:
+# dd if=/dev/zero of=~/vSD.img bs=1M count=910
 
 if [ "$(id -u)" != "0" ]; then
   clear
@@ -38,6 +42,7 @@ if [ -z "$1" ]; then
   echo "# please execute with your drive as option              #"
   echo "# example: sudo ./create_sdcard /dev/sdb                #"
   echo "# or:      sudo ./create_sdcard /dev/mmcblk0            #"
+  echo "# or:      sudo ./create_sdcard /dev/loop0 ~/vSD.img    #"
   echo "#########################################################"
   exit 1
 fi
@@ -46,6 +51,11 @@ DISK="$1"
 if [ "$DISK" = "/dev/mmcblk0" ]; then
   PART1="${DISK}p1"
   PART2="${DISK}p2"
+elif [ "$DISK" = "/dev/loop0" ]; then
+  PART1="${DISK}p1"
+  PART2="${DISK}p2"
+  IMGFILE="$2"
+  losetup $DISK $IMGFILE
 else
   PART1="${DISK}1"
   PART2="${DISK}2"
@@ -199,6 +209,12 @@ echo "#########################################################"
   echo "creating filesystem on $PART2..."
   mkfs.ext4 "$PART2" -L Storage
 
+# remount loopback device
+  if [ "$DISK" = "/dev/loop0" ]; then
+    losetup -d $DISK
+    losetup $DISK $IMGFILE -o 1048576 --sizelimit 131071488
+    PART1=$DISK
+  fi
 
 # mount partition
   echo "mounting partition $PART1 ..."
@@ -238,5 +254,10 @@ echo "#########################################################"
 # cleaning
   echo "cleaning tempdir..."
   rmdir $MOUNTPOINT
+
+# unmount loopback device
+  if [ "$DISK" = "/dev/loop0" ]; then
+    losetup -d $DISK
+  fi
 
 echo "...installation finished"
