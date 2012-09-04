@@ -1,0 +1,1420 @@
+From 634226f3c604c38d6dd245800f05673583ba2dca Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Thu, 30 Aug 2012 12:38:39 +0200
+Subject: [PATCH 01/10] backport vdpau changes
+
+---
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      |    4 +-
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp     |   59 +++-----------------
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h       |   10 ----
+ xbmc/settings/GUISettings.cpp                      |    2 +-
+ xbmc/settings/GUIWindowSettingsCategory.cpp        |    4 +-
+ 5 files changed, 13 insertions(+), 66 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
+index 3416506..01a8c78 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
+@@ -132,8 +132,7 @@ struct DVDVideoUserData
+ #define DVP_FLAG_NOSKIP             0x00000010 // indicate this picture should never be dropped
+ #define DVP_FLAG_DROPPED            0x00000020 // indicate that this picture has been dropped in decoder stage, will have no data
+ #define DVP_FLAG_DROPDEINT          0x00000040 // indicate that this picture was requested to have been dropped in deint stage
+-
+-#define DVP_FLAG_SKIP_PROC          0x00000100
++#define DVP_FLAG_NO_POSTPROC        0x00000100
+ #define DVP_FLAG_DRAIN              0x00000200
+ 
+ // DVP_FLAG 0x00000100 - 0x00000f00 is in use by libmpeg2!
+@@ -155,7 +154,6 @@ struct DVDVideoUserData
+ #define VC_FLUSHED  0x00000010  // the decoder lost it's state, we need to restart decoding again
+ #define VC_DROPPED  0x00000020  // needed to identify if a picture was dropped
+ #define VC_HURRY    0x00000040
+-#define VC_SKIPPROC 0x00000080
+ 
+ class CDVDVideoCodec
+ {
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
+index aed9d63..16edf55 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
+@@ -95,10 +95,8 @@
+   m_vdpauConfig.videoSurfaces = &m_videoSurfaces;
+   m_vdpauConfig.videoSurfaceSec = &m_videoSurfaceSec;
+ 
+-  m_picAge.b_age    = m_picAge.ip_age[0] = m_picAge.ip_age[1] = 256*256*256*64;
+   m_vdpauConfigured = false;
+   m_DisplayState = VDPAU_OPEN;
+-  m_speed = DVD_PLAYSPEED_NORMAL;
+ }
+ 
+ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int surfaces)
+@@ -252,13 +250,6 @@ long CDecoder::ReleasePicReference()
+ 
+ void CDecoder::SetWidthHeight(int width, int height)
+ {
+-  int vdpauMaxHeight = g_advancedSettings.m_videoVDPAUmaxHeight;
+-  if (vdpauMaxHeight > 0 && height > vdpauMaxHeight)
+-  {
+-    width = MathUtils::round_int((double)width * vdpauMaxHeight / height);
+-    height = vdpauMaxHeight;
+-  }
+-
+   m_vdpauConfig.upscale = g_advancedSettings.m_videoVDPAUScaling;
+ 
+   //pick the smallest dimensions, so we downscale with vdpau and upscale with opengl when appropriate
+@@ -282,7 +273,7 @@ void CDecoder::SetWidthHeight(int width, int height)
+     m_vdpauConfig.outWidth = width;
+     m_vdpauConfig.outHeight = height;
+   }
+-  CLog::Log(LOGDEBUG, "CVDPAU::SetWidthHeight Setting OutWidth: %i OutHeight: %i vdpauMaxHeight: %i", m_vdpauConfig.outWidth, m_vdpauConfig.outHeight, vdpauMaxHeight);
++  CLog::Log(LOGDEBUG, "CVDPAU::SetWidthHeight Setting OutWidth: %i OutHeight: %i", m_vdpauConfig.outWidth, m_vdpauConfig.outHeight);
+ }
+ 
+ void CDecoder::OnLostDevice()
+@@ -710,7 +701,6 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
+   //CLog::Log(LOGNOTICE,"%s",__FUNCTION__);
+   CDVDVideoCodecFFmpeg* ctx        = (CDVDVideoCodecFFmpeg*)avctx->opaque;
+   CDecoder*             vdp        = (CDecoder*)ctx->GetHardware();
+-  struct PictureAge*    pA         = &vdp->m_picAge;
+ 
+   // while we are waiting to recover we can't do anything
+   CSingleLock lock(vdp->m_DecoderSection);
+@@ -777,18 +767,6 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
+ 
+   pic->linesize[0] = pic->linesize[1] =  pic->linesize[2] = 0;
+ 
+-  if(pic->reference)
+-  {
+-    pA->ip_age[0]= pA->ip_age[1]+1;
+-    pA->ip_age[1]= 1;
+-    pA->b_age++;
+-  }
+-  else
+-  {
+-    pA->ip_age[0]++;
+-    pA->ip_age[1]++;
+-    pA->b_age = 1;
+-  }
+   pic->type= FF_BUFFER_TYPE_USER;
+ 
+   render->state |= FF_VDPAU_STATE_USED_FOR_REFERENCE;
+@@ -937,11 +915,7 @@ int CDecoder::Decode(AVCodecContext *avctx, AVFrame *pFrame, bool bSoftDrain, bo
+     m_bufferStats.IncDecoded();
+     m_vdpauOutput.m_dataPort.SendOutMessage(COutputDataProtocol::NEWFRAME, &pic, sizeof(pic));
+ 
+-    m_codecControl = pic.DVDPic.iFlags & (DVP_FLAG_DRAIN | DVP_FLAG_SKIP_PROC);
+-    if (m_codecControl & DVP_FLAG_SKIP_PROC)
+-    {
+-      m_bufferStats.SetCmd(DVP_FLAG_SKIP_PROC);
+-    }
++    m_codecControl = pic.DVDPic.iFlags & (DVP_FLAG_DRAIN | DVP_FLAG_NO_POSTPROC);
+   }
+ 
+   int retval = 0;
+@@ -1017,7 +991,7 @@ int CDecoder::Decode(AVCodecContext *avctx, AVFrame *pFrame, bool bSoftDrain, bo
+   uint64_t diff = CurrentHostCounter() - startTime;
+   if (retval & VC_PICTURE)
+   {
+-    m_bufferStats.SetParams(diff, m_speed);
++    m_bufferStats.SetParams(diff, m_codecControl);
+   }
+   if (diff*1000/CurrentHostFrequency() > 50)
+     CLog::Log(LOGDEBUG,"CVDPAU::Decode long wait: %d", (int)((diff*1000)/CurrentHostFrequency()));
+@@ -1079,11 +1053,6 @@ bool CDecoder::CanSkipDeint()
+   return m_bufferStats.CanSkipDeint();
+ }
+ 
+-void CDecoder::SetSpeed(int speed)
+-{
+-  m_speed = speed;
+-}
+-
+ void CDecoder::ReturnRenderPicture(CVdpauRenderPicture *renderPic)
+ {
+   m_vdpauOutput.m_dataPort.SendOutMessage(COutputDataProtocol::RETURNPIC, &renderPic, sizeof(renderPic));
+@@ -1150,7 +1119,6 @@ void CVdpauRenderPicture::ReturnUnused()
+   if (vdpau)
+     vdpau->ReturnRenderPicture(this);
+ }
+-
+ //-----------------------------------------------------------------------------
+ // Mixer
+ //-----------------------------------------------------------------------------
+@@ -1847,7 +1815,7 @@ void CMixer::SetDeinterlacing()
+   {
+     if (method == VS_INTERLACEMETHOD_AUTO)
+     {
+-      VdpBool enabled[] = {1,1,0};
++      VdpBool enabled[] = {1,0,0};
+       if (g_advancedSettings.m_videoVDPAUtelecine)
+         enabled[2] = 1;
+       vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
+@@ -2127,10 +2095,10 @@ void CMixer::InitCycle()
+ {
+   CheckFeatures();
+   uint64_t latency;
+-  int speed;
+-  m_config.stats->GetParams(latency, speed);
++  int flags;
++  m_config.stats->GetParams(latency, flags);
+   latency = (latency*1000)/CurrentHostFrequency();
+-  if (speed != DVD_PLAYSPEED_NORMAL)
++  if (flags & DVP_FLAG_NO_POSTPROC)
+     SetPostProcFeatures(false);
+   else
+     SetPostProcFeatures(true);
+@@ -2248,14 +2216,6 @@ void CMixer::ProcessPicture()
+   if (m_processPicture.DVDPic.format == DVDVideoPicture::FMT_VDPAU_420)
+     return;
+ 
+-  int cmd = 0;
+-  m_config.stats->GetCmd(cmd);
+-  if (cmd & DVP_FLAG_SKIP_PROC)
+-  {
+-    m_processPicture.DVDPic.iFlags |= DVP_FLAG_DROPPED;
+-    return;
+-  }
+-
+   VdpStatus vdp_st;
+ 
+   if (m_mixerstep == 1)
+@@ -3222,7 +3182,7 @@ bool COutput::GLInit()
+   glVDPAUGetSurfaceivNV = NULL;
+ #endif
+ 
+-  m_config.usePixmaps = !g_guiSettings.GetBool("videoplayer.usevdpauinteroprgb");
++  m_config.usePixmaps = !g_guiSettings.GetBool("videoplayer.usevdpauinterop");
+ 
+ #ifdef GL_NV_vdpau_interop
+   if (glewIsSupported("GL_NV_vdpau_interop"))
+@@ -3254,7 +3214,7 @@ bool COutput::GLInit()
+ #endif
+   {
+     m_config.usePixmaps = true;
+-    g_guiSettings.SetBool("videoplayer.usevdpauinteroprgb",false);
++    g_guiSettings.SetBool("videoplayer.usevdpauinterop",false);
+     g_guiSettings.SetBool("videoplayer.usevdpauinteropyuv",false);
+   }
+   if (!glXBindTexImageEXT)
+@@ -3538,5 +3498,4 @@ bool COutput::DestroyGlxContext()
+   return true;
+ }
+ 
+-
+ #endif
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
+index e08687c..17f1f6e 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
+@@ -508,12 +508,6 @@ class CDecoder
+ 
+ public:
+ 
+-  struct PictureAge
+-  {
+-    int b_age;
+-    int ip_age[2];
+-  };
+-
+   struct Desc
+   {
+     const char *name;
+@@ -532,7 +526,6 @@ class CDecoder
+   virtual void Close();
+   virtual long Release();
+   virtual bool CanSkipDeint();
+-  virtual void SetSpeed(int speed);
+ 
+   virtual int  Check(AVCodecContext* avctx);
+   virtual const std::string Name() { return "vdpau"; }
+@@ -591,16 +584,13 @@ class CDecoder
+   CVdpauConfig  m_vdpauConfig;
+   std::vector<vdpau_render_state*> m_videoSurfaces;
+   CCriticalSection m_videoSurfaceSec;
+-  PictureAge    m_picAge;
+ 
+   COutput       m_vdpauOutput;
+   CVdpauBufferStats m_bufferStats;
+   CEvent        m_inMsgEvent;
+   CVdpauRenderPicture *m_presentPicture;
+ 
+-  int m_speed;
+   int m_codecControl;
+ };
+ 
+ }
+-
+diff --git a/xbmc/settings/GUISettings.cpp b/xbmc/settings/GUISettings.cpp
+index 4e8aabb..2d79423 100644
+--- a/xbmc/settings/GUISettings.cpp
++++ b/xbmc/settings/GUISettings.cpp
+@@ -597,7 +597,7 @@ void CGUISettings::Initialize()
+ 
+ #ifdef HAVE_LIBVDPAU
+   AddBool(vp, "videoplayer.usevdpau", 13425, true);
+-  AddBool(vp, "videoplayer.usevdpauinteroprgb", 13433, true);
++  AddBool(vp, "videoplayer.usevdpauinterop", 13433, true);
+   AddBool(vp, "videoplayer.usevdpauinteropyuv", 13434, true);
+ #endif
+ #ifdef HAVE_LIBVA
+diff --git a/xbmc/settings/GUIWindowSettingsCategory.cpp b/xbmc/settings/GUIWindowSettingsCategory.cpp
+index a69f130..40becc0 100644
+--- a/xbmc/settings/GUIWindowSettingsCategory.cpp
++++ b/xbmc/settings/GUIWindowSettingsCategory.cpp
+@@ -577,7 +577,7 @@ void CGUIWindowSettingsCategory::UpdateSettings()
+         g_guiSettings.SetBool("videoplayer.usevdpauinteropyuv",false);
+       }
+     }
+-    else if (strSetting.Equals("videoplayer.usevdpauinteroprgb"))
++    else if (strSetting.Equals("videoplayer.usevdpauinterop"))
+     {
+       bool hasInterop = false;
+ #ifdef GL_NV_vdpau_interop
+@@ -591,7 +591,7 @@ void CGUIWindowSettingsCategory::UpdateSettings()
+       else
+       {
+         pControl->SetEnabled(false);
+-        g_guiSettings.SetBool("videoplayer.usevdpauinteroprgb",false);
++        g_guiSettings.SetBool("videoplayer.usevdpauinterop",false);
+       }
+     }
+     else
+-- 
+1.7.10
+
+
+From d0c23ddfad95612c47bcf9ce430b00a414b42912 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Thu, 30 Aug 2012 14:10:35 +0200
+Subject: [PATCH 02/10] backport some player and renderer changes
+
+---
+ xbmc/cores/VideoRenderers/BaseRenderer.h           |    3 +
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp      |   31 +++----
+ xbmc/cores/VideoRenderers/LinuxRendererGL.h        |    2 +
+ xbmc/cores/VideoRenderers/RenderManager.cpp        |   90 ++++++++------------
+ xbmc/cores/VideoRenderers/RenderManager.h          |   14 +--
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp        |   12 +--
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.h          |    6 +-
+ xbmc/cores/dvdplayer/DVDPlayerVideo.cpp            |   65 +++-----------
+ 8 files changed, 71 insertions(+), 152 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoRenderers/BaseRenderer.h
+index af51852..0c2de2c 100644
+--- a/xbmc/cores/VideoRenderers/BaseRenderer.h
++++ b/xbmc/cores/VideoRenderers/BaseRenderer.h
+@@ -67,6 +67,9 @@ class CBaseRenderer
+   virtual void Flush() {};
+ 
+   virtual unsigned int GetProcessorSize() { return 0; }
++  virtual unsigned int GetMaxProcessorSize() { return 0; }
++  virtual void SetProcessorSize(int numBuffers) { }
++  virtual void ReleaseBuffer(int idx) { }
+ 
+ protected:
+   void       ChooseBestResolution(float fps);
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+index 186ef2c..b0ad6e4 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+@@ -77,7 +77,6 @@
+ using namespace Shaders;
+ 
+ static const GLubyte stipple_weave[] = {
+-  0xFF, 0xFF, 0xFF, 0xFF,
+   0x00, 0x00, 0x00, 0x00,
+   0xFF, 0xFF, 0xFF, 0xFF,
+   0x00, 0x00, 0x00, 0x00,
+@@ -110,6 +109,7 @@
+   0xFF, 0xFF, 0xFF, 0xFF,
+   0x00, 0x00, 0x00, 0x00,
+   0xFF, 0xFF, 0xFF, 0xFF,
++  0x00, 0x00, 0x00, 0x00,
+ };
+ 
+ CLinuxRendererGL::YUVBUFFER::YUVBUFFER()
+@@ -249,11 +249,6 @@ bool CLinuxRendererGL::ValidateRenderTarget()
+ 
+     // function pointer for texture might change in
+     // call to LoadShaders
+-    for (int i = 0 ; i < m_NumYV12Buffers ; i++)
+-      (this->*m_textureDelete)(i);
+-
+-    // function pointer for texture might change in
+-    // call to LoadShaders
+     glFinish();
+     for (int i = 0 ; i < m_NumYV12Buffers ; i++)
+       (this->*m_textureDelete)(i);
+@@ -633,8 +628,6 @@ void CLinuxRendererGL::RenderUpdate(bool clear, DWORD flags, DWORD alpha)
+       index = m_iYV12RenderBuffer;
+     }
+   }
+-  else
+-    m_iLastRenderBuffer = index;
+ 
+   if (clear)
+   {
+@@ -750,6 +743,8 @@ void CLinuxRendererGL::FlipPage(int source)
+ {
+   UnBindPbo(m_buffers[m_iYV12RenderBuffer]);
+ 
++  m_iLastRenderBuffer = m_iYV12RenderBuffer;
++
+   if( source >= 0 && source < m_NumYV12Buffers )
+     m_iYV12RenderBuffer = source;
+   else
+@@ -1147,7 +1142,10 @@ void CLinuxRendererGL::Render(DWORD flags, int renderBuffer)
+     m_currentField = FIELD_FULL;
+ 
+   // call texture load function
++  m_skipRender = false;
+   (this->*m_textureUpload)(renderBuffer);
++  if (m_skipRender)
++    return;
+ 
+   if (m_renderMethod & RENDER_GLSL)
+   {
+@@ -2332,16 +2330,13 @@ void CLinuxRendererGL::UploadVDPAUTexture(int index)
+   YUVFIELDS &fields = m_buffers[index].fields;
+   YUVPLANE &plane = fields[0][0];
+ 
+-  if (!vdpau)
++  if (!vdpau || !vdpau->valid)
+   {
+-    fields[0][1].id = plane.id;
+     m_eventTexturesDone[index]->Set();
+-    CLog::Log(LOGWARNING,"--------- no vdpau texture, index: %d", index);
++    m_skipRender = true;
+     return;
+   }
+ 
+-//  CLog::Log(LOGNOTICE,"-------- rendered output surf: %d", vdpau->sourceIdx);
+-//  CLog::Log(LOGNOTICE,"-------- pts: %f", vdpau->DVDPic.pts);
+   fields[0][1].id = vdpau->texture[0];
+ 
+   m_eventTexturesDone[index]->Set();
+@@ -2411,13 +2406,10 @@ void CLinuxRendererGL::UploadVDPAUTexture420(int index)
+   YUVFIELDS &fields = m_buffers[index].fields;
+   YUVPLANE &plane = fields[0][0];
+ 
+-  if (!vdpau)
++  if (!vdpau || !vdpau->valid)
+   {
+-    fields[1][0].id = plane.id;
+-    fields[1][1].id = plane.id;
+-    fields[2][0].id = plane.id;
+-    fields[2][1].id = plane.id;
+     m_eventTexturesDone[index]->Set();
++    m_skipRender = true;
+     return;
+   }
+ 
+@@ -2479,7 +2471,6 @@ void CLinuxRendererGL::UploadVDPAUTexture420(int index)
+ #endif
+ }
+ 
+-
+ void CLinuxRendererGL::DeleteVAAPITexture(int index)
+ {
+ #ifdef HAVE_LIBVA
+@@ -2610,7 +2601,7 @@ void CLinuxRendererGL::UploadVAAPITexture(int index)
+   || status == VA_STATUS_ERROR_INVALID_DISPLAY)
+   {
+     va.display->lost(true);
+-    for(int i = 0; i < NUM_BUFFERS; i++)
++    for(int i = 0; i < m_NumYV12Buffers; i++)
+     {
+       m_buffers[i].vaapi.display.reset();
+       m_buffers[i].vaapi.surface.reset();
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.h b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
+index 9dfe679..4a8da39 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.h
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
+@@ -145,6 +145,7 @@ class CLinuxRendererGL : public CBaseRenderer
+   virtual void         Flush();
+   virtual void         ReleaseBuffer(int idx);
+   virtual void         SetProcessorSize(int numBuffers) { m_NumYV12Buffers = numBuffers; }
++  virtual unsigned int GetMaxProcessorSize() { return NUM_BUFFERS; }
+   virtual unsigned int GetProcessorSize() { return m_NumYV12Buffers; }
+ 
+ #ifdef HAVE_LIBVDPAU
+@@ -328,6 +329,7 @@ class CLinuxRendererGL : public CBaseRenderer
+   bool  m_nonLinStretch;
+   bool  m_nonLinStretchGui;
+   float m_pixelRatio;
++  bool  m_skipRender;
+ };
+ 
+ 
+diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
+index c94c699..95372e0 100644
+--- a/xbmc/cores/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
+@@ -235,6 +235,13 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
+     return false;
+   }
+ 
++  // check if decoder supports buffering
++  m_bCodecSupportsBuffering = false;
++  if (format == DVDVideoPicture::FMT_VDPAU
++     || format == DVDVideoPicture::FMT_VDPAU_420
++     || format == DVDVideoPicture::FMT_XVBA)
++    m_bCodecSupportsBuffering = true;
++
+   bool result = m_pRenderer->Configure(width, height, d_width, d_height, fps, flags, format);
+   if(result)
+   {
+@@ -249,7 +256,7 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
+     m_bReconfigured = true;
+     m_presentstep = PRESENT_IDLE;
+     m_presentevent.Set();
+-//    ResetRenderBuffer();
++    ResetRenderBuffer();
+   }
+ 
+   return result;
+@@ -294,8 +301,6 @@ void CXBMCRenderManager::RenderUpdate(bool clear, DWORD flags, DWORD alpha)
+     }
+   }
+ 
+-//  CLog::Log(LOGNOTICE,"------ current: %d", m_iCurrentRenderBuffer);
+-
+   if (g_advancedSettings.m_videoDisableBackgroundDeinterlace)
+   {
+     CSharedLock lock(m_sharedSection);
+@@ -334,17 +339,10 @@ unsigned int CXBMCRenderManager::PreInit(CDVDClock *pClock)
+ 
+   UpdateDisplayLatency();
+ 
+-  m_swapCount = 1;
+-//  std::string Vendor = g_Windowing.GetRenderVendor();
+-//  std::transform(Vendor.begin(), Vendor.end(), Vendor.begin(), ::tolower);
+-//  if (Vendor.compare(0, 3, "ati") == 0)
+-//  {
+-//    m_swapCount = 2;
+-//  }
+-  ResetRenderBuffer();
+   m_bUseBuffering = false;
+-  m_overlays.SetNumBuffers(m_iNumRenderBuffers);
+-  m_pRenderer->SetProcessorSize(m_iNumRenderBuffers);
++  m_bCodecSupportsBuffering = true;
++  ResetRenderBuffer();
++
+   return m_pRenderer->PreInit();
+ }
+ 
+@@ -680,8 +678,6 @@ void CXBMCRenderManager::Present()
+     WaitPresentTime(m_presenttime);
+ 
+   m_presentevent.Set();
+-
+-  m_rendertime = CurrentHostCounter();
+ }
+ 
+ /* simple present method */
+@@ -915,9 +911,9 @@ bool CXBMCRenderManager::HasFreeBuffer()
+       return true;
+   }
+ 
+-  int outputPlusSwap = (m_iOutputRenderBuffer + m_swapCount) % m_iNumRenderBuffers;
++  int outputPlus1 = (m_iOutputRenderBuffer + 1) % m_iNumRenderBuffers;
+   if ((m_iOutputRenderBuffer == m_iDisplayedRenderBuffer && !m_bAllRenderBuffersDisplayed)
+-     || outputPlusSwap == m_iCurrentRenderBuffer)
++     || outputPlus1 == m_iCurrentRenderBuffer)
+     return false;
+   else
+     return true;
+@@ -925,15 +921,23 @@ bool CXBMCRenderManager::HasFreeBuffer()
+ 
+ void CXBMCRenderManager::ResetRenderBuffer()
+ {
+-  m_iNumRenderBuffers = 5;
++  m_iNumRenderBuffers = m_pRenderer->GetMaxProcessorSize();
++  m_iNumRenderBuffers = std::min(5, m_iNumRenderBuffers);
++  m_iNumRenderBuffers = std::max(2, m_iNumRenderBuffers);
++
++  if (!m_bCodecSupportsBuffering)
++    m_iNumRenderBuffers = 2;
++
++  CLog::Log(LOGNOTICE,"CXBMCRenderManager::ResetRenderBuffer - using %d render buffers", m_iNumRenderBuffers);
++  m_overlays.SetNumBuffers(m_iNumRenderBuffers);
++  m_pRenderer->SetProcessorSize(m_iNumRenderBuffers);
++
+   m_iCurrentRenderBuffer = 0;
+-  m_iFlipRequestRenderBuffer = 0;
+   m_iOutputRenderBuffer = 0;
+   m_iDisplayedRenderBuffer = 0;
+   m_bAllRenderBuffersDisplayed = true;
+   m_sleeptime = 1.0;
+   m_presentPts = DVD_NOPTS_VALUE;
+-//  m_bUseBuffering = true;
+   m_speed = 0;
+ }
+ 
+@@ -943,8 +947,8 @@ void CXBMCRenderManager::PrepareNextRender()
+   if (idx < 0)
+   {
+     if (m_speed >= DVD_PLAYSPEED_NORMAL && g_graphicsContext.IsFullScreenVideo())
+-      CLog::Log(LOGNOTICE,"----------- no buffer, out: %d, current: %d, display: %d",
+-        m_iOutputRenderBuffer, m_iCurrentRenderBuffer, m_iDisplayedRenderBuffer);
++      CLog::Log(LOGDEBUG,"%s no buffer, out: %d, current: %d, display: %d",
++        __FUNCTION__, m_iOutputRenderBuffer, m_iCurrentRenderBuffer, m_iDisplayedRenderBuffer);
+     return;
+   }
+ 
+@@ -962,16 +966,6 @@ void CXBMCRenderManager::PrepareNextRender()
+ 
+   m_sleeptime = presenttime - clocktime;
+ 
+-//  double interval;
+-//  if (g_VideoReferenceClock.GetRefreshRate(&interval) > 0)
+-//  {
+-//    if (m_swaptime > interval * 0.7)
+-//    {
+-//      presenttime += interval;
+-//      CLog::Log(LOGDEBUG,"------------  very long swaptime");
+-//    }
+-//  }
+-
+   if (g_graphicsContext.IsFullScreenVideo() || presenttime <= clocktime+0.01)
+   {
+     m_presentPts = m_renderBuffers[idx].pts;
+@@ -986,6 +980,10 @@ void CXBMCRenderManager::PrepareNextRender()
+ void CXBMCRenderManager::EnableBuffering(bool enable)
+ {
+   CRetakeLock<CExclusiveLock> lock(m_sharedSection);
++
++  if (m_iNumRenderBuffers < 3)
++    return;
++
+   m_bUseBuffering = enable;
+   if (!m_bUseBuffering)
+     m_iOutputRenderBuffer = m_iCurrentRenderBuffer;
+@@ -1005,28 +1003,11 @@ void CXBMCRenderManager::NotifyDisplayFlip()
+   if (!m_pRenderer)
+     return;
+ 
+-//  if (g_graphicsContext.IsFullScreenVideo())
+-//  {
+-//    uint64_t diff = CurrentHostCounter() - m_rendertime;
+-//    m_swaptime = ((double)(diff))/CurrentHostFrequency();
+-//    int waittime = (int)((diff*1000LL)/CurrentHostFrequency());
+-//    if (waittime > 15)
+-//    {
+-//      CLog::Log(LOGNOTICE,"------------------ wait swap buffers: %f, sleep: %f", m_swaptime, m_sleeptime);
+-//    }
+-//  }
++  if (m_iNumRenderBuffers < 3)
++    return;
+ 
+   int last = m_iDisplayedRenderBuffer;
+-  m_iDisplayedRenderBuffer = (m_iCurrentRenderBuffer + m_iNumRenderBuffers - m_swapCount) % m_iNumRenderBuffers;
+-  m_iFlipRequestRenderBuffer = m_iCurrentRenderBuffer;
+-
+-//  // we have caught up with output so all buffers are re-usable
+-//  if (last != m_iDisplayedRenderBuffer
+-//      && m_iDisplayedRenderBuffer == m_iOutputRenderBuffer)
+-//  {
+-//    CLog::Log(LOGNOTICE,"-------------- all displayed");
+-//    m_bAllRenderBuffersDisplayed = true;
+-//  }
++  m_iDisplayedRenderBuffer = (m_iCurrentRenderBuffer + m_iNumRenderBuffers - 1) % m_iNumRenderBuffers;
+ 
+   if (last != m_iDisplayedRenderBuffer
+       && m_iDisplayedRenderBuffer != m_iCurrentRenderBuffer)
+@@ -1044,7 +1025,10 @@ bool CXBMCRenderManager::GetStats(double &sleeptime, double &pts, int &bufferLev
+   CSharedLock lock(m_sharedSection);
+   sleeptime = m_sleeptime;
+   pts = m_presentPts;
+-  bufferLevel = (m_iOutputRenderBuffer - m_iCurrentRenderBuffer + m_iNumRenderBuffers) % m_iNumRenderBuffers;
++  if (m_iNumRenderBuffers < 3)
++    bufferLevel = -1;
++  else
++    bufferLevel = (m_iOutputRenderBuffer - m_iCurrentRenderBuffer + m_iNumRenderBuffers) % m_iNumRenderBuffers;
+   return true;
+ }
+ 
+diff --git a/xbmc/cores/VideoRenderers/RenderManager.h b/xbmc/cores/VideoRenderers/RenderManager.h
+index 24f9798..f1fde10 100644
+--- a/xbmc/cores/VideoRenderers/RenderManager.h
++++ b/xbmc/cores/VideoRenderers/RenderManager.h
+@@ -43,7 +43,7 @@
+ 
+ namespace DXVA { class CProcessor; }
+ namespace VAAPI { class CSurfaceHolder; }
+-namespace VDPAU { struct CVdpauRenderPicture; }
++namespace VDPAU { class CVdpauRenderPicture; }
+ struct DVDVideoPicture;
+ 
+ #define ERRORBUFFSIZE 30
+@@ -242,23 +242,17 @@ class CXBMCRenderManager
+   //              displayed or even rendered).
+   // Current:     is the current buffer being or having been submitted for render to back buffer.
+   //              Cannot go past "Output" buffer (else it would be rendering old output).
+-  // FlipRequest: is the render buffer that has last been submitted for render AND importantly has had
+-  //              swap-buffer flip subsequently invoked (thus flip to front buffer is requested for vblank
+-  //              subsequent to render completion).
+   // Displayed:   is the buffer that is now considered to be safely copied from back buffer to front buffer
+   //              (we assume that after two swap-buffer flips for the same "Current" render buffer that that
+   //              buffer will be safe, but otherwise we consider that only the previous-to-"Current" is guaranteed).
+-  // Last:        is the last buffer successfully submitted for render to back buffer (purpose: to rollback to in
+-  //              unexpected case where a texture render fails).
+ 
+   int m_iCurrentRenderBuffer;
+   int m_iNumRenderBuffers;
+-//  int m_iLastRenderBuffer;
+-  int m_iFlipRequestRenderBuffer;
+   int m_iOutputRenderBuffer;
+   int m_iDisplayedRenderBuffer;
+   bool m_bAllRenderBuffersDisplayed;
+   bool m_bUseBuffering;
++  bool m_bCodecSupportsBuffering;
+   int m_speed;
+   CEvent m_flipEvent;
+ 
+@@ -284,9 +278,7 @@ class CXBMCRenderManager
+   CEvent     m_presentevent;
+   CEvent     m_flushEvent;
+   CDVDClock  *m_pClock;
+-  uint64_t   m_rendertime;
+-  double     m_swaptime;
+-  unsigned int m_swapCount;
++
+ 
+   OVERLAY::CRenderer m_overlays;
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index ce39866..3c2213e 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -660,7 +660,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
+     m_skippedDeint = 0;
+ 
+   m_requestSkipDeint = false;
+-  pDvdVideoPicture->iFlags |= m_codecControlState;
++  pDvdVideoPicture->iFlags |= m_codecControlFlags;
+ 
+   if(!m_started)
+     pDvdVideoPicture->iFlags |= DVP_FLAG_DROPPED;
+@@ -882,13 +882,7 @@ unsigned CDVDVideoCodecFFmpeg::GetConvergeCount()
+     return 0;
+ }
+ 
+-void CDVDVideoCodecFFmpeg::SetSpeed(int speed)
++void CDVDVideoCodecFFmpeg::SetCodecControl(int flags)
+ {
+-  if (m_pHardware)
+-    m_pHardware->SetSpeed(speed);
+-}
+-
+-void CDVDVideoCodecFFmpeg::SetCodecControl(int state)
+-{
+-  m_codecControlState = state;
++  m_codecControlFlags = flags;
+ }
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+index 9bd201a..6ea777d 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+@@ -45,7 +45,6 @@ class CDVDVideoCodecFFmpeg : public CDVDVideoCodec
+     virtual int  Check     (AVCodecContext* avctx) = 0;
+     virtual void Reset     () {}
+     virtual bool CanSkipDeint() {return false; }
+-    virtual void SetSpeed(int speed) {}
+     virtual const std::string Name() = 0;
+     virtual CCriticalSection* Section() { return NULL; }
+   };
+@@ -63,8 +62,7 @@ class CDVDVideoCodecFFmpeg : public CDVDVideoCodec
+   virtual const char* GetName() { return m_name.c_str(); }; // m_name is never changed after open
+   virtual unsigned GetConvergeCount();
+   virtual bool GetPts(double &pts, int &skippedDeint, int &interlaced) {pts=m_decoderPts; skippedDeint=m_skippedDeint; if (m_pFrame) interlaced = m_pFrame->interlaced_frame; return true;}
+-  virtual void SetSpeed(int speed);
+-  virtual void SetCodecControl(int state);
++  virtual void SetCodecControl(int flags);
+ 
+   bool               IsHardwareAllowed()                     { return !m_bSoftware; }
+   IHardwareDecoder * GetHardware()                           { return m_pHardware; };
+@@ -125,6 +123,6 @@ class CDVDVideoCodecFFmpeg : public CDVDVideoCodec
+   double m_decoderPts, m_decoderInterval;
+   int    m_skippedDeint;
+   bool   m_requestSkipDeint;
+-  int    m_codecControlState;
++  int    m_codecControlFlags;
+   std::vector<PixelFormat> m_formats;
+ };
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+index 28dfea0..93e375b 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+@@ -453,9 +453,6 @@ void CDVDPlayerVideo::Process()
+       if(m_speed == DVD_PLAYSPEED_PAUSE)
+         m_iNrOfPicturesNotToSkip = 0;
+       m_droppingStats.Reset();
+-//      g_renderManager.EnableBuffering(m_speed == DVD_PLAYSPEED_NORMAL);
+-      if (m_pVideoCodec)
+-        m_pVideoCodec->SetSpeed(m_speed);
+     }
+     else if (pMsg->IsType(CDVDMsg::PLAYER_STARTED))
+     {
+@@ -502,10 +499,9 @@ void CDVDPlayerVideo::Process()
+       }
+       int codecControl = 0;
+       if (iDropDirective & EOS_BUFFER_LEVEL)
+-      {
+-        if (iDropDirective & EOS_BUFFER_LEVEL)
+-          codecControl |= DVP_FLAG_DRAIN;
+-      }
++        codecControl |= DVP_FLAG_DRAIN;
++      if (m_speed > DVD_PLAYSPEED_NORMAL)
++        codecControl |= DVP_FLAG_NO_POSTPROC;
+       m_pVideoCodec->SetCodecControl(codecControl);
+       if (iDropDirective & EOS_DROPPED)
+       {
+@@ -567,15 +563,6 @@ void CDVDPlayerVideo::Process()
+       }
+ 
+       m_videoStats.AddSampleBytes(pPacket->iSize);
+-      // assume decoder dropped a picture if it didn't give us any
+-      // picture from a demux packet, this should be reasonable
+-      // for libavformat as a demuxer as it normally packetizes
+-      // pictures when they come from demuxer
+-//      if(bRequestDrop && !bPacketDrop && (iDecoderState & VC_BUFFER) && !(iDecoderState & VC_PICTURE))
+-//      {
+-//        m_iDroppedFrames++;
+-//        iDropped++;
+-//      }
+ 
+       bRequestDrop = false;
+ 
+@@ -636,7 +623,7 @@ void CDVDPlayerVideo::Process()
+               m_iNrOfPicturesNotToSkip--;
+             }
+ 
+-            // validate picture timing, 
++            // validate picture timing,
+             // if both dts/pts invalid, use pts calulated from picture.iDuration
+             // if pts invalid use dts, else use picture.pts as passed
+             if (picture.dts == DVD_NOPTS_VALUE && picture.pts == DVD_NOPTS_VALUE)
+@@ -1213,39 +1200,6 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+   m_FlipTimeStamp += max(0.0, iSleepTime);
+   m_FlipTimeStamp += iFrameDuration;
+ 
+-//  if (iSleepTime <= 0 && m_speed)
+-//    m_iLateFrames++;
+-//  else
+-//    m_iLateFrames = 0;
+-//
+-//  // ask decoder to drop frames next round, as we are very late
+-//  if(m_iLateFrames > 10)
+-//  {
+-//    if (!(pPicture->iFlags & DVP_FLAG_NOSKIP))
+-//    {
+-//      //if we're calculating the framerate,
+-//      //don't drop frames until we've calculated a stable framerate
+-//      if (m_bAllowDrop || m_speed != DVD_PLAYSPEED_NORMAL)
+-//      {
+-//        result |= EOS_VERYLATE;
+-//        m_pullupCorrection.Flush(); //dropped frames mess up the pattern, so just flush it
+-//      }
+-//
+-//      //if we requested 5 drops in a row and we're still late, drop on output
+-//      //this keeps a/v sync if the decoder can't drop, or we're still calculating the framerate
+-//      if (m_iDroppedRequest > 5)
+-//      {
+-//        m_iDroppedRequest--; //decrease so we only drop half the frames
+-//        return result | EOS_DROPPED;
+-//      }
+-//      m_iDroppedRequest++;
+-//    }
+-//  }
+-//  else
+-//  {
+-//    m_iDroppedRequest = 0;
+-//  }
+-
+   if ((m_droppingStats.m_requestOutputDrop && !(pPicture->iFlags & DVP_FLAG_NOSKIP))
+      || (pPicture->iFlags & DVP_FLAG_DROPPED))
+   {
+@@ -1648,15 +1602,18 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
+   // get decoder stats
+   if (!m_pVideoCodec->GetPts(iDecoderPts, iSkippedDeint, interlaced))
+     iDecoderPts = pts;
++  if (iDecoderPts == DVD_NOPTS_VALUE)
++    iDecoderPts = pts;
+ 
+   // get render stats
+   g_renderManager.GetStats(iSleepTime, iRenderPts, iBufferLevel);
+ 
+-  if (iBufferLevel < 2)
++  if (iBufferLevel < 0)
++    result |= EOS_BUFFER_LEVEL;
++  else if (iBufferLevel < 2)
+   {
+     result |= EOS_BUFFER_LEVEL;
+-    if (iBufferLevel < 1)
+-      CLog::Log(LOGDEBUG,"--------------------- hurry: %d", iBufferLevel);
++    CLog::Log(LOGDEBUG,"CDVDPlayerVideo::CalcDropRequirement - hurry: %d", iBufferLevel);
+   }
+ 
+   bNewFrame = iDecoderPts != m_droppingStats.m_lastDecoderPts;
+@@ -1666,7 +1623,6 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
+   else
+     iInterval = 1/m_fFrameRate*(double)DVD_TIME_BASE;
+ 
+-  // add any gains regardless of being late
+   if (m_droppingStats.m_lastDecoderPts > 0
+       && bNewFrame
+       && m_bAllowDrop
+@@ -1734,7 +1690,6 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
+         {
+           m_droppingStats.m_dropRequests--; //decrease so we only drop half the frames
+           m_droppingStats.m_requestOutputDrop = true;
+-          CLog::Log(LOGNOTICE,"-------- drop output");
+         }
+         else if (bNewFrame)
+           m_droppingStats.m_dropRequests++;
+-- 
+1.7.10
+
+
+From f5a828fa3fb1f5cfd127cb1bab7bad9f11d70515 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Fri, 31 Aug 2012 15:11:32 +0200
+Subject: [PATCH 03/10] backport some xvba changes
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp |   61 +++++++++++++++----------
+ xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h   |    3 --
+ 2 files changed, 37 insertions(+), 27 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
+index fa96284..127c958 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
+@@ -21,6 +21,7 @@
+ 
+ #include "system.h"
+ #ifdef HAVE_LIBXVBA
++
+ #include <dlfcn.h>
+ #include <string>
+ #include "XVBA.h"
+@@ -460,7 +461,6 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat fmt, unsigned
+   m_xvbaBufferPool.data_buffer = 0;
+   m_xvbaBufferPool.iq_matrix_buffer = 0;
+   m_xvbaBufferPool.picture_descriptor_buffer = 0;
+-  picAge.b_age = picAge.ip_age[0] = picAge.ip_age[1] = 256*256*256*64;
+   m_presentPicture = 0;
+   m_xvbaConfig.numRenderBuffers = surfaces;
+   m_decoderThread = CThread::GetCurrentThreadId();
+@@ -573,8 +573,6 @@ bool CDecoder::Supports(EINTERLACEMETHOD method)
+ 
+ void CDecoder::ResetState()
+ {
+-  picAge.b_age = picAge.ip_age[0] = picAge.ip_age[1] = 256*256*256*64;
+-
+   m_displayState = XVBA_OPEN;
+ }
+ 
+@@ -730,6 +728,40 @@ bool CDecoder::CreateSession(AVCodecContext* avctx)
+ 
+ void CDecoder::DestroySession()
+ {
++  // wait for unfinished decoding jobs
++  XbmcThreads::EndTime timer;
++  if (m_xvbaConfig.xvbaSession)
++  {
++    for (unsigned int i = 0; i < m_videoSurfaces.size(); ++i)
++    {
++      xvba_render_state *render = m_videoSurfaces[i];
++      if (render->surface)
++      {
++        XVBA_Surface_Sync_Input syncInput;
++        XVBA_Surface_Sync_Output syncOutput;
++        syncInput.size = sizeof(syncInput);
++        syncInput.session = m_xvbaConfig.xvbaSession;
++        syncInput.surface = render->surface;
++        syncInput.query_status = XVBA_GET_SURFACE_STATUS;
++        syncOutput.size = sizeof(syncOutput);
++        timer.Set(1000);
++        while(!timer.IsTimePast())
++        {
++          if (Success != g_XVBA_vtable.SyncSurface(&syncInput, &syncOutput))
++          {
++            CLog::Log(LOGERROR,"XVBA::DestroySession - failed sync surface");
++            break;
++          }
++          if (!(syncOutput.status_flags & XVBA_STILL_PENDING))
++            break;
++          Sleep(10);
++        }
++        if (timer.IsTimePast())
++          CLog::Log(LOGERROR,"XVBA::DestroySession - unfinished decoding job");
++      }
++    }
++  }
++
+   m_xvbaOutput.Dispose();
+ 
+   XVBA_Destroy_Decode_Buffers_Input bufInput;
+@@ -1052,7 +1084,6 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
+ {
+   CDVDVideoCodecFFmpeg* ctx   = (CDVDVideoCodecFFmpeg*)avctx->opaque;
+   CDecoder*             xvba  = (CDecoder*)ctx->GetHardware();
+-  struct pictureAge*    pA    = &xvba->picAge;
+ 
+   pic->data[0] =
+   pic->data[1] =
+@@ -1133,20 +1164,6 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
+ 
+   pic->data[0] = (uint8_t*)render;
+ 
+-  if(pic->reference)
+-  {
+-    pic->age = pA->ip_age[0];
+-    pA->ip_age[0]= pA->ip_age[1]+1;
+-    pA->ip_age[1]= 1;
+-    pA->b_age++;
+-  }
+-  else
+-  {
+-    pic->age = pA->b_age;
+-    pA->ip_age[0]++;
+-    pA->ip_age[1]++;
+-    pA->b_age = 1;
+-  }
+   pic->type= FF_BUFFER_TYPE_USER;
+ 
+   render->state |= FF_XVBA_STATE_USED_FOR_REFERENCE;
+@@ -1198,11 +1215,7 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+     m_bufferStats.IncDecoded();
+     m_xvbaOutput.m_dataPort.SendOutMessage(COutputDataProtocol::NEWFRAME, &pic, sizeof(pic));
+ 
+-    m_codecControl = pic.DVDPic.iFlags & (DVP_FLAG_DRAIN | DVP_FLAG_SKIP_PROC);
+-    if (m_codecControl & DVP_FLAG_SKIP_PROC)
+-    {
+-      m_bufferStats.SetCmd(DVP_FLAG_SKIP_PROC);
+-    }
++    m_codecControl = pic.DVDPic.iFlags & (DVP_FLAG_DRAIN | DVP_FLAG_NO_POSTPROC);
+   }
+ 
+   int retval = 0;
+@@ -2328,7 +2341,7 @@ bool COutput::CreateGlxContext()
+   XFree(visuals);
+ 
+   m_pixmap = XCreatePixmap(m_Display,
+-                           DefaultRootWindow(m_Display),
++                           m_Window,
+                            192,
+                            108,
+                            visInfo.depth);
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
+index 0abf972..24331e9 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.h
+@@ -33,7 +33,6 @@
+ #include "libavcodec/xvba.h"
+ #include "utils/ActorProtocol.h"
+ #include "settings/VideoSettings.h"
+-#include <GL/gl.h>
+ #include <GL/glx.h>
+ #include <vector>
+ #include <deque>
+@@ -372,8 +371,6 @@ class CDecoder : public CDVDVideoCodecFFmpeg::IHardwareDecoder,
+   };
+   XVBABufferPool m_xvbaBufferPool;
+ 
+-  pictureAge picAge;
+-
+   COutput       m_xvbaOutput;
+   CXvbaBufferStats m_bufferStats;
+   CEvent        m_inMsgEvent;
+-- 
+1.7.10
+
+
+From d608d480e4159b71e0dfd18f20ba27ecc226fa97 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Fri, 31 Aug 2012 15:12:16 +0200
+Subject: [PATCH 04/10] player and renderer, squash me later
+
+---
+ xbmc/cores/VideoRenderers/RenderManager.cpp |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
+index 95372e0..ac31c32 100644
+--- a/xbmc/cores/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
+@@ -237,9 +237,9 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
+ 
+   // check if decoder supports buffering
+   m_bCodecSupportsBuffering = false;
+-  if (format == DVDVideoPicture::FMT_VDPAU
+-     || format == DVDVideoPicture::FMT_VDPAU_420
+-     || format == DVDVideoPicture::FMT_XVBA)
++  if ((flags & DVDVideoPicture::FMT_VDPAU)
++     || (flags & DVDVideoPicture::FMT_VDPAU_420)
++     || (flags & DVDVideoPicture::FMT_XVBA))
+     m_bCodecSupportsBuffering = true;
+ 
+   bool result = m_pRenderer->Configure(width, height, d_width, d_height, fps, flags, format);
+-- 
+1.7.10
+
+
+From ca91233b8590a6061fe9b24c00ff62ecb96bc333 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Fri, 31 Aug 2012 15:12:45 +0200
+Subject: [PATCH 05/10] ati, fix segfault on exit
+
+---
+ xbmc/video/VideoReferenceClock.cpp |   12 ++++++++++++
+ xbmc/video/VideoReferenceClock.h   |    1 +
+ 2 files changed, 13 insertions(+)
+
+diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
+index 24c035b..d0f1ed7 100644
+--- a/xbmc/video/VideoReferenceClock.cpp
++++ b/xbmc/video/VideoReferenceClock.cpp
+@@ -123,6 +123,18 @@
+ #endif
+ }
+ 
++CVideoReferenceClock::~CVideoReferenceClock()
++{
++#if defined(HAS_GLX)
++  // some ATI voodoo, if we don't close the display, we crash on exit
++  if (m_Dpy)
++  {
++    XCloseDisplay(m_Dpy);
++    m_Dpy = NULL;
++  }
++#endif
++}
++
+ void CVideoReferenceClock::Process()
+ {
+   bool SetupSuccess = false;
+diff --git a/xbmc/video/VideoReferenceClock.h b/xbmc/video/VideoReferenceClock.h
+index 966af37..742dc79 100644
+--- a/xbmc/video/VideoReferenceClock.h
++++ b/xbmc/video/VideoReferenceClock.h
+@@ -59,6 +59,7 @@ class CVideoReferenceClock : public CThread
+ {
+   public:
+     CVideoReferenceClock();
++    virtual ~CVideoReferenceClock();
+ 
+     int64_t GetTime(bool interpolated = true);
+     int64_t GetFrequency();
+-- 
+1.7.10
+
+
+From 5b5ce20c6902643e4f858a3ca45cefc3e4de05af Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Sat, 14 Jul 2012 21:00:13 +0200
+Subject: [PATCH 06/10] X11: re-evaluate vsync method after having modified
+ window
+
+It could have moved between outputs on different hardware
+---
+ xbmc/rendering/gl/RenderSystemGL.cpp |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xbmc/rendering/gl/RenderSystemGL.cpp b/xbmc/rendering/gl/RenderSystemGL.cpp
+index be7dfea..bd8e91b 100644
+--- a/xbmc/rendering/gl/RenderSystemGL.cpp
++++ b/xbmc/rendering/gl/RenderSystemGL.cpp
+@@ -174,6 +174,7 @@ bool CRenderSystemGL::ResetRenderSystem(int width, int height, bool fullScreen,
+ {
+   m_width = width;
+   m_height = height;
++  m_bVsyncInit = false;
+ 
+   glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+ 
+-- 
+1.7.10
+
+
+From c0409779940d74993669788ce0b01d257508a581 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Sun, 8 Jul 2012 01:06:05 +0200
+Subject: [PATCH 07/10] [tinyxml] invalid reading of xml from FILE pointers
+
+buf is not a null terminated string, so don't rely on it
+---
+ xbmc/utils/XBMCTinyXML.cpp |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/utils/XBMCTinyXML.cpp b/xbmc/utils/XBMCTinyXML.cpp
+index 82e2451..707653c 100644
+--- a/xbmc/utils/XBMCTinyXML.cpp
++++ b/xbmc/utils/XBMCTinyXML.cpp
+@@ -91,12 +91,9 @@ bool CXBMCTinyXML::LoadFile(FILE *f, TiXmlEncoding encoding)
+ {
+   CStdString data("");
+   char buf[BUFFER_SIZE];
+-  int result, count = 0;
++  int result;
+   while ((result = fread(buf, 1, BUFFER_SIZE, f)) > 0)
+-  {
+-    data.reserve(BUFFER_SIZE * (++count));
+-    data.append(buf);
+-  }
++    data.append(buf, result);
+   return Parse(data, NULL, encoding) != NULL;
+ }
+ 
+-- 
+1.7.10
+
+
+From aa661e7bd39591141fbab27a4d427db622fa3dbb Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Sun, 2 Sep 2012 10:33:08 +0200
+Subject: [PATCH 08/10] dvdplayer audio: improve a/v when using skip/dupe
+ method, duration of packets may be too long for
+ proper sync
+
+---
+ xbmc/cores/dvdplayer/DVDPlayerAudio.cpp |   20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+index 9f2128c..0e4adaa 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+@@ -719,7 +719,7 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
+ 
+   //check if measured error for 1 second
+   now = CurrentHostCounter();
+-  if ((now - m_errortime) >= m_freq)
++  if ((now - m_errortime) >= m_freq * 2)
+   {
+     m_errortime = now;
+     m_error = m_errorbuff / m_errorcount;
+@@ -759,9 +759,21 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
+     {
+       //check how many packets to skip/duplicate
+       m_skipdupcount = (int)(m_error / duration);
+-      //if less than one frame off, see if it's more than two thirds of a frame, so we can get better in sync
+-      if (m_skipdupcount == 0 && fabs(m_error) > duration / 3 * 2)
+-        m_skipdupcount = (int)(m_error / (duration / 3 * 2));
++
++      if (m_skipdupcount == 0)
++      {
++        double delay;
++        if (m_error < 0)
++        {
++          m_skipdupcount -= 1;
++          delay = ((double)DVD_TIME_TO_MSEC(duration + m_error)) / 1000;
++        }
++        else
++        {
++          delay = ((double)DVD_TIME_TO_MSEC(m_error)) / 1000;
++        }
++        m_dvdAudio.AddSilence(delay);
++      }
+ 
+       if (m_skipdupcount > 0)
+         CLog::Log(LOGDEBUG, "CDVDPlayerAudio:: Duplicating %i packet(s) of %.2f ms duration",
+-- 
+1.7.10
+
+
+From 68b93215319f4ad4d0ee72797f82214ff8490379 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Sun, 2 Sep 2012 16:05:21 +0200
+Subject: [PATCH 09/10] video player: present correct pts to user for a/v sync
+
+---
+ xbmc/cores/dvdplayer/DVDPlayerVideo.cpp |   57 ++++++++++++++++++++++---------
+ xbmc/cores/dvdplayer/DVDPlayerVideo.h   |    2 +-
+ 2 files changed, 42 insertions(+), 17 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+index 93e375b..7e39690 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+@@ -1183,22 +1183,22 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+     iSleepTime = iFrameSleep;
+   else
+     iSleepTime = iFrameSleep + (iClockSleep - iFrameSleep) / m_autosync;
+-
+-#ifdef PROFILE /* during profiling, try to play as fast as possible */
+-  iSleepTime = 0;
+-#endif
+-
+-  // present the current pts of this frame to user, and include the actual
+-  // presentation delay, to allow him to adjust for it
+-  if( m_stalled )
+-    m_iCurrentPts = DVD_NOPTS_VALUE;
+-  else
+-    m_iCurrentPts = pts - max(0.0, iSleepTime);
+-
+-  // timestamp when we think next picture should be displayed based on current duration
+-  m_FlipTimeStamp  = iCurrentClock;
+-  m_FlipTimeStamp += max(0.0, iSleepTime);
+-  m_FlipTimeStamp += iFrameDuration;
++//
++//#ifdef PROFILE /* during profiling, try to play as fast as possible */
++//  iSleepTime = 0;
++//#endif
++//
++//  // present the current pts of this frame to user, and include the actual
++//  // presentation delay, to allow him to adjust for it
++//  if( m_stalled )
++//    m_iCurrentPts = DVD_NOPTS_VALUE;
++//  else
++//    m_iCurrentPts = pts - max(0.0, iSleepTime);
++//
++//  // timestamp when we think next picture should be displayed based on current duration
++//  m_FlipTimeStamp  = iCurrentClock;
++//  m_FlipTimeStamp += max(0.0, iSleepTime);
++//  m_FlipTimeStamp += iFrameDuration;
+ 
+   if ((m_droppingStats.m_requestOutputDrop && !(pPicture->iFlags & DVP_FLAG_NOSKIP))
+      || (pPicture->iFlags & DVP_FLAG_DROPPED))
+@@ -1505,6 +1505,22 @@ void CDVDPlayerVideo::ResetFrameRateCalc()
+                         g_advancedSettings.m_videoFpsDetect == 0;
+ }
+ 
++double CDVDPlayerVideo::GetCurrentPts()
++{
++  double iSleepTime, iRenderPts;
++  int iBufferLevel;
++
++  // get render stats
++  g_renderManager.GetStats(iSleepTime, iRenderPts, iBufferLevel);
++
++  if( m_stalled )
++    iRenderPts = DVD_NOPTS_VALUE;
++  else
++    iRenderPts = iRenderPts - max(0.0, iSleepTime);
++
++  return iRenderPts;
++}
++
+ #define MAXFRAMERATEDIFF   0.01
+ #define MAXFRAMESERR    1000
+ 
+@@ -1623,6 +1639,15 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
+   else
+     iInterval = 1/m_fFrameRate*(double)DVD_TIME_BASE;
+ 
++
++  m_FlipTimeStamp = m_pClock->GetAbsoluteClock() + max(0.0, iSleepTime) + iInterval;
++
++  if( m_stalled )
++    m_iCurrentPts = DVD_NOPTS_VALUE;
++  else
++    m_iCurrentPts = iRenderPts - max(0.0, iSleepTime);
++
++
+   if (m_droppingStats.m_lastDecoderPts > 0
+       && bNewFrame
+       && m_bAllowDrop
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.h b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
+index a0322dc..6fff15c 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerVideo.h
++++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
+@@ -106,7 +106,7 @@ class CDVDPlayerVideo : public CThread
+ 
+   bool InitializedOutputDevice();
+ 
+-  double GetCurrentPts()                           { return m_iCurrentPts; }
++  double GetCurrentPts();
+   int    GetPullupCorrection()                     { return m_pullupCorrection.GetPatternLength(); }
+ 
+   double GetOutputDelay(); /* returns the expected delay, from that a packet is put in queue */
+-- 
+1.7.10
+
+
+From b38863d14fb42fe86d0e53d9d34d84e1b9eb6907 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Tue, 4 Sep 2012 08:55:36 +0200
+Subject: [PATCH 10/10] vdpau: disable interop yuv and studio level
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp |   10 +++++-----
+ xbmc/settings/GUISettings.cpp                  |    4 ++--
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
+index 16edf55..04ad61d 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
+@@ -366,7 +366,7 @@ bool CDecoder::Supports(EINTERLACEMETHOD method)
+   || method == VS_INTERLACEMETHOD_AUTO)
+     return true;
+ 
+-  if (g_guiSettings.GetBool("videoplayer.usevdpauinteropyuv"))
++  if (0) //g_guiSettings.GetBool("videoplayer.usevdpauinteropyuv"))
+   {
+     if (method == VS_INTERLACEMETHOD_RENDER_BOB)
+       return true;
+@@ -1697,7 +1697,7 @@ void CMixer::SetColor()
+     //vdp_st = vdp_generate_csc_matrix(&m_Procamp, VDP_COLOR_STANDARD_ITUR_BT_601, &m_CSCMatrix);
+ 
+   VdpVideoMixerAttribute attributes[] = { VDP_VIDEO_MIXER_ATTRIBUTE_CSC_MATRIX };
+-  if (g_guiSettings.GetBool("videoplayer.vdpaustudiolevel"))
++  if (0) //g_guiSettings.GetBool("videoplayer.vdpaustudiolevel"))
+   {
+     float studioCSC[3][4];
+     GenerateStudioCSCMatrix(colorStandard, studioCSC);
+@@ -1846,7 +1846,7 @@ void CMixer::SetDeinterlacing()
+ 
+   SetDeintSkipChroma();
+ 
+-  m_config.useInteropYuv = g_guiSettings.GetBool("videoplayer.usevdpauinteropyuv");
++  m_config.useInteropYuv = false; //g_guiSettings.GetBool("videoplayer.usevdpauinteropyuv");
+ }
+ 
+ void CMixer::SetDeintSkipChroma()
+@@ -2038,7 +2038,7 @@ void CMixer::Init()
+   m_vdpError = false;
+ 
+   m_config.upscale = g_advancedSettings.m_videoVDPAUScaling;
+-  m_config.useInteropYuv = g_guiSettings.GetBool("videoplayer.usevdpauinteropyuv");
++  m_config.useInteropYuv = false; //g_guiSettings.GetBool("videoplayer.usevdpauinteropyuv");
+ 
+   CreateVdpauMixer();
+ }
+@@ -3215,7 +3215,7 @@ bool COutput::GLInit()
+   {
+     m_config.usePixmaps = true;
+     g_guiSettings.SetBool("videoplayer.usevdpauinterop",false);
+-    g_guiSettings.SetBool("videoplayer.usevdpauinteropyuv",false);
++//    g_guiSettings.SetBool("videoplayer.usevdpauinteropyuv",false);
+   }
+   if (!glXBindTexImageEXT)
+     glXBindTexImageEXT    = (PFNGLXBINDTEXIMAGEEXTPROC)glXGetProcAddress((GLubyte *) "glXBindTexImageEXT");
+diff --git a/xbmc/settings/GUISettings.cpp b/xbmc/settings/GUISettings.cpp
+index 2d79423..e29c8c1 100644
+--- a/xbmc/settings/GUISettings.cpp
++++ b/xbmc/settings/GUISettings.cpp
+@@ -598,7 +598,7 @@ void CGUISettings::Initialize()
+ #ifdef HAVE_LIBVDPAU
+   AddBool(vp, "videoplayer.usevdpau", 13425, true);
+   AddBool(vp, "videoplayer.usevdpauinterop", 13433, true);
+-  AddBool(vp, "videoplayer.usevdpauinteropyuv", 13434, true);
++//  AddBool(vp, "videoplayer.usevdpauinteropyuv", 13434, true);
+ #endif
+ #ifdef HAVE_LIBVA
+   AddBool(vp, "videoplayer.usevaapi", 13426, true);
+@@ -672,7 +672,7 @@ void CGUISettings::Initialize()
+   AddSeparator(vp, "videoplayer.sep1.5");
+ #ifdef HAVE_LIBVDPAU
+   AddBool(NULL, "videoplayer.vdpauUpscalingLevel", 13121, false);
+-  AddBool(vp, "videoplayer.vdpaustudiolevel", 13122, false);
++//  AddBool(vp, "videoplayer.vdpaustudiolevel", 13122, false);
+ #endif
+ #endif
+   AddSeparator(vp, "videoplayer.sep5");
+-- 
+1.7.10
+
