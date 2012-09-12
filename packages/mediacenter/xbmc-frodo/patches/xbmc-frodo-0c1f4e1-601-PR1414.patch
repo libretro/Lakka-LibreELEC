@@ -1,0 +1,274 @@
+From f1a8e4d64edb0d432deb8191f07d63d40515d44b Mon Sep 17 00:00:00 2001
+From: gimli <ebsi4711@gmail.com>
+Date: Wed, 12 Sep 2012 20:59:51 +0200
+Subject: [PATCH] [linux/arm] fixed 'System Info -> Hardware' for arm devices
+ and give GetXBVerInfo the name it deserves.
+
+---
+ xbmc/utils/CPUInfo.cpp               |   55 ++++++++++++++++++++++++++++++++++
+ xbmc/utils/CPUInfo.h                 |   12 ++++++++
+ xbmc/utils/SystemInfo.cpp            |   22 +++++++++++++-
+ xbmc/utils/SystemInfo.h              |    6 +++-
+ xbmc/utils/test/TestCPUInfo.cpp      |   24 +++++++++++++++
+ xbmc/utils/test/TestSystemInfo.cpp   |   24 +++++++++++++--
+ xbmc/windows/GUIWindowSystemInfo.cpp |   12 +++++++-
+ 7 files changed, 150 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/utils/CPUInfo.cpp b/xbmc/utils/CPUInfo.cpp
+index b43d5fc..854b7b1 100644
+--- a/xbmc/utils/CPUInfo.cpp
++++ b/xbmc/utils/CPUInfo.cpp
+@@ -198,6 +198,61 @@ static inline int _private_gettimeofday( struct timeval *tv, void *tz )
+           m_cores[nCurrId].m_strVendor.Trim();
+         }
+       }
++      else if (strncmp(buffer, "Processor", strlen("Processor"))==0)
++      {
++        char *needle = strstr(buffer, ":");
++        if (needle && strlen(needle)>3)
++        {
++          needle+=2;
++          m_cpuModel = needle;
++          m_cores[nCurrId].m_strModel = m_cpuModel;
++          m_cores[nCurrId].m_strModel.Trim();
++        }
++      }
++      else if (strncmp(buffer, "BogoMIPS", strlen("BogoMIPS"))==0)
++      {
++        char *needle = strstr(buffer, ":");
++        if (needle && strlen(needle)>3)
++        {
++          needle+=2;
++          m_cpuBogoMips = needle;
++          m_cores[nCurrId].m_strBogoMips = m_cpuBogoMips;
++          m_cores[nCurrId].m_strBogoMips.Trim();
++        }
++      }
++      else if (strncmp(buffer, "Hardware", strlen("Hardware"))==0)
++      {
++        char *needle = strstr(buffer, ":");
++        if (needle && strlen(needle)>3)
++        {
++          needle+=2;
++          m_cpuHardware = needle;
++          m_cores[nCurrId].m_strHardware = m_cpuHardware;
++          m_cores[nCurrId].m_strHardware.Trim();
++        }
++      }
++      else if (strncmp(buffer, "Revision", strlen("Revision"))==0)
++      {
++        char *needle = strstr(buffer, ":");
++        if (needle && strlen(needle)>3)
++        {
++          needle+=2;
++          m_cpuRevision = needle;
++          m_cores[nCurrId].m_strRevision = m_cpuRevision;
++          m_cores[nCurrId].m_strRevision.Trim();
++        }
++      }
++      else if (strncmp(buffer, "Serial", strlen("Serial"))==0)
++      {
++        char *needle = strstr(buffer, ":");
++        if (needle && strlen(needle)>3)
++        {
++          needle+=2;
++          m_cpuSerial = needle;
++          m_cores[nCurrId].m_strSerial = m_cpuSerial;
++          m_cores[nCurrId].m_strSerial.Trim();
++        }
++      }
+       else if (strncmp(buffer, "model name", strlen("model name"))==0)
+       {
+         char *needle = strstr(buffer, ":");
+diff --git a/xbmc/utils/CPUInfo.h b/xbmc/utils/CPUInfo.h
+index e8bcf3c..82cd1bd 100644
+--- a/xbmc/utils/CPUInfo.h
++++ b/xbmc/utils/CPUInfo.h
+@@ -55,6 +55,10 @@ struct CoreInfo
+   unsigned long long m_io;
+   CStdString m_strVendor;
+   CStdString m_strModel;
++  CStdString m_strBogoMips;
++  CStdString m_strHardware;
++  CStdString m_strRevision;
++  CStdString m_strSerial;
+   CoreInfo() : m_id(0), m_fSpeed(.0), m_fPct(.0), m_user(0LL), m_nice(0LL), m_system(0LL), m_idle(0LL), m_io(0LL) {}
+ };
+ 
+@@ -69,6 +73,10 @@ class CCPUInfo
+   float getCPUFrequency();
+   bool getTemperature(CTemperature& temperature);
+   std::string& getCPUModel() { return m_cpuModel; }
++  std::string& getCPUBogoMips() { return m_cpuBogoMips; }
++  std::string& getCPUHardware() { return m_cpuHardware; }
++  std::string& getCPURevision() { return m_cpuRevision; }
++  std::string& getCPUSerial() { return m_cpuSerial; }
+ 
+   const CoreInfo &GetCoreInfo(int nCoreId);
+   bool HasCoreId(int nCoreId) const;
+@@ -96,6 +104,10 @@ class CCPUInfo
+   int          m_lastUsedPercentage;
+   XbmcThreads::EndTime m_nextUsedReadTime; 
+   std::string  m_cpuModel;
++  std::string  m_cpuBogoMips;
++  std::string  m_cpuHardware;
++  std::string  m_cpuRevision;
++  std::string  m_cpuSerial;
+   int          m_cpuCount;
+   unsigned int m_cpuFeatures;
+ 
+diff --git a/xbmc/utils/SystemInfo.cpp b/xbmc/utils/SystemInfo.cpp
+index 34e4a61..e5a31e8 100644
+--- a/xbmc/utils/SystemInfo.cpp
++++ b/xbmc/utils/SystemInfo.cpp
+@@ -294,11 +294,31 @@ bool CSysInfo::GetDiskSpace(const CStdString drive,int& iTotal, int& iTotalFree,
+   return bRet;
+ }
+ 
+-CStdString CSysInfo::GetXBVerInfo()
++CStdString CSysInfo::GetCPUModel()
+ {
+   return "CPU: " + g_cpuInfo.getCPUModel();
+ }
+ 
++CStdString CSysInfo::GetCPUBogoMips()
++{
++  return "BogoMips: " + g_cpuInfo.getCPUBogoMips();
++}
++
++CStdString CSysInfo::GetCPUHardware()
++{
++  return "Hardware: " + g_cpuInfo.getCPUHardware();
++}
++
++CStdString CSysInfo::GetCPURevision()
++{
++  return "Revision: " + g_cpuInfo.getCPURevision();
++}
++
++CStdString CSysInfo::GetCPUSerial()
++{
++  return "Serial: " + g_cpuInfo.getCPUSerial();
++}
++
+ bool CSysInfo::IsAeroDisabled()
+ {
+ #ifdef _WIN32
+diff --git a/xbmc/utils/SystemInfo.h b/xbmc/utils/SystemInfo.h
+index 8bc3462..0ecf910 100644
+--- a/xbmc/utils/SystemInfo.h
++++ b/xbmc/utils/SystemInfo.h
+@@ -105,7 +105,11 @@ class CSysInfo : public CInfoLoader
+   bool IsAeroDisabled();
+   bool IsVistaOrHigher();
+   static CStdString GetKernelVersion();
+-  CStdString GetXBVerInfo();
++  CStdString GetCPUModel();
++  CStdString GetCPUBogoMips();
++  CStdString GetCPUHardware();
++  CStdString GetCPURevision();
++  CStdString GetCPUSerial();
+   bool GetDiskSpace(const CStdString drive,int& iTotal, int& iTotalFree, int& iTotalUsed, int& iPercentFree, int& iPercentUsed);
+   CStdString GetHddSpaceInfo(int& percent, int drive, bool shortText=false);
+   CStdString GetHddSpaceInfo(int drive, bool shortText=false);
+diff --git a/xbmc/utils/test/TestCPUInfo.cpp b/xbmc/utils/test/TestCPUInfo.cpp
+index 3c14d1f..dfd1fd2 100644
+--- a/xbmc/utils/test/TestCPUInfo.cpp
++++ b/xbmc/utils/test/TestCPUInfo.cpp
+@@ -51,6 +51,30 @@
+   EXPECT_STRNE("", s.c_str());
+ }
+ 
++TEST(TestCPUInfo, getCPUBogoMips)
++{
++  std::string s = g_cpuInfo.getCPUBogoMips();
++  EXPECT_STRNE("", s.c_str());
++}
++
++TEST(TestCPUInfo, getCPUHardware)
++{
++  std::string s = g_cpuInfo.getCPUHardware();
++  EXPECT_STRNE("", s.c_str());
++}
++
++TEST(TestCPUInfo, getCPURevision)
++{
++  std::string s = g_cpuInfo.getCPURevision();
++  EXPECT_STRNE("", s.c_str());
++}
++
++TEST(TestCPUInfo, getCPUSerial)
++{
++  std::string s = g_cpuInfo.getCPUSerial();
++  EXPECT_STRNE("", s.c_str());
++}
++
+ TEST(TestCPUInfo, CoreInfo)
+ {
+   ASSERT_TRUE(g_cpuInfo.HasCoreId(0));
+diff --git a/xbmc/utils/test/TestSystemInfo.cpp b/xbmc/utils/test/TestSystemInfo.cpp
+index 958e881..73bc3f3 100644
+--- a/xbmc/utils/test/TestSystemInfo.cpp
++++ b/xbmc/utils/test/TestSystemInfo.cpp
+@@ -108,9 +108,29 @@ class TestSystemInfo : public testing::Test
+   std::cout << "GetKernelVersion(): " << CSysInfo::GetKernelVersion() << "\n";
+ }
+ 
+-TEST_F(TestSystemInfo, GetXBVerInfo)
++TEST_F(TestSystemInfo, GetCPUModel)
+ {
+-  std::cout << "GetXBVerInfo(): " << g_sysinfo.GetXBVerInfo() << "\n";
++  std::cout << "GetCPUModel(): " << g_sysinfo.GetCPUModel() << "\n";
++}
++
++TEST_F(TestSystemInfo, GetCPUBogoMips)
++{
++  std::cout << "GetCPUBogoMips(): " << g_sysinfo.GetCPUBogoMips() << "\n";
++}
++
++TEST_F(TestSystemInfo, GetCPUHardware)
++{
++  std::cout << "GetCPUHardware(): " << g_sysinfo.GetCPUHardware() << "\n";
++}
++
++TEST_F(TestSystemInfo, GetCPURevision)
++{
++  std::cout << "GetCPURevision(): " << g_sysinfo.GetCPURevision() << "\n";
++}
++
++TEST_F(TestSystemInfo, GetCPUSerial)
++{
++  std::cout << "GetCPUSerial(): " << g_sysinfo.GetCPUSerial() << "\n";
+ }
+ 
+ TEST_F(TestSystemInfo, GetDiskSpace)
+diff --git a/xbmc/windows/GUIWindowSystemInfo.cpp b/xbmc/windows/GUIWindowSystemInfo.cpp
+index c88700a..4c78d3d 100644
+--- a/xbmc/windows/GUIWindowSystemInfo.cpp
++++ b/xbmc/windows/GUIWindowSystemInfo.cpp
+@@ -144,11 +144,21 @@ void CGUIWindowSystemInfo::FrameMove()
+   {
+     SET_CONTROL_LABEL(40,g_localizeStrings.Get(20160));
+ #ifdef HAS_SYSINFO
+-    SET_CONTROL_LABEL(i++, g_sysinfo.GetXBVerInfo());
++    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUModel());
++#if defined(__arm__) && defined(TARGET_LINUX)
++    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUBogoMips());
++    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUHardware());
++    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPURevision());
++    SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUSerial());
++#endif
+     SetControlLabel(i++, "%s %s", 22011, SYSTEM_CPU_TEMPERATURE);
++#if !defined(__arm__)
+     SetControlLabel(i++, "%s %s", 13284, SYSTEM_CPUFREQUENCY);
+ #endif
++#endif
++#if !(defined(__arm__) && defined(TARGET_LINUX))
+     SetControlLabel(i++, "%s %s", 13271, SYSTEM_CPU_USAGE);
++#endif
+     i++; // empty line
+     SetControlLabel(i++, "%s: %s", 22012, SYSTEM_TOTAL_MEMORY);
+     SetControlLabel(i++, "%s: %s", 158, SYSTEM_FREE_MEMORY);
+-- 
+1.7.10
+
