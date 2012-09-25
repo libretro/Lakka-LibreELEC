@@ -1,0 +1,5415 @@
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acconfig.h linux-3.2.16.patch/drivers/acpi/acpica/acconfig.h
+--- linux-3.2.16/drivers/acpi/acpica/acconfig.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acconfig.h	2012-04-23 06:05:41.300122287 +0200
+@@ -202,9 +202,10 @@
+ #define ACPI_RSDP_CHECKSUM_LENGTH       20
+ #define ACPI_RSDP_XCHECKSUM_LENGTH      36
+ 
+-/* SMBus and IPMI bidirectional buffer size */
++/* SMBus, GSBus and IPMI bidirectional buffer size */
+ 
+ #define ACPI_SMBUS_BUFFER_SIZE          34
++#define ACPI_GSBUS_BUFFER_SIZE          34
+ #define ACPI_IPMI_BUFFER_SIZE           66
+ 
+ /* _sx_d and _sx_w control methods */
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acevents.h linux-3.2.16.patch/drivers/acpi/acpica/acevents.h
+--- linux-3.2.16/drivers/acpi/acpica/acevents.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acevents.h	2012-04-23 06:05:41.300122287 +0200
+@@ -162,6 +162,7 @@
+ 
+ acpi_status
+ acpi_ev_address_space_dispatch(union acpi_operand_object *region_obj,
++			       union acpi_operand_object *field_obj,
+ 			       u32 function,
+ 			       u32 region_offset, u32 bit_width, u64 *value);
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acglobal.h linux-3.2.16.patch/drivers/acpi/acpica/acglobal.h
+--- linux-3.2.16/drivers/acpi/acpica/acglobal.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acglobal.h	2012-04-23 06:05:41.302122323 +0200
+@@ -140,8 +140,19 @@
+ acpi_name acpi_gbl_trace_method_name;
+ u8 acpi_gbl_system_awake_and_running;
+ 
++/*
++ * ACPI 5.0 introduces the concept of a "reduced hardware platform", meaning
++ * that the ACPI hardware is no longer required. A flag in the FADT indicates
++ * a reduced HW machine, and that flag is duplicated here for convenience.
++ */
++u8 acpi_gbl_reduced_hardware;
++
+ #endif
+ 
++/* Do not disassemble buffers to resource descriptors */
++
++ACPI_EXTERN u8 ACPI_INIT_GLOBAL(acpi_gbl_no_resource_disassembly, FALSE);
++
+ /*****************************************************************************
+  *
+  * Debug support
+@@ -207,7 +218,7 @@
+ 
+ /*****************************************************************************
+  *
+- * Mutual exlusion within ACPICA subsystem
++ * Mutual exclusion within ACPICA subsystem
+  *
+  ****************************************************************************/
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acinterp.h linux-3.2.16.patch/drivers/acpi/acpica/acinterp.h
+--- linux-3.2.16/drivers/acpi/acpica/acinterp.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acinterp.h	2012-04-23 06:05:41.370123694 +0200
+@@ -468,6 +468,8 @@
+ 
+ void acpi_ex_integer_to_string(char *dest, u64 value);
+ 
++u8 acpi_is_valid_space_id(u8 space_id);
++
+ /*
+  * exregion - default op_region handlers
+  */
+diff -Naur linux-3.2.16/drivers/acpi/acpica/aclocal.h linux-3.2.16.patch/drivers/acpi/acpica/aclocal.h
+--- linux-3.2.16/drivers/acpi/acpica/aclocal.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/aclocal.h	2012-04-23 06:05:41.401124318 +0200
+@@ -53,7 +53,7 @@
+ 
+ /* Total number of aml opcodes defined */
+ 
+-#define AML_NUM_OPCODES                 0x7F
++#define AML_NUM_OPCODES                 0x81
+ 
+ /* Forward declarations */
+ 
+@@ -249,12 +249,16 @@
+ 	struct acpi_namespace_node *field_node;
+ 	struct acpi_namespace_node *register_node;
+ 	struct acpi_namespace_node *data_register_node;
++	struct acpi_namespace_node *connection_node;
++	u8 *resource_buffer;
+ 	u32 bank_value;
+ 	u32 field_bit_position;
+ 	u32 field_bit_length;
++	u16 resource_length;
+ 	u8 field_flags;
+ 	u8 attribute;
+ 	u8 field_type;
++	u8 access_length;
+ };
+ 
+ typedef
+@@ -315,7 +319,8 @@
+ 
+ /*
+  * Used for ACPI_PTYPE1_FIXED, ACPI_PTYPE1_VAR, ACPI_PTYPE2,
+- * ACPI_PTYPE2_MIN, ACPI_PTYPE2_PKG_COUNT, ACPI_PTYPE2_COUNT
++ * ACPI_PTYPE2_MIN, ACPI_PTYPE2_PKG_COUNT, ACPI_PTYPE2_COUNT,
++ * ACPI_PTYPE2_FIX_VAR
+  */
+ struct acpi_package_info {
+ 	u8 type;
+@@ -951,7 +956,7 @@
+ #define ACPI_RESOURCE_NAME_END_DEPENDENT        0x38
+ #define ACPI_RESOURCE_NAME_IO                   0x40
+ #define ACPI_RESOURCE_NAME_FIXED_IO             0x48
+-#define ACPI_RESOURCE_NAME_RESERVED_S1          0x50
++#define ACPI_RESOURCE_NAME_FIXED_DMA            0x50
+ #define ACPI_RESOURCE_NAME_RESERVED_S2          0x58
+ #define ACPI_RESOURCE_NAME_RESERVED_S3          0x60
+ #define ACPI_RESOURCE_NAME_RESERVED_S4          0x68
+@@ -973,7 +978,9 @@
+ #define ACPI_RESOURCE_NAME_EXTENDED_IRQ         0x89
+ #define ACPI_RESOURCE_NAME_ADDRESS64            0x8A
+ #define ACPI_RESOURCE_NAME_EXTENDED_ADDRESS64   0x8B
+-#define ACPI_RESOURCE_NAME_LARGE_MAX            0x8B
++#define ACPI_RESOURCE_NAME_GPIO                 0x8C
++#define ACPI_RESOURCE_NAME_SERIAL_BUS           0x8E
++#define ACPI_RESOURCE_NAME_LARGE_MAX            0x8E
+ 
+ /*****************************************************************************
+  *
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acobject.h linux-3.2.16.patch/drivers/acpi/acpica/acobject.h
+--- linux-3.2.16/drivers/acpi/acpica/acobject.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acobject.h	2012-04-23 06:05:41.402124338 +0200
+@@ -254,6 +254,7 @@
+ 	u32                             base_byte_offset;   /* Byte offset within containing object */\
+ 	u32                             value;              /* Value to store into the Bank or Index register */\
+ 	u8                              start_field_bit_offset;/* Bit offset within first field datum (0-63) */\
++	u8                              access_length;	/* For serial regions/fields */
+ 
+ 
+ struct acpi_object_field_common {	/* COMMON FIELD (for BUFFER, REGION, BANK, and INDEX fields) */
+@@ -261,7 +262,9 @@
+ };
+ 
+ struct acpi_object_region_field {
+-	ACPI_OBJECT_COMMON_HEADER ACPI_COMMON_FIELD_INFO union acpi_operand_object *region_obj;	/* Containing op_region object */
++	ACPI_OBJECT_COMMON_HEADER ACPI_COMMON_FIELD_INFO u16 resource_length;
++	union acpi_operand_object *region_obj;	/* Containing op_region object */
++	u8 *resource_buffer;	/* resource_template for serial regions/fields */
+ };
+ 
+ struct acpi_object_bank_field {
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acopcode.h linux-3.2.16.patch/drivers/acpi/acpica/acopcode.h
+--- linux-3.2.16/drivers/acpi/acpica/acopcode.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acopcode.h	2012-04-23 06:05:41.403124358 +0200
+@@ -93,6 +93,7 @@
+ #define ARGP_CONCAT_OP                  ARGP_LIST3 (ARGP_TERMARG,    ARGP_TERMARG,       ARGP_TARGET)
+ #define ARGP_CONCAT_RES_OP              ARGP_LIST3 (ARGP_TERMARG,    ARGP_TERMARG,       ARGP_TARGET)
+ #define ARGP_COND_REF_OF_OP             ARGP_LIST2 (ARGP_SUPERNAME,  ARGP_SUPERNAME)
++#define ARGP_CONNECTFIELD_OP            ARGP_LIST1 (ARGP_NAMESTRING)
+ #define ARGP_CONTINUE_OP                ARG_NONE
+ #define ARGP_COPY_OP                    ARGP_LIST2 (ARGP_TERMARG,    ARGP_SIMPLENAME)
+ #define ARGP_CREATE_BIT_FIELD_OP        ARGP_LIST3 (ARGP_TERMARG,    ARGP_TERMARG,       ARGP_NAME)
+@@ -164,6 +165,7 @@
+ #define ARGP_RETURN_OP                  ARGP_LIST1 (ARGP_TERMARG)
+ #define ARGP_REVISION_OP                ARG_NONE
+ #define ARGP_SCOPE_OP                   ARGP_LIST3 (ARGP_PKGLENGTH,  ARGP_NAME,          ARGP_TERMLIST)
++#define ARGP_SERIALFIELD_OP             ARGP_LIST1 (ARGP_NAMESTRING)
+ #define ARGP_SHIFT_LEFT_OP              ARGP_LIST3 (ARGP_TERMARG,    ARGP_TERMARG,       ARGP_TARGET)
+ #define ARGP_SHIFT_RIGHT_OP             ARGP_LIST3 (ARGP_TERMARG,    ARGP_TERMARG,       ARGP_TARGET)
+ #define ARGP_SIGNAL_OP                  ARGP_LIST1 (ARGP_SUPERNAME)
+@@ -223,6 +225,7 @@
+ #define ARGI_CONCAT_OP                  ARGI_LIST3 (ARGI_COMPUTEDATA,ARGI_COMPUTEDATA,   ARGI_TARGETREF)
+ #define ARGI_CONCAT_RES_OP              ARGI_LIST3 (ARGI_BUFFER,     ARGI_BUFFER,        ARGI_TARGETREF)
+ #define ARGI_COND_REF_OF_OP             ARGI_LIST2 (ARGI_OBJECT_REF, ARGI_TARGETREF)
++#define ARGI_CONNECTFIELD_OP            ARGI_INVALID_OPCODE
+ #define ARGI_CONTINUE_OP                ARGI_INVALID_OPCODE
+ #define ARGI_COPY_OP                    ARGI_LIST2 (ARGI_ANYTYPE,    ARGI_SIMPLE_TARGET)
+ #define ARGI_CREATE_BIT_FIELD_OP        ARGI_LIST3 (ARGI_BUFFER,     ARGI_INTEGER,       ARGI_REFERENCE)
+@@ -294,6 +297,7 @@
+ #define ARGI_RETURN_OP                  ARGI_INVALID_OPCODE
+ #define ARGI_REVISION_OP                ARG_NONE
+ #define ARGI_SCOPE_OP                   ARGI_INVALID_OPCODE
++#define ARGI_SERIALFIELD_OP             ARGI_INVALID_OPCODE
+ #define ARGI_SHIFT_LEFT_OP              ARGI_LIST3 (ARGI_INTEGER,    ARGI_INTEGER,       ARGI_TARGETREF)
+ #define ARGI_SHIFT_RIGHT_OP             ARGI_LIST3 (ARGI_INTEGER,    ARGI_INTEGER,       ARGI_TARGETREF)
+ #define ARGI_SIGNAL_OP                  ARGI_LIST1 (ARGI_EVENT)
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acpredef.h linux-3.2.16.patch/drivers/acpi/acpica/acpredef.h
+--- linux-3.2.16/drivers/acpi/acpica/acpredef.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acpredef.h	2012-04-23 06:05:41.404124378 +0200
+@@ -94,6 +94,14 @@
+  * ACPI_PTYPE2_REV_FIXED: Revision at start, each subpackage is Fixed-length
+  *      (Used for _ART, _FPS)
+  *
++ * ACPI_PTYPE2_FIX_VAR: Each subpackage consists of some fixed-length elements
++ *      followed by an optional element
++ *      object type
++ *      count
++ *      object type
++ *      count = 0 (optional)
++ *      (Used for _DLM)
++ *
+  *****************************************************************************/
+ 
+ enum acpi_return_package_types {
+@@ -105,7 +113,8 @@
+ 	ACPI_PTYPE2_PKG_COUNT = 6,
+ 	ACPI_PTYPE2_FIXED = 7,
+ 	ACPI_PTYPE2_MIN = 8,
+-	ACPI_PTYPE2_REV_FIXED = 9
++	ACPI_PTYPE2_REV_FIXED = 9,
++	ACPI_PTYPE2_FIX_VAR = 10
+ };
+ 
+ #ifdef ACPI_CREATE_PREDEFINED_TABLE
+@@ -154,6 +163,7 @@
+ 	{{"_AC8", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_AC9", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_ADR", 0, ACPI_RTYPE_INTEGER}},
++	{{"_AEI", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_AL0", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
+ 			  {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
+ 
+@@ -229,6 +239,13 @@
+ 	{{"_CID", 0, ACPI_RTYPE_INTEGER | ACPI_RTYPE_STRING | ACPI_RTYPE_PACKAGE}}, /* Variable-length (Ints/Strs) */
+ 			  {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_INTEGER | ACPI_RTYPE_STRING, 0,0}, 0,0}},
+ 
++	{{"_CLS", 0, ACPI_RTYPE_PACKAGE}},	/* Fixed-length (3 Int) */
++	{{{ACPI_PTYPE1_FIXED, ACPI_RTYPE_INTEGER, 3, 0}, 0, 0}},
++
++	{{"_CPC", 0, ACPI_RTYPE_PACKAGE}},	/* Variable-length (Ints/Bufs) */
++	{{{ACPI_PTYPE1_VAR, ACPI_RTYPE_INTEGER | ACPI_RTYPE_BUFFER, 0, 0}, 0,
++	  0}},
++
+ 	{{"_CRS", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_CRT", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_CSD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (1 Int(n), n-1 Int) */
+@@ -237,12 +254,21 @@
+ 	{{"_CST", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (1 Int(n), n Pkg (1 Buf/3 Int) */
+ 			  {{{ACPI_PTYPE2_PKG_COUNT,ACPI_RTYPE_BUFFER, 1, ACPI_RTYPE_INTEGER}, 3,0}},
+ 
++	{{"_CWS", 1, ACPI_RTYPE_INTEGER}},
+ 	{{"_DCK", 1, ACPI_RTYPE_INTEGER}},
+ 	{{"_DCS", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_DDC", 1, ACPI_RTYPE_INTEGER | ACPI_RTYPE_BUFFER}},
+ 	{{"_DDN", 0, ACPI_RTYPE_STRING}},
++	{{"_DEP", 0, ACPI_RTYPE_PACKAGE}},	/* Variable-length (Refs) */
++	{{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0, 0}, 0, 0}},
++
+ 	{{"_DGS", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_DIS", 0, 0}},
++
++	{{"_DLM", 0, ACPI_RTYPE_PACKAGE}},	/* Variable-length (Pkgs) each (1 Ref, 0/1 Optional Buf/Ref) */
++	{{{ACPI_PTYPE2_FIX_VAR, ACPI_RTYPE_REFERENCE, 1,
++	   ACPI_RTYPE_REFERENCE | ACPI_RTYPE_BUFFER}, 0, 0}},
++
+ 	{{"_DMA", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_DOD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Ints) */
+ 			  {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_INTEGER, 0,0}, 0,0}},
+@@ -262,6 +288,7 @@
+ 	{{"_EJ3", 1, 0}},
+ 	{{"_EJ4", 1, 0}},
+ 	{{"_EJD", 0, ACPI_RTYPE_STRING}},
++	{{"_EVT", 1, 0}},
+ 	{{"_FDE", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_FDI", 0, ACPI_RTYPE_PACKAGE}}, /* Fixed-length (16 Int) */
+ 			  {{{ACPI_PTYPE1_FIXED, ACPI_RTYPE_INTEGER, 16,0}, 0,0}},
+@@ -281,14 +308,17 @@
+ 	{{{ACPI_PTYPE1_FIXED, ACPI_RTYPE_INTEGER, 3, 0}, 0, 0}},
+ 
+ 	{{"_GAI", 0, ACPI_RTYPE_INTEGER}},
++	{{"_GCP", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_GHL", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_GLK", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_GPD", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_GPE", 0, ACPI_RTYPE_INTEGER}}, /* _GPE method, not _GPE scope */
++	{{"_GRT", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_GSB", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_GTF", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_GTM", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_GTS", 1, 0}},
++	{{"_GWS", 1, ACPI_RTYPE_INTEGER}},
+ 	{{"_HID", 0, ACPI_RTYPE_INTEGER | ACPI_RTYPE_STRING}},
+ 	{{"_HOT", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_HPP", 0, ACPI_RTYPE_PACKAGE}}, /* Fixed-length (4 Int) */
+@@ -303,6 +333,7 @@
+ 	{{"_HPX", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each (var Ints) */
+ 			  {{{ACPI_PTYPE2_MIN, ACPI_RTYPE_INTEGER, 5,0}, 0,0}},
+ 
++	{{"_HRV", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_IFT", 0, ACPI_RTYPE_INTEGER}}, /* See IPMI spec */
+ 	{{"_INI", 0, 0}},
+ 	{{"_IRC", 0, 0}},
+@@ -361,6 +392,9 @@
+ 	{{"_PR3", 0, ACPI_RTYPE_PACKAGE}},	/* Variable-length (Refs) */
+ 	{{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0, 0}, 0, 0}},
+ 
++	{{"_PRE", 0, ACPI_RTYPE_PACKAGE}},	/* Variable-length (Refs) */
++	{{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0, 0}, 0, 0}},
++
+ 	{{"_PRL", 0, ACPI_RTYPE_PACKAGE}},	/* Variable-length (Refs) */
+ 	{{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0, 0}, 0, 0}},
+ 
+@@ -391,6 +425,7 @@
+ 	{{"_PSD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each (5 Int) with count */
+ 			  {{{ACPI_PTYPE2_COUNT, ACPI_RTYPE_INTEGER,0,0}, 0,0}},
+ 
++	{{"_PSE", 1, 0}},
+ 	{{"_PSL", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
+ 			  {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
+ 
+@@ -457,6 +492,7 @@
+ 	{{"_SLI", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_SPD", 1, ACPI_RTYPE_INTEGER}},
+ 	{{"_SRS", 1, 0}},
++	{{"_SRT", 1, ACPI_RTYPE_INTEGER}},
+ 	{{"_SRV", 0, ACPI_RTYPE_INTEGER}}, /* See IPMI spec */
+ 	{{"_SST", 1, 0}},
+ 	{{"_STA", 0, ACPI_RTYPE_INTEGER}},
+@@ -464,6 +500,7 @@
+ 	{{"_STP", 2, ACPI_RTYPE_INTEGER}},
+ 	{{"_STR", 0, ACPI_RTYPE_BUFFER}},
+ 	{{"_STV", 2, ACPI_RTYPE_INTEGER}},
++	{{"_SUB", 0, ACPI_RTYPE_STRING}},
+ 	{{"_SUN", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_SWS", 0, ACPI_RTYPE_INTEGER}},
+ 	{{"_TC1", 0, ACPI_RTYPE_INTEGER}},
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acresrc.h linux-3.2.16.patch/drivers/acpi/acpica/acresrc.h
+--- linux-3.2.16/drivers/acpi/acpica/acresrc.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acresrc.h	2012-04-23 06:05:41.405124398 +0200
+@@ -73,28 +73,40 @@
+ 
+ /* Resource conversion opcodes */
+ 
+-#define ACPI_RSC_INITGET                0
+-#define ACPI_RSC_INITSET                1
+-#define ACPI_RSC_FLAGINIT               2
+-#define ACPI_RSC_1BITFLAG               3
+-#define ACPI_RSC_2BITFLAG               4
+-#define ACPI_RSC_COUNT                  5
+-#define ACPI_RSC_COUNT16                6
+-#define ACPI_RSC_LENGTH                 7
+-#define ACPI_RSC_MOVE8                  8
+-#define ACPI_RSC_MOVE16                 9
+-#define ACPI_RSC_MOVE32                 10
+-#define ACPI_RSC_MOVE64                 11
+-#define ACPI_RSC_SET8                   12
+-#define ACPI_RSC_DATA8                  13
+-#define ACPI_RSC_ADDRESS                14
+-#define ACPI_RSC_SOURCE                 15
+-#define ACPI_RSC_SOURCEX                16
+-#define ACPI_RSC_BITMASK                17
+-#define ACPI_RSC_BITMASK16              18
+-#define ACPI_RSC_EXIT_NE                19
+-#define ACPI_RSC_EXIT_LE                20
+-#define ACPI_RSC_EXIT_EQ                21
++typedef enum {
++	ACPI_RSC_INITGET = 0,
++	ACPI_RSC_INITSET,
++	ACPI_RSC_FLAGINIT,
++	ACPI_RSC_1BITFLAG,
++	ACPI_RSC_2BITFLAG,
++	ACPI_RSC_3BITFLAG,
++	ACPI_RSC_ADDRESS,
++	ACPI_RSC_BITMASK,
++	ACPI_RSC_BITMASK16,
++	ACPI_RSC_COUNT,
++	ACPI_RSC_COUNT16,
++	ACPI_RSC_COUNT_GPIO_PIN,
++	ACPI_RSC_COUNT_GPIO_RES,
++	ACPI_RSC_COUNT_GPIO_VEN,
++	ACPI_RSC_COUNT_SERIAL_RES,
++	ACPI_RSC_COUNT_SERIAL_VEN,
++	ACPI_RSC_DATA8,
++	ACPI_RSC_EXIT_EQ,
++	ACPI_RSC_EXIT_LE,
++	ACPI_RSC_EXIT_NE,
++	ACPI_RSC_LENGTH,
++	ACPI_RSC_MOVE_GPIO_PIN,
++	ACPI_RSC_MOVE_GPIO_RES,
++	ACPI_RSC_MOVE_SERIAL_RES,
++	ACPI_RSC_MOVE_SERIAL_VEN,
++	ACPI_RSC_MOVE8,
++	ACPI_RSC_MOVE16,
++	ACPI_RSC_MOVE32,
++	ACPI_RSC_MOVE64,
++	ACPI_RSC_SET8,
++	ACPI_RSC_SOURCE,
++	ACPI_RSC_SOURCEX
++} ACPI_RSCONVERT_OPCODES;
+ 
+ /* Resource Conversion sub-opcodes */
+ 
+@@ -106,6 +118,9 @@
+ #define ACPI_RS_OFFSET(f)               (u8) ACPI_OFFSET (struct acpi_resource,f)
+ #define AML_OFFSET(f)                   (u8) ACPI_OFFSET (union aml_resource,f)
+ 
++/*
++ * Individual entry for the resource dump tables
++ */
+ typedef const struct acpi_rsdump_info {
+ 	u8 opcode;
+ 	u8 offset;
+@@ -116,20 +131,25 @@
+ 
+ /* Values for the Opcode field above */
+ 
+-#define ACPI_RSD_TITLE                  0
+-#define ACPI_RSD_LITERAL                1
+-#define ACPI_RSD_STRING                 2
+-#define ACPI_RSD_UINT8                  3
+-#define ACPI_RSD_UINT16                 4
+-#define ACPI_RSD_UINT32                 5
+-#define ACPI_RSD_UINT64                 6
+-#define ACPI_RSD_1BITFLAG               7
+-#define ACPI_RSD_2BITFLAG               8
+-#define ACPI_RSD_SHORTLIST              9
+-#define ACPI_RSD_LONGLIST               10
+-#define ACPI_RSD_DWORDLIST              11
+-#define ACPI_RSD_ADDRESS                12
+-#define ACPI_RSD_SOURCE                 13
++typedef enum {
++	ACPI_RSD_TITLE = 0,
++	ACPI_RSD_1BITFLAG,
++	ACPI_RSD_2BITFLAG,
++	ACPI_RSD_3BITFLAG,
++	ACPI_RSD_ADDRESS,
++	ACPI_RSD_DWORDLIST,
++	ACPI_RSD_LITERAL,
++	ACPI_RSD_LONGLIST,
++	ACPI_RSD_SHORTLIST,
++	ACPI_RSD_SHORTLISTX,
++	ACPI_RSD_SOURCE,
++	ACPI_RSD_STRING,
++	ACPI_RSD_UINT8,
++	ACPI_RSD_UINT16,
++	ACPI_RSD_UINT32,
++	ACPI_RSD_UINT64,
++	ACPI_RSD_WORDLIST
++} ACPI_RSDUMP_OPCODES;
+ 
+ /* restore default alignment */
+ 
+@@ -138,13 +158,18 @@
+ /* Resource tables indexed by internal resource type */
+ 
+ extern const u8 acpi_gbl_aml_resource_sizes[];
++extern const u8 acpi_gbl_aml_resource_serial_bus_sizes[];
+ extern struct acpi_rsconvert_info *acpi_gbl_set_resource_dispatch[];
+ 
+ /* Resource tables indexed by raw AML resource descriptor type */
+ 
+ extern const u8 acpi_gbl_resource_struct_sizes[];
++extern const u8 acpi_gbl_resource_struct_serial_bus_sizes[];
+ extern struct acpi_rsconvert_info *acpi_gbl_get_resource_dispatch[];
+ 
++extern struct acpi_rsconvert_info
++    *acpi_gbl_convert_resource_serial_bus_dispatch[];
++
+ struct acpi_vendor_walk_info {
+ 	struct acpi_vendor_uuid *uuid;
+ 	struct acpi_buffer *buffer;
+@@ -190,6 +215,10 @@
+ acpi_rs_set_srs_method_data(struct acpi_namespace_node *node,
+ 			    struct acpi_buffer *ret_buffer);
+ 
++acpi_status
++acpi_rs_get_aei_method_data(struct acpi_namespace_node *node,
++			    struct acpi_buffer *ret_buffer);
++
+ /*
+  * rscalc
+  */
+@@ -293,6 +322,11 @@
+ extern struct acpi_rsconvert_info acpi_rs_convert_ext_irq[];
+ extern struct acpi_rsconvert_info acpi_rs_convert_address64[];
+ extern struct acpi_rsconvert_info acpi_rs_convert_ext_address64[];
++extern struct acpi_rsconvert_info acpi_rs_convert_gpio[];
++extern struct acpi_rsconvert_info acpi_rs_convert_fixed_dma[];
++extern struct acpi_rsconvert_info acpi_rs_convert_i2c_serial_bus[];
++extern struct acpi_rsconvert_info acpi_rs_convert_spi_serial_bus[];
++extern struct acpi_rsconvert_info acpi_rs_convert_uart_serial_bus[];
+ 
+ /* These resources require separate get/set tables */
+ 
+@@ -310,6 +344,7 @@
+  * rsinfo
+  */
+ extern struct acpi_rsdump_info *acpi_gbl_dump_resource_dispatch[];
++extern struct acpi_rsdump_info *acpi_gbl_dump_serial_bus_dispatch[];
+ 
+ /*
+  * rsdump
+@@ -331,6 +366,12 @@
+ extern struct acpi_rsdump_info acpi_rs_dump_ext_address64[];
+ extern struct acpi_rsdump_info acpi_rs_dump_ext_irq[];
+ extern struct acpi_rsdump_info acpi_rs_dump_generic_reg[];
++extern struct acpi_rsdump_info acpi_rs_dump_gpio[];
++extern struct acpi_rsdump_info acpi_rs_dump_fixed_dma[];
++extern struct acpi_rsdump_info acpi_rs_dump_common_serial_bus[];
++extern struct acpi_rsdump_info acpi_rs_dump_i2c_serial_bus[];
++extern struct acpi_rsdump_info acpi_rs_dump_spi_serial_bus[];
++extern struct acpi_rsdump_info acpi_rs_dump_uart_serial_bus[];
+ #endif
+ 
+ #endif				/* __ACRESRC_H__ */
+diff -Naur linux-3.2.16/drivers/acpi/acpica/acutils.h linux-3.2.16.patch/drivers/acpi/acpica/acutils.h
+--- linux-3.2.16/drivers/acpi/acpica/acutils.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/acutils.h	2012-04-23 06:05:41.406124418 +0200
+@@ -45,6 +45,7 @@
+ #define _ACUTILS_H
+ 
+ extern const u8 acpi_gbl_resource_aml_sizes[];
++extern const u8 acpi_gbl_resource_aml_serial_bus_sizes[];
+ 
+ /* Strings used by the disassembler and debugger resource dump routines */
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/amlcode.h linux-3.2.16.patch/drivers/acpi/acpica/amlcode.h
+--- linux-3.2.16/drivers/acpi/acpica/amlcode.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/amlcode.h	2012-04-23 06:05:41.407124438 +0200
+@@ -189,6 +189,14 @@
+ #define AML_LNOTEQUAL_OP            (u16) 0x9293
+ 
+ /*
++ * Opcodes for "Field" operators
++ */
++#define AML_FIELD_OFFSET_OP         (u8) 0x00
++#define AML_FIELD_ACCESS_OP         (u8) 0x01
++#define AML_FIELD_CONNECTION_OP     (u8) 0x02	/* ACPI 5.0 */
++#define AML_FIELD_EXT_ACCESS_OP     (u8) 0x03	/* ACPI 5.0 */
++
++/*
+  * Internal opcodes
+  * Use only "Unknown" AML opcodes, don't attempt to use
+  * any valid ACPI ASCII values (A-Z, 0-9, '-')
+@@ -202,6 +210,8 @@
+ #define AML_INT_METHODCALL_OP       (u16) 0x0035
+ #define AML_INT_RETURN_VALUE_OP     (u16) 0x0036
+ #define AML_INT_EVAL_SUBTREE_OP     (u16) 0x0037
++#define AML_INT_CONNECTION_OP       (u16) 0x0038
++#define AML_INT_EXTACCESSFIELD_OP   (u16) 0x0039
+ 
+ #define ARG_NONE                    0x0
+ 
+@@ -456,13 +466,16 @@
+  * access_as keyword
+  */
+ typedef enum {
+-	AML_FIELD_ATTRIB_SMB_QUICK = 0x02,
+-	AML_FIELD_ATTRIB_SMB_SEND_RCV = 0x04,
+-	AML_FIELD_ATTRIB_SMB_BYTE = 0x06,
+-	AML_FIELD_ATTRIB_SMB_WORD = 0x08,
+-	AML_FIELD_ATTRIB_SMB_BLOCK = 0x0A,
+-	AML_FIELD_ATTRIB_SMB_WORD_CALL = 0x0C,
+-	AML_FIELD_ATTRIB_SMB_BLOCK_CALL = 0x0D
++	AML_FIELD_ATTRIB_QUICK = 0x02,
++	AML_FIELD_ATTRIB_SEND_RCV = 0x04,
++	AML_FIELD_ATTRIB_BYTE = 0x06,
++	AML_FIELD_ATTRIB_WORD = 0x08,
++	AML_FIELD_ATTRIB_BLOCK = 0x0A,
++	AML_FIELD_ATTRIB_MULTIBYTE = 0x0B,
++	AML_FIELD_ATTRIB_WORD_CALL = 0x0C,
++	AML_FIELD_ATTRIB_BLOCK_CALL = 0x0D,
++	AML_FIELD_ATTRIB_RAW_BYTES = 0x0E,
++	AML_FIELD_ATTRIB_RAW_PROCESS = 0x0F
+ } AML_ACCESS_ATTRIBUTE;
+ 
+ /* Bit fields in the AML method_flags byte */
+diff -Naur linux-3.2.16/drivers/acpi/acpica/amlresrc.h linux-3.2.16.patch/drivers/acpi/acpica/amlresrc.h
+--- linux-3.2.16/drivers/acpi/acpica/amlresrc.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/amlresrc.h	2012-04-23 06:05:41.407124438 +0200
+@@ -58,29 +58,48 @@
+ #define ACPI_RESTAG_TYPESPECIFICATTRIBUTES      "_ATT"
+ #define ACPI_RESTAG_BASEADDRESS                 "_BAS"
+ #define ACPI_RESTAG_BUSMASTER                   "_BM_"	/* Master(1), Slave(0) */
++#define ACPI_RESTAG_DEBOUNCETIME                "_DBT"
+ #define ACPI_RESTAG_DECODE                      "_DEC"
++#define ACPI_RESTAG_DEVICEPOLARITY              "_DPL"
+ #define ACPI_RESTAG_DMA                         "_DMA"
+ #define ACPI_RESTAG_DMATYPE                     "_TYP"	/* Compatible(0), A(1), B(2), F(3) */
++#define ACPI_RESTAG_DRIVESTRENGTH               "_DRS"
++#define ACPI_RESTAG_ENDIANNESS                  "_END"
++#define ACPI_RESTAG_FLOWCONTROL                 "_FLC"
+ #define ACPI_RESTAG_GRANULARITY                 "_GRA"
+ #define ACPI_RESTAG_INTERRUPT                   "_INT"
+ #define ACPI_RESTAG_INTERRUPTLEVEL              "_LL_"	/* active_lo(1), active_hi(0) */
+ #define ACPI_RESTAG_INTERRUPTSHARE              "_SHR"	/* Shareable(1), no_share(0) */
+ #define ACPI_RESTAG_INTERRUPTTYPE               "_HE_"	/* Edge(1), Level(0) */
++#define ACPI_RESTAG_IORESTRICTION               "_IOR"
+ #define ACPI_RESTAG_LENGTH                      "_LEN"
++#define ACPI_RESTAG_LINE                        "_LIN"
+ #define ACPI_RESTAG_MEMATTRIBUTES               "_MTP"	/* Memory(0), Reserved(1), ACPI(2), NVS(3) */
+ #define ACPI_RESTAG_MEMTYPE                     "_MEM"	/* non_cache(0), Cacheable(1) Cache+combine(2), Cache+prefetch(3) */
+ #define ACPI_RESTAG_MAXADDR                     "_MAX"
+ #define ACPI_RESTAG_MINADDR                     "_MIN"
+ #define ACPI_RESTAG_MAXTYPE                     "_MAF"
+ #define ACPI_RESTAG_MINTYPE                     "_MIF"
++#define ACPI_RESTAG_MODE                        "_MOD"
++#define ACPI_RESTAG_PARITY                      "_PAR"
++#define ACPI_RESTAG_PHASE                       "_PHA"
++#define ACPI_RESTAG_PIN                         "_PIN"
++#define ACPI_RESTAG_PINCONFIG                   "_PPI"
++#define ACPI_RESTAG_POLARITY                    "_POL"
+ #define ACPI_RESTAG_REGISTERBITOFFSET           "_RBO"
+ #define ACPI_RESTAG_REGISTERBITWIDTH            "_RBW"
+ #define ACPI_RESTAG_RANGETYPE                   "_RNG"
+ #define ACPI_RESTAG_READWRITETYPE               "_RW_"	/* read_only(0), Writeable (1) */
++#define ACPI_RESTAG_LENGTH_RX                   "_RXL"
++#define ACPI_RESTAG_LENGTH_TX                   "_TXL"
++#define ACPI_RESTAG_SLAVEMODE                   "_SLV"
++#define ACPI_RESTAG_SPEED                       "_SPE"
++#define ACPI_RESTAG_STOPBITS                    "_STB"
+ #define ACPI_RESTAG_TRANSLATION                 "_TRA"
+ #define ACPI_RESTAG_TRANSTYPE                   "_TRS"	/* Sparse(1), Dense(0) */
+ #define ACPI_RESTAG_TYPE                        "_TTP"	/* Translation(1), Static (0) */
+ #define ACPI_RESTAG_XFERTYPE                    "_SIZ"	/* 8(0), 8_and16(1), 16(2) */
++#define ACPI_RESTAG_VENDORDATA                  "_VEN"
+ 
+ /* Default sizes for "small" resource descriptors */
+ 
+@@ -90,6 +109,7 @@
+ #define ASL_RDESC_END_DEPEND_SIZE               0x00
+ #define ASL_RDESC_IO_SIZE                       0x07
+ #define ASL_RDESC_FIXED_IO_SIZE                 0x03
++#define ASL_RDESC_FIXED_DMA_SIZE                0x05
+ #define ASL_RDESC_END_TAG_SIZE                  0x01
+ 
+ struct asl_resource_node {
+@@ -164,6 +184,12 @@
+ 	AML_RESOURCE_SMALL_HEADER_COMMON u8 checksum;
+ };
+ 
++struct aml_resource_fixed_dma {
++	AML_RESOURCE_SMALL_HEADER_COMMON u16 request_lines;
++	u16 channels;
++	u8 width;
++};
++
+ /*
+  * LARGE descriptors
+  */
+@@ -263,6 +289,110 @@
+ 	u64 address;
+ };
+ 
++/* Common descriptor for gpio_int and gpio_io (ACPI 5.0) */
++
++struct aml_resource_gpio {
++	AML_RESOURCE_LARGE_HEADER_COMMON u8 revision_id;
++	u8 connection_type;
++	u16 flags;
++	u16 int_flags;
++	u8 pin_config;
++	u16 drive_strength;
++	u16 debounce_timeout;
++	u16 pin_table_offset;
++	u8 res_source_index;
++	u16 res_source_offset;
++	u16 vendor_offset;
++	u16 vendor_length;
++	/*
++	 * Optional fields follow immediately:
++	 * 1) PIN list (Words)
++	 * 2) Resource Source String
++	 * 3) Vendor Data bytes
++	 */
++};
++
++#define AML_RESOURCE_GPIO_REVISION              1	/* ACPI 5.0 */
++
++/* Values for connection_type above */
++
++#define AML_RESOURCE_GPIO_TYPE_INT              0
++#define AML_RESOURCE_GPIO_TYPE_IO               1
++#define AML_RESOURCE_MAX_GPIOTYPE               1
++
++/* Common preamble for all serial descriptors (ACPI 5.0) */
++
++#define AML_RESOURCE_SERIAL_COMMON \
++	u8                              revision_id; \
++	u8                              res_source_index; \
++	u8                              type; \
++	u8                              flags; \
++	u16                             type_specific_flags; \
++	u8                              type_revision_id; \
++	u16                             type_data_length; \
++
++/* Values for the type field above */
++
++#define AML_RESOURCE_I2C_SERIALBUSTYPE          1
++#define AML_RESOURCE_SPI_SERIALBUSTYPE          2
++#define AML_RESOURCE_UART_SERIALBUSTYPE         3
++#define AML_RESOURCE_MAX_SERIALBUSTYPE          3
++#define AML_RESOURCE_VENDOR_SERIALBUSTYPE       192	/* Vendor defined is 0xC0-0xFF (NOT SUPPORTED) */
++
++struct aml_resource_common_serialbus {
++AML_RESOURCE_LARGE_HEADER_COMMON AML_RESOURCE_SERIAL_COMMON};
++
++struct aml_resource_i2c_serialbus {
++	AML_RESOURCE_LARGE_HEADER_COMMON
++	    AML_RESOURCE_SERIAL_COMMON u32 connection_speed;
++	u16 slave_address;
++	/*
++	 * Optional fields follow immediately:
++	 * 1) Vendor Data bytes
++	 * 2) Resource Source String
++	 */
++};
++
++#define AML_RESOURCE_I2C_REVISION               1	/* ACPI 5.0 */
++#define AML_RESOURCE_I2C_TYPE_REVISION          1	/* ACPI 5.0 */
++#define AML_RESOURCE_I2C_MIN_DATA_LEN           6
++
++struct aml_resource_spi_serialbus {
++	AML_RESOURCE_LARGE_HEADER_COMMON
++	    AML_RESOURCE_SERIAL_COMMON u32 connection_speed;
++	u8 data_bit_length;
++	u8 clock_phase;
++	u8 clock_polarity;
++	u16 device_selection;
++	/*
++	 * Optional fields follow immediately:
++	 * 1) Vendor Data bytes
++	 * 2) Resource Source String
++	 */
++};
++
++#define AML_RESOURCE_SPI_REVISION               1	/* ACPI 5.0 */
++#define AML_RESOURCE_SPI_TYPE_REVISION          1	/* ACPI 5.0 */
++#define AML_RESOURCE_SPI_MIN_DATA_LEN           9
++
++struct aml_resource_uart_serialbus {
++	AML_RESOURCE_LARGE_HEADER_COMMON
++	    AML_RESOURCE_SERIAL_COMMON u32 default_baud_rate;
++	u16 rx_fifo_size;
++	u16 tx_fifo_size;
++	u8 parity;
++	u8 lines_enabled;
++	/*
++	 * Optional fields follow immediately:
++	 * 1) Vendor Data bytes
++	 * 2) Resource Source String
++	 */
++};
++
++#define AML_RESOURCE_UART_REVISION              1	/* ACPI 5.0 */
++#define AML_RESOURCE_UART_TYPE_REVISION         1	/* ACPI 5.0 */
++#define AML_RESOURCE_UART_MIN_DATA_LEN          10
++
+ /* restore default alignment */
+ 
+ #pragma pack()
+@@ -284,6 +414,7 @@
+ 	struct aml_resource_end_dependent end_dpf;
+ 	struct aml_resource_io io;
+ 	struct aml_resource_fixed_io fixed_io;
++	struct aml_resource_fixed_dma fixed_dma;
+ 	struct aml_resource_vendor_small vendor_small;
+ 	struct aml_resource_end_tag end_tag;
+ 
+@@ -299,6 +430,11 @@
+ 	struct aml_resource_address64 address64;
+ 	struct aml_resource_extended_address64 ext_address64;
+ 	struct aml_resource_extended_irq extended_irq;
++	struct aml_resource_gpio gpio;
++	struct aml_resource_i2c_serialbus i2c_serial_bus;
++	struct aml_resource_spi_serialbus spi_serial_bus;
++	struct aml_resource_uart_serialbus uart_serial_bus;
++	struct aml_resource_common_serialbus common_serial_bus;
+ 
+ 	/* Utility overlays */
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/dsfield.c linux-3.2.16.patch/drivers/acpi/acpica/dsfield.c
+--- linux-3.2.16/drivers/acpi/acpica/dsfield.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/dsfield.c	2012-04-23 06:05:41.409124478 +0200
+@@ -221,6 +221,7 @@
+ {
+ 	acpi_status status;
+ 	u64 position;
++	union acpi_parse_object *child;
+ 
+ 	ACPI_FUNCTION_TRACE_PTR(ds_get_field_names, info);
+ 
+@@ -232,10 +233,11 @@
+ 
+ 	while (arg) {
+ 		/*
+-		 * Three types of field elements are handled:
+-		 * 1) Offset - specifies a bit offset
+-		 * 2) access_as - changes the access mode
+-		 * 3) Name - Enters a new named field into the namespace
++		 * Four types of field elements are handled:
++		 * 1) Name - Enters a new named field into the namespace
++		 * 2) Offset - specifies a bit offset
++		 * 3) access_as - changes the access mode/attributes
++		 * 4) Connection - Associate a resource template with the field
+ 		 */
+ 		switch (arg->common.aml_opcode) {
+ 		case AML_INT_RESERVEDFIELD_OP:
+@@ -253,21 +255,70 @@
+ 			break;
+ 
+ 		case AML_INT_ACCESSFIELD_OP:
+-
++		case AML_INT_EXTACCESSFIELD_OP:
+ 			/*
+-			 * Get a new access_type and access_attribute -- to be used for all
+-			 * field units that follow, until field end or another access_as
+-			 * keyword.
++			 * Get new access_type, access_attribute, and access_length fields
++			 * -- to be used for all field units that follow, until the
++			 * end-of-field or another access_as keyword is encountered.
++			 * NOTE. These three bytes are encoded in the integer value
++			 * of the parseop for convenience.
+ 			 *
+ 			 * In field_flags, preserve the flag bits other than the
+-			 * ACCESS_TYPE bits
++			 * ACCESS_TYPE bits.
+ 			 */
++
++			/* access_type (byte_acc, word_acc, etc.) */
++
+ 			info->field_flags = (u8)
+ 			    ((info->
+ 			      field_flags & ~(AML_FIELD_ACCESS_TYPE_MASK)) |
+-			     ((u8) ((u32) arg->common.value.integer >> 8)));
++			     ((u8)((u32)(arg->common.value.integer & 0x07))));
++
++			/* access_attribute (attrib_quick, attrib_byte, etc.) */
++
++			info->attribute =
++			    (u8)((arg->common.value.integer >> 8) & 0xFF);
++
++			/* access_length (for serial/buffer protocols) */
+ 
+-			info->attribute = (u8) (arg->common.value.integer);
++			info->access_length =
++			    (u8)((arg->common.value.integer >> 16) & 0xFF);
++			break;
++
++		case AML_INT_CONNECTION_OP:
++			/*
++			 * Clear any previous connection. New connection is used for all
++			 * fields that follow, similar to access_as
++			 */
++			info->resource_buffer = NULL;
++			info->connection_node = NULL;
++
++			/*
++			 * A Connection() is either an actual resource descriptor (buffer)
++			 * or a named reference to a resource template
++			 */
++			child = arg->common.value.arg;
++			if (child->common.aml_opcode == AML_INT_BYTELIST_OP) {
++				info->resource_buffer = child->named.data;
++				info->resource_length =
++				    (u16)child->named.value.integer;
++			} else {
++				/* Lookup the Connection() namepath, it should already exist */
++
++				status = acpi_ns_lookup(walk_state->scope_info,
++							child->common.value.
++							name, ACPI_TYPE_ANY,
++							ACPI_IMODE_EXECUTE,
++							ACPI_NS_DONT_OPEN_SCOPE,
++							walk_state,
++							&info->connection_node);
++				if (ACPI_FAILURE(status)) {
++					ACPI_ERROR_NAMESPACE(child->common.
++							     value.name,
++							     status);
++					return_ACPI_STATUS(status);
++				}
++			}
+ 			break;
+ 
+ 		case AML_INT_NAMEDFIELD_OP:
+@@ -374,6 +425,8 @@
+ 		}
+ 	}
+ 
++	ACPI_MEMSET(&info, 0, sizeof(struct acpi_create_field_info));
++
+ 	/* Second arg is the field flags */
+ 
+ 	arg = arg->common.next;
+@@ -386,7 +439,6 @@
+ 	info.region_node = region_node;
+ 
+ 	status = acpi_ds_get_field_names(&info, walk_state, arg->common.next);
+-
+ 	return_ACPI_STATUS(status);
+ }
+ 
+@@ -474,8 +526,8 @@
+ 	 */
+ 	while (arg) {
+ 		/*
+-		 * Ignore OFFSET and ACCESSAS terms here; we are only interested in the
+-		 * field names in order to enter them into the namespace.
++		 * Ignore OFFSET/ACCESSAS/CONNECTION terms here; we are only interested
++		 * in the field names in order to enter them into the namespace.
+ 		 */
+ 		if (arg->common.aml_opcode == AML_INT_NAMEDFIELD_OP) {
+ 			status = acpi_ns_lookup(walk_state->scope_info,
+@@ -651,6 +703,5 @@
+ 	info.region_node = region_node;
+ 
+ 	status = acpi_ds_get_field_names(&info, walk_state, arg->common.next);
+-
+ 	return_ACPI_STATUS(status);
+ }
+diff -Naur linux-3.2.16/drivers/acpi/acpica/evevent.c linux-3.2.16.patch/drivers/acpi/acpica/evevent.c
+--- linux-3.2.16/drivers/acpi/acpica/evevent.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/evevent.c	2012-04-23 06:05:41.409124478 +0200
+@@ -71,6 +71,12 @@
+ 
+ 	ACPI_FUNCTION_TRACE(ev_initialize_events);
+ 
++	/* If Hardware Reduced flag is set, there are no fixed events */
++
++	if (acpi_gbl_reduced_hardware) {
++		return_ACPI_STATUS(AE_OK);
++	}
++
+ 	/*
+ 	 * Initialize the Fixed and General Purpose Events. This is done prior to
+ 	 * enabling SCIs to prevent interrupts from occurring before the handlers
+@@ -111,6 +117,12 @@
+ 
+ 	ACPI_FUNCTION_TRACE(ev_install_xrupt_handlers);
+ 
++	/* If Hardware Reduced flag is set, there is no ACPI h/w */
++
++	if (acpi_gbl_reduced_hardware) {
++		return_ACPI_STATUS(AE_OK);
++	}
++
+ 	/* Install the SCI handler */
+ 
+ 	status = acpi_ev_install_sci_handler();
+diff -Naur linux-3.2.16/drivers/acpi/acpica/evglock.c linux-3.2.16.patch/drivers/acpi/acpica/evglock.c
+--- linux-3.2.16/drivers/acpi/acpica/evglock.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/evglock.c	2012-04-23 06:05:41.410124498 +0200
+@@ -70,6 +70,12 @@
+ 
+ 	ACPI_FUNCTION_TRACE(ev_init_global_lock_handler);
+ 
++	/* If Hardware Reduced flag is set, there is no global lock */
++
++	if (acpi_gbl_reduced_hardware) {
++		return_ACPI_STATUS(AE_OK);
++	}
++
+ 	/* Attempt installation of the global lock handler */
+ 
+ 	status = acpi_install_fixed_event_handler(ACPI_EVENT_GLOBAL,
+diff -Naur linux-3.2.16/drivers/acpi/acpica/evregion.c linux-3.2.16.patch/drivers/acpi/acpica/evregion.c
+--- linux-3.2.16/drivers/acpi/acpica/evregion.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/evregion.c	2012-04-23 06:05:41.411124518 +0200
+@@ -329,6 +329,7 @@
+  * FUNCTION:    acpi_ev_address_space_dispatch
+  *
+  * PARAMETERS:  region_obj          - Internal region object
++ *              field_obj           - Corresponding field. Can be NULL.
+  *              Function            - Read or Write operation
+  *              region_offset       - Where in the region to read or write
+  *              bit_width           - Field width in bits (8, 16, 32, or 64)
+@@ -344,6 +345,7 @@
+ 
+ acpi_status
+ acpi_ev_address_space_dispatch(union acpi_operand_object *region_obj,
++			       union acpi_operand_object *field_obj,
+ 			       u32 function,
+ 			       u32 region_offset, u32 bit_width, u64 *value)
+ {
+@@ -353,6 +355,7 @@
+ 	union acpi_operand_object *handler_desc;
+ 	union acpi_operand_object *region_obj2;
+ 	void *region_context = NULL;
++	struct acpi_connection_info *context;
+ 
+ 	ACPI_FUNCTION_TRACE(ev_address_space_dispatch);
+ 
+@@ -375,6 +378,8 @@
+ 		return_ACPI_STATUS(AE_NOT_EXIST);
+ 	}
+ 
++	context = handler_desc->address_space.context;
++
+ 	/*
+ 	 * It may be the case that the region has never been initialized.
+ 	 * Some types of regions require special init code
+@@ -404,8 +409,7 @@
+ 		acpi_ex_exit_interpreter();
+ 
+ 		status = region_setup(region_obj, ACPI_REGION_ACTIVATE,
+-				      handler_desc->address_space.context,
+-				      &region_context);
++				      context, &region_context);
+ 
+ 		/* Re-enter the interpreter */
+ 
+@@ -455,6 +459,25 @@
+ 			  acpi_ut_get_region_name(region_obj->region.
+ 						  space_id)));
+ 
++	/*
++	 * Special handling for generic_serial_bus and general_purpose_io:
++	 * There are three extra parameters that must be passed to the
++	 * handler via the context:
++	 *   1) Connection buffer, a resource template from Connection() op.
++	 *   2) Length of the above buffer.
++	 *   3) Actual access length from the access_as() op.
++	 */
++	if (((region_obj->region.space_id == ACPI_ADR_SPACE_GSBUS) ||
++	     (region_obj->region.space_id == ACPI_ADR_SPACE_GPIO)) &&
++	    context && field_obj) {
++
++		/* Get the Connection (resource_template) buffer */
++
++		context->connection = field_obj->field.resource_buffer;
++		context->length = field_obj->field.resource_length;
++		context->access_length = field_obj->field.access_length;
++	}
++
+ 	if (!(handler_desc->address_space.handler_flags &
+ 	      ACPI_ADDR_HANDLER_DEFAULT_INSTALLED)) {
+ 		/*
+@@ -469,7 +492,7 @@
+ 
+ 	status = handler(function,
+ 			 (region_obj->region.address + region_offset),
+-			 bit_width, value, handler_desc->address_space.context,
++			 bit_width, value, context,
+ 			 region_obj2->extra.region_context);
+ 
+ 	if (ACPI_FAILURE(status)) {
+diff -Naur linux-3.2.16/drivers/acpi/acpica/exconfig.c linux-3.2.16.patch/drivers/acpi/acpica/exconfig.c
+--- linux-3.2.16/drivers/acpi/acpica/exconfig.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/exconfig.c	2012-04-23 06:05:41.412124538 +0200
+@@ -297,9 +297,9 @@
+ 	/* Bytewise reads */
+ 
+ 	for (i = 0; i < length; i++) {
+-		status = acpi_ev_address_space_dispatch(obj_desc, ACPI_READ,
+-							region_offset, 8,
+-							&value);
++		status =
++		    acpi_ev_address_space_dispatch(obj_desc, NULL, ACPI_READ,
++						   region_offset, 8, &value);
+ 		if (ACPI_FAILURE(status)) {
+ 			return status;
+ 		}
+diff -Naur linux-3.2.16/drivers/acpi/acpica/excreate.c linux-3.2.16.patch/drivers/acpi/acpica/excreate.c
+--- linux-3.2.16/drivers/acpi/acpica/excreate.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/excreate.c	2012-04-23 06:10:20.640734230 +0200
+@@ -267,7 +267,7 @@
+  *
+  * PARAMETERS:  aml_start           - Pointer to the region declaration AML
+  *              aml_length          - Max length of the declaration AML
+- *              region_space        - space_iD for the region
++ *              space_id            - Address space ID for the region
+  *              walk_state          - Current state
+  *
+  * RETURN:      Status
+@@ -279,7 +279,7 @@
+ acpi_status
+ acpi_ex_create_region(u8 * aml_start,
+ 		      u32 aml_length,
+-		      u8 region_space, struct acpi_walk_state *walk_state)
++		      u8 space_id, struct acpi_walk_state *walk_state)
+ {
+ 	acpi_status status;
+ 	union acpi_operand_object *obj_desc;
+@@ -304,16 +304,19 @@
+ 	 * Space ID must be one of the predefined IDs, or in the user-defined
+ 	 * range
+ 	 */
+-	if ((region_space >= ACPI_NUM_PREDEFINED_REGIONS) &&
+-	    (region_space < ACPI_USER_REGION_BEGIN) &&
+-	    (region_space != ACPI_ADR_SPACE_DATA_TABLE)) {
+-		ACPI_ERROR((AE_INFO, "Invalid AddressSpace type 0x%X",
+-			    region_space));
+-		return_ACPI_STATUS(AE_AML_INVALID_SPACE_ID);
++	if (!acpi_is_valid_space_id(space_id)) {
++		/*
++		 * Print an error message, but continue. We don't want to abort
++		 * a table load for this exception. Instead, if the region is
++		 * actually used at runtime, abort the executing method.
++		 */
++		ACPI_ERROR((AE_INFO,
++			    "Invalid/unknown Address Space ID: 0x%2.2X",
++			    space_id));
+ 	}
+ 
+ 	ACPI_DEBUG_PRINT((ACPI_DB_LOAD, "Region Type - %s (0x%X)\n",
+-			  acpi_ut_get_region_name(region_space), region_space));
++			  acpi_ut_get_region_name(space_id), space_id));
+ 
+ 	/* Create the region descriptor */
+ 
+@@ -339,7 +342,7 @@
+ 
+ 	/* Init the region from the operands */
+ 
+-	obj_desc->region.space_id = region_space;
++	obj_desc->region.space_id = space_id;
+ 	obj_desc->region.address = 0;
+ 	obj_desc->region.length = 0;
+ 	obj_desc->region.node = node;
+diff -Naur linux-3.2.16/drivers/acpi/acpica/exdump.c linux-3.2.16.patch/drivers/acpi/acpica/exdump.c
+--- linux-3.2.16/drivers/acpi/acpica/exdump.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/exdump.c	2012-04-23 06:05:41.414124579 +0200
+@@ -192,10 +192,13 @@
+ 	 "Buffer Object"}
+ };
+ 
+-static struct acpi_exdump_info acpi_ex_dump_region_field[3] = {
++static struct acpi_exdump_info acpi_ex_dump_region_field[5] = {
+ 	{ACPI_EXD_INIT, ACPI_EXD_TABLE_SIZE(acpi_ex_dump_region_field), NULL},
+ 	{ACPI_EXD_FIELD, 0, NULL},
+-	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(field.region_obj), "Region Object"}
++	{ACPI_EXD_UINT8, ACPI_EXD_OFFSET(field.access_length), "AccessLength"},
++	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(field.region_obj), "Region Object"},
++	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(field.resource_buffer),
++	 "ResourceBuffer"}
+ };
+ 
+ static struct acpi_exdump_info acpi_ex_dump_bank_field[5] = {
+diff -Naur linux-3.2.16/drivers/acpi/acpica/exfield.c linux-3.2.16.patch/drivers/acpi/acpica/exfield.c
+--- linux-3.2.16/drivers/acpi/acpica/exfield.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/exfield.c	2012-04-23 06:05:41.414124579 +0200
+@@ -100,18 +100,25 @@
+ 		   (obj_desc->field.region_obj->region.space_id ==
+ 		    ACPI_ADR_SPACE_SMBUS
+ 		    || obj_desc->field.region_obj->region.space_id ==
++		    ACPI_ADR_SPACE_GSBUS
++		    || obj_desc->field.region_obj->region.space_id ==
+ 		    ACPI_ADR_SPACE_IPMI)) {
+ 		/*
+-		 * This is an SMBus or IPMI read. We must create a buffer to hold
++		 * This is an SMBus, GSBus or IPMI read. We must create a buffer to hold
+ 		 * the data and then directly access the region handler.
+ 		 *
+-		 * Note: Smbus protocol value is passed in upper 16-bits of Function
++		 * Note: SMBus and GSBus protocol value is passed in upper 16-bits of Function
+ 		 */
+ 		if (obj_desc->field.region_obj->region.space_id ==
+ 		    ACPI_ADR_SPACE_SMBUS) {
+ 			length = ACPI_SMBUS_BUFFER_SIZE;
+ 			function =
+ 			    ACPI_READ | (obj_desc->field.attribute << 16);
++		} else if (obj_desc->field.region_obj->region.space_id ==
++			   ACPI_ADR_SPACE_GSBUS) {
++			length = ACPI_GSBUS_BUFFER_SIZE;
++			function =
++			    ACPI_READ | (obj_desc->field.attribute << 16);
+ 		} else {	/* IPMI */
+ 
+ 			length = ACPI_IPMI_BUFFER_SIZE;
+@@ -248,21 +255,23 @@
+ 		   (obj_desc->field.region_obj->region.space_id ==
+ 		    ACPI_ADR_SPACE_SMBUS
+ 		    || obj_desc->field.region_obj->region.space_id ==
++		    ACPI_ADR_SPACE_GSBUS
++		    || obj_desc->field.region_obj->region.space_id ==
+ 		    ACPI_ADR_SPACE_IPMI)) {
+ 		/*
+-		 * This is an SMBus or IPMI write. We will bypass the entire field
++		 * This is an SMBus, GSBus or IPMI write. We will bypass the entire field
+ 		 * mechanism and handoff the buffer directly to the handler. For
+ 		 * these address spaces, the buffer is bi-directional; on a write,
+ 		 * return data is returned in the same buffer.
+ 		 *
+ 		 * Source must be a buffer of sufficient size:
+-		 * ACPI_SMBUS_BUFFER_SIZE or ACPI_IPMI_BUFFER_SIZE.
++		 * ACPI_SMBUS_BUFFER_SIZE, ACPI_GSBUS_BUFFER_SIZE, or ACPI_IPMI_BUFFER_SIZE.
+ 		 *
+-		 * Note: SMBus protocol type is passed in upper 16-bits of Function
++		 * Note: SMBus and GSBus protocol type is passed in upper 16-bits of Function
+ 		 */
+ 		if (source_desc->common.type != ACPI_TYPE_BUFFER) {
+ 			ACPI_ERROR((AE_INFO,
+-				    "SMBus or IPMI write requires Buffer, found type %s",
++				    "SMBus/IPMI/GenericSerialBus write requires Buffer, found type %s",
+ 				    acpi_ut_get_object_type_name(source_desc)));
+ 
+ 			return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
+@@ -273,6 +282,11 @@
+ 			length = ACPI_SMBUS_BUFFER_SIZE;
+ 			function =
+ 			    ACPI_WRITE | (obj_desc->field.attribute << 16);
++		} else if (obj_desc->field.region_obj->region.space_id ==
++			   ACPI_ADR_SPACE_GSBUS) {
++			length = ACPI_GSBUS_BUFFER_SIZE;
++			function =
++			    ACPI_WRITE | (obj_desc->field.attribute << 16);
+ 		} else {	/* IPMI */
+ 
+ 			length = ACPI_IPMI_BUFFER_SIZE;
+@@ -281,7 +295,7 @@
+ 
+ 		if (source_desc->buffer.length < length) {
+ 			ACPI_ERROR((AE_INFO,
+-				    "SMBus or IPMI write requires Buffer of length %u, found length %u",
++				    "SMBus/IPMI/GenericSerialBus write requires Buffer of length %u, found length %u",
+ 				    length, source_desc->buffer.length));
+ 
+ 			return_ACPI_STATUS(AE_AML_BUFFER_LIMIT);
+diff -Naur linux-3.2.16/drivers/acpi/acpica/exfldio.c linux-3.2.16.patch/drivers/acpi/acpica/exfldio.c
+--- linux-3.2.16/drivers/acpi/acpica/exfldio.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/exfldio.c	2012-04-23 06:05:41.415124599 +0200
+@@ -86,6 +86,7 @@
+ {
+ 	acpi_status status = AE_OK;
+ 	union acpi_operand_object *rgn_desc;
++	u8 space_id;
+ 
+ 	ACPI_FUNCTION_TRACE_U32(ex_setup_region, field_datum_byte_offset);
+ 
+@@ -101,6 +102,17 @@
+ 		return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
+ 	}
+ 
++	space_id = rgn_desc->region.space_id;
++
++	/* Validate the Space ID */
++
++	if (!acpi_is_valid_space_id(space_id)) {
++		ACPI_ERROR((AE_INFO,
++			    "Invalid/unknown Address Space ID: 0x%2.2X",
++			    space_id));
++		return_ACPI_STATUS(AE_AML_INVALID_SPACE_ID);
++	}
++
+ 	/*
+ 	 * If the Region Address and Length have not been previously evaluated,
+ 	 * evaluate them now and save the results.
+@@ -119,11 +131,12 @@
+ 	}
+ 
+ 	/*
+-	 * Exit now for SMBus or IPMI address space, it has a non-linear
++	 * Exit now for SMBus, GSBus or IPMI address space, it has a non-linear
+ 	 * address space and the request cannot be directly validated
+ 	 */
+-	if (rgn_desc->region.space_id == ACPI_ADR_SPACE_SMBUS ||
+-	    rgn_desc->region.space_id == ACPI_ADR_SPACE_IPMI) {
++	if (space_id == ACPI_ADR_SPACE_SMBUS ||
++	    space_id == ACPI_ADR_SPACE_GSBUS ||
++	    space_id == ACPI_ADR_SPACE_IPMI) {
+ 
+ 		/* SMBus or IPMI has a non-linear address space */
+ 
+@@ -271,11 +284,12 @@
+ 
+ 	/* Invoke the appropriate address_space/op_region handler */
+ 
+-	status =
+-	    acpi_ev_address_space_dispatch(rgn_desc, function, region_offset,
+-					   ACPI_MUL_8(obj_desc->common_field.
+-						      access_byte_width),
+-					   value);
++	status = acpi_ev_address_space_dispatch(rgn_desc, obj_desc,
++						function, region_offset,
++						ACPI_MUL_8(obj_desc->
++							   common_field.
++							   access_byte_width),
++						value);
+ 
+ 	if (ACPI_FAILURE(status)) {
+ 		if (status == AE_NOT_IMPLEMENTED) {
+@@ -316,6 +330,7 @@
+ static u8
+ acpi_ex_register_overflow(union acpi_operand_object *obj_desc, u64 value)
+ {
++	ACPI_FUNCTION_NAME(ex_register_overflow);
+ 
+ 	if (obj_desc->common_field.bit_length >= ACPI_INTEGER_BIT_SIZE) {
+ 		/*
+@@ -330,6 +345,11 @@
+ 		 * The Value is larger than the maximum value that can fit into
+ 		 * the register.
+ 		 */
++		ACPI_ERROR((AE_INFO,
++			    "Index value 0x%8.8X%8.8X overflows field width 0x%X",
++			    ACPI_FORMAT_UINT64(value),
++			    obj_desc->common_field.bit_length));
++
+ 		return (TRUE);
+ 	}
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/exprep.c linux-3.2.16.patch/drivers/acpi/acpica/exprep.c
+--- linux-3.2.16/drivers/acpi/acpica/exprep.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/exprep.c	2012-04-23 06:05:41.416124619 +0200
+@@ -47,6 +47,7 @@
+ #include "acinterp.h"
+ #include "amlcode.h"
+ #include "acnamesp.h"
++#include "acdispat.h"
+ 
+ #define _COMPONENT          ACPI_EXECUTER
+ ACPI_MODULE_NAME("exprep")
+@@ -455,6 +456,30 @@
+ 		obj_desc->field.region_obj =
+ 		    acpi_ns_get_attached_object(info->region_node);
+ 
++		/* Fields specific to generic_serial_bus fields */
++
++		obj_desc->field.access_length = info->access_length;
++
++		if (info->connection_node) {
++			second_desc = info->connection_node->object;
++			if (!(second_desc->common.flags & AOPOBJ_DATA_VALID)) {
++				status =
++				    acpi_ds_get_buffer_arguments(second_desc);
++				if (ACPI_FAILURE(status)) {
++					acpi_ut_delete_object_desc(obj_desc);
++					return_ACPI_STATUS(status);
++				}
++			}
++
++			obj_desc->field.resource_buffer =
++			    second_desc->buffer.pointer;
++			obj_desc->field.resource_length =
++			    (u16)second_desc->buffer.length;
++		} else if (info->resource_buffer) {
++			obj_desc->field.resource_buffer = info->resource_buffer;
++			obj_desc->field.resource_length = info->resource_length;
++		}
++
+ 		/* Allow full data read from EC address space */
+ 
+ 		if ((obj_desc->field.region_obj->region.space_id ==
+diff -Naur linux-3.2.16/drivers/acpi/acpica/exutils.c linux-3.2.16.patch/drivers/acpi/acpica/exutils.c
+--- linux-3.2.16/drivers/acpi/acpica/exutils.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/exutils.c	2012-04-23 06:05:41.417124639 +0200
+@@ -435,4 +435,29 @@
+ 	}
+ }
+ 
++/*******************************************************************************
++ *
++ * FUNCTION:    acpi_is_valid_space_id
++ *
++ * PARAMETERS:  space_id            - ID to be validated
++ *
++ * RETURN:      TRUE if valid/supported ID.
++ *
++ * DESCRIPTION: Validate an operation region space_iD.
++ *
++ ******************************************************************************/
++
++u8 acpi_is_valid_space_id(u8 space_id)
++{
++
++	if ((space_id >= ACPI_NUM_PREDEFINED_REGIONS) &&
++	    (space_id < ACPI_USER_REGION_BEGIN) &&
++	    (space_id != ACPI_ADR_SPACE_DATA_TABLE) &&
++	    (space_id != ACPI_ADR_SPACE_FIXED_HARDWARE)) {
++		return (FALSE);
++	}
++
++	return (TRUE);
++}
++
+ #endif
+diff -Naur linux-3.2.16/drivers/acpi/acpica/hwvalid.c linux-3.2.16.patch/drivers/acpi/acpica/hwvalid.c
+--- linux-3.2.16/drivers/acpi/acpica/hwvalid.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/hwvalid.c	2012-04-23 06:05:41.417124639 +0200
+@@ -134,6 +134,8 @@
+ 	/* Supported widths are 8/16/32 */
+ 
+ 	if ((bit_width != 8) && (bit_width != 16) && (bit_width != 32)) {
++		ACPI_ERROR((AE_INFO,
++			    "Bad BitWidth parameter: %8.8X", bit_width));
+ 		return AE_BAD_PARAMETER;
+ 	}
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/Makefile linux-3.2.16.patch/drivers/acpi/acpica/Makefile
+--- linux-3.2.16/drivers/acpi/acpica/Makefile	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/Makefile	2012-04-23 06:05:41.418124659 +0200
+@@ -8,41 +8,150 @@
+ # use acpi.o to put all files here into acpi.o modparam namespace
+ obj-y	+= acpi.o
+ 
+-acpi-y := dsfield.o   dsmthdat.o  dsopcode.o  dswexec.o  dswscope.o \
+-	 dsmethod.o  dsobject.o  dsutils.o   dswload.o  dswstate.o \
+-	 dsinit.o dsargs.o dscontrol.o dswload2.o
+-
+-acpi-y += evevent.o  evregion.o  evsci.o    evxfevnt.o \
+-	 evmisc.o   evrgnini.o  evxface.o  evxfregn.o \
+-	 evgpe.o    evgpeblk.o evgpeinit.o  evgpeutil.o evxfgpe.o evglock.o
+-
+-acpi-y += exconfig.o  exfield.o  exnames.o   exoparg6.o  exresolv.o  exstorob.o\
+-	 exconvrt.o  exfldio.o  exoparg1.o  exprep.o    exresop.o   exsystem.o\
+-	 excreate.o  exmisc.o   exoparg2.o  exregion.o  exstore.o   exutils.o \
+-	 exdump.o    exmutex.o  exoparg3.o  exresnte.o  exstoren.o  exdebug.o
+-
+-acpi-y += hwacpi.o  hwgpe.o  hwregs.o  hwsleep.o hwxface.o hwvalid.o hwpci.o
++acpi-y :=		\
++	dsargs.o	\
++	dscontrol.o	\
++	dsfield.o	\
++	dsinit.o	\
++	dsmethod.o	\
++	dsmthdat.o	\
++	dsobject.o	\
++	dsopcode.o	\
++	dsutils.o	\
++	dswexec.o	\
++	dswload.o	\
++	dswload2.o	\
++	dswscope.o	\
++	dswstate.o
++
++acpi-y +=		\
++	evevent.o	\
++	evgpe.o		\
++	evgpeblk.o	\
++	evgpeinit.o	\
++	evgpeutil.o	\
++	evglock.o	\
++	evmisc.o	\
++	evregion.o	\
++	evrgnini.o	\
++	evsci.o		\
++	evxface.o	\
++	evxfevnt.o	\
++	evxfgpe.o	\
++	evxfregn.o
++
++acpi-y +=		\
++	exconfig.o	\
++	exconvrt.o	\
++	excreate.o	\
++	exdebug.o	\
++	exdump.o	\
++	exfield.o	\
++	exfldio.o	\
++	exmutex.o	\
++	exnames.o	\
++	exoparg1.o	\
++	exoparg2.o	\
++	exoparg3.o	\
++	exoparg6.o	\
++	exprep.o	\
++	exmisc.o	\
++	exregion.o	\
++	exresnte.o	\
++	exresolv.o	\
++	exresop.o	\
++	exstore.o	\
++	exstoren.o	\
++	exstorob.o	\
++	exsystem.o	\
++	exutils.o
++
++acpi-y +=		\
++	hwacpi.o	\
++	hwgpe.o		\
++	hwpci.o		\
++	hwregs.o	\
++	hwsleep.o	\
++	hwvalid.o	\
++	hwxface.o
+ 
+ acpi-$(ACPI_FUTURE_USAGE) += hwtimer.o
+ 
+-acpi-y += nsaccess.o  nsload.o    nssearch.o  nsxfeval.o \
+-	 nsalloc.o   nseval.o    nsnames.o   nsutils.o   nsxfname.o \
+-	 nsdump.o    nsinit.o    nsobject.o  nswalk.o    nsxfobj.o  \
+-	 nsparse.o   nspredef.o  nsrepair.o  nsrepair2.o
++acpi-y +=		\
++	nsaccess.o	\
++	nsalloc.o	\
++	nsdump.o	\
++	nseval.o	\
++	nsinit.o	\
++	nsload.o	\
++	nsnames.o	\
++	nsobject.o	\
++	nsparse.o	\
++	nspredef.o	\
++	nsrepair.o	\
++	nsrepair2.o	\
++	nssearch.o	\
++	nsutils.o	\
++	nswalk.o	\
++	nsxfeval.o	\
++	nsxfname.o	\
++	nsxfobj.o
+ 
+ acpi-$(ACPI_FUTURE_USAGE) += nsdumpdv.o
+ 
+-acpi-y += psargs.o    psparse.o  psloop.o pstree.o   pswalk.o  \
+-	 psopcode.o  psscope.o  psutils.o  psxface.o
+-
+-acpi-y += rsaddr.o rscreate.o rsinfo.o rsio.o rslist.o rsmisc.o rsxface.o \
+-	 rscalc.o  rsirq.o  rsmemory.o  rsutils.o
++acpi-y +=		\
++	psargs.o	\
++	psloop.o	\
++	psopcode.o	\
++	psparse.o	\
++	psscope.o	\
++	pstree.o	\
++	psutils.o	\
++	pswalk.o	\
++	psxface.o
++
++acpi-y +=		\
++	rsaddr.o	\
++	rscalc.o	\
++	rscreate.o	\
++	rsinfo.o	\
++	rsio.o		\
++	rsirq.o		\
++	rslist.o	\
++	rsmemory.o	\
++	rsmisc.o	\
++	rsserial.o	\
++	rsutils.o	\
++	rsxface.o
+ 
+ acpi-$(ACPI_FUTURE_USAGE) += rsdump.o
+ 
+-acpi-y += tbxface.o tbinstal.o tbutils.o tbfind.o tbfadt.o tbxfroot.o
+-
+-acpi-y += utalloc.o utdebug.o uteval.o utinit.o utmisc.o utxface.o \
+-		utcopy.o utdelete.o utglobal.o utmath.o utobject.o \
+-		utstate.o utmutex.o utobject.o utresrc.o utlock.o utids.o \
+-		utosi.o utxferror.o utdecode.o
++acpi-y +=		\
++	tbfadt.o	\
++	tbfind.o	\
++	tbinstal.o	\
++	tbutils.o	\
++	tbxface.o	\
++	tbxfroot.o
++
++acpi-y +=		\
++	utalloc.o	\
++	utcopy.o	\
++	utdebug.o	\
++	utdecode.o	\
++	utdelete.o	\
++	uteval.o	\
++	utglobal.o	\
++	utids.o		\
++	utinit.o	\
++	utlock.o	\
++	utmath.o	\
++	utmisc.o	\
++	utmutex.o	\
++	utobject.o	\
++	utosi.o		\
++	utresrc.o	\
++	utstate.o	\
++	utxface.o	\
++	utxferror.o	\
++	utxfmutex.o
+diff -Naur linux-3.2.16/drivers/acpi/acpica/nspredef.c linux-3.2.16.patch/drivers/acpi/acpica/nspredef.c
+--- linux-3.2.16/drivers/acpi/acpica/nspredef.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/nspredef.c	2012-04-23 06:05:41.419124679 +0200
+@@ -620,6 +620,7 @@
+ 	case ACPI_PTYPE2_FIXED:
+ 	case ACPI_PTYPE2_MIN:
+ 	case ACPI_PTYPE2_COUNT:
++	case ACPI_PTYPE2_FIX_VAR:
+ 
+ 		/*
+ 		 * These types all return a single Package that consists of a
+@@ -757,6 +758,34 @@
+ 			if (ACPI_FAILURE(status)) {
+ 				return (status);
+ 			}
++			break;
++
++		case ACPI_PTYPE2_FIX_VAR:
++			/*
++			 * Each subpackage has a fixed number of elements and an
++			 * optional element
++			 */
++			expected_count =
++			    package->ret_info.count1 + package->ret_info.count2;
++			if (sub_package->package.count < expected_count) {
++				goto package_too_small;
++			}
++
++			status =
++			    acpi_ns_check_package_elements(data, sub_elements,
++							   package->ret_info.
++							   object_type1,
++							   package->ret_info.
++							   count1,
++							   package->ret_info.
++							   object_type2,
++							   sub_package->package.
++							   count -
++							   package->ret_info.
++							   count1, 0);
++			if (ACPI_FAILURE(status)) {
++				return (status);
++			}
+ 			break;
+ 
+ 		case ACPI_PTYPE2_FIXED:
+diff -Naur linux-3.2.16/drivers/acpi/acpica/nsrepair2.c linux-3.2.16.patch/drivers/acpi/acpica/nsrepair2.c
+--- linux-3.2.16/drivers/acpi/acpica/nsrepair2.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/nsrepair2.c	2012-04-23 06:05:41.420124699 +0200
+@@ -467,11 +467,12 @@
+ 	}
+ 
+ 	/*
+-	 * Copy and uppercase the string. From the ACPI specification:
++	 * Copy and uppercase the string. From the ACPI 5.0 specification:
+ 	 *
+ 	 * A valid PNP ID must be of the form "AAA####" where A is an uppercase
+ 	 * letter and # is a hex digit. A valid ACPI ID must be of the form
+-	 * "ACPI####" where # is a hex digit.
++	 * "NNNN####" where N is an uppercase letter or decimal digit, and
++	 * # is a hex digit.
+ 	 */
+ 	for (dest = new_string->string.pointer; *source; dest++, source++) {
+ 		*dest = (char)ACPI_TOUPPER(*source);
+diff -Naur linux-3.2.16/drivers/acpi/acpica/nsrepair.c linux-3.2.16.patch/drivers/acpi/acpica/nsrepair.c
+--- linux-3.2.16/drivers/acpi/acpica/nsrepair.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/nsrepair.c	2012-04-23 06:05:41.421124719 +0200
+@@ -634,6 +634,7 @@
+ 	case ACPI_PTYPE2_FIXED:
+ 	case ACPI_PTYPE2_MIN:
+ 	case ACPI_PTYPE2_REV_FIXED:
++	case ACPI_PTYPE2_FIX_VAR:
+ 		break;
+ 
+ 	default:
+diff -Naur linux-3.2.16/drivers/acpi/acpica/psargs.c linux-3.2.16.patch/drivers/acpi/acpica/psargs.c
+--- linux-3.2.16/drivers/acpi/acpica/psargs.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/psargs.c	2012-04-23 06:05:41.421124719 +0200
+@@ -484,34 +484,54 @@
+ static union acpi_parse_object *acpi_ps_get_next_field(struct acpi_parse_state
+ 						       *parser_state)
+ {
+-	u32 aml_offset = (u32)
+-	    ACPI_PTR_DIFF(parser_state->aml,
+-			  parser_state->aml_start);
++	u32 aml_offset;
+ 	union acpi_parse_object *field;
++	union acpi_parse_object *arg = NULL;
+ 	u16 opcode;
+ 	u32 name;
++	u8 access_type;
++	u8 access_attribute;
++	u8 access_length;
++	u32 pkg_length;
++	u8 *pkg_end;
++	u32 buffer_length;
+ 
+ 	ACPI_FUNCTION_TRACE(ps_get_next_field);
+ 
++	aml_offset =
++	    (u32)ACPI_PTR_DIFF(parser_state->aml, parser_state->aml_start);
++
+ 	/* Determine field type */
+ 
+ 	switch (ACPI_GET8(parser_state->aml)) {
+-	default:
++	case AML_FIELD_OFFSET_OP:
+ 
+-		opcode = AML_INT_NAMEDFIELD_OP;
++		opcode = AML_INT_RESERVEDFIELD_OP;
++		parser_state->aml++;
+ 		break;
+ 
+-	case 0x00:
++	case AML_FIELD_ACCESS_OP:
+ 
+-		opcode = AML_INT_RESERVEDFIELD_OP;
++		opcode = AML_INT_ACCESSFIELD_OP;
+ 		parser_state->aml++;
+ 		break;
+ 
+-	case 0x01:
++	case AML_FIELD_CONNECTION_OP:
+ 
+-		opcode = AML_INT_ACCESSFIELD_OP;
++		opcode = AML_INT_CONNECTION_OP;
++		parser_state->aml++;
++		break;
++
++	case AML_FIELD_EXT_ACCESS_OP:
++
++		opcode = AML_INT_EXTACCESSFIELD_OP;
+ 		parser_state->aml++;
+ 		break;
++
++	default:
++
++		opcode = AML_INT_NAMEDFIELD_OP;
++		break;
+ 	}
+ 
+ 	/* Allocate a new field op */
+@@ -549,16 +569,111 @@
+ 		break;
+ 
+ 	case AML_INT_ACCESSFIELD_OP:
++	case AML_INT_EXTACCESSFIELD_OP:
+ 
+ 		/*
+ 		 * Get access_type and access_attrib and merge into the field Op
+-		 * access_type is first operand, access_attribute is second
++		 * access_type is first operand, access_attribute is second. stuff
++		 * these bytes into the node integer value for convenience.
+ 		 */
+-		field->common.value.integer =
+-		    (((u32) ACPI_GET8(parser_state->aml) << 8));
++
++		/* Get the two bytes (Type/Attribute) */
++
++		access_type = ACPI_GET8(parser_state->aml);
+ 		parser_state->aml++;
+-		field->common.value.integer |= ACPI_GET8(parser_state->aml);
++		access_attribute = ACPI_GET8(parser_state->aml);
+ 		parser_state->aml++;
++
++		field->common.value.integer = (u8)access_type;
++		field->common.value.integer |= (u16)(access_attribute << 8);
++
++		/* This opcode has a third byte, access_length */
++
++		if (opcode == AML_INT_EXTACCESSFIELD_OP) {
++			access_length = ACPI_GET8(parser_state->aml);
++			parser_state->aml++;
++
++			field->common.value.integer |=
++			    (u32)(access_length << 16);
++		}
++		break;
++
++	case AML_INT_CONNECTION_OP:
++
++		/*
++		 * Argument for Connection operator can be either a Buffer
++		 * (resource descriptor), or a name_string.
++		 */
++		if (ACPI_GET8(parser_state->aml) == AML_BUFFER_OP) {
++			parser_state->aml++;
++
++			pkg_end = parser_state->aml;
++			pkg_length =
++			    acpi_ps_get_next_package_length(parser_state);
++			pkg_end += pkg_length;
++
++			if (parser_state->aml < pkg_end) {
++
++				/* Non-empty list */
++
++				arg = acpi_ps_alloc_op(AML_INT_BYTELIST_OP);
++				if (!arg) {
++					return_PTR(NULL);
++				}
++
++				/* Get the actual buffer length argument */
++
++				opcode = ACPI_GET8(parser_state->aml);
++				parser_state->aml++;
++
++				switch (opcode) {
++				case AML_BYTE_OP:	/* AML_BYTEDATA_ARG */
++					buffer_length =
++					    ACPI_GET8(parser_state->aml);
++					parser_state->aml += 1;
++					break;
++
++				case AML_WORD_OP:	/* AML_WORDDATA_ARG */
++					buffer_length =
++					    ACPI_GET16(parser_state->aml);
++					parser_state->aml += 2;
++					break;
++
++				case AML_DWORD_OP:	/* AML_DWORDATA_ARG */
++					buffer_length =
++					    ACPI_GET32(parser_state->aml);
++					parser_state->aml += 4;
++					break;
++
++				default:
++					buffer_length = 0;
++					break;
++				}
++
++				/* Fill in bytelist data */
++
++				arg->named.value.size = buffer_length;
++				arg->named.data = parser_state->aml;
++			}
++
++			/* Skip to End of byte data */
++
++			parser_state->aml = pkg_end;
++		} else {
++			arg = acpi_ps_alloc_op(AML_INT_NAMEPATH_OP);
++			if (!arg) {
++				return_PTR(NULL);
++			}
++
++			/* Get the Namestring argument */
++
++			arg->common.value.name =
++			    acpi_ps_get_next_namestring(parser_state);
++		}
++
++		/* Link the buffer/namestring to parent (CONNECTION_OP) */
++
++		acpi_ps_append_arg(field, arg);
+ 		break;
+ 
+ 	default:
+diff -Naur linux-3.2.16/drivers/acpi/acpica/psopcode.c linux-3.2.16.patch/drivers/acpi/acpica/psopcode.c
+--- linux-3.2.16/drivers/acpi/acpica/psopcode.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/psopcode.c	2012-04-23 06:05:41.422124739 +0200
+@@ -638,7 +638,16 @@
+ 
+ /* 7E */ ACPI_OP("Timer", ARGP_TIMER_OP, ARGI_TIMER_OP, ACPI_TYPE_ANY,
+ 		 AML_CLASS_EXECUTE, AML_TYPE_EXEC_0A_0T_1R,
+-		 AML_FLAGS_EXEC_0A_0T_1R)
++			 AML_FLAGS_EXEC_0A_0T_1R),
++
++/* ACPI 5.0 opcodes */
++
++/* 7F */ ACPI_OP("-ConnectField-", ARGP_CONNECTFIELD_OP,
++			 ARGI_CONNECTFIELD_OP, ACPI_TYPE_ANY,
++			 AML_CLASS_INTERNAL, AML_TYPE_BOGUS, AML_HAS_ARGS),
++/* 80 */ ACPI_OP("-ExtAccessField-", ARGP_CONNECTFIELD_OP,
++			 ARGI_CONNECTFIELD_OP, ACPI_TYPE_ANY,
++			 AML_CLASS_INTERNAL, AML_TYPE_BOGUS, 0)
+ 
+ /*! [End] no source code translation !*/
+ };
+@@ -657,7 +666,7 @@
+ /* 0x20 */ _UNK, _UNK, _UNK, _UNK, _UNK, _UNK, _UNK, _UNK,
+ /* 0x28 */ _UNK, _UNK, _UNK, _UNK, _UNK, 0x63, _PFX, _PFX,
+ /* 0x30 */ 0x67, 0x66, 0x68, 0x65, 0x69, 0x64, 0x6A, 0x7D,
+-/* 0x38 */ _UNK, _UNK, _UNK, _UNK, _UNK, _UNK, _UNK, _UNK,
++/* 0x38 */ 0x7F, 0x80, _UNK, _UNK, _UNK, _UNK, _UNK, _UNK,
+ /* 0x40 */ _UNK, _ASC, _ASC, _ASC, _ASC, _ASC, _ASC, _ASC,
+ /* 0x48 */ _ASC, _ASC, _ASC, _ASC, _ASC, _ASC, _ASC, _ASC,
+ /* 0x50 */ _ASC, _ASC, _ASC, _ASC, _ASC, _ASC, _ASC, _ASC,
+diff -Naur linux-3.2.16/drivers/acpi/acpica/pstree.c linux-3.2.16.patch/drivers/acpi/acpica/pstree.c
+--- linux-3.2.16/drivers/acpi/acpica/pstree.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/pstree.c	2012-04-23 06:05:41.423124759 +0200
+@@ -74,6 +74,12 @@
+ 
+ 	ACPI_FUNCTION_ENTRY();
+ 
++/*
++	if (Op->Common.aml_opcode == AML_INT_CONNECTION_OP)
++	{
++		return (Op->Common.Value.Arg);
++	}
++*/
+ 	/* Get the info structure for this opcode */
+ 
+ 	op_info = acpi_ps_get_opcode_info(op->common.aml_opcode);
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rscalc.c linux-3.2.16.patch/drivers/acpi/acpica/rscalc.c
+--- linux-3.2.16/drivers/acpi/acpica/rscalc.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rscalc.c	2012-04-23 06:05:41.424124779 +0200
+@@ -313,6 +313,38 @@
+ 							  resource_source));
+ 			break;
+ 
++		case ACPI_RESOURCE_TYPE_GPIO:
++
++			total_size =
++			    (acpi_rs_length) (total_size +
++					      (resource->data.gpio.
++					       pin_table_length * 2) +
++					      resource->data.gpio.
++					      resource_source.string_length +
++					      resource->data.gpio.
++					      vendor_length);
++
++			break;
++
++		case ACPI_RESOURCE_TYPE_SERIAL_BUS:
++
++			total_size =
++			    acpi_gbl_aml_resource_serial_bus_sizes[resource->
++								   data.
++								   common_serial_bus.
++								   type];
++
++			total_size = (acpi_rs_length) (total_size +
++						       resource->data.
++						       i2c_serial_bus.
++						       resource_source.
++						       string_length +
++						       resource->data.
++						       i2c_serial_bus.
++						       vendor_length);
++
++			break;
++
+ 		default:
+ 			break;
+ 		}
+@@ -362,10 +394,11 @@
+ 	u32 extra_struct_bytes;
+ 	u8 resource_index;
+ 	u8 minimum_aml_resource_length;
++	union aml_resource *aml_resource;
+ 
+ 	ACPI_FUNCTION_TRACE(rs_get_list_length);
+ 
+-	*size_needed = 0;
++	*size_needed = ACPI_RS_SIZE_MIN;	/* Minimum size is one end_tag */
+ 	end_aml = aml_buffer + aml_buffer_length;
+ 
+ 	/* Walk the list of AML resource descriptors */
+@@ -376,9 +409,15 @@
+ 
+ 		status = acpi_ut_validate_resource(aml_buffer, &resource_index);
+ 		if (ACPI_FAILURE(status)) {
++			/*
++			 * Exit on failure. Cannot continue because the descriptor length
++			 * may be bogus also.
++			 */
+ 			return_ACPI_STATUS(status);
+ 		}
+ 
++		aml_resource = (void *)aml_buffer;
++
+ 		/* Get the resource length and base (minimum) AML size */
+ 
+ 		resource_length = acpi_ut_get_resource_length(aml_buffer);
+@@ -422,10 +461,8 @@
+ 
+ 		case ACPI_RESOURCE_NAME_END_TAG:
+ 			/*
+-			 * End Tag:
+-			 * This is the normal exit, add size of end_tag
++			 * End Tag: This is the normal exit
+ 			 */
+-			*size_needed += ACPI_RS_SIZE_MIN;
+ 			return_ACPI_STATUS(AE_OK);
+ 
+ 		case ACPI_RESOURCE_NAME_ADDRESS32:
+@@ -457,6 +494,33 @@
+ 							 minimum_aml_resource_length);
+ 			break;
+ 
++		case ACPI_RESOURCE_NAME_GPIO:
++
++			/* Vendor data is optional */
++
++			if (aml_resource->gpio.vendor_length) {
++				extra_struct_bytes +=
++				    aml_resource->gpio.vendor_offset -
++				    aml_resource->gpio.pin_table_offset +
++				    aml_resource->gpio.vendor_length;
++			} else {
++				extra_struct_bytes +=
++				    aml_resource->large_header.resource_length +
++				    sizeof(struct aml_resource_large_header) -
++				    aml_resource->gpio.pin_table_offset;
++			}
++			break;
++
++		case ACPI_RESOURCE_NAME_SERIAL_BUS:
++
++			minimum_aml_resource_length =
++			    acpi_gbl_resource_aml_serial_bus_sizes
++			    [aml_resource->common_serial_bus.type];
++			extra_struct_bytes +=
++			    aml_resource->common_serial_bus.resource_length -
++			    minimum_aml_resource_length;
++			break;
++
+ 		default:
+ 			break;
+ 		}
+@@ -467,9 +531,18 @@
+ 		 * Important: Round the size up for the appropriate alignment. This
+ 		 * is a requirement on IA64.
+ 		 */
+-		buffer_size = acpi_gbl_resource_struct_sizes[resource_index] +
+-		    extra_struct_bytes;
+-		buffer_size = (u32) ACPI_ROUND_UP_TO_NATIVE_WORD(buffer_size);
++		if (acpi_ut_get_resource_type(aml_buffer) ==
++		    ACPI_RESOURCE_NAME_SERIAL_BUS) {
++			buffer_size =
++			    acpi_gbl_resource_struct_serial_bus_sizes
++			    [aml_resource->common_serial_bus.type] +
++			    extra_struct_bytes;
++		} else {
++			buffer_size =
++			    acpi_gbl_resource_struct_sizes[resource_index] +
++			    extra_struct_bytes;
++		}
++		buffer_size = (u32)ACPI_ROUND_UP_TO_NATIVE_WORD(buffer_size);
+ 
+ 		*size_needed += buffer_size;
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rscreate.c linux-3.2.16.patch/drivers/acpi/acpica/rscreate.c
+--- linux-3.2.16/drivers/acpi/acpica/rscreate.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rscreate.c	2012-04-23 06:05:41.424124779 +0200
+@@ -51,6 +51,70 @@
+ 
+ /*******************************************************************************
+  *
++ * FUNCTION:    acpi_buffer_to_resource
++ *
++ * PARAMETERS:  aml_buffer          - Pointer to the resource byte stream
++ *              aml_buffer_length   - Length of the aml_buffer
++ *              resource_ptr        - Where the converted resource is returned
++ *
++ * RETURN:      Status
++ *
++ * DESCRIPTION: Convert a raw AML buffer to a resource list
++ *
++ ******************************************************************************/
++acpi_status
++acpi_buffer_to_resource(u8 *aml_buffer,
++			u16 aml_buffer_length,
++			struct acpi_resource **resource_ptr)
++{
++	acpi_status status;
++	acpi_size list_size_needed;
++	void *resource;
++	void *current_resource_ptr;
++
++	/*
++	 * Note: we allow AE_AML_NO_RESOURCE_END_TAG, since an end tag
++	 * is not required here.
++	 */
++
++	/* Get the required length for the converted resource */
++
++	status = acpi_rs_get_list_length(aml_buffer, aml_buffer_length,
++					 &list_size_needed);
++	if (status == AE_AML_NO_RESOURCE_END_TAG) {
++		status = AE_OK;
++	}
++	if (ACPI_FAILURE(status)) {
++		return (status);
++	}
++
++	/* Allocate a buffer for the converted resource */
++
++	resource = ACPI_ALLOCATE_ZEROED(list_size_needed);
++	current_resource_ptr = resource;
++	if (!resource) {
++		return (AE_NO_MEMORY);
++	}
++
++	/* Perform the AML-to-Resource conversion */
++
++	status = acpi_ut_walk_aml_resources(aml_buffer, aml_buffer_length,
++					    acpi_rs_convert_aml_to_resources,
++					    &current_resource_ptr);
++	if (status == AE_AML_NO_RESOURCE_END_TAG) {
++		status = AE_OK;
++	}
++	if (ACPI_FAILURE(status)) {
++		ACPI_FREE(resource);
++	} else {
++		*resource_ptr = resource;
++	}
++
++	return (status);
++}
++
++/*******************************************************************************
++ *
+  * FUNCTION:    acpi_rs_create_resource_list
+  *
+  * PARAMETERS:  aml_buffer          - Pointer to the resource byte stream
+@@ -66,9 +130,10 @@
+  *              of device resources.
+  *
+  ******************************************************************************/
++
+ acpi_status
+ acpi_rs_create_resource_list(union acpi_operand_object *aml_buffer,
+-			     struct acpi_buffer *output_buffer)
++			     struct acpi_buffer * output_buffer)
+ {
+ 
+ 	acpi_status status;
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rsdump.c linux-3.2.16.patch/drivers/acpi/acpica/rsdump.c
+--- linux-3.2.16/drivers/acpi/acpica/rsdump.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rsdump.c	2012-04-23 06:05:41.425124800 +0200
+@@ -61,11 +61,13 @@
+ 
+ static void acpi_rs_out_title(char *title);
+ 
+-static void acpi_rs_dump_byte_list(u16 length, u8 * data);
++static void acpi_rs_dump_byte_list(u16 length, u8 *data);
+ 
+-static void acpi_rs_dump_dword_list(u8 length, u32 * data);
++static void acpi_rs_dump_word_list(u16 length, u16 *data);
+ 
+-static void acpi_rs_dump_short_byte_list(u8 length, u8 * data);
++static void acpi_rs_dump_dword_list(u8 length, u32 *data);
++
++static void acpi_rs_dump_short_byte_list(u8 length, u8 *data);
+ 
+ static void
+ acpi_rs_dump_resource_source(struct acpi_resource_source *resource_source);
+@@ -309,6 +311,125 @@
+ 	{ACPI_RSD_UINT64, ACPI_RSD_OFFSET(generic_reg.address), "Address", NULL}
+ };
+ 
++struct acpi_rsdump_info acpi_rs_dump_gpio[16] = {
++	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_gpio), "GPIO", NULL},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(gpio.revision_id), "RevisionId", NULL},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(gpio.connection_type),
++	 "ConnectionType", acpi_gbl_ct_decode},
++	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET(gpio.producer_consumer),
++	 "ProducerConsumer", acpi_gbl_consume_decode},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(gpio.pin_config), "PinConfig",
++	 acpi_gbl_ppc_decode},
++	{ACPI_RSD_2BITFLAG, ACPI_RSD_OFFSET(gpio.sharable), "Sharable",
++	 acpi_gbl_shr_decode},
++	{ACPI_RSD_2BITFLAG, ACPI_RSD_OFFSET(gpio.io_restriction),
++	 "IoRestriction", acpi_gbl_ior_decode},
++	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET(gpio.triggering), "Triggering",
++	 acpi_gbl_he_decode},
++	{ACPI_RSD_2BITFLAG, ACPI_RSD_OFFSET(gpio.polarity), "Polarity",
++	 acpi_gbl_ll_decode},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(gpio.drive_strength), "DriveStrength",
++	 NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(gpio.debounce_timeout),
++	 "DebounceTimeout", NULL},
++	{ACPI_RSD_SOURCE, ACPI_RSD_OFFSET(gpio.resource_source),
++	 "ResourceSource", NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(gpio.pin_table_length),
++	 "PinTableLength", NULL},
++	{ACPI_RSD_WORDLIST, ACPI_RSD_OFFSET(gpio.pin_table), "PinTable", NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(gpio.vendor_length), "VendorLength",
++	 NULL},
++	{ACPI_RSD_SHORTLISTX, ACPI_RSD_OFFSET(gpio.vendor_data), "VendorData",
++	 NULL},
++};
++
++struct acpi_rsdump_info acpi_rs_dump_fixed_dma[4] = {
++	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_fixed_dma),
++	 "FixedDma", NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(fixed_dma.request_lines),
++	 "RequestLines", NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(fixed_dma.channels), "Channels",
++	 NULL},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(fixed_dma.width), "TransferWidth",
++	 acpi_gbl_dts_decode},
++};
++
++#define ACPI_RS_DUMP_COMMON_SERIAL_BUS \
++	{ACPI_RSD_UINT8,    ACPI_RSD_OFFSET (common_serial_bus.revision_id),    "RevisionId",               NULL}, \
++	{ACPI_RSD_UINT8,    ACPI_RSD_OFFSET (common_serial_bus.type),           "Type",                     acpi_gbl_sbt_decode}, \
++	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET (common_serial_bus.producer_consumer), "ProducerConsumer",      acpi_gbl_consume_decode}, \
++	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET (common_serial_bus.slave_mode),     "SlaveMode",                acpi_gbl_sm_decode}, \
++	{ACPI_RSD_UINT8,    ACPI_RSD_OFFSET (common_serial_bus.type_revision_id), "TypeRevisionId",         NULL}, \
++	{ACPI_RSD_UINT16,   ACPI_RSD_OFFSET (common_serial_bus.type_data_length), "TypeDataLength",         NULL}, \
++	{ACPI_RSD_SOURCE,   ACPI_RSD_OFFSET (common_serial_bus.resource_source), "ResourceSource",          NULL}, \
++	{ACPI_RSD_UINT16,   ACPI_RSD_OFFSET (common_serial_bus.vendor_length),  "VendorLength",             NULL}, \
++	{ACPI_RSD_SHORTLISTX,ACPI_RSD_OFFSET (common_serial_bus.vendor_data),   "VendorData",               NULL},
++
++struct acpi_rsdump_info acpi_rs_dump_common_serial_bus[10] = {
++	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_common_serial_bus),
++	 "Common Serial Bus", NULL},
++	ACPI_RS_DUMP_COMMON_SERIAL_BUS
++};
++
++struct acpi_rsdump_info acpi_rs_dump_i2c_serial_bus[13] = {
++	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_i2c_serial_bus),
++	 "I2C Serial Bus", NULL},
++	ACPI_RS_DUMP_COMMON_SERIAL_BUS {ACPI_RSD_1BITFLAG,
++					ACPI_RSD_OFFSET(i2c_serial_bus.
++							access_mode),
++					"AccessMode", acpi_gbl_am_decode},
++	{ACPI_RSD_UINT32, ACPI_RSD_OFFSET(i2c_serial_bus.connection_speed),
++	 "ConnectionSpeed", NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(i2c_serial_bus.slave_address),
++	 "SlaveAddress", NULL},
++};
++
++struct acpi_rsdump_info acpi_rs_dump_spi_serial_bus[17] = {
++	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_spi_serial_bus),
++	 "Spi Serial Bus", NULL},
++	ACPI_RS_DUMP_COMMON_SERIAL_BUS {ACPI_RSD_1BITFLAG,
++					ACPI_RSD_OFFSET(spi_serial_bus.
++							wire_mode), "WireMode",
++					acpi_gbl_wm_decode},
++	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET(spi_serial_bus.device_polarity),
++	 "DevicePolarity", acpi_gbl_dp_decode},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(spi_serial_bus.data_bit_length),
++	 "DataBitLength", NULL},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(spi_serial_bus.clock_phase),
++	 "ClockPhase", acpi_gbl_cph_decode},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(spi_serial_bus.clock_polarity),
++	 "ClockPolarity", acpi_gbl_cpo_decode},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(spi_serial_bus.device_selection),
++	 "DeviceSelection", NULL},
++	{ACPI_RSD_UINT32, ACPI_RSD_OFFSET(spi_serial_bus.connection_speed),
++	 "ConnectionSpeed", NULL},
++};
++
++struct acpi_rsdump_info acpi_rs_dump_uart_serial_bus[19] = {
++	{ACPI_RSD_TITLE, ACPI_RSD_TABLE_SIZE(acpi_rs_dump_uart_serial_bus),
++	 "Uart Serial Bus", NULL},
++	ACPI_RS_DUMP_COMMON_SERIAL_BUS {ACPI_RSD_2BITFLAG,
++					ACPI_RSD_OFFSET(uart_serial_bus.
++							flow_control),
++					"FlowControl", acpi_gbl_fc_decode},
++	{ACPI_RSD_2BITFLAG, ACPI_RSD_OFFSET(uart_serial_bus.stop_bits),
++	 "StopBits", acpi_gbl_sb_decode},
++	{ACPI_RSD_3BITFLAG, ACPI_RSD_OFFSET(uart_serial_bus.data_bits),
++	 "DataBits", acpi_gbl_bpb_decode},
++	{ACPI_RSD_1BITFLAG, ACPI_RSD_OFFSET(uart_serial_bus.endian), "Endian",
++	 acpi_gbl_ed_decode},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(uart_serial_bus.parity), "Parity",
++	 acpi_gbl_pt_decode},
++	{ACPI_RSD_UINT8, ACPI_RSD_OFFSET(uart_serial_bus.lines_enabled),
++	 "LinesEnabled", NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(uart_serial_bus.rx_fifo_size),
++	 "RxFifoSize", NULL},
++	{ACPI_RSD_UINT16, ACPI_RSD_OFFSET(uart_serial_bus.tx_fifo_size),
++	 "TxFifoSize", NULL},
++	{ACPI_RSD_UINT32, ACPI_RSD_OFFSET(uart_serial_bus.default_baud_rate),
++	 "ConnectionSpeed", NULL},
++};
++
+ /*
+  * Tables used for common address descriptor flag fields
+  */
+@@ -413,7 +534,14 @@
+ 			/* Data items, 8/16/32/64 bit */
+ 
+ 		case ACPI_RSD_UINT8:
+-			acpi_rs_out_integer8(name, ACPI_GET8(target));
++			if (table->pointer) {
++				acpi_rs_out_string(name, ACPI_CAST_PTR(char,
++								       table->
++								       pointer
++								       [*target]));
++			} else {
++				acpi_rs_out_integer8(name, ACPI_GET8(target));
++			}
+ 			break;
+ 
+ 		case ACPI_RSD_UINT16:
+@@ -444,6 +572,13 @@
+ 								       0x03]));
+ 			break;
+ 
++		case ACPI_RSD_3BITFLAG:
++			acpi_rs_out_string(name, ACPI_CAST_PTR(char,
++							       table->
++							       pointer[*target &
++								       0x07]));
++			break;
++
+ 		case ACPI_RSD_SHORTLIST:
+ 			/*
+ 			 * Short byte list (single line output) for DMA and IRQ resources
+@@ -456,6 +591,20 @@
+ 			}
+ 			break;
+ 
++		case ACPI_RSD_SHORTLISTX:
++			/*
++			 * Short byte list (single line output) for GPIO vendor data
++			 * Note: The list length is obtained from the previous table entry
++			 */
++			if (previous_target) {
++				acpi_rs_out_title(name);
++				acpi_rs_dump_short_byte_list(*previous_target,
++							     *
++							     (ACPI_CAST_INDIRECT_PTR
++							      (u8, target)));
++			}
++			break;
++
+ 		case ACPI_RSD_LONGLIST:
+ 			/*
+ 			 * Long byte list for Vendor resource data
+@@ -480,6 +629,18 @@
+ 			}
+ 			break;
+ 
++		case ACPI_RSD_WORDLIST:
++			/*
++			 * Word list for GPIO Pin Table
++			 * Note: The list length is obtained from the previous table entry
++			 */
++			if (previous_target) {
++				acpi_rs_dump_word_list(*previous_target,
++						       *(ACPI_CAST_INDIRECT_PTR
++							 (u16, target)));
++			}
++			break;
++
+ 		case ACPI_RSD_ADDRESS:
+ 			/*
+ 			 * Common flags for all Address resources
+@@ -627,14 +788,20 @@
+ 
+ 		/* Dump the resource descriptor */
+ 
+-		acpi_rs_dump_descriptor(&resource_list->data,
+-					acpi_gbl_dump_resource_dispatch[type]);
++		if (type == ACPI_RESOURCE_TYPE_SERIAL_BUS) {
++			acpi_rs_dump_descriptor(&resource_list->data,
++						acpi_gbl_dump_serial_bus_dispatch
++						[resource_list->data.
++						 common_serial_bus.type]);
++		} else {
++			acpi_rs_dump_descriptor(&resource_list->data,
++						acpi_gbl_dump_resource_dispatch
++						[type]);
++		}
+ 
+ 		/* Point to the next resource structure */
+ 
+-		resource_list =
+-		    ACPI_ADD_PTR(struct acpi_resource, resource_list,
+-				 resource_list->length);
++		resource_list = ACPI_NEXT_RESOURCE(resource_list);
+ 
+ 		/* Exit when END_TAG descriptor is reached */
+ 
+@@ -768,4 +935,13 @@
+ 	}
+ }
+ 
++static void acpi_rs_dump_word_list(u16 length, u16 *data)
++{
++	u16 i;
++
++	for (i = 0; i < length; i++) {
++		acpi_os_printf("%25s%2.2X : %4.4X\n", "Word", i, data[i]);
++	}
++}
++
+ #endif
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rsinfo.c linux-3.2.16.patch/drivers/acpi/acpica/rsinfo.c
+--- linux-3.2.16/drivers/acpi/acpica/rsinfo.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rsinfo.c	2012-04-23 06:05:41.426124820 +0200
+@@ -76,7 +76,10 @@
+ 	acpi_rs_convert_address64,	/* 0x0D, ACPI_RESOURCE_TYPE_ADDRESS64 */
+ 	acpi_rs_convert_ext_address64,	/* 0x0E, ACPI_RESOURCE_TYPE_EXTENDED_ADDRESS64 */
+ 	acpi_rs_convert_ext_irq,	/* 0x0F, ACPI_RESOURCE_TYPE_EXTENDED_IRQ */
+-	acpi_rs_convert_generic_reg	/* 0x10, ACPI_RESOURCE_TYPE_GENERIC_REGISTER */
++	acpi_rs_convert_generic_reg,	/* 0x10, ACPI_RESOURCE_TYPE_GENERIC_REGISTER */
++	acpi_rs_convert_gpio,	/* 0x11, ACPI_RESOURCE_TYPE_GPIO */
++	acpi_rs_convert_fixed_dma,	/* 0x12, ACPI_RESOURCE_TYPE_FIXED_DMA */
++	NULL,			/* 0x13, ACPI_RESOURCE_TYPE_SERIAL_BUS - Use subtype table below */
+ };
+ 
+ /* Dispatch tables for AML-to-resource (Get Resource) conversion functions */
+@@ -94,7 +97,7 @@
+ 	acpi_rs_convert_end_dpf,	/* 0x07, ACPI_RESOURCE_NAME_END_DEPENDENT */
+ 	acpi_rs_convert_io,	/* 0x08, ACPI_RESOURCE_NAME_IO */
+ 	acpi_rs_convert_fixed_io,	/* 0x09, ACPI_RESOURCE_NAME_FIXED_IO */
+-	NULL,			/* 0x0A, Reserved */
++	acpi_rs_convert_fixed_dma,	/* 0x0A, ACPI_RESOURCE_NAME_FIXED_DMA */
+ 	NULL,			/* 0x0B, Reserved */
+ 	NULL,			/* 0x0C, Reserved */
+ 	NULL,			/* 0x0D, Reserved */
+@@ -114,7 +117,19 @@
+ 	acpi_rs_convert_address16,	/* 0x08, ACPI_RESOURCE_NAME_ADDRESS16 */
+ 	acpi_rs_convert_ext_irq,	/* 0x09, ACPI_RESOURCE_NAME_EXTENDED_IRQ */
+ 	acpi_rs_convert_address64,	/* 0x0A, ACPI_RESOURCE_NAME_ADDRESS64 */
+-	acpi_rs_convert_ext_address64	/* 0x0B, ACPI_RESOURCE_NAME_EXTENDED_ADDRESS64 */
++	acpi_rs_convert_ext_address64,	/* 0x0B, ACPI_RESOURCE_NAME_EXTENDED_ADDRESS64 */
++	acpi_rs_convert_gpio,	/* 0x0C, ACPI_RESOURCE_NAME_GPIO */
++	NULL,			/* 0x0D, Reserved */
++	NULL,			/* 0x0E, ACPI_RESOURCE_NAME_SERIAL_BUS - Use subtype table below */
++};
++
++/* Subtype table for serial_bus -- I2C, SPI, and UART */
++
++struct acpi_rsconvert_info *acpi_gbl_convert_resource_serial_bus_dispatch[] = {
++	NULL,
++	acpi_rs_convert_i2c_serial_bus,
++	acpi_rs_convert_spi_serial_bus,
++	acpi_rs_convert_uart_serial_bus,
+ };
+ 
+ #ifdef ACPI_FUTURE_USAGE
+@@ -140,6 +155,16 @@
+ 	acpi_rs_dump_ext_address64,	/* ACPI_RESOURCE_TYPE_EXTENDED_ADDRESS64 */
+ 	acpi_rs_dump_ext_irq,	/* ACPI_RESOURCE_TYPE_EXTENDED_IRQ */
+ 	acpi_rs_dump_generic_reg,	/* ACPI_RESOURCE_TYPE_GENERIC_REGISTER */
++	acpi_rs_dump_gpio,	/* ACPI_RESOURCE_TYPE_GPIO */
++	acpi_rs_dump_fixed_dma,	/* ACPI_RESOURCE_TYPE_FIXED_DMA */
++	NULL,			/* ACPI_RESOURCE_TYPE_SERIAL_BUS */
++};
++
++struct acpi_rsdump_info *acpi_gbl_dump_serial_bus_dispatch[] = {
++	NULL,
++	acpi_rs_dump_i2c_serial_bus,	/* AML_RESOURCE_I2C_BUS_TYPE */
++	acpi_rs_dump_spi_serial_bus,	/* AML_RESOURCE_SPI_BUS_TYPE */
++	acpi_rs_dump_uart_serial_bus,	/* AML_RESOURCE_UART_BUS_TYPE */
+ };
+ #endif
+ 
+@@ -166,7 +191,10 @@
+ 	sizeof(struct aml_resource_address64),	/* ACPI_RESOURCE_TYPE_ADDRESS64 */
+ 	sizeof(struct aml_resource_extended_address64),	/*ACPI_RESOURCE_TYPE_EXTENDED_ADDRESS64 */
+ 	sizeof(struct aml_resource_extended_irq),	/* ACPI_RESOURCE_TYPE_EXTENDED_IRQ */
+-	sizeof(struct aml_resource_generic_register)	/* ACPI_RESOURCE_TYPE_GENERIC_REGISTER */
++	sizeof(struct aml_resource_generic_register),	/* ACPI_RESOURCE_TYPE_GENERIC_REGISTER */
++	sizeof(struct aml_resource_gpio),	/* ACPI_RESOURCE_TYPE_GPIO */
++	sizeof(struct aml_resource_fixed_dma),	/* ACPI_RESOURCE_TYPE_FIXED_DMA */
++	sizeof(struct aml_resource_common_serialbus),	/* ACPI_RESOURCE_TYPE_SERIAL_BUS */
+ };
+ 
+ const u8 acpi_gbl_resource_struct_sizes[] = {
+@@ -182,7 +210,7 @@
+ 	ACPI_RS_SIZE_MIN,
+ 	ACPI_RS_SIZE(struct acpi_resource_io),
+ 	ACPI_RS_SIZE(struct acpi_resource_fixed_io),
+-	0,
++	ACPI_RS_SIZE(struct acpi_resource_fixed_dma),
+ 	0,
+ 	0,
+ 	0,
+@@ -202,5 +230,21 @@
+ 	ACPI_RS_SIZE(struct acpi_resource_address16),
+ 	ACPI_RS_SIZE(struct acpi_resource_extended_irq),
+ 	ACPI_RS_SIZE(struct acpi_resource_address64),
+-	ACPI_RS_SIZE(struct acpi_resource_extended_address64)
++	ACPI_RS_SIZE(struct acpi_resource_extended_address64),
++	ACPI_RS_SIZE(struct acpi_resource_gpio),
++	ACPI_RS_SIZE(struct acpi_resource_common_serialbus)
++};
++
++const u8 acpi_gbl_aml_resource_serial_bus_sizes[] = {
++	0,
++	sizeof(struct aml_resource_i2c_serialbus),
++	sizeof(struct aml_resource_spi_serialbus),
++	sizeof(struct aml_resource_uart_serialbus),
++};
++
++const u8 acpi_gbl_resource_struct_serial_bus_sizes[] = {
++	0,
++	ACPI_RS_SIZE(struct acpi_resource_i2c_serialbus),
++	ACPI_RS_SIZE(struct acpi_resource_spi_serialbus),
++	ACPI_RS_SIZE(struct acpi_resource_uart_serialbus),
+ };
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rsirq.c linux-3.2.16.patch/drivers/acpi/acpica/rsirq.c
+--- linux-3.2.16/drivers/acpi/acpica/rsirq.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rsirq.c	2012-04-23 06:05:41.427124840 +0200
+@@ -264,3 +264,34 @@
+ 	 AML_OFFSET(dma.dma_channel_mask),
+ 	 ACPI_RS_OFFSET(data.dma.channel_count)}
+ };
++
++/*******************************************************************************
++ *
++ * acpi_rs_convert_fixed_dma
++ *
++ ******************************************************************************/
++
++struct acpi_rsconvert_info acpi_rs_convert_fixed_dma[4] = {
++	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_FIXED_DMA,
++	 ACPI_RS_SIZE(struct acpi_resource_fixed_dma),
++	 ACPI_RSC_TABLE_SIZE(acpi_rs_convert_fixed_dma)},
++
++	{ACPI_RSC_INITSET, ACPI_RESOURCE_NAME_FIXED_DMA,
++	 sizeof(struct aml_resource_fixed_dma),
++	 0},
++
++	/*
++	 * These fields are contiguous in both the source and destination:
++	 * request_lines
++	 * Channels
++	 */
++
++	{ACPI_RSC_MOVE16, ACPI_RS_OFFSET(data.fixed_dma.request_lines),
++	 AML_OFFSET(fixed_dma.request_lines),
++	 2},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.fixed_dma.width),
++	 AML_OFFSET(fixed_dma.width),
++	 1},
++
++};
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rslist.c linux-3.2.16.patch/drivers/acpi/acpica/rslist.c
+--- linux-3.2.16/drivers/acpi/acpica/rslist.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rslist.c	2012-04-23 06:05:41.427124840 +0200
+@@ -70,6 +70,8 @@
+ 	struct acpi_resource **resource_ptr =
+ 	    ACPI_CAST_INDIRECT_PTR(struct acpi_resource, context);
+ 	struct acpi_resource *resource;
++	union aml_resource *aml_resource;
++	struct acpi_rsconvert_info *conversion_table;
+ 	acpi_status status;
+ 
+ 	ACPI_FUNCTION_TRACE(rs_convert_aml_to_resources);
+@@ -84,14 +86,37 @@
+ 			      "Misaligned resource pointer %p", resource));
+ 	}
+ 
++	/* Get the appropriate conversion info table */
++
++	aml_resource = ACPI_CAST_PTR(union aml_resource, aml);
++	if (acpi_ut_get_resource_type(aml) == ACPI_RESOURCE_NAME_SERIAL_BUS) {
++		if (aml_resource->common_serial_bus.type >
++		    AML_RESOURCE_MAX_SERIALBUSTYPE) {
++			conversion_table = NULL;
++		} else {
++			/* This is an I2C, SPI, or UART serial_bus descriptor */
++
++			conversion_table =
++			    acpi_gbl_convert_resource_serial_bus_dispatch
++			    [aml_resource->common_serial_bus.type];
++		}
++	} else {
++		conversion_table =
++		    acpi_gbl_get_resource_dispatch[resource_index];
++	}
++
++	if (!conversion_table) {
++		ACPI_ERROR((AE_INFO,
++			    "Invalid/unsupported resource descriptor: Type 0x%2.2X",
++			    resource_index));
++		return (AE_AML_INVALID_RESOURCE_TYPE);
++	}
++
+ 	/* Convert the AML byte stream resource to a local resource struct */
+ 
+ 	status =
+-	    acpi_rs_convert_aml_to_resource(resource,
+-					    ACPI_CAST_PTR(union aml_resource,
+-							  aml),
+-					    acpi_gbl_get_resource_dispatch
+-					    [resource_index]);
++	    acpi_rs_convert_aml_to_resource(resource, aml_resource,
++					    conversion_table);
+ 	if (ACPI_FAILURE(status)) {
+ 		ACPI_EXCEPTION((AE_INFO, status,
+ 				"Could not convert AML resource (Type 0x%X)",
+@@ -106,7 +131,7 @@
+ 
+ 	/* Point to the next structure in the output buffer */
+ 
+-	*resource_ptr = ACPI_ADD_PTR(void, resource, resource->length);
++	*resource_ptr = ACPI_NEXT_RESOURCE(resource);
+ 	return_ACPI_STATUS(AE_OK);
+ }
+ 
+@@ -135,6 +160,7 @@
+ {
+ 	u8 *aml = output_buffer;
+ 	u8 *end_aml = output_buffer + aml_size_needed;
++	struct acpi_rsconvert_info *conversion_table;
+ 	acpi_status status;
+ 
+ 	ACPI_FUNCTION_TRACE(rs_convert_resources_to_aml);
+@@ -154,11 +180,34 @@
+ 
+ 		/* Perform the conversion */
+ 
+-		status = acpi_rs_convert_resource_to_aml(resource, ACPI_CAST_PTR(union
+-										 aml_resource,
+-										 aml),
+-							 acpi_gbl_set_resource_dispatch
+-							 [resource->type]);
++		if (resource->type == ACPI_RESOURCE_TYPE_SERIAL_BUS) {
++			if (resource->data.common_serial_bus.type >
++			    AML_RESOURCE_MAX_SERIALBUSTYPE) {
++				conversion_table = NULL;
++			} else {
++				/* This is an I2C, SPI, or UART serial_bus descriptor */
++
++				conversion_table =
++				    acpi_gbl_convert_resource_serial_bus_dispatch
++				    [resource->data.common_serial_bus.type];
++			}
++		} else {
++			conversion_table =
++			    acpi_gbl_set_resource_dispatch[resource->type];
++		}
++
++		if (!conversion_table) {
++			ACPI_ERROR((AE_INFO,
++				    "Invalid/unsupported resource descriptor: Type 0x%2.2X",
++				    resource->type));
++			return (AE_AML_INVALID_RESOURCE_TYPE);
++		}
++
++		status = acpi_rs_convert_resource_to_aml(resource,
++						         ACPI_CAST_PTR(union
++								       aml_resource,
++								       aml),
++							 conversion_table);
+ 		if (ACPI_FAILURE(status)) {
+ 			ACPI_EXCEPTION((AE_INFO, status,
+ 					"Could not convert resource (type 0x%X) to AML",
+@@ -192,9 +241,7 @@
+ 
+ 		/* Point to the next input resource descriptor */
+ 
+-		resource =
+-		    ACPI_ADD_PTR(struct acpi_resource, resource,
+-				 resource->length);
++		resource = ACPI_NEXT_RESOURCE(resource);
+ 	}
+ 
+ 	/* Completed buffer, but did not find an end_tag resource descriptor */
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rsmisc.c linux-3.2.16.patch/drivers/acpi/acpica/rsmisc.c
+--- linux-3.2.16/drivers/acpi/acpica/rsmisc.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rsmisc.c	2012-04-23 06:05:41.428124860 +0200
+@@ -83,6 +83,10 @@
+ 
+ 	ACPI_FUNCTION_TRACE(rs_convert_aml_to_resource);
+ 
++	if (!info) {
++		return_ACPI_STATUS(AE_BAD_PARAMETER);
++	}
++
+ 	if (((acpi_size) resource) & 0x3) {
+ 
+ 		/* Each internal resource struct is expected to be 32-bit aligned */
+@@ -101,7 +105,6 @@
+ 	 * table length (# of table entries)
+ 	 */
+ 	count = INIT_TABLE_LENGTH(info);
+-
+ 	while (count) {
+ 		/*
+ 		 * Source is the external AML byte stream buffer,
+@@ -145,6 +148,14 @@
+ 			    ((ACPI_GET8(source) >> info->value) & 0x03);
+ 			break;
+ 
++		case ACPI_RSC_3BITFLAG:
++			/*
++			 * Mask and shift the flag bits
++			 */
++			ACPI_SET8(destination) = (u8)
++			    ((ACPI_GET8(source) >> info->value) & 0x07);
++			break;
++
+ 		case ACPI_RSC_COUNT:
+ 
+ 			item_count = ACPI_GET8(source);
+@@ -163,6 +174,69 @@
+ 			    (info->value * (item_count - 1));
+ 			break;
+ 
++		case ACPI_RSC_COUNT_GPIO_PIN:
++
++			target = ACPI_ADD_PTR(void, aml, info->value);
++			item_count = ACPI_GET16(target) - ACPI_GET16(source);
++
++			resource->length = resource->length + item_count;
++			item_count = item_count / 2;
++			ACPI_SET16(destination) = item_count;
++			break;
++
++		case ACPI_RSC_COUNT_GPIO_VEN:
++
++			item_count = ACPI_GET8(source);
++			ACPI_SET8(destination) = (u8)item_count;
++
++			resource->length = resource->length +
++			    (info->value * item_count);
++			break;
++
++		case ACPI_RSC_COUNT_GPIO_RES:
++
++			/*
++			 * Vendor data is optional (length/offset may both be zero)
++			 * Examine vendor data length field first
++			 */
++			target = ACPI_ADD_PTR(void, aml, (info->value + 2));
++			if (ACPI_GET16(target)) {
++
++				/* Use vendor offset to get resource source length */
++
++				target = ACPI_ADD_PTR(void, aml, info->value);
++				item_count =
++				    ACPI_GET16(target) - ACPI_GET16(source);
++			} else {
++				/* No vendor data to worry about */
++
++				item_count = aml->large_header.resource_length +
++				    sizeof(struct aml_resource_large_header) -
++				    ACPI_GET16(source);
++			}
++
++			resource->length = resource->length + item_count;
++			ACPI_SET16(destination) = item_count;
++			break;
++
++		case ACPI_RSC_COUNT_SERIAL_VEN:
++
++			item_count = ACPI_GET16(source) - info->value;
++
++			resource->length = resource->length + item_count;
++			ACPI_SET16(destination) = item_count;
++			break;
++
++		case ACPI_RSC_COUNT_SERIAL_RES:
++
++			item_count = (aml_resource_length +
++				      sizeof(struct aml_resource_large_header))
++			    - ACPI_GET16(source) - info->value;
++
++			resource->length = resource->length + item_count;
++			ACPI_SET16(destination) = item_count;
++			break;
++
+ 		case ACPI_RSC_LENGTH:
+ 
+ 			resource->length = resource->length + info->value;
+@@ -183,6 +257,72 @@
+ 					  info->opcode);
+ 			break;
+ 
++		case ACPI_RSC_MOVE_GPIO_PIN:
++
++			/* Generate and set the PIN data pointer */
++
++			target = (char *)ACPI_ADD_PTR(void, resource,
++						      (resource->length -
++						       item_count * 2));
++			*(u16 **)destination = ACPI_CAST_PTR(u16, target);
++
++			/* Copy the PIN data */
++
++			source = ACPI_ADD_PTR(void, aml, ACPI_GET16(source));
++			acpi_rs_move_data(target, source, item_count,
++					  info->opcode);
++			break;
++
++		case ACPI_RSC_MOVE_GPIO_RES:
++
++			/* Generate and set the resource_source string pointer */
++
++			target = (char *)ACPI_ADD_PTR(void, resource,
++						      (resource->length -
++						       item_count));
++			*(u8 **)destination = ACPI_CAST_PTR(u8, target);
++
++			/* Copy the resource_source string */
++
++			source = ACPI_ADD_PTR(void, aml, ACPI_GET16(source));
++			acpi_rs_move_data(target, source, item_count,
++					  info->opcode);
++			break;
++
++		case ACPI_RSC_MOVE_SERIAL_VEN:
++
++			/* Generate and set the Vendor Data pointer */
++
++			target = (char *)ACPI_ADD_PTR(void, resource,
++						      (resource->length -
++						       item_count));
++			*(u8 **)destination = ACPI_CAST_PTR(u8, target);
++
++			/* Copy the Vendor Data */
++
++			source = ACPI_ADD_PTR(void, aml, info->value);
++			acpi_rs_move_data(target, source, item_count,
++					  info->opcode);
++			break;
++
++		case ACPI_RSC_MOVE_SERIAL_RES:
++
++			/* Generate and set the resource_source string pointer */
++
++			target = (char *)ACPI_ADD_PTR(void, resource,
++						      (resource->length -
++						       item_count));
++			*(u8 **)destination = ACPI_CAST_PTR(u8, target);
++
++			/* Copy the resource_source string */
++
++			source =
++			    ACPI_ADD_PTR(void, aml,
++					 (ACPI_GET16(source) + info->value));
++			acpi_rs_move_data(target, source, item_count,
++					  info->opcode);
++			break;
++
+ 		case ACPI_RSC_SET8:
+ 
+ 			ACPI_MEMSET(destination, info->aml_offset, info->value);
+@@ -219,13 +359,18 @@
+ 			 * Optional resource_source (Index and String). This is the more
+ 			 * complicated case used by the Interrupt() macro
+ 			 */
+-			target =
+-			    ACPI_ADD_PTR(char, resource,
+-					 info->aml_offset + (item_count * 4));
++			target = ACPI_ADD_PTR(char, resource,
++					      info->aml_offset +
++					      (item_count * 4));
+ 
+ 			resource->length +=
+ 			    acpi_rs_get_resource_source(aml_resource_length,
+-							(acpi_rs_length) (((item_count - 1) * sizeof(u32)) + info->value), destination, aml, target);
++							(acpi_rs_length)
++							(((item_count -
++							   1) * sizeof(u32)) +
++							 info->value),
++							destination, aml,
++							target);
+ 			break;
+ 
+ 		case ACPI_RSC_BITMASK:
+@@ -327,6 +472,7 @@
+ {
+ 	void *source = NULL;
+ 	void *destination;
++	char *target;
+ 	acpi_rsdesc_size aml_length = 0;
+ 	u8 count;
+ 	u16 temp16 = 0;
+@@ -334,6 +480,10 @@
+ 
+ 	ACPI_FUNCTION_TRACE(rs_convert_resource_to_aml);
+ 
++	if (!info) {
++		return_ACPI_STATUS(AE_BAD_PARAMETER);
++	}
++
+ 	/*
+ 	 * First table entry must be ACPI_RSC_INITxxx and must contain the
+ 	 * table length (# of table entries)
+@@ -383,6 +533,14 @@
+ 			    ((ACPI_GET8(source) & 0x03) << info->value);
+ 			break;
+ 
++		case ACPI_RSC_3BITFLAG:
++			/*
++			 * Mask and shift the flag bits
++			 */
++			ACPI_SET8(destination) |= (u8)
++			    ((ACPI_GET8(source) & 0x07) << info->value);
++			break;
++
+ 		case ACPI_RSC_COUNT:
+ 
+ 			item_count = ACPI_GET8(source);
+@@ -400,6 +558,63 @@
+ 			acpi_rs_set_resource_length(aml_length, aml);
+ 			break;
+ 
++		case ACPI_RSC_COUNT_GPIO_PIN:
++
++			item_count = ACPI_GET16(source);
++			ACPI_SET16(destination) = (u16)aml_length;
++
++			aml_length = (u16)(aml_length + item_count * 2);
++			target = ACPI_ADD_PTR(void, aml, info->value);
++			ACPI_SET16(target) = (u16)aml_length;
++			acpi_rs_set_resource_length(aml_length, aml);
++			break;
++
++		case ACPI_RSC_COUNT_GPIO_VEN:
++
++			item_count = ACPI_GET16(source);
++			ACPI_SET16(destination) = (u16)item_count;
++
++			aml_length =
++			    (u16)(aml_length + (info->value * item_count));
++			acpi_rs_set_resource_length(aml_length, aml);
++			break;
++
++		case ACPI_RSC_COUNT_GPIO_RES:
++
++			/* Set resource source string length */
++
++			item_count = ACPI_GET16(source);
++			ACPI_SET16(destination) = (u16)aml_length;
++
++			/* Compute offset for the Vendor Data */
++
++			aml_length = (u16)(aml_length + item_count);
++			target = ACPI_ADD_PTR(void, aml, info->value);
++
++			/* Set vendor offset only if there is vendor data */
++
++			if (resource->data.gpio.vendor_length) {
++				ACPI_SET16(target) = (u16)aml_length;
++			}
++
++			acpi_rs_set_resource_length(aml_length, aml);
++			break;
++
++		case ACPI_RSC_COUNT_SERIAL_VEN:
++
++			item_count = ACPI_GET16(source);
++			ACPI_SET16(destination) = item_count + info->value;
++			aml_length = (u16)(aml_length + item_count);
++			acpi_rs_set_resource_length(aml_length, aml);
++			break;
++
++		case ACPI_RSC_COUNT_SERIAL_RES:
++
++			item_count = ACPI_GET16(source);
++			aml_length = (u16)(aml_length + item_count);
++			acpi_rs_set_resource_length(aml_length, aml);
++			break;
++
+ 		case ACPI_RSC_LENGTH:
+ 
+ 			acpi_rs_set_resource_length(info->value, aml);
+@@ -416,6 +631,48 @@
+ 			acpi_rs_move_data(destination, source, item_count,
+ 					  info->opcode);
+ 			break;
++
++		case ACPI_RSC_MOVE_GPIO_PIN:
++
++			destination = (char *)ACPI_ADD_PTR(void, aml,
++							   ACPI_GET16
++							   (destination));
++			source = *(u16 **)source;
++			acpi_rs_move_data(destination, source, item_count,
++					  info->opcode);
++			break;
++
++		case ACPI_RSC_MOVE_GPIO_RES:
++
++			/* Used for both resource_source string and vendor_data */
++
++			destination = (char *)ACPI_ADD_PTR(void, aml,
++							   ACPI_GET16
++							   (destination));
++			source = *(u8 **)source;
++			acpi_rs_move_data(destination, source, item_count,
++					  info->opcode);
++			break;
++
++		case ACPI_RSC_MOVE_SERIAL_VEN:
++
++			destination = (char *)ACPI_ADD_PTR(void, aml,
++							   (aml_length -
++							    item_count));
++			source = *(u8 **)source;
++			acpi_rs_move_data(destination, source, item_count,
++					  info->opcode);
++			break;
++
++		case ACPI_RSC_MOVE_SERIAL_RES:
++
++			destination = (char *)ACPI_ADD_PTR(void, aml,
++							   (aml_length -
++							    item_count));
++			source = *(u8 **)source;
++			acpi_rs_move_data(destination, source, item_count,
++					  info->opcode);
++			break;
+ 
+ 		case ACPI_RSC_ADDRESS:
+ 
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rsserial.c linux-3.2.16.patch/drivers/acpi/acpica/rsserial.c
+--- linux-3.2.16/drivers/acpi/acpica/rsserial.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.2.16.patch/drivers/acpi/acpica/rsserial.c	2012-04-23 06:05:41.429124880 +0200
+@@ -0,0 +1,441 @@
++/*******************************************************************************
++ *
++ * Module Name: rsserial - GPIO/serial_bus resource descriptors
++ *
++ ******************************************************************************/
++
++/*
++ * Copyright (C) 2000 - 2011, Intel Corp.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions, and the following disclaimer,
++ *    without modification.
++ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
++ *    substantially similar to the "NO WARRANTY" disclaimer below
++ *    ("Disclaimer") and any redistribution must be conditioned upon
++ *    including a substantially similar Disclaimer requirement for further
++ *    binary redistribution.
++ * 3. Neither the names of the above-listed copyright holders nor the names
++ *    of any contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * NO WARRANTY
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
++ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGES.
++ */
++
++#include <acpi/acpi.h>
++#include "accommon.h"
++#include "acresrc.h"
++
++#define _COMPONENT          ACPI_RESOURCES
++ACPI_MODULE_NAME("rsserial")
++
++/*******************************************************************************
++ *
++ * acpi_rs_convert_gpio
++ *
++ ******************************************************************************/
++struct acpi_rsconvert_info acpi_rs_convert_gpio[17] = {
++	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_GPIO,
++	 ACPI_RS_SIZE(struct acpi_resource_gpio),
++	 ACPI_RSC_TABLE_SIZE(acpi_rs_convert_gpio)},
++
++	{ACPI_RSC_INITSET, ACPI_RESOURCE_NAME_GPIO,
++	 sizeof(struct aml_resource_gpio),
++	 0},
++
++	/*
++	 * These fields are contiguous in both the source and destination:
++	 * revision_id
++	 * connection_type
++	 */
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.gpio.revision_id),
++	 AML_OFFSET(gpio.revision_id),
++	 2},
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.gpio.producer_consumer),
++	 AML_OFFSET(gpio.flags),
++	 0},
++
++	{ACPI_RSC_2BITFLAG, ACPI_RS_OFFSET(data.gpio.sharable),
++	 AML_OFFSET(gpio.int_flags),
++	 3},
++
++	{ACPI_RSC_2BITFLAG, ACPI_RS_OFFSET(data.gpio.io_restriction),
++	 AML_OFFSET(gpio.int_flags),
++	 0},
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.gpio.triggering),
++	 AML_OFFSET(gpio.int_flags),
++	 0},
++
++	{ACPI_RSC_2BITFLAG, ACPI_RS_OFFSET(data.gpio.polarity),
++	 AML_OFFSET(gpio.int_flags),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.gpio.pin_config),
++	 AML_OFFSET(gpio.pin_config),
++	 1},
++
++	/*
++	 * These fields are contiguous in both the source and destination:
++	 * drive_strength
++	 * debounce_timeout
++	 */
++	{ACPI_RSC_MOVE16, ACPI_RS_OFFSET(data.gpio.drive_strength),
++	 AML_OFFSET(gpio.drive_strength),
++	 2},
++
++	/* Pin Table */
++
++	{ACPI_RSC_COUNT_GPIO_PIN, ACPI_RS_OFFSET(data.gpio.pin_table_length),
++	 AML_OFFSET(gpio.pin_table_offset),
++	 AML_OFFSET(gpio.res_source_offset)},
++
++	{ACPI_RSC_MOVE_GPIO_PIN, ACPI_RS_OFFSET(data.gpio.pin_table),
++	 AML_OFFSET(gpio.pin_table_offset),
++	 0},
++
++	/* Resource Source */
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.gpio.resource_source.index),
++	 AML_OFFSET(gpio.res_source_index),
++	 1},
++
++	{ACPI_RSC_COUNT_GPIO_RES,
++	 ACPI_RS_OFFSET(data.gpio.resource_source.string_length),
++	 AML_OFFSET(gpio.res_source_offset),
++	 AML_OFFSET(gpio.vendor_offset)},
++
++	{ACPI_RSC_MOVE_GPIO_RES,
++	 ACPI_RS_OFFSET(data.gpio.resource_source.string_ptr),
++	 AML_OFFSET(gpio.res_source_offset),
++	 0},
++
++	/* Vendor Data */
++
++	{ACPI_RSC_COUNT_GPIO_VEN, ACPI_RS_OFFSET(data.gpio.vendor_length),
++	 AML_OFFSET(gpio.vendor_length),
++	 1},
++
++	{ACPI_RSC_MOVE_GPIO_RES, ACPI_RS_OFFSET(data.gpio.vendor_data),
++	 AML_OFFSET(gpio.vendor_offset),
++	 0},
++};
++
++/*******************************************************************************
++ *
++ * acpi_rs_convert_i2c_serial_bus
++ *
++ ******************************************************************************/
++
++struct acpi_rsconvert_info acpi_rs_convert_i2c_serial_bus[16] = {
++	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_SERIAL_BUS,
++	 ACPI_RS_SIZE(struct acpi_resource_i2c_serialbus),
++	 ACPI_RSC_TABLE_SIZE(acpi_rs_convert_i2c_serial_bus)},
++
++	{ACPI_RSC_INITSET, ACPI_RESOURCE_NAME_SERIAL_BUS,
++	 sizeof(struct aml_resource_i2c_serialbus),
++	 0},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.common_serial_bus.revision_id),
++	 AML_OFFSET(common_serial_bus.revision_id),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.common_serial_bus.type),
++	 AML_OFFSET(common_serial_bus.type),
++	 1},
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.common_serial_bus.slave_mode),
++	 AML_OFFSET(common_serial_bus.flags),
++	 0},
++
++	{ACPI_RSC_1BITFLAG,
++	 ACPI_RS_OFFSET(data.common_serial_bus.producer_consumer),
++	 AML_OFFSET(common_serial_bus.flags),
++	 1},
++
++	{ACPI_RSC_MOVE8,
++	 ACPI_RS_OFFSET(data.common_serial_bus.type_revision_id),
++	 AML_OFFSET(common_serial_bus.type_revision_id),
++	 1},
++
++	{ACPI_RSC_MOVE16,
++	 ACPI_RS_OFFSET(data.common_serial_bus.type_data_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 1},
++
++	/* Vendor data */
++
++	{ACPI_RSC_COUNT_SERIAL_VEN,
++	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 AML_RESOURCE_I2C_MIN_DATA_LEN},
++
++	{ACPI_RSC_MOVE_SERIAL_VEN,
++	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_data),
++	 0,
++	 sizeof(struct aml_resource_i2c_serialbus)},
++
++	/* Resource Source */
++
++	{ACPI_RSC_MOVE8,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.index),
++	 AML_OFFSET(common_serial_bus.res_source_index),
++	 1},
++
++	{ACPI_RSC_COUNT_SERIAL_RES,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.string_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 sizeof(struct aml_resource_common_serialbus)},
++
++	{ACPI_RSC_MOVE_SERIAL_RES,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.string_ptr),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 sizeof(struct aml_resource_common_serialbus)},
++
++	/* I2C bus type specific */
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.i2c_serial_bus.access_mode),
++	 AML_OFFSET(i2c_serial_bus.type_specific_flags),
++	 0},
++
++	{ACPI_RSC_MOVE32, ACPI_RS_OFFSET(data.i2c_serial_bus.connection_speed),
++	 AML_OFFSET(i2c_serial_bus.connection_speed),
++	 1},
++
++	{ACPI_RSC_MOVE16, ACPI_RS_OFFSET(data.i2c_serial_bus.slave_address),
++	 AML_OFFSET(i2c_serial_bus.slave_address),
++	 1},
++};
++
++/*******************************************************************************
++ *
++ * acpi_rs_convert_spi_serial_bus
++ *
++ ******************************************************************************/
++
++struct acpi_rsconvert_info acpi_rs_convert_spi_serial_bus[20] = {
++	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_SERIAL_BUS,
++	 ACPI_RS_SIZE(struct acpi_resource_spi_serialbus),
++	 ACPI_RSC_TABLE_SIZE(acpi_rs_convert_spi_serial_bus)},
++
++	{ACPI_RSC_INITSET, ACPI_RESOURCE_NAME_SERIAL_BUS,
++	 sizeof(struct aml_resource_spi_serialbus),
++	 0},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.common_serial_bus.revision_id),
++	 AML_OFFSET(common_serial_bus.revision_id),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.common_serial_bus.type),
++	 AML_OFFSET(common_serial_bus.type),
++	 1},
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.common_serial_bus.slave_mode),
++	 AML_OFFSET(common_serial_bus.flags),
++	 0},
++
++	{ACPI_RSC_1BITFLAG,
++	 ACPI_RS_OFFSET(data.common_serial_bus.producer_consumer),
++	 AML_OFFSET(common_serial_bus.flags),
++	 1},
++
++	{ACPI_RSC_MOVE8,
++	 ACPI_RS_OFFSET(data.common_serial_bus.type_revision_id),
++	 AML_OFFSET(common_serial_bus.type_revision_id),
++	 1},
++
++	{ACPI_RSC_MOVE16,
++	 ACPI_RS_OFFSET(data.common_serial_bus.type_data_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 1},
++
++	/* Vendor data */
++
++	{ACPI_RSC_COUNT_SERIAL_VEN,
++	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 AML_RESOURCE_SPI_MIN_DATA_LEN},
++
++	{ACPI_RSC_MOVE_SERIAL_VEN,
++	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_data),
++	 0,
++	 sizeof(struct aml_resource_spi_serialbus)},
++
++	/* Resource Source */
++
++	{ACPI_RSC_MOVE8,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.index),
++	 AML_OFFSET(common_serial_bus.res_source_index),
++	 1},
++
++	{ACPI_RSC_COUNT_SERIAL_RES,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.string_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 sizeof(struct aml_resource_common_serialbus)},
++
++	{ACPI_RSC_MOVE_SERIAL_RES,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.string_ptr),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 sizeof(struct aml_resource_common_serialbus)},
++
++	/* Spi bus type specific  */
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.spi_serial_bus.wire_mode),
++	 AML_OFFSET(spi_serial_bus.type_specific_flags),
++	 0},
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.spi_serial_bus.device_polarity),
++	 AML_OFFSET(spi_serial_bus.type_specific_flags),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.spi_serial_bus.data_bit_length),
++	 AML_OFFSET(spi_serial_bus.data_bit_length),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.spi_serial_bus.clock_phase),
++	 AML_OFFSET(spi_serial_bus.clock_phase),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.spi_serial_bus.clock_polarity),
++	 AML_OFFSET(spi_serial_bus.clock_polarity),
++	 1},
++
++	{ACPI_RSC_MOVE16, ACPI_RS_OFFSET(data.spi_serial_bus.device_selection),
++	 AML_OFFSET(spi_serial_bus.device_selection),
++	 1},
++
++	{ACPI_RSC_MOVE32, ACPI_RS_OFFSET(data.spi_serial_bus.connection_speed),
++	 AML_OFFSET(spi_serial_bus.connection_speed),
++	 1},
++};
++
++/*******************************************************************************
++ *
++ * acpi_rs_convert_uart_serial_bus
++ *
++ ******************************************************************************/
++
++struct acpi_rsconvert_info acpi_rs_convert_uart_serial_bus[22] = {
++	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_SERIAL_BUS,
++	 ACPI_RS_SIZE(struct acpi_resource_uart_serialbus),
++	 ACPI_RSC_TABLE_SIZE(acpi_rs_convert_uart_serial_bus)},
++
++	{ACPI_RSC_INITSET, ACPI_RESOURCE_NAME_SERIAL_BUS,
++	 sizeof(struct aml_resource_uart_serialbus),
++	 0},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.common_serial_bus.revision_id),
++	 AML_OFFSET(common_serial_bus.revision_id),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.common_serial_bus.type),
++	 AML_OFFSET(common_serial_bus.type),
++	 1},
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.common_serial_bus.slave_mode),
++	 AML_OFFSET(common_serial_bus.flags),
++	 0},
++
++	{ACPI_RSC_1BITFLAG,
++	 ACPI_RS_OFFSET(data.common_serial_bus.producer_consumer),
++	 AML_OFFSET(common_serial_bus.flags),
++	 1},
++
++	{ACPI_RSC_MOVE8,
++	 ACPI_RS_OFFSET(data.common_serial_bus.type_revision_id),
++	 AML_OFFSET(common_serial_bus.type_revision_id),
++	 1},
++
++	{ACPI_RSC_MOVE16,
++	 ACPI_RS_OFFSET(data.common_serial_bus.type_data_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 1},
++
++	/* Vendor data */
++
++	{ACPI_RSC_COUNT_SERIAL_VEN,
++	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 AML_RESOURCE_UART_MIN_DATA_LEN},
++
++	{ACPI_RSC_MOVE_SERIAL_VEN,
++	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_data),
++	 0,
++	 sizeof(struct aml_resource_uart_serialbus)},
++
++	/* Resource Source */
++
++	{ACPI_RSC_MOVE8,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.index),
++	 AML_OFFSET(common_serial_bus.res_source_index),
++	 1},
++
++	{ACPI_RSC_COUNT_SERIAL_RES,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.string_length),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 sizeof(struct aml_resource_common_serialbus)},
++
++	{ACPI_RSC_MOVE_SERIAL_RES,
++	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.string_ptr),
++	 AML_OFFSET(common_serial_bus.type_data_length),
++	 sizeof(struct aml_resource_common_serialbus)},
++
++	/* Uart bus type specific  */
++
++	{ACPI_RSC_2BITFLAG, ACPI_RS_OFFSET(data.uart_serial_bus.flow_control),
++	 AML_OFFSET(uart_serial_bus.type_specific_flags),
++	 0},
++
++	{ACPI_RSC_2BITFLAG, ACPI_RS_OFFSET(data.uart_serial_bus.stop_bits),
++	 AML_OFFSET(uart_serial_bus.type_specific_flags),
++	 2},
++
++	{ACPI_RSC_3BITFLAG, ACPI_RS_OFFSET(data.uart_serial_bus.data_bits),
++	 AML_OFFSET(uart_serial_bus.type_specific_flags),
++	 4},
++
++	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.uart_serial_bus.endian),
++	 AML_OFFSET(uart_serial_bus.type_specific_flags),
++	 7},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.uart_serial_bus.parity),
++	 AML_OFFSET(uart_serial_bus.parity),
++	 1},
++
++	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.uart_serial_bus.lines_enabled),
++	 AML_OFFSET(uart_serial_bus.lines_enabled),
++	 1},
++
++	{ACPI_RSC_MOVE16, ACPI_RS_OFFSET(data.uart_serial_bus.rx_fifo_size),
++	 AML_OFFSET(uart_serial_bus.rx_fifo_size),
++	 1},
++
++	{ACPI_RSC_MOVE16, ACPI_RS_OFFSET(data.uart_serial_bus.tx_fifo_size),
++	 AML_OFFSET(uart_serial_bus.tx_fifo_size),
++	 1},
++
++	{ACPI_RSC_MOVE32,
++	 ACPI_RS_OFFSET(data.uart_serial_bus.default_baud_rate),
++	 AML_OFFSET(uart_serial_bus.default_baud_rate),
++	 1},
++};
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rsutils.c linux-3.2.16.patch/drivers/acpi/acpica/rsutils.c
+--- linux-3.2.16/drivers/acpi/acpica/rsutils.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rsutils.c	2012-04-23 06:05:41.430124900 +0200
+@@ -144,6 +144,9 @@
+ 			 * since there are no alignment or endian issues
+ 			 */
+ 		case ACPI_RSC_MOVE8:
++		case ACPI_RSC_MOVE_GPIO_RES:
++		case ACPI_RSC_MOVE_SERIAL_VEN:
++		case ACPI_RSC_MOVE_SERIAL_RES:
+ 			ACPI_MEMCPY(destination, source, item_count);
+ 			return;
+ 
+@@ -153,6 +156,7 @@
+ 			 * misaligned memory transfers
+ 			 */
+ 		case ACPI_RSC_MOVE16:
++		case ACPI_RSC_MOVE_GPIO_PIN:
+ 			ACPI_MOVE_16_TO_16(&ACPI_CAST_PTR(u16, destination)[i],
+ 					   &ACPI_CAST_PTR(u16, source)[i]);
+ 			break;
+@@ -590,6 +594,56 @@
+ 
+ /*******************************************************************************
+  *
++ * FUNCTION:    acpi_rs_get_aei_method_data
++ *
++ * PARAMETERS:  Node            - Device node
++ *              ret_buffer      - Pointer to a buffer structure for the
++ *                                results
++ *
++ * RETURN:      Status
++ *
++ * DESCRIPTION: This function is called to get the _AEI value of an object
++ *              contained in an object specified by the handle passed in
++ *
++ *              If the function fails an appropriate status will be returned
++ *              and the contents of the callers buffer is undefined.
++ *
++ ******************************************************************************/
++
++acpi_status
++acpi_rs_get_aei_method_data(struct acpi_namespace_node *node,
++			    struct acpi_buffer *ret_buffer)
++{
++	union acpi_operand_object *obj_desc;
++	acpi_status status;
++
++	ACPI_FUNCTION_TRACE(rs_get_aei_method_data);
++
++	/* Parameters guaranteed valid by caller */
++
++	/* Execute the method, no parameters */
++
++	status = acpi_ut_evaluate_object(node, METHOD_NAME__AEI,
++					 ACPI_BTYPE_BUFFER, &obj_desc);
++	if (ACPI_FAILURE(status)) {
++		return_ACPI_STATUS(status);
++	}
++
++	/*
++	 * Make the call to create a resource linked list from the
++	 * byte stream buffer that comes back from the _CRS method
++	 * execution.
++	 */
++	status = acpi_rs_create_resource_list(obj_desc, ret_buffer);
++
++	/* On exit, we must delete the object returned by evaluate_object */
++
++	acpi_ut_remove_reference(obj_desc);
++	return_ACPI_STATUS(status);
++}
++
++/*******************************************************************************
++ *
+  * FUNCTION:    acpi_rs_get_method_data
+  *
+  * PARAMETERS:  Handle          - Handle to the containing object
+diff -Naur linux-3.2.16/drivers/acpi/acpica/rsxface.c linux-3.2.16.patch/drivers/acpi/acpica/rsxface.c
+--- linux-3.2.16/drivers/acpi/acpica/rsxface.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/rsxface.c	2012-04-23 06:05:41.431124920 +0200
+@@ -307,6 +307,46 @@
+ 
+ ACPI_EXPORT_SYMBOL(acpi_set_current_resources)
+ 
++/*******************************************************************************
++ *
++ * FUNCTION:    acpi_get_event_resources
++ *
++ * PARAMETERS:  device_handle   - Handle to the device object for the
++ *                                device we are getting resources
++ *              in_buffer       - Pointer to a buffer containing the
++ *                                resources to be set for the device
++ *
++ * RETURN:      Status
++ *
++ * DESCRIPTION: This function is called to get the event resources for a
++ *              specific device. The caller must first acquire a handle for
++ *              the desired device. The resource data is passed to the routine
++ *              the buffer pointed to by the in_buffer variable. Uses the
++ *              _AEI method.
++ *
++ ******************************************************************************/
++acpi_status
++acpi_get_event_resources(acpi_handle device_handle,
++			 struct acpi_buffer *ret_buffer)
++{
++	acpi_status status;
++	struct acpi_namespace_node *node;
++
++	ACPI_FUNCTION_TRACE(acpi_get_event_resources);
++
++	/* Validate parameters then dispatch to internal routine */
++
++	status = acpi_rs_validate_parameters(device_handle, ret_buffer, &node);
++	if (ACPI_FAILURE(status)) {
++		return_ACPI_STATUS(status);
++	}
++
++	status = acpi_rs_get_aei_method_data(node, ret_buffer);
++	return_ACPI_STATUS(status);
++}
++
++ACPI_EXPORT_SYMBOL(acpi_get_event_resources)
++
+ /******************************************************************************
+  *
+  * FUNCTION:    acpi_resource_to_address64
+@@ -486,8 +526,9 @@
+  *
+  * PARAMETERS:  device_handle   - Handle to the device object for the
+  *                                device we are querying
+- *              Name            - Method name of the resources we want
+- *                                (METHOD_NAME__CRS or METHOD_NAME__PRS)
++ *              Name            - Method name of the resources we want.
++ *                                (METHOD_NAME__CRS, METHOD_NAME__PRS, or
++ *                                METHOD_NAME__AEI)
+  *              user_function   - Called for each resource
+  *              Context         - Passed to user_function
+  *
+@@ -514,11 +555,12 @@
+ 
+ 	if (!device_handle || !user_function || !name ||
+ 	    (!ACPI_COMPARE_NAME(name, METHOD_NAME__CRS) &&
+-	     !ACPI_COMPARE_NAME(name, METHOD_NAME__PRS))) {
++	     !ACPI_COMPARE_NAME(name, METHOD_NAME__PRS) &&
++	     !ACPI_COMPARE_NAME(name, METHOD_NAME__AEI))) {
+ 		return_ACPI_STATUS(AE_BAD_PARAMETER);
+ 	}
+ 
+-	/* Get the _CRS or _PRS resource list */
++	/* Get the _CRS/_PRS/_AEI resource list */
+ 
+ 	buffer.length = ACPI_ALLOCATE_LOCAL_BUFFER;
+ 	status = acpi_rs_get_method_data(device_handle, name, &buffer);
+diff -Naur linux-3.2.16/drivers/acpi/acpica/tbfadt.c linux-3.2.16.patch/drivers/acpi/acpica/tbfadt.c
+--- linux-3.2.16/drivers/acpi/acpica/tbfadt.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/tbfadt.c	2012-04-23 06:05:41.432124940 +0200
+@@ -253,8 +253,13 @@
+ 	acpi_tb_install_table((acpi_physical_address) acpi_gbl_FADT.Xdsdt,
+ 			      ACPI_SIG_DSDT, ACPI_TABLE_INDEX_DSDT);
+ 
+-	acpi_tb_install_table((acpi_physical_address) acpi_gbl_FADT.Xfacs,
+-			      ACPI_SIG_FACS, ACPI_TABLE_INDEX_FACS);
++	/* If Hardware Reduced flag is set, there is no FACS */
++
++	if (!acpi_gbl_reduced_hardware) {
++		acpi_tb_install_table((acpi_physical_address) acpi_gbl_FADT.
++				      Xfacs, ACPI_SIG_FACS,
++				      ACPI_TABLE_INDEX_FACS);
++	}
+ }
+ 
+ /*******************************************************************************
+@@ -277,12 +282,12 @@
+ {
+ 	/*
+ 	 * Check if the FADT is larger than the largest table that we expect
+-	 * (the ACPI 2.0/3.0 version). If so, truncate the table, and issue
++	 * (the ACPI 5.0 version). If so, truncate the table, and issue
+ 	 * a warning.
+ 	 */
+ 	if (length > sizeof(struct acpi_table_fadt)) {
+ 		ACPI_WARNING((AE_INFO,
+-			      "FADT (revision %u) is longer than ACPI 2.0 version, "
++			      "FADT (revision %u) is longer than ACPI 5.0 version, "
+ 			      "truncating length %u to %u",
+ 			      table->revision, length,
+ 			      (u32)sizeof(struct acpi_table_fadt)));
+@@ -297,6 +302,13 @@
+ 	ACPI_MEMCPY(&acpi_gbl_FADT, table,
+ 		    ACPI_MIN(length, sizeof(struct acpi_table_fadt)));
+ 
++	/* Take a copy of the Hardware Reduced flag */
++
++	acpi_gbl_reduced_hardware = FALSE;
++	if (acpi_gbl_FADT.flags & ACPI_FADT_HW_REDUCED) {
++		acpi_gbl_reduced_hardware = TRUE;
++	}
++
+ 	/* Convert the local copy of the FADT to the common internal format */
+ 
+ 	acpi_tb_convert_fadt();
+@@ -502,6 +514,12 @@
+ 		acpi_gbl_FADT.Xdsdt = (u64) acpi_gbl_FADT.dsdt;
+ 	}
+ 
++	/* If Hardware Reduced flag is set, we are all done */
++
++	if (acpi_gbl_reduced_hardware) {
++		return;
++	}
++
+ 	/* Examine all of the 64-bit extended address fields (X fields) */
+ 
+ 	for (i = 0; i < ACPI_FADT_INFO_ENTRIES; i++) {
+diff -Naur linux-3.2.16/drivers/acpi/acpica/tbutils.c linux-3.2.16.patch/drivers/acpi/acpica/tbutils.c
+--- linux-3.2.16/drivers/acpi/acpica/tbutils.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/tbutils.c	2012-04-23 06:05:41.433124960 +0200
+@@ -135,6 +135,13 @@
+ {
+ 	acpi_status status;
+ 
++	/* If Hardware Reduced flag is set, there is no FACS */
++
++	if (acpi_gbl_reduced_hardware) {
++		acpi_gbl_FACS = NULL;
++		return (AE_OK);
++	}
++
+ 	status = acpi_get_table_by_index(ACPI_TABLE_INDEX_FACS,
+ 					 ACPI_CAST_INDIRECT_PTR(struct
+ 								acpi_table_header,
+diff -Naur linux-3.2.16/drivers/acpi/acpica/utdecode.c linux-3.2.16.patch/drivers/acpi/acpica/utdecode.c
+--- linux-3.2.16/drivers/acpi/acpica/utdecode.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/utdecode.c	2012-04-23 06:05:41.433124960 +0200
+@@ -171,7 +171,9 @@
+ 	"SMBus",
+ 	"SystemCMOS",
+ 	"PCIBARTarget",
+-	"IPMI"
++	"IPMI",
++	"GeneralPurposeIo",
++	"GenericSerialBus"
+ };
+ 
+ char *acpi_ut_get_region_name(u8 space_id)
+diff -Naur linux-3.2.16/drivers/acpi/acpica/utmutex.c linux-3.2.16.patch/drivers/acpi/acpica/utmutex.c
+--- linux-3.2.16/drivers/acpi/acpica/utmutex.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/utmutex.c	2012-04-23 06:05:41.434124980 +0200
+@@ -293,14 +293,10 @@
+ 
+ acpi_status acpi_ut_release_mutex(acpi_mutex_handle mutex_id)
+ {
+-	acpi_thread_id this_thread_id;
+-
+ 	ACPI_FUNCTION_NAME(ut_release_mutex);
+ 
+-	this_thread_id = acpi_os_get_thread_id();
+-
+ 	ACPI_DEBUG_PRINT((ACPI_DB_MUTEX, "Thread %u releasing Mutex [%s]\n",
+-			  (u32)this_thread_id,
++			  (u32)acpi_os_get_thread_id(),
+ 			  acpi_ut_get_mutex_name(mutex_id)));
+ 
+ 	if (mutex_id > ACPI_MAX_MUTEX) {
+@@ -329,7 +325,8 @@
+ 		 * the ACPI subsystem code.
+ 		 */
+ 		for (i = mutex_id; i < ACPI_NUM_MUTEX; i++) {
+-			if (acpi_gbl_mutex_info[i].thread_id == this_thread_id) {
++			if (acpi_gbl_mutex_info[i].thread_id ==
++			    acpi_os_get_thread_id()) {
+ 				if (i == mutex_id) {
+ 					continue;
+ 				}
+diff -Naur linux-3.2.16/drivers/acpi/acpica/utresrc.c linux-3.2.16.patch/drivers/acpi/acpica/utresrc.c
+--- linux-3.2.16/drivers/acpi/acpica/utresrc.c	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/drivers/acpi/acpica/utresrc.c	2012-04-23 06:05:41.435125000 +0200
+@@ -43,7 +43,7 @@
+ 
+ #include <acpi/acpi.h>
+ #include "accommon.h"
+-#include "amlresrc.h"
++#include "acresrc.h"
+ 
+ #define _COMPONENT          ACPI_UTILITIES
+ ACPI_MODULE_NAME("utresrc")
+@@ -154,6 +154,138 @@
+ 	"TypeF"
+ };
+ 
++const char *acpi_gbl_ppc_decode[] = {
++	"PullDefault",
++	"PullUp",
++	"PullDown",
++	"PullNone"
++};
++
++const char *acpi_gbl_ior_decode[] = {
++	"IoRestrictionNone",
++	"IoRestrictionInputOnly",
++	"IoRestrictionOutputOnly",
++	"IoRestrictionNoneAndPreserve"
++};
++
++const char *acpi_gbl_dts_decode[] = {
++	"Width8bit",
++	"Width16bit",
++	"Width32bit",
++	"Width64bit",
++	"Width128bit",
++	"Width256bit",
++};
++
++/* GPIO connection type */
++
++const char *acpi_gbl_ct_decode[] = {
++	"Interrupt",
++	"I/O"
++};
++
++/* Serial bus type */
++
++const char *acpi_gbl_sbt_decode[] = {
++	"/* UNKNOWN serial bus type */",
++	"I2C",
++	"SPI",
++	"UART"
++};
++
++/* I2C serial bus access mode */
++
++const char *acpi_gbl_am_decode[] = {
++	"AddressingMode7Bit",
++	"AddressingMode10Bit"
++};
++
++/* I2C serial bus slave mode */
++
++const char *acpi_gbl_sm_decode[] = {
++	"ControllerInitiated",
++	"DeviceInitiated"
++};
++
++/* SPI serial bus wire mode */
++
++const char *acpi_gbl_wm_decode[] = {
++	"FourWireMode",
++	"ThreeWireMode"
++};
++
++/* SPI serial clock phase */
++
++const char *acpi_gbl_cph_decode[] = {
++	"ClockPhaseFirst",
++	"ClockPhaseSecond"
++};
++
++/* SPI serial bus clock polarity */
++
++const char *acpi_gbl_cpo_decode[] = {
++	"ClockPolarityLow",
++	"ClockPolarityHigh"
++};
++
++/* SPI serial bus device polarity */
++
++const char *acpi_gbl_dp_decode[] = {
++	"PolarityLow",
++	"PolarityHigh"
++};
++
++/* UART serial bus endian */
++
++const char *acpi_gbl_ed_decode[] = {
++	"LittleEndian",
++	"BigEndian"
++};
++
++/* UART serial bus bits per byte */
++
++const char *acpi_gbl_bpb_decode[] = {
++	"DataBitsFive",
++	"DataBitsSix",
++	"DataBitsSeven",
++	"DataBitsEight",
++	"DataBitsNine",
++	"/* UNKNOWN Bits per byte */",
++	"/* UNKNOWN Bits per byte */",
++	"/* UNKNOWN Bits per byte */"
++};
++
++/* UART serial bus stop bits */
++
++const char *acpi_gbl_sb_decode[] = {
++	"StopBitsNone",
++	"StopBitsOne",
++	"StopBitsOnePlusHalf",
++	"StopBitsTwo"
++};
++
++/* UART serial bus flow control */
++
++const char *acpi_gbl_fc_decode[] = {
++	"FlowControlNone",
++	"FlowControlHardware",
++	"FlowControlXON",
++	"/* UNKNOWN flow control keyword */"
++};
++
++/* UART serial bus parity type */
++
++const char *acpi_gbl_pt_decode[] = {
++	"ParityTypeNone",
++	"ParityTypeEven",
++	"ParityTypeOdd",
++	"ParityTypeMark",
++	"ParityTypeSpace",
++	"/* UNKNOWN parity keyword */",
++	"/* UNKNOWN parity keyword */",
++	"/* UNKNOWN parity keyword */"
++};
++
+ #endif
+ 
+ /*
+@@ -173,7 +305,7 @@
+ 	ACPI_AML_SIZE_SMALL(struct aml_resource_end_dependent),
+ 	ACPI_AML_SIZE_SMALL(struct aml_resource_io),
+ 	ACPI_AML_SIZE_SMALL(struct aml_resource_fixed_io),
+-	0,
++	ACPI_AML_SIZE_SMALL(struct aml_resource_fixed_dma),
+ 	0,
+ 	0,
+ 	0,
+@@ -193,7 +325,17 @@
+ 	ACPI_AML_SIZE_LARGE(struct aml_resource_address16),
+ 	ACPI_AML_SIZE_LARGE(struct aml_resource_extended_irq),
+ 	ACPI_AML_SIZE_LARGE(struct aml_resource_address64),
+-	ACPI_AML_SIZE_LARGE(struct aml_resource_extended_address64)
++	ACPI_AML_SIZE_LARGE(struct aml_resource_extended_address64),
++	ACPI_AML_SIZE_LARGE(struct aml_resource_gpio),
++	0,
++	ACPI_AML_SIZE_LARGE(struct aml_resource_common_serialbus),
++};
++
++const u8 acpi_gbl_resource_aml_serial_bus_sizes[] = {
++	0,
++	ACPI_AML_SIZE_LARGE(struct aml_resource_i2c_serialbus),
++	ACPI_AML_SIZE_LARGE(struct aml_resource_spi_serialbus),
++	ACPI_AML_SIZE_LARGE(struct aml_resource_uart_serialbus),
+ };
+ 
+ /*
+@@ -209,35 +351,49 @@
+ 	0,
+ 	0,
+ 	0,
+-	ACPI_SMALL_VARIABLE_LENGTH,
+-	ACPI_FIXED_LENGTH,
+-	ACPI_SMALL_VARIABLE_LENGTH,
+-	ACPI_FIXED_LENGTH,
+-	ACPI_FIXED_LENGTH,
+-	ACPI_FIXED_LENGTH,
+-	0,
++	ACPI_SMALL_VARIABLE_LENGTH,	/* 04 IRQ */
++	ACPI_FIXED_LENGTH,	/* 05 DMA */
++	ACPI_SMALL_VARIABLE_LENGTH,	/* 06 start_dependent_functions */
++	ACPI_FIXED_LENGTH,	/* 07 end_dependent_functions */
++	ACPI_FIXED_LENGTH,	/* 08 IO */
++	ACPI_FIXED_LENGTH,	/* 09 fixed_iO */
++	ACPI_FIXED_LENGTH,	/* 0_a fixed_dMA */
+ 	0,
+ 	0,
+ 	0,
+-	ACPI_VARIABLE_LENGTH,
+-	ACPI_FIXED_LENGTH,
++	ACPI_VARIABLE_LENGTH,	/* 0_e vendor_short */
++	ACPI_FIXED_LENGTH,	/* 0_f end_tag */
+ 
+ 	/* Large descriptors */
+ 
+ 	0,
+-	ACPI_FIXED_LENGTH,
+-	ACPI_FIXED_LENGTH,
++	ACPI_FIXED_LENGTH,	/* 01 Memory24 */
++	ACPI_FIXED_LENGTH,	/* 02 generic_register */
++	0,
++	ACPI_VARIABLE_LENGTH,	/* 04 vendor_long */
++	ACPI_FIXED_LENGTH,	/* 05 Memory32 */
++	ACPI_FIXED_LENGTH,	/* 06 memory32_fixed */
++	ACPI_VARIABLE_LENGTH,	/* 07 Dword* address */
++	ACPI_VARIABLE_LENGTH,	/* 08 Word* address */
++	ACPI_VARIABLE_LENGTH,	/* 09 extended_iRQ */
++	ACPI_VARIABLE_LENGTH,	/* 0_a Qword* address */
++	ACPI_FIXED_LENGTH,	/* 0_b Extended* address */
++	ACPI_VARIABLE_LENGTH,	/* 0_c Gpio* */
+ 	0,
+-	ACPI_VARIABLE_LENGTH,
+-	ACPI_FIXED_LENGTH,
+-	ACPI_FIXED_LENGTH,
+-	ACPI_VARIABLE_LENGTH,
+-	ACPI_VARIABLE_LENGTH,
+-	ACPI_VARIABLE_LENGTH,
+-	ACPI_VARIABLE_LENGTH,
+-	ACPI_FIXED_LENGTH
++	ACPI_VARIABLE_LENGTH	/* 0_e *serial_bus */
+ };
+ 
++/*
++ * For the i_aSL compiler/disassembler, we don't want any error messages
++ * because the disassembler uses the resource validation code to determine
++ * if Buffer objects are actually Resource Templates.
++ */
++#ifdef ACPI_ASL_COMPILER
++#define ACPI_RESOURCE_ERROR(plist)
++#else
++#define ACPI_RESOURCE_ERROR(plist)  ACPI_ERROR(plist)
++#endif
++
+ /*******************************************************************************
+  *
+  * FUNCTION:    acpi_ut_walk_aml_resources
+@@ -265,6 +421,7 @@
+ 	u8 resource_index;
+ 	u32 length;
+ 	u32 offset = 0;
++	u8 end_tag[2] = { 0x79, 0x00 };
+ 
+ 	ACPI_FUNCTION_TRACE(ut_walk_aml_resources);
+ 
+@@ -286,6 +443,10 @@
+ 
+ 		status = acpi_ut_validate_resource(aml, &resource_index);
+ 		if (ACPI_FAILURE(status)) {
++			/*
++			 * Exit on failure. Cannot continue because the descriptor length
++			 * may be bogus also.
++			 */
+ 			return_ACPI_STATUS(status);
+ 		}
+ 
+@@ -300,7 +461,7 @@
+ 			    user_function(aml, length, offset, resource_index,
+ 					  context);
+ 			if (ACPI_FAILURE(status)) {
+-				return (status);
++				return_ACPI_STATUS(status);
+ 			}
+ 		}
+ 
+@@ -333,7 +494,19 @@
+ 
+ 	/* Did not find an end_tag descriptor */
+ 
+-	return (AE_AML_NO_RESOURCE_END_TAG);
++	if (user_function) {
++
++		/* Insert an end_tag anyway. acpi_rs_get_list_length always leaves room */
++
++		(void)acpi_ut_validate_resource(end_tag, &resource_index);
++		status =
++		    user_function(end_tag, 2, offset, resource_index, context);
++		if (ACPI_FAILURE(status)) {
++			return_ACPI_STATUS(status);
++		}
++	}
++
++	return_ACPI_STATUS(AE_AML_NO_RESOURCE_END_TAG);
+ }
+ 
+ /*******************************************************************************
+@@ -354,6 +527,7 @@
+ 
+ acpi_status acpi_ut_validate_resource(void *aml, u8 * return_index)
+ {
++	union aml_resource *aml_resource;
+ 	u8 resource_type;
+ 	u8 resource_index;
+ 	acpi_rs_length resource_length;
+@@ -375,7 +549,7 @@
+ 		/* Verify the large resource type (name) against the max */
+ 
+ 		if (resource_type > ACPI_RESOURCE_NAME_LARGE_MAX) {
+-			return (AE_AML_INVALID_RESOURCE_TYPE);
++			goto invalid_resource;
+ 		}
+ 
+ 		/*
+@@ -392,15 +566,17 @@
+ 		    ((resource_type & ACPI_RESOURCE_NAME_SMALL_MASK) >> 3);
+ 	}
+ 
+-	/* Check validity of the resource type, zero indicates name is invalid */
+-
++	/*
++	 * Check validity of the resource type, via acpi_gbl_resource_types. Zero
++	 * indicates an invalid resource.
++	 */
+ 	if (!acpi_gbl_resource_types[resource_index]) {
+-		return (AE_AML_INVALID_RESOURCE_TYPE);
++		goto invalid_resource;
+ 	}
+ 
+ 	/*
+-	 * 2) Validate the resource_length field. This ensures that the length
+-	 *    is at least reasonable, and guarantees that it is non-zero.
++	 * Validate the resource_length field. This ensures that the length
++	 * is at least reasonable, and guarantees that it is non-zero.
+ 	 */
+ 	resource_length = acpi_ut_get_resource_length(aml);
+ 	minimum_resource_length = acpi_gbl_resource_aml_sizes[resource_index];
+@@ -413,7 +589,7 @@
+ 		/* Fixed length resource, length must match exactly */
+ 
+ 		if (resource_length != minimum_resource_length) {
+-			return (AE_AML_BAD_RESOURCE_LENGTH);
++			goto bad_resource_length;
+ 		}
+ 		break;
+ 
+@@ -422,7 +598,7 @@
+ 		/* Variable length resource, length must be at least the minimum */
+ 
+ 		if (resource_length < minimum_resource_length) {
+-			return (AE_AML_BAD_RESOURCE_LENGTH);
++			goto bad_resource_length;
+ 		}
+ 		break;
+ 
+@@ -432,7 +608,7 @@
+ 
+ 		if ((resource_length > minimum_resource_length) ||
+ 		    (resource_length < (minimum_resource_length - 1))) {
+-			return (AE_AML_BAD_RESOURCE_LENGTH);
++			goto bad_resource_length;
+ 		}
+ 		break;
+ 
+@@ -440,7 +616,23 @@
+ 
+ 		/* Shouldn't happen (because of validation earlier), but be sure */
+ 
+-		return (AE_AML_INVALID_RESOURCE_TYPE);
++		goto invalid_resource;
++	}
++
++	aml_resource = ACPI_CAST_PTR(union aml_resource, aml);
++	if (resource_type == ACPI_RESOURCE_NAME_SERIAL_BUS) {
++
++		/* Validate the bus_type field */
++
++		if ((aml_resource->common_serial_bus.type == 0) ||
++		    (aml_resource->common_serial_bus.type >
++		     AML_RESOURCE_MAX_SERIALBUSTYPE)) {
++			ACPI_RESOURCE_ERROR((AE_INFO,
++					     "Invalid/unsupported SerialBus resource descriptor: BusType 0x%2.2X",
++					     aml_resource->common_serial_bus.
++					     type));
++			return (AE_AML_INVALID_RESOURCE_TYPE);
++		}
+ 	}
+ 
+ 	/* Optionally return the resource table index */
+@@ -450,6 +642,22 @@
+ 	}
+ 
+ 	return (AE_OK);
++
++      invalid_resource:
++
++	ACPI_RESOURCE_ERROR((AE_INFO,
++			     "Invalid/unsupported resource descriptor: Type 0x%2.2X",
++			     resource_type));
++	return (AE_AML_INVALID_RESOURCE_TYPE);
++
++      bad_resource_length:
++
++	ACPI_RESOURCE_ERROR((AE_INFO,
++			     "Invalid resource descriptor length: Type "
++			     "0x%2.2X, Length 0x%4.4X, MinLength 0x%4.4X",
++			     resource_type, resource_length,
++			     minimum_resource_length));
++	return (AE_AML_BAD_RESOURCE_LENGTH);
+ }
+ 
+ /*******************************************************************************
+diff -Naur linux-3.2.16/drivers/acpi/acpica/utxfmutex.c linux-3.2.16.patch/drivers/acpi/acpica/utxfmutex.c
+--- linux-3.2.16/drivers/acpi/acpica/utxfmutex.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.2.16.patch/drivers/acpi/acpica/utxfmutex.c	2012-04-23 06:05:41.436125021 +0200
+@@ -0,0 +1,187 @@
++/*******************************************************************************
++ *
++ * Module Name: utxfmutex - external AML mutex access functions
++ *
++ ******************************************************************************/
++
++/*
++ * Copyright (C) 2000 - 2011, Intel Corp.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions, and the following disclaimer,
++ *    without modification.
++ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
++ *    substantially similar to the "NO WARRANTY" disclaimer below
++ *    ("Disclaimer") and any redistribution must be conditioned upon
++ *    including a substantially similar Disclaimer requirement for further
++ *    binary redistribution.
++ * 3. Neither the names of the above-listed copyright holders nor the names
++ *    of any contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * NO WARRANTY
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
++ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGES.
++ */
++
++#include <acpi/acpi.h>
++#include "accommon.h"
++#include "acnamesp.h"
++
++#define _COMPONENT          ACPI_UTILITIES
++ACPI_MODULE_NAME("utxfmutex")
++
++/* Local prototypes */
++static acpi_status
++acpi_ut_get_mutex_object(acpi_handle handle,
++			 acpi_string pathname,
++			 union acpi_operand_object **ret_obj);
++
++/*******************************************************************************
++ *
++ * FUNCTION:    acpi_ut_get_mutex_object
++ *
++ * PARAMETERS:  Handle              - Mutex or prefix handle (optional)
++ *              Pathname            - Mutex pathname (optional)
++ *              ret_obj             - Where the mutex object is returned
++ *
++ * RETURN:      Status
++ *
++ * DESCRIPTION: Get an AML mutex object. The mutex node is pointed to by
++ *              Handle:Pathname. Either Handle or Pathname can be NULL, but
++ *              not both.
++ *
++ ******************************************************************************/
++
++static acpi_status
++acpi_ut_get_mutex_object(acpi_handle handle,
++			 acpi_string pathname,
++			 union acpi_operand_object **ret_obj)
++{
++	struct acpi_namespace_node *mutex_node;
++	union acpi_operand_object *mutex_obj;
++	acpi_status status;
++
++	/* Parameter validation */
++
++	if (!ret_obj || (!handle && !pathname)) {
++		return (AE_BAD_PARAMETER);
++	}
++
++	/* Get a the namespace node for the mutex */
++
++	mutex_node = handle;
++	if (pathname != NULL) {
++		status = acpi_get_handle(handle, pathname,
++					 ACPI_CAST_PTR(acpi_handle,
++						       &mutex_node));
++		if (ACPI_FAILURE(status)) {
++			return (status);
++		}
++	}
++
++	/* Ensure that we actually have a Mutex object */
++
++	if (!mutex_node || (mutex_node->type != ACPI_TYPE_MUTEX)) {
++		return (AE_TYPE);
++	}
++
++	/* Get the low-level mutex object */
++
++	mutex_obj = acpi_ns_get_attached_object(mutex_node);
++	if (!mutex_obj) {
++		return (AE_NULL_OBJECT);
++	}
++
++	*ret_obj = mutex_obj;
++	return (AE_OK);
++}
++
++/*******************************************************************************
++ *
++ * FUNCTION:    acpi_acquire_mutex
++ *
++ * PARAMETERS:  Handle              - Mutex or prefix handle (optional)
++ *              Pathname            - Mutex pathname (optional)
++ *              Timeout             - Max time to wait for the lock (millisec)
++ *
++ * RETURN:      Status
++ *
++ * DESCRIPTION: Acquire an AML mutex. This is a device driver interface to
++ *              AML mutex objects, and allows for transaction locking between
++ *              drivers and AML code. The mutex node is pointed to by
++ *              Handle:Pathname. Either Handle or Pathname can be NULL, but
++ *              not both.
++ *
++ ******************************************************************************/
++
++acpi_status
++acpi_acquire_mutex(acpi_handle handle, acpi_string pathname, u16 timeout)
++{
++	acpi_status status;
++	union acpi_operand_object *mutex_obj;
++
++	/* Get the low-level mutex associated with Handle:Pathname */
++
++	status = acpi_ut_get_mutex_object(handle, pathname, &mutex_obj);
++	if (ACPI_FAILURE(status)) {
++		return (status);
++	}
++
++	/* Acquire the OS mutex */
++
++	status = acpi_os_acquire_mutex(mutex_obj->mutex.os_mutex, timeout);
++	return (status);
++}
++
++/*******************************************************************************
++ *
++ * FUNCTION:    acpi_release_mutex
++ *
++ * PARAMETERS:  Handle              - Mutex or prefix handle (optional)
++ *              Pathname            - Mutex pathname (optional)
++ *
++ * RETURN:      Status
++ *
++ * DESCRIPTION: Release an AML mutex. This is a device driver interface to
++ *              AML mutex objects, and allows for transaction locking between
++ *              drivers and AML code. The mutex node is pointed to by
++ *              Handle:Pathname. Either Handle or Pathname can be NULL, but
++ *              not both.
++ *
++ ******************************************************************************/
++
++acpi_status acpi_release_mutex(acpi_handle handle, acpi_string pathname)
++{
++	acpi_status status;
++	union acpi_operand_object *mutex_obj;
++
++	/* Get the low-level mutex associated with Handle:Pathname */
++
++	status = acpi_ut_get_mutex_object(handle, pathname, &mutex_obj);
++	if (ACPI_FAILURE(status)) {
++		return (status);
++	}
++
++	/* Release the OS mutex */
++
++	acpi_os_release_mutex(mutex_obj->mutex.os_mutex);
++	return (AE_OK);
++}
+diff -Naur linux-3.2.16/include/acpi/acnames.h linux-3.2.16.patch/include/acpi/acnames.h
+--- linux-3.2.16/include/acpi/acnames.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/include/acpi/acnames.h	2012-04-23 06:05:41.436125021 +0200
+@@ -58,6 +58,7 @@
+ #define METHOD_NAME__PRT        "_PRT"
+ #define METHOD_NAME__CRS        "_CRS"
+ #define METHOD_NAME__PRS        "_PRS"
++#define METHOD_NAME__AEI        "_AEI"
+ #define METHOD_NAME__PRW        "_PRW"
+ #define METHOD_NAME__SRS        "_SRS"
+ 
+diff -Naur linux-3.2.16/include/acpi/acpixf.h linux-3.2.16.patch/include/acpi/acpixf.h
+--- linux-3.2.16/include/acpi/acpixf.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/include/acpi/acpixf.h	2012-04-23 06:05:41.437125041 +0200
+@@ -47,7 +47,7 @@
+ 
+ /* Current ACPICA subsystem version in YYYYMMDD format */
+ 
+-#define ACPI_CA_VERSION                 0x20110623
++#define ACPI_CA_VERSION                 0x20111123
+ 
+ #include "actypes.h"
+ #include "actbl.h"
+@@ -74,6 +74,7 @@
+ extern u32 acpi_current_gpe_count;
+ extern struct acpi_table_fadt acpi_gbl_FADT;
+ extern u8 acpi_gbl_system_awake_and_running;
++extern u8 acpi_gbl_reduced_hardware;	/* ACPI 5.0 */
+ 
+ extern u32 acpi_rsdt_forced;
+ /*
+@@ -276,12 +277,23 @@
+ acpi_status acpi_install_interface_handler(acpi_interface_handler handler);
+ 
+ /*
+- * Event interfaces
++ * Global Lock interfaces
+  */
+ acpi_status acpi_acquire_global_lock(u16 timeout, u32 * handle);
+ 
+ acpi_status acpi_release_global_lock(u32 handle);
+ 
++/*
++ * Interfaces to AML mutex objects
++ */
++acpi_status
++acpi_acquire_mutex(acpi_handle handle, acpi_string pathname, u16 timeout);
++
++acpi_status acpi_release_mutex(acpi_handle handle, acpi_string pathname);
++
++/*
++ * Fixed Event interfaces
++ */
+ acpi_status acpi_enable_event(u32 event, u32 flags);
+ 
+ acpi_status acpi_disable_event(u32 event, u32 flags);
+@@ -291,7 +303,7 @@
+ acpi_status acpi_get_event_status(u32 event, acpi_event_status * event_status);
+ 
+ /*
+- * GPE Interfaces
++ * General Purpose Event (GPE) Interfaces
+  */
+ acpi_status acpi_enable_gpe(acpi_handle gpe_device, u32 gpe_number);
+ 
+@@ -346,6 +358,10 @@
+ #endif
+ 
+ acpi_status
++acpi_get_event_resources(acpi_handle device_handle,
++			 struct acpi_buffer *ret_buffer);
++
++acpi_status
+ acpi_walk_resources(acpi_handle device,
+ 		    char *name,
+ 		    acpi_walk_resource_callback user_function, void *context);
+@@ -360,6 +376,11 @@
+ acpi_resource_to_address64(struct acpi_resource *resource,
+ 			   struct acpi_resource_address64 *out);
+ 
++acpi_status
++acpi_buffer_to_resource(u8 *aml_buffer,
++			u16 aml_buffer_length,
++			struct acpi_resource **resource_ptr);
++
+ /*
+  * Hardware (ACPI device) interfaces
+  */
+diff -Naur linux-3.2.16/include/acpi/acrestyp.h linux-3.2.16.patch/include/acpi/acrestyp.h
+--- linux-3.2.16/include/acpi/acrestyp.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/include/acpi/acrestyp.h	2012-04-23 06:05:41.438125061 +0200
+@@ -61,11 +61,14 @@
+ #define ACPI_WRITE_COMBINING_MEMORY     (u8) 0x02
+ #define ACPI_PREFETCHABLE_MEMORY        (u8) 0x03
+ 
++/*! [Begin] no source code translation */
+ /*
+  * IO Attributes
+- * The ISA IO ranges are:     n000-n0_fFh, n400-n4_fFh, n800-n8_fFh, n_c00-n_cFFh.
+- * The non-ISA IO ranges are: n100-n3_fFh, n500-n7_fFh, n900-n_bFFh, n_cd0-n_fFFh.
++ * The ISA IO ranges are:     n000-n0FFh,  n400-n4FFh, n800-n8FFh, nC00-nCFFh.
++ * The non-ISA IO ranges are: n100-n3FFh,  n500-n7FFh, n900-nBFFh, nCD0-nFFFh.
+  */
++/*! [End] no source code translation !*/
++
+ #define ACPI_NON_ISA_ONLY_RANGES        (u8) 0x01
+ #define ACPI_ISA_ONLY_RANGES            (u8) 0x02
+ #define ACPI_ENTIRE_RANGE               (ACPI_NON_ISA_ONLY_RANGES | ACPI_ISA_ONLY_RANGES)
+@@ -81,16 +84,26 @@
+ #define ACPI_DECODE_16                  (u8) 0x01	/* 16-bit IO address decode */
+ 
+ /*
+- * IRQ Attributes
++ * Interrupt attributes - used in multiple descriptors
+  */
++
++/* Triggering */
++
+ #define ACPI_LEVEL_SENSITIVE            (u8) 0x00
+ #define ACPI_EDGE_SENSITIVE             (u8) 0x01
+ 
++/* Polarity */
++
+ #define ACPI_ACTIVE_HIGH                (u8) 0x00
+ #define ACPI_ACTIVE_LOW                 (u8) 0x01
++#define ACPI_ACTIVE_BOTH                (u8) 0x02
++
++/* Sharing */
+ 
+ #define ACPI_EXCLUSIVE                  (u8) 0x00
+ #define ACPI_SHARED                     (u8) 0x01
++#define ACPI_EXCLUSIVE_AND_WAKE         (u8) 0x02
++#define ACPI_SHARED_AND_WAKE            (u8) 0x03
+ 
+ /*
+  * DMA Attributes
+@@ -127,6 +140,8 @@
+ #define ACPI_POS_DECODE                 (u8) 0x00
+ #define ACPI_SUB_DECODE                 (u8) 0x01
+ 
++/* Producer/Consumer */
++
+ #define ACPI_PRODUCER                   (u8) 0x00
+ #define ACPI_CONSUMER                   (u8) 0x01
+ 
+@@ -192,6 +207,21 @@
+ 	u8 address_length;
+ };
+ 
++struct acpi_resource_fixed_dma {
++	u16 request_lines;
++	u16 channels;
++	u8 width;
++};
++
++/* Values for Width field above */
++
++#define ACPI_DMA_WIDTH8                         0
++#define ACPI_DMA_WIDTH16                        1
++#define ACPI_DMA_WIDTH32                        2
++#define ACPI_DMA_WIDTH64                        3
++#define ACPI_DMA_WIDTH128                       4
++#define ACPI_DMA_WIDTH256                       5
++
+ struct acpi_resource_vendor {
+ 	u16 byte_length;
+ 	u8 byte_data[1];
+@@ -329,6 +359,166 @@
+ 	u64 address;
+ };
+ 
++struct acpi_resource_gpio {
++	u8 revision_id;
++	u8 connection_type;
++	u8 producer_consumer;	/* For values, see Producer/Consumer above */
++	u8 pin_config;
++	u8 sharable;		/* For values, see Interrupt Attributes above */
++	u8 io_restriction;
++	u8 triggering;		/* For values, see Interrupt Attributes above */
++	u8 polarity;		/* For values, see Interrupt Attributes above */
++	u16 drive_strength;
++	u16 debounce_timeout;
++	u16 pin_table_length;
++	u16 vendor_length;
++	struct acpi_resource_source resource_source;
++	u16 *pin_table;
++	u8 *vendor_data;
++};
++
++/* Values for GPIO connection_type field above */
++
++#define ACPI_RESOURCE_GPIO_TYPE_INT             0
++#define ACPI_RESOURCE_GPIO_TYPE_IO              1
++
++/* Values for pin_config field above */
++
++#define ACPI_PIN_CONFIG_DEFAULT                 0
++#define ACPI_PIN_CONFIG_PULLUP                  1
++#define ACPI_PIN_CONFIG_PULLDOWN                2
++#define ACPI_PIN_CONFIG_NOPULL                  3
++
++/* Values for io_restriction field above */
++
++#define ACPI_IO_RESTRICT_NONE                   0
++#define ACPI_IO_RESTRICT_INPUT                  1
++#define ACPI_IO_RESTRICT_OUTPUT                 2
++#define ACPI_IO_RESTRICT_NONE_PRESERVE          3
++
++/* Common structure for I2C, SPI, and UART serial descriptors */
++
++#define ACPI_RESOURCE_SERIAL_COMMON \
++	u8                                      revision_id; \
++	u8                                      type; \
++	u8                                      producer_consumer;   /* For values, see Producer/Consumer above */\
++	u8                                      slave_mode; \
++	u8                                      type_revision_id; \
++	u16                                     type_data_length; \
++	u16                                     vendor_length; \
++	struct acpi_resource_source             resource_source; \
++	u8                                      *vendor_data;
++
++struct acpi_resource_common_serialbus {
++ACPI_RESOURCE_SERIAL_COMMON};
++
++/* Values for the Type field above */
++
++#define ACPI_RESOURCE_SERIAL_TYPE_I2C           1
++#define ACPI_RESOURCE_SERIAL_TYPE_SPI           2
++#define ACPI_RESOURCE_SERIAL_TYPE_UART          3
++
++/* Values for slave_mode field above */
++
++#define ACPI_CONTROLLER_INITIATED               0
++#define ACPI_DEVICE_INITIATED                   1
++
++struct acpi_resource_i2c_serialbus {
++	ACPI_RESOURCE_SERIAL_COMMON u8 access_mode;
++	u16 slave_address;
++	u32 connection_speed;
++};
++
++/* Values for access_mode field above */
++
++#define ACPI_I2C_7BIT_MODE                      0
++#define ACPI_I2C_10BIT_MODE                     1
++
++struct acpi_resource_spi_serialbus {
++	ACPI_RESOURCE_SERIAL_COMMON u8 wire_mode;
++	u8 device_polarity;
++	u8 data_bit_length;
++	u8 clock_phase;
++	u8 clock_polarity;
++	u16 device_selection;
++	u32 connection_speed;
++};
++
++/* Values for wire_mode field above */
++
++#define ACPI_SPI_4WIRE_MODE                     0
++#define ACPI_SPI_3WIRE_MODE                     1
++
++/* Values for device_polarity field above */
++
++#define ACPI_SPI_ACTIVE_LOW                     0
++#define ACPI_SPI_ACTIVE_HIGH                    1
++
++/* Values for clock_phase field above */
++
++#define ACPI_SPI_FIRST_PHASE                    0
++#define ACPI_SPI_SECOND_PHASE                   1
++
++/* Values for clock_polarity field above */
++
++#define ACPI_SPI_START_LOW                      0
++#define ACPI_SPI_START_HIGH                     1
++
++struct acpi_resource_uart_serialbus {
++	ACPI_RESOURCE_SERIAL_COMMON u8 endian;
++	u8 data_bits;
++	u8 stop_bits;
++	u8 flow_control;
++	u8 parity;
++	u8 lines_enabled;
++	u16 rx_fifo_size;
++	u16 tx_fifo_size;
++	u32 default_baud_rate;
++};
++
++/* Values for Endian field above */
++
++#define ACPI_UART_LITTLE_ENDIAN                 0
++#define ACPI_UART_BIG_ENDIAN                    1
++
++/* Values for data_bits field above */
++
++#define ACPI_UART_5_DATA_BITS                   0
++#define ACPI_UART_6_DATA_BITS                   1
++#define ACPI_UART_7_DATA_BITS                   2
++#define ACPI_UART_8_DATA_BITS                   3
++#define ACPI_UART_9_DATA_BITS                   4
++
++/* Values for stop_bits field above */
++
++#define ACPI_UART_NO_STOP_BITS                  0
++#define ACPI_UART_1_STOP_BIT                    1
++#define ACPI_UART_1P5_STOP_BITS                 2
++#define ACPI_UART_2_STOP_BITS                   3
++
++/* Values for flow_control field above */
++
++#define ACPI_UART_FLOW_CONTROL_NONE             0
++#define ACPI_UART_FLOW_CONTROL_HW               1
++#define ACPI_UART_FLOW_CONTROL_XON_XOFF         2
++
++/* Values for Parity field above */
++
++#define ACPI_UART_PARITY_NONE                   0
++#define ACPI_UART_PARITY_EVEN                   1
++#define ACPI_UART_PARITY_ODD                    2
++#define ACPI_UART_PARITY_MARK                   3
++#define ACPI_UART_PARITY_SPACE                  4
++
++/* Values for lines_enabled bitfield above */
++
++#define ACPI_UART_CARRIER_DETECT                (1<<2)
++#define ACPI_UART_RING_INDICATOR                (1<<3)
++#define ACPI_UART_DATA_SET_READY                (1<<4)
++#define ACPI_UART_DATA_TERMINAL_READY           (1<<5)
++#define ACPI_UART_CLEAR_TO_SEND                 (1<<6)
++#define ACPI_UART_REQUEST_TO_SEND               (1<<7)
++
+ /* ACPI_RESOURCE_TYPEs */
+ 
+ #define ACPI_RESOURCE_TYPE_IRQ                  0
+@@ -348,7 +538,10 @@
+ #define ACPI_RESOURCE_TYPE_EXTENDED_ADDRESS64   14	/* ACPI 3.0 */
+ #define ACPI_RESOURCE_TYPE_EXTENDED_IRQ         15
+ #define ACPI_RESOURCE_TYPE_GENERIC_REGISTER     16
+-#define ACPI_RESOURCE_TYPE_MAX                  16
++#define ACPI_RESOURCE_TYPE_GPIO                 17	/* ACPI 5.0 */
++#define ACPI_RESOURCE_TYPE_FIXED_DMA            18	/* ACPI 5.0 */
++#define ACPI_RESOURCE_TYPE_SERIAL_BUS           19	/* ACPI 5.0 */
++#define ACPI_RESOURCE_TYPE_MAX                  19
+ 
+ /* Master union for resource descriptors */
+ 
+@@ -358,6 +551,7 @@
+ 	struct acpi_resource_start_dependent start_dpf;
+ 	struct acpi_resource_io io;
+ 	struct acpi_resource_fixed_io fixed_io;
++	struct acpi_resource_fixed_dma fixed_dma;
+ 	struct acpi_resource_vendor vendor;
+ 	struct acpi_resource_vendor_typed vendor_typed;
+ 	struct acpi_resource_end_tag end_tag;
+@@ -370,6 +564,11 @@
+ 	struct acpi_resource_extended_address64 ext_address64;
+ 	struct acpi_resource_extended_irq extended_irq;
+ 	struct acpi_resource_generic_register generic_reg;
++	struct acpi_resource_gpio gpio;
++	struct acpi_resource_i2c_serialbus i2c_serial_bus;
++	struct acpi_resource_spi_serialbus spi_serial_bus;
++	struct acpi_resource_uart_serialbus uart_serial_bus;
++	struct acpi_resource_common_serialbus common_serial_bus;
+ 
+ 	/* Common fields */
+ 
+diff -Naur linux-3.2.16/include/acpi/actbl1.h linux-3.2.16.patch/include/acpi/actbl1.h
+--- linux-3.2.16/include/acpi/actbl1.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/include/acpi/actbl1.h	2012-04-23 06:05:41.439125081 +0200
+@@ -228,7 +228,8 @@
+ 	ACPI_EINJ_EXECUTE_OPERATION = 5,
+ 	ACPI_EINJ_CHECK_BUSY_STATUS = 6,
+ 	ACPI_EINJ_GET_COMMAND_STATUS = 7,
+-	ACPI_EINJ_ACTION_RESERVED = 8,	/* 8 and greater are reserved */
++	ACPI_EINJ_SET_ERROR_TYPE_WITH_ADDRESS = 8,
++	ACPI_EINJ_ACTION_RESERVED = 9,	/* 9 and greater are reserved */
+ 	ACPI_EINJ_TRIGGER_ERROR = 0xFF	/* Except for this value */
+ };
+ 
+@@ -240,7 +241,27 @@
+ 	ACPI_EINJ_WRITE_REGISTER = 2,
+ 	ACPI_EINJ_WRITE_REGISTER_VALUE = 3,
+ 	ACPI_EINJ_NOOP = 4,
+-	ACPI_EINJ_INSTRUCTION_RESERVED = 5	/* 5 and greater are reserved */
++	ACPI_EINJ_FLUSH_CACHELINE = 5,
++	ACPI_EINJ_INSTRUCTION_RESERVED = 6	/* 6 and greater are reserved */
++};
++
++struct acpi_einj_error_type_with_addr {
++	u32 error_type;
++	u32 vendor_struct_offset;
++	u32 flags;
++	u32 apic_id;
++	u64 address;
++	u64 range;
++	u32 pcie_id;
++};
++
++struct acpi_einj_vendor {
++	u32 length;
++	u32 pcie_id;
++	u16 vendor_id;
++	u16 device_id;
++	u8 revision_id;
++	u8 reserved[3];
+ };
+ 
+ /* EINJ Trigger Error Action Table */
+@@ -275,6 +296,7 @@
+ #define ACPI_EINJ_PLATFORM_CORRECTABLE      (1<<9)
+ #define ACPI_EINJ_PLATFORM_UNCORRECTABLE    (1<<10)
+ #define ACPI_EINJ_PLATFORM_FATAL            (1<<11)
++#define ACPI_EINJ_VENDOR_DEFINED            (1<<31)
+ 
+ /*******************************************************************************
+  *
+@@ -631,7 +653,9 @@
+ 	ACPI_MADT_TYPE_INTERRUPT_SOURCE = 8,
+ 	ACPI_MADT_TYPE_LOCAL_X2APIC = 9,
+ 	ACPI_MADT_TYPE_LOCAL_X2APIC_NMI = 10,
+-	ACPI_MADT_TYPE_RESERVED = 11	/* 11 and greater are reserved */
++	ACPI_MADT_TYPE_GENERIC_INTERRUPT = 11,
++	ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR = 12,
++	ACPI_MADT_TYPE_RESERVED = 13	/* 13 and greater are reserved */
+ };
+ 
+ /*
+@@ -752,11 +776,36 @@
+ 	u8 reserved[3];
+ };
+ 
++/* 11: Generic Interrupt (ACPI 5.0) */
++
++struct acpi_madt_generic_interrupt {
++	struct acpi_subtable_header header;
++	u16 reserved;		/* Reserved - must be zero */
++	u32 gic_id;
++	u32 uid;
++	u32 flags;
++	u32 parking_version;
++	u32 performance_interrupt;
++	u64 parked_address;
++	u64 base_address;
++};
++
++/* 12: Generic Distributor (ACPI 5.0) */
++
++struct acpi_madt_generic_distributor {
++	struct acpi_subtable_header header;
++	u16 reserved;		/* Reserved - must be zero */
++	u32 gic_id;
++	u64 base_address;
++	u32 global_irq_base;
++	u32 reserved2;		/* Reserved - must be zero */
++};
++
+ /*
+  * Common flags fields for MADT subtables
+  */
+ 
+-/* MADT Local APIC flags (lapic_flags) */
++/* MADT Local APIC flags (lapic_flags) and GIC flags */
+ 
+ #define ACPI_MADT_ENABLED           (1)	/* 00: Processor is usable if set */
+ 
+diff -Naur linux-3.2.16/include/acpi/actbl3.h linux-3.2.16.patch/include/acpi/actbl3.h
+--- linux-3.2.16/include/acpi/actbl3.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.2.16.patch/include/acpi/actbl3.h	2012-04-23 06:05:41.441125121 +0200
+@@ -0,0 +1,552 @@
++/******************************************************************************
++ *
++ * Name: actbl3.h - ACPI Table Definitions
++ *
++ *****************************************************************************/
++
++/*
++ * Copyright (C) 2000 - 2011, Intel Corp.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions, and the following disclaimer,
++ *    without modification.
++ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
++ *    substantially similar to the "NO WARRANTY" disclaimer below
++ *    ("Disclaimer") and any redistribution must be conditioned upon
++ *    including a substantially similar Disclaimer requirement for further
++ *    binary redistribution.
++ * 3. Neither the names of the above-listed copyright holders nor the names
++ *    of any contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * NO WARRANTY
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
++ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGES.
++ */
++
++#ifndef __ACTBL3_H__
++#define __ACTBL3_H__
++
++/*******************************************************************************
++ *
++ * Additional ACPI Tables (3)
++ *
++ * These tables are not consumed directly by the ACPICA subsystem, but are
++ * included here to support device drivers and the AML disassembler.
++ *
++ * The tables in this file are fully defined within the ACPI specification.
++ *
++ ******************************************************************************/
++
++/*
++ * Values for description table header signatures for tables defined in this
++ * file. Useful because they make it more difficult to inadvertently type in
++ * the wrong signature.
++ */
++#define ACPI_SIG_BGRT           "BGRT"	/* Boot Graphics Resource Table */
++#define ACPI_SIG_DRTM           "DRTM"	/* Dynamic Root of Trust for Measurement table */
++#define ACPI_SIG_FPDT           "FPDT"	/* Firmware Performance Data Table */
++#define ACPI_SIG_GTDT           "GTDT"	/* Generic Timer Description Table */
++#define ACPI_SIG_MPST           "MPST"	/* Memory Power State Table */
++#define ACPI_SIG_PCCT           "PCCT"	/* Platform Communications Channel Table */
++#define ACPI_SIG_PMTT           "PMTT"	/* Platform Memory Topology Table */
++#define ACPI_SIG_RASF           "RASF"	/* RAS Feature table */
++
++#define ACPI_SIG_S3PT           "S3PT"	/* S3 Performance (sub)Table */
++#define ACPI_SIG_PCCS           "PCC"	/* PCC Shared Memory Region */
++
++/* Reserved table signatures */
++
++#define ACPI_SIG_CSRT           "CSRT"	/* Core System Resources Table */
++#define ACPI_SIG_DBG2           "DBG2"	/* Debug Port table 2 */
++#define ACPI_SIG_MATR           "MATR"	/* Memory Address Translation Table */
++#define ACPI_SIG_MSDM           "MSDM"	/* Microsoft Data Management Table */
++#define ACPI_SIG_WPBT           "WPBT"	/* Windows Platform Binary Table */
++
++/*
++ * All tables must be byte-packed to match the ACPI specification, since
++ * the tables are provided by the system BIOS.
++ */
++#pragma pack(1)
++
++/*
++ * Note about bitfields: The u8 type is used for bitfields in ACPI tables.
++ * This is the only type that is even remotely portable. Anything else is not
++ * portable, so do not use any other bitfield types.
++ */
++
++/*******************************************************************************
++ *
++ * BGRT - Boot Graphics Resource Table (ACPI 5.0)
++ *        Version 1
++ *
++ ******************************************************************************/
++
++struct acpi_table_bgrt {
++	struct acpi_table_header header;	/* Common ACPI table header */
++	u16 version;
++	u8 status;
++	u8 image_type;
++	u64 image_address;
++	u32 image_offset_x;
++	u32 image_offset_y;
++};
++
++/*******************************************************************************
++ *
++ * DRTM - Dynamic Root of Trust for Measurement table
++ *
++ ******************************************************************************/
++
++struct acpi_table_drtm {
++	struct acpi_table_header header;	/* Common ACPI table header */
++	u64 entry_base_address;
++	u64 entry_length;
++	u32 entry_address32;
++	u64 entry_address64;
++	u64 exit_address;
++	u64 log_area_address;
++	u32 log_area_length;
++	u64 arch_dependent_address;
++	u32 flags;
++};
++
++/* 1) Validated Tables List */
++
++struct acpi_drtm_vtl_list {
++	u32 validated_table_list_count;
++};
++
++/* 2) Resources List */
++
++struct acpi_drtm_resource_list {
++	u32 resource_list_count;
++};
++
++/* 3) Platform-specific Identifiers List */
++
++struct acpi_drtm_id_list {
++	u32 id_list_count;
++};
++
++/*******************************************************************************
++ *
++ * FPDT - Firmware Performance Data Table (ACPI 5.0)
++ *        Version 1
++ *
++ ******************************************************************************/
++
++struct acpi_table_fpdt {
++	struct acpi_table_header header;	/* Common ACPI table header */
++};
++
++/* FPDT subtable header */
++
++struct acpi_fpdt_header {
++	u16 type;
++	u8 length;
++	u8 revision;
++};
++
++/* Values for Type field above */
++
++enum acpi_fpdt_type {
++	ACPI_FPDT_TYPE_BOOT = 0,
++	ACPI_FPDT_TYPE_S3PERF = 1,
++};
++
++/*
++ * FPDT subtables
++ */
++
++/* 0: Firmware Basic Boot Performance Record */
++
++struct acpi_fpdt_boot {
++	struct acpi_fpdt_header header;
++	u8 reserved[4];
++	u64 reset_end;
++	u64 load_start;
++	u64 startup_start;
++	u64 exit_services_entry;
++	u64 exit_services_exit;
++};
++
++/* 1: S3 Performance Table Pointer Record */
++
++struct acpi_fpdt_s3pt_ptr {
++	struct acpi_fpdt_header header;
++	u8 reserved[4];
++	u64 address;
++};
++
++/*
++ * S3PT - S3 Performance Table. This table is pointed to by the
++ * FPDT S3 Pointer Record above.
++ */
++struct acpi_table_s3pt {
++	u8 signature[4];	/* "S3PT" */
++	u32 length;
++};
++
++/*
++ * S3PT Subtables
++ */
++struct acpi_s3pt_header {
++	u16 type;
++	u8 length;
++	u8 revision;
++};
++
++/* Values for Type field above */
++
++enum acpi_s3pt_type {
++	ACPI_S3PT_TYPE_RESUME = 0,
++	ACPI_S3PT_TYPE_SUSPEND = 1,
++};
++
++struct acpi_s3pt_resume {
++	struct acpi_s3pt_header header;
++	u32 resume_count;
++	u64 full_resume;
++	u64 average_resume;
++};
++
++struct acpi_s3pt_suspend {
++	struct acpi_s3pt_header header;
++	u64 suspend_start;
++	u64 suspend_end;
++};
++
++/*******************************************************************************
++ *
++ * GTDT - Generic Timer Description Table (ACPI 5.0)
++ *        Version 1
++ *
++ ******************************************************************************/
++
++struct acpi_table_gtdt {
++	struct acpi_table_header header;	/* Common ACPI table header */
++	u64 address;
++	u32 flags;
++	u32 secure_pl1_interrupt;
++	u32 secure_pl1_flags;
++	u32 non_secure_pl1_interrupt;
++	u32 non_secure_pl1_flags;
++	u32 virtual_timer_interrupt;
++	u32 virtual_timer_flags;
++	u32 non_secure_pl2_interrupt;
++	u32 non_secure_pl2_flags;
++};
++
++/* Values for Flags field above */
++
++#define ACPI_GTDT_MAPPED_BLOCK_PRESENT      1
++
++/* Values for all "TimerFlags" fields above */
++
++#define ACPI_GTDT_INTERRUPT_MODE            1
++#define ACPI_GTDT_INTERRUPT_POLARITY        2
++
++/*******************************************************************************
++ *
++ * MPST - Memory Power State Table (ACPI 5.0)
++ *        Version 1
++ *
++ ******************************************************************************/
++
++#define ACPI_MPST_CHANNEL_INFO \
++	u16                             reserved1; \
++	u8                              channel_id; \
++	u8                              reserved2; \
++	u16                             power_node_count;
++
++/* Main table */
++
++struct acpi_table_mpst {
++	struct acpi_table_header header;	/* Common ACPI table header */
++	 ACPI_MPST_CHANNEL_INFO	/* Platform Communication Channel */
++};
++
++/* Memory Platform Communication Channel Info */
++
++struct acpi_mpst_channel {
++	ACPI_MPST_CHANNEL_INFO	/* Platform Communication Channel */
++};
++
++/* Memory Power Node Structure */
++
++struct acpi_mpst_power_node {
++	u8 flags;
++	u8 reserved1;
++	u16 node_id;
++	u32 length;
++	u64 range_address;
++	u64 range_length;
++	u8 num_power_states;
++	u8 num_physical_components;
++	u16 reserved2;
++};
++
++/* Values for Flags field above */
++
++#define ACPI_MPST_ENABLED               1
++#define ACPI_MPST_POWER_MANAGED         2
++#define ACPI_MPST_HOT_PLUG_CAPABLE      4
++
++/* Memory Power State Structure (follows POWER_NODE above) */
++
++struct acpi_mpst_power_state {
++	u8 power_state;
++	u8 info_index;
++};
++
++/* Physical Component ID Structure (follows POWER_STATE above) */
++
++struct acpi_mpst_component {
++	u16 component_id;
++};
++
++/* Memory Power State Characteristics Structure (follows all POWER_NODEs) */
++
++struct acpi_mpst_data_hdr {
++	u16 characteristics_count;
++};
++
++struct acpi_mpst_power_data {
++	u8 revision;
++	u8 flags;
++	u16 reserved1;
++	u32 average_power;
++	u32 power_saving;
++	u64 exit_latency;
++	u64 reserved2;
++};
++
++/* Values for Flags field above */
++
++#define ACPI_MPST_PRESERVE              1
++#define ACPI_MPST_AUTOENTRY             2
++#define ACPI_MPST_AUTOEXIT              4
++
++/* Shared Memory Region (not part of an ACPI table) */
++
++struct acpi_mpst_shared {
++	u32 signature;
++	u16 pcc_command;
++	u16 pcc_status;
++	u16 command_register;
++	u16 status_register;
++	u16 power_state_id;
++	u16 power_node_id;
++	u64 energy_consumed;
++	u64 average_power;
++};
++
++/*******************************************************************************
++ *
++ * PCCT - Platform Communications Channel Table (ACPI 5.0)
++ *        Version 1
++ *
++ ******************************************************************************/
++
++struct acpi_table_pcct {
++	struct acpi_table_header header;	/* Common ACPI table header */
++	u32 flags;
++	u32 latency;
++	u32 reserved;
++};
++
++/* Values for Flags field above */
++
++#define ACPI_PCCT_DOORBELL              1
++
++/*
++ * PCCT subtables
++ */
++
++/* 0: Generic Communications Subspace */
++
++struct acpi_pcct_subspace {
++	struct acpi_subtable_header header;
++	u8 reserved[6];
++	u64 base_address;
++	u64 length;
++	struct acpi_generic_address doorbell_register;
++	u64 preserve_mask;
++	u64 write_mask;
++};
++
++/*
++ * PCC memory structures (not part of the ACPI table)
++ */
++
++/* Shared Memory Region */
++
++struct acpi_pcct_shared_memory {
++	u32 signature;
++	u16 command;
++	u16 status;
++};
++
++/*******************************************************************************
++ *
++ * PMTT - Platform Memory Topology Table (ACPI 5.0)
++ *        Version 1
++ *
++ ******************************************************************************/
++
++struct acpi_table_pmtt {
++	struct acpi_table_header header;	/* Common ACPI table header */
++	u32 reserved;
++};
++
++/* Common header for PMTT subtables that follow main table */
++
++struct acpi_pmtt_header {
++	u8 type;
++	u8 reserved1;
++	u16 length;
++	u16 flags;
++	u16 reserved2;
++};
++
++/* Values for Type field above */
++
++#define ACPI_PMTT_TYPE_SOCKET           0
++#define ACPI_PMTT_TYPE_CONTROLLER       1
++#define ACPI_PMTT_TYPE_DIMM             2
++#define ACPI_PMTT_TYPE_RESERVED         3	/* 0x03-0xFF are reserved */
++
++/* Values for Flags field above */
++
++#define ACPI_PMTT_TOP_LEVEL             0x0001
++#define ACPI_PMTT_PHYSICAL              0x0002
++#define ACPI_PMTT_MEMORY_TYPE           0x000C
++
++/*
++ * PMTT subtables, correspond to Type in struct acpi_pmtt_header
++ */
++
++/* 0: Socket Structure */
++
++struct acpi_pmtt_socket {
++	struct acpi_pmtt_header header;
++	u16 socket_id;
++	u16 reserved;
++};
++
++/* 1: Memory Controller subtable */
++
++struct acpi_pmtt_controller {
++	struct acpi_pmtt_header header;
++	u32 read_latency;
++	u32 write_latency;
++	u32 read_bandwidth;
++	u32 write_bandwidth;
++	u16 access_width;
++	u16 alignment;
++	u16 reserved;
++	u16 domain_count;
++};
++
++/* 1a: Proximity Domain substructure */
++
++struct acpi_pmtt_domain {
++	u32 proximity_domain;
++};
++
++/* 2: Physical Component Identifier (DIMM) */
++
++struct acpi_pmtt_physical_component {
++	struct acpi_pmtt_header header;
++	u16 component_id;
++	u16 reserved;
++	u32 memory_size;
++	u32 bios_handle;
++};
++
++/*******************************************************************************
++ *
++ * RASF - RAS Feature Table (ACPI 5.0)
++ *        Version 1
++ *
++ ******************************************************************************/
++
++struct acpi_table_rasf {
++	struct acpi_table_header header;	/* Common ACPI table header */
++	u8 channel_id[12];
++};
++
++/* RASF Platform Communication Channel Shared Memory Region */
++
++struct acpi_rasf_shared_memory {
++	u32 signature;
++	u16 command;
++	u16 status;
++	u64 requested_address;
++	u64 requested_length;
++	u64 actual_address;
++	u64 actual_length;
++	u16 flags;
++	u8 speed;
++};
++
++/* Masks for Flags and Speed fields above */
++
++#define ACPI_RASF_SCRUBBER_RUNNING      1
++#define ACPI_RASF_SPEED                 (7<<1)
++
++/* Channel Commands */
++
++enum acpi_rasf_commands {
++	ACPI_RASF_GET_RAS_CAPABILITIES = 1,
++	ACPI_RASF_GET_PATROL_PARAMETERS = 2,
++	ACPI_RASF_START_PATROL_SCRUBBER = 3,
++	ACPI_RASF_STOP_PATROL_SCRUBBER = 4
++};
++
++/* Channel Command flags */
++
++#define ACPI_RASF_GENERATE_SCI          (1<<15)
++
++/* Status values */
++
++enum acpi_rasf_status {
++	ACPI_RASF_SUCCESS = 0,
++	ACPI_RASF_NOT_VALID = 1,
++	ACPI_RASF_NOT_SUPPORTED = 2,
++	ACPI_RASF_BUSY = 3,
++	ACPI_RASF_FAILED = 4,
++	ACPI_RASF_ABORTED = 5,
++	ACPI_RASF_INVALID_DATA = 6
++};
++
++/* Status flags */
++
++#define ACPI_RASF_COMMAND_COMPLETE      (1)
++#define ACPI_RASF_SCI_DOORBELL          (1<<1)
++#define ACPI_RASF_ERROR                 (1<<2)
++#define ACPI_RASF_STATUS                (0x1F<<3)
++
++/* Reset to default packing */
++
++#pragma pack()
++
++#endif				/* __ACTBL3_H__ */
+diff -Naur linux-3.2.16/include/acpi/actbl.h linux-3.2.16.patch/include/acpi/actbl.h
+--- linux-3.2.16/include/acpi/actbl.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/include/acpi/actbl.h	2012-04-23 06:05:41.441125121 +0200
+@@ -255,6 +255,8 @@
+ 	struct acpi_generic_address xpm_timer_block;	/* 64-bit Extended Power Mgt Timer Ctrl Reg Blk address */
+ 	struct acpi_generic_address xgpe0_block;	/* 64-bit Extended General Purpose Event 0 Reg Blk address */
+ 	struct acpi_generic_address xgpe1_block;	/* 64-bit Extended General Purpose Event 1 Reg Blk address */
++	struct acpi_generic_address sleep_control;	/* 64-bit Sleep Control register */
++	struct acpi_generic_address sleep_status;	/* 64-bit Sleep Status register */
+ };
+ 
+ /* Masks for FADT Boot Architecture Flags (boot_flags) */
+@@ -264,6 +266,7 @@
+ #define ACPI_FADT_NO_VGA            (1<<2)	/* 02: [V4] It is not safe to probe for VGA hardware */
+ #define ACPI_FADT_NO_MSI            (1<<3)	/* 03: [V4] Message Signaled Interrupts (MSI) must not be enabled */
+ #define ACPI_FADT_NO_ASPM           (1<<4)	/* 04: [V4] PCIe ASPM control must not be enabled */
++#define ACPI_FADT_NO_CMOS_RTC       (1<<5)	/* 05: [V5] No CMOS real-time clock present */
+ 
+ #define FADT2_REVISION_ID               3
+ 
+@@ -289,6 +292,8 @@
+ #define ACPI_FADT_REMOTE_POWER_ON   (1<<17)	/* 17: [V4] System is compatible with remote power on (ACPI 3.0) */
+ #define ACPI_FADT_APIC_CLUSTER      (1<<18)	/* 18: [V4] All local APICs must use cluster model (ACPI 3.0) */
+ #define ACPI_FADT_APIC_PHYSICAL     (1<<19)	/* 19: [V4] All local x_aPICs must use physical dest mode (ACPI 3.0) */
++#define ACPI_FADT_HW_REDUCED        (1<<20)	/* 20: [V5] ACPI hardware is not implemented (ACPI 5.0) */
++#define ACPI_FADT_LOW_POWER_S0      (1<<21)	/* 21: [V5] S0 power savings are equal or better than S3 (ACPI 5.0) */
+ 
+ /* Values for preferred_profile (Preferred Power Management Profiles) */
+ 
+@@ -299,14 +304,16 @@
+ 	PM_WORKSTATION = 3,
+ 	PM_ENTERPRISE_SERVER = 4,
+ 	PM_SOHO_SERVER = 5,
+-	PM_APPLIANCE_PC = 6
++	PM_APPLIANCE_PC = 6,
++	PM_PERFORMANCE_SERVER = 7,
++	PM_TABLET = 8
+ };
+ 
+ /* Reset to default packing */
+ 
+ #pragma pack()
+ 
+-#define ACPI_FADT_OFFSET(f)             (u8) ACPI_OFFSET (struct acpi_table_fadt, f)
++#define ACPI_FADT_OFFSET(f)             (u16) ACPI_OFFSET (struct acpi_table_fadt, f)
+ 
+ /*
+  * Internal table-related structures
+@@ -342,6 +349,7 @@
+ 
+ #include <acpi/actbl1.h>
+ #include <acpi/actbl2.h>
++#include <acpi/actbl3.h>
+ 
+ /*
+  * Sizes of the various flavors of FADT. We need to look closely
+@@ -351,12 +359,15 @@
+  * FADT is the bottom line as to what the version really is.
+  *
+  * For reference, the values below are as follows:
+- *     FADT V1  size: 0x74
+- *     FADT V2  size: 0x84
+- *     FADT V3+ size: 0xF4
++ *     FADT V1  size: 0x074
++ *     FADT V2  size: 0x084
++ *     FADT V3  size: 0x0F4
++ *     FADT V4  size: 0x0F4
++ *     FADT V5  size: 0x10C
+  */
+ #define ACPI_FADT_V1_SIZE       (u32) (ACPI_FADT_OFFSET (flags) + 4)
+ #define ACPI_FADT_V2_SIZE       (u32) (ACPI_FADT_OFFSET (reserved4[0]) + 3)
+-#define ACPI_FADT_V3_SIZE       (u32) (sizeof (struct acpi_table_fadt))
++#define ACPI_FADT_V3_SIZE       (u32) (ACPI_FADT_OFFSET (sleep_control))
++#define ACPI_FADT_V5_SIZE       (u32) (sizeof (struct acpi_table_fadt))
+ 
+ #endif				/* __ACTBL_H__ */
+diff -Naur linux-3.2.16/include/acpi/actypes.h linux-3.2.16.patch/include/acpi/actypes.h
+--- linux-3.2.16/include/acpi/actypes.h	2012-04-23 00:31:32.000000000 +0200
++++ linux-3.2.16.patch/include/acpi/actypes.h	2012-04-23 06:05:41.442125141 +0200
+@@ -712,8 +712,10 @@
+ #define ACPI_ADR_SPACE_CMOS             (acpi_adr_space_type) 5
+ #define ACPI_ADR_SPACE_PCI_BAR_TARGET   (acpi_adr_space_type) 6
+ #define ACPI_ADR_SPACE_IPMI             (acpi_adr_space_type) 7
++#define ACPI_ADR_SPACE_GPIO             (acpi_adr_space_type) 8
++#define ACPI_ADR_SPACE_GSBUS            (acpi_adr_space_type) 9
+ 
+-#define ACPI_NUM_PREDEFINED_REGIONS     8
++#define ACPI_NUM_PREDEFINED_REGIONS     10
+ 
+ /*
+  * Special Address Spaces
+@@ -957,6 +959,14 @@
+ 
+ #define ACPI_DEFAULT_HANDLER            NULL
+ 
++/* Special Context data for generic_serial_bus/general_purpose_io (ACPI 5.0) */
++
++struct acpi_connection_info {
++	u8 *connection;
++	u16 length;
++	u8 access_length;
++};
++
+ typedef
+ acpi_status(*acpi_adr_space_setup) (acpi_handle region_handle,
+ 				    u32 function,

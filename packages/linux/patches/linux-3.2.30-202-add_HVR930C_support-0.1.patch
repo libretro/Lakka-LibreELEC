@@ -1,0 +1,649 @@
+diff -Naur linux-3.2.1/Documentation/DocBook/media/dvb/dvbproperty.xml linux-3.2.1.patch/Documentation/DocBook/media/dvb/dvbproperty.xml
+--- linux-3.2.1/Documentation/DocBook/media/dvb/dvbproperty.xml	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/Documentation/DocBook/media/dvb/dvbproperty.xml	2012-01-22 15:52:29.773509131 +0100
+@@ -311,6 +311,8 @@
+ 	ROLLOFF_20,
+ 	ROLLOFF_25,
+ 	ROLLOFF_AUTO,
++	ROLLOFF_15, /* DVB-C Annex A */
++	ROLLOFF_13, /* DVB-C Annex C */
+ } fe_rolloff_t;
+ 		</programlisting>
+ 		</section>
+@@ -778,8 +780,10 @@
+ 			<listitem><para><link linkend="DTV-MODULATION"><constant>DTV_MODULATION</constant></link></para></listitem>
+ 			<listitem><para><link linkend="DTV-INVERSION"><constant>DTV_INVERSION</constant></link></para></listitem>
+ 			<listitem><para><link linkend="DTV-SYMBOL-RATE"><constant>DTV_SYMBOL_RATE</constant></link></para></listitem>
++			<listitem><para><link linkend="DTV-ROLLOFF"><constant>DTV_ROLLOFF</constant></link></para></listitem>
+ 			<listitem><para><link linkend="DTV-INNER-FEC"><constant>DTV_INNER_FEC</constant></link></para></listitem>
+ 		</itemizedlist>
++		<para>The Rolloff of 0.15 (ROLLOFF_15) is assumed, as ITU-T J.83 Annex A is more common. For Annex C, rolloff should be 0.13 (ROLLOFF_13). All other values are invalid.</para>
+ 	</section>
+ 	<section id="dvbc-annex-b-params">
+ 		<title>DVB-C Annex B delivery system</title>
+diff -Naur linux-3.2.1/Documentation/dvb/get_dvb_firmware linux-3.2.1.patch/Documentation/dvb/get_dvb_firmware
+--- linux-3.2.1/Documentation/dvb/get_dvb_firmware	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/Documentation/dvb/get_dvb_firmware	2012-01-22 15:38:50.939309809 +0100
+@@ -27,8 +27,8 @@
+ 		"or51211", "or51132_qam", "or51132_vsb", "bluebird",
+ 		"opera1", "cx231xx", "cx18", "cx23885", "pvrusb2", "mpc718",
+ 		"af9015", "ngene", "az6027", "lme2510_lg", "lme2510c_s7395",
+-		"lme2510c_s7395_old", "drxk", "drxk_terratec_h5", "tda10071",
+-		"it9135" );
++		"lme2510c_s7395_old", "drxk", "drxk_terratec_h5",
++		"drxk_hauppauge_hvr930c", "tda10071", "it9135" );
+ 
+ # Check args
+ syntax() if (scalar(@ARGV) != 1);
+@@ -643,6 +643,24 @@
+ 
+     "$fwfile"
+ }
++
++sub drxk_hauppauge_hvr930c {
++    my $url = "http://www.wintvcd.co.uk/drivers/";
++    my $zipfile = "HVR-9x0_5_10_325_28153_SIGNED.zip";
++    my $hash = "83ab82e7e9480ec8bf1ae0155ca63c88";
++    my $tmpdir = tempdir(DIR => "/tmp", CLEANUP => 1);
++    my $drvfile = "HVR-900/emOEM.sys";
++    my $fwfile = "dvb-usb-hauppauge-hvr930c-drxk.fw";
++
++    checkstandard();
++
++    wgetfile($zipfile, $url . $zipfile);
++    verify($zipfile, $hash);
++    unzip($zipfile, $tmpdir);
++    extract("$tmpdir/$drvfile", 0x117b0, 42692, "$fwfile");
++
++    "$fwfile"
++}
+ 
+ sub drxk_terratec_h5 {
+     my $url = "http://www.linuxtv.org/downloads/firmware/";
+diff -Naur linux-3.2.1/drivers/media/common/tuners/xc5000.c linux-3.2.1.patch/drivers/media/common/tuners/xc5000.c
+--- linux-3.2.1/drivers/media/common/tuners/xc5000.c	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/common/tuners/xc5000.c	2012-01-22 15:38:54.115367896 +0100
+@@ -628,20 +628,12 @@
+ 	dprintk(1, "*** Quality (0:<8dB, 7:>56dB) = %d\n", quality);
+ }
+ 
+-/*
+- * As defined on EN 300 429, the DVB-C roll-off factor is 0.15.
+- * So, the amount of the needed bandwith is given by:
+- * 	Bw = Symbol_rate * (1 + 0.15)
+- * As such, the maximum symbol rate supported by 6 MHz is given by:
+- *	max_symbol_rate = 6 MHz / 1.15 = 5217391 Bauds
+- */
+-#define MAX_SYMBOL_RATE_6MHz	5217391
+-
+ static int xc5000_set_params(struct dvb_frontend *fe,
+ 	struct dvb_frontend_parameters *params)
+ {
+ 	struct xc5000_priv *priv = fe->tuner_priv;
+ 	int ret;
++	u32 bw;
+ 
+ 	if (xc5000_is_firmware_loaded(fe) != XC_RESULT_SUCCESS) {
+ 		if (xc_load_fw_and_init_tuner(fe) != XC_RESULT_SUCCESS) {
+@@ -684,8 +676,10 @@
+ 			priv->freq_hz = params->frequency - 1750000;
+ 			break;
+ 		case BANDWIDTH_7_MHZ:
+-			printk(KERN_ERR "xc5000 bandwidth 7MHz not supported\n");
+-			return -EINVAL;
++			priv->bandwidth = BANDWIDTH_7_MHZ;
++			priv->video_standard = DTV7;
++			priv->freq_hz = params->frequency - 2250000;
++			break;
+ 		case BANDWIDTH_8_MHZ:
+ 			priv->bandwidth = BANDWIDTH_8_MHZ;
+ 			priv->video_standard = DTV8;
+@@ -707,14 +701,26 @@
+ 			dprintk(1, "%s() QAM modulation\n", __func__);
+ 			priv->rf_mode = XC_RF_MODE_CABLE;
+ 			/*
+-			 * Using a 8MHz bandwidth sometimes fail
+-			 * with 6MHz-spaced channels, due to inter-carrier
+-			 * interference. So, use DTV6 firmware
++			 * Using a higher bandwidth at the tuner filter may
++			 * allow inter-carrier interference.
++			 * So, determine the minimal channel spacing, in order
++			 * to better adjust the tuner filter.
++			 * According with ITU-T J.83, the bandwidth is given by:
++			 * bw = Simbol Rate * (1 + roll_off), where the roll_off
++			 * is equal to 0.15 for Annex A, and 0.13 for annex C
+ 			 */
+-			if (params->u.qam.symbol_rate <= MAX_SYMBOL_RATE_6MHz) {
++			if (fe->dtv_property_cache.rolloff == ROLLOFF_13)
++				bw = (params->u.qam.symbol_rate * 13) / 10;
++			else
++				bw = (params->u.qam.symbol_rate * 15) / 10;
++			if (bw <= 6000000) {
+ 				priv->bandwidth = BANDWIDTH_6_MHZ;
+ 				priv->video_standard = DTV6;
+ 				priv->freq_hz = params->frequency - 1750000;
++			} else if (bw <= 7000000) {
++				priv->bandwidth = BANDWIDTH_7_MHZ;
++				priv->video_standard = DTV7;
++				priv->freq_hz = params->frequency - 2250000;
+ 			} else {
+ 				priv->bandwidth = BANDWIDTH_8_MHZ;
+ 				priv->video_standard = DTV7_8;
+@@ -996,6 +1002,8 @@
+ 	struct xc5000_priv *priv = fe->tuner_priv;
+ 	int ret = 0;
+ 
++	mutex_lock(&xc5000_list_mutex);
++
+ 	if (xc5000_is_firmware_loaded(fe) != XC_RESULT_SUCCESS) {
+ 		ret = xc5000_fwupload(fe);
+ 		if (ret != XC_RESULT_SUCCESS)
+@@ -1015,6 +1023,8 @@
+ 	/* Default to "CABLE" mode */
+ 	ret |= xc_write_reg(priv, XREG_SIGNALSOURCE, XC_RF_MODE_CABLE);
+ 
++	mutex_unlock(&xc5000_list_mutex);
++
+ 	return ret;
+ }
+ 
+diff -Naur linux-3.2.1/drivers/media/dvb/dvb-core/dvb_frontend.c linux-3.2.1.patch/drivers/media/dvb/dvb-core/dvb_frontend.c
+--- linux-3.2.1/drivers/media/dvb/dvb-core/dvb_frontend.c	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/dvb-core/dvb_frontend.c	2012-01-22 15:52:29.774509149 +0100
+@@ -876,6 +876,7 @@
+ 	c->symbol_rate = QAM_AUTO;
+ 	c->code_rate_HP = FEC_AUTO;
+ 	c->code_rate_LP = FEC_AUTO;
++	c->rolloff = ROLLOFF_AUTO;
+ 
+ 	c->isdbt_partial_reception = -1;
+ 	c->isdbt_sb_mode = -1;
+@@ -1030,6 +1031,7 @@
+ 		break;
+ 	case FE_QAM:
+ 		c->delivery_system = SYS_DVBC_ANNEX_AC;
++		c->rolloff = ROLLOFF_15; /* implied for Annex A */
+ 		break;
+ 	case FE_OFDM:
+ 		c->delivery_system = SYS_DVBT;
+diff -Naur linux-3.2.1/drivers/media/dvb/frontends/drxk.h linux-3.2.1.patch/drivers/media/dvb/frontends/drxk.h
+--- linux-3.2.1/drivers/media/dvb/frontends/drxk.h	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/frontends/drxk.h	2012-01-22 15:38:45.923218078 +0100
+@@ -26,6 +26,8 @@
+ 	bool	antenna_dvbt;
+ 	u16	antenna_gpio;
+ 
++	int    chunk_size;
++
+ 	const char *microcode_name;
+ };
+ 
+diff -Naur linux-3.2.1/drivers/media/dvb/frontends/drxk_hard.c linux-3.2.1.patch/drivers/media/dvb/frontends/drxk_hard.c
+--- linux-3.2.1/drivers/media/dvb/frontends/drxk_hard.c	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/frontends/drxk_hard.c	2012-01-22 15:39:13.797727862 +0100
+@@ -681,7 +681,8 @@
+ 	state->m_hasOOB = false;
+ 	state->m_hasAudio = false;
+ 
+-	state->m_ChunkSize = 124;
++	if (!state->m_ChunkSize)
++		state->m_ChunkSize = 124;
+ 
+ 	state->m_oscClockFreq = 0;
+ 	state->m_smartAntInverted = false;
+@@ -1846,6 +1847,7 @@
+ 		*/
+ 	switch (oMode) {
+ 	case OM_DVBT:
++		dprintk(1, ": DVB-T\n");
+ 		state->m_OperationMode = oMode;
+ 		status = SetDVBTStandard(state, oMode);
+ 		if (status < 0)
+@@ -1853,6 +1855,8 @@
+ 		break;
+ 	case OM_QAM_ITU_A:	/* fallthrough */
+ 	case OM_QAM_ITU_C:
++		dprintk(1, ": DVB-C Annex %c\n",
++			(state->m_OperationMode == OM_QAM_ITU_A) ? 'A' : 'C');
+ 		state->m_OperationMode = oMode;
+ 		status = SetQAMStandard(state, oMode);
+ 		if (status < 0)
+@@ -6182,7 +6186,10 @@
+ 	dprintk(1, "\n");
+ 	if (mutex_trylock(&state->ctlock) == 0)
+ 		return -EBUSY;
+-	SetOperationMode(state, OM_QAM_ITU_A);
++	if (state->m_itut_annex_c)
++		SetOperationMode(state, OM_QAM_ITU_C);
++	else
++		SetOperationMode(state, OM_QAM_ITU_A);
+ 	return 0;
+ }
+ 
+@@ -6218,6 +6225,12 @@
+ 		return -EINVAL;
+ 	}
+ 
++	if (fe->ops.info.type == FE_QAM) {
++		if (fe->dtv_property_cache.rolloff == ROLLOFF_13)
++			state->m_itut_annex_c = true;
++		else
++			state->m_itut_annex_c = false;
++	}
+ 
+ 	if (fe->ops.i2c_gate_ctrl)
+ 		fe->ops.i2c_gate_ctrl(fe, 1);
+@@ -6423,6 +6436,7 @@
+ 	state->no_i2c_bridge = config->no_i2c_bridge;
+ 	state->antenna_gpio = config->antenna_gpio;
+ 	state->antenna_dvbt = config->antenna_dvbt;
++	state->m_ChunkSize = config->chunk_size;
+ 
+ 	/* NOTE: as more UIO bits will be used, add them to the mask */
+ 	state->UIO_mask = config->antenna_gpio;
+diff -Naur linux-3.2.1/drivers/media/dvb/frontends/drxk_hard.h linux-3.2.1.patch/drivers/media/dvb/frontends/drxk_hard.h
+--- linux-3.2.1/drivers/media/dvb/frontends/drxk_hard.h	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/frontends/drxk_hard.h	2012-01-22 15:39:13.798727880 +0100
+@@ -263,6 +263,8 @@
+ 	u8     m_TSDataStrength;
+ 	u8     m_TSClockkStrength;
+ 
++	bool   m_itut_annex_c;      /* If true, uses ITU-T DVB-C Annex C, instead of Annex A */
++
+ 	enum DRXMPEGStrWidth_t  m_widthSTR;    /**< MPEG start width */
+ 	u32    m_mpegTsStaticBitrate;          /**< Maximum bitrate in b/s in case
+ 						    static clockrate is selected */
+diff -Naur linux-3.2.1/drivers/media/dvb/frontends/tda18271c2dd.c linux-3.2.1.patch/drivers/media/dvb/frontends/tda18271c2dd.c
+--- linux-3.2.1/drivers/media/dvb/frontends/tda18271c2dd.c	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/dvb/frontends/tda18271c2dd.c	2012-01-22 15:38:39.024091895 +0100
+@@ -1123,20 +1123,6 @@
+ 	return 0;
+ }
+ 
+-/*
+- * As defined on EN 300 429 Annex A and on ITU-T J.83 annex A, the DVB-C
+- * roll-off factor is 0.15.
+- * According with the specs, the amount of the needed bandwith is given by:
+- *	Bw = Symbol_rate * (1 + 0.15)
+- * As such, the maximum symbol rate supported by 6 MHz is
+- *	max_symbol_rate = 6 MHz / 1.15 = 5217391 Bauds
+- *NOTE: For ITU-T J.83 Annex C, the roll-off factor is 0.13. So:
+- *	max_symbol_rate = 6 MHz / 1.13 = 5309735 Baud
+- *	That means that an adjustment is needed for Japan,
+- *	but, as currently DRX-K is hardcoded to Annex A, let's stick
+- *	with 0.15 roll-off factor.
+- */
+-#define MAX_SYMBOL_RATE_6MHz	5217391
+ 
+ static int set_params(struct dvb_frontend *fe,
+ 		      struct dvb_frontend_parameters *params)
+@@ -1144,6 +1130,7 @@
+ 	struct tda_state *state = fe->tuner_priv;
+ 	int status = 0;
+ 	int Standard;
++	u32 bw;
+ 
+ 	state->m_Frequency = params->frequency;
+ 
+@@ -1161,8 +1148,23 @@
+ 			break;
+ 		}
+ 	else if (fe->ops.info.type == FE_QAM) {
+-		if (params->u.qam.symbol_rate <= MAX_SYMBOL_RATE_6MHz)
++		/*
++		 * Using a higher bandwidth at the tuner filter may
++		 * allow inter-carrier interference.
++		 * So, determine the minimal channel spacing, in order
++		 * to better adjust the tuner filter.
++		 * According with ITU-T J.83, the bandwidth is given by:
++		 * bw = Simbol Rate * (1 + roll_off), where the roll_off
++		 * is equal to 0.15 for Annex A, and 0.13 for annex C
++		 */
++		if (fe->dtv_property_cache.rolloff == ROLLOFF_13)
++			bw = (params->u.qam.symbol_rate * 13) / 10;
++		else
++			bw = (params->u.qam.symbol_rate * 15) / 10;
++		if (bw <= 6000000)
+ 			Standard = HF_DVBC_6MHZ;
++		else if (bw <= 7000000)
++			Standard = HF_DVBC_7MHZ;
+ 		else
+ 			Standard = HF_DVBC_8MHZ;
+ 	} else
+diff -Naur linux-3.2.1/drivers/media/rc/keymaps/rc-hauppauge.c linux-3.2.1.patch/drivers/media/rc/keymaps/rc-hauppauge.c
+--- linux-3.2.1/drivers/media/rc/keymaps/rc-hauppauge.c	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/rc/keymaps/rc-hauppauge.c	2012-01-22 15:39:04.767562712 +0100
+@@ -183,6 +183,57 @@
+ 	{ 0x1d3f, KEY_HOME },
+ 
+ 	/*
++	 * Keycodes for PT# R-005 remote bundled with Haupauge HVR-930C
++	 * Keycodes start with address = 0x1c
++	 */
++	{ 0x1c3b, KEY_GOTO },
++	{ 0x1c3d, KEY_POWER },
++
++	{ 0x1c14, KEY_UP },
++	{ 0x1c15, KEY_DOWN },
++	{ 0x1c16, KEY_LEFT },
++	{ 0x1c17, KEY_RIGHT },
++	{ 0x1c25, KEY_OK },
++
++	{ 0x1c00, KEY_0 },
++	{ 0x1c01, KEY_1 },
++	{ 0x1c02, KEY_2 },
++	{ 0x1c03, KEY_3 },
++	{ 0x1c04, KEY_4 },
++	{ 0x1c05, KEY_5 },
++	{ 0x1c06, KEY_6 },
++	{ 0x1c07, KEY_7 },
++	{ 0x1c08, KEY_8 },
++	{ 0x1c09, KEY_9 },
++
++	{ 0x1c1f, KEY_EXIT },	/* BACK */
++	{ 0x1c0d, KEY_MENU },
++	{ 0x1c1c, KEY_TV },
++
++	{ 0x1c10, KEY_VOLUMEUP },
++	{ 0x1c11, KEY_VOLUMEDOWN },
++
++	{ 0x1c20, KEY_CHANNELUP },
++	{ 0x1c21, KEY_CHANNELDOWN },
++
++	{ 0x1c0f, KEY_MUTE },
++	{ 0x1c12, KEY_PREVIOUS }, /* Prev */
++
++	{ 0x1c36, KEY_STOP },
++	{ 0x1c37, KEY_RECORD },
++
++	{ 0x1c24, KEY_LAST },           /* <|             */
++	{ 0x1c1e, KEY_NEXT },           /* >|             */
++
++	{ 0x1c0a, KEY_TEXT },
++	{ 0x1c0e, KEY_SUBTITLE },	/* CC */
++
++	{ 0x1c32, KEY_REWIND },
++	{ 0x1c30, KEY_PAUSE },
++	{ 0x1c35, KEY_PLAY },
++	{ 0x1c34, KEY_FASTFORWARD },
++
++	/*
+ 	 * Keycodes for the old Black Remote Controller
+ 	 * This one also uses RC-5 protocol
+ 	 * Keycodes start with address = 0x00
+diff -Naur linux-3.2.1/drivers/media/video/em28xx/em28xx-cards.c linux-3.2.1.patch/drivers/media/video/em28xx/em28xx-cards.c
+--- linux-3.2.1/drivers/media/video/em28xx/em28xx-cards.c	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/video/em28xx/em28xx-cards.c	2012-01-22 15:39:04.921565528 +0100
+@@ -336,6 +336,23 @@
+ 	{             -1,   -1,   -1,  -1},
+ };
+ 
++static struct em28xx_reg_seq hauppauge_930c_gpio[] = {
++	{EM2874_R80_GPIO,	0x6f,	0xff,	10},
++	{EM2874_R80_GPIO,	0x4f,	0xff,	10}, /* xc5000 reset */
++	{EM2874_R80_GPIO,	0x6f,	0xff,	10},
++	{EM2874_R80_GPIO,	0x4f,	0xff,	10},
++	{ -1,			-1,	-1,	-1},
++};
++
++#if 0
++static struct em28xx_reg_seq hauppauge_930c_digital[] = {
++	{EM2874_R80_GPIO,	0xf6,	0xff,	10},
++	{EM2874_R80_GPIO,	0xe6,	0xff,	100},
++	{EM2874_R80_GPIO,	0xa6,	0xff,	10},
++	{ -1,			-1,	-1,	-1},
++};
++#endif
++
+ /*
+  *  Board definitions
+  */
+@@ -887,7 +904,25 @@
+ 		.tuner_addr   = 0x41,
+ 		.dvb_gpio     = terratec_h5_digital, /* FIXME: probably wrong */
+ 		.tuner_gpio   = terratec_h5_gpio,
++#else
++		.tuner_type   = TUNER_ABSENT,
++#endif
++		.i2c_speed    = EM2874_I2C_SECONDARY_BUS_SELECT |
++				EM28XX_I2C_CLK_WAIT_ENABLE |
++				EM28XX_I2C_FREQ_400_KHZ,
++	},
++	[EM2884_BOARD_HAUPPAUGE_WINTV_HVR_930C] = {
++		.name         = "Hauppauge WinTV HVR 930C",
++		.has_dvb      = 1,
++#if 0 /* FIXME: Add analog support */
++		.tuner_type   = TUNER_XC5000,
++		.tuner_addr   = 0x41,
++		.dvb_gpio     = hauppauge_930c_digital,
++		.tuner_gpio   = hauppauge_930c_gpio,
++#else
++		.tuner_type   = TUNER_ABSENT,
+ #endif
++		.ir_codes     = RC_MAP_HAUPPAUGE,
+ 		.i2c_speed    = EM2874_I2C_SECONDARY_BUS_SELECT |
+ 				EM28XX_I2C_CLK_WAIT_ENABLE |
+ 				EM28XX_I2C_FREQ_400_KHZ,
+@@ -1975,6 +2010,8 @@
+ 			.driver_info = EM28174_BOARD_PCTV_290E },
+ 	{ USB_DEVICE(0x2013, 0x024c),
+ 			.driver_info = EM28174_BOARD_PCTV_460E },
++	{ USB_DEVICE(0x2040, 0x1605),
++			.driver_info = EM2884_BOARD_HAUPPAUGE_WINTV_HVR_930C },
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(usb, em28xx_id_table);
+@@ -2028,10 +2065,10 @@
+ 	int rc = 0;
+ 	struct em28xx *dev = ptr;
+ 
+-	if (dev->tuner_type != TUNER_XC2028)
++	if (dev->tuner_type != TUNER_XC2028 && dev->tuner_type != TUNER_XC5000)
+ 		return 0;
+ 
+-	if (command != XC2028_TUNER_RESET)
++	if (command != XC2028_TUNER_RESET && command != XC5000_TUNER_RESET)
+ 		return 0;
+ 
+ 	rc = em28xx_gpio_set(dev, dev->board.tuner_gpio);
+diff -Naur linux-3.2.1/drivers/media/video/em28xx/em28xx-dvb.c linux-3.2.1.patch/drivers/media/video/em28xx/em28xx-dvb.c
+--- linux-3.2.1/drivers/media/video/em28xx/em28xx-dvb.c	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/video/em28xx/em28xx-dvb.c	2012-01-22 15:39:13.799727898 +0100
+@@ -316,6 +316,14 @@
+ 	.microcode_name = "dvb-usb-terratec-h5-drxk.fw",
+ };
+ 
++struct drxk_config hauppauge_930c_drxk = {
++	.adr = 0x29,
++	.single_master = 1,
++	.no_i2c_bridge = 1,
++	.microcode_name = "dvb-usb-hauppauge-hvr930c-drxk.fw",
++	.chunk_size = 56,
++};
++
+ static int drxk_gate_ctrl(struct dvb_frontend *fe, int enable)
+ {
+ 	struct em28xx_dvb *dvb = fe->sec_priv;
+@@ -334,6 +342,73 @@
+ 	return status;
+ }
+ 
++static void hauppauge_hvr930c_init(struct em28xx *dev)
++{
++	int i;
++
++	struct em28xx_reg_seq hauppauge_hvr930c_init[] = {
++		{EM2874_R80_GPIO,	0xff,	0xff,	0x65},
++		{EM2874_R80_GPIO,	0xfb,	0xff,	0x32},
++		{EM2874_R80_GPIO,	0xff,	0xff,	0xb8},
++		{ -1,                   -1,     -1,     -1},
++	};
++	struct em28xx_reg_seq hauppauge_hvr930c_end[] = {
++		{EM2874_R80_GPIO,	0xef,	0xff,	0x01},
++		{EM2874_R80_GPIO,	0xaf,	0xff,	0x65},
++		{EM2874_R80_GPIO,	0xef,	0xff,	0x76},
++		{EM2874_R80_GPIO,	0xef,	0xff,	0x01},
++		{EM2874_R80_GPIO,	0xcf,	0xff,	0x0b},
++		{EM2874_R80_GPIO,	0xef,	0xff,	0x40},
++
++		{EM2874_R80_GPIO,	0xcf,	0xff,	0x65},
++		{EM2874_R80_GPIO,	0xef,	0xff,	0x65},
++		{EM2874_R80_GPIO,	0xcf,	0xff,	0x0b},
++		{EM2874_R80_GPIO,	0xef,	0xff,	0x65},
++
++		{ -1,                   -1,     -1,     -1},
++	};
++
++	struct {
++		unsigned char r[4];
++		int len;
++	} regs[] = {
++		{{ 0x06, 0x02, 0x00, 0x31 }, 4},
++		{{ 0x01, 0x02 }, 2},
++		{{ 0x01, 0x02, 0x00, 0xc6 }, 4},
++		{{ 0x01, 0x00 }, 2},
++		{{ 0x01, 0x00, 0xff, 0xaf }, 4},
++		{{ 0x01, 0x00, 0x03, 0xa0 }, 4},
++		{{ 0x01, 0x00 }, 2},
++		{{ 0x01, 0x00, 0x73, 0xaf }, 4},
++		{{ 0x04, 0x00 }, 2},
++		{{ 0x00, 0x04 }, 2},
++		{{ 0x00, 0x04, 0x00, 0x0a }, 4},
++		{{ 0x04, 0x14 }, 2},
++		{{ 0x04, 0x14, 0x00, 0x00 }, 4},
++	};
++
++	em28xx_gpio_set(dev, hauppauge_hvr930c_init);
++	em28xx_write_reg(dev, EM28XX_R06_I2C_CLK, 0x40);
++	msleep(10);
++	em28xx_write_reg(dev, EM28XX_R06_I2C_CLK, 0x44);
++	msleep(10);
++
++	dev->i2c_client.addr = 0x82 >> 1;
++
++	for (i = 0; i < ARRAY_SIZE(regs); i++)
++		i2c_master_send(&dev->i2c_client, regs[i].r, regs[i].len);
++	em28xx_gpio_set(dev, hauppauge_hvr930c_end);
++
++	msleep(100);
++
++	em28xx_write_reg(dev, EM28XX_R06_I2C_CLK, 0x44);
++	msleep(30);
++
++	em28xx_write_reg(dev, EM28XX_R06_I2C_CLK, 0x45);
++	msleep(10);
++
++}
++
+ static void terratec_h5_init(struct em28xx *dev)
+ {
+ 	int i;
+@@ -788,6 +863,51 @@
+ 			mfe_shared = 1;
+ 		}
+ 		break;
++	case EM2884_BOARD_HAUPPAUGE_WINTV_HVR_930C:
++		hauppauge_hvr930c_init(dev);
++
++		dvb->dont_attach_fe1 = 1;
++
++		dvb->fe[0] = dvb_attach(drxk_attach,
++					&hauppauge_930c_drxk, &dev->i2c_adap,
++					&dvb->fe[1]);
++		if (!dvb->fe[0]) {
++			result = -EINVAL;
++			goto out_free;
++		}
++		/* FIXME: do we need a pll semaphore? */
++		dvb->fe[0]->sec_priv = dvb;
++		sema_init(&dvb->pll_mutex, 1);
++		dvb->gate_ctrl = dvb->fe[0]->ops.i2c_gate_ctrl;
++		dvb->fe[0]->ops.i2c_gate_ctrl = drxk_gate_ctrl;
++		dvb->fe[1]->id = 1;
++
++		/* Attach xc5000 */
++		struct xc5000_config cfg;
++		memset(&cfg, 0, sizeof(cfg));
++		cfg.i2c_address  = 0x61;
++		cfg.if_khz = 4000;
++
++		if (dvb->fe[0]->ops.i2c_gate_ctrl)
++			dvb->fe[0]->ops.i2c_gate_ctrl(dvb->fe[0], 1);
++		if (!dvb_attach(xc5000_attach, dvb->fe[0], &dev->i2c_adap,
++				&cfg)) {
++			result = -EINVAL;
++			goto out_free;
++		}
++
++		if (dvb->fe[0]->ops.i2c_gate_ctrl)
++			dvb->fe[0]->ops.i2c_gate_ctrl(dvb->fe[0], 0);
++
++		/* Hack - needed by drxk/tda18271c2dd */
++		dvb->fe[1]->tuner_priv = dvb->fe[0]->tuner_priv;
++		memcpy(&dvb->fe[1]->ops.tuner_ops,
++		       &dvb->fe[0]->ops.tuner_ops,
++		       sizeof(dvb->fe[0]->ops.tuner_ops));
++
++		mfe_shared = 1;
++
++		break;
+ 	case EM2884_BOARD_TERRATEC_H5:
+ 		terratec_h5_init(dev);
+ 
+@@ -798,7 +918,6 @@
+ 			result = -EINVAL;
+ 			goto out_free;
+ 		}
+-
+ 		/* FIXME: do we need a pll semaphore? */
+ 		dvb->fe[0]->sec_priv = dvb;
+ 		sema_init(&dvb->pll_mutex, 1);
+@@ -822,6 +941,8 @@
+ 		       &dvb->fe[0]->ops.tuner_ops,
+ 		       sizeof(dvb->fe[0]->ops.tuner_ops));
+ 
++		mfe_shared = 1;
++
+ 		break;
+ 	case EM28174_BOARD_PCTV_460E:
+ 		/* attach demod */
+@@ -845,6 +966,8 @@
+ 	}
+ 	/* define general-purpose callback pointer */
+ 	dvb->fe[0]->callback = em28xx_tuner_callback;
++	if (dvb->fe[1])
++		dvb->fe[1]->callback = em28xx_tuner_callback;
+ 
+ 	/* register everything */
+ 	result = em28xx_register_dvb(dvb, THIS_MODULE, dev, &dev->udev->dev);
+diff -Naur linux-3.2.1/drivers/media/video/em28xx/em28xx.h linux-3.2.1.patch/drivers/media/video/em28xx/em28xx.h
+--- linux-3.2.1/drivers/media/video/em28xx/em28xx.h	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/drivers/media/video/em28xx/em28xx.h	2012-01-22 15:38:45.930218200 +0100
+@@ -38,6 +38,7 @@
+ #include <media/videobuf-dvb.h>
+ #endif
+ #include "tuner-xc2028.h"
++#include "xc5000.h"
+ #include "em28xx-reg.h"
+ 
+ /* Boards supported by driver */
+@@ -121,6 +122,7 @@
+ #define EM28174_BOARD_PCTV_290E                   78
+ #define EM2884_BOARD_TERRATEC_H5		  79
+ #define EM28174_BOARD_PCTV_460E                   80
++#define EM2884_BOARD_HAUPPAUGE_WINTV_HVR_930C	  81
+ 
+ /* Limits minimum and default number of buffers */
+ #define EM28XX_MIN_BUF 4
+diff -Naur linux-3.2.1/include/linux/dvb/frontend.h linux-3.2.1.patch/include/linux/dvb/frontend.h
+--- linux-3.2.1/include/linux/dvb/frontend.h	2012-01-12 20:42:45.000000000 +0100
++++ linux-3.2.1.patch/include/linux/dvb/frontend.h	2012-01-22 15:52:29.793509493 +0100
+@@ -329,6 +329,8 @@
+ 	ROLLOFF_20,
+ 	ROLLOFF_25,
+ 	ROLLOFF_AUTO,
++	ROLLOFF_15,	/* DVB-C Annex A */
++	ROLLOFF_13,	/* DVB-C Annex C */
+ } fe_rolloff_t;
+ 
+ typedef enum fe_delivery_system {
