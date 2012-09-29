@@ -22,14 +22,22 @@
 
 . config/options $1
 
-$SCRIPTS/install connman
-$SCRIPTS/install ethtool
-$SCRIPTS/install openssh
+cd $PKG_BUILD
 
-if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
-  $SCRIPTS/install bluez
-fi
+$SED 's/$(CCOPTS)//' netem/Makefile
 
-if [ "$DEVTOOLS" = "yes" ]; then
-  $SCRIPTS/install iproute2
-fi
+# remove any old configfile
+  rm -rf ./Config
+
+# Makefile is busted so it never passes IPT_LIB_DIR properly
+  $SED "s/-DIPT/-DXT/" tc/Makefile
+  echo "TC_CONFIG_XT:=y" >> ./Config
+
+# arpd needs berkeleydb
+  $SED "/^TARGETS=/s: arpd : :" misc/Makefile
+  echo "IPT_LIB_DIR:=/usr/lib/xtables" >> ./Config
+
+# use setns from our libc
+  echo "IP_CONFIG_SETNS:=y" >> ./Config
+
+make CC="$TARGET_CC" CCOPTS="$TARGET_CFLAGS -D_GNU_SOURCE"
