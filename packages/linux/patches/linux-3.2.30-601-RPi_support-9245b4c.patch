@@ -2196,7 +2196,7 @@ index 0000000..5593167
 +endmenu
 diff --git a/arch/arm/mach-bcm2708/Makefile b/arch/arm/mach-bcm2708/Makefile
 new file mode 100644
-index 0000000..164ecb2
+index 0000000..3ee8a4b
 --- /dev/null
 +++ b/arch/arm/mach-bcm2708/Makefile
 @@ -0,0 +1,8 @@
@@ -2204,7 +2204,7 @@ index 0000000..164ecb2
 +# Makefile for the linux kernel.
 +#
 +
-+obj-$(CONFIG_MACH_BCM2708) 	+= clock.o bcm2708.o armctrl.o vcio.o power.o dma.o
++obj-$(CONFIG_MACH_BCM2708) 	+= clock.o bcm2708.o armctrl.o vcio.o power.o dma.o delay.o
 +obj-$(CONFIG_BCM2708_GPIO)	+= bcm2708_gpio.o
 +obj-$(CONFIG_BCM2708_VCMEM)	+= vc_mem.o
 +
@@ -2674,10 +2674,10 @@ index 0000000..0aa916e
 +#endif
 diff --git a/arch/arm/mach-bcm2708/bcm2708.c b/arch/arm/mach-bcm2708/bcm2708.c
 new file mode 100644
-index 0000000..72dcf31
+index 0000000..ac118a4
 --- /dev/null
 +++ b/arch/arm/mach-bcm2708/bcm2708.c
-@@ -0,0 +1,867 @@
+@@ -0,0 +1,891 @@
 +/*
 + *  linux/arch/arm/mach-bcm2708/bcm2708.c
 + *
@@ -3539,6 +3539,30 @@ index 0000000..72dcf31
 +}
 +#endif
 +
++
++/* The assembly versions in delay.S don't account for core freq changing in cpufreq driver */
++/* Use 1MHz system timer for busy waiting */
++void __udelay(unsigned long usecs)
++{
++	unsigned long start = readl(__io_address(ST_BASE + 0x04));
++	unsigned long now;
++	do {
++		now = readl(__io_address(ST_BASE + 0x04));
++	} while ((long)(now - start) <= usecs);
++}
++
++
++void __const_udelay(unsigned long scaled_usecs)
++{
++	/* want /107374, this is about 3% bigger. We know usecs is less than 2000, so shouldn't overflow */
++	const unsigned long usecs = scaled_usecs * 10 >> 20;
++	unsigned long start = readl(__io_address(ST_BASE + 0x04));
++	unsigned long now;
++	do {
++		now = readl(__io_address(ST_BASE + 0x04));
++	} while ((long)(now - start) <= usecs);
++}
++
 +MACHINE_START(BCM2708, "BCM2708")
 +    /* Maintainer: Broadcom Europe Ltd. */
 +    .map_io = bcm2708_map_io,.init_irq = bcm2708_init_irq,.timer =
@@ -4044,6 +4068,32 @@ index 0000000..5f9d725
 +struct clk {
 +	unsigned long		rate;
 +};
+diff --git a/arch/arm/mach-bcm2708/delay.S b/arch/arm/mach-bcm2708/delay.S
+new file mode 100644
+index 0000000..4256d29
+--- /dev/null
++++ b/arch/arm/mach-bcm2708/delay.S
+@@ -0,0 +1,20 @@
++/*
++ *  linux/arch/arm/lib/delay.S
++ *
++ *  Copyright (C) 1995, 1996 Russell King
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/linkage.h>
++#include <asm/assembler.h>
++#include <asm/param.h>
++
++		.text
++@ Delay routine
++ENTRY(__delay)
++		subs	r0, r0, #1
++		bhi	__delay
++		mov	pc, lr
++ENDPROC(__delay)
 diff --git a/arch/arm/mach-bcm2708/dma.c b/arch/arm/mach-bcm2708/dma.c
 new file mode 100644
 index 0000000..0b7a4f6

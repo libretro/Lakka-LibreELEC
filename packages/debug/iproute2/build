@@ -1,3 +1,5 @@
+#!/bin/sh
+
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -18,19 +20,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="xbmc-frodo-theme-Confluence"
-PKG_VERSION="942a938"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.xbmc.org"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
-PKG_PRIORITY="optional"
-PKG_SECTION="mediacenter"
-PKG_SHORTDESC="xbmc-theme-Confluence: XBMC Mediacenter default theme"
-PKG_LONGDESC="XBMC Media Center (which was formerly named Xbox Media Center) is a free and open source cross-platform media player and home entertainment system software with a 10-foot user interface designed for the living-room TV. Its graphical user interface allows the user to easily manage video, photos, podcasts, and music from a computer, optical disk, local network, and the internet using a remote control."
-PKG_IS_ADDON="no"
+. config/options $1
 
-PKG_AUTORECONF="no"
+cd $PKG_BUILD
+
+$SED 's/$(CCOPTS)//' netem/Makefile
+
+# remove any old configfile
+  rm -rf ./Config
+
+# Makefile is busted so it never passes IPT_LIB_DIR properly
+  $SED "s/-DIPT/-DXT/" tc/Makefile
+  echo "TC_CONFIG_XT:=y" >> ./Config
+
+# arpd needs berkeleydb
+  $SED "/^TARGETS=/s: arpd : :" misc/Makefile
+  echo "IPT_LIB_DIR:=/usr/lib/xtables" >> ./Config
+
+# use setns from our libc
+  echo "IP_CONFIG_SETNS:=y" >> ./Config
+
+make CC="$TARGET_CC" CCOPTS="$TARGET_CFLAGS -D_GNU_SOURCE"
