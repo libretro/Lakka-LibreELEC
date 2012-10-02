@@ -22,6 +22,9 @@
 
 . config/options $1
 
+# disable build of GOOM until its fixed
+  XBMC_VIS_GOOM="no"
+
 if [ "$DISPLAYSERVER" = "xorg-server" ]; then
   XBMC_XORG="--enable-x11 --enable-xrandr"
 else
@@ -38,6 +41,12 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
   XBMC_OPENGLES="--enable-gles"
 else
   XBMC_OPENGLES="--disable-gles"
+fi
+
+if [ "$SDL_SUPPORT" = yes ]; then
+  XBMC_SDL="--enable-sdl"
+else
+  XBMC_SDL="--disable-sdl"
 fi
 
 if [ "$XBMC_SCR_RSXS" = yes ]; then
@@ -62,6 +71,12 @@ else
   XBMC_GOOM="--disable-goom"
 fi
 
+if [ "$ALSA_SUPPORT" = yes ]; then
+  XBMC_ALSA="--enable-alsa"
+else
+  XBMC_ALSA="--disable-alsa"
+fi
+
 if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
   XBMC_PULSEAUDIO="--enable-pulse"
 else
@@ -70,6 +85,9 @@ fi
 
 if [ "$CEC_SUPPORT" = yes ]; then
   XBMC_CEC="--enable-libcec"
+  if [ "$OPENMAX" = "bcm2835-driver" ]; then
+    XBMC_CEC="$XBMC_CEC --enable-rpi-cec-api"
+  fi
 else
   XBMC_CEC="--disable-libcec"
 fi
@@ -102,6 +120,18 @@ if [ "$DVDCSS_SUPPORT" = yes ]; then
   XBMC_DVDCSS="--enable-dvdcss"
 else
   XBMC_DVDCSS="--disable-dvdcss"
+fi
+
+if [ "$ENCODER_LAME" = yes ]; then
+  XBMC_LAMEENC="--enable-libmp3lame"
+else
+  XBMC_LAMEENC="--disable-libmp3lame"
+fi
+
+if [ "$ENCODER_VORBIS" = yes ]; then
+  XBMC_VORBISENC="--enable-libvorbisenc"
+else
+  XBMC_VORBISENC="--disable-libvorbisenc"
 fi
 
 if [ "$BLURAY_SUPPORT" = yes ]; then
@@ -141,6 +171,18 @@ else
   XBMC_WEBSERVER="--disable-webserver"
 fi
 
+if [ "$OPENMAX_SUPPORT" = yes ]; then
+  XBMC_OPENMAX="--enable-openmax"
+  if [ "$OPENMAX" = "bcm2835-driver" ]; then
+    XBMC_PLATFORM_SUPPORT="--with-platform=raspberry-pi"
+    XBMC_PLAYER="--enable-player=omxplayer"
+    CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/"
+    CXXFLAGS="$CXXFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/"
+  fi
+else
+  XBMC_OPENMAX="--disable-openmax"
+fi
+
 if [ "$VDPAU" = yes ]; then
   XBMC_VDPAU="--enable-vdpau"
 else
@@ -172,7 +214,7 @@ fi
   LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
 
 # dont build parallel
-#  MAKEFLAGS=-j1
+  MAKEFLAGS=-j1
 
   export PYTHON_VERSION="2.7"
   export PYTHON_CPPFLAGS="-I$SYSROOT_PREFIX/usr/include/python$PYTHON_VERSION"
@@ -217,13 +259,14 @@ cd $PKG_BUILD
             --disable-optimizations \
             $XBMC_OPENGL \
             $XBMC_OPENGLES \
+            $XBMC_SDL \
+            $XBMC_OPENMAX \
             $XBMC_VDPAU \
             $XBMC_VAAPI \
             $XBMC_CRYSTALHD \
             $XBMC_XVBA \
             --disable-vdadecoder \
             --disable-vtbdecoder \
-            --disable-openmax \
             --disable-tegra \
             --disable-profiling \
             $XBMC_JOYSTICK \
@@ -235,13 +278,15 @@ cd $PKG_BUILD
             $XBMC_PROJECTM \
             $XBMC_XORG \
             --disable-ccache \
+            $XBMC_ALSA \
             $XBMC_PULSEAUDIO \
             --enable-rtmp \
             $XBMC_SAMBA \
             $XBMC_NFS \
             $XBMC_AFP \
+            $XBMC_VORBISENC \
             --enable-ffmpeg-libvorbis \
-            --enable-lame \
+            $XBMC_LAMEENC \
             $XBMC_DVDCSS \
             --disable-mid \
             --disable-hal \
@@ -256,6 +301,8 @@ cd $PKG_BUILD
             --enable-texturepacker --with-texturepacker-root="$ROOT/$TOOLCHAIN" \
             --disable-external-libraries \
             --enable-external-ffmpeg \
+            $XBMC_PLATFORM_SUPPORT \
+            $XBMC_PLAYER \
 
 # setup default skin inside the sources
   sed -i -e "s|skin.confluence|$SKIN_DIR|g" xbmc/settings/Settings.h
