@@ -36,13 +36,12 @@ exit /B
 
 :gotPrivileges
 if exist "%temp%\OEgetPrivileges.vbs" ( del "%temp%\OEgetPrivileges.vbs" )
-pushd "%CD%"      
-CD /D "%~dp0"
+pushd "%~dp0"
 
 :HashCheck
-3rdparty\md5sum\md5sum.exe -c "%CD%\target\SYSTEM.md5"
+".\3rdparty\md5sum\md5sum.exe" -c ".\target\SYSTEM.md5"
 IF ERRORLEVEL 1 GOTO BadMD5
-3rdparty\md5sum\md5sum.exe -c "%CD%\target\KERNEL.md5"
+".\3rdparty\md5sum\md5sum.exe" -c ".\target\KERNEL.md5"
 IF ERRORLEVEL 1 GOTO BadMD5
 
 :InstallOE
@@ -164,6 +163,7 @@ ECHO.
 ECHO.
 ECHO.
 
+popd
 SET DRIVE=
 SET DRIVEUUID=
 PAUSE
