@@ -1,0 +1,61 @@
+From f4faf779130c891ceb5f394e1235258e144127d0 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Tue, 2 Oct 2012 10:49:09 +0200
+Subject: [PATCH 1/2] linuxrenderer: delete all textures on reconfigure
+
+---
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+index b0ad6e4..739005b 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+@@ -250,7 +250,7 @@ bool CLinuxRendererGL::ValidateRenderTarget()
+     // function pointer for texture might change in
+     // call to LoadShaders
+     glFinish();
+-    for (int i = 0 ; i < m_NumYV12Buffers ; i++)
++    for (int i = 0 ; i < NUM_BUFFERS ; i++)
+       (this->*m_textureDelete)(i);
+ 
+      // create the yuv textures
+-- 
+1.7.10
+
+
+From e85e0a54fd7728ca83596e68c2b6242cd2e6bf0a Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Tue, 2 Oct 2012 13:02:10 +0200
+Subject: [PATCH 2/2] dvdplayer: avoid short screen flicker caused by
+ unnecessary reconfigure of renderer
+
+---
+ xbmc/cores/dvdplayer/DVDPlayerVideo.cpp |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+index 7e39690..d2f3e96 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+@@ -962,7 +962,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+    || m_output.height != pPicture->iHeight
+    || m_output.dwidth != pPicture->iDisplayWidth
+    || m_output.dheight != pPicture->iDisplayHeight
+-   || m_output.framerate != config_framerate
++   || (!m_bFpsInvalid && fmod(m_output.framerate, config_framerate) != 0.0 )
+    || m_output.color_format != (unsigned int)pPicture->format
+    || m_output.extended_format != pPicture->extended_format
+    || ( m_output.color_matrix != pPicture->color_matrix && pPicture->color_matrix != 0 ) // don't reconfigure on unspecified
+@@ -1111,7 +1111,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+     m_output.height = pPicture->iHeight;
+     m_output.dwidth = pPicture->iDisplayWidth;
+     m_output.dheight = pPicture->iDisplayHeight;
+-    m_output.framerate = config_framerate;
++    m_output.framerate = config_framerate == 0.0 ? g_graphicsContext.GetFPS() : config_framerate;
+     m_output.color_format = pPicture->format;
+     m_output.extended_format = pPicture->extended_format;
+     m_output.color_matrix = pPicture->color_matrix;
+-- 
+1.7.10
+
