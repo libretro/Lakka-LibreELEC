@@ -1,7 +1,7 @@
 From 634226f3c604c38d6dd245800f05673583ba2dca Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 30 Aug 2012 12:38:39 +0200
-Subject: [PATCH 01/10] backport vdpau changes
+Subject: [PATCH 01/14] backport vdpau changes
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      |    4 +-
@@ -286,7 +286,7 @@ index a69f130..40becc0 100644
 From d0c23ddfad95612c47bcf9ce430b00a414b42912 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 30 Aug 2012 14:10:35 +0200
-Subject: [PATCH 02/10] backport some player and renderer changes
+Subject: [PATCH 02/14] backport some player and renderer changes
 
 ---
  xbmc/cores/VideoRenderers/BaseRenderer.h           |    3 +
@@ -880,7 +880,7 @@ index 28dfea0..93e375b 100644
 From f5a828fa3fb1f5cfd127cb1bab7bad9f11d70515 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 31 Aug 2012 15:11:32 +0200
-Subject: [PATCH 03/10] backport some xvba changes
+Subject: [PATCH 03/14] backport some xvba changes
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp |   61 +++++++++++++++----------
@@ -1036,7 +1036,7 @@ index 0abf972..24331e9 100644
 From d608d480e4159b71e0dfd18f20ba27ecc226fa97 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 31 Aug 2012 15:12:16 +0200
-Subject: [PATCH 04/10] player and renderer, squash me later
+Subject: [PATCH 04/14] player and renderer, squash me later
 
 ---
  xbmc/cores/VideoRenderers/RenderManager.cpp |    6 +++---
@@ -1066,7 +1066,7 @@ index 95372e0..ac31c32 100644
 From ca91233b8590a6061fe9b24c00ff62ecb96bc333 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 31 Aug 2012 15:12:45 +0200
-Subject: [PATCH 05/10] ati, fix segfault on exit
+Subject: [PATCH 05/14] ati, fix segfault on exit
 
 ---
  xbmc/video/VideoReferenceClock.cpp |   12 ++++++++++++
@@ -1115,7 +1115,7 @@ index 966af37..742dc79 100644
 From 5b5ce20c6902643e4f858a3ca45cefc3e4de05af Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Sat, 14 Jul 2012 21:00:13 +0200
-Subject: [PATCH 06/10] X11: re-evaluate vsync method after having modified
+Subject: [PATCH 06/14] X11: re-evaluate vsync method after having modified
  window
 
 It could have moved between outputs on different hardware
@@ -1142,7 +1142,7 @@ index be7dfea..bd8e91b 100644
 From c0409779940d74993669788ce0b01d257508a581 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Sun, 8 Jul 2012 01:06:05 +0200
-Subject: [PATCH 07/10] [tinyxml] invalid reading of xml from FILE pointers
+Subject: [PATCH 07/14] [tinyxml] invalid reading of xml from FILE pointers
 
 buf is not a null terminated string, so don't rely on it
 ---
@@ -1172,63 +1172,10 @@ index 82e2451..707653c 100644
 1.7.10
 
 
-From aa661e7bd39591141fbab27a4d427db622fa3dbb Mon Sep 17 00:00:00 2001
-From: xbmc <fernetmenta@online.de>
-Date: Sun, 2 Sep 2012 10:33:08 +0200
-Subject: [PATCH 08/10] dvdplayer audio: improve a/v when using skip/dupe
- method, duration of packets may be too long for
- proper sync
-
----
- xbmc/cores/dvdplayer/DVDPlayerAudio.cpp |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
-index 9f2128c..0e4adaa 100644
---- a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
-+++ b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
-@@ -719,7 +719,7 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
- 
-   //check if measured error for 1 second
-   now = CurrentHostCounter();
--  if ((now - m_errortime) >= m_freq)
-+  if ((now - m_errortime) >= m_freq * 2)
-   {
-     m_errortime = now;
-     m_error = m_errorbuff / m_errorcount;
-@@ -759,9 +759,21 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
-     {
-       //check how many packets to skip/duplicate
-       m_skipdupcount = (int)(m_error / duration);
--      //if less than one frame off, see if it's more than two thirds of a frame, so we can get better in sync
--      if (m_skipdupcount == 0 && fabs(m_error) > duration / 3 * 2)
--        m_skipdupcount = (int)(m_error / (duration / 3 * 2));
-+
-+      if (m_skipdupcount == 0)
-+      {
-+        double delay;
-+        if (m_error < 0)
-+        {
-+          m_skipdupcount -= 1;
-+          delay = ((double)DVD_TIME_TO_MSEC(duration + m_error)) / 1000;
-+        }
-+        else
-+        {
-+          delay = ((double)DVD_TIME_TO_MSEC(m_error)) / 1000;
-+        }
-+        m_dvdAudio.AddSilence(delay);
-+      }
- 
-       if (m_skipdupcount > 0)
-         CLog::Log(LOGDEBUG, "CDVDPlayerAudio:: Duplicating %i packet(s) of %.2f ms duration",
--- 
-1.7.10
-
-
-From 68b93215319f4ad4d0ee72797f82214ff8490379 Mon Sep 17 00:00:00 2001
+From 42e557c33536b026e2e871d137bb7c781d8f5399 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 09/10] video player: present correct pts to user for a/v sync
+Subject: [PATCH 08/14] video player: present correct pts to user for a/v sync
 
 ---
  xbmc/cores/dvdplayer/DVDPlayerVideo.cpp |   57 ++++++++++++++++++++++---------
@@ -1334,10 +1281,10 @@ index a0322dc..6fff15c 100644
 1.7.10
 
 
-From b38863d14fb42fe86d0e53d9d34d84e1b9eb6907 Mon Sep 17 00:00:00 2001
+From 128f93abcae0d8c327274dda9d59e10ac77826bc Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 4 Sep 2012 08:55:36 +0200
-Subject: [PATCH 10/10] vdpau: disable interop yuv and studio level
+Subject: [PATCH 09/14] vdpau: disable interop yuv and studio level
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp |   10 +++++-----
@@ -1415,6 +1362,175 @@ index 2d79423..e29c8c1 100644
  #endif
  #endif
    AddSeparator(vp, "videoplayer.sep5");
+-- 
+1.7.10
+
+
+From 0792bb866061839f9072082d4c5c582a3d4915e1 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Tue, 2 Oct 2012 10:49:09 +0200
+Subject: [PATCH 10/14] linuxrenderer: delete all textures on reconfigure
+
+---
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+index b0ad6e4..739005b 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+@@ -250,7 +250,7 @@ bool CLinuxRendererGL::ValidateRenderTarget()
+     // function pointer for texture might change in
+     // call to LoadShaders
+     glFinish();
+-    for (int i = 0 ; i < m_NumYV12Buffers ; i++)
++    for (int i = 0 ; i < NUM_BUFFERS ; i++)
+       (this->*m_textureDelete)(i);
+ 
+      // create the yuv textures
+-- 
+1.7.10
+
+
+From 78e31e56e7ff607fced1bf90a156b8f264ad75e7 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Tue, 2 Oct 2012 13:02:10 +0200
+Subject: [PATCH 11/14] dvdplayer: avoid short screen flicker caused by
+ unnecessary reconfigure of renderer
+
+---
+ xbmc/cores/dvdplayer/DVDPlayerVideo.cpp |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+index 7e39690..d2f3e96 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
+@@ -962,7 +962,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+    || m_output.height != pPicture->iHeight
+    || m_output.dwidth != pPicture->iDisplayWidth
+    || m_output.dheight != pPicture->iDisplayHeight
+-   || m_output.framerate != config_framerate
++   || (!m_bFpsInvalid && fmod(m_output.framerate, config_framerate) != 0.0 )
+    || m_output.color_format != (unsigned int)pPicture->format
+    || m_output.extended_format != pPicture->extended_format
+    || ( m_output.color_matrix != pPicture->color_matrix && pPicture->color_matrix != 0 ) // don't reconfigure on unspecified
+@@ -1111,7 +1111,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+     m_output.height = pPicture->iHeight;
+     m_output.dwidth = pPicture->iDisplayWidth;
+     m_output.dheight = pPicture->iDisplayHeight;
+-    m_output.framerate = config_framerate;
++    m_output.framerate = config_framerate == 0.0 ? g_graphicsContext.GetFPS() : config_framerate;
+     m_output.color_format = pPicture->format;
+     m_output.extended_format = pPicture->extended_format;
+     m_output.color_matrix = pPicture->color_matrix;
+-- 
+1.7.10
+
+
+From 062c579ac635d4b54f68248897d2205240169a99 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Sun, 16 Sep 2012 12:19:27 +0200
+Subject: [PATCH 12/14] xvba: oopsie :)
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
+index 127c958..78ad0a6 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/XVBA.cpp
+@@ -767,6 +767,7 @@ void CDecoder::DestroySession()
+   XVBA_Destroy_Decode_Buffers_Input bufInput;
+   bufInput.size = sizeof(bufInput);
+   bufInput.num_of_buffers_in_list = 1;
++  bufInput.session = m_xvbaConfig.xvbaSession;
+ 
+   for (unsigned int i=0; i<m_xvbaBufferPool.data_control_buffers.size() ; ++i)
+   {
+-- 
+1.7.10
+
+
+From 9dc1aec1cce17932633bc651edffead27203f5de Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Sun, 16 Sep 2012 08:27:06 +0200
+Subject: [PATCH 13/14] vdpau: fix AutoInterlaceMethod to prevent from double
+ de-interlacing
+
+---
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp |    7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+index 739005b..839e624 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+@@ -3455,14 +3455,7 @@ bool CLinuxRendererGL::Supports(ESCALINGMETHOD method)
+ EINTERLACEMETHOD CLinuxRendererGL::AutoInterlaceMethod()
+ {
+   if(m_renderMethod & RENDER_VDPAU)
+-  {
+-#ifdef HAVE_LIBVDPAU
+-    VDPAU::CVdpauRenderPicture *vdpauPic = m_buffers[m_iYV12RenderBuffer].vdpau;
+-    if(vdpauPic && vdpauPic->vdpau)
+-      return vdpauPic->vdpau->AutoInterlaceMethod();
+-#endif
+     return VS_INTERLACEMETHOD_NONE;
+-  }
+ 
+   if(Supports(VS_INTERLACEMETHOD_RENDER_BOB))
+     return VS_INTERLACEMETHOD_RENDER_BOB;
+-- 
+1.7.10
+
+
+From 824d263894f6ad7db1de83f95520494c09629a03 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Sun, 16 Sep 2012 18:38:01 +0200
+Subject: [PATCH 14/14] vdpau: fix upscaling setting
+
+---
+ xbmc/settings/AdvancedSettings.cpp |    4 ++--
+ xbmc/settings/AdvancedSettings.h   |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index 9626a37..183ed0d 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -88,7 +88,7 @@ void CAdvancedSettings::Initialize()
+   m_videoIgnoreSecondsAtStart = 3*60;
+   m_videoIgnorePercentAtEnd   = 8.0f;
+   m_videoPlayCountMinimumPercent = 90.0f;
+-  m_videoVDPAUScaling = false;
++  m_videoVDPAUScaling = -1;
+   m_videoNonLinStretchRatio = 0.5f;
+   m_videoEnableHighQualityHwScalers = false;
+   m_videoAutoScaleMaxFps = 30.0f;
+@@ -468,7 +468,7 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+     XMLUtils::GetString(pElement,"cleandatetime", m_videoCleanDateTimeRegExp);
+     XMLUtils::GetString(pElement,"ppffmpegdeinterlacing",m_videoPPFFmpegDeint);
+     XMLUtils::GetString(pElement,"ppffmpegpostprocessing",m_videoPPFFmpegPostProc);
+-    XMLUtils::GetBoolean(pElement,"vdpauscaling",m_videoVDPAUScaling);
++    XMLUtils::GetInt(pElement,"vdpauscaling",m_videoVDPAUScaling);
+     XMLUtils::GetFloat(pElement, "nonlinearstretchratio", m_videoNonLinStretchRatio, 0.01f, 1.0f);
+     XMLUtils::GetBoolean(pElement,"enablehighqualityhwscalers", m_videoEnableHighQualityHwScalers);
+     XMLUtils::GetFloat(pElement,"autoscalemaxfps",m_videoAutoScaleMaxFps, 0.0f, 1000.0f);
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index bb69d98..8f36fe2 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -132,7 +132,7 @@ class CAdvancedSettings
+     CStdString m_audioHost;
+     bool m_audioApplyDrc;
+ 
+-    bool  m_videoVDPAUScaling;
++    int   m_videoVDPAUScaling;
+     float m_videoNonLinStretchRatio;
+     bool  m_videoEnableHighQualityHwScalers;
+     float m_videoAutoScaleMaxFps;
 -- 
 1.7.10
 
