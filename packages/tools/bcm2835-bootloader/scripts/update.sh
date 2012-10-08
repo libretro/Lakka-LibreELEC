@@ -30,7 +30,9 @@
   cp $SYSTEM_ROOT/usr/share/bootloader/LICENCE* $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/bootcode.bin $BOOT_ROOT
-  cp $SYSTEM_ROOT/usr/share/bootloader/loader.bin $BOOT_ROOT
+
+# clean unused files
+  rm -rf $BOOT_ROOT/loader.bin
 
 # mount $BOOT_ROOT r/o
   sync
