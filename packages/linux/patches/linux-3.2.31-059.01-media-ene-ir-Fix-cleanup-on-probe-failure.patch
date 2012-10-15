@@ -1,0 +1,75 @@
+diff --git a/drivers/media/rc/ene_ir.c b/drivers/media/rc/ene_ir.c
+index 647dd95..62f9076 100644
+--- a/drivers/media/rc/ene_ir.c
++++ b/drivers/media/rc/ene_ir.c
+@@ -1000,7 +1000,7 @@ static int ene_probe(struct pnp_dev *pnp_dev, const struct pnp_device_id *id)
+ 	dev = kzalloc(sizeof(struct ene_device), GFP_KERNEL);
+ 	rdev = rc_allocate_device();
+ 	if (!dev || !rdev)
+-		goto error1;
++		goto failure;
+ 
+ 	/* validate resources */
+ 	error = -ENODEV;
+@@ -1011,10 +1011,10 @@ static int ene_probe(struct pnp_dev *pnp_dev, const struct pnp_device_id *id)
+ 
+ 	if (!pnp_port_valid(pnp_dev, 0) ||
+ 	    pnp_port_len(pnp_dev, 0) < ENE_IO_SIZE)
+-		goto error;
++		goto failure;
+ 
+ 	if (!pnp_irq_valid(pnp_dev, 0))
+-		goto error;
++		goto failure;
+ 
+ 	spin_lock_init(&dev->hw_lock);
+ 
+@@ -1030,7 +1030,7 @@ static int ene_probe(struct pnp_dev *pnp_dev, const struct pnp_device_id *id)
+ 	/* detect hardware version and features */
+ 	error = ene_hw_detect(dev);
+ 	if (error)
+-		goto error;
++		goto failure;
+ 
+ 	if (!dev->hw_learning_and_tx_capable && txsim) {
+ 		dev->hw_learning_and_tx_capable = true;
+@@ -1075,30 +1075,27 @@ static int ene_probe(struct pnp_dev *pnp_dev, const struct pnp_device_id *id)
+ 	/* claim the resources */
+ 	error = -EBUSY;
+ 	if (!request_region(dev->hw_io, ENE_IO_SIZE, ENE_DRIVER_NAME)) {
+-		dev->hw_io = -1;
+-		dev->irq = -1;
+-		goto error;
++		goto failure;
+ 	}
+ 
+ 	dev->irq = pnp_irq(pnp_dev, 0);
+ 	if (request_irq(dev->irq, ene_isr,
+ 			IRQF_SHARED, ENE_DRIVER_NAME, (void *)dev)) {
+-		dev->irq = -1;
+-		goto error;
++		goto failure2;
+ 	}
+ 
+ 	error = rc_register_device(rdev);
+ 	if (error < 0)
+-		goto error;
++		goto failure3;
+ 
+ 	pr_notice("driver has been successfully loaded\n");
+ 	return 0;
+-error:
+-	if (dev && dev->irq >= 0)
+-		free_irq(dev->irq, dev);
+-	if (dev && dev->hw_io >= 0)
+-		release_region(dev->hw_io, ENE_IO_SIZE);
+-error1:
++
++failure3:
++	free_irq(dev->irq, dev);
++failure2:
++	release_region(dev->hw_io, ENE_IO_SIZE);
++failure:
+ 	rc_free_device(rdev);
+ 	kfree(dev);
+ 	return error;
