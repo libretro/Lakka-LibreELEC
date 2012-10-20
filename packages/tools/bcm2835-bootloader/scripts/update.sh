@@ -28,11 +28,22 @@
 
 # update bootloader files
   cp $SYSTEM_ROOT/usr/share/bootloader/LICENCE* $BOOT_ROOT
-  cp $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/bootcode.bin $BOOT_ROOT
-  cp $SYSTEM_ROOT/usr/share/bootloader/loader.bin $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/fixup.dat $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
+
+# cleanup not more needed files
+  rm -rf $BOOT_ROOT/loader.bin
+
+# some config.txt magic
+  if [ ! -f $BOOT_ROOT/config.txt ]; then
+    cp $SYSTEM_ROOT/usr/share/bootloader/config.txt $BOOT_ROOT
+  elif [ ! `grep "^[ ]*gpu_mem.*" $BOOT_ROOT/config.txt` ]; then
+    mv $BOOT_ROOT/config.txt $BOOT_ROOT/config.txt.bk
+    cat $SYSTEM_ROOT/usr/share/bootloader/config.txt \
+        $BOOT_ROOT/config.txt.bk > $BOOT_ROOT/config.txt
+  fi
 
 # mount $BOOT_ROOT r/o
   sync
   mount -o remount,ro $BOOT_ROOT
-
