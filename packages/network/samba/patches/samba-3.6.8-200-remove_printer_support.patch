@@ -1,0 +1,360 @@
+diff -Naur samba-3.6.8/source3/librpc/rpc/rpc_common.c samba-3.6.8.patch/source3/librpc/rpc/rpc_common.c
+--- samba-3.6.8/source3/librpc/rpc/rpc_common.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/librpc/rpc/rpc_common.c	2012-10-22 21:17:48.583839804 +0200
+@@ -113,9 +113,11 @@
+ 	if (!smb_register_ndr_interface(&ndr_table_winreg)) {
+ 		return false;
+ 	}
++#ifdef PRINTER_SUPPORT
+ 	if (!smb_register_ndr_interface(&ndr_table_spoolss)) {
+ 		return false;
+ 	}
++#endif
+ 	if (!smb_register_ndr_interface(&ndr_table_netdfs)) {
+ 		return false;
+ 	}
+diff -Naur samba-3.6.8/source3/printing/spoolssd.c samba-3.6.8.patch/source3/printing/spoolssd.c
+--- samba-3.6.8/source3/printing/spoolssd.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/printing/spoolssd.c	2012-10-22 21:17:48.566839461 +0200
+@@ -153,6 +153,10 @@
+ 	NTSTATUS status;
+ 	int ret;
+ 
++#ifndef PRINTER_SUPPORT
++	return;
++#endif
++
+ 	DEBUG(1, ("Forking SPOOLSS Daemon\n"));
+ 
+ 	pid = sys_fork();
+diff -Naur samba-3.6.8/source3/rpcclient/rpcclient.c samba-3.6.8.patch/source3/rpcclient/rpcclient.c
+--- samba-3.6.8/source3/rpcclient/rpcclient.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/rpcclient/rpcclient.c	2012-10-22 21:17:48.565839442 +0200
+@@ -624,7 +624,9 @@
+ 	lsarpc_commands,
+ 	ds_commands,
+ 	samr_commands,
++#ifdef PRINTER_SUPPORT
+ 	spoolss_commands,
++#endif
+ 	netlogon_commands,
+ 	srvsvc_commands,
+ 	dfs_commands,
+diff -Naur samba-3.6.8/source3/rpc_server/rpc_ep_setup.c samba-3.6.8.patch/source3/rpc_server/rpc_ep_setup.c
+--- samba-3.6.8/source3/rpc_server/rpc_ep_setup.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/rpc_server/rpc_ep_setup.c	2012-10-22 21:17:48.564839423 +0200
+@@ -1110,6 +1110,10 @@
+ 					   "rpc_server",
+ 					   "spoolss",
+ 					   "embedded");
++#ifndef PRINTER_SUPPORT
++	if (1) {
++	} else
++#endif
+ 	if (StrCaseCmp(rpcsrv_type, "embedded") == 0) {
+ 		spoolss_cb.init         = spoolss_init_cb;
+ 		spoolss_cb.shutdown     = spoolss_shutdown_cb;
+diff -Naur samba-3.6.8/source3/rpc_server/svcctl/srv_svcctl_nt.c samba-3.6.8.patch/source3/rpc_server/svcctl/srv_svcctl_nt.c
+--- samba-3.6.8/source3/rpc_server/svcctl/srv_svcctl_nt.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/rpc_server/svcctl/srv_svcctl_nt.c	2012-10-22 21:17:48.582839784 +0200
+@@ -85,9 +85,11 @@
+ 
+ 	/* add builtin services */
+ 
++#ifdef PRINTER_SUPPORT
+ 	svcctl_ops[i].name = talloc_strdup( svcctl_ops, "Spooler" );
+ 	svcctl_ops[i].ops  = &spoolss_svc_ops;
+ 	i++;
++#endif
+ 
+ 	svcctl_ops[i].name = talloc_strdup( svcctl_ops, "NETLOGON" );
+ 	svcctl_ops[i].ops  = &netlogon_svc_ops;
+diff -Naur samba-3.6.8/source3/smbd/close.c samba-3.6.8.patch/source3/smbd/close.c
+--- samba-3.6.8/source3/smbd/close.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/close.c	2012-10-22 21:17:48.579839724 +0200
+@@ -643,6 +643,9 @@
+ 	status = ntstatus_keeperror(status, tmp);
+ 
+ 	if (fsp->print_file) {
++#ifndef PRINTER_SUPPORT
++		return NT_STATUS_OK;
++#endif
+ 		/* FIXME: return spool errors */
+ 		print_spool_end(fsp, close_type);
+ 		file_free(req, fsp);
+diff -Naur samba-3.6.8/source3/smbd/fileio.c samba-3.6.8.patch/source3/smbd/fileio.c
+--- samba-3.6.8/source3/smbd/fileio.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/fileio.c	2012-10-22 21:17:48.580839744 +0200
+@@ -298,6 +298,10 @@
+ 		uint32_t t;
+ 		int ret;
+ 
++#ifndef PRINTER_SUPPORT
++		return -1;
++#endif
++
+ 		ret = print_spool_write(fsp, data, n, pos, &t);
+ 		if (ret) {
+ 			errno = ret;
+diff -Naur samba-3.6.8/source3/smbd/lanman.c samba-3.6.8.patch/source3/smbd/lanman.c
+--- samba-3.6.8/source3/smbd/lanman.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/lanman.c	2012-10-22 21:17:48.576839664 +0200
+@@ -784,6 +784,10 @@
+ 	union spoolss_JobInfo *job_info = NULL;
+ 	union spoolss_PrinterInfo printer_info;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -999,6 +1003,10 @@
+ 	union spoolss_DriverInfo *driver_info;
+ 	union spoolss_JobInfo **job_info;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!param_format || !output_format1 || !p) {
+ 		return False;
+ 	}
+@@ -3350,6 +3358,10 @@
+ 	struct spoolss_DevmodeContainer devmode_ctr;
+ 	enum spoolss_JobControl command;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -3483,6 +3495,10 @@
+ 	struct sec_desc_buf secdesc_ctr;
+ 	enum spoolss_PrinterControl command;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !QueueName) {
+ 		return False;
+ 	}
+@@ -3649,6 +3665,10 @@
+ 	union spoolss_JobInfo info;
+ 	struct spoolss_SetJobInfo1 info1;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -4792,6 +4812,10 @@
+ 	struct spoolss_DevmodeContainer devmode_ctr;
+ 	union spoolss_JobInfo info;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -4930,6 +4954,10 @@
+ 	uint32_t count = 0;
+ 	union spoolss_JobInfo *info;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -5135,6 +5163,10 @@
+ 	struct spoolss_DevmodeContainer devmode_ctr;
+ 	union spoolss_PrinterInfo info;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -5271,6 +5303,10 @@
+ 	union spoolss_PrinterInfo *info;
+ 	uint32_t count;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -5374,6 +5410,10 @@
+ 	int succnt;
+ 	struct pack_desc desc;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -5438,6 +5478,10 @@
+ 	int succnt;
+ 	struct pack_desc desc;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+@@ -5502,6 +5546,10 @@
+ 	int succnt;
+ 	struct pack_desc desc;
+ 
++#ifndef PRINTER_SUPPORT
++	return False;
++#endif
++
+ 	if (!str1 || !str2 || !p) {
+ 		return False;
+ 	}
+diff -Naur samba-3.6.8/source3/smbd/open.c samba-3.6.8.patch/source3/smbd/open.c
+--- samba-3.6.8/source3/smbd/open.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/open.c	2012-10-22 21:17:48.578839704 +0200
+@@ -1546,6 +1546,9 @@
+ 		 * Most of the passed parameters are ignored.
+ 		 */
+ 
++#ifndef PRINTER_SUPPORT
++		return NT_STATUS_ACCESS_DENIED;
++#endif
+ 		if (pinfo) {
+ 			*pinfo = FILE_WAS_CREATED;
+ 		}
+diff -Naur samba-3.6.8/source3/smbd/process.c samba-3.6.8.patch/source3/smbd/process.c
+--- samba-3.6.8/source3/smbd/process.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/process.c	2012-10-22 21:17:48.584839824 +0200
+@@ -2475,8 +2475,10 @@
+ 
+ 	change_to_root_user();
+ 
++#ifdef PRINTER_SUPPORT
+ 	/* update printer queue caches if necessary */
+ 	update_monitored_printq_cache(sconn->msg_ctx);
++#endif
+ 
+ 	/* check if we need to reload services */
+ 	check_reload(sconn, time_mono(NULL));
+diff -Naur samba-3.6.8/source3/smbd/reply.c samba-3.6.8.patch/source3/smbd/reply.c
+--- samba-3.6.8/source3/smbd/reply.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/reply.c	2012-10-22 21:17:48.573839604 +0200
+@@ -5196,7 +5196,11 @@
+ 		return;
+ 	}
+ 
+-	if (!CAN_PRINT(conn)) {
++
++#ifdef PRINTER_SUPPORT
++	if (!CAN_PRINT(conn))
++#endif
++	{
+ 		reply_nterror(req, NT_STATUS_ACCESS_DENIED);
+ 		END_PROFILE(SMBsplopen);
+ 		return;
+@@ -5302,7 +5306,10 @@
+ 	   is really quite gross and only worked when there was only
+ 	   one printer - I think we should now only accept it if they
+ 	   get it right (tridge) */
+-	if (!CAN_PRINT(conn)) {
++#ifdef PRINTER_SUPPORT
++	if (!CAN_PRINT(conn))
++#endif
++	{
+ 		reply_nterror(req, NT_STATUS_ACCESS_DENIED);
+ 		END_PROFILE(SMBsplretq);
+ 		return;
+diff -Naur samba-3.6.8/source3/smbd/server.c samba-3.6.8.patch/source3/smbd/server.c
+--- samba-3.6.8/source3/smbd/server.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/server.c	2012-10-22 21:19:58.704461862 +0200
+@@ -126,7 +126,9 @@
+ {
+ 	struct tevent_context *ev_ctx =
+ 		talloc_get_type_abort(private_data, struct tevent_context);
+-
++#ifndef PRINTER_SUPPORT
++	return;
++#endif
+ 	DEBUG(10,("Got message saying pcap was updated. Reloading.\n"));
+ 	change_to_root_user();
+ 	reload_printers(ev_ctx, msg);
+@@ -1254,6 +1256,7 @@
+ 		exit(1);
+ 	}
+ 
++#ifdef PRINTER_SUPPORT
+ 	/*
+ 	 * The print backend init also migrates the printing tdb's,
+ 	 * this requires a winreg pipe.
+@@ -1289,6 +1292,7 @@
+ 				       smbd_messaging_context());
+ 		}
+ 	}
++#endif
+ 
+ 	if (!is_daemon) {
+ 		/* inetd mode */
+diff -Naur samba-3.6.8/source3/smbd/server_exit.c samba-3.6.8.patch/source3/smbd/server_exit.c
+--- samba-3.6.8/source3/smbd/server_exit.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/server_exit.c	2012-10-22 21:17:48.576839664 +0200
+@@ -141,7 +141,9 @@
+ 		rpc_eventlog_shutdown();
+ 		rpc_ntsvcs_shutdown();
+ 		rpc_svcctl_shutdown();
++#ifdef PRINTER_SUPPORT
+ 		rpc_spoolss_shutdown();
++#endif
+ 
+ 		rpc_srvsvc_shutdown();
+ 		rpc_winreg_shutdown();
+diff -Naur samba-3.6.8/source3/smbd/smb2_create.c samba-3.6.8.patch/source3/smbd/smb2_create.c
+--- samba-3.6.8/source3/smbd/smb2_create.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/smbd/smb2_create.c	2012-10-22 21:17:48.581839764 +0200
+@@ -485,7 +485,10 @@
+ 		info = FILE_WAS_OPENED;
+ 	} else if (CAN_PRINT(smb1req->conn)) {
+ 		status = file_new(smb1req, smb1req->conn, &result);
+-		if(!NT_STATUS_IS_OK(status)) {
++#ifdef PRINTER_SUPPORT
++		if(!NT_STATUS_IS_OK(status))
++#endif
++		{
+ 			tevent_req_nterror(req, status);
+ 			return tevent_req_post(req, ev);
+ 		}
+diff -Naur samba-3.6.8/source3/utils/net_rpc.c samba-3.6.8.patch/source3/utils/net_rpc.c
+--- samba-3.6.8/source3/utils/net_rpc.c	2012-09-14 10:12:09.000000000 +0200
++++ samba-3.6.8.patch/source3/utils/net_rpc.c	2012-10-22 21:17:48.569839523 +0200
+@@ -7791,6 +7791,10 @@
+ 		{NULL, NULL, 0, NULL, NULL}
+ 	};
+ 
++#ifndef PRINTER_SUPPORT
++	return 0;
++#endif
++
+ 	if (argc == 0) {
+ 		if (c->display_usage) {
+ 			d_printf(_("Usage:\n"));
