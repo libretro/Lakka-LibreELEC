@@ -20,10 +20,10 @@
 
 import xbmc, xbmcaddon, time, os, subprocess
 
-__scriptname__ = "HTS TVheadend Service"
+__scriptname__ = "TVHeadend Service"
 __author__ = "OpenELEC"
 __url__ = "http://www.openelec.tv"
-__settings__   = xbmcaddon.Addon(id='service.multimedia.hts-tvheadend')
+__settings__   = xbmcaddon.Addon(id='service.multimedia.tvheadend')
 __cwd__        = __settings__.getAddonInfo('path')
 __start__      = xbmc.translatePath( os.path.join( __cwd__, 'bin', "tvheadend.start") )
 __stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "tvheadend.stop") )
