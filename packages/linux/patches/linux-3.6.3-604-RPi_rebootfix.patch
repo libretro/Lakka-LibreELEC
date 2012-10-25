@@ -1,0 +1,65 @@
+diff -Naur linux-3.6.2.buildfix_patch/arch/arm/mach-bcm2708/bcm2708.c linux-3.6.2.reboot_patch/arch/arm/mach-bcm2708/bcm2708.c
+--- linux-3.6.2.buildfix_patch/arch/arm/mach-bcm2708/bcm2708.c	2012-10-21 15:18:50.011567812 +0200
++++ linux-3.6.2.reboot_patch/arch/arm/mach-bcm2708/bcm2708.c	2012-10-25 21:25:36.797861085 +0200
+@@ -658,6 +658,21 @@
+ 	return ret;
+ }
+ 
++static void bcm2708_restart(char mode, const char *cmd)
++{
++	uint32_t pm_rstc, pm_wdog;
++	uint32_t timeout = 10;
++
++	/* Setup watchdog for reset */
++	pm_rstc = readl(IO_ADDRESS(PM_RSTC));
++
++	pm_wdog = PM_PASSWORD | (timeout & PM_WDOG_TIME_SET); // watchdog timer = timer clock / 16; need password (31:16) + value (11:0)
++	pm_rstc = PM_PASSWORD | (pm_rstc & PM_RSTC_WRCFG_CLR) | PM_RSTC_WRCFG_FULL_RESET;
++
++	writel(pm_wdog, IO_ADDRESS(PM_WDOG));
++	writel(pm_rstc, IO_ADDRESS(PM_RSTC));
++}
++
+ /* We can't really power off, but if we do the normal reset scheme, and indicate to bootcode.bin not to reboot, then most of the chip will be powered off */
+ static void bcm2708_power_off(void)
+ {
+@@ -666,7 +681,7 @@
+ 	pm_rsts = PM_PASSWORD | (pm_rsts & PM_RSTC_WRCFG_CLR) | PM_RSTS_HADWRH_SET;
+ 	writel(pm_rsts, IO_ADDRESS(PM_RSTS));
+ 	/* continue with normal reset mechanism */
+-	arch_reset(0, "");
++	bcm2708_restart(0, "");
+ }
+ 
+ void __init bcm2708_init(void)
+@@ -910,6 +925,7 @@
+ 	.timer =&bcm2708_timer,
+ 	.init_machine = bcm2708_init,
+ 	.init_early = bcm2708_init_early,
++        .restart = bcm2708_restart,
+ MACHINE_END
+ 
+ module_param(boardrev, uint, 0644);
+diff -Naur linux-3.6.2.buildfix_patch/arch/arm/mach-bcm2708/include/mach/system.h linux-3.6.2.reboot_patch/arch/arm/mach-bcm2708/include/mach/system.h
+--- linux-3.6.2.buildfix_patch/arch/arm/mach-bcm2708/include/mach/system.h	2012-10-21 15:18:50.011567812 +0200
++++ linux-3.6.2.reboot_patch/arch/arm/mach-bcm2708/include/mach/system.h	2012-10-25 21:24:43.121770267 +0200
+@@ -35,19 +35,4 @@
+ 	cpu_do_idle();
+ }
+ 
+-static inline void arch_reset(char mode, const char *cmd)
+-{
+-	uint32_t pm_rstc, pm_wdog;
+-	uint32_t timeout = 10;
+-
+-	/* Setup watchdog for reset */
+-	pm_rstc = readl(IO_ADDRESS(PM_RSTC));
+-
+-	pm_wdog = PM_PASSWORD | (timeout & PM_WDOG_TIME_SET); // watchdog timer = timer clock / 16; need password (31:16) + value (11:0)
+-	pm_rstc = PM_PASSWORD | (pm_rstc & PM_RSTC_WRCFG_CLR) | PM_RSTC_WRCFG_FULL_RESET;
+-
+-	writel(pm_wdog, IO_ADDRESS(PM_WDOG));
+-	writel(pm_rstc, IO_ADDRESS(PM_RSTC));
+-}
+-
+ #endif
