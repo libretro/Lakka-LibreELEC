@@ -1,0 +1,1312 @@
+diff --git a/configure.ac b/configure.ac
+index 97c6f2c..7ff80a4 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -23,6 +23,7 @@ AC_HEADER_DIRENT
+ AC_PREFIX_DEFAULT(/usr)
+ AC_CHECK_HEADERS([arpa/inet.h fcntl.h libintl.h limits.h locale.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h syslog.h unistd.h])
+ AC_CHECK_LIB([pthread], [pthread_create])
++AC_CHECK_LIB([nsl], [yp_get_default_domain])
+ 
+ 
+ AC_CONFIG_FILES([Makefile src/Makefile man/Makefile doc/Makefile])
+diff --git a/doc/Makefile.am b/doc/Makefile.am
+index cc4fa76..f8c88b5 100644
+--- a/doc/Makefile.am
++++ b/doc/Makefile.am
+@@ -1,5 +1,5 @@
+ 
+ install: install-am
+-	$(mkinstalldirs) $(DESTDIR)/etc
+-	cp -p ./etc_netconfig $(DESTDIR)/etc/netconfig
+-	chmod 0644 $(DESTDIR)/etc/netconfig
++	$(mkinstalldirs) $(DESTDIR)/$(sysconfdir)
++	cp -p ./etc_netconfig $(DESTDIR)/$(sysconfdir)/netconfig
++	chmod 0644 $(DESTDIR)/$(sysconfdir)/netconfig
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 7ee8cbc..66350f5 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -40,7 +40,7 @@ lib_LTLIBRARIES = libtirpc.la
+ # release number of your package. This is an abuse that only fosters
+ # misunderstanding of the purpose of library versions."
+ #
+-libtirpc_la_LDFLAGS = -lnsl -lpthread -version-info 1:10:0
++libtirpc_la_LDFLAGS = -lpthread -version-info 1:10:0
+ 
+ libtirpc_la_SOURCES = auth_none.c auth_unix.c authunix_prot.c bindresvport.c clnt_bcast.c \
+         clnt_dg.c clnt_generic.c clnt_perror.c clnt_raw.c clnt_simple.c \
+@@ -48,17 +48,16 @@ libtirpc_la_SOURCES = auth_none.c auth_unix.c authunix_prot.c bindresvport.c cln
+         getrpcport.c mt_misc.c pmap_clnt.c pmap_getmaps.c pmap_getport.c \
+         pmap_prot.c pmap_prot2.c pmap_rmt.c rpc_prot.c rpc_commondata.c \
+         rpc_callmsg.c rpc_generic.c rpc_soc.c rpcb_clnt.c rpcb_prot.c \
+-        rpcb_st_xdr.c svc.c svc_auth.c svc_dg.c svc_auth_unix.c svc_generic.c \
+-        svc_raw.c svc_run.c svc_simple.c svc_vc.c getpeereid.c \
+-        auth_time.c auth_des.c authdes_prot.c des_crypt.c
++        rpcb_st_xdr.c svc.c svc_auth.c svc_dg.c svc_auth_unix.c svc_auth_none.c \
++        svc_generic.c svc_raw.c svc_run.c svc_simple.c svc_vc.c getpeereid.c \
++        auth_time.c auth_des.c authdes_prot.c
+ 
+ ## XDR
+ libtirpc_la_SOURCES += xdr.c xdr_rec.c xdr_array.c xdr_float.c xdr_mem.c xdr_reference.c xdr_stdio.c
+ 
+ ## Secure-RPC
+ if GSS
+-    libtirpc_la_SOURCES += auth_gss.c authgss_prot.c svc_auth_gss.c \
+-		svc_auth_none.c
++    libtirpc_la_SOURCES += auth_gss.c authgss_prot.c svc_auth_gss.c
+     libtirpc_la_LDFLAGS += $(GSSGLUE_LIBS)
+     libtirpc_la_CFLAGS = -DHAVE_RPCSEC_GSS $(GSSGLUE_CFLAGS)
+ endif
+diff --git a/src/auth_des.c b/src/auth_des.c
+index 37e7667..f0c8b8c 100644
+--- a/src/auth_des.c
++++ b/src/auth_des.c
+@@ -223,6 +223,7 @@ authdes_pk_seccreate(const char *servername, netobj *pkey, u_int window,
+ 		goto failed;
+ 	}
+ 	ad->ad_nis_srvr = NULL; /* not needed any longer */
++	auth_get(auth);		/* Reference for caller */
+ 	return (auth);
+ 
+ failed:
+@@ -472,6 +473,12 @@ authdes_destroy(AUTH *auth)
+ 	FREE(auth, sizeof(AUTH));
+ }
+ 
++static bool_t
++authdes_wrap(AUTH *auth, XDR *xdrs, xdrproc_t xfunc, caddr_t xwhere)
++{
++	return ((*xfunc)(xdrs, xwhere));
++}
++
+ static struct auth_ops *
+ authdes_ops(void)
+ {
+@@ -487,6 +494,8 @@ authdes_ops(void)
+ 		ops.ah_validate = authdes_validate;
+ 		ops.ah_refresh = authdes_refresh;
+ 		ops.ah_destroy = authdes_destroy;
++		ops.ah_wrap = authdes_wrap;
++		ops.ah_unwrap = authdes_wrap;
+         }
+ 	mutex_unlock(&authdes_ops_lock);
+ 	return (&ops);
+diff --git a/src/auth_gss.c b/src/auth_gss.c
+index df3017a..539101e 100644
+--- a/src/auth_gss.c
++++ b/src/auth_gss.c
+@@ -87,9 +87,9 @@ print_rpc_gss_sec(struct rpc_gss_sec *ptr)
+ int i;
+ char *p;
+ 
+-	log_debug("rpc_gss_sec:");
++	gss_log_debug("rpc_gss_sec:");
+ 	if(ptr->mech == NULL)
+-		log_debug("NULL gss_OID mech");
++		gss_log_debug("NULL gss_OID mech");
+ 	else {
+ 		fprintf(stderr, "     mechanism_OID: {");
+ 		p = (char *)ptr->mech->elements;
+@@ -151,7 +151,7 @@ authgss_create(CLIENT *clnt, gss_name_t name, struct rpc_gss_sec *sec)
+ 	struct rpc_gss_data	*gd;
+ 	OM_uint32		min_stat = 0;
+ 
+-	log_debug("in authgss_create()");
++	gss_log_debug("in authgss_create()");
+ 
+ 	memset(&rpc_createerr, 0, sizeof(rpc_createerr));
+ 
+@@ -200,6 +200,8 @@ authgss_create(CLIENT *clnt, gss_name_t name, struct rpc_gss_sec *sec)
+ 
+ 	if (!authgss_refresh(auth))
+ 		auth = NULL;
++	else
++		auth_get(auth); /* Reference for caller */
+ 
+ 	clnt->cl_auth = save_auth;
+ 
+@@ -214,7 +216,7 @@ authgss_create_default(CLIENT *clnt, char *service, struct rpc_gss_sec *sec)
+ 	gss_buffer_desc		 sname;
+ 	gss_name_t		 name = GSS_C_NO_NAME;
+ 
+-	log_debug("in authgss_create_default()");
++	gss_log_debug("in authgss_create_default()");
+ 
+ 
+ 	sname.value = service;
+@@ -225,7 +227,7 @@ authgss_create_default(CLIENT *clnt, char *service, struct rpc_gss_sec *sec)
+ 		&name);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_import_name", maj_stat, min_stat);
++		gss_log_status("gss_import_name", maj_stat, min_stat);
+ 		rpc_createerr.cf_stat = RPC_AUTHERROR;
+ 		return (NULL);
+ 	}
+@@ -247,7 +249,7 @@ authgss_get_private_data(AUTH *auth, struct authgss_private_data *pd)
+ {
+ 	struct rpc_gss_data	*gd;
+ 
+-	log_debug("in authgss_get_private_data()");
++	gss_log_debug("in authgss_get_private_data()");
+ 
+ 	if (!auth || !pd)
+ 		return (FALSE);
+@@ -267,7 +269,7 @@ authgss_get_private_data(AUTH *auth, struct authgss_private_data *pd)
+ static void
+ authgss_nextverf(AUTH *auth)
+ {
+-	log_debug("in authgss_nextverf()");
++	gss_log_debug("in authgss_nextverf()");
+ 	/* no action necessary */
+ }
+ 
+@@ -281,7 +283,7 @@ authgss_marshal(AUTH *auth, XDR *xdrs)
+ 	OM_uint32		 maj_stat, min_stat;
+ 	bool_t			 xdr_stat;
+ 
+-	log_debug("in authgss_marshal()");
++	gss_log_debug("in authgss_marshal()");
+ 
+ 	gd = AUTH_PRIVATE(auth);
+ 
+@@ -316,7 +318,7 @@ authgss_marshal(AUTH *auth, XDR *xdrs)
+ 			    &rpcbuf, &checksum);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_get_mic", maj_stat, min_stat);
++		gss_log_status("gss_get_mic", maj_stat, min_stat);
+ 		if (maj_stat == GSS_S_CONTEXT_EXPIRED) {
+ 			gd->established = FALSE;
+ 			authgss_destroy_context(auth);
+@@ -341,7 +343,7 @@ authgss_validate(AUTH *auth, struct opaque_auth *verf)
+ 	gss_buffer_desc		 signbuf, checksum;
+ 	OM_uint32		 maj_stat, min_stat;
+ 
+-	log_debug("in authgss_validate()");
++	gss_log_debug("in authgss_validate()");
+ 
+ 	gd = AUTH_PRIVATE(auth);
+ 
+@@ -377,7 +379,7 @@ authgss_validate(AUTH *auth, struct opaque_auth *verf)
+ 	maj_stat = gss_verify_mic(&min_stat, gd->ctx, &signbuf,
+ 				  &checksum, &qop_state);
+ 	if (maj_stat != GSS_S_COMPLETE || qop_state != gd->sec.qop) {
+-		log_status("gss_verify_mic", maj_stat, min_stat);
++		gss_log_status("gss_verify_mic", maj_stat, min_stat);
+ 		if (maj_stat == GSS_S_CONTEXT_EXPIRED) {
+ 			gd->established = FALSE;
+ 			authgss_destroy_context(auth);
+@@ -395,7 +397,7 @@ authgss_refresh(AUTH *auth)
+ 	gss_buffer_desc		*recv_tokenp, send_token;
+ 	OM_uint32		 maj_stat, min_stat, call_stat, ret_flags;
+ 
+-	log_debug("in authgss_refresh()");
++	gss_log_debug("in authgss_refresh()");
+ 
+ 	gd = AUTH_PRIVATE(auth);
+ 
+@@ -414,9 +416,9 @@ authgss_refresh(AUTH *auth)
+ #ifdef DEBUG
+ 		/* print the token we just received */
+ 		if (recv_tokenp != GSS_C_NO_BUFFER) {
+-			log_debug("The token we just received (length %d):",
++			gss_log_debug("The token we just received (length %d):",
+ 				  recv_tokenp->length);
+-			log_hexdump(recv_tokenp->value, recv_tokenp->length, 0);
++			gss_log_hexdump(recv_tokenp->value, recv_tokenp->length, 0);
+ 		}
+ #endif
+ 		maj_stat = gss_init_sec_context(&min_stat,
+@@ -439,7 +441,7 @@ authgss_refresh(AUTH *auth)
+ 		}
+ 		if (maj_stat != GSS_S_COMPLETE &&
+ 		    maj_stat != GSS_S_CONTINUE_NEEDED) {
+-			log_status("gss_init_sec_context", maj_stat, min_stat);
++			gss_log_status("gss_init_sec_context", maj_stat, min_stat);
+ 			break;
+ 		}
+ 		if (send_token.length != 0) {
+@@ -447,9 +449,9 @@ authgss_refresh(AUTH *auth)
+ 
+ #ifdef DEBUG
+ 			/* print the token we are about to send */
+-			log_debug("The token being sent (length %d):",
++			gss_log_debug("The token being sent (length %d):",
+ 				  send_token.length);
+-			log_hexdump(send_token.value, send_token.length, 0);
++			gss_log_hexdump(send_token.value, send_token.length, 0);
+ #endif
+ 
+ 			call_stat = clnt_call(gd->clnt, NULLPROC,
+@@ -498,7 +500,7 @@ authgss_refresh(AUTH *auth)
+ 
+ 			if (maj_stat != GSS_S_COMPLETE
+ 					|| qop_state != gd->sec.qop) {
+-				log_status("gss_verify_mic", maj_stat, min_stat);
++				gss_log_status("gss_verify_mic", maj_stat, min_stat);
+ 				if (maj_stat == GSS_S_CONTEXT_EXPIRED) {
+ 					gd->established = FALSE;
+ 					authgss_destroy_context(auth);
+@@ -531,7 +533,7 @@ authgss_service(AUTH *auth, int svc)
+ {
+ 	struct rpc_gss_data	*gd;
+ 
+-	log_debug("in authgss_service()");
++	gss_log_debug("in authgss_service()");
+ 
+ 	if (!auth)
+ 		return(FALSE);
+@@ -549,15 +551,26 @@ authgss_destroy_context(AUTH *auth)
+ 	struct rpc_gss_data	*gd;
+ 	OM_uint32		 min_stat;
+ 
+-	log_debug("in authgss_destroy_context()");
++	gss_log_debug("in authgss_destroy_context()");
+ 
+ 	gd = AUTH_PRIVATE(auth);
+ 
+ 	if (gd->gc.gc_ctx.length != 0) {
+ 		if (gd->established) {
++			AUTH *save_auth = NULL;
++
++			/* Make sure we use the right auth_ops */
++			if (gd->clnt->cl_auth != auth) {
++				save_auth = gd->clnt->cl_auth;
++				gd->clnt->cl_auth = auth;
++			}
++
+ 			gd->gc.gc_proc = RPCSEC_GSS_DESTROY;
+ 			clnt_call(gd->clnt, NULLPROC, (xdrproc_t)xdr_void, NULL,
+ 				  (xdrproc_t)xdr_void, NULL, AUTH_TIMEOUT);
++			
++			if (save_auth != NULL)
++				gd->clnt->cl_auth = save_auth;
+ 		}
+ 		gss_release_buffer(&min_stat, &gd->gc.gc_ctx);
+ 		/* XXX ANDROS check size of context  - should be 8 */
+@@ -582,7 +595,7 @@ authgss_destroy(AUTH *auth)
+ 	struct rpc_gss_data	*gd;
+ 	OM_uint32		 min_stat;
+ 
+-	log_debug("in authgss_destroy()");
++	gss_log_debug("in authgss_destroy()");
+ 
+ 	gd = AUTH_PRIVATE(auth);
+ 
+@@ -603,7 +616,7 @@ authgss_wrap(AUTH *auth, XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr)
+ {
+ 	struct rpc_gss_data	*gd;
+ 
+-	log_debug("in authgss_wrap()");
++	gss_log_debug("in authgss_wrap()");
+ 
+ 	gd = AUTH_PRIVATE(auth);
+ 
+@@ -620,7 +633,7 @@ authgss_unwrap(AUTH *auth, XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr)
+ {
+ 	struct rpc_gss_data	*gd;
+ 
+-	log_debug("in authgss_unwrap()");
++	gss_log_debug("in authgss_unwrap()");
+ 
+ 	gd = AUTH_PRIVATE(auth);
+ 
+diff --git a/src/auth_none.c b/src/auth_none.c
+index a439ec6..008c589 100644
+--- a/src/auth_none.c
++++ b/src/auth_none.c
+@@ -155,6 +155,12 @@ authnone_destroy(AUTH *client)
+ {
+ }
+ 
++static bool_t
++authnone_wrap(AUTH *auth, XDR *xdrs, xdrproc_t xfunc, caddr_t xwhere)
++{
++	return ((*xfunc)(xdrs, xwhere));
++}
++
+ static struct auth_ops *
+ authnone_ops()
+ {
+@@ -170,6 +176,8 @@ authnone_ops()
+ 		ops.ah_validate = authnone_validate;
+ 		ops.ah_refresh = authnone_refresh;
+ 		ops.ah_destroy = authnone_destroy;
++		ops.ah_wrap = authnone_wrap;
++		ops.ah_unwrap = authnone_wrap;
+ 	}
+ 	mutex_unlock(&ops_lock);
+ 	return (&ops);
+diff --git a/src/auth_unix.c b/src/auth_unix.c
+index c2469da..4b9b13f 100644
+--- a/src/auth_unix.c
++++ b/src/auth_unix.c
+@@ -162,6 +162,7 @@ authunix_create(machname, uid, gid, len, aup_gids)
+ 	 */
+ 	auth->ah_cred = au->au_origcred;
+ 	marshal_new_auth(auth);
++	auth_get(auth);		/* Reference for caller */
+ 	return (auth);
+ #ifndef _KERNEL
+  cleanup_authunix_create:
+@@ -396,6 +397,12 @@ marshal_new_auth(auth)
+ 	XDR_DESTROY(xdrs);
+ }
+ 
++static bool_t
++authunix_wrap(AUTH *auth, XDR *xdrs, xdrproc_t xfunc, caddr_t xwhere)
++{
++	return ((*xfunc)(xdrs, xwhere));
++}
++
+ static struct auth_ops *
+ authunix_ops()
+ {
+@@ -411,6 +418,8 @@ authunix_ops()
+ 		ops.ah_validate = authunix_validate;
+ 		ops.ah_refresh = authunix_refresh;
+ 		ops.ah_destroy = authunix_destroy;
++		ops.ah_wrap = authunix_wrap;
++		ops.ah_unwrap = authunix_wrap;
+ 	}
+ 	mutex_unlock(&ops_lock);
+ 	return (&ops);
+diff --git a/src/authgss_prot.c b/src/authgss_prot.c
+index 9d7fa09..a3c93c9 100644
+--- a/src/authgss_prot.c
++++ b/src/authgss_prot.c
+@@ -64,10 +64,10 @@ xdr_rpc_gss_buf(XDR *xdrs, gss_buffer_t buf, u_int maxsize)
+ 	if (xdr_stat && xdrs->x_op == XDR_DECODE)
+ 		buf->length = tmplen;
+ 
+-	log_debug("xdr_rpc_gss_buf: %s %s (%p:%d)",
+-		  (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
+-		  (xdr_stat == TRUE) ? "success" : "failure",
+-		  buf->value, buf->length);
++	gss_log_debug("xdr_rpc_gss_buf: %s %s (%p:%d)",
++		      (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
++		      (xdr_stat == TRUE) ? "success" : "failure",
++		      buf->value, buf->length);
+ 
+ 	return xdr_stat;
+ }
+@@ -83,12 +83,12 @@ xdr_rpc_gss_cred(XDR *xdrs, struct rpc_gss_cred *p)
+ 		    xdr_enum(xdrs, (enum_t *)&p->gc_svc) &&
+ 		    xdr_rpc_gss_buf(xdrs, &p->gc_ctx, MAX_AUTH_BYTES));
+ 
+-	log_debug("xdr_rpc_gss_cred: %s %s "
+-		  "(v %d, proc %d, seq %d, svc %d, ctx %p:%d)",
+-		  (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
+-		  (xdr_stat == TRUE) ? "success" : "failure",
+-		  p->gc_v, p->gc_proc, p->gc_seq, p->gc_svc,
+-		  p->gc_ctx.value, p->gc_ctx.length);
++	gss_log_debug("xdr_rpc_gss_cred: %s %s "
++		      "(v %d, proc %d, seq %d, svc %d, ctx %p:%d)",
++		      (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
++		      (xdr_stat == TRUE) ? "success" : "failure",
++		      p->gc_v, p->gc_proc, p->gc_seq, p->gc_svc,
++		      p->gc_ctx.value, p->gc_ctx.length);
+ 
+ 	return (xdr_stat);
+ }
+@@ -101,10 +101,10 @@ xdr_rpc_gss_init_args(XDR *xdrs, gss_buffer_desc *p)
+ 
+ 	xdr_stat = xdr_rpc_gss_buf(xdrs, p, maxlen);
+ 
+-	log_debug("xdr_rpc_gss_init_args: %s %s (token %p:%d)",
+-		  (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
+-		  (xdr_stat == TRUE) ? "success" : "failure",
+-		  p->value, p->length);
++	gss_log_debug("xdr_rpc_gss_init_args: %s %s (token %p:%d)",
++		      (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
++		      (xdr_stat == TRUE) ? "success" : "failure",
++		      p->value, p->length);
+ 
+ 	return (xdr_stat);
+ }
+@@ -123,13 +123,13 @@ xdr_rpc_gss_init_res(XDR *xdrs, struct rpc_gss_init_res *p)
+ 		    xdr_u_int(xdrs, &p->gr_win) &&
+ 		    xdr_rpc_gss_buf(xdrs, &p->gr_token, tok_maxlen));
+ 
+-	log_debug("xdr_rpc_gss_init_res %s %s "
+-		  "(ctx %p:%d, maj %d, min %d, win %d, token %p:%d)",
+-		  (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
+-		  (xdr_stat == TRUE) ? "success" : "failure",
+-		  p->gr_ctx.value, p->gr_ctx.length,
+-		  p->gr_major, p->gr_minor, p->gr_win,
+-		  p->gr_token.value, p->gr_token.length);
++	gss_log_debug("xdr_rpc_gss_init_res %s %s "
++		      "(ctx %p:%d, maj %d, min %d, win %d, token %p:%d)",
++		      (xdrs->x_op == XDR_ENCODE) ? "encode" : "decode",
++		      (xdr_stat == TRUE) ? "success" : "failure",
++		      p->gr_ctx.value, p->gr_ctx.length,
++		      p->gr_major, p->gr_minor, p->gr_win,
++		      p->gr_token.value, p->gr_token.length);
+ 
+ 	return (xdr_stat);
+ }
+@@ -161,6 +161,7 @@ xdr_rpc_gss_wrap_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ 	databuflen = end - start - 4;
+ 	XDR_SETPOS(xdrs, start + 4);
+ 	databuf.value = XDR_INLINE(xdrs, databuflen);
++	databuf.length = databuflen;
+ 
+ 	xdr_stat = FALSE;
+ 
+@@ -169,13 +170,12 @@ xdr_rpc_gss_wrap_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ 		XDR_SETPOS(xdrs, start);
+ 		if (!xdr_u_int(xdrs, (u_int *)&databuflen))
+ 			return (FALSE);
+-		databuf.length = databuflen;
+ 
+ 		/* Checksum rpc_gss_data_t. */
+ 		maj_stat = gss_get_mic(&min_stat, ctx, qop,
+ 				       &databuf, &wrapbuf);
+ 		if (maj_stat != GSS_S_COMPLETE) {
+-			log_debug("gss_get_mic failed");
++			gss_log_debug("gss_get_mic failed");
+ 			return (FALSE);
+ 		}
+ 		/* Marshal checksum. */
+@@ -189,7 +189,7 @@ xdr_rpc_gss_wrap_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ 		maj_stat = gss_wrap(&min_stat, ctx, TRUE, qop, &databuf,
+ 				    &conf_state, &wrapbuf);
+ 		if (maj_stat != GSS_S_COMPLETE) {
+-			log_status("gss_wrap", maj_stat, min_stat);
++			gss_log_status("gss_wrap", maj_stat, min_stat);
+ 			return (FALSE);
+ 		}
+ 		/* Marshal databody_priv. */
+@@ -222,13 +222,13 @@ xdr_rpc_gss_unwrap_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ 	if (svc == RPCSEC_GSS_SVC_INTEGRITY) {
+ 		/* Decode databody_integ. */
+ 		if (!xdr_rpc_gss_buf(xdrs, &databuf, (u_int)-1)) {
+-			log_debug("xdr decode databody_integ failed");
++			gss_log_debug("xdr decode databody_integ failed");
+ 			return (FALSE);
+ 		}
+ 		/* Decode checksum. */
+ 		if (!xdr_rpc_gss_buf(xdrs, &wrapbuf, (u_int)-1)) {
+ 			gss_release_buffer(&min_stat, &databuf);
+-			log_debug("xdr decode checksum failed");
++			gss_log_debug("xdr decode checksum failed");
+ 			return (FALSE);
+ 		}
+ 		/* Verify checksum and QOP. */
+@@ -238,14 +238,14 @@ xdr_rpc_gss_unwrap_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ 
+ 		if (maj_stat != GSS_S_COMPLETE || qop_state != qop) {
+ 			gss_release_buffer(&min_stat, &databuf);
+-			log_status("gss_verify_mic", maj_stat, min_stat);
++			gss_log_status("gss_verify_mic", maj_stat, min_stat);
+ 			return (FALSE);
+ 		}
+ 	}
+ 	else if (svc == RPCSEC_GSS_SVC_PRIVACY) {
+ 		/* Decode databody_priv. */
+ 		if (!xdr_rpc_gss_buf(xdrs, &wrapbuf, (u_int)-1)) {
+-			log_debug("xdr decode databody_priv failed");
++			gss_log_debug("xdr decode databody_priv failed");
+ 			return (FALSE);
+ 		}
+ 		/* Decrypt databody. */
+@@ -258,7 +258,7 @@ xdr_rpc_gss_unwrap_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ 		if (maj_stat != GSS_S_COMPLETE || qop_state != qop ||
+ 			conf_state != TRUE) {
+ 			gss_release_buffer(&min_stat, &databuf);
+-			log_status("gss_unwrap", maj_stat, min_stat);
++			gss_log_status("gss_unwrap", maj_stat, min_stat);
+ 			return (FALSE);
+ 		}
+ 	}
+@@ -271,7 +271,7 @@ xdr_rpc_gss_unwrap_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ 
+ 	/* Verify sequence number. */
+ 	if (xdr_stat == TRUE && seq_num != seq) {
+-		log_debug("wrong sequence number in databody");
++		gss_log_debug("wrong sequence number in databody");
+ 		return (FALSE);
+ 	}
+ 	return (xdr_stat);
+@@ -300,7 +300,7 @@ xdr_rpc_gss_data(XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr,
+ #include <ctype.h>
+ 
+ void
+-log_debug(const char *fmt, ...)
++gss_log_debug(const char *fmt, ...)
+ {
+ 	va_list ap;
+ 
+@@ -312,7 +312,7 @@ log_debug(const char *fmt, ...)
+ }
+ 
+ void
+-log_status(char *m, OM_uint32 maj_stat, OM_uint32 min_stat)
++gss_log_status(char *m, OM_uint32 maj_stat, OM_uint32 min_stat)
+ {
+ 	OM_uint32 min;
+ 	gss_buffer_desc msg;
+@@ -332,7 +332,7 @@ log_status(char *m, OM_uint32 maj_stat, OM_uint32 min_stat)
+ }
+ 
+ void
+-log_hexdump(const u_char *buf, int len, int offset)
++gss_log_hexdump(const u_char *buf, int len, int offset)
+ {
+ 	u_int i, j, jm;
+ 	int c;
+@@ -367,17 +367,17 @@ log_hexdump(const u_char *buf, int len, int offset)
+ #else
+ 
+ void
+-log_debug(const char *fmt, ...)
++gss_log_debug(const char *fmt, ...)
+ {
+ }
+ 
+ void
+-log_status(char *m, OM_uint32 maj_stat, OM_uint32 min_stat)
++gss_log_status(char *m, OM_uint32 maj_stat, OM_uint32 min_stat)
+ {
+ }
+ 
+ void
+-log_hexdump(const u_char *buf, int len, int offset)
++gss_log_hexdump(const u_char *buf, int len, int offset)
+ {
+ }
+ 
+diff --git a/src/clnt_dg.c b/src/clnt_dg.c
+index 79fed5d..4a1f60a 100644
+--- a/src/clnt_dg.c
++++ b/src/clnt_dg.c
+@@ -366,7 +366,7 @@ call_again:
+ 
+ 	if ((! XDR_PUTINT32(xdrs, (int32_t *)&proc)) ||
+ 	    (! AUTH_MARSHALL(cl->cl_auth, xdrs)) ||
+-	    (! (*xargs)(xdrs, argsp))) {
++	    (! AUTH_WRAP(cl->cl_auth, xdrs, xargs, argsp))) {
+ 		cu->cu_error.re_status = RPC_CANTENCODEARGS;
+ 		goto out;
+ 	}
+@@ -400,8 +400,8 @@ get_reply:
+ 	 * (We assume that this is actually only executed once.)
+ 	 */
+ 	reply_msg.acpted_rply.ar_verf = _null_auth;
+-	reply_msg.acpted_rply.ar_results.where = resultsp;
+-	reply_msg.acpted_rply.ar_results.proc = xresults;
++	reply_msg.acpted_rply.ar_results.where = NULL;
++	reply_msg.acpted_rply.ar_results.proc = (xdrproc_t)xdr_void;
+ 
+         fd.fd = cu->cu_fd;
+         fd.events = POLLIN;
+@@ -512,6 +512,10 @@ get_reply:
+ 					    &reply_msg.acpted_rply.ar_verf)) {
+ 				cu->cu_error.re_status = RPC_AUTHERROR;
+ 				cu->cu_error.re_why = AUTH_INVALIDRESP;
++			} else if (! AUTH_UNWRAP(cl->cl_auth, &reply_xdrs,
++						 xresults, resultsp)) {
++				if (cu->cu_error.re_status == RPC_SUCCESS)
++				     cu->cu_error.re_status = RPC_CANTDECODERES;
+ 			}
+ 			if (reply_msg.acpted_rply.ar_verf.oa_base != NULL) {
+ 				xdrs->x_op = XDR_FREE;
+diff --git a/src/clnt_vc.c b/src/clnt_vc.c
+index 359063c..097cae8 100644
+--- a/src/clnt_vc.c
++++ b/src/clnt_vc.c
+@@ -364,7 +364,7 @@ call_again:
+ 	if ((! XDR_PUTBYTES(xdrs, ct->ct_u.ct_mcallc, ct->ct_mpos)) ||
+ 	    (! XDR_PUTINT32(xdrs, (int32_t *)&proc)) ||
+ 	    (! AUTH_MARSHALL(cl->cl_auth, xdrs)) ||
+-	    (! (*xdr_args)(xdrs, args_ptr))) {
++	    (! AUTH_WRAP(cl->cl_auth, xdrs, xdr_args, args_ptr))) {
+ 		if (ct->ct_error.re_status == RPC_SUCCESS)
+ 			ct->ct_error.re_status = RPC_CANTENCODEARGS;
+ 		(void)xdrrec_endofrecord(xdrs, TRUE);
+@@ -420,7 +420,8 @@ call_again:
+ 		    &reply_msg.acpted_rply.ar_verf)) {
+ 			ct->ct_error.re_status = RPC_AUTHERROR;
+ 			ct->ct_error.re_why = AUTH_INVALIDRESP;
+-		} else if (! (*xdr_results)(xdrs, results_ptr)) {
++		} else if (! AUTH_UNWRAP(cl->cl_auth, xdrs,
++					 xdr_results, results_ptr)) {
+ 			if (ct->ct_error.re_status == RPC_SUCCESS)
+ 				ct->ct_error.re_status = RPC_CANTDECODERES;
+ 		}
+diff --git a/src/rpc_soc.c b/src/rpc_soc.c
+index c678429..63d2197 100644
+--- a/src/rpc_soc.c
++++ b/src/rpc_soc.c
+@@ -560,12 +560,10 @@ clntunix_create(raddr, prog, vers, sockp, sendsz, recvsz)
+ 	u_int recvsz;
+ {
+ 	struct netbuf *svcaddr;
+-	struct netconfig *nconf;
+ 	CLIENT *cl;
+ 	int len;
+ 
+ 	cl = NULL;
+-	nconf = NULL;
+ 	svcaddr = NULL;
+ 	if (((svcaddr = malloc(sizeof(struct netbuf))) == NULL ) ||
+ 	    ((svcaddr->buf = malloc(sizeof(struct sockaddr_un))) == NULL)) {
+diff --git a/src/svc.c b/src/svc.c
+index b4a63d0..08cd6c9 100644
+--- a/src/svc.c
++++ b/src/svc.c
+@@ -77,9 +77,6 @@ static struct svc_callout
+ 
+ extern rwlock_t svc_lock;
+ extern rwlock_t svc_fd_lock;
+-#ifdef HAVE_LIBGSSAPI
+-extern struct svc_auth_ops svc_auth_gss_ops;
+-#endif
+ 
+ static struct svc_callout *svc_find (rpcprog_t, rpcvers_t,
+ 				     struct svc_callout **, char *);
+@@ -717,11 +714,9 @@ svc_getreq_common (fd)
+ 	  SVC_DESTROY (xprt);
+ 	  break;
+ 	}
+-    else if ((xprt->xp_auth != NULL) 
+-#ifdef HAVE_LIBGSSAPI
+-	  	&& (xprt->xp_auth->svc_ah_ops != &svc_auth_gss_ops)
+-#endif
+-	) {
++    else if ((xprt->xp_auth != NULL) &&
++	     (xprt->xp_auth->svc_ah_private == NULL))
++	{
+ 	  xprt->xp_auth = NULL;
+ 	}
+     }
+diff --git a/src/svc_auth.c b/src/svc_auth.c
+index c6b3a0b..e80d5f9 100644
+--- a/src/svc_auth.c
++++ b/src/svc_auth.c
+@@ -98,8 +98,8 @@ _authenticate(rqst, msg)
+ 	rqst->rq_xprt->xp_verf.oa_length = 0;
+ 	cred_flavor = rqst->rq_cred.oa_flavor;
+ 	switch (cred_flavor) {
+-	case AUTH_NULL:
+-		dummy = _svcauth_null(rqst, msg);
++	case AUTH_NONE:
++		dummy = _svcauth_none(rqst, msg);
+ 		return (dummy);
+ 	case AUTH_SYS:
+ 		dummy = _svcauth_unix(rqst, msg);
+@@ -132,15 +132,6 @@ _authenticate(rqst, msg)
+ 	return (AUTH_REJECTEDCRED);
+ }
+ 
+-/*ARGSUSED*/
+-enum auth_stat
+-_svcauth_null(rqst, msg)
+-	struct svc_req *rqst;
+-	struct rpc_msg *msg;
+-{
+-	return (AUTH_OK);
+-}
+-
+ /*
+  *  Allow the rpc service to register new authentication types that it is
+  *  prepared to handle.  When an authentication flavor is registered,
+diff --git a/src/svc_auth_gss.c b/src/svc_auth_gss.c
+index 54b23b1..9c74313 100644
+--- a/src/svc_auth_gss.c
++++ b/src/svc_auth_gss.c
+@@ -87,13 +87,13 @@ svcauth_gss_set_svc_name(gss_name_t name)
+ {
+ 	OM_uint32	maj_stat, min_stat;
+ 
+-	log_debug("in svcauth_gss_set_svc_name()");
++	gss_log_debug("in svcauth_gss_set_svc_name()");
+ 
+ 	if (_svcauth_gss_name != NULL) {
+ 		maj_stat = gss_release_name(&min_stat, &_svcauth_gss_name);
+ 
+ 		if (maj_stat != GSS_S_COMPLETE) {
+-			log_status("gss_release_name", maj_stat, min_stat);
++			gss_log_status("gss_release_name", maj_stat, min_stat);
+ 			return (FALSE);
+ 		}
+ 		_svcauth_gss_name = NULL;
+@@ -101,7 +101,7 @@ svcauth_gss_set_svc_name(gss_name_t name)
+ 	maj_stat = gss_duplicate_name(&min_stat, name, &_svcauth_gss_name);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_duplicate_name", maj_stat, min_stat);
++		gss_log_status("gss_duplicate_name", maj_stat, min_stat);
+ 		return (FALSE);
+ 	}
+ 
+@@ -115,7 +115,7 @@ svcauth_gss_import_name(char *service)
+ 	gss_buffer_desc	namebuf;
+ 	OM_uint32	maj_stat, min_stat;
+ 
+-	log_debug("in svcauth_gss_import_name()");
++	gss_log_debug("in svcauth_gss_import_name()");
+ 
+ 	namebuf.value = service;
+ 	namebuf.length = strlen(service);
+@@ -124,7 +124,7 @@ svcauth_gss_import_name(char *service)
+ 				   (gss_OID)GSS_C_NT_HOSTBASED_SERVICE, &name);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_import_name", maj_stat, min_stat);
++		gss_log_status("gss_import_name", maj_stat, min_stat);
+ 		return (FALSE);
+ 	}
+ 	if (svcauth_gss_set_svc_name(name) != TRUE) {
+@@ -139,14 +139,14 @@ svcauth_gss_acquire_cred(void)
+ {
+ 	OM_uint32	maj_stat, min_stat;
+ 
+-	log_debug("in svcauth_gss_acquire_cred()");
++	gss_log_debug("in svcauth_gss_acquire_cred()");
+ 
+ 	maj_stat = gss_acquire_cred(&min_stat, _svcauth_gss_name, 0,
+ 				    GSS_C_NULL_OID_SET, GSS_C_ACCEPT,
+ 				    &_svcauth_gss_creds, NULL, NULL);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_acquire_cred", maj_stat, min_stat);
++		gss_log_status("gss_acquire_cred", maj_stat, min_stat);
+ 		return (FALSE);
+ 	}
+ 	return (TRUE);
+@@ -157,12 +157,12 @@ svcauth_gss_release_cred(void)
+ {
+ 	OM_uint32	maj_stat, min_stat;
+ 
+-	log_debug("in svcauth_gss_release_cred()");
++	gss_log_debug("in svcauth_gss_release_cred()");
+ 
+ 	maj_stat = gss_release_cred(&min_stat, &_svcauth_gss_creds);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_release_cred", maj_stat, min_stat);
++		gss_log_status("gss_release_cred", maj_stat, min_stat);
+ 		return (FALSE);
+ 	}
+ 
+@@ -181,7 +181,7 @@ svcauth_gss_accept_sec_context(struct svc_req *rqst,
+ 	gss_OID			 mech;
+ 	OM_uint32		 maj_stat = 0, min_stat = 0, ret_flags, seq;
+ 
+-	log_debug("in svcauth_gss_accept_context()");
++	gss_log_debug("in svcauth_gss_accept_context()");
+ 
+ 	gd = SVCAUTH_PRIVATE(rqst->rq_xprt->xp_auth);
+ 	gc = (struct rpc_gss_cred *)rqst->rq_clntcred;
+@@ -208,7 +208,7 @@ svcauth_gss_accept_sec_context(struct svc_req *rqst,
+ 
+ 	if (gr->gr_major != GSS_S_COMPLETE &&
+ 	    gr->gr_major != GSS_S_CONTINUE_NEEDED) {
+-		log_status("accept_sec_context", gr->gr_major, gr->gr_minor);
++		gss_log_status("accept_sec_context", gr->gr_major, gr->gr_minor);
+ 		gd->ctx = GSS_C_NO_CONTEXT;
+ 		gss_release_buffer(&min_stat, &gr->gr_token);
+ 		return (FALSE);
+@@ -238,7 +238,7 @@ svcauth_gss_accept_sec_context(struct svc_req *rqst,
+ 		maj_stat = gss_display_name(&min_stat, gd->client_name,
+ 					    &gd->cname, &gd->sec.mech);
+ 		if (maj_stat != GSS_S_COMPLETE) {
+-			log_status("display_name", maj_stat, min_stat);
++			gss_log_status("display_name", maj_stat, min_stat);
+ 			return (FALSE);
+ 		}
+ #ifdef DEBUG
+@@ -248,19 +248,19 @@ svcauth_gss_accept_sec_context(struct svc_req *rqst,
+ 
+ 			gss_oid_to_str(&min_stat, mech, &mechname);
+ 
+-			log_debug("accepted context for %.*s with "
+-				  "<mech %.*s, qop %d, svc %d>",
+-				  gd->cname.length, (char *)gd->cname.value,
+-				  mechname.length, (char *)mechname.value,
+-				  gd->sec.qop, gd->sec.svc);
++			gss_log_debug("accepted context for %.*s with "
++				      "<mech %.*s, qop %d, svc %d>",
++				      gd->cname.length, (char *)gd->cname.value,
++				      mechname.length, (char *)mechname.value,
++				      gd->sec.qop, gd->sec.svc);
+ 
+ 			gss_release_buffer(&min_stat, &mechname);
+ 		}
+ #elif HAVE_HEIMDAL
+-		log_debug("accepted context for %.*s with "
+-			  "<mech {}, qop %d, svc %d>",
+-			  gd->cname.length, (char *)gd->cname.value,
+-			  gd->sec.qop, gd->sec.svc);
++		gss_log_debug("accepted context for %.*s with "
++			      "<mech {}, qop %d, svc %d>",
++			      gd->cname.length, (char *)gd->cname.value,
++			      gd->sec.qop, gd->sec.svc);
+ #endif
+ #endif /* DEBUG */
+ 		seq = htonl(gr->gr_win);
+@@ -289,7 +289,7 @@ svcauth_gss_validate(struct svc_rpc_gss_data *gd, struct rpc_msg *msg)
+ 	u_char			 rpchdr[128];
+ 	int32_t			*buf;
+ 
+-	log_debug("in svcauth_gss_validate()");
++	gss_log_debug("in svcauth_gss_validate()");
+ 
+ 	memset(rpchdr, 0, sizeof(rpchdr));
+ 
+@@ -326,7 +326,7 @@ svcauth_gss_validate(struct svc_rpc_gss_data *gd, struct rpc_msg *msg)
+ 				  &qop_state);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_verify_mic", maj_stat, min_stat);
++		gss_log_status("gss_verify_mic", maj_stat, min_stat);
+ 		return (FALSE);
+ 	}
+ 	return (TRUE);
+@@ -339,7 +339,7 @@ svcauth_gss_nextverf(struct svc_req *rqst, u_int num)
+ 	gss_buffer_desc		 signbuf, checksum;
+ 	OM_uint32		 maj_stat, min_stat;
+ 
+-	log_debug("in svcauth_gss_nextverf()");
++	gss_log_debug("in svcauth_gss_nextverf()");
+ 
+ 	if (rqst->rq_xprt->xp_auth == NULL)
+ 		return (FALSE);
+@@ -353,7 +353,7 @@ svcauth_gss_nextverf(struct svc_req *rqst, u_int num)
+ 			       &signbuf, &checksum);
+ 
+ 	if (maj_stat != GSS_S_COMPLETE) {
+-		log_status("gss_get_mic", maj_stat, min_stat);
++		gss_log_status("gss_get_mic", maj_stat, min_stat);
+ 		return (FALSE);
+ 	}
+ 	rqst->rq_xprt->xp_verf.oa_flavor = RPCSEC_GSS;
+@@ -373,7 +373,7 @@ _svcauth_gss(struct svc_req *rqst, struct rpc_msg *msg, bool_t *no_dispatch)
+ 	struct rpc_gss_init_res	 gr;
+ 	int			 call_stat, offset;
+ 
+-	log_debug("in svcauth_gss()");
++	gss_log_debug("in svcauth_gss()");
+ 
+ 	/* Initialize reply. */
+ 	rqst->rq_xprt->xp_verf = _null_auth;
+@@ -519,7 +519,7 @@ svcauth_gss_destroy(SVCAUTH *auth)
+ 	struct svc_rpc_gss_data	*gd;
+ 	OM_uint32		 min_stat;
+ 
+-	log_debug("in svcauth_gss_destroy()");
++	gss_log_debug("in svcauth_gss_destroy()");
+ 
+ 	gd = SVCAUTH_PRIVATE(auth);
+ 
+@@ -540,7 +540,7 @@ svcauth_gss_wrap(SVCAUTH *auth, XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr)
+ {
+ 	struct svc_rpc_gss_data	*gd;
+ 
+-	log_debug("in svcauth_gss_wrap()");
++	gss_log_debug("in svcauth_gss_wrap()");
+ 
+ 	gd = SVCAUTH_PRIVATE(auth);
+ 
+@@ -557,7 +557,7 @@ svcauth_gss_unwrap(SVCAUTH *auth, XDR *xdrs, xdrproc_t xdr_func, caddr_t xdr_ptr
+ {
+ 	struct svc_rpc_gss_data	*gd;
+ 
+-	log_debug("in svcauth_gss_unwrap()");
++	gss_log_debug("in svcauth_gss_unwrap()");
+ 
+ 	gd = SVCAUTH_PRIVATE(auth);
+ 
+diff --git a/src/svc_auth_unix.c b/src/svc_auth_unix.c
+index ce83859..9585069 100644
+--- a/src/svc_auth_unix.c
++++ b/src/svc_auth_unix.c
+@@ -43,6 +43,8 @@
+ 
+ #include <rpc/rpc.h>
+ 
++extern SVCAUTH svc_auth_none;
++
+ /*
+  * Unix longhand authenticator
+  */
+@@ -67,6 +69,8 @@ _svcauth_unix(rqst, msg)
+ 	assert(rqst != NULL);
+ 	assert(msg != NULL);
+ 
++	rqst->rq_xprt->xp_auth = &svc_auth_none;
++
+ 	area = (struct area *) rqst->rq_clntcred;
+ 	aup = &area->area_aup;
+ 	aup->aup_machname = area->area_machname;
+@@ -142,5 +146,6 @@ _svcauth_short(rqst, msg)
+ 	struct svc_req *rqst;
+ 	struct rpc_msg *msg;
+ {
++	rqst->rq_xprt->xp_auth = &svc_auth_none;
+ 	return (AUTH_REJECTEDCRED);
+ }
+diff --git a/src/svc_dg.c b/src/svc_dg.c
+index 66a56ee..081db61 100644
+--- a/src/svc_dg.c
++++ b/src/svc_dg.c
+@@ -134,6 +134,7 @@ svc_dg_create(fd, sendsize, recvsize)
+ 	su->su_cache = NULL;
+ 	xprt->xp_fd = fd;
+ 	xprt->xp_p2 = su;
++	xprt->xp_auth = NULL;
+ 	xprt->xp_verf.oa_base = su->su_verfbody;
+ 	svc_dg_ops(xprt);
+ 	xprt->xp_rtaddr.maxlen = sizeof (struct sockaddr_storage);
+@@ -234,10 +235,27 @@ svc_dg_reply(xprt, msg)
+ 	bool_t stat = FALSE;
+ 	size_t slen;
+ 
++	xdrproc_t xdr_results;
++	caddr_t xdr_location;
++	bool_t has_args;
++
++	if (msg->rm_reply.rp_stat == MSG_ACCEPTED &&
++	    msg->rm_reply.rp_acpt.ar_stat == SUCCESS) {
++		has_args = TRUE;
++		xdr_results = msg->acpted_rply.ar_results.proc;
++		xdr_location = msg->acpted_rply.ar_results.where;
++
++		msg->acpted_rply.ar_results.proc = (xdrproc_t)xdr_void;
++		msg->acpted_rply.ar_results.where = NULL;
++	} else
++		has_args = FALSE;
++
+ 	xdrs->x_op = XDR_ENCODE;
+ 	XDR_SETPOS(xdrs, 0);
+ 	msg->rm_xid = su->su_xid;
+-	if (xdr_replymsg(xdrs, msg)) {
++	if (xdr_replymsg(xdrs, msg) &&
++	    (!has_args || (xprt->xp_auth &&
++	     SVCAUTH_WRAP(xprt->xp_auth, xdrs, xdr_results, xdr_location)))) {
+ 		struct msghdr *msg = &su->su_msghdr;
+ 		struct iovec iov;
+ 
+@@ -264,7 +282,12 @@ svc_dg_getargs(xprt, xdr_args, args_ptr)
+ 	xdrproc_t xdr_args;
+ 	void *args_ptr;
+ {
+-	return (*xdr_args)(&(su_data(xprt)->su_xdrs), args_ptr);
++	if (! SVCAUTH_UNWRAP(xprt->xp_auth, &(su_data(xprt)->su_xdrs),
++			     xdr_args, args_ptr)) {
++		(void)svc_freeargs(xprt, xdr_args, args_ptr);
++		return FALSE;
++	}
++	return TRUE;
+ }
+ 
+ static bool_t
+@@ -288,6 +311,10 @@ svc_dg_destroy(xprt)
+ 	xprt_unregister(xprt);
+ 	if (xprt->xp_fd != -1)
+ 		(void)close(xprt->xp_fd);
++	if (xprt->xp_auth != NULL) {
++		SVCAUTH_DESTROY(xprt->xp_auth);
++		xprt->xp_auth = NULL;
++	}
+ 	XDR_DESTROY(&(su->su_xdrs));
+ 	(void) mem_free(rpc_buffer(xprt), su->su_iosz);
+ 	(void) mem_free(su, sizeof (*su));
+diff --git a/src/svc_vc.c b/src/svc_vc.c
+index aaaf2d7..4c70de8 100644
+--- a/src/svc_vc.c
++++ b/src/svc_vc.c
+@@ -172,6 +172,7 @@ svc_vc_create(fd, sendsize, recvsize)
+ 	xprt->xp_p1 = r;
+ 	xprt->xp_p2 = NULL;
+ 	xprt->xp_p3 = NULL;
++	xprt->xp_auth = NULL;
+ 	xprt->xp_verf = _null_auth;
+ 	svc_vc_rendezvous_ops(xprt);
+ 	xprt->xp_port = (u_short)-1;	/* It is the rendezvouser */
+@@ -283,6 +284,7 @@ makefd_xprt(fd, sendsize, recvsize)
+ 	xdrrec_create(&(cd->xdrs), sendsize, recvsize,
+ 	    xprt, read_vc, write_vc);
+ 	xprt->xp_p1 = cd;
++	xprt->xp_auth = NULL;
+ 	xprt->xp_verf.oa_base = cd->verf_body;
+ 	svc_vc_ops(xprt);  /* truely deals with calls */
+ 	xprt->xp_port = 0;  /* this is a connection, not a rendezvouser */
+@@ -412,6 +414,10 @@ __svc_vc_dodestroy(xprt)
+ 		XDR_DESTROY(&(cd->xdrs));
+ 		mem_free(cd, sizeof(struct cf_conn));
+ 	}
++	if (xprt->xp_auth != NULL) {
++		SVCAUTH_DESTROY(xprt->xp_auth);
++		xprt->xp_auth = NULL;
++	}
+ 	if (xprt->xp_rtaddr.buf)
+ 		mem_free(xprt->xp_rtaddr.buf, xprt->xp_rtaddr.maxlen);
+ 	if (xprt->xp_ltaddr.buf)
+@@ -610,7 +616,11 @@ svc_vc_recv(xprt, msg)
+ 	}
+ 
+ 	xdrs->x_op = XDR_DECODE;
+-	(void)xdrrec_skiprecord(xdrs);
++	/*
++	 * No need skip records with nonblocking connections
++	 */
++	if (cd->nonblock == FALSE)
++		(void)xdrrec_skiprecord(xdrs);
+ 	if (xdr_callmsg(xdrs, msg)) {
+ 		cd->x_id = msg->rm_xid;
+ 		return (TRUE);
+@@ -628,8 +638,13 @@ svc_vc_getargs(xprt, xdr_args, args_ptr)
+ 
+ 	assert(xprt != NULL);
+ 	/* args_ptr may be NULL */
+-	return ((*xdr_args)(&(((struct cf_conn *)(xprt->xp_p1))->xdrs),
+-	    args_ptr));
++
++	if (! SVCAUTH_UNWRAP(xprt->xp_auth,
++			     &(((struct cf_conn *)(xprt->xp_p1))->xdrs),
++			     xdr_args, args_ptr)) {
++		return FALSE;  
++	}
++	return TRUE;
+ }
+ 
+ static bool_t
+@@ -658,15 +673,35 @@ svc_vc_reply(xprt, msg)
+ 	XDR *xdrs;
+ 	bool_t rstat;
+ 
++	xdrproc_t xdr_results;
++	caddr_t xdr_location;
++	bool_t has_args;
++
+ 	assert(xprt != NULL);
+ 	assert(msg != NULL);
+ 
+ 	cd = (struct cf_conn *)(xprt->xp_p1);
+ 	xdrs = &(cd->xdrs);
+ 
++	if (msg->rm_reply.rp_stat == MSG_ACCEPTED &&
++	    msg->rm_reply.rp_acpt.ar_stat == SUCCESS) {
++		has_args = TRUE;
++		xdr_results = msg->acpted_rply.ar_results.proc;
++		xdr_location = msg->acpted_rply.ar_results.where;
++
++		msg->acpted_rply.ar_results.proc = (xdrproc_t)xdr_void;
++		msg->acpted_rply.ar_results.where = NULL;
++	} else
++		has_args = FALSE;
++
+ 	xdrs->x_op = XDR_ENCODE;
+ 	msg->rm_xid = cd->x_id;
+-	rstat = xdr_replymsg(xdrs, msg);
++	rstat = FALSE;
++	if (xdr_replymsg(xdrs, msg) &&
++	    (!has_args || (xprt->xp_auth &&
++	     SVCAUTH_WRAP(xprt->xp_auth, xdrs, xdr_results, xdr_location)))) {
++		rstat = TRUE;
++	}
+ 	(void)xdrrec_endofrecord(xdrs, TRUE);
+ 	return (rstat);
+ }
+diff --git a/src/xdr_rec.c b/src/xdr_rec.c
+index 4e815d7..2aca623 100644
+--- a/src/xdr_rec.c
++++ b/src/xdr_rec.c
+@@ -64,7 +64,6 @@
+ #include <rpc/clnt.h>
+ #include <stddef.h>
+ #include "rpc_com.h"
+-#include <unistd.h>
+ static bool_t	xdrrec_getlong(XDR *, long *);
+ static bool_t	xdrrec_putlong(XDR *, const long *);
+ static bool_t	xdrrec_getbytes(XDR *, char *, u_int);
+@@ -330,22 +329,22 @@ xdrrec_getpos(xdrs)
+ 	RECSTREAM *rstrm = (RECSTREAM *)xdrs->x_private;
+ 	off_t pos;
+ 
+-	pos = lseek((int)(u_long)rstrm->tcp_handle, (off_t)0, 1);
+-	if (pos != -1)
+-		switch (xdrs->x_op) {
++	switch (xdrs->x_op) {
+ 
+-		case XDR_ENCODE:
+-			pos += rstrm->out_finger - rstrm->out_base;
+-			break;
++	case XDR_ENCODE:
++		pos = rstrm->out_finger - rstrm->out_base
++			- BYTES_PER_XDR_UNIT;
++		break;
+ 
+-		case XDR_DECODE:
+-			pos -= rstrm->in_boundry - rstrm->in_finger;
+-			break;
++	case XDR_DECODE:
++		pos = rstrm->in_boundry - rstrm->in_finger
++			- BYTES_PER_XDR_UNIT;
++		break;
+ 
+-		default:
+-			pos = (off_t) -1;
+-			break;
+-		}
++	default:
++		pos = (off_t) -1;
++		break;
++	}
+ 	return ((u_int) pos);
+ }
+ 
+diff --git a/tirpc/rpc/auth.h b/tirpc/rpc/auth.h
+index 734e6b9..e7bbe36 100644
+--- a/tirpc/rpc/auth.h
++++ b/tirpc/rpc/auth.h
+@@ -51,6 +51,7 @@
+ #include <sys/cdefs.h>
+ #include <sys/socket.h>
+ #include <sys/types.h>
++#include <stdio.h>
+ 
+ 
+ #define MAX_AUTH_BYTES	400
+@@ -203,8 +204,22 @@ typedef struct __auth {
+ 
+ 	} *ah_ops;
+ 	void *ah_private;
++	int ah_refcnt;
+ } AUTH;
+ 
++static __inline int
++auth_get(AUTH *auth)
++{
++	return __sync_add_and_fetch(&auth->ah_refcnt, 1);
++}
++
++static __inline int
++auth_put(AUTH *auth)
++{
++	return __sync_sub_and_fetch(&auth->ah_refcnt, 1);
++}
++
++
+ 
+ /*
+  * Authentication ops.
+@@ -234,10 +249,29 @@ typedef struct __auth {
+ #define auth_refresh(auth, msg)		\
+ 		((*((auth)->ah_ops->ah_refresh))(auth, msg))
+ 
+-#define AUTH_DESTROY(auth)		\
+-		((*((auth)->ah_ops->ah_destroy))(auth))
+-#define auth_destroy(auth)		\
+-		((*((auth)->ah_ops->ah_destroy))(auth))
++#if defined(__GNUC__) && defined(DEBUG)
++#define auth_log_debug(fmt,args...) printf(stderr, fmt, args)
++#else
++#define auth_log_debug(fmt,args...)
++#endif
++
++#define AUTH_DESTROY(auth)						\
++		do {							\
++			int refs;					\
++			if ((refs = auth_put((auth))) == 0)		\
++				((*((auth)->ah_ops->ah_destroy))(auth));\
++			auth_log_debug("%s: auth_put(), refs %d\n",	\
++				__func__, refs);			\
++		} while (0)
++
++#define auth_destroy(auth)						\
++		do {							\
++			int refs;					\
++			if ((refs = auth_put((auth))) == 0)		\
++				((*((auth)->ah_ops->ah_destroy))(auth));\
++			auth_log_debug("%s: auth_put(), refs %d\n",	\
++				__func__, refs);			\
++		} while (0)
+ 
+ #define AUTH_WRAP(auth, xdrs, xfunc, xwhere)            \
+ 		((*((auth)->ah_ops->ah_wrap))(auth, xdrs, \
+@@ -373,7 +407,7 @@ __END_DECLS
+ __BEGIN_DECLS
+ struct svc_req;
+ struct rpc_msg;
+-enum auth_stat _svcauth_null (struct svc_req *, struct rpc_msg *);
++enum auth_stat _svcauth_none (struct svc_req *, struct rpc_msg *);
+ enum auth_stat _svcauth_short (struct svc_req *, struct rpc_msg *);
+ enum auth_stat _svcauth_unix (struct svc_req *, struct rpc_msg *);
+ __END_DECLS
+diff --git a/tirpc/rpc/auth_gss.h b/tirpc/rpc/auth_gss.h
+index 633b11f..fc3ffbd 100644
+--- a/tirpc/rpc/auth_gss.h
++++ b/tirpc/rpc/auth_gss.h
+@@ -120,10 +120,10 @@ bool_t authgss_service		__P((AUTH *auth, int svc));
+ bool_t authgss_get_private_data	__P((AUTH *auth,
+ 	    			     struct authgss_private_data *));
+ 
+-void	log_debug		__P((const char *fmt, ...));
+-void	log_status		__P((char *m, OM_uint32 major,
++void	gss_log_debug		__P((const char *fmt, ...));
++void	gss_log_status		__P((char *m, OM_uint32 major,
+ 				     OM_uint32 minor));
+-void	log_hexdump		__P((const u_char *buf, int len, int offset));
++void	gss_log_hexdump		__P((const u_char *buf, int len, int offset));
+ 
+ __END_DECLS
+ 
+diff --git a/tirpc/rpc/des.h b/tirpc/rpc/des.h
+index e3d6897..d2881ad 100644
+--- a/tirpc/rpc/des.h
++++ b/tirpc/rpc/des.h
+@@ -33,6 +33,9 @@
+  * Copyright (c) 1986 by Sun Microsystems, Inc.
+  */
+ 
++#ifndef _RPC_DES_H_
++#define _RPC_DES_H_
++
+ #define DES_MAXLEN 	65536	/* maximum # of bytes to encrypt  */
+ #define DES_QUICKLEN	16	/* maximum # of bytes to encrypt quickly */
+ 
+@@ -80,3 +83,5 @@ struct desparams {
+  * Software DES.
+  */
+ extern int _des_crypt( char *, int, struct desparams * );
++
++#endif
+diff --git a/tirpc/rpc/svc_auth.h b/tirpc/rpc/svc_auth.h
+index 659e90c..14269d1 100644
+--- a/tirpc/rpc/svc_auth.h
++++ b/tirpc/rpc/svc_auth.h
+@@ -44,17 +44,23 @@
+ /*
+  * Interface to server-side authentication flavors.
+  */
+-typedef struct {
++typedef struct SVCAUTH {
+ 	struct svc_auth_ops {
+-		int   (*svc_ah_wrap)(void);
+-		int   (*svc_ah_unwrap)(void);
+-		int   (*svc_ah_destroy)(void);
++		int     (*svc_ah_wrap)(struct SVCAUTH *, XDR *, xdrproc_t,
++				       caddr_t);
++		int     (*svc_ah_unwrap)(struct SVCAUTH *, XDR *, xdrproc_t,
++					 caddr_t);
++		int     (*svc_ah_destroy)(struct SVCAUTH *);
+ 		} *svc_ah_ops;
+ 	caddr_t svc_ah_private;
+ } SVCAUTH;
+ 
+-#define SVCAUTH_DESTROY(cred)		((*(cred)->svc_ah_ops->svc_ah_destroy)())
+-#define svcauth_destroy(cred)		((*(cred)->svc_ah_ops->svc_ah_destroy)())
++#define SVCAUTH_WRAP(auth, xdrs, xfunc, xwhere) \
++	((*((auth)->svc_ah_ops->svc_ah_wrap))(auth, xdrs, xfunc, xwhere))
++#define SVCAUTH_UNWRAP(auth, xdrs, xfunc, xwhere) \
++	((*((auth)->svc_ah_ops->svc_ah_unwrap))(auth, xdrs, xfunc, xwhere))
++#define SVCAUTH_DESTROY(auth) \
++	((*((auth)->svc_ah_ops->svc_ah_destroy))(auth))
+ 
+ /*
+  * Server side authenticator
