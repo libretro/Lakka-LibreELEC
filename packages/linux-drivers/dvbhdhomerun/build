@@ -22,7 +22,17 @@
 
 . config/options $1
 
-VER=`ls $BUILD/linux*/modules/lib/modules`
+# absolute path
+  LIBHDHOMERUN_PATH=$(ls -d $ROOT/$BUILD/libhdhomerun_*/)
 
-mkdir -p $INSTALL/lib/modules/$VER/hdhomerun
-  cp $BUILD/dvbhdhomerun-*/kernel/*.ko $INSTALL/lib/modules/$VER/hdhomerun/
+cd $PKG_BUILD/userhdhomerun
+
+  sed -i "s|SET(LIBHDHOMERUN_PATH .*)|SET(LIBHDHOMERUN_PATH $LIBHDHOMERUN_PATH)|g" CMakeLists.txt
+  sed -i "s|/etc/dvbhdhomerun|/tmp/dvbhdhomerun|g" hdhomerun_tuner.cpp
+
+  make LDFLAGS="-lpthread"
+  $STRIP build/userhdhomerun
+  
+cd ../kernel
+  LDFLAGS="" make dvb_hdhomerun KERNEL_DIR=$(kernel_path)
+  fix_module_depends dvb_hdhomerun_core.ko "dvb_core"
