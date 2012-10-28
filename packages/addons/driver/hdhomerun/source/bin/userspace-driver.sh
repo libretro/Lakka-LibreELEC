@@ -54,8 +54,6 @@ if [ -z "$(pidof userhdhomerun)" ]; then
   mkdir -p /var/log/
   rm -f /var/log/dvbhdhomerun.log
   
-  export LD_LIBRARY_PATH=$ADDON_DIR/lib
-
   userhdhomerun -f
   # how much time should we wait?
   usleep 1000000
