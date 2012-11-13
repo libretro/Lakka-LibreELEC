@@ -1,0 +1,211 @@
+
+<!-- saved from url=(0081)http://git.busybox.net/busybox/patch/?id=e4b9451413013388757cf48fbb16d8137ddd1ccb -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script>window["_GOOG_TRANS_EXT_VER"] = "1";</script></head><body><pre style="word-wrap: break-word; white-space: pre-wrap;">From e4b9451413013388757cf48fbb16d8137ddd1ccb Mon Sep 17 00:00:00 2001
+From: S-G Bergh &lt;sgb@systemasis.org&gt;
+Date: Tue, 13 Nov 2012 13:40:37 +0000
+Subject: volume_id: add exFAT detection
+
+function                                             old     new   delta
+volume_id_probe_exfat                                  -     294    +294
+
+Signed-off-by: S-G Bergh &lt;sgb@systemasis.org&gt;
+Signed-off-by: Denys Vlasenko &lt;vda.linux@googlemail.com&gt;
+---
+diff --git a/util-linux/Config.src b/util-linux/Config.src
+index 3355e97..e4516dd 100644
+--- a/util-linux/Config.src
++++ b/util-linux/Config.src
+@@ -734,6 +734,15 @@ config FEATURE_VOLUMEID_FAT
+ 	help
+ 	  TODO
+ 
++config FEATURE_VOLUMEID_EXFAT
++	bool "exFAT filesystem"
++	default y
++	depends on VOLUMEID
++	help
++	  exFAT (extended FAT) is a proprietary file system designed especially
++	  for flash drives. It has many features from NTFS, but with less
++	  overhead. exFAT is used on most SDXC cards for consumer electronics.
++
+ config FEATURE_VOLUMEID_HFS
+ 	bool "hfs filesystem"
+ 	default y
+diff --git a/util-linux/volume_id/Kbuild.src b/util-linux/volume_id/Kbuild.src
+index 39a2d8c..759fdaa 100644
+--- a/util-linux/volume_id/Kbuild.src
++++ b/util-linux/volume_id/Kbuild.src
+@@ -33,6 +33,7 @@ lib-$(CONFIG_FEATURE_VOLUMEID_LINUXSWAP)        += linux_swap.o
+ ### lib-$(CONFIG_FEATURE_VOLUMEID_MSDOS)            += msdos.o
+ lib-$(CONFIG_FEATURE_VOLUMEID_NILFS)            += nilfs.o
+ lib-$(CONFIG_FEATURE_VOLUMEID_NTFS)             += ntfs.o
++lib-$(CONFIG_FEATURE_VOLUMEID_EXFAT)            += exfat.o
+ lib-$(CONFIG_FEATURE_VOLUMEID_REISERFS)         += reiserfs.o
+ lib-$(CONFIG_FEATURE_VOLUMEID_UDF)              += udf.o
+ ### lib-$(CONFIG_FEATURE_VOLUMEID_UFS)              += ufs.o
+diff --git a/util-linux/volume_id/exfat.c b/util-linux/volume_id/exfat.c
+new file mode 100644
+index 0000000..a38a891
+--- a/dev/null
++++ b/util-linux/volume_id/exfat.c
+@@ -0,0 +1,130 @@
++/*
++ * volume_id - reads filesystem label and uuid
++ *
++ * Copyright (C) 2012 S-G Bergh &lt;sgb@systemasis.org&gt;
++ *
++ *	This library is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU Lesser General Public
++ *	License as published by the Free Software Foundation; either
++ *	version 2.1 of the License, or (at your option) any later version.
++ *
++ *	This library is distributed in the hope that it will be useful,
++ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ *	Lesser General Public License for more details.
++ *
++ *	You should have received a copy of the GNU Lesser General Public
++ *	License along with this library; if not, write to the Free Software
++ *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ */
++
++#include "volume_id_internal.h"
++
++#define EXFAT_SB_OFFSET		0
++#define EXFAT_DIR_ENTRY_SZ	32
++#define EXFAT_MAX_DIR_ENTRIES	100
++
++struct exfat_super_block {
++/* 0x00 */	uint8_t		boot_jump[3];
++/* 0x03 */	uint8_t		fs_name[8];
++/* 0x0B */	uint8_t		must_be_zero[53];
++/* 0x40 */	uint64_t	partition_offset;
++/* 0x48 */	uint64_t	volume_length;
++/* 0x50 */	uint32_t	fat_offset;		// Sector address of 1st FAT
++/* 0x54 */	uint32_t	fat_size;		// In sectors
++/* 0x58 */	uint32_t	cluster_heap_offset;	// Sector address of Data Region
++/* 0x5C */	uint32_t	cluster_count;
++/* 0x60 */	uint32_t	root_dir;		// Cluster address of Root Directory
++/* 0x64 */	uint8_t		vol_serial_nr[4];	// Volume ID
++/* 0x68 */	uint16_t	fs_revision;		// VV.MM
++/* 0x6A */	uint16_t	vol_flags;
++/* 0x6C */	uint8_t		bytes_per_sector;	// Power of 2: 9 =&gt; 512, 12 =&gt; 4096
++/* 0x6D */	uint8_t		sectors_per_cluster;	// Power of 2
++/* 0x6E */	uint8_t		nr_of_fats;		// 2 for TexFAT
++/* 0x6F */	// ...
++} PACKED;
++
++struct exfat_dir_entry {
++/* 0x00 */	uint8_t		entry_type;
++		union {
++			struct volume_label {
++/* 0x01 */			uint8_t		char_count;		// Length of label
++/* 0x02 */			uint16_t	vol_label[11];		// UTF16 string without null termination
++/* 0x18 */			uint8_t		reserved[8];
++/* 0x20 */		} PACKED label;
++			struct volume_guid {
++/* 0x01 */			uint8_t		sec_count;
++/* 0x02 */			uint16_t	set_checksum;
++/* 0x04 */			uint16_t	flags;
++/* 0x06 */			uint8_t		vol_guid[16];
++/* 0x16 */			uint8_t		reserved[10];
++/* 0x20 */		} PACKED guid;
++		} PACKED type;
++} PACKED;
++
++int FAST_FUNC volume_id_probe_exfat(struct volume_id *id /*,uint64_t off*/)
++{
++	struct exfat_super_block *sb;
++	struct exfat_dir_entry *de;
++	unsigned	sector_sz;
++	unsigned	cluster_sz;
++	uint64_t	root_dir_off;
++	unsigned	count;
++	unsigned	need_lbl_guid;
++
++	// Primary super block
++	dbg("exFAT: probing at offset 0x%x", EXFAT_SB_OFFSET);
++	sb = volume_id_get_buffer(id, EXFAT_SB_OFFSET, sizeof(*sb));
++
++	if (!sb)
++		return -1;
++
++	if (memcmp(sb-&gt;fs_name, "EXFAT   ", 8) != 0)
++		return -1;
++
++	sector_sz = 1 &lt;&lt; sb-&gt;bytes_per_sector;
++	cluster_sz = sector_sz &lt;&lt; sb-&gt;sectors_per_cluster;
++	// There are no clusters 0 and 1, so the first cluster is 2.
++	root_dir_off = (uint64_t)EXFAT_SB_OFFSET +
++		// Hmm... should we cast sector_sz/cluster_sz to uint64_t?
++		(le32_to_cpu(sb-&gt;cluster_heap_offset)) * sector_sz +
++		(le32_to_cpu(sb-&gt;root_dir) - 2) * cluster_sz;
++	dbg("exFAT: sector size 0x%x bytes", sector_sz);
++	dbg("exFAT: cluster size 0x%x bytes", cluster_sz);
++	dbg("exFAT: root dir is at 0x%llx", (long long)root_dir_off);
++
++	// Use DOS uuid as fallback, if no GUID set
++	volume_id_set_uuid(id, sb-&gt;vol_serial_nr, UUID_DOS);
++
++	// EXFAT_MAX_DIR_ENTRIES is used as a safety belt.
++	// The Root Directory may hold an unlimited number of entries,
++	// so we do not want to check all. Usually label and GUID
++	// are in the beginning, but there are no guarantees.
++	need_lbl_guid = (1 &lt;&lt; 0) | (1 &lt;&lt; 1);
++	for (count = 0; count &lt; EXFAT_MAX_DIR_ENTRIES; count++) {
++		de = volume_id_get_buffer(id, root_dir_off + (count * EXFAT_DIR_ENTRY_SZ), EXFAT_DIR_ENTRY_SZ);
++		if (de == NULL)
++			break;
++		if (de-&gt;entry_type == 0x00) {
++			// End of Directory Marker
++			dbg("exFAT: End of root directory reached after %u entries", count);
++			break;
++		}
++		if (de-&gt;entry_type == 0x83) {
++			// Volume Label Directory Entry
++			volume_id_set_label_unicode16(id, (uint8_t *)de-&gt;type.label.vol_label,
++						LE, 2 * de-&gt;type.label.char_count);
++			need_lbl_guid &amp;= ~(1 &lt;&lt; 0);
++		}
++		if (de-&gt;entry_type == 0xA0) {
++			// Volume GUID Directory Entry
++			volume_id_set_uuid(id, de-&gt;type.guid.vol_guid, UUID_DCE);
++			need_lbl_guid &amp;= ~(1 &lt;&lt; 1);
++		}
++		if (!need_lbl_guid)
++			break;
++	}
++
++	IF_FEATURE_BLKID_TYPE(id-&gt;type = "exfat";)
++	return 0;
++}
+diff --git a/util-linux/volume_id/volume_id.c b/util-linux/volume_id/volume_id.c
+index c1d6152..3c3c698 100644
+--- a/util-linux/volume_id/volume_id.c
++++ b/util-linux/volume_id/volume_id.c
+@@ -93,6 +93,9 @@ static const probe_fptr fs1[] = {
+ #if ENABLE_FEATURE_VOLUMEID_FAT
+ 	volume_id_probe_vfat,
+ #endif
++#if ENABLE_FEATURE_VOLUMEID_EXFAT
++	volume_id_probe_exfat,
++#endif
+ #if ENABLE_FEATURE_VOLUMEID_MAC
+ 	volume_id_probe_mac_partition_map,
+ #endif
+diff --git a/util-linux/volume_id/volume_id_internal.h b/util-linux/volume_id/volume_id_internal.h
+index 1c2e0ff..03dc46f 100644
+--- a/util-linux/volume_id/volume_id_internal.h
++++ b/util-linux/volume_id/volume_id_internal.h
+@@ -216,6 +216,8 @@ int FAST_FUNC volume_id_probe_nilfs(struct volume_id *id /*,uint64_t off*/);
+ 
+ int FAST_FUNC volume_id_probe_ntfs(struct volume_id *id /*,uint64_t off*/);
+ 
++int FAST_FUNC volume_id_probe_exfat(struct volume_id *id /*,uint64_t off*/);
++
+ int FAST_FUNC volume_id_probe_ocfs2(struct volume_id *id /*,uint64_t off*/);
+ 
+ int FAST_FUNC volume_id_probe_reiserfs(struct volume_id *id /*,uint64_t off*/);
+--
+cgit v0.9.0.1-2-gef13
+</pre><div style="display: none; " id="SEOHeapKeywords"><h3>Frequency</h3><h3>Performing</h3><div><p>id</p><em>60</em><p>volume</p><em>53</em><p>exfat</p><em>36</em><p>uint</p><em>35</em><p>linux</p><em>21</em><p>util</p><em>19</em><p>config</p><em>15</em><p>feature</p><em>15</em><p>volumeid</p><em>15</em><p>dir</p><em>15</em><p>sb</p><em>14</em><p>sz</p><em>14</em><p>cluster</p><em>13</em><p>guid</p><em>13</em><p>off</p><em>12</em><p>struct</p><em>12</em><p>probe</p><em>11</em><p>label</p><em>11</em><p>entry</p><em>11</em><p>sector</p><em>11</em><p>count</p><em>10</em><p>root</p><em>10</em><p>type</p><em>10</em><p>offset</p><em>9</em><p>de</p><em>9</em><p>src</p><em>8</em><p>lib</p><em>8</em><p>vol</p><em>7</em><p>fat</p><em>6</em><p>uuid</p><em>6</em><p>directory</p><em>6</em><p>int</p><em>6</em><p>fast</p><em>6</em><p>func</p><em>6</em><p>diff</p><em>5</em><p>git</p><em>5</em><p>index</p><em>5</em><p>internal</p><em>5</em><p>entries</p><em>5</em><p>packed</p><em>5</em><p>set</p><em>5</em><p>need</p><em>5</em><p>lbl</p><em>5</em><p>dbg</p><em>5</em><p>ntfs</p><em>4</em><p>kbuild</p><em>4</em><p>license</p><em>4</em><p>fs</p><em>4</em><p>bytes</p><em>4</em><p>per</p><em>4</em><p>unsigned</p><em>4</em><p>from</p><em>3</em><p>bergh</p><em>3</em><p>sgb</p><em>3</em><p>systemasis</p><em>3</em><p>org</p><em>3</em><p>filesystem</p><em>3</em><p>nilfs</p><em>3</em><p>reiserfs</p><em>3</em><p>null</p><em>3</em><p>library</p><em>3</em><p>free</p><em>3</em><p>software</p><em>3</em><p>gnu</p><em>3</em><p>lesser</p><em>3</em><p>general</p><em>3</em><p>public</p><em>3</em><p>without</p><em>3</em><p>define</p><em>3</em><p>max</p><em>3</em><p>super</p><em>3</em><p>block</p><em>3</em><p>address</p><em>3</em><p>size</p><em>3</em><p>sectors</p><em>3</em><p>nr</p><em>3</em><p>return</p><em>3</em><p>no</p><em>3</em><p>le</p><em>3</em><p>break</p><em>3</em><p>enable</p><em>3</em><p>endif</p><em>3</em><p>new</p><em>2</em><p>signed</p><em>2</em><p>help</p><em>2</em><p>bool</p><em>2</em><p>default</p><em>2</em><p>file</p><em>2</em><p>used</p><em>2</em><p>hfs</p><em>2</em><p>msdos</p><em>2</em><p>udf</p><em>2</em><p>ufs</p><em>2</em><p>foundation</p><em>2</em><p>version</p><em>2</em><p>any</p><em>2</em><p>warranty</p><em>2</em><p>should</p><em>2</em><p>name</p><em>2</em><p>partition</p><em>2</em><p>length</p><em>2</em><p>heap</p><em>2</em><p>serial</p><em>2</em><p>flags</p><em>2</em><p>power</p><em>2</em><p>char</p><em>2</em><p>reserved</p><em>2</em><p>get</p><em>2</em><p>buffer</p><em>2</em><p>there</p><em>2</em><p>we</p><em>2</em><p>cpu</p><em>2</em><p>long</p><em>2</em><p>dos</p><em>2</em><p>end</p><em>2</em><p>mac</p><em>2</em><p>cf</p><em>1</em><p>fbb</p><em>1</em><p>ddd</p><em>1</em><p>ccb</p><em>1</em><p>mon</p><em>1</em><p>sep</p><em>1</em><p>date</p><em>1</em><p>tue</p><em>1</em><p>nov</p><em>1</em><p>subject</p><em>1</em><p>add</p><em>1</em><p>detection</p><em>1</em><p>function</p><em>1</em><p>old</p><em>1</em><p>delta</p><em>1</em><p>denys</p><em>1</em><p>vlasenko</p><em>1</em><p>vda</p><em>1</em><p>googlemail</p><em>1</em><p>com</p><em>1</em><p>dd</p><em>1</em><p>todo</p><em>1</em><p>depends</p><em>1</em><p>extended</p><em>1</em><p>proprietary</p><em>1</em><p>system</p><em>1</em><p>designed</p><em>1</em><p>especially</p><em>1</em><p>flash</p><em>1</em><p>drives</p><em>1</em><p>has</p><em>1</em><p>many</p><em>1</em><p>features</p><em>1</em><p>less</p><em>1</em><p>overhead</p><em>1</em><p>most</p><em>1</em><p>sdxc</p><em>1</em><p>cards</p><em>1</em><p>consumer</p><em>1</em><p>electronics</p><em>1</em><p>fdaa</p><em>1</em><p>linuxswap</p><em>1</em><p>swap</p><em>1</em><p>mode</p><em>1</em><p>dev</p><em>1</em><p>reads</p><em>1</em><p>copyright</p><em>1</em><p>redistribute</p><em>1</em><p>modify</p><em>1</em><p>under</p><em>1</em><p>terms</p><em>1</em><p>published</p><em>1</em><p>either</p><em>1</em><p>option</p><em>1</em><p>later</p><em>1</em><p>distributed</p><em>1</em><p>hope</p><em>1</em><p>will</p><em>1</em><p>useful</p><em>1</em><p>even</p><em>1</em><p>implied</p><em>1</em><p>merchantability</p><em>1</em><p>fitness</p><em>1</em><p>particular</p><em>1</em><p>purpose</p><em>1</em><p>see</p><em>1</em><p>more</p><em>1</em><p>details</p><em>1</em><p>received</p><em>1</em><p>copy</p><em>1</em><p>along</p><em>1</em><p>write</p><em>1</em><p>inc</p><em>1</em><p>temple</p><em>1</em><p>place</p><em>1</em><p>suite</p><em>1</em><p>boston</p><em>1</em><p>ma</p><em>1</em><p>usa</p><em>1</em><p>include</p><em>1</em><p>boot</p><em>1</em><p>jump</p><em>1</em><p>must</p><em>1</em><p>zero</p><em>1</em><p>st</p><em>1</em><p>data</p><em>1</em><p>region</p><em>1</em><p>revision</p><em>1</em><p>vv</p><em>1</em><p>mm</p><em>1</em><p>fats</p><em>1</em><p>texfat</p><em>1</em><p>union</p><em>1</em><p>utf</p><em>1</em><p>string</p><em>1</em><p>termination</p><em>1</em><p>sec</p><em>1</em><p>checksum</p><em>1</em><p>primary</p><em>1</em><p>probing</p><em>1</em><p>sizeof</p><em>1</em><p>memcmp</p><em>1</em><p>clusters</p><em>1</em><p>first</p><em>1</em><p>hmm</p><em>1</em><p>cast</p><em>1</em><p>llx</p><em>1</em><p>use</p><em>1</em><p>fallback</p><em>1</em><p>safety</p><em>1</em><p>belt</p><em>1</em><p>may</p><em>1</em><p>hold</p><em>1</em><p>an</p><em>1</em><p>unlimited</p><em>1</em><p>number</p><em>1</em><p>want</p><em>1</em><p>check</p><em>1</em><p>all</p><em>1</em><p>usually</p><em>1</em><p>beginning</p><em>1</em><p>guarantees</p><em>1</em><p>marker</p><em>1</em><p>reached</p><em>1</em><p>after</p><em>1</em><p>unicode</p><em>1</em><p>xa</p><em>1</em><p>dce</p><em>1</em><p>blkid</p><em>1</em><p>static</p><em>1</em><p>const</p><em>1</em><p>fptr</p><em>1</em><p>vfat</p><em>1</em><p>map</p><em>1</em><p>ff</p><em>1</em><p>dc</p><em>1</em><p>ocfs</p><em>1</em><p>cgit</p><em>1</em><p>gef</p><em>1</em></div><div style="float:right"><p></p></div></div></body></html>
