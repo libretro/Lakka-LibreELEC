@@ -81,6 +81,9 @@ NBD_DEVS="0"
       nosplash)
         SPLASH=no
         ;;
+      noram)
+        SYSTEM_TORAM=no
+        ;;
       overlay)
         OVERLAY=yes
         ;;
@@ -458,7 +461,20 @@ NBD_DEVS="0"
 
     if [ -f "/flash/$IMAGE_SYSTEM" ]; then
     # /flash is filesystem with system image file
-      mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+      INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
+      SYSTEM_TORAM_LIMIT=1024000
+
+      if [ -f "/etc/initramfs.conf" ]; then
+        . /etc/initramfs.conf
+      fi
+
+      if [ "$SYSTEM_TORAM" = "no" -o "$INSTALLED_MEMORY" -lt "$SYSTEM_TORAM_LIMIT" ]; then
+        mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+      else
+        cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
+        mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+      fi
+
       /bin/busybox mount --move /flash /sysroot/flash
     else
     # /flash is actual root filesystem
