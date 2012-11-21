@@ -1,0 +1,109 @@
+diff -Naur llvm-3.0.src/autoconf/configure.ac llvm-3.0.src.patch/autoconf/configure.ac
+--- llvm-3.0.src/autoconf/configure.ac	2011-10-16 04:52:56.000000000 +0200
++++ llvm-3.0.src.patch/autoconf/configure.ac	2011-12-03 12:57:33.324415172 +0100
+@@ -393,6 +393,10 @@
+        AC_CHECK_PROG(BUILD_CXX, c++, c++, , , /usr/ucb/c++)
+      fi
+   fi
++  AC_SUBST(BUILD_CPPFLAGS)
++  AC_SUBST(BUILD_CFLAGS)
++  AC_SUBST(BUILD_CXXFLAGS)
++  AC_SUBST(BUILD_LDFLAGS)
+ else
+   AC_SUBST(LLVM_CROSS_COMPILING, [0])
+ fi
+diff -Naur llvm-3.0.src/autoconf/m4/build_exeext.m4 llvm-3.0.src.patch/autoconf/m4/build_exeext.m4
+--- llvm-3.0.src/autoconf/m4/build_exeext.m4	2008-09-26 19:27:58.000000000 +0200
++++ llvm-3.0.src.patch/autoconf/m4/build_exeext.m4	2011-12-03 12:57:33.327415229 +0100
+@@ -18,7 +18,7 @@
+      fi
+   fi
+   test -z "$BUILD_CC" && AC_MSG_ERROR([no acceptable cc found in \$PATH])
+-  ac_build_link='${BUILD_CC-cc} -o conftest $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS 1>&AS_MESSAGE_LOG_FD'
++  ac_build_link='${BUILD_CC-cc} -o conftest $BUILD_CFLAGS $BUILD_CPPFLAGS $BUILD_LDFLAGS conftest.$ac_ext $LIBS 1>&AS_MESSAGE_LOG_FD'
+   rm -f conftest*
+   echo 'int main () { return 0; }' > conftest.$ac_ext
+   ac_cv_build_exeext=
+diff -Naur llvm-3.0.src/Makefile llvm-3.0.src.patch/Makefile
+--- llvm-3.0.src/Makefile	2011-10-08 02:27:38.000000000 +0200
++++ llvm-3.0.src.patch/Makefile	2011-12-03 13:00:42.692055438 +0100
+@@ -104,38 +104,6 @@
+   DIRS := $(filter-out unittests, $(DIRS))
+ endif
+ 
+-# If we're cross-compiling, build the build-hosted tools first
+-ifeq ($(LLVM_CROSS_COMPILING),1)
+-all:: cross-compile-build-tools
+-
+-clean::
+-	$(Verb) rm -rf BuildTools
+-
+-cross-compile-build-tools:
+-	$(Verb) if [ ! -f BuildTools/Makefile ]; then \
+-          $(MKDIR) BuildTools; \
+-	  cd BuildTools ; \
+-	  unset CFLAGS ; \
+-	  unset CXXFLAGS ; \
+-	  $(PROJ_SRC_DIR)/configure --build=$(BUILD_TRIPLE) \
+-		--host=$(BUILD_TRIPLE) --target=$(BUILD_TRIPLE) \
+-	        --disable-polly ; \
+-	  cd .. ; \
+-	fi; \
+-	(unset SDKROOT; \
+-	 $(MAKE) -C BuildTools \
+-	  BUILD_DIRS_ONLY=1 \
+-	  UNIVERSAL= \
+-	  ENABLE_OPTIMIZED=$(ENABLE_OPTIMIZED) \
+-	  ENABLE_PROFILING=$(ENABLE_PROFILING) \
+-	  ENABLE_COVERAGE=$(ENABLE_COVERAGE) \
+-	  DISABLE_ASSERTIONS=$(DISABLE_ASSERTIONS) \
+-	  ENABLE_EXPENSIVE_CHECKS=$(ENABLE_EXPENSIVE_CHECKS) \
+-	  CFLAGS= \
+-	  CXXFLAGS= \
+-	) || exit 1;
+-endif
+-
+ # Include the main makefile machinery.
+ include $(LLVM_SRC_ROOT)/Makefile.rules
+ 
+diff -Naur llvm-3.0.src/Makefile.config.in llvm-3.0.src.patch/Makefile.config.in
+--- llvm-3.0.src/Makefile.config.in	2011-10-13 19:27:34.000000000 +0200
++++ llvm-3.0.src.patch/Makefile.config.in	2011-12-03 12:57:33.962427436 +0100
+@@ -113,6 +113,10 @@
+ # call if we're cross-compiling).
+ BUILD_CC=@BUILD_CC@
+ BUILD_CXX=@BUILD_CXX@
++BUILD_CPPFLAGS=@BUILD_CPPFLAGS@
++BUILD_CFLAGS=@BUILD_CFLAGS@
++BUILD_CXXFLAGS=@BUILD_CXXFLAGS@
++BUILD_LDFLAGS=@BUILD_LDFLAGS@
+ 
+ # Triple for configuring build tools when cross-compiling
+ BUILD_TRIPLE=@build@
+diff -Naur llvm-3.0.src/Makefile.rules llvm-3.0.src.patch/Makefile.rules
+--- llvm-3.0.src/Makefile.rules	2011-10-11 14:51:44.000000000 +0200
++++ llvm-3.0.src.patch/Makefile.rules	2011-12-03 12:59:37.459801461 +0100
+@@ -641,18 +641,18 @@
+ 
+ ifeq ($(BUILD_COMPONENT), 1)
+   Compile.C     = $(Compile.Wrapper) \
+-	          $(BUILD_CC) $(CPP.Flags) $(C.Flags) $(CFLAGS) $(CPPFLAGS) \
++	          $(BUILD_CC) $(CPP.Flags) $(C.Flags) $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) \
+                   $(TargetCommonOpts) $(CompileCommonOpts) -c
+   Compile.CXX   = $(Compile.Wrapper) \
+-	          $(BUILD_CXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) \
++	          $(BUILD_CXX) $(CPP.Flags) $(CXX.Flags) $(BUILD_CXXFLAGS) \
+ 		  $(CPPFLAGS) \
+                   $(TargetCommonOpts) $(CompileCommonOpts) -c
+   Preprocess.CXX= $(Compile.Wrapper) \
+-	          $(BUILD_CXX) $(CPP.Flags) $(CPPFLAGS) $(TargetCommonOpts) \
++	          $(BUILD_CXX) $(CPP.Flags) $(BUILD_CPPFLAGS) $(TargetCommonOpts) \
+                   $(CompileCommonOpts) $(CXX.Flags) -E
+   Link          = $(Compile.Wrapper) \
+-	          $(BUILD_CXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) \
+-		  $(LD.Flags) $(LDFLAGS) \
++	          $(BUILD_CXX) $(CPP.Flags) $(CXX.Flags) $(BUILD_CXXFLAGS) \
++		  $(LD.Flags) $(BUILD_LDFLAGS) \
+                   $(TargetCommonOpts) $(CompileCommonOpts) $(Strip)
+ else
+   Compile.C     = $(Compile.Wrapper) \
