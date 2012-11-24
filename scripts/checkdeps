@@ -66,14 +66,47 @@ if [ -n "$need" ]; then
   echo "**** Your system lacks the following tools needed to $1 $DISTRONAME ****"
   echo $need
 
-  [ -f /etc/lsb-release ] && . /etc/lsb-release
+  if  [ -f /etc/lsb-release ]; then
+    DISTRO=$(grep DISTRIB_ID /etc/lsb-release | cut -d "=" -f 2)
+  fi
 
-  if [ -n "`which aptitude 2>/dev/null`" ]; then
-    DISTRO="a Debian" 
-    [ "$DISTRIB_ID" = "Ubuntu" ] && DISTRO="an Ubuntu"
-    echo "**** You seem to use $DISTRO system ****"
+  if [ "$DISTRO" = "Ubuntu" ]; then
+    echo "**** You seem to use a $DISTRO system ****"
     read -p "would you like to install the needed tools ? (y/n) " ans
-    [ "$ans" = "y" ] && sudo aptitude install $need_pkg
+    if ( ! [ -z "`which aptitude 2>/dev/null`" ] && [ "$ans" = "y" ]); then
+      sudo aptitude install $need_pkg
+    elif [ "$ans" = "y" ]; then
+      echo "**** The Package-Manager Aptitude is not installed on"
+      echo "**** your system which is recommended"
+      read -p "(y) install Aptitude :: (n) use APT " ans
+      if [ "$ans" = "y" ]; then
+        sudo apt-get install aptitude
+        echo "**** Please restart the build-process to install the" 
+        echo "**** required build-dependencies"
+        echo "********"
+        exit 1
+      elif [ "$ans" = "n" ]; then
+        sudo apt-get install $need_pkg
+      else
+        echo "********"
+        exit 1
+      fi
+    else
+      echo "********"
+      exit 1
+    fi
+  elif ( ! [ -z "`which aptitude 2>/dev/null`" ]); then
+   DISTRO="a Debian" 
+   echo "**** You seem to use $DISTRO system ****"
+    read -p "would you like to install the needed tools ? (y/n) " ans
+    if ([ "$ans" = "y" ] && ! [ $(sudo -n uptime 2>&1|grep "load"|wc -l) ]); then
+      sudo aptitude install $need_pkg
+    elif [ "$ans" = "y" ]; then
+      su -c "aptitude install $need_pkg"
+    else
+      echo "********"
+      exit 1
+    fi
   elif [ -f /etc/mandrake-release -a -n "`which urpmi 2>/dev/null`" ]; then
     echo "**** You seem to use a mandrake system ****"
     read -p "would you like to install the needed tools ? (y/n) " ans
