@@ -20,46 +20,56 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# usage:   sudo ./create_virtualmachine <path> <size(MB)> [<type>] 
-# example: sudo ./create_virtualmachine /home/test/VM 512 [vdi]
+# usage:   sudo ./create_virtualmachine <path> <size(MB)> [<type>] [system partition size(MB)]
+# example: sudo ./create_virtualmachine /home/test/VM 512 [vdi] [128]
 
 if [ "$(id -u)" != "0" ]; then
   clear
-  echo "###########################################################"
-  echo "# please execute with 'sudo' or -DANGEROUS!!!- as root    #"
-  echo "# example:                                                #"
-  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>] #"
-  echo "###########################################################"
+  echo "##############################################################"
+  echo "# please execute with 'sudo' or -DANGEROUS!!!- as root       #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>]    #"
+  echo "##############################################################"
   exit 1
 fi
 
 if [ -z "$1" -o -z "$2" ]; then
   clear
-  echo "###########################################################"
-  echo "# please execute as follows                               #"
-  echo "# example:                                                #"
-  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>] #"
-  echo "###########################################################"
+  echo "##############################################################"
+  echo "# please execute as follows                                  #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>]    #"
+  echo "##############################################################"
+  exit 1
+fi
+
+if [ ! -d "$1" ]; then
+  clear
+  echo "##############################################################"
+  echo "# please create target directory                             #"
+  echo "# example:                                                   #"
+  echo "# mkdir <path>                                               #"
+  echo "##############################################################"
   exit 1
 fi
 
 if [ "$2" -lt "200" -o "$2" -gt "2048" ]; then
   clear
-  echo "#########################################################"
-  echo "# use a value between 200MB and 2048MB (2GB)            #"
-  echo "# example:                                              #"
-  echo "# sudo ./create_virtualmachine /home/test/VM 512        #"
-  echo "#########################################################"
+  echo "##############################################################"
+  echo "# use a value between 200MB and 2048MB (2GB)                 #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine /home/test/VM 512             #"
+  echo "##############################################################"
   exit 1
 fi
 
 if [ ! -z "$3" -a "$3" != "vdi" -a "$3" != "vmdk" ]; then
   clear
-  echo "#########################################################"
-  echo "# only vdi or vmdk types are supported                  #"
-  echo "# example:                                              #"
-  echo "# sudo ./create_virtualmachine /home/test/VM 512 [vdi]  #"
-  echo "#########################################################"
+  echo "##############################################################"
+  echo "# only vdi or vmdk types are supported                       #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine /home/test/VM 512 [vdi]       #"
+  echo "##############################################################"
   exit 1
 elif [ "$3" = "vdi" ]; then
   TYPE="vdi"
@@ -67,9 +77,21 @@ elif [ -z "$3" -o "$3" = "vmdk" ]; then
   TYPE="vmdk"
 fi
 
+if [ "$4" -lt "128" -o "$4" -gt "1024" -o "$4" -gt "$2" ]; then
+  clear
+  echo "##############################################################"
+  echo "# use a value between 128MB and 1024MB                       #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine /home/test/VM 512 [vdi] [256] #"
+  echo "##############################################################"
+  exit 1
+fi
+
+
 DISK="$1/OpenELEC.img"
 IMAGE="$1/OpenELEC.$TYPE"
 LOOP=$(losetup -f)
+SYSTEM_PART_SIZE=$(( $4 / 8 ))
 
 clear
 echo "#########################################################"
@@ -94,6 +116,22 @@ echo "#########################################################"
     echo "# OpenELEC.tv missing tool - Installation will quit     #"
     echo "#                                                       #"
     echo "#      We can't find the required tool \"syslinux\"     #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to create a bootloader
+  which extlinux > /dev/null
+  if [ "$?" = "1" ]; then
+    clear
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"extlinux\"     #"
     echo "#      on your system.                                  #"
     echo "#      Please install it via your package manager.      #"
     echo "#                                                       #"
@@ -185,7 +223,7 @@ echo "#########################################################"
 
 # create an image
   echo "creating new empty harddisk image: $DISK..."
-  dd if=/dev/zero of="$DISK" bs=1M count=1024
+  dd if=/dev/zero of="$DISK" bs=1M count="$2"
 
 # write a disklabel
   echo "creating new partition table: $DISK..."
@@ -194,11 +232,11 @@ echo "#########################################################"
 
 # create partition1
   echo "creating partition1 on $DISK..."
-  parted -s "$LOOP" unit cyl mkpart primary ext2 -- 0 16
+  parted -s "$LOOP" unit cyl mkpart primary ext2 -- 0 "$SYSTEM_PART_SIZE"
 
 # create partition2
   echo "creating partition2 on $DISK..."
-  parted -s "$LOOP" unit cyl mkpart primary ext2 -- 16 -2
+  parted -s "$LOOP" unit cyl mkpart primary ext2 -- "$(( $SYSTEM_PART_SIZE + 1 ))" -2
   
 # make partition1 active (bootable)
   echo "marking partition1 active..."
