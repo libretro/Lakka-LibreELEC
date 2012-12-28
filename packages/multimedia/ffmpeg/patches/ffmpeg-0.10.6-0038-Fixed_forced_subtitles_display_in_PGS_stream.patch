@@ -1,0 +1,284 @@
+From 3b1409c1a1f0ce486f95087fa0b6ff5bfb841464 Mon Sep 17 00:00:00 2001
+From: GreenOnyx <gonyx@mchsi.com>
+Date: Thu, 27 Dec 2012 00:18:40 -0600
+Subject: [PATCH] ffmpeg: Fixed forced subtitles display in PGS stream
+
+Associated ffmpeg commits:
+
+https://github.com/FFmpeg/FFmpeg/commit/36436a4032b022f5439fa86a0986065d24cd51fd
+Add option forced_subs_only for Bluray subtitles.
+2012-01-30 04:25:59
+
+https://github.com/FFmpeg/FFmpeg/commit/1885ffb03d0af28e6bac2bcc8725fa15b93f6ac9
+PGS subtitles: Expose forced flag
+2012-10-20 11:56:11
+
+https://github.com/FFmpeg/FFmpeg/commit/1c5805521c3e406886341d752ebf38f8d41e1d13
+PGS subtitles: Set AVSubtitle pts value
+2012-11-02 11:30:39
+
+https://github.com/FFmpeg/FFmpeg/commit/6549a9b75333027f66cdaac450a66b6a6186fc6e
+pgssubdec: remove unused variable
+2012-11-28 10:20:08
+
+https://github.com/FFmpeg/FFmpeg/commit/1f46b50a9591f68b697e943f829c79a4f4829dd6
+Added AVClass for AVSubtitleRect
+2012-04-18 01:08:25
+---
+ libavcodec/avcodec.h   |   18 +++++++++++++
+ libavcodec/dvdsubdec.c |    1 +
+ libavcodec/options.c   |   25 +++++++++++++++++
+ libavcodec/pgssubdec.c |   53 ++++++++++++++++++++++++++-----------
+ 4 files changed, 81 insertions(+), 16 deletions(-)
+
+diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
+index 6996c92..585414b 100644
+--- a/libavcodec/avcodec.h
++++ b/libavcodec/avcodec.h
+@@ -3245,6 +3245,12 @@ enum AVFieldOrder {
+     int64_t pts_correction_num_faulty_dts; /// Number of incorrect DTS values so far
+     int64_t pts_correction_last_pts;       /// PTS of the last frame
+     int64_t pts_correction_last_dts;       /// DTS of the last frame
++    /** 
++     * Requests that only forced subpictures be decoded. 
++     * - decoding: set by user 
++     * - encoding: unused 
++     */ 
++    int forced_subs_only;
+ 
+ } AVCodecContext;
+ 
+@@ -3488,6 +3494,8 @@ enum AVSubtitleType {
+     SUBTITLE_ASS,
+ };
+ 
++#define AV_SUBTITLE_FLAG_FORCED 0x00000001
++
+ typedef struct AVSubtitleRect {
+     int x;         ///< top left corner  of pict, undefined when pict is not set
+     int y;         ///< top left corner  of pict, undefined when pict is not set
+@@ -3510,6 +3518,8 @@ enum AVSubtitleType {
+      * struct.
+      */
+     char *ass;
++
++    int flags;
+ } AVSubtitleRect;
+ 
+ typedef struct AVSubtitle {
+@@ -4895,6 +4905,14 @@ enum AVLockOp {
+ const AVClass *avcodec_get_frame_class(void);
+ 
+ /**
++ * Get the AVClass for AVSubtitleRect. It can be used in combination with
++ * AV_OPT_SEARCH_FAKE_OBJ for examining options.
++ *
++ * @see av_opt_find().
++ */
++const AVClass *avcodec_get_subtitle_rect_class(void);
++
++/**
+  * @return a positive value if s is open (i.e. avcodec_open2() was called on it
+  * with no corresponding avcodec_close()), 0 otherwise.
+  */
+diff --git a/libavcodec/dvdsubdec.c b/libavcodec/dvdsubdec.c
+index d0d13ee..46a0b8d 100644
+--- a/libavcodec/dvdsubdec.c
++++ b/libavcodec/dvdsubdec.c
+@@ -375,6 +375,7 @@ static int decode_dvd_subtitles(DVDSubContext *ctx, AVSubtitle *sub_header,
+                 sub_header->rects[0]->h = h;
+                 sub_header->rects[0]->type = SUBTITLE_BITMAP;
+                 sub_header->rects[0]->pict.linesize[0] = w;
++                sub_header->rects[0]->flags = is_menu ? AV_SUBTITLE_FLAG_FORCED : 0;
+             }
+         }
+         if (next_cmd_pos < cmd_pos) {
+diff --git a/libavcodec/options.c b/libavcodec/options.c
+index 5f940a0..ae62e75 100644
+--- a/libavcodec/options.c
++++ b/libavcodec/options.c
+@@ -730,3 +730,28 @@ const AVClass *avcodec_get_frame_class(void)
+ {
+     return &av_frame_class;
+ }
++
++#define SROFFSET(x) offsetof(AVSubtitleRect,x)
++
++static const AVOption subtitle_rect_options[]={
++{"x", "", SROFFSET(x), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, INT_MAX, 0},
++{"y", "", SROFFSET(y), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, INT_MAX, 0},
++{"w", "", SROFFSET(w), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, INT_MAX, 0},
++{"h", "", SROFFSET(h), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, INT_MAX, 0},
++{"type", "", SROFFSET(type), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, INT_MAX, 0},
++{"flags", "", SROFFSET(flags), AV_OPT_TYPE_FLAGS, {.i64 = 0}, 0, 1, 0, "flags"},
++{"forced", "", SROFFSET(flags), AV_OPT_TYPE_FLAGS, {.i64 = 0}, 0, 1, 0},
++{NULL},
++};
++
++static const AVClass av_subtitle_rect_class = {
++    .class_name             = "AVSubtitleRect",
++    .item_name              = NULL,
++    .option                 = subtitle_rect_options,
++    .version                = LIBAVUTIL_VERSION_INT,
++};
++
++const AVClass *avcodec_get_subtitle_rect_class(void)
++{
++    return &av_subtitle_rect_class;
++}
+\ No newline at end of file
+diff --git a/libavcodec/pgssubdec.c b/libavcodec/pgssubdec.c
+index 02e650a..83d7f43 100644
+--- a/libavcodec/pgssubdec.c
++++ b/libavcodec/pgssubdec.c
+@@ -29,6 +29,7 @@
+ #include "bytestream.h"
+ #include "libavutil/colorspace.h"
+ #include "libavutil/imgutils.h"
++#include "libavutil/opt.h"
+ 
+ #define RGBA(r,g,b,a) (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
+ 
+@@ -44,12 +45,14 @@ enum SegmentType {
+     int x;
+     int y;
+     int picture_id;
++    int composition;
+ } PGSSubPictureReference;
+ 
+ typedef struct PGSSubPresentation {
+     int                    id_number;
+     int                    object_count;
+     PGSSubPictureReference *objects;
++    int64_t pts;
+ } PGSSubPresentation;
+ 
+ typedef struct PGSSubPicture {
+@@ -61,10 +64,11 @@ enum SegmentType {
+ } PGSSubPicture;
+ 
+ typedef struct PGSSubContext {
++    AVClass *class;
+     PGSSubPresentation presentation;
+     uint32_t           clut[256];
+     PGSSubPicture      pictures[UINT16_MAX];
+-    int64_t            pts;
++    int forced_subs_only;
+ } PGSSubContext;
+ 
+ static av_cold int init_decoder(AVCodecContext *avctx)
+@@ -284,10 +288,10 @@ static void parse_palette_segment(AVCodecContext *avctx,
+  * @param buf pointer to the packet to process
+  * @param buf_size size of packet to process
+  * @todo TODO: Implement cropping
+- * @todo TODO: Implement forcing of subtitles
+  */
+ static void parse_presentation_segment(AVCodecContext *avctx,
+-                                       const uint8_t *buf, int buf_size)
++                                       const uint8_t *buf, int buf_size,
++                                       int64_t pts)
+ {
+     PGSSubContext *ctx = avctx->priv_data;
+ 
+@@ -296,6 +300,8 @@ static void parse_presentation_segment(AVCodecContext *avctx,
+ 
+     uint16_t object_index;
+ 
++    ctx->presentation.pts = pts;
++
+     av_dlog(avctx, "Video Dimensions %dx%d\n",
+             w, h);
+     if (av_image_check_size(w, h, 0, avctx) >= 0)
+@@ -336,12 +342,10 @@ static void parse_presentation_segment(AVCodecContext *avctx,
+         PGSSubPictureReference *reference = &ctx->presentation.objects[object_index];
+         reference->picture_id             = bytestream_get_be16(&buf);
+ 
+-         /*
+-         * Skip 2 bytes of unknown:
+-         *     window_id_ref,
+-         *     composition_flag (0x80 - object cropped, 0x40 - object forced)
+-         */
+-        buf += 2;
++        /* Skip window_id_ref */
++        buf++;
++        /* composition_flag (0x80 - object cropped, 0x40 - object forced) */
++        reference->composition = bytestream_get_byte(&buf);
+ 
+         reference->x = bytestream_get_be16(&buf);
+         reference->y = bytestream_get_be16(&buf);
+@@ -388,10 +392,10 @@ static int display_end_segment(AVCodecContext *avctx, void *data,
+      *      not been cleared by a subsequent empty display command.
+      */
+ 
+-    pts = ctx->pts != AV_NOPTS_VALUE ? ctx->pts : sub->pts;
++    pts = ctx->presentation.pts != AV_NOPTS_VALUE ? ctx->presentation.pts : sub->pts;
+     memset(sub, 0, sizeof(*sub));
+     sub->pts = pts;
+-    ctx->pts = AV_NOPTS_VALUE;
++    ctx->presentation.pts = AV_NOPTS_VALUE;
+ 
+     // Blank if last object_count was 0.
+     if (!ctx->presentation.object_count)
+@@ -427,6 +431,10 @@ static int display_end_segment(AVCodecContext *avctx, void *data,
+         sub->rects[rect]->nb_colors    = 256;
+         sub->rects[rect]->pict.data[1] = av_mallocz(AVPALETTE_SIZE);
+ 
++        /* Copy the forced flag */
++        sub->rects[rect]->flags = (ctx->presentation.objects[rect].composition & 0x40) != 0 ? AV_SUBTITLE_FLAG_FORCED : 0;
++
++        if (!ctx->forced_subs_only || ctx->presentation.objects[rect].composition & 0x40)
+         memcpy(sub->rects[rect]->pict.data[1], ctx->clut, sub->rects[rect]->nb_colors * sizeof(uint32_t));
+     }
+ 
+@@ -436,7 +444,6 @@ static int display_end_segment(AVCodecContext *avctx, void *data,
+ static int decode(AVCodecContext *avctx, void *data, int *data_size,
+                   AVPacket *avpkt)
+ {
+-    PGSSubContext *ctx = avctx->priv_data;
+     const uint8_t *buf = avpkt->data;
+     int buf_size       = avpkt->size;
+     AVSubtitle *sub    = data;
+@@ -483,8 +490,7 @@ static int decode(AVCodecContext *avctx, void *data, int *data_size,
+             parse_picture_segment(avctx, buf, segment_length);
+             break;
+         case PRESENTATION_SEGMENT:
+-            parse_presentation_segment(avctx, buf, segment_length);
+-            ctx->pts = sub->pts;
++            parse_presentation_segment(avctx, buf, segment_length, sub->pts);
+             break;
+         case WINDOW_SEGMENT:
+             /*
+@@ -511,6 +517,20 @@ static int decode(AVCodecContext *avctx, void *data, int *data_size,
+     return buf_size;
+ }
+ 
++#define OFFSET(x) offsetof(PGSSubContext, x)
++#define SD AV_OPT_FLAG_SUBTITLE_PARAM | AV_OPT_FLAG_DECODING_PARAM
++static const AVOption options[] = {
++    {"forced_subs_only", "Only show forced subtitles", OFFSET(forced_subs_only), AV_OPT_TYPE_INT, {.i64 = 0}, 0, 1, SD},
++    { NULL },
++};
++
++static const AVClass pgsdec_class = {
++    .class_name = "PGS subtitle decoder",
++    .item_name  = av_default_item_name,
++    .option     = options,
++    .version    = LIBAVUTIL_VERSION_INT,
++};
++
+ AVCodec ff_pgssub_decoder = {
+     .name           = "pgssub",
+     .type           = AVMEDIA_TYPE_SUBTITLE,
+@@ -519,5 +539,6 @@ static int decode(AVCodecContext *avctx, void *data, int *data_size,
+     .init           = init_decoder,
+     .close          = close_decoder,
+     .decode         = decode,
+-    .long_name = NULL_IF_CONFIG_SMALL("HDMV Presentation Graphic Stream subtitles"),
+-};
++    .long_name      = NULL_IF_CONFIG_SMALL("HDMV Presentation Graphic Stream subtitles"),
++    .priv_class     = &pgsdec_class,
++};
+\ No newline at end of file
+-- 
+1.7.10
+
