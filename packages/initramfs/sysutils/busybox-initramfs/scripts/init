@@ -41,6 +41,11 @@ NBD_DEVS="0"
   /bin/busybox mount -t proc none /proc
   /bin/busybox mount -t sysfs none /sys
 
+# load any configuration
+  if [ -f "/etc/initramfs.conf" ]; then
+    . /etc/initramfs.conf
+  fi
+
 # hide kernel log messages on console
   echo '1 4 1 7' > /proc/sys/kernel/printk
 
@@ -351,7 +356,9 @@ NBD_DEVS="0"
     if [ -e /dev/fb0 -a ! "$SPLASH" = "no" ]; then
 
       # set framebuffer to a default resolution (1024x768-32)
-        fbset -g 1024 768 1024 768 32
+        if [ ! "$SWITCH_FRAMEBUFFER" = "no" ]; then
+          fbset -g 1024 768 1024 768 32
+        fi
 
       # load splash
         if [ -f /flash/oemsplash.png ]; then
@@ -463,10 +470,6 @@ NBD_DEVS="0"
     # /flash is filesystem with system image file
       INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
       SYSTEM_TORAM_LIMIT=1024000
-
-      if [ -f "/etc/initramfs.conf" ]; then
-        . /etc/initramfs.conf
-      fi
 
       if [ "$SYSTEM_TORAM" = "no" -o "$INSTALLED_MEMORY" -lt "$SYSTEM_TORAM_LIMIT" ]; then
         mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
