@@ -1,0 +1,44 @@
+diff --git a/modules/linux/vmhgfs/inode.c b/modules/linux/vmhgfs/inode.c
+index 8d6cfbb..3642171 100644
+--- a/modules/linux/vmhgfs/inode.c
++++ b/modules/linux/vmhgfs/inode.c
+@@ -1852,7 +1852,7 @@ HgfsPermission(struct inode *inode,
+ #else
+    if (mask & MAY_ACCESS) { /* For sys_access. */
+ #endif
+-      struct list_head *pos;
++      struct hlist_node *pos;
+       int dcount = 0;
+       struct dentry *dentry = NULL;
+ 
+@@ -1872,7 +1872,7 @@ HgfsPermission(struct inode *inode,
+ #endif
+ 
+       /* Find a dentry with valid d_count. Refer bug 587879. */
+-      list_for_each(pos, &inode->i_dentry) {
++      list_for_each(pos, inode->i_dentry.first) {
+          dentry = list_entry(pos, struct dentry, d_alias);
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 38)
+          dcount = atomic_read(&dentry->d_count);
+diff --git a/modules/linux/vmsync/sync.c b/modules/linux/vmsync/sync.c
+index d05ccad..dff7fb5 100644
+--- a/modules/linux/vmsync/sync.c
++++ b/modules/linux/vmsync/sync.c
+@@ -162,7 +162,7 @@ VmSyncThawDevices(void  *_state)  // IN
+    cancel_delayed_work(&state->thawTask);
+    list_for_each_safe(cur, tmp, &state->devices) {
+       dev = list_entry(cur, VmSyncBlockDevice, list);
+-      if (dev->sb != NULL && dev->sb->s_frozen != SB_UNFROZEN) {
++      if (dev->sb != NULL && dev->sb->s_writers.frozen != SB_UNFROZEN) {
+          thaw_bdev(dev->bdev, dev->sb);
+          atomic_dec(&gFreezeCount);
+       }
+@@ -237,7 +237,7 @@ VmSyncAddPath(const VmSyncState *state,   // IN
+     * the superblock is already frozen.
+     */
+    if (inode->i_sb->s_bdev == NULL ||
+-       inode->i_sb->s_frozen != SB_UNFROZEN) {
++       inode->i_sb->s_writers.frozen != SB_UNFROZEN) {
+       result = (inode->i_sb->s_bdev == NULL) ? -EINVAL : -EALREADY;
+       compat_path_release(&nd);
+       goto exit;
