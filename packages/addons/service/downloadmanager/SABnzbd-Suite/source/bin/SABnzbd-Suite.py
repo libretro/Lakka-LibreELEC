@@ -74,6 +74,7 @@ pSickBeardSettings    = os.path.join(pAddonHome, 'sickbeard.ini')
 pCouchPotatoSettings  = os.path.join(pAddonHome, 'couchpotato.ini')
 pCouchPotatoServerSettings  = os.path.join(pAddonHome, 'couchpotatoserver.ini')
 pHeadphonesSettings   = os.path.join(pAddonHome, 'headphones.ini')
+pTransmission_Addon_Settings  ='/storage/.xbmc/userdata/addon_data/service.downloadmanager.transmission/settings.xml'
 
 # directories
 pSabNzbdComplete      = '/storage/downloads'
@@ -129,6 +130,18 @@ if firstLaunch:
 
 # read addon and xbmc settings
 # ----------------------------
+
+# Transmission-Daemon
+if os.path.exists(pTransmission_Addon_Settings):
+    fTransmission_Addon_Settings = open(pTransmission_Addon_Settings, 'r')
+    data = fTransmission_Addon_Settings.read()
+    fTransmission_Addon_Settings.close
+    transmission_addon_settings = parseString(data)
+    transuser                          = getAddonSetting(transmission_addon_settings, 'TRANSMISSION_USER')
+    transpwd                           = getAddonSetting(transmission_addon_settings, 'TRANSMISSION_PWD')
+    transauth                          = getAddonSetting(transmission_addon_settings, 'TRANSMISSION_AUTH')
+else:
+    transauth                          = 'false'
 
 # SABnzbd-Suite
 fSuiteSettings = open(pSuiteSettings, 'r')
@@ -249,7 +262,7 @@ try:
 
     # launch SABnzbd and get the API key
     # ----------------------------------
-    if "true" in sabnzbd_launch:
+    if firstLaunch or "true" in sabnzbd_launch
         logging.debug('Launching SABnzbd...')
         subprocess.call(sabnzbd,close_fds=True)
         logging.debug('...done')
@@ -260,6 +273,8 @@ try:
         sabNzbdConfig.reload()
         sabNzbdApiKey = sabNzbdConfig['misc']['api_key']
         logging.debug('SABnzbd api key: ' + sabNzbdApiKey)
+        if firstLaunch and "false" in sabnzbd_launch:
+            urllib2.urlopen('http://' + sabNzbdHost + '/api?mode=shutdown&apikey=' + sabNzbdApiKey)
 except Exception,e:
     print 'SABnzbd: exception occurred:', e
     print traceback.format_exc()
@@ -308,6 +323,7 @@ try:
         defaultConfig['SABnzbd']['sab_host']              = sabNzbdHost
         defaultConfig['XBMC']['xbmc_notify_ondownload']   = '1'
         defaultConfig['XBMC']['xbmc_update_library']      = '1'
+        defaultConfig['XBMC']['xbmc_update_full']         = '1'
 
     sickBeardConfig.merge(defaultConfig)
     sickBeardConfig.write()
@@ -383,10 +399,8 @@ try:
 
     # write CouchPotatoServer settings
     # --------------------------
-    couchPotatoServerConfig = ConfigObj(pCouchPotatoServerSettings,create_empty=True)
+    couchPotatoServerConfig = ConfigObj(pCouchPotatoServerSettings,create_empty=True, list_values=False)
     defaultConfig = ConfigObj()
-    defaultConfig['newznab'] = {}
-    defaultConfig['newznab']['api_key']      = ''
     defaultConfig['core'] = {}
     defaultConfig['core']['username']            = user
     defaultConfig['core']['password']            = md5pwd
@@ -415,15 +429,26 @@ try:
     defaultConfig['xbmc']['username']        = xbmcUser
     defaultConfig['xbmc']['password']        = xbmcPwd
 
+    if 'true' in transauth:
+        defaultConfig['transmission'] = {}
+        defaultConfig['transmission']['username']         = transuser
+        defaultConfig['transmission']['password']         = transpwd
+        defaultConfig['transmission']['directory']        = pSabNzbdCompleteMov
+        defaultConfig['transmission']['host']             = 'localhost:9091'
+
     if firstLaunch:
+        defaultConfig['xbmc']['xbmc_update_library']      = '1'
+        defaultConfig['xbmc']['xbmc_update_full']         = '1'
+        defaultConfig['xbmc']['xbmc_notify_onsnatch']     = '1'
+        defaultConfig['xbmc']['xbmc_notify_ondownload']   = '1'
         defaultConfig['Sabnzbd']['category']     = 'movies'
         defaultConfig['Sabnzbd']['pp_directory'] = pSabNzbdCompleteMov
         defaultConfig['Renamer'] = {}
-        defaultConfig['Renamer']['enabled']      = 'True'
+        defaultConfig['Renamer']['enabled']      = '1'
         defaultConfig['Renamer']['download']     = pSabNzbdCompleteMov
         defaultConfig['Renamer']['destination']  = '/storage/videos'
         defaultConfig['Renamer']['separator']    = '.'
-        defaultConfig['Renamer']['cleanup']      = 'False'
+        defaultConfig['Renamer']['cleanup']      = '0'
 
     couchPotatoServerConfig.merge(defaultConfig)
     couchPotatoServerConfig.write()
@@ -446,13 +471,23 @@ try:
     headphonesConfig = ConfigObj(pHeadphonesSettings,create_empty=True)
     defaultConfig = ConfigObj()
     defaultConfig['General'] = {}
-    defaultConfig['General']['launch_browser']   = '0'
-    defaultConfig['General']['http_port']        = '8084'
-    defaultConfig['General']['http_host']        = host
-    defaultConfig['General']['http_username']    = user
-    defaultConfig['General']['http_password']    = pwd
+    defaultConfig['General']['launch_browser']            = '0'
+    defaultConfig['General']['http_port']                 = '8084'
+    defaultConfig['General']['http_host']                 = host
+    defaultConfig['General']['http_username']             = user
+    defaultConfig['General']['http_password']             = pwd
+    defaultConfig['General']['check_github']              = '0'
+    defaultConfig['General']['check_github_on_startup']   = '0'
+    defaultConfig['General']['log_dir']                   = pAddonHome + '/logs'
+    defaultConfig['General']['folder_permissions']        = '0644'
+    defaultConfig['XBMC'] = {}
+    defaultConfig['XBMC']['xbmc_enabled']                 = '1'
+    defaultConfig['XBMC']['xbmc_host']                    = '127.0.0.1:' + xbmcPort
+    defaultConfig['XBMC']['xbmc_username']                = xbmcUser
+    defaultConfig['XBMC']['xbmc_password']                = xbmcPwd
+    defaultConfig['SABnzbd'] = {}
+
     if "true" in sabnzbd_launch:
-        defaultConfig['SABnzbd'] = {}
         defaultConfig['SABnzbd']['sab_apikey']       = sabNzbdApiKey
         defaultConfig['SABnzbd']['sab_host']         = sabNzbdHost
         defaultConfig['SABnzbd']['sab_username']     = user
@@ -460,6 +495,8 @@ try:
 
     if firstLaunch:
         defaultConfig['SABnzbd']['sab_category']     = 'music'
+        defaultConfig['XBMC']['xbmc_update']         = '1'
+        defaultConfig['XBMC']['xbmc_notify']         = '1'
         defaultConfig['General']['music_dir']        = '/storage/music'
         defaultConfig['General']['destination_dir']  = '/storage/music'
         defaultConfig['General']['download_dir']     = '/storage/downloads/music'
