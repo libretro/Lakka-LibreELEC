@@ -262,7 +262,7 @@ try:
 
     # launch SABnzbd and get the API key
     # ----------------------------------
-    if firstLaunch or "true" in sabnzbd_launch
+    if firstLaunch or "true" in sabnzbd_launch:
         logging.debug('Launching SABnzbd...')
         subprocess.call(sabnzbd,close_fds=True)
         logging.debug('...done')
