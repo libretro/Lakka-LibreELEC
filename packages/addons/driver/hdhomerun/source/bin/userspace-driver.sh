@@ -37,18 +37,14 @@ if [ -z "$(pidof userhdhomerun)" ]; then
     ln -s $ADDON_HOME/dvbhdhomerun.conf /tmp/dvbhdhomerun
   fi
 
-  # could be useful
-  if [ -f $ADDON_HOME/extra-wait.sh ]; then
-    sh $ADDON_HOME/extra-wait.sh
-  fi
-  
-  # if not already added
+  # modules are not automatically loaded
   modprobe dvb_hdhomerun
   modprobe dvb_hdhomerun_fe
+  usleep 2000000
 
   # could be useful
-  if [ -f $ADDON_HOME/extra-wait.sh ]; then
-    sh $ADDON_HOME/extra-wait.sh
+  if [ -f $ADDON_HOME/pre-wait.sh ]; then
+    sh $ADDON_HOME/pre-wait.sh
   fi
 
   mkdir -p /var/log/
@@ -57,8 +53,8 @@ if [ -z "$(pidof userhdhomerun)" ]; then
   userhdhomerun -f
   # how much time should we wait?
   usleep 1000000
-  if [ -f $ADDON_HOME/extra-wait.sh ]; then
-    sh $ADDON_HOME/extra-wait.sh
+  if [ -f $ADDON_HOME/post-wait.sh ]; then
+    sh $ADDON_HOME/post-wait.sh
   fi
 
 # save adapter names in background
