@@ -20,55 +20,29 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-# usage:   sudo ./create_virtualmachine <path> <size(MB)> [<type>] 
-# example: sudo ./create_virtualmachine /home/test/VM 512 [vdi]
+# usage:   sudo ./create_virtualmachine <path>
+# example: sudo ./create_virtualmachine /home/test/VM
 
 if [ "$(id -u)" != "0" ]; then
   clear
-  echo "###########################################################"
-  echo "# please execute with 'sudo' or -DANGEROUS!!!- as root    #"
-  echo "# example:                                                #"
-  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>] #"
-  echo "###########################################################"
-  exit 1
-fi
-
-if [ -z "$1" -o -z "$2" ]; then
-  clear
-  echo "###########################################################"
-  echo "# please execute as follows                               #"
-  echo "# example:                                                #"
-  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>] #"
-  echo "###########################################################"
-  exit 1
-fi
-
-if [ "$2" -lt "200" -o "$2" -gt "2048" ]; then
-  clear
   echo "#########################################################"
-  echo "# use a value between 200MB and 2048MB (2GB)            #"
-  echo "# example:                                              #"
-  echo "# sudo ./create_virtualmachine /home/test/VM 512        #"
+  echo "# please execute with 'sudo' or -DANGEROUS!!!- as root  #"
+  echo "# example: sudo ./create_virtualmachine <path>          #"
   echo "#########################################################"
   exit 1
 fi
 
-if [ ! -z "$3" -a "$3" != "vdi" -a "$3" != "vmdk" ]; then
+if [ -z "$1" ]; then
   clear
   echo "#########################################################"
-  echo "# only vdi or vmdk types are supported                  #"
-  echo "# example:                                              #"
-  echo "# sudo ./create_virtualmachine /home/test/VM 512 [vdi]  #"
+  echo "# please execute with target folder drive as option     #"
+  echo "# example: sudo ./create_virtualmachine /home/test/VM/  #"
   echo "#########################################################"
   exit 1
-elif [ "$3" = "vdi" ]; then
-  TYPE="vdi"
-elif [ -z "$3" -o "$3" = "vmdk" ]; then
-  TYPE="vmdk"
 fi
 
 DISK="$1/OpenELEC.img"
-IMAGE="$1/OpenELEC.$TYPE"
+VMDK="$1/OpenELEC.vmdk"
 LOOP=$(losetup -f)
 
 clear
@@ -135,7 +109,7 @@ echo "#########################################################"
     exit 1
   fi
 
-  # this is needed fo convert harddisk image to vmdk or vdi format
+  # this is needed fo convert harddisk image to vmdk format
   which qemu-img > /dev/null
   if [ "$?" = "1" ]; then
     clear
@@ -185,7 +159,7 @@ echo "#########################################################"
 
 # create an image
   echo "creating new empty harddisk image: $DISK..."
-  dd if=/dev/zero of="$DISK" bs=1M count=1024
+  dd if=/dev/zero of="$DISK" bs=1M count=512
 
 # write a disklabel
   echo "creating new partition table: $DISK..."
@@ -194,27 +168,15 @@ echo "#########################################################"
 
 # create partition1
   echo "creating partition1 on $DISK..."
-  parted -s "$LOOP" unit cyl mkpart primary ext2 -- 0 16
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 64 262208
 
 # create partition2
   echo "creating partition2 on $DISK..."
-  parted -s "$LOOP" unit cyl mkpart primary ext2 -- 16 -2
-  
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 262209 100%
+
 # make partition1 active (bootable)
   echo "marking partition1 active..."
   parted -s "$LOOP" set 1 boot on
-    
-  echo "telling kernel we have a new partition table..."
-  partprobe "$LOOP"
-
-# create filesystem on partition1
-  echo "creating filesystem on partition1..."   
-  mkfs.ext4 "${LOOP}p1" -L System
-  
-# create filesystem on partition2  
-  echo "creating filesystem on partition2..."   
-  mkfs.ext4 "${LOOP}p2" -L Storage
-  sync 
 
 # write mbr
   echo "writing mbr..."
@@ -230,10 +192,18 @@ echo "#########################################################"
     cat "$MBR" > "$LOOP"
   fi
 
+# create filesystem on partition1
+  echo "creating filesystem on partition1..."
+  losetup -d "$LOOP"
+  losetup -o 32768 --sizelimit 134218240 "$LOOP" "$DISK"
+  mke2fs -t ext4 -m 0 "$LOOP"
+  tune2fs -U random -L "System" "$LOOP"
+  sync
+
 # mount partition
   echo "mounting partition1 on /tmp/vmware_install..."
   mkdir -p /tmp/vmware_install
-  mount "${LOOP}p1" /tmp/vmware_install
+  mount "$LOOP" /tmp/vmware_install
 
 # create bootloader configuration
   echo "creating bootloader configuration..."
@@ -243,7 +213,7 @@ echo "#########################################################"
   echo " " >> /tmp/vmware_install/syslinux.cfg
   echo "LABEL linux" >> /tmp/vmware_install/syslinux.cfg
   echo "  KERNEL /KERNEL" >> /tmp/vmware_install/syslinux.cfg
-  echo "  APPEND boot=LABEL=System disk=LABEL=Storage ssh debugging nosplash" >> /tmp/vmware_install/syslinux.cfg
+  echo "  APPEND boot=LABEL=System disk=LABEL=Storage quiet ssh" >> /tmp/vmware_install/syslinux.cfg
 
 # install extlinux
   echo "installing extlinux to partition1..."
@@ -260,7 +230,15 @@ echo "#########################################################"
 
 # unmount partition1
   echo "unmounting partition1..."
-  umount "${LOOP}p1"
+  umount "$LOOP"
+  sync
+
+# create filesystem on partition2
+  echo "creating filesystem on partition2..."
+  losetup -d "$LOOP"
+  losetup -o 134251008 "$LOOP" "$DISK"
+  mke2fs -t ext4 -m 0 "$LOOP"
+  tune2fs -U random -L "Storage" "$LOOP"
   sync
 
 # detach loop0
@@ -270,10 +248,9 @@ echo "#########################################################"
   echo "cleaning tempdir..."
   rm -rf /tmp/vmware_install
 
-# convert image to vmdk or vdi
-  echo "converting $DISK to $TYPE format..."
-  qemu-img convert -O $TYPE "$DISK" "$IMAGE"
+# convert image to vmdk
+  echo "converting $DISK to vmdk format..."
+  qemu-img convert -O vmdk "$DISK" "$VMDK"
   rm -f "$DISK"
 
 echo "...installation finished"
-
