@@ -1,387 +1,30 @@
-diff -urN a/drivers/media/dvb/dvb-usb/dw2102.c b/drivers/media/dvb/dvb-usb/dw2102.c
---- a/drivers/media/dvb/dvb-usb/dw2102.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/dvb/dvb-usb/dw2102.c	2012-11-18 23:22:52.641154591 +0800
-@@ -19,6 +19,7 @@
- #include "stb6000.h"
- #include "eds1547.h"
- #include "cx24116.h"
-+#include "m88ds3103.h"
- #include "tda1002x.h"
- #include "mt312.h"
- #include "zl10039.h"
-@@ -830,6 +831,39 @@
- 	return 0;
- }
- 
-+static int dvbsky_read_mac_address(struct dvb_usb_device *d, u8 mac[6])
-+{
-+	int i;
-+	u8 obuf[] = { 0x1e, 0x00 };
-+	u8 ibuf[] = { 0 };
-+	struct i2c_msg msg[] = {
-+		{
-+			.addr = 0x51,
-+			.flags = 0,
-+			.buf = obuf,
-+			.len = 2,
-+		}, {
-+			.addr = 0x51,
-+			.flags = I2C_M_RD,
-+			.buf = ibuf,
-+			.len = 1,
-+
-+		}
-+	};
-+
-+	for (i = 0; i < 6; i++) {
-+		obuf[1] = i;
-+		if (i2c_transfer(&d->i2c_adap, msg, 2) != 2)
-+			break;
-+		else
-+			mac[i] = ibuf[0];
-+
-+		debug_dump(mac, 6, printk);
-+	}
-+
-+	return 0;
-+}
-+
- static int su3000_identify_state(struct usb_device *udev,
- 				 struct dvb_usb_device_properties *props,
- 				 struct dvb_usb_device_description **desc,
-@@ -878,6 +912,43 @@
- 	return 0;
- }
- 
-+static int bstusb_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
-+{
-+
-+	struct dvb_usb_adapter *udev_adap =
-+		(struct dvb_usb_adapter *)(fe->dvb->priv);
-+
-+	u8 obuf[3] = { 0xe, 0x80, 0 };
-+	u8 ibuf[] = { 0 };
-+
-+	info("US6830: %s!\n", __func__);
-+
-+	if (voltage == SEC_VOLTAGE_OFF)
-+		obuf[2] = 0;
-+	else
-+		obuf[2] = 1;
-+
-+	if (dvb_usb_generic_rw(udev_adap->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x0e transfer failed.");
-+
-+	return 0;
-+}
-+
-+static int bstusb_restart(struct dvb_frontend *fe)
-+{
-+
-+	struct dvb_usb_adapter *udev_adap =
-+		(struct dvb_usb_adapter *)(fe->dvb->priv);
-+
-+	u8 obuf[3] = { 0x36, 3, 0 };
-+	u8 ibuf[] = { 0 };
-+
-+	if (dvb_usb_generic_rw(udev_adap->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x36 transfer failed.");
-+
-+	return 0;
-+}
-+
- static void dw210x_led_ctrl(struct dvb_frontend *fe, int offon)
- {
- 	static u8 led_off[] = { 0 };
-@@ -983,6 +1054,24 @@
- 	.ci_mode = 1,
- };
- 
-+static struct m88ds3103_config US6830_ds3103_config = {
-+	.demod_address = 0x68,
-+	.ci_mode = 1,
-+	.pin_ctrl = 0x83,
-+	.ts_mode = 0,
-+	.start_ctrl = bstusb_restart,
-+	.set_voltage = bstusb_set_voltage,
-+};
-+
-+static struct m88ds3103_config US6832_ds3103_config = {
-+	.demod_address = 0x68,
-+	.ci_mode = 1,
-+	.pin_ctrl = 0x80,
-+	.ts_mode = 0,
-+	.start_ctrl = bstusb_restart,
-+	.set_voltage = bstusb_set_voltage,
-+};
-+
- static int dw2104_frontend_attach(struct dvb_usb_adapter *d)
- {
- 	struct dvb_tuner_ops *tuner_ops = NULL;
-@@ -1210,6 +1299,87 @@
- 	return 0;
- }
- 
-+static int US6830_frontend_attach(struct dvb_usb_adapter *d)
-+{
-+	u8 obuf[3] = { 0xe, 0x04, 1 };
-+	u8 ibuf[] = { 0 };
-+
-+	info("US6830: %s!\n", __func__);
-+
-+	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x0e transfer failed.");
-+
-+	obuf[0] = 0xe;
-+	obuf[1] = 0x83;
-+	obuf[2] = 0;
-+	
-+	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x0e transfer failed.");
-+
-+	msleep(20);
-+
-+	obuf[0] = 0xe;
-+	obuf[1] = 0x83;
-+	obuf[2] = 1;
-+
-+	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x0e transfer failed.");
-+
-+	obuf[0] = 0x51;
-+
-+	if (dvb_usb_generic_rw(d->dev, obuf, 1, ibuf, 1, 0) < 0)
-+		err("command 0x51 transfer failed.");
-+
-+	d->fe_adap[0].fe = dvb_attach(m88ds3103_attach, &US6830_ds3103_config,
-+					&d->dev->i2c_adap);
-+	if (d->fe_adap[0].fe == NULL)
-+		return -EIO;
-+
-+	info("Attached M88DS3103!\n");
-+
-+	return 0;
-+}
-+
-+static int US6832_frontend_attach(struct dvb_usb_adapter *d)
-+{
-+	u8 obuf[3] = { 0xe, 0x04, 1 };
-+	u8 ibuf[] = { 0 };
-+
-+	info("US6832: %s!\n", __func__);
-+
-+	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x0e transfer failed.");
-+
-+	obuf[0] = 0xe;
-+	obuf[1] = 0x83;
-+	obuf[2] = 0;
-+	
-+	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x0e transfer failed.");
-+
-+	msleep(20);
-+	obuf[0] = 0xe;
-+	obuf[1] = 0x83;
-+	obuf[2] = 1;
-+
-+	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
-+		err("command 0x0e transfer failed.");
-+
-+	obuf[0] = 0x51;
-+
-+	if (dvb_usb_generic_rw(d->dev, obuf, 1, ibuf, 1, 0) < 0)
-+		err("command 0x51 transfer failed.");
-+
-+	d->fe_adap[0].fe = dvb_attach(m88ds3103_attach, &US6832_ds3103_config,
-+					&d->dev->i2c_adap);
-+	if (d->fe_adap[0].fe == NULL)
-+		return -EIO;
-+
-+	info("Attached M88DS3103!\n");
-+
-+	return 0;
-+}
-+
- static int dw2102_tuner_attach(struct dvb_usb_adapter *adap)
- {
- 	dvb_attach(dvb_pll_attach, adap->fe_adap[0].fe, 0x60,
-@@ -1447,6 +1617,9 @@
- 	TEVII_S480_1,
- 	TEVII_S480_2,
- 	X3M_SPC1400HD,
-+	BST_US6830HD,
-+	BST_US6831HD,
-+	BST_US6832HD,
- };
- 
- static struct usb_device_id dw2102_table[] = {
-@@ -1465,6 +1638,9 @@
- 	[TEVII_S480_1] = {USB_DEVICE(0x9022, USB_PID_TEVII_S480_1)},
- 	[TEVII_S480_2] = {USB_DEVICE(0x9022, USB_PID_TEVII_S480_2)},
- 	[X3M_SPC1400HD] = {USB_DEVICE(0x1f4d, 0x3100)},
-+	[BST_US6830HD] = {USB_DEVICE(0x0572, 0x6830)},
-+	[BST_US6831HD] = {USB_DEVICE(0x0572, 0x6831)},
-+	[BST_US6832HD] = {USB_DEVICE(0x0572, 0x6832)},
- 	{ }
- };
- 
-@@ -1870,6 +2046,106 @@
- 	}
- };
- 
-+static struct dvb_usb_device_properties US6830_properties = {
-+	.caps = DVB_USB_IS_AN_I2C_ADAPTER,
-+	.usb_ctrl = DEVICE_SPECIFIC,
-+	.size_of_priv = sizeof(struct su3000_state),
-+	.power_ctrl = su3000_power_ctrl,
-+	.num_adapters = 1,
-+	.identify_state	= su3000_identify_state,
-+	.i2c_algo = &su3000_i2c_algo,
-+
-+	.rc.legacy = {
-+		.rc_map_table = rc_map_su3000_table,
-+		.rc_map_size = ARRAY_SIZE(rc_map_su3000_table),
-+		.rc_interval = 150,
-+		.rc_query = dw2102_rc_query,
-+	},
-+
-+	.read_mac_address = dvbsky_read_mac_address,
-+
-+	.generic_bulk_ctrl_endpoint = 0x01,
-+	
-+	.adapter = {
-+		{
-+		.num_frontends = 1,
-+		.fe = {{
-+			.streaming_ctrl   = su3000_streaming_ctrl,
-+			.frontend_attach  = US6830_frontend_attach,
-+			.stream = {
-+				.type = USB_BULK,
-+				.count = 8,
-+				.endpoint = 0x82,
-+				.u = {
-+					.bulk = {
-+						.buffersize = 4096,
-+					}
-+				}
-+			}
-+		}},
-+		}
-+	},
-+	.num_device_descs = 2,
-+	.devices = {
-+		{ "Bestunar US6830 HD",
-+			{ &dw2102_table[BST_US6830HD], NULL },
-+			{ NULL },
-+		},
-+		{ "Bestunar US6831 HD",
-+			{ &dw2102_table[BST_US6831HD], NULL },
-+			{ NULL },
-+		},				
-+	}
-+};
-+
-+static struct dvb_usb_device_properties US6832_properties = {
-+	.caps = DVB_USB_IS_AN_I2C_ADAPTER,
-+	.usb_ctrl = DEVICE_SPECIFIC,
-+	.size_of_priv = sizeof(struct su3000_state),
-+	.power_ctrl = su3000_power_ctrl,
-+	.num_adapters = 1,
-+	.identify_state	= su3000_identify_state,
-+	.i2c_algo = &su3000_i2c_algo,
-+
-+	.rc.legacy = {
-+		.rc_map_table = rc_map_su3000_table,
-+		.rc_map_size = ARRAY_SIZE(rc_map_su3000_table),
-+		.rc_interval = 150,
-+		.rc_query = dw2102_rc_query,
-+	},
-+
-+	.read_mac_address = dvbsky_read_mac_address,
-+
-+	.generic_bulk_ctrl_endpoint = 0x01,
-+
-+	.adapter = {
-+		{
-+		.num_frontends = 1,
-+		.fe = {{
-+			.streaming_ctrl   = su3000_streaming_ctrl,
-+			.frontend_attach  = US6832_frontend_attach,
-+			.stream = {
-+				.type = USB_BULK,
-+				.count = 8,
-+				.endpoint = 0x82,
-+				.u = {
-+					.bulk = {
-+						.buffersize = 4096,
-+					}
-+				}
-+			}
-+		}},
-+		}
-+	},
-+	.num_device_descs = 1,
-+	.devices = {
-+		{ "Bestunar US6832 HD",
-+			{ &dw2102_table[BST_US6832HD], NULL },
-+			{ NULL },
-+		},
-+	}
-+};
-+
- static int dw2102_probe(struct usb_interface *intf,
- 		const struct usb_device_id *id)
- {
-@@ -1926,6 +2202,10 @@
- 	    0 == dvb_usb_device_init(intf, p7500,
- 			THIS_MODULE, NULL, adapter_nr) ||
- 	    0 == dvb_usb_device_init(intf, &su3000_properties,
-+     			THIS_MODULE, NULL, adapter_nr) ||
-+	    0 == dvb_usb_device_init(intf, &US6830_properties,
-+			THIS_MODULE, NULL, adapter_nr) ||
-+	    0 == dvb_usb_device_init(intf, &US6832_properties,
- 				     THIS_MODULE, NULL, adapter_nr))
- 		return 0;
- 
-diff -urN a/drivers/media/dvb/dvb-usb/Kconfig b/drivers/media/dvb/dvb-usb/Kconfig
---- a/drivers/media/dvb/dvb-usb/Kconfig	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/dvb/dvb-usb/Kconfig	2012-11-18 23:23:02.517154858 +0800
-@@ -279,6 +279,7 @@
- 	select DVB_STV0288 if !DVB_FE_CUSTOMISE
- 	select DVB_STB6000 if !DVB_FE_CUSTOMISE
- 	select DVB_CX24116 if !DVB_FE_CUSTOMISE
-+	select DVB_M88DS3103 if !DVB_FE_CUSTOMISE
- 	select DVB_SI21XX if !DVB_FE_CUSTOMISE
- 	select DVB_TDA10023 if !DVB_FE_CUSTOMISE
- 	select DVB_MT312 if !DVB_FE_CUSTOMISE
-diff -urN a/drivers/media/dvb/frontends/Kconfig b/drivers/media/dvb/frontends/Kconfig
---- a/drivers/media/dvb/frontends/Kconfig	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/dvb/frontends/Kconfig	2012-11-18 23:23:15.397155199 +0800
-@@ -215,6 +215,20 @@
+diff -urN a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kconfig
+--- a/drivers/media/dvb-frontends/Kconfig	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/dvb-frontends/Kconfig	2013-01-20 21:27:22.379421738 +0800
+@@ -200,6 +200,20 @@
  	help
  	  A DVB-S/S2 tuner module. Say Y when you want to support this frontend.
  
 +config DVB_M88DS3103
-+	tristate "Montage DS3103 based"
++	tristate "Montage M88DS3103 based"
 +	depends on DVB_CORE && I2C
-+	default m if DVB_FE_CUSTOMISE
++	default m if !MEDIA_SUBDRV_AUTOSELECT
 +	help
 +	  A DVB-S/S2 tuner module. Say Y when you want to support this frontend.
 +
 +config DVB_M88DC2800
-+	tristate "Montage DC2800 DVB-C"
++	tristate "Montage M88DC2800 based"
 +	depends on DVB_CORE && I2C
-+	default m if DVB_FE_CUSTOMISE
++	default m if !MEDIA_SUBDRV_AUTOSELECT
 +	help
 +	  A DVB-C tuner module. Say Y when you want to support this frontend.
-+	  	  
++	  
  config DVB_SI21XX
  	tristate "Silicon Labs SI21XX based"
  	depends on DVB_CORE && I2C
-diff -urN a/drivers/media/dvb/frontends/m88dc2800.c b/drivers/media/dvb/frontends/m88dc2800.c
---- a/drivers/media/dvb/frontends/m88dc2800.c	1970-01-01 08:00:00.000000000 +0800
-+++ b/drivers/media/dvb/frontends/m88dc2800.c	2012-11-18 23:23:20.205155329 +0800
+diff -urN a/drivers/media/dvb-frontends/m88dc2800.c b/drivers/media/dvb-frontends/m88dc2800.c
+--- a/drivers/media/dvb-frontends/m88dc2800.c	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/media/dvb-frontends/m88dc2800.c	2013-01-20 21:27:28.323421901 +0800
 @@ -0,0 +1,2235 @@
 +/*
 +    M88DC2800/M88TC2800  - DVB-C demodulator and tuner from Montage
@@ -2618,9 +2261,9 @@ diff -urN a/drivers/media/dvb/frontends/m88dc2800.c b/drivers/media/dvb/frontend
 +MODULE_DESCRIPTION("Montage DVB-C demodulator driver");
 +MODULE_AUTHOR("Max nibble");
 +MODULE_LICENSE("GPL");
-diff -urN a/drivers/media/dvb/frontends/m88dc2800.h b/drivers/media/dvb/frontends/m88dc2800.h
---- a/drivers/media/dvb/frontends/m88dc2800.h	1970-01-01 08:00:00.000000000 +0800
-+++ b/drivers/media/dvb/frontends/m88dc2800.h	2012-11-18 23:23:23.993155429 +0800
+diff -urN a/drivers/media/dvb-frontends/m88dc2800.h b/drivers/media/dvb-frontends/m88dc2800.h
+--- a/drivers/media/dvb-frontends/m88dc2800.h	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/media/dvb-frontends/m88dc2800.h	2013-01-20 21:27:32.871422025 +0800
 @@ -0,0 +1,43 @@
 +/*
 +    M88DC2800/M88TC2800  - DVB-C demodulator and tuner from Montage
@@ -2665,9 +2308,9 @@ diff -urN a/drivers/media/dvb/frontends/m88dc2800.h b/drivers/media/dvb/frontend
 +}
 +#endif // CONFIG_DVB_M88DC2800
 +#endif // M88DC2800_H
-diff -urN a/drivers/media/dvb/frontends/m88ds3103.c b/drivers/media/dvb/frontends/m88ds3103.c
---- a/drivers/media/dvb/frontends/m88ds3103.c	1970-01-01 08:00:00.000000000 +0800
-+++ b/drivers/media/dvb/frontends/m88ds3103.c	2012-11-18 23:23:27.661155528 +0800
+diff -urN a/drivers/media/dvb-frontends/m88ds3103.c b/drivers/media/dvb-frontends/m88ds3103.c
+--- a/drivers/media/dvb-frontends/m88ds3103.c	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/media/dvb-frontends/m88ds3103.c	2013-01-20 21:27:37.415422145 +0800
 @@ -0,0 +1,1710 @@
 +/*
 +    Montage Technology M88DS3103/M88TS2022 - DVBS/S2 Satellite demod/tuner driver
@@ -4379,9 +4022,9 @@ diff -urN a/drivers/media/dvb/frontends/m88ds3103.c b/drivers/media/dvb/frontend
 +MODULE_DESCRIPTION("DVB Frontend module for Montage DS3103/TS2022 hardware");
 +MODULE_AUTHOR("Max nibble");
 +MODULE_LICENSE("GPL");
-diff -urN a/drivers/media/dvb/frontends/m88ds3103.h b/drivers/media/dvb/frontends/m88ds3103.h
---- a/drivers/media/dvb/frontends/m88ds3103.h	1970-01-01 08:00:00.000000000 +0800
-+++ b/drivers/media/dvb/frontends/m88ds3103.h	2012-11-18 23:23:38.173155809 +0800
+diff -urN a/drivers/media/dvb-frontends/m88ds3103.h b/drivers/media/dvb-frontends/m88ds3103.h
+--- a/drivers/media/dvb-frontends/m88ds3103.h	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/media/dvb-frontends/m88ds3103.h	2013-01-20 21:27:41.923422263 +0800
 @@ -0,0 +1,53 @@
 +/*
 +    Montage Technology M88DS3103/M88TS2022 - DVBS/S2 Satellite demod/tuner driver
@@ -4436,9 +4079,9 @@ diff -urN a/drivers/media/dvb/frontends/m88ds3103.h b/drivers/media/dvb/frontend
 +}
 +#endif /* CONFIG_DVB_M88DS3103 */
 +#endif /* M88DS3103_H */
-diff -urN a/drivers/media/dvb/frontends/m88ds3103_priv.h b/drivers/media/dvb/frontends/m88ds3103_priv.h
---- a/drivers/media/dvb/frontends/m88ds3103_priv.h	1970-01-01 08:00:00.000000000 +0800
-+++ b/drivers/media/dvb/frontends/m88ds3103_priv.h	2012-11-18 23:23:42.173155920 +0800
+diff -urN a/drivers/media/dvb-frontends/m88ds3103_priv.h b/drivers/media/dvb-frontends/m88ds3103_priv.h
+--- a/drivers/media/dvb-frontends/m88ds3103_priv.h	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/media/dvb-frontends/m88ds3103_priv.h	2013-01-20 21:27:46.223422378 +0800
 @@ -0,0 +1,403 @@
 +/*
 +    Montage Technology M88DS3103/M88TS2022 - DVBS/S2 Satellite demod/tuner driver
@@ -4843,113 +4486,19 @@ diff -urN a/drivers/media/dvb/frontends/m88ds3103_priv.h b/drivers/media/dvb/fro
 +};
 +
 +#endif /* M88DS3103_PRIV_H */
-diff -urN a/drivers/media/dvb/frontends/Makefile b/drivers/media/dvb/frontends/Makefile
---- a/drivers/media/dvb/frontends/Makefile	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/dvb/frontends/Makefile	2012-11-18 23:23:46.929156046 +0800
-@@ -102,4 +102,7 @@
+diff -urN a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/Makefile
+--- a/drivers/media/dvb-frontends/Makefile	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/dvb-frontends/Makefile	2013-01-20 21:27:52.475422546 +0800
+@@ -102,4 +102,6 @@
  obj-$(CONFIG_DVB_RTL2832) += rtl2832.o
  obj-$(CONFIG_DVB_M88RS2000) += m88rs2000.o
  obj-$(CONFIG_DVB_AF9033) += af9033.o
 +obj-$(CONFIG_DVB_M88DS3103) += m88ds3103.o
 +obj-$(CONFIG_DVB_M88DC2800) += m88dc2800.o
-+
  
-diff -urN a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
---- a/drivers/media/rc/keymaps/Makefile	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/rc/keymaps/Makefile	2012-11-18 23:24:05.477156546 +0800
-@@ -27,6 +27,7 @@
- 			rc-dm1105-nec.o \
- 			rc-dntv-live-dvb-t.o \
- 			rc-dntv-live-dvbt-pro.o \
-+			rc-dvbsky.o \
- 			rc-em-terratec.o \
- 			rc-encore-enltv2.o \
- 			rc-encore-enltv.o \
-diff -urN a/drivers/media/rc/keymaps/rc-dvbsky.c b/drivers/media/rc/keymaps/rc-dvbsky.c
---- a/drivers/media/rc/keymaps/rc-dvbsky.c	1970-01-01 08:00:00.000000000 +0800
-+++ b/drivers/media/rc/keymaps/rc-dvbsky.c	2012-11-18 23:24:09.673156652 +0800
-@@ -0,0 +1,78 @@
-+/* rc-dvbsky.c - Keytable for Dvbsky Remote Controllers
-+ *
-+ * keymap imported from ir-keymaps.c
-+ *
-+ *
-+ * Copyright (c) 2010-2011 by Mauro Carvalho Chehab <mchehab@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <media/rc-map.h>
-+#include <linux/module.h>
-+/*
-+ * This table contains the complete RC5 code, instead of just the data part
-+ */
-+
-+static struct rc_map_table rc5_dvbsky[] = {
-+	{ 0x0000, KEY_0 },
-+	{ 0x0001, KEY_1 },
-+	{ 0x0002, KEY_2 },
-+	{ 0x0003, KEY_3 },
-+	{ 0x0004, KEY_4 },
-+	{ 0x0005, KEY_5 },
-+	{ 0x0006, KEY_6 },
-+	{ 0x0007, KEY_7 },
-+	{ 0x0008, KEY_8 },
-+	{ 0x0009, KEY_9 },	
-+	{ 0x000a, KEY_MUTE },
-+	{ 0x000d, KEY_OK },
-+	{ 0x000b, KEY_STOP },
-+	{ 0x000c, KEY_EXIT },	
-+	{ 0x000e, KEY_CAMERA }, /*Snap shot*/
-+	{ 0x000f, KEY_SUBTITLE }, /*PIP*/
-+	{ 0x0010, KEY_VOLUMEUP },
-+	{ 0x0011, KEY_VOLUMEDOWN },
-+	{ 0x0012, KEY_FAVORITES },
-+	{ 0x0013, KEY_LIST }, /*Info*/
-+	{ 0x0016, KEY_PAUSE },
-+	{ 0x0017, KEY_PLAY },
-+	{ 0x001f, KEY_RECORD },
-+	{ 0x0020, KEY_CHANNELDOWN },
-+	{ 0x0021, KEY_CHANNELUP },
-+	{ 0x0025, KEY_POWER2 },
-+	{ 0x0026, KEY_REWIND },
-+	{ 0x0027, KEY_FASTFORWARD },
-+	{ 0x0029, KEY_LAST },
-+	{ 0x002b, KEY_MENU },	
-+	{ 0x002c, KEY_EPG },
-+	{ 0x002d, KEY_ZOOM },	
-+};
-+
-+static struct rc_map_list rc5_dvbsky_map = {
-+	.map = {
-+		.scan    = rc5_dvbsky,
-+		.size    = ARRAY_SIZE(rc5_dvbsky),
-+		.rc_type = RC_TYPE_RC5,
-+		.name    = RC_MAP_DVBSKY,
-+	}
-+};
-+
-+static int __init init_rc_map_rc5_dvbsky(void)
-+{
-+	return rc_map_register(&rc5_dvbsky_map);
-+}
-+
-+static void __exit exit_rc_map_rc5_dvbsky(void)
-+{
-+	rc_map_unregister(&rc5_dvbsky_map);
-+}
-+
-+module_init(init_rc_map_rc5_dvbsky)
-+module_exit(exit_rc_map_rc5_dvbsky)
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Mauro Carvalho Chehab <mchehab@redhat.com>");
-diff -urN a/drivers/media/video/cx23885/cimax2.c b/drivers/media/video/cx23885/cimax2.c
---- a/drivers/media/video/cx23885/cimax2.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cimax2.c	2012-11-18 23:24:25.949157092 +0800
+diff -urN a/drivers/media/pci/cx23885/cimax2.c b/drivers/media/pci/cx23885/cimax2.c
+--- a/drivers/media/pci/cx23885/cimax2.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cimax2.c	2013-01-20 21:28:10.223423023 +0800
 @@ -412,7 +412,7 @@
  	return state->status;
  }
@@ -4991,9 +4540,9 @@ diff -urN a/drivers/media/video/cx23885/cimax2.c b/drivers/media/video/cx23885/c
 +
 +	return 1;
 +}
-diff -urN a/drivers/media/video/cx23885/cimax2.h b/drivers/media/video/cx23885/cimax2.h
---- a/drivers/media/video/cx23885/cimax2.h	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cimax2.h	2012-11-18 23:24:32.629157268 +0800
+diff -urN a/drivers/media/pci/cx23885/cimax2.h b/drivers/media/pci/cx23885/cimax2.h
+--- a/drivers/media/pci/cx23885/cimax2.h	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cimax2.h	2013-01-20 21:28:22.119423339 +0800
 @@ -41,7 +41,9 @@
  extern int netup_ci_slot_status(struct cx23885_dev *dev, u32 pci_status);
  extern int netup_poll_ci_slot_status(struct dvb_ca_en50221 *en50221,
@@ -5005,18 +4554,18 @@ diff -urN a/drivers/media/video/cx23885/cimax2.h b/drivers/media/video/cx23885/c
 +extern int dvbsky_ci_slot_status(struct cx23885_dev *dev);
 +
  #endif
-diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx23885/cx23885-cards.c
---- a/drivers/media/video/cx23885/cx23885-cards.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cx23885-cards.c	2012-11-18 23:24:41.985157518 +0800
-@@ -564,7 +564,30 @@
- 	[CX23885_BOARD_TEVII_S471] = {
+diff -urN a/drivers/media/pci/cx23885/cx23885-cards.c b/drivers/media/pci/cx23885/cx23885-cards.c
+--- a/drivers/media/pci/cx23885/cx23885-cards.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cx23885-cards.c	2013-01-20 21:28:34.671423677 +0800
+@@ -569,9 +569,32 @@
  		.name		= "TeVii S471",
  		.portb		= CX23885_MPEG_DVB,
--	}
-+	},
+ 	},
+-	[CX23885_BOARD_PROF_8000] = {
+-		.name		= "Prof Revolution DVB-S2 8000",
 +	[CX23885_BOARD_BST_PS8512] = {
 +		.name		= "Bestunar PS8512",
-+		.portb		= CX23885_MPEG_DVB,
+ 		.portb		= CX23885_MPEG_DVB,
 +	},
 +	[CX23885_BOARD_DVBSKY_S950] = {
 +		.name		= "DVBSKY S950",
@@ -5037,14 +4586,19 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
 +		.name		= "DVBSKY C2800E DVB-C CI",
 +		.portb		= CX23885_MPEG_DVB,
 +	},
++	[CX23885_BOARD_PROF_8000] = {
++		.name		= "Prof Revolution DVB-S2 8000",
++		.portb		= CX23885_MPEG_DVB,
+ 	}
  };
  const unsigned int cx23885_bcount = ARRAY_SIZE(cx23885_boards);
- 
-@@ -776,6 +799,26 @@
- 		.subvendor = 0xd471,
+@@ -785,9 +808,29 @@
  		.subdevice = 0x9022,
  		.card      = CX23885_BOARD_TEVII_S471,
-+	}, {
+ 	}, {
+-		.subvendor = 0x8000,
+-		.subdevice = 0x3034,
+-		.card      = CX23885_BOARD_PROF_8000,
 +		.subvendor = 0x14f1,
 +		.subdevice = 0x8512,
 +		.card      = CX23885_BOARD_BST_PS8512,
@@ -5064,10 +4618,23 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
 +		.subvendor = 0x4254,
 +		.subdevice = 0x2800,
 +		.card      = CX23885_BOARD_DVBSKY_C2800E_CI,
++	}, {
++		.subvendor = 0x8000,
++		.subdevice = 0x3034,
++		.card      = CX23885_BOARD_PROF_8000,
  	},
  };
  const unsigned int cx23885_idcount = ARRAY_SIZE(cx23885_subids);
-@@ -1288,9 +1331,83 @@
+@@ -1167,7 +1210,7 @@
+ 		cx_set(GP0_IO, 0x00040004);
+ 		break;
+ 	case CX23885_BOARD_TBS_6920:
+-	case CX23885_BOARD_PROF_8000:
++	case CX23885_BOARD_PROF_8000:	
+ 		cx_write(MC417_CTL, 0x00000036);
+ 		cx_write(MC417_OEN, 0x00001000);
+ 		cx_set(MC417_RWD, 0x00000002);
+@@ -1301,9 +1344,83 @@
  		/* enable irq */
  		cx_write(GPIO_ISM, 0x00000000);/* INTERRUPTS active low*/
  		break;
@@ -5151,7 +4718,7 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
  int cx23885_ir_init(struct cx23885_dev *dev)
  {
  	static struct v4l2_subdev_io_pin_config ir_rxtx_pin_cfg[] = {
-@@ -1374,6 +1491,22 @@
+@@ -1388,6 +1505,22 @@
  		v4l2_subdev_call(dev->sd_cx25840, core, s_io_pin_config,
  				 ir_rx_pin_cfg_count, ir_rx_pin_cfg);
  		break;
@@ -5174,8 +4741,8 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
  	case CX23885_BOARD_HAUPPAUGE_HVR1250:
  		if (!enable_885_ir)
  			break;
-@@ -1405,6 +1538,11 @@
- 		break;
+@@ -1420,6 +1553,11 @@
+ 	case CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL:
  	case CX23885_BOARD_TEVII_S470:
  	case CX23885_BOARD_HAUPPAUGE_HVR1250:
 +	case CX23885_BOARD_BST_PS8512:
@@ -5186,8 +4753,8 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
  		cx23885_irq_remove(dev, PCI_MSK_AV_CORE);
  		/* sd_ir is a duplicate pointer to the AV Core, just clear it */
  		dev->sd_ir = NULL;
-@@ -1448,6 +1586,11 @@
- 		break;
+@@ -1464,6 +1602,11 @@
+ 	case CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL:
  	case CX23885_BOARD_TEVII_S470:
  	case CX23885_BOARD_HAUPPAUGE_HVR1250:
 +	case CX23885_BOARD_BST_PS8512:
@@ -5198,7 +4765,7 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
  		if (dev->sd_ir)
  			cx23885_irq_add_enable(dev, PCI_MSK_AV_CORE);
  		break;
-@@ -1533,6 +1676,10 @@
+@@ -1549,6 +1692,10 @@
  		ts1->ts_clk_en_val = 0x1; /* Enable TS_CLK */
  		ts1->src_sel_val   = CX23885_SRC_SEL_PARALLEL_MPEG_VIDEO;
  		break;
@@ -5209,7 +4776,7 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
  	case CX23885_BOARD_TEVII_S470:
  	case CX23885_BOARD_TEVII_S471:
  	case CX23885_BOARD_DVBWORLD_2005:
-@@ -1564,6 +1711,14 @@
+@@ -1581,6 +1728,14 @@
  		ts2->ts_clk_en_val = 0x1; /* Enable TS_CLK */
  		ts2->src_sel_val   = CX23885_SRC_SEL_PARALLEL_MPEG_VIDEO;
  		break;
@@ -5224,7 +4791,7 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
  	case CX23885_BOARD_HAUPPAUGE_HVR1250:
  	case CX23885_BOARD_HAUPPAUGE_HVR1500:
  	case CX23885_BOARD_HAUPPAUGE_HVR1500Q:
-@@ -1619,6 +1774,11 @@
+@@ -1636,6 +1791,11 @@
  	case CX23885_BOARD_MPX885:
  	case CX23885_BOARD_MYGICA_X8507:
  	case CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL:
@@ -5236,9 +4803,9 @@ diff -urN a/drivers/media/video/cx23885/cx23885-cards.c b/drivers/media/video/cx
  		dev->sd_cx25840 = v4l2_i2c_new_subdev(&dev->v4l2_dev,
  				&dev->i2c_bus[2].i2c_adap,
  				"cx25840", 0x88 >> 1, NULL);
-diff -urN a/drivers/media/video/cx23885/cx23885-core.c b/drivers/media/video/cx23885/cx23885-core.c
---- a/drivers/media/video/cx23885/cx23885-core.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cx23885-core.c	2012-11-18 23:24:52.437157796 +0800
+diff -urN a/drivers/media/pci/cx23885/cx23885-core.c b/drivers/media/pci/cx23885/cx23885-core.c
+--- a/drivers/media/pci/cx23885/cx23885-core.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cx23885-core.c	2013-01-20 21:28:42.383423884 +0800
 @@ -1911,6 +1911,10 @@
  			(pci_status & PCI_MSK_GPIO0))
  		handled += altera_ci_irq(dev);
@@ -5259,9 +4826,9 @@ diff -urN a/drivers/media/video/cx23885/cx23885-core.c b/drivers/media/video/cx2
  		cx23885_irq_add_enable(dev, PCI_MSK_GPIO0);
  		break;
  	}
-diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23885/cx23885-dvb.c
---- a/drivers/media/video/cx23885/cx23885-dvb.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cx23885-dvb.c	2012-11-18 23:24:57.401157930 +0800
+diff -urN a/drivers/media/pci/cx23885/cx23885-dvb.c b/drivers/media/pci/cx23885/cx23885-dvb.c
+--- a/drivers/media/pci/cx23885/cx23885-dvb.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cx23885-dvb.c	2013-01-20 21:28:48.763424057 +0800
 @@ -51,6 +51,8 @@
  #include "stv6110.h"
  #include "lnbh24.h"
@@ -5271,10 +4838,41 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
  #include "cimax2.h"
  #include "lgs8gxx.h"
  #include "netup-eeprom.h"
-@@ -489,6 +491,42 @@
+@@ -63,8 +65,8 @@
+ #include "stv0367.h"
+ #include "drxk.h"
+ #include "mt2063.h"
+-#include "stv090x.h"
+-#include "stb6100.h"
++#include "stv090x.h"
++#include "stb6100.h"
+ #include "stb6100_cfg.h"
+ 
+ static unsigned int debug;
+@@ -492,40 +494,76 @@
  	.if_khz = 5380,
  };
  
+-static struct stv090x_config prof_8000_stv090x_config = {
+-        .device                 = STV0903,
+-        .demod_mode             = STV090x_SINGLE,
+-        .clk_mode               = STV090x_CLK_EXT,
+-        .xtal                   = 27000000,
+-        .address                = 0x6A,
+-        .ts1_mode               = STV090x_TSMODE_PARALLEL_PUNCTURED,
+-        .repeater_level         = STV090x_RPTLEVEL_64,
+-        .adc1_range             = STV090x_ADC_2Vpp,
+-        .diseqc_envelope_mode   = false,
+-
+-        .tuner_get_frequency    = stb6100_get_frequency,
+-        .tuner_set_frequency    = stb6100_set_frequency,
+-        .tuner_set_bandwidth    = stb6100_set_bandwidth,
+-        .tuner_get_bandwidth    = stb6100_get_bandwidth,
+-};
+-
+-static struct stb6100_config prof_8000_stb6100_config = {
+-	.tuner_address = 0x60,
+-	.refclock = 27000000,
 +/* bestunar single dvb-s2 */
 +static struct m88ds3103_config bst_ds3103_config = {
 +	.demod_address = 0x68,
@@ -5297,8 +4895,20 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
 +	.pin_ctrl = 0x82,
 +	.ts_mode = 1,
 +	.set_voltage = dvbsky_set_voltage_sec,	
-+};
-+
+ };
+ 
+-static int p8000_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
+-{
+-	struct cx23885_tsport *port = fe->dvb->priv;
+-	struct cx23885_dev *dev = port->dev;
+-
+-	if (voltage == SEC_VOLTAGE_18)
+-		cx_write(MC417_RWD, 0x00001e00);
+-	else if (voltage == SEC_VOLTAGE_13)
+-		cx_write(MC417_RWD, 0x00001a00);
+-	else
+-		cx_write(MC417_RWD, 0x00001800);
+-	return 0;
 +static struct m88ds3103_config dvbsky_ds3103_ci_config = {
 +	.demod_address = 0x68,
 +	.ci_mode = 2,
@@ -5311,13 +4921,49 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
 +	.ts_mode = 3,	
 +};
 +
++static struct stv090x_config prof_8000_stv090x_config = {
++        .device                 = STV0903,
++        .demod_mode             = STV090x_SINGLE,
++        .clk_mode               = STV090x_CLK_EXT,
++        .xtal                   = 27000000,
++        .address                = 0x6A,
++        .ts1_mode               = STV090x_TSMODE_PARALLEL_PUNCTURED,
++        .repeater_level         = STV090x_RPTLEVEL_64,
++        .adc1_range             = STV090x_ADC_2Vpp,
++        .diseqc_envelope_mode   = false,
++
++        .tuner_get_frequency    = stb6100_get_frequency,
++        .tuner_set_frequency    = stb6100_set_frequency,
++        .tuner_set_bandwidth    = stb6100_set_bandwidth,
++        .tuner_get_bandwidth    = stb6100_get_bandwidth,
++};
++
++static struct stb6100_config prof_8000_stb6100_config = {
++	.tuner_address = 0x60,
++	.refclock = 27000000,
++};
++
++static int p8000_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
++{
++	struct cx23885_tsport *port = fe->dvb->priv;
++	struct cx23885_dev *dev = port->dev;
++
++	if (voltage == SEC_VOLTAGE_18)
++		cx_write(MC417_RWD, 0x00001e00);
++	else if (voltage == SEC_VOLTAGE_13)
++		cx_write(MC417_RWD, 0x00001a00);
++	else
++		cx_write(MC417_RWD, 0x00001800);
++	return 0;
+ }
+ 
  static int cx23885_dvb_set_frontend(struct dvb_frontend *fe)
- {
- 	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
-@@ -1186,6 +1224,47 @@
+@@ -1225,22 +1263,63 @@
  					&tevii_ds3000_config,
  					&i2c_bus->i2c_adap);
  		break;
+-	case CX23885_BOARD_PROF_8000:
+-		i2c_bus = &dev->i2c_bus[0];
 +	case CX23885_BOARD_BST_PS8512:
 +	case CX23885_BOARD_DVBSKY_S950:
 +		i2c_bus = &dev->i2c_bus[1];	
@@ -5344,7 +4990,17 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
 +			break;
 +		}
 +		break;
-+
+ 
+-		fe0->dvb.frontend = dvb_attach(stv090x_attach,
+-						&prof_8000_stv090x_config,
+-						&i2c_bus->i2c_adap,
+-						STV090x_DEMODULATOR_0);
+-		if (fe0->dvb.frontend != NULL) {
+-			if (!dvb_attach(stb6100_attach,
+-					fe0->dvb.frontend,
+-					&prof_8000_stb6100_config,
+-					&i2c_bus->i2c_adap))
+-				goto frontend_detach;
 +	case CX23885_BOARD_DVBSKY_S950_CI:
 +		i2c_bus = &dev->i2c_bus[1];	
 +		fe0->dvb.frontend = dvb_attach(m88ds3103_attach,
@@ -5358,11 +5014,29 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
 +					&dvbsky_dc2800_config,
 +					&i2c_bus->i2c_adap);
 +		break;
+ 
+-			fe0->dvb.frontend->ops.set_voltage = p8000_set_voltage;
+-		}
++	case CX23885_BOARD_PROF_8000:
++		i2c_bus = &dev->i2c_bus[0];
 +
++		fe0->dvb.frontend = dvb_attach(stv090x_attach,
++						&prof_8000_stv090x_config,
++						&i2c_bus->i2c_adap,
++						STV090x_DEMODULATOR_0);
++		if (fe0->dvb.frontend != NULL) {
++			if (!dvb_attach(stb6100_attach,
++					fe0->dvb.frontend,
++					&prof_8000_stb6100_config,
++					&i2c_bus->i2c_adap))
++				goto frontend_detach;
++
++			fe0->dvb.frontend->ops.set_voltage = p8000_set_voltage;
++		}
+ 		break;
  	default:
  		printk(KERN_INFO "%s: The frontend of your DVB/ATSC card "
- 			" isn't supported yet\n",
-@@ -1234,7 +1313,7 @@
+@@ -1289,7 +1368,7 @@
  		printk(KERN_INFO "NetUP Dual DVB-S2 CI card port%d MAC=%pM\n",
  			port->nr, port->frontends.adapter.proposed_mac);
  
@@ -5371,7 +5045,7 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
  		break;
  		}
  	case CX23885_BOARD_NETUP_DUAL_DVB_T_C_CI_RF: {
-@@ -1261,6 +1340,40 @@
+@@ -1316,6 +1395,40 @@
  		memcpy(port->frontends.adapter.proposed_mac, eeprom + 0xa0, 6);
  		break;
  		}
@@ -5412,7 +5086,7 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
  	}
  
  	return ret;
-@@ -1343,6 +1456,8 @@
+@@ -1398,6 +1511,8 @@
  
  	switch (port->dev->board) {
  	case CX23885_BOARD_NETUP_DUAL_DVBS2_CI:
@@ -5421,9 +5095,9 @@ diff -urN a/drivers/media/video/cx23885/cx23885-dvb.c b/drivers/media/video/cx23
  		netup_ci_exit(port);
  		break;
  	case CX23885_BOARD_NETUP_DUAL_DVB_T_C_CI_RF:
-diff -urN a/drivers/media/video/cx23885/cx23885-f300.c b/drivers/media/video/cx23885/cx23885-f300.c
---- a/drivers/media/video/cx23885/cx23885-f300.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cx23885-f300.c	2012-11-18 23:25:02.869158076 +0800
+diff -urN a/drivers/media/pci/cx23885/cx23885-f300.c b/drivers/media/pci/cx23885/cx23885-f300.c
+--- a/drivers/media/pci/cx23885/cx23885-f300.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cx23885-f300.c	2013-01-20 21:28:54.147424198 +0800
 @@ -175,3 +175,58 @@
  
  	return f300_xfer(fe, buf);
@@ -5484,9 +5158,9 @@ diff -urN a/drivers/media/video/cx23885/cx23885-f300.c b/drivers/media/video/cx2
 +	return 0;
 +}
 \ No newline at end of file
-diff -urN a/drivers/media/video/cx23885/cx23885-f300.h b/drivers/media/video/cx23885/cx23885-f300.h
---- a/drivers/media/video/cx23885/cx23885-f300.h	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cx23885-f300.h	2012-11-18 23:25:22.493158602 +0800
+diff -urN a/drivers/media/pci/cx23885/cx23885-f300.h b/drivers/media/pci/cx23885/cx23885-f300.h
+--- a/drivers/media/pci/cx23885/cx23885-f300.h	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cx23885-f300.h	2013-01-20 21:28:59.807424351 +0800
 @@ -1,2 +1,8 @@
 +extern int dvbsky_set_voltage_sec(struct dvb_frontend *fe,
 +				fe_sec_voltage_t voltage);
@@ -5496,22 +5170,24 @@ diff -urN a/drivers/media/video/cx23885/cx23885-f300.h b/drivers/media/video/cx2
 +
  extern int f300_set_voltage(struct dvb_frontend *fe,
  				fe_sec_voltage_t voltage);
-diff -urN a/drivers/media/video/cx23885/cx23885.h b/drivers/media/video/cx23885/cx23885.h
---- a/drivers/media/video/cx23885/cx23885.h	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cx23885.h	2012-11-18 23:24:37.021157384 +0800
-@@ -90,6 +90,11 @@
+diff -urN a/drivers/media/pci/cx23885/cx23885.h b/drivers/media/pci/cx23885/cx23885.h
+--- a/drivers/media/pci/cx23885/cx23885.h	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cx23885.h	2013-01-20 21:28:28.223423504 +0800
+@@ -90,7 +90,12 @@
  #define CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL 34
  #define CX23885_BOARD_TEVII_S471               35
  #define CX23885_BOARD_HAUPPAUGE_HVR1255_22111  36
+-#define CX23885_BOARD_PROF_8000                37
 +#define CX23885_BOARD_BST_PS8512				37
 +#define CX23885_BOARD_DVBSKY_S952				38
 +#define CX23885_BOARD_DVBSKY_S950				39
 +#define CX23885_BOARD_DVBSKY_S950_CI			40
 +#define CX23885_BOARD_DVBSKY_C2800E_CI			41
++#define CX23885_BOARD_PROF_8000                42
  
  #define GPIO_0 0x00000001
  #define GPIO_1 0x00000002
-@@ -228,7 +233,7 @@
+@@ -229,7 +234,7 @@
  	 */
  	u32			clk_freq;
  	struct cx23885_input    input[MAX_CX23885_INPUT];
@@ -5520,11 +5196,11 @@ diff -urN a/drivers/media/video/cx23885/cx23885.h b/drivers/media/video/cx23885/
  	/* Force bottom field first during DMA (888 workaround) */
  	u32                     force_bff;
  };
-diff -urN a/drivers/media/video/cx23885/cx23885-input.c b/drivers/media/video/cx23885/cx23885-input.c
---- a/drivers/media/video/cx23885/cx23885-input.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/cx23885-input.c	2012-11-18 23:25:34.089158915 +0800
-@@ -87,6 +87,11 @@
- 	case CX23885_BOARD_HAUPPAUGE_HVR1290:
+diff -urN a/drivers/media/pci/cx23885/cx23885-input.c b/drivers/media/pci/cx23885/cx23885-input.c
+--- a/drivers/media/pci/cx23885/cx23885-input.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/cx23885-input.c	2013-01-20 21:29:04.859424485 +0800
+@@ -88,6 +88,11 @@
+ 	case CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL:
  	case CX23885_BOARD_TEVII_S470:
  	case CX23885_BOARD_HAUPPAUGE_HVR1250:
 +	case CX23885_BOARD_BST_PS8512:
@@ -5535,7 +5211,7 @@ diff -urN a/drivers/media/video/cx23885/cx23885-input.c b/drivers/media/video/cx
  		/*
  		 * The only boards we handle right now.  However other boards
  		 * using the CX2388x integrated IR controller should be similar
-@@ -138,6 +143,11 @@
+@@ -139,6 +144,11 @@
  	case CX23885_BOARD_HAUPPAUGE_HVR1850:
  	case CX23885_BOARD_HAUPPAUGE_HVR1290:
  	case CX23885_BOARD_HAUPPAUGE_HVR1250:
@@ -5547,7 +5223,26 @@ diff -urN a/drivers/media/video/cx23885/cx23885-input.c b/drivers/media/video/cx
  		/*
  		 * The IR controller on this board only returns pulse widths.
  		 * Any other mode setting will fail to set up the device.
-@@ -279,6 +289,17 @@
+@@ -274,12 +284,12 @@
+ 		/* The grey Hauppauge RC-5 remote */
+ 		rc_map = RC_MAP_HAUPPAUGE;
+ 		break;
+-	case CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL:
+-		/* Integrated CX23885 IR controller */
+-		driver_type = RC_DRIVER_IR_RAW;
+-		allowed_protos = RC_TYPE_NEC;
+-		/* The grey Terratec remote with orange buttons */
+-		rc_map = RC_MAP_NEC_TERRATEC_CINERGY_XS;
++	case CX23885_BOARD_TERRATEC_CINERGY_T_PCIE_DUAL:
++		/* Integrated CX23885 IR controller */
++		driver_type = RC_DRIVER_IR_RAW;
++		allowed_protos = RC_TYPE_NEC;
++		/* The grey Terratec remote with orange buttons */
++		rc_map = RC_MAP_NEC_TERRATEC_CINERGY_XS;
+ 		break;
+ 	case CX23885_BOARD_TEVII_S470:
+ 		/* Integrated CX23885 IR controller */
+@@ -288,6 +298,17 @@
  		/* A guess at the remote */
  		rc_map = RC_MAP_TEVII_NEC;
  		break;
@@ -5565,21 +5260,21 @@ diff -urN a/drivers/media/video/cx23885/cx23885-input.c b/drivers/media/video/cx
  	default:
  		return -ENODEV;
  	}
-diff -urN a/drivers/media/video/cx23885/Kconfig b/drivers/media/video/cx23885/Kconfig
---- a/drivers/media/video/cx23885/Kconfig	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx23885/Kconfig	2012-11-18 23:25:39.221159051 +0800
-@@ -20,6 +20,8 @@
- 	select DVB_LNBP21 if !DVB_FE_CUSTOMISE
- 	select DVB_STV6110 if !DVB_FE_CUSTOMISE
- 	select DVB_CX24116 if !DVB_FE_CUSTOMISE
-+	select DVB_M88DS3103 if !DVB_FE_CUSTOMISE
-+	select DVB_M88DC2800 if !DVB_FE_CUSTOMISE
- 	select DVB_STV0900 if !DVB_FE_CUSTOMISE
- 	select DVB_DS3000 if !DVB_FE_CUSTOMISE
- 	select DVB_STV0367 if !DVB_FE_CUSTOMISE
-diff -urN a/drivers/media/video/cx88/cx88-cards.c b/drivers/media/video/cx88/cx88-cards.c
---- a/drivers/media/video/cx88/cx88-cards.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx88/cx88-cards.c	2012-11-18 23:26:46.493160850 +0800
+diff -urN a/drivers/media/pci/cx23885/Kconfig b/drivers/media/pci/cx23885/Kconfig
+--- a/drivers/media/pci/cx23885/Kconfig	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx23885/Kconfig	2013-01-20 21:29:11.111424653 +0800
+@@ -23,6 +23,8 @@
+ 	select DVB_STB6100 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STV6110 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_CX24116 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_M88DS3103 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_M88DC2800 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STV0900 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_DS3000 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STV0367 if MEDIA_SUBDRV_AUTOSELECT
+diff -urN a/drivers/media/pci/cx88/cx88-cards.c b/drivers/media/pci/cx88/cx88-cards.c
+--- a/drivers/media/pci/cx88/cx88-cards.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx88/cx88-cards.c	2013-01-20 21:29:28.799425126 +0800
 @@ -2309,6 +2309,18 @@
  		} },
  		.mpeg           = CX88_MPEG_DVB,
@@ -5623,9 +5318,9 @@ diff -urN a/drivers/media/video/cx88/cx88-cards.c b/drivers/media/video/cx88/cx8
  	} /*end switch() */
  
  
-diff -urN a/drivers/media/video/cx88/cx88-dvb.c b/drivers/media/video/cx88/cx88-dvb.c
---- a/drivers/media/video/cx88/cx88-dvb.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx88/cx88-dvb.c	2012-11-18 23:26:51.733160994 +0800
+diff -urN a/drivers/media/pci/cx88/cx88-dvb.c b/drivers/media/pci/cx88/cx88-dvb.c
+--- a/drivers/media/pci/cx88/cx88-dvb.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx88/cx88-dvb.c	2013-01-20 21:29:34.271425273 +0800
 @@ -54,6 +54,7 @@
  #include "stv0288.h"
  #include "stb6000.h"
@@ -5739,9 +5434,18 @@ diff -urN a/drivers/media/video/cx88/cx88-dvb.c b/drivers/media/video/cx88/cx88-
  	case CX88_BOARD_OMICOM_SS4_PCI:
  	case CX88_BOARD_TBS_8920:
  	case CX88_BOARD_PROF_7300:
-diff -urN a/drivers/media/video/cx88/cx88.h b/drivers/media/video/cx88/cx88.h
---- a/drivers/media/video/cx88/cx88.h	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx88/cx88.h	2012-11-18 23:26:40.701160685 +0800
+diff -urN a/drivers/media/pci/cx88/cx88.h b/drivers/media/pci/cx88/cx88.h
+--- a/drivers/media/pci/cx88/cx88.h	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx88/cx88.h	2013-01-20 21:29:23.279424981 +0800
+@@ -141,7 +141,7 @@
+ 	u32  cnt1_reg;
+ 	u32  cnt2_reg;
+ };
+-extern const struct sram_channel cx88_sram_channels[];
++extern const struct sram_channel const cx88_sram_channels[];
+ 
+ /* ----------------------------------------------------------- */
+ /* card configuration                                          */
 @@ -238,6 +238,7 @@
  #define CX88_BOARD_WINFAST_DTV1800H_XC4000 88
  #define CX88_BOARD_WINFAST_TV2000_XP_GLOBAL_6F36 89
@@ -5750,9 +5454,9 @@ diff -urN a/drivers/media/video/cx88/cx88.h b/drivers/media/video/cx88/cx88.h
  
  enum cx88_itype {
  	CX88_VMUX_COMPOSITE1 = 1,
-diff -urN a/drivers/media/video/cx88/cx88-input.c b/drivers/media/video/cx88/cx88-input.c
---- a/drivers/media/video/cx88/cx88-input.c	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx88/cx88-input.c	2012-11-18 23:26:56.589161123 +0800
+diff -urN a/drivers/media/pci/cx88/cx88-input.c b/drivers/media/pci/cx88/cx88-input.c
+--- a/drivers/media/pci/cx88/cx88-input.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx88/cx88-input.c	2013-01-20 21:29:39.703425420 +0800
 @@ -419,6 +419,10 @@
  		rc_type          = RC_TYPE_NEC;
  		ir->sampling     = 0xff00; /* address */
@@ -5764,20 +5468,470 @@ diff -urN a/drivers/media/video/cx88/cx88-input.c b/drivers/media/video/cx88/cx8
  	}
  
  	if (!ir_codes) {
-diff -urN a/drivers/media/video/cx88/Kconfig b/drivers/media/video/cx88/Kconfig
---- a/drivers/media/video/cx88/Kconfig	2012-11-05 16:57:06.000000000 +0800
-+++ b/drivers/media/video/cx88/Kconfig	2012-11-18 23:27:01.261161247 +0800
+diff -urN a/drivers/media/pci/cx88/Kconfig b/drivers/media/pci/cx88/Kconfig
+--- a/drivers/media/pci/cx88/Kconfig	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/pci/cx88/Kconfig	2013-01-20 21:29:45.003425557 +0800
 @@ -57,6 +57,7 @@
- 	select DVB_ISL6421 if !DVB_FE_CUSTOMISE
- 	select DVB_S5H1411 if !DVB_FE_CUSTOMISE
- 	select DVB_CX24116 if !DVB_FE_CUSTOMISE
-+	select DVB_M88DS3103 if !DVB_FE_CUSTOMISE
- 	select DVB_STV0299 if !DVB_FE_CUSTOMISE
- 	select DVB_STV0288 if !DVB_FE_CUSTOMISE
- 	select DVB_STB6000 if !DVB_FE_CUSTOMISE
+ 	select DVB_ISL6421 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_S5H1411 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_CX24116 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_M88DS3103 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STV0299 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STV0288 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STB6000 if MEDIA_SUBDRV_AUTOSELECT
+diff -urN a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+--- a/drivers/media/rc/keymaps/Makefile	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/rc/keymaps/Makefile	2013-01-20 21:30:04.547426084 +0800
+@@ -27,6 +27,7 @@
+ 			rc-dm1105-nec.o \
+ 			rc-dntv-live-dvb-t.o \
+ 			rc-dntv-live-dvbt-pro.o \
++			rc-dvbsky.o \
+ 			rc-em-terratec.o \
+ 			rc-encore-enltv2.o \
+ 			rc-encore-enltv.o \
+diff -urN a/drivers/media/rc/keymaps/rc-dvbsky.c b/drivers/media/rc/keymaps/rc-dvbsky.c
+--- a/drivers/media/rc/keymaps/rc-dvbsky.c	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/media/rc/keymaps/rc-dvbsky.c	2013-01-20 21:30:09.031426205 +0800
+@@ -0,0 +1,78 @@
++/* rc-dvbsky.c - Keytable for Dvbsky Remote Controllers
++ *
++ * keymap imported from ir-keymaps.c
++ *
++ *
++ * Copyright (c) 2010-2012 by Nibble Max <nibble.max@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++/*
++ * This table contains the complete RC5 code, instead of just the data part
++ */
++
++static struct rc_map_table rc5_dvbsky[] = {
++	{ 0x0000, KEY_0 },
++	{ 0x0001, KEY_1 },
++	{ 0x0002, KEY_2 },
++	{ 0x0003, KEY_3 },
++	{ 0x0004, KEY_4 },
++	{ 0x0005, KEY_5 },
++	{ 0x0006, KEY_6 },
++	{ 0x0007, KEY_7 },
++	{ 0x0008, KEY_8 },
++	{ 0x0009, KEY_9 },	
++	{ 0x000a, KEY_MUTE },
++	{ 0x000d, KEY_OK },
++	{ 0x000b, KEY_STOP },
++	{ 0x000c, KEY_EXIT },	
++	{ 0x000e, KEY_CAMERA }, /*Snap shot*/
++	{ 0x000f, KEY_SUBTITLE }, /*PIP*/
++	{ 0x0010, KEY_VOLUMEUP },
++	{ 0x0011, KEY_VOLUMEDOWN },
++	{ 0x0012, KEY_FAVORITES },
++	{ 0x0013, KEY_LIST }, /*Info*/
++	{ 0x0016, KEY_PAUSE },
++	{ 0x0017, KEY_PLAY },
++	{ 0x001f, KEY_RECORD },
++	{ 0x0020, KEY_CHANNELDOWN },
++	{ 0x0021, KEY_CHANNELUP },
++	{ 0x0025, KEY_POWER2 },
++	{ 0x0026, KEY_REWIND },
++	{ 0x0027, KEY_FASTFORWARD },
++	{ 0x0029, KEY_LAST },
++	{ 0x002b, KEY_MENU },	
++	{ 0x002c, KEY_EPG },
++	{ 0x002d, KEY_ZOOM },	
++};
++
++static struct rc_map_list rc5_dvbsky_map = {
++	.map = {
++		.scan    = rc5_dvbsky,
++		.size    = ARRAY_SIZE(rc5_dvbsky),
++		.rc_type = RC_TYPE_RC5,
++		.name    = RC_MAP_DVBSKY,
++	}
++};
++
++static int __init init_rc_map_rc5_dvbsky(void)
++{
++	return rc_map_register(&rc5_dvbsky_map);
++}
++
++static void __exit exit_rc_map_rc5_dvbsky(void)
++{
++	rc_map_unregister(&rc5_dvbsky_map);
++}
++
++module_init(init_rc_map_rc5_dvbsky)
++module_exit(exit_rc_map_rc5_dvbsky)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Nibble Max <nibble.max@gmail.com>");
+diff -urN a/drivers/media/usb/dvb-usb/dw2102.c b/drivers/media/usb/dvb-usb/dw2102.c
+--- a/drivers/media/usb/dvb-usb/dw2102.c	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/usb/dvb-usb/dw2102.c	2013-01-20 21:30:34.203426878 +0800
+@@ -19,6 +19,7 @@
+ #include "stb6000.h"
+ #include "eds1547.h"
+ #include "cx24116.h"
++#include "m88ds3103.h"
+ #include "tda1002x.h"
+ #include "mt312.h"
+ #include "zl10039.h"
+@@ -830,6 +831,39 @@
+ 	return 0;
+ }
+ 
++static int dvbsky_read_mac_address(struct dvb_usb_device *d, u8 mac[6])
++{
++	int i;
++	u8 obuf[] = { 0x1e, 0x00 };
++	u8 ibuf[] = { 0 };
++	struct i2c_msg msg[] = {
++		{
++			.addr = 0x51,
++			.flags = 0,
++			.buf = obuf,
++			.len = 2,
++		}, {
++			.addr = 0x51,
++			.flags = I2C_M_RD,
++			.buf = ibuf,
++			.len = 1,
++
++		}
++	};
++
++	for (i = 0; i < 6; i++) {
++		obuf[1] = i;
++		if (i2c_transfer(&d->i2c_adap, msg, 2) != 2)
++			break;
++		else
++			mac[i] = ibuf[0];
++
++		debug_dump(mac, 6, printk);
++	}
++
++	return 0;
++}
++
+ static int su3000_identify_state(struct usb_device *udev,
+ 				 struct dvb_usb_device_properties *props,
+ 				 struct dvb_usb_device_description **desc,
+@@ -878,6 +912,43 @@
+ 	return 0;
+ }
+ 
++static int bstusb_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
++{
++
++	struct dvb_usb_adapter *udev_adap =
++		(struct dvb_usb_adapter *)(fe->dvb->priv);
++
++	u8 obuf[3] = { 0xe, 0x80, 0 };
++	u8 ibuf[] = { 0 };
++
++	info("US6830: %s!\n", __func__);
++
++	if (voltage == SEC_VOLTAGE_OFF)
++		obuf[2] = 0;
++	else
++		obuf[2] = 1;
++
++	if (dvb_usb_generic_rw(udev_adap->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x0e transfer failed.");
++
++	return 0;
++}
++
++static int bstusb_restart(struct dvb_frontend *fe)
++{
++
++	struct dvb_usb_adapter *udev_adap =
++		(struct dvb_usb_adapter *)(fe->dvb->priv);
++
++	u8 obuf[3] = { 0x36, 3, 0 };
++	u8 ibuf[] = { 0 };
++
++	if (dvb_usb_generic_rw(udev_adap->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x36 transfer failed.");
++
++	return 0;
++}
++
+ static void dw210x_led_ctrl(struct dvb_frontend *fe, int offon)
+ {
+ 	static u8 led_off[] = { 0 };
+@@ -983,6 +1054,24 @@
+ 	.ci_mode = 1,
+ };
+ 
++static struct m88ds3103_config US6830_ds3103_config = {
++	.demod_address = 0x68,
++	.ci_mode = 1,
++	.pin_ctrl = 0x83,
++	.ts_mode = 0,
++	.start_ctrl = bstusb_restart,
++	.set_voltage = bstusb_set_voltage,
++};
++
++static struct m88ds3103_config US6832_ds3103_config = {
++	.demod_address = 0x68,
++	.ci_mode = 1,
++	.pin_ctrl = 0x80,
++	.ts_mode = 0,
++	.start_ctrl = bstusb_restart,
++	.set_voltage = bstusb_set_voltage,
++};
++
+ static int dw2104_frontend_attach(struct dvb_usb_adapter *d)
+ {
+ 	struct dvb_tuner_ops *tuner_ops = NULL;
+@@ -1210,6 +1299,87 @@
+ 	return 0;
+ }
+ 
++static int US6830_frontend_attach(struct dvb_usb_adapter *d)
++{
++	u8 obuf[3] = { 0xe, 0x04, 1 };
++	u8 ibuf[] = { 0 };
++
++	info("US6830: %s!\n", __func__);
++
++	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x0e transfer failed.");
++
++	obuf[0] = 0xe;
++	obuf[1] = 0x83;
++	obuf[2] = 0;
++	
++	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x0e transfer failed.");
++
++	msleep(20);
++
++	obuf[0] = 0xe;
++	obuf[1] = 0x83;
++	obuf[2] = 1;
++
++	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x0e transfer failed.");
++
++	obuf[0] = 0x51;
++
++	if (dvb_usb_generic_rw(d->dev, obuf, 1, ibuf, 1, 0) < 0)
++		err("command 0x51 transfer failed.");
++
++	d->fe_adap[0].fe = dvb_attach(m88ds3103_attach, &US6830_ds3103_config,
++					&d->dev->i2c_adap);
++	if (d->fe_adap[0].fe == NULL)
++		return -EIO;
++
++	info("Attached M88DS3103!\n");
++
++	return 0;
++}
++
++static int US6832_frontend_attach(struct dvb_usb_adapter *d)
++{
++	u8 obuf[3] = { 0xe, 0x04, 1 };
++	u8 ibuf[] = { 0 };
++
++	info("US6832: %s!\n", __func__);
++
++	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x0e transfer failed.");
++
++	obuf[0] = 0xe;
++	obuf[1] = 0x83;
++	obuf[2] = 0;
++	
++	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x0e transfer failed.");
++
++	msleep(20);
++	obuf[0] = 0xe;
++	obuf[1] = 0x83;
++	obuf[2] = 1;
++
++	if (dvb_usb_generic_rw(d->dev, obuf, 3, ibuf, 1, 0) < 0)
++		err("command 0x0e transfer failed.");
++
++	obuf[0] = 0x51;
++
++	if (dvb_usb_generic_rw(d->dev, obuf, 1, ibuf, 1, 0) < 0)
++		err("command 0x51 transfer failed.");
++
++	d->fe_adap[0].fe = dvb_attach(m88ds3103_attach, &US6832_ds3103_config,
++					&d->dev->i2c_adap);
++	if (d->fe_adap[0].fe == NULL)
++		return -EIO;
++
++	info("Attached M88DS3103!\n");
++
++	return 0;
++}
++
+ static int dw2102_tuner_attach(struct dvb_usb_adapter *adap)
+ {
+ 	dvb_attach(dvb_pll_attach, adap->fe_adap[0].fe, 0x60,
+@@ -1447,6 +1617,9 @@
+ 	TEVII_S480_1,
+ 	TEVII_S480_2,
+ 	X3M_SPC1400HD,
++	BST_US6830HD,
++	BST_US6831HD,
++	BST_US6832HD,
+ };
+ 
+ static struct usb_device_id dw2102_table[] = {
+@@ -1465,6 +1638,9 @@
+ 	[TEVII_S480_1] = {USB_DEVICE(0x9022, USB_PID_TEVII_S480_1)},
+ 	[TEVII_S480_2] = {USB_DEVICE(0x9022, USB_PID_TEVII_S480_2)},
+ 	[X3M_SPC1400HD] = {USB_DEVICE(0x1f4d, 0x3100)},
++	[BST_US6830HD] = {USB_DEVICE(0x0572, 0x6830)},
++	[BST_US6831HD] = {USB_DEVICE(0x0572, 0x6831)},
++	[BST_US6832HD] = {USB_DEVICE(0x0572, 0x6832)},
+ 	{ }
+ };
+ 
+@@ -1870,6 +2046,106 @@
+ 	}
+ };
+ 
++static struct dvb_usb_device_properties US6830_properties = {
++	.caps = DVB_USB_IS_AN_I2C_ADAPTER,
++	.usb_ctrl = DEVICE_SPECIFIC,
++	.size_of_priv = sizeof(struct su3000_state),
++	.power_ctrl = su3000_power_ctrl,
++	.num_adapters = 1,
++	.identify_state	= su3000_identify_state,
++	.i2c_algo = &su3000_i2c_algo,
++
++	.rc.legacy = {
++		.rc_map_table = rc_map_su3000_table,
++		.rc_map_size = ARRAY_SIZE(rc_map_su3000_table),
++		.rc_interval = 150,
++		.rc_query = dw2102_rc_query,
++	},
++
++	.read_mac_address = dvbsky_read_mac_address,
++
++	.generic_bulk_ctrl_endpoint = 0x01,
++	
++	.adapter = {
++		{
++		.num_frontends = 1,
++		.fe = {{
++			.streaming_ctrl   = su3000_streaming_ctrl,
++			.frontend_attach  = US6830_frontend_attach,
++			.stream = {
++				.type = USB_BULK,
++				.count = 8,
++				.endpoint = 0x82,
++				.u = {
++					.bulk = {
++						.buffersize = 4096,
++					}
++				}
++			}
++		}},
++		}
++	},
++	.num_device_descs = 2,
++	.devices = {
++		{ "Bestunar US6830 HD",
++			{ &dw2102_table[BST_US6830HD], NULL },
++			{ NULL },
++		},
++		{ "Bestunar US6831 HD",
++			{ &dw2102_table[BST_US6831HD], NULL },
++			{ NULL },
++		},				
++	}
++};
++
++static struct dvb_usb_device_properties US6832_properties = {
++	.caps = DVB_USB_IS_AN_I2C_ADAPTER,
++	.usb_ctrl = DEVICE_SPECIFIC,
++	.size_of_priv = sizeof(struct su3000_state),
++	.power_ctrl = su3000_power_ctrl,
++	.num_adapters = 1,
++	.identify_state	= su3000_identify_state,
++	.i2c_algo = &su3000_i2c_algo,
++
++	.rc.legacy = {
++		.rc_map_table = rc_map_su3000_table,
++		.rc_map_size = ARRAY_SIZE(rc_map_su3000_table),
++		.rc_interval = 150,
++		.rc_query = dw2102_rc_query,
++	},
++
++	.read_mac_address = dvbsky_read_mac_address,
++
++	.generic_bulk_ctrl_endpoint = 0x01,
++
++	.adapter = {
++		{
++		.num_frontends = 1,
++		.fe = {{
++			.streaming_ctrl   = su3000_streaming_ctrl,
++			.frontend_attach  = US6832_frontend_attach,
++			.stream = {
++				.type = USB_BULK,
++				.count = 8,
++				.endpoint = 0x82,
++				.u = {
++					.bulk = {
++						.buffersize = 4096,
++					}
++				}
++			}
++		}},
++		}
++	},
++	.num_device_descs = 1,
++	.devices = {
++		{ "Bestunar US6832 HD",
++			{ &dw2102_table[BST_US6832HD], NULL },
++			{ NULL },
++		},
++	}
++};
++
+ static int dw2102_probe(struct usb_interface *intf,
+ 		const struct usb_device_id *id)
+ {
+@@ -1926,6 +2202,10 @@
+ 	    0 == dvb_usb_device_init(intf, p7500,
+ 			THIS_MODULE, NULL, adapter_nr) ||
+ 	    0 == dvb_usb_device_init(intf, &su3000_properties,
++     			THIS_MODULE, NULL, adapter_nr) ||
++	    0 == dvb_usb_device_init(intf, &US6830_properties,
++			THIS_MODULE, NULL, adapter_nr) ||
++	    0 == dvb_usb_device_init(intf, &US6832_properties,
+ 				     THIS_MODULE, NULL, adapter_nr))
+ 		return 0;
+ 
+diff -urN a/drivers/media/usb/dvb-usb/Kconfig b/drivers/media/usb/dvb-usb/Kconfig
+--- a/drivers/media/usb/dvb-usb/Kconfig	2013-01-18 00:47:40.000000000 +0800
++++ b/drivers/media/usb/dvb-usb/Kconfig	2013-01-20 21:30:41.023427062 +0800
+@@ -262,6 +262,7 @@
+ 	select DVB_STV0288 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STB6000 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_CX24116 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_M88DS3103 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_SI21XX if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_TDA10023 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_MT312 if MEDIA_SUBDRV_AUTOSELECT
 diff -urN a/include/media/rc-map.h b/include/media/rc-map.h
---- a/include/media/rc-map.h	2012-11-05 16:57:06.000000000 +0800
-+++ b/include/media/rc-map.h	2012-11-18 23:22:21.777153765 +0800
+--- a/include/media/rc-map.h	2013-01-18 00:47:40.000000000 +0800
++++ b/include/media/rc-map.h	2013-01-20 21:26:48.059420822 +0800
 @@ -86,6 +86,7 @@
  #define RC_MAP_DM1105_NEC                "rc-dm1105-nec"
  #define RC_MAP_DNTV_LIVE_DVBT_PRO        "rc-dntv-live-dvbt-pro"
