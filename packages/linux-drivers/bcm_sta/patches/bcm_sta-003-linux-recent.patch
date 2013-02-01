@@ -1,0 +1,162 @@
+--- a/x86-32/Makefile	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-32/Makefile	2013-01-31 10:00:10.000000000 +0100
+@@ -15,21 +15,9 @@
+ 
+ ifneq ($(KERNELRELEASE),)
+ 
+-  LINUXVER_GOODFOR_CFG80211:=$(strip $(shell \
+-    if [ "$(VERSION)" -ge "2" -a "$(PATCHLEVEL)" -ge "6" -a "$(SUBLEVEL)" -ge "32" ]; then \
+-      echo TRUE; \
+-    else \
+-      echo FALSE; \
+-    fi \
+-  ))
+-
+-    LINUXVER_WEXT_ONLY:=$(strip $(shell \
+-    if [ "$(VERSION)" -ge "2" -a "$(PATCHLEVEL)" -ge "6" -a "$(SUBLEVEL)" -ge "17" ]; then \
+-      echo FALSE; \
+-    else \
+-      echo TRUE; \
+-    fi \
+-  ))
++  LINUXVER_GOODFOR_CFG80211:=TRUE
++
++  LINUXVER_WEXT_ONLY:=FALSE
+ 
+   ifneq ($(API),)
+     ifeq ($(API), CFG80211)
+--- a/x86-32/src/wl/sys/wl_cfg80211.c	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-32/src/wl/sys/wl_cfg80211.c	2013-01-31 10:00:10.000000000 +0100
+@@ -42,7 +42,7 @@
+            enum nl80211_iftype type, u32 *flags, struct vif_params *params);
+ static s32 __wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
+            struct cfg80211_scan_request *request, struct cfg80211_ssid *this_ssid);
+-static s32 wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
++static s32 wl_cfg80211_scan(struct wiphy *wiphy,
+            struct cfg80211_scan_request *request);
+ static s32 wl_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed);
+ static s32 wl_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
+@@ -570,10 +570,12 @@
+ }
+ 
+ static s32
+-wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
++wl_cfg80211_scan(struct wiphy *wiphy,
+                  struct cfg80211_scan_request *request)
+ {
+ 	s32 err = 0;
++	struct wl_priv *wl = wiphy_to_wl(wiphy);
++	struct net_device *ndev = wl_to_ndev(wl);
+ 
+ 	CHECK_SYS_UP();
+ 	err = __wl_cfg80211_scan(wiphy, ndev, request, NULL);
+--- a/x86-32/src/wl/sys/wl_iw.h	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-32/src/wl/sys/wl_iw.h	2013-01-31 10:00:10.000000000 +0100
+@@ -15,6 +15,7 @@
+ #ifndef _wl_iw_h_
+ #define _wl_iw_h_
+ 
++#include <linux/semaphore.h>
+ #include <linux/wireless.h>
+ 
+ #include <typedefs.h>
+--- a/x86-32/src/wl/sys/wl_linux.c	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-32/src/wl/sys/wl_linux.c	2013-01-31 10:00:10.000000000 +0100
+@@ -40,7 +40,6 @@
+ #include <linux/pci_ids.h>
+ #define WLC_MAXBSSCFG		1	
+ 
+-#include <asm/system.h>
+ #include <asm/io.h>
+ #include <asm/irq.h>
+ #include <asm/pgtable.h>
+@@ -385,7 +384,7 @@
+ #endif
+ 	.ndo_get_stats = wl_get_stats,
+ 	.ndo_set_mac_address = wl_set_mac_address,
+-	.ndo_set_multicast_list = wl_set_multicast_list,
++	.ndo_set_rx_mode = wl_set_multicast_list,
+ 	.ndo_do_ioctl = wl_ioctl
+ };
+ 
+--- a/x86-64/Makefile	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-64/Makefile	2013-01-31 10:06:20.000000000 +0100
+@@ -15,21 +15,9 @@
+ 
+ ifneq ($(KERNELRELEASE),)
+ 
+-  LINUXVER_GOODFOR_CFG80211:=$(strip $(shell \
+-    if [ "$(VERSION)" -ge "2" -a "$(PATCHLEVEL)" -ge "6" -a "$(SUBLEVEL)" -ge "32" ]; then \
+-      echo TRUE; \
+-    else \
+-      echo FALSE; \
+-    fi \
+-  ))
+-
+-    LINUXVER_WEXT_ONLY:=$(strip $(shell \
+-    if [ "$(VERSION)" -ge "2" -a "$(PATCHLEVEL)" -ge "6" -a "$(SUBLEVEL)" -ge "17" ]; then \
+-      echo FALSE; \
+-    else \
+-      echo TRUE; \
+-    fi \
+-  ))
++  LINUXVER_GOODFOR_CFG80211:=TRUE
++
++  LINUXVER_WEXT_ONLY:=FALSE
+ 
+   ifneq ($(API),)
+     ifeq ($(API), CFG80211)
+--- a/x86-64/src/wl/sys/wl_cfg80211.c	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-64/src/wl/sys/wl_cfg80211.c	2013-01-31 10:07:35.000000000 +0100
+@@ -42,7 +42,7 @@
+            enum nl80211_iftype type, u32 *flags, struct vif_params *params);
+ static s32 __wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
+            struct cfg80211_scan_request *request, struct cfg80211_ssid *this_ssid);
+-static s32 wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
++static s32 wl_cfg80211_scan(struct wiphy *wiphy,
+            struct cfg80211_scan_request *request);
+ static s32 wl_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed);
+ static s32 wl_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
+@@ -570,10 +570,12 @@
+ }
+ 
+ static s32
+-wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
++wl_cfg80211_scan(struct wiphy *wiphy,
+                  struct cfg80211_scan_request *request)
+ {
+ 	s32 err = 0;
++	struct wl_priv *wl = wiphy_to_wl(wiphy);
++    struct net_device *ndev = wl_to_ndev(wl);
+ 
+ 	CHECK_SYS_UP();
+ 	err = __wl_cfg80211_scan(wiphy, ndev, request, NULL);
+--- a/x86-64/src/wl/sys/wl_iw.h	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-64/src/wl/sys/wl_iw.h	2013-01-31 10:07:58.000000000 +0100
+@@ -15,6 +15,7 @@
+ #ifndef _wl_iw_h_
+ #define _wl_iw_h_
+ 
++#include <linux/semaphore.h>
+ #include <linux/wireless.h>
+ 
+ #include <typedefs.h>
+--- a/x86-64/src/wl/sys/wl_linux.c	2013-01-25 13:59:21.000000000 +0100
++++ b/x86-64/src/wl/sys/wl_linux.c	2013-01-31 10:08:30.000000000 +0100
+@@ -40,7 +40,6 @@
+ #include <linux/pci_ids.h>
+ #define WLC_MAXBSSCFG		1	
+ 
+-#include <asm/system.h>
+ #include <asm/io.h>
+ #include <asm/irq.h>
+ #include <asm/pgtable.h>
+@@ -385,7 +384,7 @@
+ #endif
+ 	.ndo_get_stats = wl_get_stats,
+ 	.ndo_set_mac_address = wl_set_mac_address,
+-	.ndo_set_multicast_list = wl_set_multicast_list,
++	.ndo_set_rx_mode = wl_set_multicast_list,
+ 	.ndo_do_ioctl = wl_ioctl
+ };
+ 
