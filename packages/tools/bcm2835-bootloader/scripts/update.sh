@@ -30,7 +30,9 @@
   cp $SYSTEM_ROOT/usr/share/bootloader/LICENCE* $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/bootcode.bin $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/fixup.dat $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/fixup_x.dat $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/start_x.elf $BOOT_ROOT
 
 # cleanup not more needed files
   rm -rf $BOOT_ROOT/loader.bin
