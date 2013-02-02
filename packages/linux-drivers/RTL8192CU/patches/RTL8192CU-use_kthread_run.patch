@@ -1,0 +1,107 @@
+diff -ur _/core/rtw_mp.c rt8192cu-master/core/rtw_mp.c
+--- _/core/rtw_mp.c	2012-07-09 10:32:18.000000000 +0200
++++ rt8192cu-master/core/rtw_mp.c	2012-12-21 03:13:45.358137142 +0100
+@@ -1140,8 +1140,7 @@
+ 	_rtw_memset(ptr, payload, pkt_end - ptr);
+ 
+ 	//3 6. start thread
+-	pmp_priv->tx.PktTxThread = kernel_thread(mp_xmit_packet_thread, pmp_priv, CLONE_FS|CLONE_FILES);
+-	if(pmp_priv->tx.PktTxThread < 0)
++	if(!start_kthread(&pmp_priv->tx.PktTxThread, mp_xmit_packet_thread, pmp_priv, "8192cu-mp-xmit"))
+ 		DBG_871X("Create PktTx Thread Fail !!!!!\n");
+ 
+ }
+diff -ur _/include/osdep_service.h rt8192cu-master/include/osdep_service.h
+--- _/include/osdep_service.h	2012-07-09 10:32:18.000000000 +0200
++++ rt8192cu-master/include/osdep_service.h	2012-12-21 03:09:05.314123589 +0100
+@@ -100,6 +100,9 @@
+ 	#include <linux/pci.h>
+ #endif
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))
++	#include <linux/kthread.h>
++#endif
+ 	
+ #ifdef CONFIG_USB_HCI
+ 	typedef struct urb *  PURB;
+@@ -133,8 +136,12 @@
+ 	//typedef u32	_irqL;
+ 	typedef unsigned long _irqL;
+ 	typedef	struct	net_device * _nic_hdl;
+-	
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0))
+ 	typedef pid_t		_thread_hdl_;
++#else
++	typedef struct task_struct * _thread_hdl_;
++#endif
+ 	typedef int		thread_return;
+ 	typedef void*	thread_context;
+ 
+@@ -827,4 +834,8 @@
+ 
+ #endif
+ 
++#ifdef PLATFORM_LINUX
++extern int start_kthread(_thread_hdl_ *t_hdl, int (*threadfn)(void *data),
++			 void *data, const char *name);
++#endif
+ 
+diff -ur _/os_dep/linux/os_intfs.c rt8192cu-master/os_dep/linux/os_intfs.c
+--- _/os_dep/linux/os_intfs.c	2012-12-21 03:17:25.618147802 +0100
++++ rt8192cu-master/os_dep/linux/os_intfs.c	2012-12-21 03:14:14.554138555 +0100
+@@ -797,27 +797,22 @@
+ 	RT_TRACE(_module_os_intfs_c_,_drv_info_,("+rtw_start_drv_threads\n"));
+ 
+ #ifdef CONFIG_SDIO_HCI
+-	padapter->xmitThread = kernel_thread(rtw_xmit_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->xmitThread < 0)
++	if(!start_kthread(&padapter->xmitThread, rtw_xmit_thread, padapter, "8192cu-xmit"))
+ 		_status = _FAIL;
+ #endif
+ 
+ #ifdef CONFIG_RECV_THREAD_MODE
+-	padapter->recvThread = kernel_thread(recv_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->recvThread < 0)
++	if(!start_kthread(&padapter->recvThread, recv_thread, padapter, "8192cu-recv"))
+ 		_status = _FAIL;	
+ #endif
+ 
+-	padapter->cmdThread = kernel_thread(rtw_cmd_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->cmdThread < 0)
++	if(!start_kthread(&padapter->cmdThread, rtw_cmd_thread, padapter, "8192cu-cmd"))
+ 		_status = _FAIL;
+ 	else
+ 		_rtw_down_sema(&padapter->cmdpriv.terminate_cmdthread_sema); //wait for cmd_thread to run
+-		
+ 
+ #ifdef CONFIG_EVENT_THREAD_MODE
+-	padapter->evtThread = kernel_thread(event_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->evtThread < 0)
++	if(!start_kthread(&padapter->evtThread, event_thread, padapter, "8192cu-evt"))
+ 		_status = _FAIL;		
+ #endif
+ 
+diff -ur _/os_dep/osdep_service.c rt8192cu-master/os_dep/osdep_service.c
+--- _/os_dep/osdep_service.c	2012-12-21 03:17:25.618147802 +0100
++++ rt8192cu-master/os_dep/osdep_service.c	2012-12-21 03:08:30.330121896 +0100
+@@ -1553,3 +1553,19 @@
+ #endif
+ }
+ 
++#ifdef PLATFORM_LINUX
++int start_kthread(_thread_hdl_ *t_hdl, int (*threadfn)(void *data),
++		  void *data, const char *name)
++{
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0))
++	*t_hdl = kernel_thread(threadfn, data, CLONE_FS|CLONE_FILES);
++	if(*t_hdl < 0)
++#else
++	*t_hdl = kthread_run(threadfn, data, name);
++	if(IS_ERR(*t_hdl))
++#endif
++		return 0;
++	return -1;
++}
++#endif
++
