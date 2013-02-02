@@ -30,7 +30,9 @@
   cp $SYSTEM_ROOT/usr/share/bootloader/LICENCE* $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/bootcode.bin $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/fixup.dat $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/fixup_x.dat $BOOT_ROOT
   cp $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
+  cp $SYSTEM_ROOT/usr/share/bootloader/start_x.elf $BOOT_ROOT
 
 # cleanup not more needed files
   rm -rf $BOOT_ROOT/loader.bin
@@ -42,6 +44,9 @@
     mv $BOOT_ROOT/config.txt $BOOT_ROOT/config.txt.bk
     cat $SYSTEM_ROOT/usr/share/bootloader/config.txt \
         $BOOT_ROOT/config.txt.bk > $BOOT_ROOT/config.txt
+  else
+    sed -e "s,# gpu_mem_256=128,gpu_mem_256=100,g" -i $BOOT_ROOT/config.txt
+    sed -e "s,# gpu_mem_512=128,gpu_mem_512=128,g" -i $BOOT_ROOT/config.txt
   fi
 
 # mount $BOOT_ROOT r/o
