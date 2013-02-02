@@ -1,0 +1,266 @@
+From dcda5806165c155d90b9aa466a1602cf4726012b Mon Sep 17 00:00:00 2001
+From: Takashi Iwai <tiwai@suse.de>
+Date: Fri, 12 Oct 2012 17:24:51 +0200
+Subject: [PATCH] ALSA: hda - Add workaround for conflicting IEC958 controls
+
+When both an SPDIF and an HDMI device are created on the same card
+instance, multiple IEC958 controls are created with indices=0, 1, ...
+But the alsa-lib configuration can't know which index corresponds
+actually to which PCM device, and both the SPDIF and the HDMI
+configurations point to the first IEC958 control wrongly.
+
+This patch introduces a (hackish and ugly) workaround: the IEC958
+controls for the SPDIF device are re-labeled with device=1 when HDMI
+coexists.  The device=1 corresponds to the actual PCM device for
+SPDIF, so it's anyway a better representation.  In future, HDMI
+controls should be moved with the corresponding PCM device number,
+too.
+
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+ sound/pci/hda/hda_codec.c      |   60 ++++++++++++++++++++++++++++------------
+ sound/pci/hda/hda_codec.h      |    1 +
+ sound/pci/hda/hda_local.h      |    8 +++--
+ sound/pci/hda/patch_cirrus.c   |    5 ++-
+ sound/pci/hda/patch_hdmi.c     |    7 ++--
+ sound/pci/hda/patch_realtek.c  |    7 ++--
+ sound/pci/hda/patch_sigmatel.c |    7 ++--
+ 7 files changed, 63 insertions(+), 32 deletions(-)
+
+diff --git a/sound/pci/hda/hda_codec.c b/sound/pci/hda/hda_codec.c
+index ee958a7..2da7875 100644
+--- a/sound/pci/hda/hda_codec.c
++++ b/sound/pci/hda/hda_codec.c
+@@ -2166,12 +2166,12 @@ EXPORT_SYMBOL_HDA(snd_hda_set_vmaster_tlv);
+ 
+ /* find a mixer control element with the given name */
+ static struct snd_kcontrol *
+-_snd_hda_find_mixer_ctl(struct hda_codec *codec,
+-			const char *name, int idx)
++find_mixer_ctl(struct hda_codec *codec, const char *name, int dev, int idx)
+ {
+ 	struct snd_ctl_elem_id id;
+ 	memset(&id, 0, sizeof(id));
+ 	id.iface = SNDRV_CTL_ELEM_IFACE_MIXER;
++	id.device = dev;
+ 	id.index = idx;
+ 	if (snd_BUG_ON(strlen(name) >= sizeof(id.name)))
+ 		return NULL;
+@@ -2189,15 +2189,16 @@ _snd_hda_find_mixer_ctl(struct hda_codec *codec,
+ struct snd_kcontrol *snd_hda_find_mixer_ctl(struct hda_codec *codec,
+ 					    const char *name)
+ {
+-	return _snd_hda_find_mixer_ctl(codec, name, 0);
++	return find_mixer_ctl(codec, name, 0, 0);
+ }
+ EXPORT_SYMBOL_HDA(snd_hda_find_mixer_ctl);
+ 
+-static int find_empty_mixer_ctl_idx(struct hda_codec *codec, const char *name)
++static int find_empty_mixer_ctl_idx(struct hda_codec *codec, const char *name,
++				    int dev)
+ {
+ 	int idx;
+ 	for (idx = 0; idx < 16; idx++) { /* 16 ctlrs should be large enough */
+-		if (!_snd_hda_find_mixer_ctl(codec, name, idx))
++		if (!find_mixer_ctl(codec, name, dev, idx))
+ 			return idx;
+ 	}
+ 	return -EBUSY;
+@@ -3148,26 +3149,48 @@ static struct snd_kcontrol_new dig_mixes[] = {
+ };
+ 
+ /**
+- * snd_hda_create_spdif_out_ctls - create Output SPDIF-related controls
++ * snd_hda_create_dig_out_ctls - create Output SPDIF-related controls
+  * @codec: the HDA codec
+- * @nid: audio out widget NID
+- *
+- * Creates controls related with the SPDIF output.
+- * Called from each patch supporting the SPDIF out.
++ * @associated_nid: NID that new ctls associated with
++ * @cvt_nid: converter NID
++ * @type: HDA_PCM_TYPE_*
++ * Creates controls related with the digital output.
++ * Called from each patch supporting the digital out.
+  *
+  * Returns 0 if successful, or a negative error code.
+  */
+-int snd_hda_create_spdif_out_ctls(struct hda_codec *codec,
+-				  hda_nid_t associated_nid,
+-				  hda_nid_t cvt_nid)
++int snd_hda_create_dig_out_ctls(struct hda_codec *codec,
++				hda_nid_t associated_nid,
++				hda_nid_t cvt_nid,
++				int type)
+ {
+ 	int err;
+ 	struct snd_kcontrol *kctl;
+ 	struct snd_kcontrol_new *dig_mix;
+-	int idx;
++	int idx, dev = 0;
++	const int spdif_pcm_dev = 1;
+ 	struct hda_spdif_out *spdif;
+ 
+-	idx = find_empty_mixer_ctl_idx(codec, "IEC958 Playback Switch");
++	if (codec->primary_dig_out_type == HDA_PCM_TYPE_HDMI &&
++	    type == HDA_PCM_TYPE_SPDIF) {
++		dev = spdif_pcm_dev;
++	} else if (codec->primary_dig_out_type == HDA_PCM_TYPE_SPDIF &&
++		   type == HDA_PCM_TYPE_HDMI) {
++		for (idx = 0; idx < codec->spdif_out.used; idx++) {
++			spdif = snd_array_elem(&codec->spdif_out, idx);
++			for (dig_mix = dig_mixes; dig_mix->name; dig_mix++) {
++				kctl = find_mixer_ctl(codec, dig_mix->name, 0, idx);
++				if (!kctl)
++					break;
++				kctl->id.device = spdif_pcm_dev;
++			}
++		}
++		codec->primary_dig_out_type = HDA_PCM_TYPE_HDMI;
++	}
++	if (!codec->primary_dig_out_type)
++		codec->primary_dig_out_type = type;
++
++	idx = find_empty_mixer_ctl_idx(codec, "IEC958 Playback Switch", dev);
+ 	if (idx < 0) {
+ 		printk(KERN_ERR "hda_codec: too many IEC958 outputs\n");
+ 		return -EBUSY;
+@@ -3177,6 +3200,7 @@ int snd_hda_create_spdif_out_ctls(struct hda_codec *codec,
+ 		kctl = snd_ctl_new1(dig_mix, codec);
+ 		if (!kctl)
+ 			return -ENOMEM;
++		kctl->id.device = dev;
+ 		kctl->id.index = idx;
+ 		kctl->private_value = codec->spdif_out.used - 1;
+ 		err = snd_hda_ctl_add(codec, associated_nid, kctl);
+@@ -3189,7 +3213,7 @@ int snd_hda_create_spdif_out_ctls(struct hda_codec *codec,
+ 	spdif->status = convert_to_spdif_status(spdif->ctls);
+ 	return 0;
+ }
+-EXPORT_SYMBOL_HDA(snd_hda_create_spdif_out_ctls);
++EXPORT_SYMBOL_HDA(snd_hda_create_dig_out_ctls);
+ 
+ /* get the hda_spdif_out entry from the given NID
+  * call within spdif_mutex lock
+@@ -3364,7 +3388,7 @@ int snd_hda_create_spdif_in_ctls(struct hda_codec *codec, hda_nid_t nid)
+ 	struct snd_kcontrol_new *dig_mix;
+ 	int idx;
+ 
+-	idx = find_empty_mixer_ctl_idx(codec, "IEC958 Capture Switch");
++	idx = find_empty_mixer_ctl_idx(codec, "IEC958 Capture Switch", 0);
+ 	if (idx < 0) {
+ 		printk(KERN_ERR "hda_codec: too many IEC958 inputs\n");
+ 		return -EBUSY;
+@@ -4472,7 +4496,7 @@ int snd_hda_add_new_ctls(struct hda_codec *codec,
+ 				addr = codec->addr;
+ 			else if (!idx && !knew->index) {
+ 				idx = find_empty_mixer_ctl_idx(codec,
+-							       knew->name);
++							       knew->name, 0);
+ 				if (idx <= 0)
+ 					return err;
+ 			} else
+diff --git a/sound/pci/hda/hda_codec.h b/sound/pci/hda/hda_codec.h
+index 10a03b0..62d4229 100644
+--- a/sound/pci/hda/hda_codec.h
++++ b/sound/pci/hda/hda_codec.h
+@@ -836,6 +836,7 @@ struct hda_codec {
+ 	struct mutex hash_mutex;
+ 	struct snd_array spdif_out;
+ 	unsigned int spdif_in_enable;	/* SPDIF input enable? */
++	int primary_dig_out_type;	/* primary digital out PCM type */
+ 	const hda_nid_t *slave_dig_outs; /* optional digital out slave widgets */
+ 	struct snd_array init_pins;	/* initial (BIOS) pin configurations */
+ 	struct snd_array driver_pins;	/* pin configs set by codec parser */
+diff --git a/sound/pci/hda/hda_local.h b/sound/pci/hda/hda_local.h
+index 09dbdc3..8c43198 100644
+--- a/sound/pci/hda/hda_local.h
++++ b/sound/pci/hda/hda_local.h
+@@ -240,9 +240,11 @@ int snd_hda_mixer_bind_tlv(struct snd_kcontrol *kcontrol, int op_flag,
+ /*
+  * SPDIF I/O
+  */
+-int snd_hda_create_spdif_out_ctls(struct hda_codec *codec,
+-				  hda_nid_t associated_nid,
+-				  hda_nid_t cvt_nid);
++int snd_hda_create_dig_out_ctls(struct hda_codec *codec,
++				hda_nid_t associated_nid,
++				hda_nid_t cvt_nid, int type);
++#define snd_hda_create_spdif_out_ctls(codec, anid, cnid) \
++	snd_hda_create_dig_out_ctls(codec, anid, cnid, HDA_PCM_TYPE_SPDIF)
+ int snd_hda_create_spdif_in_ctls(struct hda_codec *codec, hda_nid_t nid);
+ 
+ /*
+diff --git a/sound/pci/hda/patch_cirrus.c b/sound/pci/hda/patch_cirrus.c
+index 61a7113..a7f8790 100644
+--- a/sound/pci/hda/patch_cirrus.c
++++ b/sound/pci/hda/patch_cirrus.c
+@@ -873,8 +873,9 @@ static int build_digital_output(struct hda_codec *codec)
+ 	if (!spec->multiout.dig_out_nid)
+ 		return 0;
+ 
+-	err = snd_hda_create_spdif_out_ctls(codec, spec->multiout.dig_out_nid,
+-					    spec->multiout.dig_out_nid);
++	err = snd_hda_create_dig_out_ctls(codec, spec->multiout.dig_out_nid,
++					  spec->multiout.dig_out_nid,
++					  spec->pcm_rec[1].pcm_type);
+ 	if (err < 0)
+ 		return err;
+ 	err = snd_hda_create_spdif_share_sw(codec, &spec->multiout);
+diff --git a/sound/pci/hda/patch_hdmi.c b/sound/pci/hda/patch_hdmi.c
+index 71555cc..39ca100 100644
+--- a/sound/pci/hda/patch_hdmi.c
++++ b/sound/pci/hda/patch_hdmi.c
+@@ -1589,9 +1589,10 @@ static int generic_hdmi_build_controls(struct hda_codec *codec)
+ 		if (err < 0)
+ 			return err;
+ 
+-		err = snd_hda_create_spdif_out_ctls(codec,
+-						    per_pin->pin_nid,
+-						    per_pin->mux_nids[0]);
++		err = snd_hda_create_dig_out_ctls(codec,
++						  per_pin->pin_nid,
++						  per_pin->mux_nids[0],
++						  HDA_PCM_TYPE_HDMI);
+ 		if (err < 0)
+ 			return err;
+ 		snd_hda_spdif_ctls_unassign(codec, pin_idx);
+diff --git a/sound/pci/hda/patch_realtek.c b/sound/pci/hda/patch_realtek.c
+index 8253b4e..2d2bb66 100644
+--- a/sound/pci/hda/patch_realtek.c
++++ b/sound/pci/hda/patch_realtek.c
+@@ -1836,9 +1836,10 @@ static int __alc_build_controls(struct hda_codec *codec)
+ 			return err;
+ 	}
+ 	if (spec->multiout.dig_out_nid) {
+-		err = snd_hda_create_spdif_out_ctls(codec,
+-						    spec->multiout.dig_out_nid,
+-						    spec->multiout.dig_out_nid);
++		err = snd_hda_create_dig_out_ctls(codec,
++						  spec->multiout.dig_out_nid,
++						  spec->multiout.dig_out_nid,
++						  spec->pcm_rec[1].pcm_type);
+ 		if (err < 0)
+ 			return err;
+ 		if (!spec->no_analog) {
+diff --git a/sound/pci/hda/patch_sigmatel.c b/sound/pci/hda/patch_sigmatel.c
+index 770013f..6214165 100644
+--- a/sound/pci/hda/patch_sigmatel.c
++++ b/sound/pci/hda/patch_sigmatel.c
+@@ -1136,9 +1136,10 @@ static int stac92xx_build_controls(struct hda_codec *codec)
+ 	}
+ 
+ 	if (spec->multiout.dig_out_nid) {
+-		err = snd_hda_create_spdif_out_ctls(codec,
+-						    spec->multiout.dig_out_nid,
+-						    spec->multiout.dig_out_nid);
++		err = snd_hda_create_dig_out_ctls(codec,
++						  spec->multiout.dig_out_nid,
++						  spec->multiout.dig_out_nid,
++						  spec->autocfg.dig_out_type[0]);
+ 		if (err < 0)
+ 			return err;
+ 		err = snd_hda_create_spdif_share_sw(codec,
+-- 
+1.7.7.6
+
