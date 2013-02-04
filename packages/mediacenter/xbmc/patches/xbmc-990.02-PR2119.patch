@@ -1,0 +1,91 @@
+From 5016973c68567e0691c9dc6c14d78de9e7d4558c Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 25 Jan 2013 23:00:13 +0000
+Subject: [PATCH] [rbp] Add support for new video codecs Latest firmware has a
+ start_x.elf with support for additional codecs. These are
+ MJPEG, VP6, VP8 and Ogg Theora. They are software GPU
+ accelerated and should be good for SD resolutions. This
+ update should be harmless with firmware that doesn't
+ support the new codecs - they will fail to open and behave
+ as before.
+
+---
+ xbmc/cores/omxplayer/OMXVideo.cpp |   33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXVideo.cpp b/xbmc/cores/omxplayer/OMXVideo.cpp
+index 9215fd9..45e10fe 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXVideo.cpp
+@@ -69,7 +69,10 @@
+ #define OMX_MPEG2V_DECODER      OMX_VIDEO_DECODER
+ #define OMX_VC1_DECODER         OMX_VIDEO_DECODER
+ #define OMX_WMV3_DECODER        OMX_VIDEO_DECODER
++#define OMX_VP6_DECODER         OMX_VIDEO_DECODER
+ #define OMX_VP8_DECODER         OMX_VIDEO_DECODER
++#define OMX_THEORA_DECODER      OMX_VIDEO_DECODER
++#define OMX_MJPEG_DECODER       OMX_VIDEO_DECODER
+ 
+ #define MAX_TEXT_LENGTH 1024
+ 
+@@ -145,6 +148,7 @@ bool COMXVideo::NaluFormatStartCodes(enum CodecID codec, uint8_t *in_extradata,
+ 
+ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, bool hdmi_clock_sync)
+ {
++  bool vflip = false;
+   Close();
+ 
+   OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
+@@ -248,6 +252,18 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, b
+       m_codingType = OMX_VIDEO_CodingMPEG4;
+       m_video_codec_name = "omx-h263";
+       break;
++    case CODEC_ID_VP6:
++      // this form is encoded upside down
++      vflip = true;
++      // fall through
++    case CODEC_ID_VP6F:
++    case CODEC_ID_VP6A:
++      // (role name) video_decoder.vp6
++      // VP6
++      decoder_name = OMX_VP6_DECODER;
++      m_codingType = OMX_VIDEO_CodingVP6;
++      m_video_codec_name = "omx-vp6";
++    break;
+     case CODEC_ID_VP8:
+       // (role name) video_decoder.vp8
+       // VP8
+@@ -255,6 +271,21 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, b
+       m_codingType = OMX_VIDEO_CodingVP8;
+       m_video_codec_name = "omx-vp8";
+     break;
++    case CODEC_ID_THEORA:
++      // (role name) video_decoder.theora
++      // theora
++      decoder_name = OMX_THEORA_DECODER;
++      m_codingType = OMX_VIDEO_CodingTheora;
++      m_video_codec_name = "omx-theora";
++    break;
++    case CODEC_ID_MJPEG:
++    case CODEC_ID_MJPEGB:
++      // (role name) video_decoder.mjpg
++      // mjpg
++      decoder_name = OMX_MJPEG_DECODER;
++      m_codingType = OMX_VIDEO_CodingMJPEG;
++      m_video_codec_name = "omx-mjpeg";
++    break;
+     case CODEC_ID_VC1:
+     case CODEC_ID_WMV3:
+       // (role name) video_decoder.vc1
+@@ -594,6 +625,8 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, b
+       configDisplay.transform = OMX_DISPLAY_ROT0;
+       break;
+   }
++  if (vflip)
++      configDisplay.transform = OMX_DISPLAY_MIRROR_ROT180;
+ 
+   omx_err = m_omx_render.SetConfig(OMX_IndexConfigDisplayRegion, &configDisplay);
+   if(omx_err != OMX_ErrorNone)
+-- 
+1.7.10
+

@@ -20,13 +20,28 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+. /etc/profile
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
+LOCKDIR="/var/lock/"
+LOCKFILE="sundtek"
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
-  cp -Pa $ROOT/$BUILD/sundtek-*/opt/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+case "$1" in
+  hibernate|suspend)
+    if [ -n "$(pidof mediasrv)" ]; then
+      progress "Shutting down Sundtek DVB driver for suspending..."
+      mkdir -p "$LOCKDIR"
+      touch "$LOCKDIR/$LOCKFILE"
+      mediaclient --shutdown
+    fi
+    ;;
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/
-  cp -Pa $ROOT/$BUILD/sundtek-*/opt/lib/*.so $ADDON_BUILD/$PKG_ADDON_ID/lib/
+  thaw|resume)
+    if [ -f "$LOCKDIR/$LOCKFILE" ]; then
+      # driver started within Tvheadend/VDR
+      rm -rf "$LOCKDIR/$LOCKFILE"
+    fi
+    ;;
+
+  *) exit $NA
+    ;;
+esac

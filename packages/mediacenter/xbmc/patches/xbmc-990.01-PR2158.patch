@@ -1,0 +1,39 @@
+From ac86e23aa11861a4fa063fb2fa05f10cbc4eea19 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 1 Feb 2013 18:37:20 +0000
+Subject: [PATCH] [rbp] Avoid blocking the video thread keeping the video fifo
+ full. OpenMAX IL is an asynchronous media player. The key
+ to getting good performance is to ensure the audio and
+ video fifo have sufficient data to withstand any processing
+ spikes by the ARM. Ideally the fifos would allow the arm to
+ crash, and video and audio playback to continue smoothly
+ for a couple of seconds.
+
+I've examined the fifo behaviour, and found the video fifo is always almost empty. (The audio fifo is full).
+It turns out that the PlayerVideo task (which submits video frames to GPU fifo) blocks until the presentation time has arrived before calling FlipPage (in order to keep subtitles etc. synced).
+This is very bad. We generally only one frame of video data in the GPU fifo. This means a spike in ARM workload (e.g. bringing up OSD, or a peak in bitrate) causes the fifo to empty and video to stutter.
+
+The patch here avoids blocking, and lets the FlipPage happen on a later packet.
+I've found with this patch, my test clip (1080p with software DTS audio decode) I can play without stuttering at 700MHz. Without this patch it fails to play even at 1000MHz.
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index 90f94aa..5f3f050 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -455,8 +455,8 @@ void OMXPlayerVideo::Output(int iGroupId, double pts, bool bDropPacket)
+   double pts_media = m_av_clock->OMXMediaTime(false, false);
+   ProcessOverlays(iGroupId, pts_media);
+ 
+-  while(!CThread::m_bStop && m_av_clock->GetAbsoluteClock(false) < (iCurrentClock + iSleepTime + DVD_MSEC_TO_TIME(500)) )
+-    Sleep(1);
++  if (!CThread::m_bStop && m_av_clock->GetAbsoluteClock(false) < (iCurrentClock + iSleepTime + DVD_MSEC_TO_TIME(500)) )
++    return;
+ 
+   g_renderManager.FlipPage(CThread::m_bStop, (iCurrentClock + iSleepTime) / DVD_TIME_BASE, -1, FS_NONE);
+ 
+-- 
+1.7.10
+
