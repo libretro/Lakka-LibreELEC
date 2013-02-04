@@ -71,7 +71,7 @@ providing cutting edge hardware support to deliver a set-top box experience.
   read-only with the exception of /var (containing runtime configuration data).
 * Manual update/downgrade procedure is as follows:
   Extract the snapshot and navigate to the 'target' directory.
-  Copy KERNEL and SYSTEM to the 'Update' network share (or /storage/.update) on
+  Copy KERNEL and SYSTEM along with KERNEL.md5 and SYSTEM.md5 to the 'Update' network share (or /storage/.update) on
   your openelec machine. Your system will automatically upgrade during the 
   next reboot.
 * Automatic mounting of filesystems is supported. Devices such as USB Flash 
