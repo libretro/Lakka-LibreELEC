@@ -1,0 +1,87 @@
+From b41a536cf9806c3478b2fa68d59edafd0787e8aa Mon Sep 17 00:00:00 2001
+From: =?utf8?q?R=C3=A9mi=20Cardona?= <remi.cardona@smartjog.com>
+Date: Fri, 28 Sep 2012 08:59:27 -0300
+Subject: [PATCH] [media] ds3000: remove useless 'locking'
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf8
+Content-Transfer-Encoding: 8bit
+
+Since b9bf2eafaad9c1ef02fb3db38c74568be601a43a, the function
+ds3000_firmware_ondemand() is called only once during init. This
+locking scheme may have been useful when the firmware was loaded at
+each tune.
+Furthermore, it looks like this 'lock' was put in to prevent concurrent
+access (and not recursion as the comments suggest). However, this open-
+coded mechanism is anything but race-free and should have used a proper
+mutex.
+
+Signed-off-by: RÃ©mi Cardona <remi.cardona@smartjog.com>
+Reviewed-by: Antti Palosaari <crope@iki.fi>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+---
+ drivers/media/dvb-frontends/ds3000.c |   14 --------------
+ 1 files changed, 0 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/media/dvb-frontends/ds3000.c b/drivers/media/dvb-frontends/ds3000.c
+index c84cd98..60a529e 100644
+--- a/drivers/media/dvb-frontends/ds3000.c
++++ b/drivers/media/dvb-frontends/ds3000.c
+@@ -30,7 +30,6 @@
+ #include "ds3000.h"
+ 
+ static int debug;
+-static int force_fw_upload;
+ 
+ #define dprintk(args...) \
+ 	do { \
+@@ -234,7 +233,6 @@ struct ds3000_state {
+ 	struct i2c_adapter *i2c;
+ 	const struct ds3000_config *config;
+ 	struct dvb_frontend frontend;
+-	u8 skip_fw_load;
+ 	/* previous uncorrected block counter for DVB-S2 */
+ 	u16 prevUCBS2;
+ };
+@@ -397,9 +395,6 @@ static int ds3000_firmware_ondemand(struct dvb_frontend *fe)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (state->skip_fw_load || !force_fw_upload)
+-		return 0;	/* Firmware already uploaded, skipping */
+-
+ 	/* Load firmware */
+ 	/* request the firmware, this will block until someone uploads it */
+ 	printk(KERN_INFO "%s: Waiting for firmware upload (%s)...\n", __func__,
+@@ -413,9 +408,6 @@ static int ds3000_firmware_ondemand(struct dvb_frontend *fe)
+ 		return ret;
+ 	}
+ 
+-	/* Make sure we don't recurse back through here during loading */
+-	state->skip_fw_load = 1;
+-
+ 	ret = ds3000_load_firmware(fe, fw);
+ 	if (ret)
+ 		printk("%s: Writing firmware to device failed\n", __func__);
+@@ -425,9 +417,6 @@ static int ds3000_firmware_ondemand(struct dvb_frontend *fe)
+ 	dprintk("%s: Firmware upload %s\n", __func__,
+ 			ret == 0 ? "complete" : "failed");
+ 
+-	/* Ensure firmware is always loaded if required */
+-	state->skip_fw_load = 0;
+-
+ 	return ret;
+ }
+ 
+@@ -1309,9 +1298,6 @@ static struct dvb_frontend_ops ds3000_ops = {
+ module_param(debug, int, 0644);
+ MODULE_PARM_DESC(debug, "Activates frontend debugging (default:0)");
+ 
+-module_param(force_fw_upload, int, 0644);
+-MODULE_PARM_DESC(force_fw_upload, "Force firmware upload (default:0)");
+-
+ MODULE_DESCRIPTION("DVB Frontend module for Montage Technology "
+ 			"DS3000/TS2020 hardware");
+ MODULE_AUTHOR("Konstantin Dimitrov");
+-- 
+1.7.6.5
+
