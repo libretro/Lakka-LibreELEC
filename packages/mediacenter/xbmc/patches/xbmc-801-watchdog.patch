@@ -1,0 +1,171 @@
+commit 2349687bee7a4b01cd8f17c81ed5d77ee95449f6
+Author: Lars Op den Kamp <lars@opdenkamp.eu>
+Date:   Wed Jan 16 02:11:19 2013 +0100
+
+    ODK: watchdog for linux, 30 second timeout by default
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index b453e9f..8471e3b 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -18,6 +18,11 @@
+  *
+  */
+ 
++#if defined(_LINUX)
++#include <sys/ioctl.h>
++#include <linux/watchdog.h>
++#endif
++
+ #include "network/Network.h"
+ #include "threads/SystemClock.h"
+ #include "system.h"
+@@ -436,6 +441,7 @@ CApplication::CApplication(void)
+   m_lastFrameTime = 0;
+   m_lastRenderTime = 0;
+   m_bTestMode = false;
++  m_iWatchdogFD = -1;
+ }
+ 
+ CApplication::~CApplication(void)
+@@ -565,6 +571,51 @@ void CApplication::Preflight()
+ #endif
+ }
+ 
++void CApplication::WDOpen(void)
++{
++#if defined(_LINUX)
++  m_iWatchdogFD = open("/dev/watchdog", O_WRONLY);
++  if (m_iWatchdogFD == -1)
++  {
++    CLog::Log(LOGWARNING, "could not open /dev/watchdog");
++    return;
++  }
++
++  if (ioctl(m_iWatchdogFD, WDIOC_SETTIMEOUT, &g_advancedSettings.m_iWatchdogTimeoutSeconds))
++  {
++    CLog::Log(LOGERROR, "ioctl on /dev/watchdog failed");
++    WDClose();
++  }
++
++  CLog::Log(LOGINFO, "watchdog started, %d second timeout", g_advancedSettings.m_iWatchdogTimeoutSeconds);
++#endif
++}
++
++void CApplication::WDClose(void)
++{
++#if defined(_LINUX)
++  if (m_iWatchdogFD != -1)
++  {
++    struct watchdog_info watchdogInfo;
++    if (!ioctl(m_iWatchdogFD, WDIOC_GETSUPPORT, &watchdogInfo) &&
++        (WDIOF_MAGICCLOSE & watchdogInfo.options))
++      write(m_iWatchdogFD, "V", 1);
++    close(m_iWatchdogFD);
++    m_iWatchdogFD = -1;
++
++    CLog::Log(LOGINFO, "watchdog stopped");
++  }
++#endif
++}
++
++void CApplication::WDAlive(void)
++{
++#if defined(_LINUX)
++  if (m_iWatchdogFD != -1)
++    ioctl(m_iWatchdogFD, WDIOC_KEEPALIVE, NULL);
++#endif
++}
++
+ bool CApplication::Create()
+ {
+ #if defined(HAS_LINUX_NETWORK)
+@@ -776,6 +827,8 @@ bool CApplication::Create()
+ 
+   g_mediaManager.Initialize();
+ 
++  WDOpen();
++
+   m_lastFrameTime = XbmcThreads::SystemClockMillis();
+   m_lastRenderTime = m_lastFrameTime;
+   return true;
+@@ -3641,6 +3694,8 @@ void CApplication::Stop(int exitCode)
+   // so we may never get to Destroy() in CXBApplicationEx::Run(), we call it here.
+   Destroy();
+ 
++  WDClose();
++
+   //
+   Sleep(200);
+ }
+@@ -5232,6 +5287,8 @@ void CApplication::ProcessSlow()
+     CAddonInstaller::Get().UpdateRepos();
+ 
+   CAEFactory::GarbageCollect();
++
++  WDAlive();
+ }
+ 
+ // Global Idle Time in Seconds
+diff --git a/xbmc/Application.h b/xbmc/Application.h
+index 69609fa..de04517 100644
+--- a/xbmc/Application.h
++++ b/xbmc/Application.h
+@@ -458,6 +458,10 @@ protected:
+   bool InitDirectoriesWin32();
+   void CreateUserDirs();
+ 
++  void WDOpen(void);
++  void WDClose(void);
++  void WDAlive(void);
++
+   CSeekHandler *m_seekHandler;
+   CInertialScrollingHandler *m_pInertialScrollingHandler;
+   CNetwork    *m_network;
+@@ -469,6 +473,7 @@ protected:
+   std::map<std::string, std::map<int, float> > m_lastAxisMap;
+ #endif
+ 
++  int m_iWatchdogFD;
+ };
+ 
+ XBMC_GLOBAL_REF(CApplication,g_application);
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index 16800b7..3b0cc5a 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -322,6 +322,8 @@ void CAdvancedSettings::Initialize()
+   m_databaseVideo.Reset();
+ 
+   m_logLevelHint = m_logLevel = LOG_LEVEL_NORMAL;
++
++  m_iWatchdogTimeoutSeconds = 30;
+ }
+ 
+ bool CAdvancedSettings::Load()
+@@ -990,6 +992,12 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+     XMLUtils::GetInt(pPVR, "numericchannelswitchtimeout", m_iPVRNumericChannelSwitchTimeout, 50, 60000);
+   }
+ 
++  TiXmlElement *pWD = pRootElement->FirstChildElement("watchdog");
++  if (pWD)
++  {
++    XMLUtils::GetInt(pWD, "timeout", m_iWatchdogTimeoutSeconds, 1, 6000);
++  }
++
+   XMLUtils::GetBoolean(pRootElement, "measurerefreshrate", m_measureRefreshrate);
+ 
+   TiXmlElement* pDatabase = pRootElement->FirstChildElement("videodatabase");
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index 27887d4..a155369 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -365,6 +365,8 @@ class CAdvancedSettings
+     bool m_initialized;
+ 
+     void SetDebugMode(bool debug);
++
++    int m_iWatchdogTimeoutSeconds;
+ };
+ 
+ XBMC_GLOBAL(CAdvancedSettings,g_advancedSettings);
