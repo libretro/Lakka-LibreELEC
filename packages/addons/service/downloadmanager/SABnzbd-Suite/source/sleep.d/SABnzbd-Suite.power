@@ -1,7 +1,8 @@
+#!/bin/sh
+
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2011-2011 Gregor Fuis (gujs@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,21 +20,32 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="oscam"
-PKG_VERSION="8334"
-PKG_REV="6"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.streamboard.tv/oscam/wiki"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain pcsc-lite"
-PKG_PRIORITY="optional"
-PKG_SECTION="service/softcam"
-PKG_SHORTDESC="oscam: OSCam is Open Source Conditional Access Modul."
-PKG_LONGDESC="OSCam is Open Source Conditional Access Modul."
+. /etc/profile
 
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.service"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.downloadmanager.SABnzbd-Suite"
+ADDON_SETTINGS="$ADDON_HOME/settings.xml"
+RESTART_ON_RESUME=`grep RESTART_ON_RESUME $ADDON_SETTINGS | awk '{print $3}' | sed -e "s,value=,," -e "s,\",,g"`
 
-PKG_AUTORECONF="no"
+LOCKFILE="/var/lock/SABnzbd-Suite.sleep"
+
+if [ "$RESTART_ON_RESUME" == "true" ] ; then
+  case "$1" in
+    hibernate|suspend)
+      if [ ! -z "`ps | grep -E 'python.*service.downloadmanager.SABnzbd-Suite' | awk '{print $1}'`" ] ; then
+        progress "Shutting down SABnzbd-Suite for suspending..."
+        SABnzbd-Suite.stop
+        touch $LOCKFILE
+      fi
+      ;;
+
+    thaw|resume)
+      progress "Restarting SABnzbd-Suite for wakeup..."
+      if [ -f "$LOCKFILE" ] ; then
+        rm -rf "$LOCKFILE"
+        python $HOME/.xbmc/addons/service.downloadmanager.SABnzbd-Suite/bin/SABnzbd-Suite.py
+      fi
+      ;;
+    *) exit $NA
+      ;;
+  esac
+fi
