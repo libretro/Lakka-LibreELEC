@@ -1,0 +1,227 @@
+From aee2b8942c507d0b0c52e1a87d72687d864eaeae Mon Sep 17 00:00:00 2001
+From: fritsch <peter.fruehberger@gmail.com>
+Date: Sun, 10 Feb 2013 21:49:31 +0100
+Subject: [PATCH 1/3] AE: Linux AE - some fixes of yesterday merge (Enumerate
+ + Resume)
+
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index 96a9a72..20af5a1 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -1024,7 +1024,7 @@ bool CSoftAE::Resume()
+ {
+ #if defined(TARGET_LINUX)
+   // We must make sure, that we don't return empty.
+-  if(m_isSuspended || m_sinkInfoList.empty())
++  if(m_sinkInfoList.empty())
+   {
+     CLog::Log(LOGDEBUG, "CSoftAE::Resume - Re Enumerating Sinks");
+     CExclusiveLock sinkLock(m_sinkLock);
+@@ -1095,6 +1095,12 @@ void CSoftAE::Run()
+     /* if we are told to restart */
+     if (m_reOpen || restart || !m_sink)
+     {
++      if(m_sinkIsSuspended && m_sink)
++      {
++        m_reOpen = m_reOpen || m_sink->SoftResume();
++        m_sinkIsSuspended = false;
++        CLog::Log(LOGDEBUG, "CSoftAE::Run - Sink was forgotten");   
++      }
+       CLog::Log(LOGDEBUG, "CSoftAE::Run - Sink restart flagged");
+       InternalOpenSink();
+     }
+-- 
+1.7.10
+
+
+From 8b382daadfe7e9cd1b6498571dcba8aca7b05c55 Mon Sep 17 00:00:00 2001
+From: fritsch <peter.fruehberger@gmail.com>
+Date: Mon, 11 Feb 2013 00:08:05 +0100
+Subject: [PATCH 2/3] AE: in doubt restore old suspend behaviour
+
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp |   49 +++++++++++++++-------
+ 1 file changed, 33 insertions(+), 16 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index 20af5a1..0f6c6ed 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -989,32 +989,50 @@ bool CSoftAE::Suspend()
+     CSoftAEStream *stream = *itt;
+     stream->Flush();
+   }
++  streamLock.Leave();
+   #if defined(TARGET_LINUX)
+   /*workaround sinks not playing sound after resume */
+     StopAllSounds();
+-    CExclusiveLock sinkLock(m_sinkLock);
+-    for (AESinkInfoList::iterator itt = m_sinkInfoList.begin(); itt != m_sinkInfoList.end(); ++itt)
+-    {
+-      itt->m_deviceInfoList.pop_back();
+-    }
++    bool ret = true;
+     if(m_sink)
+     {
+       /* Deinitialize and delete current m_sink */
+       // we don't want that Run reopens our device, so we wait.
+       m_saveSuspend.Reset();
+       // wait until we are looping in ProcessSuspend()
+-      m_saveSuspend.Wait();
+-      m_sink->Drain();
+-      m_sink->Deinitialize();
+-      delete m_sink;
+-      m_sink = NULL;
+-      // signal anybody, that the sink is closed now
+-      // this should help us not to run into deadlocks
+-      if(m_closeSink)
+-       m_closeEvent.Set();
++      // this is more save to not come up unclean
++      // we cannot wait forever
++      ret = m_saveSuspend.WaitMSec(500);
++      if(ret)
++      {
++        CLog::Log(LOGDEBUG, "CSoftAE::Suspend - After Event");
++        CExclusiveLock sinkLock(m_sinkLock);
++        // remove all the sinks
++        for (AESinkInfoList::iterator itt = m_sinkInfoList.begin(); itt != m_sinkInfoList.end(); ++itt)
++        {
++          itt->m_deviceInfoList.pop_back();
++        }
++        m_sink->Drain();
++        m_sink->Deinitialize();
++        delete m_sink;
++        m_sink = NULL;
++      }
++      else
++      {
++        CLog::Log(LOGDEBUG, "CSoftAE::Suspend - Unload failed will continue");
++    	m_saveSuspend.Reset();
++      }
+     }
+     // The device list is now empty and must be reenumerated afterwards.
+-    m_sinkInfoList.clear();
++    if(ret)
++      m_sinkInfoList.clear();
++
++    // signal anybody, that we are gone now (beware of deadlocks)
++    // we don't unset the fields here, to care for reinit after resume
++    if(m_closeSink)
++      m_closeEvent.Set();
++    if(m_reOpen)
++      m_reOpenEvent.Set();
+   #endif
+ 
+   return true;
+@@ -1378,7 +1396,6 @@ unsigned int CSoftAE::RunRawStreamStage(unsigned int channelCount, void *out, bo
+   StreamList resumeStreams;
+   static StreamList::iterator itt;
+   CSingleLock streamLock(m_streamLock);
+-
+   /* handle playing streams */
+   for (itt = m_playingStreams.begin(); itt != m_playingStreams.end(); ++itt)
+   {
+-- 
+1.7.10
+
+
+From c42665ba9f1958452567ed1af8e85d07adae6b7b Mon Sep 17 00:00:00 2001
+From: fritsch <peter.fruehberger@gmail.com>
+Date: Mon, 11 Feb 2013 03:08:42 +0100
+Subject: [PATCH 3/3] AE: Stop async closing when going to suspend - we close
+ in any case but cannot guarantee that the closeEvent
+ gets set
+
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp |   23 ++--------------------
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h   |    2 --
+ 2 files changed, 2 insertions(+), 23 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index 0f6c6ed..017782c 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -59,7 +59,6 @@
+   m_audiophile         (true        ),
+   m_running            (false       ),
+   m_reOpen             (false       ),
+-  m_closeSink          (false       ),
+   m_sinkIsSuspended    (false       ),
+   m_isSuspended        (false       ),
+   m_softSuspend        (false       ),
+@@ -189,8 +188,6 @@ void CSoftAE::InternalCloseSink()
+     delete m_sink;
+     m_sink = NULL;
+   }
+-  m_closeSink = false;
+-  m_closeEvent.Set();
+ }
+ /* this must NEVER be called from outside the main thread or Initialization */
+ void CSoftAE::InternalOpenSink()
+@@ -873,16 +870,8 @@ IAEStream *CSoftAE::FreeStream(IAEStream *stream)
+   RemoveStream(m_playingStreams, (CSoftAEStream*)stream);
+   RemoveStream(m_streams       , (CSoftAEStream*)stream);
+   lock.Leave();
+-  // Close completely when we go to suspend, reopen as it was old behaviour.
+-  // Not opening when masterstream stops means clipping on S/PDIF.
+-  if(m_isSuspended)
+-  {
+-    m_closeEvent.Reset();
+-    m_closeSink = true;
+-    m_closeEvent.Wait();
+-    m_wake.Set();
+-  }
+-  else if (m_masterStream == stream)
++  // Reopen is old behaviour. Not opening when masterstream stops means clipping on S/PDIF.
++  if(!m_isSuspended && (m_masterStream == stream))
+ 	  OpenSink();
+ 
+   delete (CSoftAEStream*)stream;
+@@ -1029,8 +1018,6 @@ bool CSoftAE::Suspend()
+ 
+     // signal anybody, that we are gone now (beware of deadlocks)
+     // we don't unset the fields here, to care for reinit after resume
+-    if(m_closeSink)
+-      m_closeEvent.Set();
+     if(m_reOpen)
+       m_reOpenEvent.Set();
+   #endif
+@@ -1101,12 +1088,6 @@ void CSoftAE::Run()
+         restart = true;
+     }
+ 
+-    //we are told to close the sink
+-    if(m_closeSink)
+-    {
+-      InternalCloseSink();
+-    }
+-
+     /* Handle idle or forced suspend */
+     ProcessSuspend();
+ 
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+index 559e055..26d5e9c 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+@@ -137,14 +137,12 @@ class CSoftAE : public IThreadedAE
+ 
+   /* internal vars */
+   bool             m_running, m_reOpen;
+-  bool             m_closeSink;
+   bool             m_sinkIsSuspended; /* The sink is in unusable state, e.g. SoftSuspended */
+   bool             m_isSuspended;      /* engine suspended by external function to release audio context */
+   bool             m_softSuspend;      /* latches after last stream or sound played for timer below for idle */
+   unsigned int     m_softSuspendTimer; /* time in milliseconds to hold sink open before soft suspend for idle */
+   CEvent           m_reOpenEvent;
+   CEvent           m_wake;
+-  CEvent           m_closeEvent;
+   CEvent           m_saveSuspend;
+ 
+   CCriticalSection m_runningLock;     /* released when the thread exits */
+-- 
+1.7.10
+

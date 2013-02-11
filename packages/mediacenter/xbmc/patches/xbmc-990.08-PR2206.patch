@@ -1,0 +1,68 @@
+From 94ea56fc7c14ade6338e00ff67942ebd7b345e01 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 11 Feb 2013 11:38:26 +0000
+Subject: [PATCH] [rbp] Fix for broken ASS subtitles.
+
+The video fifo patch broke some types of subtitles including ASS.
+This keeps closer track of when the sleep time would have ended and calls FlipPage at the appropriate time.
+I've also removed the 500ms in the sleep time calculation as that makes the subs render 500ms late. Not sure what its purpose was.
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp |   19 +++++++++++++++----
+ xbmc/cores/omxplayer/OMXPlayerVideo.h   |    1 +
+ 2 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index 4dec28a..ec7e7f6 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -124,6 +124,7 @@ bool OMXPlayerVideo::OpenStream(CDVDStreamInfo &hints)
+   m_started     = false;
+   m_stalled     = m_messageQueue.GetPacketCount(CDVDMsg::DEMUXER_PACKET) == 0;
+   m_autosync    = 1;
++  m_iSleepEndTime = DVD_NOPTS_VALUE;
+ 
+   m_audio_count = m_av_clock->HasAudio();
+ 
+@@ -452,13 +453,23 @@ void OMXPlayerVideo::Output(int iGroupId, double pts, bool bDropPacket)
+   m_dropbase = 0.0f;
+ #endif
+ 
+-  double pts_media = m_av_clock->OMXMediaTime(false, false);
+-  ProcessOverlays(iGroupId, pts_media);
++  // DVDPlayer sleeps until m_iSleepEndTime here before calling FlipPage.
++  // Video playback in asynchronous in OMXPlayer, so we don't want to do that here, as it prevents the video fifo from being kept full.
++  // So, we keep track of when FlipPage would have been called on DVDPlayer and return early if it is not time.
++  // m_iSleepEndTime == DVD_NOPTS_VALUE means we are not waiting to call FlipPage, otherwise it is the time we want to call FlipPage
++  if (m_iSleepEndTime == DVD_NOPTS_VALUE) {
++    m_iSleepEndTime = iCurrentClock + iSleepTime;
++  }
+ 
+-  if (!CThread::m_bStop && m_av_clock->GetAbsoluteClock(false) < (iCurrentClock + iSleepTime + DVD_MSEC_TO_TIME(500)) )
++  if (!CThread::m_bStop && m_av_clock->GetAbsoluteClock(false) < m_iSleepEndTime)
+     return;
+ 
+-  g_renderManager.FlipPage(CThread::m_bStop, (iCurrentClock + iSleepTime) / DVD_TIME_BASE, -1, FS_NONE);
++  m_iSleepEndTime = DVD_NOPTS_VALUE;
++
++  double pts_media = m_av_clock->OMXMediaTime(false, false);
++  ProcessOverlays(iGroupId, pts_media);
++
++  g_renderManager.FlipPage(CThread::m_bStop, pts_media / DVD_TIME_BASE, -1, FS_NONE);
+ 
+   //m_av_clock->WaitAbsoluteClock((iCurrentClock + iSleepTime));
+ }
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.h b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+index 3fd643e..cf05c1f 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.h
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+@@ -49,6 +49,7 @@ class OMXPlayerVideo : public CThread
+   bool                      m_open;
+   CDVDStreamInfo            m_hints;
+   double                    m_iCurrentPts;
++  double                    m_iSleepEndTime;
+   OMXClock                  *m_av_clock;
+   COMXVideo                 m_omxVideo;
+   float                     m_fFrameRate;
+-- 
+1.7.10
+
