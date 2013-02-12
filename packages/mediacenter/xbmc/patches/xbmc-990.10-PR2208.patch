@@ -1,0 +1,58 @@
+From c1cc1b3dd1065c7a1dea33cf57fbbcae19b38c3b Mon Sep 17 00:00:00 2001
+From: Andy Maloney <andy@forident.com>
+Date: Sun, 10 Feb 2013 08:31:51 -0500
+Subject: [PATCH] Fix memory leaks & Use correct "delete" for arrays
+
+---
+ xbmc/network/AirTunesServer.cpp                        |    6 +++++-
+ xbmc/visualizations/Vortex/VortexVis/Core/Renderer.cpp |    2 +-
+ xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp        |    2 +-
+ 3 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/network/AirTunesServer.cpp b/xbmc/network/AirTunesServer.cpp
+index fe3d78d..2f30773 100644
+--- a/xbmc/network/AirTunesServer.cpp
++++ b/xbmc/network/AirTunesServer.cpp
+@@ -339,8 +339,12 @@ ao_device* CAirTunesServer::AudioOutputFunctions::ao_open_live(int driver_id, ao
+   header.durationMs = 0;
+ 
+   if (device->pipe->Write(&header, sizeof(header)) == 0)
++  {
++    delete device->pipe;
++    delete device;
+     return 0;
+-
++  }
++  
+   ThreadMessage tMsg = { TMSG_MEDIA_STOP };
+   CApplicationMessenger::Get().SendMessage(tMsg, true);
+ 
+diff --git a/xbmc/visualizations/Vortex/VortexVis/Core/Renderer.cpp b/xbmc/visualizations/Vortex/VortexVis/Core/Renderer.cpp
+index 2191505..ffd39b9 100644
+--- a/xbmc/visualizations/Vortex/VortexVis/Core/Renderer.cpp
++++ b/xbmc/visualizations/Vortex/VortexVis/Core/Renderer.cpp
+@@ -1347,7 +1347,7 @@ void Renderer::Sphere(int del_uhol_x, int del_uhol_y, float size)
+ 		//		g_device->DrawPrimitive(D3DPT_TRIANGLESTRIP, i*2*(del_y+1), 2*del_y );
+ 		m_pD3DDevice->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2*del_uhol_y, &v[i*2*(del_uhol_y+1)], sizeof(PosColNormalUVVertex));
+ 
+-	delete v;
++	delete [] v;
+ 	//  pd->DrawPrimitive( D3DPT_TRIANGLESTRIP, i*2*(del_y+1), 2*del_y );
+ }
+ 
+diff --git a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+index 71e32c7..d04141b 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+@@ -634,7 +634,7 @@ void CEGLNativeTypeRaspberryPI::GetSupportedModes(HDMI_RES_GROUP_T group, std::v
+     }
+   }
+   if (supported_modes)
+-    delete supported_modes;
++    delete [] supported_modes;
+ }
+ 
+ void CEGLNativeTypeRaspberryPI::TvServiceCallback(uint32_t reason, uint32_t param1, uint32_t param2)
+-- 
+1.7.10
+
