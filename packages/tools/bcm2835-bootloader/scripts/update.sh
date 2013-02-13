@@ -40,7 +40,7 @@
 # some config.txt magic
   if [ ! -f $BOOT_ROOT/config.txt ]; then
     cp $SYSTEM_ROOT/usr/share/bootloader/config.txt $BOOT_ROOT
-  elif [ ! `grep "^[ ]*gpu_mem.*" $BOOT_ROOT/config.txt` ]; then
+  elif [ -z "`grep "^[ ]*gpu_mem.*" $BOOT_ROOT/config.txt`" ]; then
     mv $BOOT_ROOT/config.txt $BOOT_ROOT/config.txt.bk
     cat $SYSTEM_ROOT/usr/share/bootloader/config.txt \
         $BOOT_ROOT/config.txt.bk > $BOOT_ROOT/config.txt
