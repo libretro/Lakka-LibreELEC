@@ -1,0 +1,138 @@
+From 07b4e2c80c046bad566ed4a70e49ae4bfb3ecc47 Mon Sep 17 00:00:00 2001
+From: stupid-boy <amushatov@gmail.com>
+Date: Wed, 13 Feb 2013 20:56:12 +0200
+Subject: [PATCH] Changed cpu frequency for all Linux platforms, added RPI
+ specific cpu temp command and removed irrelevant gpu temp
+ for all ARM platforms.
+
+---
+ xbmc/utils/CPUInfo.cpp               |   41 +++++++++++++++++-----------------
+ xbmc/utils/CPUInfo.h                 |    2 +-
+ xbmc/windows/GUIWindowSystemInfo.cpp |    4 +++-
+ 3 files changed, 24 insertions(+), 23 deletions(-)
+
+diff --git a/xbmc/utils/CPUInfo.cpp b/xbmc/utils/CPUInfo.cpp
+index 64c90b9..f605751 100644
+--- a/xbmc/utils/CPUInfo.cpp
++++ b/xbmc/utils/CPUInfo.cpp
+@@ -107,7 +107,7 @@ static inline int _private_gettimeofday( struct timeval *tv, void *tz )
+ 
+ CCPUInfo::CCPUInfo(void)
+ {
+-  m_fProcStat = m_fProcTemperature = m_fCPUInfo = NULL;
++  m_fProcStat = m_fProcTemperature = m_fCPUFreq = NULL;
+   m_lastUsedPercentage = 0;
+   m_cpuFeatures = 0;
+ 
+@@ -235,15 +235,20 @@ static inline int _private_gettimeofday( struct timeval *tv, void *tz )
+   // read from the new location of the temperature data on new kernels, 2.6.39, 3.0 etc
+   if (m_fProcTemperature == NULL)   
+     m_fProcTemperature = fopen("/sys/class/hwmon/hwmon0/temp1_input", "r");
+-  
+-  m_fCPUInfo = fopen("/proc/cpuinfo", "r");
++  if (m_fProcTemperature == NULL)   
++    m_fProcTemperature = fopen("/sys/class/thermal/thermal_zone0/temp", "r");  // On Raspberry PIs
++
++  m_fCPUFreq = fopen ("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", "r");
++
++
++  FILE* fCPUInfo = fopen("/proc/cpuinfo", "r");
+   m_cpuCount = 0;
+-  if (m_fCPUInfo)
++  if (fCPUInfo)
+   {
+     char buffer[512];
+ 
+     int nCurrId = 0;
+-    while (fgets(buffer, sizeof(buffer), m_fCPUInfo))
++    while (fgets(buffer, sizeof(buffer), fCPUInfo))
+     {
+       if (strncmp(buffer, "processor", strlen("processor"))==0)
+       {
+@@ -369,6 +374,7 @@ static inline int _private_gettimeofday( struct timeval *tv, void *tz )
+         }
+       }
+     }
++    fclose(fCPUInfo);
+   }
+   else
+   {
+@@ -409,8 +415,8 @@ static inline int _private_gettimeofday( struct timeval *tv, void *tz )
+   if (m_fProcTemperature != NULL)
+     fclose(m_fProcTemperature);
+ 
+-  if (m_fCPUInfo != NULL)
+-    fclose(m_fCPUInfo);
++  if (m_fCPUFreq != NULL)
++    fclose(m_fCPUFreq);
+ }
+ 
+ int CCPUInfo::getUsedPercentage()
+@@ -482,21 +488,14 @@ float CCPUInfo::getCPUFrequency()
+     hz = 0;
+   return (float)hz;
+ #else
+-  float mhz = 0.f;
+-  char buf[256],
+-       *needle = NULL;
+-  if (!m_fCPUInfo)
+-    return mhz;
+-  rewind(m_fCPUInfo);
+-  fflush(m_fCPUInfo);
+-  while (fgets(buf, 256, m_fCPUInfo) != NULL) {
+-    if (strncmp(buf, "cpu MHz", 7) == 0) {
+-      needle = strchr(buf, ':');
+-      sscanf(++needle, "%f", &mhz);
+-      break;
+-    }
++  int value = 0;
++  if (m_fCPUFreq)
++  {
++    rewind(m_fCPUFreq);
++    fflush(m_fCPUFreq);
++    fscanf(m_fCPUFreq, "%d", &value);
+   }
+-  return mhz;
++  return value / 1000.0;
+ #endif
+ }
+ 
+diff --git a/xbmc/utils/CPUInfo.h b/xbmc/utils/CPUInfo.h
+index 638c19f..ae9447d 100644
+--- a/xbmc/utils/CPUInfo.h
++++ b/xbmc/utils/CPUInfo.h
+@@ -93,7 +93,7 @@ class CCPUInfo
+ 
+   FILE* m_fProcStat;
+   FILE* m_fProcTemperature;
+-  FILE* m_fCPUInfo;
++  FILE* m_fCPUFreq;
+ 
+   unsigned long long m_userTicks;
+   unsigned long long m_niceTicks;
+diff --git a/xbmc/windows/GUIWindowSystemInfo.cpp b/xbmc/windows/GUIWindowSystemInfo.cpp
+index fcc1f89..75fd0cd 100644
+--- a/xbmc/windows/GUIWindowSystemInfo.cpp
++++ b/xbmc/windows/GUIWindowSystemInfo.cpp
+@@ -141,7 +141,9 @@ void CGUIWindowSystemInfo::FrameMove()
+     SetControlLabel(i++, "%s %s", 22023, SYSTEM_RENDER_VENDOR);
+     SetControlLabel(i++, "%s %s", 22024, SYSTEM_RENDER_VERSION);
+ #endif
++#ifndef __arm__
+     SetControlLabel(i++, "%s %s", 22010, SYSTEM_GPU_TEMPERATURE);
++#endif
+   }
+   else if (m_section == CONTROL_BT_HARDWARE)
+   {
+@@ -155,7 +157,7 @@ void CGUIWindowSystemInfo::FrameMove()
+     SET_CONTROL_LABEL(i++, g_sysinfo.GetCPUSerial());
+ #endif
+     SetControlLabel(i++, "%s %s", 22011, SYSTEM_CPU_TEMPERATURE);
+-#if !defined(__arm__)
++#if !defined(__arm__) || defined(TARGET_RASPBERRY_PI)
+     SetControlLabel(i++, "%s %s", 13284, SYSTEM_CPUFREQUENCY);
+ #endif
+ #endif
+-- 
+1.7.10
+
