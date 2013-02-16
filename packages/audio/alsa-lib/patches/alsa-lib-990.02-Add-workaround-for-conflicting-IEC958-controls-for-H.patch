@@ -1,12 +1,13 @@
-From: Takashi Iwai <tiwai <at> suse.de>
-Subject: [PATCH RFC 2/2] Add workaround for conflicting IEC958	controls for HD-audio
-Newsgroups: gmane.linux.alsa.devel
-Date: 2012-10-12 15:25:49 GMT (17 weeks, 8 hours and 27 minutes ago)
+From 91e42790dd0a9489a94e3784d220d76ad2d98b36 Mon Sep 17 00:00:00 2001
+From: Takashi Iwai <tiwai@suse.de>
+Date: Sat, 16 Feb 2013 18:29:59 +0200
+Subject: [PATCH] Add workaround for conflicting IEC958 controls for HD-audio
+
 When both an SPDIF and an HDMI output are present on HD-audio, both
 try to access IEC958 controls with index=0 although one of them must
-be wrong.  For avoiding this conflict, the recent kernel code moves
-the IEC958 controls of an SPDIF with device=1 once when the conflict
-happens.
+be wrong.  For avoiding this conflict, the recent kernel code (3.9 and
+3.8 stable) moves the IEC958 controls of an SPDIF with index=16 once
+when the conflict happens.
 
 In this patch, the corresponding support is added in alsa-lib side.
 The new "skip_rest" boolean flag is added to the hooked element
@@ -15,21 +16,21 @@ ignored once when this element is present and evaluated.  With this
 new flag, the HD-audio config takes device=1 primarily, then take
 device=0 as fallback.
 
-Signed-off-by: Takashi Iwai <tiwai <at> suse.de>
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
 ---
- src/conf/cards/HDA-Intel.conf | 16 ++++++++++++++++
- src/control/setup.c           | 19 ++++++++++++++++---
+ src/conf/cards/HDA-Intel.conf |   16 ++++++++++++++++
+ src/control/setup.c           |   19 ++++++++++++++++---
  2 files changed, 32 insertions(+), 3 deletions(-)
 
 diff --git a/src/conf/cards/HDA-Intel.conf b/src/conf/cards/HDA-Intel.conf
-index d4f2667..55fb624 100644
+index d4f2667..3957c12 100644
 --- a/src/conf/cards/HDA-Intel.conf
 +++ b/src/conf/cards/HDA-Intel.conf
 @@ -113,6 +113,22 @@ HDA-Intel.pcm.iec958.0 {
  			hook_args [
  			{
  				name "IEC958 Playback Default"
-+				device 1
++				index 16
 +				optional true
 +				lock true
 +				preserve true
@@ -37,7 +38,7 @@ index d4f2667..55fb624 100644
 +			}
 +			{
 +				name "IEC958 Playback Switch"
-+				device 1
++				index 16
 +				optional true
 +				value true
 +				# if this element is present, skip the rest
@@ -49,19 +50,19 @@ index d4f2667..55fb624 100644
  				preserve true
  				value [ $AES0 $AES1 $AES2 $AES3 ]
 diff --git a/src/control/setup.c b/src/control/setup.c
-index bd3599d..f23bf2c 100644
+index eecda45..72facb0 100644
 --- a/src/control/setup.c
 +++ b/src/control/setup.c
 @@ -396,7 +396,7 @@ static int snd_config_get_ctl_elem_value(snd_config_t *conf,
  	return 0;
  }
-
+ 
 -static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_data)
 +static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_data, int *quit)
  {
  	snd_config_t *conf;
  	snd_config_iterator_t i, next;
-@@ -408,6 +408,7 @@ static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_da
+@@ -409,6 +409,7 @@ static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_da
  	int lock = 0;
  	int preserve = 0;
  	int optional = 0;
@@ -69,8 +70,8 @@ index bd3599d..f23bf2c 100644
  	snd_config_t *value = NULL, *mask = NULL;
  	snd_sctl_elem_t *elem = NULL;
  	int err;
-@@ -491,6 +492,13 @@ static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_da
- 			optional = err;
+@@ -516,6 +517,13 @@ static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_da
+ 			free(tmp);
  			continue;
  		}
 +		if (strcmp(id, "skip_rest") == 0) {
@@ -83,9 +84,9 @@ index bd3599d..f23bf2c 100644
  		SNDERR("Unknown field %s", id);
  		return -EINVAL;
  	}
-@@ -539,6 +547,9 @@ static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_da
+@@ -564,6 +572,9 @@ static int add_elem(snd_sctl_t *h, snd_config_t *_conf, snd_config_t *private_da
  		if (! optional)
- 			SNDERR("Cannot obtain info for CTL elem (%s,'%s',%li,%li,%li): %s",snd_ctl_elem_iface_name(iface), name, index, device, subdevice, snd_strerror(err));
+ 			SNDERR("Cannot obtain info for CTL elem (%s,'%s',%li,%li,%li): %s", snd_ctl_elem_iface_name(iface), name, index, device, subdevice, snd_strerror(err));
  		goto _err;
 +	} else {
 +		if (skip_rest)
@@ -93,16 +94,16 @@ index bd3599d..f23bf2c 100644
  	}
  	snd_ctl_elem_value_set_id(elem->val, elem->id);
  	snd_ctl_elem_value_set_id(elem->old, elem->id);
-@@ -594,7 +605,7 @@ int snd_sctl_build(snd_sctl_t **sctl, snd_ctl_t *handle, snd_config_t *conf, snd
+@@ -619,7 +630,7 @@ int snd_sctl_build(snd_sctl_t **sctl, snd_ctl_t *handle, snd_config_t *conf, snd
  {
  	snd_sctl_t *h;
  	snd_config_iterator_t i, next;
 -	int err;
 +	int err, quit = 0;
-
+ 
  	assert(sctl);
  	assert(handle);
-@@ -614,11 +625,13 @@ int snd_sctl_build(snd_sctl_t **sctl, snd_ctl_t *handle, snd_config_t *conf, snd
+@@ -639,11 +650,13 @@ int snd_sctl_build(snd_sctl_t **sctl, snd_ctl_t *handle, snd_config_t *conf, snd
  	INIT_LIST_HEAD(&h->elems);
  	snd_config_for_each(i, next, conf) {
  		snd_config_t *n = snd_config_iterator_entry(i);
@@ -118,5 +119,5 @@ index bd3599d..f23bf2c 100644
  	*sctl = h;
  	return 0;
 -- 
-1.7.12.2
+1.7.10
 
