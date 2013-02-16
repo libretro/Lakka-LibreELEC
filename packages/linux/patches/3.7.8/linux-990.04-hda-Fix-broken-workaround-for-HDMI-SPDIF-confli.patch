@@ -1,0 +1,139 @@
+From ea9b43addc4d90ca5b029f47f85ca152320a1e8d Mon Sep 17 00:00:00 2001
+From: Takashi Iwai <tiwai@suse.de>
+Date: Tue, 12 Feb 2013 17:02:41 +0100
+Subject: [PATCH] ALSA: hda - Fix broken workaround for HDMI/SPDIF conflicts
+
+The commit [dcda58061: ALSA: hda - Add workaround for conflicting
+IEC958 controls] introduced a workaround for cards that have both
+SPDIF and HDMI devices for giving device=1 to SPDIF control elements.
+It turned out, however, that this workaround doesn't work well -
+
+- The workaround checks only conflicts in a single codec, but SPDIF
+  and HDMI are provided by multiple codecs in many cases, and
+
+- ALSA mixer abstraction doesn't care about the device number in ctl
+  elements, thus you'll get errors from amixer such as
+  % amixer scontrols -c 0
+  ALSA lib simple_none.c:1551:(simple_add1) helem (MIXER,'IEC958
+  Playback Switch',0,1,0) appears twice or more
+  amixer: Mixer hw:0 load error: Invalid argument
+
+This patch fixes the previous broken workaround.  Instead of changing
+the device number of SPDIF ctl elements, shift the element indices of
+such controls up to 16.  Also, the conflict check is performed over
+all codecs found on the bus.
+
+HDMI devices will be put to dev=0,index=0 as before.  Only the
+conflicting SPDIF device is moved to a different place.  The new place
+of SPDIF device is supposed by the updated alsa-lib HDA-Intel.conf,
+respectively.
+
+Reported-by: Stephan Raue <stephan@openelec.tv>
+Reported-by: Anssi Hannula <anssi.hannula@iki.fi>
+Cc: <stable@vger.kernel.org> [v3.8]
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+ sound/pci/hda/hda_codec.c |   43 +++++++++++++++++++++----------------------
+ sound/pci/hda/hda_codec.h |    3 ++-
+ 2 files changed, 23 insertions(+), 23 deletions(-)
+
+diff --git a/sound/pci/hda/hda_codec.c b/sound/pci/hda/hda_codec.c
+index e80f835..04b5738 100644
+--- a/sound/pci/hda/hda_codec.c
++++ b/sound/pci/hda/hda_codec.c
+@@ -2332,11 +2332,12 @@ struct snd_kcontrol *snd_hda_find_mixer_ctl(struct hda_codec *codec,
+ EXPORT_SYMBOL_HDA(snd_hda_find_mixer_ctl);
+ 
+ static int find_empty_mixer_ctl_idx(struct hda_codec *codec, const char *name,
+-				    int dev)
++				    int start_idx)
+ {
+-	int idx;
+-	for (idx = 0; idx < 16; idx++) { /* 16 ctlrs should be large enough */
+-		if (!find_mixer_ctl(codec, name, dev, idx))
++	int i, idx;
++	/* 16 ctlrs should be large enough */
++	for (i = 0, idx = start_idx; i < 16; i++, idx++) {
++		if (!find_mixer_ctl(codec, name, 0, idx))
+ 			return idx;
+ 	}
+ 	return -EBUSY;
+@@ -3305,30 +3306,29 @@ int snd_hda_create_dig_out_ctls(struct hda_codec *codec,
+ 	int err;
+ 	struct snd_kcontrol *kctl;
+ 	struct snd_kcontrol_new *dig_mix;
+-	int idx, dev = 0;
+-	const int spdif_pcm_dev = 1;
++	int idx = 0;
++	const int spdif_index = 16;
+ 	struct hda_spdif_out *spdif;
++	struct hda_bus *bus = codec->bus;
+ 
+-	if (codec->primary_dig_out_type == HDA_PCM_TYPE_HDMI &&
++	if (bus->primary_dig_out_type == HDA_PCM_TYPE_HDMI &&
+ 	    type == HDA_PCM_TYPE_SPDIF) {
+-		dev = spdif_pcm_dev;
+-	} else if (codec->primary_dig_out_type == HDA_PCM_TYPE_SPDIF &&
++		idx = spdif_index;
++	} else if (bus->primary_dig_out_type == HDA_PCM_TYPE_SPDIF &&
+ 		   type == HDA_PCM_TYPE_HDMI) {
+-		for (idx = 0; idx < codec->spdif_out.used; idx++) {
+-			spdif = snd_array_elem(&codec->spdif_out, idx);
+-			for (dig_mix = dig_mixes; dig_mix->name; dig_mix++) {
+-				kctl = find_mixer_ctl(codec, dig_mix->name, 0, idx);
+-				if (!kctl)
+-					break;
+-				kctl->id.device = spdif_pcm_dev;
+-			}
++		/* suppose a single SPDIF device */
++		for (dig_mix = dig_mixes; dig_mix->name; dig_mix++) {
++			kctl = find_mixer_ctl(codec, dig_mix->name, 0, 0);
++			if (!kctl)
++				break;
++			kctl->id.index = spdif_index;
+ 		}
+-		codec->primary_dig_out_type = HDA_PCM_TYPE_HDMI;
++		bus->primary_dig_out_type = HDA_PCM_TYPE_HDMI;
+ 	}
+-	if (!codec->primary_dig_out_type)
+-		codec->primary_dig_out_type = type;
++	if (!bus->primary_dig_out_type)
++		bus->primary_dig_out_type = type;
+ 
+-	idx = find_empty_mixer_ctl_idx(codec, "IEC958 Playback Switch", dev);
++	idx = find_empty_mixer_ctl_idx(codec, "IEC958 Playback Switch", idx);
+ 	if (idx < 0) {
+ 		printk(KERN_ERR "hda_codec: too many IEC958 outputs\n");
+ 		return -EBUSY;
+@@ -3338,7 +3338,6 @@ int snd_hda_create_dig_out_ctls(struct hda_codec *codec,
+ 		kctl = snd_ctl_new1(dig_mix, codec);
+ 		if (!kctl)
+ 			return -ENOMEM;
+-		kctl->id.device = dev;
+ 		kctl->id.index = idx;
+ 		kctl->private_value = codec->spdif_out.used - 1;
+ 		err = snd_hda_ctl_add(codec, associated_nid, kctl);
+diff --git a/sound/pci/hda/hda_codec.h b/sound/pci/hda/hda_codec.h
+index e8c9442..23ca172 100644
+--- a/sound/pci/hda/hda_codec.h
++++ b/sound/pci/hda/hda_codec.h
+@@ -679,6 +679,8 @@ struct hda_bus {
+ 	unsigned int response_reset:1;	/* controller was reset */
+ 	unsigned int in_reset:1;	/* during reset operation */
+ 	unsigned int power_keep_link_on:1; /* don't power off HDA link */
++
++	int primary_dig_out_type;	/* primary digital out PCM type */
+ };
+ 
+ /*
+@@ -846,7 +848,6 @@ struct hda_codec {
+ 	struct mutex hash_mutex;
+ 	struct snd_array spdif_out;
+ 	unsigned int spdif_in_enable;	/* SPDIF input enable? */
+-	int primary_dig_out_type;	/* primary digital out PCM type */
+ 	const hda_nid_t *slave_dig_outs; /* optional digital out slave widgets */
+ 	struct snd_array init_pins;	/* initial (BIOS) pin configurations */
+ 	struct snd_array driver_pins;	/* pin configs set by codec parser */
+-- 
+1.7.10
+
