@@ -22,6 +22,16 @@
 
 . /etc/profile
 
+net_tuner_num_fix() {
+  local num=$1
+
+  [ -z "$num" ] && num=1
+  num=$(( $num *1 ))
+  [ $num -lt 1 ] && num=1
+  num=$(( $num -1 ))
+  echo $num
+}
+
 ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.sundtek"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.sundtek"
 ADDON_SETTINGS="$ADDON_HOME/settings.xml"
@@ -31,6 +41,14 @@ mkdir -p $ADDON_HOME
 
 if [ ! -f "$ADDON_HOME/sundtek.conf" ]; then
   cp $ADDON_DIR/config/* $ADDON_HOME/
+else
+  # in case of missing entries in addon home's sundtek.conf
+  entry_set="$(grep use_hwpidfilter $ADDON_HOME/sundtek.conf 2>/dev/null)"
+  if [ -z "$entry_set" ]; then
+    sed -i 's|\(^device_attach=.*\)|\1\n# enable listening on network\nenablenetwork=off|g' $ADDON_HOME/sundtek.conf
+    sed -i 's|\(^device_attach=.*\)|\1\n\n# enable HW PID filter\nuse_hwpidfilter=off\n|g' $ADDON_HOME/sundtek.conf
+    sed -i 's|^#first_adapter=.*|first_adapter=0|g' $ADDON_HOME/sundtek.conf
+  fi
 fi
 
 if [ ! -f "$ADDON_SETTINGS" ]; then
@@ -68,6 +86,11 @@ if [ ! -f $ADDON_DIR/bin/mediasrv ]; then
     INSTALLER_URL="http://sundtek.de/media/netinst/32bit/installer.tar.gz"
   elif [ "$ARCH" = "arm" ]; then
     INSTALLER_URL="http://sundtek.de/media/netinst/armsysvhf/installer.tar.gz"
+
+    # enable HW PID filter on RPi by default
+    sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=on|g' $ADDON_DIR/config/sundtek.conf
+    sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=on|g' $ADDON_HOME/sundtek.conf
+    sed -i 's|.*id="ENABLE_HW_PID_FILTER" value=.*|<setting id="ENABLE_HW_PID_FILTER" value="true" />|' $ADDON_SETTINGS
   else
     logger -t Sundtek "### Unsupported architecture ###"
     cd ..
@@ -75,9 +98,6 @@ if [ ! -f $ADDON_DIR/bin/mediasrv ]; then
     exit 1
   fi
 
-  # test only !!!
-  #INSTALLER_URL="http://sundtek.de/support/installer.tar.gz"
-  
   wget -O installer.tar.gz $INSTALLER_URL
   wget -O ../driver-version.txt http://sundtek.de/media/latest.phtml
   logger -t Sundtek "### Extracting installer ###"
@@ -95,21 +115,22 @@ if [ ! -f $ADDON_DIR/bin/mediasrv ]; then
   cd ..
   rm -fr tmp/
   logger -t Sundtek "### Installer finished ###"
+
+  cat "$ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/sundtek-addon.conf
+  . /var/config/sundtek-addon.conf
 fi
 
 if [ ! -f $ADDON_HOME/driver-version.txt ]; then
   cp $ADDON_DIR/driver-version.txt $ADDON_HOME/
 fi
 
-# enable to install same version again
+# enable to install same addon version again
 rm -f /storage/.xbmc/addons/packages/driver.dvb.sundtek-*
 
 # add alias for /opt/bin/mediaclient
-#alias_set="$(grep /opt/bin/mediaclient /storage/.profile 2>/dev/null)"
 alias_set="$(grep libmediaclient.so /storage/.profile 2>/dev/null)"
 if [ -z "$alias_set" ]; then
   echo "" >>/storage/.profile
-  #echo "alias /opt/bin/mediaclient=/storage/.xbmc/addons/driver.dvb.sundtek/bin/mediaclient" >>/storage/.profile
   echo "[ -f /storage/.xbmc/addons/driver.dvb.sundtek/lib/libmediaclient.so ] && export LD_PRELOAD=/storage/.xbmc/addons/driver.dvb.sundtek/lib/libmediaclient.so" >>/storage/.profile
   echo "" >>/storage/.profile
 fi
@@ -117,45 +138,121 @@ fi
 export LD_PRELOAD=$ADDON_DIR/lib/libmediaclient.so
 
 if [ "$ANALOG_TV" = "true" -a ! -f "$ADDON_DIR/bin/plugins/lib/libavcodec.so.54.12.100" ]; then
-	logger -t Sundtek "### Downloading missing ffmpeg libraries ###"
-	cd $ADDON_DIR/bin
-	mkdir -p plugins/
-	cd plugins/
+  logger -t Sundtek "### Downloading missing ffmpeg libraries ###"
+  cd $ADDON_DIR/bin
+  mkdir -p plugins/
+  cd plugins/
 
-	ARCH=$(sed -n 's|.*\.\([^-]*\)-.*|\1|p' /etc/release | tr -d '\n')
+  ARCH=$(sed -n 's|.*\.\([^-]*\)-.*|\1|p' /etc/release | tr -d '\n')
   wget -O sundtek-ffmpeg-analog_tv-lib.tgz http://dl.dropbox.com/u/8224157/public/sundtek/sundtek-ffmpeg-analog_tv-lib-$ARCH.tgz
 
-	logger -t Sundtek "### Extracting ffmpeg libraries ###"
-	tar -xzf sundtek-ffmpeg-analog_tv-lib.tgz
-	if [ $? -ne 0 ]; then
-	  logger -t Sundtek "### Ffmpeg library archive damaged ###"
-	  rm -f sundtek-ffmpeg-analog_tv-lib.tgz
-	  exit 2
-	fi
+  logger -t Sundtek "### Extracting ffmpeg libraries ###"
+  tar -xzf sundtek-ffmpeg-analog_tv-lib.tgz
+  if [ $? -ne 0 ]; then
+    logger -t Sundtek "### Ffmpeg library archive damaged ###"
+    rm -f sundtek-ffmpeg-analog_tv-lib.tgz
+    exit 2
+  fi
 
-	rm -f sundtek-ffmpeg-analog_tv-lib.tgz
+  rm -f sundtek-ffmpeg-analog_tv-lib.tgz
 fi
-  
+
 if [ -z "$(pidof mediasrv)" ]; then
   rm -f /var/log/mediasrv.log
   rm -f /var/log/mediaclient.log
   rm -f $SUNDTEK_READY
 
-  mediasrv --wait-for-devices -p $ADDON_DIR/bin -c $ADDON_HOME/sundtek.conf -d
+  SUNDTEK_CONF_TMP=/tmp/sundtek.conf
+  cp $ADDON_HOME/sundtek.conf $SUNDTEK_CONF_TMP
 
-  if [ -n "$NETWORK_TUNER_IP" -a "$NETWORK_TUNER_IP" != "0.0.0.0" ]; then
-    logger -t Sundtek "### Trying to connect to Sundtek network device IP $NETWORK_TUNER_IP ###"
-    mediaclient --mount=$NETWORK_TUNER_IP
+  [ -z "$LOWEST_ADAPTER_NUM" ] && LOWEST_ADAPTER_NUM=0
+  sed -i "s|^first_adapter=.*|first_adapter=$LOWEST_ADAPTER_NUM|g" $SUNDTEK_CONF_TMP
+
+  # enable HW PID filter
+  if [ "$ENABLE_HW_PID_FILTER" = "true" ]; then
+    sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=on|g' $SUNDTEK_CONF_TMP
   else
-    logger -t Sundtek "### Trying to attach Sundtek device ###"
+    sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=off|g' $SUNDTEK_CONF_TMP
   fi
+
+  # enable IR receiver
+  if [ "$ENABLE_IR_RECEIVER" = "true" ]; then
+    sed -i 's|^ir_disabled=.*|ir_disabled=0|g' $SUNDTEK_CONF_TMP
+  else
+    sed -i 's|^ir_disabled=.*|ir_disabled=1|g' $SUNDTEK_CONF_TMP
+  fi
+
+  if [ "$ALLOW_NET_USE" = "true" ]; then
+    sed -i 's|^enablenetwork=.*|enablenetwork=on|g' $SUNDTEK_CONF_TMP
+  else
+    sed -i 's|^enablenetwork=.*|enablenetwork=off|g' $SUNDTEK_CONF_TMP
+  fi
+
+  [ "$DEVICE1_IP" = "0.0.0.0" ] && DEVICE1_IP=""
+  [ "$DEVICE2_IP" = "0.0.0.0" ] && DEVICE2_IP=""
+  [ "$DEVICE3_IP" = "0.0.0.0" ] && DEVICE3_IP=""
+  [ "$DEVICE4_IP" = "0.0.0.0" ] && DEVICE4_IP=""
+  [ "$DEVICE5_IP" = "0.0.0.0" ] && DEVICE5_IP=""
+  DEVICE1_NUM=$(net_tuner_num_fix $DEVICE1_NUM)
+  DEVICE2_NUM=$(net_tuner_num_fix $DEVICE2_NUM)
+  DEVICE3_NUM=$(net_tuner_num_fix $DEVICE3_NUM)
+  DEVICE4_NUM=$(net_tuner_num_fix $DEVICE4_NUM)
+  DEVICE5_NUM=$(net_tuner_num_fix $DEVICE5_NUM)
+
+  if [ "$USE_NET_TUNERS" = "true" -a -n "$DEVICE1_IP" ]; then
+    # delete all network tuner entries
+    awk '/^\[NETWORK\]/{flag=1; next} /^device=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-net
+    mv ${SUNDTEK_CONF_TMP}-net $SUNDTEK_CONF_TMP
+    echo "" >>$SUNDTEK_CONF_TMP
+    # remove empty lines at the end of file
+    sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
+    # add entries
+    echo "[NETWORK]" >>$SUNDTEK_CONF_TMP
+    for dev in $(seq 0 $DEVICE1_NUM); do
+      echo "device=$DEVICE1_IP:$dev" >>$SUNDTEK_CONF_TMP
+    done
+    if [ -n "$DEVICE2_IP" ]; then
+      for dev in $(seq 0 $DEVICE2_NUM); do
+        echo "device=$DEVICE2_IP:$dev" >>$SUNDTEK_CONF_TMP
+      done
+      if [ -n "$DEVICE3_IP" ]; then
+        for dev in $(seq 0 $DEVICE3_NUM); do
+          echo "device=$DEVICE3_IP:$dev" >>$SUNDTEK_CONF_TMP
+        done
+        if [ -n "$DEVICE4_IP" ]; then
+          for dev in $(seq 0 $DEVICE4_NUM); do
+            echo "device=$DEVICE4_IP:$dev" >>$SUNDTEK_CONF_TMP
+          done
+          if [ -n "$DEVICE5_IP" ]; then
+            for dev in $(seq 0 $DEVICE5_NUM); do
+              echo "device=$DEVICE5_IP:$dev" >>$SUNDTEK_CONF_TMP
+            done
+          fi
+        fi
+      fi
+    fi
+  else
+    # delete all network tuner entries
+    awk '/^\[NETWORK\]/{flag=1; next} /^device=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-net
+    mv ${SUNDTEK_CONF_TMP}-net $SUNDTEK_CONF_TMP
+    echo "" >>$SUNDTEK_CONF_TMP
+    # remove empty lines at the end of file
+    sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
+  fi
+
+  md5_1=$(md5sum -b $SUNDTEK_CONF_TMP | awk '{print $1}')
+  md5_2=$(md5sum -b $ADDON_HOME/sundtek.conf | awk '{print $1}')
+  if [ "$md5_1" != "$md5_2" ]; then
+    # file changed - copy to addon home
+    cp $SUNDTEK_CONF_TMP $ADDON_HOME/sundtek.conf
+  fi
+
+  #rm "$SUNDTEK_CONF_TMP"
+
+  mediasrv --wait-for-devices -p $ADDON_DIR/bin -c $ADDON_HOME/sundtek.conf -d
 
   # wait for device to get attached or connected
   for i in $(seq 1 240); do
-    if [ -n "$NETWORK_TUNER_IP" -a -e /dev/dvb/adapter*/frontend* ]; then
-      sh $ADDON_DIR/bin/device-attached.sh
-    fi
-
     if [ -f $SUNDTEK_READY ]; then
       rm -f $SUNDTEK_READY
       logger -t Sundtek "### Sundtek ready ###"
@@ -173,9 +270,9 @@ if [ -z "$(pidof mediasrv)" ]; then
       usleep 500000
     fi
   done
- 
+
   if [ "$ANALOG_TV" = "true" ]; then
-  	logger -t Sundtek "### Switching to analog TV mode ###"  
+    logger -t Sundtek "### Switching to analog TV mode ###"
     #rm -fr /dev/dvb/
     mediaclient --disable-dvb=/dev/dvb/adapter0
   fi
