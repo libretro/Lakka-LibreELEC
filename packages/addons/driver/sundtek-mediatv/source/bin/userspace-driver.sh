@@ -32,10 +32,9 @@ net_tuner_num_fix() {
   echo $num
 }
 
-ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.sundtek"
-ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.sundtek"
+ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.sundtek-mediatv"
+ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.sundtek-mediatv"
 ADDON_SETTINGS="$ADDON_HOME/settings.xml"
-SUNDTEK_READY="/var/run/sundtek.ready"
 
 mkdir -p $ADDON_HOME
 
@@ -45,9 +44,11 @@ else
   # in case of missing entries in addon home's sundtek.conf
   entry_set="$(grep use_hwpidfilter $ADDON_HOME/sundtek.conf 2>/dev/null)"
   if [ -z "$entry_set" ]; then
-    sed -i 's|\(^device_attach=.*\)|\1\n# enable listening on network\nenablenetwork=off|g' $ADDON_HOME/sundtek.conf
-    sed -i 's|\(^device_attach=.*\)|\1\n\n# enable HW PID filter\nuse_hwpidfilter=off\n|g' $ADDON_HOME/sundtek.conf
+    sed -i 's|^device_attach=.*|# device_attach not used anymore\n\n# enable HW PID filter\nuse_hwpidfilter=off\n\n# enable listening on network\nenablenetwork=off|g' $ADDON_HOME/sundtek.conf
     sed -i 's|^#first_adapter=.*|first_adapter=0|g' $ADDON_HOME/sundtek.conf
+    
+    sed -i 's|.*network tuner IP address (OpenELEC specific).*||g' $ADDON_HOME/sundtek.conf
+    sed -i 's|.*network_tuner_ip=.*||g' $ADDON_HOME/sundtek.conf
   fi
 fi
 
@@ -74,6 +75,10 @@ if [ "$AUTO_UPDATE" = "true" -a -f $ADDON_DIR/bin/mediasrv ]; then
 fi
 
 if [ ! -f $ADDON_DIR/bin/mediasrv ]; then
+  # remove renamed addon if exist
+  rm -fr "$HOME/.xbmc/addons/driver.dvb.sundtek"
+  rm -fr "$HOME/userdata/addon_data/driver.dvb.sundtek"
+
   logger -t Sundtek "### Downloading installer ###"
   cd $ADDON_DIR
   mkdir -p bin lib tmp
@@ -90,7 +95,7 @@ if [ ! -f $ADDON_DIR/bin/mediasrv ]; then
     # enable HW PID filter on RPi by default
     sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=on|g' $ADDON_DIR/config/sundtek.conf
     sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=on|g' $ADDON_HOME/sundtek.conf
-    sed -i 's|.*id="ENABLE_HW_PID_FILTER" value=.*|<setting id="ENABLE_HW_PID_FILTER" value="true" />|' $ADDON_SETTINGS
+    sed -i 's|.*id="ENABLE_HW_PID_FILTER".*|<setting id="ENABLE_HW_PID_FILTER" value="true" />|' $ADDON_SETTINGS
   else
     logger -t Sundtek "### Unsupported architecture ###"
     cd ..
@@ -124,15 +129,18 @@ if [ ! -f $ADDON_HOME/driver-version.txt ]; then
   cp $ADDON_DIR/driver-version.txt $ADDON_HOME/
 fi
 
-# enable to install same addon version again
-rm -f /storage/.xbmc/addons/packages/driver.dvb.sundtek-*
+# enable to install same addon package version again
+rm -f /storage/.xbmc/addons/packages/driver.dvb.sundtek*
 
 # add alias for /opt/bin/mediaclient
 alias_set="$(grep libmediaclient.so /storage/.profile 2>/dev/null)"
 if [ -z "$alias_set" ]; then
   echo "" >>/storage/.profile
-  echo "[ -f /storage/.xbmc/addons/driver.dvb.sundtek/lib/libmediaclient.so ] && export LD_PRELOAD=/storage/.xbmc/addons/driver.dvb.sundtek/lib/libmediaclient.so" >>/storage/.profile
+  echo "[ -f /storage/.xbmc/addons/driver.dvb.sundtek-mediatv/lib/libmediaclient.so ] && export LD_PRELOAD=/storage/.xbmc/addons/driver.dvb.sundtek-mediatv/lib/libmediaclient.so" >>/storage/.profile
   echo "" >>/storage/.profile
+else
+  # fix name
+  sed -i 's|/driver.dvb.sundtek/|/driver.dvb.sundtek-mediatv/|g' /storage/.profile
 fi
 
 export LD_PRELOAD=$ADDON_DIR/lib/libmediaclient.so
@@ -160,7 +168,6 @@ fi
 if [ -z "$(pidof mediasrv)" ]; then
   rm -f /var/log/mediasrv.log
   rm -f /var/log/mediaclient.log
-  rm -f $SUNDTEK_READY
 
   SUNDTEK_CONF_TMP=/tmp/sundtek.conf
   cp $ADDON_HOME/sundtek.conf $SUNDTEK_CONF_TMP
@@ -247,29 +254,15 @@ if [ -z "$(pidof mediasrv)" ]; then
     cp $SUNDTEK_CONF_TMP $ADDON_HOME/sundtek.conf
   fi
 
-  #rm "$SUNDTEK_CONF_TMP"
-
   mediasrv --wait-for-devices -p $ADDON_DIR/bin -c $ADDON_HOME/sundtek.conf -d
 
-  # wait for device to get attached or connected
-  for i in $(seq 1 240); do
-    if [ -f $SUNDTEK_READY ]; then
-      rm -f $SUNDTEK_READY
-      logger -t Sundtek "### Sundtek ready ###"
-
-      if [ -n $SETTLE_TIME -a $SETTLE_TIME -gt 0 ]; then
-        logger -t Sundtek "### Settle for $SETTLE_TIME sec ###"
-        sleep $SETTLE_TIME
-      fi
-
-      break
-    elif [ "$i" = "240" ]; then
-      logger -t Sundtek "### No Sundtek device attached or connected ###"
-      return
-    else
-      usleep 500000
-    fi
-  done
+  # wait few seconds
+  [ -z "$SETTLE_TIME" ] && SETTLE_TIME=0
+  SETTLE_TIME=$(( $SETTLE_TIME *1 ))
+  if [ $SETTLE_TIME -gt 0 ]; then
+    logger -t Sundtek "### Settle for $SETTLE_TIME sec ###"
+    sleep $SETTLE_TIME
+  fi
 
   if [ "$ANALOG_TV" = "true" ]; then
     logger -t Sundtek "### Switching to analog TV mode ###"
@@ -292,3 +285,5 @@ if [ -z "$(pidof mediasrv)" ]; then
   fi
 )&
 fi
+
+logger -t Sundtek "### Sundtek ready ###"
