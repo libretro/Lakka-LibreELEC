@@ -46,7 +46,7 @@ else
   if [ -z "$entry_set" ]; then
     sed -i 's|^device_attach=.*|# device_attach not used anymore\n\n# enable HW PID filter\nuse_hwpidfilter=off\n\n# enable listening on network\nenablenetwork=off|g' $ADDON_HOME/sundtek.conf
     sed -i 's|^#first_adapter=.*|first_adapter=0|g' $ADDON_HOME/sundtek.conf
-    
+
     sed -i 's|.*network tuner IP address (OpenELEC specific).*||g' $ADDON_HOME/sundtek.conf
     sed -i 's|.*network_tuner_ip=.*||g' $ADDON_HOME/sundtek.conf
   fi
@@ -95,6 +95,7 @@ if [ ! -f $ADDON_DIR/bin/mediasrv ]; then
     # enable HW PID filter on RPi by default
     sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=on|g' $ADDON_DIR/config/sundtek.conf
     sed -i 's|^use_hwpidfilter=.*|use_hwpidfilter=on|g' $ADDON_HOME/sundtek.conf
+    sed -i 's|.*id="ENABLE_HW_PID_FILTER".*|<setting id="ENABLE_HW_PID_FILTER" value="true" />|' $ADDON_DIR/settings-default.xml
     sed -i 's|.*id="ENABLE_HW_PID_FILTER".*|<setting id="ENABLE_HW_PID_FILTER" value="true" />|' $ADDON_SETTINGS
   else
     logger -t Sundtek "### Unsupported architecture ###"
@@ -214,7 +215,7 @@ if [ -z "$(pidof mediasrv)" ]; then
     # remove empty lines at the end of file
     sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
     # add entries
-    echo "[NETWORK]" >>$SUNDTEK_CONF_TMP
+    echo -e "\n[NETWORK]" >>$SUNDTEK_CONF_TMP
     for dev in $(seq 0 $DEVICE1_NUM); do
       echo "device=$DEVICE1_IP:$dev" >>$SUNDTEK_CONF_TMP
     done
@@ -245,6 +246,53 @@ if [ -z "$(pidof mediasrv)" ]; then
     echo "" >>$SUNDTEK_CONF_TMP
     # remove empty lines at the end of file
     sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
+  fi
+
+  if [ "$ENABLE_TUNER_TYPES" = "true" ]; then
+    # get tuner serial numbers
+    SERIALS=$(cat /var/config/sundtek-addon.conf | sed -n 's|^ATTACHED_TUNER_\(.*\)_DVBMODE=.*|\1|gp' | sort | uniq)
+    . /var/config/sundtek-addon.conf
+
+    for SERIAL in ${SERIALS[@]}; do
+      DVBMODE=$(eval echo \$ATTACHED_TUNER_${SERIAL}_DVBMODE)
+      IRPROT=$(eval echo \$ATTACHED_TUNER_${SERIAL}_IRPROT)
+      KEYMAP=$(eval echo \$ATTACHED_TUNER_${SERIAL}_KEYMAP)
+
+      if [ "$DVBMODE" = "DVB-T" ]; then
+        # only set DVB-T because default is DVB-C (and DVB-S is not set either)
+        DVBMODE="DVBT"
+      else
+        DVBMODE=""
+      fi
+
+      [ "$IRPROT" = "NEC" -o "$IRPROT" = "auto" ] && IRPROT=""
+
+      KEYMAP_FILE="$ADDON_HOME/$KEYMAP"
+      [ ! -f $KEYMAP_FILE ] && KEYMAP_FILE=""
+
+      # remove setttings for this tuner
+      awk -v val="[$SERIAL]" '$0 == val {flag=1; next} /^ir_protocol=|^rcmap=|^initial_dvb_mode=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-types
+      mv ${SUNDTEK_CONF_TMP}-types $SUNDTEK_CONF_TMP
+      echo "" >>$SUNDTEK_CONF_TMP
+      # remove empty lines at the end of file
+      sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
+
+      ADDNEW=true
+      if [ -n "$DVBMODE" ]; then
+        [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
+        echo "initial_dvb_mode=$DVBMODE" >>$SUNDTEK_CONF_TMP
+      fi
+      if [ -n "$IRPROT" ]; then
+        [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
+        echo "ir_protocol=$IRPROT" >>$SUNDTEK_CONF_TMP
+      fi
+      if [ -n "$KEYMAP_FILE" ]; then
+        [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
+        echo "rcmap=$KEYMAP_FILE" >>$SUNDTEK_CONF_TMP
+      fi
+
+      echo "" >>$SUNDTEK_CONF_TMP
+    done
   fi
 
   md5_1=$(md5sum -b $SUNDTEK_CONF_TMP | awk '{print $1}')
