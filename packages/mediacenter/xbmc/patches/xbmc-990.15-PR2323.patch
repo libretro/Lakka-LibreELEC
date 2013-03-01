@@ -1,0 +1,47 @@
+--- xbmc-12.0.3/configure.in.orig	2013-03-01 13:21:58.791312360 +0100
++++ xbmc-12.0.3/configure.in	2013-03-01 13:38:41.138311757 +0100
+@@ -990,9 +990,15 @@
+ AC_CHECK_LIB([tiff],        [main],, AC_MSG_ERROR($missing_library))
+ if echo "$ARCH" | grep -q freebsd; then
+ AC_CHECK_LIB([pthread],     [main],LIBS="-pthread $LIBS", AC_MSG_ERROR($missing_library))
++AC_CHECK_LIB([pthread],     [pthread_set_name_np],
++  AC_DEFINE([HAVE_PTHREAD_SET_NAME_NP],[1],["Define to 1 if pthread has pthread_set_name_np"]),
++  AC_MSG_RESULT([Could not find pthread_set_name_np in pthread]))
+ else
+ if test "$target_platform" != "target_android" ; then
+   AC_CHECK_LIB([pthread],     [main],, AC_MSG_ERROR($missing_library))
++  AC_CHECK_LIB([pthread],     [pthread_setname_np],
++    AC_DEFINE([HAVE_PTHREAD_SETNAME_NP],[1],["Define to 1 if pthread has pthread_setname_np"]),
++    AC_MSG_RESULT([Could not find pthread_setname_np in pthread]))
+ fi
+ fi
+ AC_CHECK_LIB([lzo2],        [main],, AC_MSG_ERROR($missing_library))
+--- xbmc-12.0.3/xbmc/threads/platform/pthreads/ThreadImpl.cpp.orig	2013-03-01 14:40:50.080309513 +0100
++++ xbmc-12.0.3/xbmc/threads/platform/pthreads/ThreadImpl.cpp	2013-03-01 14:40:20.548309531 +0100
+@@ -18,6 +18,9 @@
+  *
+  */
+ 
++#if (defined HAVE_CONFIG_H) && (!defined WIN32)
++  #include "config.h"
++#endif
+ #include <limits.h>
+ #if defined(TARGET_ANDROID)
+ #include <unistd.h>
+@@ -71,10 +74,16 @@
+   m_ThreadOpaque.LwpId = syscall(SYS_gettid);
+ #endif
+ 
++#if defined(HAVE_PTHREAD_SETNAME_NP)
+ #ifdef TARGET_DARWIN
+ #if(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 30200)
+   pthread_setname_np(m_ThreadName.c_str());
+ #endif
++#else
++  pthread_setname_np(m_ThreadId, m_ThreadName.c_str());
++#endif
++#elif defined(HAVE_PTHREAD_SET_NAME_NP)
++  pthread_set_name_np(m_ThreadId, m_ThreadName.c_str());
+ #endif
+     
+ #ifdef RLIMIT_NICE
