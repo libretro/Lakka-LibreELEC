@@ -27,7 +27,7 @@ import signal
 import subprocess
 import urllib2
 import hashlib
-from configobj import ConfigObj
+import sys
 from xml.dom.minidom import parseString
 import logging
 import traceback
@@ -195,6 +195,9 @@ except:
 
 signal.signal(signal.SIGCHLD, signal.SIG_DFL)
 os.environ['PYTHONPATH'] = str(os.environ.get('PYTHONPATH')) + ':' + pPylib
+sys.path.append(pPylib)
+
+from configobj import ConfigObj
 
 # SABnzbd start
 try:

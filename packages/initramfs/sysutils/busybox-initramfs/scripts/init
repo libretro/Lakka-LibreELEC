@@ -39,8 +39,10 @@
   REBOOT="0"
   MD5_FAILED="0"
   MD5_NOCHECK="0"
+  SIZE_FAILED="0"
 
   NBD_DEVS="0"
+  FLASH_FREE_MIN="5"
 
   INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
   SYSTEM_TORAM_LIMIT=1024000
@@ -444,21 +446,53 @@
         MD5_FAILED="1"
       fi
 
-      # update if md5 check is ok or .nocheck exists
-      if [ "$MD5_FAILED" -eq "0" -o "$MD5_NOCHECK" -eq "1" ] ; then
-        update "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
-        update "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
-        update_bootloader
-        REBOOT="1"
+      # get sizes
+      FLASH_FREE=$(/bin/busybox df /flash/ | awk '/[0-9]%/{print $4}')
+      FLASH_FREE=$(( $FLASH_FREE * 1024 ))
+      OLD_KERNEL=$(/bin/busybox stat -t "/flash/$IMAGE_KERNEL" | awk '{print $2}')
+      OLD_SYSTEM=$(/bin/busybox stat -t "/flash/$IMAGE_SYSTEM" | awk '{print $2}')
+      NEW_KERNEL=$(/bin/busybox stat -t "$UPDATE_DIR/$UPDATE_KERNEL" | awk '{print $2}')
+      NEW_SYSTEM=$(/bin/busybox stat -t "$UPDATE_DIR/$UPDATE_SYSTEM" | awk '{print $2}')
+
+      # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher then 5MB
+      # at least 5MB free after update
+
+      TMP_SIZE=$(($OLD_KERNEL+$OLD_SYSTEM+$FLASH_FREE-$NEW_KERNEL-$NEW_SYSTEM))
+      FLASH_FREE_MIN=$(($FLASH_FREE_MIN*1024*1024))
+
+      if [ $TMP_SIZE -ge $FLASH_FREE_MIN ]; then
+        echo "Checking size: OK"
+      else
+        echo "Checking size: FAILED"
+        SIZE_FAILED="1"
+      fi
+
+      # update if size check is ok
+      if [ "$SIZE_FAILED" -eq "0" ] ; then
+        # update if md5 check is ok or .nocheck exists
+        if [ "$MD5_FAILED" -eq "0" -o "$MD5_NOCHECK" -eq "1" ] ; then
+          update "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
+          update "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+          update_bootloader
+          REBOOT="1"
+        else
+          /bin/busybox rm "$UPDATE_DIR/$UPDATE_KERNEL"
+          /bin/busybox rm "$UPDATE_DIR/$UPDATE_SYSTEM"
+          echo "md5 check failed. normal startup in 30s..."
+          /bin/busybox sync
+        /bin/busybox usleep 30000000
+        fi
+        /bin/busybox rm "$UPDATE_DIR/${UPDATE_KERNEL}.md5" &>/dev/null
+        /bin/busybox rm "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" &>/dev/null
       else
         /bin/busybox rm "$UPDATE_DIR/$UPDATE_KERNEL"
         /bin/busybox rm "$UPDATE_DIR/$UPDATE_SYSTEM"
-        echo "md5 check failed. normal startup in 30s..."
+        /bin/busybox rm "$UPDATE_DIR/${UPDATE_KERNEL}.md5" &>/dev/null
+        /bin/busybox rm "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" &>/dev/null
+        echo "size check failed. normal startup in 30s..."
         /bin/busybox sync
         /bin/busybox usleep 30000000
       fi
-      /bin/busybox rm "$UPDATE_DIR/${UPDATE_KERNEL}.md5" &>/dev/null
-      /bin/busybox rm "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" &>/dev/null
     fi
 
     if test "$REBOOT" -eq "1"; then
