@@ -1,0 +1,211 @@
+diff --git a/plugins/vpn.c b/plugins/vpn.c
+index cbba396..f60a658 100644
+--- a/plugins/vpn.c
++++ b/plugins/vpn.c
+@@ -1438,6 +1438,8 @@ static void destroy_provider(struct connection_data *data)
+ 	if (data->call != NULL)
+ 		dbus_pending_call_cancel(data->call);
+ 
++	connman_provider_set_data(data->provider, NULL);
++
+ 	connman_provider_put(data->provider);
+ 
+  data->provider = NULL;
+diff --git a/vpn/vpn-config.c b/vpn/vpn-config.c
+index 1ece7e9..a1a2ed5 100644
+--- a/vpn/vpn-config.c
++++ b/vpn/vpn-config.c
+@@ -539,28 +539,40 @@ static void config_notify_handler(struct inotify_event *event,
+ 	}
+ 
+ 	if (event->mask & IN_CREATE)
+-		create_config(ident);
++		return;
++
++	if (event->mask & IN_DELETE) {
++		g_hash_table_remove(config_table, ident);
++		return;
++	}
+ 
+ 	if (event->mask & IN_MODIFY) {
+ 		struct vpn_config *config;
++		char *path = get_dir();
+ 
+ 		config = g_hash_table_lookup(config_table, ident);
+ 		if (config != NULL) {
+-			char *path = get_dir();
+-
+ 			g_hash_table_remove_all(config->provider_table);
+ 			load_config(config, path, REMOVE);
+ 
+ 			/* Re-scan the config file for any changes */
+ 			g_hash_table_remove_all(config->provider_table);
+ 			load_config(config, path, ADD);
+-
+-			g_free(path);
++		} else {
++			/*
++			 * Inotify will send create event followed by modify
++			 * event for any config file that is copied to
++			 * monitored directory. So in practice we should just
++			 * ignore the create event and trust only the modify
++			 * one in order to avoid create/remove/create loop
++			 */
++			config = create_config(ident);
++			if (config != NULL)
++				load_config(config, path, ADD);
+ 		}
+-	}
+ 
+-	if (event->mask & IN_DELETE)
+-		g_hash_table_remove(config_table, ident);
++		g_free(path);
++	}
+ }
+ 
+ int __vpn_config_init(void)
+diff --git a/src/connman.h b/src/connman.h
+index fc6d528..19bca74 100644
+--- a/src/connman.h
++++ b/src/connman.h
+@@ -559,7 +559,7 @@ int __connman_provider_indicate_state(struct connman_provider *provider,
+ int __connman_provider_indicate_error(struct connman_provider *provider,
+ 					enum connman_provider_error error);
+ int __connman_provider_connect(struct connman_provider *provider);
+-int __connman_provider_remove(const char *path);
++int __connman_provider_remove_by_path(const char *path);
+ void __connman_provider_cleanup(void);
+ int __connman_provider_init(void);
+ 
+diff --git a/src/manager.c b/src/manager.c
+index 1d09267..e56f2e1 100644
+--- a/src/manager.c
++++ b/src/manager.c
+@@ -161,7 +161,7 @@ static DBusMessage *remove_provider(DBusConnection *conn,
+ 	dbus_message_get_args(msg, NULL, DBUS_TYPE_OBJECT_PATH, &path,
+ 							DBUS_TYPE_INVALID);
+ 
+-	err = __connman_provider_remove(path);
++	err = __connman_provider_remove_by_path(path);
+ 	if (err < 0)
+ 		return __connman_error_failed(msg, -err);
+ 
+diff --git a/src/provider.c b/src/provider.c
+index ca86880..b86e7d6 100644
+--- a/src/provider.c
++++ b/src/provider.c
+@@ -174,7 +174,7 @@ int __connman_provider_connect(struct connman_provider *provider)
+ 	return 0;
+ }
+ 
+-int __connman_provider_remove(const char *path)
++int __connman_provider_remove_by_path(const char *path)
+ {
+ 	struct connman_provider *provider;
+ 	GHashTableIter iter;
+diff --git a/include/provider.h b/include/provider.h
+index bfefaed..fdd8ae0 100644
+--- a/include/provider.h
++++ b/include/provider.h
+@@ -79,6 +79,7 @@ void connman_provider_unref_debug(struct connman_provider *provider,
+ 			const char *file, int line, const char *caller);
+ 
+ int connman_provider_disconnect(struct connman_provider *provider);
++int connman_provider_remove(struct connman_provider *provider);
+ 
+ int connman_provider_set_string(struct connman_provider *provider,
+ 					const char *key, const char *value);
+diff --git a/src/provider.c b/src/provider.c
+index b86e7d6..f7bb4e1 100644
+--- a/src/provider.c
++++ b/src/provider.c
+@@ -150,6 +150,19 @@ int connman_provider_disconnect(struct connman_provider *provider)
+ 	return 0;
+ }
+ 
++int connman_provider_remove(struct connman_provider *provider)
++{
++	DBG("Removing VPN %s", provider->identifier);
++
++	provider_remove(provider);
++
++	connman_provider_set_state(provider, CONNMAN_PROVIDER_STATE_IDLE);
++
++	g_hash_table_remove(provider_hash, provider->identifier);
++
++	return 0;
++}
++
+ int __connman_provider_connect(struct connman_provider *provider)
+ {
+ 	int err;
+diff --git a/plugins/vpn.c b/plugins/vpn.c
+index f60a658..cda0c1b 100644
+--- a/plugins/vpn.c
++++ b/plugins/vpn.c
+@@ -1440,7 +1440,7 @@ static void destroy_provider(struct connection_data *data)
+ 
+ 	connman_provider_set_data(data->provider, NULL);
+ 
+-	connman_provider_put(data->provider);
++	connman_provider_remove(data->provider);
+ 
+ 	data->provider = NULL;
+ }
+diff --git a/plugins/vpn.c b/plugins/vpn.c
+index cda0c1b..f15796d 100644
+--- a/plugins/vpn.c
++++ b/plugins/vpn.c
+@@ -252,6 +252,8 @@ static void set_provider_state(struct connection_data *data)
+ 	enum connman_provider_state state = CONNMAN_PROVIDER_STATE_UNKNOWN;
+ 	int err = 0;
+ 
++	DBG("provider %p new state %s", data->provider, data->state);
++
+ 	if (g_str_equal(data->state, "ready") == TRUE) {
+ 		state = CONNMAN_PROVIDER_STATE_READY;
+ 		goto set;
+diff --git a/plugins/vpn.c b/plugins/vpn.c
+index f15796d..04318a9 100644
+--- a/plugins/vpn.c
++++ b/plugins/vpn.c
+@@ -796,6 +796,14 @@ static int provider_remove(struct connman_provider *provider)
+ 
+ 	DBG("provider %p data %p", provider, data);
+ 
++	if (data == NULL) {
++		/*
++		 * This means the provider is already removed,
++		 * just ignore the dbus in this case.
++		 */
++		return -EALREADY;
++	}
++
+ 	/*
+ 	 * When provider.c:provider_remove() calls this function,
+ 	 * it will remove the provider itself after the call.
+diff --git a/plugins/vpn.c b/plugins/vpn.c
+index 04318a9..038a833 100644
+--- a/plugins/vpn.c
++++ b/plugins/vpn.c
+@@ -1508,6 +1508,7 @@ static gboolean connection_removed(DBusConnection *conn, DBusMessage *message,
+ {
+ 	const char *path;
+ 	const char *signature = DBUS_TYPE_OBJECT_PATH_AS_STRING;
++	struct connection_data *data;
+ 
+ 	if (dbus_message_has_signature(message, signature) == FALSE) {
+ 		connman_error("vpn removed signature \"%s\" does not match "
+@@ -1518,7 +1519,11 @@ static gboolean connection_removed(DBusConnection *conn, DBusMessage *message,
+ 
+ 	dbus_message_get_args(message, NULL, DBUS_TYPE_OBJECT_PATH, &path,
+ 				DBUS_TYPE_INVALID);
+-	remove_connection(conn, path);
++
++	data = g_hash_table_lookup(vpn_connections, get_ident(path));
++	if (data != NULL)
++		remove_connection(conn, path);
++
+ 	return TRUE;
+ }
+ 
