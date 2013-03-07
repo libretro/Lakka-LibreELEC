@@ -1,0 +1,66 @@
+diff --git a/vpn/vpn-manager.c b/vpn/vpn-manager.c
+index 44684dd..1ba745b 100644
+--- a/vpn/vpn-manager.c
++++ b/vpn/vpn-manager.c
+@@ -85,8 +85,6 @@ static DBusMessage *get_connections(DBusConnection *conn, DBusMessage *msg,
+ 	if (reply == NULL)
+ 		return __connman_error_failed(msg, -EINVAL);
+ 
+-	__vpn_provider_check_connections();
+-
+ 	return reply;
+ }
+ 
+diff --git a/vpn/vpn-provider.c b/vpn/vpn-provider.c
+index 63a00ea..d885b46 100644
+--- a/vpn/vpn-provider.c
++++ b/vpn/vpn-provider.c
+@@ -1027,8 +1027,6 @@ static void configuration_count_del(void)
+ 
+ 	if (__sync_fetch_and_sub(&configuration_count, 1) != 1)
+ 		return;
+-
+-	raise(SIGTERM);
+ }
+ 
+ int __vpn_provider_disconnect(struct vpn_provider *provider)
+@@ -2507,28 +2505,6 @@ void vpn_provider_driver_unregister(struct vpn_provider_driver *driver)
+ 	}
+ }
+ 
+-static gboolean check_vpn_count(gpointer data)
+-{
+-	if (configuration_count == 0) {
+-		connman_info("No VPN configurations found, quitting.");
+-		raise(SIGTERM);
+-	}
+-
+-	return FALSE;
+-}
+-
+-void __vpn_provider_check_connections(void)
+-{
+-	/*
+-	 * If we were started when there is no providers configured,
+-	 * then just quit. This happens when connman starts and its
+-	 * vpn plugin asks connman-vpnd if it has any connections
+-	 * configured. If there are none, then we can stop the vpn
+-	 * daemon.
+-	 */
+-	g_timeout_add(1000, check_vpn_count, NULL);
+-}
+-
+ const char *vpn_provider_get_name(struct vpn_provider *provider)
+ {
+ 	return provider->name;
+diff --git a/vpn/vpn.h b/vpn/vpn.h
+index 56e7a5c..53b117d 100644
+--- a/vpn/vpn.h
++++ b/vpn/vpn.h
+@@ -95,7 +95,6 @@ int __vpn_provider_connect_path(const char *path);
+ int __vpn_provider_disconnect(struct vpn_provider *provider);
+ int __vpn_provider_remove(const char *path);
+ int __vpn_provider_delete(struct vpn_provider *provider);
+-void __vpn_provider_check_connections(void);
+ void __vpn_provider_cleanup(void);
+ int __vpn_provider_init(gboolean handle_routes);
