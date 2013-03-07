@@ -28,7 +28,6 @@ import urllib2
 import socket
 import time
 import datetime
-from configobj import ConfigObj
 
 __scriptname__ = "SABnzbd Suite"
 __author__     = "OpenELEC"
@@ -50,6 +49,9 @@ subprocess.call(['python',__start__])
 
 # check for launching sabnzbd
 sabNzbdLaunch = (__settings__.getSetting('SABNZBD_LAUNCH').lower() == 'true')
+
+sys.path.append(os.path.join(__cwd__, 'pylib'))
+from configobj import ConfigObj
 
 if sabNzbdLaunch:
     # SABnzbd addresses and api key
