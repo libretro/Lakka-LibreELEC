@@ -1,0 +1,520 @@
+From dac7871e3440b9d4235fcd91af1c2d41a931d69d Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 18 Feb 2013 23:04:28 +0000
+Subject: [PATCH] [rbp] Handle resolution changes during video stream.
+
+When the resolution changes, GPU sends a port settings changed message. Host has to acknowledge it by disabling and enabling the affected ports.
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp |  229 ++++++++++++-------------------
+ xbmc/cores/omxplayer/OMXPlayerVideo.h   |    7 +-
+ xbmc/cores/omxplayer/OMXVideo.cpp       |   95 ++++++++-----
+ xbmc/cores/omxplayer/OMXVideo.h         |    7 +-
+ 4 files changed, 151 insertions(+), 187 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index 5a6e31e..a033c78 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -83,9 +83,6 @@ class COMXMsgVideoCodecChange : public CDVDMsg
+   m_iSubtitleDelay        = 0;
+   m_FlipTimeStamp         = 0.0;
+   m_bRenderSubs           = false;
+-  m_width                 = 0;
+-  m_height                = 0;
+-  m_fps                   = 0.0f;
+   m_flags                 = 0;
+   m_bAllowFullscreen      = false;
+   m_iCurrentPts           = DVD_NOPTS_VALUE;
+@@ -98,12 +95,7 @@ class COMXMsgVideoCodecChange : public CDVDMsg
+   m_messageQueue.SetMaxDataSize(10 * 1024 * 1024);
+   m_messageQueue.SetMaxTimeSize(8.0);
+ 
+-  RESOLUTION res  = g_graphicsContext.GetVideoResolution();
+-  m_video_width   = g_settings.m_ResInfo[res].iScreenWidth;
+-  m_video_height  = g_settings.m_ResInfo[res].iScreenHeight;
+-
+   m_dst_rect.SetRect(0, 0, 0, 0);
+-
+ }
+ 
+ OMXPlayerVideo::~OMXPlayerVideo()
+@@ -125,6 +117,8 @@ bool OMXPlayerVideo::OpenStream(CDVDStreamInfo &hints)
+   m_stalled     = m_messageQueue.GetPacketCount(CDVDMsg::DEMUXER_PACKET) == 0;
+   m_autosync    = 1;
+   m_iSleepEndTime = DVD_NOPTS_VALUE;
++  // force SetVideoRect to be called initially
++  m_dst_rect.SetRect(0, 0, 0, 0);
+ 
+   m_audio_count = m_av_clock->HasAudio();
+ 
+@@ -220,154 +214,45 @@ void OMXPlayerVideo::ProcessOverlays(int iGroupId, double pts)
+   if (m_started)
+     m_pOverlayContainer->CleanUp(pts - m_iSubtitleDelay);
+ 
+-  enum EOverlay
+-  { OVERLAY_AUTO // select mode auto
+-  , OVERLAY_GPU  // render osd using gpu
+-  , OVERLAY_BUF  // render osd on buffer
+-  } render = OVERLAY_AUTO;
+-
+-  /*
+-  if(m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SPU)
+-    || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_IMAGE)
+-    || m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SSA) )
+-      render = OVERLAY_BUF;
+-  */
+-
+-  if(render == OVERLAY_BUF)
+-  {
+-    // rendering spu overlay types directly on video memory costs a lot of processing power.
+-    // thus we allocate a temp picture, copy the original to it (needed because the same picture can be used more than once).
+-    // then do all the rendering on that temp picture and finaly copy it to video memory.
+-    // In almost all cases this is 5 or more times faster!.
+-
+-    if(m_pTempOverlayPicture && ( m_pTempOverlayPicture->iWidth  != m_width
+-                               || m_pTempOverlayPicture->iHeight != m_height))
+-    {
+-      CDVDCodecUtils::FreePicture(m_pTempOverlayPicture);
+-      m_pTempOverlayPicture = NULL;
+-    }
+-
+-    if(!m_pTempOverlayPicture)
+-      m_pTempOverlayPicture = CDVDCodecUtils::AllocatePicture(m_width, m_height);
+-    if(!m_pTempOverlayPicture)
+-      return;
+-    m_pTempOverlayPicture->format = RENDER_FMT_YUV420P;
+-  }
+-
+-  if(render == OVERLAY_AUTO)
+-    render = OVERLAY_GPU;
+-
+   VecOverlays overlays;
+ 
+-  {
+-    CSingleLock lock(*m_pOverlayContainer);
++  CSingleLock lock(*m_pOverlayContainer);
+ 
+-    VecOverlays* pVecOverlays = m_pOverlayContainer->GetOverlays();
+-    VecOverlaysIter it = pVecOverlays->begin();
+-
+-    //Check all overlays and render those that should be rendered, based on time and forced
+-    //Both forced and subs should check timeing, pts == 0 in the stillframe case
+-    while (it != pVecOverlays->end())
+-    {
+-      CDVDOverlay* pOverlay = *it++;
+-      if(!pOverlay->bForced && !m_bRenderSubs)
+-        continue;
+-
+-      if(pOverlay->iGroupId != iGroupId)
+-        continue;
++  VecOverlays* pVecOverlays = m_pOverlayContainer->GetOverlays();
++  VecOverlaysIter it = pVecOverlays->begin();
+ 
+-      double pts2 = pOverlay->bForced ? pts : pts - m_iSubtitleDelay;
++  //Check all overlays and render those that should be rendered, based on time and forced
++  //Both forced and subs should check timeing, pts == 0 in the stillframe case
++  while (it != pVecOverlays->end())
++  {
++    CDVDOverlay* pOverlay = *it++;
++    if(!pOverlay->bForced && !m_bRenderSubs)
++      continue;
+ 
+-      if((pOverlay->iPTSStartTime <= pts2 && (pOverlay->iPTSStopTime > pts2 || pOverlay->iPTSStopTime == 0LL)) || pts == 0)
+-      {
+-        if(pOverlay->IsOverlayType(DVDOVERLAY_TYPE_GROUP))
+-          overlays.insert(overlays.end(), static_cast<CDVDOverlayGroup*>(pOverlay)->m_overlays.begin()
+-                                        , static_cast<CDVDOverlayGroup*>(pOverlay)->m_overlays.end());
+-        else
+-          overlays.push_back(pOverlay);
++    if(pOverlay->iGroupId != iGroupId)
++      continue;
+ 
+-      }
+-    }
++    double pts2 = pOverlay->bForced ? pts : pts - m_iSubtitleDelay;
+ 
+-    for(it = overlays.begin(); it != overlays.end(); ++it)
++    if((pOverlay->iPTSStartTime <= pts2 && (pOverlay->iPTSStopTime > pts2 || pOverlay->iPTSStopTime == 0LL)) || pts == 0)
+     {
+-      double pts2 = (*it)->bForced ? pts : pts - m_iSubtitleDelay;
+-
+-      if (render == OVERLAY_GPU)
+-        g_renderManager.AddOverlay(*it, pts2);
+-
+-      /*
+-      printf("subtitle : DVDOVERLAY_TYPE_SPU %d DVDOVERLAY_TYPE_IMAGE %d DVDOVERLAY_TYPE_SSA %d\n",
+-         m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SPU),
+-         m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_IMAGE),
+-         m_pOverlayContainer->ContainsOverlayType(DVDOVERLAY_TYPE_SSA) );
+-      */
+-
+-      if (render == OVERLAY_BUF)
+-        CDVDOverlayRenderer::Render(m_pTempOverlayPicture, *it, pts2);
++      if(pOverlay->IsOverlayType(DVDOVERLAY_TYPE_GROUP))
++        overlays.insert(overlays.end(), static_cast<CDVDOverlayGroup*>(pOverlay)->m_overlays.begin()
++                                      , static_cast<CDVDOverlayGroup*>(pOverlay)->m_overlays.end());
++      else
++        overlays.push_back(pOverlay);
+     }
+   }
+-}
+-
+-void OMXPlayerVideo::Output(int iGroupId, double pts, bool bDropPacket)
+-{
+ 
+-  if (!g_renderManager.IsConfigured()
+-    || m_video_width != m_width
+-    || m_video_height != m_height
+-    || m_fps != m_fFrameRate)
++  for(it = overlays.begin(); it != overlays.end(); ++it)
+   {
+-    m_width   = m_video_width;
+-    m_height  = m_video_height;
+-    m_fps     = m_fFrameRate;
+-
+-    unsigned flags = 0;
+-    ERenderFormat format = RENDER_FMT_BYPASS;
+-
+-    if(m_bAllowFullscreen)
+-    {
+-      flags |= CONF_FLAGS_FULLSCREEN;
+-      m_bAllowFullscreen = false; // only allow on first configure
+-    }
+-
+-    if(m_flags & CONF_FLAGS_FORMAT_SBS)
+-    {
+-      if(g_Windowing.Support3D(m_video_width, m_video_height, D3DPRESENTFLAG_MODE3DSBS))
+-      {
+-        CLog::Log(LOGNOTICE, "3DSBS movie found");
+-        flags |= CONF_FLAGS_FORMAT_SBS;
+-      }
+-    }
+-    else if(m_flags & CONF_FLAGS_FORMAT_TB)
+-    {
+-      if(g_Windowing.Support3D(m_video_width, m_video_height, D3DPRESENTFLAG_MODE3DTB))
+-      {
+-        CLog::Log(LOGNOTICE, "3DTB movie found");
+-        flags |= CONF_FLAGS_FORMAT_TB;
+-      }
+-    }
+-
+-    unsigned int iDisplayWidth  = m_hints.width;
+-    unsigned int iDisplayHeight = m_hints.height;
+-
+-    /* use forced aspect if any */
+-    if( m_fForcedAspectRatio != 0.0f )
+-      iDisplayWidth = (int) (iDisplayHeight * m_fForcedAspectRatio);
+-
+-    CLog::Log(LOGDEBUG,"%s - change configuration. %dx%d. framerate: %4.2f. %dx%x format: BYPASS",
+-        __FUNCTION__, m_width, m_height, m_fps, iDisplayWidth, iDisplayHeight);
+-
+-    if(!g_renderManager.Configure(m_hints.width, m_hints.height,
+-          iDisplayWidth, iDisplayHeight, m_fps, flags, format, 0,
+-          m_hints.orientation))
+-    {
+-      CLog::Log(LOGERROR, "%s - failed to configure renderer", __FUNCTION__);
+-      return;
+-    }
+-
+-    g_renderManager.RegisterRenderUpdateCallBack((const void*)this, RenderUpdateCallBack);
++    double pts2 = (*it)->bForced ? pts : pts - m_iSubtitleDelay;
++    g_renderManager.AddOverlay(*it, pts2);
+   }
++}
+ 
++void OMXPlayerVideo::Output(int iGroupId, double pts, bool bDropPacket)
++{
+   if (!g_renderManager.IsStarted()) {
+     CLog::Log(LOGERROR, "%s - renderer not started", __FUNCTION__);
+     return;
+@@ -724,6 +609,7 @@ bool OMXPlayerVideo::OpenDecoder()
+   m_av_clock->OMXStop(false);
+ 
+   bool bVideoDecoderOpen = m_omxVideo.Open(m_hints, m_av_clock, m_Deinterlace, m_hdmi_clock_sync);
++  m_omxVideo.RegisterResolutionUpdateCallBack((void *)this, ResolutionUpdateCallBack);
+ 
+   if(!bVideoDecoderOpen)
+   {
+@@ -859,3 +745,62 @@ void OMXPlayerVideo::RenderUpdateCallBack(const void *ctx, const CRect &SrcRect,
+   player->SetVideoRect(SrcRect, DestRect);
+ }
+ 
++void OMXPlayerVideo::ResolutionUpdateCallBack(uint32_t width, uint32_t height)
++{
++  RESOLUTION res  = g_graphicsContext.GetVideoResolution();
++  uint32_t video_width   = g_settings.m_ResInfo[res].iScreenWidth;
++  uint32_t video_height  = g_settings.m_ResInfo[res].iScreenHeight;
++
++  unsigned flags = 0;
++  ERenderFormat format = RENDER_FMT_BYPASS;
++
++  if(m_bAllowFullscreen)
++  {
++    flags |= CONF_FLAGS_FULLSCREEN;
++    m_bAllowFullscreen = false; // only allow on first configure
++  }
++
++  if(m_flags & CONF_FLAGS_FORMAT_SBS)
++  {
++    if(g_Windowing.Support3D(video_width, video_height, D3DPRESENTFLAG_MODE3DSBS))
++    {
++      CLog::Log(LOGNOTICE, "3DSBS movie found");
++      flags |= CONF_FLAGS_FORMAT_SBS;
++    }
++  }
++  else if(m_flags & CONF_FLAGS_FORMAT_TB)
++  {
++    if(g_Windowing.Support3D(video_width, video_height, D3DPRESENTFLAG_MODE3DTB))
++    {
++      CLog::Log(LOGNOTICE, "3DTB movie found");
++      flags |= CONF_FLAGS_FORMAT_TB;
++    }
++  }
++
++  unsigned int iDisplayWidth  = width;
++  unsigned int iDisplayHeight = height;
++
++  /* use forced aspect if any */
++  if( m_fForcedAspectRatio != 0.0f )
++    iDisplayWidth = (int) (iDisplayHeight * m_fForcedAspectRatio);
++
++  CLog::Log(LOGDEBUG,"%s - change configuration. video:%dx%d. framerate: %4.2f. %dx%d format: BYPASS",
++      __FUNCTION__, video_width, video_height, m_fFrameRate, iDisplayWidth, iDisplayHeight);
++
++  if(!g_renderManager.Configure(width, height,
++        iDisplayWidth, iDisplayHeight, m_fFrameRate, flags, format, 0,
++        m_hints.orientation))
++  {
++    CLog::Log(LOGERROR, "%s - failed to configure renderer", __FUNCTION__);
++    return;
++  }
++
++  g_renderManager.RegisterRenderUpdateCallBack((const void*)this, RenderUpdateCallBack);
++}
++
++void OMXPlayerVideo::ResolutionUpdateCallBack(void *ctx, uint32_t width, uint32_t height)
++{
++  OMXPlayerVideo *player = static_cast<OMXPlayerVideo*>(ctx);
++  player->ResolutionUpdateCallBack(width, height);
++}
++
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.h b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+index cf05c1f..95a691b 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.h
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+@@ -70,12 +70,7 @@ class OMXPlayerVideo : public CThread
+   bool                      m_bAllowFullscreen;
+ 
+   float                     m_fForcedAspectRatio;
+-  unsigned int              m_width;
+-  unsigned int              m_height;
+-  unsigned int              m_video_width;
+-  unsigned int              m_video_height;
+   unsigned                  m_flags;
+-  float                     m_fps;
+ 
+   CRect                     m_dst_rect;
+   int                       m_view_mode;
+@@ -133,5 +128,7 @@ class OMXPlayerVideo : public CThread
+   int GetFreeSpace();
+   void  SetVideoRect(const CRect &SrcRect, const CRect &DestRect);
+   static void RenderUpdateCallBack(const void *ctx, const CRect &SrcRect, const CRect &DestRect);
++  void ResolutionUpdateCallBack(uint32_t width, uint32_t height);
++  static void ResolutionUpdateCallBack(void *ctx, uint32_t width, uint32_t height);
+ };
+ #endif
+diff --git a/xbmc/cores/omxplayer/OMXVideo.cpp b/xbmc/cores/omxplayer/OMXVideo.cpp
+index 3417286..b6b42e7 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXVideo.cpp
+@@ -86,7 +86,6 @@
+   m_video_codec_name  = "";
+   m_deinterlace       = false;
+   m_hdmi_clock_sync   = false;
+-  m_first_frame       = true;
+ }
+ 
+ COMXVideo::~COMXVideo()
+@@ -154,6 +153,9 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, b
+   OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
+   std::string decoder_name;
+ 
++  m_res_ctx           = NULL;
++  m_res_callback      = NULL;
++
+   m_video_codec_name      = "";
+   m_codingType            = OMX_VIDEO_CodingUnused;
+ 
+@@ -697,7 +699,6 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, b
+     CLASSNAME, __func__, m_omx_decoder.GetComponent(), m_omx_decoder.GetInputPort(), m_omx_decoder.GetOutputPort(),
+     m_deinterlace, m_hdmi_clock_sync);
+ 
+-  m_first_frame   = true;
+   // start from assuming all recent frames had valid pts
+   m_history_valid_pts = ~0;
+ 
+@@ -736,8 +737,10 @@ void COMXVideo::Close()
+   m_video_convert     = false;
+   m_video_codec_name  = "";
+   m_deinterlace       = false;
+-  m_first_frame       = true;
+   m_av_clock          = NULL;
++
++  m_res_ctx           = NULL;
++  m_res_callback      = NULL;
+ }
+ 
+ void COMXVideo::SetDropState(bool bDrop)
+@@ -851,57 +854,74 @@ int COMXVideo::Decode(uint8_t *pData, int iSize, double dts, double pts)
+         }
+       }
+ 
+-      if(m_first_frame && m_deinterlace)
++      omx_err = m_omx_decoder.WaitForEvent(OMX_EventPortSettingsChanged, 0);
++      if (omx_err == OMX_ErrorNone)
+       {
+         OMX_PARAM_PORTDEFINITIONTYPE port_image;
+         OMX_INIT_STRUCTURE(port_image);
+         port_image.nPortIndex = m_omx_decoder.GetOutputPort();
+-
+         omx_err = m_omx_decoder.GetParameter(OMX_IndexParamPortDefinition, &port_image);
+         if(omx_err != OMX_ErrorNone)
+-          CLog::Log(LOGERROR, "%s::%s - error OMX_IndexParamPortDefinition 1 omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
++        {
++          CLog::Log(LOGERROR, "%s::%s - error m_omx_decoder.GetParameter(OMX_IndexParamPortDefinition) omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
++        }
++        // let OMXPlayerVideo know about resolution so it can inform RenderManager
++        if (m_res_callback)
++          m_res_callback(m_res_ctx, port_image.format.video.nFrameWidth, port_image.format.video.nFrameHeight);
++
++        m_omx_decoder.DisablePort(m_omx_decoder.GetOutputPort(), true);
++        m_omx_sched.DisablePort(m_omx_sched.GetInputPort(), true);
+ 
+-        /* we assume when the sizes equal we have the first decoded frame */
+-        if(port_image.format.video.nFrameWidth == m_decoded_width && port_image.format.video.nFrameHeight == m_decoded_height)
++        OMX_CONFIG_INTERLACETYPE interlace;
++        OMX_INIT_STRUCTURE(interlace);
++        interlace.nPortIndex = m_omx_decoder.GetOutputPort();
++        omx_err = m_omx_decoder.GetConfig(OMX_IndexConfigCommonInterlace, &interlace);
++        if(omx_err != OMX_ErrorNone)
+         {
+-          m_first_frame = false;
++          CLog::Log(LOGERROR, "%s::%s - error m_omx_decoder.GetConfig(OMX_IndexConfigCommonInterlace) omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
++        }
+ 
+-          omx_err = m_omx_decoder.WaitForEvent(OMX_EventPortSettingsChanged);
+-          if(omx_err == OMX_ErrorStreamCorrupt)
++        if (m_deinterlace)
++        {
++          m_omx_image_fx.DisablePort(m_omx_image_fx.GetInputPort(), true);
++          port_image.nPortIndex = m_omx_image_fx.GetInputPort();
++          omx_err = m_omx_image_fx.SetParameter(OMX_IndexParamPortDefinition, &port_image);
++          if(omx_err != OMX_ErrorNone)
+           {
+-            CLog::Log(LOGERROR, "%s::%s - image not unsupported\n", CLASSNAME, __func__);
+-            return false;
++            CLog::Log(LOGERROR, "%s::%s - error m_omx_image_fx.SetParameter(OMX_IndexParamPortDefinition) omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
+           }
+-
+-          m_omx_decoder.DisablePort(m_omx_decoder.GetOutputPort(), false);
+-          m_omx_sched.DisablePort(m_omx_sched.GetInputPort(), false);
+-
+-          if(m_deinterlace)
++          omx_err = m_omx_decoder.WaitForEvent(OMX_EventPortSettingsChanged);
++          if(omx_err != OMX_ErrorNone)
+           {
+-            m_omx_image_fx.DisablePort(m_omx_image_fx.GetOutputPort(), false);
+-            m_omx_image_fx.DisablePort(m_omx_image_fx.GetInputPort(), false);
+-
+-            port_image.nPortIndex = m_omx_image_fx.GetInputPort();
+-            omx_err = m_omx_image_fx.SetParameter(OMX_IndexParamPortDefinition, &port_image);
+-            if(omx_err != OMX_ErrorNone)
+-              CLog::Log(LOGERROR, "%s::%s - error OMX_IndexParamPortDefinition 2 omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
+-
+-            port_image.nPortIndex = m_omx_image_fx.GetOutputPort();
+-            omx_err = m_omx_image_fx.SetParameter(OMX_IndexParamPortDefinition, &port_image);
+-            if(omx_err != OMX_ErrorNone)
+-              CLog::Log(LOGERROR, "%s::%s - error OMX_IndexParamPortDefinition 3 omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
++             CLog::Log(LOGERROR, "%s::%s - error m_omx_decoder.WaitForEvent(OMX_EventPortSettingsChanged) omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
+           }
+-
+-          m_omx_decoder.EnablePort(m_omx_decoder.GetOutputPort(), false);
+-
+-          if(m_deinterlace)
++          port_image.nPortIndex = m_omx_image_fx.GetOutputPort();
++          omx_err = m_omx_image_fx.GetParameter(OMX_IndexParamPortDefinition, &port_image);
++          if(omx_err != OMX_ErrorNone)
+           {
+-            m_omx_image_fx.EnablePort(m_omx_image_fx.GetOutputPort(), false);
+-            m_omx_image_fx.EnablePort(m_omx_image_fx.GetInputPort(), false);
++            CLog::Log(LOGERROR, "%s::%s - error m_omx_image_fx.GetParameter(OMX_IndexParamPortDefinition) omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
+           }
++          m_omx_image_fx.EnablePort(m_omx_image_fx.GetInputPort(), true);
+ 
+-          m_omx_sched.EnablePort(m_omx_sched.GetInputPort(), false);
++          m_omx_image_fx.DisablePort(m_omx_image_fx.GetOutputPort(), true);
++        }
++        port_image.nPortIndex = m_omx_sched.GetInputPort();
++        omx_err = m_omx_sched.SetParameter(OMX_IndexParamPortDefinition, &port_image);
++        if(omx_err != OMX_ErrorNone)
++        {
++          CLog::Log(LOGERROR, "%s::%s - error m_omx_sched.SetParameter(OMX_IndexParamPortDefinition) omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
++        }
++        omx_err = m_omx_sched.WaitForEvent(OMX_EventPortSettingsChanged);
++        if(omx_err != OMX_ErrorNone)
++        {
++           CLog::Log(LOGERROR, "%s::%s - error m_omx_sched.WaitForEvent(OMX_EventPortSettingsChanged) omx_err(0x%08x)\n", CLASSNAME, __func__, omx_err);
++        }
++        if (m_deinterlace)
++        {
++          m_omx_image_fx.EnablePort(m_omx_image_fx.GetOutputPort(), true);
+         }
++        m_omx_decoder.EnablePort(m_omx_decoder.GetOutputPort(), true);
++        m_omx_sched.EnablePort(m_omx_sched.GetInputPort(), true);
+       }
+     }
+ 
+@@ -932,7 +952,6 @@ void COMXVideo::Reset(void)
+ 
+   SendDecoderConfig();
+ 
+-  m_first_frame   = true;
+   */
+ }
+ 
+diff --git a/xbmc/cores/omxplayer/OMXVideo.h b/xbmc/cores/omxplayer/OMXVideo.h
+index 0afa56d..037f155 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.h
++++ b/xbmc/cores/omxplayer/OMXVideo.h
+@@ -36,6 +36,8 @@
+ 
+ #define CLASSNAME "COMXVideo"
+ 
++typedef void (*ResolutionUpdateCallBackFn)(void *ctx, uint32_t width, uint32_t height);
++
+ class COMXVideo
+ {
+ public:
+@@ -45,6 +47,7 @@ class COMXVideo
+   // Required overrides
+   bool SendDecoderConfig();
+   bool Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace = false, bool hdmi_clock_sync = false);
++  void RegisterResolutionUpdateCallBack(void *ctx, ResolutionUpdateCallBackFn callback) { m_res_ctx = ctx; m_res_callback = callback; }
+   void Close(void);
+   unsigned int GetFreeSpace();
+   unsigned int GetSize();
+@@ -89,9 +92,9 @@ class COMXVideo
+ 
+   bool              m_deinterlace;
+   bool              m_hdmi_clock_sync;
+-  bool              m_first_frame;
+   uint32_t          m_history_valid_pts;
+-
++  ResolutionUpdateCallBackFn m_res_callback;
++  void              *m_res_ctx;
+   bool NaluFormatStartCodes(enum CodecID codec, uint8_t *in_extradata, int in_extrasize);
+ };
+ 
+-- 
+1.7.10
+
