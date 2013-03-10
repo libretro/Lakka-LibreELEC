@@ -1,0 +1,1517 @@
+From 9d0695f2ae5f2a4d98c4ec6882fecd8209a425bc Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Thu, 28 Feb 2013 20:41:38 +0100
+Subject: [PATCH] [cec] rebased PR1794 + fixes for Frodo
+
+---
+ XBMC.xcodeproj/project.pbxproj                     |   13 +++
+ configure.in                                       |   40 +------
+ project/BuildDependencies/scripts/libcec_d.txt     |    2 +-
+ project/VS2010Express/XBMC.vcxproj                 |    2 +
+ project/VS2010Express/XBMC.vcxproj.filters         |    6 +
+ system/peripherals.xml                             |   31 ++----
+ tools/android/depends/libcec/Makefile              |    4 +-
+ tools/darwin/depends/libcec/Makefile               |    2 +-
+ xbmc/peripherals/PeripheralTypes.h                 |   76 ++++++++++++-
+ xbmc/peripherals/Peripherals.cpp                   |   62 +++++------
+ xbmc/peripherals/Peripherals.h                     |    7 +-
+ xbmc/peripherals/bus/Makefile.in                   |    4 +-
+ xbmc/peripherals/bus/PeripheralBus.cpp             |   81 +++-----------
+ xbmc/peripherals/bus/PeripheralBus.h               |   23 +---
+ xbmc/peripherals/bus/linux/PeripheralBusRPi.cpp    |   69 ------------
+ xbmc/peripherals/bus/linux/PeripheralBusRPi.h      |   40 -------
+ .../bus/linux/PeripheralBusUSBLibUSB.cpp           |    3 +-
+ .../bus/linux/PeripheralBusUSBLibUdev.cpp          |    4 +-
+ xbmc/peripherals/bus/osx/PeripheralBusUSB.cpp      |    1 +
+ xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp  |  116 ++++++++++++++++++++
+ xbmc/peripherals/bus/virtual/PeripheralBusCEC.h    |   57 ++++++++++
+ xbmc/peripherals/bus/win32/PeripheralBusUSB.cpp    |    5 +-
+ xbmc/peripherals/devices/Peripheral.cpp            |   50 ++++-----
+ xbmc/peripherals/devices/Peripheral.h              |    6 +-
+ xbmc/peripherals/devices/PeripheralBluetooth.cpp   |    4 +-
+ xbmc/peripherals/devices/PeripheralBluetooth.h     |    2 +-
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp  |   52 ++-------
+ xbmc/peripherals/devices/PeripheralCecAdapter.h    |    4 +-
+ xbmc/peripherals/devices/PeripheralDisk.cpp        |    5 +-
+ xbmc/peripherals/devices/PeripheralDisk.h          |    2 +-
+ xbmc/peripherals/devices/PeripheralHID.cpp         |    5 +-
+ xbmc/peripherals/devices/PeripheralHID.h           |    2 +-
+ xbmc/peripherals/devices/PeripheralImon.cpp        |    4 +-
+ xbmc/peripherals/devices/PeripheralImon.h          |    2 +-
+ xbmc/peripherals/devices/PeripheralNIC.cpp         |    5 +-
+ xbmc/peripherals/devices/PeripheralNIC.h           |    2 +-
+ xbmc/peripherals/devices/PeripheralNyxboard.cpp    |    4 +-
+ xbmc/peripherals/devices/PeripheralNyxboard.h      |    2 +-
+ xbmc/peripherals/devices/PeripheralTuner.cpp       |    4 +-
+ xbmc/peripherals/devices/PeripheralTuner.h         |    2 +-
+ 40 files changed, 404 insertions(+), 401 deletions(-)
+ delete mode 100644 xbmc/peripherals/bus/linux/PeripheralBusRPi.cpp
+ delete mode 100644 xbmc/peripherals/bus/linux/PeripheralBusRPi.h
+ create mode 100644 xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
+ create mode 100644 xbmc/peripherals/bus/virtual/PeripheralBusCEC.h
+
+diff --git a/XBMC.xcodeproj/project.pbxproj b/XBMC.xcodeproj/project.pbxproj
+index bf4a009..fbcd662 100644
+diff --git a/configure.in b/configure.in
+index 4769315..4472e3e 100644
+--- a/configure.in
++++ b/configure.in
+@@ -157,8 +157,6 @@ libusb_disabled="== libusb disabled. Plug and play USB device support will not b
+ libusb_disabled_udev_found="== libusb disabled. =="
+ libcec_enabled="== libcec enabled. =="
+ libcec_disabled="== libcec disabled. CEC adapter support will not be available. =="
+-libcec_disabled_missing_libs="== libcec disabled because it either needs libudev, or libusb a compatible version of the RPi API. CEC adapter support will not be available. =="
+-cec_rpi_api_missing="== no compatible RPi API found =="
+ 
+ # External library message strings
+ external_libraries_enabled="== Use of all supported external libraries enabled. =="
+@@ -1455,46 +1453,18 @@ fi
+ 
+ # libcec
+ USE_LIBCEC=0
+-USE_CEC_RPI_API=0
+-use_rpi_cec_api="auto"
+ if test "x$use_libcec" != "xno"; then
+-  case "${host_cpu}" in
+-    arm*)
+-      echo "will check for RPi support"
+-      AC_CHECK_HEADER(interface/vmcs_host/vc_cec.h,,use_rpi_cec_api="no")
+-      ;;
+-    *)
+-      echo "will not check for RPi support (unsupported cpu: ${host_cpu})"
+-      use_rpi_cec_api="no"
+-      ;;
+-  esac
+-
+-  # libcec needs libudev, libusb or the RPi API under linux, or the device will never be detected.
+-  if test "$host_vendor" != "apple" && test "$use_libusb" = "no" && test "$use_libudev" = "no" && test "$use_rpi_cec_api" = "no"; then
+-    if test "x$use_libcec" != "xauto"; then
+-      AC_MSG_ERROR($libcec_disabled_missing_libs)
+-    else
+-      use_libcec="no"
+-      AC_MSG_NOTICE($libcec_disabled_missing_libs)
+-    fi
+-  fi
+-
+   # libcec is dyloaded, so we need to check for its headers and link any depends.
+   if test "x$use_libcec" != "xno"; then
+     if test "x$use_libcec" != "xauto"; then
+-      PKG_CHECK_MODULES([CEC],[libcec >= 2.0.0],,[use_libcec="no";AC_MSG_ERROR($libcec_disabled)])
++      PKG_CHECK_MODULES([CEC],[libcec >= 2.1.0],,[use_libcec="no";AC_MSG_ERROR($libcec_disabled)])
+     else
+-      PKG_CHECK_MODULES([CEC],[libcec >= 2.0.0],,[use_libcec="no";AC_MSG_RESULT($libcec_disabled)])
++      PKG_CHECK_MODULES([CEC],[libcec >= 2.1.0],,[use_libcec="no";AC_MSG_RESULT($libcec_disabled)])
+     fi
+ 
+     if test "x$use_libcec" != "xno"; then
+       INCLUDES="$INCLUDES $CEC_CFLAGS"
+       USE_LIBCEC=1;AC_DEFINE([HAVE_LIBCEC],[1],["Define to 1 if libcec is installed"])
+-      if test "x$use_rpi_cec_api" != "xno"; then
+-        LIBS+=" -lvcos -lvchiq_arm"
+-        AC_DEFINE([HAVE_CEC_RPI_API],[1],["Define to 1 if the CEC RPi API is installed"])
+-        USE_CEC_RPI_API=1
+-      fi
+       XB_FIND_SONAME([LIBCEC],[cec],[use_libcec])
+       AC_MSG_NOTICE($libcec_enabled)
+     else
+@@ -2255,11 +2225,6 @@ fi
+ 
+ if test "x$use_libcec" != "xno"; then
+   final_message="$final_message\n  libcec support:\tYes"
+-  if test "x$use_rpi_cec_api" != "xno"; then
+-    final_message="$final_message\n  libcec RPi support:\tYes"
+-  else
+-    final_message="$final_message\n  libcec RPi support:\tNo"
+-  fi
+ else
+   final_message="$final_message\n  libcec support:\tNo"
+ fi
+@@ -2451,7 +2416,6 @@ AC_SUBST(USE_AIRTUNES)
+ AC_SUBST(USE_LIBUDEV)
+ AC_SUBST(USE_LIBUSB)
+ AC_SUBST(USE_LIBCEC)
+-AC_SUBST(USE_CEC_RPI_API)
+ AC_SUBST(USE_MYSQL)
+ AC_SUBST(USE_WEB_SERVER)
+ AC_SUBST(USE_UPNP)
+diff --git a/project/BuildDependencies/scripts/libcec_d.txt b/project/BuildDependencies/scripts/libcec_d.txt
+index c1419b5..2c7d495 100644
+diff --git a/project/VS2010Express/XBMC.vcxproj b/project/VS2010Express/XBMC.vcxproj
+index fb0947e..7e32ccc 100644
+diff --git a/project/VS2010Express/XBMC.vcxproj.filters b/project/VS2010Express/XBMC.vcxproj.filters
+index 53a6c97..52a5373 100644
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 967b96c..68205df 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -7,30 +7,7 @@
+     <setting key="flip_remote" value="Dialog.Close(virtualkeyboard)" label="36003" order="4" />
+   </peripheral>
+ 
+-  <peripheral vendor_product="2708:1001" bus="rpi" name="Raspberry Pi CEC Adapter" mapTo="cec">
+-    <setting key="enabled" type="bool" value="1" label="305" order="1" />
+-    <setting key="activate_source" type="bool" value="1" label="36020" order="2" />
+-    <setting key="wake_devices" type="enum" value="36037" label="36007" lvalues="36037|36038|36039|231" order="3" />
+-    <setting key="standby_devices" type="enum" value="36037" label="36008" lvalues="36037|36038|36039|231" order="4" />
+-    <setting key="send_inactive_source" type="bool" value="1" label="36025" order="5" />
+-    <setting key="cec_standby_screensaver" type="bool" value="0" label="36009" order="7" />
+-    <setting key="standby_pc_on_tv_standby" type="enum" value="13011" label="36029" order="7" lvalues="36028|13005|13011" />
+-    <setting key="standby_tv_on_pc_standby" type="bool" value="1" label="36026" order="8" />
+-    <setting key="use_tv_menu_language" type="bool" value="1" label="36018" order="9" />
+-    <setting key="physical_address" type="string" label="36021" value="0" order="10" />
+-
+-    <setting key="tv_vendor" type="int" value="0" configurable="0" />
+-    <setting key="device_name" type="string" value="XBMC" configurable="0" />
+-    <setting key="device_type" type="int" value="1" configurable="0" />
+-    <setting key="cec_hdmi_port" type="int" value="1" label="36015" configurable="0" />
+-    <setting key="connected_device" type="int" label="36019" value="0" configurable="0" />
+-    <setting key="port" type="string" value="" label="36022" configurable="0" />
+-    <setting key="wake_devices_advanced" type="string" value="" configurable="0" />
+-    <setting key="standby_devices_advanced" type="string" value="" configurable="0" />
+-    <setting key="double_tap_timeout_ms" type="int" min="0" value="2000" configurable="0" />
+-  </peripheral>
+-
+-  <peripheral vendor_product="2548:1001,2548:1002" bus="usb" name="Pulse-Eight CEC Adapter" mapTo="cec">
++  <peripheral bus="cec" name="CEC Adapter" mapTo="cec">
+     <setting key="enabled" type="bool" value="1" label="305" order="1" />
+     <setting key="activate_source" type="bool" value="1" label="36020" order="2" />
+     <setting key="wake_devices" type="enum" value="36037" label="36007" lvalues="36037|36038|36039|231" order="3" />
+@@ -54,6 +31,12 @@
+     <setting key="double_tap_timeout_ms" type="int" min="0" value="2000" configurable="0" />
+   </peripheral>
+ 
++  <peripheral vendor_product="2548:1001,2548:1002" bus="usb" name="Pulse-Eight CEC Adapter" mapTo="cec">
++    <!-- This entry will not create a CPeripheralCecAdapter instance, since it's filtered out in CPeripherals::CreatePeripheral,
++         but it will ensure that a warning is displayed when an adapter is inserted, but libCEC is not present or couldn't be loaded.
++         Since libCEC is now used to scan for devices, the warning will not be displayed without this mapping -->
++  </peripheral>
++
+   <peripheral vendor_product="15C2:32,15C2:33,15C2:34,15C2:35,15C2:36,15C2:37,15C2:38,15C2:39,15C2:3A,15C2:3B,15C2:3C,15C2:3D,15C2:3E,15C2:3F,15C2:41,15C2:42,15C2:43,15C2:44,15C2:45,15C2:46" bus="usb" name="iMON HID device" mapTo="imon">
+     <setting key="do_not_use_custom_keymap" type="bool" value="1" label="35009" configurable="0"/>
+     <setting key="disable_winjoystick" type="bool" value="1" label="35102" order="1" />
+diff --git a/tools/android/depends/libcec/Makefile b/tools/android/depends/libcec/Makefile
+index 7d9b6b8..0147147 100644
+--- a/tools/android/depends/libcec/Makefile
++++ b/tools/android/depends/libcec/Makefile
+@@ -3,7 +3,7 @@ DEPS= ../Makefile.include Makefile
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=2.0.5-3
++VERSION=2.1.0
+ SOURCE=$(LIBNAME)-$(VERSION)
+ ARCHIVE=$(SOURCE).tar.gz
+ 
+@@ -11,7 +11,7 @@ ARCHIVE=$(SOURCE).tar.gz
+ CONFIGURE=./configure --prefix=$(PREFIX) --host=$(HOST) \
+           ac_cv_search_dlopen=yes
+ 
+-LIBDYLIB=$(PLATFORM)/src/lib/.libs/libcec.so.2.0.0
++LIBDYLIB=$(PLATFORM)/src/lib/.libs/libcec.so.2.0.1
+ 
+ all: .installed-$(PLATFORM)
+ 
+diff --git a/tools/darwin/depends/libcec/Makefile b/tools/darwin/depends/libcec/Makefile
+index 3e84bff..b7970dd 100644
+--- a/tools/darwin/depends/libcec/Makefile
++++ b/tools/darwin/depends/libcec/Makefile
+@@ -3,7 +3,7 @@ include ../config.site.mk
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=2.0.5-3
++VERSION=2.1.0
+ SOURCE=$(LIBNAME)-$(VERSION)
+ ARCHIVE=$(SOURCE).tar.gz
+ 
+diff --git a/xbmc/peripherals/PeripheralTypes.h b/xbmc/peripherals/PeripheralTypes.h
+index 3cd7691..03030d4 100644
+--- a/xbmc/peripherals/PeripheralTypes.h
++++ b/xbmc/peripherals/PeripheralTypes.h
+@@ -35,7 +35,8 @@
+     PERIPHERAL_BUS_UNKNOWN = 0,
+     PERIPHERAL_BUS_USB,
+     PERIPHERAL_BUS_PCI,
+-    PERIPHERAL_BUS_RPI
++    PERIPHERAL_BUS_RPI,
++    PERIPHERAL_BUS_CEC
+   };
+ 
+   enum PeripheralFeature
+@@ -143,6 +144,8 @@
+         return "pci";
+       case PERIPHERAL_BUS_RPI:
+         return "rpi";
++      case PERIPHERAL_BUS_CEC:
++        return "cec";
+       default:
+         return "unknown";
+       }
+@@ -159,6 +162,8 @@
+         return PERIPHERAL_BUS_PCI;
+       else if (strTypeLowerCase.Equals("rpi"))
+         return PERIPHERAL_BUS_RPI;
++      else if (strTypeLowerCase.Equals("cec"))
++        return PERIPHERAL_BUS_CEC;
+ 
+       return PERIPHERAL_BUS_UNKNOWN;
+     };
+@@ -180,4 +185,73 @@
+       strHexString.Format("%04X", iVal);
+     };
+   };
++
++  class PeripheralScanResult
++  {
++  public:
++    PeripheralScanResult(const PeripheralBusType busType) :
++      m_type(PERIPHERAL_UNKNOWN),
++      m_iVendorId(0),
++      m_iProductId(0),
++      m_mappedType(PERIPHERAL_UNKNOWN),
++      m_busType(busType),
++      m_mappedBusType(busType),
++      m_iSequence(0) {}
++
++    PeripheralScanResult(void) :
++      m_type(PERIPHERAL_UNKNOWN),
++      m_iVendorId(0),
++      m_iProductId(0),
++      m_mappedType(PERIPHERAL_UNKNOWN),
++      m_busType(PERIPHERAL_BUS_UNKNOWN),
++      m_mappedBusType(PERIPHERAL_BUS_UNKNOWN),
++      m_iSequence(0) {}
++
++    bool operator ==(const PeripheralScanResult& right) const
++    {
++      return m_iVendorId  == right.m_iVendorId &&
++             m_iProductId == right.m_iProductId &&
++             m_type       == right.m_type &&
++             m_busType    == right.m_busType &&
++             m_strLocation.Equals(right.m_strLocation);
++    }
++
++    bool operator !=(const PeripheralScanResult& right) const
++    {
++      return !(*this == right);
++    }
++
++    PeripheralType    m_type;
++    CStdString        m_strLocation;
++    int               m_iVendorId;
++    int               m_iProductId;
++    PeripheralType    m_mappedType;
++    CStdString        m_strDeviceName;
++    PeripheralBusType m_busType;
++    PeripheralBusType m_mappedBusType;
++    unsigned int      m_iSequence; // when more than one adapter of the same type is found
++  };
++
++  struct PeripheralScanResults
++  {
++    bool GetDeviceOnLocation(const CStdString& strLocation, PeripheralScanResult* result) const
++    {
++      for (std::vector<PeripheralScanResult>::const_iterator it = m_results.begin(); it != m_results.end(); it++)
++      {
++        if ((*it).m_strLocation == strLocation)
++        {
++          *result = *it;
++          return true;
++        }
++      }
++      return false;
++    }
++
++    bool ContainsResult(const PeripheralScanResult& result) const
++    {
++      return std::find(m_results.begin(), m_results.end(), result) != m_results.end();
++    }
++
++    std::vector<PeripheralScanResult> m_results;
++  };
+ }
+diff --git a/xbmc/peripherals/Peripherals.cpp b/xbmc/peripherals/Peripherals.cpp
+index 3ce8c07..c5fadd9 100644
+--- a/xbmc/peripherals/Peripherals.cpp
++++ b/xbmc/peripherals/Peripherals.cpp
+@@ -31,8 +31,8 @@
+ #include "bus/PeripheralBusUSB.h"
+ #include "dialogs/GUIDialogPeripheralManager.h"
+ 
+-#ifdef HAVE_CEC_RPI_API
+-#include "bus/linux/PeripheralBusRPi.h"
++#if defined(HAVE_LIBCEC)
++#include "bus/virtual/PeripheralBusCEC.h"
+ #endif
+ 
+ #include "threads/SingleLock.h"
+@@ -84,8 +84,8 @@ void CPeripherals::Initialise(void)
+ #if defined(HAVE_PERIPHERAL_BUS_USB)
+     m_busses.push_back(new CPeripheralBusUSB(this));
+ #endif
+-#ifdef HAVE_CEC_RPI_API
+-    m_busses.push_back(new CPeripheralBusRPi(this));
++#if defined(HAVE_LIBCEC)
++    m_busses.push_back(new CPeripheralBusCEC(this));
+ #endif
+ 
+     /* initialise all known busses */
+@@ -229,54 +229,50 @@ bool CPeripherals::HasPeripheralWithFeature(const PeripheralFeature feature, Per
+   return (GetPeripheralsWithFeature(dummy, feature, busType) > 0);
+ }
+ 
+-CPeripheral *CPeripherals::CreatePeripheral(CPeripheralBus &bus, const PeripheralType type, const CStdString &strLocation, int iVendorId /* = 0 */, int iProductId /* = 0 */)
++CPeripheral *CPeripherals::CreatePeripheral(CPeripheralBus &bus, const PeripheralScanResult& result)
+ {
+   CPeripheral *peripheral = NULL;
++  PeripheralScanResult mappedResult = result;
++  if (mappedResult.m_busType == PERIPHERAL_BUS_UNKNOWN)
++    mappedResult.m_busType = bus.Type();
++
+   /* check whether there's something mapped in peripherals.xml */
+-  PeripheralType mappedType = type;
+-  CStdString strDeviceName;
+-  int iMappingPtr = GetMappingForDevice(bus, type, iVendorId, iProductId);
+-  bool bHasMapping(iMappingPtr >= 0);
+-  if (bHasMapping)
+-  {
+-    mappedType    = m_mappings[iMappingPtr].m_mappedTo;
+-    strDeviceName = m_mappings[iMappingPtr].m_strDeviceName;
+-  }
+-  else
++  if (!GetMappingForDevice(bus, mappedResult))
+   {
+     /* don't create instances for devices that aren't mapped in peripherals.xml */
+     return NULL;
+   }
+ 
+-  switch(mappedType)
++  switch(mappedResult.m_mappedType)
+   {
+   case PERIPHERAL_HID:
+-    peripheral = new CPeripheralHID(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    peripheral = new CPeripheralHID(mappedResult);
+     break;
+ 
+   case PERIPHERAL_NIC:
+-    peripheral = new CPeripheralNIC(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    peripheral = new CPeripheralNIC(mappedResult);
+     break;
+ 
+   case PERIPHERAL_DISK:
+-    peripheral = new CPeripheralDisk(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    peripheral = new CPeripheralDisk(mappedResult);
+     break;
+ 
+   case PERIPHERAL_NYXBOARD:
+-    peripheral = new CPeripheralNyxboard(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    peripheral = new CPeripheralNyxboard(mappedResult);
+     break;
+ 
+   case PERIPHERAL_TUNER:
+-    peripheral = new CPeripheralTuner(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    peripheral = new CPeripheralTuner(mappedResult);
+     break;
+ 
+   case PERIPHERAL_BLUETOOTH:
+-    peripheral = new CPeripheralBluetooth(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    peripheral = new CPeripheralBluetooth(mappedResult);
+     break;
+ 
+   case PERIPHERAL_CEC:
+ #if defined(HAVE_LIBCEC)
+-    peripheral = new CPeripheralCecAdapter(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    if (bus.Type() == PERIPHERAL_BUS_CEC)
++      peripheral = new CPeripheralCecAdapter(mappedResult);
+ #else
+     if (!m_bMissingLibCecWarningDisplayed)
+     {
+@@ -288,7 +284,7 @@ CPeripheral *CPeripherals::CreatePeripheral(CPeripheralBus &bus, const Periphera
+     break;
+ 
+   case PERIPHERAL_IMON:
+-    peripheral = new CPeripheralImon(type, bus.Type(), strLocation, strDeviceName, iVendorId, iProductId);
++    peripheral = new CPeripheralImon(mappedResult);
+     break;
+ 
+   default:
+@@ -305,7 +301,7 @@ CPeripheral *CPeripherals::CreatePeripheral(CPeripheralBus &bus, const Periphera
+     }
+     else
+     {
+-      CLog::Log(LOGDEBUG, "%s - failed to initialise peripheral on '%s'", __FUNCTION__, strLocation.c_str());
++      CLog::Log(LOGDEBUG, "%s - failed to initialise peripheral on '%s'", __FUNCTION__, mappedResult.m_strLocation.c_str());
+       delete peripheral;
+       peripheral = NULL;
+     }
+@@ -340,7 +336,7 @@ void CPeripherals::OnDeviceDeleted(const CPeripheralBus &bus, const CPeripheral
+   CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Info, g_localizeStrings.Get(35006), peripheral.DeviceName());
+ }
+ 
+-int CPeripherals::GetMappingForDevice(const CPeripheralBus &bus, const PeripheralType classType, int iVendorId, int iProductId) const
++bool CPeripherals::GetMappingForDevice(const CPeripheralBus &bus, PeripheralScanResult& result) const
+ {
+   /* check all mappings in the order in which they are defined in peripherals.xml */
+   for (unsigned int iMappingPtr = 0; iMappingPtr < m_mappings.size(); iMappingPtr++)
+@@ -355,24 +351,26 @@ int CPeripherals::GetMappingForDevice(const CPeripheralBus &bus, const Periphera
+     else
+     {
+       for (unsigned int i = 0; i < mapping.m_PeripheralID.size(); i++)
+-        if (mapping.m_PeripheralID[i].m_iVendorId == iVendorId && mapping.m_PeripheralID[i].m_iProductId == iProductId)
++        if (mapping.m_PeripheralID[i].m_iVendorId == result.m_iVendorId && mapping.m_PeripheralID[i].m_iProductId == result.m_iProductId)
+           bProductMatch = true;
+     }
+ 
+     bool bBusMatch = (mapping.m_busType == PERIPHERAL_BUS_UNKNOWN || mapping.m_busType == bus.Type());
+-    bool bClassMatch = (mapping.m_class == PERIPHERAL_UNKNOWN || mapping.m_class == classType);
++    bool bClassMatch = (mapping.m_class == PERIPHERAL_UNKNOWN || mapping.m_class == result.m_type);
+ 
+     if (bProductMatch && bBusMatch && bClassMatch)
+     {
+       CStdString strVendorId, strProductId;
+-      PeripheralTypeTranslator::FormatHexString(iVendorId, strVendorId);
+-      PeripheralTypeTranslator::FormatHexString(iProductId, strProductId);
++      PeripheralTypeTranslator::FormatHexString(result.m_iVendorId, strVendorId);
++      PeripheralTypeTranslator::FormatHexString(result.m_iProductId, strProductId);
+       CLog::Log(LOGDEBUG, "%s - device (%s:%s) mapped to %s (type = %s)", __FUNCTION__, strVendorId.c_str(), strProductId.c_str(), mapping.m_strDeviceName.c_str(), PeripheralTypeTranslator::TypeToString(mapping.m_mappedTo));
+-      return iMappingPtr;
++      result.m_mappedType    = m_mappings[iMappingPtr].m_mappedTo;
++      result.m_strDeviceName = m_mappings[iMappingPtr].m_strDeviceName;
++      return true;
+     }
+   }
+ 
+-  return -1;
++  return false;
+ }
+ 
+ void CPeripherals::GetSettingsFromMapping(CPeripheral &peripheral) const
+diff --git a/xbmc/peripherals/Peripherals.h b/xbmc/peripherals/Peripherals.h
+index ac94699..9594ff8 100644
+--- a/xbmc/peripherals/Peripherals.h
++++ b/xbmc/peripherals/Peripherals.h
+@@ -111,11 +111,10 @@
+     /*!
+      * @brief Creates a new instance of a peripheral.
+      * @param bus The bus on which this peripheral is present.
+-     * @param type The type of the new peripheral.
+-     * @param strLocation The location on the bus.
++     * @param result The scan result from the device scanning code.
+      * @return The new peripheral or NULL if it could not be created.
+      */
+-    CPeripheral *CreatePeripheral(CPeripheralBus &bus, const PeripheralType type, const CStdString &strLocation, int iVendorId = 0, int iProductId = 0);
++    CPeripheral *CreatePeripheral(CPeripheralBus &bus, const PeripheralScanResult& result);
+ 
+     /*!
+      * @brief Add the settings that are defined in the mappings file to the peripheral (if there is anything defined).
+@@ -200,7 +199,7 @@
+   private:
+     CPeripherals(void);
+     bool LoadMappings(void);
+-    int GetMappingForDevice(const CPeripheralBus &bus, const PeripheralType classType, int iVendorId, int iProductId) const;
++    bool GetMappingForDevice(const CPeripheralBus &bus, PeripheralScanResult& result) const;
+     static void GetSettingsFromMappingsFile(TiXmlElement *xmlNode, std::map<CStdString, CSetting *> &m_settings);
+ 
+     bool                                 m_bInitialised;
+diff --git a/xbmc/peripherals/bus/Makefile.in b/xbmc/peripherals/bus/Makefile.in
+index 01fa4e2..2262e4a 100644
+--- a/xbmc/peripherals/bus/Makefile.in
++++ b/xbmc/peripherals/bus/Makefile.in
+@@ -12,8 +12,8 @@ ifeq ($(findstring osx,@ARCH@),osx)
+ SRCS += osx/PeripheralBusUSB.cpp
+ endif
+ 
+-ifeq (@USE_CEC_RPI_API@,1)
+-SRCS += linux/PeripheralBusRPi.cpp
++ifeq (@USE_LIBCEC@,1)
++SRCS += virtual/PeripheralBusCEC.cpp
+ endif
+ 
+ LIB = peripheral-bus.a
+diff --git a/xbmc/peripherals/bus/PeripheralBus.cpp b/xbmc/peripherals/bus/PeripheralBus.cpp
+index 727f7c9..b17a9f1 100644
+--- a/xbmc/peripherals/bus/PeripheralBus.cpp
++++ b/xbmc/peripherals/bus/PeripheralBus.cpp
+@@ -29,65 +29,6 @@
+ 
+ #define PERIPHERAL_DEFAULT_RESCAN_INTERVAL 1000
+ 
+-bool PeripheralScanResult::operator ==(const PeripheralScanResult &right) const
+-{
+-  return m_iVendorId == right.m_iVendorId &&
+-      m_iProductId == right.m_iProductId &&
+-      m_type == right.m_type &&
+-      m_strLocation.Equals(right.m_strLocation);
+-}
+-
+-bool PeripheralScanResult::operator !=(const PeripheralScanResult &right) const
+-{
+-  return !(*this == right);
+-}
+-
+-bool PeripheralScanResult::operator ==(const CPeripheral &right) const
+-{
+-  return m_iVendorId == right.VendorId() &&
+-      m_iProductId == right.ProductId() &&
+-      m_type == right.Type() &&
+-      m_strLocation.Equals(right.Location());
+-}
+-
+-bool PeripheralScanResult::operator !=(const CPeripheral &right) const
+-{
+-  return !(*this == right);
+-}
+-
+-bool PeripheralScanResults::GetDeviceOnLocation(const CStdString &strLocation, PeripheralScanResult *result) const
+-{
+-  bool bReturn(false);
+-
+-  for (unsigned int iDevicePtr = 0; iDevicePtr < m_results.size(); iDevicePtr++)
+-  {
+-    if (m_results.at(iDevicePtr).m_strLocation == strLocation)
+-    {
+-      *result = m_results.at(iDevicePtr);
+-      bReturn = true;
+-      break;
+-    }
+-  }
+-
+-  return bReturn;
+-}
+-
+-bool PeripheralScanResults::ContainsResult(const PeripheralScanResult &result) const
+-{
+-  bool bReturn(false);
+-
+-  for (unsigned int iDevicePtr = 0; iDevicePtr < m_results.size(); iDevicePtr++)
+-  {
+-    if (m_results.at(iDevicePtr) == result)
+-    {
+-      bReturn = true;
+-      break;
+-    }
+-  }
+-
+-  return bReturn;
+-}
+-
+ CPeripheralBus::CPeripheralBus(CPeripherals *manager, PeripheralBusType type) :
+     CThread("XBMC Peripherals"),
+     m_iRescanTime(PERIPHERAL_DEFAULT_RESCAN_INTERVAL),
+@@ -137,9 +78,9 @@ void CPeripheralBus::UnregisterRemovedDevices(const PeripheralScanResults &resul
+   for (int iDevicePtr = (int) m_peripherals.size() - 1; iDevicePtr >= 0; iDevicePtr--)
+   {
+     CPeripheral *peripheral = m_peripherals.at(iDevicePtr);
+-    PeripheralScanResult updatedDevice;
++    PeripheralScanResult updatedDevice(m_type);
+     if (!results.GetDeviceOnLocation(peripheral->Location(), &updatedDevice) ||
+-        updatedDevice != *peripheral)
++        *peripheral != updatedDevice)
+     {
+       /* device removed */
+       removedPeripherals.push_back(peripheral);
+@@ -170,9 +111,9 @@ void CPeripheralBus::RegisterNewDevices(const PeripheralScanResults &results)
+   CSingleLock lock(m_critSection);
+   for (unsigned int iResultPtr = 0; iResultPtr < results.m_results.size(); iResultPtr++)
+   {
+-    PeripheralScanResult result = results.m_results.at(iResultPtr);
++    const PeripheralScanResult& result = results.m_results.at(iResultPtr);
+     if (!HasPeripheral(result.m_strLocation))
+-      g_peripherals.CreatePeripheral(*this, result.m_type, result.m_strLocation, result.m_iVendorId, result.m_iProductId);
++      g_peripherals.CreatePeripheral(*this, result);
+   }
+ }
+ 
+@@ -246,6 +187,20 @@ int CPeripheralBus::GetPeripheralsWithFeature(vector<CPeripheral *> &results, co
+   return iReturn;
+ }
+ 
++size_t CPeripheralBus::GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const
++{
++  int iReturn(0);
++  CSingleLock lock(m_critSection);
++  for (unsigned int iPeripheralPtr = 0; iPeripheralPtr < m_peripherals.size(); iPeripheralPtr++)
++  {
++    if (m_peripherals.at(iPeripheralPtr)->VendorId() == iVendorId &&
++        m_peripherals.at(iPeripheralPtr)->ProductId() == iProductId)
++      iReturn++;
++  }
++
++  return iReturn;
++}
++
+ void CPeripheralBus::Process(void)
+ {
+   while (!m_bStop)
+diff --git a/xbmc/peripherals/bus/PeripheralBus.h b/xbmc/peripherals/bus/PeripheralBus.h
+index 96426a9..29ff7d7 100644
+--- a/xbmc/peripherals/bus/PeripheralBus.h
++++ b/xbmc/peripherals/bus/PeripheralBus.h
+@@ -31,28 +31,6 @@
+ {
+   class CPeripherals;
+ 
+-  struct PeripheralScanResult
+-  {
+-    bool operator ==(const PeripheralScanResult &right) const;
+-    bool operator !=(const PeripheralScanResult &right) const;
+-
+-    bool operator ==(const CPeripheral &right) const;
+-    bool operator !=(const CPeripheral &right) const;
+-
+-    PeripheralType m_type;
+-    CStdString     m_strLocation;
+-    int            m_iVendorId;
+-    int            m_iProductId;
+-  };
+-
+-  struct PeripheralScanResults
+-  {
+-    bool GetDeviceOnLocation(const CStdString &strLocation, PeripheralScanResult *result) const;
+-    bool ContainsResult(const PeripheralScanResult &result) const;
+-
+-    std::vector<PeripheralScanResult> m_results;
+-  };
+-
+   /*!
+    * @class CPeripheralBus
+    * This represents a bus on the system. By default, this bus instance will scan for changes every second.
+@@ -100,6 +78,7 @@
+     virtual int GetPeripheralsWithFeature(std::vector<CPeripheral *> &results, const PeripheralFeature feature) const;
+ 
+     virtual size_t GetNumberOfPeripherals() const;
++    virtual size_t GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const;
+ 
+     /*!
+      * @brief Get all features that are supported by devices on this bus.
+diff --git a/xbmc/peripherals/bus/linux/PeripheralBusRPi.cpp b/xbmc/peripherals/bus/linux/PeripheralBusRPi.cpp
+deleted file mode 100644
+index 8a436e4..0000000
+--- a/xbmc/peripherals/bus/linux/PeripheralBusRPi.cpp
++++ /dev/null
+@@ -1,69 +0,0 @@
+-/*
+- *      Copyright (C) 2005-2012 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "PeripheralBusRPi.h"
+-#include <libcec/cectypes.h>
+-
+-extern "C" {
+-#include <interface/vmcs_host/vc_cecservice.h>
+-#include <interface/vchiq_arm/vchiq_if.h>
+-}
+-
+-using namespace PERIPHERALS;
+-
+-#define RPI_PERIPHERAL_BUS_VID 0x2708
+-#define RPI_PERIPHERAL_CEC_PID 0x1001
+-
+-CPeripheralBusRPi::CPeripheralBusRPi(CPeripherals *manager) :
+-    CPeripheralBus(manager, PERIPHERAL_BUS_RPI)
+-{
+-  m_bNeedsPolling = false;
+-}
+-
+-bool CPeripheralBusRPi::PerformDeviceScan(PeripheralScanResults &results)
+-{
+-  if (FindAdapter())
+-  {
+-    PeripheralScanResult result;
+-    result.m_iVendorId   = RPI_PERIPHERAL_BUS_VID;
+-    result.m_iProductId  = RPI_PERIPHERAL_CEC_PID;
+-    result.m_type        = PERIPHERAL_CEC;
+-    result.m_strLocation = CEC_RPI_VIRTUAL_COM;
+-
+-    if (!results.ContainsResult(result))
+-      results.m_results.push_back(result);
+-  }
+-
+-  return true;
+-}
+-
+-bool CPeripheralBusRPi::FindAdapter(void)
+-{
+-  uint8_t iResult;
+-
+-  VCHI_INSTANCE_T vchiq_instance;
+-  if ((iResult = vchi_initialise(&vchiq_instance)) != VCHIQ_SUCCESS)
+-    return false;
+-
+-  if ((iResult = vchi_connect(NULL, 0, vchiq_instance)) != VCHIQ_SUCCESS)
+-    return false;
+-
+-  return true;
+-}
+diff --git a/xbmc/peripherals/bus/linux/PeripheralBusRPi.h b/xbmc/peripherals/bus/linux/PeripheralBusRPi.h
+deleted file mode 100644
+index e660401..0000000
+--- a/xbmc/peripherals/bus/linux/PeripheralBusRPi.h
++++ /dev/null
+@@ -1,40 +0,0 @@
+-#pragma once
+-/*
+- *      Copyright (C) 2005-2012 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "peripherals/bus/PeripheralBus.h"
+-#include "peripherals/devices/Peripheral.h"
+-
+-namespace PERIPHERALS
+-{
+-  class CPeripherals;
+-
+-  class CPeripheralBusRPi : public CPeripheralBus
+-  {
+-  public:
+-    CPeripheralBusRPi(CPeripherals *manager);
+-    virtual ~CPeripheralBusRPi(void) {};
+-
+-    bool PerformDeviceScan(PeripheralScanResults &results);
+-
+-  private:
+-    bool FindAdapter(void);
+-  };
+-}
+diff --git a/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUSB.cpp b/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUSB.cpp
+index 659ebf0..563c96e 100644
+--- a/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUSB.cpp
++++ b/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUSB.cpp
+@@ -43,7 +43,7 @@ bool CPeripheralBusUSB::PerformDeviceScan(PeripheralScanResults &results)
+     struct usb_device *dev;
+     for (dev = bus->devices; dev; dev = dev->next)
+     {
+-      PeripheralScanResult result;
++      PeripheralScanResult result(m_type);
+       result.m_iVendorId  = dev->descriptor.idVendor;
+       result.m_iProductId = dev->descriptor.idProduct;
+       result.m_type       = (dev->descriptor.bDeviceClass == USB_CLASS_PER_INTERFACE && dev->descriptor.bNumConfigurations > 0 &&
+@@ -55,6 +55,7 @@ bool CPeripheralBusUSB::PerformDeviceScan(PeripheralScanResults &results)
+ #else
+       result.m_strLocation.Format("/bus%s/dev%s", bus->dirname, dev->filename);
+ #endif
++      result.m_iSequence   = GetNumberOfPeripheralsWithId(result.m_iVendorId, result.m_iProductId);
+       if (!results.ContainsResult(result))
+         results.m_results.push_back(result);
+     }
+diff --git a/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUdev.cpp b/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUdev.cpp
+index b7a0061..ca21e06 100644
+--- a/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUdev.cpp
++++ b/xbmc/peripherals/bus/linux/PeripheralBusUSBLibUdev.cpp
+@@ -152,12 +152,12 @@ bool CPeripheralBusUSB::PerformDeviceScan(PeripheralScanResults &results)
+         iClass = USB_CLASS_HID;
+       }
+ 
+-      PeripheralScanResult result;
++      PeripheralScanResult result(m_type);
+       result.m_iVendorId   = PeripheralTypeTranslator::HexStringToInt(udev_device_get_sysattr_value(dev, "idVendor"));
+       result.m_iProductId  = PeripheralTypeTranslator::HexStringToInt(udev_device_get_sysattr_value(dev, "idProduct"));
+       result.m_type        = GetType(iClass);
+       result.m_strLocation = udev_device_get_syspath(dev);
+-
++      result.m_iSequence   = GetNumberOfPeripheralsWithId(result.m_iVendorId, result.m_iProductId);
+       if (!results.ContainsResult(result))
+         results.m_results.push_back(result);
+     }
+diff --git a/xbmc/peripherals/bus/osx/PeripheralBusUSB.cpp b/xbmc/peripherals/bus/osx/PeripheralBusUSB.cpp
+index b0e3617..78bd224 100644
+--- a/xbmc/peripherals/bus/osx/PeripheralBusUSB.cpp
++++ b/xbmc/peripherals/bus/osx/PeripheralBusUSB.cpp
+@@ -266,6 +266,7 @@ void CPeripheralBusUSB::DeviceAttachCallback(CPeripheralBusUSB* refCon, io_itera
+         else
+           privateDataRef->result.m_type = refCon->GetType(bDeviceClass);
+ 
++        privateDataRef->result.m_iSequence = refCon->GetNumberOfPeripheralsWithId(privateDataRef->result.m_iVendorId, privateDataRef->result.m_iProductId);
+         if (!refCon->m_scan_results.ContainsResult(privateDataRef->result))
+         {
+           // register this usb device for an interest notification callback. 
+diff --git a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
+new file mode 100644
+index 0000000..da169c1
+--- /dev/null
++++ b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
+@@ -0,0 +1,116 @@
++/*
++ *      Copyright (C) 2005-2012 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "system.h"
++#if defined(HAVE_LIBCEC)
++#include "PeripheralBusCEC.h"
++#include "peripherals/Peripherals.h"
++#include "utils/log.h"
++#include "DynamicDll.h"
++
++#include <libcec/cec.h>
++
++using namespace PERIPHERALS;
++using namespace CEC;
++using namespace std;
++
++class DllLibCECInterface
++{
++public:
++  virtual ~DllLibCECInterface() {}
++  virtual ICECAdapter* CECInitialise(libcec_configuration *configuration)=0;
++  virtual void*        CECDestroy(ICECAdapter *adapter)=0;
++};
++
++class PERIPHERALS::DllLibCEC : public DllDynamic, DllLibCECInterface
++{
++  DECLARE_DLL_WRAPPER(DllLibCEC, DLL_PATH_LIBCEC)
++
++  DEFINE_METHOD1(ICECAdapter*, CECInitialise, (libcec_configuration *p1))
++  DEFINE_METHOD1(void*       , CECDestroy,    (ICECAdapter *p1))
++
++  BEGIN_METHOD_RESOLVE()
++    RESOLVE_METHOD_RENAME(CECInitialise,  CECInitialise)
++    RESOLVE_METHOD_RENAME(CECDestroy, CECDestroy)
++  END_METHOD_RESOLVE()
++};
++
++CPeripheralBusCEC::CPeripheralBusCEC(CPeripherals *manager) :
++    CPeripheralBus(manager, PERIPHERAL_BUS_CEC),
++    m_dll(new DllLibCEC),
++    m_cecAdapter(NULL)
++{
++  m_iRescanTime = 1000;
++  if (!m_dll->Load() || !m_dll->IsLoaded())
++  {
++    delete m_dll;
++    m_dll = NULL;
++  }
++  else
++  {
++    m_cecAdapter = m_dll->CECInitialise(&m_configuration);
++  }
++}
++
++CPeripheralBusCEC::~CPeripheralBusCEC(void)
++{
++  if (m_dll && m_cecAdapter)
++    m_dll->CECDestroy(m_cecAdapter);
++  delete m_dll;
++}
++
++bool CPeripheralBusCEC::PerformDeviceScan(PeripheralScanResults &results)
++{
++  if (!m_dll || !m_cecAdapter)
++    return false;
++
++  cec_adapter_descriptor deviceList[10];
++  int8_t iFound = m_cecAdapter->DetectAdapters(deviceList, 10, NULL, true);
++
++  for (uint8_t iDevicePtr = 0; iDevicePtr < iFound; iDevicePtr++)
++  {
++    PeripheralScanResult result(m_type);
++    result.m_iVendorId   = deviceList[iDevicePtr].iVendorId;
++    result.m_iProductId  = deviceList[iDevicePtr].iProductId;
++    result.m_strLocation = deviceList[iDevicePtr].strComName;
++    result.m_type        = PERIPHERAL_CEC;
++
++    // override the bus type, so users don't have to reconfigure their adapters
++    switch(deviceList[iDevicePtr].adapterType)
++    {
++    case ADAPTERTYPE_P8_EXTERNAL:
++    case ADAPTERTYPE_P8_DAUGHTERBOARD:
++      result.m_mappedBusType = PERIPHERAL_BUS_USB;
++      break;
++    case ADAPTERTYPE_RPI:
++      result.m_mappedBusType = PERIPHERAL_BUS_RPI;
++      break;
++    default:
++      break;
++    }
++
++    result.m_iSequence = GetNumberOfPeripheralsWithId(result.m_iVendorId, result.m_iProductId);
++    if (!results.ContainsResult(result))
++      results.m_results.push_back(result);
++  }
++  return true;
++}
++
++#endif
+diff --git a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.h b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.h
+new file mode 100644
+index 0000000..acba01a
+--- /dev/null
++++ b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.h
+@@ -0,0 +1,57 @@
++#pragma once
++/*
++ *      Copyright (C) 2005-2013 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "peripherals/bus/PeripheralBus.h"
++#include "peripherals/devices/Peripheral.h"
++
++// undefine macro isset, it collides with function in cectypes.h
++#ifdef isset
++#undef isset
++#endif
++#include <libcec/cectypes.h>
++
++namespace CEC
++{
++  class ICECAdapter;
++}
++
++namespace PERIPHERALS
++{
++  class CPeripherals;
++  class DllLibCEC;
++
++  class CPeripheralBusCEC : public CPeripheralBus
++  {
++  public:
++    CPeripheralBusCEC(CPeripherals *manager);
++    virtual ~CPeripheralBusCEC(void);
++
++    /*!
++     * @see PeripheralBus::PerformDeviceScan()
++     */
++    bool PerformDeviceScan(PeripheralScanResults &results);
++
++  private:
++    DllLibCEC*                m_dll;
++    CEC::ICECAdapter*         m_cecAdapter;
++    CEC::libcec_configuration m_configuration;
++  };
++}
+diff --git a/xbmc/peripherals/bus/win32/PeripheralBusUSB.cpp b/xbmc/peripherals/bus/win32/PeripheralBusUSB.cpp
+index 811e0d1..fb55561 100644
+--- a/xbmc/peripherals/bus/win32/PeripheralBusUSB.cpp
++++ b/xbmc/peripherals/bus/win32/PeripheralBusUSB.cpp
+@@ -104,14 +104,15 @@ bool CPeripheralBusUSB::PerformDeviceScan(const GUID *guid, const PeripheralType
+ 
+         if ((strTmp.Find("&mi_") < 0) || (strTmp.Find("&mi_00") >= 0))
+         {
+-          PeripheralScanResult prevDevice;
++          PeripheralScanResult prevDevice(m_type);
+           if (!results.GetDeviceOnLocation(devicedetailData->DevicePath, &prevDevice))
+           {
+-            PeripheralScanResult result;
++            PeripheralScanResult result(m_type);
+             result.m_strLocation  = devicedetailData->DevicePath;
+             result.m_type         = type;
+             result.m_iVendorId    = PeripheralTypeTranslator::HexStringToInt(strVendorId.c_str());
+             result.m_iProductId   = PeripheralTypeTranslator::HexStringToInt(strProductId.c_str());
++            result.m_iSequence    = GetNumberOfPeripheralsWithId(result.m_iVendorId, result.m_iProductId);
+ 
+             if (!results.ContainsResult(result))
+               results.m_results.push_back(result);
+diff --git a/xbmc/peripherals/devices/Peripheral.cpp b/xbmc/peripherals/devices/Peripheral.cpp
+index e9cde30..ad2227a 100644
+--- a/xbmc/peripherals/devices/Peripheral.cpp
++++ b/xbmc/peripherals/devices/Peripheral.cpp
+@@ -38,39 +38,23 @@ struct SortBySettingsOrder
+   }
+ };
+ 
+-CPeripheral::CPeripheral(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  m_type(type),
+-  m_busType(busType),
+-  m_strLocation(strLocation),
+-  m_strDeviceName(strDeviceName),
++CPeripheral::CPeripheral(const PeripheralScanResult& scanResult) :
++  m_type(scanResult.m_mappedType),
++  m_busType(scanResult.m_busType),
++  m_mappedBusType(scanResult.m_mappedBusType),
++  m_strLocation(scanResult.m_strLocation),
++  m_strDeviceName(scanResult.m_strDeviceName),
+   m_strFileLocation(StringUtils::EmptyString),
+-  m_iVendorId(iVendorId),
+-  m_iProductId(iProductId),
+-  m_strVersionInfo(g_localizeStrings.Get(13205)), // "unknown"
+-  m_bInitialised(false),
+-  m_bHidden(false),
+-  m_bError(false)
+-{
+-  PeripheralTypeTranslator::FormatHexString(iVendorId, m_strVendorId);
+-  PeripheralTypeTranslator::FormatHexString(iProductId, m_strProductId);
+-  m_strFileLocation.Format("peripherals://%s/%s.dev", PeripheralTypeTranslator::BusTypeToString(busType), strLocation.c_str());
+-}
+-
+-CPeripheral::CPeripheral(void) :
+-  m_type(PERIPHERAL_UNKNOWN),
+-  m_busType(PERIPHERAL_BUS_UNKNOWN),
+-  m_strLocation(StringUtils::EmptyString),
+-  m_strDeviceName(StringUtils::EmptyString),
+-  m_strFileLocation(StringUtils::EmptyString),
+-  m_iVendorId(0),
+-  m_strVendorId("0000"),
+-  m_iProductId(0),
+-  m_strProductId("0000"),
++  m_iVendorId(scanResult.m_iVendorId),
++  m_iProductId(scanResult.m_iProductId),
+   m_strVersionInfo(g_localizeStrings.Get(13205)), // "unknown"
+   m_bInitialised(false),
+   m_bHidden(false),
+   m_bError(false)
+ {
++  PeripheralTypeTranslator::FormatHexString(scanResult.m_iVendorId, m_strVendorId);
++  PeripheralTypeTranslator::FormatHexString(scanResult.m_iProductId, m_strProductId);
++  m_strFileLocation.Format(scanResult.m_iSequence > 0 ? "peripherals://%s/%s_%d.dev" : "peripherals://%s/%s.dev", PeripheralTypeTranslator::BusTypeToString(scanResult.m_busType), scanResult.m_strLocation.c_str(), scanResult.m_iSequence);
+ }
+ 
+ CPeripheral::~CPeripheral(void)
+@@ -146,7 +130,7 @@ bool CPeripheral::Initialise(void)
+     return bReturn;
+ 
+   g_peripherals.GetSettingsFromMapping(*this);
+-  m_strSettingsFile.Format("special://profile/peripheral_data/%s_%s_%s.xml", PeripheralTypeTranslator::BusTypeToString(m_busType), m_strVendorId.c_str(), m_strProductId.c_str());
++  m_strSettingsFile.Format("special://profile/peripheral_data/%s_%s_%s.xml", PeripheralTypeTranslator::BusTypeToString(m_mappedBusType), m_strVendorId.c_str(), m_strProductId.c_str());
+   LoadPersistedSettings();
+ 
+   for (unsigned int iFeaturePtr = 0; iFeaturePtr < m_features.size(); iFeaturePtr++)
+@@ -535,3 +519,13 @@ void CPeripheral::ClearSettings(void)
+   }
+   m_settings.clear();
+ }
++
++bool CPeripheral::operator ==(const PeripheralScanResult& right) const
++{
++  return m_strLocation.Equals(right.m_strLocation);
++}
++
++bool CPeripheral::operator !=(const PeripheralScanResult& right) const
++{
++  return !(*this == right);
++}
+diff --git a/xbmc/peripherals/devices/Peripheral.h b/xbmc/peripherals/devices/Peripheral.h
+index d42e83e..64cf64e 100644
+--- a/xbmc/peripherals/devices/Peripheral.h
++++ b/xbmc/peripherals/devices/Peripheral.h
+@@ -34,12 +34,13 @@
+     friend class CGUIDialogPeripheralSettings;
+ 
+   public:
+-    CPeripheral(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
+-    CPeripheral(void);
++    CPeripheral(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheral(void);
+ 
+     bool operator ==(const CPeripheral &right) const;
+     bool operator !=(const CPeripheral &right) const;
++    bool operator ==(const PeripheralScanResult& right) const;
++    bool operator !=(const PeripheralScanResult& right) const;
+ 
+     const CStdString &FileLocation(void) const     { return m_strFileLocation; }
+     const CStdString &Location(void) const         { return m_strLocation; }
+@@ -158,6 +159,7 @@
+ 
+     PeripheralType                   m_type;
+     PeripheralBusType                m_busType;
++    PeripheralBusType                m_mappedBusType;
+     CStdString                       m_strLocation;
+     CStdString                       m_strDeviceName;
+     CStdString                       m_strSettingsFile;
+diff --git a/xbmc/peripherals/devices/PeripheralBluetooth.cpp b/xbmc/peripherals/devices/PeripheralBluetooth.cpp
+index a2f4e06..4785f7b 100644
+--- a/xbmc/peripherals/devices/PeripheralBluetooth.cpp
++++ b/xbmc/peripherals/devices/PeripheralBluetooth.cpp
+@@ -23,8 +23,8 @@
+ 
+ using namespace PERIPHERALS;
+ 
+-CPeripheralBluetooth::CPeripheralBluetooth(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheral(type, busType, strLocation, strDeviceName, iVendorId, iProductId)
++CPeripheralBluetooth::CPeripheralBluetooth(const PeripheralScanResult& scanResult) :
++  CPeripheral(scanResult)
+ {
+   m_features.push_back(FEATURE_BLUETOOTH);
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralBluetooth.h b/xbmc/peripherals/devices/PeripheralBluetooth.h
+index 6b79be9..a1be1ff 100644
+--- a/xbmc/peripherals/devices/PeripheralBluetooth.h
++++ b/xbmc/peripherals/devices/PeripheralBluetooth.h
+@@ -26,7 +26,7 @@
+   class CPeripheralBluetooth : public CPeripheral
+   {
+   public:
+-    CPeripheralBluetooth(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralBluetooth(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralBluetooth(void) {};
+   };
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index e578dc3..983e1a7 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -80,14 +80,15 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
+   END_METHOD_RESOLVE()
+ };
+ 
+-CPeripheralCecAdapter::CPeripheralCecAdapter(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheralHID(type, busType, strLocation, strDeviceName, iVendorId, iProductId),
++CPeripheralCecAdapter::CPeripheralCecAdapter(const PeripheralScanResult& scanResult) :
++  CPeripheralHID(scanResult),
+   CThread("CEC Adapter"),
+   m_dll(NULL),
+   m_cecAdapter(NULL)
+ {
+   ResetMembers();
+   m_features.push_back(FEATURE_CEC);
++  m_strComPort = scanResult.m_strLocation;
+ }
+ 
+ CPeripheralCecAdapter::~CPeripheralCecAdapter(void)
+@@ -98,6 +99,7 @@ class DllLibCEC : public DllDynamic, DllLibCECInterface
+     m_bStop = true;
+   }
+ 
++  SAFE_DELETE(m_queryThread);
+   StopThread(true);
+ 
+   if (m_dll && m_cecAdapter)
+@@ -302,38 +304,6 @@ void CPeripheralCecAdapter::SetVersionInfo(const libcec_configuration &configura
+   }
+ }
+ 
+-CStdString CPeripheralCecAdapter::GetComPort(void)
+-{
+-  CStdString strPort = GetSettingString("port");
+-  if (strPort.IsEmpty())
+-  {
+-    strPort = m_strFileLocation;
+-    cec_adapter deviceList[10];
+-    TranslateComPort(strPort);
+-    uint8_t iFound = m_cecAdapter->FindAdapters(deviceList, 10, strPort.c_str());
+-
+-    if (iFound <= 0)
+-    {
+-      CLog::Log(LOGWARNING, "%s - no CEC adapters found on %s", __FUNCTION__, strPort.c_str());
+-      // display warning: couldn't set up com port
+-      CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(36000), g_localizeStrings.Get(36011));
+-      strPort = "";
+-    }
+-    else
+-    {
+-      cec_adapter *dev = &deviceList[0];
+-      if (iFound > 1)
+-        CLog::Log(LOGDEBUG, "%s - multiple com ports found for device. taking the first one", __FUNCTION__);
+-      else
+-        CLog::Log(LOGDEBUG, "%s - autodetect com port '%s'", __FUNCTION__, dev->comm);
+-
+-      strPort = dev->comm;
+-    }
+-  }
+-
+-  return strPort;
+-}
+-
+ bool CPeripheralCecAdapter::OpenConnection(void)
+ {
+   bool bIsOpen(false);
+@@ -345,12 +315,8 @@ bool CPeripheralCecAdapter::OpenConnection(void)
+     return bIsOpen;
+   }
+   
+-  CStdString strPort = GetComPort();
+-  if (strPort.empty())
+-    return bIsOpen;
+-
+   // open the CEC adapter
+-  CLog::Log(LOGDEBUG, "%s - opening a connection to the CEC adapter: %s", __FUNCTION__, strPort.c_str());
++  CLog::Log(LOGDEBUG, "%s - opening a connection to the CEC adapter: %s", __FUNCTION__, m_strComPort.c_str());
+ 
+   // scanning the CEC bus takes about 5 seconds, so display a notification to inform users that we're busy
+   CStdString strMessage;
+@@ -361,7 +327,7 @@ bool CPeripheralCecAdapter::OpenConnection(void)
+ 
+   while (!m_bStop && !bIsOpen)
+   {
+-    if ((bIsOpen = m_cecAdapter->Open(strPort.c_str(), 10000)) == false)
++    if ((bIsOpen = m_cecAdapter->Open(m_strComPort.c_str(), 10000)) == false)
+     {
+       // display warning: couldn't initialise libCEC
+       CLog::Log(LOGERROR, "%s - could not opening a connection to the CEC adapter", __FUNCTION__);
+@@ -430,8 +396,7 @@ void CPeripheralCecAdapter::Process(void)
+       Sleep(5);
+   }
+ 
+-  delete m_queryThread;
+-  m_queryThread = NULL;
++  SAFE_DELETE(m_queryThread);
+ 
+   bool bSendStandbyCommands(false);
+   {
+@@ -1255,8 +1220,7 @@ int CPeripheralCecAdapter::CecLogMessage(void *cbParam, const cec_log_message me
+ 
+ bool CPeripheralCecAdapter::TranslateComPort(CStdString &strLocation)
+ {
+-  if ((strLocation.Left(18).Equals("peripherals://usb/") ||
+-         strLocation.Left(18).Equals("peripherals://rpi/")) &&
++  if ((strLocation.Left(18).Equals("peripherals://cec/")) &&
+        strLocation.Right(4).Equals(".dev"))
+   {
+     strLocation = strLocation.Right(strLocation.length() - 18);
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.h b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+index 23cd99e..c681e60 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.h
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.h
+@@ -86,7 +86,7 @@
+     friend class CPeripheralCecAdapterUpdateThread;
+ 
+   public:
+-    CPeripheralCecAdapter(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralCecAdapter(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralCecAdapter(void);
+ 
+     void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
+@@ -106,7 +106,6 @@
+     int GetButton(void);
+     unsigned int GetHoldTime(void);
+     void ResetButton(void);
+-    CStdString GetComPort(void);
+ 
+     void PushCecKeypress(const CEC::cec_keypress &key);
+ 
+@@ -171,6 +170,7 @@
+     bool                              m_bActiveSourceBeforeStandby;
+     bool                              m_bOnPlayReceived;
+     bool                              m_bPlaybackPaused;
++    CStdString                        m_strComPort;
+   };
+ 
+   class CPeripheralCecAdapterUpdateThread : public CThread
+diff --git a/xbmc/peripherals/devices/PeripheralDisk.cpp b/xbmc/peripherals/devices/PeripheralDisk.cpp
+index 96d7fcf..b5507fc 100644
+--- a/xbmc/peripherals/devices/PeripheralDisk.cpp
++++ b/xbmc/peripherals/devices/PeripheralDisk.cpp
+@@ -23,8 +23,9 @@
+ 
+ using namespace PERIPHERALS;
+ 
+-CPeripheralDisk::CPeripheralDisk(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheral(type, busType, strLocation, strDeviceName.IsEmpty() ? g_localizeStrings.Get(35003) : strDeviceName, iVendorId, iProductId)
++CPeripheralDisk::CPeripheralDisk(const PeripheralScanResult& scanResult) :
++  CPeripheral(scanResult)
+ {
++  m_strDeviceName = scanResult.m_strDeviceName.IsEmpty() ? g_localizeStrings.Get(35003) : scanResult.m_strDeviceName;
+   m_features.push_back(FEATURE_DISK);
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralDisk.h b/xbmc/peripherals/devices/PeripheralDisk.h
+index 4fab920..fc44ff6 100644
+--- a/xbmc/peripherals/devices/PeripheralDisk.h
++++ b/xbmc/peripherals/devices/PeripheralDisk.h
+@@ -26,7 +26,7 @@
+   class CPeripheralDisk : public CPeripheral
+   {
+   public:
+-    CPeripheralDisk(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralDisk(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralDisk(void) {};
+   };
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralHID.cpp b/xbmc/peripherals/devices/PeripheralHID.cpp
+index fe1f355..27152f1 100644
+--- a/xbmc/peripherals/devices/PeripheralHID.cpp
++++ b/xbmc/peripherals/devices/PeripheralHID.cpp
+@@ -27,10 +27,11 @@
+ using namespace PERIPHERALS;
+ using namespace std;
+ 
+-CPeripheralHID::CPeripheralHID(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheral(type, busType, strLocation, strDeviceName.IsEmpty() ? g_localizeStrings.Get(35001) : strDeviceName, iVendorId, iProductId),
++CPeripheralHID::CPeripheralHID(const PeripheralScanResult& scanResult) :
++  CPeripheral(scanResult),
+   m_bInitialised(false)
+ {
++  m_strDeviceName = scanResult.m_strDeviceName.IsEmpty() ? g_localizeStrings.Get(35001) : scanResult.m_strDeviceName;
+   m_features.push_back(FEATURE_HID);
+ }
+ 
+diff --git a/xbmc/peripherals/devices/PeripheralHID.h b/xbmc/peripherals/devices/PeripheralHID.h
+index ac60dcf..fb8bf44 100644
+--- a/xbmc/peripherals/devices/PeripheralHID.h
++++ b/xbmc/peripherals/devices/PeripheralHID.h
+@@ -27,7 +27,7 @@
+   class CPeripheralHID : public CPeripheral
+   {
+   public:
+-    CPeripheralHID(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralHID(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralHID(void);
+     virtual bool InitialiseFeature(const PeripheralFeature feature);
+     virtual bool LookupSymAndUnicode(XBMC_keysym &keysym, uint8_t *key, char *unicode) { return false; }
+diff --git a/xbmc/peripherals/devices/PeripheralImon.cpp b/xbmc/peripherals/devices/PeripheralImon.cpp
+index 6fbbb33..b0474a1 100644
+--- a/xbmc/peripherals/devices/PeripheralImon.cpp
++++ b/xbmc/peripherals/devices/PeripheralImon.cpp
+@@ -37,8 +37,8 @@
+ volatile long CPeripheralImon::m_lCountOfImonsConflictWithDInput = 0;
+ 
+ 
+-CPeripheralImon::CPeripheralImon(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheralHID(type, busType, strLocation, strDeviceName.IsEmpty() ? g_localizeStrings.Get(35001) : strDeviceName, iVendorId, iProductId)
++CPeripheralImon::CPeripheralImon(const PeripheralScanResult& scanResult) :
++  CPeripheralHID(scanResult)
+ {
+   m_features.push_back(FEATURE_IMON);
+   m_bImonConflictsWithDInput = false;
+diff --git a/xbmc/peripherals/devices/PeripheralImon.h b/xbmc/peripherals/devices/PeripheralImon.h
+index 8444906..87905b4 100644
+--- a/xbmc/peripherals/devices/PeripheralImon.h
++++ b/xbmc/peripherals/devices/PeripheralImon.h
+@@ -26,7 +26,7 @@
+   class CPeripheralImon : public CPeripheralHID
+   {
+   public:
+-    CPeripheralImon(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralImon(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralImon(void) {}
+     virtual bool InitialiseFeature(const PeripheralFeature feature);
+     virtual void OnSettingChanged(const CStdString &strChangedSetting);
+diff --git a/xbmc/peripherals/devices/PeripheralNIC.cpp b/xbmc/peripherals/devices/PeripheralNIC.cpp
+index 747c2f7..ee950e8 100644
+--- a/xbmc/peripherals/devices/PeripheralNIC.cpp
++++ b/xbmc/peripherals/devices/PeripheralNIC.cpp
+@@ -25,8 +25,9 @@
+ using namespace PERIPHERALS;
+ using namespace std;
+ 
+-CPeripheralNIC::CPeripheralNIC(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheral(type, busType, strLocation, strDeviceName.IsEmpty() ? g_localizeStrings.Get(35002) : strDeviceName, iVendorId, iProductId)
++CPeripheralNIC::CPeripheralNIC(const PeripheralScanResult& scanResult) :
++  CPeripheral(scanResult)
+ {
++  m_strDeviceName = scanResult.m_strDeviceName.IsEmpty() ? g_localizeStrings.Get(35002) : scanResult.m_strDeviceName;
+   m_features.push_back(FEATURE_NIC);
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralNIC.h b/xbmc/peripherals/devices/PeripheralNIC.h
+index 49abc2b..fc12302 100644
+--- a/xbmc/peripherals/devices/PeripheralNIC.h
++++ b/xbmc/peripherals/devices/PeripheralNIC.h
+@@ -26,7 +26,7 @@
+   class CPeripheralNIC : public CPeripheral
+   {
+   public:
+-    CPeripheralNIC(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralNIC(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralNIC(void) {};
+   };
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralNyxboard.cpp b/xbmc/peripherals/devices/PeripheralNyxboard.cpp
+index 5e3f649..df9c290 100644
+--- a/xbmc/peripherals/devices/PeripheralNyxboard.cpp
++++ b/xbmc/peripherals/devices/PeripheralNyxboard.cpp
+@@ -27,8 +27,8 @@
+ using namespace PERIPHERALS;
+ using namespace std;
+ 
+-CPeripheralNyxboard::CPeripheralNyxboard(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheralHID(type, busType, strLocation, strDeviceName, iVendorId, iProductId)
++CPeripheralNyxboard::CPeripheralNyxboard(const PeripheralScanResult& scanResult) :
++  CPeripheralHID(scanResult)
+ {
+   m_features.push_back(FEATURE_NYXBOARD);
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralNyxboard.h b/xbmc/peripherals/devices/PeripheralNyxboard.h
+index 346d555..254c6c6 100644
+--- a/xbmc/peripherals/devices/PeripheralNyxboard.h
++++ b/xbmc/peripherals/devices/PeripheralNyxboard.h
+@@ -26,7 +26,7 @@
+   class CPeripheralNyxboard : public CPeripheralHID
+   {
+   public:
+-    CPeripheralNyxboard(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralNyxboard(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralNyxboard(void) {};
+     virtual bool LookupSymAndUnicode(XBMC_keysym &keysym, uint8_t *key, char *unicode);
+   };
+diff --git a/xbmc/peripherals/devices/PeripheralTuner.cpp b/xbmc/peripherals/devices/PeripheralTuner.cpp
+index ef5630c..8937598 100644
+--- a/xbmc/peripherals/devices/PeripheralTuner.cpp
++++ b/xbmc/peripherals/devices/PeripheralTuner.cpp
+@@ -23,8 +23,8 @@
+ 
+ using namespace PERIPHERALS;
+ 
+-CPeripheralTuner::CPeripheralTuner(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId) :
+-  CPeripheral(type, busType, strLocation, strDeviceName, iVendorId, iProductId)
++CPeripheralTuner::CPeripheralTuner(const PeripheralScanResult& scanResult) :
++  CPeripheral(scanResult)
+ {
+   m_features.push_back(FEATURE_TUNER);
+ }
+diff --git a/xbmc/peripherals/devices/PeripheralTuner.h b/xbmc/peripherals/devices/PeripheralTuner.h
+index b4b15f8..7130130 100644
+--- a/xbmc/peripherals/devices/PeripheralTuner.h
++++ b/xbmc/peripherals/devices/PeripheralTuner.h
+@@ -26,7 +26,7 @@
+   class CPeripheralTuner : public CPeripheral
+   {
+   public:
+-    CPeripheralTuner(const PeripheralType type, const PeripheralBusType busType, const CStdString &strLocation, const CStdString &strDeviceName, int iVendorId, int iProductId);
++    CPeripheralTuner(const PeripheralScanResult& scanResult);
+     virtual ~CPeripheralTuner(void) {};
+   };
+ }
+-- 
+1.7.10
+
