@@ -1,0 +1,51 @@
+From 80a8ad68567f89b3f6810c07daaf42d2edddee87 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 18 Feb 2013 23:49:43 +0000
+Subject: [PATCH] [rbp] Fix for audiotoggledigital on Pi.
+
+Pi only has two audio output modes so the three way toggle gets stuck. This fix corresponds to Pi specific settings code:
+https://github.com/xbmc/xbmc/blob/master/xbmc/settings/GUISettings.cpp#L458
+---
+ xbmc/Application.cpp        |   12 ++++++++----
+ xbmc/settings/GUISettings.h |    1 +
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index d6e663b..5e9d979 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -2863,11 +2863,15 @@ bool CApplication::OnAction(const CAction &action)
+ 
+   if (action.GetID() == ACTION_TOGGLE_DIGITAL_ANALOG)
+   {
+-    switch(g_guiSettings.GetInt("audiooutput.mode"))
++    // we are only allowed to SetInt to a value supported in GUISettings, so we keep trying until it sticks
++    int mode = g_guiSettings.GetInt("audiooutput.mode");
++    for (int i = 0; i < AUDIO_COUNT; i++)
+     {
+-      case AUDIO_ANALOG: g_guiSettings.SetInt("audiooutput.mode", AUDIO_IEC958); break;
+-      case AUDIO_IEC958: g_guiSettings.SetInt("audiooutput.mode", AUDIO_HDMI  ); break;
+-      case AUDIO_HDMI  : g_guiSettings.SetInt("audiooutput.mode", AUDIO_ANALOG); break;
++      if (++mode == AUDIO_COUNT)
++        mode = 0;
++      g_guiSettings.SetInt("audiooutput.mode", mode);
++      if (g_guiSettings.GetInt("audiooutput.mode") == mode)
++         break;
+     }
+ 
+     g_application.Restart();
+diff --git a/xbmc/settings/GUISettings.h b/xbmc/settings/GUISettings.h
+index b48ba35..98f9836 100644
+--- a/xbmc/settings/GUISettings.h
++++ b/xbmc/settings/GUISettings.h
+@@ -84,6 +84,7 @@
+ #define AUDIO_ANALOG      0
+ #define AUDIO_IEC958      1
+ #define AUDIO_HDMI        2
++#define AUDIO_COUNT       3
+ #define AUDIO_IS_BITSTREAM(x) ((x) == AUDIO_IEC958 || (x) == AUDIO_HDMI)
+ 
+ #define VIDEO_NORMAL 0
+-- 
+1.7.10
+
