@@ -1,0 +1,59 @@
+From 95ea48d4353516c59e70c962c4970da0bd511aac Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi@xbmc.org>
+Date: Mon, 11 Mar 2013 00:05:13 +0200
+Subject: [PATCH 1/2] AE: ALSA: Try to get 200ms buffer even if we did not get
+ 50ms periodsize
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+index 332f305..b905ada 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+@@ -340,11 +340,9 @@ bool CAESinkALSA::InitializeHW(AEAudioFormat &format)
+    a periodSize of approx 50 ms. Choosing a higher bufferSize
+    will cause problems with menu sounds. Buffer will be increased
+    after those are fixed.
+-   periodSize = sampleRate / 20 
+-   bufferSize = periodSize * 1 frame * 4.
+   */
+   periodSize  = std::min(periodSize, (snd_pcm_uframes_t) sampleRate / 20);
+-  bufferSize  = std::min(bufferSize, (snd_pcm_uframes_t) periodSize * 4);
++  bufferSize  = std::min(bufferSize, (snd_pcm_uframes_t) sampleRate / 5);
+   
+   /* 
+    According to upstream we should set buffer size first - so make sure it is always at least
+-- 
+1.7.10
+
+
+From 39f2487881b6fa2d52c58f7b2452420efc711cd5 Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi@xbmc.org>
+Date: Mon, 11 Mar 2013 00:12:54 +0200
+Subject: [PATCH 2/2] AE: ALSA: Try to get a minimum of 4 periods per buffer
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+index b905ada..94f6b80 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+@@ -346,9 +346,9 @@ bool CAESinkALSA::InitializeHW(AEAudioFormat &format)
+   
+   /* 
+    According to upstream we should set buffer size first - so make sure it is always at least
+-   double of period size to not get underruns
++   4x period size to not get underruns (some systems seem to have issues with only 2 periods)
+   */
+-  periodSize = std::min(periodSize, bufferSize / 2);
++  periodSize = std::min(periodSize, bufferSize / 4);
+ 
+   CLog::Log(LOGDEBUG, "CAESinkALSA::InitializeHW - Request: periodSize %lu, bufferSize %lu", periodSize, bufferSize);
+ 
+-- 
+1.7.10
+
