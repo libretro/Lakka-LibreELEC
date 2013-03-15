@@ -1,0 +1,94 @@
+diff -Naur xbmc-12.0.6/xbmc/powermanagement/linux/FallbackPowerSyscall.h xbmc-12.0.6.patch/xbmc/powermanagement/linux/FallbackPowerSyscall.h
+--- xbmc-12.0.6/xbmc/powermanagement/linux/FallbackPowerSyscall.h	1970-01-01 01:00:00.000000000 +0100
++++ xbmc-12.0.6.patch/xbmc/powermanagement/linux/FallbackPowerSyscall.h	2013-03-13 22:25:29.220700789 +0100
+@@ -0,0 +1,39 @@
++/*
++ *      Copyright (C) 2005-2013 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#pragma once
++#include "powermanagement/IPowerSyscall.h"
++#include "system.h"
++#if defined(TARGET_LINUX)
++
++class CFallbackPowerSyscall : public CPowerSyscallWithoutEvents
++{
++public:
++  virtual bool Powerdown() {return true; }
++  virtual bool Suspend() {return false; }
++  virtual bool Hibernate() {return false; }
++  virtual bool Reboot() {return true; }
++
++  virtual bool CanPowerdown() {return true; }
++  virtual bool CanSuspend() {return false; }
++  virtual bool CanHibernate() {return false; }
++  virtual bool CanReboot() {return true; }
++  virtual int  BatteryLevel() {return 0; }
++};
++#endif
+diff -Naur xbmc-12.0.6/xbmc/powermanagement/PowerManager.cpp xbmc-12.0.6.patch/xbmc/powermanagement/PowerManager.cpp
+--- xbmc-12.0.6/xbmc/powermanagement/PowerManager.cpp	2013-03-11 18:01:45.000000000 +0100
++++ xbmc-12.0.6.patch/xbmc/powermanagement/PowerManager.cpp	2013-03-14 00:20:43.263315592 +0100
+@@ -41,14 +41,17 @@
+ #include "osx/CocoaPowerSyscall.h"
+ #elif defined(TARGET_ANDROID)
+ #include "android/AndroidPowerSyscall.h"
+-#elif defined(_LINUX) && defined(HAS_DBUS)
++#elif defined(TARGET_LINUX)
++#include "linux/FallbackPowerSyscall.h"
++#if defined(HAS_DBUS)
+ #include "linux/ConsoleUPowerSyscall.h"
+ #include "linux/ConsoleDeviceKitPowerSyscall.h"
+ #include "linux/SystemdUPowerSyscall.h"
+ #include "linux/UPowerSyscall.h"
+-#ifdef HAS_HAL
++#if defined(HAS_HAL)
+ #include "linux/HALPowerSyscall.h"
+-#endif
++#endif // HAS_HAL
++#endif // HAS_DBUS
+ #elif defined(_WIN32)
+ #include "powermanagement/windows/Win32PowerSyscall.h"
+ extern HWND g_hWnd;
+@@ -74,7 +77,8 @@
+   m_instance = new CCocoaPowerSyscall();
+ #elif defined(TARGET_ANDROID)
+   m_instance = new CAndroidPowerSyscall();
+-#elif defined(_LINUX) && defined(HAS_DBUS)
++#elif defined(TARGET_LINUX)
++#if defined(HAS_DBUS)
+   if (CConsoleUPowerSyscall::HasConsoleKitAndUPower())
+     m_instance = new CConsoleUPowerSyscall();
+   else if (CConsoleDeviceKitPowerSyscall::HasDeviceConsoleKit())
+@@ -83,10 +87,13 @@
+     m_instance = new CSystemdUPowerSyscall();
+   else if (CUPowerSyscall::HasUPower())
+     m_instance = new CUPowerSyscall();
+-#ifdef HAS_HAL
+-  else
++#if defined(HAS_HAL)
++  else if(1)
+     m_instance = new CHALPowerSyscall();
+-#endif
++#endif // HAS_HAL
++#endif // HAS_DBUS
++  else
++    m_instance = new CFallbackPowerSyscall();
+ #elif defined(_WIN32)
+   m_instance = new CWin32PowerSyscall();
+ #endif
