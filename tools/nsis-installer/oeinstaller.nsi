@@ -100,6 +100,12 @@ Function CustomCreate
          StrCpy $R0 ''
          ${GetDrives} "FDD" GetDrivesCallBack
 
+         GetDlgItem $1 $HWNDPARENT 1
+         ${If} $R0 == ""
+             EnableWindow $1 0
+         ${Else}
+             EnableWindow $1 1
+         ${EndIf}
          WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'Type' 'DropList'
          WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'Left' '30'
          WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'Top' '25'
