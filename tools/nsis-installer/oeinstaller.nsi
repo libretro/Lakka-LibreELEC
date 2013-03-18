@@ -15,7 +15,6 @@ VIAddVersionKey InternalName "OpenELEC USB Stick Creator"
 BrandingText " "
 
 Var "SLET"
-Var "SNUM"
 
 !include "MUI.nsh"
 !include LogicLib.nsh
@@ -59,20 +58,9 @@ Page Custom CustomCreate CustomLeave
 
 Section "oeusbstart"
          StrCpy $1 "$INSTDIR\"
-         Push $1
-         Call DISKNO
          ExpandEnvStrings $0 %COMSPEC%
-         DetailPrint "- Creating Configuration Files ..."
-         FileOpen $4 "$TEMP\oedp.txt" w
-         FileWrite $4 "select disk $SNUM$\r$\n"
-         FileWrite $4 "clean$\r$\n"
-         FileWrite $4 "create partition primary$\r$\n"
-         FileWrite $4 "format FS=FAT32 LABEL=OPENELEC QUICK OVERRIDE$\r$\n"
-         FileWrite $4 "rescan$\r$\n"
-         FileWrite $4 "exit$\r$\n"
-         FileClose $4
          DetailPrint "- Formatting USB Device ($SLET) ..."
-         nsExec::Exec '"%SystemRoot%\system32\diskpart.exe" /s "$TEMP\oedp.txt"'
+         nsExec::Exec `"$0" /c format $SLET /V:OPENELEC /Q /FS:FAT32 /X`
          DetailPrint "- Mounting USB Device ..."
          sleep 3000
          DetailPrint "- Making Device Bootable ..."
@@ -112,6 +100,12 @@ Function CustomCreate
          StrCpy $R0 ''
          ${GetDrives} "FDD" GetDrivesCallBack
 
+         GetDlgItem $1 $HWNDPARENT 1
+         ${If} $R0 == ""
+             EnableWindow $1 0
+         ${Else}
+             EnableWindow $1 1
+         ${EndIf}
          WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'Type' 'DropList'
          WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'Left' '30'
          WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'Top' '25'
@@ -142,57 +136,6 @@ Function GetDrivesCallBack
 	 Push $0
 FunctionEnd
 
-Function DISKNO
-         Exch $1
-         Push $2
-         Push $3
-         Push $4
-         Push $5
-         Push $6
-         Push $7
-
-         System::Call "kernel32::GetVolumeNameForVolumeMountPoint(t r1, t r3r3, i ${MAXLEN_VOLUME_GUID}) i.r2"
-         ${If} $2 != 0
-         StrCpy $3 $3 -1
-         System::Call "kernel32::CreateFile(t r3, \\
-         i ${GENERIC_READ}|${GENERIC_WRITE}, \\
-         i ${FILE_SHARE_READ}|${FILE_SHARE_WRITE}, \\
-         i 0, i ${OPEN_EXISTING}, i 0, i 0) i.r2"
-         ${If} $2 != ${INVALID_HANDLE_VALUE}
-         System::Alloc ${EXTENTS_BUFFER_SIZE}
-         Pop $4
-         IntOp $5 0 + 0
-         System::Call "kernel32::DeviceIoControl(i r2, \\
-         i ${IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS}, \\
-         i 0, i 0, \\
-         i r4, i ${EXTENTS_BUFFER_SIZE}, \\
-         *i r5r5, i 0) i.r3"
-         ${If} $3 != 0
-         System::Call "*$4(i .r5, i, i .r0)"
-         ${If} $5 == 0
-         StrCpy $0 "Error: Invalid DISK_EXTENT data"
-         ${EndIf}
-         ${Else}
-         StrCpy $0 "Error: DeviceIoControl failed"
-         ${EndIf}
-         System::Free $4
-         System::Call "kernel32::CloseHandle(i r2) i.r3"
-         ${Else}
-         StrCpy $0 "Error: CreateFile failed for $3"
-         ${EndIf}
-         ${Else}
-         StrCpy $0 "Error: GetVolumeNameForVolumeMountPoint failed for $1"
-         ${EndIf}
-         StrCpy $SNUM $0
-
-         Pop $7
-         Pop $6
-         Pop $5
-         Pop $4
-         Pop $3
-         Pop $2
-         Pop $1
-FunctionEnd
 
 !define MUI_FINISHPAGE_TITLE "OpenELEC USB Stick Successfully Created"
 !define MUI_FINISHPAGE_TEXT "An OpenELEC USB Installer Stick has been created on the device $SLET\n\nPlease boot your HTPC off this USB stick and follow the on-screen instructions."
