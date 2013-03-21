@@ -1,0 +1,94 @@
+From 07cdfdaf6af06ae08a779ccc9082a517757c6fd3 Mon Sep 17 00:00:00 2001
+From: Adam Sutton <dev@adamsutton.me.uk>
+Date: Tue, 12 Mar 2013 15:35:21 +0000
+Subject: [PATCH] Fix #1660 - dvb: stop constant updating of dvb mux
+ configuration files
+
+---
+ src/dvb/dvb_multiplex.c |   23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/src/dvb/dvb_multiplex.c b/src/dvb/dvb_multiplex.c
+index ff61558..692ebf1 100644
+--- a/src/dvb/dvb_multiplex.c
++++ b/src/dvb/dvb_multiplex.c
+@@ -58,9 +58,6 @@
+   { "OK",           TDMI_FE_OK },
+ };
+ 
+-static void tdmi_set_enable(th_dvb_mux_instance_t *tdmi, int enabled);
+-
+-
+ /**
+  *
+  */
+@@ -856,6 +853,9 @@ int dvb_mux_str2hier(const char *str)
+   if (!networkname || !*networkname)
+     return;
+ 
++  if (!strcmp(tdmi->tdmi_network ?: "", networkname))
++    return;
++
+   free(tdmi->tdmi_network);
+   tdmi->tdmi_network = strdup(networkname);
+   dvb_mux_save(tdmi);
+@@ -879,8 +879,9 @@ int dvb_mux_str2hier(const char *str)
+     if (tdmi->tdmi_transport_stream_id != 0xFFFF || tsid == 0xFFFF)
+       return;
+ 
+-  tdmi->tdmi_transport_stream_id = tsid;
+- 
++  if (tdmi->tdmi_transport_stream_id == tsid)
++    return;
++
+   dvb_mux_save(tdmi);
+ 
+   m = htsmsg_create_map();
+@@ -900,6 +901,9 @@ int dvb_mux_str2hier(const char *str)
+   if (force)
+     if (tdmi->tdmi_network_id != 0 || onid == 0)
+       return;
++  
++  if (tdmi->tdmi_network_id == onid)
++    return;
+ 
+   tdmi->tdmi_network_id = onid;
+  
+@@ -915,13 +919,13 @@ int dvb_mux_str2hier(const char *str)
+ /**
+  *
+  */
+-static void
++static int
+ tdmi_set_enable(th_dvb_mux_instance_t *tdmi, int enabled)
+ {
+   th_dvb_adapter_t *tda = tdmi->tdmi_adapter;
+   
+   if(tdmi->tdmi_enabled == enabled)
+-    return;
++    return 0;
+ 
+   if(tdmi->tdmi_enabled) {
+ 
+@@ -940,6 +944,7 @@ int dvb_mux_str2hier(const char *str)
+     mux_link_initial(tda, tdmi);
+ 
+   subscription_reschedule();
++  return 1;
+ }
+ 
+ /**
+@@ -948,8 +953,8 @@ int dvb_mux_str2hier(const char *str)
+ void
+ dvb_mux_set_enable(th_dvb_mux_instance_t *tdmi, int enabled)
+ {
+-  tdmi_set_enable(tdmi, enabled);
+-  dvb_mux_save(tdmi);
++  if (tdmi_set_enable(tdmi, enabled))
++    dvb_mux_save(tdmi);
+ }
+ 
+ 
+-- 
+1.7.10
+
