@@ -92,12 +92,12 @@ ECHO. | >NUL format %DRIVE% /V:OPENELEC /Q /FS:FAT32 /X
 IF ERRORLEVEL 1 goto InvalidDrive
 >NUL 3rdparty\syslinux\win32\syslinux.exe -f -m -a %DRIVE%
 >NUL copy target\* %DRIVE%
->NUL copy Autorun.inf %DRIVE%
 >NUL copy CHANGELOG %DRIVE%
 >NUL copy INSTALL %DRIVE%
 >NUL copy README.md %DRIVE%
 >NUL copy RELEASE %DRIVE%
 >NUL copy openelec.ico %DRIVE%
+>NUL copy 3rdparty/syslinux/vesamenu.c32 %DRIVE%
 FOR /F "tokens=5" %%G IN ('vol %DRIVE% ^|find "-"') DO SET DRIVEUUID=%%G
 ECHO UI vesamenu.c32 > %DRIVE%\syslinux.cfg
 ECHO PROMPT 0 >> %DRIVE%\syslinux.cfg
