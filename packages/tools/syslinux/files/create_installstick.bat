@@ -99,12 +99,41 @@ IF ERRORLEVEL 1 goto InvalidDrive
 >NUL copy RELEASE %DRIVE%
 >NUL copy openelec.ico %DRIVE%
 FOR /F "tokens=5" %%G IN ('vol %DRIVE% ^|find "-"') DO SET DRIVEUUID=%%G
-ECHO DEFAULT linux > %DRIVE%\syslinux.cfg
+ECHO UI vesamenu.c32 > %DRIVE%\syslinux.cfg
 ECHO PROMPT 0 >> %DRIVE%\syslinux.cfg
+ECHO MENU TITLE OpenELEC Boot Menu >> %DRIVE%\syslinux.cfg
+ECHO TIMEOUT 50 >> %DRIVE%\syslinux.cfg
+ECHO DEFAULT live >> %DRIVE%\syslinux.cfg
 ECHO. >> %DRIVE%\syslinux.cfg
-ECHO LABEL linux >> %DRIVE%\syslinux.cfg
-ECHO KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
-ECHO APPEND boot=LABEL=OPENELEC installer quiet >> %DRIVE%\syslinux.cfg
+ECHO MENU WIDTH 78 >> %DRIVE%\syslinux.cfg
+ECHO MENU MARGIN 4 >> %DRIVE%\syslinux.cfg
+ECHO MENU ROWS 5 >> %DRIVE%\syslinux.cfg
+ECHO MENU VSHIFT 10 >> %DRIVE%\syslinux.cfg
+ECHO MENU TIMEOUTROW 13 >> %DRIVE%\syslinux.cfg
+ECHO MENU TABMSGROW 11 >> %DRIVE%\syslinux.cfg
+ECHO MENU CMDLINEROW 11 >> %DRIVE%\syslinux.cfg
+ECHO MENU HELPMSGROW 16 >> %DRIVE%\syslinux.cfg
+ECHO MENU HELPMSGENDROW 29 >> %DRIVE%\syslinux.cfg
+ECHO. >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR border       30;44   #40ffffff #a0000000 std >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR title        1;36;44 #9033ccff #a0000000 std >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR sel          7;37;40 #e0ffffff #20ffffff all >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR unsel        37;44   #50ffffff #a0000000 std >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR help         37;40   #c0ffffff #a0000000 std >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR timeout_msg  37;40   #80ffffff #00000000 std >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR timeout      1;37;40 #c0ffffff #00000000 std >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR msg07        37;40   #90ffffff #a0000000 std >> %DRIVE%\syslinux.cfg
+ECHO MENU COLOR tabmsg       31;40   #30ffffff #00000000 std >> %DRIVE%\syslinux.cfg
+ECHO.  >> %DRIVE%\syslinux.cfg
+ECHO LABEL installer >> %DRIVE%\syslinux.cfg
+ECHO   MENU LABEL Run OpenELEC Installer >> %DRIVE%\syslinux.cfg
+ECHO   KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
+ECHO   APPEND boot=LABEL=OPENELEC installer quiet >> %DRIVE%\syslinux.cfg
+ECHO. >> %DRIVE%\syslinux.cfg
+ECHO LABEL live >> %DRIVE%\syslinux.cfg
+ECHO   MENU LABEL Run OpenELEC Live >> %DRIVE%\syslinux.cfg
+ECHO   KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
+ECHO   APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE quiet >> %DRIVE%\syslinux.cfg
 GOTO END
 
 :InvalidDrive
