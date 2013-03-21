@@ -1,5 +1,5 @@
 @ECHO OFF
-TITLE OpenELEC USB Installer
+TITLE OpenELEC LIVE USB Installer
 mode con:cols=67 lines=17
 COLOR 17
 SET DRIVE=
@@ -14,7 +14,7 @@ rmdir "%windir%\OEAdminCheck" & goto gotPrivileges
 CLS
 ECHO.
 ECHO.
-ECHO                     OpenELEC.tv USB Installer
+ECHO                     OpenELEC LIVE USB Installer
 ECHO.
 ECHO.
 ECHO  *****************************************************************
@@ -48,7 +48,7 @@ IF ERRORLEVEL 1 GOTO BadMD5
 CLS
 ECHO.
 ECHO.
-ECHO                     OpenELEC.tv USB Installer
+ECHO                     OpenELEC LIVE USB Installer
 ECHO.
 ECHO.
 ECHO  *****************************************************************
@@ -73,7 +73,7 @@ if %DRIVE%==C: goto InvalidDrive
 CLS
 ECHO.
 ECHO.
-ECHO                     OpenELEC.tv USB Installer
+ECHO                     OpenELEC LIVE USB Installer
 ECHO.
 ECHO.
 ECHO  *****************************************************************
@@ -101,7 +101,7 @@ IF ERRORLEVEL 1 goto InvalidDrive
 FOR /F "tokens=5" %%G IN ('vol %DRIVE% ^|find "-"') DO SET DRIVEUUID=%%G
 ECHO UI vesamenu.c32 > %DRIVE%\syslinux.cfg
 ECHO PROMPT 0 >> %DRIVE%\syslinux.cfg
-ECHO MENU TITLE OpenELEC Boot Menu >> %DRIVE%\syslinux.cfg
+ECHO MENU TITLE OpenELEC LIVE Boot Menu >> %DRIVE%\syslinux.cfg
 ECHO TIMEOUT 50 >> %DRIVE%\syslinux.cfg
 ECHO DEFAULT live >> %DRIVE%\syslinux.cfg
 ECHO. >> %DRIVE%\syslinux.cfg
@@ -140,7 +140,7 @@ GOTO END
 CLS
 ECHO.
 ECHO.
-ECHO                     OpenELEC.tv USB Installer
+ECHO                     OpenELEC LIVE USB Installer
 ECHO.
 ECHO.
 ECHO  *****************************************************************
@@ -157,12 +157,12 @@ GOTO SelectDrive
 CLS
 ECHO.
 ECHO.
-ECHO                     OpenELEC.tv USB Installer
+ECHO                     OpenELEC LIVE USB Installer
 ECHO.
 ECHO.
 ECHO  *****************************************************************
 ECHO.
-ECHO     OpenELEC.tv failed md5 check - Installation will now quit
+ECHO       OpenELEC failed md5 check - Installation will now quit
 ECHO.
 ECHO             Your original download is probably corrupt
 ECHO       Please visit www.openelec.tv and download another copy
@@ -178,12 +178,12 @@ EXIT
 CLS
 ECHO.
 ECHO.
-ECHO                     OpenELEC.tv USB Installer
+ECHO                     OpenELEC LIVE USB Installer
 ECHO.
 ECHO.
 ECHO  *****************************************************************
 ECHO.
-ECHO    The OpenELEC USB Installer has been successfully copied to %DRIVE%
+ECHO  The OpenELEC LIVE USB Installer has been successfully copied to %DRIVE%
 ECHO             Please boot your HTPC off this USB stick
 ECHO.
 ECHO  *****************************************************************
