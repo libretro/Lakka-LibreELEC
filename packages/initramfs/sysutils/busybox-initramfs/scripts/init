@@ -36,6 +36,7 @@
   IMAGE_KERNEL="KERNEL"
   IMAGE_SYSTEM="SYSTEM"
 
+  BOOT_STEP="start"
   REBOOT="0"
   MD5_FAILED="0"
   MD5_NOCHECK="0"
@@ -43,6 +44,7 @@
 
   NBD_DEVS="0"
   FLASH_FREE_MIN="5"
+  LIVE_FLASH_FREE_MIN="50"
 
   INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
   SYSTEM_TORAM_LIMIT=1024000
@@ -292,6 +294,9 @@
       NFS=*)
         MOUNT_CMD="mount_nfs"
         ;;
+      FILE=*)
+        MOUNT_CMD="mount_common"
+        ;;
       *)
         error "mount_part" "Unknown filesystem $1"
         ;;
@@ -304,7 +309,10 @@
       echo "updating $1..."
         $IONICE /bin/busybox mount -o remount,rw /flash
         $IONICE /bin/busybox mv $UPDATE_DIR/$2 $3
-        $IONICE /bin/busybox mount -o remount,ro /flash
+        # loopback file needs writable /flash all the time
+        if [ "${disk%%=*}" != "FILE" ]; then
+          $IONICE /bin/busybox mount -o remount,ro /flash
+        fi
         $IONICE /bin/busybox sync
     fi
   }
@@ -326,7 +334,6 @@
       umount /sysroot
     fi
   }
-
 
   hfsdiskprep() {
     for DEVICE in /dev/sd*; do
@@ -398,6 +405,65 @@
     progress "Mounting storage"
 
     if [ -n "$disk" ]; then
+      if [ "${disk%%=*}" = "FILE" ]; then
+        target="${disk%%,*}"
+        storage_loop_file="/flash/${target#*=}"
+        $IONICE /bin/busybox mount -o remount,rw /flash
+
+        if [ ! -f "$storage_loop_file" ]; then
+          echo "Creating storage loopback file: $storage_loop_file..."
+          STORAGE_USE=$(/bin/busybox df /flash/ | awk '/[0-9]%/{print $4}')
+          STORAGE_USE=$(($STORAGE_USE / 1024 - $LIVE_FLASH_FREE_MIN))
+
+          options="${disk#*,}"
+          if [ "$options" = "$disk" ]; then
+            echo "No size specified, using all available space..."
+            if [ $STORAGE_USE -gt 0 ]; then
+              echo "Size obtain: $STORAGE_USE MB..."
+            else
+              error "size check" "Not enough free space (at least $LIVE_FLASH_FREE_MIN MB)..."
+            fi
+          else
+            if [ $options -le $STORAGE_USE ]; then
+              STORAGE_USE=$options
+              echo "Size specified: $STORAGE_USE MB..."
+            else
+              echo "Incorrect specified size: $options MB > $STORAGE_USE MB..."
+              if [ $STORAGE_USE -gt 0 ]; then
+                echo "Size trimmed: $STORAGE_USE MB..."
+              else
+                error "size check" "Not enough free space (at least $LIVE_FLASH_FREE_MIN MB)..."
+              fi
+            fi
+          fi
+
+          if [ -f "/flash/$IMAGE_SYSTEM" ]; then
+            # /flash is filesystem with system image file
+            # use dd and mkfs.ext4 from system
+            mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+            echo "Creating empty file..."
+            /sysroot/bin/busybox dd if=/dev/zero of="$storage_loop_file" bs=1M count=$STORAGE_USE &>/dev/null
+            echo "Formating to EXT4 filesystem..."
+            LD_LIBRARY_PATH=/sysroot/usr/lib /sysroot/usr/bin/mkfs.ext4 -F -L StorageLive "$storage_loop_file" &>/dev/null
+            /bin/busybox sync
+            umount /sysroot
+          else
+            # /flash is actual root filesystem
+            echo "Creating empty file..."
+            /flash/bin/busybox dd if=/dev/zero of="$storage_loop_file" bs=1M count=$STORAGE_USE &>/dev/null
+            echo "Formating to EXT4 filesystem..."
+            LD_LIBRARY_PATH=/flash/usr/lib /flash/usr/bin/mkfs.ext4 -F -L StorageLive "$storage_loop_file" &>/dev/null
+            /bin/busybox sync
+          fi
+
+          echo "Done..."
+          /bin/busybox usleep 2000000
+        fi
+
+        mount_part "FILE=$storage_loop_file" "/storage" "loop,rw,noatime"
+        return
+      fi
+
       if [ -n "$OVERLAY" ]; then
         OVERLAY_DIR=`cat /sys/class/net/eth0/address | /bin/busybox tr -d :`
 
@@ -480,7 +546,7 @@
           /bin/busybox rm "$UPDATE_DIR/$UPDATE_SYSTEM"
           echo "md5 check failed. normal startup in 30s..."
           /bin/busybox sync
-        /bin/busybox usleep 30000000
+          /bin/busybox usleep 30000000
         fi
         /bin/busybox rm "$UPDATE_DIR/${UPDATE_KERNEL}.md5" &>/dev/null
         /bin/busybox rm "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" &>/dev/null
@@ -496,7 +562,8 @@
     fi
 
     if test "$REBOOT" -eq "1"; then
-      echo "System reboots now..." && \
+      echo "System reboots now..."
+      /bin/busybox usleep 2000000
       /bin/busybox reboot
     fi
   }
@@ -525,6 +592,10 @@
 
     [ -f "/sysroot/sbin/init" ] || error "final_check" "Could not find system."
   }
+
+  if [ "${boot%%=*}" = "FILE" ]; then
+    error "check arguments" "boot argument can't be FILE type..."
+  fi
 
 # main boot sequence
   for BOOT_STEP in \
