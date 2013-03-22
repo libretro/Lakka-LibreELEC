@@ -133,12 +133,12 @@ ECHO.  >> %DRIVE%\syslinux.cfg
 ECHO LABEL installer >> %DRIVE%\syslinux.cfg
 ECHO   MENU LABEL Run OpenELEC Installer >> %DRIVE%\syslinux.cfg
 ECHO   KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
-ECHO   APPEND boot=LABEL=OPENELEC installer quiet >> %DRIVE%\syslinux.cfg
+ECHO   APPEND boot=LABEL=OPENELEC installer quiet vga=current >> %DRIVE%\syslinux.cfg
 ECHO. >> %DRIVE%\syslinux.cfg
 ECHO LABEL live >> %DRIVE%\syslinux.cfg
 ECHO   MENU LABEL Run OpenELEC Live >> %DRIVE%\syslinux.cfg
 ECHO   KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
-ECHO   APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE,512 quiet >> %DRIVE%\syslinux.cfg
+ECHO   APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE,512 quiet vga=current >> %DRIVE%\syslinux.cfg
 GOTO END
 
 :InvalidDrive
