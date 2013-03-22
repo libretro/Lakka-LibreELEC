@@ -97,7 +97,7 @@ IF ERRORLEVEL 1 goto InvalidDrive
 >NUL copy README.md %DRIVE%
 >NUL copy RELEASE %DRIVE%
 >NUL copy openelec.ico %DRIVE%
->NUL copy 3rdparty/syslinux/vesamenu.c32 %DRIVE%
+>NUL copy 3rdparty\syslinux\vesamenu.c32 %DRIVE%
 >NUL copy splash.png %DRIVE%
 
 FOR /F "tokens=5" %%G IN ('vol %DRIVE% ^|find "-"') DO SET DRIVEUUID=%%G
@@ -133,12 +133,12 @@ ECHO.  >> %DRIVE%\syslinux.cfg
 ECHO LABEL installer >> %DRIVE%\syslinux.cfg
 ECHO   MENU LABEL Run OpenELEC Installer >> %DRIVE%\syslinux.cfg
 ECHO   KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
-ECHO   APPEND boot=LABEL=OPENELEC installer quiet >> %DRIVE%\syslinux.cfg
+ECHO   APPEND boot=LABEL=OPENELEC installer quiet vga=current >> %DRIVE%\syslinux.cfg
 ECHO. >> %DRIVE%\syslinux.cfg
 ECHO LABEL live >> %DRIVE%\syslinux.cfg
 ECHO   MENU LABEL Run OpenELEC Live >> %DRIVE%\syslinux.cfg
 ECHO   KERNEL /KERNEL >> %DRIVE%\syslinux.cfg
-ECHO   APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE,512 quiet >> %DRIVE%\syslinux.cfg
+ECHO   APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE,512 quiet vga=current >> %DRIVE%\syslinux.cfg
 GOTO END
 
 :InvalidDrive
