@@ -147,15 +147,15 @@ Section "oeusbstart"
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'LABEL installer'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  MENU LABEL Run OpenELEC Installer'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  KERNEL /KERNEL'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC installer quiet'
+  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC installer quiet vga=current'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' ''
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'LABEL live'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  MENU LABEL Run OpenELEC Live'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  KERNEL /KERNEL'
   ${If} $STORAGE_SIZE == "0"
-    ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE quiet $SSH_PARAM'
+    ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE quiet vga=current $SSH_PARAM'
   ${Else}
-    ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE,$STORAGE_SIZE quiet $SSH_PARAM'
+    ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE,$STORAGE_SIZE quiet vga=current $SSH_PARAM'
   ${EndIf}
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' ''
   DetailPrint ""
