@@ -97,7 +97,7 @@ IF ERRORLEVEL 1 goto InvalidDrive
 >NUL copy README.md %DRIVE%
 >NUL copy RELEASE %DRIVE%
 >NUL copy openelec.ico %DRIVE%
->NUL copy 3rdparty/syslinux/vesamenu.c32 %DRIVE%
+>NUL copy 3rdparty\syslinux\vesamenu.c32 %DRIVE%
 >NUL copy splash.png %DRIVE%
 
 FOR /F "tokens=5" %%G IN ('vol %DRIVE% ^|find "-"') DO SET DRIVEUUID=%%G
