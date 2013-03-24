@@ -1,0 +1,76 @@
+From e1374217a66d1324f3482f6567448f0bc7ef2946 Mon Sep 17 00:00:00 2001
+From: spiff <spiff@xbmc.org>
+Date: Thu, 21 Mar 2013 14:40:52 +0100
+Subject: [PATCH] fixed: prevent infinite loop in add-on dependency checks
+
+---
+ xbmc/addons/AddonInstaller.cpp | 21 ++++++++++++++-------
+ xbmc/addons/AddonInstaller.h   | 10 ++++++++++
+ 2 files changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/addons/AddonInstaller.cpp b/xbmc/addons/AddonInstaller.cpp
+index b5ba7a0..3e655bb 100644
+--- a/xbmc/addons/AddonInstaller.cpp
++++ b/xbmc/addons/AddonInstaller.cpp
+@@ -313,6 +313,14 @@ void CAddonInstaller::InstallFromXBMCRepo(const set<CStdString> &addonIDs)
+ 
+ bool CAddonInstaller::CheckDependencies(const AddonPtr &addon)
+ {
++  std::vector<std::string> preDeps;
++  preDeps.push_back(addon->ID());
++  return CheckDependencies(addon, preDeps);
++}
++
++bool CAddonInstaller::CheckDependencies(const AddonPtr &addon,
++                                        std::vector<std::string>& preDeps)
++{
+   if (!addon.get())
+     return true; // a NULL addon has no dependencies
+   ADDONDEPS deps = addon->GetDeps();
+@@ -333,16 +341,15 @@ bool CAddonInstaller::CheckDependencies(const AddonPtr &addon)
+         return false;
+       }
+     }
+-    // prevent infinite loops
+-    if (dep && dep->ID() == addon->ID())
+-    {
+-      CLog::Log(LOGERROR, "Addon %s depends on itself, ignoring", addon->ID().c_str());
+-      return false;
+-    }
+     // at this point we have our dep, or the dep is optional (and we don't have it) so check that it's OK as well
+     // TODO: should we assume that installed deps are OK?
+-    if (dep && !CheckDependencies(dep))
++    if (dep && 
++       std::find(preDeps.begin(), preDeps.end(), dep->ID()) == preDeps.end() &&
++       !CheckDependencies(dep, preDeps))
++    {
+       return false;
++    }
++    preDeps.push_back(dep->ID());
+   }
+   return true;
+ }
+diff --git a/xbmc/addons/AddonInstaller.h b/xbmc/addons/AddonInstaller.h
+index b0ff2bd..5df69fb 100644
+--- a/xbmc/addons/AddonInstaller.h
++++ b/xbmc/addons/AddonInstaller.h
+@@ -122,6 +122,16 @@ class CAddonInstaller : public IJobCallback
+    */
+   bool DoInstall(const ADDON::AddonPtr &addon, const CStdString &hash = "", bool update = false, const CStdString &referer = "", bool background = true);
+ 
++  /*! \brief Check whether dependencies of an addon exist or are installable.
++   Iterates through the addon's dependencies, checking they're installed or installable.
++   Each dependency must also satisfies CheckDependencies in turn.
++   \param addon the addon to check
++   \param preDeps previous dependencies encountered during recursion. aids in avoiding infinite recursion
++   \return true if dependencies are available, false otherwise.
++   */
++  bool CheckDependencies(const ADDON::AddonPtr &addon,
++                         std::vector<std::string>& preDeps);
++
+   void PrunePackageCache();
+   int64_t EnumeratePackageFolder(std::map<CStdString,CFileItemList*>& result);
+ 
+-- 
+1.8.1.5
+
