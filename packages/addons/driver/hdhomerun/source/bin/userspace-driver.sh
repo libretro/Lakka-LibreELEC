@@ -2,7 +2,7 @@
 
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2009-2013 Stephan Raue (stephan@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ if [ -z "$(pidof userhdhomerun)" ]; then
       mv ${DVBHDHOMERUN_CONF_TMP}-types $DVBHDHOMERUN_CONF_TMP
       echo "" >>$DVBHDHOMERUN_CONF_TMP
       # remove empty lines at the end of file
-      sed -i '${/^$/d;}' $DVBHDHOMERUN_CONF_TMP
+      sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $DVBHDHOMERUN_CONF_TMP
 
       ADDNEW=true
       if [ -n "$DVBMODE" ]; then
@@ -85,6 +85,23 @@ if [ -z "$(pidof userhdhomerun)" ]; then
 
       echo "" >>$DVBHDHOMERUN_CONF_TMP
     done
+
+    # remove logging from libhdhomerun library
+    awk -v val="[libhdhomerun]" '$0 == val {flag=1; next} /^enable=|^logfile=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $DVBHDHOMERUN_CONF_TMP >${DVBHDHOMERUN_CONF_TMP}-log
+    mv ${DVBHDHOMERUN_CONF_TMP}-log $DVBHDHOMERUN_CONF_TMP
+    echo "" >>$DVBHDHOMERUN_CONF_TMP
+    # remove empty lines at the end of file
+    sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $DVBHDHOMERUN_CONF_TMP
+    
+    if [ "$LIBHDHOMERUN_LOG" = "true" ]; then
+      cat >>$DVBHDHOMERUN_CONF_TMP << EOF
+
+[libhdhomerun]
+enable=true
+logfile=/var/log/dvbhdhomerun_libhdhomerun.log
+
+EOF
+    fi
 
     md5_1=$(md5sum -b $DVBHDHOMERUN_CONF_TMP | awk '{print $1}')
     md5_2=$(md5sum -b $ADDON_HOME/dvbhdhomerun.conf | awk '{print $1}')
