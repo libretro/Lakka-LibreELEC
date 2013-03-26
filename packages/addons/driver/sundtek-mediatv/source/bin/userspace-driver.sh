@@ -2,7 +2,7 @@
 
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2009-2013 Stephan Raue (stephan@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -55,6 +55,9 @@ fi
 if [ ! -f "$ADDON_SETTINGS" ]; then
   cp $ADDON_DIR/settings-default.xml $ADDON_SETTINGS
 fi
+
+[ ! -f $ADDON_HOME/rc_key_enter.map ] && mv $ADDON_HOME/rc_key_enter $ADDON_HOME/rc_key_enter.map
+[ ! -f $ADDON_HOME/rc_key_ok.map ] && mv $ADDON_HOME/rc_key_ok $ADDON_HOME/rc_key_ok.map
 
 mkdir -p /var/config
 cat "$ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/sundtek-addon.conf
@@ -131,7 +134,7 @@ if [ ! -f $ADDON_HOME/driver-version.txt ]; then
 fi
 
 # enable to install same addon package version again
-rm -f /storage/.xbmc/addons/packages/driver.dvb.sundtek*
+#rm -f /storage/.xbmc/addons/packages/driver.dvb.sundtek*
 
 # add alias for /opt/bin/mediaclient
 alias_set="$(grep libmediaclient.so /storage/.profile 2>/dev/null)"
@@ -213,7 +216,7 @@ if [ -z "$(pidof mediasrv)" ]; then
     mv ${SUNDTEK_CONF_TMP}-net $SUNDTEK_CONF_TMP
     echo "" >>$SUNDTEK_CONF_TMP
     # remove empty lines at the end of file
-    sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
+    sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $SUNDTEK_CONF_TMP
     # add entries
     echo -e "\n[NETWORK]" >>$SUNDTEK_CONF_TMP
     for dev in $(seq 0 $DEVICE1_NUM); do
@@ -245,7 +248,7 @@ if [ -z "$(pidof mediasrv)" ]; then
     mv ${SUNDTEK_CONF_TMP}-net $SUNDTEK_CONF_TMP
     echo "" >>$SUNDTEK_CONF_TMP
     # remove empty lines at the end of file
-    sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
+    sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $SUNDTEK_CONF_TMP
   fi
 
   if [ "$ENABLE_TUNER_TYPES" = "true" ]; then
@@ -267,15 +270,14 @@ if [ -z "$(pidof mediasrv)" ]; then
 
       [ "$IRPROT" = "NEC" -o "$IRPROT" = "auto" ] && IRPROT=""
 
-      KEYMAP_FILE="$ADDON_HOME/$KEYMAP"
-      [ ! -f $KEYMAP_FILE ] && KEYMAP_FILE=""
+      [ ! -f $KEYMAP ] && KEYMAP=""
 
       # remove setttings for this tuner
       awk -v val="[$SERIAL]" '$0 == val {flag=1; next} /^ir_protocol=|^rcmap=|^initial_dvb_mode=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-types
       mv ${SUNDTEK_CONF_TMP}-types $SUNDTEK_CONF_TMP
       echo "" >>$SUNDTEK_CONF_TMP
       # remove empty lines at the end of file
-      sed -i '${/^$/d;}' $SUNDTEK_CONF_TMP
+      sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $SUNDTEK_CONF_TMP
 
       ADDNEW=true
       if [ -n "$DVBMODE" ]; then
@@ -286,9 +288,9 @@ if [ -z "$(pidof mediasrv)" ]; then
         [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
         echo "ir_protocol=$IRPROT" >>$SUNDTEK_CONF_TMP
       fi
-      if [ -n "$KEYMAP_FILE" ]; then
+      if [ -n "$KEYMAP" ]; then
         [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
-        echo "rcmap=$KEYMAP_FILE" >>$SUNDTEK_CONF_TMP
+        echo "rcmap=$KEYMAP" >>$SUNDTEK_CONF_TMP
       fi
 
       echo "" >>$SUNDTEK_CONF_TMP
