@@ -1,7 +1,47 @@
-diff -Naur linux-3.7.3/drivers/media/dvb-frontends/Kconfig linux-3.7.3.patch/drivers/media/dvb-frontends/Kconfig
---- linux-3.7.3/drivers/media/dvb-frontends/Kconfig	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/dvb-frontends/Kconfig	2013-01-20 01:04:02.687340217 +0100
-@@ -56,6 +56,24 @@
+From 592b8fbe08cff1b44c656633563b0e5c811545e5 Mon Sep 17 00:00:00 2001
+From: Stefan Saraev <stefan@saraev.ca>
+Date: Tue, 26 Mar 2013 12:48:13 +0200
+Subject: [PATCH] dvb: ngene/octopus
+
+---
+ drivers/media/dvb-frontends/Kconfig          |   18 +
+ drivers/media/dvb-frontends/Makefile         |    2 +
+ drivers/media/dvb-frontends/stv0367dd.c      | 2269 +++++++++++++++++
+ drivers/media/dvb-frontends/stv0367dd.h      |   17 +
+ drivers/media/dvb-frontends/stv0367dd_regs.h | 3431 ++++++++++++++++++++++++++
+ drivers/media/dvb-frontends/tda18212dd.c     |  906 +++++++
+ drivers/media/dvb-frontends/tda18212dd.h     |    5 +
+ drivers/media/pci/ddbridge/Kconfig           |    4 +
+ drivers/media/pci/ddbridge/ddbridge-core.c   | 1837 +++++++++++----
+ drivers/media/pci/ddbridge/ddbridge-regs.h   |   56 +-
+ drivers/media/pci/ddbridge/ddbridge.h        |   97 +-
+ drivers/media/pci/ngene/Kconfig              |    3 +
+ drivers/media/pci/ngene/Makefile             |    3 +-
+ drivers/media/pci/ngene/ngene-av.c           |  348 +++
+ drivers/media/pci/ngene/ngene-cards.c        |  627 +++++-
+ drivers/media/pci/ngene/ngene-core.c         |  357 +++-
+ drivers/media/pci/ngene/ngene-dvb.c          |  372 +++
+ drivers/media/pci/ngene/ngene-eeprom.c       |  284 +++
+ drivers/media/pci/ngene/ngene-i2c.c          |  113 +
+ drivers/media/pci/ngene/ngene.h              |   40 +
+ drivers/staging/media/cxd2099/Makefile       |    6 +-
+ drivers/staging/media/cxd2099/TODO           |   12 -
+ drivers/staging/media/cxd2099/cxd2099.c      |    5 +-
+ 23 files changed, 10328 insertions(+), 484 deletions(-)
+ create mode 100644 drivers/media/dvb-frontends/stv0367dd.c
+ create mode 100644 drivers/media/dvb-frontends/stv0367dd.h
+ create mode 100644 drivers/media/dvb-frontends/stv0367dd_regs.h
+ create mode 100644 drivers/media/dvb-frontends/tda18212dd.c
+ create mode 100644 drivers/media/dvb-frontends/tda18212dd.h
+ create mode 100644 drivers/media/pci/ngene/ngene-av.c
+ create mode 100644 drivers/media/pci/ngene/ngene-eeprom.c
+ delete mode 100644 drivers/staging/media/cxd2099/TODO
+
+diff --git a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kconfig
+index 5efec73..e2483f9 100644
+--- a/drivers/media/dvb-frontends/Kconfig
++++ b/drivers/media/dvb-frontends/Kconfig
+@@ -56,6 +56,24 @@ config DVB_TDA18271C2DD
  
  	  Say Y when you want to support this tuner.
  
@@ -26,10 +66,11 @@ diff -Naur linux-3.7.3/drivers/media/dvb-frontends/Kconfig linux-3.7.3.patch/dri
  comment "DVB-S (satellite) frontends"
  	depends on DVB_CORE
  
-diff -Naur linux-3.7.3/drivers/media/dvb-frontends/Makefile linux-3.7.3.patch/drivers/media/dvb-frontends/Makefile
---- linux-3.7.3/drivers/media/dvb-frontends/Makefile	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/dvb-frontends/Makefile	2013-01-20 01:04:17.874233780 +0100
-@@ -95,6 +95,8 @@
+diff --git a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/Makefile
+index 7eb73bb..b8820aa 100644
+--- a/drivers/media/dvb-frontends/Makefile
++++ b/drivers/media/dvb-frontends/Makefile
+@@ -95,6 +95,8 @@ obj-$(CONFIG_DVB_STV0367) += stv0367.o
  obj-$(CONFIG_DVB_CXD2820R) += cxd2820r.o
  obj-$(CONFIG_DVB_DRXK) += drxk.o
  obj-$(CONFIG_DVB_TDA18271C2DD) += tda18271c2dd.o
@@ -38,9 +79,11 @@ diff -Naur linux-3.7.3/drivers/media/dvb-frontends/Makefile linux-3.7.3.patch/dr
  obj-$(CONFIG_DVB_IT913X_FE) += it913x-fe.o
  obj-$(CONFIG_DVB_A8293) += a8293.o
  obj-$(CONFIG_DVB_TDA10071) += tda10071.o
-diff -Naur linux-3.7.3/drivers/media/dvb-frontends/stv0367dd.c linux-3.7.3.patch/drivers/media/dvb-frontends/stv0367dd.c
---- linux-3.7.3/drivers/media/dvb-frontends/stv0367dd.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/dvb-frontends/stv0367dd.c	2013-01-20 01:04:17.876233766 +0100
+diff --git a/drivers/media/dvb-frontends/stv0367dd.c b/drivers/media/dvb-frontends/stv0367dd.c
+new file mode 100644
+index 0000000..34a38cf
+--- /dev/null
++++ b/drivers/media/dvb-frontends/stv0367dd.c
 @@ -0,0 +1,2269 @@
 +/*
 + * stv0367dd: STV0367 DVB-C/T demodulator driver
@@ -2311,9 +2354,11 @@ diff -Naur linux-3.7.3/drivers/media/dvb-frontends/stv0367dd.c linux-3.7.3.patch
 +
 +
 +
-diff -Naur linux-3.7.3/drivers/media/dvb-frontends/stv0367dd.h linux-3.7.3.patch/drivers/media/dvb-frontends/stv0367dd.h
---- linux-3.7.3/drivers/media/dvb-frontends/stv0367dd.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/dvb-frontends/stv0367dd.h	2013-01-20 01:04:17.877233760 +0100
+diff --git a/drivers/media/dvb-frontends/stv0367dd.h b/drivers/media/dvb-frontends/stv0367dd.h
+new file mode 100644
+index 0000000..665d4c8
+--- /dev/null
++++ b/drivers/media/dvb-frontends/stv0367dd.h
 @@ -0,0 +1,17 @@
 +#ifndef _STV0367DD_H_
 +#define _STV0367DD_H_
@@ -2332,9 +2377,11 @@ diff -Naur linux-3.7.3/drivers/media/dvb-frontends/stv0367dd.h linux-3.7.3.patch
 +					   struct stv0367_cfg *cfg,
 +					   struct dvb_frontend **fe_t);
 +#endif
-diff -Naur linux-3.7.3/drivers/media/dvb-frontends/stv0367dd_regs.h linux-3.7.3.patch/drivers/media/dvb-frontends/stv0367dd_regs.h
---- linux-3.7.3/drivers/media/dvb-frontends/stv0367dd_regs.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/dvb-frontends/stv0367dd_regs.h	2013-01-20 01:04:17.880233740 +0100
+diff --git a/drivers/media/dvb-frontends/stv0367dd_regs.h b/drivers/media/dvb-frontends/stv0367dd_regs.h
+new file mode 100644
+index 0000000..f33e787
+--- /dev/null
++++ b/drivers/media/dvb-frontends/stv0367dd_regs.h
 @@ -0,0 +1,3431 @@
 +// @DVB-C/DVB-T STMicroelectronics STV0367 register defintions
 +// Author Manfred Völkel, Februar 2011
@@ -5767,9 +5814,11 @@ diff -Naur linux-3.7.3/drivers/media/dvb-frontends/stv0367dd_regs.h linux-3.7.3.
 +#define	R367_QAM_T_O_ID_3		0xF4D3
 +#define	F367_QAM_TS_ID_I_H		0xF4D300FF
 +
-diff -Naur linux-3.7.3/drivers/media/dvb-frontends/tda18212dd.c linux-3.7.3.patch/drivers/media/dvb-frontends/tda18212dd.c
---- linux-3.7.3/drivers/media/dvb-frontends/tda18212dd.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/dvb-frontends/tda18212dd.c	2013-01-20 01:04:17.881233733 +0100
+diff --git a/drivers/media/dvb-frontends/tda18212dd.c b/drivers/media/dvb-frontends/tda18212dd.c
+new file mode 100644
+index 0000000..de2350b
+--- /dev/null
++++ b/drivers/media/dvb-frontends/tda18212dd.c
 @@ -0,0 +1,906 @@
 +/*
 + * tda18212: Driver for the TDA18212 tuner
@@ -6677,18 +6726,47 @@ diff -Naur linux-3.7.3/drivers/media/dvb-frontends/tda18212dd.c linux-3.7.3.patc
 + * c-basic-offset: 8
 + * End:
 + */
-diff -Naur linux-3.7.3/drivers/media/dvb-frontends/tda18212dd.h linux-3.7.3.patch/drivers/media/dvb-frontends/tda18212dd.h
---- linux-3.7.3/drivers/media/dvb-frontends/tda18212dd.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/dvb-frontends/tda18212dd.h	2013-01-20 01:04:17.881233733 +0100
+diff --git a/drivers/media/dvb-frontends/tda18212dd.h b/drivers/media/dvb-frontends/tda18212dd.h
+new file mode 100644
+index 0000000..687fab4
+--- /dev/null
++++ b/drivers/media/dvb-frontends/tda18212dd.h
 @@ -0,0 +1,5 @@
 +#ifndef _TDA18212DD_H_
 +#define _TDA18212DD_H_
 +struct dvb_frontend *tda18212dd_attach(struct dvb_frontend *fe,
 +				       struct i2c_adapter *i2c, u8 adr);
 +#endif
-diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.patch/drivers/media/pci/ddbridge/ddbridge-core.c
---- linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ddbridge/ddbridge-core.c	2013-01-20 01:27:14.359676005 +0100
+diff --git a/drivers/media/pci/ddbridge/Kconfig b/drivers/media/pci/ddbridge/Kconfig
+index 44e5dc1..bd3c922 100644
+--- a/drivers/media/pci/ddbridge/Kconfig
++++ b/drivers/media/pci/ddbridge/Kconfig
+@@ -1,11 +1,14 @@
+ config DVB_DDBRIDGE
+ 	tristate "Digital Devices bridge support"
+ 	depends on DVB_CORE && PCI && I2C
++	select DVB_CXD2099
+ 	select DVB_LNBP21 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STV6110x if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_STV090x if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_DRXK if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_TDA18271C2DD if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_STV0367DD if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_TDA18212DD if MEDIA_SUBDRV_AUTOSELECT
+ 	---help---
+ 	  Support for cards with the Digital Devices PCI express bridge:
+ 	  - Octopus PCIe Bridge
+@@ -14,5 +17,6 @@ config DVB_DDBRIDGE
+ 	  - DuoFlex S2 Octopus
+ 	  - DuoFlex CT Octopus
+ 	  - cineS2(v6)
++	  - cineCT(v6)
+ 
+ 	  Say Y if you own such a card and want to use it.
+diff --git a/drivers/media/pci/ddbridge/ddbridge-core.c b/drivers/media/pci/ddbridge/ddbridge-core.c
+index 36e3452..624a822 100644
+--- a/drivers/media/pci/ddbridge/ddbridge-core.c
++++ b/drivers/media/pci/ddbridge/ddbridge-core.c
 @@ -31,11 +31,11 @@
  #include <linux/pci.h>
  #include <linux/pci_ids.h>
@@ -6764,7 +6842,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  static int i2c_read(struct i2c_adapter *adapter, u8 adr, u8 *val)
  {
  	struct i2c_msg msgs[1] = {{.addr = adr,  .flags = I2C_M_RD,
-@@ -58,10 +104,31 @@
+@@ -58,10 +104,31 @@ static int i2c_read(struct i2c_adapter *adapter, u8 adr, u8 *val)
  	return (i2c_transfer(adapter, msgs, 1) == 1) ? 0 : -1;
  }
  
@@ -6797,7 +6875,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  				  {.addr = adr,  .flags = I2C_M_RD,
  				   .buf  = val,  .len   = 1 } };
  	return (i2c_transfer(adapter, msgs, 2) == 2) ? 0 : -1;
-@@ -70,14 +137,22 @@
+@@ -70,14 +137,22 @@ static int i2c_read_reg(struct i2c_adapter *adapter, u8 adr, u8 reg, u8 *val)
  static int i2c_read_reg16(struct i2c_adapter *adapter, u8 adr,
  			  u16 reg, u8 *val)
  {
@@ -6822,7 +6900,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  static int ddb_i2c_cmd(struct ddb_i2c *i2c, u32 adr, u32 cmd)
  {
  	struct ddb *dev = i2c->dev;
-@@ -85,18 +160,18 @@
+@@ -85,18 +160,18 @@ static int ddb_i2c_cmd(struct ddb_i2c *i2c, u32 adr, u32 cmd)
  	u32 val;
  
  	i2c->done = 0;
@@ -6845,7 +6923,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	if (val & 0x70000)
  		return -EIO;
  	return 0;
-@@ -105,7 +180,7 @@
+@@ -105,7 +180,7 @@ static int ddb_i2c_cmd(struct ddb_i2c *i2c, u32 adr, u32 cmd)
  static int ddb_i2c_master_xfer(struct i2c_adapter *adapter,
  			       struct i2c_msg msg[], int num)
  {
@@ -6854,7 +6932,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	struct ddb *dev = i2c->dev;
  	u8 addr = 0;
  
-@@ -116,8 +191,8 @@
+@@ -116,8 +191,8 @@ static int ddb_i2c_master_xfer(struct i2c_adapter *adapter,
  	    !(msg[0].flags & I2C_M_RD)) {
  		memcpy_toio(dev->regs + I2C_TASKMEM_BASE + i2c->wbuf,
  			    msg[0].buf, msg[0].len);
@@ -6865,7 +6943,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  		if (!ddb_i2c_cmd(i2c, addr, 1)) {
  			memcpy_fromio(msg[1].buf,
  				      dev->regs + I2C_TASKMEM_BASE + i2c->rbuf,
-@@ -125,17 +200,16 @@
+@@ -125,17 +200,16 @@ static int ddb_i2c_master_xfer(struct i2c_adapter *adapter,
  			return num;
  		}
  	}
@@ -6887,7 +6965,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  				   I2C_TASKMEM_BASE + i2c->rbuf, msg[0].len);
  			return num;
  		}
-@@ -160,7 +234,7 @@
+@@ -160,7 +234,7 @@ static void ddb_i2c_release(struct ddb *dev)
  	struct ddb_i2c *i2c;
  	struct i2c_adapter *adap;
  
@@ -6896,7 +6974,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  		i2c = &dev->i2c[i];
  		adap = &i2c->adap;
  		i2c_del_adapter(adap);
-@@ -173,15 +247,15 @@
+@@ -173,15 +247,15 @@ static int ddb_i2c_init(struct ddb *dev)
  	struct ddb_i2c *i2c;
  	struct i2c_adapter *adap;
  
@@ -6915,7 +6993,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  			  i2c->regs + I2C_TASKADDRESS);
  		init_waitqueue_head(&i2c->wq);
  
-@@ -216,69 +290,94 @@
+@@ -216,69 +290,94 @@ static int ddb_i2c_init(struct ddb *dev)
  /******************************************************************************/
  /******************************************************************************/
  
@@ -7052,7 +7130,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  			return -ENOMEM;
  	}
  	return 0;
-@@ -293,34 +392,23 @@
+@@ -293,34 +392,23 @@ static int ddb_buffers_alloc(struct ddb *dev)
  		port = &dev->port[i];
  		switch (port->class) {
  		case DDB_PORT_TUNER:
@@ -7093,7 +7171,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	return 0;
  }
  
-@@ -331,18 +419,11 @@
+@@ -331,18 +419,11 @@ static void ddb_buffers_free(struct ddb *dev)
  
  	for (i = 0; i < dev->info->port_num; i++) {
  		port = &dev->port[i];
@@ -7117,7 +7195,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	}
  }
  
-@@ -350,90 +431,116 @@
+@@ -350,90 +431,116 @@ static void ddb_input_start(struct ddb_input *input)
  {
  	struct ddb *dev = input->port->dev;
  
@@ -7132,25 +7210,23 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 -	ddbwritel(0, TS_INPUT_CONTROL(input->nr));
 -	ddbwritel(2, TS_INPUT_CONTROL(input->nr));
 -	ddbwritel(0, TS_INPUT_CONTROL(input->nr));
--
++	ddbwritel(dev, 0, TS_INPUT_CONTROL(input->nr));
++	ddbwritel(dev, 2, TS_INPUT_CONTROL(input->nr));
++	ddbwritel(dev, 0, TS_INPUT_CONTROL(input->nr));
+ 
 -	ddbwritel((1 << 16) |
 -		  (input->dma_buf_num << 11) |
 -		  (input->dma_buf_size >> 7),
 -		  DMA_BUFFER_SIZE(input->nr));
 -	ddbwritel(0, DMA_BUFFER_ACK(input->nr));
--
++	ddbwritel(dev, input->dma->bufreg, DMA_BUFFER_SIZE(input->dma->nr));
++	ddbwritel(dev, 0, DMA_BUFFER_ACK(input->dma->nr));
+ 
 -	ddbwritel(1, DMA_BASE_WRITE);
 -	ddbwritel(3, DMA_BUFFER_CONTROL(input->nr));
 -	ddbwritel(9, TS_INPUT_CONTROL(input->nr));
 -	input->running = 1;
 -	spin_unlock_irq(&input->lock);
-+	ddbwritel(dev, 0, TS_INPUT_CONTROL(input->nr));
-+	ddbwritel(dev, 2, TS_INPUT_CONTROL(input->nr));
-+	ddbwritel(dev, 0, TS_INPUT_CONTROL(input->nr));
-+
-+	ddbwritel(dev, input->dma->bufreg, DMA_BUFFER_SIZE(input->dma->nr));
-+	ddbwritel(dev, 0, DMA_BUFFER_ACK(input->dma->nr));
-+
 +	ddbwritel(dev, 1, DMA_BASE_WRITE);
 +	ddbwritel(dev, 3, DMA_BUFFER_CONTROL(input->dma->nr));
 +	ddbwritel(dev, 9, TS_INPUT_CONTROL(input->nr));
@@ -7286,7 +7362,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	if (diff <= 0 || diff > 188)
  		return 188;
  	return 0;
-@@ -443,24 +550,24 @@
+@@ -443,24 +550,24 @@ static ssize_t ddb_output_write(struct ddb_output *output,
  				const u8 *buf, size_t count)
  {
  	struct ddb *dev = output->port->dev;
@@ -7317,7 +7393,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  				len -= (len % 188);
  				if (len <= 188)
  
-@@ -471,68 +578,146 @@
+@@ -471,68 +578,146 @@ static ssize_t ddb_output_write(struct ddb_output *output,
  		}
  		if (len > left)
  			len = left;
@@ -7487,7 +7563,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	}
  	return count;
  }
-@@ -554,7 +739,7 @@
+@@ -554,7 +739,7 @@ static struct ddb_input *fe2input(struct ddb *dev, struct dvb_frontend *fe)
  }
  #endif
  
@@ -7496,7 +7572,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  {
  	struct ddb_input *input = fe->sec_priv;
  	struct ddb_port *port = input->port;
-@@ -562,9 +747,9 @@
+@@ -562,9 +747,9 @@ static int drxk_gate_ctrl(struct dvb_frontend *fe, int enable)
  
  	if (enable) {
  		mutex_lock(&port->i2c_gate_lock);
@@ -7508,7 +7584,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  		mutex_unlock(&port->i2c_gate_lock);
  	}
  	return status;
-@@ -577,18 +762,88 @@
+@@ -577,18 +762,88 @@ static int demod_attach_drxk(struct ddb_input *input)
  	struct drxk_config config;
  
  	memset(&config, 0, sizeof(config));
@@ -7603,7 +7679,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	return 0;
  }
  
-@@ -597,18 +852,57 @@
+@@ -597,18 +852,57 @@ static int tuner_attach_tda18271(struct ddb_input *input)
  	struct i2c_adapter *i2c = &input->port->i2c->adap;
  	struct dvb_frontend *fe;
  
@@ -7666,7 +7742,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  /******************************************************************************/
  /******************************************************************************/
  /******************************************************************************/
-@@ -668,14 +962,14 @@
+@@ -668,14 +962,14 @@ static int demod_attach_stv0900(struct ddb_input *input, int type)
  	struct i2c_adapter *i2c = &input->port->i2c->adap;
  	struct stv090x_config *feconf = type ? &stv0900_aa : &stv0900;
  
@@ -7684,7 +7760,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  			0, (input->nr & 1) ?
  			(0x09 - type) : (0x0b - type))) {
  		printk(KERN_ERR "No LNBH24 found!\n");
-@@ -692,7 +986,7 @@
+@@ -692,7 +986,7 @@ static int tuner_attach_stv6110(struct ddb_input *input, int type)
  		&stv6110b : &stv6110a;
  	struct stv6110x_devctl *ctl;
  
@@ -7693,7 +7769,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	if (!ctl) {
  		printk(KERN_ERR "No STV6110X found!\n");
  		return -ENODEV;
-@@ -760,10 +1054,10 @@
+@@ -760,10 +1054,10 @@ static int start_feed(struct dvb_demux_feed *dvbdmxfeed)
  	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
  	struct ddb_input *input = dvbdmx->priv;
  
@@ -7706,7 +7782,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  }
  
  static int stop_feed(struct dvb_demux_feed *dvbdmxfeed)
-@@ -771,8 +1065,8 @@
+@@ -771,8 +1065,8 @@ static int stop_feed(struct dvb_demux_feed *dvbdmxfeed)
  	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
  	struct ddb_input *input = dvbdmx->priv;
  
@@ -7717,7 +7793,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  	ddb_input_stop(input);
  	return 0;
-@@ -781,116 +1075,200 @@
+@@ -781,116 +1075,200 @@ static int stop_feed(struct dvb_demux_feed *dvbdmxfeed)
  
  static void dvb_input_detach(struct ddb_input *input)
  {
@@ -7764,10 +7840,11 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	case 1:
 -		dvb_unregister_adapter(adap);
 +		break;
-+	}
+ 	}
+-	input->attached = 0;
 +	input->dvb.attached = 0;
-+}
-+
+ }
+ 
 +static int dvb_register_adapters(struct ddb *dev)
 +{
 +	int i, ret = 0;
@@ -7860,10 +7937,9 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 +		if (input->dvb.adap_registered)
 +			dvb_unregister_adapter(input->dvb.adap);
 +		input->dvb.adap_registered = 0;
- 	}
--	input->attached = 0;
- }
- 
++	}
++}
++
 +
  static int dvb_input_attach(struct ddb_input *input)
  {
@@ -7872,9 +7948,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	struct ddb_port *port = input->port;
 -	struct dvb_adapter *adap = &input->adap;
 -	struct dvb_demux *dvbdemux = &input->demux;
-+	struct dvb_adapter *adap = input->dvb.adap;
-+	struct dvb_demux *dvbdemux = &input->dvb.demux;
- 
+-
 -	ret = dvb_register_adapter(adap, "DDBridge", THIS_MODULE,
 -				   &input->port->dev->pdev->dev,
 -				   adapter_nr);
@@ -7884,6 +7958,9 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 -		return ret;
 -	}
 -	input->attached = 1;
++	struct dvb_adapter *adap = input->dvb.adap;
++	struct dvb_demux *dvbdemux = &input->dvb.demux;
++
 +	input->dvb.attached = 1;
  
  	ret = my_dvb_dmx_ts_card_init(dvbdemux, "SW demux",
@@ -7965,7 +8042,8 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 +	if (input->dvb.fe) {
 +		if (dvb_register_frontend(adap, input->dvb.fe) < 0)
 +			return -ENODEV;
-+	}
+ 	}
+-	input->attached = 5;
 +	if (input->dvb.fe2) {
 +		if (dvb_register_frontend(adap, input->dvb.fe2) < 0)
 +			return -ENODEV;
@@ -7973,13 +8051,12 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 +		memcpy(&input->dvb.fe2->ops.tuner_ops,
 +		       &input->dvb.fe->ops.tuner_ops,
 +		       sizeof(struct dvb_tuner_ops));
- 	}
--	input->attached = 5;
++	}
 +	input->dvb.attached = 6;
  	return 0;
  }
  
-@@ -910,7 +1288,8 @@
+@@ -910,7 +1288,8 @@ static ssize_t ts_write(struct file *file, const char *buf,
  			if (file->f_flags & O_NONBLOCK)
  				break;
  			if (wait_event_interruptible(
@@ -7989,7 +8066,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  				break;
  		}
  		stat = ddb_output_write(output, buf, left);
-@@ -937,7 +1316,7 @@
+@@ -937,7 +1316,7 @@ static ssize_t ts_read(struct file *file, char *buf,
  			if (file->f_flags & O_NONBLOCK)
  				break;
  			if (wait_event_interruptible(
@@ -7998,7 +8075,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  				break;
  		}
  		read = ddb_input_read(input, buf, left);
-@@ -970,21 +1349,53 @@
+@@ -970,21 +1349,53 @@ static unsigned int ts_poll(struct file *file, poll_table *wait)
  	return mask;
  }
  
@@ -8012,7 +8089,6 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 -	.mmap    = 0,
 -};
 -
--static struct dvb_device dvbdev_ci = {
 +#if 0
 +static int ts_release(struct inode *inode, struct file *file)
 +{
@@ -8055,7 +8131,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 +	.mmap    = 0,
 +};
 +
-+static struct dvb_device dvbdev_ci = {
+ static struct dvb_device dvbdev_ci = {
  	.priv    = 0,
 -	.readers = -1,
 -	.writers = -1,
@@ -8066,7 +8142,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	.fops    = &ci_fops,
  };
  
-@@ -992,53 +1403,297 @@
+@@ -992,53 +1403,297 @@ static struct dvb_device dvbdev_ci = {
  /****************************************************************************/
  /****************************************************************************/
  
@@ -8162,10 +8238,6 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 -				  DMA_BUFFER_ACK(input->nr));
 -			input->stat = ddbreadl(DMA_BUFFER_CURRENT(input->nr));
 -		       }
--	}
--	if (input->port->class == DDB_PORT_CI)
--		wake_up(&input->wq);
--	spin_unlock(&input->lock);
 +		if (input->redirect)
 +			input_write_output(input,
 +					   input->redirect->port->output);
@@ -8182,7 +8254,10 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 +						   input->redirect->port->output);
 +		} else
 +			wake_up(&dma->wq);
-+	}
+ 	}
+-	if (input->port->class == DDB_PORT_CI)
+-		wake_up(&input->wq);
+-	spin_unlock(&input->lock);
 +	spin_unlock(&dma->lock);
  }
  
@@ -8391,7 +8466,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  struct cxd2099_cfg cxd_cfg = {
  	.bitrate =  62000,
-@@ -1049,28 +1704,22 @@
+@@ -1049,28 +1704,22 @@ struct cxd2099_cfg cxd_cfg = {
  
  static int ddb_ci_attach(struct ddb_port *port)
  {
@@ -8435,7 +8510,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  }
  
  static int ddb_port_attach(struct ddb_port *port)
-@@ -1086,6 +1735,15 @@
+@@ -1086,6 +1735,15 @@ static int ddb_port_attach(struct ddb_port *port)
  		break;
  	case DDB_PORT_CI:
  		ret = ddb_ci_attach(port);
@@ -8451,7 +8526,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  		break;
  	default:
  		break;
-@@ -1100,6 +1758,10 @@
+@@ -1100,6 +1758,10 @@ static int ddb_ports_attach(struct ddb *dev)
  	int i, ret = 0;
  	struct ddb_port *port;
  
@@ -8462,7 +8537,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	for (i = 0; i < dev->info->port_num; i++) {
  		port = &dev->port[i];
  		ret = ddb_port_attach(port);
-@@ -1122,25 +1784,26 @@
+@@ -1122,25 +1784,26 @@ static void ddb_ports_detach(struct ddb *dev)
  			dvb_input_detach(port->input[1]);
  			break;
  		case DDB_PORT_CI:
@@ -8495,7 +8570,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  {
  	u8 val;
  	return i2c_read_reg(&port->i2c->adap, 0x40, 0, &val) ? 0 : 1;
-@@ -1172,6 +1835,21 @@
+@@ -1172,6 +1835,21 @@ static int port_has_drxks(struct ddb_port *port)
  	return 1;
  }
  
@@ -8517,7 +8592,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  static void ddb_port_probe(struct ddb_port *port)
  {
  	struct ddb *dev = port->dev;
-@@ -1179,62 +1857,92 @@
+@@ -1179,62 +1857,92 @@ static void ddb_port_probe(struct ddb_port *port)
  
  	port->class = DDB_PORT_NONE;
  
@@ -8558,10 +8633,13 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 +	} else if (port->nr == ts_loop) {
 +		modname = "TS LOOP";
 +		port->class = DDB_PORT_LOOP;
-+	}
+ 	}
+-	printk(KERN_INFO "Port %d (TAB %d): %s\n",
+-			 port->nr, port->nr+1, modname);
 +	printk(KERN_INFO "Port %d (TAB %d): %s\n", port->nr, port->nr+1, modname);
-+}
-+
+ }
+ 
+-static void ddb_input_init(struct ddb_port *port, int nr)
 +static void ddb_dma_init(struct ddb_dma *dma, int nr, void *io)
 +{
 +	unsigned long priv = (unsigned long) io;
@@ -8580,12 +8658,9 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
 +		dma->num = INPUT_DMA_BUFS;
 +		dma->size = INPUT_DMA_SIZE;
 +		dma->div = INPUT_DMA_IRQ_DIV;
- 	}
--	printk(KERN_INFO "Port %d (TAB %d): %s\n",
--			 port->nr, port->nr+1, modname);
- }
- 
--static void ddb_input_init(struct ddb_port *port, int nr)
++	}
++}
++
 +static void ddb_input_init(struct ddb_port *port, int nr, int pnr)
  {
  	struct ddb *dev = port->dev;
@@ -8635,7 +8710,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  }
  
  static void ddb_ports_init(struct ddb *dev)
-@@ -1247,14 +1955,16 @@
+@@ -1247,14 +1955,16 @@ static void ddb_ports_init(struct ddb *dev)
  		port->dev = dev;
  		port->nr = i;
  		port->i2c = &dev->i2c[i];
@@ -8657,7 +8732,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  		ddb_output_init(port, i);
  	}
  }
-@@ -1267,9 +1977,12 @@
+@@ -1267,9 +1977,12 @@ static void ddb_ports_release(struct ddb *dev)
  	for (i = 0; i < dev->info->port_num; i++) {
  		port = &dev->port[i];
  		port->dev = dev;
@@ -8673,7 +8748,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	}
  }
  
-@@ -1288,13 +2001,18 @@
+@@ -1288,13 +2001,18 @@ static void irq_handle_i2c(struct ddb *dev, int n)
  static irqreturn_t irq_handler(int irq, void *dev_id)
  {
  	struct ddb *dev = (struct ddb *) dev_id;
@@ -8694,7 +8769,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  		if (s & 0x00000001)
  			irq_handle_i2c(dev, 0);
-@@ -1306,33 +2024,32 @@
+@@ -1306,33 +2024,32 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
  			irq_handle_i2c(dev, 3);
  
  		if (s & 0x00000100)
@@ -8742,7 +8817,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  	return IRQ_HANDLED;
  }
-@@ -1346,21 +2063,21 @@
+@@ -1346,21 +2063,21 @@ static int flashio(struct ddb *dev, u8 *wbuf, u32 wlen, u8 *rbuf, u32 rlen)
  	u32 data, shift;
  
  	if (wlen > 4)
@@ -8769,7 +8844,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  	data = 0;
  	shift = ((4 - wlen) * 8);
-@@ -1372,33 +2089,33 @@
+@@ -1372,33 +2089,33 @@ static int flashio(struct ddb *dev, u8 *wbuf, u32 wlen, u8 *rbuf, u32 rlen)
  	}
  	if (shift)
  		data <<= shift;
@@ -8815,7 +8890,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  	if (rlen < 4)
  		data <<= ((4 - rlen) * 8);
-@@ -1421,14 +2138,21 @@
+@@ -1421,14 +2138,21 @@ struct ddb_flashio {
  	__u32 read_len;
  };
  
@@ -8839,7 +8914,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  static int ddb_open(struct inode *inode, struct file *file)
  {
-@@ -1470,6 +2194,16 @@
+@@ -1470,6 +2194,16 @@ static long ddb_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  			return -EFAULT;
  		break;
  	}
@@ -8856,7 +8931,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	default:
  		return -ENOTTY;
  	}
-@@ -1481,41 +2215,249 @@
+@@ -1481,41 +2215,249 @@ static const struct file_operations ddb_fops = {
  	.open           = ddb_open,
  };
  
@@ -9116,7 +9191,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	if (IS_ERR(dev->ddb_dev))
  		return -1;
  	return 0;
-@@ -1523,10 +2465,9 @@
+@@ -1523,10 +2465,9 @@ static int ddb_device_create(struct ddb *dev)
  
  static void ddb_device_destroy(struct ddb *dev)
  {
@@ -9128,7 +9203,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  }
  
  
-@@ -1549,7 +2490,7 @@
+@@ -1549,7 +2490,7 @@ static void ddb_remove(struct pci_dev *pdev)
  	ddb_ports_detach(dev);
  	ddb_i2c_release(dev);
  
@@ -9137,15 +9212,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	free_irq(dev->pdev->irq, dev);
  #ifdef CONFIG_PCI_MSI
  	if (dev->msi)
-@@ -1564,7 +2505,6 @@
- 	pci_disable_device(pdev);
- }
- 
--
- static int __devinit ddb_probe(struct pci_dev *pdev,
- 			       const struct pci_device_id *id)
- {
-@@ -1575,10 +2515,9 @@
+@@ -1574,10 +2515,9 @@ static int ddb_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  	if (pci_enable_device(pdev) < 0)
  		return -ENODEV;
  
@@ -9157,7 +9224,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  	dev->pdev = pdev;
  	pci_set_drvdata(pdev, dev);
-@@ -1591,7 +2530,8 @@
+@@ -1590,7 +2530,8 @@ static int ddb_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  		stat = -ENOMEM;
  		goto fail;
  	}
@@ -9167,7 +9234,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  #ifdef CONFIG_PCI_MSI
  	if (pci_msi_enabled())
-@@ -1607,11 +2547,11 @@
+@@ -1606,11 +2547,11 @@ static int ddb_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  			   irq_flag, "DDBridge", (void *) dev);
  	if (stat < 0)
  		goto fail1;
@@ -9184,7 +9251,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  
  	if (ddb_i2c_init(dev) < 0)
  		goto fail1;
-@@ -1622,7 +2562,13 @@
+@@ -1621,7 +2562,13 @@ static int ddb_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  	}
  	if (ddb_ports_attach(dev) < 0)
  		goto fail3;
@@ -9198,7 +9265,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	return 0;
  
  fail3:
-@@ -1632,11 +2578,14 @@
+@@ -1631,11 +2578,14 @@ fail3:
  fail2:
  	printk(KERN_ERR "fail2\n");
  	ddb_buffers_free(dev);
@@ -9214,7 +9281,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  fail:
  	printk(KERN_ERR "fail\n");
  	ddb_unmap(dev);
-@@ -1658,23 +2607,71 @@
+@@ -1657,23 +2607,71 @@ static struct ddb_info ddb_octopus = {
  	.type     = DDB_OCTOPUS,
  	.name     = "Digital Devices Octopus DVB adapter",
  	.port_num = 4,
@@ -9287,7 +9354,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	.vendor      = _vend,    .device    = _dev, \
  	.subvendor   = _subvend, .subdevice = _subdev, \
  	.driver_data = (unsigned long)&_driverdata }
-@@ -1683,8 +2680,13 @@
+@@ -1682,8 +2680,13 @@ static const struct pci_device_id ddb_id_tbl[] = {
  	DDB_ID(DDVID, 0x0002, DDVID, 0x0001, ddb_octopus),
  	DDB_ID(DDVID, 0x0003, DDVID, 0x0001, ddb_octopus),
  	DDB_ID(DDVID, 0x0003, DDVID, 0x0002, ddb_octopus_le),
@@ -9302,207 +9369,16 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-core.c linux-3.7.3.pa
  	/* in case sub-ids got deleted in flash */
  	DDB_ID(DDVID, 0x0003, PCI_ANY_ID, PCI_ANY_ID, ddb_none),
  	{0}
-@@ -1696,7 +2698,7 @@
- 	.name        = "DDBridge",
- 	.id_table    = ddb_id_tbl,
- 	.probe       = ddb_probe,
--	.remove      = __devexit_p(ddb_remove),
-+	.remove      = ddb_remove,
- };
- 
- static __init int module_init_ddbridge(void)
-@@ -1727,4 +2729,4 @@
+@@ -1726,4 +2729,4 @@ module_exit(module_exit_ddbridge);
  MODULE_DESCRIPTION("Digital Devices PCIe Bridge");
  MODULE_AUTHOR("Ralph Metzler");
  MODULE_LICENSE("GPL");
 -MODULE_VERSION("0.5");
 +MODULE_VERSION("0.8");
-diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge.h linux-3.7.3.patch/drivers/media/pci/ddbridge/ddbridge.h
---- linux-3.7.3/drivers/media/pci/ddbridge/ddbridge.h	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ddbridge/ddbridge.h	2013-01-20 01:02:21.440090976 +0100
-@@ -32,7 +32,10 @@
- #include <asm/dma.h>
- #include <linux/dvb/frontend.h>
- #include <linux/dvb/ca.h>
-+#include <linux/dvb/video.h>
-+#include <linux/dvb/audio.h>
- #include <linux/socket.h>
-+#include <linux/device.h>
- 
- #include "dmxdev.h"
- #include "dvbdev.h"
-@@ -52,43 +55,53 @@
- 	int   type;
- #define DDB_NONE         0
- #define DDB_OCTOPUS      1
-+#define DDB_OCTOPUS_CI   2
- 	char *name;
- 	int   port_num;
--	u32   port_type[DDB_MAX_PORT];
-+	int   i2c_num;
-+	int   led_num;
-+	int   fan_num;
-+	int   temp_num;
- };
- 
- /* DMA_SIZE MUST be divisible by 188 and 128 !!! */
- 
--#define INPUT_DMA_MAX_BUFS 32      /* hardware table limit */
-+#define DMA_MAX_BUFS 32      /* hardware table limit */
-+
- #define INPUT_DMA_BUFS 8
- #define INPUT_DMA_SIZE (128*47*21)
-+#define INPUT_DMA_IRQ_DIV 1
- 
--#define OUTPUT_DMA_MAX_BUFS 32
- #define OUTPUT_DMA_BUFS 8
- #define OUTPUT_DMA_SIZE (128*47*21)
-+#define OUTPUT_DMA_IRQ_DIV 1
- 
- struct ddb;
- struct ddb_port;
- 
--struct ddb_input {
--	struct ddb_port       *port;
-+struct ddb_dma {
-+	void                  *io;
- 	u32                    nr;
--	int                    attached;
--
--	dma_addr_t             pbuf[INPUT_DMA_MAX_BUFS];
--	u8                    *vbuf[INPUT_DMA_MAX_BUFS];
--	u32                    dma_buf_num;
--	u32                    dma_buf_size;
-+	dma_addr_t             pbuf[DMA_MAX_BUFS];
-+	u8                    *vbuf[DMA_MAX_BUFS];
-+	u32                    num;
-+	u32                    size;
-+	u32                    div;
-+	u32                    bufreg;
- 
- 	struct tasklet_struct  tasklet;
- 	spinlock_t             lock;
- 	wait_queue_head_t      wq;
- 	int                    running;
- 	u32                    stat;
-+	u32                    ctrl;
- 	u32                    cbuf;
- 	u32                    coff;
-+};
- 
--	struct dvb_adapter     adap;
-+struct ddb_dvb {
-+	struct dvb_adapter    *adap;
-+	int                    adap_registered;
- 	struct dvb_device     *dev;
- 	struct dvb_frontend   *fe;
- 	struct dvb_frontend   *fe2;
-@@ -99,32 +112,36 @@
- 	struct dmx_frontend    mem_frontend;
- 	int                    users;
- 	int (*gate_ctrl)(struct dvb_frontend *, int);
-+	int                    attached;
- };
- 
--struct ddb_output {
-+struct ddb_ci {
-+	struct dvb_ca_en50221  en;
- 	struct ddb_port       *port;
- 	u32                    nr;
--	dma_addr_t             pbuf[OUTPUT_DMA_MAX_BUFS];
--	u8                    *vbuf[OUTPUT_DMA_MAX_BUFS];
--	u32                    dma_buf_num;
--	u32                    dma_buf_size;
--	struct tasklet_struct  tasklet;
--	spinlock_t             lock;
--	wait_queue_head_t      wq;
--	int                    running;
--	u32                    stat;
--	u32                    cbuf;
--	u32                    coff;
-+};
- 
--	struct dvb_adapter     adap;
--	struct dvb_device     *dev;
-+
-+struct ddb_input {
-+	struct ddb_port       *port;
-+	u32                    nr;
-+	struct ddb_dma        *dma;
-+	struct ddb_input      *redirect;
-+
-+	struct ddb_dvb         dvb;
-+};
-+
-+struct ddb_output {
-+	struct ddb_port       *port;
-+	u32                    nr;
-+	struct ddb_dma        *dma;
-+	struct ddb_input      *redirect;
- };
- 
- struct ddb_i2c {
- 	struct ddb            *dev;
- 	u32                    nr;
- 	struct i2c_adapter     adap;
--	struct i2c_adapter     adap2;
- 	u32                    regs;
- 	u32                    rbuf;
- 	u32                    wbuf;
-@@ -141,12 +158,15 @@
- #define DDB_PORT_NONE           0
- #define DDB_PORT_CI             1
- #define DDB_PORT_TUNER          2
-+#define DDB_PORT_LOOP           3
- 	u32                    type;
- #define DDB_TUNER_NONE          0
- #define DDB_TUNER_DVBS_ST       1
- #define DDB_TUNER_DVBS_ST_AA    2
--#define DDB_TUNER_DVBCT_TR     16
--#define DDB_TUNER_DVBCT_ST     17
-+#define DDB_TUNER_DVBCT_TR      3
-+#define DDB_TUNER_DVBCT_ST      4
-+#define DDB_CI_INTERNAL         5
-+#define DDB_CI_EXTERNAL_SONY    6
- 	u32                    adr;
- 
- 	struct ddb_input      *input[2];
-@@ -161,25 +181,20 @@
- 	struct ddb_i2c         i2c[DDB_MAX_I2C];
- 	struct ddb_input       input[DDB_MAX_INPUT];
- 	struct ddb_output      output[DDB_MAX_OUTPUT];
-+	struct dvb_adapter     adap[DDB_MAX_INPUT];
-+	struct ddb_dma         dma[DDB_MAX_INPUT + DDB_MAX_OUTPUT];
- 
- 	struct device         *ddb_dev;
--	int                    nr;
-+	u32                    nr;
- 	u8                     iobuf[1028];
- 
- 	struct ddb_info       *info;
- 	int                    msi;
--};
--
--/****************************************************************************/
- 
--#define ddbwritel(_val, _adr)        writel((_val), \
--				     (char *) (dev->regs+(_adr)))
--#define ddbreadl(_adr)               readl((char *) (dev->regs+(_adr)))
--#define ddbcpyto(_adr, _src, _count) memcpy_toio((char *)	\
--				     (dev->regs+(_adr)), (_src), (_count))
--#define ddbcpyfrom(_dst, _adr, _count) memcpy_fromio((_dst), (char *) \
--				       (dev->regs+(_adr)), (_count))
-+	u8                     leds;
- 
--/****************************************************************************/
-+	u32                    ts_irq;
-+	u32                    i2c_irq;
-+};
- 
- #endif
-diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-regs.h linux-3.7.3.patch/drivers/media/pci/ddbridge/ddbridge-regs.h
---- linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-regs.h	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ddbridge/ddbridge-regs.h	2013-01-20 01:02:55.302829622 +0100
+diff --git a/drivers/media/pci/ddbridge/ddbridge-regs.h b/drivers/media/pci/ddbridge/ddbridge-regs.h
+index a3ccb31..46e8a21 100644
+--- a/drivers/media/pci/ddbridge/ddbridge-regs.h
++++ b/drivers/media/pci/ddbridge/ddbridge-regs.h
 @@ -21,11 +21,12 @@
   * Or, point your browser to http://www.gnu.org/copyleft/gpl.html
   */
@@ -9581,34 +9457,194 @@ diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/ddbridge-regs.h linux-3.7.3.pa
 +#define CI_BUFFER(i)                    (CI_BUFFER_BASE + (i) * CI_BUFFER_SIZE)
 +#define CI_BLOCKIO_RECEIVE_BUFFER(i)    (CI_BUFFER_BASE + (i) * CI_BUFFER_SIZE)
 +#define CI_BLOCKIO_SEND_BUFFER(i)       (CI_BUFFER_BASE + (i) * CI_BUFFER_SIZE + CI_BLOCKIO_BUFFER_SIZE)
-diff -Naur linux-3.7.3/drivers/media/pci/ddbridge/Kconfig linux-3.7.3.patch/drivers/media/pci/ddbridge/Kconfig
---- linux-3.7.3/drivers/media/pci/ddbridge/Kconfig	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ddbridge/Kconfig	2013-01-20 01:10:50.653800176 +0100
-@@ -1,11 +1,14 @@
- config DVB_DDBRIDGE
- 	tristate "Digital Devices bridge support"
- 	depends on DVB_CORE && PCI && I2C
-+	select DVB_CXD2099
- 	select DVB_LNBP21 if MEDIA_SUBDRV_AUTOSELECT
- 	select DVB_STV6110x if MEDIA_SUBDRV_AUTOSELECT
- 	select DVB_STV090x if MEDIA_SUBDRV_AUTOSELECT
- 	select DVB_DRXK if MEDIA_SUBDRV_AUTOSELECT
- 	select DVB_TDA18271C2DD if MEDIA_SUBDRV_AUTOSELECT
-+	select DVB_STV0367DD if MEDIA_SUBDRV_AUTOSELECT
-+	select DVB_TDA18212DD if MEDIA_SUBDRV_AUTOSELECT
- 	---help---
- 	  Support for cards with the Digital Devices PCI express bridge:
- 	  - Octopus PCIe Bridge
-@@ -14,5 +17,6 @@
- 	  - DuoFlex S2 Octopus
- 	  - DuoFlex CT Octopus
- 	  - cineS2(v6)
-+	  - cineCT(v6)
+diff --git a/drivers/media/pci/ddbridge/ddbridge.h b/drivers/media/pci/ddbridge/ddbridge.h
+index 8b1b41d..ce2df00 100644
+--- a/drivers/media/pci/ddbridge/ddbridge.h
++++ b/drivers/media/pci/ddbridge/ddbridge.h
+@@ -32,7 +32,10 @@
+ #include <asm/dma.h>
+ #include <linux/dvb/frontend.h>
+ #include <linux/dvb/ca.h>
++#include <linux/dvb/video.h>
++#include <linux/dvb/audio.h>
+ #include <linux/socket.h>
++#include <linux/device.h>
  
- 	  Say Y if you own such a card and want to use it.
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/Kconfig linux-3.7.3.patch/drivers/media/pci/ngene/Kconfig
---- linux-3.7.3/drivers/media/pci/ngene/Kconfig	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/Kconfig	2013-01-20 01:12:11.930340800 +0100
+ #include "dmxdev.h"
+ #include "dvbdev.h"
+@@ -52,43 +55,53 @@ struct ddb_info {
+ 	int   type;
+ #define DDB_NONE         0
+ #define DDB_OCTOPUS      1
++#define DDB_OCTOPUS_CI   2
+ 	char *name;
+ 	int   port_num;
+-	u32   port_type[DDB_MAX_PORT];
++	int   i2c_num;
++	int   led_num;
++	int   fan_num;
++	int   temp_num;
+ };
+ 
+ /* DMA_SIZE MUST be divisible by 188 and 128 !!! */
+ 
+-#define INPUT_DMA_MAX_BUFS 32      /* hardware table limit */
++#define DMA_MAX_BUFS 32      /* hardware table limit */
++
+ #define INPUT_DMA_BUFS 8
+ #define INPUT_DMA_SIZE (128*47*21)
++#define INPUT_DMA_IRQ_DIV 1
+ 
+-#define OUTPUT_DMA_MAX_BUFS 32
+ #define OUTPUT_DMA_BUFS 8
+ #define OUTPUT_DMA_SIZE (128*47*21)
++#define OUTPUT_DMA_IRQ_DIV 1
+ 
+ struct ddb;
+ struct ddb_port;
+ 
+-struct ddb_input {
+-	struct ddb_port       *port;
++struct ddb_dma {
++	void                  *io;
+ 	u32                    nr;
+-	int                    attached;
+-
+-	dma_addr_t             pbuf[INPUT_DMA_MAX_BUFS];
+-	u8                    *vbuf[INPUT_DMA_MAX_BUFS];
+-	u32                    dma_buf_num;
+-	u32                    dma_buf_size;
++	dma_addr_t             pbuf[DMA_MAX_BUFS];
++	u8                    *vbuf[DMA_MAX_BUFS];
++	u32                    num;
++	u32                    size;
++	u32                    div;
++	u32                    bufreg;
+ 
+ 	struct tasklet_struct  tasklet;
+ 	spinlock_t             lock;
+ 	wait_queue_head_t      wq;
+ 	int                    running;
+ 	u32                    stat;
++	u32                    ctrl;
+ 	u32                    cbuf;
+ 	u32                    coff;
++};
+ 
+-	struct dvb_adapter     adap;
++struct ddb_dvb {
++	struct dvb_adapter    *adap;
++	int                    adap_registered;
+ 	struct dvb_device     *dev;
+ 	struct dvb_frontend   *fe;
+ 	struct dvb_frontend   *fe2;
+@@ -99,32 +112,36 @@ struct ddb_input {
+ 	struct dmx_frontend    mem_frontend;
+ 	int                    users;
+ 	int (*gate_ctrl)(struct dvb_frontend *, int);
++	int                    attached;
+ };
+ 
+-struct ddb_output {
++struct ddb_ci {
++	struct dvb_ca_en50221  en;
+ 	struct ddb_port       *port;
+ 	u32                    nr;
+-	dma_addr_t             pbuf[OUTPUT_DMA_MAX_BUFS];
+-	u8                    *vbuf[OUTPUT_DMA_MAX_BUFS];
+-	u32                    dma_buf_num;
+-	u32                    dma_buf_size;
+-	struct tasklet_struct  tasklet;
+-	spinlock_t             lock;
+-	wait_queue_head_t      wq;
+-	int                    running;
+-	u32                    stat;
+-	u32                    cbuf;
+-	u32                    coff;
++};
+ 
+-	struct dvb_adapter     adap;
+-	struct dvb_device     *dev;
++
++struct ddb_input {
++	struct ddb_port       *port;
++	u32                    nr;
++	struct ddb_dma        *dma;
++	struct ddb_input      *redirect;
++
++	struct ddb_dvb         dvb;
++};
++
++struct ddb_output {
++	struct ddb_port       *port;
++	u32                    nr;
++	struct ddb_dma        *dma;
++	struct ddb_input      *redirect;
+ };
+ 
+ struct ddb_i2c {
+ 	struct ddb            *dev;
+ 	u32                    nr;
+ 	struct i2c_adapter     adap;
+-	struct i2c_adapter     adap2;
+ 	u32                    regs;
+ 	u32                    rbuf;
+ 	u32                    wbuf;
+@@ -141,12 +158,15 @@ struct ddb_port {
+ #define DDB_PORT_NONE           0
+ #define DDB_PORT_CI             1
+ #define DDB_PORT_TUNER          2
++#define DDB_PORT_LOOP           3
+ 	u32                    type;
+ #define DDB_TUNER_NONE          0
+ #define DDB_TUNER_DVBS_ST       1
+ #define DDB_TUNER_DVBS_ST_AA    2
+-#define DDB_TUNER_DVBCT_TR     16
+-#define DDB_TUNER_DVBCT_ST     17
++#define DDB_TUNER_DVBCT_TR      3
++#define DDB_TUNER_DVBCT_ST      4
++#define DDB_CI_INTERNAL         5
++#define DDB_CI_EXTERNAL_SONY    6
+ 	u32                    adr;
+ 
+ 	struct ddb_input      *input[2];
+@@ -161,25 +181,20 @@ struct ddb {
+ 	struct ddb_i2c         i2c[DDB_MAX_I2C];
+ 	struct ddb_input       input[DDB_MAX_INPUT];
+ 	struct ddb_output      output[DDB_MAX_OUTPUT];
++	struct dvb_adapter     adap[DDB_MAX_INPUT];
++	struct ddb_dma         dma[DDB_MAX_INPUT + DDB_MAX_OUTPUT];
+ 
+ 	struct device         *ddb_dev;
+-	int                    nr;
++	u32                    nr;
+ 	u8                     iobuf[1028];
+ 
+ 	struct ddb_info       *info;
+ 	int                    msi;
+-};
+-
+-/****************************************************************************/
+ 
+-#define ddbwritel(_val, _adr)        writel((_val), \
+-				     (char *) (dev->regs+(_adr)))
+-#define ddbreadl(_adr)               readl((char *) (dev->regs+(_adr)))
+-#define ddbcpyto(_adr, _src, _count) memcpy_toio((char *)	\
+-				     (dev->regs+(_adr)), (_src), (_count))
+-#define ddbcpyfrom(_dst, _adr, _count) memcpy_fromio((_dst), (char *) \
+-				       (dev->regs+(_adr)), (_count))
++	u8                     leds;
+ 
+-/****************************************************************************/
++	u32                    ts_irq;
++	u32                    i2c_irq;
++};
+ 
+ #endif
+diff --git a/drivers/media/pci/ngene/Kconfig b/drivers/media/pci/ngene/Kconfig
+index 637d506..515d04f 100644
+--- a/drivers/media/pci/ngene/Kconfig
++++ b/drivers/media/pci/ngene/Kconfig
 @@ -1,6 +1,7 @@
  config DVB_NGENE
  	tristate "Micronas nGene support"
@@ -9617,7 +9653,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/Kconfig linux-3.7.3.patch/drivers
  	select DVB_LNBP21 if MEDIA_SUBDRV_AUTOSELECT
  	select DVB_STV6110x if MEDIA_SUBDRV_AUTOSELECT
  	select DVB_STV090x if MEDIA_SUBDRV_AUTOSELECT
-@@ -8,6 +9,8 @@
+@@ -8,6 +9,8 @@ config DVB_NGENE
  	select DVB_DRXK if MEDIA_SUBDRV_AUTOSELECT
  	select DVB_TDA18271C2DD if MEDIA_SUBDRV_AUTOSELECT
  	select MEDIA_TUNER_MT2131 if MEDIA_SUBDRV_AUTOSELECT
@@ -9626,9 +9662,10 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/Kconfig linux-3.7.3.patch/drivers
  	---help---
  	  Support for Micronas PCI express cards with nGene bridge.
  
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/Makefile linux-3.7.3.patch/drivers/media/pci/ngene/Makefile
---- linux-3.7.3/drivers/media/pci/ngene/Makefile	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/Makefile	2013-01-20 01:05:04.979910075 +0100
+diff --git a/drivers/media/pci/ngene/Makefile b/drivers/media/pci/ngene/Makefile
+index 5c0b5d6..42c036a 100644
+--- a/drivers/media/pci/ngene/Makefile
++++ b/drivers/media/pci/ngene/Makefile
 @@ -2,7 +2,8 @@
  # Makefile for the nGene device driver
  #
@@ -9639,9 +9676,11 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/Makefile linux-3.7.3.patch/driver
  
  obj-$(CONFIG_DVB_NGENE) += ngene.o
  
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-av.c linux-3.7.3.patch/drivers/media/pci/ngene/ngene-av.c
---- linux-3.7.3/drivers/media/pci/ngene/ngene-av.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/ngene-av.c	2013-01-20 01:05:04.980910068 +0100
+diff --git a/drivers/media/pci/ngene/ngene-av.c b/drivers/media/pci/ngene/ngene-av.c
+new file mode 100644
+index 0000000..a86459e
+--- /dev/null
++++ b/drivers/media/pci/ngene/ngene-av.c
 @@ -0,0 +1,348 @@
 +/*
 + * ngene-av.c: nGene PCIe bridge driver - DVB video/audio support
@@ -9991,9 +10030,10 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-av.c linux-3.7.3.patch/driv
 +	.fops    = &video_fops,
 +};
 +#endif
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/drivers/media/pci/ngene/ngene-cards.c
---- linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/ngene-cards.c	2013-01-20 01:15:24.833266247 +0100
+diff --git a/drivers/media/pci/ngene/ngene-cards.c b/drivers/media/pci/ngene/ngene-cards.c
+index fad2141..56635e7 100644
+--- a/drivers/media/pci/ngene/ngene-cards.c
++++ b/drivers/media/pci/ngene/ngene-cards.c
 @@ -44,6 +44,8 @@
  #include "drxk.h"
  #include "drxd.h"
@@ -10003,7 +10043,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
  
  
  /****************************************************************************/
-@@ -86,8 +88,98 @@
+@@ -86,8 +88,98 @@ static int tuner_attach_stv6110(struct ngene_channel *chan)
  	return 0;
  }
  
@@ -10074,7 +10114,8 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
 +			       &chan->i2c_adapter, &chan->dev->pci_dev->dev);
 +	return (chan->fe) ? 0 : -ENODEV;
 +}
-+
+ 
+-static int drxk_gate_ctrl(struct dvb_frontend *fe, int enable)
 +static int demod_attach_stb0899(struct ngene_channel *chan)
 +{
 +	void *feconf = chan->dev->card_info->fe_config[chan->number];
@@ -10097,13 +10138,12 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
 +	return (chan->fe) ? 0 : -ENODEV;
 +}
 +#endif
- 
--static int drxk_gate_ctrl(struct dvb_frontend *fe, int enable)
++
 +static int locked_gate_ctrl(struct dvb_frontend *fe, int enable)
  {
  	struct ngene_channel *chan = fe->sec_priv;
  	int status;
-@@ -121,12 +213,29 @@
+@@ -121,12 +213,29 @@ static int tuner_attach_tda18271(struct ngene_channel *chan)
  	return 0;
  }
  
@@ -10133,7 +10173,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
  	return -EINVAL;
  }
  
-@@ -218,18 +327,51 @@
+@@ -218,18 +327,51 @@ static int demod_attach_drxk(struct ngene_channel *chan,
  	struct drxk_config config;
  
  	memset(&config, 0, sizeof(config));
@@ -10188,7 +10228,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
  	return 0;
  }
  
-@@ -279,6 +421,9 @@
+@@ -279,6 +421,9 @@ static int cineS2_probe(struct ngene_channel *chan)
  	} else if (port_has_drxk(i2c, chan->number^2)) {
  		chan->demod_type = 1;
  		demod_attach_drxk(chan, i2c);
@@ -10198,7 +10238,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
  	} else {
  		printk(KERN_ERR "No demod found on chan %d\n", chan->number);
  		return -ENODEV;
-@@ -548,6 +693,136 @@
+@@ -550,6 +695,136 @@ static s16 osc_deviation(void *priv, s16 deviation, int flag)
  /* Switch control (I2C gates, etc.) *****************************************/
  /****************************************************************************/
  
@@ -10335,7 +10375,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
  
  static struct stv090x_config fe_cineS2 = {
  	.device         = STV0900,
-@@ -728,6 +1003,323 @@
+@@ -730,6 +1005,323 @@ static struct ngene_info ngene_info_terratec = {
  
  /****************************************************************************/
  
@@ -10659,16 +10699,16 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
  
  
  /****************************************************************************/
-@@ -742,6 +1334,8 @@
+@@ -744,6 +1336,8 @@ static struct ngene_info ngene_info_terratec = {
  /****************************************************************************/
  
- static const struct pci_device_id ngene_id_tbl[] __devinitdata = {
+ static const struct pci_device_id ngene_id_tbl[] = {
 +	NGENE_ID(0x18c3, 0xab04, ngene_info_cineS2),
 +	NGENE_ID(0x18c3, 0xab05, ngene_info_cineS2v5),
  	NGENE_ID(0x18c3, 0xabc3, ngene_info_cineS2),
  	NGENE_ID(0x18c3, 0xabc4, ngene_info_cineS2),
  	NGENE_ID(0x18c3, 0xdb01, ngene_info_satixS2),
-@@ -751,6 +1345,31 @@
+@@ -753,6 +1347,31 @@ static const struct pci_device_id ngene_id_tbl[] = {
  	NGENE_ID(0x18c3, 0xdd20, ngene_info_duoFlex),
  	NGENE_ID(0x1461, 0x062e, ngene_info_m780),
  	NGENE_ID(0x153b, 0x1167, ngene_info_terratec),
@@ -10700,10 +10740,11 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-cards.c linux-3.7.3.patch/d
  	{0}
  };
  MODULE_DEVICE_TABLE(pci, ngene_id_tbl);
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/drivers/media/pci/ngene/ngene-core.c
---- linux-3.7.3/drivers/media/pci/ngene/ngene-core.c	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/ngene-core.c	2013-01-20 01:05:31.105738963 +0100
-@@ -86,6 +86,14 @@
+diff --git a/drivers/media/pci/ngene/ngene-core.c b/drivers/media/pci/ngene/ngene-core.c
+index 37ebc42..34411f1 100644
+--- a/drivers/media/pci/ngene/ngene-core.c
++++ b/drivers/media/pci/ngene/ngene-core.c
+@@ -86,6 +86,14 @@ static void event_tasklet(unsigned long data)
  		if ((Event.UARTStatus & 0x02) && (dev->RxEventNotify))
  			dev->RxEventNotify(dev, Event.TimeStamp,
  					   Event.RXCharacter);
@@ -10718,7 +10759,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  	}
  }
  
-@@ -214,6 +222,13 @@
+@@ -214,6 +222,13 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
  		u8 nextWriteIndex =
  			(dev->EventQueueWriteIndex + 1) &
  			(EVENT_QUEUE_SIZE - 1);
@@ -10732,7 +10773,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  		if (nextWriteIndex != dev->EventQueueReadIndex) {
  			dev->EventQueue[dev->EventQueueWriteIndex] =
  				*(dev->EventBuffer);
-@@ -316,12 +331,24 @@
+@@ -316,12 +331,24 @@ static int ngene_command_mutex(struct ngene *dev, struct ngene_command *com)
  	ngwritel(1, FORCE_INT);
  
  	ret = wait_event_timeout(dev->cmd_wq, dev->cmd_done == 1, 2 * HZ);
@@ -10757,7 +10798,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  		dump_command_io(dev);
  		return -1;
  	}
-@@ -348,6 +375,19 @@
+@@ -348,6 +375,19 @@ int ngene_command(struct ngene *dev, struct ngene_command *com)
  	return result;
  }
  
@@ -10777,7 +10818,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  
  static int ngene_command_load_firmware(struct ngene *dev,
  				       u8 *ngene_fw, u32 size)
-@@ -382,6 +422,83 @@
+@@ -382,6 +422,83 @@ static int ngene_command_load_firmware(struct ngene *dev,
  	return ngene_command(dev, &com);
  }
  
@@ -10861,7 +10902,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  
  static int ngene_command_config_buf(struct ngene *dev, u8 config)
  {
-@@ -427,6 +544,18 @@
+@@ -427,6 +544,18 @@ int ngene_command_gpio_set(struct ngene *dev, u8 select, u8 level)
  	return ngene_command(dev, &com);
  }
  
@@ -10880,7 +10921,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  
  /*
   02000640 is sample on rising edge.
-@@ -512,6 +641,17 @@
+@@ -512,6 +641,17 @@ void FillTSBuffer(void *Buffer, int Length, u32 Flags)
  	}
  }
  
@@ -10898,7 +10939,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  
  static void flush_buffers(struct ngene_channel *chan)
  {
-@@ -732,6 +872,14 @@
+@@ -732,6 +872,14 @@ void set_transfer(struct ngene_channel *chan, int state)
  	if (dev->card_info->switch_ctrl)
  		dev->card_info->switch_ctrl(chan, 1, state ^ 1);
  
@@ -10913,7 +10954,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  	if (state) {
  		spin_lock_irq(&chan->state_lock);
  
-@@ -771,6 +919,89 @@
+@@ -771,6 +919,89 @@ void set_transfer(struct ngene_channel *chan, int state)
  	}
  }
  
@@ -11003,7 +11044,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  
  /****************************************************************************/
  /* nGene hardware init and release functions ********************************/
-@@ -1065,6 +1296,85 @@
+@@ -1065,6 +1296,85 @@ static u32 Buffer2Sizes[MAX_STREAM] = {
  	0
  };
  
@@ -11089,7 +11130,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  
  static int AllocCommonBuffers(struct ngene *dev)
  {
-@@ -1318,6 +1628,10 @@
+@@ -1318,6 +1628,10 @@ static int ngene_buffer_config(struct ngene *dev)
  		u8 tsin12_config[6]   = { 0x60, 0x60, 0x00, 0x00, 0x00, 0x00 };
  		u8 tsin1234_config[6] = { 0x30, 0x30, 0x00, 0x30, 0x30, 0x00 };
  		u8 tsio1235_config[6] = { 0x30, 0x30, 0x00, 0x28, 0x00, 0x38 };
@@ -11100,7 +11141,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  		u8 *bconf = tsin12_config;
  
  		if (dev->card_info->io_type[2]&NGENE_IO_TSIN &&
-@@ -1327,10 +1641,22 @@
+@@ -1327,10 +1641,22 @@ static int ngene_buffer_config(struct ngene *dev)
  			    dev->ci.en)
  				bconf = tsio1235_config;
  		}
@@ -11123,7 +11164,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  		if (dev->card_info->io_type[3] == NGENE_IO_TSIN)
  			bconf = BUFFER_CONFIG_3333;
  		stat = ngene_command_config_buf(dev, bconf);
-@@ -1403,8 +1729,10 @@
+@@ -1403,8 +1729,10 @@ static int ngene_start(struct ngene *dev)
  	if (stat < 0)
  		goto fail;
  
@@ -11135,7 +11176,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
  fail:
  	ngwritel(0, NGENE_INT_ENABLE);
  	free_irq(dev->pci_dev->irq, dev);
-@@ -1689,6 +2017,33 @@
+@@ -1688,6 +2016,33 @@ int ngene_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
  
  
  	dev->i2c_current_bus = -1;
@@ -11168,10 +11209,11 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-core.c linux-3.7.3.patch/dr
 +#endif
  
  	/* Register DVB adapters and devices for both channels */
- 	if (init_channels(dev) < 0)
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-dvb.c linux-3.7.3.patch/drivers/media/pci/ngene/ngene-dvb.c
---- linux-3.7.3/drivers/media/pci/ngene/ngene-dvb.c	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/ngene-dvb.c	2013-01-20 01:05:46.293640625 +0100
+ 	stat = init_channels(dev);
+diff --git a/drivers/media/pci/ngene/ngene-dvb.c b/drivers/media/pci/ngene/ngene-dvb.c
+index fcb16a6..8049e2b 100644
+--- a/drivers/media/pci/ngene/ngene-dvb.c
++++ b/drivers/media/pci/ngene/ngene-dvb.c
 @@ -42,10 +42,319 @@
  
  #include "ngene.h"
@@ -11492,7 +11534,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-dvb.c linux-3.7.3.patch/dri
  
  static ssize_t ts_write(struct file *file, const char *buf,
  			size_t count, loff_t *ppos)
-@@ -133,6 +442,11 @@
+@@ -133,6 +442,11 @@ void *tsin_exchange(void *priv, void *buf, u32 len, u32 clock, u32 flags)
  	struct ngene_channel *chan = priv;
  	struct ngene *dev = chan->dev;
  
@@ -11504,7 +11546,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-dvb.c linux-3.7.3.patch/dri
  
  	if (flags & DF_SWAP32)
  		swap_buffer(buf, len);
-@@ -191,12 +505,49 @@
+@@ -191,12 +505,49 @@ void *tsout_exchange(void *priv, void *buf, u32 len, u32 clock, u32 flags)
  	return buf;
  }
  
@@ -11554,7 +11596,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-dvb.c linux-3.7.3.patch/dri
  
  	if (chan->users == 0) {
  		if (!chan->dev->cmd_timeout_workaround || !chan->running)
-@@ -210,6 +561,27 @@
+@@ -210,6 +561,27 @@ int ngene_stop_feed(struct dvb_demux_feed *dvbdmxfeed)
  {
  	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
  	struct ngene_channel *chan = dvbdmx->priv;
@@ -11582,9 +11624,11 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-dvb.c linux-3.7.3.patch/dri
  
  	if (--chan->users)
  		return chan->users;
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-eeprom.c linux-3.7.3.patch/drivers/media/pci/ngene/ngene-eeprom.c
---- linux-3.7.3/drivers/media/pci/ngene/ngene-eeprom.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/ngene-eeprom.c	2013-01-20 01:05:46.293640625 +0100
+diff --git a/drivers/media/pci/ngene/ngene-eeprom.c b/drivers/media/pci/ngene/ngene-eeprom.c
+new file mode 100644
+index 0000000..281d9f9
+--- /dev/null
++++ b/drivers/media/pci/ngene/ngene-eeprom.c
 @@ -0,0 +1,284 @@
 +/*
 + * ngene-eeprom.c: nGene PCIe bridge driver - eeprom support
@@ -11870,88 +11914,11 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-eeprom.c linux-3.7.3.patch/
 +}
 +
 +#endif
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene.h linux-3.7.3.patch/drivers/media/pci/ngene/ngene.h
---- linux-3.7.3/drivers/media/pci/ngene/ngene.h	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/ngene.h	2013-01-20 01:05:59.311556814 +0100
-@@ -653,6 +653,11 @@
- 	struct dmx_frontend   mem_frontend;
- 	int                   users;
- 	struct video_device  *v4l_dev;
-+#if 0
-+	struct dvb_device    *command_dev;
-+	struct dvb_device    *audio_dev;
-+	struct dvb_device    *video_dev;
-+#endif
- 	struct dvb_device    *ci_dev;
- 	struct tasklet_struct demux_tasklet;
- 
-@@ -691,6 +696,9 @@
- 	struct mychip        *mychip;
- 	struct snd_card      *soundcard;
- 	u8                   *evenbuffer;
-+#if 0
-+	u8                   *soundbuffer;
-+#endif
- 	u8                    dma_on;
- 	int                   soundstreamon;
- 	int                   audiomute;
-@@ -849,6 +857,10 @@
- 	u8    lnb[4];
- 	int   i2c_access;
- 	u8    ntsc;
-+#if 0
-+	u8    exp;
-+	u8    exp_init;
-+#endif
- 	u8    tsf[4];
- 	u8    i2s[4];
- 
-@@ -885,6 +897,25 @@
- };
- #endif
- 
-+#if 0
-+int ngene_command_stream_control(struct ngene *dev,
-+				 u8 stream, u8 control, u8 mode, u8 flags);
-+int ngene_command_nop(struct ngene *dev);
-+int ngene_command_i2c_read(struct ngene *dev, u8 adr,
-+			   u8 *out, u8 outlen, u8 *in, u8 inlen, int flag);
-+int ngene_command_i2c_write(struct ngene *dev, u8 adr, u8 *out, u8 outlen);
-+int ngene_command_imem_read(struct ngene *dev, u8 adr, u8 *data, int type);
-+int ngene_command_imem_write(struct ngene *dev, u8 adr, u8 data, int type);
-+int ngene_stream_control(struct ngene *dev, u8 stream, u8 control, u8 mode,
-+			 u16 lines, u16 bpl, u16 vblines, u16 vbibpl);
-+
-+int ngene_v4l2_init(struct ngene_channel *chan);
-+void ngene_v4l2_remove(struct ngene_channel *chan);
-+int ngene_snd_exit(struct ngene_channel *chan);
-+int ngene_snd_init(struct ngene_channel *chan);
-+
-+struct i2c_client *avf4910a_attach(struct i2c_adapter *adap, int addr);
-+#endif
- 
- /* Provided by ngene-core.c */
- int __devinit ngene_probe(struct pci_dev *pci_dev,
-@@ -915,6 +946,15 @@
- 			       struct dmx_frontend *mem_frontend,
- 			       struct dvb_adapter *dvb_adapter);
- 
-+/* Provided by ngene-eeprom.c */
-+#if 0
-+int i2c_copy_eeprom(struct i2c_adapter *adapter, u8 adr, u8 adr2);
-+int i2c_dump_eeprom(struct i2c_adapter *adapter, u8 adr);
-+int i2c_check_eeprom(struct i2c_adapter *adapter);
-+int eeprom_write_ushort(struct i2c_adapter *adapter, u16 tag, u16 data);
-+int eeprom_read_ushort(struct i2c_adapter *adapter, u16 tag, u16 *data);
-+#endif
-+
- #endif
- 
- /*  LocalWords:  Endif
-diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-i2c.c linux-3.7.3.patch/drivers/media/pci/ngene/ngene-i2c.c
---- linux-3.7.3/drivers/media/pci/ngene/ngene-i2c.c	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/media/pci/ngene/ngene-i2c.c	2013-01-20 01:06:08.210499977 +0100
-@@ -77,6 +77,11 @@
+diff --git a/drivers/media/pci/ngene/ngene-i2c.c b/drivers/media/pci/ngene/ngene-i2c.c
+index d28554f..601bea4 100644
+--- a/drivers/media/pci/ngene/ngene-i2c.c
++++ b/drivers/media/pci/ngene/ngene-i2c.c
+@@ -77,6 +77,11 @@ static int ngene_command_i2c_write(struct ngene *dev, u8 adr,
  {
  	struct ngene_command com;
  
@@ -11963,7 +11930,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-i2c.c linux-3.7.3.patch/dri
  
  	com.cmd.hdr.Opcode = CMD_I2C_WRITE;
  	com.cmd.hdr.Length = outlen + 1;
-@@ -148,6 +153,39 @@
+@@ -148,6 +153,39 @@ done:
  	return num;
  }
  
@@ -12003,7 +11970,7 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-i2c.c linux-3.7.3.patch/dri
  
  static u32 ngene_i2c_functionality(struct i2c_adapter *adap)
  {
-@@ -174,3 +212,78 @@
+@@ -174,3 +212,78 @@ int ngene_i2c_init(struct ngene *dev, int dev_nr)
  	return i2c_add_adapter(adap);
  }
  
@@ -12082,25 +12049,89 @@ diff -Naur linux-3.7.3/drivers/media/pci/ngene/ngene-i2c.c linux-3.7.3.patch/dri
 +}
 +
 +#endif
-diff -Naur linux-3.7.3/drivers/staging/media/cxd2099/cxd2099.c linux-3.7.3.patch/drivers/staging/media/cxd2099/cxd2099.c
---- linux-3.7.3/drivers/staging/media/cxd2099/cxd2099.c	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/staging/media/cxd2099/cxd2099.c	2013-01-20 01:06:08.210499977 +0100
-@@ -117,9 +117,10 @@
+diff --git a/drivers/media/pci/ngene/ngene.h b/drivers/media/pci/ngene/ngene.h
+index 22c39ff..e3ae00c 100644
+--- a/drivers/media/pci/ngene/ngene.h
++++ b/drivers/media/pci/ngene/ngene.h
+@@ -653,6 +653,11 @@ struct ngene_channel {
+ 	struct dmx_frontend   mem_frontend;
+ 	int                   users;
+ 	struct video_device  *v4l_dev;
++#if 0
++	struct dvb_device    *command_dev;
++	struct dvb_device    *audio_dev;
++	struct dvb_device    *video_dev;
++#endif
+ 	struct dvb_device    *ci_dev;
+ 	struct tasklet_struct demux_tasklet;
  
- static int read_block(struct cxd *ci, u8 adr, u8 *data, u8 n)
- {
--	int status;
-+	int status = 0;
+@@ -691,6 +696,9 @@ struct ngene_channel {
+ 	struct mychip        *mychip;
+ 	struct snd_card      *soundcard;
+ 	u8                   *evenbuffer;
++#if 0
++	u8                   *soundbuffer;
++#endif
+ 	u8                    dma_on;
+ 	int                   soundstreamon;
+ 	int                   audiomute;
+@@ -849,6 +857,10 @@ struct ngene_info {
+ 	u8    lnb[4];
+ 	int   i2c_access;
+ 	u8    ntsc;
++#if 0
++	u8    exp;
++	u8    exp_init;
++#endif
+ 	u8    tsf[4];
+ 	u8    i2s[4];
  
--	status = i2c_write_reg(ci->i2c, ci->cfg.adr, 0, adr);
-+	if (ci->lastaddress != adr)
-+		status = i2c_write_reg(ci->i2c, ci->cfg.adr, 0, adr);
- 	if (!status) {
- 		ci->lastaddress = adr;
- 		status = i2c_read(ci->i2c, ci->cfg.adr, 1, data, n);
-diff -Naur linux-3.7.3/drivers/staging/media/cxd2099/Makefile linux-3.7.3.patch/drivers/staging/media/cxd2099/Makefile
---- linux-3.7.3/drivers/staging/media/cxd2099/Makefile	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/staging/media/cxd2099/Makefile	2013-01-20 01:08:53.879482088 +0100
+@@ -885,6 +897,25 @@ struct ngene_buffer {
+ };
+ #endif
+ 
++#if 0
++int ngene_command_stream_control(struct ngene *dev,
++				 u8 stream, u8 control, u8 mode, u8 flags);
++int ngene_command_nop(struct ngene *dev);
++int ngene_command_i2c_read(struct ngene *dev, u8 adr,
++			   u8 *out, u8 outlen, u8 *in, u8 inlen, int flag);
++int ngene_command_i2c_write(struct ngene *dev, u8 adr, u8 *out, u8 outlen);
++int ngene_command_imem_read(struct ngene *dev, u8 adr, u8 *data, int type);
++int ngene_command_imem_write(struct ngene *dev, u8 adr, u8 data, int type);
++int ngene_stream_control(struct ngene *dev, u8 stream, u8 control, u8 mode,
++			 u16 lines, u16 bpl, u16 vblines, u16 vbibpl);
++
++int ngene_v4l2_init(struct ngene_channel *chan);
++void ngene_v4l2_remove(struct ngene_channel *chan);
++int ngene_snd_exit(struct ngene_channel *chan);
++int ngene_snd_init(struct ngene_channel *chan);
++
++struct i2c_client *avf4910a_attach(struct i2c_adapter *adap, int addr);
++#endif
+ 
+ /* Provided by ngene-core.c */
+ int ngene_probe(struct pci_dev *pci_dev, const struct pci_device_id *id);
+@@ -914,6 +945,15 @@ int my_dvb_dmxdev_ts_card_init(struct dmxdev *dmxdev,
+ 			       struct dmx_frontend *mem_frontend,
+ 			       struct dvb_adapter *dvb_adapter);
+ 
++/* Provided by ngene-eeprom.c */
++#if 0
++int i2c_copy_eeprom(struct i2c_adapter *adapter, u8 adr, u8 adr2);
++int i2c_dump_eeprom(struct i2c_adapter *adapter, u8 adr);
++int i2c_check_eeprom(struct i2c_adapter *adapter);
++int eeprom_write_ushort(struct i2c_adapter *adapter, u16 tag, u16 data);
++int eeprom_read_ushort(struct i2c_adapter *adapter, u16 tag, u16 *data);
++#endif
++
+ #endif
+ 
+ /*  LocalWords:  Endif
+diff --git a/drivers/staging/media/cxd2099/Makefile b/drivers/staging/media/cxd2099/Makefile
+index b2905e6..e509dd7 100644
+--- a/drivers/staging/media/cxd2099/Makefile
++++ b/drivers/staging/media/cxd2099/Makefile
 @@ -1,5 +1,5 @@
  obj-$(CONFIG_DVB_CXD2099) += cxd2099.o
  
@@ -12110,9 +12141,11 @@ diff -Naur linux-3.7.3/drivers/staging/media/cxd2099/Makefile linux-3.7.3.patch/
 +EXTRA_CFLAGS += -Idrivers/media/dvb-core/
 +EXTRA_CFLAGS += -Idrivers/media/dvb-frontends/
 +EXTRA_CFLAGS += -Idrivers/media/tuners/
-diff -Naur linux-3.7.3/drivers/staging/media/cxd2099/TODO linux-3.7.3.patch/drivers/staging/media/cxd2099/TODO
---- linux-3.7.3/drivers/staging/media/cxd2099/TODO	2013-01-17 17:47:40.000000000 +0100
-+++ linux-3.7.3.patch/drivers/staging/media/cxd2099/TODO	1970-01-01 01:00:00.000000000 +0100
+diff --git a/drivers/staging/media/cxd2099/TODO b/drivers/staging/media/cxd2099/TODO
+deleted file mode 100644
+index 375bb6f..0000000
+--- a/drivers/staging/media/cxd2099/TODO
++++ /dev/null
 @@ -1,12 +0,0 @@
 -For now, data is passed through '/dev/dvb/adapterX/sec0':
 - - Encrypted data must be written to 'sec0'.
@@ -12126,3 +12159,23 @@ diff -Naur linux-3.7.3/drivers/staging/media/cxd2099/TODO linux-3.7.3.patch/driv
 -While there's no proper fix for it, the driver should be kept in staging.
 -
 -Patches should be submitted to: linux-media@vger.kernel.org.
+diff --git a/drivers/staging/media/cxd2099/cxd2099.c b/drivers/staging/media/cxd2099/cxd2099.c
+index 0ff1972..ce49e2d 100644
+--- a/drivers/staging/media/cxd2099/cxd2099.c
++++ b/drivers/staging/media/cxd2099/cxd2099.c
+@@ -117,9 +117,10 @@ static int i2c_read(struct i2c_adapter *adapter, u8 adr,
+ 
+ static int read_block(struct cxd *ci, u8 adr, u8 *data, u8 n)
+ {
+-	int status;
++	int status = 0;
+ 
+-	status = i2c_write_reg(ci->i2c, ci->cfg.adr, 0, adr);
++	if (ci->lastaddress != adr)
++		status = i2c_write_reg(ci->i2c, ci->cfg.adr, 0, adr);
+ 	if (!status) {
+ 		ci->lastaddress = adr;
+ 		status = i2c_read(ci->i2c, ci->cfg.adr, 1, data, n);
+-- 
+1.7.2.5
+
