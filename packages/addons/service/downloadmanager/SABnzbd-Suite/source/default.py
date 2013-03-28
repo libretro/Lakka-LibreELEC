@@ -98,14 +98,9 @@ while (not xbmc.abortRequested):
 
             # reset idle timer when we're close to idle sleep/shutdown
             if sabIsActive:
-                response = xbmc.executehttpapi("GetGUISetting(0;powermanagement.shutdowntime)").replace('<li>','')
-                shutdownTime = int(response) * 60
-                idleTime = xbmc.getGlobalIdleTime()
-                timeToShutdown = shutdownTime - idleTime
-
-                if (timeToShutdown <= checkInterval - timeout):
-                    xbmc.log('SABnzbd-Suite: still downloading. Resetting XBMC idle timer.')
-                    xbmc.executehttpapi("SendKey(0xF000)")
+                xbmc.executebuiltin('InhibitIdleShutdown(true)')
+            else:
+                xbmc.executebuiltin('InhibitIdleShutdown(false)')
 
         # calculate and set the time to wake up at (if any)
         if wakePeriodically:
