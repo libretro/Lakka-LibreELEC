@@ -40,9 +40,10 @@ __stop__       = xbmc.translatePath( os.path.join( __cwd__, 'bin', "SABnzbd-Suit
 #make binary files executable in adson bin folder
 subprocess.Popen("chmod -R +x " + __cwd__ + "/bin/*" , shell=True, close_fds=True)
 
-checkInterval  = 120
+checkInterval  = 240
 timeout        = 20
 wake_times     = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00']
+idleTimer      = 0
 
 # Launch Suite
 subprocess.call(['python',__start__])
@@ -62,6 +63,9 @@ if sabNzbdLaunch:
     sabNzbdUser       = sabConfiguration['misc']['username']
     sabNzbdPass       = sabConfiguration['misc']['password']
     sabNzbdQueue      = 'http://' + sabNzbdAddress + '/api?mode=queue&output=xml&apikey=' + sabNzbdApiKey + '&ma_username=' + sabNzbdUser + '&ma_password=' + sabNzbdPass
+    sabNzbdHistory    = 'http://' + sabNzbdAddress + '/api?mode=history&output=xml&apikey=' + sabNzbdApiKey + '&ma_username=' + sabNzbdUser + '&ma_password=' + sabNzbdPass
+    sabNzbdQueueKeywords = ['<status>Downloading</status>', '<status>Fetching</status>']
+    sabNzbdHistoryKeywords = ['<status>Repairing</status>', '<status>Verifying</status>', '<status>Extracting</status>']
 
     # start checking SABnzbd for activity and prevent sleeping if necessary
     socket.setdefaulttimeout(timeout)
@@ -86,21 +90,38 @@ while (not xbmc.abortRequested):
 
         # check if SABnzbd is downloading
         if shouldKeepAwake:
-            sabIsActive = False
-            req = urllib2.Request(sabNzbdQueue)
-            try: handle = urllib2.urlopen(req)
-            except IOError, e:
-                xbmc.log('SABnzbd-Suite: could not determine SABnzbds status', level=xbmc.LOGERROR)
-            else:
-                queue = handle.read()
-                handle.close()
-                sabIsActive = (queue.find('<status>Downloading</status>') >= 0)
+            idleTimer += 1
+            # check SABnzbd every ~60s (240 cycles)
+            if idleTimer == checkInterval:
+                sabIsActive = False
+                idleTimer = 0
+                req = urllib2.Request(sabNzbdQueue)
+                try: handle = urllib2.urlopen(req)
+                except IOError, e:
+                    xbmc.log('SABnzbd-Suite: could not determine SABnzbds queue status', level=xbmc.LOGERROR)
+                else:
+                    queue = handle.read()
+                    handle.close()
+                    if any(x in queue for x in sabNzbdQueueKeywords):
+                        sabIsActive = True
 
-            # reset idle timer when we're close to idle sleep/shutdown
-            if sabIsActive:
-                xbmc.executebuiltin('InhibitIdleShutdown(true)')
-            else:
-                xbmc.executebuiltin('InhibitIdleShutdown(false)')
+                req = urllib2.Request(sabNzbdHistory)
+                try: handle = urllib2.urlopen(req)
+                except IOError, e:
+                    xbmc.log('SABnzbd-Suite: could not determine SABnzbds history status', level=xbmc.LOGERROR)
+                else:
+                    history = handle.read()
+                    handle.close()
+                    if any(x in history for x in sabNzbdHistoryKeywords):
+                        sabIsActive = True
+
+                # reset idle timer if queue is downloading/reparing/verifying/extracting
+                if sabIsActive:
+                    xbmc.executebuiltin('InhibitIdleShutdown(true)')
+                    xbmc.log('preventing sleep')
+                else:
+                    xbmc.executebuiltin('InhibitIdleShutdown(false)')
+                    xbmc.log('not preventing sleep')
 
         # calculate and set the time to wake up at (if any)
         if wakePeriodically:
