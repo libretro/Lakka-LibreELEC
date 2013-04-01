@@ -64,7 +64,7 @@ if sabNzbdLaunch:
     sabNzbdPass       = sabConfiguration['misc']['password']
     sabNzbdQueue      = 'http://' + sabNzbdAddress + '/api?mode=queue&output=xml&apikey=' + sabNzbdApiKey + '&ma_username=' + sabNzbdUser + '&ma_password=' + sabNzbdPass
     sabNzbdHistory    = 'http://' + sabNzbdAddress + '/api?mode=history&output=xml&apikey=' + sabNzbdApiKey + '&ma_username=' + sabNzbdUser + '&ma_password=' + sabNzbdPass
-    sabNzbdQueueKeywords = ['<status>Downloading</status>', '<status>Fetching</status>']
+    sabNzbdQueueKeywords = ['<status>Downloading</status>', '<status>Fetching</status>', '<priority>Force</priority>']
     sabNzbdHistoryKeywords = ['<status>Repairing</status>', '<status>Verifying</status>', '<status>Extracting</status>']
 
     # start checking SABnzbd for activity and prevent sleeping if necessary
