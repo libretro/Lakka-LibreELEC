@@ -1,0 +1,52 @@
+From f6a002b0971138a785d03a934ad623b690a8becc Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Mon, 18 Mar 2013 22:30:19 +0100
+Subject: [PATCH] [CA/AE] - make the devicelist change callback more robust -
+ should fix crashes during shutdown on some system constellations (where
+ removing the callback seems to also triggers the callback at the same time)
+
+---
+ xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp b/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp
+index 2c1d4bb..a9302ac 100644
+--- a/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp
+@@ -51,8 +51,11 @@ OSStatus deviceChangedCB( AudioObjectID                       inObjectID,
+                           void*                               inClientData)
+ {
+   CCoreAudioAE *pEngine = (CCoreAudioAE *)inClientData;
+-  pEngine->AudioDevicesChanged();
+-  CLog::Log(LOGDEBUG, "CCoreAudioAE - audiodevicelist changed!");
++  if (pEngine->GetHAL())
++  {
++    pEngine->AudioDevicesChanged();
++    CLog::Log(LOGDEBUG, "CCoreAudioAE - audiodevicelist changed!");
++  }
+   return noErr;
+ }
+ 
+@@ -102,8 +105,8 @@ void RegisterDeviceChangedCB(bool bRegister, void *ref){}
+ 
+ CCoreAudioAE::~CCoreAudioAE()
+ {
+-  RegisterDeviceChangedCB(false, this);
+   Shutdown();
++  RegisterDeviceChangedCB(false, this);
+ }
+ 
+ void CCoreAudioAE::Shutdown()
+@@ -138,6 +141,9 @@ void CCoreAudioAE::Shutdown()
+ 
+ void CCoreAudioAE::AudioDevicesChanged()
+ {
++  if (!m_Initialized)
++    return;
++
+   // give CA a bit time to realise that maybe the 
+   // default device might have changed now - else
+   // OpenCoreAudio might open the old default device
+-- 
+1.8.1.5
+

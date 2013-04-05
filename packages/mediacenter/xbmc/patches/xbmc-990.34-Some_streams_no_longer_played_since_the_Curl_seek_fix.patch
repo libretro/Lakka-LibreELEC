@@ -1,0 +1,39 @@
+From 63a6dadd40815eb07ba940a60d012a23ce9a5eb4 Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Fri, 29 Mar 2013 21:01:44 +0100
+Subject: [PATCH] fixed: Some (live) streams no longer played since the Curl
+ seek fix (fixes #14224)
+
+---
+ xbmc/filesystem/CurlFile.cpp | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/filesystem/CurlFile.cpp b/xbmc/filesystem/CurlFile.cpp
+index 2c5da25..456f5f0 100644
+--- a/xbmc/filesystem/CurlFile.cpp
++++ b/xbmc/filesystem/CurlFile.cpp
+@@ -291,14 +291,14 @@ bool CCurlFile::CReadState::Seek(int64_t pos)
+ void CCurlFile::CReadState::SetResume(void)
+ {
+   /*
+-   * Use RANGE method for resuming. We used to use RESUME_FROM_LARGE for this but some http servers
+-   * require us to always send the range request header. If we don't the server may provide different
+-   * content causing seeking to fail. Note that internally Curl will automatically handle this for FTP
+-   * so we don't need to worry about that here.
++   * Explicitly set RANGE header when filepos=0 as some http servers require us to always send the range
++   * request header. If we don't the server may provide different content causing seeking to fail.
++   * This only affects HTTP-like items, for FTP it's a null operation.
+    */
+-  char str[21];
+-  sprintf(str, "%"PRId64"-", m_filePos);
+-  g_curlInterface.easy_setopt(m_easyHandle, CURLOPT_RANGE, str);
++  if (m_filePos == 0)
++    g_curlInterface.easy_setopt(m_easyHandle, CURLOPT_RANGE, "0-");
++
++  g_curlInterface.easy_setopt(m_easyHandle, CURLOPT_RESUME_FROM_LARGE, m_filePos);
+ }
+ 
+ long CCurlFile::CReadState::Connect(unsigned int size)
+-- 
+1.8.1.5
+

@@ -1,0 +1,43 @@
+From 9db853e551f0380aac884fcb6c9564a725fcb966 Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Fri, 8 Mar 2013 06:34:02 +0100
+Subject: [PATCH] fixed: We can only obtain the aspect & duration this way when
+ the Process() thread is running
+
+---
+ xbmc/cores/dvdplayer/DVDPlayer.cpp | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index 0cd2510..8128197 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -4024,11 +4024,22 @@ bool CDVDPlayer::GetStreamDetails(CStreamDetails &details)
+ {
+   if (m_pDemuxer)
+   {
+-    bool result=CDVDFileInfo::DemuxerToStreamDetails(m_pInputStream, m_pDemuxer, details);
++    bool result = CDVDFileInfo::DemuxerToStreamDetails(m_pInputStream, m_pDemuxer, details);
+     if (result && details.GetStreamCount(CStreamDetail::VIDEO) > 0) // this is more correct (dvds in particular)
+     {
+-      GetVideoAspectRatio(((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_fAspect);
+-      ((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_iDuration = GetTotalTime() / 1000;
++      /* 
++       * We can only obtain the aspect & duration from dvdplayer when the Process() thread is running
++       * and UpdatePlayState() has been called at least once. In this case dvdplayer duration/AR will
++       * return 0 and we'll have to fallback to the (less accurate) info from the demuxer.
++       */
++      float aspect;
++      GetVideoAspectRatio(aspect);
++      if (aspect > 0.0f)
++        ((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_fAspect = aspect;
++
++      int64_t duration = GetTotalTime() / 1000;
++      if (duration > 0)
++        ((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_iDuration = duration;
+     }
+     return result;
+   }
+-- 
+1.8.1.5
+
