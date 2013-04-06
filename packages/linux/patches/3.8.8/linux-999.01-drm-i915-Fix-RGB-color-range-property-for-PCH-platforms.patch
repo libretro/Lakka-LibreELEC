@@ -1,0 +1,145 @@
+From 3685a8f38f2c54bb6058c0e66ae0562f8ab84e66 Mon Sep 17 00:00:00 2001
+From: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Date: Thu, 17 Jan 2013 14:31:28 +0000
+Subject: drm/i915: Fix RGB color range property for PCH platforms
+
+The RGB color range select bit on the DP/SDVO/HDMI registers
+disappeared when PCH was introduced, and instead a new PIPECONF bit
+was added that performs the same function.
+
+Add a new INTEL_MODE_LIMITED_COLOR_RANGE private mode flag, and set
+it in the encoder mode_fixup if limited color range is requested.
+Set the the PIPECONF bit 13 based on the flag.
+
+Experimentation showed that simply toggling the bit while the pipe is
+active doesn't work. We need to restart the pipe, which luckily already
+happens.
+
+The DP/SDVO/HDMI bit 8 is marked MBZ in the docs, so avoid setting it,
+although it doesn't seem to do any harm in practice.
+
+TODO:
+- the PIPECONF bit too seems to have disappeared from HSW. Need a
+  volunteer to test if it's just a documentation issue or if it's really
+  gone. If the bit is gone and no easy replacement is found, then I suppose
+  we may need to use the pipe CSC unit to perform the range compression.
+
+v2: Use mode private_flags instead of intel_encoder virtual functions
+v3: Moved the intel_dp color_range handling after bpc check to help
+    later patches
+
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=46800
+Reviewed-by: Paulo Zanoni <paulo.r.zanoni@intel.com>
+Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Signed-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+---
+diff --git a/drivers/gpu/drm/i915/i915_reg.h b/drivers/gpu/drm/i915/i915_reg.h
+index 4c33bd2..2521617 100644
+--- a/drivers/gpu/drm/i915/i915_reg.h
++++ b/drivers/gpu/drm/i915/i915_reg.h
+@@ -2650,6 +2650,7 @@
+ #define   PIPECONF_INTERLACED_DBL_ILK		(4 << 21) /* ilk/snb only */
+ #define   PIPECONF_PFIT_PF_INTERLACED_DBL_ILK	(5 << 21) /* ilk/snb only */
+ #define   PIPECONF_CXSR_DOWNCLOCK	(1<<16)
++#define   PIPECONF_COLOR_RANGE_SELECT	(1 << 13)
+ #define   PIPECONF_BPP_MASK	(0x000000e0)
+ #define   PIPECONF_BPP_8	(0<<5)
+ #define   PIPECONF_BPP_10	(1<<5)
+diff --git a/drivers/gpu/drm/i915/intel_display.c b/drivers/gpu/drm/i915/intel_display.c
+index e4c5067..b35902e 100644
+--- a/drivers/gpu/drm/i915/intel_display.c
++++ b/drivers/gpu/drm/i915/intel_display.c
+@@ -5096,6 +5096,11 @@ static void ironlake_set_pipeconf(struct drm_crtc *crtc,
+ 	else
+ 		val |= PIPECONF_PROGRESSIVE;
+ 
++	if (adjusted_mode->private_flags & INTEL_MODE_LIMITED_COLOR_RANGE)
++		val |= PIPECONF_COLOR_RANGE_SELECT;
++	else
++		val &= ~PIPECONF_COLOR_RANGE_SELECT;
++
+ 	I915_WRITE(PIPECONF(pipe), val);
+ 	POSTING_READ(PIPECONF(pipe));
+ }
+diff --git a/drivers/gpu/drm/i915/intel_dp.c b/drivers/gpu/drm/i915/intel_dp.c
+index 5f12eb2..d995627 100644
+--- a/drivers/gpu/drm/i915/intel_dp.c
++++ b/drivers/gpu/drm/i915/intel_dp.c
+@@ -763,6 +763,10 @@ intel_dp_mode_fixup(struct drm_encoder *encoder,
+ 		return false;
+ 
+ 	bpp = adjusted_mode->private_flags & INTEL_MODE_DP_FORCE_6BPC ? 18 : 24;
++
++	if (intel_dp->color_range)
++		adjusted_mode->private_flags |= INTEL_MODE_LIMITED_COLOR_RANGE;
++
+ 	mode_rate = intel_dp_link_required(adjusted_mode->clock, bpp);
+ 
+ 	for (clock = 0; clock <= max_clock; clock++) {
+@@ -967,7 +971,8 @@ intel_dp_mode_set(struct drm_encoder *encoder, struct drm_display_mode *mode,
+ 		else
+ 			intel_dp->DP |= DP_PLL_FREQ_270MHZ;
+ 	} else if (!HAS_PCH_CPT(dev) || is_cpu_edp(intel_dp)) {
+-		intel_dp->DP |= intel_dp->color_range;
++		if (!HAS_PCH_SPLIT(dev))
++			intel_dp->DP |= intel_dp->color_range;
+ 
+ 		if (adjusted_mode->flags & DRM_MODE_FLAG_PHSYNC)
+ 			intel_dp->DP |= DP_SYNC_HS_HIGH;
+diff --git a/drivers/gpu/drm/i915/intel_drv.h b/drivers/gpu/drm/i915/intel_drv.h
+index 54a034c..4df47be 100644
+--- a/drivers/gpu/drm/i915/intel_drv.h
++++ b/drivers/gpu/drm/i915/intel_drv.h
+@@ -109,6 +109,11 @@
+  * timings in the mode to prevent the crtc fixup from overwriting them.
+  * Currently only lvds needs that. */
+ #define INTEL_MODE_CRTC_TIMINGS_SET (0x20)
++/*
++ * Set when limited 16-235 (as opposed to full 0-255) RGB color range is
++ * to be used.
++ */
++#define INTEL_MODE_LIMITED_COLOR_RANGE (0x40)
+ 
+ static inline void
+ intel_mode_set_pixel_multiplier(struct drm_display_mode *mode,
+diff --git a/drivers/gpu/drm/i915/intel_hdmi.c b/drivers/gpu/drm/i915/intel_hdmi.c
+index 6387f9b..f194d75 100644
+--- a/drivers/gpu/drm/i915/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/intel_hdmi.c
+@@ -766,6 +766,11 @@ bool intel_hdmi_mode_fixup(struct drm_encoder *encoder,
+ 			   const struct drm_display_mode *mode,
+ 			   struct drm_display_mode *adjusted_mode)
+ {
++	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
++
++	if (intel_hdmi->color_range)
++		adjusted_mode->private_flags |= INTEL_MODE_LIMITED_COLOR_RANGE;
++
+ 	return true;
+ }
+ 
+diff --git a/drivers/gpu/drm/i915/intel_sdvo.c b/drivers/gpu/drm/i915/intel_sdvo.c
+index 153377b..3b8491a 100644
+--- a/drivers/gpu/drm/i915/intel_sdvo.c
++++ b/drivers/gpu/drm/i915/intel_sdvo.c
+@@ -1064,6 +1064,9 @@ static bool intel_sdvo_mode_fixup(struct drm_encoder *encoder,
+ 	multiplier = intel_sdvo_get_pixel_multiplier(adjusted_mode);
+ 	intel_mode_set_pixel_multiplier(adjusted_mode, multiplier);
+ 
++	if (intel_sdvo->color_range)
++		adjusted_mode->private_flags |= INTEL_MODE_LIMITED_COLOR_RANGE;
++
+ 	return true;
+ }
+ 
+@@ -1153,7 +1156,7 @@ static void intel_sdvo_mode_set(struct drm_encoder *encoder,
+ 		/* The real mode polarity is set by the SDVO commands, using
+ 		 * struct intel_sdvo_dtd. */
+ 		sdvox = SDVO_VSYNC_ACTIVE_HIGH | SDVO_HSYNC_ACTIVE_HIGH;
+-		if (intel_sdvo->is_hdmi)
++		if (!HAS_PCH_SPLIT(dev) && intel_sdvo->is_hdmi)
+ 			sdvox |= intel_sdvo->color_range;
+ 		if (INTEL_INFO(dev)->gen < 5)
+ 			sdvox |= SDVO_BORDER_ENABLE;
+--
+cgit v0.9.1
