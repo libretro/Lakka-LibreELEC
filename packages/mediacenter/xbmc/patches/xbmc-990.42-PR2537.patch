@@ -1,0 +1,104 @@
+From c106cfd4e35dd53310d7325ce658618807d59ac2 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sun, 17 Mar 2013 12:48:09 +0000
+Subject: [PATCH] [rbp] Set mediatime on GPU after a seek.
+
+Currently after a seek, the mediatime doesn't update until an audio and video packet have been fetched from demuxer, and been decoded. For HD content this can take a second or two.
+This has a couple of undesirable effects:
+The seek time that pops up after a seek initially shows the before seek time, and the file progress bar is laggy.
+If you seek a second time, before the time has updated, it will use the before seek time, and the second seek has no effect.
+This limits a sequence of seeks to a maximum of about 1 every second or two.
+
+The fix udpates the GPU mediatime immediately after the seek, so the mediatime is correct immediately which fixes the undesirable behaviour.
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp |  3 +++
+ xbmc/linux/OMXClock.cpp            | 46 ++++++++++++++++++++++++++++++++++++++
+ xbmc/linux/OMXClock.h              |  1 +
+ 3 files changed, 50 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 78b51f2..c09569b 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -3296,6 +3296,9 @@ void COMXPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+     CSingleLock lock(m_StateSection);
+     m_State = m_StateInput;
+   }
++  // let clock know the new time so progress bar updates immediately
++  if(startpts != DVD_NOPTS_VALUE)
++    m_av_clock.OMXMediaTime(startpts);
+ }
+ 
+ // since we call ffmpeg functions to decode, this is being called in the same thread as ::Process() is
+diff --git a/xbmc/linux/OMXClock.cpp b/xbmc/linux/OMXClock.cpp
+index 535a533..54ccf31 100644
+--- a/xbmc/linux/OMXClock.cpp
++++ b/xbmc/linux/OMXClock.cpp
+@@ -745,6 +745,52 @@ double OMXClock::OMXMediaTime(bool fixPreroll /* true */ , bool lock /* = true *
+   return pts;
+ }
+ 
++// Set the media time, so calls to get media time use the updated value,
++// useful after a seek so mediatime is updated immediately (rather than waiting for first decoded packet)
++bool OMXClock::OMXMediaTime(double pts, bool fixPreroll /* = true*/, bool lock /* = true*/)
++{
++  if(m_omx_clock.GetComponent() == NULL)
++    return false;
++
++  if(lock)
++    Lock();
++
++  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
++  OMX_INDEXTYPE index;
++  OMX_TIME_CONFIG_TIMESTAMPTYPE timeStamp;
++  OMX_INIT_STRUCTURE(timeStamp);
++  timeStamp.nPortIndex = m_omx_clock.GetInputPort();
++
++  if(g_guiSettings.GetBool("videoplayer.usedisplayasclock") && m_has_video)
++    index = OMX_IndexConfigTimeCurrentVideoReference;
++  else if(m_has_audio)
++    index = OMX_IndexConfigTimeCurrentAudioReference;
++  else
++    index = OMX_IndexConfigTimeCurrentVideoReference;
++
++  if(fixPreroll)
++    pts -= (OMX_PRE_ROLL * 1000);
++  timeStamp.nTimestamp = ToOMXTime(pts);
++
++  omx_err = m_omx_clock.SetConfig(index, &timeStamp);
++  if(omx_err != OMX_ErrorNone)
++  {
++    CLog::Log(LOGERROR, "OMXClock::OMXMediaTime error setting %s", index == OMX_IndexConfigTimeCurrentAudioReference ?
++       "OMX_IndexConfigTimeCurrentAudioReference":"OMX_IndexConfigTimeCurrentVideoReference");
++    if(lock)
++      UnLock();
++    return false;
++  }
++
++  CLog::Log(LOGDEBUG, "OMXClock::OMXMediaTime set config %s = %.2f", index == OMX_IndexConfigTimeCurrentAudioReference ?
++       "OMX_IndexConfigTimeCurrentAudioReference":"OMX_IndexConfigTimeCurrentVideoReference", pts);
++
++  if(lock)
++    UnLock();
++
++  return true;
++}
++
+ bool OMXClock::OMXPause(bool lock /* = true */)
+ {
+   if(m_omx_clock.GetComponent() == NULL)
+diff --git a/xbmc/linux/OMXClock.h b/xbmc/linux/OMXClock.h
+index f41a7fd..3001d86 100644
+--- a/xbmc/linux/OMXClock.h
++++ b/xbmc/linux/OMXClock.h
+@@ -116,6 +116,7 @@ class OMXClock
+   bool OMXReset(bool lock = true);
+   double OMXWallTime(bool lock = true);
+   double OMXMediaTime(bool fixPreroll = true, bool lock = true);
++  bool OMXMediaTime(double pts, bool fixPreroll = true, bool lock = true);
+   bool OMXPause(bool lock = true);
+   bool OMXResume(bool lock = true);
+   bool OMXUpdateClock(double pts, bool lock = true);
+-- 
+1.8.1.5
+
