@@ -1,0 +1,726 @@
+From 11cdffa95a963c8dc07a696c0036cf0213a5d2fd Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 12:43:16 +0000
+Subject: [PATCH 01/11] [rbp] Add reporting of fifo fullness for use with
+ hdmi_status_show in debug builds
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index c09569b..7dd6654 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -1064,6 +1064,22 @@ void COMXPlayer::Process()
+ 
+   while (!m_bAbortRequest)
+   {
++    #ifdef _DEBUG
++    char response[80];
++    static unsigned count;
++    if ((count++ & 15) == 0)
++    {
++      vc_gencmd(response, sizeof response, "render_bar 4 video_fifo %d %d %d %d",
++            m_player_video.GetDecoderBufferSize()-m_player_video.GetDecoderFreeSpace(),
++            0 , 0, m_player_video.GetDecoderBufferSize());
++      vc_gencmd(response, sizeof response, "render_bar 5 audio_fifo %d %d %d %d",
++            (int)(100.0*m_player_audio.GetDelay()), 0, 0, 100*AUDIO_BUFFER_SECONDS);
++      vc_gencmd(response, sizeof response, "render_bar 6 video_queue %d %d %d %d",
++            m_player_video.GetLevel(), 0, 0, 100);
++      vc_gencmd(response, sizeof response, "render_bar 7 audio_queue %d %d %d %d",
++            m_player_audio.GetLevel(), 0, 0, 100);
++    }
++    #endif
+     // handle messages send to this thread, like seek or demuxer reset requests
+     HandleMessages();
+ 
+-- 
+1.8.1.5
+
+
+From dc463479660aa992af80b7114d9d2f12ed3bb75a Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 12:47:01 +0000
+Subject: [PATCH 02/11] [rbp] Move m_messenger.Init from constructor to
+ OnStartup
+
+This makes omxplayer constistent with dvdplayer.
+It avoids an initial stray message to immediately try and go normal speed when it should be buffering.
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 7dd6654..4ea922c 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -433,8 +433,6 @@ void COMXSelectionStreams::Update(CDVDInputStream* input, CDVDDemux* demuxer)
+   m_EdlAutoSkipMarkers.Clear();
+ 
+   memset(&m_SpeedState, 0, sizeof(m_SpeedState));
+-
+-  m_messenger.Init();
+ }
+ 
+ COMXPlayer::~COMXPlayer()
+@@ -559,6 +557,8 @@ void COMXPlayer::OnStartup()
+   m_CurrentSubtitle.Clear();
+   m_CurrentTeletext.Clear();
+ 
++  m_messenger.Init();
++
+   CUtil::ClearTempFonts();
+ }
+ 
+-- 
+1.8.1.5
+
+
+From d1b6df908b5a4033a2052d6d03adcc7512a6cc42 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 12:57:16 +0000
+Subject: [PATCH 03/11] [rbp] Expose GetAudioRenderingLatency
+
+This could be useful for detecting underrun conditions
+---
+ xbmc/cores/omxplayer/OMXAudio.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXAudio.h b/xbmc/cores/omxplayer/OMXAudio.h
+index d812e0a..4b08722 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.h
++++ b/xbmc/cores/omxplayer/OMXAudio.h
+@@ -94,6 +94,7 @@ class COMXAudio
+   unsigned int SyncAC3(BYTE* pData, unsigned int iSize);
+ 
+   bool BadState() { return !m_Initialized; };
++  unsigned int GetAudioRenderingLatency();
+ 
+ private:
+   IAudioCallback* m_pCallback;
+@@ -148,7 +149,6 @@ class COMXAudio
+   CAEChannelInfo    GetChannelLayout(AEAudioFormat format);
+ 
+   void CheckOutputBufferSize(void **buffer, int *oldSize, int newSize);
+-  unsigned int GetAudioRenderingLatency();
+   CCriticalSection m_critSection;
+ };
+ #endif
+-- 
+1.8.1.5
+
+
+From 8e6ebfd69bb25995132803feb33e2058feefb8bc Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 13:49:05 +0000
+Subject: [PATCH 04/11] [rbp] Add OMXLateCount to query if packets have arrived
+ late
+
+Could be useful for detecting underrun conditions
+---
+ xbmc/linux/OMXClock.cpp | 32 ++++++++++++++++++++++++++++++++
+ xbmc/linux/OMXClock.h   |  1 +
+ 2 files changed, 33 insertions(+)
+
+diff --git a/xbmc/linux/OMXClock.cpp b/xbmc/linux/OMXClock.cpp
+index 54ccf31..3860818 100644
+--- a/xbmc/linux/OMXClock.cpp
++++ b/xbmc/linux/OMXClock.cpp
+@@ -791,6 +791,38 @@ bool OMXClock::OMXMediaTime(double pts, bool fixPreroll /* = true*/, bool lock /
+   return true;
+ }
+ 
++// gets count of late frames, indicating underrun has occurred
++int OMXClock::OMXLateCount(int port /* true */ , bool lock /* = true */)
++{
++  if(m_omx_clock.GetComponent() == NULL)
++    return 0;
++
++  if(lock)
++    Lock();
++
++  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
++
++  OMX_PARAM_U32TYPE late;
++  OMX_INIT_STRUCTURE(late);
++  late.nPortIndex = m_omx_clock.GetInputPort()+port;
++
++  omx_err = m_omx_clock.GetConfig(OMX_IndexConfigBrcmClockMissCount, &late);
++  if(omx_err != OMX_ErrorNone)
++  {
++    CLog::Log(LOGERROR, "OMXClock::OMXLateCount error getting OMX_IndexConfigBrcmClockMissCount(%d)\n", port);
++    if(lock)
++      UnLock();
++    return 0;
++  }
++
++  //CLog::Log(LOGINFO, "OMXClock::OMXLateCount(%d)=%d", port, late.nU32);
++
++  if(lock)
++    UnLock();
++
++  return late.nU32;
++}
++
+ bool OMXClock::OMXPause(bool lock /* = true */)
+ {
+   if(m_omx_clock.GetComponent() == NULL)
+diff --git a/xbmc/linux/OMXClock.h b/xbmc/linux/OMXClock.h
+index 3001d86..a969e17 100644
+--- a/xbmc/linux/OMXClock.h
++++ b/xbmc/linux/OMXClock.h
+@@ -117,6 +117,7 @@ class OMXClock
+   double OMXWallTime(bool lock = true);
+   double OMXMediaTime(bool fixPreroll = true, bool lock = true);
+   bool OMXMediaTime(double pts, bool fixPreroll = true, bool lock = true);
++  int OMXLateCount(int port, bool lock = true);
+   bool OMXPause(bool lock = true);
+   bool OMXResume(bool lock = true);
+   bool OMXUpdateClock(double pts, bool lock = true);
+-- 
+1.8.1.5
+
+
+From 9c9ecc9b80b62b1ed0e819b4a74b8ed6a3d4e5bc Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 1 Apr 2013 18:02:31 +0100
+Subject: [PATCH 05/11] [rbp] Add more debug logging
+
+---
+ xbmc/cores/omxplayer/OMXAudio.cpp       |  1 +
+ xbmc/cores/omxplayer/OMXPlayer.cpp      | 23 ++++++++++++++++++++++-
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp | 12 ++++++++++--
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 15 ++++++++++++---
+ xbmc/cores/omxplayer/OMXVideo.cpp       |  1 +
+ xbmc/linux/OMXCore.cpp                  | 16 ++++++++--------
+ 6 files changed, 54 insertions(+), 14 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXAudio.cpp b/xbmc/cores/omxplayer/OMXAudio.cpp
+index 10c3329..d03d4a0 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXAudio.cpp
+@@ -908,6 +908,7 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, double dt
+       omx_err = m_omx_decoder.EmptyThisBuffer(omx_buffer);
+       if (omx_err == OMX_ErrorNone)
+       {
++        //CLog::Log(LOGINFO, "AudiD: dts:%.0f pts:%.0f size:%d\n", dts, pts, len);
+         break;
+       }
+       else
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 4ea922c..6ec0289 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -1091,6 +1091,7 @@ void COMXPlayer::Process()
+     {
+       if (OpenInputStream() == false)
+       {
++        CLog::Log(LOGERROR, "%s - Closing stream due to OpenInputStream()", __FUNCTION__);
+         m_bAbortRequest = true;
+         break;
+       }
+@@ -1107,6 +1108,7 @@ void COMXPlayer::Process()
+ 
+       if (OpenDemuxStream() == false)
+       {
++        CLog::Log(LOGERROR, "%s - Closing stream due to OpenDemuxStream()", __FUNCTION__);
+         m_bAbortRequest = true;
+         break;
+       }
+@@ -1136,6 +1138,7 @@ void COMXPlayer::Process()
+     // OMX emergency exit
+     if(HasAudio() && m_player_audio.BadState())
+     {
++      CLog::Log(LOGERROR, "%s - Closing stream due to m_player_audio.BadState()", __FUNCTION__);
+       m_bAbortRequest = true;
+       break;
+     }
+@@ -1767,6 +1770,7 @@ bool COMXPlayer::CheckPlayerInit(COMXCurrentStream& current, unsigned int source
+ 
+ void COMXPlayer::UpdateCorrection(DemuxPacket* pkt, double correction)
+ {
++  //CLog::Log(LOGINFO,"%s: %d dts:%.0f pts:%.0f s:%d c:%.0f (%d,%d)", __func__, (int)pkt->iStreamId, pkt->dts, pkt->pts, pkt->iSize, correction, pkt->dts==DVD_NOPTS_VALUE, pkt->pts==DVD_NOPTS_VALUE);
+   if(pkt->dts != DVD_NOPTS_VALUE) pkt->dts -= correction;
+   if(pkt->pts != DVD_NOPTS_VALUE) pkt->pts -= correction;
+ }
+@@ -2123,7 +2127,7 @@ void COMXPlayer::HandleMessages()
+         CLog::Log(LOGDEBUG, "demuxer seek to: %d", time);
+         if (m_pDemuxer && m_pDemuxer->SeekTime(time, msg.GetBackward(), &start))
+         {
+-          CLog::Log(LOGDEBUG, "demuxer seek to: %d, success", time);
++          CLog::Log(LOGDEBUG, "demuxer seek to: %.0f, success", start);
+           if(m_pSubtitleDemuxer)
+           {
+             if(!m_pSubtitleDemuxer->SeekTime(time, msg.GetBackward()))
+@@ -2858,6 +2862,7 @@ int64_t COMXPlayer::GetTime()
+     if(offset >  limit) offset =  limit;
+     if(offset < -limit) offset = -limit;
+   }
++  //{CLog::Log(LOGINFO, "%s: time:%.2f stamp:%.2f dts:%d m:%d (p:%d,c:%d) =%llu", __func__, (double)m_State.time, (double)m_State.timestamp, (int)DVD_TIME_TO_MSEC(m_State.dts + m_offset_pts), (int)DVD_TIME_TO_MSEC(m_av_clock.OMXMediaTime()), (int)m_playSpeed, (int)m_caching, llrint(m_State.time + DVD_TIME_TO_MSEC(offset)));}
+   return llrint(m_State.time + DVD_TIME_TO_MSEC(offset));
+ }
+ 
+@@ -2892,11 +2897,17 @@ bool COMXPlayer::OpenAudioStream(int iStream, int source, bool reset)
+   CLog::Log(LOGNOTICE, "Opening audio stream: %i source: %i", iStream, source);
+ 
+   if (!m_pDemuxer)
++  {
++    CLog::Log(LOGWARNING, "Opening audio stream: no demuxer");
+     return false;
++  }
+ 
+   CDemuxStream* pStream = m_pDemuxer->GetStream(iStream);
+   if (!pStream || pStream->disabled)
++  {
++    CLog::Log(LOGWARNING, "Opening audio stream: pStream=%p disabled=%d", pStream, pStream ? pStream->disabled:0);
+     return false;
++  }
+ 
+   if( m_CurrentAudio.id < 0 &&  m_CurrentVideo.id >= 0 )
+   {
+@@ -2953,11 +2964,17 @@ bool COMXPlayer::OpenVideoStream(int iStream, int source, bool reset)
+   CLog::Log(LOGNOTICE, "Opening video stream: %i source: %i", iStream, source);
+ 
+   if (!m_pDemuxer)
++  {
++    CLog::Log(LOGWARNING, "Opening video stream: no demuxer");
+     return false;
++  }
+ 
+   CDemuxStream* pStream = m_pDemuxer->GetStream(iStream);
+   if(!pStream || pStream->disabled)
++  {
++    CLog::Log(LOGWARNING, "Opening video stream: pStream=%p disabled=%d", pStream, pStream ? pStream->disabled:0);
+     return false;
++  }
+   pStream->SetDiscard(AVDISCARD_NONE);
+ 
+   CDVDStreamInfo hint(*pStream, true);
+@@ -3238,6 +3255,9 @@ bool COMXPlayer::CloseTeletextStream(bool bWaitForBuffers)
+ void COMXPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+ {
+   double startpts;
++
++  CLog::Log(LOGNOTICE, "FlushBuffers: q:%d pts:%.0f a:%d", queued, pts, accurate);
++
+   if(accurate)
+     startpts = pts;
+   else
+@@ -4098,6 +4118,7 @@ void COMXPlayer::UpdatePlayState(double timeout)
+     state.cache_bytes = 0;
+ 
+   state.timestamp = m_av_clock.GetAbsoluteClock();
++  //{CLog::Log(LOGINFO, "%s: time:%.2f stamp:%.2f dts:%d m:%d (p:%d,c:%d) =%llu", __func__, (double)state.time, (double)state.timestamp, (int)DVD_TIME_TO_MSEC(state.dts + m_offset_pts), (int)DVD_TIME_TO_MSEC(m_av_clock.OMXMediaTime()), (int)m_playSpeed, (int)m_caching, llrint(state.time + DVD_TIME_TO_MSEC(offset)));}
+ 
+   CSingleLock lock(m_StateSection);
+   m_StateInput = state;
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+index 04590c7..178edaf 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+@@ -493,6 +493,10 @@ void OMXPlayerAudio::Process()
+       DemuxPacket* pPacket = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacket();
+       bool bPacketDrop     = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacketDrop();
+ 
++      #ifdef _DEBUG
++      CLog::Log(LOGINFO, "Audio: dts:%.0f pts:%.0f size:%d (s:%d f:%d d:%d l:%d) s:%d %d/%d late:%d,%d", pPacket->dts, pPacket->pts,
++           (int)pPacket->iSize, m_started, m_flush, bPacketDrop, m_stalled, m_speed, 0, 0, (int)m_omxAudio.GetAudioRenderingLatency(), (int)m_hints_current.samplerate);
++      #endif
+       if(Decode(pPacket, m_speed > DVD_PLAYSPEED_NORMAL || m_speed < 0 || bPacketDrop))
+       {
+         if (m_stalled && (m_omxAudio.GetCacheTime() > (AUDIO_BUFFER_SECONDS * 0.75f)))
+@@ -566,6 +570,7 @@ void OMXPlayerAudio::Process()
+     }
+     else if (pMsg->IsType(CDVDMsg::PLAYER_STARTED))
+     {
++      CLog::Log(LOGDEBUG, "COMXPlayerAudio - CDVDMsg::PLAYER_STARTED %d", m_started);
+       if(m_started)
+         m_messageParent.Put(new CDVDMsgInt(CDVDMsg::PLAYER_STARTED, DVDPLAYER_AUDIO));
+     }
+@@ -603,8 +608,11 @@ void OMXPlayerAudio::Process()
+     }
+     else if (pMsg->IsType(CDVDMsg::PLAYER_SETSPEED))
+     {
+-      CLog::Log(LOGDEBUG, "COMXPlayerAudio - CDVDMsg::PLAYER_SETSPEED");
+-      m_speed = static_cast<CDVDMsgInt*>(pMsg)->m_value;
++      if (m_speed != static_cast<CDVDMsgInt*>(pMsg)->m_value)
++      {
++        m_speed = static_cast<CDVDMsgInt*>(pMsg)->m_value;
++        CLog::Log(LOGDEBUG, "COMXPlayerAudio - CDVDMsg::PLAYER_SETSPEED %d", m_speed);
++      }
+       if (m_speed != DVD_PLAYSPEED_NORMAL)
+       {
+         m_syncclock = true;
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index 45fc51f..e8c9cff 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -378,7 +378,7 @@ void OMXPlayerVideo::Process()
+ 
+     if (MSGQ_IS_ERROR(ret) || ret == MSGQ_ABORT)
+     {
+-      CLog::Log(LOGERROR, "Got MSGQ_ABORT or MSGO_IS_ERROR return true");
++      CLog::Log(LOGERROR, "OMXPlayerVideo: Got MSGQ_IS_ERROR(%d) Aborting", (int)ret);
+       break;
+     }
+     else if (ret == MSGQ_TIMEOUT)
+@@ -455,8 +455,8 @@ void OMXPlayerVideo::Process()
+     }
+     else if (pMsg->IsType(CDVDMsg::VIDEO_SET_ASPECT))
+     {
+-      CLog::Log(LOGDEBUG, "COMXPlayerVideo - CDVDMsg::VIDEO_SET_ASPECT");
+       m_fForcedAspectRatio = *((CDVDMsgDouble*)pMsg);
++      CLog::Log(LOGDEBUG, "COMXPlayerVideo - CDVDMsg::VIDEO_SET_ASPECT %.2f", m_fForcedAspectRatio);
+     }
+     else if (pMsg->IsType(CDVDMsg::GENERAL_RESET))
+     {
+@@ -484,10 +484,15 @@ void OMXPlayerVideo::Process()
+     }
+     else if (pMsg->IsType(CDVDMsg::PLAYER_SETSPEED))
+     {
+-      m_speed = static_cast<CDVDMsgInt*>(pMsg)->m_value;
++      if (m_speed != static_cast<CDVDMsgInt*>(pMsg)->m_value)
++      {
++        m_speed = static_cast<CDVDMsgInt*>(pMsg)->m_value;
++        CLog::Log(LOGDEBUG, "COMXPlayerVideo - CDVDMsg::PLAYER_SETSPEED %d", m_speed);
++      }
+     }
+     else if (pMsg->IsType(CDVDMsg::PLAYER_STARTED))
+     {
++      CLog::Log(LOGDEBUG, "COMXPlayerVideo - CDVDMsg::PLAYER_STARTED %d", m_started);
+       if(m_started)
+         m_messageParent.Put(new CDVDMsgInt(CDVDMsg::PLAYER_STARTED, DVDPLAYER_VIDEO));
+     }
+@@ -519,6 +524,10 @@ void OMXPlayerVideo::Process()
+       DemuxPacket* pPacket = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacket();
+       bool bPacketDrop     = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacketDrop();
+ 
++      #ifdef _DEBUG
++      CLog::Log(LOGINFO, "Video: dts:%.0f pts:%.0f size:%d (s:%d f:%d d:%d l:%d) s:%d %d/%d late:%d\n", pPacket->dts, pPacket->pts, 
++          (int)pPacket->iSize, m_started, m_flush, bPacketDrop, m_stalled, m_speed, 0, 0, m_av_clock->OMXLateCount(1));
++      #endif
+       if (m_messageQueue.GetDataSize() == 0
+       ||  m_speed < 0)
+       {
+diff --git a/xbmc/cores/omxplayer/OMXVideo.cpp b/xbmc/cores/omxplayer/OMXVideo.cpp
+index 15bc8fa..959422b 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXVideo.cpp
+@@ -835,6 +835,7 @@ int COMXVideo::Decode(uint8_t *pData, int iSize, double dts, double pts)
+         omx_err = m_omx_decoder.EmptyThisBuffer(omx_buffer);
+         if (omx_err == OMX_ErrorNone)
+         {
++          //CLog::Log(LOGINFO, "VideD: dts:%.0f pts:%.0f size:%d)\n", dts, pts, iSize);
+           break;
+         }
+         else
+diff --git a/xbmc/linux/OMXCore.cpp b/xbmc/linux/OMXCore.cpp
+index 5e582cc..4946b1d 100644
+--- a/xbmc/linux/OMXCore.cpp
++++ b/xbmc/linux/OMXCore.cpp
+@@ -644,7 +644,7 @@ OMX_ERRORTYPE COMXCoreComponent::AllocInputBuffers(bool use_buffers /* = false *
+   m_input_buffer_count  = portFormat.nBufferCountActual;
+   m_input_buffer_size   = portFormat.nBufferSize;
+ 
+-  CLog::Log(LOGDEBUG, "COMXCoreComponent::AllocInputBuffers component(%s) - port(%d), nBufferCountMin(%lu), nBufferCountActual(%lu), nBufferSize(%lu), nBufferAlignmen(%lu)\n",
++  CLog::Log(LOGDEBUG, "COMXCoreComponent::AllocInputBuffers component(%s) - port(%d), nBufferCountMin(%u), nBufferCountActual(%u), nBufferSize(%u), nBufferAlignmen(%u)\n",
+             m_componentName.c_str(), GetInputPort(), portFormat.nBufferCountMin,
+             portFormat.nBufferCountActual, portFormat.nBufferSize, portFormat.nBufferAlignment);
+ 
+@@ -720,7 +720,7 @@ OMX_ERRORTYPE COMXCoreComponent::AllocOutputBuffers(bool use_buffers /* = false
+   m_output_buffer_count  = portFormat.nBufferCountActual;
+   m_output_buffer_size   = portFormat.nBufferSize;
+ 
+-  CLog::Log(LOGDEBUG, "COMXCoreComponent::AllocOutputBuffers component(%s) - port(%d), nBufferCountMin(%lu), nBufferCountActual(%lu), nBufferSize(%lu) nBufferAlignmen(%lu)\n",
++  CLog::Log(LOGDEBUG, "COMXCoreComponent::AllocOutputBuffers component(%s) - port(%d), nBufferCountMin(%u), nBufferCountActual(%u), nBufferSize(%u) nBufferAlignmen(%u)\n",
+             m_componentName.c_str(), m_output_port, portFormat.nBufferCountMin,
+             portFormat.nBufferCountActual, portFormat.nBufferSize, portFormat.nBufferAlignment);
+ 
+@@ -1386,13 +1386,13 @@ bool COMXCoreComponent::Initialize( const std::string &component_name, OMX_INDEX
+     omx_err = m_DllOMX->OMX_GetHandle(&m_handle, (char*)component_name.c_str(), this, &m_callbacks);
+     if (!m_handle || omx_err != OMX_ErrorNone)
+     {
+-      CLog::Log(LOGERROR, "COMXCoreComponent::Initialize - could not get component handle for %s omx_err(0x%08x)\n", 
++      CLog::Log(LOGERROR, "COMXCoreComponent::Initialize - could not get component handle for %s omx_err(0x%08x)\n",
+           component_name.c_str(), (int)omx_err);
+       Deinitialize(true);
+       return false;
+     }
+ 
+-    CLog::Log(LOGDEBUG, "COMXCoreComponent::Initialize : %s handle 0x%08x dllopen : %d\n", 
++    CLog::Log(LOGDEBUG, "COMXCoreComponent::Initialize : %s handle %p dllopen : %d\n", 
+           m_componentName.c_str(), m_handle, m_DllOMXOpen);
+   }
+ 
+@@ -1467,12 +1467,12 @@ bool COMXCoreComponent::Deinitialize(bool free_component /* = false */)
+ 
+     if(free_component)
+     {
+-      CLog::Log(LOGDEBUG, "COMXCoreComponent::Deinitialize : %s handle 0x%08x dllopen : %d\n", 
++      CLog::Log(LOGDEBUG, "COMXCoreComponent::Deinitialize : %s handle %p dllopen : %d\n", 
+           m_componentName.c_str(), m_handle, m_DllOMXOpen);
+       omx_err = m_DllOMX->OMX_FreeHandle(m_handle);
+       if (omx_err != OMX_ErrorNone)
+       {
+-        CLog::Log(LOGERROR, "COMXCoreComponent::Deinitialize - failed to free handle for component %s omx_err(0x%08x)", 
++        CLog::Log(LOGERROR, "COMXCoreComponent::Deinitialize - failed to free handle for component %s omx_err(0x%08x)",
+             m_componentName.c_str(), omx_err);
+       }  
+       m_handle = NULL;
+@@ -1705,12 +1705,12 @@ OMX_ERRORTYPE COMXCoreComponent::DecoderEventHandler(
+           CLog::Log(LOGERROR, "%s::%s %s - OMX_ErrorUnsupportedSetting, unsupported setting\n", CLASSNAME, __func__, ctx->GetName().c_str());
+         break;
+         default:
+-          CLog::Log(LOGERROR, "%s::%s %s - OMX_EventError detected, nData1(0x%lx), port %d\n",  CLASSNAME, __func__, ctx->GetName().c_str(), nData1, (int)nData2);
++          CLog::Log(LOGERROR, "%s::%s %s - OMX_EventError detected, nData1(0x%x), port %d\n",  CLASSNAME, __func__, ctx->GetName().c_str(), nData1, (int)nData2);
+         break;
+       }
+     break;
+     default:
+-      CLog::Log(LOGWARNING, "%s::%s %s - Unknown eEvent(0x%x), nData1(0x%lx), port %d\n", CLASSNAME, __func__, ctx->GetName().c_str(), eEvent, nData1, (int)nData2);
++      CLog::Log(LOGWARNING, "%s::%s %s - Unknown eEvent(0x%x), nData1(0x%x), port %d\n", CLASSNAME, __func__, ctx->GetName().c_str(), eEvent, nData1, (int)nData2);
+     break;
+   }
+ 
+-- 
+1.8.1.5
+
+
+From fb437ef2caa3c14b7d7d2f3c05a8702f337546e7 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 19:08:22 +0000
+Subject: [PATCH 06/11] [rbp] Use CurrentHostCounter consistently
+
+---
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+index 178edaf..eaf176c 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+@@ -213,7 +213,7 @@ void OMXPlayerAudio::HandleSyncError(double duration)
+     m_skipdupcount = 0;
+     m_error = 0;
+     m_syncclock = false;
+-    m_errortime = m_av_clock->CurrentHostCounter();
++    m_errortime = CurrentHostCounter();
+ 
+     return;
+   }
+@@ -225,12 +225,12 @@ void OMXPlayerAudio::HandleSyncError(double duration)
+     m_integral = 0;
+     m_skipdupcount = 0;
+     m_error = 0;
+-    m_errortime = m_av_clock->CurrentHostCounter();
++    m_errortime = CurrentHostCounter();
+     return;
+   }
+ 
+   //check if measured error for 1 second
+-  now = m_av_clock->CurrentHostCounter();
++  now = CurrentHostCounter();
+   if ((now - m_errortime) >= m_freq)
+   {
+     m_errortime = now;
+-- 
+1.8.1.5
+
+
+From 58288f6e04a13e42c64b1fdf8180709d1525c88f Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 19:10:58 +0000
+Subject: [PATCH 07/11] [rbp] Use correct size when determining fifo has space
+ in it
+
+This can cause player to get a decode error from audio_decode component
+closing stream when packet doesn't actually fit.
+---
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+index eaf176c..71e015a 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+@@ -373,7 +373,7 @@ bool OMXPlayerAudio::Decode(DemuxPacket *pkt, bool bDropPacket)
+         if(m_flush)
+           break;
+ 
+-        if(m_omxAudio.GetSpace() < (unsigned int)pkt->iSize)
++        if(m_omxAudio.GetSpace() < (unsigned int)decoded_size)
+         {
+           Sleep(10);
+           continue;
+-- 
+1.8.1.5
+
+
+From ad492cee88cf12b5e3a2bc0ed0f894c0e2b3436d Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 19:18:13 +0000
+Subject: [PATCH 08/11] [rbp] Always acquire lock when using OMXMediaTime
+
+I don't believe the lock=false call should ever be done unless caller already has lock
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp      | 4 ++--
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp | 2 +-
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 6ec0289..66bb00f 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -3816,7 +3816,7 @@ bool COMXPlayer::GetCurrentSubtitle(CStdString& strSubtitle)
+   if (m_pInputStream && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD))
+     return false;
+ 
+-  double pts = m_av_clock.OMXMediaTime(false, false);
++  double pts = m_av_clock.OMXMediaTime(false);
+ 
+   m_player_subtitle.GetCurrentSubtitle(strSubtitle, pts - m_player_video.GetSubtitleDelay());
+ 
+@@ -4013,7 +4013,7 @@ void COMXPlayer::UpdatePlayState(double timeout)
+ 
+     // TODO : workaround until omx clock handling is rewritten
+     if(m_playSpeed == DVD_PLAYSPEED_NORMAL)
+-      state.time       = DVD_TIME_TO_MSEC(m_av_clock.OMXMediaTime(true, true));
++      state.time       = DVD_TIME_TO_MSEC(m_av_clock.OMXMediaTime(true));
+     else
+       state.time       = DVD_TIME_TO_MSEC(state.dts + m_offset_pts);
+     state.time_total = m_pDemuxer->GetStreamLength();
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index e8c9cff..ae2971e 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -351,7 +351,7 @@ void OMXPlayerVideo::Output(int iGroupId, double pts, bool bDropPacket)
+   if (!CThread::m_bStop && m_av_clock->GetAbsoluteClock(false) < m_iSleepEndTime + DVD_MSEC_TO_TIME(500))
+     return;
+ 
+-  double pts_media = m_av_clock->OMXMediaTime(false, false);
++  double pts_media = m_av_clock->OMXMediaTime(false);
+   ProcessOverlays(iGroupId, pts_media);
+ 
+   g_renderManager.FlipPage(CThread::m_bStop, m_iSleepEndTime / DVD_TIME_BASE, -1, FS_NONE);
+-- 
+1.8.1.5
+
+
+From 14f8030d697eac3e3f104294032f078316854a87 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 19:50:41 +0000
+Subject: [PATCH 09/11] [rbp] Cosmetics
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp    | 4 ++--
+ xbmc/cores/omxplayer/OMXPlayerAudio.h | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 66bb00f..32c902e 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -721,7 +721,7 @@ void COMXPlayer::OpenDefaultStreams(bool reset)
+   for(OMXSelectionStreams::iterator it = streams.begin(); it != streams.end() && !valid; ++it)
+   {
+     if(OpenVideoStream(it->id, it->source, reset))
+-      valid = true;;
++      valid = true;
+   }
+   if(!valid)
+     CloseVideoStream(true);
+@@ -2291,7 +2291,7 @@ void COMXPlayer::HandleMessages()
+         }
+ 
+         // if playspeed is different then DVD_PLAYSPEED_NORMAL or DVD_PLAYSPEED_PAUSE
+-        // audioplayer, stops outputing audio to audiorendere, but still tries to
++        // audioplayer, stops outputing audio to audiorender, but still tries to
+         // sleep an correct amount for each packet
+         // videoplayer just plays faster after the clock speed has been increased
+         // 1. disable audio
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.h b/xbmc/cores/omxplayer/OMXPlayerAudio.h
+index d6083e9..7a749dd 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.h
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.h
+@@ -57,7 +57,7 @@ class OMXPlayerAudio : public CThread
+   AEAudioFormat             m_format;
+   CAEChannelInfo            m_channelLayout;
+   COMXAudioCodecOMX         *m_pAudioCodec;
+-  unsigned int              m_speed;
++  int                       m_speed;
+   bool                      m_silence;
+   double                    m_audioClock;
+   double m_error;    //last average error
+-- 
+1.8.1.5
+
+
+From 3a7dfb99ddd7b60d420066bb583bf1d22f90b653 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Wed, 3 Apr 2013 01:58:02 +0100
+Subject: [PATCH 10/11] [rbp] The stillframe logic doesn't work on Pi and
+ causes stuttering
+
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 15 ---------------
+ 1 file changed, 15 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index ae2971e..d9326dd 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -383,21 +383,6 @@ void OMXPlayerVideo::Process()
+     }
+     else if (ret == MSGQ_TIMEOUT)
+     {
+-      // if we only wanted priority messages, this isn't a stall
+-      if( iPriority )
+-        continue;
+-
+-      //Okey, start rendering at stream fps now instead, we are likely in a stillframe
+-      if( !m_stalled )
+-      {
+-        if(m_started)
+-          CLog::Log(LOGINFO, "COMXPlayerVideo - Stillframe detected, switching to forced %f fps", m_fFrameRate);
+-        m_stalled = true;
+-        pts += frametime*4;
+-      }
+-
+-      pts += frametime;
+-
+       continue;
+     }
+ 
+-- 
+1.8.1.5
+
+
+From cca2d306a43c945edc150319c132bbac49dae899 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 22 Mar 2013 20:25:43 +0000
+Subject: [PATCH 11/11] [rbp] Avoid coming out of stalled state due to
+ uninitialised variable
+
+m_endtime is only initialised when we underrun. Use m_av_clock->OMXAudioBuffer() to protect access to uninitialised variable.
+---
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+index 78e2f73..6d7bdbf 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+@@ -510,7 +510,7 @@ void OMXPlayerAudio::Process()
+       // hard unlock audio out buffering
+       clock_gettime(CLOCK_REALTIME, &m_endtime);
+       //int iLevel = min(99,m_messageQueue.GetLevel() + MathUtils::round_int(100.0/8.0*GetCacheTime()));
+-      if(/*iLevel < 10 &&*/ m_stalled && (m_endtime.tv_sec - m_starttime.tv_sec) > 1)
++      if(/*iLevel < 10 &&*/ m_stalled && m_av_clock->OMXAudioBuffer() && (m_endtime.tv_sec - m_starttime.tv_sec) > 1)
+       {
+         m_stalled = false;
+         if(m_av_clock->HasVideo() && m_av_clock->OMXAudioBuffer())
+-- 
+1.8.1.5
+
