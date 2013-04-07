@@ -1,0 +1,151 @@
+From 1410f361434bf1af9bc436cd01d977f1a372f71b Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Sat, 23 Mar 2013 18:29:13 +0100
+Subject: [PATCH 1/2] pvr: fix too early finish of recordings
+
+---
+ .../dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp    | 11 ++++++++---
+ xbmc/cores/dvdplayer/DVDPlayer.cpp                            |  9 ---------
+ xbmc/filesystem/PVRFile.h                                     |  2 +-
+ 3 files changed, 9 insertions(+), 13 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp
+index fe19a3d..a0475d1 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp
+@@ -315,9 +315,14 @@ bool CDVDInputStreamPVRManager::UpdateItem(CFileItem& item)
+ 
+   if(m_bReopened)
+   {
+-    m_bReopened = false;
+-    m_eof       = false;
+-    return NEXTSTREAM_RETRY;
++    if (IsEOF())
++      return NEXTSTREAM_NONE;
++    else
++    {
++      m_bReopened = false;
++      m_eof       = false;
++      return NEXTSTREAM_RETRY;
++    }
+   }
+ 
+   if (m_pOtherStream)
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index a1f56ce..cdf5876 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -1174,15 +1174,6 @@ void CDVDPlayer::Process()
+         Sleep(100);
+         continue;
+       }
+-      else if (m_pInputStream->IsStreamType(DVDSTREAM_TYPE_PVRMANAGER))
+-      {
+-        CDVDInputStreamPVRManager* pStream = static_cast<CDVDInputStreamPVRManager*>(m_pInputStream);
+-        if (pStream->IsEOF())
+-          break;
+-
+-        Sleep(100);
+-        continue;
+-      }
+ 
+       // make sure we tell all players to finish it's data
+       if(m_CurrentAudio.inited)
+diff --git a/xbmc/filesystem/PVRFile.h b/xbmc/filesystem/PVRFile.h
+index edf0e10..4d51da8 100644
+--- a/xbmc/filesystem/PVRFile.h
++++ b/xbmc/filesystem/PVRFile.h
+@@ -44,7 +44,7 @@ class CPVRFile
+   virtual void          Close();
+   virtual unsigned int  Read(void* buffer, int64_t size);
+   virtual CStdString    GetContent()                                   { return ""; }
+-  virtual bool          SkipNext()                                     { return true; }
++  virtual bool          SkipNext()                                     { return !m_isPlayRecording; }
+ 
+   virtual bool          Delete(const CURL& url);
+   virtual bool          Rename(const CURL& url, const CURL& urlnew);
+-- 
+1.8.1.5
+
+
+From cbad7f0e8feca4cb96a21bb6c84d98272edb000f Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Thu, 28 Mar 2013 16:25:50 +0100
+Subject: [PATCH 2/2] pvr: align NexStream and SkipNext with logic in dvdplayer
+
+---
+ .../DVDInputStreams/DVDInputStreamPVRManager.cpp   | 24 +++++++---------------
+ .../DVDInputStreams/DVDInputStreamPVRManager.h     |  1 -
+ 2 files changed, 7 insertions(+), 18 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp
+index a0475d1..431c280 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.cpp
+@@ -45,7 +45,6 @@
+   m_pLiveTV         = NULL;
+   m_pOtherStream    = NULL;
+   m_eof             = true;
+-  m_bReopened       = false;
+   m_iScanTimeout    = 0;
+ }
+ 
+@@ -311,28 +310,20 @@ bool CDVDInputStreamPVRManager::UpdateItem(CFileItem& item)
+ 
+ CDVDInputStream::ENextStream CDVDInputStreamPVRManager::NextStream()
+ {
+-  if(!m_pFile) return NEXTSTREAM_NONE;
++  if(!m_pFile)
++    return NEXTSTREAM_NONE;
+ 
+-  if(m_bReopened)
+-  {
+-    if (IsEOF())
+-      return NEXTSTREAM_NONE;
+-    else
+-    {
+-      m_bReopened = false;
+-      m_eof       = false;
+-      return NEXTSTREAM_RETRY;
+-    }
+-  }
++  m_eof = IsEOF();
+ 
+   if (m_pOtherStream)
+     return m_pOtherStream->NextStream();
+   else if(m_pFile->SkipNext())
+   {
+-    m_eof = false;
+-    return NEXTSTREAM_OPEN;
++    if (m_eof)
++      return NEXTSTREAM_OPEN;
++    else
++      return NEXTSTREAM_RETRY;
+   }
+-
+   return NEXTSTREAM_NONE;
+ }
+ 
+@@ -385,7 +376,6 @@ bool CDVDInputStreamPVRManager::CloseAndOpen(const char* strFile)
+ 
+   if (Open(strFile, m_content))
+   {
+-    m_bReopened = true;
+     return true;
+   }
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h
+index 9a9580f..78c7340 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h
+@@ -98,7 +98,6 @@ class CDVDInputStreamPVRManager
+   XFILE::IRecordable*       m_pRecordable;
+   bool                      m_eof;
+   std::string               m_strContent;
+-  bool                      m_bReopened;
+   unsigned int              m_iScanTimeout;
+ };
+ 
+-- 
+1.8.1.5
+
