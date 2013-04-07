@@ -1,0 +1,689 @@
+From 48eb874344af0f1eda73a847ab291e04255368c9 Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 10:49:43 +0200
+Subject: [PATCH 01/12] [OMXPlayer] [PATCH] fixed: Compile warning (unused
+ label) Based on
+ https://github.com/xbmc/xbmc/commit/132730ec5e976642109ec048545262c59453d5b6
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 60aa9ab..77f818d 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -562,7 +562,7 @@ bool COMXPlayer::OpenInputStream()
+   {
+     m_filename = g_mediaManager.TranslateDevicePath("");
+   }
+-retry:
++
+   // before creating the input stream, if this is an HLS playlist then get the
+   // most appropriate bitrate based on our network settings
+   if (filename.Left(7) == "http://" && filename.Right(5) == ".m3u8")
+-- 
+1.8.1.5
+
+
+From f672abd807e654c2d11160827938a2f9e27628b0 Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 11:31:07 +0200
+Subject: [PATCH 02/12] [OMXPlayer] [PATCH] dvdplayer: don't use
+ OpenDefaultStreams() if something else dictate Based on
+ https://github.com/xbmc/xbmc/commit/dda59f043e77a6cfbbd3a7378406134dad540e60
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 77f818d..b8e465c 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -695,8 +695,9 @@ bool COMXPlayer::OpenDemuxStream()
+ 
+ void COMXPlayer::OpenDefaultStreams(bool reset)
+ {
+-  // bypass for DVDs. The DVD Navigator has already dictated which streams to open.
+-  if (m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD))
++  // if input stream dictate, we will open later
++  if(m_dvd.iSelectedAudioStream >= 0
++  || m_dvd.iSelectedSPUStream   >= 0)
+     return;
+ 
+   OMXSelectionStreams streams;
+-- 
+1.8.1.5
+
+
+From 85bf2ae43d7a977eedf174e6c8d30b5f76fa58fd Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 15:57:09 +0200
+Subject: [PATCH 03/12] [OMXPlayer] [PATCH] dvdplayer: make HasVideo return
+ true if a video stream was opened since playback has started - fixes missing
+ video info on channel change Based on
+ https://github.com/xbmc/xbmc/commit/bd49c32ec38b7ecd7bb43eb995c9ff632d18d3a1
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 8 +++++---
+ xbmc/cores/omxplayer/OMXPlayer.h   | 2 ++
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index b8e465c..1704077 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -415,6 +415,7 @@ void COMXSelectionStreams::Update(CDVDInputStream* input, CDVDDemux* demuxer)
+   m_UpdateApplication = 0;
+   m_caching           = CACHESTATE_DONE;
+   m_playSpeed         = DVD_PLAYSPEED_NORMAL;
++  m_HasVideo = false;
+ 
+   m_State.Clear();
+   m_dvd.Clear();
+@@ -529,6 +530,8 @@ bool COMXPlayer::CloseFile()
+   m_Edl.Clear();
+   m_EdlAutoSkipMarkers.Clear();
+ 
++  m_HasVideo = false;
++
+   g_renderManager.UnInit();
+   return true;
+ }
+@@ -2438,9 +2441,7 @@ bool COMXPlayer::IsPaused() const
+ 
+ bool COMXPlayer::HasVideo() const
+ {
+-  if (m_pInputStream && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD)) return true;
+-
+-  return m_SelectionStreams.Count(STREAM_VIDEO) > 0 ? true : false;
++  return m_HasVideo;
+ }
+ 
+ bool COMXPlayer::HasAudio() const
+@@ -2971,6 +2972,7 @@ bool COMXPlayer::OpenVideoStream(int iStream, int source, bool reset)
+   m_CurrentVideo.hint = hint;
+   m_CurrentVideo.stream = (void*)pStream;
+   m_CurrentVideo.started = false;
++  m_HasVideo = true;
+ 
+   /* we are potentially going to be waiting on this */
+   m_player_video.SendMessage(new CDVDMsg(CDVDMsg::PLAYER_STARTED), 1);
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.h b/xbmc/cores/omxplayer/OMXPlayer.h
+index d606e84..db3534f 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.h
++++ b/xbmc/cores/omxplayer/OMXPlayer.h
+@@ -490,4 +490,6 @@ class COMXPlayer : public IPlayer, public CThread, public IDVDPlayer
+   bool                    m_change_volume;
+   CDVDOverlayContainer    m_overlayContainer;
+   ECacheState             m_caching;
++
++  bool m_HasVideo;
+ };
+-- 
+1.8.1.5
+
+
+From 2602bd38d6f36abfb562a9da70b95af79ba235dd Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 16:22:16 +0200
+Subject: [PATCH 04/12] [OMXPlayer] [PATCH] dvdplayer: align HasAudio with
+ HasVideo Based on
+ https://github.com/xbmc/xbmc/commit/cfb14c3c7400e2d9dbe2d452274339fa57557d9b
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 5 ++++-
+ xbmc/cores/omxplayer/OMXPlayer.h   | 1 +
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 1704077..7c85e6d 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -416,6 +416,7 @@ void COMXSelectionStreams::Update(CDVDInputStream* input, CDVDDemux* demuxer)
+   m_caching           = CACHESTATE_DONE;
+   m_playSpeed         = DVD_PLAYSPEED_NORMAL;
+   m_HasVideo = false;
++  m_HasAudio = false;
+ 
+   m_State.Clear();
+   m_dvd.Clear();
+@@ -531,6 +532,7 @@ bool COMXPlayer::CloseFile()
+   m_EdlAutoSkipMarkers.Clear();
+ 
+   m_HasVideo = false;
++  m_HasAudio = false;
+ 
+   g_renderManager.UnInit();
+   return true;
+@@ -2446,7 +2448,7 @@ bool COMXPlayer::HasVideo() const
+ 
+ bool COMXPlayer::HasAudio() const
+ {
+-  return m_SelectionStreams.Count(STREAM_AUDIO) > 0 ? true : false;
++  return m_HasAudio;
+ }
+ 
+ bool COMXPlayer::IsPassthrough() const
+@@ -2891,6 +2893,7 @@ bool COMXPlayer::OpenAudioStream(int iStream, int source, bool reset)
+   m_CurrentAudio.hint = hint;
+   m_CurrentAudio.stream = (void*)pStream;
+   m_CurrentAudio.started = false;
++  m_HasAudio = true;
+ 
+   /* we are potentially going to be waiting on this */
+   m_player_audio.SendMessage(new CDVDMsg(CDVDMsg::PLAYER_STARTED), 1);
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.h b/xbmc/cores/omxplayer/OMXPlayer.h
+index db3534f..c09773e 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.h
++++ b/xbmc/cores/omxplayer/OMXPlayer.h
+@@ -492,4 +492,5 @@ class COMXPlayer : public IPlayer, public CThread, public IDVDPlayer
+   ECacheState             m_caching;
+ 
+   bool m_HasVideo;
++  bool m_HasAudio;
+ };
+-- 
+1.8.1.5
+
+
+From 17d0e68692a4f05c3a074d602b3ec1c68bb71662 Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 16:38:04 +0200
+Subject: [PATCH 05/12] [OMXPlayer] [PATCH] dvdplayer: a disabled stream could
+ be re-selected for bluray and dvd Based on
+ https://github.com/xbmc/xbmc/commit/b2fc0508212023cdcd11d05d72ed9a4d4935a0d8
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 7c85e6d..8df04a6 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -888,6 +888,9 @@ bool COMXPlayer::IsBetterStream(COMXCurrentStream& current, CDemuxStream* stream
+   if(m_PlayerOptions.video_only && current.type != STREAM_VIDEO)
+     return false;
+ 
++  if(stream->disabled)
++    return false;
++
+   if (m_pInputStream && ( m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD)
+                        || m_pInputStream->IsStreamType(DVDSTREAM_TYPE_BLURAY) ) )
+   {
+@@ -917,9 +920,6 @@ bool COMXPlayer::IsBetterStream(COMXCurrentStream& current, CDemuxStream* stream
+     && stream->iId    == current.id)
+       return false;
+ 
+-    if(stream->disabled)
+-      return false;
+-
+     if(stream->type != current.type)
+       return false;
+ 
+-- 
+1.8.1.5
+
+
+From 5d639b5dd577f8e5e5f38e6e9dd32262ced4a427 Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 18:43:07 +0200
+Subject: [PATCH 06/12] [OMXPlayer] [PATCH] dvdplayer: ff/rw/seek was broken
+ for inputs implementing IDisplayTime Based on
+ https://github.com/xbmc/xbmc/commit/4c90033e6987d512c1925ab6a5e31ef88bcdb28c
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 14 ++++++++++++--
+ xbmc/cores/omxplayer/OMXPlayer.h   |  9 +++++++++
+ 2 files changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 8df04a6..e64fc71 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -2082,6 +2082,11 @@ void COMXPlayer::HandleMessages()
+         double start = DVD_NOPTS_VALUE;
+ 
+         int time = msg.GetRestore() ? (int)m_Edl.RestoreCutTime(msg.GetTime()) : msg.GetTime();
++
++        // if input streams doesn't support seektime we must convert back to clock
++        if(dynamic_cast<CDVDInputStream::ISeekTime*>(m_pInputStream) == NULL)
++          time -= m_State.time_offset;
++
+         CLog::Log(LOGDEBUG, "demuxer seek to: %d", time);
+         if (m_pDemuxer && m_pDemuxer->SeekTime(time, msg.GetBackward(), &start))
+         {
+@@ -3885,6 +3890,7 @@ void COMXPlayer::UpdatePlayState(double timeout)
+     else
+       state.time       = DVD_TIME_TO_MSEC(m_av_clock.GetClock() + m_offset_pts);
+     state.time_total = m_pDemuxer->GetStreamLength();
++    state.time_src   = ETIMESOURCE_CLOCK;
+ 
+   }
+ 
+@@ -3903,6 +3909,7 @@ void COMXPlayer::UpdatePlayState(double timeout)
+     {
+       state.time       = pDisplayTime->GetTime();
+       state.time_total = pDisplayTime->GetTotalTime();
++      state.time_src   = ETIMESOURCE_INPUT;
+     }
+ 
+     if (dynamic_cast<CDVDInputStream::IMenus*>(m_pInputStream))
+@@ -3911,6 +3918,7 @@ void COMXPlayer::UpdatePlayState(double timeout)
+       {
+         state.time       = XbmcThreads::SystemClockMillis() - m_dvd.iDVDStillStartTime;
+         state.time_total = m_dvd.iDVDStillTime;
++        state.time_src   = ETIMESOURCE_MENU;
+       }
+     }
+ 
+@@ -3936,12 +3944,14 @@ void COMXPlayer::UpdatePlayState(double timeout)
+   state.player_state = "";
+   if (m_pInputStream && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD))
+   {
+-    state.time_offset = DVD_MSEC_TO_TIME(state.time) - state.dts;
+     if(!((CDVDInputStreamNavigator*)m_pInputStream)->GetNavigatorState(state.player_state))
+       state.player_state = "";
+   }
+-  else
++
++  if (state.time_src == ETIMESOURCE_CLOCK)
+     state.time_offset = 0;
++  else
++    state.time_offset = DVD_MSEC_TO_TIME(state.time) - state.dts;
+ 
+   if (m_CurrentAudio.id >= 0 && m_pDemuxer)
+   {
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.h b/xbmc/cores/omxplayer/OMXPlayer.h
+index c09773e..d6c9d66 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.h
++++ b/xbmc/cores/omxplayer/OMXPlayer.h
+@@ -375,6 +375,13 @@ class COMXPlayer : public IPlayer, public CThread, public IDVDPlayer
+     int iSelectedAudioStream; // mpeg stream id, or -1 if disabled
+   } m_dvd;
+ 
++  enum ETimeSource
++  {
++    ETIMESOURCE_CLOCK,
++    ETIMESOURCE_INPUT,
++    ETIMESOURCE_MENU,
++  };
++
+   struct SPlayerState
+   {
+     SPlayerState() { Clear(); }
+@@ -384,6 +391,7 @@ class COMXPlayer : public IPlayer, public CThread, public IDVDPlayer
+       time          = 0;
+       time_total    = 0;
+       time_offset   = 0;
++      time_src      = ETIMESOURCE_CLOCK;
+       dts           = DVD_NOPTS_VALUE;
+       player_state  = "";
+       chapter       = 0;
+@@ -406,6 +414,7 @@ class COMXPlayer : public IPlayer, public CThread, public IDVDPlayer
+ 
+     double time;              // current playback time
+     double time_total;        // total playback time
++    ETimeSource time_src;     // current time source
+     double dts;               // last known dts
+ 
+     std::string player_state;  // full player state
+-- 
+1.8.1.5
+
+
+From dd6af825a45b4bbcce0d9f2ded7dcbdaedf7e8e4 Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 18:52:21 +0200
+Subject: [PATCH 07/12] [OMXPlayer] [PATCH] dvdplayer: allow 200ms of automatic
+ time update instead of 1ms Based on
+ https://github.com/xbmc/xbmc/commit/a489fb5c8607153c0b136fc1e2afcd543f1b9e19
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index e64fc71..d928cba 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -2812,12 +2812,13 @@ int64_t COMXPlayer::GetTime()
+ {
+   CSingleLock lock(m_StateSection);
+   double offset = 0;
++  const double limit  = DVD_MSEC_TO_TIME(200);
+   if(m_State.timestamp > 0)
+   {
+     offset  = m_av_clock.GetAbsoluteClock() - m_State.timestamp;
+     offset *= m_playSpeed / DVD_PLAYSPEED_NORMAL;
+-    if(offset >  1000) offset =  1000;
+-    if(offset < -1000) offset = -1000;
++    if(offset >  limit) offset =  limit;
++    if(offset < -limit) offset = -limit;
+   }
+   return llrint(m_State.time + DVD_TIME_TO_MSEC(offset));
+ }
+-- 
+1.8.1.5
+
+
+From ac9012a190f7d37030d567c5450b6e96eabc964e Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 18:54:23 +0200
+Subject: [PATCH 08/12] [OMXPlayer] [PATCH] [dvdplayer] fix deadlock when
+ trying to go to disc menu Based on
+ https://github.com/xbmc/xbmc/commit/befdcfad8d2b14c9d935c3662a56853d617f884d
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index d928cba..d1cc941 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -3524,7 +3524,7 @@ bool COMXPlayer::OnAction(const CAction &action)
+         pMenus->OnMenu();
+         // send a message to everyone that we've gone to the menu
+         CGUIMessage msg(GUI_MSG_VIDEO_MENU_STARTED, 0, 0);
+-        g_windowManager.SendMessage(msg);
++        g_windowManager.SendThreadMessage(msg);
+         return true;
+       }
+       break;
+-- 
+1.8.1.5
+
+
+From a1490e5ba5f3a216aa113f36d152d845f42e196a Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 19:52:08 +0200
+Subject: [PATCH 09/12] [OMXPlayer] [PATCH] dvdplayer: another fix for
+ seeking/fw/rw in PVR Based on
+ https://github.com/xbmc/xbmc/commit/676b9e7347be62a518851c30d7e203b71849fc47
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index d1cc941..463f7db 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -2085,7 +2085,7 @@ void COMXPlayer::HandleMessages()
+ 
+         // if input streams doesn't support seektime we must convert back to clock
+         if(dynamic_cast<CDVDInputStream::ISeekTime*>(m_pInputStream) == NULL)
+-          time -= m_State.time_offset;
++          time -= DVD_TIME_TO_MSEC(m_State.time_offset);
+ 
+         CLog::Log(LOGDEBUG, "demuxer seek to: %d", time);
+         if (m_pDemuxer && m_pDemuxer->SeekTime(time, msg.GetBackward(), &start))
+-- 
+1.8.1.5
+
+
+From 272fbfff7924b78e52700196ff5c5f20100ed5dc Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sat, 6 Apr 2013 20:02:42 +0200
+Subject: [PATCH 10/12] [OMXPlayer] [PATCH] dvdplayer: fixed time_offset is
+ difference between adjusted Based on
+ https://github.com/xbmc/xbmc/commit/406ef63c542bc087f50d68f0046430e04b20f3b6
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 463f7db..b44c1ea 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -2085,7 +2085,7 @@ void COMXPlayer::HandleMessages()
+ 
+         // if input streams doesn't support seektime we must convert back to clock
+         if(dynamic_cast<CDVDInputStream::ISeekTime*>(m_pInputStream) == NULL)
+-          time -= DVD_TIME_TO_MSEC(m_State.time_offset);
++          time -= DVD_TIME_TO_MSEC(m_State.time_offset - m_offset_pts);
+ 
+         CLog::Log(LOGDEBUG, "demuxer seek to: %d", time);
+         if (m_pDemuxer && m_pDemuxer->SeekTime(time, msg.GetBackward(), &start))
+@@ -3950,7 +3950,7 @@ void COMXPlayer::UpdatePlayState(double timeout)
+   }
+ 
+   if (state.time_src == ETIMESOURCE_CLOCK)
+-    state.time_offset = 0;
++    state.time_offset = m_offset_pts;
+   else
+     state.time_offset = DVD_MSEC_TO_TIME(state.time) - state.dts;
+ 
+-- 
+1.8.1.5
+
+
+From 8bf3334a0317b320d1af66eefa8885d5033dde8b Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sun, 7 Apr 2013 10:46:02 +0200
+Subject: [PATCH 11/12] [OMXPlayer] [PATCH] fixed: We can only obtain the
+ aspect & duration this way when the Process() thread is running Based on
+ https://github.com/xbmc/xbmc/commit/9db853e551f0380aac884fcb6c9564a725fcb966
+ in master and added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index b44c1ea..c80c056 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -4097,11 +4097,22 @@ bool COMXPlayer::GetStreamDetails(CStreamDetails &details)
+ {
+   if (m_pDemuxer)
+   {
+-    bool result=CDVDFileInfo::DemuxerToStreamDetails(m_pInputStream, m_pDemuxer, details);
++    bool result = CDVDFileInfo::DemuxerToStreamDetails(m_pInputStream, m_pDemuxer, details);
+     if (result && details.GetStreamCount(CStreamDetail::VIDEO) > 0) // this is more correct (dvds in particular)
+     {
+-      GetVideoAspectRatio(((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_fAspect);
+-      ((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_iDuration = GetTotalTime() / 1000;
++      /* 
++       * We can only obtain the aspect & duration from dvdplayer when the Process() thread is running
++       * and UpdatePlayState() has been called at least once. In this case dvdplayer duration/AR will
++       * return 0 and we'll have to fallback to the (less accurate) info from the demuxer.
++       */
++      float aspect;
++      GetVideoAspectRatio(aspect);
++      if (aspect > 0.0f)
++        ((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_fAspect = aspect;
++
++      int64_t duration = GetTotalTime() / 1000;
++      if (duration > 0)
++        ((CStreamDetailVideo*)details.GetNthStream(CStreamDetail::VIDEO,0))->m_iDuration = duration;
+     }
+     return result;
+   }
+-- 
+1.8.1.5
+
+
+From f8669f89fc0a23706f6cf9b84d145c2dfafeab1b Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Sun, 7 Apr 2013 11:37:35 +0200
+Subject: [PATCH 12/12] [OMXPlayer] cosmetic changes: sync with dvdplayer
+ (changes) this was added in
+ https://github.com/xbmc/xbmc/commit/28de0da9afeb6bcbc2c8a3cad31c79225b07ec7d
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp    | 20 ++++++++++----------
+ xbmc/cores/omxplayer/OMXPlayerVideo.h |  2 ++
+ 2 files changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index c80c056..a62d0c0 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -418,8 +418,8 @@ void COMXSelectionStreams::Update(CDVDInputStream* input, CDVDDemux* demuxer)
+   m_HasVideo = false;
+   m_HasAudio = false;
+ 
+-  m_State.Clear();
+   m_dvd.Clear();
++  m_State.Clear();
+   m_EdlAutoSkipMarkers.Clear();
+ 
+   memset(&m_SpeedState, 0, sizeof(m_SpeedState));
+@@ -476,7 +476,6 @@ bool COMXPlayer::OpenFile(const CFileItem &file, const CPlayerOptions &options)
+     g_renderManager.PreInit();
+ 
+     Create();
+-
+     if(!m_ready.WaitMSec(100))
+     {
+       CGUIDialogBusy* dialog = (CGUIDialogBusy*)g_windowManager.GetWindow(WINDOW_DIALOG_BUSY);
+@@ -599,7 +598,6 @@ bool COMXPlayer::OpenInputStream()
+                        || m_pInputStream->IsStreamType(DVDSTREAM_TYPE_BLURAY) ) )
+   {
+     CLog::Log(LOGINFO, "COMXPlayer::OpenInputStream - DVD/BD not supported - Will try...");
+-    // return false;
+   }
+ 
+   // find any available external subtitles for non dvd files
+@@ -633,7 +631,7 @@ bool COMXPlayer::OpenInputStream()
+           AddSubtitleFile(filenames[i]);
+         }
+       }
+-    } // end loop over all subtitle files    
++    } // end loop over all subtitle files
+ 
+     g_settings.m_currentVideoSettings.m_SubtitleCached = true;
+   }
+@@ -641,7 +639,6 @@ bool COMXPlayer::OpenInputStream()
+   SetAVDelay(g_settings.m_currentVideoSettings.m_AudioDelay);
+   SetSubTitleDelay(g_settings.m_currentVideoSettings.m_SubtitleDelay);
+   m_av_clock.Reset();
+-  //m_av_clock.OMXReset();
+   m_dvd.Clear();
+   m_iChannelEntryTimeOut = 0;
+ 
+@@ -937,7 +934,7 @@ void COMXPlayer::Process()
+   bool bOmxWaitVideo = false;
+   bool bOmxWaitAudio = false;
+ 
+-  if(!OpenInputStream())
++  if (!OpenInputStream())
+   {
+     m_bAbortRequest = true;
+     return;
+@@ -945,7 +942,7 @@ void COMXPlayer::Process()
+ 
+   if(m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD))
+   {
+-    CLog::Log(LOGNOTICE, "OMXPlayer: playing a dvd with menu's");
++    CLog::Log(LOGNOTICE, "OMXPlayer: playing a file with menu's");
+     m_PlayerOptions.starttime = 0;
+ 
+     if(m_PlayerOptions.state.size() > 0)
+@@ -1331,7 +1328,7 @@ void COMXPlayer::ProcessPacket(CDemuxStream* pStream, DemuxPacket* pPacket)
+ 
+ void COMXPlayer::ProcessAudioData(CDemuxStream* pStream, DemuxPacket* pPacket)
+ {
+-  if (m_CurrentAudio.stream != (void*)pStream
++  if (m_CurrentAudio.stream  != (void*)pStream
+   ||  m_CurrentAudio.changes != pStream->changes)
+   {
+     /* check so that dmuxer hints or extra data hasn't changed */
+@@ -1597,6 +1594,7 @@ void COMXPlayer::HandlePlaySpeed()
+   if(m_caching != caching)
+     SetCaching(caching);
+ 
++
+   if(GetPlaySpeed() != DVD_PLAYSPEED_NORMAL && GetPlaySpeed() != DVD_PLAYSPEED_PAUSE)
+   {
+     if (IsInMenu())
+@@ -2153,7 +2151,6 @@ void COMXPlayer::HandleMessages()
+             {
+               m_dvd.iSelectedAudioStream = -1;
+               CloseAudioStream(false);
+-              // TODO : check //CloseVideoStream(false);
+               m_messenger.Put(new CDVDMsgPlayerSeek(GetTime(), true, true, true, true, true));
+             }
+           }
+@@ -2356,6 +2353,7 @@ void COMXPlayer::HandleMessages()
+ 
+     pMsg->Release();
+   }
++
+ }
+ 
+ void COMXPlayer::SetCaching(ECacheState state)
+@@ -2695,6 +2693,7 @@ float COMXPlayer::GetSubTitleDelay()
+   return -m_player_video.GetSubtitleDelay() / DVD_TIME_BASE;
+ }
+ 
++// priority: 1: libdvdnav, 2: external subtitles, 3: muxed subtitles
+ int COMXPlayer::GetSubtitleCount()
+ {
+   OMXStreamLock lock(this);
+@@ -2954,7 +2953,7 @@ bool COMXPlayer::OpenVideoStream(int iStream, int source, bool reset)
+   if(m_CurrentVideo.id    < 0
+   || m_CurrentVideo.hint != hint)
+   {
+-    if(!m_player_video.OpenStream(hint))
++    if (!m_player_video.OpenStream(hint))
+     {
+       /* mark stream as disabled, to disallaw further attempts */
+       CLog::Log(LOGWARNING, "%s - Unsupported stream %d. Stream disabled.", __FUNCTION__, iStream);
+@@ -3529,6 +3528,7 @@ bool COMXPlayer::OnAction(const CAction &action)
+       }
+       break;
+     }
++
+     if (pMenus->IsInMenu())
+     {
+       switch (action.GetID())
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.h b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+index 58ded06..a02928b 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.h
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+@@ -38,6 +38,7 @@
+ #include "DVDMessageQueue.h"
+ #include "utils/BitstreamStats.h"
+ #include "linux/DllBCM.h"
++#include "cores/VideoRenderers/RenderManager.h"
+ 
+ using namespace std;
+ 
+@@ -125,6 +126,7 @@ class OMXPlayerVideo : public CThread
+   void EnableSubtitle(bool bEnable)                 { m_bRenderSubs = bEnable; }
+   bool IsSubtitleEnabled()                          { return m_bRenderSubs; }
+   void EnableFullscreen(bool bEnable)               { m_bAllowFullscreen = bEnable; }
++  float GetAspectRatio()                            { return g_renderManager.GetAspectRatio(); }
+   void SetFlags(unsigned flags)                     { m_flags = flags; };
+   int GetFreeSpace();
+   void  SetVideoRect(const CRect &SrcRect, const CRect &DestRect);
+-- 
+1.8.1.5
+

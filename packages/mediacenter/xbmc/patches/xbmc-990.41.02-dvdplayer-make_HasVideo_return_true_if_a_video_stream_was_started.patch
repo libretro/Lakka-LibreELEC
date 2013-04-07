@@ -1,0 +1,66 @@
+From bd49c32ec38b7ecd7bb43eb995c9ff632d18d3a1 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Tue, 12 Mar 2013 21:10:37 +0100
+Subject: [PATCH] dvdplayer: make HasVideo return true if a video stream was
+ opened since playback has started - fixes missing video info on channel
+ change
+
+---
+ xbmc/cores/dvdplayer/DVDPlayer.cpp | 8 +++++---
+ xbmc/cores/dvdplayer/DVDPlayer.h   | 2 ++
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index 1758a98..be89406 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -412,6 +412,7 @@ void CSelectionStreams::Update(CDVDInputStream* input, CDVDDemux* demuxer)
+   m_offset_pts = 0.0;
+   m_playSpeed = DVD_PLAYSPEED_NORMAL;
+   m_caching = CACHESTATE_DONE;
++  m_HasVideo = false;
+ 
+   memset(&m_SpeedState, 0, sizeof(m_SpeedState));
+ 
+@@ -511,6 +512,8 @@ bool CDVDPlayer::CloseFile()
+   m_Edl.Clear();
+   m_EdlAutoSkipMarkers.Clear();
+ 
++  m_HasVideo = false;
++
+   CLog::Log(LOGNOTICE, "DVDPlayer: finished waiting");
+ #if defined(HAS_VIDEO_PLAYBACK)
+   g_renderManager.UnInit();
+@@ -2410,9 +2413,7 @@ bool CDVDPlayer::IsPaused() const
+ 
+ bool CDVDPlayer::HasVideo() const
+ {
+-  if (m_pInputStream && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD)) return true;
+-
+-  return m_SelectionStreams.Count(STREAM_VIDEO) > 0 ? true : false;
++  return m_HasVideo;
+ }
+ 
+ bool CDVDPlayer::HasAudio() const
+@@ -2924,6 +2925,7 @@ bool CDVDPlayer::OpenVideoStream(int iStream, int source, bool reset)
+   m_CurrentVideo.hint = hint;
+   m_CurrentVideo.stream = (void*)pStream;
+   m_CurrentVideo.started = false;
++  m_HasVideo = true;
+ 
+   /* we are potentially going to be waiting on this */
+   m_dvdPlayerVideo.SendMessage(new CDVDMsg(CDVDMsg::PLAYER_STARTED), 1);
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.h b/xbmc/cores/dvdplayer/DVDPlayer.h
+index 715f748..e7e49f1 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.h
++++ b/xbmc/cores/dvdplayer/DVDPlayer.h
+@@ -489,4 +489,6 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
+   } m_EdlAutoSkipMarkers;
+ 
+   CPlayerOptions m_PlayerOptions;
++
++  bool m_HasVideo;
+ };
+-- 
+1.8.1.5
+
