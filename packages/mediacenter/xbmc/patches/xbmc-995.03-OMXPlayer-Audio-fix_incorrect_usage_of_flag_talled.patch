@@ -1,0 +1,113 @@
+From 4740084d5573d79ae1096d5a2cd1fa70a1266e68 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Thu, 28 Mar 2013 15:18:05 +0100
+Subject: [PATCH] OMXPlayerAudio: fix incorrect usage of flag stalled
+
+---
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp | 20 ++++++++++++++------
+ xbmc/cores/omxplayer/OMXPlayerAudio.h   |  1 +
+ 2 files changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+index 16ea6c3..8ecb412 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+@@ -80,6 +80,7 @@ class COMXMsgAudioCodecChange : public CDVDMsg
+   m_send_eos      = false;
+   m_bad_state     = false;
+   m_hints_current.Clear();
++  m_output_stalled = false;
+ 
+   m_av_clock->SetMasterClock(false);
+ 
+@@ -154,6 +155,7 @@ void OMXPlayerAudio::OpenStream(CDVDStreamInfo &hints, COMXAudioCodecOMX *codec)
+   m_use_passthrough = (g_guiSettings.GetInt("audiooutput.mode") == AUDIO_HDMI) ? true : false ;
+   m_use_hw_decode   = g_advancedSettings.m_omxHWAudioDecode;
+   m_send_eos        = false;
++  m_output_stalled  = m_stalled;
+ }
+ 
+ bool OMXPlayerAudio::CloseStream(bool bWaitForBuffers)
+@@ -442,11 +444,11 @@ bool OMXPlayerAudio::Decode(DemuxPacket *pkt, bool bDropPacket)
+   }
+ 
+   if(bDropPacket)
+-    m_stalled = false;
++    m_stalled = m_output_stalled = false;
+ 
+   if(m_omxAudio.GetCacheTime() < 0.1 /*&& min(99,m_messageQueue.GetLevel() + MathUtils::round_int(100.0/8.0*GetCacheTime())) > 10*/)
+   {
+-    m_stalled = true;
++    m_stalled = m_output_stalled = true;
+     if(!m_av_clock->OMXAudioBuffer() && m_av_clock->HasVideo() && m_speed == DVD_PLAYSPEED_NORMAL)
+     {
+       clock_gettime(CLOCK_REALTIME, &m_starttime);
+@@ -454,6 +456,9 @@ bool OMXPlayerAudio::Decode(DemuxPacket *pkt, bool bDropPacket)
+     }
+   }
+ 
++  if (m_stalled && m_omxAudio.GetCacheTime() > 0.0)
++    m_stalled = false;
++
+   // signal to our parent that we have initialized
+   if(m_started == false)
+   {
+@@ -478,6 +483,7 @@ void OMXPlayerAudio::Process()
+ 
+     if (ret == MSGQ_TIMEOUT)
+     {
++      m_stalled = true;
+       Sleep(10);
+       continue;
+     }
+@@ -493,12 +499,13 @@ void OMXPlayerAudio::Process()
+       DemuxPacket* pPacket = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacket();
+       bool bPacketDrop     = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacketDrop();
+ 
++      m_stalled = false;
+       if(Decode(pPacket, m_speed > DVD_PLAYSPEED_NORMAL || m_speed < 0 || bPacketDrop))
+       {
+-        if (m_stalled && (m_omxAudio.GetCacheTime() > (AUDIO_BUFFER_SECONDS * 0.75f)))
++        if (m_output_stalled && (m_omxAudio.GetCacheTime() > (AUDIO_BUFFER_SECONDS * 0.75f)))
+         {
+           CLog::Log(LOGINFO, "COMXPlayerAudio - Switching to normal playback");
+-          m_stalled = false;
++          m_stalled = m_output_stalled = false;
+           if(m_av_clock->HasVideo() && m_av_clock->OMXAudioBuffer())
+             m_av_clock->OMXAudioBufferStop();
+         }
+@@ -506,9 +513,9 @@ void OMXPlayerAudio::Process()
+       // hard unlock audio out buffering
+       clock_gettime(CLOCK_REALTIME, &m_endtime);
+       //int iLevel = min(99,m_messageQueue.GetLevel() + MathUtils::round_int(100.0/8.0*GetCacheTime()));
+-      if(/*iLevel < 10 &&*/ m_stalled && (m_endtime.tv_sec - m_starttime.tv_sec) > 1)
++      if(/*iLevel < 10 &&*/ m_output_stalled && (m_endtime.tv_sec - m_starttime.tv_sec) > 1)
+       {
+-        m_stalled = false;
++        m_stalled = m_output_stalled = false;
+         if(m_av_clock->HasVideo() && m_av_clock->OMXAudioBuffer())
+           m_av_clock->OMXAudioBufferStop();
+       }
+@@ -559,6 +566,7 @@ void OMXPlayerAudio::Process()
+       m_av_clock->UnLock();
+       m_syncclock = true;
+       m_stalled   = true;
++      m_output_stalled = true;
+       m_started   = false;
+ 
+       if (m_pAudioCodec)
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.h b/xbmc/cores/omxplayer/OMXPlayerAudio.h
+index d6083e9..1442ddf 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.h
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.h
+@@ -76,6 +76,7 @@ class OMXPlayerAudio : public CThread
+ 
+   bool                      m_stalled;
+   bool                      m_started;
++  bool                      m_output_stalled;
+ 
+   BitstreamStats            m_audioStats;
+ 
+-- 
+1.8.1.5
+

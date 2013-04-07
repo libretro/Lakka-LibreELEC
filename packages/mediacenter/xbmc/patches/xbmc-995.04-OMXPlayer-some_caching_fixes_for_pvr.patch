@@ -1,0 +1,69 @@
+From eacf9a512d118e50a9777ae05460a2a344a408e6 Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Thu, 28 Mar 2013 15:18:53 +0100
+Subject: [PATCH] OMXPlayer: some caching fixes for pvr
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 28addd3..34f3acb 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -1243,13 +1243,13 @@ void COMXPlayer::Process()
+     if (!IsValidStream(m_CurrentAudio)    && m_player_audio.IsStalled())    CloseAudioStream(true);
+     if (!IsValidStream(m_CurrentVideo)    && m_player_video.IsStalled())    CloseVideoStream(true);
+     if (!IsValidStream(m_CurrentSubtitle) && m_player_subtitle.IsStalled()) CloseSubtitleStream(true);
+-    if (!IsValidStream(m_CurrentTeletext))                                  CloseTeletextStream(true);
++//    if (!IsValidStream(m_CurrentTeletext))                                  CloseTeletextStream(true);
+ 
+     // see if we can find something better to play
+     if (IsBetterStream(m_CurrentAudio,    pStream)) OpenAudioStream   (pStream->iId, pStream->source);
+     if (IsBetterStream(m_CurrentVideo,    pStream)) OpenVideoStream   (pStream->iId, pStream->source);
+     if (IsBetterStream(m_CurrentSubtitle, pStream)) OpenSubtitleStream(pStream->iId, pStream->source);
+-    if (IsBetterStream(m_CurrentTeletext, pStream)) OpenTeletextStream(pStream->iId, pStream->source);
++//    if (IsBetterStream(m_CurrentTeletext, pStream)) OpenTeletextStream(pStream->iId, pStream->source);
+ 
+     if(m_change_volume)
+     {
+@@ -2233,7 +2233,8 @@ void COMXPlayer::HandleMessages()
+         // 1. disable audio
+         // 2. skip frames and adjust their pts or the clock
+         m_playSpeed = speed;
+-        m_caching = CACHESTATE_DONE;
++        if (m_caching != CACHESTATE_PVR && m_playSpeed != DVD_PLAYSPEED_NORMAL)
++          SetCaching(CACHESTATE_DONE);
+         m_av_clock.SetSpeed(speed);
+         m_av_clock.OMXSetSpeed(speed);
+         m_player_audio.SetSpeed(speed);
+@@ -3106,7 +3107,7 @@ bool COMXPlayer::CloseAudioStream(bool bWaitForBuffers)
+ 
+   CLog::Log(LOGNOTICE, "Closing audio stream");
+ 
+-  if(bWaitForBuffers)
++  if(bWaitForBuffers && m_caching != CACHESTATE_PVR)
+     SetCaching(CACHESTATE_DONE);
+ 
+   m_player_audio.CloseStream(bWaitForBuffers);
+@@ -3122,7 +3123,7 @@ bool COMXPlayer::CloseVideoStream(bool bWaitForBuffers)
+ 
+   CLog::Log(LOGNOTICE, "Closing video stream");
+ 
+-  if(bWaitForBuffers)
++  if(bWaitForBuffers && m_caching != CACHESTATE_PVR)
+     SetCaching(CACHESTATE_DONE);
+ 
+   m_player_video.CloseStream(bWaitForBuffers);
+@@ -3151,7 +3152,7 @@ bool COMXPlayer::CloseTeletextStream(bool bWaitForBuffers)
+ 
+   CLog::Log(LOGNOTICE, "Closing teletext stream");
+ 
+-  if(bWaitForBuffers)
++  if(bWaitForBuffers && m_caching != CACHESTATE_PVR)
+     SetCaching(CACHESTATE_DONE);
+ 
+   m_player_teletext.CloseStream(bWaitForBuffers);
+-- 
+1.8.1.5
+
