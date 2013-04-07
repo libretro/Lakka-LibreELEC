@@ -1,0 +1,58 @@
+From f9498832d2dd260a47051a88ae9d3e1e1b2f957e Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Mon, 18 Mar 2013 08:20:02 +0100
+Subject: [PATCH 1/2] dvdplayer: reevaluate HasVideo/Audio after a stream
+ change
+
+---
+ xbmc/cores/dvdplayer/DVDPlayer.cpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index 3d2ca03..bac062d 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -788,6 +788,13 @@ bool CDVDPlayer::ReadPacket(DemuxPacket*& packet, CDemuxStream*& stream)
+         m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_DEMUX);
+         m_SelectionStreams.Update(m_pInputStream, m_pDemuxer);
+         OpenDefaultStreams(false);
++
++        // reevaluate HasVideo/Audio, we may have switched from/to a radio channel
++        if(m_CurrentVideo.id < 0)
++          m_HasVideo = false;
++        if(m_CurrentAudio.id < 0)
++          m_HasAudio = false;
++
+         return true;
+     }
+ 
+-- 
+1.8.1.5
+
+
+From 5ee4bcbd90707d8cedf3c560203b64e458c9ca0b Mon Sep 17 00:00:00 2001
+From: xbmc <fernetmenta@online.de>
+Date: Mon, 18 Mar 2013 12:04:04 +0100
+Subject: [PATCH 2/2] pvr: remove check for different types of channels on
+ SwitchChannel
+
+---
+ xbmc/pvr/addons/PVRClients.cpp | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/xbmc/pvr/addons/PVRClients.cpp b/xbmc/pvr/addons/PVRClients.cpp
+index dc6324e..74c6873 100644
+--- a/xbmc/pvr/addons/PVRClients.cpp
++++ b/xbmc/pvr/addons/PVRClients.cpp
+@@ -308,8 +308,6 @@ bool CPVRClients::SwitchChannel(const CPVRChannel &channel)
+       !GetPlayingChannel(currentChannel) ||
+       // different backend
+       currentChannel->ClientID() != channel.ClientID() ||
+-      // different type
+-      currentChannel->IsRadio() != channel.IsRadio() ||
+       // stream URL should always be opened as a new file
+       !channel.StreamURL().IsEmpty() || !currentChannel->StreamURL().IsEmpty())
+   {
+-- 
+1.8.1.5
+
