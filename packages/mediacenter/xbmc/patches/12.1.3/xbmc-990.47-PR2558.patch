@@ -1,0 +1,425 @@
+From 24d3cc22fee2bb90b62278fca18a44624e58279d Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@ecce.se>
+Date: Sat, 6 Apr 2013 12:04:50 +0200
+Subject: [PATCH 1/5] dvdplayer: complete the update of ffmpeg interrupt
+ interface
+
+The old interface could not handle being called from another thread
+---
+ .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 42 +++++++---------------
+ xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.h  |  2 +-
+ 2 files changed, 14 insertions(+), 30 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index 21cab73..2fa3d93 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -155,11 +155,9 @@ static void ff_flush_avutil_log_buffers(void)
+       ++it;
+ }
+ 
+-static XbmcThreads::ThreadLocal<CDVDDemuxFFmpeg> g_demuxer;
+-
+-static int interrupt_cb(void* unused)
++static int interrupt_cb(void* ctx)
+ {
+-  CDVDDemuxFFmpeg* demuxer = g_demuxer.get();
++  CDVDDemuxFFmpeg* demuxer = static_cast<CDVDDemuxFFmpeg*>(ctx);
+   if(demuxer && demuxer->Aborted())
+     return 1;
+   return 0;
+@@ -176,10 +174,10 @@ static int dvd_file_open(URLContext *h, const char *filename, int flags)
+ 
+ static int dvd_file_read(void *h, uint8_t* buf, int size)
+ {
+-  if(interrupt_cb(NULL))
+-    return -1;
++  if(interrupt_cb(h))
++    return AVERROR_EXIT;
+ 
+-  CDVDInputStream* pInputStream = (CDVDInputStream*)h;
++  CDVDInputStream* pInputStream = static_cast<CDVDDemuxFFmpeg*>(h)->m_pInput;
+   return pInputStream->Read(buf, size);
+ }
+ /*
+@@ -190,10 +188,10 @@ static int dvd_file_write(URLContext *h, BYTE* buf, int size)
+ */
+ static offset_t dvd_file_seek(void *h, offset_t pos, int whence)
+ {
+-  if(interrupt_cb(NULL))
+-    return -1;
++  if(interrupt_cb(h))
++    return AVERROR_EXIT;
+ 
+-  CDVDInputStream* pInputStream = (CDVDInputStream*)h;
++  CDVDInputStream* pInputStream = static_cast<CDVDDemuxFFmpeg*>(h)->m_pInput;
+   if(whence == AVSEEK_SIZE)
+     return pInputStream->GetLength();
+   else
+@@ -236,9 +234,8 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
+   std::string strFile;
+   m_iCurrentPts = DVD_NOPTS_VALUE;
+   m_speed = DVD_PLAYSPEED_NORMAL;
+-  g_demuxer.set(this);
+   m_program = UINT_MAX;
+-  const AVIOInterruptCB int_cb = { interrupt_cb, NULL };
++  const AVIOInterruptCB int_cb = { interrupt_cb, this };
+ 
+   if (!pInput) return false;
+ 
+@@ -270,6 +267,10 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
+       iformat = m_dllAvFormat.av_find_input_format("mjpeg");
+   }
+ 
++  // open the demuxer
++  m_pFormatContext  = m_dllAvFormat.avformat_alloc_context();
++  m_pFormatContext->interrupt_callback = int_cb;
++
+   // try to abort after 30 seconds
+   m_timeout.Set(30000);
+ 
+@@ -411,8 +412,6 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
+     }
+ 
+ 
+-    // open the demuxer
+-    m_pFormatContext     = m_dllAvFormat.avformat_alloc_context();
+     m_pFormatContext->pb = m_ioContext;
+ 
+     if (m_dllAvFormat.avformat_open_input(&m_pFormatContext, strFile.c_str(), iformat, NULL) < 0)
+@@ -422,9 +421,6 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
+       return false;
+     }
+   }
+-
+-  // set the interrupt callback, appeared in libavformat 53.15.0
+-  m_pFormatContext->interrupt_callback = int_cb;
+   
+   // Avoid detecting framerate if advancedsettings.xml says so
+   m_pFormatContext->fps_probe_size = (g_advancedSettings.m_videoFpsDetect == 0) ? 0 : -1;
+@@ -503,8 +499,6 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
+ 
+ void CDVDDemuxFFmpeg::Dispose()
+ {
+-  g_demuxer.set(this);
+-
+   if (m_pFormatContext)
+   {
+     if (m_ioContext && m_pFormatContext->pb && m_pFormatContext->pb != m_ioContext)
+@@ -551,8 +545,6 @@ void CDVDDemuxFFmpeg::Reset()
+ 
+ void CDVDDemuxFFmpeg::Flush()
+ {
+-  g_demuxer.set(this);
+-
+   // naughty usage of an internal ffmpeg function
+   if (m_pFormatContext)
+     m_dllAvFormat.av_read_frame_flush(m_pFormatContext);
+@@ -567,8 +559,6 @@ void CDVDDemuxFFmpeg::Abort()
+ 
+ void CDVDDemuxFFmpeg::SetSpeed(int iSpeed)
+ {
+-  g_demuxer.set(this);
+-
+   if(!m_pFormatContext)
+     return;
+ 
+@@ -629,8 +619,6 @@ double CDVDDemuxFFmpeg::ConvertTimestamp(int64_t pts, int den, int num)
+ 
+ DemuxPacket* CDVDDemuxFFmpeg::Read()
+ {
+-  g_demuxer.set(this);
+-
+   AVPacket pkt;
+   DemuxPacket* pPacket = NULL;
+   // on some cases where the received packet is invalid we will need to return an empty packet (0 length) otherwise the main loop (in CDVDPlayer)
+@@ -812,8 +800,6 @@ DemuxPacket* CDVDDemuxFFmpeg::Read()
+ 
+ bool CDVDDemuxFFmpeg::SeekTime(int time, bool backwords, double *startpts)
+ {
+-  g_demuxer.set(this);
+-
+   if(time < 0)
+     time = 0;
+ 
+@@ -872,8 +858,6 @@ bool CDVDDemuxFFmpeg::SeekTime(int time, bool backwords, double *startpts)
+ 
+ bool CDVDDemuxFFmpeg::SeekByte(int64_t pos)
+ {
+-  g_demuxer.set(this);
+-
+   CSingleLock lock(m_critSection);
+   int ret = m_dllAvFormat.av_seek_frame(m_pFormatContext, -1, pos, AVSEEK_FLAG_BYTE);
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.h b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.h
+index 2b5f2e8..acef490 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.h
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.h
+@@ -111,6 +111,7 @@ class CDVDDemuxFFmpeg : public CDVDDemux
+   bool Aborted();
+ 
+   AVFormatContext* m_pFormatContext;
++  CDVDInputStream* m_pInput;
+ 
+ protected:
+   friend class CDemuxStreamAudioFFmpeg;
+@@ -140,6 +141,5 @@ class CDVDDemuxFFmpeg : public CDVDDemux
+   unsigned m_program;
+   XbmcThreads::EndTime  m_timeout;
+ 
+-  CDVDInputStream* m_pInput;
+ };
+ 
+-- 
+1.8.1.5
+
+
+From eff39646c73e74124621120bdcdccec4d62db61f Mon Sep 17 00:00:00 2001
+From: Michael Niedermayer <michaelni@gmx.at>
+Date: Thu, 23 Feb 2012 23:22:16 +0100
+Subject: [PATCH 2/5] udp: Fix sign of error codes.
+
+Signed-off-by: Michael Niedermayer <michaelni@gmx.at>
+---
+ lib/ffmpeg/libavformat/udp.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/lib/ffmpeg/libavformat/udp.c b/lib/ffmpeg/libavformat/udp.c
+index 9694ad2..309b18c 100644
+--- a/lib/ffmpeg/libavformat/udp.c
++++ b/lib/ffmpeg/libavformat/udp.c
+@@ -335,7 +335,7 @@ static void *circular_buffer_task( void *_URLContext)
+         int len;
+ 
+         if (ff_check_interrupt(&h->interrupt_callback)) {
+-            s->circular_buffer_error = EINTR;
++            s->circular_buffer_error = AVERROR(EINTR);
+             goto end;
+         }
+ 
+@@ -347,7 +347,7 @@ static void *circular_buffer_task( void *_URLContext)
+         if (ret < 0) {
+             if (ff_neterrno() == AVERROR(EINTR))
+                 continue;
+-            s->circular_buffer_error = EIO;
++            s->circular_buffer_error = AVERROR(EIO);
+             goto end;
+         }
+ 
+@@ -361,14 +361,14 @@ static void *circular_buffer_task( void *_URLContext)
+         /* No Space left, error, what do we do now */
+         if(left < UDP_MAX_PKT_SIZE + 4) {
+             av_log(h, AV_LOG_ERROR, "circular_buffer: OVERRUN\n");
+-            s->circular_buffer_error = EIO;
++            s->circular_buffer_error = AVERROR(EIO);
+             goto end;
+         }
+         left = FFMIN(left, s->fifo->end - s->fifo->wptr);
+         len = recv(s->udp_fd, s->tmp+4, sizeof(s->tmp)-4, 0);
+         if (len < 0) {
+             if (ff_neterrno() != AVERROR(EAGAIN) && ff_neterrno() != AVERROR(EINTR)) {
+-                s->circular_buffer_error = EIO;
++                s->circular_buffer_error = AVERROR(EIO);
+                 goto end;
+             }
+             continue;
+-- 
+1.8.1.5
+
+
+From 13abee9310f7dd5982e9a0c5fde9b7f2a0ad9ce0 Mon Sep 17 00:00:00 2001
+From: Nicolas George <nicolas.george@normalesup.org>
+Date: Thu, 15 Mar 2012 12:19:37 +0100
+Subject: [PATCH 3/5] udp: fix non-blocking and interrupt handling.
+
+In non-blocking mode, lowest-level read protocols are
+supposed block only for a short amount of time to let
+retry_transfer_wrapper() check for interrupts.
+
+Also, checking the interrupt_callback in the receiving thread is
+wrong, as interrupt_callback is not guaranteed to be thread-safe
+and the job is already done by retry_transfer_wrapper(). The error
+code was also incorrect.
+
+Bug reported by Andrey Utkin.
+---
+ lib/ffmpeg/libavformat/udp.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/lib/ffmpeg/libavformat/udp.c b/lib/ffmpeg/libavformat/udp.c
+index 309b18c..ed1559d 100644
+--- a/lib/ffmpeg/libavformat/udp.c
++++ b/lib/ffmpeg/libavformat/udp.c
+@@ -334,11 +334,6 @@ static void *circular_buffer_task( void *_URLContext)
+         int ret;
+         int len;
+ 
+-        if (ff_check_interrupt(&h->interrupt_callback)) {
+-            s->circular_buffer_error = AVERROR(EINTR);
+-            goto end;
+-        }
+-
+         FD_ZERO(&rfds);
+         FD_SET(s->udp_fd, &rfds);
+         tv.tv_sec = 1;
+@@ -568,7 +563,7 @@ static int udp_read(URLContext *h, uint8_t *buf, int size)
+ {
+     UDPContext *s = h->priv_data;
+     int ret;
+-    int avail;
++    int avail, nonblock = h->flags & AVIO_FLAG_NONBLOCK;
+ 
+ #if HAVE_PTHREADS
+     if (s->fifo) {
+@@ -592,12 +587,19 @@ static int udp_read(URLContext *h, uint8_t *buf, int size)
+             } else if(s->circular_buffer_error){
+                 pthread_mutex_unlock(&s->mutex);
+                 return s->circular_buffer_error;
+-            } else if(h->flags & AVIO_FLAG_NONBLOCK) {
++            } else if(nonblock) {
+                 pthread_mutex_unlock(&s->mutex);
+                 return AVERROR(EAGAIN);
+             }
+             else {
+-                pthread_cond_wait(&s->cond, &s->mutex);
++                /* FIXME: using the monotonic clock would be better,
++                   but it does not exist on all supported platforms. */
++                int64_t t = av_gettime() + 100000;
++                struct timespec tv = { .tv_sec  =  t / 1000000,
++                                       .tv_nsec = (t % 1000000) * 1000 };
++                if (pthread_cond_timedwait(&s->cond, &s->mutex, &tv) < 0)
++                    return AVERROR(errno == ETIMEDOUT ? EAGAIN : errno);
++                nonblock = 1;
+             }
+         } while( 1);
+     }
+-- 
+1.8.1.5
+
+
+From 5e4b832f15431cfc15ae26110b3852b7cc6347d0 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@ecce.se>
+Date: Sun, 7 Apr 2013 11:46:35 +0200
+Subject: [PATCH 4/5] dvdplayer: make sure we can also abort the open of a
+ ffmpeg input stream
+
+---
+ xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp           | 5 +++++
+ xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp | 7 ++++++-
+ xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h   | 4 ++++
+ xbmc/cores/dvdplayer/DVDPlayer.cpp                            | 3 +++
+ 4 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index 2fa3d93..3a1839c 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -35,6 +35,7 @@
+ #include "DVDInputStreams/DVDInputStreamBluray.h"
+ #endif
+ #include "DVDInputStreams/DVDInputStreamPVRManager.h"
++#include "DVDInputStreams/DVDInputStreamFFmpeg.h"
+ #include "DVDDemuxUtils.h"
+ #include "DVDClock.h" // for DVD_TIME_BASE
+ #include "commons/Exception.h"
+@@ -225,6 +226,10 @@ bool CDVDDemuxFFmpeg::Aborted()
+   if(m_timeout.IsTimePast())
+     return true;
+ 
++  CDVDInputStreamFFmpeg * input = dynamic_cast<CDVDInputStreamFFmpeg*>(m_pInput);
++  if(input && input->Aborted())
++    return true;
++
+   return false;
+ }
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp
+index 5949bec..72ea5f8 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp
+@@ -24,6 +24,7 @@
+ 
+ CDVDInputStreamFFmpeg::CDVDInputStreamFFmpeg()
+   : CDVDInputStream(DVDSTREAM_TYPE_FFMPEG)
++  , m_aborted(false)
+ {
+ 
+ }
+@@ -35,7 +36,10 @@
+ 
+ bool CDVDInputStreamFFmpeg::IsEOF()
+ {
+-  return false;
++  if(m_aborted)
++    return true;
++  else
++    return false;
+ }
+ 
+ bool CDVDInputStreamFFmpeg::Open(const char* strFile, const std::string& content)
+@@ -43,6 +47,7 @@ bool CDVDInputStreamFFmpeg::Open(const char* strFile, const std::string& content
+   if (!CDVDInputStream::Open(strFile, content))
+     return false;
+ 
++  m_aborted   = false;
+   return true;
+ }
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h
+index 8e363b8..6149233 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h
+@@ -35,5 +35,9 @@ class CDVDInputStreamFFmpeg : public CDVDInputStream
+   virtual bool IsEOF();
+   virtual int64_t GetLength();
+ 
++  virtual void    Abort()    { m_aborted = true;  }
++  bool            Aborted()  { return m_aborted;  }
++
+ protected:
++  bool m_aborted;
+ };
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index 145301c..a844da1 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -511,6 +511,9 @@ bool CDVDPlayer::CloseFile()
+   if(m_pSubtitleDemuxer)
+     m_pSubtitleDemuxer->Abort();
+ 
++  if(m_pInputStream)
++    m_pInputStream->Abort();
++
+   CLog::Log(LOGNOTICE, "DVDPlayer: waiting for threads to exit");
+ 
+   // wait for the main thread to finish up
+-- 
+1.8.1.5
+
+
+From 1ca77bb84e320639f3cf74591259319a2a5933d6 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@ecce.se>
+Date: Sun, 7 Apr 2013 17:49:40 +0200
+Subject: [PATCH 5/5] dvdplayer: fixed crash introduced with change in handling
+ of abort
+
+---
+ xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index 3a1839c..35d0fc5 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -306,7 +306,7 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
+   else
+   {
+     unsigned char* buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
+-    m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, m_pInput, dvd_file_read, NULL, dvd_file_seek);
++    m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, this, dvd_file_read, NULL, dvd_file_seek);
+     m_ioContext->max_packet_size = m_pInput->GetBlockSize();
+     if(m_ioContext->max_packet_size)
+       m_ioContext->max_packet_size *= FFMPEG_FILE_BUFFER_SIZE / m_ioContext->max_packet_size;
+-- 
+1.8.1.5
+
