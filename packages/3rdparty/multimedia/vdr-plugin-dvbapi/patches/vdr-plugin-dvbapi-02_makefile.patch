@@ -1,0 +1,77 @@
+diff --git a/Makefile b/Makefile
+index ebe9d76..ef2d2e5 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,18 +15,11 @@ VERSION = $(shell grep 'static const char \*VERSION *=' DVBAPI.h | awk '{ print
+ 
+ ### The directory environment:
+ 
+-# Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG  = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR  = $(call PKGCFG,libdir)
+-LOCDIR  = $(call PKGCFG,locdir)
+-PLGCFG  = $(call PKGCFG,plgcfg)
+-#
+ TMPDIR ?= /tmp
+ 
+ ### The compiler options:
+ 
+-export CFLAGS   = $(call PKGCFG,cflags)
+-export CXXFLAGS = $(call PKGCFG,cxxflags)
++include $(VDRDIR)/Make.global
+ 
+ ### Allow user defined options to overwrite defaults:
+ 
+@@ -34,33 +27,7 @@ export CXXFLAGS = $(call PKGCFG,cxxflags)
+ 
+ ### The version number of VDR's plugin API:
+ 
+-APIVERSION = $(call PKGCFG,apiversion)
+-ifeq ($(strip $(APIVERSION)),)
+-APIVERSION = $(shell grep 'define APIVERSION ' $(VDRDIR)/config.h | awk '{ print $$3 }' | sed -e 's/"//g')
+-NOCONFIG := 1
+-endif
+-
+-# backward compatibility with VDR version < 1.7.34
+-API1733 := $(shell if [ "$(APIVERSION)" \< "1.7.34" ]; then echo true; fi; )
+-
+-ifdef API1733
+-
+-VDRSRC = $(VDRDIR)
+-ifeq ($(strip $(VDRSRC)),)
+-VDRSRC := ../../..
+-endif
+-LIBDIR = $(VDRSRC)/PLUGINS/lib
+-
+-ifndef NOCONFIG
+-CXXFLAGS = $(call PKGCFG,cflags)
+-CXXFLAGS += -fPIC
+-else
+--include $(VDRSRC)/Make.global
+--include $(VDRSRC)/Make.config
+-endif
+-
+-export CXXFLAGS
+-endif
++APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
+ 
+ ### The name of the distribution archive:
+ 
+@@ -73,9 +40,7 @@ SOFILE = libvdr-$(PLUGIN).so
+ 
+ ### Includes and Defines (add further entries here):
+ 
+-ifdef API1733
+ INCLUDES += -I$(VDRSRC)/include
+-endif
+ 
+ DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
+ 
+@@ -145,6 +110,7 @@ $(DEPFILE): Makefile
+ 
+ $(SOFILE): $(OBJS) $(FFDECSA)
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(DECSALIB) -o $@
++	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+ 
+ libdvbapi-dvbsddevice.so: device-sd.o
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $< -o $@

@@ -1,0 +1,53 @@
+diff --git a/Makefile b/Makefile
+index 90f3261..d80e15d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,22 +15,15 @@ VERSION = $(shell grep 'const char \*VERSION *=' common.c | awk '{ print $$5 }'
+ 
+ ### The directory environment:
+ 
+-# Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(call PKGCFG,libdir)
+-LOCDIR = $(call PKGCFG,locdir)
+-PLGCFG = $(call PKGCFG,plgcfg)
+-#
+ TMPDIR ?= /tmp
+ 
+ ### The compiler options:
+ 
+-export CFLAGS   = $(call PKGCFG,cflags)
+-export CXXFLAGS = $(call PKGCFG,cxxflags)
++include $(VDRDIR)/Make.global
+ 
+ ### The version number of VDR's plugin API:
+ 
+-APIVERSION = $(call PKGCFG,apiversion)
++APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
+ 
+ ### Allow user defined options to overwrite defaults:
+ 
+diff --git a/client/Makefile b/client/Makefile
+index ea9dc45..6fac485 100644
+--- a/client/Makefile
++++ b/client/Makefile
+@@ -72,6 +72,7 @@ install-i18n: $(I18Nmsgs)
+ 
+ $(SOFILE): $(CLIENTOBJS) $(COMMONOBJS) ../tools/sockettools.a
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $^ -o $@
++	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff --git a/server/Makefile b/server/Makefile
+index 37cd4bb..8d2f49f 100644
+--- a/server/Makefile
++++ b/server/Makefile
+@@ -78,6 +78,7 @@ install-i18n: $(I18Nmsgs)
+ $(SOFILE): $(SERVEROBJS) $(COMMONOBJS) \
+ 	../tools/sockettools.a ../remux/remux.a ../libdvbmpeg/libdvbmpegtools.a
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $^ -o $@
++	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
