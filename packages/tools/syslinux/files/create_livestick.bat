@@ -93,7 +93,6 @@ IF ERRORLEVEL 1 goto InvalidDrive
 >NUL 3rdparty\syslinux\win32\syslinux.exe -f -m -a %DRIVE%
 >NUL copy target\* %DRIVE%
 >NUL copy CHANGELOG %DRIVE%
->NUL copy INSTALL %DRIVE%
 >NUL copy README.md %DRIVE%
 >NUL copy RELEASE %DRIVE%
 >NUL copy openelec.ico %DRIVE%

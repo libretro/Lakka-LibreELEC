@@ -104,7 +104,6 @@ Section "oeusbstart"
   nsExec::Exec `"$0" /c copy Autorun.inf $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy openelec.ico $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy CHANGELOG $DRIVE_LETTER`
-  nsExec::Exec `"$0" /c copy INSTALL $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy README.md $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy RELEASE $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy 3rdparty\syslinux\vesamenu.c32 $DRIVE_LETTER`
