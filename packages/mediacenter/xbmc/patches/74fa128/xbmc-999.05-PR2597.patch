@@ -1,0 +1,523 @@
+From e79c8dbe78ad970f74c7af8f19ab8037cf43ae07 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?David=20H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Mon, 1 Apr 2013 22:25:52 +0200
+Subject: [PATCH 1/7] ffmpeg compatibility fix for matroska embedded subtitles
+
+Commit 2626cc4580bfd560c6983338d77b2c11c16af94f in the ffmpeg repo
+changed the codec id of matroska embedded S_TEXT/UTF-8 subtitles
+from CODEC_ID_TEXT to AV_CODEC_ID_SUBRIP. That commit is part of
+ffmpeg 1.0 and later.
+
+Add the new codec id to provide compatibility for the updated
+ffmpeg library and external ffmpeg libraries.
+---
+ lib/DllAvCodec.h                                               | 6 ++++++
+ xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp             | 6 ++++++
+ xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.cpp | 7 +++++++
+ xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.h   | 1 +
+ 4 files changed, 20 insertions(+)
+
+diff --git a/lib/DllAvCodec.h b/lib/DllAvCodec.h
+index a285204..2b4ee22 100644
+--- a/lib/DllAvCodec.h
++++ b/lib/DllAvCodec.h
+@@ -63,6 +63,12 @@
+ #endif
+ }
+ 
++#if LIBAVCODEC_VERSION_MICRO >= 100
++  #define LIBAVCODEC_FROM_FFMPEG
++#else
++  #define LIBAVCODEC_FROM_LIBAV
++#endif
++
+ #include "threads/SingleLock.h"
+ 
+ class DllAvCodecInterface
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
+index eedde21..4ea6617 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
+@@ -348,6 +348,12 @@ CDVDOverlayCodec* CDVDFactoryCodec::CreateOverlayCodec( CDVDStreamInfo &hint )
+   switch (hint.codec)
+   {
+     case CODEC_ID_TEXT:
++#if defined(LIBAVCODEC_FROM_FFMPEG) && LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54,53,100)
++    // API changed in:
++    // ffmpeg: commit 2626cc4580bfd560c6983338d77b2c11c16af94f (11 Aug 2012)
++    //         release 1.0 (28 Sept 2012)
++    case AV_CODEC_ID_SUBRIP:
++#endif
+       pCodec = OpenCodec(new CDVDOverlayCodecText(), hint, options);
+       if( pCodec ) return pCodec;
+       break;
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.cpp
+index 108284b..8f839f0 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.cpp
+@@ -44,6 +44,13 @@ bool CDVDOverlayCodecText::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+   m_bIsSSA = (hints.codec == CODEC_ID_SSA);
+   if(hints.codec == CODEC_ID_TEXT || hints.codec == CODEC_ID_SSA)
+     return true;
++#if defined(LIBAVCODEC_FROM_FFMPEG) && LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54,53,100)
++  // API changed in:
++  // ffmpeg: commit 2626cc4580bfd560c6983338d77b2c11c16af94f (11 Aug 2012)
++  //         release 1.0 (28 Sept 2012)
++  if(hints.codec == AV_CODEC_ID_SUBRIP)
++    return true;
++#endif
+   return false;
+ }
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.h b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.h
+index dbf8f3a..815bfd3 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecText.h
+@@ -21,6 +21,7 @@
+  */
+ 
+ #include "DVDOverlayCodec.h"
++#include "DllAvCodec.h"
+ 
+ class CDVDOverlayText;
+ 
+-- 
+1.8.1.5
+
+
+From dca3a12e1aafca8e154db8656f88448ba1151eac Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?David=20H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Sun, 7 Apr 2013 14:43:21 +0200
+Subject: [PATCH 2/7] Remove obsolete ffmpeg version check (52,0,0)
+
+This test (which presumably checks for LIBAVCODEC_VERSION_MAJOR >= 52)
+seems both obsolete and incorrect. The major version is shifted 16 bits,
+not 12. Major version 52 was introduced in commit
+dd1c8f3e6e5380f993c86750bb09fd42e130143f (from Sept 8, 2008) so this check
+is anyhow obsolete.
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp
+index 7d153c0..4dbf8b0 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp
+@@ -237,13 +237,9 @@ CDVDOverlay* CDVDOverlayCodecFFmpeg::GetOverlay()
+     if(m_SubtitleIndex >= (int)m_Subtitle.num_rects)
+       return NULL;
+ 
+-#if LIBAVCODEC_VERSION_INT >= (52<<10)
+     if(m_Subtitle.rects[m_SubtitleIndex] == NULL)
+       return NULL;
+     AVSubtitleRect& rect = *m_Subtitle.rects[m_SubtitleIndex];
+-#else
+-    AVSubtitleRect& rect = m_Subtitle.rects[m_SubtitleIndex];
+-#endif
+ 
+     CDVDOverlayImage* overlay = new CDVDOverlayImage();
+ 
+-- 
+1.8.1.5
+
+
+From 4b299da0d5e63ee16d28bd6196473c5dff5137c4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?David=20H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Sun, 7 Apr 2013 15:04:32 +0200
+Subject: [PATCH 3/7] Remove obsolete libavformat version check (52,14,0)
+
+This version of libavformat is from May 22, 2008
+(commit 79d7836a5e213d547629555e3f1157e7197aef68).
+
+The first release to include it was ffmpeg 0.5 (3 March 2009).
+---
+ .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 64 +++++++++-------------
+ 1 file changed, 27 insertions(+), 37 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index a27cf1a..a38196a 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -1180,11 +1180,8 @@ int CDVDDemuxFFmpeg::GetChapterCount()
+ 
+   if(m_pFormatContext == NULL)
+     return 0;
+-  #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
+-    return m_pFormatContext->nb_chapters;
+-  #else
+-    return 0;
+-  #endif
++
++  return m_pFormatContext->nb_chapters;
+ }
+ 
+ int CDVDDemuxFFmpeg::GetChapter()
+@@ -1197,15 +1194,14 @@ int CDVDDemuxFFmpeg::GetChapter()
+   || m_iCurrentPts == DVD_NOPTS_VALUE)
+     return 0;
+ 
+-  #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
+-    for(unsigned i = 0; i < m_pFormatContext->nb_chapters; i++)
+-    {
+-      AVChapter *chapter = m_pFormatContext->chapters[i];
+-      if(m_iCurrentPts >= ConvertTimestamp(chapter->start, chapter->time_base.den, chapter->time_base.num)
+-      && m_iCurrentPts <  ConvertTimestamp(chapter->end,   chapter->time_base.den, chapter->time_base.num))
+-        return i + 1;
+-    }
+-  #endif
++  for(unsigned i = 0; i < m_pFormatContext->nb_chapters; i++)
++  {
++    AVChapter *chapter = m_pFormatContext->chapters[i];
++    if(m_iCurrentPts >= ConvertTimestamp(chapter->start, chapter->time_base.den, chapter->time_base.num)
++    && m_iCurrentPts <  ConvertTimestamp(chapter->end,   chapter->time_base.den, chapter->time_base.num))
++      return i + 1;
++  }
++
+   return 0;
+ }
+ 
+@@ -1216,23 +1212,21 @@ void CDVDDemuxFFmpeg::GetChapterName(std::string& strChapterName)
+     ich->GetChapterName(strChapterName);
+   else
+   {
+-    #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
+-      int chapterIdx = GetChapter();
+-      if(chapterIdx <= 0)
+-        return;
++    int chapterIdx = GetChapter();
++    if(chapterIdx <= 0)
++      return;
+ #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,83,0)
+-      // API added on: 2010-10-15
+-      // (Note that while the function was available earlier, the generic
+-      // metadata tags were not populated by default)
+-      AVDictionaryEntry *titleTag = m_dllAvUtil.av_dict_get(m_pFormatContext->chapters[chapterIdx-1]->metadata,
+-                                                              "title", NULL, 0);
+-      if (titleTag)
+-        strChapterName = titleTag->value;
++    // API added on: 2010-10-15
++    // (Note that while the function was available earlier, the generic
++    // metadata tags were not populated by default)
++    AVDictionaryEntry *titleTag = m_dllAvUtil.av_dict_get(m_pFormatContext->chapters[chapterIdx-1]->metadata,
++                                                          "title", NULL, 0);
++    if (titleTag)
++      strChapterName = titleTag->value;
+ #else
+-      if (m_pFormatContext->chapters[chapterIdx-1]->title)
+-        strChapterName = m_pFormatContext->chapters[chapterIdx-1]->title;
++    if (m_pFormatContext->chapters[chapterIdx-1]->title)
++      strChapterName = m_pFormatContext->chapters[chapterIdx-1]->title;
+ #endif
+-    #endif
+   }
+ }
+ 
+@@ -1258,16 +1252,12 @@ bool CDVDDemuxFFmpeg::SeekChapter(int chapter, double* startpts)
+   if(m_pFormatContext == NULL)
+     return false;
+ 
+-    #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
+-        if(chapter < 1 || chapter > (int)m_pFormatContext->nb_chapters)
+-            return false;
++  if(chapter < 1 || chapter > (int)m_pFormatContext->nb_chapters)
++    return false;
+ 
+-        AVChapter *ch = m_pFormatContext->chapters[chapter-1];
+-        double dts = ConvertTimestamp(ch->start, ch->time_base.den, ch->time_base.num);
+-        return SeekTime(DVD_TIME_TO_MSEC(dts), true, startpts);
+-    #else
+-        return false;
+-    #endif
++  AVChapter *ch = m_pFormatContext->chapters[chapter-1];
++  double dts = ConvertTimestamp(ch->start, ch->time_base.den, ch->time_base.num);
++  return SeekTime(DVD_TIME_TO_MSEC(dts), true, startpts);
+ }
+ 
+ void CDVDDemuxFFmpeg::GetStreamCodecName(int iStreamId, CStdString &strName)
+-- 
+1.8.1.5
+
+
+From db540de1e41891c4d1b7b5855d318de75212a6d0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?David=20H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Sun, 7 Apr 2013 15:04:32 +0200
+Subject: [PATCH 4/7] Remove obsolete libavcodec version check (52,38,1)
+
+This version of libavcodec is from Nov 10, 2008
+(commit 3155716677eac826b998b487db66927796f6a833).
+
+The first release to include it was ffmpeg 0.6 (15 June 2010).
+---
+ xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 2 --
+ xbmc/cores/dvdplayer/DVDPlayerTeletext.cpp          | 4 ----
+ 2 files changed, 6 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index a38196a..dbeca31 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -1033,7 +1033,6 @@ void CDVDDemuxFFmpeg::AddStream(int iId)
+       }
+     case AVMEDIA_TYPE_SUBTITLE:
+       {
+-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(52,38,1)
+         if (pStream->codec->codec_id == CODEC_ID_DVB_TELETEXT && g_guiSettings.GetBool("videoplayer.teletextenabled"))
+         {
+           CDemuxStreamTeletext* st = new CDemuxStreamTeletext();
+@@ -1042,7 +1041,6 @@ void CDVDDemuxFFmpeg::AddStream(int iId)
+           break;
+         }
+         else
+-#endif
+         {
+           CDemuxStreamSubtitleFFmpeg* st = new CDemuxStreamSubtitleFFmpeg(this, pStream);
+           m_streams[iId] = st;
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerTeletext.cpp b/xbmc/cores/dvdplayer/DVDPlayerTeletext.cpp
+index 2fbe8b4..4d373f0 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerTeletext.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerTeletext.cpp
+@@ -113,10 +113,8 @@ signed int CDVDTeletextTools::deh24(unsigned char *p)
+ 
+ bool CDVDTeletextData::CheckStream(CDVDStreamInfo &hints)
+ {
+-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(52,38,1)
+   if (hints.codec == CODEC_ID_DVB_TELETEXT)
+     return true;
+-#endif
+ 
+   return false;
+ }
+@@ -125,14 +123,12 @@ bool CDVDTeletextData::OpenStream(CDVDStreamInfo &hints)
+ {
+   m_messageQueue.Init();
+ 
+-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(52,38,1)
+   if (hints.codec == CODEC_ID_DVB_TELETEXT)
+   {
+     CLog::Log(LOGNOTICE, "Creating teletext data thread");
+     Create();
+     return true;
+   }
+-#endif
+ 
+   return false;
+ }
+-- 
+1.8.1.5
+
+
+From cf001e0be606f0695d3dc37a56b4ace6b0bae6c0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?David=20H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Sun, 7 Apr 2013 15:04:32 +0200
+Subject: [PATCH 5/7] Remove obsolete libavformat version check (52,83,0)
+
+This version of libavformat is from Oct 15, 2010
+(commit 03700d399bcc749ad7916f2d39a99527f37c8b6e).
+
+The first release to include it was ffmpeg 0.7.1 (24 June 2011).
+---
+ xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 16 +---------------
+ 1 file changed, 1 insertion(+), 15 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index dbeca31..0f2deaf 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -1108,16 +1108,9 @@ void CDVDDemuxFFmpeg::AddStream(int iId)
+     m_streams[iId]->pPrivate = pStream;
+     m_streams[iId]->flags = (CDemuxStream::EFlags)pStream->disposition;
+ 
+-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,83,0)
+-    // API added on: 2010-10-15
+-    // (Note that while the function was available earlier, the generic
+-    // metadata tags were not populated by default)
+     AVDictionaryEntry *langTag = m_dllAvUtil.av_dict_get(pStream->metadata, "language", NULL, 0);
+     if (langTag)
+       strncpy(m_streams[iId]->language, langTag->value, 3);
+-#else
+-    strcpy( m_streams[iId]->language, pStream->language );
+-#endif
+ 
+     if( pStream->codec->extradata && pStream->codec->extradata_size > 0 )
+     {
+@@ -1213,18 +1206,11 @@ void CDVDDemuxFFmpeg::GetChapterName(std::string& strChapterName)
+     int chapterIdx = GetChapter();
+     if(chapterIdx <= 0)
+       return;
+-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,83,0)
+-    // API added on: 2010-10-15
+-    // (Note that while the function was available earlier, the generic
+-    // metadata tags were not populated by default)
++
+     AVDictionaryEntry *titleTag = m_dllAvUtil.av_dict_get(m_pFormatContext->chapters[chapterIdx-1]->metadata,
+                                                           "title", NULL, 0);
+     if (titleTag)
+       strChapterName = titleTag->value;
+-#else
+-    if (m_pFormatContext->chapters[chapterIdx-1]->title)
+-      strChapterName = m_pFormatContext->chapters[chapterIdx-1]->title;
+-#endif
+   }
+ }
+ 
+-- 
+1.8.1.5
+
+
+From a0c8d582d76ac353d8035caf2ff03852d6fc0bee Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?David=20H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Sun, 7 Apr 2013 16:39:33 +0200
+Subject: [PATCH 6/7] Update libavcodec version check
+
+Make the version check compatible with both ffmpeg and libav.
+Also add comments describing when the API change was made for
+both libraries.
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp
+index 4dbf8b0..7f7b304 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Overlay/DVDOverlayCodecFFmpeg.cpp
+@@ -255,7 +255,12 @@ CDVDOverlay* CDVDOverlayCodecFFmpeg::GetOverlay()
+     overlay->width    = rect.w;
+     overlay->height   = rect.h;
+ 
+-#if (!defined USE_EXTERNAL_FFMPEG) || (LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54,71,100))
++#if (defined(LIBAVCODEC_FROM_FFMPEG) && LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54,71,100)) || \
++    (defined(LIBAVCODEC_FROM_LIBAV)  && LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54,33,0))
++    // ffmpeg commit: 1885ffb03d0af28e6bac2bcc8725fa15b93f6ac9 (Nov 3 2012)
++    //       release: 1.1 (Jan 7 2013)
++    // libav  commit: 85f67c4865d8014ded2aaa64b3cba6e2970342d7 (Oct 20 2012)
++    //       release: v9 (Jan 5 2013)
+     overlay->bForced  = rect.flags != 0;
+ #endif
+ 
+-- 
+1.8.1.5
+
+
+From d98c92272cd55acafc1e47c9ae335f0b4b434dae Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?David=20H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Sun, 14 Apr 2013 14:53:54 +0200
+Subject: [PATCH 7/7] Update libavfilter version check
+
+Make the version check compatible with both ffmpeg and libav.
+Also add comments describing when the API change was made for
+both libraries.
+---
+ lib/DllAvFilter.h                                  | 34 ++++++++++++++++------
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp        | 23 ++++++++++-----
+ 2 files changed, 40 insertions(+), 17 deletions(-)
+
+diff --git a/lib/DllAvFilter.h b/lib/DllAvFilter.h
+index ff94c47..d44b918 100644
+--- a/lib/DllAvFilter.h
++++ b/lib/DllAvFilter.h
+@@ -58,6 +58,13 @@
+ #endif
+ }
+ 
++#if LIBAVFILTER_VERSION_MICRO >= 100
++  #define LIBAVFILTER_FROM_FFMPEG
++#else
++  #define LIBAVFILTER_FROM_LIBAV
++#endif
++
++
+ #include "threads/SingleLock.h"
+ 
+ class DllAvFilterInterface
+@@ -74,10 +81,13 @@ class DllAvFilterInterface
+   virtual void avfilter_inout_free(AVFilterInOut **inout)=0;
+   virtual int avfilter_graph_parse(AVFilterGraph *graph, const char *filters, AVFilterInOut **inputs, AVFilterInOut **outputs, void *log_ctx)=0;
+   virtual int avfilter_graph_config(AVFilterGraph *graphctx, void *log_ctx)=0;
+-#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(3,0,0)
+-  virtual int av_vsrc_buffer_add_frame(AVFilterContext *buffer_filter, AVFrame *frame, int flags)=0;
+-#else
++#if (defined(LIBAVFILTER_FROM_LIBAV) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,5,0)) || \
++    (defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,43,100))
++  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame *frame)=0;
++#elif defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(2,72,105)
+   virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame *frame, int flags)=0;
++#else
++  virtual int av_vsrc_buffer_add_frame(AVFilterContext *buffer_filter, AVFrame *frame, int flags)=0;
+ #endif
+   virtual void avfilter_unref_buffer(AVFilterBufferRef *ref)=0;
+   virtual int avfilter_link(AVFilterContext *src, unsigned srcpad, AVFilterContext *dst, unsigned dstpad)=0;
+@@ -134,10 +144,13 @@ class DllAvFilter : public DllDynamic, DllAvFilterInterface
+   {
+     return ::avfilter_graph_config(graphctx, log_ctx);
+   }
+-#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(3,0,0)
+-  virtual int av_vsrc_buffer_add_frame(AVFilterContext *buffer_filter, AVFrame *frame, int flags) { return ::av_vsrc_buffer_add_frame(buffer_filter, frame, flags); }
+-#else
++#if (defined(LIBAVFILTER_FROM_LIBAV) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,5,0)) || \
++    (defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,43,100))
++  virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame* frame) { return ::av_buffersrc_add_frame(buffer_filter, frame); }
++#elif defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(2,72,105)
+   virtual int av_buffersrc_add_frame(AVFilterContext *buffer_filter, AVFrame* frame, int flags) { return ::av_buffersrc_add_frame(buffer_filter, frame, flags); }
++#else
++  virtual int av_vsrc_buffer_add_frame(AVFilterContext *buffer_filter, AVFrame *frame, int flags) { return ::av_vsrc_buffer_add_frame(buffer_filter, frame, flags); }
+ #endif
+   virtual void avfilter_unref_buffer(AVFilterBufferRef *ref) { ::avfilter_unref_buffer(ref); }
+   virtual int avfilter_link(AVFilterContext *src, unsigned srcpad, AVFilterContext *dst, unsigned dstpad) { return ::avfilter_link(src, srcpad, dst, dstpad); }
+@@ -172,10 +185,13 @@ class DllAvFilter : public DllDynamic, DllAvFilterInterface
+   DEFINE_METHOD1(void, avfilter_inout_free_dont_call, (AVFilterInOut **p1))
+   DEFINE_FUNC_ALIGNED5(int, __cdecl, avfilter_graph_parse_dont_call, AVFilterGraph *, const char *, AVFilterInOut **, AVFilterInOut **, void *)
+   DEFINE_FUNC_ALIGNED2(int, __cdecl, avfilter_graph_config_dont_call, AVFilterGraph *, void *)
+-#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(3,0,0)
+-  DEFINE_METHOD3(int, av_vsrc_buffer_add_frame, (AVFilterContext *p1, AVFrame *p2, int p3))
+-#else
++#if (defined(LIBAVFILTER_FROM_LIBAV) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,5,0)) || \
++    (defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,43,100))
++  DEFINE_METHOD2(int, av_buffersrc_add_frame, (AVFilterContext *p1, AVFrame *p2))
++#elif defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(2,72,105)
+   DEFINE_METHOD3(int, av_buffersrc_add_frame, (AVFilterContext *p1, AVFrame *p2, int p3))
++#else
++  DEFINE_METHOD3(int, av_vsrc_buffer_add_frame, (AVFilterContext *p1, AVFrame *p2, int p3))
+ #endif
+   DEFINE_METHOD1(void, avfilter_unref_buffer, (AVFilterBufferRef *p1))
+   DEFINE_METHOD4(int, avfilter_link, (AVFilterContext *p1, unsigned p2, AVFilterContext *p3, unsigned p4))
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index d614e39..6331722 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -815,18 +815,25 @@ int CDVDVideoCodecFFmpeg::FilterProcess(AVFrame* frame)
+ 
+   if (frame)
+   {
+-#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(3,0,0)
+-    result = m_dllAvFilter.av_vsrc_buffer_add_frame(m_pFilterIn, frame, 0);
+-#else
++#if (defined(LIBAVFILTER_FROM_LIBAV) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,5,0)) || \
++    (defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(3,43,100))
++    // API changed in:
++    // ffmpeg: commit 7e350379f87e7f74420b4813170fe808e2313911 (28 Nov 2012)
++    //         not released (post 1.2)
++    // libav: commit 7e350379f87e7f74420b4813170fe808e2313911 (28 Nov 2012)
++    //        release v9 (5 January 2013)
++    result = m_dllAvFilter.av_buffersrc_add_frame(m_pFilterIn, frame);
++#elif defined(LIBAVFILTER_FROM_FFMPEG) && LIBAVFILTER_VERSION_INT >= AV_VERSION_INT(2,72,105)
++    // API changed in:
++    // ffmpeg: commit 7bac2a78c2241df4bcc1665703bb71afd9a3e692 (28 Apr 2012)
++    //         release 0.11 (25 May 2012)
+     result = m_dllAvFilter.av_buffersrc_add_frame(m_pFilterIn, frame, 0);
++#else
++    result = m_dllAvFilter.av_vsrc_buffer_add_frame(m_pFilterIn, frame, 0);
+ #endif
+     if (result < 0)
+     {
+-#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(3,0,0)
+-      CLog::Log(LOGERROR, "CDVDVideoCodecFFmpeg::FilterProcess - av_vsrc_buffer_add_frame");
+-#else
+-      CLog::Log(LOGERROR, "CDVDVideoCodecFFmpeg::FilterProcess - av_buffersrc_add_frame");
+-#endif
++      CLog::Log(LOGERROR, "CDVDVideoCodecFFmpeg::FilterProcess - av_buffersrc_add_frame/av_vsrc_buffer_add_frame");
+       return VC_ERROR;
+     }
+   }
+-- 
+1.8.1.5
+
