@@ -1,0 +1,59 @@
+From 0ce48acad58271f8313a88132ff84a4724907686 Mon Sep 17 00:00:00 2001
+From: huceke <gimli>
+Date: Wed, 10 Apr 2013 08:36:58 +0200
+Subject: [PATCH 1/2] [rbp/omxplayer] make sure we can also abort the open of a
+ ffmpeg input stream
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 7de531b..0b7954f 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -525,6 +525,9 @@ bool COMXPlayer::CloseFile()
+   if(m_pSubtitleDemuxer)
+     m_pSubtitleDemuxer->Abort();
+ 
++  if(m_pInputStream)
++    m_pInputStream->Abort();
++
+   CLog::Log(LOGDEBUG, "COMXPlayer: waiting for threads to exit");
+ 
+   // wait for the main thread to finish up
+-- 
+1.8.1.6
+
+
+From 2583f13dd42e7a6f0acf6ddcdfae68e784764de8 Mon Sep 17 00:00:00 2001
+From: huceke <gimli>
+Date: Wed, 10 Apr 2013 08:39:03 +0200
+Subject: [PATCH 2/2] [rbp/omxplayer] reevaluate HasVideo/Audio after a stream
+ change
+
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 0b7954f..f39ab6f 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -815,6 +815,13 @@ bool COMXPlayer::ReadPacket(DemuxPacket*& packet, CDemuxStream*& stream)
+         m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_DEMUX);
+         m_SelectionStreams.Update(m_pInputStream, m_pDemuxer);
+         OpenDefaultStreams(false);
++
++        // reevaluate HasVideo/Audio, we may have switched from/to a radio channel
++        if(m_CurrentVideo.id < 0)
++          m_HasVideo = false;
++        if(m_CurrentAudio.id < 0)
++          m_HasAudio = false;
++
+         return true;
+     }
+ 
+-- 
+1.8.1.6
+
