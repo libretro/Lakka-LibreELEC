@@ -42,7 +42,12 @@ if [ -z "$1" ]; then
 fi
 
 DISK="$1"
-PART="${DISK}1"
+
+### If DISK ends with a number, add "p1" instead of "1" for the first partition
+case "${DISK: -1:1}" in
+    ([0-9]) PART="${DISK}p1";;
+    (*)     PART="${DISK}1";;
+esac
 
 clear
 echo "#########################################################"
@@ -232,8 +237,15 @@ EOF
   cp README.md /tmp/usb_install
   cp RELEASE /tmp/usb_install
 
-  cp 3rdparty/syslinux/vesamenu.c32 /tmp/usb_install
   cp splash.png /tmp/usb_install
+
+  if [ -f /usr/lib/syslinux/vesamenu.c32 ]; then
+    cp /usr/lib/syslinux/vesamenu.c32 /tmp/usb_install
+  elif [ -f /usr/share/syslinux/vesamenu.c32 ]; then
+    cp /usr/share/syslinux/vesamenu.c32 /tmp/usb_install
+  else
+    echo "ERROR: Can't find syslinux's vesamenu.c32 on Host OS" >&2
+  fi
 
 # sync disk
   echo "syncing disk..."
@@ -250,7 +262,7 @@ EOF
   elif [ -f /usr/share/syslinux/mbr.bin ]; then
     MBR="/usr/share/syslinux/mbr.bin"     # example: fedora
   else
-    echo "Can't find syslinux's mbr.bin on Host OS"
+    echo "ERROR: Can't find syslinux's mbr.bin on Host OS" >&2
   fi
 
   if [ -n "$MBR" ]; then
