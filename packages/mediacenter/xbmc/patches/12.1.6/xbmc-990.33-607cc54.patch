@@ -1,0 +1,423 @@
+From 607cc54ab54a53a96999d0fab31fabde93f02c65 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 11 Apr 2013 00:33:45 +0100
+Subject: [PATCH] [rbp] Don't block waiting for EOS in audio/video players
+
+Currently we block in OMXPlayerAudio/OMXPlayerVideo from the point we see EOF from demuxer,
+until the last frame/audio sample has been played out. This can be a few seconds.
+It means no more messages (such as abort) can be received during this period.
+This results in a bug where if you press stop after the demuxer EOF has occurred it takes
+a long time to stop. You would expect this to be the few seconds of queued data,
+but it actually turns out to be 30 seconds, as the clocks get stopped by the stop message,
+but the players never find out and we hit a timeout.
+It also stops seek/pause working during the playout period.
+It also stops (graphical) subtitles from being rendered during this time.
+The fix involves not blocking for the EOS, but allowing the polling from OMXPlayer to catch it.
+---
+ xbmc/cores/omxplayer/OMXAudio.cpp       | 50 +++++++++------------------------
+ xbmc/cores/omxplayer/OMXAudio.h         |  3 +-
+ xbmc/cores/omxplayer/OMXPlayer.cpp      |  2 +-
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp | 35 +++++++++++++++++++----
+ xbmc/cores/omxplayer/OMXPlayerAudio.h   |  4 +--
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 24 +++++++++-------
+ xbmc/cores/omxplayer/OMXPlayerVideo.h   |  6 ++--
+ xbmc/cores/omxplayer/OMXVideo.cpp       | 36 +++++++++---------------
+ xbmc/cores/omxplayer/OMXVideo.h         |  5 +++-
+ 9 files changed, 81 insertions(+), 84 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXAudio.cpp b/xbmc/cores/omxplayer/OMXAudio.cpp
+index aad480b..273d0b2 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXAudio.cpp
+@@ -330,6 +330,8 @@ bool COMXAudio::Initialize(AEAudioFormat format, std::string& device, OMXClock *
+   if(!m_omx_render->Initialize((const std::string)componentName, OMX_IndexParamAudioInit))
+     return false;
+ 
++  m_omx_render->ResetEos();
++
+   OMX_CONFIG_BRCMAUDIODESTINATIONTYPE audioDest;
+   OMX_INIT_STRUCTURE(audioDest);
+   strncpy((char *)audioDest.sName, device.c_str(), strlen(device.c_str()));
+@@ -1135,6 +1137,8 @@ void COMXAudio::UnRegisterAudioCallback()
+ 
+ unsigned int COMXAudio::GetAudioRenderingLatency()
+ {
++  CSingleLock lock (m_critSection);
++
+   if(!m_Initialized)
+     return 0;
+ 
+@@ -1155,7 +1159,7 @@ unsigned int COMXAudio::GetAudioRenderingLatency()
+   return param.nU32;
+ }
+ 
+-void COMXAudio::WaitCompletion()
++void COMXAudio::SubmitEOS()
+ {
+   CSingleLock lock (m_critSection);
+ 
+@@ -1183,43 +1187,15 @@ void COMXAudio::WaitCompletion()
+     CLog::Log(LOGERROR, "%s::%s - OMX_EmptyThisBuffer() failed with result(0x%x)\n", CLASSNAME, __func__, omx_err);
+     return;
+   }
++}
+ 
+-  unsigned int nTimeOut = AUDIO_BUFFER_SECONDS * 1000;
+-  while(nTimeOut)
+-  {
+-    if(m_omx_render->IsEOS())
+-    {
+-      CLog::Log(LOGDEBUG, "%s::%s - got eos\n", CLASSNAME, __func__);
+-      break;
+-    }
+-
+-    if(nTimeOut == 0)
+-    {
+-      CLog::Log(LOGERROR, "%s::%s - wait for eos timed out\n", CLASSNAME, __func__);
+-      break;
+-    }
+-    Sleep(50);
+-    nTimeOut -= 50;
+-  }
+-
+-  nTimeOut = AUDIO_BUFFER_SECONDS * 1000;
+-  while(nTimeOut)
+-  {
+-    if(!GetAudioRenderingLatency())
+-      break;
+-
+-    if(nTimeOut == 0)
+-    {
+-      CLog::Log(LOGERROR, "%s::%s - wait for GetAudioRenderingLatency timed out\n", CLASSNAME, __func__);
+-      break;
+-    }
+-    Sleep(50);
+-    nTimeOut -= 50;
+-  }
+-
+-  m_omx_render->ResetEos();
+-
+-  return;
++bool COMXAudio::IsEOS()
++{
++  if(!m_Initialized || m_Pause)
++    return true;
++  unsigned int latency = GetAudioRenderingLatency();
++  CSingleLock lock (m_critSection);
++  return m_omx_decoder.IsEOS() && latency <= 0;
+ }
+ 
+ void COMXAudio::SwitchChannels(int iAudioStream, bool bAudioOnAllSpeakers)
+diff --git a/xbmc/cores/omxplayer/OMXAudio.h b/xbmc/cores/omxplayer/OMXAudio.h
+index 4b08722..9537d9e 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.h
++++ b/xbmc/cores/omxplayer/OMXAudio.h
+@@ -76,7 +76,8 @@ class COMXAudio
+   bool SetCurrentVolume(float fVolume);
+   void SetDynamicRangeCompression(long drc) { m_drc = drc; }
+   int SetPlaySpeed(int iSpeed);
+-  void WaitCompletion();
++  void SubmitEOS();
++  bool IsEOS();
+   void SwitchChannels(int iAudioStream, bool bAudioOnAllSpeakers);
+ 
+   void Flush();
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+index e148311..3834444 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+@@ -77,7 +77,6 @@ class COMXMsgAudioCodecChange : public CDVDMsg
+   m_nChannels     = 0;
+   m_DecoderOpen   = false;
+   m_freq          = CurrentHostFrequency();
+-  m_send_eos      = false;
+   m_bad_state     = false;
+   m_hints_current.Clear();
+ 
+@@ -168,7 +167,6 @@ void OMXPlayerAudio::OpenStream(CDVDStreamInfo &hints, COMXAudioCodecOMX *codec)
+   m_stalled         = m_messageQueue.GetPacketCount(CDVDMsg::DEMUXER_PACKET) == 0;
+   m_use_passthrough = (g_guiSettings.GetInt("audiooutput.mode") == AUDIO_HDMI) ? true : false ;
+   m_use_hw_decode   = g_advancedSettings.m_omxHWAudioDecode;
+-  m_send_eos        = false;
+ }
+ 
+ bool OMXPlayerAudio::CloseStream(bool bWaitForBuffers)
+@@ -604,7 +602,7 @@ void OMXPlayerAudio::Process()
+     else if (pMsg->IsType(CDVDMsg::GENERAL_EOF))
+     {
+       CLog::Log(LOGDEBUG, "COMXPlayerAudio - CDVDMsg::GENERAL_EOF");
+-      WaitCompletion();
++      SubmitEOS();
+     }
+     else if (pMsg->IsType(CDVDMsg::GENERAL_DELAY))
+     {
+@@ -821,11 +819,36 @@ double OMXPlayerAudio::GetCacheTime()
+   return m_omxAudio.GetCacheTime();
+ }
+ 
++void OMXPlayerAudio::SubmitEOS()
++{
++  if(!m_bad_state)
++    m_omxAudio.SubmitEOS();
++}
++
++bool OMXPlayerAudio::IsEOS()
++{
++  return m_bad_state || m_omxAudio.IsEOS();
++}
++
+ void OMXPlayerAudio::WaitCompletion()
+ {
+-  if(!m_send_eos && !m_bad_state)
+-    m_omxAudio.WaitCompletion();
+-  m_send_eos = true;
++  unsigned int nTimeOut = AUDIO_BUFFER_SECONDS * 1000;
++  while(nTimeOut)
++  {
++    if(IsEOS())
++    {
++      CLog::Log(LOGDEBUG, "%s::%s - got eos\n", CLASSNAME, __func__);
++      break;
++    }
++
++    if(nTimeOut == 0)
++    {
++      CLog::Log(LOGERROR, "%s::%s - wait for eos timed out\n", CLASSNAME, __func__);
++      break;
++    }
++    Sleep(50);
++    nTimeOut -= 50;
++  }
+ }
+ 
+ void OMXPlayerAudio::RegisterAudioCallback(IAudioCallback *pCallback)
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.h b/xbmc/cores/omxplayer/OMXPlayerAudio.h
+index 7a749dd..21d42c0 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.h
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.h
+@@ -88,7 +88,6 @@ class OMXPlayerAudio : public CThread
+   bool                      m_DecoderOpen;
+ 
+   DllBcmHost                m_DllBcmHost;
+-  bool                      m_send_eos;
+   bool                      m_bad_state;
+ 
+   virtual void OnStartup();
+@@ -106,7 +105,7 @@ class OMXPlayerAudio : public CThread
+   bool IsInited() const                             { return m_messageQueue.IsInited(); }
+   int  GetLevel() const                             { return m_messageQueue.GetLevel(); }
+   bool IsStalled()                                  { return m_stalled;  }
+-  bool IsEOS()                                      { return m_send_eos; };
++  bool IsEOS();
+   void WaitForBuffers();
+   bool CloseStream(bool bWaitForBuffers);
+   bool CodecChange();
+@@ -121,6 +120,7 @@ class OMXPlayerAudio : public CThread
+   double GetCacheTime();
+   double GetCurrentPTS() { return m_audioClock; };
+   void WaitCompletion();
++  void SubmitEOS();
+   void  RegisterAudioCallback(IAudioCallback* pCallback);
+   void  UnRegisterAudioCallback();
+   void SetCurrentVolume(float fVolume);
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index 76fec79..bd5711c 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -93,7 +93,6 @@ class COMXMsgVideoCodecChange : public CDVDMsg
+   m_dropbase              = 0.0;
+   m_autosync              = 1;
+   m_fForcedAspectRatio    = 0.0f;
+-  m_send_eos              = false;
+   m_messageQueue.SetMaxDataSize(10 * 1024 * 1024);
+   m_messageQueue.SetMaxTimeSize(8.0);
+ 
+@@ -129,8 +128,6 @@ bool OMXPlayerVideo::OpenStream(CDVDStreamInfo &hints)
+   // force SetVideoRect to be called initially
+   m_dst_rect.SetRect(0, 0, 0, 0);
+ 
+-  m_audio_count = m_av_clock->HasAudio();
+-
+   if (!m_DllBcmHost.Load())
+     return false;
+ 
+@@ -160,7 +157,6 @@ bool OMXPlayerVideo::OpenStream(CDVDStreamInfo &hints)
+   */
+ 
+   m_open        = true;
+-  m_send_eos    = false;
+ 
+   return true;
+ }
+@@ -506,10 +502,10 @@ void OMXPlayerVideo::Process()
+       OpenStream(msg->m_hints, msg->m_codec);
+       msg->m_codec = NULL;
+     }
+-    else if (pMsg->IsType(CDVDMsg::GENERAL_EOF) && !m_audio_count)
++    else if (pMsg->IsType(CDVDMsg::GENERAL_EOF))
+     {
+       CLog::Log(LOGDEBUG, "COMXPlayerVideo - CDVDMsg::GENERAL_EOF");
+-      WaitCompletion();
++      SubmitEOS();
+     }
+     else if (pMsg->IsType(CDVDMsg::DEMUXER_PACKET))
+     {
+@@ -673,11 +669,19 @@ int  OMXPlayerVideo::GetDecoderFreeSpace()
+   return m_omxVideo.GetFreeSpace();
+ }
+ 
+-void OMXPlayerVideo::WaitCompletion()
++void OMXPlayerVideo::SubmitEOS()
++{
++  m_omxVideo.SubmitEOS();
++}
++
++bool OMXPlayerVideo::SubmittedEOS()
++{
++  return m_omxVideo.SubmittedEOS();
++}
++
++bool OMXPlayerVideo::IsEOS()
+ {
+-  if(!m_send_eos)
+-    m_omxVideo.WaitCompletion();
+-  m_send_eos = true;
++  return m_omxVideo.IsEOS();
+ }
+ 
+ void OMXPlayerVideo::SetSpeed(int speed)
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.h b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+index 9c4aa55..064ff66 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.h
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+@@ -78,7 +78,6 @@ class OMXPlayerVideo : public CThread
+   int                       m_view_mode;
+ 
+   DllBcmHost                m_DllBcmHost;
+-  bool                      m_send_eos;
+ 
+   CDVDOverlayContainer  *m_pOverlayContainer;
+   CDVDMessageQueue      &m_messageParent;
+@@ -105,7 +104,7 @@ class OMXPlayerVideo : public CThread
+   void WaitForBuffers()                             { m_messageQueue.WaitUntilEmpty(); }
+   int  GetLevel() const                             { return m_messageQueue.GetLevel(); }
+   bool IsStalled()                                  { return m_stalled;  }
+-  bool IsEOS()                                      { return m_send_eos; };
++  bool IsEOS();
+   bool CloseStream(bool bWaitForBuffers);
+   void Output(int iGroupId, double pts, bool bDropPacket);
+   void Flush();
+@@ -114,7 +113,8 @@ class OMXPlayerVideo : public CThread
+   int  GetDecoderFreeSpace();
+   double GetCurrentPTS() { return m_iCurrentPts; };
+   double GetFPS() { return m_fFrameRate; };
+-  void  WaitCompletion();
++  void  SubmitEOS();
++  bool SubmittedEOS();
+   void SetDelay(double delay) { m_iVideoDelay = delay; }
+   double GetDelay() { return m_iVideoDelay; }
+   void SetSpeed(int iSpeed);
+diff --git a/xbmc/cores/omxplayer/OMXVideo.cpp b/xbmc/cores/omxplayer/OMXVideo.cpp
+index 0b10a85..8e2e3da 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXVideo.cpp
+@@ -92,6 +92,7 @@
+   m_video_codec_name  = "";
+   m_deinterlace       = false;
+   m_hdmi_clock_sync   = false;
++  m_submitted_eos     = false;
+ }
+ 
+ COMXVideo::~COMXVideo()
+@@ -169,6 +170,7 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, b
+   m_decoded_height = hints.height;
+ 
+   m_hdmi_clock_sync = hdmi_clock_sync;
++  m_submitted_eos = false;
+ 
+   if(!m_decoded_width || !m_decoded_height)
+     return false;
+@@ -324,6 +326,8 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, bool deinterlace, b
+   if(!m_omx_render.Initialize((const std::string)componentName, OMX_IndexParamVideoInit))
+     return false;
+ 
++  m_omx_render.ResetEos();
++
+   componentName = "OMX.broadcom.video_scheduler";
+   if(!m_omx_sched.Initialize((const std::string)componentName, OMX_IndexParamVideoInit))
+     return false;
+@@ -1035,11 +1039,13 @@ int COMXVideo::GetInputBufferSize()
+   return m_omx_decoder.GetInputBufferSize();
+ }
+ 
+-void COMXVideo::WaitCompletion()
++void COMXVideo::SubmitEOS()
+ {
+   if(!m_is_open)
+     return;
+ 
++  m_submitted_eos = true;
++
+   OMX_ERRORTYPE omx_err = OMX_ErrorNone;
+   OMX_BUFFERHEADERTYPE *omx_buffer = m_omx_decoder.GetInputBuffer();
+   
+@@ -1061,27 +1067,11 @@ void COMXVideo::WaitCompletion()
+     CLog::Log(LOGERROR, "%s::%s - OMX_EmptyThisBuffer() failed with result(0x%x)\n", CLASSNAME, __func__, omx_err);
+     return;
+   }
++}
+ 
+-  unsigned int nTimeOut = 30000;
+-
+-  while(nTimeOut)
+-  {
+-    if(m_omx_render.IsEOS())
+-    {
+-      CLog::Log(LOGDEBUG, "%s::%s - got eos\n", CLASSNAME, __func__);
+-      break;
+-    }
+-
+-    if(nTimeOut == 0)
+-    {
+-      CLog::Log(LOGERROR, "%s::%s - wait for eos timed out\n", CLASSNAME, __func__);
+-      break;
+-    }
+-    Sleep(50);
+-    nTimeOut -= 50;
+-  }
+-
+-  m_omx_render.ResetEos();
+-
+-  return;
++bool COMXVideo::IsEOS()
++{
++  if(!m_is_open)
++    return true;
++  return m_omx_render.IsEOS();
+ }
+diff --git a/xbmc/cores/omxplayer/OMXVideo.h b/xbmc/cores/omxplayer/OMXVideo.h
+index 037f155..19d7206 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.h
++++ b/xbmc/cores/omxplayer/OMXVideo.h
+@@ -59,7 +59,9 @@ class COMXVideo
+   std::string GetDecoderName() { return m_video_codec_name; };
+   void SetVideoRect(const CRect& SrcRect, const CRect& DestRect);
+   int GetInputBufferSize();
+-  void WaitCompletion();
++  void SubmitEOS();
++  bool IsEOS();
++  bool SubmittedEOS() { return m_submitted_eos; }
+   bool BadState() { return m_omx_decoder.BadState(); };
+ protected:
+   // Video format
+@@ -95,6 +97,7 @@ class COMXVideo
+   uint32_t          m_history_valid_pts;
+   ResolutionUpdateCallBackFn m_res_callback;
+   void              *m_res_ctx;
++  bool              m_submitted_eos;
+   bool NaluFormatStartCodes(enum CodecID codec, uint8_t *in_extradata, int in_extrasize);
+ };
+ 
+-- 
+1.8.1.6
+
