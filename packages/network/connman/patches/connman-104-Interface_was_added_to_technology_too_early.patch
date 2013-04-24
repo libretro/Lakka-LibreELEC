@@ -1,0 +1,49 @@
+The __connman_technology_add_interface() needs to be called
+after we have created the technology which is done by rtnl->newlink()
+callback. If this is done the old way, the ethernet devices
+will not get their interfaces set properly.
+---
+ src/rtnl.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/src/rtnl.c b/src/rtnl.c
+index ef7f343..e5fab88 100644
+--- a/src/rtnl.c
++++ b/src/rtnl.c
+@@ -406,6 +406,7 @@ static void process_newlink(unsigned short type, int index, unsigned flags,
+ 	unsigned int mtu = 0;
+ 	char ident[13], str[18];
+ 	GSList *list;
++	connman_bool_t add_interface = FALSE;
+ 
+ 	memset(&stats, 0, sizeof(stats));
+ 	if (extract_link(msg, bytes, &address, &ifname, &mtu, &operstate,
+@@ -461,8 +462,7 @@ static void process_newlink(unsigned short type, int index, unsigned flags,
+ 		if (type == ARPHRD_ETHER)
+ 			read_uevent(interface);
+ 
+-		__connman_technology_add_interface(interface->service_type,
+-			interface->index, interface->name, interface->ident);
++		add_interface = TRUE;
+ 	}
+ 
+ 	for (list = rtnl_list; list; list = list->next) {
+@@ -472,6 +472,16 @@ static void process_newlink(unsigned short type, int index, unsigned flags,
+ 			rtnl->newlink(type, index, flags, change);
+ 	}
+ 
++	/*
++	 * The interface needs to be added after the newlink call.
++	 * The newlink will create the technology when needed and
++	 * __connman_technology_add_interface() expects the
++	 * technology to be there already.
++	 */
++	if (add_interface == TRUE)
++		__connman_technology_add_interface(interface->service_type,
++			interface->index, interface->name, interface->ident);
++
+ 	for (list = watch_list; list; list = list->next) {
+ 		struct watch_data *watch = list->data;
+ 
+-- 1.7.11.7
+

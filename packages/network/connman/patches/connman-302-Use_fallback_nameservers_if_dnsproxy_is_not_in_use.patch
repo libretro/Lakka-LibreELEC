@@ -1,0 +1,123 @@
+If user has disabled dnsproxy with -r option, then fallback to
+user specified nameservers instead of using the Google DNS.
+---
+ src/tethering.c | 47 +++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 37 insertions(+), 10 deletions(-)
+
+diff --git a/src/tethering.c b/src/tethering.c
+index bd79804..7042040 100644
+--- a/src/tethering.c
++++ b/src/tethering.c
+@@ -49,12 +49,11 @@
+ #endif
+ 
+ #define BRIDGE_NAME "tether"
+-#define BRIDGE_DNS "8.8.8.8"
+ 
+ #define DEFAULT_MTU	1500
+ 
+-#define PRIVATE_NETWORK_PRIMARY_DNS BRIDGE_DNS
+-#define PRIVATE_NETWORK_SECONDARY_DNS "8.8.4.4"
++static char *private_network_primary_dns = NULL;
++static char *private_network_secondary_dns = NULL;
+ 
+ static volatile int tethering_enabled;
+ static GDHCPServer *tethering_dhcp_server = NULL;
+@@ -73,8 +72,8 @@ struct connman_private_network {
+ 	int index;
+ 	guint iface_watch;
+ 	struct connman_ippool *pool;
+-	const char *primary_dns;
+-	const char *secondary_dns;
++	char *primary_dns;
++	char *secondary_dns;
+ };
+ 
+ const char *__connman_tethering_get_bridge(void)
+@@ -192,6 +191,7 @@ void __connman_tethering_set_enabled(void)
+ 	const char *end_ip;
+ 	const char *dns;
+ 	unsigned char prefixlen;
++	char **ns;
+ 
+ 	DBG("enabled %d", tethering_enabled + 1);
+ 
+@@ -228,11 +228,28 @@ void __connman_tethering_set_enabled(void)
+ 		return;
+ 	}
+ 
++	ns = connman_setting_get_string_list("FallbackNameservers");
++	if (ns != NULL) {
++		if (ns[0] != NULL) {
++			g_free(private_network_primary_dns);
++			private_network_primary_dns = g_strdup(ns[0]);
++		}
++		if (ns[1] != NULL) {
++			g_free(private_network_secondary_dns);
++			private_network_secondary_dns = g_strdup(ns[1]);
++		}
++
++		DBG("Fallback ns primary %s secondary %s",
++			private_network_primary_dns,
++			private_network_secondary_dns);
++	}
++
+ 	dns = gateway;
+ 	if (__connman_dnsproxy_add_listener(index) < 0) {
+ 		connman_error("Can't add listener %s to DNS proxy",
+ 								BRIDGE_NAME);
+-		dns = BRIDGE_DNS;
++		dns = private_network_primary_dns;
++		DBG("Serving %s nameserver to clients", dns);
+ 	}
+ 
+ 	tethering_dhcp_server = dhcp_server_start(BRIDGE_NAME,
+@@ -278,6 +295,11 @@ void __connman_tethering_set_disabled(void)
+ 
+ 	__connman_bridge_remove(BRIDGE_NAME);
+ 
++	g_free(private_network_primary_dns);
++	private_network_primary_dns = NULL;
++	g_free(private_network_secondary_dns);
++	private_network_secondary_dns = NULL;
++
+ 	DBG("tethering stopped");
+ }
+ 
+@@ -329,9 +351,12 @@ static void setup_tun_interface(unsigned int flags, unsigned change,
+ 					DBUS_TYPE_STRING, &server_ip);
+ 	connman_dbus_dict_append_basic(&dict, "PeerIPv4",
+ 					DBUS_TYPE_STRING, &peer_ip);
+-	connman_dbus_dict_append_basic(&dict, "PrimaryDNS",
++	if (pn->primary_dns != NULL)
++		connman_dbus_dict_append_basic(&dict, "PrimaryDNS",
+ 					DBUS_TYPE_STRING, &pn->primary_dns);
+-	connman_dbus_dict_append_basic(&dict, "SecondaryDNS",
++
++	if (pn->secondary_dns != NULL)
++		connman_dbus_dict_append_basic(&dict, "SecondaryDNS",
+ 					DBUS_TYPE_STRING, &pn->secondary_dns);
+ 
+ 	connman_dbus_dict_close(&array, &dict);
+@@ -367,6 +392,8 @@ static void remove_private_network(gpointer user_data)
+ 	g_free(pn->interface);
+ 	g_free(pn->owner);
+ 	g_free(pn->path);
++	g_free(pn->primary_dns);
++	g_free(pn->secondary_dns);
+ 	g_free(pn);
+ }
+ 
+@@ -447,8 +474,8 @@ int __connman_private_network_request(DBusMessage *msg, const char *owner)
+ 		goto error;
+ 	}
+ 
+-	pn->primary_dns = PRIVATE_NETWORK_PRIMARY_DNS;
+-	pn->secondary_dns = PRIVATE_NETWORK_SECONDARY_DNS;
++	pn->primary_dns = g_strdup(private_network_primary_dns);
++	pn->secondary_dns = g_strdup(private_network_secondary_dns);
+ 
+ 	pn->iface_watch = connman_rtnl_add_newlink_watch(index,
+ 						setup_tun_interface, pn);
+-- 1.7.11.7
+

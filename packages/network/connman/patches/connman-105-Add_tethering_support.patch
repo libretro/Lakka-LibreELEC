@@ -1,0 +1,140 @@
+From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Subject: [PATCH 5/6] ethernet: Add tethering support
+Date: Tue, 23 Apr 2013 15:17:40 +0300
+
+ns/ethernet.c | 101 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 100 insertions(+), 1 deletion(-)
+
+diff --git a/plugins/ethernet.c b/plugins/ethernet.c
+index 6a20eb2..ac5033f 100644
+--- a/plugins/ethernet.c
++++ b/plugins/ethernet.c
+@@ -39,6 +39,9 @@
+ #include <connman/inet.h>
+ #include <connman/rtnl.h>
+ #include <connman/log.h>
++#include <connman/setting.h>
++
++static connman_bool_t eth_tethering = FALSE;
+ 
+ struct ethernet_data {
+ 	int index;
+@@ -107,7 +110,13 @@ static void add_network(struct connman_device *device,
+ 		return;
+ 	}
+ 
+-	connman_network_set_group(network, "cable");
++	if (eth_tethering == FALSE)
++		/*
++		 * Prevent service from starting the reconnect
++		 * procedure as we do not want the DHCP client
++		 * to run when tethering.
++		 */
++		connman_network_set_group(network, "cable");
+ 
+ 	ethernet->network = network;
+ }
+@@ -319,11 +328,101 @@ static void eth_remove(struct connman_technology *technology)
+ 	DBG("");
+ }
+ 
++static GList *eth_interface_list = NULL;
++
++static void eth_add_interface(struct connman_technology *technology,
++			int index, const char *name, const char *ident)
++{
++	DBG("index %d name %s ident %s", index, name, ident);
++
++	if (g_list_find(eth_interface_list,
++			GINT_TO_POINTER((int) index)) != NULL)
++		return;
++
++	eth_interface_list = g_list_prepend(eth_interface_list,
++					(GINT_TO_POINTER((int) index)));
++}
++
++static void eth_remove_interface(struct connman_technology *technology,
++								int index)
++{
++	DBG("index %d", index);
++
++	eth_interface_list = g_list_remove(eth_interface_list,
++					GINT_TO_POINTER((int) index));
++}
++
++static void eth_enable_tethering(struct connman_technology *technology,
++						const char *bridge)
++{
++	GList *list;
++
++	for (list = eth_interface_list; list; list = list->next) {
++		int index = GPOINTER_TO_INT(list->data);
++		struct connman_device *device =
++			connman_device_find_by_index(index);
++
++		if (device != NULL)
++			connman_device_disconnect_service(device);
++
++		connman_technology_tethering_notify(technology, TRUE);
++
++		connman_inet_ifup(index);
++
++		connman_inet_add_to_bridge(index, bridge);
++
++		eth_tethering = TRUE;
++	}
++}
++
++static void eth_disable_tethering(struct connman_technology *technology,
++						const char *bridge)
++{
++	GList *list;
++
++	for (list = eth_interface_list; list; list = list->next) {
++		int index = GPOINTER_TO_INT(list->data);
++		struct connman_device *device =
++			connman_device_find_by_index(index);
++
++		connman_inet_remove_from_bridge(index, bridge);
++
++		connman_inet_ifdown(index);
++
++		connman_technology_tethering_notify(technology, FALSE);
++
++		if (device != NULL)
++			connman_device_reconnect_service(device);
++
++		eth_tethering = FALSE;
++	}
++}
++
++static int eth_set_tethering(struct connman_technology *technology,
++				const char *identifier, const char *passphrase,
++				const char *bridge, connman_bool_t enabled)
++{
++	if (connman_setting_get_bool("AllowEthernetTethering") == FALSE)
++		return 0;
++
++	DBG("bridge %s enabled %d", bridge, enabled);
++
++	if (enabled)
++		eth_enable_tethering(technology, bridge);
++	else
++		eth_disable_tethering(technology, bridge);
++
++	return 0;
++}
++
+ static struct connman_technology_driver eth_driver = {
+ 	.name			= "ethernet",
+ 	.type			= CONNMAN_SERVICE_TYPE_ETHERNET,
+ 	.probe			= eth_probe,
+ 	.remove			= eth_remove,
++	.add_interface		= eth_add_interface,
++	.remove_interface	= eth_remove_interface,
++	.set_tethering		= eth_set_tethering,
+ };
+ 
+ static int ethernet_init(void)
+-- 1.7.11.7
+
