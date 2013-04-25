@@ -1,0 +1,1405 @@
+From 61b5f0b195a3d3d8556d5cb341beef00021acb9a Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Tue, 9 Apr 2013 23:28:36 +0200
+Subject: [PATCH 1/8] VAAPI: Add VPP class which handles bob deinterlacing
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in   |    1 +
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp |  345 ++++++++++++++++++++
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.h   |   78 +++++
+ 3 files changed, 424 insertions(+)
+ create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+ create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.h
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in b/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in
+index c58422b..574ec3c 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in
+@@ -9,6 +9,7 @@ SRCS += VDPAU.cpp
+ endif
+ ifeq (@USE_VAAPI@,1)
+ SRCS += VAAPI.cpp
++SRCS += VAAPI_VPP.cpp
+ endif
+ ifeq (@USE_CRYSTALHD@,1)
+ SRCS += CrystalHD.cpp
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+new file mode 100644
+index 0000000..47f98f8
+--- /dev/null
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+@@ -0,0 +1,345 @@
++/*
++ *      Copyright (C) 2005-2013 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This library is free software; you can redistribute it and/or
++ *  modify it under the terms of the GNU Lesser General Public
++ *  License as published by the Free Software Foundation; either
++ *  version 2.1 of the License, or (at your option) any later version.
++ *
++ *  This library is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ *  Lesser General Public License for more details.
++ *
++ *  You should have received a copy of the GNU Lesser General Public
++ *  License along with this library; if not, write to the Free Software
++ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
++ *
++ */
++
++#include "system.h"
++#ifdef HAVE_LIBVA
++
++#include "VAAPI_VPP.h"
++#if VA_CHECK_VERSION(0,34,0)
++# define VPP_AVAIL 1
++#endif
++
++#ifdef VPP_AVAIL
++#include <va/va_vpp.h>
++#endif
++
++#include "utils/log.h"
++#include "threads/SingleLock.h"
++
++#include <algorithm>
++
++using namespace VAAPI;
++
++bool CVPP::isSupported = true;
++
++CVPP::CVPP()
++    :m_width(0)
++    ,m_height(0)
++    ,m_configId(VA_INVALID_ID)
++    ,m_vppReady(-1)
++    ,m_deintBobReady(-1)
++    ,m_bobContext(VA_INVALID_ID)
++    ,m_bobTargetCount(0)
++    ,m_bobFilter(VA_INVALID_ID)
++{}
++
++CVPP::CVPP(CDisplayPtr& display, int width, int height)
++    :m_display(display)
++    ,m_width(width)
++    ,m_height(height)
++    ,m_configId(VA_INVALID_ID)
++    ,m_vppReady(0)
++    ,m_deintBobReady(0)
++    ,m_bobContext(VA_INVALID_ID)
++    ,m_bobTargetCount(0)
++    ,m_bobFilter(VA_INVALID_ID)
++{
++    assert(display.get() && display->get());
++    assert(width > 0 && height > 0);
++}
++
++CVPP::~CVPP()
++{
++    deinit();
++}
++
++bool CVPP::Supported()
++{
++#ifdef VPP_AVAIL
++    return isSupported;
++#else
++    return false;
++#endif
++}
++
++void CVPP::deinit()
++{
++#ifdef VPP_AVAIL
++    CSingleLock lock(m_bob_lock);
++
++    CLog::Log(LOGDEBUG, "VAAPI_VPP - Deinitializing");
++
++    if(DeintBobReady() || m_deintBobReady == -100)
++    {
++        vaDestroyBuffer(m_display->get(), m_bobFilter);
++        vaDestroyContext(m_display->get(), m_bobContext);
++        delete[] m_bobTargets;
++        m_bobTargets = 0;
++        m_deintBobReady = -1;
++
++        CLog::Log(LOGDEBUG, "VAAPI_VPP - Deinitialized bob");
++    }
++
++    if(VppReady())
++    {
++        vaDestroyConfig(m_display->get(), m_configId);
++        m_vppReady = -1;
++
++        CLog::Log(LOGDEBUG, "VAAPI_VPP - Deinitialized vpp");
++    }
++#endif
++}
++
++bool CVPP::InitVpp()
++{
++#ifdef VPP_AVAIL
++    CSingleLock lock(m_bob_lock);
++
++    if(VppFailed())
++        return false;
++
++    int numEntrypoints = vaMaxNumEntrypoints(m_display->get());
++    VAEntrypoint *entrypoints = new VAEntrypoint[numEntrypoints];
++
++    if(vaQueryConfigEntrypoints(m_display->get(), VAProfileNone, entrypoints, &numEntrypoints) != VA_STATUS_SUCCESS)
++    {
++        delete[] entrypoints;
++
++        CLog::Log(LOGERROR, "VAAPI_VPP - failed querying entrypoints");
++
++        m_vppReady = -1;
++        return false;
++    }
++
++    int i;
++    for(i = 0; i < numEntrypoints; ++i)
++        if(entrypoints[i] == VAEntrypointVideoProc)
++            break;
++    delete[] entrypoints;
++
++    if(i >= numEntrypoints)
++    {
++        CLog::Log(LOGDEBUG, "VAAPI_VPP - Entrypoint VideoProc not supported");
++        isSupported = false;
++        m_vppReady = -1;
++        return false;
++    }
++
++    if(vaCreateConfig(m_display->get(), VAProfileNone, VAEntrypointVideoProc, NULL, 0, &m_configId) != VA_STATUS_SUCCESS)
++    {
++        CLog::Log(LOGERROR, "VAAPI_VPP - failed creating va config");
++        m_vppReady = -1;
++        return false;
++    }
++
++    CLog::Log(LOGDEBUG, "VAAPI_VPP - Successfully initialized VPP");
++
++    m_vppReady = 1;
++    return true;
++#else
++    m_vppReady = -1;
++    return false;
++#endif
++}
++
++bool CVPP::InitDeintBob(int num_surfaces)
++{
++#ifdef VPP_AVAIL
++    CSingleLock lock(m_bob_lock);
++
++    assert(VppReady());
++
++    if(DeintBobFailed())
++        return false;
++
++    VASurfaceID *bobTargetsInternal = new VASurfaceID[num_surfaces];
++    m_bobTargetCount = num_surfaces;
++    if(vaCreateSurfaces(m_display->get(), VA_RT_FORMAT_YUV420, m_width, m_height, bobTargetsInternal, m_bobTargetCount, NULL, 0) != VA_STATUS_SUCCESS)
++    {
++        CLog::Log(LOGERROR, "VAAPI_VPP - failed creating bob target surface");
++        m_deintBobReady = -1;
++        return false;
++    }
++
++    if(vaCreateContext(m_display->get(), m_configId, m_width, m_height, VA_PROGRESSIVE, bobTargetsInternal, m_bobTargetCount, &m_bobContext) != VA_STATUS_SUCCESS)
++    {
++        CLog::Log(LOGERROR, "VAAPI_VPP - failed creating bob deint context");
++        vaDestroySurfaces(m_display->get(), bobTargetsInternal, m_bobTargetCount);
++        m_deintBobReady = -1;
++        return false;
++    }
++
++    VAProcFilterType filters[VAProcFilterCount];
++    unsigned int numFilters = VAProcFilterCount;
++    VAProcFilterCapDeinterlacing deinterlacingCaps[VAProcDeinterlacingCount];
++    unsigned int numDeinterlacingCaps = VAProcDeinterlacingCount;
++
++    if(
++        vaQueryVideoProcFilters(m_display->get(), m_bobContext, filters, &numFilters) != VA_STATUS_SUCCESS
++     || vaQueryVideoProcFilterCaps(m_display->get(), m_bobContext, VAProcFilterDeinterlacing, deinterlacingCaps, &numDeinterlacingCaps) != VA_STATUS_SUCCESS)
++    {
++        vaDestroyContext(m_display->get(), m_bobContext);
++        vaDestroySurfaces(m_display->get(), bobTargetsInternal, m_bobTargetCount);
++        CLog::Log(LOGERROR, "VAAPI_VPP - failed querying filter caps");
++        m_deintBobReady = -1;
++        return false;
++    }
++
++    bool bobSupported = false;
++    for(unsigned int fi = 0; fi < numFilters; ++fi)
++        if(filters[fi] == VAProcFilterDeinterlacing)
++            for(unsigned int ci = 0; ci < numDeinterlacingCaps; ++ci)
++            {
++                if(deinterlacingCaps[ci].type != VAProcDeinterlacingBob)
++                    continue;
++                bobSupported = true;
++                break;
++            }
++
++    if(!bobSupported)
++    {
++        vaDestroyContext(m_display->get(), m_bobContext);
++        vaDestroySurfaces(m_display->get(), bobTargetsInternal, m_bobTargetCount);
++        CLog::Log(LOGDEBUG, "VAAPI_VPP - bob deinterlacing filter is not supported");
++        isSupported = false;
++        m_deintBobReady = -1;
++        return false;
++    }
++
++    VAProcFilterParameterBufferDeinterlacing deint;
++    deint.type = VAProcFilterDeinterlacing;
++    deint.algorithm = VAProcDeinterlacingBob;
++    deint.flags = 0;
++
++    if(vaCreateBuffer(m_display->get(), m_bobContext, VAProcFilterParameterBufferType, sizeof(deint), 1, &deint, &m_bobFilter) != VA_STATUS_SUCCESS)
++    {
++        vaDestroyContext(m_display->get(), m_bobContext);
++        vaDestroySurfaces(m_display->get(), bobTargetsInternal, m_bobTargetCount);
++        CLog::Log(LOGERROR, "VAAPI_VPP - creating ProcFilterParameterBuffer failed");
++        m_deintBobReady = -1;
++        return false;
++    }
++
++    CLog::Log(LOGDEBUG, "VAAPI_VPP - Successfully initialized bob");
++
++    m_bobTargets = new CSurfacePtr[m_bobTargetCount];
++    for(int i = 0; i < m_bobTargetCount; ++i)
++        m_bobTargets[i] = CSurfacePtr(new CSurface(bobTargetsInternal[i], m_display));
++
++    m_deintBobReady = 1;
++    return true;
++#else
++    m_deintBobReady = -1;
++    return false;
++#endif
++}
++
++#define CHECK_VA(s, b) \
++{\
++    VAStatus res = s;\
++    if(res != VA_STATUS_SUCCESS)\
++    {\
++        CLog::Log(LOGERROR, "VAAPI_VPP - failed executing "#s" at line %d with error %x:%s", __LINE__, res, vaErrorStr(res));\
++        VABufferID buf = b;\
++        if(buf != 0)\
++            vaDestroyBuffer(m_display->get(), buf);\
++        m_deintBobReady = -100;\
++        return CSurfacePtr();\
++    }\
++}
++
++CSurfacePtr CVPP::DeintBob(const CSurfacePtr& input, bool topField)
++{
++#ifdef VPP_AVAIL
++    CSingleLock lock(m_bob_lock);
++
++    if(!DeintBobReady())
++        return CSurfacePtr();
++
++    CSurfacePtr bobTarget = getFreeSurface();
++    if(!bobTarget.get())
++        return CSurfacePtr();
++
++    VABufferID pipelineBuf;
++    VAProcPipelineParameterBuffer *pipelineParam;
++    VARectangle inputRegion;
++    VARectangle outputRegion;
++
++    CHECK_VA(vaBeginPicture(m_display->get(), m_bobContext, bobTarget->m_id), 0);
++
++    CHECK_VA(vaCreateBuffer(m_display->get(), m_bobContext, VAProcPipelineParameterBufferType, sizeof(VAProcPipelineParameterBuffer), 1, NULL, &pipelineBuf), 0);
++    CHECK_VA(vaMapBuffer(m_display->get(), pipelineBuf, (void**)&pipelineParam), pipelineBuf);
++
++    // This input/output regions crop two the top and bottom pixel rows
++    // It removes the flickering pixels caused by bob
++    const int vcrop = 1;
++    const int hcrop = 0;
++    inputRegion.x = outputRegion.x = hcrop;
++    inputRegion.y = outputRegion.y = vcrop;
++    inputRegion.width = outputRegion.width = m_width - (2 * hcrop);
++    inputRegion.height = outputRegion.height = m_height - (2 * vcrop);
++
++    pipelineParam->surface = input->m_id;
++    pipelineParam->output_region = &outputRegion;
++    pipelineParam->surface_region = &inputRegion;
++    pipelineParam->output_background_color = 0xff000000;
++
++    pipelineParam->filter_flags = topField ? VA_TOP_FIELD : VA_BOTTOM_FIELD;
++    pipelineParam->filters = &m_bobFilter;
++    pipelineParam->num_filters = 1;
++
++    pipelineParam->num_forward_references = 0;
++    pipelineParam->forward_references = NULL;
++    pipelineParam->num_backward_references = 0;
++    pipelineParam->backward_references = NULL;
++
++    CHECK_VA(vaUnmapBuffer(m_display->get(), pipelineBuf), pipelineBuf);
++
++    CHECK_VA(vaRenderPicture(m_display->get(), m_bobContext, &pipelineBuf, 1), pipelineBuf);
++    CHECK_VA(vaEndPicture(m_display->get(), m_bobContext), pipelineBuf);
++
++    CHECK_VA(vaDestroyBuffer(m_display->get(), pipelineBuf), 0);
++
++    CHECK_VA(vaSyncSurface(m_display->get(), bobTarget->m_id), 0);
++
++    return bobTarget;
++#else
++    return VA_INVALID_ID;
++#endif
++}
++
++CSurfacePtr CVPP::getFreeSurface()
++{
++#ifdef VPP_AVAIL
++    for(int i = 0; i < m_bobTargetCount; ++i)
++    {
++        if(m_bobTargets[i].use_count() == 1)
++        {
++            return m_bobTargets[i];
++        }
++    }
++
++    CLog::Log(LOGWARNING, "VAAPI_VPP - Running out of surfaces");
++#endif
++
++    return CSurfacePtr();
++}
++
++#endif
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.h
+new file mode 100644
+index 0000000..5fa3ed6
+--- /dev/null
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.h
+@@ -0,0 +1,78 @@
++/*
++ *      Copyright (C) 2005-2013 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This library is free software; you can redistribute it and/or
++ *  modify it under the terms of the GNU Lesser General Public
++ *  License as published by the Free Software Foundation; either
++ *  version 2.1 of the License, or (at your option) any later version.
++ *
++ *  This library is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ *  Lesser General Public License for more details.
++ *
++ *  You should have received a copy of the GNU Lesser General Public
++ *  License along with this library; if not, write to the Free Software
++ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
++ *
++ */
++#pragma once
++
++#include "VAAPI.h"
++#include "threads/CriticalSection.h"
++
++#include <map>
++#include <boost/shared_ptr.hpp>
++
++namespace VAAPI
++{
++    class CVPP
++    {
++        friend class VPPSurfaceDeleter;
++        CVPP();
++
++        public:
++        CVPP(CDisplayPtr& display, int width, int height);
++        ~CVPP();
++
++        static bool Supported();
++
++        void deinit();
++
++        bool InitVpp();
++        bool InitDeintBob(int num_surfaces);
++
++        inline bool VppReady() { return m_vppReady > 0; }
++        inline bool VppFailed() { return m_vppReady < 0; }
++        inline bool DeintBobReady() { return m_deintBobReady > 0; }
++        inline bool DeintBobFailed() { return m_deintBobReady < 0; }
++
++        CSurfacePtr DeintBob(const CSurfacePtr& input, bool topField);
++
++        private:
++        CSurfacePtr getFreeSurface();
++
++
++        static bool isSupported;
++
++
++        CDisplayPtr m_display;
++        int m_width;
++        int m_height;
++
++        VAConfigID m_configId;
++
++        int m_vppReady;
++        int m_deintBobReady;
++
++        //VPP Bob Deinterlacing
++        CCriticalSection m_bob_lock;
++        VAContextID m_bobContext;
++        int m_bobTargetCount;
++        CSurfacePtr *m_bobTargets;
++        VABufferID m_bobFilter;
++    };
++
++}
++
+-- 
+1.7.10.4
+
+
+From 701ac98da10ebd8255943ccb9031e431b383d09b Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Tue, 9 Apr 2013 23:29:19 +0200
+Subject: [PATCH 2/8] VAAPI: Integrate VPP into VAAPI implementation (resolve
+ conflicts)
+
+---
+ language/English/strings.po                    |    6 +-
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp  |   14 ++
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp |  319 +++++++++++++++++++++---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h   |   66 +++++
+ xbmc/settings/VideoSettings.h                  |    2 +
+ xbmc/video/dialogs/GUIDialogVideoSettings.cpp  |    1 +
+ 6 files changed, 374 insertions(+), 34 deletions(-)
+
+diff --git a/language/English/strings.po b/language/English/strings.po
+index 17bc493..b5a07f7 100644
+--- a/language/English/strings.po
++++ b/language/English/strings.po
+@@ -6354,7 +6354,11 @@ msgctxt "#16326"
+ msgid "XVBA"
+ msgstr ""
+ 
+-#empty strings from id 16327 to 16399
++msgctxt "#16327"
++msgid "VAAPI Auto"
++msgstr ""
++
++#empty strings from id 16328 to 16399
+ 
+ msgctxt "#16400"
+ msgid "Post-processing"
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+index 147dc06..3f54607 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+@@ -54,6 +54,7 @@
+ #include <va/va_x11.h>
+ #include <va/va_glx.h>
+ #include "cores/dvdplayer/DVDCodecs/Video/VAAPI.h"
++#include "cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.h"
+ 
+ #define USE_VAAPI_GLX_BIND                                \
+     (VA_MAJOR_VERSION == 0 &&                             \
+@@ -3659,6 +3660,11 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
+   if(m_renderMethod & RENDER_VAAPI)
+   {
+ #ifdef HAVE_LIBVA
++    if(method == VS_INTERLACEMETHOD_VAAPI_AUTO)
++    {
++      return VAAPI::CVPP::Supported();
++    }
++
+     VAAPI::CDisplayPtr disp = m_buffers[m_iYV12RenderBuffer].vaapi.display;
+     if(disp)
+     {
+@@ -3756,6 +3762,14 @@ EINTERLACEMETHOD CLinuxRendererGL::AutoInterlaceMethod()
+   if(m_renderMethod & RENDER_VDPAU)
+     return VS_INTERLACEMETHOD_NONE;
+ 
++  if(m_renderMethod & RENDER_VAAPI)
++  {
++#ifdef HAVE_LIBVA
++    if(VAAPI::CVPP::Supported())
++      return VS_INTERLACEMETHOD_VAAPI_AUTO;
++#endif
++  }
++
+   if(Supports(VS_INTERLACEMETHOD_RENDER_BOB))
+     return VS_INTERLACEMETHOD_RENDER_BOB;
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 43a05b3..2079f0a 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -20,8 +20,11 @@
+ #include "system.h"
+ #ifdef HAVE_LIBVA
+ #include "windowing/WindowingFactory.h"
++#include "settings/MediaSettings.h"
+ #include "settings/Settings.h"
++#include "cores/dvdplayer/DVDClock.h"
+ #include "VAAPI.h"
++#include "VAAPI_VPP.h"
+ #include "DVDVideoCodec.h"
+ #include <boost/scoped_array.hpp>
+ #include <boost/weak_ptr.hpp>
+@@ -147,6 +150,7 @@ CDecoder::CDecoder()
+   m_surfaces_count  = 0;
+   m_config          = 0;
+   m_context         = 0;
++  m_vppth           = 0;
+   m_hwaccel         = (vaapi_context*)calloc(1, sizeof(vaapi_context));
+   memset(m_surfaces, 0, sizeof(*m_surfaces));
+ }
+@@ -203,13 +207,13 @@ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic)
+   else
+   {
+     // To avoid stutter, we scan the free surface pool (provided by decoder) for surfaces
+-    // that are 100% not in use by renderer. The pointers to these surfaces have a use_count of 1.
+-    for (; it != m_surfaces_free.end() && it->use_count() > 1; it++) {}
++    // that are 100% not in use by renderer or vpp. The pointers to these surfaces have a use_count of 1.
++    for (; it != m_surfaces_free.end() && it->use_count() > 1; ++it) {}
+ 
+     // If we have zero free surface from decoder OR all free surfaces are in use by renderer, we allocate a new surface
+     if (it == m_surfaces_free.end())
+     {
+-      if (!m_surfaces_free.empty()) CLog::Log(LOGERROR, "VAAPI - renderer still using all freed up surfaces by decoder");
++      if (!m_surfaces_free.empty()) CLog::Log(LOGERROR, "VAAPI - renderer/vpp still using all freed up surfaces by decoder");
+       CLog::Log(LOGERROR, "VAAPI - unable to find free surface, trying to allocate a new one");
+       if(!EnsureSurfaces(avctx, m_surfaces_count+1) || m_surfaces_free.empty())
+       {
+@@ -230,7 +234,7 @@ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic)
+   pic->data[0]        = (uint8_t*)wrapper;
+   pic->data[1]        = NULL;
+   pic->data[2]        = NULL;
+-  pic->data[3]        = (uint8_t*)surface;
++  pic->data[3]        = (uint8_t*)(uintptr_t)surface;
+   pic->linesize[0]    = 0;
+   pic->linesize[1]    = 0;
+   pic->linesize[2]    = 0;
+@@ -240,7 +244,11 @@ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic)
+ }
+ 
+ void CDecoder::Close()
+-{ 
++{
++  if(m_vppth)
++    delete m_vppth;
++  m_vppth = 0;
++
+   if(m_context)
+     WARN(vaDestroyContext(m_display->get(), m_context))
+   m_context = 0;
+@@ -370,6 +378,10 @@ bool CDecoder::Open(AVCodecContext *avctx, enum PixelFormat fmt, unsigned int su
+   if (!EnsureContext(avctx))
+     return false;
+ 
++  m_vppth = new CVPPThread(m_display, avctx->width, avctx->height);
++  m_vppth->Init(m_refs); // Ignore result, VPPThread just passes frames if init failed
++  m_vppth->Start();
++
+   m_hwaccel->display     = m_display->get();
+ 
+   avctx->hwaccel_context = m_hwaccel;
+@@ -398,7 +410,12 @@ bool CDecoder::EnsureContext(AVCodecContext *avctx)
+     else
+       m_refs = 2;
+   }
+-  return EnsureSurfaces(avctx, m_refs + m_renderbuffers_count + 1);
++
++  int vpp_buf = 0;
++  if(CVPP::Supported())
++    vpp_buf = 4;
++
++  return EnsureSurfaces(avctx, m_refs + m_renderbuffers_count + vpp_buf + 3);
+ }
+ 
+ bool CDecoder::EnsureSurfaces(AVCodecContext *avctx, unsigned n_surfaces_count)
+@@ -448,45 +465,69 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+     return status;
+ 
+   if(frame)
+-    return VC_BUFFER | VC_PICTURE;
+-  else
+-    return VC_BUFFER;
+-}
+-
+-bool CDecoder::GetPicture(AVCodecContext* avctx, AVFrame* frame, DVDVideoPicture* picture)
+-{
+-  ((CDVDVideoCodecFFmpeg*)avctx->opaque)->GetPictureCommon(picture);
+-  VASurfaceID surface = GetSurfaceID(frame);
+-
++  {
++    CVPPDecodedPicture picture;
++    picture.valid = true;
+ 
+-  m_holder.surface.reset();
++    memset(&picture.DVDPic, 0, sizeof(picture.DVDPic));
++    ((CDVDVideoCodecFFmpeg*)avctx->opaque)->GetPictureCommon(&picture.DVDPic);
++    VASurfaceID surface = GetSurfaceID(frame);
+ 
+-  std::list<CSurfacePtr>::iterator it;
+-  for(it = m_surfaces_used.begin(); it != m_surfaces_used.end() && !m_holder.surface; it++)
+-  {    
+-    if((*it)->m_id == surface)
+-    {
+-      m_holder.surface = *it;
+-      break;
++    std::list<CSurfacePtr>::iterator it;
++    for(it = m_surfaces_used.begin(); it != m_surfaces_used.end() && !m_holder.surface; ++it)
++    {    
++      if((*it)->m_id == surface)
++      {
++        picture.surface = *it;
++        break;
++      }
+     }
+-  }
+-
+-  for(it = m_surfaces_free.begin(); it != m_surfaces_free.end() && !m_holder.surface; it++)
+-  {    
+-    if((*it)->m_id == surface)
++    for(it = m_surfaces_free.begin(); it != m_surfaces_free.end() && !m_holder.surface; ++it)
++    {    
++      if((*it)->m_id == surface)
++      {
++        picture.surface = *it;
++        break;
++      }
++    }
++    if(!picture.surface)
+     {
+-      m_holder.surface = *it;
+-      break;
++      CLog::Log(LOGERROR, "VAAPI - Unable to find surface");
++      return VC_ERROR;
+     }
++
++    m_vppth->InsertNewFrame(picture);
+   }
+-  if(!m_holder.surface)
++
++  m_vppth->WaitForOutput(2000);
++
++  int ret = 0;
++
++  if(m_vppth->GetInputQueueSize() < 4 && m_vppth->GetOutputQueueSize() < 8)
++    ret |= VC_BUFFER;
++  if(m_vppth->GetOutputQueueSize() > 0)
++    ret |= VC_PICTURE;
++
++  return ret;
++}
++
++bool CDecoder::GetPicture(AVCodecContext* avctx, AVFrame* frame, DVDVideoPicture* picture)
++{
++  m_holder.surface.reset();
++
++  CVPPRenderPicture outPic = m_vppth->GetOutputPicture();
++  if(!outPic.valid)
+   {
+-    CLog::Log(LOGERROR, "VAAPI - Unable to find surface");
++    CLog::Log(LOGERROR, "VAAPI - Got an invalid render picture");
+     return false;
+   }
+ 
++  m_holder.surface = outPic.surface;
++  *picture = outPic.DVDPic;
++
+   picture->format = RENDER_FMT_VAAPI;
+   picture->vaapi  = &m_holder;
++
+   return true;
+ }
+ 
+@@ -521,4 +562,216 @@ int CDecoder::Check(AVCodecContext* avctx)
+   return 0;
+ }
+ 
++
++CVPPThread::CVPPThread(CDisplayPtr& display, int width, int height)
++  :CThread("VAAPI VPP Thread")
++  ,m_stop(false)
++{
++  m_vpp = new CVPP(display, width, height);
++}
++
++CVPPThread::~CVPPThread()
++{
++  Dispose();
++}
++
++bool CVPPThread::Init(int num_refs)
++{
++  if(!m_vpp->InitVpp())
++    return false;
++
++  if(!m_vpp->InitDeintBob(num_refs + 16))
++    return false;
++
++  return true;
++}
++
++void CVPPThread::Start()
++{
++  m_stop = false;
++  Create();
++}
++
++void CVPPThread::Dispose()
++{
++  m_stop = true;
++  m_input_cond.notifyAll();
++  StopThread();
++  m_output_cond.notifyAll();
++
++  m_input_queue = std::queue<CVPPDecodedPicture>();
++  m_output_queue = std::queue<CVPPRenderPicture>();
++
++  if(m_vpp)
++  {
++    delete m_vpp;
++    m_vpp = 0;
++  }
++}
++
++void CVPPThread::OnStartup()
++{
++  CLog::Log(LOGDEBUG, "VAAPI - VPP thread on startup");
++}
++
++void CVPPThread::OnExit()
++{
++  CLog::Log(LOGDEBUG, "VAAPI - VPP thread on exit");
++}
++
++void CVPPThread::InsertNewFrame(CVPPDecodedPicture &new_frame)
++{
++  if(!IsRunning())
++    return;
++
++  m_input_queue_lock.lock();
++
++  m_input_queue.push(new_frame);
++
++  m_input_cond.notify();
++  m_input_queue_lock.unlock();
++}
++
++void CVPPThread::WaitForOutput(unsigned long msec)
++{
++  if(!IsRunning())
++    return;
++
++  m_output_queue_lock.lock();
++  if(m_output_queue.empty())
++  {
++    if(msec > 0)
++      m_output_cond.wait(m_output_queue_lock, msec);
++    else
++      m_output_cond.wait(m_output_queue_lock);
++  }
++  m_output_queue_lock.unlock();
++}
++
++CVPPRenderPicture CVPPThread::GetOutputPicture()
++{
++  CVPPRenderPicture res = CVPPRenderPicture();
++
++  if(!IsRunning())
++    return res;
++
++  m_output_queue_lock.lock();
++
++  if(!m_output_queue.empty())
++  {
++    res = m_output_queue.front();
++    m_output_queue.pop();
++  }
++
++  m_output_queue_lock.unlock();
++
++  return res;
++}
++
++CVPPDecodedPicture CVPPThread::GetCurrentFrame()
++{
++  CVPPDecodedPicture res = CVPPDecodedPicture();
++
++  if(m_stop)
++    return res;
++
++  m_input_queue_lock.lock();
++
++  if(m_input_queue.empty())
++    m_input_cond.wait(m_input_queue_lock);
++
++  if(!m_input_queue.empty())
++  {
++    res = m_input_queue.front();
++    m_input_queue.pop();
++  }
++
++  m_input_queue_lock.unlock(); 
++
++  return res;
++}
++
++void CVPPThread::InsertOutputFrame(CVPPRenderPicture &new_frame)
++{
++  m_output_queue_lock.lock();
++
++  m_output_queue.push(new_frame);
++
++  m_output_cond.notify();
++  m_output_queue_lock.unlock();
++}
++
++int CVPPThread::GetInputQueueSize()
++{
++  CSingleLock lock(m_input_queue_lock);
++  return m_input_queue.size();
++}
++
++int CVPPThread::GetOutputQueueSize()
++{
++  CSingleLock lock(m_output_queue_lock);
++  return m_output_queue.size();
++}
++
++void CVPPThread::DoDeinterlacing(const CVPPDecodedPicture &frame, bool topField)
++{
++  if(!m_vpp->DeintBobReady())
++    return;
++
++  CSurfacePtr surf = m_vpp->DeintBob(frame.surface, topField);
++  if(!surf.get())
++    return;
++
++  CVPPRenderPicture res;
++  res.valid = true;
++  res.surface = surf;
++  res.DVDPic = frame.DVDPic;
++
++  res.DVDPic.iFlags &= ~(DVP_FLAG_TOP_FIELD_FIRST | DVP_FLAG_REPEAT_TOP_FIELD | DVP_FLAG_INTERLACED);
++
++  if( ((frame.DVDPic.iFlags & DVP_FLAG_TOP_FIELD_FIRST) && !topField)
++   || (!(frame.DVDPic.iFlags & DVP_FLAG_TOP_FIELD_FIRST) && topField) )
++  {
++    res.DVDPic.pts = DVD_NOPTS_VALUE;
++    res.DVDPic.dts = DVD_NOPTS_VALUE;
++  }
++  res.DVDPic.iRepeatPicture = 0.0;
++
++  InsertOutputFrame(res);
++}
++
++void CVPPThread::Process()
++{
++  CVPPDecodedPicture currentFrame = CVPPDecodedPicture();
++
++  while(!m_stop)
++  {
++    if(currentFrame.valid)
++    {
++      bool isInterlaced = currentFrame.DVDPic.iFlags & DVP_FLAG_INTERLACED;
++      EDEINTERLACEMODE   mode = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
++      EINTERLACEMETHOD method = CMediaSettings::Get().GetCurrentVideoSettings().m_InterlaceMethod;
++
++      if (m_vpp->DeintBobReady() && (method == VS_INTERLACEMETHOD_VAAPI_AUTO || method == VS_INTERLACEMETHOD_AUTO)
++       && (mode == VS_DEINTERLACEMODE_FORCE || (mode == VS_DEINTERLACEMODE_AUTO && isInterlaced)))
++      {
++        bool topField = currentFrame.DVDPic.iFlags & DVP_FLAG_TOP_FIELD_FIRST;
++        DoDeinterlacing(currentFrame, topField);
++        DoDeinterlacing(currentFrame, !topField);
++      }
++      else
++      {
++        CVPPRenderPicture res;
++        res.valid = true;
++        res.DVDPic = currentFrame.DVDPic;
++        res.surface = currentFrame.surface;
++        InsertOutputFrame(res);
++      }
++    }
++
++    currentFrame = CVPPDecodedPicture();
++    currentFrame = GetCurrentFrame();
++  }
++}
++
+ #endif
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+index 417cbc0..241ff38 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+@@ -23,11 +23,16 @@
+ 
+ #include "DllAvCodec.h"
+ #include "DVDVideoCodecFFmpeg.h"
++#include "threads/Thread.h"
++#include "threads/Condition.h"
++#include "threads/CriticalSection.h"
++
+ #include <libavcodec/vaapi.h>
+ #include <va/va.h>
+ #include <va/va_x11.h>
+ #include <va/va_glx.h>
+ #include <list>
++#include <queue>
+ #include <boost/shared_ptr.hpp>
+ 
+ 
+@@ -97,6 +102,65 @@ struct CHolder
+   {}
+ };
+ 
++class CVPP;
++
++struct CVPPDecodedPicture
++{
++  CVPPDecodedPicture():valid(false) {}
++
++  bool valid;
++  DVDVideoPicture DVDPic;
++  CSurfacePtr surface;
++};
++
++struct CVPPRenderPicture
++{
++  CVPPRenderPicture():valid(false) {}
++
++  bool valid;
++  DVDVideoPicture DVDPic;
++  CSurfacePtr surface;
++};
++
++class CVPPThread : private CThread
++{
++public:
++  CVPPThread(CDisplayPtr& display, int width, int height);
++  ~CVPPThread();
++
++  bool Init(int num_refs);
++  void Start();
++  void Dispose();
++
++  void InsertNewFrame(CVPPDecodedPicture &new_frame);
++  void WaitForOutput(unsigned long msec = 0);
++  CVPPRenderPicture GetOutputPicture();
++
++  int GetInputQueueSize();
++  int GetOutputQueueSize();
++
++protected:
++  void OnStartup();
++  void OnExit();
++  void Process();
++
++  void InsertOutputFrame(CVPPRenderPicture &new_frame);
++  CVPPDecodedPicture GetCurrentFrame();
++  void DoDeinterlacing(const CVPPDecodedPicture &frame, bool topField);
++
++  CVPP *m_vpp;
++
++  bool m_stop;
++
++  CCriticalSection m_input_queue_lock;
++  XbmcThreads::ConditionVariable m_input_cond;
++  std::queue<CVPPDecodedPicture> m_input_queue;
++
++  CCriticalSection m_output_queue_lock;
++  XbmcThreads::ConditionVariable m_output_cond;
++  std::queue<CVPPRenderPicture> m_output_queue;
++};
++
+ class CDecoder
+   : public CDVDVideoCodecFFmpeg::IHardwareDecoder
+ {
+@@ -134,6 +198,8 @@ protected:
+ 
+   vaapi_context *m_hwaccel;
+ 
++  CVPPThread    *m_vppth;
++
+   CHolder        m_holder; // silly struct to pass data to renderer
+ };
+ 
+diff --git a/xbmc/settings/VideoSettings.h b/xbmc/settings/VideoSettings.h
+index f54a837..5e37d0c 100644
+--- a/xbmc/settings/VideoSettings.h
++++ b/xbmc/settings/VideoSettings.h
+@@ -67,6 +67,8 @@ enum EINTERLACEMETHOD
+ 
+   VS_INTERLACEMETHOD_XVBA = 22,
+ 
++  VS_INTERLACEMETHOD_VAAPI_AUTO = 23,
++
+   VS_INTERLACEMETHOD_MAX // do not use and keep as last enum value.
+ };
+ 
+diff --git a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
+index f6b1ea4..08702dd 100644
+--- a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
++++ b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
+@@ -111,6 +111,7 @@ void CGUIDialogVideoSettings::CreateSettings()
+     entries.push_back(make_pair(VS_INTERLACEMETHOD_DXVA_BEST                  , 16321));
+     entries.push_back(make_pair(VS_INTERLACEMETHOD_AUTO_ION                   , 16325));
+     entries.push_back(make_pair(VS_INTERLACEMETHOD_XVBA                       , 16326));
++    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_AUTO                 , 16327));
+ 
+     /* remove unsupported methods */
+     for(vector<pair<int, int> >::iterator it = entries.begin(); it != entries.end();)
+-- 
+1.7.10.4
+
+
+From 201720df44515b512c2e1bd77a869c1537c05d44 Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Wed, 10 Apr 2013 10:38:01 +0200
+Subject: [PATCH 3/8] VAAPI: Add Flush function
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp |   29 ++++++++++++++++++++++++
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h   |    6 +++++
+ 2 files changed, 35 insertions(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 2079f0a..aedeb0f 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -531,6 +531,11 @@ bool CDecoder::GetPicture(AVCodecContext* avctx, AVFrame* frame, DVDVideoPicture
+   return true;
+ }
+ 
++void CDecoder::Reset()
++{
++  m_vppth->Flush();
++}
++
+ int CDecoder::Check(AVCodecContext* avctx)
+ {
+   if (m_display == NULL)
+@@ -713,6 +718,19 @@ int CVPPThread::GetOutputQueueSize()
+   return m_output_queue.size();
+ }
+ 
++void CVPPThread::Flush()
++{
++  CSingleLock lock(m_work_lock);
++
++  m_input_queue_lock.lock();
++  m_input_queue = std::queue<CVPPDecodedPicture>();
++  m_input_queue_lock.unlock();
++
++  m_output_queue_lock.lock();
++  m_output_queue = std::queue<CVPPRenderPicture>();
++  m_output_queue_lock.unlock();
++}
++
+ void CVPPThread::DoDeinterlacing(const CVPPDecodedPicture &frame, bool topField)
+ {
+   if(!m_vpp->DeintBobReady())
+@@ -744,11 +762,16 @@ void CVPPThread::Process()
+ {
+   CVPPDecodedPicture currentFrame = CVPPDecodedPicture();
+ 
++  m_work_lock.lock();
++
+   while(!m_stop)
+   {
+     if(currentFrame.valid)
+     {
+       bool isInterlaced = currentFrame.DVDPic.iFlags & DVP_FLAG_INTERLACED;
++      //if(currentFrame.DVDPic.iFlags & DVP_FLAG_DROPDEINT)
++      //  isInterlaced = false;
++
+       EDEINTERLACEMODE   mode = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
+       EINTERLACEMETHOD method = CMediaSettings::Get().GetCurrentVideoSettings().m_InterlaceMethod;
+ 
+@@ -756,6 +779,7 @@ void CVPPThread::Process()
+        && (mode == VS_DEINTERLACEMODE_FORCE || (mode == VS_DEINTERLACEMODE_AUTO && isInterlaced)))
+       {
+         bool topField = currentFrame.DVDPic.iFlags & DVP_FLAG_TOP_FIELD_FIRST;
++
+         DoDeinterlacing(currentFrame, topField);
+         DoDeinterlacing(currentFrame, !topField);
+       }
+@@ -770,8 +794,13 @@ void CVPPThread::Process()
+     }
+ 
+     currentFrame = CVPPDecodedPicture();
++
++    m_work_lock.unlock();
+     currentFrame = GetCurrentFrame();
++    m_work_lock.lock();
+   }
++
++  m_work_lock.unlock();
+ }
+ 
+ #endif
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+index 241ff38..1aa2fd7 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+@@ -139,6 +139,8 @@ public:
+   int GetInputQueueSize();
+   int GetOutputQueueSize();
+ 
++  void Flush();
++
+ protected:
+   void OnStartup();
+   void OnExit();
+@@ -152,6 +154,8 @@ protected:
+ 
+   bool m_stop;
+ 
++  CCriticalSection m_work_lock;
++
+   CCriticalSection m_input_queue_lock;
+   XbmcThreads::ConditionVariable m_input_cond;
+   std::queue<CVPPDecodedPicture> m_input_queue;
+@@ -173,9 +177,11 @@ public:
+   virtual int  Decode    (AVCodecContext* avctx, AVFrame* frame);
+   virtual bool GetPicture(AVCodecContext* avctx, AVFrame* frame, DVDVideoPicture* picture);
+   virtual int  Check     (AVCodecContext* avctx);
++  virtual void Reset     ();
+   virtual void Close();
+   virtual const std::string Name() { return "vaapi"; }
+   virtual CCriticalSection* Section() { if(m_display) return m_display.get(); else return NULL; }
++  virtual bool CanSkipDeint() { return true; }
+ 
+   int   GetBuffer(AVCodecContext *avctx, AVFrame *pic);
+   void  RelBuffer(AVCodecContext *avctx, AVFrame *pic);
+-- 
+1.7.10.4
+
+
+From 58605e632bf6fdb9133e96d570951a36e65b5d97 Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Wed, 10 Apr 2013 11:26:01 +0200
+Subject: [PATCH 4/8] VAAPI: Use shared_ptr::unique() instead of use_count()
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp     |    4 ++--
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index aedeb0f..114c8ce 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -207,8 +207,8 @@ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic)
+   else
+   {
+     // To avoid stutter, we scan the free surface pool (provided by decoder) for surfaces
+-    // that are 100% not in use by renderer or vpp. The pointers to these surfaces have a use_count of 1.
+-    for (; it != m_surfaces_free.end() && it->use_count() > 1; ++it) {}
++    // that are 100% not in use by renderer or vpp. The pointers to these surfaces are unique(use_count() == 1).
++    for (; it != m_surfaces_free.end() && !it->unique(); ++it) {}
+ 
+     // If we have zero free surface from decoder OR all free surfaces are in use by renderer, we allocate a new surface
+     if (it == m_surfaces_free.end())
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+index 47f98f8..f063b07 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+@@ -330,7 +330,7 @@ CSurfacePtr CVPP::getFreeSurface()
+ #ifdef VPP_AVAIL
+     for(int i = 0; i < m_bobTargetCount; ++i)
+     {
+-        if(m_bobTargets[i].use_count() == 1)
++        if(m_bobTargets[i].unique())
+         {
+             return m_bobTargets[i];
+         }
+-- 
+1.7.10.4
+
+
+From 55c5d2d8da95a7cf968bcd5cbe858ab21e15f475 Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Wed, 10 Apr 2013 12:06:57 +0200
+Subject: [PATCH 5/8] VAAPI: Reduce VPP buffer size
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp |   15 +++++++++------
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h   |    2 ++
+ 2 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 114c8ce..4e27bb5 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -146,6 +146,9 @@ CSurfaceGL::~CSurfaceGL()
+ 
+ CDecoder::CDecoder()
+ {
++  // Buffer size passed to VPP Init
++  m_buffer_size     = 9;
++
+   m_refs            = 0;
+   m_surfaces_count  = 0;
+   m_config          = 0;
+@@ -379,7 +382,7 @@ bool CDecoder::Open(AVCodecContext *avctx, enum PixelFormat fmt, unsigned int su
+     return false;
+ 
+   m_vppth = new CVPPThread(m_display, avctx->width, avctx->height);
+-  m_vppth->Init(m_refs); // Ignore result, VPPThread just passes frames if init failed
++  m_vppth->Init(m_buffer_size); // Ignore result, VPPThread just passes frames if init failed
+   m_vppth->Start();
+ 
+   m_hwaccel->display     = m_display->get();
+@@ -413,7 +416,7 @@ bool CDecoder::EnsureContext(AVCodecContext *avctx)
+ 
+   int vpp_buf = 0;
+   if(CVPP::Supported())
+-    vpp_buf = 4;
++    vpp_buf = m_buffer_size >> 1;
+ 
+   return EnsureSurfaces(avctx, m_refs + m_renderbuffers_count + vpp_buf + 3);
+ }
+@@ -503,7 +506,7 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+ 
+   int ret = 0;
+ 
+-  if(m_vppth->GetInputQueueSize() < 4 && m_vppth->GetOutputQueueSize() < 8)
++  if(m_vppth->GetInputQueueSize() < (m_buffer_size >> 2) && m_vppth->GetOutputQueueSize() < (m_buffer_size >> 1))
+     ret |= VC_BUFFER;
+   if(m_vppth->GetOutputQueueSize() > 0)
+     ret |= VC_PICTURE;
+@@ -585,7 +588,7 @@ bool CVPPThread::Init(int num_refs)
+   if(!m_vpp->InitVpp())
+     return false;
+ 
+-  if(!m_vpp->InitDeintBob(num_refs + 16))
++  if(!m_vpp->InitDeintBob(num_refs))
+     return false;
+ 
+   return true;
+@@ -769,8 +772,8 @@ void CVPPThread::Process()
+     if(currentFrame.valid)
+     {
+       bool isInterlaced = currentFrame.DVDPic.iFlags & DVP_FLAG_INTERLACED;
+-      //if(currentFrame.DVDPic.iFlags & DVP_FLAG_DROPDEINT)
+-      //  isInterlaced = false;
++      if(currentFrame.DVDPic.iFlags & DVP_FLAG_DROPDEINT)
++        isInterlaced = false;
+ 
+       EDEINTERLACEMODE   mode = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
+       EINTERLACEMETHOD method = CMediaSettings::Get().GetCurrentVideoSettings().m_InterlaceMethod;
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+index 1aa2fd7..6ccef59 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+@@ -194,6 +194,8 @@ protected:
+   VASurfaceID            m_surfaces[m_surfaces_max];
+   unsigned               m_renderbuffers_count;
+ 
++  int                    m_buffer_size;
++
+   int                    m_refs;
+   std::list<CSurfacePtr> m_surfaces_used;
+   std::list<CSurfacePtr> m_surfaces_free;
+-- 
+1.7.10.4
+
+
+From b1d06507eaf2b765a36d8df3a4d527ac7618e153 Mon Sep 17 00:00:00 2001
+From: fritsch <peter.fruehberger@gmail.com>
+Date: Thu, 25 Apr 2013 21:13:33 +0200
+Subject: [PATCH 6/8] VAAPI: adapt code to work with frodo
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 4e27bb5..fbe3fd5 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -20,7 +20,6 @@
+ #include "system.h"
+ #ifdef HAVE_LIBVA
+ #include "windowing/WindowingFactory.h"
+-#include "settings/MediaSettings.h"
+ #include "settings/Settings.h"
+ #include "cores/dvdplayer/DVDClock.h"
+ #include "VAAPI.h"
+@@ -775,8 +774,8 @@ void CVPPThread::Process()
+       if(currentFrame.DVDPic.iFlags & DVP_FLAG_DROPDEINT)
+         isInterlaced = false;
+ 
+-      EDEINTERLACEMODE   mode = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
+-      EINTERLACEMETHOD method = CMediaSettings::Get().GetCurrentVideoSettings().m_InterlaceMethod;
++      EDEINTERLACEMODE   mode = g_settings.m_currentVideoSettings.m_DeinterlaceMode;
++      EINTERLACEMETHOD method = g_settings.m_currentVideoSettings.m_InterlaceMethod;
+ 
+       if (m_vpp->DeintBobReady() && (method == VS_INTERLACEMETHOD_VAAPI_AUTO || method == VS_INTERLACEMETHOD_AUTO)
+        && (mode == VS_DEINTERLACEMODE_FORCE || (mode == VS_DEINTERLACEMODE_AUTO && isInterlaced)))
+-- 
+1.7.10.4
+
+
+From 754919b065c32fdf0e3b78a072cce6282d3c371c Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Sat, 27 Apr 2013 15:37:56 +0200
+Subject: [PATCH 7/8] VAAPI: Fix VPP compile if libva is too old
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+index f063b07..1fdad18 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+@@ -321,7 +321,7 @@ CSurfacePtr CVPP::DeintBob(const CSurfacePtr& input, bool topField)
+ 
+     return bobTarget;
+ #else
+-    return VA_INVALID_ID;
++    return CSurfacePtr();
+ #endif
+ }
+ 
+-- 
+1.7.10.4
+
+
+From b1c3a0320232080b935b3146146ba33ca6162f84 Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Fri, 24 May 2013 19:25:59 +0200
+Subject: [PATCH 8/8] VAAPI, sqash me: Fix compile for new 1.2-testing branch
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+index 1fdad18..8a500cc 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI_VPP.cpp
+@@ -35,6 +35,11 @@
+ 
+ #include <algorithm>
+ 
++#ifndef VA_SURFACE_ATTRIB_SETTABLE
++#define vaCreateSurfaces(d, f, w, h, s, ns, a, na) \
++    vaCreateSurfaces(d, w, h, f, ns, s)
++#endif
++
+ using namespace VAAPI;
+ 
+ bool CVPP::isSupported = true;
+-- 
+1.7.10.4
+
