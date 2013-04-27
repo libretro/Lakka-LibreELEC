@@ -1,0 +1,142 @@
+diff -Naur RTL8188EU-20130425/core/rtw_mp.c RTL8188EU-20130425.patch/core/rtw_mp.c
+--- RTL8188EU-20130425/core/rtw_mp.c	2013-04-27 07:20:29.000000000 +0200
++++ RTL8188EU-20130425.patch/core/rtw_mp.c	2013-04-27 15:46:36.416055469 +0200
+@@ -1219,7 +1219,8 @@
+ 
+ 	//3 6. start thread
+ #ifdef PLATFORM_LINUX
+-	pmp_priv->tx.PktTxThread = kernel_thread(mp_xmit_packet_thread, pmp_priv, CLONE_FS|CLONE_FILES);
++	if(!start_kthread(&pmp_priv->tx.PktTxThread, mp_xmit_packet_thread, pmp_priv, "8188eu-mp-xmit"))
++		DBG_871X("Create PktTx Thread Fail !!!!!\n");
+ #endif
+ #ifdef PLATFORM_FREEBSD
+ {
+@@ -1228,9 +1229,9 @@
+ 	pmp_priv->tx.PktTxThread = kproc_kthread_add(mp_xmit_packet_thread, pmp_priv,
+ 					&p, &td, RFHIGHPID, 0, "MPXmitThread", "MPXmitThread");
+ }
++if (pmp_priv->tx.PktTxThread < 0)
++	DBG_871X("Create PktTx Thread Fail !!!!!\n");
+ #endif
+-	if (pmp_priv->tx.PktTxThread < 0)
+-		DBG_871X("Create PktTx Thread Fail !!!!!\n");
+ 
+ }
+ 
+diff -Naur RTL8188EU-20130425/include/osdep_service.h RTL8188EU-20130425.patch/include/osdep_service.h
+--- RTL8188EU-20130425/include/osdep_service.h	2013-04-27 07:20:29.000000000 +0200
++++ RTL8188EU-20130425.patch/include/osdep_service.h	2013-04-27 15:59:42.647641402 +0200
+@@ -813,6 +813,9 @@
+ 	#include <linux/pci.h>
+ #endif
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))
++	#include <linux/kthread.h>
++#endif
+ 	
+ #ifdef CONFIG_USB_HCI
+ 	typedef struct urb *  PURB;
+@@ -846,8 +849,12 @@
+ 	//typedef u32	_irqL;
+ 	typedef unsigned long _irqL;
+ 	typedef	struct	net_device * _nic_hdl;
+-	
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0))
+ 	typedef pid_t		_thread_hdl_;
++#else
++	typedef struct task_struct * _thread_hdl_;
++#endif
+ 	typedef int		thread_return;
+ 	typedef void*	thread_context;
+ 
+@@ -1394,7 +1401,7 @@
+ static __inline void thread_enter(char *name)
+ {
+ #ifdef PLATFORM_LINUX
+-	daemonize("%s", name);
++	//daemonize("%s", name);
+ 	allow_signal(SIGTERM);
+ #endif
+ #ifdef PLATFORM_FREEBSD
+@@ -1677,4 +1684,8 @@
+ 
+ #endif
+ 
++#ifdef PLATFORM_LINUX
++extern int start_kthread(_thread_hdl_ *t_hdl, int (*threadfn)(void *data),
++			 void *data, const char *name);
++#endif
+ 
+diff -Naur RTL8188EU-20130425/include/rtw_recv.h RTL8188EU-20130425.patch/include/rtw_recv.h
+--- RTL8188EU-20130425/include/rtw_recv.h	2013-04-27 07:20:29.000000000 +0200
++++ RTL8188EU-20130425.patch/include/rtw_recv.h	2013-04-27 16:01:59.026051453 +0200
+@@ -658,7 +658,9 @@
+ 	//from any given member of recv_frame.
+ 	// rxmem indicates the any member/address in recv_frame
+ 
+-	return (union recv_frame*)(((SIZE_PTR)rxmem >> RXFRAME_ALIGN) << RXFRAME_ALIGN);
++	//return (union recv_frame*)(((uint)rxmem>>RXFRAME_ALIGN) <<RXFRAME_ALIGN) ;
++	//return (union recv_frame*)(((SIZE_PTR)rxmem >> RXFRAME_ALIGN) << RXFRAME_ALIGN);
++	return (union recv_frame*)(((ulong)rxmem>>RXFRAME_ALIGN) <<RXFRAME_ALIGN) ; 
+ 
+ }
+ 
+diff -Naur RTL8188EU-20130425/os_dep/linux/os_intfs.c RTL8188EU-20130425.patch/os_dep/linux/os_intfs.c
+--- RTL8188EU-20130425/os_dep/linux/os_intfs.c	2013-04-27 07:20:29.000000000 +0200
++++ RTL8188EU-20130425.patch/os_dep/linux/os_intfs.c	2013-04-27 16:06:09.281030229 +0200
+@@ -978,27 +978,23 @@
+ 
+ 	RT_TRACE(_module_os_intfs_c_,_drv_info_,("+rtw_start_drv_threads\n"));
+ #ifdef CONFIG_XMIT_THREAD_MODE
+-	padapter->xmitThread = kernel_thread(rtw_xmit_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->xmitThread < 0)
++	if(!start_kthread(&padapter->xmitThread, rtw_xmit_thread, padapter, "8188eu-xmit"))
+ 		_status = _FAIL;
+ #endif
+ 
+ #ifdef CONFIG_RECV_THREAD_MODE
+-	padapter->recvThread = kernel_thread(rtw_recv_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->recvThread < 0)
++	if(!start_kthread(&padapter->recvThread, recv_thread, padapter, "8188eu-recv"))
+ 		_status = _FAIL;	
+ #endif
+ 
+-	padapter->cmdThread = kernel_thread(rtw_cmd_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->cmdThread < 0)
++	if(!start_kthread(&padapter->cmdThread, rtw_cmd_thread, padapter, "8188eu-cmd"))
+ 		_status = _FAIL;
+ 	else
+ 		_rtw_down_sema(&padapter->cmdpriv.terminate_cmdthread_sema); //wait for cmd_thread to run
+ 		
+ 
+ #ifdef CONFIG_EVENT_THREAD_MODE
+-	padapter->evtThread = kernel_thread(event_thread, padapter, CLONE_FS|CLONE_FILES);
+-	if(padapter->evtThread < 0)
++	if(!start_kthread(&padapter->evtThread, event_thread, padapter, "8188eu-evt"))
+ 		_status = _FAIL;		
+ #endif
+ 
+diff -Naur RTL8188EU-20130425/os_dep/osdep_service.c RTL8188EU-20130425.patch/os_dep/osdep_service.c
+--- RTL8188EU-20130425/os_dep/osdep_service.c	2013-04-27 07:20:29.000000000 +0200
++++ RTL8188EU-20130425.patch/os_dep/osdep_service.c	2013-04-27 15:38:15.965258008 +0200
+@@ -1920,3 +1920,19 @@
+ #endif
+ }
+ 
++#ifdef PLATFORM_LINUX
++int start_kthread(_thread_hdl_ *t_hdl, int (*threadfn)(void *data),
++		  void *data, const char *name)
++{
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0))
++	*t_hdl = kernel_thread(threadfn, data, CLONE_FS|CLONE_FILES);
++	if(*t_hdl < 0)
++#else
++	*t_hdl = kthread_run(threadfn, data, name);
++	if(IS_ERR(*t_hdl))
++#endif
++		return 0;
++	return -1;
++}
++#endif
++
