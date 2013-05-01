@@ -24,9 +24,19 @@
 
 get_graphicdrivers
 
+export CC_FOR_BUILD="$HOST_CC"
+export CXX_FOR_BUILD="$HOST_CXX"
+export CFLAGS_FOR_BUILD=""
+export CXXFLAGS_FOR_BUILD=""
+export LDFLAGS_FOR_BUILD=""
+
+export X11_INCLUDES=""
+export DRI_DRIVER_INSTALL_DIR="$XORG_PATH_DRI"
+export DRI_DRIVER_SEARCH_DIR="$XORG_PATH_DRI"
+
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config"
-  MESA_GALLIUM_LLVM="--enable-gallium-llvm"
+  MESA_GALLIUM_LLVM="--enable-gallium-llvm --with-llvm-shared-libs"
 else
   MESA_GALLIUM_LLVM="--disable-gallium-llvm"
 fi
@@ -37,25 +47,12 @@ else
   MESA_VDPAU="--disable-vdpau"
 fi
 
-if [ "$MESA_VAAPI_SUPPORT" = "yes" ]; then
-  MESA_VAAPI="--enable-va"
-else
-  MESA_VAAPI="--disable-va"
-fi
-
-cd $PKG_BUILD
-
-HOST_CC="$HOST_CC" \
-HOST_OPT_FLAGS="$HOST_CFLAGS" \
-X11_INCLUDES= \
-DRI_DRIVER_INSTALL_DIR="$XORG_PATH_DRI" \
-DRI_DRIVER_SEARCH_DIR="$XORG_PATH_DRI" \
-
 XA_CONFIG="--disable-xa"
 for drv in $GRAPHIC_DRIVERS; do
-  [ "$drv" = "vmware" ] && \
-    XA_CONFIG="--enable-xa"
+  [ "$drv" = "vmware" ] && XA_CONFIG="--enable-xa"
 done
+
+cd $PKG_BUILD
 
 ./configure --host=$TARGET_NAME \
             --build=$HOST_NAME \
@@ -66,6 +63,7 @@ done
             --enable-shared \
             --disable-debug \
             --enable-texture-float \
+            --enable-asm \
             --disable-selinux \
             --enable-opengl \
             --enable-glx-tls \
@@ -73,38 +71,30 @@ done
             --disable-gles1 \
             --disable-gles2 \
             --disable-openvg \
-            --disable-xorg \
-            --disable-glu \
+            --enable-dri \
+            --enable-glx \
             --disable-osmesa \
-            --disable-d3d1x \
             --disable-egl \
+            --disable-xorg \
+            $XA_CONFIG \
             --disable-gbm \
             --disable-xvmc \
             $MESA_VDPAU \
-            $MESA_VAAPI \
+            --disable-opencl \
+            --disable-xlib-glx \
             --disable-gallium-egl \
             --disable-gallium-gbm \
+            --disable-r600-llvm-compiler \
+            --disable-gallium-tests \
             --enable-shared-glapi \
-            --enable-xcb \
-            $XA_CONFIG \
-            --enable-shared-dricore \
-            --disable-egl \
+            --disable-glx-tls \
+            --disable-gallium-g3dvl \
             $MESA_GALLIUM_LLVM \
+            --disable-silent-rules \
+            --with-gl-lib-name=GL \
+            --with-osmesa-lib-name=OSMesa \
             --with-gallium-drivers="$GALLIUM_DRIVERS" \
             --with-dri-drivers="$DRI_DRIVERS" \
-            --with-x \
-
-make CC="$HOST_CC" \
-     CXX="$HOST_CXX" \
-     CFLAGS="$HOST_CFLAGS" \
-     CXXFLAGS="$HOST_CXXFLAGS" \
-     LDFLAGS="$HOST_LDFLAGS" \
-     -C src/glsl builtin_compiler
-
-cp src/glsl/builtin_compiler $ROOT/$TOOLCHAIN/bin
-make -C src/glsl clean
-
-sed -e "s#\.\/builtin_compiler#$ROOT/$TOOLCHAIN/bin/builtin_compiler#g" -i src/glsl/Makefile
 
 make
 
