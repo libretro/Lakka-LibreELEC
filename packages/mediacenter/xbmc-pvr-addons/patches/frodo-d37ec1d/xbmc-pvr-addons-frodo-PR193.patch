@@ -1,0 +1,2039 @@
+From b49a30690e99de085d35c194c95b11bd79a5c76d Mon Sep 17 00:00:00 2001
+From: Christian Fetzer <fetzer.ch@googlemail.com>
+Date: Wed, 17 Apr 2013 19:17:38 +0200
+Subject: [PATCH] [mythtv-cmyth] Release v1.6.10
+
+---
+ addons/pvr.mythtv.cmyth/addon/addon.xml.in         |   2 +-
+ addons/pvr.mythtv.cmyth/addon/changelog.txt        |   7 ++
+ addons/pvr.mythtv.cmyth/src/client.h               |   6 ++
+ .../src/cppmyth/MythConnection.cpp                 |  12 +--
+ .../pvr.mythtv.cmyth/src/cppmyth/MythConnection.h  |   3 +-
+ .../src/cppmyth/MythEventHandler.cpp               |   4 +-
+ .../src/cppmyth/MythEventHandler.h                 |  18 ++--
+ .../src/cppmyth/MythProgramInfo.cpp                |  12 +--
+ .../pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.h |   6 +-
+ .../pvr.mythtv.cmyth/src/cppmyth/MythRecorder.cpp  |   2 +-
+ .../pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.cpp |   7 ++
+ .../pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.h   |   3 +
+ addons/pvr.mythtv.cmyth/src/fileOps.cpp            |   2 +-
+ addons/pvr.mythtv.cmyth/src/pvrclient-mythtv.cpp   |  41 ++++----
+ lib/cmyth/include/cmyth/cmyth.h                    |   6 +-
+ lib/cmyth/libcmyth/bookmark.c                      |   8 +-
+ lib/cmyth/libcmyth/cmyth_local.h                   |  11 +--
+ lib/cmyth/libcmyth/cmyth_msc.h                     |   4 +-
+ lib/cmyth/libcmyth/commbreak.c                     |  12 +--
+ lib/cmyth/libcmyth/connection.c                    | 108 ++++++---------------
+ lib/cmyth/libcmyth/file.c                          |  54 +++++++----
+ lib/cmyth/libcmyth/input.c                         |   4 +-
+ lib/cmyth/libcmyth/livetv.c                        |  22 +++--
+ lib/cmyth/libcmyth/proginfo.c                      |  53 ++++------
+ lib/cmyth/libcmyth/proglist.c                      |  10 +-
+ lib/cmyth/libcmyth/recorder.c                      |  52 +++++-----
+ lib/cmyth/libcmyth/ringbuf.c                       |  16 +--
+ lib/cmyth/libcmyth/socket.c                        |  18 ++--
+ lib/cmyth/libcmyth/storagegroup.c                  |   8 +-
+ lib/cmyth/libcmyth/timestamp.c                     |  78 ++++++++++++---
+ 30 files changed, 311 insertions(+), 278 deletions(-)
+
+diff --git a/addons/pvr.mythtv.cmyth/addon/addon.xml.in b/addons/pvr.mythtv.cmyth/addon/addon.xml.in
+index 35841df..1b631eb 100644
+--- a/addons/pvr.mythtv.cmyth/addon/addon.xml.in
++++ b/addons/pvr.mythtv.cmyth/addon/addon.xml.in
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <addon
+   id="pvr.mythtv.cmyth"
+-  version="1.6.9"
++  version="1.6.10"
+   name="MythTV cmyth PVR Client"
+   provider-name="Christian Fetzer, Jean-Luc Barrière, Tonny Petersen">
+   <requires>
+diff --git a/addons/pvr.mythtv.cmyth/addon/changelog.txt b/addons/pvr.mythtv.cmyth/addon/changelog.txt
+index f31b589..fd63ca7 100644
+--- a/addons/pvr.mythtv.cmyth/addon/changelog.txt
++++ b/addons/pvr.mythtv.cmyth/addon/changelog.txt
+@@ -1,3 +1,10 @@
++v1.6.10
++- Fixed crash when setting up Live TV (in rare cases)
++- Fixed issue with not updated recording list (Daylight Saving Time)
++- Fixed issue with empty recording list (caused by '[' character)
++- Fixed playback of recordings made by a slave backend
++- Removed 'Failed to connect to MythTV Backend' notification
++
+ v1.6.9
+ - Added Live TV vs. recording conflict handling
+ - Fixed recovering from backend connection loss on Windows
+diff --git a/addons/pvr.mythtv.cmyth/src/client.h b/addons/pvr.mythtv.cmyth/src/client.h
+index a577752..5b98095 100644
+--- a/addons/pvr.mythtv.cmyth/src/client.h
++++ b/addons/pvr.mythtv.cmyth/src/client.h
+@@ -36,6 +36,12 @@
+ #define strdup _strdup // # strdup is POSIX, _strdup should be used instead
+ #endif
+ 
++#define TCP_RCV_BUF_CONTROL_SIZE           128000 // Inherited from MythTV's MythSocket class
++#define RCV_BUF_CONTROL_SIZE               32000  // Buffer size to parse backend response from control connection
++#define TCP_RCV_BUF_DATA_SIZE              65536  // TCP buffer for video stream (best performance)
++#define RCV_BUF_DATA_SIZE                  64     // Buffer size to parse backend response from data control connection
++#define RCV_BUF_IMAGE_SIZE                 32000  // Buffer size to download artworks
++
+ #define LIVETV_CONFLICT_STRATEGY_HASLATER  0
+ #define LIVETV_CONFLICT_STRATEGY_STOPTV    1
+ #define LIVETV_CONFLICT_STRATEGY_CANCELREC 2
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.cpp b/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.cpp
+index 10bd80c..3607744 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.cpp
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.cpp
+@@ -77,7 +77,7 @@
+   , m_port(port)
+   , m_pEventHandler(NULL)
+ {
+-  cmyth_conn_t connection = cmyth_conn_connect_ctrl(const_cast<char*>(server.c_str()), port, 64 * 1024, 16 * 1024);
++  cmyth_conn_t connection = cmyth_conn_connect_ctrl(const_cast<char*>(server.c_str()), port, RCV_BUF_CONTROL_SIZE, TCP_RCV_BUF_CONTROL_SIZE);
+   *m_conn_t = connection;
+ }
+ 
+@@ -249,13 +249,13 @@ MythProgramInfo MythConnection::GetRecordedProgram(const CStdString &basename)
+   return retval;
+ }
+ 
+-MythProgramInfo MythConnection::GetRecordedProgram(int chanid, time_t recstartts)
++MythProgramInfo MythConnection::GetRecordedProgram(int chanid, const MythTimestamp &recstartts)
+ {
+   MythProgramInfo retval;
+   cmyth_proginfo_t prog = NULL;
+-  if (chanid > 0 && recstartts > 0)
++  if (chanid > 0 && !recstartts.IsNull())
+   {
+-    CMYTH_CONN_CALL_REF(prog, prog == NULL, cmyth_proginfo_get_from_timeslot(*m_conn_t, chanid, recstartts));
++    CMYTH_CONN_CALL_REF(prog, prog == NULL, cmyth_proginfo_get_from_timeslot(*m_conn_t, chanid, *recstartts.m_timestamp_t));
+     if (prog) {
+       retval = MythProgramInfo(prog);
+     }
+@@ -334,7 +334,7 @@ MythFile MythConnection::ConnectFile(MythProgramInfo &recording)
+   // When file is not NULL doesn't need to mean there is no more connection,
+   // so always check after calling cmyth_conn_connect_file if still connected to control socket.
+   cmyth_file_t file = NULL;
+-  CMYTH_CONN_CALL_REF(file, true, cmyth_conn_connect_file(*recording.m_proginfo_t, *m_conn_t, 64 * 1024, 16 * 1024));
++  CMYTH_CONN_CALL_REF(file, true, cmyth_conn_connect_file(*recording.m_proginfo_t, *m_conn_t, RCV_BUF_DATA_SIZE, TCP_RCV_BUF_DATA_SIZE));
+   MythFile retval = MythFile(file, *this);
+   return retval;
+ }
+@@ -342,7 +342,7 @@ MythFile MythConnection::ConnectFile(MythProgramInfo &recording)
+ MythFile MythConnection::ConnectPath(const CStdString &filename, const CStdString &storageGroup)
+ {
+   cmyth_file_t file = NULL;
+-  CMYTH_CONN_CALL_REF(file, file == NULL, cmyth_conn_connect_path(const_cast<char*>(filename.c_str()), *m_conn_t, 64 * 1024, 64 * 1024, const_cast<char*>(storageGroup.c_str())));
++  CMYTH_CONN_CALL_REF(file, file == NULL, cmyth_conn_connect_path(const_cast<char*>(filename.c_str()), *m_conn_t, RCV_BUF_DATA_SIZE, TCP_RCV_BUF_DATA_SIZE, const_cast<char*>(storageGroup.c_str())));
+   return MythFile(file, *this);
+ }
+ 
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.h b/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.h
+index 1aab54f..f40fc78 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.h
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythConnection.h
+@@ -35,6 +35,7 @@
+ class MythEventHandler;
+ class MythRecordingRule;
+ class MythStorageGroupFile;
++class MythTimestamp;
+ 
+ template <class T> class MythPointer;
+ template <class T> class MythPointerThreadSafe;
+@@ -72,7 +73,7 @@ class MythConnection
+   bool DeleteRecording(MythProgramInfo &recording);
+   ProgramInfoMap GetRecordedPrograms();
+   MythProgramInfo GetRecordedProgram(const CStdString &basename);
+-  MythProgramInfo GetRecordedProgram(int chanid, time_t recstartts);
++  MythProgramInfo GetRecordedProgram(int chanid, const MythTimestamp &recstartts);
+ 
+   // Timers
+   ProgramInfoMap GetPendingPrograms();
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.cpp b/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.cpp
+index d546748..e790c65 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.cpp
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.cpp
+@@ -109,7 +109,7 @@ class MythEventHandler::MythEventHandlerPrivate : public CThread, public CMutex
+   , m_hang(false)
+   , m_recordingChangeEventList()
+ {
+-  *m_conn_t = cmyth_conn_connect_event(const_cast<char*>(m_server.c_str()), port, 64 * 1024, 16 * 1024);
++  *m_conn_t = cmyth_conn_connect_event(const_cast<char*>(m_server.c_str()), port, RCV_BUF_CONTROL_SIZE, TCP_RCV_BUF_CONTROL_SIZE);
+ }
+ 
+ MythEventHandler::MythEventHandlerPrivate::~MythEventHandlerPrivate()
+@@ -460,7 +460,7 @@ void MythEventHandler::MythEventHandlerPrivate::RetryConnect()
+     usleep(999999);
+     ref_release(*m_conn_t);
+     *m_conn_t = NULL;
+-    *m_conn_t = cmyth_conn_connect_event(const_cast<char*>(m_server.c_str()), m_port, 64 * 1024, 16 * 1024);
++    *m_conn_t = cmyth_conn_connect_event(const_cast<char*>(m_server.c_str()), m_port, RCV_BUF_CONTROL_SIZE, TCP_RCV_BUF_CONTROL_SIZE);
+ 
+     if (*m_conn_t == NULL)
+       XBMC->Log(LOG_NOTICE, "%s - Could not connect client to event socket", __FUNCTION__);
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.h b/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.h
+index 7e58ceb..072a4c5 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.h
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythEventHandler.h
+@@ -75,21 +75,16 @@ class MythEventHandler
+   class RecordingChangeEvent
+   {
+   public:
+-    RecordingChangeEvent(RecordingChangeType type, unsigned int chanid, char *recstartts)
++    RecordingChangeEvent(RecordingChangeType type, unsigned int chanid, const CStdString &recstartts)
+       : m_type(type)
+       , m_channelID(chanid)
+-      , m_recordStartTimeSlot(0)
+     {
+-      if (recstartts) {
+-        MythTimestamp time(recstartts, false);
+-        m_recordStartTimeSlot = time.UnixTime();
+-      }
++      m_recordingStartTimeSlot = MythTimestamp(recstartts, false);
+     }
+ 
+     RecordingChangeEvent(RecordingChangeType type, const MythProgramInfo &prog)
+       : m_type(type)
+       , m_channelID(0)
+-      , m_recordStartTimeSlot(0)
+       , m_prog(prog)
+     {
+     }
+@@ -97,20 +92,19 @@ class MythEventHandler
+     RecordingChangeEvent(RecordingChangeType type)
+       : m_type(type)
+       , m_channelID(0)
+-      , m_recordStartTimeSlot(0)
+     {
+     }
+ 
+     RecordingChangeType Type() const { return m_type; }
+     unsigned int ChannelID() const { return m_channelID; };
+-    time_t RecordingStartTimeslot() const { return m_recordStartTimeSlot; }
++    MythTimestamp RecordingStartTimeslot() const { return m_recordingStartTimeSlot; }
+     MythProgramInfo Program() const { return m_prog; }
+ 
+   private:
+     RecordingChangeType m_type;
+-    unsigned int m_channelID;     // ADD and DELETE
+-    time_t m_recordStartTimeSlot; // ADD and DELETE
+-    MythProgramInfo m_prog;       // UPDATE
++    unsigned int m_channelID;               // ADD and DELETE
++    MythTimestamp m_recordingStartTimeSlot; // ADD and DELETE
++    MythProgramInfo m_prog;                 // UPDATE
+   };
+ 
+   bool HasRecordingChangeEvent() const;
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.cpp b/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.cpp
+index 1632c41..352e601 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.cpp
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.cpp
+@@ -24,7 +24,7 @@
+ 
+ MythProgramInfo::MythProgramInfo()
+   : m_proginfo_t()
+-  , m_framerate(-1)
++  , m_frameRate(-1)
+   , m_coverart("")
+   , m_fanart("")
+ {
+@@ -32,7 +32,7 @@
+ 
+ MythProgramInfo::MythProgramInfo(cmyth_proginfo_t cmyth_proginfo)
+   : m_proginfo_t(new MythPointer<cmyth_proginfo_t>())
+-  , m_framerate(-1)
++  , m_frameRate(-1)
+   , m_coverart("")
+   , m_fanart("")
+ {
+@@ -208,14 +208,14 @@ int MythProgramInfo::Priority()
+   return cmyth_proginfo_priority(*m_proginfo_t); // Might want to use recpriority2 instead
+ }
+ 
+-void MythProgramInfo::SetFramerate(const long long framerate)
++void MythProgramInfo::SetFrameRate(const long long frameRate)
+ {
+-  m_framerate = framerate;
++  m_frameRate = frameRate;
+ }
+ 
+-long long MythProgramInfo::Framterate() const
++long long MythProgramInfo::FrameRate() const
+ {
+-  return m_framerate;
++  return m_frameRate;
+ }
+ 
+ CStdString MythProgramInfo::IconPath()
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.h b/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.h
+index c90cab9..bd8ba73 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.h
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythProgramInfo.h
+@@ -68,8 +68,8 @@ class MythProgramInfo
+   time_t RecordingEndTime();
+   int Priority();
+ 
+-  void SetFramerate(const long long framerate);
+-  long long Framterate() const;
++  void SetFrameRate(const long long frameRate);
++  long long FrameRate() const;
+ 
+   CStdString IconPath();
+   CStdString Coverart() const;
+@@ -79,7 +79,7 @@ class MythProgramInfo
+   boost::shared_ptr<MythPointer<cmyth_proginfo_t> > m_proginfo_t;
+ 
+   // Cached PVR attributes
+-  long long m_framerate;
++  long long m_frameRate;
+ 
+   // Artworks
+   CStdString m_coverart;
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythRecorder.cpp b/addons/pvr.mythtv.cmyth/src/cppmyth/MythRecorder.cpp
+index 0df71af..81cebea 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythRecorder.cpp
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythRecorder.cpp
+@@ -159,7 +159,7 @@ bool MythRecorder::SpawnLiveTV(MythChannel &channel)
+   // Check channel
+   *m_liveChainUpdated = 0;
+   cmyth_recorder_t recorder = NULL;
+-  recorder = cmyth_spawn_live_tv(*m_recorder_t, 64*1024, 64*1024, MythRecorder::prog_update_callback, &pErr, const_cast<char*>(channel.Number().c_str()));
++  recorder = cmyth_spawn_live_tv(*m_recorder_t, RCV_BUF_DATA_SIZE, TCP_RCV_BUF_DATA_SIZE, MythRecorder::prog_update_callback, &pErr, const_cast<char*>(channel.Number().c_str()));
+ 
+   if (recorder && pErr == NULL) {
+     *m_recorder_t = recorder;
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.cpp b/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.cpp
+index 8518c63..f8ec968 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.cpp
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.cpp
+@@ -94,3 +94,10 @@ CStdString MythTimestamp::DisplayString(bool use12hClock)
+   bool succeded=cmyth_timestamp_to_display_string(time, *m_timestamp_t, use12hClock) == 0;
+   return succeded ? CStdString(time) : CStdString("");
+ }
++
++CStdString MythTimestamp::NumString()
++{
++  char time[15];
++  bool succeded = cmyth_timestamp_to_numstring(time, *m_timestamp_t) == 0;
++  return succeded ? CStdString(time) : CStdString("");
++}
+\ No newline at end of file
+diff --git a/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.h b/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.h
+index ecff511..a4ee3a5 100644
+--- a/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.h
++++ b/addons/pvr.mythtv.cmyth/src/cppmyth/MythTimestamp.h
+@@ -32,6 +32,8 @@
+ class MythTimestamp
+ {
+ public:
++  friend class MythConnection;
++
+   MythTimestamp();
+   MythTimestamp(cmyth_timestamp_t cmyth_timestamp);
+   MythTimestamp(CStdString time, bool datetime);
+@@ -50,6 +52,7 @@ class MythTimestamp
+   CStdString String();
+   CStdString IsoString();
+   CStdString DisplayString(bool use12hClock);
++  CStdString NumString();
+ 
+ private:
+   boost::shared_ptr<MythPointer<cmyth_timestamp_t> > m_timestamp_t;
+diff --git a/addons/pvr.mythtv.cmyth/src/fileOps.cpp b/addons/pvr.mythtv.cmyth/src/fileOps.cpp
+index ec7089b..b51e6d8 100644
+--- a/addons/pvr.mythtv.cmyth/src/fileOps.cpp
++++ b/addons/pvr.mythtv.cmyth/src/fileOps.cpp
+@@ -298,7 +298,7 @@ bool FileOps::CacheFile(const CStdString &localFilename, MythFile &source)
+   unsigned long long totalLength = source.Length();
+   unsigned long long totalRead = 0;
+ 
+-  const long buffersize = 32768;
++  const long buffersize = RCV_BUF_IMAGE_SIZE;
+   char* buffer = new char[buffersize];
+ 
+   while (totalRead < totalLength)
+diff --git a/addons/pvr.mythtv.cmyth/src/pvrclient-mythtv.cpp b/addons/pvr.mythtv.cmyth/src/pvrclient-mythtv.cpp
+index 0a86552..73e9a7e 100644
+--- a/addons/pvr.mythtv.cmyth/src/pvrclient-mythtv.cpp
++++ b/addons/pvr.mythtv.cmyth/src/pvrclient-mythtv.cpp
+@@ -186,7 +186,6 @@ bool PVRClientMythTV::Connect()
+   if (!m_con.IsConnected())
+   {
+     XBMC->Log(LOG_ERROR,"Failed to connect to MythTV backend on %s:%d", g_szMythHostname.c_str(), g_iMythPort);
+-    XBMC->QueueNotification(QUEUE_ERROR, XBMC->GetLocalizedString(30300));
+     return false;
+   }
+ 
+@@ -605,7 +604,7 @@ void PVRClientMythTV::EventUpdateRecordings()
+           }
+         }
+         else
+-          XBMC->Log(LOG_ERROR, "%s - Add recording failed for %u %ld", __FUNCTION__, event.ChannelID(), event.RecordingStartTimeslot());
++          XBMC->Log(LOG_ERROR, "%s - Add recording failed for %u %s", __FUNCTION__, event.ChannelID(), event.RecordingStartTimeslot().NumString().c_str());
+         break;
+       }
+       case MythEventHandler::CHANGE_UPDATE:
+@@ -618,7 +617,7 @@ void PVRClientMythTV::EventUpdateRecordings()
+             XBMC->Log(LOG_DEBUG, "%s - Update recording: %s", __FUNCTION__, prog.UID().c_str());
+ 
+           // Copy cached framerate
+-          prog.SetFramerate(it->second.Framterate());
++          prog.SetFrameRate(it->second.FrameRate());
+ 
+           // Fill artwork
+           m_db.FillRecordingArtwork(prog);
+@@ -662,7 +661,7 @@ void PVRClientMythTV::ForceUpdateRecording(ProgramInfoMap::iterator it)
+     if (!prog.IsNull())
+     {
+       // Copy cached framerate
+-      prog.SetFramerate(it->second.Framterate());
++      prog.SetFrameRate(it->second.FrameRate());
+ 
+       // Fill artwork
+       m_db.FillRecordingArtwork(prog);
+@@ -776,10 +775,10 @@ PVR_ERROR PVRClientMythTV::SetRecordingLastPlayedPosition(const PVR_RECORDING &r
+   if (it != m_recordings.end())
+   {
+     // pin framerate value
+-    if (it->second.Framterate() < 0)
+-      it->second.SetFramerate(m_db.GetRecordingFrameRate(it->second));
++    if (it->second.FrameRate() < 0)
++      it->second.SetFrameRate(m_db.GetRecordingFrameRate(it->second));
+     // Calculate the frame offset
+-    long long frameOffset = (long long)(lastplayedposition * it->second.Framterate() / 1000.0f);
++    long long frameOffset = (long long)(lastplayedposition * it->second.FrameRate() / 1000.0f);
+     if (frameOffset < 0) frameOffset = 0;
+     if (g_bExtraDebug)
+     {
+@@ -831,9 +830,9 @@ int PVRClientMythTV::GetRecordingLastPlayedPosition(const PVR_RECORDING &recordi
+         XBMC->Log(LOG_DEBUG, "%s - FrameOffset: %lld)", __FUNCTION__, frameOffset);
+       }
+       // Pin framerate value
+-      if (it->second.Framterate() <0)
+-        it->second.SetFramerate(m_db.GetRecordingFrameRate(it->second));
+-      float frameRate = (float)it->second.Framterate() / 1000.0f;
++      if (it->second.FrameRate() <0)
++        it->second.SetFrameRate(m_db.GetRecordingFrameRate(it->second));
++      float frameRate = (float)it->second.FrameRate() / 1000.0f;
+       if (frameRate > 0)
+       {
+         bookmark = (int)((float)frameOffset / frameRate);
+@@ -1306,7 +1305,10 @@ bool PVRClientMythTV::OpenLiveStream(const PVR_CHANNEL &channel)
+             m_pEventHandler->SetRecorder(m_rec);
+ 
+             if (m_rec.SpawnLiveTV((*channelByNumberIt).second))
++            {
++              XBMC->Log(LOG_DEBUG, "%s - Done", __FUNCTION__);
+               return true;
++            }
+           }
+         }
+       }
+@@ -1324,19 +1326,14 @@ bool PVRClientMythTV::OpenLiveStream(const PVR_CHANNEL &channel)
+ 
+     XBMC->Log(LOG_ERROR,"%s - Failed to open live stream", __FUNCTION__);
+     XBMC->QueueNotification(QUEUE_WARNING, XBMC->GetLocalizedString(30305)); // Channel unavailable
+-
+-    return false;
+   }
+   else
+   {
+-    if (g_bExtraDebug)
+-      XBMC->Log(LOG_DEBUG,"%s - Done", __FUNCTION__);
+-
+-    return true;
++    XBMC->Log(LOG_ERROR, "%s - Live stream is already opened. recorder: %lu", __FUNCTION__, m_rec.ID());
+   }
++  return false;
+ }
+ 
+-
+ void PVRClientMythTV::CloseLiveStream()
+ {
+   if (g_bExtraDebug)
+@@ -1527,7 +1524,14 @@ bool PVRClientMythTV::OpenRecordedStream(const PVR_RECORDING &recording)
+     // Enable playback mode: Keep quiet on connection
+     m_pEventHandler->EnablePlayback();
+ 
+-    m_file = m_con.ConnectFile(it->second);
++    // Currently we only request the stream from the master backend.
++    // Future implementations could request the stream from slaves if not available on the master.
++
++    // Create dedicated control connection for file playback; smart pointer deletes it when file gets deleted.
++    MythConnection fileControlConnection(g_szMythHostname, g_iMythPort);
++    if (!fileControlConnection.IsNull())
++      m_file = fileControlConnection.ConnectFile(it->second);
++
+     m_pEventHandler->SetRecordingListener(recording.strRecordingId, m_file);
+ 
+     // Resume fileOps
+@@ -1554,6 +1558,7 @@ void PVRClientMythTV::CloseRecordedStream()
+     XBMC->Log(LOG_DEBUG, "%s", __FUNCTION__);
+ 
+   m_file = MythFile();
++  m_pEventHandler->SetRecordingListener("", m_file);
+ 
+   m_pEventHandler->DisablePlayback();
+ 
+diff --git a/lib/cmyth/include/cmyth/cmyth.h b/lib/cmyth/include/cmyth/cmyth.h
+index 9de2d59..e790b65 100644
+--- a/lib/cmyth/include/cmyth/cmyth.h
++++ b/lib/cmyth/include/cmyth/cmyth.h
+@@ -630,7 +630,7 @@ extern cmyth_recorder_t cmyth_spawn_live_tv(cmyth_recorder_t rec,
+ 				char ** err, char * channame);
+ 
+ extern cmyth_recorder_t cmyth_livetv_chain_setup(cmyth_recorder_t old_rec,
+-				int32_t tcp_rcvbuf,
++				uint32_t buflen, int32_t tcp_rcvbuf,
+ 				void (*prog_update_callback)(cmyth_proginfo_t));
+ 
+ extern int32_t cmyth_livetv_get_block(cmyth_recorder_t rec, char *buf,
+@@ -730,7 +730,7 @@ extern int cmyth_timestamp_to_display_string(char *str, cmyth_timestamp_t ts,
+ 
+ extern int cmyth_datetime_to_string(char *str, cmyth_timestamp_t ts);
+ 
+-extern cmyth_timestamp_t cmyth_datetime_from_string(char *str);
++extern int cmyth_timestamp_to_numstring(char *str, cmyth_timestamp_t ts);
+ 
+ extern int cmyth_timestamp_compare(cmyth_timestamp_t ts1,
+ 				   cmyth_timestamp_t ts2);
+@@ -837,7 +837,7 @@ extern cmyth_proginfo_t cmyth_proginfo_get_from_basename(cmyth_conn_t control,
+  */
+ extern cmyth_proginfo_t cmyth_proginfo_get_from_timeslot(cmyth_conn_t control,
+ 					   uint32_t chanid,
+-					   time_t recstartts);
++					   const cmyth_timestamp_t recstartts);
+ 
+ /**
+  * Retrieve the title of a program.
+diff --git a/lib/cmyth/libcmyth/bookmark.c b/lib/cmyth/libcmyth/bookmark.c
+index dde35f6..12d534d 100644
+--- a/lib/cmyth/libcmyth/bookmark.c
++++ b/lib/cmyth/libcmyth/bookmark.c
+@@ -41,7 +41,7 @@ int64_t cmyth_get_bookmark(cmyth_conn_t conn, cmyth_proginfo_t prog)
+ 	}
+ 	sprintf(buf,"%s %"PRIu32" %s","QUERY_BOOKMARK",prog->proginfo_chanId,
+ 		start_ts_dt);
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);;
+ 	if ((err = cmyth_send_message(conn,buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+ 			"%s: cmyth_send_message() failed (%d)\n",
+@@ -66,7 +66,7 @@ int64_t cmyth_get_bookmark(cmyth_conn_t conn, cmyth_proginfo_t prog)
+ 	}
+ 
+    out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 	return ret;
+ }
+ 
+@@ -94,7 +94,7 @@ int cmyth_set_bookmark(cmyth_conn_t conn, cmyth_proginfo_t prog, int64_t bookmar
+ 		sprintf(buf, "SET_BOOKMARK %"PRIu32" %s %"PRId32" %"PRId32, prog->proginfo_chanId,
+ 				start_ts_dt, (int32_t)(bookmark >> 32), (int32_t)(bookmark & 0xffffffff));
+ 	}
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);;
+ 	if ((ret = cmyth_send_message(conn,buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+ 			"%s: cmyth_send_message() failed (%d)\n",
+@@ -106,6 +106,6 @@ int cmyth_set_bookmark(cmyth_conn_t conn, cmyth_proginfo_t prog, int64_t bookmar
+ 			  __FUNCTION__);
+ 	}
+    out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 	return ret;
+ }
+diff --git a/lib/cmyth/libcmyth/cmyth_local.h b/lib/cmyth/libcmyth/cmyth_local.h
+index 42d6477..619db48 100644
+--- a/lib/cmyth/libcmyth/cmyth_local.h
++++ b/lib/cmyth/libcmyth/cmyth_local.h
+@@ -40,10 +40,6 @@
+ 
+ #if defined(_MSC_VER)
+ #include "cmyth_msc.h"
+-//#define PTHREAD_MUTEX_INITIALIZER NULL;
+-#define PTHREAD_MUTEX_INITIALIZER InitializeCriticalSection(&mutex);
+-//typedef void* pthread_mutex_t;
+-typedef CRITICAL_SECTION pthread_mutex_t;
+ #else
+ #include <unistd.h>
+ #include <sys/types.h>
+@@ -58,9 +54,6 @@
+ #define closesocket(fd) close(fd)
+ #endif /* _MSC_VER */
+ 
+-#define mutex __cmyth_mutex
+-extern pthread_mutex_t mutex;
+-
+ /*
+  * Some useful constants
+  */
+@@ -69,6 +62,7 @@
+ #define CMYTH_INT16_LEN (sizeof("-65536") - 1)
+ #define CMYTH_INT8_LEN (sizeof("-256") - 1)
+ #define CMYTH_TIMESTAMP_LEN (sizeof("YYYY-MM-DDTHH:MM:SS") - 1)
++#define CMYTH_TIMESTAMP_NUMERIC_LEN (sizeof("YYYYMMDDHHMMSS") - 1)
+ #define CMYTH_DATESTAMP_LEN (sizeof("YYYY-MM-DD") - 1)
+ #define CMYTH_UTC_LEN (sizeof("1240120680") - 1)
+ #define CMYTH_COMMBREAK_START 4
+@@ -91,6 +85,7 @@ struct cmyth_conn {
+ 	char *           server;         /**< hostname of server */
+ 	uint16_t         port;           /**< port of server */
+ 	cmyth_conn_ann_t conn_ann;       /**< connection announcement */
++	pthread_mutex_t  conn_mutex;
+ };
+ 
+ /* Sergio: Added to support new livetv protocol */
+@@ -104,6 +99,7 @@ struct cmyth_livetv_chain {
+ 	char **chain_urls;
+ 	cmyth_file_t *chain_files; /* File pointers for the urls */
+ 	volatile int8_t livetv_watch; /* JLB: Manage program breaks */
++	int32_t livetv_buflen;
+ 	int32_t livetv_tcp_rcvbuf;
+ 	int32_t livetv_block_len;
+ };
+@@ -255,6 +251,7 @@ struct cmyth_proginfo {
+ struct cmyth_proglist {
+ 	cmyth_proginfo_t *proglist_list;
+ 	int proglist_count;
++	pthread_mutex_t proglist_mutex;
+ };
+ 
+ /*
+diff --git a/lib/cmyth/libcmyth/cmyth_msc.h b/lib/cmyth/libcmyth/cmyth_msc.h
+index 76cea08..28050fe 100644
+--- a/lib/cmyth/libcmyth/cmyth_msc.h
++++ b/lib/cmyth/libcmyth/cmyth_msc.h
+@@ -36,11 +36,11 @@
+ #pragma warning(disable:4267)
+ #pragma warning(disable:4996)
+ 
++#define pthread_mutex_init(a, b) InitializeCriticalSection(a)
++#define pthread_mutex_destroy(a) DeleteCriticalSection(a)
+ #define pthread_mutex_lock(a) EnterCriticalSection(a)
+ #define pthread_mutex_unlock(a) LeaveCriticalSection(a)
+-#define PTHREAD_MUTEX_INITIALIZER InitializeCriticalSection(&mutex);
+ typedef CRITICAL_SECTION pthread_mutex_t;
+-extern pthread_mutex_t mutex;
+ 
+ #define SHUT_RDWR SD_BOTH
+ 
+diff --git a/lib/cmyth/libcmyth/commbreak.c b/lib/cmyth/libcmyth/commbreak.c
+index 4bf66b2..2a28265 100644
+--- a/lib/cmyth/libcmyth/commbreak.c
++++ b/lib/cmyth/libcmyth/commbreak.c
+@@ -110,7 +110,7 @@
+ 
+ 	sprintf(buf,"%s %"PRIu32" %ld", "QUERY_COMMBREAK", prog->proginfo_chanId,
+ 	        (long)cmyth_timestamp_to_unixtime(prog->proginfo_rec_start_ts));
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 	if ((err = cmyth_send_message(conn, buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+ 			"%s: cmyth_send_message() failed (%d)\n",
+@@ -134,7 +134,7 @@
+ 	}
+ 
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 	return breaklist;
+ }
+ 
+@@ -156,7 +156,7 @@
+ 
+ 	sprintf(buf,"%s %"PRIu32" %ld", "QUERY_CUTLIST", prog->proginfo_chanId,
+ 	        (long)cmyth_timestamp_to_unixtime(prog->proginfo_rec_start_ts));
+-
++	pthread_mutex_lock(&conn->conn_mutex);
+ 	if ((err = cmyth_send_message(conn, buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+ 			"%s: cmyth_send_message() failed (%d)\n",
+@@ -180,7 +180,7 @@
+ 	}
+ 
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 	return breaklist;
+ }
+ 
+@@ -287,7 +287,7 @@ int cmyth_rcv_commbreaklist(cmyth_conn_t conn, int *err,
+ 	int r;
+ 
+ 	start_ts_dt = cmyth_timestamp_to_unixtime(prog->proginfo_rec_start_ts);
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 	if ((r=cmyth_mysql_get_commbreak_list(db, prog->proginfo_chanId, start_ts_dt, breaklist, conn->conn_version)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+ 			"%s: cmyth_mysql_get_commbreak_list() failed (%d)\n",
+@@ -302,6 +302,6 @@ int cmyth_rcv_commbreaklist(cmyth_conn_t conn, int *err,
+ 		breaklist->commbreak_count = 0;
+ 	}
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 	return breaklist;
+ }
+diff --git a/lib/cmyth/libcmyth/connection.c b/lib/cmyth/libcmyth/connection.c
+index 24a2145..9abe834 100644
+--- a/lib/cmyth/libcmyth/connection.c
++++ b/lib/cmyth/libcmyth/connection.c
+@@ -33,31 +33,6 @@
+ static char * cmyth_conn_get_setting_unlocked(cmyth_conn_t conn, const char* hostname, const char* setting);
+ static int cmyth_conn_set_setting_unlocked(cmyth_conn_t conn, const char* hostname, const char* setting, const char* value);
+ 
+-#ifdef _MSC_VER
+-CRITICAL_SECTION mutex;
+-
+-BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
+-{
+-	switch( ul_reason_for_call )
+-	{
+-	case DLL_PROCESS_ATTACH:
+-		InitializeCriticalSection(&mutex);
+-		break;
+-	/*case DLL_THREAD_ATTACH:
+-		...
+-	case DLL_THREAD_DETACH:
+-		...*/
+-	case DLL_PROCESS_DETACH:
+-		DeleteCriticalSection(&mutex);
+-		break;
+-	}
+-	return TRUE;
+-}
+-
+-#else
+-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+-#endif
+-
+ typedef struct {
+ 	unsigned int version;
+ 	char token[14]; // up to 13 chars used in v74 + the terminating NULL character
+@@ -106,7 +81,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 		return;
+ 	}
+ 	if (!conn->conn_hang && conn->conn_ann != ANN_NONE) {
+-		pthread_mutex_lock(&mutex);
++		pthread_mutex_lock(&conn->conn_mutex);
+ 
+ 		/*
+ 		 * Try to shut down the connection.  Can't do much
+@@ -118,7 +93,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 				  __FUNCTION__, err);
+ 		}
+ 
+-		pthread_mutex_unlock(&mutex);
++		pthread_mutex_unlock(&conn->conn_mutex);
+ 	}
+ }
+ 
+@@ -146,6 +121,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	{
+ 		free( conn->server );
+ 	}
++	pthread_mutex_destroy(&conn->conn_mutex);
+ 	cmyth_dbg(CMYTH_DBG_DEBUG, "%s }\n", __FUNCTION__);
+ }
+ 
+@@ -186,6 +162,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	ret->server = NULL;
+ 	ret->port = 0;
+ 	ret->conn_ann = ANN_NONE;
++	pthread_mutex_init(&ret->conn_mutex, NULL);
+ 	cmyth_dbg(CMYTH_DBG_DEBUG, "%s }\n", __FUNCTION__);
+ 	return ret;
+ }
+@@ -258,13 +235,12 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 
+ 	temp = tcp_rcvbuf;
+ 	size = sizeof(temp);
++	cmyth_dbg(CMYTH_DBG_DEBUG, "%s: setting socket option SO_RCVBUF to %d", __FUNCTION__, tcp_rcvbuf);
+ 	setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void*)&temp, size);
+ 	if(getsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void*)&temp, &size)) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR, "%s: could not get rcvbuf from socket(%d)\n",
+ 			  __FUNCTION__, errno);
+-		temp = tcp_rcvbuf;
+ 	}
+-	tcp_rcvbuf = temp;
+ 
+ 	if (getnameinfo(addr->ai_addr, addr->ai_addrlen, namebuf, sizeof(namebuf), portbuf, sizeof(portbuf), NI_NUMERICHOST)) {
+ 		strcpy(namebuf, "[unknown]");
+@@ -376,13 +352,12 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 
+ 	temp = conn->conn_tcp_rcvbuf;
+ 	size = sizeof(temp);
++	cmyth_dbg(CMYTH_DBG_DEBUG, "%s: setting socket option SO_RCVBUF to %d", __FUNCTION__, conn->conn_tcp_rcvbuf);
+ 	setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void*)&temp, size);
+ 	if (getsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void*)&temp, &size)) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR, "%s: could not get rcvbuf from socket(%d)\n",
+ 			  __FUNCTION__, errno);
+-		temp = conn->conn_tcp_rcvbuf;
+ 	}
+-	conn->conn_tcp_rcvbuf = temp;
+ 
+ 	if (getnameinfo(addr->ai_addr, addr->ai_addrlen, namebuf, sizeof(namebuf), portbuf, sizeof(portbuf), NI_NUMERICHOST)) {
+ 		strcpy(namebuf, "[unknown]");
+@@ -881,7 +856,6 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ {
+ 	cmyth_conn_t conn = NULL;
+ 	char *announcement = NULL;
+-	char *myth_host = NULL;
+ 	char reply[16];
+ 	int err = 0;
+ 	int count = 0;
+@@ -905,33 +879,11 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 			  __FUNCTION__);
+ 		goto shut;
+ 	}
+-	cmyth_dbg(CMYTH_DBG_PROTO, "%s: connecting data connection\n",
+-		  __FUNCTION__);
+-	if (control->conn_version >= 17) {
+-		myth_host = cmyth_conn_get_setting(control, prog->proginfo_host,
+-		                                   "BackendServerIP");
+-		if (myth_host && (strcmp(myth_host, "-1") == 0)) {
+-			ref_release(myth_host);
+-			myth_host = NULL;
+-		}
+-	}
+-	if (!myth_host) {
+-		cmyth_dbg(CMYTH_DBG_PROTO,
+-		          "%s: BackendServerIP setting not found. Using proginfo_host: %s\n",
+-		          __FUNCTION__, prog->proginfo_host);
+-		myth_host = ref_alloc(strlen(prog->proginfo_host) + 1);
+-		strcpy(myth_host, prog->proginfo_host);
+-	}
+-	conn = cmyth_connect(myth_host, prog->proginfo_port,
+-			     buflen, tcp_rcvbuf);
+-	cmyth_dbg(CMYTH_DBG_PROTO,
+-		  "%s: done connecting data connection, conn = %d\n",
+-		  __FUNCTION__, conn);
++	cmyth_dbg(CMYTH_DBG_PROTO, "%s: connecting data connection\n", __FUNCTION__);
++	conn = cmyth_connect(control->server, control->port, buflen, tcp_rcvbuf);
++	cmyth_dbg(CMYTH_DBG_PROTO, "%s: done connecting data connection, conn = %d\n", __FUNCTION__, conn);
+ 	if (!conn) {
+-		cmyth_dbg(CMYTH_DBG_ERROR,
+-			  "%s: cmyth_connect(%s, %"PRIu16", %"PRIu32") failed\n",
+-			  __FUNCTION__,
+-			  myth_host, prog->proginfo_port, buflen);
++		cmyth_dbg(CMYTH_DBG_ERROR, "%s: cmyth_connect(%s, %"PRIu16", %"PRIu32") failed\n", __FUNCTION__, control->server, control->port, buflen);
+ 		goto shut;
+ 	}
+ 	/*
+@@ -1016,12 +968,10 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	ret->file_data = conn;
+ 	ret->file_id = file_id;
+ 	ret->file_length = file_length;
+-	ref_release(myth_host);
+ 	return ret;
+ 
+     shut:
+ 	ref_release(conn);
+-	ref_release(myth_host);
+ 	return NULL;
+ }
+ 
+@@ -1390,7 +1340,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 		return NULL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 
+ 	if ((rec=cmyth_recorder_create()) == NULL)
+ 		goto fail;
+@@ -1436,7 +1386,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 					conn->conn_tcp_rcvbuf) < 0)
+ 		goto fail;
+ 
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return rec;
+ 
+@@ -1444,7 +1394,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	if (rec)
+ 		ref_release(rec);
+ 
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return NULL;
+ }
+@@ -1483,7 +1433,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 		return NULL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 
+ 	if ((rec=cmyth_recorder_create()) == NULL)
+ 		goto fail;
+@@ -1534,7 +1484,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 					conn->conn_tcp_rcvbuf) < 0)
+ 		goto fail;
+ 
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return rec;
+ 
+@@ -1542,7 +1492,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	if (rec)
+ 		ref_release(rec);
+ 
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return NULL;
+ }
+@@ -1563,7 +1513,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	if ((total == NULL) || (used == NULL))
+ 		return -EINVAL;
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&control->conn_mutex);
+ 
+ 	if (control->conn_version >= 32)
+ 		{ snprintf(msg, sizeof(msg), "QUERY_FREE_SPACE_SUMMARY"); }
+@@ -1633,7 +1583,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 		}
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&control->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -1675,7 +1625,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 		return -1;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "GET_FREE_RECORDER_COUNT");
+ 	if ((err = cmyth_send_message(conn, msg)) < 0) {
+@@ -1704,7 +1654,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	ret = (int)c;
+ 
+     err:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -1715,7 +1665,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	int count, err;
+ 	char* result = NULL;
+ 
+-  pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 	if(conn->conn_version < 17) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR, "%s: protocol version doesn't support QUERY_HOSTNAME\n",
+ 			  __FUNCTION__);
+@@ -1758,7 +1708,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 		buffer[sizeof(buffer)-1] = 0;
+ 		cmyth_dbg(CMYTH_DBG_ERROR, "%s: odd left over data %s\n", __FUNCTION__, buffer);
+ 	}
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	if(!strcmp("-1",result))  {
+ 		cmyth_dbg(CMYTH_DBG_PROTO, "%s: Failed to retrieve backend hostname.\n",
+@@ -1768,7 +1718,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ 	return result;
+ 
+ err:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 	if(result)
+ 		ref_release(result);
+ 
+@@ -1853,9 +1803,9 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
+ {
+ 	char* result = NULL;
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 	result = cmyth_conn_get_setting_unlocked(conn, hostname, setting);
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return result;
+ }
+@@ -1900,9 +1850,9 @@ int cmyth_conn_set_setting(cmyth_conn_t conn,
+ {
+ 	int result;
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 	result = cmyth_conn_set_setting_unlocked(conn, hostname, setting, value);
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return result;
+ }
+@@ -1970,7 +1920,7 @@ int cmyth_conn_set_setting(cmyth_conn_t conn,
+ 		}
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 
+ 	if ((err = cmyth_send_message(conn, msg)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+@@ -1987,6 +1937,6 @@ int cmyth_conn_set_setting(cmyth_conn_t conn,
+ 	}
+ 
+ out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 	return err;
+ }
+\ No newline at end of file
+diff --git a/lib/cmyth/libcmyth/file.c b/lib/cmyth/libcmyth/file.c
+index 2b2feb8..5aeaf02 100644
+--- a/lib/cmyth/libcmyth/file.c
++++ b/lib/cmyth/libcmyth/file.c
+@@ -51,7 +51,7 @@
+ 		return;
+ 	}
+ 	if (file->file_control) {
+-		pthread_mutex_lock(&mutex);
++		pthread_mutex_lock(&file->file_control->conn_mutex);
+ 
+ 		/*
+ 		 * Try to shut down the file transfer.  Can't do much
+@@ -74,7 +74,7 @@
+ 			goto fail;
+ 		}
+ 	    fail:
+-		pthread_mutex_unlock(&mutex);
++		pthread_mutex_unlock(&file->file_control->conn_mutex);
+ 		ref_release(file->file_control);
+ 	}
+ 	if (file->closed_callback) {
+@@ -409,7 +409,7 @@ void cmyth_file_set_closed_callback(cmyth_file_t file, void (*callback)(cmyth_fi
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&file->file_control->conn_mutex);
+ 
+ 	if(len > file->file_data->conn_tcp_rcvbuf)
+ 		len = file->file_data->conn_tcp_rcvbuf;
+@@ -445,7 +445,7 @@ void cmyth_file_set_closed_callback(cmyth_file_t file, void (*callback)(cmyth_fi
+ 	ret = c;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&file->file_control->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -474,7 +474,7 @@ void cmyth_file_set_closed_callback(cmyth_file_t file, void (*callback)(cmyth_fi
+ int64_t
+ cmyth_file_seek(cmyth_file_t file, int64_t offset, int8_t whence)
+ {
+-	char msg[128];
++	char msg[4096];
+ 	int err;
+ 	int count;
+ 	int64_t c;
+@@ -484,13 +484,26 @@ void cmyth_file_set_closed_callback(cmyth_file_t file, void (*callback)(cmyth_fi
+ 	if (file == NULL)
+ 		return -EINVAL;
+ 
+-	if ((offset == 0) && (whence == WHENCE_CUR))
+-		return file->file_pos;
+-
+-	if ((offset == file->file_pos) && (whence == WHENCE_SET))
+-		return file->file_pos;
++	if (whence == WHENCE_CUR) {
++		if (offset == 0)
++			return file->file_pos;
++		ret = file->file_pos + offset;
++		if (ret < 0 || ret > file->file_length)
++			goto inv;
++	}
++	if (whence == WHENCE_SET) {
++		if (offset == file->file_pos)
++			return file->file_pos;
++		if (offset < 0 || offset > file->file_length)
++			goto inv;
++	}
++	if (whence == WHENCE_END) {
++		ret = file->file_length - offset;
++		if (ret < 0 || ret > file->file_length)
++			goto inv;
++	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&file->file_control->conn_mutex);
+ 
+ 	ret = 0;
+ 	while(file->file_pos < file->file_req) {
+@@ -558,9 +571,14 @@ void cmyth_file_set_closed_callback(cmyth_file_t file, void (*callback)(cmyth_fi
+ 	ret = file->file_pos;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&file->file_control->conn_mutex);
+ 
+ 	return ret;
++
++inv:
++	cmyth_dbg(CMYTH_DBG_ERROR, "%s: seek out of range: file: %"PRIu32" pos: %"PRId64" length: %"PRId64" whence: %"PRId8" offset: %"PRId64,
++		__FUNCTION__, file->file_id, file->file_pos, file->file_length, whence, offset);
++	return -1;
+ }
+ 
+ /*
+@@ -600,7 +618,7 @@ int32_t cmyth_file_read(cmyth_file_t file, char *buf, int32_t len)
+ 	if(len > file->file_data->conn_tcp_rcvbuf)
+ 		len = file->file_data->conn_tcp_rcvbuf;
+ 
+-	pthread_mutex_lock (&mutex);
++	pthread_mutex_lock (&file->file_control->conn_mutex);
+ 
+ 	/* make sure we have outstanding requests that fill the buffer that was called with */
+ 	/* this way we should be able to saturate the network connection better */
+@@ -745,7 +763,7 @@ int32_t cmyth_file_read(cmyth_file_t file, char *buf, int32_t len)
+ 
+ 	ret = (int32_t)(cur - buf);
+ out:
+-	pthread_mutex_unlock (&mutex);
++	pthread_mutex_unlock (&file->file_control->conn_mutex);
+ 	return ret;
+ }
+ 
+@@ -780,7 +798,7 @@ int cmyth_file_is_open(cmyth_file_t file)
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock (&mutex);
++	pthread_mutex_lock(&file->file_control->conn_mutex);
+ 
+ 	snprintf (msg, sizeof (msg),
+ 	    "QUERY_FILETRANSFER %"PRIu32"[]:[]IS_OPEN",
+@@ -812,7 +830,7 @@ int cmyth_file_is_open(cmyth_file_t file)
+ 	if (ret == 0)
+ 		cmyth_dbg(CMYTH_DBG_ERROR, "%s: file transfer socket is closed\n", __FUNCTION__);
+ out:
+-	pthread_mutex_unlock (&mutex);
++	pthread_mutex_unlock(&file->file_control->conn_mutex);
+ 	return ret;
+ }
+ 
+@@ -845,7 +863,7 @@ int cmyth_file_is_open(cmyth_file_t file)
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock (&mutex);
++	pthread_mutex_lock(&file->file_control->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg),
+ 		 "QUERY_FILETRANSFER %"PRIu32"[]:[]SET_TIMEOUT[]:[]%"PRId32,
+@@ -866,7 +884,7 @@ int cmyth_file_is_open(cmyth_file_t file)
+ 	ret = 0;
+ 
+ out:
+-	pthread_mutex_unlock (&mutex);
++	pthread_mutex_unlock(&file->file_control->conn_mutex);
+ 	return ret;
+ }
+ 
+diff --git a/lib/cmyth/libcmyth/input.c b/lib/cmyth/libcmyth/input.c
+index 0ecc05a..64f0ed5 100644
+--- a/lib/cmyth/libcmyth/input.c
++++ b/lib/cmyth/libcmyth/input.c
+@@ -114,7 +114,7 @@
+ 	}
+ 
+ 	sprintf(buf,"QUERY_RECORDER %"PRIu32"[]:[]GET_FREE_INPUTS", rec->rec_id);
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 	if ((err = cmyth_send_message(rec->rec_conn, buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+ 			"%s: cmyth_send_message() failed (%d)\n",
+@@ -138,7 +138,7 @@
+ 	}
+ 
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 	return inputlist;
+ }
+ 
+diff --git a/lib/cmyth/libcmyth/livetv.c b/lib/cmyth/libcmyth/livetv.c
+index 02c303e..b458838 100644
+--- a/lib/cmyth/libcmyth/livetv.c
++++ b/lib/cmyth/libcmyth/livetv.c
+@@ -121,6 +121,7 @@ static int cmyth_livetv_chain_add(cmyth_recorder_t rec, char * url,
+ 	ret->chain_files = NULL;
+ 	ret->progs = NULL;
+ 	ret->livetv_watch = 0; /* JLB: Manage program breaks */
++	ret->livetv_buflen = 0;
+ 	ret->livetv_tcp_rcvbuf = 0;
+ 	ret->livetv_block_len = 0;
+ 	ref_set_destroy(ret, (ref_destroy_t)cmyth_livetv_chain_destroy);
+@@ -443,7 +444,7 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+ 		*/
+ 
+ 		if (cmyth_livetv_chain_has_url(rec, url) == -1) {
+-			ft = cmyth_conn_connect_file(loc_prog, rec->rec_conn, 4096, rec->rec_livetv_chain->livetv_tcp_rcvbuf);
++			ft = cmyth_conn_connect_file(loc_prog, rec->rec_conn, rec->rec_livetv_chain->livetv_buflen, rec->rec_livetv_chain->livetv_tcp_rcvbuf);
+ 			if (!ft) {
+ 				cmyth_dbg(CMYTH_DBG_ERROR,
+ 					  "%s: cmyth_conn_connect_file(%s) failed\n",
+@@ -663,7 +664,7 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+  *					caller needs to do this on a failure.
+  */
+ cmyth_recorder_t
+-cmyth_livetv_chain_setup(cmyth_recorder_t rec, int32_t tcp_rcvbuf,
++cmyth_livetv_chain_setup(cmyth_recorder_t rec, uint32_t buflen, int32_t tcp_rcvbuf,
+ 			 void (*prog_update_callback)(cmyth_proginfo_t))
+ {
+ 
+@@ -703,6 +704,7 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+ 	}
+ 
+ 	/* JLB: Set tcp receive buffer for the chain files */
++	new_rec->rec_livetv_chain->livetv_buflen = buflen;
+ 	new_rec->rec_livetv_chain->livetv_tcp_rcvbuf = tcp_rcvbuf;
+ 	/* JLB: Manage program breaks. Switch OFF watch signal */
+ 	new_rec->rec_livetv_chain->livetv_watch = 0;
+@@ -713,7 +715,7 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+ 				loc_prog->proginfo_pathname);
+ 
+ 	if(cmyth_livetv_chain_has_url(new_rec, url) == -1) {
+-		ft = cmyth_conn_connect_file(loc_prog, new_rec->rec_conn, 4096, new_rec->rec_livetv_chain->livetv_tcp_rcvbuf);
++		ft = cmyth_conn_connect_file(loc_prog, new_rec->rec_conn, new_rec->rec_livetv_chain->livetv_buflen, new_rec->rec_livetv_chain->livetv_tcp_rcvbuf);
+ 		if (!ft) {
+ 			cmyth_dbg(CMYTH_DBG_ERROR,
+ 				  "%s: cmyth_conn_connect_file(%s) failed\n",
+@@ -736,7 +738,7 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+ 			}
+ 			else {
+ 				/* now switch to the valid program */
+-				cmyth_livetv_chain_switch(new_rec, 0);
++				cmyth_livetv_chain_switch_last(new_rec);
+ 				new_rec->rec_livetv_chain->chain_switch_on_create = 0;
+ 			}
+ 		}
+@@ -820,7 +822,7 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+ 	if (dir == 0)
+ 		return 1;
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	ret = 0;
+ 
+@@ -841,9 +843,9 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+ 				  "%s: wait until livetv_watch is OFF\n",
+ 				  __FUNCTION__);
+ 			for (i = 0; i < 4; i++) {
+-				pthread_mutex_unlock(&mutex);
++				pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 				usleep(500000);
+-				pthread_mutex_lock(&mutex);
++				pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 				if (rec->rec_livetv_chain->livetv_watch == 0)
+ 					break;
+ 			}
+@@ -873,7 +875,7 @@ int cmyth_livetv_chain_has_url(cmyth_recorder_t rec, char * url)
+ 
+ 	out:
+ 
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -1131,7 +1133,7 @@ int32_t cmyth_livetv_chain_read(cmyth_recorder_t rec, char *buf, int32_t len)
+ 		whence = WHENCE_SET;
+ 	}
+ 
+-	if (fp && cur >=0)
++	if (cur >=0 && cur < rec->rec_livetv_chain->chain_ct && fp)
+ 	{
+ 		if ((ret = cmyth_file_seek(fp, offset, whence)) >= 0) {
+ 			cur -= rec->rec_livetv_chain->chain_current;
+@@ -1302,7 +1304,7 @@ int32_t cmyth_livetv_read(cmyth_recorder_t rec, char *buf, int32_t len)
+ 				break;
+ 		}
+ 
+-		if ((rtrn = cmyth_livetv_chain_setup(rec, tcp_rcvbuf,
++		if ((rtrn = cmyth_livetv_chain_setup(rec, buflen, tcp_rcvbuf,
+ 							prog_update_callback)) == NULL) {
+ 			*err = "Failed to setup livetv.";
+ 			goto err;
+diff --git a/lib/cmyth/libcmyth/proginfo.c b/lib/cmyth/libcmyth/proginfo.c
+index ed7534b..33340cb 100644
+--- a/lib/cmyth/libcmyth/proginfo.c
++++ b/lib/cmyth/libcmyth/proginfo.c
+@@ -581,7 +581,7 @@
+ 	sprintf(buf, "DELETE_RECORDING 0[]:[]%s", proginfo);
+ 	free(proginfo);
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&control->conn_mutex);
+ 
+ 	if ((err = cmyth_send_message(control, buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+@@ -601,7 +601,7 @@
+ 	}
+ 
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&control->conn_mutex);
+ 	free(buf);
+ 
+ 	return ret;
+@@ -663,7 +663,7 @@
+ 	sprintf(buf, "FORGET_RECORDING 0[]:[]%s", proginfo);
+ 	free(proginfo);
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&control->conn_mutex);
+ 
+ 	if ((err = cmyth_send_message(control, buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+@@ -683,7 +683,7 @@
+ 	}
+ 
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&control->conn_mutex);
+ 	free(buf);
+ 
+ 	return ret;
+@@ -745,7 +745,7 @@
+ 	sprintf(buf, "STOP_RECORDING 0[]:[]%s", proginfo);
+ 	free(proginfo);
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&control->conn_mutex);
+ 
+ 	if ((err = cmyth_send_message(control, buf)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+@@ -765,7 +765,7 @@
+ 	}
+ 
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&control->conn_mutex);
+ 	free(buf);
+ 
+ 	return ret;
+@@ -1477,7 +1477,7 @@
+ 	sprintf(buf, "FILL_PROGRAM_INFO cmyth[]:[]0[]:[]%s", proginfo);
+ 	free(proginfo);
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&control->conn_mutex);
+ 
+ 	length = prog->proginfo_Length;
+ 
+@@ -1518,7 +1518,7 @@
+ 	}
+ 
+ 	out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&control->conn_mutex);
+ 	free(buf);
+ 
+ 	return ret;
+@@ -1730,7 +1730,7 @@
+                 cmyth_dbg(CMYTH_DBG_ERROR, "%s: no connection\n", __FUNCTION__);
+                 return -1;
+         }
+-        pthread_mutex_lock(&mutex);
++        pthread_mutex_lock(&conn->conn_mutex);
+         if ((err = cmyth_send_message(conn, msg)) < 0) {
+                 fprintf (stderr, "ERROR %d \n",err);
+                 cmyth_dbg(CMYTH_DBG_ERROR,
+@@ -1740,7 +1740,7 @@
+         count = cmyth_rcv_length(conn);
+         cmyth_rcv_proglist(conn, &err, prog, count);
+         prog_count=cmyth_proglist_get_count(prog);
+-        pthread_mutex_unlock(&mutex);
++        pthread_mutex_unlock(&conn->conn_mutex);
+         return prog_count;
+ }
+ 
+@@ -1766,7 +1766,7 @@
+ 	 * to enumerating all recordings
+ 	 */
+ 	if(control->conn_version >= 32 && strchr(basename, ' ') == NULL) {
+-		pthread_mutex_lock(&mutex);
++		pthread_mutex_lock(&control->conn_mutex);
+ 
+ 		snprintf(msg, sizeof(msg), "QUERY_RECORDING BASENAME %s",
+ 			 basename);
+@@ -1807,10 +1807,10 @@
+ 			goto out;
+ 		}
+ 
+-		pthread_mutex_unlock(&mutex);
++		pthread_mutex_unlock(&control->conn_mutex);
+ 		return prog;
+ 		out:
+-		pthread_mutex_unlock(&mutex);
++		pthread_mutex_unlock(&control->conn_mutex);
+ 		if(prog)
+ 			ref_release(prog);
+ 		return NULL;
+@@ -1846,14 +1846,13 @@
+ }
+ 
+ cmyth_proginfo_t
+-cmyth_proginfo_get_from_timeslot(cmyth_conn_t control, uint32_t chanid, time_t recstartts)
++cmyth_proginfo_get_from_timeslot(cmyth_conn_t control, uint32_t chanid, const cmyth_timestamp_t recstartts)
+ {
+ 	int err = 0;
+ 	int count, i;
+ 	char msg[4096];
+ 	cmyth_proginfo_t prog = NULL;
+ 	cmyth_proglist_t list = NULL;
+-	cmyth_timestamp_t ts;
+ 	char time[15];
+ 
+ 	if (!control) {
+@@ -1862,24 +1861,14 @@
+ 		return NULL;
+ 	}
+ 
+-	ts = cmyth_timestamp_from_unixtime(recstartts);
+-	if (!ts) {
+-		cmyth_dbg(CMYTH_DBG_ERROR, "%s: timestamp NULL\n",
+-			  __FUNCTION__);
++	if ((err = cmyth_timestamp_to_numstring(time, recstartts)) < 0) {
++		cmyth_dbg(CMYTH_DBG_ERROR, "%s: cmyth_timestamp_to_numstring() failed (%d)\n",
++			  __FUNCTION__, err);
+ 		return NULL;
+ 	}
+ 
+-	sprintf(time,
+-		"%4.4ld%2.2ld%2.2ld%2.2ld%2.2ld%2.2ld",
+-		ts->timestamp_year,
+-		ts->timestamp_month,
+-		ts->timestamp_day,
+-		ts->timestamp_hour,
+-		ts->timestamp_minute,
+-		ts->timestamp_second);
+-
+ 	if(control->conn_version >= 32) {
+-		pthread_mutex_lock(&mutex);
++		pthread_mutex_lock(&control->conn_mutex);
+ 
+ 		snprintf(msg, sizeof(msg), "QUERY_RECORDING TIMESLOT %"PRIu32" %s",
+ 			chanid, time);
+@@ -1920,10 +1909,10 @@
+ 			goto out;
+ 		}
+ 
+-		pthread_mutex_unlock(&mutex);
++		pthread_mutex_unlock(&control->conn_mutex);
+ 		return prog;
+ 		out:
+-		pthread_mutex_unlock(&mutex);
++		pthread_mutex_unlock(&control->conn_mutex);
+ 		if(prog)
+ 			ref_release(prog);
+ 		return NULL;
+@@ -1944,7 +1933,7 @@
+ 					  __FUNCTION__);
+ 				continue;
+ 			}
+-			if (cmyth_timestamp_compare(prog->proginfo_rec_start_ts, ts) != 0 ||
++			if (cmyth_timestamp_compare(prog->proginfo_rec_start_ts, recstartts) != 0 ||
+ 					prog->proginfo_chanId != chanid) {
+ 				ref_release(prog);
+ 				prog = NULL;
+diff --git a/lib/cmyth/libcmyth/proglist.c b/lib/cmyth/libcmyth/proglist.c
+index 96777df..63addb5 100644
+--- a/lib/cmyth/libcmyth/proglist.c
++++ b/lib/cmyth/libcmyth/proglist.c
+@@ -62,6 +62,7 @@
+ 	if (pl->proglist_list) {
+ 		free(pl->proglist_list);
+ 	}
++	pthread_mutex_destroy(&pl->proglist_mutex);
+ }
+ 
+ /*
+@@ -93,6 +94,7 @@
+ 
+ 	ret->proglist_list = NULL;
+ 	ret->proglist_count = 0;
++	pthread_mutex_init(&ret->proglist_mutex, NULL);
+ 	return ret;
+ }
+ 
+@@ -154,7 +156,7 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&pl->proglist_mutex);
+ 
+ 	for (i=0; i<pl->proglist_count; i++) {
+ 		if (cmyth_proginfo_compare(prog, pl->proglist_list[i]) == 0) {
+@@ -170,7 +172,7 @@
+ 	}
+ 
+  out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&pl->proglist_mutex);
+ 
+ 	return ret;
+ }
+@@ -237,7 +239,7 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&conn->conn_mutex);
+ 
+ 	if ((err = cmyth_send_message(conn, msg)) < 0) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR,
+@@ -282,7 +284,7 @@
+ 	ret = 0;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&conn->conn_mutex);
+ 
+ 	return ret;
+ }
+diff --git a/lib/cmyth/libcmyth/recorder.c b/lib/cmyth/libcmyth/recorder.c
+index 6029ba7..1d78556 100644
+--- a/lib/cmyth/libcmyth/recorder.c
++++ b/lib/cmyth/libcmyth/recorder.c
+@@ -180,7 +180,7 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_RECORDER %"PRIu32"[]:[]IS_RECORDING",
+ 		 rec->rec_id);
+@@ -205,7 +205,7 @@
+ 	ret = c;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -242,7 +242,7 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_RECORDER %"PRIu32"[]:[]GET_FRAMERATE",
+ 		 rec->rec_id);
+@@ -269,7 +269,7 @@
+ 	ret = 0;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -458,7 +458,7 @@
+ 		return -ENOSYS;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_RECORDER %"PRIu32"[]:[]CANCEL_NEXT_RECORDING[]:[]%"PRIu32 ,rec->rec_id, cancel == 1);
+ 
+@@ -475,7 +475,7 @@
+ 	ret = 0;
+ 
+ fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -511,7 +511,7 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	sprintf(Buffer, "QUERY_RECORDER %"PRIu32"[]:[]PAUSE", rec->rec_id);
+ 	if ((ret=cmyth_send_message(rec->rec_conn, Buffer)) < 0) {
+@@ -530,7 +530,7 @@
+ 	ret = 0;
+ 
+     err:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -624,7 +624,7 @@
+ 		return -ENOSYS;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg),
+ 		 "QUERY_RECORDER %"PRIu32"[]:[]CHANGE_CHANNEL[]:[]%d",
+@@ -658,7 +658,7 @@
+ 	ret = 0;
+ 
+     fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -697,7 +697,7 @@
+ 		return -ENOSYS;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg),
+ 		 "QUERY_RECORDER %"PRIu32"[]:[]SET_CHANNEL[]:[]%s",
+@@ -731,7 +731,7 @@
+ 	ret = 0;
+ 
+     fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -889,7 +889,7 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg),
+ 		 "QUERY_RECORDER %"PRIu32"[]:[]CHECK_CHANNEL[]:[]%s",
+@@ -910,7 +910,7 @@
+ 	ret = 1;
+ 
+     fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -976,7 +976,7 @@
+ 			  __FUNCTION__);
+ 		goto out;
+ 	}
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	if(rec->rec_conn->conn_version >= 26)
+ 		snprintf(msg, sizeof(msg), "QUERY_RECORDER %"PRIu32"[]:[]GET_CURRENT_RECORDING",
+@@ -1010,7 +1010,7 @@
+ 	}
+ 
+   out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return proginfo;
+ }
+@@ -1106,7 +1106,7 @@
+ 
+ 	control = rec->rec_conn;
+ 
+-        pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	t = time(NULL);
+ 	tm = localtime(&t);
+@@ -1192,7 +1192,7 @@
+ 	ret = 0;
+ 
+     out:
+-        pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+         return ret;
+ }
+@@ -1351,7 +1351,7 @@
+ 		return -ENOSYS;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_RECORDER %"PRIu32"[]:[]SPAWN_LIVETV",
+ 		 rec->rec_id);
+@@ -1373,7 +1373,7 @@
+ 	ret = 0;
+ 
+     fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -1395,7 +1395,7 @@
+ 		return -ENOSYS;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 
+ 	/* Get our own IP address */
+@@ -1436,7 +1436,7 @@
+ 	ret = 0;
+ 
+     fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -1454,7 +1454,7 @@
+ 		return -ENOSYS;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_RECORDER %"PRIu32"[]:[]STOP_LIVETV",
+ 		 rec->rec_id);
+@@ -1476,7 +1476,7 @@
+ 	ret = 0;
+ 
+     fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -1497,7 +1497,7 @@
+ 	if(rec->rec_conn->conn_version >= 26)
+ 		return 0;
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_RECORDER %"PRIu32"[]:[]DONE_RINGBUF",
+ 		 rec->rec_id);
+@@ -1519,7 +1519,7 @@
+ 	ret = 0;
+ 
+     fail:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+diff --git a/lib/cmyth/libcmyth/ringbuf.c b/lib/cmyth/libcmyth/ringbuf.c
+index 173c5a7..6686a54 100644
+--- a/lib/cmyth/libcmyth/ringbuf.c
++++ b/lib/cmyth/libcmyth/ringbuf.c
+@@ -145,7 +145,7 @@
+ 
+ 	control = rec->rec_conn;
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg),
+ 		 "QUERY_RECORDER %"PRIu32"[]:[]SETUP_RING_BUFFER[]:[]0",
+@@ -237,7 +237,7 @@
+ 	new_rec->rec_ring->ringbuf_fill = fill;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return new_rec;
+ }
+@@ -344,7 +344,7 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	if(len > rec->rec_ring->conn_data->conn_tcp_rcvbuf)
+ 		len = rec->rec_ring->conn_data->conn_tcp_rcvbuf;
+@@ -374,7 +374,7 @@
+ 	ret = c;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+@@ -410,7 +410,7 @@ int32_t cmyth_ringbuf_read(cmyth_recorder_t rec, char *buf, int32_t len)
+ 		return -EINVAL;
+ 	}
+ 
+-	pthread_mutex_lock (&mutex);
++	pthread_mutex_lock (&rec->rec_conn->conn_mutex);
+ 
+ 	if(len > rec->rec_ring->conn_data->conn_tcp_rcvbuf)
+ 		len = rec->rec_ring->conn_data->conn_tcp_rcvbuf;
+@@ -507,7 +507,7 @@ int32_t cmyth_ringbuf_read(cmyth_recorder_t rec, char *buf, int32_t len)
+ 
+ 	ret = (int32_t)(cur - buf);
+ out:
+-	pthread_mutex_unlock (&mutex);
++	pthread_mutex_unlock (&rec->rec_conn->conn_mutex);
+ 	return ret;
+ }
+ 
+@@ -550,7 +550,7 @@ int32_t cmyth_ringbuf_read(cmyth_recorder_t rec, char *buf, int32_t len)
+ 	if ((offset == 0) && (whence == WHENCE_CUR))
+ 		return ring->file_pos;
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&rec->rec_conn->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg),
+ 		 "QUERY_RECORDER %"PRIu32"[]:[]SEEK_RINGBUF[]:[]%"PRId32"[]:[]%"PRId32"[]:[]%"PRId8"[]:[]%"PRId32"[]:[]%"PRId32,
+@@ -593,7 +593,7 @@ int32_t cmyth_ringbuf_read(cmyth_recorder_t rec, char *buf, int32_t len)
+ 	ret = ring->file_pos;
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&rec->rec_conn->conn_mutex);
+ 
+ 	return ret;
+ }
+diff --git a/lib/cmyth/libcmyth/socket.c b/lib/cmyth/libcmyth/socket.c
+index 53b461d..fe94bee 100644
+--- a/lib/cmyth/libcmyth/socket.c
++++ b/lib/cmyth/libcmyth/socket.c
+@@ -369,6 +369,17 @@
+ 			}
+ 		}
+ 
++		if (sep_start && conn->conn_buf[conn->conn_pos] != (unsigned char)*state) {
++			/*
++			 * Reset separator in case the current character does not match
++			 * the expected part of the separator. This needs to take place
++			 * before checking if the current character starts a new separator.
++			 * (To resolve issues with strings that look like [[]:[])
++			 */
++			sep_start = NULL;
++			state = separator;
++		}
++
+ 		if (conn->conn_buf[conn->conn_pos] == (unsigned char)*state) {
+ 			/*
+ 			 * We matched the next (possibly first) step
+@@ -378,13 +389,6 @@
+ 				sep_start = &buf[placed];
+ 			}
+ 			++state;
+-		} else {
+-			/*
+-			 * No match with separator, reset the state to the
+-			 * beginning.
+-			 */
+-			sep_start = NULL;
+-			state = separator;
+ 		}
+ 
+ 		if (placed < buflen) {
+diff --git a/lib/cmyth/libcmyth/storagegroup.c b/lib/cmyth/libcmyth/storagegroup.c
+index 7a2d1f4..9cce74e 100644
+--- a/lib/cmyth/libcmyth/storagegroup.c
++++ b/lib/cmyth/libcmyth/storagegroup.c
+@@ -175,7 +175,7 @@
+ 		return 0;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&control->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_SG_GETFILELIST[]:[]%s[]:[]%s[]:[][]:[]1", hostname, storagegroup);
+ 
+@@ -246,7 +246,7 @@
+ 	cmyth_dbg(CMYTH_DBG_DEBUG, "%s: results= %d\n", __FUNCTION__, res);
+ 
+     out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&control->conn_mutex);
+ 	return ret;
+ }
+ 
+@@ -284,7 +284,7 @@
+ 		return 0;
+ 	}
+ 
+-	pthread_mutex_lock(&mutex);
++	pthread_mutex_lock(&control->conn_mutex);
+ 
+ 	snprintf(msg, sizeof(msg), "QUERY_SG_FILEQUERY[]:[]%s[]:[]%s[]:[]%s", hostname, storagegroup, filename);
+ 
+@@ -343,7 +343,7 @@
+ 	cmyth_dbg(CMYTH_DBG_DEBUG, "%s: filename: %s\n", __FUNCTION__, ret->filename);
+ 
+ out:
+-	pthread_mutex_unlock(&mutex);
++	pthread_mutex_unlock(&control->conn_mutex);
+ 	return ret;
+ }
+ 
+diff --git a/lib/cmyth/libcmyth/timestamp.c b/lib/cmyth/libcmyth/timestamp.c
+index 60dd5f5..5355190 100644
+--- a/lib/cmyth/libcmyth/timestamp.c
++++ b/lib/cmyth/libcmyth/timestamp.c
+@@ -60,7 +60,7 @@
+ 	ret->timestamp_hour = 0;
+ 	ret->timestamp_minute = 0;
+ 	ret->timestamp_second = 0;
+-	ret->timestamp_isdst = 0;
++	ret->timestamp_isdst = -1;
+ 	return ret;
+ }
+ 
+@@ -201,8 +201,7 @@
+ cmyth_timestamp_t
+ cmyth_timestamp_from_tm(struct tm * tm_datetime)
+ {
+-    	cmyth_timestamp_t ret;
+-	ret = cmyth_timestamp_create();
++	cmyth_timestamp_t ret = cmyth_timestamp_create();
+ 	if (!ret) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR, "%s: NULL timestamp\n",
+ 			  __FUNCTION__);
+@@ -263,15 +262,22 @@
+ time_t
+ cmyth_timestamp_to_unixtime(cmyth_timestamp_t ts)
+ {
+-    struct tm tm;
+-    tm.tm_sec = ts->timestamp_second;
+-    tm.tm_min = ts->timestamp_minute;
+-    tm.tm_hour = ts->timestamp_hour;
+-    tm.tm_mday = ts->timestamp_day;
+-    tm.tm_mon = ts->timestamp_month-1;
+-    tm.tm_year = ts->timestamp_year-1900;
+-    tm.tm_isdst = ts->timestamp_isdst;
+-    return mktime(&tm);
++	struct tm tm_datetime;
++
++	if (!ts) {
++		cmyth_dbg(CMYTH_DBG_ERROR, "%s: NULL timestamp provided\n",
++			  __FUNCTION__);
++		return -EINVAL;
++	}
++
++	tm_datetime.tm_sec = ts->timestamp_second;
++	tm_datetime.tm_min = ts->timestamp_minute;
++	tm_datetime.tm_hour = ts->timestamp_hour;
++	tm_datetime.tm_mday = ts->timestamp_day;
++	tm_datetime.tm_mon = ts->timestamp_month-1;
++	tm_datetime.tm_year = ts->timestamp_year-1900;
++	tm_datetime.tm_isdst = ts->timestamp_isdst;
++	return mktime(&tm_datetime);
+ }
+ 
+ /*
+@@ -285,6 +291,7 @@
+  * user supplied buffer 'str'.  The size of 'str' must be
+  * CMYTH_TIMESTAMP_LEN + 1 or this will overwrite beyond 'str'.
+  *
++ * Format: ISO-8601 '%Y-%m-%dT%H:%i:%s' "2013-03-21T18:02:59"
+  *
+  * Return Value:
+  *
+@@ -327,6 +334,7 @@
+  * user supplied buffer 'str'.  The size of 'str' must be
+  * CMYTH_TIMESTAMP_LEN + 1 or this will overwrite beyond 'str'.
+  *
++ * Format: ISO-8601 '%Y-%m-%d' "2013-03-21"
+  *
+  * Return Value:
+  *
+@@ -356,8 +364,7 @@
+ }
+ 
+ int
+-cmyth_timestamp_to_display_string(char *str, cmyth_timestamp_t ts,
+-																	int time_format_12)
++cmyth_timestamp_to_display_string(char *str, cmyth_timestamp_t ts, int time_format_12)
+ {
+ 	if (!str) {
+ 		cmyth_dbg(CMYTH_DBG_ERROR, "%s: NULL output string provided\n",
+@@ -455,7 +462,48 @@
+ 	return 0;
+ }
+ 
+-
++/*
++ * cmyth_timestamp_to_numstring(char *str, cmyth_timestamp_t ts)
++ *
++ * Scope: PUBLIC
++ *
++ * Description
++ *
++ * Create a string from the timestamp structure 'ts' and put it in the
++ * user supplied buffer 'str'.  The size of 'str' must be
++ * CMYTH_TIMESTAMP_NUMERIC_LEN + 1 or this will overwrite beyond 'str'.
++ *
++ * Format: Numeric big endian '%Y%m%d%H%i%s' "20130321180259"
++ *
++ * Return Value:
++ *
++ * Success: 0
++ *
++ * Failure: -(ERRNO)
++ */
++int
++cmyth_timestamp_to_numstring(char *str, cmyth_timestamp_t ts)
++{
++	if (!str) {
++		cmyth_dbg(CMYTH_DBG_ERROR, "%s: NULL output string provided\n",
++			  __FUNCTION__);
++		return -EINVAL;
++	}
++	if (!ts) {
++		cmyth_dbg(CMYTH_DBG_ERROR, "%s: NULL timestamp provided\n",
++			  __FUNCTION__);
++		return -EINVAL;
++	}
++	sprintf(str,
++		"%4.4ld%2.2ld%2.2ld%2.2ld%2.2ld%2.2ld",
++		ts->timestamp_year,
++		ts->timestamp_month,
++		ts->timestamp_day,
++		ts->timestamp_hour,
++		ts->timestamp_minute,
++		ts->timestamp_second);
++	return 0;
++}
+ 
+ /*
+  * cmyth_timestamp_compare(cmyth_timestamp_t ts1, cmyth_timestamp_t ts2)
+-- 
+1.8.1.6
+
