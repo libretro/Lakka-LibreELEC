@@ -17,7 +17,7 @@ and try to answer the following questions:
 - What happened instead?
 
 It is also importent to provide logs for debugging.
-A zip file can be found in the logfiles samba share, this will contain all the logs needed.
+A zip file can be found in the [logfiles] samba share, this will contain all the logs needed.
 
 Make sure to specify which version of OpenELEC you are using.
 - OpenELEC version
@@ -46,3 +46,4 @@ particular feature into OpenELEC.
 [Forum]: http://openelec.tv/forum
 [issue]: https://github.com/OpenELEC/OpenELEC.tv/issues
 [webchat]: http://openelec.tv/support/chat
+[logfiles]: http://wiki.openelec.tv/index.php?title=OpenELEC_FAQ#Support_Logs
