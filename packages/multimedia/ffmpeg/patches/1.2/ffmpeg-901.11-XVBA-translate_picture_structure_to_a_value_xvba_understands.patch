@@ -1,0 +1,84 @@
+From e1c66a2726b0342bf8c166546838f72d3cfb26a8 Mon Sep 17 00:00:00 2001
+From: fritsch <peter.fruehberger@gmail.com>
+Date: Sat, 27 Apr 2013 22:08:50 +0200
+Subject: [PATCH] xvba: translate picture_structure to a value xvba understands
+
+---
+ libavcodec/xvba.c          | 11 +++++++++++
+ libavcodec/xvba_h264.c     |  4 +++-
+ libavcodec/xvba_internal.h |  1 +
+ libavcodec/xvba_vc1.c      |  4 +++-
+ 4 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/libavcodec/xvba.c b/libavcodec/xvba.c
+index be29e5d..566922e 100644
+--- a/libavcodec/xvba.c
++++ b/libavcodec/xvba.c
+@@ -31,6 +31,7 @@
+ #include "xvba.h"
+ #include "xvba_internal.h"
+ #include "avcodec.h"
++#include "mpegvideo.h"
+ 
+ int ff_xvba_translate_profile(int profile) {
+ 
+@@ -50,6 +51,16 @@ int ff_xvba_translate_profile(int profile) {
+     return -1;
+ }
+ 
++// See page 25 of the documentation
++int ff_xvba_translate_picture_structure(int picture_structure) {
++  if(picture_structure == PICT_TOP_FIELD)
++    return 0;
++  else if (picture_structure == PICT_BOTTOM_FIELD)
++    return 1;
++  else //PICT_FRAME by default
++    return 3;
++}
++
+ void ff_xvba_add_slice_data(struct xvba_render_state *render, const uint8_t *buffer, uint32_t size) {
+ 
+   render->buffers = av_fast_realloc(
+diff --git a/libavcodec/xvba_h264.c b/libavcodec/xvba_h264.c
+index 309d928..20ba2f2 100644
+--- a/libavcodec/xvba_h264.c
++++ b/libavcodec/xvba_h264.c
+@@ -87,7 +87,9 @@ static int end_frame(AVCodecContext *avctx)
+   pic_descriptor->level                                       = avctx->level;
+   pic_descriptor->width_in_mb                                 = h->mb_width;
+   pic_descriptor->height_in_mb                                = h->mb_height;
+-  pic_descriptor->picture_structure                           = h->picture_structure;
++
++  pic_descriptor->picture_structure                           = ff_xvba_translate_picture_structure(h->picture_structure);
++
+   pic_descriptor->chroma_format                               = h->chroma_format_idc ? h->chroma_format_idc : 1;
+   pic_descriptor->avc_intra_flag                              = (h->slice_type == AV_PICTURE_TYPE_I) ? 1 : 0;
+   pic_descriptor->avc_reference                               = (h->cur_pic_ptr->f.reference & 3) ? 1 : 0;
+diff --git a/libavcodec/xvba_internal.h b/libavcodec/xvba_internal.h
+index 9653f85..18faa3e 100644
+--- a/libavcodec/xvba_internal.h
++++ b/libavcodec/xvba_internal.h
+@@ -21,4 +21,5 @@
+  */
+ 
+ int ff_xvba_translate_profile(int profile);
++int ff_xvba_translate_picture_structure(int picture_structure);
+ void ff_xvba_add_slice_data(struct xvba_render_state *render, const uint8_t *buffer, uint32_t size);
+diff --git a/libavcodec/xvba_vc1.c b/libavcodec/xvba_vc1.c
+index eb90c12..c98dba5 100644
+--- a/libavcodec/xvba_vc1.c
++++ b/libavcodec/xvba_vc1.c
+@@ -78,7 +78,9 @@ static int end_frame(AVCodecContext *avctx)
+       pic_descriptor->width_in_mb                           = s->mb_width;
+       pic_descriptor->height_in_mb                          = s->mb_height;
+     }
+-    pic_descriptor->picture_structure                       = s->picture_structure;
++
++    pic_descriptor->picture_structure                       = ff_xvba_translate_picture_structure(s->picture_structure);
++
+     // xvba-video set this to 1 only 4:2:0 supported
+     // doc says: if not set, choose 1 - we try this
+     pic_descriptor->chroma_format                           = 1;
+-- 
+1.8.1.6
+
