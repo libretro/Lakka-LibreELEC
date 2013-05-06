@@ -69,7 +69,7 @@ if sabNzbdLaunch:
 
     # start checking SABnzbd for activity and prevent sleeping if necessary
     socket.setdefaulttimeout(timeout)
-    
+
     # perform some initial checks and log essential settings
     shouldKeepAwake = (__settings__.getSetting('SABNZBD_KEEP_AWAKE').lower() == 'true')
     wakePeriodically = (__settings__.getSetting('SABNZBD_PERIODIC_WAKE').lower() == 'true')
@@ -118,10 +118,8 @@ while (not xbmc.abortRequested):
                 # reset idle timer if queue is downloading/reparing/verifying/extracting
                 if sabIsActive:
                     xbmc.executebuiltin('InhibitIdleShutdown(true)')
-                    xbmc.log('preventing sleep')
                 else:
                     xbmc.executebuiltin('InhibitIdleShutdown(false)')
-                    xbmc.log('not preventing sleep')
 
         # calculate and set the time to wake up at (if any)
         if wakePeriodically:
