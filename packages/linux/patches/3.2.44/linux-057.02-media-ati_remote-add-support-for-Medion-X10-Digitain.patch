@@ -1,0 +1,328 @@
+From 52d570e9e2d4e7e5637e6f8343fb9643fc6edb8b Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi.hannula@iki.fi>
+Date: Sun, 1 Apr 2012 20:36:07 +0300
+Subject: [PATCH 2/2] [media] ati_remote: add support for Medion X10
+ Digitainer remote
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add support for another Medion X10 remote. This was apparently
+originally used with the Medion Digitainer box, but is now sold
+separately without any Digitainer labeling.
+
+A peculiarity of this remote is a scrollwheel in place of up/down
+buttons. Each direction is mapped to 8 different scancodes, each
+corresponding to 1..8 notches, allowing multiple notches to the same
+direction to be transmitted in a single scancode. The driver transforms
+the multi-notch scancodes to multiple events of the single-notch
+scancode.
+(0x70..0x77 = 1..8 notches down, 0x78..0x7f = 1..8 notches up)
+
+Since the scrollwheel scancodes are the same that are used for mouse on
+some other X10 (ati_remote) remotes, the driver will now check whether
+the active keymap has a keycode defined for the single-notch scancode
+when a mouse/scrollwheel scancode (0x70..0x7f) is received. If set,
+scrollwheel is assumed, otherwise mouse is assumed.
+
+This remote ships with a different receiver than the already supported
+Medion X10 remote, but they share the same USB ID. The only difference
+in the USB descriptors is that the Digitainer receiver has the Remote
+Wakeup bit set in bmAttributes of the Configuration Descriptor.
+Therefore that is used to select the default keymap.
+
+Thanks to Stephan Raue from OpenELEC (www.openelec.tv) for providing me
+both a Medion X10 Digitainer remote+receiver and an already supported
+Medion X10 remote+receiver. Thanks to Martin Beyß for providing some
+useful information about the remote (including the "Digitainer" name).
+
+Signed-off-by: Anssi Hannula <anssi.hannula@iki.fi>
+---
+ drivers/media/rc/ati_remote.c                      |   90 ++++++++++-----
+ drivers/media/rc/keymaps/Makefile                  |    1 +
+ .../media/rc/keymaps/rc-medion-x10-digitainer.c    |  115 ++++++++++++++++++++
+ include/media/rc-map.h                             |    1 +
+ 4 files changed, 179 insertions(+), 28 deletions(-)
+ create mode 100644 drivers/media/rc/keymaps/rc-medion-x10-digitainer.c
+
+diff --git a/drivers/media/rc/ati_remote.c b/drivers/media/rc/ati_remote.c
+index 7a35f7a..26fa043 100644
+--- a/drivers/media/rc/ati_remote.c
++++ b/drivers/media/rc/ati_remote.c
+@@ -1,7 +1,7 @@
+ /*
+  *  USB ATI Remote support
+  *
+- *                Copyright (c) 2011 Anssi Hannula <anssi.hannula@iki.fi>
++ *                Copyright (c) 2011, 2012 Anssi Hannula <anssi.hannula@iki.fi>
+  *  Version 2.2.0 Copyright (c) 2004 Torrey Hoffman <thoffman@arnor.net>
+  *  Version 2.1.1 Copyright (c) 2002 Vladimir Dergachev
+  *
+@@ -157,8 +157,20 @@ struct ati_receiver_type {
+ 	const char *(*get_default_keymap)(struct usb_interface *interface);
+ };
+ 
++static const char *get_medion_keymap(struct usb_interface *interface)
++{
++	struct usb_device *udev = interface_to_usbdev(interface);
++
++	/* The receiver shipped with the "Digitainer" variant helpfully has
++	 * a single additional bit set in its descriptor. */
++	if (udev->actconfig->desc.bmAttributes & USB_CONFIG_ATT_WAKEUP)
++		return RC_MAP_MEDION_X10_DIGITAINER;
++
++	return RC_MAP_MEDION_X10;
++}
++
+ static const struct ati_receiver_type type_ati		= { .default_keymap = RC_MAP_ATI_X10 };
+-static const struct ati_receiver_type type_medion	= { .default_keymap = RC_MAP_MEDION_X10 };
++static const struct ati_receiver_type type_medion	= { .get_default_keymap = get_medion_keymap };
+ static const struct ati_receiver_type type_firefly	= { .default_keymap = RC_MAP_SNAPSTREAM_FIREFLY };
+ 
+ static struct usb_device_id ati_remote_table[] = {
+@@ -455,6 +467,7 @@ static void ati_remote_input_report(struct urb *urb)
+ 	int acc;
+ 	int remote_num;
+ 	unsigned char scancode;
++	u32 wheel_keycode = KEY_RESERVED;
+ 	int i;
+ 
+ 	/*
+@@ -494,26 +507,33 @@ static void ati_remote_input_report(struct urb *urb)
+ 	 */
+ 	scancode = data[2] & 0x7f;
+ 
+-	/* Look up event code index in the mouse translation table. */
+-	for (i = 0; ati_remote_tbl[i].kind != KIND_END; i++) {
+-		if (scancode == ati_remote_tbl[i].data) {
+-			index = i;
+-			break;
++	dbginfo(&ati_remote->interface->dev,
++		"channel 0x%02x; key data %02x, scancode %02x\n",
++		remote_num, data[2], scancode);
++
++	if (scancode >= 0x70) {
++		/*
++		 * This is either a mouse or scrollwheel event, depending on
++		 * the remote/keymap.
++		 * Get the keycode assigned to scancode 0x78/0x70. If it is
++		 * set, assume this is a scrollwheel up/down event.
++		 */
++		wheel_keycode = rc_g_keycode_from_table(ati_remote->rdev,
++							scancode & 0x78);
++
++		if (wheel_keycode == KEY_RESERVED) {
++			/* scrollwheel was not mapped, assume mouse */
++
++			/* Look up event code index in the mouse translation table. */
++			for (i = 0; ati_remote_tbl[i].kind != KIND_END; i++) {
++				if (scancode == ati_remote_tbl[i].data) {
++					index = i;
++					break;
++				}
++			}
+ 		}
+ 	}
+ 
+-	if (index >= 0) {
+-		dbginfo(&ati_remote->interface->dev,
+-			"channel 0x%02x; mouse data %02x; index %d; keycode %d\n",
+-			remote_num, data[2], index, ati_remote_tbl[index].code);
+-		if (!dev)
+-			return; /* no mouse device */
+-	} else
+-		dbginfo(&ati_remote->interface->dev,
+-			"channel 0x%02x; key data %02x, scancode %02x\n",
+-			remote_num, data[2], scancode);
+-
+-
+ 	if (index >= 0 && ati_remote_tbl[index].kind == KIND_LITERAL) {
+ 		input_event(dev, ati_remote_tbl[index].type,
+ 			ati_remote_tbl[index].code,
+@@ -552,15 +572,29 @@ static void ati_remote_input_report(struct urb *urb)
+ 
+ 		if (index < 0) {
+ 			/* Not a mouse event, hand it to rc-core. */
+-
+-			/*
+-			 * We don't use the rc-core repeat handling yet as
+-			 * it would cause ghost repeats which would be a
+-			 * regression for this driver.
+-			 */
+-			rc_keydown_notimeout(ati_remote->rdev, scancode,
+-					     data[2]);
+-			rc_keyup(ati_remote->rdev);
++			int count = 1;
++
++			if (wheel_keycode != KEY_RESERVED) {
++				/*
++				 * This is a scrollwheel event, send the
++				 * scroll up (0x78) / down (0x70) scancode
++				 * repeatedly as many times as indicated by
++				 * rest of the scancode.
++				 */
++				count = (scancode & 0x07) + 1;
++				scancode &= 0x78;
++			}
++
++			while (count--) {
++				/*
++				* We don't use the rc-core repeat handling yet as
++				* it would cause ghost repeats which would be a
++				* regression for this driver.
++				*/
++				rc_keydown_notimeout(ati_remote->rdev, scancode,
++						     data[2]);
++				rc_keyup(ati_remote->rdev);
++			}
+ 			return;
+ 		}
+ 
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index 36e4d5e..c1d977c 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -49,6 +49,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-lme2510.o \
+ 			rc-manli.o \
+ 			rc-medion-x10.o \
++			rc-medion-x10-digitainer.o \
+ 			rc-msi-digivox-ii.o \
+ 			rc-msi-digivox-iii.o \
+ 			rc-msi-tvanywhere.o \
+diff --git a/drivers/media/rc/keymaps/rc-medion-x10-digitainer.c b/drivers/media/rc/keymaps/rc-medion-x10-digitainer.c
+new file mode 100644
+index 0000000..0a5ce84
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-medion-x10-digitainer.c
+@@ -0,0 +1,115 @@
++/*
++ * Medion X10 RF remote keytable (Digitainer variant)
++ *
++ * Copyright (C) 2012 Anssi Hannula <anssi.hannula@iki.fi>
++ *
++ * This keymap is for a variant that has a distinctive scrollwheel instead of
++ * up/down buttons (tested with P/N 40009936 / 20018268), reportedly
++ * originally shipped with Medion Digitainer but now sold separately simply as
++ * an "X10" remote.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include <linux/module.h>
++#include <media/rc-map.h>
++
++static struct rc_map_table medion_x10_digitainer[] = {
++	{ 0x02, KEY_POWER },
++
++	{ 0x2c, KEY_TV },
++	{ 0x2d, KEY_VIDEO },
++	{ 0x04, KEY_DVD },    /* CD/DVD */
++	{ 0x16, KEY_TEXT },   /* "teletext" icon, i.e. a screen with lines */
++	{ 0x06, KEY_AUDIO },
++	{ 0x2e, KEY_RADIO },
++	{ 0x31, KEY_EPG },    /* a screen with an open book */
++	{ 0x05, KEY_IMAGES }, /* Photo */
++	{ 0x2f, KEY_INFO },
++
++	{ 0x78, KEY_UP },     /* scrollwheel up 1 notch */
++	/* 0x79..0x7f: 2-8 notches, driver repeats 0x78 entry */
++
++	{ 0x70, KEY_DOWN },   /* scrollwheel down 1 notch */
++	/* 0x71..0x77: 2-8 notches, driver repeats 0x70 entry */
++
++	{ 0x19, KEY_MENU },
++	{ 0x1d, KEY_LEFT },
++	{ 0x1e, KEY_OK },     /* scrollwheel press */
++	{ 0x1f, KEY_RIGHT },
++	{ 0x20, KEY_BACK },
++
++	{ 0x09, KEY_VOLUMEUP },
++	{ 0x08, KEY_VOLUMEDOWN },
++	{ 0x00, KEY_MUTE },
++
++	{ 0x1b, KEY_SELECT }, /* also has "U" rotated 90 degrees CCW */
++
++	{ 0x0b, KEY_CHANNELUP },
++	{ 0x0c, KEY_CHANNELDOWN },
++	{ 0x1c, KEY_LAST },
++
++	{ 0x32, KEY_RED },    /* also Audio */
++	{ 0x33, KEY_GREEN },  /* also Subtitle */
++	{ 0x34, KEY_YELLOW }, /* also Angle */
++	{ 0x35, KEY_BLUE },   /* also Title */
++
++	{ 0x28, KEY_STOP },
++	{ 0x29, KEY_PAUSE },
++	{ 0x25, KEY_PLAY },
++	{ 0x21, KEY_PREVIOUS },
++	{ 0x18, KEY_CAMERA },
++	{ 0x23, KEY_NEXT },
++	{ 0x24, KEY_REWIND },
++	{ 0x27, KEY_RECORD },
++	{ 0x26, KEY_FORWARD },
++
++	{ 0x0d, KEY_1 },
++	{ 0x0e, KEY_2 },
++	{ 0x0f, KEY_3 },
++	{ 0x10, KEY_4 },
++	{ 0x11, KEY_5 },
++	{ 0x12, KEY_6 },
++	{ 0x13, KEY_7 },
++	{ 0x14, KEY_8 },
++	{ 0x15, KEY_9 },
++	{ 0x17, KEY_0 },
++};
++
++static struct rc_map_list medion_x10_digitainer_map = {
++	.map = {
++		.scan    = medion_x10_digitainer,
++		.size    = ARRAY_SIZE(medion_x10_digitainer),
++		.rc_type = RC_TYPE_OTHER,
++		.name    = RC_MAP_MEDION_X10_DIGITAINER,
++	}
++};
++
++static int __init init_rc_map_medion_x10_digitainer(void)
++{
++	return rc_map_register(&medion_x10_digitainer_map);
++}
++
++static void __exit exit_rc_map_medion_x10_digitainer(void)
++{
++	rc_map_unregister(&medion_x10_digitainer_map);
++}
++
++module_init(init_rc_map_medion_x10_digitainer)
++module_exit(exit_rc_map_medion_x10_digitainer)
++
++MODULE_DESCRIPTION("Medion X10 RF remote keytable (Digitainer variant)");
++MODULE_AUTHOR("Anssi Hannula <anssi.hannula@iki.fi>");
++MODULE_LICENSE("GPL");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index f688bde..902d29d 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -110,6 +110,7 @@ void rc_map_init(void);
+ #define RC_MAP_LME2510                   "rc-lme2510"
+ #define RC_MAP_MANLI                     "rc-manli"
+ #define RC_MAP_MEDION_X10                "rc-medion-x10"
++#define RC_MAP_MEDION_X10_DIGITAINER     "rc-medion-x10-digitainer"
+ #define RC_MAP_MSI_DIGIVOX_II            "rc-msi-digivox-ii"
+ #define RC_MAP_MSI_DIGIVOX_III           "rc-msi-digivox-iii"
+ #define RC_MAP_MSI_TVANYWHERE_PLUS       "rc-msi-tvanywhere-plus"
+-- 
+1.7.9.3
+

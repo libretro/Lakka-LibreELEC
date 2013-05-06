@@ -1,0 +1,59 @@
+From cca7718a9902a4d5cffbf158b5853980a08ef930 Mon Sep 17 00:00:00 2001
+From: Alexandre Lissy <alexandrelissy@free.fr>
+Date: Sun, 2 Sep 2012 20:35:20 +0200
+Subject: [PATCH] fix: iMon Knob event interpretation issues
+
+Events for the iMon Knob pad where not correctly interpreted, resulting
+in buggy mouse movements (cursor going straight out of the screen), key
+pad only generating KEY_RIGHT and KEY_DOWN events. A reproducer is:
+
+int main(int argc, char ** argv)
+{
+        char rel_x = 0x00; printf("rel_x:%d @%s:%d\n", rel_x, __FILE__, __LINE__);
+        rel_x = 0x0f; printf("rel_x:%d @%s:%d\n", rel_x, __FILE__, __LINE__);
+        rel_x |= ~0x0f; printf("rel_x:%d @%s:%d\n", rel_x, __FILE__, __LINE__);
+
+        return 0;
+}
+
+(running on x86 or amd64)
+$ ./test
+rel_x:0 @test.c:6
+rel_x:15 @test.c:7
+rel_x:-1 @test.c:8
+
+(running on armv6)
+rel_x:0 @test.c:6
+rel_x:15 @test.c:7
+rel_x:255 @test.c:8
+
+Forcing the rel_x and rel_y variables as signed char fixes the issue.
+---
+ drivers/media/rc/imon.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/rc/imon.c b/drivers/media/rc/imon.c
+index 5dd0386..9d30ca9 100644
+--- a/drivers/media/rc/imon.c
++++ b/drivers/media/rc/imon.c
+@@ -1225,7 +1225,7 @@ static u32 imon_panel_key_lookup(u64 code)
+ static bool imon_mouse_event(struct imon_context *ictx,
+ 			     unsigned char *buf, int len)
+ {
+-	char rel_x = 0x00, rel_y = 0x00;
++	signed char rel_x = 0x00, rel_y = 0x00;
+ 	u8 right_shift = 1;
+ 	bool mouse_input = true;
+ 	int dir = 0;
+@@ -1301,7 +1301,7 @@ static void imon_touch_event(struct imon_context *ictx, unsigned char *buf)
+ static void imon_pad_to_keys(struct imon_context *ictx, unsigned char *buf)
+ {
+ 	int dir = 0;
+-	char rel_x = 0x00, rel_y = 0x00;
++	signed char rel_x = 0x00, rel_y = 0x00;
+ 	u16 timeout, threshold;
+ 	u32 scancode = KEY_RESERVED;
+ 	unsigned long flags;
+-- 
+1.7.9.5
+
