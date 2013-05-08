@@ -108,6 +108,8 @@ Section "oeusbstart"
   nsExec::Exec `"$0" /c copy README.md $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy RELEASE $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy 3rdparty\syslinux\vesamenu.c32 $DRIVE_LETTER`
+  nsExec::Exec `"$0" /c copy 3rdparty\syslinux\libcom32.c32 $DRIVE_LETTER`
+  nsExec::Exec `"$0" /c copy 3rdparty\syslinux\libutil.c32 $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy splash.png $DRIVE_LETTER`
 
   DetailPrint "- Creating Bootloader configuration ..."
