@@ -1,0 +1,173 @@
+From d4aff1973ceb740222d5f4a842aedf27ddaa1b43 Mon Sep 17 00:00:00 2001
+From: Cory Fields <theuni-nospam-@xbmc.org>
+Date: Tue, 30 Apr 2013 23:01:57 -0400
+Subject: [PATCH] gui: two texture speedups
+
+1. Check to see if we have a texture loaded already before opening/uploading
+   another instance of it.
+
+2. Set a time-out for deleting textures. If they are needed again before the
+   time-out expires, they are re-added to the loaded textures array and ready
+   for use again. Otherwise, they are deleted after X msec. This helps to avoid
+   doing _really_ nasty things, like re-loading the background image when
+   moving from home to settings.
+---
+ xbmc/Application.cpp           |  2 +-
+ xbmc/guilib/TextureManager.cpp | 58 ++++++++++++++++++++++++++++++++++++++----
+ xbmc/guilib/TextureManager.h   |  6 +++--
+ 3 files changed, 58 insertions(+), 8 deletions(-)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index 37d17e3..df456ec 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -4953,7 +4953,7 @@ void CApplication::ProcessSlow()
+   if (!IsPlayingVideo())
+     g_largeTextureManager.CleanupUnusedImages();
+ 
+-  g_TextureManager.FreeUnusedTextures();
++  g_TextureManager.FreeUnusedTextures(5000);
+ 
+ #ifdef HAS_DVD_DRIVE
+   // checks whats in the DVD drive and tries to autostart the content (xbox games, dvd, cdda, avi files...)
+diff --git a/xbmc/guilib/TextureManager.cpp b/xbmc/guilib/TextureManager.cpp
+index 93fdcd1..953745f 100644
+--- a/xbmc/guilib/TextureManager.cpp
++++ b/xbmc/guilib/TextureManager.cpp
+@@ -29,6 +29,7 @@
+ #ifdef _DEBUG
+ #include "utils/TimeUtils.h"
+ #endif
++#include "threads/SystemClock.h"
+ #include "filesystem/File.h"
+ #include "filesystem/Directory.h"
+ #include "URL.h"
+@@ -234,9 +235,42 @@ void CTextureMap::Add(CBaseTexture* texture, int delay)
+       return pMap->GetTexture();
+     }
+   }
++
++  CSingleLock lock(g_graphicsContext);
++  for (imapUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end(); i++)
++  {
++    CTextureMap* pMap = i->first;
++    if (pMap->GetName() == strTextureName)
++    {
++      m_vecTextures.push_back(pMap);
++      m_unusedTextures.erase(i);
++      return pMap->GetTexture();
++    }
++  }
++
+   return emptyTexture;
+ }
+ 
++bool CGUITextureManager::IsLoaded(const CStdString& strTextureName)
++{
++  CSingleLock lock(g_graphicsContext);
++  for (int i = 0; i < (int)m_vecTextures.size(); i++)
++  {
++    CTextureMap *pMap = m_vecTextures[i];
++    if (pMap->GetName() == strTextureName)
++      return true;
++  }
++
++  for (imapUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end(); i++)
++  {
++    if (i->first->GetName() == strTextureName)
++      return true;
++  }
++  return false;
++}
++
++
++
+ /************************************************************************/
+ /*                                                                      */
+ /************************************************************************/
+@@ -295,6 +329,7 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
+   CStdString strPath;
+   int bundle = -1;
+   int size = 0;
++
+   if (!HasTexture(strTextureName, &strPath, &bundle, &size))
+     return 0;
+ 
+@@ -304,6 +339,11 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
+   if (checkBundleOnly && bundle == -1)
+     return 0;
+ 
++  if (IsLoaded(strTextureName))
++  {
++    return 1;
++  }
++
+   //Lock here, we will do stuff that could break rendering
+   CSingleLock lock(g_graphicsContext);
+ 
+@@ -442,7 +482,7 @@ void CGUITextureManager::ReleaseTexture(const CStdString& strTextureName)
+       {
+         //CLog::Log(LOGINFO, "  cleanup:%s", strTextureName.c_str());
+         // add to our textures to free
+-        m_unusedTextures.push_back(pMap);
++        m_unusedTextures.insert(make_pair(pMap, XbmcThreads::SystemClockMillis()));
+         i = m_vecTextures.erase(i);
+       }
+       return;
+@@ -452,12 +492,20 @@ void CGUITextureManager::ReleaseTexture(const CStdString& strTextureName)
+   CLog::Log(LOGWARNING, "%s: Unable to release texture %s", __FUNCTION__, strTextureName.c_str());
+ }
+ 
+-void CGUITextureManager::FreeUnusedTextures()
++void CGUITextureManager::FreeUnusedTextures(unsigned int timeDelay)
+ {
++  int currFrameTime = XbmcThreads::SystemClockMillis();
+   CSingleLock lock(g_graphicsContext);
+-  for (ivecTextures i = m_unusedTextures.begin(); i != m_unusedTextures.end(); ++i)
+-    delete *i;
+-  m_unusedTextures.clear();
++  for (imapUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end();)
++  {
++    if (currFrameTime - i->second >= timeDelay)
++    {
++      delete i->first;
++      m_unusedTextures.erase(i++);
++    }
++    else
++      i++;
++  }
+ 
+ #if defined(HAS_GL) || defined(HAS_GLES)
+   for (unsigned int i = 0; i < m_unusedHwTextures.size(); ++i)
+diff --git a/xbmc/guilib/TextureManager.h b/xbmc/guilib/TextureManager.h
+index c982e6a..2fcc0cd 100644
+--- a/xbmc/guilib/TextureManager.h
++++ b/xbmc/guilib/TextureManager.h
+@@ -106,6 +106,7 @@ class CGUITextureManager
+   CGUITextureManager(void);
+   virtual ~CGUITextureManager(void);
+ 
++  bool IsLoaded(const CStdString& strTextureName);
+   bool HasTexture(const CStdString &textureName, CStdString *path = NULL, int *bundle = NULL, int *size = NULL);
+   bool CanLoad(const CStdString &texturePath) const; ///< Returns true if the texture manager can load this texture
+   int Load(const CStdString& strTextureName, bool checkBundleOnly = false);
+@@ -122,13 +123,14 @@ class CGUITextureManager
+   void SetTexturePath(const CStdString &texturePath);    ///< Set a single path as the path to check when loading media (clear then add)
+   void RemoveTexturePath(const CStdString &texturePath); ///< Remove a path from the paths to check when loading media
+ 
+-  void FreeUnusedTextures(); ///< Free textures (called from app thread only)
++  void FreeUnusedTextures(unsigned int timeDelay = 0); ///< Free textures (called from app thread only)
+   void ReleaseHwTexture(unsigned int texture);
+ protected:
+   std::vector<CTextureMap*> m_vecTextures;
+-  std::vector<CTextureMap*> m_unusedTextures;
++  std::map<CTextureMap*, unsigned int> m_unusedTextures;
+   std::vector<unsigned int> m_unusedHwTextures;
+   typedef std::vector<CTextureMap*>::iterator ivecTextures;
++  typedef std::map<CTextureMap*, unsigned int>::iterator imapUnused;
+   // we have 2 texture bundles (one for the base textures, one for the theme)
+   CTextureBundle m_TexBundle[2];
+ 
+-- 
+1.8.1.6
+
