@@ -1,7 +1,210 @@
-From d4aff1973ceb740222d5f4a842aedf27ddaa1b43 Mon Sep 17 00:00:00 2001
+From 1c12a2f021cceee0d7eee2de5df993d73d790aa5 Mon Sep 17 00:00:00 2001
+From: Cory Fields <theuni-nospam-@xbmc.org>
+Date: Thu, 9 May 2013 19:27:14 -0400
+Subject: [PATCH 1/2] texture: combine Load() and GetTexture() since they must
+ be used together
+
+---
+ xbmc/guilib/GUITexture.cpp     | 19 ++++++++--------
+ xbmc/guilib/TextureManager.cpp | 51 ++++++++++++++++++++----------------------
+ xbmc/guilib/TextureManager.h   |  3 +--
+ 3 files changed, 34 insertions(+), 39 deletions(-)
+
+diff --git a/xbmc/guilib/GUITexture.cpp b/xbmc/guilib/GUITexture.cpp
+index 9da2030..5896606 100644
+--- a/xbmc/guilib/GUITexture.cpp
++++ b/xbmc/guilib/GUITexture.cpp
+@@ -301,11 +301,12 @@ bool CGUITextureBase::AllocResources()
+   { // we want to use the large image loader, but we first check for bundled textures
+     if (!IsAllocated())
+     {
+-      int images = g_TextureManager.Load(m_info.filename, true);
+-      if (images)
++      CTextureArray texture;
++      texture = g_TextureManager.Load(m_info.filename, true);
++      if (texture.size())
+       {
+         m_isAllocated = NORMAL;
+-        m_texture = g_TextureManager.GetTexture(m_info.filename);
++        m_texture = texture;
+         changed = true;
+       }
+     }
+@@ -329,15 +330,14 @@ bool CGUITextureBase::AllocResources()
+   }
+   else if (!IsAllocated())
+   {
+-    int images = g_TextureManager.Load(m_info.filename);
++    CTextureArray texture = g_TextureManager.Load(m_info.filename);
+ 
+     // set allocated to true even if we couldn't load the image to save
+     // us hitting the disk every frame
+-    m_isAllocated = images ? NORMAL : NORMAL_FAILED;
+-    if (!images)
++    m_isAllocated = texture.size() ? NORMAL : NORMAL_FAILED;
++    if (!texture.size())
+       return false;
+-
+-    m_texture = g_TextureManager.GetTexture(m_info.filename);
++    m_texture = texture;
+     changed = true;
+   }
+   m_frameWidth = (float)m_texture.m_width;
+@@ -346,8 +346,7 @@ bool CGUITextureBase::AllocResources()
+   // load the diffuse texture (if necessary)
+   if (!m_info.diffuse.IsEmpty())
+   {
+-    g_TextureManager.Load(m_info.diffuse);
+-    m_diffuse = g_TextureManager.GetTexture(m_info.diffuse);
++    m_diffuse = g_TextureManager.Load(m_info.diffuse);
+   }
+ 
+   CalculateSize();
+diff --git a/xbmc/guilib/TextureManager.cpp b/xbmc/guilib/TextureManager.cpp
+index 93fdcd1..6d6c4d9 100644
+--- a/xbmc/guilib/TextureManager.cpp
++++ b/xbmc/guilib/TextureManager.cpp
+@@ -221,22 +221,6 @@ void CTextureMap::Add(CBaseTexture* texture, int delay)
+   Cleanup();
+ }
+ 
+-const CTextureArray& CGUITextureManager::GetTexture(const CStdString& strTextureName)
+-{
+-  static CTextureArray emptyTexture;
+-  //  CLog::Log(LOGINFO, " refcount++ for  GetTexture(%s)\n", strTextureName.c_str());
+-  for (int i = 0; i < (int)m_vecTextures.size(); ++i)
+-  {
+-    CTextureMap *pMap = m_vecTextures[i];
+-    if (pMap->GetName() == strTextureName)
+-    {
+-      //CLog::Log(LOGDEBUG, "Total memusage %u", GetMemoryUsage());
+-      return pMap->GetTexture();
+-    }
+-  }
+-  return emptyTexture;
+-}
+-
+ /************************************************************************/
+ /*                                                                      */
+ /************************************************************************/
+@@ -290,19 +274,32 @@ bool CGUITextureManager::HasTexture(const CStdString &textureName, CStdString *p
+   return !fullPath.IsEmpty();
+ }
+ 
+-int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleOnly /*= false */)
++const CTextureArray& CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleOnly /*= false */)
+ {
+   CStdString strPath;
++  static CTextureArray emptyTexture;
+   int bundle = -1;
+   int size = 0;
+   if (!HasTexture(strTextureName, &strPath, &bundle, &size))
+-    return 0;
++    return emptyTexture;
+ 
+   if (size) // we found the texture
+-    return size;
++  {
++    for (int i = 0; i < (int)m_vecTextures.size(); ++i)
++    {
++      CTextureMap *pMap = m_vecTextures[i];
++      if (pMap->GetName() == strTextureName)
++      {
++        //CLog::Log(LOGDEBUG, "Total memusage %u", GetMemoryUsage());
++        return pMap->GetTexture();
++      }
++    }
++    // Whoops, not there.
++    return emptyTexture;
++  }
+ 
+   if (checkBundleOnly && bundle == -1)
+-    return 0;
++    return emptyTexture;
+ 
+   //Lock here, we will do stuff that could break rendering
+   CSingleLock lock(g_graphicsContext);
+@@ -327,7 +324,7 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
+         CLog::Log(LOGERROR, "Texture manager unable to load bundled file: %s", strTextureName.c_str());
+         delete [] pTextures;
+         delete [] Delay;
+-        return 0;
++        return emptyTexture;
+       }
+ 
+       pMap = new CTextureMap(strTextureName, width, height, nLoops);
+@@ -348,7 +345,7 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
+         CStdString rootPath = strPath.Left(g_SkinInfo->Path().GetLength());
+         if (0 == rootPath.CompareNoCase(g_SkinInfo->Path()))
+           CLog::Log(LOGERROR, "Texture manager unable to load file: %s", strPath.c_str());
+-        return 0;
++        return emptyTexture;
+       }
+       int iWidth = AnimatedGifSet.FrameWidth;
+       int iHeight = AnimatedGifSet.FrameHeight;
+@@ -386,7 +383,7 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
+ #endif
+ 
+     m_vecTextures.push_back(pMap);
+-    return 1;
++    return pMap->GetTexture();
+   } // of if (strPath.Right(4).ToLower()==".gif")
+ 
+   CBaseTexture *pTexture = NULL;
+@@ -396,19 +393,19 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
+     if (!m_TexBundle[bundle].LoadTexture(strTextureName, &pTexture, width, height))
+     {
+       CLog::Log(LOGERROR, "Texture manager unable to load bundled file: %s", strTextureName.c_str());
+-      return 0;
++      return emptyTexture;
+     }
+   }
+   else
+   {
+     pTexture = CBaseTexture::LoadFromFile(strPath);
+     if (!pTexture)
+-      return 0;
++      return emptyTexture;
+     width = pTexture->GetWidth();
+     height = pTexture->GetHeight();
+   }
+ 
+-  if (!pTexture) return 0;
++  if (!pTexture) return emptyTexture;
+ 
+   CTextureMap* pMap = new CTextureMap(strTextureName, width, height, 0);
+   pMap->Add(pTexture, 100);
+@@ -423,7 +420,7 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
+   OutputDebugString(temp);
+ #endif
+ 
+-  return 1;
++  return pMap->GetTexture();
+ }
+ 
+ 
+diff --git a/xbmc/guilib/TextureManager.h b/xbmc/guilib/TextureManager.h
+index c982e6a..22fc192 100644
+--- a/xbmc/guilib/TextureManager.h
++++ b/xbmc/guilib/TextureManager.h
+@@ -108,8 +108,7 @@ class CGUITextureManager
+ 
+   bool HasTexture(const CStdString &textureName, CStdString *path = NULL, int *bundle = NULL, int *size = NULL);
+   bool CanLoad(const CStdString &texturePath) const; ///< Returns true if the texture manager can load this texture
+-  int Load(const CStdString& strTextureName, bool checkBundleOnly = false);
+-  const CTextureArray& GetTexture(const CStdString& strTextureName);
++  const CTextureArray& Load(const CStdString& strTextureName, bool checkBundleOnly = false);
+   void ReleaseTexture(const CStdString& strTextureName);
+   void Cleanup();
+   void Dump() const;
+-- 
+1.8.1.6
+
+
+From 6a327fdc2e168564dd72cc39f360aecb967f9cd4 Mon Sep 17 00:00:00 2001
 From: Cory Fields <theuni-nospam-@xbmc.org>
 Date: Tue, 30 Apr 2013 23:01:57 -0400
-Subject: [PATCH] gui: two texture speedups
+Subject: [PATCH 2/2] gui: two texture speedups
 
 1. Check to see if we have a texture loaded already before opening/uploading
    another instance of it.
@@ -13,9 +216,9 @@ Subject: [PATCH] gui: two texture speedups
    moving from home to settings.
 ---
  xbmc/Application.cpp           |  2 +-
- xbmc/guilib/TextureManager.cpp | 58 ++++++++++++++++++++++++++++++++++++++----
- xbmc/guilib/TextureManager.h   |  6 +++--
- 3 files changed, 58 insertions(+), 8 deletions(-)
+ xbmc/guilib/TextureManager.cpp | 30 +++++++++++++++++++++++++-----
+ xbmc/guilib/TextureManager.h   |  5 +++--
+ 3 files changed, 29 insertions(+), 8 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
 index 37d17e3..df456ec 100644
@@ -31,7 +234,7 @@ index 37d17e3..df456ec 100644
  #ifdef HAS_DVD_DRIVE
    // checks whats in the DVD drive and tries to autostart the content (xbox games, dvd, cdda, avi files...)
 diff --git a/xbmc/guilib/TextureManager.cpp b/xbmc/guilib/TextureManager.cpp
-index 93fdcd1..953745f 100644
+index 6d6c4d9..8e4917b 100644
 --- a/xbmc/guilib/TextureManager.cpp
 +++ b/xbmc/guilib/TextureManager.cpp
 @@ -29,6 +29,7 @@
@@ -42,12 +245,10 @@ index 93fdcd1..953745f 100644
  #include "filesystem/File.h"
  #include "filesystem/Directory.h"
  #include "URL.h"
-@@ -234,9 +235,42 @@ void CTextureMap::Add(CBaseTexture* texture, int delay)
-       return pMap->GetTexture();
-     }
-   }
-+
-+  CSingleLock lock(g_graphicsContext);
+@@ -301,6 +302,17 @@ bool CGUITextureManager::HasTexture(const CStdString &textureName, CStdString *p
+   if (checkBundleOnly && bundle == -1)
+     return emptyTexture;
+ 
 +  for (imapUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end(); i++)
 +  {
 +    CTextureMap* pMap = i->first;
@@ -59,53 +260,10 @@ index 93fdcd1..953745f 100644
 +    }
 +  }
 +
-   return emptyTexture;
- }
- 
-+bool CGUITextureManager::IsLoaded(const CStdString& strTextureName)
-+{
-+  CSingleLock lock(g_graphicsContext);
-+  for (int i = 0; i < (int)m_vecTextures.size(); i++)
-+  {
-+    CTextureMap *pMap = m_vecTextures[i];
-+    if (pMap->GetName() == strTextureName)
-+      return true;
-+  }
-+
-+  for (imapUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end(); i++)
-+  {
-+    if (i->first->GetName() == strTextureName)
-+      return true;
-+  }
-+  return false;
-+}
-+
-+
-+
- /************************************************************************/
- /*                                                                      */
- /************************************************************************/
-@@ -295,6 +329,7 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
-   CStdString strPath;
-   int bundle = -1;
-   int size = 0;
-+
-   if (!HasTexture(strTextureName, &strPath, &bundle, &size))
-     return 0;
- 
-@@ -304,6 +339,11 @@ int CGUITextureManager::Load(const CStdString& strTextureName, bool checkBundleO
-   if (checkBundleOnly && bundle == -1)
-     return 0;
- 
-+  if (IsLoaded(strTextureName))
-+  {
-+    return 1;
-+  }
-+
    //Lock here, we will do stuff that could break rendering
    CSingleLock lock(g_graphicsContext);
  
-@@ -442,7 +482,7 @@ void CGUITextureManager::ReleaseTexture(const CStdString& strTextureName)
+@@ -439,7 +451,7 @@ void CGUITextureManager::ReleaseTexture(const CStdString& strTextureName)
        {
          //CLog::Log(LOGINFO, "  cleanup:%s", strTextureName.c_str());
          // add to our textures to free
@@ -114,14 +272,14 @@ index 93fdcd1..953745f 100644
          i = m_vecTextures.erase(i);
        }
        return;
-@@ -452,12 +492,20 @@ void CGUITextureManager::ReleaseTexture(const CStdString& strTextureName)
+@@ -449,12 +461,20 @@ void CGUITextureManager::ReleaseTexture(const CStdString& strTextureName)
    CLog::Log(LOGWARNING, "%s: Unable to release texture %s", __FUNCTION__, strTextureName.c_str());
  }
  
 -void CGUITextureManager::FreeUnusedTextures()
 +void CGUITextureManager::FreeUnusedTextures(unsigned int timeDelay)
  {
-+  int currFrameTime = XbmcThreads::SystemClockMillis();
++  unsigned int currFrameTime = XbmcThreads::SystemClockMillis();
    CSingleLock lock(g_graphicsContext);
 -  for (ivecTextures i = m_unusedTextures.begin(); i != m_unusedTextures.end(); ++i)
 -    delete *i;
@@ -140,18 +298,10 @@ index 93fdcd1..953745f 100644
  #if defined(HAS_GL) || defined(HAS_GLES)
    for (unsigned int i = 0; i < m_unusedHwTextures.size(); ++i)
 diff --git a/xbmc/guilib/TextureManager.h b/xbmc/guilib/TextureManager.h
-index c982e6a..2fcc0cd 100644
+index 22fc192..4372580 100644
 --- a/xbmc/guilib/TextureManager.h
 +++ b/xbmc/guilib/TextureManager.h
-@@ -106,6 +106,7 @@ class CGUITextureManager
-   CGUITextureManager(void);
-   virtual ~CGUITextureManager(void);
- 
-+  bool IsLoaded(const CStdString& strTextureName);
-   bool HasTexture(const CStdString &textureName, CStdString *path = NULL, int *bundle = NULL, int *size = NULL);
-   bool CanLoad(const CStdString &texturePath) const; ///< Returns true if the texture manager can load this texture
-   int Load(const CStdString& strTextureName, bool checkBundleOnly = false);
-@@ -122,13 +123,14 @@ class CGUITextureManager
+@@ -121,13 +121,14 @@ class CGUITextureManager
    void SetTexturePath(const CStdString &texturePath);    ///< Set a single path as the path to check when loading media (clear then add)
    void RemoveTexturePath(const CStdString &texturePath); ///< Remove a path from the paths to check when loading media
  
