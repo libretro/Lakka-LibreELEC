@@ -10,7 +10,7 @@ If you are at all unsure whether it's a bug in OpenELEC or a problem with someth
 else, post in the OpenELEC [Forum] instead. If it turns out that it is a bug, an issue
 can always bee opend later.
 
-If you are sure that it's a bug in OpenELEC and you have not found a similar issue, open a new [issue]
+If you are sure that it's a bug in OpenELEC and you have not found a [similar issue], open a new [issue]
 and try to answer the following questions:
 - What did you do?
 - What did you expect to happen?
@@ -45,3 +45,4 @@ particular feature into OpenELEC.
 [issue]: https://github.com/OpenELEC/OpenELEC.tv/issues
 [webchat]: http://openelec.tv/support/chat
 [logfiles]: http://wiki.openelec.tv/index.php?title=OpenELEC_FAQ#Support_Logs
+[similar issue]: https://github.com/OpenELEC/OpenELEC.tv/search?&ref=cmdform&type=Issues
