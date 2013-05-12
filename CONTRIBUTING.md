@@ -32,8 +32,6 @@ particular feature into OpenELEC.
 
 ## Pull Requests
 
-- **Add tests!** Your patch won't be accepted if it doesn't have tests.
-
 - **Create topic branches**. Don't ask us to pull from your master branch.
 
 - **One pull request per feature**. If you want to do more than one thing, send
