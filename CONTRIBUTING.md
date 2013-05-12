@@ -41,6 +41,51 @@ particular feature into OpenELEC.
   request is meaningful. If you had to make multiple intermediate commits while
   developing, please squash them before sending them to us.
 
+Please follow this process; it's the best way to get your work included in the project:
+
+- [Fork](http://help.github.com/fork-a-repo/) the project, clone your fork,
+   and configure the remotes:
+
+```bash
+   # clone your fork of the repo into the current directory in terminal
+   git clone git@github.com:<your username>/OpenELEC.tv.git
+   # navigate to the newly cloned directory
+   cd OpenELEC.tv
+   # assign the original repo to a remote called "upstream"
+   git remote add upstream https://github.com/OpenELEC/OpenELEC.tv.git
+   ```
+
+- If you cloned a while ago, get the latest changes from upstream:
+
+   ```bash
+   # fetch upstream changes
+   git fetch upstream
+   # make sure you are on your 'master' branch
+   git checkout master
+   # merge upstream changes
+   git merge upstream/master
+   ```
+
+- Create a new topic branch to contain your feature, change, or fix:
+
+   ```bash
+   git checkout -b <topic-branch-name>
+   ```
+
+- Commit your changes in logical chunks. or your pull request is unlikely
+   be merged into the main project. Use git's
+   [interactive rebase](https://help.github.com/articles/interactive-rebase)
+   feature to tidy up your commits before making them public.
+
+- Push your topic branch up to your fork:
+
+   ```bash
+   git push origin <topic-branch-name>
+   ```
+
+- [Open a Pull Request](https://help.github.com/articles/using-pull-requests) with a
+    clear title and description.
+
 [Forum]: http://openelec.tv/forum
 [issue]: https://github.com/OpenELEC/OpenELEC.tv/issues
 [webchat]: http://openelec.tv/support/chat
