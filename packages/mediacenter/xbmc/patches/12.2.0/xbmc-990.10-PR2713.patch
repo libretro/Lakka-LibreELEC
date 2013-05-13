@@ -201,10 +201,10 @@ index c982e6a..22fc192 100644
 1.8.1.6
 
 
-From 6a327fdc2e168564dd72cc39f360aecb967f9cd4 Mon Sep 17 00:00:00 2001
+From ece7ac520231ff144d7bc4d8393d1ca36f227927 Mon Sep 17 00:00:00 2001
 From: Cory Fields <theuni-nospam-@xbmc.org>
 Date: Tue, 30 Apr 2013 23:01:57 -0400
-Subject: [PATCH 2/2] gui: two texture speedups
+Subject: [PATCH 2/2] texture: two texture speedups
 
 1. Check to see if we have a texture loaded already before opening/uploading
    another instance of it.
@@ -217,8 +217,8 @@ Subject: [PATCH 2/2] gui: two texture speedups
 ---
  xbmc/Application.cpp           |  2 +-
  xbmc/guilib/TextureManager.cpp | 30 +++++++++++++++++++++++++-----
- xbmc/guilib/TextureManager.h   |  5 +++--
- 3 files changed, 29 insertions(+), 8 deletions(-)
+ xbmc/guilib/TextureManager.h   |  6 ++++--
+ 3 files changed, 30 insertions(+), 8 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
 index 37d17e3..df456ec 100644
@@ -234,7 +234,7 @@ index 37d17e3..df456ec 100644
  #ifdef HAS_DVD_DRIVE
    // checks whats in the DVD drive and tries to autostart the content (xbox games, dvd, cdda, avi files...)
 diff --git a/xbmc/guilib/TextureManager.cpp b/xbmc/guilib/TextureManager.cpp
-index 6d6c4d9..8e4917b 100644
+index 6d6c4d9..f214489 100644
 --- a/xbmc/guilib/TextureManager.cpp
 +++ b/xbmc/guilib/TextureManager.cpp
 @@ -29,6 +29,7 @@
@@ -245,11 +245,11 @@ index 6d6c4d9..8e4917b 100644
  #include "filesystem/File.h"
  #include "filesystem/Directory.h"
  #include "URL.h"
-@@ -301,6 +302,17 @@ bool CGUITextureManager::HasTexture(const CStdString &textureName, CStdString *p
-   if (checkBundleOnly && bundle == -1)
+@@ -298,6 +299,17 @@ bool CGUITextureManager::HasTexture(const CStdString &textureName, CStdString *p
      return emptyTexture;
+   }
  
-+  for (imapUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end(); i++)
++  for (ilistUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end(); i++)
 +  {
 +    CTextureMap* pMap = i->first;
 +    if (pMap->GetName() == strTextureName)
@@ -260,15 +260,15 @@ index 6d6c4d9..8e4917b 100644
 +    }
 +  }
 +
-   //Lock here, we will do stuff that could break rendering
-   CSingleLock lock(g_graphicsContext);
+   if (checkBundleOnly && bundle == -1)
+     return emptyTexture;
  
 @@ -439,7 +451,7 @@ void CGUITextureManager::ReleaseTexture(const CStdString& strTextureName)
        {
          //CLog::Log(LOGINFO, "  cleanup:%s", strTextureName.c_str());
          // add to our textures to free
 -        m_unusedTextures.push_back(pMap);
-+        m_unusedTextures.insert(make_pair(pMap, XbmcThreads::SystemClockMillis()));
++        m_unusedTextures.push_back(make_pair(pMap, XbmcThreads::SystemClockMillis()));
          i = m_vecTextures.erase(i);
        }
        return;
@@ -284,12 +284,12 @@ index 6d6c4d9..8e4917b 100644
 -  for (ivecTextures i = m_unusedTextures.begin(); i != m_unusedTextures.end(); ++i)
 -    delete *i;
 -  m_unusedTextures.clear();
-+  for (imapUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end();)
++  for (ilistUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end();)
 +  {
 +    if (currFrameTime - i->second >= timeDelay)
 +    {
 +      delete i->first;
-+      m_unusedTextures.erase(i++);
++      i = m_unusedTextures.erase(i);
 +    }
 +    else
 +      i++;
@@ -298,10 +298,18 @@ index 6d6c4d9..8e4917b 100644
  #if defined(HAS_GL) || defined(HAS_GLES)
    for (unsigned int i = 0; i < m_unusedHwTextures.size(); ++i)
 diff --git a/xbmc/guilib/TextureManager.h b/xbmc/guilib/TextureManager.h
-index 22fc192..4372580 100644
+index 22fc192..2633c39d 100644
 --- a/xbmc/guilib/TextureManager.h
 +++ b/xbmc/guilib/TextureManager.h
-@@ -121,13 +121,14 @@ class CGUITextureManager
+@@ -27,6 +27,7 @@
+ #define GUILIB_TEXTUREMANAGER_H
+ 
+ #include <vector>
++#include <list>
+ #include "TextureBundle.h"
+ #include "threads/CriticalSection.h"
+ 
+@@ -121,13 +122,14 @@ class CGUITextureManager
    void SetTexturePath(const CStdString &texturePath);    ///< Set a single path as the path to check when loading media (clear then add)
    void RemoveTexturePath(const CStdString &texturePath); ///< Remove a path from the paths to check when loading media
  
@@ -311,10 +319,10 @@ index 22fc192..4372580 100644
  protected:
    std::vector<CTextureMap*> m_vecTextures;
 -  std::vector<CTextureMap*> m_unusedTextures;
-+  std::map<CTextureMap*, unsigned int> m_unusedTextures;
++  std::list<std::pair<CTextureMap*, unsigned int> > m_unusedTextures;
    std::vector<unsigned int> m_unusedHwTextures;
    typedef std::vector<CTextureMap*>::iterator ivecTextures;
-+  typedef std::map<CTextureMap*, unsigned int>::iterator imapUnused;
++  typedef std::list<std::pair<CTextureMap*, unsigned int> >::iterator ilistUnused;
    // we have 2 texture bundles (one for the base textures, one for the theme)
    CTextureBundle m_TexBundle[2];
  
