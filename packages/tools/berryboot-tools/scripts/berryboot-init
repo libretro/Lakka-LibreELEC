@@ -1,0 +1,56 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+UPDATEDIR=${DATADIR}/storage/.update
+UPDATEFILE=${UPDATEDIR}/SYSTEM
+SPLASHIMAGE="/squashfs/splash/splash.png"
+
+#
+# load splash
+# berryboot is based on uClibc, so run ply-image via ld.so directly
+#
+
+if [ -e /dev/fb0 -a -f "${SPLASHIMAGE}" ]; then
+# set framebuffer to a default resolution (1024x768-32)
+  LD_LIBRARY_PATH=/squashfs/lib /squashfs/lib/ld.so \
+    /squashfs/bin/busybox fbset -g 1024 768 1024 768 32
+
+# load splash
+  LD_LIBRARY_PATH=/squashfs/lib /squashfs/lib/ld.so \
+    /squashfs/bin/ply-image ${SPLASHIMAGE} > /dev/null 2>&1
+fi
+
+#
+# Check if OpenELEC downloaded an update
+#
+
+if [ -f "${UPDATEFILE}" ]; then
+  echo "Updating OpenELEC..."
+  cd /
+  umount -f /squashfs > /dev/null 2>&1
+  mv -f "${UPDATEFILE}" "/mnt/images/${IMAGE}"
+  rm -rf "${UPDATEDIR}/*"
+  sync
+  echo "Done, rebooting now..."
+  sleep 5
+  reboot -f
+fi
