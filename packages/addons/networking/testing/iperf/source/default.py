@@ -18,20 +18,6 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="iperf"
-PKG_VERSION="2.0.5"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="OSS"
-PKG_SITE="http://sourceforge.net/projects/iperf/"
-PKG_URL="$SOURCEFORGE_SRC/iperf/files/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain $ICONV"
-PKG_PRIORITY="optional"
-PKG_SECTION="debug/tools"
-PKG_SHORTDESC="iperf: A modern alternative for measuring maximum TCP and UDP bandwidth performance"
-PKG_LONGDESC="Iperf was developed by NLANR/DAST as a modern alternative for measuring maximum TCP and UDP bandwidth performance. Iperf allows the tuning of various parameters and UDP characteristics. Iperf reports bandwidth, delay jitter, datagram loss."
-
-PKG_IS_ADDON="no"
-
-PKG_AUTORECONF="yes"
+import os
+import sys
+import xbmcaddon
