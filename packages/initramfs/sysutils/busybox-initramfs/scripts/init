@@ -274,6 +274,8 @@
       LABEL=*|UUID=*|/*)
         MOUNT_CMD="mount_common"
         MOUNT_TARGET="$1"
+        # check filesystem
+          /sbin/fsck -a $1 &>/dev/null
         ;;
       CIFS=*|SMB=*)
         MOUNT_CMD="mount_cifs"
@@ -328,23 +330,6 @@
     fi
   }
 
-  hfsdiskprep() {
-    for DEVICE in /dev/sd*; do
-      for device in $(/bin/busybox blkid $DEVICE); do
-        case $device in
-          TYPE=*)
-            FS_TYPE=${device#TYPE=}
-            ;;
-        esac
-      done
-
-      if [ "$FS_TYPE" = "\"hfs\"" -o "$FS_TYPE" = "\"hfsplus\"" ]; then
-        progress "check filesystem $DEVICE [$FS_TYPE]..."
-        /bin/fsck_hfs -r -y $DEVICE >&$SILENT_OUT 2>&1
-      fi
-    done
-  }
-
   load_modules() {
     progress "Loading kernel modules"
 
@@ -376,15 +361,6 @@
         fi
 
         ply-image $SPLASHIMAGE > /dev/null 2>&1
-    fi
-  }
-
-  check_disks() {
-    progress "Checking disks"
-
-    if [ -x /bin/fsck_hfs ]; then
-    # deal with hfs partitions
-      hfsdiskprep
     fi
   }
 
@@ -589,7 +565,6 @@
 # main boot sequence
   for BOOT_STEP in \
       load_modules \
-      check_disks \
       mount_flash \
       load_splash \
       mount_storage \
