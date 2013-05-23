@@ -1,0 +1,88 @@
+From 1e3abea7b9a4212005b11dbb5a9542ca9cbcd21a Mon Sep 17 00:00:00 2001
+From: Stephan Raue <stephan@openelec.tv>
+Date: Thu, 7 Feb 2013 18:27:08 +0100
+Subject: [PATCH] configure.in: change check for 'VERSION' file: - first check
+ if this file exist and use the content from there - if it
+ not exist check with 'git log' - if this fails set to
+ 'Unknown'
+
+This patch also shows the GIT_REV in the configure summary message. To display This message on top of the messages we move the whole block a bit above
+---
+ configure.in |   40 ++++++++++++++++++++--------------------
+ 1 file changed, 20 insertions(+), 20 deletions(-)
+
+diff --git a/configure.in b/configure.in
+index ac1445c..869fd29 100644
+--- a/configure.in
++++ b/configure.in
+@@ -687,6 +687,25 @@ case $use_platform in
+      ;;
+ esac
+ 
++# check for GIT_REV
++AC_CHECK_PROG(HAVE_GIT,git,"yes","no",)
++if test "$GIT_REV" = ""; then
++  if test -f VERSION ; then
++    GIT_REV=$(awk 'END{print substr($1,1,16)}' VERSION)
++  elif test "$HAVE_GIT" = "yes"; then
++    GIT_REV=$(git --no-pager log --abbrev=7 -n 1 --pretty=format:"%h %ci" HEAD | awk '{gsub("-", "");print $2"-"$1}')
++  else
++    GIT_REV="Unknown"
++  fi
++fi
++final_message="$final_message\n  git Rev.:\t${GIT_REV}"
++
++if test "$host_vendor" = "apple"; then
++  echo "#define GIT_REV \"$GIT_REV\"" > git_revision.h
++else
++  SDL_DEFINES="$SDL_DEFINES -D'GIT_REV=\"$GIT_REV\"'"
++fi
++
+ if test "$build_shared_lib" = "yes"; then
+   final_message="$final_message\n Shared lib\tYes"
+   AC_SUBST(USE_LIBXBMC,1)
+@@ -1886,8 +1905,6 @@ if test "$ARCH" = "i486-linux" || test "$ARCH" = "x86-freebsd"; then
+   fi
+ fi
+ 
+-AC_CHECK_PROG(HAVE_GIT,git,"yes","no",)
+-
+ # Checks for header files.
+ AC_HEADER_DIRENT
+ AC_HEADER_STDC
+@@ -1943,7 +1960,7 @@ else
+     USE_OPENGL=1
+   else
+     final_message="$final_message\n  OpenGL:\tNo (Very Slow)"
+-    SDL_DEFINES="-DHAS_SDL_2D"
++    SDL_DEFINES="$SDL_DEFINES -DHAS_SDL_2D"
+     USE_OPENGL=0
+   fi
+ fi
+@@ -2156,23 +2173,6 @@ else
+   final_message="$final_message\n  Avahi:\tNo"
+ fi
+ 
+-if test "$HAVE_GIT" = "yes"; then
+-  GIT_REV=$(git --no-pager log --abbrev=7 -n 1 --pretty=format:"%h %ci" HEAD | awk '{gsub("-", "");print $2"-"$1}')
+-fi
+-if test "$GIT_REV" = ""; then
+-  if test -f VERSION ; then
+-    GIT_REV=$(awk 'END{print substr($1,1,16)}' VERSION)
+-    if test -z $GIT_REV ; then GIT_REV="Unknown" ; fi
+-  else
+-    GIT_REV="Unknown"
+-  fi
+-fi
+-if test "$host_vendor" = "apple"; then
+-  echo "#define GIT_REV \"$GIT_REV\"" > git_revision.h
+-else
+-  SDL_DEFINES="$SDL_DEFINES -D'GIT_REV=\"$GIT_REV\"'"
+-fi
+-
+ if test "$use_nonfree" = "yes"; then
+   final_message="$final_message\n  Non-free:\tYes"
+   HAVE_XBMC_NONFREE=1
+-- 
+1.7.10
+
