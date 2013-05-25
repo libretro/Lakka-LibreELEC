@@ -313,21 +313,18 @@
   }
 
   update_bootloader() {
-    if [ -f "/flash/$IMAGE_SYSTEM" ]; then
-    # /flash is filesystem with system image file
-      export BOOT_ROOT="/flash"
-      export SYSTEM_ROOT="/sysroot"
+    export BOOT_ROOT="/flash"
+    export SYSTEM_ROOT="/sysroot"
 
-      mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
 
-      if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
-        echo "updating Bootloader..."
-          /bin/busybox sh $SYSTEM_ROOT/usr/share/bootloader/update.sh
-          /bin/busybox sync
-      fi
-
-      umount /sysroot
+    if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
+      echo "updating Bootloader..."
+        /bin/busybox sh $SYSTEM_ROOT/usr/share/bootloader/update.sh
+        /bin/busybox sync
     fi
+
+    umount /sysroot
   }
 
   load_modules() {
@@ -406,24 +403,13 @@
             fi
           fi
 
-          if [ -f "/flash/$IMAGE_SYSTEM" ]; then
-            # /flash is filesystem with system image file
-            # use dd and mkfs.ext4 from system
-            mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-            echo "Creating empty file, this can take a long time..."
-            /sysroot/bin/busybox dd if=/dev/zero of="$storage_loop_file" bs=1M count=$STORAGE_USE &>/dev/null
-            echo "Formating to EXT4 filesystem, this can take a long time..."
-            LD_LIBRARY_PATH=/sysroot/usr/lib /sysroot/sbin/mkfs.ext4 -F -L StorageLive "$storage_loop_file" &>/dev/null
-            /bin/busybox sync
-            umount /sysroot
-          else
-            # /flash is actual root filesystem
-            echo "Creating empty file, this can take a long time..."
-            /flash/bin/busybox dd if=/dev/zero of="$storage_loop_file" bs=1M count=$STORAGE_USE &>/dev/null
-            echo "Formating to EXT4 filesystem, this can take a long time..."
-            LD_LIBRARY_PATH=/flash/usr/lib /flash/sbin/mkfs.ext4 -F -L StorageLive "$storage_loop_file" &>/dev/null
-            /bin/busybox sync
-          fi
+          mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+          echo "Creating empty file, this can take a long time..."
+          /sysroot/bin/busybox dd if=/dev/zero of="$storage_loop_file" bs=1M count=$STORAGE_USE &>/dev/null
+          echo "Formating to EXT4 filesystem, this can take a long time..."
+          LD_LIBRARY_PATH=/sysroot/usr/lib /sysroot/sbin/mkfs.ext4 -F -L StorageLive "$storage_loop_file" &>/dev/null
+          /bin/busybox sync
+          umount /sysroot
 
           echo "Done..."
           /bin/busybox usleep 2000000
@@ -536,20 +522,14 @@
   prepare_sysroot() {
     progress "Preparing system"
 
-    if [ -f "/flash/$IMAGE_SYSTEM" ]; then
-    # /flash is filesystem with system image file
-      if [ "$SYSTEM_TORAM" = "no" -o "$INSTALLED_MEMORY" -lt "$SYSTEM_TORAM_LIMIT" ]; then
-        mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-      else
-        cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
-        mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-      fi
-
-      /bin/busybox mount --move /flash /sysroot/flash
+    if [ "$SYSTEM_TORAM" = "no" -o "$INSTALLED_MEMORY" -lt "$SYSTEM_TORAM_LIMIT" ]; then
+      mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
     else
-    # /flash is actual root filesystem
-      /bin/busybox mount --move /flash /sysroot
+      cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
+      mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
     fi
+
+    /bin/busybox mount --move /flash /sysroot/flash
 
     if [ -n "$disk" ]; then
       /bin/busybox mount --move /storage /sysroot/storage
