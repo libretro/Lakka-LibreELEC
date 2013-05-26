@@ -22,6 +22,14 @@
 
 . /etc/profile
 
+check_tmpfs_mount() {
+  grep " /var/run/vdr " /proc/mounts >/dev/null
+  if [ $? -ne 0 ] ; then
+    mkdir -p /var/run/vdr
+    mount -t tmpfs -o size=10% tmpfs /var/run/vdr
+  fi
+}
+
 LOCKDIR="/var/lock/"
 LOCKFILE="vdr.disabled"
 
@@ -111,7 +119,7 @@ if [ "$ENABLE_EPGSEARCH" == "true" ] ; then
   VDR_ARG="$VDR_ARG -P epgsearch"
 fi
 if [ "$ENABLE_XMLTV2VDR" == "true" ] ; then
-  VDR_ARG="$VDR_ARG -P xmltv2vdr"
+  VDR_ARG="$VDR_ARG -P 'xmltv2vdr --epgfile=$ADDON_CACHE_DIR/epg.db'"
 fi
 
 (
@@ -153,6 +161,7 @@ if [ ! "$(pidof vdr.bin)" ];then
   fi
   while [ true ] ; do
     if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
+      umount /var/run/vdr 2>&1
       break
     fi
     # (wait for) at least 1 adapter (xbmc allows to set 0)
@@ -161,6 +170,7 @@ if [ ! "$(pidof vdr.bin)" ];then
       sleep 1
       continue
     fi
+    check_tmpfs_mount
     LANG=en_US.UTF-8 LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" eval vdr.bin $VDR_ARG &>$LOG_FILE
   done &
 fi
