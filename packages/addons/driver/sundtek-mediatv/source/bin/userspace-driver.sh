@@ -256,7 +256,7 @@ if [ -z "$(pidof mediasrv)" ]; then
     SERIALS=$(cat /var/config/sundtek-addon.conf | sed -n 's|^ATTACHED_TUNER_\(.*\)_DVBMODE=.*|\1|gp' | sort | uniq)
     . /var/config/sundtek-addon.conf
 
-    for SERIAL in ${SERIALS[@]}; do
+    for SERIAL in $SERIALS; do
       DVBMODE=$(eval echo \$ATTACHED_TUNER_${SERIAL}_DVBMODE)
       IRPROT=$(eval echo \$ATTACHED_TUNER_${SERIAL}_IRPROT)
       KEYMAP=$(eval echo \$ATTACHED_TUNER_${SERIAL}_KEYMAP)
