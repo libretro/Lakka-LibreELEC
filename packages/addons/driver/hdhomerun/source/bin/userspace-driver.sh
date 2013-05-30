@@ -54,7 +54,7 @@ if [ -z "$(pidof userhdhomerun)" ]; then
     SERIALS=$(cat /var/config/hdhomerun-addon.conf | sed -n 's|^ATTACHED_TUNER_\(.*\)_\(.*\)_DVBMODE=.*|\1-\2|gp' | sort | uniq)
     . /var/config/hdhomerun-addon.conf
 
-    for SERIAL in ${SERIALS[@]}; do
+    for SERIAL in $SERIALS; do
       SERIAL_VAR=$(echo $SERIAL | sed 's|-|_|')
       DVBMODE=$(eval echo \$ATTACHED_TUNER_${SERIAL_VAR}_DVBMODE)
       FULLNAME=$(eval echo \$ATTACHED_TUNER_${SERIAL_VAR}_FULLNAME)
