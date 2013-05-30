@@ -14,7 +14,7 @@ providing cutting edge hardware support to deliver a set-top box experience.
 
 **Installation**
 
-* Please read INSTALL for instructions on how to install.
+* Please read the instructions in our wiki (http://wiki.openelec.tv/index.php?title=Installation) on how to install.
 
 **Known issues**
 
