@@ -1,0 +1,43 @@
+From 67fbfc5c5ed4f8186451a9f970c82a10b545d71c Mon Sep 17 00:00:00 2001
+From: ulion <ulion2002@gmail.com>
+Date: Sat, 11 May 2013 06:03:55 +0800
+Subject: [PATCH] Fix color index overflow by reuse existed color in the
+ vector. Fix #14293
+
+---
+ xbmc/guilib/GUITextLayout.cpp | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/guilib/GUITextLayout.cpp b/xbmc/guilib/GUITextLayout.cpp
+index 33c8c48..8dc8b45 100644
+--- a/xbmc/guilib/GUITextLayout.cpp
++++ b/xbmc/guilib/GUITextLayout.cpp
+@@ -401,9 +401,22 @@ void CGUITextLayout::ParseText(const CStdStringW &text, uint32_t defaultStyle, v
+     { // color
+       size_t finish = text.Find(L']', pos + 5);
+       if (on && finish != CStdString::npos && (size_t)text.Find(L"[/COLOR]",finish) != CStdString::npos)
+-      { // create new color
+-        newColor = colors.size();
+-        colors.push_back(g_colorManager.GetColor(text.Mid(pos + 5, finish - pos - 5)));
++      {
++        color_t color = g_colorManager.GetColor(text.Mid(pos + 5, finish - pos - 5));
++        vecColors::const_iterator it = std::find(colors.begin(), colors.end(), color);
++        if (it == colors.end())
++        { // create new color
++          if (colors.size() <= 0xFF)
++          {
++            newColor = colors.size();
++            colors.push_back(color);
++          }
++          else // we have only 8 bits for color index, fallback to first color if reach max.
++            newColor = 0;
++        }
++        else
++          // reuse existing color
++          newColor = it - colors.begin();
+         colorStack.push(newColor);
+       }
+       else if (!on && finish == pos + 5 && colorStack.size() > 1)
+-- 
+1.8.1.6
+

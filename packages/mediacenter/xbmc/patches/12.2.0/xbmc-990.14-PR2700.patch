@@ -1,0 +1,322 @@
+From 85891c135b848d8f11a5410d867f67e0515d3d0b Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@ecce.se>
+Date: Sun, 17 Mar 2013 19:04:52 +0100
+Subject: [PATCH 1/3] dvdplayer: move CanSeek/CanPause to seekable interface
+
+---
+ .../dvdplayer/DVDInputStreams/DVDInputStream.h     |  8 ++++++++
+ .../DVDInputStreams/DVDInputStreamPVRManager.h     |  1 +
+ xbmc/cores/dvdplayer/DVDPlayer.cpp                 | 22 +++++++++++-----------
+ 3 files changed, 20 insertions(+), 11 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h
+index b3b7ae3..a5ee3ae 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h
+@@ -122,6 +122,14 @@ class CDVDInputStream
+     virtual double GetTimeStampCorrection() = 0;
+   };
+ 
++  class ISeekable
++  {
++    public:
++    virtual ~ISeekable() {};
++    virtual bool CanSeek()  = 0;
++    virtual bool CanPause() = 0;
++  };
++
+   enum ENextStream
+   {
+     NEXTSTREAM_NONE,
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h
+index 79389a4..89f05a7 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamPVRManager.h
+@@ -39,6 +39,7 @@ class CDVDInputStreamPVRManager
+   : public CDVDInputStream
+   , public CDVDInputStream::IChannel
+   , public CDVDInputStream::IDisplayTime
++  , public CDVDInputStream::ISeekable
+ {
+ public:
+   CDVDInputStreamPVRManager(IDVDPlayer* pPlayer);
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index e5a1e71..5baf57a 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -3833,6 +3833,9 @@ void CDVDPlayer::UpdatePlayState(double timeout)
+     state.time_src   = ETIMESOURCE_CLOCK;
+   }
+ 
++  state.canpause     = true;
++  state.canseek      = true;
++
+   if(m_pInputStream)
+   {
+     // override from input stream if needed
+@@ -3861,16 +3864,10 @@ void CDVDPlayer::UpdatePlayState(double timeout)
+       }
+     }
+ 
+-    if (m_pInputStream->IsStreamType(DVDSTREAM_TYPE_PVRMANAGER))
+-    {
+-      CDVDInputStreamPVRManager* pvrinputstream = static_cast<CDVDInputStreamPVRManager*>(m_pInputStream);
+-      state.canpause = pvrinputstream->CanPause();
+-      state.canseek  = pvrinputstream->CanSeek();
+-    }
+-    else
++    if (CDVDInputStream::ISeekable* ptr = dynamic_cast<CDVDInputStream::ISeekable*>(m_pInputStream))
+     {
+-      state.canseek  = state.time_total > 0 ? true : false;
+-      state.canpause = true;
++      state.canpause = ptr->CanPause();
++      state.canseek  = ptr->CanSeek();
+     }
+   }
+ 
+@@ -3880,10 +3877,13 @@ void CDVDPlayer::UpdatePlayState(double timeout)
+     state.time_total  = m_Edl.RemoveCutTime(llrint(state.time_total));
+   }
+ 
++  if(state.time_total <= 0)
++    state.canseek  = false;
++
+   state.player_state = "";
+-  if (m_pInputStream && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD))
++  if(CDVDInputStreamNavigator* ptr = dynamic_cast<CDVDInputStreamNavigator*>(m_pInputStream))
+   {
+-    if(!((CDVDInputStreamNavigator*)m_pInputStream)->GetNavigatorState(state.player_state))
++    if(!ptr->GetNavigatorState(state.player_state))
+       state.player_state = "";
+   }
+ 
+-- 
+1.8.1.6
+
+
+From c817ed00d875174b6789621aba4dc15123c4f3bd Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@ecce.se>
+Date: Sun, 17 Mar 2013 19:15:13 +0100
+Subject: [PATCH 2/3] dvdplayer: disable seeking and pause for udp/rtp and seek
+ for tcp
+
+---
+ .../dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp  | 17 +++++++++++++++++
+ .../dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h    |  9 ++++++++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp
+index 72ea5f8..fb5001a 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.cpp
+@@ -47,7 +47,24 @@ bool CDVDInputStreamFFmpeg::Open(const char* strFile, const std::string& content
+   if (!CDVDInputStream::Open(strFile, content))
+     return false;
+ 
++  m_can_pause = true;
++  m_can_seek  = true;
++
++  if(strnicmp(strFile, "udp://", 6) == 0
++  || strnicmp(strFile, "rtp://", 6) == 0)
++  {
++      m_can_pause = false;
++      m_can_seek  = false;
++  }
++  
++  if(strnicmp(strFile, "tcp://", 6) == 0)
++  {
++      m_can_pause = true;
++      m_can_seek  = false;
++  }
++
+   m_aborted   = false;
++
+   return true;
+ }
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h
+index 6149233..cf80e8f 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamFFmpeg.h
+@@ -22,7 +22,9 @@
+ 
+ #include "DVDInputStream.h"
+ 
+-class CDVDInputStreamFFmpeg : public CDVDInputStream
++class CDVDInputStreamFFmpeg
++  : public CDVDInputStream
++  , public CDVDInputStream::ISeekable
+ {
+ public:
+   CDVDInputStreamFFmpeg();
+@@ -38,6 +40,11 @@ class CDVDInputStreamFFmpeg : public CDVDInputStream
+   virtual void    Abort()    { m_aborted = true;  }
+   bool            Aborted()  { return m_aborted;  }
+ 
++  bool            CanSeek()  { return m_can_seek; }
++  bool            CanPause() { return m_can_pause; }
++
+ protected:
+   bool m_aborted;
++  bool m_can_pause;
++  bool m_can_seek;
+ };
+-- 
+1.8.1.6
+
+
+From 20562d6450d481967833de7895cd27352a4fdea1 Mon Sep 17 00:00:00 2001
+From: Wolfgang Haupt <w.haupt@at-visions.com>
+Date: Tue, 7 May 2013 09:43:03 +0200
+Subject: [PATCH 3/3] dvdplayer: move navigator state into IMenus
+
+---
+ .../dvdplayer/DVDInputStreams/DVDInputStream.h     |  2 ++
+ .../DVDInputStreams/DVDInputStreamBluray.h         |  2 ++
+ .../DVDInputStreams/DVDInputStreamNavigator.cpp    |  4 +--
+ .../DVDInputStreams/DVDInputStreamNavigator.h      |  4 +--
+ xbmc/cores/dvdplayer/DVDPlayer.cpp                 | 38 ++++++++++------------
+ 5 files changed, 25 insertions(+), 25 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h
+index a5ee3ae..76414b2 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStream.h
+@@ -120,6 +120,8 @@ class CDVDInputStream
+     virtual bool OnMouseClick(const CPoint &point) = 0;
+     virtual bool IsInMenu() = 0;
+     virtual double GetTimeStampCorrection() = 0;
++    virtual bool GetState(std::string &xmlstate)        { return false; }
++    virtual bool SetState(const std::string &xmlstate)  { return false; }
+   };
+ 
+   class ISeekable
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
+index 6897d0f..a7d8f6b 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
+@@ -81,6 +81,8 @@ class CDVDInputStreamBluray
+   virtual bool OnMouseMove(const CPoint &point)  { return false; }
+   virtual bool OnMouseClick(const CPoint &point) { return false; }
+   virtual double GetTimeStampCorrection()        { return 0.0; }
++  virtual bool GetState(std::string &xmlstate)         { return false; }
++  virtual bool SetState(const std::string &xmlstate)   { return false; }
+ 
+   void UserInput(bd_vk_key_e vk);
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.cpp
+index 9cd8cf9..102b862 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.cpp
+@@ -1144,7 +1144,7 @@ bool CDVDInputStreamNavigator::IsSubtitleStreamEnabled()
+     return false;
+ }
+ 
+-bool CDVDInputStreamNavigator::GetNavigatorState(std::string &xmlstate)
++bool CDVDInputStreamNavigator::GetState(std::string &xmlstate)
+ {
+   if( !m_dvdnav )
+     return false;
+@@ -1165,7 +1165,7 @@ bool CDVDInputStreamNavigator::GetNavigatorState(std::string &xmlstate)
+   return true;
+ }
+ 
+-bool CDVDInputStreamNavigator::SetNavigatorState(std::string &xmlstate)
++bool CDVDInputStreamNavigator::SetState(const std::string &xmlstate)
+ {
+   if( !m_dvdnav )
+     return false;
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.h
+index 0c16642..45b2632 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamNavigator.h
+@@ -108,8 +108,8 @@ class CDVDInputStreamNavigator
+   int GetAudioStreamCount();
+   bool SetActiveAudioStream(int iId);
+ 
+-  bool GetNavigatorState(std::string &xmlstate);
+-  bool SetNavigatorState(std::string &xmlstate);
++  bool GetState(std::string &xmlstate);
++  bool SetState(const std::string &xmlstate);
+ 
+   int GetChapter()      { return m_iPart; }      // the current part in the current title
+   int GetChapterCount() { return m_iPartCount; } // the number of parts in the current title
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index 5baf57a..cb8a62b 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -936,16 +936,15 @@ void CDVDPlayer::Process()
+     return;
+   }
+ 
+-  if(m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD))
++  if (CDVDInputStream::IMenus* ptr = dynamic_cast<CDVDInputStream::IMenus*>(m_pInputStream))
+   {
+-    CLog::Log(LOGNOTICE, "DVDPlayer: playing a dvd with menu's");
++    CLog::Log(LOGNOTICE, "DVDPlayer: playing a file with menu's");
+     m_PlayerOptions.starttime = 0;
+ 
+-
+     if(m_PlayerOptions.state.size() > 0)
+-      ((CDVDInputStreamNavigator*)m_pInputStream)->SetNavigatorState(m_PlayerOptions.state);
+-    else
+-      ((CDVDInputStreamNavigator*)m_pInputStream)->EnableSubtitleStream(g_settings.m_currentVideoSettings.m_SubtitleOn);
++      ptr->SetState(m_PlayerOptions.state);
++    else if(CDVDInputStreamNavigator* nav = dynamic_cast<CDVDInputStreamNavigator*>(m_pInputStream))
++      nav->EnableSubtitleStream(g_settings.m_currentVideoSettings.m_SubtitleOn);
+ 
+     g_settings.m_currentVideoSettings.m_SubtitleCached = true;
+   }
+@@ -2147,13 +2146,14 @@ void CDVDPlayer::HandleMessages()
+ 
+         CDVDMsgPlayerSetState* pMsgPlayerSetState = (CDVDMsgPlayerSetState*)pMsg;
+ 
+-        if (m_pInputStream && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_DVD))
++        if (CDVDInputStream::IMenus* ptr = dynamic_cast<CDVDInputStream::IMenus*>(m_pInputStream))
+         {
+-          std::string s = pMsgPlayerSetState->GetState();
+-          ((CDVDInputStreamNavigator*)m_pInputStream)->SetNavigatorState(s);
+-          m_dvd.state = DVDSTATE_NORMAL;
+-          m_dvd.iDVDStillStartTime = 0;
+-          m_dvd.iDVDStillTime = 0;
++          if(ptr->SetState(pMsgPlayerSetState->GetState()))
++          {
++            m_dvd.state = DVDSTATE_NORMAL;
++            m_dvd.iDVDStillStartTime = 0;
++            m_dvd.iDVDStillTime = 0;
++          }
+         }
+ 
+         g_infoManager.SetDisplayAfterSeek();
+@@ -3853,9 +3853,12 @@ void CDVDPlayer::UpdatePlayState(double timeout)
+       state.time_total = pDisplayTime->GetTotalTime();
+       state.time_src   = ETIMESOURCE_INPUT;
+     }
+-
+-    if (dynamic_cast<CDVDInputStream::IMenus*>(m_pInputStream))
++    
++    if (CDVDInputStream::IMenus* ptr = dynamic_cast<CDVDInputStream::IMenus*>(m_pInputStream))
+     {
++      if(!ptr->GetState(state.player_state))
++        state.player_state = "";
++
+       if(m_dvd.state == DVDSTATE_STILL)
+       {
+         state.time       = XbmcThreads::SystemClockMillis() - m_dvd.iDVDStillStartTime;
+@@ -3880,13 +3883,6 @@ void CDVDPlayer::UpdatePlayState(double timeout)
+   if(state.time_total <= 0)
+     state.canseek  = false;
+ 
+-  state.player_state = "";
+-  if(CDVDInputStreamNavigator* ptr = dynamic_cast<CDVDInputStreamNavigator*>(m_pInputStream))
+-  {
+-    if(!ptr->GetNavigatorState(state.player_state))
+-      state.player_state = "";
+-  }
+-
+   if (state.time_src == ETIMESOURCE_CLOCK)
+     state.time_offset = m_offset_pts;
+   else
+-- 
+1.8.1.6
+
