@@ -22,33 +22,33 @@
 
 . /etc/profile
 
-ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.hdhomerun"
-ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.hdhomerun"
-ADDON_SETTINGS="$ADDON_HOME/settings.xml"
+HDHR_ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.hdhomerun"
+HDHR_ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.hdhomerun"
+HDHR_ADDON_SETTINGS="$HDHR_ADDON_HOME/settings.xml"
 
 # modules are not automatically loaded
 modprobe dvb_hdhomerun
 modprobe dvb_hdhomerun_fe
 
-mkdir -p $ADDON_HOME
+mkdir -p $HDHR_ADDON_HOME
 
-if [ ! -f "$ADDON_HOME/dvbhdhomerun.sample" ]; then
-  cp $ADDON_DIR/config/* $ADDON_HOME/
+if [ ! -f "$HDHR_ADDON_HOME/dvbhdhomerun.sample" ]; then
+  cp $HDHR_ADDON_DIR/config/* $HDHR_ADDON_HOME/
 fi
 
-if [ ! -f "$ADDON_SETTINGS" ]; then
-  cp $ADDON_DIR/settings-default.xml $ADDON_SETTINGS
+if [ ! -f "$HDHR_ADDON_SETTINGS" ]; then
+  cp $HDHR_ADDON_DIR/settings-default.xml $HDHR_ADDON_SETTINGS
 fi
 
 mkdir -p /var/config
-cat "$ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/hdhomerun-addon.conf
+cat "$HDHR_ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/hdhomerun-addon.conf
 . /var/config/hdhomerun-addon.conf
 
 if [ -z "$(pidof userhdhomerun)" ]; then
   if [ "$ENABLE_TUNER_TYPES" = "true" ]; then
     DVBHDHOMERUN_CONF_TMP=/tmp/dvbhdhomerun.conf
-    touch $ADDON_HOME/dvbhdhomerun.conf
-    cp $ADDON_HOME/dvbhdhomerun.conf $DVBHDHOMERUN_CONF_TMP
+    touch $HDHR_ADDON_HOME/dvbhdhomerun.conf
+    cp $HDHR_ADDON_HOME/dvbhdhomerun.conf $DVBHDHOMERUN_CONF_TMP
 
     # get tuner serial numbers
     SERIALS=$(cat /var/config/hdhomerun-addon.conf | sed -n 's|^ATTACHED_TUNER_\(.*\)_\(.*\)_DVBMODE=.*|\1-\2|gp' | sort | uniq)
@@ -104,16 +104,16 @@ EOF
     fi
 
     md5_1=$(md5sum -b $DVBHDHOMERUN_CONF_TMP | awk '{print $1}')
-    md5_2=$(md5sum -b $ADDON_HOME/dvbhdhomerun.conf | awk '{print $1}')
+    md5_2=$(md5sum -b $HDHR_ADDON_HOME/dvbhdhomerun.conf | awk '{print $1}')
     if [ "$md5_1" != "$md5_2" ]; then
       # file changed - copy to addon home
-      cp $DVBHDHOMERUN_CONF_TMP $ADDON_HOME/dvbhdhomerun.conf
+      cp $DVBHDHOMERUN_CONF_TMP $HDHR_ADDON_HOME/dvbhdhomerun.conf
     fi
   fi
 
   rm -f /tmp/dvbhdhomerun
-  if [ -f $ADDON_HOME/dvbhdhomerun.conf ]; then
-    ln -s $ADDON_HOME/dvbhdhomerun.conf /tmp/dvbhdhomerun
+  if [ -f $HDHR_ADDON_HOME/dvbhdhomerun.conf ]; then
+    ln -s $HDHR_ADDON_HOME/dvbhdhomerun.conf /tmp/dvbhdhomerun
   fi
 
   [ -z "$PRE_WAIT" ] && PRE_WAIT=0
@@ -135,10 +135,10 @@ EOF
 # save adapter names in background
 (
   sleep 4
-  sn_old=$(cat $ADDON_HOME/adapters.txt 2>/dev/null)
+  sn_old=$(cat $HDHR_ADDON_HOME/adapters.txt 2>/dev/null)
   sn_new=$(grep "Name of device: " /var/log/dvbhdhomerun.log)
   if [ "$sn_old" != "$sn_new" ]; then
-    echo -n $sn_new >$ADDON_HOME/adapters.txt
+    echo -n $sn_new >$HDHR_ADDON_HOME/adapters.txt
   fi
 )&
 fi
