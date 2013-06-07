@@ -1,0 +1,746 @@
+From 546fccdd835c5d4e2a1917839ed9d84bd4c53bc2 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Sat, 1 Jun 2013 03:10:19 +0200
+Subject: [PATCH 1/6] dvdplayer: clock was starting before expected
+
+---
+ xbmc/cores/dvdplayer/DVDClock.cpp |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDClock.cpp b/xbmc/cores/dvdplayer/DVDClock.cpp
+index 9eb744f..b8cceeb 100644
+--- a/xbmc/cores/dvdplayer/DVDClock.cpp
++++ b/xbmc/cores/dvdplayer/DVDClock.cpp
+@@ -233,7 +233,8 @@ double CDVDClock::SystemToPlaying(int64_t system)
+   {
+     m_startClock = system;
+     m_systemUsed = m_systemFrequency;
+-    m_pauseClock = 0;
++    if(m_pauseClock)
++      m_pauseClock = m_startClock;
+     m_iDisc = 0;
+     m_bReset = false;
+   }
+-- 
+1.7.10.4
+
+
+From c047cc15cd5dcc35bd951e2992cc303b0cbc9b83 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Tue, 28 May 2013 01:00:19 +0200
+Subject: [PATCH 2/6] SoftAE: make sure we hold sink lock when we consume and
+ write to sink
+
+This make sure that sink delay and buffers are kept in line.
+
+Conflicts:
+	xbmc/cores/AudioEngine/Sinks/AESinkNULL.cpp
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp   |   78 +++++++++-----------
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h     |    2 +
+ xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp        |    6 +-
+ xbmc/cores/AudioEngine/Sinks/AESinkAUDIOTRACK.cpp  |    4 -
+ xbmc/cores/AudioEngine/Sinks/AESinkDirectSound.cpp |    3 +-
+ xbmc/cores/AudioEngine/Sinks/AESinkOSS.cpp         |   11 +++
+ xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp      |   16 +---
+ 7 files changed, 52 insertions(+), 68 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index 983cd9a..ec6cc38 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -1212,6 +1212,34 @@ bool CSoftAE::FinalizeSamples(float *buffer, unsigned int samples, bool hasAudio
+   return true;
+ }
+ 
++unsigned int CSoftAE::WriteSink(CAEBuffer& src, uint8_t *data, bool hasAudio)
++{
++  CExclusiveLock lock(m_sinkLock); /* lock to maintain delay consistency */
++  while(m_sink)
++  {
++    int frames = m_sink->AddPackets(data, m_sinkFormat.m_frames, hasAudio);
++
++    /* Return value of INT_MAX signals error in sink - restart */
++    if (frames == INT_MAX)
++    {
++      CLog::Log(LOGERROR, "CSoftAE::WriteSink - sink error - reinit flagged");
++      m_reOpen = true;
++      break;
++    }
++
++    if (frames)
++    {
++      m_buffer.Shift(NULL, frames * m_sinkFormat.m_frameSize);
++      return frames;
++    }
++
++    lock.Leave();
++    Sleep((500 * m_sinkFormat.m_frames) / m_sinkFormat.m_sampleRate);
++    lock.Enter();
++  }
++  return 0;
++}
++
+ int CSoftAE::RunOutputStage(bool hasAudio)
+ {
+   const unsigned int needSamples = m_sinkFormat.m_frames * m_sinkFormat.m_channelLayout.Count();
+@@ -1222,7 +1250,6 @@ int CSoftAE::RunOutputStage(bool hasAudio)
+   void *data = m_buffer.Raw(needBytes);
+   hasAudio = FinalizeSamples((float*)data, needSamples, hasAudio);
+ 
+-  int wroteFrames = 0;
+   if (m_convertFn)
+   {
+     const unsigned int convertedBytes = m_sinkFormat.m_frames * m_sinkFormat.m_frameSize;
+@@ -1232,22 +1259,7 @@ int CSoftAE::RunOutputStage(bool hasAudio)
+     data = m_converted;
+   }
+ 
+-  /* Output frames to sink */
+-  if (m_sink)
+-    wroteFrames = m_sink->AddPackets((uint8_t*)data, m_sinkFormat.m_frames, hasAudio);
+-
+-  /* Return value of INT_MAX signals error in sink - restart */
+-  if (wroteFrames == INT_MAX)
+-  {
+-    CLog::Log(LOGERROR, "CSoftAE::RunOutputStage - sink error - reinit flagged");
+-    wroteFrames = 0;
+-    m_reOpen = true;
+-  }
+-
+-  if (wroteFrames)
+-    m_buffer.Shift(NULL, wroteFrames * m_sinkFormat.m_channelLayout.Count() * sizeof(float));
+-
+-  return wroteFrames;
++  return WriteSink(m_buffer, (uint8_t*)data, hasAudio);
+ }
+ 
+ int CSoftAE::RunRawOutputStage(bool hasAudio)
+@@ -1275,20 +1287,7 @@ int CSoftAE::RunRawOutputStage(bool hasAudio)
+     data = m_converted;
+   }
+ 
+-  int wroteFrames = 0;
+-  if (m_sink)
+-    wroteFrames = m_sink->AddPackets((uint8_t *)data, m_sinkFormat.m_frames, hasAudio);
+-
+-  /* Return value of INT_MAX signals error in sink - restart */
+-  if (wroteFrames == INT_MAX)
+-  {
+-    CLog::Log(LOGERROR, "CSoftAE::RunRawOutputStage - sink error - reinit flagged");
+-    wroteFrames = 0;
+-    m_reOpen = true;
+-  }
+-
+-  m_buffer.Shift(NULL, wroteFrames * m_sinkFormat.m_frameSize);
+-  return wroteFrames;
++  return WriteSink(m_buffer, (uint8_t*)data, hasAudio);
+ }
+ 
+ int CSoftAE::RunTranscodeStage(bool hasAudio)
+@@ -1316,33 +1315,24 @@ int CSoftAE::RunTranscodeStage(bool hasAudio)
+       buffer = m_buffer.Raw(block);
+ 
+     encodedFrames = m_encoder->Encode((float*)buffer, m_encoderFormat.m_frames);
+-    m_buffer.Shift(NULL, encodedFrames * m_encoderFormat.m_frameSize);
+ 
+     uint8_t *packet;
+     unsigned int size = m_encoder->GetData(&packet);
+ 
++    CExclusiveLock sinkLock(m_sinkLock); /* lock to maintain delay consistency */
++
+     /* if there is not enough space for another encoded packet enlarge the buffer */
+     if (m_encodedBuffer.Free() < size)
+       m_encodedBuffer.ReAlloc(m_encodedBuffer.Used() + size);
+ 
++    m_buffer.Shift(NULL, encodedFrames * m_encoderFormat.m_frameSize);
+     m_encodedBuffer.Push(packet, size);
+   }
+ 
+   /* if we have enough data to write */
+   if (m_encodedBuffer.Used() >= sinkBlock)
+-  {
+-    int wroteFrames = m_sink->AddPackets((uint8_t*)m_encodedBuffer.Raw(sinkBlock), m_sinkFormat.m_frames, hasAudio);
+-    
+-    /* Return value of INT_MAX signals error in sink - restart */
+-    if (wroteFrames == INT_MAX)
+-    {
+-      CLog::Log(LOGERROR, "CSoftAE::RunTranscodeStage - sink error - reinit flagged");
+-      wroteFrames = 0;
+-      m_reOpen = true;
+-    }
++    WriteSink(m_encodedBuffer, (uint8_t*)m_encodedBuffer.Raw(sinkBlock), hasAudio);
+ 
+-    m_encodedBuffer.Shift(NULL, wroteFrames * m_sinkFormat.m_frameSize);
+-  }
+   return encodedFrames;
+ }
+ 
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+index 3ddf727..bb2769e 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+@@ -246,5 +246,7 @@ private:
+ 
+   void         RemoveStream(StreamList &streams, CSoftAEStream *stream);
+   void         PrintSinks();
++
++  unsigned int WriteSink(CAEBuffer& src, uint8_t *data, bool hasAudio);
+ };
+ 
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+index 1da026e..6a66859 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+@@ -523,11 +523,7 @@ unsigned int CAESinkALSA::AddPackets(uint8_t *data, unsigned int frames, bool ha
+   }
+ 
+   if ((unsigned int)ret < frames)
+-  {
+-    ret = snd_pcm_wait(m_pcm, m_timeout);
+-    if (ret < 0)
+-      HandleError("snd_pcm_wait", ret);
+-  }
++    return 0;
+ 
+   ret = snd_pcm_writei(m_pcm, (void*)data, frames);
+   if (ret < 0)
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkAUDIOTRACK.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkAUDIOTRACK.cpp
+index 8f23b41..4853302 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkAUDIOTRACK.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkAUDIOTRACK.cpp
+@@ -209,10 +209,6 @@ unsigned int CAESinkAUDIOTRACK::AddPackets(uint8_t *data, unsigned int frames, b
+         break;
+     }
+   }
+-  // AddPackets runs under a non-idled AE thread we must block or sleep.
+-  // Trying to calc the optimal sleep is tricky so just a minimal sleep.
+-  Sleep(10);
+-
+   return hasAudio ? write_frames:frames;
+ }
+ 
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkDirectSound.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkDirectSound.cpp
+index f6dc62f..00058ff 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkDirectSound.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkDirectSound.cpp
+@@ -384,7 +384,8 @@ unsigned int CAESinkDirectSound::AddPackets(uint8_t *data, unsigned int frames,
+   {
+     if (m_isDirtyDS)
+       return INT_MAX;
+-    Sleep(total * 1000 / m_AvgBytesPerSec);
++    else
++      return 0;
+   }
+ 
+   while (len)
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkOSS.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkOSS.cpp
+index 970e236..664c761 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkOSS.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkOSS.cpp
+@@ -29,6 +29,7 @@
+ #include <sstream>
+ 
+ #include <sys/ioctl.h>
++#include <sys/fcntl.h>
+ 
+ #if defined(OSS4) || defined(TARGET_FREEBSD)
+   #include <sys/soundcard.h>
+@@ -320,6 +321,13 @@ bool CAESinkOSS::Initialize(AEAudioFormat &format, std::string &device)
+     return false;
+   }
+ 
++  if (fcntl(m_fd, F_SETFL,  fcntl(m_fd, F_GETFL, 0) | O_NONBLOCK) == -1)
++  {
++    close(m_fd);
++    CLog::Log(LOGERROR, "CAESinkOSS::Initialize - Failed to set non blocking writes");
++    return false;
++  }
++
+   format.m_sampleRate    = oss_sr;
+   format.m_frameSize     = (CAEUtil::DataFormatToBits(format.m_dataFormat) >> 3) * format.m_channelLayout.Count();
+   format.m_frames        = bi.fragsize / format.m_frameSize;
+@@ -412,6 +420,9 @@ unsigned int CAESinkOSS::AddPackets(uint8_t *data, unsigned int frames, bool has
+   int wrote = write(m_fd, data, size);
+   if (wrote < 0)
+   {
++    if(errno == EAGAIN || errno == EWOULDBLOCK)
++      return 0;
++
+     CLog::Log(LOGERROR, "CAESinkOSS::AddPackets - Failed to write");
+     return INT_MAX;
+   }
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
+index f238d75..89116fa 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
+@@ -485,22 +485,10 @@ unsigned int CAESinkWASAPI::AddPackets(uint8_t *data, unsigned int frames, bool
+ #endif
+ 
+   /* Wait for Audio Driver to tell us it's got a buffer available */
+-  DWORD eventAudioCallback = WaitForSingleObject(m_needDataEvent, 1100);
++  DWORD eventAudioCallback = WaitForSingleObject(m_needDataEvent, 0);
+ 
+-  if (eventAudioCallback != WAIT_OBJECT_0 || !&buf)
+-  {
+-    /* Event handle timed out - flag sink as dirty for re-initializing */
+-    CLog::Log(LOGERROR, __FUNCTION__": Endpoint Buffer timed out");
+-    if (g_advancedSettings.m_streamSilence)
+-    {
+-      m_isDirty = true; //flag new device or re-init needed
+-      Deinitialize();
+-      m_running = false;
+-      return INT_MAX;
+-    }
+-    m_running = false;
++  if (eventAudioCallback != WAIT_OBJECT_0)
+     return 0;
+-  }
+ 
+   if (!m_running)
+     return 0;
+-- 
+1.7.10.4
+
+
+From 35502583cb7cd56a59e68e1514a2fccb63b2a1a2 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Tue, 28 May 2013 01:03:08 +0200
+Subject: [PATCH 3/6] SoftAE: let SoftAEStream share SoftAE stream lock
+
+This avoids holding an internal stream lock, while soft ae
+is trying to read out new frames and allow us to properly
+hold lock while requesting delays.
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp   |    2 +-
+ .../AudioEngine/Engines/SoftAE/SoftAEStream.cpp    |   51 +++++++++++++-------
+ .../AudioEngine/Engines/SoftAE/SoftAEStream.h      |    4 +-
+ 3 files changed, 37 insertions(+), 20 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index ec6cc38..faf6ccc 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -775,7 +775,7 @@ IAEStream *CSoftAE::MakeStream(enum AEDataFormat dataFormat, unsigned int sample
+     ASSERT(encodedSampleRate);
+ 
+   CSingleLock streamLock(m_streamLock);
+-  CSoftAEStream *stream = new CSoftAEStream(dataFormat, sampleRate, encodedSampleRate, channelLayout, options);
++  CSoftAEStream *stream = new CSoftAEStream(dataFormat, sampleRate, encodedSampleRate, channelLayout, options, m_streamLock);
+   m_newStreams.push_back(stream);
+   streamLock.Leave();
+   // this is really needed here
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.cpp
+index 4e8134b..12d00ea 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.cpp
+@@ -34,7 +34,8 @@
+ 
+ using namespace std;
+ 
+-CSoftAEStream::CSoftAEStream(enum AEDataFormat dataFormat, unsigned int sampleRate, unsigned int encodedSampleRate, CAEChannelInfo channelLayout, unsigned int options) :
++CSoftAEStream::CSoftAEStream(enum AEDataFormat dataFormat, unsigned int sampleRate, unsigned int encodedSampleRate, CAEChannelInfo channelLayout, unsigned int options, CCriticalSection& lock) :
++  m_lock            (lock ),
+   m_resampleRatio   (1.0  ),
+   m_internalRatio   (1.0  ),
+   m_convertBuffer   (NULL ),
+@@ -74,7 +75,8 @@ CSoftAEStream::CSoftAEStream(enum AEDataFormat dataFormat, unsigned int sampleRa
+ 
+ void CSoftAEStream::InitializeRemap()
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
++
+   if (!AE_IS_RAW(m_initDataFormat))
+   {
+     /* re-init the remappers */
+@@ -96,7 +98,8 @@ void CSoftAEStream::InitializeRemap()
+ 
+ void CSoftAEStream::Initialize()
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
++
+   if (m_valid)
+   {
+     InternalFlush();
+@@ -213,14 +216,15 @@ void CSoftAEStream::Initialize()
+ 
+ void CSoftAEStream::Destroy()
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
++
+   m_valid       = false;
+   m_delete      = true;
+ }
+ 
+ CSoftAEStream::~CSoftAEStream()
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
+ 
+   InternalFlush();
+   if (m_convert)
+@@ -241,6 +245,8 @@ CSoftAEStream::~CSoftAEStream()
+ 
+ unsigned int CSoftAEStream::GetSpace()
+ {
++  CSingleLock lock(m_lock);
++
+   if (!m_valid || m_draining)
+     return 0;
+ 
+@@ -252,7 +258,8 @@ unsigned int CSoftAEStream::GetSpace()
+ 
+ unsigned int CSoftAEStream::AddData(void *data, unsigned int size)
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
++
+   if (!m_valid || size == 0 || data == NULL)
+     return 0;
+ 
+@@ -415,7 +422,7 @@ unsigned int CSoftAEStream::ProcessFrameBuffer()
+ 
+ uint8_t* CSoftAEStream::GetFrame()
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
+ 
+   /* if we are fading, this runs even if we have underrun as it is time based */
+   if (m_fadeRunning)
+@@ -486,6 +493,8 @@ uint8_t* CSoftAEStream::GetFrame()
+ 
+ double CSoftAEStream::GetDelay()
+ {
++  CSingleLock lock(m_lock);
++
+   if (m_delete)
+     return 0.0;
+ 
+@@ -497,6 +506,8 @@ double CSoftAEStream::GetDelay()
+ 
+ double CSoftAEStream::GetCacheTime()
+ {
++  CSingleLock lock(m_lock);
++
+   if (m_delete)
+     return 0.0;
+ 
+@@ -508,6 +519,8 @@ double CSoftAEStream::GetCacheTime()
+ 
+ double CSoftAEStream::GetCacheTotal()
+ {
++  CSingleLock lock(m_lock);
++
+   if (m_delete)
+     return 0.0;
+ 
+@@ -519,6 +532,8 @@ double CSoftAEStream::GetCacheTotal()
+ 
+ void CSoftAEStream::Pause()
+ {
++  CSingleLock lock(m_lock);
++
+   if (m_paused)
+     return;
+   m_paused = true;
+@@ -527,6 +542,8 @@ void CSoftAEStream::Pause()
+ 
+ void CSoftAEStream::Resume()
+ {
++  CSingleLock lock(m_lock);
++
+   if (!m_paused)
+     return;
+   m_paused    = false;
+@@ -536,20 +553,20 @@ void CSoftAEStream::Resume()
+ 
+ void CSoftAEStream::Drain()
+ {
+-  CSharedLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   m_draining = true;
+ }
+ 
+ bool CSoftAEStream::IsDrained()
+ {
+-  CSharedLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   return (m_draining && !m_packet && m_outBuffer.empty());
+ }
+ 
+ void CSoftAEStream::Flush()
+ {
+   CLog::Log(LOGDEBUG, "CSoftAEStream::Flush");
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   InternalFlush();
+ 
+   /* internal flush does not do this as these samples are still valid if we are re-initializing */
+@@ -591,10 +608,10 @@ void CSoftAEStream::InternalFlush()
+ 
+ double CSoftAEStream::GetResampleRatio()
+ {
++  CSingleLock lock(m_lock);
+   if (!m_resample)
+     return 1.0f;
+ 
+-  CSharedLock lock(m_lock);
+   return m_ssrcData.src_ratio;
+ }
+ 
+@@ -603,7 +620,7 @@ bool CSoftAEStream::SetResampleRatio(double ratio)
+   if (!m_resample)
+     return false;
+ 
+-  CSharedLock lock(m_lock);
++  CSingleLock lock(m_lock);
+ 
+   int oldRatioInt = (int)std::ceil(m_ssrcData.src_ratio);
+ 
+@@ -624,7 +641,7 @@ bool CSoftAEStream::SetResampleRatio(double ratio)
+ 
+ void CSoftAEStream::RegisterAudioCallback(IAudioCallback* pCallback)
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   m_vizBufferSamples = 0;
+   m_audioCallback = pCallback;
+   if (m_audioCallback)
+@@ -633,7 +650,7 @@ void CSoftAEStream::RegisterAudioCallback(IAudioCallback* pCallback)
+ 
+ void CSoftAEStream::UnRegisterAudioCallback()
+ {
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   m_audioCallback = NULL;
+   m_vizBufferSamples = 0;
+ }
+@@ -644,7 +661,7 @@ void CSoftAEStream::FadeVolume(float from, float target, unsigned int time)
+   if (AE_IS_RAW(m_initDataFormat))
+     return;
+ 
+-  CExclusiveLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   float delta   = target - from;
+   m_fadeDirUp   = target > from;
+   m_fadeTarget  = target;
+@@ -654,13 +671,13 @@ void CSoftAEStream::FadeVolume(float from, float target, unsigned int time)
+ 
+ bool CSoftAEStream::IsFading()
+ {
+-  CSharedLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   return m_fadeRunning;
+ }
+ 
+ void CSoftAEStream::RegisterSlave(IAEStream *slave)
+ {
+-  CSharedLock lock(m_lock);
++  CSingleLock lock(m_lock);
+   m_slave = (CSoftAEStream*)slave;
+ }
+ 
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.h b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.h
+index 7e93215..1b715fc 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.h
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.h
+@@ -36,7 +36,7 @@ class CSoftAEStream : public IAEStream
+ {
+ protected:
+   friend class CSoftAE;
+-  CSoftAEStream(enum AEDataFormat format, unsigned int sampleRate, unsigned int encodedSamplerate, CAEChannelInfo channelLayout, unsigned int options);
++  CSoftAEStream(enum AEDataFormat format, unsigned int sampleRate, unsigned int encodedSamplerate, CAEChannelInfo channelLayout, unsigned int options, CCriticalSection& lock);
+   virtual ~CSoftAEStream();
+ 
+   void Initialize();
+@@ -91,7 +91,7 @@ private:
+   void InternalFlush();
+   void CheckResampleBuffers();
+ 
+-  CSharedSection    m_lock;
++  CCriticalSection& m_lock;
+   enum AEDataFormat m_initDataFormat;
+   unsigned int      m_initSampleRate;
+   unsigned int      m_initEncodedSampleRate;
+-- 
+1.7.10.4
+
+
+From 2fae6e49bf802e204e71e9016be6ba9c68262e46 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Wed, 29 May 2013 22:59:01 +0200
+Subject: [PATCH 4/6] softae: use correct number of bytes when consuming from
+ src buffer
+
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp |   10 +++++-----
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h   |    2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index faf6ccc..991cb10 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -1212,7 +1212,7 @@ bool CSoftAE::FinalizeSamples(float *buffer, unsigned int samples, bool hasAudio
+   return true;
+ }
+ 
+-unsigned int CSoftAE::WriteSink(CAEBuffer& src, uint8_t *data, bool hasAudio)
++unsigned int CSoftAE::WriteSink(CAEBuffer& src, int src_len, uint8_t *data, bool hasAudio)
+ {
+   CExclusiveLock lock(m_sinkLock); /* lock to maintain delay consistency */
+   while(m_sink)
+@@ -1229,7 +1229,7 @@ unsigned int CSoftAE::WriteSink(CAEBuffer& src, uint8_t *data, bool hasAudio)
+ 
+     if (frames)
+     {
+-      m_buffer.Shift(NULL, frames * m_sinkFormat.m_frameSize);
++      m_buffer.Shift(NULL, src_len);
+       return frames;
+     }
+ 
+@@ -1259,7 +1259,7 @@ int CSoftAE::RunOutputStage(bool hasAudio)
+     data = m_converted;
+   }
+ 
+-  return WriteSink(m_buffer, (uint8_t*)data, hasAudio);
++  return WriteSink(m_buffer, needBytes, (uint8_t*)data, hasAudio);
+ }
+ 
+ int CSoftAE::RunRawOutputStage(bool hasAudio)
+@@ -1287,7 +1287,7 @@ int CSoftAE::RunRawOutputStage(bool hasAudio)
+     data = m_converted;
+   }
+ 
+-  return WriteSink(m_buffer, (uint8_t*)data, hasAudio);
++  return WriteSink(m_buffer, m_sinkBlockSize, (uint8_t*)data, hasAudio);
+ }
+ 
+ int CSoftAE::RunTranscodeStage(bool hasAudio)
+@@ -1331,7 +1331,7 @@ int CSoftAE::RunTranscodeStage(bool hasAudio)
+ 
+   /* if we have enough data to write */
+   if (m_encodedBuffer.Used() >= sinkBlock)
+-    WriteSink(m_encodedBuffer, (uint8_t*)m_encodedBuffer.Raw(sinkBlock), hasAudio);
++    WriteSink(m_encodedBuffer, sinkBlock, (uint8_t*)m_encodedBuffer.Raw(sinkBlock), hasAudio);
+ 
+   return encodedFrames;
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+index bb2769e..62914bb 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+@@ -247,6 +247,6 @@ private:
+   void         RemoveStream(StreamList &streams, CSoftAEStream *stream);
+   void         PrintSinks();
+ 
+-  unsigned int WriteSink(CAEBuffer& src, uint8_t *data, bool hasAudio);
++  unsigned int WriteSink(CAEBuffer& src, int src_len, uint8_t *data, bool hasAudio);
+ };
+ 
+-- 
+1.7.10.4
+
+
+From 2e9cd3d009ca93a74624503d9769863415267148 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Wed, 29 May 2013 23:04:14 +0200
+Subject: [PATCH 5/6] softae: add fail safe to WriteSink to avoid deadlocking
+ on broken output
+
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp |   13 ++++++++++++-
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h   |    1 +
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index 991cb10..e4faf7b 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -64,6 +64,7 @@ CSoftAE::CSoftAE():
+   m_softSuspend        (false       ),
+   m_softSuspendTimer   (0           ),
+   m_sink               (NULL        ),
++  m_sinkBlockTime      (0           ),
+   m_transcode          (false       ),
+   m_rawPassthrough     (false       ),
+   m_soundMode          (AE_SOUND_OFF),
+@@ -350,6 +351,7 @@ void CSoftAE::InternalOpenSink()
+     m_sinkFormatSampleRateMul = 1.0 / (double)newFormat.m_sampleRate;
+     m_sinkFormatFrameSizeMul  = 1.0 / (double)newFormat.m_frameSize;
+     m_sinkBlockSize           = newFormat.m_frames * newFormat.m_frameSize;
++    m_sinkBlockTime           = 1000 * newFormat.m_frames / newFormat.m_sampleRate;
+     // check if sink controls volume, if so, init the volume.
+     m_sinkHandlesVolume       = m_sink->HasVolume();
+     if (m_sinkHandlesVolume)
+@@ -1215,6 +1217,8 @@ bool CSoftAE::FinalizeSamples(float *buffer, unsigned int samples, bool hasAudio
+ unsigned int CSoftAE::WriteSink(CAEBuffer& src, int src_len, uint8_t *data, bool hasAudio)
+ {
+   CExclusiveLock lock(m_sinkLock); /* lock to maintain delay consistency */
++
++  XbmcThreads::EndTime timeout(m_sinkBlockTime * 2);
+   while(m_sink)
+   {
+     int frames = m_sink->AddPackets(data, m_sinkFormat.m_frames, hasAudio);
+@@ -1233,8 +1237,15 @@ unsigned int CSoftAE::WriteSink(CAEBuffer& src, int src_len, uint8_t *data, bool
+       return frames;
+     }
+ 
++    if(timeout.IsTimePast())
++    {
++      CLog::Log(LOGERROR, "CSoftAE::WriteSink - sink blocked- reinit flagged");
++      m_reOpen = true;
++      break;
++    }
++
+     lock.Leave();
+-    Sleep((500 * m_sinkFormat.m_frames) / m_sinkFormat.m_sampleRate);
++    Sleep(m_sinkBlockTime / 4);
+     lock.Enter();
+   }
+   return 0;
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+index 62914bb..23e0ea3 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.h
+@@ -165,6 +165,7 @@ private:
+   double                    m_sinkFormatSampleRateMul;
+   double                    m_sinkFormatFrameSizeMul;
+   unsigned int              m_sinkBlockSize;
++  unsigned int              m_sinkBlockTime;
+   bool                      m_sinkHandlesVolume;
+   AEAudioFormat             m_encoderFormat;
+   double                    m_encoderFrameSizeMul;
+-- 
+1.7.10.4
+
+
+From 7a81b2a0e9822688d9681756414b753815bf9e21 Mon Sep 17 00:00:00 2001
+From: Joakim Plate <elupus@xbmc.org>
+Date: Sat, 1 Jun 2013 18:22:43 +0200
+Subject: [PATCH 6/6] softae: use passed buffer not something else when
+ consuming data
+
+---
+ xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+index e4faf7b..e641335 100644
+--- a/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/SoftAE/SoftAE.cpp
+@@ -1233,7 +1233,7 @@ unsigned int CSoftAE::WriteSink(CAEBuffer& src, int src_len, uint8_t *data, bool
+ 
+     if (frames)
+     {
+-      m_buffer.Shift(NULL, src_len);
++      src.Shift(NULL, src_len);
+       return frames;
+     }
+ 
+-- 
+1.7.10.4
+
