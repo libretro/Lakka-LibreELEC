@@ -22,26 +22,42 @@
 
 . /etc/profile
 
-LOCKDIR="/var/lock/"
-LOCKFILE="$LOCKDIR/hdhomerun"
+HDHR_ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.hdhomerun"
+HDHR_ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.hdhomerun"
+HDHR_ADDON_SETTINGS="$HDHR_ADDON_HOME/settings.xml"
 
-case "$1" in
-  hibernate|suspend)
-    if [ -n "$(pidof userhdhomerun)" ]; then
-      progress "Shutting down HDHomeRun driver for suspending..."
-      mkdir -p "$LOCKDIR"
-      touch "$LOCKFILE"
-      killall -9 userhdhomerun
-    fi
-    ;;
+if [ ! -f "$HDHR_ADDON_SETTINGS" ]; then
+  cp $HDHR_ADDON_DIR/settings-default.xml $HDHR_ADDON_SETTINGS
+fi
 
-  thaw|resume)
-    if [ -f "$LOCKFILE" ]; then
-      # driver started within Tvheadend/VDR
-      rm -f "$LOCKFILE"
-    fi
-    ;;
+mkdir -p /var/config
+cat "$HDHR_ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/hdhomerun-addon.conf
+. /var/config/hdhomerun-addon.conf
 
-  *) exit $NA
-    ;;
-esac
+if [ "$SUSPEND_DRIVER" = "true" ]; then
+  LOCKDIR="/var/lock"
+  LOCKFILE="$LOCKDIR/hdhomerun"
+
+  case "$1" in
+    hibernate|suspend)
+      if [ -n "$(pidof userhdhomerun)" ]; then
+        progress "Shutting down HDHomeRun driver for suspending..."
+        mkdir -p "$LOCKDIR"
+        touch "$LOCKFILE"
+        killall -9 userhdhomerun
+      fi
+      ;;
+
+    thaw|resume)
+      if [ -f "$LOCKFILE" ]; then
+        # driver started within Tvheadend/VDR
+        rm -f "$LOCKFILE"
+      fi
+      ;;
+
+    *) exit $NA
+      ;;
+  esac
+else
+  progress "Suspend/resume of HDHomeRun driver not enabled..."
+fi

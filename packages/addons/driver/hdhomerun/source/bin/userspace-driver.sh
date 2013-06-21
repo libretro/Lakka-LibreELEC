@@ -22,6 +22,18 @@
 
 . /etc/profile
 
+# start locking mechanism - allows only one instance to be run at a time
+HDHR_LOCKFILE="/var/lock/userspace-driver-hdhomerun.lck"
+HDHR_LOCKFD=99
+# obtain an exclusive lock
+exlock() { eval "exec $HDHR_LOCKFD>\"$HDHR_LOCKFILE\""; flock -x $HDHR_LOCKFD; }
+# drop a lock
+unlock() { flock -u $HDHR_LOCKFD; flock -xn $HDHR_LOCKFD && rm -f "$HDHR_LOCKFILE"; }
+# end locking mechanism
+
+# exclusive lock
+exlock
+
 HDHR_ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.hdhomerun"
 HDHR_ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.hdhomerun"
 HDHR_ADDON_SETTINGS="$HDHR_ADDON_HOME/settings.xml"
@@ -92,7 +104,7 @@ if [ -z "$(pidof userhdhomerun)" ]; then
     echo "" >>$DVBHDHOMERUN_CONF_TMP
     # remove empty lines at the end of file
     sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $DVBHDHOMERUN_CONF_TMP
-    
+
     if [ "$LIBHDHOMERUN_LOG" = "true" ]; then
       cat >>$DVBHDHOMERUN_CONF_TMP << EOF
 
@@ -127,7 +139,11 @@ EOF
   mkdir -p /var/log/
   rm -f /var/log/dvbhdhomerun.log
 
-  userhdhomerun -f
+  if [ "$USERHDHOMERUN_LOG" = "true" ]; then
+    userhdhomerun -f
+  else
+    userhdhomerun -f -d
+  fi
 
   logger -t HDHomeRun "### Post wait for $POST_WAIT sec ###"
   sleep $POST_WAIT
@@ -144,3 +160,6 @@ EOF
 fi
 
 logger -t HDHomeRun "### HDHomeRun ready ###"
+
+# unlock the lock
+unlock
