@@ -22,6 +22,18 @@
 
 . /etc/profile
 
+# start locking mechanism - allows only one instance to be run at a time
+SUNDTEK_LOCKFILE="/var/lock/userspace-driver-sundtek.lck"
+SUNDTEK_LOCKFD=99
+# obtain an exclusive lock
+exlock() { eval "exec $SUNDTEK_LOCKFD>\"$SUNDTEK_LOCKFILE\""; flock -x $SUNDTEK_LOCKFD; }
+# drop a lock
+unlock() { flock -u $SUNDTEK_LOCKFD; flock -xn $SUNDTEK_LOCKFD && rm -f "$SUNDTEK_LOCKFILE"; }
+# end locking mechanism
+
+# exclusive lock
+exlock
+
 net_tuner_num_fix() {
   local num=$1
 
@@ -337,3 +349,6 @@ if [ -z "$(pidof mediasrv)" ]; then
 fi
 
 logger -t Sundtek "### Sundtek ready ###"
+
+# unlock the lock
+unlock
