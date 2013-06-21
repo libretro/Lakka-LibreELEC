@@ -1,0 +1,95 @@
+commit 6f1d11cf3e44a37b5d90689bda9fc7df11ae8a52
+Author: fritsch <peter.fruehberger@gmail.com>
+Date:   Wed Jun 19 20:30:44 2013 +0200
+
+    VPP: Implement proper deinterlace skipping
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 0f138aa..fcc9ec9 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -569,10 +569,15 @@ int CDecoder::Check(AVCodecContext* avctx)
+   return 0;
+ }
+ 
++bool CDecoder::CanSkipDeint()
++{
++  return m_vppth->CanSkipDeint();
++}
+ 
+ CVPPThread::CVPPThread(CDisplayPtr& display, int width, int height)
+   :CThread("VAAPI VPP Thread")
+   ,m_stop(false)
++  ,m_skipDeinterlace(false)
+ {
+   m_vpp = new CVPP(display, width, height);
+ }
+@@ -720,6 +725,11 @@ int CVPPThread::GetOutputQueueSize()
+   return m_output_queue.size();
+ }
+ 
++bool CVPPThread::CanSkipDeint()
++{
++  return m_skipDeinterlace;
++}
++
+ void CVPPThread::Flush()
+ {
+   CSingleLock lock(m_work_lock);
+@@ -771,22 +781,22 @@ void CVPPThread::Process()
+     if(currentFrame.valid)
+     {
+       bool isInterlaced = currentFrame.DVDPic.iFlags & DVP_FLAG_INTERLACED;
+-      //if(currentFrame.DVDPic.iFlags & DVP_FLAG_DROPDEINT)
+-      //  isInterlaced = false;
+ 
+       EDEINTERLACEMODE   mode = g_settings.m_currentVideoSettings.m_DeinterlaceMode;
+       EINTERLACEMETHOD method = g_settings.m_currentVideoSettings.m_InterlaceMethod;
+ 
+-      if (m_vpp->DeintBobReady() && (method == VS_INTERLACEMETHOD_VAAPI_AUTO || method == VS_INTERLACEMETHOD_AUTO)
+-       && (mode == VS_DEINTERLACEMODE_FORCE || (mode == VS_DEINTERLACEMODE_AUTO && isInterlaced)))
++      if (m_vpp->DeintBobReady() && !(currentFrame.DVDPic.iFlags & DVP_FLAG_DROPDEINT)
++        && (method == VS_INTERLACEMETHOD_VAAPI_AUTO || method == VS_INTERLACEMETHOD_AUTO)
++        && (mode == VS_DEINTERLACEMODE_FORCE || (mode == VS_DEINTERLACEMODE_AUTO && isInterlaced)))
+       {
+         bool topField = currentFrame.DVDPic.iFlags & DVP_FLAG_TOP_FIELD_FIRST;
+-
++        m_skipDeinterlace = true;
+         DoDeinterlacing(currentFrame, topField);
+         DoDeinterlacing(currentFrame, !topField);
+       }
+       else
+       {
++        m_skipDeinterlace = false;
+         CVPPRenderPicture res;
+         res.valid = true;
+         res.DVDPic = currentFrame.DVDPic;
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+index b7b82c9..8361ff0 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+@@ -134,6 +134,7 @@ public:
+ 
+   void InsertNewFrame(CVPPDecodedPicture &new_frame);
+   void WaitForOutput(unsigned long msec = 0);
++  virtual bool CanSkipDeint();
+   CVPPRenderPicture GetOutputPicture();
+ 
+   int GetInputQueueSize();
+@@ -153,6 +154,7 @@ protected:
+   CVPP *m_vpp;
+ 
+   bool m_stop;
++  bool m_skipDeinterlace;
+ 
+   CCriticalSection m_work_lock;
+ 
+@@ -181,7 +183,7 @@ public:
+   virtual void Close();
+   virtual const std::string Name() { return "vaapi"; }
+   virtual CCriticalSection* Section() { if(m_display) return m_display.get(); else return NULL; }
+-  virtual bool CanSkipDeint() { return false; }
++  virtual bool CanSkipDeint();
+ 
+   int   GetBuffer(AVCodecContext *avctx, AVFrame *pic);
+   void  RelBuffer(AVCodecContext *avctx, AVFrame *pic);
