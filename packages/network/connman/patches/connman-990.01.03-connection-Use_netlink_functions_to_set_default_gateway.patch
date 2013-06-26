@@ -1,0 +1,57 @@
+
+Betreff:
+[PATCH 3/5] connection: Use netlink functions to set default gateway
+Von:
+Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Datum:
+25.06.2013 14:58
+An:
+connman@connman.net
+
+We were using earlier the ioctl() to set the default gateway.
+In some cases that could fail because the desired interface
+was not set when calling the ioctl().
+This happened with tethering with following scenario:
+* Ethernet cable (uplink connection) is not connected
+* Wifi tethering is started with address 192.168.1.1
+* Ethernet cable is connected, uplink address is 192.168.1.0/24
+* There is now a conflict, ippool resolves that in __connman_ippool_newaddr()
+  and calls tethering_restart() which stops and then starts tethering
+* Because of the problems when calling the SIOCADDRT (we do not know
+  to what interface the default route was added to), the default route
+  of uplink connection was added to tethering interface (tether) instead
+  of uplink interface (eth0). This caused the default route to disappear
+  when tether interface was taken down.
+* Solution was to use the netlink interface to set the default gateway
+  as we can unambiguously set the desired default route to be via the
+  uplink interface
+
+Thanks for Stephan Raue for reporting this issue.
+---
+ src/connection.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/connection.c b/src/connection.c
+index c7b1f62..c0fdaf8 100644
+--- a/src/connection.c
++++ b/src/connection.c
+@@ -479,12 +479,12 @@ static void set_default_gateway(struct gateway_data *data,
+ 	}
+ 
+ 	if (do_ipv6 == TRUE && data->ipv6_gateway != NULL)
+-		status6 = connman_inet_set_ipv6_gateway_address(index,
+-						data->ipv6_gateway->gateway);
++		status6 = __connman_inet_add_default_to_table(RT_TABLE_MAIN,
++					index, data->ipv6_gateway->gateway);
+ 
+ 	if (do_ipv4 == TRUE && data->ipv4_gateway != NULL)
+-		status4 = connman_inet_set_gateway_address(index,
+-						data->ipv4_gateway->gateway);
++		status4 = __connman_inet_add_default_to_table(RT_TABLE_MAIN,
++					index, data->ipv4_gateway->gateway);
+ 
+ 	if (status4 < 0 || status6 < 0)
+ 		return;
+--
+1.7.11.7
+

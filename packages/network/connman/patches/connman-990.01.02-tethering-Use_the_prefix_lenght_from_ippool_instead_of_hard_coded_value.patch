@@ -1,0 +1,77 @@
+
+Betreff:
+[PATCH 2/5] tethering: Use the prefix lenght from ippool instead of hard coded value
+Von:
+Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Datum:
+25.06.2013 14:58
+An:
+connman@connman.net
+
+We were always using prefix length 24 instead of the correct
+value from ippool.
+---
+ src/bridge.c    | 8 ++++----
+ src/connman.h   | 4 ++--
+ src/tethering.c | 4 +++-
+ 3 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/src/bridge.c b/src/bridge.c
+index e46cdda..1610f96 100644
+--- a/src/bridge.c
++++ b/src/bridge.c
+@@ -111,8 +111,8 @@ int __connman_bridge_remove(const char *name)
+ 	return 0;
+ }
+ 
+-int __connman_bridge_enable(const char *name, const char *gateway,
+-				const char *broadcast)
++int __connman_bridge_enable(const char *name, const char *ip_address,
++			int prefix_len, const char *broadcast)
+ {
+ 	int err, index;
+ 
+@@ -121,8 +121,8 @@ int __connman_bridge_enable(const char *name, const char *gateway,
+ 		return index;
+ 
+ 	err = __connman_inet_modify_address(RTM_NEWADDR,
+-			NLM_F_REPLACE | NLM_F_ACK, index, AF_INET,
+-					gateway, NULL, 24, broadcast);
++				NLM_F_REPLACE | NLM_F_ACK, index, AF_INET,
++				ip_address, NULL, prefix_len, broadcast);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/src/connman.h b/src/connman.h
+index 11dbc35..96f8466 100644
+--- a/src/connman.h
++++ b/src/connman.h
+@@ -899,8 +899,8 @@ void __connman_ippool_deladdr(int index, const char *address,
+ 
+ int __connman_bridge_create(const char *name);
+ int __connman_bridge_remove(const char *name);
+-int __connman_bridge_enable(const char *name, const char *gateway,
+-				const char *broadcast);
++int __connman_bridge_enable(const char *name, const char *ip_address,
++			int prefix_len, const char *broadcast);
+ int __connman_bridge_disable(const char *name);
+ 
+ int __connman_nat_init(void);
+diff --git a/src/tethering.c b/src/tethering.c
+index eb05056..0b373b9 100644
+--- a/src/tethering.c
++++ b/src/tethering.c
+@@ -221,7 +221,9 @@ void __connman_tethering_set_enabled(void)
+ 	start_ip = __connman_ippool_get_start_ip(dhcp_ippool);
+ 	end_ip = __connman_ippool_get_end_ip(dhcp_ippool);
+ 
+-	err = __connman_bridge_enable(BRIDGE_NAME, gateway, broadcast);
++	err = __connman_bridge_enable(BRIDGE_NAME, gateway,
++			__connman_ipaddress_netmask_prefix_len(subnet_mask),
++			broadcast);
+ 	if (err < 0 && err != -EALREADY) {
+ 		__connman_ippool_unref(dhcp_ippool);
+ 		__connman_bridge_remove(BRIDGE_NAME);
+--
+1.7.11.7
+
