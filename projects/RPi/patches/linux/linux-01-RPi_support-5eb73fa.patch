@@ -1,7 +1,7 @@
-From 9adaf647f55ded1a82f11539341dd7fd9cf95941 Mon Sep 17 00:00:00 2001
+From f2bc7f5b52625b24363d97d778a9f519ae72d199 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 19:46:17 +0100
-Subject: [PATCH 01/98] Add dwc_otg driver
+Subject: [PATCH 001/102] Add dwc_otg driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -45178,10 +45178,10 @@ index 0000000..abcf284
 1.8.1.6
 
 
-From 28f316fee7b79e44dc3c2be12d1f0098e3c0336f Mon Sep 17 00:00:00 2001
+From 156c16b81c47700b486056c99cdf8e34cc398578 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 12 May 2013 12:24:19 +0100
-Subject: [PATCH 02/98] Main bcm2708 linux port
+Subject: [PATCH 002/102] Main bcm2708 linux port
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -45201,12 +45201,12 @@ Signed-off-by: popcornmix <popcornmix@gmail.com>
  arch/arm/mach-bcm2708/bcm2708_gpio.c             |  339 +++++
  arch/arm/mach-bcm2708/clock.c                    |   61 +
  arch/arm/mach-bcm2708/clock.h                    |   24 +
- arch/arm/mach-bcm2708/dma.c                      |  397 ++++++
+ arch/arm/mach-bcm2708/dma.c                      |  399 ++++++
  arch/arm/mach-bcm2708/include/mach/arm_control.h |  419 +++++++
  arch/arm/mach-bcm2708/include/mach/arm_power.h   |   60 +
  arch/arm/mach-bcm2708/include/mach/clkdev.h      |    7 +
  arch/arm/mach-bcm2708/include/mach/debug-macro.S |   22 +
- arch/arm/mach-bcm2708/include/mach/dma.h         |   84 ++
+ arch/arm/mach-bcm2708/include/mach/dma.h         |   86 ++
  arch/arm/mach-bcm2708/include/mach/entry-macro.S |   69 ++
  arch/arm/mach-bcm2708/include/mach/frc.h         |   38 +
  arch/arm/mach-bcm2708/include/mach/gpio.h        |   18 +
@@ -45234,7 +45234,7 @@ Signed-off-by: popcornmix <popcornmix@gmail.com>
  drivers/mmc/host/sdhci.c                         |  209 +++-
  drivers/mmc/host/sdhci.h                         |   37 +
  include/linux/mmc/sdhci.h                        |    2 +
- 49 files changed, 7470 insertions(+), 71 deletions(-)
+ 49 files changed, 7474 insertions(+), 71 deletions(-)
  create mode 100644 arch/arm/configs/bcmrpi_cutdown_defconfig
  create mode 100644 arch/arm/configs/bcmrpi_defconfig
  create mode 100644 arch/arm/configs/bcmrpi_emergency_defconfig
@@ -45275,7 +45275,7 @@ Signed-off-by: popcornmix <popcornmix@gmail.com>
  create mode 100644 drivers/mmc/host/sdhci-bcm2708.c
 
 diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 1cacda4..81540e7 100644
+index 70cd012..448f328 100644
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
 @@ -361,6 +361,21 @@ config ARCH_AT91
@@ -48328,10 +48328,10 @@ index 0000000..5f9d725
 +};
 diff --git a/arch/arm/mach-bcm2708/dma.c b/arch/arm/mach-bcm2708/dma.c
 new file mode 100644
-index 0000000..0b7a4f6
+index 0000000..51d147a
 --- /dev/null
 +++ b/arch/arm/mach-bcm2708/dma.c
-@@ -0,0 +1,397 @@
+@@ -0,0 +1,399 @@
 +/*
 + *  linux/arch/arm/mach-bcm2708/dma.c
 + *
@@ -48411,7 +48411,8 @@ index 0000000..0b7a4f6
 +  dsb();
 +
 +  /* ugly busy wait only option for now */
-+  while (readl(dma_chan_base + BCM2708_DMA_CS) & BCM2708_DMA_ACTIVE);
++  while (readl(dma_chan_base + BCM2708_DMA_CS) & BCM2708_DMA_ACTIVE)
++    cpu_relax();
 +}
 +
 +EXPORT_SYMBOL_GPL(bcm_dma_start);
@@ -48480,6 +48481,7 @@ index 0000000..0b7a4f6
 +	dmaman->dma_base = dma_base;
 +	dmaman->chan_available = chans_available;
 +	dmaman->has_feature[BCM_DMA_FEATURE_FAST_ORD] = 0x0c;  /* chans 2 & 3 */
++	dmaman->has_feature[BCM_DMA_FEATURE_BULK_ORD] = 0x01;  /* chan 0 */
 +}
 +
 +static int vc_dmaman_chan_alloc(struct vc_dmaman *dmaman,
@@ -49263,10 +49265,10 @@ index 0000000..2d0dc1c
 +#include <asm/hardware/debug-pl01x.S>
 diff --git a/arch/arm/mach-bcm2708/include/mach/dma.h b/arch/arm/mach-bcm2708/include/mach/dma.h
 new file mode 100644
-index 0000000..25e06d7
+index 0000000..ac7a4a0
 --- /dev/null
 +++ b/arch/arm/mach-bcm2708/include/mach/dma.h
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,86 @@
 +/*
 + *  linux/arch/arm/mach-bcm2708/include/mach/dma.h
 + *
@@ -49341,8 +49343,10 @@ index 0000000..25e06d7
 +/* When listing features we can ask for when allocating DMA channels give
 +   those with higher priority smaller ordinal numbers */
 +#define BCM_DMA_FEATURE_FAST_ORD 0
++#define BCM_DMA_FEATURE_BULK_ORD 1
 +#define BCM_DMA_FEATURE_FAST	 (1<<BCM_DMA_FEATURE_FAST_ORD)
-+#define BCM_DMA_FEATURE_COUNT	 1
++#define BCM_DMA_FEATURE_BULK	 (1<<BCM_DMA_FEATURE_BULK_ORD)
++#define BCM_DMA_FEATURE_COUNT	 2
 +
 +/* return channel no or -ve error */
 +extern int bcm_dma_chan_alloc(unsigned preferred_feature_set,
@@ -53431,10 +53435,10 @@ index b838ffc..f3a39c1 100644
 1.8.1.6
 
 
-From 3ec376874ce56f9b64b278064092f74607f4fd2c Mon Sep 17 00:00:00 2001
+From 5d42fc9149ad65168f95eb522c7913a0170d2118 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 19:54:32 +0100
-Subject: [PATCH 03/98] bcm2708 watchdog driver
+Subject: [PATCH 003/102] bcm2708 watchdog driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -53868,10 +53872,10 @@ index 0000000..dd33c35
 1.8.1.6
 
 
-From e83f74d1ca02a8742e9f41caf92ac824ef99a032 Mon Sep 17 00:00:00 2001
+From 9daa48b3d2224886117d4b692ab7387fee2b4772 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 19:55:09 +0100
-Subject: [PATCH 04/98] bcm2708 framebuffer driver
+Subject: [PATCH 004/102] bcm2708 framebuffer driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -56906,10 +56910,10 @@ index 3c14e43..7626beb 100644
 1.8.1.6
 
 
-From 606042e379283d4d340e0d40db74d728d5d13e5d Mon Sep 17 00:00:00 2001
+From 9e81bcaf1ed9016ae8277c78d7605ab4a0644897 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 27 Mar 2013 23:10:07 +0000
-Subject: [PATCH 05/98] bcm2708 vchiq driver
+Subject: [PATCH 005/102] bcm2708 vchiq driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -69351,10 +69355,10 @@ index 0000000..b6bfa21
 1.8.1.6
 
 
-From 94c300082a474195796a4cac65aa45aab5c009c7 Mon Sep 17 00:00:00 2001
+From a787744e338f7e109a1bae4eb784cf997d96457d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 28 Mar 2013 00:10:21 +0000
-Subject: [PATCH 06/98] cma: Add vc_cma driver to enable use of CMA
+Subject: [PATCH 006/102] cma: Add vc_cma driver to enable use of CMA
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -70651,10 +70655,10 @@ index 0000000..bdc9d79
 1.8.1.6
 
 
-From bb3c5c906a825358602227bb17942c89ee923488 Mon Sep 17 00:00:00 2001
+From 515cec19ef56b649ed0acd06f0d2f9939a7011f9 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 17:26:38 +0000
-Subject: [PATCH 07/98] Allow mac address to be set in smsc95xx
+Subject: [PATCH 007/102] Allow mac address to be set in smsc95xx
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -70748,10 +70752,10 @@ index e6d2dea..9709314 100644
 1.8.1.6
 
 
-From e9157bffdd8a900961e094a57560b049b1e7e91b Mon Sep 17 00:00:00 2001
+From 4f0eb4acebe6901a346935f58307d0d598be809f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 26 Mar 2012 22:15:50 +0100
-Subject: [PATCH 08/98] bcm2708: alsa sound driver
+Subject: [PATCH 008/102] bcm2708: alsa sound driver
 
     Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -73074,11 +73078,11 @@ index 0000000..af3e6eb
 1.8.1.6
 
 
-From a0481fb6e7ae7fc6dcaf0d5019f41d815a3d3fb1 Mon Sep 17 00:00:00 2001
+From 92027c537ab1c45fc2ff9db94325128f80b9f848 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 27 Apr 2012 00:30:15 +0100
-Subject: [PATCH 09/98] Fix (hopefully) for DWC_MEMCPY kernel panics. Thanks to
- Naren Sankar for finding this
+Subject: [PATCH 009/102] Fix (hopefully) for DWC_MEMCPY kernel panics. Thanks
+ to Naren Sankar for finding this
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_hcd.c       | 4 ++++
@@ -73118,10 +73122,10 @@ index a5f8546..5261d2a 100644
 1.8.1.6
 
 
-From 4393f5d06d89e551ca6f45ec13a0f316b74827e5 Mon Sep 17 00:00:00 2001
+From f0672dacf8cbda6a49568244926f39a23e3efd51 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 17:36:22 +0000
-Subject: [PATCH 10/98] added support for TT in the USB driver. Thanks Naren
+Subject: [PATCH 010/102] added support for TT in the USB driver. Thanks Naren
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c | 3 +++
@@ -73145,10 +73149,10 @@ index 5261d2a..e7b90c8 100644
 1.8.1.6
 
 
-From 1cb7438324989a2b903eb9f023ae9c6677fa45ad Mon Sep 17 00:00:00 2001
+From 0438ec7c48a6b34e274e49bcdae026edfdd0d79c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 8 May 2012 23:09:44 +0100
-Subject: [PATCH 11/98] Use dwc_alloc_atomic. Thanks bootc
+Subject: [PATCH 011/102] Use dwc_alloc_atomic. Thanks bootc
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_hcd.h | 4 ++--
@@ -73180,10 +73184,10 @@ index 9459c4c..f6e7870 100644
 1.8.1.6
 
 
-From f1f2dd31f46173c0b3a51128228287dc57dc6c45 Mon Sep 17 00:00:00 2001
+From faeaa99f0396f7668a69d089231520160af30fd6 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 8 May 2012 23:12:13 +0100
-Subject: [PATCH 12/98] possible fix for sdcard missing status. Thank naren
+Subject: [PATCH 012/102] possible fix for sdcard missing status. Thank naren
 
 ---
  drivers/mmc/host/sdhci-bcm2708.c | 9 +++++++++
@@ -73220,10 +73224,10 @@ index e79723d..a405114 100644
 1.8.1.6
 
 
-From 74d53fb6bb5cf56625b365f2f55379829a6f6988 Mon Sep 17 00:00:00 2001
+From 202cf599e12400ddd32a135a12cd4323b445e457 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 15 May 2012 15:24:40 +0100
-Subject: [PATCH 13/98] Fix for DWC OTG HCD URB Dequeue has NULL URB panic.
+Subject: [PATCH 013/102] Fix for DWC OTG HCD URB Dequeue has NULL URB panic.
  Thanks Naren
 
 ---
@@ -73254,10 +73258,10 @@ index e7b90c8..2a3b689 100644
 1.8.1.6
 
 
-From da62791a191199ccdbfe0212dd9c37469e86c2c1 Mon Sep 17 00:00:00 2001
+From 48a9242f91eb12c2b0ec299ba02b38b42bb8ad74 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 17 May 2012 14:44:19 +0100
-Subject: [PATCH 14/98] sdcard patch improvements from naren
+Subject: [PATCH 014/102] sdcard patch improvements from naren
 
 ---
  drivers/mmc/host/sdhci-bcm2708.c | 23 +++++++----------------
@@ -73316,10 +73320,10 @@ index a405114..ae8edf7 100644
 1.8.1.6
 
 
-From 442f0344ea45c7c435f9d94000928ebf8a8a383e Mon Sep 17 00:00:00 2001
+From 30ef0d309e9857bdd32491cec9ba259a784456c5 Mon Sep 17 00:00:00 2001
 From: Grigori Goronzy <greg@blackbox>
 Date: Mon, 4 Jun 2012 04:27:48 +0200
-Subject: [PATCH 15/98] sdhci-bcm2708: speed up DMA sync
+Subject: [PATCH 015/102] sdhci-bcm2708: speed up DMA sync
 
 Experiments show that it doesn't really take that long to sync, so we
 can reduce the poll interval slightly. Might improve performance a bit.
@@ -73344,10 +73348,10 @@ index ae8edf7..a6bdc25 100644
 1.8.1.6
 
 
-From 2b2d2523b69e6a58232ed87fb5eb940c94391b65 Mon Sep 17 00:00:00 2001
+From b24cb9d394c67ce8a11c75570320e6e5301e2284 Mon Sep 17 00:00:00 2001
 From: Grigori Goronzy <greg@blackbox>
 Date: Mon, 11 Jun 2012 18:52:04 +0200
-Subject: [PATCH 16/98] sdhci-bcm2708: remove custom clock handling
+Subject: [PATCH 016/102] sdhci-bcm2708: remove custom clock handling
 
 The custom clock handling code is redundant and buggy. The MMC/SDHCI
 subsystem does a better job than it, so remove it for good.
@@ -73445,10 +73449,10 @@ index a6bdc25..0ed4d85 100644
 1.8.1.6
 
 
-From 0c8ada1f84794bdb016d841acda291d71c8f038c Mon Sep 17 00:00:00 2001
+From 22d34115fdcdc516663d137c08b52ed339e4c452 Mon Sep 17 00:00:00 2001
 From: Grigori Goronzy <greg@blackbox>
 Date: Mon, 11 Jun 2012 18:53:59 +0200
-Subject: [PATCH 17/98] sdhci-bcm2708: add additional quirks
+Subject: [PATCH 017/102] sdhci-bcm2708: add additional quirks
 
 Some additional quirks are needed for correct operation.
 There's no SDHCI capabilities register documented, and it always reads
@@ -73478,10 +73482,10 @@ index 0ed4d85..3001836 100644
 1.8.1.6
 
 
-From 992870434932c3acf2e029c120f0a84084f95ded Mon Sep 17 00:00:00 2001
+From 9d0529470e379160e517c24babc50488391f3f5e Mon Sep 17 00:00:00 2001
 From: Grigori Goronzy <greg@blackbox>
 Date: Mon, 11 Jun 2012 18:57:13 +0200
-Subject: [PATCH 18/98] sdhci-bcm2708: add allow_highspeed parameter
+Subject: [PATCH 018/102] sdhci-bcm2708: add allow_highspeed parameter
 
 Add a parameter to disable high-speed mode for the few cards that
 still might have problems. High-speed mode is enabled by default.
@@ -73529,10 +73533,10 @@ index 3001836..c64de21 100644
 1.8.1.6
 
 
-From 12e7971b93d012e4375ab6b94f4175a05d3488c5 Mon Sep 17 00:00:00 2001
+From 8167bc0b11ed234c29c0c34780306d93554a70fa Mon Sep 17 00:00:00 2001
 From: Grigori Goronzy <greg@blackbox>
 Date: Mon, 11 Jun 2012 18:58:40 +0200
-Subject: [PATCH 19/98] sdhci-bcm2708: assume 50 MHz eMMC clock
+Subject: [PATCH 019/102] sdhci-bcm2708: assume 50 MHz eMMC clock
 
 80 MHz clock isnt't suited well to be dividable to get SD clocks of 25
 MHz (default mode) or 50 MHz (high speed mode). 50 MHz are perfect to
@@ -73558,10 +73562,10 @@ index c64de21..d174938 100644
 1.8.1.6
 
 
-From 09e8e1b162764431ec65ca0e90907d7ea62cb2a1 Mon Sep 17 00:00:00 2001
+From 5288822e3285c737fa871fbdc457615b49ac332f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 16 Jun 2012 22:31:55 +0100
-Subject: [PATCH 20/98] Allow emmc clock to be specified as command line
+Subject: [PATCH 020/102] Allow emmc clock to be specified as command line
  parameter
 
 ---
@@ -73608,10 +73612,10 @@ index d174938..0ee983c 100644
 1.8.1.6
 
 
-From 6170b6726f14cc5a50b4707da7266b2eb2df7d05 Mon Sep 17 00:00:00 2001
+From da5034cbfc3f38828fdf3891a34130dccac74e67 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 16 Jun 2012 22:35:38 +0100
-Subject: [PATCH 21/98] sdhci-bcm2708: raise DMA sync timeout
+Subject: [PATCH 021/102] sdhci-bcm2708: raise DMA sync timeout
 
 Commit d64b84c by accident reduced the maximum overall DMA sync
 timeout. The maximum overall timeout was reduced from 100ms to 30ms,
@@ -73641,10 +73645,10 @@ index 0ee983c..b0cdd7d 100644
 1.8.1.6
 
 
-From d0693090be715641994f1c52bd1dba2de9b27385 Mon Sep 17 00:00:00 2001
+From 5fbbabb6b4f61c6dd55566923a157a8d5270dd34 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 17 Jun 2012 00:14:54 +0100
-Subject: [PATCH 22/98] Explicitly set usb host channels to 8, as in the spec
+Subject: [PATCH 022/102] Explicitly set usb host channels to 8, as in the spec
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_core_if.h | 3 ++-
@@ -73668,10 +73672,10 @@ index 4a78b03..25aae5e 100644
 1.8.1.6
 
 
-From 5c0ed036f9488c743eca5260f2b5d8f421766383 Mon Sep 17 00:00:00 2001
+From 7c036ab45bac4c4287a5520355f395da2af6987d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 22 Jun 2012 12:55:39 +0100
-Subject: [PATCH 23/98] Fix unintended line swap that cause cause memory leak
+Subject: [PATCH 023/102] Fix unintended line swap that cause cause memory leak
  in USB driver
 
 ---
@@ -73696,10 +73700,10 @@ index 2a3b689..970b065 100644
 1.8.1.6
 
 
-From 8da8147a7fb91311225e41cc77e87e90b1093750 Mon Sep 17 00:00:00 2001
+From b3601db57b17c85bf02952030e4432304ada9382 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 22 Jun 2012 12:57:42 +0100
-Subject: [PATCH 24/98] Use ndelay rather than udelay. Thanks lb
+Subject: [PATCH 024/102] Use ndelay rather than udelay. Thanks lb
 
 ---
  drivers/mmc/host/sdhci-bcm2708.c | 8 ++++----
@@ -73746,10 +73750,10 @@ index b0cdd7d..7bba950 100644
 1.8.1.6
 
 
-From 27786e9017d099826200db1a7acaa1621a5c77bb Mon Sep 17 00:00:00 2001
+From 07ce5aad531e581f8db8ba9409938fe99814faf6 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Jun 2012 15:54:11 +0100
-Subject: [PATCH 25/98] Fixed issue with some keyboards giving too much data 
+Subject: [PATCH 025/102] Fixed issue with some keyboards giving too much data 
  resulting in overrun of the input buffer and memory  corruption causing an
  OOPS. We should be checking for the  fact that we might get more data than we
  want. Thanks Naren.
@@ -73846,10 +73850,10 @@ index 970b065..05fd421 100644
 1.8.1.6
 
 
-From 4d31e006ac48fc386ab69092e732374d582b774e Mon Sep 17 00:00:00 2001
+From 877be29ed0dfa3ea964cf407da931a9dc358a85a Mon Sep 17 00:00:00 2001
 From: Bryan Kemp <bryan@kempville.com>
 Date: Sat, 7 Jul 2012 16:24:07 -0500
-Subject: [PATCH 26/98] Updating dwc_otg driver to fix issue releasing pcm
+Subject: [PATCH 026/102] Updating dwc_otg driver to fix issue releasing pcm
  stream see: https://github.com/raspberrypi/firmware/issues/51
 
 ---
@@ -73920,10 +73924,10 @@ index 05fd421..e9f4f31 100644
 1.8.1.6
 
 
-From 5619f2d372973e30fdd752be7f904919301a11d9 Mon Sep 17 00:00:00 2001
+From d1c040fe7d2f67d27f0aec67a683d975d7147b70 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 May 2013 11:44:40 +0100
-Subject: [PATCH 27/98] Backport of Chris Boot's i2c and spi drivers.
+Subject: [PATCH 027/102] Backport of Chris Boot's i2c and spi drivers.
 
 ---
  arch/arm/configs/bcmrpi_cutdown_defconfig     |  10 +
@@ -75212,10 +75216,10 @@ index 0000000..9f1580e
 1.8.1.6
 
 
-From d9d613b3060f515227befa1ceaa847a8ddd8d9cb Mon Sep 17 00:00:00 2001
+From 791baf597ff57436fff6151fb1f80852a399e243 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 19 Jul 2012 16:00:28 +0100
-Subject: [PATCH 28/98] Add SPI_SPI_DEV module
+Subject: [PATCH 028/102] Add SPI_SPI_DEV module
 
 ---
  arch/arm/configs/bcmrpi_defconfig | 1 +
@@ -75237,12 +75241,12 @@ index 6219df3..31f5afaa 100644
 1.8.1.6
 
 
-From bc0c859db722bb88915e1987fa02bec82f3d32d2 Mon Sep 17 00:00:00 2001
+From 498d65c0773ef33dbe228bf8729301c0e72008ad Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 13 Jul 2012 18:34:18 +0100
-Subject: [PATCH 29/98] Fix for quitting X hang. Interrupted mailbox reads are
- not something we can reliably recover from, so down_interruptable is not a
- safe call.
+Subject: [PATCH 029/102] Fix for quitting X hang. Interrupted mailbox reads
+ are not something we can reliably recover from, so down_interruptable is not
+ a safe call.
 
 ---
  arch/arm/mach-bcm2708/vcio.c | 12 ++++--------
@@ -75275,10 +75279,10 @@ index 799a0ac..3874051 100644
 1.8.1.6
 
 
-From 5faeab13f46472006aaadd441c9a2f340d45d9e5 Mon Sep 17 00:00:00 2001
+From 38a8c0ede3997cc6563acf63165153e78508518e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 17 Jul 2012 00:48:27 +0100
-Subject: [PATCH 30/98] Add sync_after_dma module parameter
+Subject: [PATCH 030/102] Add sync_after_dma module parameter
 
 ---
  drivers/mmc/host/sdhci-bcm2708.c | 60 +++++++++++++++++++++-------------------
@@ -75395,10 +75399,10 @@ index 7bba950..3792b9f 100644
 1.8.1.6
 
 
-From 9e07f7687de1fb42f8f4350784c14e95bd4f3c32 Mon Sep 17 00:00:00 2001
+From 48c6420d3fe58dd3abdafa9f51bbb5de8e14ee6a Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 12 May 2013 12:25:52 +0100
-Subject: [PATCH 31/98] sdhci-bcm2708: use extension FIFO to buffer DMA
+Subject: [PATCH 031/102] sdhci-bcm2708: use extension FIFO to buffer DMA
  transfers
 
 The additional FIFO might speed up transfers in some cases.
@@ -75450,11 +75454,11 @@ index 3792b9f..326b962 100644
 1.8.1.6
 
 
-From 4579648f2f33a93931e1cb27df5afd8f59955aef Mon Sep 17 00:00:00 2001
+From 0feba5afe3af916eb6685c1981b83537df942b52 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 20:04:12 +0100
-Subject: [PATCH 32/98] sdhci-bcm2708: use multiblock-type transfers for single
- blocks
+Subject: [PATCH 032/102] sdhci-bcm2708: use multiblock-type transfers for
+ single blocks
 
 There are issues with both single block reads (missed completion)
 and writes (data loss in some cases!). Just don't do single block
@@ -75509,10 +75513,10 @@ index d6f20cc..860bff9 100644
 1.8.1.6
 
 
-From 3046166886536f258d853f8dcaabc23e5926ca9d Mon Sep 17 00:00:00 2001
+From e40303910281a3771fbb8108f3538d29e5193fa8 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 Aug 2012 19:02:14 +0100
-Subject: [PATCH 33/98] Add module parameter for missing_status quirk.
+Subject: [PATCH 033/102] Add module parameter for missing_status quirk.
  sdhci-bcm2708.missing_status=0 may improve interrupt latency
 
 ---
@@ -75568,10 +75572,10 @@ index c6d6bb0..8243593 100644
 1.8.1.6
 
 
-From d3c4bf4da40415ed87bb27a08a9c88a423f84248 Mon Sep 17 00:00:00 2001
+From 4529d090b0963026040ef25ff1e549dd0260fc07 Mon Sep 17 00:00:00 2001
 From: ddv2005 <ddv@abinet.com>
 Date: Sun, 5 Aug 2012 10:42:12 -0400
-Subject: [PATCH 34/98] Fix spinlock recursion in sdhci-bcm2708.c
+Subject: [PATCH 034/102] Fix spinlock recursion in sdhci-bcm2708.c
 
 ---
  drivers/mmc/host/sdhci-bcm2708.c | 14 +++++++-------
@@ -75640,10 +75644,10 @@ index 8243593..7a703c2 100644
 1.8.1.6
 
 
-From 70772a7eeb670f5e92079ec07d0369bc9e92aae8 Mon Sep 17 00:00:00 2001
+From 10f41cb6c7b38a784dbc39dd8a6280bf153cefe8 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 13:34:40 +0000
-Subject: [PATCH 35/98] Update Synopsys USB OTG driver to v2.94a and disable
+Subject: [PATCH 035/102] Update Synopsys USB OTG driver to v2.94a and disable
  CRYPTOLIB
 
 ---
@@ -110329,10 +110333,10 @@ index e8220ad..8dc648b 100644
 1.8.1.6
 
 
-From 9214ddc59aa8f08d877c9ee1a84f491788562e2e Mon Sep 17 00:00:00 2001
+From 82ccb28b990ffc2c0a7b6b7179d838054299db84 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 19 Aug 2012 11:58:01 +0100
-Subject: [PATCH 36/98] Merged in microframe scheduler, currently disabled.
+Subject: [PATCH 036/102] Merged in microframe scheduler, currently disabled.
  Enable with dwc_otg.microframe_schedule=1
 
 ---
@@ -111065,10 +111069,10 @@ index 903a902..08c1669 100644
 1.8.1.6
 
 
-From 0eb490f3c7878b058da12a996573fc2b57a53817 Mon Sep 17 00:00:00 2001
+From 847ab368ccb35e785427dd260bc52c65edab4cd8 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 21 Aug 2012 18:49:44 +0100
-Subject: [PATCH 37/98] Read memory size for vc_mem through mailbox property
+Subject: [PATCH 037/102] Read memory size for vc_mem through mailbox property
  channel
 
 ---
@@ -111239,11 +111243,11 @@ index 67c10ee..775c213 100644
 1.8.1.6
 
 
-From 02d7648325d15cbccbdb57cba620d7ed8fa9621b Mon Sep 17 00:00:00 2001
+From ce3e4f3fa35256e015e95d9459930cf1b6087ecb Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 22 Aug 2012 12:43:36 +0100
-Subject: [PATCH 38/98] Update to dwc_otg 3.00. Seems to be a very minor update
- (mostly adding support for a newer version of hardware)
+Subject: [PATCH 038/102] Update to dwc_otg 3.00. Seems to be a very minor
+ update (mostly adding support for a newer version of hardware)
 
 ---
  drivers/usb/host/dwc_otg/doc/doxygen.cfg     |   2 +-
@@ -113694,10 +113698,10 @@ index 8dc648b..0572642 100644
 1.8.1.6
 
 
-From 48f266f03ce22587aca96efb123ddc1912d99533 Mon Sep 17 00:00:00 2001
+From cd4017094ab361490285e9de25e00803d154d2d0 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 May 2013 11:46:50 +0100
-Subject: [PATCH 39/98] enabling the realtime clock 1-wire chip DS1307 and
+Subject: [PATCH 039/102] enabling the realtime clock 1-wire chip DS1307 and
  1-wire on GPIO4 (as a module)
 
 ---
@@ -113760,10 +113764,10 @@ index 510be0b..d61e747 100644
 1.8.1.6
 
 
-From 0a0fb275d0e029be4749eea14fee73523af7ef6d Mon Sep 17 00:00:00 2001
+From 92e29a8c527fedab65aa73a087dd549178e53cbb Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 24 Aug 2012 23:25:13 +0100
-Subject: [PATCH 40/98] Turn on microframe_schedule by default. Can still be
+Subject: [PATCH 040/102] Turn on microframe_schedule by default. Can still be
  disabled on command line
 
 ---
@@ -113787,10 +113791,10 @@ index 8ddc9ae..e7f99e1 100644
 1.8.1.6
 
 
-From 11b684d148ae600198a9fbf8ae709c43e96c0d2f Mon Sep 17 00:00:00 2001
+From 8cda847966ef2785fa41df07445df21ec712a1f0 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 12 May 2013 12:27:48 +0100
-Subject: [PATCH 41/98] Add low-latency mode to sdcard driver. Disable with
+Subject: [PATCH 041/102] Add low-latency mode to sdcard driver. Disable with
  sdhci-bcm2708.enable_llm=0. Thanks ddv2005.
 
 ---
@@ -114313,10 +114317,10 @@ index f3a39c1..58bfab0 100644
 1.8.1.6
 
 
-From 78459294cc7f7f6d78851b7b343aad0a4b94982d Mon Sep 17 00:00:00 2001
+From 8e789d81c4df6fb7d643c2f2126347146b42cadd Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 May 2013 12:02:03 +0100
-Subject: [PATCH 42/98] Add FIQ patch to dwc_otg driver. Enable with
+Subject: [PATCH 042/102] Add FIQ patch to dwc_otg driver. Enable with
  dwc_otg.fiq_fix_enable=1. Should give about 10% more ARM performance. Thanks
  to Gordon and Costas
 
@@ -114347,7 +114351,7 @@ Subject: [PATCH 42/98] Add FIQ patch to dwc_otg driver. Enable with
  create mode 100755 drivers/usb/host/dwc_otg/dwc_otg_mphi_fix.h
 
 diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 81540e7..bfff9c1 100644
+index 448f328..d33eb79 100644
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
 @@ -373,6 +373,7 @@ config ARCH_BCM2708
@@ -115476,10 +115480,10 @@ index a7e9076..bb1c42d 100644
 1.8.1.6
 
 
-From 27cb36d5d42e9121b7f79e631e0e3190dd886a40 Mon Sep 17 00:00:00 2001
+From 38caf84cdb0d6b6d743e9d5fba24878622df7528 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 12 Apr 2013 23:58:47 +0100
-Subject: [PATCH 45/98] Add verious user config requests.
+Subject: [PATCH 045/102] Add verious user config requests.
  CONFIG_DEVTMPFS_MOUNT, CONFIG_NFS_V4_1=y CONFIG_NFSD_V3_ACL=y
  CONFIG_NFSD_V4=y, drbd and IPSEC modules
 
@@ -115889,11 +115893,11 @@ index 31f5afaa..ef43466 100644
 1.8.1.6
 
 
-From ac3412470183a71d5c5b762fb6c81c6b9ee31193 Mon Sep 17 00:00:00 2001
+From eb7e6a2dc12d923e6deab50e2280c7b5d0b38800 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 8 Sep 2012 14:49:16 +0100
-Subject: [PATCH 46/98] Don't believe KDIR is required when building as part of
- kernel
+Subject: [PATCH 046/102] Don't believe KDIR is required when building as part
+ of kernel
 
 ---
  drivers/usb/host/dwc_common_port/Makefile | 6 +++---
@@ -115920,11 +115924,11 @@ index 203c7ea..63e3485 100644
 1.8.1.6
 
 
-From c91242c1f74e5dfde52fc6180508f4f0115aebdf Mon Sep 17 00:00:00 2001
+From 59c7f023529bf96df69c8241a0455c21b9b153f0 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 8 Sep 2012 15:17:53 +0100
-Subject: [PATCH 47/98] Avoid dynamic memory allocation for channel lock in USB
- driver. Thanks ddv2005.
+Subject: [PATCH 047/102] Avoid dynamic memory allocation for channel lock in
+ USB driver. Thanks ddv2005.
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_hcd.c      | 6 +++---
@@ -116030,10 +116034,10 @@ index f1658fa..21e8f09 100644
 1.8.1.6
 
 
-From 7e235aaefd873d791af85bdb26beae2db6235773 Mon Sep 17 00:00:00 2001
+From 2a5ffee873590b0eafba48448de435576c8ec3c4 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 May 2013 12:04:44 +0100
-Subject: [PATCH 48/98] Add cpufreq driver
+Subject: [PATCH 048/102] Add cpufreq driver
 
 ---
  arch/arm/Kconfig                          |   1 +
@@ -116048,7 +116052,7 @@ Subject: [PATCH 48/98] Add cpufreq driver
  create mode 100755 drivers/cpufreq/bcm2835-cpufreq.c
 
 diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index bfff9c1..78851da 100644
+index d33eb79..7845052 100644
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
 @@ -369,6 +369,7 @@ config ARCH_BCM2708
@@ -116561,10 +116565,10 @@ index 0000000..aa6fc66
 1.8.1.6
 
 
-From 6bfd6f15475d8c57145fcefa1513c1de8ae4cb47 Mon Sep 17 00:00:00 2001
+From cbd42608997dff6ea3ff9fe88b4e38305f101e84 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 8 Apr 2013 21:12:48 +0100
-Subject: [PATCH 49/98] Add NAK holdoff scheme. Enabled by default, disable
+Subject: [PATCH 049/102] Add NAK holdoff scheme. Enabled by default, disable
  with dwc_otg.nak_holdoff_enable=0. Thanks gsh
 
 ---
@@ -116774,10 +116778,10 @@ index ac10323..e6b2a7b 100644
 1.8.1.6
 
 
-From d793bfa36883079927d2b4ac45e0824b408e4cd9 Mon Sep 17 00:00:00 2001
+From 9f95a6a09d5b545208dcffe96cba4a95bb9e89f4 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 19:24:24 +0000
-Subject: [PATCH 50/98] Added hwmon/thermal driver for reporting core
+Subject: [PATCH 050/102] Added hwmon/thermal driver for reporting core
  temperature. Thanks Dorian
 
 ---
@@ -117301,10 +117305,10 @@ index 0000000..f1ecdb2
 1.8.1.6
 
 
-From 6a7dd4bc5dde74ca7a769aa0fa3a7bd6213552a5 Mon Sep 17 00:00:00 2001
+From 45024257f048c1f12acde326b70e10606d3316e2 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 12 Apr 2013 23:59:27 +0100
-Subject: [PATCH 51/98] Add config options for thermal sensor, L2TP,
+Subject: [PATCH 051/102] Add config options for thermal sensor, L2TP,
  RT2800USB_UNKNOWN, and various I2C and SPI RTCs. Tidy of thermal driver.
 
 ---
@@ -117472,10 +117476,10 @@ index f1ecdb2..3f9a733 100644
 1.8.1.6
 
 
-From 3c1fc05cfc59dd1be85600f2bca94d7700e70d25 Mon Sep 17 00:00:00 2001
+From d7a418269d4af6c9408d0cd609655c275422dcc7 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 28 Mar 2013 01:19:54 +0000
-Subject: [PATCH 52/98] 2708fb: Remove some unnecessary dmesg output.
+Subject: [PATCH 052/102] 2708fb: Remove some unnecessary dmesg output.
 
 ---
  drivers/video/bcm2708_fb.c | 34 +++++++++++++++++++---------------
@@ -117602,10 +117606,10 @@ index c82dd90..08d9238 100644
 1.8.1.6
 
 
-From 083eb06994b92388ff59bfb7e708606cc297638f Mon Sep 17 00:00:00 2001
+From b1fccfaee08a3429c2ba6a0cd34355e244f46f5d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 28 Mar 2013 01:20:34 +0000
-Subject: [PATCH 53/98] cpufreq: Remove some unnecessary dmesg output.
+Subject: [PATCH 053/102] cpufreq: Remove some unnecessary dmesg output.
 
 ---
  drivers/cpufreq/bcm2835-cpufreq.c | 2 +-
@@ -117628,11 +117632,11 @@ index aa6fc66..6ff1edb 100755
 1.8.1.6
 
 
-From 0c20134fb009a06049dd26b994a70085002cf4cc Mon Sep 17 00:00:00 2001
+From db9f960f9af8aa7ba07da5b058c82287885b7339 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 17 Sep 2012 22:57:29 +0100
-Subject: [PATCH 54/98] Switch to powersave governor. We'll enable ondemand in
- the distribution
+Subject: [PATCH 054/102] Switch to powersave governor. We'll enable ondemand
+ in the distribution
 
 ---
  arch/arm/configs/bcmrpi_defconfig | 5 +++--
@@ -117659,10 +117663,10 @@ index d11f688..c1afa47 100644
 1.8.1.6
 
 
-From c5cea896a470a53f8d427b035233e465cb0105e9 Mon Sep 17 00:00:00 2001
+From c3d251350f4777171a2dbb3552b6d56567837639 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 17 Apr 2013 12:16:36 +0100
-Subject: [PATCH 55/98] Enable multiple ALSA channels
+Subject: [PATCH 055/102] Enable multiple ALSA channels
 
 ---
  arch/arm/mach-bcm2708/bcm2708.c | 54 ++++++++++++++++++++++++++++++++++++-----
@@ -117737,10 +117741,10 @@ index 2875cd2..27e9553 100644
 1.8.1.6
 
 
-From 79058dfc58b650b2b8759e27491c96337b23cb6c Mon Sep 17 00:00:00 2001
+From cea02ff976cab64a7a6e6ad86446090f472a349f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Oct 2012 20:08:19 +0100
-Subject: [PATCH 56/98] set i2c speed via module-parameter or menuconfig.
+Subject: [PATCH 056/102] set i2c speed via module-parameter or menuconfig.
  Thanks FrankBoesing
 
 ---
@@ -117815,10 +117819,10 @@ index 7cae615..3391889 100644
 1.8.1.6
 
 
-From dd419344111e0c10e560adf4ed069b74ab67e531 Mon Sep 17 00:00:00 2001
+From 2afa47626e59af70b14349135bc6fe577148be5b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Oct 2012 21:31:48 +0100
-Subject: [PATCH 57/98] Allow the number of cycles delay between sdcard
+Subject: [PATCH 057/102] Allow the number of cycles delay between sdcard
  peripheral writes to be specified on command line with
  sdhci-bcm2708.cycle_delay
 
@@ -117860,10 +117864,10 @@ index 7ce2829..ffd7310 100644
 1.8.1.6
 
 
-From 074b0842b2feeb4bf924b4642217206ba10ce1b8 Mon Sep 17 00:00:00 2001
+From 9ebd07a58d6215678afd84b27cf858a6006302ce Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 17 Apr 2013 14:37:25 +0100
-Subject: [PATCH 58/98] Fix vc-mem by using module parameters
+Subject: [PATCH 058/102] Fix vc-mem by using module parameters
 
 ---
  arch/arm/mach-bcm2708/bcm2708.c | 12 ++---
@@ -118098,10 +118102,10 @@ index ae1810c..5c56b31 100644
 1.8.1.6
 
 
-From e2a149d5cb1132424aa8eb7841e9c4001e46a65d Mon Sep 17 00:00:00 2001
+From 656bb407ea0f8538d2297f99d4e979c3d763f979 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 5 Oct 2012 22:44:47 +0100
-Subject: [PATCH 59/98] Support dummy vc-mem ioctl used by vcdbg
+Subject: [PATCH 059/102] Support dummy vc-mem ioctl used by vcdbg
 
 ---
  arch/arm/mach-bcm2708/include/mach/vc_mem.h |  1 +
@@ -118149,11 +118153,11 @@ index 5c56b31..f12cb49 100644
 1.8.1.6
 
 
-From 1a618d1167c4fd3b5ae1009d901bd37582dc4df0 Mon Sep 17 00:00:00 2001
+From 58cbc811cc291d9a1e086d1223d7a5cd293e8ecb Mon Sep 17 00:00:00 2001
 From: dero <de@ro>
 Date: Mon, 19 Nov 2012 12:46:06 +0100
-Subject: [PATCH 60/98] Lazy CRC quirk: Implemented retrying mechanisms for SD
- SSR and SCR, disabled missing_status and spurious CRC ACMD51 quirks by
+Subject: [PATCH 060/102] Lazy CRC quirk: Implemented retrying mechanisms for
+ SD SSR and SCR, disabled missing_status and spurious CRC ACMD51 quirks by
  default (should be fixed by the retrying-mechanishm)
 
 ---
@@ -118384,10 +118388,10 @@ index ffd7310..3556ed3 100644
 1.8.1.6
 
 
-From 49b4cd75acc6fdba028c3b72a03915fb783b8211 Mon Sep 17 00:00:00 2001
+From f34b0d96d02bb0d83ff4fc6920e03635194494c2 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 28 Mar 2013 00:10:32 +0000
-Subject: [PATCH 61/98] bcm2708: Add vc_cma driver to enable use of CMA
+Subject: [PATCH 061/102] bcm2708: Add vc_cma driver to enable use of CMA
 
 ---
  arch/arm/mach-bcm2708/bcm2708.c | 18 ++++++++++++++++++
@@ -118448,10 +118452,10 @@ index e010515..9d38d40 100644
 1.8.1.6
 
 
-From 7e2ac45d61bfd7ff39b0cd8e78f11612454385c7 Mon Sep 17 00:00:00 2001
+From 7ebb3a6a0ebee2a33e3ba7457af37f1500b96ccd Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 24 Oct 2012 22:00:43 +0100
-Subject: [PATCH 62/98] Fix reboot with new restart method of machine driver
+Subject: [PATCH 062/102] Fix reboot with new restart method of machine driver
 
 ---
  arch/arm/mach-bcm2708/bcm2708.c             | 18 +++++++++++++++++-
@@ -118529,10 +118533,10 @@ index bc9d458..2d0b821 100644
 1.8.1.6
 
 
-From fbee956ee0bc629a53f5dd0b5a312a7bb9353410 Mon Sep 17 00:00:00 2001
+From 7483b1f17a23eeefabda099d1e2b06c83736caeb Mon Sep 17 00:00:00 2001
 From: Gordon Hollingworth <gordon@holliweb.co.uk>
 Date: Sun, 4 Nov 2012 15:55:01 +0000
-Subject: [PATCH 63/98] Make sure we wait for the reset to finish
+Subject: [PATCH 063/102] Make sure we wait for the reset to finish
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_hcd_intr.c | 2 ++
@@ -118555,10 +118559,10 @@ index 3e762e2..e8c91e7 100644
 1.8.1.6
 
 
-From cfbcc471ffd6711ae93b0132b5edca0c0904bc9b Mon Sep 17 00:00:00 2001
+From 485f8faa6d463bf3c687de0a2c0b1aa4a6b74272 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 19 Nov 2012 18:27:05 +0000
-Subject: [PATCH 64/98] Add Simon Hall's dma helper module, useful in future
+Subject: [PATCH 064/102] Add Simon Hall's dma helper module, useful in future
  for X acceleration
 
 ---
@@ -119896,10 +119900,10 @@ index 0000000..5cb1335
 1.8.1.6
 
 
-From fac111f0dc6579857b79a262115eb6acc79b9c6d Mon Sep 17 00:00:00 2001
+From 35a681ff75b9543fe27417b38ee07113794f228b Mon Sep 17 00:00:00 2001
 From: Aron Szabo <aron@aron.ws>
 Date: Sat, 16 Jun 2012 12:15:55 +0200
-Subject: [PATCH 65/98] lirc: added support for RaspberryPi GPIO
+Subject: [PATCH 065/102] lirc: added support for RaspberryPi GPIO
 
 ---
  drivers/staging/media/lirc/Kconfig    |   6 +
@@ -120634,11 +120638,11 @@ index 0000000..96acab0
 1.8.1.6
 
 
-From 8e255c899b8c1730b788f50c9ecdd92b6c43f04d Mon Sep 17 00:00:00 2001
+From 9d605813990813476803efc68efa443bcd62a50a Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 25 Nov 2012 18:28:09 +0000
-Subject: [PATCH 66/98] Allow mailbox driver to be called from user code though
- ioctl
+Subject: [PATCH 066/102] Allow mailbox driver to be called from user code
+ though ioctl
 
 ---
  arch/arm/mach-bcm2708/include/mach/vcio.h |  33 +++++++
@@ -120874,10 +120878,10 @@ index 468fdef..09b78b5 100644
 1.8.1.6
 
 
-From 6dc85542e98a396a1551cfed9b01095d50fdc24e Mon Sep 17 00:00:00 2001
+From 213114b2ae2c23fd2ea96fd3f11cf9cd6776859f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 11 Dec 2012 18:23:03 +0000
-Subject: [PATCH 67/98] Default to dwc_otp.lpm_enable=0
+Subject: [PATCH 067/102] Default to dwc_otp.lpm_enable=0
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_driver.c | 2 +-
@@ -120900,10 +120904,10 @@ index d353a9a..cea8fcb 100644
 1.8.1.6
 
 
-From 45ee86129a3d878d3a720f3e68eb4239d8c28efa Mon Sep 17 00:00:00 2001
+From b16bb40731b409faf11da8197388a7ab26a0e50b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 11 Dec 2012 19:04:27 +0000
-Subject: [PATCH 68/98] Increase default coherent pool so vchiq starts up
+Subject: [PATCH 068/102] Increase default coherent pool so vchiq starts up
 
 ---
  arch/arm/mach-bcm2708/bcm2708.c | 4 +---
@@ -120928,10 +120932,10 @@ index 9f456e9..87fd348 100644
 1.8.1.6
 
 
-From 9f14fd75602667beb25a144603b663831780c631 Mon Sep 17 00:00:00 2001
+From 10f835d7c46e4694e056ab67d3f9682d1d65a5dd Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Jan 2013 21:34:59 +0000
-Subject: [PATCH 69/98] Add mutex around bcm_mailbox_property function
+Subject: [PATCH 069/102] Add mutex around bcm_mailbox_property function
 
 ---
  arch/arm/mach-bcm2708/vcio.c | 5 ++++-
@@ -120971,10 +120975,10 @@ index 09b78b5..599eb63 100644
 1.8.1.6
 
 
-From 034485623b4918ed4ce8bd8c15304603856d0045 Mon Sep 17 00:00:00 2001
+From 6325da467151a62fcf5d0981762912468cc3fade Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Wed, 9 Jan 2013 16:12:04 +0000
-Subject: [PATCH 70/98] dwc_otg: fix bug in dwc_otg_hcd.c resulting in silent
+Subject: [PATCH 070/102] dwc_otg: fix bug in dwc_otg_hcd.c resulting in silent
  kernel 	 memory corruption, escalating to OOPS under high USB load.
 
 ---
@@ -121011,10 +121015,10 @@ index e6b2a7b..b337e1b 100644
 1.8.1.6
 
 
-From 0ef244165c885638ea672ba55d90a4050fb1da19 Mon Sep 17 00:00:00 2001
+From 4990e3b6f96934ce29a371eca430e4a5fea023e4 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 21 Jan 2013 23:03:53 +0000
-Subject: [PATCH 71/98] Return error value from bcm2708_setup_state. Thanks
+Subject: [PATCH 071/102] Return error value from bcm2708_setup_state. Thanks
  notro
 
 ---
@@ -121037,10 +121041,10 @@ index 9f1580e..8513704 100644
 1.8.1.6
 
 
-From 26e96b922bd30cddbd8c1e3aa0dea36d30821ccd Mon Sep 17 00:00:00 2001
+From 5151d746e52d02a7c399ec863f0330a16a4327e4 Mon Sep 17 00:00:00 2001
 From: Kamal Mostafa <kamal@whence.com>
 Date: Mon, 22 Oct 2012 15:52:44 -0700
-Subject: [PATCH 72/98] spi/spi-bcm2708: respect per-transfer SPI clock
+Subject: [PATCH 072/102] spi/spi-bcm2708: respect per-transfer SPI clock
  speed_hz value
 
 The bcm2708 SPI driver's bcm2708_process_transfer() was ignoring the
@@ -121085,10 +121089,10 @@ index 8513704..b74aa32 100644
 1.8.1.6
 
 
-From da0350f552bfc8e782bfc8b746518110bee8e222 Mon Sep 17 00:00:00 2001
+From 94c3e025769b2661bcd5286923a9456ea32e9966 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 22:29:01 +0000
-Subject: [PATCH 73/98] Add hwrng (hardware random number generator) driver
+Subject: [PATCH 073/102] Add hwrng (hardware random number generator) driver
 
 Conflicts:
 ---
@@ -121268,10 +121272,10 @@ index 0000000..1ffa7d7
 1.8.1.6
 
 
-From 0ebf6b6ca0724d536616d8a168a2f7cf6ed8331d Mon Sep 17 00:00:00 2001
+From abac2d03dee9f46c72b30c140af6932c47dc587a Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 7 Feb 2013 17:04:13 +0000
-Subject: [PATCH 74/98] Add missing newlines to log messages
+Subject: [PATCH 074/102] Add missing newlines to log messages
 
 ---
  drivers/cpufreq/bcm2835-cpufreq.c | 20 ++++++++++----------
@@ -121370,10 +121374,10 @@ index 6ff1edb..5a19212 100755
 1.8.1.6
 
 
-From d280bebfd970d43982a5df78227353b6393dc46d Mon Sep 17 00:00:00 2001
+From 400b7e9b953cc6a852a2f855d8ead3a17233baf8 Mon Sep 17 00:00:00 2001
 From: Technion <Technion>
 Date: Mon, 11 Feb 2013 22:08:53 +1100
-Subject: [PATCH 75/98] Changed wording on logging. Previously, we received
+Subject: [PATCH 075/102] Changed wording on logging. Previously, we received
  errors like this: mmc0: could read SD Status register (SSR) at the 3th
  attempt A more sensible response is now returned. A typo also fixed in
  comments.
@@ -121408,10 +121412,10 @@ index 1ee6cf3..90228f9 100644
 1.8.1.6
 
 
-From a3c046d9b88330827ac8f35ebf940ef0a1e07cde Mon Sep 17 00:00:00 2001
+From 2a4d22b3c85caecc3fcd38d2fa466205a5da44fe Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Fri, 15 Feb 2013 22:36:47 +0000
-Subject: [PATCH 76/98] dwc_otg: Fix unsafe access of QTD during URB enqueue
+Subject: [PATCH 076/102] dwc_otg: Fix unsafe access of QTD during URB enqueue
 
 In dwc_otg_hcd_urb_enqueue during qtd creation, it was possible that the
 transaction could complete almost immediately after the qtd was assigned
@@ -121498,10 +121502,10 @@ index b337e1b..b3e6e52 100644
 1.8.1.6
 
 
-From cc70157a7e0854b99eb41599e6381c9ed06f8155 Mon Sep 17 00:00:00 2001
+From 3d68c8d67e5160831187b05ba56c9a86b6682381 Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Fri, 15 Feb 2013 22:38:40 +0000
-Subject: [PATCH 77/98] dwc_otg: Fix incorrect URB allocation error handling
+Subject: [PATCH 077/102] dwc_otg: Fix incorrect URB allocation error handling
 
 If the memory allocation for a dwc_otg_urb failed, the kernel would OOPS
 because for some reason a member of the *unallocated* struct was set to
@@ -121542,10 +121546,10 @@ index e653d84..fcec97f 100644
 1.8.1.6
 
 
-From ecdda43eb0dbfc2e15de6039cd2adac412f1c68d Mon Sep 17 00:00:00 2001
+From f89498db7dced4b21c51158ad4000759acfbf335 Mon Sep 17 00:00:00 2001
 From: pjennings <pjennings-git@pjennings.net>
 Date: Wed, 20 Feb 2013 17:51:43 -0600
-Subject: [PATCH 78/98] Added inverted transmitter support
+Subject: [PATCH 078/102] Added inverted transmitter support
 
 ---
  drivers/staging/media/lirc/lirc_rpi.c | 17 +++++++++++------
@@ -121626,10 +121630,10 @@ index 96acab0..5bb0dfe 100644
 1.8.1.6
 
 
-From 75e337fd44be6fb8ba6d71b88ce12c7ecd26eb5e Mon Sep 17 00:00:00 2001
+From 09874e5468560c13b84514d5accae43f7275a5a6 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 24 Feb 2013 16:30:57 +0000
-Subject: [PATCH 79/98] Add retry on error and tidy of temperature driver
+Subject: [PATCH 079/102] Add retry on error and tidy of temperature driver
 
 ---
  drivers/thermal/bcm2835-thermal.c | 78 ++++++++++++++-------------------------
@@ -121756,11 +121760,11 @@ index 3f9a733..85fceb5 100644
 1.8.1.6
 
 
-From 4fde193a1a885d33c6466f3d7d5981fd4cc49ba2 Mon Sep 17 00:00:00 2001
+From 3b16c1cb79430b57ff077a407fd89001d20384ef Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Thu, 28 Feb 2013 16:52:51 +0000
-Subject: [PATCH 80/98] dwc_otg: fix potential use-after-free case in interrupt
- handler
+Subject: [PATCH 080/102] dwc_otg: fix potential use-after-free case in
+ interrupt handler
 
 If a transaction had previously aborted, certain interrupts are
 enabled to track error counts and reset where necessary. On IN
@@ -121791,11 +121795,11 @@ index e8c91e7..0c81a64 100644
 1.8.1.6
 
 
-From e0b79f66bcdc2084db2a2b3cc043e62200b2166e Mon Sep 17 00:00:00 2001
+From 14c24823f532747029189f0e5155d85e6bb7fb4b Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Sun, 3 Mar 2013 14:45:53 +0000
-Subject: [PATCH 81/98] dwc_otg: add handling of SPLIT transaction data toggle
- errors
+Subject: [PATCH 081/102] dwc_otg: add handling of SPLIT transaction data
+ toggle errors
 
 Previously a data toggle error on packets from a USB1.1 device behind
 a TT would result in the Pi locking up as the driver never handled
@@ -121849,10 +121853,10 @@ index 0c81a64..16e8c6c 100644
 1.8.1.6
 
 
-From 76b262fd78916bd714f9a07887b2429afc035d53 Mon Sep 17 00:00:00 2001
+From 1c33862335784d4e65b94cb5818b8ec3cfa71d9b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 21:14:28 +0100
-Subject: [PATCH 82/98] Add bitbanging pullups, use them for w1-gpio
+Subject: [PATCH 082/102] Add bitbanging pullups, use them for w1-gpio
 
 Allows parasite power to work, uses module option pullup=1
 ---
@@ -121991,10 +121995,10 @@ index e10acc2..667fdd5 100644
 1.8.1.6
 
 
-From 4ef8f2e537f6da3b8a7fec148ec5f977aad3e4c9 Mon Sep 17 00:00:00 2001
+From 961c937bb67b44d351f31a1ab9ac8639957fff43 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Sat, 26 Jan 2013 20:38:03 +0100
-Subject: [PATCH 83/98] spi-bcm2708: add 9-bit support using LoSSI mode
+Subject: [PATCH 083/102] spi-bcm2708: add 9-bit support using LoSSI mode
 
 ---
  drivers/spi/spi-bcm2708.c | 30 ++++++++++++++++++++++++++++--
@@ -122064,10 +122068,10 @@ index b74aa32..abaa5a6 100644
 1.8.1.6
 
 
-From ed2b56cca472c3580dd4dd0d9923e18b184361b8 Mon Sep 17 00:00:00 2001
+From ef3bb13257937de845843ebbec4c5ec35cea496d Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Thu, 21 Mar 2013 19:36:17 +0000
-Subject: [PATCH 84/98] dwc_otg: implement tasklet for returning URBs to
+Subject: [PATCH 084/102] dwc_otg: implement tasklet for returning URBs to
  usbcore hcd layer
 
 The dwc_otg driver interrupt handler for transfer completion will spend
@@ -122309,10 +122313,10 @@ index 9702f81..7bb133a 100644
 1.8.1.6
 
 
-From 36674c3936fdf6cbbdaeceb04c44503ece90dfb1 Mon Sep 17 00:00:00 2001
+From 61711e38ec9920f03605b22f23f63e2a0919905e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 27 Mar 2013 20:23:39 +0000
-Subject: [PATCH 85/98] dwc_otg: Fix build issue with usb_gadget_probe_driver
+Subject: [PATCH 085/102] dwc_otg: Fix build issue with usb_gadget_probe_driver
 
 ---
  drivers/usb/host/dwc_otg/dwc_otg_pcd_linux.c | 22 +++-------------------
@@ -122378,10 +122382,10 @@ index 903e670..a591d89 100644
 1.8.1.6
 
 
-From fc6f746d8e48c3c405b97ec241217fba7b55c873 Mon Sep 17 00:00:00 2001
+From b1525056e02d418047515c7eb29ba11a6a8a90aa Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 27 Apr 2012 00:31:37 +0100
-Subject: [PATCH 86/98] Update config files for f2fs and 3.8 kernel
+Subject: [PATCH 086/102] Update config files for f2fs and 3.8 kernel
 
 ---
  arch/arm/configs/bcmrpi_cutdown_defconfig   | 504 ----------------------------
@@ -124011,11 +124015,11 @@ index 0000000..10b84df
 1.8.1.6
 
 
-From 94a90cc4da9d051ef0fa192bb11145e126bc716d Mon Sep 17 00:00:00 2001
+From 137a908e0b40dcdbc630808b96fc3dca3ed91b50 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 16 Apr 2013 15:36:01 +0100
-Subject: [PATCH 88/98] Add v6wbi_flush_kern_tlb_range to allow zsmalloc to be
- built as a module
+Subject: [PATCH 088/102] Add v6wbi_flush_kern_tlb_range to allow zsmalloc to
+ be built as a module
 
 ---
  arch/arm/kernel/armksyms.c | 4 ++++
@@ -124037,10 +124041,10 @@ index 60d3b73..cba4d28 100644
 1.8.1.6
 
 
-From a75e8f6e0f095a39b6bd1babb70d19b23f6dd8bc Mon Sep 17 00:00:00 2001
+From 6b029ab6b6035e2d85658a5381546c1020354660 Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Mon, 22 Apr 2013 00:08:36 +0100
-Subject: [PATCH 89/98] dwc_otg: fix NAK holdoff and allow on split
+Subject: [PATCH 089/102] dwc_otg: fix NAK holdoff and allow on split
  transactions only
 
 This corrects a bug where if a single active non-periodic endpoint
@@ -124110,10 +124114,10 @@ index 91eefecd..eaa8f38 100644
 1.8.1.6
 
 
-From 5ce1da4709ccd13ba0e9f511af9cbb920b1f0b73 Mon Sep 17 00:00:00 2001
+From fe1160bb7b53ca48e199d920ccfb262706ac1e14 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 26 Apr 2013 10:08:31 -0700
-Subject: [PATCH 90/98] Merge pull request #286 from
+Subject: [PATCH 090/102] Merge pull request #286 from
  martinezjavier/rpi-3.6.y-dev
 
 add mmap support and some cleanups to bcm2835 ALSA driver
@@ -124594,10 +124598,10 @@ index b966e28..08c763d 100755
 1.8.1.6
 
 
-From d9b38d9b00566541b5cb3f53e1f1645e6e42e16d Mon Sep 17 00:00:00 2001
+From c5541458c100f0090a4ee388a7729684a2942144 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 7 May 2013 22:20:24 +0100
-Subject: [PATCH 91/98] Add quick config.
+Subject: [PATCH 091/102] Add quick config.
 
 This is designed for quick compiling when developing.
 No modules are needed and it includes all Pi specific drivers
@@ -124992,10 +124996,10 @@ index 10b84df..e5efe75 100644
 1.8.1.6
 
 
-From 438fe3becc355a5381fa89ca0d488f66c142d2d0 Mon Sep 17 00:00:00 2001
+From 8d029af692c6d824f77c97e040a1192b55745542 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 10 May 2013 19:42:38 +0100
-Subject: [PATCH 92/98] mmc: suppress sdcard warnings we are happy about by
+Subject: [PATCH 092/102] mmc: suppress sdcard warnings we are happy about by
  default
 
 ---
@@ -125061,10 +125065,10 @@ index 3556ed3..c2409b9 100644
 1.8.1.6
 
 
-From ff0b79fd73e0980dc50df6809f183e0221a74fec Mon Sep 17 00:00:00 2001
+From 7e99dfcf3a71453db52eb04a0efdcb978c5e1faa Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 14 May 2013 11:42:25 +0100
-Subject: [PATCH 93/98] Allow reboot=q on command line to set a flag that
+Subject: [PATCH 093/102] Allow reboot=q on command line to set a flag that
  bootcode.bin can use to boot from alternate partition
 
 ---
@@ -125095,10 +125099,10 @@ index 87fd348..1ed4d73 100644
 1.8.1.6
 
 
-From c0fb35980968ba9c2dd21e0ff3a096bd97a8cdd6 Mon Sep 17 00:00:00 2001
+From 640b5a8e828d424955b350ae1561df8ec378cd7e Mon Sep 17 00:00:00 2001
 From: hutorny <eugene@hutorny.in.ua>
 Date: Mon, 13 May 2013 10:26:14 +0300
-Subject: [PATCH 95/98] Update bcm2708.c to use CONFIG_BCM2708_SPIDEV rather
+Subject: [PATCH 095/102] Update bcm2708.c to use CONFIG_BCM2708_SPIDEV rather
  than CONFIG_SPI
 
 ---
@@ -125148,10 +125152,10 @@ index 1ed4d73..68c577a 100644
 1.8.1.6
 
 
-From c44ae247fcaa54491bde50555625e1e81605e1cb Mon Sep 17 00:00:00 2001
+From 7e5b9f6d6977853567deeb275d9987475b91d231 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 8 Jun 2013 22:14:13 +0100
-Subject: [PATCH 97/98] Only init gpio pins of selected i2c bus
+Subject: [PATCH 097/102] Only init gpio pins of selected i2c bus
 
 ---
  drivers/i2c/busses/i2c-bcm2708.c | 8 +++++---
@@ -125195,10 +125199,10 @@ index 3391889..edc90c0 100644
 1.8.1.6
 
 
-From 975bd78d089fda92d1db126cf1cb199237f2142b Mon Sep 17 00:00:00 2001
+From 0db53cd1f9963d363514a7ee2a953804c8aba920 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 13 Jun 2013 16:46:54 +0100
-Subject: [PATCH 98/98] Avoid responding to unexpected I2C interrupts
+Subject: [PATCH 098/102] Avoid responding to unexpected I2C interrupts
 
 ---
  drivers/i2c/busses/i2c-bcm2708.c | 6 ++++++
@@ -125228,6 +125232,657 @@ index edc90c0..33f4e7d 100644
  	spin_unlock(&bi->lock);
  
  	return handled ? IRQ_HANDLED : IRQ_NONE;
+-- 
+1.8.1.6
+
+
+From 28b9be88b84415a562665bfc2309cc261a161518 Mon Sep 17 00:00:00 2001
+From: Harm Hanemaaijer <fgenfb@yahoo.com>
+Date: Thu, 20 Jun 2013 20:21:39 +0200
+Subject: [PATCH 099/102] Speed up console framebuffer imageblit function
+
+Especially on platforms with a slower CPU but a relatively high
+framebuffer fill bandwidth, like current ARM devices, the existing
+console monochrome imageblit function used to draw console text is
+suboptimal for common pixel depths such as 16bpp and 32bpp. The existing
+code is quite general and can deal with several pixel depths. By creating
+special case functions for 16bpp and 32bpp, by far the most common pixel
+formats used on modern systems, a significant speed-up is attained
+which can be readily felt on ARM-based devices like the Raspberry Pi
+and the Allwinner platform, but should help any platform using the
+fb layer.
+
+The special case functions allow constant folding, eliminating a number
+of instructions including divide operations, and allow the use of an
+unrolled loop, eliminating instructions with a variable shift size,
+reducing source memory access instructions, and eliminating excessive
+branching. These unrolled loops also allow much better code optimization
+by the C compiler. The code that selects which optimized variant is used
+is also simplified, eliminating integer divide instructions.
+
+The speed-up, measured by timing 'cat file.txt' in the console, varies
+between 40% and 70%, when testing on the Raspberry Pi and Allwinner
+ARM-based platforms, depending on font size and the pixel depth, with
+the greater benefit for 32bpp.
+
+Signed-off-by: Harm Hanemaaijer <fgenfb@yahoo.com>
+---
+ drivers/video/cfbimgblt.c | 152 ++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 147 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/video/cfbimgblt.c b/drivers/video/cfbimgblt.c
+index baed57d..ce91bf2 100644
+--- a/drivers/video/cfbimgblt.c
++++ b/drivers/video/cfbimgblt.c
+@@ -28,6 +28,11 @@
+  *
+  *  Also need to add code to deal with cards endians that are different than
+  *  the native cpu endians. I also need to deal with MSB position in the word.
++ *  Modified by Harm Hanemaaijer (fgenfb@yahoo.com) 2013:
++ *  - Provide optimized versions of fast_imageblit for 16 and 32bpp that are
++ *    significantly faster than the previous implementation.
++ *  - Simplify the fast/slow_imageblit selection code, avoiding integer
++ *    divides.
+  */
+ #include <linux/module.h>
+ #include <linux/string.h>
+@@ -262,6 +267,133 @@ static inline void fast_imageblit(const struct fb_image *image, struct fb_info *
+ 	}
+ }	
+ 	
++/*
++ * Optimized fast_imageblit for bpp == 16. ppw = 2, bit_mask = 3 folded
++ * into the code, main loop unrolled.
++ */
++
++static inline void fast_imageblit16(const struct fb_image *image,
++				    struct fb_info *p, u8 __iomem * dst1,
++				    u32 fgcolor, u32 bgcolor)
++{
++	u32 fgx = fgcolor, bgx = bgcolor;
++	u32 spitch = (image->width + 7) / 8;
++	u32 end_mask, eorx;
++	const char *s = image->data, *src;
++	u32 __iomem *dst;
++	const u32 *tab = NULL;
++	int i, j, k;
++
++	tab = fb_be_math(p) ? cfb_tab16_be : cfb_tab16_le;
++
++	fgx <<= 16;
++	bgx <<= 16;
++	fgx |= fgcolor;
++	bgx |= bgcolor;
++
++	eorx = fgx ^ bgx;
++	k = image->width / 2;
++
++	for (i = image->height; i--;) {
++		dst = (u32 __iomem *) dst1;
++		src = s;
++
++		j = k;
++		while (j >= 4) {
++			u8 bits = *src;
++			end_mask = tab[(bits >> 6) & 3];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 4) & 3];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 2) & 3];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[bits & 3];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			src++;
++			j -= 4;
++		}
++		if (j != 0) {
++			u8 bits = *src;
++			end_mask = tab[(bits >> 6) & 3];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			if (j >= 2) {
++				end_mask = tab[(bits >> 4) & 3];
++				FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++				if (j == 3) {
++					end_mask = tab[(bits >> 2) & 3];
++					FB_WRITEL((end_mask & eorx) ^ bgx, dst);
++				}
++			}
++		}
++		dst1 += p->fix.line_length;
++		s += spitch;
++	}
++}
++
++/*
++ * Optimized fast_imageblit for bpp == 32. ppw = 1, bit_mask = 1 folded
++ * into the code, main loop unrolled.
++ */
++
++static inline void fast_imageblit32(const struct fb_image *image,
++				    struct fb_info *p, u8 __iomem * dst1,
++				    u32 fgcolor, u32 bgcolor)
++{
++	u32 fgx = fgcolor, bgx = bgcolor;
++	u32 spitch = (image->width + 7) / 8;
++	u32 end_mask, eorx;
++	const char *s = image->data, *src;
++	u32 __iomem *dst;
++	const u32 *tab = NULL;
++	int i, j, k;
++
++	tab = cfb_tab32;
++
++	eorx = fgx ^ bgx;
++	k = image->width;
++
++	for (i = image->height; i--;) {
++		dst = (u32 __iomem *) dst1;
++		src = s;
++
++		j = k;
++		while (j >= 8) {
++			u8 bits = *src;
++			end_mask = tab[(bits >> 7) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 6) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 5) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 4) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 3) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 2) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[(bits >> 1) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			end_mask = tab[bits & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++			src++;
++			j -= 8;
++		}
++		if (j != 0) {
++			u32 bits = (u32) * src;
++			while (j > 1) {
++				end_mask = tab[(bits >> 7) & 1];
++				FB_WRITEL((end_mask & eorx) ^ bgx, dst++);
++				bits <<= 1;
++				j--;
++			}
++			end_mask = tab[(bits >> 7) & 1];
++			FB_WRITEL((end_mask & eorx) ^ bgx, dst);
++		}
++		dst1 += p->fix.line_length;
++		s += spitch;
++	}
++}
++
+ void cfb_imageblit(struct fb_info *p, const struct fb_image *image)
+ {
+ 	u32 fgcolor, bgcolor, start_index, bitstart, pitch_index = 0;
+@@ -294,11 +426,21 @@ void cfb_imageblit(struct fb_info *p, const struct fb_image *image)
+ 			bgcolor = image->bg_color;
+ 		}	
+ 		
+-		if (32 % bpp == 0 && !start_index && !pitch_index && 
+-		    ((width & (32/bpp-1)) == 0) &&
+-		    bpp >= 8 && bpp <= 32) 			
+-			fast_imageblit(image, p, dst1, fgcolor, bgcolor);
+-		else 
++		if (!start_index && !pitch_index) {
++			if (bpp == 32)
++				fast_imageblit32(image, p, dst1, fgcolor,
++						 bgcolor);
++			else if (bpp == 16 && (width & 1) == 0)
++				fast_imageblit16(image, p, dst1, fgcolor,
++						 bgcolor);
++			else if (bpp == 8 && (width & 3) == 0)
++				fast_imageblit(image, p, dst1, fgcolor,
++					       bgcolor);
++			else
++				slow_imageblit(image, p, dst1, fgcolor,
++					       bgcolor,
++					       start_index, pitch_index);
++		} else
+ 			slow_imageblit(image, p, dst1, fgcolor, bgcolor,
+ 					start_index, pitch_index);
+ 	} else
+-- 
+1.8.1.6
+
+
+From c097503eedbb5e19038bb712e969e12336159dfe Mon Sep 17 00:00:00 2001
+From: Siarhei Siamashka <siarhei.siamashka@gmail.com>
+Date: Mon, 17 Jun 2013 13:32:11 +0300
+Subject: [PATCH 100/102] fbdev: add FBIOCOPYAREA ioctl
+
+Based on the patch authored by Ali Gholami Rudi at
+    https://lkml.org/lkml/2009/7/13/153
+
+Provide an ioctl for userspace applications, but only if this operation
+is hardware accelerated (otherwide it does not make any sense).
+
+Signed-off-by: Siarhei Siamashka <siarhei.siamashka@gmail.com>
+---
+ drivers/video/fbmem.c   | 30 ++++++++++++++++++++++++++++++
+ include/uapi/linux/fb.h |  5 +++++
+ 2 files changed, 35 insertions(+)
+
+diff --git a/drivers/video/fbmem.c b/drivers/video/fbmem.c
+index 86291dc..b488ff9 100644
+--- a/drivers/video/fbmem.c
++++ b/drivers/video/fbmem.c
+@@ -1074,6 +1074,25 @@ static int fb_check_caps(struct fb_info *info, struct fb_var_screeninfo *var,
+  	return ret;
+ }
+ 
++static int fb_copyarea_user(struct fb_info *info,
++			    struct fb_copyarea *copy)
++{
++	int ret = 0;
++	if (!lock_fb_info(info))
++		return -ENODEV;
++	if (copy->dx + copy->width > info->var.xres ||
++	    copy->sx + copy->width > info->var.xres ||
++	    copy->dy + copy->height > info->var.yres ||
++	    copy->sy + copy->height > info->var.yres) {
++		ret = -EINVAL;
++		goto out;
++	}
++	info->fbops->fb_copyarea(info, copy);
++out:
++	unlock_fb_info(info);
++	return ret;
++}
++
+ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
+ 			unsigned long arg)
+ {
+@@ -1084,6 +1103,7 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
+ 	struct fb_cmap cmap_from;
+ 	struct fb_cmap_user cmap;
+ 	struct fb_event event;
++	struct fb_copyarea copy;
+ 	void __user *argp = (void __user *)arg;
+ 	long ret = 0;
+ 
+@@ -1193,6 +1213,15 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
+ 		console_unlock();
+ 		unlock_fb_info(info);
+ 		break;
++	case FBIOCOPYAREA:
++		if (info->flags & FBINFO_HWACCEL_COPYAREA) {
++			/* only provide this ioctl if it is accelerated */
++			if (copy_from_user(&copy, argp, sizeof(copy)))
++				return -EFAULT;
++			ret = fb_copyarea_user(info, &copy);
++			break;
++		}
++		/* fall through */
+ 	default:
+ 		if (!lock_fb_info(info))
+ 			return -ENODEV;
+@@ -1345,6 +1374,7 @@ static long fb_compat_ioctl(struct file *file, unsigned int cmd,
+ 	case FBIOPAN_DISPLAY:
+ 	case FBIOGET_CON2FBMAP:
+ 	case FBIOPUT_CON2FBMAP:
++	case FBIOCOPYAREA:
+ 		arg = (unsigned long) compat_ptr(arg);
+ 	case FBIOBLANK:
+ 		ret = do_fb_ioctl(info, cmd, arg);
+diff --git a/include/uapi/linux/fb.h b/include/uapi/linux/fb.h
+index fb795c3..fa72af0 100644
+--- a/include/uapi/linux/fb.h
++++ b/include/uapi/linux/fb.h
+@@ -34,6 +34,11 @@
+ #define FBIOPUT_MODEINFO        0x4617
+ #define FBIOGET_DISPINFO        0x4618
+ #define FBIO_WAITFORVSYNC	_IOW('F', 0x20, __u32)
++/*
++ * HACK: use 'z' in order not to clash with any other ioctl numbers which might
++ * be concurrently added to the mainline kernel
++ */
++#define FBIOCOPYAREA		_IOW('z', 0x21, struct fb_copyarea)
+ 
+ #define FB_TYPE_PACKED_PIXELS		0	/* Packed Pixels	*/
+ #define FB_TYPE_PLANES			1	/* Non interleaved planes */
+-- 
+1.8.1.6
+
+
+From 538323c20a09c68e6b62d300f2355b34d8e47915 Mon Sep 17 00:00:00 2001
+From: Siarhei Siamashka <siarhei.siamashka@gmail.com>
+Date: Mon, 17 Jun 2013 16:00:25 +0300
+Subject: [PATCH 101/102] bcm2708_fb: DMA acceleration for fb_copyarea
+
+Based on http://www.raspberrypi.org/phpBB3/viewtopic.php?p=62425#p62425
+Also used Simon's dmaer_master module as a reference for tweaking DMA
+settings for better performance.
+
+For now busylooping only. IRQ support might be added later.
+With non-overclocked Raspberry Pi, the performance is ~360 MB/s
+for simple copy or ~260 MB/s for two-pass copy (used when dragging
+windows to the right).
+
+In the case of using DMA channel 0, the performance improves
+to ~440 MB/s.
+
+For comparison, VFP optimized CPU copy can only do ~114 MB/s in
+the same conditions (hindered by reading uncached source buffer).
+
+Signed-off-by: Siarhei Siamashka <siarhei.siamashka@gmail.com>
+---
+ drivers/video/bcm2708_fb.c | 162 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 159 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/video/bcm2708_fb.c b/drivers/video/bcm2708_fb.c
+index 08d9238..c10c5ee 100644
+--- a/drivers/video/bcm2708_fb.c
++++ b/drivers/video/bcm2708_fb.c
+@@ -28,6 +28,7 @@
+ #include <linux/printk.h>
+ #include <linux/console.h>
+ 
++#include <mach/dma.h>
+ #include <mach/platform.h>
+ #include <mach/vcio.h>
+ 
+@@ -63,6 +64,11 @@ struct bcm2708_fb {
+ 	struct fbinfo_s *info;
+ 	dma_addr_t dma;
+ 	u32 cmap[16];
++	int dma_chan;
++	int dma_irq;
++	void __iomem *dma_chan_base;
++	void *cb_base;		/* DMA control blocks */
++	dma_addr_t cb_handle;
+ };
+ 
+ #define to_bcm2708(info)	container_of(info, struct bcm2708_fb, fb)
+@@ -312,11 +318,133 @@ static void bcm2708_fb_fillrect(struct fb_info *info,
+ 	cfb_fillrect(info, rect);
+ }
+ 
++/* A helper function for configuring dma control block */
++static void set_dma_cb(struct bcm2708_dma_cb *cb,
++		       int        burst_size,
++		       dma_addr_t dst,
++		       int        dst_stride,
++		       dma_addr_t src,
++		       int        src_stride,
++		       int        w,
++		       int        h)
++{
++	cb->info = BCM2708_DMA_BURST(burst_size) | BCM2708_DMA_S_WIDTH |
++		   BCM2708_DMA_S_INC | BCM2708_DMA_D_WIDTH |
++		   BCM2708_DMA_D_INC | BCM2708_DMA_TDMODE;
++	cb->dst = dst;
++	cb->src = src;
++	/*
++	 * This is not really obvious from the DMA documentation,
++	 * but the top 16 bits must be programmmed to "height -1"
++	 * and not "height" in 2D mode.
++	 */
++	cb->length = ((h - 1) << 16) | w;
++	cb->stride = ((dst_stride - w) << 16) | (u16)(src_stride - w);
++	cb->pad[0] = 0;
++	cb->pad[1] = 0;
++}
++
+ static void bcm2708_fb_copyarea(struct fb_info *info,
+ 				const struct fb_copyarea *region)
+ {
+-	/*print_debug("bcm2708_fb_copyarea\n"); */
+-	cfb_copyarea(info, region);
++	struct bcm2708_fb *fb = to_bcm2708(info);
++	struct bcm2708_dma_cb *cb = fb->cb_base;
++	int bytes_per_pixel = (info->var.bits_per_pixel + 7) >> 3;
++	/* Channel 0 supports larger bursts and is a bit faster */
++	int burst_size = (fb->dma_chan == 0) ? 8 : 2;
++
++	/* Fallback to cfb_copyarea() if we don't like something */
++	if (bytes_per_pixel > 4 ||
++	    info->var.xres > 1920 || info->var.yres > 1200 ||
++	    region->width <= 0 || region->width > info->var.xres ||
++	    region->height <= 0 || region->height > info->var.yres ||
++	    region->sx < 0 || region->sx >= info->var.xres ||
++	    region->sy < 0 || region->sy >= info->var.yres ||
++	    region->dx < 0 || region->dx >= info->var.xres ||
++	    region->dy < 0 || region->dy >= info->var.yres ||
++	    region->sx + region->width > info->var.xres ||
++	    region->dx + region->width > info->var.xres ||
++	    region->sy + region->height > info->var.yres ||
++	    region->dy + region->height > info->var.yres) {
++		cfb_copyarea(info, region);
++		return;
++	}
++
++	if (region->dy == region->sy && region->dx > region->sx) {
++		/*
++		 * A difficult case of overlapped copy. Because DMA can't
++		 * copy individual scanlines in backwards direction, we need
++		 * two-pass processing. We do it by programming a chain of dma
++		 * control blocks in the first 16K part of the buffer and use
++		 * the remaining 48K as the intermediate temporary scratch
++		 * buffer. The buffer size is sufficient to handle up to
++		 * 1920x1200 resolution at 32bpp pixel depth.
++		 */
++		int y;
++		dma_addr_t control_block_pa = fb->cb_handle;
++		dma_addr_t scratchbuf = fb->cb_handle + 16 * 1024;
++		int scanline_size = bytes_per_pixel * region->width;
++		int scanlines_per_cb = (64 * 1024 - 16 * 1024) / scanline_size;
++
++		for (y = 0; y < region->height; y += scanlines_per_cb) {
++			dma_addr_t src =
++				fb->fb.fix.smem_start +
++				bytes_per_pixel * region->sx +
++				(region->sy + y) * fb->fb.fix.line_length;
++			dma_addr_t dst =
++				fb->fb.fix.smem_start +
++				bytes_per_pixel * region->dx +
++				(region->dy + y) * fb->fb.fix.line_length;
++
++			if (region->height - y < scanlines_per_cb)
++				scanlines_per_cb = region->height - y;
++
++			set_dma_cb(cb, burst_size, scratchbuf, scanline_size,
++				   src, fb->fb.fix.line_length,
++				   scanline_size, scanlines_per_cb);
++			control_block_pa += sizeof(struct bcm2708_dma_cb);
++			cb->next = control_block_pa;
++			cb++;
++
++			set_dma_cb(cb, burst_size, dst, fb->fb.fix.line_length,
++				   scratchbuf, scanline_size,
++				   scanline_size, scanlines_per_cb);
++			control_block_pa += sizeof(struct bcm2708_dma_cb);
++			cb->next = control_block_pa;
++			cb++;
++		}
++		/* move the pointer back to the last dma control block */
++		cb--;
++	} else {
++		/* A single dma control block is enough. */
++		int sy, dy, stride;
++		if (region->dy <= region->sy) {
++			/* processing from top to bottom */
++			dy = region->dy;
++			sy = region->sy;
++			stride = fb->fb.fix.line_length;
++		} else {
++			/* processing from bottom to top */
++			dy = region->dy + region->height - 1;
++			sy = region->sy + region->height - 1;
++			stride = -fb->fb.fix.line_length;
++		}
++		set_dma_cb(cb, burst_size,
++			   fb->fb.fix.smem_start + dy * fb->fb.fix.line_length +
++						   bytes_per_pixel * region->dx,
++			   stride,
++			   fb->fb.fix.smem_start + sy * fb->fb.fix.line_length +
++						   bytes_per_pixel * region->sx,
++			   stride,
++			   region->width * bytes_per_pixel,
++			   region->height);
++	}
++
++	/* end of dma control blocks chain */
++	cb->next = 0;
++
++	bcm_dma_start(fb->dma_chan_base, fb->cb_handle);
++	bcm_dma_wait_idle(fb->dma_chan_base);
+ }
+ 
+ static void bcm2708_fb_imageblit(struct fb_info *info,
+@@ -359,7 +487,7 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
+ 		fb->dma = dma;
+ 	}
+ 	fb->fb.fbops = &bcm2708_fb_ops;
+-	fb->fb.flags = FBINFO_FLAG_DEFAULT;
++	fb->fb.flags = FBINFO_FLAG_DEFAULT | FBINFO_HWACCEL_COPYAREA;
+ 	fb->fb.pseudo_palette = fb->cmap;
+ 
+ 	strncpy(fb->fb.fix.id, bcm2708_name, sizeof(fb->fb.fix.id));
+@@ -424,6 +552,28 @@ static int bcm2708_fb_probe(struct platform_device *dev)
+ 	}
+ 	memset(fb, 0, sizeof(struct bcm2708_fb));
+ 
++	fb->cb_base = dma_alloc_writecombine(&dev->dev, SZ_64K,
++					     &fb->cb_handle, GFP_KERNEL);
++	if (!fb->cb_base) {
++		dev_err(&dev->dev, "cannot allocate DMA CBs\n");
++		ret = -ENOMEM;
++		goto free_fb;
++	}
++
++	pr_info("BCM2708FB: allocated DMA memory %08x\n",
++	       fb->cb_handle);
++
++	ret = bcm_dma_chan_alloc(BCM_DMA_FEATURE_BULK,
++				 &fb->dma_chan_base, &fb->dma_irq);
++	if (ret < 0) {
++		dev_err(&dev->dev, "couldn't allocate a DMA channel\n");
++		goto free_cb;
++	}
++	fb->dma_chan = ret;
++
++	pr_info("BCM2708FB: allocated DMA channel %d @ %p\n",
++	       fb->dma_chan, fb->dma_chan_base);
++
+ 	fb->dev = dev;
+ 
+ 	ret = bcm2708_fb_register(fb);
+@@ -432,6 +582,9 @@ static int bcm2708_fb_probe(struct platform_device *dev)
+ 		goto out;
+ 	}
+ 
++free_cb:
++	dma_free_writecombine(&dev->dev, SZ_64K, fb->cb_base, fb->cb_handle);
++free_fb:
+ 	kfree(fb);
+ free_region:
+ 	dev_err(&dev->dev, "probe failed, err %d\n", ret);
+@@ -449,6 +602,9 @@ static int bcm2708_fb_remove(struct platform_device *dev)
+ 		iounmap(fb->fb.screen_base);
+ 	unregister_framebuffer(&fb->fb);
+ 
++	dma_free_writecombine(&dev->dev, SZ_64K, fb->cb_base, fb->cb_handle);
++	bcm_dma_chan_free(fb->dma_chan);
++
+ 	dma_free_coherent(NULL, PAGE_ALIGN(sizeof(*fb->info)), (void *)fb->info,
+ 			  fb->dma);
+ 	kfree(fb);
+-- 
+1.8.1.6
+
+
+From 5eb73fa33a2d58ecc7857e07ddfa573287b0f59b Mon Sep 17 00:00:00 2001
+From: Mike Bradley <mike.bradley@incanetworks.com>
+Date: Mon, 17 Jun 2013 11:31:42 -0700
+Subject: [PATCH 102/102] dwc_otg: Call usb_hcd_unlink_urb_from_ep with lock
+ held in completion handler
+
+usb_hcd_unlink_urb_from_ep must be called with the HCD lock held.  Calling it
+asynchronously in the tasklet was not safe (regression in
+c4564d4a1a0a9b10d4419e48239f5d99e88d2667).
+
+This change unlinks it from the endpoint prior to queueing it for handling in
+the tasklet, and also adds a check to ensure the urb is OK to be unlinked
+before doing so.
+
+NULL pointer dereference kernel oopses had been observed in usb_hcd_giveback_urb
+when a USB device was unplugged/replugged during data transfer.  This effect
+was reproduced using automated USB port power control, hundreds of replug
+events were performed during active transfers to confirm that the problem was
+eliminated.
+---
+ drivers/usb/host/dwc_otg/dwc_otg_hcd.c       |  2 +-
+ drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c | 18 ++++++++++++++----
+ 2 files changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/usb/host/dwc_otg/dwc_otg_hcd.c b/drivers/usb/host/dwc_otg/dwc_otg_hcd.c
+index eaa8f38..9c2e71a 100644
+--- a/drivers/usb/host/dwc_otg/dwc_otg_hcd.c
++++ b/drivers/usb/host/dwc_otg/dwc_otg_hcd.c
+@@ -704,6 +704,7 @@ static void completion_tasklet_func(void *ptr)
+ 	urb_tq_entry_t *item;
+ 	dwc_irqflags_t flags;
+ 
++	/* This could just be spin_lock_irq */
+ 	DWC_SPINLOCK_IRQSAVE(hcd->lock, &flags);
+ 	while (!DWC_TAILQ_EMPTY(&hcd->completed_urb_list)) {
+ 		item = DWC_TAILQ_FIRST(&hcd->completed_urb_list);
+@@ -713,7 +714,6 @@ static void completion_tasklet_func(void *ptr)
+ 		DWC_SPINUNLOCK_IRQRESTORE(hcd->lock, flags);
+ 		DWC_FREE(item);
+ 
+-		usb_hcd_unlink_urb_from_ep(hcd->priv, urb);
+ 		usb_hcd_giveback_urb(hcd->priv, urb, urb->status);
+ 
+ 		DWC_SPINLOCK_IRQSAVE(hcd->lock, &flags);
+diff --git a/drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c b/drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c
+index 7bb133a..fef557d 100644
+--- a/drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c
++++ b/drivers/usb/host/dwc_otg/dwc_otg_hcd_linux.c
+@@ -265,13 +265,15 @@ static void free_bus_bandwidth(struct usb_hcd *hcd, uint32_t bw,
+ 
+ /**
+  * Sets the final status of an URB and returns it to the device driver. Any
+- * required cleanup of the URB is performed.
++ * required cleanup of the URB is performed.  The HCD lock should be held on
++ * entry.
+  */
+ static int _complete(dwc_otg_hcd_t * hcd, void *urb_handle,
+ 		     dwc_otg_hcd_urb_t * dwc_otg_urb, int32_t status)
+ {
+ 	struct urb *urb = (struct urb *)urb_handle;
+ 	urb_tq_entry_t *new_entry;
++	int rc = 0;
+ 	if (CHK_DEBUG_LEVEL(DBG_HCDV | DBG_HCD_URB)) {
+ 		DWC_PRINTF("%s: urb %p, device %d, ep %d %s, status=%d\n",
+ 			   __func__, urb, usb_pipedevice(urb->pipe),
+@@ -363,9 +365,17 @@ static int _complete(dwc_otg_hcd_t * hcd, void *urb_handle,
+ #endif
+ 	} else {
+ 		new_entry->urb = urb;
+-		DWC_TAILQ_INSERT_TAIL(&hcd->completed_urb_list, new_entry,
+-					urb_tq_entries);
+-		DWC_TASK_HI_SCHEDULE(hcd->completion_tasklet);
++#if USB_URB_EP_LINKING
++		rc = usb_hcd_check_unlink_urb(dwc_otg_hcd_to_hcd(hcd), urb, urb->status);
++		if(0 == rc) {
++			usb_hcd_unlink_urb_from_ep(dwc_otg_hcd_to_hcd(hcd), urb);
++		}
++#endif
++		if(0 == rc) {
++			DWC_TAILQ_INSERT_TAIL(&hcd->completed_urb_list, new_entry,
++						urb_tq_entries);
++			DWC_TASK_HI_SCHEDULE(hcd->completion_tasklet);
++		}
+ 	}
+ 	return 0;
+ }
 -- 
 1.8.1.6
 
