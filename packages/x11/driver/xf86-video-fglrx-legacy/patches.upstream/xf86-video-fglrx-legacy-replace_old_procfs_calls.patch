@@ -1,20 +1,7 @@
-From 455d3759e6d732a4e382dbdeca35afaedaf3f52e Mon Sep 17 00:00:00 2001
-From: Alberto Milone <alberto.milone@canonical.com>
-Date: Thu, 20 Jun 2013 16:02:12 +0200
-Subject: [PATCH 1/1] Add support for Linux 3.10
-
-source: http://sources.gentoo.org/cgi-bin/viewvc.cgi/gentoo-x86/x11-drivers/ati-drivers/files/ati-drivers-13.6-linux-3.10-proc.diff
----
- drmP.h          |    4 -
- drm_proc.h      |   55 ------------
- firegl_public.c |  252 +++++++++++++++++++++++++++++++++++++++++++------------
- 3 files changed, 197 insertions(+), 114 deletions(-)
-
-diff --git a/drmP.h b/drmP.h
-index 81546b2..4e74526 100755
---- a/common/lib/modules/fglrx/build_mod/drmP.h
-+++ b/common/lib/modules/fglrx/build_mod//drmP.h
-@@ -901,10 +901,6 @@ int                   DRM(stub_register)(const char *name,
+diff -Naur xf86-video-fglrx-legacy/common/lib/modules/fglrx/build_mod/drmP.h xf86-video-fglrx-legacy.patch/common/lib/modules/fglrx/build_mod/drmP.h
+--- xf86-video-fglrx-legacy/common/lib/modules/fglrx/build_mod/drmP.h	2012-07-18 17:58:01.000000000 +0200
++++ xf86-video-fglrx-legacy.patch/common/lib/modules/fglrx/build_mod/drmP.h	2013-07-02 23:22:27.700054231 +0200
+@@ -901,10 +901,6 @@
  int                   DRM(stub_unregister)(int minor);
  
  				/* Proc support (drm_proc.h) */
@@ -25,11 +12,10 @@ index 81546b2..4e74526 100755
  extern int            DRM(proc_cleanup)(int minor,
  					struct proc_dir_entry *root,
  					struct proc_dir_entry *dev_root);
-diff --git a/drm_proc.h b/drm_proc.h
-index 1e3ab4a..c52ad7e 100755
---- a/common/lib/modules/fglrx/build_mod/drm_proc.h
-+++ b/common/lib/modules/fglrx/build_mod//drm_proc.h
-@@ -75,61 +75,6 @@ struct drm_proc_list {
+diff -Naur xf86-video-fglrx-legacy/common/lib/modules/fglrx/build_mod/drm_proc.h xf86-video-fglrx-legacy.patch/common/lib/modules/fglrx/build_mod/drm_proc.h
+--- xf86-video-fglrx-legacy/common/lib/modules/fglrx/build_mod/drm_proc.h	2012-07-18 17:58:01.000000000 +0200
++++ xf86-video-fglrx-legacy.patch/common/lib/modules/fglrx/build_mod/drm_proc.h	2013-07-02 23:22:27.701054202 +0200
+@@ -75,61 +75,6 @@
  #define DRM_PROC_ENTRIES (sizeof(DRM(proc_list))/sizeof(DRM(proc_list)[0]))
  
  /**
@@ -91,11 +77,10 @@ index 1e3ab4a..c52ad7e 100755
   * Cleanup the proc filesystem resources.
   *
   * \param minor device minor number.
-diff --git a/firegl_public.c b/firegl_public.c
-index d3ad3ce..890a0aa 100755
---- a/common/lib/modules/fglrx/build_mod/firegl_public.c
-+++ b/common/lib/modules/fglrx/build_mod//firegl_public.c
-@@ -583,6 +583,202 @@ kcl_proc_list_t KCL_PROC_FileList[] =
+diff -Naur xf86-video-fglrx-legacy/common/lib/modules/fglrx/build_mod/firegl_public.c xf86-video-fglrx-legacy.patch/common/lib/modules/fglrx/build_mod/firegl_public.c
+--- xf86-video-fglrx-legacy/common/lib/modules/fglrx/build_mod/firegl_public.c	2013-07-02 23:33:05.566156261 +0200
++++ xf86-video-fglrx-legacy.patch/common/lib/modules/fglrx/build_mod/firegl_public.c	2013-07-02 23:22:27.705054121 +0200
+@@ -571,6 +571,202 @@
      { "NULL",           NULL,                       NULL} // Terminate List!!!
  };
  
@@ -298,7 +283,7 @@ index d3ad3ce..890a0aa 100755
  static struct proc_dir_entry *firegl_proc_init( device_t *dev,
                                                  int minor,
                                                  struct proc_dir_entry *root,
-@@ -677,6 +873,7 @@ static struct proc_dir_entry *firegl_proc_init( device_t *dev,
+@@ -665,6 +861,7 @@
  
      return root;
  }
@@ -306,66 +291,4 @@ index d3ad3ce..890a0aa 100755
  
  static int firegl_proc_cleanup( int minor,
                                  struct proc_dir_entry *root,
-@@ -6135,59 +6332,4 @@ void ATI_API_CALL KCL_fpu_end(void)
-     kernel_fpu_end();
- }
- 
--/** Create new directory entry under "/proc/ati/...."
-- * Where
-- * root_dir - Root directory. If NULL then we should use "/proc/ati" root.
-- * name    - Pointer to the name of directory
-- * access  - Access attribute. We could use it to disable access to the directory for everybody accept owner.
-- *                By default owner is root.
-- * Return NULL if failure. Pointer to proc_dir_entry otherwise
-- */
--void * KCL_create_proc_dir(void *root_dir, const char *name, unsigned int access)
--{
--    struct proc_dir_entry *dir = NULL;
--
--    if (root_dir == NULL)
--         dir = create_proc_entry(name, S_IFDIR | access, firegl_stub_root);
--    else
--         dir = create_proc_entry(name, S_IFDIR | access, (struct proc_dir_entry *)root_dir);
--
--    return dir;
--}
--
--/* Remove proc directory entry
-- * root   - Pointer to directory proc entry or NULL if for "/proc/ati"
-- * name - Name to delete
-- */
--void KCL_remove_proc_dir_entry(void *root, const char *name)
--{
--    if (root == NULL)
--        remove_proc_entry(name, firegl_stub_root);
--    else
--        remove_proc_entry(name, (struct proc_dir_entry *)root);
--}
--
--
--/* Create proc_entry under "root_dir"
-- * read_fn - Function which will be called on read request
-- * write_fn - Function which will be called on write request
-- * private_data - Pointer to private data which will be passed
-- */
--void KCL_create_proc_entry(void *root_dir, const char *name, unsigned int access_mode, void *read_fn, void *write_fn, void *private_data)
--{
--    struct proc_dir_entry *ent = NULL;
--
--    if (root_dir == NULL || name == NULL)
--        return;
--
--    ent = create_proc_entry(name, access_mode, (struct proc_dir_entry *)root_dir);
--
--    if (ent)
--    {
--        ent->read_proc = (read_proc_t *)read_fn;    
--        ent->write_proc = (write_proc_t *)write_fn; 
--        ent->data = private_data;
--    }
--}
--
- #endif /* __KERNEL__ */
--- 
-1.7.9.5
-
+diff -Naur xf86-video-fglrx-legacy/common/lib/modules/fglrx/build_mod/firegl_public.c.orig xf86-video-fglrx-legacy.patch/common/lib/modules/fglrx/build_mod/firegl_public.c.orig
