@@ -1,0 +1,48 @@
+commit 0f41818097e3ada58c21a3a84af86ec3762294ce
+Author: Stefan Saraev <stefan@saraev.ca>
+Date:   Thu Jul 4 18:42:29 2013 +0300
+
+    do not touch nat table before enabling tethering
+    
+    TODO: remove when upstream does a better fix
+
+diff --git a/src/connman.h b/src/connman.h
+index 96f8466..c94d854 100644
+--- a/src/connman.h
++++ b/src/connman.h
+@@ -910,6 +910,8 @@ int __connman_nat_enable(const char *name, const char *address,
+ 				unsigned char prefixlen);
+ void __connman_nat_disable(const char *name);
+ 
++static connman_bool_t nat_enabled = FALSE;
++
+ struct firewall_context;
+ 
+ struct firewall_context *__connman_firewall_create(void);
+diff --git a/src/firewall.c b/src/firewall.c
+index c235d86..1e7dfa9 100644
+--- a/src/firewall.c
++++ b/src/firewall.c
+@@ -421,7 +421,8 @@ static void flush_all_tables(void)
+ 
+ 	flush_table("filter");
+ 	flush_table("mangle");
+-	flush_table("nat");
++	if (nat_enabled)
++		flush_table("nat");
+ }
+ 
+ int __connman_firewall_init(void)
+diff --git a/src/nat.c b/src/nat.c
+index 5447eb7..d5ceffd 100644
+--- a/src/nat.c
++++ b/src/nat.c
+@@ -78,6 +78,8 @@ static int enable_nat(struct connman_nat *nat)
+ 	if (err < 0)
+ 		return err;
+ 
++	nat_enabled = TRUE;
++
+ 	return __connman_iptables_commit("nat");
+ }
+ 
