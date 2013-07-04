@@ -1,7 +1,62 @@
-diff -Naur linux-3.9.8/drivers/hid/hid-core.c linux-3.9.8.patch/drivers/hid/hid-core.c
---- linux-3.9.8/drivers/hid/hid-core.c	2013-06-27 19:41:32.000000000 +0200
-+++ linux-3.9.8.patch/drivers/hid/hid-core.c	2013-06-29 14:25:21.160976576 +0200
-@@ -1697,6 +1697,8 @@
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 427b759..22d320e 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -561,15 +561,6 @@ config HID_PRIMAX
+ 	Support for Primax devices that are not fully compliant with the
+ 	HID standard.
+ 
+-config HID_PS3REMOTE
+-	tristate "Sony PS3 BD Remote Control"
+-	depends on HID
+-	---help---
+-	Support for the Sony PS3 Blue-ray Disk Remote Control and Logitech
+-	Harmony Adapter for PS3, which connect over Bluetooth.
+-
+-	Support for the 6-axis controllers is provided by HID_SONY.
+-
+ config HID_ROCCAT
+ 	tristate "Roccat device support"
+ 	depends on USB_HID
+@@ -594,12 +585,17 @@ config HID_SAMSUNG
+ 	Support for Samsung InfraRed remote control or keyboards.
+ 
+ config HID_SONY
+-	tristate "Sony PS3 controller"
++	tristate "Sony PS2/3 accessories"
+ 	depends on USB_HID
++	depends on NEW_LEDS
++	depends on LEDS_CLASS
+ 	---help---
+-	Support for Sony PS3 6-axis controllers.
+-
+-	Support for the Sony PS3 BD Remote is provided by HID_PS3REMOTE.
++	Support for
++	
++	  * Sony PS3 6-axis controllers
++	  * Buzz controllers
++	  * Sony PS3 Blue-ray Disk Remote Control (Bluetooth)
++	  * Logitech Harmony adapter for Sony Playstation 3 (Bluetooth)
+ 
+ config HID_SPEEDLINK
+ 	tristate "Speedlink VAD Cezanne mouse support"
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index b545124..419b7ca 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -92,7 +92,6 @@ hid-picolcd-y			+= hid-picolcd_debugfs.o
+ endif
+ 
+ obj-$(CONFIG_HID_PRIMAX)	+= hid-primax.o
+-obj-$(CONFIG_HID_PS3REMOTE)	+= hid-ps3remote.o
+ obj-$(CONFIG_HID_ROCCAT)	+= hid-roccat.o hid-roccat-common.o \
+ 	hid-roccat-arvo.o hid-roccat-isku.o hid-roccat-kone.o \
+ 	hid-roccat-koneplus.o hid-roccat-konepure.o hid-roccat-kovaplus.o \
+diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+index b885a28..37e35c0 100644
+--- a/drivers/hid/hid-core.c
++++ b/drivers/hid/hid-core.c
+@@ -1683,6 +1683,8 @@ static const struct hid_device_id hid_have_special_driver[] = {
  	{ HID_USB_DEVICE(USB_VENDOR_ID_SAMSUNG, USB_DEVICE_ID_SAMSUNG_IR_REMOTE) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_SAMSUNG, USB_DEVICE_ID_SAMSUNG_WIRELESS_KBD_MOUSE) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_SKYCABLE, USB_DEVICE_ID_SKYCABLE_WIRELESS_PRESENTER) },
@@ -10,10 +65,11 @@ diff -Naur linux-3.9.8/drivers/hid/hid-core.c linux-3.9.8.patch/drivers/hid/hid-
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_SONY, USB_DEVICE_ID_SONY_PS3_BDREMOTE) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_SONY, USB_DEVICE_ID_SONY_PS3_CONTROLLER) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_SONY, USB_DEVICE_ID_SONY_NAVIGATION_CONTROLLER) },
-diff -Naur linux-3.9.8/drivers/hid/hid-ids.h linux-3.9.8.patch/drivers/hid/hid-ids.h
---- linux-3.9.8/drivers/hid/hid-ids.h	2013-06-27 19:41:32.000000000 +0200
-+++ linux-3.9.8.patch/drivers/hid/hid-ids.h	2013-06-29 14:25:21.161976575 +0200
-@@ -727,6 +727,8 @@
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 56b224e..c11cca1 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -737,6 +737,8 @@
  #define USB_DEVICE_ID_SONY_PS3_BDREMOTE		0x0306
  #define USB_DEVICE_ID_SONY_PS3_CONTROLLER	0x0268
  #define USB_DEVICE_ID_SONY_NAVIGATION_CONTROLLER	0x042f
@@ -22,9 +78,11 @@ diff -Naur linux-3.9.8/drivers/hid/hid-ids.h linux-3.9.8.patch/drivers/hid/hid-i
  
  #define USB_VENDOR_ID_SOUNDGRAPH	0x15c2
  #define USB_DEVICE_ID_SOUNDGRAPH_IMON_FIRST	0x0034
-diff -Naur linux-3.9.8/drivers/hid/hid-ps3remote.c linux-3.9.8.patch/drivers/hid/hid-ps3remote.c
---- linux-3.9.8/drivers/hid/hid-ps3remote.c	2013-06-27 19:41:32.000000000 +0200
-+++ linux-3.9.8.patch/drivers/hid/hid-ps3remote.c	1970-01-01 01:00:00.000000000 +0100
+diff --git a/drivers/hid/hid-ps3remote.c b/drivers/hid/hid-ps3remote.c
+deleted file mode 100644
+index f1239d3..0000000
+--- a/drivers/hid/hid-ps3remote.c
++++ /dev/null
 @@ -1,204 +0,0 @@
 -/*
 - * HID driver for Sony PS3 BD Remote Control
@@ -230,9 +288,10 @@ diff -Naur linux-3.9.8/drivers/hid/hid-ps3remote.c linux-3.9.8.patch/drivers/hid
 -
 -MODULE_LICENSE("GPL");
 -MODULE_AUTHOR("David Dillow <dave@thedillows.org>, Antonio Ospite <ospite@studenti.unina.it>");
-diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-sony.c
---- linux-3.9.8/drivers/hid/hid-sony.c	2013-06-27 19:41:32.000000000 +0200
-+++ linux-3.9.8.patch/drivers/hid/hid-sony.c	2013-06-29 14:26:02.738933634 +0200
+diff --git a/drivers/hid/hid-sony.c b/drivers/hid/hid-sony.c
+index 312098e..83f9629 100644
+--- a/drivers/hid/hid-sony.c
++++ b/drivers/hid/hid-sony.c
 @@ -1,11 +1,13 @@
  /*
 - *  HID driver for some sony "special" devices
@@ -278,7 +337,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  
  static const u8 sixaxis_rdesc_fixup[] = {
  	0x95, 0x13, 0x09, 0x01, 0x81, 0x02, 0x95, 0x0C,
-@@ -55,10 +68,214 @@
+@@ -55,10 +68,214 @@ static const u8 sixaxis_rdesc_fixup2[] = {
  	0xb1, 0x02, 0xc0, 0xc0,
  };
  
@@ -441,13 +500,13 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  	unsigned long quirks;
 +
 +	void *extra;
-+};
-+
+ };
+ 
 +struct buzz_extra {
 +	int led_state;
 +	struct led_classdev *leds[4];
- };
- 
++};
++
 +static __u8 *ps3remote_fixup(struct hid_device *hdev, __u8 *rdesc,
 +			     unsigned int *rsize)
 +{
@@ -493,7 +552,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  /* Sony Vaio VGX has wrongly mouse pointer declared as constant */
  static __u8 *sony_report_fixup(struct hid_device *hdev, __u8 *rdesc,
  		unsigned int *rsize)
-@@ -95,6 +312,10 @@
+@@ -95,6 +312,10 @@ static __u8 *sony_report_fixup(struct hid_device *hdev, __u8 *rdesc,
  		*rsize = sizeof(sixaxis_rdesc_fixup2);
  		memcpy(rdesc, &sixaxis_rdesc_fixup2, *rsize);
  	}
@@ -504,7 +563,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  	return rdesc;
  }
  
-@@ -117,6 +338,41 @@
+@@ -117,6 +338,41 @@ static int sony_raw_event(struct hid_device *hdev, struct hid_report *report,
  	return 0;
  }
  
@@ -546,7 +605,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  /*
   * The Sony Sixaxis does not handle HID Output Reports on the Interrupt EP
   * like it should according to usbhid/hid-core.c::usbhid_output_raw_report()
-@@ -192,11 +448,181 @@
+@@ -192,11 +448,181 @@ static int sixaxis_set_operational_bt(struct hid_device *hdev)
  	return hdev->hid_output_raw_report(hdev, buf, sizeof(buf), HID_FEATURE_REPORT);
  }
  
@@ -565,7 +624,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
 +	value[4] = (leds & 8) ? 0xff : 0x00;
 +	value[5] = 0x00;
 +	value[6] = 0x00;
-+	usbhid_submit_report(hdev, report, USB_DIR_OUT);
++	hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
 +}
 +
 +static void buzz_led_set_brightness(struct led_classdev *led,
@@ -728,7 +787,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  
  	sc = kzalloc(sizeof(*sc), GFP_KERNEL);
  	if (sc == NULL) {
-@@ -213,8 +639,14 @@
+@@ -213,8 +639,14 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
  		goto err_free;
  	}
  
@@ -745,7 +804,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  	if (ret) {
  		hid_err(hdev, "hw start failed\n");
  		goto err_free;
-@@ -226,6 +658,8 @@
+@@ -226,6 +658,8 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
  	}
  	else if (sc->quirks & SIXAXIS_CONTROLLER_BT)
  		ret = sixaxis_set_operational_bt(hdev);
@@ -754,7 +813,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  	else
  		ret = 0;
  
-@@ -242,8 +676,13 @@
+@@ -242,8 +676,13 @@ err_free:
  
  static void sony_remove(struct hid_device *hdev)
  {
@@ -769,7 +828,7 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  }
  
  static const struct hid_device_id sony_devices[] = {
-@@ -257,17 +696,30 @@
+@@ -257,17 +696,30 @@ static const struct hid_device_id sony_devices[] = {
  		.driver_data = VAIO_RDESC_CONSTANT },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_SONY, USB_DEVICE_ID_SONY_VAIO_VGP_MOUSE),
  		.driver_data = VAIO_RDESC_CONSTANT },
@@ -806,55 +865,3 @@ diff -Naur linux-3.9.8/drivers/hid/hid-sony.c linux-3.9.8.patch/drivers/hid/hid-
  };
  module_hid_driver(sony_driver);
  
-diff -Naur linux-3.9.8/drivers/hid/Kconfig linux-3.9.8.patch/drivers/hid/Kconfig
---- linux-3.9.8/drivers/hid/Kconfig	2013-06-27 19:41:32.000000000 +0200
-+++ linux-3.9.8.patch/drivers/hid/Kconfig	2013-06-29 14:25:21.173976563 +0200
-@@ -550,15 +550,6 @@
- 	Support for Primax devices that are not fully compliant with the
- 	HID standard.
- 
--config HID_PS3REMOTE
--	tristate "Sony PS3 BD Remote Control"
--	depends on BT_HIDP
--	---help---
--	Support for the Sony PS3 Blue-ray Disk Remote Control and Logitech
--	Harmony Adapter for PS3, which connect over Bluetooth.
--
--	Support for the 6-axis controllers is provided by HID_SONY.
--
- config HID_ROCCAT
- 	tristate "Roccat device support"
- 	depends on USB_HID
-@@ -583,12 +574,17 @@
- 	Support for Samsung InfraRed remote control or keyboards.
- 
- config HID_SONY
--	tristate "Sony PS3 controller"
-+	tristate "Sony PS2/3 accessories"
- 	depends on USB_HID
-+	depends on NEW_LEDS
-+	depends on LEDS_CLASS
- 	---help---
--	Support for Sony PS3 6-axis controllers.
--
--	Support for the Sony PS3 BD Remote is provided by HID_PS3REMOTE.
-+	Support for
-+	
-+	  * Sony PS3 6-axis controllers
-+	  * Buzz controllers
-+	  * Sony PS3 Blue-ray Disk Remote Control (Bluetooth)
-+	  * Logitech Harmony adapter for Sony Playstation 3 (Bluetooth)
- 
- config HID_SPEEDLINK
- 	tristate "Speedlink VAD Cezanne mouse support"
-diff -Naur linux-3.9.8/drivers/hid/Makefile linux-3.9.8.patch/drivers/hid/Makefile
---- linux-3.9.8/drivers/hid/Makefile	2013-06-27 19:41:32.000000000 +0200
-+++ linux-3.9.8.patch/drivers/hid/Makefile	2013-06-29 14:25:21.174976562 +0200
-@@ -91,7 +91,6 @@
- endif
- 
- obj-$(CONFIG_HID_PRIMAX)	+= hid-primax.o
--obj-$(CONFIG_HID_PS3REMOTE)	+= hid-ps3remote.o
- obj-$(CONFIG_HID_ROCCAT)	+= hid-roccat.o hid-roccat-common.o \
- 	hid-roccat-arvo.o hid-roccat-isku.o hid-roccat-kone.o \
- 	hid-roccat-koneplus.o hid-roccat-kovaplus.o hid-roccat-lua.o \
