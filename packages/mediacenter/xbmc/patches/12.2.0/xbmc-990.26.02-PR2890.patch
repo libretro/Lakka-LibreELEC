@@ -1,0 +1,1875 @@
+From 9752e490e40e69d53e9dbb10a972dff533192570 Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Fri, 14 Jun 2013 12:55:10 +0200
+Subject: [PATCH 1/6] removed: BackGroundInfo Loader multithreading (no longer
+ needed)
+
+---
+ xbmc/BackgroundInfoLoader.cpp               | 62 +++++------------------------
+ xbmc/BackgroundInfoLoader.h                 | 12 ++----
+ xbmc/ThumbLoader.cpp                        |  4 +-
+ xbmc/ThumbLoader.h                          |  2 +-
+ xbmc/addons/GUIWindowAddonBrowser.cpp       |  1 -
+ xbmc/music/MusicInfoLoader.cpp              |  2 +-
+ xbmc/music/MusicThumbLoader.cpp             |  2 +-
+ xbmc/pictures/PictureThumbLoader.cpp        |  2 +-
+ xbmc/pvr/windows/GUIWindowPVRRecordings.cpp |  1 -
+ xbmc/settings/AdvancedSettings.cpp          |  5 ---
+ xbmc/settings/AdvancedSettings.h            |  1 -
+ xbmc/video/VideoThumbLoader.cpp             |  2 +-
+ 12 files changed, 21 insertions(+), 75 deletions(-)
+
+diff --git a/xbmc/BackgroundInfoLoader.cpp b/xbmc/BackgroundInfoLoader.cpp
+index 3c76188..0c6de8d 100644
+--- a/xbmc/BackgroundInfoLoader.cpp
++++ b/xbmc/BackgroundInfoLoader.cpp
+@@ -26,17 +26,12 @@
+ 
+ using namespace std;
+ 
+-#define ITEMS_PER_THREAD 5
+-
+-CBackgroundInfoLoader::CBackgroundInfoLoader(int nThreads)
++CBackgroundInfoLoader::CBackgroundInfoLoader() : m_thread (NULL)
+ {
+   m_bStop = true;
+   m_pObserver=NULL;
+   m_pProgressCallback=NULL;
+   m_pVecItems = NULL;
+-  m_nRequestedThreads = nThreads;
+-  m_bStartCalled = false;
+-  m_nActiveThreads = 0;
+ }
+ 
+ CBackgroundInfoLoader::~CBackgroundInfoLoader()
+@@ -44,29 +39,16 @@
+   StopThread();
+ }
+ 
+-void CBackgroundInfoLoader::SetNumOfWorkers(int nThreads)
+-{
+-  m_nRequestedThreads = nThreads;
+-}
+-
+ void CBackgroundInfoLoader::Run()
+ {
+   try
+   {
+     if (m_vecItems.size() > 0)
+     {
+-      {
+-        CSingleLock lock(m_lock);
+-        if (!m_bStartCalled)
+-        {
+-          OnLoaderStart();
+-          m_bStartCalled = true;
+-        }
+-      }
++      OnLoaderStart();
+ 
+       while (!m_bStop)
+       {
+-        CSingleLock lock(m_lock);
+         CFileItemPtr pItem;
+         vector<CFileItemPtr>::iterator iter = m_vecItems.begin();
+         if (iter != m_vecItems.end())
+@@ -82,7 +64,6 @@ void CBackgroundInfoLoader::Run()
+         if ((m_pProgressCallback && m_pProgressCallback->Abort()) || m_bStop)
+           break;
+ 
+-        lock.Leave();
+         try
+         {
+           if (LoadItem(pItem.get()) && m_pObserver)
+@@ -95,15 +76,10 @@ void CBackgroundInfoLoader::Run()
+       }
+     }
+ 
+-    CSingleLock lock(m_lock);
+-    if (m_nActiveThreads == 1)
+-      OnLoaderFinish();
+-    m_nActiveThreads--;
+-
++    OnLoaderFinish();
+   }
+   catch (...)
+   {
+-    m_nActiveThreads--;
+     CLog::Log(LOGERROR, "%s - Unhandled exception", __FUNCTION__);
+   }
+ }
+@@ -122,26 +98,12 @@ void CBackgroundInfoLoader::Load(CFileItemList& items)
+ 
+   m_pVecItems = &items;
+   m_bStop = false;
+-  m_bStartCalled = false;
+-
+-  int nThreads = m_nRequestedThreads;
+-  if (nThreads == -1)
+-    nThreads = (m_vecItems.size() / (ITEMS_PER_THREAD+1)) + 1;
+ 
+-  if (nThreads > g_advancedSettings.m_bgInfoLoaderMaxThreads)
+-    nThreads = g_advancedSettings.m_bgInfoLoaderMaxThreads;
+-
+-  m_nActiveThreads = nThreads;
+-  for (int i=0; i < nThreads; i++)
+-  {
+-    CThread *pThread = new CThread(this, "Background Loader");
+-    pThread->Create();
++  m_thread = new CThread(this, "Background Loader");
++  m_thread->Create();
+ #ifndef _LINUX
+-    pThread->SetPriority(THREAD_PRIORITY_BELOW_NORMAL);
++  m_thread->SetPriority(THREAD_PRIORITY_BELOW_NORMAL);
+ #endif
+-    m_workers.push_back(pThread);
+-  }
+-
+ }
+ 
+ void CBackgroundInfoLoader::StopAsync()
+@@ -154,21 +116,19 @@ void CBackgroundInfoLoader::StopThread()
+ {
+   StopAsync();
+ 
+-  for (int i=0; i<(int)m_workers.size(); i++)
++  if (m_thread)
+   {
+-    m_workers[i]->StopThread();
+-    delete m_workers[i];
++    m_thread->StopThread();
++    delete m_thread;
++    m_thread = NULL;
+   }
+-
+-  m_workers.clear();
+   m_vecItems.clear();
+   m_pVecItems = NULL;
+-  m_nActiveThreads = 0;
+ }
+ 
+ bool CBackgroundInfoLoader::IsLoading()
+ {
+-  return m_nActiveThreads > 0;
++  return m_thread != NULL;
+ }
+ 
+ void CBackgroundInfoLoader::SetObserver(IBackgroundLoaderObserver* pObserver)
+diff --git a/xbmc/BackgroundInfoLoader.h b/xbmc/BackgroundInfoLoader.h
+index c0c1580..a580605 100644
+--- a/xbmc/BackgroundInfoLoader.h
++++ b/xbmc/BackgroundInfoLoader.h
+@@ -40,7 +40,7 @@ class IBackgroundLoaderObserver
+ class CBackgroundInfoLoader : public IRunnable
+ {
+ public:
+-  CBackgroundInfoLoader(int nThreads=-1);
++  CBackgroundInfoLoader();
+   virtual ~CBackgroundInfoLoader();
+ 
+   void Load(CFileItemList& items);
+@@ -50,11 +50,9 @@ class CBackgroundInfoLoader : public IRunnable
+   void SetProgressCallback(IProgressCallback* pCallback);
+   virtual bool LoadItem(CFileItem* pItem) { return false; };
+ 
+-  void StopThread(); // will actually stop all worker threads.
++  void StopThread(); // will actually stop the loader thread.
+   void StopAsync();  // will ask loader to stop as soon as possible, but not block
+ 
+-  void SetNumOfWorkers(int nThreads); // -1 means auto compute num of required threads
+-
+ protected:
+   virtual void OnLoaderStart() {};
+   virtual void OnLoaderFinish() {};
+@@ -63,14 +61,10 @@ class CBackgroundInfoLoader : public IRunnable
+   std::vector<CFileItemPtr> m_vecItems; // FileItemList would delete the items and we only want to keep a reference.
+   CCriticalSection m_lock;
+ 
+-  bool m_bStartCalled;
+   volatile bool m_bStop;
+-  int  m_nRequestedThreads;
+-  int  m_nActiveThreads;
++  CThread *m_thread;
+ 
+   IBackgroundLoaderObserver* m_pObserver;
+   IProgressCallback* m_pProgressCallback;
+-
+-  std::vector<CThread *> m_workers;
+ };
+ 
+diff --git a/xbmc/ThumbLoader.cpp b/xbmc/ThumbLoader.cpp
+index a6997c8..8382acf 100644
+--- a/xbmc/ThumbLoader.cpp
++++ b/xbmc/ThumbLoader.cpp
+@@ -26,8 +26,8 @@
+ using namespace std;
+ using namespace XFILE;
+ 
+-CThumbLoader::CThumbLoader(int nThreads) :
+-  CBackgroundInfoLoader(nThreads)
++CThumbLoader::CThumbLoader() :
++  CBackgroundInfoLoader()
+ {
+ }
+ 
+diff --git a/xbmc/ThumbLoader.h b/xbmc/ThumbLoader.h
+index a06680f..655d528 100644
+--- a/xbmc/ThumbLoader.h
++++ b/xbmc/ThumbLoader.h
+@@ -25,7 +25,7 @@
+ class CThumbLoader : public CBackgroundInfoLoader
+ {
+ public:
+-  CThumbLoader(int nThreads=-1);
++  CThumbLoader();
+   virtual ~CThumbLoader();
+ 
+   virtual void Initialize() { };
+diff --git a/xbmc/addons/GUIWindowAddonBrowser.cpp b/xbmc/addons/GUIWindowAddonBrowser.cpp
+index e6303e2..dddce48 100644
+--- a/xbmc/addons/GUIWindowAddonBrowser.cpp
++++ b/xbmc/addons/GUIWindowAddonBrowser.cpp
+@@ -59,7 +59,6 @@
+ CGUIWindowAddonBrowser::CGUIWindowAddonBrowser(void)
+ : CGUIMediaWindow(WINDOW_ADDON_BROWSER, "AddonBrowser.xml")
+ {
+-  m_thumbLoader.SetNumOfWorkers(1);
+ }
+ 
+ CGUIWindowAddonBrowser::~CGUIWindowAddonBrowser()
+diff --git a/xbmc/music/MusicInfoLoader.cpp b/xbmc/music/MusicInfoLoader.cpp
+index 4cb41c2..9256e89 100644
+--- a/xbmc/music/MusicInfoLoader.cpp
++++ b/xbmc/music/MusicInfoLoader.cpp
+@@ -41,7 +41,7 @@
+ using namespace MUSIC_INFO;
+ 
+ // HACK until we make this threadable - specify 1 thread only for now
+-CMusicInfoLoader::CMusicInfoLoader() : CBackgroundInfoLoader(1)
++CMusicInfoLoader::CMusicInfoLoader() : CBackgroundInfoLoader()
+ {
+   m_mapFileItems = new CFileItemList;
+ 
+diff --git a/xbmc/music/MusicThumbLoader.cpp b/xbmc/music/MusicThumbLoader.cpp
+index 5d66e1c..dc21ccc 100644
+--- a/xbmc/music/MusicThumbLoader.cpp
++++ b/xbmc/music/MusicThumbLoader.cpp
+@@ -30,7 +30,7 @@
+ using namespace std;
+ using namespace MUSIC_INFO;
+ 
+-CMusicThumbLoader::CMusicThumbLoader() : CThumbLoader(1)
++CMusicThumbLoader::CMusicThumbLoader() : CThumbLoader()
+ {
+   m_database = new CMusicDatabase;
+ }
+diff --git a/xbmc/pictures/PictureThumbLoader.cpp b/xbmc/pictures/PictureThumbLoader.cpp
+index 2eb57f6..8e690d2 100644
+--- a/xbmc/pictures/PictureThumbLoader.cpp
++++ b/xbmc/pictures/PictureThumbLoader.cpp
+@@ -35,7 +35,7 @@
+ using namespace XFILE;
+ using namespace std;
+ 
+-CPictureThumbLoader::CPictureThumbLoader() : CThumbLoader(1), CJobQueue(true)
++CPictureThumbLoader::CPictureThumbLoader() : CThumbLoader(), CJobQueue(true)
+ {
+   m_regenerateThumbs = false;
+ }
+diff --git a/xbmc/pvr/windows/GUIWindowPVRRecordings.cpp b/xbmc/pvr/windows/GUIWindowPVRRecordings.cpp
+index 369a775..a49ba32 100644
+--- a/xbmc/pvr/windows/GUIWindowPVRRecordings.cpp
++++ b/xbmc/pvr/windows/GUIWindowPVRRecordings.cpp
+@@ -42,7 +42,6 @@
+   CGUIWindowPVRCommon(parent, PVR_WINDOW_RECORDINGS, CONTROL_BTNRECORDINGS, CONTROL_LIST_RECORDINGS)
+ {
+   m_strSelectedPath = "pvr://recordings/";
+-  m_thumbLoader.SetNumOfWorkers(1);
+ }
+ 
+ void CGUIWindowPVRRecordings::UnregisterObservers(void)
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index 3189ad9..bbbdb01 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -346,8 +346,6 @@ void CAdvancedSettings::Initialize()
+   m_alwaysOnTop = false;
+ #endif
+ 
+-  m_bgInfoLoaderMaxThreads = 5;
+-
+   m_iPVRTimeCorrection             = 0;
+   m_iPVRInfoToggleInterval         = 3000;
+   m_bPVRShowEpgInfoOnEpgItemSelect = true;
+@@ -1053,9 +1051,6 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+ 
+   XMLUtils::GetBoolean(pRootElement, "alwaysontop", m_alwaysOnTop);
+ 
+-  XMLUtils::GetInt(pRootElement, "bginfoloadermaxthreads", m_bgInfoLoaderMaxThreads);
+-  m_bgInfoLoaderMaxThreads = std::max(1, m_bgInfoLoaderMaxThreads);
+-
+   TiXmlElement *pPVR = pRootElement->FirstChildElement("pvr");
+   if (pPVR)
+   {
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index dc0c854..2385d2f 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -337,7 +337,6 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
+ 
+     CStdString m_cpuTempCmd;
+     CStdString m_gpuTempCmd;
+-    int m_bgInfoLoaderMaxThreads;
+ 
+     /* PVR/TV related advanced settings */
+     int m_iPVRTimeCorrection;     /*!< @brief correct all times (epg tags, timer tags, recording tags) by this amount of minutes. defaults to 0. */
+diff --git a/xbmc/video/VideoThumbLoader.cpp b/xbmc/video/VideoThumbLoader.cpp
+index a130f57..0801d6b 100644
+--- a/xbmc/video/VideoThumbLoader.cpp
++++ b/xbmc/video/VideoThumbLoader.cpp
+@@ -116,7 +116,7 @@ bool CThumbExtractor::DoWork()
+ }
+ 
+ CVideoThumbLoader::CVideoThumbLoader() :
+-  CThumbLoader(1), CJobQueue(true), m_pStreamDetailsObs(NULL)
++  CThumbLoader(), CJobQueue(true), m_pStreamDetailsObs(NULL)
+ {
+   m_database = new CVideoDatabase();
+ }
+-- 
+1.8.1.6
+
+
+From 8f3a951e751d8cd7d8e1cbfa2c3732c48f1639c7 Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Fri, 14 Jun 2013 13:44:23 +0200
+Subject: [PATCH 2/6] changed: Split background info loading into a 2 stages
+
+This allows us to first perform loading of cached (fast) stuff and after that load the lookup (slow) stuff (partially fixes #14071)
+---
+ xbmc/BackgroundInfoLoader.cpp        | 32 +++++++++++++++-------
+ xbmc/BackgroundInfoLoader.h          |  2 ++
+ xbmc/ThumbLoader.cpp                 | 17 +++++++++++-
+ xbmc/ThumbLoader.h                   |  2 ++
+ xbmc/music/MusicInfoLoader.cpp       | 22 +++++++++++++--
+ xbmc/music/MusicInfoLoader.h         |  2 ++
+ xbmc/music/MusicThumbLoader.cpp      | 33 ++++++++++++++++++++--
+ xbmc/music/MusicThumbLoader.h        |  4 ++-
+ xbmc/pictures/PictureInfoLoader.cpp  | 25 +++++++++++++++--
+ xbmc/pictures/PictureInfoLoader.h    |  2 ++
+ xbmc/pictures/PictureThumbLoader.cpp | 18 ++++++++++--
+ xbmc/pictures/PictureThumbLoader.h   |  2 ++
+ xbmc/video/VideoThumbLoader.cpp      | 53 +++++++++++++++++++++++++++++++-----
+ xbmc/video/VideoThumbLoader.h        |  2 ++
+ 14 files changed, 186 insertions(+), 30 deletions(-)
+
+diff --git a/xbmc/BackgroundInfoLoader.cpp b/xbmc/BackgroundInfoLoader.cpp
+index 0c6de8d..8e488d0 100644
+--- a/xbmc/BackgroundInfoLoader.cpp
++++ b/xbmc/BackgroundInfoLoader.cpp
+@@ -47,18 +47,30 @@ void CBackgroundInfoLoader::Run()
+     {
+       OnLoaderStart();
+ 
+-      while (!m_bStop)
++      // Stage 1: All "fast" stuff we have already cached
++      for (vector<CFileItemPtr>::const_iterator iter = m_vecItems.begin(); iter != m_vecItems.end(); ++iter)
+       {
+-        CFileItemPtr pItem;
+-        vector<CFileItemPtr>::iterator iter = m_vecItems.begin();
+-        if (iter != m_vecItems.end())
++        CFileItemPtr pItem = *iter;
++
++        // Ask the callback if we should abort
++        if ((m_pProgressCallback && m_pProgressCallback->Abort()) || m_bStop)
++          break;
++
++        try
+         {
+-          pItem = *iter;
+-          m_vecItems.erase(iter);
++          if (LoadItemCached(pItem.get()) && m_pObserver)
++            m_pObserver->OnItemLoaded(pItem.get());
+         }
++        catch (...)
++        {
++          CLog::Log(LOGERROR, "CBackgroundInfoLoader::LoadItemCached - Unhandled exception for item %s", pItem->GetPath().c_str());
++        }
++      }
+ 
+-        if (pItem == NULL)
+-          break;
++      // Stage 2: All "slow" stuff that we need to lookup
++      for (vector<CFileItemPtr>::const_iterator iter = m_vecItems.begin(); iter != m_vecItems.end(); ++iter)
++      {
++        CFileItemPtr pItem = *iter;
+ 
+         // Ask the callback if we should abort
+         if ((m_pProgressCallback && m_pProgressCallback->Abort()) || m_bStop)
+@@ -66,12 +78,12 @@ void CBackgroundInfoLoader::Run()
+ 
+         try
+         {
+-          if (LoadItem(pItem.get()) && m_pObserver)
++          if (LoadItemLookup(pItem.get()) && m_pObserver)
+             m_pObserver->OnItemLoaded(pItem.get());
+         }
+         catch (...)
+         {
+-          CLog::Log(LOGERROR, "%s::LoadItem - Unhandled exception for item %s", __FUNCTION__, pItem->GetPath().c_str());
++          CLog::Log(LOGERROR, "CBackgroundInfoLoader::LoadItemLookup - Unhandled exception for item %s", pItem->GetPath().c_str());
+         }
+       }
+     }
+diff --git a/xbmc/BackgroundInfoLoader.h b/xbmc/BackgroundInfoLoader.h
+index a580605..3a214a3 100644
+--- a/xbmc/BackgroundInfoLoader.h
++++ b/xbmc/BackgroundInfoLoader.h
+@@ -49,6 +49,8 @@ class CBackgroundInfoLoader : public IRunnable
+   void SetObserver(IBackgroundLoaderObserver* pObserver);
+   void SetProgressCallback(IProgressCallback* pCallback);
+   virtual bool LoadItem(CFileItem* pItem) { return false; };
++  virtual bool LoadItemCached(CFileItem* pItem) { return false; };
++  virtual bool LoadItemLookup(CFileItem* pItem) { return false; };
+ 
+   void StopThread(); // will actually stop the loader thread.
+   void StopAsync();  // will ask loader to stop as soon as possible, but not block
+diff --git a/xbmc/ThumbLoader.cpp b/xbmc/ThumbLoader.cpp
+index 8382acf..aa4cb82 100644
+--- a/xbmc/ThumbLoader.cpp
++++ b/xbmc/ThumbLoader.cpp
+@@ -60,10 +60,25 @@ void CThumbLoader::SetCachedImage(const CFileItem &item, const CStdString &type,
+ 
+ bool CProgramThumbLoader::LoadItem(CFileItem *pItem)
+ {
+-  if (pItem->IsParentFolder()) return true;
++  bool result  = LoadItemCached(pItem);
++       result |= LoadItemLookup(pItem);
++
++  return result;
++}
++
++bool CProgramThumbLoader::LoadItemCached(CFileItem *pItem)
++{
++  if (pItem->IsParentFolder())
++    return false;
++
+   return FillThumb(*pItem);
+ }
+ 
++bool CProgramThumbLoader::LoadItemLookup(CFileItem *pItem)
++{
++  return false;
++}
++
+ bool CProgramThumbLoader::FillThumb(CFileItem &item)
+ {
+   // no need to do anything if we already have a thumb set
+diff --git a/xbmc/ThumbLoader.h b/xbmc/ThumbLoader.h
+index 655d528..2ee06d1 100644
+--- a/xbmc/ThumbLoader.h
++++ b/xbmc/ThumbLoader.h
+@@ -57,6 +57,8 @@ class CProgramThumbLoader : public CThumbLoader
+   CProgramThumbLoader();
+   virtual ~CProgramThumbLoader();
+   virtual bool LoadItem(CFileItem* pItem);
++  virtual bool LoadItemCached(CFileItem* pItem);
++  virtual bool LoadItemLookup(CFileItem* pItem);
+ 
+   /*! \brief Fill the thumb of a programs item
+    First uses a cached thumb from a previous run, then checks for a local thumb
+diff --git a/xbmc/music/MusicInfoLoader.cpp b/xbmc/music/MusicInfoLoader.cpp
+index 9256e89..5924f47 100644
+--- a/xbmc/music/MusicInfoLoader.cpp
++++ b/xbmc/music/MusicInfoLoader.cpp
+@@ -125,6 +125,25 @@ bool CMusicInfoLoader::LoadAdditionalTagInfo(CFileItem* pItem)
+ 
+ bool CMusicInfoLoader::LoadItem(CFileItem* pItem)
+ {
++  bool result  = LoadItemCached(pItem);
++       result |= LoadItemLookup(pItem);
++
++  return result;
++}
++
++bool CMusicInfoLoader::LoadItemCached(CFileItem* pItem)
++{
++  if (pItem->m_bIsFolder || pItem->IsPlayList() || pItem->IsNFO() || pItem->IsInternetStream())
++    return false;
++
++  // Get thumb for item
++  m_thumbLoader->LoadItem(pItem);
++
++  return true;
++}
++
++bool CMusicInfoLoader::LoadItemLookup(CFileItem* pItem)
++{
+   if (m_pProgressCallback && !pItem->m_bIsFolder)
+     m_pProgressCallback->SetProgressAdvance();
+ 
+@@ -188,9 +207,6 @@ bool CMusicInfoLoader::LoadItem(CFileItem* pItem)
+     }
+   }
+ 
+-  // Get thumb for item
+-  m_thumbLoader->LoadItem(pItem);
+-
+   return true;
+ }
+ 
+diff --git a/xbmc/music/MusicInfoLoader.h b/xbmc/music/MusicInfoLoader.h
+index 7715cba..543a8bf 100644
+--- a/xbmc/music/MusicInfoLoader.h
++++ b/xbmc/music/MusicInfoLoader.h
+@@ -34,6 +34,8 @@ class CMusicInfoLoader : public CBackgroundInfoLoader
+ 
+   void UseCacheOnHD(const CStdString& strFileName);
+   virtual bool LoadItem(CFileItem* pItem);
++  virtual bool LoadItemCached(CFileItem* pItem);
++  virtual bool LoadItemLookup(CFileItem* pItem);
+   static bool LoadAdditionalTagInfo(CFileItem* pItem);
+ 
+ protected:
+diff --git a/xbmc/music/MusicThumbLoader.cpp b/xbmc/music/MusicThumbLoader.cpp
+index dc21ccc..bc1d84a 100644
+--- a/xbmc/music/MusicThumbLoader.cpp
++++ b/xbmc/music/MusicThumbLoader.cpp
+@@ -64,21 +64,30 @@ void CMusicThumbLoader::OnLoaderFinish()
+ 
+ bool CMusicThumbLoader::LoadItem(CFileItem* pItem)
+ {
++  bool result  = LoadItemCached(pItem);
++       result |= LoadItemLookup(pItem);
++
++  return result;
++}
++
++bool CMusicThumbLoader::LoadItemCached(CFileItem* pItem)
++{
+   if (pItem->m_bIsShareOrDrive)
+-    return true;
++    return false;
+ 
+   if (pItem->HasMusicInfoTag() && pItem->GetArt().empty())
+   {
+     if (FillLibraryArt(*pItem))
+       return true;
++      
+     if (pItem->GetMusicInfoTag()->GetType() == "artist")
+-      return true; // no fallback
++      return false; // No fallback
+   }
+ 
+   if (pItem->HasVideoInfoTag() && pItem->GetArt().empty())
+   { // music video
+     CVideoThumbLoader loader;
+-    if (loader.LoadItem(pItem))
++    if (loader.LoadItemCached(pItem))
+       return true;
+   }
+ 
+@@ -102,6 +111,24 @@ bool CMusicThumbLoader::LoadItem(CFileItem* pItem)
+     }
+   }
+ 
++  return false;
++}
++
++bool CMusicThumbLoader::LoadItemLookup(CFileItem* pItem)
++{
++  if (pItem->m_bIsShareOrDrive)
++    return false;
++
++  if (pItem->HasMusicInfoTag() && pItem->GetMusicInfoTag()->GetType() == "artist") // No fallback for artist
++    return false;
++
++  if (pItem->HasVideoInfoTag())
++  { // music video
++    CVideoThumbLoader loader;
++    if (loader.LoadItemLookup(pItem))
++      return true;
++  }
++
+   if (!pItem->HasArt("thumb"))
+   {
+     // Look for embedded art
+diff --git a/xbmc/music/MusicThumbLoader.h b/xbmc/music/MusicThumbLoader.h
+index 6351789..f8bbd29 100644
+--- a/xbmc/music/MusicThumbLoader.h
++++ b/xbmc/music/MusicThumbLoader.h
+@@ -40,7 +40,9 @@ class CMusicThumbLoader : public CThumbLoader
+   virtual void Deinitialize();
+ 
+   virtual bool LoadItem(CFileItem* pItem);
+-  
++  virtual bool LoadItemCached(CFileItem* pItem);
++  virtual bool LoadItemLookup(CFileItem* pItem);
++
+   /*! \brief helper function to fill the art for a video library item
+    \param item a video CFileItem
+    \return true if we fill art, false otherwise
+diff --git a/xbmc/pictures/PictureInfoLoader.cpp b/xbmc/pictures/PictureInfoLoader.cpp
+index 00b30d3..f92f307 100644
+--- a/xbmc/pictures/PictureInfoLoader.cpp
++++ b/xbmc/pictures/PictureInfoLoader.cpp
+@@ -50,16 +50,21 @@ void CPictureInfoLoader::OnLoaderStart()
+ 
+ bool CPictureInfoLoader::LoadItem(CFileItem* pItem)
+ {
+-  if (m_pProgressCallback && !pItem->m_bIsFolder)
+-    m_pProgressCallback->SetProgressAdvance();
++  bool result  = LoadItemCached(pItem);
++       result |= LoadItemLookup(pItem);
+ 
++  return result;
++}
++
++bool CPictureInfoLoader::LoadItemCached(CFileItem* pItem)
++{
+   if (!pItem->IsPicture() || pItem->IsZIP() || pItem->IsRAR() || pItem->IsCBR() || pItem->IsCBZ() || pItem->IsInternetStream() || pItem->IsVideo())
+     return false;
+ 
+   if (pItem->HasPictureInfoTag())
+     return true;
+ 
+-  // first check the cached item
++  // Check the cached item
+   CFileItemPtr mapItem = (*m_mapFileItems)[pItem->GetPath()];
+   if (mapItem && mapItem->m_dateTime==pItem->m_dateTime && mapItem->HasPictureInfoTag())
+   { // Query map if we previously cached the file on HD
+@@ -68,6 +73,20 @@ bool CPictureInfoLoader::LoadItem(CFileItem* pItem)
+     return true;
+   }
+ 
++  return true;
++}
++
++bool CPictureInfoLoader::LoadItemLookup(CFileItem* pItem)
++{
++  if (m_pProgressCallback && !pItem->m_bIsFolder)
++    m_pProgressCallback->SetProgressAdvance();
++
++  if (!pItem->IsPicture() || pItem->IsZIP() || pItem->IsRAR() || pItem->IsCBR() || pItem->IsCBZ() || pItem->IsInternetStream() || pItem->IsVideo())
++    return false;
++
++  if (pItem->HasPictureInfoTag())
++    return false;
++
+   if (m_loadTags)
+   { // Nothing found, load tag from file
+     pItem->GetPictureInfoTag()->Load(pItem->GetPath());
+diff --git a/xbmc/pictures/PictureInfoLoader.h b/xbmc/pictures/PictureInfoLoader.h
+index 7308413..d390318 100644
+--- a/xbmc/pictures/PictureInfoLoader.h
++++ b/xbmc/pictures/PictureInfoLoader.h
+@@ -30,6 +30,8 @@ class CPictureInfoLoader : public CBackgroundInfoLoader
+ 
+   void UseCacheOnHD(const CStdString& strFileName);
+   virtual bool LoadItem(CFileItem* pItem);
++  virtual bool LoadItemCached(CFileItem* pItem);
++  virtual bool LoadItemLookup(CFileItem* pItem);
+ 
+ protected:
+   virtual void OnLoaderStart();
+diff --git a/xbmc/pictures/PictureThumbLoader.cpp b/xbmc/pictures/PictureThumbLoader.cpp
+index 8e690d2..3943a11 100644
+--- a/xbmc/pictures/PictureThumbLoader.cpp
++++ b/xbmc/pictures/PictureThumbLoader.cpp
+@@ -47,8 +47,17 @@
+ 
+ bool CPictureThumbLoader::LoadItem(CFileItem* pItem)
+ {
+-  if (pItem->m_bIsShareOrDrive) return true;
+-  if (pItem->IsParentFolder()) return true;
++  bool result  = LoadItemCached(pItem);
++       result |= LoadItemLookup(pItem);
++
++  return result;
++}
++
++bool CPictureThumbLoader::LoadItemCached(CFileItem* pItem)
++{
++  if (pItem->m_bIsShareOrDrive
++  ||  pItem->IsParentFolder())
++    return false;
+ 
+   if (pItem->HasArt("thumb") && m_regenerateThumbs)
+   {
+@@ -95,6 +104,11 @@ bool CPictureThumbLoader::LoadItem(CFileItem* pItem)
+   return true;
+ }
+ 
++bool CPictureThumbLoader::LoadItemLookup(CFileItem* pItem)
++{
++  return false;
++}
++
+ void CPictureThumbLoader::OnJobComplete(unsigned int jobID, bool success, CJob* job)
+ {
+   if (success)
+diff --git a/xbmc/pictures/PictureThumbLoader.h b/xbmc/pictures/PictureThumbLoader.h
+index 5191834..e7ad872 100644
+--- a/xbmc/pictures/PictureThumbLoader.h
++++ b/xbmc/pictures/PictureThumbLoader.h
+@@ -29,6 +29,8 @@ class CPictureThumbLoader : public CThumbLoader, public CJobQueue
+   CPictureThumbLoader();
+   virtual ~CPictureThumbLoader();
+   virtual bool LoadItem(CFileItem* pItem);
++  virtual bool LoadItemCached(CFileItem* pItem);
++  virtual bool LoadItemLookup(CFileItem* pItem);
+   void SetRegenerateThumbs(bool regenerate) { m_regenerateThumbs = regenerate; };
+   static void ProcessFoldersAndArchives(CFileItem *pItem);
+ 
+diff --git a/xbmc/video/VideoThumbLoader.cpp b/xbmc/video/VideoThumbLoader.cpp
+index 0801d6b..4f3fea2 100644
+--- a/xbmc/video/VideoThumbLoader.cpp
++++ b/xbmc/video/VideoThumbLoader.cpp
+@@ -199,6 +199,14 @@ static void SetupRarOptions(CFileItem& item, const CStdString& path)
+  */
+ bool CVideoThumbLoader::LoadItem(CFileItem* pItem)
+ {
++  bool result  = LoadItemCached(pItem);
++       result |= LoadItemLookup(pItem);
++
++  return result;
++}
++
++bool CVideoThumbLoader::LoadItemCached(CFileItem* pItem)
++{
+   if (pItem->m_bIsShareOrDrive
+   ||  pItem->IsParentFolder())
+     return false;
+@@ -242,20 +250,51 @@ bool CVideoThumbLoader::LoadItem(CFileItem* pItem)
+     {
+       std::string type = *i;
+       std::string art = GetCachedImage(*pItem, type);
+-      if (art.empty())
+-      {
+-        art = GetLocalArt(*pItem, type, type=="fanart");
+-        if (!art.empty()) // cache it
+-          SetCachedImage(*pItem, type, art);
+-      }
+       if (!art.empty())
++        artwork.insert(make_pair(type, art));
++    }
++    SetArt(*pItem, artwork);
++  }
++
++  m_database->Close();
++
++  return true;
++}
++
++bool CVideoThumbLoader::LoadItemLookup(CFileItem* pItem)
++{
++  if (pItem->m_bIsShareOrDrive
++  ||  pItem->IsParentFolder())
++    return false;
++
++  if (pItem->HasVideoInfoTag()                         &&
++     !pItem->GetVideoInfoTag()->m_type.empty()         &&
++      pItem->GetVideoInfoTag()->m_type != "movie"      &&
++      pItem->GetVideoInfoTag()->m_type != "tvshow"     &&
++      pItem->GetVideoInfoTag()->m_type != "episode"    &&
++      pItem->GetVideoInfoTag()->m_type != "musicvideo")
++    return false; // Nothing to do here
++
++  m_database->Open();
++  map<string, string> artwork = pItem->GetArt();
++  vector<string> artTypes = GetArtTypes(pItem->HasVideoInfoTag() ? pItem->GetVideoInfoTag()->m_type : "");
++  if (find(artTypes.begin(), artTypes.end(), "thumb") == artTypes.end())
++    artTypes.push_back("thumb"); // always look for "thumb" art for files
++  for (vector<string>::const_iterator i = artTypes.begin(); i != artTypes.end(); ++i)
++  {
++    std::string type = *i;
++    if (!pItem->HasArt(type))
++    {
++      std::string art = GetLocalArt(*pItem, type, type=="fanart");
++      if (!art.empty()) // cache it
+       {
++        SetCachedImage(*pItem, type, art);
+         CTextureCache::Get().BackgroundCacheImage(art);
+         artwork.insert(make_pair(type, art));
+       }
+     }
+-    SetArt(*pItem, artwork);
+   }
++  SetArt(*pItem, artwork);
+ 
+   // We can only extract flags/thumbs for file-like items
+   if (!pItem->m_bIsFolder && pItem->IsVideo())
+diff --git a/xbmc/video/VideoThumbLoader.h b/xbmc/video/VideoThumbLoader.h
+index 4befd6c..97ac22d 100644
+--- a/xbmc/video/VideoThumbLoader.h
++++ b/xbmc/video/VideoThumbLoader.h
+@@ -68,6 +68,8 @@ class CVideoThumbLoader : public CThumbLoader, public CJobQueue
+ 
+   virtual void Initialize();
+   virtual bool LoadItem(CFileItem* pItem);
++  virtual bool LoadItemCached(CFileItem* pItem);
++  virtual bool LoadItemLookup(CFileItem* pItem);
+   void SetStreamDetailsObserver(IStreamDetailsObserver *pObs) { m_pStreamDetailsObs = pObs; }
+ 
+   /*! \brief Fill the thumb of a video item
+-- 
+1.8.1.6
+
+
+From 7ea5521c4477d095cecbfd570de7972ee2b1b3f8 Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Thu, 20 Jun 2013 12:41:21 +0200
+Subject: [PATCH 3/6] changed: Renamed m_database to m_video/m_musicDatabase
+ for clarity
+
+---
+ xbmc/music/MusicThumbLoader.cpp | 26 +++++++++++++-------------
+ xbmc/music/MusicThumbLoader.h   |  2 +-
+ xbmc/video/VideoThumbLoader.cpp | 33 +++++++++++++++++----------------
+ xbmc/video/VideoThumbLoader.h   |  2 +-
+ 4 files changed, 32 insertions(+), 31 deletions(-)
+
+diff --git a/xbmc/music/MusicThumbLoader.cpp b/xbmc/music/MusicThumbLoader.cpp
+index bc1d84a..8272834 100644
+--- a/xbmc/music/MusicThumbLoader.cpp
++++ b/xbmc/music/MusicThumbLoader.cpp
+@@ -32,23 +32,23 @@
+ 
+ CMusicThumbLoader::CMusicThumbLoader() : CThumbLoader()
+ {
+-  m_database = new CMusicDatabase;
++  m_musicDatabase = new CMusicDatabase;
+ }
+ 
+ CMusicThumbLoader::~CMusicThumbLoader()
+ {
+-  delete m_database;
++  delete m_musicDatabase;
+ }
+ 
+ void CMusicThumbLoader::Initialize()
+ {
+-  m_database->Open();
++  m_musicDatabase->Open();
+   m_albumArt.clear();
+ }
+ 
+ void CMusicThumbLoader::Deinitialize()
+ {
+-  m_database->Close();
++  m_musicDatabase->Close();
+   m_albumArt.clear();
+ }
+ 
+@@ -96,18 +96,18 @@ bool CMusicThumbLoader::LoadItemCached(CFileItem* pItem)
+     if (pItem->HasMusicInfoTag() && !pItem->GetMusicInfoTag()->GetArtist().empty())
+     {
+       std::string artist = pItem->GetMusicInfoTag()->GetArtist()[0];
+-      m_database->Open();
+-      int idArtist = m_database->GetArtistByName(artist);
++      m_musicDatabase->Open();
++      int idArtist = m_musicDatabase->GetArtistByName(artist);
+       if (idArtist >= 0)
+       {
+-        string fanart = m_database->GetArtForItem(idArtist, "artist", "fanart");
++        string fanart = m_musicDatabase->GetArtForItem(idArtist, "artist", "fanart");
+         if (!fanart.empty())
+         {
+           pItem->SetArt("artist.fanart", fanart);
+           pItem->SetArtFallback("fanart", "artist.fanart");
+         }
+       }
+-      m_database->Close();
++      m_musicDatabase->Close();
+     }
+   }
+ 
+@@ -172,16 +172,16 @@ bool CMusicThumbLoader::FillLibraryArt(CFileItem &item)
+   CMusicInfoTag &tag = *item.GetMusicInfoTag();
+   if (tag.GetDatabaseId() > -1 && !tag.GetType().empty())
+   {
+-    m_database->Open();
++    m_musicDatabase->Open();
+     map<string, string> artwork;
+-    if (m_database->GetArtForItem(tag.GetDatabaseId(), tag.GetType(), artwork))
++    if (m_musicDatabase->GetArtForItem(tag.GetDatabaseId(), tag.GetType(), artwork))
+       item.SetArt(artwork);
+     else if (tag.GetType() == "song")
+     { // no art for the song, try the album
+       ArtCache::const_iterator i = m_albumArt.find(tag.GetAlbumId());
+       if (i == m_albumArt.end())
+       {
+-        m_database->GetArtForItem(tag.GetAlbumId(), "album", artwork);
++        m_musicDatabase->GetArtForItem(tag.GetAlbumId(), "album", artwork);
+         i = m_albumArt.insert(make_pair(tag.GetAlbumId(), artwork)).first;
+       }
+       if (i != m_albumArt.end())
+@@ -193,14 +193,14 @@ bool CMusicThumbLoader::FillLibraryArt(CFileItem &item)
+     }
+     if (tag.GetType() == "song" || tag.GetType() == "album")
+     { // fanart from the artist
+-      string fanart = m_database->GetArtistArtForItem(tag.GetDatabaseId(), tag.GetType(), "fanart");
++      string fanart = m_musicDatabase->GetArtistArtForItem(tag.GetDatabaseId(), tag.GetType(), "fanart");
+       if (!fanart.empty())
+       {
+         item.SetArt("artist.fanart", fanart);
+         item.SetArtFallback("fanart", "artist.fanart");
+       }
+     }
+-    m_database->Close();
++    m_musicDatabase->Close();
+   }
+   return !item.GetArt().empty();
+ }
+diff --git a/xbmc/music/MusicThumbLoader.h b/xbmc/music/MusicThumbLoader.h
+index f8bbd29..7bdad72 100644
+--- a/xbmc/music/MusicThumbLoader.h
++++ b/xbmc/music/MusicThumbLoader.h
+@@ -63,7 +63,7 @@ class CMusicThumbLoader : public CThumbLoader
+   virtual void OnLoaderStart();
+   virtual void OnLoaderFinish();
+   
+-  CMusicDatabase *m_database;
++  CMusicDatabase *m_musicDatabase;
+   typedef std::map<int, std::map<std::string, std::string> > ArtCache;
+   ArtCache m_albumArt;
+ };
+diff --git a/xbmc/video/VideoThumbLoader.cpp b/xbmc/video/VideoThumbLoader.cpp
+index 4f3fea2..e92fc3f 100644
+--- a/xbmc/video/VideoThumbLoader.cpp
++++ b/xbmc/video/VideoThumbLoader.cpp
+@@ -118,18 +118,18 @@ bool CThumbExtractor::DoWork()
+ CVideoThumbLoader::CVideoThumbLoader() :
+   CThumbLoader(), CJobQueue(true), m_pStreamDetailsObs(NULL)
+ {
+-  m_database = new CVideoDatabase();
++  m_videoDatabase = new CVideoDatabase();
+ }
+ 
+ CVideoThumbLoader::~CVideoThumbLoader()
+ {
+   StopThread();
+-  delete m_database;
++  delete m_videoDatabase;
+ }
+ 
+ void CVideoThumbLoader::Initialize()
+ {
+-  m_database->Open();
++  m_videoDatabase->Open();
+   m_showArt.clear();
+ }
+ 
+@@ -140,7 +140,7 @@ void CVideoThumbLoader::OnLoaderStart()
+ 
+ void CVideoThumbLoader::OnLoaderFinish()
+ {
+-  m_database->Close();
++  m_videoDatabase->Close();
+   m_showArt.clear();
+ }
+ 
+@@ -211,14 +211,14 @@ bool CVideoThumbLoader::LoadItemCached(CFileItem* pItem)
+   ||  pItem->IsParentFolder())
+     return false;
+ 
+-  m_database->Open();
++  m_videoDatabase->Open();
+ 
+   if (!pItem->HasVideoInfoTag() || !pItem->GetVideoInfoTag()->HasStreamDetails()) // no stream details
+   {
+     if ((pItem->HasVideoInfoTag() && pItem->GetVideoInfoTag()->m_iFileId >= 0) // file (or maybe folder) is in the database
+     || (!pItem->m_bIsFolder && pItem->IsVideo())) // Some other video file for which we haven't yet got any database details
+     {
+-      if (m_database->GetStreamDetails(*pItem))
++      if (m_videoDatabase->GetStreamDetails(*pItem))
+         pItem->SetInvalid();
+     }
+   }
+@@ -234,7 +234,7 @@ bool CVideoThumbLoader::LoadItemCached(CFileItem* pItem)
+          pItem->GetVideoInfoTag()->m_type != "episode"    &&
+          pItem->GetVideoInfoTag()->m_type != "musicvideo")
+     {
+-      m_database->Close();
++      m_videoDatabase->Close();
+       return true; // nothing else to be done
+     }
+   }
+@@ -256,7 +256,7 @@ bool CVideoThumbLoader::LoadItemCached(CFileItem* pItem)
+     SetArt(*pItem, artwork);
+   }
+ 
+-  m_database->Close();
++  m_videoDatabase->Close();
+ 
+   return true;
+ }
+@@ -275,7 +275,8 @@ bool CVideoThumbLoader::LoadItemLookup(CFileItem* pItem)
+       pItem->GetVideoInfoTag()->m_type != "musicvideo")
+     return false; // Nothing to do here
+ 
+-  m_database->Open();
++  m_videoDatabase->Open();
++
+   map<string, string> artwork = pItem->GetArt();
+   vector<string> artTypes = GetArtTypes(pItem->HasVideoInfoTag() ? pItem->GetVideoInfoTag()->m_type : "");
+   if (find(artTypes.begin(), artTypes.end(), "thumb") == artTypes.end())
+@@ -320,7 +321,7 @@ bool CVideoThumbLoader::LoadItemLookup(CFileItem* pItem)
+           // Item has cached autogen image but no art entry. Save it to db.
+           CVideoInfoTag* info = pItem->GetVideoInfoTag();
+           if (info->m_iDbId > 0 && !info->m_type.empty())
+-            m_database->SetArtForItem(info->m_iDbId, info->m_type, "thumb", thumbURL);
++            m_videoDatabase->SetArtForItem(info->m_iDbId, info->m_type, "thumb", thumbURL);
+         }
+       }
+       else if (CSettings::Get().GetBool("myvideos.extractthumb") &&
+@@ -334,7 +335,7 @@ bool CVideoThumbLoader::LoadItemLookup(CFileItem* pItem)
+         CThumbExtractor* extract = new CThumbExtractor(item, path, true, thumbURL);
+         AddJob(extract);
+ 
+-        m_database->Close();
++        m_videoDatabase->Close();
+         return true;
+       }
+     }
+@@ -354,7 +355,7 @@ bool CVideoThumbLoader::LoadItemLookup(CFileItem* pItem)
+     }
+   }
+ 
+-  m_database->Close();
++  m_videoDatabase->Close();
+   return true;
+ }
+ 
+@@ -376,8 +377,8 @@ bool CVideoThumbLoader::FillLibraryArt(CFileItem &item)
+   if (tag.m_iDbId > -1 && !tag.m_type.IsEmpty())
+   {
+     map<string, string> artwork;
+-    m_database->Open();
+-    if (m_database->GetArtForItem(tag.m_iDbId, tag.m_type, artwork))
++    m_videoDatabase->Open();
++    if (m_videoDatabase->GetArtForItem(tag.m_iDbId, tag.m_type, artwork))
+       SetArt(item, artwork);
+     else if (tag.m_type == "artist")
+     { // we retrieve music video art from the music database (no backward compat)
+@@ -402,7 +403,7 @@ bool CVideoThumbLoader::FillLibraryArt(CFileItem &item)
+       if (i == m_showArt.end())
+       {
+         map<string, string> showArt;
+-        m_database->GetArtForItem(tag.m_iIdShow, "tvshow", showArt);
++        m_videoDatabase->GetArtForItem(tag.m_iIdShow, "tvshow", showArt);
+         i = m_showArt.insert(make_pair(tag.m_iIdShow, showArt)).first;
+       }
+       if (i != m_showArt.end())
+@@ -412,7 +413,7 @@ bool CVideoThumbLoader::FillLibraryArt(CFileItem &item)
+         item.SetArtFallback("tvshow.thumb", "tvshow.poster");
+       }
+     }
+-    m_database->Close();
++    m_videoDatabase->Close();
+   }
+   return !item.GetArt().empty();
+ }
+diff --git a/xbmc/video/VideoThumbLoader.h b/xbmc/video/VideoThumbLoader.h
+index 97ac22d..4a06073 100644
+--- a/xbmc/video/VideoThumbLoader.h
++++ b/xbmc/video/VideoThumbLoader.h
+@@ -128,7 +128,7 @@ class CVideoThumbLoader : public CThumbLoader, public CJobQueue
+   virtual void OnLoaderFinish();
+ 
+   IStreamDetailsObserver *m_pStreamDetailsObs;
+-  CVideoDatabase *m_database;
++  CVideoDatabase *m_videoDatabase;
+   typedef std::map<int, std::map<std::string, std::string> > ArtCache;
+   ArtCache m_showArt;
+ };
+-- 
+1.8.1.6
+
+
+From 59c6386ee7af83fe3e8e18c4b28bde42c399bbf2 Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Thu, 20 Jun 2013 13:29:22 +0200
+Subject: [PATCH 4/6] changed: Use a member variable for the texture database
+
+This speeds up thumb loading considerably. This also gets rid of the Initialize/Deinitialize ThumbLoader functions
+---
+ xbmc/GUIInfoManager.cpp                      |  8 +++++--
+ xbmc/ThumbLoader.cpp                         | 34 +++++++++++++++++++++-------
+ xbmc/ThumbLoader.h                           | 14 ++++++++----
+ xbmc/interfaces/json-rpc/FileItemHandler.cpp |  4 ++--
+ xbmc/music/MusicInfoLoader.cpp               |  4 ++--
+ xbmc/music/MusicThumbLoader.cpp              | 16 ++++---------
+ xbmc/music/MusicThumbLoader.h                | 11 ++++-----
+ xbmc/music/infoscanner/MusicInfoScanner.cpp  |  3 ++-
+ xbmc/music/windows/GUIWindowMusicBase.cpp    |  8 +++++--
+ xbmc/network/upnp/UPnPServer.cpp             |  4 ++--
+ xbmc/pictures/GUIWindowPictures.cpp          |  4 +++-
+ xbmc/pictures/PictureInfoLoader.h            |  2 +-
+ xbmc/pictures/PictureThumbLoader.cpp         | 23 +++++++++++--------
+ xbmc/pictures/PictureThumbLoader.h           |  3 +++
+ xbmc/utils/RecentlyAddedJob.cpp              |  4 ++--
+ xbmc/video/VideoInfoScanner.cpp              |  3 ++-
+ xbmc/video/VideoThumbLoader.cpp              |  9 +++-----
+ xbmc/video/VideoThumbLoader.h                |  9 ++++----
+ 18 files changed, 95 insertions(+), 68 deletions(-)
+
+diff --git a/xbmc/GUIInfoManager.cpp b/xbmc/GUIInfoManager.cpp
+index fba60ae..c9c616d 100644
+--- a/xbmc/GUIInfoManager.cpp
++++ b/xbmc/GUIInfoManager.cpp
+@@ -3892,7 +3892,9 @@ void CGUIInfoManager::SetCurrentSong(CFileItem &item)
+     {
+       CLog::Log(LOGDEBUG,"Streaming media detected... using %s to find a thumb", g_application.m_strPlayListFile.c_str());
+       CFileItem streamingItem(g_application.m_strPlayListFile,false);
+-      CMusicThumbLoader::FillThumb(streamingItem);
++
++      CMusicThumbLoader loader;
++      loader.FillThumb(streamingItem);
+       if (streamingItem.HasArt("thumb"))
+         m_currentFile->SetArt("thumb", streamingItem.GetArt("thumb"));
+     }
+@@ -3945,7 +3947,9 @@ void CGUIInfoManager::SetCurrentMovie(CFileItem &item)
+     {
+       CLog::Log(LOGDEBUG,"Streaming media detected... using %s to find a thumb", g_application.m_strPlayListFile.c_str());
+       CFileItem thumbItem(g_application.m_strPlayListFile,false);
+-      if (CVideoThumbLoader::FillThumb(thumbItem))
++
++      CVideoThumbLoader loader;
++      if (loader.FillThumb(thumbItem))
+         item.SetArt("thumb", thumbItem.GetArt("thumb"));
+     }
+   }
+diff --git a/xbmc/ThumbLoader.cpp b/xbmc/ThumbLoader.cpp
+index aa4cb82..98ce95c 100644
+--- a/xbmc/ThumbLoader.cpp
++++ b/xbmc/ThumbLoader.cpp
+@@ -29,25 +29,42 @@
+ CThumbLoader::CThumbLoader() :
+   CBackgroundInfoLoader()
+ {
++  m_textureDatabase = new CTextureDatabase();
+ }
+ 
+ CThumbLoader::~CThumbLoader()
+ {
++  delete m_textureDatabase;
++}
++
++void CThumbLoader::OnLoaderStart()
++{
++  m_textureDatabase->Open();
++}
++
++void CThumbLoader::OnLoaderFinish()
++{
++  m_textureDatabase->Close();
+ }
+ 
+ CStdString CThumbLoader::GetCachedImage(const CFileItem &item, const CStdString &type)
+ {
+-  CTextureDatabase db;
+-  if (!item.GetPath().empty() && db.Open())
+-    return db.GetTextureForPath(item.GetPath(), type);
++  if (!item.GetPath().empty() && m_textureDatabase->Open())
++  {
++    CStdString image = m_textureDatabase->GetTextureForPath(item.GetPath(), type);
++    m_textureDatabase->Close();
++    return image;
++  }
+   return "";
+ }
+ 
+ void CThumbLoader::SetCachedImage(const CFileItem &item, const CStdString &type, const CStdString &image)
+ {
+-  CTextureDatabase db;
+-  if (!item.GetPath().empty() && db.Open())
+-    db.SetTextureForPath(item.GetPath(), type, image);
++  if (!item.GetPath().empty() && m_textureDatabase->Open())
++  {
++    m_textureDatabase->SetTextureForPath(item.GetPath(), type, image);
++    m_textureDatabase->Close();
++  }
+ }
+ 
+ CProgramThumbLoader::CProgramThumbLoader()
+@@ -86,12 +103,13 @@ bool CProgramThumbLoader::FillThumb(CFileItem &item)
+ 
+   if (thumb.IsEmpty())
+   { // see whether we have a cached image for this item
+-    thumb = GetCachedImage(item, "thumb");
++    CProgramThumbLoader loader;
++    thumb = loader.GetCachedImage(item, "thumb");
+     if (thumb.IsEmpty())
+     {
+       thumb = GetLocalThumb(item);
+       if (!thumb.IsEmpty())
+-        SetCachedImage(item, "thumb", thumb);
++        loader.SetCachedImage(item, "thumb", thumb);
+     }
+   }
+ 
+diff --git a/xbmc/ThumbLoader.h b/xbmc/ThumbLoader.h
+index 2ee06d1..28692c9 100644
+--- a/xbmc/ThumbLoader.h
++++ b/xbmc/ThumbLoader.h
+@@ -22,13 +22,16 @@
+ #include "BackgroundInfoLoader.h"
+ #include "utils/StdString.h"
+ 
++class CTextureDatabase;
++
+ class CThumbLoader : public CBackgroundInfoLoader
+ {
+ public:
+   CThumbLoader();
+   virtual ~CThumbLoader();
+ 
+-  virtual void Initialize() { };
++  virtual void OnLoaderStart();
++  virtual void OnLoaderFinish();
+ 
+   /*! \brief helper function to fill the art for a library item
+    \param item a CFileItem
+@@ -41,14 +44,17 @@ class CThumbLoader : public CBackgroundInfoLoader
+    \param type the type of image to retrieve
+    \return the image associated with this item
+    */
+-  static CStdString GetCachedImage(const CFileItem &item, const CStdString &type);
++  virtual CStdString GetCachedImage(const CFileItem &item, const CStdString &type);
+ 
+   /*! \brief Associate an image with the given item in the texture database
+    \param item CFileItem to associate the image with
+    \param type the type of image
+    \param image the URL of the image
+    */
+-  static void SetCachedImage(const CFileItem &item, const CStdString &type, const CStdString &image);
++  virtual void SetCachedImage(const CFileItem &item, const CStdString &type, const CStdString &image);
++
++protected:
++  CTextureDatabase *m_textureDatabase;
+ };
+ 
+ class CProgramThumbLoader : public CThumbLoader
+@@ -67,7 +73,7 @@ class CProgramThumbLoader : public CThumbLoader
+    \return true if we fill the thumb, false otherwise
+    \sa GetLocalThumb
+    */
+-  static bool FillThumb(CFileItem &item);
++  virtual bool FillThumb(CFileItem &item);
+ 
+   /*! \brief Get a local thumb for a programs item
+    Shortcuts are checked, then we check for a file or folder thumb
+diff --git a/xbmc/interfaces/json-rpc/FileItemHandler.cpp b/xbmc/interfaces/json-rpc/FileItemHandler.cpp
+index 28e1e0b..0d7117b 100644
+--- a/xbmc/interfaces/json-rpc/FileItemHandler.cpp
++++ b/xbmc/interfaces/json-rpc/FileItemHandler.cpp
+@@ -221,7 +221,7 @@ void CFileItemHandler::HandleFileItemList(const char *ID, bool allowFile, const
+       thumbLoader = new CMusicThumbLoader();
+ 
+     if (thumbLoader != NULL)
+-      thumbLoader->Initialize();
++      thumbLoader->OnLoaderStart();
+   }
+ 
+   std::set<std::string> fields;
+@@ -329,7 +329,7 @@ void CFileItemHandler::HandleFileItem(const char *ID, bool allowFile, const char
+       if (thumbLoader != NULL)
+       {
+         deleteThumbloader = true;
+-        thumbLoader->Initialize();
++        thumbLoader->OnLoaderStart();
+       }
+     }
+ 
+diff --git a/xbmc/music/MusicInfoLoader.cpp b/xbmc/music/MusicInfoLoader.cpp
+index 5924f47..d6e1afa 100644
+--- a/xbmc/music/MusicInfoLoader.cpp
++++ b/xbmc/music/MusicInfoLoader.cpp
+@@ -77,7 +77,7 @@ void CMusicInfoLoader::OnLoaderStart()
+   m_musicDatabase.Open();
+ 
+   if (m_thumbLoader)
+-    m_thumbLoader->Initialize();
++    m_thumbLoader->OnLoaderStart();
+ }
+ 
+ bool CMusicInfoLoader::LoadAdditionalTagInfo(CFileItem* pItem)
+@@ -227,7 +227,7 @@ void CMusicInfoLoader::OnLoaderFinish()
+   m_musicDatabase.Close();
+ 
+   if (m_thumbLoader)
+-    m_thumbLoader->Deinitialize();
++    m_thumbLoader->OnLoaderFinish();
+ }
+ 
+ void CMusicInfoLoader::UseCacheOnHD(const CStdString& strFileName)
+diff --git a/xbmc/music/MusicThumbLoader.cpp b/xbmc/music/MusicThumbLoader.cpp
+index 8272834..88cd10a 100644
+--- a/xbmc/music/MusicThumbLoader.cpp
++++ b/xbmc/music/MusicThumbLoader.cpp
+@@ -40,26 +40,18 @@
+   delete m_musicDatabase;
+ }
+ 
+-void CMusicThumbLoader::Initialize()
++void CMusicThumbLoader::OnLoaderStart()
+ {
+   m_musicDatabase->Open();
+   m_albumArt.clear();
++  CThumbLoader::OnLoaderStart();
+ }
+ 
+-void CMusicThumbLoader::Deinitialize()
++void CMusicThumbLoader::OnLoaderFinish()
+ {
+   m_musicDatabase->Close();
+   m_albumArt.clear();
+-}
+-
+-void CMusicThumbLoader::OnLoaderStart()
+-{
+-  Initialize();
+-}
+-
+-void CMusicThumbLoader::OnLoaderFinish()
+-{
+-  Deinitialize();
++  CThumbLoader::OnLoaderFinish();
+ }
+ 
+ bool CMusicThumbLoader::LoadItem(CFileItem* pItem)
+diff --git a/xbmc/music/MusicThumbLoader.h b/xbmc/music/MusicThumbLoader.h
+index 7bdad72..69205a3 100644
+--- a/xbmc/music/MusicThumbLoader.h
++++ b/xbmc/music/MusicThumbLoader.h
+@@ -35,9 +35,9 @@ class CMusicThumbLoader : public CThumbLoader
+ public:
+   CMusicThumbLoader();
+   virtual ~CMusicThumbLoader();
+-  
+-  virtual void Initialize();
+-  virtual void Deinitialize();
++
++  virtual void OnLoaderStart();
++  virtual void OnLoaderFinish();
+ 
+   virtual bool LoadItem(CFileItem* pItem);
+   virtual bool LoadItemCached(CFileItem* pItem);
+@@ -55,14 +55,11 @@ class CMusicThumbLoader : public CThumbLoader
+    \param item the CFileItem object to fill
+    \return true if we fill the thumb, false otherwise
+    */
+-  static bool FillThumb(CFileItem &item, bool folderThumbs = true);
++  virtual bool FillThumb(CFileItem &item, bool folderThumbs = true);
+   
+   static bool GetEmbeddedThumb(const std::string &path, MUSIC_INFO::EmbeddedArt &art);
+ 
+ protected:
+-  virtual void OnLoaderStart();
+-  virtual void OnLoaderFinish();
+-  
+   CMusicDatabase *m_musicDatabase;
+   typedef std::map<int, std::map<std::string, std::string> > ArtCache;
+   ArtCache m_albumArt;
+diff --git a/xbmc/music/infoscanner/MusicInfoScanner.cpp b/xbmc/music/infoscanner/MusicInfoScanner.cpp
+index fb9b16a..9583e48 100644
+--- a/xbmc/music/infoscanner/MusicInfoScanner.cpp
++++ b/xbmc/music/infoscanner/MusicInfoScanner.cpp
+@@ -1016,7 +1016,8 @@ void CMusicInfoScanner::FindArtForAlbums(VECALBUMS &albums, const CStdString &pa
+   {
+     // assign to folder thumb as well
+     CFileItem albumItem(path, true);
+-    CMusicThumbLoader::SetCachedImage(albumItem, "thumb", albumArt);
++    CMusicThumbLoader loader;
++    loader.SetCachedImage(albumItem, "thumb", albumArt);
+   }
+ }
+ 
+diff --git a/xbmc/music/windows/GUIWindowMusicBase.cpp b/xbmc/music/windows/GUIWindowMusicBase.cpp
+index cf8ae67..d16b31b 100644
+--- a/xbmc/music/windows/GUIWindowMusicBase.cpp
++++ b/xbmc/music/windows/GUIWindowMusicBase.cpp
+@@ -1038,7 +1038,8 @@ void CGUIWindowMusicBase::UpdateThumb(const CAlbum &album, const CStdString &pat
+     CMusicInfoScanner::FileItemsToAlbums(items, albums);
+     if (albums.size() == 1)
+     { // set as folder thumb as well
+-      CThumbLoader::SetCachedImage(items, "thumb", albumPath);
++      CMusicThumbLoader loader;
++      loader.SetCachedImage(items, "thumb", albumPath);
+     }
+   }
+ 
+@@ -1105,7 +1106,10 @@ bool CGUIWindowMusicBase::GetDirectory(const CStdString &strDirectory, CFileItem
+   items.SetArt("thumb", "");
+   bool bResult = CGUIMediaWindow::GetDirectory(strDirectory, items);
+   if (bResult)
+-    CMusicThumbLoader::FillThumb(items);
++  {
++    CMusicThumbLoader loader;
++    loader.FillThumb(items);
++  }
+ 
+   // add in the "New Playlist" item if we're in the playlists folder
+   if ((items.GetPath() == "special://musicplaylists/") && !items.Contains("newplaylist://"))
+diff --git a/xbmc/network/upnp/UPnPServer.cpp b/xbmc/network/upnp/UPnPServer.cpp
+index 2549a70..7158cb7 100644
+--- a/xbmc/network/upnp/UPnPServer.cpp
++++ b/xbmc/network/upnp/UPnPServer.cpp
+@@ -545,7 +545,7 @@ static NPT_String TranslateWMPObjectId(NPT_String id)
+             thumb_loader = NPT_Reference<CThumbLoader>(new CMusicThumbLoader());
+         }
+         if (!thumb_loader.IsNull()) {
+-            thumb_loader->Initialize();
++            thumb_loader->OnLoaderStart();
+         }
+         object = Build(item, true, context, thumb_loader, parent.empty()?NULL:parent.c_str());
+     }
+@@ -710,7 +710,7 @@ static NPT_String TranslateWMPObjectId(NPT_String id)
+         thumb_loader = NPT_Reference<CThumbLoader>(new CMusicThumbLoader());
+     }
+     if (!thumb_loader.IsNull()) {
+-        thumb_loader->Initialize();
++        thumb_loader->OnLoaderStart();
+     }
+ 
+     // this isn't pretty but needed to properly hide the addons node from clients
+diff --git a/xbmc/pictures/GUIWindowPictures.cpp b/xbmc/pictures/GUIWindowPictures.cpp
+index 0dbe98c..8668b1d 100644
+--- a/xbmc/pictures/GUIWindowPictures.cpp
++++ b/xbmc/pictures/GUIWindowPictures.cpp
+@@ -271,7 +271,9 @@ bool CGUIWindowPictures::Update(const CStdString &strDirectory, bool updateFilte
+   m_vecItems->SetArt("thumb", "");
+   if (CSettings::Get().GetBool("pictures.generatethumbs"))
+     m_thumbLoader.Load(*m_vecItems);
+-  m_vecItems->SetArt("thumb", CPictureThumbLoader::GetCachedImage(*m_vecItems, "thumb"));
++
++  CStdString thumb = m_thumbLoader.GetCachedImage(*m_vecItems, "thumb");
++  m_vecItems->SetArt("thumb", thumb);
+ 
+   return true;
+ }
+diff --git a/xbmc/pictures/PictureInfoLoader.h b/xbmc/pictures/PictureInfoLoader.h
+index d390318..8ad7678 100644
+--- a/xbmc/pictures/PictureInfoLoader.h
++++ b/xbmc/pictures/PictureInfoLoader.h
+@@ -36,7 +36,7 @@ class CPictureInfoLoader : public CBackgroundInfoLoader
+ protected:
+   virtual void OnLoaderStart();
+   virtual void OnLoaderFinish();
+-protected:
++
+   CFileItemList* m_mapFileItems;
+   unsigned int m_tagReads;
+   bool m_loadTags;
+diff --git a/xbmc/pictures/PictureThumbLoader.cpp b/xbmc/pictures/PictureThumbLoader.cpp
+index 3943a11..1ad3a79 100644
+--- a/xbmc/pictures/PictureThumbLoader.cpp
++++ b/xbmc/pictures/PictureThumbLoader.cpp
+@@ -45,6 +45,12 @@
+   StopThread();
+ }
+ 
++void CPictureThumbLoader::OnLoaderFinish()
++{
++  m_regenerateThumbs = false;
++  CThumbLoader::OnLoaderFinish();
++}
++
+ bool CPictureThumbLoader::LoadItem(CFileItem* pItem)
+ {
+   bool result  = LoadItemCached(pItem);
+@@ -62,9 +68,11 @@ bool CPictureThumbLoader::LoadItemCached(CFileItem* pItem)
+   if (pItem->HasArt("thumb") && m_regenerateThumbs)
+   {
+     CTextureCache::Get().ClearCachedImage(pItem->GetArt("thumb"));
+-    CTextureDatabase db;
+-    if (db.Open())
+-      db.ClearTextureForPath(pItem->GetPath(), "thumb");
++    if (m_textureDatabase->Open())
++    {
++      m_textureDatabase->ClearTextureForPath(pItem->GetPath(), "thumb");
++      m_textureDatabase->Close();
++    }
+     pItem->SetArt("thumb", "");
+   }
+ 
+@@ -75,7 +83,8 @@ bool CPictureThumbLoader::LoadItemCached(CFileItem* pItem)
+   }
+   else if (pItem->IsVideo() && !pItem->IsZIP() && !pItem->IsRAR() && !pItem->IsCBZ() && !pItem->IsCBR() && !pItem->IsPlayList())
+   { // video
+-    if (!CVideoThumbLoader::FillThumb(*pItem))
++    CVideoThumbLoader loader;
++    if (!loader.FillThumb(*pItem))
+     {
+       CStdString thumbURL = CVideoThumbLoader::GetEmbeddedThumbURL(*pItem);
+       if (CTextureCache::Get().HasCachedImage(thumbURL))
+@@ -122,12 +131,6 @@ void CPictureThumbLoader::OnJobComplete(unsigned int jobID, bool success, CJob*
+   CJobQueue::OnJobComplete(jobID, success, job);
+ }
+ 
+-
+-void CPictureThumbLoader::OnLoaderFinish()
+-{
+-  m_regenerateThumbs = false;
+-}
+-
+ void CPictureThumbLoader::ProcessFoldersAndArchives(CFileItem *pItem)
+ {
+   if (pItem->HasArt("thumb"))
+diff --git a/xbmc/pictures/PictureThumbLoader.h b/xbmc/pictures/PictureThumbLoader.h
+index e7ad872..76d2aee 100644
+--- a/xbmc/pictures/PictureThumbLoader.h
++++ b/xbmc/pictures/PictureThumbLoader.h
+@@ -28,6 +28,7 @@ class CPictureThumbLoader : public CThumbLoader, public CJobQueue
+ public:
+   CPictureThumbLoader();
+   virtual ~CPictureThumbLoader();
++
+   virtual bool LoadItem(CFileItem* pItem);
+   virtual bool LoadItemCached(CFileItem* pItem);
+   virtual bool LoadItemLookup(CFileItem* pItem);
+@@ -42,8 +43,10 @@ class CPictureThumbLoader : public CThumbLoader, public CJobQueue
+    \sa CImageLoader, IJobCallback
+    */
+   virtual void OnJobComplete(unsigned int jobID, bool success, CJob *job);
++
+ protected:
+   virtual void OnLoaderFinish();
++
+ private:
+   bool m_regenerateThumbs;
+ };
+diff --git a/xbmc/utils/RecentlyAddedJob.cpp b/xbmc/utils/RecentlyAddedJob.cpp
+index 9bae92b..4d724a7 100644
+--- a/xbmc/utils/RecentlyAddedJob.cpp
++++ b/xbmc/utils/RecentlyAddedJob.cpp
+@@ -54,7 +54,7 @@ bool CRecentlyAddedJob::UpdateVideo()
+   CFileItemList  items;
+   CVideoDatabase videodatabase;
+   CVideoThumbLoader loader;
+-  loader.Initialize();
++  loader.OnLoaderStart();
+   
+   videodatabase.Open();
+ 
+@@ -213,7 +213,7 @@ bool CRecentlyAddedJob::UpdateMusic()
+   CFileItemList  musicItems;
+   CMusicDatabase musicdatabase;
+   CMusicThumbLoader loader;
+-  loader.Initialize();
++  loader.OnLoaderStart();
+   
+   musicdatabase.Open();
+   
+diff --git a/xbmc/video/VideoInfoScanner.cpp b/xbmc/video/VideoInfoScanner.cpp
+index 3c56881..26e9219 100644
+--- a/xbmc/video/VideoInfoScanner.cpp
++++ b/xbmc/video/VideoInfoScanner.cpp
+@@ -1632,7 +1632,8 @@
+     if (!imdbThumb.IsEmpty())
+     {
+       CFileItem folderItem(folder, true);
+-      CThumbLoader::SetCachedImage(folderItem, "thumb", imdbThumb);
++      CThumbLoader loader;
++      loader.SetCachedImage(folderItem, "thumb", imdbThumb);
+     }
+   }
+ 
+diff --git a/xbmc/video/VideoThumbLoader.cpp b/xbmc/video/VideoThumbLoader.cpp
+index e92fc3f..714a67a 100644
+--- a/xbmc/video/VideoThumbLoader.cpp
++++ b/xbmc/video/VideoThumbLoader.cpp
+@@ -127,21 +127,18 @@ bool CThumbExtractor::DoWork()
+   delete m_videoDatabase;
+ }
+ 
+-void CVideoThumbLoader::Initialize()
++void CVideoThumbLoader::OnLoaderStart()
+ {
+   m_videoDatabase->Open();
+   m_showArt.clear();
+-}
+-
+-void CVideoThumbLoader::OnLoaderStart()
+-{
+-  Initialize();
++  CThumbLoader::OnLoaderStart();
+ }
+ 
+ void CVideoThumbLoader::OnLoaderFinish()
+ {
+   m_videoDatabase->Close();
+   m_showArt.clear();
++  CThumbLoader::OnLoaderFinish();
+ }
+ 
+ static void SetupRarOptions(CFileItem& item, const CStdString& path)
+diff --git a/xbmc/video/VideoThumbLoader.h b/xbmc/video/VideoThumbLoader.h
+index 4a06073..6567a98 100644
+--- a/xbmc/video/VideoThumbLoader.h
++++ b/xbmc/video/VideoThumbLoader.h
+@@ -66,7 +66,9 @@ class CVideoThumbLoader : public CThumbLoader, public CJobQueue
+   CVideoThumbLoader();
+   virtual ~CVideoThumbLoader();
+ 
+-  virtual void Initialize();
++  virtual void OnLoaderStart();
++  virtual void OnLoaderFinish();
++
+   virtual bool LoadItem(CFileItem* pItem);
+   virtual bool LoadItemCached(CFileItem* pItem);
+   virtual bool LoadItemLookup(CFileItem* pItem);
+@@ -78,7 +80,7 @@ class CVideoThumbLoader : public CThumbLoader, public CJobQueue
+    \param item the CFileItem object to fill
+    \return true if we fill the thumb, false otherwise
+    */
+-  static bool FillThumb(CFileItem &item);
++  virtual bool FillThumb(CFileItem &item);
+ 
+   /*! \brief Find a particular art type for a given item, optionally checking at the folder level
+    \param item the CFileItem to search.
+@@ -124,9 +126,6 @@ class CVideoThumbLoader : public CThumbLoader, public CJobQueue
+   static void SetArt(CFileItem &item, const std::map<std::string, std::string> &artwork);
+ 
+ protected:
+-  virtual void OnLoaderStart();
+-  virtual void OnLoaderFinish();
+-
+   IStreamDetailsObserver *m_pStreamDetailsObs;
+   CVideoDatabase *m_videoDatabase;
+   typedef std::map<int, std::map<std::string, std::string> > ArtCache;
+-- 
+1.8.1.6
+
+
+From 428b580064c5b7a14444d66bb18bdfe94b4046ab Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Tue, 2 Jul 2013 22:49:55 +0200
+Subject: [PATCH 5/6] fixed: Music thumb loading for files view was slow
+
+This was caused by the fact that we never checked for cached images for music items
+---
+ xbmc/music/MusicThumbLoader.cpp | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/music/MusicThumbLoader.cpp b/xbmc/music/MusicThumbLoader.cpp
+index 88cd10a..1330ff9 100644
+--- a/xbmc/music/MusicThumbLoader.cpp
++++ b/xbmc/music/MusicThumbLoader.cpp
+@@ -83,9 +83,21 @@ bool CMusicThumbLoader::LoadItemCached(CFileItem* pItem)
+       return true;
+   }
+ 
++  if (!pItem->HasArt("thumb"))
++  {
++    std::string art = GetCachedImage(*pItem, "thumb");
++    if (!art.empty())
++      pItem->SetArt("thumb", art);
++  }
++
+   if (!pItem->HasArt("fanart"))
+   {
+-    if (pItem->HasMusicInfoTag() && !pItem->GetMusicInfoTag()->GetArtist().empty())
++    std::string art = GetCachedImage(*pItem, "fanart");
++    if (!art.empty())
++    {
++      pItem->SetArt("fanart", art);
++    }
++    else if (pItem->HasMusicInfoTag() && !pItem->GetMusicInfoTag()->GetArtist().empty())
+     {
+       std::string artist = pItem->GetMusicInfoTag()->GetArtist()[0];
+       m_musicDatabase->Open();
+-- 
+1.8.1.6
+
+
+From 487cd9f6b568f3af71b73ce03afb405dbf8fb511 Mon Sep 17 00:00:00 2001
+From: arnova <arnova@void.org>
+Date: Wed, 3 Jul 2013 10:25:34 +0200
+Subject: [PATCH 6/6] fixed: Thumb/flag extractions were never stored when used
+ outside the bg infoloader
+
+Also factored out some (obsolote?) code as a bonus
+---
+ xbmc/utils/StreamDetails.h                |  7 -----
+ xbmc/video/VideoThumbLoader.cpp           | 45 ++++++++++++++++++++-----------
+ xbmc/video/VideoThumbLoader.h             |  3 ---
+ xbmc/video/windows/GUIWindowVideoBase.cpp | 15 -----------
+ xbmc/video/windows/GUIWindowVideoBase.h   |  3 +--
+ 5 files changed, 30 insertions(+), 43 deletions(-)
+
+diff --git a/xbmc/utils/StreamDetails.h b/xbmc/utils/StreamDetails.h
+index 5d5e205..b531c00 100644
+--- a/xbmc/utils/StreamDetails.h
++++ b/xbmc/utils/StreamDetails.h
+@@ -134,10 +134,3 @@ class CStreamDetails : public IArchivable, public ISerializable
+   CStreamDetailAudio *m_pBestAudio;
+   CStreamDetailSubtitle *m_pBestSubtitle;
+ };
+-
+-class IStreamDetailsObserver
+-{
+-public:
+-  virtual ~IStreamDetailsObserver() {}
+-  virtual void OnStreamDetails(const CStreamDetails &details, const CStdString &strFileName, long lFileId) = 0;
+-};
+diff --git a/xbmc/video/VideoThumbLoader.cpp b/xbmc/video/VideoThumbLoader.cpp
+index 714a67a..8b30ee7 100644
+--- a/xbmc/video/VideoThumbLoader.cpp
++++ b/xbmc/video/VideoThumbLoader.cpp
+@@ -103,6 +103,17 @@ bool CThumbExtractor::DoWork()
+       m_item.SetProperty("HasAutoThumb", true);
+       m_item.SetProperty("AutoThumbImage", m_target);
+       m_item.SetArt("thumb", m_target);
++
++      CVideoInfoTag* info = m_item.GetVideoInfoTag();
++      if (info->m_iDbId > 0 && !info->m_type.empty())
++      {
++        CVideoDatabase db;
++        if (db.Open())
++        {
++          db.SetArtForItem(info->m_iDbId, info->m_type, "thumb", m_item.GetArt("thumb"));
++          db.Close();
++        }
++      }
+     }
+   }
+   else if (!m_item.HasVideoInfoTag() || !m_item.GetVideoInfoTag()->HasStreamDetails())
+@@ -112,11 +123,27 @@ bool CThumbExtractor::DoWork()
+     result = CDVDFileInfo::GetFileStreamDetails(&m_item);
+   }
+ 
+-  return result;
++  if (result)
++  {
++    CVideoInfoTag* info = m_item.GetVideoInfoTag();
++    CVideoDatabase db;
++    if (db.Open())
++    {
++      if (info->m_iFileId < 0)
++        db.SetStreamDetailsForFile(info->m_streamDetails, !info->m_strFileNameAndPath.IsEmpty() ? info->m_strFileNameAndPath : m_item.GetPath());
++      else
++        db.SetStreamDetailsForFileId(info->m_streamDetails, info->m_iFileId);
++
++      db.Close();
++    }
++    return true;
++  }
++
++  return false;
+ }
+ 
+ CVideoThumbLoader::CVideoThumbLoader() :
+-  CThumbLoader(), CJobQueue(true), m_pStreamDetailsObs(NULL)
++  CThumbLoader(), CJobQueue(true)
+ {
+   m_videoDatabase = new CVideoDatabase();
+ }
+@@ -481,21 +508,7 @@ void CVideoThumbLoader::OnJobComplete(unsigned int jobID, bool success, CJob* jo
+   {
+     CThumbExtractor* loader = (CThumbExtractor*)job;
+     loader->m_item.SetPath(loader->m_listpath);
+-    CVideoInfoTag* info = loader->m_item.GetVideoInfoTag();
+-
+-    if (loader->m_thumb && info->m_iDbId > 0 && !info->m_type.empty())
+-    {
+-      // This runs in a different thread than the CVideoThumbLoader object.
+-      CVideoDatabase db;
+-      if (db.Open())
+-      {
+-        db.SetArtForItem(info->m_iDbId, info->m_type, "thumb", loader->m_item.GetArt("thumb"));
+-        db.Close();
+-      }
+-    }
+ 
+-    if (m_pStreamDetailsObs)
+-      m_pStreamDetailsObs->OnStreamDetails(info->m_streamDetails, !info->m_strFileNameAndPath.IsEmpty() ? info->m_strFileNameAndPath : loader->m_item.GetPath(), info->m_iFileId);
+     if (m_pObserver)
+       m_pObserver->OnItemLoaded(&loader->m_item);
+     CFileItemPtr pItem(new CFileItem(loader->m_item));
+diff --git a/xbmc/video/VideoThumbLoader.h b/xbmc/video/VideoThumbLoader.h
+index 6567a98..906c82c 100644
+--- a/xbmc/video/VideoThumbLoader.h
++++ b/xbmc/video/VideoThumbLoader.h
+@@ -25,7 +25,6 @@
+ #include "FileItem.h"
+ 
+ class CStreamDetails;
+-class IStreamDetailsObserver;
+ class CVideoDatabase;
+ 
+ /*!
+@@ -72,7 +71,6 @@ class CVideoThumbLoader : public CThumbLoader, public CJobQueue
+   virtual bool LoadItem(CFileItem* pItem);
+   virtual bool LoadItemCached(CFileItem* pItem);
+   virtual bool LoadItemLookup(CFileItem* pItem);
+-  void SetStreamDetailsObserver(IStreamDetailsObserver *pObs) { m_pStreamDetailsObs = pObs; }
+ 
+   /*! \brief Fill the thumb of a video item
+    First uses a cached thumb from a previous run, then checks for a local thumb
+@@ -126,7 +124,6 @@ class CVideoThumbLoader : public CThumbLoader, public CJobQueue
+   static void SetArt(CFileItem &item, const std::map<std::string, std::string> &artwork);
+ 
+ protected:
+-  IStreamDetailsObserver *m_pStreamDetailsObs;
+   CVideoDatabase *m_videoDatabase;
+   typedef std::map<int, std::map<std::string, std::string> > ArtCache;
+   ArtCache m_showArt;
+diff --git a/xbmc/video/windows/GUIWindowVideoBase.cpp b/xbmc/video/windows/GUIWindowVideoBase.cpp
+index b881699..119e1d4 100644
+--- a/xbmc/video/windows/GUIWindowVideoBase.cpp
++++ b/xbmc/video/windows/GUIWindowVideoBase.cpp
+@@ -102,7 +102,6 @@
+     : CGUIMediaWindow(id, xmlFile)
+ {
+   m_thumbLoader.SetObserver(this);
+-  m_thumbLoader.SetStreamDetailsObserver(this);
+   m_stackingAvailable = true;
+ }
+ 
+@@ -1191,20 +1190,6 @@ bool CGUIWindowVideoBase::OnResumeItem(int iItem)
+   return OnFileAction(iItem, SELECT_ACTION_PLAY);
+ }
+ 
+-void CGUIWindowVideoBase::OnStreamDetails(const CStreamDetails &details, const CStdString &strFileName, long lFileId)
+-{
+-  CVideoDatabase db;
+-  if (db.Open())
+-  {
+-    if (lFileId < 0)
+-      db.SetStreamDetailsForFile(details, strFileName);
+-    else
+-      db.SetStreamDetailsForFileId(details, lFileId);
+-
+-    db.Close();
+-  }
+-}
+-
+ void CGUIWindowVideoBase::GetContextButtons(int itemNumber, CContextButtons &buttons)
+ {
+   CFileItemPtr item;
+diff --git a/xbmc/video/windows/GUIWindowVideoBase.h b/xbmc/video/windows/GUIWindowVideoBase.h
+index c77a2ac..d994ac7 100644
+--- a/xbmc/video/windows/GUIWindowVideoBase.h
++++ b/xbmc/video/windows/GUIWindowVideoBase.h
+@@ -36,7 +36,7 @@ enum VideoSelectAction
+   SELECT_ACTION_PLAYPART
+ };
+ 
+-class CGUIWindowVideoBase : public CGUIMediaWindow, public IBackgroundLoaderObserver, public IStreamDetailsObserver
++class CGUIWindowVideoBase : public CGUIMediaWindow, public IBackgroundLoaderObserver
+ {
+ public:
+   CGUIWindowVideoBase(int id, const CStdString &xmlFile);
+@@ -50,7 +50,6 @@ class CGUIWindowVideoBase : public CGUIMediaWindow, public IBackgroundLoaderObse
+ 
+   void AddToDatabase(int iItem);
+   virtual void OnInfo(CFileItem* pItem, const ADDON::ScraperPtr& scraper);
+-  virtual void OnStreamDetails(const CStreamDetails &details, const CStdString &strFileName, long lFileId);
+   static void MarkWatched(const CFileItemPtr &pItem, bool bMark);
+   static void UpdateVideoTitle(const CFileItem* pItem);
+ 
+-- 
+1.8.1.6
+
