@@ -22,6 +22,35 @@
 #
 # runlevels: openelec
 
+# needed functions
+  add_omit_pids() {
+    omit_pids="$omit_pids -o $1"
+  }
+
+  _shutdown_script () {
+    SHUTDOWN="/storage/.config/shutdown.sh"
+    if [ -f $SHUTDOWN ]; then
+      echo '!!! SHUTDOWN script detected !!!' | logger -t shutdown.sh
+      cat "$SHUTDOWN" | logger -t shutdown.sh
+      echo '!!! -End of shutdown script- !!!' | logger -t shutdown.sh
+      sh $SHUTDOWN
+    fi
+  }
+
+  _safe_shutdown () {
+    _shutdown_script
+    add_omit_pids $(pidof connmand)
+    add_omit_pids $(pidof dbus-daemon)
+    killall5 -15 $omit_pids
+    for seq in `seq 1 10` ; do
+      usleep 500000
+      clear > /dev/tty1
+      killall5 -18 $omit_pids || break
+    done
+    sync
+    umount -a >/dev/null 2>&1
+  }
+
 LIRCDEV="/var/run/lirc/lircd"
 [ -e /var/run/lirc/lircd.irtrans ] && LIRCDEV="/var/run/lirc/lircd.irtrans"
 XBMC_ARGS="--standalone -fs --lircdev $LIRCDEV"
@@ -52,6 +81,7 @@ fi
     sh $AUTOSTART
   fi
 
+
   wait_for_dbus
 
 # waiting for Xorg to start
@@ -81,25 +111,22 @@ fi
 
     case "$RET" in
       0)
-        if [ ! $(pidof console-kit-daemon) ]; then
-          touch "$LOCKDIR/$LOCKFILE"
-          _safe_shutdown
-          poweroff -f
-        fi
+        touch "$LOCKDIR/$LOCKFILE"
+        killall sshd
+        _safe_shutdown
+        poweroff -f
         ;;
       64)
-        if [ ! $(pidof console-kit-daemon) ]; then
-          touch "$LOCKDIR/$LOCKFILE"
-          _safe_shutdown
-          poweroff -f
-        fi
+        touch "$LOCKDIR/$LOCKFILE"
+        killall sshd
+        _safe_shutdown
+        poweroff -f
         ;;
       66)
-        if [ ! $(pidof console-kit-daemon) ]; then
-          touch "$LOCKDIR/$LOCKFILE"
-          _safe_shutdown
-          reboot
-        fi
+        touch "$LOCKDIR/$LOCKFILE"
+        killall sshd
+        _safe_shutdown
+        reboot
         ;;
       255)
         echo "Abnormal Exit. Exited with code $RET"
