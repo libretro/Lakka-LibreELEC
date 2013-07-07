@@ -22,23 +22,25 @@
 #
 # runlevels: openelec
 
+# prevent restrating XBMC at reboot or shutdown
+  LOCKDIR="/var/lock/"
+  LOCKFILE="xbmc.disabled"
+  [ -f "$LOCKDIR/$LOCKFILE" ] && rm -f "$LOCKDIR/$LOCKFILE" &
+
 # needed functions
   add_omit_pids() {
     omit_pids="$omit_pids -o $1"
   }
 
-  _shutdown_script () {
+  safe_shutdown () {
+    touch "$LOCKDIR/$LOCKFILE"
     SHUTDOWN="/storage/.config/shutdown.sh"
     if [ -f $SHUTDOWN ]; then
-      echo '!!! SHUTDOWN script detected !!!' | logger -t shutdown.sh
+      echo '!!! SHUTDOWN script detected !!!' | logger -t shutdown.sh $1
       cat "$SHUTDOWN" | logger -t shutdown.sh
-      echo '!!! -End of shutdown script- !!!' | logger -t shutdown.sh
+      echo '!!! -End of shutdown script- !!!' | logger -t shutdown.sh $1
       sh $SHUTDOWN $1
     fi
-  }
-
-  _safe_shutdown () {
-    _shutdown_script $1
     add_omit_pids $(pidof connmand)
     add_omit_pids $(pidof dbus-daemon)
     killall5 -15 $omit_pids
@@ -49,6 +51,11 @@
     done
     sync
     umount -a >/dev/null 2>&1
+    if [ $1 = "reboot" ]; then
+      reboot
+    elif [ $1 = "poweroff" ]; then
+      poweroff -f
+    fi
   }
 
 LIRCDEV="/var/run/lirc/lircd"
@@ -94,11 +101,6 @@ fi
   wait_for_xorg
 
 
-# prevent restrating XBMC at reboot or shutdown
-  LOCKDIR="/var/lock/"
-  LOCKFILE="xbmc.disabled"
-  [ -f "$LOCKDIR/$LOCKFILE" ] && rm -f "$LOCKDIR/$LOCKFILE" &
-
 # starting XBMC
   usleep $XBMC_STARTDELAY
   while true; do
@@ -112,19 +114,13 @@ fi
 
     case "$RET" in
       0)
-        touch "$LOCKDIR/$LOCKFILE"
-        _safe_shutdown poweroff
-        poweroff -f
+        safe_shutdown poweroff
         ;;
       64)
-        touch "$LOCKDIR/$LOCKFILE"
-        _safe_shutdown poweroff
-        poweroff -f
+        safe_shutdown poweroff
         ;;
       66)
-        touch "$LOCKDIR/$LOCKFILE"
-        _safe_shutdown reboot
-        reboot
+        safe_shutdown reboot
         ;;
       255)
         echo "Abnormal Exit. Exited with code $RET"
