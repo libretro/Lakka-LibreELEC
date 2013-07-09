@@ -1,0 +1,312 @@
+diff -urN tbs/linux-tbs-drivers.org/linux/drivers/media/common/saa716x/saa716x_i2c.c tbs/linux-tbs-drivers/linux/drivers/media/common/saa716x/saa716x_i2c.c
+--- tbs/linux-tbs-drivers.org/linux/drivers/media/common/saa716x/saa716x_i2c.c	2013-03-18 20:40:05.000000000 +0100
++++ tbs/linux-tbs-drivers/linux/drivers/media/common/saa716x/saa716x_i2c.c	2013-07-09 15:36:44.271340994 +0200
+@@ -569,7 +569,7 @@
+ 		saa716x_i2c_hwdeinit(i2c, SAA716x_I2C_BUS(i));
+ 		dprintk(SAA716x_DEBUG, 1, "Removing adapter (%d) %s", i, adapter->name);
+ 
+-		err = i2c_del_adapter(adapter);
++		//err = i2c_del_adapter(adapter);
+ 		if (err < 0) {
+ 			dprintk(SAA716x_ERROR, 1, "Adapter (%d) %s remove failed", i, adapter->name);
+ 			goto exit;
+diff -urN tbs/linux-tbs-drivers.org/linux/drivers/media/dvb/mantis/mantis_i2c.c tbs/linux-tbs-drivers/linux/drivers/media/dvb/mantis/mantis_i2c.c
+--- tbs/linux-tbs-drivers.org/linux/drivers/media/dvb/mantis/mantis_i2c.c	2013-03-18 20:40:05.000000000 +0100
++++ tbs/linux-tbs-drivers/linux/drivers/media/dvb/mantis/mantis_i2c.c	2013-07-09 15:35:32.375339760 +0200
+@@ -217,11 +217,7 @@
+ 	.functionality		= mantis_i2c_func,
+ };
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+-int __devinit mantis_i2c_init(struct mantis_pci *mantis)
+-#else
+ int mantis_i2c_init(struct mantis_pci *mantis)
+-#endif
+ {
+ 	u32 intstat, intmask;
+ 	struct i2c_adapter *i2c_adapter = &mantis->adapter;
+@@ -265,6 +261,8 @@
+ 	mmwrite((intmask & ~MANTIS_INT_I2CDONE), MANTIS_INT_MASK);
+ 
+ 	dprintk(MANTIS_DEBUG, 1, "Removing I2C adapter");
+-	return i2c_del_adapter(&mantis->adapter);
++	i2c_del_adapter(&mantis->adapter);
++
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mantis_i2c_exit);
+diff -urN tbs/linux-tbs-drivers.org/linux/drivers/media/dvb/ttpci/av7110_ir.c tbs/linux-tbs-drivers/linux/drivers/media/dvb/ttpci/av7110_ir.c
+--- tbs/linux-tbs-drivers.org/linux/drivers/media/dvb/ttpci/av7110_ir.c	2013-03-18 20:40:05.000000000 +0100
++++ tbs/linux-tbs-drivers/linux/drivers/media/dvb/ttpci/av7110_ir.c	2013-07-09 15:34:31.631338719 +0200
+@@ -324,11 +324,7 @@
+ }
+ 
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+-int __devinit av7110_ir_init(struct av7110 *av7110)
+-#else
+ int av7110_ir_init(struct av7110 *av7110)
+-#endif
+ {
+ 	struct input_dev *input_dev;
+ 	static struct proc_dir_entry *e;
+@@ -379,7 +375,7 @@
+ 	if (av_cnt == 1) {
+ 		e = proc_create("av7110_ir", S_IWUSR, NULL, &av7110_ir_proc_fops);
+ 		if (e)
+-			e->size = 4 + 256 * sizeof(u16);
++			proc_set_size(e, 4 + 256 * sizeof(u16));
+ 	}
+ 
+ 	tasklet_init(&av7110->ir.ir_tasklet, av7110_emit_key, (unsigned long) &av7110->ir);
+@@ -389,11 +385,7 @@
+ }
+ 
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+-void __devexit av7110_ir_exit(struct av7110 *av7110)
+-#else
+ void av7110_ir_exit(struct av7110 *av7110)
+-#endif
+ {
+ 	int i;
+ 
+diff -urN tbs/linux-tbs-drivers.org/linux/drivers/media/video/bt8xx/bttv-input.c tbs/linux-tbs-drivers/linux/drivers/media/video/bt8xx/bttv-input.c
+--- tbs/linux-tbs-drivers.org/linux/drivers/media/video/bt8xx/bttv-input.c	2013-03-18 20:40:05.000000000 +0100
++++ tbs/linux-tbs-drivers/linux/drivers/media/video/bt8xx/bttv-input.c	2013-07-09 15:33:30.527337668 +0200
+@@ -18,6 +18,8 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+  */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
+@@ -36,9 +38,10 @@
+ module_param(ir_rc5_remote_gap, int, 0644);
+ 
+ #undef dprintk
+-#define dprintk(arg...) do {	\
+-	if (ir_debug >= 1)	\
+-		printk(arg);	\
++#define dprintk(fmt, ...)			\
++do {						\
++	if (ir_debug >= 1)			\
++		pr_info(fmt, ##__VA_ARGS__);	\
+ } while (0)
+ 
+ #define DEVNAME "bttv-input"
+@@ -62,7 +65,7 @@
+ 
+ 	/* extract data */
+ 	data = ir_extract_bits(gpio, ir->mask_keycode);
+-	dprintk(KERN_INFO DEVNAME ": irq gpio=0x%x code=%d | %s%s%s\n",
++	dprintk("irq gpio=0x%x code=%d | %s%s%s\n",
+ 		gpio, data,
+ 		ir->polling               ? "poll"  : "irq",
+ 		(gpio & ir->mask_keydown) ? " down" : "",
+@@ -96,7 +99,7 @@
+ 	keyup = (gpio & ir->mask_keyup) ? 1 << 31 : 0;
+ 
+ 	if ((ir->last_gpio & 0x7f) != data) {
+-		dprintk(KERN_INFO DEVNAME ": gpio=0x%x code=%d | %s\n",
++		dprintk("gpio=0x%x code=%d | %s\n",
+ 			gpio, data,
+ 			(gpio & ir->mask_keyup) ? " up" : "up/down");
+ 
+@@ -107,7 +110,7 @@
+ 		if ((ir->last_gpio & 1 << 31) == keyup)
+ 			return;
+ 
+-		dprintk(KERN_INFO DEVNAME ":(cnt) gpio=0x%x code=%d | %s\n",
++		dprintk("(cnt) gpio=0x%x code=%d | %s\n",
+ 			gpio, data,
+ 			(gpio & ir->mask_keyup) ? " up" : "down");
+ 
+@@ -177,13 +180,12 @@
+ 			rc5 |= 1;
+ 		break;
+ 		case 3:
+-			dprintk(KERN_INFO DEVNAME ":rc5_decode(%x) bad code\n",
++			dprintk("rc5_decode(%x) bad code\n",
+ 				org_code);
+ 			return 0;
+ 		}
+ 	}
+-	dprintk(KERN_INFO DEVNAME ":"
+-		"code=%x, rc5=%x, start=%x, toggle=%x, address=%x, "
++	dprintk("code=%x, rc5=%x, start=%x, toggle=%x, address=%x, "
+ 		"instr=%x\n", rc5, org_code, RC5_START(rc5),
+ 		RC5_TOGGLE(rc5), RC5_ADDR(rc5), RC5_INSTR(rc5));
+ 	return rc5;
+@@ -212,20 +214,20 @@
+ 
+ 	/* Allow some timer jitter (RC5 is ~24ms anyway so this is ok) */
+ 	if (gap < 28000) {
+-		dprintk(KERN_INFO DEVNAME ": spurious timer_end\n");
++		dprintk("spurious timer_end\n");
+ 		return;
+ 	}
+ 
+ 	if (ir->last_bit < 20) {
+ 		/* ignore spurious codes (caused by light/other remotes) */
+-		dprintk(KERN_INFO DEVNAME ": short code: %x\n", ir->code);
++		dprintk("short code: %x\n", ir->code);
+ 	} else {
+ 		ir->code = (ir->code << ir->shift_by) | 1;
+ 		rc5 = bttv_rc5_decode(ir->code);
+ 
+ 		/* two start bits? */
+ 		if (RC5_START(rc5) != ir->start) {
+-			printk(KERN_INFO DEVNAME ":"
++			pr_info(DEVNAME ":"
+ 			       " rc5 start bits invalid: %u\n", RC5_START(rc5));
+ 
+ 			/* right address? */
+@@ -235,8 +237,7 @@
+ 
+ 			/* Good code */
+ 			rc_keydown(ir->dev, instr, toggle);
+-			dprintk(KERN_INFO DEVNAME ":"
+-				" instruction %x, toggle %x\n",
++			dprintk("instruction %x, toggle %x\n",
+ 				instr, toggle);
+ 		}
+ 	}
+@@ -265,7 +266,7 @@
+ 		    tv.tv_usec - ir->base_time.tv_usec;
+ 	}
+ 
+-	dprintk(KERN_INFO DEVNAME ": RC5 IRQ: gap %d us for %s\n",
++	dprintk("RC5 IRQ: gap %d us for %s\n",
+ 		gap, (gpio & 0x20) ? "mark" : "space");
+ 
+ 	/* remote IRQ? */
+@@ -340,14 +341,14 @@
+ 
+ 	/* poll IR chip */
+ 	if (1 != i2c_master_recv(ir->c, &b, 1)) {
+-		dprintk(KERN_INFO DEVNAME ": read error\n");
++		dprintk("read error\n");
+ 		return -EIO;
+ 	}
+ 
+ 	/* ignore 0xaa */
+ 	if (b==0xaa)
+ 		return 0;
+-	dprintk(KERN_INFO DEVNAME ": key %02x\n", b);
++	dprintk("key %02x\n", b);
+ 
+ 	/*
+ 	 * NOTE:
+@@ -367,17 +368,14 @@
+ }
+ 
+ /* Instantiate the I2C IR receiver device, if present */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
+-void __devinit init_bttv_i2c_ir(struct bttv *btv)
+-#else
+ void init_bttv_i2c_ir(struct bttv *btv)
+-#endif
+ {
+ 	const unsigned short addr_list[] = {
+ 		0x1a, 0x18, 0x64, 0x30, 0x71,
+ 		I2C_CLIENT_END
+ 	};
+ 	struct i2c_board_info info;
++	struct i2c_client *i2c_dev;
+ 
+ 	if (0 != btv->i2c_rc)
+ 		return;
+@@ -393,7 +391,12 @@
+ 		btv->init_data.ir_codes = RC_MAP_PV951;
+ 		info.addr = 0x4b;
+ 		break;
+-	default:
++	}
++
++	if (btv->init_data.name) {
++		info.platform_data = &btv->init_data;
++		i2c_dev = i2c_new_device(&btv->c.i2c_adap, &info);
++	} else {
+ 		/*
+ 		 * The external IR receiver is at i2c address 0x34 (0x35 for
+ 		 * reads).  Future Hauppauge cards will have an internal
+@@ -402,33 +405,14 @@
+ 		 * internal.
+ 		 * That's why we probe 0x1a (~0x34) first. CB
+ 		 */
+-		 
+-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,35)
+-		i2c_new_probed_device(&btv->c.i2c_adap, &info, addr_list);
+-#else
+-		i2c_new_probed_device(&btv->c.i2c_adap, &info, addr_list, NULL);
+-#endif
+-		
+-		return;
++		i2c_dev = i2c_new_probed_device(&btv->c.i2c_adap, &info, addr_list, NULL);
+ 	}
++	if (NULL == i2c_dev)
++		return;
+ 
+-	if (btv->init_data.name)
+-		info.platform_data = &btv->init_data;
+-	i2c_new_device(&btv->c.i2c_adap, &info);
+-
+-	return;
+-}
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0)
+-int __devexit fini_bttv_i2c(struct bttv *btv)
+-#else
+-int fini_bttv_i2c(struct bttv *btv)
++#if defined(CONFIG_MODULES) && defined(MODULE)
++	request_module("ir-kbd-i2c");
+ #endif
+-{
+-	if (0 != btv->i2c_rc)
+-		return 0;
+-
+-	return i2c_del_adapter(&btv->c.i2c_adap);
+ }
+ 
+ int bttv_input_init(struct bttv *btv)
+@@ -530,7 +514,7 @@
+ 		break;
+ 	}
+ 	if (NULL == ir_codes) {
+-		dprintk(KERN_INFO "Ooops: IR config error [card=%d]\n", btv->c.type);
++		dprintk("Ooops: IR config error [card=%d]\n", btv->c.type);
+ 		err = -ENODEV;
+ 		goto err_out_free;
+ 	}
+diff -urN tbs/linux-tbs-drivers.org/linux/drivers/media/video/zoran/zoran_procfs.c tbs/linux-tbs-drivers/linux/drivers/media/video/zoran/zoran_procfs.c
+--- tbs/linux-tbs-drivers.org/linux/drivers/media/video/zoran/zoran_procfs.c	2010-07-03 23:22:08.000000000 +0200
++++ tbs/linux-tbs-drivers/linux/drivers/media/video/zoran/zoran_procfs.c	2013-07-09 15:37:31.083341796 +0200
+@@ -130,14 +130,14 @@
+ 
+ static int zoran_open(struct inode *inode, struct file *file)
+ {
+-	struct zoran *data = PDE(inode)->data;
++	struct zoran *data = PDE_DATA(inode);
+ 	return single_open(file, zoran_show, data);
+ }
+ 
+ static ssize_t zoran_write(struct file *file, const char __user *buffer,
+ 			size_t count, loff_t *ppos)
+ {
+-	struct zoran *zr = PDE(file->f_path.dentry->d_inode)->data;
++	struct zoran *zr = PDE_DATA(file_inode(file));
+ 	char *string, *sp;
+ 	char *line, *ldelim, *varname, *svar, *tdelim;
+ 
+@@ -201,7 +201,7 @@
+ 		dprintk(2,
+ 			KERN_INFO
+ 			"%s: procfs entry /proc/%s allocated. data=%p\n",
+-			ZR_DEVNAME(zr), name, zr->zoran_proc->data);
++			ZR_DEVNAME(zr), name, zr);
+ 	} else {
+ 		dprintk(1, KERN_ERR "%s: Unable to initialise /proc/%s\n",
+ 			ZR_DEVNAME(zr), name);
