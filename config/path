@@ -55,12 +55,26 @@ SED="sed -i"
   PKG_IS_ADDON="no"
 
   if [ -n "$1" ]; then
-    PKG_DIR=`find $PACKAGES -type d -name $1 ! -wholename \*\/source\/\* 2>/dev/null`
-    if [ "${PKG_DIR}" != "$(echo $PKG_DIR | tr -d '\n')" ]; then
-      echo "Error - multiple package folders:"
-      echo "$PKG_DIR"
-      exit 1
-    fi
+    FOUND=0
+    for DIR in `find $PACKAGES -type d -name $1 ! -wholename \*\/source\/\* 2>/dev/null` ; do
+      # keep track of dirs with meta for debugging
+      if [ -z "$ALL_DIRS" ] ; then
+        ALL_DIRS="$DIR"
+      else
+        ALL_DIRS="$ALL_DIRS\\n$DIR"
+      fi
+      if [ -f "$DIR/meta" -o -f "$DIR/install" ] ; then
+        FOUND=$((FOUND+1))
+        # found first. set $PKG_DIR
+        PKG_DIR="$DIR"
+        if [ $FOUND -gt 1 ] ; then
+          # found more ? fail
+          echo "Error - multiple package folders:"
+          echo -e "$ALL_DIRS"
+          exit 1
+        fi
+      fi
+    done
   fi
 
   [ -r $PKG_DIR/meta ] && . $PKG_DIR/meta
