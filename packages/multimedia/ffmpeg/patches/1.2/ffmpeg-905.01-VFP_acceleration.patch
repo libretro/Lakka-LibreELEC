@@ -1,0 +1,1560 @@
+From f097ecc4f42e29c6e8013a622bb569702ffe4546 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Fri, 14 Jun 2013 16:07:53 +0100
+Subject: [PATCH 1/6] Add VFP-accelerated version of synth_filter_float(), used
+ by DTS Coherent Acoustics decoder
+
+---
+ libavcodec/arm/Makefile           |   3 +-
+ libavcodec/arm/fft_init_arm.c     |   8 ++
+ libavcodec/arm/synth_filter_vfp.S | 206 +++++++++++++++++++++++++++
+ 3 files changed, 216 insertions(+), 1 deletion(-)
+ create mode 100644 libavcodec/arm/synth_filter_vfp.S
+
+diff --git a/libavcodec/arm/Makefile b/libavcodec/arm/Makefile
+index 1c91d62..9079270 100644
+--- a/libavcodec/arm/Makefile
++++ b/libavcodec/arm/Makefile
+@@ -58,7 +58,8 @@ ARMV6-OBJS                             += arm/dsputil_init_armv6.o      \
+                                           arm/dsputil_armv6.o           \
+                                           arm/simple_idct_armv6.o       \
+ 
+-VFP-OBJS-$(HAVE_ARMV6)                 += arm/fmtconvert_vfp.o
++VFP-OBJS-$(HAVE_ARMV6)                 += arm/fmtconvert_vfp.o          \
++                                          arm/synth_filter_vfp.o
+ 
+ NEON-OBJS-$(CONFIG_FFT)                += arm/fft_neon.o                \
+                                           arm/fft_fixed_neon.o          \
+diff --git a/libavcodec/arm/fft_init_arm.c b/libavcodec/arm/fft_init_arm.c
+index 8c98abc..44c811d 100644
+--- a/libavcodec/arm/fft_init_arm.c
++++ b/libavcodec/arm/fft_init_arm.c
+@@ -32,6 +32,12 @@
+ 
+ void ff_rdft_calc_neon(struct RDFTContext *s, FFTSample *z);
+ 
++void ff_synth_filter_float_vfp(FFTContext *imdct,
++                               float *synth_buf_ptr, int *synth_buf_offset,
++                               float synth_buf2[32], const float window[512],
++                               float out[32], const float in[32],
++                               float scale);
++
+ void ff_synth_filter_float_neon(FFTContext *imdct,
+                                 float *synth_buf_ptr, int *synth_buf_offset,
+                                 float synth_buf2[32], const float window[512],
+@@ -71,6 +77,8 @@ av_cold void ff_synth_filter_init_arm(SynthFilterContext *s)
+ {
+     int cpu_flags = av_get_cpu_flags();
+ 
++    if (have_vfp(cpu_flags))
++        s->synth_filter_float = ff_synth_filter_float_vfp;
+     if (have_neon(cpu_flags))
+         s->synth_filter_float = ff_synth_filter_float_neon;
+ }
+diff --git a/libavcodec/arm/synth_filter_vfp.S b/libavcodec/arm/synth_filter_vfp.S
+new file mode 100644
+index 0000000..451fe5c
+--- /dev/null
++++ b/libavcodec/arm/synth_filter_vfp.S
+@@ -0,0 +1,206 @@
++/*
++ * Copyright (c) 2013 RISC OS Open Ltd
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ *
++ * Author: Ben Avison <bavison@riscosopen.org>
++ */
++
++#include "libavutil/arm/asm.S"
++
++IMDCT         .req    r0
++ORIG_P_SB     .req    r1
++P_SB_OFF      .req    r2
++I             .req    r0
++P_SB2_UP      .req    r1
++OLDFPSCR      .req    r2
++P_SB2_DN      .req    r3
++P_WIN_DN      .req    r4
++P_OUT_DN      .req    r5
++P_SB          .req    r6
++J_WRAP        .req    r7
++P_WIN_UP      .req    r12
++P_OUT_UP      .req    r14
++
++SCALE         .req    s0
++SBUF_DAT_REV0 .req    s4
++SBUF_DAT_REV1 .req    s5
++SBUF_DAT_REV2 .req    s6
++SBUF_DAT_REV3 .req    s7
++VA0           .req    s8
++VA3           .req    s11
++VB0           .req    s12
++VB3           .req    s15
++VC0           .req    s8
++VC3           .req    s11
++VD0           .req    s12
++VD3           .req    s15
++SBUF_DAT0     .req    s16
++SBUF_DAT1     .req    s17
++SBUF_DAT2     .req    s18
++SBUF_DAT3     .req    s19
++SBUF_DAT_ALT0 .req    s20
++SBUF_DAT_ALT1 .req    s21
++SBUF_DAT_ALT2 .req    s22
++SBUF_DAT_ALT3 .req    s23
++WIN_DN_DAT0   .req    s24
++WIN_UP_DAT0   .req    s28
++
++
++.macro inner_loop  half, tail, head
++ .if (OFFSET & (64*4)) == 0                @ even numbered call
++        SBUF_DAT_THIS0 .req SBUF_DAT0
++        SBUF_DAT_THIS1 .req SBUF_DAT1
++        SBUF_DAT_THIS2 .req SBUF_DAT2
++        SBUF_DAT_THIS3 .req SBUF_DAT3
++  .ifnc "\head",""
++        vldr    d8, [P_SB, #OFFSET]        @ d8 = SBUF_DAT
++        vldr    d9, [P_SB, #OFFSET+8]
++  .endif
++ .else
++        SBUF_DAT_THIS0 .req SBUF_DAT_ALT0
++        SBUF_DAT_THIS1 .req SBUF_DAT_ALT1
++        SBUF_DAT_THIS2 .req SBUF_DAT_ALT2
++        SBUF_DAT_THIS3 .req SBUF_DAT_ALT3
++  .ifnc "\head",""
++        vldr    d10, [P_SB, #OFFSET]       @ d10 = SBUF_DAT_ALT
++        vldr    d11, [P_SB, #OFFSET+8]
++  .endif
++ .endif
++ .ifnc "\tail",""
++  .ifc "\half","ab"
++        vmls.f  VA0, SBUF_DAT_REV0, WIN_DN_DAT0  @ all operands treated as vectors
++  .else
++        vmla.f  VD0, SBUF_DAT_REV0, WIN_DN_DAT0  @ all operands treated as vectors
++  .endif
++ .endif
++ .ifnc "\head",""
++        vldr    d14, [P_WIN_UP, #OFFSET]   @ d14 = WIN_UP_DAT
++        vldr    d15, [P_WIN_UP, #OFFSET+8]
++        vldr    d12, [P_WIN_DN, #OFFSET]   @ d12 = WIN_DN_DAT
++        vldr    d13, [P_WIN_DN, #OFFSET+8]
++        vmov    SBUF_DAT_REV3, SBUF_DAT_THIS0
++        vmov    SBUF_DAT_REV2, SBUF_DAT_THIS1
++        vmov    SBUF_DAT_REV1, SBUF_DAT_THIS2
++        vmov    SBUF_DAT_REV0, SBUF_DAT_THIS3
++  .ifc "\half","ab"
++        vmla.f  VB0, SBUF_DAT_THIS0, WIN_UP_DAT0
++  .else
++        vmla.f  VC0, SBUF_DAT_THIS0, WIN_UP_DAT0
++  .endif
++        teq     J_WRAP, #J
++        bne     2f             @ strongly predictable, so better than cond exec in this case
++        sub     P_SB, P_SB, #512*4
++2:
++  .set J, J - 64
++  .set OFFSET, OFFSET + 64*4
++ .endif
++        .unreq  SBUF_DAT_THIS0
++        .unreq  SBUF_DAT_THIS1
++        .unreq  SBUF_DAT_THIS2
++        .unreq  SBUF_DAT_THIS3
++.endm
++
++
++/* void ff_synth_filter_float_vfp(FFTContext *imdct,
++ *                                float *synth_buf_ptr, int *synth_buf_offset,
++ *                                float synth_buf2[32], const float window[512],
++ *                                float out[32], const float in[32], float scale)
++ */
++function ff_synth_filter_float_vfp, export=1
++        push    {r3-r7,lr}
++        vpush   {s16-s31}
++        ldr     lr, [P_SB_OFF]
++        add     a2, ORIG_P_SB, lr, LSL #2 @ calculate synth_buf to pass to imdct_half
++        mov     P_SB, a2                  @ and keep a copy for ourselves
++        bic     J_WRAP, lr, #63           @ mangled to make testing for wrap easier in inner loop
++        sub     lr, lr, #32
++        and     lr, lr, #512-32
++        str     lr, [P_SB_OFF]            @ rotate offset, modulo buffer size, ready for next call
++        ldr     a3, [sp, #(16+6+2)*4]     @ fetch in from stack, to pass to imdct_half
++VFP     vmov    s16, SCALE                @ imdct_half is free to corrupt s0, but it contains one of our arguments in hardfp case
++        bl      ff_imdct_half_c
++VFP     vmov    SCALE, s16
++
++        vmrs    OLDFPSCR, FPSCR
++        ldr     lr, =0x03030000           @ RunFast mode, short vectors of length 4, stride 1
++        vmsr    FPSCR, lr
++        ldr     P_SB2_DN, [sp, #16*4]
++        ldr     P_WIN_DN, [sp, #(16+6+0)*4]
++        ldr     P_OUT_DN, [sp, #(16+6+1)*4]
++NOVFP   vldr    SCALE, [sp, #(16+6+3)*4]
++
++#define IMM_OFF_SKEW 956                   /* also valid immediate constant when you add 16*4 */
++        add     P_SB, P_SB, #IMM_OFF_SKEW  @ so we can use -ve offsets to use full immediate offset range
++        add     P_SB2_UP, P_SB2_DN, #16*4
++        add     P_WIN_UP, P_WIN_DN, #16*4+IMM_OFF_SKEW
++        add     P_OUT_UP, P_OUT_DN, #16*4
++        add     P_SB2_DN, P_SB2_DN, #16*4
++        add     P_WIN_DN, P_WIN_DN, #12*4+IMM_OFF_SKEW
++        add     P_OUT_DN, P_OUT_DN, #16*4
++        mov     I, #4
++1:
++        vldmia  P_SB2_UP!, {VB0-VB3}
++        vldmdb  P_SB2_DN!, {VA0-VA3}
++ .set J, 512 - 64
++ .set OFFSET, -IMM_OFF_SKEW
++        inner_loop  ab,, head
++ .rept 7
++        inner_loop  ab, tail, head
++ .endr
++        inner_loop  ab, tail
++        add     P_WIN_UP, P_WIN_UP, #4*4
++        sub     P_WIN_DN, P_WIN_DN, #4*4
++        vmul.f  VB0, VB0, SCALE      @ SCALE treated as scalar
++        add     P_SB, P_SB, #(512+4)*4
++        subs    I, I, #1
++        vmul.f  VA0, VA0, SCALE
++        vstmia  P_OUT_UP!, {VB0-VB3}
++        vstmdb  P_OUT_DN!, {VA0-VA3}
++        bne     1b
++
++        add     P_SB2_DN, P_SB2_DN, #(16+28-12)*4
++        sub     P_SB2_UP, P_SB2_UP, #(16+16)*4
++        add     P_WIN_DN, P_WIN_DN, #(32+16+28-12)*4
++        mov     I, #4
++1:
++        vldr.d  d4, zero             @ d4 = VC0
++        vldr.d  d5, zero
++        vldr.d  d6, zero             @ d6 = VD0
++        vldr.d  d7, zero
++ .set J, 512 - 64
++ .set OFFSET, -IMM_OFF_SKEW
++        inner_loop  cd,, head
++ .rept 7
++        inner_loop  cd, tail, head
++ .endr
++        inner_loop  cd, tail
++        add     P_WIN_UP, P_WIN_UP, #4*4
++        sub     P_WIN_DN, P_WIN_DN, #4*4
++        add     P_SB, P_SB, #(512+4)*4
++        subs    I, I, #1
++        vstmia  P_SB2_UP!, {VC0-VC3}
++        vstmdb  P_SB2_DN!, {VD0-VD3}
++        bne     1b
++
++        vmsr    FPSCR, OLDFPSCR
++        vpop    {s16-s31}
++        pop     {r3-r7,pc}
++endfunc
++
++        .align  3
++zero:   .word   0, 0
+-- 
+1.8.1.6
+
+
+From 36ddeb1bc2f84c42ea29333444efad04f82a0f92 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Tue, 25 Jun 2013 17:22:50 +0100
+Subject: [PATCH 2/6] 1st version of ff_int32_to_float_fmul_scalar_vfp
+
+---
+ libavcodec/arm/fmtconvert_init_arm.c | 11 +++++--
+ libavcodec/arm/fmtconvert_vfp.S      | 38 +++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/libavcodec/arm/fmtconvert_init_arm.c b/libavcodec/arm/fmtconvert_init_arm.c
+index 1d99c97..fc32bdd 100644
+--- a/libavcodec/arm/fmtconvert_init_arm.c
++++ b/libavcodec/arm/fmtconvert_init_arm.c
+@@ -31,14 +31,21 @@ void ff_int32_to_float_fmul_scalar_neon(float *dst, const int *src,
+ void ff_float_to_int16_neon(int16_t *dst, const float *src, long len);
+ void ff_float_to_int16_interleave_neon(int16_t *, const float **, long, int);
+ 
++void ff_int32_to_float_fmul_scalar_vfp(float *dst, const int *src,
++                                       float mul, int len);
++
+ void ff_float_to_int16_vfp(int16_t *dst, const float *src, long len);
+ 
+ av_cold void ff_fmt_convert_init_arm(FmtConvertContext *c, AVCodecContext *avctx)
+ {
+     int cpu_flags = av_get_cpu_flags();
+ 
+-    if (have_vfp(cpu_flags) && have_armv6(cpu_flags)) {
+-        c->float_to_int16 = ff_float_to_int16_vfp;
++    if (have_vfp(cpu_flags)) {
++        c->int32_to_float_fmul_scalar = ff_int32_to_float_fmul_scalar_vfp;
++
++        if (have_armv6(cpu_flags)) {
++            c->float_to_int16 = ff_float_to_int16_vfp;
++        }
+     }
+ 
+     if (have_neon(cpu_flags)) {
+diff --git a/libavcodec/arm/fmtconvert_vfp.S b/libavcodec/arm/fmtconvert_vfp.S
+index 7b012bc..817ce49 100644
+--- a/libavcodec/arm/fmtconvert_vfp.S
++++ b/libavcodec/arm/fmtconvert_vfp.S
+@@ -1,5 +1,6 @@
+ /*
+  * Copyright (c) 2008 Siarhei Siamashka <ssvb@users.sourceforge.net>
++ * Copyright (c) 2013 RISC OS Open Ltd <bavison@riscosopen.org>
+  *
+  * This file is part of FFmpeg.
+  *
+@@ -76,3 +77,40 @@ function ff_float_to_int16_vfp, export=1
+         vpop            {d8-d11}
+         pop             {r4-r8,pc}
+ endfunc
++
++/**
++ * ARM VFP optimised int32 to float conversion.
++ * Assume len is a multiple of 8, destination buffer is at least 4 bytes aligned
++ * (16 bytes alignment is best for BCM2835), little-endian.
++ */
++@ void ff_int32_to_float_fmul_scalar_vfp(float *dst, const int *src, float mul, int len)
++function ff_int32_to_float_fmul_scalar_vfp, export=1
++VFP     tmp     .req    a4
++VFP     len     .req    a3
++NOVFP   tmp     .req    a3
++NOVFP   len     .req    a4
++NOVFP   vmov    s0, a3
++        ldr     tmp, =0x03070000           @ RunFast mode, short vectors of length 8, stride 1
++        vmrs    ip, FPSCR
++        vmsr    FPSCR, tmp
++1:
++        vldmia          a2!, {s8-s15}
++        vcvt.f32.s32    s8, s8
++        vcvt.f32.s32    s9, s9
++        vcvt.f32.s32    s10, s10
++        vcvt.f32.s32    s11, s11
++        vcvt.f32.s32    s12, s12
++        vcvt.f32.s32    s13, s13
++        vcvt.f32.s32    s14, s14
++        vcvt.f32.s32    s15, s15
++        vmul.f32        s8, s8, s0
++        subs            len, len, #8
++        vstmia          a1!, {s8-s11}
++        vstmia          a1!, {s12-s15}
++        bne             1b
++
++        vmsr    FPSCR, ip
++        bx      lr
++endfunc
++        .unreq  tmp
++        .unreq  len
+-- 
+1.8.1.6
+
+
+From 1e6f32e2f6330bfbf8ae661069eb3ce1cb1b33d3 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Wed, 26 Jun 2013 00:49:15 +0100
+Subject: [PATCH 3/6] 2nd version of fmul_scalar
+
+---
+ libavcodec/arm/fmtconvert_init_arm.c |   5 +
+ libavcodec/arm/fmtconvert_vfp.S      | 162 ++++++++++++++++++++++++
+ libavcodec/dcadec.c                  |  23 ++--
+ libavcodec/fmtconvert.c              |   7 +
+ libavcodec/fmtconvert.h              |  14 ++
+ 5 files changed, 203 insertions(+), 8 deletions(-)
+
+diff --git a/libavcodec/arm/fmtconvert_init_arm.c b/libavcodec/arm/fmtconvert_init_arm.c
+index fc32bdd..0a71417 100644
+--- a/libavcodec/arm/fmtconvert_init_arm.c
++++ b/libavcodec/arm/fmtconvert_init_arm.c
+@@ -33,6 +33,8 @@ void ff_int32_to_float_fmul_scalar_neon(float *dst, const int *src,
+ 
+ void ff_int32_to_float_fmul_scalar_vfp(float *dst, const int *src,
+                                        float mul, int len);
++void ff_int32_to_float_fmul_scalar_array_vfp(FmtConvertContext *c, float *dst, const int *src,
++                                             float *mul, int len);
+ 
+ void ff_float_to_int16_vfp(int16_t *dst, const float *src, long len);
+ 
+@@ -43,6 +45,9 @@ av_cold void ff_fmt_convert_init_arm(FmtConvertContext *c, AVCodecContext *avctx
+     if (have_vfp(cpu_flags)) {
+         c->int32_to_float_fmul_scalar = ff_int32_to_float_fmul_scalar_vfp;
+ 
++        if (!have_neon(cpu_flags)) {
++            c->int32_to_float_fmul_scalar_array = ff_int32_to_float_fmul_scalar_array_vfp;
++        }
+         if (have_armv6(cpu_flags)) {
+             c->float_to_int16 = ff_float_to_int16_vfp;
+         }
+diff --git a/libavcodec/arm/fmtconvert_vfp.S b/libavcodec/arm/fmtconvert_vfp.S
+index 817ce49..ae7a43c 100644
+--- a/libavcodec/arm/fmtconvert_vfp.S
++++ b/libavcodec/arm/fmtconvert_vfp.S
+@@ -83,6 +83,168 @@ endfunc
+  * Assume len is a multiple of 8, destination buffer is at least 4 bytes aligned
+  * (16 bytes alignment is best for BCM2835), little-endian.
+  */
++@ void ff_int32_to_float_fmul_scalar_array_vfp(if (FmtConvertContext *c, float *dst, const int *src, float *mul, int len)
++function ff_int32_to_float_fmul_scalar_array_vfp, export=1
++        push    {lr}
++        ldr     a1, [sp, #4]
++        subs    lr, a1, #3*8
++        bcc     50f                        @ too short to pipeline
++        @ Now need to find (len / 8) % 3. The approximation
++        @ x / 24 = (x * 0xAB) >> 12
++        @ is good for x < 4096, which is true for both AC3 and DCA.
++        mov     a1, #0xAB
++        ldr     ip, =0x03070000            @ RunFast mode, short vectors of length 8, stride 1
++        mul     a1, lr, a1
++        vpush   {s16-s31}
++        mov     a1, a1, lsr #12
++        add     a1, a1, a1, lsl #1
++        rsb     a1, a1, lr, lsr #3
++        cmp     a1, #1
++        vmrs    a1, FPSCR
++        vmsr    FPSCR, ip
++        beq     11f
++        blo     10f
++        @ Array is (2 + multiple of 3) x 8 floats long
++        @ drop through...
++        vldmia          a3!, {s16-s23}
++        vldmia          a4!, {s2,s3}
++        vldmia          a3!, {s24-s31}
++        vcvt.f32.s32    s16, s16
++        vcvt.f32.s32    s17, s17
++        vcvt.f32.s32    s18, s18
++        vcvt.f32.s32    s19, s19
++        vcvt.f32.s32    s20, s20
++        vcvt.f32.s32    s21, s21
++        vcvt.f32.s32    s22, s22
++        vcvt.f32.s32    s23, s23
++        vmul.f32        s16, s16, s2
++        @ drop through...
++3:
++        vldmia          a3!, {s8-s15}
++        vldmia          a4!, {s1}
++        vcvt.f32.s32    s24, s24
++        vcvt.f32.s32    s25, s25
++        vcvt.f32.s32    s26, s26
++        vcvt.f32.s32    s27, s27
++        vcvt.f32.s32    s28, s28
++        vcvt.f32.s32    s29, s29
++        vcvt.f32.s32    s30, s30
++        vcvt.f32.s32    s31, s31
++        vmul.f32        s24, s24, s3
++        vstmia          a2!, {s16-s19}
++        vstmia          a2!, {s20-s23}
++2:
++        vldmia          a3!, {s16-s23}
++        vldmia          a4!, {s2}
++        vcvt.f32.s32    s8, s8
++        vcvt.f32.s32    s9, s9
++        vcvt.f32.s32    s10, s10
++        vcvt.f32.s32    s11, s11
++        vcvt.f32.s32    s12, s12
++        vcvt.f32.s32    s13, s13
++        vcvt.f32.s32    s14, s14
++        vcvt.f32.s32    s15, s15
++        vmul.f32        s8, s8, s1
++        vstmia          a2!, {s24-s27}
++        vstmia          a2!, {s28-s31}
++1:
++        vldmia          a3!, {s24-s31}
++        vldmia          a4!, {s3}
++        vcvt.f32.s32    s16, s16
++        vcvt.f32.s32    s17, s17
++        vcvt.f32.s32    s18, s18
++        vcvt.f32.s32    s19, s19
++        vcvt.f32.s32    s20, s20
++        vcvt.f32.s32    s21, s21
++        vcvt.f32.s32    s22, s22
++        vcvt.f32.s32    s23, s23
++        vmul.f32        s16, s16, s2
++        vstmia          a2!, {s8-s11}
++        vstmia          a2!, {s12-s15}
++
++        subs            lr, lr, #8*3
++        bpl             3b
++
++        vcvt.f32.s32    s24, s24
++        vcvt.f32.s32    s25, s25
++        vcvt.f32.s32    s26, s26
++        vcvt.f32.s32    s27, s27
++        vcvt.f32.s32    s28, s28
++        vcvt.f32.s32    s29, s29
++        vcvt.f32.s32    s30, s30
++        vcvt.f32.s32    s31, s31
++        vmul.f32        s24, s24, s3
++        vstmia          a2!, {s16-s19}
++        vstmia          a2!, {s20-s23}
++        vstmia          a2!, {s24-s27}
++        vstmia          a2!, {s28-s31}
++
++        vmsr    FPSCR, a1
++        vpop    {s16-s31}
++        pop     {pc}
++
++10:     @ Array is (multiple of 3) x 8 floats long
++        vldmia          a3!, {s8-s15}
++        vldmia          a4!, {s1,s2}
++        vldmia          a3!, {s16-s23}
++        vcvt.f32.s32    s8, s8
++        vcvt.f32.s32    s9, s9
++        vcvt.f32.s32    s10, s10
++        vcvt.f32.s32    s11, s11
++        vcvt.f32.s32    s12, s12
++        vcvt.f32.s32    s13, s13
++        vcvt.f32.s32    s14, s14
++        vcvt.f32.s32    s15, s15
++        vmul.f32        s8, s8, s1
++        b               1b
++
++11:     @ Array is (1 + multiple of 3) x 8 floats long
++        vldmia          a3!, {s24-s31}
++        vldmia          a4!, {s3}
++        vldmia          a3!, {s8-s15}
++        vldmia          a4!, {s1}
++        vcvt.f32.s32    s24, s24
++        vcvt.f32.s32    s25, s25
++        vcvt.f32.s32    s26, s26
++        vcvt.f32.s32    s27, s27
++        vcvt.f32.s32    s28, s28
++        vcvt.f32.s32    s29, s29
++        vcvt.f32.s32    s30, s30
++        vcvt.f32.s32    s31, s31
++        vmul.f32        s24, s24, s3
++        b               2b
++
++50:
++        ldr     lr, =0x03070000         @ RunFast mode, short vectors of length 8, stride 1
++        vmrs    ip, FPSCR
++        vmsr    FPSCR, lr
++51:
++        vldmia          a3!, {s8-s15}
++        vldmia          a4!, {s0}
++        vcvt.f32.s32    s8, s8
++        vcvt.f32.s32    s9, s9
++        vcvt.f32.s32    s10, s10
++        vcvt.f32.s32    s11, s11
++        vcvt.f32.s32    s12, s12
++        vcvt.f32.s32    s13, s13
++        vcvt.f32.s32    s14, s14
++        vcvt.f32.s32    s15, s15
++        vmul.f32        s8, s8, s0
++        subs            a1, a1, #8
++        vstmia          a2!, {s8-s11}
++        vstmia          a2!, {s12-s15}
++        bne             51b
++
++        vmsr    FPSCR, ip
++        pop     {pc}
++endfunc
++
++/**
++ * ARM VFP optimised int32 to float conversion.
++ * Assume len is a multiple of 8, destination buffer is at least 4 bytes aligned
++ * (16 bytes alignment is best for BCM2835), little-endian.
++ * TODO: could be further optimised by unrolling and interleaving, as above
++ */
+ @ void ff_int32_to_float_fmul_scalar_vfp(float *dst, const int *src, float mul, int len)
+ function ff_int32_to_float_fmul_scalar_vfp, export=1
+ VFP     tmp     .req    a4
+diff --git a/libavcodec/dcadec.c b/libavcodec/dcadec.c
+index 1b955e4..fe568ee 100644
+--- a/libavcodec/dcadec.c
++++ b/libavcodec/dcadec.c
+@@ -1302,7 +1302,7 @@ static int dca_subsubframe(DCAContext *s, int base_channel, int block_index)
+ 
+     /* FIXME */
+     float (*subband_samples)[DCA_SUBBANDS][8] = s->subband_samples[block_index];
+-    LOCAL_ALIGNED_16(int, block, [8]);
++    LOCAL_ALIGNED_16(int, block, [8 * DCA_SUBBANDS]);
+ 
+     /*
+      * Audio data
+@@ -1315,6 +1315,8 @@ static int dca_subsubframe(DCAContext *s, int base_channel, int block_index)
+         quant_step_table = lossy_quant_d;
+ 
+     for (k = base_channel; k < s->prim_channels; k++) {
++        float rscale[DCA_SUBBANDS];
++
+         if (get_bits_left(&s->gb) < 0)
+             return AVERROR_INVALIDDATA;
+ 
+@@ -1337,11 +1339,12 @@ static int dca_subsubframe(DCAContext *s, int base_channel, int block_index)
+              * Extract bits from the bit stream
+              */
+             if (!abits) {
+-                memset(subband_samples[k][l], 0, 8 * sizeof(subband_samples[0][0][0]));
++                rscale[l] = 0;
++                memset(block + 8 * l, 0, 8 * sizeof(block[0]));
+             } else {
+                 /* Deal with transients */
+                 int sfi = s->transition_mode[k][l] && subsubframe >= s->transition_mode[k][l];
+-                float rscale = quant_step_size * s->scale_factor[k][l][sfi] *
++                rscale[l] = quant_step_size * s->scale_factor[k][l][sfi] *
+                                s->scalefactor_adj[k][sel];
+ 
+                 if (abits >= 11 || !dca_smpl_bitalloc[abits].vlc[sel].table) {
+@@ -1355,7 +1358,7 @@ static int dca_subsubframe(DCAContext *s, int base_channel, int block_index)
+                         block_code1 = get_bits(&s->gb, size);
+                         block_code2 = get_bits(&s->gb, size);
+                         err = decode_blockcodes(block_code1, block_code2,
+-                                                levels, block);
++                                                levels, block + 8 * l);
+                         if (err) {
+                             av_log(s->avctx, AV_LOG_ERROR,
+                                    "ERROR: block code look-up failed\n");
+@@ -1364,19 +1367,23 @@ static int dca_subsubframe(DCAContext *s, int base_channel, int block_index)
+                     } else {
+                         /* no coding */
+                         for (m = 0; m < 8; m++)
+-                            block[m] = get_sbits(&s->gb, abits - 3);
++                            block[8 * l + m] = get_sbits(&s->gb, abits - 3);
+                     }
+                 } else {
+                     /* Huffman coded */
+                     for (m = 0; m < 8; m++)
+-                        block[m] = get_bitalloc(&s->gb,
++                        block[8 * l + m] = get_bitalloc(&s->gb,
+                                                 &dca_smpl_bitalloc[abits], sel);
+                 }
+ 
+-                s->fmt_conv.int32_to_float_fmul_scalar(subband_samples[k][l],
+-                                                       block, rscale, 8);
+             }
++        }
+ 
++        s->fmt_conv.int32_to_float_fmul_scalar_array(&s->fmt_conv, subband_samples[k][0],
++                                                     block, rscale, 8 * s->vq_start_subband[k]);
++
++        for (l = 0; l < s->vq_start_subband[k]; l++) {
++            int m;
+             /*
+              * Inverse ADPCM if in prediction mode
+              */
+diff --git a/libavcodec/fmtconvert.c b/libavcodec/fmtconvert.c
+index 79e9645..0fb2436 100644
+--- a/libavcodec/fmtconvert.c
++++ b/libavcodec/fmtconvert.c
+@@ -30,6 +30,12 @@ static void int32_to_float_fmul_scalar_c(float *dst, const int *src, float mul,
+         dst[i] = src[i] * mul;
+ }
+ 
++static void int32_to_float_fmul_scalar_array_c(FmtConvertContext *c, float *dst, const int *src, float *mul, int len){
++    int i;
++    for(i=0; i<len; i+=8)
++        c->int32_to_float_fmul_scalar(dst, src, *mul++, 8);
++}
++
+ static av_always_inline int float_to_int16_one(const float *src){
+     return av_clip_int16(lrintf(*src));
+ }
+@@ -79,6 +85,7 @@ void ff_float_interleave_c(float *dst, const float **src, unsigned int len,
+ av_cold void ff_fmt_convert_init(FmtConvertContext *c, AVCodecContext *avctx)
+ {
+     c->int32_to_float_fmul_scalar = int32_to_float_fmul_scalar_c;
++    c->int32_to_float_fmul_scalar_array = int32_to_float_fmul_scalar_array_c;
+     c->float_to_int16             = float_to_int16_c;
+     c->float_to_int16_interleave  = float_to_int16_interleave_c;
+     c->float_interleave           = ff_float_interleave_c;
+diff --git a/libavcodec/fmtconvert.h b/libavcodec/fmtconvert.h
+index 3fb9f4e..f5768c2 100644
+--- a/libavcodec/fmtconvert.h
++++ b/libavcodec/fmtconvert.h
+@@ -38,6 +38,20 @@
+     void (*int32_to_float_fmul_scalar)(float *dst, const int *src, float mul, int len);
+ 
+     /**
++     * Convert an array of int32_t to float and multiply by a float value from another array,
++     * stepping along the float array once for each 8 integers.
++     * @param c   pointer to FmtConvertContext.
++     * @param dst destination array of float.
++     *            constraints: 16-byte aligned
++     * @param src source array of int32_t.
++     *            constraints: 16-byte aligned
++     * @param mul source array of float multipliers.
++     * @param len number of elements to convert.
++     *            constraints: multiple of 8
++     */
++    void (*int32_to_float_fmul_scalar_array)(struct FmtConvertContext *c, float *dst, const int *src, float *mul, int len);
++
++    /**
+      * Convert an array of float to an array of int16_t.
+      *
+      * Convert floats from in the range [-32768.0,32767.0] to ints
+-- 
+1.8.1.6
+
+
+From e8d7a9e5e58b9dd5b57713c0ce860b51e19b62a0 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Thu, 27 Jun 2013 23:11:44 +0100
+Subject: [PATCH 4/6] Add VFP-accelerated version of imdct_half
+
+---
+ libavcodec/arm/Makefile           |   1 +
+ libavcodec/arm/fft_init_arm.c     |   6 +
+ libavcodec/arm/mdct_vfp.S         | 193 +++++++++++++++++++++++++++
+ libavcodec/arm/synth_filter_vfp.S |   2 +-
+ 4 files changed, 201 insertions(+), 1 deletion(-)
+ create mode 100644 libavcodec/arm/mdct_vfp.S
+
+diff --git a/libavcodec/arm/Makefile b/libavcodec/arm/Makefile
+index 9079270..457e9a8 100644
+--- a/libavcodec/arm/Makefile
++++ b/libavcodec/arm/Makefile
+@@ -59,6 +59,7 @@ ARMV6-OBJS                             += arm/dsputil_init_armv6.o      \
+                                           arm/simple_idct_armv6.o       \
+ 
+ VFP-OBJS-$(HAVE_ARMV6)                 += arm/fmtconvert_vfp.o          \
++                                          arm/mdct_vfp.o                \
+                                           arm/synth_filter_vfp.o
+ 
+ NEON-OBJS-$(CONFIG_FFT)                += arm/fft_neon.o                \
+diff --git a/libavcodec/arm/fft_init_arm.c b/libavcodec/arm/fft_init_arm.c
+index 44c811d..131c6c4 100644
+--- a/libavcodec/arm/fft_init_arm.c
++++ b/libavcodec/arm/fft_init_arm.c
+@@ -26,6 +26,8 @@
+ void ff_fft_permute_neon(FFTContext *s, FFTComplex *z);
+ void ff_fft_calc_neon(FFTContext *s, FFTComplex *z);
+ 
++void ff_imdct_half_vfp(FFTContext *s, FFTSample *output, const FFTSample *input);
++
+ void ff_imdct_calc_neon(FFTContext *s, FFTSample *output, const FFTSample *input);
+ void ff_imdct_half_neon(FFTContext *s, FFTSample *output, const FFTSample *input);
+ void ff_mdct_calc_neon(FFTContext *s, FFTSample *output, const FFTSample *input);
+@@ -48,6 +50,10 @@ av_cold void ff_fft_init_arm(FFTContext *s)
+ {
+     int cpu_flags = av_get_cpu_flags();
+ 
++    if (have_vfp(cpu_flags)) {
++        s->imdct_half   = ff_imdct_half_vfp;
++    }
++
+     if (have_neon(cpu_flags)) {
+ #if CONFIG_FFT
+         s->fft_permute  = ff_fft_permute_neon;
+diff --git a/libavcodec/arm/mdct_vfp.S b/libavcodec/arm/mdct_vfp.S
+new file mode 100644
+index 0000000..7d55e7d
+--- /dev/null
++++ b/libavcodec/arm/mdct_vfp.S
+@@ -0,0 +1,193 @@
++/*
++ * Copyright (c) 2013 RISC OS Open Ltd
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ *
++ * Author: Ben Avison <bavison@riscosopen.org>
++ */
++
++#include "libavutil/arm/asm.S"
++
++CONTEXT .req    a1
++ORIGOUT .req    a2
++IN      .req    a3
++OUT     .req    v1
++REVTAB  .req    v2
++TCOS    .req    v3
++TSIN    .req    v4
++OLDFPSCR .req   v5
++J0      .req    a2
++J1      .req    a4
++J2      .req    ip
++J3      .req    lr
++
++.macro prerotation_innerloop
++ .set trig_lo, k
++ .set trig_hi, n4 - k - 2
++ .set in_lo, trig_lo * 2
++ .set in_hi, trig_hi * 2
++        vldr    d8, [TCOS, #trig_lo*4]          @ s16,s17
++        vldr    d9, [TCOS, #trig_hi*4]          @ s18,s19
++        vldr    s0, [IN, #in_hi*4 + 12]
++        vldr    s1, [IN, #in_hi*4 + 4]
++        vldr    s2, [IN, #in_lo*4 + 12]
++        vldr    s3, [IN, #in_lo*4 + 4]
++        vmul.f  s8, s0, s16                     @ vector operation
++        vldr    d10, [TSIN, #trig_lo*4]         @ s20,s21
++        vldr    d11, [TSIN, #trig_hi*4]         @ s22,s23
++        vldr    s4, [IN, #in_lo*4]
++        vldr    s5, [IN, #in_lo*4 + 8]
++        vldr    s6, [IN, #in_hi*4]
++        vldr    s7, [IN, #in_hi*4 + 8]
++        ldr     J0, [REVTAB, #trig_lo*2]
++        vmul.f  s12, s0, s20                    @ vector operation
++        ldr     J2, [REVTAB, #trig_hi*2]
++        mov     J1, J0, lsr #16
++        and     J0, J0, #255                    @ halfword value will be < n4
++        vmls.f  s8, s4, s20                     @ vector operation
++        mov     J3, J2, lsr #16
++        and     J2, J2, #255                    @ halfword value will be < n4
++        add     J0, OUT, J0, lsl #3
++        vmla.f  s12, s4, s16                    @ vector operation
++        add     J1, OUT, J1, lsl #3
++        add     J2, OUT, J2, lsl #3
++        add     J3, OUT, J3, lsl #3
++        vstr    s8, [J0]
++        vstr    s9, [J1]
++        vstr    s10, [J2]
++        vstr    s11, [J3]
++        vstr    s12, [J0, #4]
++        vstr    s13, [J1, #4]
++        vstr    s14, [J2, #4]
++        vstr    s15, [J3, #4]
++ .set k, k + 2
++.endm
++
++.macro postrotation_innerloop tail, head
++ .set trig_lo_head, n8 - k - 2
++ .set trig_hi_head, n8 + k
++ .set out_lo_head, trig_lo_head * 2
++ .set out_hi_head, trig_hi_head * 2
++ .set trig_lo_tail, n8 - (k - 2) - 2
++ .set trig_hi_tail, n8 + (k - 2)
++ .set out_lo_tail, trig_lo_tail * 2
++ .set out_hi_tail, trig_hi_tail * 2
++ .if (k & 2) == 0
++  TCOS_D0_HEAD .req d10 @ s20,s21
++  TCOS_D1_HEAD .req d11 @ s22,s23
++  TCOS_S0_TAIL .req s24
++ .else
++  TCOS_D0_HEAD .req d12 @ s24,s25
++  TCOS_D1_HEAD .req d13 @ s26,s27
++  TCOS_S0_TAIL .req s20
++ .endif
++ .ifnc "\tail",""
++        vmls.f  s8, s0, TCOS_S0_TAIL        @ vector operation
++ .endif
++ .ifnc "\head",""
++        vldr    d8, [TSIN, #trig_lo_head*4] @ s16,s17
++        vldr    d9, [TSIN, #trig_hi_head*4] @ s18,s19
++        vldr    TCOS_D0_HEAD, [TCOS, #trig_lo_head*4]
++ .endif
++ .ifnc "\tail",""
++        vmla.f  s12, s4, TCOS_S0_TAIL       @ vector operation
++ .endif
++ .ifnc "\head",""
++        vldr    s0, [OUT, #out_lo_head*4]
++        vldr    s1, [OUT, #out_lo_head*4 + 8]
++        vldr    s2, [OUT, #out_hi_head*4]
++        vldr    s3, [OUT, #out_hi_head*4 + 8]
++        vldr    s4, [OUT, #out_lo_head*4 + 4]
++        vldr    s5, [OUT, #out_lo_head*4 + 12]
++        vldr    s6, [OUT, #out_hi_head*4 + 4]
++        vldr    s7, [OUT, #out_hi_head*4 + 12]
++ .endif
++ .ifnc "\tail",""
++        vstr    s8, [OUT, #out_lo_tail*4]
++        vstr    s9, [OUT, #out_lo_tail*4 + 8]
++        vstr    s10, [OUT, #out_hi_tail*4]
++        vstr    s11, [OUT, #out_hi_tail*4 + 8]
++ .endif
++ .ifnc "\head",""
++        vmul.f  s8, s4, s16                 @ vector operation
++ .endif
++ .ifnc "\tail",""
++        vstr    s12, [OUT, #out_hi_tail*4 + 12]
++        vstr    s13, [OUT, #out_hi_tail*4 + 4]
++        vstr    s14, [OUT, #out_lo_tail*4 + 12]
++        vstr    s15, [OUT, #out_lo_tail*4 + 4]
++ .endif
++ .ifnc "\head",""
++        vmul.f  s12, s0, s16                @ vector operation
++        vldr    TCOS_D1_HEAD, [TCOS, #trig_hi_head*4]
++ .endif
++ .unreq TCOS_D0_HEAD
++ .unreq TCOS_D1_HEAD
++ .unreq TCOS_S0_TAIL
++ .ifnc "\head",""
++  .set k, k + 2
++ .endif
++.endm
++
++
++/* void ff_imdct_half_vfp(FFTContext *s,
++ *                        FFTSample *output,
++ *                        const FFTSample *input)
++ */
++function ff_imdct_half_vfp, export=1
++        ldr     ip, [CONTEXT, #5*4]         @ mdct_bits
++        teq     ip, #6
++        bne     ff_imdct_half_c             @ only case currently accelerated is the one used by DCA
++
++ .set n, 1<<6
++ .set n2, n/2
++ .set n4, n/4
++ .set n8, n/8
++
++        push    {v1-v5,lr}
++        vpush   {s16-s27}
++        vmrs    OLDFPSCR, FPSCR
++        ldr     lr, =0x03030000             @ RunFast mode, short vectors of length 4, stride 1
++        vmsr    FPSCR, lr
++        mov     OUT, ORIGOUT
++        ldr     REVTAB, [CONTEXT, #2*4]
++        ldr     TCOS, [CONTEXT, #6*4]
++        ldr     TSIN, [CONTEXT, #7*4]
++
++ .set k, 0
++ .rept n8/2
++        prerotation_innerloop
++ .endr
++
++        vmsr    FPSCR, OLDFPSCR
++        mov     ORIGOUT, OUT
++        ldr     ip, [CONTEXT, #9*4]
++        blx     ip                          @ s->fft_calc(s, output)
++        ldr     lr, =0x03030000             @ RunFast mode, short vectors of length 4, stride 1
++        vmsr    FPSCR, lr
++
++ .set k, 0
++        postrotation_innerloop , head
++ .rept n8/2 - 1
++        postrotation_innerloop tail, head
++ .endr
++        postrotation_innerloop tail
++
++        vmsr    FPSCR, OLDFPSCR
++        vpop    {s16-s27}
++        pop     {v1-v5,pc}
++endfunc
+diff --git a/libavcodec/arm/synth_filter_vfp.S b/libavcodec/arm/synth_filter_vfp.S
+index 451fe5c..f5845fb 100644
+--- a/libavcodec/arm/synth_filter_vfp.S
++++ b/libavcodec/arm/synth_filter_vfp.S
+@@ -133,7 +133,7 @@ function ff_synth_filter_float_vfp, export=1
+         str     lr, [P_SB_OFF]            @ rotate offset, modulo buffer size, ready for next call
+         ldr     a3, [sp, #(16+6+2)*4]     @ fetch in from stack, to pass to imdct_half
+ VFP     vmov    s16, SCALE                @ imdct_half is free to corrupt s0, but it contains one of our arguments in hardfp case
+-        bl      ff_imdct_half_c
++        bl      ff_imdct_half_vfp
+ VFP     vmov    SCALE, s16
+ 
+         vmrs    OLDFPSCR, FPSCR
+-- 
+1.8.1.6
+
+
+From b11427a8aa2ea581a8a8a28bf8e5847e42451f26 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Fri, 28 Jun 2013 21:21:06 +0100
+Subject: [PATCH 5/6] Add VFP_accelerated version of dca_lfe_fir
+
+---
+ libavcodec/arm/Makefile          |   3 +-
+ libavcodec/arm/dcadsp_init_arm.c |   4 +
+ libavcodec/arm/dcadsp_vfp.S      | 189 ++++++++++++++++++++++++++++
+ 3 files changed, 195 insertions(+), 1 deletion(-)
+ create mode 100644 libavcodec/arm/dcadsp_vfp.S
+
+diff --git a/libavcodec/arm/Makefile b/libavcodec/arm/Makefile
+index 457e9a8..8538276 100644
+--- a/libavcodec/arm/Makefile
++++ b/libavcodec/arm/Makefile
+@@ -58,7 +58,8 @@ ARMV6-OBJS                             += arm/dsputil_init_armv6.o      \
+                                           arm/dsputil_armv6.o           \
+                                           arm/simple_idct_armv6.o       \
+ 
+-VFP-OBJS-$(HAVE_ARMV6)                 += arm/fmtconvert_vfp.o          \
++VFP-OBJS-$(HAVE_ARMV6)                 += arm/dcadsp_vfp.o              \
++                                          arm/fmtconvert_vfp.o          \
+                                           arm/mdct_vfp.o                \
+                                           arm/synth_filter_vfp.o
+ 
+diff --git a/libavcodec/arm/dcadsp_init_arm.c b/libavcodec/arm/dcadsp_init_arm.c
+index 56568e0..9406b86 100644
+--- a/libavcodec/arm/dcadsp_init_arm.c
++++ b/libavcodec/arm/dcadsp_init_arm.c
+@@ -24,6 +24,8 @@
+ #include "libavutil/attributes.h"
+ #include "libavcodec/dcadsp.h"
+ 
++void ff_dca_lfe_fir_vfp(float *out, const float *in, const float *coefs,
++                        int decifactor, float scale);
+ void ff_dca_lfe_fir_neon(float *out, const float *in, const float *coefs,
+                          int decifactor, float scale);
+ 
+@@ -31,6 +33,8 @@ av_cold void ff_dcadsp_init_arm(DCADSPContext *s)
+ {
+     int cpu_flags = av_get_cpu_flags();
+ 
++    if (have_vfp(cpu_flags))
++        s->lfe_fir = ff_dca_lfe_fir_vfp;
+     if (have_neon(cpu_flags))
+         s->lfe_fir = ff_dca_lfe_fir_neon;
+ }
+diff --git a/libavcodec/arm/dcadsp_vfp.S b/libavcodec/arm/dcadsp_vfp.S
+new file mode 100644
+index 0000000..a479831
+--- /dev/null
++++ b/libavcodec/arm/dcadsp_vfp.S
+@@ -0,0 +1,189 @@
++/*
++ * Copyright (c) 2013 RISC OS Open Ltd
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ *
++ * Author: Ben Avison <bavison@riscosopen.org>
++ */
++
++#include "libavutil/arm/asm.S"
++
++POUT          .req    a1
++PIN           .req    a2
++PCOEF         .req    a3
++DECIFACTOR    .req    a4
++OLDFPSCR      .req    a4
++COUNTER       .req    ip
++
++SCALE32       .req    s28  @ use vector of 4 in place of 9th scalar when decifactor=32 / JMAX=8
++SCALE64       .req    s0   @ spare register in scalar bank when decifactor=64 / JMAX=4
++IN0           .req    s4
++IN1           .req    s5
++IN2           .req    s6
++IN3           .req    s7
++IN4           .req    s0
++IN5           .req    s1
++IN6           .req    s2
++IN7           .req    s3
++COEF0         .req    s8   @ coefficient elements
++COEF1         .req    s9
++COEF2         .req    s10
++COEF3         .req    s11
++COEF4         .req    s12
++COEF5         .req    s13
++COEF6         .req    s14
++COEF7         .req    s15
++ACCUM0        .req    s16  @ double-buffered multiply-accumulate results
++ACCUM4        .req    s20
++POST0         .req    s24  @ do long-latency post-multiply in this vector in parallel
++POST1         .req    s25
++POST2         .req    s26
++POST3         .req    s27
++
++
++.macro inner_loop  decifactor, dir, tail, head
++ .ifc "\dir","up"
++  .set X, 0
++  .set Y, 4
++ .else
++  .set X, 4*JMAX*4 - 4
++  .set Y, -4
++ .endif
++ .ifnc "\head",""
++        vldr    COEF0, [PCOEF, #X + (0*JMAX + 0) * Y]
++        vldr    COEF1, [PCOEF, #X + (1*JMAX + 0) * Y]
++        vldr    COEF2, [PCOEF, #X + (2*JMAX + 0) * Y]
++        vldr    COEF3, [PCOEF, #X + (3*JMAX + 0) * Y]
++ .endif
++ .ifnc "\tail",""
++        vadd.f  POST0, ACCUM0, ACCUM4   @ vector operation
++ .endif
++ .ifnc "\head",""
++        vmul.f  ACCUM0, COEF0, IN0      @ vector = vector * scalar
++        vldr    COEF4, [PCOEF, #X + (0*JMAX + 1) * Y]
++        vldr    COEF5, [PCOEF, #X + (1*JMAX + 1) * Y]
++        vldr    COEF6, [PCOEF, #X + (2*JMAX + 1) * Y]
++ .endif
++ .ifnc "\tail",""
++        vmul.f  POST0, POST0, SCALE\decifactor  @ vector operation (SCALE may be scalar)
++ .endif
++ .ifnc "\head",""
++        vldr    COEF7, [PCOEF, #X + (3*JMAX + 1) * Y]
++   .ifc "\tail",""
++        vmul.f  ACCUM4, COEF4, IN1      @ vector operation
++   .endif
++        vldr    COEF0, [PCOEF, #X + (0*JMAX + 2) * Y]
++        vldr    COEF1, [PCOEF, #X + (1*JMAX + 2) * Y]
++   .ifnc "\tail",""
++        vmul.f  ACCUM4, COEF4, IN1      @ vector operation
++   .endif
++        vldr    COEF2, [PCOEF, #X + (2*JMAX + 2) * Y]
++        vldr    COEF3, [PCOEF, #X + (3*JMAX + 2) * Y]
++ .endif
++ .ifnc "\tail",""
++        vstmia  POUT!, {POST0-POST3}
++ .endif
++ .ifnc "\head",""
++        vmla.f  ACCUM0, COEF0, IN2      @ vector = vector * scalar
++        vldr    COEF4, [PCOEF, #X + (0*JMAX + 3) * Y]
++        vldr    COEF5, [PCOEF, #X + (1*JMAX + 3) * Y]
++        vldr    COEF6, [PCOEF, #X + (2*JMAX + 3) * Y]
++        vldr    COEF7, [PCOEF, #X + (3*JMAX + 3) * Y]
++        vmla.f  ACCUM4, COEF4, IN3      @ vector = vector * scalar
++  .if \decifactor == 32
++        vldr    COEF0, [PCOEF, #X + (0*JMAX + 4) * Y]
++        vldr    COEF1, [PCOEF, #X + (1*JMAX + 4) * Y]
++        vldr    COEF2, [PCOEF, #X + (2*JMAX + 4) * Y]
++        vldr    COEF3, [PCOEF, #X + (3*JMAX + 4) * Y]
++        vmla.f  ACCUM0, COEF0, IN4      @ vector = vector * scalar
++        vldr    COEF4, [PCOEF, #X + (0*JMAX + 5) * Y]
++        vldr    COEF5, [PCOEF, #X + (1*JMAX + 5) * Y]
++        vldr    COEF6, [PCOEF, #X + (2*JMAX + 5) * Y]
++        vldr    COEF7, [PCOEF, #X + (3*JMAX + 5) * Y]
++        vmla.f  ACCUM4, COEF4, IN5      @ vector = vector * scalar
++        vldr    COEF0, [PCOEF, #X + (0*JMAX + 6) * Y]
++        vldr    COEF1, [PCOEF, #X + (1*JMAX + 6) * Y]
++        vldr    COEF2, [PCOEF, #X + (2*JMAX + 6) * Y]
++        vldr    COEF3, [PCOEF, #X + (3*JMAX + 6) * Y]
++        vmla.f  ACCUM0, COEF0, IN6      @ vector = vector * scalar
++        vldr    COEF4, [PCOEF, #X + (0*JMAX + 7) * Y]
++        vldr    COEF5, [PCOEF, #X + (1*JMAX + 7) * Y]
++        vldr    COEF6, [PCOEF, #X + (2*JMAX + 7) * Y]
++        vldr    COEF7, [PCOEF, #X + (3*JMAX + 7) * Y]
++        vmla.f  ACCUM4, COEF4, IN7      @ vector = vector * scalar
++  .endif
++ .endif
++.endm
++
++.macro dca_lfe_fir  decifactor
++ .if \decifactor == 32
++  .set JMAX, 8
++        vpush   {s16-s31}
++        vmov    SCALE32, s0             @ duplicate scalar across vector
++        vldr    IN4, [PIN, #-4*4]
++        vldr    IN5, [PIN, #-5*4]
++        vldr    IN6, [PIN, #-6*4]
++        vldr    IN7, [PIN, #-7*4]
++ .else
++  .set JMAX, 4
++        vpush   {s16-s27}
++ .endif
++
++        mov     COUNTER, #\decifactor/4 - 1
++        inner_loop  \decifactor, up,, head
++1:      add     PCOEF, PCOEF, #4*JMAX*4
++        subs    COUNTER, COUNTER, #1
++        inner_loop  \decifactor, up, tail, head
++        bne     1b
++        inner_loop  \decifactor, up, tail
++
++        mov     COUNTER, #\decifactor/4 - 1
++        inner_loop  \decifactor, down,, head
++1:      sub     PCOEF, PCOEF, #4*JMAX*4
++        subs    COUNTER, COUNTER, #1
++        inner_loop  \decifactor, down, tail, head
++        bne     1b
++        inner_loop  \decifactor, down, tail
++
++ .if \decifactor == 32
++        vpop    {s16-s31}
++ .else
++        vpop    {s16-s27}
++ .endif
++        vmsr    FPSCR, OLDFPSCR
++        bx      lr
++.endm
++
++
++/* void ff_dca_lfe_fir_vfp(float *out, const float *in, const float *coefs,
++ *                         int decifactor, float scale)
++ */
++function ff_dca_lfe_fir_vfp, export=1
++        teq     DECIFACTOR, #32
++        vmrs    OLDFPSCR, FPSCR
++        ldr     ip, =0x03030000         @ RunFast mode, short vectors of length 4, stride 1
++        vmsr    FPSCR, ip
++NOVFP   vldr    s0, [sp]
++        vldr    IN0, [PIN, #-0*4]
++        vldr    IN1, [PIN, #-1*4]
++        vldr    IN2, [PIN, #-2*4]
++        vldr    IN3, [PIN, #-3*4]
++        beq     32f
++64:     dca_lfe_fir  64
++ .ltorg
++32:     dca_lfe_fir  32
++endfunc
+-- 
+1.8.1.6
+
+
+From 24b72b0117acebae215cb5abb997f68cd0fe1938 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Tue, 9 Jul 2013 17:44:50 +0100
+Subject: [PATCH 6/6] Add VFP-accelerated version of fft16
+
+---
+ libavcodec/arm/Makefile   |   1 +
+ libavcodec/arm/fft_vfp.S  | 299 +++++++++++++++++++++++++++++++++++
+ libavcodec/arm/mdct_vfp.S |   5 +-
+ 3 files changed, 302 insertions(+), 3 deletions(-)
+ create mode 100644 libavcodec/arm/fft_vfp.S
+
+diff --git a/libavcodec/arm/Makefile b/libavcodec/arm/Makefile
+index 8538276..660d1d4 100644
+--- a/libavcodec/arm/Makefile
++++ b/libavcodec/arm/Makefile
+@@ -59,6 +59,7 @@ ARMV6-OBJS                             += arm/dsputil_init_armv6.o      \
+                                           arm/simple_idct_armv6.o       \
+ 
+ VFP-OBJS-$(HAVE_ARMV6)                 += arm/dcadsp_vfp.o              \
++                                          arm/fft_vfp.o                 \
+                                           arm/fmtconvert_vfp.o          \
+                                           arm/mdct_vfp.o                \
+                                           arm/synth_filter_vfp.o
+diff --git a/libavcodec/arm/fft_vfp.S b/libavcodec/arm/fft_vfp.S
+new file mode 100644
+index 0000000..32ea0aa
+--- /dev/null
++++ b/libavcodec/arm/fft_vfp.S
+@@ -0,0 +1,299 @@
++/*
++ * Copyright (c) 2013 RISC OS Open Ltd
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ *
++ * Author: Ben Avison <bavison@riscosopen.org>
++ */
++
++#include "libavutil/arm/asm.S"
++
++@ TODO: * FFTs wider than 16
++@       * dispatch code
++
++function fft4_vfp
++        vldr    d0, [a1, #0*2*4]   @ s0,s1   = z[0]
++        vldr    d4, [a1, #1*2*4]   @ s8,s9   = z[1]
++        vldr    d1, [a1, #2*2*4]   @ s2,s3   = z[2]
++        vldr    d5, [a1, #3*2*4]   @ s10,s11 = z[3]
++        @ stall
++        vadd.f  s12, s0, s8        @ i0
++        vadd.f  s13, s1, s9        @ i1
++        vadd.f  s14, s2, s10       @ i2
++        vadd.f  s15, s3, s11       @ i3
++        vsub.f  s8, s0, s8         @ i4
++        vsub.f  s9, s1, s9         @ i5
++        vsub.f  s10, s2, s10       @ i6
++        vsub.f  s11, s3, s11       @ i7
++        @ stall
++        @ stall
++        vadd.f  s0, s12, s14       @ z[0].re
++        vsub.f  s4, s12, s14       @ z[2].re
++        vadd.f  s1, s13, s15       @ z[0].im
++        vsub.f  s5, s13, s15       @ z[2].im
++        vadd.f  s7, s9, s10        @ z[3].im
++        vsub.f  s3, s9, s10        @ z[1].im
++        vadd.f  s2, s8, s11        @ z[1].re
++        vsub.f  s6, s8, s11        @ z[3].re
++        @ stall
++        @ stall
++        vstr    d0, [a1, #0*2*4]
++        vstr    d2, [a1, #2*2*4]
++        @ stall
++        @ stall
++        vstr    d1, [a1, #1*2*4]
++        vstr    d3, [a1, #3*2*4]
++
++        bx      lr
++endfunc
++
++.macro macro_fft8_head
++        @ FFT4
++        vldr    d4, [a1, #0 * 2*4]
++        vldr    d6, [a1, #1 * 2*4]
++        vldr    d5, [a1, #2 * 2*4]
++        vldr    d7, [a1, #3 * 2*4]
++            @ BF
++            vldr    d12, [a1, #4 * 2*4]
++        vadd.f  s16, s8, s12    @ vector op
++            vldr    d14, [a1, #5 * 2*4]
++            vldr    d13, [a1, #6 * 2*4]
++            vldr    d15, [a1, #7 * 2*4]
++        vsub.f  s20, s8, s12    @ vector op
++        vadd.f  s0, s16, s18
++        vsub.f  s2, s16, s18
++        vadd.f  s1, s17, s19
++        vsub.f  s3, s17, s19
++        vadd.f  s7, s21, s22
++        vsub.f  s5, s21, s22
++        vadd.f  s4, s20, s23
++        vsub.f  s6, s20, s23
++            vsub.f  s20, s24, s28   @ vector op
++        vstr    d0, [a1, #0 * 2*4]  @ transfer s0-s7 to s24-s31 via memory
++        vstr    d1, [a1, #1 * 2*4]
++        vldr    s0, cos1pi4
++            vadd.f  s16, s24, s28   @ vector op
++        vstr    d2, [a1, #2 * 2*4]
++        vstr    d3, [a1, #3 * 2*4]
++        vldr    d12, [a1, #0 * 2*4]
++            @ TRANSFORM
++            vmul.f  s20, s20, s0    @ vector x scalar op
++        vldr    d13, [a1, #1 * 2*4]
++        vldr    d14, [a1, #2 * 2*4]
++        vldr    d15, [a1, #3 * 2*4]
++        @ BUTTERFLIES
++        vadd.f  s0, s18, s16
++        vadd.f  s1, s17, s19
++        vsub.f  s2, s17, s19
++        vsub.f  s3, s18, s16
++            vadd.f  s4, s21, s20
++            vsub.f  s5, s21, s20
++            vadd.f  s6, s22, s23
++            vsub.f  s7, s22, s23
++        vadd.f  s8, s0, s24         @ vector op
++        vstr    d0, [a1, #0 * 2*4]  @ transfer s0-s3 to s12-s15 via memory
++        vstr    d1, [a1, #1 * 2*4]
++        vldr    d6, [a1, #0 * 2*4]
++        vldr    d7, [a1, #1 * 2*4]
++            vadd.f  s1, s5, s6
++            vadd.f  s0, s7, s4
++            vsub.f  s2, s5, s6
++            vsub.f  s3, s7, s4
++        vsub.f  s12, s24, s12       @ vector op
++            vsub.f  s5, s29, s1
++            vsub.f  s4, s28, s0
++            vsub.f  s6, s30, s2
++            vsub.f  s7, s31, s3
++            vadd.f  s16, s0, s28    @ vector op
++        vstr    d6, [a1, #4 * 2*4]
++        vstr    d7, [a1, #6 * 2*4]
++        vstr    d4, [a1, #0 * 2*4]
++        vstr    d5, [a1, #2 * 2*4]
++             vstr    d2, [a1, #5 * 2*4]
++             vstr    d3, [a1, #7 * 2*4]
++.endm
++
++.macro macro_fft8_tail
++             vstr    d8, [a1, #1 * 2*4]
++             vstr    d9, [a1, #3 * 2*4]
++.endm
++
++function fft8_vfp
++        ldr     a3, =0x03030000     @ RunFast mode, vector length 4, stride 1
++        vmrs    a2, FPSCR
++        vmsr    FPSCR, a3
++        vpush   {s16-s31}
++
++        macro_fft8_head
++        macro_fft8_tail
++
++        vpop    {s16-s31}
++        vmsr    FPSCR, a2
++        bx      lr
++endfunc
++
++.align 3
++cos1pi4:    @ cos(1*pi/4) = sqrt(2)
++        .float  0.707106769084930419921875
++cos1pi8:    @ cos(1*pi/8) = sqrt(2+sqrt(2))/2
++        .float  0.92387950420379638671875
++cos3pi8:    @ cos(2*pi/8) = sqrt(2-sqrt(2))/2
++        .float  0.3826834261417388916015625
++
++function ff_fft16_vfp, export=1
++        ldr     a3, =0x03030000     @ RunFast mode, vector length 4, stride 1
++        vmrs    a2, FPSCR
++        vmsr    FPSCR, a3
++        vpush   {s16-s31}
++
++        macro_fft8_head
++        @ FFT4(z+8)
++        vldr    d10, [a1, #8 * 2*4]
++        vldr    d12, [a1, #9 * 2*4]
++        vldr    d11, [a1, #10 * 2*4]
++        vldr    d13, [a1, #11 * 2*4]
++        macro_fft8_tail
++        vadd.f  s16, s20, s24   @ vector op
++            @ FFT4(z+12)
++            vldr    d4, [a1, #12 * 2*4]
++            vldr    d6, [a1, #13 * 2*4]
++            vldr    d5, [a1, #14 * 2*4]
++        vsub.f  s20, s20, s24   @ vector op
++            vldr    d7, [a1, #15 * 2*4]
++        vadd.f  s0, s16, s18
++        vsub.f  s4, s16, s18
++        vadd.f  s1, s17, s19
++        vsub.f  s5, s17, s19
++        vadd.f  s7, s21, s22
++        vsub.f  s3, s21, s22
++        vadd.f  s2, s20, s23
++        vsub.f  s6, s20, s23
++            vadd.f  s16, s8, s12    @ vector op
++        vstr    d0, [a1, #8 * 2*4]
++        vstr    d2, [a1, #10 * 2*4]
++        vstr    d1, [a1, #9 * 2*4]
++            vsub.f  s20, s8, s12
++        vstr    d3, [a1, #11 * 2*4]
++        @ TRANSFORM(z[2],z[6],z[10],z[14],cos1pi4,cos1pi4)
++        vldr    d12, [a1, #10 * 2*4]
++            vadd.f  s0, s16, s18
++            vadd.f  s1, s17, s19
++            vsub.f  s6, s16, s18
++            vsub.f  s7, s17, s19
++            vsub.f  s3, s21, s22
++            vadd.f  s2, s20, s23
++            vadd.f  s5, s21, s22
++            vsub.f  s4, s20, s23
++            vstr    d0, [a1, #12 * 2*4]
++        vmov    s0, s6
++          @ TRANSFORM(z[1],z[5],z[9],z[13],cos1pi8,cos3pi8)
++          vldr    d6, [a1, #9 * 2*4]
++            vstr    d1, [a1, #13 * 2*4]
++        vldr    d1, cos1pi4 @ s2 = cos1pi4, s3 = cos1pi8
++            vstr    d2, [a1, #15 * 2*4]
++          vldr    d7, [a1, #13 * 2*4]
++        vadd.f  s4, s25, s24
++        vsub.f  s5, s25, s24
++        vsub.f  s6, s0, s7
++        vadd.f  s7, s0, s7
++          vmul.f  s20, s12, s3  @ vector op
++            @ TRANSFORM(z[3],z[7],z[11],z[15],cos3pi8,cos1pi8)
++            vldr    d4, [a1, #11 * 2*4]
++            vldr    d5, [a1, #15 * 2*4]
++            vldr    s1, cos3pi8
++        vmul.f  s24, s4, s2     @ vector * scalar op
++          vmul.f  s28, s12, s1  @ vector * scalar op
++            vmul.f  s12, s8, s1 @ vector * scalar op
++          vadd.f  s4, s20, s29
++          vsub.f  s5, s21, s28
++          vsub.f  s6, s22, s31
++          vadd.f  s7, s23, s30
++            vmul.f  s8, s8, s3  @ vector * scalar op
++          vldr    d8, [a1, #1 * 2*4]
++          vldr    d9, [a1, #5 * 2*4]
++            vldr    d10, [a1, #3 * 2*4]
++            vldr    d11, [a1, #7 * 2*4]
++        vldr    d14, [a1, #2 * 2*4]
++          vadd.f  s0, s6, s4
++          vadd.f  s1, s5, s7
++          vsub.f  s2, s5, s7
++          vsub.f  s3, s6, s4
++            vadd.f  s4, s12, s9
++            vsub.f  s5, s13, s8
++            vsub.f  s6, s14, s11
++            vadd.f  s7, s15, s10
++          vadd.f  s12, s0, s16  @ vector op
++          vstr    d0, [a1, #1 * 2*4]
++          vstr    d1, [a1, #5 * 2*4]
++          vldr    d4, [a1, #1 * 2*4]
++          vldr    d5, [a1, #5 * 2*4]
++            vadd.f  s0, s6, s4
++            vadd.f  s1, s5, s7
++            vsub.f  s2, s5, s7
++            vsub.f  s3, s6, s4
++          vsub.f  s8, s16, s8   @ vector op
++          vstr    d6, [a1, #1 * 2*4]
++          vstr    d7, [a1, #5 * 2*4]
++        vldr    d15, [a1, #6 * 2*4]
++            vsub.f  s4, s20, s0
++            vsub.f  s5, s21, s1
++            vsub.f  s6, s22, s2
++            vsub.f  s7, s23, s3
++            vadd.f  s20, s0, s20    @ vector op
++          vstr    d4, [a1, #9 * 2*4]
++              @ TRANSFORM_ZERO(z[0],z[4],z[8],z[12])
++              vldr    d6, [a1, #8 * 2*4]
++          vstr    d5, [a1, #13 * 2*4]
++              vldr    d7, [a1, #12 * 2*4]
++          vstr    d2, [a1, #11 * 2*4]
++              vldr    d8, [a1, #0 * 2*4]
++          vstr    d3, [a1, #15 * 2*4]
++              vldr    d9, [a1, #4 * 2*4]
++        vadd.f  s0, s26, s24
++        vadd.f  s1, s25, s27
++        vsub.f  s2, s25, s27
++        vsub.f  s3, s26, s24
++              vadd.f  s4, s14, s12
++              vadd.f  s5, s13, s15
++              vsub.f  s6, s13, s15
++              vsub.f  s7, s14, s12
++        vadd.f  s8, s0, s28 @ vector op
++        vstr    d0, [a1, #3 * 2*4]
++        vstr    d1, [a1, #7 * 2*4]
++        vldr    d6, [a1, #3 * 2*4]
++        vldr    d7, [a1, #7 * 2*4]
++              vsub.f  s0, s16, s4
++              vsub.f  s1, s17, s5
++              vsub.f  s2, s18, s6
++              vsub.f  s3, s19, s7
++        vsub.f  s12, s28, s12       @ vector op
++              vadd.f  s16, s4, s16  @ vector op
++            vstr    d10, [a1, #3 * 2*4]
++            vstr    d11, [a1, #7 * 2*4]
++        vstr    d4, [a1, #2 * 2*4]
++        vstr    d5, [a1, #6 * 2*4]
++              vstr    d0, [a1, #8 * 2*4]
++              vstr    d1, [a1, #12 * 2*4]
++        vstr    d6, [a1, #10 * 2*4]
++        vstr    d7, [a1, #14 * 2*4]
++              vstr    d8, [a1, #0 * 2*4]
++              vstr    d9, [a1, #4 * 2*4]
++
++        vpop    {s16-s31}
++        vmsr    FPSCR, a2
++        bx      lr
++endfunc
+diff --git a/libavcodec/arm/mdct_vfp.S b/libavcodec/arm/mdct_vfp.S
+index 7d55e7d..5374dd5 100644
+--- a/libavcodec/arm/mdct_vfp.S
++++ b/libavcodec/arm/mdct_vfp.S
+@@ -174,9 +174,8 @@ function ff_imdct_half_vfp, export=1
+  .endr
+ 
+         vmsr    FPSCR, OLDFPSCR
+-        mov     ORIGOUT, OUT
+-        ldr     ip, [CONTEXT, #9*4]
+-        blx     ip                          @ s->fft_calc(s, output)
++        mov     a1, OUT
++        bl      ff_fft16_vfp
+         ldr     lr, =0x03030000             @ RunFast mode, short vectors of length 4, stride 1
+         vmsr    FPSCR, lr
+ 
+-- 
+1.8.1.6
+
