@@ -19,18 +19,51 @@
 ################################################################################
 
 PKG_NAME="alsa-lib"
-PKG_VERSION="1.0.27.2"
+PKG_VERSION="1.0.26"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"
 PKG_URL="ftp://ftp.alsa-project.org/pub/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS="alsa-utils"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="alsa-lib: Advanced Linux Sound Architecture library"
 PKG_LONGDESC="ALSA (Advanced Linux Sound Architecture) is the next generation Linux Sound API. It provides much finer (->better) access to the sound hardware, has a unbeatable mixer API and supports stuff like multi channel hardware, digital outs and ins, uninterleaved sound data access, and an oss emulation layer (for the old applications). It is the prefered API for professional sound apps under Linux."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
+  PKG_DEPENDS="$PKG_DEPENDS alsa-plugins"
+fi
+
+# package specific configure options
+PKG_CONFIGURE_OPTS_TARGET="--with-plugindir=/usr/lib/alsa \
+                           --disable-python \
+                           --disable-dependency-tracking"
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC -DPIC"
+
+  # alsa-lib fails building with LTO support
+    strip_lto
+}
+
+post_configure_target() {
+  sed -i 's/.*PKGLIBDIR.*/#define PKGLIBDIR ""/' include/config.h
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+
+  mkdir -p $INSTALL/etc/modprobe.d
+    cp -PR $PKG_DIR/config/alsa-base.conf $INSTALL/etc/modprobe.d
+  mkdir -p $INSTALL/usr/config
+    cp -PR $PKG_DIR/config/modprobe.d $INSTALL/usr/config
+}
+
+post_install_target() {
+  add_group audio 63
+}
