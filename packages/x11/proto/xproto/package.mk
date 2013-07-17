@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,15 +18,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="xproto"
+PKG_VERSION="7.0.24"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.x.org/"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/proto/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros"
+PKG_BUILD_DEPENDS_HOST="toolchain util-macros"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/proto"
+PKG_SHORTDESC="xproto: KB extension headers"
+PKG_LONGDESC="X11 extension headers"
 
-cd $PKG_BUILD
-mkdir -p .objdir-target && cd .objdir-target
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-../configure --host=$TARGET_NAME \
-             --build=$HOST_NAME \
-             --prefix=/usr \
-             --without-xmlto
-
-make
-$MAKEINSTALL
+# package specific configure options
+PKG_CONFIGURE_OPTS_TARGET="--without-xmlto"
+PKG_CONFIGURE_OPTS_HOST="--without-xmlto"
