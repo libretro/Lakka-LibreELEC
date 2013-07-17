@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,19 +18,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="lzo"
+PKG_VERSION="2.06"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.oberhumer.com/opensource/lzo"
+PKG_URL="http://www.oberhumer.com/opensource/lzo/download/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_BUILD_DEPENDS_HOST="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="compress"
+PKG_SHORTDESC="LZO data compressor"
+PKG_LONGDESC="LZO is a data compression library which is suitable for data de-/compression in real-time. This means it favours speed over compression ratio."
 
-cd $PKG_BUILD
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-mkdir -p .build-target && cd .build-target
-../configure --host=$TARGET_NAME \
-             --build=$HOST_NAME \
-             --prefix=/usr \
-             --exec-prefix=/usr \
-             --sysconfdir=/etc \
-             --datadir=/usr/share \
-             --disable-shared \
-             --enable-static \
-
-make
-$MAKEINSTALL
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
