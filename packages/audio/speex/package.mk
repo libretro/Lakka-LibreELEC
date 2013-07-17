@@ -26,11 +26,22 @@ PKG_LICENSE="BSD"
 PKG_SITE="http://www.speex.org"
 PKG_URL="http://downloads.xiph.org/releases/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="libogg"
-PKG_BUILD_DEPENDS="toolchain libogg"
+PKG_BUILD_DEPENDS_TARGET="toolchain libogg"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="speex: A free Audio Codec optimized for speech"
 PKG_LONGDESC="Speex is a patent-free compression format designed especially for speech. It is specialized for voice communications at low bit-rates in the 2-45 kbps range. Possible applications include Voice over IP (VoIP), Internet audio streaming, audio books, and archiving of speech data (e.g. voice mail)."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+# package specific configure options
+PKG_CONFIGURE_OPTS_TARGET="--with-ogg=$SYSROOT_PREFIX/usr \
+                           --enable-fixed-point \
+                           --disable-oggtest \
+                           --disable-float-api \
+                           --disable-vbr"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+}
