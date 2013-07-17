@@ -49,6 +49,11 @@ def get_devices_hdhomerun(hdhomerun_log):
   try:
     for line in open(hdhomerun_log, 'r'):
       line = line.strip()
+      # 'Tue Jul 16 21:26:31 2013 Registered tuner, id from kernel: 0 name: 12345678-0'
+      if not line.startswith('Registered tuner'):
+        line = line[25:]
+
+      # 'Registered tuner, id from kernel: 0 name: 12345678-0'
       if line.startswith('Registered tuner'):
         name = line.split(':');
         name = name[2].strip()
@@ -63,6 +68,10 @@ Registered tuner, id from kernel: 0 name: 101ADD2B-0
 Registered tuner, id from kernel: 1 name: 101ADD2B-1
 Registered tuner, id from kernel: 2 name: 1031D75A-0
 Registered tuner, id from kernel: 3 name: 1031D75A-1
+
+root ~ # grep "Registered tuner" /var/log/dvbhdhomerun.log
+Tue Jul 16 21:26:31 2013 Registered tuner, id from kernel: 0 name: 12345678-0
+Tue Jul 16 21:26:31 2013 Registered tuner, id from kernel: 1 name: 12345678-1
   """
 
 ######################################################################################################
