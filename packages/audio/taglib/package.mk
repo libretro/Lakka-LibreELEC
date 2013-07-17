@@ -26,11 +26,20 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://taglib.github.com/"
 PKG_URL="https://github.com/downloads/taglib/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="zlib"
-PKG_BUILD_DEPENDS="toolchain zlib"
+PKG_BUILD_DEPENDS_TARGET="toolchain cmake zlib"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="taglib: a library for reading and editing the meta-data of several popular audio formats."
 PKG_LONGDESC="TagLib is a library for reading and editing the meta-data of several popular audio formats."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+# package specific configure options
+configure_target() {
+  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF -DCMAKE_INSTALL_PREFIX=/usr ..
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+}
