@@ -25,17 +25,32 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"
 PKG_URL="ftp://ftp.alsa-project.org/pub/plugins/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="alsa-lib speex"
-PKG_BUILD_DEPENDS="toolchain alsa-lib speex libsamplerate"
+PKG_DEPENDS="speex"
+PKG_BUILD_DEPENDS_TARGET="toolchain speex libsamplerate"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="alsa-plugins: Advanced Linux Sound Architecture Plugins"
 PKG_LONGDESC="ALSA (Advanced Linux Sound Architecture) is the next generation Linux Sound API. It provides much finer (->better) access to the sound hardware, has a unbeatable mixer API and supports stuff like multi channel hardware, digital outs and ins, uninterleaved sound data access, and an oss emulation layer (for the old applications). It is the prefered API for professional sound apps under Linux."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+# package specific configure options
+PKG_CONFIGURE_OPTS_TARGET="--with-plugindir=/usr/lib/alsa \
+                           --disable-jack \
+                           --enable-samplerate \
+                           --disable-avcodec \
+                           --with-speex=lib"
 
 if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
   PKG_DEPENDS="$PKG_DEPENDS pulseaudio"
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS pulseaudio"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET pulseaudio"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-pulseaudio"
+else
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-pulseaudio"
 fi
+
+post_makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/alsa/pcm
+  cp -R $PKG_DIR/config/*.conf $INSTALL/usr/share/alsa/pcm
+}
