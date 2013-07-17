@@ -26,11 +26,30 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.freetype.org"
 PKG_URL="http://download.savannah.gnu.org/releases/freetype/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="zlib"
-PKG_BUILD_DEPENDS="toolchain zlib libpng"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib libpng"
 PKG_PRIORITY="optional"
 PKG_SECTION="print"
 PKG_SHORTDESC="freetype: TrueType font rendering library"
 PKG_LONGDESC="The FreeType engine is a free and portable TrueType font rendering engine. It has been developed to provide TT support to a great variety of platforms and environments."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+# package specific configure options
+PKG_CONFIGURE_OPTS_TARGET="--with-zlib"
+
+pre_configure_target() {
+  # unset LIBTOOL because freetype uses its own
+    ( cd ..
+      unset LIBTOOL
+      sh autogen.sh
+    )
+}
+
+post_makeinstall_target() {
+  $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/freetype-config
+  mv $SYSROOT_PREFIX/usr/bin/freetype-config $ROOT/$TOOLCHAIN/bin
+  ln -v -sf $SYSROOT_PREFIX/usr/include/freetype2/freetype $SYSROOT_PREFIX/usr/include
+
+  rm -rf $INSTALL/usr/bin
+}
