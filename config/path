@@ -32,6 +32,10 @@ TARGET_PREFIX=$ROOT/$TOOLCHAIN/bin/$TARGET_NAME-
 
 FAKEROOT_SCRIPT=$ROOT/.fakeroot.$PROJECT.$TARGET_ARCH
 
+if [ -z "$INSTALL" ]; then
+  INSTALL=$BUILD/image/system
+fi
+
 . config/sources
 
 MAKE="$ROOT/$TOOLCHAIN/bin/make"
@@ -56,14 +60,14 @@ SED="sed -i"
 
   if [ -n "$1" ]; then
     FOUND=0
-    for DIR in `find $PACKAGES -type d -name $(echo $1| awk -F : '{print $1}') ! -wholename \*\/source\/\* 2>/dev/null` ; do
+    for DIR in $ROOT/`find $PACKAGES -type d -name $(echo $1| awk -F : '{print $1}') ! -wholename \*\/source\/\* 2>/dev/null` ; do
       # keep track of dirs with meta for debugging
       if [ -z "$ALL_DIRS" ] ; then
         ALL_DIRS="$DIR"
       else
         ALL_DIRS="$ALL_DIRS\\n$DIR"
       fi
-      if [ -f "$DIR/meta" -o -f "$DIR/install" -o -f "$DIR/build" ] ; then
+      if [ -f "$DIR/package.mk" -o -f "$DIR/meta" -o -f "$DIR/install" -o -f "$DIR/build" ] ; then
         FOUND=$((FOUND+1))
         # found first. set $PKG_DIR
         PKG_DIR="$DIR"
@@ -77,7 +81,12 @@ SED="sed -i"
     done
   fi
 
-  [ -r $PKG_DIR/meta ] && . $PKG_DIR/meta
+  if [ -r $PKG_DIR/package.mk ]; then
+    . $PKG_DIR/package.mk
+  elif [ -r $PKG_DIR/meta ]; then
+    . $PKG_DIR/meta
+  fi
+
   if [ "$PKG_IS_ADDON" = "yes" ] ; then
     [ -z $PKG_SECTION ] && PKG_ADDON_ID="$PKG_NAME" || PKG_ADDON_ID="`echo $PKG_SECTION | sed 's,/,.,g'`.$PKG_NAME"
   fi

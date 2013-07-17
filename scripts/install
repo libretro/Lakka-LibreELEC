@@ -47,6 +47,34 @@ if [ -n "$PKG_ARCH" -a ! "$PKG_ARCH" = "any" ]; then
   echo "$PKG_ARCH" | grep -q "\-$TARGET_ARCH" && exit 0
 fi
 
+$SCRIPTS/build $@
+
+printf  "%${BUILD_INDENT}c INSTALL  $1\n" ' '>&$SILENT_OUT
+export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
+
+for p in $PKG_DEPENDS $PKG_DEPENDS_TARGET; do
+  $SCRIPTS/install $p
+done
+
+if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
+  PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
+elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
+  PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
+elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
+  PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
+elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
+  PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
+elif [ -d "$BUILD/${PKG_NAME}" ]; then
+  PKG_BUILD="$BUILD/${PKG_NAME}"
+fi
+
+if [ -d $PKG_BUILD/.install_pkg ]; then
+  mkdir -p $INSTALL
+  cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
+elif [ -f $PKG_DIR/install ]; then
+  $PKG_DIR/install $@ >&$VERBOSE_OUT
+fi
+
 if [ -d $PKG_DIR/init.d ]; then
   mkdir -p $INSTALL/etc/init.d
   cp $PKG_DIR/init.d/* $INSTALL/etc/init.d/
@@ -70,19 +98,6 @@ fi
 if [ -d $PKG_DIR/init.network ]; then
   mkdir -p $INSTALL/etc/init.d/network
   cp $PKG_DIR/init.network/* $INSTALL/etc/init.d/network/
-fi
-
-$SCRIPTS/build $@
-
-printf  "%${BUILD_INDENT}c INSTALL  $1\n" ' '>&$SILENT_OUT
-export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
-
-for p in $PKG_DEPENDS; do
-  $SCRIPTS/install $p
-done
-
-if [ -f $PKG_DIR/install ]; then
-  $PKG_DIR/install $@ >&$VERBOSE_OUT
 fi
 
 for i in `sed -n "s/^\([^#].*\)=\".*$/\1/p" $PROJECT_DIR/$PROJECT/options | grep -v "#"`; do

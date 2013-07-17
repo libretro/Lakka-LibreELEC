@@ -23,9 +23,20 @@
 . config/options $1
 
 if [ -z "$1" ]; then
-  echo "usage: $0 package_name"
+  echo "usage: $0 package_name[:host|target]"
   exit 1
 fi
+
+# set defaults
+  PKG_CONFIGURE_SCRIPT=""
+  PKG_MAKE_OPTS=""
+  PKG_MAKEINSTALL_OPTS=""
+
+  PACKAGE_NAME=$(echo $1 | awk -F : '{print $1}')
+  TARGET=$(echo $1 | awk -F : '{print $2}')
+  if [ -z "$TARGET" ]; then
+    TARGET="target"
+  fi
 
 if [ -n "$PKG_ARCH" -a ! "$PKG_ARCH" = "any" ]; then
   echo "$PKG_ARCH" | grep -q "$TARGET_ARCH" || exit 0
@@ -34,64 +45,282 @@ fi
 
 unset INSTALL
 
-mkdir -p $STAMPS/$1
-STAMP=$STAMPS/$1/build
+mkdir -p $STAMPS/$PACKAGE_NAME
+STAMP=$STAMPS/$PACKAGE_NAME/build_$TARGET
 
-$SCRIPTS/unpack $1
+$SCRIPTS/unpack $PACKAGE_NAME
 
 if [ -f $STAMP -a -f $PKG_DIR/need_build ]; then
-  $PKG_DIR/need_build $@
+  $PKG_DIR/need_build $PACKAGE_NAME
 fi
 
-if [ -f $STAMP -a $PKG_DIR/build -nt $STAMP ]; then
-  rm -f $STAMP
+if [ -f $PKG_DIR/package.mk ]; then
+  if [ -f $STAMP -a $PKG_DIR/package.mk -nt $STAMP ]; then
+    rm -f $STAMP
+  fi
+elif [ -f $PKG_DIR/build ]; then
+  if [ -f $STAMP -a $PKG_DIR/build -nt $STAMP ]; then
+    rm -f $STAMP
+  fi
 fi
 
 if [ ! -f $STAMP ]; then
   rm -f $STAMP
 
-  printf "%${BUILD_INDENT}c BUILD    $1\n" ' '>&$SILENT_OUT
+  if [ -f $PKG_DIR/package.mk ]; then
+    printf "%${BUILD_INDENT}c BUILD    $PACKAGE_NAME ($TARGET)\n" ' '>&$SILENT_OUT
+  elif [ -f $PKG_DIR/build ]; then
+    printf "%${BUILD_INDENT}c BUILD    $PACKAGE_NAME (deprecated packageformat, please convert soon!)\n" ' '>&$SILENT_OUT
+  fi
   export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
-  for p in $PKG_BUILD_DEPENDS; do
-    $SCRIPTS/build $p
-  done
+  if [ -f $PKG_DIR/package.mk ]; then
+    setup_toolchain $TARGET
 
-  if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
-    PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
-  elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
-    PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
-  elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
-    PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
-  elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
-    PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
-  elif [ -d "$BUILD/${PKG_NAME}" ]; then
-    PKG_BUILD="$BUILD/${PKG_NAME}"
-  fi
+    # unset functions
+      unset -f pre_build_target
+      unset -f pre_configure_target
+      unset -f configure_target
+      unset -f post_configure_target
+      unset -f pre_make_target
+      unset -f make_target
+      unset -f post_make_target
+      unset -f pre_makeinstall_target
+      unset -f makeinstall_target
+      unset -f post_makeinstall_target
 
-  [ "$PKG_AUTORECONF" = yes ] && $SCRIPTS/autoreconf $1
+      unset -f pre_build_host
+      unset -f pre_configure_host
+      unset -f configure_host
+      unset -f post_configure_host
+      unset -f pre_make_host
+      unset -f make_host
+      unset -f post_make_host
+      unset -f pre_makeinstall_host
+      unset -f makeinstall_host
+      unset -f post_makeinstall_host
 
-  if [ -f $PKG_DIR/build ]; then
-    $PKG_DIR/build $@ >&$VERBOSE_OUT
-    if [ ! "$DEBUG" = yes ]; then
-     $STRIP `find $BUILD/$1* -name "*.so"` 2>/dev/null || \
-      echo "Information: no *.so libs found"
-     $STRIP `find $BUILD/$1* -name "*.so.[0-9]*"` 2>/dev/null ||\
-      echo "Information: no *.so.[0-9]* libs found"
+
+    # configure TARGET build defaults
+      unset -v TARGET_CONFIGURE_OPTS
+      TARGET_CONFIGURE_OPTS="--host=$TARGET_NAME \
+                             --build=$HOST_NAME \
+                             --prefix=/usr \
+                             --bindir=/usr/bin \
+                             --sbindir=/usr/sbin \
+                             --sysconfdir=/etc \
+                             --libexecdir=/usr/lib \
+                             --localstatedir=/var \
+                             --disable-static \
+                             --enable-shared"
+
+    # configure HOST build defaults
+      unset -v HOST_CONFIGURE_OPTS
+      HOST_CONFIGURE_OPTS="--host=$HOST_NAME \
+                           --build=$HOST_NAME \
+                           --prefix=$ROOT/$TOOLCHAIN \
+                           --bindir=$ROOT/$TOOLCHAIN/bin \
+                           --sbindir=$ROOT/$TOOLCHAIN/sbin \
+                           --sysconfdir=$ROOT/$TOOLCHAIN/etc \
+                           --libexecdir=$ROOT/$TOOLCHAIN/lib \
+                           --localstatedir=$ROOT/$TOOLCHAIN/var \
+                           --disable-static \
+                           --enable-shared"
+
+    # include buildfile
+      . $PKG_DIR/package.mk
+
+      if [ "$TARGET" = "target" ]; then
+        for p in $PKG_BUILD_DEPENDS_TARGET; do
+          $SCRIPTS/build $p
+        done
+      elif [ "$TARGET" = "host" ]; then
+        for p in $PKG_BUILD_DEPENDS_HOST; do
+          $SCRIPTS/build $p
+        done
+      fi
+
+      if [ "$PKG_AUTORECONF" = yes ]; then
+        $SCRIPTS/autoreconf $PACKAGE_NAME
+      fi
+
+      # virtual packages dont must be build, they only contains dependencies, so dont go further here
+      if [ ! "$PKG_SECTION" = "virtual" ]; then
+
+        if [ -z "$PKG_BUILD" ]; then
+          if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
+            PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
+          elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
+            PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
+          elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
+            PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
+          elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
+            PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
+          elif [ -d "$BUILD/${PKG_NAME}" ]; then
+            PKG_BUILD="$BUILD/${PKG_NAME}"
+          fi
+        fi
+
+      # configure other variables
+        INSTALL=$ROOT/$PKG_BUILD/.install_pkg
+
+      # setup configure script
+        if [ -z "$PKG_CONFIGURE_SCRIPT" ]; then
+          PKG_CONFIGURE_SCRIPT="$ROOT/$PKG_BUILD/configure"
+        else
+          PKG_CONFIGURE_SCRIPT="$ROOT/$PKG_BUILD/$PKG_CONFIGURE_SCRIPT"
+        fi
+        if [ -z "$PKG_CMAKE_SCRIPT" ]; then
+          PKG_CMAKE_SCRIPT="$ROOT/$PKG_BUILD/CMakeLists.txt"
+        else
+          PKG_CMAKE_SCRIPT="$ROOT/$PKG_BUILD/$PKG_CMAKE_SCRIPT"
+        fi
+
+      # include build template and build
+        if [ "$(type -t pre_build_$TARGET)" = "function" ]; then
+          pre_build_$TARGET
+        fi
+
+        cd $PKG_BUILD
+
+     if [ "$TARGET" = "target" ]; then
+          if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
+            mkdir -p .$TARGET_NAME
+            cd .$TARGET_NAME
+          fi
+        elif [ "$TARGET" = "host" ]; then
+          if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
+            mkdir -p .$HOST_NAME
+            cd .$HOST_NAME
+          fi
+        fi
+
+      # configure
+        if [ "$(type -t pre_configure_$TARGET)" = "function" ]; then
+          pre_configure_$TARGET
+        fi
+        if [ "$(type -t configure_$TARGET)" = "function" ]; then
+          configure_$TARGET
+        elif [ -f "$PKG_CONFIGURE_SCRIPT" ]; then
+          if [ "$TARGET" = "target" ]; then
+            $PKG_CONFIGURE_SCRIPT $TARGET_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_TARGET
+          elif [ "$TARGET" = "host" ]; then
+            $PKG_CONFIGURE_SCRIPT $HOST_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_HOST
+          fi
+        fi
+        if [ "$(type -t post_configure_$TARGET)" = "function" ]; then
+          post_configure_$TARGET
+        fi
+
+      # make
+        if [ "$(type -t pre_make_$TARGET)" = "function" ]; then
+          pre_make_$TARGET
+        fi
+        if [ "$(type -t make_$TARGET)" = "function" ]; then
+          make_$TARGET
+        else
+          if [ "$TARGET" = "target" ]; then
+            make $PKG_MAKE_OPTS_TARGET
+          elif [ "$TARGET" = "host" ]; then
+            make $PKG_MAKE_OPTS_HOST
+          fi
+        fi
+        if [ "$(type -t post_make_$TARGET)" = "function" ]; then
+          post_make_$TARGET
+        fi
+
+      # make install
+        if [ "$(type -t pre_makeinstall_$TARGET)" = "function" ]; then
+          pre_makeinstall_$TARGET
+        fi
+        if [ "$(type -t makeinstall_$TARGET)" = "function" ]; then
+          makeinstall_$TARGET
+        else
+          if [ "$TARGET" = "target" ]; then
+            $MAKEINSTALL $PKG_MAKEINSTALL_OPTS_TARGET
+            make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_TARGET
+          elif [ "$TARGET" = "host" ]; then
+            make install $PKG_MAKEINSTALL_OPTS_HOST
+          fi
+        fi
+        if [ "$(type -t post_makeinstall_$TARGET)" = "function" ]; then
+          post_makeinstall_$TARGET
+        fi
+
+        if [ "$TARGET" = "target" ]; then
+          rm -rf $INSTALL/usr/include
+          rm -rf $INSTALL/usr/lib/pkgconfig
+          rm -rf $INSTALL/usr/share/aclocal
+          rm -rf $INSTALL/usr/share/bash-completion
+          rm -rf $INSTALL/usr/share/doc
+          rm -rf $INSTALL/usr/share/gtk-doc
+          rm -rf $INSTALL/usr/share/info
+          rm -rf $INSTALL/usr/share/locale
+          rm -rf $INSTALL/usr/share/man
+          find $INSTALL/lib -name "*.la" -exec rm -rf "{}" ";" 2>/dev/null || true
+          find $INSTALL/usr/lib -name "*.la" -exec rm -rf "{}" ";" 2>/dev/null || true
+          find $INSTALL/lib -name "*.a" -exec rm -rf "{}" ";" 2>/dev/null || true
+          find $INSTALL/usr/lib -name "*.a" -exec rm -rf "{}" ";" 2>/dev/null || true
+          find $INSTALL/lib -name "*.so*T" -exec rm -rf "{}" ";" 2>/dev/null || true
+          find $INSTALL/usr/lib -name "*.so*T" -exec rm -rf "{}" ";" 2>/dev/null || true
+          find $INSTALL -type d -exec rmdir -p "{}" ";" 2>/dev/null || true
+
+          if [ ! "$DEBUG" = yes ]; then
+           $STRIP `find $INSTALL -name "*.so"` 2>/dev/null || echo "Information: no *.so libs found"
+           $STRIP `find $INSTALL -name "*.so.[0-9]*"` 2>/dev/null || echo "Information: no *.so.[0-9]* libs found"
+          fi
+        fi
+
+        cd $ROOT
+
+      fi  # ! "$PKG_SECTION" = "virtual"
+
+  elif [ -f $PKG_DIR/meta ]; then
+
+    for p in $PKG_BUILD_DEPENDS; do
+      $SCRIPTS/build $p
+    done
+
+    if [ "$PKG_AUTORECONF" = yes ]; then
+      $SCRIPTS/autoreconf $PACKAGE_NAME
     fi
-    for i in `find $SYSROOT_PREFIX/usr/lib/ -name "*.la"`; do \
-      $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $i; \
-    done
-  elif [ -f $PKG_BUILD/Makefile ]; then
-    $SCRIPTS/build toolchain
-    make -C $PKG_BUILD >&$VERBOSE_OUT
-    for i in `find $SYSROOT_PREFIX/usr/lib/ -name "*.la"`; do \
-      $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $i; \
-    done
-  elif [ -f $PKG_BUILD/$1.c ]; then
-    $SCRIPTS/build toolchain
-    make -C $PKG_BUILD $1 >&$VERBOSE_OUT
-  fi
+
+    if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
+      PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
+    elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
+      PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
+    elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
+      PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
+    elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
+      PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
+    elif [ -d "$BUILD/${PKG_NAME}" ]; then
+      PKG_BUILD="$BUILD/${PKG_NAME}"
+    fi
+
+    if [ -f $PKG_DIR/build ]; then
+      $PKG_DIR/build $@ >&$VERBOSE_OUT
+
+      if [ ! "$DEBUG" = yes ]; then
+       $STRIP `find $BUILD/$PACKAGE_NAME* -name "*.so"` 2>/dev/null || \
+        echo "Information: no *.so libs found"
+       $STRIP `find $BUILD/$PACKAGE_NAME* -name "*.so.[0-9]*"` 2>/dev/null ||\
+        echo "Information: no *.so.[0-9]* libs found"
+      fi
+
+    elif [ -f $PKG_BUILD/Makefile ]; then
+      $SCRIPTS/build toolchain
+      make -C $PKG_BUILD >&$VERBOSE_OUT
+
+    elif [ -f $PKG_BUILD/$PACKAGE_NAME.c ]; then
+      $SCRIPTS/build toolchain
+      make -C $PKG_BUILD $PACKAGE_NAME >&$VERBOSE_OUT
+
+    fi  # -f $PKG_DIR/build
+  fi    # -f $PKG_DIR/meta
+
+  for i in `find $SYSROOT_PREFIX/usr/lib/ -name "*.la"`; do \
+    $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $i; \
+  done
 
   for i in `sed -n "s/^\([^#].*\)=\".*$/\1/p" $PROJECT_DIR/$PROJECT/options | grep -v "#"`; do
     eval val=\$$i
