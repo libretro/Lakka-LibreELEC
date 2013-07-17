@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,13 +18,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="xcb-proto"
+PKG_VERSION="1.8"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xcb.freedesktop.org/dist/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros Python-host"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/proto"
+PKG_SHORTDESC="xcb-proto: X C-language Bindings protocol headers"
+PKG_LONGDESC="X C-language Bindings protocol headers."
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --without-xmlto
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-make
-$MAKEINSTALL
+# package specific configure options
+PKG_CONFIGURE_OPTS_TARGET="--without-xmlto"
