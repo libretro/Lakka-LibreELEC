@@ -25,12 +25,32 @@ PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://flac.sourceforge.net/"
 PKG_URL="http://downloads.xiph.org/releases/flac/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="libogg"
-PKG_BUILD_DEPENDS="toolchain libogg"
+PKG_DEPENDS="$ICONV libogg"
+PKG_BUILD_DEPENDS_TARGET="toolchain $ICONV libogg"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="flac: An Free Lossless Audio Codec"
 PKG_LONGDESC="Grossly oversimplified, FLAC is similar to MP3, but lossless, meaning that audio is compressed in FLAC without throwing away any information. This is similar to how Zip works, except with FLAC you will get much better compression because it is designed specifically for audio."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+# package specific configure options
+PKG_CONFIGURE_OPTS_TARGET="--disable-rpath \
+                           --disable-altivec \
+                           --disable-doxygen-docs \
+                           --disable-thorough-tests \
+                           --disable-cpplibs \
+                           --disable-xmms-plugin \
+                           --disable-oggtest \
+                           --with-ogg=$SYSROOT_PREFIX/usr \
+                           --with-gnu-ld"
+
+pre_make_target() {
+  # hack
+  cp -R ../doc/* ./doc
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+}
