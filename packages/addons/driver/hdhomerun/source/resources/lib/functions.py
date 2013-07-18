@@ -20,6 +20,8 @@
 
 import os
 import sys
+import re
+import subprocess
 import shutil
 import xmlpp
 from xml.dom import minidom
@@ -47,31 +49,22 @@ def settings_restore(settings_xml):
 def get_devices_hdhomerun(hdhomerun_log):
   tuners = []
   try:
-    for line in open(hdhomerun_log, 'r'):
+    for line in open('/var/log/messages', 'r'):
+      if line.find('HDHomeRun'):
       line = line.strip()
-      # 'Tue Jul 16 21:26:31 2013 Registered tuner, id from kernel: 0 name: 12345678-0'
-      if not line.startswith('Registered tuner'):
-        line = line[25:]
-
-      # 'Registered tuner, id from kernel: 0 name: 12345678-0'
-      if line.startswith('Registered tuner'):
-        name = line.split(':');
-        name = name[2].strip()
+        #Jul 17 19:22:46 user user.info kernel: [   10.587811] HDHomeRun HDHomeRun.0: DVB: registering adapter 0 frontend 0 (HDHomeRun DVB-C 12345678-0)...
+        match = re.search(r'.*\[.+\] HDHomeRun .+ registering adapter .+ \(HDHomeRun .+ (.+)\).+', line)
+        if match:
+          name = match.group(1)
         tuners.append(name)
   except IOError:
-    print 'Error reading hdhomerun log file', hdhomerun_log
+    print 'Error reading hdhomerun log file /var/log/messages'
   return tuners
 
   """
-root ~ # grep "Registered tuner" /var/log/dvbhdhomerun.log
-Registered tuner, id from kernel: 0 name: 101ADD2B-0
-Registered tuner, id from kernel: 1 name: 101ADD2B-1
-Registered tuner, id from kernel: 2 name: 1031D75A-0
-Registered tuner, id from kernel: 3 name: 1031D75A-1
-
-root ~ # grep "Registered tuner" /var/log/dvbhdhomerun.log
-Tue Jul 16 21:26:31 2013 Registered tuner, id from kernel: 0 name: 12345678-0
-Tue Jul 16 21:26:31 2013 Registered tuner, id from kernel: 1 name: 12345678-1
+root ~ # grep HDHomeRun /var/log/messages
+Jul 17 19:22:46 user user.info kernel: [   10.587811] HDHomeRun HDHomeRun.0: DVB: registering adapter 0 frontend 0 (HDHomeRun DVB-C 12345678-0)...
+Jul 17 19:22:46 user user.info kernel: [   10.588602] HDHomeRun HDHomeRun.1: DVB: registering adapter 1 frontend 0 (HDHomeRun DVB-C 12345678-1)...
   """
 
 ######################################################################################################
