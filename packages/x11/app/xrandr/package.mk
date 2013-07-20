@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,14 +18,23 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="xrandr"
+PKG_VERSION="1.4.1"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/app/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libXrandr"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros libXrandr"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/app"
+PKG_SHORTDESC="xrandr: A primitive command line interface to RandR extension"
+PKG_LONGDESC="Xrandr is a primitive command line interface to the RandR extension and used to set the screen size, orientation and/or reflection."
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-make
-
-$STRIP $1
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/xkeystone
+}
