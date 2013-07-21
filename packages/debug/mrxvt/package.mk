@@ -26,11 +26,42 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://materm.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/materm/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="libX11 libXrender freetype"
-PKG_BUILD_DEPENDS="toolchain libX11 libXrender freetype"
+PKG_BUILD_DEPENDS_TARGET="toolchain libX11 libXrender freetype"
 PKG_PRIORITY="optional"
 PKG_SECTION="debug"
 PKG_SHORTDESC="mrxvt: Lightweight Xterm replacement"
 PKG_LONGDESC="Mrxvt (previously named as materm) is a lightweight and powerful multi-tabbed X terminal emulator based on the popular rxvt and aterm. It implements many useful features seen in some modern X terminal emulators, like gnome-terminal and konsole, but keep to be lightweight and independent from the GNOME and KDE desktop environment."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_setpgrp_void=no \
+                           --enable-minimal \
+                           --disable-frills \
+                           --enable-keepscrolling \
+                           --disable-selectionscrolling \
+                           --enable-mousewheel \
+                           --disable-mouseslipwheel \
+                           --enable-rxvt-scroll \
+                           --disable-half-shadow \
+                           --enable-lastlog \
+                           --enable-sessionmgr \
+                           --enable-linespace \
+                           --enable-24bits \
+                           --enable-256colors \
+                           --enable-cursor-blink \
+                           --enable-pointer-blank \
+                           --disable-text-shadow \
+                           --enable-menubar \
+                           --disable-transparency \
+                           --disable-tinting \
+                           --enable-xrender \
+                           --disable-xpm \
+                           --disable-jpeg \
+                           --disable-png \
+                           --enable-xft \
+                           --enable-ttygid \
+                           --enable-backspace-key \
+                           --enable-delete-key \
+                           --disable-resources \
+                           --disable-swapscreen"
