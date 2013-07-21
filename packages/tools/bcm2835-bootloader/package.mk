@@ -26,11 +26,26 @@ PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain linux Python"
+PKG_BUILD_DEPENDS_TARGET="toolchain linux"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="bcm2835-bootloader: Tool to create a bootable kernel for RaspberryPi"
 PKG_LONGDESC="bcm2835-bootloader: Tool to create a bootable kernel for RaspberryPi"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+make_target() {
+  : # nothing to make
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/bootloader
+    cp -PRv LICENCE* $INSTALL/usr/share/bootloader
+    cp -PRv bootcode.bin $INSTALL/usr/share/bootloader
+    cp -PRv fixup_x.dat $INSTALL/usr/share/bootloader/fixup.dat
+    cp -PRv start_x.elf $INSTALL/usr/share/bootloader/start.elf
+
+    cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
+    cp -PRv $PKG_DIR/files/3rdparty/bootloader/config.txt $INSTALL/usr/share/bootloader
+}
