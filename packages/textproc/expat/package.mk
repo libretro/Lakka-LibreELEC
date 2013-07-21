@@ -18,19 +18,33 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="expat-host"
-PKG_VERSION=""
+PKG_NAME="expat"
+PKG_VERSION="2.1.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://expat.sourceforge.net/"
-PKG_URL=""
+PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="ccache autotools"
+PKG_BUILD_DEPENDS_HOST="ccache autotools"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="textproc"
 PKG_SHORTDESC="expat: XML parser library"
 PKG_LONGDESC="Expat is an XML parser library written in C. It is a stream-oriented parser in which an application registers handlers for things the parser might find in the XML document (like start tags). An introductory article on using Expat is available on xml.com."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_configure_target() {
+  ( cd ..; do_autoreconf -I conftools)
+}
+
+pre_configure_host() {
+  ( cd ..; do_autoreconf -I conftools)
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+}
+
