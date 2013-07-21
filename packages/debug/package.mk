@@ -28,10 +28,10 @@ PKG_URL=""
 PKG_DEPENDS="gdb strace"
 PKG_BUILD_DEPENDS="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="debug"
+PKG_SECTION="virtual"
 PKG_SHORTDESC="debug: Metapackage for installing debugging tools"
 PKG_LONGDESC="debug is a Metapackage for installing debugging tools"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
