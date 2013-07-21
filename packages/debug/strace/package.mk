@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,7 +18,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="strace"
+PKG_VERSION="4.7"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="BSD"
+PKG_SITE="http://sourceforge.net/projects/strace/"
+PKG_URL="$SOURCEFORGE_SRC/strace/strace/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="debug"
+PKG_SHORTDESC="strace: Trace system calls and signals"
+PKG_LONGDESC="In the simplest case strace runs the specified command until it exits. It intercepts and records the system calls which are called by a process and the signals which are received by a process. The name of each system call, its arguments and its return value are printed on standard error or to the file specified with the -o option."
 
-mkdir -p $INSTALL/usr/bin
-  cp $PKG_BUILD/strace $INSTALL/usr/bin
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/strace-graph
+  rm -rf $INSTALL/usr/bin/strace-log-merge
+}
