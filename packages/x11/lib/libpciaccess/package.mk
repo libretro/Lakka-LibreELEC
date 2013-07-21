@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,21 +18,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libpciaccess"
+PKG_VERSION="0.13.2"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://freedesktop.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="zlib"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros zlib"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libpciaccess: X.org libpciaccess library"
+PKG_LONGDESC="X.org libpciaccess library."
+
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
 CFLAGS="$CFLAGS -D_LARGEFILE64_SOURCE"
 
-export ac_cv_header_asm_mtrr_h=set
-
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --disable-static \
-            --enable-shared \
-            --with-pciids-path=/usr/share \
-            --with-zlib \
-
-make
-$MAKEINSTALL
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_asm_mtrr_h=set \
+                           --with-pciids-path=/usr/share \
+                           --with-zlib "
