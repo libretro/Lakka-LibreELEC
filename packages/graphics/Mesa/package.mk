@@ -57,10 +57,6 @@ if [ "$MESA_VAAPI_SUPPORT" = "yes" ]; then
   PKG_DEPENDS="$PKG_DEPENDS libva"
 fi
 
-if [ "$DEVTOOLS" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS mesa-demos"
-fi
-
 get_graphicdrivers
 
 XA_CONFIG="--disable-xa"
