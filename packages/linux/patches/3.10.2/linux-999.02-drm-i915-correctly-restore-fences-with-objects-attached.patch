@@ -1,0 +1,106 @@
+From 94a335dba34ff47cad3d6d0c29b452d43a1be3c8 Mon Sep 17 00:00:00 2001
+From: Daniel Vetter <daniel.vetter@ffwll.ch>
+Date: Wed, 17 Jul 2013 12:51:28 +0000
+Subject: drm/i915: correctly restore fences with objects attached
+
+To avoid stalls we delay tiling changes and especially hold of
+committing the new fence state for as long as possible.
+Synchronization points are in the execbuf code and in our gtt fault
+handler.
+
+Unfortunately we've missed that tricky detail when adding proper fence
+restore code in
+
+commit 19b2dbde5732170a03bd82cc8bd442cf88d856f7
+Author: Chris Wilson <chris@chris-wilson.co.uk>
+Date:   Wed Jun 12 10:15:12 2013 +0100
+
+    drm/i915: Restore fences after resume and GPU resets
+
+The result was that we've restored fences for objects with no tiling,
+since the object<->fence link still existed after resume. Now that
+wouldn't have been too bad since any subsequent access would have
+fixed things up, but if we've changed from tiled to untiled real havoc
+happened:
+
+The tiling stride is stored -1 in the fence register, so a stride of 0
+resulted in all 1s in the top 32bits, and so a completely bogus fence
+spanning everything from the start of the object to the top of the
+GTT. The tell-tale in the register dumps looks like:
+
+                 FENCE START 2: 0x0214d001
+                 FENCE END 2: 0xfffff3ff
+
+Bit 11 isn't set since the hw doesn't store it, even when writing all
+1s (at least on my snb here).
+
+To prevent such a gaffle in the future add a sanity check for fences
+with an untiled object attached in i915_gem_write_fence.
+
+v2: Fix the WARN, spotted by Chris.
+
+v3: Trying to reuse get_fences looked ugly and obfuscated the code.
+Instead reuse update_fence and to make it really dtrt also move the
+fence dirty state clearing into update_fence.
+
+Cc: Chris Wilson <chris@chris-wilson.co.uk>
+Cc: Stéphane Marchesin <marcheu@chromium.org>
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=60530
+Cc: stable@vger.kernel.org (for 3.10 only)
+Reviewed-by: Chris Wilson <chris@chris-wilson.co.uk>
+Tested-by: Matthew Garrett <matthew.garrett@nebula.com>
+Tested-by: Björn Bidar <theodorstormgrade@gmail.com>
+Signed-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+---
+diff --git a/drivers/gpu/drm/i915/i915_gem.c b/drivers/gpu/drm/i915/i915_gem.c
+index 97afd26..d9e2208 100644
+--- a/drivers/gpu/drm/i915/i915_gem.c
++++ b/drivers/gpu/drm/i915/i915_gem.c
+@@ -2258,7 +2258,17 @@ void i915_gem_restore_fences(struct drm_device *dev)
+ 
+ 	for (i = 0; i < dev_priv->num_fence_regs; i++) {
+ 		struct drm_i915_fence_reg *reg = &dev_priv->fence_regs[i];
+-		i915_gem_write_fence(dev, i, reg->obj);
++
++		/*
++		 * Commit delayed tiling changes if we have an object still
++		 * attached to the fence, otherwise just clear the fence.
++		 */
++		if (reg->obj) {
++			i915_gem_object_update_fence(reg->obj, reg,
++						     reg->obj->tiling_mode);
++		} else {
++			i915_gem_write_fence(dev, i, NULL);
++		}
+ 	}
+ }
+ 
+@@ -2795,6 +2805,10 @@ static void i915_gem_write_fence(struct drm_device *dev, int reg,
+ 	if (i915_gem_object_needs_mb(dev_priv->fence_regs[reg].obj))
+ 		mb();
+ 
++	WARN(obj && (!obj->stride || !obj->tiling_mode),
++	     "bogus fence setup with stride: 0x%x, tiling mode: %i\n",
++	     obj->stride, obj->tiling_mode);
++
+ 	switch (INTEL_INFO(dev)->gen) {
+ 	case 7:
+ 	case 6:
+@@ -2836,6 +2850,7 @@ static void i915_gem_object_update_fence(struct drm_i915_gem_object *obj,
+ 		fence->obj = NULL;
+ 		list_del_init(&fence->lru_list);
+ 	}
++	obj->fence_dirty = false;
+ }
+ 
+ static int
+@@ -2965,7 +2980,6 @@ i915_gem_object_get_fence(struct drm_i915_gem_object *obj)
+ 		return 0;
+ 
+ 	i915_gem_object_update_fence(obj, reg, enable);
+-	obj->fence_dirty = false;
+ 
+ 	return 0;
+ }
+--
+cgit v0.9.0.2-2-gbebe
