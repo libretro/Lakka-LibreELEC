@@ -38,7 +38,7 @@ PKG_AUTORECONF="yes"
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET llvm"
   PKG_DEPENDS="$PKG_DEPENDS llvm"
-  LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config"
+  export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config"
   MESA_GALLIUM_LLVM="--enable-gallium-llvm --with-llvm-shared-libs"
 else
   MESA_GALLIUM_LLVM="--disable-gallium-llvm"
@@ -105,7 +105,8 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --with-gl-lib-name=GL \
                            --with-osmesa-lib-name=OSMesa \
                            --with-gallium-drivers=$GALLIUM_DRIVERS \
-                           --with-dri-drivers=$DRI_DRIVERS"
+                           --with-dri-drivers=$DRI_DRIVERS \
+                           --with-expat=$SYSROOT_PREFIX/usr"
 
 post_makeinstall_target() {
   # rename and relink for cooperate with nvidia drivers
