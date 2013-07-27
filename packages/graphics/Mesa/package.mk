@@ -35,6 +35,9 @@ PKG_LONGDESC="Mesa is a 3-D graphics library with an API which is very similar t
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+# configure GPU drivers and dependencies:
+  get_graphicdrivers
+
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET llvm"
   PKG_DEPENDS="$PKG_DEPENDS llvm"
@@ -56,8 +59,6 @@ if [ "$MESA_VAAPI_SUPPORT" = "yes" ]; then
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libva"
   PKG_DEPENDS="$PKG_DEPENDS libva"
 fi
-
-get_graphicdrivers
 
 XA_CONFIG="--disable-xa"
 for drv in $GRAPHIC_DRIVERS; do
