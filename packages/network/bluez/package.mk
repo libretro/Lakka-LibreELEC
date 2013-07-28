@@ -44,7 +44,7 @@ fi
 if [ "$DEVTOOLS" = "yes" ]; then
   BLUEZ_CONFIG="$BLUEZ_CONFIG --enable-monitor --enable-test --enable-tools"
 else
-  BLUEZ_CONFIG="$BLUEZ_CONFIG --disable-monitor --disable-test --enable-tools"
+  BLUEZ_CONFIG="$BLUEZ_CONFIG --disable-monitor --disable-test --disable-tools"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
@@ -70,20 +70,3 @@ pre_configure_target() {
     rm -rf .$TARGET_NAME
 }
 
-post_makeinstall_target() {
-  if [ ! "$DEVTOOLS" = "yes" ]; then
-    rm -rf $INSTALL/usr/bin/bccmd
-    rm -rf $INSTALL/usr/bin/ciptool
-    rm -rf $INSTALL/usr/bin/hciattach
-    rm -rf $INSTALL/usr/bin/hciconfig
-    rm -rf $INSTALL/usr/bin/hcidump
-    rm -rf $INSTALL/usr/bin/hcitool
-    rm -rf $INSTALL/usr/bin/l2ping
-    rm -rf $INSTALL/usr/bin/l2test
-    rm -rf $INSTALL/usr/bin/rctest
-    rm -rf $INSTALL/usr/bin/rfcomm
-    rm -rf $INSTALL/usr/bin/sdptool
-    rm -rf $INSTALL/usr/bin/btmon
-    rm -rf $INSTALL/usr/lib/bluez/test
-  fi
-}
