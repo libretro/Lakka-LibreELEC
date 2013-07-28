@@ -258,7 +258,7 @@ if [ "$SAMBA_SUPPORT" = yes ]; then
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET samba"
   PKG_DEPENDS="$PKG_DEPENDS samba"
   XBMC_SAMBA="--enable-samba"
-  export LIBS="$LIBS -ltalloc -ltdb -lwbclient"
+  XBMC_LIBS="$XBMC_LIBS -ltalloc -ltdb -lwbclient"
 else
   XBMC_SAMBA="--disable-samba"
 fi
@@ -292,8 +292,8 @@ if [ ! "$XBMCPLAYER_DRIVER" = default ]; then
     XBMC_CODEC="--with-platform=raspberry-pi"
     BCM2835_INCLUDES="-I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-    CFLAGS="$CFLAGS $BCM2835_INCLUDES"
-    CXXFLAGS="$CXXFLAGS $BCM2835_INCLUDES"
+    XBMC_CFLAGS="$XBMC_CFLAGS $BCM2835_INCLUDES"
+    XBMC_CXXFLAGS="$XBMC_CXXFLAGS $BCM2835_INCLUDES"
   elif [ "$XBMCPLAYER_DRIVER" = "marvell-libgfx" ]; then
     PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET marvell-ipp"
     PKG_DEPENDS="$PKG_DEPENDS marvell-ipp"
@@ -305,8 +305,9 @@ if [ ! "$XBMCPLAYER_DRIVER" = default ]; then
     XBMC_PLAYER="--enable-player=amlplayer"
     XBMC_CODEC="--enable-codec=amcodec"
     AMLPLAYER_INCLUDES="-I$SYSROOT_PREFIX/usr/include/amlplayer"
-    CFLAGS="$CFLAGS $AMLPLAYER_INCLUDES"
-    CXXFLAGS="$CXXFLAGS $AMLPLAYER_INCLUDES"
+    XBMC_CFLAGS="$XBMC_CFLAGS $AMLPLAYER_INCLUDES"
+    XBMC_CXXFLAGS="$XBMC_CXXFLAGS $AMLPLAYER_INCLUDES"
+
   else
     XBMC_OPENMAX="--disable-openmax"
   fi
@@ -433,6 +434,10 @@ pre_configure_target() {
 
 # dont build parallel
 # MAKEFLAGS=-j1
+
+  export CFLAGS="$CFLAGS $XBMC_CFLAGS"
+  export CXXFLAGS="$CXXFLAGS $XBMC_CXXFLAGS"
+  export LIBS="$LIBS $XBMC_LIBS"
 }
 
 make_target() {
