@@ -53,7 +53,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --enable-static \
                            --enable-library \
                            --enable-usb \
-                           --disable-udev \
+                           --enable-udev \
                            --disable-cups \
                            --disable-obex \
                            --enable-client \
