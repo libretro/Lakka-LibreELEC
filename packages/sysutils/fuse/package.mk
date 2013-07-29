@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,21 +18,31 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="fuse"
+PKG_VERSION="2.9.3"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://sourceforge.net/projects/fuse/"
+PKG_URL="$SOURCEFORGE_SRC/fuse/fuse-2.X/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="system"
+PKG_SHORTDESC="fuse: A simple user-space filesystem interface for Linux"
+PKG_LONGDESC="FUSE provides a simple interface for userspace programs to export a virtual filesystem to the Linux kernel. FUSE also aims to provide a secure method for non privileged users to create and mount their own filesystem implementations."
 
-mkdir -p $INSTALL/etc
-  cp $PKG_DIR/config/fuse.conf $INSTALL/etc
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-mkdir -p $INSTALL/lib/udev/rules.d
-  cp $PKG_BUILD/util/udev.rules $INSTALL/lib/udev/rules.d/99-fuse.rules
+PKG_CONFIGURE_OPTS_TARGET="--enable-lib \
+                           --enable-util \
+                           --disable-example \
+                           --enable-mtab \
+                           --disable-rpath \
+                           --with-gnu-ld"
 
-mkdir -p $INSTALL/sbin
-  cp $PKG_BUILD/util/mount.fuse $INSTALL/sbin
-
-mkdir -p $INSTALL/bin
-  cp $PKG_BUILD/util/fusermount $INSTALL/bin
-  cp $PKG_BUILD/util/ulockmgr_server $INSTALL/bin
-
-mkdir -p $INSTALL/lib
-  cp -P $PKG_BUILD/lib/.libs/*.so* $INSTALL/lib
-
+post_makeinstall_target() {
+  rm -rf $INSTALL/etc/init.d
+  rm -rf $INSTALL/etc/udev
+}
