@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,7 +18,36 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="xkeyboard-config"
+PKG_VERSION="2.9"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://www.x.org/releases/individual/data/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros xkbcomp"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/data"
+PKG_SHORTDESC="xkeyboard-config: X keyboard extension data files"
+PKG_LONGDESC="X keyboard extension data files."
 
-mkdir -p $INSTALL/$XORG_PATH_XKB
-  cp -R $PKG_BUILD/.install/$XORG_PATH_XKB/* $INSTALL/$XORG_PATH_XKB
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="XKBCOMP=/usr/bin/xkbcomp \
+                           --without-xsltproc \
+                           --enable-compat-rules \
+                           --enable-runtime-deps \
+                           --enable-nls \
+                           --disable-rpath \
+                           --with-xkb-base=$XORG_PATH_XKB \
+                           --with-xkb-rules-symlink=xorg \
+                           --with-gnu-ld"
+
+pre_build_target() {
+# broken autoreconf
+  ( cd $PKG_BUILD
+    intltoolize --force
+  )
+}
