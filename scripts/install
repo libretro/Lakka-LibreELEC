@@ -56,22 +56,52 @@ for p in $PKG_DEPENDS $PKG_DEPENDS_TARGET; do
   $SCRIPTS/install $p
 done
 
-if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}"
-fi
+if [ -f $PKG_DIR/package.mk ]; then
+  # unset functions
+    unset -f pre_install
+    unset -f post_install
 
-if [ -d $PKG_BUILD/.install_pkg ]; then
-  mkdir -p $INSTALL
-  cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
+  # include buildfile
+    . $PKG_DIR/package.mk
+
+  # set PKG_BUILD variable
+    if [ -z "$PKG_BUILD" ]; then
+      if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
+        PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
+      elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
+        PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
+      elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
+        PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
+      elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
+        PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
+      elif [ -d "$BUILD/${PKG_NAME}" ]; then
+        PKG_BUILD="$BUILD/${PKG_NAME}"
+      fi
+    fi
+
+  # install
+    if [ "$(type -t pre_install)" = "function" ]; then
+      pre_install
+    fi
+    if [ -d $PKG_BUILD/.install_pkg ]; then
+      mkdir -p $INSTALL
+      cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
+    fi
+    if [ "$(type -t post_install)" = "function" ]; then
+      post_install
+    fi
 elif [ -f $PKG_DIR/install ]; then
+  if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
+    PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
+  elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
+    PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
+  elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
+    PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
+  elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
+    PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
+  elif [ -d "$BUILD/${PKG_NAME}" ]; then
+    PKG_BUILD="$BUILD/${PKG_NAME}"
+  fi
   $PKG_DIR/install $@ >&$VERBOSE_OUT
 fi
 
