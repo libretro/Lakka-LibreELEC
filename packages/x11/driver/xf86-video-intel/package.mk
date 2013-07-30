@@ -26,11 +26,29 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://intellinuxgraphics.org/"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="systemd intel-gpu-tools"
-PKG_BUILD_DEPENDS="toolchain util-macros fontsproto systemd xorg-server"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros fontsproto systemd xorg-server"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/driver"
 PKG_SHORTDESC="xf86-video-intel: The Xorg driver for Intel video chips"
 PKG_LONGDESC="The Xorg driver for Intel i810, i815, 830M, 845G, 852GM, 855GM, 865G, 915G, 915GM and 965G video chips."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-udev \
+                           --enable-dri \
+                           --enable-kms-only \
+                           --disable-xvmc \
+                           --disable-ums-only \
+                           --enable-sna \
+                           --enable-uxa \
+                           --disable-glamor \
+                           --disable-xaa \
+                           --disable-dga \
+                           --disable-async-swap \
+                           --with-xorg-module-dir=$XORG_PATH_MODULES"
+
+pre_configure_target() {
+# TODO: xf86-video-intel-2.21.5 dont link with LTO enabled
+  strip_lto
+}
