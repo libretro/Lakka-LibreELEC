@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,25 +18,30 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libXfont"
+PKG_VERSION="1.4.6"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="freetype"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros fontcacheproto fontsproto xtrans freetype libfontenc"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libxfont: X font Library"
+PKG_LONGDESC="X font Library"
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-            --disable-static \
-            --enable-shared \
-            --disable-ipv6 \
-            --enable-freetype \
-            --enable-builtins \
-            --disable-pcfformat \
-            --disable-bdfformat \
-            --disable-snfformat \
-            --enable-fc \
-            --with-gnu-ld \
-            --without-xmlto
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-make
-$MAKEINSTALL
+PKG_CONFIGURE_OPTS_TARGET="--disable-ipv6 \
+                           --enable-freetype \
+                           --enable-builtins \
+                           --disable-pcfformat \
+                           --disable-bdfformat \
+                           --disable-snfformat \
+                           --enable-fc \
+                           --with-gnu-ld \
+                           --without-xmlto"
+
