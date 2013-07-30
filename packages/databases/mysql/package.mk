@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="mysql"
-PKG_VERSION="5.1.68"
+PKG_VERSION="5.1.70"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
