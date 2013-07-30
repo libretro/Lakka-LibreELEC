@@ -70,3 +70,7 @@ pre_configure_target() {
     rm -rf .$TARGET_NAME
 }
 
+post_makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/dbus-1/services
+    cp $PKG_DIR/config/org.bluez.obex.service $INSTALL/usr/share/dbus-1/services
+}
