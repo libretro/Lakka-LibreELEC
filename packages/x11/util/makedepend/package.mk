@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,15 +18,19 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="makedepend"
+PKG_VERSION="1.0.5"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/util/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_HOST="toolchain xproto:host"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/util"
+PKG_SHORTDESC="makedepend: Creates dependencies in makefiles"
+PKG_LONGDESC="Creates dependencies in makefiles, a left-over of the historic imake build system."
 
-setup_toolchain host
-
-cd $PKG_BUILD
-
-./configure --host=$HOST_NAME \
-            --build=$HOST_NAME \
-            --prefix=$ROOT/$TOOLCHAIN \
-
-make
-make install
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
