@@ -26,11 +26,14 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/app/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="libX11"
-PKG_BUILD_DEPENDS="toolchain util-macros libX11"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros libX11"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/app"
 PKG_SHORTDESC="xkbcomp: Compiles XKB keyboard description"
 PKG_LONGDESC="The xkbcomp keymap compiler converts a description of an XKB keymap into one of several output formats."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--with-xkb-config-root=$XORG_PATH_XKB"
+
