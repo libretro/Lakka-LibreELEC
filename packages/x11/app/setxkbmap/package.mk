@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,10 +18,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="setxkbmap"
+PKG_VERSION="1.3.0"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/app/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libX11"
+PKG_BUILD_DEPENDS_TARGET="toolchain libX11"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/app"
+PKG_SHORTDESC="setxkbmap: Sets the keyboard using the X Keyboard Extension"
+PKG_LONGDESC="Setxkbmap sets the keyboard using the X Keyboard Extension."
 
-mkdir -p $INSTALL/usr/bin
-  cp $PKG_BUILD/$1 $INSTALL/usr/bin
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-mkdir -p $INSTALL/lib/udev
-  cp $PKG_DIR/scripts/xkb-setup $INSTALL/lib/udev
+post_makeinstall_target() {
+  mkdir -p $INSTALL/lib/udev
+    cp $PKG_DIR/scripts/xkb-setup $INSTALL/lib/udev
+}
