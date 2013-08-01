@@ -26,11 +26,25 @@ PKG_LICENSE="OFL1_1"
 PKG_SITE="https://www.redhat.com/promo/fonts/"
 PKG_URL="https://fedorahosted.org/releases/l/i/liberation-fonts/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain util-macros"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/fonts"
 PKG_SHORTDESC="liberation-fonts: High quality "open-sourced" vector fonts"
 PKG_LONGDESC="This packages included the high-quality and open-sourced TrueType vector fonts released by RedHat."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+make_target() {
+  : # nothing to make
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/fonts/liberation
+    cp *.ttf $INSTALL/usr/share/fonts/liberation
+}
+
+post_install() {
+  mkfontdir $INSTALL/usr/share/fonts/liberation
+  mkfontscale $INSTALL/usr/share/fonts/liberation
+}
