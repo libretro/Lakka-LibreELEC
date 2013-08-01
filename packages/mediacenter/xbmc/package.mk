@@ -258,7 +258,7 @@ if [ "$SAMBA_SUPPORT" = yes ]; then
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET samba"
   PKG_DEPENDS="$PKG_DEPENDS samba"
   XBMC_SAMBA="--enable-samba"
-  XBMC_LIBS="$XBMC_LIBS -ltalloc -ltdb -lwbclient"
+  XBMC_LIBS="$XBMC_LIBS -ltalloc -ltdb -ltevent -lwbclient"
 else
   XBMC_SAMBA="--disable-samba"
 fi
