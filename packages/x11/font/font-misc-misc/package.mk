@@ -61,5 +61,9 @@ PKG_MAKE_OPTS_TARGET="UTIL_DIR=$SYSROOT_PREFIX/usr/share/fonts/util/"
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/fonts/misc
     cp 6x13-ISO8859-1.pcf.gz $INSTALL/usr/share/fonts/misc
-    mkfontdir $INSTALL/usr/share/fonts/misc
+}
+
+post_install() {
+  mkfontdir $INSTALL/usr/share/fonts/misc
+  mkfontscale $INSTALL/usr/share/fonts/misc
 }
