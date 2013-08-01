@@ -36,3 +36,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-fontrootdir=/usr/share/fonts"
+
+post_install() {
+  mkfontdir $INSTALL/usr/share/fonts/Type1
+  mkfontscale $INSTALL/usr/share/fonts/Type1
+}
