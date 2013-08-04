@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,8 +18,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="rpcbind"
+PKG_VERSION="0.2.0"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://rpcbind.sourceforge.net/"
+PKG_URL="$SOURCEFORGE_SRC/rpcbind/rpcbind/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libtirpc"
+PKG_BUILD_DEPENDS_TARGET="toolchain libtirpc"
+PKG_PRIORITY="optional"
+PKG_SECTION="network"
+PKG_SHORTDESC="rpcbind: a server that converts RPC program numbers into universal addresses."
+PKG_LONGDESC="The rpcbind utility is a server that converts RPC program numbers into universal addresses."
 
-mkdir -p $INSTALL/usr/bin
-  cp $PKG_BUILD/rpcbind $INSTALL/usr/bin
-  cp $PKG_BUILD/rpcinfo $INSTALL/usr/bin
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-warmstarts \
+                           --disable-libwrap \
+                           --with-statedir=/tmp \
+                           --with-rpcuser=root"
