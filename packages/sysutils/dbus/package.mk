@@ -49,7 +49,7 @@ PKG_CONFIGURE_OPTS_TARGET="export ac_cv_have_abstract_sockets=yes \
                            --disable-x11-autolaunch \
                            --disable-selinux \
                            --disable-libaudit \
-                           --disable-systemd \
+                           --enable-systemd \
                            --enable-dnotify \
                            --enable-inotify \
                            --with-xml=expat \
@@ -68,7 +68,6 @@ post_makeinstall_host() {
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/lib/systemd
   rm -rf $INSTALL/etc/rc.d
   rm -rf $INSTALL/usr/lib/dbus-1.0/include
 }
