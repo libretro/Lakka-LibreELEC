@@ -92,7 +92,6 @@ post_makeinstall_target() {
   if [ ! $SFTP_SERVER = "yes" ]; then
     rm -rf $INSTALL/etc/avahi/services/sftp-ssh.service
   fi
-  rm -rf $INSTALL/lib/systemd
 }
 
 post_install() {
@@ -101,4 +100,8 @@ post_install() {
 
   add_user avahiautoipd x 496 496 "avahi-autoipd" "/var/lib/avahi-autoipd" "/bin/sh"
   add_group avahiautoipd 496
+
+  enable_service avahi-daemon.service
+  enable_service avahi-daemon.socket
+  enable_service avahi-dnsconfd.service
 }
