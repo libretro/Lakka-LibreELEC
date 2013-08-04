@@ -26,11 +26,27 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/udisks"
 PKG_URL="http://hal.freedesktop.org/releases/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="systemd glib dbus parted polkit libatasmart"
-PKG_BUILD_DEPENDS="toolchain sg3_utils systemd glib dbus dbus-glib parted polkit libatasmart"
+PKG_BUILD_DEPENDS_TARGET="toolchain sg3_utils systemd glib dbus dbus-glib parted polkit libatasmart"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="udisks: a modular hardware abstraction layer designed for use in Linux systems that is designed to simplify device management."
 PKG_LONGDESC="Udisks is a modular hardware abstraction layer designed for use in Linux systems that is designed to simplify device management and replace the current monolithic Linux HAL. Udisks includes the ability to enumerate system devices and send notifications when hardware is added or removed from the computer system."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--datadir=/usr/share \
+                           --libexecdir=/usr/lib/udisks \
+                           --disable-man-pages \
+                           --disable-gtk-doc \
+                           --disable-gtk-doc-html \
+                           --disable-gtk-doc-pdf \
+                           --disable-lvm2 \
+                           --disable-dmmp \
+                           --disable-remote-access \
+                           --enable-nls"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/etc/profile.d
+  rm -rf $INSTALL/lib/udev/rules.d
+}
