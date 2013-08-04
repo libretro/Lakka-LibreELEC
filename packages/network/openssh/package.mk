@@ -57,6 +57,9 @@ post_makeinstall_target() {
     cp $PKG_DIR/config/ssh_config $INSTALL/etc
     cp $PKG_DIR/config/sshd_config $INSTALL/etc
 
+  mkdir -p $INSTALL/usr/sbin
+    cp -P $PKG_DIR/scripts/sshd-keygen $INSTALL/usr/sbin
+
   rm -rf $INSTALL/usr/lib/openssh/ssh-keysign
   rm -rf $INSTALL/usr/lib/openssh/ssh-pkcs11-helper
   if [ ! $SFTP_SERVER = "yes" ]; then
@@ -67,4 +70,7 @@ post_makeinstall_target() {
 post_install() {
   add_user sshd x 74 74 "Privilege-separated SSH" "/var/empty/sshd" "/bin/sh"
   add_group sshd 74
+
+  enable_service sshd.service
+#  enable_service sshd.socket
 }
