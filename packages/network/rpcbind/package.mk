@@ -39,3 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-warmstarts \
                            --disable-libwrap \
                            --with-statedir=/tmp \
                            --with-rpcuser=root"
+
+post_install() {
+  enable_service rpcbind.service
+}
