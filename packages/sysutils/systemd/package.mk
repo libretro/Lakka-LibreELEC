@@ -98,6 +98,22 @@ pre_make_target() {
 }
 
 post_makeinstall_target() {
+  # provide 'halt', 'shutdown', 'reboot' & co.
+    mkdir -p $INSTALL/sbin
+      ln -sf /bin/systemctl $INSTALL/sbin/halt
+      ln -sf /bin/systemctl $INSTALL/sbin/poweroff
+      ln -sf /bin/systemctl $INSTALL/sbin/reboot
+      ln -sf /bin/systemctl $INSTALL/sbin/runlevel
+      ln -sf /bin/systemctl $INSTALL/sbin/shutdown
+      ln -sf /bin/systemctl $INSTALL/sbin/telinit
+    mkdir -p $INSTALL/usr/sbin
+      ln -sf /bin/systemctl $INSTALL/usr/sbin/halt
+      ln -sf /bin/systemctl $INSTALL/usr/sbin/poweroff
+      ln -sf /bin/systemctl $INSTALL/usr/sbin/reboot
+      ln -sf /bin/systemctl $INSTALL/usr/sbin/runlevel
+      ln -sf /bin/systemctl $INSTALL/usr/sbin/shutdown
+      ln -sf /bin/systemctl $INSTALL/usr/sbin/telinit
+
   # remove Network adaper renaming rule, this is confusing
     rm -rf $INSTALL/lib/udev/rules.d/80-net-name-slot.rules
 
