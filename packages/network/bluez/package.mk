@@ -57,7 +57,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-cups \
                            --disable-obex \
                            --enable-client \
-                           --disable-systemd \
+                           --enable-systemd \
                            --enable-datafiles \
                            --disable-experimental \
                            --with-gnu-ld \
@@ -71,6 +71,5 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/dbus-1/services
-    cp $PKG_DIR/config/org.bluez.obex.service $INSTALL/usr/share/dbus-1/services
+  enable_service bluetooth.service
 }
