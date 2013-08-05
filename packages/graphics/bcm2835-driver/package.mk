@@ -65,6 +65,9 @@ makeinstall_target() {
     cp -PRv $FLOAT/opt/vc/lib/libvchiq_arm.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libvcos.so $INSTALL/usr/lib
 
+  mkdir -p $INSTALL/usr/lib/bcm2835
+    cp -P $PKG_DIR/scripts/setup-framebuffer $INSTALL/usr/lib/bcm2835
+
 # some usefull debug tools
   mkdir -p $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/bin/vcdbg $INSTALL/usr/bin
@@ -75,4 +78,9 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/opt/vc
     ln -sf /usr/lib $INSTALL/opt/vc/lib
+}
+
+post_install() {
+  enable_service framebuffer.service
+  enable_service vcfiled.service
 }
