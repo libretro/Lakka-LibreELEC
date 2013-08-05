@@ -56,6 +56,12 @@ get_graphicdrivers
     PKG_DEPENDS="$PKG_DEPENDS xf86-video-$drv"
   done
 
+# Drivers
+  PKG_DEPENDS="$PKG_DEPENDS xf86-input-evdev"
+  for drv in $XORG_DRIVERS; do
+    PKG_DEPENDS="$PKG_DEPENDS xf86-video-$drv"
+  done
+
 if [ "$COMPOSITE_SUPPORT" = "yes" ]; then
   PKG_DEPENDS="$PKG_DEPENDS libXcomposite"
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libXcomposite"
@@ -164,8 +170,8 @@ pre_configure_target() {
 post_makeinstall_target() {
   rm -rf $INSTALL/var/cache/xkb
 
-  mkdir -p $INSTALL/lib/udev
-    cp $PKG_DIR/scripts/xorg_start $INSTALL/lib/udev
+  mkdir -p $INSTALL/lib/systemd
+    cp -P $PKG_DIR/scripts/xorg-configure $INSTALL/lib/systemd
 
   if [ -f $INSTALL/usr/lib/xorg/modules/extensions/libglx.so ]; then
     mv $INSTALL/usr/lib/xorg/modules/extensions/libglx.so \
@@ -184,4 +190,8 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/bin/cvt
     rm -rf $INSTALL/usr/bin/gtf
   fi
+}
+
+post_install() {
+  enable_service xorg-server.service
 }
