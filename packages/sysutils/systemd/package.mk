@@ -128,6 +128,10 @@ post_makeinstall_target() {
     rm -rf $INSTALL/lib/systemd/system/getty.target
     rm -rf $INSTALL/lib/systemd/system/multi-user.target.wants/getty.target
 
+  # remove rootfs fsck
+    rm -rf $INSTALL/lib/systemd/system/systemd-fsck-root.service
+    rm -rf $INSTALL/lib/systemd/system/local-fs.target.wants/systemd-fsck-root.service
+
   mkdir -p $INSTALL/usr/config
     cp -R $PKG_DIR/config/*.sample $INSTALL/usr/config
 }
