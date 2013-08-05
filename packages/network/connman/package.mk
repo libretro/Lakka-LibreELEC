@@ -116,6 +116,7 @@ post_install() {
 }
 
 post_install() {
+  enable_service hostname.service
   enable_service connman.service
   if [ "$PPTP_SUPPORT" = yes -o "$OPENVPN_SUPPORT" = yes ]; then
     enable_service connman-vpn.service
