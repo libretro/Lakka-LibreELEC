@@ -57,3 +57,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/fc-scan
   rm -rf $INSTALL/usr/bin/fc-validate
 }
+
+post_install() {
+  enable_service fc-cache.service
+}
