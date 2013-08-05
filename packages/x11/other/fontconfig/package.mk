@@ -36,7 +36,6 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-arch=$TARGET_ARCH \
-                           --with-freetype-config=$ROOT/$TOOLCHAIN/bin/freetype-config \
                            --with-default-fonts=/usr/share/fonts/liberation \
                            --without-add-fonts \
                            --disable-dependency-tracking \
@@ -46,6 +45,8 @@ pre_configure_target() {
 # ensure we dont use '-O3' optimization.
   CFLAGS=`echo $CFLAGS | sed -e "s|-O3|-O2|"`
   CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-O3|-O2|"`
+  CFLAGS="$CFLAGS -I$ROOT/$PKG_BUILD"
+  CXXFLAGS="$CXXFLAGS -I$ROOT/$PKG_BUILD"
 }
 
 post_makeinstall_target() {
