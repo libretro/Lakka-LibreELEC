@@ -26,11 +26,34 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.fontconfig.org"
 PKG_URL="http://www.freedesktop.org/software/fontconfig/release/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="freetype libxml2 zlib expat"
-PKG_BUILD_DEPENDS="toolchain util-macros freetype libxml2 zlib expat"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros freetype libxml2 zlib expat"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/other"
 PKG_SHORTDESC="fontconfig: A library for font customization and configuration"
 PKG_LONGDESC="Fontconfig is a library for font customization and configuration."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--with-arch=$TARGET_ARCH \
+                           --with-freetype-config=$ROOT/$TOOLCHAIN/bin/freetype-config \
+                           --with-default-fonts=/usr/share/fonts/liberation \
+                           --without-add-fonts \
+                           --disable-dependency-tracking \
+                           --disable-docs"
+
+pre_configure_target() {
+# ensure we dont use '-O3' optimization.
+  CFLAGS=`echo $CFLAGS | sed -e "s|-O3|-O2|"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-O3|-O2|"`
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/fc-cat
+  rm -rf $INSTALL/usr/bin/fc-list
+  rm -rf $INSTALL/usr/bin/fc-match
+  rm -rf $INSTALL/usr/bin/fc-pattern
+  rm -rf $INSTALL/usr/bin/fc-query
+  rm -rf $INSTALL/usr/bin/fc-scan
+  rm -rf $INSTALL/usr/bin/fc-validate
+}
