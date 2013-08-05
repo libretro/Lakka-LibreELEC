@@ -459,14 +459,19 @@ make_target() {
 }
 
 post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/xbmc
+  rm -rf $INSTALL/usr/bin/xbmc-standalone
+
+  mkdir -p $INSTALL/usr/lib/xbmc
+    cp $PKG_DIR/scripts/xbmc-config $INSTALL/usr/lib/xbmc
+    cp $PKG_DIR/scripts/xbmc-hacks $INSTALL/usr/lib/xbmc
+    cp $PKG_DIR/scripts/xbmc-sources $INSTALL/usr/lib/xbmc
+
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
     cp $PKG_DIR/scripts/gputemp $INSTALL/usr/bin
     cp $PKG_DIR/scripts/setwakeup.sh $INSTALL/usr/bin
     cp tools/EventClients/Clients/XBMC\ Send/xbmc-send.py $INSTALL/usr/bin/xbmc-send
-
-    rm -rf $INSTALL/usr/bin/xbmc
-    rm -rf $INSTALL/usr/bin/xbmc-standalone
 
   if [ ! "$DISPLAYSERVER" = "xorg-server" ]; then
     rm -rf $INSTALL/usr/lib/xbmc/xbmc-xrandr
@@ -535,3 +540,17 @@ post_makeinstall_target() {
   fi
 }
 
+post_install() {
+# link default.target to xbmc.target
+  ln -sf xbmc.target $INSTALL/lib/systemd/system/default.target
+
+  enable_service xbmc-autostart.service
+  enable_service xbmc-cleanlogs.service
+  enable_service xbmc-config.service
+  enable_service xbmc-hacks.service
+  enable_service xbmc-sources.service
+  enable_service xbmc-halt.service
+  enable_service xbmc-poweroff.service
+  enable_service xbmc-reboot.service
+  enable_service xbmc.service
+}
