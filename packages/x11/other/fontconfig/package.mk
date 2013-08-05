@@ -36,6 +36,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-arch=$TARGET_ARCH \
+                           --with-cache-dir=/storage/.cache/fontconfig \
                            --with-default-fonts=/usr/share/fonts/liberation \
                            --without-add-fonts \
                            --disable-dependency-tracking \
