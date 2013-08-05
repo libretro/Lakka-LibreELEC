@@ -42,13 +42,6 @@ PKG_AUTORECONF="yes"
 # Server
   PKG_DEPENDS="$PKG_DEPENDS xkeyboard-config xkbcomp"
 
-# Drivers
-  PKG_DEPENDS="$PKG_DEPENDS xf86-input-evdev"
-
-  for drv in $XORG_DRIVERS; do
-    PKG_DEPENDS="$PKG_DEPENDS xf86-video-$drv"
-  done
-
 # Tools
   PKG_DEPENDS="$PKG_DEPENDS pciutils xrandr setxkbmap"
 
@@ -57,6 +50,11 @@ if [ -n "$WINDOWMANAGER" -a "$WINDOWMANAGER" != "none" ]; then
 fi
 
 get_graphicdrivers
+# Drivers
+  PKG_DEPENDS="$PKG_DEPENDS xf86-input-evdev"
+  for drv in $XORG_DRIVERS; do
+    PKG_DEPENDS="$PKG_DEPENDS xf86-video-$drv"
+  done
 
 if [ "$COMPOSITE_SUPPORT" = "yes" ]; then
   PKG_DEPENDS="$PKG_DEPENDS libXcomposite"
