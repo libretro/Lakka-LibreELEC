@@ -75,7 +75,11 @@ if [ ! -f $STAMP ]; then
   export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
   if [ -f $PKG_DIR/package.mk ]; then
-    setup_toolchain $TARGET
+    if [ "$TARGET" = "bootstrap" ]; then
+      setup_toolchain target
+    else
+      setup_toolchain $TARGET
+    fi
 
     # unset functions
       unset -f pre_build_target
@@ -100,6 +104,16 @@ if [ ! -f $STAMP ]; then
       unset -f makeinstall_host
       unset -f post_makeinstall_host
 
+      unset -f pre_build_bootstrap
+      unset -f pre_configure_bootstrap
+      unset -f configure_bootstrap
+      unset -f post_configure_bootstrap
+      unset -f pre_make_bootstrap
+      unset -f make_bootstrap
+      unset -f post_make_bootstrap
+      unset -f pre_makeinstall_bootstrap
+      unset -f makeinstall_bootstrap
+      unset -f post_makeinstall_bootstrap
 
     # configure TARGET build defaults
       unset -v TARGET_CONFIGURE_OPTS
@@ -127,6 +141,19 @@ if [ ! -f $STAMP ]; then
                            --disable-static \
                            --enable-shared"
 
+    # configure BOOTSTRAP build defaults
+      unset -v BOOTSTRAP_CONFIGURE_OPTS
+      BOOTSTRAP_CONFIGURE_OPTS="--host=$TARGET_NAME \
+                                --build=$HOST_NAME \
+                                --prefix=/usr \
+                                --bindir=/usr/bin \
+                                --sbindir=/usr/sbin \
+                                --sysconfdir=/etc \
+                                --libexecdir=/usr/lib \
+                                --localstatedir=/var \
+                                --disable-static \
+                                --enable-shared"
+
     # include buildfile
       . $PKG_DIR/package.mk
 
@@ -136,6 +163,10 @@ if [ ! -f $STAMP ]; then
         done
       elif [ "$TARGET" = "host" ]; then
         for p in $PKG_BUILD_DEPENDS_HOST; do
+          $SCRIPTS/build $p
+        done
+      elif [ "$TARGET" = "bootstrap" ]; then
+        for p in $PKG_BUILD_DEPENDS_BOOTSTRAP; do
           $SCRIPTS/build $p
         done
       fi
@@ -193,6 +224,11 @@ if [ ! -f $STAMP ]; then
             mkdir -p .$HOST_NAME
             cd .$HOST_NAME
           fi
+        elif [ "$TARGET" = "bootstrap" ]; then
+          if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
+            mkdir -p .$TARGET_NAME-bootstrap
+            cd .$TARGET_NAME-bootstrap
+          fi
         fi
 
       # configure
@@ -206,6 +242,8 @@ if [ ! -f $STAMP ]; then
             $PKG_CONFIGURE_SCRIPT $TARGET_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_TARGET
           elif [ "$TARGET" = "host" ]; then
             $PKG_CONFIGURE_SCRIPT $HOST_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_HOST
+          elif [ "$TARGET" = "bootstrap" ]; then
+            $PKG_CONFIGURE_SCRIPT $BOOTSTRAP_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_BOOTSTRAP
           fi
         fi
         if [ "$(type -t post_configure_$TARGET)" = "function" ]; then
@@ -223,6 +261,8 @@ if [ ! -f $STAMP ]; then
             make $PKG_MAKE_OPTS_TARGET
           elif [ "$TARGET" = "host" ]; then
             make $PKG_MAKE_OPTS_HOST
+          elif [ "$TARGET" = "bootstrap" ]; then
+            make $PKG_MAKE_OPTS_BOOTSTRAP
           fi
         fi
         if [ "$(type -t post_make_$TARGET)" = "function" ]; then
@@ -241,6 +281,8 @@ if [ ! -f $STAMP ]; then
             make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_TARGET
           elif [ "$TARGET" = "host" ]; then
             make install $PKG_MAKEINSTALL_OPTS_HOST
+          elif [ "$TARGET" = "bootstrap" ]; then
+            $MAKEINSTALL $PKG_MAKEINSTALL_OPTS_BOOTSTRAP
           fi
         fi
         if [ "$(type -t post_makeinstall_$TARGET)" = "function" ]; then
