@@ -2,7 +2,7 @@
 
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2009-2013 Stephan Raue (stephan@openelec.tv)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,13 @@
 
 . /etc/profile
 
-for script in $HOME/.xbmc/addons/*/sleep.d/*.power; do
-  progress "running addon sleep script $script ($1)..."
-  sh $script $1
+# see https://wiki.archlinux.org/index.php/Power_Management#Hooks_in_.2Fusr.2Flib.2Fsystemd.2Fsystem-sleep
+
+for script in $HOME/.config/sleep.d/*.power; do
+  if [ -f $script ]; then
+    progress "running custom sleep script $script ($@)..."
+    sh $script $@
+  fi
 done
+
+exit 0
