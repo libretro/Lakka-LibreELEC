@@ -56,6 +56,9 @@ post_makeinstall_target() {
 mkdir -p $INSTALL/etc/dbus-1/system.d
   cp wpa_supplicant/dbus/dbus-wpa_supplicant.conf $INSTALL/etc/dbus-1/system.d
 
+mkdir -p $INSTALL/lib/systemd/system
+  cp wpa_supplicant/systemd/wpa_supplicant.service $INSTALL/lib/systemd/system
+
 mkdir -p $INSTALL/usr/share/dbus-1/system-services
   cp wpa_supplicant/dbus/fi.w1.wpa_supplicant1.service $INSTALL/usr/share/dbus-1/system-services
   cp wpa_supplicant/dbus/fi.epitest.hostap.WPASupplicant.service $INSTALL/usr/share/dbus-1/system-services
