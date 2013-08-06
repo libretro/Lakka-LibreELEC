@@ -1,0 +1,74 @@
+From 072654b3ea2591e05cfbe80c06a00858e63f1f1a Mon Sep 17 00:00:00 2001
+From: David Zeuthen <davidz@redhat.com>
+Date: Tue, 18 Oct 2011 12:19:22 -0400
+Subject: [PATCH] udisks-daemon: Add --no-debug option and use this for D-Bus
+ activation
+
+Signed-off-by: David Zeuthen <davidz@redhat.com>
+---
+ data/org.freedesktop.UDisks.service.in |    2 +-
+ src/main.c                             |   28 ++++++++++++++++++++++++----
+ 2 files changed, 25 insertions(+), 5 deletions(-)
+
+diff --git a/data/org.freedesktop.UDisks.service.in b/data/org.freedesktop.UDisks.service.in
+index b3606a6..bc3542a 100644
+--- a/data/org.freedesktop.UDisks.service.in
++++ b/data/org.freedesktop.UDisks.service.in
+@@ -1,5 +1,5 @@
+ [D-BUS Service]
+ Name=org.freedesktop.UDisks
+-Exec=@libexecdir@/udisks-daemon
++Exec=@libexecdir@/udisks-daemon --no-debug
+ User=root
+ 
+diff --git a/src/main.c b/src/main.c
+index 318db27..6e220b1 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -141,12 +141,13 @@ main (int argc,
+   static char *helper_dir = NULL;
+   char *path;
+   int ret;
+-  static gboolean replace;
++  static gboolean replace = FALSE;
++  static gboolean no_debug = FALSE;
+   static GOptionEntry entries[] =
+     {
+-      { "replace", 0, 0, G_OPTION_ARG_NONE, &replace, "Replace existing daemon", NULL },
+-      { "helper-dir", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_STRING,
+-	  &helper_dir, "Directory for helper tools",  NULL },
++      { "no-debug", 'n', 0, G_OPTION_ARG_NONE, &no_debug, "Don't print debug information", NULL },
++      { "replace", 'r', 0, G_OPTION_ARG_NONE, &replace, "Replace existing daemon", NULL },
++      { "helper-dir", 0, 0, G_OPTION_ARG_FILENAME, &helper_dir, "Directory for helper tools",  NULL },
+       { NULL } };
+ 
+   PROFILE ("main(): start");
+@@ -181,6 +182,25 @@ main (int argc,
+   g_option_context_parse (context, &argc, &argv, NULL);
+   g_option_context_free (context);
+ 
++  /* If --no-debug is requested don't clutter stdout/stderr etc.
++   */
++  if (no_debug)
++    {
++      gint dev_null_fd;
++      dev_null_fd = open ("/dev/null", O_RDWR);
++      if (dev_null_fd >= 0)
++        {
++          dup2 (dev_null_fd, STDIN_FILENO);
++          dup2 (dev_null_fd, STDOUT_FILENO);
++          dup2 (dev_null_fd, STDERR_FILENO);
++          close (dev_null_fd);
++        }
++      else
++        {
++          g_warning ("Error opening /dev/null: %m");
++        }
++    }
++
+   /* run with a controlled path */
+   if (helper_dir != NULL)
+       path = g_strdup_printf ("%s:" PACKAGE_LIBEXEC_DIR ":/sbin:/bin:/usr/sbin:/usr/bin", helper_dir);
+-- 
+1.7.6.4
+
