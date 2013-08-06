@@ -26,11 +26,37 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://hostap.epitest.fi/wpa_supplicant/"
 PKG_URL="http://hostap.epitest.fi/releases/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="dbus openssl"
-PKG_BUILD_DEPENDS="toolchain dbus libnl openssl"
+PKG_BUILD_DEPENDS_TARGET="toolchain dbus libnl openssl"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
 PKG_SHORTDESC="wpa_supplicant: An IEEE 802.11i supplicant implementation"
 PKG_LONGDESC="The wpa_supplicant is a free software implementation of an IEEE 802.11i supplicant. In addition to being a full-featured WPA2 supplicant, it also has support for WPA and older wireless LAN security protocols."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_TARGET="-C wpa_supplicant V=1 LIBDIR=/usr/lib BINDIR=/usr/bin"
+PKG_MAKEINSTALL_OPTS_TARGET="-C wpa_supplicant V=1 LIBDIR=/usr/lib BINDIR=/usr/bin"
+
+configure_target() {
+# wpa_supplicant fails to build with LTO
+  strip_lto
+
+  LDFLAGS="$LDFLAGS -lpthread"
+
+  cp $PKG_DIR/config/makefile.config wpa_supplicant/.config
+
+# echo "CONFIG_TLS=gnutls" >> .config
+# echo "CONFIG_GNUTLS_EXTRA=y" >> .config
+}
+
+post_makeinstall_target() {
+  rm -r $INSTALL/usr/bin/wpa_cli
+
+mkdir -p $INSTALL/etc/dbus-1/system.d
+  cp wpa_supplicant/dbus/dbus-wpa_supplicant.conf $INSTALL/etc/dbus-1/system.d
+
+mkdir -p $INSTALL/usr/share/dbus-1/system-services
+  cp wpa_supplicant/dbus/fi.w1.wpa_supplicant1.service $INSTALL/usr/share/dbus-1/system-services
+  cp wpa_supplicant/dbus/fi.epitest.hostap.WPASupplicant.service $INSTALL/usr/share/dbus-1/system-services
+}
