@@ -92,6 +92,8 @@ post_makeinstall_target() {
   if [ ! $SFTP_SERVER = "yes" ]; then
     rm -rf $INSTALL/etc/avahi/services/sftp-ssh.service
   fi
+
+  rm -rf $INSTALL/usr/sbin/avahi-dnsconfd
 }
 
 post_install() {
@@ -103,5 +105,4 @@ post_install() {
 
   enable_service avahi-daemon.service
   enable_service avahi-daemon.socket
-  enable_service avahi-dnsconfd.service
 }
