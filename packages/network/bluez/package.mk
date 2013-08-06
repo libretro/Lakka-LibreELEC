@@ -71,6 +71,6 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/dbus-1/services
-    cp $PKG_DIR/config/org.bluez.obex.service $INSTALL/usr/share/dbus-1/services
+  mkdir -p $INSTALL/usr/share/dbus-1/system-services
+    cp $PKG_DIR/config/org.bluez.obex.service $INSTALL/usr/share/dbus-1/system-services
 }
