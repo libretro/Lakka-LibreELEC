@@ -50,3 +50,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/etc/profile.d
   rm -rf $INSTALL/lib/udev/rules.d
 }
+
+post_install() {
+  enable_service udisks.service
+}
