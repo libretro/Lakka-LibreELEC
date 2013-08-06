@@ -170,8 +170,8 @@ pre_configure_target() {
 post_makeinstall_target() {
   rm -rf $INSTALL/var/cache/xkb
 
-  mkdir -p $INSTALL/lib/systemd
-    cp -P $PKG_DIR/scripts/xorg-configure $INSTALL/lib/systemd
+  mkdir -p $INSTALL/lib/udev
+    cp -P $PKG_DIR/scripts/xorg-configure $INSTALL/lib/udev
 
   if [ -f $INSTALL/usr/lib/xorg/modules/extensions/libglx.so ]; then
     mv $INSTALL/usr/lib/xorg/modules/extensions/libglx.so \
@@ -193,5 +193,6 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  enable_service xorg-server.service
+#  enable_service xorg-server.service
+  enable_service xorg-server.path
 }
