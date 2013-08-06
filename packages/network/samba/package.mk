@@ -166,23 +166,30 @@ makeinstall_target() {
       ln -sf samba_multicall $INSTALL/usr/bin/nmbd
       ln -sf samba_multicall $INSTALL/usr/bin/smbpasswd
 
+    mkdir -p $INSTALL/etc/samba
+      cp ../codepages/lowcase.dat $INSTALL/etc/samba
+      cp ../codepages/upcase.dat $INSTALL/etc/samba
+      cp ../codepages/valid.dat $INSTALL/etc/samba
+
+    mkdir -p $INSTALL/lib/systemd/system
+      cp $PKG_DIR/system.d.opt/* $INSTALL/lib/systemd/system
+
+      enable_service smbd-monitor.path
+      enable_service nmbd.service
+      enable_service smbd.service
+
+    mkdir -p $INSTALL/usr/lib/samba
+      cp $PKG_DIR/scripts/samba-config $INSTALL/usr/lib/samba
+
+    if [ -f $PROJECT_DIR/$PROJECT/config/smb.conf ]; then
       mkdir -p $INSTALL/etc/samba
-        cp ../codepages/lowcase.dat $INSTALL/etc/samba
-        cp ../codepages/upcase.dat $INSTALL/etc/samba
-        cp ../codepages/valid.dat $INSTALL/etc/samba
+        cp $PROJECT_DIR/$PROJECT/config/smb.conf $INSTALL/etc/samba
+    else
+      mkdir -p $INSTALL/etc/samba
+        cp $PKG_DIR/config/smb.conf $INSTALL/etc/samba
+      mkdir -p $INSTALL/usr/config
+        cp $PKG_DIR/config/smb.conf $INSTALL/usr/config/samba.conf.sample
+    fi
 
-      mkdir -p $INSTALL/etc/init.d
-        cp $PKG_DIR/scripts/52_samba $INSTALL/etc/init.d
-
-      if [ -f $PROJECT_DIR/$PROJECT/config/smb.conf ]; then
-        mkdir -p $INSTALL/etc/samba
-          cp $PROJECT_DIR/$PROJECT/config/smb.conf $INSTALL/etc/samba
-      else
-        mkdir -p $INSTALL/etc/samba
-          cp $PKG_DIR/config/smb.conf $INSTALL/etc/samba
-        mkdir -p $INSTALL/usr/config
-          cp $PKG_DIR/config/smb.conf $INSTALL/usr/config/samba.conf.sample
-      fi
   fi
 }
-
