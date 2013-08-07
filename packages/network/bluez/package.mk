@@ -73,3 +73,4 @@ pre_configure_target() {
 post_makeinstall_target() {
   enable_service bluetooth.service
 }
+
