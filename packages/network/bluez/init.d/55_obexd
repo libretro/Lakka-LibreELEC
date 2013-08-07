@@ -18,7 +18,29 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-d    /var/lib/dbus            0755 root root - -
-d    /var/run/dbus            0755 root root - -
+#
+# start obexd
+#
+# runlevels: openelec, textmode
 
-L    /var/lib/dbus/machine-id - - - - /etc/machine-id
+(
+  # can be called from openelec addon.
+  # ensure that environment is sane
+  . /etc/profile
+
+  if [ "$DEBUG" = "yes" ]; then
+    OBEXD_DEBUG="-d"
+  fi
+
+  OBEXD_ENABLED=true
+  OBEXD_ROOT=/storage/downloads
+  if [ -f $CONFIG_CACHE/service_bluez.conf ]; then
+    . $CONFIG_CACHE/service_bluez.conf
+  fi
+
+  if [ "$BLUEZ_ENABLED" == "true" -a "$OBEXD_ENABLED" == "true" ]; then
+    progress "Starting obexd"
+    wait_for_dbus
+    /usr/lib/bluetooth/obexd $OBEXD_DEBUG -r "$OBEXD_ROOT" &>/dev/null
+  fi
+)&
