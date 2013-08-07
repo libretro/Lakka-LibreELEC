@@ -28,22 +28,12 @@
 
   wait_for_dbus
 
-  drive_dump () {
-    udisks --dump | tr -d ' ' | grep 'device-file:' | cut -d ':' -f2
-  }
-
-  show_info () {
-    udisks --show-info $2 | grep "$1:" | tr -d ' ' | cut -d ":" -f2
-  }
-
-  for DEVICE in `drive_dump`; do
-    REMOVABLE="`show_info "removable" $DEVICE`"
-    MOUNTED="`show_info "is mounted" $DEVICE`"
-    USAGE="`show_info "usage" $DEVICE`"
-
-    if [ "$REMOVABLE" = "0" -a "$MOUNTED" = "0" -a "$USAGE" = "filesystem" ]; then
-      udisks --mount "$DEVICE" >/dev/null
+  for DEVICE in `find /sys/class/block/sd*/removable`; do
+    if [ "$(cat $DEVICE)" = "0" ]; then
+      DISK=$(echo "$DEVICE" | sed -e "s,/sys/class/block,/dev," -e "s,/removable,,")
+      for PART in $(ls "$DISK"[0-9]*);do
+        udisks --mount "$PART" >/dev/null
+      done
     fi
-
   done
 )&
