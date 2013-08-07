@@ -49,8 +49,12 @@ PKG_CONFIGURE_OPTS_TARGET="--datadir=/usr/share \
 post_makeinstall_target() {
   rm -rf $INSTALL/etc/profile.d
   rm -rf $INSTALL/lib/udev/rules.d
+
+  mkdir -p $INSTALL/usr/lib/udisks
+    cp $PKG_DIR/scripts/udisks-mount-disks $INSTALL/usr/lib/udisks
 }
 
 post_install() {
   enable_service udisks.service
+  enable_service udisks-mount-disks.service
 }
