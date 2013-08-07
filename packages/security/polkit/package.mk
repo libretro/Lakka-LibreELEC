@@ -40,7 +40,7 @@ PKG_CONFIGURE_OPTS_TARGET="--libexecdir=/usr/lib/polkit-1 \
                            --disable-gtk-doc \
                            --disable-nls \
                            --disable-introspection \
-                           --disable-systemd \
+                           --enable-systemd \
                            --with-authfw=shadow \
                            --with-os-type=redhat \
                            --with-expat=$SYSROOT_PREFIX/usr"
@@ -51,6 +51,8 @@ post_makeinstall_target() {
 }
 
 post_install() {
+  enable_service polkit.service
+
   echo "chmod 4755 $INSTALL/usr/bin/pkexec" >> $FAKEROOT_SCRIPT
   echo "chmod 4755 $INSTALL/usr/lib/polkit-1/polkit-agent-helper-1" >> $FAKEROOT_SCRIPT
 }
