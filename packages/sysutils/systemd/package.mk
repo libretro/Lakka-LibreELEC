@@ -98,6 +98,11 @@ pre_make_target() {
 }
 
 post_makeinstall_target() {
+  # replace systemd-machine-id-setup with ours
+    mkdir -p $INSTALL/bin
+      rm -rf $INSTALL/bin/systemd-machine-id-setup
+      cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/bin
+
   # provide 'halt', 'shutdown', 'reboot' & co.
     mkdir -p $INSTALL/sbin
       ln -sf /bin/systemctl $INSTALL/sbin/halt
@@ -148,4 +153,6 @@ post_install() {
   add_group tty 5
   add_group video 39
   add_group utmp 22
+
+  enable_service machine-id.service
 }
