@@ -85,6 +85,12 @@ post_makeinstall_target() {
   sed -e "s,^.*disallow-other-stacks=.*$,disallow-other-stacks=yes,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
 # disable wide-area
   sed -e "s,^.*enable-wide-area=.*$,enable-wide-area=no,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
+# publish-hinfo
+  sed -e "s,^.*publish-hinfo=.*$,publish-hinfo=no,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
+# publish-workstation
+  sed -e "s,^.*publish-workstation=.*$,publish-workstation=no,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
+# browse domains?
+  sed -e "s,^.*browse-domains=.*$,# browse-domains=,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
 
   rm -rf $INSTALL/etc/avahi/avahi-autoipd.action
   rm -rf $INSTALL/etc/avahi/avahi-dnsconfd.action
@@ -93,6 +99,12 @@ post_makeinstall_target() {
     rm -rf $INSTALL/etc/avahi/services/sftp-ssh.service
   fi
   rm -rf $INSTALL/lib/systemd
+  rm -f $INSTALL/usr/share/dbus-1/system-services/org.freedesktop.Avahi.service
+  rm -f $INSTALL/usr/sbin/avahi-autoipd
+  rm -f $INSTALL/usr/sbin/avahi-dnsconfd
+  rm -f $INSTALL/usr/bin/avahi-bookmarks
+  rm -f $INSTALL/usr/bin/avahi-publish*
+  rm -f $INSTALL/usr/bin/avahi-resolve*
 }
 
 post_install() {
