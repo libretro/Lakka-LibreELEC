@@ -26,11 +26,40 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://open-vm-tools.sourceforge.net"
 PKG_URL="$SOURCEFORGE_SRC/project/open-vm-tools/open-vm-tools/stable-9.2.x/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain glib"
+PKG_DEPENDS="glib"
+PKG_BUILD_DEPENDS_TARGET="toolchain glib"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtualization"
 PKG_SHORTDESC="open-vm-tools: open source implementation of VMware Tools"
 PKG_LONGDESC="open-vm-tools: open source implementation of VMware Tools"
+
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+ISCSI_KERNEL_VER=$(basename $(ls -d $ROOT/$BUILD/linux-[0-9]*)| sed 's|linux-||g')
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
+                           --disable-tests \
+                           --without-pam \
+                           --without-gtk2 \
+                           --without-gtkmm \
+                           --without-dnet \
+                           --without-x \
+                           --without-icu \
+                           --without-procps \
+                           --with-kernel-release=$ISCSI_KERNEL_VER \
+                           --with-linuxdir=$(ls -d $ROOT/$BUILD/linux-*)"
+
+PKG_MAKE_OPTS_TARGET="CFLAGS+=-DG_DISABLE_DEPRECATED"
+
+makeinstall_target() {
+  mkdir -p $INSTALL/lib/modules/$ISCSI_KERNEL_VER/open-vm-tools
+    cp -PR ../modules/linux/vmxnet/vmxnet.ko $INSTALL/lib/modules/$ISCSI_KERNEL_VER/open-vm-tools
+
+  mkdir -p $INSTALL/usr/lib
+    cp -PR libvmtools/.libs/libvmtools.so* $INSTALL/usr/lib
+
+  mkdir -p $INSTALL/usr/bin
+    cp -PR services/vmtoolsd/.libs/vmtoolsd $INSTALL/usr/bin
+    cp -PR checkvm/.libs/vmware-checkvm $INSTALL/usr/bin
+}
