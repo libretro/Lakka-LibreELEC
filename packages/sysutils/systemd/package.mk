@@ -103,6 +103,10 @@ post_makeinstall_target() {
       rm -rf $INSTALL/bin/systemd-machine-id-setup
       cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/bin
 
+  # copy openelec helper scripts
+    mkdir -p $INSTALL/lib/systemd/
+      cp $PKG_DIR/scripts/openelec-userconfig $INSTALL/lib/systemd/
+
   # provide 'halt', 'shutdown', 'reboot' & co.
     mkdir -p $INSTALL/sbin
       ln -sf /bin/systemctl $INSTALL/sbin/halt
@@ -155,4 +159,5 @@ post_install() {
   add_group utmp 22
 
   enable_service machine-id.service
+  enable_service userconfig.service
 }
