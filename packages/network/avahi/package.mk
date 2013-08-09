@@ -115,5 +115,5 @@ post_install() {
   add_group avahiautoipd 496
 
   enable_service avahi-daemon.service
-  enable_service avahi-daemon.socket
+  enable_service avahi-monitor.path
 }
