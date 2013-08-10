@@ -46,25 +46,28 @@ def settings_restore(settings_xml):
 
 ######################################################################################################
 # get hdhomerun supported devices on a system (only name like 101ADD2B-0)
-def get_devices_hdhomerun(hdhomerun_log):
+def get_devices_hdhomerun():
   tuners = []
   try:
-    for line in open('/var/log/messages', 'r'):
-      if line.find('HDHomeRun'):
-      line = line.strip()
-        #Jul 17 19:22:46 user user.info kernel: [   10.587811] HDHomeRun HDHomeRun.0: DVB: registering adapter 0 frontend 0 (HDHomeRun DVB-C 12345678-0)...
-        match = re.search(r'.*\[.+\] HDHomeRun .+ registering adapter .+ \(HDHomeRun .+ (.+)\).+', line)
+    p = os.popen("hdhomerun_config discover", "r")
+    while 1:
+      line = p.readline()
+      if not line:
+        break
+      else:
+        str = line.strip()
+        match = re.search(r'hdhomerun device (.+) found at .+', line)
         if match:
           name = match.group(1)
-        tuners.append(name)
+          print name
+          tuners.append(name)
   except IOError:
-    print 'Error reading hdhomerun log file /var/log/messages'
+    print 'Error getting hdhomerun tuners info'
   return tuners
 
   """
-root ~ # grep HDHomeRun /var/log/messages
-Jul 17 19:22:46 user user.info kernel: [   10.587811] HDHomeRun HDHomeRun.0: DVB: registering adapter 0 frontend 0 (HDHomeRun DVB-C 12345678-0)...
-Jul 17 19:22:46 user user.info kernel: [   10.588602] HDHomeRun HDHomeRun.1: DVB: registering adapter 1 frontend 0 (HDHomeRun DVB-C 12345678-1)...
+openelec:~ # hdhomerun_config discover
+hdhomerun device 12345678 found at 192.168.0.3
   """
 
 ######################################################################################################
@@ -154,11 +157,13 @@ def remove_old_tuners(xmldoc):
 # add new hdhomerun tuners
 def add_hdhomerun(xmldoc, node_cat, tuners):
   for ix, tuner in enumerate(tuners):
-    tuner_var = tuner.replace('-', '_')
+    #tuner_var = tuner.replace('-', '_')
+    tuner_var = tuner
+    print tuner
 
     node1 = xmldoc.createElement("setting")
     node1.setAttribute("id", 'ATTACHED_TUNER_' + tuner_var + '_DVBMODE')
-    node1.setAttribute("label", tuner)
+    node1.setAttribute("label", "tuner serial " + tuner_var)
     node1.setAttribute("type", 'labelenum')
     node1.setAttribute("default", 'auto')
     node1.setAttribute("values", 'auto|ATSC|DVB-C|DVB-T')
@@ -172,11 +177,19 @@ def add_hdhomerun(xmldoc, node_cat, tuners):
     node_cat.appendChild(node2)
 
     node3 = xmldoc.createElement("setting")
-    node3.setAttribute("id", 'ATTACHED_TUNER_' + tuner_var + '_DISABLE')
-    node3.setAttribute("label", '9030')
-    node3.setAttribute("type", 'bool')
-    node3.setAttribute("default", 'false')
+    node3.setAttribute("id", 'ATTACHED_TUNER_' + tuner_var + '_NUMBERS')
+    node3.setAttribute("label", '9025')
+    node3.setAttribute("type", 'labelenum')
+    node3.setAttribute("default", '2')
+    node3.setAttribute("values", '1|2|3|4|5|6|7|8')
     node_cat.appendChild(node3)
+
+    node4 = xmldoc.createElement("setting")
+    node4.setAttribute("id", 'ATTACHED_TUNER_' + tuner_var + '_DISABLE')
+    node4.setAttribute("label", '9030')
+    node4.setAttribute("type", 'bool')
+    node4.setAttribute("default", 'false')
+    node_cat.appendChild(node4)
 
   # for tuner
 
@@ -249,9 +262,9 @@ def save_settings(settings_xml, xmldoc):
 
 ######################################################################################################
 # refresh hdhomerun tuners in settings.xml file
-def refresh_hdhomerun_tuners(settings_xml, hdhomerun_log):
+def refresh_hdhomerun_tuners(settings_xml):
   settings_backup(settings_xml)
-  tuners = get_devices_hdhomerun(hdhomerun_log)
+  tuners = get_devices_hdhomerun()
   xmldoc = parse_settings(settings_xml)
   if xmldoc == None:
     print 'No hdhomerun tuners found'
