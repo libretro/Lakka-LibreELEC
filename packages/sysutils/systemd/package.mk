@@ -105,6 +105,7 @@ post_makeinstall_target() {
 
   # copy openelec helper scripts
     mkdir -p $INSTALL/lib/systemd/
+      cp $PKG_DIR/scripts/openelec-debugconfig $INSTALL/lib/systemd/
       cp $PKG_DIR/scripts/openelec-userconfig $INSTALL/lib/systemd/
 
   # provide 'halt', 'shutdown', 'reboot' & co.
@@ -159,5 +160,6 @@ post_install() {
   add_group utmp 22
 
   enable_service machine-id.service
+  enable_service debugconfig.service
   enable_service userconfig.service
 }
