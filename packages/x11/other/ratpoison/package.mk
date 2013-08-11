@@ -26,11 +26,31 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.nongnu.org/ratpoison"
 PKG_URL="http://mirror.lihnidos.org/GNU/savannah/ratpoison/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="libXft libX11 libXext libXtst libXinerama liberation-fonts-ttf"
-PKG_BUILD_DEPENDS="toolchain util-macros libXft libICE libX11 libXext libXtst libXinerama"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros libXft libICE libX11 libXext libXtst libXinerama"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/other"
 PKG_SHORTDESC="ratpoison: A window manager that lets you say good-bye to the rodent"
 PKG_LONGDESC="Ratpoison is a simple window manager with no large library dependencies, no fancy graphics, no window decorations, and no rodent dependence. It is largely modeled after GNU Screen, which has done wonders in the virtual terminal market. All interaction with the window manager is done through keystrokes. Ratpoison has a prefix map to minimize the key clobbering that cripples EMACS and other quality pieces of software. All windows are maximized and kept maximized to avoid wasting precious screen space."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--x-includes=$SYSROOT_PREFIX/usr/include \
+                           --x-libraries=$SYSROOT_PREFIX/usr/lib \
+                           --disable-debug \
+                           --disable-history \
+                           --with-xterm=rxvt \
+                           --with-xft \
+                           --with-x"
+
+pre_configure_target() {
+  LDFLAGS="$LDFLAGS -fwhole-program"
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/rpws
+  rm -rf $INSTALL/usr/share
+
+  mkdir -p $INSTALL/etc
+    cp $PKG_DIR/config/ratpoisonrc $INSTALL/etc
+}
