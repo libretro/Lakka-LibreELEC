@@ -77,5 +77,7 @@ post_makeinstall_target() {
 post_install() {
   enable_service bluetooth-monitor.path
   enable_service bluetooth.service
+  enable_service obex-monitor.path
+  enable_service obex.service
 }
 
