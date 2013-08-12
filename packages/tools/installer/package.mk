@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,14 +18,44 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="installer"
+PKG_VERSION="1"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.openelec.tv/"
+PKG_URL=""
+PKG_DEPENDS="busybox dialog parted e2fsprogs syslinux"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="tools"
+PKG_SHORTDESC="installer: OpenELEC.tv Install manager"
+PKG_LONGDESC="OpenELEC.tv Install manager to install the system on any disk"
 
-mkdir -p $INSTALL/usr/bin
-  cp $PKG_DIR/scripts/installer $INSTALL/usr/bin
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
-mkdir -p $INSTALL/etc
-  if [ -f $PROJECT_DIR/$PROJECT/installer/installer.conf ]; then
-    cp $PROJECT_DIR/$PROJECT/installer/installer.conf $INSTALL/etc
-  else
-    cp $PKG_DIR/config/installer.conf $INSTALL/etc
-  fi
+if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
+  PKG_DEPENDS="$PKG_DEPENDS flashrom"
+fi
+
+pre_build_target() {
+  mkdir -p $ROOT/$BUILD/$PKG_NAME-$PKG_VERSION
+  PKG_BUILD="$ROOT/$BUILD/$PKG_NAME-$PKG_VERSION"
+}
+
+make_target() {
+  : # nothing to make here
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp $PKG_DIR/scripts/installer $INSTALL/usr/bin
+
+  mkdir -p $INSTALL/etc
+    if [ -f $PROJECT_DIR/$PROJECT/installer/installer.conf ]; then
+      cp $PROJECT_DIR/$PROJECT/installer/installer.conf $INSTALL/etc
+    else
+      cp $PKG_DIR/config/installer.conf $INSTALL/etc
+    fi
+}
