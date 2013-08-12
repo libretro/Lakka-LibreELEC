@@ -27,10 +27,8 @@ __cwd__           = __settings__.getAddonInfo('path')
 __resources_lib__ = xbmc.translatePath(os.path.join(__cwd__, 'resources', 'lib'))
 __settings_xml__  = xbmc.translatePath(os.path.join(__cwd__, 'resources', 'settings.xml'))
 
-__hdhomerun_log__ = '/var/log/dvbhdhomerun.log'
-
 if __name__ == "__main__" and len(sys.argv) == 2 and sys.argv[1] == 'refresh_tuners':
   sys.path.append(__resources_lib__)
   from functions import refresh_hdhomerun_tuners
-  refresh_hdhomerun_tuners(__settings_xml__, __hdhomerun_log__)
+  refresh_hdhomerun_tuners(__settings_xml__)
   __settings__.openSettings()

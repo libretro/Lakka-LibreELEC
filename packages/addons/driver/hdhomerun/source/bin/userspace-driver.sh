@@ -63,39 +63,46 @@ if [ -z "$(pidof userhdhomerun)" ]; then
     cp $HDHR_ADDON_HOME/dvbhdhomerun.conf $DVBHDHOMERUN_CONF_TMP
 
     # get tuner serial numbers
-    SERIALS=$(cat /var/config/hdhomerun-addon.conf | sed -n 's|^ATTACHED_TUNER_\(.*\)_\(.*\)_DVBMODE=.*|\1-\2|gp' | sort | uniq)
+    SERIALS=$(cat /var/config/hdhomerun-addon.conf | sed -n 's|^ATTACHED_TUNER_\(.*\)_DVBMODE=.*|\1|gp' | sort | uniq)
     . /var/config/hdhomerun-addon.conf
 
-    for SERIAL in $SERIALS; do
-      SERIAL_VAR=$(echo $SERIAL | sed 's|-|_|')
-      DVBMODE=$(eval echo \$ATTACHED_TUNER_${SERIAL_VAR}_DVBMODE)
-      FULLNAME=$(eval echo \$ATTACHED_TUNER_${SERIAL_VAR}_FULLNAME)
-      DISABLE=$(eval echo \$ATTACHED_TUNER_${SERIAL_VAR}_DISABLE)
+    for SERIAL_UNIQ in $SERIALS; do
+      DVBMODE=$(eval echo \$ATTACHED_TUNER_${SERIAL_UNIQ}_DVBMODE)
+      FULLNAME=$(eval echo \$ATTACHED_TUNER_${SERIAL_UNIQ}_FULLNAME)
+      DISABLE=$(eval echo \$ATTACHED_TUNER_${SERIAL_UNIQ}_DISABLE)
+      NUMBERS=$(eval echo \$ATTACHED_TUNER_${SERIAL_UNIQ}_NUMBERS)
 
-      [ "$DVBMODE" = "auto" ] && DVBMODE=""
+      NUMBERS=$(( $NUMBERS -1 ))
+      NUMBERS=$(( $NUMBERS *1 ))
 
-      # remove setttings for this tuner
-      awk -v val="[$SERIAL]" '$0 == val {flag=1; next} /^tuner_type=|^use_full_name=|^disable=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $DVBHDHOMERUN_CONF_TMP >${DVBHDHOMERUN_CONF_TMP}-types
-      mv ${DVBHDHOMERUN_CONF_TMP}-types $DVBHDHOMERUN_CONF_TMP
-      echo "" >>$DVBHDHOMERUN_CONF_TMP
-      # remove empty lines at the end of file
-      sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $DVBHDHOMERUN_CONF_TMP
+      for i in $(seq 0 $NUMBERS); do
+        SERIAL="$SERIAL_UNIQ-$i"
 
-      ADDNEW=true
-      if [ -n "$DVBMODE" ]; then
-        [ $ADDNEW = true ] && ADDNEW=false && echo "[$SERIAL]" >>$DVBHDHOMERUN_CONF_TMP
-        echo "tuner_type=$DVBMODE" >>$DVBHDHOMERUN_CONF_TMP
-      fi
-      if [ "$FULLNAME" = "true" ]; then
-        [ $ADDNEW = true ] && ADDNEW=false && echo "[$SERIAL]" >>$DVBHDHOMERUN_CONF_TMP
-        echo "use_full_name=true" >>$DVBHDHOMERUN_CONF_TMP
-      fi
-      if [ "$DISABLE" = "true" ]; then
-        [ $ADDNEW = true ] && ADDNEW=false && echo "[$SERIAL]" >>$DVBHDHOMERUN_CONF_TMP
-        echo "disable=true" >>$DVBHDHOMERUN_CONF_TMP
-      fi
+        [ "$DVBMODE" = "auto" ] && DVBMODE=""
 
-      echo "" >>$DVBHDHOMERUN_CONF_TMP
+        # remove setttings for this tuner
+        awk -v val="[$SERIAL]" '$0 == val {flag=1; next} /^tuner_type=|^use_full_name=|^disable=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $DVBHDHOMERUN_CONF_TMP >${DVBHDHOMERUN_CONF_TMP}-types
+        mv ${DVBHDHOMERUN_CONF_TMP}-types $DVBHDHOMERUN_CONF_TMP
+        echo "" >>$DVBHDHOMERUN_CONF_TMP
+        # remove empty lines at the end of file
+        sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $DVBHDHOMERUN_CONF_TMP
+
+        ADDNEW=true
+        if [ -n "$DVBMODE" ]; then
+          [ $ADDNEW = true ] && ADDNEW=false && echo "[$SERIAL]" >>$DVBHDHOMERUN_CONF_TMP
+          echo "tuner_type=$DVBMODE" >>$DVBHDHOMERUN_CONF_TMP
+        fi
+        if [ "$FULLNAME" = "true" ]; then
+          [ $ADDNEW = true ] && ADDNEW=false && echo "[$SERIAL]" >>$DVBHDHOMERUN_CONF_TMP
+          echo "use_full_name=true" >>$DVBHDHOMERUN_CONF_TMP
+        fi
+        if [ "$DISABLE" = "true" ]; then
+          [ $ADDNEW = true ] && ADDNEW=false && echo "[$SERIAL]" >>$DVBHDHOMERUN_CONF_TMP
+          echo "disable=true" >>$DVBHDHOMERUN_CONF_TMP
+        fi
+
+        echo "" >>$DVBHDHOMERUN_CONF_TMP
+      done
     done
 
     # remove logging from libhdhomerun library
