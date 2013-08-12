@@ -47,7 +47,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --without-x \
                            --without-icu \
                            --without-procps \
-                           --with-kernel-release=$ISCSI_KERNEL_VER \
+                           --with-kernel-release=$OPENVMTOOLS_KERNEL_VER \
                            --with-linuxdir=$(ls -d $ROOT/$BUILD/linux-*)"
 
 PKG_MAKE_OPTS_TARGET="CFLAGS+=-DG_DISABLE_DEPRECATED"
