@@ -71,6 +71,11 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
+  rm -rf $INSTALL/lib/systemd
+}
+
+post_install() {
+  enable_service bluetooth-monitor.path
   enable_service bluetooth.service
 }
 
