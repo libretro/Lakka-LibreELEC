@@ -26,11 +26,31 @@ PKG_LICENSE="Public Domain"
 PKG_SITE="ftp://elsie.nci.nih.gov/pub/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="timezone-data"
 PKG_LONGDESC="timezone-data"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+make_target() {
+  setup_toolchain host
+  make CC="$HOST_CC" CFLAGS="$HOST_CFLAGS"
+}
+
+makeinstall_target() {
+  make TOPDIR="./.install_pkg" install
+}
+
+post_makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/zoneinfo
+    mv $INSTALL/etc/zoneinfo/* $INSTALL/usr/share/zoneinfo
+
+  rm -rf $INSTALL/man
+  rm -rf $INSTALL/etc
+
+  mkdir -p $INSTALL/etc
+    ln -sf /var/run/localtime $INSTALL/etc/localtime
+}
