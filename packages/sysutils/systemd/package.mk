@@ -98,6 +98,9 @@ pre_make_target() {
 }
 
 post_makeinstall_target() {
+  # remove unneeded stuff
+    rm -rf $INSTALL/etc/systemd/system
+
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/bin
       rm -rf $INSTALL/bin/systemd-machine-id-setup
@@ -143,7 +146,16 @@ post_makeinstall_target() {
     rm -rf $INSTALL/lib/systemd/system/local-fs.target.wants/systemd-fsck-root.service
 
   mkdir -p $INSTALL/usr/config
-    cp -R $PKG_DIR/config/*.sample $INSTALL/usr/config
+    cp -PR $PKG_DIR/config/* $INSTALL/usr/config
+
+    rm -rf $INSTALL/etc/systemd/system
+      ln -sf /storage/.config/system.d $INSTALL/etc/systemd/system
+    rm -rf $INSTALL/etc/modules-load.d
+      ln -sf /storage/.config/modules-load.d $INSTALL/etc/modules-load.d
+    rm -rf $INSTALL/etc/sysctl.d
+      ln -sf /storage/.config/sysctl.d $INSTALL/etc/sysctl.d
+    rm -rf $INSTALL/etc/tmpfiles.d
+      ln -sf /storage/.config/tmpfiles.d $INSTALL/etc/tmpfiles.d
 }
 
 post_install() {
