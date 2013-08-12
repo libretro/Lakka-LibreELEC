@@ -59,3 +59,8 @@ makeinstall_target() {
       cp $PKG_DIR/config/installer.conf $INSTALL/etc
     fi
 }
+
+post_install() {
+  enable_service installer.service
+}
+
