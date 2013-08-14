@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="ratpoison"
-PKG_VERSION="1.4.5"
+PKG_VERSION="1.4.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nongnu.org/ratpoison"
-PKG_URL="http://mirror.lihnidos.org/GNU/savannah/ratpoison/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://download.savannah.nongnu.org/releases/ratpoison/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS="libXft libX11 libXext libXtst libXinerama liberation-fonts-ttf"
 PKG_BUILD_DEPENDS_TARGET="toolchain util-macros libXft libICE libX11 libXext libXtst libXinerama"
 PKG_PRIORITY="optional"
