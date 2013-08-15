@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bluez"
-PKG_VERSION="5.7"
+PKG_VERSION="5.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
