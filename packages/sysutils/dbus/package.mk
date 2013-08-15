@@ -38,8 +38,8 @@ PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="export ac_cv_have_abstract_sockets=yes \
                            --libexecdir=/usr/lib/dbus \
-                           --enable-verbose-mode \
-                           --enable-asserts \
+                           --disable-verbose-mode \
+                           --disable-asserts \
                            --enable-checks \
                            --disable-tests \
                            --disable-ansi \
@@ -56,9 +56,9 @@ PKG_CONFIGURE_OPTS_TARGET="export ac_cv_have_abstract_sockets=yes \
                            --without-x \
                            --with-dbus-user=dbus"
 
-PKG_CONFIGURE_OPTS_HOST="--enable-verbose-mode \
-                         --enable-asserts \
-                         --enable-checks \
+PKG_CONFIGURE_OPTS_HOST="--disable-verbose-mode \
+                         --disable-asserts \
+                         --disable-checks \
                          --disable-tests \
                          --disable-xml-docs \
                          --disable-doxygen-docs"
