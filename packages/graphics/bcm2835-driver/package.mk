@@ -80,5 +80,4 @@ makeinstall_target() {
 post_install() {
   enable_service bcm2835-threshold.service
   enable_service framebuffer.service
-  enable_service vcfiled.service
 }
