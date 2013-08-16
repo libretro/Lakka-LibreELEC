@@ -545,6 +545,7 @@ post_install() {
   enable_service xbmc-poweroff.service
   enable_service xbmc-reboot.service
   enable_service xbmc-userfonts.service
+  enable_service xbmc-waitonnetwork.service
   enable_service xbmc.service
   enable_service xbmc-lcd-suspend.service
   enable_service xbmc-lirc-suspend.service
