@@ -1,3 +1,4 @@
+#!/bin/sh
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -18,35 +19,30 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-#
-# create and enable swapfile
-#
-# runlevels: openelec, textmode
-
 . /etc/swap.conf
 
-if [ -f $HOME/.config/swap.conf ]; then
-  . $HOME/.config/swap.conf
+if [ -f /storage/.config/swap.conf ]; then
+  . /storage/.config/swap.conf
 fi
 
-(
-  if [ -e /proc/swaps ]; then
-    SWAP=`blkid -t TYPE="swap" -o device`
+SWAP=`blkid -t TYPE="swap" -o device`
 
+case $1 in
+  create)
     if [ -z "$SWAP" -a ! -f "$SWAPFILE" ]; then
-      progress "creating swapfile"
-      echo "creating Swapfile ..."
       mkdir -p `dirname $SWAPFILE`
-      dd if=/dev/zero of=$SWAPFILE bs=1M count=$SWAPFILESIZE 2>&1 > /dev/null
-      chmod 0600 $SWAPFILE 2>&1 > /dev/null
-      mkswap $SWAPFILE 2>&1 > /dev/null
+      dd if=/dev/zero of=$SWAPFILE bs=1M count=$SWAPFILESIZE
+      chmod 0600 $SWAPFILE
+      mkswap $SWAPFILE
     fi
-
-    progress "enable swap"
-      [ -z "$SWAP" -a -f "$SWAPFILE" ] && SWAP=$SWAPFILE
-      for i in $SWAP; do
-        swapon -p 10000 $SWAP 2>&1 > /dev/null
-      done
-      sysctl -w vm.swappiness=10 2>&1 > /dev/null
-  fi
-)&
+    ;;
+  mount)
+    [ -z "$SWAP" -a -f "$SWAPFILE" ] && SWAP=$SWAPFILE
+    for i in $SWAP; do
+      swapon -p 10000 $SWAP
+    done
+    ;;
+  unmount)
+    swapoff -a
+    ;;
+esac

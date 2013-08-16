@@ -113,10 +113,16 @@ post_makeinstall_target() {
       cp .libs/swapon $INSTALL/usr/sbin
       cp .libs/swapoff $INSTALL/usr/sbin
 
-    mkdir -p $INSTALL/etc/init.d
-      cp $PKG_DIR/scripts/32_swapfile $INSTALL/etc/init.d
+    mkdir -p $INSTALL/usr/lib/openelec
+      cp -PR $PKG_DIR/scripts/mount-swap $INSTALL/usr/lib/openelec
 
     mkdir -p $INSTALL/etc
       cat $PKG_DIR/config/swap.conf | sed -e "s,@SWAPFILESIZE@,$SWAPFILESIZE,g" > $INSTALL/etc/swap.conf
+  fi
+}
+
+post_install () {
+  if [ "$SWAP_SUPPORT" = "yes" ]; then
+    enable_service swap.service
   fi
 }
