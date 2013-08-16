@@ -92,6 +92,7 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/bin
     cp -P client/connmanctl $INSTALL/usr/bin
+    cp -P $PKG_DIR/scripts/cm-online $INSTALL/usr/bin
 
   mkdir -p $INSTALL/etc
     ln -sf /var/cache/resolv.conf $INSTALL/etc/resolv.conf
