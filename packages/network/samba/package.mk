@@ -46,8 +46,8 @@ fi
 PKG_CONFIGURE_SCRIPT="source3/configure"
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_file__proc_sys_kernel_core_pattern=yes \
                            libreplace_cv_HAVE_C99_VSNPRINTF=yes \
-                           libreplace_cv_HAVE_GETADDRINFO=yes \
-                           libreplace_cv_HAVE_IFACE_IFCONF=yes \
+                           libreplace_cv_HAVE_GETADDRINFO=no \
+                           libreplace_cv_HAVE_IFACE_IFCONF=no \
                            LINUX_LFS_SUPPORT=yes \
                            samba_cv_CC_NEGATIVE_ENUM_VALUES=yes \
                            samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
