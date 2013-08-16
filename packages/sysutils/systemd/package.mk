@@ -133,6 +133,9 @@ post_makeinstall_target() {
   # remove debug-shell.service, we install our own
     rm -rf $INSTALL/lib/systemd/system/debug-shell.service
 
+  # remove some generators we never use
+    rm -rf $INSTALL/lib/systemd/system-generators/systemd-fstab-generator
+
   # remove getty units, we dont want a console
     rm -rf $INSTALL/lib/systemd/system/autovt@.service
     rm -rf $INSTALL/lib/systemd/system/console-getty.service
