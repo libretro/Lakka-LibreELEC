@@ -49,6 +49,11 @@ make_target() {
 }
 
 makeinstall_target() {
+  : # nothing to install here
+}
+
+
+post_install() {
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/installer $INSTALL/usr/bin
 
