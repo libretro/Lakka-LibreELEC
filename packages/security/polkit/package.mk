@@ -51,8 +51,6 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  enable_service polkit.service
-
   echo "chmod 4755 $INSTALL/usr/bin/pkexec" >> $FAKEROOT_SCRIPT
   echo "chmod 4755 $INSTALL/usr/lib/polkit-1/polkit-agent-helper-1" >> $FAKEROOT_SCRIPT
 }
