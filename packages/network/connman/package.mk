@@ -94,6 +94,9 @@ post_makeinstall_target() {
     cp -P client/connmanctl $INSTALL/usr/bin
     cp -P $PKG_DIR/scripts/cm-online $INSTALL/usr/bin
 
+  mkdir -p $INSTALL/usr/lib/connman
+    cp -P $PKG_DIR/scripts/connman-setup $INSTALL/usr/lib/connman
+
   mkdir -p $INSTALL/etc
     ln -sf /var/cache/resolv.conf $INSTALL/etc/resolv.conf
 
@@ -120,8 +123,6 @@ post_install() {
 
 post_install() {
   enable_service hostname.service
+  enable_service loopback.service
   enable_service connman.service
-  if [ "$PPTP_SUPPORT" = yes -o "$OPENVPN_SUPPORT" = yes ]; then
-    enable_service connman-vpn.service
-  fi
 }
