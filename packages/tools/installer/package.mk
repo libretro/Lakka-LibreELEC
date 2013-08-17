@@ -39,16 +39,16 @@ if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
   PKG_DEPENDS="$PKG_DEPENDS flashrom"
 fi
 
-pre_build_target() {
-  mkdir -p $ROOT/$BUILD/$PKG_NAME-$PKG_VERSION
-  PKG_BUILD="$ROOT/$BUILD/$PKG_NAME-$PKG_VERSION"
-}
 
 make_target() {
   : # nothing to make here
 }
 
 makeinstall_target() {
+  : # nothing to install here
+}
+
+post_install() {
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/installer $INSTALL/usr/bin
 
@@ -58,9 +58,6 @@ makeinstall_target() {
     else
       cp $PKG_DIR/config/installer.conf $INSTALL/etc
     fi
-}
 
-post_install() {
   enable_service installer.service
 }
-
