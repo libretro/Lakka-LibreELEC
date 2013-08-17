@@ -55,6 +55,5 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  enable_service udisks.service
   enable_service udisks-mount-disks.service
 }
