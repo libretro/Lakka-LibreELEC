@@ -174,7 +174,6 @@ makeinstall_target() {
     mkdir -p $INSTALL/lib/systemd/system
       cp $PKG_DIR/system.d.opt/* $INSTALL/lib/systemd/system
 
-      enable_service smbd-monitor.path
       enable_service nmbd.service
       enable_service smbd.service
 
