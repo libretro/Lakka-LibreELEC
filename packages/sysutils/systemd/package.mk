@@ -108,7 +108,6 @@ post_makeinstall_target() {
 
   # copy openelec helper scripts
     mkdir -p $INSTALL/lib/systemd/
-      cp $PKG_DIR/scripts/openelec-debugconfig $INSTALL/lib/systemd/
       cp $PKG_DIR/scripts/openelec-userconfig $INSTALL/lib/systemd/
 
   # provide 'halt', 'shutdown', 'reboot' & co.
