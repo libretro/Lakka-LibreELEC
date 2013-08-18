@@ -193,6 +193,5 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  enable_service xorg-monitor.path
   enable_service xorg.service
 }
