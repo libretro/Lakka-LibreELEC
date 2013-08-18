@@ -108,6 +108,5 @@ post_install() {
   add_group avahi 495
 
   enable_service avahi-daemon.service
-  enable_service avahi-monitor.path
 }
 
