@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,19 +18,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="iptables"
+PKG_VERSION="1.4.19.1"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.netfilter.org/"
+PKG_URL="http://www.netfilter.org/projects/iptables/files/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain linux"
+PKG_PRIORITY="optional"
+PKG_SECTION="network"
+PKG_SHORTDESC="iptables: IP packet filter administration"
+PKG_LONGDESC="Iptables is used to set up, maintain, and inspect the tables of IP packet filter rules in the Linux kernel. There are several different tables which may be defined, and each table contains a number of built-in chains, and may contain user-defined chains."
 
-cd $PKG_BUILD
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-            --disable-static \
-            --enable-shared \
-            --with-kernel="$SYSROOT_PREFIX/usr" \
+PKG_CONFIGURE_OPTS_TARGET="--with-kernel=$SYSROOT_PREFIX/usr"
 
-make V=1
-
-$MAKEINSTALL
