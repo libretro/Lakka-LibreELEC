@@ -56,7 +56,7 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --enable-python-dbus \
                            --disable-mono \
                            --disable-monodoc \
-                           --enable-autoipd \
+                           --disable-autoipd \
                            --disable-doxygen-doc \
                            --disable-doxygen-dot \
                            --disable-doxygen-man \
@@ -71,13 +71,11 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --disable-manpages \
                            --disable-xmltoman \
                            --disable-tests \
-                           --enable-compat-libdns_sd \
+                           --disable-compat-libdns_sd \
                            --disable-compat-howl \
                            --with-xml=expat \
                            --with-avahi-user=avahi \
                            --with-avahi-group=avahi \
-                           --with-autoipd-user=avahiautoipd \
-                           --with-autoipd-group=avahiautoipd \
                            --disable-nls"
 
 post_makeinstall_target() {
@@ -92,7 +90,6 @@ post_makeinstall_target() {
 # browse domains?
   sed -e "s,^.*browse-domains=.*$,# browse-domains=,g" -i $INSTALL/etc/avahi/avahi-daemon.conf
 
-  rm -rf $INSTALL/etc/avahi/avahi-autoipd.action
   rm -rf $INSTALL/etc/avahi/avahi-dnsconfd.action
   rm -rf $INSTALL/etc/avahi/services/ssh.service
   if [ ! $SFTP_SERVER = "yes" ]; then
@@ -100,7 +97,6 @@ post_makeinstall_target() {
   fi
   rm -rf $INSTALL/lib/systemd
   rm -f $INSTALL/usr/share/dbus-1/system-services/org.freedesktop.Avahi.service
-  rm -f $INSTALL/usr/sbin/avahi-autoipd
   rm -f $INSTALL/usr/sbin/avahi-dnsconfd
   rm -f $INSTALL/usr/bin/avahi-bookmarks
   rm -f $INSTALL/usr/bin/avahi-publish*
@@ -110,7 +106,4 @@ post_makeinstall_target() {
 post_install() {
   add_user avahi x 495 495 "avahi-daemon" "/var/run/avahi-daemon" "/bin/sh"
   add_group avahi 495
-
-  add_user avahiautoipd x 496 496 "avahi-autoipd" "/var/lib/avahi-autoipd" "/bin/sh"
-  add_group avahiautoipd 496
 }
