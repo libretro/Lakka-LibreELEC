@@ -26,8 +26,8 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mysql.com"
 PKG_URL="http://cdn.mysql.com/Downloads/MySQL-5.6/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="zlib ncurses"
-PKG_BUILD_DEPENDS_HOST="toolchain zlib openssl ncurses"
-PKG_BUILD_DEPENDS_TARGET="toolchain zlib openssl ncurses mysql:host"
+PKG_BUILD_DEPENDS_HOST="toolchain ncurses"
+PKG_BUILD_DEPENDS_TARGET="toolchain ncurses mysql:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="database"
 PKG_SHORTDESC="mysql: A database server"
@@ -103,9 +103,9 @@ configure_target() {
         -DENABLE_DTRACE=OFF                           \
         -DWITH_EDITLINE=bundled                       \
         -DWITH_LIBEVENT=bundled                       \
-        -DWITH_SSL=system                             \
+        -DWITH_SSL=bundled                            \
         -DWITH_UNIT_TESTS=OFF                         \
-        -DWITH_ZLIB=system                            \
+        -DWITH_ZLIB=bundled                           \
         -DSTACK_DIRECTION=1                           \
         ..
 }
