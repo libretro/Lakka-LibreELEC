@@ -26,8 +26,8 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mysql.com"
 PKG_URL="http://cdn.mysql.com/Downloads/MySQL-5.6/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="zlib ncurses"
-PKG_BUILD_DEPENDS_HOST="toolchain ncurses"
-PKG_BUILD_DEPENDS_TARGET="toolchain ncurses mysql:host"
+PKG_BUILD_DEPENDS_HOST="toolchain zlib:host ncurses"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib ncurses mysql:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="database"
 PKG_SHORTDESC="mysql: A database server"
@@ -35,6 +35,8 @@ PKG_LONGDESC="MySQL is a SQL (Structured Query Language) database server. SQL is
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+# export MAKEFLAGS=-j1
 
 pre_configure_host() {
   sed -i "/ADD_SUBDIRECTORY(sql\/share)/d" ../CMakeLists.txt
@@ -49,6 +51,11 @@ configure_host() {
         -DCMAKE_BUILD_TYPE=Release                    \
         -DWITHOUT_SERVER=OFF                          \
         -DWITH_EMBEDDED_SERVER=OFF                    \
+        -DWITH_EXAMPLE_STORAGE_ENGINE=OFF             \
+        -DWITH_FEDERATED_STORAGE_ENGINE=OFF           \
+        -DWITH_INNOBASE_STORAGE_ENGINE=OFF            \
+        -DWITH_PARTITION_STORAGE_ENGINE=OFF           \
+        -DWITH_PERFSCHEMA_STORAGE_ENGINE=OFF          \
         -DWITH_EXTRA_CHARSETS=none                    \
         -DWITH_EDITLINE=bundled                       \
         -DWITH_LIBEVENT=bundled                       \
@@ -62,7 +69,6 @@ make_host() {
   make comp_err
   make gen_lex_hash
   make comp_sql
-  make gen_pfs_lex_token
 }
 
 makeinstall_host() {
@@ -70,13 +76,13 @@ makeinstall_host() {
     cp -PR extra/comp_err $ROOT/$TOOLCHAIN/bin
     cp -PR sql/gen_lex_hash $ROOT/$TOOLCHAIN/bin
     cp -PR scripts/comp_sql $ROOT/$TOOLCHAIN/bin
-    cp -PR storage/perfschema/gen_pfs_lex_token $ROOT/$TOOLCHAIN/bin
 }
 
 configure_target() {
+#  strip_lto
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF            \
         -DCMAKE_BUILD_TYPE=Release                    \
-        -DFEATURE_SET=community                       \
+        -DFEATURE_SET=classic                         \
         -DDISABLE_SHARED=ON                           \
         -DCMAKE_INSTALL_PREFIX=/usr                   \
         -DINSTALL_DOCDIR=share/doc/mysql              \
@@ -97,15 +103,18 @@ configure_target() {
         -DSYSCONFDIR=/etc/mysql                       \
         -DWITHOUT_SERVER=OFF                          \
         -DWITH_EMBEDDED_SERVER=OFF                    \
+        -DWITH_EXAMPLE_STORAGE_ENGINE=OFF             \
+        -DWITH_FEDERATED_STORAGE_ENGINE=OFF           \
+        -DWITH_INNOBASE_STORAGE_ENGINE=OFF            \
         -DWITH_PARTITION_STORAGE_ENGINE=OFF           \
-        -DWITH_PERFSCHEMA_STORAGE_ENGINE=ON           \
+        -DWITH_PERFSCHEMA_STORAGE_ENGINE=OFF          \
         -DWITH_EXTRA_CHARSETS=all                     \
         -DENABLE_DTRACE=OFF                           \
         -DWITH_EDITLINE=bundled                       \
         -DWITH_LIBEVENT=bundled                       \
-        -DWITH_SSL=bundled                            \
+        -DWITH_SSL=system                             \
         -DWITH_UNIT_TESTS=OFF                         \
-        -DWITH_ZLIB=bundled                           \
+        -DWITH_ZLIB=system                            \
         -DSTACK_DIRECTION=1                           \
         ..
 }
@@ -135,17 +144,7 @@ post_makeinstall_target() {
       cp -P extra/my_print_defaults $INSTALL/usr/bin
       cp -P client/mysql $INSTALL/usr/bin
       cp -P client/mysqladmin $INSTALL/usr/bin
-      cp -P ../scripts/mysql_install_db.sh $INSTALL/usr/bin/mysql_install_db
-        chmod +x $INSTALL/usr/bin/mysql_install_db
-        sed -e 's,@localstatedir@,/storage/.mysql,g' \
-            -e 's,@bindir@,/usr/bin,g' \
-            -e 's,@prefix@,/usr,g' \
-            -e 's,@libexecdir@,/usr/sbin,g' \
-            -e 's,@pkgdatadir@,/usr/share/mysql,g' \
-            -e 's,@scriptdir@,/usr/bin,g' \
-            -e 's,^.basedir=.*,basedir="/usr",g' \
-            -e 's,@HOSTNAME@,cat /proc/sys/kernel/hostname,g' \
-            -i $INSTALL/usr/bin/mysql_install_db
+      cp -P scripts/mysql_install_db $INSTALL/usr/bin
 
     mkdir -p $INSTALL/usr/sbin
       cp -P sql/mysqld $INSTALL/usr/sbin
