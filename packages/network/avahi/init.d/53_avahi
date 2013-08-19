@@ -27,23 +27,20 @@
   # ensure that environment is sane
   . /etc/profile
 
-  # wait for network
-  wait_for_inet_addr force
-
   progress "Starting Avahi Daemon"
 
+  if [ "$DEBUG" = "yes" ]; then
+    AVAHI_DEBUG="--debug"
+  fi
+
   mkdir -p /var/run/avahi-daemon
-  while true; do
-    AVAHI_ENABLED=true
-    if [ -f $CONFIG_CACHE/services/avahi.conf ]; then
-      . $CONFIG_CACHE/services/avahi.conf
-    fi
-    if [ "$AVAHI_ENABLED" == "true" ]; then
-      wait_for_dbus
-      avahi-daemon --syslog > /dev/null 2>&1
-    else
-      break
-    fi
-    usleep 2000000
-  done
+  AVAHI_ENABLED=true
+  if [ -f $CONFIG_CACHE/services/avahi.conf ]; then
+    . $CONFIG_CACHE/services/avahi.conf
+  fi
+  if [ "$AVAHI_ENABLED" == "true" ]; then
+    wait_for_dbus
+    rm /var/run/avahi-daemon/pid &>/dev/null
+    avahi-daemon $AVAHI_DEBUG -D --syslog > /dev/null 2>&1
+  fi
 )&
