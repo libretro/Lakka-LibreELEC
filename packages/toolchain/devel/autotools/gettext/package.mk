@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,20 +18,23 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="gettext"
+PKG_VERSION="0.18.3"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.gnu.org/s/gettext/"
+PKG_URL="http://ftp.gnu.org/pub/gnu/gettext/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_HOST="ccache"
+PKG_PRIORITY="optional"
+PKG_SECTION="toolchain/devel"
+PKG_SHORTDESC="gettext: A program internationalization library and tools"
+PKG_LONGDESC="This is the GNU gettext package. It is interesting for authors or maintainers of other packages or programs which they want to see internationalized. As one step the handling of messages in different languages should be implemented. For this task GNU gettext provides the needed tools and library functions."
 
-setup_toolchain host
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
-cd $PKG_BUILD
-./configure --host=$HOST_NAME \
-            --build=$HOST_NAME \
-            --target=$TARGET_NAME \
-            --prefix=$ROOT/$TOOLCHAIN \
-            --enable-shared \
-            --disable-static \
-            --disable-rpath \
-            --with-gnu-ld \
-            --without-emacs
-
-make
-make install
+PKG_CONFIGURE_OPTS_HOST="--disable-rpath \
+                         --with-gnu-ld \
+                         --without-emacs"
