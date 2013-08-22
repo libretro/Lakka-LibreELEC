@@ -1,11 +1,21 @@
-# Mount blockdevices, /dev/sd* and partitions only
-SUBSYSTEM!="block", KERNEL!="sd*", ENV{DEVTYPE}!="partition", GOTO="exit"
+# check for blockdevices, /dev/sd* and /dev/sr*
+SUBSYSTEM!="block", KERNEL!="sd*|sr*",GOTO="exit"
 
-# Mount the device
+# /dev/sd* with partitions only and /dev/sr* disks only
+KERNEL=="sd*", ENV{DEVTYPE}=="partition", GOTO="harddisk"
+KERNEL=="sr*", ENV{DEVTYPE}=="disk", GOTO="optical"
+GOTO="exit"
+
+# mount or umount for hdds
+LABEL="harddisk"
 ACTION=="add", RUN+="/usr/bin/udevil --mount /dev/%k"
-
-# Clean up after removal
 ACTION=="remove", RUN+="/usr/bin/udevil --umount /dev/%k"
+GOTO="exit"
+
+# mount or umount for opticals
+LABEL="optical"
+ACTION=="add|change", RUN+="/usr/bin/udevil --umount /dev/%k", RUN+="/usr/bin/udevil --mount /dev/%k"
+GOTO="exit"
 
 # Exit
 LABEL="exit"
