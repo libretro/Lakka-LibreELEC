@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,22 +18,28 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libgcrypt"
+PKG_VERSION="1.5.2"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.gnupg.org/"
+PKG_URL="ftp://ftp.gnupg.org/gcrypt/libgcrypt/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libgpg-error"
+PKG_BUILD_DEPENDS="toolchain libgpg-error"
+PKG_PRIORITY="optional"
+PKG_SECTION="security"
+PKG_SHORTDESC="libgcrypt: General purpose cryptographic library"
+PKG_LONGDESC="Libgcrypt is a general purpose cryptographic library based on the code from GnuPG. It provides functions for all cryptographic building blocks: symmetric ciphers, hash algorithms, MACs, public key algorithms, large integer functions, random numbers and a lot of supporting functions."
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-            --disable-static \
-            --enable-shared \
-            --disable-asm \
-            --with-gnu-ld
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-make
-$MAKEINSTALL
+PKG_CONFIGURE_OPTS_TARGET="--disable-asm --with-gnu-ld"
 
-sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i src/libgcrypt-config
+post_makeinstall_target() {
+  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i src/libgcrypt-config
+  cp src/libgcrypt-config $ROOT/$TOOLCHAIN/bin
 
-cp src/libgcrypt-config $ROOT/$TOOLCHAIN/bin
+  rm -rf $INSTALL/usr/bin
+}
