@@ -19,12 +19,13 @@
 ################################################################################
 
 PKG_NAME="libssh"
-PKG_VERSION="0.5.2"
+PKG_VERSION="0.5.5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OpenSource"
 PKG_SITE="http://www.libssh.org/"
-PKG_URL="http://www.libssh.org/files/0.5/$PKG_NAME-$PKG_VERSION.tar.gz"
+# PKG_URL="http://www.libssh.org/files/0.5/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://red.libssh.org/attachments/download/51/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="zlib libgcrypt"
 PKG_BUILD_DEPENDS_TARGET="toolchain zlib libgcrypt"
 PKG_PRIORITY="optional"
