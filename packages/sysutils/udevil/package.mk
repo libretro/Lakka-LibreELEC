@@ -18,45 +18,37 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="installer"
-PKG_VERSION="1"
+PKG_NAME="udevil"
+PKG_VERSION="77e0ba0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.openelec.tv/"
-PKG_URL=""
-PKG_DEPENDS="busybox dialog parted e2fsprogs syslinux"
-PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_SITE="https://github.com/IgnorantGuru/udevil"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS="systemd glib"
+PKG_BUILD_DEPENDS_TARGET="toolchain systemd glib"
 PKG_PRIORITY="optional"
-PKG_SECTION="tools"
-PKG_SHORTDESC="installer: OpenELEC.tv Install manager"
-PKG_LONGDESC="OpenELEC.tv Install manager to install the system on any disk"
+PKG_SECTION="system"
+PKG_SHORTDESC="udevil: Mounts and unmounts removable devices and networks without a password."
+PKG_LONGDESC="udevil Mounts and unmounts removable devices and networks without a password (set suid), shows device info, monitors device changes. Emulates mount's and udisks's command line usage and udisks v1's output. Includes the devmon automounting daemon."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
-if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS flashrom"
-fi
-
-make_target() {
-  : # nothing to make here
-}
+PKG_CONFIGURE_OPTS_TARGET="--disable-systemd \
+                           --with-mount-prog=/bin/mount \
+                           --with-umount-prog=/bin/umount \
+                           --with-losetup-prog=/sbin/losetup \
+                           --with-setfacl-prog=/usr/bin/setfacl"
 
 makeinstall_target() {
-  : # nothing to install here
+ : # nothing to install
 }
 
-post_install() {
+post_makeinstall_target() {
+  mkdir -p $INSTALL/etc/udevil
+    cp $PKG_DIR/config/udevil.conf $INSTALL/etc/udevil
+
   mkdir -p $INSTALL/usr/bin
-    cp $PKG_DIR/scripts/installer $INSTALL/usr/bin
-
-  mkdir -p $INSTALL/etc
-    if [ -f $PROJECT_DIR/$PROJECT/installer/installer.conf ]; then
-      cp $PROJECT_DIR/$PROJECT/installer/installer.conf $INSTALL/etc
-    else
-      cp $PKG_DIR/config/installer.conf $INSTALL/etc
-    fi
-
-  enable_service installer.service
+    cp -PR src/udevil $INSTALL/usr/bin
 }
