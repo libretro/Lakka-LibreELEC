@@ -107,8 +107,8 @@ post_makeinstall_target() {
       cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/bin
 
   # copy openelec helper scripts
-    mkdir -p $INSTALL/lib/systemd/
-      cp $PKG_DIR/scripts/openelec-userconfig $INSTALL/lib/systemd/
+    mkdir -p $INSTALL/usr/lib/openelec
+      cp $PKG_DIR/scripts/openelec-userconfig $INSTALL/usr/lib/openelec/
 
   # provide 'halt', 'shutdown', 'reboot' & co.
     mkdir -p $INSTALL/sbin
