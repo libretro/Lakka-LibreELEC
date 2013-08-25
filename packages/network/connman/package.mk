@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="connman"
-PKG_VERSION="8378438"
+PKG_VERSION="1.17"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.connman.net"
-#PKG_URL="http://www.kernel.org/pub/linux/network/connman/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.kernel.org/pub/linux/network/connman/$PKG_NAME-$PKG_VERSION.tar.xz"
+# PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS="glib readline dbus iptables wpa_supplicant ntp Python pygobject dbus-python"
 PKG_BUILD_DEPENDS_TARGET="toolchain glib readline dbus iptables"
 PKG_PRIORITY="optional"
