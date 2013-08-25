@@ -8,6 +8,9 @@ system:
 release:
 	./scripts/image release
 
+noobs:
+	./scripts/image noobs
+
 clean:
 	rm -rf $(BUILD_DIRS)/* $(BUILD_DIRS)/.stamps
 
