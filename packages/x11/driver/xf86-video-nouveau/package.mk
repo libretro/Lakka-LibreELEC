@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-nouveau"
-PKG_VERSION="1.0.2"
+PKG_VERSION="1.0.9"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
