@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="Mesa"
-PKG_VERSION="9.1.6"
+PKG_VERSION="9.2.0-rc2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
-PKG_URL="ftp://freedesktop.org/pub/mesa/$PKG_VERSION/MesaLib-$PKG_VERSION.tar.bz2"
+PKG_URL="ftp://freedesktop.org/pub/mesa/9.2/MesaLib-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="libXdamage libdrm expat libXext libXfixes libX11"
 PKG_BUILD_DEPENDS_TARGET="toolchain Python-host makedepend:host libxml2-host expat glproto dri2proto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11"
 PKG_PRIORITY="optional"
