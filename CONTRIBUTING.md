@@ -1,14 +1,15 @@
 ## Questions about OpenELEC?
 
-To get your questions answered, please ask in the OpenELEC [Forum] or on IRC: #openelec on freenode.net or [webchat] 
+To get your questions answered, please ask in the OpenELEC [Forum], on IRC: 
+#openelec on freenode.net, or [webchat]. 
 
 Do not open an issue.
 
 ## Issue Reports
 
-If you are at all unsure whether it's a bug in OpenELEC or a problem with something
-else, post in the OpenELEC [Forum] instead. If it turns out that it is a bug, an issue
-can always bee opend later.
+If you are at all unsure whether it's a bug in OpenELEC or a problem with 
+something else, post in the OpenELEC [Forum] instead. If it turns out that it is
+a bug, an issue can always be opened later.
 
 If you are sure that it's a bug in OpenELEC and you have not found a [similar issue], open a new [issue]
 and try to answer the following questions:
@@ -24,7 +25,8 @@ Make sure to specify which version of OpenELEC you are using.
 - OpenELEC build
 - OpenELEC arch
 
-Please don't paste log messages in the issue reports or issue comments use [sprunge.us](http://sprunge.us) instead
+Please don't paste log messages in the issue reports or issue comments - use 
+[sprunge.us](http://sprunge.us) instead.
 
 Feature requests are great, but they usually end up lying around the issue
 tracker indefinitely. Sending a pull request is a much better way of getting a
