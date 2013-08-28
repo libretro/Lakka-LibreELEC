@@ -89,7 +89,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-sysvinit-path= \
                            --with-sysvrcnd-path= \
                            --with-tty-gid=5 \
-                           --with-rootprefix=/ \
+                           --with-rootprefix= \
                            --with-rootlibdir=/lib"
 
 pre_make_target() {
