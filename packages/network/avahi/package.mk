@@ -101,12 +101,16 @@ post_makeinstall_target() {
   rm -f $INSTALL/usr/bin/avahi-bookmarks
   rm -f $INSTALL/usr/bin/avahi-publish*
   rm -f $INSTALL/usr/bin/avahi-resolve*
+
+  mkdir -p $INSTALL/usr/share/services
+    cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
+
 }
 
 post_install() {
   add_user avahi x 495 495 "avahi-daemon" "/var/run/avahi-daemon" "/bin/sh"
   add_group avahi 495
 
+  enable_service avahi-defaults.service
   enable_service avahi-daemon.service
 }
-
