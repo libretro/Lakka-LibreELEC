@@ -174,12 +174,8 @@ makeinstall_target() {
     mkdir -p $INSTALL/lib/systemd/system
       cp $PKG_DIR/system.d.opt/* $INSTALL/lib/systemd/system
 
-      enable_service nmbd.service
-      enable_service smbd.service
-
     mkdir -p $INSTALL/usr/share/services
       cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
-      enable_service samba-defaults.service
 
     mkdir -p $INSTALL/usr/lib/samba
       cp $PKG_DIR/scripts/samba-config $INSTALL/usr/lib/samba
@@ -195,4 +191,10 @@ makeinstall_target() {
     fi
 
   fi
+}
+
+post_install() {
+      enable_service samba-defaults.service
+      enable_service nmbd.service
+      enable_service smbd.service
 }
