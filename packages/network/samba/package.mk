@@ -177,6 +177,10 @@ makeinstall_target() {
       enable_service nmbd.service
       enable_service smbd.service
 
+    mkdir -p $INSTALL/usr/share/services
+      cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
+      enable_service samba-defaults.service
+
     mkdir -p $INSTALL/usr/lib/samba
       cp $PKG_DIR/scripts/samba-config $INSTALL/usr/lib/samba
 
