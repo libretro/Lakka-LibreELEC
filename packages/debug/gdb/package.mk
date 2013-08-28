@@ -38,6 +38,11 @@ PKG_AUTORECONF="no"
 CC_FOR_BUILD="$HOST_CC"
 CFLAGS_FOR_BUILD="$HOST_CFLAGS"
 
+pre_configure_target() {
+    strip_gold
+    strip_lto
+}
+
 PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --disable-shared \
                            --enable-static \
