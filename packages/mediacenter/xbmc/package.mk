@@ -496,10 +496,6 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/xbmc
     cp -R tools/EventClients/lib/python/* $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/xbmc
 
-# install powermanagement hooks
-  mkdir -p $INSTALL/etc/pm/sleep.d
-    cp $PKG_DIR/sleep.d/* $INSTALL/etc/pm/sleep.d
-
 # install project specific configs
   mkdir -p $INSTALL/usr/share/xbmc/config
     if [ -f $PROJECT_DIR/$PROJECT/xbmc/guisettings.xml ]; then
