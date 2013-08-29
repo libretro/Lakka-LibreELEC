@@ -24,14 +24,22 @@
 
 LOCKDIR="/var/lock/"
 LOCKFILE="boblightd.disabled"
+LOCKFILE_SLEEP="boblightd.sleep"
 
 mkdir -p "$LOCKDIR"
-touch "$LOCKDIR/$LOCKFILE"
-
-if [ "$(pidof boblightd)" ];then
-  killall boblightd
+if [ ! -e "$LOCKDIR/$LOCKFILE_SLEEP" ] ; then
+  touch "$LOCKDIR/$LOCKFILE"
 fi
 
-if [ "$(pidof boblight-X11)" ];then
-  killall boblight-X11
+if [ "$(pidof boblightd)" ] ; then
+  killall -q boblightd
+  killall -q boblight-X11
+  for seq in `seq 1 10` ; do
+    if [ ! "$(pidof boblightd boblight-X11)" ] ; then
+      break
+    fi
+    usleep 200000
+  done
+  killall -q -9 boblightd
+  killall -q -9 boblight-X11
 fi

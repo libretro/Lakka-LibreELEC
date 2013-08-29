@@ -39,23 +39,25 @@ BOBLIGHT_X11="$ADDON_HOME/boblight.X11"
 
 LOCKDIR="/var/lock/"
 LOCKFILE="boblightd.disabled"
+LOCKFILE_SLEEP="boblightd.sleep"
 
 export LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH"
 
 cp -R $ADDON_DIR/config/*.sample $ADDON_HOME > $LOG_FILE 2>&1
 
-if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
-  rm -rf "$LOCKDIR/$LOCKFILE"
-fi
+rm -rf "$LOCKDIR/$LOCKFILE_SLEEP" &>/dev/null
+boblightd.stop
+rm -rf "$LOCKDIR/$LOCKFILE" &>/dev/null
 
 if [ -f "$BOBLIGHT_CONFIG" ] ; then
   if [ ! "$(pidof boblightd)" ]; then
     while [ true ] ; do
+      while [ -f "$LOCKDIR/$LOCKFILE_SLEEP" ] ; do
+        usleep 100000
+      done
       if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
         break
       fi
-      # Make sure the xserver has started up
-      wait_for_xorg
       # Start the boblight daemon
       boblightd -c $BOBLIGHT_CONFIG >> $LOG_FILE 2>&1
     done &
@@ -64,11 +66,12 @@ if [ -f "$BOBLIGHT_CONFIG" ] ; then
   if [ -e $BOBLIGHT_X11 ]; then
     if [ ! "$(pidof boblight-X11)" ]; then
       while [ true ] ; do
+        while [ -f "$LOCKDIR/$LOCKFILE_SLEEP" ] ; do
+          usleep 100000
+        done
         if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
           break
         fi
-        # Make sure the xserver has started up
-        wait_for_xorg
         # Start the boblight daemon
         boblight-X11 >> $LOG_FILE 2>&1
       done &

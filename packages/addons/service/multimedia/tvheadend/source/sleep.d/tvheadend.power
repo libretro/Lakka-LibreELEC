@@ -26,40 +26,29 @@ ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.tvheadend"
 ADDON_SETTINGS="$ADDON_HOME/settings.xml"
 REMOVE_MODULES=`grep REMOVE_MODULES $ADDON_SETTINGS | sed 's|.*value="\([^"]*\)".*|\1|g'`
 
-LOCKFILE="/var/lock/tvheadend.sleep"
+LOCKFILE_SLEEP="/var/lock/tvheadend.sleep"
 
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.tvheadend"
 
 case "$1" in
-  hibernate|suspend)
+  hibernate|suspend|pre)
     if [ "$(pidof tvheadend)" ];then
       progress "Shutting down HTS TVHeadend for suspending..."
-      xbmc-send -a "Notification(tvheadend, Shutting down HTS TVHeadend for suspend..., 5000, $ADDON_DIR/icon.png)"
+      touch $LOCKFILE_SLEEP
       tvheadend.stop
-      touch $LOCKFILE
       for module in $REMOVE_MODULES ; do
         rmmod -w $module
       done
     fi
     ;;
 
-  thaw|resume)
-    if [ -f "$LOCKFILE" ] ; then
+  thaw|resume|post)
+    if [ -f "$LOCKFILE_SLEEP" ] ; then
       progress "Restarting HTS TVHeadend for wakeup..."
-      xbmc-send -a "Notification(tvheadend, Restarting HTS TVHeadend for wakeup..., 5000, $ADDON_DIR/icon.png)"
       for module in $REMOVE_MODULES ; do
         modprobe $module
       done
-      tvheadend.stop
-      for seq in `seq 1 10` ; do
-        if [ ! "$(pidof tvheadend)" ];then
-          break
-        fi
-        usleep 500000
-      done
-      killall -9 tvheadend &>/dev/null
-      rm -rf "$LOCKFILE"
-      tvheadend.start
+      rm -rf "$LOCKFILE_SLEEP"
     fi
     ;;
   *) exit $NA
