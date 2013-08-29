@@ -118,14 +118,6 @@ mkdir -p /var/config
   tvheadend.stop
   rm -rf "$LOCKDIR/$LOCKFILE" &>/dev/null
   if [ ! "$(pidof $ADDON_BIN)" ]; then
-    # start userspace DVB driver/addon
-    for driver_dvb in $(find /storage/.xbmc/addons/driver.dvb.*/bin/userspace-driver.sh -type f 2>/dev/null); do
-      driver_dvb_name=$(echo $driver_dvb | awk 'BEGIN {FS="/"} {printf("%s", $5)}')
-      logger -t Tvheadend "### Loading userspace DVB driver: $driver_dvb_name ###"
-      # use ". " because of variable export
-      . $driver_dvb
-    done
-
     while [ true ] ; do
       while [ -f "$LOCKDIR/$LOCKFILE_SLEEP" ] ; do
         usleep 100000
@@ -133,6 +125,13 @@ mkdir -p /var/config
       if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
         break
       fi
+      # start userspace DVB driver/addon
+      for driver_dvb in $(find /storage/.xbmc/addons/driver.dvb.*/bin/userspace-driver.sh -type f 2>/dev/null); do
+        driver_dvb_name=$(echo $driver_dvb | awk 'BEGIN {FS="/"} {printf("%s", $5)}')
+        logger -t Tvheadend "### Loading userspace DVB driver: $driver_dvb_name ###"
+        # use ". " because of variable export
+        . $driver_dvb
+      done
       # (wait for) at least 1 adapter (xbmc allows to set 0)
       [ $NUM_ADAPTERS -lt 1 ] && NUM_ADAPTERS=1
       if [ "$WAIT_FOR_FEINIT" == "true" ] && [ ! -e /dev/dvb/adapter$((NUM_ADAPTERS-1))/frontend* ] ; then
