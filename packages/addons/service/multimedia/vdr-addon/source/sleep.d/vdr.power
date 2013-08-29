@@ -27,39 +27,28 @@ ADDON_CONFIG_DIR="$ADDON_HOME/config"
 ADDON_SETTINGS="$ADDON_HOME/settings.xml"
 REMOVE_MODULES=`grep REMOVE_MODULES $ADDON_SETTINGS | sed 's|.*value="\([^"]*\)".*|\1|g'`
 
-LOCKFILE="/var/lock/vdr.sleep"
+LOCKFILE_SLEEP="/var/lock/vdr.sleep"
 
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.vdr-addon"
 
 case "$1" in
-  hibernate|suspend)
+  hibernate|suspend|pre)
     if [ "$(pidof vdr.bin)" ];then
       progress "Shutting down vdr for suspending..."
-      xbmc-send -a "Notification(vdr, Shutting down vdr for suspend..., 5000, $ADDON_DIR/icon.png)"
+      touch $LOCKFILE_SLEEP
       vdr.stop
-      touch $LOCKFILE
       for module in $REMOVE_MODULES ; do
         rmmod -w $module
       done
     fi
     ;;
-  thaw|resume)
-    if [ -f "$LOCKFILE" ] ; then
+  thaw|resume|post)
+    if [ -f "$LOCKFILE_SLEEP" ] ; then
       progress "Restarting vdr for wakeup..."
-      xbmc-send -a "Notification(vdr, Restarting vdr for wakeup..., 5000, $ADDON_DIR/icon.png)"
       for module in $REMOVE_MODULES ; do
         modprobe $module
       done
-      vdr.stop
-      for seq in `seq 1 10` ; do
-        if [ ! "$(pidof vdr.bin)" ];then
-          break
-        fi
-        usleep 500000
-      done
-      killall -9 vdr.bin &>/dev/null
-      rm -rf "$LOCKFILE"
-      vdr.start
+      rm -rf "$LOCKFILE_SLEEP"
     fi
     ;;
   *) exit $NA
