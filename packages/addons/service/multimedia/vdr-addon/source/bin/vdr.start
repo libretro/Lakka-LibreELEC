@@ -32,6 +32,7 @@ check_tmpfs_mount() {
 
 LOCKDIR="/var/lock/"
 LOCKFILE="vdr.disabled"
+LOCKFILE_SLEEP="vdr.sleep"
 
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.vdr-addon"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.vdr-addon"
@@ -148,22 +149,26 @@ MYDATA
 
 )
 
+rm -rf "$LOCKDIR/$LOCKFILE_SLEEP" &>/dev/null
+vdr.stop
+rm -rf "$LOCKDIR/$LOCKFILE" &>/dev/null
+
 if [ ! "$(pidof vdr.bin)" ];then
-  # start userspace DVB driver/addon
-  for driver_dvb in $(find /storage/.xbmc/addons/driver.dvb.*/bin/userspace-driver.sh -type f 2>/dev/null); do
-    driver_dvb_name=$(echo $driver_dvb | awk 'BEGIN {FS="/"} {printf("%s", $5)}')
-    logger -t VDR "### Loading userspace DVB driver: $driver_dvb_name ###"
-    # use ". " because of variable export
-    . $driver_dvb
-  done
-  if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
-    rm -rf "$LOCKDIR/$LOCKFILE"
-  fi
   while [ true ] ; do
+    while [ -f "$LOCKDIR/$LOCKFILE_SLEEP" ] ; do
+      usleep 100000
+    done
     if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
       umount /var/run/vdr 2>&1
       break
     fi
+    # start userspace DVB driver/addon
+    for driver_dvb in $(find /storage/.xbmc/addons/driver.dvb.*/bin/userspace-driver.sh -type f 2>/dev/null); do
+      driver_dvb_name=$(echo $driver_dvb | awk 'BEGIN {FS="/"} {printf("%s", $5)}')
+      logger -t VDR "### Loading userspace DVB driver: $driver_dvb_name ###"
+      # use ". " because of variable export
+      . $driver_dvb
+    done
     # (wait for) at least 1 adapter (xbmc allows to set 0)
     [ $NUM_ADAPTERS -lt 1 ] && NUM_ADAPTERS=1
     if [ "$WAIT_FOR_FEINIT" == "true" ] && [ ! -e /dev/dvb/adapter$((NUM_ADAPTERS-1))/frontend* ] ; then
