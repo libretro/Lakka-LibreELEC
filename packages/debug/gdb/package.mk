@@ -39,7 +39,7 @@ CC_FOR_BUILD="$HOST_CC"
 CFLAGS_FOR_BUILD="$HOST_CFLAGS"
 
 pre_configure_target() {
-    strip_gold
+  # gdb could fail on runtime if build with LTO support
     strip_lto
 }
 
