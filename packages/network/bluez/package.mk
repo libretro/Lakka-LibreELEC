@@ -51,7 +51,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-silent-rules \
                            --enable-shared \
                            --disable-static \
-                           --disable-library \
+                           --enable-library \
                            --enable-usb \
                            --enable-udev \
                            --disable-cups \
