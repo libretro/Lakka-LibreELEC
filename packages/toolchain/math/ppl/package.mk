@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,22 +18,23 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="ppl"
+PKG_VERSION="1.1pre10"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.cs.unipr.it/ppl"
+PKG_URL="http://bugseng.com/products/ppl/download/ftp/snapshots/$PKG_NAME-$PKG_VERSION.tar.xz"
+#PKG_URL="http://bugseng.com/products/ppl/download/ftp/releases/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS="ccache gmp-host"
+PKG_PRIORITY="optional"
+PKG_SECTION="toolchain/math"
+PKG_SHORTDESC="ppl: Parma Polyhedra Library"
+PKG_LONGDESC="The Parma Polyhedra Library (PPL) provides numerical abstractions especially targeted at applications in the field of analysis and verification of complex systems."
 
-setup_toolchain host
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
-cd $BUILD/$1*
+PKG_CONFIGURE_OPTS_HOST="--enable-interfaces=c,cxx --with-gmp=$ROOT/$TOOLCHAIN"
 
-mkdir -p objdir && cd objdir
-
-../configure --host=$HOST_NAME \
-             --build=$HOST_NAME \
-             --target=$TARGET_NAME \
-             --prefix=$ROOT/$TOOLCHAIN \
-             --enable-shared \
-             --disable-static \
-             --enable-interfaces="c,cxx" \
-             --with-gmp="$ROOT/$TOOLCHAIN" \
-
-make -j1
-make install
