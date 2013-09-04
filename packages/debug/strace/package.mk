@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="strace"
-PKG_VERSION="4.7"
+PKG_VERSION="4.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
