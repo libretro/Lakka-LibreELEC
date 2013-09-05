@@ -387,6 +387,7 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_NFS \
                            $XBMC_AFP \
                            $XBMC_VORBISENC \
+                           --disable-libcap \
                            --enable-ffmpeg-libvorbis \
                            $XBMC_LAMEENC \
                            $XBMC_DVDCSS \
