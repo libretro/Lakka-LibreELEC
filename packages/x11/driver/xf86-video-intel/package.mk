@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-intel"
-PKG_VERSION="2.99.901"
+PKG_VERSION="2.99.902"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
@@ -37,11 +37,11 @@ PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-udev \
                            --enable-dri \
-                           --enable-kms-only \
-                           --disable-xvmc \
-                           --disable-ums-only \
+                           --enable-kms --enable-kms-only \
+                           --disable-ums --disable-ums-only \
                            --enable-sna \
                            --enable-uxa \
+                           --disable-xvmc \
                            --disable-glamor \
                            --disable-xaa \
                            --disable-dga \
