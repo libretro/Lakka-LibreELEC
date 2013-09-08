@@ -35,9 +35,16 @@ PKG_LONGDESC="ALSA (Advanced Linux Sound Architecture) is the next generation Li
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+if [ "$DEBUG" = yes ]; then
+  ALSA_DEBUG=--with-debug
+else
+  ALSA_DEBUG=--without-debug
+fi
+
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--with-plugindir=/usr/lib/alsa \
                            --disable-python \
+                           $ALSA_DEBUG \
                            --disable-dependency-tracking"
 
 pre_configure_target() {
