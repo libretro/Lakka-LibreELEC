@@ -26,11 +26,18 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain util-macros"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="xtrans: Abstract network code for X"
 PKG_LONGDESC="Abstract network code for X."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--without-xmlto"
+
+post_makeinstall_target() {
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp xtrans.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+}
