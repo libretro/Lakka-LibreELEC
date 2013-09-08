@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,17 +18,21 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libXrender"
+PKG_VERSION="0.9.8"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libX11"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros renderproto libX11"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libxrender: X Rendering Extension client library"
+PKG_LONGDESC="The X Rendering Extension (Render) introduces digital image composition as the foundation of a new rendering model within the X Window System. Rendering geometric figures is accomplished by client-side tesselation into either triangles or trapezoids."
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-            --disable-static \
-            --enable-shared \
-            --enable-malloc0returnsnull
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-make
-$MAKEINSTALL
+PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull"
