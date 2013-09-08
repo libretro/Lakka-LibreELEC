@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,16 +18,19 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libXft"
+PKG_VERSION="2.3.1"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libXrender fontconfig freetype"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros xproto libXrender fontconfig freetype"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libxft: X FreeType library"
+PKG_LONGDESC="X FreeType library"
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --enable-shared \
-            --disable-static \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-
-make
-$MAKEINSTALL
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
