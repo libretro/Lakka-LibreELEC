@@ -19,18 +19,20 @@
 ################################################################################
 
 PKG_NAME="libXrandr"
-PKG_VERSION="1.4.1"
+PKG_VERSION="1.4.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="libX11 libXrender libXext"
-PKG_BUILD_DEPENDS="toolchain util-macros randrproto libX11 libXrender libXext"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros randrproto libX11 libXrender libXext"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/lib"
 PKG_SHORTDESC="libxrandr: X Resize, Rotate and Reflection extension client library"
 PKG_LONGDESC="Xrandr is a simple library designed to interface the X Resize and Rotate Extension. This allows clients to change the size and rotation of the root window of a screen, along with the ability to reflect the screen about either axis."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull"
