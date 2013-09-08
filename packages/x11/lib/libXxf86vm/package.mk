@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,17 +18,21 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libXxf86vm"
+PKG_VERSION="1.1.3"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libX11 libXext"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros xf86vidmodeproto libX11 libXext"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libxxf86vm: Extension library for the XFree86-VidMode X extension"
+PKG_LONGDESC="The libxxf86vm provides an interface to the server extension XFree86-VidModeExtension which allows the video modes to be queried and adjusted dynamically and mode switching to be controlled."
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-            --enable-static \
-            --disable-shared \
-            --enable-malloc0returnsnull
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-make
-$MAKEINSTALL
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"
