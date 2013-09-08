@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,7 +18,29 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libXi"
+PKG_VERSION="1.7.2"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.x.org/"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libX11"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros libX11 inputproto"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libxi: X11 Input extension library"
+PKG_LONGDESC="LibXi provides an X Window System client interface to the XINPUT extension to the X protocol."
 
-mkdir -p $INSTALL/usr/lib
-  cp -P $PKG_BUILD/src/.libs/libXi.so* $INSTALL/usr/lib
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull \
+                           --disable-silent-rules \
+                           --disable-docs \
+                           --disable-specs \
+                           --without-xmlto \
+                           --without-fop \
+                           --without-xsltproc \
+                           --without-asciidoc \
+                           --with-gnu-ld"
