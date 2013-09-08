@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,7 +18,19 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libXfixes"
+PKG_VERSION="5.0.1"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/lib/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="libX11"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros fixesproto libX11"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libxfixes: X Fixes Library"
+PKG_LONGDESC="X Fixes Library"
 
-mkdir -p $INSTALL/usr/lib
-  cp -P $PKG_BUILD/src/.libs/libXfixes.so* $INSTALL/usr/lib
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
