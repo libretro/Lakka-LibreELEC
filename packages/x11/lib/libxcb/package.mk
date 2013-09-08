@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,21 +18,28 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libxcb"
+PKG_VERSION="1.9"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://xcb.freedesktop.org"
+PKG_URL="http://xcb.freedesktop.org/dist/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros Python-host xcb-proto libpthread-stubs libXau"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/lib"
+PKG_SHORTDESC="libxcb: X C-language Bindings library"
+PKG_LONGDESC="X C-language Bindings library."
 
-PYTHON_LIBDIR="`ls -d $SYSROOT_PREFIX/usr/lib/python*`"
-PYTHON_TOOLCHAIN_PATH=`ls -d $PYTHON_LIBDIR/site-packages`
-PKG_CONFIG="$PKG_CONFIG --define-variable=pythondir=$PYTHON_TOOLCHAIN_PATH"
-PKG_CONFIG="$PKG_CONFIG --define-variable=xcbincludedir=$SYSROOT_PREFIX/usr/share/xcb"
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-            --enable-static \
-            --disable-shared \
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 
-make
-$MAKEINSTALL
+pre_configure_target() {
+  PYTHON_LIBDIR="`ls -d $SYSROOT_PREFIX/usr/lib/python*`"
+  PYTHON_TOOLCHAIN_PATH=`ls -d $PYTHON_LIBDIR/site-packages`
+  PKG_CONFIG="$PKG_CONFIG --define-variable=pythondir=$PYTHON_TOOLCHAIN_PATH"
+  PKG_CONFIG="$PKG_CONFIG --define-variable=xcbincludedir=$SYSROOT_PREFIX/usr/share/xcb"
+}
