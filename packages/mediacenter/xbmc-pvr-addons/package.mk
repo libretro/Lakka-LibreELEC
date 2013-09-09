@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,13 +18,31 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="xbmc-pvr-addons"
+PKG_VERSION="frodo-910d7e7"
+if [ "$XBMC" = "master" ]; then
+  PKG_VERSION="18597fd"
+fi
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="https://github.com/opdenkamp/xbmc-pvr-addons"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS="curl"
+PKG_BUILD_DEPENDS_TARGET="toolchain curl"
+PKG_PRIORITY="optional"
+PKG_SECTION="mediacenter"
+PKG_SHORTDESC="Various PVR addons for XBMC" 
+PKG_LONGDESC="This addons allows XBMC PVR to connect to various TV/PVR backends and tuners."
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-for addon in `find $PKG_BUILD/addons/ -name *.pvr`;do
-  ADDON=$(basename $(dirname $addon))
-  mkdir -p $INSTALL/usr/share/xbmc/addons/$ADDON
-    cp -PRf $PKG_BUILD/addons/$ADDON/addon/* $INSTALL/usr/share/xbmc/addons/$ADDON
+if [ "$MYSQL_SUPPORT" = yes ]; then
+  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS mysql"
+  PKG_DEPENDS="$PKG_DEPENDS mysql"
+  PVRADDONS_MYSQL="--enable-mysql"
+else
+  PVRADDONS_MYSQL="--disable-mysql"
+fi
 
-  mkdir -p $INSTALL/usr/lib/xbmc/addons/$ADDON
-    cp -Pf $PKG_BUILD/addons/$ADDON/*.pvr $INSTALL/usr/lib/xbmc/addons/$ADDON
-done
+PKG_CONFIGURE_OPTS_TARGET="--enable-addons-with-dependencies $PVRADDONS_MYSQL"
