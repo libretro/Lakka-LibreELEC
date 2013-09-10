@@ -1,11 +1,14 @@
-## Questions about OpenELEC?
+### Questions about OpenELEC?
 
 To get your questions answered, please ask in the OpenELEC [Forum], on IRC: 
-#openelec on freenode.net, or [webchat]. 
+\#openelec on freenode.net, or [webchat]. 
 
 Do not open an issue.
 
-## Issue Reports
+### Issue Reports
+
+**BEFORE you report a bug make sure you got the latest testing version of 
+OpenELEC. Your bug might be already fixed.**
 
 If you are at all unsure whether it's a bug in OpenELEC or a problem with 
 something else, post in the OpenELEC [Forum] instead. If it turns out that it is
@@ -17,8 +20,8 @@ and try to answer the following questions:
 - What did you expect to happen?
 - What happened instead?
 
-It is also importent to provide logs for debugging.
-A zip file can be found in the [logfiles] samba share, this will contain all the logs needed.
+**It is also importent to provide logs for debugging.
+A zip file can be found in the [logfiles] samba share, this will contain all the logs needed.**
 
 Make sure to specify which version of OpenELEC you are using.
 - OpenELEC version
@@ -32,7 +35,7 @@ Feature requests are great, but they usually end up lying around the issue
 tracker indefinitely. Sending a pull request is a much better way of getting a
 particular feature into OpenELEC.
 
-## Pull Requests
+### Pull Requests
 
 - **Create topic branches**. Don't ask us to pull from your master branch.
 
