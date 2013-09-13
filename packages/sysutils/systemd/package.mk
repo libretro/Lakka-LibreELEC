@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="206"
+PKG_VERSION="207"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -57,7 +57,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-tcpwrap \
                            --disable-pam \
                            --disable-acl \
-                           --enable-xattr \
+                           --disable-xattr \
                            --disable-smack \
                            --disable-gcrypt \
                            --disable-audit \
@@ -72,6 +72,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --enable-tmpfiles \
                            --disable-randomseed \
                            --enable-logind \
+                           --disable-backlight \
                            --disable-machined \
                          --enable-hostnamed \
                          --enable-timedated \
@@ -84,6 +85,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-manpages \
                            --disable-tests \
                            --without-python \
+                           --disable-python-devel \
                            --enable-split-usr \
                            --with-firmware-path=/storage/.config/firmware:/lib/firmware \
                            --with-sysvinit-path= \
@@ -100,6 +102,7 @@ pre_make_target() {
 post_makeinstall_target() {
   # remove unneeded stuff
     rm -rf $INSTALL/etc/systemd/system
+    rm -rf $INSTALL/usr/share/zsh
 
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/bin
