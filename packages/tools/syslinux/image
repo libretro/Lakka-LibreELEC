@@ -1,0 +1,180 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+cleanup()
+{
+  echo "image: cleanup..."
+  umount /tmp/oe_image_install &>/dev/null || :
+  losetup -d "$LOOP"
+  [ -f /tmp/oe_image_install/ldlinux.sys ] && chattr -i /tmp/oe_image_install/ldlinux.sys || :
+  rm -rf /tmp/oe_image_install
+  exit
+}
+
+trap cleanup SIGINT
+
+# set variables
+  SYSTEM_SIZE=256
+  # 3STORAGE_SIZE must be >= 32 !
+  STORAGE_SIZE=32
+  DISK_SIZE=$(( $SYSTEM_SIZE + $STORAGE_SIZE ))
+  DISK="$TARGET_IMG/$IMAGE_NAME.img"
+  LOOP=$(losetup -f)
+
+# ensure loopX not in use
+  echo "image: next two errors can be ignored..."
+  umount /tmp/oe_image_install >/dev/null || :
+  umount "$LOOP" &>/dev/null >/dev/null || :
+  losetup -d "$LOOP" &>/dev/null >/dev/null || :
+  rm -rf /tmp/oe_image_install &>/dev/null
+
+# create an image
+  echo "image: creating new empty image: $DISK..."
+  dd if=/dev/zero of="$DISK" bs=1M count="$DISK_SIZE"
+  sync
+
+# write a disklabel
+  echo "image: creating new partition table: $DISK..."
+  losetup "$LOOP" "$DISK"
+  parted -s "$LOOP" mklabel msdos
+  sync
+
+# create part1
+  echo "image: creating part1 on $DISK..."
+  SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 64 ))
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 64 $SYSTEM_PART_END
+  parted -s "$LOOP" set 1 boot on
+
+# create part2
+  echo "image: creating part2 on $DISK..."
+  STORAGE_PART_START=$(( $SYSTEM_PART_END + 1 ))
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 $STORAGE_PART_START 100%
+  sync
+
+# write mbr
+  echo "image: writing mbr..."
+  MBR="$EXTLINUX_DIR/mbr/mbr.bin"
+  if [ -n "$MBR" ]; then
+    dd bs=440 count=1 conv=notrunc if="$MBR" of="$LOOP"
+  fi
+  sync
+
+# create filesystem on part1
+  losetup -d "$LOOP"
+  echo "image: creating filesystem on part1..."
+  OFFSET=$(( 64 * 512 ))
+  SIZELIMIT=$(( $SYSTEM_SIZE * 1024 * 1024 ))
+  losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
+  mke2fs -q -t ext4 -m 0 "$LOOP"
+  tune2fs -U $UUID_SYSTEM "$LOOP"
+  e2fsck -n "$LOOP"
+  sync
+
+# mount partition
+  echo "image: mounting part1 on /tmp/oe_image_install..."
+  mkdir -p /tmp/oe_image_install
+  mount "$LOOP" /tmp/oe_image_install
+
+# create bootloader configuration
+  echo "image: creating bootloader configuration..."
+  cat >/tmp/oe_image_install/syslinux.cfg << EOF
+UI vesamenu.c32
+PROMPT 0
+MENU TITLE Boot Menu
+MENU BACKGROUND splash.png
+TIMEOUT 50
+DEFAULT live
+
+MENU WIDTH 70
+MENU MARGIN 15
+MENU ROWS 2
+MENU HSHIFT 4
+MENU VSHIFT 13
+MENU TIMEOUTROW 10
+MENU TABMSGROW 8
+MENU CMDLINEROW 8
+MENU HELPMSGROW 13
+MENU HELPMSGENDROW 26
+MENU CLEAR
+
+MENU COLOR border       30;44   #40ffffff #00000000 std
+MENU COLOR title        1;36;44 #ff8bbfe3 #00000000 std
+MENU COLOR sel          7;37;40 #80f0f0f0 #ff606060 all
+MENU COLOR unsel        37;44   #50ffffff #00000000 std
+MENU COLOR help         37;40   #c0ffffff #a0000000 std
+MENU COLOR timeout_msg  37;40   #80ffffff #00000000 std
+MENU COLOR timeout      1;37;40 #c0ffffff #00000000 std
+MENU COLOR msg07        37;40   #90ffffff #a0000000 std
+MENU COLOR tabmsg       31;40   #ff868787 #00000000 std
+
+LABEL installer
+  MENU LABEL Run OpenELEC Installer
+  KERNEL /KERNEL
+  APPEND boot=UUID=$UUID_SYSTEM installer quiet vga=current
+
+LABEL live
+  MENU LABEL Run OpenELEC Live
+  KERNEL /KERNEL
+  APPEND boot=UUID=$UUID_SYSTEM disk=UUID=$UUID_STORAGE quiet vga=current
+EOF
+
+# install extlinux
+  echo "image: installing extlinux to part1..."
+  $EXTLINUX_DIR/extlinux/extlinux.host --heads=4 --sector=32 -i /tmp/oe_image_install
+
+# copy files
+  echo "image: copying files to part1..."
+  cp $TARGET_IMG/$IMAGE_NAME.kernel /tmp/oe_image_install/KERNEL
+  cp $TARGET_IMG/$IMAGE_NAME.system /tmp/oe_image_install/SYSTEM
+  cp $RELEASE_DIR/splash.png /tmp/oe_image_install
+  cp $EXTLINUX_DIR/com32/menu/vesamenu.c32 /tmp/oe_image_install
+  cp $EXTLINUX_DIR/com32/lib/libcom32.c32 /tmp/oe_image_install
+  cp $EXTLINUX_DIR/com32/libutil/libutil.c32 /tmp/oe_image_install
+
+# unmount part1
+  echo "image: unmounting part1..."
+  umount "$LOOP"
+  sync
+
+# create filesystem on part2
+  losetup -d "$LOOP"
+  echo "image: creating filesystem on part2..."
+  OFFSET=$(( $STORAGE_PART_START * 512 ))
+  losetup -o $OFFSET "$LOOP" "$DISK"
+  mke2fs -q -t ext4 -m 0 "$LOOP"
+  tune2fs -U $UUID_STORAGE "$LOOP"
+  e2fsck -n "$LOOP"
+  sync
+
+  echo "image: mounting part2 on /tmp/oe_image_install..."
+  mount "$LOOP" /tmp/oe_image_install
+  touch /tmp/oe_image_install/.please_resize_me
+  echo "image: unmounting part2..."
+  umount "$LOOP"
+  sync
+
+# gzip
+  echo "image: compressing..."
+  gzip $DISK
+
+# cleanup
+  cleanup
