@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,16 +18,19 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="ethtool"
+PKG_VERSION="3.11"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.kernel.org/pub/software/network/ethtool/"
+PKG_URL="http://www.kernel.org/pub/software/network/ethtool/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="network"
+PKG_SHORTDESC="ethtool: Display or change ethernet card settings"
+PKG_LONGDESC="Ethtool is used for querying settings of an ethernet device and changing them."
 
-LDFLAGS="$LDFLAGS -fwhole-program"
-
-cd $PKG_BUILD
-
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-
-make
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
