@@ -1,0 +1,74 @@
+From 7cd450bb2b8ea18277efff955202bf3b36573898 Mon Sep 17 00:00:00 2001
+From: verybadsoldier <vbs@springrts.de>
+Date: Sun, 1 Sep 2013 17:10:19 +0200
+Subject: [PATCH] After suspend wait for the first NIC to come up before
+ continuing
+
+---
+ xbmc/powermanagement/PowerManager.cpp | 24 ++++++++++++++++++++++++
+ xbmc/powermanagement/PowerManager.h   |  2 ++
+ 2 files changed, 26 insertions(+)
+
+diff --git a/xbmc/powermanagement/PowerManager.cpp b/xbmc/powermanagement/PowerManager.cpp
+index a68910b..8e93492 100644
+--- a/xbmc/powermanagement/PowerManager.cpp
++++ b/xbmc/powermanagement/PowerManager.cpp
+@@ -23,6 +23,7 @@
+ #include "Application.h"
+ #include "cores/AudioEngine/AEFactory.h"
+ #include "input/KeyboardStat.h"
++#include "network/Network.h"
+ #include "settings/GUISettings.h"
+ #include "windowing/WindowingFactory.h"
+ #include "utils/log.h"
+@@ -207,6 +207,8 @@ void CPowerManager::OnWake()
+ {
+   CLog::Log(LOGNOTICE, "%s: Running resume jobs", __FUNCTION__);
+ 
++  WaitForNic();
++
+   // reset out timers
+   g_application.ResetShutdownTimers();
+ 
+@@ -254,3 +256,25 @@ void CPowerManager::OnLowBattery()
+ 
+   CAnnouncementManager::Announce(System, "xbmc", "OnLowBattery");
+ }
++
++void CPowerManager::WaitForNic()
++{
++    CLog::Log(LOGDEBUG, "%s: Waithing for first NIC to come up", __FUNCTION__);
++
++    const unsigned maxLoopCount = 50u;
++    const unsigned sleepTimeMs = 200u;
++
++    for(unsigned i=0; i < maxLoopCount; ++i)
++    {
++        CNetworkInterface* pIface = g_application.getNetwork().GetFirstConnectedInterface();
++        if (pIface && pIface->IsEnabled() && pIface->IsConnected())
++        {
++            CLog::Log(LOGDEBUG, "%s: NIC is up after waiting %d ms", __FUNCTION__, i * sleepTimeMs);
++            return;
++        }
++
++        Sleep(sleepTimeMs);
++    }
++
++    CLog::Log(LOGDEBUG, "%s: NIC did not come up within %d ms... Lets give up...", __FUNCTION__, maxLoopCount * sleepTimeMs);
++}
+diff --git a/xbmc/powermanagement/PowerManager.h b/xbmc/powermanagement/PowerManager.h
+index deb4b66..476cdc1 100644
+--- a/xbmc/powermanagement/PowerManager.h
++++ b/xbmc/powermanagement/PowerManager.h
+@@ -73,6 +73,8 @@ class CPowerManager : public IPowerEventsCallback
+ 
+   void OnLowBattery();
+ 
++  void WaitForNic();
++
+   IPowerSyscall *m_instance;
+ };
+ 
+-- 
+1.8.4
+

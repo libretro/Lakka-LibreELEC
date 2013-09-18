@@ -98,6 +98,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-utempter \
                            --without-systemdsystemunitdir"
 
+PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/sbin

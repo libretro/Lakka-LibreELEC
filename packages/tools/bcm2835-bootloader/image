@@ -1,0 +1,128 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+cleanup()
+{
+  echo "image: cleanup..."
+  umount /tmp/oe_image_install &>/dev/null || :
+  losetup -d "$LOOP"
+  [ -f /tmp/oe_image_install/ldlinux.sys ] && chattr -i /tmp/oe_image_install/ldlinux.sys || :
+  rm -rf /tmp/oe_image_install
+  exit
+}
+
+trap cleanup SIGINT
+
+# set variables
+  SYSTEM_SIZE=128
+  # 3STORAGE_SIZE must be >= 32 !
+  STORAGE_SIZE=32
+  DISK_SIZE=$(( $SYSTEM_SIZE + $STORAGE_SIZE ))
+  DISK="$TARGET_IMG/$IMAGE_NAME.img"
+  LOOP=$(losetup -f)
+
+# ensure loopX not in use
+  echo "image: next two errors can be ignored..."
+  umount /tmp/oe_image_install >/dev/null || :
+  umount "$LOOP" &>/dev/null >/dev/null || :
+  losetup -d "$LOOP" &>/dev/null >/dev/null || :
+  rm -rf /tmp/oe_image_install &>/dev/null
+
+# create an image
+  echo "image: creating new image: $DISK..."
+  dd if=/dev/zero of="$DISK" bs=1M count="$DISK_SIZE"
+  sync
+
+# write a disklabel
+  echo "image: creating partition table: $DISK..."
+  losetup "$LOOP" "$DISK"
+  parted -s "$LOOP" mklabel msdos
+  sync
+
+# create part1
+  echo "image: creating par1 on $DISK..."
+  SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 64 ))
+  parted -s "$LOOP" -a min unit s mkpart primary fat32 64 $SYSTEM_PART_END
+  parted -s "$LOOP" set 1 boot on
+
+# create part2
+  echo "image: creating part2 on $DISK..."
+  STORAGE_PART_START=$(( $SYSTEM_PART_END + 1 ))
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 $STORAGE_PART_START 100%
+  sync
+
+# create filesystem on part1
+  losetup -d "$LOOP"
+  echo "image: creating filesystem on part1..."
+  OFFSET=$(( 64 * 512 ))
+  SIZELIMIT=$(( $SYSTEM_SIZE * 1024 * 1024 ))
+  losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
+  mkfs.vfat "$LOOP"
+  sync
+
+# mount partition
+  echo "image: mounting part1 on /tmp/oe_image_install..."
+  mkdir -p /tmp/oe_image_install
+  mount "$LOOP" /tmp/oe_image_install
+
+# create bootloader configuration
+  echo "image: creating bootloader configuration..."
+  cat >/tmp/oe_image_install/cmdline.txt << EOF
+boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 quiet
+EOF
+
+# copy files
+  echo "image: copying files to part1..."
+  cp $RELEASE_DIR/3rdparty/bootloader/bootcode.bin /tmp/oe_image_install
+  cp $RELEASE_DIR/3rdparty/bootloader/fixup.dat /tmp/oe_image_install
+  cp $RELEASE_DIR/3rdparty/bootloader/start.elf /tmp/oe_image_install
+  cp $TARGET_IMG/$IMAGE_NAME.kernel /tmp/oe_image_install/kernel.img
+  cp $TARGET_IMG/$IMAGE_NAME.system /tmp/oe_image_install/SYSTEM
+
+# unmount part1
+  echo "image: unmounting part1..."
+  umount "$LOOP"
+  sync
+
+# create filesystem on part2
+  losetup -d "$LOOP"
+  echo "image: creating filesystem on part2..."
+  OFFSET=$(( $STORAGE_PART_START * 512 ))
+  losetup -o $OFFSET "$LOOP" "$DISK"
+  mke2fs -q -t ext4 -m 0 "$LOOP"
+  e2fsck -n "$LOOP"
+  sync
+
+# add resize mark
+  echo "image: mounting part2 on /tmp/oe_image_install..."
+  mount "$LOOP" /tmp/oe_image_install
+  touch /tmp/oe_image_install/.please_resize_me
+  echo "image: unmounting part2..."
+  umount "$LOOP"
+  sync
+
+# gzip
+  echo "image: compressing..."
+  gzip $DISK
+
+# cleanup
+  cleanup

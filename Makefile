@@ -8,6 +8,9 @@ system:
 release:
 	./scripts/image release
 
+image:
+	BUILD_IMAGE=yes ./scripts/image release
+
 noobs:
 	./scripts/image noobs
 
