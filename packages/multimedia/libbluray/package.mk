@@ -19,22 +19,42 @@
 ################################################################################
 
 PKG_NAME="libbluray"
-PKG_VERSION="0.2.3"
+PKG_VERSION="0.3.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org/developers/libbluray.html"
 PKG_URL="ftp://ftp.videolan.org/pub/videolan/libbluray/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="libxml2"
-PKG_BUILD_DEPENDS="toolchain libxml2"
+PKG_BUILD_DEPENDS_TARGET="toolchain libxml2"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libbluray: A Blu-Ray Discs playback library"
 PKG_LONGDESC="libbluray is an open-source library designed for Blu-Ray Discs playback for media players, like VLC or MPlayer."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$NONFREE_SUPPORT" = "yes" ]; then
   PKG_DEPENDS="$PKG_DEPENDS libaacs"
 fi
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
+                           --disable-extra-warnings \
+                           --disable-optimizations \
+                           --disable-examples \
+                           --disable-debug \
+                           --disable-bdjava \
+                           --enable-libxml2 \
+                           --disable-doxygen-doc \
+                           --disable-doxygen-dot \
+                           --disable-doxygen-man \
+                           --disable-doxygen-rtf \
+                           --disable-doxygen-xml \
+                           --disable-doxygen-chm \
+                           --disable-doxygen-chi \
+                           --disable-doxygen-html \
+                           --disable-doxygen-ps \
+                           --disable-doxygen-pdf \
+                           --with-gnu-ld"
+
