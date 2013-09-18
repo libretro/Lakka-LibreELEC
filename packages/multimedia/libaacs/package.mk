@@ -19,18 +19,36 @@
 ################################################################################
 
 PKG_NAME="libaacs"
-PKG_VERSION="0.5.0"
+PKG_VERSION="0.6.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org/developers/libaacs.html"
 PKG_URL="ftp://ftp.videolan.org/pub/videolan/libaacs/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="libgcrypt"
-PKG_BUILD_DEPENDS="toolchain libgcrypt"
+PKG_BUILD_DEPENDS_TARGET="toolchain libgcrypt"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libaacs: a research project to implement the Advanced Access Content System specification."
 PKG_LONGDESC="libaacs is a research project to implement the Advanced Access Content System specification. This research project provides, through an open-source library, a way to understand how the AACS works. This research project is mainly developed by an international team of developers from Doom9."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
+                           --disable-extra-warnings \
+                           --disable-optimizations \
+                           --disable-examples \
+                           --disable-debug \
+                           --with-gnu-ld"
+
+pre_configure_target() {
+# libaacs fails to build in subdirs
+  cd $ROOT/$PKG_BUILD
+    rm -rf .$TARGET_NAME
+}
+
+post_makeinstall_target() {
+  mkdir -p $INSTALL/usr/config/aacs
+    cp -P KEYDB.cfg $INSTALL/usr/config/aacs
+}
