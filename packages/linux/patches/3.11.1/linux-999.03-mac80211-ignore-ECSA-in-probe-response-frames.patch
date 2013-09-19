@@ -1,0 +1,54 @@
+From d70b7616d9080ec9f868fbd31db5fd4341435d61 Mon Sep 17 00:00:00 2001
+From: Johannes Berg <johannes.berg@intel.com>
+Date: Fri, 23 Aug 2013 13:48:48 +0000
+Subject: mac80211: ignore (E)CSA in probe response frames
+
+Seth reports that some APs, notably the Netgear WNDAP360, send
+invalid ECSA IEs in probe response frames with the operating
+class and channel number both set to zero, even when no channel
+switch is being done. As a result, any scan while connected to
+such an AP results in the connection being dropped.
+
+Fix this by ignoring any channel switch announcment in probe
+response frames entirely, since we're connected to the AP we
+will be receiving a beacon (and maybe even an action frame) if
+a channel switch is done, which is sufficient.
+
+Cc: stable@vger.kernel.org # 3.10
+Reported-by: Seth Forshee <seth.forshee@canonical.com>
+Tested-by: Seth Forshee <seth.forshee@canonical.com>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+(limited to 'net/mac80211/mlme.c')
+
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index cc9e02d..7a98d52 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -2851,14 +2851,6 @@ static void ieee80211_rx_bss_info(struct ieee80211_sub_if_data *sdata,
+ 		ieee80211_rx_bss_put(local, bss);
+ 		sdata->vif.bss_conf.beacon_rate = bss->beacon_rate;
+ 	}
+-
+-	if (!sdata->u.mgd.associated ||
+-	    !ether_addr_equal(mgmt->bssid, sdata->u.mgd.associated->bssid))
+-		return;
+-
+-	ieee80211_sta_process_chanswitch(sdata, rx_status->mactime,
+-					 elems, true);
+-
+ }
+ 
+ 
+@@ -3147,6 +3139,9 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_sub_if_data *sdata,
+ 
+ 	ieee80211_rx_bss_info(sdata, mgmt, len, rx_status, &elems);
+ 
++	ieee80211_sta_process_chanswitch(sdata, rx_status->mactime,
++					 &elems, true);
++
+ 	if (ieee80211_sta_wmm_params(local, sdata, elems.wmm_param,
+ 				     elems.wmm_param_len))
+ 		changed |= BSS_CHANGED_QOS;
+--
+cgit v0.9.2
