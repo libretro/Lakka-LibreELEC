@@ -25,8 +25,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://avahi.org/"
 PKG_URL="http://www.avahi.org/download/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="Python expat dbus connman dbus-python"
-PKG_BUILD_DEPENDS_TARGET="toolchain Python expat libdaemon dbus dbus-python"
+PKG_DEPENDS="expat dbus connman"
+PKG_BUILD_DEPENDS_TARGET="toolchain expat libdaemon dbus"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
 PKG_SHORTDESC="avahi: A Zeroconf mDNS/DNS-SD responder"
@@ -51,9 +51,9 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --disable-dbm \
                            --disable-gdbm \
                            --enable-libdaemon \
-                           --enable-python \
+                           --disable-python \
                            --disable-pygtk \
-                           --enable-python-dbus \
+                           --disable-python-dbus \
                            --disable-mono \
                            --disable-monodoc \
                            --disable-autoipd \
