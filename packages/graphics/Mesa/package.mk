@@ -18,13 +18,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
+case "$MESA" in
+  default)
+    PKG_VERSION="9.2.0"
+    PKG_URL="ftp://freedesktop.org/pub/mesa/9.2/MesaLib-$PKG_VERSION.tar.bz2"
+    ;;
+  master)
+    PKG_VERSION="1569b3e"
+    PKG_URL="$DISTRO_SRC/Mesa-$PKG_VERSION.tar.xz"
+    ;;
+esac
+
 PKG_NAME="Mesa"
-PKG_VERSION="9.2.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
-PKG_URL="ftp://freedesktop.org/pub/mesa/9.2/MesaLib-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="libXdamage libdrm expat libXext libXfixes libX11"
 PKG_BUILD_DEPENDS_TARGET="toolchain Python-host makedepend:host libxml2-host expat glproto dri2proto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11"
 PKG_PRIORITY="optional"
