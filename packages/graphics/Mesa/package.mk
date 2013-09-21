@@ -56,7 +56,7 @@ else
   MESA_GALLIUM_LLVM="--disable-gallium-llvm"
 fi
 
-if [ "$MESA_VDPAU_SUPPORT" = "yes" ]; then
+if [ "$VDPAU" = "yes" ]; then
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libvdpau"
   PKG_DEPENDS="$PKG_DEPENDS libvdpau"
   MESA_VDPAU="--enable-vdpau"
