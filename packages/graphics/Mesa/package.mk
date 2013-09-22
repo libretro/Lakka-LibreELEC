@@ -24,7 +24,7 @@ case "$MESA" in
     PKG_URL="ftp://freedesktop.org/pub/mesa/9.2/MesaLib-$PKG_VERSION.tar.bz2"
     ;;
   master)
-    PKG_VERSION="1569b3e"
+    PKG_VERSION="8bbcc43"
     PKG_URL="$DISTRO_SRC/Mesa-$PKG_VERSION.tar.xz"
     ;;
 esac
