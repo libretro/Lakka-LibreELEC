@@ -1,0 +1,53 @@
+From a1e9f01ef29e803b2eb10e53c342db702a2cdccf Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Sun, 22 Sep 2013 10:41:27 +0200
+Subject: [PATCH 5/9] radeon/uvd: move alignment to winsys
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Similar to GFX and DMA.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+---
+ src/gallium/drivers/radeon/radeon_uvd.c       | 6 ------
+ src/gallium/winsys/radeon/drm/radeon_drm_cs.c | 6 ++++++
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/src/gallium/drivers/radeon/radeon_uvd.c b/src/gallium/drivers/radeon/radeon_uvd.c
+index fa81105..a8b17e6 100644
+--- a/src/gallium/drivers/radeon/radeon_uvd.c
++++ b/src/gallium/drivers/radeon/radeon_uvd.c
+@@ -104,12 +104,6 @@ static unsigned alloc_stream_handle()
+ /* flush IB to the hardware */
+ static void flush(struct ruvd_decoder *dec)
+ {
+-	uint32_t *pm4 =	dec->cs->buf;
+-
+-	// align IB
+-	while(dec->cs->cdw % 16)
+-		pm4[dec->cs->cdw++] = RUVD_PKT2();
+-
+ 	dec->ws->cs_flush(dec->cs, RADEON_FLUSH_ASYNC, 0);
+ }
+ 
+diff --git a/src/gallium/winsys/radeon/drm/radeon_drm_cs.c b/src/gallium/winsys/radeon/drm/radeon_drm_cs.c
+index d530011..62f7704 100644
+--- a/src/gallium/winsys/radeon/drm/radeon_drm_cs.c
++++ b/src/gallium/winsys/radeon/drm/radeon_drm_cs.c
+@@ -494,6 +494,12 @@ static void radeon_drm_cs_flush(struct radeon_winsys_cs *rcs, unsigned flags, ui
+ 			    OUT_CS(&cs->base, 0x80000000); /* type2 nop packet */
+ 	    }
+ 	    break;
++    case RING_UVD:
++            while (rcs->cdw & 15)
++		OUT_CS(&cs->base, 0x80000000); /* type2 nop packet */
++	    break;
++    default:
++	    break;
+     }
+ 
+     if (rcs->cdw > RADEON_MAX_CMDBUF_DWORDS) {
+-- 
+1.8.3.1
+

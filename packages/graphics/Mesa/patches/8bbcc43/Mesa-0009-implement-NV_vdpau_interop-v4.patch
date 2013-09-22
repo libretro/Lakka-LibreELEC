@@ -1,7 +1,7 @@
-From a51bdb6ea7bd9ac99d035253bf217e1bd7ac2efc Mon Sep 17 00:00:00 2001
+From b9c03e373b1771055527ca2917139ed1ac171350 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
 Date: Wed, 15 May 2013 15:10:11 +0200
-Subject: [PATCH 4/5] implement NV_vdpau_interop v3
+Subject: [PATCH 9/9] implement NV_vdpau_interop v4
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -11,6 +11,8 @@ v2: Actually implement interop between the gallium
 
 v3: Make it also available in non legacy contexts,
     fix video buffer sharing.
+
+v4: deny interop if we don't have the same screen object
 
 Signed-off-by: Christian König <christian.koenig@amd.com>
 ---
@@ -31,9 +33,9 @@ Signed-off-by: Christian König <christian.koenig@amd.com>
  src/mesa/main/vdpau.h                             |  72 ++++++
  src/mesa/state_tracker/st_context.c               |   3 +
  src/mesa/state_tracker/st_extensions.c            |   1 +
- src/mesa/state_tracker/st_vdpau.c                 | 193 +++++++++++++++
+ src/mesa/state_tracker/st_vdpau.c                 | 181 ++++++++++++++
  src/mesa/state_tracker/st_vdpau.h                 |  42 ++++
- 19 files changed, 800 insertions(+), 9 deletions(-)
+ 19 files changed, 788 insertions(+), 9 deletions(-)
  create mode 100644 src/gallium/include/state_tracker/vdpau_interop.h
  create mode 100644 src/mapi/glapi/gen/NV_vdpau_interop.xml
  create mode 100644 src/mesa/main/vdpau.c
@@ -199,7 +201,7 @@ index 8e39d68..dd434aa 100644
 +   return p_surf->video_buffer;
 +}
 diff --git a/src/gallium/state_trackers/vdpau/vdpau_private.h b/src/gallium/state_trackers/vdpau/vdpau_private.h
-index 54545fe..fe3bc3e 100644
+index 0812767..dffc7aa 100644
 --- a/src/gallium/state_trackers/vdpau/vdpau_private.h
 +++ b/src/gallium/state_trackers/vdpau/vdpau_private.h
 @@ -36,6 +36,8 @@
@@ -211,7 +213,7 @@ index 54545fe..fe3bc3e 100644
  #include "util/u_debug.h"
  #include "util/u_rect.h"
  #include "os/os_thread.h"
-@@ -474,6 +476,10 @@ VdpVideoMixerGetAttributeValues vlVdpVideoMixerGetAttributeValues;
+@@ -475,6 +477,10 @@ VdpVideoMixerGetAttributeValues vlVdpVideoMixerGetAttributeValues;
  VdpVideoMixerDestroy vlVdpVideoMixerDestroy;
  VdpGenerateCSCMatrix vlVdpGenerateCSCMatrix;
  
@@ -815,10 +817,10 @@ index 97dd732..2898a8d 100644
     ctx->Extensions.OES_EGL_image_external = GL_TRUE;
 diff --git a/src/mesa/state_tracker/st_vdpau.c b/src/mesa/state_tracker/st_vdpau.c
 new file mode 100644
-index 0000000..c6ca909
+index 0000000..406df0f
 --- /dev/null
 +++ b/src/mesa/state_tracker/st_vdpau.c
-@@ -0,0 +1,193 @@
+@@ -0,0 +1,181 @@
 +/**************************************************************************
 + *
 + * Copyright 2013 Advanced Micro Devices, Inc.
@@ -860,7 +862,6 @@ index 0000000..c6ca909
 +#include "pipe/p_state.h"
 +#include "pipe/p_video_codec.h"
 +
-+#include "state_tracker/drm_driver.h"
 +#include "state_tracker/vdpau_interop.h"
 +
 +#include "util/u_inlines.h"
@@ -903,19 +904,6 @@ index 0000000..c6ca909
 +         return;
 +      }
 +
-+      /* do we have different screen objects ? */
-+      if (res->screen != st->pipe->screen) {
-+         struct winsys_handle handle;
-+
-+         /* export the resource from the other context */
-+         memset(&handle, 0, sizeof(handle));
-+         handle.type = DRM_API_HANDLE_TYPE_SHARED;
-+         res->screen->resource_get_handle(res->screen, res, &handle);
-+
-+         /* and import it into this one */
-+         res = st->pipe->screen->resource_from_handle(st->pipe->screen, res, &handle);
-+      }
-+
 +   } else {
 +      VdpVideoSurfaceGallium *f;
 +
@@ -946,13 +934,15 @@ index 0000000..c6ca909
 +      }
 +
 +      res = sv->texture;
-+
-+      /* In theory we also need to reimport the buffer into the new screen,
-+         but that currently isn't specified. Just using the resource
-+         as it is does indeed seem to work.*/
 +   }
 +
 +   if (!res) {
++      _mesa_error(ctx, GL_INVALID_OPERATION, "VDPAUMapSurfacesNV");
++      return;
++   }
++
++   /* do we have different screen objects ? */
++   if (res->screen != st->pipe->screen) {
 +      _mesa_error(ctx, GL_INVALID_OPERATION, "VDPAUMapSurfacesNV");
 +      return;
 +   }
