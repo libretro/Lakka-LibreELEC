@@ -34,3 +34,4 @@ PKG_LONGDESC="atvclient is a background application for Linux that reads input f
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
