@@ -285,15 +285,19 @@
         ;;
       CIFS=*|SMB=*)
         MOUNT_CMD="mount_cifs"
+        UPDATE_DISABLED=yes
         ;;
       ISCSI=*)
         MOUNT_CMD="mount_iscsi"
+        UPDATE_DISABLED=yes
         ;;
       NBD=*)
         MOUNT_CMD="mount_nbd"
+        UPDATE_DISABLED=yes
         ;;
       NFS=*)
         MOUNT_CMD="mount_nfs"
+        UPDATE_DISABLED=yes
         ;;
       FILE=*)
         MOUNT_CMD="mount_common"
@@ -456,6 +460,13 @@
       fi
 
     if [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
+      if [ "$UPDATE_DISABLED" = "yes" ] ; then
+        rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
+        echo "Updating not supported on netboot. normal startup in 10s..."
+        sync
+        usleep 10000000
+        return 0
+      fi
       if [ -f "$UPDATE_DIR/.nocheck" ] ; then
         MD5_NOCHECK="1"
       fi
@@ -568,6 +579,10 @@
   /bin/busybox mount --move /proc /sysroot/proc
   /bin/busybox mount --move /sys /sysroot/sys
 
+# tell OE settings addon to disable updates
+  if [ "$UPDATE_DISABLED" = "yes" ] ; then
+    echo "" > /sysroot/dev/.update_disabled
+  fi
 # switch to new sysroot and start real init
   exec /bin/busybox switch_root /sysroot /lib/systemd/systemd $INIT_ARGS
 
