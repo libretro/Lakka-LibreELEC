@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="llvm"
-PKG_VERSION="3.0"
+PKG_VERSION="3.3.src"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://llvm.org/"
-PKG_URL="http://llvm.org/releases/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://llvm.org/releases/3.3/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS=""
 PKG_BUILD_DEPENDS_TARGET="toolchain llvm:host"
 PKG_BUILD_DEPENDS_HOST="toolchain"
@@ -37,24 +37,11 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 # package specific configure options
-PKG_CONFIGURE_OPTS_HOST="--enable-polly \
-                         --enable-optimized \
-                         --disable-profiling \
+PKG_CONFIGURE_OPTS_HOST="--disable-polly \
                          --disable-assertions \
-                         --disable-expensive-checks \
+                         --enable-optimized \
                          --disable-debug-runtime \
-                         --disable-debug-symbols \
-                         --enable-jit \
-                         --disable-docs \
-                         --disable-doxygen \
-                         --enable-threads \
-                         --enable-pthreads \
-                         --enable-pic \
-                         --enable-shared \
-                         --enable-embed-stdcxx \
-                         --enable-timestamps \
-                         --disable-libffi \
-                         --enable-ltdl-install"
+                         --disable-debug-symbols"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-polly \
                            --enable-optimized \
@@ -76,26 +63,40 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-polly \
                            --disable-ltdl-install"
 
 if [ "$TARGET_ARCH" = i386 ]; then
-  PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_HOST --enable-targets=x86"
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=x86"
 elif [ "$TARGET_ARCH" = x86_64 ]; then
-  PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_HOST --enable-targets=x86_64"
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=x86_64"
+elif [ "$TARGET_ARCH" = arm ]; then
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=arm"
 fi
 
-PKG_MAKE_OPTS_TARGET="LLVM_TBLGEN=$ROOT/$TOOLCHAIN/bin/llvm-tblgen"
-PKG_MAKEINSTALL_OPTS_TARGET="LLVM_TBLGEN=$ROOT/$TOOLCHAIN/bin/llvm-tblgen"
+PKG_MAKE_OPTS_HOST="BUILD_DIRS_ONLY=1 CFLAGS= CXXFLAGS="
 
 pre_configure_host() {
   ( cd ../autoconf
     aclocal  --force --verbose -I m4
     autoconf --force --verbose -I m4 -o ../configure
   )
+
+  ( cd ../projects/sample/autoconf
+    aclocal  --force --verbose -I m4
+    autoconf --force --verbose -I m4 -o ../configure
+  )
+
+  # we are building hosttools inside the target builddir
+    mkdir -p ../.$TARGET_NAME && cd ../.$TARGET_NAME/
+    rm -rf ../.$HOST_NAME
+    mkdir -p BuildTools && cd BuildTools
 }
 
 pre_configure_target() {
-  # llvm fails to build with LTO support
+# llvm fails to build with LTO support
     strip_lto
+}
+
+makeinstall_host() {
+# nothing to install here
+ :
 }
 
 post_makeinstall_target() {
