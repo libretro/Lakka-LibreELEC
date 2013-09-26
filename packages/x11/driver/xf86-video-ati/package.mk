@@ -35,7 +35,4 @@ PKG_LONGDESC="The ati driver supports various ATi, know AMD, video chips."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-dri \
-                           --enable-exa \
-                           --enable-kms \
-                           --with-xorg-module-dir=$XORG_PATH_MODULES"
+PKG_CONFIGURE_OPTS_TARGET="--with-xorg-module-dir=$XORG_PATH_MODULES"
