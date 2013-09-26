@@ -26,7 +26,8 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/parted/"
 PKG_URL="http://ftp.gnu.org/gnu/parted/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS="util-linux"
-PKG_BUILD_DEPENDS="toolchain util-linux"
+PKG_BUILD_DEPENDS_HOST="toolchain util-linux"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-linux parted:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="parted: GNU partition editor"
@@ -34,3 +35,18 @@ PKG_LONGDESC="GNU Parted is a program for creating, destroying, resizing, checki
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-static \
+            --enable-shared \
+            --disable-device-mapper \
+            --without-readline \
+            --disable-rpath \
+            --with-gnu-ld"
+
+PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
+
+post_make_target() {
+  # dont build parallel
+    MAKEFLAGS=-j1
+}
+
