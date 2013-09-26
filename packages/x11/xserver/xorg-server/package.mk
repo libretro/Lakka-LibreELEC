@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.12.4"
+PKG_VERSION="1.14.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -122,7 +122,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-config-dbus \
                            --disable-config-hal \
                            --enable-xfree86-utils \
-                           --enable-xaa \
                            --enable-vgahw \
                            --enable-vbe \
                            --enable-int10-module \
