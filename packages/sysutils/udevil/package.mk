@@ -49,6 +49,9 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/etc/udevil
     cp $PKG_DIR/config/udevil.conf $INSTALL/etc/udevil
 
+  mkdir -p $INSTALL/lib/udev
+    cp $PKG_DIR/scripts/udevil_helper $INSTALL/lib/udev
+
   mkdir -p $INSTALL/usr/bin
     cp -PR src/udevil $INSTALL/usr/bin
 }
