@@ -352,23 +352,32 @@
   load_splash() {
     progress "Loading bootsplash"
 
-    if [ -e /dev/fb0 -a ! "$SPLASH" = "no" ]; then
+    if [ ! "$SPLASH" = "no" ]; then
+      SPLASHIMAGE="/splash/splash-full.png"
 
-      # set framebuffer to a default resolution (1024x768-32)
+      # load uvesafb module if needed
+      if [ -f "$MODULE_DIR/uvesafb.ko" -a ! -e /dev/fb0 ]; then
+        progress "Loading kernel module uvesafb.ko"
+          insmod "$MODULE_DIR/uvesafb.ko" || \
+            progress "... Failed to load kernel module uvesafb, skipping"
+
+        # set framebuffer to a default resolution (1024x768-32)
         if [ ! "$SWITCH_FRAMEBUFFER" = "no" ]; then
           fbset -g 1024 768 1024 768 32
+          SPLASHIMAGE="/splash/splash-1024.png"
         fi
+      fi
 
-      # load splash
+      if [ -e /dev/fb0 ]; then
+        # load splash
         if [ -f /flash/oemsplash.png ]; then
           SPLASHIMAGE="/flash/oemsplash.png"
         elif [ -f /splash/splash.conf ]; then
           . /splash/splash.conf
-        else
-          SPLASHIMAGE="/splash/splash.png"
         fi
 
         ply-image $SPLASHIMAGE > /dev/null 2>&1
+      fi
     fi
   }
 
