@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="openssh"
-PKG_VERSION="6.2p2"
+PKG_VERSION="6.3p1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -45,6 +45,9 @@ PKG_CONFIGURE_OPTS_TARGET="--libexecdir=/usr/lib/openssh \
                            --disable-wtmpx \
                            --without-rpath \
                            --with-ssl-engine \
+                           --disable-pututline \
+                           --disable-pututxline \
+                           --disable-etc-default-login \
                            --without-pam"
 
 pre_configure_target() {
