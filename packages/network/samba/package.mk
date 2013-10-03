@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="samba"
-PKG_VERSION="3.6.18"
+PKG_VERSION="3.6.19"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
