@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="207"
+PKG_VERSION="208"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
