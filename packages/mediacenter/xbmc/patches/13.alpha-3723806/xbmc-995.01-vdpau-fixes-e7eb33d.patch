@@ -1,3162 +1,7 @@
-From 8411afb1d9a113c28cba0007ceff7cd6883884f1 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Thu, 12 Sep 2013 22:28:50 +0200
-Subject: [PATCH 01/87] vdpau: exit gfx lock in OnLostDevice and OnResetDevice
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index adf7413..76f2d8d 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -289,6 +289,8 @@ void CDecoder::OnLostDevice()
- {
-   CLog::Log(LOGNOTICE,"CVDPAU::OnLostDevice event");
- 
-+  int count = g_graphicsContext.exit();
-+
-   CSingleLock lock(m_DecoderSection);
-   FiniVDPAUOutput();
-   FiniVDPAUProcs();
-@@ -296,12 +298,16 @@ void CDecoder::OnLostDevice()
-   m_DisplayState = VDPAU_LOST;
-   lock.Leave();
-   m_DisplayEvent.Reset();
-+
-+  g_graphicsContext.restore(count);
- }
- 
- void CDecoder::OnResetDevice()
- {
-   CLog::Log(LOGNOTICE,"CVDPAU::OnResetDevice event");
- 
-+  int count = g_graphicsContext.exit();
-+
-   CSingleLock lock(m_DecoderSection);
-   if (m_DisplayState == VDPAU_LOST)
-   {
-@@ -309,6 +315,8 @@ void CDecoder::OnResetDevice()
-     lock.Leave();
-     m_DisplayEvent.Set();
-   }
-+
-+  g_graphicsContext.restore(count);
- }
- 
- int CDecoder::Check(AVCodecContext* avctx)
--- 
-1.8.4
-
-
-From ab2bd23efe3b74e96a43c570fea1cfc4a0e92bfb Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Tue, 17 Sep 2013 18:21:43 +0200
-Subject: [PATCH 02/87] vdpau: increase timeout for display event, some systems
- are too slow switching refresh rate
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index 76f2d8d..f27fb60 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -330,7 +330,7 @@ int CDecoder::Check(AVCodecContext* avctx)
-   if (state == VDPAU_LOST)
-   {
-     CLog::Log(LOGNOTICE,"CVDPAU::Check waiting for display reset event");
--    if (!m_DisplayEvent.WaitMSec(2000))
-+    if (!m_DisplayEvent.WaitMSec(4000))
-     {
-       CLog::Log(LOGERROR, "CVDPAU::Check - device didn't reset in reasonable time");
-       state = VDPAU_RESET;
--- 
-1.8.4
-
-
-From c6cae1c4f88d28c101d5ba50298e1b4982b24225 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sat, 21 Sep 2013 14:17:09 +0200
-Subject: [PATCH 03/87] vdpau: drop old ffmpeg vdpau_render_state
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 391 ++++++++++++++-----------
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h   |  39 ++-
- 2 files changed, 243 insertions(+), 187 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index f27fb60..2b8a5ad 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -80,6 +80,151 @@
- void* CDecoder::dl_handle;
- 
- //-----------------------------------------------------------------------------
-+// VDPAU Video Surface states
-+//-----------------------------------------------------------------------------
-+
-+#define SURFACE_USED_FOR_REFERENCE 0x01
-+#define SURFACE_USED_FOR_RENDER    0x02
-+
-+void CVideoSurfaces::AddSurface(VdpVideoSurface surf)
-+{
-+  CSingleLock lock(m_section);
-+  m_state[surf] = SURFACE_USED_FOR_REFERENCE;
-+}
-+
-+void CVideoSurfaces::ClearReference(VdpVideoSurface surf)
-+{
-+  CSingleLock lock(m_section);
-+  if (m_state.find(surf) == m_state.end())
-+  {
-+    CLog::Log(LOGWARNING, "CVideoSurfaces::ClearReference - surface invalid");
-+    return;
-+  }
-+  m_state[surf] &= ~SURFACE_USED_FOR_REFERENCE;
-+  if (m_state[surf] == 0)
-+  {
-+    m_freeSurfaces.push_back(surf);
-+  }
-+}
-+
-+bool CVideoSurfaces::MarkRender(VdpVideoSurface surf)
-+{
-+  CSingleLock lock(m_section);
-+  if (m_state.find(surf) == m_state.end())
-+  {
-+    CLog::Log(LOGWARNING, "CVideoSurfaces::MarkRender - surface invalid");
-+    return false;
-+  }
-+  std::list<VdpVideoSurface>::iterator it;
-+  it = std::find(m_freeSurfaces.begin(), m_freeSurfaces.end(), surf);
-+  if (it != m_freeSurfaces.end())
-+  {
-+    m_freeSurfaces.erase(it);
-+  }
-+  m_state[surf] |= SURFACE_USED_FOR_RENDER;
-+  return true;
-+}
-+
-+void CVideoSurfaces::ClearRender(VdpVideoSurface surf)
-+{
-+  CSingleLock lock(m_section);
-+  if (m_state.find(surf) == m_state.end())
-+  {
-+    CLog::Log(LOGWARNING, "CVideoSurfaces::ClearRender - surface invalid");
-+    return;
-+  }
-+  m_state[surf] &= ~SURFACE_USED_FOR_RENDER;
-+  if (m_state[surf] == 0)
-+  {
-+    m_freeSurfaces.push_back(surf);
-+  }
-+}
-+
-+bool CVideoSurfaces::IsValid(VdpVideoSurface surf)
-+{
-+  CSingleLock lock(m_section);
-+  if (m_state.find(surf) != m_state.end())
-+    return true;
-+  else
-+    return false;
-+}
-+
-+VdpVideoSurface CVideoSurfaces::GetFree(VdpVideoSurface surf)
-+{
-+  CSingleLock lock(m_section);
-+  if (m_state.find(surf) != m_state.end())
-+  {
-+    std::list<VdpVideoSurface>::iterator it;
-+    it = std::find(m_freeSurfaces.begin(), m_freeSurfaces.end(), surf);
-+    if (it == m_freeSurfaces.end())
-+    {
-+      CLog::Log(LOGWARNING, "CVideoSurfaces::GetFree - surface not free");
-+    }
-+    else
-+    {
-+      m_freeSurfaces.erase(it);
-+      m_state[surf] = SURFACE_USED_FOR_REFERENCE;
-+      return surf;
-+    }
-+  }
-+
-+  if (!m_freeSurfaces.empty())
-+  {
-+    VdpVideoSurface freeSurf = m_freeSurfaces.front();
-+    m_freeSurfaces.pop_front();
-+    m_state[freeSurf] = SURFACE_USED_FOR_REFERENCE;
-+    return freeSurf;
-+  }
-+
-+  return VDP_INVALID_HANDLE;
-+}
-+
-+VdpVideoSurface CVideoSurfaces::GetAtIndex(int idx)
-+{
-+  if (idx >= m_state.size())
-+    return VDP_INVALID_HANDLE;
-+
-+  std::map<VdpVideoSurface, int>::iterator it = m_state.begin();
-+  for(int i = 0; i < idx; i++)
-+    ++it;
-+  return it->first;
-+}
-+
-+VdpVideoSurface CVideoSurfaces::RemoveNext(bool skiprender)
-+{
-+  CSingleLock lock(m_section);
-+  VdpVideoSurface surf;
-+  std::map<VdpVideoSurface, int>::iterator it;
-+  for(it = m_state.begin(); it != m_state.end(); ++it)
-+  {
-+    if (skiprender && it->second & SURFACE_USED_FOR_RENDER)
-+      continue;
-+    surf = it->first;
-+    m_state.erase(surf);
-+
-+    std::list<VdpVideoSurface>::iterator it2;
-+    it2 = std::find(m_freeSurfaces.begin(), m_freeSurfaces.end(), surf);
-+    if (it2 != m_freeSurfaces.end())
-+      m_freeSurfaces.erase(it2);
-+    return surf;
-+  }
-+  return VDP_INVALID_HANDLE;
-+}
-+
-+void CVideoSurfaces::Reset()
-+{
-+  CSingleLock lock(m_section);
-+  m_freeSurfaces.clear();
-+  m_state.clear();
-+}
-+
-+int CVideoSurfaces::Size()
-+{
-+  CSingleLock lock(m_section);
-+  return m_state.size();
-+}
-+
-+//-----------------------------------------------------------------------------
- // CVDPAU
- //-----------------------------------------------------------------------------
- 
-@@ -87,7 +232,6 @@
- {
-   m_vdpauConfig.vdpDevice = VDP_INVALID_HANDLE;
-   m_vdpauConfig.videoSurfaces = &m_videoSurfaces;
--  m_vdpauConfig.videoSurfaceSec = &m_videoSurfaceSec;
- 
-   m_vdpauConfigured = false;
-   m_hwContext.bitstream_buffers_allocated = 0;
-@@ -164,6 +308,7 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int
-     m_hwContext.render = CDecoder::Render;
-     m_hwContext.bitstream_buffers_allocated = 0;
-     avctx->get_buffer      = CDecoder::FFGetBuffer;
-+    avctx->reget_buffer    = CDecoder::FFGetBuffer;
-     avctx->release_buffer  = CDecoder::FFReleaseBuffer;
-     avctx->draw_horiz_band = CDecoder::FFDrawSlice;
-     avctx->slice_flags=SLICE_FLAG_CODED_ORDER|SLICE_FLAG_ALLOW_FIELD;
-@@ -193,16 +338,6 @@ void CDecoder::Close()
-   FiniVDPAUProcs();
-   m_vdpauOutput.Dispose();
- 
--  while (!m_videoSurfaces.empty())
--  {
--    vdpau_render_state *render = m_videoSurfaces.back();
--    m_videoSurfaces.pop_back();
--    if (render->bitstream_buffers_allocated)
--      m_dllAvUtil.av_freep(&render->bitstream_buffers);
--    render->bitstream_buffers_allocated = 0;
--    free(render);
--  }
--
-   if (m_hwContext.bitstream_buffers_allocated)
-   {
-     m_dllAvUtil.av_freep(&m_hwContext.bitstream_buffers);
-@@ -239,14 +374,10 @@ long CDecoder::Release()
-       m_DisplayState = VDPAU_ERROR;
-     }
- 
--    for(unsigned int i = 0; i < m_videoSurfaces.size(); ++i)
-+    VdpVideoSurface surf;
-+    while((surf = m_videoSurfaces.RemoveNext(true)) != VDP_INVALID_HANDLE)
-     {
--      vdpau_render_state *render = m_videoSurfaces[i];
--      if (render->surface != VDP_INVALID_HANDLE && !(render->state & FF_VDPAU_STATE_USED_FOR_RENDER))
--      {
--        m_vdpauConfig.vdpProcs.vdp_video_surface_destroy(render->surface);
--        render->surface = VDP_INVALID_HANDLE;
--      }
-+      m_vdpauConfig.vdpProcs.vdp_video_surface_destroy(surf);
-     }
-   }
-   return IHardwareDecoder::Release();
-@@ -514,20 +645,16 @@ void CDecoder::FiniVDPAUOutput()
-     return;
-   m_vdpauConfig.vdpDecoder = VDP_INVALID_HANDLE;
- 
--  CSingleLock lock(m_videoSurfaceSec);
--  CLog::Log(LOGDEBUG, "CVDPAU::FiniVDPAUOutput destroying %d video surfaces", (int)m_videoSurfaces.size());
-+  CLog::Log(LOGDEBUG, "CVDPAU::FiniVDPAUOutput destroying %d video surfaces", m_videoSurfaces.Size());
- 
--  for(unsigned int i = 0; i < m_videoSurfaces.size(); ++i)
-+  VdpVideoSurface surf;
-+  while((surf = m_videoSurfaces.RemoveNext()) != VDP_INVALID_HANDLE)
-   {
--    vdpau_render_state *render = m_videoSurfaces[i];
--    if (render->surface != VDP_INVALID_HANDLE)
--    {
--      vdp_st = m_vdpauConfig.vdpProcs.vdp_video_surface_destroy(render->surface);
--      render->surface = VDP_INVALID_HANDLE;
--    }
-+    m_vdpauConfig.vdpProcs.vdp_video_surface_destroy(surf);
-     if (CheckStatus(vdp_st, __LINE__))
-       return;
-   }
-+  m_videoSurfaces.Reset();
- }
- 
- void CDecoder::ReadFormatOf( AVCodecID codec
-@@ -696,33 +823,6 @@ void CDecoder::SpewHardwareAvailable()  //CopyrighVDPAUt (c) 2008 Wladimir J. va
- 
- }
- 
--bool CDecoder::IsSurfaceValid(vdpau_render_state *render)
--{
--  // find render state in queue
--  bool found(false);
--  unsigned int i;
--  for(i = 0; i < m_videoSurfaces.size(); ++i)
--  {
--    if(m_videoSurfaces[i] == render)
--    {
--      found = true;
--      break;
--    }
--  }
--  if (!found)
--  {
--    CLog::Log(LOGERROR,"%s - video surface not found", __FUNCTION__);
--    return false;
--  }
--  if (m_videoSurfaces[i]->surface == VDP_INVALID_HANDLE)
--  {
--    m_videoSurfaces[i]->state = 0;
--    return false;
--  }
--
--  return true;
--}
--
- int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
- {
-   //CLog::Log(LOGNOTICE,"%s",__FUNCTION__);
-@@ -738,63 +838,38 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
-     return -1;
-   }
- 
--  vdpau_render_state * render = NULL;
--
--  // find unused surface
--  { CSingleLock lock(vdp->m_videoSurfaceSec);
--    for(unsigned int i = 0; i < vdp->m_videoSurfaces.size(); i++)
--    {
--      if(!(vdp->m_videoSurfaces[i]->state & (FF_VDPAU_STATE_USED_FOR_REFERENCE | FF_VDPAU_STATE_USED_FOR_RENDER)))
--      {
--        render = vdp->m_videoSurfaces[i];
--        render->state = 0;
--        break;
--      }
--    }
--  }
-+  VdpVideoSurface surf = (VdpVideoSurface)(uintptr_t)pic->data[3];
-+  surf = vdp->m_videoSurfaces.GetFree(surf != 0 ? surf : VDP_INVALID_HANDLE);
- 
-   VdpStatus vdp_st = VDP_STATUS_ERROR;
--  if (render == NULL)
-+  if (surf == VDP_INVALID_HANDLE)
-   {
-     // create a new surface
-     VdpDecoderProfile profile;
-     ReadFormatOf(avctx->codec_id, profile, vdp->m_vdpauConfig.vdpChromaType);
--    render = (vdpau_render_state*)calloc(sizeof(vdpau_render_state), 1);
--    if (render == NULL)
--    {
--      CLog::Log(LOGWARNING, "CVDPAU::FFGetBuffer - calloc failed");
--      return -1;
--    }
--    CSingleLock lock(vdp->m_videoSurfaceSec);
--    render->surface = VDP_INVALID_HANDLE;
--    vdp->m_videoSurfaces.push_back(render);
--  }
- 
--  if (render->surface == VDP_INVALID_HANDLE)
--  {
-     vdp_st = vdp->m_vdpauConfig.vdpProcs.vdp_video_surface_create(vdp->m_vdpauConfig.vdpDevice,
-                                          vdp->m_vdpauConfig.vdpChromaType,
-                                          avctx->coded_width,
-                                          avctx->coded_height,
--                                         &render->surface);
-+                                         &surf);
-     vdp->CheckStatus(vdp_st, __LINE__);
-     if (vdp_st != VDP_STATUS_OK)
-     {
--      free(render);
-       CLog::Log(LOGERROR, "CVDPAU::FFGetBuffer - No Video surface available could be created");
-       return -1;
-     }
-+    vdp->m_videoSurfaces.AddSurface(surf);
-   }
- 
-   pic->data[1] = pic->data[2] = NULL;
--  pic->data[0] = (uint8_t*)render;
--  pic->data[3] = (uint8_t*)(uintptr_t)render->surface;
-+  pic->data[0] = (uint8_t*)(uintptr_t)surf;
-+  pic->data[3] = (uint8_t*)(uintptr_t)surf;
- 
-   pic->linesize[0] = pic->linesize[1] =  pic->linesize[2] = 0;
- 
-   pic->type= FF_BUFFER_TYPE_USER;
- 
--  render->state |= FF_VDPAU_STATE_USED_FOR_REFERENCE;
-   pic->reordered_opaque= avctx->reordered_opaque;
-   return 0;
- }
-@@ -805,31 +880,17 @@ void CDecoder::FFReleaseBuffer(AVCodecContext *avctx, AVFrame *pic)
-   CDVDVideoCodecFFmpeg* ctx        = (CDVDVideoCodecFFmpeg*)avctx->opaque;
-   CDecoder*             vdp        = (CDecoder*)ctx->GetHardware();
- 
--  vdpau_render_state  * render;
-+  VdpVideoSurface surf;
-   unsigned int i;
- 
-   CSingleLock lock(vdp->m_DecoderSection);
- 
--  render=(vdpau_render_state*)pic->data[0];
--  if(!render)
--  {
--    CLog::Log(LOGERROR, "CVDPAU::FFReleaseBuffer - invalid context handle provided");
--    return;
--  }
-+  surf = (VdpVideoSurface)(uintptr_t)pic->data[3];
-+
-+  vdp->m_videoSurfaces.ClearReference(surf);
- 
--  CSingleLock vLock(vdp->m_videoSurfaceSec);
--  render->state &= ~FF_VDPAU_STATE_USED_FOR_REFERENCE;
-   for(i=0; i<4; i++)
-     pic->data[i]= NULL;
--
--  // find render state in queue
--  if (!vdp->IsSurfaceValid(render))
--  {
--    CLog::Log(LOGDEBUG, "CVDPAU::FFReleaseBuffer - ignoring invalid buffer");
--    return;
--  }
--
--  render->state &= ~FF_VDPAU_STATE_USED_FOR_REFERENCE;
- }
- 
- VdpStatus CDecoder::Render( VdpDecoder decoder, VdpVideoSurface target,
-@@ -861,17 +922,10 @@ void CDecoder::FFDrawSlice(struct AVCodecContext *s,
-   }
- 
-   VdpStatus vdp_st;
--  vdpau_render_state * render;
--
--  render = (vdpau_render_state*)src->data[0];
--  if(!render)
--  {
--    CLog::Log(LOGERROR, "CVDPAU::FFDrawSlice - invalid context handle provided");
--    return;
--  }
-+  VdpVideoSurface surf = (VdpVideoSurface)(uintptr_t)src->data[3];
- 
-   // ffmpeg vc-1 decoder does not flush, make sure the data buffer is still valid
--  if (!vdp->IsSurfaceValid(render))
-+  if (!vdp->m_videoSurfaces.IsValid(surf))
-   {
-     CLog::Log(LOGWARNING, "CVDPAU::FFDrawSlice - ignoring invalid buffer");
-     return;
-@@ -893,7 +947,7 @@ void CDecoder::FFDrawSlice(struct AVCodecContext *s,
-   uint16_t decoded, processed, rend;
-   vdp->m_bufferStats.Get(decoded, processed, rend);
-   vdp_st = vdp->m_vdpauConfig.vdpProcs.vdp_decoder_render(vdp->m_vdpauConfig.vdpDecoder,
--                                   render->surface,
-+                                   surf,
-                                    (VdpPictureInfo const *)&(vdp->m_hwContext.info),
-                                    vdp->m_hwContext.bitstream_buffers_used,
-                                    vdp->m_hwContext.bitstream_buffers);
-@@ -919,29 +973,20 @@ int CDecoder::Decode(AVCodecContext *avctx, AVFrame *pFrame)
-   if(pFrame)
-   { // we have a new frame from decoder
- 
--    vdpau_render_state * render = (vdpau_render_state*)pFrame->data[0];
--    if(!render)
--    {
--      CLog::Log(LOGERROR, "CVDPAU::Decode: no valid frame");
--      return VC_ERROR;
--    }
--
-+    VdpVideoSurface surf = (VdpVideoSurface)(uintptr_t)pFrame->data[3];
-     // ffmpeg vc-1 decoder does not flush, make sure the data buffer is still valid
--    if (!IsSurfaceValid(render))
-+    if (!m_videoSurfaces.IsValid(surf))
-     {
-       CLog::Log(LOGWARNING, "CVDPAU::Decode - ignoring invalid buffer");
-       return VC_BUFFER;
-     }
--
--    CSingleLock lock(m_videoSurfaceSec);
--    render->state |= FF_VDPAU_STATE_USED_FOR_RENDER;
--    lock.Leave();
-+    m_videoSurfaces.MarkRender(surf);
- 
-     // send frame to output for processing
-     CVdpauDecodedPicture pic;
-     memset(&pic.DVDPic, 0, sizeof(pic.DVDPic));
-     ((CDVDVideoCodecFFmpeg*)avctx->opaque)->GetPictureCommon(&pic.DVDPic);
--    pic.render = render;
-+    pic.videoSurface = surf;
-     pic.DVDPic.color_matrix = avctx->colorspace;
-     m_bufferStats.IncDecoded();
-     m_vdpauOutput.m_dataPort.SendOutMessage(COutputDataProtocol::NEWFRAME, &pic, sizeof(pic));
-@@ -2128,17 +2173,13 @@ void CMixer::Flush()
-   {
-     CVdpauDecodedPicture pic = m_mixerInput.back();
-     m_mixerInput.pop_back();
--    CSingleLock lock(*m_config.videoSurfaceSec);
--    if (pic.render)
--      pic.render->state &= ~FF_VDPAU_STATE_USED_FOR_RENDER;
-+    m_config.videoSurfaces->ClearRender(pic.videoSurface);
-   }
-   while (!m_decodedPics.empty())
-   {
-     CVdpauDecodedPicture pic = m_decodedPics.front();
-     m_decodedPics.pop();
--    CSingleLock lock(*m_config.videoSurfaceSec);
--    if (pic.render)
--      pic.render->state &= ~FF_VDPAU_STATE_USED_FOR_RENDER;
-+    m_config.videoSurfaces->ClearRender(pic.videoSurface);
-   }
-   Message *msg;
-   while (m_dataPort.ReceiveOutMessage(&msg))
-@@ -2146,9 +2187,7 @@ void CMixer::Flush()
-     if (msg->signal == CMixerDataProtocol::FRAME)
-     {
-       CVdpauDecodedPicture pic = *(CVdpauDecodedPicture*)msg->data;
--      CSingleLock lock(*m_config.videoSurfaceSec);
--      if (pic.render)
--        pic.render->state &= ~FF_VDPAU_STATE_USED_FOR_RENDER;
-+      m_config.videoSurfaces->ClearRender(pic.videoSurface);
-     }
-     else if (msg->signal == CMixerDataProtocol::BUFFER)
-     {
-@@ -2269,7 +2308,7 @@ void CMixer::InitCycle()
-   }
- 
-   m_processPicture.DVDPic = m_mixerInput[1].DVDPic;
--  m_processPicture.render = m_mixerInput[1].render;
-+  m_processPicture.videoSurface = m_mixerInput[1].videoSurface;
- }
- 
- void CMixer::FiniCycle()
-@@ -2277,10 +2316,9 @@ void CMixer::FiniCycle()
-   while (m_mixerInput.size() > 3)
-   {
-     CVdpauDecodedPicture &tmp = m_mixerInput.back();
--    if (tmp.render && m_processPicture.DVDPic.format != RENDER_FMT_VDPAU_420)
-+    if (m_processPicture.DVDPic.format != RENDER_FMT_VDPAU_420)
-     {
--      CSingleLock lock(*m_config.videoSurfaceSec);
--      tmp.render->state &= ~FF_VDPAU_STATE_USED_FOR_RENDER;
-+      m_config.videoSurfaces->ClearRender(tmp.videoSurface);
-     }
-     m_mixerInput.pop_back();
- //    m_config.stats->DecDecoded();
-@@ -2312,10 +2350,10 @@ void CMixer::ProcessPicture()
-     // use only 2 past 1 future for progressive/weave
-     // (only used for postproc anyway eg noise reduction)
-     if (m_mixerInput.size() > 3)
--      past_surfaces[1] = m_mixerInput[3].render->surface;
-+      past_surfaces[1] = m_mixerInput[3].videoSurface;
-     if (m_mixerInput.size() > 2)
--      past_surfaces[0] = m_mixerInput[2].render->surface;
--    futu_surfaces[0] = m_mixerInput[0].render->surface;
-+      past_surfaces[0] = m_mixerInput[2].videoSurface;
-+    futu_surfaces[0] = m_mixerInput[0].videoSurface;
-     pastCount = 2;
-     futuCount = 1;
-   }
-@@ -2325,31 +2363,31 @@ void CMixer::ProcessPicture()
-     { // first field
-       if (m_mixerInput.size() > 3)
-       {
--        past_surfaces[3] = m_mixerInput[3].render->surface;
--        past_surfaces[2] = m_mixerInput[3].render->surface;
-+        past_surfaces[3] = m_mixerInput[3].videoSurface;
-+        past_surfaces[2] = m_mixerInput[3].videoSurface;
-       }
-       if (m_mixerInput.size() > 2)
-       {
--        past_surfaces[1] = m_mixerInput[2].render->surface;
--        past_surfaces[0] = m_mixerInput[2].render->surface;
-+        past_surfaces[1] = m_mixerInput[2].videoSurface;
-+        past_surfaces[0] = m_mixerInput[2].videoSurface;
-       }
--      futu_surfaces[0] = m_mixerInput[1].render->surface;
--      futu_surfaces[1] = m_mixerInput[0].render->surface;;
-+      futu_surfaces[0] = m_mixerInput[1].videoSurface;
-+      futu_surfaces[1] = m_mixerInput[0].videoSurface;
-     }
-     else
-     { // second field
-       if (m_mixerInput.size() > 3)
-       {
--        past_surfaces[3] = m_mixerInput[3].render->surface;
-+        past_surfaces[3] = m_mixerInput[3].videoSurface;
-       }
-       if (m_mixerInput.size() > 2)
-       {
--        past_surfaces[2] = m_mixerInput[2].render->surface;
--        past_surfaces[1] = m_mixerInput[2].render->surface;
-+        past_surfaces[2] = m_mixerInput[2].videoSurface;
-+        past_surfaces[1] = m_mixerInput[2].videoSurface;
-       }
--      past_surfaces[0] = m_mixerInput[1].render->surface;
--      futu_surfaces[0] = m_mixerInput[1].render->surface;
--      futu_surfaces[1] = m_mixerInput[1].render->surface;
-+      past_surfaces[0] = m_mixerInput[1].videoSurface;
-+      futu_surfaces[0] = m_mixerInput[1].videoSurface;
-+      futu_surfaces[1] = m_mixerInput[1].videoSurface;
- 
-       if (m_mixerInput[0].DVDPic.pts != DVD_NOPTS_VALUE &&
-           m_mixerInput[1].DVDPic.pts != DVD_NOPTS_VALUE)
-@@ -2384,7 +2422,7 @@ void CMixer::ProcessPicture()
-                                 m_mixerfield,
-                                 pastCount,
-                                 past_surfaces,
--                                m_mixerInput[1].render->surface,
-+                                m_mixerInput[1].videoSurface,
-                                 futuCount,
-                                 futu_surfaces,
-                                 &sourceRect,
-@@ -2858,9 +2896,7 @@ void COutput::Flush()
-       CVdpauProcessedPicture pic = *(CVdpauProcessedPicture*)msg->data;
-       if (pic.DVDPic.format == RENDER_FMT_VDPAU_420)
-       {
--        CSingleLock lock(*m_config.videoSurfaceSec);
--        if (pic.render)
--          pic.render->state &= ~FF_VDPAU_STATE_USED_FOR_RENDER;
-+        m_config.videoSurfaces->ClearRender(pic.videoSurface);
-       }
-     }
-     msg->Release();
-@@ -2871,9 +2907,7 @@ void COutput::Flush()
-     if (msg->signal == COutputDataProtocol::NEWFRAME)
-     {
-       CVdpauDecodedPicture pic = *(CVdpauDecodedPicture*)msg->data;
--      CSingleLock lock(*m_config.videoSurfaceSec);
--      if (pic.render)
--        pic.render->state &= ~FF_VDPAU_STATE_USED_FOR_RENDER;
-+      m_config.videoSurfaces->ClearRender(pic.videoSurface);
-     }
-     else if (msg->signal == COutputDataProtocol::RETURNPIC)
-     {
-@@ -2908,9 +2942,7 @@ void COutput::Flush()
-         CLog::Log(LOGDEBUG, "COutput::Flush - gl surface not found");
-         continue;
-       }
--      vdpau_render_state *render = it2->second.sourceVuv;
--      if (render)
--        render->state |= FF_VDPAU_STATE_USED_FOR_RENDER;
-+      m_config.videoSurfaces->MarkRender(it2->second.sourceVuv);
-     }
-   }
- }
-@@ -3004,9 +3036,9 @@ CVdpauRenderPicture* COutput::ProcessMixerPicture()
-     {
-       m_config.useInteropYuv = true;
-       GLMapSurfaces();
--      retPic->sourceIdx = procPic.render->surface;
-+      retPic->sourceIdx = procPic.videoSurface;
-       for (unsigned int i=0; i<4; ++i)
--        retPic->texture[i] = m_bufferPool.glVideoSurfaceMap[procPic.render->surface].texture[i];
-+        retPic->texture[i] = m_bufferPool.glVideoSurfaceMap[procPic.videoSurface].texture[i];
-       retPic->texWidth = m_config.surfaceWidth;
-       retPic->texHeight = m_config.surfaceHeight;
-       retPic->crop.x1 = 0;
-@@ -3123,9 +3155,8 @@ void COutput::ProcessReturnPicture(CVdpauRenderPicture *pic)
-       CLog::Log(LOGDEBUG, "COutput::ProcessReturnPicture - gl surface not found");
-       return;
-     }
--    vdpau_render_state *render = it->second.sourceVuv;
--    CSingleLock lock(*m_config.videoSurfaceSec);
--    render->state &= ~FF_VDPAU_STATE_USED_FOR_RENDER;
-+    VdpVideoSurface surf = it->second.sourceVuv;
-+    m_config.videoSurfaces->ClearRender(surf);
-   }
-   else if (pic->DVDPic.format == RENDER_FMT_VDPAU)
-   {
-@@ -3531,17 +3562,19 @@ void COutput::GLMapSurfaces()
-   if (m_config.useInteropYuv)
-   {
-     VdpauBufferPool::GLVideoSurface glSurface;
--    if (m_config.videoSurfaces->size() != m_bufferPool.glVideoSurfaceMap.size())
-+    VdpVideoSurface surf;
-+    if (m_config.videoSurfaces->Size() != m_bufferPool.glVideoSurfaceMap.size())
-     {
--      CSingleLock lock(*m_config.videoSurfaceSec);
--      for (unsigned int i = 0; i < m_config.videoSurfaces->size(); i++)
-+      for (unsigned int i = 0; i < m_config.videoSurfaces->Size(); i++)
-       {
--        if ((*m_config.videoSurfaces)[i]->surface == VDP_INVALID_HANDLE)
-+        surf = m_config.videoSurfaces->GetAtIndex(i);
-+
-+        if (surf == VDP_INVALID_HANDLE)
-           continue;
- 
--        if (m_bufferPool.glVideoSurfaceMap.find((*m_config.videoSurfaces)[i]->surface) == m_bufferPool.glVideoSurfaceMap.end())
-+        if (m_bufferPool.glVideoSurfaceMap.find(surf) == m_bufferPool.glVideoSurfaceMap.end())
-         {
--          glSurface.sourceVuv = (*m_config.videoSurfaces)[i];
-+          glSurface.sourceVuv = surf;
-           while (glGetError() != GL_NO_ERROR) ;
-           glGenTextures(4, glSurface.texture);
-           if (glGetError() != GL_NO_ERROR)
-@@ -3549,7 +3582,7 @@ void COutput::GLMapSurfaces()
-              CLog::Log(LOGERROR, "VDPAU::COutput error creating texture");
-              m_vdpError = true;
-           }
--          glSurface.glVdpauSurface = glVDPAURegisterVideoSurfaceNV(reinterpret_cast<void*>((*m_config.videoSurfaces)[i]->surface),
-+          glSurface.glVdpauSurface = glVDPAURegisterVideoSurfaceNV(reinterpret_cast<void*>(surf),
-                                                     GL_TEXTURE_2D, 4, glSurface.texture);
- 
-           if (glGetError() != GL_NO_ERROR)
-@@ -3569,7 +3602,7 @@ void COutput::GLMapSurfaces()
-             CLog::Log(LOGERROR, "VDPAU::COutput error mapping surface");
-             m_vdpError = true;
-           }
--          m_bufferPool.glVideoSurfaceMap[(*m_config.videoSurfaces)[i]->surface] = glSurface;
-+          m_bufferPool.glVideoSurfaceMap[surf] = glSurface;
-           if (m_vdpError)
-             return;
-           CLog::Log(LOGNOTICE, "VDPAU::COutput registered surface");
-@@ -3621,7 +3654,7 @@ void COutput::GLUnmapSurfaces()
-   if (m_config.usePixmaps)
-     return;
- 
--  { CSingleLock lock(*m_config.videoSurfaceSec);
-+  {
-     std::map<VdpVideoSurface, VdpauBufferPool::GLVideoSurface>::iterator it;
-     for (it = m_bufferPool.glVideoSurfaceMap.begin(); it != m_bufferPool.glVideoSurfaceMap.end(); ++it)
-     {
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-index db2671f..0b5239c 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-@@ -60,6 +60,7 @@
- #include "threads/Event.h"
- #include "threads/Thread.h"
- #include "utils/ActorProtocol.h"
-+#include <list>
- 
- using namespace Actor;
- 
-@@ -167,6 +168,8 @@ class CVdpauBufferStats
-  *  for init.
-  */
- 
-+class CVideoSurfaces;
-+
- struct CVdpauConfig
- {
-   int surfaceWidth;
-@@ -184,8 +187,7 @@ struct CVdpauConfig
-   int featureCount;
-   int upscale;
-   VdpVideoMixerFeature vdpFeatures[14];
--  std::vector<vdpau_render_state*> *videoSurfaces;
--  CCriticalSection *videoSurfaceSec;
-+  CVideoSurfaces *videoSurfaces;
-   bool usePixmaps;
-   int numRenderBuffers;
-   uint32_t maxReferences;
-@@ -199,7 +201,7 @@ struct CVdpauConfig
- struct CVdpauDecodedPicture
- {
-   DVDVideoPicture DVDPic;
--  vdpau_render_state *render;
-+  VdpVideoSurface videoSurface;
- };
- 
- /**
-@@ -208,7 +210,7 @@ struct CVdpauDecodedPicture
- struct CVdpauProcessedPicture
- {
-   DVDVideoPicture DVDPic;
--  vdpau_render_state *render;
-+  VdpVideoSurface videoSurface;
-   VdpOutputSurface outputSurface;
- };
- 
-@@ -381,7 +383,7 @@ struct VdpauBufferPool
- #ifdef GL_NV_vdpau_interop
-     GLvdpauSurfaceNV glVdpauSurface;
- #endif
--    vdpau_render_state *sourceVuv;
-+    VdpVideoSurface sourceVuv;
-     VdpOutputSurface sourceRgb;
-   };
-   std::vector<CVdpauRenderPicture*> allRenderPics;
-@@ -511,6 +513,29 @@ class COutput : private CThread
- };
- 
- //-----------------------------------------------------------------------------
-+// VDPAU Video Surface states
-+//-----------------------------------------------------------------------------
-+
-+class CVideoSurfaces
-+{
-+public:
-+  void AddSurface(VdpVideoSurface surf);
-+  void ClearReference(VdpVideoSurface surf);
-+  bool MarkRender(VdpVideoSurface surf);
-+  void ClearRender(VdpVideoSurface surf);
-+  bool IsValid(VdpVideoSurface surf);
-+  VdpVideoSurface GetFree(VdpVideoSurface surf);
-+  VdpVideoSurface GetAtIndex(int idx);
-+  VdpVideoSurface RemoveNext(bool skiprender = false);
-+  void Reset();
-+  int Size();
-+protected:
-+  std::map<VdpVideoSurface, int> m_state;
-+  std::list<VdpVideoSurface> m_freeSurfaces;
-+  CCriticalSection m_section;
-+};
-+
-+//-----------------------------------------------------------------------------
- // VDPAU decoder
- //-----------------------------------------------------------------------------
- 
-@@ -570,7 +595,6 @@ class CDecoder
-   bool ConfigVDPAU(AVCodecContext *avctx, int ref_frames);
-   void SpewHardwareAvailable();
-   bool CheckStatus(VdpStatus vdp_st, int line);
--  bool IsSurfaceValid(vdpau_render_state *render);
-   void InitVDPAUProcs();
-   void FiniVDPAUProcs();
-   void FiniVDPAUOutput();
-@@ -603,9 +627,8 @@ class CDecoder
-   ThreadIdentifier m_decoderThread;
-   bool          m_vdpauConfigured;
-   CVdpauConfig  m_vdpauConfig;
--  std::vector<vdpau_render_state*> m_videoSurfaces;
-+  CVideoSurfaces m_videoSurfaces;
-   AVVDPAUContext m_hwContext;
--  CCriticalSection m_videoSurfaceSec;
- 
-   COutput       m_vdpauOutput;
-   CVdpauBufferStats m_bufferStats;
--- 
-1.8.4
-
-
-From 05f3a2368ae19a04d31e138d53215facde989b34 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Fri, 27 Sep 2013 16:04:45 +0200
-Subject: [PATCH 04/87] vdpau: clear processed pics on flush
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index 2b8a5ad..b275c3e 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -2894,10 +2894,7 @@ void COutput::Flush()
-     if (msg->signal == CMixerDataProtocol::PICTURE)
-     {
-       CVdpauProcessedPicture pic = *(CVdpauProcessedPicture*)msg->data;
--      if (pic.DVDPic.format == RENDER_FMT_VDPAU_420)
--      {
--        m_config.videoSurfaces->ClearRender(pic.videoSurface);
--      }
-+      m_bufferPool.processedPics.push(pic);
-     }
-     msg->Release();
-   }
-@@ -2945,6 +2942,21 @@ void COutput::Flush()
-       m_config.videoSurfaces->MarkRender(it2->second.sourceVuv);
-     }
-   }
-+
-+  // clear processed pics
-+  while(!m_bufferPool.processedPics.empty())
-+  {
-+    CVdpauProcessedPicture procPic = m_bufferPool.processedPics.front();
-+    if (procPic.DVDPic.format == RENDER_FMT_VDPAU)
-+    {
-+      m_mixer.m_dataPort.SendOutMessage(CMixerDataProtocol::BUFFER, &procPic.outputSurface, sizeof(procPic.outputSurface));
-+    }
-+    else if (procPic.DVDPic.format == RENDER_FMT_VDPAU_420)
-+    {
-+      m_config.videoSurfaces->ClearRender(procPic.videoSurface);
-+    }
-+    m_bufferPool.processedPics.pop();
-+  }
- }
- 
- bool COutput::HasWork()
--- 
-1.8.4
-
-
-From 895dc073da6b3e46087ff3f1e4e9150884073feb Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sat, 28 Sep 2013 19:56:19 +0200
-Subject: [PATCH 05/87] vdpau: reactivate long decoding time debug message
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index b275c3e..eb75adc 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -943,7 +943,7 @@ void CDecoder::FFDrawSlice(struct AVCodecContext *s,
-       return;
-   }
- 
--//  uint64_t startTime = CurrentHostCounter();
-+  uint64_t startTime = CurrentHostCounter();
-   uint16_t decoded, processed, rend;
-   vdp->m_bufferStats.Get(decoded, processed, rend);
-   vdp_st = vdp->m_vdpauConfig.vdpProcs.vdp_decoder_render(vdp->m_vdpauConfig.vdpDecoder,
-@@ -952,10 +952,9 @@ void CDecoder::FFDrawSlice(struct AVCodecContext *s,
-                                    vdp->m_hwContext.bitstream_buffers_used,
-                                    vdp->m_hwContext.bitstream_buffers);
-   vdp->CheckStatus(vdp_st, __LINE__);
--//  uint64_t diff = CurrentHostCounter() - startTime;
--//  if (diff*1000/CurrentHostFrequency() > 30)
--//    CLog::Log(LOGWARNING,"CVDPAU::DrawSlice - VdpDecoderRender long decoding: %d ms, dec: %d, proc: %d, rend: %d", (int)((diff*1000)/CurrentHostFrequency()), decoded, processed, rend);
--
-+  uint64_t diff = CurrentHostCounter() - startTime;
-+  if (diff*1000/CurrentHostFrequency() > 30)
-+    CLog::Log(LOGDEBUG, "CVDPAU::DrawSlice - VdpDecoderRender long decoding: %d ms, dec: %d, proc: %d, rend: %d", (int)((diff*1000)/CurrentHostFrequency()), decoded, processed, rend);
- }
- 
- 
--- 
-1.8.4
-
-
-From 515d99358788ea5c08e00b39a5be47d75783cd1e Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sun, 29 Sep 2013 07:30:41 +0200
-Subject: [PATCH 06/87] vdpau: keep video surfaces for another cycle
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index eb75adc..271e72c 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -2312,7 +2312,10 @@ void CMixer::InitCycle()
- 
- void CMixer::FiniCycle()
- {
--  while (m_mixerInput.size() > 3)
-+  // Keep video surfaces for one 2 cycles longer than used
-+  // by mixer. This avoids blocking in decoder.
-+  // NVidia recommends num_ref + 5
-+  while (m_mixerInput.size() > 5)
-   {
-     CVdpauDecodedPicture &tmp = m_mixerInput.back();
-     if (m_processPicture.DVDPic.format != RENDER_FMT_VDPAU_420)
--- 
-1.8.4
-
-
-From 8de31feb9cf8d85c42fee720b7d45941bc113558 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Mon, 30 Sep 2013 10:49:58 +0200
-Subject: [PATCH 07/87] vdpau: create only a single vdpau device
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 326 ++++++++++++++++---------
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h   |  34 ++-
- 2 files changed, 236 insertions(+), 124 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index 271e72c..150c1c7 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -74,10 +74,192 @@
- static float studioCSCKCoeffs601[3] = {0.299, 0.587, 0.114}; //BT601 {Kr, Kg, Kb}
- static float studioCSCKCoeffs709[3] = {0.2126, 0.7152, 0.0722}; //BT709 {Kr, Kg, Kb}
- 
--//since libvdpau 0.4, vdp_device_create_x11() installs a callback on the Display*,
--//if we unload libvdpau with dlclose(), we segfault on XCloseDisplay,
--//so we just keep a static handle to libvdpau around
--void* CDecoder::dl_handle;
-+//-----------------------------------------------------------------------------
-+//-----------------------------------------------------------------------------
-+
-+CVDPAUContext *CVDPAUContext::m_context = 0;
-+CCriticalSection CVDPAUContext::m_section;
-+Display *CVDPAUContext::m_display = 0;
-+void *CVDPAUContext::m_dlHandle = 0;
-+
-+CVDPAUContext::CVDPAUContext()
-+{
-+  m_context = 0;
-+  m_refCount = 0;
-+}
-+
-+void CVDPAUContext::Release()
-+{
-+  CSingleLock lock(m_section);
-+
-+  m_refCount--;
-+  if (m_refCount <= 0)
-+  {
-+    Close();
-+    delete this;
-+    m_context = 0;
-+  }
-+}
-+
-+void CVDPAUContext::Close()
-+{
-+  CLog::Log(LOGNOTICE, "VDPAU::Close - closing decoder context");
-+  DestroyContext();
-+}
-+
-+bool CVDPAUContext::EnsureContext(CVDPAUContext **ctx)
-+{
-+  CSingleLock lock(m_section);
-+
-+  if (m_context)
-+  {
-+    m_context->m_refCount++;
-+    *ctx = m_context;
-+    return true;
-+  }
-+
-+  m_context = new CVDPAUContext();
-+  *ctx = m_context;
-+  {
-+    CSingleLock gLock(g_graphicsContext);
-+    if (!m_context->LoadSymbols() || !m_context->CreateContext())
-+    {
-+      delete m_context;
-+      m_context = 0;
-+      return false;
-+    }
-+  }
-+
-+  m_context->m_refCount++;
-+
-+  *ctx = m_context;
-+  return true;
-+}
-+
-+bool CVDPAUContext::LoadSymbols()
-+{
-+  if (!m_dlHandle)
-+  {
-+    m_dlHandle  = dlopen("libvdpau.so.1", RTLD_LAZY);
-+    if (!m_dlHandle)
-+    {
-+      const char* error = dlerror();
-+      if (!error)
-+        error = "dlerror() returned NULL";
-+
-+      CLog::Log(LOGERROR,"VDPAU::LoadSymbols: Unable to get handle to lib: %s", error);
-+      return false;
-+    }
-+  }
-+
-+  char* error;
-+  (void)dlerror();
-+  dl_vdp_device_create_x11 = (VdpStatus (*)(Display*, int, VdpDevice*, VdpStatus (**)(VdpDevice, VdpFuncId, void**)))dlsym(m_dlHandle, (const char*)"vdp_device_create_x11");
-+  error = dlerror();
-+  if (error)
-+  {
-+    CLog::Log(LOGERROR,"(VDPAU) - %s in %s",error,__FUNCTION__);
-+    m_vdpDevice = VDP_INVALID_HANDLE;
-+    return false;
-+  }
-+  return true;
-+}
-+
-+bool CVDPAUContext::CreateContext()
-+{
-+  CLog::Log(LOGNOTICE,"VDPAU::CreateContext - creating decoder context");
-+
-+  int mScreen;
-+  { CSingleLock lock(g_graphicsContext);
-+    if (!m_display)
-+      m_display = XOpenDisplay(NULL);
-+    mScreen = g_Windowing.GetCurrentScreen();
-+  }
-+
-+  VdpStatus vdp_st;
-+  // Create Device
-+  vdp_st = dl_vdp_device_create_x11(m_display,
-+                                    mScreen,
-+                                   &m_vdpDevice,
-+                                   &m_vdp_get_proc_address);
-+
-+  CLog::Log(LOGNOTICE,"vdp_device = 0x%08x vdp_st = 0x%08x",m_vdpDevice,vdp_st);
-+  if (vdp_st != VDP_STATUS_OK)
-+  {
-+    CLog::Log(LOGERROR,"(VDPAU) unable to init VDPAU - vdp_st = 0x%x.  Falling back.",vdp_st);
-+    m_vdpDevice = VDP_INVALID_HANDLE;
-+    return false;
-+  }
-+  vdp_st = m_vdp_get_proc_address(m_vdpDevice, VDP_FUNC_ID_DEVICE_DESTROY, (void**)&m_vdp_device_destroy);
-+
-+  return true;
-+}
-+
-+void CVDPAUContext::GetProcs(VDPAU_procs &procs)
-+{
-+  VdpStatus vdp_st;
-+
-+  procs.vdp_get_proc_address = m_vdp_get_proc_address;
-+
-+#define VDP_PROC(id, proc) \
-+  do { \
-+    vdp_st = m_vdp_get_proc_address(m_vdpDevice, id, (void**)&proc); \
-+    if (vdp_st != VDP_STATUS_OK) \
-+    { \
-+      CLog::Log(LOGERROR, "CVDPAUContext::GetProcs - failed to get proc id"); \
-+    } \
-+  } while(0);
-+
-+  VDP_PROC(VDP_FUNC_ID_GET_ERROR_STRING                    , procs.vdp_get_error_string);
-+  VDP_PROC(VDP_FUNC_ID_DEVICE_DESTROY                      , procs.vdp_device_destroy);
-+  VDP_PROC(VDP_FUNC_ID_GENERATE_CSC_MATRIX                 , procs.vdp_generate_csc_matrix);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_CREATE                , procs.vdp_video_surface_create);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_DESTROY               , procs.vdp_video_surface_destroy);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_PUT_BITS_Y_CB_CR      , procs.vdp_video_surface_put_bits_y_cb_cr);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_GET_BITS_Y_CB_CR      , procs.vdp_video_surface_get_bits_y_cb_cr);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_Y_CB_CR     , procs.vdp_output_surface_put_bits_y_cb_cr);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_NATIVE      , procs.vdp_output_surface_put_bits_native);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_CREATE               , procs.vdp_output_surface_create);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY              , procs.vdp_output_surface_destroy);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_GET_BITS_NATIVE      , procs.vdp_output_surface_get_bits_native);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_RENDER_OUTPUT_SURFACE, procs.vdp_output_surface_render_output_surface);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_INDEXED     , procs.vdp_output_surface_put_bits_indexed);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_CREATE                  , procs.vdp_video_mixer_create);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_FEATURE_ENABLES     , procs.vdp_video_mixer_set_feature_enables);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_DESTROY                 , procs.vdp_video_mixer_destroy);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_RENDER                  , procs.vdp_video_mixer_render);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_ATTRIBUTE_VALUES    , procs.vdp_video_mixer_set_attribute_values);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_PARAMETER_SUPPORT , procs.vdp_video_mixer_query_parameter_support);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_FEATURE_SUPPORT   , procs.vdp_video_mixer_query_feature_support);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_CREATE                      , procs.vdp_decoder_create);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_DESTROY                     , procs.vdp_decoder_destroy);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_RENDER                      , procs.vdp_decoder_render);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_QUERY_CAPABILITIES          , procs.vdp_decoder_query_caps);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_DESTROY          , procs.vdp_presentation_queue_target_destroy);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_CREATE                  , procs.vdp_presentation_queue_create);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DESTROY                 , procs.vdp_presentation_queue_destroy);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DISPLAY                 , procs.vdp_presentation_queue_display);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_BLOCK_UNTIL_SURFACE_IDLE, procs.vdp_presentation_queue_block_until_surface_idle);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_CREATE_X11       , procs.vdp_presentation_queue_target_create_x11);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_QUERY_SURFACE_STATUS    , procs.vdp_presentation_queue_query_surface_status);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_GET_TIME                , procs.vdp_presentation_queue_get_time);
-+
-+#undef VDP_PROC
-+}
-+
-+VdpDevice CVDPAUContext::GetDevice()
-+{
-+  return m_vdpDevice;
-+}
-+
-+void CVDPAUContext::DestroyContext()
-+{
-+  if (!m_vdp_device_destroy)
-+    return;
-+
-+  m_vdp_device_destroy(m_vdpDevice);
-+  m_vdpDevice = VDP_INVALID_HANDLE;
-+}
- 
- //-----------------------------------------------------------------------------
- // VDPAU Video Surface states
-@@ -236,6 +418,7 @@ int CVideoSurfaces::Size()
-   m_vdpauConfigured = false;
-   m_hwContext.bitstream_buffers_allocated = 0;
-   m_DisplayState = VDPAU_OPEN;
-+  m_vdpauConfig.context = 0;
- }
- 
- bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int surfaces)
-@@ -252,27 +435,19 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int
-   if ((avctx->codec_id == AV_CODEC_ID_MPEG4) && !g_advancedSettings.m_videoAllowMpeg4VDPAU)
-     return false;
- 
--  if (!dl_handle)
--  {
--    dl_handle  = dlopen("libvdpau.so.1", RTLD_LAZY);
--    if (!dl_handle)
--    {
--      const char* error = dlerror();
--      if (!error)
--        error = "dlerror() returned NULL";
-+  if (!CVDPAUContext::EnsureContext(&m_vdpauConfig.context))
-+    return false;
- 
--      CLog::Log(LOGNOTICE,"(VDPAU) Unable to get handle to libvdpau: %s", error);
--      return false;
--    }
--  }
-+  m_vdpauConfig.context->GetProcs(m_vdpauConfig.vdpProcs);
-+  m_vdpauConfig.vdpDevice = m_vdpauConfig.context->GetDevice();
-+  m_DisplayState = VDPAU_OPEN;
-+  m_vdpauConfigured = false;
- 
-   if (!m_dllAvUtil.Load())
-     return false;
- 
--  InitVDPAUProcs();
-   m_presentPicture = 0;
- 
--  if (m_vdpauConfig.vdpDevice != VDP_INVALID_HANDLE)
-   {
-     SpewHardwareAvailable();
- 
-@@ -295,7 +470,6 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int
-       if(vdp_st != VDP_STATUS_OK)
-       {
-         CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) checking for decoder support\n", m_vdpauConfig.vdpProcs.vdp_get_error_string(vdp_st), vdp_st);
--        FiniVDPAUProcs();
-         return false;
-       }
- 
-@@ -335,7 +509,6 @@ void CDecoder::Close()
-   CSingleLock lock(m_DecoderSection);
- 
-   FiniVDPAUOutput();
--  FiniVDPAUProcs();
-   m_vdpauOutput.Dispose();
- 
-   if (m_hwContext.bitstream_buffers_allocated)
-@@ -344,6 +517,10 @@ void CDecoder::Close()
-   }
- 
-   m_dllAvUtil.Unload();
-+
-+  if (m_vdpauConfig.context)
-+    m_vdpauConfig.context->Release();
-+  m_vdpauConfig.context = 0;
- }
- 
- long CDecoder::Release()
-@@ -424,7 +601,9 @@ void CDecoder::OnLostDevice()
- 
-   CSingleLock lock(m_DecoderSection);
-   FiniVDPAUOutput();
--  FiniVDPAUProcs();
-+  if (m_vdpauConfig.context)
-+    m_vdpauConfig.context->Release();
-+  m_vdpauConfig.context = 0;
- 
-   m_DisplayState = VDPAU_LOST;
-   lock.Leave();
-@@ -477,9 +656,17 @@ int CDecoder::Check(AVCodecContext* avctx)
-     CSingleLock lock(m_DecoderSection);
- 
-     FiniVDPAUOutput();
--    FiniVDPAUProcs();
-+    if (m_vdpauConfig.context)
-+      m_vdpauConfig.context->Release();
-+    m_vdpauConfig.context = 0;
- 
--    InitVDPAUProcs();
-+    if (CVDPAUContext::EnsureContext(&m_vdpauConfig.context))
-+    {
-+      m_vdpauConfig.context->GetProcs(m_vdpauConfig.vdpProcs);
-+      m_vdpauConfig.vdpDevice = m_vdpauConfig.context->GetDevice();
-+      m_DisplayState = VDPAU_OPEN;
-+      m_vdpauConfigured = false;
-+    }
- 
-     if (state == VDPAU_RESET)
-       return VC_FLUSHED;
-@@ -535,99 +722,6 @@ EINTERLACEMETHOD CDecoder::AutoInterlaceMethod()
-   return VS_INTERLACEMETHOD_RENDER_BOB;
- }
- 
--void CDecoder::InitVDPAUProcs()
--{
--  char* error;
--
--  (void)dlerror();
--  dl_vdp_device_create_x11 = (VdpStatus (*)(Display*, int, VdpDevice*, VdpStatus (**)(VdpDevice, VdpFuncId, void**)))dlsym(dl_handle, (const char*)"vdp_device_create_x11");
--  error = dlerror();
--  if (error)
--  {
--    CLog::Log(LOGERROR,"(VDPAU) - %s in %s",error,__FUNCTION__);
--    m_vdpauConfig.vdpDevice = VDP_INVALID_HANDLE;
--    return;
--  }
--
--  if (dl_vdp_device_create_x11)
--  {
--    m_Display = XOpenDisplay(NULL);
--  }
--
--  int mScreen = g_Windowing.GetCurrentScreen();
--  VdpStatus vdp_st;
--
--  // Create Device
--  vdp_st = dl_vdp_device_create_x11(m_Display, //x_display,
--                                 mScreen, //x_screen,
--                                 &m_vdpauConfig.vdpDevice,
--                                 &m_vdpauConfig.vdpProcs.vdp_get_proc_address);
--
--  CLog::Log(LOGNOTICE,"vdp_device = 0x%08x vdp_st = 0x%08x",m_vdpauConfig.vdpDevice,vdp_st);
--  if (vdp_st != VDP_STATUS_OK)
--  {
--    CLog::Log(LOGERROR,"(VDPAU) unable to init VDPAU - vdp_st = 0x%x.  Falling back.",vdp_st);
--    m_vdpauConfig.vdpDevice = VDP_INVALID_HANDLE;
--    return;
--  }
--
--#define VDP_PROC(id, proc) \
--  do { \
--    vdp_st = m_vdpauConfig.vdpProcs.vdp_get_proc_address(m_vdpauConfig.vdpDevice, id, (void**)&proc); \
--    CheckStatus(vdp_st, __LINE__); \
--  } while(0);
--
--  VDP_PROC(VDP_FUNC_ID_GET_ERROR_STRING                    , m_vdpauConfig.vdpProcs.vdp_get_error_string);
--  VDP_PROC(VDP_FUNC_ID_DEVICE_DESTROY                      , m_vdpauConfig.vdpProcs.vdp_device_destroy);
--  VDP_PROC(VDP_FUNC_ID_GENERATE_CSC_MATRIX                 , m_vdpauConfig.vdpProcs.vdp_generate_csc_matrix);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_CREATE                , m_vdpauConfig.vdpProcs.vdp_video_surface_create);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_DESTROY               , m_vdpauConfig.vdpProcs.vdp_video_surface_destroy);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_PUT_BITS_Y_CB_CR      , m_vdpauConfig.vdpProcs.vdp_video_surface_put_bits_y_cb_cr);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_GET_BITS_Y_CB_CR      , m_vdpauConfig.vdpProcs.vdp_video_surface_get_bits_y_cb_cr);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_Y_CB_CR     , m_vdpauConfig.vdpProcs.vdp_output_surface_put_bits_y_cb_cr);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_NATIVE      , m_vdpauConfig.vdpProcs.vdp_output_surface_put_bits_native);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_CREATE               , m_vdpauConfig.vdpProcs.vdp_output_surface_create);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY              , m_vdpauConfig.vdpProcs.vdp_output_surface_destroy);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_GET_BITS_NATIVE      , m_vdpauConfig.vdpProcs.vdp_output_surface_get_bits_native);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_RENDER_OUTPUT_SURFACE, m_vdpauConfig.vdpProcs.vdp_output_surface_render_output_surface);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_INDEXED     , m_vdpauConfig.vdpProcs.vdp_output_surface_put_bits_indexed);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_CREATE                  , m_vdpauConfig.vdpProcs.vdp_video_mixer_create);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_FEATURE_ENABLES     , m_vdpauConfig.vdpProcs.vdp_video_mixer_set_feature_enables);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_DESTROY                 , m_vdpauConfig.vdpProcs.vdp_video_mixer_destroy);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_RENDER                  , m_vdpauConfig.vdpProcs.vdp_video_mixer_render);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_ATTRIBUTE_VALUES    , m_vdpauConfig.vdpProcs.vdp_video_mixer_set_attribute_values);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_PARAMETER_SUPPORT , m_vdpauConfig.vdpProcs.vdp_video_mixer_query_parameter_support);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_FEATURE_SUPPORT   , m_vdpauConfig.vdpProcs.vdp_video_mixer_query_feature_support);
--  VDP_PROC(VDP_FUNC_ID_DECODER_CREATE                      , m_vdpauConfig.vdpProcs.vdp_decoder_create);
--  VDP_PROC(VDP_FUNC_ID_DECODER_DESTROY                     , m_vdpauConfig.vdpProcs.vdp_decoder_destroy);
--  VDP_PROC(VDP_FUNC_ID_DECODER_RENDER                      , m_vdpauConfig.vdpProcs.vdp_decoder_render);
--  VDP_PROC(VDP_FUNC_ID_DECODER_QUERY_CAPABILITIES          , m_vdpauConfig.vdpProcs.vdp_decoder_query_caps);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_DESTROY          , m_vdpauConfig.vdpProcs.vdp_presentation_queue_target_destroy);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_CREATE                  , m_vdpauConfig.vdpProcs.vdp_presentation_queue_create);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DESTROY                 , m_vdpauConfig.vdpProcs.vdp_presentation_queue_destroy);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DISPLAY                 , m_vdpauConfig.vdpProcs.vdp_presentation_queue_display);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_BLOCK_UNTIL_SURFACE_IDLE, m_vdpauConfig.vdpProcs.vdp_presentation_queue_block_until_surface_idle);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_CREATE_X11       , m_vdpauConfig.vdpProcs.vdp_presentation_queue_target_create_x11);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_QUERY_SURFACE_STATUS    , m_vdpauConfig.vdpProcs.vdp_presentation_queue_query_surface_status);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_GET_TIME                , m_vdpauConfig.vdpProcs.vdp_presentation_queue_get_time);
--
--#undef VDP_PROC
--
--  // set all vdpau resources to invalid
--  m_DisplayState = VDPAU_OPEN;
--  m_vdpauConfigured = false;
--}
--
--void CDecoder::FiniVDPAUProcs()
--{
--  if (m_vdpauConfig.vdpDevice == VDP_INVALID_HANDLE) return;
--
--  VdpStatus vdp_st;
--  vdp_st = m_vdpauConfig.vdpProcs.vdp_device_destroy(m_vdpauConfig.vdpDevice);
--  CheckStatus(vdp_st, __LINE__);
--  m_vdpauConfig.vdpDevice = VDP_INVALID_HANDLE;
--}
--
- void CDecoder::FiniVDPAUOutput()
- {
-   if (m_vdpauConfig.vdpDevice == VDP_INVALID_HANDLE || !m_vdpauConfigured) return;
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-index 0b5239c..c8e89dc 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-@@ -169,6 +169,7 @@ class CVdpauBufferStats
-  */
- 
- class CVideoSurfaces;
-+class CVDPAUContext;
- 
- struct CVdpauConfig
- {
-@@ -192,6 +193,7 @@ struct CVdpauConfig
-   int numRenderBuffers;
-   uint32_t maxReferences;
-   bool useInteropYuv;
-+  CVDPAUContext *context;
- };
- 
- /**
-@@ -539,6 +541,30 @@ class CVideoSurfaces
- // VDPAU decoder
- //-----------------------------------------------------------------------------
- 
-+class CVDPAUContext
-+{
-+public:
-+  static bool EnsureContext(CVDPAUContext **ctx);
-+  void Release();
-+  void GetProcs(VDPAU_procs &procs);
-+  VdpDevice GetDevice();
-+private:
-+  CVDPAUContext();
-+  void Close();
-+  bool LoadSymbols();
-+  bool CreateContext();
-+  void DestroyContext();
-+  static CVDPAUContext *m_context;
-+  static CCriticalSection m_section;
-+  static Display *m_display;
-+  int m_refCount;
-+  static void *m_dlHandle;
-+  VdpDevice m_vdpDevice;
-+  VdpGetProcAddress *m_vdp_get_proc_address;
-+  VdpDeviceDestroy *m_vdp_device_destroy;
-+  VdpStatus (*dl_vdp_device_create_x11)(Display* display, int screen, VdpDevice* device, VdpGetProcAddress **get_proc_address);
-+};
-+
- /**
-  *  VDPAU main class
-  */
-@@ -595,8 +621,6 @@ class CDecoder
-   bool ConfigVDPAU(AVCodecContext *avctx, int ref_frames);
-   void SpewHardwareAvailable();
-   bool CheckStatus(VdpStatus vdp_st, int line);
--  void InitVDPAUProcs();
--  void FiniVDPAUProcs();
-   void FiniVDPAUOutput();
-   void ReturnRenderPicture(CVdpauRenderPicture *renderPic);
-   long ReleasePicReference();
-@@ -605,10 +629,6 @@ class CDecoder
-                           , VdpDecoderProfile &decoder_profile
-                           , VdpChromaType     &chroma_type);
- 
--  VdpStatus (*dl_vdp_device_create_x11)(Display* display, int screen, VdpDevice* device, VdpGetProcAddress **get_proc_address);
--  VdpStatus (*dl_vdp_get_proc_address)(VdpDevice device, VdpFuncId function_id, void** function_pointer);
--  VdpStatus (*dl_vdp_preemption_callback_register)(VdpDevice device, VdpPreemptionCallback callback, void* context);
--
-   // OnLostDevice triggers transition from all states to LOST
-   // internal errors trigger transition from OPEN to RESET
-   // OnResetDevice triggers transition from LOST to RESET
-@@ -621,9 +641,7 @@ class CDecoder
-   CCriticalSection m_DecoderSection;
-   CEvent         m_DisplayEvent;
- 
--  static void*  dl_handle;
-   DllAvUtil     m_dllAvUtil;
--  Display*      m_Display;
-   ThreadIdentifier m_decoderThread;
-   bool          m_vdpauConfigured;
-   CVdpauConfig  m_vdpauConfig;
--- 
-1.8.4
-
-
-From 34e2e9a97eec23137717c7dbeff4a3066b71408c Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Mon, 30 Sep 2013 18:52:31 +0200
-Subject: [PATCH 08/87] vdpau: make sure buffers a full before returning a
- picture
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index 150c1c7..28f069d 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -1106,7 +1106,14 @@ int CDecoder::Decode(AVCodecContext *avctx, AVFrame *pFrame)
-   uint64_t startTime = CurrentHostCounter();
-   while (!retval)
-   {
--    if (m_vdpauOutput.m_dataPort.ReceiveInMessage(&msg))
-+    // first fill the buffers to keep vdpau busy
-+    // mixer will run with decoded >= 2. output is limited by number of output surfaces
-+    // In case mixer is bypassed we limit by looking at processed
-+    if (decoded < 3 && processed < 3)
-+    {
-+      retval |= VC_BUFFER;
-+    }
-+    else if (m_vdpauOutput.m_dataPort.ReceiveInMessage(&msg))
-     {
-       if (msg->signal == COutputDataProtocol::PICTURE)
-       {
-@@ -1140,20 +1147,9 @@ int CDecoder::Decode(AVCodecContext *avctx, AVFrame *pFrame)
-       msg->Release();
-     }
- 
--    // TODO
--    if (1) //(m_codecControl & DVP_FLAG_DRAIN))
-+    if (decoded < 3 && processed < 3)
-     {
--      if (decoded + processed + render < 4)
--      {
--        retval |= VC_BUFFER;
--      }
--    }
--    else
--    {
--      if (decoded < 4 && (processed + render) < 3)
--      {
--        retval |= VC_BUFFER;
--      }
-+      retval |= VC_BUFFER;
-     }
- 
-     if (!retval && !m_inMsgEvent.WaitMSec(2000))
--- 
-1.8.4
-
-
-From 8b8f8ef84525e6328107d647bddcb821b0ce4ca9 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Mon, 30 Sep 2013 21:05:03 +0200
-Subject: [PATCH 09/87] vdpau: move common attributes into vdpau context
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 350 +++++++++++++------------
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h   |  17 +-
- 2 files changed, 190 insertions(+), 177 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index 28f069d..8f7e0dd 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -136,6 +136,21 @@ bool CVDPAUContext::EnsureContext(CVDPAUContext **ctx)
-   return true;
- }
- 
-+VDPAU_procs& CVDPAUContext::GetProcs()
-+{
-+  return m_vdpProcs;
-+}
-+
-+VdpVideoMixerFeature* CVDPAUContext::GetFeatures()
-+{
-+  return m_vdpFeatures;
-+}
-+
-+int CVDPAUContext::GetFeatureCount()
-+{
-+  return m_featureCount;
-+}
-+
- bool CVDPAUContext::LoadSymbols()
- {
-   if (!m_dlHandle)
-@@ -181,7 +196,7 @@ bool CVDPAUContext::CreateContext()
-   vdp_st = dl_vdp_device_create_x11(m_display,
-                                     mScreen,
-                                    &m_vdpDevice,
--                                   &m_vdp_get_proc_address);
-+                                   &m_vdpProcs.vdp_get_proc_address);
- 
-   CLog::Log(LOGNOTICE,"vdp_device = 0x%08x vdp_st = 0x%08x",m_vdpDevice,vdp_st);
-   if (vdp_st != VDP_STATUS_OK)
-@@ -190,59 +205,58 @@ bool CVDPAUContext::CreateContext()
-     m_vdpDevice = VDP_INVALID_HANDLE;
-     return false;
-   }
--  vdp_st = m_vdp_get_proc_address(m_vdpDevice, VDP_FUNC_ID_DEVICE_DESTROY, (void**)&m_vdp_device_destroy);
- 
-+  QueryProcs();
-+  SpewHardwareAvailable();
-   return true;
- }
- 
--void CVDPAUContext::GetProcs(VDPAU_procs &procs)
-+void CVDPAUContext::QueryProcs()
- {
-   VdpStatus vdp_st;
- 
--  procs.vdp_get_proc_address = m_vdp_get_proc_address;
--
- #define VDP_PROC(id, proc) \
-   do { \
--    vdp_st = m_vdp_get_proc_address(m_vdpDevice, id, (void**)&proc); \
-+    vdp_st = m_vdpProcs.vdp_get_proc_address(m_vdpDevice, id, (void**)&proc); \
-     if (vdp_st != VDP_STATUS_OK) \
-     { \
-       CLog::Log(LOGERROR, "CVDPAUContext::GetProcs - failed to get proc id"); \
-     } \
-   } while(0);
- 
--  VDP_PROC(VDP_FUNC_ID_GET_ERROR_STRING                    , procs.vdp_get_error_string);
--  VDP_PROC(VDP_FUNC_ID_DEVICE_DESTROY                      , procs.vdp_device_destroy);
--  VDP_PROC(VDP_FUNC_ID_GENERATE_CSC_MATRIX                 , procs.vdp_generate_csc_matrix);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_CREATE                , procs.vdp_video_surface_create);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_DESTROY               , procs.vdp_video_surface_destroy);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_PUT_BITS_Y_CB_CR      , procs.vdp_video_surface_put_bits_y_cb_cr);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_GET_BITS_Y_CB_CR      , procs.vdp_video_surface_get_bits_y_cb_cr);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_Y_CB_CR     , procs.vdp_output_surface_put_bits_y_cb_cr);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_NATIVE      , procs.vdp_output_surface_put_bits_native);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_CREATE               , procs.vdp_output_surface_create);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY              , procs.vdp_output_surface_destroy);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_GET_BITS_NATIVE      , procs.vdp_output_surface_get_bits_native);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_RENDER_OUTPUT_SURFACE, procs.vdp_output_surface_render_output_surface);
--  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_INDEXED     , procs.vdp_output_surface_put_bits_indexed);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_CREATE                  , procs.vdp_video_mixer_create);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_FEATURE_ENABLES     , procs.vdp_video_mixer_set_feature_enables);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_DESTROY                 , procs.vdp_video_mixer_destroy);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_RENDER                  , procs.vdp_video_mixer_render);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_ATTRIBUTE_VALUES    , procs.vdp_video_mixer_set_attribute_values);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_PARAMETER_SUPPORT , procs.vdp_video_mixer_query_parameter_support);
--  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_FEATURE_SUPPORT   , procs.vdp_video_mixer_query_feature_support);
--  VDP_PROC(VDP_FUNC_ID_DECODER_CREATE                      , procs.vdp_decoder_create);
--  VDP_PROC(VDP_FUNC_ID_DECODER_DESTROY                     , procs.vdp_decoder_destroy);
--  VDP_PROC(VDP_FUNC_ID_DECODER_RENDER                      , procs.vdp_decoder_render);
--  VDP_PROC(VDP_FUNC_ID_DECODER_QUERY_CAPABILITIES          , procs.vdp_decoder_query_caps);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_DESTROY          , procs.vdp_presentation_queue_target_destroy);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_CREATE                  , procs.vdp_presentation_queue_create);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DESTROY                 , procs.vdp_presentation_queue_destroy);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DISPLAY                 , procs.vdp_presentation_queue_display);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_BLOCK_UNTIL_SURFACE_IDLE, procs.vdp_presentation_queue_block_until_surface_idle);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_CREATE_X11       , procs.vdp_presentation_queue_target_create_x11);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_QUERY_SURFACE_STATUS    , procs.vdp_presentation_queue_query_surface_status);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_GET_TIME                , procs.vdp_presentation_queue_get_time);
-+  VDP_PROC(VDP_FUNC_ID_GET_ERROR_STRING                    , m_vdpProcs.vdp_get_error_string);
-+  VDP_PROC(VDP_FUNC_ID_DEVICE_DESTROY                      , m_vdpProcs.vdp_device_destroy);
-+  VDP_PROC(VDP_FUNC_ID_GENERATE_CSC_MATRIX                 , m_vdpProcs.vdp_generate_csc_matrix);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_CREATE                , m_vdpProcs.vdp_video_surface_create);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_DESTROY               , m_vdpProcs.vdp_video_surface_destroy);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_PUT_BITS_Y_CB_CR      , m_vdpProcs.vdp_video_surface_put_bits_y_cb_cr);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_SURFACE_GET_BITS_Y_CB_CR      , m_vdpProcs.vdp_video_surface_get_bits_y_cb_cr);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_Y_CB_CR     , m_vdpProcs.vdp_output_surface_put_bits_y_cb_cr);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_NATIVE      , m_vdpProcs.vdp_output_surface_put_bits_native);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_CREATE               , m_vdpProcs.vdp_output_surface_create);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY              , m_vdpProcs.vdp_output_surface_destroy);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_GET_BITS_NATIVE      , m_vdpProcs.vdp_output_surface_get_bits_native);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_RENDER_OUTPUT_SURFACE, m_vdpProcs.vdp_output_surface_render_output_surface);
-+  VDP_PROC(VDP_FUNC_ID_OUTPUT_SURFACE_PUT_BITS_INDEXED     , m_vdpProcs.vdp_output_surface_put_bits_indexed);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_CREATE                  , m_vdpProcs.vdp_video_mixer_create);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_FEATURE_ENABLES     , m_vdpProcs.vdp_video_mixer_set_feature_enables);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_DESTROY                 , m_vdpProcs.vdp_video_mixer_destroy);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_RENDER                  , m_vdpProcs.vdp_video_mixer_render);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_SET_ATTRIBUTE_VALUES    , m_vdpProcs.vdp_video_mixer_set_attribute_values);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_PARAMETER_SUPPORT , m_vdpProcs.vdp_video_mixer_query_parameter_support);
-+  VDP_PROC(VDP_FUNC_ID_VIDEO_MIXER_QUERY_FEATURE_SUPPORT   , m_vdpProcs.vdp_video_mixer_query_feature_support);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_CREATE                      , m_vdpProcs.vdp_decoder_create);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_DESTROY                     , m_vdpProcs.vdp_decoder_destroy);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_RENDER                      , m_vdpProcs.vdp_decoder_render);
-+  VDP_PROC(VDP_FUNC_ID_DECODER_QUERY_CAPABILITIES          , m_vdpProcs.vdp_decoder_query_caps);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_DESTROY          , m_vdpProcs.vdp_presentation_queue_target_destroy);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_CREATE                  , m_vdpProcs.vdp_presentation_queue_create);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DESTROY                 , m_vdpProcs.vdp_presentation_queue_destroy);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DISPLAY                 , m_vdpProcs.vdp_presentation_queue_display);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_BLOCK_UNTIL_SURFACE_IDLE, m_vdpProcs.vdp_presentation_queue_block_until_surface_idle);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_CREATE_X11       , m_vdpProcs.vdp_presentation_queue_target_create_x11);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_QUERY_SURFACE_STATUS    , m_vdpProcs.vdp_presentation_queue_query_surface_status);
-+  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_GET_TIME                , m_vdpProcs.vdp_presentation_queue_get_time);
- 
- #undef VDP_PROC
- }
-@@ -254,13 +268,71 @@ VdpDevice CVDPAUContext::GetDevice()
- 
- void CVDPAUContext::DestroyContext()
- {
--  if (!m_vdp_device_destroy)
-+  if (!m_vdpProcs.vdp_device_destroy)
-     return;
- 
--  m_vdp_device_destroy(m_vdpDevice);
-+  m_vdpProcs.vdp_device_destroy(m_vdpDevice);
-   m_vdpDevice = VDP_INVALID_HANDLE;
- }
- 
-+void CVDPAUContext::SpewHardwareAvailable()  //CopyrighVDPAUt (c) 2008 Wladimir J. van der Laan  -- VDPInfo
-+{
-+  VdpStatus rv;
-+  CLog::Log(LOGNOTICE,"VDPAU Decoder capabilities:");
-+  CLog::Log(LOGNOTICE,"name          level macbs width height");
-+  CLog::Log(LOGNOTICE,"------------------------------------");
-+  for(unsigned int x=0; x<decoder_profile_count; ++x)
-+  {
-+    VdpBool is_supported = false;
-+    uint32_t max_level, max_macroblocks, max_width, max_height;
-+    rv = m_vdpProcs.vdp_decoder_query_caps(m_vdpDevice, decoder_profiles[x].id,
-+                                &is_supported, &max_level, &max_macroblocks, &max_width, &max_height);
-+    if(rv == VDP_STATUS_OK && is_supported)
-+    {
-+      CLog::Log(LOGNOTICE,"%-16s %2i %5i %5i %5i\n", decoder_profiles[x].name,
-+                max_level, max_macroblocks, max_width, max_height);
-+    }
-+  }
-+  CLog::Log(LOGNOTICE,"------------------------------------");
-+  m_featureCount = 0;
-+#define CHECK_SUPPORT(feature)  \
-+  do { \
-+    VdpBool supported; \
-+    if(m_vdpProcs.vdp_video_mixer_query_feature_support(m_vdpDevice, feature, &supported) == VDP_STATUS_OK && supported) { \
-+      CLog::Log(LOGNOTICE, "Mixer feature: "#feature);  \
-+      m_vdpFeatures[m_featureCount++] = feature; \
-+    } \
-+  } while(false)
-+
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_NOISE_REDUCTION);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_SHARPNESS);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_DEINTERLACE_TEMPORAL);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_DEINTERLACE_TEMPORAL_SPATIAL);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_INVERSE_TELECINE);
-+#ifdef VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L1
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L1);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L2);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L3);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L4);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L5);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L6);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L7);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L8);
-+  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L9);
-+#endif
-+#undef CHECK_SUPPORT
-+}
-+
-+bool CVDPAUContext::Supports(VdpVideoMixerFeature feature)
-+{
-+  for(int i = 0; i < m_featureCount; i++)
-+  {
-+    if(m_vdpFeatures[i] == feature)
-+      return true;
-+  }
-+  return false;
-+}
-+
- //-----------------------------------------------------------------------------
- // VDPAU Video Surface states
- //-----------------------------------------------------------------------------
-@@ -412,7 +484,6 @@ int CVideoSurfaces::Size()
- 
- CDecoder::CDecoder() : m_vdpauOutput(&m_inMsgEvent)
- {
--  m_vdpauConfig.vdpDevice = VDP_INVALID_HANDLE;
-   m_vdpauConfig.videoSurfaces = &m_videoSurfaces;
- 
-   m_vdpauConfigured = false;
-@@ -438,8 +509,6 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int
-   if (!CVDPAUContext::EnsureContext(&m_vdpauConfig.context))
-     return false;
- 
--  m_vdpauConfig.context->GetProcs(m_vdpauConfig.vdpProcs);
--  m_vdpauConfig.vdpDevice = m_vdpauConfig.context->GetDevice();
-   m_DisplayState = VDPAU_OPEN;
-   m_vdpauConfigured = false;
- 
-@@ -449,8 +518,6 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int
-   m_presentPicture = 0;
- 
-   {
--    SpewHardwareAvailable();
--
-     VdpDecoderProfile profile = 0;
-     if(avctx->codec_id == AV_CODEC_ID_H264)
-       profile = VDP_DECODER_PROFILE_H264_HIGH;
-@@ -465,15 +532,15 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat, unsigned int
-    
-       /* attempt to create a decoder with this width/height, some sizes are not supported by hw */
-       VdpStatus vdp_st;
--      vdp_st = m_vdpauConfig.vdpProcs.vdp_decoder_create(m_vdpauConfig.vdpDevice, profile, avctx->coded_width, avctx->coded_height, 5, &m_vdpauConfig.vdpDecoder);
-+      vdp_st = m_vdpauConfig.context->GetProcs().vdp_decoder_create(m_vdpauConfig.context->GetDevice(), profile, avctx->coded_width, avctx->coded_height, 5, &m_vdpauConfig.vdpDecoder);
- 
-       if(vdp_st != VDP_STATUS_OK)
-       {
--        CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) checking for decoder support\n", m_vdpauConfig.vdpProcs.vdp_get_error_string(vdp_st), vdp_st);
-+        CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) checking for decoder support\n", m_vdpauConfig.context->GetProcs().vdp_get_error_string(vdp_st), vdp_st);
-         return false;
-       }
- 
--      m_vdpauConfig.vdpProcs.vdp_decoder_destroy(m_vdpauConfig.vdpDecoder);
-+      m_vdpauConfig.context->GetProcs().vdp_decoder_destroy(m_vdpauConfig.vdpDecoder);
-       CheckStatus(vdp_st, __LINE__);
-     }
- 
-@@ -554,7 +621,7 @@ long CDecoder::Release()
-     VdpVideoSurface surf;
-     while((surf = m_videoSurfaces.RemoveNext(true)) != VDP_INVALID_HANDLE)
-     {
--      m_vdpauConfig.vdpProcs.vdp_video_surface_destroy(surf);
-+      m_vdpauConfig.context->GetProcs().vdp_video_surface_destroy(surf);
-     }
-   }
-   return IHardwareDecoder::Release();
-@@ -662,8 +729,6 @@ int CDecoder::Check(AVCodecContext* avctx)
- 
-     if (CVDPAUContext::EnsureContext(&m_vdpauConfig.context))
-     {
--      m_vdpauConfig.context->GetProcs(m_vdpauConfig.vdpProcs);
--      m_vdpauConfig.vdpDevice = m_vdpauConfig.context->GetDevice();
-       m_DisplayState = VDPAU_OPEN;
-       m_vdpauConfigured = false;
-     }
-@@ -686,12 +751,7 @@ bool CDecoder::IsVDPAUFormat(PixelFormat format)
- 
- bool CDecoder::Supports(VdpVideoMixerFeature feature)
- {
--  for(int i = 0; i < m_vdpauConfig.featureCount; i++)
--  {
--    if(m_vdpauConfig.vdpFeatures[i] == feature)
--      return true;
--  }
--  return false;
-+  return m_vdpauConfig.context->Supports(feature);
- }
- 
- bool CDecoder::Supports(EINTERLACEMETHOD method)
-@@ -724,7 +784,8 @@ EINTERLACEMETHOD CDecoder::AutoInterlaceMethod()
- 
- void CDecoder::FiniVDPAUOutput()
- {
--  if (m_vdpauConfig.vdpDevice == VDP_INVALID_HANDLE || !m_vdpauConfigured) return;
-+  if (!m_vdpauConfigured)
-+    return;
- 
-   CLog::Log(LOGNOTICE, " (VDPAU) %s", __FUNCTION__);
- 
-@@ -734,7 +795,7 @@ void CDecoder::FiniVDPAUOutput()
- 
-   VdpStatus vdp_st;
- 
--  vdp_st = m_vdpauConfig.vdpProcs.vdp_decoder_destroy(m_vdpauConfig.vdpDecoder);
-+  vdp_st = m_vdpauConfig.context->GetProcs().vdp_decoder_destroy(m_vdpauConfig.vdpDecoder);
-   if (CheckStatus(vdp_st, __LINE__))
-     return;
-   m_vdpauConfig.vdpDecoder = VDP_INVALID_HANDLE;
-@@ -744,7 +805,7 @@ void CDecoder::FiniVDPAUOutput()
-   VdpVideoSurface surf;
-   while((surf = m_videoSurfaces.RemoveNext()) != VDP_INVALID_HANDLE)
-   {
--    m_vdpauConfig.vdpProcs.vdp_video_surface_destroy(surf);
-+    m_vdpauConfig.context->GetProcs().vdp_video_surface_destroy(surf);
-     if (CheckStatus(vdp_st, __LINE__))
-       return;
-   }
-@@ -816,7 +877,7 @@ bool CDecoder::ConfigVDPAU(AVCodecContext* avctx, int ref_frames)
-   else
-     m_vdpauConfig.maxReferences = 2;
- 
--  vdp_st = m_vdpauConfig.vdpProcs.vdp_decoder_create(m_vdpauConfig.vdpDevice,
-+  vdp_st = m_vdpauConfig.context->GetProcs().vdp_decoder_create(m_vdpauConfig.context->GetDevice(),
-                               vdp_decoder_profile,
-                               m_vdpauConfig.surfaceWidth,
-                               m_vdpauConfig.surfaceHeight,
-@@ -868,55 +929,6 @@ bool CDecoder::ConfigVDPAU(AVCodecContext* avctx, int ref_frames)
-   return true;
- }
- 
--void CDecoder::SpewHardwareAvailable()  //CopyrighVDPAUt (c) 2008 Wladimir J. van der Laan  -- VDPInfo
--{
--  VdpStatus rv;
--  CLog::Log(LOGNOTICE,"VDPAU Decoder capabilities:");
--  CLog::Log(LOGNOTICE,"name          level macbs width height");
--  CLog::Log(LOGNOTICE,"------------------------------------");
--  for(unsigned int x=0; x<decoder_profile_count; ++x)
--  {
--    VdpBool is_supported = false;
--    uint32_t max_level, max_macroblocks, max_width, max_height;
--    rv = m_vdpauConfig.vdpProcs.vdp_decoder_query_caps(m_vdpauConfig.vdpDevice, decoder_profiles[x].id,
--                                &is_supported, &max_level, &max_macroblocks, &max_width, &max_height);
--    if(rv == VDP_STATUS_OK && is_supported)
--    {
--      CLog::Log(LOGNOTICE,"%-16s %2i %5i %5i %5i\n", decoder_profiles[x].name,
--                max_level, max_macroblocks, max_width, max_height);
--    }
--  }
--  CLog::Log(LOGNOTICE,"------------------------------------");
--  m_vdpauConfig.featureCount = 0;
--#define CHECK_SUPPORT(feature)  \
--  do { \
--    VdpBool supported; \
--    if(m_vdpauConfig.vdpProcs.vdp_video_mixer_query_feature_support(m_vdpauConfig.vdpDevice, feature, &supported) == VDP_STATUS_OK && supported) { \
--      CLog::Log(LOGNOTICE, "Mixer feature: "#feature);  \
--      m_vdpauConfig.vdpFeatures[m_vdpauConfig.featureCount++] = feature; \
--    } \
--  } while(false)
--
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_NOISE_REDUCTION);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_SHARPNESS);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_DEINTERLACE_TEMPORAL);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_DEINTERLACE_TEMPORAL_SPATIAL);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_INVERSE_TELECINE);
--#ifdef VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L1
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L1);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L2);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L3);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L4);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L5);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L6);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L7);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L8);
--  CHECK_SUPPORT(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L9);
--#endif
--#undef CHECK_SUPPORT
--
--}
--
- int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
- {
-   //CLog::Log(LOGNOTICE,"%s",__FUNCTION__);
-@@ -942,7 +954,7 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
-     VdpDecoderProfile profile;
-     ReadFormatOf(avctx->codec_id, profile, vdp->m_vdpauConfig.vdpChromaType);
- 
--    vdp_st = vdp->m_vdpauConfig.vdpProcs.vdp_video_surface_create(vdp->m_vdpauConfig.vdpDevice,
-+    vdp_st = vdp->m_vdpauConfig.context->GetProcs().vdp_video_surface_create(vdp->m_vdpauConfig.context->GetDevice(),
-                                          vdp->m_vdpauConfig.vdpChromaType,
-                                          avctx->coded_width,
-                                          avctx->coded_height,
-@@ -1040,7 +1052,7 @@ void CDecoder::FFDrawSlice(struct AVCodecContext *s,
-   uint64_t startTime = CurrentHostCounter();
-   uint16_t decoded, processed, rend;
-   vdp->m_bufferStats.Get(decoded, processed, rend);
--  vdp_st = vdp->m_vdpauConfig.vdpProcs.vdp_decoder_render(vdp->m_vdpauConfig.vdpDecoder,
-+  vdp_st = vdp->m_vdpauConfig.context->GetProcs().vdp_decoder_render(vdp->m_vdpauConfig.vdpDecoder,
-                                    surf,
-                                    (VdpPictureInfo const *)&(vdp->m_hwContext.info),
-                                    vdp->m_hwContext.bitstream_buffers_used,
-@@ -1229,7 +1241,7 @@ bool CDecoder::CheckStatus(VdpStatus vdp_st, int line)
- {
-   if (vdp_st != VDP_STATUS_OK)
-   {
--    CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) at %s:%d\n", m_vdpauConfig.vdpProcs.vdp_get_error_string(vdp_st), vdp_st, __FILE__, line);
-+    CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) at %s:%d\n", m_vdpauConfig.context->GetProcs().vdp_get_error_string(vdp_st), vdp_st, __FILE__, line);
- 
-     if(m_DisplayState == VDPAU_OPEN)
-     {
-@@ -1683,9 +1695,9 @@ void CMixer::CreateVdpauMixer()
-     &m_config.vdpChromaType};
- 
-   VdpStatus vdp_st = VDP_STATUS_ERROR;
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_create(m_config.vdpDevice,
--                                m_config.featureCount,
--                                m_config.vdpFeatures,
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_create(m_config.context->GetDevice(),
-+                                m_config.context->GetFeatureCount(),
-+                                m_config.context->GetFeatures(),
-                                 ARSIZE(parameters),
-                                 parameters,
-                                 parameter_values,
-@@ -1772,7 +1784,7 @@ void CMixer::PostProcOff()
-                                      VDP_VIDEO_MIXER_FEATURE_INVERSE_TELECINE};
- 
-   VdpBool enabled[]={0,0,0};
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-   CheckStatus(vdp_st, __LINE__);
- 
-   if(m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_NOISE_REDUCTION))
-@@ -1780,7 +1792,7 @@ void CMixer::PostProcOff()
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_NOISE_REDUCTION};
- 
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -1789,7 +1801,7 @@ void CMixer::PostProcOff()
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_SHARPNESS};
- 
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -1901,13 +1913,13 @@ void CMixer::SetColor()
-     float studioCSC[3][4];
-     GenerateStudioCSCMatrix(colorStandard, studioCSC);
-     void const * pm_CSCMatix[] = { &studioCSC };
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, pm_CSCMatix);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, pm_CSCMatix);
-   }
-   else
-   {
--    vdp_st = m_config.vdpProcs.vdp_generate_csc_matrix(&m_Procamp, colorStandard, &m_CSCMatrix);
-+    vdp_st = m_config.context->GetProcs().vdp_generate_csc_matrix(&m_Procamp, colorStandard, &m_CSCMatrix);
-     void const * pm_CSCMatix[] = { &m_CSCMatrix };
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, pm_CSCMatix);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, pm_CSCMatix);
-   }
- 
-   CheckStatus(vdp_st, __LINE__);
-@@ -1925,16 +1937,16 @@ void CMixer::SetNoiseReduction()
-   if (!CMediaSettings::Get().GetCurrentVideoSettings().m_NoiseReduction)
-   {
-     VdpBool enabled[]= {0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-     return;
-   }
-   VdpBool enabled[]={1};
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-   CheckStatus(vdp_st, __LINE__);
-   void* nr[] = { &CMediaSettings::Get().GetCurrentVideoSettings().m_NoiseReduction };
-   CLog::Log(LOGNOTICE,"Setting Noise Reduction to %f",CMediaSettings::Get().GetCurrentVideoSettings().m_NoiseReduction);
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, nr);
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, nr);
-   CheckStatus(vdp_st, __LINE__);
- }
- 
-@@ -1950,16 +1962,16 @@ void CMixer::SetSharpness()
-   if (!CMediaSettings::Get().GetCurrentVideoSettings().m_Sharpness)
-   {
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-     return;
-   }
-   VdpBool enabled[]={1};
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-   CheckStatus(vdp_st, __LINE__);
-   void* sh[] = { &CMediaSettings::Get().GetCurrentVideoSettings().m_Sharpness };
-   CLog::Log(LOGNOTICE,"Setting Sharpness to %f",CMediaSettings::Get().GetCurrentVideoSettings().m_Sharpness);
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, sh);
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attributes), attributes, sh);
-   CheckStatus(vdp_st, __LINE__);
- }
- 
-@@ -2009,7 +2021,7 @@ void CMixer::SetDeinterlacing()
-   if (mode == VS_DEINTERLACEMODE_OFF)
-   {
-     VdpBool enabled[] = {0,0,0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-   }
-   else
-   {
-@@ -2018,7 +2030,7 @@ void CMixer::SetDeinterlacing()
-       VdpBool enabled[] = {1,0,0};
-       if (g_advancedSettings.m_videoVDPAUtelecine)
-         enabled[2] = 1;
--      vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+      vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     }
-     else if (method == VS_INTERLACEMETHOD_VDPAU_TEMPORAL
-          ||  method == VS_INTERLACEMETHOD_VDPAU_TEMPORAL_HALF)
-@@ -2026,7 +2038,7 @@ void CMixer::SetDeinterlacing()
-       VdpBool enabled[] = {1,0,0};
-       if (g_advancedSettings.m_videoVDPAUtelecine)
-         enabled[2] = 1;
--      vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+      vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     }
-     else if (method == VS_INTERLACEMETHOD_VDPAU_TEMPORAL_SPATIAL
-          ||  method == VS_INTERLACEMETHOD_VDPAU_TEMPORAL_SPATIAL_HALF)
-@@ -2034,12 +2046,12 @@ void CMixer::SetDeinterlacing()
-       VdpBool enabled[] = {1,1,0};
-       if (g_advancedSettings.m_videoVDPAUtelecine)
-         enabled[2] = 1;
--      vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+      vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     }
-     else
-     {
-       VdpBool enabled[]={0,0,0};
--      vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+      vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     }
-   }
-   CheckStatus(vdp_st, __LINE__);
-@@ -2061,7 +2073,7 @@ void CMixer::SetDeintSkipChroma()
-     val = 0;
- 
-   void const *values[]={&val};
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attribute), attribute, values);
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_attribute_values(m_videoMixer, ARSIZE(attribute), attribute, values);
- 
-   CheckStatus(vdp_st, __LINE__);
- }
-@@ -2078,63 +2090,63 @@ void CMixer::SetHWUpscaling()
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L9))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L9 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 8:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L8))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L8 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 7:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L7))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L7 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 6:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L6))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L6 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 5:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L5))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L5 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 4:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L4))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L4 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 3:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L3))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L3 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 2:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L2))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L2 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     case 1:
-        if (m_config.vdpau->Supports(VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L1))
-        {
-           VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L1 };
--          vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+          vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-           break;
-        }
-     default:
-@@ -2156,7 +2168,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L1 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2164,7 +2176,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L2 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2172,7 +2184,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L3 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2180,7 +2192,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L4 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2188,7 +2200,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L5 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2196,7 +2208,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L6 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2204,7 +2216,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L7 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2212,7 +2224,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L8 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- 
-@@ -2220,7 +2232,7 @@ void CMixer::DisableHQScaling()
-   {
-     VdpVideoMixerFeature feature[] = { VDP_VIDEO_MIXER_FEATURE_HIGH_QUALITY_SCALING_L9 };
-     VdpBool enabled[]={0};
--    vdp_st = m_config.vdpProcs.vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-+    vdp_st = m_config.context->GetProcs().vdp_video_mixer_set_feature_enables(m_videoMixer, ARSIZE(feature), feature, enabled);
-     CheckStatus(vdp_st, __LINE__);
-   }
- }
-@@ -2251,7 +2263,7 @@ void CMixer::Uninit()
-   {
-     m_outputSurfaces.pop();
-   }
--  m_config.vdpProcs.vdp_video_mixer_destroy(m_videoMixer);
-+  m_config.context->GetProcs().vdp_video_mixer_destroy(m_videoMixer);
- 
-   delete [] m_BlackBar;
- }
-@@ -2508,7 +2520,7 @@ void CMixer::ProcessPicture()
-   destRect.y1 = m_config.outHeight;
- 
-   // start vdpau video mixer
--  vdp_st = m_config.vdpProcs.vdp_video_mixer_render(m_videoMixer,
-+  vdp_st = m_config.context->GetProcs().vdp_video_mixer_render(m_videoMixer,
-                                 VDP_INVALID_HANDLE,
-                                 0,
-                                 m_mixerfield,
-@@ -2536,7 +2548,7 @@ void CMixer::ProcessPicture()
-     clipRect.y1 = clipRect.y0 + 2;
-     uint32_t *data[] = {m_BlackBar};
-     uint32_t pitches[] = {destRect.x1};
--    vdp_st = m_config.vdpProcs.vdp_output_surface_put_bits_native(m_processPicture.outputSurface,
-+    vdp_st = m_config.context->GetProcs().vdp_output_surface_put_bits_native(m_processPicture.outputSurface,
-                                             (void**)data,
-                                             pitches,
-                                             &clipRect);
-@@ -2544,7 +2556,7 @@ void CMixer::ProcessPicture()
- 
-     clipRect = destRect;
-     clipRect.y0 = clipRect.y1 - 2;
--    vdp_st = m_config.vdpProcs.vdp_output_surface_put_bits_native(m_processPicture.outputSurface,
-+    vdp_st = m_config.context->GetProcs().vdp_output_surface_put_bits_native(m_processPicture.outputSurface,
-                                             (void**)data,
-                                             pitches,
-                                             &clipRect);
-@@ -2557,7 +2569,7 @@ bool CMixer::CheckStatus(VdpStatus vdp_st, int line)
- {
-   if (vdp_st != VDP_STATUS_OK)
-   {
--    CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) at %s:%d\n", m_config.vdpProcs.vdp_get_error_string(vdp_st), vdp_st, __FILE__, line);
-+    CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) at %s:%d\n", m_config.context->GetProcs().vdp_get_error_string(vdp_st), vdp_st, __FILE__, line);
-     m_vdpError = true;
-     return true;
-   }
-@@ -3086,7 +3098,7 @@ CVdpauRenderPicture* COutput::ProcessMixerPicture()
-       pixmap->DVDPic = pic.DVDPic;
-       pixmap->id = i;
-       m_bufferPool.notVisiblePixmaps.push_back(i);
--      m_config.vdpProcs.vdp_presentation_queue_display(pixmap->vdp_flip_queue,
-+      m_config.context->GetProcs().vdp_presentation_queue_display(pixmap->vdp_flip_queue,
-                                                        pixmap->surface,0,0,0);
-     }
-     if (!m_bufferPool.notVisiblePixmaps.empty() && !m_bufferPool.freeRenderPics.empty())
-@@ -3096,7 +3108,7 @@ CVdpauRenderPicture* COutput::ProcessMixerPicture()
-       VdpPresentationQueueStatus status;
-       int idx = m_bufferPool.notVisiblePixmaps.front();
-       VdpauBufferPool::Pixmaps *pixmap = &m_bufferPool.pixmaps[idx];
--      vdp_st = m_config.vdpProcs.vdp_presentation_queue_query_surface_status(
-+      vdp_st = m_config.context->GetProcs().vdp_presentation_queue_query_surface_status(
-                         pixmap->vdp_flip_queue, pixmap->surface, &status, &time);
- 
-       if (vdp_st == VDP_STATUS_OK && status == VDP_PRESENTATION_QUEUE_STATUS_VISIBLE)
-@@ -3299,7 +3311,7 @@ bool COutput::EnsureBufferPool()
-   VdpOutputSurface outputSurface;
-   for (int i = m_bufferPool.outputSurfaces.size(); i < m_bufferPool.numOutputSurfaces; i++)
-   {
--    vdp_st = m_config.vdpProcs.vdp_output_surface_create(m_config.vdpDevice,
-+    vdp_st = m_config.context->GetProcs().vdp_output_surface_create(m_config.context->GetDevice(),
-                                       VDP_RGBA_FORMAT_B8G8R8A8,
-                                       m_config.outWidth,
-                                       m_config.outHeight,
-@@ -3328,13 +3340,13 @@ bool COutput::EnsureBufferPool()
-       pixmap.vdp_flip_target = VDP_INVALID_HANDLE;
-       MakePixmap(pixmap);
-       glXMakeCurrent(m_Display, None, NULL);
--      vdp_st = m_config.vdpProcs.vdp_presentation_queue_target_create_x11(m_config.vdpDevice,
-+      vdp_st = m_config.context->GetProcs().vdp_presentation_queue_target_create_x11(m_config.context->GetDevice(),
-                                              pixmap.pixmap, //x_window,
-                                              &pixmap.vdp_flip_target);
- 
-       CheckStatus(vdp_st, __LINE__);
- 
--      vdp_st = m_config.vdpProcs.vdp_presentation_queue_create(m_config.vdpDevice,
-+      vdp_st = m_config.context->GetProcs().vdp_presentation_queue_create(m_config.context->GetDevice(),
-                                             pixmap.vdp_flip_target,
-                                             &pixmap.vdp_flip_queue);
-       CheckStatus(vdp_st, __LINE__);
-@@ -3362,12 +3374,12 @@ void COutput::ReleaseBufferPool()
-     {
-       if (m_bufferPool.pixmaps[i].vdp_flip_queue != VDP_INVALID_HANDLE)
-       {
--        vdp_st = m_config.vdpProcs.vdp_presentation_queue_destroy(m_bufferPool.pixmaps[i].vdp_flip_queue);
-+        vdp_st = m_config.context->GetProcs().vdp_presentation_queue_destroy(m_bufferPool.pixmaps[i].vdp_flip_queue);
-         CheckStatus(vdp_st, __LINE__);
-       }
-       if (m_bufferPool.pixmaps[i].vdp_flip_target != VDP_INVALID_HANDLE)
-       {
--        vdp_st = m_config.vdpProcs.vdp_presentation_queue_target_destroy(m_bufferPool.pixmaps[i].vdp_flip_target);
-+        vdp_st = m_config.context->GetProcs().vdp_presentation_queue_target_destroy(m_bufferPool.pixmaps[i].vdp_flip_target);
-         CheckStatus(vdp_st, __LINE__);
-       }
-       if (m_bufferPool.pixmaps[i].glPixmap)
-@@ -3387,7 +3399,7 @@ void COutput::ReleaseBufferPool()
-   {
-     if (m_bufferPool.outputSurfaces[i] == VDP_INVALID_HANDLE)
-       continue;
--    vdp_st = m_config.vdpProcs.vdp_output_surface_destroy(m_bufferPool.outputSurfaces[i]);
-+    vdp_st = m_config.context->GetProcs().vdp_output_surface_destroy(m_bufferPool.outputSurfaces[i]);
-     CheckStatus(vdp_st, __LINE__);
-   }
-   m_bufferPool.outputSurfaces.clear();
-@@ -3476,7 +3488,7 @@ void COutput::PreCleanup()
-     m_bufferPool.glOutputSurfaceMap.erase(it_map);
- #endif
- 
--    vdp_st = m_config.vdpProcs.vdp_output_surface_destroy(m_bufferPool.outputSurfaces[i]);
-+    vdp_st = m_config.context->GetProcs().vdp_output_surface_destroy(m_bufferPool.outputSurfaces[i]);
-     CheckStatus(vdp_st, __LINE__);
- 
-     m_bufferPool.outputSurfaces[i] = VDP_INVALID_HANDLE;
-@@ -3635,7 +3647,7 @@ bool COutput::GLInit()
-   if (!m_config.usePixmaps)
-   {
-     while (glGetError() != GL_NO_ERROR);
--    glVDPAUInitNV(reinterpret_cast<void*>(m_config.vdpDevice), reinterpret_cast<void*>(m_config.vdpProcs.vdp_get_proc_address));
-+    glVDPAUInitNV(reinterpret_cast<void*>(m_config.context->GetDevice()), reinterpret_cast<void*>(m_config.context->GetProcs().vdp_get_proc_address));
-     if (glGetError() != GL_NO_ERROR)
-     {
-       CLog::Log(LOGERROR, "VDPAU::COutput - GLInitInterop glVDPAUInitNV failed");
-@@ -3833,7 +3845,7 @@ bool COutput::CheckStatus(VdpStatus vdp_st, int line)
- {
-   if (vdp_st != VDP_STATUS_OK)
-   {
--    CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) at %s:%d\n", m_config.vdpProcs.vdp_get_error_string(vdp_st), vdp_st, __FILE__, line);
-+    CLog::Log(LOGERROR, " (VDPAU) Error: %s(%d) at %s:%d\n", m_config.context->GetProcs().vdp_get_error_string(vdp_st), vdp_st, __FILE__, line);
-     m_vdpError = true;
-     return true;
-   }
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-index c8e89dc..07a98a2 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-@@ -179,15 +179,11 @@ struct CVdpauConfig
-   int vidHeight;
-   int outWidth;
-   int outHeight;
--  VDPAU_procs vdpProcs;
--  VdpDevice vdpDevice;
-   VdpDecoder vdpDecoder;
-   VdpChromaType vdpChromaType;
-   CVdpauBufferStats *stats;
-   CDecoder *vdpau;
--  int featureCount;
-   int upscale;
--  VdpVideoMixerFeature vdpFeatures[14];
-   CVideoSurfaces *videoSurfaces;
-   bool usePixmaps;
-   int numRenderBuffers;
-@@ -546,22 +542,28 @@ class CVDPAUContext
- public:
-   static bool EnsureContext(CVDPAUContext **ctx);
-   void Release();
--  void GetProcs(VDPAU_procs &procs);
-+  VDPAU_procs& GetProcs();
-   VdpDevice GetDevice();
-+  bool Supports(VdpVideoMixerFeature feature);
-+  VdpVideoMixerFeature* GetFeatures();
-+  int GetFeatureCount();
- private:
-   CVDPAUContext();
-   void Close();
-   bool LoadSymbols();
-   bool CreateContext();
-   void DestroyContext();
-+  void QueryProcs();
-+  void SpewHardwareAvailable();
-   static CVDPAUContext *m_context;
-   static CCriticalSection m_section;
-   static Display *m_display;
-   int m_refCount;
-+  VdpVideoMixerFeature m_vdpFeatures[14];
-+  int m_featureCount;
-   static void *m_dlHandle;
-   VdpDevice m_vdpDevice;
--  VdpGetProcAddress *m_vdp_get_proc_address;
--  VdpDeviceDestroy *m_vdp_device_destroy;
-+  VDPAU_procs m_vdpProcs;
-   VdpStatus (*dl_vdp_device_create_x11)(Display* display, int screen, VdpDevice* device, VdpGetProcAddress **get_proc_address);
- };
- 
-@@ -619,7 +621,6 @@ class CDecoder
- protected:
-   void SetWidthHeight(int width, int height);
-   bool ConfigVDPAU(AVCodecContext *avctx, int ref_frames);
--  void SpewHardwareAvailable();
-   bool CheckStatus(VdpStatus vdp_st, int line);
-   void FiniVDPAUOutput();
-   void ReturnRenderPicture(CVdpauRenderPicture *renderPic);
--- 
-1.8.4
-
-
-From 1e7eb3091940464992275fe543878e74a761b65c Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Mon, 30 Sep 2013 21:30:28 +0200
-Subject: [PATCH 10/87] vdpau: drop pixmap magic, it violates the spec
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 328 ++-----------------------
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h   |  31 ---
- 2 files changed, 17 insertions(+), 342 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index 8f7e0dd..c5beec1 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -249,15 +249,6 @@ void CVDPAUContext::QueryProcs()
-   VDP_PROC(VDP_FUNC_ID_DECODER_DESTROY                     , m_vdpProcs.vdp_decoder_destroy);
-   VDP_PROC(VDP_FUNC_ID_DECODER_RENDER                      , m_vdpProcs.vdp_decoder_render);
-   VDP_PROC(VDP_FUNC_ID_DECODER_QUERY_CAPABILITIES          , m_vdpProcs.vdp_decoder_query_caps);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_DESTROY          , m_vdpProcs.vdp_presentation_queue_target_destroy);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_CREATE                  , m_vdpProcs.vdp_presentation_queue_create);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DESTROY                 , m_vdpProcs.vdp_presentation_queue_destroy);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_DISPLAY                 , m_vdpProcs.vdp_presentation_queue_display);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_BLOCK_UNTIL_SURFACE_IDLE, m_vdpProcs.vdp_presentation_queue_block_until_surface_idle);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_TARGET_CREATE_X11       , m_vdpProcs.vdp_presentation_queue_target_create_x11);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_QUERY_SURFACE_STATUS    , m_vdpProcs.vdp_presentation_queue_query_surface_status);
--  VDP_PROC(VDP_FUNC_ID_PRESENTATION_QUEUE_GET_TIME                , m_vdpProcs.vdp_presentation_queue_get_time);
--
- #undef VDP_PROC
- }
- 
-@@ -760,11 +751,8 @@ bool CDecoder::Supports(EINTERLACEMETHOD method)
-   || method == VS_INTERLACEMETHOD_AUTO)
-     return true;
- 
--  if (!m_vdpauConfig.usePixmaps)
--  {
--    if (method == VS_INTERLACEMETHOD_RENDER_BOB)
--      return true;
--  }
-+  if (method == VS_INTERLACEMETHOD_RENDER_BOB)
-+    return true;
- 
-   if (method == VS_INTERLACEMETHOD_VDPAU_INVERSE_TELECINE)
-     return false;
-@@ -900,15 +888,6 @@ bool CDecoder::ConfigVDPAU(AVCodecContext* avctx, int ref_frames)
-                                                  sizeof(m_vdpauConfig)))
-   {
-     bool success = reply->signal == COutputControlProtocol::ACC ? true : false;
--    if (success)
--    {
--      CVdpauConfig *data;
--      data = (CVdpauConfig*)reply->data;
--      if (data)
--      {
--        m_vdpauConfig.usePixmaps = data->usePixmaps;
--      }
--    }
-     reply->Release();
-     if (!success)
-     {
-@@ -2971,7 +2950,6 @@ bool COutput::Uninit()
- {
-   m_mixer.Dispose();
-   GLUnmapSurfaces();
--  GLUnbindPixmaps();
-   ReleaseBufferPool();
-   DestroyGlxContext();
-   return true;
-@@ -3065,69 +3043,16 @@ void COutput::Flush()
- 
- bool COutput::HasWork()
- {
--  if (m_config.usePixmaps)
--  {
--    if (!m_bufferPool.processedPics.empty() && FindFreePixmap() >= 0)
--      return true;
--    if (!m_bufferPool.notVisiblePixmaps.empty() && !m_bufferPool.freeRenderPics.empty())
--      return true;
--    return false;
--  }
--  else
--  {
--    if (!m_bufferPool.processedPics.empty() && !m_bufferPool.freeRenderPics.empty())
--      return true;
--    return false;
--  }
-+  if (!m_bufferPool.processedPics.empty() && !m_bufferPool.freeRenderPics.empty())
-+    return true;
-+  return false;
- }
- 
- CVdpauRenderPicture* COutput::ProcessMixerPicture()
- {
-   CVdpauRenderPicture *retPic = NULL;
- 
--  if (m_config.usePixmaps)
--  {
--    if (!m_bufferPool.processedPics.empty() && FindFreePixmap() >= 0)
--    {
--      unsigned int i = FindFreePixmap();
--      VdpauBufferPool::Pixmaps *pixmap = &m_bufferPool.pixmaps[i];
--      pixmap->used = true;
--      CVdpauProcessedPicture pic = m_bufferPool.processedPics.front();
--      m_bufferPool.processedPics.pop();
--      pixmap->surface = pic.outputSurface;
--      pixmap->DVDPic = pic.DVDPic;
--      pixmap->id = i;
--      m_bufferPool.notVisiblePixmaps.push_back(i);
--      m_config.context->GetProcs().vdp_presentation_queue_display(pixmap->vdp_flip_queue,
--                                                       pixmap->surface,0,0,0);
--    }
--    if (!m_bufferPool.notVisiblePixmaps.empty() && !m_bufferPool.freeRenderPics.empty())
--    {
--      VdpStatus vdp_st;
--      VdpTime time;
--      VdpPresentationQueueStatus status;
--      int idx = m_bufferPool.notVisiblePixmaps.front();
--      VdpauBufferPool::Pixmaps *pixmap = &m_bufferPool.pixmaps[idx];
--      vdp_st = m_config.context->GetProcs().vdp_presentation_queue_query_surface_status(
--                        pixmap->vdp_flip_queue, pixmap->surface, &status, &time);
--
--      if (vdp_st == VDP_STATUS_OK && status == VDP_PRESENTATION_QUEUE_STATUS_VISIBLE)
--      {
--        int idx = m_bufferPool.freeRenderPics.front();
--        retPic = m_bufferPool.allRenderPics[idx];
--        m_bufferPool.freeRenderPics.pop_front();
--        m_bufferPool.usedRenderPics.push_back(idx);
--        retPic->sourceIdx = pixmap->id;
--        retPic->DVDPic = pixmap->DVDPic;
--        retPic->valid = true;
--        retPic->texture[0] = pixmap->texture;
--        retPic->crop = CRect(0,0,0,0);
--        m_bufferPool.notVisiblePixmaps.pop_front();
--        m_mixer.m_dataPort.SendOutMessage(CMixerDataProtocol::BUFFER, &pixmap->surface, sizeof(pixmap->surface));
--      }
--    }
--  } // pixmap
--  else if (!m_bufferPool.processedPics.empty() && !m_bufferPool.freeRenderPics.empty())
-+  if (!m_bufferPool.processedPics.empty() && !m_bufferPool.freeRenderPics.empty())
-   {
-     int idx = m_bufferPool.freeRenderPics.front();
-     retPic = m_bufferPool.allRenderPics[idx];
-@@ -3257,12 +3182,7 @@ bool COutput::ProcessSyncPicture()
- 
- void COutput::ProcessReturnPicture(CVdpauRenderPicture *pic)
- {
--  if (m_config.usePixmaps)
--  {
--    m_bufferPool.pixmaps[pic->sourceIdx].used = false;
--    return;
--  }
--  else if (pic->DVDPic.format == RENDER_FMT_VDPAU_420)
-+  if (pic->DVDPic.format == RENDER_FMT_VDPAU_420)
-   {
-     std::map<VdpVideoSurface, VdpauBufferPool::GLVideoSurface>::iterator it;
-     it = m_bufferPool.glVideoSurfaceMap.find(pic->sourceIdx);
-@@ -3288,21 +3208,6 @@ void COutput::ProcessReturnPicture(CVdpauRenderPicture *pic)
-   }
- }
- 
--int COutput::FindFreePixmap()
--{
--  // find free pixmap
--  unsigned int i;
--  for (i = 0; i < m_bufferPool.pixmaps.size(); ++i)
--  {
--    if (!m_bufferPool.pixmaps[i].used)
--      break;
--  }
--  if (i == m_bufferPool.pixmaps.size())
--    return -1;
--  else
--    return i;
--}
--
- bool COutput::EnsureBufferPool()
- {
-   VdpStatus vdp_st;
-@@ -3325,40 +3230,6 @@ bool COutput::EnsureBufferPool()
-                                       sizeof(VdpOutputSurface));
-     CLog::Log(LOGNOTICE, "VDPAU::COutput::InitBufferPool - Output Surface created");
-   }
--
--
--  if (m_config.usePixmaps && m_bufferPool.pixmaps.empty())
--  {
--    // create pixmpas
--    VdpauBufferPool::Pixmaps pixmap;
--    unsigned int numPixmaps = NUM_RENDER_PICS;
--    for (unsigned int i = 0; i < numPixmaps; i++)
--    {
--      pixmap.pixmap = None;
--      pixmap.glPixmap = None;
--      pixmap.vdp_flip_queue = VDP_INVALID_HANDLE;
--      pixmap.vdp_flip_target = VDP_INVALID_HANDLE;
--      MakePixmap(pixmap);
--      glXMakeCurrent(m_Display, None, NULL);
--      vdp_st = m_config.context->GetProcs().vdp_presentation_queue_target_create_x11(m_config.context->GetDevice(),
--                                             pixmap.pixmap, //x_window,
--                                             &pixmap.vdp_flip_target);
--
--      CheckStatus(vdp_st, __LINE__);
--
--      vdp_st = m_config.context->GetProcs().vdp_presentation_queue_create(m_config.context->GetDevice(),
--                                            pixmap.vdp_flip_target,
--                                            &pixmap.vdp_flip_queue);
--      CheckStatus(vdp_st, __LINE__);
--      glXMakeCurrent(m_Display, m_glPixmap, m_glContext);
--
--      pixmap.id = i;
--      pixmap.used = false;
--      m_bufferPool.pixmaps.push_back(pixmap);
--    }
--    GLBindPixmaps();
--  }
--
-   return true;
- }
- 
-@@ -3368,32 +3239,6 @@ void COutput::ReleaseBufferPool()
- 
-   CSingleLock lock(m_bufferPool.renderPicSec);
- 
--  if (m_config.usePixmaps)
--  {
--    for (unsigned int i = 0; i < m_bufferPool.pixmaps.size(); ++i)
--    {
--      if (m_bufferPool.pixmaps[i].vdp_flip_queue != VDP_INVALID_HANDLE)
--      {
--        vdp_st = m_config.context->GetProcs().vdp_presentation_queue_destroy(m_bufferPool.pixmaps[i].vdp_flip_queue);
--        CheckStatus(vdp_st, __LINE__);
--      }
--      if (m_bufferPool.pixmaps[i].vdp_flip_target != VDP_INVALID_HANDLE)
--      {
--        vdp_st = m_config.context->GetProcs().vdp_presentation_queue_target_destroy(m_bufferPool.pixmaps[i].vdp_flip_target);
--        CheckStatus(vdp_st, __LINE__);
--      }
--      if (m_bufferPool.pixmaps[i].glPixmap)
--      {
--        glXDestroyPixmap(m_Display, m_bufferPool.pixmaps[i].glPixmap);
--      }
--      if (m_bufferPool.pixmaps[i].pixmap)
--      {
--        XFreePixmap(m_Display, m_bufferPool.pixmaps[i].pixmap);
--      }
--    }
--    m_bufferPool.pixmaps.clear();
--  }
--
-   // release all output surfaces
-   for (unsigned int i = 0; i < m_bufferPool.outputSurfaces.size(); ++i)
-   {
-@@ -3508,89 +3353,8 @@ void COutput::InitMixer()
-   }
- }
- 
--bool COutput::MakePixmap(VdpauBufferPool::Pixmaps &pixmap)
--{
--  CLog::Log(LOGNOTICE,"Creating %ix%i pixmap", m_config.outWidth, m_config.outHeight);
--
--    // Get our window attribs.
--  XWindowAttributes wndattribs;
--  XGetWindowAttributes(m_Display, g_Windowing.GetWindow(), &wndattribs);
--
--  pixmap.pixmap = XCreatePixmap(m_Display,
--                           g_Windowing.GetWindow(),
--                           m_config.outWidth,
--                           m_config.outHeight,
--                           wndattribs.depth);
--  if (!pixmap.pixmap)
--  {
--    CLog::Log(LOGERROR, "VDPAU::COUtput::MakePixmap - GLX Error: MakePixmap: Unable to create XPixmap");
--    return false;
--  }
--
--//  XGCValues values = {};
--//  GC xgc;
--//  values.foreground = BlackPixel (m_Display, DefaultScreen (m_Display));
--//  xgc = XCreateGC(m_Display, pixmap.pixmap, GCForeground, &values);
--//  XFillRectangle(m_Display, pixmap.pixmap, xgc, 0, 0, m_config.outWidth, m_config.outHeight);
--//  XFreeGC(m_Display, xgc);
--
--  if(!MakePixmapGL(pixmap))
--    return false;
--
--  return true;
--}
--
--bool COutput::MakePixmapGL(VdpauBufferPool::Pixmaps &pixmap)
--{
--  int num=0;
--  int fbConfigIndex = 0;
--
--  int doubleVisAttributes[] = {
--    GLX_RENDER_TYPE, GLX_RGBA_BIT,
--    GLX_RED_SIZE, 8,
--    GLX_GREEN_SIZE, 8,
--    GLX_BLUE_SIZE, 8,
--    GLX_ALPHA_SIZE, 8,
--    GLX_DEPTH_SIZE, 8,
--    GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT,
--    GLX_BIND_TO_TEXTURE_RGBA_EXT, True,
--    GLX_DOUBLEBUFFER, False,
--    GLX_Y_INVERTED_EXT, True,
--    GLX_X_RENDERABLE, True,
--    None
--  };
--
--  int pixmapAttribs[] = {
--    GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
--    GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGBA_EXT,
--    None
--  };
--
--  GLXFBConfig *fbConfigs;
--  fbConfigs = glXChooseFBConfig(m_Display, g_Windowing.GetCurrentScreen(), doubleVisAttributes, &num);
--  if (fbConfigs==NULL)
--  {
--    CLog::Log(LOGERROR, "VDPAU::COutput::MakPixmapGL - No compatible framebuffers found");
--    return false;
--  }
--  fbConfigIndex = 0;
--
--  pixmap.glPixmap = glXCreatePixmap(m_Display, fbConfigs[fbConfigIndex], pixmap.pixmap, pixmapAttribs);
--
--  if (!pixmap.glPixmap)
--  {
--    CLog::Log(LOGERROR, "VDPAU::COutput::MakPixmapGL - Could not create Pixmap");
--    XFree(fbConfigs);
--    return false;
--  }
--  XFree(fbConfigs);
--  return true;
--}
--
- bool COutput::GLInit()
- {
--  glXBindTexImageEXT = NULL;
--  glXReleaseTexImageEXT = NULL;
- #ifdef GL_NV_vdpau_interop
-   glVDPAUInitNV = NULL;
-   glVDPAUFiniNV = NULL;
-@@ -3604,8 +3368,6 @@ bool COutput::GLInit()
-   glVDPAUGetSurfaceivNV = NULL;
- #endif
- 
--  m_config.usePixmaps = false;
--
- #ifdef GL_NV_vdpau_interop
-   if (glewIsSupported("GL_NV_vdpau_interop"))
-   {
-@@ -3635,27 +3397,21 @@ bool COutput::GLInit()
-   else
- #endif
-   {
--    m_config.usePixmaps = true;
--    CSettings::Get().SetBool("videoplayer.usevdpaumixer",true);
-+    // TODO should be detected before vdpau is opened, though very unlikely
-+    // that this code is hit
-+    CLog::Log(LOGERROR, "VDPAU::COutput driver does not support GL_NV_vdpau_interop");
-   }
--  if (!glXBindTexImageEXT)
--    glXBindTexImageEXT    = (PFNGLXBINDTEXIMAGEEXTPROC)glXGetProcAddress((GLubyte *) "glXBindTexImageEXT");
--  if (!glXReleaseTexImageEXT)
--    glXReleaseTexImageEXT = (PFNGLXRELEASETEXIMAGEEXTPROC)glXGetProcAddress((GLubyte *) "glXReleaseTexImageEXT");
- 
- #ifdef GL_NV_vdpau_interop
--  if (!m_config.usePixmaps)
-+  while (glGetError() != GL_NO_ERROR);
-+  glVDPAUInitNV(reinterpret_cast<void*>(m_config.context->GetDevice()), reinterpret_cast<void*>(m_config.context->GetProcs().vdp_get_proc_address));
-+  if (glGetError() != GL_NO_ERROR)
-   {
--    while (glGetError() != GL_NO_ERROR);
--    glVDPAUInitNV(reinterpret_cast<void*>(m_config.context->GetDevice()), reinterpret_cast<void*>(m_config.context->GetProcs().vdp_get_proc_address));
--    if (glGetError() != GL_NO_ERROR)
--    {
--      CLog::Log(LOGERROR, "VDPAU::COutput - GLInitInterop glVDPAUInitNV failed");
--      m_vdpError = true;
--      return false;
--    }
--    CLog::Log(LOGNOTICE, "VDPAU::COutput: vdpau gl interop initialized");
-+    CLog::Log(LOGERROR, "VDPAU::COutput - GLInitInterop glVDPAUInitNV failed");
-+    m_vdpError = true;
-+    return false;
-   }
-+  CLog::Log(LOGNOTICE, "VDPAU::COutput: vdpau gl interop initialized");
- #endif
- 
- #ifdef GL_ARB_sync
-@@ -3672,8 +3428,6 @@ bool COutput::GLInit()
- void COutput::GLMapSurfaces()
- {
- #ifdef GL_NV_vdpau_interop
--  if (m_config.usePixmaps)
--    return;
- 
-   if (m_config.useInteropYuv)
-   {
-@@ -3767,8 +3521,6 @@ void COutput::GLMapSurfaces()
- void COutput::GLUnmapSurfaces()
- {
- #ifdef GL_NV_vdpau_interop
--  if (m_config.usePixmaps)
--    return;
- 
-   {
-     std::map<VdpVideoSurface, VdpauBufferPool::GLVideoSurface>::iterator it;
-@@ -3795,52 +3547,6 @@ void COutput::GLUnmapSurfaces()
- #endif
- }
- 
--void COutput::GLBindPixmaps()
--{
--  if (!m_config.usePixmaps)
--    return;
--
--  for (unsigned int i = 0; i < m_bufferPool.pixmaps.size(); i++)
--  {
--    // create texture
--    glGenTextures(1, &m_bufferPool.pixmaps[i].texture);
--
--    //bind texture
--    glBindTexture(GL_TEXTURE_2D, m_bufferPool.pixmaps[i].texture);
--
--    // bind pixmap
--    glXBindTexImageEXT(m_Display, m_bufferPool.pixmaps[i].glPixmap, GLX_FRONT_LEFT_EXT, NULL);
--
--    glBindTexture(GL_TEXTURE_2D, 0);
--  }
--
--  CLog::Log(LOGNOTICE, "VDPAU::COutput: bound pixmaps");
--}
--
--void COutput::GLUnbindPixmaps()
--{
--  if (!m_config.usePixmaps)
--    return;
--
--  for (unsigned int i = 0; i < m_bufferPool.pixmaps.size(); i++)
--  {
--    // create texture
--    if (!glIsTexture(m_bufferPool.pixmaps[i].texture))
--      continue;
--
--    //bind texture
--    glBindTexture(GL_TEXTURE_2D, m_bufferPool.pixmaps[i].texture);
--
--    // release pixmap
--    glXReleaseTexImageEXT(m_Display, m_bufferPool.pixmaps[i].glPixmap, GLX_FRONT_LEFT_EXT);
--
--    glBindTexture(GL_TEXTURE_2D, 0);
--
--    glDeleteTextures(1, &m_bufferPool.pixmaps[i].texture);
--  }
--  CLog::Log(LOGNOTICE, "VDPAU::COutput: unbound pixmaps");
--}
--
- bool COutput::CheckStatus(VdpStatus vdp_st, int line)
- {
-   if (vdp_st != VDP_STATUS_OK)
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-index 07a98a2..abe8da2 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h
-@@ -103,15 +103,6 @@ struct VDPAU_procs
- 
-   VdpGenerateCSCMatrix *                vdp_generate_csc_matrix;
- 
--  VdpPresentationQueueTargetDestroy *         vdp_presentation_queue_target_destroy;
--  VdpPresentationQueueCreate *                vdp_presentation_queue_create;
--  VdpPresentationQueueDestroy *               vdp_presentation_queue_destroy;
--  VdpPresentationQueueDisplay *               vdp_presentation_queue_display;
--  VdpPresentationQueueBlockUntilSurfaceIdle * vdp_presentation_queue_block_until_surface_idle;
--  VdpPresentationQueueTargetCreateX11 *       vdp_presentation_queue_target_create_x11;
--  VdpPresentationQueueQuerySurfaceStatus *    vdp_presentation_queue_query_surface_status;
--  VdpPresentationQueueGetTime *               vdp_presentation_queue_get_time;
--
-   VdpGetErrorString *                         vdp_get_error_string;
- 
-   VdpDecoderCreate *             vdp_decoder_create;
-@@ -185,7 +176,6 @@ struct CVdpauConfig
-   CDecoder *vdpau;
-   int upscale;
-   CVideoSurfaces *videoSurfaces;
--  bool usePixmaps;
-   int numRenderBuffers;
-   uint32_t maxReferences;
-   bool useInteropYuv;
-@@ -363,18 +353,6 @@ struct VdpauBufferPool
- {
-   VdpauBufferPool();
-   virtual ~VdpauBufferPool();
--  struct Pixmaps
--  {
--    unsigned short id;
--    bool used;
--    DVDVideoPicture DVDPic;
--    GLuint texture;
--    Pixmap pixmap;
--    GLXPixmap  glPixmap;
--    VdpPresentationQueueTarget vdp_flip_target;
--    VdpPresentationQueue vdp_flip_queue;
--    VdpOutputSurface surface;
--  };
-   struct GLVideoSurface
-   {
-     GLuint texture[4];
-@@ -386,9 +364,7 @@ struct VdpauBufferPool
-   };
-   std::vector<CVdpauRenderPicture*> allRenderPics;
-   unsigned short numOutputSurfaces;
--  std::vector<Pixmaps> pixmaps;
-   std::vector<VdpOutputSurface> outputSurfaces;
--  std::deque<int> notVisiblePixmaps;
-   std::map<VdpVideoSurface, GLVideoSurface> glVideoSurfaceMap;
-   std::map<VdpOutputSurface, GLVideoSurface> glOutputSurfaceMap;
-   std::queue<CVdpauProcessedPicture> processedPics;
-@@ -457,7 +433,6 @@ class COutput : private CThread
-   void QueueReturnPicture(CVdpauRenderPicture *pic);
-   void ProcessReturnPicture(CVdpauRenderPicture *pic);
-   bool ProcessSyncPicture();
--  int FindFreePixmap();
-   bool Init();
-   bool Uninit();
-   void Flush();
-@@ -470,10 +445,6 @@ class COutput : private CThread
-   bool GLInit();
-   void GLMapSurfaces();
-   void GLUnmapSurfaces();
--  void GLBindPixmaps();
--  void GLUnbindPixmaps();
--  bool MakePixmap(VdpauBufferPool::Pixmaps &pixmap);
--  bool MakePixmapGL(VdpauBufferPool::Pixmaps &pixmap);
-   bool CheckStatus(VdpStatus vdp_st, int line);
-   CEvent m_outMsgEvent;
-   CEvent *m_inMsgEvent;
-@@ -494,8 +465,6 @@ class COutput : private CThread
-   GLXPixmap m_glPixmap;
- 
-   // gl functions
--  PFNGLXBINDTEXIMAGEEXTPROC    glXBindTexImageEXT;
--  PFNGLXRELEASETEXIMAGEEXTPROC glXReleaseTexImageEXT;
- #ifdef GL_NV_vdpau_interop
-   PFNGLVDPAUINITNVPROC glVDPAUInitNV;
-   PFNGLVDPAUFININVPROC glVDPAUFiniNV;
--- 
-1.8.4
-
-
-From bd45e5319f740e24981e831a8851145be55933b1 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Tue, 1 Oct 2013 17:42:01 +0200
-Subject: [PATCH 11/87] vdpau: reduce number of render pics
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index c5beec1..d4dff12 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -38,7 +38,7 @@
- #include "cores/VideoRenderers/RenderFlags.h"
- 
- using namespace VDPAU;
--#define NUM_RENDER_PICS 9
-+#define NUM_RENDER_PICS 7
- 
- #define ARSIZE(x) (sizeof(x) / sizeof((x)[0]))
- 
--- 
-1.8.4
-
-
-From 551e5a217bade9d23d245cd1eefaf181636665c3 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Tue, 1 Oct 2013 17:51:02 +0200
-Subject: [PATCH 12/87] vdpau: cosmetics
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 20 +++-----------------
- 1 file changed, 3 insertions(+), 17 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-index d4dff12..f57935e 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp
-@@ -961,7 +961,6 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic)
- 
- void CDecoder::FFReleaseBuffer(AVCodecContext *avctx, AVFrame *pic)
- {
--  //CLog::Log(LOGNOTICE,"%s",__FUNCTION__);
-   CDVDVideoCodecFFmpeg* ctx        = (CDVDVideoCodecFFmpeg*)avctx->opaque;
-   CDecoder*             vdp        = (CDecoder*)ctx->GetHardware();
- 
-@@ -1298,7 +1297,7 @@ void CVdpauRenderPicture::Sync()
- // Mixer
- //-----------------------------------------------------------------------------
- CMixer::CMixer(CEvent *inMsgEvent) :
--  CThread("Vdpau Mixer Thread"),
-+  CThread("Vdpau Mixer"),
-   m_controlPort("ControlPort", inMsgEvent, &m_outMsgEvent),
-   m_dataPort("DataPort", inMsgEvent, &m_outMsgEvent)
- {
-@@ -1462,11 +1461,6 @@ void CMixer::StateMachine(int signal, Protocol *port, Message *msg)
-           }
-           else
-           {
--//            if (m_extTimeout != 0)
--//            {
--//              SetPostProcFeatures(false);
--//              CLog::Log(LOGWARNING,"CVDPAU::Mixer timeout - decoded: %d, outputSurf: %d", (int)m_decodedPics.size(), (int)m_outputSurfaces.size());
--//            }
-             m_extTimeout = 100;
-           }
-           return;
-@@ -1534,11 +1528,6 @@ void CMixer::StateMachine(int signal, Protocol *port, Message *msg)
-           }
-           else
-           {
--//            if (m_extTimeout != 0)
--//            {
--//              SetPostProcFeatures(false);
--//              CLog::Log(LOGNOTICE,"---mixer wait2 decoded: %d, outputSurf: %d", (int)m_decodedPics.size(), (int)m_outputSurfaces.size());
--//            }
-             m_extTimeout = 100;
-           }
-           return;
-@@ -2216,7 +2205,6 @@ void CMixer::DisableHQScaling()
-   }
- }
- 
--
- void CMixer::Init()
- {
-   m_Brightness = 0.0;
-@@ -2282,10 +2270,9 @@ void CMixer::Flush()
- void CMixer::InitCycle()
- {
-   CheckFeatures();
--  uint64_t latency;
-   int flags;
-+  uint64_t latency;
-   m_config.stats->GetParams(latency, flags);
--  latency = (latency*1000)/CurrentHostFrequency();
-   // TODO
-   if (0) //flags & DVP_FLAG_NO_POSTPROC)
-     SetPostProcFeatures(false);
-@@ -2404,7 +2391,6 @@ void CMixer::FiniCycle()
-       m_config.videoSurfaces->ClearRender(tmp.videoSurface);
-     }
-     m_mixerInput.pop_back();
--//    m_config.stats->DecDecoded();
-   }
- }
- 
-@@ -2584,7 +2570,7 @@ bool CMixer::CheckStatus(VdpStatus vdp_st, int line)
- // Output
- //-----------------------------------------------------------------------------
- COutput::COutput(CEvent *inMsgEvent) :
--  CThread("Vdpau Output Thread"),
-+  CThread("Vdpau Output"),
-   m_controlPort("OutputControlPort", inMsgEvent, &m_outMsgEvent),
-   m_dataPort("OutputDataPort", inMsgEvent, &m_outMsgEvent),
-   m_mixer(&m_outMsgEvent)
--- 
-1.8.4
-
-
-From 124e8cfaf4001809adf5e358775843b5b3664c35 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sat, 5 Oct 2013 14:31:19 +0200
-Subject: [PATCH 13/87] vdpau: fix incorrect spcifier in settings for vdpau
- mixer
-
----
- system/settings/settings.xml | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index a22138c..64d6e63 100644
---- a/system/settings/settings.xml
-+++ b/system/settings/settings.xml
-@@ -376,7 +376,7 @@
-           <default>true</default>
-         </setting>
-         <setting id="videoplayer.usevdpaumixer" type="boolean" label="13437" help="36421">
--          <visible>HAVE_LIBVDPAU</visible>
-+          <requirement>HAVE_LIBVDPAU</requirement>
-           <level>2</level>
-           <default>true</default>
-           <control>
--- 
-1.8.4
-
-
-From 98d69153c2fc3140dea7e2d12399bcde79fc787d Mon Sep 17 00:00:00 2001
+From f76a2f615a68416dd0c3106703100388aaeb3565 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:34:39 +0200
-Subject: [PATCH 14/87] videoplayer: adapt lateness detection and dropping to
+Subject: [PATCH 01/74] videoplayer: adapt lateness detection and dropping to
  buffering
 
 ---
@@ -3737,10 +582,10 @@ index f8ad541..186e271 100644
 1.8.4
 
 
-From 1b8ca711710cdc9ed60d0c2189aca59897d1f731 Mon Sep 17 00:00:00 2001
+From a200d68b174fcf18c44ad62fa14b903876e65879 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 15/87] video player: present correct pts to user for a/v sync
+Subject: [PATCH 02/74] video player: present correct pts to user for a/v sync
  (after buffering in renderer)
 
 ---
@@ -3808,10 +653,10 @@ index 186e271..59c7f09 100644
 1.8.4
 
 
-From 7e98d7e146f1ac7c3ee8c672d5ac06a8f317d840 Mon Sep 17 00:00:00 2001
+From 9db10c5c1415af1bb5f5c7c8c17c791fc50b7bad Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 16 Feb 2013 18:25:53 +0100
-Subject: [PATCH 16/87] videoplayer: some rework and documentation
+Subject: [PATCH 03/74] videoplayer: some rework and documentation
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      | 29 ++++++++++++++++++++--
@@ -3922,10 +767,10 @@ index 752a291..0aef5ee 100644
 1.8.4
 
 
-From a73fe3a694826bbe9cdde127bee68aa5e4e5cc73 Mon Sep 17 00:00:00 2001
+From 6b8c72c1595a582c3098e32dd6044c3614c6cac3 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 1 Jun 2013 11:21:19 +0200
-Subject: [PATCH 17/87] renderer: bump buffers to 5
+Subject: [PATCH 04/74] renderer: bump buffers to 5
 
 ---
  xbmc/cores/VideoRenderers/BaseRenderer.h | 2 +-
@@ -3948,10 +793,10 @@ index a61d3cf..df5fe0e 100644
 1.8.4
 
 
-From bb145eeba6de5eb473aac7a1dae65e8a20b747d9 Mon Sep 17 00:00:00 2001
+From 57f380ab796064405db81c3e564664c497221f04 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:41:31 +0200
-Subject: [PATCH 18/87] videoplayer: update frametime, it might change due to
+Subject: [PATCH 05/74] videoplayer: update frametime, it might change due to
  fps detection
 
 ---
@@ -3975,10 +820,10 @@ index 0aef5ee..e7e5097 100644
 1.8.4
 
 
-From d4ff6ac75519782389371a0042c5f29acee80d3d Mon Sep 17 00:00:00 2001
+From 1038a6f6cf3996588a839b120511a59d5b571d86 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:43:06 +0200
-Subject: [PATCH 19/87] videoplayer: give streams with invalid fps a chance for
+Subject: [PATCH 06/74] videoplayer: give streams with invalid fps a chance for
  fps detection
 
 ---
@@ -4002,10 +847,10 @@ index e7e5097..c40d193 100644
 1.8.4
 
 
-From 40875a03e9bcab1582b655c0625ad1f7d3a3493f Mon Sep 17 00:00:00 2001
+From eaf33bcb7db24055150197a288daf57112019e11 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 20/87] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 07/74] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -4013,7 +858,7 @@ Subject: [PATCH 20/87] dvdplayer: allow rewinding at end of stream, do a seek
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 94adb6e..964ea2e 100644
+index 5e75372..1f4b1c6 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
 @@ -1552,7 +1552,7 @@ void CDVDPlayer::HandlePlaySpeed()
@@ -4042,10 +887,10 @@ index 94adb6e..964ea2e 100644
 1.8.4
 
 
-From 4b3f7b67ca569c24fd3822b3b759fcffc3ee0ba9 Mon Sep 17 00:00:00 2001
+From 95da7903000b0f5c9c534371903dbf453a988aaa Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:22:05 +0200
-Subject: [PATCH 21/87] X11: ditch SDL for video and window events
+Subject: [PATCH 08/74] X11: ditch SDL for video and window events
 
 ---
  xbmc/Application.cpp                |   2 +-
@@ -5569,10 +2414,10 @@ index 3d438c8..3f204d7 100644
 1.8.4
 
 
-From e401ad8d3a70729076ef476a8eee4080ba8bbbf2 Mon Sep 17 00:00:00 2001
+From 4e1df95f7b2aff61c08fdd1add79fc33d08e728a Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:24:22 +0200
-Subject: [PATCH 22/87] X11: Add xbmc icon
+Subject: [PATCH 09/74] X11: Add xbmc icon
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 126 +++++++++++++++++++++++++++++++++++-
@@ -5761,10 +2606,10 @@ index 3f204d7..3e99c3c 100644
 1.8.4
 
 
-From c9a3d6217740110079d881001521b81facb1885a Mon Sep 17 00:00:00 2001
+From dc22f21403f84d5577fee5683ed7264f83a048dc Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 20 May 2012 14:11:26 +0200
-Subject: [PATCH 23/87] X11: add SDL joystick until we have a better solution
+Subject: [PATCH 10/74] X11: add SDL joystick until we have a better solution
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 26 ++++++++++++++++++++++++++
@@ -5818,10 +2663,10 @@ index ad58aad..6f57a87 100644
 1.8.4
 
 
-From c7ac504a35600131a1a960d7bdb372234788082d Mon Sep 17 00:00:00 2001
+From 81657001f5104a13513fc42f070477cc7bc5d5f7 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 12:35:55 +0200
-Subject: [PATCH 24/87] X11: factor out code handling device reset notification
+Subject: [PATCH 11/74] X11: factor out code handling device reset notification
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 22 ++++++++++++++--------
@@ -5884,10 +2729,10 @@ index 3e99c3c..a07ab97 100644
 1.8.4
 
 
-From 4a9fffdddb42877549500d8b0691ed55c8218b41 Mon Sep 17 00:00:00 2001
+From 1f09af24bce98c8e38f5f94e8b9be429f423fb2f Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:02:00 +0200
-Subject: [PATCH 25/87] X11: move xrandr events to WinEventsX11
+Subject: [PATCH 12/74] X11: move xrandr events to WinEventsX11
 
 ---
  xbmc/windowing/WinEventsX11.cpp     | 42 +++++++++++++++++++++++++++++++++++++
@@ -6031,10 +2876,10 @@ index df0dc67..5d88b9a 100644
 1.8.4
 
 
-From c2281e1a68abcaf9c59839421449a0649aa2bc24 Mon Sep 17 00:00:00 2001
+From 9af0ca98d7f9d6797934f51f44d573bf90a63dab Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 12 Apr 2012 15:43:56 +0200
-Subject: [PATCH 26/87] xrandr: remove method RestoreState
+Subject: [PATCH 13/74] xrandr: remove method RestoreState
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 13 +++++++++++--
@@ -6113,10 +2958,10 @@ index 0aec487..00b49dc 100644
 1.8.4
 
 
-From 00f02a5318e55c7b156c5329fab70b63757a8c15 Mon Sep 17 00:00:00 2001
+From 5e375115b685250361cc96a85a04ac62f3d43d4f Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 20 May 2012 13:17:10 +0200
-Subject: [PATCH 27/87] xrandr: observe orientation
+Subject: [PATCH 14/74] xrandr: observe orientation
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 89 ++++++++++++++++++++++++++++++-------
@@ -6331,10 +3176,10 @@ index 00b49dc..508604d 100644
 1.8.4
 
 
-From 2f1c5cff27869d47db33f6d5be4e07a64ccd928f Mon Sep 17 00:00:00 2001
+From 3ad94827d8de16465a96948de1761cd610c665cd Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:54:15 +0200
-Subject: [PATCH 28/87] xrandr: allow getting info for multiple screen's
+Subject: [PATCH 15/74] xrandr: allow getting info for multiple screen's
 
 Refactored by: Joakim Plate <elupus@xbmc.org>
 ---
@@ -6509,10 +3354,10 @@ index 508604d..d37838a 100644
 1.8.4
 
 
-From 920a5ddeaf2b7720028f7d7027e7ab70880bfc26 Mon Sep 17 00:00:00 2001
+From 080c7041adbf7874381895b6b60a9f543bd1b99b Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:44:00 +0200
-Subject: [PATCH 29/87] X11: fix multi-head setups
+Subject: [PATCH 16/74] X11: fix multi-head setups
 
 ---
  language/English/strings.po         |   4 +-
@@ -7281,10 +4126,10 @@ index d5ce9a2e..8310546 100644
 1.8.4
 
 
-From 72e7e9b77fb3e3d8f0e5330d14e1fc8388f0e3b0 Mon Sep 17 00:00:00 2001
+From 03efa8779a236edf420d18341d09be7fe4cfbf17 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:36:32 +0200
-Subject: [PATCH 30/87] X11: remove all DefaultScreen and RootWindow macros
+Subject: [PATCH 17/74] X11: remove all DefaultScreen and RootWindow macros
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp   | 6 +++---
@@ -7352,10 +4197,10 @@ index 81c6800..8a8ff83 100644
 1.8.4
 
 
-From 46beacaa20f769a6561f5e26cfd9c068d92f203a Mon Sep 17 00:00:00 2001
+From 3386d242934367375118ec15b74e892ee78e1c21 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:45:22 +0200
-Subject: [PATCH 31/87] X11: remove all DefaultScreen and RootWindow macros
+Subject: [PATCH 18/74] X11: remove all DefaultScreen and RootWindow macros
  (VideoRefClock)
 
 Note this is on a separate display connection.
@@ -7427,10 +4272,10 @@ index 3ba991a..7eecd40 100644
 1.8.4
 
 
-From a34171aa74eb6cf1e852eb7d2724a53e9e2c3339 Mon Sep 17 00:00:00 2001
+From 40b9040210431c7bb76fa4f3c4dd4e640c12e9bc Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 20 Jun 2012 17:37:11 +0200
-Subject: [PATCH 32/87] X11: recreate gl context after output has changed
+Subject: [PATCH 19/74] X11: recreate gl context after output has changed
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp   | 24 ++++++++++++++----------
@@ -7581,10 +4426,10 @@ index 8a8ff83..8707467 100644
 1.8.4
 
 
-From bfa905cb6eec58a4736940ccb214282915ff936b Mon Sep 17 00:00:00 2001
+From e570c4e765eedd157edce79adaf51bae6d106d6d Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:06:25 +0200
-Subject: [PATCH 33/87] X11: hook video reference clock in windowing
+Subject: [PATCH 20/74] X11: hook video reference clock in windowing
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 71 +++++++++++++++++++++++++++-----------
@@ -7789,10 +4634,10 @@ index dd65a1b..afd71fc 100644
 1.8.4
 
 
-From 2a02d24a30c3f84280cdd170b36f361226627c42 Mon Sep 17 00:00:00 2001
+From 62370ea8dc17453660d8f29a5539538fb2ab70e4 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 21 Jun 2012 17:26:51 +0200
-Subject: [PATCH 34/87] X11: fix video calibrations
+Subject: [PATCH 21/74] X11: fix video calibrations
 
 ---
  xbmc/windowing/WinSystem.h          |  1 +
@@ -7884,10 +4729,10 @@ index 1ff3724..2fc3f57 100644
 1.8.4
 
 
-From cbada69a9fc7e0b61f8ee801eacbf55b4039d15b Mon Sep 17 00:00:00 2001
+From a1649e0f15dea09337319ff1683fcca1dbc2858c Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:00:26 +0200
-Subject: [PATCH 35/87] X11: deactivate screen saver on startup
+Subject: [PATCH 22/74] X11: deactivate screen saver on startup
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 29 +++++++++++++++++++++++++++++
@@ -7957,10 +4802,10 @@ index 2fc3f57..e7e1781 100644
 1.8.4
 
 
-From bb83108383be0cfcf1e7872f22a247b8150945e1 Mon Sep 17 00:00:00 2001
+From 540c104b577c488cd03bd98680145b0bf158bcae Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:10:09 +0200
-Subject: [PATCH 36/87] X11: change method of going full-screen
+Subject: [PATCH 23/74] X11: change method of going full-screen
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 9 ++++++++-
@@ -8004,10 +4849,10 @@ index 3084980..daabde3 100644
 1.8.4
 
 
-From 0cc2b9edeb202eb4c8936fed6a24eb28098bfc61 Mon Sep 17 00:00:00 2001
+From 4acf215f9e6346aabf79b6b362125382742db27a Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Jun 2012 19:12:39 +0200
-Subject: [PATCH 37/87] X11: reset key repeat and key modifier on focus lost
+Subject: [PATCH 24/74] X11: reset key repeat and key modifier on focus lost
  and gain
 
 ---
@@ -8039,10 +4884,10 @@ index d98f12f..743aca9 100644
 1.8.4
 
 
-From e8a9989e8d0453bd929dacb0d8f3b42474e54e31 Mon Sep 17 00:00:00 2001
+From 95e7717052f1810bb43abc79c892e82c2224cf9f Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 14:18:46 +0200
-Subject: [PATCH 38/87] X11: replace custom utf8 to unicode with charset
+Subject: [PATCH 25/74] X11: replace custom utf8 to unicode with charset
  convertor (squash to x11 events)
 
 ---
@@ -8259,10 +5104,10 @@ index a412f32..9a8a912 100644
 1.8.4
 
 
-From 7f49f62bddc9b29c35d06711d8976b0f92a98be2 Mon Sep 17 00:00:00 2001
+From 28d34c6cdd579dd93fe15a9e62c18bba61276272 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 14:23:54 +0200
-Subject: [PATCH 39/87] X11: fixed invalid usage of sizeof() (squash into x11
+Subject: [PATCH 26/74] X11: fixed invalid usage of sizeof() (squash into x11
  changes)
 
 ---
@@ -8326,10 +5171,10 @@ index 9a8a912..c69169c 100644
 1.8.4
 
 
-From 163e1aee533c3b55898318107c61492e7141c081 Mon Sep 17 00:00:00 2001
+From 1994cc2d7165406f5be7c54c667c79db4b00ac1c Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 9 Jun 2012 18:23:53 +0200
-Subject: [PATCH 40/87] add missing keys to xbmc keytable
+Subject: [PATCH 27/74] add missing keys to xbmc keytable
 
 ---
  xbmc/input/XBMC_keytable.cpp | 2 ++
@@ -8352,10 +5197,10 @@ index b430f55..246164b 100644
 1.8.4
 
 
-From 717f97cfc316cd6d772992147c4f2aa4671e6b9d Mon Sep 17 00:00:00 2001
+From 85fffc41db60164b1270ba409366eb1b959eb33d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 16 Mar 2012 15:57:51 +0100
-Subject: [PATCH 41/87] videorefclock: temp deactivate of nv settings
+Subject: [PATCH 28/74] videorefclock: temp deactivate of nv settings
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 2 +-
@@ -8378,10 +5223,10 @@ index 4071ff0..b9afc09 100644
 1.8.4
 
 
-From 7cf6a5ae57eb980ead6b9e20b14a9a222288f75d Mon Sep 17 00:00:00 2001
+From dcc90371ec1689bd500fb6e22a10c123c3f16d26 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 09:09:09 +0200
-Subject: [PATCH 42/87] videorefclock: ask graphics context for refresh rate
+Subject: [PATCH 29/74] videorefclock: ask graphics context for refresh rate
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 3 ++-
@@ -8412,10 +5257,10 @@ index b9afc09..2f6c7de 100644
 1.8.4
 
 
-From 1df73e08c3c803fdd46f89193f989f9f6eb9ff58 Mon Sep 17 00:00:00 2001
+From 3a4d87cfe7389e01aa2a57c93c7a659388901beb Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 9 Jul 2012 14:00:18 +0200
-Subject: [PATCH 43/87] X11: fix icon texture after
+Subject: [PATCH 30/74] X11: fix icon texture after
  cc5ed3c2474084ebc0373a3046410e6f766e03f4
 
 ---
@@ -8523,10 +5368,10 @@ index daabde3..516dc69 100644
 1.8.4
 
 
-From 0bb219f2cb7bf99a68a272009b1d612281770f54 Mon Sep 17 00:00:00 2001
+From a909c60bead4209665e6a82dce7c014f313fd30b Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 10 Jul 2012 11:14:12 +0200
-Subject: [PATCH 44/87] X11: check for window manager
+Subject: [PATCH 31/74] X11: check for window manager
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 74 ++++++++++++++++++++++++++++++++++++-
@@ -8647,10 +5492,10 @@ index e7e1781..4175556 100644
 1.8.4
 
 
-From 4008a404a8e71d672be86282c0219c0f6e873402 Mon Sep 17 00:00:00 2001
+From c538cc4ac325dfbcc7447032d3b20242b0dcbdb5 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 12 Jul 2012 11:11:47 +0200
-Subject: [PATCH 45/87] X11: dont set window on xrandr if no mode available
+Subject: [PATCH 32/74] X11: dont set window on xrandr if no mode available
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 11 ++++++-----
@@ -8687,10 +5532,10 @@ index e8b73b5..dee08e0 100644
 1.8.4
 
 
-From 9b797e3fc5cb302e0605bbb38e587ae6f89bda8f Mon Sep 17 00:00:00 2001
+From fa93c147b943b732f3d6bbe71a98baecca7ccde1 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 26 Jul 2012 09:34:28 +0200
-Subject: [PATCH 46/87] X11: fix crash after a resolution change on startup
+Subject: [PATCH 33/74] X11: fix crash after a resolution change on startup
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 3 ++-
@@ -8714,10 +5559,10 @@ index dee08e0..edfd370 100644
 1.8.4
 
 
-From 3266649022e6224fa956079374a8ce7c4ac7fe04 Mon Sep 17 00:00:00 2001
+From 9984308d1ce396da62875b9e7339db49279f6f82 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 15 Sep 2012 18:27:29 +0200
-Subject: [PATCH 47/87] X11: lock graphics context in NotifyXRREvent
+Subject: [PATCH 34/74] X11: lock graphics context in NotifyXRREvent
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 ++
@@ -8740,10 +5585,10 @@ index edfd370..974ce96 100644
 1.8.4
 
 
-From 38d48afa96600f138088664813ea4dc0574515a8 Mon Sep 17 00:00:00 2001
+From 3e02d584c40c1ced3d163589cf50120c2cbb3f93 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 23 Aug 2012 19:39:49 +0200
-Subject: [PATCH 48/87] ffmpeg: add av_find_default_stream_index to interface
+Subject: [PATCH 35/74] ffmpeg: add av_find_default_stream_index to interface
 
 ---
  lib/DllAvFormat.h | 4 ++++
@@ -8789,10 +5634,10 @@ index 0016c0b..3514856 100644
 1.8.4
 
 
-From c3dfdf12a46f1a06acc0ed8c7b35b2eb449f9b3c Mon Sep 17 00:00:00 2001
+From 1957f4f6d5cc550906fcf49f123f50ebd68edec9 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 49/87] dvdplayer: observe pts counter overflow
+Subject: [PATCH 36/74] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 198 ++++++++++++++++++++-
@@ -9079,10 +5924,10 @@ index aef5ab1..35abbdf 100644
 1.8.4
 
 
-From 4226b2ae2d87583dcb2c301e6f00fa938529e12b Mon Sep 17 00:00:00 2001
+From c6e0462ca3ad1fbde0efa953c75363297155d1c5 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 50/87] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 37/74] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -9115,10 +5960,10 @@ index c40d193..6419951 100644
 1.8.4
 
 
-From f89eac396a55c37bd13f32a32924e0450bc22838 Mon Sep 17 00:00:00 2001
+From df93f2127ef98af9583e957a603ad39fc7843f2d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 51/87] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 38/74] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -9184,10 +6029,10 @@ index 05e670b..a67ac36 100644
 1.8.4
 
 
-From 987462e79994ce505053dcd3f767b9f41d0e3416 Mon Sep 17 00:00:00 2001
+From 7293b27ee7c2cf24f15a72b8b2ef6a1af5d0ff86 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 52/87] player: fix rewind
+Subject: [PATCH 39/74] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 ++++-
@@ -9235,7 +6080,7 @@ index 2ea8b8f..e8274f9 100644
  
  class CDVDMsgPlayerSeekChapter : public CDVDMsg
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 964ea2e..35724b9 100644
+index 1f4b1c6..5852037 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
 @@ -1553,11 +1553,13 @@ void CDVDPlayer::HandlePlaySpeed()
@@ -9293,7 +6138,7 @@ index 964ea2e..35724b9 100644
          }
  
          // if playspeed is different then DVD_PLAYSPEED_NORMAL or DVD_PLAYSPEED_PAUSE
-@@ -3177,7 +3181,7 @@ bool CDVDPlayer::CloseTeletextStream(bool bWaitForBuffers)
+@@ -3178,7 +3182,7 @@ bool CDVDPlayer::CloseTeletextStream(bool bWaitForBuffers)
    return true;
  }
  
@@ -9302,7 +6147,7 @@ index 964ea2e..35724b9 100644
  {
    double startpts;
    if(accurate)
-@@ -3189,19 +3193,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3190,19 +3194,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
    if(startpts != DVD_NOPTS_VALUE)
      startpts -= m_offset_pts;
  
@@ -9330,7 +6175,7 @@ index 964ea2e..35724b9 100644
    m_CurrentTeletext.dts      = DVD_NOPTS_VALUE;
    m_CurrentTeletext.startpts = startpts;
  
-@@ -3245,7 +3253,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3246,7 +3254,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
        m_CurrentTeletext.started = false;
      }
  
@@ -9402,10 +6247,10 @@ index 59c7f09..65dea76 100644
 1.8.4
 
 
-From 9c49b80fbd29ca15e4a6db4cabdf6e1344cac8d1 Mon Sep 17 00:00:00 2001
+From 5b238db5e5b4af8fd7b2f3353e964b099b61b035 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 23 Nov 2012 17:41:12 +0100
-Subject: [PATCH 53/87] xrandr: fix query for multiple screens
+Subject: [PATCH 40/74] xrandr: fix query for multiple screens
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 10 ++++++----
@@ -9446,10 +6291,10 @@ index 9e181f2..ce0a02b 100644
 1.8.4
 
 
-From 124a74de5613715fd8b9335582f6a59203a2cb02 Mon Sep 17 00:00:00 2001
+From d45549c36bbff8bf10b7ae18349001d89fbb0d79 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Dec 2012 15:46:55 +0100
-Subject: [PATCH 54/87] X11: add debug log to print out refresh after xrr event
+Subject: [PATCH 41/74] X11: add debug log to print out refresh after xrr event
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 6 ++++++
@@ -9476,10 +6321,10 @@ index 974ce96..52f3eb2 100644
 1.8.4
 
 
-From 41932f475debd28e7ce5b2ae48131fc4f78f1691 Mon Sep 17 00:00:00 2001
+From f2a24f8f15adcb16e31057079f92be184c8aebc3 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 11 Dec 2012 11:08:13 +0100
-Subject: [PATCH 55/87] X11: dont call XCloseDisplay on shutdown, it crashes
+Subject: [PATCH 42/74] X11: dont call XCloseDisplay on shutdown, it crashes
  when powered doen by cec on ATI
 
 ---
@@ -9504,10 +6349,10 @@ index 52f3eb2..54b04b7 100644
 1.8.4
 
 
-From 2380c28cc3657707f07ad1f4e3852f8d62722e3c Mon Sep 17 00:00:00 2001
+From 122d6f28a086f518db4aa6ff0d5a911ae913640f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gr=C3=A9gory=20Coutant?= <gregory.coutant@gmail.com>
 Date: Wed, 12 Dec 2012 19:49:47 +0100
-Subject: [PATCH 56/87] x11: support for multiple x screens
+Subject: [PATCH 43/74] x11: support for multiple x screens
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 2 +-
@@ -9530,10 +6375,10 @@ index ce0a02b..aa27d2b 100644
 1.8.4
 
 
-From 77097cfd1cb68cc77ab0d9956027c91a77bd70d4 Mon Sep 17 00:00:00 2001
+From 229ad2fba2f019003f132535fb071424d28db90d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 24 Dec 2012 16:02:42 +0100
-Subject: [PATCH 57/87] pvr: increase changes counter of stream on stream
+Subject: [PATCH 44/74] pvr: increase changes counter of stream on stream
  change, cosmetics after dd307930d39d92f145a01a16600cd00e01ec39be
 
 ---
@@ -9567,10 +6412,10 @@ index b96d520..df89f6f 100644
 1.8.4
 
 
-From eee08ebfe9afa7f06ece5767637936bcce583d7e Mon Sep 17 00:00:00 2001
+From 0b981d562921a318e673076effd618db0e0bb183 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 17 Jan 2013 16:03:22 +0100
-Subject: [PATCH 58/87] X11: add keymapping for XF86XK_Sleep
+Subject: [PATCH 45/74] X11: add keymapping for XF86XK_Sleep
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 1 +
@@ -9592,10 +6437,10 @@ index a62521f..263cb5a 100644
 1.8.4
 
 
-From bf89fb504483cb881b33b4e9993b059844192513 Mon Sep 17 00:00:00 2001
+From 7b987841f0fd37439e5de2e19b5fb09ec08fef3d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 21 Jan 2013 09:00:19 +0100
-Subject: [PATCH 59/87] X11: remove toggle full screen after resume
+Subject: [PATCH 46/74] X11: remove toggle full screen after resume
 
 ---
  xbmc/powermanagement/PowerManager.cpp | 5 -----
@@ -9621,10 +6466,10 @@ index 2033574..c79bbc1 100644
 1.8.4
 
 
-From 7596bd39358cf811a7b52488e0624623812c7572 Mon Sep 17 00:00:00 2001
+From c24a1a423767ec7ce949ac040428962e3a24e613 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 23 Jan 2013 17:03:02 +0100
-Subject: [PATCH 60/87] xrandr: set screen on mode change command
+Subject: [PATCH 47/74] xrandr: set screen on mode change command
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 2 +-
@@ -9647,10 +6492,10 @@ index aa27d2b..67bf6ca 100644
 1.8.4
 
 
-From e408fefbfeccb1eb8fbf525fda547dbdbada9279 Mon Sep 17 00:00:00 2001
+From 8dd1ea862955f4c89b497bbffa2d82bede2bce4d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 23 Jan 2013 17:03:39 +0100
-Subject: [PATCH 61/87] X11: recreate glx context when output changes
+Subject: [PATCH 48/74] X11: recreate glx context when output changes
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 6 +++---
@@ -9701,10 +6546,10 @@ index 4175556..11c40f7 100644
 1.8.4
 
 
-From 98e2d3b7343c9faa99754c8c10b679f5819316c1 Mon Sep 17 00:00:00 2001
+From 6787768157c5cc5f3411da684dd29cf1dc6faa2d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 14 Dec 2012 14:19:15 +0100
-Subject: [PATCH 62/87] pvr: do not show selection dialog for a single menu
+Subject: [PATCH 49/74] pvr: do not show selection dialog for a single menu
  hook
 
 ---
@@ -9742,10 +6587,10 @@ index aab6345..a880778 100644
 1.8.4
 
 
-From 65c92037b8048b87ac1499888f14fbbe3c9efd8e Mon Sep 17 00:00:00 2001
+From 034a12ecdb8a520386ed592e2df00a694aa17550 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 3 Feb 2013 08:17:16 +0100
-Subject: [PATCH 63/87] X11: use default screen parameters if no output
+Subject: [PATCH 50/74] X11: use default screen parameters if no output
  connected
 
 ---
@@ -9849,10 +6694,10 @@ index 6a5a4c2..369d17d 100644
 1.8.4
 
 
-From f1bbc4ccc203f0eca551d8e651655d378622e433 Mon Sep 17 00:00:00 2001
+From 8e81e624d8081d598ab9336856ba8515c76b6564 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 23 Mar 2013 15:13:32 +0100
-Subject: [PATCH 64/87] X11: create parent window
+Subject: [PATCH 51/74] X11: create parent window
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 69 +++++++++++++++++++++++--------------
@@ -10118,10 +6963,10 @@ index 11c40f7..7a4421b 100644
 1.8.4
 
 
-From 9ab16e792d80f09cf64a26ecd3cbc8407a750757 Mon Sep 17 00:00:00 2001
+From d67f3d0f16881982828fbc7fb06305240a32669b Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 24 Mar 2013 12:30:12 +0100
-Subject: [PATCH 65/87] X11: use system key repeat rate instead of hardcoded
+Subject: [PATCH 52/74] X11: use system key repeat rate instead of hardcoded
  one, taken from 58fd64b194e38b73b5f3132744bab35e994e7441
 
 ---
@@ -10323,10 +7168,10 @@ index c69169c..6429291 100644
 1.8.4
 
 
-From 860b54d09e2ad226db3a9815d38adb6ae810fe66 Mon Sep 17 00:00:00 2001
+From 996443e38858415347df22b22ad050e4509eb551 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 24 Mar 2013 16:04:48 +0100
-Subject: [PATCH 66/87] linux: use CLOCK_MONOTONIC_RAW as this is not subject
+Subject: [PATCH 53/74] linux: use CLOCK_MONOTONIC_RAW as this is not subject
  to NTP
 
 ---
@@ -10364,17 +7209,17 @@ index c06b8c5..4390d2e 100644
 1.8.4
 
 
-From e49abd4cb3403d922a9502a6afb8baffd01d54f0 Mon Sep 17 00:00:00 2001
+From 7b90348f9fe8aaa904eab7afc0d630806a56b3ec Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 15:18:53 +0100
-Subject: [PATCH 67/87] OMXPlayer: some caching fixes for pvr
+Subject: [PATCH 54/74] OMXPlayer: some caching fixes for pvr
 
 ---
  xbmc/cores/omxplayer/OMXPlayer.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
-index 401b7a9..733514e 100644
+index e9e8821..1ce961f 100644
 --- a/xbmc/cores/omxplayer/OMXPlayer.cpp
 +++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
 @@ -2465,7 +2465,8 @@ void COMXPlayer::HandleMessages()
@@ -10391,10 +7236,10 @@ index 401b7a9..733514e 100644
 1.8.4
 
 
-From ea1fb64f2aabbb9956c094c9fe15075025afb37e Mon Sep 17 00:00:00 2001
+From d4f3aa4c945be549810e52eaeb1cf98cabc50f26 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 68/87] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 55/74] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
@@ -10421,10 +7266,10 @@ index 3dbc541..b5d40c0 100644
 1.8.4
 
 
-From 009d185d231458647c50ecb743ae8ef03f47f263 Mon Sep 17 00:00:00 2001
+From 997190a2ba3fcc5073cdbc3ffc1be290006ba9db Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 13 Apr 2013 08:32:06 +0200
-Subject: [PATCH 69/87] X11: fix mouse coverage
+Subject: [PATCH 56/74] X11: fix mouse coverage
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 11 ++++++++---
@@ -10490,10 +7335,10 @@ index 7a4421b..4259394 100644
 1.8.4
 
 
-From be8e42ae76420089bd7e0fef4a30511eefc0c55b Mon Sep 17 00:00:00 2001
+From 8be0f6b2a3608936f156eb97f32d6d7087d05322 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 8 May 2013 13:14:58 +0200
-Subject: [PATCH 70/87] X11: fix incorrectly used screen num in desktop
+Subject: [PATCH 57/74] X11: fix incorrectly used screen num in desktop
  resolution
 
 ---
@@ -10528,10 +7373,10 @@ index 9467e00..18c2d8b 100644
 1.8.4
 
 
-From 2a4a307eae1b09e20e6a6e0037c4429c18c717ac Mon Sep 17 00:00:00 2001
+From 99a2dabf291dbba2b3a79c9b3f2ce6e1c4612ab9 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 9 May 2013 12:07:09 +0200
-Subject: [PATCH 71/87] X11: do not overwrite user selected monitor with
+Subject: [PATCH 58/74] X11: do not overwrite user selected monitor with
  fallback
 
 ---
@@ -10656,10 +7501,10 @@ index 4259394..c670129 100644
 1.8.4
 
 
-From 5ed22fb0a820e10c05c8bf625a151e392e122c77 Mon Sep 17 00:00:00 2001
+From 1fef84b48e9963254f8aba4e156a321e79063a2a Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 12 May 2013 10:50:30 +0200
-Subject: [PATCH 72/87] xrandr: add turn on/off to wrapper
+Subject: [PATCH 59/74] xrandr: add turn on/off to wrapper
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 78 +++++++++++++++++++++++++++++++++++++++----
@@ -10825,10 +7670,10 @@ index d37838a..059062f 100644
 1.8.4
 
 
-From 648277b1429883e019ff8d6e5539046a8fedb96d Mon Sep 17 00:00:00 2001
+From 99b278314c98bba54261063c5bf5b4d1b0d79660 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 19 May 2013 12:55:35 +0200
-Subject: [PATCH 73/87] xrandr: add GetPreferredMode to wrapper
+Subject: [PATCH 60/74] xrandr: add GetPreferredMode to wrapper
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 23 +++++++++++++++++++++++
@@ -10885,10 +7730,10 @@ index 059062f..ab7cc63 100644
 1.8.4
 
 
-From 594130e8ad3581d6aba24af269ac15a9416e6c2c Mon Sep 17 00:00:00 2001
+From 32fbf590327692789c4c7a979038e824b5fe0fa1 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 11 May 2013 17:12:12 +0200
-Subject: [PATCH 74/87] X11: multi-head improvement - poll for desired output
+Subject: [PATCH 61/74] X11: multi-head improvement - poll for desired output
  if we do not get an xrr event
 
 ---
@@ -11169,10 +8014,10 @@ index 4809821..1ad26b2 100644
 1.8.4
 
 
-From 30958530b5ed9bc69087f13d4cc07134868396b8 Mon Sep 17 00:00:00 2001
+From 480dada6d9c2ac28a7692e5f831ac5bbb2eb0aee Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 15 May 2013 09:14:34 +0200
-Subject: [PATCH 75/87] X11: ignore mouse move event form other windows
+Subject: [PATCH 62/74] X11: ignore mouse move event form other windows
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 4 +++-
@@ -11204,10 +8049,10 @@ index 908c8b6..938ad26 100644
 1.8.4
 
 
-From 27760ac79b856d7ecbb11f41c9317bb89412a626 Mon Sep 17 00:00:00 2001
+From 7f5c686ab86574fcb3d51f268f411166a396b951 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Jun 2013 16:20:29 +0200
-Subject: [PATCH 76/87] renderer: allow some lateness within vblank interval
+Subject: [PATCH 63/74] renderer: allow some lateness within vblank interval
 
 ---
  xbmc/cores/VideoRenderers/RenderManager.cpp | 12 ++++++++++--
@@ -11267,10 +8112,10 @@ index befd851..27283ec 100644
 1.8.4
 
 
-From 248554d928f50ff7fc5c50771bc6664e5df09596 Mon Sep 17 00:00:00 2001
+From 738538bbf0c89f513410365ca8c6fa2cd3aa1bfd Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 16 Jun 2013 13:22:58 +0200
-Subject: [PATCH 77/87] X11: another fix for mouse coverage
+Subject: [PATCH 64/74] X11: another fix for mouse coverage
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 6 ++++--
@@ -11303,10 +8148,10 @@ index 938ad26..e4ca56d 100644
 1.8.4
 
 
-From c686dbe23d86f0b39ff8a401a630856ffc4ded9e Mon Sep 17 00:00:00 2001
+From a64bd9e7901dd24b04303777636076a9c5ba1837 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 5 Jul 2013 12:14:00 +0200
-Subject: [PATCH 78/87] X11: set windows class name
+Subject: [PATCH 65/74] X11: set windows class name
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 9 ++++++++-
@@ -11348,10 +8193,10 @@ index cc3ac9f..46cbd34 100644
 1.8.4
 
 
-From 18555953f53ad9dc0339b853ae471de550cf42f9 Mon Sep 17 00:00:00 2001
+From 576b2053f1ddcd664f6b825eeeb1df7800256c0c Mon Sep 17 00:00:00 2001
 From: spiff <spiff@xbmc.org>
 Date: Tue, 16 Jul 2013 14:34:04 +0200
-Subject: [PATCH 79/87] fixed: typo
+Subject: [PATCH 66/74] fixed: typo
 
 ---
  language/English/strings.po | 2 +-
@@ -11374,10 +8219,10 @@ index b5dc856..4c8ceac 100755
 1.8.4
 
 
-From 8d4aafdb39f507d4f498eac066bae45b7f2415c2 Mon Sep 17 00:00:00 2001
+From 582ef196a465e87fe1e144d62c02cc11d0632770 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 80/87] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 67/74] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
@@ -11402,10 +8247,10 @@ index 6fbed5c..4cae9e8 100644
 1.8.4
 
 
-From 8f8488b32d1f92ab11e92fc3e9278474c92de57b Mon Sep 17 00:00:00 2001
+From 9d20c5eaabaf99ad0aa1c19e702ee6dab6b0d26e Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 81/87] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 68/74] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -11461,10 +8306,10 @@ index 7ee2ed9..7201c21 100644
 1.8.4
 
 
-From e708771b67ec04ff8bf659340f7f8c54ca299277 Mon Sep 17 00:00:00 2001
+From c1e0f8ba582d72f67a97b1f40353f3d297652177 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 9 Aug 2013 18:01:40 +0200
-Subject: [PATCH 82/87] X11: fix keysyms
+Subject: [PATCH 69/74] X11: fix keysyms
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 2 +-
@@ -11487,10 +8332,10 @@ index e4ca56d..b20130c 100644
 1.8.4
 
 
-From 94d6da106b1afcf17c6bfae19d93b4a1fe6f468f Mon Sep 17 00:00:00 2001
+From efb43ba3ecfb56df1b8f8bf7f50be00c237bcbfd Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 9 Aug 2013 18:42:36 +0200
-Subject: [PATCH 83/87] X11: fix keysym for non-IM
+Subject: [PATCH 70/74] X11: fix keysym for non-IM
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 2 +-
@@ -11513,10 +8358,10 @@ index b20130c..a38890c 100644
 1.8.4
 
 
-From dacba102b96636a741e22c55534fdc84e66755a9 Mon Sep 17 00:00:00 2001
+From 9d6744614857210aabfc09e54861ace36f398377 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 10 Aug 2013 11:18:16 +0200
-Subject: [PATCH 84/87] add some missing multi media keys
+Subject: [PATCH 71/74] add some missing multi media keys
 
 ---
  system/keymaps/keyboard.xml  | 3 +++
@@ -11571,10 +8416,10 @@ index ee6bb69..364b45a 100644
 1.8.4
 
 
-From dfb632797b50b0c4e0121f1befd1c9ca62652c32 Mon Sep 17 00:00:00 2001
+From 87e1ce994357837606a33794d40980c8e72167bf Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 10 Aug 2013 15:32:06 +0200
-Subject: [PATCH 85/87] CWinSystemBase: keep RES_DESKTOP untouched at pos 0,
+Subject: [PATCH 72/74] CWinSystemBase: keep RES_DESKTOP untouched at pos 0,
  fixes toggle fullscreen
 
 ---
@@ -11609,10 +8454,10 @@ index bad5c95..b789134 100644
 1.8.4
 
 
-From b840e9ebe2dcc8297a8a27e0b153b651d56b991e Mon Sep 17 00:00:00 2001
+From 53a94eb3b8011d2c01ef935882d8c5221861683a Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 10 Aug 2013 15:53:45 +0200
-Subject: [PATCH 86/87] X11: squash multi
+Subject: [PATCH 73/74] X11: squash multi
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 +-
@@ -11635,10 +8480,10 @@ index 46cbd34..a557978 100644
 1.8.4
 
 
-From e7eb33d4919038180956310793592c9af0ba5d65 Mon Sep 17 00:00:00 2001
+From 9e6cd5d31180c4fefdec0427ee2044900a3f845b Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 3 Sep 2013 20:46:17 +0200
-Subject: [PATCH 87/87] X11: do not poll default monitor
+Subject: [PATCH 74/74] X11: do not poll default monitor
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 +-
