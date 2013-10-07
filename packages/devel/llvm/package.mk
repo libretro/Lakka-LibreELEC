@@ -38,6 +38,7 @@ PKG_AUTORECONF="no"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_HOST="--disable-polly \
+                         --disable-zlib \
                          --disable-assertions \
                          --enable-optimized \
                          --disable-debug-runtime \
