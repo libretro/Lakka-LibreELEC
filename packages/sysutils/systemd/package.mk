@@ -103,6 +103,9 @@ post_makeinstall_target() {
   # remove unneeded stuff
     rm -rf $INSTALL/etc/systemd/system
     rm -rf $INSTALL/usr/share/zsh
+    rm -rf $INSTALL/usr/lib/kernel/install.d
+    rm -rf $INSTALL/usr/lib/rpm
+    rm  -f $INSTALL/usr/bin/kernel-install
 
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/bin
