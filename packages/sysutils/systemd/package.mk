@@ -107,6 +107,11 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/lib/rpm
     rm  -f $INSTALL/usr/bin/kernel-install
 
+  # tune journald.conf
+    sed -e "s,^.*Compress=.*$,Compress=no,g" -i $INSTALL/etc/systemd/journald.conf
+    sed -e "s,^.*SplitMode=.*$,SplitMode=none,g" -i $INSTALL/etc/systemd/journald.conf
+    sed -e "s,^.*MaxRetentionSec=.*$,MaxRetentionSec=1week,g" -i $INSTALL/etc/systemd/journald.conf
+
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/bin
       rm -rf $INSTALL/bin/systemd-machine-id-setup
