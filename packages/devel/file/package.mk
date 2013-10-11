@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,18 +18,22 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="file"
+PKG_VERSION="5.14"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="BSD"
+PKG_SITE="http://www.darwinsys.com/file/"
+PKG_URL="ftp://ftp.astron.com/pub/file/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS="zlib"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib file:host"
+PKG_PRIORITY="optional"
+PKG_SECTION="devel"
+PKG_SHORTDESC="file: File type identification utility"
+PKG_LONGDESC="These are the sources to Darwin's file(1) utility and master magic(4) file, now maintained by Christos Zoulas. The file(1) utility is used to determine the types of various files."
+PKG_IS_ADDON="no"
 
-cd $PKG_BUILD
-mkdir -p .build-target
-cd .build-target
-../configure --host=$TARGET_NAME \
-             --build=$HOST_NAME \
-             --prefix=/usr \
-             --sysconfdir=/etc \
-             --localstatedir=/var \
-             --enable-shared \
-             --disable-static \
-             --enable-fsect-man5 \
+PKG_AUTORECONF="yes"
 
-make
+PKG_CONFIGURE_OPTS_HOST="--enable-fsect-man5"
+PKG_CONFIGURE_OPTS_TARGET="--enable-fsect-man5"
