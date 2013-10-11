@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,19 +18,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libusb"
+PKG_VERSION="1.0.9"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://libusb.sourceforge.net/"
+PKG_URL="$SOURCEFORGE_SRC/libusb/files/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="system"
+PKG_SHORTDESC="libusb: OS independent USB device access"
+PKG_LONGDESC="The libusb project's aim is to create a Library for use by user level applications to USB devices regardless of OS."
+PKG_IS_ADDON="no"
 
-cd $PKG_BUILD
-mkdir -p m4 && do_autoreconf
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --enable-shared \
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-shared \
             --enable-static \
             --disable-log \
             --disable-debug-log \
-            --disable-examples-build \
-
-make
-
-$MAKEINSTALL
+            --disable-examples-build"
