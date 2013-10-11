@@ -36,9 +36,7 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-static \
-            --enable-shared \
-            --disable-device-mapper \
+PKG_CONFIGURE_OPTS_TARGET="--disable-device-mapper \
             --without-readline \
             --disable-rpath \
             --with-gnu-ld"

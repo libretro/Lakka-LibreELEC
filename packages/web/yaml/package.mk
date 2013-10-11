@@ -35,5 +35,3 @@ PKG_LONGDESC="yaml is the next generation YAML parser and emitter."
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="yes"
-
-PKG_CONFIGURE_OPTS_TARGET="--disable-static --enable-shared"
