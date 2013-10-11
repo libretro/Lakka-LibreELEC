@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,17 +18,28 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="libhid"
+PKG_VERSION="0.2.16"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://libhid.alioth.debian.org/"
+PKG_URL="http://alioth.debian.org/frs/download.php/file/1958/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS="libusb-compat libusb"
+PKG_BUILD_DEPENDS_TARGET="toolchain libusb-compat libusb"
+PKG_PRIORITY="optional"
+PKG_SECTION="system"
+PKG_SHORTDESC="libhid: userspace USB HID access library"
+PKG_LONGDESC="libhid provides a generic and flexible way to access and interact with USB HID devices, much like libusb does for plain USB devices"
+PKG_IS_ADDON="no"
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --disable-shared \
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
             --enable-static \
             --disable-werror \
-            --disable-swig \
+            --disable-swig"
 
-make
-
-$MAKEINSTALL
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr
+}
