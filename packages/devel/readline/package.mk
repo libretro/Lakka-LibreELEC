@@ -35,5 +35,4 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-#PKG_CONFIGURE_OPTS_HOST="--prefix=$ROOT/$TOOLCHAIN"
 PKG_CONFIGURE_OPTS_TARGET="--with-curses --without-purify"
