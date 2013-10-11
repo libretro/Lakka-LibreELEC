@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,7 +18,24 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="glu"
+PKG_VERSION="9.0.0"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://cgit.freedesktop.org/mesa/glu/"
+PKG_URL="http://cgit.freedesktop.org/mesa/glu/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="graphics"
+PKG_SHORTDESC="glu: The OpenGL utility library"
+PKG_LONGDESC="libglu is the The OpenGL utility library"
+PKG_IS_ADDON="no"
 
-mkdir -p $INSTALL/usr/lib
-  cp -P $PKG_BUILD/.libs/libGLU.so* $INSTALL/usr/lib
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
+            --disable-debug \
+            --disable-osmesa \
+            --with-gnu-ld"
