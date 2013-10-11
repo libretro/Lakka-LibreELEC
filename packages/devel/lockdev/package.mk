@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,17 +18,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="lockdev"
+PKG_VERSION="16b8996"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="https://alioth.debian.org/scm/?group_id=100443"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="system"
+PKG_SHORTDESC="lockdev: Manage character and block device lockfiles."
+PKG_LONGDESC="lockdev manages character and block device lockfiles."
+PKG_IS_ADDON="no"
 
-cd $PKG_BUILD
-mkdir -p m4 && do_autoreconf
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --enable-static \
-            --disable-shared \
+PKG_AUTORECONF="yes"
 
-make
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 
-$MAKEINSTALL
+makeinstall_target() {
+  : # nothing to install
+}
