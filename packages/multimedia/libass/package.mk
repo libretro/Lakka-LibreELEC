@@ -26,7 +26,7 @@ PKG_LICENSE="BSD"
 PKG_SITE="http://code.google.com/p/libass/"
 PKG_URL="http://libass.googlecode.com/files/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="freetype fontconfig"
-PKG_BUILD_DEPENDS="toolchain freetype fontconfig enca fribidi"
+PKG_BUILD_DEPENDS_TARGET="toolchain freetype fontconfig enca fribidi"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libass: a portable subtitle renderer for the ASS/SSA (Advanced Substation Alpha/Substation Alpha) subtitle format."
@@ -34,3 +34,10 @@ PKG_LONGDESC="libass is a portable subtitle renderer for the ASS/SSA (Advanced S
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-test \
+            --enable-enca \
+            --enable-fontconfig \
+            --disable-harfbuzz \
+            --disable-silent-rules \
+            --with-gnu-ld"
