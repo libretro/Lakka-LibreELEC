@@ -26,7 +26,7 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.grinninglizard.com/tinyxml/"
 PKG_URL="http://mirrors.xbmc.org/build-deps/sources/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="textproc"
 PKG_SHORTDESC="tinyxml: XML parser library"
@@ -34,3 +34,9 @@ PKG_LONGDESC="TinyXML is a simple, small, C++ XML parser that can be easily inte
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS="--enable-static --disable-shared"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr
+}
