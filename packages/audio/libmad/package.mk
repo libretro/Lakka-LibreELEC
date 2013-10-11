@@ -33,18 +33,12 @@ PKG_SHORTDESC="libmad: MPEG Audio Decoder"
 PKG_LONGDESC="MAD is a high-quality MPEG audio decoder. It currently supports MPEG-1 and the MPEG-2 extension to Lower Sampling Frequencies, as well as the so-called MPEG 2.5 format. All three audio layers (Layer I, Layer II, and Layer III a.k.a. MP3) are fully implemented."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
 # package specific configure options
 if [ $TARGET_ARCH == "x86_64" ] ; then
   PKG_CONFIGURE_OPTS_TARGET="--enable-accuracy --enable-fpm=64bit"
 fi
-
-pre_configure_target() {
-  # some fixes for autoreconf
-    touch ../NEWS ../AUTHORS ../ChangeLog
-    do_autoreconf ../
-}
 
 post_makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
