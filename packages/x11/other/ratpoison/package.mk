@@ -25,8 +25,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nongnu.org/ratpoison"
 PKG_URL="http://download.savannah.nongnu.org/releases/ratpoison/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="libXft libX11 libXext libXtst libXinerama liberation-fonts-ttf"
-PKG_BUILD_DEPENDS_TARGET="toolchain util-macros libXft libICE libX11 libXext libXtst libXinerama"
+PKG_DEPENDS="libX11 libXext libXtst libXinerama liberation-fonts-ttf"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros libICE libX11 libXext libXtst libXinerama"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/other"
 PKG_SHORTDESC="ratpoison: A window manager that lets you say good-bye to the rodent"
@@ -40,7 +40,7 @@ PKG_CONFIGURE_OPTS_TARGET="--x-includes=$SYSROOT_PREFIX/usr/include \
                            --disable-debug \
                            --disable-history \
                            --with-xterm=rxvt \
-                           --with-xft \
+                           --without-xft \
                            --with-x"
 
 pre_configure_target() {
