@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS="--enable-static --disable-shared"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr
