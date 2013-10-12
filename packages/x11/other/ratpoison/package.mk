@@ -56,5 +56,5 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  enable_service ratpoison.service
+  enable_service windowmanager.service
 }
