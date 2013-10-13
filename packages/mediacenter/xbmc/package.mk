@@ -21,7 +21,7 @@
 PKG_NAME="xbmc"
 PKG_VERSION="12.2-9714e7e"
 if [ "$XBMC" = "master" ]; then
-  PKG_VERSION="13.alpha-3723806"
+  PKG_VERSION="13.alpha-923f1c8"
 elif [ "$XBMC" = "xbmc-aml" ]; then
   PKG_VERSION="aml-frodo-d9119f2"
 fi
