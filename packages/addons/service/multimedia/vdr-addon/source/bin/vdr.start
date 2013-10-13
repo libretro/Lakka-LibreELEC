@@ -30,6 +30,18 @@ check_tmpfs_mount() {
   fi
 }
 
+fix_config() {
+  if [ -f "$ADDON_CONFIG_DIR/setup.conf" ]; then
+    sed -i -e '/^$/d' $ADDON_CONFIG_DIR/setup.conf
+    sed -i -e '/^epgsearch.SVDRPPort.*$/d' $ADDON_CONFIG_DIR/setup.conf
+    sed -i -e '/^OSDSkin.*$/d' $ADDON_CONFIG_DIR/setup.conf
+  fi
+  cat >>$ADDON_CONFIG_DIR/setup.conf << MYDATA
+epgsearch.SVDRPPort = 6419
+OSDSkin = sttng
+MYDATA
+}
+
 LOCKDIR="/var/lock/"
 LOCKFILE="vdr.disabled"
 LOCKFILE_SLEEP="vdr.sleep"
@@ -142,17 +154,6 @@ fi
       cp $config $ADDON_CONFIG_DIR/$config
     fi
   done
-
-  if [ -f "$ADDON_CONFIG_DIR/setup.conf" ]; then
-    sed -i -e '/^$/d' $ADDON_CONFIG_DIR/setup.conf
-    sed -i -e '/^epgsearch.SVDRPPort.*$/d' $ADDON_CONFIG_DIR/setup.conf
-    sed -i -e '/^OSDSkin.*$/d' $ADDON_CONFIG_DIR/setup.conf
-  fi
-  cat >>$ADDON_CONFIG_DIR/setup.conf << MYDATA
-epgsearch.SVDRPPort = 6419
-OSDSkin = sttng
-MYDATA
-
 )
 
 rm -rf "$LOCKDIR/$LOCKFILE_SLEEP" &>/dev/null
@@ -182,6 +183,7 @@ if [ ! "$(pidof vdr.bin)" ];then
       continue
     fi
     check_tmpfs_mount
+    fix_config
     LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH" eval LANG=en_US.UTF-8 vdr.bin $VDR_ARG &>$LOG_FILE
   done &
 fi
