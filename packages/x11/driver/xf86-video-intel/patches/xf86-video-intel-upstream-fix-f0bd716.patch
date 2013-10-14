@@ -1,0 +1,68 @@
+From f0bd716425d1514b62565f9a65397cd1cb2ffb3a Mon Sep 17 00:00:00 2001
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Date: Thu, 10 Oct 2013 15:22:45 +0000
+Subject: sna: Sanitize output->crtc before falling back oto xf86InitialConfiguration
+
+During initialisation, we stash the currently attached CRTC id in
+output->crtc. This is fine as ordinarily we would not dereference
+output->crtc until after it had been assigned a real CRTC. However,
+
+commit 6fda305e2f2f991b39d09e67d0b17c8c3d50f9a4
+Author: Chris Wilson <chris@chris-wilson.co.uk>
+Date:   Wed Oct 9 15:59:42 2013 +0100
+
+    sna: Append the current mode to the output list if not found
+
+introduces such an early dereference and causes a crash if we fail to
+probe the KMS configuration (usually due to a user override).
+
+Reported-by: Łukasz Maśko <ed@yen.ipipan.waw.pl>
+Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>
+---
+diff --git a/src/sna/sna_display.c b/src/sna/sna_display.c
+index 71c4c60..27a4467 100644
+--- a/src/sna/sna_display.c
++++ b/src/sna/sna_display.c
+@@ -3225,8 +3225,10 @@ static bool sna_probe_initial_configuration(struct sna *sna)
+ 		xf86OutputPtr output = config->output[i];
+ 		uint32_t crtc_id;
+ 
+-		if (to_sna_output(output) == NULL)
++		if (to_sna_output(output) == NULL) {
++			assert(output->crtc == NULL);
+ 			continue;
++		}
+ 
+ 		crtc_id = (uintptr_t)output->crtc;
+ 		output->crtc = NULL;
+@@ -3321,6 +3323,16 @@ static bool sna_probe_initial_configuration(struct sna *sna)
+ }
+ 
+ static void
++sanitize_outputs(struct sna *sna)
++{
++	xf86CrtcConfigPtr config = XF86_CRTC_CONFIG_PTR(sna->scrn);
++	int i;
++
++	for (i = 0; i < config->num_output; i++)
++		config->output[i]->crtc = NULL;
++}
++
++static void
+ sna_crtc_config_notify(ScreenPtr screen)
+ {
+ 	DBG(("%s\n", __FUNCTION__));
+@@ -3372,8 +3384,10 @@ bool sna_mode_pre_init(ScrnInfoPtr scrn, struct sna *sna)
+ 	if (!sna_mode_fake_init(sna, num_fake))
+ 		return false;
+ 
+-	if (!sna_probe_initial_configuration(sna))
++	if (!sna_probe_initial_configuration(sna)) {
++		sanitize_outputs(sna);
+ 		xf86InitialConfiguration(scrn, TRUE);
++	}
+ 
+ 	sna_setup_provider(scrn);
+ 	return scrn->modes != NULL;
+--
+cgit v0.9.0.2-2-gbebe
