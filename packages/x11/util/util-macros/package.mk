@@ -31,8 +31,8 @@ PKG_PRIORITY="optional"
 PKG_SECTION="x11/util"
 PKG_SHORTDESC="util-macros: X.org autoconf utilities"
 PKG_LONGDESC="X.org autoconf utilities such as M4 macros."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 post_makeinstall_target() {

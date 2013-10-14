@@ -33,5 +33,4 @@ PKG_SHORTDESC="yaml: a next generation YAML parser and emitter."
 PKG_LONGDESC="yaml is the next generation YAML parser and emitter."
 
 PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="yes"

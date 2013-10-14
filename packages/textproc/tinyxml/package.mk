@@ -31,8 +31,8 @@ PKG_PRIORITY="optional"
 PKG_SECTION="textproc"
 PKG_SHORTDESC="tinyxml: XML parser library"
 PKG_LONGDESC="TinyXML is a simple, small, C++ XML parser that can be easily integrating into other programs."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
