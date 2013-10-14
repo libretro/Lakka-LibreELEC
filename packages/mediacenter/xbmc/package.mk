@@ -275,12 +275,6 @@ if [ ! "$XBMCPLAYER_DRIVER" = default ]; then
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
     XBMC_CFLAGS="$XBMC_CFLAGS $BCM2835_INCLUDES"
     XBMC_CXXFLAGS="$XBMC_CXXFLAGS $BCM2835_INCLUDES"
-  elif [ "$XBMCPLAYER_DRIVER" = "marvell-libgfx" ]; then
-    PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET marvell-ipp"
-    PKG_DEPENDS="$PKG_DEPENDS marvell-ipp"
-    XBMC_OPENMAX="--disable-openmax"
-    XBMC_PLAYER="--with-platform=marvell-dove"
-    XBMC_CODEC=""
   else
     XBMC_OPENMAX="--disable-openmax"
   fi

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="connman"
-PKG_VERSION="1.18"
+PKG_VERSION="1.19"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
