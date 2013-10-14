@@ -20,9 +20,6 @@
 
 PKG_NAME="xbmc"
 PKG_VERSION="13.alpha-923f1c8"
-elif [ "$XBMC" = "xbmc-aml" ]; then
-  PKG_VERSION="aml-frodo-d9119f2"
-fi
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -284,14 +281,6 @@ if [ ! "$XBMCPLAYER_DRIVER" = default ]; then
     XBMC_OPENMAX="--disable-openmax"
     XBMC_PLAYER="--with-platform=marvell-dove"
     XBMC_CODEC=""
-  elif [ "$XBMCPLAYER_DRIVER" = "libamlplayer-m1" -o "$XBMCPLAYER_DRIVER" = "libamlplayer-m3" ]; then
-    XBMC_OPENMAX="--disable-openmax"
-    XBMC_PLAYER="--enable-player=amlplayer"
-    XBMC_CODEC="--enable-codec=amcodec"
-    AMLPLAYER_INCLUDES="-I$SYSROOT_PREFIX/usr/include/amlplayer"
-    XBMC_CFLAGS="$XBMC_CFLAGS $AMLPLAYER_INCLUDES"
-    XBMC_CXXFLAGS="$XBMC_CXXFLAGS $AMLPLAYER_INCLUDES"
-
   else
     XBMC_OPENMAX="--disable-openmax"
   fi
