@@ -19,9 +19,7 @@
 ################################################################################
 
 PKG_NAME="xbmc"
-PKG_VERSION="12.2-9714e7e"
-if [ "$XBMC" = "master" ]; then
-  PKG_VERSION="13.alpha-923f1c8"
+PKG_VERSION="13.alpha-923f1c8"
 elif [ "$XBMC" = "xbmc-aml" ]; then
   PKG_VERSION="aml-frodo-d9119f2"
 fi
@@ -217,13 +215,8 @@ else
 fi
 
 if [ "$AIRTUNES_SUPPORT" = yes ]; then
-  if [ "$XBMC" = master ]; then
-    PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libshairplay"
-    PKG_DEPENDS="$PKG_DEPENDS libshairplay"
-  else
-    PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libshairport"
-    PKG_DEPENDS="$PKG_DEPENDS libshairport"
-  fi
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libshairplay"
+  PKG_DEPENDS="$PKG_DEPENDS libshairplay"
   XBMC_AIRTUNES="--enable-airtunes"
 else
   XBMC_AIRTUNES="--disable-airtunes"
@@ -505,14 +498,12 @@ post_makeinstall_target() {
       cp $PKG_DIR/config/advancedsettings.xml $INSTALL/usr/share/xbmc/system/
     fi
 
-  if [ "$XBMC" = master ]; then
-    mkdir -p $INSTALL/usr/share/xbmc/system/settings
-      if [ -f $PROJECT_DIR/$PROJECT/xbmc/appliance.xml ]; then
-        cp $PROJECT_DIR/$PROJECT/xbmc/appliance.xml $INSTALL/usr/share/xbmc/system/settings
-      else
-        cp $PKG_DIR/config/appliance.xml $INSTALL/usr/share/xbmc/system/settings
-      fi
-  fi
+  mkdir -p $INSTALL/usr/share/xbmc/system/settings
+    if [ -f $PROJECT_DIR/$PROJECT/xbmc/appliance.xml ]; then
+      cp $PROJECT_DIR/$PROJECT/xbmc/appliance.xml $INSTALL/usr/share/xbmc/system/settings
+    else
+      cp $PKG_DIR/config/appliance.xml $INSTALL/usr/share/xbmc/system/settings
+    fi
 
   if [ "$XBMC_EXTRA_FONTS" = yes ]; then
     mkdir -p $INSTALL/usr/share/xbmc/media/Fonts
