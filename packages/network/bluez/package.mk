@@ -59,6 +59,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --enable-tools \
                            --enable-datafiles \
                            --disable-experimental \
+                           --enable-playstation-peripheral \
                            --with-gnu-ld \
                            $BLUEZ_CONFIG \
                            storagedir=/storage/.cache/bluetooth"
