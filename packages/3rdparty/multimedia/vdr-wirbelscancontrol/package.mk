@@ -1,9 +1,6 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2011 Anthony Nash (nash.ant@gmail.com)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,23 +18,39 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="vdr-wirbelscancontrol"
+PKG_VERSION="0.0.2"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://wirbel.htpc-forum.de/wirbelscancontrol/index2.html"
+PKG_URL="http://wirbel.htpc-forum.de/wirbelscancontrol/$PKG_NAME-$PKG_VERSION.tgz"
+PKG_DEPENDS_TARGET="vdr"
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr vdr-wirbelscan"
+PKG_PRIORITY="optional"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="TV"
+PKG_LONGDESC="TV"
 
-LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+PKG_IS_ADDON="no"
 
-cd $PKG_BUILD
+PKG_AUTORECONF="no"
 
-cat > Make.config <<EOF
-PLUGINLIBDIR = /usr/lib/vdr
-PREFIX = /usr
-VIDEODIR = /storage/videos
-CONFDIR = /storage/.config/vdr
-LOCDIR = /usr/share/locale
-#LIBS += -lz -lexpat -lbz2 -lfontconfig -lfreetype -lxml2
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
 
-NO_KBD=yes
-VDR_USER=root
-EOF
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC"
+  CXXFLAGS="$CXXFLAGS -fPIC"
+  LDFLAGS="$LDFLAGS -fPIC"
+}
 
-make vdr
-make include-dir
+pre_build_target() {
+  ln -sf $ROOT/$BUILD/vdr-wirbelscan-[0-9]*/wirbelscan_services.h $PKG_BUILD
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

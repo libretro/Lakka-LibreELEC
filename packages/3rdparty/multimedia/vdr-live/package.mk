@@ -1,7 +1,6 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2011 Anthony Nash (nash.ant@gmail.com)
 #
 #  This Program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,19 +18,40 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="vdr"
-PKG_VERSION="2.0.3"
+PKG_NAME="vdr-live"
+PKG_VERSION="0.3.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.tvdr.de"
-PKG_URL="ftp://ftp.tvdr.de/vdr/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="fontconfig freetype"
-PKG_BUILD_DEPENDS="toolchain fontconfig freetype libcap libjpeg-turbo bzip2 ncurses"
+PKG_SITE="http://live.vdr-developer.org/en/index.php"
+PKG_URL="http://live.vdr-developer.org/downloads/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="vdr"
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr tntnet pcre-host pcre"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="vdr: A powerful DVB TV application"
-PKG_LONGDESC="This project describes how to build your own digital satellite receiver and video disk recorder. It is based mainly on the DVB-S digital satellite receiver card, which used to be available from Fujitsu Siemens and the driver software developed by the LinuxTV project."
+PKG_SHORTDESC="vdr-live: the LIVE Interactive VDR Environment/"
+PKG_LONGDESC="vdr-live allows a comfortable operation of VDR and some of its plugins trough a web interface"
 
 PKG_IS_ADDON="no"
+
 PKG_AUTORECONF="no"
+
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  CXXFLAGS="$CXXFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  LDFLAGS="$LDFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+}
+
+pre_make_target() {
+  # dont build parallel
+  MAKEFLAGS=-j1
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

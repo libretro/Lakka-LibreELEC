@@ -18,20 +18,35 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="rotorng"
-PKG_VERSION="0.3.1"
+PKG_NAME="vdr-iptv"
+PKG_VERSION="2.0.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://projects.vdr-developer.org/projects/plg-rotor-ng"
-PKG_DEPENDS="vdr"
-PKG_BUILD_DEPENDS="toolchain vdr"
+PKG_SITE="http://www.saunalahti.fi/~rahrenbe/vdr/iptv/"
+PKG_URL="http://www.saunalahti.fi/~rahrenbe/vdr/iptv/files/$PKG_NAME-$PKG_VERSION.tgz"
+PKG_DEPENDS_TARGET="vdr"
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr curl"
 PKG_PRIORITY="optional"
-PKG_URL="http://projects.vdr-developer.org/attachments/download/1088/rotorng-${PKG_VERSION}.tar.gz"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="Next generation of a VDR plugin design to drive a diseqc rotor"
-PKG_LONGDESC="Next generation of a VDR plugin design to drive a diseqc rotor"
+PKG_SHORTDESC="vdr-iptv: an IPTV plugin for the Video Disk Recorder (VDR)"
+PKG_LONGDESC="vdr-iptv is an IPTV plugin for the Video Disk Recorder (VDR)"
 
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC"
+  CXXFLAGS="$CXXFLAGS -fPIC"
+  LDFLAGS="$LDFLAGS -fPIC"
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

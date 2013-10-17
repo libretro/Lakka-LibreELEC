@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,14 +18,35 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="vdr-epgsearch"
+PKG_VERSION="e2de927"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://winni.vdr-developer.org/epgsearch/"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="vdr"
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr"
+PKG_PRIORITY="optional"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="vdr-epgsearch"
+PKG_LONGDESC="vdr-epgsearch"
 
-VDR_DIR=`basename $BUILD/vdr-[0-9]*`
+PKG_IS_ADDON="no"
 
-CFLAGS="$CFLAGS -fPIC"
-CXXFLAGS="$CXXFLAGS -fPIC"
-LDFLAGS="$LDFLAGS -fPIC"
+PKG_AUTORECONF="no"
 
-cd $PKG_BUILD
-make VDRDIR="../$VDR_DIR" LIBDIR="." LOCALEDIR="./locale"
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
 
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  CXXFLAGS="$CXXFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  LDFLAGS="$LDFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

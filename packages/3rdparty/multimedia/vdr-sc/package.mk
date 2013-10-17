@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,22 +18,43 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="vdr-sc"
+PKG_VERSION="620"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://85.17.209.13:6100/"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="vdr openssl"
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr openssl"
+PKG_PRIORITY="optional"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="TV"
+PKG_LONGDESC="TV"
 
-VDR_DIR=`basename $BUILD/vdr-[0-9]*`
+PKG_IS_ADDON="no"
 
-CFLAGS="$CFLAGS -fPIC"
-CXXFLAGS="$CXXFLAGS -fPIC"
-LDFLAGS="$LDFLAGS -fPIC"
+PKG_AUTORECONF="no"
 
-# dont build parallel
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_make_target() {
+  # dont build parallel
   MAKEFLAGS=-j1
+}
 
-cd $PKG_BUILD
-  make VDRDIR="../$VDR_DIR" \
-       VDRSRC="../$VDR_DIR" \
-       LIBDIR="." \
-       LOCALEDIR="./locale" \
-       LIBDVBCSA=1 \
-       CSAFLAGS="$CFLAGS -Wall -fomit-frame-pointer -fexpensive-optimizations -funroll-loops"
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC"
+  CXXFLAGS="$CXXFLAGS -fPIC"
+  LDFLAGS="$LDFLAGS -fPIC"
+  CSAFLAGS="$CFLAGS -Wall -fomit-frame-pointer -fexpensive-optimizations -funroll-loops"
+  # vdr-sc fails building with LTO support
+  strip_lto
+}
 
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

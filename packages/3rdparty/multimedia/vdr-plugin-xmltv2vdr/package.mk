@@ -18,20 +18,41 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="vdr-wirbelscan"
-PKG_VERSION="0.0.7"
+PKG_NAME="vdr-plugin-xmltv2vdr"
+PKG_VERSION="30903cc0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://wirbel.htpc-forum.de/wirbelscan/index2.html"
-PKG_URL="http://wirbel.htpc-forum.de/wirbelscan/$PKG_NAME-$PKG_VERSION.tgz"
-PKG_DEPENDS="vdr"
-PKG_BUILD_DEPENDS="toolchain vdr"
+PKG_SITE="http://projects.vdr-developer.org/projects/plg-xmltv2vdr"
+PKG_URL="http://projects.vdr-developer.org/git/vdr-plugin-xmltv2vdr.git/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="vdr curl libxml2"
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr sqlite curl libzip libxml2 libxslt enca pcre"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="TV"
-PKG_LONGDESC="TV"
+PKG_SHORTDESC="vdr-xmltv2vdr"
+PKG_LONGDESC="vdr-xmltv2vdr"
 
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC"
+  CXXFLAGS="$CXXFLAGS -fPIC"
+  LDFLAGS="$LDFLAGS -fPIC"
+}
+
+post_make_target() {
+  cd dist/epgdata2xmltv
+  make -j1
+  cd -
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}
