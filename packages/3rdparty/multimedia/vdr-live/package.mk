@@ -25,8 +25,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://live.vdr-developer.org/en/index.php"
 PKG_URL="http://live.vdr-developer.org/downloads/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS="vdr"
-PKG_BUILD_DEPENDS="toolchain vdr tntnet pcre-host pcre"
+PKG_DEPENDS_TARGET="vdr"
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr tntnet pcre-host pcre"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr-live: the LIVE Interactive VDR Environment/"
@@ -35,3 +35,23 @@ PKG_LONGDESC="vdr-live allows a comfortable operation of VDR and some of its plu
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  CXXFLAGS="$CXXFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  LDFLAGS="$LDFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+}
+
+pre_make_target() {
+  # dont build parallel
+  MAKEFLAGS=-j1
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}
