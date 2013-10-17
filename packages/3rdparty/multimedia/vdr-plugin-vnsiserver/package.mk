@@ -41,9 +41,9 @@ PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
                       LIBDIR=\".\" \
                       LOCALEDIR=\"./locale\""
 pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC"
-  CXXFLAGS="$CXXFLAGS -fPIC"
-  LDFLAGS="$LDFLAGS -fPIC"
+  export CFLAGS="$CFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -fPIC"
+  export LDFLAGS="$LDFLAGS -fPIC"
 }
 
 makeinstall_target() {

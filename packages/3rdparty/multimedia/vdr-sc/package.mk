@@ -47,12 +47,12 @@ pre_make_target() {
 }
 
 pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC"
-  CXXFLAGS="$CXXFLAGS -fPIC"
-  LDFLAGS="$LDFLAGS -fPIC"
-  CSAFLAGS="$CFLAGS -Wall -fomit-frame-pointer -fexpensive-optimizations -funroll-loops"
   # vdr-sc fails building with LTO support
   strip_lto
+  export CFLAGS="$CFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -fPIC"
+  export LDFLAGS="$LDFLAGS -fPIC"
+  export CSAFLAGS="$CFLAGS -Wall -fomit-frame-pointer -fexpensive-optimizations -funroll-loops"
 }
 
 makeinstall_target() {

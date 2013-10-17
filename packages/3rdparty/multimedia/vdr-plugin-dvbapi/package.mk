@@ -44,10 +44,10 @@ PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
                       LIBDVBCSA=1"
 
 pre_configure_target() {
-  CFLAGS="$CFLAGS -fPIC"
-  CXXFLAGS="$CXXFLAGS -fPIC"
-  LDFLAGS="$LDFLAGS -fPIC"
-  CSAFLAGS="$CFLAGS -Wall -fomit-frame-pointer -fexpensive-optimizations -funroll-loops"
+  export CFLAGS="$CFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -fPIC"
+  export LDFLAGS="$LDFLAGS -fPIC"
+  export CSAFLAGS="$CFLAGS -Wall -fomit-frame-pointer -fexpensive-optimizations -funroll-loops"
 }
 
 pre_make_target() {

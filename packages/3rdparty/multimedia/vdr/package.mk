@@ -37,7 +37,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_configure_target() {
-  LDFLAGS=$(echo $LDFLAGS | sed -e "s|-Wl,--as-needed||")
+  export LDFLAGS=$(echo $LDFLAGS | sed -e "s|-Wl,--as-needed||")
 }
 
 pre_make_target() {
