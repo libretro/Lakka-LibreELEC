@@ -42,7 +42,3 @@ make_target() {
 configure_target() {
   :
 }
-
-post_install() {
-  enable_service windowmanager.service
-}
