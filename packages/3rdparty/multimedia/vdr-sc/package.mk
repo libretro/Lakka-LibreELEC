@@ -18,25 +18,43 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="service.openelec.settings"
-PKG_VERSION="0.3.5"
+PKG_NAME="vdr-sc"
+PKG_VERSION="620"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="prop."
-PKG_SITE="http://www.openelec.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.zip"
-PKG_DEPENDS="connman hd-idle"
-PKG_BUILD_DEPENDS="toolchain Python"
+PKG_LICENSE="GPL"
+PKG_SITE="http://85.17.209.13:6100/"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr openssl"
 PKG_PRIORITY="optional"
-PKG_SECTION=""
-PKG_SHORTDESC="service.openelec.settings: Settings dialog for OpenELEC"
-PKG_LONGDESC="service.openelec.settings: is a settings dialog for OpenELEC"
-PKG_IS_ADDON="yes"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="TV"
+PKG_LONGDESC="TV"
+
+PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-if [ "$DISPLAYSERVER" = "xorg-server" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS setxkbmap"
-else
-  PKG_DEPENDS="$PKG_DEPENDS bkeymaps"
-fi
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_make_target() {
+  # dont build parallel
+  MAKEFLAGS=-j1
+}
+
+pre_configure_target() {
+  # vdr-sc fails building with LTO support
+  strip_lto
+  export CFLAGS="$CFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -fPIC"
+  export LDFLAGS="$LDFLAGS -fPIC"
+  export CSAFLAGS="$CFLAGS -Wall -fomit-frame-pointer -fexpensive-optimizations -funroll-loops"
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

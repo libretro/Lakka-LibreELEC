@@ -453,6 +453,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/xbmc/addons/visualization.dxspectrum
   rm -rf $INSTALL/usr/share/xbmc/addons/visualization.itunes
   rm -rf $INSTALL/usr/share/xbmc/addons/visualization.milkdrop
+  rm -rf $INSTALL/usr/share/xbmc/addons/service.xbmc.versioncheck
   rm -rf $INSTALL/usr/share/xsessions
 
   mkdir -p $INSTALL/usr/share/xbmc/addons

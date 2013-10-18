@@ -19,19 +19,45 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="vdr-addon"
-PKG_VERSION="4.0"
+PKG_NAME="vdr"
+PKG_VERSION="2.1.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.openelec.tv"
-PKG_URL=""
+PKG_SITE="http://www.tvdr.de"
+PKG_URL="ftp://ftp.tvdr.de/vdr/Developer/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain attr libcap vdr vdr-plugin-xvdr vdr-plugin-vnsiserver vdr-iptv vdr-wirbelscan vdr-wirbelscancontrol vdr-sc vdr-plugin-dvbapi vdr-plugin-streamdev vdr-live vdr-control vdr-epgsearch vdr-plugin-xmltv2vdr"
+PKG_BUILD_DEPENDS_TARGET="toolchain fontconfig freetype libcap libjpeg-turbo bzip2 ncurses"
 PKG_PRIORITY="optional"
-PKG_SECTION="service.multimedia"
+PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr: A powerful DVB TV application"
 PKG_LONGDESC="This project describes how to build your own digital satellite receiver and video disk recorder. It is based mainly on the DVB-S digital satellite receiver card, which used to be available from Fujitsu Siemens and the driver software developed by the LinuxTV project."
+
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.service"
+
+pre_configure_target() {
+  export LDFLAGS=$(echo $LDFLAGS | sed -e "s|-Wl,--as-needed||")
+}
+
+pre_make_target() {
+  cat > Make.config <<EOF
+  PLUGINLIBDIR = /usr/lib/vdr
+  PREFIX = /usr
+  VIDEODIR = /storage/videos
+  CONFDIR = /storage/.config/vdr
+  LOCDIR = /usr/share/locale
+
+  NO_KBD=yes
+  VDR_USER=root
+EOF
+}
+
+make_target() {
+  make vdr
+  make include-dir
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

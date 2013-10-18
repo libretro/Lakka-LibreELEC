@@ -18,25 +18,41 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="service.openelec.settings"
-PKG_VERSION="0.3.5"
+PKG_NAME="vdr-plugin-xmltv2vdr"
+PKG_VERSION="30903cc0"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="prop."
-PKG_SITE="http://www.openelec.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.zip"
-PKG_DEPENDS="connman hd-idle"
-PKG_BUILD_DEPENDS="toolchain Python"
+PKG_LICENSE="GPL"
+PKG_SITE="http://projects.vdr-developer.org/projects/plg-xmltv2vdr"
+PKG_URL="http://projects.vdr-developer.org/git/vdr-plugin-xmltv2vdr.git/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr sqlite curl libzip libxml2 libxslt enca pcre"
 PKG_PRIORITY="optional"
-PKG_SECTION=""
-PKG_SHORTDESC="service.openelec.settings: Settings dialog for OpenELEC"
-PKG_LONGDESC="service.openelec.settings: is a settings dialog for OpenELEC"
-PKG_IS_ADDON="yes"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="vdr-xmltv2vdr"
+PKG_LONGDESC="vdr-xmltv2vdr"
+
+PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-if [ "$DISPLAYSERVER" = "xorg-server" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS setxkbmap"
-else
-  PKG_DEPENDS="$PKG_DEPENDS bkeymaps"
-fi
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -fPIC"
+  export LDFLAGS="$LDFLAGS -fPIC"
+}
+
+post_make_target() {
+  cd dist/epgdata2xmltv
+  make -j1
+  cd -
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}

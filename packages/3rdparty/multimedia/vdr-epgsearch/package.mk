@@ -18,25 +18,35 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="service.openelec.settings"
-PKG_VERSION="0.3.5"
+PKG_NAME="vdr-epgsearch"
+PKG_VERSION="e2de927"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="prop."
-PKG_SITE="http://www.openelec.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.zip"
-PKG_DEPENDS="connman hd-idle"
-PKG_BUILD_DEPENDS="toolchain Python"
+PKG_LICENSE="GPL"
+PKG_SITE="http://winni.vdr-developer.org/epgsearch/"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain vdr"
 PKG_PRIORITY="optional"
-PKG_SECTION=""
-PKG_SHORTDESC="service.openelec.settings: Settings dialog for OpenELEC"
-PKG_LONGDESC="service.openelec.settings: is a settings dialog for OpenELEC"
-PKG_IS_ADDON="yes"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="vdr-epgsearch"
+PKG_LONGDESC="vdr-epgsearch"
+
+PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-if [ "$DISPLAYSERVER" = "xorg-server" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS setxkbmap"
-else
-  PKG_DEPENDS="$PKG_DEPENDS bkeymaps"
-fi
+VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
+PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
+                      LIBDIR=\".\" \
+                      LOCALEDIR=\"./locale\""
+
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  export CXXFLAGS="$CXXFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  export LDFLAGS="$LDFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+}
+
+makeinstall_target() {
+  : # installation not needed, done by create-addon script
+}
