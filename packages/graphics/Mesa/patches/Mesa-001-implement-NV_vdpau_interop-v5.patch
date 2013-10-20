@@ -1,7 +1,7 @@
-From 8d56907a4f1933913b0c2fd94098e52b90ae72a6 Mon Sep 17 00:00:00 2001
+From b6f37beabda60079cf623d71914b3adb5af27ab3 Mon Sep 17 00:00:00 2001
 From: Christian König <christian.koenig@amd.com>
 Date: Wed, 15 May 2013 13:10:11 +0000
-Subject: implement NV_vdpau_interop v4
+Subject: implement NV_vdpau_interop v5
 
 v2: Actually implement interop between the gallium
     state tracker and the VDPAU backend.
@@ -10,6 +10,8 @@ v3: Make it also available in non legacy contexts,
     fix video buffer sharing.
 
 v4: deny interop if we don't have the same screen object
+
+v5: rebased on upstream changes
 
 Signed-off-by: Christian König <christian.koenig@amd.com>
 ---
@@ -123,10 +125,10 @@ index 81d16ec..2c84554 100644
     return *func != NULL;
  }
 diff --git a/src/gallium/state_trackers/vdpau/output.c b/src/gallium/state_trackers/vdpau/output.c
-index 7266cdb..35da715 100644
+index cf77b53..def01c8 100644
 --- a/src/gallium/state_trackers/vdpau/output.c
 +++ b/src/gallium/state_trackers/vdpau/output.c
-@@ -724,3 +724,14 @@ vlVdpOutputSurfaceRenderBitmapSurface(VdpOutputSurface destination_surface,
+@@ -725,3 +725,14 @@ vlVdpOutputSurfaceRenderBitmapSurface(VdpOutputSurface destination_surface,
  
     return VDP_STATUS_OK;
  }
@@ -142,10 +144,10 @@ index 7266cdb..35da715 100644
 +   return vlsurface->surface->texture;
 +}
 diff --git a/src/gallium/state_trackers/vdpau/surface.c b/src/gallium/state_trackers/vdpau/surface.c
-index 8e39d68..dd434aa 100644
+index e371bca..a5682e3 100644
 --- a/src/gallium/state_trackers/vdpau/surface.c
 +++ b/src/gallium/state_trackers/vdpau/surface.c
-@@ -359,3 +359,24 @@ vlVdpVideoSurfaceClear(vlVdpSurface *vlsurf)
+@@ -360,3 +360,24 @@ vlVdpVideoSurfaceClear(vlVdpSurface *vlsurf)
     }
     pipe->flush(pipe, NULL, 0);
  }
@@ -171,7 +173,7 @@ index 8e39d68..dd434aa 100644
 +   return p_surf->video_buffer;
 +}
 diff --git a/src/gallium/state_trackers/vdpau/vdpau_private.h b/src/gallium/state_trackers/vdpau/vdpau_private.h
-index 0812767..dffc7aa 100644
+index bb91de1..60196ac 100644
 --- a/src/gallium/state_trackers/vdpau/vdpau_private.h
 +++ b/src/gallium/state_trackers/vdpau/vdpau_private.h
 @@ -36,6 +36,8 @@
@@ -183,7 +185,7 @@ index 0812767..dffc7aa 100644
  #include "util/u_debug.h"
  #include "util/u_rect.h"
  #include "os/os_thread.h"
-@@ -475,6 +477,10 @@ VdpVideoMixerGetAttributeValues vlVdpVideoMixerGetAttributeValues;
+@@ -498,6 +500,10 @@ VdpVideoMixerGetAttributeValues vlVdpVideoMixerGetAttributeValues;
  VdpVideoMixerDestroy vlVdpVideoMixerDestroy;
  VdpGenerateCSCMatrix vlVdpGenerateCSCMatrix;
  
@@ -195,10 +197,10 @@ index 0812767..dffc7aa 100644
  #define VDPAU_ERR   1
  #define VDPAU_WARN  2
 diff --git a/src/mapi/glapi/gen/Makefile.am b/src/mapi/glapi/gen/Makefile.am
-index d4fbd35..bd82e54 100644
+index 6bb2f1e..d363885a 100644
 --- a/src/mapi/glapi/gen/Makefile.am
 +++ b/src/mapi/glapi/gen/Makefile.am
-@@ -131,6 +131,7 @@ API_XML = \
+@@ -133,6 +133,7 @@ API_XML = \
  	NV_conditional_render.xml \
  	NV_primitive_restart.xml \
  	NV_texture_barrier.xml \
@@ -282,10 +284,10 @@ index 0000000..cf5f0ed
 +
 +</OpenGLAPI>
 diff --git a/src/mapi/glapi/gen/gl_API.xml b/src/mapi/glapi/gen/gl_API.xml
-index 71aa9a7..5700caa 100644
+index 48fce36..93ae72b 100644
 --- a/src/mapi/glapi/gen/gl_API.xml
 +++ b/src/mapi/glapi/gen/gl_API.xml
-@@ -13148,4 +13148,6 @@
+@@ -13150,4 +13150,6 @@
  
  <xi:include href="EXT_transform_feedback.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
  
@@ -293,10 +295,10 @@ index 71aa9a7..5700caa 100644
 +
  </OpenGLAPI>
 diff --git a/src/mapi/glapi/gen/gl_genexec.py b/src/mapi/glapi/gen/gl_genexec.py
-index be82f90..d76c7ae 100644
+index a074c23..3ce190f 100644
 --- a/src/mapi/glapi/gen/gl_genexec.py
 +++ b/src/mapi/glapi/gen/gl_genexec.py
-@@ -110,6 +110,7 @@ header = """/**
+@@ -111,6 +111,7 @@ header = """/**
  #include "main/syncobj.h"
  #include "main/formatquery.h"
  #include "main/dispatch.h"
@@ -305,10 +307,10 @@ index be82f90..d76c7ae 100644
  
  
 diff --git a/src/mesa/Makefile.sources b/src/mesa/Makefile.sources
-index 122ea8e..85b4fe1 100644
+index ff242b4..a84f8a7 100644
 --- a/src/mesa/Makefile.sources
 +++ b/src/mesa/Makefile.sources
-@@ -107,6 +107,7 @@ MAIN_FILES = \
+@@ -108,6 +108,7 @@ MAIN_FILES = \
  	$(SRCDIR)main/uniforms.c \
  	$(SRCDIR)main/uniform_query.cpp \
  	$(SRCDIR)main/varray.c \
@@ -316,7 +318,7 @@ index 122ea8e..85b4fe1 100644
  	$(SRCDIR)main/version.c \
  	$(SRCDIR)main/viewport.c \
  	$(SRCDIR)main/vtxfmt.c \
-@@ -247,7 +248,8 @@ STATETRACKER_FILES = \
+@@ -248,7 +249,8 @@ STATETRACKER_FILES = \
  	$(SRCDIR)state_tracker/st_manager.c \
  	$(SRCDIR)state_tracker/st_mesa_to_tgsi.c \
  	$(SRCDIR)state_tracker/st_program.c \
@@ -327,10 +329,10 @@ index 122ea8e..85b4fe1 100644
  PROGRAM_FILES = \
  	$(SRCDIR)program/arbprogparse.c \
 diff --git a/src/mesa/main/dd.h b/src/mesa/main/dd.h
-index c1d9b2c..a3ee0b7 100644
+index 0806e41..04eac88 100644
 --- a/src/mesa/main/dd.h
 +++ b/src/mesa/main/dd.h
-@@ -843,6 +843,20 @@ struct dd_function_table {
+@@ -867,6 +867,20 @@ struct dd_function_table {
                               struct gl_framebuffer *fb,
                               GLuint index,
                               GLfloat *outValue);
@@ -352,10 +354,10 @@ index c1d9b2c..a3ee0b7 100644
  
  
 diff --git a/src/mesa/main/extensions.c b/src/mesa/main/extensions.c
-index 34615e3..a735e93 100644
+index 2507fdf..92039e9 100644
 --- a/src/mesa/main/extensions.c
 +++ b/src/mesa/main/extensions.c
-@@ -332,6 +332,7 @@ static const struct extension extension_table[] = {
+@@ -334,6 +334,7 @@ static const struct extension extension_table[] = {
     { "GL_NV_texture_barrier",                      o(NV_texture_barrier),                      GL,             2009 },
     { "GL_NV_texture_env_combine4",                 o(NV_texture_env_combine4),                 GLL,            1999 },
     { "GL_NV_texture_rectangle",                    o(NV_texture_rectangle),                    GLL,            2000 },
@@ -364,10 +366,10 @@ index 34615e3..a735e93 100644
     { "GL_SGIS_generate_mipmap",                    o(dummy_true),                              GLL,            1997 },
     { "GL_SGIS_texture_border_clamp",               o(ARB_texture_border_clamp),                GLL,            1997 },
 diff --git a/src/mesa/main/mtypes.h b/src/mesa/main/mtypes.h
-index 448946c..789f1e6 100644
+index 15893ec..16f8317 100644
 --- a/src/mesa/main/mtypes.h
 +++ b/src/mesa/main/mtypes.h
-@@ -3196,6 +3196,7 @@ struct gl_extensions
+@@ -3291,6 +3291,7 @@ struct gl_extensions
     GLboolean NV_texture_barrier;
     GLboolean NV_texture_env_combine4;
     GLboolean NV_texture_rectangle;
@@ -375,7 +377,7 @@ index 448946c..789f1e6 100644
     GLboolean TDFX_texture_compression_FXT1;
     GLboolean OES_EGL_image;
     GLboolean OES_draw_texture;
-@@ -3724,6 +3725,14 @@ struct gl_context
+@@ -3821,6 +3822,14 @@ struct gl_context
     struct st_context *st;
     void *aelt_context;
     /*@}*/
@@ -787,7 +789,7 @@ index 97dd732..2898a8d 100644
     ctx->Extensions.OES_EGL_image_external = GL_TRUE;
 diff --git a/src/mesa/state_tracker/st_vdpau.c b/src/mesa/state_tracker/st_vdpau.c
 new file mode 100644
-index 0000000..406df0f
+index 0000000..9b165ee
 --- a/dev/null
 +++ b/src/mesa/state_tracker/st_vdpau.c
 @@ -0,0 +1,181 @@
@@ -947,7 +949,7 @@ index 0000000..406df0f
 +   stObj->depth0 = 1;
 +   stObj->surface_format = res->format;
 +
-+   _mesa_dirty_texobj(ctx, texObj, GL_TRUE);
++   _mesa_dirty_texobj(ctx, texObj);
 +}
 +
 +static void
@@ -963,7 +965,7 @@ index 0000000..406df0f
 +   pipe_sampler_view_reference(&stObj->sampler_view, NULL);
 +   pipe_resource_reference(&stImage->pt, NULL);
 +
-+   _mesa_dirty_texobj(ctx, texObj, GL_TRUE);
++   _mesa_dirty_texobj(ctx, texObj);
 +}
 +
 +void
