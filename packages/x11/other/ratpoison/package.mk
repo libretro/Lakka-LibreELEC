@@ -54,7 +54,3 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/etc
     cp $PKG_DIR/config/ratpoisonrc $INSTALL/etc
 }
-
-post_install() {
-  enable_service windowmanager.service
-}

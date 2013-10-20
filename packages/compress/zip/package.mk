@@ -48,4 +48,5 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp zip $INSTALL/usr/bin
+    $STRIP $INSTALL/usr/bin/zip
 }
