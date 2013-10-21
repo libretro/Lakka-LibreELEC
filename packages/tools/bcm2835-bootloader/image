@@ -23,16 +23,17 @@
 cleanup()
 {
   echo "image: cleanup..."
-  umount /tmp/oe_image_install &>/dev/null || :
+  umount "$OE_TMP" &>/dev/null || :
   losetup -d "$LOOP"
-  [ -f /tmp/oe_image_install/ldlinux.sys ] && chattr -i /tmp/oe_image_install/ldlinux.sys || :
-  rm -rf /tmp/oe_image_install
+  [ -f "$OE_TMP/ldlinux.sys" ] && chattr -i "$OE_TMP/ldlinux.sys" || :
+  rm -rf "$OE_TMP"
   exit
 }
 
 trap cleanup SIGINT
 
 # set variables
+  OE_TMP=$(mktemp -d)
   SYSTEM_SIZE=128
   # 3STORAGE_SIZE must be >= 32 !
   STORAGE_SIZE=32
@@ -41,19 +42,17 @@ trap cleanup SIGINT
   LOOP=$(losetup -f)
 
 # ensure loopX not in use
-  echo "image: next two errors can be ignored..."
-  umount /tmp/oe_image_install >/dev/null || :
+  umount "$OE_TMP" &>/dev/null || :
   umount "$LOOP" &>/dev/null >/dev/null || :
   losetup -d "$LOOP" &>/dev/null >/dev/null || :
-  rm -rf /tmp/oe_image_install &>/dev/null
 
 # create an image
-  echo "image: creating new image: $DISK..."
+  echo "image: creating image: $DISK..."
   dd if=/dev/zero of="$DISK" bs=1M count="$DISK_SIZE"
   sync
 
 # write a disklabel
-  echo "image: creating partition table: $DISK..."
+  echo "image: creating partition table on $DISK..."
   losetup "$LOOP" "$DISK"
   parted -s "$LOOP" mklabel msdos
   sync
@@ -80,23 +79,22 @@ trap cleanup SIGINT
   sync
 
 # mount partition
-  echo "image: mounting part1 on /tmp/oe_image_install..."
-  mkdir -p /tmp/oe_image_install
-  mount "$LOOP" /tmp/oe_image_install
+  echo "image: mounting part1 on $OE_TMP..."
+  mount "$LOOP" "$OE_TMP"
 
 # create bootloader configuration
   echo "image: creating bootloader configuration..."
-  cat >/tmp/oe_image_install/cmdline.txt << EOF
+  cat >"$OE_TMP/cmdline.txt" << EOF
 boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 quiet
 EOF
 
 # copy files
   echo "image: copying files to part1..."
-  cp $RELEASE_DIR/3rdparty/bootloader/bootcode.bin /tmp/oe_image_install
-  cp $RELEASE_DIR/3rdparty/bootloader/fixup.dat /tmp/oe_image_install
-  cp $RELEASE_DIR/3rdparty/bootloader/start.elf /tmp/oe_image_install
-  cp $TARGET_IMG/$IMAGE_NAME.kernel /tmp/oe_image_install/kernel.img
-  cp $TARGET_IMG/$IMAGE_NAME.system /tmp/oe_image_install/SYSTEM
+  cp $RELEASE_DIR/3rdparty/bootloader/bootcode.bin "$OE_TMP"
+  cp $RELEASE_DIR/3rdparty/bootloader/fixup.dat "$OE_TMP"
+  cp $RELEASE_DIR/3rdparty/bootloader/start.elf "$OE_TMP"
+  cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/kernel.img"
+  cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
 
 # unmount part1
   echo "image: unmounting part1..."
@@ -113,9 +111,9 @@ EOF
   sync
 
 # add resize mark
-  echo "image: mounting part2 on /tmp/oe_image_install..."
-  mount "$LOOP" /tmp/oe_image_install
-  touch /tmp/oe_image_install/.please_resize_me
+  echo "image: mounting part2 on $OE_TMP..."
+  mount "$LOOP" "$OE_TMP"
+  touch "$OE_TMP/.please_resize_me"
   echo "image: unmounting part2..."
   umount "$LOOP"
   sync
