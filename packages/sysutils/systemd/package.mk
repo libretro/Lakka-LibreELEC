@@ -107,6 +107,14 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/lib/rpm
     rm  -f $INSTALL/usr/bin/kernel-install
 
+   rm -f $INSTALL/lib/udev/hwdb.d/20-OUI.hwdb
+   rm -f $INSTALL/lib/udev/hwdb.d/20-acpi-vendor.hwdb
+   rm -f $INSTALL/lib/udev/hwdb.d/20-bluetooth-vendor-product.hwdb
+   rm -f $INSTALL/lib/udev/hwdb.d/20-pci-classes.hwdb
+   rm -f $INSTALL/lib/udev/hwdb.d/20-pci-vendor-model.hwdb
+   rm -f $INSTALL/lib/udev/hwdb.d/20-usb-classes.hwdb
+   rm -f $INSTALL/lib/udev/hwdb.d/20-usb-vendor-model.hwdb
+
   # tune journald.conf
     sed -e "s,^.*Compress=.*$,Compress=no,g" -i $INSTALL/etc/systemd/journald.conf
     sed -e "s,^.*SplitMode=.*$,SplitMode=none,g" -i $INSTALL/etc/systemd/journald.conf
