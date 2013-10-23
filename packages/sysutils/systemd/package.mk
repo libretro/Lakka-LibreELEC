@@ -144,6 +144,7 @@ post_makeinstall_target() {
       ln -sf /bin/systemctl $INSTALL/usr/sbin/runlevel
       ln -sf /bin/systemctl $INSTALL/usr/sbin/shutdown
       ln -sf /bin/systemctl $INSTALL/usr/sbin/telinit
+      ln -sf /bin/udevadm $INSTALL/sbin/udevadm
 
   # remove Network adaper renaming rule, this is confusing
     rm -rf $INSTALL/lib/udev/rules.d/80-net-name-slot.rules
