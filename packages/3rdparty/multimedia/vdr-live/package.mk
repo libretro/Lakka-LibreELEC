@@ -41,6 +41,10 @@ PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
                       LIBDIR=\".\" \
                       LOCALEDIR=\"./locale\""
 
+post_unpack() {
+  mv $ROOT/$BUILD/live-${PKG_VERSION} $ROOT/$BUILD/${PKG_NAME}-${PKG_VERSION}
+}
+
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
   export CXXFLAGS="$CXXFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
