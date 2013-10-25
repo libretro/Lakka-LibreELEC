@@ -41,6 +41,10 @@ PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
                       LIBDIR=\".\" \
                       LOCALEDIR=\"./locale\""
 
+post_unpack() {
+  mv $ROOT/$BUILD/wirbelscan-${PKG_VERSION} $ROOT/$BUILD/${PKG_NAME}-${PKG_VERSION}
+}
+
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
   export CXXFLAGS="$CXXFLAGS -fPIC"
