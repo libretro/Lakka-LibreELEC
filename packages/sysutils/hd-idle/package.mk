@@ -35,3 +35,7 @@ PKG_LONGDESC="hd-idle is a utility program for spinning-down external disks afte
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $ROOT/$BUILD/$PKG_NAME $ROOT/$BUILD/$PKG_NAME-$PKG_VERSION
+}
