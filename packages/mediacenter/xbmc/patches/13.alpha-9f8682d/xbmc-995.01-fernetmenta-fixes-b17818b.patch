@@ -1,21 +1,21 @@
-From d901c6ed6a3bd7f2520572d39fe9a6402d12e2cb Mon Sep 17 00:00:00 2001
+From 71e5e9d6ff27305f9b4d7b0d2edacacdcd1a29dc Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 12:59:07 +0200
-Subject: [PATCH 01/90] refactor audio settings page
+Subject: [PATCH 01/94] [AE] refactor audio settings page
 
 ---
- language/English/strings.po            |  66 +++++++---
- system/settings/settings.xml           | 230 +++++++++++++++++++--------------
+ language/English/strings.po            |  72 +++++++---
+ system/settings/settings.xml           | 231 +++++++++++++++++++--------------
  system/settings/win32.xml              |  20 +--
- xbmc/cores/AudioEngine/AEFactory.cpp   |  42 ++++--
+ xbmc/cores/AudioEngine/AEFactory.cpp   |  44 +++++--
  xbmc/cores/AudioEngine/AEFactory.h     |   4 +-
  xbmc/cores/AudioEngine/Interfaces/AE.h |  13 +-
  xbmc/cores/AudioEngine/Utils/AEUtil.h  |   9 --
- xbmc/settings/Settings.cpp             |   7 +-
- 8 files changed, 246 insertions(+), 145 deletions(-)
+ xbmc/settings/Settings.cpp             |   8 +-
+ 8 files changed, 251 insertions(+), 150 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 9e186f0..3218bdd 100755
+index 4d3e6ff..a403c5d 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
 @@ -1393,17 +1393,17 @@ msgstr ""
@@ -80,7 +80,7 @@ index 9e186f0..3218bdd 100755
  #: system/settings/settings.xml
  msgctxt "#34111"
 -msgid "When activated silence is output in order to keep alive receiver, otherwise sink is drained in idle state"
-+msgid "Stream very quiet noise while nothing is played to keep the output device alive at all times. This might block concurrent applications from outputting sound."
++msgid "When enabled very quiet noise is sent (for a given period of time) to the audio output device when XBMC is idle, this keeps the receiving device alive ensuring any new sounds are not missed. This might block concurrent applications from outputting sound."
  msgstr ""
  
  #empty strings from id 34112 to 34119
@@ -99,7 +99,7 @@ index 9e186f0..3218bdd 100755
 +#. SPDIF max sampling rate
 +#: system/settings/settings.xml
 +msgctxt "#34125"
-+msgid "48"
++msgid "48.0"
 +msgstr ""
 +
 +#. SPDIF max sampling rate
@@ -111,13 +111,13 @@ index 9e186f0..3218bdd 100755
 +#. SPDIF max sampling rate
 +#: system/settings/settings.xml
 +msgctxt "#34127"
-+msgid "96"
++msgid "96.0"
 +msgstr ""
 +
 +#. SPDIF max sampling rate
 +#: system/settings/settings.xml
 +msgctxt "#34128"
-+msgid "192"
++msgid "192.0"
 +msgstr ""
 +
 +#empty strings from id 34129 to 34200
@@ -125,18 +125,36 @@ index 9e186f0..3218bdd 100755
  
  #: xbmc\PlayListPlayer.cpp
  msgctxt "#34201"
+@@ -13215,7 +13248,7 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#36169"
+-msgid "Resampling and other sound processing quality. Low quality is fast, higher quality will consume more CPU."
++msgid "Select the quality of resampling when audio output needs to be at a different sampling rate from that used by the source. Low quality is fast and will have minimal impact on system resources such as the use of the CPU, Medium & High will use progressively more system resources."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
 @@ -14175,12 +14208,12 @@ msgstr ""
  
  #: system/settings/settings.xml
  msgctxt "#36361"
 -msgid "Type of connection to the audio equipment."
-+msgid "Configuration regarding PCM channels and sample rate. Fixed will never change the configuration, Best match will always try to find best configuration for content, Optimized avoids changing it during playback."
++msgid "Select how audio is output. Fixed - the properties of the audio output are fixed to the specified sampling rate & speaker configuration; Best Match - the properties of the audio output are set to match the properties of the audio source where possible if not the closest match is chosen; Optimized - the properties of the audio output are not changed during playback."
  msgstr ""
  
  #: system/settings/settings.xml
  msgctxt "#36362"
 -msgid "Select your physical speaker layout."
-+msgid "PCM channel configuration (does not apply for passthrough)."
++msgid "Select the maximum number of audio channels/speakers available for audio decoded. On OS-X systems where optical/coax digital outputs are used this must be set to 2.0"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+@@ -14190,7 +14223,7 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#36364"
+-msgid "Upmix 2 channel stereo sources so the number of audio channels matches the number of speakers."
++msgid "When enabled upmix 2 channel stereo sources to the number of audio channels specified by the Speaker Configuration."
  msgstr ""
  
  #: system/settings/settings.xml
@@ -145,16 +163,22 @@ index 9e186f0..3218bdd 100755
  #: system/settings/settings.xml
  msgctxt "#36368"
 -msgid "Select this option if your receiver is capable of decoding LPCM streams."
-+msgid "Enable passthrough audio options."
++msgid "Select to enable the passthrough audio options for playback of encoded audio such as Dolby Digital."
  msgstr ""
  
  #: system/settings/settings.xml
-@@ -14230,7 +14263,7 @@ msgstr ""
+@@ -14225,12 +14258,12 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#36371"
+-msgid "Select the device you use to play audio decoded by XBMC such as mp3's and FLAC."
++msgid "Select the device to be used for playback of audio that has been decoded such as mp3"
+ msgstr ""
  
  #: system/settings/settings.xml
  msgctxt "#36372"
 -msgid "Select the device you use to play encoded formats, these are any of the formats checked above in the 'capable receiver' options."
-+msgid "Select the device you use to play encoded formats, these are any of the formats below in the 'capable receiver' options."
++msgid "Select the device to be used for playback of encoded formats, these are any of the formats below in the 'capable receiver' options."
  msgstr ""
  
  #: system/settings/settings.xml
@@ -171,10 +195,10 @@ index 9e186f0..3218bdd 100755
  #: system/settings/settings.xml
  msgctxt "#36524"
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index a381862..6abab54 100644
+index 528c090..f310b96 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -1967,17 +1967,20 @@
+@@ -1972,17 +1972,20 @@
      </category>
      <category id="audiooutput" label="772" help="36360">
        <group id="1">
@@ -200,7 +224,7 @@ index a381862..6abab54 100644
            <constraints>
              <options>
                <option label="34101">1</option> <!-- AE_CH_LAYOUT_2_0 -->
-@@ -1992,14 +1995,48 @@
+@@ -1997,14 +2000,48 @@
                <option label="34110">10</option> <!-- AE_CH_LAYOUT_7_1 -->
              </options>
            </constraints>
@@ -249,12 +273,12 @@ index a381862..6abab54 100644
 +          <level>2</level>
 +          <default>false</default>
 +          <dependencies>
-+            <dependency type="enable" setting="audiooutput.channels" operator="!is">1</dependency>
++            <dependency type="visible" setting="audiooutput.channels" operator="!is">1</dependency>
 +          </dependencies>
          </setting>
          <setting id="audiooutput.processquality" type="integer" label="13505" help="36169">
            <requirement>HAS_AE_QUALITY_LEVELS</requirement>
-@@ -2010,128 +2047,133 @@
+@@ -2015,128 +2052,130 @@
            </constraints>
            <control type="spinner" format="string" />
          </setting>
@@ -265,8 +289,7 @@ index a381862..6abab54 100644
 +          <level>1</level>
 +          <requirement>audiosupportsdrain</requirement>
 +          <default>true</default>
-         </setting>
--        <setting id="audiooutput.ac3passthrough" type="boolean" parent="audiooutput.mode" label="364" help="36365">
++        </setting>
 +      </group>
 +      <group id="2">
 +        <setting id="audiooutput.guisoundmode" type="integer" label="34120" help="36373">
@@ -280,7 +303,8 @@ index a381862..6abab54 100644
 +            </options>
 +          </constraints>
 +          <control type="spinner" format="string" />
-+        </setting>
+         </setting>
+-        <setting id="audiooutput.ac3passthrough" type="boolean" parent="audiooutput.mode" label="364" help="36365">
 +      </group>
 +      <group id="3">
 +        <setting id="audiooutput.passthrough" type="boolean" label="348" help="36368">
@@ -339,7 +363,6 @@ index a381862..6abab54 100644
 +            <dependency type="visible">
 +              <and>
 +                <condition setting="audiooutput.passthrough" operator="is">true</condition>
-+                <condition on="property" name="aesettingvisible" setting="audiooutput.passthrough">audiooutput.passthrough</condition>
 +                <condition on="property" name="aesettingvisible" setting="audiooutput.config">audiooutput.passthrough</condition>
 +              </and>
              </dependency>
@@ -348,8 +371,7 @@ index a381862..6abab54 100644
 -        <setting id="audiooutput.passthroughaac" type="boolean" parent="audiooutput.mode" label="299" help="36367">
 +        <setting id="audiooutput.eac3passthrough" type="boolean" label="448" help="37016">
            <level>2</level>
--          <default>false</default>
-+          <default>true</default>
+           <default>false</default>
            <dependencies>
 -            <dependency type="enable">
 -              <or>
@@ -359,7 +381,6 @@ index a381862..6abab54 100644
 +            <dependency type="visible">
 +              <and>
 +                <condition setting="audiooutput.passthrough" operator="is">true</condition>
-+                <condition on="property" name="aesettingvisible" setting="audiooutput.passthrough">audiooutput.passthrough</condition>
 +                <condition on="property" name="aesettingvisible" setting="audiooutput.config">audiooutput.passthrough</condition>
 +              </and>
              </dependency>
@@ -369,14 +390,14 @@ index a381862..6abab54 100644
 -        <setting id="audiooutput.multichannellpcm" type="boolean" parent="audiooutput.mode" label="348" help="36368">
 +        <setting id="audiooutput.dtspassthrough" type="boolean" label="254" help="36366">
            <level>2</level>
-           <default>true</default>
+-          <default>true</default>
++          <default>false</default>
            <dependencies>
 -            <dependency type="enable" setting="audiooutput.mode">2</dependency> <!-- AUDIO_HDMI -->
 -          </dependencies>
 +            <dependency type="visible">
 +              <and>
 +                <condition setting="audiooutput.passthrough" operator="is">true</condition>
-+                <condition on="property" name="aesettingvisible" setting="audiooutput.passthrough">audiooutput.passthrough</condition>
 +                <condition on="property" name="aesettingvisible" setting="audiooutput.config">audiooutput.passthrough</condition>
 +              </and>
 +            </dependency>
@@ -402,7 +423,8 @@ index a381862..6abab54 100644
 -        <setting id="audiooutput.dtshdpassthrough" type="boolean" parent="audiooutput.mode" label="347" help="36370">
 +        <setting id="audiooutput.truehdpassthrough" type="boolean" label="349" help="36369">
            <level>2</level>
-           <default>true</default>
+-          <default>true</default>
++          <default>false</default>
            <dependencies>
 -            <dependency type="enable">
 +            <dependency type="visible">
@@ -410,8 +432,8 @@ index a381862..6abab54 100644
 -                <condition setting="audiooutput.dtspassthrough">true</condition>
 -                <condition setting="audiooutput.mode">2</condition> <!-- AUDIO_HDMI -->
 +                <condition setting="audiooutput.passthrough" operator="is">true</condition>
-+                <condition on="property" name="aesettingvisible" setting="audiooutput.passthrough">audiooutput.passthrough</condition>
-+                <condition on="property" name="aesettingvisible" setting="audiooutput.config">audiooutput.passthrough</condition>
++                <condition on="property" name="aesettingvisible" setting="audiooutput.config">audiooutput.truehdpassthrough</condition>
++                <condition on="property" name="aesettingvisible" setting="audiooutput.passthroughdevice">audiooutput.truehdpassthrough</condition>
                </and>
              </dependency>
 -          </dependencies>
@@ -421,7 +443,7 @@ index a381862..6abab54 100644
 +        <setting id="audiooutput.dtshdpassthrough" type="boolean" label="347" help="36370">
            <level>2</level>
 -          <requirement>audiosupportsdrain</requirement>
-           <default>true</default>
+-          <default>true</default>
 -        </setting>
 -      </group>
 -      <group id="2">
@@ -439,6 +461,7 @@ index a381862..6abab54 100644
 -          <constraints>
 -            <options>audiodevicespassthrough</options>
 -          </constraints>
++          <default>false</default>
            <dependencies>
 -            <dependency type="enable">
 -              <or>
@@ -448,8 +471,8 @@ index a381862..6abab54 100644
 +            <dependency type="visible">
 +              <and>
 +                <condition setting="audiooutput.passthrough" operator="is">true</condition>
-+                <condition on="property" name="aesettingvisible" setting="audiooutput.passthrough">audiooutput.passthrough</condition>
-+                <condition on="property" name="aesettingvisible" setting="audiooutput.config">audiooutput.passthrough</condition>
++                <condition on="property" name="aesettingvisible" setting="audiooutput.config">audiooutput.dtshdpassthrough</condition>
++                <condition on="property" name="aesettingvisible" setting="audiooutput.passthroughdevice">audiooutput.dtshdpassthrough</condition>
 +              </and>
              </dependency>
 -          </dependencies>
@@ -519,7 +542,7 @@ index bb716a2..acf63d1 100644
        </group>
      </category>
 diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
-index 16fc708..ea4d5a5 100644
+index 16fc708..3092898 100644
 --- a/xbmc/cores/AudioEngine/AEFactory.cpp
 +++ b/xbmc/cores/AudioEngine/AEFactory.cpp
 @@ -40,6 +40,7 @@
@@ -530,7 +553,7 @@ index 16fc708..ea4d5a5 100644
  #include "utils/StringUtils.h"
  
  IAE* CAEFactory::AE = NULL;
-@@ -238,10 +239,30 @@ void CAEFactory::VerifyOutputDevice(std::string &device, bool passthrough)
+@@ -238,10 +239,32 @@ void CAEFactory::VerifyOutputDevice(std::string &device, bool passthrough)
    return "default";
  }
  
@@ -548,6 +571,8 @@ index 16fc708..ea4d5a5 100644
 +  // check if the format is enabled in settings
 +  if (format == AE_FMT_AC3 && !CSettings::Get().GetBool("audiooutput.ac3passthrough"))
 +    return false;
++  if (format == AE_FMT_DTS && !CSettings::Get().GetBool("audiooutput.dtspassthrough"))
++    return false;
 +  if (format == AE_FMT_EAC3 && !CSettings::Get().GetBool("audiooutput.eac3passthrough"))
 +    return false;
 +  if (format == AE_FMT_AAC && !CSettings::Get().GetBool("audiooutput.passthroughaac"))
@@ -563,7 +588,7 @@ index 16fc708..ea4d5a5 100644
  
    return false;
  }
-@@ -339,15 +360,6 @@ void CAEFactory::SettingOptionsAudioDevicesPassthroughFiller(const CSetting *set
+@@ -339,15 +362,6 @@ void CAEFactory::SettingOptionsAudioDevicesPassthroughFiller(const CSetting *set
    SettingOptionsAudioDevicesFillerGeneral(setting, list, current, true);
  }
  
@@ -579,7 +604,7 @@ index 16fc708..ea4d5a5 100644
  void CAEFactory::SettingOptionsAudioQualityLevelsFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current)
  {
    if (!AE)
-@@ -410,3 +422,11 @@ void CAEFactory::UnregisterAudioCallback()
+@@ -410,3 +424,11 @@ void CAEFactory::UnregisterAudioCallback()
    if (AE)
      AE->UnregisterAudioCallback();
  }
@@ -672,7 +697,7 @@ index ef67b34..c6a3184 100644
  enum AVSync
  {
 diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
-index a8d82af..ca5131a 100644
+index a8d82af..41e5d04 100644
 --- a/xbmc/settings/Settings.cpp
 +++ b/xbmc/settings/Settings.cpp
 @@ -372,7 +372,6 @@ void CSettings::Uninitialize()
@@ -699,17 +724,18 @@ index a8d82af..ca5131a 100644
  }
  
  void CSettings::InitializeISettingsHandlers()
-@@ -887,7 +886,8 @@ void CSettings::InitializeISettingCallbacks()
+@@ -887,7 +886,9 @@ void CSettings::InitializeISettingCallbacks()
    m_settingsManager->RegisterCallback(&CStereoscopicsManager::Get(), settingSet);
  
    settingSet.clear();
 -  settingSet.insert("audiooutput.mode");
 +  settingSet.insert("audiooutput.config");
 +  settingSet.insert("audiooutput.samplerate");
++  settingSet.insert("audiooutput.passthrough");
    settingSet.insert("audiooutput.channels");
    settingSet.insert("audiooutput.processquality");
    settingSet.insert("audiooutput.guisoundmode");
-@@ -898,7 +898,6 @@ void CSettings::InitializeISettingCallbacks()
+@@ -898,7 +899,6 @@ void CSettings::InitializeISettingCallbacks()
    settingSet.insert("audiooutput.passthroughaac");
    settingSet.insert("audiooutput.truehdpassthrough");
    settingSet.insert("audiooutput.dtshdpassthrough");
@@ -721,10 +747,10 @@ index a8d82af..ca5131a 100644
 1.8.4
 
 
-From 9e7e4639a4149610588b87903df6edd03a5091e9 Mon Sep 17 00:00:00 2001
+From c3991e9b717f2e140d26f9d981ce19572c41091b Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 13:01:14 +0200
-Subject: [PATCH 02/90] dvdplayer: adapt to changes in audio settings
+Subject: [PATCH 02/94] dvdplayer: adapt to changes in audio settings
 
 ---
  .../DVDCodecs/Audio/DVDAudioCodecPassthrough.cpp   | 28 ++++----------------
@@ -905,10 +931,10 @@ index 38a53e7..df3df14 100644
 1.8.4
 
 
-From 6497c1caa631e7206c9629b258a16d90177e96c5 Mon Sep 17 00:00:00 2001
+From d6d239ed48ad69644fc267c3d57b4937498b2fd0 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 13:02:24 +0200
-Subject: [PATCH 03/90] paplayer: adapt to changes in audio settings
+Subject: [PATCH 03/94] paplayer: adapt to changes in audio settings
 
 ---
  xbmc/cores/paplayer/DVDPlayerCodec.cpp             |  3 +--
@@ -961,10 +987,10 @@ index 8e7a0f5..16319b9 100644
 1.8.4
 
 
-From 4b0eab849f50ad1fa310783bb013a015602baa6b Mon Sep 17 00:00:00 2001
+From 2c9ebb2d3888527e2bccaee7fa0b1d956b8f8109 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 13:03:27 +0200
-Subject: [PATCH 04/90] GUIDialogAudioSettings: adapt to changes in audio
+Subject: [PATCH 04/94] GUIDialogAudioSettings: adapt to changes in audio
  settings
 
 ---
@@ -1031,20 +1057,20 @@ index ad5f3f1..f8c578e 100644
 1.8.4
 
 
-From 609d7063ae620921108c2475c444478f1cdece12 Mon Sep 17 00:00:00 2001
+From 0939d32581423915e83eba8435f82d32011fdef6 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 13:05:07 +0200
-Subject: [PATCH 05/90] ActiveAE: adapt to changes in audio settings
+Subject: [PATCH 05/94] ActiveAE: adapt to changes in audio settings
 
 ---
- .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp      | 75 +++++++++++++++-------
- xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h |  8 ++-
- .../AudioEngine/Engines/ActiveAE/ActiveAESink.cpp  | 31 +++++++++
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp      | 96 ++++++++++++++++------
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h |  8 +-
+ .../AudioEngine/Engines/ActiveAE/ActiveAESink.cpp  | 31 +++++++
  .../AudioEngine/Engines/ActiveAE/ActiveAESink.h    |  2 +
- 4 files changed, 89 insertions(+), 27 deletions(-)
+ 4 files changed, 110 insertions(+), 27 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-index d4beded..f54f14e 100644
+index 71e4687..cc9fd75 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 @@ -411,7 +411,7 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
@@ -1147,7 +1173,7 @@ index d4beded..f54f14e 100644
  
    m_settings.stereoupmix = CSettings::Get().GetBool("audiooutput.stereoupmix");
 +
-+  m_settings.passthrough = CSettings::Get().GetBool("audiooutput.passthrough");
++  m_settings.passthrough = m_settings.config == AE_CONFIG_FIXED ? false : CSettings::Get().GetBool("audiooutput.passthrough");
    m_settings.ac3passthrough = CSettings::Get().GetBool("audiooutput.ac3passthrough");
    m_settings.eac3passthrough = CSettings::Get().GetBool("audiooutput.eac3passthrough");
    m_settings.truehdpassthrough = CSettings::Get().GetBool("audiooutput.truehdpassthrough");
@@ -1167,7 +1193,7 @@ index d4beded..f54f14e 100644
        setting == "audiooutput.ac3passthrough"    ||
        setting == "audiooutput.eac3passthrough"   ||
        setting == "audiooutput.dtspassthrough"    ||
-@@ -2045,17 +2045,22 @@ void CActiveAE::OnSettingsChange(const std::string& setting)
+@@ -2045,17 +2045,29 @@ void CActiveAE::OnSettingsChange(const std::string& setting)
        setting == "audiooutput.truehdpassthrough" ||
        setting == "audiooutput.dtshdpassthrough"  ||
        setting == "audiooutput.channels"          ||
@@ -1189,11 +1215,18 @@ index d4beded..f54f14e 100644
 +  if (!m_sink.HasPassthroughDevice())
 +    return false;
 +
++  // those formats require HDMI
++  if (format == AE_FMT_DTSHD || format == AE_FMT_TRUEHD)
++  {
++    if(m_sink.GetDeviceType(CSettings::Get().GetString("audiooutput.passthroughdevice")) != AE_DEVTYPE_HDMI)
++      return false;
++  }
++
 +  // TODO: check ELD?
    return true;
  }
  
-@@ -2072,6 +2077,28 @@ bool CActiveAE::SupportsQualityLevel(enum AEQuality level)
+@@ -2072,6 +2084,42 @@ bool CActiveAE::SupportsQualityLevel(enum AEQuality level)
    return false;
  }
  
@@ -1214,6 +1247,20 @@ index d4beded..f54f14e 100644
 +  else if (settingId == "audiooutput.passthrough")
 +  {
 +    if (m_sink.HasPassthroughDevice() && CSettings::Get().GetInt("audiooutput.config") != AE_CONFIG_FIXED)
++      return true;
++  }
++  else if (settingId == "audiooutput.truehdpassthrough")
++  {
++    if (m_sink.HasPassthroughDevice() &&
++        CSettings::Get().GetInt("audiooutput.config") != AE_CONFIG_FIXED &&
++        m_sink.GetDeviceType(CSettings::Get().GetString("audiooutput.passthroughdevice")) == AE_DEVTYPE_HDMI)
++      return true;
++  }
++  else if (settingId == "audiooutput.dtshdpassthrough")
++  {
++    if (m_sink.HasPassthroughDevice() &&
++        CSettings::Get().GetInt("audiooutput.config") != AE_CONFIG_FIXED &&
++        m_sink.GetDeviceType(CSettings::Get().GetString("audiooutput.passthroughdevice")) == AE_DEVTYPE_HDMI)
 +      return true;
 +  }
 +  return false;
@@ -1317,10 +1364,10 @@ index 59bad57..2aebbf6 100644
 1.8.4
 
 
-From ca3ea65a752510f3881d7329e6199c9f45617b83 Mon Sep 17 00:00:00 2001
+From 1eba1ed4d2997d88ef8d8d29783aa307d8d7cae2 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 13:12:01 +0200
-Subject: [PATCH 06/90] SoftAE: farewell!
+Subject: [PATCH 06/94] SoftAE: farewell!
 
 ---
  xbmc/cores/AudioEngine/AEFactory.cpp               |    5 -
@@ -1341,7 +1388,7 @@ Subject: [PATCH 06/90] SoftAE: farewell!
  delete mode 100644 xbmc/cores/AudioEngine/Engines/SoftAE/SoftAEStream.h
 
 diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
-index ea4d5a5..3d7771b 100644
+index 3092898..ba97a6b 100644
 --- a/xbmc/cores/AudioEngine/AEFactory.cpp
 +++ b/xbmc/cores/AudioEngine/AEFactory.cpp
 @@ -26,7 +26,6 @@
@@ -4257,20 +4304,20 @@ index c2d7ffa..c1d53f5 100644
 1.8.4
 
 
-From 2cf5ba29037728a048ccc258865d729a844571e5 Mon Sep 17 00:00:00 2001
+From 61495782102287088a98e4e72b5a575413ceb79f Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 13:25:23 +0200
-Subject: [PATCH 07/90] adapt toggle passthrough to change in audio settings
+Subject: [PATCH 07/94] adapt toggle passthrough to change in audio settings
 
 ---
  xbmc/Application.cpp | 11 +++--------
  1 file changed, 3 insertions(+), 8 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 6a3fbdb..f2d7ed4 100644
+index a4970a9..b27d49d 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -1609,7 +1609,7 @@ void CApplication::OnSettingChanged(const CSetting *setting)
+@@ -1610,7 +1610,7 @@ void CApplication::OnSettingChanged(const CSetting *setting)
      }
      // this tells player whether to open an audio stream passthrough or PCM
      // if this is changed, audio stream has to be reopened
@@ -4279,7 +4326,7 @@ index 6a3fbdb..f2d7ed4 100644
      {
        CApplicationMessenger::Get().MediaRestart(false);
        return;
-@@ -2763,13 +2763,8 @@ bool CApplication::OnAction(const CAction &action)
+@@ -2764,13 +2764,8 @@ bool CApplication::OnAction(const CAction &action)
  
    if (action.GetID() == ACTION_TOGGLE_DIGITAL_ANALOG)
    {
@@ -4290,8 +4337,8 @@ index 6a3fbdb..f2d7ed4 100644
 -    if (++mode == 3)
 -      mode = 0;
 -    CSettings::Get().SetInt("audiooutput.mode", mode);
-+    bool passthrough = CSettings::Get().GetInt("audiooutput.passthrough");
-+    CSettings::Get().SetInt("audiooutput.passthrough", !passthrough);
++    bool passthrough = CSettings::Get().GetBool("audiooutput.passthrough");
++    CSettings::Get().SetBool("audiooutput.passthrough", !passthrough);
  
      if (g_windowManager.GetActiveWindow() == WINDOW_SETTINGS_SYSTEM)
      {
@@ -4299,10 +4346,10 @@ index 6a3fbdb..f2d7ed4 100644
 1.8.4
 
 
-From 679b6a4e665ff0edd3c038e5bafa17a154a670a0 Mon Sep 17 00:00:00 2001
+From 1f202228ab5b17200b5c93fb2752b11ecb9e26ea Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 14:21:39 +0200
-Subject: [PATCH 08/90] update VS project after removal of SoftAE
+Subject: [PATCH 08/94] update VS project after removal of SoftAE
 
 ---
  project/VS2010Express/XBMC.vcxproj         |  8 +-------
@@ -4380,10 +4427,10 @@ index 570fb6f..74e82c4 100644
 1.8.4
 
 
-From d952f2ec23c1c9a331e7d89aecf5fdea1e14bc72 Mon Sep 17 00:00:00 2001
+From 3babeb3bde293eb350bac816b59e2e97bac18077 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Oct 2013 14:23:19 +0200
-Subject: [PATCH 09/90] fix linker error on Windows after removal of SoftAE
+Subject: [PATCH 09/94] fix linker error on Windows after removal of SoftAE
 
 ---
  xbmc/cores/AudioEngine/Utils/AEWAVLoader.cpp | 4 ++++
@@ -4408,10 +4455,10 @@ index c8a521c..de9029b 100644
 1.8.4
 
 
-From cd709d258e91879565acc9c10e500bea9ef28a52 Mon Sep 17 00:00:00 2001
+From dfe343b2691826ffd0f28cf72e40bdcaebd33539 Mon Sep 17 00:00:00 2001
 From: fritsch <peter.fruehberger@gmail.com>
 Date: Fri, 18 Oct 2013 17:06:18 +0200
-Subject: [PATCH 10/90] AudioSettings: Remove AAC Setting for passthrough
+Subject: [PATCH 10/94] AudioSettings: Remove AAC Setting for passthrough
 
 ---
  language/English/strings.po                          | 10 ++--------
@@ -4425,7 +4472,7 @@ Subject: [PATCH 10/90] AudioSettings: Remove AAC Setting for passthrough
  8 files changed, 2 insertions(+), 33 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 3218bdd..256e47e 100755
+index a403c5d..009e1c0 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
 @@ -1242,10 +1242,7 @@ msgctxt "#298"
@@ -4481,10 +4528,10 @@ index ddd6635..b890555 100644
            <visible>false</visible>
          </setting>
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 6abab54..ed87126 100644
+index f310b96..2215f70 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -2136,19 +2136,6 @@
+@@ -2138,19 +2138,6 @@
              </dependency>
            </dependencies>       
          </setting>
@@ -4503,12 +4550,12 @@ index 6abab54..ed87126 100644
 -        </setting>
          <setting id="audiooutput.truehdpassthrough" type="boolean" label="349" help="36369">
            <level>2</level>
-           <default>true</default>
+           <default>false</default>
 diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
-index 3d7771b..b63466c 100644
+index ba97a6b..4c1dc86 100644
 --- a/xbmc/cores/AudioEngine/AEFactory.cpp
 +++ b/xbmc/cores/AudioEngine/AEFactory.cpp
-@@ -249,8 +249,6 @@ bool CAEFactory::SupportsRaw(AEDataFormat format)
+@@ -251,8 +251,6 @@ bool CAEFactory::SupportsRaw(AEDataFormat format)
      return false;
    if (format == AE_FMT_EAC3 && !CSettings::Get().GetBool("audiooutput.eac3passthrough"))
      return false;
@@ -4518,7 +4565,7 @@ index 3d7771b..b63466c 100644
      return false;
    if (format == AE_FMT_DTSHD && !CSettings::Get().GetBool("audiooutput.dtshdpassthrough"))
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-index f54f14e..6a3f700 100644
+index cc9fd75..e5e4c5c 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 @@ -1978,7 +1978,6 @@ void CActiveAE::LoadSettings()
@@ -4550,10 +4597,10 @@ index 2ae0476..1ac7031 100644
    bool dtshdpassthrough;
    bool stereoupmix;
 diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
-index ca5131a..e998caa 100644
+index 41e5d04..e61bce4 100644
 --- a/xbmc/settings/Settings.cpp
 +++ b/xbmc/settings/Settings.cpp
-@@ -895,7 +895,6 @@ void CSettings::InitializeISettingCallbacks()
+@@ -896,7 +896,6 @@ void CSettings::InitializeISettingCallbacks()
    settingSet.insert("audiooutput.ac3passthrough");
    settingSet.insert("audiooutput.eac3passthrough");
    settingSet.insert("audiooutput.dtspassthrough");
@@ -4565,10 +4612,10 @@ index ca5131a..e998caa 100644
 1.8.4
 
 
-From c2016883f91675fc0d4b9b33936ad78d44d610f5 Mon Sep 17 00:00:00 2001
+From a97f2ae76ea180f5bd55376279fc7fad8ae270bc Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 19 Oct 2013 19:20:40 +0100
-Subject: [PATCH 11/90] [rbp] Update to work with new audio settings
+Subject: [PATCH 11/94] [rbp] Update to work with new audio settings
 
 ---
  system/settings/rbp.xml                            | 94 +++++++++++++---------
@@ -4950,10 +4997,10 @@ index 394f309..685a686 100644
 1.8.4
 
 
-From 6aaba4df64b187c95491a4c27c8404df24807079 Mon Sep 17 00:00:00 2001
+From 3c40f55253326fbe0017b65369d3389dd2c95d33 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 20 Oct 2013 13:54:45 +0200
-Subject: [PATCH 12/90] remove a bunch of obsolete advanced settings related to
+Subject: [PATCH 12/94] remove a bunch of obsolete advanced settings related to
  audio
 
 ---
@@ -5032,10 +5079,10 @@ index 623c035..94e2c5b 100644
    }
  
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index ac18c02..8e769bf 100644
+index 0f30d84..619490d 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
-@@ -112,12 +112,6 @@ void CAdvancedSettings::Initialize()
+@@ -115,12 +115,6 @@ void CAdvancedSettings::Initialize()
    m_ac3Gain = 12.0f;
    m_audioApplyDrc = true;
    m_dvdplayerIgnoreDTSinWAV = false;
@@ -5048,7 +5095,7 @@ index ac18c02..8e769bf 100644
  
    //default hold time of 25 ms, this allows a 20 hertz sine to pass undistorted
    m_limiterHold = 0.025f;
-@@ -495,14 +489,6 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+@@ -502,14 +496,6 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
      XMLUtils::GetInt(pElement, "percentseekforwardbig", m_musicPercentSeekForwardBig, 0, 100);
      XMLUtils::GetInt(pElement, "percentseekbackwardbig", m_musicPercentSeekBackwardBig, -100, 0);
  
@@ -5085,17 +5132,17 @@ index e6e02ad..d46ee0b 100644
 1.8.4
 
 
-From 45fe453dfd4c00ad1c221a04cffbc6aca975c3be Mon Sep 17 00:00:00 2001
+From 3ce36187bf19d85445b154389c5e4a60548c8520 Mon Sep 17 00:00:00 2001
 From: Memphiz <memphis@machzwo.de>
 Date: Fri, 18 Oct 2013 22:01:55 +0200
-Subject: [PATCH 13/90] [osx/ios/atv2] - sync xcode project
+Subject: [PATCH 13/94] [osx/ios/atv2] - sync xcode project
 
 ---
  XBMC.xcodeproj/project.pbxproj | 2 --
  1 file changed, 2 deletions(-)
 
 diff --git a/XBMC.xcodeproj/project.pbxproj b/XBMC.xcodeproj/project.pbxproj
-index 9da070b..1262789 100644
+index 044538c..c5c4be5 100644
 --- a/XBMC.xcodeproj/project.pbxproj
 +++ b/XBMC.xcodeproj/project.pbxproj
 @@ -4180,7 +4180,6 @@
@@ -5118,10 +5165,10 @@ index 9da070b..1262789 100644
 1.8.4
 
 
-From 7b18dc61dc5cdc3fef46051d7c8b438f5e5f42b6 Mon Sep 17 00:00:00 2001
+From 5fc72477e52eb243fe3a3d94e3813b0714114000 Mon Sep 17 00:00:00 2001
 From: Memphiz <memphis@machzwo.de>
 Date: Sun, 20 Oct 2013 13:37:37 +0200
-Subject: [PATCH 14/90] [AE/CA] - fix hidden settings for darwin
+Subject: [PATCH 14/94] [AE/CA] - fix hidden settings for darwin
 
 ---
  system/settings/darwin.xml | 2 +-
@@ -5144,10 +5191,10 @@ index 2cf4df6..ba56a25 100644
 1.8.4
 
 
-From 81ee74d3a96770ff765a6728261af5eddf34c4dc Mon Sep 17 00:00:00 2001
+From c9bc851e8d5202bd985c85621c3e4dd8b3772a09 Mon Sep 17 00:00:00 2001
 From: Memphiz <memphis@machzwo.de>
 Date: Fri, 18 Oct 2013 22:11:31 +0200
-Subject: [PATCH 15/90] [AE/CA] - adapt to new audiosettings page
+Subject: [PATCH 15/94] [AE/CA] - adapt to new audiosettings page
 
 ---
  .../AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp  | 58 ++++++++++++++--------
@@ -5318,63 +5365,574 @@ index ae3916b..69992cc 100644
 1.8.4
 
 
-From f42df8b7d2d7b2a78ea03cab5cc2afb8ded4ff2d Mon Sep 17 00:00:00 2001
-From: Memphiz <memphis@machzwo.de>
-Date: Fri, 18 Oct 2013 22:14:06 +0200
-Subject: [PATCH 16/90] [translation] - add a note to channel config help
- message about spdif
+From 2923fd724e61dcda1ad0a689e378546d50296885 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Tue, 22 Oct 2013 20:48:11 +0200
+Subject: [PATCH 16/94] AE: make streamsilence an integer so it can define a
+ timeout after which the mode is disabled
 
 ---
- language/English/strings.po | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ language/English/strings.po          | 10 +++++++++-
+ system/settings/settings.xml         |  8 ++++++--
+ xbmc/cores/AudioEngine/AEFactory.cpp | 14 ++++++++++++++
+ xbmc/cores/AudioEngine/AEFactory.h   |  1 +
+ xbmc/settings/Settings.cpp           |  2 ++
+ 5 files changed, 32 insertions(+), 3 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 256e47e..136a5d0 100755
+index 009e1c0..74a5e59 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
-@@ -14210,7 +14210,7 @@ msgstr ""
- 
- #: system/settings/settings.xml
- msgctxt "#36362"
--msgid "PCM channel configuration (does not apply for passthrough)."
-+msgid "PCM channel configuration (does not apply for passthrough). If you are using an spdif/optical/coax output - this has to be 2.0! (5.1 will work via passthrough anyways)"
+@@ -6080,7 +6080,15 @@ msgctxt "#13553"
+ msgid "%.1f Seconds"
  msgstr ""
  
- #: system/settings/settings.xml
--- 
-1.8.4
-
-
-From 7271d1648e35b285f1261a9a9899bab3916b2d92 Mon Sep 17 00:00:00 2001
-From: Memphiz <memphis@machzwo.de>
-Date: Sun, 20 Oct 2013 13:38:36 +0200
-Subject: [PATCH 17/90] [AE] - don't allow DTS if it is disabled in settings
-
----
- xbmc/cores/AudioEngine/AEFactory.cpp | 2 ++
- 1 file changed, 2 insertions(+)
-
+-#empty strings from id 13554 to 13599
++msgctxt "#13554"
++msgid "%d Minute"
++msgstr ""
++
++msgctxt "#13555"
++msgid "%d Minutes"
++msgstr ""
++
++#empty strings from id 13556 to 13599
+ 
+ #: system/settings/darwin.xml
+ msgctxt "#13600"
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 2215f70..f13b4d4 100644
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -2052,10 +2052,14 @@
+           </constraints>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="audiooutput.streamsilence" type="boolean" label="421" help="34111">
++        <setting id="audiooutput.streamsilence" type="integer" label="421" help="34111">
+           <level>1</level>
+           <requirement>audiosupportsdrain</requirement>
+-          <default>true</default>
++          <default>1</default>
++          <constraints>
++            <options>audiostreamsilence</options>
++          </constraints>
++          <control type="spinner" format="string" />
+         </setting>
+       </group>
+       <group id="2">
 diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
-index b63466c..4c1dc86 100644
+index 4c1dc86..a5fc6e1 100644
 --- a/xbmc/cores/AudioEngine/AEFactory.cpp
 +++ b/xbmc/cores/AudioEngine/AEFactory.cpp
-@@ -247,6 +247,8 @@ bool CAEFactory::SupportsRaw(AEDataFormat format)
-   // check if the format is enabled in settings
-   if (format == AE_FMT_AC3 && !CSettings::Get().GetBool("audiooutput.ac3passthrough"))
-     return false;
-+  if (format == AE_FMT_DTS && !CSettings::Get().GetBool("audiooutput.dtspassthrough"))
-+    return false;
-   if (format == AE_FMT_EAC3 && !CSettings::Get().GetBool("audiooutput.eac3passthrough"))
-     return false;
-   if (format == AE_FMT_TRUEHD && !CSettings::Get().GetBool("audiooutput.truehdpassthrough"))
+@@ -370,6 +370,20 @@ void CAEFactory::SettingOptionsAudioQualityLevelsFiller(const CSetting *setting,
+     list.push_back(std::make_pair(g_localizeStrings.Get(13509), AE_QUALITY_REALLYHIGH));
+ }
+ 
++void CAEFactory::SettingOptionsAudioStreamsilenceFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current)
++{
++  if (!AE)
++    return;
++
++  list.push_back(std::make_pair(g_localizeStrings.Get(20422), XbmcThreads::EndTime::InfiniteValue));
++  list.push_back(std::make_pair(g_localizeStrings.Get(13551), 0));
++  list.push_back(std::make_pair(StringUtils::Format(g_localizeStrings.Get(13554).c_str(), 1), 1));
++  for (int i = 2; i <= 10; i++)
++  {
++    list.push_back(std::make_pair(StringUtils::Format(g_localizeStrings.Get(13555).c_str(), i), i));
++  }
++}
++
+ void CAEFactory::SettingOptionsAudioDevicesFillerGeneral(const CSetting *setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, bool passthrough)
+ {
+   current = ((const CSettingString*)setting)->GetValue();
+diff --git a/xbmc/cores/AudioEngine/AEFactory.h b/xbmc/cores/AudioEngine/AEFactory.h
+index 20e67a3..ccf57c1 100644
+--- a/xbmc/cores/AudioEngine/AEFactory.h
++++ b/xbmc/cores/AudioEngine/AEFactory.h
+@@ -74,6 +74,7 @@ class CAEFactory
+   static void SettingOptionsAudioDevicesFiller(const CSetting *setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current);
+   static void SettingOptionsAudioDevicesPassthroughFiller(const CSetting *setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current);
+   static void SettingOptionsAudioQualityLevelsFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current);
++  static void SettingOptionsAudioStreamsilenceFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current);
+   static bool IsSettingVisible(const std::string &condition, const std::string &value, const std::string &settingId);
+ 
+   static void RegisterAudioCallback(IAudioCallback* pCallback);
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index e61bce4..b73bdda 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -372,6 +372,7 @@ void CSettings::Uninitialize()
+   m_settingsManager->UnregisterSettingOptionsFiller("aequalitylevels");
+   m_settingsManager->UnregisterSettingOptionsFiller("audiodevices");
+   m_settingsManager->UnregisterSettingOptionsFiller("audiodevicespassthrough");
++  m_settingsManager->UnregisterSettingOptionsFiller("audiostreamsilence");
+   m_settingsManager->UnregisterSettingOptionsFiller("charsets");
+   m_settingsManager->UnregisterSettingOptionsFiller("epgguideviews");
+   m_settingsManager->UnregisterSettingOptionsFiller("fontheights");
+@@ -686,6 +687,7 @@ void CSettings::InitializeOptionFillers()
+   m_settingsManager->RegisterSettingOptionsFiller("aequalitylevels", CAEFactory::SettingOptionsAudioQualityLevelsFiller);
+   m_settingsManager->RegisterSettingOptionsFiller("audiodevices", CAEFactory::SettingOptionsAudioDevicesFiller);
+   m_settingsManager->RegisterSettingOptionsFiller("audiodevicespassthrough", CAEFactory::SettingOptionsAudioDevicesPassthroughFiller);
++  m_settingsManager->RegisterSettingOptionsFiller("audiostreamsilence", CAEFactory::SettingOptionsAudioStreamsilenceFiller);
+   m_settingsManager->RegisterSettingOptionsFiller("charsets", CCharsetConverter::SettingOptionsCharsetsFiller);
+   m_settingsManager->RegisterSettingOptionsFiller("epgguideviews", PVR::CGUIWindowPVRGuide::SettingOptionsEpgGuideViewFiller);
+   m_settingsManager->RegisterSettingOptionsFiller("fonts", GUIFontManager::SettingOptionsFontsFiller);
 -- 
 1.8.4
 
 
-From bd9b7f8b00537ef250b87520a86014c344898c8f Mon Sep 17 00:00:00 2001
+From a996bfc6a403ce9b91eb438734b2df8fa50825c9 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Tue, 22 Oct 2013 20:48:44 +0200
+Subject: [PATCH 17/94] ActiveAE: implement timeout for streamsilence
+
+---
+ .../AudioEngine/Engines/ActiveAE/ActiveAESink.cpp     | 19 +++++++++++++------
+ .../cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h |  3 ++-
+ 2 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
+index 966b446..d2a8d12 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
+@@ -163,7 +163,7 @@ void CActiveAESink::StateMachine(int signal, Protocol *port, Message *msg)
+             m_device = *(data->device);
+           }
+           m_extError = false;
+-          m_extSilence = false;
++          m_extSilenceTimer = 0;
+           ReturnBuffers();
+           OpenSink();
+ 
+@@ -266,10 +266,14 @@ void CActiveAESink::StateMachine(int signal, Protocol *port, Message *msg)
+         switch (signal)
+         {
+         case CSinkControlProtocol::SILENCEMODE:
+-          m_extSilence = *(bool*)msg->data;
+-          if (CSettings::Get().GetBool("audiooutput.streamsilence"))
+-            m_extSilence = true;
+-          if (m_extSilence)
++          bool silencemode;
++          silencemode = *(bool*)msg->data;
++          if (silencemode)
++            m_extSilenceTimeout = XbmcThreads::EndTime::InfiniteValue;
++          else
++            m_extSilenceTimeout = CSettings::Get().GetInt("audiooutput.streamsilence") * 60000;
++          m_extSilenceTimer.Set(m_extSilenceTimeout);
++          if (!m_extSilenceTimer.IsTimePast())
+           {
+             m_state = S_TOP_CONFIGURED_SILENCE;
+             m_extTimeout = 0;
+@@ -311,6 +315,7 @@ void CActiveAESink::StateMachine(int signal, Protocol *port, Message *msg)
+           {
+             m_state = S_TOP_CONFIGURED_PLAY;
+             m_extTimeout = delay / 2;
++            m_extSilenceTimer.Set(m_extSilenceTimeout);
+           }
+           return;
+         default:
+@@ -403,7 +408,7 @@ void CActiveAESink::StateMachine(int signal, Protocol *port, Message *msg)
+         switch (signal)
+         {
+         case CSinkControlProtocol::TIMEOUT:
+-          if (m_extSilence)
++          if (!m_extSilenceTimer.IsTimePast())
+           {
+             m_state = S_TOP_CONFIGURED_SILENCE;
+             m_extTimeout = 0;
+@@ -435,6 +440,8 @@ void CActiveAESink::StateMachine(int signal, Protocol *port, Message *msg)
+             m_sink = NULL;
+             m_state = S_TOP_CONFIGURED_SUSPEND;
+           }
++          else
++            m_state = S_TOP_CONFIGURED_PLAY;
+           m_extTimeout = 0;
+           return;
+         default:
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
+index 2aebbf6..52f4a17 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
+@@ -116,7 +116,8 @@ class CActiveAESink : private CThread
+   bool m_bStateMachineSelfTrigger;
+   int m_extTimeout;
+   bool m_extError;
+-  bool m_extSilence;
++  int m_extSilenceTimeout;
++  XbmcThreads::EndTime m_extSilenceTimer;
+ 
+   CSampleBuffer m_sampleOfSilence;
+   uint8_t *m_convertBuffer;
+-- 
+1.8.4
+
+
+From 6c6e2e46d2f207eb28361caffa23633efd838f6c Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Wed, 23 Oct 2013 20:49:12 +0200
+Subject: [PATCH 18/94] AE: rework streamsilence
+
+---
+ system/settings/rbp.xml                                  |  7 +++++--
+ system/settings/settings.xml                             |  1 -
+ xbmc/cores/AudioEngine/AEFactory.cpp                     | 14 +++++++++-----
+ xbmc/cores/AudioEngine/AEFactory.h                       |  2 +-
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp     |  2 +-
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h       |  2 +-
+ xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp |  2 +-
+ xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp     |  6 +++---
+ xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h       |  2 +-
+ xbmc/cores/AudioEngine/Interfaces/AE.h                   |  2 +-
+ xbmc/settings/Settings.cpp                               |  3 ---
+ 11 files changed, 23 insertions(+), 20 deletions(-)
+
+diff --git a/system/settings/rbp.xml b/system/settings/rbp.xml
+index 866aed4..166314a 100644
+--- a/system/settings/rbp.xml
++++ b/system/settings/rbp.xml
+@@ -65,13 +65,16 @@
+         </setting>
+         <setting id="audiooutput.streamsilence">
+           <level>2</level>
+-          <requirement>audiosupportsdrain</requirement>
+-          <default>false</default>
++          <default>0</default>
+           <dependencies>
+             <dependency type="visible">
+               <condition on="property" name="aesettingvisible" setting="audiooutput.audiodevice">audiooutput.streamsilence</condition>
+             </dependency>
+           </dependencies>
++          <constraints>
++            <options>audiostreamsilence</options>
++          </constraints>
++          <control type="spinner" format="string" />
+         </setting>
+       </group>
+       <group id="2">
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index f13b4d4..d25dd72 100644
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -2054,7 +2054,6 @@
+         </setting>
+         <setting id="audiooutput.streamsilence" type="integer" label="421" help="34111">
+           <level>1</level>
+-          <requirement>audiosupportsdrain</requirement>
+           <default>1</default>
+           <constraints>
+             <options>audiostreamsilence</options>
+diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
+index a5fc6e1..18288bc 100644
+--- a/xbmc/cores/AudioEngine/AEFactory.cpp
++++ b/xbmc/cores/AudioEngine/AEFactory.cpp
+@@ -262,10 +262,10 @@ bool CAEFactory::SupportsRaw(AEDataFormat format)
+   return false;
+ }
+ 
+-bool CAEFactory::SupportsDrain()
++bool CAEFactory::SupportsSilenceTimeout()
+ {
+   if(AE)
+-    return AE->SupportsDrain();
++    return AE->SupportsSilenceTimeout();
+ 
+   return false;
+ }
+@@ -377,10 +377,14 @@ void CAEFactory::SettingOptionsAudioStreamsilenceFiller(const CSetting *setting,
+ 
+   list.push_back(std::make_pair(g_localizeStrings.Get(20422), XbmcThreads::EndTime::InfiniteValue));
+   list.push_back(std::make_pair(g_localizeStrings.Get(13551), 0));
+-  list.push_back(std::make_pair(StringUtils::Format(g_localizeStrings.Get(13554).c_str(), 1), 1));
+-  for (int i = 2; i <= 10; i++)
++
++  if (AE->SupportsSilenceTimeout())
+   {
+-    list.push_back(std::make_pair(StringUtils::Format(g_localizeStrings.Get(13555).c_str(), i), i));
++    list.push_back(std::make_pair(StringUtils::Format(g_localizeStrings.Get(13554).c_str(), 1), 1));
++    for (int i = 2; i <= 10; i++)
++    {
++      list.push_back(std::make_pair(StringUtils::Format(g_localizeStrings.Get(13555).c_str(), i), i));
++    }
+   }
+ }
+ 
+diff --git a/xbmc/cores/AudioEngine/AEFactory.h b/xbmc/cores/AudioEngine/AEFactory.h
+index ccf57c1..745ddc1 100644
+--- a/xbmc/cores/AudioEngine/AEFactory.h
++++ b/xbmc/cores/AudioEngine/AEFactory.h
+@@ -54,7 +54,7 @@ class CAEFactory
+   static void VerifyOutputDevice(std::string &device, bool passthrough);
+   static std::string GetDefaultDevice(bool passthrough);
+   static bool SupportsRaw(AEDataFormat format);
+-  static bool SupportsDrain();
++  static bool SupportsSilenceTimeout();
+ 
+   /**
+    * Returns true if current AudioEngine supports at lest two basic quality levels
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index e5e4c5c..0837b7c 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -2069,7 +2069,7 @@ bool CActiveAE::SupportsRaw(AEDataFormat format)
+   return true;
+ }
+ 
+-bool CActiveAE::SupportsDrain()
++bool CActiveAE::SupportsSilenceTimeout()
+ {
+   return true;
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+index 1ac7031..e3e772a 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+@@ -215,7 +215,7 @@ class CActiveAE : public IAE, private CThread
+   virtual void EnumerateOutputDevices(AEDeviceList &devices, bool passthrough);
+   virtual std::string GetDefaultDevice(bool passthrough);
+   virtual bool SupportsRaw(AEDataFormat format);
+-  virtual bool SupportsDrain();
++  virtual bool SupportsSilenceTimeout();
+   virtual bool SupportsQualityLevel(enum AEQuality level);
+   virtual bool IsSettingVisible(const std::string &settingId);
+ 
+diff --git a/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp b/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp
+index f067343..d57dd5a 100644
+--- a/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/CoreAudio/CoreAudioAE.cpp
+@@ -766,7 +766,7 @@ void CCoreAudioAE::MixSounds(float *buffer, unsigned int samples)
+ void CCoreAudioAE::GarbageCollect()
+ {
+ #if defined(TARGET_DARWIN_OSX)
+-  if (CSettings::Get().GetBool("audiooutput.streamsilence"))
++  if (CSettings::Get().GetInt("audiooutput.streamsilence") != 0)
+     return;
+   
+   if (!m_streamsPlaying && m_playing_sounds.empty())
+diff --git a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
+index 5daa1ff..9eb46b7 100644
+--- a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
+@@ -49,7 +49,7 @@ void CPiAudioAE::UpdateStreamSilence()
+ {
+ #if defined(TARGET_RASPBERRY_PI)
+   bool enable = CSettings::Get().GetString("audiooutput.audiodevice") == "HDMI" &&
+-                CSettings::Get().GetBool("audiooutput.streamsilence");
++                CSettings::Get().GetInt("audiooutput.streamsilence") != 0;
+   char response[80] = "";
+   char command[80] = "";
+   sprintf(command, "force_audio hdmi %d", enable);
+@@ -129,9 +129,9 @@ bool CPiAudioAE::SupportsRaw(AEDataFormat format)
+   return supported;
+ }
+ 
+-bool CPiAudioAE::SupportsDrain()
++bool CPiAudioAE::SupportsSilenceTimeout()
+ {
+-  return true;
++  return false;
+ }
+ 
+ void CPiAudioAE::OnSettingsChange(const std::string& setting)
+diff --git a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
+index 5eefdd8..4836ed6 100644
+--- a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
++++ b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
+@@ -62,7 +62,7 @@ class CPiAudioAE : public IAE
+   virtual bool IsSettingVisible(const std::string &settingId);
+ 
+   virtual bool SupportsRaw(AEDataFormat format);
+-  virtual bool SupportsDrain();
++  virtual bool SupportsSilenceTimeout();
+ 
+   virtual void OnLostDevice() {}
+   virtual void OnResetDevice() {}
+diff --git a/xbmc/cores/AudioEngine/Interfaces/AE.h b/xbmc/cores/AudioEngine/Interfaces/AE.h
+index e60aa66..d2f895c 100644
+--- a/xbmc/cores/AudioEngine/Interfaces/AE.h
++++ b/xbmc/cores/AudioEngine/Interfaces/AE.h
+@@ -209,7 +209,7 @@ class IAE
+    * Returns true if the AudioEngine supports drain mode which is not streaming silence when idle
+    * @returns true if the AudioEngine is capable of drain mode
+    */
+-  virtual bool SupportsDrain() { return false; }
++  virtual bool SupportsSilenceTimeout() { return false; }
+ 
+   virtual void RegisterAudioCallback(IAudioCallback* pCallback) {}
+ 
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index b73bdda..72c8700 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -797,9 +797,6 @@ void CSettings::InitializeConditions()
+   if (g_application.IsStandAlone())
+     m_settingsManager->AddCondition("isstandalone");
+ 
+-  if (CAEFactory::SupportsDrain())
+-    m_settingsManager->AddCondition("audiosupportsdrain");
+-
+   if(CAEFactory::SupportsQualitySetting())
+     m_settingsManager->AddCondition("has_ae_quality_levels");
+ 
+-- 
+1.8.4
+
+
+From f4ba9e63790c8b4f42efba267eb383961d0825ec Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sat, 26 Oct 2013 21:32:26 +0100
+Subject: [PATCH 19/94] [rbp/omxplayer] Support timeout value of streamsilence
+
+---
+ .../AudioEngine/Engines/PiAudio/PiAudioAE.cpp      | 34 ++++++++++++++++++++--
+ xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h |  6 +++-
+ xbmc/cores/omxplayer/OMXAudio.cpp                  |  7 +++++
+ 3 files changed, 43 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
+index 9eb46b7..ccf40b0 100644
+--- a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
+@@ -32,6 +32,7 @@
+ #endif
+ 
+ CPiAudioAE::CPiAudioAE()
++: CThread("CPiAudio")
+ {
+ }
+ 
+@@ -42,14 +43,39 @@
+ bool CPiAudioAE::Initialize()
+ {
+   UpdateStreamSilence();
++  Create();
+   return true;
+ }
+ 
++void CPiAudioAE::Process()
++{
++  while(!m_bStop)
++  {
++    /* thread just currently checks once a second if it's time to disable streamsilence */
++    Sleep(1000);
++
++    if (m_extSilenceTimer.IsTimePast())
++    {
++      UpdateStreamSilence(false);
++      m_extSilenceTimer.Set(XbmcThreads::EndTime::InfiniteValue);
++    }
++  }
++}
++
+ void CPiAudioAE::UpdateStreamSilence()
+ {
++  if (CSettings::Get().GetInt("audiooutput.streamsilence") > 0)
++    m_extSilenceTimeout = CSettings::Get().GetInt("audiooutput.streamsilence") * 60000;
++  else
++    m_extSilenceTimeout = XbmcThreads::EndTime::InfiniteValue;
++  m_extSilenceTimer.Set(m_extSilenceTimeout);
++  UpdateStreamSilence(CSettings::Get().GetString("audiooutput.audiodevice") == "HDMI" &&
++              CSettings::Get().GetInt("audiooutput.streamsilence") != 0);
++}
++
++void CPiAudioAE::UpdateStreamSilence(bool enable)
++{
+ #if defined(TARGET_RASPBERRY_PI)
+-  bool enable = CSettings::Get().GetString("audiooutput.audiodevice") == "HDMI" &&
+-                CSettings::Get().GetInt("audiooutput.streamsilence") != 0;
+   char response[80] = "";
+   char command[80] = "";
+   sprintf(command, "force_audio hdmi %d", enable);
+@@ -94,6 +120,8 @@ IAEStream *CPiAudioAE::MakeStream(enum AEDataFormat dataFormat, unsigned int sam
+ 
+ IAEStream *CPiAudioAE::FreeStream(IAEStream *stream)
+ {
++  // will retrigger the streamsilence timer
++  UpdateStreamSilence();
+   return NULL;
+ }
+ 
+@@ -131,7 +159,7 @@ bool CPiAudioAE::SupportsRaw(AEDataFormat format)
+ 
+ bool CPiAudioAE::SupportsSilenceTimeout()
+ {
+-  return false;
++  return true;
+ }
+ 
+ void CPiAudioAE::OnSettingsChange(const std::string& setting)
+diff --git a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
+index 4836ed6..944fba8 100644
+--- a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
++++ b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
+@@ -29,13 +29,14 @@
+ namespace PiAudioAE
+ {
+ 
+-class CPiAudioAE : public IAE
++class CPiAudioAE : public IAE, public CThread
+ {
+ protected:
+   friend class ::CAEFactory;
+   CPiAudioAE();
+   virtual ~CPiAudioAE();
+   virtual bool  Initialize();
++  virtual void Process();
+ 
+ public:
+   virtual bool   Suspend();
+@@ -69,8 +70,11 @@ class CPiAudioAE : public IAE
+ 
+ protected:
+   void UpdateStreamSilence();
++  void UpdateStreamSilence(bool enable);
+   // polled via the interface
+   float m_aeVolume;
+   bool m_aeMuted;
++  int m_extSilenceTimeout;
++  XbmcThreads::EndTime m_extSilenceTimer;
+ };
+ };
+diff --git a/xbmc/cores/omxplayer/OMXAudio.cpp b/xbmc/cores/omxplayer/OMXAudio.cpp
+index 74ac027..764f26a 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXAudio.cpp
+@@ -39,6 +39,7 @@
+ #include "settings/Settings.h"
+ #include "guilib/LocalizeStrings.h"
+ #include "cores/AudioEngine/Utils/AEConvert.h"
++#include "cores/AudioEngine/AEFactory.h"
+ 
+ using namespace std;
+ 
+@@ -776,6 +777,9 @@ bool COMXAudio::Initialize(AEAudioFormat format, OMXClock *clock, CDVDStreamInfo
+   CLog::Log(LOGDEBUG, "COMXAudio::Initialize device passthrough %d hwdecode %d",
+      m_Passthrough, m_HWDecode);
+ 
++  /* dummy call to inform PiAudioAE that audo is active */
++  CAEFactory::MakeStream((enum AEDataFormat)0, 0, 0, (CAEChannelInfo)0, 0);
++
+   return true;
+ }
+ 
+@@ -842,6 +846,9 @@ bool COMXAudio::Deinitialize()
+ 
+   m_last_pts      = DVD_NOPTS_VALUE;
+ 
++  /* dummy call to inform PiAudioAE that audo is inactive */
++  CAEFactory::FreeStream(0);
++
+   return true;
+ }
+ 
+-- 
+1.8.4
+
+
+From d65a5aaf22bf8a09747bd81025222c03c21859d4 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:34:39 +0200
-Subject: [PATCH 18/90] videoplayer: adapt lateness detection and dropping to
+Subject: [PATCH 20/94] videoplayer: adapt lateness detection and dropping to
  buffering
 
 ---
@@ -5440,10 +5998,10 @@ index 249222a..c0a6409 100644
 +  return true;
 +}
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.h b/xbmc/cores/VideoRenderers/RenderManager.h
-index 28596cf..befd851 100644
+index c469795..949c652b 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.h
 +++ b/xbmc/cores/VideoRenderers/RenderManager.h
-@@ -97,10 +97,11 @@ class CXBMCRenderManager
+@@ -98,10 +98,11 @@ class CXBMCRenderManager
     *
     * @param bStop reference to stop flag of calling thread
     * @param timestamp of frame delivered with AddVideoPicture
@@ -5456,7 +6014,7 @@ index 28596cf..befd851 100644
    unsigned int PreInit();
    void UnInit();
    bool Flush();
-@@ -175,6 +176,12 @@ class CXBMCRenderManager
+@@ -176,6 +177,12 @@ class CXBMCRenderManager
    int WaitForBuffer(volatile bool& bStop, int timeout = 100);
  
    /**
@@ -5469,7 +6027,7 @@ index 28596cf..befd851 100644
     * Video player call this on flush in oder to discard any queued frames
     */
    void DiscardBuffer();
-@@ -221,6 +228,7 @@ class CXBMCRenderManager
+@@ -222,6 +229,7 @@ class CXBMCRenderManager
  
    struct SPresent
    {
@@ -5477,7 +6035,7 @@ index 28596cf..befd851 100644
      double         timestamp;
      EFIELDSYNC     presentfield;
      EPRESENTMETHOD presentmethod;
-@@ -232,6 +240,8 @@ class CXBMCRenderManager
+@@ -233,6 +241,8 @@ class CXBMCRenderManager
  
    ERenderFormat   m_format;
  
@@ -5955,10 +6513,10 @@ index f8ad541..186e271 100644
 1.8.4
 
 
-From 050daff1dd863f4b5704801120942f02ac4b23c3 Mon Sep 17 00:00:00 2001
+From 5289d4beab87e879b88723b3819a46cc35094aaf Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 19/90] video player: present correct pts to user for a/v sync
+Subject: [PATCH 21/94] video player: present correct pts to user for a/v sync
  (after buffering in renderer)
 
 ---
@@ -6026,10 +6584,10 @@ index 186e271..59c7f09 100644
 1.8.4
 
 
-From dc66afc29d8d4cffe69bfd6fb9b6fa75be645e53 Mon Sep 17 00:00:00 2001
+From 907ec7c3a090ca68f37368d5b756fc1a43f18b4a Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 16 Feb 2013 18:25:53 +0100
-Subject: [PATCH 20/90] videoplayer: some rework and documentation
+Subject: [PATCH 22/94] videoplayer: some rework and documentation
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      | 29 ++++++++++++++++++++--
@@ -6140,10 +6698,10 @@ index 752a291..0aef5ee 100644
 1.8.4
 
 
-From 7fb6911356fbe14d62dd035bf16721e09a8f88d1 Mon Sep 17 00:00:00 2001
+From f5599129105901cc261b722f2a1cd0e6c3122512 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 1 Jun 2013 11:21:19 +0200
-Subject: [PATCH 21/90] renderer: bump buffers to 5
+Subject: [PATCH 23/94] renderer: bump buffers to 5
 
 ---
  xbmc/cores/VideoRenderers/BaseRenderer.h | 2 +-
@@ -6166,10 +6724,10 @@ index a61d3cf..df5fe0e 100644
 1.8.4
 
 
-From 9064ed15a89f411beae6d29bca99575cfbd8f838 Mon Sep 17 00:00:00 2001
+From 9c0f9254ed24df39d2abb5a70e9278e4fa55a69e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:41:31 +0200
-Subject: [PATCH 22/90] videoplayer: update frametime, it might change due to
+Subject: [PATCH 24/94] videoplayer: update frametime, it might change due to
  fps detection
 
 ---
@@ -6193,10 +6751,10 @@ index 0aef5ee..e7e5097 100644
 1.8.4
 
 
-From 859942bd8709455a2a0d5daa30a0f8f0dea7d293 Mon Sep 17 00:00:00 2001
+From 49e298f72234250bcc6dcb4c2786721a8d1aee8b Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:43:06 +0200
-Subject: [PATCH 23/90] videoplayer: give streams with invalid fps a chance for
+Subject: [PATCH 25/94] videoplayer: give streams with invalid fps a chance for
  fps detection
 
 ---
@@ -6220,10 +6778,10 @@ index e7e5097..c40d193 100644
 1.8.4
 
 
-From 9807cd0d70d95caf73e57dfe1b67db5342b334e1 Mon Sep 17 00:00:00 2001
+From 1ecba467cbd4549060419f8824b1c23f5dea734f Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 24/90] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 26/94] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -6260,10 +6818,10 @@ index c412b9f..437276b 100644
 1.8.4
 
 
-From c854a419071da8637e6088d1e77cf6ae034c4052 Mon Sep 17 00:00:00 2001
+From 870ce55e5db4bb5beeec820939baea4d3eee8aab Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:22:05 +0200
-Subject: [PATCH 25/90] X11: ditch SDL for video and window events
+Subject: [PATCH 27/94] X11: ditch SDL for video and window events
 
 ---
  xbmc/Application.cpp                |   2 +-
@@ -6279,7 +6837,7 @@ Subject: [PATCH 25/90] X11: ditch SDL for video and window events
  create mode 100644 xbmc/windowing/WinEventsX11.h
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index f2d7ed4..8278740 100644
+index b27d49d..a016050 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
 @@ -856,7 +856,7 @@ bool CApplication::CreateGUI()
@@ -7801,10 +8359,10 @@ index 2454fb1..f5e5731 100644
 1.8.4
 
 
-From c0fe0ae223cd327ee28252a16c4b39eed50f254d Mon Sep 17 00:00:00 2001
+From eaede54d5093cc43266763d09b72df7868cf1270 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:24:22 +0200
-Subject: [PATCH 26/90] X11: Add xbmc icon
+Subject: [PATCH 28/94] X11: Add xbmc icon
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 126 +++++++++++++++++++++++++++++++++++-
@@ -7994,10 +8552,10 @@ index f5e5731..6953b68 100644
 1.8.4
 
 
-From c0f81a0e9ce72032cc110f9f560f7ba8af03b4df Mon Sep 17 00:00:00 2001
+From 40f1403ac91fc653ef3f43def170dbe1201fa235 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 20 May 2012 14:11:26 +0200
-Subject: [PATCH 27/90] X11: add SDL joystick until we have a better solution
+Subject: [PATCH 29/94] X11: add SDL joystick until we have a better solution
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 26 ++++++++++++++++++++++++++
@@ -8051,10 +8609,10 @@ index ad58aad..6f57a87 100644
 1.8.4
 
 
-From cb6542bc5113a59a6f9d9972fd7a4aad5c5f0758 Mon Sep 17 00:00:00 2001
+From 49d468cfd60c593b2e317665798454f24eebf381 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 12:35:55 +0200
-Subject: [PATCH 28/90] X11: factor out code handling device reset notification
+Subject: [PATCH 30/94] X11: factor out code handling device reset notification
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 22 ++++++++++++++--------
@@ -8117,10 +8675,10 @@ index 6953b68..d60d04a 100644
 1.8.4
 
 
-From deacc6178699dca0a16e9f4cf5c4861fcab53e31 Mon Sep 17 00:00:00 2001
+From b4026e4e3a8ebcc9991aa3875d5245520d52c3af Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:02:00 +0200
-Subject: [PATCH 29/90] X11: move xrandr events to WinEventsX11
+Subject: [PATCH 31/94] X11: move xrandr events to WinEventsX11
 
 ---
  xbmc/windowing/WinEventsX11.cpp     | 42 +++++++++++++++++++++++++++++++++++++
@@ -8264,10 +8822,10 @@ index b3be9fc..7259674 100644
 1.8.4
 
 
-From 60221e416d8272591daf486f0d289159cf458945 Mon Sep 17 00:00:00 2001
+From 85c659d33c307c26e6890637f3aca60769c04ca5 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 12 Apr 2012 15:43:56 +0200
-Subject: [PATCH 30/90] xrandr: remove method RestoreState
+Subject: [PATCH 32/94] xrandr: remove method RestoreState
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 13 +++++++++++--
@@ -8346,10 +8904,10 @@ index 0aec487..00b49dc 100644
 1.8.4
 
 
-From 57237851098a3d858e7d62d1f15c83b2206f5b31 Mon Sep 17 00:00:00 2001
+From 422aa20387ad099a2e4cbcef2b1fa9868a3dcaec Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 20 May 2012 13:17:10 +0200
-Subject: [PATCH 31/90] xrandr: observe orientation
+Subject: [PATCH 33/94] xrandr: observe orientation
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 89 ++++++++++++++++++++++++++++++-------
@@ -8564,10 +9122,10 @@ index 00b49dc..508604d 100644
 1.8.4
 
 
-From 67e76af50e468d618b3fdb1a31b02fc1997e7878 Mon Sep 17 00:00:00 2001
+From cfee1ab0c2fee606b9568e7b97774fdd57924c30 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:54:15 +0200
-Subject: [PATCH 32/90] xrandr: allow getting info for multiple screen's
+Subject: [PATCH 34/94] xrandr: allow getting info for multiple screen's
 
 Refactored by: Joakim Plate <elupus@xbmc.org>
 ---
@@ -8742,10 +9300,10 @@ index 508604d..d37838a 100644
 1.8.4
 
 
-From ca2e3de907770c62c7e940a21378d514dcaa7064 Mon Sep 17 00:00:00 2001
+From e5b1cb349535a98dd20aabd10a3fe402ecef4605 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:44:00 +0200
-Subject: [PATCH 33/90] X11: fix multi-head setups
+Subject: [PATCH 35/94] X11: fix multi-head setups
 
 ---
  language/English/strings.po         |   4 +-
@@ -8760,7 +9318,7 @@ Subject: [PATCH 33/90] X11: fix multi-head setups
  9 files changed, 229 insertions(+), 116 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 136a5d0..ce446a1 100755
+index 74a5e59..291932d 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
 @@ -1019,7 +1019,9 @@ msgctxt "#245"
@@ -8775,10 +9333,10 @@ index 136a5d0..ce446a1 100755
  msgctxt "#247"
  msgid "Scripts"
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index ed87126..1c7d158 100644
+index d25dd72..e1176d6 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -1860,6 +1860,15 @@
+@@ -1865,6 +1865,15 @@
    <section id="system" label="13000" help="36349">
      <category id="videoscreen" label="21373" help="36350">
        <group id="1">
@@ -8794,7 +9352,7 @@ index ed87126..1c7d158 100644
          <setting id="videoscreen.screen" type="integer" label="240" help="36351">
            <level>0</level>
            <default>0</default>
-@@ -1881,6 +1890,7 @@
+@@ -1886,6 +1895,7 @@
              <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
              <dependency type="update" setting="videoscreen.screen" />
              <dependency type="update" setting="videoscreen.screenmode" />
@@ -8802,7 +9360,7 @@ index ed87126..1c7d158 100644
            </dependencies>
            <control type="list" format="string" />
          </setting>
-@@ -1898,6 +1908,7 @@
+@@ -1903,6 +1913,7 @@
              <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
              <dependency type="update" setting="videoscreen.screen" />
              <dependency type="update" setting="videoscreen.resolution" />
@@ -8929,10 +9487,10 @@ index cc4002b..d80f1dc 100644
  protected:
    CDisplaySettings();
 diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
-index e998caa..975e03c 100644
+index 72c8700..8096883 100644
 --- a/xbmc/settings/Settings.cpp
 +++ b/xbmc/settings/Settings.cpp
-@@ -386,6 +386,7 @@ void CSettings::Uninitialize()
+@@ -387,6 +387,7 @@ void CSettings::Uninitialize()
    m_settingsManager->UnregisterSettingOptionsFiller("screens");
    m_settingsManager->UnregisterSettingOptionsFiller("stereoscopicmodes");
    m_settingsManager->UnregisterSettingOptionsFiller("preferedstereoscopicviewmodes");
@@ -8940,7 +9498,7 @@ index e998caa..975e03c 100644
    m_settingsManager->UnregisterSettingOptionsFiller("shutdownstates");
    m_settingsManager->UnregisterSettingOptionsFiller("startupwindows");
    m_settingsManager->UnregisterSettingOptionsFiller("streamlanguages");
-@@ -699,6 +700,7 @@ void CSettings::InitializeOptionFillers()
+@@ -701,6 +702,7 @@ void CSettings::InitializeOptionFillers()
    m_settingsManager->RegisterSettingOptionsFiller("screens", CDisplaySettings::SettingOptionsScreensFiller);
    m_settingsManager->RegisterSettingOptionsFiller("stereoscopicmodes", CDisplaySettings::SettingOptionsStereoscopicModesFiller);
    m_settingsManager->RegisterSettingOptionsFiller("preferedstereoscopicviewmodes", CDisplaySettings::SettingOptionsPreferredStereoscopicViewModesFiller);
@@ -8948,7 +9506,7 @@ index e998caa..975e03c 100644
    m_settingsManager->RegisterSettingOptionsFiller("shutdownstates", CPowerManager::SettingOptionsShutdownStatesFiller);
    m_settingsManager->RegisterSettingOptionsFiller("startupwindows", ADDON::CSkinInfo::SettingOptionsStartupWindowsFiller);
    m_settingsManager->RegisterSettingOptionsFiller("streamlanguages", CLangInfo::SettingOptionsStreamLanguagesFiller);
-@@ -729,6 +731,9 @@ void CSettings::InitializeConditions()
+@@ -731,6 +733,9 @@ void CSettings::InitializeConditions()
  #ifdef HAS_GL
    m_settingsManager->AddCondition("has_gl");
  #endif
@@ -8958,7 +9516,7 @@ index e998caa..975e03c 100644
  #ifdef HAS_GLES
    m_settingsManager->AddCondition("has_gles");
  #endif
-@@ -879,6 +884,7 @@ void CSettings::InitializeISettingCallbacks()
+@@ -878,6 +883,7 @@ void CSettings::InitializeISettingCallbacks()
    settingSet.insert("videoscreen.screen");
    settingSet.insert("videoscreen.resolution");
    settingSet.insert("videoscreen.screenmode");
@@ -9514,10 +10072,10 @@ index eb8005e..7d53d36 100644
 1.8.4
 
 
-From d8f65e931a12eba9da0e4adc6e64b7f1302f7463 Mon Sep 17 00:00:00 2001
+From 306a07f2e491d21e5b56a537e778dd45583ec08b Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:36:32 +0200
-Subject: [PATCH 34/90] X11: remove all DefaultScreen and RootWindow macros
+Subject: [PATCH 36/94] X11: remove all DefaultScreen and RootWindow macros
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp   | 6 +++---
@@ -9585,10 +10143,10 @@ index 81c6800..8a8ff83 100644
 1.8.4
 
 
-From 11d7dffdb72ef6df2c196e12f7d9cf929c27d2e5 Mon Sep 17 00:00:00 2001
+From 59938103c2fb554f1ac6f8fd84ea5a32e212b3ee Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:45:22 +0200
-Subject: [PATCH 35/90] X11: remove all DefaultScreen and RootWindow macros
+Subject: [PATCH 37/94] X11: remove all DefaultScreen and RootWindow macros
  (VideoRefClock)
 
 Note this is on a separate display connection.
@@ -9660,10 +10218,10 @@ index 3ba991a..7eecd40 100644
 1.8.4
 
 
-From f55503eda8400d4aa3b32d94397de46ae94e1d92 Mon Sep 17 00:00:00 2001
+From 93767fb106373fdf0fac8e443ab42adbfdf9fa4b Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 20 Jun 2012 17:37:11 +0200
-Subject: [PATCH 36/90] X11: recreate gl context after output has changed
+Subject: [PATCH 38/94] X11: recreate gl context after output has changed
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp   | 24 ++++++++++++++----------
@@ -9814,10 +10372,10 @@ index 8a8ff83..8707467 100644
 1.8.4
 
 
-From 0d5003d795941c51ac15f3c375b8616d5e9ea4a1 Mon Sep 17 00:00:00 2001
+From 56b93b9ce67f8deaba618d2dc158a269ac1b232a Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:06:25 +0200
-Subject: [PATCH 37/90] X11: hook video reference clock in windowing
+Subject: [PATCH 39/94] X11: hook video reference clock in windowing
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 71 +++++++++++++++++++++++++++-----------
@@ -10022,10 +10580,10 @@ index dd65a1b..afd71fc 100644
 1.8.4
 
 
-From 284db4f89c604552e58b1527294e2cb2d6dd877b Mon Sep 17 00:00:00 2001
+From deedcea046c209e32e3215feceaa26066b462019 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 21 Jun 2012 17:26:51 +0200
-Subject: [PATCH 38/90] X11: fix video calibrations
+Subject: [PATCH 40/94] X11: fix video calibrations
 
 ---
  xbmc/windowing/WinSystem.h          |  1 +
@@ -10117,10 +10675,10 @@ index 2868707..282bb9a 100644
 1.8.4
 
 
-From f2db926b64b917fd287c1af64ff7301c8a26babe Mon Sep 17 00:00:00 2001
+From 764545b5d53396fc58b1af676e890ec63e02b699 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:00:26 +0200
-Subject: [PATCH 39/90] X11: deactivate screen saver on startup
+Subject: [PATCH 41/94] X11: deactivate screen saver on startup
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 29 +++++++++++++++++++++++++++++
@@ -10190,10 +10748,10 @@ index 282bb9a..32f90da 100644
 1.8.4
 
 
-From 8f75db8e3bd0ba46b28f1e9768f090d60b428ea5 Mon Sep 17 00:00:00 2001
+From 0eaed044f37af68bed8715ba7c381d113314baca Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:10:09 +0200
-Subject: [PATCH 40/90] X11: change method of going full-screen
+Subject: [PATCH 42/94] X11: change method of going full-screen
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 9 ++++++++-
@@ -10237,10 +10795,10 @@ index e1fd4e5..acd6497 100644
 1.8.4
 
 
-From 898421bf12f4340fca7f7ba52f81a9d8d78d8ff4 Mon Sep 17 00:00:00 2001
+From bf244e2092fbdc36b9d1fa37f48fff042f2bd8cb Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Jun 2012 19:12:39 +0200
-Subject: [PATCH 41/90] X11: reset key repeat and key modifier on focus lost
+Subject: [PATCH 43/94] X11: reset key repeat and key modifier on focus lost
  and gain
 
 ---
@@ -10272,10 +10830,10 @@ index d98f12f..743aca9 100644
 1.8.4
 
 
-From 44f9448d041b58ea776468ca89dface8e989f668 Mon Sep 17 00:00:00 2001
+From 2b59df8b190005cbdf4040525561309ebc92e466 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 14:18:46 +0200
-Subject: [PATCH 42/90] X11: replace custom utf8 to unicode with charset
+Subject: [PATCH 44/94] X11: replace custom utf8 to unicode with charset
  convertor (squash to x11 events)
 
 ---
@@ -10492,10 +11050,10 @@ index a412f32..9a8a912 100644
 1.8.4
 
 
-From 8885d86887d91510b23fd6974114660ebdebe114 Mon Sep 17 00:00:00 2001
+From c03a11cf30f3a6698f68d430b0b0febe376be32b Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 14:23:54 +0200
-Subject: [PATCH 43/90] X11: fixed invalid usage of sizeof() (squash into x11
+Subject: [PATCH 45/94] X11: fixed invalid usage of sizeof() (squash into x11
  changes)
 
 ---
@@ -10559,10 +11117,10 @@ index 9a8a912..c69169c 100644
 1.8.4
 
 
-From 3ae8c9e3b10726c55233f7faa14fc05a4b4974e3 Mon Sep 17 00:00:00 2001
+From 9e221e90b1d0ed4e0e81727155680dea2b94780e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 9 Jun 2012 18:23:53 +0200
-Subject: [PATCH 44/90] add missing keys to xbmc keytable
+Subject: [PATCH 46/94] add missing keys to xbmc keytable
 
 ---
  xbmc/input/XBMC_keytable.cpp | 2 ++
@@ -10585,10 +11143,10 @@ index b430f55..246164b 100644
 1.8.4
 
 
-From aaeb5e36da9672d13c4bf2d6e76f1ed71c3af33c Mon Sep 17 00:00:00 2001
+From 7237cbdd1c2b4ac29da8be37e81b6cb7adc2e916 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 16 Mar 2012 15:57:51 +0100
-Subject: [PATCH 45/90] videorefclock: temp deactivate of nv settings
+Subject: [PATCH 47/94] videorefclock: temp deactivate of nv settings
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 2 +-
@@ -10611,10 +11169,10 @@ index 4071ff0..b9afc09 100644
 1.8.4
 
 
-From 2c7a7b5a1c41946564ceee0ed38daea59ff16071 Mon Sep 17 00:00:00 2001
+From 798c8163713518df02dcec2f4787fd14493603bf Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 09:09:09 +0200
-Subject: [PATCH 46/90] videorefclock: ask graphics context for refresh rate
+Subject: [PATCH 48/94] videorefclock: ask graphics context for refresh rate
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 3 ++-
@@ -10645,10 +11203,10 @@ index b9afc09..2f6c7de 100644
 1.8.4
 
 
-From b0c53c3ac9929e6db489d332f6044d54d1e7711b Mon Sep 17 00:00:00 2001
+From 40336d30b29ec112c2c61d38b5fa995a0d46c3f0 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 9 Jul 2012 14:00:18 +0200
-Subject: [PATCH 47/90] X11: fix icon texture after
+Subject: [PATCH 49/94] X11: fix icon texture after
  cc5ed3c2474084ebc0373a3046410e6f766e03f4
 
 ---
@@ -10756,10 +11314,10 @@ index acd6497..805eed7 100644
 1.8.4
 
 
-From 4d831d60d7703d70ec1c2860f7578702251b51e6 Mon Sep 17 00:00:00 2001
+From a295172248fb2d3806d4c4c58a414558a52080df Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 10 Jul 2012 11:14:12 +0200
-Subject: [PATCH 48/90] X11: check for window manager
+Subject: [PATCH 50/94] X11: check for window manager
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 74 ++++++++++++++++++++++++++++++++++++-
@@ -10880,10 +11438,10 @@ index 32f90da..28d9d03 100644
 1.8.4
 
 
-From ff0722c7fbb7aaf09e4555cb13ab61fc55142488 Mon Sep 17 00:00:00 2001
+From e8e3afe5fd99d284e3e3b2d272b3cf805541884e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 12 Jul 2012 11:11:47 +0200
-Subject: [PATCH 49/90] X11: dont set window on xrandr if no mode available
+Subject: [PATCH 51/94] X11: dont set window on xrandr if no mode available
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 11 ++++++-----
@@ -10920,10 +11478,10 @@ index b103248..45741d7 100644
 1.8.4
 
 
-From c9178b0d46b5e0fa0feef7e98768f73cb6caf2ec Mon Sep 17 00:00:00 2001
+From 6a7ae49b1715d001b3185d20b3712ef164049b02 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 26 Jul 2012 09:34:28 +0200
-Subject: [PATCH 50/90] X11: fix crash after a resolution change on startup
+Subject: [PATCH 52/94] X11: fix crash after a resolution change on startup
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 3 ++-
@@ -10947,10 +11505,10 @@ index 45741d7..a6cb67f 100644
 1.8.4
 
 
-From 9d2e55a52487841d71c1e0b2646afed3944c2c6a Mon Sep 17 00:00:00 2001
+From 0825c709d1fd17bcb266792cf68be847c2796c4a Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 15 Sep 2012 18:27:29 +0200
-Subject: [PATCH 51/90] X11: lock graphics context in NotifyXRREvent
+Subject: [PATCH 53/94] X11: lock graphics context in NotifyXRREvent
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 ++
@@ -10973,10 +11531,10 @@ index a6cb67f..70b5f10 100644
 1.8.4
 
 
-From 83547f7165771c8fa1d0596631930eda67b11aad Mon Sep 17 00:00:00 2001
+From b7b1c19dd0910f48d0b43b20c18274f7abc03d36 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 23 Aug 2012 19:39:49 +0200
-Subject: [PATCH 52/90] ffmpeg: add av_find_default_stream_index to interface
+Subject: [PATCH 54/94] ffmpeg: add av_find_default_stream_index to interface
 
 ---
  lib/DllAvFormat.h | 4 ++++
@@ -11022,10 +11580,10 @@ index 0016c0b..3514856 100644
 1.8.4
 
 
-From f6b2ca5cd2d7dc3257b58e537382b2bd80be6c22 Mon Sep 17 00:00:00 2001
+From e86f4098096c95c4bc7d455a05d92dfd5892cb5f Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 53/90] dvdplayer: observe pts counter overflow
+Subject: [PATCH 55/94] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 198 ++++++++++++++++++++-
@@ -11312,10 +11870,10 @@ index aef5ab1..35abbdf 100644
 1.8.4
 
 
-From 8a43785c28483a45e266e34d33fd85aa4603e9f8 Mon Sep 17 00:00:00 2001
+From 317b2ca84d01f9ea3bd4fe92082f8f43942ea6b3 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 54/90] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 56/94] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -11348,10 +11906,10 @@ index c40d193..6419951 100644
 1.8.4
 
 
-From 24d83dbe87d4dca310ddd2bf074d27027a97b3fa Mon Sep 17 00:00:00 2001
+From e6d397d6c00cd2e83c3bff1fe9c14e96a749d197 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 55/90] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 57/94] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -11379,10 +11937,10 @@ index f026c92..73c9b50 100644
      if (deint != -1)
      {
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index 8e769bf..b96674c 100644
+index 619490d..8f6981a 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
-@@ -162,6 +162,8 @@ void CAdvancedSettings::Initialize()
+@@ -165,6 +165,8 @@ void CAdvancedSettings::Initialize()
    m_videoAllowMpeg4VAAPI = false;  
    m_videoDisableBackgroundDeinterlace = false;
    m_videoCaptureUseOcclusionQuery = -1; //-1 is auto detect
@@ -11391,7 +11949,7 @@ index 8e769bf..b96674c 100644
    m_videoVDPAUtelecine = false;
    m_videoVDPAUdeintSkipChromaHD = false;
    m_DXVACheckCompatibility = false;
-@@ -595,6 +597,8 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+@@ -602,6 +604,8 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
      XMLUtils::GetBoolean(pElement,"allowmpeg4vaapi",m_videoAllowMpeg4VAAPI);    
      XMLUtils::GetBoolean(pElement, "disablebackgrounddeinterlace", m_videoDisableBackgroundDeinterlace);
      XMLUtils::GetInt(pElement, "useocclusionquery", m_videoCaptureUseOcclusionQuery, -1, 1);
@@ -11417,10 +11975,10 @@ index d46ee0b..8f031ba 100644
 1.8.4
 
 
-From e004800642be56dd0390e84ccd526fbac231882c Mon Sep 17 00:00:00 2001
+From 36c84909aa9c49933c6f25026ccde1e08bf33c4a Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 56/90] player: fix rewind
+Subject: [PATCH 58/94] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 ++++-
@@ -11635,10 +12193,10 @@ index 59c7f09..65dea76 100644
 1.8.4
 
 
-From 01fe10260ebecb82ba75d015b3ed044d1d68b3bc Mon Sep 17 00:00:00 2001
+From b12ad5cbebd595aadec1d5463aa9ed78e027f513 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 23 Nov 2012 17:41:12 +0100
-Subject: [PATCH 57/90] xrandr: fix query for multiple screens
+Subject: [PATCH 59/94] xrandr: fix query for multiple screens
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 10 ++++++----
@@ -11679,10 +12237,10 @@ index 9e181f2..ce0a02b 100644
 1.8.4
 
 
-From d05eaaa9f28502bb16a7f07fa1d33196c425ac3f Mon Sep 17 00:00:00 2001
+From 5738609db3c76b6f0f1e08d4587c558c192085a7 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Dec 2012 15:46:55 +0100
-Subject: [PATCH 58/90] X11: add debug log to print out refresh after xrr event
+Subject: [PATCH 60/94] X11: add debug log to print out refresh after xrr event
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 6 ++++++
@@ -11709,10 +12267,10 @@ index 70b5f10..64d5730 100644
 1.8.4
 
 
-From 0b83ec2c342bf31b91cccc19be572fa9a56f9434 Mon Sep 17 00:00:00 2001
+From 6d414cefe277209fad9078bfc58f0eabd737ce86 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 11 Dec 2012 11:08:13 +0100
-Subject: [PATCH 59/90] X11: dont call XCloseDisplay on shutdown, it crashes
+Subject: [PATCH 61/94] X11: dont call XCloseDisplay on shutdown, it crashes
  when powered doen by cec on ATI
 
 ---
@@ -11737,10 +12295,10 @@ index 64d5730..edc81c8 100644
 1.8.4
 
 
-From af2027c6b3eae6f81d286875264185303dc1dfc3 Mon Sep 17 00:00:00 2001
+From 7395971e9da11654485c1f12f5ec0203188424d4 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gr=C3=A9gory=20Coutant?= <gregory.coutant@gmail.com>
 Date: Wed, 12 Dec 2012 19:49:47 +0100
-Subject: [PATCH 60/90] x11: support for multiple x screens
+Subject: [PATCH 62/94] x11: support for multiple x screens
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 2 +-
@@ -11763,10 +12321,10 @@ index ce0a02b..aa27d2b 100644
 1.8.4
 
 
-From 0b8687fc54d40195541a8aae014f1db849285145 Mon Sep 17 00:00:00 2001
+From e4234031bf7f253c9ed3aa09766098c04166ad39 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 24 Dec 2012 16:02:42 +0100
-Subject: [PATCH 61/90] pvr: increase changes counter of stream on stream
+Subject: [PATCH 63/94] pvr: increase changes counter of stream on stream
  change, cosmetics after dd307930d39d92f145a01a16600cd00e01ec39be
 
 ---
@@ -11800,10 +12358,10 @@ index b96d520..df89f6f 100644
 1.8.4
 
 
-From e7ae765615c8b56ec042a662e23e28c41007ce20 Mon Sep 17 00:00:00 2001
+From 97f8f501c0997ea0e6c8acac8c2fa2de58f1480a Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 17 Jan 2013 16:03:22 +0100
-Subject: [PATCH 62/90] X11: add keymapping for XF86XK_Sleep
+Subject: [PATCH 64/94] X11: add keymapping for XF86XK_Sleep
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 1 +
@@ -11825,10 +12383,10 @@ index a62521f..263cb5a 100644
 1.8.4
 
 
-From 923e513a605b53fa9afa309f4b6bc1406813b08d Mon Sep 17 00:00:00 2001
+From 4d9abc55c7e467fbcad18c44b0be1fe14808b335 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 21 Jan 2013 09:00:19 +0100
-Subject: [PATCH 63/90] X11: remove toggle full screen after resume
+Subject: [PATCH 65/94] X11: remove toggle full screen after resume
 
 ---
  xbmc/powermanagement/PowerManager.cpp | 5 -----
@@ -11854,10 +12412,10 @@ index 2033574..c79bbc1 100644
 1.8.4
 
 
-From b1b98cdb313993c13dc151d6a91e2e1278cd24a0 Mon Sep 17 00:00:00 2001
+From b31709094afcf5fdf223163d35488b21bac71298 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 23 Jan 2013 17:03:02 +0100
-Subject: [PATCH 64/90] xrandr: set screen on mode change command
+Subject: [PATCH 66/94] xrandr: set screen on mode change command
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 2 +-
@@ -11880,10 +12438,10 @@ index aa27d2b..67bf6ca 100644
 1.8.4
 
 
-From 4d64599cb3156aaf40600f1a51404fb0a5a17234 Mon Sep 17 00:00:00 2001
+From acbf6280ffdeb86802c7393724b17f14e2018ef6 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 23 Jan 2013 17:03:39 +0100
-Subject: [PATCH 65/90] X11: recreate glx context when output changes
+Subject: [PATCH 67/94] X11: recreate glx context when output changes
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 6 +++---
@@ -11934,10 +12492,10 @@ index 28d9d03..5a21b00 100644
 1.8.4
 
 
-From b3380a75082ac0f73510fde734229b7e75c368e3 Mon Sep 17 00:00:00 2001
+From 114b99916a740e1bfc6b785d9087358a4037f186 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 14 Dec 2012 14:19:15 +0100
-Subject: [PATCH 66/90] pvr: do not show selection dialog for a single menu
+Subject: [PATCH 68/94] pvr: do not show selection dialog for a single menu
  hook
 
 ---
@@ -11975,10 +12533,10 @@ index 5aaf881..4c64877 100644
 1.8.4
 
 
-From 30146a167d6788741624ece91bfdbc142e5edf72 Mon Sep 17 00:00:00 2001
+From ff3584b94dc11925e9e4b5674b71f789d0b13596 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 3 Feb 2013 08:17:16 +0100
-Subject: [PATCH 67/90] X11: use default screen parameters if no output
+Subject: [PATCH 69/94] X11: use default screen parameters if no output
  connected
 
 ---
@@ -12082,10 +12640,10 @@ index c6aa51a..f481ea4 100644
 1.8.4
 
 
-From fffcfc8c04f4c8004c2c4f8f9b1d7daeec72814a Mon Sep 17 00:00:00 2001
+From dfbe5c7902208bafa11fb46bb64e11062d006153 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 23 Mar 2013 15:13:32 +0100
-Subject: [PATCH 68/90] X11: create parent window
+Subject: [PATCH 70/94] X11: create parent window
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 69 +++++++++++++++++++++++--------------
@@ -12351,10 +12909,10 @@ index 5a21b00..b866d52 100644
 1.8.4
 
 
-From 34ec39386333591d4109c57abf1a9df9b080219d Mon Sep 17 00:00:00 2001
+From 44f22446106846791e1ac491edc92849d897af80 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 24 Mar 2013 12:30:12 +0100
-Subject: [PATCH 69/90] X11: use system key repeat rate instead of hardcoded
+Subject: [PATCH 71/94] X11: use system key repeat rate instead of hardcoded
  one, taken from 58fd64b194e38b73b5f3132744bab35e994e7441
 
 ---
@@ -12556,10 +13114,10 @@ index c69169c..6429291 100644
 1.8.4
 
 
-From 95e8dee1cd7b0d4d933628e13bfe3fb5d548a917 Mon Sep 17 00:00:00 2001
+From 2b21eda7d79ec97334aace0113b7c7e50151af1c Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 24 Mar 2013 16:04:48 +0100
-Subject: [PATCH 70/90] linux: use CLOCK_MONOTONIC_RAW as this is not subject
+Subject: [PATCH 72/94] linux: use CLOCK_MONOTONIC_RAW as this is not subject
  to NTP
 
 ---
@@ -12597,10 +13155,10 @@ index c06b8c5..4390d2e 100644
 1.8.4
 
 
-From 187ebfac6087c6d621e5b5f7b59366a813f1c57c Mon Sep 17 00:00:00 2001
+From 05f85dba031559f6b12bfb21f4e62c5379c9a25b Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 15:18:53 +0100
-Subject: [PATCH 71/90] OMXPlayer: some caching fixes for pvr
+Subject: [PATCH 73/94] OMXPlayer: some caching fixes for pvr
 
 ---
  xbmc/cores/omxplayer/OMXPlayer.cpp | 3 ++-
@@ -12624,20 +13182,20 @@ index 56099fe..fc1d725 100644
 1.8.4
 
 
-From 57420e37d301e2938219c062dcc945ce1ecfa939 Mon Sep 17 00:00:00 2001
+From f5ab8b4d4c0efcbe30ef84f61da4f9fe72ec4a9d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 72/90] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 74/94] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 8278740..ca1cfa0 100644
+index a016050..980dd18 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2225,10 +2225,11 @@ void CApplication::Render()
+@@ -2226,10 +2226,11 @@ void CApplication::Render()
      if (frameTime < singleFrameTime)
        Sleep(singleFrameTime - frameTime);
    }
@@ -12654,10 +13212,10 @@ index 8278740..ca1cfa0 100644
 1.8.4
 
 
-From 8275208c5d7927b326031c89f2680a04857519fd Mon Sep 17 00:00:00 2001
+From b2e0d2c1f92826eed6b78a20f838bf3e29f09669 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 13 Apr 2013 08:32:06 +0200
-Subject: [PATCH 73/90] X11: fix mouse coverage
+Subject: [PATCH 75/94] X11: fix mouse coverage
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 11 ++++++++---
@@ -12723,10 +13281,10 @@ index b866d52..3f1b5f8 100644
 1.8.4
 
 
-From 374efbeed41678daabf00387f379e3cc9d23512b Mon Sep 17 00:00:00 2001
+From b67642e4b50c721bc6a9bbcacef45e587928fa9f Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 8 May 2013 13:14:58 +0200
-Subject: [PATCH 74/90] X11: fix incorrectly used screen num in desktop
+Subject: [PATCH 76/94] X11: fix incorrectly used screen num in desktop
  resolution
 
 ---
@@ -12761,10 +13319,10 @@ index 7987cc2..b13f1a5 100644
 1.8.4
 
 
-From 8f975858b7f68cc63292f6e197cd79061f855204 Mon Sep 17 00:00:00 2001
+From 4c88f1a2156120ac1b8f5c8aba9202ad76c27221 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 9 May 2013 12:07:09 +0200
-Subject: [PATCH 75/90] X11: do not overwrite user selected monitor with
+Subject: [PATCH 77/94] X11: do not overwrite user selected monitor with
  fallback
 
 ---
@@ -12889,10 +13447,10 @@ index 3f1b5f8..ed70d9c 100644
 1.8.4
 
 
-From 7a0fdb7bf5828744f9b8906897999eeeae023e15 Mon Sep 17 00:00:00 2001
+From bec06cd01c4d3b1ac30e1df579f6fc28d7ba2b49 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 12 May 2013 10:50:30 +0200
-Subject: [PATCH 76/90] xrandr: add turn on/off to wrapper
+Subject: [PATCH 78/94] xrandr: add turn on/off to wrapper
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 78 +++++++++++++++++++++++++++++++++++++++----
@@ -13058,10 +13616,10 @@ index d37838a..059062f 100644
 1.8.4
 
 
-From d052d7e2f65207f2c1c1467415e851826cf89bd5 Mon Sep 17 00:00:00 2001
+From 123286882dc36f7e331313c768315ecf3bb29f14 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 19 May 2013 12:55:35 +0200
-Subject: [PATCH 77/90] xrandr: add GetPreferredMode to wrapper
+Subject: [PATCH 79/94] xrandr: add GetPreferredMode to wrapper
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 23 +++++++++++++++++++++++
@@ -13118,10 +13676,10 @@ index 059062f..ab7cc63 100644
 1.8.4
 
 
-From 4d708adcf6b8db95ab25022988403aff0441cc6d Mon Sep 17 00:00:00 2001
+From 889fa4e42bb227d1a8973ccefab0bb94f660f952 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 11 May 2013 17:12:12 +0200
-Subject: [PATCH 78/90] X11: multi-head improvement - poll for desired output
+Subject: [PATCH 80/94] X11: multi-head improvement - poll for desired output
  if we do not get an xrr event
 
 ---
@@ -13136,10 +13694,10 @@ Subject: [PATCH 78/90] X11: multi-head improvement - poll for desired output
  8 files changed, 105 insertions(+), 12 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index ce446a1..bcea324 100755
+index 291932d..2e84253 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
-@@ -6432,7 +6432,7 @@ msgctxt "#14071"
+@@ -6440,7 +6440,7 @@ msgctxt "#14071"
  msgid "Allow file renaming and deletion"
  msgstr ""
  
@@ -13148,7 +13706,7 @@ index ce446a1..bcea324 100755
  
  msgctxt "#14074"
  msgid "Set timezone"
-@@ -6564,7 +6564,12 @@ msgctxt "#14100"
+@@ -6572,7 +6572,12 @@ msgctxt "#14100"
  msgid "Stop ripping CD"
  msgstr ""
  
@@ -13163,10 +13721,10 @@ index ce446a1..bcea324 100755
  #: xbmc/dialogs/GUIDialogFavourites.cpp
  msgctxt "#15015"
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 1c7d158..6e00f2d 100644
+index e1176d6..4852107 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -1869,6 +1869,11 @@
+@@ -1874,6 +1874,11 @@
            </constraints>
            <control type="spinner" format="string" delayed="true" />
          </setting>
@@ -13178,7 +13736,7 @@ index 1c7d158..6e00f2d 100644
          <setting id="videoscreen.screen" type="integer" label="240" help="36351">
            <level>0</level>
            <default>0</default>
-@@ -1920,6 +1925,7 @@
+@@ -1925,6 +1930,7 @@
            </dependencies>
          </setting>
          <setting id="videoscreen.blankdisplays" type="boolean" label="13130" help="36355">
@@ -13402,10 +13960,10 @@ index 4809821..1ad26b2 100644
 1.8.4
 
 
-From dfad0811b5dd56abc901f1dd4f9372982fb9aad5 Mon Sep 17 00:00:00 2001
+From d2817ab2f9ec608bd7446fa0b3eed9ea3e389fc2 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 15 May 2013 09:14:34 +0200
-Subject: [PATCH 79/90] X11: ignore mouse move event form other windows
+Subject: [PATCH 81/94] X11: ignore mouse move event form other windows
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 4 +++-
@@ -13437,10 +13995,10 @@ index 908c8b6..938ad26 100644
 1.8.4
 
 
-From 7462198285f83681de66f9e801a6fc4e1a1eb202 Mon Sep 17 00:00:00 2001
+From 69045b17b4be1fcc9ab5f07f974064156bfa387c Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Jun 2013 16:20:29 +0200
-Subject: [PATCH 80/90] renderer: allow some lateness within vblank interval
+Subject: [PATCH 82/94] renderer: allow some lateness within vblank interval
 
 ---
  xbmc/cores/VideoRenderers/RenderManager.cpp | 12 ++++++++++--
@@ -13485,10 +14043,10 @@ index c0a6409..8539e0f 100644
      ++curr;
      ++prev;
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.h b/xbmc/cores/VideoRenderers/RenderManager.h
-index befd851..27283ec 100644
+index 949c652b..d84ff6c 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.h
 +++ b/xbmc/cores/VideoRenderers/RenderManager.h
-@@ -251,6 +251,7 @@ class CXBMCRenderManager
+@@ -252,6 +252,7 @@ class CXBMCRenderManager
    XbmcThreads::ConditionVariable  m_presentevent;
    CCriticalSection m_presentlock;
    CEvent     m_flushEvent;
@@ -13500,10 +14058,10 @@ index befd851..27283ec 100644
 1.8.4
 
 
-From e3135f094dc6f3c33af014e6ade13f2471bce584 Mon Sep 17 00:00:00 2001
+From c6738ded4737ef2c4d2beeb0f2b3109921452a01 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 16 Jun 2013 13:22:58 +0200
-Subject: [PATCH 81/90] X11: another fix for mouse coverage
+Subject: [PATCH 83/94] X11: another fix for mouse coverage
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 6 ++++--
@@ -13536,10 +14094,10 @@ index 938ad26..e4ca56d 100644
 1.8.4
 
 
-From 5efa5d1fbcea7de2257a14ae12396979631cabbc Mon Sep 17 00:00:00 2001
+From a279e20ac527a5361d0ce03754de3d07bf23bd75 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 5 Jul 2013 12:14:00 +0200
-Subject: [PATCH 82/90] X11: set windows class name
+Subject: [PATCH 84/94] X11: set windows class name
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 9 ++++++++-
@@ -13581,20 +14139,20 @@ index cbb56bf..e74f2b0 100644
 1.8.4
 
 
-From d9a0f0dfc6a928f4afd6146cdcb942b9d7de7ba8 Mon Sep 17 00:00:00 2001
+From 5832f25877d457974bd21a4f51631cd04b1b2612 Mon Sep 17 00:00:00 2001
 From: spiff <spiff@xbmc.org>
 Date: Tue, 16 Jul 2013 14:34:04 +0200
-Subject: [PATCH 83/90] fixed: typo
+Subject: [PATCH 85/94] fixed: typo
 
 ---
  language/English/strings.po | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index bcea324..66a96db 100755
+index 2e84253..f28c8f4 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
-@@ -6566,7 +6566,7 @@ msgstr ""
+@@ -6574,7 +6574,7 @@ msgstr ""
  
  #: xbmc/settings/settings.xml
  msgctxt "#14101"
@@ -13607,17 +14165,17 @@ index bcea324..66a96db 100755
 1.8.4
 
 
-From cf557b92023049f301f937b62bc66dff2d7b92a8 Mon Sep 17 00:00:00 2001
+From bb852857f121f7c9c3e3d6cd8c4e631ce6769ebe Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 84/90] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 86/94] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-index 6a3f700..543670b 100644
+index 0837b7c..4d644ff 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 @@ -30,8 +30,8 @@
@@ -13635,10 +14193,10 @@ index 6a3f700..543670b 100644
 1.8.4
 
 
-From 1ed247bac6dfb81ba4262902d43459847b7933ca Mon Sep 17 00:00:00 2001
+From 402e67de7ac962cd55c5b74b48ddcf6b294b5c06 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 85/90] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 87/94] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -13694,10 +14252,10 @@ index 73c9b50..1ac0978 100644
 1.8.4
 
 
-From a2c93824cb24065adf80029c8eec58552e2912fa Mon Sep 17 00:00:00 2001
+From 8da2974a4cd01e9ef9a953fc830eb5ded528f063 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 9 Aug 2013 18:01:40 +0200
-Subject: [PATCH 86/90] X11: fix keysyms
+Subject: [PATCH 88/94] X11: fix keysyms
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 2 +-
@@ -13720,10 +14278,10 @@ index e4ca56d..b20130c 100644
 1.8.4
 
 
-From 946fd134fae037296b079a72677a2bd48459e424 Mon Sep 17 00:00:00 2001
+From 2cdb5ef6a3fa248618d2a0aabd540692e15806b1 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 9 Aug 2013 18:42:36 +0200
-Subject: [PATCH 87/90] X11: fix keysym for non-IM
+Subject: [PATCH 89/94] X11: fix keysym for non-IM
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 2 +-
@@ -13746,10 +14304,10 @@ index b20130c..a38890c 100644
 1.8.4
 
 
-From 6187eac740ef1b2d98cdd06c613de3f143d9c721 Mon Sep 17 00:00:00 2001
+From e7df97fcc3deb43d8af31148910ffc9dad715207 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 10 Aug 2013 11:18:16 +0200
-Subject: [PATCH 88/90] add some missing multi media keys
+Subject: [PATCH 90/94] add some missing multi media keys
 
 ---
  system/keymaps/keyboard.xml  | 3 +++
@@ -13758,10 +14316,10 @@ Subject: [PATCH 88/90] add some missing multi media keys
  3 files changed, 10 insertions(+)
 
 diff --git a/system/keymaps/keyboard.xml b/system/keymaps/keyboard.xml
-index ae5cf96..ba5510e 100644
+index 7db7973..9e9c411 100644
 --- a/system/keymaps/keyboard.xml
 +++ b/system/keymaps/keyboard.xml
-@@ -118,6 +118,9 @@
+@@ -119,6 +119,9 @@
        <prev_track>SkipPrevious</prev_track>
        <stop>Stop</stop>
        <play_pause>Pause</play_pause>
@@ -13804,10 +14362,10 @@ index ee6bb69..364b45a 100644
 1.8.4
 
 
-From c1eaca4f648f0c567d091587c2a649c211411185 Mon Sep 17 00:00:00 2001
+From 31876c03527f64d86eafdea64b249753668aecec Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 10 Aug 2013 15:53:45 +0200
-Subject: [PATCH 89/90] X11: squash multi
+Subject: [PATCH 91/94] X11: squash multi
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 +-
@@ -13830,10 +14388,10 @@ index e74f2b0..480efb3 100644
 1.8.4
 
 
-From bb42b1cdf58d66c331861c0ed8bf3f6e0b6696e5 Mon Sep 17 00:00:00 2001
+From 18ea3370bd51e8087d10d43473aa9fd3810f7cd6 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 3 Sep 2013 20:46:17 +0200
-Subject: [PATCH 90/90] X11: do not poll default monitor
+Subject: [PATCH 92/94] X11: do not poll default monitor
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 +-
@@ -13852,6 +14410,416 @@ index 480efb3..dd04357 100644
        return;
  
      int numScreens = XScreenCount(m_dpy);
+-- 
+1.8.4
+
+
+From 223d19ccd2ba02c9bbfc4ef87b0c839a0a4337b3 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Tue, 29 Oct 2013 20:57:28 +0100
+Subject: [PATCH 93/94] X11: fix broken monitor switching
+
+---
+ system/settings/settings.xml      |  1 -
+ xbmc/settings/DisplaySettings.cpp | 40 ++++++++++++++++++++++++++-------------
+ 2 files changed, 27 insertions(+), 14 deletions(-)
+
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 4852107..e7a8ebc 100644
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -1918,7 +1918,6 @@
+             <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
+             <dependency type="update" setting="videoscreen.screen" />
+             <dependency type="update" setting="videoscreen.resolution" />
+-            <dependency type="update" setting="videoscreen.monitor" />
+           </dependencies>
+           <control type="spinner" format="string" delayed="true" />
+         </setting>
+diff --git a/xbmc/settings/DisplaySettings.cpp b/xbmc/settings/DisplaySettings.cpp
+index 46895d2..c495bb0 100644
+--- a/xbmc/settings/DisplaySettings.cpp
++++ b/xbmc/settings/DisplaySettings.cpp
+@@ -219,19 +219,13 @@ bool CDisplaySettings::OnSettingChanging(const CSetting *setting)
+ 
+   const std::string &settingId = setting->GetId();
+   if (settingId == "videoscreen.resolution" ||
+-      settingId == "videoscreen.screen" ||
+-      settingId == "videoscreen.monitor")
++      settingId == "videoscreen.screen")
+   {
+     RESOLUTION newRes = RES_DESKTOP;
+     if (settingId == "videoscreen.resolution")
+       newRes = (RESOLUTION)((CSettingInt*)setting)->GetValue();
+     else if (settingId == "videoscreen.screen")
+       newRes = GetResolutionForScreen();
+-    else if (settingId == "videoscreen.monitor")
+-    {
+-      g_Windowing.UpdateResolutions();
+-      newRes = GetResolutionForScreen();
+-    }
+ 
+     string screenmode = GetStringFromResolution(newRes);
+     CSettings::Get().SetString("videoscreen.screenmode", screenmode);
+@@ -242,11 +236,7 @@ bool CDisplaySettings::OnSettingChanging(const CSetting *setting)
+     RESOLUTION newRes = GetResolutionFromString(((CSettingString*)setting)->GetValue());
+ 
+     SetCurrentResolution(newRes, false);
+-    bool outputChanged = false;
+-#if defined(HAS_GLX)
+-    outputChanged = !g_Windowing.IsCurrentOutput(CSettings::Get().GetString("videoscreen.monitor"));
+-#endif
+-    g_graphicsContext.SetVideoResolution(newRes, outputChanged);
++    g_graphicsContext.SetVideoResolution(newRes);
+ 
+     // check if the old or the new resolution was/is windowed
+     // in which case we don't show any prompt to the user
+@@ -265,6 +255,28 @@ bool CDisplaySettings::OnSettingChanging(const CSetting *setting)
+         m_resolutionChangeAborted = false;
+     }
+   }
++  else if (settingId == "videoscreen.monitor")
++  {
++    g_Windowing.UpdateResolutions();
++    RESOLUTION newRes = GetResolutionForScreen();
++
++    SetCurrentResolution(newRes, false);
++    g_graphicsContext.SetVideoResolution(newRes, true);
++
++    if (!m_resolutionChangeAborted)
++    {
++      bool cancelled = false;
++      if (!CGUIDialogYesNo::ShowAndGetInput(13110, 13111, 20022, 20022, -1, -1, cancelled, 10000))
++      {
++        m_resolutionChangeAborted = true;
++        return false;
++      }
++    }
++    else
++      m_resolutionChangeAborted = false;
++
++    return true;
++  }
+   else if (settingId == "videoscreen.monitorsingle")
+   {
+     g_Windowing.UpdateResolutions();
+@@ -688,9 +700,11 @@ void CDisplaySettings::SettingOptionsMonitorsFiller(const CSetting *setting, std
+ #if defined(HAS_GLX)
+   std::vector<CStdString> monitors;
+   g_Windowing.GetConnectedOutputs(&monitors);
++  std::string currentMonitor = CSettings::Get().GetString("videoscreen.monitor");
+   for (unsigned int i=0; i<monitors.size(); ++i)
+   {
+-    if(CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP).strOutput.Equals(monitors[i]))
++    if(currentMonitor.compare("Default") != 0 &&
++       CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP).strOutput.Equals(monitors[i]))
+     {
+       current = monitors[i];
+     }
+-- 
+1.8.4
+
+
+From 56b2805fb0e7596ecebf9aed5486344e29bd593f Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Tue, 29 Oct 2013 20:57:59 +0100
+Subject: [PATCH 94/94] X11: remove polling for connected outputs, use xrr
+ events
+
+---
+ xbmc/windowing/WinEventsX11.cpp     | 44 +++++++++++----------
+ xbmc/windowing/WinEventsX11.h       |  1 -
+ xbmc/windowing/X11/WinSystemX11.cpp | 76 ++++++++++++++-----------------------
+ xbmc/windowing/X11/WinSystemX11.h   |  8 ++--
+ 4 files changed, 58 insertions(+), 71 deletions(-)
+
+diff --git a/xbmc/windowing/WinEventsX11.cpp b/xbmc/windowing/WinEventsX11.cpp
+index a38890c..fe91a2b 100644
+--- a/xbmc/windowing/WinEventsX11.cpp
++++ b/xbmc/windowing/WinEventsX11.cpp
+@@ -213,7 +213,6 @@ bool CWinEventsX11Imp::Init(Display *dpy, Window win)
+   WinEvents->m_wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+   WinEvents->m_structureChanged = false;
+   WinEvents->m_xrrEventPending = false;
+-  WinEvents->m_xrrPollTimer.Set(3000);
+ 
+   // open input method
+   char *old_locale = NULL, *old_modifiers = NULL;
+@@ -280,7 +279,11 @@ bool CWinEventsX11Imp::Init(Display *dpy, Window win)
+ #if defined(HAS_XRANDR)
+   int iReturn;
+   XRRQueryExtension(WinEvents->m_display, &WinEvents->m_RREventBase, &iReturn);
+-  XRRSelectInput(WinEvents->m_display, WinEvents->m_window, RRScreenChangeNotifyMask);
++  int numScreens = XScreenCount(WinEvents->m_display);
++  for (int i = 0; i < numScreens; i++)
++  {
++    XRRSelectInput(WinEvents->m_display, RootWindow(WinEvents->m_display, i), RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask | RROutputChangeNotifyMask | RROutputPropertyNotifyMask);
++  }
+ #endif
+ 
+   return true;
+@@ -328,6 +331,26 @@ bool CWinEventsX11Imp::MessagePump()
+     memset(&xevent, 0, sizeof (XEvent));
+     XNextEvent(WinEvents->m_display, &xevent);
+ 
++#if defined(HAS_XRANDR)
++    if (WinEvents && (xevent.type == WinEvents->m_RREventBase + RRScreenChangeNotify))
++    {
++      XRRUpdateConfiguration(&xevent);
++      if (xevent.xgeneric.serial != serial)
++        g_Windowing.NotifyXRREvent();
++      WinEvents->m_xrrEventPending = false;
++      serial = xevent.xgeneric.serial;
++      continue;
++    }
++    else if (WinEvents && (xevent.type == WinEvents->m_RREventBase + RRNotify))
++    {
++      if (xevent.xgeneric.serial != serial)
++        g_Windowing.NotifyXRREvent();
++      WinEvents->m_xrrEventPending = false;
++      serial = xevent.xgeneric.serial;
++      continue;
++    }
++#endif
++
+     if (XFilterEvent(&xevent, WinEvents->m_window))
+       continue;
+ 
+@@ -575,18 +598,6 @@ bool CWinEventsX11Imp::MessagePump()
+         break;
+       }
+     }// switch event.type
+-
+-#if defined(HAS_XRANDR)
+-    if (WinEvents && (xevent.type == WinEvents->m_RREventBase + RRScreenChangeNotify))
+-    {
+-      XRRUpdateConfiguration(&xevent);
+-      if (xevent.xgeneric.serial != serial)
+-        g_Windowing.NotifyXRREvent();
+-      WinEvents->m_xrrEventPending = false;
+-      serial = xevent.xgeneric.serial;
+-    }
+-#endif
+-
+   }// while
+ 
+ #if defined(HAS_XRANDR)
+@@ -596,11 +607,6 @@ bool CWinEventsX11Imp::MessagePump()
+     g_Windowing.NotifyXRREvent();
+     WinEvents->m_xrrEventPending = false;
+   }
+-  else if (!g_application.m_pPlayer->IsPlaying() && WinEvents && WinEvents->m_xrrPollTimer.IsTimePast())
+-  {
+-    g_Windowing.NotifyXRREvent(true);
+-    WinEvents->m_xrrPollTimer.Set(3000);
+-  }
+ #endif
+ 
+ #ifdef HAS_SDL_JOYSTICK
+diff --git a/xbmc/windowing/WinEventsX11.h b/xbmc/windowing/WinEventsX11.h
+index 91a604f..6429291 100644
+--- a/xbmc/windowing/WinEventsX11.h
++++ b/xbmc/windowing/WinEventsX11.h
+@@ -62,6 +62,5 @@ class CWinEventsX11Imp
+   bool m_structureChanged;
+   int m_RREventBase;
+   XbmcThreads::EndTime m_xrrFailSafeTimer;
+-  XbmcThreads::EndTime m_xrrPollTimer;
+   bool m_xrrEventPending;
+ };
+diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
+index dd04357..b67f291 100644
+--- a/xbmc/windowing/X11/WinSystemX11.cpp
++++ b/xbmc/windowing/X11/WinSystemX11.cpp
+@@ -167,8 +167,21 @@ bool CWinSystemX11::DestroyWindow()
+ 
+ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop)
+ {
++  m_userOutput = CSettings::Get().GetString("videoscreen.monitor");
++  if (m_userOutput.compare("Default") == 0)
++  {
++    std::vector<XOutput> outputs = g_xrandr.GetModes();
++    if (outputs.size() > 0)
++    {
++      m_userOutput = outputs[0].name;
++    }
++  }
++
++  m_userOutput = g_xrandr.GetModes()[0].name;
++
+   if(m_nWidth  == newWidth
+-  && m_nHeight == newHeight)
++  && m_nHeight == newHeight
++  && m_userOutput.compare(m_currentOutput) == 0)
+     return true;
+ 
+   if (!SetWindow(newWidth, newHeight, false, m_userOutput))
+@@ -254,33 +267,23 @@ void CWinSystemX11::UpdateResolutions()
+ 
+   bool switchOnOff = CSettings::Get().GetBool("videoscreen.monitorsingle");
+   m_userOutput = CSettings::Get().GetString("videoscreen.monitor");
+-  if (m_userOutput.Equals("Default"))
++  if (m_userOutput.compare("Default") == 0)
+     switchOnOff = false;
+ 
+   if(g_xrandr.Query(true, !switchOnOff))
+   {
+-    // check if the monitor is connected
+-    // might take a while when connected to a receiver
+-    XbmcThreads::EndTime timeout(3000);
+     XOutput *out = NULL;
+-    while (!m_userOutput.Equals("Default") && !timeout.IsTimePast())
++    if (m_userOutput.compare("Default") != 0)
+     {
+       out = g_xrandr.GetOutput(m_userOutput);
+       if (out)
+       {
+         XMode mode = g_xrandr.GetCurrentMode(m_userOutput);
+-        if (mode.isCurrent || switchOnOff)
+-          break;
+-        else
++        if (!mode.isCurrent && !switchOnOff)
+         {
+           out = NULL;
+-          break;
+         }
+       }
+-
+-      Sleep(500);
+-      if (!g_xrandr.Query(true, !switchOnOff))
+-        break;
+     }
+     if (!out)
+     {
+@@ -288,17 +291,16 @@ void CWinSystemX11::UpdateResolutions()
+       out = g_xrandr.GetOutput(m_userOutput);
+     }
+ 
+-    // switch on output
+-    if(switchOnOff)
+-      g_xrandr.TurnOnOutput(m_userOutput);
+-
+-    // switch off other outputs if desired
+     if (switchOnOff)
+     {
++      // switch on output
++      g_xrandr.TurnOnOutput(m_userOutput);
++
++      // switch off other outputs
+       std::vector<XOutput> outputs = g_xrandr.GetModes();
+       for (int i=0; i<outputs.size(); i++)
+       {
+-        if (outputs[i].name.Equals(m_userOutput))
++        if (outputs[i].name.Equals(m_userOutput.c_str()))
+           continue;
+         g_xrandr.TurnOffOutput(outputs[i].name);
+       }
+@@ -436,7 +438,7 @@ void CWinSystemX11::GetConnectedOutputs(std::vector<CStdString> *outputs)
+ 
+ bool CWinSystemX11::IsCurrentOutput(CStdString output)
+ {
+-  return output.Equals("Default") || m_currentOutput.Equals(output);
++  return (output.Equals("Default")) || (m_currentOutput.compare(output) == 0);
+ }
+ 
+ bool CWinSystemX11::IsSuitableVisual(XVisualInfo *vInfo)
+@@ -714,34 +716,14 @@ void CWinSystemX11::CheckDisplayEvents()
+ #endif
+ }
+ 
+-void CWinSystemX11::NotifyXRREvent(bool poll)
++void CWinSystemX11::NotifyXRREvent()
+ {
+-  // we may not get an event if desired monitor becomes available
+-  // hence we need to poll
+-  if (poll)
+-  {
+-    CStdString output = CSettings::Get().GetString("videoscreen.monitor");
+-    if (output.Equals(m_currentOutput) || output.Equals("Default"))
+-      return;
+-
+-    int numScreens = XScreenCount(m_dpy);
+-    g_xrandr.SetNumScreens(numScreens);
+-    g_xrandr.Query(true);
+-    if (!g_xrandr.IsOutputConnected(output))
+-      return;
+-
+-    // if output is turned off by user, respect it
+-    XMode mode = g_xrandr.GetCurrentMode(output);
+-    if (!mode.isCurrent)
+-      return;
+-  }
+-
+-  CLog::Log(LOGDEBUG, "%s - notify display reset event, poll: %d", __FUNCTION__, poll);
++  CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
+   m_windowDirty = true;
+ 
+   CSingleLock lock(g_graphicsContext);
+ 
+-  if (!g_xrandr.Query(!poll))
++  if (!g_xrandr.Query(true))
+   {
+     CLog::Log(LOGERROR, "WinSystemX11::RefreshWindow - failed to query xrandr");
+     return;
+@@ -838,14 +820,14 @@ bool CWinSystemX11::EnableFrameLimiter()
+   return m_minimized;
+ }
+ 
+-bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStdString &output)
++bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const std::string &output)
+ {
+   bool changeWindow = false;
+   bool changeSize = false;
+   bool mouseActive = false;
+   float mouseX, mouseY;
+ 
+-  if (m_mainWindow && ((m_bFullScreen != fullscreen) || !m_currentOutput.Equals(output) || m_windowDirty))
++  if (m_mainWindow && ((m_bFullScreen != fullscreen) || m_currentOutput.compare(output) != 0 || m_windowDirty))
+   {
+     mouseActive = g_Mouse.IsActive();
+     if (mouseActive)
+@@ -1034,7 +1016,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+       m_bIsGrabbed = false;
+ 
+     CDirtyRegionList dr;
+-    RefreshGlxContext(!m_currentOutput.Equals(output));
++    RefreshGlxContext(m_currentOutput.compare(output) != 0);
+     XSync(m_dpy, FALSE);
+     g_graphicsContext.Clear(0);
+     g_graphicsContext.Flip(dr);
+diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
+index f0d22bb..03bccc9 100644
+--- a/xbmc/windowing/X11/WinSystemX11.h
++++ b/xbmc/windowing/X11/WinSystemX11.h
+@@ -70,7 +70,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
+   Display*  GetDisplay() { return m_dpy; }
+   GLXWindow GetWindow() { return m_glWindow; }
+   GLXContext GetGlxContext() { return m_glContext; }
+-  void NotifyXRREvent(bool poll = false);
++  void NotifyXRREvent();
+   void GetConnectedOutputs(std::vector<CStdString> *outputs);
+   bool IsCurrentOutput(CStdString output);
+   void NotifyMouseCoverage(bool covered);
+@@ -79,7 +79,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
+   bool RefreshGlxContext(bool force);
+   void CheckDisplayEvents();
+   void OnLostDevice();
+-  bool SetWindow(int width, int height, bool fullscreen, const CStdString &output);
++  bool SetWindow(int width, int height, bool fullscreen, const std::string &output);
+ 
+   Window       m_glWindow, m_mainWindow;
+   GLXContext   m_glContext;
+@@ -95,8 +95,8 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
+   CCriticalSection             m_resourceSection;
+   std::vector<IDispResource*>  m_resources;
+   uint64_t                     m_dpyLostTime;
+-  CStdString                   m_currentOutput;
+-  CStdString                   m_userOutput;
++  std::string                  m_currentOutput;
++  std::string                  m_userOutput;
+   bool                         m_windowDirty;
+   bool                         m_bIsInternalXrr;
+   bool                         m_newGlContext;
 -- 
 1.8.4
 
