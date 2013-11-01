@@ -239,8 +239,6 @@ if [ "$SAMBA_SUPPORT" = yes ]; then
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET samba"
   PKG_DEPENDS="$PKG_DEPENDS samba"
   XBMC_SAMBA="--enable-samba"
-  # TODO: remove this?
-  #XBMC_LIBS="$XBMC_LIBS -ltalloc -ltdb -ltevent -lwbclient"
 else
   XBMC_SAMBA="--disable-samba"
 fi
@@ -398,7 +396,6 @@ pre_configure_target() {
 
   export CFLAGS="$CFLAGS $XBMC_CFLAGS"
   export CXXFLAGS="$CXXFLAGS $XBMC_CXXFLAGS"
-  export LIBS="$LIBS $XBMC_LIBS"
 }
 
 make_target() {
