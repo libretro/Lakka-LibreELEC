@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="libass"
-PKG_VERSION="0.10.1"
+PKG_VERSION="0.10.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
