@@ -495,7 +495,8 @@
         UPDATE_KERNEL="MACH_KERNEL"
       fi
 
-    if [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
+    UPDATE_TAR=`ls -1 "$UPDATE_DIR"/*.tar 2>/dev/null | head -n 1`
+    if [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" -o -f "$UPDATE_TAR" ] ; then
       if [ "$UPDATE_DISABLED" = "yes" ] ; then
         rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
         echo "Updating not supported on netboot. normal startup in 10s..."
@@ -503,6 +504,24 @@
         usleep 10000000
         return 0
       fi
+
+      # check for .tar
+      if [ -f "$UPDATE_TAR" ] ; then
+        echo "Found new .tar archive. extracting..."
+        mkdir -p $UPDATE_DIR/.tmp &>/dev/null
+        tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp &>/dev/null
+        mv $UPDATE_DIR/.tmp/*/target/* $UPDATE_DIR &>/dev/null
+        rm -f "$UPDATE_TAR" &>/dev/null
+        rm -rf $UPDATE_DIR/.tmp &>/dev/null
+        sync
+        if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
+          echo "missing ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}... normal startup in 10s"
+          sync
+          usleep 10000000
+          return 0
+        fi
+      fi
+
       if [ -f "$UPDATE_DIR/.nocheck" ] ; then
         MD5_NOCHECK="1"
       fi
