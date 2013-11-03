@@ -300,9 +300,6 @@
       NFS=*)
         MOUNT_CMD="mount_nfs"
         ;;
-      FILE=*)
-        MOUNT_CMD="mount_common"
-        ;;
       *)
         error "mount_part" "Unknown filesystem $1"
         ;;
@@ -417,55 +414,6 @@
     progress "Mounting storage"
 
     if [ -n "$disk" ]; then
-      if [ "${disk%%=*}" = "FILE" ]; then
-        target="${disk%%,*}"
-        storage_loop_file="/flash/${target#*=}"
-        mount -o remount,rw /flash
-
-        if [ ! -f "$storage_loop_file" ]; then
-          echo "Creating storage loopback file: $storage_loop_file..."
-          STORAGE_USE=$(df /flash/ | awk '/[0-9]%/{print $4}')
-          STORAGE_USE=$(($STORAGE_USE / 1024 - $LIVE_FLASH_FREE_MIN))
-
-          options="${disk#*,}"
-          if [ "$options" = "$disk" ]; then
-            echo "No size specified, using all available space..."
-            if [ $STORAGE_USE -gt 0 ]; then
-              echo "Size obtain: $STORAGE_USE MB..."
-            else
-              error "size check" "Not enough free space (at least $LIVE_FLASH_FREE_MIN MB)..."
-            fi
-          else
-            if [ $options -le $STORAGE_USE ]; then
-              STORAGE_USE=$options
-              echo "Size specified: $STORAGE_USE MB..."
-            else
-              echo "Incorrect specified size: $options MB > $STORAGE_USE MB..."
-              if [ $STORAGE_USE -gt 0 ]; then
-                echo "Size trimmed: $STORAGE_USE MB..."
-              else
-                error "size check" "Not enough free space (at least $LIVE_FLASH_FREE_MIN MB)..."
-              fi
-            fi
-          fi
-
-          mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
-          echo "Creating empty file, this can take a long time..."
-          dd if=/dev/zero of="$storage_loop_file" bs=1M count=$STORAGE_USE &>/dev/null
-          echo "Formating to EXT4 filesystem, this can take a long time..."
-          # use mkfs.ext4 from SYSTEM
-          LD_LIBRARY_PATH=/sysroot/usr/lib /sysroot/sbin/mkfs.ext4 -F -L StorageLive "$storage_loop_file" &>/dev/null
-          sync
-          umount /sysroot
-
-          echo "Done..."
-          usleep 2000000
-        fi
-
-        mount_part "FILE=$storage_loop_file" "/storage" "loop,rw,noatime"
-        return
-      fi
-
       if [ -n "$OVERLAY" ]; then
         OVERLAY_DIR=`cat /sys/class/net/eth0/address | tr -d :`
 

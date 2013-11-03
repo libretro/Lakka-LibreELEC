@@ -15,9 +15,6 @@ VIAddVersionKey InternalName "OpenELEC USB Stick Creator"
 BrandingText " "
 
 Var "DRIVE_LETTER"
-Var "STORAGE_SIZE"
-Var "BOOT_TIME"
-Var "SSH_PARAM"
 
 !include "MUI.nsh"
 !include LogicLib.nsh
@@ -49,7 +46,7 @@ Var "SSH_PARAM"
 !insertmacro MUI_PAGE_LICENSE "gpl-2.0.txt"
 
 Name "${PRODUCT_NAME}"
-OutFile 'create_livestick.exe'
+OutFile 'create_installerstick.exe'
 ShowInstDetails show
 AllowRootDirInstall true
 RequestExecutionLevel admin
@@ -107,58 +104,16 @@ Section "oeusbstart"
   nsExec::Exec `"$0" /c copy INSTALL $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy README.md $DRIVE_LETTER`
   nsExec::Exec `"$0" /c copy RELEASE $DRIVE_LETTER`
-  nsExec::Exec `"$0" /c copy 3rdparty\syslinux\vesamenu.c32 $DRIVE_LETTER`
-  nsExec::Exec `"$0" /c copy 3rdparty\syslinux\libcom32.c32 $DRIVE_LETTER`
-  nsExec::Exec `"$0" /c copy 3rdparty\syslinux\libutil.c32 $DRIVE_LETTER`
-  nsExec::Exec `"$0" /c copy splash.png $DRIVE_LETTER`
 
   DetailPrint "- Creating Bootloader configuration ..."
   Delete '$DRIVE_LETTER\syslinux.cfg'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'UI vesamenu.c32'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'PROMPT 0'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU TITLE Boot Menu'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU BACKGROUND splash.png'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'TIMEOUT $BOOT_TIME'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'DEFAULT live'
+  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'DEFAULT installer'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' ''
 
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU WIDTH 70'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU MARGIN 15'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU ROWS 2'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU HSHIFT 4'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU VSHIFT 13'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU TIMEOUTROW 10'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU TABMSGROW 8'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU CMDLINEROW 8'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU HELPMSGROW 13'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU HELPMSGENDROW 26'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU CLEAR'
-  
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' ''
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR border       30;44   #40ffffff #00000000 std'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR title        1;36;44 #ff8bbfe3 #00000000 std'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR sel          7;37;40 #80f0f0f0 #ff606060 all'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR unsel        37;44   #50ffffff #00000000 std'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR help         37;40   #c0ffffff #a0000000 std'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR timeout_msg  37;40   #80ffffff #00000000 std'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR timeout      1;37;40 #c0ffffff #00000000 std'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR msg07        37;40   #90ffffff #a0000000 std'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'MENU COLOR tabmsg       31;40   #ff868787 #00000000 std'
-  
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' ''
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'LABEL installer'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  MENU LABEL Run OpenELEC Installer'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  KERNEL /KERNEL'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC installer quiet vga=current'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' ''
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' 'LABEL live'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  MENU LABEL Run OpenELEC Live'
-  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  KERNEL /KERNEL'
-  ${If} $STORAGE_SIZE == "0"
-    ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE quiet vga=current $SSH_PARAM'
-  ${Else}
-    ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC disk=FILE=STORAGE,$STORAGE_SIZE quiet vga=current $SSH_PARAM'
-  ${EndIf}
+  ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' '  APPEND boot=LABEL=OPENELEC installer quiet tty'
   ${WriteToFile} '$DRIVE_LETTER\syslinux.cfg' ''
   DetailPrint ""
 SectionEnd
@@ -194,46 +149,6 @@ Function CustomCreate
   WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'State' '$R1'
   WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 2' 'ListItems' '$R0'
 
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 3' 'Type' 'Label'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 3' 'Left' '5'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 3' 'Top' '45'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 3' 'Right' '200'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 3' 'Bottom' '55'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 3' 'Text' \
-    'Storage file size for Live USB stick (0 = all free space in MB):'
-
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 4" "Type" "Text"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 4" "Left" "200"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 4" "Top" "43"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 4" "Right" "240"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 4" "Bottom" "55"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 4" "Flags" "ONLY_NUMBERS"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 4" "State" "512"
-
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 5' 'Type' 'Label'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 5' 'Left' '5'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 5' 'Top' '65'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 5' 'Right' '90'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 5' 'Bottom' '75'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 5' 'Text' \
-    'Boot menu timeout (sec):'
-
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 6" "Type" "Text"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 6" "Left" "90"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 6" "Top" "64"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 6" "Right" "110"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 6" "Bottom" "76"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 6" "Flags" "ONLY_NUMBERS"
-  WriteIniStr "$PLUGINSDIR\custom.ini" "Field 6" "State" "5"
-
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 7' 'Type' 'Checkbox'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 7' 'Left' '30'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 7' 'Top' '85'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 7' 'Right' '200'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 7' 'Bottom' '95'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 7' 'Text' 'Enable SSH (only for debugging purposes)'
-  WriteIniStr '$PLUGINSDIR\custom.ini' 'Field 7' 'State' '0'
-
   push $0
   InstallOptions::Dialog '$PLUGINSDIR\custom.ini'
   pop $0
@@ -244,30 +159,6 @@ Function CustomLeave
   ReadIniStr $0 '$PLUGINSDIR\custom.ini' 'Field 2' 'State'
   StrCpy '$INSTDIR' '$0'
   StrCpy '$DRIVE_LETTER' '$INSTDIR'
-
-  ReadIniStr $0 '$PLUGINSDIR\custom.ini' 'Field 4' 'State'
-  ${If} $0 == "0"
-    StrCpy '$STORAGE_SIZE' '0'
-  ${ElseIf} $0 < 512
-    StrCpy '$STORAGE_SIZE' '512'
-  ${Else}
-    StrCpy '$STORAGE_SIZE' '$0'
-  ${EndIf}
-
-  ReadIniStr $0 '$PLUGINSDIR\custom.ini' 'Field 6' 'State'
-  ${If} $0 == "0"
-    StrCpy '$BOOT_TIME' '50'
-  ${Else}
-    IntOp $0 $0 * 10
-    StrCpy '$BOOT_TIME' '$0'
-  ${EndIf}
-
-  ReadIniStr $0 '$PLUGINSDIR\custom.ini' 'Field 7' 'State'
-  ${If} $0 == "1"
-    StrCpy '$SSH_PARAM' 'ssh'
-  ${Else}
-    StrCpy '$SSH_PARAM' ''
-  ${EndIf}
 FunctionEnd
 
 Function GetDrivesCallBack
