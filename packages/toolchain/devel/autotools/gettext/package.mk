@@ -37,4 +37,6 @@ PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-rpath \
                          --with-gnu-ld \
+                         --disable-java \
+                         --disable-native-java \
                          --without-emacs"
