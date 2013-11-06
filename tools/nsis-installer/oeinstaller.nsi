@@ -46,7 +46,7 @@ Var "DRIVE_LETTER"
 !insertmacro MUI_PAGE_LICENSE "gpl-2.0.txt"
 
 Name "${PRODUCT_NAME}"
-OutFile 'create_installerstick.exe'
+OutFile 'create_installstick.exe'
 ShowInstDetails show
 AllowRootDirInstall true
 RequestExecutionLevel admin
