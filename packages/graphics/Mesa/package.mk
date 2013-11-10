@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="Mesa"
-PKG_VERSION="c325aa5"
+PKG_VERSION="5442c0e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -85,6 +85,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-gles2 \
                            --disable-openvg \
                            --enable-dri \
+                           --disable-dri3 \
                            --enable-glx \
                            --disable-osmesa \
                            --disable-egl \
