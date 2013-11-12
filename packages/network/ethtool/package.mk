@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="ethtool"
-PKG_VERSION="3.11"
+PKG_VERSION="3.12.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
