@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="libxcb"
-PKG_VERSION="1.9"
+PKG_VERSION="1.9.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
