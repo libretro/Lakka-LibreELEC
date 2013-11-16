@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="e85b566"
+PKG_VERSION="1100e2a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
