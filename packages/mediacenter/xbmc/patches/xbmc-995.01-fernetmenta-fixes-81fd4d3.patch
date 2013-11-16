@@ -1,7 +1,7 @@
-From 9eb790bb69960f75c55ac35531e441471932b5f7 Mon Sep 17 00:00:00 2001
+From 95cbc39be99a04e0d7b6f10073c3cd755f6bf02e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:34:39 +0200
-Subject: [PATCH 01/85] videoplayer: adapt lateness detection and dropping to
+Subject: [PATCH 01/86] videoplayer: adapt lateness detection and dropping to
  buffering
 
 ---
@@ -15,7 +15,7 @@ Subject: [PATCH 01/85] videoplayer: adapt lateness detection and dropping to
  7 files changed, 260 insertions(+), 38 deletions(-)
 
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index 0bc2068..84025e8 100644
+index a33591d..9e2c055 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
 @@ -284,6 +284,8 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
@@ -157,10 +157,10 @@ index b78f779..794ddb6 100644
 +  virtual void SetCodecControl(int flags) {}
  };
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 3b316ae..2929628 100644
+index 09551c4..ebf7a11 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -167,6 +167,7 @@ enum PixelFormat CDVDVideoCodecFFmpeg::GetFormat( struct AVCodecContext * avctx
+@@ -168,6 +168,7 @@ enum PixelFormat CDVDVideoCodecFFmpeg::GetFormat( struct AVCodecContext * avctx
    m_iLastKeyframe = 0;
    m_dts = DVD_NOPTS_VALUE;
    m_started = false;
@@ -168,7 +168,7 @@ index 3b316ae..2929628 100644
  }
  
  CDVDVideoCodecFFmpeg::~CDVDVideoCodecFFmpeg()
-@@ -358,6 +359,14 @@ void CDVDVideoCodecFFmpeg::SetDropState(bool bDrop)
+@@ -359,6 +360,14 @@ void CDVDVideoCodecFFmpeg::SetDropState(bool bDrop)
  {
    if( m_pCodecContext )
    {
@@ -183,7 +183,7 @@ index 3b316ae..2929628 100644
      // i don't know exactly how high this should be set
      // couldn't find any good docs on it. think it varies
      // from codec to codec on what it does
-@@ -559,6 +568,7 @@ int CDVDVideoCodecFFmpeg::Decode(uint8_t* pData, int iSize, double dts, double p
+@@ -560,6 +569,7 @@ int CDVDVideoCodecFFmpeg::Decode(uint8_t* pData, int iSize, double dts, double p
  void CDVDVideoCodecFFmpeg::Reset()
  {
    m_started = false;
@@ -191,7 +191,7 @@ index 3b316ae..2929628 100644
    m_iLastKeyframe = m_pCodecContext->has_b_frames;
    m_dllAvCodec.avcodec_flush_buffers(m_pCodecContext);
  
-@@ -668,6 +678,22 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
+@@ -669,6 +679,22 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
    else
      pDvdVideoPicture->pts = DVD_NOPTS_VALUE;
  
@@ -214,7 +214,7 @@ index 3b316ae..2929628 100644
    if(!m_started)
      pDvdVideoPicture->iFlags |= DVP_FLAG_DROPPED;
  
-@@ -929,3 +955,8 @@ unsigned CDVDVideoCodecFFmpeg::GetAllowedReferences()
+@@ -928,3 +954,8 @@ unsigned CDVDVideoCodecFFmpeg::GetAllowedReferences()
    else
      return 0;
  }
@@ -582,10 +582,10 @@ index f8ad541..186e271 100644
 1.8.4
 
 
-From f97e882b269d807d5adeb799334baf7a2f31541d Mon Sep 17 00:00:00 2001
+From e7b108530fe64134345ff9bdc5b1b67425e705e7 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 02/85] video player: present correct pts to user for a/v sync
+Subject: [PATCH 02/86] video player: present correct pts to user for a/v sync
  (after buffering in renderer)
 
 ---
@@ -653,10 +653,10 @@ index 186e271..59c7f09 100644
 1.8.4
 
 
-From da5b28de703090dfae6d3b0379488e1ba9e7c4c7 Mon Sep 17 00:00:00 2001
+From db9e588be87ff770d2d730efb371cef204bdcb32 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 16 Feb 2013 18:25:53 +0100
-Subject: [PATCH 03/85] videoplayer: some rework and documentation
+Subject: [PATCH 03/86] videoplayer: some rework and documentation
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      | 29 ++++++++++++++++++++--
@@ -716,10 +716,10 @@ index 794ddb6..c9f9c98 100644
    virtual void SetCodecControl(int flags) {}
  };
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 2929628..de7df23 100644
+index ebf7a11..59f7562 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -956,6 +956,17 @@ unsigned CDVDVideoCodecFFmpeg::GetAllowedReferences()
+@@ -955,6 +955,17 @@ unsigned CDVDVideoCodecFFmpeg::GetAllowedReferences()
      return 0;
  }
  
@@ -767,10 +767,10 @@ index 587ea4b..27a61bd 100644
 1.8.4
 
 
-From af622699e540596645381a02391bb5648fd17fee Mon Sep 17 00:00:00 2001
+From 20afb7dafb98fc32e7ae18d5405047f8e0796641 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 1 Jun 2013 11:21:19 +0200
-Subject: [PATCH 04/85] renderer: bump buffers to 5
+Subject: [PATCH 04/86] renderer: bump buffers to 5
 
 ---
  xbmc/cores/VideoRenderers/BaseRenderer.h | 2 +-
@@ -793,10 +793,10 @@ index a61d3cf..df5fe0e 100644
 1.8.4
 
 
-From b541e1bff4577b96ea3498339436131f43345134 Mon Sep 17 00:00:00 2001
+From 8775f9285d8dcfb20dea2c0e8c26a7635e38ccca Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:41:31 +0200
-Subject: [PATCH 05/85] videoplayer: update frametime, it might change due to
+Subject: [PATCH 05/86] videoplayer: update frametime, it might change due to
  fps detection
 
 ---
@@ -820,10 +820,10 @@ index 27a61bd..8e772e3 100644
 1.8.4
 
 
-From 2d0c5496baa7dabd86845ba1a751e766a94fcedb Mon Sep 17 00:00:00 2001
+From 7cb64d74bb1c348042c6326c6c4db5aaa7a1d923 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:43:06 +0200
-Subject: [PATCH 06/85] videoplayer: give streams with invalid fps a chance for
+Subject: [PATCH 06/86] videoplayer: give streams with invalid fps a chance for
  fps detection
 
 ---
@@ -847,10 +847,10 @@ index 8e772e3..150a796 100644
 1.8.4
 
 
-From 49bcff4b75e5d99412b52b2635c29152c58c22e4 Mon Sep 17 00:00:00 2001
+From 8cf67bbd068a2a8f5d1cccdebf6b0ab9893283de Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 07/85] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 07/86] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -858,10 +858,10 @@ Subject: [PATCH 07/85] dvdplayer: allow rewinding at end of stream, do a seek
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 32c5abf..4dc3f20 100644
+index 1dbc732..8d19ae5 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-@@ -1657,7 +1657,7 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1658,7 +1658,7 @@ void CDVDPlayer::HandlePlaySpeed()
  
      }
      else if (m_CurrentVideo.id >= 0
@@ -870,7 +870,7 @@ index 32c5abf..4dc3f20 100644
            &&  m_SpeedState.lastpts  != m_dvdPlayerVideo.GetCurrentPts()
            &&  m_SpeedState.lasttime != GetTime())
      {
-@@ -2322,6 +2322,12 @@ void CDVDPlayer::HandleMessages()
+@@ -2323,6 +2323,12 @@ void CDVDPlayer::HandleMessages()
            pvrinputstream->Pause( speed == 0 );
          }
  
@@ -887,10 +887,10 @@ index 32c5abf..4dc3f20 100644
 1.8.4
 
 
-From 9a98b93936827673482c4831a940d98be987d416 Mon Sep 17 00:00:00 2001
+From 3ffcd6880d24c7b89087148112b3731be772f2ea Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:22:05 +0200
-Subject: [PATCH 08/85] X11: ditch SDL for video and window events
+Subject: [PATCH 08/86] X11: ditch SDL for video and window events
 
 ---
  xbmc/Application.cpp                |   2 +-
@@ -899,14 +899,14 @@ Subject: [PATCH 08/85] X11: ditch SDL for video and window events
  xbmc/windowing/WinEvents.cpp        |   4 +
  xbmc/windowing/WinEventsX11.cpp     | 784 ++++++++++++++++++++++++++++++++++++
  xbmc/windowing/WinEventsX11.h       |  65 +++
- xbmc/windowing/X11/WinSystemX11.cpp | 387 ++++++++++++------
+ xbmc/windowing/X11/WinSystemX11.cpp | 386 ++++++++++++------
  xbmc/windowing/X11/WinSystemX11.h   |  10 +-
- 8 files changed, 1130 insertions(+), 128 deletions(-)
+ 8 files changed, 1129 insertions(+), 128 deletions(-)
  create mode 100644 xbmc/windowing/WinEventsX11.cpp
  create mode 100644 xbmc/windowing/WinEventsX11.h
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 2a75dc9..23c19b4 100644
+index 240bbec..f701be0 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
 @@ -857,7 +857,7 @@ bool CApplication::CreateGUI()
@@ -1833,7 +1833,7 @@ index 0000000..ce57c23
 +  bool m_structureChanged;
 +};
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 7caae9d..a32f487 100644
+index 083d1e9..40b8403 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -22,7 +22,6 @@
@@ -1844,16 +1844,15 @@ index 7caae9d..a32f487 100644
  #include "WinSystemX11.h"
  #include "settings/DisplaySettings.h"
  #include "settings/Settings.h"
-@@ -34,27 +33,30 @@
+@@ -34,7 +33,6 @@
  #include "XRandR.h"
  #include <vector>
  #include "threads/SingleLock.h"
 -#include <X11/Xlib.h>
  #include "cores/VideoRenderers/RenderManager.h"
  #include "utils/TimeUtils.h"
-+//#include "settings/GUISettings.h"
- 
- #if defined(HAS_XRANDR)
+ #include "utils/StringUtils.h"
+@@ -43,19 +41,22 @@
  #include <X11/extensions/Xrandr.h>
  #endif
  
@@ -1878,7 +1877,7 @@ index 7caae9d..a32f487 100644
  
    XSetErrorHandler(XErrorHandler);
  }
-@@ -67,18 +69,6 @@ bool CWinSystemX11::InitWindowSystem()
+@@ -68,18 +69,6 @@ bool CWinSystemX11::InitWindowSystem()
  {
    if ((m_dpy = XOpenDisplay(NULL)))
    {
@@ -1897,7 +1896,7 @@ index 7caae9d..a32f487 100644
      return CWinSystemBase::InitWindowSystem();
    }
    else
-@@ -116,45 +106,37 @@ bool CWinSystemX11::DestroyWindowSystem()
+@@ -117,45 +106,37 @@ bool CWinSystemX11::DestroyWindowSystem()
  
  bool CWinSystemX11::CreateNewWindow(const CStdString& name, bool fullScreen, RESOLUTION_INFO& res, PHANDLE_EVENT_FUNC userFunction)
  {
@@ -1965,7 +1964,7 @@ index 7caae9d..a32f487 100644
    return true;
  }
  
-@@ -164,67 +146,105 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -165,67 +146,105 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
    && m_nHeight == newHeight)
      return true;
  
@@ -2107,7 +2106,7 @@ index 7caae9d..a32f487 100644
  }
  
  void CWinSystemX11::UpdateResolutions()
-@@ -326,17 +346,10 @@ bool CWinSystemX11::IsSuitableVisual(XVisualInfo *vInfo)
+@@ -327,17 +346,10 @@ bool CWinSystemX11::IsSuitableVisual(XVisualInfo *vInfo)
  bool CWinSystemX11::RefreshGlxContext()
  {
    bool retVal = false;
@@ -2127,7 +2126,7 @@ index 7caae9d..a32f487 100644
      glXMakeCurrent(m_dpy, None, NULL);
      glXMakeCurrent(m_dpy, m_glWindow, m_glContext);
      return true;
-@@ -348,8 +361,6 @@ bool CWinSystemX11::RefreshGlxContext()
+@@ -349,8 +361,6 @@ bool CWinSystemX11::RefreshGlxContext()
    int availableVisuals    = 0;
    vMask.screen = DefaultScreen(m_dpy);
    XWindowAttributes winAttr;
@@ -2136,7 +2135,7 @@ index 7caae9d..a32f487 100644
  
    /* Assume a depth of 24 in case the below calls to XGetWindowAttributes()
       or XGetVisualInfo() fail. That shouldn't happen unless something is
-@@ -420,7 +431,10 @@ bool CWinSystemX11::RefreshGlxContext()
+@@ -421,7 +431,10 @@ bool CWinSystemX11::RefreshGlxContext()
  
  void CWinSystemX11::ShowOSMouse(bool show)
  {
@@ -2148,7 +2147,7 @@ index 7caae9d..a32f487 100644
  }
  
  void CWinSystemX11::ResetOSScreensaver()
-@@ -434,8 +448,6 @@ void CWinSystemX11::ResetOSScreensaver()
+@@ -435,8 +448,6 @@ void CWinSystemX11::ResetOSScreensaver()
      {
        m_screensaverReset.StartZero();
        XResetScreenSaver(m_dpy);
@@ -2157,7 +2156,7 @@ index 7caae9d..a32f487 100644
      }
    }
    else
-@@ -451,13 +463,27 @@ void CWinSystemX11::NotifyAppActiveChange(bool bActivated)
+@@ -452,13 +463,27 @@ void CWinSystemX11::NotifyAppActiveChange(bool bActivated)
  
    m_minimized = !bActivated;
  }
@@ -2186,7 +2185,7 @@ index 7caae9d..a32f487 100644
    m_minimized = true;
    return true;
  }
-@@ -467,13 +493,13 @@ bool CWinSystemX11::Restore()
+@@ -468,13 +493,13 @@ bool CWinSystemX11::Restore()
  }
  bool CWinSystemX11::Hide()
  {
@@ -2202,7 +2201,7 @@ index 7caae9d..a32f487 100644
    XSync(m_dpy, False);
    m_minimized = false;
    return true;
-@@ -505,6 +531,7 @@ void CWinSystemX11::CheckDisplayEvents()
+@@ -506,6 +531,7 @@ void CWinSystemX11::CheckDisplayEvents()
    if (bGotEvent || bTimeout)
    {
      CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
@@ -2210,7 +2209,7 @@ index 7caae9d..a32f487 100644
  
      CSingleLock lock(m_resourceSection);
  
-@@ -563,37 +590,151 @@ bool CWinSystemX11::EnableFrameLimiter()
+@@ -564,37 +590,151 @@ bool CWinSystemX11::EnableFrameLimiter()
    return m_minimized;
  }
  
@@ -2387,7 +2386,7 @@ index 7caae9d..a32f487 100644
  
  #endif
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 2454fb1..f5e5731 100644
+index b1464d0..34b912f 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -54,6 +54,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -2428,10 +2427,10 @@ index 2454fb1..f5e5731 100644
 1.8.4
 
 
-From 9fc87c4d2dd4d8f68cccb33e424a8eb15c148fea Mon Sep 17 00:00:00 2001
+From af96898c8a12286faac8579e4132f1fc5d12b99d Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:24:22 +0200
-Subject: [PATCH 09/85] X11: Add xbmc icon
+Subject: [PATCH 09/86] X11: Add xbmc icon
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 126 +++++++++++++++++++++++++++++++++++-
@@ -2439,7 +2438,7 @@ Subject: [PATCH 09/85] X11: Add xbmc icon
  2 files changed, 127 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index a32f487..11ed79b 100644
+index 40b8403..858ea5e 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -137,6 +137,9 @@ bool CWinSystemX11::DestroyWindow()
@@ -2597,7 +2596,7 @@ index a32f487..11ed79b 100644
 +
  #endif
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index f5e5731..6953b68 100644
+index 34b912f..352e90e 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -79,6 +79,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -2621,10 +2620,10 @@ index f5e5731..6953b68 100644
 1.8.4
 
 
-From 0fbb742e028d0ef148118c47a625b92352333d3a Mon Sep 17 00:00:00 2001
+From 062d3ee86def03bd6d99f5c76fcf82f906bf6bd8 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 20 May 2012 14:11:26 +0200
-Subject: [PATCH 10/85] X11: add SDL joystick until we have a better solution
+Subject: [PATCH 10/86] X11: add SDL joystick until we have a better solution
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 26 ++++++++++++++++++++++++++
@@ -2678,10 +2677,10 @@ index ad58aad..6f57a87 100644
 1.8.4
 
 
-From 0207996aa604d3b980392323cbd05b19cf8cdd31 Mon Sep 17 00:00:00 2001
+From 6fa4edf1653b2fbe328e6183ad9aceb34d418e48 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 12:35:55 +0200
-Subject: [PATCH 11/85] X11: factor out code handling device reset notification
+Subject: [PATCH 11/86] X11: factor out code handling device reset notification
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 22 ++++++++++++++--------
@@ -2689,7 +2688,7 @@ Subject: [PATCH 11/85] X11: factor out code handling device reset notification
  2 files changed, 15 insertions(+), 8 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 11ed79b..b3be9fc 100644
+index 858ea5e..304dac8 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -533,14 +533,7 @@ void CWinSystemX11::CheckDisplayEvents()
@@ -2729,7 +2728,7 @@ index 11ed79b..b3be9fc 100644
  {
    CLog::Log(LOGDEBUG, "%s - notify display change event", __FUNCTION__);
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 6953b68..d60d04a 100644
+index 352e90e..3f91b9b 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -68,6 +68,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -2744,10 +2743,10 @@ index 6953b68..d60d04a 100644
 1.8.4
 
 
-From 5b1f1d3b173e1f49f0a68a33ec0b6478ae316502 Mon Sep 17 00:00:00 2001
+From c19c7a7b85fe9c476fcaa87236b3c0a3f62d0c31 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 15:02:00 +0200
-Subject: [PATCH 12/85] X11: move xrandr events to WinEventsX11
+Subject: [PATCH 12/86] X11: move xrandr events to WinEventsX11
 
 ---
  xbmc/windowing/WinEventsX11.cpp     | 42 +++++++++++++++++++++++++++++++++++++
@@ -2862,7 +2861,7 @@ index ce57c23..a412f32 100644
 +  bool m_xrrEventPending;
  };
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index b3be9fc..7259674 100644
+index 304dac8..16b13aa 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -510,7 +510,7 @@ bool CWinSystemX11::Show(bool raise)
@@ -2891,10 +2890,10 @@ index b3be9fc..7259674 100644
 1.8.4
 
 
-From bc100a2101a34f18580c6e34dd3960e8aac37cc2 Mon Sep 17 00:00:00 2001
+From 1bb0765e5d6aeed6d1bf82cb823881db733a7486 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 12 Apr 2012 15:43:56 +0200
-Subject: [PATCH 13/85] xrandr: remove method RestoreState
+Subject: [PATCH 13/86] xrandr: remove method RestoreState
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 13 +++++++++++--
@@ -2903,7 +2902,7 @@ Subject: [PATCH 13/85] xrandr: remove method RestoreState
  3 files changed, 11 insertions(+), 22 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 7259674..dccc44f 100644
+index 16b13aa..f61d425 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -80,9 +80,18 @@ bool CWinSystemX11::InitWindowSystem()
@@ -2928,7 +2927,7 @@ index 7259674..dccc44f 100644
  
    if (m_dpy)
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index bd22dbf..df2b5fb 100644
+index 0ac17ab..7e06655 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
 @@ -139,25 +139,6 @@ void CXRandR::SaveState()
@@ -2973,10 +2972,10 @@ index 0aec487..00b49dc 100644
 1.8.4
 
 
-From 67c4ed6d80e3d975bcda8c8ee05396cf7a3bdea3 Mon Sep 17 00:00:00 2001
+From b4ee3ee110b0906cbe42685c6fa082bb37a628c4 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 20 May 2012 13:17:10 +0200
-Subject: [PATCH 14/85] xrandr: observe orientation
+Subject: [PATCH 14/86] xrandr: observe orientation
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 89 ++++++++++++++++++++++++++++++-------
@@ -2986,7 +2985,7 @@ Subject: [PATCH 14/85] xrandr: observe orientation
  4 files changed, 82 insertions(+), 17 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index dccc44f..a046401 100644
+index f61d425..4257aeb 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
 @@ -85,11 +85,11 @@ bool CWinSystemX11::DestroyWindowSystem()
@@ -3139,7 +3138,7 @@ index dccc44f..a046401 100644
  {
    int value;
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index d60d04a..eb8005e 100644
+index 3f91b9b..4175aab 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -75,12 +75,14 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -3158,7 +3157,7 @@ index d60d04a..eb8005e 100644
    bool         m_minimized;
    bool         m_bIgnoreNextFocusMessage;
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index df2b5fb..29715c7 100644
+index 7e06655..330e945 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
 @@ -98,6 +98,13 @@ bool CXRandR::Query(bool force)
@@ -3191,10 +3190,10 @@ index 00b49dc..508604d 100644
 1.8.4
 
 
-From e1e15a1849e257831d1effc22ce0773bf37de590 Mon Sep 17 00:00:00 2001
+From ea2b3bb15cb697fdbf92f3366a490df262e1de16 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:54:15 +0200
-Subject: [PATCH 15/85] xrandr: allow getting info for multiple screen's
+Subject: [PATCH 15/86] xrandr: allow getting info for multiple screen's
 
 Refactored by: Joakim Plate <elupus@xbmc.org>
 ---
@@ -3203,10 +3202,10 @@ Refactored by: Joakim Plate <elupus@xbmc.org>
  2 files changed, 57 insertions(+), 16 deletions(-)
 
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index 29715c7..9e181f2 100644
+index 330e945..4685413 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
-@@ -39,6 +39,7 @@
+@@ -40,6 +40,7 @@
  CXRandR::CXRandR(bool query)
  {
    m_bInit = false;
@@ -3214,7 +3213,7 @@ index 29715c7..9e181f2 100644
    if (query)
      Query();
  }
-@@ -55,11 +56,21 @@ bool CXRandR::Query(bool force)
+@@ -56,11 +57,21 @@ bool CXRandR::Query(bool force)
      return false;
  
    m_outputs.clear();
@@ -3237,7 +3236,7 @@ index 29715c7..9e181f2 100644
  
    FILE* file = popen(cmd.c_str(),"r");
    if (!file)
-@@ -79,7 +90,7 @@ bool CXRandR::Query(bool force)
+@@ -80,7 +91,7 @@ bool CXRandR::Query(bool force)
    pclose(file);
  
    TiXmlElement *pRootElement = xmlDoc.RootElement();
@@ -3247,8 +3246,8 @@ index 29715c7..9e181f2 100644
      // TODO ERROR
      return false;
 @@ -92,6 +103,7 @@ bool CXRandR::Query(bool force)
-     xoutput.name.TrimLeft(" \n\r\t");
-     xoutput.name.TrimRight(" \n\r\t");
+     xoutput.name = output->Attribute("name");
+     StringUtils::Trim(xoutput.name);
      xoutput.isConnected = (strcasecmp(output->Attribute("connected"), "true") == 0);
 +    xoutput.screen = screennum;
      xoutput.w = (output->Attribute("w") != NULL ? atoi(output->Attribute("w")) : 0);
@@ -3280,7 +3279,7 @@ index 29715c7..9e181f2 100644
  XMode CXRandR::GetCurrentMode(CStdString outputName)
  {
    Query();
-@@ -331,6 +331,43 @@ void CXRandR::LoadCustomModeLinesToAllOutputs(void)
+@@ -329,6 +329,43 @@ void CXRandR::LoadCustomModeLinesToAllOutputs(void)
    }
  }
  
@@ -3369,25 +3368,25 @@ index 508604d..d37838a 100644
 1.8.4
 
 
-From 1b008f74855df6171d420fb59542339a24bb0ccc Mon Sep 17 00:00:00 2001
+From 4ba34c7488f8f258723435b94aeda86b5a9e76e9 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:44:00 +0200
-Subject: [PATCH 16/85] X11: fix multi-head setups
+Subject: [PATCH 16/86] X11: fix multi-head setups
 
 ---
  language/English/strings.po         |   4 +-
  system/settings/settings.xml        |  11 ++
  xbmc/rendering/gl/RenderSystemGL.h  |   1 +
- xbmc/settings/DisplaySettings.cpp   |  44 +++++-
+ xbmc/settings/DisplaySettings.cpp   |  44 ++++++-
  xbmc/settings/DisplaySettings.h     |   2 +
  xbmc/settings/Settings.cpp          |   6 +
  xbmc/windowing/WinEventsX11.cpp     |   7 +
- xbmc/windowing/X11/WinSystemX11.cpp | 260 +++++++++++++++++++++---------------
+ xbmc/windowing/X11/WinSystemX11.cpp | 255 +++++++++++++++++++++---------------
  xbmc/windowing/X11/WinSystemX11.h   |  10 +-
- 9 files changed, 229 insertions(+), 116 deletions(-)
+ 9 files changed, 227 insertions(+), 113 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 5e69781..de3c049 100755
+index cc9001f..792a5ce 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
 @@ -1019,7 +1019,9 @@ msgctxt "#245"
@@ -3402,10 +3401,10 @@ index 5e69781..de3c049 100755
  msgctxt "#247"
  msgid "Scripts"
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 41d9a6a..9cf84c9 100644
+index 57f5921..977e90f 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -1998,6 +1998,15 @@
+@@ -2021,6 +2021,15 @@
    <section id="system" label="13000" help="36349">
      <category id="videoscreen" label="21373" help="36350">
        <group id="1">
@@ -3421,7 +3420,7 @@ index 41d9a6a..9cf84c9 100644
          <setting id="videoscreen.screen" type="integer" label="240" help="36351">
            <level>0</level>
            <default>0</default>
-@@ -2019,6 +2028,7 @@
+@@ -2042,6 +2051,7 @@
              <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
              <dependency type="update" setting="videoscreen.screen" />
              <dependency type="update" setting="videoscreen.screenmode" />
@@ -3429,7 +3428,7 @@ index 41d9a6a..9cf84c9 100644
            </dependencies>
            <control type="list" format="string" />
          </setting>
-@@ -2036,6 +2046,7 @@
+@@ -2059,6 +2069,7 @@
              <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
              <dependency type="update" setting="videoscreen.screen" />
              <dependency type="update" setting="videoscreen.resolution" />
@@ -3450,7 +3449,7 @@ index 4bd540b..f1e2c50 100644
    virtual void SetViewPort(CRect& viewPort);
    virtual void GetViewPort(CRect& viewPort);
 diff --git a/xbmc/settings/DisplaySettings.cpp b/xbmc/settings/DisplaySettings.cpp
-index bf307f6..1a85651 100644
+index c8c2bbd..966d08f 100644
 --- a/xbmc/settings/DisplaySettings.cpp
 +++ b/xbmc/settings/DisplaySettings.cpp
 @@ -219,13 +219,19 @@ bool CDisplaySettings::OnSettingChanging(const CSetting *setting)
@@ -3536,7 +3535,7 @@ index bf307f6..1a85651 100644
 +  }
 +}
 diff --git a/xbmc/settings/DisplaySettings.h b/xbmc/settings/DisplaySettings.h
-index cc4002b..d80f1dc 100644
+index 8ee1be2..bead24b 100644
 --- a/xbmc/settings/DisplaySettings.h
 +++ b/xbmc/settings/DisplaySettings.h
 @@ -78,6 +78,7 @@ class CDisplaySettings : public ISettingCallback, public ISubSettings,
@@ -3556,7 +3555,7 @@ index cc4002b..d80f1dc 100644
  protected:
    CDisplaySettings();
 diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
-index dc057f4..a473437 100644
+index 13fd236..b6f5b16 100644
 --- a/xbmc/settings/Settings.cpp
 +++ b/xbmc/settings/Settings.cpp
 @@ -406,6 +406,7 @@ void CSettings::Uninitialize()
@@ -3615,20 +3614,19 @@ index d77cb2a..d98f12f 100644
          break;
        }
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index a046401..3966ad2 100644
+index 4257aeb..5e86772 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -35,7 +35,8 @@
- #include "threads/SingleLock.h"
+@@ -36,6 +36,8 @@
  #include "cores/VideoRenderers/RenderManager.h"
  #include "utils/TimeUtils.h"
--//#include "settings/GUISettings.h"
+ #include "utils/StringUtils.h"
 +#include "settings/Settings.h"
 +#include "windowing/WindowingFactory.h"
  
  #if defined(HAS_XRANDR)
  #include <X11/extensions/Xrandr.h>
-@@ -57,6 +58,7 @@
+@@ -57,6 +59,7 @@
    m_bIgnoreNextFocusMessage = false;
    m_dpyLostTime = 0;
    m_invisibleCursor = 0;
@@ -3636,7 +3634,7 @@ index a046401..3966ad2 100644
  
    XSetErrorHandler(XErrorHandler);
  }
-@@ -69,7 +71,8 @@ bool CWinSystemX11::InitWindowSystem()
+@@ -69,7 +72,8 @@ bool CWinSystemX11::InitWindowSystem()
  {
    if ((m_dpy = XOpenDisplay(NULL)))
    {
@@ -3646,7 +3644,7 @@ index a046401..3966ad2 100644
    }
    else
      CLog::Log(LOGERROR, "GLX Error: No Display found");
-@@ -106,6 +109,8 @@ bool CWinSystemX11::DestroyWindowSystem()
+@@ -106,6 +110,8 @@ bool CWinSystemX11::DestroyWindowSystem()
  
      //we don't call XCloseDisplay() here, since ati keeps a pointer to our m_dpy
      //so instead we just let m_dpy die on exit
@@ -3655,7 +3653,7 @@ index a046401..3966ad2 100644
    }
  
    // m_SDLSurface is free()'d by SDL_Quit().
-@@ -128,7 +133,10 @@ bool CWinSystemX11::DestroyWindow()
+@@ -128,7 +134,10 @@ bool CWinSystemX11::DestroyWindow()
      return true;
  
    if (m_glContext)
@@ -3666,7 +3664,7 @@ index a046401..3966ad2 100644
  
    if (m_invisibleCursor)
    {
-@@ -158,7 +166,7 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -158,7 +167,7 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
    && m_nHeight == newHeight)
      return true;
  
@@ -3675,7 +3673,7 @@ index a046401..3966ad2 100644
    {
      return false;
    }
-@@ -167,58 +175,11 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -167,58 +176,11 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
    m_nWidth  = newWidth;
    m_nHeight = newHeight;
    m_bFullScreen = false;
@@ -3735,7 +3733,7 @@ index a046401..3966ad2 100644
  bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
  {
  
-@@ -243,8 +204,7 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -243,8 +205,7 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
      mode.id  = CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP).strId;
    }
   
@@ -3745,7 +3743,7 @@ index a046401..3966ad2 100644
  
    // flip h/w when rotated
    if (m_bIsRotated)
-@@ -255,16 +215,17 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -255,16 +216,17 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
    }
  
    // only call xrandr if mode changes
@@ -3765,7 +3763,7 @@ index a046401..3966ad2 100644
      return false;
  
    RefreshGlxContext();
-@@ -272,6 +233,7 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -272,6 +234,7 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
    m_nWidth      = res.iWidth;
    m_nHeight     = res.iHeight;
    m_bFullScreen = fullScreen;
@@ -3773,7 +3771,7 @@ index a046401..3966ad2 100644
  
    return true;
  }
-@@ -280,19 +242,30 @@ void CWinSystemX11::UpdateResolutions()
+@@ -280,19 +243,30 @@ void CWinSystemX11::UpdateResolutions()
  {
    CWinSystemBase::UpdateResolutions();
  
@@ -3813,7 +3811,7 @@ index a046401..3966ad2 100644
    }
    else
  #endif
-@@ -303,23 +276,22 @@ void CWinSystemX11::UpdateResolutions()
+@@ -303,23 +277,22 @@ void CWinSystemX11::UpdateResolutions()
      UpdateDesktopResolution(CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP), 0, w, h, 0.0);
    }
  
@@ -3845,7 +3843,7 @@ index a046401..3966ad2 100644
      {
        XMode mode = *modeiter;
        CLog::Log(LOGINFO, "ID:%s Name:%s Refresh:%f Width:%d Height:%d",
-@@ -339,15 +311,15 @@ void CWinSystemX11::UpdateResolutions()
+@@ -339,8 +312,8 @@ void CWinSystemX11::UpdateResolutions()
          res.iWidth  = mode.h;
          res.iHeight = mode.w;
        }
@@ -3856,16 +3854,7 @@ index a046401..3966ad2 100644
        else
          res.fPixelRatio = 1.0f;
  
-       CLog::Log(LOGINFO, "Pixel Ratio: %f", res.fPixelRatio);
- 
--      res.strMode.Format("%s: %s @ %.2fHz", out.name.c_str(), mode.name.c_str(), mode.hz);
--      res.strOutput    = out.name;
-+      res.strMode.Format("%s: %s @ %.2fHz", out->name.c_str(), mode.name.c_str(), mode.hz);
-+      res.strOutput    = out->name;
-       res.strId        = mode.id;
-       res.iSubtitles   = (int)(0.95*mode.h);
-       res.fRefreshRate = mode.hz;
-@@ -366,28 +338,19 @@ void CWinSystemX11::UpdateResolutions()
+@@ -366,28 +339,19 @@ void CWinSystemX11::UpdateResolutions()
  
  }
  
@@ -3903,7 +3892,7 @@ index a046401..3966ad2 100644
  }
  
  bool CWinSystemX11::IsSuitableVisual(XVisualInfo *vInfo)
-@@ -417,8 +380,11 @@ bool CWinSystemX11::RefreshGlxContext()
+@@ -417,8 +381,11 @@ bool CWinSystemX11::RefreshGlxContext()
    if (m_glContext)
    {
      CLog::Log(LOGDEBUG, "CWinSystemX11::RefreshGlxContext: refreshing context");
@@ -3915,7 +3904,7 @@ index a046401..3966ad2 100644
      return true;
    }
  
-@@ -484,6 +450,8 @@ bool CWinSystemX11::RefreshGlxContext()
+@@ -484,6 +451,8 @@ bool CWinSystemX11::RefreshGlxContext()
      {
        // make this context current
        glXMakeCurrent(m_dpy, m_glWindow, m_glContext);
@@ -3924,7 +3913,7 @@ index a046401..3966ad2 100644
        retVal = true;
      }
      else
-@@ -525,24 +493,53 @@ void CWinSystemX11::ResetOSScreensaver()
+@@ -525,24 +494,53 @@ void CWinSystemX11::ResetOSScreensaver()
  
  void CWinSystemX11::NotifyAppActiveChange(bool bActivated)
  {
@@ -3981,7 +3970,7 @@ index a046401..3966ad2 100644
    if (m_bWasFullScreenBeforeMinimize)
    {
      m_bIgnoreNextFocusMessage = true;
-@@ -608,13 +605,46 @@ void CWinSystemX11::CheckDisplayEvents()
+@@ -608,13 +606,46 @@ void CWinSystemX11::CheckDisplayEvents()
  void CWinSystemX11::NotifyXRREvent()
  {
    CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
@@ -4033,7 +4022,7 @@ index a046401..3966ad2 100644
  
  }
  
-@@ -667,14 +697,14 @@ bool CWinSystemX11::EnableFrameLimiter()
+@@ -667,14 +698,14 @@ bool CWinSystemX11::EnableFrameLimiter()
    return m_minimized;
  }
  
@@ -4050,7 +4039,7 @@ index a046401..3966ad2 100644
    {
      mouseActive = g_Mouse.IsActive();
      if (mouseActive)
-@@ -696,6 +726,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
+@@ -696,6 +727,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
        else
          mouseActive = false;
      }
@@ -4058,7 +4047,7 @@ index a046401..3966ad2 100644
      DestroyWindow();
    }
  
-@@ -717,7 +748,11 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
+@@ -717,7 +749,11 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
      XSetWindowAttributes swa;
      XVisualInfo *vi;
  
@@ -4071,7 +4060,7 @@ index a046401..3966ad2 100644
      cmap = XCreateColormap(m_dpy, RootWindow(m_dpy, vi->screen), vi->visual, AllocNone);
  
      int def_vis = (vi->visual == DefaultVisual(m_dpy, vi->screen));
-@@ -733,7 +768,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
+@@ -733,7 +769,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
      unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWOverrideRedirect | CWEventMask;
  
      m_glWindow = XCreateWindow(m_dpy, RootWindow(m_dpy, vi->screen),
@@ -4080,7 +4069,7 @@ index a046401..3966ad2 100644
                      InputOutput, vi->visual,
                      mask, &swa);
  
-@@ -804,14 +839,19 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
+@@ -804,14 +840,19 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen)
      if (fullscreen)
      {
        int result = -1;
@@ -4104,7 +4093,7 @@ index a046401..3966ad2 100644
    return true;
  }
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index eb8005e..7d53d36 100644
+index 4175aab..94584ab 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -67,15 +67,16 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -4141,10 +4130,10 @@ index eb8005e..7d53d36 100644
 1.8.4
 
 
-From 7d3855f32fbd5baa7be6d6a575894758d44eb8a4 Mon Sep 17 00:00:00 2001
+From 1bf63f5832a5f659a56cab0e286e3b3af5e8e0ce Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:36:32 +0200
-Subject: [PATCH 17/85] X11: remove all DefaultScreen and RootWindow macros
+Subject: [PATCH 17/86] X11: remove all DefaultScreen and RootWindow macros
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp   | 6 +++---
@@ -4153,10 +4142,10 @@ Subject: [PATCH 17/85] X11: remove all DefaultScreen and RootWindow macros
  3 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 3966ad2..462a805 100644
+index 5e86772..c4fa17c 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -270,7 +270,7 @@ void CWinSystemX11::UpdateResolutions()
+@@ -271,7 +271,7 @@ void CWinSystemX11::UpdateResolutions()
    else
  #endif
    {
@@ -4165,7 +4154,7 @@ index 3966ad2..462a805 100644
      int w = DisplayWidth(m_dpy, x11screen);
      int h = DisplayHeight(m_dpy, x11screen);
      UpdateDesktopResolution(CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP), 0, w, h, 0.0);
-@@ -392,7 +392,7 @@ bool CWinSystemX11::RefreshGlxContext()
+@@ -393,7 +393,7 @@ bool CWinSystemX11::RefreshGlxContext()
    XVisualInfo *visuals;
    XVisualInfo *vInfo      = NULL;
    int availableVisuals    = 0;
@@ -4174,7 +4163,7 @@ index 3966ad2..462a805 100644
    XWindowAttributes winAttr;
  
    /* Assume a depth of 24 in case the below calls to XGetWindowAttributes()
-@@ -546,7 +546,7 @@ bool CWinSystemX11::Minimize()
+@@ -547,7 +547,7 @@ bool CWinSystemX11::Minimize()
      g_graphicsContext.ToggleFullScreenRoot();
    }
  
@@ -4184,7 +4173,7 @@ index 3966ad2..462a805 100644
    m_minimized = true;
    return true;
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 7d53d36..51e33c2 100644
+index 94584ab..2bcaf52 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -49,6 +49,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -4196,7 +4185,7 @@ index 7d53d36..51e33c2 100644
    virtual void ResetOSScreensaver();
    virtual bool EnableFrameLimiter();
 diff --git a/xbmc/windowing/X11/WinSystemX11GL.cpp b/xbmc/windowing/X11/WinSystemX11GL.cpp
-index 81c6800..8a8ff83 100644
+index fc25077..2f65d06 100644
 --- a/xbmc/windowing/X11/WinSystemX11GL.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11GL.cpp
 @@ -204,7 +204,7 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
@@ -4212,10 +4201,10 @@ index 81c6800..8a8ff83 100644
 1.8.4
 
 
-From d91c2c56716bbb24136bf2776167ec69cf7209c7 Mon Sep 17 00:00:00 2001
+From cb53146d7887e9fcd66f5068346d5e01ba85423b Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 11:45:22 +0200
-Subject: [PATCH 18/85] X11: remove all DefaultScreen and RootWindow macros
+Subject: [PATCH 18/86] X11: remove all DefaultScreen and RootWindow macros
  (VideoRefClock)
 
 Note this is on a separate display connection.
@@ -4224,7 +4213,7 @@ Note this is on a separate display connection.
  1 file changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 3ba991a..7eecd40 100644
+index 0b3950a..ca43b5a 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -271,7 +271,7 @@ bool CVideoReferenceClock::SetupGLX()
@@ -4236,7 +4225,7 @@ index 3ba991a..7eecd40 100644
    string        ExtensionStr;
  
    while (!ExtensionFound)
-@@ -298,7 +298,7 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -297,7 +297,7 @@ bool CVideoReferenceClock::SetupGLX()
      m_bIsATI = true;
    }
  
@@ -4245,7 +4234,7 @@ index 3ba991a..7eecd40 100644
    if (!m_vInfo)
    {
      CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXChooseVisual returned NULL");
-@@ -309,15 +309,16 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -308,15 +308,16 @@ bool CVideoReferenceClock::SetupGLX()
    {
      Swa.border_pixel = 0;
      Swa.event_mask = StructureNotifyMask;
@@ -4265,7 +4254,7 @@ index 3ba991a..7eecd40 100644
      if (!m_pixmap)
      {
        CLog::Log(LOGDEBUG, "CVideoReferenceClock: unable to create pixmap");
-@@ -384,7 +385,7 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -383,7 +384,7 @@ bool CVideoReferenceClock::SetupGLX()
  
    //set up receiving of RandR events, we'll get one when the refreshrate changes
    XRRQueryExtension(m_Dpy, &m_RREventBase, &ReturnV);
@@ -4274,7 +4263,7 @@ index 3ba991a..7eecd40 100644
  
    UpdateRefreshrate(true); //forced refreshrate update
    m_MissedVblanks = 0;
-@@ -519,7 +520,7 @@ int CVideoReferenceClock::GetRandRRate()
+@@ -518,7 +519,7 @@ int CVideoReferenceClock::GetRandRRate()
    int RefreshRate;
    XRRScreenConfiguration *CurrInfo;
  
@@ -4287,10 +4276,10 @@ index 3ba991a..7eecd40 100644
 1.8.4
 
 
-From 2a547779dfcd5b7ebb9d5f18bb531088e342fc02 Mon Sep 17 00:00:00 2001
+From 0895eafa8be7624beb2684d4879a5d30497fcc86 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 20 Jun 2012 17:37:11 +0200
-Subject: [PATCH 19/85] X11: recreate gl context after output has changed
+Subject: [PATCH 19/86] X11: recreate gl context after output has changed
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp   | 24 ++++++++++++++----------
@@ -4299,10 +4288,10 @@ Subject: [PATCH 19/85] X11: recreate gl context after output has changed
  3 files changed, 24 insertions(+), 10 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 462a805..4588b28 100644
+index c4fa17c..f2fd18d 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -171,7 +171,6 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -172,7 +172,6 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
      return false;
    }
  
@@ -4310,7 +4299,7 @@ index 462a805..4588b28 100644
    m_nWidth  = newWidth;
    m_nHeight = newHeight;
    m_bFullScreen = false;
-@@ -222,14 +221,13 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -223,14 +222,13 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
      OnLostDevice();
      m_bIsInternalXrr = true;
      g_xrandr.SetMode(out, mode);
@@ -4326,7 +4315,7 @@ index 462a805..4588b28 100644
    m_nWidth      = res.iWidth;
    m_nHeight     = res.iHeight;
    m_bFullScreen = fullScreen;
-@@ -380,11 +378,8 @@ bool CWinSystemX11::RefreshGlxContext()
+@@ -381,11 +379,8 @@ bool CWinSystemX11::RefreshGlxContext()
    if (m_glContext)
    {
      CLog::Log(LOGDEBUG, "CWinSystemX11::RefreshGlxContext: refreshing context");
@@ -4338,7 +4327,7 @@ index 462a805..4588b28 100644
      return true;
    }
  
-@@ -444,14 +439,14 @@ bool CWinSystemX11::RefreshGlxContext()
+@@ -445,14 +440,14 @@ bool CWinSystemX11::RefreshGlxContext()
      {
        glXMakeCurrent(m_dpy, None, NULL);
        glXDestroyContext(m_dpy, m_glContext);
@@ -4355,7 +4344,7 @@ index 462a805..4588b28 100644
        retVal = true;
      }
      else
-@@ -728,6 +723,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -729,6 +724,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      }
      OnLostDevice();
      DestroyWindow();
@@ -4363,7 +4352,7 @@ index 462a805..4588b28 100644
    }
  
    // create main window
-@@ -846,13 +842,21 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -847,13 +843,21 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
        }
        XGrabKeyboard(m_dpy, m_glWindow, True, GrabModeAsync, GrabModeAsync, CurrentTime);
      }
@@ -4388,7 +4377,7 @@ index 462a805..4588b28 100644
  }
  
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 51e33c2..2868707 100644
+index 2bcaf52..9666cc3 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -95,6 +95,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -4400,7 +4389,7 @@ index 51e33c2..2868707 100644
  private:
    bool IsSuitableVisual(XVisualInfo *vInfo);
 diff --git a/xbmc/windowing/X11/WinSystemX11GL.cpp b/xbmc/windowing/X11/WinSystemX11GL.cpp
-index 8a8ff83..8707467 100644
+index 2f65d06..d0a8c41 100644
 --- a/xbmc/windowing/X11/WinSystemX11GL.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11GL.cpp
 @@ -24,6 +24,7 @@
@@ -4441,10 +4430,10 @@ index 8a8ff83..8707467 100644
 1.8.4
 
 
-From 64f826e702e49f6ea030077a8b06db501fffa659 Mon Sep 17 00:00:00 2001
+From a2c97e50895ec21f13b9758f00d342fc9716f1bb Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:06:25 +0200
-Subject: [PATCH 20/85] X11: hook video reference clock in windowing
+Subject: [PATCH 20/86] X11: hook video reference clock in windowing
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 71 +++++++++++++++++++++++++++-----------
@@ -4452,7 +4441,7 @@ Subject: [PATCH 20/85] X11: hook video reference clock in windowing
  2 files changed, 63 insertions(+), 21 deletions(-)
 
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 7eecd40..4071ff0 100644
+index ca43b5a..0ddf102 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -136,12 +136,23 @@
@@ -4543,7 +4532,7 @@ index 7eecd40..4071ff0 100644
  bool CVideoReferenceClock::SetupGLX()
  {
    int singleBufferAttributes[] = {
-@@ -383,10 +429,6 @@ bool CVideoReferenceClock::SetupGLX()
+@@ -382,10 +428,6 @@ bool CVideoReferenceClock::SetupGLX()
      return false;
    }
  
@@ -4554,7 +4543,7 @@ index 7eecd40..4071ff0 100644
    UpdateRefreshrate(true); //forced refreshrate update
    m_MissedVblanks = 0;
  
-@@ -587,6 +629,9 @@ void CVideoReferenceClock::RunGLX()
+@@ -586,6 +628,9 @@ void CVideoReferenceClock::RunGLX()
  
    while(!m_bStop)
    {
@@ -4564,7 +4553,7 @@ index 7eecd40..4071ff0 100644
      //wait for the next vblank
      if (!m_bIsATI)
      {
-@@ -650,7 +695,6 @@ void CVideoReferenceClock::RunGLX()
+@@ -649,7 +694,6 @@ void CVideoReferenceClock::RunGLX()
        UpdateClock((int)(VblankCount - PrevVblankCount), true);
        SingleLock.Leave();
        SendVblankSignal();
@@ -4572,7 +4561,7 @@ index 7eecd40..4071ff0 100644
        IsReset = false;
      }
      else if (!m_bStop)
-@@ -1187,23 +1231,10 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
+@@ -1186,23 +1230,10 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
  
  #if defined(HAS_GLX) && defined(HAS_XRANDR)
  
@@ -4649,10 +4638,10 @@ index dd65a1b..afd71fc 100644
 1.8.4
 
 
-From 459a1805e8c4ec160a1b5b3b7f4fa4fd04d8aa02 Mon Sep 17 00:00:00 2001
+From 4ffda879a3cff3febe35e926249fac8894e1ce51 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 21 Jun 2012 17:26:51 +0200
-Subject: [PATCH 21/85] X11: fix video calibrations
+Subject: [PATCH 21/86] X11: fix video calibrations
 
 ---
  xbmc/windowing/WinSystem.h          |  1 +
@@ -4673,19 +4662,19 @@ index 00a2d24..c0db210 100644
    // text input interface
    virtual void EnableTextInput(bool bEnable) {}
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 4588b28..72aae78 100644
+index f2fd18d..c4152c8 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -319,7 +319,7 @@ void CWinSystemX11::UpdateResolutions()
-       res.strMode.Format("%s: %s @ %.2fHz", out->name.c_str(), mode.name.c_str(), mode.hz);
-       res.strOutput    = out->name;
+@@ -320,7 +320,7 @@ void CWinSystemX11::UpdateResolutions()
+       res.strMode      = StringUtils::Format("%s: %s @ %.2fHz", out.name.c_str(), mode.name.c_str(), mode.hz);
+       res.strOutput    = out.name;
        res.strId        = mode.id;
 -      res.iSubtitles   = (int)(0.95*mode.h);
 +      res.iSubtitles   = (int)(0.965*mode.h);
        res.fRefreshRate = mode.hz;
        res.bFullScreen  = true;
  
-@@ -332,8 +332,42 @@ void CWinSystemX11::UpdateResolutions()
+@@ -333,8 +333,42 @@ void CWinSystemX11::UpdateResolutions()
        CDisplaySettings::Get().AddResolutionInfo(res);
      }
    }
@@ -4729,7 +4718,7 @@ index 4588b28..72aae78 100644
  
  void CWinSystemX11::GetConnectedOutputs(std::vector<CStdString> *outputs)
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 2868707..282bb9a 100644
+index 9666cc3..5b52d6c 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -63,6 +63,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -4744,10 +4733,10 @@ index 2868707..282bb9a 100644
 1.8.4
 
 
-From 8590e185e775b2b381d3aa6eb916db3eaa14a0ad Mon Sep 17 00:00:00 2001
+From 6712b3ffc815b179f070b43272a20e5a95278bcb Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:00:26 +0200
-Subject: [PATCH 22/85] X11: deactivate screen saver on startup
+Subject: [PATCH 22/86] X11: deactivate screen saver on startup
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 29 +++++++++++++++++++++++++++++
@@ -4755,10 +4744,10 @@ Subject: [PATCH 22/85] X11: deactivate screen saver on startup
  2 files changed, 30 insertions(+)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 72aae78..e1fd4e5 100644
+index c4152c8..b76b229 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -520,6 +520,33 @@ void CWinSystemX11::ResetOSScreensaver()
+@@ -521,6 +521,33 @@ void CWinSystemX11::ResetOSScreensaver()
    }
  }
  
@@ -4792,7 +4781,7 @@ index 72aae78..e1fd4e5 100644
  void CWinSystemX11::NotifyAppActiveChange(bool bActivated)
  {
    if (bActivated && m_bWasFullScreenBeforeMinimize && !m_bFullScreen)
-@@ -763,6 +790,8 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -764,6 +791,8 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
    // create main window
    if (!m_glWindow)
    {
@@ -4802,7 +4791,7 @@ index 72aae78..e1fd4e5 100644
      {
        GLX_RGBA,
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 282bb9a..32f90da 100644
+index 5b52d6c..b2bd5a0 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -53,6 +53,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -4817,28 +4806,28 @@ index 282bb9a..32f90da 100644
 1.8.4
 
 
-From 5e41ed7e1bcecd421db62ab808292c28e9a3065a Mon Sep 17 00:00:00 2001
+From ffae5ab22cef9c8a69ee9ac8071e33a9567e50e4 Mon Sep 17 00:00:00 2001
 From: FernetMenta <fernetmenta@online.de>
 Date: Thu, 5 Jul 2012 12:10:09 +0200
-Subject: [PATCH 23/85] X11: change method of going full-screen
+Subject: [PATCH 23/86] X11: change method of going full-screen
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 9 ++++++++-
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index e1fd4e5..acd6497 100644
+index b76b229..869baa8 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -37,6 +37,7 @@
- #include "utils/TimeUtils.h"
+@@ -38,6 +38,7 @@
+ #include "utils/StringUtils.h"
  #include "settings/Settings.h"
  #include "windowing/WindowingFactory.h"
 +#include <X11/Xatom.h>
  
  #if defined(HAS_XRANDR)
  #include <X11/extensions/Xrandr.h>
-@@ -815,7 +816,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -816,7 +817,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      cmap = XCreateColormap(m_dpy, RootWindow(m_dpy, vi->screen), vi->visual, AllocNone);
  
      int def_vis = (vi->visual == DefaultVisual(m_dpy, vi->screen));
@@ -4847,7 +4836,7 @@ index e1fd4e5..acd6497 100644
      swa.border_pixel = fullscreen ? 0 : 5;
      swa.background_pixel = def_vis ? BlackPixel(m_dpy, vi->screen) : 0;
      swa.colormap = cmap;
-@@ -831,6 +832,12 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -832,6 +833,12 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
                      InputOutput, vi->visual,
                      mask, &swa);
  
@@ -4864,10 +4853,10 @@ index e1fd4e5..acd6497 100644
 1.8.4
 
 
-From 0f77bcdb5aa479a88e3d52c215f56729fc7caff6 Mon Sep 17 00:00:00 2001
+From c87169846afc1ab803a129105bd1055e38fbcf28 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Jun 2012 19:12:39 +0200
-Subject: [PATCH 24/85] X11: reset key repeat and key modifier on focus lost
+Subject: [PATCH 24/86] X11: reset key repeat and key modifier on focus lost
  and gain
 
 ---
@@ -4899,10 +4888,10 @@ index d98f12f..743aca9 100644
 1.8.4
 
 
-From 906434eba5047a019f32dd515f007c86ad10d984 Mon Sep 17 00:00:00 2001
+From 3858570de202ed9a00e9c1d1fcd68d1f5b994ffd Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 14:18:46 +0200
-Subject: [PATCH 25/85] X11: replace custom utf8 to unicode with charset
+Subject: [PATCH 25/86] X11: replace custom utf8 to unicode with charset
  convertor (squash to x11 events)
 
 ---
@@ -5119,10 +5108,10 @@ index a412f32..9a8a912 100644
 1.8.4
 
 
-From 12bbcb12e715874b0ff69860d82817ceb5b68b6c Mon Sep 17 00:00:00 2001
+From f43ef7ef5954479253bebd028ce422c0cb45dd29 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@xbmc.org>
 Date: Thu, 5 Jul 2012 14:23:54 +0200
-Subject: [PATCH 26/85] X11: fixed invalid usage of sizeof() (squash into x11
+Subject: [PATCH 26/86] X11: fixed invalid usage of sizeof() (squash into x11
  changes)
 
 ---
@@ -5186,20 +5175,20 @@ index 9a8a912..c69169c 100644
 1.8.4
 
 
-From 589ac2dae71810228293a2aab23e7ef338d8a989 Mon Sep 17 00:00:00 2001
+From 0bc67eb1b86c8e6049c3dc45fd680dc730740607 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 9 Jun 2012 18:23:53 +0200
-Subject: [PATCH 27/85] add missing keys to xbmc keytable
+Subject: [PATCH 27/86] add missing keys to xbmc keytable
 
 ---
  xbmc/input/XBMC_keytable.cpp | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/xbmc/input/XBMC_keytable.cpp b/xbmc/input/XBMC_keytable.cpp
-index b430f55..246164b 100644
+index d57f4d3..b807897 100644
 --- a/xbmc/input/XBMC_keytable.cpp
 +++ b/xbmc/input/XBMC_keytable.cpp
-@@ -179,6 +179,8 @@
+@@ -180,6 +180,8 @@
  , { XBMCK_LAUNCH_APP2,            0,    0, XBMCVK_LAUNCH_APP2,         "launch_app2_pc_icon" }
  , { XBMCK_LAUNCH_FILE_BROWSER,    0,    0, XBMCVK_LAUNCH_FILE_BROWSER, "launch_file_browser" }
  , { XBMCK_LAUNCH_MEDIA_CENTER,    0,    0, XBMCVK_LAUNCH_MEDIA_CENTER, "launch_media_center" }
@@ -5212,17 +5201,17 @@ index b430f55..246164b 100644
 1.8.4
 
 
-From e39761351ff96e71dc159d3df7a53010a3d8fed0 Mon Sep 17 00:00:00 2001
+From 64987c29c14606d2b4d49d1007d84ebab4dabf36 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 16 Mar 2012 15:57:51 +0100
-Subject: [PATCH 28/85] videorefclock: temp deactivate of nv settings
+Subject: [PATCH 28/86] videorefclock: temp deactivate of nv settings
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 4071ff0..b9afc09 100644
+index 0ddf102..3ae7107 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -136,7 +136,7 @@
@@ -5238,17 +5227,17 @@ index 4071ff0..b9afc09 100644
 1.8.4
 
 
-From b7f56a138596a9eed60f5e844b145f5ace73b993 Mon Sep 17 00:00:00 2001
+From 9f27be2be6965127e47a3fa7ccc060421c3fa47f Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 09:09:09 +0200
-Subject: [PATCH 29/85] videorefclock: ask graphics context for refresh rate
+Subject: [PATCH 29/86] videorefclock: ask graphics context for refresh rate
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index b9afc09..2f6c7de 100644
+index 3ae7107..27bebde 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
 @@ -31,6 +31,7 @@
@@ -5259,7 +5248,7 @@ index b9afc09..2f6c7de 100644
    #define NVSETTINGSCMD "nvidia-settings -nt -q RefreshRate3"
  #elif defined(TARGET_DARWIN_OSX)
    #include <QuartzCore/CVDisplayLink.h>
-@@ -1255,7 +1256,7 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
+@@ -1254,7 +1255,7 @@ bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
    }
  
    CSingleLock SingleLock(m_CritSection);
@@ -5272,10 +5261,10 @@ index b9afc09..2f6c7de 100644
 1.8.4
 
 
-From 5fe559cc7bafc5a0442102a62dfa68fe075ba1c8 Mon Sep 17 00:00:00 2001
+From e5a61a99a2560b7b49f76931f1aa424104e493eb Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 9 Jul 2012 14:00:18 +0200
-Subject: [PATCH 30/85] X11: fix icon texture after
+Subject: [PATCH 30/86] X11: fix icon texture after
  cc5ed3c2474084ebc0373a3046410e6f766e03f4
 
 ---
@@ -5283,10 +5272,10 @@ Subject: [PATCH 30/85] X11: fix icon texture after
  1 file changed, 26 insertions(+), 17 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index acd6497..805eed7 100644
+index 869baa8..bfe3797 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -873,22 +873,24 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -874,22 +874,24 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      if (!fullscreen)
      {
        CreateIconPixmap();
@@ -5318,7 +5307,7 @@ index acd6497..805eed7 100644
  
        // register interest in the delete window message
        Atom wmDeleteMessage = XInternAtom(m_dpy, "WM_DELETE_WINDOW", False);
-@@ -973,16 +975,21 @@ bool CWinSystemX11::CreateIconPixmap()
+@@ -974,16 +976,21 @@ bool CWinSystemX11::CreateIconPixmap()
    gRatio = vis->green_mask / 255.0;
    bRatio = vis->blue_mask / 255.0;
  
@@ -5346,7 +5335,7 @@ index acd6497..805eed7 100644
  
    newBuf = (uint32_t*)malloc(numNewBufBytes);
    if (!newBuf)
-@@ -991,11 +998,11 @@ bool CWinSystemX11::CreateIconPixmap()
+@@ -992,11 +999,11 @@ bool CWinSystemX11::CreateIconPixmap()
      return false;
    }
  
@@ -5361,7 +5350,7 @@ index acd6497..805eed7 100644
        unsigned int r, g, b;
        r = (buf[pos+2] * rRatio);
        g = (buf[pos+1] * gRatio);
-@@ -1008,7 +1015,7 @@ bool CWinSystemX11::CreateIconPixmap()
+@@ -1009,7 +1016,7 @@ bool CWinSystemX11::CreateIconPixmap()
      }
    }
    img = XCreateImage(m_dpy, vis, depth,ZPixmap, 0, (char *)newBuf,
@@ -5370,7 +5359,7 @@ index acd6497..805eed7 100644
                       (depth>=24)?32:16, 0);
    if (!img)
    {
-@@ -1046,6 +1053,8 @@ bool CWinSystemX11::CreateIconPixmap()
+@@ -1047,6 +1054,8 @@ bool CWinSystemX11::CreateIconPixmap()
    XFreeGC(m_dpy, gc);
    XDestroyImage(img); // this also frees newBuf
  
@@ -5383,10 +5372,10 @@ index acd6497..805eed7 100644
 1.8.4
 
 
-From 64b69b91be74d54d97662968314407f0d85035d1 Mon Sep 17 00:00:00 2001
+From 259b826e8843094f3653663a96acb4da6ce73ef0 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 10 Jul 2012 11:14:12 +0200
-Subject: [PATCH 31/85] X11: check for window manager
+Subject: [PATCH 31/86] X11: check for window manager
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 74 ++++++++++++++++++++++++++++++++++++-
@@ -5394,10 +5383,10 @@ Subject: [PATCH 31/85] X11: check for window manager
  2 files changed, 73 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 805eed7..b103248 100644
+index bfe3797..af82061 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -815,8 +815,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -816,8 +816,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      vi = glXChooseVisual(m_dpy, m_nScreen, att);
      cmap = XCreateColormap(m_dpy, RootWindow(m_dpy, vi->screen), vi->visual, AllocNone);
  
@@ -5409,7 +5398,7 @@ index 805eed7..b103248 100644
      swa.border_pixel = fullscreen ? 0 : 5;
      swa.background_pixel = def_vis ? BlackPixel(m_dpy, vi->screen) : 0;
      swa.colormap = cmap;
-@@ -832,7 +834,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -833,7 +835,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
                      InputOutput, vi->visual,
                      mask, &swa);
  
@@ -5418,7 +5407,7 @@ index 805eed7..b103248 100644
      {
        Atom fs = XInternAtom(m_dpy, "_NET_WM_STATE_FULLSCREEN", True);
        XChangeProperty(m_dpy, m_glWindow, XInternAtom(m_dpy, "_NET_WM_STATE", True), XA_ATOM, 32, PropModeReplace, (unsigned char *) &fs, 1);
-@@ -1058,4 +1060,72 @@ bool CWinSystemX11::CreateIconPixmap()
+@@ -1059,4 +1061,72 @@ bool CWinSystemX11::CreateIconPixmap()
    return true;
  }
  
@@ -5492,7 +5481,7 @@ index 805eed7..b103248 100644
 +
  #endif
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 32f90da..28d9d03 100644
+index b2bd5a0..3e62cd8 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -103,6 +103,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -5507,20 +5496,20 @@ index 32f90da..28d9d03 100644
 1.8.4
 
 
-From 2e74105ba87b04908a9490255aac7d01cec03ac4 Mon Sep 17 00:00:00 2001
+From 49996f43a92ba8f67ce0ac4f561c58a5f1e29a0f Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 12 Jul 2012 11:11:47 +0200
-Subject: [PATCH 32/85] X11: dont set window on xrandr if no mode available
+Subject: [PATCH 32/86] X11: dont set window on xrandr if no mode available
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 11 ++++++-----
  1 file changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index b103248..45741d7 100644
+index af82061..4f33c68 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -664,16 +664,17 @@ void CWinSystemX11::NotifyXRREvent()
+@@ -665,16 +665,17 @@ void CWinSystemX11::NotifyXRREvent()
    CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
    m_windowDirty = true;
  
@@ -5547,20 +5536,20 @@ index b103248..45741d7 100644
 1.8.4
 
 
-From ed7b85cb261f8ab5dc8d7ef0eeae10668529721b Mon Sep 17 00:00:00 2001
+From 6c164ca07a82d3a099c5e10d937da08441839653 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 26 Jul 2012 09:34:28 +0200
-Subject: [PATCH 33/85] X11: fix crash after a resolution change on startup
+Subject: [PATCH 33/86] X11: fix crash after a resolution change on startup
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 45741d7..a6cb67f 100644
+index 4f33c68..bc4e963 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -222,7 +222,8 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -223,7 +223,8 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
      OnLostDevice();
      m_bIsInternalXrr = true;
      g_xrandr.SetMode(out, mode);
@@ -5574,20 +5563,20 @@ index 45741d7..a6cb67f 100644
 1.8.4
 
 
-From bd946cc11d2b0b1980faa5a76cf4daf83dda85d3 Mon Sep 17 00:00:00 2001
+From 04f18c67868e89105814e215b0c78b6c582b1bfd Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 15 Sep 2012 18:27:29 +0200
-Subject: [PATCH 34/85] X11: lock graphics context in NotifyXRREvent
+Subject: [PATCH 34/86] X11: lock graphics context in NotifyXRREvent
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index a6cb67f..70b5f10 100644
+index bc4e963..57a8d20 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -665,6 +665,8 @@ void CWinSystemX11::NotifyXRREvent()
+@@ -666,6 +666,8 @@ void CWinSystemX11::NotifyXRREvent()
    CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
    m_windowDirty = true;
  
@@ -5600,10 +5589,10 @@ index a6cb67f..70b5f10 100644
 1.8.4
 
 
-From d93e74a855af41d713b4dc65c227795c0538a159 Mon Sep 17 00:00:00 2001
+From c4b6c2c5f4280ac97fc60bc39914553109777bf0 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 23 Aug 2012 19:39:49 +0200
-Subject: [PATCH 35/85] ffmpeg: add av_find_default_stream_index to interface
+Subject: [PATCH 35/86] ffmpeg: add av_find_default_stream_index to interface
 
 ---
  lib/DllAvFormat.h | 4 ++++
@@ -5649,10 +5638,10 @@ index 0016c0b..3514856 100644
 1.8.4
 
 
-From c5469d8fced8010b5b410518ebec333364297330 Mon Sep 17 00:00:00 2001
+From 0b4c2974195094dfcd61d9bf052301ef2102653c Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 36/85] dvdplayer: observe pts counter overflow
+Subject: [PATCH 36/86] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 198 ++++++++++++++++++++-
@@ -5660,7 +5649,7 @@ Subject: [PATCH 36/85] dvdplayer: observe pts counter overflow
  2 files changed, 201 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
-index af05077..13afcae 100644
+index 32b3e6a..25c3f4f 100644
 --- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
 @@ -18,7 +18,6 @@
@@ -5679,7 +5668,7 @@ index af05077..13afcae 100644
  #include "stdint.h"
  #endif
  #include "DVDDemuxFFmpeg.h"
-@@ -490,6 +490,9 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
+@@ -489,6 +489,9 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput)
  
    CreateStreams();
  
@@ -5689,7 +5678,7 @@ index af05077..13afcae 100644
    return true;
  }
  
-@@ -635,6 +638,12 @@ double CDVDDemuxFFmpeg::ConvertTimestamp(int64_t pts, int den, int num)
+@@ -634,6 +637,12 @@ double CDVDDemuxFFmpeg::ConvertTimestamp(int64_t pts, int den, int num)
    if (pts == (int64_t)AV_NOPTS_VALUE)
      return DVD_NOPTS_VALUE;
  
@@ -5702,7 +5691,7 @@ index af05077..13afcae 100644
    // do calculations in floats as they can easily overflow otherwise
    // we don't care for having a completly exact timestamp anyway
    double timestamp = (double)pts * num  / den;
-@@ -774,6 +783,24 @@ DemuxPacket* CDVDDemuxFFmpeg::Read()
+@@ -773,6 +782,24 @@ DemuxPacket* CDVDDemuxFFmpeg::Read()
            m_pkt.pkt.pts = AV_NOPTS_VALUE;
          }
  
@@ -5727,7 +5716,7 @@ index af05077..13afcae 100644
          // copy contents into our own packet
          pPacket->iSize = m_pkt.pkt.size;
  
-@@ -903,10 +930,20 @@ bool CDVDDemuxFFmpeg::SeekTime(int time, bool backwords, double *startpts)
+@@ -902,10 +929,20 @@ bool CDVDDemuxFFmpeg::SeekTime(int time, bool backwords, double *startpts)
    int ret;
    {
      CSingleLock lock(m_critSection);
@@ -5748,7 +5737,7 @@ index af05077..13afcae 100644
    }
  
    if(m_iCurrentPts == DVD_NOPTS_VALUE)
-@@ -925,6 +962,165 @@ bool CDVDDemuxFFmpeg::SeekTime(int time, bool backwords, double *startpts)
+@@ -924,6 +961,165 @@ bool CDVDDemuxFFmpeg::SeekTime(int time, bool backwords, double *startpts)
    return (ret >= 0);
  }
  
@@ -5939,10 +5928,10 @@ index aef5ab1..35abbdf 100644
 1.8.4
 
 
-From 2dcfacc30e8831d2d8bd528c8d2dbb97a8032d95 Mon Sep 17 00:00:00 2001
+From a41cfff841df2de4ba9f808b4aee018d8b7e2525 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 37/85] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 37/86] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -5975,10 +5964,10 @@ index 150a796..beffbe9 100644
 1.8.4
 
 
-From bcd23e37e1b43f679176fd5deb54429dbb482727 Mon Sep 17 00:00:00 2001
+From 80daca467cfc97462cbe6497016f40ea04f0ab96 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 38/85] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 38/86] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -6006,7 +5995,7 @@ index 97dea48..57bb704 100644
      if (deint != -1)
      {
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index c1a38e5..a9e0e13 100644
+index 614e869..b0e241d 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
 @@ -165,6 +165,8 @@ void CAdvancedSettings::Initialize()
@@ -6028,7 +6017,7 @@ index c1a38e5..a9e0e13 100644
      XMLUtils::GetBoolean(pElement,"vdpauHDdeintSkipChroma",m_videoVDPAUdeintSkipChromaHD);
  
 diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
-index 12b477f..2c9c6e8 100644
+index 7d16957..bb70f3e 100644
 --- a/xbmc/settings/AdvancedSettings.h
 +++ b/xbmc/settings/AdvancedSettings.h
 @@ -160,6 +160,8 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
@@ -6044,10 +6033,10 @@ index 12b477f..2c9c6e8 100644
 1.8.4
 
 
-From 1ef2dd17dd182b5189afa1f48c9d925669f0cd01 Mon Sep 17 00:00:00 2001
+From 2114d34ca5e9e86bb17ec27dffdbe6a5cc27488e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 39/85] player: fix rewind
+Subject: [PATCH 39/86] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 ++++-
@@ -6095,10 +6084,10 @@ index 2ea8b8f..e8274f9 100644
  
  class CDVDMsgPlayerSeekChapter : public CDVDMsg
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 4dc3f20..7fc3d9e 100644
+index 8d19ae5..385c1c2 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-@@ -1658,11 +1658,13 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1659,11 +1659,13 @@ void CDVDPlayer::HandlePlaySpeed()
      }
      else if (m_CurrentVideo.id >= 0
            &&  (m_CurrentVideo.inited == true || GetPlaySpeed() < 0) // allow rewind at end of file
@@ -6113,7 +6102,7 @@ index 4dc3f20..7fc3d9e 100644
        // check how much off clock video is when ff/rw:ing
        // a problem here is that seeking isn't very accurate
        // and since the clock will be resynced after seek
-@@ -1681,7 +1683,7 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1682,7 +1684,7 @@ void CDVDPlayer::HandlePlaySpeed()
        {
          CLog::Log(LOGDEBUG, "CDVDPlayer::Process - Seeking to catch up");
          int64_t iTime = (int64_t)DVD_TIME_TO_MSEC(m_clock.GetClock() + m_State.time_offset + 500000.0 * m_playSpeed / DVD_PLAYSPEED_NORMAL);
@@ -6122,7 +6111,7 @@ index 4dc3f20..7fc3d9e 100644
        }
      }
    }
-@@ -2167,7 +2169,7 @@ void CDVDPlayer::HandleMessages()
+@@ -2168,7 +2170,7 @@ void CDVDPlayer::HandleMessages()
            else
              m_StateInput.dts = start;
  
@@ -6131,7 +6120,7 @@ index 4dc3f20..7fc3d9e 100644
          }
          else
            CLog::Log(LOGWARNING, "error while seeking");
-@@ -2307,9 +2309,10 @@ void CDVDPlayer::HandleMessages()
+@@ -2308,9 +2310,10 @@ void CDVDPlayer::HandleMessages()
            double offset;
            offset  = CDVDClock::GetAbsoluteClock() - m_State.timestamp;
            offset *= m_playSpeed / DVD_PLAYSPEED_NORMAL;
@@ -6143,7 +6132,7 @@ index 4dc3f20..7fc3d9e 100644
            m_State.timestamp =  CDVDClock::GetAbsoluteClock();
          }
  
-@@ -2325,7 +2328,8 @@ void CDVDPlayer::HandleMessages()
+@@ -2326,7 +2329,8 @@ void CDVDPlayer::HandleMessages()
          // do a seek after rewind, clock is not in sync with current pts
          if (m_playSpeed < 0 && speed >= 0)
          {
@@ -6153,7 +6142,7 @@ index 4dc3f20..7fc3d9e 100644
          }
  
          // if playspeed is different then DVD_PLAYSPEED_NORMAL or DVD_PLAYSPEED_PAUSE
-@@ -3316,7 +3320,7 @@ bool CDVDPlayer::CloseTeletextStream(bool bWaitForBuffers)
+@@ -3317,7 +3321,7 @@ bool CDVDPlayer::CloseTeletextStream(bool bWaitForBuffers)
    return true;
  }
  
@@ -6162,7 +6151,7 @@ index 4dc3f20..7fc3d9e 100644
  {
    double startpts;
    if(accurate)
-@@ -3328,19 +3332,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3329,19 +3333,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
    if(startpts != DVD_NOPTS_VALUE)
      startpts -= m_offset_pts;
  
@@ -6190,7 +6179,7 @@ index 4dc3f20..7fc3d9e 100644
    m_CurrentTeletext.dts      = DVD_NOPTS_VALUE;
    m_CurrentTeletext.startpts = startpts;
  
-@@ -3384,7 +3392,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3385,7 +3393,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
        m_CurrentTeletext.started = false;
      }
  
@@ -6262,20 +6251,20 @@ index 59c7f09..65dea76 100644
 1.8.4
 
 
-From a0ff0af97bd5d1b673e5703c89426af927ad7620 Mon Sep 17 00:00:00 2001
+From f19853b507d3bbc0d8687dcf99a2834ea39d6a07 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 23 Nov 2012 17:41:12 +0100
-Subject: [PATCH 40/85] xrandr: fix query for multiple screens
+Subject: [PATCH 40/86] xrandr: fix query for multiple screens
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 10 ++++++----
  1 file changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index 9e181f2..ce0a02b 100644
+index 4685413..e610150 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
-@@ -57,12 +57,14 @@ bool CXRandR::Query(bool force)
+@@ -58,12 +58,14 @@ bool CXRandR::Query(bool force)
  
    m_outputs.clear();
    // query all screens
@@ -6293,7 +6282,7 @@ index 9e181f2..ce0a02b 100644
  }
  
  bool CXRandR::Query(bool force, int screennum)
-@@ -70,7 +72,7 @@ bool CXRandR::Query(bool force, int screennum)
+@@ -71,7 +73,7 @@ bool CXRandR::Query(bool force, int screennum)
    CStdString cmd;
    cmd  = getenv("XBMC_BIN_HOME");
    cmd += "/xbmc-xrandr";
@@ -6306,20 +6295,20 @@ index 9e181f2..ce0a02b 100644
 1.8.4
 
 
-From bb7dea8a9b9549132db40ce4e4e031ebae228fab Mon Sep 17 00:00:00 2001
+From 2c711d93fb5cddb4a3d5d642b3911ae5f6371f8b Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Dec 2012 15:46:55 +0100
-Subject: [PATCH 41/85] X11: add debug log to print out refresh after xrr event
+Subject: [PATCH 41/86] X11: add debug log to print out refresh after xrr event
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 70b5f10..64d5730 100644
+index 57a8d20..a237dc0 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -684,6 +684,12 @@ void CWinSystemX11::NotifyXRREvent()
+@@ -685,6 +685,12 @@ void CWinSystemX11::NotifyXRREvent()
    XOutput *out = g_xrandr.GetOutput(currentOutput);
    XMode   mode = g_xrandr.GetCurrentMode(currentOutput);
  
@@ -6336,10 +6325,10 @@ index 70b5f10..64d5730 100644
 1.8.4
 
 
-From fc8478cd176dccde23876f471d947ff2580015f3 Mon Sep 17 00:00:00 2001
+From 183cefe43d5e1a3278e9d96e8a34dee695d3b431 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 11 Dec 2012 11:08:13 +0100
-Subject: [PATCH 42/85] X11: dont call XCloseDisplay on shutdown, it crashes
+Subject: [PATCH 42/86] X11: dont call XCloseDisplay on shutdown, it crashes
  when powered doen by cec on ATI
 
 ---
@@ -6347,10 +6336,10 @@ Subject: [PATCH 42/85] X11: dont call XCloseDisplay on shutdown, it crashes
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 64d5730..edc81c8 100644
+index a237dc0..ab660b1 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -111,7 +111,8 @@ bool CWinSystemX11::DestroyWindowSystem()
+@@ -112,7 +112,8 @@ bool CWinSystemX11::DestroyWindowSystem()
      //we don't call XCloseDisplay() here, since ati keeps a pointer to our m_dpy
      //so instead we just let m_dpy die on exit
      // i have seen core dumps on ATI if the display is not closed here
@@ -6364,20 +6353,20 @@ index 64d5730..edc81c8 100644
 1.8.4
 
 
-From 4d66d4fbf2c8e13a294e9ebb54696a9dd9b696c6 Mon Sep 17 00:00:00 2001
+From f08011e5a94ea17a2c9b8de8e779edab88d09d18 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gr=C3=A9gory=20Coutant?= <gregory.coutant@gmail.com>
 Date: Wed, 12 Dec 2012 19:49:47 +0100
-Subject: [PATCH 43/85] x11: support for multiple x screens
+Subject: [PATCH 43/86] x11: support for multiple x screens
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index ce0a02b..aa27d2b 100644
+index e610150..5c53574 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
-@@ -92,7 +92,7 @@ bool CXRandR::Query(bool force, int screennum)
+@@ -93,7 +93,7 @@ bool CXRandR::Query(bool force, int screennum)
    pclose(file);
  
    TiXmlElement *pRootElement = xmlDoc.RootElement();
@@ -6390,10 +6379,10 @@ index ce0a02b..aa27d2b 100644
 1.8.4
 
 
-From d4f375dc32e15dcc5947bbc0348ea030c5ddfc08 Mon Sep 17 00:00:00 2001
+From 5db651d938b492def498b8e6f5ef43ec69ac26fb Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 24 Dec 2012 16:02:42 +0100
-Subject: [PATCH 44/85] pvr: increase changes counter of stream on stream
+Subject: [PATCH 44/86] pvr: increase changes counter of stream on stream
  change, cosmetics after dd307930d39d92f145a01a16600cd00e01ec39be
 
 ---
@@ -6427,10 +6416,10 @@ index b96d520..df89f6f 100644
 1.8.4
 
 
-From a6161f9f169b256bad256cd4707102a4d8ad853c Mon Sep 17 00:00:00 2001
+From c61d787bb556c8178688ff4e0128f0909282e153 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 17 Jan 2013 16:03:22 +0100
-Subject: [PATCH 45/85] X11: add keymapping for XF86XK_Sleep
+Subject: [PATCH 45/86] X11: add keymapping for XF86XK_Sleep
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 1 +
@@ -6452,17 +6441,17 @@ index a62521f..263cb5a 100644
 1.8.4
 
 
-From 93aba348cc0f57a5091f418d56adfc0b2c78dcf4 Mon Sep 17 00:00:00 2001
+From 0115de46178a19ab3c7f6d6a0fbb1d02e8511522 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 21 Jan 2013 09:00:19 +0100
-Subject: [PATCH 46/85] X11: remove toggle full screen after resume
+Subject: [PATCH 46/86] X11: remove toggle full screen after resume
 
 ---
  xbmc/powermanagement/PowerManager.cpp | 5 -----
  1 file changed, 5 deletions(-)
 
 diff --git a/xbmc/powermanagement/PowerManager.cpp b/xbmc/powermanagement/PowerManager.cpp
-index 2033574..c79bbc1 100644
+index 590a887..35b5a21 100644
 --- a/xbmc/powermanagement/PowerManager.cpp
 +++ b/xbmc/powermanagement/PowerManager.cpp
 @@ -268,11 +268,6 @@ void CPowerManager::OnWake()
@@ -6481,17 +6470,17 @@ index 2033574..c79bbc1 100644
 1.8.4
 
 
-From f964808dff4b6eb328eb8db7b9ab7f1e84bc9338 Mon Sep 17 00:00:00 2001
+From 92c36158c341ed0a8ef17f9f636977c5bf920abb Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 23 Jan 2013 17:03:02 +0100
-Subject: [PATCH 47/85] xrandr: set screen on mode change command
+Subject: [PATCH 47/86] xrandr: set screen on mode change command
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index aa27d2b..67bf6ca 100644
+index 5c53574..4355ef7 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
 @@ -246,7 +246,7 @@ bool CXRandR::SetMode(XOutput output, XMode mode)
@@ -6507,10 +6496,10 @@ index aa27d2b..67bf6ca 100644
 1.8.4
 
 
-From c8fdddfc31dbabd293a6ec91c667f515674fba39 Mon Sep 17 00:00:00 2001
+From bded0b28013d5fb71e02d9448152ef375d22a5b5 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Wed, 23 Jan 2013 17:03:39 +0100
-Subject: [PATCH 48/85] X11: recreate glx context when output changes
+Subject: [PATCH 48/86] X11: recreate glx context when output changes
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 6 +++---
@@ -6518,10 +6507,10 @@ Subject: [PATCH 48/85] X11: recreate glx context when output changes
  2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index edc81c8..c6aa51a 100644
+index ab660b1..4329a22 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -408,11 +408,11 @@ bool CWinSystemX11::IsSuitableVisual(XVisualInfo *vInfo)
+@@ -409,11 +409,11 @@ bool CWinSystemX11::IsSuitableVisual(XVisualInfo *vInfo)
    return true;
  }
  
@@ -6535,7 +6524,7 @@ index edc81c8..c6aa51a 100644
    {
      CLog::Log(LOGDEBUG, "CWinSystemX11::RefreshGlxContext: refreshing context");
      glXMakeCurrent(m_dpy, None, NULL);
-@@ -929,7 +929,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -930,7 +930,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      }
  
      CDirtyRegionList dr;
@@ -6545,7 +6534,7 @@ index edc81c8..c6aa51a 100644
      g_graphicsContext.Clear(0);
      g_graphicsContext.Flip(dr);
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 28d9d03..5a21b00 100644
+index 3e62cd8..2a1fb41 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -76,7 +76,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -6561,10 +6550,10 @@ index 28d9d03..5a21b00 100644
 1.8.4
 
 
-From 33a0a3d83960cb43a98347ef9e93e0794c56c16e Mon Sep 17 00:00:00 2001
+From d4232461a749f7beea843e58acea3f40da702030 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 14 Dec 2012 14:19:15 +0100
-Subject: [PATCH 49/85] pvr: do not show selection dialog for a single menu
+Subject: [PATCH 49/86] pvr: do not show selection dialog for a single menu
  hook
 
 ---
@@ -6572,7 +6561,7 @@ Subject: [PATCH 49/85] pvr: do not show selection dialog for a single menu
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/xbmc/pvr/addons/PVRClients.cpp b/xbmc/pvr/addons/PVRClients.cpp
-index 0435a34..2e64b4f 100644
+index 5b5706e..2eda43d 100644
 --- a/xbmc/pvr/addons/PVRClients.cpp
 +++ b/xbmc/pvr/addons/PVRClients.cpp
 @@ -729,6 +729,7 @@ void CPVRClients::ProcessMenuHooks(int iClientID, PVR_MENUHOOK_CAT cat, const CF
@@ -6602,10 +6591,10 @@ index 0435a34..2e64b4f 100644
 1.8.4
 
 
-From 0b262b710194f2c996daced62ea178af5208018e Mon Sep 17 00:00:00 2001
+From 0cc5cb68f302f430f5d4dbef4e3f59d74cf51a7b Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 3 Feb 2013 08:17:16 +0100
-Subject: [PATCH 50/85] X11: use default screen parameters if no output
+Subject: [PATCH 50/86] X11: use default screen parameters if no output
  connected
 
 ---
@@ -6613,10 +6602,10 @@ Subject: [PATCH 50/85] X11: use default screen parameters if no output
  1 file changed, 33 insertions(+), 22 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index c6aa51a..f481ea4 100644
+index 4329a22..2adf8a0 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -206,25 +206,27 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -207,25 +207,27 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
    }
   
    XMode   currmode = g_xrandr.GetCurrentMode(out.name);
@@ -6661,7 +6650,7 @@ index c6aa51a..f481ea4 100644
    }
  #endif
  
-@@ -271,9 +273,10 @@ void CWinSystemX11::UpdateResolutions()
+@@ -272,9 +274,10 @@ void CWinSystemX11::UpdateResolutions()
    else
  #endif
    {
@@ -6675,7 +6664,7 @@ index c6aa51a..f481ea4 100644
      UpdateDesktopResolution(CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP), 0, w, h, 0.0);
    }
  
-@@ -818,11 +821,19 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -819,11 +822,19 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      Colormap cmap;
      XSetWindowAttributes swa;
      XVisualInfo *vi;
@@ -6696,7 +6685,7 @@ index c6aa51a..f481ea4 100644
      vi = glXChooseVisual(m_dpy, m_nScreen, att);
      cmap = XCreateColormap(m_dpy, RootWindow(m_dpy, vi->screen), vi->visual, AllocNone);
  
-@@ -841,7 +852,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -842,7 +853,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      unsigned long mask = CWBackPixel | CWBorderPixel | CWColormap | CWOverrideRedirect | CWEventMask;
  
      m_glWindow = XCreateWindow(m_dpy, RootWindow(m_dpy, vi->screen),
@@ -6709,10 +6698,10 @@ index c6aa51a..f481ea4 100644
 1.8.4
 
 
-From e0299257b2be32aa2635d49c092a54acdab8a806 Mon Sep 17 00:00:00 2001
+From fd3822e5accf2e58f9ab1fda9acd99bcadd0d1cc Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 23 Mar 2013 15:13:32 +0100
-Subject: [PATCH 51/85] X11: create parent window
+Subject: [PATCH 51/86] X11: create parent window
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 69 +++++++++++++++++++++++--------------
@@ -6720,10 +6709,10 @@ Subject: [PATCH 51/85] X11: create parent window
  2 files changed, 44 insertions(+), 27 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index f481ea4..901b440 100644
+index 2adf8a0..07f3f3d 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -54,6 +54,7 @@
+@@ -55,6 +55,7 @@
    m_glContext = NULL;
    m_dpy = NULL;
    m_glWindow = 0;
@@ -6731,7 +6720,7 @@ index f481ea4..901b440 100644
    m_bWasFullScreenBeforeMinimize = false;
    m_minimized = false;
    m_bIgnoreNextFocusMessage = false;
-@@ -131,7 +132,7 @@ bool CWinSystemX11::CreateNewWindow(const CStdString& name, bool fullScreen, RES
+@@ -132,7 +133,7 @@ bool CWinSystemX11::CreateNewWindow(const CStdString& name, bool fullScreen, RES
  
  bool CWinSystemX11::DestroyWindow()
  {
@@ -6740,7 +6729,7 @@ index f481ea4..901b440 100644
      return true;
  
    if (m_glContext)
-@@ -142,19 +143,21 @@ bool CWinSystemX11::DestroyWindow()
+@@ -143,19 +144,21 @@ bool CWinSystemX11::DestroyWindow()
  
    if (m_invisibleCursor)
    {
@@ -6764,7 +6753,7 @@ index f481ea4..901b440 100644
  
    if (m_icon)
      XFreePixmap(m_dpy, m_icon);
-@@ -224,7 +227,7 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -225,7 +228,7 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
        OnLostDevice();
        m_bIsInternalXrr = true;
        g_xrandr.SetMode(out, mode);
@@ -6773,7 +6762,7 @@ index f481ea4..901b440 100644
          return true;
      }
    }
-@@ -502,9 +505,9 @@ bool CWinSystemX11::RefreshGlxContext(bool force)
+@@ -503,9 +506,9 @@ bool CWinSystemX11::RefreshGlxContext(bool force)
  void CWinSystemX11::ShowOSMouse(bool show)
  {
    if (show)
@@ -6785,7 +6774,7 @@ index f481ea4..901b440 100644
  }
  
  void CWinSystemX11::ResetOSScreensaver()
-@@ -587,10 +590,10 @@ void CWinSystemX11::NotifyMouseCoverage(bool covered)
+@@ -588,10 +591,10 @@ void CWinSystemX11::NotifyMouseCoverage(bool covered)
      int result = -1;
      while (result != GrabSuccess && result != AlreadyGrabbed)
      {
@@ -6798,7 +6787,7 @@ index f481ea4..901b440 100644
    }
    else
    {
-@@ -608,7 +611,7 @@ bool CWinSystemX11::Minimize()
+@@ -609,7 +612,7 @@ bool CWinSystemX11::Minimize()
      g_graphicsContext.ToggleFullScreenRoot();
    }
  
@@ -6807,7 +6796,7 @@ index f481ea4..901b440 100644
  
    m_minimized = true;
    return true;
-@@ -619,13 +622,13 @@ bool CWinSystemX11::Restore()
+@@ -620,13 +623,13 @@ bool CWinSystemX11::Restore()
  }
  bool CWinSystemX11::Hide()
  {
@@ -6823,7 +6812,7 @@ index f481ea4..901b440 100644
    XSync(m_dpy, False);
    m_minimized = false;
    return true;
-@@ -775,7 +778,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -776,7 +779,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
    bool mouseActive = false;
    float mouseX, mouseY;
  
@@ -6832,7 +6821,7 @@ index f481ea4..901b440 100644
    {
      mouseActive = g_Mouse.IsActive();
      if (mouseActive)
-@@ -784,7 +787,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -785,7 +788,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
        int root_x_return, root_y_return;
        int win_x_return, win_y_return;
        unsigned int mask_return;
@@ -6841,7 +6830,7 @@ index f481ea4..901b440 100644
                                     &root_x_return, &root_y_return,
                                     &win_x_return, &win_y_return,
                                     &mask_return);
-@@ -803,7 +806,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -804,7 +807,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
    }
  
    // create main window
@@ -6850,7 +6839,7 @@ index f481ea4..901b440 100644
    {
      EnableSystemScreenSaver(false);
  
-@@ -844,22 +847,31 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -845,22 +848,31 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      swa.border_pixel = fullscreen ? 0 : 5;
      swa.background_pixel = def_vis ? BlackPixel(m_dpy, vi->screen) : 0;
      swa.colormap = cmap;
@@ -6885,7 +6874,7 @@ index f481ea4..901b440 100644
      }
  
      // define invisible cursor
-@@ -868,14 +880,14 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -869,14 +881,14 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      static char noData[] = { 0,0,0,0,0,0,0,0 };
      black.red = black.green = black.blue = 0;
  
@@ -6903,7 +6892,7 @@ index f481ea4..901b440 100644
  
      changeWindow = true;
      changeSize = true;
-@@ -888,13 +900,17 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -889,13 +901,17 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
  
    if (changeSize || changeWindow)
    {
@@ -6922,7 +6911,7 @@ index f481ea4..901b440 100644
      {
        CreateIconPixmap();
        XWMHints *wm_hints;
-@@ -911,21 +927,22 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -912,21 +928,22 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
        wm_hints->flags = StateHint | IconPixmapHint;
  
        XSync(m_dpy,False);
@@ -6948,7 +6937,7 @@ index f481ea4..901b440 100644
      }
  
      if (fullscreen)
-@@ -933,10 +950,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -934,10 +951,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
        int result = -1;
        while (result != GrabSuccess && result != AlreadyGrabbed)
        {
@@ -6962,7 +6951,7 @@ index f481ea4..901b440 100644
  
      CDirtyRegionList dr;
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 5a21b00..b866d52 100644
+index 2a1fb41..e8993f1 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -81,7 +81,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -6978,10 +6967,10 @@ index 5a21b00..b866d52 100644
 1.8.4
 
 
-From 099ce25b4adf2607cabf030df3b7cdb377981e34 Mon Sep 17 00:00:00 2001
+From 2b085f521a9cb330928e709e6525676ec57f2f7d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 24 Mar 2013 12:30:12 +0100
-Subject: [PATCH 52/85] X11: use system key repeat rate instead of hardcoded
+Subject: [PATCH 52/86] X11: use system key repeat rate instead of hardcoded
  one, taken from 58fd64b194e38b73b5f3132744bab35e994e7441
 
 ---
@@ -7183,10 +7172,10 @@ index c69169c..6429291 100644
 1.8.4
 
 
-From a76546d255e957775e0a8fd7952676cc8eec4fe8 Mon Sep 17 00:00:00 2001
+From a5889753d2584cf412e9cb537fce5bda1d3c25f4 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 24 Mar 2013 16:04:48 +0100
-Subject: [PATCH 53/85] linux: use CLOCK_MONOTONIC_RAW as this is not subject
+Subject: [PATCH 53/86] linux: use CLOCK_MONOTONIC_RAW as this is not subject
  to NTP
 
 ---
@@ -7224,20 +7213,20 @@ index c06b8c5..4390d2e 100644
 1.8.4
 
 
-From b56e127b2222c6a801f3564cf9f481646dc58a5e Mon Sep 17 00:00:00 2001
+From 3c8b1e44e2ea833362973e7d1d9e7f4ebfe8b13f Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 15:18:53 +0100
-Subject: [PATCH 54/85] OMXPlayer: some caching fixes for pvr
+Subject: [PATCH 54/86] OMXPlayer: some caching fixes for pvr
 
 ---
  xbmc/cores/omxplayer/OMXPlayer.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
-index 5bc4cb0..593c3d4 100644
+index 2325b63..845d518 100644
 --- a/xbmc/cores/omxplayer/OMXPlayer.cpp
 +++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
-@@ -2566,7 +2566,8 @@ void COMXPlayer::HandleMessages()
+@@ -2565,7 +2565,8 @@ void COMXPlayer::HandleMessages()
            m_messenger.Put(new CDVDMsgPlayerSeek(GetTime(), (speed < 0), true, false, false, true));
  
          m_playSpeed = speed;
@@ -7251,20 +7240,20 @@ index 5bc4cb0..593c3d4 100644
 1.8.4
 
 
-From bca87558d3b9f79af8cf420bb306ef9718a3a783 Mon Sep 17 00:00:00 2001
+From b5de936cde093bdf4b51bdf96bae45a9d4933c43 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 55/85] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 55/86] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 23c19b4..08219bf 100644
+index f701be0..886cedd 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2256,10 +2256,11 @@ void CApplication::Render()
+@@ -2257,10 +2257,11 @@ void CApplication::Render()
      if (frameTime < singleFrameTime)
        Sleep(singleFrameTime - frameTime);
    }
@@ -7281,10 +7270,10 @@ index 23c19b4..08219bf 100644
 1.8.4
 
 
-From cb79cd41226b8e243bc78d5d5d250c04b5d80f91 Mon Sep 17 00:00:00 2001
+From 5c43b33fecd4535491ff93c197978ac59a2476e1 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sat, 13 Apr 2013 08:32:06 +0200
-Subject: [PATCH 56/85] X11: fix mouse coverage
+Subject: [PATCH 56/86] X11: fix mouse coverage
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 11 ++++++++---
@@ -7292,10 +7281,10 @@ Subject: [PATCH 56/85] X11: fix mouse coverage
  2 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 901b440..7987cc2 100644
+index 07f3f3d..2acb36d 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -582,10 +582,10 @@ void CWinSystemX11::NotifyAppFocusChange(bool bGaining)
+@@ -583,10 +583,10 @@ void CWinSystemX11::NotifyAppFocusChange(bool bGaining)
  
  void CWinSystemX11::NotifyMouseCoverage(bool covered)
  {
@@ -7308,7 +7297,7 @@ index 901b440..7987cc2 100644
    {
      int result = -1;
      while (result != GrabSuccess && result != AlreadyGrabbed)
-@@ -594,11 +594,13 @@ void CWinSystemX11::NotifyMouseCoverage(bool covered)
+@@ -595,11 +595,13 @@ void CWinSystemX11::NotifyMouseCoverage(bool covered)
        XbmcThreads::ThreadSleep(100);
      }
      XGrabKeyboard(m_dpy, m_mainWindow, True, GrabModeAsync, GrabModeAsync, CurrentTime);
@@ -7323,7 +7312,7 @@ index 901b440..7987cc2 100644
    }
  }
  
-@@ -954,7 +956,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -955,7 +957,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
          XbmcThreads::ThreadSleep(100);
        }
        XGrabKeyboard(m_dpy, m_mainWindow, True, GrabModeAsync, GrabModeAsync, CurrentTime);
@@ -7335,7 +7324,7 @@ index 901b440..7987cc2 100644
      CDirtyRegionList dr;
      RefreshGlxContext(!m_currentOutput.Equals(output));
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index b866d52..3f1b5f8 100644
+index e8993f1..5cccfb7 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -90,6 +90,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -7350,10 +7339,10 @@ index b866d52..3f1b5f8 100644
 1.8.4
 
 
-From 35510c2804dfcbed2660cbfd370a59a687dc712c Mon Sep 17 00:00:00 2001
+From c11b0c93f498bfc14cff517ae36aba80e2910d89 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 8 May 2013 13:14:58 +0200
-Subject: [PATCH 57/85] X11: fix incorrectly used screen num in desktop
+Subject: [PATCH 57/86] X11: fix incorrectly used screen num in desktop
  resolution
 
 ---
@@ -7361,10 +7350,10 @@ Subject: [PATCH 57/85] X11: fix incorrectly used screen num in desktop
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 7987cc2..b13f1a5 100644
+index 2acb36d..101ba98 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -267,9 +267,9 @@ void CWinSystemX11::UpdateResolutions()
+@@ -268,9 +268,9 @@ void CWinSystemX11::UpdateResolutions()
      XMode mode = g_xrandr.GetCurrentMode(currentMonitor);
      m_bIsRotated = out->isRotated;
      if (!m_bIsRotated)
@@ -7376,7 +7365,7 @@ index 7987cc2..b13f1a5 100644
      CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP).strId     = mode.id;
      CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP).strOutput = currentMonitor;
    }
-@@ -304,6 +304,7 @@ void CWinSystemX11::UpdateResolutions()
+@@ -305,6 +305,7 @@ void CWinSystemX11::UpdateResolutions()
        CLog::Log(LOGINFO, "ID:%s Name:%s Refresh:%f Width:%d Height:%d",
                  mode.id.c_str(), mode.name.c_str(), mode.hz, mode.w, mode.h);
        RESOLUTION_INFO res;
@@ -7388,10 +7377,10 @@ index 7987cc2..b13f1a5 100644
 1.8.4
 
 
-From fa1830aa425025a73ae247c2055e796c1730c550 Mon Sep 17 00:00:00 2001
+From 8bae9d95fbe269377445f3b6047b83985f9cc879 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 9 May 2013 12:07:09 +0200
-Subject: [PATCH 58/85] X11: do not overwrite user selected monitor with
+Subject: [PATCH 58/86] X11: do not overwrite user selected monitor with
  fallback
 
 ---
@@ -7400,10 +7389,10 @@ Subject: [PATCH 58/85] X11: do not overwrite user selected monitor with
  2 files changed, 15 insertions(+), 17 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index b13f1a5..0915f20 100644
+index 101ba98..c614c9b 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -171,7 +171,7 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -172,7 +172,7 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
    && m_nHeight == newHeight)
      return true;
  
@@ -7412,7 +7401,7 @@ index b13f1a5..0915f20 100644
    {
      return false;
    }
-@@ -179,7 +179,7 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
+@@ -180,7 +180,7 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
    m_nWidth  = newWidth;
    m_nHeight = newHeight;
    m_bFullScreen = false;
@@ -7421,7 +7410,7 @@ index b13f1a5..0915f20 100644
  
    return false;
  }
-@@ -233,13 +233,13 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+@@ -234,13 +234,13 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
    }
  #endif
  
@@ -7437,7 +7426,7 @@ index b13f1a5..0915f20 100644
  
    return true;
  }
-@@ -249,34 +249,32 @@ void CWinSystemX11::UpdateResolutions()
+@@ -250,34 +250,32 @@ void CWinSystemX11::UpdateResolutions()
    CWinSystemBase::UpdateResolutions();
  
  #if defined(HAS_XRANDR)
@@ -7479,7 +7468,7 @@ index b13f1a5..0915f20 100644
      m_nScreen = DefaultScreen(m_dpy);
      int w = DisplayWidth(m_dpy, m_nScreen);
      int h = DisplayHeight(m_dpy, m_nScreen);
-@@ -290,7 +288,7 @@ void CWinSystemX11::UpdateResolutions()
+@@ -291,7 +289,7 @@ void CWinSystemX11::UpdateResolutions()
  
    CLog::Log(LOGINFO, "Available videomodes (xrandr):");
  
@@ -7488,7 +7477,7 @@ index b13f1a5..0915f20 100644
    string modename = "";
  
    if (out != NULL)
-@@ -690,9 +688,8 @@ void CWinSystemX11::NotifyXRREvent()
+@@ -691,9 +689,8 @@ void CWinSystemX11::NotifyXRREvent()
    }
    m_bIsInternalXrr = false;
  
@@ -7501,7 +7490,7 @@ index b13f1a5..0915f20 100644
    if (out)
      CLog::Log(LOGDEBUG, "%s - current output: %s, mode: %s, refresh: %.3f", __FUNCTION__
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 3f1b5f8..ed70d9c 100644
+index 5cccfb7..1b658e2 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -96,6 +96,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -7516,10 +7505,10 @@ index 3f1b5f8..ed70d9c 100644
 1.8.4
 
 
-From 831ba273cb70fdabe54bcf1433c821432bf334cd Mon Sep 17 00:00:00 2001
+From 54c33464374a1527b93315eca407f49021d332c4 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 12 May 2013 10:50:30 +0200
-Subject: [PATCH 59/85] xrandr: add turn on/off to wrapper
+Subject: [PATCH 59/86] xrandr: add turn on/off to wrapper
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 78 +++++++++++++++++++++++++++++++++++++++----
@@ -7527,18 +7516,18 @@ Subject: [PATCH 59/85] xrandr: add turn on/off to wrapper
  2 files changed, 75 insertions(+), 9 deletions(-)
 
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index 67bf6ca..4e480bf 100644
+index 4355ef7..223472c 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
-@@ -28,6 +28,7 @@
- #include "PlatformInclude.h"
+@@ -29,6 +29,7 @@
  #include "utils/XBMCTinyXML.h"
+ #include "utils/StringUtils.h"
  #include "../xbmc/utils/log.h"
 +#include "threads/SystemClock.h"
  
  #if defined(TARGET_FREEBSD)
  #include <sys/types.h>
-@@ -44,7 +45,7 @@
+@@ -45,7 +46,7 @@
      Query();
  }
  
@@ -7547,7 +7536,7 @@ index 67bf6ca..4e480bf 100644
  {
    if (!force)
      if (m_bInit)
-@@ -61,13 +62,13 @@ bool CXRandR::Query(bool force)
+@@ -62,13 +63,13 @@ bool CXRandR::Query(bool force)
    bool success = false;
    for(unsigned int screennum=0; screennum<m_numScreens; ++screennum)
    {
@@ -7685,10 +7674,10 @@ index d37838a..059062f 100644
 1.8.4
 
 
-From e42d1b627c7b97f4c0f134f5a8c756446ecb3c38 Mon Sep 17 00:00:00 2001
+From 7d7114ee72c68aa33db3a82d326ee727a1dbf162 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 19 May 2013 12:55:35 +0200
-Subject: [PATCH 60/85] xrandr: add GetPreferredMode to wrapper
+Subject: [PATCH 60/86] xrandr: add GetPreferredMode to wrapper
 
 ---
  xbmc/windowing/X11/XRandR.cpp | 23 +++++++++++++++++++++++
@@ -7696,7 +7685,7 @@ Subject: [PATCH 60/85] xrandr: add GetPreferredMode to wrapper
  2 files changed, 24 insertions(+)
 
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index 4e480bf..4809821 100644
+index 223472c..62003f5 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
 @@ -347,6 +347,29 @@ XMode CXRandR::GetCurrentMode(CStdString outputName)
@@ -7745,10 +7734,10 @@ index 059062f..ab7cc63 100644
 1.8.4
 
 
-From 2465f238ed7a881f9e1f3ab08cea68ef55f4b26c Mon Sep 17 00:00:00 2001
+From 16dba892a37c626116fad98fd20de32460edad60 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 11 May 2013 17:12:12 +0200
-Subject: [PATCH 61/85] X11: multi-head improvement - poll for desired output
+Subject: [PATCH 61/86] X11: multi-head improvement - poll for desired output
  if we do not get an xrr event
 
 ---
@@ -7763,7 +7752,7 @@ Subject: [PATCH 61/85] X11: multi-head improvement - poll for desired output
  8 files changed, 105 insertions(+), 12 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index de3c049..a541c03 100755
+index 792a5ce..11d4be5 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
 @@ -6464,7 +6464,7 @@ msgctxt "#14071"
@@ -7790,10 +7779,10 @@ index de3c049..a541c03 100755
  #: xbmc/dialogs/GUIDialogFavourites.cpp
  msgctxt "#15015"
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 9cf84c9..2d306b2 100644
+index 977e90f..15cac91 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -2007,6 +2007,11 @@
+@@ -2030,6 +2030,11 @@
            </constraints>
            <control type="spinner" format="string" delayed="true" />
          </setting>
@@ -7805,7 +7794,7 @@ index 9cf84c9..2d306b2 100644
          <setting id="videoscreen.screen" type="integer" label="240" help="36351">
            <level>0</level>
            <default>0</default>
-@@ -2059,6 +2064,7 @@
+@@ -2082,6 +2087,7 @@
            <control type="toggle" />
          </setting>
          <setting id="videoscreen.blankdisplays" type="boolean" label="13130" help="36355">
@@ -7814,7 +7803,7 @@ index 9cf84c9..2d306b2 100644
            <default>false</default>
            <dependencies>
 diff --git a/xbmc/settings/DisplaySettings.cpp b/xbmc/settings/DisplaySettings.cpp
-index 1a85651..46895d2 100644
+index 966d08f..40bc3b3 100644
 --- a/xbmc/settings/DisplaySettings.cpp
 +++ b/xbmc/settings/DisplaySettings.cpp
 @@ -265,6 +265,10 @@ bool CDisplaySettings::OnSettingChanging(const CSetting *setting)
@@ -7864,10 +7853,10 @@ index 6429291..91a604f 100644
    bool m_xrrEventPending;
  };
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 0915f20..cbb56bf 100644
+index c614c9b..b3fe5102 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -251,18 +251,62 @@ void CWinSystemX11::UpdateResolutions()
+@@ -252,18 +252,62 @@ void CWinSystemX11::UpdateResolutions()
  #if defined(HAS_XRANDR)
    int numScreens = XScreenCount(m_dpy);
    g_xrandr.SetNumScreens(numScreens);
@@ -7934,7 +7923,7 @@ index 0915f20..cbb56bf 100644
      m_bIsRotated = out->isRotated;
      if (!m_bIsRotated)
        UpdateDesktopResolution(CDisplaySettings::Get().GetResolutionInfo(RES_DESKTOP), 0, mode.w, mode.h, mode.hz);
-@@ -381,7 +425,9 @@ bool CWinSystemX11::HasCalibration(const RESOLUTION_INFO &resInfo)
+@@ -382,7 +426,9 @@ bool CWinSystemX11::HasCalibration(const RESOLUTION_INFO &resInfo)
  void CWinSystemX11::GetConnectedOutputs(std::vector<CStdString> *outputs)
  {
    vector<XOutput> outs;
@@ -7944,7 +7933,7 @@ index 0915f20..cbb56bf 100644
    for(unsigned int i=0; i<outs.size(); ++i)
    {
      outputs->push_back(outs[i].name);
-@@ -668,14 +714,34 @@ void CWinSystemX11::CheckDisplayEvents()
+@@ -669,14 +715,34 @@ void CWinSystemX11::CheckDisplayEvents()
  #endif
  }
  
@@ -7982,7 +7971,7 @@ index 0915f20..cbb56bf 100644
    {
      CLog::Log(LOGERROR, "WinSystemX11::RefreshWindow - failed to query xrandr");
      return;
-@@ -702,7 +768,8 @@ void CWinSystemX11::NotifyXRREvent()
+@@ -703,7 +769,8 @@ void CWinSystemX11::NotifyXRREvent()
    bool found(false);
    for (i = RES_DESKTOP; i < CDisplaySettings::Get().ResolutionInfoSize(); ++i)
    {
@@ -7993,7 +7982,7 @@ index 0915f20..cbb56bf 100644
        found = true;
        break;
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index ed70d9c..f0d22bb 100644
+index 1b658e2..7ec5be4 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -70,7 +70,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -8006,7 +7995,7 @@ index ed70d9c..f0d22bb 100644
    bool IsCurrentOutput(CStdString output);
    void NotifyMouseCoverage(bool covered);
 diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index 4809821..1ad26b2 100644
+index 62003f5..8525ede 100644
 --- a/xbmc/windowing/X11/XRandR.cpp
 +++ b/xbmc/windowing/X11/XRandR.cpp
 @@ -149,10 +149,14 @@ bool CXRandR::Query(bool force, int screennum, bool ignoreoff)
@@ -8029,10 +8018,10 @@ index 4809821..1ad26b2 100644
 1.8.4
 
 
-From c27e2083b8228dcb700c552a573322093a31e518 Mon Sep 17 00:00:00 2001
+From 5066653087274cf1a2e4f798dd837b084a20fb28 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 15 May 2013 09:14:34 +0200
-Subject: [PATCH 62/85] X11: ignore mouse move event form other windows
+Subject: [PATCH 62/86] X11: ignore mouse move event form other windows
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 4 +++-
@@ -8064,10 +8053,10 @@ index 908c8b6..938ad26 100644
 1.8.4
 
 
-From d9b1844e2a3bf82a1b9165d1f145a32b45d44c99 Mon Sep 17 00:00:00 2001
+From 6054f8294c83a95ea171bf6f17746c76a495662e Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Jun 2013 16:20:29 +0200
-Subject: [PATCH 63/85] renderer: allow some lateness within vblank interval
+Subject: [PATCH 63/86] renderer: allow some lateness within vblank interval
 
 ---
  xbmc/cores/VideoRenderers/RenderManager.cpp | 12 ++++++++++--
@@ -8075,7 +8064,7 @@ Subject: [PATCH 63/85] renderer: allow some lateness within vblank interval
  2 files changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index 84025e8..20fa453 100644
+index 9e2c055..8dc8a91 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
 @@ -378,6 +378,8 @@ void CXBMCRenderManager::FrameFinish()
@@ -8127,10 +8116,10 @@ index 949c652b..d84ff6c 100644
 1.8.4
 
 
-From 8352f28e2a439b9e479e565652c37dd92ea8d791 Mon Sep 17 00:00:00 2001
+From dddfcdf1742f48f89c498b3919bae14fdc2d0298 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 16 Jun 2013 13:22:58 +0200
-Subject: [PATCH 64/85] X11: another fix for mouse coverage
+Subject: [PATCH 64/86] X11: another fix for mouse coverage
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 6 ++++--
@@ -8163,20 +8152,20 @@ index 938ad26..e4ca56d 100644
 1.8.4
 
 
-From b80c0c9dfd60a7cf76c4a21151675c3f5485099a Mon Sep 17 00:00:00 2001
+From bffacd40a5ac6840fdc92a928595111afed5b222 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 5 Jul 2013 12:14:00 +0200
-Subject: [PATCH 65/85] X11: set windows class name
+Subject: [PATCH 65/86] X11: set windows class name
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 9 ++++++++-
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index cbb56bf..e74f2b0 100644
+index b3fe5102..df5fe9b 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -981,8 +981,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -982,8 +982,10 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
      {
        CreateIconPixmap();
        XWMHints *wm_hints;
@@ -8187,7 +8176,7 @@ index cbb56bf..e74f2b0 100644
        char *title = (char*)titleString.c_str();
  
        XStringListToTextProperty(&title, 1, &windowName);
-@@ -993,10 +995,15 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -994,10 +996,15 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
        wm_hints->icon_pixmap = m_icon;
        wm_hints->flags = StateHint | IconPixmapHint;
  
@@ -8208,17 +8197,17 @@ index cbb56bf..e74f2b0 100644
 1.8.4
 
 
-From 19e12c6f61702eb0d788f5d90edb90c1fd245abd Mon Sep 17 00:00:00 2001
+From 0b1f4e5e718abbe33bbaffa79b323f64a4073eee Mon Sep 17 00:00:00 2001
 From: spiff <spiff@xbmc.org>
 Date: Tue, 16 Jul 2013 14:34:04 +0200
-Subject: [PATCH 66/85] fixed: typo
+Subject: [PATCH 66/86] fixed: typo
 
 ---
  language/English/strings.po | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index a541c03..9edd7ac 100755
+index 11d4be5..89e533d 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
 @@ -6598,7 +6598,7 @@ msgstr ""
@@ -8234,10 +8223,10 @@ index a541c03..9edd7ac 100755
 1.8.4
 
 
-From 28d423cd145f2060bcb42bb2c3b8f0d7484f6117 Mon Sep 17 00:00:00 2001
+From 97f12fc309d051958aa7e6370dff592f4bc2443f Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 67/85] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 67/86] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
@@ -8262,10 +8251,10 @@ index 20fd56e..7c07eec 100644
 1.8.4
 
 
-From 29da02e6a89ab1ca970282a086a815c691fee4c9 Mon Sep 17 00:00:00 2001
+From 4ce3c13d3d897876ed1fb91ed902062ae6cb434c Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 68/85] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 68/86] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -8321,10 +8310,10 @@ index 57bb704..55f17e5 100644
 1.8.4
 
 
-From 871ea2353689c536453c92acde66a1e5e27a8aa8 Mon Sep 17 00:00:00 2001
+From 9d1d816244e92bff7109a58c3da47aaa58e75607 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 9 Aug 2013 18:01:40 +0200
-Subject: [PATCH 69/85] X11: fix keysyms
+Subject: [PATCH 69/86] X11: fix keysyms
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 2 +-
@@ -8347,10 +8336,10 @@ index e4ca56d..b20130c 100644
 1.8.4
 
 
-From cfbf6209b204da6b0fb4ee75c5745bfc1c677f34 Mon Sep 17 00:00:00 2001
+From 9ca5df2724e71cb0e4151d95a03c5ae0cbba582a Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 9 Aug 2013 18:42:36 +0200
-Subject: [PATCH 70/85] X11: fix keysym for non-IM
+Subject: [PATCH 70/86] X11: fix keysym for non-IM
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 2 +-
@@ -8373,10 +8362,10 @@ index b20130c..a38890c 100644
 1.8.4
 
 
-From 591f545e9965b277468740f80d463efc42a49c0c Mon Sep 17 00:00:00 2001
+From ef3804963c9e656ba98e4c41661ff9578c3b118e Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 10 Aug 2013 11:18:16 +0200
-Subject: [PATCH 71/85] add some missing multi media keys
+Subject: [PATCH 71/86] add some missing multi media keys
 
 ---
  system/keymaps/keyboard.xml  | 3 +++
@@ -8399,10 +8388,10 @@ index 7db7973..9e9c411 100644
        <launch_media_select>XBMC.ActivateWindow(MyMusic)</launch_media_select>
        <launch_app1_pc_icon>ActivateWindow(MyPrograms)</launch_app1_pc_icon>
 diff --git a/xbmc/input/XBMC_keytable.cpp b/xbmc/input/XBMC_keytable.cpp
-index 246164b..9be22c9 100644
+index b807897..30bad46 100644
 --- a/xbmc/input/XBMC_keytable.cpp
 +++ b/xbmc/input/XBMC_keytable.cpp
-@@ -181,6 +181,10 @@
+@@ -182,6 +182,10 @@
  , { XBMCK_LAUNCH_MEDIA_CENTER,    0,    0, XBMCVK_LAUNCH_MEDIA_CENTER, "launch_media_center" }
  , { XBMCK_PLAY,                   0,    0, XBMCVK_MEDIA_PLAY_PAUSE,    "play_pause" }
  , { XBMCK_STOP,                   0,    0, XBMCVK_MEDIA_STOP,          "stop" }
@@ -8431,20 +8420,20 @@ index ee6bb69..364b45a 100644
 1.8.4
 
 
-From e0c46b8e3329ac6a8b9e2d5831630ef8a1162929 Mon Sep 17 00:00:00 2001
+From f274b13ff3e6b2f2a650606cda5b7d65d4825ed0 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 10 Aug 2013 15:53:45 +0200
-Subject: [PATCH 72/85] X11: squash multi
+Subject: [PATCH 72/86] X11: squash multi
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index e74f2b0..480efb3 100644
+index df5fe9b..d8e04d6 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -436,7 +436,7 @@ void CWinSystemX11::GetConnectedOutputs(std::vector<CStdString> *outputs)
+@@ -437,7 +437,7 @@ void CWinSystemX11::GetConnectedOutputs(std::vector<CStdString> *outputs)
  
  bool CWinSystemX11::IsCurrentOutput(CStdString output)
  {
@@ -8457,20 +8446,20 @@ index e74f2b0..480efb3 100644
 1.8.4
 
 
-From 9ac3de8e197fe86b88997591a9d2ae047478ccf1 Mon Sep 17 00:00:00 2001
+From 2ff95340a57015519b908f150dfa2faa37bef121 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 3 Sep 2013 20:46:17 +0200
-Subject: [PATCH 73/85] X11: do not poll default monitor
+Subject: [PATCH 73/86] X11: do not poll default monitor
 
 ---
  xbmc/windowing/X11/WinSystemX11.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 480efb3..dd04357 100644
+index d8e04d6..01f5272 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -721,7 +721,7 @@ void CWinSystemX11::NotifyXRREvent(bool poll)
+@@ -722,7 +722,7 @@ void CWinSystemX11::NotifyXRREvent(bool poll)
    if (poll)
    {
      CStdString output = CSettings::Get().GetString("videoscreen.monitor");
@@ -8483,10 +8472,10 @@ index 480efb3..dd04357 100644
 1.8.4
 
 
-From 5930e2c84e28278cfa1123578a610c09ccac0dac Mon Sep 17 00:00:00 2001
+From 094529fc10de406f3dfc6c12d346dd26c4723704 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 29 Oct 2013 20:57:28 +0100
-Subject: [PATCH 74/85] X11: fix broken monitor switching
+Subject: [PATCH 74/86] X11: fix broken monitor switching
 
 ---
  system/settings/settings.xml      |  1 -
@@ -8494,10 +8483,10 @@ Subject: [PATCH 74/85] X11: fix broken monitor switching
  2 files changed, 27 insertions(+), 14 deletions(-)
 
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 2d306b2..75ed10b 100644
+index 15cac91..2ef5ca5 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -2051,7 +2051,6 @@
+@@ -2074,7 +2074,6 @@
              <dependency type="enable" setting="videoscreen.screen" operator="!is">-1</dependency> <!-- DM_WINDOWED -->
              <dependency type="update" setting="videoscreen.screen" />
              <dependency type="update" setting="videoscreen.resolution" />
@@ -8506,7 +8495,7 @@ index 2d306b2..75ed10b 100644
            <control type="spinner" format="string" delayed="true" />
          </setting>
 diff --git a/xbmc/settings/DisplaySettings.cpp b/xbmc/settings/DisplaySettings.cpp
-index 46895d2..c495bb0 100644
+index 40bc3b3..1663836 100644
 --- a/xbmc/settings/DisplaySettings.cpp
 +++ b/xbmc/settings/DisplaySettings.cpp
 @@ -219,19 +219,13 @@ bool CDisplaySettings::OnSettingChanging(const CSetting *setting)
@@ -8589,10 +8578,10 @@ index 46895d2..c495bb0 100644
 1.8.4
 
 
-From 22f94678bba53b0fec894f65ff18c995201451fa Mon Sep 17 00:00:00 2001
+From 05ce471514bffb53de489a907ce1096c6bcd2a37 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 29 Oct 2013 20:57:59 +0100
-Subject: [PATCH 75/85] X11: remove polling for connected outputs, use xrr
+Subject: [PATCH 75/86] X11: remove polling for connected outputs, use xrr
  events
 
 ---
@@ -8697,10 +8686,10 @@ index 91a604f..6429291 100644
    bool m_xrrEventPending;
  };
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index dd04357..b67f291 100644
+index 01f5272..442efa6 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -167,8 +167,21 @@ bool CWinSystemX11::DestroyWindow()
+@@ -168,8 +168,21 @@ bool CWinSystemX11::DestroyWindow()
  
  bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop)
  {
@@ -8723,7 +8712,7 @@ index dd04357..b67f291 100644
      return true;
  
    if (!SetWindow(newWidth, newHeight, false, m_userOutput))
-@@ -254,33 +267,23 @@ void CWinSystemX11::UpdateResolutions()
+@@ -255,33 +268,23 @@ void CWinSystemX11::UpdateResolutions()
  
    bool switchOnOff = CSettings::Get().GetBool("videoscreen.monitorsingle");
    m_userOutput = CSettings::Get().GetString("videoscreen.monitor");
@@ -8760,7 +8749,7 @@ index dd04357..b67f291 100644
      }
      if (!out)
      {
-@@ -288,17 +291,16 @@ void CWinSystemX11::UpdateResolutions()
+@@ -289,17 +292,16 @@ void CWinSystemX11::UpdateResolutions()
        out = g_xrandr.GetOutput(m_userOutput);
      }
  
@@ -8783,7 +8772,7 @@ index dd04357..b67f291 100644
            continue;
          g_xrandr.TurnOffOutput(outputs[i].name);
        }
-@@ -436,7 +438,7 @@ void CWinSystemX11::GetConnectedOutputs(std::vector<CStdString> *outputs)
+@@ -437,7 +439,7 @@ void CWinSystemX11::GetConnectedOutputs(std::vector<CStdString> *outputs)
  
  bool CWinSystemX11::IsCurrentOutput(CStdString output)
  {
@@ -8792,7 +8781,7 @@ index dd04357..b67f291 100644
  }
  
  bool CWinSystemX11::IsSuitableVisual(XVisualInfo *vInfo)
-@@ -714,34 +716,14 @@ void CWinSystemX11::CheckDisplayEvents()
+@@ -715,34 +717,14 @@ void CWinSystemX11::CheckDisplayEvents()
  #endif
  }
  
@@ -8830,7 +8819,7 @@ index dd04357..b67f291 100644
    {
      CLog::Log(LOGERROR, "WinSystemX11::RefreshWindow - failed to query xrandr");
      return;
-@@ -838,14 +820,14 @@ bool CWinSystemX11::EnableFrameLimiter()
+@@ -839,14 +821,14 @@ bool CWinSystemX11::EnableFrameLimiter()
    return m_minimized;
  }
  
@@ -8847,7 +8836,7 @@ index dd04357..b67f291 100644
    {
      mouseActive = g_Mouse.IsActive();
      if (mouseActive)
-@@ -1034,7 +1016,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
+@@ -1035,7 +1017,7 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const CStd
        m_bIsGrabbed = false;
  
      CDirtyRegionList dr;
@@ -8857,7 +8846,7 @@ index dd04357..b67f291 100644
      g_graphicsContext.Clear(0);
      g_graphicsContext.Flip(dr);
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index f0d22bb..03bccc9 100644
+index 7ec5be4..14622cb 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -70,7 +70,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -8893,10 +8882,10 @@ index f0d22bb..03bccc9 100644
 1.8.4
 
 
-From f4068e9f7a8d9c62f73d578edd70a6414c67bb21 Mon Sep 17 00:00:00 2001
+From 34438ff7cb0e001028617ef589d518c74138eecf Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 31 Oct 2013 09:37:13 +0100
-Subject: [PATCH 76/85] X11: remove grabbing of keyboard and mouse
+Subject: [PATCH 76/86] X11: remove grabbing of keyboard and mouse
 
 ---
  xbmc/windowing/WinEventsX11.cpp     |  4 ----
@@ -8926,10 +8915,10 @@ index fe91a2b..550c84d 100644
          break;
        }
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index b67f291..6b5aa09 100644
+index 442efa6..695b352 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -152,8 +152,6 @@ bool CWinSystemX11::DestroyWindow()
+@@ -153,8 +153,6 @@ bool CWinSystemX11::DestroyWindow()
  
    XUnmapWindow(m_dpy, m_mainWindow);
    XSync(m_dpy,TRUE);
@@ -8938,7 +8927,7 @@ index b67f291..6b5aa09 100644
    XDestroyWindow(m_dpy, m_glWindow);
    XDestroyWindow(m_dpy, m_mainWindow);
    m_glWindow = 0;
-@@ -627,30 +625,6 @@ void CWinSystemX11::NotifyAppFocusChange(bool bGaining)
+@@ -628,30 +626,6 @@ void CWinSystemX11::NotifyAppFocusChange(bool bGaining)
      m_bIgnoreNextFocusMessage = false;
  }
  
@@ -8969,7 +8958,7 @@ index b67f291..6b5aa09 100644
  bool CWinSystemX11::Minimize()
  {
    m_bWasFullScreenBeforeMinimize = m_bFullScreen;
-@@ -1001,20 +975,6 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const std:
+@@ -1002,20 +976,6 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const std:
        XWarpPointer(m_dpy, None, m_mainWindow, 0, 0, 0, 0, mouseX*width, mouseY*height);
      }
  
@@ -8991,7 +8980,7 @@ index b67f291..6b5aa09 100644
      RefreshGlxContext(m_currentOutput.compare(output) != 0);
      XSync(m_dpy, FALSE);
 diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 03bccc9..1b8bbcb 100644
+index 14622cb..d1c8729 100644
 --- a/xbmc/windowing/X11/WinSystemX11.h
 +++ b/xbmc/windowing/X11/WinSystemX11.h
 @@ -73,7 +73,6 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
@@ -9014,10 +9003,10 @@ index 03bccc9..1b8bbcb 100644
 1.8.4
 
 
-From 01ad1568d0654fb2cca5477ef095e8d59198148b Mon Sep 17 00:00:00 2001
+From afeac845b0c0e4c3d58fa3afde1f69f62241366b Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 31 Oct 2013 10:46:40 +0100
-Subject: [PATCH 77/85] X11: set ExposureMask on gl window, fixes not updated
+Subject: [PATCH 77/86] X11: set ExposureMask on gl window, fixes not updated
  areas
 
 ---
@@ -9025,10 +9014,10 @@ Subject: [PATCH 77/85] X11: set ExposureMask on gl window, fixes not updated
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index 6b5aa09..1e01fd5 100644
+index 695b352..e55583c 100644
 --- a/xbmc/windowing/X11/WinSystemX11.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -883,8 +883,8 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const std:
+@@ -884,8 +884,8 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const std:
  
      swa.override_redirect = False;
      swa.border_pixel = 0;
@@ -9043,10 +9032,10 @@ index 6b5aa09..1e01fd5 100644
 1.8.4
 
 
-From 1debc3170263c61507b6b1443c747c9f51d5fb10 Mon Sep 17 00:00:00 2001
+From 21dc0a211d6047396d03ce12320f725d47f6a8bf Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 31 Oct 2013 11:25:19 +0100
-Subject: [PATCH 78/85] X11: drop shortcuts, have WM do this
+Subject: [PATCH 78/86] X11: drop shortcuts, have WM do this
 
 ---
  xbmc/windowing/WinEventsX11.cpp | 21 ---------------------
@@ -9108,20 +9097,20 @@ index 6429291..4334d21 100644
 1.8.4
 
 
-From 357c986125a724e909f9cf36b9b49c1392565f63 Mon Sep 17 00:00:00 2001
+From 5ba968be56449e8ab8972dc722bb7be4a5fc0b25 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 7 Nov 2013 15:02:00 +0100
-Subject: [PATCH 79/85] X11: adapt to new settings
+Subject: [PATCH 79/86] X11: adapt to new settings
 
 ---
  system/settings/settings.xml | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 75ed10b..df6a243 100644
+index 2ef5ca5..0bd6a92 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -2011,6 +2011,7 @@
+@@ -2034,6 +2034,7 @@
            <visible>HAS_GLX</visible>
            <level>0</level>
            <default>false</default>
@@ -9133,23 +9122,23 @@ index 75ed10b..df6a243 100644
 1.8.4
 
 
-From 1e9238a0bca0d3e7120e71db1c588a3b35822ea0 Mon Sep 17 00:00:00 2001
+From f3763367f2d97f40fb9924e4a204246a89dee881 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 9 Nov 2013 12:20:05 +0100
-Subject: [PATCH 80/85] vdpau: move cropping of top and bottom lines to
+Subject: [PATCH 80/86] vdpau: move cropping of top and bottom lines to
  renderer
 
 ---
- xbmc/cores/VideoRenderers/LinuxRendererGL.cpp  | 27 ++++++---------
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp  | 33 ++++++++++--------
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 48 ++++++++------------------
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.h   |  2 +-
- 3 files changed, 25 insertions(+), 52 deletions(-)
+ 3 files changed, 33 insertions(+), 50 deletions(-)
 
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-index e562102..e752b53 100644
+index 600ffa7..9df5cdb 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-@@ -1610,7 +1610,6 @@ void CLinuxRendererGL::RenderVDPAU(int index, int field)
+@@ -1611,7 +1611,6 @@ void CLinuxRendererGL::RenderVDPAU(int index, int field)
  
    // make sure we know the correct texture size
    GetPlaneTextureSize(plane);
@@ -9157,7 +9146,7 @@ index e562102..e752b53 100644
  
    // Try some clamping or wrapping
    glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-@@ -1657,10 +1656,10 @@ void CLinuxRendererGL::RenderVDPAU(int index, int field)
+@@ -1658,10 +1657,10 @@ void CLinuxRendererGL::RenderVDPAU(int index, int field)
    }
    else
    {
@@ -9172,24 +9161,32 @@ index e562102..e752b53 100644
    }
    glEnd();
    VerifyGLState();
-@@ -2398,23 +2397,17 @@ bool CLinuxRendererGL::UploadVDPAUTexture(int index)
+@@ -2399,23 +2398,27 @@ bool CLinuxRendererGL::UploadVDPAUTexture(int index)
  
    plane.id = vdpau->texture[0];
  
--  plane.rect = m_sourceRect;
++  // in stereoscopic mode sourceRect may only
++  // be a part of the source video surface
+   plane.rect = m_sourceRect;
 -  plane.width  = im.width;
 -  plane.height = im.height;
--
+ 
 -  plane.height  /= plane.pixpertex_y;
 -  plane.rect.y1 /= plane.pixpertex_y;
 -  plane.rect.y2 /= plane.pixpertex_y;
 -  plane.width   /= plane.pixpertex_x;
 -  plane.rect.x1 /= plane.pixpertex_x;
 -  plane.rect.x2 /= plane.pixpertex_x;
-+  plane.rect.x1 = vdpau->crop.x1;
-+  plane.rect.x2 = vdpau->crop.x2;
-+  plane.rect.y1 = vdpau->crop.y1;
-+  plane.rect.y2 = vdpau->crop.y2;
++  // clip rect
++  if (vdpau->crop.x1 > plane.rect.x1)
++    plane.rect.x1 = vdpau->crop.x1;
++  if (vdpau->crop.x2 < plane.rect.x2)
++    plane.rect.x2 = vdpau->crop.x2;
++  if (vdpau->crop.y1 > plane.rect.y1)
++    plane.rect.y1 = vdpau->crop.y1;
++  if (vdpau->crop.y2 < plane.rect.y2)
++    plane.rect.y2 = vdpau->crop.y2;
++
 +  plane.texheight = vdpau->texHeight;
 +  plane.texwidth  = vdpau->texWidth;
  
@@ -9321,102 +9318,33 @@ index abe8da2..2dd3c28 100644
 1.8.4
 
 
-From 5979b68255723db7c65d73cf9f256c4370c54edc Mon Sep 17 00:00:00 2001
+From c52b3f33cce010c26be8832c16c3232e73dfd5e7 Mon Sep 17 00:00:00 2001
 From: fritsch <peter.fruehberger@gmail.com>
-Date: Sat, 9 Nov 2013 20:52:28 +0100
-Subject: [PATCH 81/85] X11: Drop stoneold vsync methods
+Date: Wed, 13 Nov 2013 08:06:51 +0100
+Subject: [PATCH 82/86] VSync: Drop OML Swap Method
 
 ---
- xbmc/windowing/X11/WinSystemX11GL.cpp | 134 +---------------------------------
- xbmc/windowing/X11/WinSystemX11GL.h   |   7 --
- 2 files changed, 4 insertions(+), 137 deletions(-)
+ xbmc/windowing/X11/WinSystemX11GL.cpp | 31 -------------------------------
+ xbmc/windowing/X11/WinSystemX11GL.h   |  2 --
+ 2 files changed, 33 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11GL.cpp b/xbmc/windowing/X11/WinSystemX11GL.cpp
-index 8707467..86b108f 100644
+index d0a8c41..aead6cc 100644
 --- a/xbmc/windowing/X11/WinSystemX11GL.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11GL.cpp
-@@ -28,14 +28,8 @@
- 
- CWinSystemX11GL::CWinSystemX11GL()
- {
--  m_glXGetVideoSyncSGI   = NULL;
--  m_glXWaitVideoSyncSGI  = NULL;
+@@ -32,8 +32,6 @@
+   m_glXWaitVideoSyncSGI  = NULL;
    m_glXSwapIntervalSGI   = NULL;
    m_glXSwapIntervalMESA  = NULL;
 -  m_glXGetSyncValuesOML  = NULL;
 -  m_glXSwapBuffersMscOML = NULL;
--
--  m_iVSyncErrors = 0;
+ 
+   m_iVSyncErrors = 0;
  }
- 
- CWinSystemX11GL::~CWinSystemX11GL()
-@@ -46,79 +40,7 @@ bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
- {
-   CheckDisplayEvents();
- 
--  if(m_iVSyncMode == 3)
--  {
--    glFinish();
--    unsigned int before = 0, after = 0;
--    if(m_glXGetVideoSyncSGI(&before) != 0)
--      CLog::Log(LOGERROR, "%s - glXGetVideoSyncSGI - Failed to get current retrace count", __FUNCTION__);
--
--    glXSwapBuffers(m_dpy, m_glWindow);
--    glFinish();
--
--    if(m_glXGetVideoSyncSGI(&after) != 0)
--      CLog::Log(LOGERROR, "%s - glXGetVideoSyncSGI - Failed to get current retrace count", __FUNCTION__);
--
--    if(after == before)
--      m_iVSyncErrors = 1;
--    else
--      m_iVSyncErrors--;
--
--    if(m_iVSyncErrors > 0)
--    {
--      CLog::Log(LOGINFO, "GL: retrace count didn't change after buffer swap, switching to vsync mode 4");
--      m_iVSyncErrors = 0;
--      m_iVSyncMode   = 4;
--    }
--
--    if(m_iVSyncErrors < -200)
--    {
--      CLog::Log(LOGINFO, "GL: retrace count change for %d consecutive buffer swap, switching to vsync mode 2", -m_iVSyncErrors);
--      m_iVSyncErrors = 0;
--      m_iVSyncMode   = 2;
--    }
--  }
--  else if (m_iVSyncMode == 4)
--  {
--    glFinish();
--    unsigned int before = 0, swap = 0, after = 0;
--    if(m_glXGetVideoSyncSGI(&before) != 0)
--      CLog::Log(LOGERROR, "%s - glXGetVideoSyncSGI - Failed to get current retrace count", __FUNCTION__);
--
--    if(m_glXWaitVideoSyncSGI(2, (before+1)%2, &swap) != 0)
--      CLog::Log(LOGERROR, "%s - glXWaitVideoSyncSGI - Returned error", __FUNCTION__);
--
--    glXSwapBuffers(m_dpy, m_glWindow);
--    glFinish();
--
--    if(m_glXGetVideoSyncSGI(&after) != 0)
--      CLog::Log(LOGERROR, "%s - glXGetVideoSyncSGI - Failed to get current retrace count", __FUNCTION__);
--
--    if(after == before)
--      CLog::Log(LOGERROR, "%s - glXWaitVideoSyncSGI - Woke up early", __FUNCTION__);
--
--    if(after > before + 1)
--      m_iVSyncErrors++;
--    else
--      m_iVSyncErrors = 0;
--
--    if(m_iVSyncErrors > 30)
--    {
--      CLog::Log(LOGINFO, "GL: retrace count seems to be changing due to the swapbuffers call, switching to vsync mode 3");
--      m_iVSyncMode   = 3;
--      m_iVSyncErrors = 0;
--    }
--  }
+@@ -109,14 +107,6 @@ bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
+       m_iVSyncErrors = 0;
+     }
+   }
 -  else if (m_iVSyncMode == 5)
 -  {
 -    int64_t ust, msc, sbc;
@@ -9425,33 +9353,10 @@ index 8707467..86b108f 100644
 -    else
 -      CLog::Log(LOGERROR, "%s - glXSwapBuffersMscOML - Failed to get current retrace count", __FUNCTION__);
 -  }
--  else
--    glXSwapBuffers(m_dpy, m_glWindow);
-+  glXSwapBuffers(m_dpy, m_glWindow);
+   else
+     glXSwapBuffers(m_dpy, m_glWindow);
  
-   return true;
- }
-@@ -131,8 +53,6 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
-   if(m_glXSwapIntervalMESA)
-     m_glXSwapIntervalMESA(0);
- 
--  m_iVSyncErrors = 0;
--
-   CStdString strVendor(m_RenderVendor);
-   strVendor.ToLower();
- 
-@@ -140,9 +60,8 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
-     return;
- 
-   bool vendor_nvidia = strVendor.find("nvidia") != std::string::npos;
--  bool vendor_ati    = StringUtils::StartsWith(strVendor, "ati");
- 
--  if (m_glXSwapIntervalMESA && !m_iVSyncMode && vendor_ati)
-+  if (m_glXSwapIntervalMESA && !m_iVSyncMode && !vendor_nvidia)
-   {
-     if(m_glXSwapIntervalMESA(1) == 0)
-       m_iVSyncMode = 2;
-@@ -150,24 +69,6 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
+@@ -150,16 +140,6 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
        CLog::Log(LOGWARNING, "%s - glXSwapIntervalMESA failed", __FUNCTION__);
    }
  
@@ -9465,35 +9370,10 @@ index 8707467..86b108f 100644
 -    else
 -      CLog::Log(LOGWARNING, "%s - glXGetSyncValuesOML failed", __FUNCTION__);
 -  }
--  if (m_glXWaitVideoSyncSGI && m_glXGetVideoSyncSGI && !m_iVSyncMode && !vendor_nvidia)
--  {
--    unsigned int count;
--    if(m_glXGetVideoSyncSGI(&count) == 0)
--        m_iVSyncMode = 3;
--    else
--      CLog::Log(LOGWARNING, "%s - glXGetVideoSyncSGI failed, glcontext probably not direct", __FUNCTION__);
--  }
-   if (m_glXSwapIntervalSGI && !m_iVSyncMode)
+   if (m_glXWaitVideoSyncSGI && m_glXGetVideoSyncSGI && !m_iVSyncMode && !vendor_nvidia)
    {
-     if(m_glXSwapIntervalSGI(1) == 0)
-@@ -175,14 +76,9 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
-     else
-       CLog::Log(LOGWARNING, "%s - glXSwapIntervalSGI failed", __FUNCTION__);
-   }
--  if (m_glXSwapIntervalMESA && !m_iVSyncMode && !vendor_ati)
--  {
--    if(m_glXSwapIntervalMESA(1) == 0)
--      m_iVSyncMode = 2;
--    else
--      CLog::Log(LOGWARNING, "%s - glXSwapIntervalMESA failed", __FUNCTION__);
--  }
- 
-+  if (!m_iVSyncMode)
-+    CLog::Log(LOGWARNING, "%s - GLX swap control is not supported", __FUNCTION__);
- }
- 
- bool CWinSystemX11GL::IsExtSupported(const char* extension)
-@@ -210,27 +106,6 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
+     unsigned int count;
+@@ -210,17 +190,6 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
  
    CLog::Log(LOGDEBUG, "GLX_EXTENSIONS:%s", m_glxext.c_str());
  
@@ -9508,76 +9388,99 @@ index 8707467..86b108f 100644
 -  else
 -    m_glXSwapBuffersMscOML = NULL;
 -
--  if (IsExtSupported("GLX_SGI_video_sync"))
--    m_glXWaitVideoSyncSGI = (int (*)(int, int, unsigned int*))glXGetProcAddress((const GLubyte*)"glXWaitVideoSyncSGI");
--  else
--    m_glXWaitVideoSyncSGI = NULL;
--
--  if (IsExtSupported("GLX_SGI_video_sync"))
--    m_glXGetVideoSyncSGI = (int (*)(unsigned int*))glXGetProcAddress((const GLubyte*)"glXGetVideoSyncSGI");
--  else
--    m_glXGetVideoSyncSGI = NULL;
--
-   if (IsExtSupported("GLX_SGI_swap_control") )
-     m_glXSwapIntervalSGI = (int (*)(int))glXGetProcAddress((const GLubyte*)"glXSwapIntervalSGI");
+   if (IsExtSupported("GLX_SGI_video_sync"))
+     m_glXWaitVideoSyncSGI = (int (*)(int, int, unsigned int*))glXGetProcAddress((const GLubyte*)"glXWaitVideoSyncSGI");
    else
-@@ -241,7 +116,6 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
-   else
-     m_glXSwapIntervalMESA = NULL;
- 
--
-   return true;
- }
- 
 diff --git a/xbmc/windowing/X11/WinSystemX11GL.h b/xbmc/windowing/X11/WinSystemX11GL.h
-index 27b246f..36714e1 100644
+index 27b246f..fdc86ec 100644
 --- a/xbmc/windowing/X11/WinSystemX11GL.h
 +++ b/xbmc/windowing/X11/WinSystemX11GL.h
-@@ -43,15 +43,8 @@ class CWinSystemX11GL : public CWinSystemX11, public CRenderSystemGL
- 
-   CStdString m_glxext;
- 
--  int (*m_glXGetVideoSyncSGI)(unsigned int*);
--  int (*m_glXWaitVideoSyncSGI)(int, int, unsigned int*);
+@@ -48,8 +48,6 @@ class CWinSystemX11GL : public CWinSystemX11, public CRenderSystemGL
    int (*m_glXSwapIntervalSGI)(int);
    int (*m_glXSwapIntervalMESA)(int);
--
+ 
 -  Bool    (*m_glXGetSyncValuesOML)(Display* dpy, GLXDrawable drawable, int64_t* ust, int64_t* msc, int64_t* sbc);
 -  int64_t (*m_glXSwapBuffersMscOML)(Display* dpy, GLXDrawable drawable, int64_t target_msc, int64_t divisor,int64_t remainder);
--
--  int m_iVSyncErrors;
- };
  
- XBMC_GLOBAL_REF(CWinSystemX11GL,g_Windowing);
+   int m_iVSyncErrors;
+ };
 -- 
 1.8.4
 
 
-From 3ca871252c5e40846484863c676ed42d094bc51a Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sun, 10 Nov 2013 15:52:18 +0100
-Subject: [PATCH 82/85] X11: use GLX_EXT_swap_control and GLX_MESA_swap_control
- for vsync
+From a148d2b05a00e0c07adebf16541afeea135da651 Mon Sep 17 00:00:00 2001
+From: fritsch <peter.fruehberger@gmail.com>
+Date: Wed, 13 Nov 2013 08:09:28 +0100
+Subject: [PATCH 83/86] VSync: Prefer Mesa Swaps to SGI Swaps
 
 ---
- xbmc/windowing/X11/WinSystemX11GL.cpp | 34 +++++++++++++++-------------------
- xbmc/windowing/X11/WinSystemX11GL.h   |  4 ++--
- 2 files changed, 17 insertions(+), 21 deletions(-)
+ xbmc/windowing/X11/WinSystemX11GL.cpp | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
 diff --git a/xbmc/windowing/X11/WinSystemX11GL.cpp b/xbmc/windowing/X11/WinSystemX11GL.cpp
-index 86b108f..4456715 100644
+index aead6cc..42200bc 100644
 --- a/xbmc/windowing/X11/WinSystemX11GL.cpp
 +++ b/xbmc/windowing/X11/WinSystemX11GL.cpp
-@@ -28,7 +28,7 @@
+@@ -130,16 +130,14 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
+     return;
  
- CWinSystemX11GL::CWinSystemX11GL()
- {
--  m_glXSwapIntervalSGI   = NULL;
-+  m_glXSwapIntervalEXT   = NULL;
-   m_glXSwapIntervalMESA  = NULL;
+   bool vendor_nvidia = strVendor.find("nvidia") != std::string::npos;
+-  bool vendor_ati    = StringUtils::StartsWith(strVendor, "ati");
+ 
+-  if (m_glXSwapIntervalMESA && !m_iVSyncMode && vendor_ati)
++  if (m_glXSwapIntervalMESA && !m_iVSyncMode && !vendor_nvidia)
+   {
+     if(m_glXSwapIntervalMESA(1) == 0)
+       m_iVSyncMode = 2;
+     else
+       CLog::Log(LOGWARNING, "%s - glXSwapIntervalMESA failed", __FUNCTION__);
+   }
+-
+   if (m_glXWaitVideoSyncSGI && m_glXGetVideoSyncSGI && !m_iVSyncMode && !vendor_nvidia)
+   {
+     unsigned int count;
+@@ -155,14 +153,6 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
+     else
+       CLog::Log(LOGWARNING, "%s - glXSwapIntervalSGI failed", __FUNCTION__);
+   }
+-  if (m_glXSwapIntervalMESA && !m_iVSyncMode && !vendor_ati)
+-  {
+-    if(m_glXSwapIntervalMESA(1) == 0)
+-      m_iVSyncMode = 2;
+-    else
+-      CLog::Log(LOGWARNING, "%s - glXSwapIntervalMESA failed", __FUNCTION__);
+-  }
+-
  }
  
-@@ -48,9 +48,9 @@ bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
+ bool CWinSystemX11GL::IsExtSupported(const char* extension)
+-- 
+1.8.4
+
+
+From c28d563db4f7ecdfffe66557e43cde12a9b1b2b3 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Wed, 13 Nov 2013 09:58:58 +0100
+Subject: [PATCH 84/86] X11: use GLX_EXT_swap_control if available
+
+---
+ xbmc/windowing/X11/WinSystemX11GL.cpp | 27 +++++++++++++++++----------
+ xbmc/windowing/X11/WinSystemX11GL.h   |  2 +-
+ 2 files changed, 18 insertions(+), 11 deletions(-)
+
+diff --git a/xbmc/windowing/X11/WinSystemX11GL.cpp b/xbmc/windowing/X11/WinSystemX11GL.cpp
+index 42200bc..f75ef06 100644
+--- a/xbmc/windowing/X11/WinSystemX11GL.cpp
++++ b/xbmc/windowing/X11/WinSystemX11GL.cpp
+@@ -32,6 +32,7 @@
+   m_glXWaitVideoSyncSGI  = NULL;
+   m_glXSwapIntervalSGI   = NULL;
+   m_glXSwapIntervalMESA  = NULL;
++  m_glXSwapIntervalEXT   = NULL;
+ 
+   m_iVSyncErrors = 0;
+ }
+@@ -116,29 +117,31 @@ bool CWinSystemX11GL::PresentRenderImpl(const CDirtyRegionList& dirty)
  void CWinSystemX11GL::SetVSyncImpl(bool enable)
  {
    /* turn of current setting first */
@@ -9588,9 +9491,14 @@ index 86b108f..4456715 100644
 +    m_glXSwapIntervalEXT(m_dpy, m_glWindow, 0);
 +  else if(m_glXSwapIntervalMESA)
      m_glXSwapIntervalMESA(0);
++  else if(m_glXSwapIntervalSGI)
++    m_glXSwapIntervalSGI(0);
  
-   CStdString strVendor(m_RenderVendor);
-@@ -59,22 +59,17 @@ void CWinSystemX11GL::SetVSyncImpl(bool enable)
+   m_iVSyncErrors = 0;
+ 
+-  CStdString strVendor(m_RenderVendor);
+-  StringUtils::ToLower(strVendor);
+-
    if(!enable)
      return;
  
@@ -9598,118 +9506,124 @@ index 86b108f..4456715 100644
 -
 -  if (m_glXSwapIntervalMESA && !m_iVSyncMode && !vendor_nvidia)
 +  if (m_glXSwapIntervalEXT && !m_iVSyncMode)
-   {
--    if(m_glXSwapIntervalMESA(1) == 0)
--      m_iVSyncMode = 2;
--    else
--      CLog::Log(LOGWARNING, "%s - glXSwapIntervalMESA failed", __FUNCTION__);
++  {
 +    m_glXSwapIntervalEXT(m_dpy, m_glWindow, 1);
-+    m_iVSyncMode = 2;
-   }
--
--  if (m_glXSwapIntervalSGI && !m_iVSyncMode)
-+  else if (m_glXSwapIntervalMESA && !m_iVSyncMode)
++    m_iVSyncMode = 6;
++  }
++  if (m_glXSwapIntervalMESA && !m_iVSyncMode)
    {
--    if(m_glXSwapIntervalSGI(1) == 0)
-+    if(m_glXSwapIntervalMESA(1) == 0)
+     if(m_glXSwapIntervalMESA(1) == 0)
        m_iVSyncMode = 2;
      else
--      CLog::Log(LOGWARNING, "%s - glXSwapIntervalSGI failed", __FUNCTION__);
-+      CLog::Log(LOGWARNING, "%s - glXSwapIntervalMESA failed", __FUNCTION__);
+       CLog::Log(LOGWARNING, "%s - glXSwapIntervalMESA failed", __FUNCTION__);
    }
- 
-   if (!m_iVSyncMode)
-@@ -106,13 +101,14 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
- 
-   CLog::Log(LOGDEBUG, "GLX_EXTENSIONS:%s", m_glxext.c_str());
- 
--  if (IsExtSupported("GLX_SGI_swap_control") )
--    m_glXSwapIntervalSGI = (int (*)(int))glXGetProcAddress((const GLubyte*)"glXSwapIntervalSGI");
-+  if (IsExtSupported("GLX_EXT_swap_control"))
-+    m_glXSwapIntervalEXT = (PFNGLXSWAPINTERVALEXTPROC)glXGetProcAddress((const GLubyte*)"glXSwapIntervalEXT");
-   else
--    m_glXSwapIntervalSGI = NULL;
-+    m_glXSwapIntervalEXT = NULL;
- 
-+  // fallback
-   if (IsExtSupported("GLX_MESA_swap_control"))
--    m_glXSwapIntervalMESA = (int (*)(int))glXGetProcAddress((const GLubyte*)"glXSwapIntervalMESA");
-+    m_glXSwapIntervalMESA = (PFNGLXSWAPINTERVALMESAPROC)glXGetProcAddress((const GLubyte*)"glXSwapIntervalMESA");
+-  if (m_glXWaitVideoSyncSGI && m_glXGetVideoSyncSGI && !m_iVSyncMode && !vendor_nvidia)
++  if (m_glXWaitVideoSyncSGI && m_glXGetVideoSyncSGI && !m_iVSyncMode)
+   {
+     unsigned int count;
+     if(m_glXGetVideoSyncSGI(&count) == 0)
+@@ -200,6 +203,10 @@ bool CWinSystemX11GL::CreateNewWindow(const CStdString& name, bool fullScreen, R
    else
      m_glXSwapIntervalMESA = NULL;
  
++  if (IsExtSupported("GLX_EXT_swap_control"))
++    m_glXSwapIntervalEXT = (PFNGLXSWAPINTERVALEXTPROC)glXGetProcAddress((const GLubyte*)"glXSwapIntervalEXT");
++  else
++    m_glXSwapIntervalEXT = NULL;
+ 
+   return true;
+ }
 diff --git a/xbmc/windowing/X11/WinSystemX11GL.h b/xbmc/windowing/X11/WinSystemX11GL.h
-index 36714e1..6303f7a 100644
+index fdc86ec..3223d96 100644
 --- a/xbmc/windowing/X11/WinSystemX11GL.h
 +++ b/xbmc/windowing/X11/WinSystemX11GL.h
-@@ -43,8 +43,8 @@ class CWinSystemX11GL : public CWinSystemX11, public CRenderSystemGL
- 
-   CStdString m_glxext;
- 
--  int (*m_glXSwapIntervalSGI)(int);
--  int (*m_glXSwapIntervalMESA)(int);
+@@ -47,7 +47,7 @@ class CWinSystemX11GL : public CWinSystemX11, public CRenderSystemGL
+   int (*m_glXWaitVideoSyncSGI)(int, int, unsigned int*);
+   int (*m_glXSwapIntervalSGI)(int);
+   int (*m_glXSwapIntervalMESA)(int);
+-
 +  PFNGLXSWAPINTERVALEXTPROC m_glXSwapIntervalEXT;
-+  PFNGLXSWAPINTERVALMESAPROC m_glXSwapIntervalMESA;
+ 
+   int m_iVSyncErrors;
  };
- 
- XBMC_GLOBAL_REF(CWinSystemX11GL,g_Windowing);
 -- 
 1.8.4
 
 
-From b2dc3eea6b360db5846d27bac6851a8fcb46ab10 Mon Sep 17 00:00:00 2001
+From dfdc253cd4350dbccdcddfb71d7542d36786b49f Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
-Date: Tue, 12 Nov 2013 16:11:14 +0100
-Subject: [PATCH 84/85] dvdplayer: fix segfault in GetAudioStreamInfo
+Date: Wed, 13 Nov 2013 19:18:26 +0100
+Subject: [PATCH 85/86] fix flickering video OSD
 
 ---
- xbmc/cores/dvdplayer/DVDPlayer.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ xbmc/video/dialogs/GUIDialogVideoOSD.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 7fc3d9e..58aafd2 100644
---- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
-+++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-@@ -3977,7 +3977,7 @@ void CDVDPlayer::GetAudioStreamInfo(int index, SPlayerAudioStreamInfo &info)
- 
-   if (index == GetAudioStream())
-     info.bitrate = m_dvdPlayerAudio.GetAudioBitrate();
--  else
-+  else if (m_pDemuxer)
-   {
-     CDemuxStreamAudio* stream = m_pDemuxer->GetStreamFromAudioId(index);
-     if (stream)
+diff --git a/xbmc/video/dialogs/GUIDialogVideoOSD.cpp b/xbmc/video/dialogs/GUIDialogVideoOSD.cpp
+index f6e5111..98c3c5a 100644
+--- a/xbmc/video/dialogs/GUIDialogVideoOSD.cpp
++++ b/xbmc/video/dialogs/GUIDialogVideoOSD.cpp
+@@ -55,7 +55,8 @@ void CGUIDialogVideoOSD::FrameMove()
+                            || g_windowManager.IsWindowActive(WINDOW_DIALOG_PVR_OSD_DIRECTOR)
+                            || g_windowManager.IsWindowActive(WINDOW_DIALOG_PVR_OSD_CUTTER)
+                            || g_windowManager.IsWindowActive(WINDOW_DIALOG_OSD_TELETEXT))
+-      SetAutoClose(100); // enough for 10fps
++      // extend show time by original value
++      SetAutoClose(m_showDuration);
+   }
+   CGUIDialog::FrameMove();
+ }
 -- 
 1.8.4
 
 
-From 7d63a7824c728aa8ea40f3665d77e3af54c9a74e Mon Sep 17 00:00:00 2001
+From de51f7fcfe43bdb14d0e10aa1aeb3f208b2390dc Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
-Date: Tue, 12 Nov 2013 16:12:38 +0100
-Subject: [PATCH 85/85] pvr: do not ignore scene markers for edl
+Date: Thu, 14 Nov 2013 09:28:24 +0100
+Subject: [PATCH 86/86] X11: adapt to changes in cstdstring
 
 ---
- xbmc/cores/dvdplayer/Edl.cpp | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ xbmc/windowing/X11/WinSystemX11.cpp | 4 ++--
+ xbmc/windowing/X11/XRandR.cpp       | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/xbmc/cores/dvdplayer/Edl.cpp b/xbmc/cores/dvdplayer/Edl.cpp
-index f1baf94..a20f18c 100644
---- a/xbmc/cores/dvdplayer/Edl.cpp
-+++ b/xbmc/cores/dvdplayer/Edl.cpp
-@@ -634,9 +634,10 @@ bool CEdl::ReadPvr(const CStdString &strMovie)
-       cut.action = MUTE;
-       break;
-     case PVR_EDL_TYPE_SCENE:
--      //cut.action = SCENE;
--      //break;
--      CLog::Log(LOGINFO, "%s - Ignoring entry of type SCENE", __FUNCTION__);
-+      if (!AddSceneMarker(cut.end))
-+      {
-+        CLog::Log(LOGWARNING, "%s - Error adding scene marker for pvr recording", __FUNCTION__);
-+      }
-       continue;
-     case PVR_EDL_TYPE_COMBREAK:
-       cut.action = COMM_BREAK;
+diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
+index e55583c..9962f08 100644
+--- a/xbmc/windowing/X11/WinSystemX11.cpp
++++ b/xbmc/windowing/X11/WinSystemX11.cpp
+@@ -369,8 +369,8 @@ void CWinSystemX11::UpdateResolutions()
+ 
+       CLog::Log(LOGINFO, "Pixel Ratio: %f", res.fPixelRatio);
+ 
+-      res.strMode      = StringUtils::Format("%s: %s @ %.2fHz", out.name.c_str(), mode.name.c_str(), mode.hz);
+-      res.strOutput    = out.name;
++      res.strMode      = StringUtils::Format("%s: %s @ %.2fHz", out->name.c_str(), mode.name.c_str(), mode.hz);
++      res.strOutput    = out->name;
+       res.strId        = mode.id;
+       res.iSubtitles   = (int)(0.965*mode.h);
+       res.fRefreshRate = mode.hz;
+diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
+index 8525ede..c94f2e3 100644
+--- a/xbmc/windowing/X11/XRandR.cpp
++++ b/xbmc/windowing/X11/XRandR.cpp
+@@ -74,7 +74,7 @@ bool CXRandR::Query(bool force, int screennum, bool ignoreoff)
+   CStdString cmd;
+   cmd  = getenv("XBMC_BIN_HOME");
+   cmd += "/xbmc-xrandr";
+-  cmd.AppendFormat(" -q --screen %d", screennum);
++  cmd = StringUtils::Format("%s -q --screen %d", cmd.c_str(), screennum);
+ 
+   FILE* file = popen(cmd.c_str(),"r");
+   if (!file)
+@@ -156,7 +156,7 @@ bool CXRandR::TurnOffOutput(CStdString name)
+   CStdString cmd;
+   cmd  = getenv("XBMC_BIN_HOME");
+   cmd += "/xbmc-xrandr";
+-  cmd.AppendFormat(" --screen %d --output %s --off", output->screen, name.c_str());
++  cmd = StringUtils::Format("%s --screen %d --output %s --off", cmd.c_str(), output->screen, name.c_str());
+ 
+   int status = system(cmd.c_str());
+   if (status == -1)
 -- 
 1.8.4
 
