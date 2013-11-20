@@ -78,7 +78,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-asm \
                            --disable-selinux \
                            --enable-opengl \
-                           --enable-glx-tls \
                            --enable-driglx-direct \
                            --disable-gles1 \
                            --disable-gles2 \
@@ -87,10 +86,10 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-dri3 \
                            --enable-glx \
                            --disable-osmesa \
-                           --disable-egl \
+                           --enable-egl --with-egl-platforms=x11,drm \
                            --disable-xorg \
                            $XA_CONFIG \
-                           --disable-gbm \
+                           --enable-gbm \
                            --disable-xvmc \
                            $MESA_VDPAU \
                            --disable-opencl \
@@ -100,7 +99,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-r600-llvm-compiler \
                            --disable-gallium-tests \
                            --enable-shared-glapi \
-                           --disable-glx-tls \
+                           --enable-glx-tls \
                            --disable-gallium-g3dvl \
                            $MESA_GALLIUM_LLVM \
                            --disable-silent-rules \
@@ -109,6 +108,12 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --with-gallium-drivers=$GALLIUM_DRIVERS \
                            --with-dri-drivers=$DRI_DRIVERS \
                            --with-expat=$SYSROOT_PREFIX/usr"
+
+
+pre_configure_target() {
+  # Mesa fails to build with GOLD if we build with --enable-glx-tls
+  strip_gold
+}
 
 post_makeinstall_target() {
   # rename and relink for cooperate with nvidia drivers
