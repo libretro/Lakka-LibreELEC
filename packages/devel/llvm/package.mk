@@ -42,7 +42,8 @@ PKG_CONFIGURE_OPTS_HOST="--disable-polly \
                          --disable-assertions \
                          --enable-optimized \
                          --disable-debug-runtime \
-                         --disable-debug-symbols"
+                         --disable-debug-symbols \
+                         --enable-experimental-targets=R600"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-polly \
                            --enable-optimized \
@@ -64,9 +65,9 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-polly \
                            --disable-ltdl-install"
 
 if [ "$TARGET_ARCH" = i386 ]; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=x86"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=x86 --enable-experimental-targets=R600"
 elif [ "$TARGET_ARCH" = x86_64 ]; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=x86_64"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=x86_64 --enable-experimental-targets=R600"
 elif [ "$TARGET_ARCH" = arm ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-targets=arm"
 fi
