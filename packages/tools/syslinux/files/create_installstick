@@ -156,8 +156,19 @@ echo "#########################################################"
     md5sumFailed
   fi
 
-# (TODO) umount everything (if more than one partition)
-  umount "$PART"
+# nautilus/dolphin do late-mounting sometimes
+# so race could happen (thanks Klojum)
+  echo "please wait..."
+  sleep 10
+
+# quick and dirty: assume no more than 10 partitions. should be enough
+  for i in `seq 1 10` ; do
+    umount "${DISK}$i" 2>/dev/null
+    umount "${DISK}p$i" 2>/dev/null
+  done
+
+# create a temp dir
+  OE_TMP=$(mktemp -d)
 
 # remove all partitions from the drive
   echo "writing new disklabel on $DISK (removing all partitions)..."
@@ -185,9 +196,9 @@ echo "#########################################################"
   syslinux -f "$PART"
 
 # mount partition
-  echo "mounting partition $PART on /tmp/usb_install..."
-  mkdir -p /tmp/usb_install
-  mount "$PART" /tmp/usb_install
+  echo "mounting partition $PART on $OE_TMP..."
+  mkdir -p $OE_TMP
+  mount "$PART" $OE_TMP
 
 # find UUID
   echo -n "finding partition UUID for $PART ..."
@@ -197,7 +208,7 @@ echo "#########################################################"
 # create bootloader configuration
   echo "creating bootloader configuration..."
 
-cat >/tmp/usb_install/syslinux.cfg << EOF
+cat >$OE_TMP/syslinux.cfg << EOF
 PROMPT 0
 DEFAULT installer
 
@@ -209,16 +220,16 @@ EOF
 
 # copy files
   echo "copying files to $PART..."
-  cp target/KERNEL /tmp/usb_install
-  cp target/KERNEL.md5 /tmp/usb_install
-  cp target/SYSTEM /tmp/usb_install
-  cp target/SYSTEM.md5 /tmp/usb_install
-#  cp Autorun.inf /tmp/usb_install
-  cp openelec.ico /tmp/usb_install
-  cp CHANGELOG /tmp/usb_install
-  cp INSTALL /tmp/usb_install
-  cp README.md /tmp/usb_install
-  cp RELEASE /tmp/usb_install
+  cp target/KERNEL $OE_TMP
+  cp target/KERNEL.md5 $OE_TMP
+  cp target/SYSTEM $OE_TMP
+  cp target/SYSTEM.md5 $OE_TMP
+#  cp Autorun.inf $OE_TMP
+  cp openelec.ico $OE_TMP
+  cp CHANGELOG $OE_TMP
+  cp INSTALL $OE_TMP
+  cp README.md $OE_TMP
+  cp RELEASE $OE_TMP
 
 # sync disk
   echo "syncing disk..."
@@ -250,6 +261,6 @@ EOF
 
 # cleaning
   echo "cleaning tempdir..."
-  rmdir /tmp/usb_install
+  rmdir $OE_TMP
 
 echo "...installation finished"
