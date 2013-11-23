@@ -74,8 +74,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --enable-logind \
                            --disable-backlight \
                            --disable-machined \
-                         --enable-hostnamed \
-                         --enable-timedated \
+                           --disable-hostnamed \
+                           --disable-timedated \
                            --disable-localed \
                            --disable-coredump \
                            --disable-polkit \
