@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="xbmc"
-PKG_VERSION="13.alpha-cca24dd"
+PKG_VERSION="13.alpha-7edcfbc"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
