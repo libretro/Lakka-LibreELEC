@@ -156,6 +156,7 @@ post_makeinstall_target() {
     rm -rf $INSTALL/lib/systemd/systemd-update-utmp
     rm -rf $INSTALL/lib/systemd/system/systemd-update-utmp-runlevel.service
     rm -rf $INSTALL/lib/systemd/system/systemd-update-utmp.service
+    rm -rf $INSTALL/lib/systemd/system/sysinit.target.wants/systemd-update-utmp.service
 
   # remove systemd-ask-password. pointless
     rm -rf $INSTALL/lib/systemd/system/systemd-ask-password-wall.service
@@ -164,6 +165,8 @@ post_makeinstall_target() {
     rm -rf $INSTALL/lib/systemd/system/systemd-ask-password-console.service
     rm -rf $INSTALL/bin/systemd-ask-password
     rm -rf $INSTALL/bin/systemd-tty-ask-password-agent
+    rm -rf $INSTALL/lib/systemd/system/sysinit.target.wants/systemd-ask-password-console.path
+    rm -rf $INSTALL/lib/systemd/system/multi-user.target.wants/systemd-ask-password-wall.path
 
   # remove some generators we never use
     rm -rf $INSTALL/lib/systemd/system-generators/systemd-fstab-generator
