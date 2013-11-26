@@ -19,14 +19,25 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-GUISETTINGS="/storage/.xbmc/userdata/guisettings.xml"
 
-if [ -f "$GUISETTINGS" ] ; then
-  TIMEZONE=`sed -n -e 's/.*<timezone>\(.*\)<\/timezone>.*/\1/p' /storage/.xbmc/userdata/guisettings.xml`
-fi
-
-if [ ! "$TIMEZONE" == "" -a -f "/usr/share/zoneinfo/$TIMEZONE" ] ; then
-  ln -sf "/usr/share/zoneinfo/$TIMEZONE" /var/run/localtime
+if [ -z "$1" ] ; then
+  # called from systemd. read timezone if set
+  if [ -f /storage/.cache/timezone ] ; then
+    TIMEZONE=`cat /storage/.cache/timezone`
+  else
+    if [ -f /storage/.xbmc/userdata/guisettings.xml ] ; then
+      TIMEZONE=`sed -n -e 's/.*<timezone>\(.*\)<\/timezone>.*/\1/p' /storage/.xbmc/userdata/guisettings.xml`
+    fi
+    if [ -z "TIMEZONE" ] ; then
+      TIMEZONE="UTC"
+    fi
+    # save it!
+    echo "$TIMEZONE" > /storage/.cache/timezone
+  fi
 else
-  ln -sf "/usr/share/zoneinfo/UTC" /var/run/localtime
+  # called from xbmc. save the timezone!
+  TIMEZONE="$1"
+  echo "$TIMEZONE" > /storage/.cache/timezone
 fi
+
+ln -sf "/usr/share/zoneinfo/$TIMEZONE" /var/run/localtime

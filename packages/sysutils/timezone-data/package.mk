@@ -59,6 +59,5 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  enable_service tz-data-monitor.path
   enable_service tz-data.service
 }
