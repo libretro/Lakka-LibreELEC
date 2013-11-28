@@ -197,9 +197,7 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  add_user systemd-journal-gateway x 191 191 "Journal Gateway" "/" "/bin/sh"
   add_group systemd-journal 190
-  add_group systemd-journal-gateway 191
 
   add_group audio 63
   add_group cdrom 11
