@@ -119,6 +119,8 @@ post_makeinstall_target() {
     sed -e "s,^.*Compress=.*$,Compress=no,g" -i $INSTALL/etc/systemd/journald.conf
     sed -e "s,^.*SplitMode=.*$,SplitMode=none,g" -i $INSTALL/etc/systemd/journald.conf
     sed -e "s,^.*MaxRetentionSec=.*$,MaxRetentionSec=1week,g" -i $INSTALL/etc/systemd/journald.conf
+    sed -e "s,^.*RuntimeMaxUse=.*$,RuntimeMaxUse=2M,g" -i $INSTALL/etc/systemd/journald.conf
+    sed -e "s,^.*SystemMaxUse=.*$,SystemMaxUse=20M,g" -i $INSTALL/etc/systemd/journald.conf
 
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/bin
