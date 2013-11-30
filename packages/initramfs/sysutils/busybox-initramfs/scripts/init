@@ -477,14 +477,22 @@
       # check md5 sums if .nocheck doesn't exist
       if [ "$MD5_NOCHECK" -eq "0" ] ; then
         if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
-          sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_KERNEL}.md5"
-          sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_SYSTEM}.md5"
+          # *.md5 size-check
+          SYSTEM_MD5_SIZE=$(stat -t "$UPDATE_DIR/${UPDATE_KERNEL}.md5" | awk '{print $2}')
+          KERNEL_MD5_SIZE=$(stat -t "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" | awk '{print $2}')
+          if [ "$SYSTEM_MD5_SIZE" -eq 0 -o "$KERNEL_MD5_SIZE" -eq 0 ] ; then
+            echo "zero-sized .md5 file..."
+            MD5_FAILED="1"
+          else
+            sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_KERNEL}.md5"
+            sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_SYSTEM}.md5"
 
-          echo "Checking ${UPDATE_KERNEL}.md5..."
-          md5sum -c "$UPDATE_DIR/${UPDATE_KERNEL}.md5" || MD5_FAILED="1"
+            echo "Checking ${UPDATE_KERNEL}.md5..."
+            md5sum -c "$UPDATE_DIR/${UPDATE_KERNEL}.md5" || MD5_FAILED="1"
 
-          echo "Checking ${UPDATE_SYSTEM}.md5..."
-          md5sum -c "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" || MD5_FAILED="1"
+            echo "Checking ${UPDATE_SYSTEM}.md5..."
+            md5sum -c "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" || MD5_FAILED="1"
+          fi
         else
           echo "missing ${UPDATE_KERNEL}.md5 or ${UPDATE_SYSTEM}.md5..."
           MD5_FAILED="1"
