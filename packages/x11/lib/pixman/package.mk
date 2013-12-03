@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pixman"
-PKG_VERSION="0.28.2"
+PKG_VERSION="0.32.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -43,7 +43,7 @@ if [ "$TARGET_ARCH" = arm ]; then
   fi
   PIXMAN_CONFIG="--disable-mmx --disable-sse2 --disable-vmx --enable-arm-simd $PIXMAN_NEON --disable-arm-iwmmxt"
 elif [ "$TARGET_ARCH" = i386 -o "$TARGET_ARCH" = x86_64  ]; then
-  PIXMAN_CONFIG="--enable-mmx --enable-sse2 --disable-vmx --disable-arm-simd --disable-arm-neon"
+  PIXMAN_CONFIG="--enable-mmx --enable-sse2 --disable-ssse3 --disable-vmx --disable-arm-simd --disable-arm-neon"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-openmp \
