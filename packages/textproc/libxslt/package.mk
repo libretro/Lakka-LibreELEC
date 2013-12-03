@@ -19,18 +19,31 @@
 ################################################################################
 
 PKG_NAME="libxslt"
-PKG_VERSION="1.1.27"
+PKG_VERSION="1.1.28"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://xmlsoft.org/xslt/"
 PKG_URL="ftp://xmlsoft.org/libxml2/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS="libxml2"
+PKG_BUILD_DEPENDS_TARGET="toolchain libxml2"
 PKG_PRIORITY="optional"
 PKG_SECTION="textproc"
 PKG_SHORTDESC="libxslt"
 PKG_LONGDESC="libxslt"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+                           --disable-shared \
+                           --without-python \
+                           --without-crypto"
+
+post_makeinstall_target() {
+  $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $INSTALL/usr/bin/xslt-config
+  mv $INSTALL/usr/bin/xslt-config $ROOT/$TOOLCHAIN/bin
+
+  rm -rf $INSTALL/usr/bin/xsltproc
+  rm -rf $INSTALL/usr/lib/xsltConf.sh
+}
