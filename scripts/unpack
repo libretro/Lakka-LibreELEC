@@ -29,12 +29,12 @@ fi
 
 $SCRIPTS/get $1
 
+PKG_BUILD="$BUILD/$PKG_NAME-$PKG_VERSION"
+STAMP=$PKG_BUILD/.openelec-unpack
+
 mkdir -p $BUILD
 
 [ ! -d "$SOURCES/$1" -a ! -d "$PKG_DIR/sources" ] && exit 0
-
-mkdir -p $STAMPS/$1
-STAMP=$STAMPS/$1/unpack
 
 [ -f "$STAMP" -a -f "$PKG_DIR/need_unpack" ] && $PKG_DIR/need_unpack $@
 
@@ -57,11 +57,7 @@ done
 printf "%${BUILD_INDENT}c UNPACK   $1\n" ' '>&$SILENT_OUT
 export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
-rm -rf $BUILD/$1[-_][0-9]*
-rm -rf $BUILD/$1[-_]r[0-9]*
-rm -rf $BUILD/$1[-_]cvs*
-rm -rf $BUILD/$1[-_]svn*
-rm -rf $BUILD/$1[-_]git*
+rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
 
 if [ -n "$PKG_URL" ]; then
   $SCRIPTS/extract $1 "$1*.tar.bz2" $BUILD
@@ -73,35 +69,26 @@ if [ -n "$PKG_URL" ]; then
   $SCRIPTS/extract $1 "$1*.7z"      $BUILD
 fi
 
+if [ -n "$PKG_SOURCE_DIR" ]; then
+  mv $BUILD/$PKG_SOURCE_DIR $BUILD/$PKG_NAME-$PKG_VERSION
+fi
+
+# post_unpack() : Formerly used to replace $PKG_DIR/rename, now replaced by
+# $PKG_SOURCE_DIR . Keep this here for other usage or remove later
 if [ -f $PKG_DIR/package.mk ]; then
   # unset functions
   unset -f post_unpack
 
   . $PKG_DIR/package.mk
 
-  # post_unpack (replaces PKG_DIR/rename)
   if [ "$(type -t post_unpack)" = "function" ]; then
     post_unpack
   fi
 fi
 
-[ -f "$PKG_DIR/rename" ] && $PKG_DIR/rename $@ >&$VERBOSE_OUT
-
 if [ -d "$PKG_DIR/sources" ]; then
   [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}
   cp -PRf $PKG_DIR/sources/* $BUILD/${PKG_NAME}-${PKG_VERSION}
-fi
-
-if [ -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}_${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}_${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}.${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}.${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}${PKG_VERSION}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}${PKG_VERSION}"
-elif [ -d "$BUILD/${PKG_NAME}" ]; then
-  PKG_BUILD="$BUILD/${PKG_NAME}"
 fi
 
 for i in $PKG_DIR/patches/$PKG_NAME-*.patch ; do
