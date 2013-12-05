@@ -25,6 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wirbel.htpc-forum.de/wirbelscan/index2.html"
 PKG_URL="http://wirbel.htpc-forum.de/wirbelscan/$PKG_NAME-$PKG_VERSION.tgz"
+PKG_SOURCE_DIR="wirbelscan-${PKG_VERSION}"
 PKG_DEPENDS=""
 PKG_BUILD_DEPENDS_TARGET="toolchain vdr"
 PKG_PRIORITY="optional"
@@ -33,17 +34,12 @@ PKG_SHORTDESC="TV"
 PKG_LONGDESC="TV"
 
 PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
 PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
                       LIBDIR=\".\" \
                       LOCALEDIR=\"./locale\""
-
-post_unpack() {
-  mv $ROOT/$BUILD/wirbelscan-${PKG_VERSION} $ROOT/$BUILD/${PKG_NAME}-${PKG_VERSION}
-}
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
