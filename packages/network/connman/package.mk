@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="connman"
-PKG_VERSION="1.19"
+PKG_VERSION="1.20"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -68,9 +68,9 @@ PKG_CONFIGURE_OPTS_TARGET="WPASUPPLICANT=/usr/bin/wpa_supplicant \
                            --disable-nmcompat \
                            --disable-polkit \
                            --disable-selinux \
-                           --enable-loopback=builtin \
-                           --enable-ethernet=builtin \
-                           --enable-wifi=builtin \
+                           --enable-loopback \
+                           --enable-ethernet \
+                           --enable-wifi \
                            --disable-bluetooth \
                            --disable-ofono \
                            --disable-dundee \
