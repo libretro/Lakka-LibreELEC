@@ -25,6 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://live.vdr-developer.org/en/index.php"
 PKG_URL="http://live.vdr-developer.org/downloads/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_SOURCE_DIR="live-${PKG_VERSION}"
 PKG_DEPENDS=""
 PKG_BUILD_DEPENDS_TARGET="toolchain vdr tntnet pcre-host pcre"
 PKG_PRIORITY="optional"
@@ -33,17 +34,12 @@ PKG_SHORTDESC="vdr-live: the LIVE Interactive VDR Environment/"
 PKG_LONGDESC="vdr-live allows a comfortable operation of VDR and some of its plugins trough a web interface"
 
 PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
 PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
                       LIBDIR=\".\" \
                       LOCALEDIR=\"./locale\""
-
-post_unpack() {
-  mv $ROOT/$BUILD/live-${PKG_VERSION} $ROOT/$BUILD/${PKG_NAME}-${PKG_VERSION}
-}
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
