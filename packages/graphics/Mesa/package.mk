@@ -39,7 +39,7 @@ PKG_AUTORECONF="yes"
   get_graphicdrivers
 
 if [ "$LLVM_SUPPORT" = "yes" ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET llvm"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET elfutils llvm"
   PKG_DEPENDS="$PKG_DEPENDS llvm"
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config-host"
   MESA_GALLIUM_LLVM="--enable-gallium-llvm --with-llvm-shared-libs"
