@@ -101,8 +101,6 @@ make_target() {
   make -C panel
   make -C menu
   make -C form
-
-  $AR cru lib/libncurses.a obj_s/*.o
 }
 
 makeinstall_target() {
@@ -112,20 +110,14 @@ makeinstall_target() {
   $MAKEINSTALL -C menu
   $MAKEINSTALL -C form
 
-  cp $SYSROOT_PREFIX/usr/include/ncurses/curses.h \
-     $SYSROOT_PREFIX/usr/include/ncurses/term.h \
-     $SYSROOT_PREFIX/usr/include/
-
   cp misc/ncurses-config $ROOT/$TOOLCHAIN/bin
     chmod +x $ROOT/$TOOLCHAIN/bin/ncurses-config
     $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $ROOT/$TOOLCHAIN/bin/ncurses-config
 
-  make DESTDIR=$INSTALL -C include install
   make DESTDIR=$INSTALL -C ncurses install
   make DESTDIR=$INSTALL -C panel install
   make DESTDIR=$INSTALL -C menu install
   make DESTDIR=$INSTALL -C form install
-
 }
 
 post_makeinstall_target() {

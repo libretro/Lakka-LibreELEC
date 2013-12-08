@@ -36,7 +36,7 @@ PKG_LONGDESC="MySQL is a SQL (Structured Query Language) database server. SQL is
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-TARGET_CFLAGS="$TARGET_CFLAGS -fPIC -DPIC"
+TARGET_CFLAGS="$TARGET_CFLAGS -fPIC -DPIC -I$SYSROOT_PREFIX/usr/include/ncurses"
 
 PKG_CONFIGURE_OPTS_HOST="--with-zlib-dir=$ROOT/$TOOLCHAIN"
 
