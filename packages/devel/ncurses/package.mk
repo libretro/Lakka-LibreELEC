@@ -36,11 +36,6 @@ PKG_LONGDESC="The ncurses (new curses) library is a free software emulation of c
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-export BUILD_CC="$HOST_CC"
-export BUILD_CPPFLAGS="$HOST_CPPFLAGS -I../include"
-export BUILD_CFLAGS="$HOST_CFLAGS"
-export BUILD_LDFLAGS="$HOST_LDFLAGS"
-
 PKG_CONFIGURE_OPTS_HOST="--with-shared"
 PKG_CONFIGURE_OPTS_TARGET="--without-cxx \
                            --without-cxx-binding \
@@ -98,26 +93,17 @@ makeinstall_host() {
 make_target() {
   make -C include
   make -C ncurses
-  make -C panel
-  make -C menu
-  make -C form
 }
 
 makeinstall_target() {
   $MAKEINSTALL -C include
   $MAKEINSTALL -C ncurses
-  $MAKEINSTALL -C panel
-  $MAKEINSTALL -C menu
-  $MAKEINSTALL -C form
 
   cp misc/ncurses-config $ROOT/$TOOLCHAIN/bin
     chmod +x $ROOT/$TOOLCHAIN/bin/ncurses-config
     $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $ROOT/$TOOLCHAIN/bin/ncurses-config
 
   make DESTDIR=$INSTALL -C ncurses install
-  make DESTDIR=$INSTALL -C panel install
-  make DESTDIR=$INSTALL -C menu install
-  make DESTDIR=$INSTALL -C form install
 }
 
 post_makeinstall_target() {
@@ -127,10 +113,6 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/share/terminfo/s
     TERMINFO=$INSTALL/usr/share/terminfo $ROOT/$TOOLCHAIN/bin/tic -xe screen \
-      $ROOT/$PKG_BUILD/misc/terminfo.src
-
-  mkdir -p $INSTALL/usr/share/terminfo/v
-    TERMINFO=$INSTALL/usr/share/terminfo $ROOT/$TOOLCHAIN/bin/tic -xe vt100 \
       $ROOT/$PKG_BUILD/misc/terminfo.src
 
   mkdir -p $INSTALL/usr/share/terminfo/x
