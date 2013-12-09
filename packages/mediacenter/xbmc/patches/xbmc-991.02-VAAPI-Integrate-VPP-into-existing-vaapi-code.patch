@@ -1,7 +1,7 @@
-From 7e27055debe5e9851e6a9b8707253a4b5c926a28 Mon Sep 17 00:00:00 2001
+From 0de5c323cee26d565fcd84eda803d3c92b4e6b37 Mon Sep 17 00:00:00 2001
 From: BtbN <btbn@btbn.de>
 Date: Thu, 3 Oct 2013 14:49:38 +0200
-Subject: [PATCH 2/2] VAAPI: Integrate VPP into existing vaapi code
+Subject: [PATCH] VAAPI: Integrate VPP into existing vaapi code
 
 ---
  language/English/strings.po                    |  27 +-
@@ -15,48 +15,48 @@ Subject: [PATCH 2/2] VAAPI: Integrate VPP into existing vaapi code
  8 files changed, 513 insertions(+), 40 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 15cee63..4495364 100755
+index bab2c12..ea38e13 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
-@@ -7129,7 +7129,32 @@ msgctxt "#16325"
- msgid "VDPAU - Bob"
+@@ -7150,7 +7150,32 @@ msgctxt "#16326"
+ msgid "DXVA-HD"
  msgstr ""
  
--#empty strings from id 16326 to 16399
+-#empty strings from id 16327 to 16399
 +#: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+msgctxt "#16326"
++msgctxt "#16327"
 +msgid "VAAPI Auto"
 +msgstr ""
 +
 +#: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+msgctxt "#16327"
++msgctxt "#16328"
 +msgid "VAAPI Weave"
 +msgstr ""
 +
 +#: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+msgctxt "#16328"
++msgctxt "#16329"
 +msgid "VAAPI Bob"
 +msgstr ""
 +
 +#: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+msgctxt "#16329"
++msgctxt "#16330"
 +msgid "VAAPI Motion Adaptive"
 +msgstr ""
 +
 +#: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+msgctxt "#16330"
++msgctxt "#16331"
 +msgid "VAAPI Motion Compensated"
 +msgstr ""
 +
-+#empty strings from id 16331 to 16399
++#empty strings from id 16332 to 16399
  
  #: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
  msgctxt "#16400"
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-index 600ffa7..375af79 100644
+index aa52f72..c4a7455 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
-@@ -3480,6 +3480,26 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
+@@ -3488,6 +3488,26 @@ bool CLinuxRendererGL::Supports(EINTERLACEMETHOD method)
    if(m_renderMethod & RENDER_VAAPI)
    {
  #ifdef HAVE_LIBVA
@@ -83,7 +83,7 @@ index 600ffa7..375af79 100644
      VAAPI::CDisplayPtr disp = m_buffers[m_iYV12RenderBuffer].vaapi.display;
      if(disp)
      {
-@@ -3567,6 +3587,14 @@ EINTERLACEMETHOD CLinuxRendererGL::AutoInterlaceMethod()
+@@ -3575,6 +3595,14 @@ EINTERLACEMETHOD CLinuxRendererGL::AutoInterlaceMethod()
    if(m_renderMethod & RENDER_VDPAU)
      return VS_INTERLACEMETHOD_NONE;
  
@@ -132,7 +132,7 @@ index 3facfce..e7304e0 100644
      return display;
    }
  
-@@ -151,6 +154,9 @@ CSurfaceGL::~CSurfaceGL()
+@@ -151,6 +154,9 @@ static CDisplayPtr GetGlobalDisplay()
  
  CDecoder::CDecoder()
  {
@@ -728,7 +728,7 @@ index a520e42..684b8d0 100644
  class CDecoder
    : public CDVDVideoCodecFFmpeg::IHardwareDecoder
  {
-@@ -113,22 +174,26 @@ public:
+@@ -113,22 +174,26 @@ class CDecoder
    virtual int  Decode    (AVCodecContext* avctx, AVFrame* frame);
    virtual bool GetPicture(AVCodecContext* avctx, AVFrame* frame, DVDVideoPicture* picture);
    virtual int  Check     (AVCodecContext* avctx);
@@ -756,7 +756,7 @@ index a520e42..684b8d0 100644
    int                    m_refs;
    std::list<CSurfacePtr> m_surfaces_used;
    std::list<CSurfacePtr> m_surfaces_free;
-@@ -139,7 +204,23 @@ protected:
+@@ -139,7 +204,23 @@ class CDecoder
  
    vaapi_context *m_hwaccel;
  
@@ -781,7 +781,7 @@ index a520e42..684b8d0 100644
  }
 +
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index 614e869..3667806 100644
+index 79ce315..414f6dc 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
 @@ -167,6 +167,7 @@ void CAdvancedSettings::Initialize()
@@ -830,21 +830,21 @@ index 293f363..199290f 100644
  };
  
 diff --git a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-index 5218a83..6eca774 100644
+index 5218a83..3fe91d8 100644
 --- a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
 +++ b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
 @@ -116,6 +116,11 @@ void CGUIDialogVideoSettings::CreateSettings()
      entries.push_back(make_pair(VS_INTERLACEMETHOD_DXVA_BOB                   , 16320));
      entries.push_back(make_pair(VS_INTERLACEMETHOD_DXVA_BEST                  , 16321));
      entries.push_back(make_pair(VS_INTERLACEMETHOD_AUTO_ION                   , 16325));
-+    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_AUTO                 , 16326));
-+    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_WEAVE                , 16327));
-+    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_BOB                  , 16328));
-+    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_MOTION_ADAPTIVE      , 16329));
-+    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_MOTION_COMPENSATED   , 16330));
++    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_AUTO                 , 16327));
++    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_WEAVE                , 16328));
++    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_BOB                  , 16329));
++    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_MOTION_ADAPTIVE      , 16330));
++    entries.push_back(make_pair(VS_INTERLACEMETHOD_VAAPI_MOTION_COMPENSATED   , 16331));
  
      /* remove unsupported methods */
      for(vector<pair<int, int> >::iterator it = entries.begin(); it != entries.end();)
 -- 
-1.8.3.2
+1.8.5.1
 
