@@ -24,7 +24,8 @@
 
 clean ()
 {
-  echo " CLEAN    $1" >&$SILENT_OUT
+  printf "%${BUILD_INDENT}c CLEAN   $1\n" ' '>&$SILENT_OUT
+  export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
   if [ "$CLEAN_SOURCES" = true ]; then
     rm -rf $SOURCES/$1
@@ -37,8 +38,20 @@ clean ()
     rm -rf $STAMPS_NOARCH/$1
     rm -rf $SOURCES/$1
   else
-    rm -rf $PKG_BUILD
-    rm -f $STAMPS/$1*/unpack
+    for i in $BUILD/$1-*; do
+      if [ -d $i ] ; then
+        if [ -f $i/.openelec-unpack ] ; then
+          . $i/.openelec-unpack
+          if [ "$STAMP_PKG_NAME" = "$1" ]; then
+            printf "%${BUILD_INDENT}c * Removing $i ...\n" ' '>&$SILENT_OUT
+            rm -rf $i
+          fi
+        else
+          printf "%${BUILD_INDENT}c * Removing $i ...\n" ' '>&$SILENT_OUT
+          rm -rf $i
+        fi
+      fi
+    done
     rm -f $STAMPS/$1*/build_*
   fi
 }
