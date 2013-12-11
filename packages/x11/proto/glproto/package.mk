@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="glproto"
-PKG_VERSION="1.4.16"
+PKG_VERSION="1.4.17"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
