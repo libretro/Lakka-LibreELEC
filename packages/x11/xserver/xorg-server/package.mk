@@ -99,7 +99,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --enable-glx-tls \
                            --enable-registry \
                            $XORG_COMPOSITE \
-                           $XORG_XINERAMA \
                            --enable-mitshm \
                            --disable-xres \
                            --enable-record \
@@ -111,22 +110,32 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-xdm-auth-1 \
                            $XORG_MESA \
                            --enable-dri2 \
+                           --disable-dri3 \
+                           --enable-present \
+                           $XORG_XINERAMA \
                            --enable-xf86vidmode \
                            --disable-xace \
+                           --disable-xselinux \
                            --disable-xcsecurity \
                            --disable-tslib \
                            --enable-dbe \
                            --disable-xf86bigfont \
                            --enable-dpms \
                            --enable-config-udev \
+                           --enable-config-udev-kms \
                            --disable-config-dbus \
                            --disable-config-hal \
+                           --disable-config-wscons \
                            --enable-xfree86-utils \
                            --enable-vgahw \
                            --enable-vbe \
                            --enable-int10-module \
                            --disable-windowswm \
                            --enable-libdrm \
+                           --enable-clientids \
+                           --enable-pciaccess \
+                           --enable-linux-acpi \
+                           --enable-linux-apm \
                            --enable-xorg \
                            --disable-dmx \
                            --disable-xvfb \
@@ -138,15 +147,20 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-xephyr \
                            --disable-xfake \
                            --disable-xfbdev \
+                           --disable-kdrive-kbd \
+                           --disable-kdrive-mouse \
+                           --disable-kdrive-evdev \
+                           --disable-libunwind \
+                           --disable-install-setuid \
                            --enable-unix-transport \
                            --disable-tcp-transport \
+                           --disable-ipv6 \
                            --disable-local-transport \
-                           --disable-install-setuid \
                            --disable-secure-rpc \
+                           --enable-xtrans-send-fds \
                            --disable-docs \
                            --disable-devel-docs \
                            --with-int10=x86emu \
-                           --disable-ipv6 \
                            --with-gnu-ld \
                            --with-sha1=libcrypto \
                            --with-os-vendor=OpenELEC.tv \
