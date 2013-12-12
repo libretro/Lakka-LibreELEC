@@ -22,8 +22,7 @@
 
 . config/options $1
 
-clean ()
-{
+if [ ! -z "$1" ]; then
   printf "%${BUILD_INDENT}c CLEAN    $1\n" ' '>&$SILENT_OUT
   export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
@@ -32,45 +31,20 @@ clean ()
     return
   fi
 
-  if [ "$FULL" = true ]; then
-    rm -rf $BUILD_BASE*/$STAMPS_NOARCH/$1*
-    rm -rf $BUILD_BASE*/$1*
-    rm -rf $STAMPS_NOARCH/$1
-    rm -rf $SOURCES/$1
-  else
-    for i in $BUILD/$1-*; do
-      if [ -d $i ] ; then
-        if [ -f $i/.openelec-unpack ] ; then
-          . $i/.openelec-unpack
-          if [ "$STAMP_PKG_NAME" = "$1" ]; then
-            printf "%${BUILD_INDENT}c * Removing $i ...\n" ' '>&$SILENT_OUT
-            rm -rf $i
-          fi
-        else
-          printf "%${BUILD_INDENT}c * Removing $i ...\n" ' '>&$SILENT_OUT
-          rm -rf $i
-        fi
+  for i in $BUILD/$1-*; do
+    if [ -d $i -a -f "$i/.openelec-unpack" ] ; then
+      . "$i/.openelec-unpack"
+      if [ "$STAMP_PKG_NAME" = "$1" ]; then
+        printf "%${BUILD_INDENT}c * Removing $i ...\n" ' '>&$SILENT_OUT
+        rm -rf $i
       fi
-    done
-    rm -f $STAMPS/$1*/build_*
-  fi
-}
-
-if [ "$1" = "--full" ]; then
-  FULL=true
-  shift
-elif [ "$1" = "--sources" ]; then
-  CLEAN_SOURCES=true
-  shift
-fi
-
-if [ -z "$1" ]; then
-  for i in $PACKAGES/*; do clean ${i#$PACKAGES/}; done
-  rm -rf $BUILD/iso
-  rm -rf $BUILD/ziso
-  [ "$FULL" = true ] && rm -rf $CCACHE_DIR
-else
-  clean $1
+    else
+      # force clean if no stamp found (previous unpack failed)
+      printf "%${BUILD_INDENT}c * Removing $i ...\n" ' '>&$SILENT_OUT
+      rm -rf $i
+    fi
+  done
+  rm -f $STAMPS/$1*/build_*
 fi
 
 exit 0
