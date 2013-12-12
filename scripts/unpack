@@ -36,25 +36,34 @@ mkdir -p $BUILD
 
 [ ! -d "$SOURCES/$1" -a ! -d "$PKG_DIR/sources" ] && exit 0
 
-[ -f "$STAMP" -a -f "$PKG_DIR/need_unpack" ] && $PKG_DIR/need_unpack $@
-
-if [ -f $PKG_DIR/package.mk ]; then
-  # trigger unpack / full rebuild on any package.mk change
-  if [ -f $STAMP -a $PKG_DIR/package.mk -nt $STAMP ]; then
-    CLEAN_SOURCE=yes
-  fi
-elif [ -f $PKG_DIR/meta ]; then
-  # trigger unpack / full rebuild on any meta change (deprecated)
-  if [ -f $STAMP -a $PKG_DIR/meta -nt $STAMP ]; then
-    CLEAN_SOURCE=yes
-  fi
-fi
-
-for patch in $PKG_DIR/patches/*; do
-  # trigger unpack / full rebuild on any patch change
-  if [ "$patch" -nt "$STAMP" ]; then
-    CLEAN_SOURCE=yes
-    break
+for i in $BUILD/$1-*; do
+  if [ -d $i -a -f "$i/.openelec-unpack" ] ; then
+    . "$i/.openelec-unpack"
+    if [ "$STAMP_PKG_NAME" = "$1" ]; then
+      # trigger unpack / full rebuild on any package.mk change
+      if [ -f $PKG_DIR/package.mk -a $PKG_DIR/package.mk -nt "$i/.openelec-unpack" ]; then
+        CLEAN_SOURCE=yes
+        break
+      # TODO: remove after converting ALL packages
+      elif [ -f $PKG_DIR/meta -a $PKG_DIR/meta -nt "$i/.openelec-unpack" ]; then
+        CLEAN_SOURCE=yes
+        break
+      fi
+      # handle $PKG_NEED_UNPACK
+      for file in $PKG_NEED_UNPACK; do
+        if [ -f "$file" -a "$file" -nt "$i/.openelec-unpack" ] ; then
+          CLEAN_SOURCE=yes
+          break
+        fi
+      done
+      # trigger unpack / full rebuild on any patch change
+      for patch in $PKG_DIR/patches/* $PKG_DIR/patches.upstream/*; do
+        if [ -f "$patch" -a "$patch" -nt "$i/.openelec-unpack" ]; then
+          CLEAN_SOURCE=yes
+          break
+        fi
+      done
+    fi
   fi
 done
 
