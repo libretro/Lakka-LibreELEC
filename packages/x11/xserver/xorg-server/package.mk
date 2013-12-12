@@ -19,14 +19,14 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.14.4"
+PKG_VERSION="1.14.99.904"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS="libpciaccess libX11 libXfont libdrm openssl freetype pixman systemd xorg-launch-helper"
-PKG_BUILD_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto fixesproto damageproto scrnsaverproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto glproto libpciaccess libX11 libXfont libxkbfile libdrm openssl freetype pixman fontsproto systemd"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto fixesproto damageproto scrnsaverproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto glproto presentproto libpciaccess libX11 libXfont libxkbfile libdrm openssl freetype pixman fontsproto systemd"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/xserver"
 PKG_SHORTDESC="xorg-server: The Xorg X server"
