@@ -36,15 +36,17 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
-PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
-                      LIBDIR=\".\" \
-                      LOCALEDIR=\"./locale\""
-
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
   export CXXFLAGS="$CXXFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
   export LDFLAGS="$LDFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+}
+
+make_target() {
+  VDR_DIR=$(get_build_dir vdr)
+  make VDRDIR=$VDR_DIR \
+    LIBDIR="." \
+    LOCALEDIR="./locale"
 }
 
 makeinstall_target() {
