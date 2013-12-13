@@ -37,11 +37,6 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
-PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
-                      LIBDIR=\".\" \
-                      LOCALEDIR=\"./locale\""
-
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
   export CXXFLAGS="$CXXFLAGS -fPIC"
@@ -49,7 +44,15 @@ pre_configure_target() {
 }
 
 pre_build_target() {
-  ln -sf $ROOT/$BUILD/vdr-wirbelscan-[0-9]*/wirbelscan_services.h $PKG_BUILD
+  WIRBELSCAN_DIR=$(get_build_dir vdr-wirbelscan)
+  ln -sf $WIRBELSCAN_DIR/wirbelscan_services.h $PKG_BUILD
+}
+
+make_target() {
+  VDR_DIR=$(get_build_dir vdr)
+  make VDRDIR=$VDR_DIR \
+    LIBDIR="." \
+    LOCALEDIR="./locale"
 }
 
 makeinstall_target() {

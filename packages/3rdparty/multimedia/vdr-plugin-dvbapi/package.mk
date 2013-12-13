@@ -36,13 +36,6 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-VDR_DIR=$(basename $BUILD/vdr-[0-9]*)
-PKG_MAKE_OPTS_TARGET="VDRDIR=$ROOT/$BUILD/$VDR_DIR \
-                      VDRSRC=$ROOT/$BUILD/$VDR_DIR \
-                      LIBDIR=\".\" \
-                      LOCALEDIR=\"./locale\" \
-                      LIBDVBCSA=1"
-
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
   export CXXFLAGS="$CXXFLAGS -fPIC"
@@ -53,6 +46,15 @@ pre_configure_target() {
 pre_make_target() {
   # dont build parallel
   MAKEFLAGS=-j1
+}
+
+make_target() {
+  VDR_DIR=$(get_build_dir vdr)
+  make VDRDIR=$VDR_DIR \
+    VDRSRC=$VDR_DIR \
+    LIBDIR="." \
+    LOCALEDIR="./locale" \
+    LIBDVBCSA=1
 }
 
 makeinstall_target() {
