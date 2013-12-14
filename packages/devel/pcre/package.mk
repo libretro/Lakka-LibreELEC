@@ -32,9 +32,9 @@ PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="pcre: Perl Compatible Regulat Expressions"
 PKG_LONGDESC="The PCRE library is a set of functions that implement regular expression pattern matching using the same syntax and semantics as Perl 5. PCRE has its own native API, as well as a set of wrapper functions that correspond to the POSIX regular expression API. The PCRE library is free, even for building commercial software."
-PKG_IS_ADDON="no"
 
-PKG_AUTORECONF="no"
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_HOST="--prefix=$ROOT/$TOOLCHAIN \
              --enable-utf8 \
@@ -53,6 +53,6 @@ pre_configure_target() {
   LDFLAGS="$LDFLAGS -fPIC"
 }
 
-makeinstall_target() {
-  :
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
 }
