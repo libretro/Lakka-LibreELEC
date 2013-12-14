@@ -26,7 +26,8 @@ PKG_LICENSE="OSS"
 PKG_SITE="http://www.pcre.org/"
 PKG_URL="ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_HOST="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="pcre: Perl Compatible Regulat Expressions"
@@ -34,3 +35,24 @@ PKG_LONGDESC="The PCRE library is a set of functions that implement regular expr
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_HOST="--prefix=$ROOT/$TOOLCHAIN \
+             --enable-utf8 \
+             --enable-unicode-properties \
+             --with-gnu-ld"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
+             --enable-static \
+             --enable-utf8 \
+             --enable-unicode-properties \
+             --with-gnu-ld"
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC"
+  CXXFLAGS="$CXXFLAGS -fPIC"
+  LDFLAGS="$LDFLAGS -fPIC"
+}
+
+makeinstall_target() {
+  :
+}
