@@ -18,19 +18,39 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="dbus-glib-host"
-PKG_VERSION=""
+PKG_NAME="dbus-glib"
+PKG_VERSION="0.100"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/dbus"
-PKG_URL=""
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain glib-host dbus:host"
+PKG_URL="http://dbus.freedesktop.org/releases/dbus-glib/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS="dbus glib expat"
+PKG_BUILD_DEPENDS_HOST="toolchain glib-host dbus:host"
+PKG_BUILD_DEPENDS_TARGET="toolchain dbus glib expat dbus-glib:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="dbus-glib: A message bus system"
 PKG_LONGDESC="D-BUS is a message bus, used for sending messages between applications. Conceptually, it fits somewhere in between raw sockets and CORBA in terms of complexity."
-PKG_IS_ADDON="no"
 
-PKG_AUTORECONF="no"
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_have_abstract_sockets=yes \
+                           ac_cv_func_posix_getpwnam_r=yes \
+                           have_abstract_sockets=yes \
+                           --enable-static \
+                           --disable-shared \
+                           --disable-tests \
+                           --disable-bash-completion \
+                           --enable-asserts=no \
+                           --with-introspect-xml=$PKG_BUILD/.$HOST_NAME/introspect.xml \
+                           --with-dbus-binding-tool=$ROOT/$TOOLCHAIN/bin/dbus-binding-tool"
+
+PKG_CONFIGURE_OPTS_HOST="--disable-tests \
+                         --disable-bash-completion \
+                         --enable-asserts=yes"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/dbus-binding-tool
+}
