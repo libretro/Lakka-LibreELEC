@@ -26,7 +26,8 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/libtool/libtool.html"
 PKG_URL="http://ftp.gnu.org/gnu/libtool/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_HOST="ccache autoconf"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="libtool: Generic library support script"
@@ -34,3 +35,5 @@ PKG_LONGDESC="This is GNU Libtool, a generic library support script. Libtool hid
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-ltdl-install"
