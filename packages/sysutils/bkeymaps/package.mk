@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
@@ -20,4 +18,28 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-. config/options $1
+PKG_NAME="bkeymaps"
+PKG_VERSION="1.13"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.alpinelinux.org"
+PKG_URL="http://dev.alpinelinux.org/archive/bkeymaps/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS="busybox"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="system"
+PKG_SHORTDESC="bkeymaps: binary keyboard maps for busybox"
+PKG_LONGDESC="bkeymaps: binary keyboard maps for busybox"
+
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
+
+make_target() {
+  : # nothing todo, we install manually
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/keymaps
+    cp -PR bkeymaps/* $INSTALL/usr/lib/keymaps
+}
