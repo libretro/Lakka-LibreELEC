@@ -26,11 +26,34 @@ PKG_LICENSE="APSL"
 PKG_SITE="http://src.gnu-darwin.org/DarwinSourceArchive/expanded/diskdev_cmds/"
 PKG_URL="http://www.opensource.apple.com/tarballs/diskdev_cmds/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="openssl"
-PKG_BUILD_DEPENDS="toolchain openssl"
+PKG_BUILD_DEPENDS_TARGET="toolchain openssl"
+PKG_BUILD_DEPENDS_INIT="toolchain openssl diskdev_cmds"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="diskdev_cmds: hfs filesystem utilities"
 PKG_LONGDESC="The fsck and mkfs utliities for hfs and hfsplus filesystems."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_TARGET="-f Makefile.lnx CC=$CC"
+
+pre_make_target() {
+  export CFLAGS="$TARGET_CFLAGS -g3 -Wall -I$PKG_BUILD/include -DDEBUG_BUILD=0 -D_FILE_OFFSET_BITS=64 -D LINUX=1 -D BSD=1"
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/bin
+    cp fsck_hfs.tproj/fsck_hfs $INSTALL/bin
+      ln -sf fsck_hfs $INSTALL/bin/fsck.hfs
+      ln -sf fsck_hfs $INSTALL/bin/fsck.hfsplus
+}
+
+make_init() {
+  : # we reuse make_target()
+}
+
+makeinstall_init() {
+  mkdir -p $INSTALL/bin
+    cp fsck_hfs.tproj/fsck_hfs $INSTALL/bin
+}
