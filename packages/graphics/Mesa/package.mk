@@ -83,11 +83,9 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-gles2 \
                            --disable-openvg \
                            --enable-dri \
-                           --disable-dri3 \
                            --enable-glx \
                            --disable-osmesa \
                            --enable-egl --with-egl-platforms=x11,drm \
-                           --disable-xorg \
                            $XA_CONFIG \
                            --enable-gbm \
                            --disable-xvmc \
@@ -100,7 +98,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-gallium-tests \
                            --enable-shared-glapi \
                            --enable-glx-tls \
-                           --disable-gallium-g3dvl \
                            $MESA_GALLIUM_LLVM \
                            --disable-silent-rules \
                            --with-gl-lib-name=GL \
