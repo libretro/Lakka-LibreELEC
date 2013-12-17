@@ -181,6 +181,7 @@ makeinstall_target() {
 
     mkdir -p $INSTALL/usr/lib/samba
       cp $PKG_DIR/scripts/samba-config $INSTALL/usr/lib/samba
+      cp $PKG_DIR/scripts/samba-autoshare $INSTALL/usr/lib/samba
 
     if [ -f $PROJECT_DIR/$PROJECT/config/smb.conf ]; then
       mkdir -p $INSTALL/etc/samba
