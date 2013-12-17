@@ -36,10 +36,12 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$ISCSI_SUPPORT" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS open-iscsi"
+  PKG_DEPENDS="$PKG_DEPENDS open-iscsi:init"
 fi
 
-makeinstall_target() {
-  cd $INSTALL_INIT
+post_install() {
+  cd $ROOT/$BUILD/initramfs
+    mkdir -p $ROOT/$BUILD/image/
     find . | cpio -H newc -ov -R 0:0 > $ROOT/$BUILD/image/initramfs.cpio
+  cd -
 }

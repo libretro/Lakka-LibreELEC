@@ -27,11 +27,30 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/mikechristie/open-iscsi"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain util-linux"
+PKG_BUILD_DEPENDS_INIT="toolchain util-linux"
 PKG_PRIORITY="optional"
 PKG_SECTION="initramfs/system"
 PKG_SHORTDESC="open-iscsi: system utilities for Linux to access iSCSI targets"
 PKG_LONGDESC="The open-iscsi package allows you to mount iSCSI targets. This package add support for using iscsi target as root device."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_INIT="user"
+
+pre_configure_init() {
+  export OPTFLAGS="$CFLAGS $LDFLAGS"
+}
+
+configure_init() {
+  cd utils/open-isns
+    ./configure --host=$TARGET_NAME \
+                --build=$HOST_NAME \
+                --with-security=no
+  cd ../..
+}
+
+makeinstall_init() {
+  mkdir -p $INSTALL/sbin
+    cp -P $ROOT/$PKG_BUILD/usr/iscsistart $INSTALL/sbin
+}
