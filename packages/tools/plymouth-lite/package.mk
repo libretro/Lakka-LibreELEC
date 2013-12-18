@@ -25,8 +25,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.meego.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="gcc-initramfs zlib:init"
-PKG_BUILD_DEPENDS_INIT="toolchain zlib libpng"
+PKG_DEPENDS_INIT="gcc-initramfs zlib:init"
+PKG_BUILD_DEPENDS_INIT="toolchain zlib:init libpng"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="plymouth-lite: Boot splash screen based on Fedora's Plymouth code"
@@ -36,7 +36,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$UVESAFB_SUPPORT" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS v86d:init"
+  PKG_DEPENDS_INIT="$PKG_DEPENDS_INIT v86d:init"
 fi
 
 pre_configure_init() {
