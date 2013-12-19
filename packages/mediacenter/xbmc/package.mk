@@ -443,6 +443,7 @@ make_target() {
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/xbmc
   rm -rf $INSTALL/usr/bin/xbmc-standalone
+  rm -rf $INSTALL/usr/lib/xbmc/*.cmake
 
   mkdir -p $INSTALL/usr/lib/xbmc
     cp $PKG_DIR/scripts/xbmc-config $INSTALL/usr/lib/xbmc
