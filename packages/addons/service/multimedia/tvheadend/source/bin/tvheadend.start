@@ -22,14 +22,8 @@
 
 . /etc/profile
 
-LOCKDIR="/var/lock/"
-LOCKFILE="tvheadend.disabled"
-LOCKFILE_SLEEP="tvheadend.sleep"
-
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.tvheadend"
-ADDON_SYS_DIR="/usr/lib/xbmc/addons/service.multimedia.tvheadend"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.tvheadend"
-ADDON_BIN="tvheadend"
 LOG_FILE="$ADDON_HOME/service.log"
 ADDON_SETTINGS="$ADDON_HOME/settings.xml"
 XMLTV_FILE="$ADDON_DIR/bin/tv_grab_file"
@@ -42,29 +36,13 @@ TIMESHIFT_SETTINGS_DIR="$ADDON_HOME/timeshift"
 TIMESHIFT_SETTINGS_FILE="$TIMESHIFT_SETTINGS_DIR/config"
 TIMESHIFT_DIR="$ADDON_HOME/cache/timeshift"
 
-## handle upgrade. this should be removed later
-
-# remove any old hts-tvheadend dir
-if [ -d $HOME/.xbmc/addons/service.multimedia.hts-tvheadend ] ; then
-  # stop old service if runing
-  $HOME/.xbmc/addons/service.multimedia.hts-tvheadend/bin/tvheadend.stop
-  rm -rf $HOME/.xbmc/addons/service.multimedia.hts-tvheadend
-fi
-
-# reuse old config files
-if [ -d $HOME/.xbmc/userdata/addon_data/service.multimedia.hts-tvheadend ] ; then
-  mv $HOME/.xbmc/userdata/addon_data/service.multimedia.hts-tvheadend $ADDON_HOME
-  sed -i 's/service.multimedia.hts-tvheadend/service.multimedia.tvheadend/g' $ADDON_HOME/xmltv/config
-fi
-##
-
 mkdir -p $ADDON_HOME
+
+chmod a+x $ADDON_DIR/bin/*
 
 if [ ! -f "$ADDON_SETTINGS" ]; then
   if [ -f $ADDON_DIR/settings-default.xml ]; then
     cp $ADDON_DIR/settings-default.xml $ADDON_SETTINGS
-  elif [ -f $ADDON_SYS_DIR/settings-default.xml ]; then
-    cp $ADDON_SYS_DIR/settings-default.xml $ADDON_SETTINGS
   fi
 fi
 
@@ -72,8 +50,6 @@ if [ ! -f "$XMLTV_SETTINGS_FILE" ]; then
   mkdir -p $XMLTV_SETTINGS_DIR
   if [ -f $ADDON_DIR/xmltv-config ]; then
     cp $ADDON_DIR/xmltv-config $XMLTV_SETTINGS_FILE
-  elif [ -f $ADDON_SYS_DIR/xmltv-config ]; then
-    cp $ADDON_SYS_DIR/xmltv-config $XMLTV_SETTINGS_FILE
   fi
 fi
 
@@ -82,8 +58,6 @@ if [ ! -f "$DVR_SETTINGS_FILE" ]; then
   mkdir -p $DVR_SETTINGS_DIR
   if [ -f $ADDON_DIR/dvr-config ]; then
     cp $ADDON_DIR/dvr-config $DVR_SETTINGS_FILE
-  elif [ -f $ADDON_SYS_DIR/dvr-config ]; then
-    cp $ADDON_SYS_DIR/dvr-config $DVR_SETTINGS_FILE
   fi
 fi
 
@@ -92,8 +66,6 @@ if [ ! -f "$TIMESHIFT_SETTINGS_FILE" ]; then
   mkdir -p $TIMESHIFT_SETTINGS_DIR
   if [ -f $ADDON_DIR/timeshift-config ]; then
     cp $ADDON_DIR/timeshift-config $TIMESHIFT_SETTINGS_FILE
-  elif [ -f $ADDON_SYS_DIR/timeshift-config ]; then
-    cp $ADDON_SYS_DIR/timeshift-config $TIMESHIFT_SETTINGS_FILE
   fi
 fi
 
@@ -104,45 +76,32 @@ else
 fi
 
 mkdir -p /var/config
-  if [ -f $ADDON_DIR/settings-default.xml ]; then
-    cat "$ADDON_DIR/settings-default.xml" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/tvheadend.conf.default
-  elif [ -f $ADDON_SYS_DIR/settings-default.xml ]; then
-    cat "$ADDON_SYS_DIR/settings-default.xml" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/tvheadend.conf.default
-  fi
-  cat "$ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/tvheadend.conf
+if [ -f $ADDON_DIR/settings-default.xml ]; then
+  cat "$ADDON_DIR/settings-default.xml" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/tvheadend.conf.default
+fi
+cat "$ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/tvheadend.conf
 
 . /var/config/tvheadend.conf.default
 . /var/config/tvheadend.conf
 
-  rm -rf "$LOCKDIR/$LOCKFILE_SLEEP" &>/dev/null
-  tvheadend.stop
-  rm -rf "$LOCKDIR/$LOCKFILE" &>/dev/null
-  if [ ! "$(pidof $ADDON_BIN)" ]; then
-    while [ true ] ; do
-      while [ -f "$LOCKDIR/$LOCKFILE_SLEEP" ] ; do
-        usleep 100000
-      done
-      if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
-        break
-      fi
-      # start userspace DVB driver/addon
-      for driver_dvb in $(find /storage/.xbmc/addons/driver.dvb.*/bin/userspace-driver.sh -type f 2>/dev/null); do
-        driver_dvb_name=$(echo $driver_dvb | awk 'BEGIN {FS="/"} {printf("%s", $5)}')
-        logger -t Tvheadend "### Loading userspace DVB driver: $driver_dvb_name ###"
-        # use ". " because of variable export
-        . $driver_dvb
-      done
-      # (wait for) at least 1 adapter (xbmc allows to set 0)
-      [ $NUM_ADAPTERS -lt 1 ] && NUM_ADAPTERS=1
-      if [ "$WAIT_FOR_FEINIT" == "true" ] && [ ! -e /dev/dvb/adapter$((NUM_ADAPTERS-1))/frontend* ] ; then
-        sleep 1
-        continue
-      fi
-      if [ "$PRELOAD_CAPMT_CA" == "true" ] ; then
-        logger -t Tvheadend "### Preloading capmt_ca.so library ###"
-        LD_PRELOAD="$ADDON_DIR/bin/capmt_ca.so $LD_PRELOAD" $ADDON_BIN $TVHEADEND_ARG &>$LOG_FILE
-      else
-        $ADDON_BIN $TVHEADEND_ARG &>$LOG_FILE
-      fi
-    done &
-  fi
+# start userspace DVB driver/addon
+for driver_dvb in $(find /storage/.xbmc/addons/driver.dvb.*/bin/userspace-driver.sh -type f 2>/dev/null); do
+  driver_dvb_name=$(echo $driver_dvb | awk 'BEGIN {FS="/"} {printf("%s", $5)}')
+  logger -t Tvheadend "### Loading userspace DVB driver: $driver_dvb_name ###"
+  # use ". " because of variable export
+  . $driver_dvb
+done
+
+# (wait for) at least 1 adapter (xbmc allows to set 0)
+[ $NUM_ADAPTERS -lt 1 ] && NUM_ADAPTERS=1
+if [ "$WAIT_FOR_FEINIT" == "true" ] && [ ! -e /dev/dvb/adapter$((NUM_ADAPTERS-1))/frontend* ] ; then
+  sleep 1
+  continue
+fi
+
+if [ "$PRELOAD_CAPMT_CA" == "true" ] ; then
+  logger -t Tvheadend "### Preloading capmt_ca.so library ###"
+  LD_PRELOAD="$ADDON_DIR/bin/capmt_ca.so $LD_PRELOAD" exec tvheadend $TVHEADEND_ARG &>$LOG_FILE
+else
+  exec tvheadend $TVHEADEND_ARG &>$LOG_FILE
+fi

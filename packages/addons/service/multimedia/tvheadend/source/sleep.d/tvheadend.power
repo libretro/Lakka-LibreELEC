@@ -22,35 +22,28 @@
 
 . /etc/profile
 
+SERVICE="service.multimedia.tvheadend"
 ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.tvheadend"
 ADDON_SETTINGS="$ADDON_HOME/settings.xml"
 REMOVE_MODULES=`grep REMOVE_MODULES $ADDON_SETTINGS | sed 's|.*value="\([^"]*\)".*|\1|g'`
 
-LOCKFILE_SLEEP="/var/lock/tvheadend.sleep"
-
 ADDON_DIR="$HOME/.xbmc/addons/service.multimedia.tvheadend"
 
 case "$1" in
-  hibernate|suspend|pre)
-    if [ "$(pidof tvheadend)" ];then
-      progress "Shutting down HTS TVHeadend for suspending..."
-      touch $LOCKFILE_SLEEP
-      tvheadend.stop
+  pre)
+    if systemctl is-active "$SERVICE" &>/dev/null ; then
+      systemctl stop "$SERVICE"
       for module in $REMOVE_MODULES ; do
         rmmod -w $module
       done
     fi
     ;;
-
-  thaw|resume|post)
-    if [ -f "$LOCKFILE_SLEEP" ] ; then
-      progress "Restarting HTS TVHeadend for wakeup..."
+  post)
+    if systemctl is-enabled "$SERVICE" &>/dev/null ; then
       for module in $REMOVE_MODULES ; do
         modprobe $module
       done
-      rm -rf "$LOCKFILE_SLEEP"
+      systemctl start "$SERVICE"
     fi
-    ;;
-  *) exit $NA
     ;;
 esac
