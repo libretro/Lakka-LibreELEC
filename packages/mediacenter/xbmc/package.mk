@@ -449,7 +449,9 @@ post_makeinstall_target() {
     cp $PKG_DIR/scripts/xbmc-config $INSTALL/usr/lib/xbmc
     cp $PKG_DIR/scripts/xbmc-hacks $INSTALL/usr/lib/xbmc
     cp $PKG_DIR/scripts/xbmc-sources $INSTALL/usr/lib/xbmc
-    cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/xbmc
+
+  mkdir -p $INSTALL/usr/lib/openelec
+    cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/openelec
 
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
