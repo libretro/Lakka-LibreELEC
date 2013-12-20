@@ -38,7 +38,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$XBMCPLAYER_DRIVER" = "bcm2835-driver" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS arm-mem"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET arm-mem"
   PKG_DEPENDS_INIT="$PKG_DEPENDS_INIT arm-mem:init"
 fi
 
