@@ -29,52 +29,15 @@ ADDON_HOME="$HOME/.xbmc/userdata/addon_data/service.multimedia.boblightd"
 
 mkdir -p $ADDON_HOME
 
-LOG_FILE="$ADDON_HOME/service.log"
+chmod a+x $ADDON_DIR/bin/*
 
-# Boblight config file created by user
-BOBLIGHT_CONFIG="$ADDON_HOME/boblight.conf"
-
-# Flag file to start boblight-x11 daemon
-BOBLIGHT_X11="$ADDON_HOME/boblight.X11"
-
-LOCKDIR="/var/lock/"
-LOCKFILE="boblightd.disabled"
-LOCKFILE_SLEEP="boblightd.sleep"
-
-export LD_LIBRARY_PATH="$ADDON_DIR/lib:$LD_LIBRARY_PATH"
-
-cp -R $ADDON_DIR/config/*.sample $ADDON_HOME > $LOG_FILE 2>&1
-
-rm -rf "$LOCKDIR/$LOCKFILE_SLEEP" &>/dev/null
-boblightd.stop
-rm -rf "$LOCKDIR/$LOCKFILE" &>/dev/null
-
-if [ -f "$BOBLIGHT_CONFIG" ] ; then
-  if [ ! "$(pidof boblightd)" ]; then
-    while [ true ] ; do
-      while [ -f "$LOCKDIR/$LOCKFILE_SLEEP" ] ; do
-        usleep 100000
-      done
-      if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
-        break
-      fi
-      # Start the boblight daemon
-      boblightd -c $BOBLIGHT_CONFIG >> $LOG_FILE 2>&1
-    done &
-  fi
-
-  if [ -e $BOBLIGHT_X11 ]; then
-    if [ ! "$(pidof boblight-X11)" ]; then
-      while [ true ] ; do
-        while [ -f "$LOCKDIR/$LOCKFILE_SLEEP" ] ; do
-          usleep 100000
-        done
-        if [ -f "$LOCKDIR/$LOCKFILE" ] ; then
-          break
-        fi
-        # Start the boblight daemon
-        boblight-X11 >> $LOG_FILE 2>&1
-      done &
-    fi
-  fi
+cp $ADDON_DIR/config/*.sample $ADDON_HOME
+if [ ! -f $ADDON_HOME/boblight.conf ] ; then
+  cp $ADDON_DIR/config/boblight.conf $ADDON_HOME/boblight.conf
 fi
+
+if [ -x $ADDON_DIR/bin/boblight-X11 -a -e $ADDON_HOME/boblight.X11 ] ; then
+  boblight-X11 -f >/dev/null 2>&1
+fi
+
+exec boblightd -c $ADDON_HOME/boblight.conf > $ADDON_HOME/service.log 2>&1
