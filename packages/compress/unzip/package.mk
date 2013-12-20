@@ -18,29 +18,36 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="busybox"
-PKG_VERSION="1.21.1"
+PKG_NAME="unzip"
+PKG_VERSION="60"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.busybox.net"
-PKG_URL="http://busybox.net/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="hdparm dosfstools e2fsprogs speedcontrol zip unzip pciutils usbutils parted"
-PKG_BUILD_DEPENDS="toolchain busybox-hosttools"
-PKG_PRIORITY="required"
-PKG_SECTION="system"
-PKG_SHORTDESC="BusyBox: The Swiss Army Knife of Embedded Linux"
-PKG_LONGDESC="BusyBox combines tiny versions of many common UNIX utilities into a single small executable. It provides replacements for most of the utilities you usually find in GNU fileutils, shellutils, etc. The utilities in BusyBox generally have fewer options than their full-featured GNU cousins; however, the options that are included provide the expected functionality and behave very much like their GNU counterparts. BusyBox provides a fairly complete environment for any small or embedded system."
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.info-zip.org/pub/infozip/"
+PKG_URL="http://ftp.uk.i-scream.org/sites/www.ibiblio.org/gentoo/distfiles/$PKG_NAME$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="${PKG_NAME}${PKG_VERSION}"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="compress"
+PKG_SHORTDESC="unzip: PKUNZIP compatible compression utility"
+PKG_LONGDESC="UnZip is an extraction utility for archives compressed in .zip format (also called "zipfiles"). Although highly compatible both with PKWARE's PKZIP and PKUNZIP utilities for MS-DOS and with Info-ZIP's own Zip program, the primary objectives have been portability and non-MSDOS functionality."
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-# nano text editor
-  if [ "$NANO_EDITOR" = "yes" ]; then
-    PKG_DEPENDS="$PKG_DEPENDS nano"
-  fi
+make_target() {
+    make CC=$TARGET_CC \
+      RANLIB=$TARGET_RANLIB \
+      AR=$TARGET_AR \
+      STRIP=$TARGET_STRIP \
+      CFLAGS="$CFLAGS" \
+      -f unix/Makefile generic
+}
 
-# nfs support
-if [ "$NFS_SUPPORT" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS rpcbind"
-fi
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp unzip $INSTALL/usr/bin
+    $STRIP $INSTALL/usr/bin/unzip
+}
+
