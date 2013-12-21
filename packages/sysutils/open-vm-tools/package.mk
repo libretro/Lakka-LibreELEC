@@ -36,8 +36,6 @@ PKG_LONGDESC="open-vm-tools: open source implementation of VMware Tools"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-OPENVMTOOLS_KERNEL_VER=$(basename $(ls -d $ROOT/$BUILD/linux-[0-9]*)| sed 's|linux-||g')
-
 PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --disable-tests \
                            --without-pam \
@@ -47,14 +45,14 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --without-x \
                            --without-icu \
                            --without-procps \
-                           --with-kernel-release=$OPENVMTOOLS_KERNEL_VER \
-                           --with-linuxdir=$(ls -d $ROOT/$BUILD/linux-*)"
+                           --with-kernel-release=`kernel_version` \
+                           --with-linuxdir=`kernel_path`"
 
 PKG_MAKE_OPTS_TARGET="CFLAGS+=-DG_DISABLE_DEPRECATED"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/lib/modules/$OPENVMTOOLS_KERNEL_VER/open-vm-tools
-    cp -PR ../modules/linux/vmxnet/vmxnet.ko $INSTALL/lib/modules/$ISCSI_KERNEL_VER/open-vm-tools
+  mkdir -p $INSTALL/lib/modules/`kernel_version`/open-vm-tools
+    cp -PR ../modules/linux/vmxnet/vmxnet.ko $INSTALL/lib/modules/`kernel_version`/open-vm-tools
 
   mkdir -p $INSTALL/usr/lib
     cp -PR libvmtools/.libs/libvmtools.so* $INSTALL/usr/lib
