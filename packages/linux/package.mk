@@ -21,7 +21,7 @@
 PKG_NAME="linux"
 case "$LINUX" in
   *)
-    PKG_VERSION="3.12.5"
+    PKG_VERSION="3.12.6"
     ;;
 esac
 PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
