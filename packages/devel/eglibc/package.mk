@@ -175,6 +175,9 @@ echo "rootsbindir=/usr/bin" >> configparms
 }
 
 post_makeinstall_target() {
+# we are linking against ld.so, so symlink
+  ln -sf $(basename $INSTALL/lib/ld-*.so) $INSTALL/lib/ld.so
+
 # cleanup
   for i in $EGLIBC_EXCLUDE_BIN; do
     rm -rf $INSTALL/usr/bin/$i
