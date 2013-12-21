@@ -18,19 +18,36 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="ARCTIC_MC"
-PKG_VERSION=""
+PKG_NAME="unzip"
+PKG_VERSION="60"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="various"
-PKG_SITE="http://www.arctic.ac"
-PKG_URL=""
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.info-zip.org/pub/infozip/"
+PKG_URL="http://ftp.uk.i-scream.org/sites/www.ibiblio.org/gentoo/distfiles/$PKG_NAME$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="${PKG_NAME}${PKG_VERSION}"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="oem"
-PKG_SHORTDESC="ARCTIC_MC: Metapackage for various preinstalled packages for http://www.arctic.ac/en/p/living/entertainment-center.html"
-PKG_LONGDESC=""
+PKG_SECTION="compress"
+PKG_SHORTDESC="unzip: PKUNZIP compatible compression utility"
+PKG_LONGDESC="UnZip is an extraction utility for archives compressed in .zip format (also called "zipfiles"). Although highly compatible both with PKWARE's PKZIP and PKUNZIP utilities for MS-DOS and with Info-ZIP's own Zip program, the primary objectives have been portability and non-MSDOS functionality."
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+make_target() {
+    make CC=$TARGET_CC \
+      RANLIB=$TARGET_RANLIB \
+      AR=$TARGET_AR \
+      STRIP=$TARGET_STRIP \
+      CFLAGS="$CFLAGS" \
+      -f unix/Makefile generic
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp unzip $INSTALL/usr/bin
+    $STRIP $INSTALL/usr/bin/unzip
+}
+

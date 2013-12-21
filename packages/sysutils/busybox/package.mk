@@ -26,7 +26,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
 PKG_URL="http://busybox.net/downloads/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_HOST=""
-PKG_DEPENDS_TARGET="hdparm dosfstools e2fsprogs speedcontrol zip pciutils usbutils parted"
+PKG_DEPENDS_TARGET="hdparm dosfstools e2fsprogs speedcontrol zip unzip pciutils usbutils parted"
 PKG_DEPENDS_INIT=""
 PKG_BUILD_DEPENDS_HOST="toolchain"
 PKG_BUILD_DEPENDS_TARGET="toolchain busybox:host"
@@ -200,7 +200,6 @@ makeinstall_target() {
 
 post_install() {
   ROOT_PWD="`$ROOT/$TOOLCHAIN/bin/cryptpw -m sha512 $ROOT_PASSWORD`"
-  USER_PWD="`$ROOT/$TOOLCHAIN/bin/cryptpw -m sha512 $USER_PASSWORD`"
 
   echo "chmod 4755 $INSTALL/bin/busybox" >> $FAKEROOT_SCRIPT
   echo "chmod 000 $INSTALL/etc/shadow" >> $FAKEROOT_SCRIPT
@@ -208,9 +207,6 @@ post_install() {
   add_user root "$ROOT_PWD" 0 0 "Root User" "/storage" "/bin/sh"
   add_group root 0
   add_group users 100
-
-  add_user $USER_NAME "$USER_PWD" 1000 1000 "User" "/storage" "/bin/sh"
-  add_group $USER_GROUP 1000
 
   enable_service debug-shell.service
   enable_service shell.service

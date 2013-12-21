@@ -189,8 +189,6 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/config
     cp -PR $PKG_DIR/config/* $INSTALL/usr/config
 
-    rm -rf $INSTALL/etc/systemd/system
-      ln -sf /storage/.config/system.d $INSTALL/etc/systemd/system
     rm -rf $INSTALL/etc/modules-load.d
       ln -sf /storage/.config/modules-load.d $INSTALL/etc/modules-load.d
     rm -rf $INSTALL/etc/sysctl.d

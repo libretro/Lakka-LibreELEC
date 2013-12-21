@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="xbmc"
-PKG_VERSION="13.alpha-ee5f905"
+PKG_VERSION="13.alpha-ca8ade7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -443,11 +443,15 @@ make_target() {
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/xbmc
   rm -rf $INSTALL/usr/bin/xbmc-standalone
+  rm -rf $INSTALL/usr/lib/xbmc/*.cmake
 
   mkdir -p $INSTALL/usr/lib/xbmc
     cp $PKG_DIR/scripts/xbmc-config $INSTALL/usr/lib/xbmc
     cp $PKG_DIR/scripts/xbmc-hacks $INSTALL/usr/lib/xbmc
     cp $PKG_DIR/scripts/xbmc-sources $INSTALL/usr/lib/xbmc
+
+  mkdir -p $INSTALL/usr/lib/openelec
+    cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/openelec
 
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
