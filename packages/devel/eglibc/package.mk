@@ -58,12 +58,6 @@ PKG_CONFIGURE_OPTS_TARGET="--libexecdir=/usr/lib/eglibc \
                            --disable-nscd \
                            --enable-lock-elision"
 
-if [ "$LINUX" = AMLm1 -o "$LINUX" = AMLm3 ]; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-kernel=2.6.34"
-else
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-kernel=3.0.0"
-fi
-
 if [ "$DEBUG" = yes ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-debug"
 else
