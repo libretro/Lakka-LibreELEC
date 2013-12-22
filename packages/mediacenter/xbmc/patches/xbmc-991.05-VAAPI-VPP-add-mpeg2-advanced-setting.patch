@@ -1,0 +1,69 @@
+From ba08b7255bd022f22de620d66366e85a48fe6a9f Mon Sep 17 00:00:00 2001
+From: fritsch <Peter.Fruehberger@gmail.com>
+Date: Sun, 22 Dec 2013 10:40:42 +0100
+Subject: [PATCH] VPP: Introduce advanced setting to disable mpeg-2 decoding
+ cause of intel drivers for haswell are horrible broken (default enabled for
+ the rest of intel family)
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp | 10 ++++++++--
+ xbmc/settings/AdvancedSettings.cpp                           |  2 ++
+ xbmc/settings/AdvancedSettings.h                             |  1 +
+ 3 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 5692faf..3acb109 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -104,8 +104,14 @@ enum PixelFormat CDVDVideoCodecFFmpeg::GetFormat( struct AVCodecContext * avctx
+ #endif
+ #ifdef HAVE_LIBVA
+     // mpeg4 vaapi decoding is disabled
+-    if(*cur == PIX_FMT_VAAPI_VLD && CSettings::Get().GetBool("videoplayer.usevaapi") 
+-    && (avctx->codec_id != AV_CODEC_ID_MPEG4 || g_advancedSettings.m_videoAllowMpeg4VAAPI)) 
++    // some newer haswells have problems doing mpeg-2 deinterlacing
++    bool allowvaapi = true;
++    if (avctx->codec_id == AV_CODEC_ID_MPEG4 && !g_advancedSettings.m_videoAllowMpeg4VAAPI)
++      allowvaapi = false;
++    else if (avctx->codec_id == AV_CODEC_ID_MPEG2VIDEO && !g_advancedSettings.m_videoAllowMpeg2VAAPI)
++      allowvaapi = false;
++
++    if(*cur == PIX_FMT_VAAPI_VLD && CSettings::Get().GetBool("videoplayer.usevaapi") && allowvaapi) 
+     {
+       VAAPI::CDecoder* dec = new VAAPI::CDecoder();
+       if(dec->Open(avctx, *cur, ctx->m_uSurfacesCount))
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index e148f1c..6cb2d91 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -163,6 +163,7 @@ void CAdvancedSettings::Initialize()
+   m_videoAutoScaleMaxFps = 30.0f;
+   m_videoAllowMpeg4VDPAU = false;
+   m_videoAllowMpeg4VAAPI = false;  
++  m_videoAllowMpeg2VAAPI = true;
+   m_videoDisableBackgroundDeinterlace = false;
+   m_videoCaptureUseOcclusionQuery = -1; //-1 is auto detect
+   m_videoVDPAUtelecine = false;
+@@ -602,6 +603,7 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+     XMLUtils::GetBoolean(pElement,"allowmpeg4vdpau",m_videoAllowMpeg4VDPAU);
+     XMLUtils::GetBoolean(pElement,"disablehi10pmultithreading",m_videoDisableHi10pMultithreading);
+     XMLUtils::GetBoolean(pElement,"allowmpeg4vaapi",m_videoAllowMpeg4VAAPI);    
++    XMLUtils::GetBoolean(pElement,"allowmpeg2vaapi",m_videoAllowMpeg2VAAPI);
+     XMLUtils::GetBoolean(pElement, "disablebackgrounddeinterlace", m_videoDisableBackgroundDeinterlace);
+     XMLUtils::GetInt(pElement, "useocclusionquery", m_videoCaptureUseOcclusionQuery, -1, 1);
+     XMLUtils::GetBoolean(pElement,"vdpauInvTelecine",m_videoVDPAUtelecine);
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index 6eae4ee..070f754 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -184,6 +184,7 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
+     float m_videoAutoScaleMaxFps;
+     bool  m_videoAllowMpeg4VDPAU;
+     bool  m_videoAllowMpeg4VAAPI;
++    bool  m_videoAllowMpeg2VAAPI;
+     std::vector<RefreshOverride> m_videoAdjustRefreshOverrides;
+     std::vector<RefreshVideoLatency> m_videoRefreshLatency;
+     float m_videoDefaultLatency;
+-- 
+1.8.3.2
+
