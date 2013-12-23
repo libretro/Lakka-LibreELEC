@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,7 +16,23 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="xf86-input-evdev"
+PKG_VERSION="2.8.2"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.X.org"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/driver"
+PKG_SHORTDESC="xf86-input-evdev: Generic Xorg Linux input driver"
+PKG_LONGDESC="Evdev is an Xorg input driver for Linux's generic event devices. It therefore supports all input devices that the kernel knows about, including most mice and keyboards."
 
-mkdir -p $INSTALL/$XORG_PATH_MODULES/input
-  cp -P $PKG_BUILD/src/.libs/evdev_drv.so $INSTALL/$XORG_PATH_MODULES/input
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
+                           --with-xorg-module-dir=$XORG_PATH_MODULES \
+                           --with-gnu-ld"
