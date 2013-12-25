@@ -17,18 +17,28 @@
 ################################################################################
 
 PKG_NAME="libgpg-error"
-PKG_VERSION="1.10"
+PKG_VERSION="1.12"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnupg.org/"
 PKG_URL="ftp://ftp.gnupg.org/gcrypt/libgpg-error/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="security"
 PKG_SHORTDESC="libgpg-error: Library that defines common error values for GnuPG components"
 PKG_LONGDESC="This is a library that defines common error values for all GnuPG components. Among these are GPG, GPGSM, GPGME, GPG-Agent, libgcrypt, Libksba, DirMngr, Pinentry, SmartCard Daemon and possibly more in the future."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-nls --disable-rpath --with-gnu-ld"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+  rm -rf $INSTALL/usr/share
+
+  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i src/gpg-error-config
+  cp src/gpg-error-config $ROOT/$TOOLCHAIN/bin
+}
