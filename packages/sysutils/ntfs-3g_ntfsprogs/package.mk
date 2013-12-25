@@ -24,11 +24,27 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.ntfs-3g.org/"
 PKG_URL="http://tuxera.com/opensource/$PKG_NAME-$PKG_VERSION.tgz"
 PKG_DEPENDS="fuse gnutls libgcrypt"
-PKG_BUILD_DEPENDS="toolchain fuse gnutls libgcrypt"
+PKG_BUILD_DEPENDS_TARGET="toolchain fuse gnutls libgcrypt"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="ntfs-3g_ntfsprogs: NTFS-3G Read/Write userspace driver"
 PKG_LONGDESC="The NTFS-3G_ntfsprogs driver is an open source, freely available NTFS driver for Linux with read and write support. It provides safe and fast handling of the Windows XP, Windows Server 2003, Windows 2000 and Windows Vista file systems."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
+                           --disable-library \
+                           --enable-posix-acls \
+                           --enable-mtab \
+                           --disable-ntfsprogs \
+                           --enable-crypto \
+                           --with-fuse=external \
+                           --with-uuid"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+
+  mkdir -p $INSTALL/sbin
+    ln -sf /bin/ntfs-3g $INSTALL/sbin/mount.ntfs
+}
