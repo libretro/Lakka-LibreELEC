@@ -24,11 +24,28 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gnutls.org/"
 PKG_URL="ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS="zlib nettle"
-PKG_BUILD_DEPENDS="toolchain zlib nettle"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib nettle"
 PKG_PRIORITY="optional"
 PKG_SECTION="security"
 PKG_SHORTDESC="gnutls: Development Library for TLS applications"
 PKG_LONGDESC="GnuTLS is a project that aims to develop a library which provides a secure layer, over a reliable transport layer. Currently the GnuTLS library implements the proposed standards by the IETF's TLS working group. Quoting from RFC2246 - the TLS 1.0 protocol specification: The TLS protocol provides communications privacy over the Internet. The protocol allows client/server applications to communicate in a way that is designed to prevent eavesdropping, tampering, or message forgery."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-hardware-acceleration \
+                           --disable-openssl-compatibility \
+                           --without-p11-kit \
+                           --with-included-libtasn1 \
+                           --with-libz-prefix=$SYSROOT_PREFIX/usr \
+                           --disable-gtk-doc \
+                           --disable-gtk-doc-html \
+                           --disable-gtk-doc-pdf \
+                           --disable-nls \
+                           --disable-guile \
+                           --disable-valgrind-tests \
+                           --with-gnu-ld"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+}
