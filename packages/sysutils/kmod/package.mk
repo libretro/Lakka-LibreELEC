@@ -24,6 +24,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://git.profusion.mobi/cgit.cgi/kmod.git/"
 PKG_URL="http://ftp.kernel.org/pub/linux/utils/kernel/kmod/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS=""
+PKG_BUILD_DEPENDS_HOST="toolchain"
 PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
@@ -32,6 +33,17 @@ PKG_LONGDESC="kmod offers the needed flexibility and fine grained control over i
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_HOST="--enable-tools \
+                         --disable-logging \
+                         --disable-debug \
+                         --disable-gtk-doc \
+                         --disable-gtk-doc-html \
+                         --disable-gtk-doc-pdf \
+                         --disable-manpages \
+                         --with-gnu-ld \
+                         --without-xz \
+                         --without-zlib"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-tools \
                            --enable-logging \
@@ -43,6 +55,10 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-tools \
                            --with-gnu-ld \
                            --without-xz \
                            --without-zlib"
+
+post_makeinstall_host() {
+  ln -sf kmod $ROOT/$TOOLCHAIN/bin/depmod
+}
 
 post_makeinstall_target() {
 # make symlinks for compatibility
