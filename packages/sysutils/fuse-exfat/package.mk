@@ -24,11 +24,24 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://code.google.com/p/exfat"
 PKG_URL="http://exfat.googlecode.com/files/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS="fuse"
-PKG_BUILD_DEPENDS="toolchain scons fuse"
+PKG_BUILD_DEPENDS_TARGET="toolchain scons fuse"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="fuse-exfat: aims to provide a full-featured exFAT file system implementation for GNU/Linux other Unix-like systems as a FUSE module."
 PKG_LONGDESC="This project aims to provide a full-featured exFAT file system implementation for GNU/Linux other Unix-like systems as a FUSE module."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+
+make_target() {
+  export CCFLAGS="$CFLAGS"
+
+  scons
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp fuse/mount.exfat-fuse $INSTALL/usr/bin
+    ln -sf mount.exfat-fuse $INSTALL/usr/bin/mount.exfat
+}
