@@ -24,7 +24,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_NAME/1.42/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="e2fsprogs: Utilities for use with the ext2 filesystem"
@@ -36,3 +36,30 @@ PKG_AUTORECONF="yes"
 if [ "$HFSTOOLS" = "yes" ]; then
   PKG_DEPENDS="$PKG_DEPENDS diskdev_cmds"
 fi
+
+PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
+                           --bindir=/bin \
+                           --sbindir=/sbin \
+                           --enable-verbose-makecmds \
+                           --enable-symlink-install \
+                           --enable-symlink-build \
+                           --enable-compression \
+                           --enable-htree \
+                           --disable-elf-shlibs \
+                           --disable-bsd-shlibs \
+                           --disable-profile \
+                           --disable-jbd-debug \
+                           --disable-blkid-debug \
+                           --disable-testio-debug \
+                           --enable-libuuid \
+                           --enable-libblkid \
+                           --disable-debugfs \
+                           --disable-imager \
+                           --enable-resizer \
+                           --enable-fsck \
+                           --disable-e2initrd-helper \
+                           --enable-tls \
+                           --disable-uuidd \
+                           --disable-nls \
+                           --disable-rpath \
+                           --with-gnu-ld"
