@@ -22,14 +22,26 @@ PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://secure.netroedge.com/~lm78/"
-#PKG_URL="http://dl.lm-sensors.org/lm-sensors/releases/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_URL="http://ftp.gwdg.de/pub/linux/misc/lm-sensors/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="lm_sensors: Hardware monitoring via the SMBus"
 PKG_LONGDESC="lm_sensors is a package to get data from the SMB (System Management Bus - an i2c bus) on modern mainboards. It consists of kernel modules and users space tools to get stuff like cpu / mb temperature, voltages, fan speed..."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_TARGET="PREFIX=/usr CC=$TARGET_CC AR=$TARGET_AR"
+PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
+
+pre_make_target() {
+  export CFLAGS="$TARGET_CFLAGS"
+  export CPPFLAGS="$TARGET_CPPFLAGS"
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/sensors-conf-convert
+  rm -rf $INSTALL/usr/sbin/
+}
