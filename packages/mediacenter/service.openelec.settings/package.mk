@@ -24,13 +24,13 @@ PKG_LICENSE="prop."
 PKG_SITE="http://www.openelec.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.zip"
 PKG_DEPENDS="connman hd-idle"
-PKG_BUILD_DEPENDS="toolchain Python"
+PKG_BUILD_DEPENDS_TARGET="toolchain Python"
 PKG_PRIORITY="optional"
 PKG_SECTION=""
 PKG_SHORTDESC="service.openelec.settings: Settings dialog for OpenELEC"
 PKG_LONGDESC="service.openelec.settings: is a settings dialog for OpenELEC"
-PKG_IS_ADDON="yes"
 
+PKG_IS_ADDON="yes"
 PKG_AUTORECONF="no"
 
 if [ "$DISPLAYSERVER" = "xorg-server" ]; then
@@ -38,3 +38,31 @@ if [ "$DISPLAYSERVER" = "xorg-server" ]; then
 else
   PKG_DEPENDS="$PKG_DEPENDS bkeymaps"
 fi
+
+make_target() {
+ : # nothing todo
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/xbmc/addons/service.openelec.settings
+    cp -R * $INSTALL/usr/share/xbmc/addons/service.openelec.settings
+
+  mkdir -p $INSTALL/usr/lib/openelec
+    cp $PKG_DIR/scripts/* $INSTALL/usr/lib/openelec
+
+  # bluetooth is optional
+    if [ ! "$BLUETOOTH_SUPPORT" = yes ]; then
+      rm -f resources/lib/modules/bluetooth.py
+    fi
+
+  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/xbmc/addons/service.openelec.settings/resources/lib/ -f
+  rm -rf `find $INSTALL/usr/share/xbmc/addons/service.openelec.settings/resources/lib/ -name "*.py"`
+
+  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/xbmc/addons/service.openelec.settings/oe.py -f
+  rm -rf $INSTALL/usr/share/xbmc/addons/service.openelec.settings/oe.py
+}
+
+post_install() {
+  enable_service backup-restore.service
+  enable_service factory-reset.service
+}
