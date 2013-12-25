@@ -121,7 +121,6 @@ make_target() {
   LDFLAGS="" make INSTALL_MOD_PATH=$INSTALL DEPMOD="$ROOT/$TOOLCHAIN/bin/depmod" modules_install
   rm -f $INSTALL/lib/modules/*/build
   rm -f $INSTALL/lib/modules/*/source
-  rm -f $INSTALL/lib/modules/*/modules.*
 
   ( cd $ROOT
     $SCRIPTS/install initramfs
