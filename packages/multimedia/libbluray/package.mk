@@ -17,14 +17,14 @@
 ################################################################################
 
 PKG_NAME="libbluray"
-PKG_VERSION="0.3.0"
+PKG_VERSION="0.5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org/developers/libbluray.html"
 PKG_URL="ftp://ftp.videolan.org/pub/videolan/libbluray/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="libxml2"
-PKG_BUILD_DEPENDS_TARGET="toolchain libxml2"
+PKG_DEPENDS="freetype libxml2"
+PKG_BUILD_DEPENDS_TARGET="toolchain freetype libxml2"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libbluray: A Blu-Ray Discs playback library"
@@ -41,9 +41,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-extra-warnings \
                            --disable-optimizations \
                            --disable-examples \
-                           --disable-debug \
                            --disable-bdjava \
-                           --enable-libxml2 \
                            --disable-doxygen-doc \
                            --disable-doxygen-dot \
                            --disable-doxygen-man \
@@ -55,4 +53,3 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-doxygen-ps \
                            --disable-doxygen-pdf \
                            --with-gnu-ld"
-
