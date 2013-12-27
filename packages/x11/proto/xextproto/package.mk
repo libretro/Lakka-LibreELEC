@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xextproto"
-PKG_VERSION="7.2.99.901"
+PKG_VERSION="7.3.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
