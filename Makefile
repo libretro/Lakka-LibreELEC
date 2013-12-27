@@ -9,7 +9,7 @@ release:
 	./scripts/image release
 
 image:
-	BUILD_IMAGE=yes ./scripts/image release
+	./scripts/image mkimage
 
 noobs:
 	./scripts/image noobs
