@@ -24,11 +24,61 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://syslinux.zytor.com/"
 PKG_URL="http://www.kernel.org/pub/linux/utils/boot/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain util-linux:host util-linux e2fsprogs"
+PKG_BUILD_DEPENDS_HOST="toolchain util-linux:host"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-linux e2fsprogs"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="syslinux: Linux bootloader collection"
 PKG_LONGDESC="The SYSLINUX project covers lightweight linux bootloaders for floppy media (syslinux), network booting (pxelinux) and bootable el-torito cd-roms (isolinux)."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_HOST="CC=$CC AR=$AR RANLIB=$RANLIB installer"
+PKG_MAKE_OPTS_TARGET="CC=$CC AR=$AR RANLIB=$RANLIB installer"
+
+# Unset all compiler FLAGS
+  unset CFLAGS
+  unset CPPFLAGS
+  unset CXXFLAGS
+  unset LDFLAGS
+
+pre_build_target() {
+  mkdir -p $PKG_BUILD/.$TARGET_NAME
+  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
+}
+
+pre_build_host() {
+  mkdir -p $PKG_BUILD/.$HOST_NAME
+  cp -RP $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
+}
+
+pre_make_target() {
+  cd .$TARGET_NAME
+}
+
+pre_make_host() {
+  cd .$HOST_NAME
+}
+
+makeinstall_host() {
+  mkdir -p $ROOT/$TOOLCHAIN/bin
+    cp extlinux/extlinux $ROOT/$TOOLCHAIN/bin
+
+  mkdir -p $ROOT/$TOOLCHAIN/share/syslinux
+    cp com32/menu/vesamenu.c32 $ROOT/$TOOLCHAIN/share/syslinux
+    cp com32/lib/libcom32.c32 $ROOT/$TOOLCHAIN/share/syslinux
+    cp com32/libutil/libutil.c32 $ROOT/$TOOLCHAIN/share/syslinux
+    cp mbr/mbr.bin $ROOT/$TOOLCHAIN/share/syslinux
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp extlinux/extlinux $INSTALL/usr/bin
+    cp linux/syslinux $INSTALL/usr/bin
+
+  mkdir -p $INSTALL/usr/share/syslinux
+    cp core/isolinux.bin $INSTALL/usr/share/syslinux
+    cp mbr/mbr.bin $INSTALL/usr/share/syslinux
+    cp mbr/gptmbr.bin $INSTALL/usr/share/syslinux
+}
