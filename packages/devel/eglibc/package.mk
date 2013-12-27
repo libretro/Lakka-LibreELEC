@@ -51,6 +51,7 @@ PKG_CONFIGURE_OPTS_TARGET="--libexecdir=/usr/lib/eglibc \
                            --with-__thread \
                            --with-binutils=$BUILD/toolchain/bin \
                            --with-headers=$SYSROOT_PREFIX/usr/include \
+                           --enable-kernel=3.0.0 \
                            --without-cvs \
                            --without-gd \
                            --enable-obsolete-rpc \
