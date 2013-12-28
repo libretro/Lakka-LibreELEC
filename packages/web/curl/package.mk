@@ -16,16 +16,24 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+# Notes:
+# - curl-7.32.0: breaks XBMC ftp sources support, please test before upgrade curl!
+#  -build curl with OpenSSL support instead GnuTLS support to 
+# work around a long standing bug on Pi where https streams often hang on
+# start. This hang is normally fatal and requires a reboot.
+# see also http://trac.xbmc.org/ticket/14674 .
+# Easiest way to reproduce is to install gdrive addon and play a video from
+# there: http://forum.xbmc.org/showthread.php?tid=177557
+
 PKG_NAME="curl"
-# curl-7.32.0 breaks XBMC ftp sources support, please test before upgrade curl!
 PKG_VERSION="7.31.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://curl.haxx.se"
 PKG_URL="http://curl.haxx.se/download/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="zlib gnutls rtmpdump"
-PKG_BUILD_DEPENDS_TARGET="toolchain zlib gnutls rtmpdump"
+PKG_DEPENDS="zlib openssl rtmpdump"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib openssl rtmpdump"
 PKG_PRIORITY="optional"
 PKG_SECTION="web"
 PKG_SHORTDESC="curl: Client and library for (HTTP, HTTPS, FTP, ...) transfers"
@@ -76,8 +84,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --without-egd-socket \
                            --enable-thread \
                            --with-random=/dev/urandom \
-                           --with-gnutls=$SYSROOT_PREFIX/usr \
-                           --without-ssl \
+                           --without-gnutls \
+                           --with-ssl \
                            --without-polarssl \
                            --without-nss \
                            --with-ca-bundle=$SSL_CERTIFICATES/cacert.pem \
