@@ -49,7 +49,7 @@ pre_configure_target() {
 post_makeinstall_target() {
   $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/freetype-config
   mv $SYSROOT_PREFIX/usr/bin/freetype-config $ROOT/$TOOLCHAIN/bin
-  ln -v -sf $SYSROOT_PREFIX/usr/include/freetype2/freetype $SYSROOT_PREFIX/usr/include
+  ln -v -sf $SYSROOT_PREFIX/usr/include/freetype2 $SYSROOT_PREFIX/usr/include/freetype
 
   rm -rf $INSTALL/usr/bin
 }
