@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,19 +16,31 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="libIDL"
+PKG_VERSION="0.8.14"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="LGPL"
+PKG_SITE="http://www.gnome.org"
+PKG_URL="http://ftp.gnome.org/pub/gnome/sources/libIDL/0.8/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS="glib"
+PKG_BUILD_DEPENDS_HOST="toolchain glib:host"
+PKG_BUILD_DEPENDS_TARGET="toolchain glib"
+PKG_PRIORITY="optional"
+PKG_SECTION="other"
+PKG_SHORTDESC="libidl: Library for creating trees of CORBA IDL files"
+PKG_LONGDESC="libIDL is a library for creating trees of CORBA Interface Definition Language (IDL) files."
 
-cd $PKG_BUILD
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-mkdir -p .build-target && cd .build-target
+PKG_CONFIGURE_OPTS_HOST="libIDL_cv_long_long_format=ll"
+PKG_CONFIGURE_OPTS_TARGET="libIDL_cv_long_long_format=ll"
 
-libIDL_cv_long_long_format=ll \
-../configure --host=$TARGET_NAME \
-             --build=$HOST_NAME \
-             --prefix=/usr \
-             --sysconfdir=/etc \
-             --disable-static \
-             --enable-shared \
+post_makeinstall_host() {
+  sed -e "s:pkg-config :PKG_CONFIG_PATH=$HOST_PKG_CONFIG_PATH $PKG_CONFIG :" -i libIDL-config-2
+}
 
-make
-$MAKEINSTALL
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+}
