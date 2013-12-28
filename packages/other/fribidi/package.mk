@@ -24,11 +24,32 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://fribidi.org/"
 PKG_URL="http://fribidi.org/download/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="other"
 PKG_SHORTDESC="fribidi: The Bidirectional Algorithm library"
 PKG_LONGDESC="The library implements all of the algorithm as described in the Unicode Standard Annex #9, The Bidirectional Algorithm, http://www.unicode.org/unicode/reports/tr9/. FriBidi is exhautively tested against Bidi Reference Code, and due to our best knowledge, does not contain any conformance bugs."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
+                           --enable-static \
+                           --disable-debug \
+                           --disable-deprecated \
+                           --disable-silent-rules \
+                           --enable-malloc \
+                           --enable-charsets \
+                           --with-gnu-ld \
+                           --without-glib"
+
+export CFLAGS="$CFLAGS -DFRIBIDI_CHUNK_SIZE=4080"
+export CFLAGS="$CFLAGS -fPIC -DPIC"
+
+post_makeinstall_target() {
+  mkdir -p $ROOT/$TOOLCHAIN/bin
+    cp -f $PKG_DIR/scripts/fribidi-config $ROOT/$TOOLCHAIN/bin
+    chmod +x $ROOT/$TOOLCHAIN/bin/fribidi-config
+
+  rm -rf $INSTALL/usr/bin
+}
