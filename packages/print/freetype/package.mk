@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="freetype"
-PKG_VERSION="2.5.0.1"
+PKG_VERSION="2.5.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -34,7 +34,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 # package specific configure options
-PKG_CONFIGURE_OPTS_TARGET="--with-zlib"
+PKG_CONFIGURE_OPTS_TARGET="LIBPNG_CFLAGS=-I$SYSROOT_PREFIX/usr/include \
+                           LIBPNG_LDFLAGS=-L$SYSROOT_PREFIX/usr/lib \
+                           --with-zlib"
 
 pre_configure_target() {
   # unset LIBTOOL because freetype uses its own
