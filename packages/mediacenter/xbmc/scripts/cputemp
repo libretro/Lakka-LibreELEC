@@ -23,33 +23,45 @@
 
 TEMP=0
 
-if [ -f /sys/class/hwmon/hwmon1/temp1_input ]; then
-  # used on Asus systems (ie. AT5IONT-I)
-  TEMP=`cat /sys/class/hwmon/hwmon1/temp1_input`
-elif [ -f /sys/devices/platform/coretemp.0/temp1_input ]; then
-  # used with coretemp
-  TEMP=`cat /sys/devices/platform/coretemp.0/temp1_input`
-elif [ -f /sys/devices/platform/coretemp.0/temp2_input ]; then
-  # used with coretemp
-  TEMP=`cat /sys/devices/platform/coretemp.0/temp2_input`
-elif [ -f /sys/bus/acpi/devices/LNXTHERM\:00/thermal_zone/temp ]; then
-  # used on some intel systems
-  TEMP=`cat /sys/bus/acpi/devices/LNXTHERM\:00/thermal_zone/temp`
-elif [ -f /sys/devices/virtual/thermal/thermal_zone0/temp ]; then
-  # used on some intel systems
-  TEMP=`cat /sys/devices/virtual/thermal/thermal_zone0/temp`
-elif [ -f /sys/class/hwmon/hwmon0/temp1_input ]; then
-  # hwmon for new 2.6.39, 3.0 linux kernels
-  TEMP=`cat /sys/class/hwmon/hwmon0/temp1_input`
-elif [ -f /sys/class/hwmon/hwmon0/device/temp1_input ]; then
-  # used on AMD systems
-  TEMP=`cat /sys/class/hwmon/hwmon0/device/temp1_input`
-elif [ -f /sys/class/hwmon/hwmon0/device/temp2_input ]; then
-  # used on ION systems
-  TEMP=`cat /sys/class/hwmon/hwmon0/device/temp2_input`
-elif [ -f /sys/class/thermal/thermal_zone0/temp ]; then
-  # used on RaspberryPi
-  TEMP=`cat /sys/class/thermal/thermal_zone0/temp`
+if [ $(basename "$0") = "gputemp" -o "$1" = "gpu" ]; then
+  if [ -x /usr/bin/lspci ]; then
+    if lspci -n | grep 0300 | grep -q 10de; then
+      [ -x /usr/bin/nvidia-smi ] && TEMP=`/usr/bin/nvidia-smi -q -x | grep 'gpu_temp' | awk '{ print $1 }' | sed 's,<gpu_temp>,,g'`
+    fi
+  fi
 fi
 
-echo "$(( $TEMP / 1000 )) C"
+if [ "$1" = "cpu" -o "$TEMP" = "0" ]; then
+  if [ -f /sys/class/hwmon/hwmon1/temp1_input ]; then
+    # used on Asus systems (ie. AT5IONT-I)
+    TEMP=`cat /sys/class/hwmon/hwmon1/temp1_input`
+  elif [ -f /sys/devices/platform/coretemp.0/temp1_input ]; then
+    # used with coretemp
+    TEMP=`cat /sys/devices/platform/coretemp.0/temp1_input`
+  elif [ -f /sys/devices/platform/coretemp.0/temp2_input ]; then
+    # used with coretemp
+    TEMP=`cat /sys/devices/platform/coretemp.0/temp2_input`
+  elif [ -f /sys/bus/acpi/devices/LNXTHERM\:00/thermal_zone/temp ]; then
+    # used on some intel systems
+    TEMP=`cat /sys/bus/acpi/devices/LNXTHERM\:00/thermal_zone/temp`
+  elif [ -f /sys/devices/virtual/thermal/thermal_zone0/temp ]; then
+    # used on some intel systems
+    TEMP=`cat /sys/devices/virtual/thermal/thermal_zone0/temp`
+  elif [ -f /sys/class/hwmon/hwmon0/temp1_input ]; then
+    # hwmon for new 2.6.39, 3.0 linux kernels
+    TEMP=`cat /sys/class/hwmon/hwmon0/temp1_input`
+  elif [ -f /sys/class/hwmon/hwmon0/device/temp1_input ]; then
+    # used on AMD systems
+    TEMP=`cat /sys/class/hwmon/hwmon0/device/temp1_input`
+  elif [ -f /sys/class/hwmon/hwmon0/device/temp2_input ]; then
+    # used on ION systems
+    TEMP=`cat /sys/class/hwmon/hwmon0/device/temp2_input`
+  elif [ -f /sys/class/thermal/thermal_zone0/temp ]; then
+    # used on RaspberryPi
+    TEMP=`cat /sys/class/thermal/thermal_zone0/temp`
+  fi
+
+  TEMP="$(( $TEMP / 1000 ))"
+fi
+
+echo "${TEMP} C"

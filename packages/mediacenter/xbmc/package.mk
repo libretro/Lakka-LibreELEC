@@ -454,7 +454,7 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
-    cp $PKG_DIR/scripts/gputemp $INSTALL/usr/bin
+      ln -sf cputemp $INSTALL/usr/bin/gputemp
     cp $PKG_DIR/scripts/setwakeup.sh $INSTALL/usr/bin
     cp tools/EventClients/Clients/XBMC\ Send/xbmc-send.py $INSTALL/usr/bin/xbmc-send
 
