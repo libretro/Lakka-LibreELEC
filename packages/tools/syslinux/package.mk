@@ -34,7 +34,6 @@ PKG_LONGDESC="The SYSLINUX project covers lightweight linux bootloaders for flop
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS_HOST="CC=$CC AR=$AR RANLIB=$RANLIB installer"
 PKG_MAKE_OPTS_TARGET="CC=$CC AR=$AR RANLIB=$RANLIB installer"
 
 # Unset all compiler FLAGS
@@ -59,6 +58,15 @@ pre_make_target() {
 
 pre_make_host() {
   cd .$HOST_NAME
+}
+
+make_host() {
+  make CC=$CC \
+       AR=$AR \
+       RANLIB=$RANLIB \
+       CFLAGS="-I$ROOT/$TOOLCHAIN/include -I../libinstaller -I../libfat -fomit-frame-pointer -D_FILE_OFFSET_BITS=64" \
+       LDFLAGS="-L$ROOT/$TOOLCHAIN/lib" \
+       installer
 }
 
 makeinstall_host() {
