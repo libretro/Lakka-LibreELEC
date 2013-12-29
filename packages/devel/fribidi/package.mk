@@ -26,7 +26,7 @@ PKG_URL="http://fribidi.org/download/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
 PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="other"
+PKG_SECTION="devel"
 PKG_SHORTDESC="fribidi: The Bidirectional Algorithm library"
 PKG_LONGDESC="The library implements all of the algorithm as described in the Unicode Standard Annex #9, The Bidirectional Algorithm, http://www.unicode.org/unicode/reports/tr9/. FriBidi is exhautively tested against Bidi Reference Code, and due to our best knowledge, does not contain any conformance bugs."
 
