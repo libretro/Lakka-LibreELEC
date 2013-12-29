@@ -18,15 +18,12 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
-
-if [ "$BOOTLOADER" = "syslinux" ]; then
-  $SCRIPTS/build syslinux:host
-fi
+################################################################################
+# variables such as $ROOT $PATH etc... that are required for this
+# script to work must be passed via env ... in scripts/image
+################################################################################
 
 # set variables
-  UUID_SYSTEM=$(uuidgen)
-  UUID_STORAGE=$(uuidgen)
   OE_TMP=$(mktemp -d)
   LOOP=$(losetup -f)
 
@@ -43,18 +40,19 @@ fi
 # functions
   cleanup() {
     echo "image: cleanup..."
-    sudo umount "$OE_TMP" &>/dev/null || :
-    sudo losetup -d "$LOOP"
-    [ -f "$OE_TMP/ldlinux.sys" ] && sudo chattr -i "$OE_TMP/ldlinux.sys" || :
-    sudo rm -rf "$OE_TMP"
+    umount "$OE_TMP" &>/dev/null || :
+    losetup -d "$LOOP"
+    [ -f "$OE_TMP/ldlinux.sys" ] && chattr -i "$OE_TMP/ldlinux.sys" || :
+    rm -rf "$OE_TMP"
+    exit
   }
 
 trap cleanup SIGINT
 
 # ensure loopX not in use
-  sudo umount "$OE_TMP" &>/dev/null || :
-  sudo umount "$LOOP" &>/dev/null >/dev/null || :
-  sudo losetup -d "$LOOP" &>/dev/null >/dev/null || :
+  umount "$OE_TMP" &>/dev/null || :
+  umount "$LOOP" &>/dev/null >/dev/null || :
+  losetup -d "$LOOP" &>/dev/null >/dev/null || :
 
 # create an image
   echo "image: creating image: $DISK..."
@@ -63,24 +61,24 @@ trap cleanup SIGINT
 
 # write a disklabel
   echo "image: creating partition table on $DISK..."
-  sudo losetup "$LOOP" "$DISK"
-  sudo parted -s "$LOOP" mklabel msdos
+  losetup "$LOOP" "$DISK"
+  parted -s "$LOOP" mklabel msdos
   sync
 
 # create part1
   echo "image: creating part1 on $DISK..."
   SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 64 ))
   if [ "$BOOTLOADER" = "syslinux" ]; then
-    sudo parted -s "$LOOP" -a min unit s mkpart primary ext4 64 $SYSTEM_PART_END
+    parted -s "$LOOP" -a min unit s mkpart primary ext4 64 $SYSTEM_PART_END
   elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
-    sudo parted -s "$LOOP" -a min unit s mkpart primary fat32 64 $SYSTEM_PART_END
+    parted -s "$LOOP" -a min unit s mkpart primary fat32 64 $SYSTEM_PART_END
   fi
-  sudo parted -s "$LOOP" set 1 boot on
+  parted -s "$LOOP" set 1 boot on
 
 # create part2
   echo "image: creating part2 on $DISK..."
   STORAGE_PART_START=$(( $SYSTEM_PART_END + 1 ))
-  sudo parted -s "$LOOP" -a min unit s mkpart primary ext4 $STORAGE_PART_START 100%
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 $STORAGE_PART_START 100%
   sync
 
 if [ "$BOOTLOADER" = "syslinux" ]; then
@@ -88,34 +86,34 @@ if [ "$BOOTLOADER" = "syslinux" ]; then
     echo "image: writing mbr..."
     MBR="$ROOT/$TOOLCHAIN/share/syslinux/mbr.bin"
     if [ -n "$MBR" ]; then
-      sudo dd bs=440 count=1 conv=notrunc if="$MBR" of="$LOOP"
+      dd bs=440 count=1 conv=notrunc if="$MBR" of="$LOOP"
     fi
     sync
 fi
 
 # create filesystem on part1
-  sudo losetup -d "$LOOP"
+  losetup -d "$LOOP"
   echo "image: creating filesystem on part1..."
   OFFSET=$(( 64 * 512 ))
   SIZELIMIT=$(( $SYSTEM_SIZE * 1024 * 1024 ))
-  sudo losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
+  losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
   if [ "$BOOTLOADER" = "syslinux" ]; then
-    sudo mke2fs -q -t ext4 -m 0 "$LOOP"
-    sudo tune2fs -U $UUID_SYSTEM "$LOOP"
-    sudo e2fsck -n "$LOOP"
+    mke2fs -q -t ext4 -m 0 "$LOOP"
+    tune2fs -U $UUID_SYSTEM "$LOOP"
+    e2fsck -n "$LOOP"
   elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
-    sudo mkfs.vfat "$LOOP"
+    mkfs.vfat "$LOOP"
   fi
   sync
 
 # mount partition
   echo "image: mounting part1 on $OE_TMP..."
-  sudo mount "$LOOP" "$OE_TMP"
+  mount "$LOOP" "$OE_TMP"
 
 if [ "$BOOTLOADER" = "syslinux" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
-    cat << EOF | sudo tee "$OE_TMP"/syslinux.cfg
+    cat << EOF > "$OE_TMP"/syslinux.cfg
 UI vesamenu.c32
 PROMPT 0
 MENU TITLE Boot Menu
@@ -158,59 +156,59 @@ EOF
 
   # install extlinux
     echo "image: installing extlinux to part1..."
-    sudo $ROOT/$TOOLCHAIN/bin/extlinux --heads=4 --sector=32 -i "$OE_TMP"
+    extlinux --heads=4 --sector=32 -i "$OE_TMP"
 
   # copy files
     echo "image: copying files to part1..."
-    sudo cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/KERNEL"
-    sudo cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
-    sudo cp $RELEASE_DIR/splash.png "$OE_TMP"
-    sudo cp $ROOT/$TOOLCHAIN/share/syslinux/vesamenu.c32 "$OE_TMP"
-    sudo cp $ROOT/$TOOLCHAIN/share/syslinux/libcom32.c32 "$OE_TMP"
-    sudo cp $ROOT/$TOOLCHAIN/share/syslinux/libutil.c32 "$OE_TMP"
+    cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/KERNEL"
+    cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
+    cp $RELEASE_DIR/splash.png "$OE_TMP"
+    cp $ROOT/$TOOLCHAIN/share/syslinux/vesamenu.c32 "$OE_TMP"
+    cp $ROOT/$TOOLCHAIN/share/syslinux/libcom32.c32 "$OE_TMP"
+    cp $ROOT/$TOOLCHAIN/share/syslinux/libutil.c32 "$OE_TMP"
 
 elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
-    cat << EOF | sudo tee "$OE_TMP"/cmdline.txt
+    cat << EOF > "$OE_TMP"/cmdline.txt
 boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 quiet
 EOF
 
   # copy files
     echo "image: copying files to part1..."
-    sudo cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/kernel.img"
-    sudo cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
-    sudo cp $RELEASE_DIR/3rdparty/bootloader/bootcode.bin "$OE_TMP"
-    sudo cp $RELEASE_DIR/3rdparty/bootloader/fixup.dat "$OE_TMP"
-    sudo cp $RELEASE_DIR/3rdparty/bootloader/start.elf "$OE_TMP"
+    cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/kernel.img"
+    cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
+    cp $RELEASE_DIR/3rdparty/bootloader/bootcode.bin "$OE_TMP"
+    cp $RELEASE_DIR/3rdparty/bootloader/fixup.dat "$OE_TMP"
+    cp $RELEASE_DIR/3rdparty/bootloader/start.elf "$OE_TMP"
 fi # bootloader
 
 # unmount part1
   echo "image: unmounting part1..."
   sync
-  sudo umount "$LOOP"
+  umount "$LOOP"
 
 # create filesystem on part2
-  sudo losetup -d "$LOOP"
+  losetup -d "$LOOP"
   echo "image: creating filesystem on part2..."
   OFFSET=$(( $STORAGE_PART_START * 512 ))
-  sudo losetup -o $OFFSET "$LOOP" "$DISK"
-  sudo mke2fs -q -t ext4 -m 0 "$LOOP"
-  sudo tune2fs -U $UUID_STORAGE "$LOOP"
-  sudo e2fsck -n "$LOOP"
+  losetup -o $OFFSET "$LOOP" "$DISK"
+  mke2fs -q -t ext4 -m 0 "$LOOP"
+  tune2fs -U $UUID_STORAGE "$LOOP"
+  e2fsck -n "$LOOP"
   sync
 
 # mount part2
   echo "image: mounting part2 on $OE_TMP..."
-  sudo mount "$LOOP" "$OE_TMP"
+  mount "$LOOP" "$OE_TMP"
 
 # add resize mark
-  sudo touch "$OE_TMP/.please_resize_me"
+  touch "$OE_TMP/.please_resize_me"
   sync
 
 # unmount part2
   echo "image: unmounting part2..."
-  sudo umount "$LOOP"
+  umount "$LOOP"
   sync
 
 # gzip
