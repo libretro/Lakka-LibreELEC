@@ -26,7 +26,7 @@ PKG_URL="http://dl.cihar.com/enca/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
 PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="other"
+PKG_SECTION="devel"
 PKG_SHORTDESC="enca: detects the encoding of text files, on the basis of knowledge of their language."
 PKG_LONGDESC="Enca detects the encoding of text files, on the basis of knowledge of their language. It can also convert them to other encodings, allowing you to recode files without knowing their current encoding. It supports most of Central and East European languages, and a few Unicode variants, independently on language."
 
