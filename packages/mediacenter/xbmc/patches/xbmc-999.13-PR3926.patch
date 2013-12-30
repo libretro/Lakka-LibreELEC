@@ -1,0 +1,174 @@
+From 2c76d1f3782265a42835ab4b897585063eebdbac Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sat, 28 Sep 2013 00:16:05 +0100
+Subject: [PATCH 1/2] [rbp/gui] Add switch between higher and lower quality
+ textures
+
+To save memory we default to 16bpp textures,
+but provide a GUI option to increase that to 32bpp.
+---
+ language/English/strings.po       | 9 +++++++++
+ system/settings/rbp.xml           | 5 +++++
+ xbmc/cores/omxplayer/OMXImage.cpp | 3 ++-
+ 3 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/language/English/strings.po b/language/English/strings.po
+index 80c02aa..bc8be7d 100755
+--- a/language/English/strings.po
++++ b/language/English/strings.po
+@@ -14895,6 +14895,11 @@ msgctxt "#36546"
+ msgid "Sets the visual depth of subtitles for stereoscopic videos. The higher the value, the closer the subtitles will appear to the viewer."
+ msgstr ""
+ 
++#: system/settings/rbp.xml
++msgctxt "#36547"
++msgid "Use higher quality textures for covers and fanart"
++msgstr ""
++
+ #empty strings from id 36547 to 36999
+ #reserved strings 365XX
+ 
+@@ -14958,4 +14963,8 @@ msgstr ""
+ #: system/settings/settings.xml
+ msgctxt "#37019"
+ msgid "Enables system keys like printscreen, alt-tab and volume keys when in fullscreen"
++
++#: system/settings/rbp.xml
++msgctxt "#37020"
++msgid "Enable 32 bit textures"
+ msgstr ""
+diff --git a/system/settings/rbp.xml b/system/settings/rbp.xml
+index cfdeea6..836a0e9 100644
+--- a/system/settings/rbp.xml
++++ b/system/settings/rbp.xml
+@@ -31,6 +31,11 @@
+         <setting id="videoscreen.fakefullscreen">
+           <visible>false</visible>
+         </setting>
++        <setting id="videoscreen.textures32" type="boolean" label="37020" help="36547">
++          <level>2</level>
++          <default>false</default>
++          <control type="toggle" />
++        </setting>
+       </group>
+       <group id="3">
+         <setting id="videoscreen.vsync">
+diff --git a/xbmc/cores/omxplayer/OMXImage.cpp b/xbmc/cores/omxplayer/OMXImage.cpp
+index 16fc05c..2bf34e7 100644
+--- a/xbmc/cores/omxplayer/OMXImage.cpp
++++ b/xbmc/cores/omxplayer/OMXImage.cpp
+@@ -206,7 +206,8 @@ void COMXImage::AllocTextureInternal(struct textureinfo *tex)
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex->width, tex->height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 0);
++  GLenum type = CSettings::Get().GetBool("videoscreen.textures32") ? GL_UNSIGNED_BYTE:GL_UNSIGNED_SHORT_5_6_5;
++  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex->width, tex->height, 0, GL_RGB, type, 0);
+   tex->egl_image = eglCreateImageKHR(m_egl_display, m_egl_context, EGL_GL_TEXTURE_2D_KHR, (EGLClientBuffer)tex->texture, NULL);
+   tex->sync.Set();
+   GLint m_result;
+-- 
+1.8.5.1
+
+
+From ec154c1004ce7a4987f435a6dc61e5417bde1f43 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sat, 28 Sep 2013 00:37:13 +0100
+Subject: [PATCH 2/2] [rbp/gui] Add switch to remove GUI 720p limit
+
+---
+ language/English/strings.po                     | 10 ++++++++++
+ system/settings/rbp.xml                         | 10 ++++++++++
+ xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp | 14 ++++++++++----
+ 3 files changed, 30 insertions(+), 4 deletions(-)
+
+diff --git a/language/English/strings.po b/language/English/strings.po
+index bc8be7d..e263922 100755
+--- a/language/English/strings.po
++++ b/language/English/strings.po
+@@ -14900,6 +14900,11 @@ msgctxt "#36547"
+ msgid "Use higher quality textures for covers and fanart"
+ msgstr ""
+ 
++#: system/settings/rbp.xml
++msgctxt "#36548"
++msgid "Limits resolution of GUI to save memory. Does not affect video playback. Use 1080 for unlimited. Requires restart."
++msgstr ""
++
+ #empty strings from id 36547 to 36999
+ #reserved strings 365XX
+ 
+@@ -14968,3 +14973,8 @@ msgid "Enables system keys like printscreen, alt-tab and volume keys when in ful
+ msgctxt "#37020"
+ msgid "Enable 32 bit textures"
+ msgstr ""
++
++#: system/settings/rbp.xml
++msgctxt "#37021"
++msgid "Set GUI resolution limit"
++msgstr ""
+diff --git a/system/settings/rbp.xml b/system/settings/rbp.xml
+index 836a0e9..30ba225 100644
+--- a/system/settings/rbp.xml
++++ b/system/settings/rbp.xml
+@@ -36,6 +36,16 @@
+           <default>false</default>
+           <control type="toggle" />
+         </setting>
++        <setting id="videoscreen.limitgui" type="integer" label="37021" help="36548">
++          <level>2</level>
++          <default>1080</default>
++          <constraints>
++            <minimum>540</minimum>
++            <step>16</step>
++            <maximum>1080</maximum>
++          </constraints>
++          <control type="edit" format="integer" />
++        </setting>
+       </group>
+       <group id="3">
+         <setting id="videoscreen.vsync">
+diff --git a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+index 5a1594c..dc47095 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+@@ -25,6 +25,7 @@
+ #include "guilib/gui3d.h"
+ #include "linux/DllBCM.h"
+ #include "utils/StringUtils.h"
++#include "settings/Settings.h"
+ 
+ #ifndef __VIDEOCORE4__
+ #define __VIDEOCORE4__
+@@ -354,19 +355,24 @@ static float get_display_aspect_ratio(SDTV_ASPECT_T aspect)
+ 
+ static bool ClampToGUIDisplayLimits(int &width, int &height)
+ {
+-  const int max_width = 1280, max_height = 720;
++  float max_height = (float)CSettings::Get().GetInt("videoscreen.limitgui");
++  float default_ar = 16.0f/9.0f;
++  if (max_height < 540.0f || max_height > 1080.0f)
++    max_height = 1080.0f;
++
+   float ar = (float)width/(float)height;
++  float max_width = max_height * default_ar;
+   // bigger than maximum, so need to clamp
+   if (width > max_width || height > max_height) {
+     // wider than max, so clamp width first
+-    if (ar > (float)max_width/(float)max_height)
++    if (ar > default_ar)
+     {
+       width = max_width;
+-      height = (float)max_width / ar + 0.5f;
++      height = max_width / ar + 0.5f;
+     // taller than max, so clamp height first
+     } else {
+       height = max_height;
+-      width = (float)max_height * ar + 0.5f;
++      width = max_height * ar + 0.5f;
+     }
+     return true;
+   }
+-- 
+1.8.5.1
+
