@@ -1,0 +1,1284 @@
+From b3503b1b8961ee00816420dc3ec6615dfca742ab Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sun, 29 Dec 2013 14:05:22 +0000
+Subject: [PATCH 1/6] [rbp] Remove PiAudio engine
+
+---
+ xbmc/cores/AudioEngine/AEFactory.cpp               |  11 +-
+ .../AudioEngine/Engines/PiAudio/PiAudioAE.cpp      | 206 ---------------------
+ xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h |  80 --------
+ xbmc/cores/AudioEngine/Makefile.in                 |   2 -
+ xbmc/cores/omxplayer/OMXAudio.cpp                  |   6 -
+ 5 files changed, 1 insertion(+), 304 deletions(-)
+ delete mode 100644 xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
+ delete mode 100644 xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
+
+diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
+index e798e0f..b76d304 100644
+--- a/xbmc/cores/AudioEngine/AEFactory.cpp
++++ b/xbmc/cores/AudioEngine/AEFactory.cpp
+@@ -33,10 +33,6 @@
+   #include "Engines/PulseAE/PulseAE.h"
+ #endif
+ 
+-#if defined(TARGET_RASPBERRY_PI)
+-  #include "Engines/PiAudio/PiAudioAE.h"
+-#endif
+-
+ #include "guilib/LocalizeStrings.h"
+ #include "settings/lib/Setting.h"
+ #include "settings/Settings.h"
+@@ -55,9 +51,7 @@ bool CAEFactory::LoadEngine()
+ {
+   bool loaded = false;
+ 
+-#if defined(TARGET_RASPBERRY_PI)
+-  return CAEFactory::LoadEngine(AE_ENGINE_PIAUDIO);
+-#elif defined(TARGET_DARWIN)
++#if defined(TARGET_DARWIN)
+   return CAEFactory::LoadEngine(AE_ENGINE_COREAUDIO);
+ #endif
+ 
+@@ -104,9 +98,6 @@ bool CAEFactory::LoadEngine(enum AEEngine engine)
+ #if defined(HAS_PULSEAUDIO)
+     case AE_ENGINE_PULSE    : AE = new CPulseAE(); break;
+ #endif
+-#if defined(TARGET_RASPBERRY_PI)
+-    case AE_ENGINE_PIAUDIO  : AE = new PiAudioAE::CPiAudioAE(); break;
+-#endif
+     default:
+       return false;
+   }
+diff --git a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
+deleted file mode 100644
+index ccf40b0..0000000
+--- a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.cpp
++++ /dev/null
+@@ -1,206 +0,0 @@
+-/*
+- *      Copyright (C) 2010-2013 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "PiAudioAE.h"
+-
+-using namespace PiAudioAE;
+-#include "Utils/AEUtil.h"
+-
+-#include "settings/Settings.h"
+-#include "settings/AdvancedSettings.h"
+-#include "windowing/WindowingFactory.h"
+-
+-#if defined(TARGET_RASPBERRY_PI)
+-#include "linux/RBP.h"
+-#endif
+-
+-CPiAudioAE::CPiAudioAE()
+-: CThread("CPiAudio")
+-{
+-}
+-
+-CPiAudioAE::~CPiAudioAE()
+-{
+-}
+-
+-bool CPiAudioAE::Initialize()
+-{
+-  UpdateStreamSilence();
+-  Create();
+-  return true;
+-}
+-
+-void CPiAudioAE::Process()
+-{
+-  while(!m_bStop)
+-  {
+-    /* thread just currently checks once a second if it's time to disable streamsilence */
+-    Sleep(1000);
+-
+-    if (m_extSilenceTimer.IsTimePast())
+-    {
+-      UpdateStreamSilence(false);
+-      m_extSilenceTimer.Set(XbmcThreads::EndTime::InfiniteValue);
+-    }
+-  }
+-}
+-
+-void CPiAudioAE::UpdateStreamSilence()
+-{
+-  if (CSettings::Get().GetInt("audiooutput.streamsilence") > 0)
+-    m_extSilenceTimeout = CSettings::Get().GetInt("audiooutput.streamsilence") * 60000;
+-  else
+-    m_extSilenceTimeout = XbmcThreads::EndTime::InfiniteValue;
+-  m_extSilenceTimer.Set(m_extSilenceTimeout);
+-  UpdateStreamSilence(CSettings::Get().GetString("audiooutput.audiodevice") == "HDMI" &&
+-              CSettings::Get().GetInt("audiooutput.streamsilence") != 0);
+-}
+-
+-void CPiAudioAE::UpdateStreamSilence(bool enable)
+-{
+-#if defined(TARGET_RASPBERRY_PI)
+-  char response[80] = "";
+-  char command[80] = "";
+-  sprintf(command, "force_audio hdmi %d", enable);
+-  vc_gencmd(response, sizeof response, command);
+-#endif
+-}
+-
+-bool CPiAudioAE::Suspend()
+-{
+-  return true;
+-}
+-
+-bool CPiAudioAE::Resume()
+-{
+-  return true;
+-}
+-
+-float CPiAudioAE::GetVolume()
+-{
+-  return m_aeVolume;
+-}
+-
+-void CPiAudioAE::SetVolume(const float volume)
+-{
+-  m_aeVolume = std::max( 0.0f, std::min(1.0f, volume));
+-}
+-
+-void CPiAudioAE::SetMute(const bool enabled)
+-{
+-  m_aeMuted = enabled;
+-}
+-
+-bool CPiAudioAE::IsMuted()
+-{
+-  return m_aeMuted;
+-}
+-
+-IAEStream *CPiAudioAE::MakeStream(enum AEDataFormat dataFormat, unsigned int sampleRate, unsigned int encodedSampleRate, CAEChannelInfo channelLayout, unsigned int options)
+-{
+-  return NULL;
+-}
+-
+-IAEStream *CPiAudioAE::FreeStream(IAEStream *stream)
+-{
+-  // will retrigger the streamsilence timer
+-  UpdateStreamSilence();
+-  return NULL;
+-}
+-
+-IAESound *CPiAudioAE::MakeSound(const std::string& file)
+-{
+-  return NULL;
+-}
+-
+-void CPiAudioAE::FreeSound(IAESound *sound)
+-{
+-}
+-
+-bool CPiAudioAE::SupportsRaw(AEDataFormat format)
+-{
+-  bool supported = false;
+-#if defined(TARGET_RASPBERRY_PI)
+-  if (CSettings::Get().GetString("audiooutput.audiodevice") == "HDMI")
+-  {
+-    if (!CSettings::Get().GetBool("audiooutput.dualaudio"))
+-    {
+-      DllBcmHost m_DllBcmHost;
+-      m_DllBcmHost.Load();
+-      if (format == AE_FMT_AC3 && CSettings::Get().GetBool("audiooutput.ac3passthrough") &&
+-          m_DllBcmHost.vc_tv_hdmi_audio_supported(EDID_AudioFormat_eAC3, 2, EDID_AudioSampleRate_e44KHz, EDID_AudioSampleSize_16bit ) == 0)
+-        supported = true;
+-      if (format == AE_FMT_DTS && CSettings::Get().GetBool("audiooutput.dtspassthrough") &&
+-          m_DllBcmHost.vc_tv_hdmi_audio_supported(EDID_AudioFormat_eDTS, 2, EDID_AudioSampleRate_e44KHz, EDID_AudioSampleSize_16bit ) == 0)
+-        supported = true;
+-      m_DllBcmHost.Unload();
+-    }
+-  }
+-#endif
+-  return supported;
+-}
+-
+-bool CPiAudioAE::SupportsSilenceTimeout()
+-{
+-  return true;
+-}
+-
+-void CPiAudioAE::OnSettingsChange(const std::string& setting)
+-{
+-  if (setting == "audiooutput.streamsilence" || setting == "audiooutput.audiodevice")
+-    UpdateStreamSilence();
+-}
+-
+-void CPiAudioAE::EnumerateOutputDevices(AEDeviceList &devices, bool passthrough)
+-{
+-   if (!passthrough)
+-   {
+-     devices.push_back(AEDevice("Analogue", "Analogue"));
+-     devices.push_back(AEDevice("HDMI", "HDMI"));
+-   }
+-}
+-
+-std::string CPiAudioAE::GetDefaultDevice(bool passthrough)
+-{
+-  return "HDMI";
+-}
+-
+-bool CPiAudioAE::IsSettingVisible(const std::string &settingId)
+-{
+-  if (settingId == "audiooutput.samplerate")
+-    return true;
+-
+-  if (CSettings::Get().GetString("audiooutput.audiodevice") == "HDMI")
+-  {
+-    if (settingId == "audiooutput.passthrough")
+-      return true;
+-    if (settingId == "audiooutput.dtspassthrough")
+-      return true;
+-    if (settingId == "audiooutput.ac3passthrough")
+-      return true;
+-    if (settingId == "audiooutput.channels")
+-      return true;
+-    if (settingId == "audiooutput.dualaudio")
+-      return true;
+-    if (settingId == "audiooutput.streamsilence")
+-      return true;
+-  }
+-  return false;
+-}
+diff --git a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h b/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
+deleted file mode 100644
+index 944fba8..0000000
+--- a/xbmc/cores/AudioEngine/Engines/PiAudio/PiAudioAE.h
++++ /dev/null
+@@ -1,80 +0,0 @@
+-#pragma once
+-/*
+- *      Copyright (C) 2010-2013 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "system.h"
+-#include "threads/Thread.h"
+-
+-#include "Interfaces/AEStream.h"
+-#include "Interfaces/AESound.h"
+-#include "AEFactory.h"
+-
+-namespace PiAudioAE
+-{
+-
+-class CPiAudioAE : public IAE, public CThread
+-{
+-protected:
+-  friend class ::CAEFactory;
+-  CPiAudioAE();
+-  virtual ~CPiAudioAE();
+-  virtual bool  Initialize();
+-  virtual void Process();
+-
+-public:
+-  virtual bool   Suspend();
+-  virtual bool   Resume();
+-  virtual void   OnSettingsChange(const std::string& setting);
+-
+-  virtual float GetVolume();
+-  virtual void  SetVolume(const float volume);
+-  virtual void  SetMute(const bool enabled);
+-  virtual bool  IsMuted();
+-  virtual void  SetSoundMode(const int mode) {}
+-
+-  /* returns a new stream for data in the specified format */
+-  virtual IAEStream *MakeStream(enum AEDataFormat dataFormat, unsigned int sampleRate, unsigned int encodedSampleRate, CAEChannelInfo channelLayout, unsigned int options = 0);
+-  virtual IAEStream *FreeStream(IAEStream *stream);
+-
+-  /* returns a new sound object */
+-  virtual IAESound *MakeSound(const std::string& file);
+-  virtual void      FreeSound(IAESound *sound);
+-
+-  virtual void GarbageCollect() {};
+-  virtual void EnumerateOutputDevices(AEDeviceList &devices, bool passthrough);
+-  virtual std::string GetDefaultDevice(bool passthrough);
+-  virtual bool IsSettingVisible(const std::string &settingId);
+-
+-  virtual bool SupportsRaw(AEDataFormat format);
+-  virtual bool SupportsSilenceTimeout();
+-
+-  virtual void OnLostDevice() {}
+-  virtual void OnResetDevice() {}
+-
+-protected:
+-  void UpdateStreamSilence();
+-  void UpdateStreamSilence(bool enable);
+-  // polled via the interface
+-  float m_aeVolume;
+-  bool m_aeMuted;
+-  int m_extSilenceTimeout;
+-  XbmcThreads::EndTime m_extSilenceTimer;
+-};
+-};
+diff --git a/xbmc/cores/AudioEngine/Makefile.in b/xbmc/cores/AudioEngine/Makefile.in
+index c1d53f5..20c4236 100644
+--- a/xbmc/cores/AudioEngine/Makefile.in
++++ b/xbmc/cores/AudioEngine/Makefile.in
+@@ -46,8 +46,6 @@ SRCS += Engines/ActiveAE/ActiveAESound.cpp
+ SRCS += Engines/ActiveAE/ActiveAEResample.cpp
+ SRCS += Engines/ActiveAE/ActiveAEBuffer.cpp
+ 
+-SRCS += Engines/PiAudio/PiAudioAE.cpp
+-
+ ifeq (@USE_ANDROID@,1)
+ SRCS += Sinks/AESinkAUDIOTRACK.cpp
+ else
+diff --git a/xbmc/cores/omxplayer/OMXAudio.cpp b/xbmc/cores/omxplayer/OMXAudio.cpp
+index dbd065f..6fbef4f 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXAudio.cpp
+@@ -690,9 +690,6 @@ bool COMXAudio::Initialize(AEAudioFormat format, OMXClock *clock, CDVDStreamInfo
+   CLog::Log(LOGDEBUG, "COMXAudio::Initialize device passthrough %d hwdecode %d",
+      m_Passthrough, m_HWDecode);
+ 
+-  /* dummy call to inform PiAudioAE that audo is active */
+-  CAEFactory::MakeStream((enum AEDataFormat)0, 0, 0, (CAEChannelInfo)0, 0);
+-
+   return true;
+ }
+ 
+@@ -764,9 +761,6 @@ bool COMXAudio::Deinitialize()
+   m_submitted     = 0.0f;
+   m_maxLevel      = 0.0f;
+ 
+-  /* dummy call to inform PiAudioAE that audo is inactive */
+-  CAEFactory::FreeStream(0);
+-
+   return true;
+ }
+ 
+-- 
+1.8.5.1
+
+
+From 57532ba79bb5ddbae0a83bae836af99a5f3145a7 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sun, 29 Dec 2013 14:05:43 +0000
+Subject: [PATCH 2/6] [rbp] Add PiAudio sink
+
+---
+ system/settings/rbp.xml                   |  80 +-------
+ xbmc/cores/AudioEngine/AESinkFactory.cpp  |  10 +
+ xbmc/cores/AudioEngine/Makefile.in        |   2 +
+ xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp | 293 ++++++++++++++++++++++++++++++
+ xbmc/cores/AudioEngine/Sinks/AESinkPi.h   |  65 +++++++
+ xbmc/cores/omxplayer/OMXAudio.cpp         |   6 +-
+ xbmc/cores/omxplayer/OMXPlayerAudio.cpp   |   4 +-
+ xbmc/linux/RBP.cpp                        |   4 +
+ xbmc/linux/RBP.h                          |   2 +
+ 9 files changed, 382 insertions(+), 84 deletions(-)
+ create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp
+ create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkPi.h
+
+diff --git a/system/settings/rbp.xml b/system/settings/rbp.xml
+index cfdeea6..3af681df 100644
+--- a/system/settings/rbp.xml
++++ b/system/settings/rbp.xml
+@@ -38,91 +38,13 @@
+         </setting>
+       </group>
+     </category>
+-
+-    <category id="audiooutput" label="772" help="36360">
++    <category id="audiooutput">
+       <group id="1">
+-        <setting id="audiooutput.audiodevice">
+-          <level>1</level>
+-          <default>HDMI</default>
+-          <constraints>
+-            <options>audiodevices</options>
+-          </constraints>
+-          <control type="list" format="string" />
+-        </setting>
+         <setting id="audiooutput.dualaudio" type="boolean" label="37017" help="36542">
+           <level>2</level>
+           <default>false</default>
+-          <dependencies>
+-            <dependency type="visible">
+-              <condition on="property" name="aesettingvisible" setting="audiooutput.audiodevice">audiooutput.passthrough</condition>
+-            </dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+-        <setting id="audiooutput.boostcentre" type="boolean" label="37018" help="36543">
+-          <level>2</level>
+-          <default>false</default>
+           <control type="toggle" />
+         </setting>
+-        <setting id="audiooutput.config">
+-          <visible>false</visible>
+-        </setting>
+-        <setting id="audiooutput.stereoupmix">
+-          <visible>false</visible>
+-        </setting>
+-        <setting id="audiooutput.streamsilence">
+-          <level>2</level>
+-          <default>0</default>
+-          <dependencies>
+-            <dependency type="visible">
+-              <condition on="property" name="aesettingvisible" setting="audiooutput.audiodevice">audiooutput.streamsilence</condition>
+-            </dependency>
+-          </dependencies>
+-          <constraints>
+-            <options>audiostreamsilence</options>
+-          </constraints>
+-          <control type="spinner" format="string" />
+-        </setting>
+-      </group>
+-      <group id="2">
+-        <visible>false</visible>
+-      </group>
+-      <group id="3">
+-        <setting id="audiooutput.passthrough">
+-          <level>2</level>
+-          <default>false</default>
+-          <dependencies>
+-            <dependency type="visible">
+-              <condition on="property" name="aesettingvisible" setting="audiooutput.audiodevice">audiooutput.passthrough</condition>
+-            </dependency>
+-          </dependencies>
+-        </setting>
+-        <setting id="audiooutput.passthroughdevice">
+-          <visible>false</visible>
+-        </setting>
+-        <setting id="audiooutput.truehdpassthrough">
+-          <visible>false</visible>
+-        </setting>
+-        <setting id="audiooutput.dtshdpassthrough">
+-          <visible>false</visible>
+-        </setting>
+-        <setting id="audiooutput.eac3passthrough">
+-          <visible>false</visible>
+-        </setting>
+-        <setting id="audiooutput.ac3passthrough">
+-          <dependencies>
+-            <dependency type="visible">
+-              <condition on="property" name="aesettingvisible" setting="audiooutput.audiodevice">audiooutput.ac3passthrough</condition>
+-            </dependency>
+-          </dependencies>
+-        </setting>
+-        <setting id="audiooutput.dtspassthrough">
+-          <dependencies>
+-            <dependency type="visible">
+-              <condition on="property" name="aesettingvisible" setting="audiooutput.audiodevice">audiooutput.dtspassthrough</condition>
+-            </dependency>
+-          </dependencies>
+-        </setting>
+       </group>
+     </category>
+   </section>
+diff --git a/xbmc/cores/AudioEngine/AESinkFactory.cpp b/xbmc/cores/AudioEngine/AESinkFactory.cpp
+index e7fb9a3..7dc504b 100644
+--- a/xbmc/cores/AudioEngine/AESinkFactory.cpp
++++ b/xbmc/cores/AudioEngine/AESinkFactory.cpp
+@@ -25,6 +25,8 @@
+   #include "Sinks/AESinkDirectSound.h"
+ #elif defined(TARGET_ANDROID)
+   #include "Sinks/AESinkAUDIOTRACK.h"
++#elif defined(TARGET_RASPBERRY_PI)
++  #include "Sinks/AESinkPi.h"
+ #elif defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+   #if defined(HAS_ALSA)
+     #include "Sinks/AESinkALSA.h"
+@@ -55,6 +57,8 @@ void CAESinkFactory::ParseDevice(std::string &device, std::string &driver)
+         driver == "DIRECTSOUND" ||
+ #elif defined(TARGET_ANDROID)
+         driver == "AUDIOTRACK"  ||
++#elif defined(TARGET_RASPBERRY_PI)
++        driver == "Pi"          ||
+ #elif defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+   #if defined(HAS_ALSA)
+         driver == "ALSA"        ||
+@@ -110,6 +114,10 @@ IAESink *CAESinkFactory::Create(std::string &device, AEAudioFormat &desiredForma
+   if (driver.empty() || driver == "AUDIOTRACK")
+     TRY_SINK(AUDIOTRACK)
+ 
++#elif defined(TARGET_RASPBERRY_PI)
++  if (driver.empty() || driver == "Pi")
++    TRY_SINK(Pi)
++
+ #elif defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+   #if defined(HAS_ALSA)
+   if (driver.empty() || driver == "ALSA")
+@@ -143,6 +151,8 @@ void CAESinkFactory::EnumerateEx(AESinkInfoList &list, bool force)
+   ENUMERATE_SINK(WASAPI, force);
+ #elif defined(TARGET_ANDROID)
+     ENUMERATE_SINK(AUDIOTRACK, force);
++#elif defined(TARGET_RASPBERRY_PI)
++    ENUMERATE_SINK(Pi, force);
+ #elif defined(TARGET_LINUX) || defined(TARGET_FREEBSD)
+   #if defined(HAS_ALSA)
+     ENUMERATE_SINK(ALSA, force);
+diff --git a/xbmc/cores/AudioEngine/Makefile.in b/xbmc/cores/AudioEngine/Makefile.in
+index 20c4236..7f87410 100644
+--- a/xbmc/cores/AudioEngine/Makefile.in
++++ b/xbmc/cores/AudioEngine/Makefile.in
+@@ -39,6 +39,8 @@ SRCS += AESinkFactory.cpp
+ SRCS += Sinks/AESinkNULL.cpp
+ SRCS += Sinks/AESinkProfiler.cpp
+ 
++SRCS += Sinks/AESinkPi.cpp
++
+ SRCS += Engines/ActiveAE/ActiveAE.cpp
+ SRCS += Engines/ActiveAE/ActiveAESink.cpp
+ SRCS += Engines/ActiveAE/ActiveAEStream.cpp
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp
+new file mode 100644
+index 0000000..72beba4
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp
+@@ -0,0 +1,293 @@
++/*
++ *      Copyright (C) 2010-2013 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "system.h"
++
++#if defined(TARGET_RASPBERRY_PI)
++
++#include <stdint.h>
++#include <limits.h>
++
++#include "AESinkPi.h"
++#include "cores/AudioEngine/Utils/AEUtil.h"
++#include "utils/log.h"
++#include "settings/Settings.h"
++#include "linux/RBP.h"
++
++#define CLASSNAME "CAESinkPi"
++
++#define NUM_OMX_BUFFERS 2
++#define AUDIO_PLAYBUFFER (1.0/20.0)
++
++CAEDeviceInfo CAESinkPi::m_info;
++
++CAESinkPi::CAESinkPi() :
++    m_sinkbuffer_size(0),
++    m_sinkbuffer_sec_per_byte(0),
++    m_Initialized(false),
++    m_submitted(0)
++{
++}
++
++CAESinkPi::~CAESinkPi()
++{
++}
++
++void CAESinkPi::SetAudioDest()
++{
++  OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
++  OMX_CONFIG_BRCMAUDIODESTINATIONTYPE audioDest;
++  OMX_INIT_STRUCTURE(audioDest);
++  if (CSettings::Get().GetString("audiooutput.audiodevice") == "Pi:Analogue")
++    strncpy((char *)audioDest.sName, "local", strlen("local"));
++  else
++    strncpy((char *)audioDest.sName, "hdmi", strlen("hdmi"));
++  omx_err = m_omx_render.SetConfig(OMX_IndexConfigBrcmAudioDestination, &audioDest);
++  if (omx_err != OMX_ErrorNone)
++    CLog::Log(LOGERROR, "%s::%s - m_omx_render.SetConfig omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
++}
++
++bool CAESinkPi::Initialize(AEAudioFormat &format, std::string &device)
++{
++  m_initDevice = device;
++  m_initFormat = format;
++  // setup for a 50ms sink feed from SoftAE
++  format.m_dataFormat    = AE_FMT_S16NE;
++  format.m_frames        = format.m_sampleRate * AUDIO_PLAYBUFFER;
++  format.m_frameSamples  = format.m_channelLayout.Count();
++  format.m_frameSize     = format.m_frameSamples * (CAEUtil::DataFormatToBits(format.m_dataFormat) >> 3);
++  format.m_sampleRate    = std::max(8000U, std::min(96000U, format.m_sampleRate));
++
++  m_format = format;
++
++  m_sinkbuffer_size = format.m_frameSize * format.m_frames * NUM_OMX_BUFFERS;
++  m_sinkbuffer_sec_per_byte = 1.0 / (double)(format.m_frameSize * format.m_sampleRate);
++
++  CLog::Log(LOGDEBUG, "%s:%s Format:%d Channels:%d Samplerate:%d framesize:%d bufsize:%d bytes/s=%.2f", CLASSNAME, __func__,
++                format.m_dataFormat, format.m_channelLayout.Count(), format.m_sampleRate, format.m_frameSize, m_sinkbuffer_size, 1.0/m_sinkbuffer_sec_per_byte);
++
++  // This may be called before Application calls g_RBP.Initialise, so call it here too
++  g_RBP.Initialize();
++
++  CLog::Log(LOGDEBUG, "%s:%s", CLASSNAME, __func__);
++
++  OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
++
++  if (!m_omx_render.Initialize("OMX.broadcom.audio_render", OMX_IndexParamAudioInit))
++    CLog::Log(LOGERROR, "%s::%s - m_omx_render.Initialize omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
++
++  OMX_INIT_STRUCTURE(m_pcm_input);
++  m_pcm_input.nPortIndex            = m_omx_render.GetInputPort();
++  m_pcm_input.eNumData              = OMX_NumericalDataSigned;
++  m_pcm_input.eEndian               = OMX_EndianLittle;
++  m_pcm_input.bInterleaved          = OMX_TRUE;
++  m_pcm_input.nBitPerSample         = 16;
++  m_pcm_input.ePCMMode              = OMX_AUDIO_PCMModeLinear;
++  m_pcm_input.nChannels             = m_format.m_frameSamples;
++  m_pcm_input.nSamplingRate         = m_format.m_sampleRate;
++  m_pcm_input.eChannelMapping[0] = OMX_AUDIO_ChannelLF;
++  m_pcm_input.eChannelMapping[1] = OMX_AUDIO_ChannelRF;
++  m_pcm_input.eChannelMapping[2] = OMX_AUDIO_ChannelMax;
++
++  omx_err = m_omx_render.SetParameter(OMX_IndexParamAudioPcm, &m_pcm_input);
++  if (omx_err != OMX_ErrorNone)
++    CLog::Log(LOGERROR, "%s::%s - error m_omx_render SetParameter omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
++
++  m_omx_render.ResetEos();
++
++  SetAudioDest();
++
++  // set up the number/size of buffers for decoder input
++  OMX_PARAM_PORTDEFINITIONTYPE port_param;
++  OMX_INIT_STRUCTURE(port_param);
++  port_param.nPortIndex = m_omx_render.GetInputPort();
++
++  omx_err = m_omx_render.GetParameter(OMX_IndexParamPortDefinition, &port_param);
++  if (omx_err != OMX_ErrorNone)
++    CLog::Log(LOGERROR, "%s:%s - error get OMX_IndexParamPortDefinition (input) omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
++
++  port_param.nBufferCountActual = std::max((unsigned int)port_param.nBufferCountMin, (unsigned int)NUM_OMX_BUFFERS);
++  port_param.nBufferSize = m_sinkbuffer_size / port_param.nBufferCountActual;
++
++  omx_err = m_omx_render.SetParameter(OMX_IndexParamPortDefinition, &port_param);
++  if (omx_err != OMX_ErrorNone)
++    CLog::Log(LOGERROR, "%s:%s - error set OMX_IndexParamPortDefinition (intput) omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
++
++  omx_err = m_omx_render.AllocInputBuffers();
++  if (omx_err != OMX_ErrorNone)
++    CLog::Log(LOGERROR, "%s:%s - Error alloc buffers 0x%08x", CLASSNAME, __func__, omx_err);
++
++  omx_err = m_omx_render.SetStateForComponent(OMX_StateExecuting);
++  if (omx_err != OMX_ErrorNone)
++    CLog::Log(LOGERROR, "%s:%s - m_omx_render OMX_StateExecuting omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
++
++  m_Initialized = true;
++  return true;
++}
++
++
++void CAESinkPi::Deinitialize()
++{
++  CLog::Log(LOGDEBUG, "%s:%s", CLASSNAME, __func__);
++  if (m_Initialized)
++  {
++    m_omx_render.FlushAll();
++    m_omx_render.Deinitialize();
++    m_Initialized = false;
++  }
++}
++
++bool CAESinkPi::IsCompatible(const AEAudioFormat &format, const std::string &device)
++{
++  bool compatible =
++      /* compare against the requested format and the real format */
++      (m_initFormat.m_sampleRate    == format.m_sampleRate    || m_format.m_sampleRate    == format.m_sampleRate   ) &&
++      (m_initFormat.m_dataFormat    == format.m_dataFormat    || m_format.m_dataFormat    == format.m_dataFormat   ) &&
++      (m_initFormat.m_channelLayout == format.m_channelLayout || m_format.m_channelLayout == format.m_channelLayout) &&
++      (m_initDevice == device);
++  CLog::Log(LOGDEBUG, "%s:%s Format:%d Channels:%d Samplerate:%d = %d", CLASSNAME, __func__, format.m_dataFormat, format.m_channelLayout.Count(), format.m_sampleRate, compatible);
++  return compatible;
++}
++
++double CAESinkPi::GetDelay()
++{
++  OMX_PARAM_U32TYPE param;
++  OMX_INIT_STRUCTURE(param);
++
++  if (!m_Initialized)
++    return 0.0;
++
++  param.nPortIndex = m_omx_render.GetInputPort();
++
++  OMX_ERRORTYPE omx_err = m_omx_render.GetConfig(OMX_IndexConfigAudioRenderingLatency, &param);
++
++  if (omx_err != OMX_ErrorNone)
++  {
++    CLog::Log(LOGERROR, "%s::%s - error getting OMX_IndexConfigAudioRenderingLatency error 0x%08x",
++      CLASSNAME, __func__, omx_err);
++  }
++  double sinkbuffer_seconds_to_empty = m_sinkbuffer_sec_per_byte * param.nU32 * m_format.m_frameSize;
++  return sinkbuffer_seconds_to_empty;
++}
++
++double CAESinkPi::GetCacheTime()
++{
++  return GetDelay();
++}
++
++double CAESinkPi::GetCacheTotal()
++{
++  double audioplus_buffer = AUDIO_PLAYBUFFER;
++  return m_sinkbuffer_sec_per_byte * (double)m_sinkbuffer_size + audioplus_buffer;
++}
++
++unsigned int CAESinkPi::AddPackets(uint8_t *data, unsigned int frames, bool hasAudio, bool blocking)
++{
++  unsigned int sent = 0;
++
++  if (!m_Initialized)
++    return frames;
++
++  OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
++  OMX_BUFFERHEADERTYPE *omx_buffer = NULL;
++  while (sent < frames)
++  {
++    int timeout = blocking ? 1000 : 0;
++
++    // delay compared to maximum we'd like (to keep lag low)
++    double delay = GetDelay();
++    bool too_laggy = delay - AUDIO_PLAYBUFFER > 0.0;
++    omx_buffer = too_laggy ? NULL : m_omx_render.GetInputBuffer(timeout);
++
++    if (omx_buffer == NULL)
++    {
++      if (too_laggy)
++      {
++        Sleep((int)((delay - AUDIO_PLAYBUFFER) * 1000.0));
++        continue;
++      }
++      if (blocking)
++        CLog::Log(LOGERROR, "COMXAudio::Decode timeout");
++      break;
++    }
++
++    omx_buffer->nFilledLen = std::min(omx_buffer->nAllocLen, (frames - sent) * m_format.m_frameSize);
++    omx_buffer->nTimeStamp = ToOMXTime(0);
++    omx_buffer->nFlags = 0;
++    memcpy(omx_buffer->pBuffer, (uint8_t *)data + sent * m_format.m_frameSize, omx_buffer->nFilledLen);
++    sent += omx_buffer->nFilledLen / m_format.m_frameSize;
++
++    if (sent == frames)
++      omx_buffer->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
++
++    if (delay <= 0.0 && m_submitted)
++      CLog::Log(LOGERROR, "%s:%s Underrun (delay:%.2f frames:%d)", CLASSNAME, __func__, delay, frames);
++
++    omx_err = m_omx_render.EmptyThisBuffer(omx_buffer);
++    if (omx_err != OMX_ErrorNone)
++      CLog::Log(LOGERROR, "%s:%s frames=%d err=%x", CLASSNAME, __func__, frames, omx_err);
++    m_submitted += omx_buffer->nFilledLen;
++  }
++
++  return sent;
++}
++
++void CAESinkPi::Drain()
++{
++  int delay = (int)(GetDelay() * 1000.0);
++  if (delay)
++    Sleep(delay);
++  CLog::Log(LOGDEBUG, "%s:%s delay:%dms now:%dms", CLASSNAME, __func__, delay, (int)(GetDelay() * 1000.0));
++}
++
++void CAESinkPi::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
++{
++  m_info.m_channels.Reset();
++  m_info.m_dataFormats.clear();
++  m_info.m_sampleRates.clear();
++
++  m_info.m_deviceType = AE_DEVTYPE_HDMI;
++  m_info.m_deviceName = "HDMI";
++  m_info.m_displayName = "HDMI";
++  m_info.m_displayNameExtra = "";
++  m_info.m_channels += AE_CH_FL;
++  m_info.m_channels += AE_CH_FR;
++  m_info.m_sampleRates.push_back(48000);
++  m_info.m_dataFormats.push_back(AE_FMT_S16LE);
++
++  list.push_back(m_info);
++
++  m_info.m_channels.Reset();
++  m_info.m_dataFormats.clear();
++  m_info.m_sampleRates.clear();
++
++  m_info.m_deviceType = AE_DEVTYPE_PCM;
++  m_info.m_deviceName = "Analogue";
++  m_info.m_displayName = "Analogue";
++  m_info.m_displayNameExtra = "";
++  m_info.m_channels += AE_CH_FL;
++  m_info.m_channels += AE_CH_FR;
++  m_info.m_sampleRates.push_back(48000);
++  m_info.m_dataFormats.push_back(AE_FMT_S16LE);
++
++  list.push_back(m_info);
++}
++
++#endif
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPi.h b/xbmc/cores/AudioEngine/Sinks/AESinkPi.h
+new file mode 100644
+index 0000000..1f33115
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkPi.h
+@@ -0,0 +1,65 @@
++#pragma once
++/*
++ *      Copyright (C) 2010-2013 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "system.h"
++
++#if defined(TARGET_RASPBERRY_PI)
++
++#include "cores/AudioEngine/Interfaces/AESink.h"
++#include "Utils/AEDeviceInfo.h"
++
++#include "cores/omxplayer/OMXAudio.h"
++
++class CAESinkPi : public IAESink
++{
++public:
++  virtual const char *GetName() { return "SinkPi"; }
++
++  CAESinkPi();
++  virtual ~CAESinkPi();
++
++  virtual bool Initialize(AEAudioFormat &format, std::string &device);
++  virtual void Deinitialize();
++  virtual bool IsCompatible(const AEAudioFormat &format, const std::string &device);
++
++  virtual double       GetDelay        ();
++  virtual double       GetCacheTime    ();
++  virtual double       GetCacheTotal   ();
++  virtual unsigned int AddPackets      (uint8_t *data, unsigned int frames, bool hasAudio, bool blocking = false);
++  virtual void         Drain           ();
++
++  static void          EnumerateDevicesEx(AEDeviceInfoList &list, bool force = false);
++private:
++  void                 SetAudioDest();
++
++  std::string          m_initDevice;
++  AEAudioFormat        m_initFormat;
++  AEAudioFormat        m_format;
++  unsigned int         m_sinkbuffer_size;  ///< total size of the buffer
++  double               m_sinkbuffer_sec_per_byte;
++  static CAEDeviceInfo m_info;
++  bool                 m_Initialized;
++  uint32_t             m_submitted;
++  OMX_AUDIO_PARAM_PCMMODETYPE m_pcm_input;
++  COMXCoreComponent    m_omx_render;
++};
++
++#endif
+diff --git a/xbmc/cores/omxplayer/OMXAudio.cpp b/xbmc/cores/omxplayer/OMXAudio.cpp
+index 6fbef4f..5123ff7 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXAudio.cpp
+@@ -118,12 +118,12 @@ bool COMXAudio::PortSettingsChanged()
+     if(!m_omx_splitter.Initialize("OMX.broadcom.audio_splitter", OMX_IndexParamAudioInit))
+       return false;
+   }
+-  if (CSettings::Get().GetBool("audiooutput.dualaudio") || CSettings::Get().GetString("audiooutput.audiodevice") == "Analogue")
++  if (CSettings::Get().GetBool("audiooutput.dualaudio") || CSettings::Get().GetString("audiooutput.audiodevice") == "Pi:Analogue")
+   {
+     if(!m_omx_render_analog.Initialize("OMX.broadcom.audio_render", OMX_IndexParamAudioInit))
+       return false;
+   }
+-  if (CSettings::Get().GetBool("audiooutput.dualaudio") || CSettings::Get().GetString("audiooutput.audiodevice") == "HDMI")
++  if (CSettings::Get().GetBool("audiooutput.dualaudio") || CSettings::Get().GetString("audiooutput.audiodevice") != "Pi:Analogue")
+   {
+     if(!m_omx_render_hdmi.Initialize("OMX.broadcom.audio_render", OMX_IndexParamAudioInit))
+       return false;
+@@ -471,7 +471,7 @@ bool COMXAudio::Initialize(AEAudioFormat format, OMXClock *clock, CDVDStreamInfo
+     enum PCMChannels outLayout[OMX_AUDIO_MAXCHANNELS];
+     enum PCMLayout layout = (enum PCMLayout)std::max(0, CSettings::Get().GetInt("audiooutput.channels")-1);
+     // ignore layout setting for analogue
+-    if (CSettings::Get().GetBool("audiooutput.dualaudio") || CSettings::Get().GetString("audiooutput.audiodevice") == "Analogue")
++    if (CSettings::Get().GetBool("audiooutput.dualaudio") || CSettings::Get().GetString("audiooutput.audiodevice") == "Pi:Analogue")
+       layout = PCM_LAYOUT_2_0;
+ 
+     // force out layout to stereo if input is not multichannel - it gives the receiver a chance to upmix
+diff --git a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+index 7949ebc..27dbb5d 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerAudio.cpp
+@@ -511,12 +511,12 @@ AEDataFormat OMXPlayerAudio::GetDataFormat(CDVDStreamInfo hints)
+   /* check our audio capabilties */
+ 
+   /* pathrought is overriding hw decode*/
+-  if(hints.codec == AV_CODEC_ID_AC3 && CAEFactory::SupportsRaw(AE_FMT_AC3))
++  if(hints.codec == AV_CODEC_ID_AC3 && CAEFactory::SupportsRaw(AE_FMT_AC3) && !CSettings::Get().GetBool("audiooutput.dualaudio"))
+   {
+     dataFormat = AE_FMT_AC3;
+     m_passthrough = true;
+   }
+-  if(hints.codec == AV_CODEC_ID_DTS && CAEFactory::SupportsRaw(AE_FMT_DTS))
++  if(hints.codec == AV_CODEC_ID_DTS && CAEFactory::SupportsRaw(AE_FMT_DTS) && !CSettings::Get().GetBool("audiooutput.dualaudio"))
+   {
+     dataFormat = AE_FMT_DTS;
+     m_passthrough = true;
+diff --git a/xbmc/linux/RBP.cpp b/xbmc/linux/RBP.cpp
+index ef48935..9479259 100644
+--- a/xbmc/linux/RBP.cpp
++++ b/xbmc/linux/RBP.cpp
+@@ -42,6 +42,10 @@
+ 
+ bool CRBP::Initialize()
+ {
++  CSingleLock lock (m_critSection);
++  if (m_initialized)
++    return true;
++
+   m_initialized = m_DllBcmHost->Load();
+   if(!m_initialized)
+     return false;
+diff --git a/xbmc/linux/RBP.h b/xbmc/linux/RBP.h
+index f742934..9d527db 100644
+--- a/xbmc/linux/RBP.h
++++ b/xbmc/linux/RBP.h
+@@ -37,6 +37,7 @@
+ #if defined(TARGET_RASPBERRY_PI)
+ #include "DllBCM.h"
+ #include "OMXCore.h"
++#include "threads/CriticalSection.h"
+ 
+ class CRBP
+ {
+@@ -63,6 +64,7 @@ class CRBP
+   int        m_gpu_mem;
+   COMXCore   *m_OMX;
+   class DllLibOMXCore;
++  CCriticalSection m_critSection;
+ };
+ 
+ extern CRBP g_RBP;
+-- 
+1.8.5.1
+
+
+From 1c1096bba2f936af214eb65e30807ac58d054e14 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 10 Dec 2013 20:05:10 +0000
+Subject: [PATCH 3/6] [rbp] Allow paplayer to be enabled on Pi
+
+---
+ xbmc/cores/playercorefactory/PlayerCoreConfig.h | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/playercorefactory/PlayerCoreConfig.h b/xbmc/cores/playercorefactory/PlayerCoreConfig.h
+index 7a5d4e7..27f0bec 100644
+--- a/xbmc/cores/playercorefactory/PlayerCoreConfig.h
++++ b/xbmc/cores/playercorefactory/PlayerCoreConfig.h
+@@ -93,14 +93,10 @@ class CPlayerCoreConfig
+         pPlayer = new COMXPlayer(callback); 
+         CLog::Log(LOGINFO, "Created player %s for core %d / OMXPlayer forced as DVDPlayer", "OMXPlayer", m_eCore);
+         break;
+-      case EPC_PAPLAYER: 
+-        pPlayer = new COMXPlayer(callback); 
+-        CLog::Log(LOGINFO, "Created player %s for core %d / OMXPlayer forced as PAPLayer", "OMXPlayer", m_eCore);
+-        break;
+ #else
+       case EPC_DVDPLAYER: pPlayer = new CDVDPlayer(callback); break;
+-      case EPC_PAPLAYER: pPlayer = new PAPlayer(callback); break;
+ #endif
++      case EPC_PAPLAYER: pPlayer = new PAPlayer(callback); break;
+       case EPC_EXTPLAYER: pPlayer = new CExternalPlayer(callback); break;
+ #if defined(HAS_OMXPLAYER)
+       case EPC_OMXPLAYER: pPlayer = new COMXPlayer(callback); break;
+-- 
+1.8.5.1
+
+
+From 9e12dd73c2da9ed26205923a615bc76a62119ff1 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 10 Dec 2013 20:20:08 +0000
+Subject: [PATCH 4/6] [rbp/omxplayer] Suspend AE when playing audio
+
+---
+ xbmc/cores/omxplayer/OMXAudio.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXAudio.cpp b/xbmc/cores/omxplayer/OMXAudio.cpp
+index 5123ff7..139afff 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXAudio.cpp
+@@ -86,6 +86,9 @@
+   m_vizBufferSize   = m_vizRemapBufferSize = VIS_PACKET_SIZE * sizeof(float);
+   m_vizRemapBuffer  = (uint8_t *)_aligned_malloc(m_vizRemapBufferSize,16);
+   m_vizBuffer       = (uint8_t *)_aligned_malloc(m_vizBufferSize,16);
++  CAEFactory::Suspend();
++  while (!CAEFactory::IsSuspended())
++    Sleep(10);
+ }
+ 
+ COMXAudio::~COMXAudio()
+@@ -94,6 +97,7 @@
+ 
+   _aligned_free(m_vizRemapBuffer);
+   _aligned_free(m_vizBuffer);
++  CAEFactory::Resume();
+ }
+ 
+ bool COMXAudio::PortSettingsChanged()
+-- 
+1.8.5.1
+
+
+From afa9e5cf61cee1eebb8fd3b80f0528adb9cb197f Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 12 Dec 2013 17:01:25 +0000
+Subject: [PATCH 5/6] [rbp/omxplayer] Remove visualisation support
+
+This is now handled by paplayer
+---
+ xbmc/cores/omxplayer/OMXAudio.cpp | 69 ---------------------------------------
+ xbmc/cores/omxplayer/OMXAudio.h   | 12 -------
+ 2 files changed, 81 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXAudio.cpp b/xbmc/cores/omxplayer/OMXAudio.cpp
+index 139afff..440a26e 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.cpp
++++ b/xbmc/cores/omxplayer/OMXAudio.cpp
+@@ -83,9 +83,6 @@
+   m_submitted_eos   (false  ),
+   m_failed_eos      (false  )
+ {
+-  m_vizBufferSize   = m_vizRemapBufferSize = VIS_PACKET_SIZE * sizeof(float);
+-  m_vizRemapBuffer  = (uint8_t *)_aligned_malloc(m_vizRemapBufferSize,16);
+-  m_vizBuffer       = (uint8_t *)_aligned_malloc(m_vizBufferSize,16);
+   CAEFactory::Suspend();
+   while (!CAEFactory::IsSuspended())
+     Sleep(10);
+@@ -95,8 +92,6 @@
+ {
+   Deinitialize();
+ 
+-  _aligned_free(m_vizRemapBuffer);
+-  _aligned_free(m_vizBuffer);
+   CAEFactory::Resume();
+ }
+ 
+@@ -491,8 +486,6 @@ bool COMXAudio::Initialize(AEAudioFormat format, OMXClock *clock, CDVDStreamInfo
+     m_wave_header.dwChannelMask = channelMap;
+     BuildChannelMapOMX(m_input_channels, channelMap);
+     BuildChannelMapOMX(m_output_channels, GetChannelLayout(layout));
+-
+-    m_vizRemap.Initialize(GetAEChannelLayout(channelMap), CAEChannelInfo(AE_CH_LAYOUT_2_0), false, true);
+   }
+ 
+   m_SampleRate    = m_format.m_sampleRate;
+@@ -753,9 +746,6 @@ bool COMXAudio::Deinitialize()
+   m_extradata = NULL;
+   m_extrasize = 0;
+ 
+-  while(!m_vizqueue.empty())
+-    m_vizqueue.pop();
+-
+   m_dllAvUtil.Unload();
+ 
+   while(!m_ampqueue.empty())
+@@ -872,62 +862,6 @@ bool COMXAudio::ApplyVolume(void)
+   return true;
+ }
+ 
+-void COMXAudio::VizPacket(const void* data, unsigned int len, double pts)
+-{
+-    /* input samples */
+-    unsigned int vizBufferSamples = len / (CAEUtil::DataFormatToBits(m_format.m_dataFormat) >> 3);
+-
+-    /* input frames */
+-    unsigned int frames = vizBufferSamples / m_InputChannels;
+-    float *floatBuffer = (float *)data;
+-
+-    if (m_format.m_dataFormat != AE_FMT_FLOAT)
+-    {
+-      CAEConvert::AEConvertToFn m_convertFn = CAEConvert::ToFloat(m_format.m_dataFormat);
+-
+-      /* check convert buffer */
+-      CheckOutputBufferSize((void **)&m_vizBuffer, &m_vizBufferSize, vizBufferSamples * (CAEUtil::DataFormatToBits(AE_FMT_FLOAT) >> 3));
+-
+-      /* convert to float */
+-      m_convertFn((uint8_t *)data, vizBufferSamples, (float *)m_vizBuffer);
+-      floatBuffer = (float *)m_vizBuffer;
+-    }
+-
+-    // Viz channel count is 2
+-    CheckOutputBufferSize((void **)&m_vizRemapBuffer, &m_vizRemapBufferSize, frames * 2 * sizeof(float));
+-
+-    /* remap */
+-    m_vizRemap.Remap(floatBuffer, (float*)m_vizRemapBuffer, frames);
+-
+-    /* output samples */
+-    vizBufferSamples = vizBufferSamples / m_InputChannels * 2;
+-
+-    /* viz size is limited */
+-    if(vizBufferSamples > VIS_PACKET_SIZE)
+-      vizBufferSamples = VIS_PACKET_SIZE;
+-
+-    vizblock_t v;
+-    v.pts = pts;
+-    v.num_samples = vizBufferSamples;
+-    memcpy(v.samples, m_vizRemapBuffer, vizBufferSamples * sizeof(float));
+-    m_vizqueue.push(v);
+-
+-    double stamp = m_av_clock->OMXMediaTime();
+-    while(!m_vizqueue.empty())
+-    {
+-      vizblock_t &v = m_vizqueue.front();
+-      /* if packet has almost reached media time (allow time for rendering delay) then display it */
+-      /* we'll also consume if queue gets unexpectedly long to avoid filling memory */
+-      if (v.pts == DVD_NOPTS_VALUE || v.pts - stamp < DVD_SEC_TO_TIME(1.0/30.0) || v.pts - stamp > DVD_SEC_TO_TIME(15.0))
+-      {
+-         m_pCallback->OnAudioData(v.samples, v.num_samples);
+-         m_vizqueue.pop();
+-      }
+-      else break;
+-   }
+-}
+-
+-
+ //***********************************************************************************************
+ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len)
+ {
+@@ -945,9 +879,6 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, double dt
+     return len;
+   }
+ 
+-  if (m_pCallback && len && !(m_Passthrough || m_HWDecode))
+-    VizPacket(data, len, pts);
+-
+   if(m_eEncoding == OMX_AUDIO_CodingDTS && m_LostSync && (m_Passthrough || m_HWDecode))
+   {
+     int skip = SyncDTS((uint8_t *)data, len);
+diff --git a/xbmc/cores/omxplayer/OMXAudio.h b/xbmc/cores/omxplayer/OMXAudio.h
+index 1a223e1..804bd2a 100644
+--- a/xbmc/cores/omxplayer/OMXAudio.h
++++ b/xbmc/cores/omxplayer/OMXAudio.h
+@@ -98,7 +98,6 @@ class COMXAudio
+   bool BadState() { return !m_Initialized; };
+   unsigned int GetAudioRenderingLatency();
+   float GetMaxLevel(double &pts);
+-  void VizPacket(const void* data, unsigned int len, double pts);
+ 
+   void BuildChannelMap(enum PCMChannels *channelMap, uint64_t layout);
+   int BuildChannelMapCEA(enum PCMChannels *channelMap, uint64_t layout);
+@@ -135,19 +134,8 @@ class COMXAudio
+   int           m_extrasize;
+   // stuff for visualisation
+   double        m_last_pts;
+-  int           m_vizBufferSize;
+-  uint8_t       *m_vizBuffer;
+-  int           m_vizRemapBufferSize;
+-  uint8_t       *m_vizRemapBuffer;
+-  CAERemap      m_vizRemap;
+   bool          m_submitted_eos;
+   bool          m_failed_eos;
+-  typedef struct {
+-    int num_samples;
+-    float samples[VIS_PACKET_SIZE];
+-    double pts;
+-  } vizblock_t;
+-  std::queue<vizblock_t> m_vizqueue;
+ 
+   typedef struct {
+     double pts;
+-- 
+1.8.5.1
+
+
+From 2c933dcfe6ed6b83c837cc48656fefb27054fccc Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 12 Dec 2013 17:05:31 +0000
+Subject: [PATCH 6/6] Revert "[rbp/omxplayer] Ignore video stream in audio
+ filetypes"
+
+This reverts commit ca5119d8bd73a632e6006e77cba7f59a37c3dbb2.
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 9cccaac..f94e90b 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -3303,17 +3303,7 @@ bool COMXPlayer::OpenVideoStream(int iStream, int source, bool reset)
+   if(m_CurrentVideo.id    < 0
+   || m_CurrentVideo.hint != hint)
+   {
+-    // for music file, don't open artwork as video
+-    bool disabled = false;
+-    CStdString extension = URIUtils::GetExtension(m_filename);
+-    StringUtils::ToLower(extension);
+-    if (!extension.empty() && g_advancedSettings.m_musicExtensions.find(extension) != std::string::npos)
+-    {
+-      CLog::Log(LOGWARNING, "%s - Ignoring video in audio filetype:%s", __FUNCTION__, m_filename.c_str());
+-      disabled = true;
+-    }
+-
+-    if (disabled || !m_omxPlayerVideo.OpenStream(hint))
++    if (!m_omxPlayerVideo.OpenStream(hint))
+     {
+       /* mark stream as disabled, to disallaw further attempts */
+       CLog::Log(LOGWARNING, "%s - Unsupported stream %d. Stream disabled.", __FUNCTION__, iStream);
+-- 
+1.8.5.1
+
