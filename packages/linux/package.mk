@@ -19,8 +19,9 @@
 PKG_NAME="linux"
 case "$LINUX" in
   3.13)
-    PKG_VERSION="3.13-rc6"
-    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/testing/$PKG_NAME-$PKG_VERSION.tar.xz"
+    PKG_VERSION="3.13.0-rc6"
+    PKG_SOURCE_DIR="$PKG_NAME-3.13-rc6"
+    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/testing/$PKG_SOURCE_DIR.tar.xz"
     ;;
   *)
     PKG_VERSION="3.12.6"
@@ -179,7 +180,7 @@ makeinstall_init() {
     mkdir -p $INSTALL/lib/modules
 
     for i in $INITRAMFS_MODULES; do
-      module=`find .install_pkg/lib/modules/*/kernel -name $i.ko`
+      module=`find .install_pkg/lib/modules/$PKG_VERSION/kernel -name $i.ko`
       if [ -n "$module" ]; then
         echo $i >> $INSTALL/etc/modules
         cp $module $INSTALL/lib/modules/`basename $module`
@@ -189,7 +190,7 @@ makeinstall_init() {
 
   if [ "$UVESAFB_SUPPORT" = yes ]; then
     mkdir -p $INSTALL/lib/modules
-      uvesafb=`find .install_pkg/lib/modules/*/kernel -name uvesafb.ko`
+      uvesafb=`find .install_pkg/lib/modules/$PKG_VERSION/kernel -name uvesafb.ko`
       cp $uvesafb $INSTALL/lib/modules/`basename $uvesafb`
   fi
 }
