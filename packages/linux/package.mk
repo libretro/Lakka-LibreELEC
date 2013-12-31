@@ -18,11 +18,15 @@
 
 PKG_NAME="linux"
 case "$LINUX" in
+  3.13)
+    PKG_VERSION="3.13-rc6"
+    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/testing/$PKG_NAME-$PKG_VERSION.tar.xz"
+    ;;
   *)
     PKG_VERSION="3.12.6"
+    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
 esac
-PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
