@@ -41,6 +41,7 @@ PKG_AUTORECONF="yes"
 #  export CPP=${TARGET_PREFIX}cpp
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
+                           KMOD=/usr/bin/kmod \
                            --disable-nls \
                            --disable-gtk-doc \
                            --disable-gtk-doc-html \
