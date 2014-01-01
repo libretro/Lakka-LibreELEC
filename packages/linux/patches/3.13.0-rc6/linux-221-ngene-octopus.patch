@@ -1,6 +1,6 @@
-From df12e0a5e0527c8f5bf1618db1e34fdfafb1ece1 Mon Sep 17 00:00:00 2001
+From a6ff662a6e838d8f21c0ccb1261bd6a894435b96 Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
-Date: Thu, 28 Nov 2013 15:40:09 +0200
+Date: Thu, 2 Jan 2014 00:40:06 +0200
 Subject: [PATCH] dvb: ngene/octopus
 
 source: http://linuxtv.org/hg/~endriss/media_build_experimental/
@@ -15,7 +15,7 @@ note: SYS_DVBC2 not added. ci extensions (en50221) not added.
  drivers/media/dvb-frontends/Makefile         |    3 +
  drivers/media/dvb-frontends/cxd2843.c        | 1646 ++++++++++++
  drivers/media/dvb-frontends/cxd2843.h        |   14 +
- drivers/media/dvb-frontends/drxk_hard.c      | 3600 ++++++++++++--------------
+ drivers/media/dvb-frontends/drxk_hard.c      | 3616 ++++++++++++--------------
  drivers/media/dvb-frontends/drxk_hard.h      |  298 +--
  drivers/media/dvb-frontends/drxk_map.h       |    3 -
  drivers/media/dvb-frontends/stv0367dd.c      | 2331 +++++++++++++++++
@@ -23,7 +23,7 @@ note: SYS_DVBC2 not added. ci extensions (en50221) not added.
  drivers/media/dvb-frontends/stv0367dd_regs.h | 3431 ++++++++++++++++++++++++
  drivers/media/dvb-frontends/tda18212dd.c     |  936 +++++++
  drivers/media/dvb-frontends/tda18212dd.h     |    5 +
- drivers/media/dvb-frontends/tda18271c2dd.c   |    1 -
+ drivers/media/dvb-frontends/tda18271c2dd.c   |   15 +-
  drivers/media/dvb-frontends/tda18271c2dd.h   |    6 +-
  drivers/media/pci/ddbridge/Kconfig           |   11 +-
  drivers/media/pci/ddbridge/Makefile          |    2 -
@@ -34,20 +34,20 @@ note: SYS_DVBC2 not added. ci extensions (en50221) not added.
  drivers/media/pci/ddbridge/ddbridge-ns.c     |  465 ++++
  drivers/media/pci/ddbridge/ddbridge-regs.h   |  310 ++-
  drivers/media/pci/ddbridge/ddbridge.c        |  432 +++
- drivers/media/pci/ddbridge/ddbridge.h        |  388 +++-
+ drivers/media/pci/ddbridge/ddbridge.h        |  388 ++-
  drivers/media/pci/ddbridge/octonet.c         |  176 ++
  drivers/media/pci/ngene/Kconfig              |    3 +
  drivers/media/pci/ngene/Makefile             |    3 +-
  drivers/media/pci/ngene/ngene-av.c           |  348 +++
  drivers/media/pci/ngene/ngene-cards.c        |  778 ++++--
- drivers/media/pci/ngene/ngene-core.c         |  378 +++-
+ drivers/media/pci/ngene/ngene-core.c         |  382 ++-
  drivers/media/pci/ngene/ngene-dvb.c          |  372 +++
  drivers/media/pci/ngene/ngene-eeprom.c       |  284 ++
  drivers/media/pci/ngene/ngene-i2c.c          |  113 +
  drivers/media/pci/ngene/ngene.h              |   40 +
  include/uapi/linux/dvb/mod.h                 |   23 +
  include/uapi/linux/dvb/ns.h                  |   68 +
- 40 files changed, 18315 insertions(+), 3458 deletions(-)
+ 40 files changed, 18328 insertions(+), 3479 deletions(-)
  create mode 100644 drivers/media/dvb-core/dvb_netstream.c
  create mode 100644 drivers/media/dvb-core/dvb_netstream.h
  create mode 100644 drivers/media/dvb-frontends/cxd2843.c
@@ -386,7 +386,7 @@ index 0000000..5da101e
 +
 +#endif
 diff --git a/drivers/media/dvb-core/dvbdev.c b/drivers/media/dvb-core/dvbdev.c
-index 401ef64..273666e 100644
+index 983db75..a813389 100644
 --- a/drivers/media/dvb-core/dvbdev.c
 +++ b/drivers/media/dvb-core/dvbdev.c
 @@ -47,7 +47,7 @@ static DEFINE_MUTEX(dvbdev_register_lock);
@@ -407,9 +407,9 @@ index 401ef64..273666e 100644
  	down_read(&minor_rwsem);
  	dvbdev = dvb_minors[iminor(inode)];
  
-@@ -91,12 +91,12 @@ static int dvb_device_open(struct inode *inode, struct file *file)
- 		}
- 		fops_put(old_fops);
+@@ -84,12 +84,12 @@ static int dvb_device_open(struct inode *inode, struct file *file)
+ 		if (file->f_op->open)
+ 			err = file->f_op->open(inode,file);
  		up_read(&minor_rwsem);
 -		mutex_unlock(&dvbdev_mutex);
 +		//mutex_unlock(&dvbdev_mutex);
@@ -422,7 +422,7 @@ index 401ef64..273666e 100644
  	return -ENODEV;
  }
  
-@@ -418,8 +418,10 @@ int dvb_usercopy(struct file *file,
+@@ -411,8 +411,10 @@ int dvb_usercopy(struct file *file,
  	}
  
  	/* call driver */
@@ -433,7 +433,7 @@ index 401ef64..273666e 100644
  
  	if (err < 0)
  		goto out;
-@@ -438,6 +440,7 @@ out:
+@@ -431,6 +433,7 @@ out:
  	kfree(mbuf);
  	return err;
  }
@@ -457,10 +457,10 @@ index 93a9470..e534ef1 100644
  #define DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr) \
  	static short adapter_nr[] = \
 diff --git a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kconfig
-index 9a07da1..c14fab7 100644
+index bddbab4..e0cf4c8 100644
 --- a/drivers/media/dvb-frontends/Kconfig
 +++ b/drivers/media/dvb-frontends/Kconfig
-@@ -63,6 +63,33 @@ config DVB_TDA18271C2DD
+@@ -56,6 +56,33 @@ config DVB_TDA18271C2DD
  
  	  Say Y when you want to support this tuner.
  
@@ -495,10 +495,10 @@ index 9a07da1..c14fab7 100644
  	depends on DVB_CORE
  
 diff --git a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/Makefile
-index 7ac8c64..25f2694 100644
+index f9cb43d..90cad36 100644
 --- a/drivers/media/dvb-frontends/Makefile
 +++ b/drivers/media/dvb-frontends/Makefile
-@@ -100,6 +100,9 @@ obj-$(CONFIG_DVB_STV0367) += stv0367.o
+@@ -97,6 +97,9 @@ obj-$(CONFIG_DVB_STV0367) += stv0367.o
  obj-$(CONFIG_DVB_CXD2820R) += cxd2820r.o
  obj-$(CONFIG_DVB_DRXK) += drxk.o
  obj-$(CONFIG_DVB_TDA18271C2DD) += tda18271c2dd.o
@@ -2181,7 +2181,7 @@ index 0000000..d3a3f92
 +
 +#endif
 diff --git a/drivers/media/dvb-frontends/drxk_hard.c b/drivers/media/dvb-frontends/drxk_hard.c
-index 082014d..91a7f9f 100644
+index bf29a3f..91a7f9f 100644
 --- a/drivers/media/dvb-frontends/drxk_hard.c
 +++ b/drivers/media/dvb-frontends/drxk_hard.c
 @@ -21,8 +21,6 @@
@@ -3503,7 +3503,7 @@ index 082014d..91a7f9f 100644
 +	status = write16(state, SIO_HI_RA_RAM_PAR_1__A, SIO_HI_RA_RAM_PAR_1_PAR1_SEC_KEY);
  	if (status < 0)
  		goto error;
--	status = hi_command(state, SIO_HI_RA_RAM_CMD_CONFIG, 0);
+-	status = hi_command(state, SIO_HI_RA_RAM_CMD_CONFIG, NULL);
 +	status = HI_Command(state, SIO_HI_RA_RAM_CMD_CONFIG, 0);
  	if (status < 0)
  		goto error;
@@ -3599,10 +3599,11 @@ index 082014d..91a7f9f 100644
  			goto error;
  
 -		if (state->m_enable_parallel == true) {
-+		if (state->m_enableParallel == true) {
- 			/* paralel -> enable MD1 to MD7 */
+-			/* parallel -> enable MD1 to MD7 */
 -			status = write16(state, SIO_PDR_MD1_CFG__A,
 -					 sio_pdr_mdx_cfg);
++		if (state->m_enableParallel == true) {
++			/* paralel -> enable MD1 to MD7 */
 +			status = write16(state, SIO_PDR_MD1_CFG__A, sioPdrMdxCfg);
  			if (status < 0)
  				goto error;
@@ -3877,8 +3878,9 @@ index 082014d..91a7f9f 100644
  
  	dprintk(1, "\n");
  
- 	/* Gracefull shutdown (byte boundaries) */
+-	/* Graceful shutdown (byte boundaries) */
 -	status = read16(state, FEC_OC_SNC_MODE__A, &fec_oc_snc_mode);
++	/* Gracefull shutdown (byte boundaries) */
 +	status = read16(state, FEC_OC_SNC_MODE__A, &fecOcSncMode);
  	if (status < 0)
  		goto error;
@@ -4496,9 +4498,10 @@ index 082014d..91a7f9f 100644
 +		fecOcDtoBurstLen = 204;
  	}
  
- 	/* Check serial or parrallel output */
+-	/* Check serial or parallel output */
 -	fec_oc_reg_ipr_mode &= (~(FEC_OC_IPR_MODE_SERIAL__M));
 -	if (state->m_enable_parallel == false) {
++	/* Check serial or parrallel output */
 +	fecOcRegIprMode &= (~(FEC_OC_IPR_MODE_SERIAL__M));
 +	if (state->m_enableParallel == false) {
  		/* MPEG data output is serial -> set ipr_mode[0] */
@@ -5362,7 +5365,7 @@ index 082014d..91a7f9f 100644
  			goto error;
  	}
  
--	status = hi_command(state, SIO_HI_RA_RAM_CMD_BRDCTRL, 0);
+-	status = hi_command(state, SIO_HI_RA_RAM_CMD_BRDCTRL, NULL);
 +	status = HI_Command(state, SIO_HI_RA_RAM_CMD_BRDCTRL, 0);
  
  error:
@@ -5488,8 +5491,9 @@ index 082014d..91a7f9f 100644
  		goto error;
  
  	if (count == 1) {
- 		/* Try sampling on a diffrent edge */
+-		/* Try sampling on a different edge */
 -		u16 clk_neg = 0;
++		/* Try sampling on a diffrent edge */
 +		u16 clkNeg = 0;
  
 -		status = read16(state, IQM_AF_CLKNEG__A, &clk_neg);
@@ -5875,7 +5879,7 @@ index 082014d..91a7f9f 100644
  		goto error;
  
  	/* Write sub-command */
-@@ -3288,18 +3345,18 @@ static int dvbt_sc_command(struct drxk_state *state,
+@@ -3288,25 +3345,25 @@ static int dvbt_sc_command(struct drxk_state *state,
  		goto error;
  
  	/* Wait until sc is ready processing command */
@@ -5902,6 +5906,14 @@ index 082014d..91a7f9f 100644
  		/* illegal command */
  		status = -EINVAL;
  	}
+ 	if (status < 0)
+ 		goto error;
+ 
+-	/* Retrieve results parameters from SC */
++	/* Retreive results parameters from SC */
+ 	switch (cmd) {
+ 		/* All commands yielding 5 results */
+ 		/* All commands yielding 4 results */
 @@ -3331,23 +3388,23 @@ static int dvbt_sc_command(struct drxk_state *state,
  	}			/* switch (cmd->cmd) */
  error:
@@ -6326,7 +6338,7 @@ index 082014d..91a7f9f 100644
  		break;
  	}
  
-@@ -3836,16 +3880,16 @@ static int set_dvbt(struct drxk_state *state, u16 intermediate_freqk_hz,
+@@ -3836,30 +3880,30 @@ static int set_dvbt(struct drxk_state *state, u16 intermediate_freqk_hz,
  	switch (state->props.modulation) {
  	case QAM_AUTO:
  	default:
@@ -6347,7 +6359,8 @@ index 082014d..91a7f9f 100644
  		break;
  	}
  #if 0
-@@ -3853,13 +3897,13 @@ static int set_dvbt(struct drxk_state *state, u16 intermediate_freqk_hz,
+-	/* No hierarchical channels support in BDA */
++	/* No hierachical channels support in BDA */
  	/* Priority (only for hierarchical channels) */
  	switch (channel->priority) {
  	case DRX_PRIORITY_LOW:
@@ -6612,7 +6625,14 @@ index 082014d..91a7f9f 100644
  
  	return status;
  }
-@@ -4087,7 +4104,7 @@ error:
+@@ -4081,13 +4098,13 @@ error:
+ /*============================================================================*/
+ 
+ /**
+-* \brief Retrieve lock status .
++* \brief Retreive lock status .
+ * \param demod    Pointer to demodulator instance.
+ * \param lockStat Pointer to lock status structure.
  * \return DRXStatus_t.
  *
  */
@@ -7862,7 +7882,7 @@ index 082014d..91a7f9f 100644
  		if (status < 0)
  			goto error;
  
-@@ -6162,14 +6086,14 @@ static int init_drxk(struct drxk_state *state)
+@@ -6162,55 +6086,50 @@ static int init_drxk(struct drxk_state *state)
  		status = write16(state, SCU_COMM_EXEC__A, SCU_COMM_EXEC_ACTIVE);
  		if (status < 0)
  			goto error;
@@ -7880,7 +7900,10 @@ index 082014d..91a7f9f 100644
  		if (status < 0)
  			goto error;
  
-@@ -6179,38 +6103,33 @@ static int init_drxk(struct drxk_state *state)
+ 		/* Stamp driver version number in SCU data RAM in BCD code
+-			Done to enable field application engineers to retrieve drxdriver version
++			Done to enable field application engineers to retreive drxdriver version
+ 			via I2C from SCU RAM.
  			Not using SCU command interface for SCU register access since no
  			microcode may be present.
  			*/
@@ -8119,7 +8142,7 @@ index 082014d..91a7f9f 100644
  	fe->ops.tuner_ops.get_if_frequency(fe, &IF);
 -	start(state, 0, IF);
 -
--	/* After set_frontend, stats aren't avaliable */
+-	/* After set_frontend, stats aren't available */
 -	p->strength.stat[0].scale = FE_SCALE_RELATIVE;
 -	p->cnr.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
 -	p->block_error.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
@@ -15811,17 +15834,41 @@ index 0000000..687fab4
 +				       struct i2c_adapter *i2c, u8 adr);
 +#endif
 diff --git a/drivers/media/dvb-frontends/tda18271c2dd.c b/drivers/media/dvb-frontends/tda18271c2dd.c
-index d281f77..ad7c72e 100644
+index 2c54586..ad7c72e 100644
 --- a/drivers/media/dvb-frontends/tda18271c2dd.c
 +++ b/drivers/media/dvb-frontends/tda18271c2dd.c
-@@ -32,7 +32,6 @@
+@@ -32,10 +32,6 @@
  #include <asm/div64.h>
  
  #include "dvb_frontend.h"
 -#include "tda18271c2dd.h"
+-
+-/* Max transfer size done by I2C transfer functions */
+-#define MAX_XFER_SIZE  64
  
  struct SStandardParam {
  	s32   m_IFFrequency;
+@@ -142,18 +138,11 @@ static int i2c_write(struct i2c_adapter *adap, u8 adr, u8 *data, int len)
+ static int WriteRegs(struct tda_state *state,
+ 		     u8 SubAddr, u8 *Regs, u16 nRegs)
+ {
+-	u8 data[MAX_XFER_SIZE];
+-
+-	if (1 + nRegs > sizeof(data)) {
+-		printk(KERN_WARNING
+-		       "%s: i2c wr: len=%d is too big!\n",
+-		       KBUILD_MODNAME, nRegs);
+-		return -EINVAL;
+-	}
++	u8 data[nRegs+1];
+ 
+ 	data[0] = SubAddr;
+ 	memcpy(data + 1, Regs, nRegs);
+-	return i2c_write(state->i2c, state->adr, data, nRegs + 1);
++	return i2c_write(state->i2c, state->adr, data, nRegs+1);
+ }
+ 
+ static int WriteReg(struct tda_state *state, u8 SubAddr, u8 Reg)
 diff --git a/drivers/media/dvb-frontends/tda18271c2dd.h b/drivers/media/dvb-frontends/tda18271c2dd.h
 index dd84f7b..1389c74 100644
 --- a/drivers/media/dvb-frontends/tda18271c2dd.h
@@ -15883,7 +15930,7 @@ index 7446c8b..2610161 100644
  
  ccflags-y += -Idrivers/media/dvb-core/
 diff --git a/drivers/media/pci/ddbridge/ddbridge-core.c b/drivers/media/pci/ddbridge/ddbridge-core.c
-index 36e3452..3e4a696 100644
+index 9375f30..f29332b 100644
 --- a/drivers/media/pci/ddbridge/ddbridge-core.c
 +++ b/drivers/media/pci/ddbridge/ddbridge-core.c
 @@ -1,288 +1,239 @@
@@ -19574,7 +19621,7 @@ index 36e3452..3e4a696 100644
 +
 +static ssize_t mod_show(struct device *device, struct device_attribute *attr, char *buf)
  {
--	struct ddb *dev = (struct ddb *) pci_get_drvdata(pdev);
+-	struct ddb *dev = pci_get_drvdata(pdev);
 +	struct ddb *dev = dev_get_drvdata(device);
 +	int num = attr->attr.name[3] - 0x30;
  
@@ -19913,7 +19960,7 @@ index 36e3452..3e4a696 100644
 +static struct class ddb_class = {
 +	.name		= "ddbridge",
 +	.owner          = THIS_MODULE,
-+	.dev_attrs	= ddb_attrs,
++	//.dev_attrs	= ddb_attrs,
 +	.devnode        = ddb_devnode,
  };
  
@@ -24760,7 +24807,7 @@ index 9e82d21..c9b1bd4 100644
  	.link_reset = ngene_link_reset,
  	.slot_reset = ngene_slot_reset,
 diff --git a/drivers/media/pci/ngene/ngene-core.c b/drivers/media/pci/ngene/ngene-core.c
-index 37ebc42..84510db 100644
+index 970e833..84510db 100644
 --- a/drivers/media/pci/ngene/ngene-core.c
 +++ b/drivers/media/pci/ngene/ngene-core.c
 @@ -86,6 +86,14 @@ static void event_tasklet(unsigned long data)
@@ -25233,7 +25280,24 @@ index 37ebc42..84510db 100644
  fail:
  	ngwritel(0, NGENE_INT_ENABLE);
  	free_irq(dev->pci_dev->irq, dev);
-@@ -1688,10 +2022,36 @@ int ngene_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
+@@ -1622,7 +1956,7 @@ static void ngene_unlink(struct ngene *dev)
+ 
+ void ngene_shutdown(struct pci_dev *pdev)
+ {
+-	struct ngene *dev = pci_get_drvdata(pdev);
++	struct ngene *dev = (struct ngene *)pci_get_drvdata(pdev);
+ 
+ 	if (!dev || !shutdown_workaround)
+ 		return;
+@@ -1648,6 +1982,7 @@ void ngene_remove(struct pci_dev *pdev)
+ 		cxd_detach(dev);
+ 	ngene_stop(dev);
+ 	ngene_release_buffers(dev);
++	pci_set_drvdata(pdev, NULL);
+ 	pci_disable_device(pdev);
+ }
+ 
+@@ -1687,10 +2022,36 @@ int ngene_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
  
  
  	dev->i2c_current_bus = -1;
@@ -25272,6 +25336,13 @@ index 37ebc42..84510db 100644
  		goto fail2;
  
  	return 0;
+@@ -1701,5 +2062,6 @@ fail1:
+ 	ngene_release_buffers(dev);
+ fail0:
+ 	pci_disable_device(pci_dev);
++	pci_set_drvdata(pci_dev, NULL);
+ 	return stat;
+ }
 diff --git a/drivers/media/pci/ngene/ngene-dvb.c b/drivers/media/pci/ngene/ngene-dvb.c
 index fcb16a6..8049e2b 100644
 --- a/drivers/media/pci/ngene/ngene-dvb.c
@@ -26294,5 +26365,5 @@ index 0000000..691c65d
 +
 +#endif /*_UAPI_DVBNS_H_*/
 -- 
-1.7.2.5
+1.8.3.2
 
