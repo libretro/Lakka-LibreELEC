@@ -104,7 +104,6 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share
 
   mkdir -p $INSTALL/usr/sbin
-    cp fstrim $INSTALL/usr/sbin
     cp .libs/blkid $INSTALL/usr/sbin
     cp .libs/fsck $INSTALL/usr/sbin
 
