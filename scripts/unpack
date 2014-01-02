@@ -74,6 +74,9 @@ fi
 printf "%${BUILD_INDENT}c ${boldcyan}UNPACK${endcolor}   $1\n" ' '>&$SILENT_OUT
 export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
+# todo: deprecated
+[ -f "$PKG_DIR/unpack" ] && $PKG_DIR/unpack $@ >&$VERBOSE_OUT
+
 if [ -n "$PKG_URL" ]; then
   $SCRIPTS/extract $1 "$1*.tar.bz2" $BUILD
   $SCRIPTS/extract $1 "$1*.tbz"     $BUILD
@@ -103,7 +106,7 @@ for i in $PKG_DIR/patches/$PKG_NAME-*.patch ; do
       continue;
     else
       printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}(common)${endcolor}   $i\n" ' '>&$SILENT_OUT
-      cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
+      apply_patch $i $PKG_BUILD || exit 1
     fi
   fi
 done
@@ -117,7 +120,7 @@ for i in $PKG_DIR/patches/$PKG_VERSION/*.patch ; do
       continue;
     else
       printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}($PKG_VERSION)${endcolor}   $i\n" ' '>&$SILENT_OUT
-      cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
+      apply_patch $i $PKG_BUILD || exit 1
     fi
   fi
 done
@@ -131,7 +134,7 @@ for i in $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/*.patch ; do
       continue;
     else
       printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}(project)${endcolor}   $i\n" ' '>&$SILENT_OUT
-      cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
+      apply_patch $i $PKG_BUILD || exit 1
     fi
   fi
 done
@@ -150,9 +153,6 @@ if [ -f $PKG_DIR/package.mk ]; then
     post_unpack
   fi
 fi
-
-# todo: deprecated
-[ -f "$PKG_DIR/unpack" ] && $PKG_DIR/unpack $@ >&$VERBOSE_OUT
 
 for config in `find $BUILD/$1* -name config.guess | sed 's/config.guess//'`; do
   printf "%${BUILD_INDENT}c ${boldyellow}FIXCONFIG${endcolor}   $config\n" ' '>&$SILENT_OUT
