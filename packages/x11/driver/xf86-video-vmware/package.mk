@@ -23,12 +23,15 @@ PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.vmware.com"
 PKG_URL="http://cgit.freedesktop.org/xorg/driver/xf86-video-vmware/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS="libX11 Mesa glu open-vm-tools"
-PKG_BUILD_DEPENDS="toolchain Mesa glu xorg-server"
+PKG_DEPENDS_TARGET="libX11 Mesa glu open-vm-tools"
+PKG_BUILD_DEPENDS_TARGET="toolchain Mesa glu xorg-server"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/driver"
 PKG_SHORTDESC="xf86-video-vmware: The Xorg driver for vmware video"
 PKG_LONGDESC="xf86-video-vmware: The Xorg driver for vmware video"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-vmwarectrl-client \
+                           --with-xorg-module-dir=$XORG_PATH_MODULES"
