@@ -23,12 +23,33 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL-2"
 PKG_SITE="http://www.tntnet.org/cxxtools.html"
 PKG_URL="http://www.tntnet.org/download/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_HOST=""
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_HOST="toolchain"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="python/web"
 PKG_SHORTDESC="cxxtools: a collection of general-purpose C++ classes"
 PKG_LONGDESC="Cxxtools is a collection of general-purpose C++ classes"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_HOST="--disable-demos --with-atomictype=pthread --disable-unittest"
+PKG_CONFIGURE_OPTS_TARGET="--disable-demos --with-atomictype=pthread --disable-unittest"
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC"
+  CXXFLAGS="$CXXFLAGS -fPIC"
+  LDFLAGS="$LDFLAGS -fPIC"
+}
+
+
+post_makeinstall_host() {
+  rm -rf $TOOLCHAIN/bin/cxxtools-config
+}
+
+post_makeinstall_target() {
+  rm -rf $SYSROOT_PREFIX/usr/bin/cxxtools-config
+  rm -rf $INSTALL/usr/bin
+}
