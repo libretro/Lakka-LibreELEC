@@ -23,12 +23,29 @@ PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://code.google.com/p/atv-bootloader/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain darwin-cross linux"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain darwin-cross linux"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="atv-bootloader: Tool to create a mach_kernel compaitible kernel image"
 PKG_LONGDESC="atv-bootloader which uses principals from mach_linux_boot to boot a compiled-in Linux kernel"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_MAKE_OPTS_TARGET="KERN_OBJ=vmlinuz.obj \
+                      CC=$ROOT/$BUILD/darwin-cross-1/bin/i386-apple-darwin8-gcc-4.0.1 \
+                      LD=$ROOT/$BUILD/darwin-cross-1/bin/i386-apple-darwin8-ld"
+
+pre_make_target() {
+  unset LDFLAGS
+
+  rm -rf mach_kernel vmlinuz initrd.gz
+  cp -PR $(kernel_path)/arch/x86/boot/bzImage vmlinuz
+
+  make clean
+}
+
+makeinstall_target() {
+  : # nothing todo
+}
