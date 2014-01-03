@@ -23,12 +23,40 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL-2"
 PKG_SITE="http://www.tntnet.org/"
 PKG_URL="http://www.tntnet.org/download/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS="libtool"
-PKG_BUILD_DEPENDS="toolchain libtool cxxtools openssl"
+PKG_DEPENDS_HOST=""
+PKG_DEPENDS_TARGET="libtool cxxtools"
+PKG_BUILD_DEPENDS_HOST="toolchain cxxtools:host"
+PKG_BUILD_DEPENDS_TARGET="toolchain tntnet:host libtool cxxtools"
 PKG_PRIORITY="optional"
 PKG_SECTION="python/web"
 PKG_SHORTDESC="tntnet: C++ Dynamite for the Web"
 PKG_LONGDESC="Tntnet is a modular, multithreaded, high performance webapplicationserver for C++"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_HOST="--disable-unittest \
+                         --with-server=no \
+                         --with-sdk=yes \
+                         --with-demos=no \
+                         --with-epoll=yes \
+                         --with-ssl=no \
+                         --with-stressjob=no"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-unittest \
+                           --with-sysroot=$SYSROOT_PREFIX \
+                           --with-server=no \
+                           --with-sdk=no \
+                           --with-demos=no \
+                           --with-epoll=yes \
+                           --with-ssl=no \
+                           --with-stressjob=no"
+
+pre_configure_target() {
+  strip_lto
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+  rm -rf $INSTALL/usr/share
+}
