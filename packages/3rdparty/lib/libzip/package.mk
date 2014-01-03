@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,15 +16,25 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="libzip"
+PKG_VERSION="0.10.1"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.nih.at/libzip/"
+PKG_URL="http://www.nih.at/libzip/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SHORTDESC="libzip"
+PKG_LONGDESC="libzip"
 
-cd $PKG_BUILD
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
-./configure \
-       --host=$TARGET_NAME \
-       --build=$HOST_NAME \
-       --enable-static \
-       --disable-shared \
-       --prefix=/usr 
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
 
-$MAKEINSTALL
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+  rm -rf $INSTALL/usr/lib
+}
