@@ -116,7 +116,10 @@ post_makeinstall_target() {
       cp -PR $PKG_DIR/scripts/mount-swap $INSTALL/usr/lib/openelec
 
     mkdir -p $INSTALL/etc
-      cat $PKG_DIR/config/swap.conf | sed -e "s,@SWAPFILESIZE@,$SWAPFILESIZE,g" > $INSTALL/etc/swap.conf
+      cat $PKG_DIR/config/swap.conf | \
+        sed -e "s,@SWAPFILESIZE@,$SWAPFILESIZE,g" \
+            -e "s,@SWAP_ENABLED_DEFAULT@,$SWAP_ENABLED_DEFAULT,g" \
+            > $INSTALL/etc/swap.conf
   fi
 }
 
