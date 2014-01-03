@@ -33,7 +33,8 @@ PKG_LONGDESC="libxslt"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_ansidecl_h=no \
+                           --enable-static \
                            --disable-shared \
                            --without-python \
                            --without-crypto"
