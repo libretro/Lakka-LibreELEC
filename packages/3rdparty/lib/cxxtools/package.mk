@@ -36,7 +36,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-demos --with-atomictype=pthread --disable-unittest"
-PKG_CONFIGURE_OPTS_TARGET="--disable-demos --with-atomictype=pthread --disable-unittest"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --disable-demos --with-atomictype=pthread --disable-unittest"
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -fPIC"
