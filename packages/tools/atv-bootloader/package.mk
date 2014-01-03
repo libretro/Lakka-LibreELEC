@@ -34,8 +34,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_MAKE_OPTS_TARGET="KERN_OBJ=vmlinuz.obj \
-                      CC=$ROOT/$BUILD/darwin-cross-1/bin/i386-apple-darwin8-gcc-4.0.1 \
-                      LD=$ROOT/$BUILD/darwin-cross-1/bin/i386-apple-darwin8-ld"
+                      CC=$ROOT/$TOOLCHAIN/darwin-cross/bin/i386-apple-darwin8-gcc-4.0.1 \
+                      LD=$ROOT/$TOOLCHAIN/darwin-cross/bin/i386-apple-darwin8-ld"
 
 pre_make_target() {
   unset LDFLAGS

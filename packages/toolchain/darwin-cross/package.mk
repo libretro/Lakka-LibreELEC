@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,20 +16,38 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+PKG_NAME="darwin-cross"
+PKG_VERSION="1"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://gcc.gnu.org/"
+PKG_URL="http://atv-bootloader.googlecode.com/files/$PKG_NAME.tar.gz"
+PKG_SOURCE_DIR="$PKG_NAME"
+PKG_DEPENDS=""
+PKG_BUILD_DEPENDS=""
+PKG_PRIORITY="optional"
+PKG_SECTION="toolchain/toolchains"
+PKG_SHORTDESC="darwin-cross: darwin gcc etc"
+PKG_LONGDESC="This package contains the GNU Compiler Collection to build for darwin systems"
 
-. config/options $1
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
+post_unpack() {
 # extract toolchain
-  tar -xzf $PKG_BUILD/darwin-cross.tar.gz -C $PKG_BUILD
-
-# move toolchain to a proper location
-  mv $PKG_BUILD/darwin-cross/* $PKG_BUILD
-
-# cleanup
-  rm -rf $PKG_BUILD/darwin-cross/
-  rm -rf $PKG_BUILD/darwin-cross.tar.gz
-  rm -rf $PKG_BUILD/install_darwin-cross.sh
+  tar -xzf $PKG_BUILD/darwin-cross.tar.gz -C $TOOLCHAIN
 
 # fix 'as'
-  rm -rf $PKG_BUILD/i386-apple-darwin8/bin/as
-  ln -sf $ROOT/$PKG_BUILD/libexec/10.4/as/i386/as $PKG_BUILD/i386-apple-darwin8/bin/as
+  rm -rf $TOOLCHAIN/$PKG_NAME/i386-apple-darwin8/bin/as
+  ln -sf ../../libexec/10.4/as/i386/as $TOOLCHAIN/$PKG_NAME/i386-apple-darwin8/bin/as
+}
+
+make_target() {
+  : # nothing todo
+}
+
+makeinstall_target() {
+  : # nothing todo
+}
+
