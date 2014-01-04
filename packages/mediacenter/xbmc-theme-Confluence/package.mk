@@ -23,12 +23,31 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.xbmc.org"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="xbmc-theme-Confluence: XBMC Mediacenter default theme"
 PKG_LONGDESC="XBMC Media Center (which was formerly named Xbox Media Center) is a free and open source cross-platform media player and home entertainment system software with a 10-foot user interface designed for the living-room TV. Its graphical user interface allows the user to easily manage video, photos, podcasts, and music from a computer, optical disk, local network, and the internet using a remote control."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+make_target() {
+  TexturePacker -input media/ \
+                -output Textures.xbt \
+                -dupecheck \
+                -use_none
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/xbmc/addons/skin.confluence
+    cp -R */ $INSTALL/usr/share/xbmc/addons/skin.confluence
+    cp *.txt $INSTALL/usr/share/xbmc/addons/skin.confluence
+    cp *.xml $INSTALL/usr/share/xbmc/addons/skin.confluence
+    cp *.png $INSTALL/usr/share/xbmc/addons/skin.confluence
+      rm -rf $INSTALL/usr/share/xbmc/addons/skin.confluence/media
+
+  mkdir -p $INSTALL/usr/share/xbmc/addons/skin.confluence/media
+    cp Textures.xbt $INSTALL/usr/share/xbmc/addons/skin.confluence/media
+}
