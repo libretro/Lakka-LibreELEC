@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,7 +16,33 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="vboxguest"
+PKG_VERSION="4.3.4"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.virtualbox.org"
+PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain linux"
+PKG_NEED_UNPACK="$LINUX_DEPENDS"
+PKG_PRIORITY="optional"
+PKG_SECTION="driver"
+PKG_SHORTDESC="vboxguest"
+PKG_LONGDESC="vboxguest"
 
-cd $BUILD/${PKG_NAME}-${PKG_VERSION}
-  LDFLAGS="" make KERN_DIR=$(kernel_path)
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
+
+pre_make_target() {
+  unset LDFLAGS
+}
+
+make_target() {
+  make KERN_DIR=$(kernel_path)
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/lib/modules/`kernel_version`/$PKG_NAME
+    cp *.ko $INSTALL/lib/modules/`kernel_version`/$PKG_NAME
+}
