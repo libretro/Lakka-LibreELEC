@@ -16,6 +16,10 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+# driver taken from
+# https://github.com/Red54/linux-shumeipai2/commit/026ba2734e035b2bde089a836912d6febabe87f3
+# and patched like the RTL8192CU driver for usage on kernel 3.7 and later
+
 PKG_NAME="RTL8188EU"
 # realtek: PKG_VERSION="20130425"
 PKG_VERSION="fb786d0"
@@ -25,8 +29,8 @@ PKG_LICENSE="GPL"
 # realtek: PKG_SITE="http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PFid=48&Level=5&Conn=4&ProdID=274&DownTypeID=3&GetDown=false&Downloads=true"
 PKG_SITE="https://github.com/lwfinger/rtl8188eu"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain linux"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_PRIORITY="optional"
 PKG_SECTION="driver"
@@ -36,6 +40,19 @@ PKG_LONGDESC="Realtek RTL81xxEU Linux 3.x driver"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-# driver taken from
-# https://github.com/Red54/linux-shumeipai2/commit/026ba2734e035b2bde089a836912d6febabe87f3
-# and patched like the RTL8192CU driver for usage on kernel 3.7 and later
+pre_make_target() {
+  unset LDFLAGS
+}
+
+make_target() {
+  make V=1 \
+       ARCH=$TARGET_ARCH \
+       KSRC=$(kernel_path) \
+       CROSS_COMPILE=$TARGET_PREFIX \
+       CONFIG_POWER_SAVING=n
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/lib/modules/`kernel_version`/$PKG_NAME
+    cp *.ko $INSTALL/lib/modules/`kernel_version`/$PKG_NAME
+}
