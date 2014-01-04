@@ -24,12 +24,21 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Memphiz/script.xbmc.lcd"
 PKG_SITE="https://github.com/herrnst/script.xbmc.lcd"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="Python"
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET="Python"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="LCD addon for XBMC"
 PKG_LONGDESC="This addon allows XBM to connect to LCDproc."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+make_target() {
+  : # nothing todo
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/xbmc/addons
+    cp -PRf script.xbmc.lcd $INSTALL/usr/share/xbmc/addons
+}
