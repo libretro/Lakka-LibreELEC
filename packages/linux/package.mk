@@ -34,7 +34,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
 PKG_DEPENDS_TARGET="busybox linux-drivers linux-firmware pciutils $BOOTLOADER"
 PKG_BUILD_DEPENDS_HOST="ccache"
-PKG_BUILD_DEPENDS_TARGET="toolchain cpio kmod:host pciutils xz"
+PKG_BUILD_DEPENDS_TARGET="toolchain cpio kmod:host pciutils xz wireless-regdb"
 PKG_BUILD_DEPENDS_INIT="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_PRIORITY="optional"
@@ -116,6 +116,9 @@ makeinstall_host() {
 }
 
 pre_make_target() {
+  # regdb
+  cp $(get_build_dir wireless-regdb)/db.txt $ROOT/$PKG_BUILD/net/wireless/db.txt
+
   if [ "$BOOTLOADER" = "u-boot" ]; then
     $SCRIPTS/build u-boot
   fi
