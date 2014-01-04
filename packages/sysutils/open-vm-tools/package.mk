@@ -34,6 +34,8 @@ PKG_LONGDESC="open-vm-tools: open source implementation of VMware Tools"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+OPENVMTOOLS_KERNEL_VER=$(basename $(ls -d $ROOT/$BUILD/linux-[0-9]*)| sed 's|linux-||g')
+
 PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --disable-tests \
                            --without-pam \
@@ -43,8 +45,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --without-x \
                            --without-icu \
                            --without-procps \
-                           --with-kernel-release=`kernel_version` \
-                           --with-linuxdir=`kernel_path`"
+                           --with-kernel-release=$OPENVMTOOLS_KERNEL_VER \
+                           --with-linuxdir=$(ls -d $ROOT/$BUILD/linux-*)"
 
 PKG_MAKE_OPTS_TARGET="CFLAGS+=-DG_DISABLE_DEPRECATED"
 
