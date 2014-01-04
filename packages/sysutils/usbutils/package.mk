@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,10 +16,30 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="usbutils"
+PKG_VERSION="007"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.linux-usb.org/"
+PKG_URL="http://kernel.org/pub/linux/utils/usb/usbutils/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="zlib libusb"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib libusb"
+PKG_PRIORITY="optional"
+PKG_SECTION="system"
+PKG_SHORTDESC="usbutils: Linux USB Utilities"
+PKG_LONGDESC="This package contains various utilities for inspecting and setting of devices connected to the USB bus. Requires a kernel version including usbdevfs support - and this usbdevfs mounted to /proc/bus/usb."
 
-mkdir -p $INSTALL/usr/bin
-  cp -P $PKG_BUILD/lsusb $INSTALL/usr/bin
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-mkdir -p $INSTALL/usr/share/misc
-  cp $PKG_DIR/config/usb.ids $INSTALL/usr/share
+makeinstall_target() {
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+  cp -f usbutils.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+
+  mkdir -p $INSTALL/usr/bin
+    cp -P lsusb $INSTALL/usr/bin
+
+  mkdir -p $INSTALL/usr/share
+    cp $PKG_DIR/config/usb.ids $INSTALL/usr/share
+}
