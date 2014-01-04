@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,18 +16,27 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="libvdpau"
+PKG_VERSION="0.7"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://freedesktop.org/wiki/Software/VDPAU"
+PKG_URL="http://people.freedesktop.org/~aplattner/vdpau/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="libX11"
+PKG_BUILD_DEPENDS_TARGET="toolchain libX11 dri2proto libXext"
+PKG_PRIORITY="optional"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="libvdpau: a Video Decode and Presentation API for UNIX."
+PKG_LONGDESC="VDPAU is the Video Decode and Presentation API for UNIX. It provides an interface to video decode acceleration and presentation hardware present in modern GPUs."
 
-cd $PKG_BUILD
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --enable-shared \
-            --disable-static \
-            --enable-dri2 \
-            --disable-documentation \
-            --with-module-dir=/usr/lib/vdpau
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-make
+if [ "$DEVTOOLS" = "yes" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET vdpauinfo"
+fi
 
-$MAKEINSTALL
+PKG_CONFIGURE_OPTS_TARGET="--enable-dri2 \
+                           --disable-documentation \
+                           --with-module-dir=/usr/lib/vdpau"
