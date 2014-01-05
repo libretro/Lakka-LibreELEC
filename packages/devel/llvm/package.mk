@@ -47,6 +47,7 @@ PKG_CONFIGURE_OPTS_HOST="--disable-polly \
                          --disable-zlib \
                          --disable-assertions \
                          --disable-werror \
+                         --disable-terminfo \
                          --enable-optimized \
                          --disable-debug-runtime \
                          --disable-debug-symbols \
@@ -63,6 +64,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-polly \
                            --disable-profiling \
                            --disable-assertions \
                            --disable-werror \
+                           --disable-terminfo \
                            --disable-expensive-checks \
                            --disable-debug-runtime \
                            --disable-debug-symbols \
