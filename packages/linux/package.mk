@@ -19,8 +19,8 @@
 PKG_NAME="linux"
 case "$LINUX" in
   3.13)
-    PKG_VERSION="3.13.0-rc6"
-    PKG_SOURCE_DIR="$PKG_NAME-3.13-rc6"
+    PKG_VERSION="3.13.0-rc7"
+    PKG_SOURCE_DIR="$PKG_NAME-3.13-rc7"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/testing/$PKG_SOURCE_DIR.tar.xz"
     ;;
   *)
