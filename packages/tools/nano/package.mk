@@ -35,7 +35,6 @@ PKG_AUTORECONF="yes"
 
 export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/ncurses"
 export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
-export LDFLAGS="$LDFLAGS -ltinfo"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/nano/man-html

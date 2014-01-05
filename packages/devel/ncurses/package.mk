@@ -43,7 +43,7 @@ PKG_CONFIGURE_OPTS_TARGET="--without-cxx \
                            --with-normal \
                            --without-debug \
                            --without-profile \
-                           --with-termlib \
+                           --without-termlib \
                            --without-dbmalloc \
                            --without-dmalloc \
                            --without-gpm \
@@ -70,6 +70,7 @@ PKG_CONFIGURE_OPTS_TARGET="--without-cxx \
                            --disable-widec \
                            --disable-echo \
                            --disable-warnings \
+                           --disable-home-terminfo \
                            --disable-assertions"
 
 pre_configure_target() {
@@ -102,6 +103,9 @@ makeinstall_target() {
     $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $ROOT/$TOOLCHAIN/bin/ncurses-config
 
   make DESTDIR=$INSTALL -C ncurses install
+  # provide tinfo to not break 3rdparty stuff.
+  # TODO remove after addon bump
+  ln -sf libncurses.so.5 $INSTALL/usr/lib/libtinfo.so.5
 }
 
 post_makeinstall_target() {

@@ -45,7 +45,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
                            --disable-tailbox"
 
 pre_configure_target() {
-  export LDFLAGS="$LDFLAGS -ltinfo"
   export NCURSES_CONFIG="$ROOT/$TOOLCHAIN/bin/ncurses-config"
 }
 
