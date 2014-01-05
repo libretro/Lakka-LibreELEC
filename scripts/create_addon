@@ -20,15 +20,6 @@
 
 . config/options $1
 
-IFS=" "
-for i in $PKG_ADDON_REQUIRES; do
-  REQUIRES_ADDONNAME=`echo $i | cut -f1 -d ":"`
-  REQUIRES_ADDONVERSION=`echo $i | cut -f2 -d ":"`
-  REQUIRES="$REQUIRES\n    <import addon=\"$REQUIRES_ADDONNAME\" version=\"$REQUIRES_ADDONVERSION\" />"
-done
-
-unset IFS
-
 if [ -z "$1" ]; then
   echo "usage: $0 package_name"
   exit 1
@@ -39,104 +30,101 @@ if [ -n "$PKG_ARCH" -a ! "$PKG_ARCH" = "any" ]; then
   echo "$PKG_ARCH" | grep -q "\-$TARGET_ARCH" && exit 0
 fi
 
-$SCRIPTS/build $@
-
-printf  "%${BUILD_INDENT}c CREATE ADDON  $1\n" ' '>&$SILENT_OUT
-export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
-
-if [ -f $PKG_DIR/package.mk ]; then
-  # unset functions
-  unset -f addon
-
-  # include buildfile
-  . $PKG_DIR/package.mk
-elif [ -f $PKG_DIR/meta ] ; then
-  # include buildfile
-  . $PKG_DIR/meta
-fi
-
 if [ "$PKG_IS_ADDON" = "yes" ] ; then
+  $SCRIPTS/build $@
+
+  printf  "%${BUILD_INDENT}c CREATE ADDON  $1\n" ' '>&$SILENT_OUT
+  export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
+
   rm -rf $ADDON_BUILD
 
   if [ "$(type -t addon)" = "function" ]; then
     addon
+  else
+    echo "*** unsupported package format. please convert your package ***"
+    exit 1
   fi
 
-  if [ -f $PKG_DIR/addon ]; then
-    $PKG_DIR/addon $@ >&$VERBOSE_OUT
-  fi
+  IFS=" "
+  for i in $PKG_ADDON_REQUIRES; do
+    REQUIRES_ADDONNAME=`echo $i | cut -f1 -d ":"`
+    REQUIRES_ADDONVERSION=`echo $i | cut -f2 -d ":"`
+    REQUIRES="$REQUIRES\n    <import addon=\"$REQUIRES_ADDONNAME\" version=\"$REQUIRES_ADDONVERSION\" />"
+  done
+
+  unset IFS
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-    if [ ! -f $ADDON_BUILD/$PKG_ADDON_ID/addon.xml ]; then
-      cp config/addon/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
-      CUST_ADDON_VERSION="$ADDON_VERSION.$PKG_REV"
-      PROVIDER_NAME="openelec.tv"
-      if [ ! -z "$PKG_MAINTAINER" ] ; then
-        PROVIDER_NAME="$PKG_MAINTAINER"
-      fi
-      $SED -e "s|@PKG_ADDON_ID@|$PKG_ADDON_ID|g" \
-           -e "s|@PKG_NAME@|$PKG_NAME|g" \
-           -e "s|@ADDON_VERSION@|$CUST_ADDON_VERSION|g" \
-           -e "s|@PKG_ADDON_TYPE@|$PKG_ADDON_TYPE|g" \
-           -e "s|@REQUIRES@|$REQUIRES|g" \
-           -e "s|@PKG_SHORTDESC@|$PKG_SHORTDESC|g" \
-           -e "s|@OS_VERSION@|$OS_VERSION|g" \
-           -e "s|@PKG_LONGDESC@|$PKG_LONGDESC|g" \
-           -e "s|@PKG_DISCLAIMER@|$PKG_DISCLAIMER|g" \
-           -e "s|@PROVIDER_NAME@|$PROVIDER_NAME|g" \
-           -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
-    else
-      CUST_ADDON_VERSION="$PKG_VERSION"
+  if [ ! -f $ADDON_BUILD/$PKG_ADDON_ID/addon.xml ]; then
+    cp config/addon/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
+    CUST_ADDON_VERSION="$ADDON_VERSION.$PKG_REV"
+    PROVIDER_NAME="openelec.tv"
+    if [ ! -z "$PKG_MAINTAINER" ] ; then
+      PROVIDER_NAME="$PKG_MAINTAINER"
     fi
-    if [ ! -z "$PKG_CUSTOM_ADDON_VERSION" ] ; then
-      CUST_ADDON_VERSION="$PKG_CUSTOM_ADDON_VERSION"
-    fi
+    $SED -e "s|@PKG_ADDON_ID@|$PKG_ADDON_ID|g" \
+         -e "s|@PKG_NAME@|$PKG_NAME|g" \
+         -e "s|@ADDON_VERSION@|$CUST_ADDON_VERSION|g" \
+         -e "s|@PKG_ADDON_TYPE@|$PKG_ADDON_TYPE|g" \
+         -e "s|@REQUIRES@|$REQUIRES|g" \
+         -e "s|@PKG_SHORTDESC@|$PKG_SHORTDESC|g" \
+         -e "s|@OS_VERSION@|$OS_VERSION|g" \
+         -e "s|@PKG_LONGDESC@|$PKG_LONGDESC|g" \
+         -e "s|@PKG_DISCLAIMER@|$PKG_DISCLAIMER|g" \
+         -e "s|@PROVIDER_NAME@|$PROVIDER_NAME|g" \
+         -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
+  else
+    CUST_ADDON_VERSION="$PKG_VERSION"
+  fi
+  if [ ! -z "$PKG_CUSTOM_ADDON_VERSION" ] ; then
+    CUST_ADDON_VERSION="$PKG_CUSTOM_ADDON_VERSION"
+  fi
 
-    if [ -f $PKG_DIR/source/default.py ]; then
-      cp -R $PKG_DIR/source/* $ADDON_BUILD/$PKG_ADDON_ID
-    else
-      echo "*** WARNING: You *probably* need at least $PKG_DIR/source/default.py to make your addon work ***"
-    fi
+  if [ -f $PKG_DIR/source/default.py ]; then
+    cp -R $PKG_DIR/source/* $ADDON_BUILD/$PKG_ADDON_ID
+  else
+    echo "*** WARNING: You *probably* need at least $PKG_DIR/source/default.py to make your addon work ***"
+  fi
 
-    if [ -f $PKG_DIR/icon/icon.png ]; then
-      cp $PKG_DIR/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID
-    elif [ -f $PKG_BUILD/icon/icon.png ]; then
-      cp $PKG_BUILD/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID
-    elif [ -f $PKG_BUILD/icon.png ]; then
-      cp $PKG_BUILD/icon.png $ADDON_BUILD/$PKG_ADDON_ID
-    else
-      echo "*** WARNING: It's recommended to have a $PKG_DIR/icon/icon.png file ***"
-    fi
+  if [ -f $PKG_DIR/icon/icon.png ]; then
+    cp $PKG_DIR/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID
+  elif [ -f $PKG_BUILD/icon/icon.png ]; then
+    cp $PKG_BUILD/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID
+  elif [ -f $PKG_BUILD/icon.png ]; then
+    cp $PKG_BUILD/icon.png $ADDON_BUILD/$PKG_ADDON_ID
+  else
+    echo "*** WARNING: It's recommended to have a $PKG_DIR/icon/icon.png file ***"
+  fi
 
-    if [ -f $PKG_DIR/changelog.txt ]; then
-      cp $PKG_DIR/changelog.txt $ADDON_BUILD/$PKG_ADDON_ID
-    elif [ -f $PKG_BUILD/changelog.txt ]; then
-      cp $PKG_BUILD/changelog.txt $ADDON_BUILD/$PKG_ADDON_ID
-    else
-      echo "*** WARNING: It's recommended to have a $PKG_DIR/changelog.txt file ***"
-    fi
+  if [ -f $PKG_DIR/changelog.txt ]; then
+    cp $PKG_DIR/changelog.txt $ADDON_BUILD/$PKG_ADDON_ID
+  elif [ -f $PKG_BUILD/changelog.txt ]; then
+    cp $PKG_BUILD/changelog.txt $ADDON_BUILD/$PKG_ADDON_ID
+  else
+    echo "*** WARNING: It's recommended to have a $PKG_DIR/changelog.txt file ***"
+  fi
 
-    if [ -d $ADDON_BUILD/mkimage ]; then
-      $ROOT/$TOOLCHAIN/bin/mksquashfs $ADDON_BUILD/mkimage $ADDON_BUILD/$PKG_ADDON_ID/$1.img -noappend -comp lzma
-    fi
+  if [ -d $ADDON_BUILD/mkimage ]; then
+    $ROOT/$TOOLCHAIN/bin/mksquashfs $ADDON_BUILD/mkimage $ADDON_BUILD/$PKG_ADDON_ID/$1.img -noappend -comp lzma
+  fi
 
   cd $ADDON_BUILD
-    echo "*** compressing Addon $PKG_ADDON_ID ... ***"
-    zip -rq $PKG_ADDON_ID-$CUST_ADDON_VERSION.zip $PKG_ADDON_ID;
+  echo "*** compressing Addon $PKG_ADDON_ID ... ***"
+  zip -rq $PKG_ADDON_ID-$CUST_ADDON_VERSION.zip $PKG_ADDON_ID;
   cd -
 
   mkdir -p $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID
-    cp $ADDON_BUILD/$PKG_ADDON_ID-$CUST_ADDON_VERSION.zip $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID
-    if [ -f $PKG_DIR/changelog.txt ]; then
-      cp $PKG_DIR/changelog.txt $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/changelog-$CUST_ADDON_VERSION.txt
-    elif [ -f $PKG_BUILD/changelog.txt ]; then
-      cp $PKG_BUILD/changelog.txt $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/changelog-$CUST_ADDON_VERSION.txt
-    fi
-    if [ -f $PKG_DIR/icon/icon.png ]; then
-      cp $PKG_DIR/icon/icon.png $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/icon.png
-    elif [ -f $PKG_BUILD/icon/icon.png ]; then
-      cp $PKG_BUILD/icon/icon.png $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/icon.png
-    elif [ -f $PKG_BUILD/icon.png ]; then
-      cp $PKG_BUILD/icon.png $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/icon.png
-    fi
+  cp $ADDON_BUILD/$PKG_ADDON_ID-$CUST_ADDON_VERSION.zip $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID
+  if [ -f $PKG_DIR/changelog.txt ]; then
+    cp $PKG_DIR/changelog.txt $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/changelog-$CUST_ADDON_VERSION.txt
+  elif [ -f $PKG_BUILD/changelog.txt ]; then
+    cp $PKG_BUILD/changelog.txt $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/changelog-$CUST_ADDON_VERSION.txt
+  fi
+  if [ -f $PKG_DIR/icon/icon.png ]; then
+    cp $PKG_DIR/icon/icon.png $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/icon.png
+  elif [ -f $PKG_BUILD/icon/icon.png ]; then
+    cp $PKG_BUILD/icon/icon.png $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/icon.png
+  elif [ -f $PKG_BUILD/icon.png ]; then
+    cp $PKG_BUILD/icon.png $TARGET/$ADDONS/$ADDON_VERSION/$PROJECT/$TARGET_ARCH/$PKG_ADDON_ID/icon.png
+  fi
 fi
