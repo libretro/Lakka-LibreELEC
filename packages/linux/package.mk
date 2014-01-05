@@ -58,7 +58,7 @@ else
   KERNEL_IMAGE="bzImage"
 fi
 
-post_unpack() {
+post_patch() {
   if [ -f $PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_NAME.$TARGET_ARCH.conf ]; then
     KERNEL_CFG_FILE=$PROJECT_DIR/$PROJECT/$PKG_NAME/$PKG_NAME.$TARGET_ARCH.conf
   else
