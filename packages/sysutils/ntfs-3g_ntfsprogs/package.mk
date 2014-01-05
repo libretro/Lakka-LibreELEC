@@ -37,12 +37,14 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-library \
                            --enable-posix-acls \
                            --enable-mtab \
-                           --disable-ntfsprogs \
+                           --enable-ntfsprogs \
                            --enable-crypto \
                            --with-fuse=external \
                            --with-uuid"
 
 post_makeinstall_target() {
+  # dont include ntfsprogs.
+  rm -rf $INSTALL/usr/sbin
   rm -rf $INSTALL/usr/bin
 
   mkdir -p $INSTALL/sbin
