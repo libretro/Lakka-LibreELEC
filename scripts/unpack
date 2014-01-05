@@ -79,6 +79,8 @@ if [ -f $PKG_DIR/package.mk ]; then
   unset -f pre_unpack
   unset -f unpack
   unset -f post_unpack
+  unset -f pre_patch
+  unset -f post_patch
 
   . $PKG_DIR/package.mk
 
@@ -109,6 +111,9 @@ if [ -f $PKG_DIR/package.mk ]; then
     [ ! -d "$BUILD/${PKG_NAME}-${PKG_VERSION}" ] && mkdir -p $BUILD/${PKG_NAME}-${PKG_VERSION}
     cp -PRf $PKG_DIR/sources/* $BUILD/${PKG_NAME}-${PKG_VERSION}
   fi
+  if [ "$(type -t post_unpack)" = "function" ]; then
+    post_unpack
+  fi
 else
   if [ -n "$PKG_URL" ]; then
     $SCRIPTS/extract $1 "$1*.tar.bz2" $BUILD
@@ -132,6 +137,12 @@ else
   # todo: deprecated
   if [ -f "$PKG_DIR/unpack" ]; then
     $PKG_DIR/unpack $@ >&$VERBOSE_OUT
+  fi
+fi
+
+if [ -f $PKG_DIR/package.mk ]; then
+  if [ "$(type -t pre_patch)" = "function" ]; then
+    pre_patch
   fi
 fi
 
@@ -177,13 +188,9 @@ for i in $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/*.patch ; do
   fi
 done
 
-# post_unpack() :
-# - Formerly used to replace $PKG_DIR/rename
-# - now replaced by $PKG_SOURCE_DIR .
-# - now moved after patching to replace the formerly 'unpack' script
 if [ -f $PKG_DIR/package.mk ]; then
-  if [ "$(type -t post_unpack)" = "function" ]; then
-    post_unpack
+  if [ "$(type -t post_patch)" = "function" ]; then
+    post_patch
   fi
 fi
 
