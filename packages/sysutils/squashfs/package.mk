@@ -23,14 +23,26 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://squashfs.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/squashfs/squashfs/${PKG_NAME}${PKG_VERSION}/${PKG_NAME}${PKG_VERSION}.tar.gz"
-#PKG_URL="$DISTRO_SRC/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_SOURCE_DIR="${PKG_NAME}${PKG_VERSION}"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="ccache zlib:host lzo:host xz"
+PKG_DEPENDS_HOST=""
+PKG_BUILD_DEPENDS_HOST="ccache zlib:host lzo:host xz"
 PKG_PRIORITY="optional"
-PKG_SECTION="toolchain/sysutils"
+PKG_SECTION="sysutils"
 PKG_SHORTDESC="squashfs-tools: A compressed read-only filesystem for Linux"
 PKG_LONGDESC="Squashfs is intended to be a general read-only filesystem, for archival use (i.e. in cases where a .tar.gz file may be used), and in constrained block device/memory systems (e.g. embedded systems) where low overhead is needed. The filesystem is currently stable and has been tested on PowerPC, i386, SPARC and ARM architectures."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+export LDFLAGS="$LDFLAGS -fwhole-program"
+
+make_host() {
+  make -C squashfs-tools mksquashfs \
+       XZ_SUPPORT=1 LZO_SUPPORT=1 \
+       INCLUDEDIR="-I. -I$ROOT/$TOOLCHAIN/include"
+}
+
+makeinstall_host() {
+  mkdir -p $ROOT/$TOOLCHAIN/bin
+    cp squashfs-tools/mksquashfs $ROOT/$TOOLCHAIN/bin
+}
