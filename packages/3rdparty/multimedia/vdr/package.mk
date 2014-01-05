@@ -25,7 +25,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvdr.de"
 PKG_URL="ftp://ftp.tvdr.de/vdr/Developer/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS=""
-PKG_BUILD_DEPENDS_TARGET="toolchain fontconfig freetype libcap libjpeg-turbo bzip2 ncurses"
+PKG_BUILD_DEPENDS_TARGET="toolchain fontconfig freetype libcap libjpeg-turbo bzip2"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr: A powerful DVB TV application"
@@ -33,6 +33,10 @@ PKG_LONGDESC="This project describes how to build your own digital satellite rec
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  rm -rf $PKG_BUILD/PLUGINS/src/skincurses
+}
 
 pre_configure_target() {
   export LDFLAGS=$(echo $LDFLAGS | sed -e "s|-Wl,--as-needed||")
