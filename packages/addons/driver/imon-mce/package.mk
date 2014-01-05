@@ -23,8 +23,8 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="driver/remote"
 PKG_SHORTDESC="imon-mce: a driver to add support for MCE remotes to the imon driver"
@@ -34,3 +34,15 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.service"
 
 PKG_AUTORECONF="no"
+
+make_target() {
+  : # nothing to do here
+}
+
+makeinstall_target() {
+  : # nothing to do here
+}
+
+addon() {
+  : # nothing to do here
+}

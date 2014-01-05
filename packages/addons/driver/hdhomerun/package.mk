@@ -1,10 +1,6 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
-#
-#  Boblightd addon maintained by Adam Boeglin: adamrb@gmail.com
 #
 #  OpenELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -20,21 +16,33 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="hdhomerun"
+PKG_VERSION="4.1"
+PKG_REV="0"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.silicondust.com/products/hdhomerun/dvbt/"
+PKG_URL=""
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET=""
+PKG_PRIORITY="optional"
+PKG_SECTION="driver/dvb"
+PKG_SHORTDESC="A linux DVB driver for the HDHomeRun (http://www.silicondust.com)."
+PKG_LONGDESC="A linux DVB driver for the HDHomeRun (http://www.silicondust.com)."
+PKG_AUTORECONF="no"
+PKG_IS_ADDON="yes"
+PKG_ADDON_TYPE="xbmc.python.script"
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -P $PKG_BUILD/src/.libs/libboblight.so* $ADDON_BUILD/$PKG_ADDON_ID/lib
+make_target() {
+  : # nothing to do here
+}
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $PKG_BUILD/src/boblightd $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $PKG_BUILD/src/boblight-constant $ADDON_BUILD/$PKG_ADDON_ID/bin
-  if [ "$DISPLAYSERVER" = "xorg-server" ] ; then
-    cp -P $PKG_BUILD/src/boblight-X11 $ADDON_BUILD/$PKG_ADDON_ID/bin
-  fi
+makeinstall_target() {
+  : # nothing to do here
+}
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
-  cp -R $PKG_DIR/config/boblight.conf $ADDON_BUILD/$PKG_ADDON_ID/config
-  if [ "$DISPLAYSERVER" = "xorg-server" ] ; then
-    cp -R $PKG_DIR/config/boblight.X11.sample $ADDON_BUILD/$PKG_ADDON_ID/config
-  fi
-
+addon() {
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
+  cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
+  cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
+}
