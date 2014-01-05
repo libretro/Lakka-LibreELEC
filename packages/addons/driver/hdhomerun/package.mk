@@ -23,8 +23,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.silicondust.com/products/hdhomerun/dvbt/"
 PKG_URL=""
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS=""
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET=""
 PKG_PRIORITY="optional"
 PKG_SECTION="driver/dvb"
 PKG_SHORTDESC="A linux DVB driver for the HDHomeRun (http://www.silicondust.com)."
@@ -32,3 +32,17 @@ PKG_LONGDESC="A linux DVB driver for the HDHomeRun (http://www.silicondust.com).
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.python.script"
+
+make_target() {
+  : # nothing to do here
+}
+
+makeinstall_target() {
+  : # nothing to do here
+}
+
+addon() {
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
+  cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
+  cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
+}
