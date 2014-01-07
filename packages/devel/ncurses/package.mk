@@ -103,9 +103,6 @@ makeinstall_target() {
     $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $ROOT/$TOOLCHAIN/bin/ncurses-config
 
   make DESTDIR=$INSTALL -C ncurses install
-  # provide tinfo to not break 3rdparty stuff.
-  # TODO remove after addon bump
-  ln -sf libncurses.so.5 $INSTALL/usr/lib/libtinfo.so.5
 }
 
 post_makeinstall_target() {
