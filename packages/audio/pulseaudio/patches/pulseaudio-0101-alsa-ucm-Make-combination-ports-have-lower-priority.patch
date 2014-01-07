@@ -1,0 +1,60 @@
+From 908deb136c46c17e5c42fd3a2767746c767d10eb Mon Sep 17 00:00:00 2001
+From: David Henningsson <david.henningsson@canonical.com>
+Date: Fri, 19 Jul 2013 16:38:16 +0200
+Subject: [PATCH] alsa-ucm: Make combination ports have lower priority
+
+Usually, you want to use one input or output at a time: e g,
+you expect your speaker to mute when you plug in headphones.
+
+Therefore, the headphones+speaker port should have lower priority
+and both headphones and speaker.
+
+A practical formula to do this is 1/x = 1/xa + 1/xb + .. + 1/xn.
+
+Signed-off-by: David Henningsson <david.henningsson@canonical.com>
+---
+ src/modules/alsa/alsa-ucm.c |   15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+Index: pulseaudio-4.0/src/modules/alsa/alsa-ucm.c
+===================================================================
+--- pulseaudio-4.0.orig/src/modules/alsa/alsa-ucm.c	2013-08-23 11:20:00.365810574 +0200
++++ pulseaudio-4.0/src/modules/alsa/alsa-ucm.c	2013-08-23 11:20:02.065810544 +0200
+@@ -654,6 +654,7 @@
+     pa_device_port *port;
+     int i;
+     unsigned priority;
++    double prio2;
+     char *name, *desc;
+     const char *dev_name;
+     const char *direction;
+@@ -667,6 +668,7 @@
+             : pa_sprintf_malloc("Combination port for %s", dev_name);
+ 
+     priority = is_sink ? dev->playback_priority : dev->capture_priority;
++    prio2 = (priority == 0 ? 0 : 1.0/priority);
+ 
+     for (i = 1; i < num; i++) {
+         char *tmp;
+@@ -682,10 +684,19 @@
+         pa_xfree(desc);
+         desc = tmp;
+ 
+-        /* FIXME: Is this true? */
+-        priority += (is_sink ? dev->playback_priority : dev->capture_priority);
++        priority = is_sink ? dev->playback_priority : dev->capture_priority;
++        if (priority != 0 && prio2 > 0)
++            prio2 += 1.0/priority;
+     }
+ 
++    /* Make combination ports always have lower priority, and use the formula
++       1/p = 1/p1 + 1/p2 + ... 1/pn.
++       This way, the result will always be less than the individual components,
++       yet higher components will lead to higher result. */
++
++    if (num > 1)
++        priority = prio2 > 0 ? 1.0/prio2 : 0;
++
+     port = pa_hashmap_get(ports, name);
+     if (!port) {
+         port = pa_device_port_new(core, pa_strna(name), desc, 0);
