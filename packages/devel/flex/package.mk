@@ -23,12 +23,23 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://flex.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/flex/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="ccache:host"
+PKG_DEPENDS_HOST=""
+PKG_BUILD_DEPENDS_HOST="ccache:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
 PKG_SHORTDESC="flex: Fast lexical analyzer generator"
 PKG_LONGDESC="flex is a tool for generating programs that perform pattern-matching on text."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_HOST="--disable-rpath --with-gnu-ld"
+
+post_makeinstall_host() {
+  cat > $ROOT/$TOOLCHAIN/bin/lex << "EOF"
+#!/bin/sh
+exec flex "$@"
+EOF
+
+  chmod -v 755 $ROOT/$TOOLCHAIN/bin/lex
+}
