@@ -35,10 +35,7 @@ PKG_AUTORECONF="no"
 
 export CC=$LOCAL_CC
 
-makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp -f ccache $ROOT/$TOOLCHAIN/bin
-
+post_makeinstall_host() {
 # setup ccache
   $ROOT/$TOOLCHAIN/bin/ccache --max-size=$CCACHE_CACHE_SIZE
 
@@ -46,11 +43,13 @@ makeinstall_host() {
 #!/bin/sh
 $ROOT/$TOOLCHAIN/bin/ccache $LOCAL_CC "\$@"
 EOF
+
   chmod +x $HOST_CC
 
   cat > $HOST_CXX <<EOF
 #!/bin/sh
 $ROOT/$TOOLCHAIN/bin/ccache $LOCAL_CXX "\$@"
 EOF
+
   chmod +x $HOST_CXX
 }
