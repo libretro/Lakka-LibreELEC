@@ -23,12 +23,23 @@ PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.cloog.org/"
 PKG_URL="http://www.bastoul.net/cloog/pages/download/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="ccache:host gmp:host"
+PKG_DEPENDS_HOST=""
+PKG_BUILD_DEPENDS_HOST="ccache:host gmp:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/math"
 PKG_SHORTDESC="cloog: a free software and library to generate code for scanning Z-polyhedra."
 PKG_LONGDESC="CLooG is a library to generate code for scanning Z-polyhedra. In other words, it finds code that reaches each integral point of one or more parameterized polyhedra. GCC links with this library in order to enable the new loop generation code known as Graphite."
-PKG_IS_ADDON="no"
 
-PKG_AUTORECONF="no" #TODO: automake 1.13 support must be fixed
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
+
+# TODO: automake 1.13 support must be fixed
+
+PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
+                         --enable-shared \
+                         --disable-static \
+                         --disable-silent-rules \
+                         --with-gnu-ld \
+                         --with-isl=buildin \
+                         --with-gmp=system \
+                         --with-gmp-prefix=$ROOT/$TOOLCHAIN"
