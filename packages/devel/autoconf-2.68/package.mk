@@ -18,18 +18,46 @@
 
 PKG_NAME="autoconf-2.68"
 PKG_VERSION="legacy"
+PKG_SOURCE_DIR="$PKG_NAME"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sources.redhat.com/autoconf/"
 PKG_URL="http://ftp.gnu.org/gnu/autoconf/$PKG_NAME.tar.bz2"
 PKG_SOURCE_DIR="$PKG_NAME"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="ccache:host m4"
+PKG_DEPENDS_HOST=""
+PKG_BUILD_DEPENDS_HOST="ccache:host m4"
 PKG_PRIORITY="optional"
-PKG_SECTION="toolchain/devel"
+PKG_SECTION="devel"
 PKG_SHORTDESC="autoconf: A GNU tool for automatically configuring source code"
 PKG_LONGDESC="Autoconf is an extensible package of m4 macros that produce shell scripts to automatically configure software source code packages. These scripts can adapt the packages to many kinds of UNIX-like systems without manual user intervention. Autoconf creates a configuration script for a package from a template file that lists the operating system features that the package can use, in the form of m4 macro calls."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_HOST="EMACS=no \
+                         ac_cv_path_M4=$ROOT/$TOOLCHAIN/bin/m4 \
+                         ac_cv_prog_gnu_m4_gnu=no \
+                         --target=$TARGET_NAME \
+                         --program-suffix=-2.68"
+
+make_host() {
+ : # nothing todo
+}
+
+makeinstall_host() {
+  make install \
+       prefix=$ROOT/$TOOLCHAIN \
+       pkgdatadir=$ROOT/$TOOLCHAIN/share/$PKG_NAME \
+       pkgdatadir=$ROOT/$TOOLCHAIN/lib/$PKG_NAME \
+       pkgdatadir=$ROOT/$TOOLCHAIN/include/$PKG_NAME \
+       install
+
+  make clean
+  make install \
+       prefix=$SYSROOT_PREFIX/usr \
+       pkgdatadir=$SYSROOT_PREFIX/usr/share/$PKG_NAME \
+       pkgdatadir=$SYSROOT_PREFIX/usr/lib/$PKG_NAME \
+       pkgdatadir=$SYSROOT_PREFIX/usr/include/$PKG_NAME \
+       install
+}
