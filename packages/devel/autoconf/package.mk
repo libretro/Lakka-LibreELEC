@@ -23,12 +23,21 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sources.redhat.com/autoconf/"
 PKG_URL="http://ftp.gnu.org/gnu/autoconf/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="ccache:host m4 gettext:host"
+PKG_DEPENDS_HOST=""
+PKG_BUILD_DEPENDS_HOST="ccache:host m4 gettext:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
 PKG_SHORTDESC="autoconf: A GNU tool for automatically configuring source code"
 PKG_LONGDESC="Autoconf is an extensible package of m4 macros that produce shell scripts to automatically configure software source code packages. These scripts can adapt the packages to many kinds of UNIX-like systems without manual user intervention. Autoconf creates a configuration script for a package from a template file that lists the operating system features that the package can use, in the form of m4 macro calls."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_HOST="EMACS=no \
+                         ac_cv_path_M4=$ROOT/$TOOLCHAIN/bin/m4 \
+                         ac_cv_prog_gnu_m4_gnu=no \
+                         --target=$TARGET_NAME"
+
+post_makeinstall_host() {
+  make prefix=$SYSROOT_PREFIX/usr install
+}
