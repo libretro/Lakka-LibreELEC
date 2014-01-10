@@ -23,12 +23,25 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.ntp.org/"
 PKG_URL="http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-4.2/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
 PKG_SHORTDESC="ntp: Network Time Protocol utilities"
 PKG_LONGDESC="The Network Time Protocol (NTP) is used to synchronize the time of a computer client or server to another server or reference time source, such as a radio or satellite receiver or modem. It provides client accuracies typically within a millisecond on LANs and up to a few tens of milliseconds on WANs relative to a primary server synchronized to Coordinated Universal Time (UTC) via a Global Positioning Service (GPS) receiver, for example."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-all-clocks \
+                           --enable-ipv6 \
+                           --without-rpath \
+                           --with-gnu-ld \
+                           --disable-linuxcaps \
+                           --without-crypto"
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/sbin
+    cp ntpd/ntpd $INSTALL/usr/sbin/
+    cp ntpdate/ntpdate $INSTALL/usr/sbin/
+}
