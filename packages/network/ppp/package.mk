@@ -50,6 +50,7 @@ make_target() {
 }
 
 makeinstall_target() {
+  make DESTDIR=$SYSROOT_PREFIX/usr install-devel
   make DESTDIR=$INSTALL/usr install
 }
 
