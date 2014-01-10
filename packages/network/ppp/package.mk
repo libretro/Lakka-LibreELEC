@@ -50,7 +50,7 @@ make_target() {
 }
 
 makeinstall_target() {
-  make INSTROOT=$INSTALL install
+  make DESTDIR=$INSTALL/usr install
 }
 
 post_makeinstall_target() {
