@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,23 +16,46 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="ppp"
+PKG_VERSION="2.4.5"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://samba.org/"
+PKG_URL="http://samba.org/ftp/ppp/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain libpcap"
+PKG_PRIORITY="optional"
+PKG_SECTION="network"
+PKG_SHORTDESC="ppp: contains the pppd daemon and the chat program. This is used for connecting to other machines; often for connecting to the Internet via a dial-up or PPPoE connection to an ISP."
+PKG_LONGDESC="The PPP package contains the pppd daemon and the chat program. This is used for connecting to other machines; often for connecting to the Internet via a dial-up or PPPoE connection to an ISP."
 
-cd $PKG_BUILD
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
+
+pre_configure_target() {
+# ppp fails to build in subdirs
+  cd $ROOT/$PKG_BUILD
+    rm -rf .$TARGET_NAME
 
 # ppp-2.4.5 contains an out of date copy of the kernel header linux/if_pppol2tp.h.
 # This needs to be removed to force it to use the one installed in /usr. If you don't
 # remove this file the build will still succeed (thanks to a poorly written Makefile)
 # but it will fail to compile the openl2tp.so, pppol2tp.so and rp-pppoe.so plugins
   rm -rf include/linux/if_pppol2tp.h
+}
 
-./configure --host=$TARGET_NAME \
-            --build=$HOST_NAME \
-            --prefix=/usr \
-            --sysconfdir=/etc \
-            --localstatedir=/var \
-            --disable-static \
-            --enable-shared \
+make_target() {
+  make COPTS="$CFLAGS"
+}
 
-make COPTS="$CFLAGS" -C pppd
-make DESTDIR=$SYSROOT_PREFIX/usr -C pppd install-devel
+makeinstall_target() {
+  make INSTROOT=$INSTALL install
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/sbin/chat
+  rm -rf $INSTALL/usr/sbin/pppdump
+  rm -rf $INSTALL/usr/sbin/pppoe-discovery
+  rm -rf $INSTALL/usr/sbin/pppstats
+}
