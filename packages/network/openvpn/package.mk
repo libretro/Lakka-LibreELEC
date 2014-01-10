@@ -24,8 +24,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://openvpn.net"
 PKG_URL="http://swupdate.openvpn.org/community/releases/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="openssl"
-PKG_BUILD_DEPENDS="toolchain lzo openssl"
+PKG_DEPENDS_TARGET="openssl"
+PKG_BUILD_DEPENDS_TARGET="toolchain lzo openssl"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
 PKG_SHORTDESC="openvpn: a full featured SSL VPN software solution that integrates OpenVPN server capabilities."
@@ -33,3 +33,16 @@ PKG_LONGDESC="OpenVPN Access Server is a full featured SSL VPN software solution
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_have_decl_TUNSETPERSIST=no \
+                           --disable-server \
+                           --enable-password-save \
+                           --disable-plugins \
+                           --enable-iproute2 IPROUTE=/sbin/ip \
+                           --disable-management \
+                           --disable-socks \
+                           --disable-http-proxy \
+                           --disable-fragment \
+                           --disable-multihome \
+                           --disable-port-share \
+                           --disable-debug"
