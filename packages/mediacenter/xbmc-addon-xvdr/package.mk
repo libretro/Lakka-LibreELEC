@@ -36,3 +36,8 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr/share/xbmc"
 
 export CXXFLAGS="$CXXFLAGS -DZLIB_INTERNAL=1"
+
+pre_make_target() {
+  # dont build parallel
+  MAKEFLAGS=-j1
+}
