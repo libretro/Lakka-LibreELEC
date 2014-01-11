@@ -23,12 +23,24 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sourceforge.net/projects/afpfs-ng/"
 PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_NAME/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="libgpg-error libgcrypt ncurses"
-PKG_BUILD_DEPENDS="toolchain libgpg-error libgcrypt ncurses"
+PKG_DEPENDS_TARGET="libgpg-error libgcrypt ncurses"
+PKG_BUILD_DEPENDS_TARGET="toolchain libgpg-error libgcrypt ncurses"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
 PKG_SHORTDESC="afpfs-ng: an Apple Filing Protocol client"
 PKG_LONGDESC="afpfs-ng is an Apple Filing Protocol client that will allow BSD, Linux and Mac OS X systems to access files exported from a Mac OS system with AFP over TCP."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
+                           --enable-gcrypt \
+                           --disable-fuse"
+
+PKG_MAKE_OPTS_TARGET="-C lib"
+
+makeinstall_target() {
+  $MAKEINSTALL -C lib
+  $MAKEINSTALL -C include
+  make -C lib DESTDIR=$INSTALL install
+}
