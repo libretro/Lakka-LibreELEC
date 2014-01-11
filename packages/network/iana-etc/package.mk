@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,10 +16,29 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="iana-etc"
+PKG_VERSION="2.30"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.linuxfromscratch.org/lfs/view/development/chapter06/iana-etc.html"
+PKG_URL="http://anduin.linuxfromscratch.org/sources/LFS/lfs-packages/conglomeration/iana-etc/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="network"
+PKG_SHORTDESC="iana-etc: The Iana-Etc package provides data for network services and protocols."
+PKG_LONGDESC="The Iana-Etc package provides data for network services and protocols."
 
-cd $PKG_BUILD
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
-make
+post_make_target() {
+  sed -e 's,^sunrpc,rpcbind,' -i services
+}
 
-sed -e 's,^sunrpc,rpcbind,' -i services
+makeinstall_target() {
+  mkdir -p $INSTALL/etc
+    cp protocols $INSTALL/etc
+    cp services $INSTALL/etc
+}
