@@ -23,17 +23,36 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
 PKG_URL="http://packages.pulse-eight.net/pulse/sources/libcec/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="systemd"
-PKG_BUILD_DEPENDS="toolchain systemd lockdev"
+PKG_DEPENDS_TARGET="systemd"
+PKG_BUILD_DEPENDS_TARGET="toolchain systemd lockdev"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="libCEC is an open-source dual licensed library designed for communicating with the Pulse-Eight USB - CEC Adaptor"
 PKG_LONGDESC="libCEC is an open-source dual licensed library designed for communicating with the Pulse-Eight USB - CEC Adaptor."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-cubox"
 
 if [ "$XBMCPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS="$PKG_DEPENDS bcm2835-driver"
   PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS bcm2835-driver"
+
+  export CFLAGS="$CFLAGS \
+                 -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
+                 -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+  export CXXFLAGS="$CXXFLAGS \
+                   -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
+                   -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-rpi \
+                             --with-rpi-include-path=$SYSROOT_PREFIX/usr/include \
+                             --with-rpi-lib-path=$SYSROOT_PREFIX/usr/lib"
+else
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-rpi"
 fi
+
+
+# dont use some optimizations because of build problems
+  export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
