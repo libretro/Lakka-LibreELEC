@@ -23,8 +23,8 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="libpciaccess libX11 libXfont libdrm openssl freetype pixman systemd xorg-launch-helper"
-PKG_BUILD_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto fixesproto damageproto scrnsaverproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto glproto presentproto libpciaccess libX11 libXfont libxkbfile libdrm openssl freetype pixman fontsproto systemd"
+PKG_DEPENDS="libpciaccess libX11 libXfont libXinerama libdrm openssl freetype pixman systemd xorg-launch-helper"
+PKG_BUILD_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto fixesproto damageproto scrnsaverproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto glproto presentproto libpciaccess libX11 libXfont libXinerama libxkbfile libdrm openssl freetype pixman fontsproto systemd"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/xserver"
 PKG_SHORTDESC="xorg-server: The Xorg X server"
@@ -68,14 +68,6 @@ else
   XORG_COMPOSITE="--disable-composite"
 fi
 
-if [ "$XINERAMA_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS libXinerama"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libXinerama"
-  XORG_XINERAMA="--enable-xinerama"
-else
-  XORG_XINERAMA="--disable-xinerama"
-fi
-
 if [ "$OPENGL" = "Mesa" ]; then
   PKG_DEPENDS="$PKG_DEPENDS Mesa glu"
   PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET Mesa glu"
@@ -110,7 +102,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --enable-dri2 \
                            --disable-dri3 \
                            --enable-present \
-                           $XORG_XINERAMA \
+                           --enable-xinerama \
                            --enable-xf86vidmode \
                            --disable-xace \
                            --disable-xselinux \
