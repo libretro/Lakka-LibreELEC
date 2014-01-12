@@ -33,7 +33,7 @@ PKG_LONGDESC="Nettle is a cryptographic library that is designed to fit easily i
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --disable-openssl"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-openssl"
 
 pre_configure_target() {
 # dont build parallel
