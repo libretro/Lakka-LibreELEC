@@ -35,6 +35,7 @@ PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-hardware-acceleration \
                            --disable-openssl-compatibility \
+                           --disable-cxx \
                            --without-p11-kit \
                            --with-included-libtasn1 \
                            --with-libz-prefix=$SYSROOT_PREFIX/usr \
@@ -44,6 +45,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-hardware-acceleration \
                            --disable-nls \
                            --disable-guile \
                            --disable-valgrind-tests \
+                           --without-lzo \
                            --with-gnu-ld"
 
 post_makeinstall_target() {
