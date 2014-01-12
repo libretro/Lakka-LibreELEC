@@ -23,11 +23,25 @@ PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.intra2net.com/en/developer/libftdi/"
 PKG_URL="http://www.intra2net.com/en/developer/libftdi/download/libftdi-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS="libusb-compat"
-PKG_BUILD_DEPENDS="toolchain libusb-compat"
+PKG_DEPENDS_TARGET="libusb-compat"
+PKG_BUILD_DEPENDS_TARGET="toolchain libusb-compat"
 PKG_PRIORITY="optional"
 PKG_SECTION="driver"
 PKG_SHORTDESC="libFTDI is an open source library to talk to FTDI chips"
 PKG_LONGDESC="libFTDI is an open source library to talk to FTDI chips"
+
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_path_HAVELIBUSB=$ROOT/$TOOLCHAIN/bin/libusb-config \
+                           LIBS=-lusb \
+                           --disable-shared \
+                           --enable-static \
+                           --disable-libftdipp \
+                           --disable-python-binding \
+                           --without-examples \
+                           --without-docs"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin
+}
