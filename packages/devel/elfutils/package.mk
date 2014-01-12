@@ -23,12 +23,41 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://fedorahosted.org/elfutils/"
 PKG_URL="https://fedorahosted.org/releases/e/l/elfutils/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="zlib"
-PKG_BUILD_DEPENDS="toolchain zlib"
+PKG_DEPENDS_TARGET="zlib"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="elfutils: collection of utilities to handle ELF objects"
 PKG_LONGDESC="Elfutils is a collection of utilities, including eu-ld (a linker), eu-nm (for listing symbols from object files), eu-size (for listing the section sizes of an object or archive file), eu-strip (for discarding symbols), eu-readelf (to see the raw ELF file structures), and eu-elflint (to check for well-formed ELF files)."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
+                           --disable-progs \
+                           --with-zlib \
+                           --without-bzlib \
+                           --without-lzma"
+
+pre_configure_target() {
+# elfutils fails to build with LTO support
+  strip_lto
+
+  export CFLAGS="$CFLAGS -fPIC -DPIC"
+}
+
+make_target() {
+  make V=1 -C libelf libelf.a
+  make V=1 -C libebl libebl.a
+  make V=1 -C libdwfl libdwfl.a
+  make V=1 -C libdw libdw.a
+}
+
+makeinstall_target() {
+  make DESTDIR="$SYSROOT_PREFIX" -C libelf install-includeHEADERS install-pkgincludeHEADERS
+  make DESTDIR="$SYSROOT_PREFIX" -C libdw install-includeHEADERS install-pkgincludeHEADERS
+
+  mkdir -p $SYSROOT_PREFIX/usr/lib
+    cp libelf/libelf.a $SYSROOT_PREFIX/usr/lib
+    cp libdw/libdw.a $SYSROOT_PREFIX/usr/lib
+}
