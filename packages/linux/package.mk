@@ -120,7 +120,9 @@ pre_make_target() {
   cp $(get_build_dir wireless-regdb)/db.txt $ROOT/$PKG_BUILD/net/wireless/db.txt
 
   if [ "$BOOTLOADER" = "u-boot" ]; then
-    $SCRIPTS/build u-boot
+    ( cd $ROOT
+      $SCRIPTS/build u-boot
+    )
   fi
 }
 
