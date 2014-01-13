@@ -53,6 +53,6 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/lib/modules/`kernel_version`/$PKG_NAME
-    cp *.ko $INSTALL/lib/modules/`kernel_version`/$PKG_NAME
+  mkdir -p $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
+    cp *.ko $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
 }
