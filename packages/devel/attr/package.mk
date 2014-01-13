@@ -18,7 +18,7 @@
 ################################################################################
 
 PKG_NAME="attr"
-PKG_VERSION="2.4.46"
+PKG_VERSION="2.4.47"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
