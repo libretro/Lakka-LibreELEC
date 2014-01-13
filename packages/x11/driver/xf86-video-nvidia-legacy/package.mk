@@ -69,8 +69,8 @@ makeinstall_target() {
   # rename to not conflicting with Mesa libGL.so
     cp -P libGL.so* $INSTALL/usr/lib/libGL_nvidia.so.1
 
-  mkdir -p $INSTALL/lib/modules/`kernel_version`/nvidia
-    cp kernel/nvidia.ko $INSTALL/lib/modules/`kernel_version`/nvidia
+  mkdir -p $INSTALL/lib/modules/$(get_module_dir)/nvidia
+    cp kernel/nvidia.ko $INSTALL/lib/modules/$(get_module_dir)/nvidia
 
   mkdir -p $INSTALL/usr/bin
     cp nvidia-smi $INSTALL/usr/bin
