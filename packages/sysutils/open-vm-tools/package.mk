@@ -51,8 +51,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
 PKG_MAKE_OPTS_TARGET="CFLAGS+=-DG_DISABLE_DEPRECATED"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/lib/modules/`kernel_version`/open-vm-tools
-    cp -PR ../modules/linux/vmxnet/vmxnet.ko $INSTALL/lib/modules/`kernel_version`/open-vm-tools
+  mkdir -p $INSTALL/lib/modules/$(get_module_dir)/open-vm-tools
+    cp -PR ../modules/linux/vmxnet/vmxnet.ko $INSTALL/lib/modules/$(get_module_dir)/open-vm-tools
 
   mkdir -p $INSTALL/usr/lib
     cp -PR libvmtools/.libs/libvmtools.so* $INSTALL/usr/lib
