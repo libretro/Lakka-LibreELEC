@@ -302,6 +302,8 @@ if [ ! "$XBMCPLAYER_DRIVER" = default ]; then
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
     XBMC_CFLAGS="$XBMC_CFLAGS $BCM2835_INCLUDES"
     XBMC_CXXFLAGS="$XBMC_CXXFLAGS $BCM2835_INCLUDES"
+  elif [ "$XBMCPLAYER_DRIVER" = libfslvpuwrap ]; then
+    XBMC_CODEC="--enable-codec=imxvpu"
   else
     XBMC_OPENMAX="--disable-openmax"
   fi
