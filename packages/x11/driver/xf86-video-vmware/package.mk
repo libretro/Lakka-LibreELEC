@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-vmware"
-PKG_VERSION="31bff9f7f3d9a68fd1449532e8ab50065de63857"
+PKG_VERSION="8da981712f62050076cff53e1b40ed1e307fcca8"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
