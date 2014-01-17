@@ -38,6 +38,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-all-clocks \
                            --without-rpath \
                            --with-gnu-ld \
                            --disable-linuxcaps \
+                           --without-ntpsnmpd \
                            --without-crypto"
 
 makeinstall_target() {
