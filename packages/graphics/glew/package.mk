@@ -23,14 +23,14 @@ PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://glew.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/glew/glew/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tgz"
-PKG_DEPENDS="libX11 libXext libXi"
-PKG_BUILD_DEPENDS="toolchain libX11 libXext libXi libXmu"
+PKG_DEPENDS_TARGET="libX11 libXext libXi"
+PKG_BUILD_DEPENDS_TARGET="toolchain libX11 libXext libXi libXmu"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="glew: The OpenGL Extension Wrangler Library"
 PKG_LONGDESC="The OpenGL Extension Wrangler Library (GLEW) is a cross-platform C/C++ extension loading library. GLEW provides efficient run-time mechanisms for determining which OpenGL extensions are supported on the target platform. OpenGL core and extension functionality is exposed in a single header file."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$OPENGL" = "Mesa" ]; then
@@ -38,3 +38,19 @@ if [ "$OPENGL" = "Mesa" ]; then
   PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS Mesa glu"
 fi
 
+make_target() {
+  make CC="$CC" LD="$CC" AR="$AR" \
+       POPT="$CFLAGS" LDFLAGS.EXTRA="$LDFLAGS" \
+       GLEW_DEST="/usr" LIBDIR="/usr/lib" lib/libGLEW.a glew.pc
+}
+
+makeinstall_target() {
+  mkdir -p $SYSROOT_PREFIX/usr/lib
+    cp -PR lib/libGLEW.a $SYSROOT_PREFIX/usr/lib
+
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp -PR glew.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+
+  mkdir -p $SYSROOT_PREFIX/usr/include
+    cp -PR include/GL $SYSROOT_PREFIX/usr/include
+}
