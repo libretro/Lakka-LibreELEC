@@ -19,7 +19,7 @@
 PKG_NAME="linux"
 case "$LINUX" in
   3.12)
-    PKG_VERSION="3.12.6"
+    PKG_VERSION="3.12.8"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   imx6)
