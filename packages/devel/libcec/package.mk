@@ -53,6 +53,15 @@ else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-rpi"
 fi
 
+if [ "$XBMCPLAYER_DRIVER" = "libfslvpuwrap" ]; then
+  PKG_DEPENDS="$PKG_DEPENDS"
+  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS"
+
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-imx6"
+else
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-imx6"
+fi
+
 
 # dont use some optimizations because of build problems
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
