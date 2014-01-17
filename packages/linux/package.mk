@@ -22,6 +22,10 @@ case "$LINUX" in
     PKG_VERSION="3.12.6"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
+  imx6)
+    PKG_VERSION="imx_3.0.35_4.1.0-0f2006c"
+    PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+    ;;
   *)
     PKG_VERSION="3.13.0-rc8"
     PKG_SOURCE_DIR="$PKG_NAME-3.13-rc8"
