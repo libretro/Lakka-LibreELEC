@@ -70,6 +70,7 @@ makeinstall_target() {
             $FLOAT/usr/lib/libGLESv1_CL.so* \
             $FLOAT/usr/lib/libGLESv1_CM.so* \
             $FLOAT/usr/lib/libGLESv2.so* \
+            $FLOAT/usr/lib/libGLSLC.so* \
             $FLOAT/usr/lib/libGAL-fb.so \
             $FLOAT/usr/lib/libGAL.so* \
             $FLOAT/usr/lib/libVIVANTE-fb.so \
@@ -78,3 +79,6 @@ makeinstall_target() {
             $INSTALL/usr/lib
 }
 
+post_install() {
+  enable_service unbind-console.service
+}
