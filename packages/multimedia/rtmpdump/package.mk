@@ -24,12 +24,63 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://rtmpdump.mplayerhq.hu/"
 #PKG_URL="http://rtmpdump.mplayerhq.hu/download/$PKG_NAME-$PKG_VERSION.tgz"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="zlib openssl"
-PKG_BUILD_DEPENDS="toolchain zlib openssl"
+PKG_DEPENDS_TARGET="zlib openssl"
+PKG_BUILD_DEPENDS_TARGET="toolchain zlib openssl"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="rtmpdump: a toolkit for RTMP streams."
 PKG_LONGDESC="rtmpdump is a toolkit for RTMP streams. All forms of RTMP are supported, including rtmp://, rtmpt://, rtmpe://, rtmpte://, and rtmps://."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+make_target() {
+  make prefix=/usr \
+       incdir=/usr/include/librtmp \
+       libdir=/usr/lib \
+       mandir=/usr/share/man \
+       CC="$CC" \
+       LD="$LD" \
+       AR="$AR" \
+       CRYPTO="OPENSSL" \
+       OPT="" \
+       XCFLAGS="$CFLAGS" \
+       XLDFLAGS="$LDFLAGS" \
+       XLIBS="-lm"
+}
+
+makeinstall_target() {
+  make DESTDIR=$SYSROOT_PREFIX \
+       prefix=/usr \
+       incdir=/usr/include/librtmp \
+       libdir=/usr/lib \
+       mandir=/usr/share/man \
+       CC="$CC" \
+       LD="$LD" \
+       AR="$AR" \
+       CRYPTO="OPENSSL" \
+       OPT="" \
+       XCFLAGS="$CFLAGS" \
+       XLDFLAGS="$LDFLAGS" \
+       XLIBS="-lm" \
+       install
+
+  make DESTDIR=$INSTALL \
+       prefix=/usr \
+       incdir=/usr/include/librtmp \
+       libdir=/usr/lib \
+       mandir=/usr/share/man \
+       CC="$CC" \
+       LD="$LD" \
+       AR="$AR" \
+       CRYPTO="OPENSSL" \
+       OPT="" \
+       XCFLAGS="$CFLAGS" \
+       XLDFLAGS="$LDFLAGS" \
+       XLIBS="-lm" \
+       install
+}
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/sbin
+}
