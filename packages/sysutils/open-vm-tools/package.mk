@@ -18,12 +18,12 @@
 ################################################################################
 
 PKG_NAME="open-vm-tools"
-PKG_VERSION="9.2.3-1031360"
+PKG_VERSION="9.4.0-1280544"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://open-vm-tools.sourceforge.net"
-PKG_URL="$SOURCEFORGE_SRC/project/open-vm-tools/open-vm-tools/stable-9.2.x/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_URL="$SOURCEFORGE_SRC/project/open-vm-tools/open-vm-tools/stable-9.4.x/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS="glib"
 PKG_BUILD_DEPENDS_TARGET="toolchain glib"
 PKG_PRIORITY="optional"
@@ -45,14 +45,11 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --without-x \
                            --without-icu \
                            --without-procps \
-                           --with-kernel-release=$OPENVMTOOLS_KERNEL_VER \
-                           --with-linuxdir=$(ls -d $ROOT/$BUILD/linux-*)"
+                           --without-kernel-modules"
 
 PKG_MAKE_OPTS_TARGET="CFLAGS+=-DG_DISABLE_DEPRECATED"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/lib/modules/$(get_module_dir)/open-vm-tools
-    cp -PR ../modules/linux/vmxnet/vmxnet.ko $INSTALL/lib/modules/$(get_module_dir)/open-vm-tools
 
   mkdir -p $INSTALL/usr/lib
     cp -PR libvmtools/.libs/libvmtools.so* $INSTALL/usr/lib
