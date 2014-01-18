@@ -38,7 +38,13 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-hardware-acceleration \
                            --disable-cxx \
                            --without-p11-kit \
                            --with-included-libtasn1 \
+                           --with-sysroot=$SYSROOT_PREFIX/usr \
                            --with-libz-prefix=$SYSROOT_PREFIX/usr \
+                           --with-librt-prefix=$SYSROOT_PREFIX/usr \
+                           --with-libpthread-prefix=$SYSROOT_PREFIX/usr \
+                           --without-libiconv-prefix \
+                           --without-libintl-prefix \
+                           --disable-libdane \
                            --disable-gtk-doc \
                            --disable-gtk-doc-html \
                            --disable-gtk-doc-pdf \
