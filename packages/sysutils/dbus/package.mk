@@ -36,6 +36,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="export ac_cv_have_abstract_sockets=yes \
+                           --with-sysroot=$SYSROOT_PREFIX \
                            --libexecdir=/usr/lib/dbus \
                            --disable-verbose-mode \
                            --disable-asserts \
