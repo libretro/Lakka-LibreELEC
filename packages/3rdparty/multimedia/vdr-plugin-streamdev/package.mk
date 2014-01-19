@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-streamdev"
-PKG_VERSION="a9c2adb"
+PKG_VERSION="40704cd"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
