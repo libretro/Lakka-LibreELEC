@@ -37,6 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-hardware-acceleration \
                            --disable-openssl-compatibility \
                            --disable-cxx \
                            --without-p11-kit \
+                           --enable-local-libopts \
                            --with-included-libtasn1 \
                            --with-sysroot=$SYSROOT_PREFIX/usr \
                            --with-libz-prefix=$SYSROOT_PREFIX/usr \
