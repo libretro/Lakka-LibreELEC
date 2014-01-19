@@ -37,7 +37,7 @@ if [ "$IRSERVER_SUPPORT" = yes ]; then
   PKG_DEPENDS="$PKG_DEPENDS irserver"
 fi
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-libusb --enable-drivers=$LCD_DRIVER,!curses,!svga"
+PKG_CONFIGURE_OPTS_TARGET="--enable-libusb --enable-drivers=$LCD_DRIVER,!curses,!svga --enable-seamless-hbars"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/etc/lcd*.conf
