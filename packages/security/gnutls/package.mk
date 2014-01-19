@@ -45,9 +45,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-hardware-acceleration \
                            --without-libiconv-prefix \
                            --without-libintl-prefix \
                            --disable-libdane \
-                           --disable-gtk-doc \
-                           --disable-gtk-doc-html \
-                           --disable-gtk-doc-pdf \
+                           --disable-doc \
                            --disable-nls \
                            --disable-guile \
                            --disable-valgrind-tests \
