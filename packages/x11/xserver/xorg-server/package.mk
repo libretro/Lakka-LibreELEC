@@ -41,7 +41,7 @@ PKG_AUTORECONF="yes"
   PKG_DEPENDS="$PKG_DEPENDS xkeyboard-config xkbcomp"
 
 # Tools
-  PKG_DEPENDS="$PKG_DEPENDS pciutils xrandr setxkbmap"
+  PKG_DEPENDS="$PKG_DEPENDS xrandr setxkbmap"
 
 if [ -n "$WINDOWMANAGER" -a "$WINDOWMANAGER" != "none" ]; then
   PKG_DEPENDS="$PKG_DEPENDS $WINDOWMANAGER"
