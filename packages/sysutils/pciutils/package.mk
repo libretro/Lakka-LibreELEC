@@ -33,7 +33,7 @@ PKG_LONGDESC="This package contains various utilities for inspecting and setting
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS="PREFIX=/usr SHARED=yes STRIP= IDSDIR=/usr/share"
+PKG_MAKE_OPTS="PREFIX=/usr SHARED=no STRIP= IDSDIR=/usr/share"
 
 pre_make_target() {
 # pciutils fails building with LTO support
