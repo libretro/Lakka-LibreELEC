@@ -27,9 +27,8 @@ case "$LINUX" in
     PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   *)
-    PKG_VERSION="3.13.0-rc8"
-    PKG_SOURCE_DIR="$PKG_NAME-3.13-rc8"
-    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/testing/$PKG_SOURCE_DIR.tar.xz"
+    PKG_VERSION="3.13"
+    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
 esac
 PKG_REV="1"
