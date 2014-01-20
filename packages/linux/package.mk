@@ -191,7 +191,7 @@ makeinstall_init() {
     mkdir -p $INSTALL/lib/modules
 
     for i in $INITRAMFS_MODULES; do
-      module=`find .install_pkg/lib/modules/$PKG_VERSION/kernel -name $i.ko`
+      module=`find .install_pkg/lib/modules/$(get_module_dir)/kernel -name $i.ko`
       if [ -n "$module" ]; then
         echo $i >> $INSTALL/etc/modules
         cp $module $INSTALL/lib/modules/`basename $module`
@@ -201,7 +201,7 @@ makeinstall_init() {
 
   if [ "$UVESAFB_SUPPORT" = yes ]; then
     mkdir -p $INSTALL/lib/modules
-      uvesafb=`find .install_pkg/lib/modules/$PKG_VERSION/kernel -name uvesafb.ko`
+      uvesafb=`find .install_pkg/lib/modules/$(get_module_dir)/kernel -name uvesafb.ko`
       cp $uvesafb $INSTALL/lib/modules/`basename $uvesafb`
   fi
 }
