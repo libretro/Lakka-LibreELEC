@@ -17,14 +17,14 @@
 ################################################################################
 
 PKG_NAME="service.openelec.settings"
-PKG_VERSION="0.3.10"
+PKG_VERSION="0.3.11"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="http://www.openelec.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.zip"
 PKG_SOURCE_DIR="$PKG_NAME"
-PKG_DEPENDS="connman hd-idle"
+PKG_DEPENDS="connman"
 PKG_BUILD_DEPENDS_TARGET="toolchain Python"
 PKG_PRIORITY="optional"
 PKG_SECTION=""
