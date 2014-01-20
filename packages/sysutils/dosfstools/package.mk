@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="dosfstools"
-PKG_VERSION="3.0.24"
+PKG_VERSION="3.0.25"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
