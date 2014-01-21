@@ -23,12 +23,28 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://pyyaml.org/"
 PKG_URL="http://pyyaml.org/download/pyyaml/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="Python yaml"
-PKG_BUILD_DEPENDS="toolchain Python distutilscross:host yaml"
+PKG_DEPENDS_TARGET="Python yaml"
+PKG_BUILD_DEPENDS_TARGET="toolchain Python distutilscross:host yaml"
 PKG_PRIORITY="optional"
 PKG_SECTION="python/web"
 PKG_SHORTDESC="PyYAML: a next generation YAML parser and emitter for Python."
 PKG_LONGDESC="PyYAML is the next generation YAML parser and emitter for Python."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_make_target() {
+  export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
+}
+
+make_target() {
+  python setup.py build --cross-compile
+}
+
+makeinstall_target() {
+  python setup.py install --root=$INSTALL --prefix=/usr
+}
+
+post_makeinstall_target() {
+  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+}
