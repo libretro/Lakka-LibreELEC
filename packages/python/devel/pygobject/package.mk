@@ -36,8 +36,8 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--enable-thread --disable-introspection"
 
 post_makeinstall_target() {
-  find $INSTALL/usr/lib -name *.py -exec rm -rf "{}" ";"
-  find $INSTALL/usr/lib -name *.pyc -exec rm -rf "{}" ";"
+  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+  find $INSTALL/usr/lib -name "*.pyc" -exec rm -rf "{}" ";"
 
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/share/pygobject
