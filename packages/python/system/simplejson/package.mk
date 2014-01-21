@@ -29,6 +29,23 @@ PKG_PRIORITY="optional"
 PKG_SECTION="python/system"
 PKG_SHORTDESC="simplejson: a simple, fast, complete, correct and extensible JSON <http://json.org> encoder and decoder for Python 2.5+."
 PKG_LONGDESC="simplejson is a simple, fast, complete, correct and extensible JSON <http://json.org> encoder and decoder for Python 2.5+. It is pure Python code with no dependencies, but includes an optional C extension for a serious speed boost."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_make_target() {
+  export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
+}
+
+make_target() {
+  python setup.py build --cross-compile
+}
+
+makeinstall_target() {
+  python setup.py install --root=$INSTALL --prefix=/usr
+}
+
+post_makeinstall_target() {
+  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+  rm -rf $INSTALL/usr/lib/python*/site-packages/*/tests
+}
