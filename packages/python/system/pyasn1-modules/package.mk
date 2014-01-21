@@ -23,12 +23,28 @@ PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://sourceforge.net/projects/pyasn1/"
 PKG_URL="$SOURCEFORGE_SRC/pyasn1/pyasn1-modules/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="Python pyasn1"
-PKG_BUILD_DEPENDS="toolchain Python distutilscross:host"
+PKG_DEPENDS_TARGET="Python pyasn1"
+PKG_BUILD_DEPENDS_TARGET="toolchain Python distutilscross:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="python/system"
 PKG_SHORTDESC="pyasn1-modules: a collection of protocols modules written in ASN.1 language."
 PKG_LONGDESC="pyasn1-modules is a collection of protocols modules written in ASN.1 language."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_make_target() {
+  export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
+}
+
+make_target() {
+  python setup.py build --cross-compile
+}
+
+makeinstall_target() {
+  python setup.py install --root=$INSTALL --prefix=/usr
+}
+
+post_makeinstall_target() {
+  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+}
