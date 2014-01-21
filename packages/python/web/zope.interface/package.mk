@@ -23,12 +23,31 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://zope.org/Products/ZopeInterface/"
 PKG_URL="http://www.zope.org/Products/ZopeInterface/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="Python"
-PKG_BUILD_DEPENDS="toolchain Python distutilscross:host"
+PKG_DEPENDS_TARGET="Python"
+PKG_BUILD_DEPENDS_TARGET="toolchain Python distutilscross:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="python/web"
 PKG_SHORTDESC="zopeinterface: zope.interface package from Zope 3"
 PKG_LONGDESC="This is a separate distribution of the zope.interface package used in Zope 3, along with the packages it depends on."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_make_target() {
+  export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
+}
+
+make_target() {
+  python setup.py build --cross-compile
+}
+
+makeinstall_target() {
+  python setup.py install --root=$INSTALL --prefix=/usr
+
+# install to toolchain because its needed for other twisted modules
+  python setup.py install --prefix $ROOT/$TOOLCHAIN
+}
+
+post_makeinstall_target() {
+  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+}
