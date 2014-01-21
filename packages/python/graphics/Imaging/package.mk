@@ -23,10 +23,10 @@ PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.pythonware.com/products/pil/"
 PKG_URL="http://effbot.org/media/downloads/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="Python zlib freetype"
-PKG_BUILD_DEPENDS="toolchain Python distutilscross:host zlib freetype libjpeg-turbo"
+PKG_DEPENDS_TARGET="Python zlib freetype"
+PKG_BUILD_DEPENDS_TARGET="toolchain Python distutilscross:host zlib freetype libjpeg-turbo"
 PKG_PRIORITY="optional"
-PKG_SECTION="python/system"
+PKG_SECTION="python"
 PKG_SHORTDESC="pil: Imaging handling/processing for Python"
 PKG_LONGDESC="The Python Imaging Library (PIL) adds image processing capabilities to your Python interpreter. This library supports many file formats, and provides powerful image processing and graphics capabilities."
 
@@ -35,7 +35,7 @@ PKG_AUTORECONF="no"
 
 pre_make_target() {
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
-  export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+#  export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
 }
 
 make_target() {
