@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,14 +16,27 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+# with 1.0.0 repeat delay is broken. test on upgrade
 
-mkdir -p $INSTALL/usr/bin
-  cp $PKG_BUILD/utils/keytable/ir-keytable $INSTALL/usr/bin
+PKG_NAME="v4l-utils"
+PKG_VERSION="0.8.9"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE="http://linuxtv.org/"
+PKG_URL="http://linuxtv.org/downloads/v4l-utils/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="system"
+PKG_SHORTDESC="v4l-utils: Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
+PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 
-mkdir -p $INSTALL/lib/udev/rules.d
-  cp $PKG_BUILD/utils/keytable/*.rules $INSTALL/lib/udev/rules.d
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
-mkdir -p $INSTALL/etc
-  cp $PKG_BUILD/utils/keytable/rc_maps.cfg $INSTALL/etc
-  cp -R $PKG_BUILD/utils/keytable/rc_keymaps $INSTALL/etc
+PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr -C utils/keytable"
+
+make_target() {
+    make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
+}
