@@ -23,12 +23,30 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.libsdl.org/"
 PKG_URL="http://www.libsdl.org/projects/SDL_mixer/release/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="SDL libmad libogg"
-PKG_BUILD_DEPENDS="toolchain SDL libmad libogg"
+PKG_DEPENDS_TARGET="SDL libmad libogg"
+PKG_BUILD_DEPENDS_TARGET="toolchain SDL libmad libogg"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libsdl_mixer: Simple Directmedia Layer - Mixer"
 PKG_LONGDESC="SDL_mixer is a sound mixing library that is used with the SDL library, and almost as portable. It allows a programmer to use multiple samples along with music without having to code a mixing algorithm themselves. It also simplyfies the handling of loading and playing samples and music from all sorts of file formats."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-music-cmd \
+                           --disable-music-wave \
+                           --disable-music-mod \
+                           --disable-music-midi \
+                           --disable-music-timidity-midi \
+                           --disable-music-native-midi \
+                           --disable-music-native-midi-gpl \
+                           --enable-music-ogg \
+                           --enable-music-ogg-shared \
+                           --disable-music-flac \
+                           --disable-music-flac-shared \
+                           --disable-music-mp3 \
+                           --enable-music-mp3-shared \
+                           --enable-music-mp3-mad-gpl \
+                           --disable-smpegtest \
+                           --with-gnu-ld \
+                           --with-sdl-prefix=$SYSROOT_PREFIX/usr"
