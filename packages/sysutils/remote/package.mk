@@ -17,26 +17,26 @@
 ################################################################################
 
 PKG_NAME="remote"
-PKG_VERSION=""
+PKG_VERSION="1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
-PKG_DEPENDS="eventlircd v4l-utils"
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET="eventlircd v4l-utils"
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="system/remote"
+PKG_SECTION="virtual"
 PKG_SHORTDESC="remote: Meta package for installing various tools needed for remote support"
 PKG_LONGDESC="Meta package for installing various tools needed for remote support"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$ATVCLIENT_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS atvclient"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET atvclient"
 fi
 
 if [ "$IRSERVER_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS irserver"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET irserver"
 fi
