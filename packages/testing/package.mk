@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,8 +16,19 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="testing"
+PKG_VERSION=""
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="various"
+PKG_SITE="http://www.openelec.tv"
+PKG_URL=""
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION="virtual"
+PKG_SHORTDESC="testing: Metapackage for various packages to test while developing"
+PKG_LONGDESC="testing: Metapackage for various packages to test while developing"
 
-# packages needed for development (upcoming features)
-
-$SCRIPTS/install dbus-python
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
