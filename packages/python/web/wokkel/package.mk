@@ -23,12 +23,29 @@ PKG_ARCH="any"
 PKG_LICENSE="free"
 PKG_SITE="http://wokkel.ik.nu/"
 PKG_URL="http://wokkel.ik.nu/releases/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="Python TwistedWords"
-PKG_BUILD_DEPENDS="toolchain Python distutilscross:host TwistedWords"
+PKG_DEPENDS_TARGET="Python TwistedWords"
+PKG_BUILD_DEPENDS_TARGET="toolchain Python distutilscross:host TwistedWords"
 PKG_PRIORITY="optional"
 PKG_SECTION="python/web"
 PKG_SHORTDESC="wokkel: Wokkel is a Python module for experimenting with future enhancements to TwistedWords"
 PKG_LONGDESC="Wokkel is collection of enhancements on top of the Twisted networking framework, written in Python. It mostly provides a testing ground for enhancements to the Jabber/XMPP protocol implementation as found in Twisted Words, that are meant to eventually move there."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_make_target() {
+  export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
+}
+
+make_target() {
+  python setup.py build --cross-compile
+}
+
+makeinstall_target() {
+  python setup.py install --root=$INSTALL --prefix=/usr
+}
+
+post_makeinstall_target() {
+  find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
+  rm -rf $INSTALL/usr/lib/python*/site-packages/wokkel/test
+}
