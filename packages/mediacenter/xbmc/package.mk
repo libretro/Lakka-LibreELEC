@@ -38,7 +38,7 @@ PKG_AUTORECONF="no"
   PKG_DEPENDS="$PKG_DEPENDS dbus"
 
 # needed for hosttools (Texturepacker)
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET lzo:host SDL:host SDL_image-host"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET lzo:host SDL:host SDL_image:host"
 
 # some python stuff needed for various addons
   PKG_DEPENDS="$PKG_DEPENDS Imaging"
