@@ -49,6 +49,7 @@ PKG_CONFIGURE_OPTS_HOST="--disable-polly \
                          --enable-optimized \
                          --disable-debug-runtime \
                          --disable-debug-symbols \
+                         --enable-keep-symbols \
                          --enable-targets=r600"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-polly \
@@ -66,6 +67,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-polly \
                            --disable-expensive-checks \
                            --disable-debug-runtime \
                            --disable-debug-symbols \
+                           --enable-keep-symbols \
                            --enable-jit \
                            --disable-docs \
                            --disable-doxygen \
