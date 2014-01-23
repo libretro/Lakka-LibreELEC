@@ -205,8 +205,6 @@ fi
 
 pre_configure_host() {
   ( cd $ROOT/$PKG_BUILD
-    rm -f acinclude/alsa.m4
-
     # Skip autoheader because there is a problem with AC_DEFINE's in the configure.in in SDL 1.2.14.
     # Added include directory 'acinclude' because SDL 1.2.14 has no Makefile.am in which to specify it.
       AUTOHEADER=true autoreconf --verbose --install --force -I $SYSROOT_PREFIX/usr/share/aclocal -I acinclude
