@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gcc"
-PKG_VERSION="4.7.3"
+PKG_VERSION="4.8.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -69,7 +69,8 @@ BOOTSTRAP_CONFIGURE_OPTS="--host=$HOST_NAME \
                           --with-newlib \
                           --disable-decimal-float \
                           $GCC_OPTS \
-                          --disable-nls"
+                          --disable-nls \
+                          --disable-cloog-version-check"
 
 PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --with-sysroot=$SYSROOT_PREFIX \
@@ -103,7 +104,8 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --disable-libstdcxx-pch \
                          --enable-clocale=gnu \
                          $GCC_OPTS \
-                         --disable-nls"
+                         --disable-nls \
+                         --disable-cloog-version-check"
 
 pre_configure_bootstrap() {
   setup_toolchain host
