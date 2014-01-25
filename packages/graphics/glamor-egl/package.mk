@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="glamor-egl"
-PKG_VERSION="0.5.1"
+PKG_VERSION="0.6.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -33,7 +33,9 @@ PKG_LONGDESC="glamor-egl is a OpenGL based 2D rendering acceleration library"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-glx-tls"
+PKG_CONFIGURE_OPTS_TARGET="--disable-glamor-gles2 --enable-xv --disable-glamor-dri3 --enable-glx-tls"
+
+
 
 pre_configure_target() {
   # glamor-egl fails to build with GOLD if we build with --enable-glx-tls
