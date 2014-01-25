@@ -16,28 +16,22 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="xbmc-pvr-addons"
-PKG_VERSION="f73fac7"
+PKG_NAME="sbc"
+PKG_VERSION="1.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/opdenkamp/xbmc-pvr-addons"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="curl"
-PKG_BUILD_DEPENDS_TARGET="toolchain curl"
+PKG_SITE="http://www.bluez.org/"
+PKG_URL="http://www.kernel.org/pub/linux/bluetooth/sbc-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="mediacenter"
-PKG_SHORTDESC="Various PVR addons for XBMC" 
-PKG_LONGDESC="This addons allows XBMC PVR to connect to various TV/PVR backends and tuners."
+PKG_SECTION="network"
+PKG_SHORTDESC="sbc: standalone SBC library"
+PKG_LONGDESC="standalone SBC library"
+
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-if [ "$MYSQL_SUPPORT" = yes ]; then
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS mysql"
-  PKG_DEPENDS="$PKG_DEPENDS mysql"
-  PVRADDONS_MYSQL="--enable-mysql"
-else
-  PVRADDONS_MYSQL="--disable-mysql"
-fi
-
-PKG_CONFIGURE_OPTS_TARGET="--enable-addons-with-dependencies $PVRADDONS_MYSQL"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
+         --disable-tools --disable-tester"
