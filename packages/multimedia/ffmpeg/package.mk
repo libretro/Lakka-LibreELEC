@@ -34,16 +34,16 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$VAAPI" = yes ]; then
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS libva"
-  PKG_DEPENDS="$PKG_DEPENDS libva"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libva"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva"
   FFMPEG_VAAPI="--enable-vaapi"
 else
   FFMPEG_VAAPI="--disable-vaapi"
 fi
 
 if [ "$VDPAU" = yes ]; then
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS libvdpau"
-  PKG_DEPENDS="$PKG_DEPENDS libvdpau"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libvdpau"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   FFMPEG_VDPAU="--enable-vdpau"
 else
   FFMPEG_VDPAU="--disable-vdpau"
