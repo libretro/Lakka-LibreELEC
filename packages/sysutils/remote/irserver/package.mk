@@ -23,12 +23,34 @@ PKG_ARCH="any"
 PKG_LICENSE="Freeware"
 PKG_SITE="http://http://www.irtrans.de"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="sysutils/remote"
 PKG_SHORTDESC="irserver: IR Trans transforms your PC into a programmable remote control."
 PKG_LONGDESC="IR Trans transforms your PC into a programmable remote control: It learns the codes of your remote control, stores them in a database and sends them controlled by your applications."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+if [ "$TARGET_ARCH" = "i386" ]; then
+  IRSERVER_BIN="irserver"
+elif [ "$TARGET_ARCH" = "x86_64" ]; then
+  IRSERVER_BIN="irserver64"
+elif [ "$TARGET_ARCH" = "arm" ]; then
+  IRSERVER_BIN="irserver_arm"
+fi
+
+make_target() {
+  make CC=$TARGET_CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $IRSERVER_BIN
+  $STRIP $IRSERVER_BIN
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/sbin
+    cp -P $IRSERVER_BIN $INSTALL/usr/sbin/irserver
+
+  mkdir -p $INSTALL/usr/share/irtrans/remotes
+    cp remotes/irtrans.rem $INSTALL/usr/share/irtrans/remotes
+    cp remotes/mediacenter.rem $INSTALL/usr/share/irtrans/remotes
+}
