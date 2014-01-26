@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="http://www.freedesktop.org/software/systemd/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="dbus kmod util-linux glib libgcrypt"
+PKG_DEPENDS_TARGET="dbus kmod util-linux glib libgcrypt"
 PKG_BUILD_DEPENDS_TARGET="toolchain attr libcap dbus:bootstrap kmod util-linux glib libgcrypt"
 PKG_PRIORITY="required"
 PKG_SECTION="system"
@@ -34,8 +34,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 # libgcrypt is needed actually only for autoreconf
-  PKG_DEPENDS="$PKG_DEPENDS libgcrypt"
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS libgcrypt"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libgcrypt"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libgcrypt"
 
 # TODO: use cpp directly to avoid using 'gcc -E' in Makefiles
 #  export CPP=${TARGET_PREFIX}cpp
