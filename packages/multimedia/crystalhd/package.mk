@@ -23,13 +23,41 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://git.linuxtv.org/jarod/crystalhd.git"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="linux"
-PKG_BUILD_DEPENDS="toolchain linux"
+PKG_DEPENDS_TARGET="linux"
+PKG_BUILD_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="crystalhd: OSX and Linux driver and library support for the Broadcom Crystal HD Video Accelerator."
 PKG_LONGDESC="OSX and Linux driver and library support for the Broadcom Crystal HD Video Accelerator. Supported under XBMC for Mac on the AppleTV and under 10.4 and 10.5 OSX platforms."
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_configure_target() {
+  cd driver/linux
+    autoreconf -vif
+}
+
+configure_target() {
+  ./configure --host=$TARGET_NAME \
+              --build=$HOST_NAME \
+              --prefix=/usr \
+              --with-kernel-path=$(kernel_path)
+}
+
+make_target() {
+  LDFLAGS="" make V=1
+
+  cd $ROOT/$PKG_BUILD/linux_lib/libcrystalhd
+    make BCGCC=$TARGET_CXX
+}
+
+post_makeinstall_target() {
+  cd $ROOT/$PKG_BUILD
+    mkdir -p $INSTALL/lib/udev/rules.d
+      cp driver/linux/*.rules $INSTALL/lib/udev/rules.d
+
+    mkdir -p $INSTALL/lib/modules/$(get_module_dir)/crystalhd
+      cp driver/linux/crystalhd.ko $INSTALL/lib/modules/$(get_module_dir)/crystalhd
+}
