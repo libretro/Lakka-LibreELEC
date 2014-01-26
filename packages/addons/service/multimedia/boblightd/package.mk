@@ -36,13 +36,11 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="yes"
 
 if [ "$DISPLAYSERVER" = "xorg-server" ] ; then
-  PKG_DEPENDS="$PKG_DEPENDS libX11 libXext libXrender"
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS libX11 libXext libXrender"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libX11 libXext libXrender"
 fi
 
 if [ "$OPENGL_SUPPORT" = "yes" ] ; then
-  PKG_DEPENDS="$PKG_DEPENDS Mesa glu"
-  PKG_BUILD_DEPENDS="$PKG_BUILD_DEPENDS Mesa glu"
+  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET Mesa glu"
 fi
 
 if [ ! "$OPENGL" = "Mesa" ]; then
