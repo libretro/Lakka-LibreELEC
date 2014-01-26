@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -18,7 +16,30 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. config/options $1
+PKG_NAME="libva-driver-intel"
+PKG_VERSION="1.2.2"
+PKG_REV="1"
+PKG_ARCH="i386 x86_64"
+PKG_LICENSE="GPL"
+PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"
+PKG_URL="http://cgit.freedesktop.org/vaapi/intel-driver/snapshot/intel-driver-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="libdrm"
+PKG_BUILD_DEPENDS_TARGET="toolchain libva libdrm"
+PKG_PRIORITY="optional"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="libva-driver-intel: Intel G45+ driver for VAAPI"
+PKG_LONGDESC="libva-driver-intel: Intel G45+ driver for VAAPI"
 
-mkdir -p $INSTALL/usr/lib/va
-  cp -P $PKG_BUILD/src/.libs/*.so $INSTALL/usr/lib/va
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules --with-drivers-path=/usr/lib/va"
+
+unpack () {
+  if [ -d $BUILD/$PKG_NAME-$PKG_VERSION ]; then
+    rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
+  fi
+
+  tar -xzf $SOURCES/$PKG_NAME/intel-driver-$PKG_VERSION.tar.gz -C $BUILD
+  mv $BUILD/intel-driver-$PKG_VERSION $BUILD/$PKG_NAME-$PKG_VERSION
+}
