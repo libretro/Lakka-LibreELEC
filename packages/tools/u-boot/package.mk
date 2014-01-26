@@ -29,8 +29,8 @@ fi
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
-PKG_DEPENDS=""
-PKG_BUILD_DEPENDS="toolchain"
+PKG_DEPENDS_TARGET=""
+PKG_BUILD_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="u-boot: Universal Bootloader project"
@@ -38,3 +38,61 @@ PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems, us
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+pre_configure_target() {
+  if [ -z "$UBOOT_CONFIG" ]; then
+    echo "$TARGET_PLATFORM does not define any u-boot configuration, aborting."
+    echo "Please add MACHINE_UBOOT_CONFIG to your platform meta file"
+    exit 1
+  fi
+
+  if [ -z "$UBOOT_CONFIGFILE" ]; then
+    UBOOT_CONFIGFILE="boot.scr"
+  fi
+
+  unset LDFLAGS
+
+# dont use some optimizations because of problems
+  MAKEFLAGS=-j1
+}
+
+make_target() {
+  make CROSS_COMPILE="$TARGET_PREFIX" ARCH="$TARGET_ARCH" $UBOOT_CONFIG
+  make CROSS_COMPILE="$TARGET_PREFIX" ARCH="$TARGET_ARCH" HOSTCC="$HOST_CC" HOSTSTRIP="true"
+
+  BOOT_CFG="$PROJECT_DIR/$PROJECT/bootloader/boot.cfg"
+  if [ -r "$BOOT_CFG" ]; then
+    cp $BOOT_CFG boot.cfg
+    mkimage -A "$TARGET_ARCH" \
+            -O u-boot \
+            -T script \
+            -C none \
+            -n "$DISTRONAME Boot" \
+            -d boot.cfg \
+            $UBOOT_CONFIGFILE
+  fi
+}
+
+makeinstall_target() {
+  mkdir -p $ROOT/$TOOLCHAIN/bin
+    if [ -f build/tools/mkimage ]; then
+      cp build/tools/mkimage $ROOT/$TOOLCHAIN/bin
+    else
+      cp tools/mkimage $ROOT/$TOOLCHAIN/bin
+    fi
+
+  mkdir -p $INSTALL/usr/share/u-boot
+    cp ./u-boot.bin $INSTALL/usr/share/u-boot
+
+  if [ -f "./MLO" ]; then
+    cp ./MLO $INSTALL/usr/share/u-boot
+  fi
+
+  if [ -f "./boot.cfg" ]; then
+    cp ./boot.cfg $INSTALL/usr/share/u-boot
+  fi
+
+  if [ -f "./$UBOOT_CONFIGFILE" ]; then
+    cp ./$UBOOT_CONFIGFILE $INSTALL/usr/share/u-boot
+  fi
+}
