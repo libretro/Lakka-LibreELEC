@@ -52,13 +52,14 @@ if [ -n "$PKG_ARCH" -a ! "$PKG_ARCH" = "any" ]; then
   echo "$PKG_ARCH" | grep -q "\-$TARGET_ARCH" && exit 0
 fi
 
+if [ ! -f $PKG_DIR/package.mk ]; then
+  printf "${boldred} no package.mk file found in $PKG_DIR${endcolor}\n"
+  exit 1
+fi
+
 $SCRIPTS/build $@
 
-if [ -f $PKG_DIR/package.mk ]; then
-  printf "%${BUILD_INDENT}c ${boldgreen}INSTALL${endcolor}    $PACKAGE_NAME ${boldwhite}($TARGET)${endcolor}\n" ' '>&$SILENT_OUT
-elif [ -f $PKG_DIR/install ]; then
-  printf "%${BUILD_INDENT}c ${boldgreen}INSTALL${endcolor}    $PACKAGE_NAME ${boldred}(deprecated packageformat, please convert soon!)${endcolor}\n" ' '>&$SILENT_OUT
-fi
+printf "%${BUILD_INDENT}c ${boldgreen}INSTALL${endcolor}    $PACKAGE_NAME ${boldwhite}($TARGET)${endcolor}\n" ' '>&$SILENT_OUT
 export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
 if [ "$TARGET" = target ] ; then
@@ -126,35 +127,33 @@ if [ "$TARGET" = target ] ; then
   fi
 fi
 
-if [ -f $PKG_DIR/package.mk ]; then
-  # unset functions
-    unset -f pre_install
-    unset -f post_install
+# unset functions
+  unset -f pre_install
+  unset -f post_install
 
-  # include buildfile
-    . $PKG_DIR/package.mk
+# include buildfile
+  . $PKG_DIR/package.mk
+
+# install
+  if [ "$TARGET" = target ] ; then
+    if [ "$(type -t pre_install)" = "function" ]; then
+      pre_install
+    fi
+  fi
+
+  if [ "$TARGET" = "target" -a -d $PKG_BUILD/.install_pkg ]; then
+    mkdir -p $INSTALL
+      cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
+  elif [ "$TARGET" = "init" -a -d $PKG_BUILD/.install_init ]; then
+    mkdir -p $INSTALL
+      cp -PR $PKG_BUILD/.install_init/* $INSTALL
+  fi
 
   if [ "$TARGET" = target ] ; then
-    # install
-      if [ "$(type -t pre_install)" = "function" ]; then
-        pre_install
-      fi
+    if [ "$(type -t post_install)" = "function" ]; then
+      post_install
+    fi
   fi
-      if [ "$TARGET" = "target" -a -d $PKG_BUILD/.install_pkg ]; then
-        mkdir -p $INSTALL
-        cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
-      elif [ "$TARGET" = "init" -a -d $PKG_BUILD/.install_init ]; then
-        mkdir -p $INSTALL
-        cp -PR $PKG_BUILD/.install_init/* $INSTALL
-      fi
-  if [ "$TARGET" = target ] ; then
-      if [ "$(type -t post_install)" = "function" ]; then
-        post_install
-      fi
-  fi
-elif [ -f $PKG_DIR/install ]; then
-  $PKG_DIR/install $@ >&$VERBOSE_OUT
-fi
 
 for i in `sed -n "s/^\([^#].*\)=\".*$/\1/p" $PROJECT_DIR/$PROJECT/options | grep -v "#"`; do
   eval val=\$$i
