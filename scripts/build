@@ -21,7 +21,7 @@
 . config/options $1
 
 if [ -z "$1" ]; then
-  echo "usage: $0 package_name[:<host|target|init|bootstrap|hosttools>]"
+  echo "usage: $0 package_name[:<host|target|init|bootstrap>]"
   exit 1
 fi
 
@@ -65,8 +65,6 @@ if [ ! -f $STAMP ]; then
 
   if [ "$TARGET" = "bootstrap" -o "$TARGET" = "init" ]; then
     setup_toolchain target
-  elif [ "$TARGET" = "hosttools" ]; then
-    setup_toolchain host
   else
     setup_toolchain $TARGET
   fi
@@ -115,17 +113,6 @@ if [ ! -f $STAMP ]; then
     unset -f pre_makeinstall_bootstrap
     unset -f makeinstall_bootstrap
     unset -f post_makeinstall_bootstrap
-
-    unset -f pre_build_hosttools
-    unset -f pre_configure_hosttools
-    unset -f configure_hosttools
-    unset -f post_configure_hosttools
-    unset -f pre_make_hosttools
-    unset -f make_hosttools
-    unset -f post_make_hosttools
-    unset -f pre_makeinstall_hosttools
-    unset -f makeinstall_hosttools
-    unset -f post_makeinstall_hosttools
 
   # configure TARGET build defaults
     unset -v TARGET_CONFIGURE_OPTS
@@ -179,19 +166,6 @@ if [ ! -f $STAMP ]; then
                               --disable-static \
                               --enable-shared"
 
-  # configure HOSTTOOLS build defaults
-    unset -v HOSTTOOLS_CONFIGURE_OPTS
-    HOSTTOOLS_CONFIGURE_OPTS="--host=$HOST_NAME \
-                              --build=$HOST_NAME \
-                              --prefix=$ROOT/$TOOLCHAIN \
-                              --bindir=$ROOT/$TOOLCHAIN/bin \
-                              --sbindir=$ROOT/$TOOLCHAIN/sbin \
-                              --sysconfdir=$ROOT/$TOOLCHAIN/etc \
-                              --libexecdir=$ROOT/$TOOLCHAIN/lib \
-                              --localstatedir=$ROOT/$TOOLCHAIN/var \
-                              --disable-static \
-                              --enable-shared"
-
   # include buildfile
     . $PKG_DIR/package.mk
 
@@ -209,10 +183,6 @@ if [ ! -f $STAMP ]; then
       done
     elif [ "$TARGET" = "bootstrap" ]; then
       for p in $PKG_BUILD_DEPENDS_BOOTSTRAP; do
-        $SCRIPTS/build $p
-      done
-    elif [ "$TARGET" = "hosttools" ]; then
-      for p in $PKG_BUILD_DEPENDS_HOSTTOOLS; do
         $SCRIPTS/build $p
       done
     fi
@@ -282,11 +252,6 @@ if [ ! -f $STAMP ]; then
           mkdir -p .$TARGET_NAME-bootstrap
           cd .$TARGET_NAME-bootstrap
         fi
-      elif [ "$TARGET" = "hosttools" ]; then
-        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
-          mkdir -p .$TARGET_NAME-hosttools
-          cd .$TARGET_NAME-hosttools
-        fi
       fi
 
       # configure
@@ -304,8 +269,6 @@ if [ ! -f $STAMP ]; then
           $PKG_CONFIGURE_SCRIPT $INIT_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_INIT
         elif [ "$TARGET" = "bootstrap" ]; then
           $PKG_CONFIGURE_SCRIPT $BOOTSTRAP_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_BOOTSTRAP
-        elif [ "$TARGET" = "hosttools" ]; then
-          $PKG_CONFIGURE_SCRIPT $HOSTTOOLS_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_HOSTTOOLS
         fi
       fi
       if [ "$(type -t post_configure_$TARGET)" = "function" ]; then
@@ -327,8 +290,6 @@ if [ ! -f $STAMP ]; then
           make $PKG_MAKE_OPTS_INIT
         elif [ "$TARGET" = "bootstrap" ]; then
           make $PKG_MAKE_OPTS_BOOTSTRAP
-        elif [ "$TARGET" = "hosttools" ]; then
-          make $PKG_MAKE_OPTS_HOSTTOOLS
         fi
       fi
       if [ "$(type -t post_make_$TARGET)" = "function" ]; then
@@ -351,8 +312,6 @@ if [ ! -f $STAMP ]; then
           make install DESTDIR=$INSTALL $PKG_MAKEINSTALL_OPTS_INIT
         elif [ "$TARGET" = "bootstrap" ]; then
           $MAKEINSTALL $PKG_MAKEINSTALL_OPTS_BOOTSTRAP
-        elif [ "$TARGET" = "hosttools" ]; then
-          make install $PKG_MAKEINSTALL_OPTS_HOSTTOOLS
         fi
       fi
       if [ "$(type -t post_makeinstall_$TARGET)" = "function" ]; then
