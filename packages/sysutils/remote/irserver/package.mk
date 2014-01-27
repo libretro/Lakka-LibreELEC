@@ -47,6 +47,9 @@ make_target() {
 }
 
 makeinstall_target() {
+  mkdir -p $INSTALL/usr/config
+    cp $PKG_DIR/config/*.conf $INSTALL/usr/config
+
   mkdir -p $INSTALL/usr/sbin
     cp -P $IRSERVER_BIN $INSTALL/usr/sbin/irserver
 
