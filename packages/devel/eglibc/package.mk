@@ -40,7 +40,7 @@ if [ "$XBMCPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_INIT="$PKG_DEPENDS_INIT arm-mem:init"
 fi
 
-PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh
+PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --libexecdir=/usr/lib/eglibc \
                            --cache-file=config.cache \
                            --disable-profile \
