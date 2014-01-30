@@ -31,10 +31,9 @@ PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kernel.org"
-PKG_DEPENDS_TARGET="busybox linux-drivers linux-firmware pciutils $BOOTLOADER"
-PKG_BUILD_DEPENDS_HOST="ccache:host"
-PKG_BUILD_DEPENDS_TARGET="toolchain cpio:host kmod:host pciutils xz wireless-regdb"
-PKG_BUILD_DEPENDS_INIT="toolchain"
+PKG_DEPENDS_HOST="ccache:host"
+PKG_DEPENDS_TARGET="toolchain cpio:host kmod:host pciutils xz wireless-regdb"
+PKG_DEPENDS_INIT="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_PRIORITY="optional"
 PKG_SECTION="linux"
@@ -45,8 +44,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$PERF_SUPPORT" = "yes" -a "$DEVTOOLS" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Python"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET elfutils Python"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET elfutils Python"
 fi
 
 PKG_MAKE_OPTS_HOST="ARCH=$TARGET_ARCH headers_check"
