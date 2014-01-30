@@ -23,8 +23,7 @@ PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"
 PKG_URL="http://cgit.freedesktop.org/vaapi/libva/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="libX11 libXext libXfixes libdrm Mesa glu"
-PKG_BUILD_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm Mesa glu"
+PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm Mesa glu"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libva: The main motivation for VAAPI (Video Acceleration API) is to enable hardware accelerated video decode/encode at various entry-points (VLD, IDCT, Motion Compensation etc.) for the prevailing coding standards today (MPEG-2, MPEG-4 ASP/H.263, MPEG-4 AVC/H.264, and VC-1/VMW3)."
@@ -42,14 +41,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --disable-wayland \
                            --disable-dummy-driver \
                            --with-drivers-path=/usr/lib/va"
-
-get_graphicdrivers
-
-for drv in $GRAPHIC_DRIVERS; do
-  if [ "$drv" = i965 ]; then
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-driver-intel"
-  fi
-done
 
 pre_configure_target() {
 # todo: libva fails to build in subdirs
