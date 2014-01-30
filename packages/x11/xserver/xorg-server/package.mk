@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="libpciaccess libX11 libXfont libXinerama libdrm openssl freetype pixman systemd xorg-launch-helper"
-PKG_BUILD_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto fixesproto damageproto scrnsaverproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto glproto presentproto libpciaccess libX11 libXfont libXinerama libxkbfile libdrm openssl freetype pixman fontsproto systemd"
+PKG_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto fixesproto damageproto scrnsaverproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto glproto presentproto libpciaccess libX11 libXfont libXinerama libxkbfile libdrm openssl freetype pixman fontsproto systemd xorg-launch-helper"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/xserver"
 PKG_SHORTDESC="xorg-server: The Xorg X server"
@@ -33,44 +32,17 @@ PKG_LONGDESC="Xorg is a full featured X server that was originally designed for 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-# Additional packages we need for using xorg-server:
-# Fonts
-  PKG_DEPENDS="$PKG_DEPENDS encodings font-xfree86-type1 font-bitstream-type1 font-misc-misc"
-
-# Server
-  PKG_DEPENDS="$PKG_DEPENDS xkeyboard-config xkbcomp"
-
-# Tools
-  PKG_DEPENDS="$PKG_DEPENDS xrandr setxkbmap"
-
-if [ -n "$WINDOWMANAGER" -a "$WINDOWMANAGER" != "none" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS $WINDOWMANAGER"
-fi
-
 get_graphicdrivers
-# Drivers
-  PKG_DEPENDS="$PKG_DEPENDS xf86-input-evdev"
-  for drv in $XORG_DRIVERS; do
-    PKG_DEPENDS="$PKG_DEPENDS xf86-video-$drv"
-  done
-
-# Drivers
-  PKG_DEPENDS="$PKG_DEPENDS xf86-input-evdev"
-  for drv in $XORG_DRIVERS; do
-    PKG_DEPENDS="$PKG_DEPENDS xf86-video-$drv"
-  done
 
 if [ "$COMPOSITE_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS libXcomposite"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libXcomposite"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXcomposite"
   XORG_COMPOSITE="--enable-composite"
 else
   XORG_COMPOSITE="--disable-composite"
 fi
 
 if [ "$OPENGL" = "Mesa" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS Mesa glu"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET Mesa glu"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Mesa glu"
   XORG_MESA="--enable-glx --enable-dri"
 else
   XORG_MESA="--disable-glx --disable-dri"
