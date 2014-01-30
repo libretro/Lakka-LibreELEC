@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="ftp://freedesktop.org/pub/mesa/$PKG_VERSION/MesaLib-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS="libXdamage libdrm expat libXext libXfixes libX11 systemd"
-PKG_BUILD_DEPENDS_TARGET="toolchain Python:host makedepend:host libxml2:host expat glproto dri2proto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd"
+PKG_DEPENDS_TARGET="toolchain Python:host makedepend:host libxml2:host expat glproto dri2proto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="mesa: 3-D graphics library with OpenGL API"
@@ -37,8 +36,7 @@ PKG_AUTORECONF="yes"
   get_graphicdrivers
 
 if [ "$LLVM_SUPPORT" = "yes" ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET elfutils llvm"
-  PKG_DEPENDS="$PKG_DEPENDS llvm"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET elfutils llvm"
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config-host"
   MESA_GALLIUM_LLVM="--enable-gallium-llvm --with-llvm-shared-libs"
 else
@@ -46,16 +44,14 @@ else
 fi
 
 if [ "$VDPAU" = "yes" ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libvdpau"
-  PKG_DEPENDS="$PKG_DEPENDS libvdpau"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   MESA_VDPAU="--enable-vdpau"
 else
   MESA_VDPAU="--disable-vdpau"
 fi
 
 if [ "$MESA_VAAPI_SUPPORT" = "yes" ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libva"
-  PKG_DEPENDS="$PKG_DEPENDS libva"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $LIBVA"
 fi
 
 XA_CONFIG="--disable-xa"
