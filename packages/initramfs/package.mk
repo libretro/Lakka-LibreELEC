@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
-PKG_DEPENDS="eglibc:init busybox:init linux:init plymouth-lite:init diskdev_cmds:init"
-PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain libc:init busybox:init linux:init plymouth-lite:init diskdev_cmds:init"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="initramfs: Metapackage for installing initramfs"
@@ -34,7 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$ISCSI_SUPPORT" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS open-iscsi:init"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET open-iscsi:init"
 fi
 
 post_install() {
