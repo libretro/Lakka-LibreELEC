@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/opdenkamp/xbmc-pvr-addons"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="curl"
-PKG_BUILD_DEPENDS_TARGET="toolchain curl"
+PKG_DEPENDS_TARGET="toolchain curl"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="Various PVR addons for XBMC" 
@@ -33,7 +32,6 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$MYSQL_SUPPORT" = yes ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS mysql"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS mysql"
   PVRADDONS_MYSQL="--enable-mysql"
 else
