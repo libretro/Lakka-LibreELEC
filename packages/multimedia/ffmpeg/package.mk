@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://ffmpeg.org"
 PKG_URL="http://ffmpeg.org/releases/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="zlib bzip2 libvorbis gnutls"
-PKG_BUILD_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 libvorbis gnutls"
+PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 libvorbis gnutls"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
@@ -34,15 +33,16 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$VAAPI" = yes ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libva"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva"
+# configure GPU drivers and dependencies:
+  get_graphicdrivers
+
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $LIBVA"
   FFMPEG_VAAPI="--enable-vaapi"
 else
   FFMPEG_VAAPI="--disable-vaapi"
 fi
 
 if [ "$VDPAU" = yes ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libvdpau"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   FFMPEG_VDPAU="--enable-vdpau"
 else
