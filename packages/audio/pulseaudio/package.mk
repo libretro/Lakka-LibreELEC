@@ -25,8 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pulseaudio.org/"
 PKG_URL="http://cgit.freedesktop.org/pulseaudio/pulseaudio/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS="libtool alsa-lib libsamplerate dbus speex systemd openssl"
-PKG_BUILD_DEPENDS_TARGET="toolchain libtool json-c alsa-lib libsndfile libsamplerate speex dbus systemd openssl libcap"
+PKG_DEPENDS_TARGET="toolchain libtool json-c alsa-lib libsndfile libsamplerate speex dbus systemd openssl libcap"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="pulseaudio: Yet another sound server for Unix"
@@ -36,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET sbc"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sbc"
   PULSEAUDIO_BLUETOOTH="--enable-bluez5"
 else
   PULSEAUDIO_BLUETOOTH="--disable-bluez5"
