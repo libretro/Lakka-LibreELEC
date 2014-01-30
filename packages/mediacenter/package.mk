@@ -36,6 +36,20 @@ for i in $SKINS; do
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $MEDIACENTER-theme-$i"
 done
 
+if [ "$MEDIACENTER" = "xbmc" ]; then
+# some python stuff needed for various addons
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Imaging"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET simplejson"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pycrypto"
+
+# various PVR clients
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xbmc-pvr-addons"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xbmc-addon-xvdr"
+
+# other packages
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET service.openelec.settings"
+fi
+
 # if [ ! "$LCD_DRIVER" = "none" ]; then
 #   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET script.xbmc.lcd"
 # fi

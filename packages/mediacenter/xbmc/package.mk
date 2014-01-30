@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.xbmc.org"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain boost Python zlib bzip2 systemd pciutils lzo pcre swig:host ffmpeg libass enca curl libssh rtmpdump fontconfig fribidi tinyxml libjpeg-turbo libpng tiff freetype jasper libmad libsamplerate libogg libcdio libmodplug faad2 flac libmpeg2 taglib libxml2 libxslt yajl sqlite service.openelec.settings"
+PKG_DEPENDS_TARGET="toolchain boost Python zlib bzip2 systemd pciutils lzo pcre swig:host ffmpeg libass enca curl libssh rtmpdump fontconfig fribidi tinyxml libjpeg-turbo libpng tiff freetype jasper libmad libsamplerate libogg libcdio libmodplug faad2 flac libmpeg2 taglib libxml2 libxslt yajl sqlite"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="xbmc: XBMC Mediacenter"
@@ -37,15 +37,6 @@ PKG_AUTORECONF="no"
 
 # needed for hosttools (Texturepacker)
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET lzo:host SDL:host SDL_image:host"
-
-# some python stuff needed for various addons
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Imaging"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET simplejson"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pycrypto"
-
-# various PVR clients
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xbmc-pvr-addons"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xbmc-addon-xvdr"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
 # for libX11 support
