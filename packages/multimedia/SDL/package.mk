@@ -23,10 +23,8 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.libsdl.org/"
 PKG_URL="http://www.libsdl.org/release/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_HOST=""
-PKG_DEPENDS_TARGET="alsa-lib"
-PKG_BUILD_DEPENDS_HOST="toolchain yasm:host"
-PKG_BUILD_DEPENDS_TARGET="toolchain yasm:host alsa-lib"
+PKG_DEPENDS_HOST="yasm:host"
+PKG_DEPENDS_TARGET="toolchain yasm:host alsa-lib"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libsdl: A cross-platform Graphic API"
@@ -170,9 +168,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-rpath \
                            --disable-atari-ldg \
                            --disable-clock_gettime"
 
-if [ "$DISPLAYSERVER" = "xorg-server" ]; then
+if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXrandr"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libX11 libXrandr"
 
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-video --enable-x11-shared --disable-video-x11-dgamouse"
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-video-x11-xinerama --disable-video-x11-xme"
@@ -187,7 +184,6 @@ fi
 
 if [ "$OPENGL" = "Mesa" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Mesa glu"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET Mesa glu"
 
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-video-opengl"
 else
@@ -196,7 +192,6 @@ fi
 
 if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET pulseaudio"
 
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-pulseaudio --enable-pulseaudio-shared"
 else
