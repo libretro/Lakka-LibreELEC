@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
 PKG_URL="http://packages.pulse-eight.net/pulse/sources/libcec/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="systemd"
-PKG_BUILD_DEPENDS_TARGET="toolchain systemd lockdev"
+PKG_DEPENDS_TARGET="toolchain systemd lockdev"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="libCEC is an open-source dual licensed library designed for communicating with the Pulse-Eight USB - CEC Adaptor"
@@ -37,7 +36,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-cubox"
 
 if [ "$XBMCPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET bcm2835-driver"
 
   export CFLAGS="$CFLAGS \
                  -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
@@ -55,7 +53,6 @@ fi
 
 if [ "$XBMCPLAYER_DRIVER" = "libfslvpuwrap" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS"
 
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-imx6"
 else
