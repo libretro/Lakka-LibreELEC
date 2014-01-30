@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://code.google.com/p/boblight"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET=""
-PKG_BUILD_DEPENDS_TARGET="toolchain libusb"
+PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_PRIORITY="optional"
 PKG_SECTION="service/multimedia"
 PKG_SHORTDESC="boblightd: an ambilight controller."
@@ -35,19 +34,19 @@ PKG_ADDON_TYPE="xbmc.service"
 
 PKG_AUTORECONF="yes"
 
-if [ "$DISPLAYSERVER" = "xorg-server" ] ; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET libX11 libXext libXrender"
+if [ "$DISPLAYSERVER" = "x11" ] ; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libXrender"
 fi
 
 if [ "$OPENGL_SUPPORT" = "yes" ] ; then
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET Mesa glu"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Mesa glu"
 fi
 
 if [ ! "$OPENGL" = "Mesa" ]; then
   EXTRAOPTS="--without-opengl"
 fi
 
-if [ ! "$DISPLAYSERVER" = "xorg-server" ] ; then
+if [ ! "$DISPLAYSERVER" = "x11" ] ; then
   EXTRAOPTS="$EXTRAOPTS --without-x11"
 fi
 
@@ -64,13 +63,13 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -P $PKG_BUILD/.$TARGET_NAME/src/boblightd $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -P $PKG_BUILD/.$TARGET_NAME/src/boblight-constant $ADDON_BUILD/$PKG_ADDON_ID/bin
-  if [ "$DISPLAYSERVER" = "xorg-server" ] ; then
+  if [ "$DISPLAYSERVER" = "x11" ] ; then
     cp -P $PKG_BUILD/.$TARGET_NAME/src/boblight-X11 $ADDON_BUILD/$PKG_ADDON_ID/bin
   fi
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
   cp -R $PKG_DIR/config/boblight.conf $ADDON_BUILD/$PKG_ADDON_ID/config
-  if [ "$DISPLAYSERVER" = "xorg-server" ] ; then
+  if [ "$DISPLAYSERVER" = "x11" ] ; then
     cp -R $PKG_DIR/config/boblight.X11.sample $ADDON_BUILD/$PKG_ADDON_ID/config
   fi
 }
