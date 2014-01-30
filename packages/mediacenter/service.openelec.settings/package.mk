@@ -24,8 +24,7 @@ PKG_LICENSE="prop."
 PKG_SITE="http://www.openelec.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.zip"
 PKG_SOURCE_DIR="$PKG_NAME"
-PKG_DEPENDS="connman"
-PKG_BUILD_DEPENDS_TARGET="toolchain Python"
+PKG_DEPENDS_TARGET="toolchain Python connman"
 PKG_PRIORITY="optional"
 PKG_SECTION=""
 PKG_SHORTDESC="service.openelec.settings: Settings dialog for OpenELEC"
@@ -34,10 +33,10 @@ PKG_LONGDESC="service.openelec.settings: is a settings dialog for OpenELEC"
 PKG_IS_ADDON="yes"
 PKG_AUTORECONF="no"
 
-if [ "$DISPLAYSERVER" = "xorg-server" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS setxkbmap"
+if [ "$DISPLAYSERVER" = "x11" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS setxkbmap"
 else
-  PKG_DEPENDS="$PKG_DEPENDS bkeymaps"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS bkeymaps"
 fi
 
 make_target() {
