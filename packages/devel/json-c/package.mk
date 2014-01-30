@@ -24,18 +24,16 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/json-c/json-c/wiki"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET=""
-PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="accessibility"
 PKG_SHORTDESC="json-c"
 PKG_LONGDESC="JSON-C implements a reference counting object model that allows you to easily construct JSON objects in C, output them as JSON formatted strings and parse JSON formatted strings back into the C representation of JSON objects"
-PKG_IS_ADDON="no"
 
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
-      ac_cv_func_malloc_0_nonnull=yes \
-      --enable-static \
-      --disable-shared
-      --disable-oldname-compat"
+                           ac_cv_func_malloc_0_nonnull=yes \
+                           --enable-static --disable-shared \
+                           --disable-oldname-compat"
