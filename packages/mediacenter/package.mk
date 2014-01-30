@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="$MEDIACENTER $MEDIACENTER-theme-$SKIN_DEFAULT"
-PKG_BUILD_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain $MEDIACENTER $MEDIACENTER-theme-$SKIN_DEFAULT"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="Mediacenter: Metapackage"
@@ -34,9 +33,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 for i in $SKINS; do
-  PKG_DEPENDS="$PKG_DEPENDS $MEDIACENTER-theme-$i"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $MEDIACENTER-theme-$i"
 done
 
 # if [ ! "$LCD_DRIVER" = "none" ]; then
-#   PKG_DEPENDS="$PKG_DEPENDS script.xbmc.lcd"
+#   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET script.xbmc.lcd"
 # fi
