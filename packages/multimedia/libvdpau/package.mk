@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/VDPAU"
 PKG_URL="http://people.freedesktop.org/~aplattner/vdpau/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="libX11"
-PKG_BUILD_DEPENDS_TARGET="toolchain libX11 dri2proto libXext"
+PKG_DEPENDS_TARGET="toolchain libX11 dri2proto libXext"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libvdpau: a Video Decode and Presentation API for UNIX."
@@ -32,10 +31,6 @@ PKG_LONGDESC="VDPAU is the Video Decode and Presentation API for UNIX. It provid
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
-
-if [ "$DEVTOOLS" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET vdpauinfo"
-fi
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-dri2 \
                            --disable-documentation \
