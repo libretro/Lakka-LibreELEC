@@ -24,8 +24,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.connman.net"
 PKG_URL="http://www.kernel.org/pub/linux/network/connman/$PKG_NAME-$PKG_VERSION.tar.xz"
 # PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS="glib readline dbus iptables wpa_supplicant ntp Python pygobject dbus-python"
-PKG_BUILD_DEPENDS_TARGET="toolchain glib readline dbus iptables"
+PKG_DEPENDS_TARGET="toolchain glib readline dbus iptables wpa_supplicant ntp Python pygobject dbus-python"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
 PKG_SHORTDESC="connman: Network manager daemon"
@@ -35,16 +34,14 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$PPTP_SUPPORT" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS ppp pptp"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET ppp pptp"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET ppp pptp"
   CONNMAN_PPTP="--enable-pptp PPPD=/usr/sbin/pppd PPTP=/usr/sbin/pptp"
 else
   CONNMAN_PPTP="--disable-pptp"
 fi
 
 if [ "$OPENVPN_SUPPORT" = yes ]; then
-  PKG_DEPENDS="$PKG_DEPENDS openvpn"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET openvpn"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET openvpn"
   CONNMAN_OPENVPN="--enable-openvpn --with-openvpn=/usr/sbin/openvpn"
 else
   CONNMAN_OPENVPN="--disable-openvpn"
