@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://glew.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/glew/glew/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tgz"
-PKG_DEPENDS_TARGET="libX11 libXext libXi"
-PKG_BUILD_DEPENDS_TARGET="toolchain libX11 libXext libXi libXmu"
+PKG_DEPENDS_TARGET="toolchain libX11 libXext libXi libXmu"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="glew: The OpenGL Extension Wrangler Library"
@@ -35,7 +34,6 @@ PKG_AUTORECONF="no"
 
 if [ "$OPENGL" = "Mesa" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Mesa glu"
-  PKG_BUILD_DEPENDS_TARGET="$PKG_BUILD_DEPENDS_TARGET Mesa glu"
 fi
 
 make_target() {
