@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="4.99.2"
+PKG_VERSION="4.99.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
