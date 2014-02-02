@@ -31,3 +31,5 @@ PKG_LONGDESC="LibXdamage provides an X Window System client interface to the DAM
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
