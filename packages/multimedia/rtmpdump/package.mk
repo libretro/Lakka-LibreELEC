@@ -33,6 +33,8 @@ PKG_LONGDESC="rtmpdump is a toolkit for RTMP streams. All forms of RTMP are supp
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+MAKEFLAGS="-j1"
+
 make_target() {
   make prefix=/usr \
        incdir=/usr/include/librtmp \
