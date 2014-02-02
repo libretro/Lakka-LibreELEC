@@ -68,6 +68,10 @@ post_makeinstall_target() {
   if [ ! $SFTP_SERVER = "yes" ]; then
     rm -rf $INSTALL/usr/lib/openssh/sftp-server
   fi
+  # k0p
+  rm -rf $INSTALL/usr/bin/ssh-add
+  rm -rf $INSTALL/usr/bin/ssh-agent
+  rm -rf $INSTALL/usr/bin/ssh-keyscan
 }
 
 post_install() {
