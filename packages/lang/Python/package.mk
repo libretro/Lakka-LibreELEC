@@ -158,4 +158,11 @@ post_makeinstall_target() {
     echo "the issue in most cases"
     exit 1
   fi
+
+  # k0p
+  rm -rf $INSTALL/usr/bin/2to3
+  rm -rf $INSTALL/usr/bin/idle
+  rm -rf $INSTALL/usr/bin/pydoc
+  rm -rf $INSTALL/usr/bin/smtpd.py
+  rm -rf $INSTALL/usr/bin/python*-config
 }
