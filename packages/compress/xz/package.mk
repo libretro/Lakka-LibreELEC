@@ -41,10 +41,3 @@ PKG_CONFIGURE_OPTS_HOST="--disable-shared --enable-static \
                          --disable-scripts \
                          --disable-nls"
 
-# xz is not build for target now but keep this
-# just in case some day we need xz:target. or gdb fails
-PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
-
-post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
-}
