@@ -32,4 +32,4 @@ PKG_LONGDESC="The X Rendering Extension (Render) introduces digital image compos
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"
