@@ -159,26 +159,6 @@ fi
 
 export LD_PRELOAD=$SUNDTEK_ADDON_DIR/lib/libmediaclient.so
 
-if [ "$ANALOG_TV" = "true" -a ! -f "$SUNDTEK_ADDON_DIR/bin/plugins/lib/libavcodec.so.54.12.100" ]; then
-  logger -t Sundtek "### Downloading missing ffmpeg libraries ###"
-  cd $SUNDTEK_ADDON_DIR/bin
-  mkdir -p plugins/
-  cd plugins/
-
-  ARCH=$(sed -n 's|.*\.\([^-]*\)-.*|\1|p' /etc/release | tr -d '\n')
-  wget -O sundtek-ffmpeg-analog_tv-lib.tgz http://dl.dropbox.com/u/8224157/public/sundtek/sundtek-ffmpeg-analog_tv-lib-$ARCH.tgz
-
-  logger -t Sundtek "### Extracting ffmpeg libraries ###"
-  tar -xzf sundtek-ffmpeg-analog_tv-lib.tgz
-  if [ $? -ne 0 ]; then
-    logger -t Sundtek "### Ffmpeg library archive damaged ###"
-    rm -f sundtek-ffmpeg-analog_tv-lib.tgz
-    exit 2
-  fi
-
-  rm -f sundtek-ffmpeg-analog_tv-lib.tgz
-fi
-
 if [ -z "$(pidof mediasrv)" ]; then
   rm -f /var/log/mediasrv.log
   rm -f /var/log/mediaclient.log
@@ -322,12 +302,6 @@ if [ -z "$(pidof mediasrv)" ]; then
   if [ $SETTLE_TIME -gt 0 ]; then
     logger -t Sundtek "### Settle for $SETTLE_TIME sec ###"
     sleep $SETTLE_TIME
-  fi
-
-  if [ "$ANALOG_TV" = "true" ]; then
-    logger -t Sundtek "### Switching to analog TV mode ###"
-    #rm -fr /dev/dvb/
-    mediaclient --disable-dvb=/dev/dvb/adapter0
   fi
 
   if [ "$RUN_USER_SCRIPT" = "true" -a -f "$SUNDTEK_ADDON_HOME/userscript.sh" ]; then
