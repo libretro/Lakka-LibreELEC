@@ -18,7 +18,7 @@
 
 PKG_NAME="sundtek-mediatv"
 PKG_VERSION="4.1"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://support.sundtek.com/"
@@ -33,7 +33,23 @@ PKG_ADDON_TYPE="xbmc.python.script"
 PKG_AUTORECONF="no"
 
 make_target() {
-  : # nothing to do here
+  mkdir -p $ROOT/$PKG_BUILD
+  cd $ROOT/$PKG_BUILD
+
+  case $TARGET_ARCH in
+    i386)
+      INSTALLER_URL="http://sundtek.de/media/netinst/32bit/installer.tar.gz"
+      ;;
+    x86_64)
+      INSTALLER_URL="http://sundtek.de/media/netinst/64bit/installer.tar.gz"
+      ;;
+    arm)
+      INSTALLER_URL="http://sundtek.de/media/netinst/armsysvhf/installer.tar.gz"
+      ;;
+  esac
+  wget -O installer.tar.gz $INSTALLER_URL
+  tar -xzf installer.tar.gz
+  chmod 755 opt/bin/*
 }
 
 makeinstall_target() {
@@ -44,4 +60,6 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
   cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
   cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
+  cp -Pa $PKG_BUILD/opt/bin $ADDON_BUILD/$PKG_ADDON_ID/
+  cp -Pa $PKG_BUILD/opt/lib $ADDON_BUILD/$PKG_ADDON_ID/
 }
