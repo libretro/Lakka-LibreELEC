@@ -1,0 +1,54 @@
+From 84bafb282bd5b6c4da8b2f84e0df61c0c7f0af2b Mon Sep 17 00:00:00 2001
+From: fritsch <Peter.Fruehberger@gmail.com>
+Date: Mon, 3 Feb 2014 19:57:19 +0100
+Subject: [PATCH] AESinkPULSE: Prepare a Callback when devices change
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
+index da3216a..7de5564 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
+@@ -189,6 +189,23 @@ static void StreamLatencyUpdateCallback(pa_stream *s, void *userdata)
+   pa_threaded_mainloop *m = (pa_threaded_mainloop *)userdata;
+   pa_threaded_mainloop_signal(m, 0);
+ }
++
++static void SinkChangedCallback(pa_context *c, pa_subscription_event_type_t t, uint32_t idx, void *userdata)
++{
++  if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_NEW)
++  {
++      // card has been added
++  }
++  else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_REMOVE)
++  {
++    // card has been removed
++  }
++  else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_CHANGE)
++  {
++    // card has changed
++  }
++}
++
+ struct SinkInfoStruct
+ {
+   AEDeviceInfoList *list;
+@@ -836,6 +853,13 @@ bool CAESinkPULSE::SetupContext(const char *host, pa_context **context, pa_threa
+     return false;
+   }
+ 
++  // Register Callback for Sink changes
++  pa_context_set_subscribe_callback(*context, SinkChangedCallback, NULL);
++  const pa_subscription_mask_t mask = PA_SUBSCRIPTION_MASK_CARD;
++  pa_operation *op = pa_context_subscribe(*context, mask, NULL, NULL);
++  if (op != NULL)
++    pa_operation_unref(op);
++
+   pa_threaded_mainloop_unlock(*mainloop);
+   return true;
+ }
+-- 
+1.8.3.2
+
