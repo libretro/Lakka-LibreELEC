@@ -1,54 +1,249 @@
-From 84bafb282bd5b6c4da8b2f84e0df61c0c7f0af2b Mon Sep 17 00:00:00 2001
-From: fritsch <Peter.Fruehberger@gmail.com>
-Date: Mon, 3 Feb 2014 19:57:19 +0100
-Subject: [PATCH] AESinkPULSE: Prepare a Callback when devices change
+From 8369ed76d9a39bd96f15f5a78cf6fa0e66183b1c Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 2 Feb 2014 13:01:09 +0100
+Subject: [PATCH 1/3] ActiveAE: add method for re-init after device/eld change
 
 ---
- xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 24 ++++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
+ xbmc/cores/AudioEngine/AEFactory.cpp               |  6 ++++++
+ xbmc/cores/AudioEngine/AEFactory.h                 |  1 +
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp      | 22 ++++++++++++++++++++++
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h |  2 ++
+ xbmc/cores/AudioEngine/Interfaces/AE.h             |  5 +++++
+ 5 files changed, 36 insertions(+)
+
+diff --git a/xbmc/cores/AudioEngine/AEFactory.cpp b/xbmc/cores/AudioEngine/AEFactory.cpp
+index 3094bdf..fff42a6 100644
+--- a/xbmc/cores/AudioEngine/AEFactory.cpp
++++ b/xbmc/cores/AudioEngine/AEFactory.cpp
+@@ -404,3 +404,9 @@ void CAEFactory::KeepConfiguration(unsigned int millis)
+   if (AE)
+     AE->KeepConfiguration(millis);
+ }
++
++void CAEFactory::DeviceChange()
++{
++  if (AE)
++    AE->DeviceChange();
++}
+diff --git a/xbmc/cores/AudioEngine/AEFactory.h b/xbmc/cores/AudioEngine/AEFactory.h
+index 9a340cc..1d55513 100644
+--- a/xbmc/cores/AudioEngine/AEFactory.h
++++ b/xbmc/cores/AudioEngine/AEFactory.h
+@@ -76,6 +76,7 @@ class CAEFactory
+   static void SettingOptionsAudioStreamsilenceFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current);
+   static bool IsSettingVisible(const std::string &condition, const std::string &value, const std::string &settingId);
+   static void KeepConfiguration(unsigned int millis);
++  static void DeviceChange();
+ 
+   static void RegisterAudioCallback(IAudioCallback* pCallback);
+   static void UnregisterAudioCallback();
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index 76e0fa8..0ecf5f3 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -425,6 +425,23 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+           }
+           msg->Reply(CActiveAEControlProtocol::ACC);
+           return;
++        case CActiveAEControlProtocol::DEVICECHANGE:
++          UnconfigureSink();
++          m_sink.EnumerateSinkList(true);
++          LoadSettings();
++          m_extError = false;
++          Configure();
++          if (!m_extError)
++          {
++            m_state = AE_TOP_CONFIGURED_PLAY;
++            m_extTimeout = 0;
++          }
++          else
++          {
++            m_state = AE_TOP_ERROR;
++            m_extTimeout = 500;
++          }
++          return;
+         case CActiveAEControlProtocol::PAUSESTREAM:
+           CActiveAEStream *stream;
+           stream = *(CActiveAEStream**)msg->data;
+@@ -2270,6 +2287,11 @@ void CActiveAE::KeepConfiguration(unsigned int millis)
+   m_controlPort.SendOutMessage(CActiveAEControlProtocol::KEEPCONFIG, &timeMs, sizeof(unsigned int));
+ }
+ 
++void CActiveAE::DeviceChange()
++{
++  m_controlPort.SendOutMessage(CActiveAEControlProtocol::DEVICECHANGE);
++}
++
+ void CActiveAE::OnLostDevice()
+ {
+   Message *reply;
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+index debc8e1..b222b4e 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+@@ -73,6 +73,7 @@ class CActiveAEControlProtocol : public Protocol
+     INIT = 0,
+     RECONFIGURE,
+     SUSPEND,
++    DEVICECHANGE,
+     MUTE,
+     VOLUME,
+     PAUSESTREAM,
+@@ -224,6 +225,7 @@ class CActiveAE : public IAE, private CThread
+   virtual bool SupportsQualityLevel(enum AEQuality level);
+   virtual bool IsSettingVisible(const std::string &settingId);
+   virtual void KeepConfiguration(unsigned int millis);
++  virtual void DeviceChange();
+ 
+   virtual void RegisterAudioCallback(IAudioCallback* pCallback);
+   virtual void UnregisterAudioCallback();
+diff --git a/xbmc/cores/AudioEngine/Interfaces/AE.h b/xbmc/cores/AudioEngine/Interfaces/AE.h
+index f91dc4c..dd32897 100644
+--- a/xbmc/cores/AudioEngine/Interfaces/AE.h
++++ b/xbmc/cores/AudioEngine/Interfaces/AE.h
+@@ -232,5 +232,10 @@ class IAE
+    * @param millis time for which old configuration should be kept
+    */
+   virtual void KeepConfiguration(unsigned int millis) {return; }
++
++  /**
++   * Instruct AE to re-initialize, e.g. after ELD change event
++   */
++  virtual void DeviceChange() {return; }
+ };
+ 
+-- 
+1.8.5.1
+
+
+From 12dd78f448f95c8c55c73fe30e06e4f9a5c4eb42 Mon Sep 17 00:00:00 2001
+From: fritsch <Peter.Fruehberger@gmail.com>
+Date: Mon, 3 Feb 2014 19:57:19 +0100
+Subject: [PATCH 2/3] AESinkPULSE: Use Callback to use Factory's DeviceChange()
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 39 ++++++++++++++++++++++++++++
+ xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h   |  4 +++
+ 2 files changed, 43 insertions(+)
 
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-index da3216a..7de5564 100644
+index d227b2d..7ce1836 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-@@ -189,6 +189,23 @@ static void StreamLatencyUpdateCallback(pa_stream *s, void *userdata)
+@@ -189,6 +189,34 @@ static void StreamLatencyUpdateCallback(pa_stream *s, void *userdata)
    pa_threaded_mainloop *m = (pa_threaded_mainloop *)userdata;
    pa_threaded_mainloop_signal(m, 0);
  }
 +
 +static void SinkChangedCallback(pa_context *c, pa_subscription_event_type_t t, uint32_t idx, void *userdata)
 +{
-+  if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_NEW)
++  CAESinkPULSE* p = (CAESinkPULSE*) userdata;
++  if(!p)
++    return;
++
++  CSingleLock lock(p->m_sec);
++  if (p->InitDone())
 +  {
-+      // card has been added
-+  }
-+  else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_REMOVE)
-+  {
-+    // card has been removed
-+  }
-+  else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_CHANGE)
-+  {
-+    // card has changed
++    if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_NEW)
++    {
++       CLog::Log(LOGDEBUG, "Sink appeared");
++       CAEFactory::DeviceChange();
++    }
++    else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_REMOVE)
++    {
++      CLog::Log(LOGDEBUG, "Sink removed");
++      CAEFactory::DeviceChange();
++    }
++    else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_CHANGE)
++    {
++      CLog::Log(LOGDEBUG, "Sink changed");
++      CAEFactory::DeviceChange();
++    }
 +  }
 +}
 +
  struct SinkInfoStruct
  {
    AEDeviceInfoList *list;
-@@ -836,6 +853,13 @@ bool CAESinkPULSE::SetupContext(const char *host, pa_context **context, pa_threa
-     return false;
-   }
+@@ -421,6 +449,16 @@ bool CAESinkPULSE::Initialize(AEAudioFormat &format, std::string &device)
  
-+  // Register Callback for Sink changes
-+  pa_context_set_subscribe_callback(*context, SinkChangedCallback, NULL);
-+  const pa_subscription_mask_t mask = PA_SUBSCRIPTION_MASK_CARD;
-+  pa_operation *op = pa_context_subscribe(*context, mask, NULL, NULL);
-+  if (op != NULL)
-+    pa_operation_unref(op);
+   pa_threaded_mainloop_lock(m_MainLoop);
+ 
++  {
++    // Register Callback for Sink changes
++    CSingleLock lock(m_sec);
++    pa_context_set_subscribe_callback(m_Context, SinkChangedCallback, this);
++    const pa_subscription_mask_t mask = PA_SUBSCRIPTION_MASK_SINK;
++    pa_operation *op = pa_context_subscribe(m_Context, mask, NULL, this);
++    if (op != NULL)
++      pa_operation_unref(op);
++  }
 +
-   pa_threaded_mainloop_unlock(*mainloop);
-   return true;
- }
+   struct pa_channel_map map;
+   pa_channel_map_init(&map);
+ 
+@@ -624,6 +662,7 @@ void CAESinkPULSE::Deinitialize()
+ 
+   if (m_Context)
+   {
++    CSingleLock lock(m_sec);
+     pa_context_disconnect(m_Context);
+     pa_context_unref(m_Context);
+     m_Context = NULL;
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h
+index 2992d81..202a3cb 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h
+@@ -22,9 +22,11 @@
+ #include "system.h"
+ 
+ #include "cores/AudioEngine/Interfaces/AESink.h"
++#include "cores/AudioEngine/AEFactory.h"
+ #include "Utils/AEDeviceInfo.h"
+ #include "Utils/AEUtil.h"
+ #include <pulse/pulseaudio.h>
++#include "threads/CriticalSection.h"
+ 
+ class CAESinkPULSE : public IAESink
+ {
+@@ -46,6 +48,8 @@ class CAESinkPULSE : public IAESink
+   virtual void SetVolume(float volume);
+ 
+   static void EnumerateDevicesEx(AEDeviceInfoList &list, bool force = false);
++  inline bool InitDone() { return m_IsAllocated; };
++  CCriticalSection m_sec;
+ private:
+   bool Pause(bool pause);
+   static inline bool WaitForOperation(pa_operation *op, pa_threaded_mainloop *mainloop, const char *LogEntry);
 -- 
-1.8.3.2
+1.8.5.1
+
+
+From 6f47a270a290841e0c784484bf52c1c7b8e6c73a Mon Sep 17 00:00:00 2001
+From: fritsch <Peter.Fruehberger@gmail.com>
+Date: Tue, 4 Feb 2014 20:00:34 +0100
+Subject: [PATCH 3/3] AESinkPULSE: CHANGE Event spams us - ignore it
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
+index 7ce1836..9effb12 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
+@@ -209,11 +209,6 @@ static void SinkChangedCallback(pa_context *c, pa_subscription_event_type_t t, u
+       CLog::Log(LOGDEBUG, "Sink removed");
+       CAEFactory::DeviceChange();
+     }
+-    else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_CHANGE)
+-    {
+-      CLog::Log(LOGDEBUG, "Sink changed");
+-      CAEFactory::DeviceChange();
+-    }
+   }
+ }
+ 
+-- 
+1.8.5.1
 
