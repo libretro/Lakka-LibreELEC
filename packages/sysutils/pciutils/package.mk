@@ -61,6 +61,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/setpci
   rm -rf $INSTALL/usr/bin/update-pciids
   rm -rf $INSTALL/usr/share
+  rm -rf $INSTALL/usr/sbin/update-pciids
 
   mkdir -p $INSTALL/usr/share
     cp $PKG_DIR/config/pci.ids $INSTALL/usr/share

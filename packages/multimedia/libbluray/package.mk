@@ -33,7 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$NONFREE_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS libaacs"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libaacs"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
