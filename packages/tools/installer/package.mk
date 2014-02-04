@@ -33,7 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_DEPENDS="$PKG_DEPENDS flashrom"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET flashrom"
 fi
 
 make_target() {
