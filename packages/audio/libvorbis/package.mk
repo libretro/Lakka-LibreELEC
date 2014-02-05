@@ -33,4 +33,4 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 # package specific configure options
-PKG_CONFIGURE_OPTS_TARGET="--with-ogg=$SYSROOT_PREFIX/usr"
+PKG_CONFIGURE_OPTS_TARGET="--with-ogg=$SYSROOT_PREFIX/usr --disable-oggtest --disable-docs --disable-examples"

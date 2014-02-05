@@ -33,14 +33,18 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_HOST="--disable-shared --without-readline"
-PKG_CONFIGURE_OPTS_TARGET="--disable-device-mapper \
+PKG_CONFIGURE_OPTS_HOST="--disable-device-mapper \
+            --enable-static \
             --disable-shared \
             --without-readline \
             --disable-rpath \
             --with-gnu-ld"
 
-PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
+PKG_CONFIGURE_OPTS_TARGET="--disable-device-mapper \
+            --disable-shared \
+            --without-readline \
+            --disable-rpath \
+            --with-gnu-ld"
 
 post_make_target() {
   # dont build parallel

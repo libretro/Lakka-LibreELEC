@@ -37,6 +37,8 @@ PKG_CONFIGURE_OPTS_HOST="--with-gnu-ld \
                          --with-libiconv=no \
                          --enable-debug=no \
                          --disable-man \
+                         --disable-dtrace \
+                         --disable-systemtap \
                          --disable-rebuilds \
                          --disable-gtk-doc"
 
