@@ -95,7 +95,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-utempter \
                            --without-systemdsystemunitdir"
 
-PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
+PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET --enable-static --disable-shared"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
