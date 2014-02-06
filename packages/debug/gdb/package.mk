@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gdb"
-PKG_VERSION="7.6"
+PKG_VERSION="7.7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -49,6 +49,10 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --disable-tui \
                            --disable-libada \
                            --without-lzma \
+                           --disable-libquadmath \
+                           --disable-libquadmath-support \
+                           --enable-libada \
+                           --enable-libssp \
                            --disable-werror"
 
 post_makeinstall_target() {
