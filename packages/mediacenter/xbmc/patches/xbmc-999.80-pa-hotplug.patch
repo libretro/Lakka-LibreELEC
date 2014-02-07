@@ -116,21 +116,21 @@ index f91dc4c..dd32897 100644
 1.8.5.1
 
 
-From 12dd78f448f95c8c55c73fe30e06e4f9a5c4eb42 Mon Sep 17 00:00:00 2001
+From 2bd151eee2ecd136fff03cc65d0ba29e848815d8 Mon Sep 17 00:00:00 2001
 From: fritsch <Peter.Fruehberger@gmail.com>
 Date: Mon, 3 Feb 2014 19:57:19 +0100
 Subject: [PATCH 2/3] AESinkPULSE: Use Callback to use Factory's DeviceChange()
 
 ---
- xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 39 ++++++++++++++++++++++++++++
+ xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 48 ++++++++++++++++++++++++++--
  xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h   |  4 +++
- 2 files changed, 43 insertions(+)
+ 2 files changed, 49 insertions(+), 3 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-index d227b2d..7ce1836 100644
+index d227b2d..bdf2c8e 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-@@ -189,6 +189,34 @@ static void StreamLatencyUpdateCallback(pa_stream *s, void *userdata)
+@@ -189,6 +189,29 @@ static void StreamLatencyUpdateCallback(pa_stream *s, void *userdata)
    pa_threaded_mainloop *m = (pa_threaded_mainloop *)userdata;
    pa_threaded_mainloop_signal(m, 0);
  }
@@ -154,17 +154,26 @@ index d227b2d..7ce1836 100644
 +      CLog::Log(LOGDEBUG, "Sink removed");
 +      CAEFactory::DeviceChange();
 +    }
-+    else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_CHANGE)
-+    {
-+      CLog::Log(LOGDEBUG, "Sink changed");
-+      CAEFactory::DeviceChange();
-+    }
 +  }
 +}
 +
  struct SinkInfoStruct
  {
    AEDeviceInfoList *list;
+@@ -405,7 +428,12 @@ static void SinkInfoRequestCallback(pa_context *c, const pa_sink_info *i, int eo
+ 
+ bool CAESinkPULSE::Initialize(AEAudioFormat &format, std::string &device)
+ {
+-  m_IsAllocated = false;
++  
++  {
++    CSingleLock lock(m_sec);
++    m_IsAllocated = false;
++  }
++  
+   m_BytesPerSecond = 0;
+   m_BufferSize = 0;
+   m_Channels = 0;
 @@ -421,6 +449,16 @@ bool CAESinkPULSE::Initialize(AEAudioFormat &format, std::string &device)
  
    pa_threaded_mainloop_lock(m_MainLoop);
@@ -182,14 +191,33 @@ index d227b2d..7ce1836 100644
    struct pa_channel_map map;
    pa_channel_map_init(&map);
  
-@@ -624,6 +662,7 @@ void CAESinkPULSE::Deinitialize()
+@@ -593,20 +631,24 @@ bool CAESinkPULSE::Initialize(AEAudioFormat &format, std::string &device)
+   }
  
-   if (m_Context)
-   {
+   pa_threaded_mainloop_unlock(m_MainLoop);
+-
+-  m_IsAllocated = true;
++  
+   format.m_frameSize = frameSize;
+   format.m_frameSamples = format.m_frames * format.m_channelLayout.Count();
+   m_format = format;
+   format.m_dataFormat = passthrough ? AE_FMT_S16NE : format.m_dataFormat;
+ 
+   Pause(false);
++  {
 +    CSingleLock lock(m_sec);
-     pa_context_disconnect(m_Context);
-     pa_context_unref(m_Context);
-     m_Context = NULL;
++    m_IsAllocated = true;
++  }
+ 
+   return true;
+ }
+ 
+ void CAESinkPULSE::Deinitialize()
+ {
++  CSingleLock lock(m_sec);
+   m_IsAllocated = false;
+ 
+   if (m_Stream)
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h
 index 2992d81..202a3cb 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.h
@@ -219,28 +247,29 @@ index 2992d81..202a3cb 100644
 1.8.5.1
 
 
-From 6f47a270a290841e0c784484bf52c1c7b8e6c73a Mon Sep 17 00:00:00 2001
+From aa942d3a2db5497b3ad19e981dc7cff3142c2b7b Mon Sep 17 00:00:00 2001
 From: fritsch <Peter.Fruehberger@gmail.com>
-Date: Tue, 4 Feb 2014 20:00:34 +0100
-Subject: [PATCH 3/3] AESinkPULSE: CHANGE Event spams us - ignore it
+Date: Wed, 5 Feb 2014 09:21:38 +0100
+Subject: [PATCH 3/3] AESinkPULSE: Track Change Event again - don't do anything
+ for now
 
 ---
- xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 5 -----
- 1 file changed, 5 deletions(-)
+ xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-index 7ce1836..9effb12 100644
+index bdf2c8e..152cfd7 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-@@ -209,11 +209,6 @@ static void SinkChangedCallback(pa_context *c, pa_subscription_event_type_t t, u
+@@ -209,6 +209,11 @@ static void SinkChangedCallback(pa_context *c, pa_subscription_event_type_t t, u
        CLog::Log(LOGDEBUG, "Sink removed");
        CAEFactory::DeviceChange();
      }
--    else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_CHANGE)
--    {
--      CLog::Log(LOGDEBUG, "Sink changed");
--      CAEFactory::DeviceChange();
--    }
++    else if ((t & PA_SUBSCRIPTION_EVENT_TYPE_MASK) == PA_SUBSCRIPTION_EVENT_CHANGE)
++    {
++      CLog::Log(LOGDEBUG, "Sink changed");
++      //CAEFactory::DeviceChange();
++    }    
    }
  }
  
