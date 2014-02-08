@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="eglibc"
-PKG_VERSION="2.18-23911"
+PKG_VERSION="2.19-25249"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
