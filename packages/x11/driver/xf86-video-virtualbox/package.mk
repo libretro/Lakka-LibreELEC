@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-virtualbox"
-PKG_VERSION="4.3.4"
+PKG_VERSION="4.3.6"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
