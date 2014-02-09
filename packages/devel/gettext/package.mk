@@ -32,7 +32,8 @@ PKG_LONGDESC="This is the GNU gettext package. It is interesting for authors or 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_HOST="--disable-rpath \
+PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
+                         --disable-rpath \
                          --with-gnu-ld \
                          --disable-java \
                          --disable-native-java \
