@@ -50,6 +50,8 @@ post_make_target() {
   cd dist/epgdata2xmltv
   make -j1
   cd -
+  $STRIP dist/epgdata2xmltv/epgdata2xmltv
+  $STRIP libvdr-*.so*
 }
 
 makeinstall_target() {
