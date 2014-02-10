@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libzip"
-PKG_VERSION="0.10.1"
+PKG_VERSION="0.11.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nih.at/libzip/"
-PKG_URL="http://www.nih.at/libzip/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="http://www.nih.at/libzip/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SHORTDESC="libzip"
