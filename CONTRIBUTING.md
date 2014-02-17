@@ -35,6 +35,13 @@ Feature requests are great, but they usually end up lying around the issue
 tracker indefinitely. Sending a pull request is a much better way of getting a
 particular feature into OpenELEC.
 
+### Reporting build failures
+
+As buildsystem / core packages (toolchain) / random libraries change from time to time, it is required
+that you always do a clean build (make clean) before reporting build failures. Also make sure that you
+have a clean, unmodified git clone, we can't fix bugs caused by you failed to merge / rebase on
+your own fork.
+
 ### Pull Requests
 
 - **Create topic branches**. Don't ask us to pull from your master branch.
