@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="lcdproc"
-PKG_VERSION="0.5.6"
+PKG_VERSION="0.5.7-cvs20140217"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://lcdproc.org/"
-PKG_URL="$SOURCEFORGE_SRC/lcdproc/lcdproc/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+# PKG_URL="$SOURCEFORGE_SRC/lcdproc/lcdproc/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libusb libhid libftdi"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
