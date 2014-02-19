@@ -20,6 +20,7 @@
 
 PKG_NAME="media_build"
 PKG_VERSION="1c8936d"
+MEDIA_BUILD_VERSION="2014-02-08"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -44,7 +45,7 @@ make_target() {
   wget http://www.linuxtv.org/downloads/firmware/dvb-firmwares.tar.bz2 -O dvb-firmwares.tar.bz2.tmp
   cd v4l/firmware/; tar xvfj ../../dvb-firmwares.tar.bz2.tmp
   cd ../..
-  $SED -i  -e "/^LATEST_TAR/s/-LATEST/-2014-01-16/g" linux/Makefile
+  $SED -i  -e "/^LATEST_TAR/s/-LATEST/-$MEDIA_BUILD_VERSION/g" linux/Makefile
 
   make VER=$KERNEL_VER SRCDIR=$(kernel_path) -C linux/ download
   make VER=$KERNEL_VER SRCDIR=$(kernel_path) -C linux/ untar
