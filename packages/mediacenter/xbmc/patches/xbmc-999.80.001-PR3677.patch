@@ -1,0 +1,501 @@
+From 365460067109551fff00cd5947ffefbd5447c92e Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Thu, 14 Nov 2013 19:48:41 +0000
+Subject: [PATCH] More efficient infobool expression evaluator
+
+Expession infobools are evaluated at runtime from one or more single infobools
+and a combination of boolean NOT, AND and OR operators. Previously, parsing
+produced a vector of operands (leaf nodes) and operators in postfix
+(reverse-Polish) form, and evaluated all leaf nodes every time the expression
+was evaluated. But this ignores the fact that in many cases, once one operand
+of an AND or OR operation has been evaluated, there is no need to evaluate the
+other operand because its value can have no effect on the ultimate result. It
+is also worth noting that AND and OR operations are associative, meaning they
+can be rearranged at runtime to better suit the selected skin.
+
+This patch rewrites the expression parsing and evaluation code. Now the
+internal repreentation is in the form of a tree where leaf nodes represent a
+single infobool, and branch nodes represent either an AND or an OR operation
+on two or more child nodes.
+
+Expressions are rewritten at parse time into a form which favours the
+formation of groups of associative nodes. These groups are then reordered at
+evaluation time such that nodes whose value renders the evaluation of the
+remainder of the group unnecessary tend to be evaluated first (these are
+true nodes for OR subexpressions, or false nodes for AND subexpressions).
+The end effect is to minimise the number of leaf nodes that need to be
+evaluated in order to determine the value of the expression. The runtime
+adaptability has the advantage of not being customised for any particular skin.
+
+The modifications to the expression at parse time fall into two groups:
+1) Moving logical NOTs so that they are only applied to leaf nodes.
+   For example, rewriting ![A+B]|C as !A|!B|C allows reordering such that
+   any of the three leaves can be evaluated first.
+2) Combining adjacent AND or OR operations such that each path from the root
+   to a leaf encounters a strictly alternating pattern of AND and OR
+   operations. So [A|B]|[C|D+[[E|F]|G] becomes A|B|C|[D+[E|F|G]].
+
+I measured the effect while the Videos window of the default skin was open
+(but idle) on a Raspberry Pi, and this reduced the CPU usage by 2.8% from
+41.9% to 39.1%:
+
+          Before          After
+          Mean   StdDev   Mean   StdDev  Confidence  Change
+IdleCPU%  41.9   0.5      39.1   0.9     100.0%      +7.0%
+---
+ xbmc/interfaces/info/InfoExpression.cpp | 313 +++++++++++++++++++++-----------
+ xbmc/interfaces/info/InfoExpression.h   |  63 ++++++-
+ 2 files changed, 269 insertions(+), 107 deletions(-)
+
+diff --git a/xbmc/interfaces/info/InfoExpression.cpp b/xbmc/interfaces/info/InfoExpression.cpp
+index d84f0c6..db461dd 100644
+--- a/xbmc/interfaces/info/InfoExpression.cpp
++++ b/xbmc/interfaces/info/InfoExpression.cpp
+@@ -22,6 +22,9 @@
+ #include <stack>
+ #include "utils/log.h"
+ #include "GUIInfoManager.h"
++#include <list>
++#include <boost/shared_ptr.hpp>
++#include <boost/make_shared.hpp>
+ 
+ using namespace std;
+ using namespace INFO;
+@@ -40,21 +43,89 @@ void InfoSingle::Update(const CGUIListItem *item)
+ InfoExpression::InfoExpression(const std::string &expression, int context)
+ : InfoBool(expression, context)
+ {
+-  Parse(expression);
++  if (!Parse(expression))
++    CLog::Log(LOGERROR, "Error parsing boolean expression %s", expression.c_str());
+ }
+ 
+ void InfoExpression::Update(const CGUIListItem *item)
+ {
+-  Evaluate(item, m_value);
++  m_value = m_expression_tree->Evaluate(item);
+ }
+ 
+-#define OPERATOR_LB   5
+-#define OPERATOR_RB   4
+-#define OPERATOR_NOT  3
+-#define OPERATOR_AND  2
+-#define OPERATOR_OR   1
++/* Expressions are rewritten at parse time into a form which favours the
++ * formation of groups of associative nodes. These groups are then reordered at
++ * evaluation time such that nodes whose value renders the evaluation of the
++ * remainder of the group unnecessary tend to be evaluated first (these are
++ * true nodes for OR subexpressions, or false nodes for AND subexpressions).
++ * The end effect is to minimise the number of leaf nodes that need to be
++ * evaluated in order to determine the value of the expression. The runtime
++ * adaptability has the advantage of not being customised for any particular skin.
++ *
++ * The modifications to the expression at parse time fall into two groups:
++ * 1) Moving logical NOTs so that they are only applied to leaf nodes.
++ *    For example, rewriting ![A+B]|C as !A|!B|C allows reordering such that
++ *    any of the three leaves can be evaluated first.
++ * 2) Combining adjacent AND or OR operations such that each path from the root
++ *    to a leaf encounters a strictly alternating pattern of AND and OR
++ *    operations. So [A|B]|[C|D+[[E|F]|G] becomes A|B|C|[D+[E|F|G]].
++ */
++
++bool InfoExpression::InfoLeaf::Evaluate(const CGUIListItem *item)
++{
++  return m_invert ^ m_info->Get(item);
++}
+ 
+-short InfoExpression::GetOperator(const char ch) const
++InfoExpression::InfoAssociativeGroup::InfoAssociativeGroup(
++    bool and_not_or,
++    const InfoSubexpressionPtr &left,
++    const InfoSubexpressionPtr &right)
++    : m_and_not_or(and_not_or)
++{
++  AddChild(right);
++  AddChild(left);
++}
++
++void InfoExpression::InfoAssociativeGroup::AddChild(const InfoSubexpressionPtr &child)
++{
++  m_children.push_front(child); // largely undoes the effect of parsing right-associative
++}
++
++void InfoExpression::InfoAssociativeGroup::Merge(InfoAssociativeGroup *other)
++{
++  m_children.splice(m_children.end(), other->m_children);
++}
++
++bool InfoExpression::InfoAssociativeGroup::Evaluate(const CGUIListItem *item)
++{
++  /* Handle either AND or OR by using the relation
++   * A AND B == !(!A OR !B)
++   * to convert ANDs into ORs
++   */
++  std::list<InfoSubexpressionPtr>::iterator last = m_children.end();
++  std::list<InfoSubexpressionPtr>::iterator it = m_children.begin();
++  bool result = m_and_not_or ^ (*it)->Evaluate(item);
++  while (!result && ++it != last)
++  {
++    result = m_and_not_or ^ (*it)->Evaluate(item);
++    if (result)
++    {
++      /* Move this child to the head of the list so we evaluate faster next time */
++      InfoSubexpressionPtr p = *it;
++      m_children.erase(it);
++      m_children.push_front(p);
++    }
++  }
++  return m_and_not_or ^ result;
++}
++
++/* Expressions are parsed using the shunting-yard algorithm. Binary operators
++ * (AND/OR) are treated as right-associative so that we don't need to make a
++ * special case for the unary NOT operator. This has no effect upon the answers
++ * generated, though the initial sequence of evaluation of leaves may be
++ * different from what you might expect.
++ */
++
++InfoExpression::operator_t InfoExpression::GetOperator(char ch)
+ {
+   if (ch == '[')
+     return OPERATOR_LB;
+@@ -67,122 +138,160 @@ short InfoExpression::GetOperator(const char ch) const
+   else if (ch == '|')
+     return OPERATOR_OR;
+   else
+-    return 0;
++    return OPERATOR_NONE;
+ }
+ 
+-void InfoExpression::Parse(const std::string &expression)
++void InfoExpression::OperatorPop(std::stack<operator_t> &operator_stack, bool &invert, std::stack<node_type_t> &node_types, std::stack<InfoSubexpressionPtr> &nodes)
+ {
+-  stack<char> operators;
+-  std::string operand;
+-  for (unsigned int i = 0; i < expression.size(); i++)
++  operator_t op2 = operator_stack.top();
++  operator_stack.pop();
++  if (op2 == OPERATOR_NOT)
+   {
+-    if (GetOperator(expression[i]))
++    invert = !invert;
++  }
++  else
++  {
++    // At this point, it can only be OPERATOR_AND or OPERATOR_OR
++    if (invert)
++      op2 = (operator_t) (OPERATOR_AND ^ OPERATOR_OR ^ op2);
++    node_type_t new_type = op2 == OPERATOR_AND ? NODE_AND : NODE_OR;
++
++    InfoSubexpressionPtr right = nodes.top();
++    nodes.pop();
++    InfoSubexpressionPtr left = nodes.top();
++
++    node_type_t right_type = node_types.top();
++    node_types.pop();
++    node_type_t left_type = node_types.top();
++
++    // Combine associative operations into the same node where possible
++    if (left_type == new_type && right_type == new_type)
++      (static_cast<InfoAssociativeGroup *>(left.get()))->Merge(static_cast<InfoAssociativeGroup *>(right.get()));
++    else if (left_type == new_type)
++      (static_cast<InfoAssociativeGroup *>(left.get()))->AddChild(right);
++    else
+     {
+-      // cleanup any operand, translate and put into our expression list
+-      if (!operand.empty())
++      nodes.pop();
++      node_types.pop();
++      if (right_type == new_type)
+       {
+-        InfoPtr info = g_infoManager.Register(operand, m_context);
+-        if (info)
+-        {
+-          m_listItemDependent |= info->ListItemDependent();
+-          m_postfix.push_back(m_operands.size());
+-          m_operands.push_back(info);
+-        }
+-        operand.clear();
++        (static_cast<InfoAssociativeGroup *>(right.get()))->AddChild(left);
++        nodes.push(right);
+       }
+-      // handle closing parenthesis
+-      if (expression[i] == ']')
+-      {
+-        while (!operators.empty())
+-        {
+-          char oper = operators.top();
+-          operators.pop();
++      else
++        nodes.push(boost::make_shared<InfoAssociativeGroup>(new_type == NODE_AND, left, right));
++      node_types.push(new_type);
++    }
++  }
++}
++
++void InfoExpression::ProcessOperator(operator_t op, std::stack<operator_t> &operator_stack, bool &invert, std::stack<node_type_t> &node_types, std::stack<InfoSubexpressionPtr> &nodes)
++{
++  // Handle any higher-priority stacked operators, except when the new operator is left-bracket.
++  // For a right-bracket, this will stop with the matching left-bracket at the top of the operator stack.
++  if (op != OPERATOR_LB)
++  {
++    while (operator_stack.size() > 0 && operator_stack.top() > op)
++      OperatorPop(operator_stack, invert, node_types, nodes);
++  }
++  if (op == OPERATOR_RB)
++    operator_stack.pop(); // remove the matching left-bracket
++  else
++    operator_stack.push(op);
++  if (op == OPERATOR_NOT)
++    invert = !invert;
++}
+ 
+-          if (oper == '[')
+-            break;
++bool InfoExpression::ProcessOperand(std::string &operand, bool invert, std::stack<node_type_t> &node_types, std::stack<InfoSubexpressionPtr> &nodes)
++{
++  InfoPtr info = g_infoManager.Register(operand, m_context);
++  if (!info)
++    return false;
++  m_listItemDependent |= info->ListItemDependent();
++  nodes.push(boost::make_shared<InfoLeaf>(info, invert));
++  node_types.push(NODE_LEAF);
++  operand.clear();
++  return true;
++}
+ 
+-          m_postfix.push_back(-GetOperator(oper)); // negative denotes operator
+-        }
++bool InfoExpression::Parse(const std::string &expression)
++{
++  const char *s = expression.c_str();
++  std::string operand;
++  std::stack<operator_t> operator_stack;
++  bool invert = false;
++  std::stack<node_type_t> node_types;
++  std::stack<InfoSubexpressionPtr> nodes;
++  // The next two are for syntax-checking purposes
++  bool after_binaryoperator = true;
++  int bracket_count = 0;
++
++  char c;
++  // Skip leading whitespace - don't want it to count as an operand if that's all there is
++  do
++  {
++    c = *s++;
++  } while (c == ' ' || c == '\t' || c == '\r' || c == '\n');
++  s--;
++  while ((c = *s++) != '\0')
++  {
++    operator_t op;
++    if ((op = GetOperator(c)) != OPERATOR_NONE)
++    {
++      // Character is an operator
++      if ((!after_binaryoperator && (c == '!' || c == '[')) ||
++          (after_binaryoperator && (c == ']' || c == '+' || c == '|')))
++      {
++        CLog::Log(LOGERROR, "Misplaced %c", c);
++        return false;
+       }
+-      else
++      if (c == '[')
++        bracket_count++;
++      else if (c == ']' && bracket_count-- == 0)
++      {
++        CLog::Log(LOGERROR, "Unmatched ]");
++        return false;
++      }
++      if (operand.size() > 0 && !ProcessOperand(operand, invert, node_types, nodes))
+       {
+-        // all other operators we pop off the stack any operator
+-        // that has a higher priority than the one we have.
+-        while (!operators.empty() && GetOperator(operators.top()) > GetOperator(expression[i]))
+-        {
+-          // only handle parenthesis once they're closed.
+-          if (operators.top() == '[' && expression[i] != ']')
+-            break;
+-
+-          m_postfix.push_back(-GetOperator(operators.top()));  // negative denotes operator
+-          operators.pop();
+-        }
+-        operators.push(expression[i]);
++        CLog::Log(LOGERROR, "Bad operand '%s'", operand.c_str());
++        return false;
+       }
++      ProcessOperator(op, operator_stack, invert, node_types, nodes);
++      if (c == '+' || c == '|')
++        after_binaryoperator = true;
++      // Skip trailing whitespace - don't want it to count as an operand if that's all there is
++      do
++      {
++        c = *s++;
++      } while (c == ' ' || c == '\t' || c == '\r' || c == '\n');
++      s--;
+     }
+     else
+     {
+-      operand += expression[i];
++      // Character is part of operand
++      operand += c;
++      after_binaryoperator = false;
+     }
+   }
+-
+-  if (!operand.empty())
++  if (bracket_count > 0)
+   {
+-    InfoPtr info = g_infoManager.Register(operand, m_context);
+-    if (info)
+-    {
+-      m_listItemDependent |= info->ListItemDependent();
+-      m_postfix.push_back(m_operands.size());
+-      m_operands.push_back(info);
+-    }
++    CLog::Log(LOGERROR, "Unmatched [");
++    return false;
+   }
+-
+-  // finish up by adding any operators
+-  while (!operators.empty())
++  if (after_binaryoperator)
+   {
+-    m_postfix.push_back(-GetOperator(operators.top()));  // negative denotes operator
+-    operators.pop();
++    CLog::Log(LOGERROR, "Missing operand");
++    return false;
+   }
+-
+-  // test evaluate
+-  bool test;
+-  if (!Evaluate(NULL, test))
+-    CLog::Log(LOGERROR, "Error evaluating boolean expression %s", expression.c_str());
+-}
+-
+-bool InfoExpression::Evaluate(const CGUIListItem *item, bool &result)
+-{
+-  stack<bool> save;
+-  for (vector<short>::const_iterator it = m_postfix.begin(); it != m_postfix.end(); ++it)
++  if (operand.size() > 0 && !ProcessOperand(operand, invert, node_types, nodes))
+   {
+-    short expr = *it;
+-    if (expr == -OPERATOR_NOT)
+-    { // NOT the top item on the stack
+-      if (save.empty()) return false;
+-      bool expr = save.top();
+-      save.pop();
+-      save.push(!expr);
+-    }
+-    else if (expr == -OPERATOR_AND)
+-    { // AND the top two items on the stack
+-      if (save.size() < 2) return false;
+-      bool right = save.top(); save.pop();
+-      bool left = save.top(); save.pop();
+-      save.push(left && right);
+-    }
+-    else if (expr == -OPERATOR_OR)
+-    { // OR the top two items on the stack
+-      if (save.size() < 2) return false;
+-      bool right = save.top(); save.pop();
+-      bool left = save.top(); save.pop();
+-      save.push(left || right);
+-    }
+-    else  // operand
+-      save.push(m_operands[expr]->Get(item));
+-  }
+-  if (save.size() != 1)
++    CLog::Log(LOGERROR, "Bad operand '%s'", operand.c_str());
+     return false;
+-  result = save.top();
++  }
++  while (operator_stack.size() > 0)
++    OperatorPop(operator_stack, invert, node_types, nodes);
++
++  m_expression_tree = nodes.top();
+   return true;
+ }
+-
+diff --git a/xbmc/interfaces/info/InfoExpression.h b/xbmc/interfaces/info/InfoExpression.h
+index 4e0faee..0a91399 100644
+--- a/xbmc/interfaces/info/InfoExpression.h
++++ b/xbmc/interfaces/info/InfoExpression.h
+@@ -21,6 +21,8 @@
+ #pragma once
+ 
+ #include <vector>
++#include <list>
++#include <stack>
+ #include "InfoBool.h"
+ 
+ class CGUIListItem;
+@@ -50,12 +52,63 @@ class InfoExpression : public InfoBool
+ 
+   virtual void Update(const CGUIListItem *item);
+ private:
+-  void Parse(const std::string &expression);
+-  bool Evaluate(const CGUIListItem *item, bool &result);
+-  short GetOperator(const char ch) const;
++  typedef enum
++  {
++    OPERATOR_NONE  = 0,
++    OPERATOR_LB,  // 1
++    OPERATOR_RB,  // 2
++    OPERATOR_OR,  // 3
++    OPERATOR_AND, // 4
++    OPERATOR_NOT, // 5
++  } operator_t;
+ 
+-  std::vector<short> m_postfix;         ///< the postfix form of the expression (operators and operand indicies)
+-  std::vector<InfoPtr> m_operands;      ///< the operands in the expression
++  typedef enum
++  {
++    NODE_LEAF,
++    NODE_AND,
++    NODE_OR,
++  } node_type_t;
++
++  // An abstract base class for nodes in the expression tree
++  class InfoSubexpression
++  {
++  public:
++    virtual ~InfoSubexpression(void) {}; // so we can destruct derived classes using a pointer to their base class
++    virtual bool Evaluate(const CGUIListItem *item) = 0;
++  };
++
++  typedef boost::shared_ptr<InfoSubexpression> InfoSubexpressionPtr;
++
++  // A leaf node in the expression tree
++  class InfoLeaf : public InfoSubexpression
++  {
++  public:
++    InfoLeaf(InfoPtr info, bool invert) : m_info(info), m_invert(invert) {};
++    virtual bool Evaluate(const CGUIListItem *item);
++  private:
++    InfoPtr m_info;
++    bool m_invert;
++  };
++
++  // A branch node in the expression tree
++  class InfoAssociativeGroup : public InfoSubexpression
++  {
++  public:
++    InfoAssociativeGroup(bool and_not_or, const InfoSubexpressionPtr &left, const InfoSubexpressionPtr &right);
++    void AddChild(const InfoSubexpressionPtr &child);
++    void Merge(InfoAssociativeGroup *other);
++    virtual bool Evaluate(const CGUIListItem *item);
++  private:
++    bool m_and_not_or;
++    std::list<InfoSubexpressionPtr> m_children;
++  };
++
++  static operator_t GetOperator(char ch);
++  static void OperatorPop(std::stack<operator_t> &operator_stack, bool &invert, std::stack<node_type_t> &node_types, std::stack<InfoSubexpressionPtr> &nodes);
++  static void ProcessOperator(operator_t op, std::stack<operator_t> &operator_stack, bool &invert, std::stack<node_type_t> &node_types, std::stack<InfoSubexpressionPtr> &nodes);
++  bool ProcessOperand(std::string &operand, bool invert, std::stack<node_type_t> &node_types, std::stack<InfoSubexpressionPtr> &nodes);
++  bool Parse(const std::string &expression);
++  InfoSubexpressionPtr m_expression_tree;
+ };
+ 
+ };
+-- 
+1.8.5.1
+
