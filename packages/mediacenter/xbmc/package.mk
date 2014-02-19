@@ -308,6 +308,7 @@ export PYTHON_SITE_PKG="$SYSROOT_PREFIX/usr/lib/python$PYTHON_VERSION/site-packa
 export ac_python_version="$PYTHON_VERSION"
 
 PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
+                           ac_cv_lib_bluetooth_hci_devid=no \
                            --with-arch=$TARGET_ARCH \
                            --with-cpu=$TARGET_CPU \
                            --disable-debug \
