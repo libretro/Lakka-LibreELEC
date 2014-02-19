@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="repository.unofficial.addon.pro"
-PKG_VERSION="4.1.1"
-PKG_REV="1"
+PKG_VERSION="4.1.2"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://unofficial.addon.pro"
