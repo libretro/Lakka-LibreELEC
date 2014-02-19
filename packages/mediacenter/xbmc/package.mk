@@ -385,9 +385,6 @@ pre_configure_target() {
 # Todo: XBMC segfaults on exit when building with LTO support
   strip_lto
 
-# xbmc fails to build with more then 4 cores
-  MAKEFLAGS=-j4
-
   export CFLAGS="$CFLAGS $XBMC_CFLAGS"
   export CXXFLAGS="$CXXFLAGS $XBMC_CXXFLAGS"
   export LIBS="$LIBS -lz"
