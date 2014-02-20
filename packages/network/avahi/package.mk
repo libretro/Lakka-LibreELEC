@@ -92,7 +92,7 @@ post_makeinstall_target() {
   if [ ! $SFTP_SERVER = "yes" ]; then
     rm -rf $INSTALL/etc/avahi/services/sftp-ssh.service
   fi
-  rm -rf $INSTALL/lib/systemd
+  rm -rf $INSTALL/usr/lib/systemd
   rm -f $INSTALL/usr/share/dbus-1/system-services/org.freedesktop.Avahi.service
   rm -f $INSTALL/usr/sbin/avahi-dnsconfd
   rm -f $INSTALL/usr/bin/avahi-bookmarks
