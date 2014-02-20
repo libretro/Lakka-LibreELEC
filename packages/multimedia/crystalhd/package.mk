@@ -54,8 +54,8 @@ make_target() {
 
 post_makeinstall_target() {
   cd $ROOT/$PKG_BUILD
-    mkdir -p $INSTALL/lib/udev/rules.d
-      cp driver/linux/*.rules $INSTALL/lib/udev/rules.d
+    mkdir -p $INSTALL/usr/lib/udev/rules.d
+      cp driver/linux/*.rules $INSTALL/usr/lib/udev/rules.d
 
     mkdir -p $INSTALL/lib/modules/$(get_module_dir)/crystalhd
       cp driver/linux/crystalhd.ko $INSTALL/lib/modules/$(get_module_dir)/crystalhd
