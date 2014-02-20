@@ -32,10 +32,12 @@ PKG_LONGDESC="The eventlircd daemon provides four functions for LIRC devices"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+PKG_CONFIGURE_OPTS_TARGET="--with-udev-dir=/usr/lib/udev"
+
 post_makeinstall_target() {
 # install our own evmap files and udev rules
   rm -rf $INSTALL/etc/eventlircd.d
-  rm -rf $INSTALL/lib/udev/rules.d
+  rm -rf $INSTALL/usr/lib/udev/rules.d
 
   mkdir -p $INSTALL/etc/eventlircd.d
     cp $PKG_DIR/evmap/*.evmap $INSTALL/etc/eventlircd.d
