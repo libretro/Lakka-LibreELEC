@@ -39,3 +39,10 @@ PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr -C utils/keytable"
 make_target() {
     make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
 }
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/lib/udev/rules.d
+
+  mkdir -p $INSTALL/usr/lib/udev/rules.d
+    cp utils/keytable/*.rules $INSTALL/usr/lib/udev/rules.d
+}
