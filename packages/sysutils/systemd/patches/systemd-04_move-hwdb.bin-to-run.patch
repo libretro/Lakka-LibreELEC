@@ -1,54 +1,43 @@
-From d7a9ce1ab7fb5aa2f3715c66c12047561bdff95b Mon Sep 17 00:00:00 2001
-From: Stefan Saraev <stefan@saraev.ca>
-Date: Tue, 22 Oct 2013 19:40:25 +0300
-Subject: [PATCH] move hwdb.bin to /run
-
----
- src/libudev/libudev-hwdb.c |   12 ++++++------
- src/udev/udevadm-hwdb.c    |    2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/src/libudev/libudev-hwdb.c b/src/libudev/libudev-hwdb.c
-index de1cb83..bac85ff 100644
---- a/src/libudev/libudev-hwdb.c
-+++ b/src/libudev/libudev-hwdb.c
-@@ -275,30 +275,30 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
+diff -Naur systemd-209/src/libudev/libudev-hwdb.c systemd-209.patch/src/libudev/libudev-hwdb.c
+--- systemd-209/src/libudev/libudev-hwdb.c	2014-02-13 03:42:33.000000000 +0100
++++ systemd-209.patch/src/libudev/libudev-hwdb.c	2014-02-20 13:53:24.578683125 +0100
+@@ -275,30 +275,30 @@
          hwdb->refcount = 1;
          udev_list_init(udev, &hwdb->properties_list, true);
  
 -        hwdb->f = fopen("/etc/udev/hwdb.bin", "re");
 +        hwdb->f = fopen("/run/hwdb.bin", "re");
          if (!hwdb->f) {
--                log_debug("error reading /etc/udev/hwdb.bin: %m");
-+                log_debug("error reading /run/hwdb.bin: %m");
+-                udev_dbg(udev, "error reading /etc/udev/hwdb.bin: %m");
++                udev_dbg(udev, "error reading /run/hwdb.bin: %m");
                  udev_hwdb_unref(hwdb);
                  return NULL;
          }
  
          if (fstat(fileno(hwdb->f), &hwdb->st) < 0 ||
              (size_t)hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8) {
--                log_debug("error reading /etc/udev/hwdb.bin: %m");
-+                log_debug("error reading /run/hwdb.bin: %m");
+-                udev_dbg(udev, "error reading /etc/udev/hwdb.bin: %m");
++                udev_dbg(udev, "error reading /run/hwdb.bin: %m");
                  udev_hwdb_unref(hwdb);
                  return NULL;
          }
  
          hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
          if (hwdb->map == MAP_FAILED) {
--                log_debug("error mapping /etc/udev/hwdb.bin: %m");
-+                log_debug("error mapping /run/hwdb.bin: %m");
+-                udev_dbg(udev, "error mapping /etc/udev/hwdb.bin: %m");
++                udev_dbg(udev, "error mapping /run/hwdb.bin: %m");
                  udev_hwdb_unref(hwdb);
                  return NULL;
          }
  
          if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
              (size_t)hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
--                log_debug("error recognizing the format of /etc/udev/hwdb.bin");
-+                log_debug("error recognizing the format of /run/hwdb.bin");
+-                udev_dbg(udev, "error recognizing the format of /etc/udev/hwdb.bin");
++                udev_dbg(udev, "error recognizing the format of /run/hwdb.bin");
                  udev_hwdb_unref(hwdb);
                  return NULL;
          }
-@@ -358,7 +358,7 @@ bool udev_hwdb_validate(struct udev_hwdb *hwdb) {
+@@ -358,7 +358,7 @@
                  return false;
          if (!hwdb->f)
                  return false;
@@ -57,12 +46,11 @@ index de1cb83..bac85ff 100644
                  return true;
          if (timespec_load(&hwdb->st.st_mtim) != timespec_load(&st.st_mtim))
                  return true;
-diff --git a/src/udev/udevadm-hwdb.c b/src/udev/udevadm-hwdb.c
-index e4b4a27..31101f9 100644
---- a/src/udev/udevadm-hwdb.c
-+++ b/src/udev/udevadm-hwdb.c
-@@ -629,7 +629,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
-                 log_debug("strings dedup'ed: %8zu bytes (%8zu)\n",
+diff -Naur systemd-209/src/udev/udevadm-hwdb.c systemd-209.patch/src/udev/udevadm-hwdb.c
+--- systemd-209/src/udev/udevadm-hwdb.c	2014-02-19 17:53:50.000000000 +0100
++++ systemd-209.patch/src/udev/udevadm-hwdb.c	2014-02-20 13:50:53.827568058 +0100
+@@ -624,7 +624,7 @@
+                 log_debug("strings dedup'ed: %8zu bytes (%8zu)",
                            trie->strings->dedup_len, trie->strings->dedup_count);
  
 -                if (asprintf(&hwdb_bin, "%s/etc/udev/hwdb.bin", root) < 0) {
@@ -70,6 +58,3 @@ index e4b4a27..31101f9 100644
                          rc = EXIT_FAILURE;
                          goto out;
                  }
--- 
-1.7.2.5
-

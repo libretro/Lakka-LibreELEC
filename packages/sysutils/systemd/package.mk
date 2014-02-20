@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="208"
+PKG_VERSION="209"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="http://www.freedesktop.org/software/systemd/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain attr libcap dbus:bootstrap kmod util-linux glib libgcrypt"
+PKG_DEPENDS_TARGET="toolchain attr libcap kmod util-linux glib libgcrypt"
 PKG_PRIORITY="required"
 PKG_SECTION="system"
 PKG_SHORTDESC="systemd: a system and session manager"
@@ -35,18 +35,19 @@ PKG_AUTORECONF="yes"
 # libgcrypt is needed actually only for autoreconf
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libgcrypt"
 
-# TODO: use cpp directly to avoid using 'gcc -E' in Makefiles
-#  export CPP=${TARGET_PREFIX}cpp
-
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            KMOD=/usr/bin/kmod \
                            --disable-nls \
                            --disable-gtk-doc \
                            --disable-gtk-doc-html \
                            --disable-gtk-doc-pdf \
+                           --disable-python-devel \
+                           --disable-dbus \
+                           --disable-compat-libs \
                            --disable-coverage \
                            --enable-kmod \
                            --enable-blkid \
+                           --disable-seccomp \
                            --disable-ima \
                            --disable-chkconfig \
                            --disable-selinux \
@@ -76,7 +77,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-localed \
                            --disable-coredump \
                            --disable-polkit \
+                           --disable-multi-seat-x \
+                           --disable-networkd \
                            --disable-efi \
+                           --disable-kdbus \
                            --disable-myhostname \
                            --enable-gudev \
                            --disable-manpages \
@@ -88,7 +92,11 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-sysvinit-path= \
                            --with-sysvrcnd-path= \
                            --with-tty-gid=5 \
-                           --with-rootprefix= \
+                           --with-dbuspolicydir=/etc/dbus-1/system.d \
+                           --with-dbussessionservicedir=/usr/share/dbus-1/services \
+                           --with-dbussystemservicedir=/usr/share/dbus-1/system-services \
+                           --with-dbusinterfacedir=/usr/share/dbus-1/interfaces \
+                           --with-rootprefix=/usr \
                            --with-rootlibdir=/lib"
 
 pre_make_target() {
@@ -104,13 +112,13 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/lib/rpm
     rm  -f $INSTALL/usr/bin/kernel-install
 
-   rm -f $INSTALL/lib/udev/hwdb.d/20-OUI.hwdb
-   rm -f $INSTALL/lib/udev/hwdb.d/20-acpi-vendor.hwdb
-   rm -f $INSTALL/lib/udev/hwdb.d/20-bluetooth-vendor-product.hwdb
-   rm -f $INSTALL/lib/udev/hwdb.d/20-pci-classes.hwdb
-   rm -f $INSTALL/lib/udev/hwdb.d/20-pci-vendor-model.hwdb
-   rm -f $INSTALL/lib/udev/hwdb.d/20-usb-classes.hwdb
-   rm -f $INSTALL/lib/udev/hwdb.d/20-usb-vendor-model.hwdb
+   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-OUI.hwdb
+   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-acpi-vendor.hwdb
+   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-bluetooth-vendor-product.hwdb
+   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-pci-classes.hwdb
+   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-pci-vendor-model.hwdb
+   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-usb-classes.hwdb
+   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-usb-vendor-model.hwdb
 
   # tune journald.conf
     sed -e "s,^.*Compress=.*$,Compress=no,g" -i $INSTALL/etc/systemd/journald.conf
@@ -121,67 +129,59 @@ post_makeinstall_target() {
     sed -e "s,^.*SystemMaxUse=.*$,SystemMaxUse=10M,g" -i $INSTALL/etc/systemd/journald.conf
 
   # replace systemd-machine-id-setup with ours
-    mkdir -p $INSTALL/bin
-      rm -rf $INSTALL/bin/systemd-machine-id-setup
-      cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/bin
+    mkdir -p $INSTALL/usr/bin
+      rm -rf $INSTALL/usr/bin/systemd-machine-id-setup
+      cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/usr/bin
 
   # copy openelec helper scripts
     mkdir -p $INSTALL/usr/lib/openelec
       cp $PKG_DIR/scripts/openelec-userconfig $INSTALL/usr/lib/openelec/
 
   # provide 'halt', 'shutdown', 'reboot' & co.
-    mkdir -p $INSTALL/sbin
-      ln -sf /bin/systemctl $INSTALL/sbin/halt
-      ln -sf /bin/systemctl $INSTALL/sbin/poweroff
-      ln -sf /bin/systemctl $INSTALL/sbin/reboot
-      ln -sf /bin/systemctl $INSTALL/sbin/runlevel
-      ln -sf /bin/systemctl $INSTALL/sbin/shutdown
-      ln -sf /bin/systemctl $INSTALL/sbin/telinit
     mkdir -p $INSTALL/usr/sbin
-      ln -sf /bin/systemctl $INSTALL/usr/sbin/halt
-      ln -sf /bin/systemctl $INSTALL/usr/sbin/poweroff
-      ln -sf /bin/systemctl $INSTALL/usr/sbin/reboot
-      ln -sf /bin/systemctl $INSTALL/usr/sbin/runlevel
-      ln -sf /bin/systemctl $INSTALL/usr/sbin/shutdown
-      ln -sf /bin/systemctl $INSTALL/usr/sbin/telinit
-      ln -sf /bin/udevadm $INSTALL/sbin/udevadm
+      ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/halt
+      ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/poweroff
+      ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/reboot
+      ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/runlevel
+      ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/shutdown
+      ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/telinit
 
   # remove Network adaper renaming rule, this is confusing
-    rm -rf $INSTALL/lib/udev/rules.d/80-net-name-slot.rules
+    rm -rf $INSTALL/usr/lib/udev/rules.d/80-net-name-slot.rules
 
   # remove debug-shell.service, we install our own
-    rm -rf $INSTALL/lib/systemd/system/debug-shell.service
+    rm -rf $INSTALL/usr/lib/systemd/system/debug-shell.service
 
   # remove systemd-update-utmp. pointless
-    rm -rf $INSTALL/lib/systemd/systemd-update-utmp
-    rm -rf $INSTALL/lib/systemd/system/systemd-update-utmp-runlevel.service
-    rm -rf $INSTALL/lib/systemd/system/systemd-update-utmp.service
-    rm -rf $INSTALL/lib/systemd/system/sysinit.target.wants/systemd-update-utmp.service
+    rm -rf $INSTALL/usr/lib/systemd/systemd-update-utmp
+    rm -rf $INSTALL/usr/lib/systemd/system/systemd-update-utmp-runlevel.service
+    rm -rf $INSTALL/usr/lib/systemd/system/systemd-update-utmp.service
+    rm -rf $INSTALL/usr/lib/systemd/system/sysinit.target.wants/systemd-update-utmp.service
 
   # remove systemd-ask-password. pointless
-    rm -rf $INSTALL/lib/systemd/system/systemd-ask-password-wall.service
-    rm -rf $INSTALL/lib/systemd/system/systemd-ask-password-wall.path
-    rm -rf $INSTALL/lib/systemd/system/systemd-ask-password-console.path
-    rm -rf $INSTALL/lib/systemd/system/systemd-ask-password-console.service
-    rm -rf $INSTALL/bin/systemd-ask-password
-    rm -rf $INSTALL/bin/systemd-tty-ask-password-agent
-    rm -rf $INSTALL/lib/systemd/system/sysinit.target.wants/systemd-ask-password-console.path
-    rm -rf $INSTALL/lib/systemd/system/multi-user.target.wants/systemd-ask-password-wall.path
+    rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-wall.service
+    rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-wall.path
+    rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-console.path
+    rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-console.service
+    rm -rf $INSTALL/usr/bin/systemd-ask-password
+    rm -rf $INSTALL/usr/bin/systemd-tty-ask-password-agent
+    rm -rf $INSTALL/usr/lib/systemd/system/sysinit.target.wants/systemd-ask-password-console.path
+    rm -rf $INSTALL/usr/lib/systemd/system/multi-user.target.wants/systemd-ask-password-wall.path
 
   # remove some generators we never use
-    rm -rf $INSTALL/lib/systemd/system-generators/systemd-fstab-generator
+    rm -rf $INSTALL/usr/lib/systemd/system-generators/systemd-fstab-generator
 
   # remove getty units, we dont want a console
-    rm -rf $INSTALL/lib/systemd/system/autovt@.service
-    rm -rf $INSTALL/lib/systemd/system/console-getty.service
-    rm -rf $INSTALL/lib/systemd/system/console-shell.service
-    rm -rf $INSTALL/lib/systemd/system/getty@.service
-    rm -rf $INSTALL/lib/systemd/system/getty.target
-    rm -rf $INSTALL/lib/systemd/system/multi-user.target.wants/getty.target
+    rm -rf $INSTALL/usr/lib/systemd/system/autovt@.service
+    rm -rf $INSTALL/usr/lib/systemd/system/console-getty.service
+    rm -rf $INSTALL/usr/lib/systemd/system/console-shell.service
+    rm -rf $INSTALL/usr/lib/systemd/system/getty@.service
+    rm -rf $INSTALL/usr/lib/systemd/system/getty.target
+    rm -rf $INSTALL/usr/lib/systemd/system/multi-user.target.wants/getty.target
 
   # remove rootfs fsck
-    rm -rf $INSTALL/lib/systemd/system/systemd-fsck-root.service
-    rm -rf $INSTALL/lib/systemd/system/local-fs.target.wants/systemd-fsck-root.service
+    rm -rf $INSTALL/usr/lib/systemd/system/systemd-fsck-root.service
+    rm -rf $INSTALL/usr/lib/systemd/system/local-fs.target.wants/systemd-fsck-root.service
 
   mkdir -p $INSTALL/usr/config
     cp -PR $PKG_DIR/config/* $INSTALL/usr/config
