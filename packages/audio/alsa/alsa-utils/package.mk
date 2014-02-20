@@ -51,6 +51,6 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/bin/$i
   done
 
-  mkdir -p $INSTALL/lib/udev
-    cp $PKG_DIR/scripts/soundconfig $INSTALL/lib/udev
+  mkdir -p $INSTALL/usr/lib/udev
+    cp $PKG_DIR/scripts/soundconfig $INSTALL/usr/lib/udev
 }
