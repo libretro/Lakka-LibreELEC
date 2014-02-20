@@ -83,7 +83,7 @@ PKG_MAKE_OPTS_TARGET="storagedir=/storage/.cache/connman \
                       statedir=/run/connman"
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/lib/systemd
+  rm -rf $INSTALL/usr/lib/systemd
 
   mkdir -p $INSTALL/usr/bin
     cp -P client/connmanctl $INSTALL/usr/bin
