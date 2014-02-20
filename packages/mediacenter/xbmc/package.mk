@@ -492,7 +492,7 @@ post_makeinstall_target() {
 
 post_install() {
 # link default.target to xbmc.target
-  ln -sf xbmc.target $INSTALL/lib/systemd/system/default.target
+  ln -sf xbmc.target $INSTALL/usr/lib/systemd/system/default.target
 
   enable_service xbmc-autostart.service
   enable_service xbmc-cleanlogs.service
