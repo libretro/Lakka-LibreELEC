@@ -169,8 +169,8 @@ makeinstall_target() {
       cp ../codepages/upcase.dat $INSTALL/etc/samba
       cp ../codepages/valid.dat $INSTALL/etc/samba
 
-    mkdir -p $INSTALL/lib/systemd/system
-      cp $PKG_DIR/system.d.opt/* $INSTALL/lib/systemd/system
+    mkdir -p $INSTALL/usr/lib/systemd/system
+      cp $PKG_DIR/system.d.opt/* $INSTALL/usr/lib/systemd/system
 
     mkdir -p $INSTALL/usr/share/services
       cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
