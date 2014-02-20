@@ -213,12 +213,12 @@ post_install() {
 
   # cron support
   if [ "$CRON_SUPPORT" = "yes" ] ; then
-    mkdir -p $INSTALL/lib/systemd/system
-      cp $PKG_DIR/system.d.opt/cron.service $INSTALL/lib/systemd/system
+    mkdir -p $INSTALL/usr/lib/systemd/system
+      cp $PKG_DIR/system.d.opt/cron.service $INSTALL/usr/lib/systemd/system
       enable_service cron.service
     mkdir -p $INSTALL/usr/share/services
       cp -P $PKG_DIR/default.d/*.conf $INSTALL/usr/share/services
-      cp $PKG_DIR/system.d.opt/cron-defaults.service $INSTALL/lib/systemd/system
+      cp $PKG_DIR/system.d.opt/cron-defaults.service $INSTALL/usr/lib/systemd/system
       enable_service cron-defaults.service
   fi
 }
