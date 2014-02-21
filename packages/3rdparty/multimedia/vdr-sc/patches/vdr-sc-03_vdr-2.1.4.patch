@@ -1,0 +1,73 @@
+## source: http://overlays.gentoo.org/svn/proj/vdr/vdr-devel/media-plugins/vdr-sc/files/
+
+diff -r 29b7b5f231c8 cam.c
+--- a/cam.c	Sat Jul 21 20:51:33 2012 +0200
++++ b/cam.c	Wed Jan 08 16:47:38 2014 +0400
+@@ -1841,7 +1841,7 @@
+   cScCamSlot(cCam *Cam, const char *DevId, int Slot);
+   void Process(const unsigned char *data, int len);
+   eModuleStatus Status(void);
+-  bool Reset(bool log=true);
++  bool ResetSlot(bool log=true);
+   cCiFrame *Frame(void) { return &frame; }
+   };
+ 
+@@ -1853,7 +1853,7 @@
+   cam=Cam; devId=DevId; slot=Slot;
+   version=0; caids[0]=0; doReply=false; lastStatus=msReset;
+   frame.SetRb(&rb);
+-  Reset(false);
++  ResetSlot(false);
+ }
+ 
+ eModuleStatus cScCamSlot::Status(void)
+@@ -1876,7 +1876,7 @@
+   return status;
+ }
+ 
+-bool cScCamSlot::Reset(bool log)
++bool cScCamSlot::ResetSlot(bool log)
+ {
+   reset=true; resetTimer.Set(SLOT_RESET_TIME);
+   rb.Clear();
+@@ -1890,7 +1890,7 @@
+   bool dr=cam->IsSoftCSA(false) || ScSetup.ConcurrentFF>0;
+   if(dr!=doReply && !IsDecrypting()) {
+     PRINTF(L_CORE_CI,"%s.%d: doReply changed, reset triggered",devId,slot);
+-    Reset(false);
++    ResetSlot(false);
+     doReply=dr;
+     }
+   if(checkTimer.TimedOut()) {
+@@ -2330,7 +2330,7 @@
+ {
+   cMutexLock lock(&ciMutex);
+   PRINTF(L_CORE_CI,"%s: reset of slot %d requested",devId,Slot);
+-  return slots[Slot] ? slots[Slot]->Reset():false;
++  return slots[Slot] ? slots[Slot]->ResetSlot():false;
+ }
+ 
+ eModuleStatus cCam::ModuleStatus(int Slot)
+--- a/device-tmpl.c	2012-07-21 20:51:33.000000000 +0200
++++ b/device-tmpl.c	2014-01-26 13:51:59.000000000 +0100
+@@ -41,7 +41,6 @@
+ #endif //!SASC
+ protected:
+ #ifndef SASC
+-  virtual bool Ready(void);
+   virtual bool SetPid(cPidHandle *Handle, int Type, bool On);
+   virtual bool SetChannelDevice(const cChannel *Channel, bool LiveView);
+   virtual bool OpenDvr(void);
+@@ -164,12 +163,6 @@
+   return cam || hwciadapter;
+ }
+ 
+-bool SCDEVICE::Ready(void)
+-{
+-  return (cam         ? cam->Ready():true) &&
+-         (hwciadapter ? hwciadapter->Ready():true);
+-}
+-
+ bool SCDEVICE::SetPid(cPidHandle *Handle, int Type, bool On)
+ {
+   if(cam) cam->SetPid(Type,Handle->pid,On);
