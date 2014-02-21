@@ -1,0 +1,282 @@
+diff --git a/device.c b/device.c
+index 9da5e7f..c9095b0 100644
+--- a/device.c
++++ b/device.c
+@@ -794,6 +794,7 @@ eSetChannelResult cDevice::SetChannel(const cChannel *Channel, bool LiveView)
+      if (SetChannelDevice(Channel, LiveView)) {
+         // Start section handling:
+         if (sectionHandler) {
++           patFilter->Trigger(Channel->Sid());
+            sectionHandler->SetChannel(Channel);
+            sectionHandler->SetStatus(true);
+            }
+diff --git a/pat.c b/pat.c
+index dabcead..a21b402 100644
+--- a/pat.c
++++ b/pat.c
+@@ -12,9 +12,8 @@
+ #include "channels.h"
+ #include "libsi/section.h"
+ #include "libsi/descriptor.h"
+-#include "thread.h"
+ 
+-#define PMT_SCAN_TIMEOUT  10 // seconds
++#define PMT_SCAN_TIMEOUT  1000 // ms
+ 
+ // --- cCaDescriptor ---------------------------------------------------------
+ 
+@@ -273,94 +272,115 @@ int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds
+ 
+ // --- cPatFilter ------------------------------------------------------------
+ 
++//#define DEBUG_PAT_PMT//XXX
++#ifdef DEBUG_PAT_PMT
++#define DBGLOG(a...) { cString s = cString::sprintf(a); fprintf(stderr, "%s\n", *s); dsyslog("%s", *s); }
++#else
++#define DBGLOG(a...)
++#endif
++
+ cPatFilter::cPatFilter(void)
+ {
+-  pmtIndex = 0;
+-  pmtPid = 0;
+-  pmtSid = 0;
+-  lastPmtScan = 0;
+-  numPmtEntries = 0;
++  Trigger(0);
+   Set(0x00, 0x00);  // PAT
+ }
+ 
+ void cPatFilter::SetStatus(bool On)
+ {
++  cMutexLock MutexLock(&mutex);
++  DBGLOG("PAT filter set status %d", On);
+   cFilter::SetStatus(On);
+-  pmtIndex = 0;
+-  pmtPid = 0;
+-  pmtSid = 0;
+-  lastPmtScan = 0;
+-  numPmtEntries = 0;
++  Trigger();
+ }
+ 
+-void cPatFilter::Trigger(void)
++void cPatFilter::Trigger(int Sid)
+ {
++  cMutexLock MutexLock(&mutex);
++  patVersion = -1;
++  pmtIndex = -1;
+   numPmtEntries = 0;
++  if (Sid >= 0) {
++     sid = Sid;
++     DBGLOG("PAT filter trigger SID %d", Sid);
++     }
+ }
+ 
+-bool cPatFilter::PmtVersionChanged(int PmtPid, int Sid, int Version)
++bool cPatFilter::PmtVersionChanged(int PmtPid, int Sid, int Version, bool SetNewVersion)
+ {
+-  uint64_t v = Version;
+-  v <<= 32;
+-  uint64_t id = (PmtPid | (Sid << 16)) & 0x00000000FFFFFFFFLL;
++  int Id = MakePmtId(PmtPid, Sid);
+   for (int i = 0; i < numPmtEntries; i++) {
+-      if ((pmtVersion[i] & 0x00000000FFFFFFFFLL) == id) {
+-         bool Changed = (pmtVersion[i] & 0x000000FF00000000LL) != v;
+-         if (Changed)
+-            pmtVersion[i] = id | v;
+-         return Changed;
++      if (pmtId[i] == Id) {
++         if (pmtVersion[i] != Version) {
++            if (SetNewVersion)
++               pmtVersion[i] = Version;
++            else
++               DBGLOG("PMT %d  %2d %5d %2d -> %2d", Transponder(), i, PmtPid, pmtVersion[i], Version);
++            return true;
++            }
++         break;
+          }
+       }
+-  if (numPmtEntries < MAXPMTENTRIES)
+-     pmtVersion[numPmtEntries++] = id | v;
+-  return true;
++  return false;
++}
++
++void cPatFilter::SwitchToNextPmtPid(void)
++{
++  if (pmtIndex >= 0) {
++     Del(GetPmtPid(pmtIndex), SI::TableIdPMT);
++     pmtIndex = (pmtIndex + 1) % numPmtEntries;
++     Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
++     }
+ }
+ 
+ void cPatFilter::Process(u_short Pid, u_char Tid, const u_char *Data, int Length)
+ {
++  cMutexLock MutexLock(&mutex);
+   if (Pid == 0x00) {
+-     if (Tid == 0x00) {
+-        if (pmtPid && time(NULL) - lastPmtScan > PMT_SCAN_TIMEOUT) {
+-           Del(pmtPid, 0x02);
+-           pmtPid = 0;
+-           pmtIndex++;
+-           lastPmtScan = time(NULL);
+-           }
+-        if (!pmtPid) {
+-           SI::PAT pat(Data, false);
+-           if (!pat.CheckCRCAndParse())
+-              return;
++     if (Tid == SI::TableIdPAT) {
++        SI::PAT pat(Data, false);
++        if (!pat.CheckCRCAndParse())
++           return;
++        if (pat.getVersionNumber() != patVersion) {
++           DBGLOG("PAT %d/%d %d %d -> %d", pat.getSectionNumber(), pat.getLastSectionNumber(), Transponder(), patVersion, pat.getVersionNumber());
++           if (pmtIndex >= 0) {
++              Del(GetPmtPid(pmtIndex), SI::TableIdPMT);
++              pmtIndex = -1;
++              }
++           numPmtEntries = 0;
+            SI::PAT::Association assoc;
+-           int Index = 0;
+            for (SI::Loop::Iterator it; pat.associationLoop.getNext(assoc, it); ) {
+-               if (!assoc.isNITPid()) {
+-                  if (Index++ >= pmtIndex && Channels.GetByServiceID(Source(), Transponder(), assoc.getServiceId())) {
+-                     pmtPid = assoc.getPid();
+-                     pmtSid = assoc.getServiceId();
+-                     Add(pmtPid, 0x02);
+-                     break;
++               if (!assoc.isNITPid() && numPmtEntries < MAXPMTENTRIES) {
++                  DBGLOG("    PMT pid %2d %5d  SID %5d", numPmtEntries, assoc.getPid(), assoc.getServiceId());
++                  pmtId[numPmtEntries] = MakePmtId(assoc.getPid(), assoc.getServiceId());
++                  pmtVersion[numPmtEntries] = -1;
++                  if (sid == assoc.getServiceId()) {
++                     pmtIndex = numPmtEntries;
++                     DBGLOG("sid = %d pmtIndex = %d", sid, pmtIndex);
+                      }
++                  numPmtEntries++;
+                   }
+                }
+-           if (!pmtPid)
++           if (numPmtEntries > 0 && pmtIndex < 0)
+               pmtIndex = 0;
++           Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
++           patVersion = pat.getVersionNumber();
++           timer.Set(PMT_SCAN_TIMEOUT);
+            }
+         }
+      }
+-  else if (Pid == pmtPid && Tid == SI::TableIdPMT && Source() && Transponder()) {
++  else if (Tid == SI::TableIdPMT && Source() && Transponder()) {
++     timer.Set(PMT_SCAN_TIMEOUT);
+      SI::PMT pmt(Data, false);
+      if (!pmt.CheckCRCAndParse())
+         return;
+-     if (pmt.getServiceId() != pmtSid)
+-        return; // skip broken PMT records
+-     if (!PmtVersionChanged(pmtPid, pmt.getTableIdExtension(), pmt.getVersionNumber())) {
+-        lastPmtScan = 0; // this triggers the next scan
++     if (!PmtVersionChanged(Pid, pmt.getTableIdExtension(), pmt.getVersionNumber())) {
++        SwitchToNextPmtPid();
+         return;
+         }
+-     if (!Channels.Lock(true, 10)) {
+-        numPmtEntries = 0; // to make sure we try again
++     if (!Channels.Lock(true, 10))
+         return;
+-        }
++     PmtVersionChanged(Pid, pmt.getTableIdExtension(), pmt.getVersionNumber(), true);
++     SwitchToNextPmtPid();
+      cChannel *Channel = Channels.GetByServiceID(Source(), Transponder(), pmt.getServiceId());
+      if (Channel) {
+         SI::CaDescriptor *d;
+@@ -597,7 +617,12 @@ void cPatFilter::Process(u_short Pid, u_char Tid, const u_char *Data, int Length
+            }
+         Channel->SetCaDescriptors(CaDescriptorHandler.AddCaDescriptors(CaDescriptors));
+         }
+-     lastPmtScan = 0; // this triggers the next scan
+      Channels.Unlock();
+      }
++  if (timer.TimedOut()) {
++     if (pmtIndex >= 0)
++        DBGLOG("PMT timeout %d", pmtIndex);
++     SwitchToNextPmtPid();
++     timer.Set(PMT_SCAN_TIMEOUT);
++     }
+ }
+diff --git a/pat.c.orig b/pat.c.orig
+index 5246e07..dabcead 100644
+--- a/pat.c.orig
++++ b/pat.c.orig
+@@ -591,6 +591,7 @@ void cPatFilter::Process(u_short Pid, u_char Tid, const u_char *Data, int Length
+             }
+         if (Setup.UpdateChannels >= 2) {
+            Channel->SetPids(Vpid, Ppid, Vtype, Apids, Atypes, ALangs, Dpids, Dtypes, DLangs, Spids, SLangs, Tpid);
++           if (!cSource::IsType(Channel->Source(), 'I'))
+            Channel->SetCaIds(CaDescriptors->CaIds());
+            Channel->SetSubtitlingDescriptors(SubtitlingTypes, CompositionPageIds, AncillaryPageIds);
+            }
+diff --git a/pat.h b/pat.h
+index 7f04575..f52b903 100644
+--- a/pat.h
++++ b/pat.h
+@@ -12,24 +12,30 @@
+ 
+ #include <stdint.h>
+ #include "filter.h"
++#include "thread.h"
+ 
+ #define MAXPMTENTRIES 64
+ 
+ class cPatFilter : public cFilter {
+ private:
+-  time_t lastPmtScan;
++  cMutex mutex;
++  cTimeMs timer;
++  int patVersion;
+   int pmtIndex;
+-  int pmtPid;
+-  int pmtSid;
+-  uint64_t pmtVersion[MAXPMTENTRIES];
++  int pmtId[MAXPMTENTRIES];
++  int pmtVersion[MAXPMTENTRIES];
+   int numPmtEntries;
+-  bool PmtVersionChanged(int PmtPid, int Sid, int Version);
++  int sid;
++  int GetPmtPid(int Index) { return pmtId[Index] & 0x0000FFFF; }
++  int MakePmtId(int PmtPid, int Sid) { return PmtPid | (Sid << 16); }
++  bool PmtVersionChanged(int PmtPid, int Sid, int Version, bool SetNewVersion = false);
++  void SwitchToNextPmtPid(void);
+ protected:
+   virtual void Process(u_short Pid, u_char Tid, const u_char *Data, int Length);
+ public:
+   cPatFilter(void);
+   virtual void SetStatus(bool On);
+-  void Trigger(void);
++  void Trigger(int Sid = -1);
+   };
+ 
+ int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
+diff --git a/sdt.c b/sdt.c
+index c6d0ce5..1667e0f 100644
+--- a/sdt.c
++++ b/sdt.c
+@@ -94,7 +94,7 @@ void cSdtFilter::Process(u_short Pid, u_char Tid, const u_char *Data, int Length
+                            }
+                         else if (*pn && Setup.UpdateChannels >= 4) {
+                            channel = Channels.NewChannel(Channel(), pn, ps, pp, sdt.getOriginalNetworkId(), sdt.getTransportStreamId(), SiSdtService.getServiceId());
+-                           patFilter->Trigger();
++                           patFilter->Trigger(SiSdtService.getServiceId());
+                            }
+                         }
+                    default: ;
+@@ -120,7 +120,7 @@ void cSdtFilter::Process(u_short Pid, u_char Tid, const u_char *Data, int Length
+                      cChannel *link = Channels.GetByChannelID(tChannelID(Source(), Service.getOriginalNetworkId(), Service.getTransportStream(), Service.getServiceId()));
+                      if (!link && Setup.UpdateChannels >= 4) {
+                         link = Channels.NewChannel(Channel(), "NVOD", "", "", Service.getOriginalNetworkId(), Service.getTransportStream(), Service.getServiceId());
+-                        patFilter->Trigger();
++                        patFilter->Trigger(Service.getServiceId());
+                         }
+                      if (link) {
+                         if (!LinkChannels)
