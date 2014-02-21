@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-xvdr"
-PKG_VERSION="6249892"
+PKG_VERSION="fd9ba90"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -32,6 +32,12 @@ PKG_LONGDESC="TV"
 PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
+
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -fPIC"
+  export LDFLAGS="$LDFLAGS -fPIC"
+}
 
 make_target() {
   VDR_DIR=$(get_build_dir vdr)

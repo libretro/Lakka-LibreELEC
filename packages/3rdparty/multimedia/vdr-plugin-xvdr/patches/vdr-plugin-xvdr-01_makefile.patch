@@ -1,0 +1,59 @@
+From 08b08a02a8e93e9b11594e2e846ec2b1a316d314 Mon Sep 17 00:00:00 2001
+From: Stefan Saraev <stefan@saraev.ca>
+Date: Wed, 12 Feb 2014 20:32:03 +0200
+Subject: [PATCH] makefile
+
+---
+ Makefile |   15 ++++-----------
+ 1 files changed, 4 insertions(+), 11 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index da54323..81ba0e7 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,23 +15,15 @@ VERSION = $(shell grep 'static const char \*VERSION *=' src/xvdr/xvdr.h | awk '{
+ 
+ ### The directory environment:
+ 
+-# Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(call PKGCFG,libdir)
+-LOCDIR = $(call PKGCFG,locdir)
+-PLGCFG = $(call PKGCFG,plgcfg)
+-CFGDIR  = $(call PKGCFG,configdir)/plugins/$(PLUGIN)
+-#
+ TMPDIR ?= /tmp
+ 
+ ### The compiler options:
+ 
+-export CFLAGS   = $(call PKGCFG,cflags)
+-export CXXFLAGS = $(call PKGCFG,cxxflags)
++include $(VDRDIR)/Make.global
+ 
+ ### The version number of VDR's plugin API:
+ 
+-APIVERSION = $(call PKGCFG,apiversion)
++APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
+ 
+ ### Allow user defined options to overwrite defaults:
+ 
+@@ -48,7 +40,7 @@ SOFILE = libvdr-$(PLUGIN).so
+ 
+ ### Includes and Defines (add further entries here):
+ 
+-INCLUDES += -I./src -I./src/vdr
++INCLUDES += -I./src -I./src/vdr -I$(VDRDIR)/include
+ 
+ ifdef DEBUG
+ INCLUDES += -DDEBUG
+@@ -136,6 +128,7 @@ install-i18n: $(I18Nmsgs)
+ 
+ $(SOFILE): $(OBJS)
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+-- 
+1.7.2.5
+
