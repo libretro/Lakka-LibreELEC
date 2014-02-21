@@ -1,13 +1,13 @@
 diff --git a/Makefile b/Makefile
-index ebe9d76..ef2d2e5 100644
+index a49dda6..873e73d 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -15,18 +15,11 @@ VERSION = $(shell grep 'static const char \*VERSION *=' DVBAPI.h | awk '{ print
+@@ -16,18 +16,11 @@ GITTAG  = $(shell git describe --always 2>/dev/null)
  
  ### The directory environment:
  
 -# Use package data if installed...otherwise assume we're under the VDR source directory:
--PKGCFG  = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-PKGCFG  = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
 -LIBDIR  = $(call PKGCFG,libdir)
 -LOCDIR  = $(call PKGCFG,locdir)
 -PLGCFG  = $(call PKGCFG,plgcfg)
@@ -22,56 +22,29 @@ index ebe9d76..ef2d2e5 100644
  
  ### Allow user defined options to overwrite defaults:
  
-@@ -34,33 +27,7 @@ export CXXFLAGS = $(call PKGCFG,cxxflags)
+@@ -35,7 +28,7 @@ export CXXFLAGS = $(call PKGCFG,cxxflags)
  
  ### The version number of VDR's plugin API:
  
 -APIVERSION = $(call PKGCFG,apiversion)
--ifeq ($(strip $(APIVERSION)),)
--APIVERSION = $(shell grep 'define APIVERSION ' $(VDRDIR)/config.h | awk '{ print $$3 }' | sed -e 's/"//g')
--NOCONFIG := 1
--endif
--
--# backward compatibility with VDR version < 1.7.34
--API1733 := $(shell if [ "$(APIVERSION)" \< "1.7.34" ]; then echo true; fi; )
--
--ifdef API1733
--
--VDRSRC = $(VDRDIR)
--ifeq ($(strip $(VDRSRC)),)
--VDRSRC := ../../..
--endif
--LIBDIR = $(VDRSRC)/PLUGINS/lib
--
--ifndef NOCONFIG
--CXXFLAGS = $(call PKGCFG,cflags)
--CXXFLAGS += -fPIC
--else
---include $(VDRSRC)/Make.global
---include $(VDRSRC)/Make.config
--endif
--
--export CXXFLAGS
--endif
 +APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
  
  ### The name of the distribution archive:
  
-@@ -73,9 +40,7 @@ SOFILE = libvdr-$(PLUGIN).so
+@@ -48,7 +41,7 @@ SOFILE = libvdr-$(PLUGIN).so
  
  ### Includes and Defines (add further entries here):
  
--ifdef API1733
- INCLUDES += -I$(VDRSRC)/include
--endif
+-INCLUDES +=
++INCLUDES += -I$(VDRDIR)/include
  
  DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
  
-@@ -145,6 +110,7 @@ $(DEPFILE): Makefile
+@@ -122,6 +115,7 @@ install-i18n: $(I18Nmsgs)
  
  $(SOFILE): $(OBJS) $(FFDECSA)
  	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(DECSALIB) -o $@
 +	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
  
- libdvbapi-dvbsddevice.so: device-sd.o
- 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $< -o $@
+ ifndef LIBDVBCSA
+ $(FFDECSA): $(FFDECSADIR)/*.c $(FFDECSADIR)/*.h
