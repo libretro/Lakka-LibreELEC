@@ -18,7 +18,7 @@
 ################################################################################
 
 PKG_NAME="vdr"
-PKG_VERSION="2.1.3"
+PKG_VERSION="2.1.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
