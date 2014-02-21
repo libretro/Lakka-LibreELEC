@@ -128,6 +128,9 @@ post_makeinstall_target() {
     sed -e "s,^.*RuntimeMaxFileSize=.*$,RuntimeMaxFileSize=128K,g" -i $INSTALL/etc/systemd/journald.conf
     sed -e "s,^.*SystemMaxUse=.*$,SystemMaxUse=10M,g" -i $INSTALL/etc/systemd/journald.conf
 
+  # tune logind.conf
+    sed -e "s,^.*LidSwitchIgnoreInhibited=.*$,LidSwitchIgnoreInhibited=yes,g" -i $INSTALL/etc/systemd/logind.conf
+
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/usr/bin
       rm -rf $INSTALL/usr/bin/systemd-machine-id-setup
