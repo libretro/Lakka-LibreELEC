@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="syslinux"
-PKG_VERSION="5.10"
+PKG_VERSION="6.02"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
@@ -63,29 +63,28 @@ make_host() {
   make CC=$CC \
        AR=$AR \
        RANLIB=$RANLIB \
-       CFLAGS="-I$ROOT/$TOOLCHAIN/include -I../libinstaller -I../libfat -fomit-frame-pointer -D_FILE_OFFSET_BITS=64" \
+       CFLAGS="-I$ROOT/$TOOLCHAIN/include -I$ROOT/$PKG_BUILD/libinstaller -I$ROOT/$PKG_BUILD/libfat -I$ROOT/$PKG_BUILD/bios -I$ROOT/$PKG_BUILD/utils -fomit-frame-pointer -D_FILE_OFFSET_BITS=64" \
        LDFLAGS="-L$ROOT/$TOOLCHAIN/lib" \
        installer
 }
 
 makeinstall_host() {
   mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp extlinux/extlinux $ROOT/$TOOLCHAIN/bin
+    cp bios/extlinux/extlinux $ROOT/$TOOLCHAIN/bin
 
   mkdir -p $ROOT/$TOOLCHAIN/share/syslinux
-    cp com32/menu/vesamenu.c32 $ROOT/$TOOLCHAIN/share/syslinux
-    cp com32/lib/libcom32.c32 $ROOT/$TOOLCHAIN/share/syslinux
-    cp com32/libutil/libutil.c32 $ROOT/$TOOLCHAIN/share/syslinux
-    cp mbr/mbr.bin $ROOT/$TOOLCHAIN/share/syslinux
+    cp bios/com32/menu/vesamenu.c32 $ROOT/$TOOLCHAIN/share/syslinux
+    cp bios/com32/lib/libcom32.c32 $ROOT/$TOOLCHAIN/share/syslinux
+    cp bios/com32/libutil/libutil.c32 $ROOT/$TOOLCHAIN/share/syslinux
+    cp bios/mbr/mbr.bin $ROOT/$TOOLCHAIN/share/syslinux
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
-    cp extlinux/extlinux $INSTALL/usr/bin
-    cp linux/syslinux $INSTALL/usr/bin
+    cp bios/extlinux/extlinux $INSTALL/usr/bin
+    cp bios/linux/syslinux $INSTALL/usr/bin
 
   mkdir -p $INSTALL/usr/share/syslinux
-    cp core/isolinux.bin $INSTALL/usr/share/syslinux
-    cp mbr/mbr.bin $INSTALL/usr/share/syslinux
-    cp mbr/gptmbr.bin $INSTALL/usr/share/syslinux
+    cp bios/mbr/mbr.bin $INSTALL/usr/share/syslinux
+    cp bios/mbr/gptmbr.bin $INSTALL/usr/share/syslinux
 }
