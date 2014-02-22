@@ -31,8 +31,3 @@ PKG_LONGDESC="Setxkbmap sets the keyboard using the X Keyboard Extension."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
-
-post_makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/udev
-    cp $PKG_DIR/scripts/xkb-setup $INSTALL/usr/lib/udev
-}
