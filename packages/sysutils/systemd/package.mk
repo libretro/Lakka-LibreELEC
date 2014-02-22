@@ -150,7 +150,7 @@ post_makeinstall_target() {
       ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/telinit
 
   # remove Network adaper renaming rule, this is confusing
-    rm -rf $INSTALL/usr/lib/udev/rules.d/80-net-name-slot.rules
+    rm -rf $INSTALL/usr/lib/udev/rules.d/80-net-setup-link.rules
 
   # remove debug-shell.service, we install our own
     rm -rf $INSTALL/usr/lib/systemd/system/debug-shell.service
