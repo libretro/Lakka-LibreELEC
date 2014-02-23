@@ -1,3 +1,4 @@
+#!/bin/sh
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
@@ -16,27 +17,25 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="xorg-launch-helper"
-PKG_VERSION="4"
-PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="GPL-2"
-PKG_SITE="https://github.com/sofar/xorg-launch-helper"
-PKG_URL="http://foo-projects.org/~sofar/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain systemd"
-PKG_PRIORITY="optional"
-PKG_SECTION="x11/util"
-PKG_SHORTDESC="Xorg-launch-helper is a small utility that transforms the X server process (XOrg) into a daemon."
-PKG_LONGDESC="Xorg-launch-helper is a small utility that transforms the X server process (XOrg) into a daemon that can be used to make applications wait with starting until XOrg is ready for X11 connections"
+# wait for xorg-configure@.service
+# max 10 seconds
+ARGS_FILE="/run/openelec/xorg-settings.conf"
+for i in $(seq 1 40) ; do
+  if [ -e "$ARGS_FILE" ] ; then
+    break
+  fi
+  usleep 250000
+done
 
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
-
-export LIBS="-lsystemd"
-
-post_makeinstall_target() {
-  # do not install systemd services
-  rm -rf $INSTALL/usr/lib
-  mkdir -p $INSTALL/usr/bin
-  cp -P $PKG_DIR/scripts/xorg-launch $INSTALL/usr/bin
-}
+if [ -e "$ARGS_FILE" ] ; then
+  . /run/openelec/xorg-settings.conf
+  exec xorg-launch-helper $@ $XORG_ARGS
+else
+  echo "" > /dev/tty1
+  echo "failed to start xorg." > /dev/tty1
+  echo "is your GPU supported?" > /dev/tty1
+  echo "" > /dev/tty1
+  lspci -nn > /dev/tty1
+  echo "" > /dev/tty1
+  sleep 30
+fi
