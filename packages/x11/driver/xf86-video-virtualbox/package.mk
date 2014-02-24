@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-virtualbox"
-PKG_VERSION="4.3.6"
+PKG_VERSION="4.3.8_RC1"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
@@ -43,7 +43,7 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/$XORG_PATH_MODULES/drivers
-    cp -P lib/VBoxGuestAdditions/vboxvideo_drv_114.so $INSTALL/$XORG_PATH_MODULES/drivers/vboxvideo_drv.so
+    cp -P lib/VBoxGuestAdditions/vboxvideo_drv_115.so $INSTALL/$XORG_PATH_MODULES/drivers/vboxvideo_drv.so
 
   mkdir -p $INSTALL/usr/lib/dri
     cp -P lib/VBoxOGL.so $INSTALL/usr/lib/dri/vboxvideo_dri.so

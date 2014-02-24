@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vboxguest"
-PKG_VERSION="4.3.6"
+PKG_VERSION="4.3.8_RC1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
