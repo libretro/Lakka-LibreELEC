@@ -61,7 +61,7 @@ PKG_AUTORECONF="yes"
 # SQLITE_MAX_MMAP_SIZE can be modified at start-time using the
 # sqlite3_config(SQLITE_CONFIG_MMAP_SIZE) call, or at run-time using the
 # mmap_size pragma.
-  CFLAGS="$CFLAGS -DSQLITE_DEFAULT_MMAP_SIZE=268435456"
+  CFLAGS="$CFLAGS -DSQLITE_TEMP_STORE=3 -DSQLITE_DEFAULT_MMAP_SIZE=268435456"
 
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
