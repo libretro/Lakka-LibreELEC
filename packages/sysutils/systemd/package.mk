@@ -132,7 +132,7 @@ post_makeinstall_target() {
     sed -e "s,^.*SystemMaxUse=.*$,SystemMaxUse=10M,g" -i $INSTALL/etc/systemd/journald.conf
 
   # tune logind.conf
-    sed -e "s,^.*LidSwitchIgnoreInhibited=.*$,LidSwitchIgnoreInhibited=yes,g" -i $INSTALL/etc/systemd/logind.conf
+    sed -e "s,^.*HandleLidSwitch=.*$,HandleLidSwitch=ignore,g" -i $INSTALL/etc/systemd/logind.conf
 
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/usr/bin
