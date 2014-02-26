@@ -52,8 +52,7 @@ PKG_CONFIGURE_OPTS_TARGET="export ac_cv_have_abstract_sockets=yes \
                            --enable-inotify \
                            --with-xml=expat \
                            --without-x \
-                           --with-dbus-user=dbus \
-                           --with-system-socket=/run/dbus/system_bus_socket"
+                           --with-dbus-user=dbus"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-verbose-mode \
                          --disable-asserts \
