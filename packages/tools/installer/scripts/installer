@@ -241,7 +241,11 @@ do_install_quick() {
       fi
 
       msg_progress_install "10" "creating partition on $INSTALL_DEVICE"
-      parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+      if [ "$UEFI" = "1" ]; then
+        parted -s $INSTALL_DEVICE unit cyl mkpart primary fat32 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+      else
+        parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+      fi
 
       msg_progress_install "13" "creating partition on $INSTALL_DEVICE"
       parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- $PARTSIZE_SYSTEM -2 >> $LOGFILE 2>&1
@@ -257,10 +261,18 @@ do_install_quick() {
 
       # create filesystem
       msg_progress_install "23" "creating filesystem on ${INSTALL_DEVICE}1"
-      mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      if [ "$UEFI" = "1" ]; then
+        mkfs.vfat ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      else
+        mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      fi
 
       msg_progress_install "25" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
-      tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      if [ "$UEFI" = "1" ]; then
+        dosfslabel ${INSTALL_DEVICE}1  $DISKLABEL_SYSTEM >> $LOGFILE 2>&1
+      else
+        tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      fi
 
       msg_progress_install "28" "creating filesystem on ${INSTALL_DEVICE}2"
       mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
@@ -273,11 +285,19 @@ do_install_quick() {
       mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
 
       msg_progress_install "40" "mounting ${INSTALL_DEVICE}1 to $TMPDIR/part1"
-      mount -t ext4 ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+      if [ "$UEFI" = "1" ]; then
+        mount -t vfat ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+      else
+        mount -t ext4 ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+      fi
 
       # installing extlinux
       msg_progress_install "50" "installing extlinux to $TMPDIR/part1"
-      extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
+      if [ "$UEFI" = "1" ]; then
+        syslinux -i ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      else
+        extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
+      fi
 
       # install system files
       msg_progress_install "60" "installing Kernel"
@@ -295,6 +315,14 @@ do_install_quick() {
       echo "LABEL linux" >> $TMPDIR/part1/extlinux.conf
       echo " KERNEL /KERNEL" >> $TMPDIR/part1/extlinux.conf
       echo " APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE $EXTLINUX_PARAMETERS $EXTLINUX_SSH quiet" >> $TMPDIR/part1/extlinux.conf
+      # uefi boot / hybrid mode
+      if [ "$UEFI" = "1" ]; then
+        mv $TMPDIR/part1/extlinux.conf $TMPDIR/part1/syslinux.cfg
+        mkdir -p $TMPDIR/part1/EFI/BOOT
+        cp $TMPDIR/part1/syslinux.cfg $TMPDIR/part1/EFI/BOOT
+        cp /usr/share/syslinux/bootx64.efi $TMPDIR/part1/EFI/BOOT
+        cp /usr/share/syslinux/ldlinux.e64 $TMPDIR/part1/EFI/BOOT
+      fi
       sync
 
       # umount system partition, remove mountpoint
@@ -516,30 +544,22 @@ msg_progress_install() {
 }
 
 prompt_gpt() {
-  # Prompt for GPT use
-  # usage:    prompt_gpt
-  # uses:     INSTALL_DEVICE
-  # provides: GPT
-  MSG_TITLE="\Z1[ Partition Table Type ]\Zn"
-  # Get "msdos" or "gpt"
-  INSTALL_DEVICE_PARTITION_TYPE=$(parted -s -m $INSTALL_DEVICE print | grep $INSTALL_DEVICE | cut -f6 -d ":")
-  # Get size in GB
+  GPT="0"
+  UEFI="0"
+  # Get "msdos" or "gpt". TODO: remove. does this make sense ?
+  #INSTALL_DEVICE_PARTITION_TYPE=$(parted -s -m $INSTALL_DEVICE print | grep $INSTALL_DEVICE | cut -f6 -d ":")
+  #if [ "$INSTALL_DEVICE_PARTITION_TYPE" = "gpt" ]; then
+  #  GPT="1"
+  #fi
+  # Get size in GB.
   INSTALL_DEVICE_SIZE=$(($(cat /sys/block/${INSTALL_DEVICE#/dev/}/size)*512/1000/1000/1000))
-  if [ "$INSTALL_DEVICE_PARTITION_TYPE" = "gpt" ]; then
-    MSG_DETAIL="GUID Partition Table detected on the destination disk. It is recommended that you keep it."
-    DIALOG_OPTIONS=""
-  # 2^41 bytes is the DOS limit = 2199023255552 (2.2TB)
-  elif [ "$INSTALL_DEVICE_SIZE" -ge 2200 ] 2>/dev/null; then
-    MSG_DETAIL="Destination disk is too large to use a DOS partition table. You will need to use a GUID Partition Table."
-    DIALOG_OPTIONS=""
-  else
-    MSG_DETAIL="You should only use a GUID Partition Table if you know what you are doing."
-    DIALOG_OPTIONS="--defaultno"
-  fi
-  if dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" $DIALOG_OPTIONS --yesno "Use GPT partitions?\n$MSG_DETAIL" 0 0; then
+  if [ "$INSTALL_DEVICE_SIZE" -ge 2200 ] 2>/dev/null; then
     GPT="1"
-  else
-    GPT="0"
+  fi
+  # force gpt + uefi in uefi boot mode
+  if [ -d /sys/firmware/efi ]; then
+    UEFI="1"
+    GPT="1"
   fi
 }
 
