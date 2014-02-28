@@ -91,4 +91,6 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/share/syslinux
     cp bios/mbr/mbr.bin $INSTALL/usr/share/syslinux
     cp bios/mbr/gptmbr.bin $INSTALL/usr/share/syslinux
+    cp efi64/efi/syslinux.efi $INSTALL/usr/share/syslinux/bootx64.efi
+    cp efi64/com32/elflink/ldlinux/ldlinux.e64  $INSTALL/usr/share/syslinux
 }
