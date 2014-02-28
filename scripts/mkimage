@@ -34,7 +34,7 @@
   fi
   STORAGE_SIZE=32 # STORAGE_SIZE must be >= 32 !
 
-  DISK_SIZE=$(( $SYSTEM_SIZE + $STORAGE_SIZE ))
+  DISK_SIZE=$(( $SYSTEM_SIZE + $STORAGE_SIZE + 4 ))
   DISK="$TARGET_IMG/$IMAGE_NAME.img"
 
 # functions
@@ -67,17 +67,17 @@ trap cleanup SIGINT
 
 # create part1
   echo "image: creating part1 on $DISK..."
-  SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 64 ))
+  SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 2048 ))
   if [ "$BOOTLOADER" = "syslinux" ]; then
-    parted -s "$LOOP" -a min unit s mkpart primary ext4 64 $SYSTEM_PART_END
+    parted -s "$LOOP" -a min unit s mkpart primary ext4 2048 $SYSTEM_PART_END
   elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
-    parted -s "$LOOP" -a min unit s mkpart primary fat32 64 $SYSTEM_PART_END
+    parted -s "$LOOP" -a min unit s mkpart primary fat32 2048 $SYSTEM_PART_END
   fi
   parted -s "$LOOP" set 1 boot on
 
 # create part2
   echo "image: creating part2 on $DISK..."
-  STORAGE_PART_START=$(( $SYSTEM_PART_END + 1 ))
+  STORAGE_PART_START=$(( $SYSTEM_PART_END + 2048 ))
   parted -s "$LOOP" -a min unit s mkpart primary ext4 $STORAGE_PART_START 100%
   sync
 
@@ -94,7 +94,7 @@ fi
 # create filesystem on part1
   losetup -d "$LOOP"
   echo "image: creating filesystem on part1..."
-  OFFSET=$(( 64 * 512 ))
+  OFFSET=$(( 2048 * 512 ))
   SIZELIMIT=$(( $SYSTEM_SIZE * 1024 * 1024 ))
   losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
   if [ "$BOOTLOADER" = "syslinux" ]; then
