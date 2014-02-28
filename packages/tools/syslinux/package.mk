@@ -79,7 +79,7 @@ makeinstall_host() {
     cp bios/com32/libutil/libutil.c32 $ROOT/$TOOLCHAIN/share/syslinux
     cp bios/mbr/mbr.bin $ROOT/$TOOLCHAIN/share/syslinux
     cp bios/mbr/gptmbr.bin $ROOT/$TOOLCHAIN/share/syslinux
-    cp efi64/efi/syslinux.efi $ROOT/$TOOLCHAIN/share/syslinux
+    cp efi64/efi/syslinux.efi $ROOT/$TOOLCHAIN/share/syslinux/bootx64.efi
     cp efi64/com32/elflink/ldlinux/ldlinux.e64  $ROOT/$TOOLCHAIN/share/syslinux
 }
 
