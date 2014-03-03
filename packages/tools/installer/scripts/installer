@@ -56,11 +56,11 @@ trap '' 2
 dbglg() {
   # Acts just like echo cmd, with automatic redirection
 
-    echo "" >> $LOGFILE
-    echo "###################################################################" >> $LOGFILE
-    echo "# $@" >> $LOGFILE
-    echo "###################################################################" >> $LOGFILE
-    echo "" >> $LOGFILE
+  echo "" >> $LOGFILE
+  echo "###################################################################" >> $LOGFILE
+  echo "# $@" >> $LOGFILE
+  echo "###################################################################" >> $LOGFILE
+  echo "" >> $LOGFILE
 }
 
 get_device_unmount() {
@@ -69,12 +69,12 @@ get_device_unmount() {
   # uses:     -
   # provides: DEVICES
 
-    DEVICES=""
-    DEVICES=$(parted -s -m -l | grep ^/dev/sd | cut -f1 -d ":")
+  DEVICES=""
+  DEVICES=$(parted -s -m -l | grep ^/dev/sd | cut -f1 -d ":")
 
-    for i in $(cat /proc/mounts | grep ^/dev/sd | cut -f1 -d " " | sed "s/[0-9]//"); do
-      DEVICES=$(echo $DEVICES |sed -e "s|$i||")
-    done
+  for i in $(cat /proc/mounts | grep ^/dev/sd | cut -f1 -d " " | sed "s/[0-9]//"); do
+    DEVICES=$(echo $DEVICES |sed -e "s|$i||")
+  done
 }
 
 get_partition() {
@@ -83,7 +83,7 @@ get_partition() {
   # uses:     -
   # provides: PARTITIONS
 
-    PARTITIONS=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f1 -d ":")
+  PARTITIONS=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f1 -d ":")
 }
 
 create_device_list() {
@@ -93,23 +93,23 @@ create_device_list() {
   # provides: DEVICE_MODEL, DEVICE_SIZE, DEVICE_LIST, DEVICE_NAME,
   #           DEVICES (get_device_unmount)
 
-    DEVICE_MODEL=""
-    DEVICE_SIZE=""
-    DEVICE_LIST=""
-    DEVICE_NAME=""
+  DEVICE_MODEL=""
+  DEVICE_SIZE=""
+  DEVICE_LIST=""
+  DEVICE_NAME=""
 
-    get_device_unmount
+  get_device_unmount
 
-    if [ "$DEVICES" = "" ]; then
-      msg_no_device
-    fi
+  if [ "$DEVICES" = "" ]; then
+    msg_no_device
+  fi
 
-    for i in $DEVICES; do
-      DEVICE_MODEL=$(parted -s $i -m print | grep ^$i | cut -f7 -d ":" | sed "s/;//")
-      DEVICE_SIZE=$(parted -s $i -m print | grep ^$i | cut -f2 -d ":")
-      DEVICE_NAME=$(echo $DEVICE_MODEL ${DEVICE_SIZE} | sed 's/ /_/g')
-      DEVICE_LIST="$DEVICE_LIST $i $DEVICE_NAME"
-    done
+  for i in $DEVICES; do
+    DEVICE_MODEL=$(parted -s $i -m print | grep ^$i | cut -f7 -d ":" | sed "s/;//")
+    DEVICE_SIZE=$(parted -s $i -m print | grep ^$i | cut -f2 -d ":")
+    DEVICE_NAME=$(echo $DEVICE_MODEL ${DEVICE_SIZE} | sed 's/ /_/g')
+    DEVICE_LIST="$DEVICE_LIST $i $DEVICE_NAME"
+  done
 }
 
 create_partition_list() {
@@ -119,429 +119,448 @@ create_partition_list() {
   # provides: PARTITION_NUMBER, PARTITION_SIZE, PARTITION_FORMAT,
   #           PARTITION_LIST, PARTITIONS (get_partition)
 
-    PARTITION_NUMBER=""
-    PARTITION_SIZE=""
-    PARTITION_FORMAT=""
-    PARTITION_LIST=""
+  PARTITION_NUMBER=""
+  PARTITION_SIZE=""
+  PARTITION_FORMAT=""
+  PARTITION_LIST=""
 
-    get_partition $1
+  get_partition $1
 
-    for partition in $PARTITIONS; do
-      PARTITION_NUMBER=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f1 -d ":")
-      PARTITION_SIZE=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f4 -d ":")
-      PARTITION_FORMAT=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f5 -d ":")
-      PARTITION_LIST=" $PARTITION_LIST \n Partition $1$PARTITION_NUMBER Size: $PARTITION_SIZE Format: $PARTITION_FORMAT"
-    done
+  for partition in $PARTITIONS; do
+    PARTITION_NUMBER=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f1 -d ":")
+    PARTITION_SIZE=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f4 -d ":")
+    PARTITION_FORMAT=$(parted -s -m $1 print |grep -v ^/dev |grep -v BYT | cut -f5 -d ":")
+    PARTITION_LIST=" $PARTITION_LIST \n Partition $1$PARTITION_NUMBER Size: $PARTITION_SIZE Format: $PARTITION_FORMAT"
+  done
 }
 
 do_install_mbr() {
-
   # show menu
-    MSG_TITLE="\Z4[ (RE)INSTALL MBR ]\Zn"
-    MSG_MENU="\n Please select where to install MBR.\n\n Please select a device:"
-    MSG_CANCEL="Back"
 
-    create_device_list
+  MSG_TITLE="\Z4[ (RE)INSTALL MBR ]\Zn"
+  MSG_MENU="\n Please select where to install MBR.\n\n Please select a device:"
+  MSG_CANCEL="Back"
 
-    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-      --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
-      $DEVICE_LIST 2> $TMPDIR/device_for_install
+  create_device_list
+
+  dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+    --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
+    $DEVICE_LIST 2> $TMPDIR/device_for_install
 
   # now we must do everything
-    case $? in
-      0)
-        INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install")
+  case $? in
+    0)
+      INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install")
 
-        # installing mbr
-          prompt_gpt
-          if [ "$GPT" = "1" ]; then
-            cat /usr/share/syslinux/gptmbr.bin > $INSTALL_DEVICE
-          else
-            cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
-          fi
+      # installing mbr
+      prompt_gpt
+      if [ "$GPT" = "1" ]; then
+        cat /usr/share/syslinux/gptmbr.bin > $INSTALL_DEVICE
+      else
+        cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+      fi
 
-          msg_install_ready "Master Boot Record installed on $INSTALL_DEVICE"
-        ;;
-      1)
-        menu_main
-        ;;
-      255)
-        do_poweroff
-        ;;
-    esac
+      msg_install_ready "Master Boot Record installed on $INSTALL_DEVICE"
+      ;;
+    1)
+      menu_main
+      ;;
+    255)
+      do_poweroff
+      ;;
+  esac
 }
 
 do_install_quick() {
   # show menu
-    MSG_TITLE="\Z4[ QUICK INSTALL MENU ]\Zn"
-    MSG_MENU="\nUse the up/down arrows to select the correct device.\n\n Please select a device:"
-    MSG_CANCEL="Back"
-    DIALOG_OPTIONS="--defaultno"
+  MSG_TITLE="\Z4[ QUICK INSTALL MENU ]\Zn"
+  MSG_MENU="\nUse the up/down arrows to select the correct device.\n\n Please select a device:"
+  MSG_CANCEL="Back"
+  DIALOG_OPTIONS="--defaultno"
 
-    create_device_list
+  create_device_list
 
-    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-      $DIALOG_OPTIONS --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
-      $DEVICE_LIST 2> $TMPDIR/device_for_install
+  dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+    $DIALOG_OPTIONS --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
+    $DEVICE_LIST 2> $TMPDIR/device_for_install
 
   # now we must do everything
-    case $? in
-      0)
-        INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install")
-        INSTALL_DEVICE_FULL=$(echo $DEVICE_LIST | sed "s|.*$INSTALL_DEVICE \([^ ]*\).*|$INSTALL_DEVICE \1|")
+  case $? in
+    0)
+      INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install")
+      INSTALL_DEVICE_FULL=$(echo $DEVICE_LIST | sed "s|.*$INSTALL_DEVICE \([^ ]*\).*|$INSTALL_DEVICE \1|")
 
-        prompt_gpt
-        prompt_ssh
-        prompt_backup_unpack
+      prompt_gpt
+      prompt_ssh
+      prompt_backup_unpack
 
-        EXTLINUX_SSH=""
-        if [ "$SSH" = "1" ]; then
-          EXTLINUX_SSH="ssh"
-        fi
+      EXTLINUX_SSH=""
+      if [ "$SSH" = "1" ]; then
+        EXTLINUX_SSH="ssh"
+      fi
 
-        # check for confirmation (twice!)
-        MSG_TITLE="\Z1[ Confirmation before installing ]\Zn"
-        MSG_DETAIL="\nIf you continue the target disk will be wiped out:\n\n$INSTALL_DEVICE_FULL\n\n"
-        DIALOG_OPTIONS="--defaultno"
-        dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
-          $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
-        if [ $? -ne 0 ]; then
-          menu_main
-        fi
+      # check for confirmation (twice!)
+      MSG_TITLE="\Z1[ Confirmation before installing ]\Zn"
+      MSG_DETAIL="\nIf you continue the target disk will be wiped out:\n\n$INSTALL_DEVICE_FULL\n\n"
+      DIALOG_OPTIONS="--defaultno"
+      dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
+        $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
+      if [ $? -ne 0 ]; then
+        menu_main
+      fi
 
-        MSG_TITLE="\Z1[ Confirmation before installing ]\Zn"
-        MSG_DETAIL="\nThis is last chance to abort the installation!\n\nIf you continue the target disk will be wiped out:\n\n$INSTALL_DEVICE_FULL\n\n\n"
-        DIALOG_OPTIONS="--defaultno"
-        dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
-          $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
-        if [ $? -ne 0 ]; then
-          menu_main
-        fi
+      MSG_TITLE="\Z1[ Confirmation before installing ]\Zn"
+      MSG_DETAIL="\nThis is last chance to abort the installation!\n\nIf you continue the target disk will be wiped out:\n\n$INSTALL_DEVICE_FULL\n\n\n"
+      DIALOG_OPTIONS="--defaultno"
+      dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
+        $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
+      if [ $? -ne 0 ]; then
+        menu_main
+      fi
 
-        # remove all partitions
-          msg_progress_install "1" "get all partitions $INSTALL_DEVICE"
-            get_partition $INSTALL_DEVICE
+      # remove all partitions
+      msg_progress_install "1" "get all partitions $INSTALL_DEVICE"
+      get_partition $INSTALL_DEVICE
 
-          msg_progress_install "5" "wiping disk $INSTALL_DEVICE"
-            dd if=/dev/zero of=$INSTALL_DEVICE bs=4096 count=1024
+      msg_progress_install "5" "wiping disk $INSTALL_DEVICE"
+      dd if=/dev/zero of=$INSTALL_DEVICE bs=4096 count=1024
 
-        # create 2 new partitions (first $PARTSIZE_SYSTEM, second rest)
+      # create 2 new partitions (first $PARTSIZE_SYSTEM, second rest)
+      msg_progress_install "7" "creating label on $INSTALL_DEVICE"
+      if [ "$GPT" = "1" ]; then
+        parted -s $INSTALL_DEVICE mklabel gpt >> $LOGFILE 2>&1
+      else
+        parted -s $INSTALL_DEVICE mklabel msdos >> $LOGFILE 2>&1
+      fi
 
-          msg_progress_install "7" "creating label on $INSTALL_DEVICE"
-            if [ "$GPT" = "1" ]; then
-              parted -s $INSTALL_DEVICE mklabel gpt >> $LOGFILE 2>&1
-            else
-              parted -s $INSTALL_DEVICE mklabel msdos >> $LOGFILE 2>&1
-            fi
+      msg_progress_install "9" "writing Master Boot Record on $INSTALL_DEVICE"
+      if [ "$GPT" = "1" ]; then
+        cat /usr/share/syslinux/gptmbr.bin > $INSTALL_DEVICE
+      else
+        cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
+      fi
 
-          msg_progress_install "9" "writing Master Boot Record on $INSTALL_DEVICE"
-            if [ "$GPT" = "1" ]; then
-              cat /usr/share/syslinux/gptmbr.bin > $INSTALL_DEVICE
-            else
-              cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
-            fi
+      msg_progress_install "10" "creating partition on $INSTALL_DEVICE"
+      if [ "$UEFI" = "1" ]; then
+        parted -s $INSTALL_DEVICE unit cyl mkpart primary fat32 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+      else
+        parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+      fi
 
-          msg_progress_install "10" "creating partition on $INSTALL_DEVICE"
-            parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+      msg_progress_install "13" "creating partition on $INSTALL_DEVICE"
+      parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- $PARTSIZE_SYSTEM -2 >> $LOGFILE 2>&1
 
-          msg_progress_install "13" "creating partition on $INSTALL_DEVICE"
-            parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- $PARTSIZE_SYSTEM -2 >> $LOGFILE 2>&1
+      msg_progress_install "16" "setup bootflag on partition 1 of $INSTALL_DEVICE"
+      parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
+      if [ "$GPT" = "1" ]; then
+        parted -s $INSTALL_DEVICE set 1 legacy_boot on >> $LOGFILE 2>&1
+      fi
 
-          msg_progress_install "16" "setup bootflag on partition 1 of $INSTALL_DEVICE"
-            parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
-            if [ "$GPT" = "1" ]; then
-              parted -s $INSTALL_DEVICE set 1 legacy_boot on >> $LOGFILE 2>&1
-            fi
+      msg_progress_install "20" "tell the kernel we have a new partitiontable on $INSTALL_DEVICE"
+      partprobe $INSTALL_DEVICE >> $LOGFILE 2>&1
 
-          msg_progress_install "20" "tell the kernel we have a new partitiontable on $INSTALL_DEVICE"
-            partprobe $INSTALL_DEVICE >> $LOGFILE 2>&1
+      # create filesystem
+      msg_progress_install "23" "creating filesystem on ${INSTALL_DEVICE}1"
+      if [ "$UEFI" = "1" ]; then
+        mkfs.vfat ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      else
+        mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      fi
 
-        # create filesystem
-          msg_progress_install "23" "creating filesystem on ${INSTALL_DEVICE}1"
-            mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      msg_progress_install "25" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
+      if [ "$UEFI" = "1" ]; then
+        dosfslabel ${INSTALL_DEVICE}1  $DISKLABEL_SYSTEM >> $LOGFILE 2>&1
+      else
+        tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      fi
 
-          msg_progress_install "25" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
-            tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      msg_progress_install "28" "creating filesystem on ${INSTALL_DEVICE}2"
+      mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
 
-          msg_progress_install "28" "creating filesystem on ${INSTALL_DEVICE}2"
-            mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
+      msg_progress_install "30" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}2"
+      tune2fs -U random -L $DISKLABEL_STORAGE  ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
 
-          msg_progress_install "30" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}2"
-            tune2fs -U random -L $DISKLABEL_STORAGE  ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
+      # mount system partition
+      msg_progress_install "35" "creating $TMPDIR/part1"
+      mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
 
-        # mount system partition
-          msg_progress_install "35" "creating $TMPDIR/part1"
-            mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
+      msg_progress_install "40" "mounting ${INSTALL_DEVICE}1 to $TMPDIR/part1"
+      if [ "$UEFI" = "1" ]; then
+        mount -t vfat ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+      else
+        mount -t ext4 ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+      fi
 
-          msg_progress_install "40" "mounting ${INSTALL_DEVICE}1 to $TMPDIR/part1"
-            mount -t ext4 ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+      # installing extlinux
+      msg_progress_install "50" "installing extlinux to $TMPDIR/part1"
+      if [ "$UEFI" = "1" ]; then
+        syslinux -i ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+      else
+        extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
+      fi
 
-        # installing extlinux
-          msg_progress_install "50" "installing extlinux to $TMPDIR/part1"
-            extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
+      # install system files
+      msg_progress_install "60" "installing Kernel"
+      cp /flash/KERNEL $TMPDIR/part1 >> $LOGFILE 2>&1
 
-        # install system files
-          msg_progress_install "60" "installing Kernel"
-            cp /flash/KERNEL $TMPDIR/part1 >> $LOGFILE 2>&1
+      msg_progress_install "65" "installing System"
+      cp /flash/SYSTEM $TMPDIR/part1 >> $LOGFILE 2>&1
+      sync
 
-          msg_progress_install "65" "installing System"
-            cp /flash/SYSTEM $TMPDIR/part1 >> $LOGFILE 2>&1
-            sync
+      # configuring bootloader
+      msg_progress_install "80" "setup bootloader with boot label = $DISKLABEL_SYSTEM and disk label = $DISKLABEL_STORAGE"
+      echo "DEFAULT linux" > $TMPDIR/part1/extlinux.conf
+      echo "PROMPT 0" >> $TMPDIR/part1/extlinux.conf
+      echo " " >> $TMPDIR/part1/extlinux.conf
+      echo "LABEL linux" >> $TMPDIR/part1/extlinux.conf
+      echo " KERNEL /KERNEL" >> $TMPDIR/part1/extlinux.conf
+      echo " APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE $EXTLINUX_PARAMETERS $EXTLINUX_SSH quiet" >> $TMPDIR/part1/extlinux.conf
+      # uefi boot / hybrid mode
+      if [ "$UEFI" = "1" ]; then
+        mv $TMPDIR/part1/extlinux.conf $TMPDIR/part1/syslinux.cfg
+        mkdir -p $TMPDIR/part1/EFI/BOOT
+        cp $TMPDIR/part1/syslinux.cfg $TMPDIR/part1/EFI/BOOT
+        cp /usr/share/syslinux/bootx64.efi $TMPDIR/part1/EFI/BOOT
+        cp /usr/share/syslinux/ldlinux.e64 $TMPDIR/part1/EFI/BOOT
+      fi
+      sync
 
-        # configuring bootloader
-          msg_progress_install "80" "setup bootloader with boot label = $DISKLABEL_SYSTEM and disk label = $DISKLABEL_STORAGE"
-            echo "DEFAULT linux" > $TMPDIR/part1/extlinux.conf
-            echo "PROMPT 0" >> $TMPDIR/part1/extlinux.conf
-            echo " " >> $TMPDIR/part1/extlinux.conf
-            echo "LABEL linux" >> $TMPDIR/part1/extlinux.conf
-            echo " KERNEL /KERNEL" >> $TMPDIR/part1/extlinux.conf
-            echo " APPEND boot=LABEL=$DISKLABEL_SYSTEM disk=LABEL=$DISKLABEL_STORAGE $EXTLINUX_PARAMETERS $EXTLINUX_SSH quiet" >> $TMPDIR/part1/extlinux.conf
-            sync
+      # umount system partition, remove mountpoint
+      msg_progress_install "85" "unmount $TMPDIR/part1"
+      umount $TMPDIR/part1 >> $LOGFILE 2>&1
+
+      msg_progress_install "87" "remove $TMPDIR/part1"
+      rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
+
+      if [ "$BACKUP_UNPACK" = "1" ]; then
+        # mount storage partition
+        msg_progress_install "89" "creating $TMPDIR/part2"
+        mkdir -p $TMPDIR/part2 >> $LOGFILE 2>&1
+
+        msg_progress_install "90" "mounting ${INSTALL_DEVICE}2 to $TMPDIR/part2"
+        mount -t ext4 ${INSTALL_DEVICE}2 $TMPDIR/part2 >> $LOGFILE 2>&1
+
+        msg_progress_install "92" "restoring backup"
+        [ -f /flash/backup.tar.bz2 ] && tar -xjf /flash/backup.tar.bz2 -C $TMPDIR/part2 >> $LOGFILE 2>&1
+        [ -f /flash/backup.zip ] && unzip -qq /flash/backup.zip -d $TMPDIR/part2 >> $LOGFILE 2>&1
+        sync
 
         # umount system partition, remove mountpoint
-          msg_progress_install "85" "unmount $TMPDIR/part1"
-            umount $TMPDIR/part1 >> $LOGFILE 2>&1
+        msg_progress_install "97" "unmount $TMPDIR/part2"
+        umount $TMPDIR/part2 >> $LOGFILE 2>&1
 
-          msg_progress_install "87" "remove $TMPDIR/part1"
-            rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
+        msg_progress_install "100" "remove $TMPDIR/part2"
+        rmdir $TMPDIR/part2 >> $LOGFILE 2>&1
+      fi
 
-          if [ "$BACKUP_UNPACK" = "1" ]; then
-            # mount storage partition
-              msg_progress_install "89" "creating $TMPDIR/part2"
-                mkdir -p $TMPDIR/part2 >> $LOGFILE 2>&1
-
-              msg_progress_install "90" "mounting ${INSTALL_DEVICE}2 to $TMPDIR/part2"
-                mount -t ext4 ${INSTALL_DEVICE}2 $TMPDIR/part2 >> $LOGFILE 2>&1
-
-              msg_progress_install "92" "restoring backup"
-                [ -f /flash/backup.tar.bz2 ] && tar -xjf /flash/backup.tar.bz2 -C $TMPDIR/part2 >> $LOGFILE 2>&1
-                [ -f /flash/backup.zip ] && unzip -qq /flash/backup.zip -d $TMPDIR/part2 >> $LOGFILE 2>&1
-                sync
-
-            # umount system partition, remove mountpoint
-              msg_progress_install "97" "unmount $TMPDIR/part2"
-                umount $TMPDIR/part2 >> $LOGFILE 2>&1
-
-              msg_progress_install "100" "remove $TMPDIR/part2"
-                rmdir $TMPDIR/part2 >> $LOGFILE 2>&1
-          fi
-
-        menu_main
-        ;;
-      1)
-        menu_main
-        ;;
-      255)
-        do_poweroff
-        ;;
-    esac
+      menu_main
+      ;;
+    1)
+      menu_main
+      ;;
+    255)
+      do_poweroff
+      ;;
+  esac
 }
 
 do_install_custom() {
   # show menu
-    MSG_TITLE="\Z4[ CUSTOM INSTALL MENU ]\Zn"
-    MSG_MENU="\nUse the up/down arrows to select the correct partition where you want to overwrite KERNEL and SYSTEM files.\n\n Please select a partition:"
-    MSG_CANCEL="Back"
-    DIALOG_OPTIONS="--defaultno"
+  MSG_TITLE="\Z4[ CUSTOM INSTALL MENU ]\Zn"
+  MSG_MENU="\nUse the up/down arrows to select the correct partition where you want to overwrite KERNEL and SYSTEM files.\n\n Please select a partition:"
+  MSG_CANCEL="Back"
+  DIALOG_OPTIONS="--defaultno"
 
-    get_device_unmount
+  get_device_unmount
 
-    if [ "$DEVICES" = "" ]; then
-      msg_no_device
-    fi
+  if [ "$DEVICES" = "" ]; then
+    msg_no_device
+  fi
 
-    PARTITION_LIST=""
-    for device in $DEVICES; do
-      get_partition $device
-      for partition in $PARTITIONS; do
-        LABEL=$(tune2fs -l $device$partition | awk 'BEGIN {FS=":"} /Filesystem volume name/ {gsub(/ /,"",$2); print $2}')
-        if [ "$LABEL" = "$DISKLABEL_SYSTEM" ]; then
-          DEVICE_MODEL=$(parted -s $device -m print | grep ^$device | cut -f7 -d ":" | sed "s/;//")
-          DEVICE_SIZE=$(parted -s $device -m print | grep ^$device | cut -f2 -d ":")
-          DEVICE_NAME=$(echo $DEVICE_MODEL ${DEVICE_SIZE} | sed 's/ /_/g')
-          PARTITION_LIST="$PARTITION_LIST $device$partition $DEVICE_NAME"
-        fi
-      done
+  PARTITION_LIST=""
+  for device in $DEVICES; do
+    get_partition $device
+    for partition in $PARTITIONS; do
+      LABEL=$(tune2fs -l $device$partition | awk 'BEGIN {FS=":"} /Filesystem volume name/ {gsub(/ /,"",$2); print $2}')
+      if [ "$LABEL" = "$DISKLABEL_SYSTEM" ]; then
+        DEVICE_MODEL=$(parted -s $device -m print | grep ^$device | cut -f7 -d ":" | sed "s/;//")
+        DEVICE_SIZE=$(parted -s $device -m print | grep ^$device | cut -f2 -d ":")
+        DEVICE_NAME=$(echo $DEVICE_MODEL ${DEVICE_SIZE} | sed 's/ /_/g')
+        PARTITION_LIST="$PARTITION_LIST $device$partition $DEVICE_NAME"
+      fi
     done
+  done
 
-    if [ "$PARTITION_LIST" = "" ]; then
-      msg_no_device
-    fi
+  if [ "$PARTITION_LIST" = "" ]; then
+    msg_no_device
+  fi
 
-    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-      $DIALOG_OPTIONS --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
-      $PARTITION_LIST 2> $TMPDIR/device_for_install
+  dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+    $DIALOG_OPTIONS --title "$MSG_TITLE" --menu "$MSG_MENU" 20 50 5 \
+    $PARTITION_LIST 2> $TMPDIR/device_for_install
 
   # now we must do everything
-    case $? in
-      0)
-        INSTALL_PARTITION=$(cat "$TMPDIR/device_for_install")
-        INSTALL_PARTITION_FULL=$(echo $PARTITION_LIST | sed "s|.*$INSTALL_PARTITION \([^ ]*\).*|$INSTALL_PARTITION \1|")
+  case $? in
+    0)
+      INSTALL_PARTITION=$(cat "$TMPDIR/device_for_install")
+      INSTALL_PARTITION_FULL=$(echo $PARTITION_LIST | sed "s|.*$INSTALL_PARTITION \([^ ]*\).*|$INSTALL_PARTITION \1|")
 
-        # check for confirmation (twice!)
-        MSG_TITLE="\Z1[ Confirmation before copying ]\Zn"
-        MSG_DETAIL="\nIf you continue the target partition will be\noverwritten with new KERNEL and SYSTEM files:\n\n$INSTALL_PARTITION_FULL\n\n"
-        DIALOG_OPTIONS="--defaultno"
-        dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
-          $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
-        if [ $? -ne 0 ]; then
-          menu_main
-        fi
-
-        MSG_TITLE="\Z1[ Confirmation before copying ]\Zn"
-        MSG_DETAIL="\nThis is last chance to abort the copying!\n\nIf you continue the target partition will be\noverwritten with new KERNEL and SYSTEM files:\n\n$INSTALL_PARTITION_FULL\n\n\n"
-        DIALOG_OPTIONS="--defaultno"
-        dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
-          $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
-        if [ $? -ne 0 ]; then
-          menu_main
-        fi
-
-        # mount system partition
-          msg_progress_install "5" "creating $TMPDIR/part1"
-            mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
-
-          msg_progress_install "10" "mounting $INSTALL_PARTITION to $TMPDIR/part1"
-            mount -t ext4 $INSTALL_PARTITION $TMPDIR/part1 >> $LOGFILE 2>&1
-
-        # check for enough target space
-          msg_progress_install "15" "checking for space on $INSTALL_PARTITION"
-
-          KERNEL_SIZE=$(stat -t /flash/KERNEL | awk '{print $2}')
-          SYSTEM_SIZE=$(stat -t /flash/SYSTEM | awk '{print $2}')
-          SRC_SIZE=$(( $KERNEL_SIZE + $SYSTEM_SIZE ))
-
-          DEST_SIZE=$(df $TMPDIR/part1 | awk '/[0-9]%/{print $4}')
-          DEST_SIZE=$(( $DEST_SIZE * 1024 ))
-          if [ -f $TMPDIR/part1/KERNEL ]; then
-            KERNEL_SIZE=$(stat -t $TMPDIR/part1/KERNEL | awk '{print $2}')
-            DEST_SIZE=$(( $DEST_SIZE + $KERNEL_SIZE ))
-          fi
-          if [ -f $TMPDIR/part1/SYSTEM ]; then
-            SYSTEM_SIZE=$(stat -t $TMPDIR/part1/SYSTEM | awk '{print $2}')
-            DEST_SIZE=$(( $DEST_SIZE + $SYSTEM_SIZE ))
-          fi
-
-          if [ $SRC_SIZE -ge $DEST_SIZE ]; then
-            umount $TMPDIR/part1 >> $LOGFILE 2>&1
-            rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
-            msg_target_space
-            menu_main
-          fi
-
-        # install system files
-          msg_progress_install "20" "installing Kernel"
-            cp /flash/KERNEL $TMPDIR/part1 >> $LOGFILE 2>&1
-
-          msg_progress_install "40" "installing System"
-            cp /flash/SYSTEM $TMPDIR/part1 >> $LOGFILE 2>&1
-            sync
-
-        # umount system partition, remove mountpoint
-          msg_progress_install "95" "unmount $TMPDIR/part1"
-            umount $TMPDIR/part1 >> $LOGFILE 2>&1
-
-          msg_progress_install "100" "remove $TMPDIR/part1"
-            rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
-
+      # check for confirmation (twice!)
+      MSG_TITLE="\Z1[ Confirmation before copying ]\Zn"
+      MSG_DETAIL="\nIf you continue the target partition will be\noverwritten with new KERNEL and SYSTEM files:\n\n$INSTALL_PARTITION_FULL\n\n"
+      DIALOG_OPTIONS="--defaultno"
+      dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
+        $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
+      if [ $? -ne 0 ]; then
         menu_main
-        ;;
-      1)
+      fi
+
+      MSG_TITLE="\Z1[ Confirmation before copying ]\Zn"
+      MSG_DETAIL="\nThis is last chance to abort the copying!\n\nIf you continue the target partition will be\noverwritten with new KERNEL and SYSTEM files:\n\n$INSTALL_PARTITION_FULL\n\n\n"
+      DIALOG_OPTIONS="--defaultno"
+      dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" \
+        $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0
+      if [ $? -ne 0 ]; then
         menu_main
-        ;;
-      255)
-        do_poweroff
-        ;;
-    esac
+      fi
+
+      # mount system partition
+      msg_progress_install "5" "creating $TMPDIR/part1"
+      mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
+
+      msg_progress_install "10" "mounting $INSTALL_PARTITION to $TMPDIR/part1"
+      mount -t ext4 $INSTALL_PARTITION $TMPDIR/part1 >> $LOGFILE 2>&1
+
+      # check for enough target space
+      msg_progress_install "15" "checking for space on $INSTALL_PARTITION"
+
+      KERNEL_SIZE=$(stat -t /flash/KERNEL | awk '{print $2}')
+      SYSTEM_SIZE=$(stat -t /flash/SYSTEM | awk '{print $2}')
+      SRC_SIZE=$(( $KERNEL_SIZE + $SYSTEM_SIZE ))
+
+      DEST_SIZE=$(df $TMPDIR/part1 | awk '/[0-9]%/{print $4}')
+      DEST_SIZE=$(( $DEST_SIZE * 1024 ))
+      if [ -f $TMPDIR/part1/KERNEL ]; then
+        KERNEL_SIZE=$(stat -t $TMPDIR/part1/KERNEL | awk '{print $2}')
+        DEST_SIZE=$(( $DEST_SIZE + $KERNEL_SIZE ))
+      fi
+      if [ -f $TMPDIR/part1/SYSTEM ]; then
+        SYSTEM_SIZE=$(stat -t $TMPDIR/part1/SYSTEM | awk '{print $2}')
+        DEST_SIZE=$(( $DEST_SIZE + $SYSTEM_SIZE ))
+      fi
+
+      if [ $SRC_SIZE -ge $DEST_SIZE ]; then
+        umount $TMPDIR/part1 >> $LOGFILE 2>&1
+        rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
+        msg_target_space
+        menu_main
+      fi
+
+      # install system files
+      msg_progress_install "20" "installing Kernel"
+      cp /flash/KERNEL $TMPDIR/part1 >> $LOGFILE 2>&1
+
+      msg_progress_install "40" "installing System"
+      cp /flash/SYSTEM $TMPDIR/part1 >> $LOGFILE 2>&1
+      sync
+
+      # umount system partition, remove mountpoint
+      msg_progress_install "95" "unmount $TMPDIR/part1"
+      umount $TMPDIR/part1 >> $LOGFILE 2>&1
+
+      msg_progress_install "100" "remove $TMPDIR/part1"
+      rmdir $TMPDIR/part1 >> $LOGFILE 2>&1
+
+      menu_main
+      ;;
+    1)
+      menu_main
+      ;;
+    255)
+      do_poweroff
+      ;;
+  esac
 }
 
 msg_not_implemented() {
   # show a dialog that this function is not yet implemented
-    MSG_TITLE="\Z2[ WORK IN PROGRESS ]\Zn"
-    MSG_INFOBOX=" This function is not implemented yet."
+  MSG_TITLE="\Z2[ WORK IN PROGRESS ]\Zn"
+  MSG_INFOBOX=" This function is not implemented yet."
 
-    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
+  dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
 }
 
 msg_oem_only() {
   # show a dialog that this function is only implemented on special builds
-    MSG_TITLE="\Z2[ FOR OEM ONLY ]\Zn"
-    MSG_INFOBOX=" OEM only feature, this function is not implemented in this build. \n if you have questions about this feature \n visit http://www.openelec.tv"
+  MSG_TITLE="\Z2[ FOR OEM ONLY ]\Zn"
+  MSG_INFOBOX=" OEM only feature, this function is not implemented in this build. \n if you have questions about this feature \n visit http://www.openelec.tv"
 
-    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
+  dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
 }
 
 msg_warning_beta() {
   # show a warning dialog if we use beta software
-    MSG_TITLE="\Z1[ BETA WARNING ]\Zn"
-    MSG_INFOBOX=" This installer is  for beta versions. \n This means this sofware have not been tested yet. \n Please make sure you have a backup of your files."
+  MSG_TITLE="\Z1[ BETA WARNING ]\Zn"
+  MSG_INFOBOX=" This installer is  for beta versions. \n This means this sofware have not been tested yet. \n Please make sure you have a backup of your files."
 
-    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
+  dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 7 70
 }
 
 msg_no_device() {
   # show a warning dialog if we dont find not mounted devices for install and return to main menu
-    MSG_TITLE="\Z1[ WARNING ]\Zn"
-    MSG_INFOBOX=" No devices were found. \n If you are trying to install on a brand new harddisk you must \n create atleast one partition. \n Otherwise it won't be found. \n If you dont know how, ask in the forum or on IRC."
+  MSG_TITLE="\Z1[ WARNING ]\Zn"
+  MSG_INFOBOX=" No devices were found. \n If you are trying to install on a brand new harddisk you must \n create atleast one partition. \n Otherwise it won't be found. \n If you dont know how, ask in the forum or on IRC."
 
-    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 9 70
+  dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 9 70
 
-    menu_main
+  menu_main
 }
 
 msg_target_space() {
   # show an error dialog for missing space
-    MSG_TITLE="\Z1[ TARGET SPACE ]\Zn"
-    MSG_INFOBOX="\nNot enough target space!\nCopying aborted.\n"
+  MSG_TITLE="\Z1[ TARGET SPACE ]\Zn"
+  MSG_INFOBOX="\nNot enough target space!\nCopying aborted.\n"
 
-    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 8 70
+  dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox "$MSG_INFOBOX" 8 70
 
-    menu_main
+  menu_main
 }
 
 msg_install_ready() {
   # show a dialog that we have installed
-    MSG_TITLE="\Z1[ INFORMATION ]\Zn"
+  MSG_TITLE="\Z1[ INFORMATION ]\Zn"
 
-    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox " $1" 7 70
+  dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --msgbox " $1" 7 70
 
-    menu_main
+  menu_main
 }
 
 msg_progress_install() {
   # show the progress dialog
-    MSG_TITLE="\Z1[ INSTALLING ]\Zn"
+  MSG_TITLE="\Z1[ INSTALLING ]\Zn"
 
-    dbglg "$2"
-    dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --gauge "$2 ..." 6 70 $1 &
+  dbglg "$2"
+  dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" --gauge "$2 ..." 6 70 $1 &
 }
 
 prompt_gpt() {
-  # Prompt for GPT use
-  # usage:    prompt_gpt
-  # uses:     INSTALL_DEVICE
-  # provides: GPT
-    MSG_TITLE="\Z1[ Partition Table Type ]\Zn"
-    # Get "msdos" or "gpt"
-    INSTALL_DEVICE_PARTITION_TYPE=$(parted -s -m $INSTALL_DEVICE print | grep $INSTALL_DEVICE | cut -f6 -d ":")
-    # Get size in GB
-    INSTALL_DEVICE_SIZE=$(($(cat /sys/block/${INSTALL_DEVICE#/dev/}/size)*512/1000/1000/1000))
-    if [ "$INSTALL_DEVICE_PARTITION_TYPE" = "gpt" ]; then
-        MSG_DETAIL="GUID Partition Table detected on the destination disk. It is recommended that you keep it."
-        DIALOG_OPTIONS=""
-    # 2^41 bytes is the DOS limit = 2199023255552 (2.2TB)
-    elif [ "$INSTALL_DEVICE_SIZE" -ge 2200 ] 2>/dev/null; then
-        MSG_DETAIL="Destination disk is too large to use a DOS partition table. You will need to use a GUID Partition Table."
-        DIALOG_OPTIONS=""
-    else
-        MSG_DETAIL="You should only use a GUID Partition Table if you know what you are doing."
-        DIALOG_OPTIONS="--defaultno"
-    fi
-    if dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" $DIALOG_OPTIONS --yesno "Use GPT partitions?\n$MSG_DETAIL" 0 0; then
-        GPT="1"
-    else
-        GPT="0"
-    fi
+  GPT="0"
+  UEFI="0"
+  # Get "msdos" or "gpt". TODO: remove. does this make sense ?
+  #INSTALL_DEVICE_PARTITION_TYPE=$(parted -s -m $INSTALL_DEVICE print | grep $INSTALL_DEVICE | cut -f6 -d ":")
+  #if [ "$INSTALL_DEVICE_PARTITION_TYPE" = "gpt" ]; then
+  #  GPT="1"
+  #fi
+  # Get size in GB.
+  INSTALL_DEVICE_SIZE=$(($(cat /sys/block/${INSTALL_DEVICE#/dev/}/size)*512/1000/1000/1000))
+  if [ "$INSTALL_DEVICE_SIZE" -ge 2200 ] 2>/dev/null; then
+    GPT="1"
+  fi
+  # force gpt + uefi in uefi boot mode
+  if [ -d /sys/firmware/efi ]; then
+    UEFI="1"
+    GPT="1"
+  fi
 }
 
 prompt_ssh() {
@@ -549,14 +568,14 @@ prompt_ssh() {
   # usage:    prompt_ssh
   # uses:
   # provides: SSH
-    MSG_TITLE="\Z1[ Enable SSH Server on start ]\Zn"
-    MSG_DETAIL="Enable SSH server per default.\nYou should only enable SSH server if you know what you are doing."
-    DIALOG_OPTIONS="--defaultno"
-    if dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0; then
-        SSH="1"
-    else
-        SSH="0"
-    fi
+  MSG_TITLE="\Z1[ Enable SSH Server on start ]\Zn"
+  MSG_DETAIL="Enable SSH server per default.\nYou should only enable SSH server if you know what you are doing."
+  DIALOG_OPTIONS="--defaultno"
+  if dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0; then
+    SSH="1"
+  else
+    SSH="0"
+  fi
 }
 
 prompt_backup_unpack() {
@@ -570,189 +589,185 @@ prompt_backup_unpack() {
     MSG_DETAIL="Restore backup files to storage partition.\nFile backup.tar.bz2 or/and backup.zip exist on\ninstallation USB stick."
     DIALOG_OPTIONS="--defaultno"
     if dialog --colors --backtitle "$BACKTITLE" --title "$MSG_TITLE" $DIALOG_OPTIONS --yesno "$MSG_DETAIL" 0 0; then
-        BACKUP_UNPACK="1"
+      BACKUP_UNPACK="1"
     fi
   fi
 }
 
 menu_main() {
   # show the mainmenu
-    MSG_TITLE="\Z4[ MAIN MENU ]\Zn"
-    MSG_MENU="\n\ZbQuick Install:\Zn do a default installation on a specific device \
-              \Z1\Zb(this will delete ALL data on this device!)\Zn \
-              \n\ZbCustom Install:\Zn do a custom installation \
-              \n\ZbSetup:\Zn change some settings to run OpenELEC \
-              \n\ZbBIOS Update:\Zn backup and update your BIOS (only for OEMs) \
-              \n\ZbShow logfile:\Zn show and save the logfile \
-              \n \
-              \nPlease select:"
-    MSG_CANCEL="Reboot"
+  MSG_TITLE="\Z4[ MAIN MENU ]\Zn"
+  MSG_MENU="\n\ZbQuick Install:\Zn do a default installation on a specific device \
+            \Z1\Zb(this will delete ALL data on this device!)\Zn \
+            \n\ZbCustom Install:\Zn do a custom installation \
+            \n\ZbSetup:\Zn change some settings to run OpenELEC \
+            \n\ZbBIOS Update:\Zn backup and update your BIOS (only for OEMs) \
+            \n\ZbShow logfile:\Zn show and save the logfile \
+            \n \
+            \nPlease select:"
+  MSG_CANCEL="Reboot"
 
-    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-      --title "$MSG_TITLE" --menu "$MSG_MENU" 20 70 5 \
-        1 "Quick Install of OpenELEC" \
-        2 "Custom Install of OpenELEC" \
-        3 "Setup OpenELEC" \
-        4 "BIOS update (only for OEM's)" \
-        5 "Show logfile" 2> $TMPDIR/mainmenu
+  dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+    --title "$MSG_TITLE" --menu "$MSG_MENU" 20 70 5 \
+      1 "Quick Install of OpenELEC" \
+      2 "Custom Install of OpenELEC" \
+      3 "Setup OpenELEC" \
+      4 "BIOS update (only for OEM's)" \
+      5 "Show logfile" 2> $TMPDIR/mainmenu
 
-    case $? in
-      0)
-        ITEM_MAINMENU=$(cat "$TMPDIR/mainmenu")
-        case $ITEM_MAINMENU in
-          1) do_install_quick; break;;
-          2) do_install_custom; break;;
-          3) menu_setup; break;;
-          4) menu_bios; break;;
-          5) logfile_show; break;;
-        esac
-        ;;
-      1)
-        do_reboot
-        ;;
-      255)
-        do_poweroff
-        ;;
-    esac
+  case $? in
+    0)
+      ITEM_MAINMENU=$(cat "$TMPDIR/mainmenu")
+      case $ITEM_MAINMENU in
+        1) do_install_quick; break;;
+        2) do_install_custom; break;;
+        3) menu_setup; break;;
+        4) menu_bios; break;;
+        5) logfile_show; break;;
+      esac
+      ;;
+    1)
+      do_reboot
+      ;;
+    255)
+      do_poweroff
+      ;;
+  esac
 }
 
 menu_setup() {
   # TODO: show the setupmenu
-    msg_not_implemented
-    menu_main
+  msg_not_implemented
+  menu_main
 }
 
 menu_bios() {
   # show the biosmenu
-    MSG_TITLE="\Z4[ BIOS MENU ]\Zn"
-    MSG_MENU="\n You can use the UP/DOWN arrow keys,\n or the number of the choice as a hotkey,\n to choose an option.\n\n Please choose an option:"
-    MSG_CANCEL="Back"
+  MSG_TITLE="\Z4[ BIOS MENU ]\Zn"
+  MSG_MENU="\n You can use the UP/DOWN arrow keys,\n or the number of the choice as a hotkey,\n to choose an option.\n\n Please choose an option:"
+  MSG_CANCEL="Back"
 
-    dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-      --title "$MSG_TITLE" --menu "$MSG_MENU" 20 70 5 \
-        1 "Backup installed BIOS" \
-        2 "Update BIOS" \
-        3 "Erase BIOS (not recommended)" 2> $TMPDIR/biosmenu
+  dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
+    --title "$MSG_TITLE" --menu "$MSG_MENU" 20 70 5 \
+      1 "Backup installed BIOS" \
+      2 "Update BIOS" \
+      3 "Erase BIOS (not recommended)" 2> $TMPDIR/biosmenu
 
-    case $? in
-      0)
-        ITEM_BIOSMENU=$(cat "$TMPDIR/biosmenu")
-        case $ITEM_BIOSMENU in
-          1) bios_backup; break;;
-          2) bios_update; break;;
-          3) bios_erase; break;;
-        esac
-        ;;
-      1)
-        menu_main
-        ;;
-      255)
-        do_poweroff
-        ;;
-    esac
+  case $? in
+    0)
+      ITEM_BIOSMENU=$(cat "$TMPDIR/biosmenu")
+      case $ITEM_BIOSMENU in
+        1) bios_backup; break;;
+        2) bios_update; break;;
+        3) bios_erase; break;;
+      esac
+      ;;
+    1)
+      menu_main
+      ;;
+    255)
+      do_poweroff
+      ;;
+  esac
 }
 
 bios_backup() {
   # create a backup of the installed bios
-    if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+  if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
 
-      clear
-      echo "##### backup old BIOS to $BIOS_BACKUP #####"
-        usleep 1000000
-        mount -o remount,rw /flash
-        flashrom --read /flash/$BIOS_BACKUP
-        mount -o remount,ro /flash
+    clear
+    echo "##### backup old BIOS to $BIOS_BACKUP #####"
+      usleep 1000000
+      mount -o remount,rw /flash
+      flashrom --read /flash/$BIOS_BACKUP
+      mount -o remount,ro /flash
 
-      echo "##### Please control the output and press any key to continue #####"
-      read -sn1
+    echo "##### Please control the output and press any key to continue #####"
+    read -sn1
 
-    else
-      msg_oem_only
-    fi
-    menu_bios
+  else
+    msg_oem_only
+  fi
+  menu_bios
 }
 
 bios_update() {
   # update the bios
-    if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+  if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+    clear
+    echo "##### erasing BIOS #####"
+    usleep 1000000
+    flashrom --erase
 
-      clear
-      echo "##### erasing BIOS #####"
-        usleep 1000000
-        flashrom --erase
+    echo "##### writing new BIOS from $BIOS_FILE #####"
+    usleep 1000000
+    flashrom --write "$BIOS_FILE"
 
-      echo "##### writing new BIOS from $BIOS_FILE #####"
-        usleep 1000000
-        flashrom --write "$BIOS_FILE"
-
-      echo "##### Please control the output and press any key to continue #####"
-      read -sn1
-
-    else
-      msg_oem_only
-    fi
-    menu_bios
+    echo "##### Please control the output and press any key to continue #####"
+    read -sn1
+  else
+    msg_oem_only
+  fi
+  menu_bios
 }
 
 bios_erase() {
   # erase the bios
-    if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+  if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
+    clear
+    echo "##### erasing BIOS #####"
+    usleep 1000000
+    flashrom --erase
 
-      clear
-      echo "##### erasing BIOS #####"
-        usleep 1000000
-        flashrom --erase
-
-      echo "##### Please control the output and press any key to continue #####"
-      read -sn1
-
-    else
-      msg_oem_only
-    fi
-    menu_bios
+    echo "##### Please control the output and press any key to continue #####"
+    read -sn1
+  else
+    msg_oem_only
+  fi
+  menu_bios
 }
 
 logfile_show() {
   # TODO: show the logfile
-    dialog --textbox "$LOGFILE" 20 70
-    clear
-    menu_main
+  dialog --textbox "$LOGFILE" 20 70
+  clear
+  menu_main
 }
 
 do_reboot() {
   # reboot on request
-    clear
-    sync
-    reboot
+  clear
+  sync
+  reboot
 }
 
 do_poweroff() {
   # powerdown on request
-    clear
-    sync
-    poweroff
+  clear
+  sync
+  poweroff
 }
 
 # setup needed variables
-  BETA="yes"
-  INSTALLER_VERSION="0.2.6"
-  OS_VERSION=$(lsb_release)
-  BACKTITLE="OpenELEC Installer $INSTALLER_VERSION - $OS_VERSION"
+BETA="yes"
+INSTALLER_VERSION="0.2.6"
+OS_VERSION=$(lsb_release)
+BACKTITLE="OpenELEC Installer $INSTALLER_VERSION - $OS_VERSION"
 
-  TMPDIR="/tmp/installer"
-  LOGFILE="$TMPDIR/install.log"
+TMPDIR="/tmp/installer"
+LOGFILE="$TMPDIR/install.log"
 
 # prepare temporary directory
-  rm -rf $TMPDIR
-  mkdir -p $TMPDIR
+rm -rf $TMPDIR
+mkdir -p $TMPDIR
 
 # main
-  [ "$BETA" = "yes" ] && msg_warning_beta
+[ "$BETA" = "yes" ] && msg_warning_beta
 
-  while true; do
-    clear
-    menu_main
-  done
+while true; do
+  clear
+  menu_main
+done
 
 # exit cleanly
-  exit 0
+exit 0
