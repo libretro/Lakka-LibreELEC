@@ -83,8 +83,16 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/share/u-boot
     cp ./u-boot.bin $INSTALL/usr/share/u-boot
 
+  if [ -f "./u-boot.img" ]; then
+    cp ./u-boot.img $INSTALL/usr/share/u-boot
+  fi
+
   if [ -f "./MLO" ]; then
     cp ./MLO $INSTALL/usr/share/u-boot
+  fi
+
+  if [ -f "./SPL" ]; then
+    cp ./SPL $INSTALL/usr/share/u-boot
   fi
 
   if [ -f "./boot.cfg" ]; then
