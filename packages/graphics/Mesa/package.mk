@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="Mesa"
-PKG_VERSION="10.0.3"
+PKG_VERSION="10.1.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
-PKG_URL="ftp://freedesktop.org/pub/mesa/$PKG_VERSION/MesaLib-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain Python:host makedepend:host libxml2:host expat glproto dri2proto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd"
+PKG_URL="ftp://freedesktop.org/pub/mesa/10.1/MesaLib-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain Python:host makedepend:host libxml2:host expat glproto dri2proto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd dri3proto libxshmfence"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="mesa: 3-D graphics library with OpenGL API"
@@ -77,6 +77,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-gles2 \
                            --disable-openvg \
                            --enable-dri \
+                           --enable-dri3 \
                            --enable-glx \
                            --disable-osmesa \
                            --enable-egl --with-egl-platforms=x11,drm \
