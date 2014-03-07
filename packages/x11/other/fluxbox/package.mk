@@ -42,7 +42,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
                            --disable-regexp \
                            --disable-debug \
                            --disable-test \
-                           --disable-nls"
+                           --disable-nls \
+                           --disable-imlib2"
                            
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/fbrun
