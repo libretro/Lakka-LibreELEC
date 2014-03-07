@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="misc-firmware"
-PKG_VERSION="0.0.6"
+PKG_VERSION="0.0.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Free-to-use"
