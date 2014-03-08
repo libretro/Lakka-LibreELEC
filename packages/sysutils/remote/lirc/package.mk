@@ -44,7 +44,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_path_LIBUSB_CONFIG= /
 if [ "$DEBUG" = yes ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-debug"
 else
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-debug"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-debug"
 fi
 
 pre_make_target() {
@@ -57,4 +57,8 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/etc/lirc
     cp $PKG_DIR/config/lircd.conf.xbox $INSTALL/etc/lirc
     cp $PKG_DIR/config/lircd.conf.rpi $INSTALL/etc/lirc
+
+  mkdir -p $INSTALL/usr/lib/udev
+    cp $PKG_DIR/scripts/lircd_helper $INSTALL/usr/lib/udev
+    cp $PKG_DIR/scripts/lircd_wakeup_enable $INSTALL/usr/lib/udev
 }

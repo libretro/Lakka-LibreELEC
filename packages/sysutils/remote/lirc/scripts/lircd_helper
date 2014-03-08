@@ -1,0 +1,74 @@
+#!/bin/sh
+################################################################################
+# lircd_helper
+#
+# This script can be used by udev to start or stop lircd when a remote control
+# device is added or removed.
+#
+# lircd_helper configures lircd to output using a uinput event device so that
+# eventlircd can aggregate the outputs into a single lircd socket.
+#
+# lircd_helper configures lircd to use an lircd socket name that is derived
+# from the device name. In addition, lircd_helper creates symbolic links to this
+# lircd socket that are derived from the device symbolic links. You can use this
+# socket and the symbolic link to this socket when using commands such as
+# irsend.
+#
+# lircd_helper understands two lircd_helper specific device properites set
+# using ENV{} and passed as environment variables:
+#   lircd_driver:
+#     Used to tell lircd_helper the name of the lircd driver.
+#   lircd_conf:
+#     Used to tell lircd_helper the path to the lircd.conf file to use.
+################################################################################
+
+case "${ACTION}" in
+    add)
+        if test "x${lircd_driver}" = "x" ; then
+            exit 1;
+        fi
+        if test "x${lircd_conf}" = "x" ; then
+            exit 1;
+        fi
+        if test ! -e '/run/lirc' ; then
+            mkdir -p '/run/lirc'
+        fi
+        devname_instance=`echo ${DEVNAME} | sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
+        if test ! -e "/run/lirc/lircd-${devname_instance}.pid" ; then
+            daemon='/usr/sbin/lircd'
+            daemon="${daemon} --driver=${lircd_driver}"
+            daemon="${daemon} --device=${DEVNAME}"
+            daemon="${daemon} --uinput"
+            daemon="${daemon} --output=/run/lirc/lircd-${devname_instance}"
+            daemon="${daemon} --pidfile=/run/lirc/lircd-${devname_instance}.pid"
+            if test -e "/storage/.config/lircd.conf" ; then
+                daemon="${daemon} /storage/.config/lircd.conf"
+            elif test -e "${lircd_conf}" ; then
+                daemon="${daemon} ${lircd_conf}"
+            else
+                exit 1
+            fi
+            ${daemon}
+            for devlink in ${DEVLINKS} ; do
+                devlink_instance=`echo ${devlink} | /bin/sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
+                rm -f "/run/lirc/lircd-${devlink_instance}"
+                ln -s "lircd-${devname_instance}" "/run/lirc/lircd-${devlink_instance}"
+            done
+        fi
+        ;;
+    remove)
+        instance=`echo $DEVNAME | sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
+        if test -e "/run/lirc/lircd-${instance}.pid" ; then
+            pid=`cat /run/lirc/lircd-${instance}.pid`
+            if test ! "x${pid}" = "x" ; then
+                kill ${pid}
+            fi
+            for devlink in ${DEVLINKS} ; do
+                devlink_instance=`echo ${devlink} | sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
+                rm -f "/run/lirc/lircd-${devlink_instance}"
+            done
+        fi
+        ;;
+esac
+
+exit 0

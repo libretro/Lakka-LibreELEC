@@ -38,6 +38,7 @@ post_makeinstall_target() {
 # install our own evmap files and udev rules
   rm -rf $INSTALL/etc/eventlircd.d
   rm -rf $INSTALL/usr/lib/udev/rules.d
+  rm -rf $INSTALL/usr/lib/udev/lircd_helper
 
   mkdir -p $INSTALL/etc/eventlircd.d
     cp $PKG_DIR/evmap/*.evmap $INSTALL/etc/eventlircd.d
