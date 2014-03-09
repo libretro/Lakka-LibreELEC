@@ -1,74 +1,66 @@
 #!/bin/sh
 ################################################################################
-# lircd_helper
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
 #
-# This script can be used by udev to start or stop lircd when a remote control
-# device is added or removed.
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
 #
-# lircd_helper configures lircd to output using a uinput event device so that
-# eventlircd can aggregate the outputs into a single lircd socket.
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# lircd_helper configures lircd to use an lircd socket name that is derived
-# from the device name. In addition, lircd_helper creates symbolic links to this
-# lircd socket that are derived from the device symbolic links. You can use this
-# socket and the symbolic link to this socket when using commands such as
-# irsend.
-#
-# lircd_helper understands two lircd_helper specific device properites set
-# using ENV{} and passed as environment variables:
-#   lircd_driver:
-#     Used to tell lircd_helper the name of the lircd driver.
-#   lircd_conf:
-#     Used to tell lircd_helper the path to the lircd.conf file to use.
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-case "${ACTION}" in
-    add)
-        if test "x${lircd_driver}" = "x" ; then
-            exit 1;
-        fi
-        if test "x${lircd_conf}" = "x" ; then
-            exit 1;
-        fi
-        if test ! -e '/run/lirc' ; then
-            mkdir -p '/run/lirc'
-        fi
-        devname_instance=`echo ${DEVNAME} | sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
-        if test ! -e "/run/lirc/lircd-${devname_instance}.pid" ; then
-            daemon='/usr/sbin/lircd'
-            daemon="${daemon} --driver=${lircd_driver}"
-            daemon="${daemon} --device=${DEVNAME}"
-            daemon="${daemon} --uinput"
-            daemon="${daemon} --output=/run/lirc/lircd-${devname_instance}"
-            daemon="${daemon} --pidfile=/run/lirc/lircd-${devname_instance}.pid"
-            if test -e "/storage/.config/lircd.conf" ; then
-                daemon="${daemon} /storage/.config/lircd.conf"
-            elif test -e "${lircd_conf}" ; then
-                daemon="${daemon} ${lircd_conf}"
-            else
-                exit 1
-            fi
-            ${daemon}
-            for devlink in ${DEVLINKS} ; do
-                devlink_instance=`echo ${devlink} | /bin/sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
-                rm -f "/run/lirc/lircd-${devlink_instance}"
-                ln -s "lircd-${devname_instance}" "/run/lirc/lircd-${devlink_instance}"
-            done
-        fi
-        ;;
-    remove)
-        instance=`echo $DEVNAME | sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
-        if test -e "/run/lirc/lircd-${instance}.pid" ; then
-            pid=`cat /run/lirc/lircd-${instance}.pid`
-            if test ! "x${pid}" = "x" ; then
-                kill ${pid}
-            fi
-            for devlink in ${DEVLINKS} ; do
-                devlink_instance=`echo ${devlink} | sed -e 's/\/\+/~/g' -e 's/^~dev~//'`
-                rm -f "/run/lirc/lircd-${devlink_instance}"
-            done
-        fi
-        ;;
+ACTION=$(echo "$1")
+DEVICE=$(echo "$2" | cut -f1 -d:)
+DRIVER=$(echo "$2" | cut -f2 -d:)
+CONFIG=$(echo "$2" | cut -f3 -d:)
+
+case "$ACTION" in
+  add)
+    if [ "x$DRIVER" = "x" ]; then
+      exit 1;
+    fi
+    if [ "x$CONFIG" = "x" ]; then
+      exit 1;
+    fi
+
+    mkdir -p '/run/lirc'
+
+    if [ ! -e "/run/lirc/lircd-$DEVICE.pid" ]; then
+
+      LIRCD="/usr/sbin/lircd"
+      LIRCD_CONFIG="--uinput --driver=$DRIVER --device=/dev/$DEVICE"
+      LIRCD_CONFIG="$LIRCD_CONFIG --output=/run/lirc/lircd-$DEVICE"
+      LIRCD_CONFIG="$LIRCD_CONFIG --pidfile=/run/lirc/lircd-$DEVICE.pid"
+
+      if [ -e "/storage/.config/$CONFIG" ]; then
+        LIRCD_CONFIG="$LIRCD_CONFIG /storage/.config/$CONFIG"
+      elif [ -e "/storage/.config/lircd.conf" ]; then
+        LIRCD_CONFIG="$LIRCD_CONFIG /storage/.config/lircd.conf"
+      elif [ -e "/etc/lirc/$CONFIG" ]; then
+        LIRCD_CONFIG="$LIRCD_CONFIG /etc/lirc/$CONFIG"
+      else
+        exit 1
+      fi
+
+      exec $LIRCD $LIRCD_CONFIG
+    fi
+    ;;
+  remove)
+    if [ -e "/run/lirc/lircd-$DEVICE.pid" ]; then
+      PID=`cat /run/lirc/lircd-$DEVICE.pid`
+      if [ ! "x$PID" = "x" ]; then
+        kill $PID
+      fi
+    fi
+    ;;
 esac
 
 exit 0

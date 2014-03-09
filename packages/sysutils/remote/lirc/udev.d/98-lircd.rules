@@ -17,19 +17,20 @@ LABEL="begin"
 #-------------------------------------------------------------------------------
 # Ask lircd_helper to lirc devices.
 #-------------------------------------------------------------------------------
-SUBSYSTEM=="lirc", \
-  ENV{lircd_driver}="default", \
-  ENV{lircd_conf}="/etc/lirc/lircd.conf"
+
+#SUBSYSTEM=="lirc", \
+#  ENV{lircd_driver}="default", \
+#  ENV{lircd_conf}="lircd.conf"
 
 ### Microsoft Xbox DVD dongle
 SUBSYSTEM=="lirc", DRIVERS=="lirc_xbox", \
   ENV{lircd_driver}="default", \
-  ENV{lircd_conf}="/etc/lirc/lircd.conf.xbox"
+  ENV{lircd_conf}="lircd.conf.xbox"
 
 ### RPi GPIO IR Receiver
 SUBSYSTEM=="lirc", DRIVERS=="lirc_rpi", \
   ENV{lircd_driver}="default", \
-  ENV{lircd_conf}="/etc/lirc/lircd.conf.rpi"
+  ENV{lircd_conf}="lircd.conf.rpi"
 
 #-------------------------------------------------------------------------------
 # Ask lircd_helper to handle USB devices that do not show up as lirc devices
@@ -38,23 +39,23 @@ SUBSYSTEM=="lirc", DRIVERS=="lirc_rpi", \
 #-------------------------------------------------------------------------------
 SUBSYSTEMS=="usb", GOTO="begin-usb"
 GOTO="end-usb"
+
 LABEL="begin-usb"
 
 ENV{ID_USB_INTERFACES}=="", IMPORT{builtin}="usb_id"
 
 ENV{ID_VENDOR_ID}=="04d8", ENV{ID_MODEL_ID}=="fd08", \
   ENV{lircd_driver}="usb_irtoy", \
-  ENV{lircd_conf}="/storage/.config/lircd.conf"
+  ENV{lircd_conf}="lircd.conf"
 
 ENV{ID_VENDOR_ID}=="0fe9", ENV{ID_MODEL_ID}=="9010", \
   ENV{lircd_driver}="dvico", \
-  ENV{lircd_conf}="/etc/lirc/lircd.conf"
-
-# Enable wake-on-usb for the USB remotes.
-ENV{lircd_driver}=="?*", ENV{lircd_conf}=="?*", RUN+="lircd_wakeup_enable"
+  ENV{lircd_conf}="lircd.conf"
 
 LABEL="end-usb"
 
-ENV{lircd_driver}=="?*", ENV{lircd_conf}=="?*", RUN+="lircd_helper"
+ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="lircd@$name:$env{lircd_driver}:$env{lircd_conf}.service", RUN+="lircd_wakeup_enable"
+# ACTION=="add", RUN+="/usr/bin/systemctl start lircd@$name:$env{lircd_driver}:$env{lircd_conf}.service", RUN+="lircd_wakeup_enable"
+ACTION=="remove", RUN+="/usr/bin/systemctl stop lircd@$name:$env{lircd_driver}:$env{lircd_conf}.service"
 
 LABEL="end"
