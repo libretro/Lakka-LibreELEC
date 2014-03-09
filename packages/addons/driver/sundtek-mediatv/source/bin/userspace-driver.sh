@@ -73,17 +73,6 @@ mkdir -p /var/config
 cat "$SUNDTEK_ADDON_SETTINGS" | awk -F\" '{print $2"=\""$4"\""}' | sed '/^=/d' > /var/config/sundtek-addon.conf
 . /var/config/sundtek-addon.conf
 
-# add alias for /opt/bin/mediaclient
-alias_set="$(grep libmediaclient.so /storage/.profile 2>/dev/null)"
-if [ -z "$alias_set" ]; then
-  echo "" >>/storage/.profile
-  echo "[ -f /storage/.xbmc/addons/driver.dvb.sundtek-mediatv/lib/libmediaclient.so ] && export LD_PRELOAD=/storage/.xbmc/addons/driver.dvb.sundtek-mediatv/lib/libmediaclient.so" >>/storage/.profile
-  echo "" >>/storage/.profile
-else
-  # fix name
-  sed -i 's|/driver.dvb.sundtek/|/driver.dvb.sundtek-mediatv/|g' /storage/.profile
-fi
-
 export LD_PRELOAD=$SUNDTEK_ADDON_DIR/lib/libmediaclient.so
 
 if [ -z "$(pidof mediasrv)" ]; then
@@ -240,7 +229,7 @@ if [ -z "$(pidof mediasrv)" ]; then
   # save adapter serial number in background
   sleep 5
   serial_number_old=$(cat $SUNDTEK_ADDON_HOME/adapters.txt 2>/dev/null)
-  serial_number_new=$(mediaclient -e | awk '/device / {print $0} /ID:/ {print $2}')
+  serial_number_new=$(mediaclient.bin -e | awk '/device / {print $0} /ID:/ {print $2}')
   if [ "$serial_number_old" != "$serial_number_new" ]; then
     echo "$serial_number_new" >$SUNDTEK_ADDON_HOME/adapters.txt
   fi

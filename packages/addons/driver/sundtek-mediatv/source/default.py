@@ -25,7 +25,7 @@ __cwd__           = __settings__.getAddonInfo('path')
 __resources_lib__ = xbmc.translatePath(os.path.join(__cwd__, 'resources', 'lib'))
 __settings_xml__  = xbmc.translatePath(os.path.join(__cwd__, 'resources', 'settings.xml'))
 
-__mediaclient__   = xbmc.translatePath(os.path.join(__cwd__, 'bin', 'mediaclient'))
+__mediaclient__   = xbmc.translatePath(os.path.join(__cwd__, 'bin', 'mediaclient.bin'))
 __ld_preload__    = xbmc.translatePath(os.path.join(__cwd__, 'lib', 'libmediaclient.so'))
 __mediaclient_e__ = 'LD_PRELOAD=' + __ld_preload__ + ' ' + __mediaclient__ + ' -e'
 

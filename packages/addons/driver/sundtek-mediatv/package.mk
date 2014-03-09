@@ -18,7 +18,7 @@
 
 PKG_NAME="sundtek-mediatv"
 PKG_VERSION="4.1"
-PKG_REV="4"
+PKG_REV="5"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://support.sundtek.com/"
@@ -49,6 +49,8 @@ make_target() {
   esac
   wget -O installer.tar.gz $INSTALLER_URL
   tar -xzf installer.tar.gz
+  # we run this via wrapper
+  mv opt/bin/mediaclient opt/bin/mediaclient.bin
   chmod 755 opt/bin/*
 }
 
