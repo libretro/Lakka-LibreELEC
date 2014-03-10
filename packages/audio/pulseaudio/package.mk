@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="4.99.3"
+PKG_VERSION="5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pulseaudio.org/"
-PKG_URL="http://cgit.freedesktop.org/pulseaudio/pulseaudio/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://www.freedesktop.org/software/pulseaudio/releases/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain libtool json-c alsa-lib libsndfile libsamplerate speex dbus systemd openssl libcap"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
@@ -40,8 +40,6 @@ if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
 else
   PULSEAUDIO_BLUETOOTH="--disable-bluez5"
 fi
-
-export GIT_DESCRIBE_FOR_BUILD="4.0"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
