@@ -1,0 +1,43 @@
+--- vdr-plugin-eepg-master/Makefile	2014-03-11 15:44:36.675368020 +0000
++++ vdr-plugin-eepg-master/Makefile	2014-03-11 15:51:02.065495474 +0000
+@@ -31,21 +31,16 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+-LIBDIR = $(call PKGCFG,libdir)
+-LOCDIR = $(call PKGCFG,locdir)
+-PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+ ### The compiler options:
+ 
+-export CFLAGS   = $(call PKGCFG,cflags)
+-export CXXFLAGS = $(call PKGCFG,cxxflags)
++include $(VDRDIR)/Make.global
+ 
+ ### The version number of VDR's plugin API:
+ 
+-APIVERSION = $(call PKGCFG,apiversion)
++APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
+ 
+ ### Allow user defined options to overwrite defaults:
+ 
+@@ -65,7 +60,7 @@
+ 
+ INCLUDES += -I$(VDRDIR)/include
+ 
+-DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
++DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DVNSI_SERVER_VERSION='"$(VERSION)"' -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+ 
+ ### The object files (add further files here):
+ 
+@@ -119,6 +114,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)

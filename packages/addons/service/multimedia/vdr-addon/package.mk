@@ -24,7 +24,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain attr libcap vdr vdr-plugin-xvdr vdr-plugin-vnsiserver vdr-iptv vdr-wirbelscan vdr-wirbelscancontrol vdr-sc vdr-plugin-dvbapi vdr-plugin-streamdev vdr-live vdr-control vdr-epgsearch vdr-plugin-xmltv2vdr"
+PKG_DEPENDS_TARGET="toolchain attr libcap vdr vdr-plugin-xvdr vdr-plugin-vnsiserver vdr-iptv vdr-wirbelscan vdr-wirbelscancontrol vdr-sc vdr-plugin-dvbapi vdr-plugin-streamdev vdr-live vdr-control vdr-epgsearch vdr-plugin-xmltv2vdr vdr-plugin-eepg"
 PKG_PRIORITY="optional"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="vdr: A powerful DVB TV application"
@@ -76,6 +76,7 @@ addon() {
   cp -PR $(get_build_dir vdr-wirbelscan)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $(get_build_dir vdr-wirbelscancontrol)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $(get_build_dir vdr-plugin-dvbapi)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
+  cp -PR $(get_build_dir vdr-plugin-eepg)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $VDR_SC_DIR/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $VDR_SC_DIR/systems/*/libsc*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $VDR_PLUGIN_STREAMVEV_DIR/server/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
@@ -84,6 +85,8 @@ addon() {
   cp -PR $(get_build_dir vdr-control)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $(get_build_dir vdr-epgsearch)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $VDR_PLUGIN_XMLTV2VDR/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
+
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/eepg
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/xvdr
   cp -PR $VDR_PLUGIN_XVDR_DIR/xvdr/allowed_hosts.conf $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/xvdr
