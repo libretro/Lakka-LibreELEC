@@ -46,6 +46,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/lib $INSTALL/var
   rm -rf $INSTALL/usr/share/alsa/speaker-test
   rm -rf $INSTALL/usr/share/sounds
+  rm -rf $INSTALL/usr/lib/systemd/system
 
   for i in aconnect alsaucm amidi aplaymidi arecord arecordmidi aseqdump aseqnet iecset; do
     rm -rf $INSTALL/usr/bin/$i
