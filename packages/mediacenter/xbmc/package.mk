@@ -242,13 +242,13 @@ else
 fi
 
 if [ "$UPNP_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libssh"
   XBMC_UPNP="--enable-upnp"
 else
   XBMC_UPNP="--disable-upnp"
 fi
 
 if [ "$SSHLIB_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libssh"
   XBMC_SSH="--enable-ssh"
 else
   XBMC_SSH="--disable-ssh"
