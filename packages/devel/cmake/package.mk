@@ -33,7 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_host() {
-  ../configure --no-qt-gui
+  ../configure --no-qt-gui -- -DBUILD_CursesDialog=0
 }
 
 makeinstall_host() {
