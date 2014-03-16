@@ -55,6 +55,10 @@ post_makeinstall_target() {
       -e "s|^#GoodBye=\"Thanks for using\"|GoodBye=\"Thanks for using\"|" \
       -e "s|^#GoodBye=\"   LCDproc!\"|GoodBye=\"$DISTRONAME\"|" \
       -i $INSTALL/etc/LCDd.conf
+
+    mkdir -p $INSTALL/usr/lib/openelec
+      cp $PKG_DIR/scripts/lcd-wrapper $INSTALL/usr/lib/openelec
+
 }
 
 post_install() {
