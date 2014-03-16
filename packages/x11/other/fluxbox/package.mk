@@ -50,7 +50,6 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/fbsetbg
   rm -rf $INSTALL/usr/bin/fluxbox-generate_menu
   rm -rf $INSTALL/usr/bin/fluxbox-remote
-  rm -rf $INSTALL/usr/bin/fluxbox-update_configs
   rm -rf $INSTALL/usr/bin/startfluxbox
 
   rm -rf $INSTALL/usr/share/fluxbox/styles
