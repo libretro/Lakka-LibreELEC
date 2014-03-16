@@ -33,3 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fPIC"
+}
