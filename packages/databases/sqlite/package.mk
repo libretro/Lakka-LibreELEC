@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="sqlite"
-PKG_VERSION="autoconf-3080301"
+PKG_VERSION="autoconf-3080401"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="PublicDomain"
