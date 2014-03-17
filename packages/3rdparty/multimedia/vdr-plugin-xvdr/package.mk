@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-xvdr"
-PKG_VERSION="4a9d95e"
+PKG_VERSION="7f49bfa"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
