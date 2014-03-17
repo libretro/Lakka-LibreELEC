@@ -1,4 +1,4 @@
-#!/bin/sh -xv
+#!/bin/bash
 
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
@@ -25,7 +25,6 @@
 ################################################################################
 
 # set variables:
-  OE_TMP=$(mktemp -d)
   VERBOSE="FALSE"
   IMGSIZE="200" # size of BOOT in MB
   IMGUSB="$IMAGE_NAME-usb.img"
@@ -60,12 +59,9 @@
 
     # create USB image
     echo "Creating $IMGFILE"
-
-    SYSTEM_PART_END=$(( $IMGSIZE * 1024 * 1024 / 512 - 40 ))
-
     dd if=/dev/zero of=$IMGFILE bs=1M count=$IMGSIZE 1>&3 2>&4
     parted -s $IMGFILE mklabel gpt 1>&3 2>&4
-    parted -s $IMGFILE -a min unit s mkpart primary HFS 40 $SYSTEM_PART_END 1>&3 2>&4
+    parted -s $IMGFILE mkpart primary HFS 40s 100% 1>&3 2>&4
     parted -s $IMGFILE name 1 OPENELEC 1>&3 2>&4
     parted -s $IMGFILE set 1 atvrecv on 1>&3 2>&4
     kpartx -a $IMGFILE 1>&3 2>&4
@@ -73,6 +69,7 @@
     fsck.hfsplus -f /dev/mapper/loop0p1 1>&3 2>&4
 
     # mount the image file
+    OE_TMP=$(mktemp -d)
     mount /dev/mapper/loop0p1 $OE_TMP 1>&3 2>&4
 
     # copy recovery files
@@ -85,29 +82,29 @@
     # unmount the image file
     sync 1>&3 2>&4
     sleep 2
-#    umount $OE_TMP 1>&3 2>&4
-#    rm -rf $OE_TMP 1>&3 2>&4
+    umount $OE_TMP 1>&3 2>&4
+    rm -rf $OE_TMP 1>&3 2>&4
 
     # sync everything up
-#    echo y | gptsync /dev/loop0 1>&3 2>&4
-#    sleep 2
-#    kpartx -d $IMGFILE 1>&3 2>&4
+    echo y | gptsync /dev/loop0 1>&3 2>&4
+    sleep 2
+    kpartx -d $IMGFILE 1>&3 2>&4
     sync 1>&3 2>&4
 
     # wait a bit
     sleep 2
 
     # gzip the image file and move to target/
-#    gzip $IMGFILE
-#    IMGFILE="$IMGFILE.gz"
+    gzip $IMGFILE
+    IMGFILE="$IMGFILE.gz"
 
     # change file owner to match target/
-#    USR=$(ls -dl $ROOT/target | awk '{print $3}')
-#    GRP=$(ls -dl $ROOT/target | awk '{print $4}')
-#    chown $USR:$GRP $IMGFILE
+    USR=$(ls -dl $ROOT/target | awk '{print $3}')
+    GRP=$(ls -dl $ROOT/target | awk '{print $4}')
+    chown $USR:$GRP $IMGFILE
 
     # move to target/
-#    mv $IMGFILE target/
+    mv $IMGFILE target/
 
 # close the loop
 done
