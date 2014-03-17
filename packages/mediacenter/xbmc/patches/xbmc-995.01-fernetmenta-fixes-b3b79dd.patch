@@ -11101,3 +11101,90 @@ index 354e206..6bc35b1 100644
 -- 
 1.9.0
 
+From a9d8d8a426cd16a72c078c0b6f151f974e65c4ef Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Mon, 17 Mar 2014 12:06:37 +0100
+Subject: [PATCH] X11: fix detect of window manager
+
+---
+ xbmc/windowing/X11/WinSystemX11.cpp | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
+index c95f4ec..1208246 100644
+--- a/xbmc/windowing/X11/WinSystemX11.cpp
++++ b/xbmc/windowing/X11/WinSystemX11.cpp
+@@ -905,8 +905,8 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const std:
+ 
+     if (fullscreen && hasWM)
+     {
+-      Atom fs = XInternAtom(m_dpy, "_NET_WM_STATE_FULLSCREEN", True);
+-      XChangeProperty(m_dpy, m_mainWindow, XInternAtom(m_dpy, "_NET_WM_STATE", True), XA_ATOM, 32, PropModeReplace, (unsigned char *) &fs, 1);
++      Atom fs = XInternAtom(m_dpy, "_NET_WM_STATE_FULLSCREEN", False);
++      XChangeProperty(m_dpy, m_mainWindow, XInternAtom(m_dpy, "_NET_WM_STATE", False), XA_ATOM, 32, PropModeReplace, (unsigned char *) &fs, 1);
+     }
+ 
+     // define invisible cursor
+@@ -1139,7 +1139,7 @@ bool CWinSystemX11::HasWindowManager()
+   unsigned long items_read, items_left, i;
+   char req = 0;
+ 
+-  prop = XInternAtom(m_dpy, "_NET_SUPPORTING_WM_CHECK", True);
++  prop = XInternAtom(m_dpy, "_NET_SUPPORTING_WM_CHECK", False);
+   if (prop == None)
+     return false;
+   status = XGetWindowProperty(m_dpy, DefaultRootWindow(m_dpy), prop,
+@@ -1174,7 +1174,7 @@ bool CWinSystemX11::HasWindowManager()
+ 
+   XFree(data);
+ 
+-  prop = XInternAtom(m_dpy, "_NET_WM_NAME", True);
++  prop = XInternAtom(m_dpy, "_NET_WM_NAME", False);
+   if (prop == None)
+   {
+     CLog::Log(LOGDEBUG,"Window Manager Name: ");
+-- 
+1.8.5.5
+
+From 05c9c779123f057adb6decc74b070e31d0b63478 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Mon, 17 Mar 2014 15:49:57 +0100
+Subject: [PATCH] squash to fast channel change
+
+---
+ xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index 750996b..b60812a 100644
+--- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -1713,8 +1713,8 @@ bool CDVDDemuxFFmpeg::IsVideoReady()
+       int idx = m_pFormatContext->programs[m_program]->stream_index[i];
+       st = m_pFormatContext->streams[idx];
+       if (st->codec->codec_type == AVMEDIA_TYPE_VIDEO &&
+-          (!st->codec->width || st->codec->pix_fmt == PIX_FMT_NONE))
+-        return false;
++          (st->codec->width && st->codec->pix_fmt != PIX_FMT_NONE))
++        return true;
+     }
+   }
+   else
+@@ -1723,11 +1723,11 @@ bool CDVDDemuxFFmpeg::IsVideoReady()
+     {
+       st = m_pFormatContext->streams[i];
+       if (st->codec->codec_type == AVMEDIA_TYPE_VIDEO &&
+-          (!st->codec->width || st->codec->pix_fmt == PIX_FMT_NONE))
+-        return false;
++          (st->codec->width && st->codec->pix_fmt != PIX_FMT_NONE))
++        return true;
+     }
+   }
+-  return true;
++  return false;
+ }
+ 
+ void CDVDDemuxFFmpeg::ResetVideoStreams()
+-- 
+1.8.5.5
+
