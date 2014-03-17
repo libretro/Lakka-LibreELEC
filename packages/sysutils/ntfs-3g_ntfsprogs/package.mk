@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="ntfs-3g_ntfsprogs"
-PKG_VERSION="2013.1.13"
+PKG_VERSION="2014.2.15"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
