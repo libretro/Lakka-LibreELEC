@@ -17,17 +17,17 @@
 ################################################################################
 
 PKG_NAME="atvboot"
-PKG_VERSION="1"
+PKG_VERSION="1.0"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://openelec.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
-PKG_SHORTDESC="atvboot: ATV Bootloader files"
-PKG_LONGDESC="atvboot: ATV Bootloader files"
+PKG_SHORTDESC="atvboot: ATV Boot/Installer files"
+PKG_LONGDESC="atvboot: ATV Boot/Installer files"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
