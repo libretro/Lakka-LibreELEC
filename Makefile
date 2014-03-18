@@ -1,6 +1,6 @@
 BUILD_DIRS=build.*
 
-all: system
+all: release
 
 system:
 	./scripts/image
