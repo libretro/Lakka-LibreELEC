@@ -88,6 +88,11 @@ else
   XBMC_PULSEAUDIO="--disable-pulse"
 fi
 
+if [ "$ESPEAK_SUPPORT" = yes ]; then
+# for espeak support
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET espeak"
+fi
+
 if [ "$CEC_SUPPORT" = yes ]; then
 # for CEC support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libcec"
