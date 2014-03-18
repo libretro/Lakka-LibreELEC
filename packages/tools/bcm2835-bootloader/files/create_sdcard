@@ -196,7 +196,9 @@ echo "#########################################################"
 # create a single partition
   echo "creating partitions on $DISK..."
   parted -s "$DISK" unit cyl mkpart primary fat32 -- 0 16
-  parted -s "$DISK" unit cyl mkpart primary ext2 -- 16 -2
+# align the partition on 4mb boundary, starting at 132mb (132 % 4 == 0), which
+# is right after the first partition
+  parted -s "$DISK" mkpart primary ext2 -- 132MiB -2cyl
 
 # make partition active (bootable)
   echo "marking partition active..."
@@ -210,8 +212,10 @@ echo "#########################################################"
   echo "creating filesystem on $PART1..."
   mkfs.vfat "$PART1" -I -n System
 
+# create ext4 partition with optimized settings for running on flash/sd
+# See http://blogofterje.wordpress.com/2012/01/14/optimizing-fs-on-sd-card/ for reference.
   echo "creating filesystem on $PART2..."
-  mkfs.ext4 "$PART2" -L Storage
+  mkfs.ext4 -O ^has_journal -E stride=2,stripe-width=1024 -b 4096 "$PART2" -L Storage
 
 # remount loopback device
   if [ "$DISK" = "/dev/loop0" ]; then
