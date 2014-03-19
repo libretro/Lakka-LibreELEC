@@ -1,0 +1,56 @@
+diff --git a/Makefile b/Makefile
+index 524338c..0569ebe 100644
+--- a/Makefile
++++ b/Makefile
+@@ -12,8 +12,6 @@
+ 
+ # Strip debug symbols?  Set eg. to /bin/true if not
+ 
+-STRIP = strip
+-
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+ # By default the main source file also carries this name.
+@@ -27,23 +25,15 @@ GITTAG  = $(shell git describe --always 2>/dev/null)
+ 
+ ### The directory environment:
+ 
+-# Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+-LIBDIR = $(call PKGCFG,libdir)
+-LOCDIR = $(call PKGCFG,locdir)
+-PLGCFG = $(call PKGCFG,plgcfg)
+-CFGDIR = $(call PKGCFG,configdir)
+-#
+ TMPDIR ?= /tmp
+ 
+ ### The compiler options:
+ 
+-export CFLAGS   = $(call PKGCFG,cflags)
+-export CXXFLAGS = $(call PKGCFG,cxxflags)
++include $(VDRDIR)/Make.global
+ 
+ ### The version number of VDR's plugin API:
+ 
+-APIVERSION = $(call PKGCFG,apiversion)
++APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
+ 
+ ### Allow user defined options to overwrite defaults:
+ 
+@@ -64,7 +54,7 @@ LIBS = $(shell curl-config --libs)
+ 
+ ### Includes and Defines (add further entries here):
+ 
+-INCLUDES +=
++INCLUDES += -I$(VDRDIR)/include
+ 
+ DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
+ 
+@@ -139,6 +129,7 @@ install-i18n: $(I18Nmsgs)
+ 
+ $(SOFILE): $(OBJS)
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(LIBS) -o $@
++	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+ ifndef SATIP_DEBUG
+ 	@$(STRIP) $@
+ endif
