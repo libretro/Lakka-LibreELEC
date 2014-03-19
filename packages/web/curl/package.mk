@@ -54,7 +54,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --enable-file \
                            --disable-ldap \
                            --disable-ldaps \
-                           --disable-rtsp \
+                           --enable-rtsp \
                            --enable-proxy \
                            --disable-dict \
                            --disable-telnet \
