@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-iptv"
-PKG_VERSION="2.1.0"
+PKG_VERSION="2.1.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
