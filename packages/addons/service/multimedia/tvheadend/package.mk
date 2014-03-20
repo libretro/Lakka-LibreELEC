@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="tvheadend"
-PKG_VERSION="3.4.27"
+PKG_VERSION="3.9.467"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -46,6 +46,8 @@ configure_target() {
             --enable-timeshift \
             --disable-libav \
             --disable-avahi \
+            --python=$ROOT/$TOOLCHAIN/bin/python \
+            --disable-uriparser \
             --enable-bundle
 }
 
