@@ -37,7 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
                            --disable-toolbar \
                            --disable-slit \
                            --disable-systray \
-                           --disable-ewmh
+                           --enable-ewmh
                            --disable-remember \
                            --disable-regexp \
                            --disable-debug \
