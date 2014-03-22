@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-nvidia"
-PKG_VERSION="334.21"
+PKG_VERSION="331.49"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="nonfree"
