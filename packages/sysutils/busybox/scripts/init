@@ -588,6 +588,25 @@
 
   BOOT_STEP=final
 
+  # no suspend when booted from nonpersistent storage
+  STORAGE=$(cat /proc/mounts | grep " /sysroot/storage " | awk '{print $1}' | awk -F '/' '{print $3}')
+  if [ -n "$STORAGE" ] ; then
+    removable="/sys/class/block/*/$STORAGE/../removable"
+    if [ -e $removable ] ; then
+      if [ "$(cat $removable 2>/dev/null)" = "1" ] ; then
+        SUSPEND_DISABLED=yes
+      fi
+    fi
+  fi
+  FLASH=$(cat /proc/mounts | grep " /sysroot/flash " | awk '{print $1}' | awk -F '/' '{print $3}')
+  if [ -n "$FLASH" ] ; then
+    removable="/sys/class/block/*/$FLASH/../removable"
+    if [ -e $removable ] ; then
+      if [ "$(cat $removable 2>/dev/null)" = "1" ] ; then
+        SUSPEND_DISABLED=yes
+      fi
+    fi
+  fi
   # move some special filesystems
   /bin/busybox mount --move /dev /sysroot/dev
   /bin/busybox mount --move /proc /sysroot/proc
@@ -600,6 +619,10 @@
   # swap can not be used over nfs.(see scripts/mount-swap)
   if [ "$STORAGE_NETBOOT" = "yes" ] ; then
     echo "" > /sysroot/dev/.storage_netboot
+  fi
+  # no suspend when booted from nonpersistent storage
+  if [ "$SUSPEND_DISABLED" = "yes" ] ; then
+    echo "" > /sysroot/dev/.suspend_disabled
   fi
   # switch to new sysroot and start real init
   exec /bin/busybox switch_root /sysroot /usr/lib/systemd/systemd $INIT_ARGS
