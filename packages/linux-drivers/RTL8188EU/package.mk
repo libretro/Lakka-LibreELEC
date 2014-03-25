@@ -16,13 +16,8 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# driver taken from
-# https://github.com/Red54/linux-shumeipai2/commit/026ba2734e035b2bde089a836912d6febabe87f3
-# and patched like the RTL8192CU driver for usage on kernel 3.7 and later
-
 PKG_NAME="RTL8188EU"
-# realtek: PKG_VERSION="20130425"
-PKG_VERSION="fb786d0"
+PKG_VERSION="fcc9034"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
