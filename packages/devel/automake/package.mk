@@ -36,5 +36,4 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME --disable-silent-rules"
 
 post_makeinstall_host() {
   make prefix=$SYSROOT_PREFIX/usr install
-  cp -P $PKG_DIR/files/*.m4 $SYSROOT_PREFIX/usr/share/aclocal
 }
