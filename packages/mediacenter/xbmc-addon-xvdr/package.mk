@@ -40,3 +40,9 @@ pre_make_target() {
   # dont build parallel
   MAKEFLAGS=-j1
 }
+
+post_makeinstall_target() {
+  if [ "$DEBUG" != yes ]; then
+    $STRIP $INSTALL/usr/share/xbmc/addons/pvr.vdr.xvdr/XBMC_VDR_xvdr.pvr
+  fi
+}
