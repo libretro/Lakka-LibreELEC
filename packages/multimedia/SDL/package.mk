@@ -214,8 +214,7 @@ pre_configure_target() {
 post_makeinstall_target() {
   mkdir -p $ROOT/$TOOLCHAIN/bin
     cp $SYSROOT_PREFIX/usr/bin/sdl-config $ROOT/$TOOLCHAIN/bin
-    sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" \
-        -i $ROOT/$TOOLCHAIN/bin/sdl-config
+    $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/sdl-config
 
   rm -rf $INSTALL/usr/bin
 }
