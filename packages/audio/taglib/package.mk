@@ -39,4 +39,5 @@ configure_target() {
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
+  $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/taglib-config
 }
