@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libogg"
-PKG_VERSION="1.3.0"
+PKG_VERSION="1.3.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
