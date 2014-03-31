@@ -22,8 +22,12 @@ case "$LINUX" in
     PKG_VERSION="imx_3.0.35_4.1.0-5c73417"
     PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
-  *)
+  3.13)
     PKG_VERSION="3.13.7"
+    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
+    ;;
+  *)
+    PKG_VERSION="3.14"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
 esac
