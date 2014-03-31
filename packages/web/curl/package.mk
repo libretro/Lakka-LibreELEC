@@ -17,7 +17,6 @@
 ################################################################################
 
 # Notes:
-# - curl-7.32.0: breaks XBMC ftp sources support, please test before upgrade curl!
 #  -build curl with OpenSSL support instead GnuTLS support to 
 # work around a long standing bug on Pi where https streams often hang on
 # start. This hang is normally fatal and requires a reboot.
@@ -26,7 +25,7 @@
 # there: http://forum.xbmc.org/showthread.php?tid=177557
 
 PKG_NAME="curl"
-PKG_VERSION="7.31.0"
+PKG_VERSION="7.35.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
