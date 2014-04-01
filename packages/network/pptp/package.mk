@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pptp"
-PKG_VERSION="1.7.2"
+PKG_VERSION="1.8.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -33,7 +33,12 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make PPPD="/usr/sbin/pppd" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" config.h pptp
+  make PPPD="/usr/sbin/pppd" \
+       IP="/sbin/ip" \
+       CC="$CC" \
+       CFLAGS="$CFLAGS" \
+       LDFLAGS="$LDFLAGS" \
+       config.h pptp
 }
 
 makeinstall_target() {
