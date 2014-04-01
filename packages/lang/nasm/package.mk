@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="nasm"
-PKG_VERSION="2.10.07"
+PKG_VERSION="2.11.02"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
