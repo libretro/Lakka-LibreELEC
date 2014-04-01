@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdpauinfo"
-PKG_VERSION="0.0.6"
+PKG_VERSION="0.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
