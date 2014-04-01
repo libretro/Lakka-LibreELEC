@@ -16,6 +16,11 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+
+# TODO: update to libssh-0.6.3 fails in xbmc with
+#   ld.gold: error: libsmbclient.a: multiple definition of 'string_free'
+#   ld.gold: libssh.a: previous definition here
+
 PKG_NAME="libssh"
 PKG_VERSION="0.5.5"
 PKG_REV="1"
