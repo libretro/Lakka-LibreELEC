@@ -16,6 +16,9 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+# TODO: libass-0.11.1 fails to render subtitles sometimes, see
+# http://forum.xbmc.org/showthread.php?tid=184866&pid=1669869#pid1669869
+
 PKG_NAME="libass"
 PKG_VERSION="0.10.2"
 PKG_REV="1"
