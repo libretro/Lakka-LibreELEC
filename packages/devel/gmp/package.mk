@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="gmp"
-PKG_VERSION="5.1.3"
+PKG_VERSION="6.0.0a"
+PKG_SOURCE_DIR="$PKG_NAME-6.0.0"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="LGPL"
+PKG_LICENSE="LGPLv3+"
 PKG_SITE="http://gmplib.org/"
-PKG_URL="ftp://ftp.gmplib.org/pub/$PKG_NAME-$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://gmplib.org/download/gmp/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
