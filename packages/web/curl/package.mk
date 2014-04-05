@@ -23,18 +23,9 @@
 #   see also http://trac.xbmc.org/ticket/14674 .
 #   Easiest way to reproduce is to install gdrive addon and play a video from
 #   there: http://forum.xbmc.org/showthread.php?tid=177557
-# - curl-7.35.0+ suffers from http://sourceforge.net/p/curl/bugs/1329/
-#   see http://openelec.tv/forum/120-news-announcements/70230-beta-openelec-4-0-beta-4-released#102526
-#   ERROR: CCurlFile::Stat - Failed: SSL connect error(35) for https://r3---sn-uxaxovg-5gos.googlevideo.com/videoplayback?ms=au&mt=1396702895&mv=m&id=o-ALo-Jz1LzwTiuQsF_PQdKzyWDm1Y423KOiPAk1wqHYrO&upn=PXY5TrK_TKk&ratebypass=yes&source=youtube&key=yt5&requiressl=yes&ipbits=0&sver=3&gcr=se&sparams=gcr,id,ip,ipbits,itag,ratebypass,requiressl,source,upn,expire&fexp=906399,909207,914088,916625,944603,937417,913434,936916,934022,936923&ip=213.112.234.108&itag=22&expire=1396727620&signature=688EA13BC8E378BD984F94336156EB3E90181B8F.5372D0B8B3650E6A8063B5148F9F4B353B0FA059
-#   to test (dont work):
-#   OpenELEC:~ # curl https://r3---sn-uxaxovg-5gos.googlevideo.com/videoplayback?ms=au&mt=1396702895&mv=m&id=o-ALo-Jz1LzwTiuQsF_PQdKzyWDm1Y423KOiPAk1wqHYrO&upn=PXY5TrK_TKk&ratebypass=yes&source=youtube&key=yt5&requiressl=yes&ipbits=0&sver=3&gcr=se&sparams=gcr,id,ip,ipbits,itag,ratebypass,requiressl,source,upn,expire&fexp=906399,909207,914088,916625,944603,937417,913434,936916,934022,936923&ip=213.112.234.108&itag=22&expire=1396727620&signature=688EA13BC8E378BD984F94336156EB3E90181B8F.5372D0B8B3650E6A8063B5148F9F4B353B0FA059
-#   OpenELEC:~ # curl: (35) error:14077410:SSL routines:SSL23_GET_SERVER_HELLO:sslv3 alert handshake failure
-#   to test (works):
-#   OpenELEC:~ # curl --ciphers ALL https://r3---sn-uxaxovg-5gos.googlevideo.com/videoplayback?ms=au&mt=1396702895&mv=m&id=o-ALo-Jz1LzwTiuQsF_PQdKzyWDm1Y423KOiPAk1wqHYrO&upn=PXY5TrK_TKk&ratebypass=yes&source=youtube&key=yt5&requiressl=yes&ipbits=0&sver=3&gcr=se&sparams=gcr,id,ip,ipbits,itag,ratebypass,requiressl,source,upn,expire&fexp=906399,909207,914088,916625,944603,937417,913434,936916,934022,936923&ip=213.112.234.108&itag=22&expire=1396727620&signature=688EA13BC8E378BD984F94336156EB3E90181B8F.5372D0B8B3650E6A8063B5148F9F4B353B0FA059
-#   OpenELEC:~ #
 
 PKG_NAME="curl"
-PKG_VERSION="7.34.0"
+PKG_VERSION="7.36.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
