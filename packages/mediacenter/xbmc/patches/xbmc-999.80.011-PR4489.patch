@@ -1,0 +1,61 @@
+From 634e0d7cb9b69b1ef6ced85d604f924b0fbb9769 Mon Sep 17 00:00:00 2001
+From: Taeyeon Mori <orochimarufan.x3@gmail.com>
+Date: Sat, 29 Mar 2014 23:04:39 +0100
+Subject: [PATCH] Make the allowed SSL Ciphers a protocol option for CurlFile.
+
+Recent versions of libcurl disable the RC4-SHA cipher that is still used by some sites.
+While certainly the right decision, it breaks (at least) the YouTube addon.
+
+This patch allows addons to explicitly request disabled ciphers via a protocol option:
+https://host/path|SSLCipherList=DEFAULT:RC4-SHA
+---
+ xbmc/filesystem/CurlFile.cpp | 6 ++++++
+ xbmc/filesystem/CurlFile.h   | 1 +
+ 2 files changed, 7 insertions(+)
+
+diff --git a/xbmc/filesystem/CurlFile.cpp b/xbmc/filesystem/CurlFile.cpp
+index f891a24..6e29ffc 100644
+--- a/xbmc/filesystem/CurlFile.cpp
++++ b/xbmc/filesystem/CurlFile.cpp
+@@ -396,6 +396,7 @@ void CCurlFile::CReadState::Disconnect()
+   m_username = "";
+   m_password = "";
+   m_httpauth = "";
++  m_cipherlist = "DEFAULT";
+   m_proxytype = PROXY_HTTP;
+   m_state = new CReadState();
+   m_oldState = NULL;
+@@ -607,6 +608,9 @@ void CCurlFile::SetCommonOptions(CReadState* state)
+     // the 302 response's body length, which cause the next read request failed, so we ignore
+     // content-length for shoutcast file to workaround this.
+     g_curlInterface.easy_setopt(h, CURLOPT_IGNORE_CONTENT_LENGTH, 1);
++
++  // Setup allowed TLS/SSL ciphers. New versions of cURL may deprecate things that are still in use.
++  g_curlInterface.easy_setopt(h, CURLOPT_SSL_CIPHER_LIST, m_cipherlist.c_str());
+ }
+ 
+ void CCurlFile::SetRequestHeaders(CReadState* state)
+@@ -772,6 +776,8 @@ void CCurlFile::ParseAndCorrectUrl(CURL &url2)
+           SetAcceptCharset(value);
+         else if (name.Equals("HttpProxy"))
+           SetStreamProxy(value, PROXY_HTTP);
++        else if (name.Equals("SSLCipherList"))
++          m_cipherlist = value;
+         else
+           SetRequestHeader(name, value);
+       }
+diff --git a/xbmc/filesystem/CurlFile.h b/xbmc/filesystem/CurlFile.h
+index 1ac061f..0410df3 100644
+--- a/xbmc/filesystem/CurlFile.h
++++ b/xbmc/filesystem/CurlFile.h
+@@ -177,6 +177,7 @@
+       CStdString      m_username;
+       CStdString      m_password;
+       CStdString      m_httpauth;
++      CStdString      m_cipherlist;
+       bool            m_ftppasvip;
+       int             m_connecttimeout;
+       int             m_lowspeedtime;
+-- 
+1.9.1
+
