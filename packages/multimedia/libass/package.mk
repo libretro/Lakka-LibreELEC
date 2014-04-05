@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libass"
-PKG_VERSION="0.10.2"
+PKG_VERSION="0.11.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://code.google.com/p/libass/"
-PKG_URL="http://libass.googlecode.com/files/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/libass/libass/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain freetype fontconfig enca fribidi"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
@@ -33,8 +33,14 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-test \
-            --enable-enca \
-            --enable-fontconfig \
-            --disable-harfbuzz \
-            --disable-silent-rules \
-            --with-gnu-ld"
+                           --enable-enca \
+                           --enable-fontconfig \
+                           --disable-harfbuzz \
+                           --disable-silent-rules \
+                           --with-gnu-ld"
+
+if [ $TARGET_ARCH = "i386" -o $TARGET_ARCH = "x86_64" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET yasm:host"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-asm"
+fi
+
