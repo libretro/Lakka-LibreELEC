@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="make"
-PKG_VERSION="3.82"
+PKG_VERSION="4.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
