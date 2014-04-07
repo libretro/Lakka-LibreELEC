@@ -49,3 +49,7 @@ pre_configure_target() {
 # TODO: xf86-video-intel-2.21.5 dont link with LTO enabled
   strip_lto
 }
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/share/polkit-1
+}
