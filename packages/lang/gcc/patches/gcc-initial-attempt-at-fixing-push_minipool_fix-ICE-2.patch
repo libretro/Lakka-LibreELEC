@@ -1,0 +1,118 @@
+Date: Tue, 18 Jun 2013 16:42:13 +0100
+From: Julian Brown <julian at codesourcery dot com>
+To: <gcc-patches at gcc dot gnu dot org>, Richard Earnshaw <Richard dot Earnshaw at arm dot com>,	Ramana Radhakrishnan <ramrad01 at arm dot com>
+Subject: [PATCH, ARM] Reintroduce minipool ranges for zero-extension insn patterns
+
+Hi,
+
+The following patch removed pool_range/neg_pool_range attributes from
+several instructions as a cleanup, which I believe to have been
+incorrect:
+
+http://gcc.gnu.org/ml/gcc-patches/2010-07/msg01036.html
+
+On a Mentor-local branch, this caused problems with instructions like:
+
+(insn 77 53 87 (set (reg:SI 8 r8 [orig:197 s.4 ] [197])
+        (zero_extend:SI (mem/u/c:HI (symbol_ref/u:SI ("*.LC0") [flags 0x2]) [7 S2 A16]))) [...] 161 {*arm_zero_extendhisi2_v6}
+     (nil))
+
+The reasoning behind the cleanup was that the instructions in question
+have no immediate constraints -- but the minipool code is used for more
+than just immediates, e.g. in the above case where a symbol reference
+("m") is loaded.
+
+I don't have a test case for the problem on mainline at present, but I
+believe it is still a latent bug. Tested with the default multilibs (ARM
+& Thumb mode) on arm-none-eabi, with no regressions. (The patch has
+also been tested with more multilibs on our local branches for a while,
+and I did ensure previously that it did not adversely affect Bernd's
+patch linked above.)
+
+OK to apply?
+
+Thanks,
+
+Julian
+
+ChangeLog
+
+	gcc/
+	* arm.md (*thumb1_zero_extendhisi2, *arm_zero_extendhisi2)
+	(*arm_zero_extendhisi2_v6, *thumb1_zero_extendqisi2)
+	(*thumb1_zero_extendqisi2_v6, *arm_zero_extendqisi2)
+	(*arm_zero_extendqisi2_v6): Add pool_range, neg_pool_range
+	attributes.
+
+
+Index: gcc/config/arm/arm.md
+===================================================================
+--- a/gcc/config/arm/arm.md	(revision 200171)
++++ b/gcc/config/arm/arm.md	(working copy)
+@@ -5313,7 +5313,8 @@
+ 			 [(if_then_else (eq_attr "is_arch6" "yes")
+ 				       (const_int 2) (const_int 4))
+ 			 (const_int 4)])
+-   (set_attr "type" "simple_alu_shift, load_byte")]
++   (set_attr "type" "simple_alu_shift, load_byte")
++   (set_attr "pool_range" "*,60")]
+ )
+ 
+ (define_insn "*arm_zero_extendhisi2"
+@@ -5324,7 +5325,9 @@
+    #
+    ldr%(h%)\\t%0, %1"
+   [(set_attr "type" "alu_shift,load_byte")
+-   (set_attr "predicable" "yes")]
++   (set_attr "predicable" "yes")
++   (set_attr "pool_range" "*,256")
++   (set_attr "neg_pool_range" "*,244")]
+ )
+ 
+ (define_insn "*arm_zero_extendhisi2_v6"
+@@ -5335,7 +5338,9 @@
+    uxth%?\\t%0, %1
+    ldr%(h%)\\t%0, %1"
+   [(set_attr "predicable" "yes")
+-   (set_attr "type" "simple_alu_shift,load_byte")]
++   (set_attr "type" "simple_alu_shift,load_byte")
++   (set_attr "pool_range" "*,256")
++   (set_attr "neg_pool_range" "*,244")]
+ )
+ 
+ (define_insn "*arm_zero_extendhisi2addsi"
+@@ -5405,7 +5410,8 @@
+    uxtb\\t%0, %1
+    ldrb\\t%0, %1"
+   [(set_attr "length" "2")
+-   (set_attr "type" "simple_alu_shift,load_byte")]
++   (set_attr "type" "simple_alu_shift,load_byte")
++   (set_attr "pool_range" "*,32")]
+ )
+ 
+ (define_insn "*arm_zero_extendqisi2"
+@@ -5417,7 +5423,9 @@
+    ldr%(b%)\\t%0, %1\\t%@ zero_extendqisi2"
+   [(set_attr "length" "8,4")
+    (set_attr "type" "alu_shift,load_byte")
+-   (set_attr "predicable" "yes")]
++   (set_attr "predicable" "yes")
++   (set_attr "pool_range" "*,4096")
++   (set_attr "neg_pool_range" "*,4084")]
+ )
+ 
+ (define_insn "*arm_zero_extendqisi2_v6"
+@@ -5428,7 +5436,9 @@
+    uxtb%(%)\\t%0, %1
+    ldr%(b%)\\t%0, %1\\t%@ zero_extendqisi2"
+   [(set_attr "type" "simple_alu_shift,load_byte")
+-   (set_attr "predicable" "yes")]
++   (set_attr "predicable" "yes")
++   (set_attr "pool_range" "*,4096")
++   (set_attr "neg_pool_range" "*,4084")]
+ )
+ 
+ (define_insn "*arm_zero_extendqisi2addsi"
+
+--MP_/ERKB4.gCWGZVf9oWJO6IZSe--
+
