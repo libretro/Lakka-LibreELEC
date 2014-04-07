@@ -37,5 +37,5 @@ export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
 export LIBS="$LIBS -lz"
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/share/nano/man-html
+  rm -rf $INSTALL/usr/share/nano
 }
