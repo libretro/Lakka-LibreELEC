@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.52"
+PKG_VERSION="2.4.53"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
