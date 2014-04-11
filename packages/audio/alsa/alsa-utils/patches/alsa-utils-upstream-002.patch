@@ -1,0 +1,42 @@
+From f1e991e81350e9388ab6cf04a64ac4b4389a588c Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi.hannula@iki.fi>
+Date: Tue, 1 Oct 2013 23:46:53 +0300
+Subject: [PATCH] amixer: fix indentation when printing container TLV contents
+
+decode_tlv() adds indentation in the beginning, with the expectation
+that the TLV will be printed on the line afterwards in a switch-case.
+
+However, in the case of a container TLV the switch-case simply adds
+another level of indentation and calls decode_tlv() for the inner TLVs.
+This causes the first inner TLV to be printed with too much indentation
+and double '|'.
+
+Fix that by printing "container" and a newline for container TLVs, so
+that the result is as follows:
+  : values=0,0,0,0,0,0,0,0
+  | container
+    | chmap-variable=FL,FR
+    | chmap-variable=FL,FR,LFE
+    | chmap-variable=FL,FR,FC
+
+Signed-off-by: Anssi Hannula <anssi.hannula@iki.fi>
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+ amixer/amixer.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/amixer/amixer.c b/amixer/amixer.c
+index b83b0c3..cf82892 100644
+--- a/amixer/amixer.c
++++ b/amixer/amixer.c
+@@ -460,6 +460,7 @@ static void decode_tlv(unsigned int spaces, unsigned int *tlv, unsigned int tlv_
+ 	}
+ 	switch (type) {
+ 	case SND_CTL_TLVT_CONTAINER:
++		printf("container\n");
+ 		size += sizeof(unsigned int) -1;
+ 		size /= sizeof(unsigned int);
+ 		while (idx < size) {
+-- 
+1.7.11.7
+

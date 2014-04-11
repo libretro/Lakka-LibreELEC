@@ -1,0 +1,41 @@
+From 58752c3ae32e03d676fa225c99c9a8dde9de39ed Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi.hannula@iki.fi>
+Date: Sun, 10 Nov 2013 20:29:19 +0200
+Subject: [PATCH] speaker-test: Show out-of-chmap channels as Unknown
+
+Currently speaker-test falls back to ALSA default channel names for
+channels out-of-chmap.
+
+This causes e.g. the 4th channel of
+$ speaker-test -c4 -Dhdmi -m "FR,FL,FC"
+to be shown as "Rear Right".
+
+Change the code to show such channels as Unknown instead, similar to
+when snd_pcm_chmap_long_name() does not know the name.
+
+Signed-off-by: Anssi Hannula <anssi.hannula@iki.fi>
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+ speaker-test/speaker-test.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/speaker-test/speaker-test.c b/speaker-test/speaker-test.c
+index 101bb0d..261f399 100644
+--- a/speaker-test/speaker-test.c
++++ b/speaker-test/speaker-test.c
+@@ -267,8 +267,10 @@ static int get_speaker_channel(int chn)
+ static const char *get_channel_name(int chn)
+ {
+ #ifdef CONFIG_SUPPORT_CHMAP
+-  if (channel_map && chn < channel_map->channels) {
+-    const char *name = snd_pcm_chmap_long_name(channel_map->pos[chn]);
++  if (channel_map) {
++    const char *name = NULL;
++    if (chn < channel_map->channels)
++      name = snd_pcm_chmap_long_name(channel_map->pos[chn]);
+     return name ? name : "Unknown";
+   }
+ #endif
+-- 
+1.7.11.7
+
