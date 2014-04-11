@@ -1,0 +1,49 @@
+From 9098cb577d0f4b2dd71f37988515686008b7c733 Mon Sep 17 00:00:00 2001
+From: Stefan Saraev <stefan@saraev.ca>
+Date: Tue, 24 Sep 2013 13:42:50 +0300
+Subject: [PATCH] mac80211: ignore (E)CSA in probe response frames
+
+BP: https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/net/mac80211/mlme.c?id=d70b7616d9080ec9f868fbd31db5fd4341435d61
+
+thanks @bedouin67
+---
+ net/mac80211/mlme.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 5b4328d..1c5a8e6 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -2885,19 +2885,11 @@ static void ieee80211_rx_bss_info(struct ieee80211_sub_if_data *sdata,
+ 	if (bss)
+ 		ieee80211_rx_bss_put(local, bss);
+ 
+-	if (!sdata->u.mgd.associated ||
+-	    !ether_addr_equal(mgmt->bssid, sdata->u.mgd.associated->bssid))
+-		return;
+-
+ 	if (need_ps) {
+ 		mutex_lock(&local->iflist_mtx);
+ 		ieee80211_recalc_ps(local, -1);
+ 		mutex_unlock(&local->iflist_mtx);
+ 	}
+-
+-	ieee80211_sta_process_chanswitch(sdata, rx_status->mactime,
+-					 elems, true);
+-
+ }
+ 
+ 
+@@ -3182,6 +3174,9 @@ ieee80211_rx_mgmt_beacon(struct ieee80211_sub_if_data *sdata,
+ 
+ 	ieee80211_rx_bss_info(sdata, mgmt, len, rx_status, &elems);
+ 
++	ieee80211_sta_process_chanswitch(sdata, rx_status->mactime,
++			&elems, true);
++
+ 	if (ieee80211_sta_wmm_params(local, sdata, elems.wmm_param,
+ 				     elems.wmm_param_len))
+ 		changed |= BSS_CHANGED_QOS;
+-- 
+1.8.3.2
+
