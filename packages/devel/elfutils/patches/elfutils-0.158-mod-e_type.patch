@@ -1,0 +1,62 @@
+commit 65cefbd0793c0f9e90a326d7bebf0a47c93294ad
+Author: Josh Stone <jistone@redhat.com>
+Date:   Tue Mar 11 10:19:28 2014 -0700
+
+    libdwfl: dwfl_module_getdwarf.c (open_elf) only (re)set mod->e_type once.
+    
+    As noted in https://sourceware.org/bugzilla/show_bug.cgi?id=16676#c2 for
+    systemtap, the heuristic used by open_elf to set the kernel Dwfl_Module
+    type to ET_DYN, even if the underlying ELF file e_type was set to
+    ET_EXEC, could trigger erroneously for non-kernel/non-main (debug or
+    aux) files.  Make sure we only set the e_type of the module once when
+    processing the main file (when the phdrs can be trusted).
+
+diff --git a/libdwfl/dwfl_module_getdwarf.c b/libdwfl/dwfl_module_getdwarf.c
+index c4bd739..f8de80b 100644
+--- a/libdwfl/dwfl_module_getdwarf.c
++++ b/libdwfl/dwfl_module_getdwarf.c
+@@ -1,5 +1,5 @@
+ /* Find debugging and symbol information for a module in libdwfl.
+-   Copyright (C) 2005-2012 Red Hat, Inc.
++   Copyright (C) 2005-2012, 2014 Red Hat, Inc.
+    This file is part of elfutils.
+ 
+    This file is free software; you can redistribute it and/or modify
+@@ -77,7 +77,7 @@ open_elf (Dwfl_Module *mod, struct dwfl_file *file)
+       return DWFL_E (LIBELF, elf_errno ());
+     }
+ 
+-  if (mod->e_type != ET_REL)
++  if (ehdr->e_type != ET_REL)
+     {
+       /* In any non-ET_REL file, we compute the "synchronization address".
+ 
+@@ -131,11 +131,24 @@ open_elf (Dwfl_Module *mod, struct dwfl_file *file)
+ 	}
+     }
+ 
+-  mod->e_type = ehdr->e_type;
++  /* We only want to set the module e_type explictly once, derived from
++     the main ELF file.  (It might be changed for the kernel, because
++     that is special - see below.)  open_elf is always called first for
++     the main ELF file, because both find_dw and find_symtab call
++     __libdwfl_getelf first to open the main file.  So don't let debug
++     or aux files override the module e_type.  The kernel heuristic
++     below could otherwise trigger for non-kernel/non-main files, since
++     their phdrs might not match the actual load addresses.  */
++  if (file == &mod->main)
++    {
++      mod->e_type = ehdr->e_type;
+ 
+-  /* Relocatable Linux kernels are ET_EXEC but act like ET_DYN.  */
+-  if (mod->e_type == ET_EXEC && file->vaddr != mod->low_addr)
+-    mod->e_type = ET_DYN;
++      /* Relocatable Linux kernels are ET_EXEC but act like ET_DYN.  */
++      if (mod->e_type == ET_EXEC && file->vaddr != mod->low_addr)
++	mod->e_type = ET_DYN;
++    }
++  else
++    assert (mod->main.elf != NULL);
+ 
+   return DWFL_E_NOERROR;
+ }

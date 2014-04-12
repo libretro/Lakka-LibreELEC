@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.155"
+PKG_VERSION="0.158"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -32,7 +32,8 @@ PKG_LONGDESC="Elfutils is a collection of utilities, including eu-ld (a linker),
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
+PKG_CONFIGURE_OPTS_TARGET="utrace_cv_cc_biarch=false \
+                           --disable-werror \
                            --disable-progs \
                            --with-zlib \
                            --without-bzlib \
