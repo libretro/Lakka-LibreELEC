@@ -16,18 +16,27 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libfslvpuwrap"
-PKG_VERSION="3.5.7-1.0.0"
+PKG_NAME="imx-vpu"
+PKG_VERSION="3.10.17-1.0.0_beta"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain imx-lib imx-vpu libfslparser libfslcodec"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="libfslvpuwrap: Freescale Multimedia VPU wrapper"
-PKG_LONGDESC="libfslvpuwrap: Freescale Multimedia VPU wrapper"
+PKG_SHORTDESC="imx-vpu: platform specific unit tests for mxc platform"
+PKG_LONGDESC="imx-vpu: platform specific unit tests for mxc platform"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
+
+make_target() {
+  make DIRS="vpu" CFLAGS="$CFLAGS" PLATFORM=IMX6Q CROSS_COMPILE=$TARGET_PREFIX
+}
+
+makeinstall_target() {
+  make DIRS="vpu" PLATFORM=IMX6Q DEST_DIR=$SYSROOT_PREFIX install
+  make DIRS="vpu" PLATFORM=IMX6Q DEST_DIR=$INSTALL install
+}
