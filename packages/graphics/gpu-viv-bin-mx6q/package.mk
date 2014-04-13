@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gpu-viv-bin-mx6q"
-PKG_VERSION="3.5.7-1.0.0"
+PKG_VERSION="3.10.17-1.0.0"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
@@ -53,6 +53,7 @@ makeinstall_target() {
             $FLOAT/usr/lib/libGLES_CM.so \
             $FLOAT/usr/lib/libGLESv1_CL.so* \
             $FLOAT/usr/lib/libGLESv1_CM.so* \
+            $FLOAT/usr/lib/libGLESv2-fb.so \
             $FLOAT/usr/lib/libGLESv2.so* \
             $FLOAT/usr/lib/libGAL-fb.so \
             $FLOAT/usr/lib/libGAL.so* \
@@ -68,6 +69,7 @@ makeinstall_target() {
             $FLOAT/usr/lib/libGLES_CM.so \
             $FLOAT/usr/lib/libGLESv1_CL.so* \
             $FLOAT/usr/lib/libGLESv1_CM.so* \
+            $FLOAT/usr/lib/libGLESv2-fb.so \
             $FLOAT/usr/lib/libGLESv2.so* \
             $FLOAT/usr/lib/libGLSLC.so* \
             $FLOAT/usr/lib/libGAL-fb.so \
