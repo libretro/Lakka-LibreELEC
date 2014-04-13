@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="imx-lib"
-PKG_VERSION="3.5.7-1.0.0"
+PKG_VERSION="3.10.17-1.0.0_beta"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.freescale.com/lgfiles/NMG/MAD/YOCTO/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
@@ -33,10 +33,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make DIRS="ipu vpu" CFLAGS="$CFLAGS" PLATFORM=IMX6Q CROSS_COMPILE=$TARGET_PREFIX
+  make DIRS="ipu" CFLAGS="$CFLAGS" PLATFORM=IMX6Q CROSS_COMPILE=$TARGET_PREFIX
 }
 
 makeinstall_target() {
-  make DIRS="ipu vpu" PLATFORM=IMX6Q DEST_DIR=$SYSROOT_PREFIX install
-  make DIRS="ipu vpu" PLATFORM=IMX6Q DEST_DIR=$INSTALL install
+  make DIRS="ipu" PLATFORM=IMX6Q DEST_DIR=$SYSROOT_PREFIX install
+  make DIRS="ipu" PLATFORM=IMX6Q DEST_DIR=$INSTALL install
 }
