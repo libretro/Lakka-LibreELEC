@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libfslparser"
-PKG_VERSION="3.5.7-1.0.0"
+PKG_VERSION="3.10.9-1.0.0"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
