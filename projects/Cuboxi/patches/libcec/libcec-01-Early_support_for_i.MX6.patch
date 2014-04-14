@@ -1,20 +1,21 @@
-From 90b994705ee2492afa00f914e0a070a0f0929f21 Mon Sep 17 00:00:00 2001
+From 4cf83161dbedfa2d3487841a1bfec4e38fa6939b Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
-Date: Sat, 28 Sep 2013 13:31:13 +0200
-Subject: [PATCH] Early support for i.MX6
+Date: Thu, 13 Mar 2014 16:03:58 +0100
+Subject: [PATCH] Add iMX6 support Requires specific kernel driver. Check
+ http://stephan-rafin.net/blog/2013/09/30/i-mx6-cec/
 
 ---
  configure.ac                                       |  19 ++
  include/cectypes.h                                 |  14 +-
  src/lib/CECTypeUtils.h                             |   2 +
  src/lib/Makefile.am                                |   5 +
- src/lib/adapter/AdapterFactory.cpp                 |  28 +-
+ src/lib/adapter/AdapterFactory.cpp                 |  29 ++-
  src/lib/adapter/IMX/AdapterMessageQueue.h          | 134 ++++++++++
- src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp | 281 +++++++++++++++++++++
+ src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp | 279 +++++++++++++++++++++
  src/lib/adapter/IMX/IMXCECAdapterCommunication.h   | 114 +++++++++
- src/lib/adapter/IMX/IMXCECAdapterDetection.cpp     |  42 +++
+ src/lib/adapter/IMX/IMXCECAdapterDetection.cpp     |  42 ++++
  src/lib/adapter/IMX/IMXCECAdapterDetection.h       |  36 +++
- 10 files changed, 672 insertions(+), 3 deletions(-)
+ 10 files changed, 671 insertions(+), 3 deletions(-)
  create mode 100644 src/lib/adapter/IMX/AdapterMessageQueue.h
  create mode 100644 src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
  create mode 100644 src/lib/adapter/IMX/IMXCECAdapterCommunication.h
@@ -22,7 +23,7 @@ Subject: [PATCH] Early support for i.MX6
  create mode 100644 src/lib/adapter/IMX/IMXCECAdapterDetection.h
 
 diff --git a/configure.ac b/configure.ac
-index 9b2ac34..7875155 100644
+index 510d851..923d7e5 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -93,6 +93,14 @@ if test "x$use_rpi" != "xno"; then
@@ -40,7 +41,7 @@ index 9b2ac34..7875155 100644
  ## add the top dir and include to the include path, so we can include config.h and cec.h
  CPPFLAGS="$CPPFLAGS -I\$(abs_top_srcdir)/src -I\$(abs_top_srcdir)/include"
  
-@@ -268,6 +276,17 @@ else
+@@ -270,6 +278,17 @@ else
    features="$features\n  TDA995x support :\t\t\tno"
  fi
  
@@ -59,10 +60,10 @@ index 9b2ac34..7875155 100644
  AC_CHECK_HEADER(algorithm,,AC_MSG_ERROR($msg_required_header_missing))
  AC_CHECK_HEADER(ctype.h,,AC_MSG_ERROR($msg_required_header_missing))
 diff --git a/include/cectypes.h b/include/cectypes.h
-index a95243c..5c55283 100644
+index 9f86253..7fabf00 100644
 --- a/include/cectypes.h
 +++ b/include/cectypes.h
-@@ -295,6 +295,17 @@
+@@ -295,6 +295,17 @@ namespace CEC {
  #define CEC_TDA995x_VIRTUAL_COM		"CuBox"
  
  /*!
@@ -80,7 +81,7 @@ index a95243c..5c55283 100644
   * Mimimum client version
   */
  #define CEC_MIN_LIB_VERSION          2
-@@ -857,7 +868,8 @@
+@@ -858,7 +869,8 @@ typedef enum cec_adapter_type
    ADAPTERTYPE_P8_EXTERNAL      = 0x1,
    ADAPTERTYPE_P8_DAUGHTERBOARD = 0x2,
    ADAPTERTYPE_RPI              = 0x100,
@@ -91,10 +92,10 @@ index a95243c..5c55283 100644
  
  typedef struct cec_menu_language
 diff --git a/src/lib/CECTypeUtils.h b/src/lib/CECTypeUtils.h
-index 20e318b..dbb72b2 100644
+index dc4e5f1..1cf7ef1 100644
 --- a/src/lib/CECTypeUtils.h
 +++ b/src/lib/CECTypeUtils.h
-@@ -852,6 +852,8 @@
+@@ -858,6 +858,8 @@ namespace CEC
          return "Raspberry Pi";
        case ADAPTERTYPE_TDA995x:
          return "TDA995x";
@@ -104,10 +105,10 @@ index 20e318b..dbb72b2 100644
          return "unknown";
        }
 diff --git a/src/lib/Makefile.am b/src/lib/Makefile.am
-index 35166f2..fbae7ad 100644
+index 9117d8e..6788303 100644
 --- a/src/lib/Makefile.am
 +++ b/src/lib/Makefile.am
-@@ -57,5 +57,10 @@ libcec_la_SOURCES += adapter/TDA995x/TDA995xCECAdapterDetection.cpp \
+@@ -59,5 +59,10 @@ libcec_la_SOURCES += adapter/TDA995x/TDA995xCECAdapterDetection.cpp \
                       adapter/TDA995x/TDA995xCECAdapterCommunication.cpp
  endif
  
@@ -119,7 +120,7 @@ index 35166f2..fbae7ad 100644
  
  libcec_la_LDFLAGS = @LIBS_LIBCEC@ -version-info @VERSION@
 diff --git a/src/lib/adapter/AdapterFactory.cpp b/src/lib/adapter/AdapterFactory.cpp
-index 42cdd0b..3c83805 100644
+index 42cdd0b..576589f 100644
 --- a/src/lib/adapter/AdapterFactory.cpp
 +++ b/src/lib/adapter/AdapterFactory.cpp
 @@ -52,6 +52,11 @@
@@ -158,12 +159,13 @@ index 42cdd0b..3c83805 100644
  #error "libCEC doesn't have support for any type of adapter. please check your build system or configuration"
  #endif
  
-@@ -128,11 +148,15 @@ IAdapterCommunication *CAdapterFactory::GetInstance(const char *strPort, uint16_
+@@ -128,11 +148,16 @@ IAdapterCommunication *CAdapterFactory::GetInstance(const char *strPort, uint16_
      return new CRPiCECAdapterCommunication(m_lib->m_cec);
  #endif
  
 +#if defined(HAVE_IMX_API)
-+  return new CIMXCECAdapterCommunication(m_lib->m_cec);
++  if (!strcmp(strPort, CEC_IMX_VIRTUAL_COM))
++    return new CIMXCECAdapterCommunication(m_lib->m_cec);
 +#endif
 +
  #if defined(HAVE_P8_USB)
@@ -317,10 +319,10 @@ index 0000000..c8bcf71
 +};
 diff --git a/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
 new file mode 100644
-index 0000000..f4783df
+index 0000000..54e5662
 --- /dev/null
 +++ b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
-@@ -0,0 +1,281 @@
+@@ -0,0 +1,279 @@
 +/*
 + * This file is part of the libCEC(R) library.
 + *
@@ -505,8 +507,7 @@ index 0000000..f4783df
 +
 +cec_vendor_id CIMXCECAdapterCommunication::GetVendorId(void)
 +{
-+  /* FIXME TO be implemented : check how */
-+  return CEC_VENDOR_PANASONIC;
++  return CEC_VENDOR_UNKNOWN;
 +}
 +
 +
@@ -545,8 +546,7 @@ index 0000000..f4783df
 +  if (m_logicalAddress == log_addr)
 +      return true;
 +
-+
-+  if (m_dev->Ioctl(HDMICEC_IOC_SETLOGICALADDRESS, log_addr) != 0)
++  if (m_dev->Ioctl(HDMICEC_IOC_SETLOGICALADDRESS, (void *)log_addr) != 0)
 +  {
 +    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_SETLOGICALADDRESS failed !", __func__);
 +    return false;
@@ -813,5 +813,5 @@ index 0000000..d54891d
 +  };
 +}
 -- 
-1.8.5.1
+1.9.1
 
