@@ -31,3 +31,10 @@ PKG_LONGDESC="libfslparser: Freescale Multimedia parser libs"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
+if [ "$TARGET_FLOAT" = "hard" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="--enable-fhw"
+else
+  PKG_CONFIGURE_OPTS_TARGET="--enable-fsw"
+fi
+
