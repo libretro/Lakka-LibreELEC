@@ -102,4 +102,8 @@ makeinstall_target() {
   if [ -f "./$UBOOT_CONFIGFILE" ]; then
     cp ./$UBOOT_CONFIGFILE $INSTALL/usr/share/u-boot
   fi
+
+  for config in $PROJECT_DIR/$PROJECT/bootloader/*; do
+    cp -PR $config $INSTALL/usr/share/u-boot
+  done
 }
