@@ -1,0 +1,604 @@
+diff --git a/Makefile b/Makefile
+index 06b31fce1ff5..b5f4ef30f6e6 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,6 +1,6 @@
+ VERSION = 3
+ PATCHLEVEL = 10
+-SUBLEVEL = 35
++SUBLEVEL = 36
+ EXTRAVERSION =
+ NAME = TOSSUG Baby Fish
+ 
+diff --git a/arch/x86/include/asm/topology.h b/arch/x86/include/asm/topology.h
+index 095b21507b6a..60bd2748a7c9 100644
+--- a/arch/x86/include/asm/topology.h
++++ b/arch/x86/include/asm/topology.h
+@@ -119,9 +119,10 @@ static inline void setup_node_to_cpumask_map(void) { }
+ 
+ extern const struct cpumask *cpu_coregroup_mask(int cpu);
+ 
+-#ifdef ENABLE_TOPO_DEFINES
+ #define topology_physical_package_id(cpu)	(cpu_data(cpu).phys_proc_id)
+ #define topology_core_id(cpu)			(cpu_data(cpu).cpu_core_id)
++
++#ifdef ENABLE_TOPO_DEFINES
+ #define topology_core_cpumask(cpu)		(per_cpu(cpu_core_map, cpu))
+ #define topology_thread_cpumask(cpu)		(per_cpu(cpu_sibling_map, cpu))
+ 
+diff --git a/drivers/block/aoe/aoecmd.c b/drivers/block/aoe/aoecmd.c
+index fc803ecbbce4..31262732db23 100644
+--- a/drivers/block/aoe/aoecmd.c
++++ b/drivers/block/aoe/aoecmd.c
+@@ -899,7 +899,7 @@ bio_pageinc(struct bio *bio)
+ 		 * but this has never been seen here.
+ 		 */
+ 		if (unlikely(PageCompound(page)))
+-			if (compound_trans_head(page) != page) {
++			if (compound_head(page) != page) {
+ 				pr_crit("page tail used for block I/O\n");
+ 				BUG();
+ 			}
+diff --git a/drivers/input/mouse/cypress_ps2.c b/drivers/input/mouse/cypress_ps2.c
+index 888a81a7ea3d..0aaea7ad6cee 100644
+--- a/drivers/input/mouse/cypress_ps2.c
++++ b/drivers/input/mouse/cypress_ps2.c
+@@ -410,7 +410,6 @@ static int cypress_set_input_params(struct input_dev *input,
+ 	__clear_bit(REL_X, input->relbit);
+ 	__clear_bit(REL_Y, input->relbit);
+ 
+-	__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
+ 	__set_bit(EV_KEY, input->evbit);
+ 	__set_bit(BTN_LEFT, input->keybit);
+ 	__set_bit(BTN_RIGHT, input->keybit);
+diff --git a/drivers/input/mouse/synaptics.c b/drivers/input/mouse/synaptics.c
+index b2420ae19e14..c69c81608f43 100644
+--- a/drivers/input/mouse/synaptics.c
++++ b/drivers/input/mouse/synaptics.c
+@@ -265,11 +265,22 @@ static int synaptics_identify(struct psmouse *psmouse)
+  * Read touchpad resolution and maximum reported coordinates
+  * Resolution is left zero if touchpad does not support the query
+  */
++
++static const int *quirk_min_max;
++
+ static int synaptics_resolution(struct psmouse *psmouse)
+ {
+ 	struct synaptics_data *priv = psmouse->private;
+ 	unsigned char resp[3];
+ 
++	if (quirk_min_max) {
++		priv->x_min = quirk_min_max[0];
++		priv->x_max = quirk_min_max[1];
++		priv->y_min = quirk_min_max[2];
++		priv->y_max = quirk_min_max[3];
++		return 0;
++	}
++
+ 	if (SYN_ID_MAJOR(priv->identity) < 4)
+ 		return 0;
+ 
+@@ -1485,10 +1496,54 @@ static const struct dmi_system_id __initconst olpc_dmi_table[] = {
+ 	{ }
+ };
+ 
++static const struct dmi_system_id min_max_dmi_table[] __initconst = {
++#if defined(CONFIG_DMI)
++	{
++		/* Lenovo ThinkPad Helix */
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
++			DMI_MATCH(DMI_PRODUCT_VERSION, "ThinkPad Helix"),
++		},
++		.driver_data = (int []){1024, 5052, 2258, 4832},
++	},
++	{
++		/* Lenovo ThinkPad X240 */
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
++			DMI_MATCH(DMI_PRODUCT_VERSION, "ThinkPad X240"),
++		},
++		.driver_data = (int []){1232, 5710, 1156, 4696},
++	},
++	{
++		/* Lenovo ThinkPad T440s */
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
++			DMI_MATCH(DMI_PRODUCT_VERSION, "ThinkPad T440"),
++		},
++		.driver_data = (int []){1024, 5112, 2024, 4832},
++	},
++	{
++		/* Lenovo ThinkPad T540p */
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
++			DMI_MATCH(DMI_PRODUCT_VERSION, "ThinkPad T540"),
++		},
++		.driver_data = (int []){1024, 5056, 2058, 4832},
++	},
++#endif
++	{ }
++};
++
+ void __init synaptics_module_init(void)
+ {
++	const struct dmi_system_id *min_max_dmi;
++
+ 	impaired_toshiba_kbc = dmi_check_system(toshiba_dmi_table);
+ 	broken_olpc_ec = dmi_check_system(olpc_dmi_table);
++
++	min_max_dmi = dmi_first_match(min_max_dmi_table);
++	if (min_max_dmi)
++		quirk_min_max = min_max_dmi->driver_data;
+ }
+ 
+ static int __synaptics_init(struct psmouse *psmouse, bool absolute_mode)
+diff --git a/drivers/input/mousedev.c b/drivers/input/mousedev.c
+index 4c842c320c2e..b604564dec5c 100644
+--- a/drivers/input/mousedev.c
++++ b/drivers/input/mousedev.c
+@@ -67,7 +67,6 @@ struct mousedev {
+ 	struct device dev;
+ 	struct cdev cdev;
+ 	bool exist;
+-	bool is_mixdev;
+ 
+ 	struct list_head mixdev_node;
+ 	bool opened_by_mixdev;
+@@ -77,6 +76,9 @@ struct mousedev {
+ 	int old_x[4], old_y[4];
+ 	int frac_dx, frac_dy;
+ 	unsigned long touch;
++
++	int (*open_device)(struct mousedev *mousedev);
++	void (*close_device)(struct mousedev *mousedev);
+ };
+ 
+ enum mousedev_emul {
+@@ -116,9 +118,6 @@ static unsigned char mousedev_imex_seq[] = { 0xf3, 200, 0xf3, 200, 0xf3, 80 };
+ static struct mousedev *mousedev_mix;
+ static LIST_HEAD(mousedev_mix_list);
+ 
+-static void mixdev_open_devices(void);
+-static void mixdev_close_devices(void);
+-
+ #define fx(i)  (mousedev->old_x[(mousedev->pkt_count - (i)) & 03])
+ #define fy(i)  (mousedev->old_y[(mousedev->pkt_count - (i)) & 03])
+ 
+@@ -428,9 +427,7 @@ static int mousedev_open_device(struct mousedev *mousedev)
+ 	if (retval)
+ 		return retval;
+ 
+-	if (mousedev->is_mixdev)
+-		mixdev_open_devices();
+-	else if (!mousedev->exist)
++	if (!mousedev->exist)
+ 		retval = -ENODEV;
+ 	else if (!mousedev->open++) {
+ 		retval = input_open_device(&mousedev->handle);
+@@ -446,9 +443,7 @@ static void mousedev_close_device(struct mousedev *mousedev)
+ {
+ 	mutex_lock(&mousedev->mutex);
+ 
+-	if (mousedev->is_mixdev)
+-		mixdev_close_devices();
+-	else if (mousedev->exist && !--mousedev->open)
++	if (mousedev->exist && !--mousedev->open)
+ 		input_close_device(&mousedev->handle);
+ 
+ 	mutex_unlock(&mousedev->mutex);
+@@ -459,21 +454,29 @@ static void mousedev_close_device(struct mousedev *mousedev)
+  * stream. Note that this function is called with mousedev_mix->mutex
+  * held.
+  */
+-static void mixdev_open_devices(void)
++static int mixdev_open_devices(struct mousedev *mixdev)
+ {
+-	struct mousedev *mousedev;
++	int error;
++
++	error = mutex_lock_interruptible(&mixdev->mutex);
++	if (error)
++		return error;
+ 
+-	if (mousedev_mix->open++)
+-		return;
++	if (!mixdev->open++) {
++		struct mousedev *mousedev;
+ 
+-	list_for_each_entry(mousedev, &mousedev_mix_list, mixdev_node) {
+-		if (!mousedev->opened_by_mixdev) {
+-			if (mousedev_open_device(mousedev))
+-				continue;
++		list_for_each_entry(mousedev, &mousedev_mix_list, mixdev_node) {
++			if (!mousedev->opened_by_mixdev) {
++				if (mousedev_open_device(mousedev))
++					continue;
+ 
+-			mousedev->opened_by_mixdev = true;
++				mousedev->opened_by_mixdev = true;
++			}
+ 		}
+ 	}
++
++	mutex_unlock(&mixdev->mutex);
++	return 0;
+ }
+ 
+ /*
+@@ -481,19 +484,22 @@ static void mixdev_open_devices(void)
+  * device. Note that this function is called with mousedev_mix->mutex
+  * held.
+  */
+-static void mixdev_close_devices(void)
++static void mixdev_close_devices(struct mousedev *mixdev)
+ {
+-	struct mousedev *mousedev;
++	mutex_lock(&mixdev->mutex);
+ 
+-	if (--mousedev_mix->open)
+-		return;
++	if (!--mixdev->open) {
++		struct mousedev *mousedev;
+ 
+-	list_for_each_entry(mousedev, &mousedev_mix_list, mixdev_node) {
+-		if (mousedev->opened_by_mixdev) {
+-			mousedev->opened_by_mixdev = false;
+-			mousedev_close_device(mousedev);
++		list_for_each_entry(mousedev, &mousedev_mix_list, mixdev_node) {
++			if (mousedev->opened_by_mixdev) {
++				mousedev->opened_by_mixdev = false;
++				mousedev_close_device(mousedev);
++			}
+ 		}
+ 	}
++
++	mutex_unlock(&mixdev->mutex);
+ }
+ 
+ 
+@@ -522,7 +528,7 @@ static int mousedev_release(struct inode *inode, struct file *file)
+ 	mousedev_detach_client(mousedev, client);
+ 	kfree(client);
+ 
+-	mousedev_close_device(mousedev);
++	mousedev->close_device(mousedev);
+ 
+ 	return 0;
+ }
+@@ -550,7 +556,7 @@ static int mousedev_open(struct inode *inode, struct file *file)
+ 	client->mousedev = mousedev;
+ 	mousedev_attach_client(mousedev, client);
+ 
+-	error = mousedev_open_device(mousedev);
++	error = mousedev->open_device(mousedev);
+ 	if (error)
+ 		goto err_free_client;
+ 
+@@ -861,16 +867,21 @@ static struct mousedev *mousedev_create(struct input_dev *dev,
+ 
+ 	if (mixdev) {
+ 		dev_set_name(&mousedev->dev, "mice");
++
++		mousedev->open_device = mixdev_open_devices;
++		mousedev->close_device = mixdev_close_devices;
+ 	} else {
+ 		int dev_no = minor;
+ 		/* Normalize device number if it falls into legacy range */
+ 		if (dev_no < MOUSEDEV_MINOR_BASE + MOUSEDEV_MINORS)
+ 			dev_no -= MOUSEDEV_MINOR_BASE;
+ 		dev_set_name(&mousedev->dev, "mouse%d", dev_no);
++
++		mousedev->open_device = mousedev_open_device;
++		mousedev->close_device = mousedev_close_device;
+ 	}
+ 
+ 	mousedev->exist = true;
+-	mousedev->is_mixdev = mixdev;
+ 	mousedev->handle.dev = input_get_device(dev);
+ 	mousedev->handle.name = dev_name(&mousedev->dev);
+ 	mousedev->handle.handler = handler;
+@@ -919,7 +930,7 @@ static void mousedev_destroy(struct mousedev *mousedev)
+ 	device_del(&mousedev->dev);
+ 	mousedev_cleanup(mousedev);
+ 	input_free_minor(MINOR(mousedev->dev.devt));
+-	if (!mousedev->is_mixdev)
++	if (mousedev != mousedev_mix)
+ 		input_unregister_handle(&mousedev->handle);
+ 	put_device(&mousedev->dev);
+ }
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 254f255204f9..a602aeeb3acb 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -119,7 +119,7 @@
+ #define      MVNETA_GMAC_MAX_RX_SIZE_MASK        0x7ffc
+ #define      MVNETA_GMAC0_PORT_ENABLE            BIT(0)
+ #define MVNETA_GMAC_CTRL_2                       0x2c08
+-#define      MVNETA_GMAC2_PSC_ENABLE             BIT(3)
++#define      MVNETA_GMAC2_PCS_ENABLE             BIT(3)
+ #define      MVNETA_GMAC2_PORT_RGMII             BIT(4)
+ #define      MVNETA_GMAC2_PORT_RESET             BIT(6)
+ #define MVNETA_GMAC_STATUS                       0x2c10
+@@ -655,7 +655,7 @@ static void mvneta_port_sgmii_config(struct mvneta_port *pp)
+ 	u32 val;
+ 
+ 	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+-	val |= MVNETA_GMAC2_PSC_ENABLE;
++	val |= MVNETA_GMAC2_PCS_ENABLE;
+ 	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
+ }
+ 
+diff --git a/drivers/vfio/vfio_iommu_type1.c b/drivers/vfio/vfio_iommu_type1.c
+index 6f3fbc48a6c7..22080eb6aff6 100644
+--- a/drivers/vfio/vfio_iommu_type1.c
++++ b/drivers/vfio/vfio_iommu_type1.c
+@@ -138,12 +138,12 @@ static bool is_invalid_reserved_pfn(unsigned long pfn)
+ 	if (pfn_valid(pfn)) {
+ 		bool reserved;
+ 		struct page *tail = pfn_to_page(pfn);
+-		struct page *head = compound_trans_head(tail);
++		struct page *head = compound_head(tail);
+ 		reserved = !!(PageReserved(head));
+ 		if (head != tail) {
+ 			/*
+ 			 * "head" is not a dangling pointer
+-			 * (compound_trans_head takes care of that)
++			 * (compound_head takes care of that)
+ 			 * but the hugepage may have been split
+ 			 * from under us (and we may not hold a
+ 			 * reference count on the head page so it can
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index 21dff8f236f6..f9e11df768d5 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -38,6 +38,7 @@
+ #include <linux/slab.h>
+ #include <linux/ratelimit.h>
+ #include <linux/aio.h>
++#include <linux/bitops.h>
+ 
+ #include "ext4_jbd2.h"
+ #include "xattr.h"
+@@ -4044,18 +4045,20 @@ int ext4_get_inode_loc(struct inode *inode, struct ext4_iloc *iloc)
+ void ext4_set_inode_flags(struct inode *inode)
+ {
+ 	unsigned int flags = EXT4_I(inode)->i_flags;
++	unsigned int new_fl = 0;
+ 
+-	inode->i_flags &= ~(S_SYNC|S_APPEND|S_IMMUTABLE|S_NOATIME|S_DIRSYNC);
+ 	if (flags & EXT4_SYNC_FL)
+-		inode->i_flags |= S_SYNC;
++		new_fl |= S_SYNC;
+ 	if (flags & EXT4_APPEND_FL)
+-		inode->i_flags |= S_APPEND;
++		new_fl |= S_APPEND;
+ 	if (flags & EXT4_IMMUTABLE_FL)
+-		inode->i_flags |= S_IMMUTABLE;
++		new_fl |= S_IMMUTABLE;
+ 	if (flags & EXT4_NOATIME_FL)
+-		inode->i_flags |= S_NOATIME;
++		new_fl |= S_NOATIME;
+ 	if (flags & EXT4_DIRSYNC_FL)
+-		inode->i_flags |= S_DIRSYNC;
++		new_fl |= S_DIRSYNC;
++	set_mask_bits(&inode->i_flags,
++		      S_SYNC|S_APPEND|S_IMMUTABLE|S_NOATIME|S_DIRSYNC, new_fl);
+ }
+ 
+ /* Propagate flags from i_flags to EXT4_I(inode)->i_flags */
+diff --git a/fs/proc/page.c b/fs/proc/page.c
+index b8730d9ebaee..2a8cc94bb641 100644
+--- a/fs/proc/page.c
++++ b/fs/proc/page.c
+@@ -121,7 +121,7 @@ u64 stable_page_flags(struct page *page)
+ 	 * just checks PG_head/PG_tail, so we need to check PageLRU to make
+ 	 * sure a given page is a thp, not a non-huge compound page.
+ 	 */
+-	else if (PageTransCompound(page) && PageLRU(compound_trans_head(page)))
++	else if (PageTransCompound(page) && PageLRU(compound_head(page)))
+ 		u |= 1 << KPF_THP;
+ 
+ 	/*
+diff --git a/include/linux/bitops.h b/include/linux/bitops.h
+index a3b6b82108b9..c1dde8e00d25 100644
+--- a/include/linux/bitops.h
++++ b/include/linux/bitops.h
+@@ -185,6 +185,21 @@ static inline unsigned long __ffs64(u64 word)
+ 
+ #ifdef __KERNEL__
+ 
++#ifndef set_mask_bits
++#define set_mask_bits(ptr, _mask, _bits)	\
++({								\
++	const typeof(*ptr) mask = (_mask), bits = (_bits);	\
++	typeof(*ptr) old, new;					\
++								\
++	do {							\
++		old = ACCESS_ONCE(*ptr);			\
++		new = (old & ~mask) | bits;			\
++	} while (cmpxchg(ptr, old, new) != old);		\
++								\
++	new;							\
++})
++#endif
++
+ #ifndef find_last_bit
+ /**
+  * find_last_bit - find the last set bit in a memory region
+diff --git a/include/linux/huge_mm.h b/include/linux/huge_mm.h
+index 528454c2caa9..a193bb3e4138 100644
+--- a/include/linux/huge_mm.h
++++ b/include/linux/huge_mm.h
+@@ -159,23 +159,6 @@ static inline int hpage_nr_pages(struct page *page)
+ 		return HPAGE_PMD_NR;
+ 	return 1;
+ }
+-static inline struct page *compound_trans_head(struct page *page)
+-{
+-	if (PageTail(page)) {
+-		struct page *head;
+-		head = page->first_page;
+-		smp_rmb();
+-		/*
+-		 * head may be a dangling pointer.
+-		 * __split_huge_page_refcount clears PageTail before
+-		 * overwriting first_page, so if PageTail is still
+-		 * there it means the head pointer isn't dangling.
+-		 */
+-		if (PageTail(page))
+-			return head;
+-	}
+-	return page;
+-}
+ 
+ extern int do_huge_pmd_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
+ 				unsigned long addr, pmd_t pmd, pmd_t *pmdp);
+@@ -205,7 +188,6 @@ static inline int split_huge_page(struct page *page)
+ 	do { } while (0)
+ #define split_huge_page_pmd_mm(__mm, __address, __pmd)	\
+ 	do { } while (0)
+-#define compound_trans_head(page) compound_head(page)
+ static inline int hugepage_madvise(struct vm_area_struct *vma,
+ 				   unsigned long *vm_flags, int advice)
+ {
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 3bf21c3502d0..a9a48309f045 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -361,8 +361,18 @@ static inline void compound_unlock_irqrestore(struct page *page,
+ 
+ static inline struct page *compound_head(struct page *page)
+ {
+-	if (unlikely(PageTail(page)))
+-		return page->first_page;
++	if (unlikely(PageTail(page))) {
++		struct page *head = page->first_page;
++
++		/*
++		 * page->first_page may be a dangling pointer to an old
++		 * compound page, so recheck that it is still a tail
++		 * page before returning.
++		 */
++		smp_rmb();
++		if (likely(PageTail(page)))
++			return head;
++	}
+ 	return page;
+ }
+ 
+diff --git a/mm/ksm.c b/mm/ksm.c
+index b6afe0c440d8..784d1e4bc385 100644
+--- a/mm/ksm.c
++++ b/mm/ksm.c
+@@ -444,7 +444,7 @@ static void break_cow(struct rmap_item *rmap_item)
+ static struct page *page_trans_compound_anon(struct page *page)
+ {
+ 	if (PageTransCompound(page)) {
+-		struct page *head = compound_trans_head(page);
++		struct page *head = compound_head(page);
+ 		/*
+ 		 * head may actually be splitted and freed from under
+ 		 * us but it's ok here.
+diff --git a/mm/memory-failure.c b/mm/memory-failure.c
+index e386beefc994..59c62fa75c5a 100644
+--- a/mm/memory-failure.c
++++ b/mm/memory-failure.c
+@@ -1544,7 +1544,7 @@ int soft_offline_page(struct page *page, int flags)
+ {
+ 	int ret;
+ 	unsigned long pfn = page_to_pfn(page);
+-	struct page *hpage = compound_trans_head(page);
++	struct page *hpage = compound_head(page);
+ 
+ 	if (PageHWPoison(page)) {
+ 		pr_info("soft offline: %#lx page already poisoned\n", pfn);
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 2ee0fd313f03..0ab02fb8e9b1 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -360,9 +360,11 @@ void prep_compound_page(struct page *page, unsigned long order)
+ 	__SetPageHead(page);
+ 	for (i = 1; i < nr_pages; i++) {
+ 		struct page *p = page + i;
+-		__SetPageTail(p);
+ 		set_page_count(p, 0);
+ 		p->first_page = page;
++		/* Make sure p->first_page is always valid for PageTail() */
++		smp_wmb();
++		__SetPageTail(p);
+ 	}
+ }
+ 
+diff --git a/mm/swap.c b/mm/swap.c
+index ea58dbde788e..4e35f3ff0427 100644
+--- a/mm/swap.c
++++ b/mm/swap.c
+@@ -81,7 +81,7 @@ static void put_compound_page(struct page *page)
+ {
+ 	if (unlikely(PageTail(page))) {
+ 		/* __split_huge_page_refcount can run under us */
+-		struct page *page_head = compound_trans_head(page);
++		struct page *page_head = compound_head(page);
+ 
+ 		if (likely(page != page_head &&
+ 			   get_page_unless_zero(page_head))) {
+@@ -219,7 +219,7 @@ bool __get_page_tail(struct page *page)
+ 	 */
+ 	unsigned long flags;
+ 	bool got = false;
+-	struct page *page_head = compound_trans_head(page);
++	struct page *page_head = compound_head(page);
+ 
+ 	if (likely(page != page_head && get_page_unless_zero(page_head))) {
+ 		/* Ref to put_compound_page() comment. */
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index a99b6c3427b0..59359bec328a 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -428,7 +428,7 @@ static bool dccp_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 	const char *msg;
+ 	u_int8_t state;
+ 
+-	dh = skb_header_pointer(skb, dataoff, sizeof(_dh), &dh);
++	dh = skb_header_pointer(skb, dataoff, sizeof(_dh), &_dh);
+ 	BUG_ON(dh == NULL);
+ 
+ 	state = dccp_state_table[CT_DCCP_ROLE_CLIENT][dh->dccph_type][CT_DCCP_NONE];
+@@ -486,7 +486,7 @@ static int dccp_packet(struct nf_conn *ct, const struct sk_buff *skb,
+ 	u_int8_t type, old_state, new_state;
+ 	enum ct_dccp_roles role;
+ 
+-	dh = skb_header_pointer(skb, dataoff, sizeof(_dh), &dh);
++	dh = skb_header_pointer(skb, dataoff, sizeof(_dh), &_dh);
+ 	BUG_ON(dh == NULL);
+ 	type = dh->dccph_type;
+ 
+@@ -577,7 +577,7 @@ static int dccp_error(struct net *net, struct nf_conn *tmpl,
+ 	unsigned int cscov;
+ 	const char *msg;
+ 
+-	dh = skb_header_pointer(skb, dataoff, sizeof(_dh), &dh);
++	dh = skb_header_pointer(skb, dataoff, sizeof(_dh), &_dh);
+ 	if (dh == NULL) {
+ 		msg = "nf_ct_dccp: short packet ";
+ 		goto out_invalid;
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index eb99458f5b68..8cf1cd2fadaa 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -105,12 +105,12 @@ bool kvm_is_mmio_pfn(pfn_t pfn)
+ 	if (pfn_valid(pfn)) {
+ 		int reserved;
+ 		struct page *tail = pfn_to_page(pfn);
+-		struct page *head = compound_trans_head(tail);
++		struct page *head = compound_head(tail);
+ 		reserved = PageReserved(head);
+ 		if (head != tail) {
+ 			/*
+ 			 * "head" is not a dangling pointer
+-			 * (compound_trans_head takes care of that)
++			 * (compound_head takes care of that)
+ 			 * but the hugepage may have been splitted
+ 			 * from under us (and we may not hold a
+ 			 * reference count on the head page so it can
