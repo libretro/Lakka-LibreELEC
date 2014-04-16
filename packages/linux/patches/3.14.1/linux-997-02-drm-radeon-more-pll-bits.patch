@@ -1,0 +1,53 @@
+From 19de393134c00989b5b1cc5e6dd4ed444a897ace Mon Sep 17 00:00:00 2001
+From: Christian König <christian.koenig@amd.com>
+Date: Wed, 16 Apr 2014 09:54:21 +0000
+Subject: drm/radeon: improve PLL params if we don't match exactly
+
+Otherwise we might be quite off on older chipsets.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+---
+diff --git a/drivers/gpu/drm/radeon/radeon_display.c b/drivers/gpu/drm/radeon/radeon_display.c
+index 2f42912..fb3b505 100644
+--- a/drivers/gpu/drm/radeon/radeon_display.c
++++ b/drivers/gpu/drm/radeon/radeon_display.c
+@@ -865,7 +865,7 @@ void radeon_compute_pll_avivo(struct radeon_pll *pll,
+ 	unsigned post_div_min, post_div_max, post_div;
+ 	unsigned ref_div_min, ref_div_max, ref_div;
+ 	unsigned post_div_best, diff_best;
+-	unsigned nom, den, tmp;
++	unsigned nom, den;
+ 
+ 	/* determine allowed feedback divider range */
+ 	fb_div_min = pll->min_feedback_div;
+@@ -941,22 +941,23 @@ void radeon_compute_pll_avivo(struct radeon_pll *pll,
+ 	ref_div_max = min(210 / post_div, ref_div_max);
+ 
+ 	/* get matching reference and feedback divider */
+-	ref_div = max(den / post_div, 1u);
+-	fb_div = nom;
++	ref_div = DIV_ROUND_CLOSEST(den, post_div);
++	fb_div = DIV_ROUND_CLOSEST(nom * ref_div * post_div, den);
+ 
+ 	/* we're almost done, but reference and feedback
+ 	   divider might be to large now */
+ 
+-	tmp = ref_div;
++	nom = fb_div;
++	den = ref_div;
+ 
+         if (fb_div > fb_div_max) {
+-		ref_div = ref_div * fb_div_max / fb_div;
++		ref_div = DIV_ROUND_CLOSEST(den * fb_div_max, nom);
+ 		fb_div = fb_div_max;
+ 	}
+ 
+ 	if (ref_div > ref_div_max) {
+ 		ref_div = ref_div_max;
+-		fb_div = nom * ref_div_max / tmp;
++		fb_div = DIV_ROUND_CLOSEST(nom * ref_div_max, den);
+ 	}
+ 
+ 	/* reduce the numbers to a simpler ratio once more */
+--
+cgit v0.9.0.2-2-gbebe
