@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gcc"
-PKG_VERSION="4.8.2"
+PKG_VERSION="4.9.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -129,7 +129,7 @@ post_make_host() {
 post_makeinstall_host() {
   cp -PR $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.so* $SYSROOT_PREFIX/usr/lib
 
-  GCC_VERSION=`$ROOT/$TOOLCHAIN/$TARGET_NAME/bin/gcc -dumpversion`
+  GCC_VERSION=`$ROOT/$TOOLCHAIN/bin/${TARGET_NAME}-gcc -dumpversion`
   DATE="0501`echo $GCC_VERSION | sed 's/\([0-9]\)/0\1/g' | sed 's/\.//g'`"
   CROSS_CC=$TARGET_CC-$GCC_VERSION
   CROSS_CXX=$TARGET_CXX-$GCC_VERSION
