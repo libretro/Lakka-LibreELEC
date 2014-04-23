@@ -48,6 +48,10 @@ PKG_CONFIGURE_OPTS_HOST="--disable-tests \
                          --disable-bash-completion \
                          --enable-asserts=yes"
 
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC -DPIC"
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/dbus-binding-tool
 }
