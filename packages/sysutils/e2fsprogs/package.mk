@@ -62,3 +62,8 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --disable-nls \
                            --disable-rpath \
                            --with-gnu-ld"
+
+pre_configure_target() {
+# e2fsprogs fails to build with LTO support on gcc-4.9
+  strip_lto
+}
