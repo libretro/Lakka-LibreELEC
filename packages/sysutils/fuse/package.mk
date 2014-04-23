@@ -39,6 +39,11 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-lib \
                            --disable-rpath \
                            --with-gnu-ld"
 
+pre_configure_target() {
+# fuse fails to build with GOLD linker on gcc-4.9
+  strip_gold
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/etc/init.d
   rm -rf $INSTALL/etc/udev
