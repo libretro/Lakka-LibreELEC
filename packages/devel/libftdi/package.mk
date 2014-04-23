@@ -41,6 +41,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_path_HAVELIBUSB=$ROOT/$TOOLCHAIN/bin/libusb-con
                            --without-examples \
                            --without-docs"
 
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC -DPIC"
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
 }
