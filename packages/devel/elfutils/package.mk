@@ -40,9 +40,6 @@ PKG_CONFIGURE_OPTS_TARGET="utrace_cv_cc_biarch=false \
                            --without-lzma"
 
 pre_configure_target() {
-# elfutils fails to build with LTO support
-  strip_lto
-
   export CFLAGS="$CFLAGS -fPIC -DPIC"
 }
 
