@@ -80,30 +80,30 @@ makeinstall_target() {
             $UBOOT_CONFIGFILE
   fi
 
-  mkdir -p $INSTALL/usr/share/u-boot
-    cp ./u-boot.bin $INSTALL/usr/share/u-boot
+  mkdir -p $INSTALL/usr/share/bootloader
+    cp ./u-boot.bin $INSTALL/usr/share/bootloader
 
   if [ -f "./u-boot.img" ]; then
-    cp ./u-boot.img $INSTALL/usr/share/u-boot
+    cp ./u-boot.img $INSTALL/usr/share/bootloader
   fi
 
   if [ -f "./MLO" ]; then
-    cp ./MLO $INSTALL/usr/share/u-boot
+    cp ./MLO $INSTALL/usr/share/bootloader
   fi
 
   if [ -f "./SPL" ]; then
-    cp ./SPL $INSTALL/usr/share/u-boot
+    cp ./SPL $INSTALL/usr/share/bootloader
   fi
 
   if [ -f "./boot.cfg" ]; then
-    cp ./boot.cfg $INSTALL/usr/share/u-boot
+    cp ./boot.cfg $INSTALL/usr/share/bootloader
   fi
 
   if [ -f "./$UBOOT_CONFIGFILE" ]; then
-    cp ./$UBOOT_CONFIGFILE $INSTALL/usr/share/u-boot
+    cp ./$UBOOT_CONFIGFILE $INSTALL/usr/share/bootloader
   fi
 
   for config in $PROJECT_DIR/$PROJECT/bootloader/*; do
-    cp -PR $config $INSTALL/usr/share/u-boot
+    cp -PR $config $INSTALL/usr/share/bootloader
   done
 }
