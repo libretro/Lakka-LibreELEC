@@ -34,11 +34,6 @@ PKG_AUTORECONF="no"
 
 PKG_MAKE_OPTS="PREFIX=/usr SHARED=no STRIP= IDSDIR=/usr/share"
 
-pre_make_target() {
-# pciutils fails building with LTO support
-  strip_lto
-}
-
 make_target() {
   make OPT="$CFLAGS" \
        CROSS_COMPILE=${TARGET_PREFIX} \
