@@ -78,11 +78,6 @@ pre_configure_host() {
   export LIBFFI_LIBS="-L$ROOT/$TOOLCHAIN/lib -lffi"
 }
 
-pre_configure_target() {
-  # glib segfaults with LTO optimization
-  strip_lto
-}
-
 post_makeinstall_host() {
   cp -f gobject/.libs/glib-genmarshal $ROOT/$TOOLCHAIN/bin
   cp -f gobject/glib-mkenums $ROOT/$TOOLCHAIN/bin
