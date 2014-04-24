@@ -49,11 +49,6 @@ else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-sse"
 fi
 
-pre_configure_target() {
-# flac-1.3.0 fails to build with LTO support
-  strip_lto
-}
-
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
 }
