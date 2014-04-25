@@ -3,7 +3,7 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2010-2011 Roman Weber (roman@openelec.tv)
+#      Copyright (C) 2010-2011 Roman Weber (roman@openelec.tv)
 #      Copyright (C) 2012 Yann Cézard (eesprit@free.fr)
 #
 #  OpenELEC is free software: you can redistribute it and/or modify
@@ -90,6 +90,15 @@
             STORAGE_NETBOOT=yes
             ;;
         esac
+        ;;
+      wol_mac=*)
+        wol_mac="${arg#*=}"
+        ;;
+      wol_ip=*)
+        wol_ip="${arg#*=}"
+        ;;
+      wol_wait=*)
+        wol_wait="${arg#*=}"
         ;;
       textmode)
         INIT_ARGS="$INIT_ARGS --unit=textmode.target"
@@ -413,6 +422,13 @@
   }
 
   mount_storage() {
+    if [ -n "$wol_ip" ] && [ -n "$wol_mac" ] && [ -n "$wol_wait" ]; then
+      if ! (/bin/busybox ping -q -c 2 "$wol_ip" > /dev/null 2>&1); then
+        /bin/busybox ether-wake "$wol_mac"
+        /bin/busybox sleep "$wol_wait"
+      fi
+    fi
+    
     progress "Mounting storage"
 
     if [ -n "$disk" ]; then
