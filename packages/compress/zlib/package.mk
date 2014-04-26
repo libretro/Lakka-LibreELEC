@@ -25,7 +25,6 @@ PKG_SITE="http://www.zlib.net"
 PKG_URL="http://www.zlib.net/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_HOST=""
-PKG_DEPENDS_INIT="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="compress"
 PKG_SHORTDESC="zlib: A general purpose (ZIP) data compression library"
@@ -36,7 +35,6 @@ PKG_AUTORECONF="no"
 
 TARGET_CONFIGURE_OPTS="--prefix=/usr"
 HOST_CONFIGURE_OPTS="--prefix=$ROOT/$TOOLCHAIN"
-INIT_CONFIGURE_OPTS="--prefix=/"
 
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
@@ -46,9 +44,4 @@ pre_build_target() {
 pre_build_host() {
   mkdir -p $PKG_BUILD/.$HOST_NAME
   cp -RP $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
-}
-
-pre_build_init() {
-  mkdir -p $PKG_BUILD/.$TARGET_NAME-init
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME-init
 }
