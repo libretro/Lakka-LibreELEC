@@ -14701,15 +14701,13 @@ index 3e64de0..72e42ec 100644
 1.9.1
 
 
-From 10224503cf18f8a8f045b96d624f914c1269ab3e Mon Sep 17 00:00:00 2001
+From 3f715d7b1ee8e221ca427cac2ffd0e6e78532172 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 30 Dec 2013 12:02:14 +0000
 Subject: [PATCH 59/83] [rbp] Hardware accelerated resampling
 
 This replaces the format conversion, up/down mixing and resampling code from ActiveAE with a GPU accelerated version.
 Should significantly reduce CPU when using paplayer or dvdplayer.
-
-Requires updated firmware
 ---
  .../Engines/ActiveAE/ActiveAEResample.cpp          |   5 +
  .../Engines/ActiveAE/ActiveAEResample.h            |   6 +
@@ -14764,7 +14762,7 @@ index 1e0e342..426d98d 100644
 +#endif
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 new file mode 100644
-index 0000000..4d6f4ae
+index 0000000..4362449
 --- /dev/null
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 @@ -0,0 +1,559 @@
@@ -15190,7 +15188,7 @@ index 0000000..4d6f4ae
 +
 +int CActiveAEResample::CalcDstSampleCount(int src_samples, int dst_rate, int src_rate)
 +{
-+  int ret = (src_samples * dst_rate + src_rate-1) / src_rate;
++  int ret = ((long long)src_samples * dst_rate + src_rate-1) / src_rate;
 +  #ifdef DEBUG_VERBOSE
 +  CLog::Log(LOGINFO, "%s::%s = %d", CLASSNAME, __func__, ret);
 +  #endif
@@ -15443,7 +15441,7 @@ index 99e407a..8d3c86a 100644
 1.9.1
 
 
-From 1c2e9c1a956138f8620d12b4e255adb21b289245 Mon Sep 17 00:00:00 2001
+From d9c422a3f4aa62e33e65526eac4335b5c5aa4d39 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 27 Mar 2014 00:22:05 +0000
 Subject: [PATCH 60/83] [PiResample] Work around AE not providing correct
@@ -15454,7 +15452,7 @@ Subject: [PATCH 60/83] [PiResample] Work around AE not providing correct
  1 file changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
-index 4d6f4ae..5d03bb1 100644
+index 4362449..239c2a6 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 @@ -97,16 +97,25 @@ bool CActiveAEResample::Init(uint64_t dst_chan_layout, int dst_channels, int dst
@@ -15489,7 +15487,7 @@ index 4d6f4ae..5d03bb1 100644
 1.9.1
 
 
-From d72caff9e7c2b66aae1a9ae461c2fb0125bcc210 Mon Sep 17 00:00:00 2001
+From 0e7427498cb1131671f6fe9d054245ae7e5a36f5 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 25 Mar 2014 19:43:07 +0000
 Subject: [PATCH 61/83] [ffmpeg] Speed up wtv index creation
@@ -15542,7 +15540,7 @@ index e423370..70898bd 100644
 1.9.1
 
 
-From f9e0b32568ddb086f794b571473ef4f95d8c0acf Mon Sep 17 00:00:00 2001
+From 271b73d90c37c7370aeb968887073dcfe85ed379 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 18:19:32 +0100
 Subject: [PATCH 62/83] [rbp/omxplayer] When opening a stream don't try to
@@ -15572,7 +15570,7 @@ index e9ba7d3..0fdc3c2 100644
 1.9.1
 
 
-From 4c26752ade5e4e709104c3143f67c789a2602724 Mon Sep 17 00:00:00 2001
+From 666b2f66cdce3b51fc6ba4cca5ed5d0134a50500 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 15:28:57 +0100
 Subject: [PATCH 63/83] [omxcodec] Clamp video texture at edges to avoid image
@@ -15599,7 +15597,7 @@ index a57abe4..e22a153 100644
 1.9.1
 
 
-From 24d197676246bddb17a8e21f86215a6f854a37ff Mon Sep 17 00:00:00 2001
+From 96313752be7157d96f3cb59121efdab8ea814567 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 6 Apr 2014 18:35:58 +0100
 Subject: [PATCH 64/83] [PiSink] Grab resample coefficients by submitting
@@ -15610,7 +15608,7 @@ Subject: [PATCH 64/83] [PiSink] Grab resample coefficients by submitting
  1 file changed, 35 insertions(+), 14 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
-index 5d03bb1..f8e312d 100644
+index 239c2a6..970d0c3 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 @@ -93,7 +93,7 @@ bool CActiveAEResample::Init(uint64_t dst_chan_layout, int dst_channels, int dst
@@ -15696,7 +15694,7 @@ index 5d03bb1..f8e312d 100644
 1.9.1
 
 
-From 2adb216d69d8805ecc9b61a7f79c41fa886caaed Mon Sep 17 00:00:00 2001
+From b9c90df1a8f702ce2cfce23a648120ba635c849f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 17:36:19 +0100
 Subject: [PATCH 65/83] [PiSink] Remove unneeded header and use CAEChannelInfo
@@ -15708,7 +15706,7 @@ Subject: [PATCH 65/83] [PiSink] Remove unneeded header and use CAEChannelInfo
  2 files changed, 7 insertions(+), 8 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
-index f8e312d..4b30171 100644
+index 970d0c3..89d7f04 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResamplePi.cpp
 @@ -24,7 +24,6 @@
@@ -15775,7 +15773,7 @@ index 9ce00e3..070e6eb 100644
 1.9.1
 
 
-From 36fb4db22fbfdca4da107ef13f7dbafc95946973 Mon Sep 17 00:00:00 2001
+From 3f0441cb1be84cac4b40de705587791c1a7a3ae3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 17:37:41 +0100
 Subject: [PATCH 66/83] [omxplayer] Remove PCMRemap and handle multichannel
@@ -17439,7 +17437,7 @@ index a273cd1..0000000
 1.9.1
 
 
-From 58c32cd2bae19d5775830155a69187420954132e Mon Sep 17 00:00:00 2001
+From 9f1bad93a8036d78112efeaa0e8e04b0582e981f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 13 Apr 2014 15:13:10 +0100
 Subject: [PATCH 67/83] [omxplayer] Fix for 3d video in mono mode
@@ -17466,7 +17464,7 @@ index 66a351d..f058a35 100644
 1.9.1
 
 
-From 0cb26d7d5ce231fe78f9da5ae431a29f66ef657c Mon Sep 17 00:00:00 2001
+From 4374eb1fe8c059d79db3028f5c660734daf02a11 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 10 Apr 2014 17:19:18 +0100
 Subject: [PATCH 68/83] [omxplayer] Remove unused framerate functions
@@ -17576,7 +17574,7 @@ index f83074a..7bb6d4d 100644
 1.9.1
 
 
-From 83fc694a27c6b2c6272b6af5a2f1659b2eb06f4f Mon Sep 17 00:00:00 2001
+From 467be46de42344b3c1b4d30706c81750233a3430 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 30 Mar 2014 15:54:34 +0100
 Subject: [PATCH 69/83] [omxplayer] Make the sharpness control act as a
@@ -17961,7 +17959,7 @@ index 0b80be5..463ef3c 100644
 1.9.1
 
 
-From a14a2b60f7ef34d1d4461b5b2fa840c73ff2428b Mon Sep 17 00:00:00 2001
+From 00aa4694c39efeb3f390460be241225c35e82b3a Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 10 Apr 2014 17:24:51 +0100
 Subject: [PATCH 70/83] [rpi] Include ntsc frequencies in list of supported
@@ -18098,7 +18096,7 @@ index 0c32947..258a293 100644
 1.9.1
 
 
-From 4a12a198b4d23aba01822bdebbdbe4d8e60e1798 Mon Sep 17 00:00:00 2001
+From af33db21c79e310d8d092843233c771862f9964f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 10 Apr 2014 17:26:20 +0100
 Subject: [PATCH 71/83] [omxplayer] Allow a framerate callback from GPU to
@@ -18241,7 +18239,7 @@ index d69f854..fd23e70 100644
 1.9.1
 
 
-From ea50a2fe3d126ce32570dda7990a270197daeeaf Mon Sep 17 00:00:00 2001
+From d61056fc831bb53f7bf4099e64d4686afc8d8924 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 11 Apr 2014 19:01:26 +0100
 Subject: [PATCH 72/83] [omxplayer] Request to be notified about framerate
@@ -18287,7 +18285,7 @@ index 02bf554..1b1711d 100644
 1.9.1
 
 
-From 70008a6b3de3cbf7486ded348f880321c61de5d4 Mon Sep 17 00:00:00 2001
+From 7304071cd5feb2ccddbf260fd3bf1acc2ff2ecc7 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 16 Apr 2014 21:18:06 +0100
 Subject: [PATCH 73/83] [omxplayer] Don't propagate 3d flags based on supported
@@ -18346,7 +18344,7 @@ index e9010b1..c170cfb 100644
 1.9.1
 
 
-From 8864603784754114c213a1667228886197bc4ad4 Mon Sep 17 00:00:00 2001
+From 2c5472ee675832ef369484103bb414ac447f3c5f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 14 Apr 2014 17:04:57 +0100
 Subject: [PATCH 74/83] [omxplayer] Support stereo view modes with scaling
@@ -18627,7 +18625,7 @@ index fd23e70..226000e 100644
 1.9.1
 
 
-From 2c07dbcde9ea35e4441969c0e18f96cbf429f563 Mon Sep 17 00:00:00 2001
+From ab5013b3411e86975483aeade34acbfda2e1d659 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 17 Apr 2014 13:00:52 +0100
 Subject: [PATCH 75/83] [graphics] Don't set stereo mode based on resolution
@@ -18674,7 +18672,7 @@ index 5bffdf5..7e4fdd4 100644
 1.9.1
 
 
-From 4675a1d30f62b0f06175f01c89d26842630049b0 Mon Sep 17 00:00:00 2001
+From e0bbc916004657c70e720f9390044e40723e5bfe Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 17 Apr 2014 13:01:51 +0100
 Subject: [PATCH 76/83] [graphics] Allow switching to a more suitable 3D
@@ -18767,7 +18765,7 @@ index 0a27643..df55e92 100644
 1.9.1
 
 
-From 4ef8ed68da4134e08ebd8f939688058f6a7ccc53 Mon Sep 17 00:00:00 2001
+From e93be21404653953e01149952cc4fe54674870b3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 17 Apr 2014 13:38:55 +0100
 Subject: [PATCH 77/83] [3D] Support switching to 3D resolutions
@@ -18855,7 +18853,7 @@ index 970b822..9ca1be1 100644
 1.9.1
 
 
-From 17490e1c10d47034d1aed1ccd84cd09feddc9783 Mon Sep 17 00:00:00 2001
+From c42ae1bcecdfb55c9c04106fc010a06186413914 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 23 Apr 2014 00:05:07 +0100
 Subject: [PATCH 78/83] [graphics] Make pixel ratio for 3d modes consistent
@@ -19047,7 +19045,7 @@ index 21b8cc4..4268f78 100644
 1.9.1
 
 
-From 32075031b096fd2c951b01a2e031d1ebfe0dfa4e Mon Sep 17 00:00:00 2001
+From 9c37d9fca8d5d9df7187cb20634b69962b55f30e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 23 Apr 2014 21:07:51 +0100
 Subject: [PATCH 79/83] [PiSink] More attempts to reduce underrun audio
@@ -19172,7 +19170,7 @@ index 070e6eb..133b9f6 100644
 1.9.1
 
 
-From fca13a55932f54589dd6749109a6f7b7e1e62bc3 Mon Sep 17 00:00:00 2001
+From 1c4948620aa4c61d42416a7e95615b5cadf48b8f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 23 Apr 2014 22:36:01 +0100
 Subject: [PATCH 80/83] [omxplayer] Fix for aspect ratio of portrait videos
@@ -19206,7 +19204,7 @@ index e9f86f3..7e2c644 100644
 1.9.1
 
 
-From 5c6a0d0b472d9348acab38f6a2b992ce88a4bf48 Mon Sep 17 00:00:00 2001
+From 5590b0997394197439f4649bca900b5c614b4575 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 22 Apr 2014 12:23:23 +0100
 Subject: [PATCH 81/83] [omxplayer] Make dvdplayer the default for dvd images
@@ -19231,7 +19229,7 @@ index 77c6a15..51c0daf 100644
 1.9.1
 
 
-From bd92bc9f3e6280d29a174f523b4408815e938419 Mon Sep 17 00:00:00 2001
+From ed96fac4a01e21d8ff832c201b303d843bc199d9 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 26 Apr 2014 17:27:52 +0100
 Subject: [PATCH 82/83] [cec] Don't suspend pi on tv switch off - it can't wake
@@ -19258,7 +19256,7 @@ index a906628..9b5271a 100644
 1.9.1
 
 
-From 61e7f37a0dace93a31df0dd39bb4a3ac220cb49a Mon Sep 17 00:00:00 2001
+From 08bc84064cfccc7cc541984935bd38070b3d4549 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 12 Apr 2014 17:57:19 +0100
 Subject: [PATCH 83/83] [omxplayer] Ignore occasionally valid pts values, they
