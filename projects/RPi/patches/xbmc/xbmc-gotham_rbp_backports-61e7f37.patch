@@ -1,7 +1,7 @@
-From cf2e82246885b85b80625475f64f801ce9ae63ea Mon Sep 17 00:00:00 2001
+From 1e47949a4a25697b1ef1a8e9a8a4fb019ef7ea65 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 5 Aug 2013 13:12:46 +0100
-Subject: [PATCH 01/66] h264_parser: Initialize the h264dsp context in the
+Subject: [PATCH 01/83] h264_parser: Initialize the h264dsp context in the
  parser as well
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -39,10 +39,10 @@ index aff9ba1..a732f79 100644
 1.9.1
 
 
-From 74df555b8f8e53d57b47577b7c060fa0804c18d2 Mon Sep 17 00:00:00 2001
+From 2b07e14206fbe8d69f0b58cc2ca8f1eb55cee5f4 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 5 Aug 2013 13:12:47 +0100
-Subject: [PATCH 02/66] h264dsp: Factorize code into a new function,
+Subject: [PATCH 02/83] h264dsp: Factorize code into a new function,
  h264_find_start_code_candidate
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -168,10 +168,10 @@ index 98ea15c..1be4804 100644
 1.9.1
 
 
-From 72796c4256963908a3fdcd0ec4e7624c1ff2d850 Mon Sep 17 00:00:00 2001
+From 9041adccd57897882820a69b6647f709fbba1c09 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 5 Aug 2013 13:12:48 +0100
-Subject: [PATCH 03/66] arm: Add assembly version of
+Subject: [PATCH 03/83] arm: Add assembly version of
  h264_find_start_code_candidate
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -505,10 +505,10 @@ index 972aace..363843c 100644
 1.9.1
 
 
-From 68ece5ea953f6df73f2432ba3ed6ec341cdf916c Mon Sep 17 00:00:00 2001
+From 1ed5bdffd5a0edb1cc655014fd9781d32083ccbc Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 19 Aug 2013 22:48:05 +0100
-Subject: [PATCH 04/66] [ffmpeg] Backport of h264_find_start_code_candidate
+Subject: [PATCH 04/83] [ffmpeg] Backport of h264_find_start_code_candidate
  optimisation
 
 ---
@@ -1037,10 +1037,1336 @@ index 0000000..cdc2d1e
 1.9.1
 
 
-From e5ea872ae40a73853d95c04e99231a1d0809a380 Mon Sep 17 00:00:00 2001
+From 4a44fee68048e883d685c6717d91e07e649bbe7a Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Wed, 16 Apr 2014 01:51:31 +0100
+Subject: [PATCH 05/83] h264: Move search code search functions into separate
+ source files.
+
+This permits re-use with parsers for codecs which use similar start codes.
+
+Signed-off-by: Michael Niedermayer <michaelni@gmx.at>
+---
+ lib/ffmpeg/libavcodec/Makefile               |   2 +-
+ lib/ffmpeg/libavcodec/arm/Makefile           |   2 +-
+ lib/ffmpeg/libavcodec/arm/h264dsp_armv6.S    | 253 ---------------------------
+ lib/ffmpeg/libavcodec/arm/h264dsp_init_arm.c |   4 +-
+ lib/ffmpeg/libavcodec/arm/startcode_armv6.S  | 253 +++++++++++++++++++++++++++
+ lib/ffmpeg/libavcodec/h264dsp.c              |  31 +---
+ lib/ffmpeg/libavcodec/startcode.c            |  57 ++++++
+ lib/ffmpeg/libavcodec/startcode.h            |  35 ++++
+ 8 files changed, 351 insertions(+), 286 deletions(-)
+ delete mode 100644 lib/ffmpeg/libavcodec/arm/h264dsp_armv6.S
+ create mode 100644 lib/ffmpeg/libavcodec/arm/startcode_armv6.S
+ create mode 100644 lib/ffmpeg/libavcodec/startcode.c
+ create mode 100644 lib/ffmpeg/libavcodec/startcode.h
+
+diff --git a/lib/ffmpeg/libavcodec/Makefile b/lib/ffmpeg/libavcodec/Makefile
+index dc065a5..460f42c 100644
+--- a/lib/ffmpeg/libavcodec/Makefile
++++ b/lib/ffmpeg/libavcodec/Makefile
+@@ -49,7 +49,7 @@ OBJS-$(CONFIG_FFT)                     += avfft.o fft_fixed.o fft_float.o \
+                                           $(FFT-OBJS-yes)
+ OBJS-$(CONFIG_GOLOMB)                  += golomb.o
+ OBJS-$(CONFIG_H264CHROMA)              += h264chroma.o
+-OBJS-$(CONFIG_H264DSP)                 += h264dsp.o h264idct.o
++OBJS-$(CONFIG_H264DSP)                 += h264dsp.o h264idct.o startcode.o
+ OBJS-$(CONFIG_H264PRED)                += h264pred.o
+ OBJS-$(CONFIG_H264QPEL)                += h264qpel.o
+ OBJS-$(CONFIG_HUFFMAN)                 += huffman.o
+diff --git a/lib/ffmpeg/libavcodec/arm/Makefile b/lib/ffmpeg/libavcodec/arm/Makefile
+index 480000b71..0b432e3 100644
+--- a/lib/ffmpeg/libavcodec/arm/Makefile
++++ b/lib/ffmpeg/libavcodec/arm/Makefile
+@@ -9,7 +9,7 @@ OBJS-$(CONFIG_AAC_DECODER)             += arm/sbrdsp_init_arm.o         \
+ OBJS-$(CONFIG_DCA_DECODER)             += arm/dcadsp_init_arm.o         \
+ 
+ ARMV6-OBJS-$(CONFIG_AC3DSP)            += arm/ac3dsp_armv6.o
+-ARMV6-OBJS-$(CONFIG_H264DSP)           += arm/h264dsp_armv6.o
++ARMV6-OBJS-$(CONFIG_H264DSP)           += arm/startcode_armv6.o
+ 
+ OBJS-$(CONFIG_FLAC_DECODER)            += arm/flacdsp_init_arm.o        \
+                                           arm/flacdsp_arm.o             \
+diff --git a/lib/ffmpeg/libavcodec/arm/h264dsp_armv6.S b/lib/ffmpeg/libavcodec/arm/h264dsp_armv6.S
+deleted file mode 100644
+index c4f12a6..0000000
+--- a/lib/ffmpeg/libavcodec/arm/h264dsp_armv6.S
++++ /dev/null
+@@ -1,253 +0,0 @@
+-/*
+- * Copyright (c) 2013 RISC OS Open Ltd
+- * Author: Ben Avison <bavison@riscosopen.org>
+- *
+- * This file is part of Libav.
+- *
+- * Libav is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU Lesser General Public
+- * License as published by the Free Software Foundation; either
+- * version 2.1 of the License, or (at your option) any later version.
+- *
+- * Libav is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * Lesser General Public License for more details.
+- *
+- * You should have received a copy of the GNU Lesser General Public
+- * License along with Libav; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+- */
+-
+-#include "libavutil/arm/asm.S"
+-
+-RESULT  .req    a1
+-BUF     .req    a1
+-SIZE    .req    a2
+-PATTERN .req    a3
+-PTR     .req    a4
+-DAT0    .req    v1
+-DAT1    .req    v2
+-DAT2    .req    v3
+-DAT3    .req    v4
+-TMP0    .req    v5
+-TMP1    .req    v6
+-TMP2    .req    ip
+-TMP3    .req    lr
+-
+-#define PRELOAD_DISTANCE 4
+-
+-.macro innerloop4
+-        ldr     DAT0, [PTR], #4
+-        subs    SIZE, SIZE, #4 @ C flag survives rest of macro
+-        sub     TMP0, DAT0, PATTERN, lsr #14
+-        bic     TMP0, TMP0, DAT0
+-        ands    TMP0, TMP0, PATTERN
+-.endm
+-
+-.macro innerloop16  decrement, do_preload
+-        ldmia   PTR!, {DAT0,DAT1,DAT2,DAT3}
+- .ifnc "\do_preload",""
+-        pld     [PTR, #PRELOAD_DISTANCE*32]
+- .endif
+- .ifnc "\decrement",""
+-        subs    SIZE, SIZE, #\decrement @ C flag survives rest of macro
+- .endif
+-        sub     TMP0, DAT0, PATTERN, lsr #14
+-        sub     TMP1, DAT1, PATTERN, lsr #14
+-        bic     TMP0, TMP0, DAT0
+-        bic     TMP1, TMP1, DAT1
+-        sub     TMP2, DAT2, PATTERN, lsr #14
+-        sub     TMP3, DAT3, PATTERN, lsr #14
+-        ands    TMP0, TMP0, PATTERN
+-        bic     TMP2, TMP2, DAT2
+-        it      eq
+-        andseq  TMP1, TMP1, PATTERN
+-        bic     TMP3, TMP3, DAT3
+-        itt     eq
+-        andseq  TMP2, TMP2, PATTERN
+-        andseq  TMP3, TMP3, PATTERN
+-.endm
+-
+-/* int ff_h264_find_start_code_candidate_armv6(const uint8_t *buf, int size) */
+-function ff_h264_find_start_code_candidate_armv6, export=1
+-        push    {v1-v6,lr}
+-        mov     PTR, BUF
+-        @ Ensure there are at least (PRELOAD_DISTANCE+2) complete cachelines to go
+-        @ before using code that does preloads
+-        cmp     SIZE, #(PRELOAD_DISTANCE+3)*32 - 1
+-        blo     60f
+-
+-        @ Get to word-alignment, 1 byte at a time
+-        tst     PTR, #3
+-        beq     2f
+-1:      ldrb    DAT0, [PTR], #1
+-        sub     SIZE, SIZE, #1
+-        teq     DAT0, #0
+-        beq     90f
+-        tst     PTR, #3
+-        bne     1b
+-2:      @ Get to 4-word alignment, 1 word at a time
+-        ldr     PATTERN, =0x80008000
+-        setend  be
+-        tst     PTR, #12
+-        beq     4f
+-3:      innerloop4
+-        bne     91f
+-        tst     PTR, #12
+-        bne     3b
+-4:      @ Get to cacheline (8-word) alignment
+-        tst     PTR, #16
+-        beq     5f
+-        innerloop16  16
+-        bne     93f
+-5:      @ Check complete cachelines, with preloading
+-        @ We need to stop when there are still (PRELOAD_DISTANCE+1)
+-        @ complete cachelines to go
+-        sub     SIZE, SIZE, #(PRELOAD_DISTANCE+2)*32
+-6:      innerloop16  , do_preload
+-        bne     93f
+-        innerloop16  32
+-        bne     93f
+-        bcs     6b
+-        @ Preload trailing part-cacheline, if any
+-        tst     SIZE, #31
+-        beq     7f
+-        pld     [PTR, #(PRELOAD_DISTANCE+1)*32]
+-        @ Check remaining data without doing any more preloads. First
+-        @ do in chunks of 4 words:
+-7:      adds    SIZE, SIZE, #(PRELOAD_DISTANCE+2)*32 - 16
+-        bmi     9f
+-8:      innerloop16  16
+-        bne     93f
+-        bcs     8b
+-        @ Then in words:
+-9:      adds    SIZE, SIZE, #16 - 4
+-        bmi     11f
+-10:     innerloop4
+-        bne     91f
+-        bcs     10b
+-11:     setend  le
+-        @ Check second byte of final halfword
+-        ldrb    DAT0, [PTR, #-1]
+-        teq     DAT0, #0
+-        beq     90f
+-        @ Check any remaining bytes
+-        tst     SIZE, #3
+-        beq     13f
+-12:     ldrb    DAT0, [PTR], #1
+-        sub     SIZE, SIZE, #1
+-        teq     DAT0, #0
+-        beq     90f
+-        tst     SIZE, #3
+-        bne     12b
+-        @ No candidate found
+-13:     sub     RESULT, PTR, BUF
+-        b       99f
+-
+-60:     @ Small buffer - simply check by looping over bytes
+-        subs    SIZE, SIZE, #1
+-        bcc     99f
+-61:     ldrb    DAT0, [PTR], #1
+-        subs    SIZE, SIZE, #1
+-        teq     DAT0, #0
+-        beq     90f
+-        bcs     61b
+-        @ No candidate found
+-        sub     RESULT, PTR, BUF
+-        b       99f
+-
+-90:     @ Found a candidate at the preceding byte
+-        sub     RESULT, PTR, BUF
+-        sub     RESULT, RESULT, #1
+-        b       99f
+-
+-91:     @ Found a candidate somewhere in the preceding 4 bytes
+-        sub     RESULT, PTR, BUF
+-        sub     RESULT, RESULT, #4
+-        sub     TMP0, DAT0, #0x20000
+-        bics    TMP0, TMP0, DAT0
+-        itt     pl
+-        ldrbpl  DAT0, [PTR, #-3]
+-        addpl   RESULT, RESULT, #2
+-        bpl     92f
+-        teq     RESULT, #0
+-        beq     98f @ don't look back a byte if found at first byte in buffer
+-        ldrb    DAT0, [PTR, #-5]
+-92:     teq     DAT0, #0
+-        it      eq
+-        subeq   RESULT, RESULT, #1
+-        b       98f
+-
+-93:     @ Found a candidate somewhere in the preceding 16 bytes
+-        sub     RESULT, PTR, BUF
+-        sub     RESULT, RESULT, #16
+-        teq     TMP0, #0
+-        beq     95f @ not in first 4 bytes
+-        sub     TMP0, DAT0, #0x20000
+-        bics    TMP0, TMP0, DAT0
+-        itt     pl
+-        ldrbpl  DAT0, [PTR, #-15]
+-        addpl   RESULT, RESULT, #2
+-        bpl     94f
+-        teq     RESULT, #0
+-        beq     98f @ don't look back a byte if found at first byte in buffer
+-        ldrb    DAT0, [PTR, #-17]
+-94:     teq     DAT0, #0
+-        it      eq
+-        subeq   RESULT, RESULT, #1
+-        b       98f
+-95:     add     RESULT, RESULT, #4
+-        teq     TMP1, #0
+-        beq     96f @ not in next 4 bytes
+-        sub     TMP1, DAT1, #0x20000
+-        bics    TMP1, TMP1, DAT1
+-        itee    mi
+-        ldrbmi  DAT0, [PTR, #-13]
+-        ldrbpl  DAT0, [PTR, #-11]
+-        addpl   RESULT, RESULT, #2
+-        teq     DAT0, #0
+-        it      eq
+-        subeq   RESULT, RESULT, #1
+-        b       98f
+-96:     add     RESULT, RESULT, #4
+-        teq     TMP2, #0
+-        beq     97f @ not in next 4 bytes
+-        sub     TMP2, DAT2, #0x20000
+-        bics    TMP2, TMP2, DAT2
+-        itee    mi
+-        ldrbmi  DAT0, [PTR, #-9]
+-        ldrbpl  DAT0, [PTR, #-7]
+-        addpl   RESULT, RESULT, #2
+-        teq     DAT0, #0
+-        it      eq
+-        subeq   RESULT, RESULT, #1
+-        b       98f
+-97:     add     RESULT, RESULT, #4
+-        sub     TMP3, DAT3, #0x20000
+-        bics    TMP3, TMP3, DAT3
+-        itee    mi
+-        ldrbmi  DAT0, [PTR, #-5]
+-        ldrbpl  DAT0, [PTR, #-3]
+-        addpl   RESULT, RESULT, #2
+-        teq     DAT0, #0
+-        it      eq
+-        subeq   RESULT, RESULT, #1
+-        @ drop through to 98f
+-98:     setend  le
+-99:     pop     {v1-v6,pc}
+-.endfunc
+-
+-        .unreq  RESULT
+-        .unreq  BUF
+-        .unreq  SIZE
+-        .unreq  PATTERN
+-        .unreq  PTR
+-        .unreq  DAT0
+-        .unreq  DAT1
+-        .unreq  DAT2
+-        .unreq  DAT3
+-        .unreq  TMP0
+-        .unreq  TMP1
+-        .unreq  TMP2
+-        .unreq  TMP3
+diff --git a/lib/ffmpeg/libavcodec/arm/h264dsp_init_arm.c b/lib/ffmpeg/libavcodec/arm/h264dsp_init_arm.c
+index 2804e56..842fb9f 100644
+--- a/lib/ffmpeg/libavcodec/arm/h264dsp_init_arm.c
++++ b/lib/ffmpeg/libavcodec/arm/h264dsp_init_arm.c
+@@ -24,7 +24,7 @@
+ #include "libavutil/arm/cpu.h"
+ #include "libavcodec/h264dsp.h"
+ 
+-int ff_h264_find_start_code_candidate_armv6(const uint8_t *buf, int size);
++int ff_startcode_find_candidate_armv6(const uint8_t *buf, int size);
+ 
+ void ff_h264_v_loop_filter_luma_neon(uint8_t *pix, int stride, int alpha,
+                                      int beta, int8_t *tc0);
+@@ -109,7 +109,7 @@ av_cold void ff_h264dsp_init_arm(H264DSPContext *c, const int bit_depth,
+     int cpu_flags = av_get_cpu_flags();
+ 
+     if (have_armv6(cpu_flags))
+-        c->h264_find_start_code_candidate = ff_h264_find_start_code_candidate_armv6;
++        c->h264_find_start_code_candidate = ff_startcode_find_candidate_armv6;
+     if (have_neon(cpu_flags))
+         ff_h264dsp_init_neon(c, bit_depth, chroma_format_idc);
+ }
+diff --git a/lib/ffmpeg/libavcodec/arm/startcode_armv6.S b/lib/ffmpeg/libavcodec/arm/startcode_armv6.S
+new file mode 100644
+index 0000000..a46f009
+--- /dev/null
++++ b/lib/ffmpeg/libavcodec/arm/startcode_armv6.S
+@@ -0,0 +1,253 @@
++/*
++ * Copyright (c) 2013 RISC OS Open Ltd
++ * Author: Ben Avison <bavison@riscosopen.org>
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#include "libavutil/arm/asm.S"
++
++RESULT  .req    a1
++BUF     .req    a1
++SIZE    .req    a2
++PATTERN .req    a3
++PTR     .req    a4
++DAT0    .req    v1
++DAT1    .req    v2
++DAT2    .req    v3
++DAT3    .req    v4
++TMP0    .req    v5
++TMP1    .req    v6
++TMP2    .req    ip
++TMP3    .req    lr
++
++#define PRELOAD_DISTANCE 4
++
++.macro innerloop4
++        ldr     DAT0, [PTR], #4
++        subs    SIZE, SIZE, #4 @ C flag survives rest of macro
++        sub     TMP0, DAT0, PATTERN, lsr #14
++        bic     TMP0, TMP0, DAT0
++        ands    TMP0, TMP0, PATTERN
++.endm
++
++.macro innerloop16  decrement, do_preload
++        ldmia   PTR!, {DAT0,DAT1,DAT2,DAT3}
++ .ifnc "\do_preload",""
++        pld     [PTR, #PRELOAD_DISTANCE*32]
++ .endif
++ .ifnc "\decrement",""
++        subs    SIZE, SIZE, #\decrement @ C flag survives rest of macro
++ .endif
++        sub     TMP0, DAT0, PATTERN, lsr #14
++        sub     TMP1, DAT1, PATTERN, lsr #14
++        bic     TMP0, TMP0, DAT0
++        bic     TMP1, TMP1, DAT1
++        sub     TMP2, DAT2, PATTERN, lsr #14
++        sub     TMP3, DAT3, PATTERN, lsr #14
++        ands    TMP0, TMP0, PATTERN
++        bic     TMP2, TMP2, DAT2
++        it      eq
++        andseq  TMP1, TMP1, PATTERN
++        bic     TMP3, TMP3, DAT3
++        itt     eq
++        andseq  TMP2, TMP2, PATTERN
++        andseq  TMP3, TMP3, PATTERN
++.endm
++
++/* int ff_startcode_find_candidate_armv6(const uint8_t *buf, int size) */
++function ff_startcode_find_candidate_armv6, export=1
++        push    {v1-v6,lr}
++        mov     PTR, BUF
++        @ Ensure there are at least (PRELOAD_DISTANCE+2) complete cachelines to go
++        @ before using code that does preloads
++        cmp     SIZE, #(PRELOAD_DISTANCE+3)*32 - 1
++        blo     60f
++
++        @ Get to word-alignment, 1 byte at a time
++        tst     PTR, #3
++        beq     2f
++1:      ldrb    DAT0, [PTR], #1
++        sub     SIZE, SIZE, #1
++        teq     DAT0, #0
++        beq     90f
++        tst     PTR, #3
++        bne     1b
++2:      @ Get to 4-word alignment, 1 word at a time
++        ldr     PATTERN, =0x80008000
++        setend  be
++        tst     PTR, #12
++        beq     4f
++3:      innerloop4
++        bne     91f
++        tst     PTR, #12
++        bne     3b
++4:      @ Get to cacheline (8-word) alignment
++        tst     PTR, #16
++        beq     5f
++        innerloop16  16
++        bne     93f
++5:      @ Check complete cachelines, with preloading
++        @ We need to stop when there are still (PRELOAD_DISTANCE+1)
++        @ complete cachelines to go
++        sub     SIZE, SIZE, #(PRELOAD_DISTANCE+2)*32
++6:      innerloop16  , do_preload
++        bne     93f
++        innerloop16  32
++        bne     93f
++        bcs     6b
++        @ Preload trailing part-cacheline, if any
++        tst     SIZE, #31
++        beq     7f
++        pld     [PTR, #(PRELOAD_DISTANCE+1)*32]
++        @ Check remaining data without doing any more preloads. First
++        @ do in chunks of 4 words:
++7:      adds    SIZE, SIZE, #(PRELOAD_DISTANCE+2)*32 - 16
++        bmi     9f
++8:      innerloop16  16
++        bne     93f
++        bcs     8b
++        @ Then in words:
++9:      adds    SIZE, SIZE, #16 - 4
++        bmi     11f
++10:     innerloop4
++        bne     91f
++        bcs     10b
++11:     setend  le
++        @ Check second byte of final halfword
++        ldrb    DAT0, [PTR, #-1]
++        teq     DAT0, #0
++        beq     90f
++        @ Check any remaining bytes
++        tst     SIZE, #3
++        beq     13f
++12:     ldrb    DAT0, [PTR], #1
++        sub     SIZE, SIZE, #1
++        teq     DAT0, #0
++        beq     90f
++        tst     SIZE, #3
++        bne     12b
++        @ No candidate found
++13:     sub     RESULT, PTR, BUF
++        b       99f
++
++60:     @ Small buffer - simply check by looping over bytes
++        subs    SIZE, SIZE, #1
++        bcc     99f
++61:     ldrb    DAT0, [PTR], #1
++        subs    SIZE, SIZE, #1
++        teq     DAT0, #0
++        beq     90f
++        bcs     61b
++        @ No candidate found
++        sub     RESULT, PTR, BUF
++        b       99f
++
++90:     @ Found a candidate at the preceding byte
++        sub     RESULT, PTR, BUF
++        sub     RESULT, RESULT, #1
++        b       99f
++
++91:     @ Found a candidate somewhere in the preceding 4 bytes
++        sub     RESULT, PTR, BUF
++        sub     RESULT, RESULT, #4
++        sub     TMP0, DAT0, #0x20000
++        bics    TMP0, TMP0, DAT0
++        itt     pl
++        ldrbpl  DAT0, [PTR, #-3]
++        addpl   RESULT, RESULT, #2
++        bpl     92f
++        teq     RESULT, #0
++        beq     98f @ don't look back a byte if found at first byte in buffer
++        ldrb    DAT0, [PTR, #-5]
++92:     teq     DAT0, #0
++        it      eq
++        subeq   RESULT, RESULT, #1
++        b       98f
++
++93:     @ Found a candidate somewhere in the preceding 16 bytes
++        sub     RESULT, PTR, BUF
++        sub     RESULT, RESULT, #16
++        teq     TMP0, #0
++        beq     95f @ not in first 4 bytes
++        sub     TMP0, DAT0, #0x20000
++        bics    TMP0, TMP0, DAT0
++        itt     pl
++        ldrbpl  DAT0, [PTR, #-15]
++        addpl   RESULT, RESULT, #2
++        bpl     94f
++        teq     RESULT, #0
++        beq     98f @ don't look back a byte if found at first byte in buffer
++        ldrb    DAT0, [PTR, #-17]
++94:     teq     DAT0, #0
++        it      eq
++        subeq   RESULT, RESULT, #1
++        b       98f
++95:     add     RESULT, RESULT, #4
++        teq     TMP1, #0
++        beq     96f @ not in next 4 bytes
++        sub     TMP1, DAT1, #0x20000
++        bics    TMP1, TMP1, DAT1
++        itee    mi
++        ldrbmi  DAT0, [PTR, #-13]
++        ldrbpl  DAT0, [PTR, #-11]
++        addpl   RESULT, RESULT, #2
++        teq     DAT0, #0
++        it      eq
++        subeq   RESULT, RESULT, #1
++        b       98f
++96:     add     RESULT, RESULT, #4
++        teq     TMP2, #0
++        beq     97f @ not in next 4 bytes
++        sub     TMP2, DAT2, #0x20000
++        bics    TMP2, TMP2, DAT2
++        itee    mi
++        ldrbmi  DAT0, [PTR, #-9]
++        ldrbpl  DAT0, [PTR, #-7]
++        addpl   RESULT, RESULT, #2
++        teq     DAT0, #0
++        it      eq
++        subeq   RESULT, RESULT, #1
++        b       98f
++97:     add     RESULT, RESULT, #4
++        sub     TMP3, DAT3, #0x20000
++        bics    TMP3, TMP3, DAT3
++        itee    mi
++        ldrbmi  DAT0, [PTR, #-5]
++        ldrbpl  DAT0, [PTR, #-3]
++        addpl   RESULT, RESULT, #2
++        teq     DAT0, #0
++        it      eq
++        subeq   RESULT, RESULT, #1
++        @ drop through to 98f
++98:     setend  le
++99:     pop     {v1-v6,pc}
++endfunc
++
++        .unreq  RESULT
++        .unreq  BUF
++        .unreq  SIZE
++        .unreq  PATTERN
++        .unreq  PTR
++        .unreq  DAT0
++        .unreq  DAT1
++        .unreq  DAT2
++        .unreq  DAT3
++        .unreq  TMP0
++        .unreq  TMP1
++        .unreq  TMP2
++        .unreq  TMP3
+diff --git a/lib/ffmpeg/libavcodec/h264dsp.c b/lib/ffmpeg/libavcodec/h264dsp.c
+index b7d61cd..a84ae59 100644
+--- a/lib/ffmpeg/libavcodec/h264dsp.c
++++ b/lib/ffmpeg/libavcodec/h264dsp.c
+@@ -30,6 +30,7 @@
+ #include "avcodec.h"
+ #include "h264dsp.h"
+ #include "h264idct.h"
++#include "startcode.h"
+ #include "libavutil/common.h"
+ 
+ #define BIT_DEPTH 8
+@@ -60,34 +61,6 @@
+ #include "h264addpx_template.c"
+ #undef BIT_DEPTH
+ 
+-static int h264_find_start_code_candidate_c(const uint8_t *buf, int size)
+-{
+-    int i = 0;
+-#if HAVE_FAST_UNALIGNED
+-    /* we check i < size instead of i + 3 / 7 because it is
+-     * simpler and there must be FF_INPUT_BUFFER_PADDING_SIZE
+-     * bytes at the end.
+-     */
+-#if HAVE_FAST_64BIT
+-    while (i < size &&
+-            !((~*(const uint64_t *)(buf + i) &
+-                    (*(const uint64_t *)(buf + i) - 0x0101010101010101ULL)) &
+-                    0x8080808080808080ULL))
+-        i += 8;
+-#else
+-    while (i < size &&
+-            !((~*(const uint32_t *)(buf + i) &
+-                    (*(const uint32_t *)(buf + i) - 0x01010101U)) &
+-                    0x80808080U))
+-        i += 4;
+-#endif
+-#endif
+-    for (; i < size; i++)
+-        if (!buf[i])
+-            break;
+-    return i;
+-}
+-
+ void ff_h264dsp_init(H264DSPContext *c, const int bit_depth, const int chroma_format_idc)
+ {
+ #undef FUNC
+@@ -174,7 +147,7 @@ void ff_h264dsp_init(H264DSPContext *c, const int bit_depth, const int chroma_fo
+         H264_DSP(8);
+         break;
+     }
+-    c->h264_find_start_code_candidate = h264_find_start_code_candidate_c;
++    c->h264_find_start_code_candidate = ff_startcode_find_candidate_c;
+ 
+     if (ARCH_ARM) ff_h264dsp_init_arm(c, bit_depth, chroma_format_idc);
+     if (HAVE_ALTIVEC) ff_h264dsp_init_ppc(c, bit_depth, chroma_format_idc);
+diff --git a/lib/ffmpeg/libavcodec/startcode.c b/lib/ffmpeg/libavcodec/startcode.c
+new file mode 100644
+index 0000000..5df7695
+--- /dev/null
++++ b/lib/ffmpeg/libavcodec/startcode.c
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (c) 2003-2010 Michael Niedermayer <michaelni@gmx.at>
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++/**
++ * @file
++ * Accelerated start code search function for start codes common to
++ * MPEG-1/2/4 video, VC-1, H.264/5
++ * @author Michael Niedermayer <michaelni@gmx.at>
++ */
++
++#include "startcode.h"
++#include "config.h"
++
++int ff_startcode_find_candidate_c(const uint8_t *buf, int size)
++{
++    int i = 0;
++#if HAVE_FAST_UNALIGNED
++    /* we check i < size instead of i + 3 / 7 because it is
++     * simpler and there must be FF_INPUT_BUFFER_PADDING_SIZE
++     * bytes at the end.
++     */
++#       if HAVE_FAST_64BIT
++    while (i < size &&
++            !((~*(const uint64_t *)(buf + i) &
++                    (*(const uint64_t *)(buf + i) - 0x0101010101010101ULL)) &
++                    0x8080808080808080ULL))
++        i += 8;
++#       else
++    while (i < size &&
++            !((~*(const uint32_t *)(buf + i) &
++                    (*(const uint32_t *)(buf + i) - 0x01010101U)) &
++                    0x80808080U))
++        i += 4;
++#       endif
++#endif
++    for (; i < size; i++)
++        if (!buf[i])
++            break;
++    return i;
++}
+diff --git a/lib/ffmpeg/libavcodec/startcode.h b/lib/ffmpeg/libavcodec/startcode.h
+new file mode 100644
+index 0000000..cc55d5f
+--- /dev/null
++++ b/lib/ffmpeg/libavcodec/startcode.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2003-2010 Michael Niedermayer <michaelni@gmx.at>
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++/**
++ * @file
++ * Accelerated start code search function for start codes common to
++ * MPEG-1/2/4 video, VC-1, H.264/5
++ * @author Michael Niedermayer <michaelni@gmx.at>
++ */
++
++#ifndef AVCODEC_STARTCODE_H
++#define AVCODEC_STARTCODE_H
++
++#include <stdint.h>
++
++int ff_startcode_find_candidate_c(const uint8_t *buf, int size);
++
++#endif /* AVCODEC_STARTCODE_H */
+-- 
+1.9.1
+
+
+From d9ff89bb29dbc6992504b211108fe73e9990ce23 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Wed, 16 Apr 2014 01:51:32 +0100
+Subject: [PATCH 06/83] vc-1: Add platform-specific start code search routine
+ to VC1DSPContext.
+
+Initialise VC1DSPContext for parser as well as for decoder.
+Note, the VC-1 code doesn't actually use the function pointer yet.
+
+Signed-off-by: Michael Niedermayer <michaelni@gmx.at>
+---
+ lib/ffmpeg/libavcodec/Makefile              |  7 +++---
+ lib/ffmpeg/libavcodec/arm/Makefile          |  3 +++
+ lib/ffmpeg/libavcodec/arm/vc1dsp_init_arm.c | 33 +++++++++++++++++++++++++++++
+ lib/ffmpeg/libavcodec/vc1.c                 |  2 ++
+ lib/ffmpeg/libavcodec/vc1dec.c              |  1 -
+ lib/ffmpeg/libavcodec/vc1dsp.c              |  5 +++++
+ lib/ffmpeg/libavcodec/vc1dsp.h              |  9 ++++++++
+ 7 files changed, 56 insertions(+), 4 deletions(-)
+ create mode 100644 lib/ffmpeg/libavcodec/arm/vc1dsp_init_arm.c
+
+diff --git a/lib/ffmpeg/libavcodec/Makefile b/lib/ffmpeg/libavcodec/Makefile
+index 460f42c..8d8a548 100644
+--- a/lib/ffmpeg/libavcodec/Makefile
++++ b/lib/ffmpeg/libavcodec/Makefile
+@@ -455,7 +455,7 @@ OBJS-$(CONFIG_VB_DECODER)              += vb.o
+ OBJS-$(CONFIG_VBLE_DECODER)            += vble.o
+ OBJS-$(CONFIG_VC1_DECODER)             += vc1dec.o vc1.o vc1data.o vc1dsp.o \
+                                           msmpeg4.o msmpeg4data.o           \
+-                                          intrax8.o intrax8dsp.o
++                                          intrax8.o intrax8dsp.o startcode.o
+ OBJS-$(CONFIG_VC1_DXVA2_HWACCEL)       += dxva2_vc1.o
+ OBJS-$(CONFIG_VC1_VAAPI_HWACCEL)       += vaapi_vc1.o
+ OBJS-$(CONFIG_VC1_VDPAU_HWACCEL)       += vdpau_vc1.o
+@@ -487,6 +487,7 @@ OBJS-$(CONFIG_WMAVOICE_DECODER)        += wmavoice.o \
+                                           celp_filters.o \
+                                           acelp_vectors.o acelp_filters.o
+ OBJS-$(CONFIG_WMV1_DECODER)            += msmpeg4.o msmpeg4data.o
++
+ OBJS-$(CONFIG_WMV2_DECODER)            += wmv2dec.o wmv2.o wmv2dsp.o \
+                                           msmpeg4.o msmpeg4data.o \
+                                           intrax8.o intrax8dsp.o
+@@ -746,9 +747,9 @@ OBJS-$(CONFIG_PNM_PARSER)              += pnm_parser.o pnm.o
+ OBJS-$(CONFIG_RV30_PARSER)             += rv34_parser.o
+ OBJS-$(CONFIG_RV40_PARSER)             += rv34_parser.o
+ OBJS-$(CONFIG_TAK_PARSER)              += tak_parser.o tak.o
+-OBJS-$(CONFIG_VC1_PARSER)              += vc1_parser.o vc1.o vc1data.o \
++OBJS-$(CONFIG_VC1_PARSER)              += vc1_parser.o vc1.o vc1data.o vc1dsp.o \
+                                           msmpeg4.o msmpeg4data.o mpeg4video.o \
+-                                          h263.o
++                                          h263.o startcode.o
+ OBJS-$(CONFIG_VORBIS_PARSER)           += vorbis_parser.o xiph.o
+ OBJS-$(CONFIG_VP3_PARSER)              += vp3_parser.o
+ OBJS-$(CONFIG_VP8_PARSER)              += vp8_parser.o
+diff --git a/lib/ffmpeg/libavcodec/arm/Makefile b/lib/ffmpeg/libavcodec/arm/Makefile
+index 0b432e3..715eed7 100644
+--- a/lib/ffmpeg/libavcodec/arm/Makefile
++++ b/lib/ffmpeg/libavcodec/arm/Makefile
+@@ -16,6 +16,9 @@ OBJS-$(CONFIG_FLAC_DECODER)            += arm/flacdsp_init_arm.o        \
+ 
+ OBJS-$(CONFIG_MPEGAUDIODSP)            += arm/mpegaudiodsp_init_arm.o
+ ARMV6-OBJS-$(CONFIG_MPEGAUDIODSP)      += arm/mpegaudiodsp_fixed_armv6.o
++ARMV6-OBJS-$(CONFIG_VC1_DECODER)       += arm/startcode_armv6.o
++OBJS-$(CONFIG_VC1_DECODER)             += arm/vc1dsp_init_arm.o
++ARMV6-OBJS-$(CONFIG_VC1_PARSER)        += arm/startcode_armv6.o
+ 
+ OBJS-$(CONFIG_MPEGVIDEO)               += arm/mpegvideo_arm.o
+ OBJS-$(CONFIG_VORBIS_DECODER)          += arm/vorbisdsp_init_arm.o
+diff --git a/lib/ffmpeg/libavcodec/arm/vc1dsp_init_arm.c b/lib/ffmpeg/libavcodec/arm/vc1dsp_init_arm.c
+new file mode 100644
+index 0000000..fec5e78
+--- /dev/null
++++ b/lib/ffmpeg/libavcodec/arm/vc1dsp_init_arm.c
+@@ -0,0 +1,33 @@
++/*
++ * This file is part of Libav.
++ *
++ * Libav is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * Libav is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with Libav; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#include <stdint.h>
++
++#include "libavutil/attributes.h"
++#include "libavutil/arm/cpu.h"
++#include "libavcodec/vc1dsp.h"
++
++int ff_startcode_find_candidate_armv6(const uint8_t *buf, int size);
++
++av_cold void ff_vc1dsp_init_arm(VC1DSPContext *dsp)
++{
++    int cpu_flags = av_get_cpu_flags();
++
++    if (have_armv6(cpu_flags))
++        dsp->vc1_find_start_code_candidate = ff_startcode_find_candidate_armv6;
++}
+diff --git a/lib/ffmpeg/libavcodec/vc1.c b/lib/ffmpeg/libavcodec/vc1.c
+index e2e90a8..9b15809 100644
+--- a/lib/ffmpeg/libavcodec/vc1.c
++++ b/lib/ffmpeg/libavcodec/vc1.c
+@@ -1663,5 +1663,7 @@ int ff_vc1_init_common(VC1Context *v)
+     v->pq      = -1;
+     v->mvrange = 0; /* 7.1.1.18, p80 */
+ 
++    ff_vc1dsp_init(&v->vc1dsp);
++
+     return 0;
+ }
+diff --git a/lib/ffmpeg/libavcodec/vc1dec.c b/lib/ffmpeg/libavcodec/vc1dec.c
+index 2130c74..9fd3cae 100644
+--- a/lib/ffmpeg/libavcodec/vc1dec.c
++++ b/lib/ffmpeg/libavcodec/vc1dec.c
+@@ -5193,7 +5193,6 @@ static av_cold int vc1_decode_init(AVCodecContext *avctx)
+     ff_vc1_decode_end(avctx);
+ 
+     ff_h264chroma_init(&v->h264chroma, 8);
+-    ff_vc1dsp_init(&v->vc1dsp);
+ 
+     if (avctx->codec_id == AV_CODEC_ID_WMV3 || avctx->codec_id == AV_CODEC_ID_WMV3IMAGE) {
+         int count = 0;
+diff --git a/lib/ffmpeg/libavcodec/vc1dsp.c b/lib/ffmpeg/libavcodec/vc1dsp.c
+index 260eda4..3e3f00e 100644
+--- a/lib/ffmpeg/libavcodec/vc1dsp.c
++++ b/lib/ffmpeg/libavcodec/vc1dsp.c
+@@ -30,6 +30,7 @@
+ #include "h264chroma.h"
+ #include "rnd_avg.h"
+ #include "vc1dsp.h"
++#include "startcode.h"
+ 
+ 
+ /** Apply overlap transform to horizontal edge
+@@ -861,8 +862,12 @@ av_cold void ff_vc1dsp_init(VC1DSPContext* dsp) {
+     dsp->sprite_v_double_twoscale = sprite_v_double_twoscale_c;
+ #endif
+ 
++    dsp->vc1_find_start_code_candidate = ff_startcode_find_candidate_c;
++
+     if (HAVE_ALTIVEC)
+         ff_vc1dsp_init_altivec(dsp);
++    if (ARCH_ARM)
++        ff_vc1dsp_init_arm(dsp);
+     if (ARCH_X86)
+         ff_vc1dsp_init_x86(dsp);
+ }
+diff --git a/lib/ffmpeg/libavcodec/vc1dsp.h b/lib/ffmpeg/libavcodec/vc1dsp.h
+index 6540eff..302e4a8 100644
+--- a/lib/ffmpeg/libavcodec/vc1dsp.h
++++ b/lib/ffmpeg/libavcodec/vc1dsp.h
+@@ -73,10 +73,19 @@ typedef struct VC1DSPContext {
+     void (*sprite_v_double_twoscale)(uint8_t *dst, const uint8_t *src1a, const uint8_t *src1b, int offset1,
+                                                    const uint8_t *src2a, const uint8_t *src2b, int offset2,
+                                      int alpha, int width);
++
++    /**
++     * Search buf from the start for up to size bytes. Return the index
++     * of a zero byte, or >= size if not found. Ideally, use lookahead
++     * to filter out any zero bytes that are known to not be followed by
++     * one or more further zero bytes and a one byte.
++     */
++    int (*vc1_find_start_code_candidate)(const uint8_t *buf, int size);
+ } VC1DSPContext;
+ 
+ void ff_vc1dsp_init(VC1DSPContext* c);
+ void ff_vc1dsp_init_altivec(VC1DSPContext* c);
++void ff_vc1dsp_init_arm(VC1DSPContext* dsp);
+ void ff_vc1dsp_init_x86(VC1DSPContext* dsp);
+ 
+ #endif /* AVCODEC_VC1DSP_H */
+-- 
+1.9.1
+
+
+From 108007caee0981482c4ade89c93d00782b4e4ae8 Mon Sep 17 00:00:00 2001
+From: Ben Avison <bavison@riscosopen.org>
+Date: Wed, 23 Apr 2014 01:41:04 +0100
+Subject: [PATCH 07/83] vc-1: Optimise parser (with special attention to ARM)
+
+The previous implementation of the parser made four passes over each input
+buffer (reduced to two if the container format already guaranteed the input
+buffer corresponded to frames, such as with MKV). But these buffers are
+often 200K in size, certainly enough to flush the data out of L1 cache, and
+for many CPUs, all the way out to main memory. The passes were:
+
+1) locate frame boundaries (not needed for MKV etc)
+2) copy the data into a contiguous block (not needed for MKV etc)
+3) locate the start codes within each frame
+4) unescape the data between start codes
+
+After this, the unescaped data was parsed to extract certain header fields,
+but because the unescape operation was so large, this was usually also
+effectively operating on uncached memory. Most of the unescaped data was
+simply thrown away and never processed further. Only step 2 - because it
+used memcpy - was using prefetch, making things even worse.
+
+This patch reorganises these steps so that, aside from the copying, the
+operations are performed in parallel, maximising cache utilisation. No more
+than the worst-case number of bytes needed for header parsing is unescaped.
+Most of the data is, in practice, only read in order to search for a start
+code, for which optimised implementations already existed in the H264 codec
+(notably the ARM version uses prefetch, so we end up doing both remaining
+passes at maximum speed). For MKV files, we know when we've found the last
+start code of interest in a given frame, so we are able to avoid doing even
+that one remaining pass for most of the buffer.
+
+In some use-cases (such as the Raspberry Pi) video decode is handled by the
+GPU, but the entire elementary stream is still fed through the parser to
+pick out certain elements of the header which are necessary to manage the
+decode process. As you might expect, in these cases, the performance of the
+parser is significant.
+
+To measure parser performance, I used the same VC-1 elementary stream in
+either an MPEG-2 transport stream or a MKV file, and fed it through ffmpeg
+with -c:v copy -c:a copy -f null. These are the gperftools counts for
+those streams, both filtered to only include vc1_parse() and its callees,
+and unfiltered (to include the whole binary). Lower numbers are better:
+
+                Before          After
+File  Filtered  Mean   StdDev   Mean   StdDev  Confidence  Change
+M2TS  No        861.7  8.2      650.5  8.1     100.0%      +32.5%
+MKV   No        868.9  7.4      731.7  9.0     100.0%      +18.8%
+M2TS  Yes       250.0  11.2     27.2   3.4     100.0%      +817.9%
+MKV   Yes       149.0  12.8     1.7    0.8     100.0%      +8526.3%
+
+Yes, that last case shows vc1_parse() running 86 times faster! The M2TS
+case does show a larger absolute improvement though, since it was worse
+to begin with.
+
+This patch has been tested with the FATE suite (albeit on x86 for speed).
+
+Signed-off-by: Michael Niedermayer <michaelni@gmx.at>
+---
+ lib/ffmpeg/libavcodec/vc1_parser.c | 269 ++++++++++++++++++++++++-------------
+ 1 file changed, 175 insertions(+), 94 deletions(-)
+
+diff --git a/lib/ffmpeg/libavcodec/vc1_parser.c b/lib/ffmpeg/libavcodec/vc1_parser.c
+index 53af61c..af601ad 100644
+--- a/lib/ffmpeg/libavcodec/vc1_parser.c
++++ b/lib/ffmpeg/libavcodec/vc1_parser.c
+@@ -29,112 +29,83 @@
+ #include "vc1.h"
+ #include "get_bits.h"
+ 
++/** The maximum number of bytes of a sequence, entry point or
++ *  frame header whose values we pay any attention to */
++#define UNESCAPED_THRESHOLD 37
++
++/** The maximum number of bytes of a sequence, entry point or
++ *  frame header which must be valid memory (because they are
++ *  used to update the bitstream cache in skip_bits() calls)
++ */
++#define UNESCAPED_LIMIT 144
++
++typedef enum {
++    NO_MATCH,
++    ONE_ZERO,
++    TWO_ZEROS,
++    ONE
++} VC1ParseSearchState;
++
+ typedef struct {
+     ParseContext pc;
+     VC1Context v;
++    uint8_t prev_start_code;
++    size_t bytes_to_skip;
++    uint8_t unesc_buffer[UNESCAPED_LIMIT];
++    size_t unesc_index;
++    VC1ParseSearchState search_state;
+ } VC1ParseContext;
+ 
+-static void vc1_extract_headers(AVCodecParserContext *s, AVCodecContext *avctx,
+-                                const uint8_t *buf, int buf_size)
++static void vc1_extract_header(AVCodecParserContext *s, AVCodecContext *avctx,
++                               const uint8_t *buf, int buf_size)
+ {
++    /* Parse the header we just finished unescaping */
+     VC1ParseContext *vpc = s->priv_data;
+     GetBitContext gb;
+-    const uint8_t *start, *end, *next;
+-    uint8_t *buf2 = av_mallocz(buf_size + FF_INPUT_BUFFER_PADDING_SIZE);
+-
++    int ret;
+     vpc->v.s.avctx = avctx;
+     vpc->v.parse_only = 1;
+-    next = buf;
+-    s->repeat_pict = 0;
+-
+-    for(start = buf, end = buf + buf_size; next < end; start = next){
+-        int buf2_size, size;
+-
+-        next = find_next_marker(start + 4, end);
+-        size = next - start - 4;
+-        buf2_size = vc1_unescape_buffer(start + 4, size, buf2);
+-        init_get_bits(&gb, buf2, buf2_size * 8);
+-        if(size <= 0) continue;
+-        switch(AV_RB32(start)){
+-        case VC1_CODE_SEQHDR:
+-            ff_vc1_decode_sequence_header(avctx, &vpc->v, &gb);
+-            break;
+-        case VC1_CODE_ENTRYPOINT:
+-            ff_vc1_decode_entry_point(avctx, &vpc->v, &gb);
+-            break;
+-        case VC1_CODE_FRAME:
+-            if(vpc->v.profile < PROFILE_ADVANCED)
+-                ff_vc1_parse_frame_header    (&vpc->v, &gb);
+-            else
+-                ff_vc1_parse_frame_header_adv(&vpc->v, &gb);
+-
+-            /* keep AV_PICTURE_TYPE_BI internal to VC1 */
+-            if (vpc->v.s.pict_type == AV_PICTURE_TYPE_BI)
+-                s->pict_type = AV_PICTURE_TYPE_B;
+-            else
+-                s->pict_type = vpc->v.s.pict_type;
+-
+-            if (avctx->ticks_per_frame > 1){
+-                // process pulldown flags
+-                s->repeat_pict = 1;
+-                // Pulldown flags are only valid when 'broadcast' has been set.
+-                // So ticks_per_frame will be 2
+-                if (vpc->v.rff){
+-                    // repeat field
+-                    s->repeat_pict = 2;
+-                }else if (vpc->v.rptfrm){
+-                    // repeat frames
+-                    s->repeat_pict = vpc->v.rptfrm * 2 + 1;
+-                }
+-            }
++    init_get_bits(&gb, buf, buf_size * 8);
++    switch (vpc->prev_start_code) {
++    case VC1_CODE_SEQHDR & 0xFF:
++        ff_vc1_decode_sequence_header(avctx, &vpc->v, &gb);
++        break;
++    case VC1_CODE_ENTRYPOINT & 0xFF:
++        ff_vc1_decode_entry_point(avctx, &vpc->v, &gb);
++        break;
++    case VC1_CODE_FRAME & 0xFF:
++        if(vpc->v.profile < PROFILE_ADVANCED)
++            ret = ff_vc1_parse_frame_header    (&vpc->v, &gb);
++        else
++            ret = ff_vc1_parse_frame_header_adv(&vpc->v, &gb);
+ 
++        if (ret < 0)
+             break;
+-        }
+-    }
+ 
+-    av_free(buf2);
+-}
++        /* keep AV_PICTURE_TYPE_BI internal to VC1 */
++        if (vpc->v.s.pict_type == AV_PICTURE_TYPE_BI)
++            s->pict_type = AV_PICTURE_TYPE_B;
++        else
++            s->pict_type = vpc->v.s.pict_type;
+ 
+-/**
+- * Find the end of the current frame in the bitstream.
+- * @return the position of the first byte of the next frame, or -1
+- */
+-static int vc1_find_frame_end(ParseContext *pc, const uint8_t *buf,
+-                               int buf_size) {
+-    int pic_found, i;
+-    uint32_t state;
+-
+-    pic_found= pc->frame_start_found;
+-    state= pc->state;
+-
+-    i=0;
+-    if(!pic_found){
+-        for(i=0; i<buf_size; i++){
+-            state= (state<<8) | buf[i];
+-            if(state == VC1_CODE_FRAME || state == VC1_CODE_FIELD){
+-                i++;
+-                pic_found=1;
+-                break;
++        if (avctx->ticks_per_frame > 1){
++            // process pulldown flags
++            s->repeat_pict = 1;
++            // Pulldown flags are only valid when 'broadcast' has been set.
++            // So ticks_per_frame will be 2
++            if (vpc->v.rff){
++                // repeat field
++                s->repeat_pict = 2;
++            }else if (vpc->v.rptfrm){
++                // repeat frames
++                s->repeat_pict = vpc->v.rptfrm * 2 + 1;
+             }
++        }else{
++            s->repeat_pict = 0;
+         }
+-    }
+ 
+-    if(pic_found){
+-        /* EOF considered as end of frame */
+-        if (buf_size == 0)
+-            return 0;
+-        for(; i<buf_size; i++){
+-            state= (state<<8) | buf[i];
+-            if(IS_MARKER(state) && state != VC1_CODE_FIELD && state != VC1_CODE_SLICE){
+-                pc->frame_start_found=0;
+-                pc->state=-1;
+-                return i-3;
+-            }
+-        }
++        break;
+     }
+-    pc->frame_start_found= pic_found;
+-    pc->state= state;
+-    return END_NOT_FOUND;
+ }
+ 
+ static int vc1_parse(AVCodecParserContext *s,
+@@ -142,22 +113,127 @@ static int vc1_parse(AVCodecParserContext *s,
+                            const uint8_t **poutbuf, int *poutbuf_size,
+                            const uint8_t *buf, int buf_size)
+ {
++    /* Here we do the searching for frame boundaries and headers at
++     * the same time. Only a minimal amount at the start of each
++     * header is unescaped. */
+     VC1ParseContext *vpc = s->priv_data;
+-    int next;
++    int pic_found = vpc->pc.frame_start_found;
++    uint8_t *unesc_buffer = vpc->unesc_buffer;
++    size_t unesc_index = vpc->unesc_index;
++    VC1ParseSearchState search_state = vpc->search_state;
++    int next = END_NOT_FOUND;
++    int i = vpc->bytes_to_skip;
+ 
+-    if(s->flags & PARSER_FLAG_COMPLETE_FRAMES){
+-        next= buf_size;
+-    }else{
+-        next= vc1_find_frame_end(&vpc->pc, buf, buf_size);
++    if (pic_found && buf_size == 0) {
++        /* EOF considered as end of frame */
++        memset(unesc_buffer + unesc_index, 0, UNESCAPED_THRESHOLD - unesc_index);
++        vc1_extract_header(s, avctx, unesc_buffer, unesc_index);
++        next = 0;
++    }
++    while (i < buf_size) {
++        int start_code_found = 0;
++        uint8_t b;
++        while (i < buf_size && unesc_index < UNESCAPED_THRESHOLD) {
++            b = buf[i++];
++            unesc_buffer[unesc_index++] = b;
++            if (search_state <= ONE_ZERO)
++                search_state = b ? NO_MATCH : search_state + 1;
++            else if (search_state == TWO_ZEROS) {
++                if (b == 1)
++                    search_state = ONE;
++                else if (b > 1) {
++                    if (b == 3)
++                        unesc_index--; // swallow emulation prevention byte
++                    search_state = NO_MATCH;
++                }
++            }
++            else { // search_state == ONE
++                // Header unescaping terminates early due to detection of next start code
++                search_state = NO_MATCH;
++                start_code_found = 1;
++                break;
++            }
++        }
++        if ((s->flags & PARSER_FLAG_COMPLETE_FRAMES) &&
++                unesc_index >= UNESCAPED_THRESHOLD &&
++                vpc->prev_start_code == (VC1_CODE_FRAME & 0xFF))
++        {
++            // No need to keep scanning the rest of the buffer for
++            // start codes if we know it contains a complete frame and
++            // we've already unescaped all we need of the frame header
++            vc1_extract_header(s, avctx, unesc_buffer, unesc_index);
++            break;
++        }
++        if (unesc_index >= UNESCAPED_THRESHOLD && !start_code_found) {
++            while (i < buf_size) {
++                if (search_state == NO_MATCH) {
++                    i += vpc->v.vc1dsp.vc1_find_start_code_candidate(buf + i, buf_size - i);
++                    if (i < buf_size) {
++                        search_state = ONE_ZERO;
++                    }
++                    i++;
++                } else {
++                    b = buf[i++];
++                    if (search_state == ONE_ZERO)
++                        search_state = b ? NO_MATCH : TWO_ZEROS;
++                    else if (search_state == TWO_ZEROS) {
++                        if (b >= 1)
++                            search_state = b == 1 ? ONE : NO_MATCH;
++                    }
++                    else { // search_state == ONE
++                        search_state = NO_MATCH;
++                        start_code_found = 1;
++                        break;
++                    }
++                }
++            }
++        }
++        if (start_code_found) {
++            vc1_extract_header(s, avctx, unesc_buffer, unesc_index);
++
++            vpc->prev_start_code = b;
++            unesc_index = 0;
++
++            if (!(s->flags & PARSER_FLAG_COMPLETE_FRAMES)) {
++                if (!pic_found && (b == (VC1_CODE_FRAME & 0xFF) || b == (VC1_CODE_FIELD & 0xFF))) {
++                    pic_found = 1;
++                }
++                else if (pic_found && b != (VC1_CODE_FIELD & 0xFF) && b != (VC1_CODE_SLICE & 0xFF)) {
++                    next = i - 4;
++                    pic_found = b == (VC1_CODE_FRAME & 0xFF);
++                    break;
++                }
++            }
++        }
++    }
+ 
++    vpc->pc.frame_start_found = pic_found;
++    vpc->unesc_index = unesc_index;
++    vpc->search_state = search_state;
++
++    if (s->flags & PARSER_FLAG_COMPLETE_FRAMES) {
++        next = buf_size;
++    } else {
+         if (ff_combine_frame(&vpc->pc, next, &buf, &buf_size) < 0) {
++            vpc->bytes_to_skip = 0;
+             *poutbuf = NULL;
+             *poutbuf_size = 0;
+             return buf_size;
+         }
+     }
+ 
+-    vc1_extract_headers(s, avctx, buf, buf_size);
++    vpc->v.first_pic_header_flag = 1;
++
++    /* If we return with a valid pointer to a combined frame buffer
++     * then on the next call then we'll have been unhelpfully rewound
++     * by up to 4 bytes (depending upon whether the start code
++     * overlapped the input buffer, and if so by how much). We don't
++     * want this: it will either cause spurious second detections of
++     * the start code we've already seen, or cause extra bytes to be
++     * inserted at the start of the unescaped buffer. */
++    vpc->bytes_to_skip = 4;
++    if (next < 0)
++        vpc->bytes_to_skip += next;
+ 
+     *poutbuf = buf;
+     *poutbuf_size = buf_size;
+@@ -188,6 +264,11 @@ static int vc1_parse_init(AVCodecParserContext *s)
+ {
+     VC1ParseContext *vpc = s->priv_data;
+     vpc->v.s.slice_context_count = 1;
++    vpc->v.first_pic_header_flag = 1;
++    vpc->prev_start_code = 0;
++    vpc->bytes_to_skip = 0;
++    vpc->unesc_index = 0;
++    vpc->search_state = NO_MATCH;
+     return ff_vc1_init_common(&vpc->v);
+ }
+ 
+-- 
+1.9.1
+
+
+From 30a217382eab9553bbb1c70866816a9f0b22f3f1 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 19 Mar 2014 17:44:59 +0000
-Subject: [PATCH 05/66]  truehd: add hand-scheduled ARM asm version of
+Subject: [PATCH 08/83]  truehd: add hand-scheduled ARM asm version of
  mlp_filter_channel.
 
 Profiling results for overall audio decode and the mlp_filter_channel(_arm)
@@ -1073,10 +2399,10 @@ generate mathematically identical results to the C version.
  create mode 100644 lib/ffmpeg/libavcodec/arm/mlpdsp_init_arm.c
 
 diff --git a/lib/ffmpeg/libavcodec/arm/Makefile b/lib/ffmpeg/libavcodec/arm/Makefile
-index 480000b71..9438d2f 100644
+index 715eed7..5b0edf0 100644
 --- a/lib/ffmpeg/libavcodec/arm/Makefile
 +++ b/lib/ffmpeg/libavcodec/arm/Makefile
-@@ -14,10 +14,14 @@ ARMV6-OBJS-$(CONFIG_H264DSP)           += arm/h264dsp_armv6.o
+@@ -14,6 +14,8 @@ ARMV6-OBJS-$(CONFIG_H264DSP)           += arm/startcode_armv6.o
  OBJS-$(CONFIG_FLAC_DECODER)            += arm/flacdsp_init_arm.o        \
                                            arm/flacdsp_arm.o             \
  
@@ -1084,6 +2410,9 @@ index 480000b71..9438d2f 100644
 +                                          arm/mlpdsp_arm.o
  OBJS-$(CONFIG_MPEGAUDIODSP)            += arm/mpegaudiodsp_init_arm.o
  ARMV6-OBJS-$(CONFIG_MPEGAUDIODSP)      += arm/mpegaudiodsp_fixed_armv6.o
+ ARMV6-OBJS-$(CONFIG_VC1_DECODER)       += arm/startcode_armv6.o
+@@ -21,6 +23,8 @@ OBJS-$(CONFIG_VC1_DECODER)             += arm/vc1dsp_init_arm.o
+ ARMV6-OBJS-$(CONFIG_VC1_PARSER)        += arm/startcode_armv6.o
  
  OBJS-$(CONFIG_MPEGVIDEO)               += arm/mpegvideo_arm.o
 +OBJS-$(CONFIG_TRUEHD_DECODER)          += arm/mlpdsp_init_arm.o         \
@@ -1091,7 +2420,7 @@ index 480000b71..9438d2f 100644
  OBJS-$(CONFIG_VORBIS_DECODER)          += arm/vorbisdsp_init_arm.o
  OBJS-$(CONFIG_VP3DSP)                  += arm/vp3dsp_init_arm.o
  OBJS-$(CONFIG_VP5_DECODER)             += arm/vp56dsp_init_arm.o
-@@ -31,7 +35,6 @@ OBJS-$(CONFIG_H264CHROMA)              += arm/h264chroma_init_arm.o
+@@ -34,7 +38,6 @@ OBJS-$(CONFIG_H264CHROMA)              += arm/h264chroma_init_arm.o
  OBJS-$(CONFIG_H264DSP)                 += arm/h264dsp_init_arm.o
  OBJS-$(CONFIG_H264PRED)                += arm/h264pred_init_arm.o
  OBJS-$(CONFIG_H264QPEL)                += arm/h264qpel_init_arm.o
@@ -1593,10 +2922,10 @@ index 84a8aa3..129bcfe 100644
 1.9.1
 
 
-From 4962c99d7d79ceb109e9afb0753b7857abaf5365 Mon Sep 17 00:00:00 2001
+From 0c71a8e17dcd8a50c9be016fa5735d0d9f8724db Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 19 Mar 2014 17:48:54 +0000
-Subject: [PATCH 06/66] truehd: break out part of rematrix_channels into
+Subject: [PATCH 09/83] truehd: break out part of rematrix_channels into
  platform-specific callback.
 
 Verified with profiling that this doesn't have a measurable effect upon
@@ -1754,10 +3083,10 @@ index 129bcfe..f98e9be 100644
 1.9.1
 
 
-From 3cf1778ea1a5bbe08d0c243041c315d734cd08c5 Mon Sep 17 00:00:00 2001
+From 4fad2a0d94ff319ce83b05077472fb5ec9b356c4 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 19 Mar 2014 17:49:48 +0000
-Subject: [PATCH 07/66] truehd: add hand-scheduled ARM asm version of
+Subject: [PATCH 10/83] truehd: add hand-scheduled ARM asm version of
  ff_mlp_rematrix_channel.
 
 Profiling results for overall audio decode and the rematrix_channels function
@@ -2050,10 +3379,10 @@ index f0ea285..268dfdd 100644
 1.9.1
 
 
-From e4cdb3faf33077d40f1140940b8ecfd31755d688 Mon Sep 17 00:00:00 2001
+From f23ea48f76c57c5d10c6149264edd5809b7a56bc Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 19 Mar 2014 17:50:36 +0000
-Subject: [PATCH 08/66] truehd: tune VLC decoding for ARM.
+Subject: [PATCH 11/83] truehd: tune VLC decoding for ARM.
 
 Profiling on a Raspberry Pi revealed the best performance to correspond
 with VLC_BITS = 5. Results for overall audio decode and the get_vlc2 function
@@ -2115,10 +3444,10 @@ index e9343a5..a998dac 100644
 1.9.1
 
 
-From 112decfe89725ef9c518c0d055d077bfdd50f0bb Mon Sep 17 00:00:00 2001
+From f0960bf8c56900037b202e3c92a48a1bf526bfc8 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 19 Mar 2014 17:54:07 +0000
-Subject: [PATCH 09/66] truehd: break out part of output_data into
+Subject: [PATCH 12/83] truehd: break out part of output_data into
  platform-specific callback.
 
 Verified with profiling that this doesn't have a measurable effect upon
@@ -2312,10 +3641,10 @@ index f98e9be..5bc901f 100644
 1.9.1
 
 
-From fdcf223b013580f2fabc6a1cb6d2722cba053679 Mon Sep 17 00:00:00 2001
+From 235aabda8557927cd65f0115647fd2aa65e2e520 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 19 Mar 2014 17:54:59 +0000
-Subject: [PATCH 10/66] truehd: add hand-scheduled ARM asm version of
+Subject: [PATCH 13/83] truehd: add hand-scheduled ARM asm version of
  ff_mlp_pack_output.
 
 Profiling results for overall decode and the output_data function in
@@ -2939,10 +4268,10 @@ index 268dfdd..2d8b98d 100644
 1.9.1
 
 
-From ac71b9969f67a58aff5b3f5f8afcc505ebb5548d Mon Sep 17 00:00:00 2001
+From 7357ee2f69dbf56fae6a954c811b1885ca80bf45 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 14 Nov 2013 19:48:41 +0000
-Subject: [PATCH 11/66] More efficient infobool expression evaluator
+Subject: [PATCH 14/83] More efficient infobool expression evaluator
 
 Expession infobools are evaluated at runtime from one or more single infobools
 and a combination of boolean NOT, AND and OR operators. Previously, parsing
@@ -3441,10 +4770,10 @@ index 4e0faee..0a91399 100644
 1.9.1
 
 
-From e0974ef6de29ba5e82c7c56bfacf5ae43c8d6a65 Mon Sep 17 00:00:00 2001
+From e9308d89fd60b7a4b816c942061c183d3a9ebcc9 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 24 Mar 2014 22:26:21 +0000
-Subject: [PATCH 12/66] Where an infobool expression failed to parse, evaluate
+Subject: [PATCH 15/83] Where an infobool expression failed to parse, evaluate
  the infobool as false. Previously, this would result in a segfault due to the
  dereferencing of an uninitialised pointer to the head of the expression tree.
 
@@ -3471,10 +4800,10 @@ index db461dd..7c54064 100644
 1.9.1
 
 
-From de9ff502d906142393ece1b13ea5f913ca50f470 Mon Sep 17 00:00:00 2001
+From 0880da92a5d7ea71ddc41e52d8636ce9a985d632 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Tue, 26 Nov 2013 20:09:48 +0000
-Subject: [PATCH 13/66] Add caching of infolabels
+Subject: [PATCH 16/83] Add caching of infolabels
 
 The functions CGUIInfoLabel::GetLabel and CGUIInfoLabel::GetItemLabel take
 a number of strings returned from CGUIInfoManager::GetImage or
@@ -3687,10 +5016,10 @@ index 8c1c1dc..418b2c4 100644
 1.9.1
 
 
-From 234e2f43339c98745874e92e874bdcda2cfee31f Mon Sep 17 00:00:00 2001
+From 3556dcd49f7c5b51b33a9334d2c4d984e8823813 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Tue, 10 Dec 2013 01:12:31 +0000
-Subject: [PATCH 14/66] De-duplication of string cache for non-item and item
+Subject: [PATCH 17/83] De-duplication of string cache for non-item and item
  labels
 
 ---
@@ -3830,10 +5159,10 @@ index 418b2c4..6d9ebf7 100644
 1.9.1
 
 
-From 58cdc1ef1a60d0773ae9ce186b15b17ebcc099b2 Mon Sep 17 00:00:00 2001
+From 958552edfc6b8029c346536658482095150e25ce Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 21 Feb 2014 15:16:13 +0000
-Subject: [PATCH 15/66] Faster and simpler portable implementation of
+Subject: [PATCH 18/83] Faster and simpler portable implementation of
  MathUtils::round_int().
 
 Much as I like a bit of inline assembler, I have also removed the ARM versions
@@ -4039,10 +5368,10 @@ index 96af9f4..0dae77d 100644
 1.9.1
 
 
-From 03e1ff1f03f288682fa2f7c5a2c49a127dd3ffdd Mon Sep 17 00:00:00 2001
+From 98c5dd74ffeb65650408631f1f29c2e3cabdb151 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 11 Dec 2013 17:21:54 +0000
-Subject: [PATCH 16/66] Move the reference-counting of Begin and End calls from
+Subject: [PATCH 19/83] Move the reference-counting of Begin and End calls from
  DX and GL source files into GUIFontTTF.cpp.
 
 ---
@@ -4397,10 +5726,10 @@ index a0dacba..6736cf7 100644
 1.9.1
 
 
-From a144ce7a68000354d72e1c5809bd5b7fda412df9 Mon Sep 17 00:00:00 2001
+From 56109cdf0eb6a9825a851c2aa3013cc36c44c1dc Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 11 Dec 2013 18:47:54 +0000
-Subject: [PATCH 17/66] Convert CGUIFontTTFBase::m_vertex to be managed as a
+Subject: [PATCH 20/83] Convert CGUIFontTTFBase::m_vertex to be managed as a
  std::vector. Also retired CGUIFontTTFBase::m_vertex_count and
  CGUIFontTTFBase::m_vertex_size because these can be derived from vector
  member functions.
@@ -4582,10 +5911,10 @@ index 93b7ea6..a4e8571 100644
 1.9.1
 
 
-From 91f23c4798a31561d4b59d8343f9a30b52f74886 Mon Sep 17 00:00:00 2001
+From daa9033a6b545526b51dd3b654553c62b47e25f2 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 16 Dec 2013 18:58:12 +0000
-Subject: [PATCH 18/66] CGUIFontTTFBase::RenderCharacter can now append to
+Subject: [PATCH 21/83] CGUIFontTTFBase::RenderCharacter can now append to
  arbitrary vectors of vertices rather than only CGUIFontTTFBase::m_vertex
 
 ---
@@ -4661,10 +5990,10 @@ index 35e3cf9..4a6a696 100644
 1.9.1
 
 
-From 8ba1e027706342933dd72343bb5373b6ecedb9a6 Mon Sep 17 00:00:00 2001
+From 64d1912615c19dc1162259693d87e433d97c7a32 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 17:18:38 +0000
-Subject: [PATCH 19/66] Add a cache of font glyph bounding box vertices. This
+Subject: [PATCH 22/83] Add a cache of font glyph bounding box vertices. This
  is implemented as a template because ultimately we will key on different
  parameters and store values of different types, depending upon whether we
  have a GLES or non-GLES backend, and for GLES, whether or not the currently
@@ -5324,10 +6653,10 @@ index f351c99..9036ba9 100644
 1.9.1
 
 
-From 603cac6baf0c124c3b9a2d22a875c98baf5fb814 Mon Sep 17 00:00:00 2001
+From 5e432b3b3e466301a7a7cb71b038cd8b2a84e529 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 23 Jan 2014 22:24:17 +0000
-Subject: [PATCH 20/66] Lay the groundwork for hardware clipping.
+Subject: [PATCH 23/83] Lay the groundwork for hardware clipping.
 
 For glScissor() to replace CGraphicContext::ClipRect, a necessary condition
 is that no shear or rotation is introduced between the coordinate systems
@@ -5592,10 +6921,10 @@ index 98e398a..81ee49e 100644
 1.9.1
 
 
-From 4afd3e54cbdec1976d09eed746596f6904c44249 Mon Sep 17 00:00:00 2001
+From 3565413b5ea17cc433f7e92188d81fa8b59fe453 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 23 Jan 2014 16:42:22 +0000
-Subject: [PATCH 21/66] Increase font cache hit rate by keying on the
+Subject: [PATCH 24/83] Increase font cache hit rate by keying on the
  fractional part of m_originX and m_originY *after* they have been through the
  graphics context's transformation matrix, plus the scale/rotation elements of
  the matrix, rather than the origin in the original frame of reference plus
@@ -5799,10 +7128,10 @@ index 7cb4669..78445ab 100644
 1.9.1
 
 
-From 8633ef4deaff6be33586d957a6cadaa22628d4cc Mon Sep 17 00:00:00 2001
+From 1e14806aabc63b3750c7131a6bf04748c1333045 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 8 Jan 2014 12:16:33 +0000
-Subject: [PATCH 22/66] Rewrite of scrolling text code.
+Subject: [PATCH 25/83] Rewrite of scrolling text code.
 
 No longer shuffles the string round to minimise the number of characters
 before the clipping rectangle; this doesn't save much on rendering time but
@@ -6121,10 +7450,10 @@ index 2c6f366..b74faf2 100644
 1.9.1
 
 
-From d7ad682a7330a0a5f5c4b38fb8b7a5eaa3a80625 Mon Sep 17 00:00:00 2001
+From 657264414abdc9e45d4176a292f9eccc5e0bd9df Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 27 Jan 2014 23:21:10 +0000
-Subject: [PATCH 23/66] Move the application of the translation offsets into
+Subject: [PATCH 26/83] Move the application of the translation offsets into
  the GLES code. Still all pure software at this stage. Main change is in the
  data types at the interface between CGUIFontTTFBase and CGUIFontTTFGL. The
  old way (array of vertices in m_vertex) are retained in addition, for the
@@ -6320,10 +7649,10 @@ index cb56987..f6aa081 100644
 1.9.1
 
 
-From db61344a466ff566edd041f1ddbb9aa43fa9a739 Mon Sep 17 00:00:00 2001
+From 08be36acd01be2417d1d34dab14d049b104f93ef Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 15:28:06 +0000
-Subject: [PATCH 24/66] Rather than applying the translation offsets to the
+Subject: [PATCH 27/83] Rather than applying the translation offsets to the
  vertices, now applies them to the model view matrix from the top of the
  matrix stack and pushes it over to OpenGL. The vertices themselves are still
  all held client-side.
@@ -6470,10 +7799,10 @@ index 81ee49e..d2f9cd1 100644
 1.9.1
 
 
-From 5f600287b6127029841757be051218627b444860 Mon Sep 17 00:00:00 2001
+From 2c054d418c6cc97c7b331d26fad04e554ae91cc7 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 29 Jan 2014 13:21:19 +0000
-Subject: [PATCH 25/66] Enable hardware clipping.
+Subject: [PATCH 28/83] Enable hardware clipping.
 
 ---
  xbmc/guilib/GUIFontTTF.cpp   | 4 ++--
@@ -6549,10 +7878,10 @@ index fbffaa0..b7618e1 100644
 1.9.1
 
 
-From ea3c579d062f8bbe8a158a0d87a5d7fea8a7dcd1 Mon Sep 17 00:00:00 2001
+From 7a52699c1386b2276c8c5ae2025488cc8d4ec3fb Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 15:32:51 +0000
-Subject: [PATCH 26/66] Move the vertex data across to a vertex buffer object
+Subject: [PATCH 29/83] Move the vertex data across to a vertex buffer object
  just prior to drawing.
 
 ---
@@ -6606,10 +7935,10 @@ index b7618e1..0df3749 100644
 1.9.1
 
 
-From 41deb67e7c3a1afafbf38f120f4f1a96e0b77530 Mon Sep 17 00:00:00 2001
+From 98e9868adfef483950bde727b293d7fe8ddaed6a Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 16:04:04 +0000
-Subject: [PATCH 27/66] Move vertex data into an OpenGL VBO when the font cache
+Subject: [PATCH 30/83] Move vertex data into an OpenGL VBO when the font cache
  entry is populated. The font cache now stores the "name" (handle) of the VBO,
  rather than a vector of vertices.
 
@@ -6884,10 +8213,10 @@ index 6736cf7..168fb21 100644
 1.9.1
 
 
-From 9b627cf8be922a8bfc2a7620b4d002c718ec7e88 Mon Sep 17 00:00:00 2001
+From f19d01f51776787f35734ea5aacf6253ac00f1e8 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 16 Jan 2014 16:29:42 +0000
-Subject: [PATCH 28/66] Switch from glDrawArrays() to glDrawElements(). This
+Subject: [PATCH 31/83] Switch from glDrawArrays() to glDrawElements(). This
  involves setting up a static VBO containing the indexes necessary to convert
  from quads to triangles on the fly in the GPU.
 
@@ -7110,10 +8439,10 @@ index dfc4672..0c32947 100644
 1.9.1
 
 
-From 61b80a2c51ff18978f505ce439b887aa30555262 Mon Sep 17 00:00:00 2001
+From 503ccbf5d18bd09d9ecebdb4a9c89f7e0e3e8332 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Tue, 4 Feb 2014 16:17:57 +0000
-Subject: [PATCH 29/66] Update Windows project files
+Subject: [PATCH 32/83] Update Windows project files
 
 ---
  project/VS2010Express/XBMC.vcxproj         | 2 ++
@@ -7168,10 +8497,10 @@ index b536eb3..cb34443 100644
 1.9.1
 
 
-From f9a0226320cbd77f2b385fba9ccfed218572eef4 Mon Sep 17 00:00:00 2001
+From 3c5ef9f7f0fd0eab873188127709a70c8c2bf80c Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Tue, 4 Feb 2014 16:49:45 +0000
-Subject: [PATCH 30/66] Update XCode project file
+Subject: [PATCH 33/83] Update XCode project file
 
 ---
  XBMC.xcodeproj/project.pbxproj | 10 ++++++++++
@@ -7237,10 +8566,10 @@ index b5b96f9..5412e27 100644
 1.9.1
 
 
-From 448860daac109d4b37c1e611e9e0dcd1dfe57351 Mon Sep 17 00:00:00 2001
+From c97c6240c9ba2dda92f31de581012b13bd34a1a7 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Tue, 4 Feb 2014 17:44:34 +0000
-Subject: [PATCH 31/66] Clang seems to be more picky than gcc about some C++
+Subject: [PATCH 34/83] Clang seems to be more picky than gcc about some C++
  template syntax
 
 ---
@@ -7308,10 +8637,10 @@ index 895fa72..bd84b9a 100644
 1.9.1
 
 
-From e533c2ff1cb1418a29aed255655c3e1a8187bb3d Mon Sep 17 00:00:00 2001
+From 921007e0d9d50bdcdae95a3298d318ee33bbd663 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Tue, 4 Feb 2014 18:52:14 +0000
-Subject: [PATCH 32/66] Fix header to hopefully permit iOS builds to work
+Subject: [PATCH 35/83] Fix header to hopefully permit iOS builds to work
  again. GUIShader.cpp added #include windowing/egl/WinSystemEGL.h inside a but
  also need the header windowing/osx/WinSystemIOS.h instead. The only thing
  GUIShader.cpp needed was g_windowing.GetViewPort, which is provided by the
@@ -7340,10 +8669,10 @@ index 53bce09..86330cc 100644
 1.9.1
 
 
-From 547ef44b08fe12bc08e017cd888501ec18d52620 Mon Sep 17 00:00:00 2001
+From 98a4fa3018523eddb3ad0e7d037fb4330e4de87c Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Tue, 8 Apr 2014 18:14:55 +0100
-Subject: [PATCH 33/66] Fix font display in stereoscopic modes
+Subject: [PATCH 36/83] Fix font display in stereoscopic modes
  CGUIFontTTFGL::LastEnd was previously using the relatively high-level
  CGraphicContext::SetScissors function to enforce hardware clipping. However,
  the coordinates it passed in already contained the stereoscopic offset, so
@@ -7384,10 +8713,10 @@ index d476409..8466a81 100644
 1.9.1
 
 
-From 7ccf13e58d849e03fdadf1826a69ccdfb188e2d6 Mon Sep 17 00:00:00 2001
+From af6af00b79678d5cf5f3fb4ca2c576a3ed2a72a3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 10 Jan 2014 12:10:43 +0000
-Subject: [PATCH 34/66] [rbp] Don't override dvdplayer with omxplayer.
+Subject: [PATCH 37/83] [rbp] Don't override dvdplayer with omxplayer.
 
 Using dvdplayer can be useful on the Pi. We can actually play sd (up to 640x480 MPEG-4 video) video in real time.
 This is useful for codec variants like DivX3 which we don't currently play.
@@ -7420,10 +8749,10 @@ index 27f0bec..fc12bb7 100644
 1.9.1
 
 
-From 3d42c1e059c9ac4541e477a30542613776290dae Mon Sep 17 00:00:00 2001
+From 9082a96850ea9fb91f68ebe6fa90b5533bfe7afb Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 10 Jan 2014 15:37:41 +0000
-Subject: [PATCH 35/66] [players] Use default players rather than hard coded
+Subject: [PATCH 38/83] [players] Use default players rather than hard coded
  DVDPlayer/PAPlayer
 
 ---
@@ -7482,10 +8811,10 @@ index 57dfcdd..7be9799 100644
 1.9.1
 
 
-From dcf776cf65929c849752e507f5147f126f0a72c3 Mon Sep 17 00:00:00 2001
+From 96484913c3933288e2d9e8b79af17434af727805 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 11 Jan 2014 18:23:42 +0000
-Subject: [PATCH 36/66] [rbp] Don't force dvdplayer for airplay
+Subject: [PATCH 39/83] [rbp] Don't force dvdplayer for airplay
 
 ---
  xbmc/network/AirPlayServer.cpp | 2 ++
@@ -7511,10 +8840,10 @@ index 127a765..13b7ead 100644
 1.9.1
 
 
-From 4761d32b0c0f7d9cb93b2adb1e8bca509804bb79 Mon Sep 17 00:00:00 2001
+From 30f3af7363d002105cb4e027382d7cfdfd2ef72c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 13 Jan 2014 13:11:06 +0000
-Subject: [PATCH 37/66] [rbp] Give plugins omxplayer when they request
+Subject: [PATCH 40/83] [rbp] Give plugins omxplayer when they request
  dvdplayer on pi
 
 ---
@@ -7541,10 +8870,10 @@ index 16f0174..b172d47 100644
 1.9.1
 
 
-From b378e79164014304b0162a54f00dd951988bae86 Mon Sep 17 00:00:00 2001
+From 26e12cd0b54de28ba460ccf07e9d255869291881 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 14 Jan 2014 18:04:07 +0000
-Subject: [PATCH 38/66] [rbp] Allow ALSA to be chosen in addition to Pi sink
+Subject: [PATCH 41/83] [rbp] Allow ALSA to be chosen in addition to Pi sink
 
 Needs --enable-alsa in ./configure step and alsa support on platform
 ---
@@ -7636,10 +8965,10 @@ index e493123..7df6807 100644
 1.9.1
 
 
-From b432c035b2742311445803b56040269e4e1ffe52 Mon Sep 17 00:00:00 2001
+From dd04c983bc1178707fd2efd7ca859a879028c3d2 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 16 Jan 2014 01:39:29 +0000
-Subject: [PATCH 39/66] [omxcodec] Add hardware decode to dvdplayer for Pi
+Subject: [PATCH 42/83] [omxcodec] Add hardware decode to dvdplayer for Pi
 
 Hijack the abandoned OpenMaxVideo codec
 ---
@@ -7767,10 +9096,10 @@ index 45e9c20..0ca56a2 100644
  #ifdef HAVE_VIDEOTOOLBOXDECODER
      struct __CVBuffer *cvBufferRef;
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index a33591d..5c85a8d 100644
+index 6832721..3503988 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
-@@ -910,7 +910,7 @@ int CXBMCRenderManager::AddVideoPicture(DVDVideoPicture& pic)
+@@ -912,7 +912,7 @@ int CXBMCRenderManager::AddVideoPicture(DVDVideoPicture& pic)
  #endif
  #ifdef HAVE_LIBOPENMAX
    else if(pic.format == RENDER_FMT_OMXEGL)
@@ -10695,10 +12024,10 @@ index 54d35aa..5b9c2f9 100644
 1.9.1
 
 
-From 6bcd9f5098351565e5965b6b329eb5797b7f5d67 Mon Sep 17 00:00:00 2001
+From 2acac842df4a1144fc892ac6643cfa6390c36ca7 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 20 Jan 2014 16:03:40 +0000
-Subject: [PATCH 40/66] [omxcodec] Enable for dvd menus
+Subject: [PATCH 43/83] [omxcodec] Enable for dvd menus
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp | 9 ++++++---
@@ -10747,10 +12076,10 @@ index 2894229..72f87ea 100644
 1.9.1
 
 
-From 92e5de3a9ff7f202eb1d661ac9fa7c0cea73d6b9 Mon Sep 17 00:00:00 2001
+From 18f350ea95d4cf2e05f8da46bb92b92f71e02657 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 22:27:44 +0000
-Subject: [PATCH 41/66] [omxcodec] Add omx specific texture
+Subject: [PATCH 44/83] [omxcodec] Add omx specific texture
  create/upload/delete functions
 
 ---
@@ -10828,10 +12157,10 @@ index 0ca56a2..f3dd3d3 100644
 1.9.1
 
 
-From b081c363804da72387f4bde161f8bf49318a1974 Mon Sep 17 00:00:00 2001
+From d0bdfa4d5584ca02941a11ba2a0590d9e1aa3fdc Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 22:50:43 +0000
-Subject: [PATCH 42/66] [omxcodec] Add shared pointer to delay shutdown of
+Subject: [PATCH 45/83] [omxcodec] Add shared pointer to delay shutdown of
  codec until buffers are returned
 
 ---
@@ -11012,10 +12341,10 @@ index 9079c13..0975e8a 100644
 1.9.1
 
 
-From c071facc03646aab74193c297555002c22487fcd Mon Sep 17 00:00:00 2001
+From 91902d82371789fe809fe84a04ac4d0aadf7e073 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 23:11:31 +0000
-Subject: [PATCH 43/66] [omxcodec] Fix for aspect ratio in non-square pixel
+Subject: [PATCH 46/83] [omxcodec] Fix for aspect ratio in non-square pixel
  modes
 
 ---
@@ -11104,10 +12433,10 @@ index 0975e8a..9138a20 100644
 1.9.1
 
 
-From c7a8aa4e5d58987718fab406e32b8afbe184792d Mon Sep 17 00:00:00 2001
+From 417bd1332646d7acfc7fb0eaeff63597ae6b0cf1 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 23:19:22 +0000
-Subject: [PATCH 44/66] [omxcodec] Report error when codec not enabled
+Subject: [PATCH 47/83] [omxcodec] Report error when codec not enabled
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/OpenMaxVideo.cpp | 10 +++++++++-
@@ -11152,10 +12481,10 @@ index 7e23c87..2ae722b 100644
 1.9.1
 
 
-From fb01550154789ac2e3acb338c385bf801ec83a52 Mon Sep 17 00:00:00 2001
+From 998c68223efb9606fe02449bfaf9eaffb6b86adb Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 4 Feb 2014 17:29:37 +0000
-Subject: [PATCH 45/66] [omxcodec] Add deinterlace support
+Subject: [PATCH 48/83] [omxcodec] Add deinterlace support
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |   2 +-
@@ -11392,10 +12721,10 @@ index 9138a20..c8ad4d8 100644
 1.9.1
 
 
-From 9d225ec16373ea5900c269231394c7efbb18ffc4 Mon Sep 17 00:00:00 2001
+From 26d887dc18bd74412747f1e928fd4cb4011735ed Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 12 Feb 2014 18:43:14 +0000
-Subject: [PATCH 46/66] Improved file buffering in CArchive.
+Subject: [PATCH 49/83] Improved file buffering in CArchive.
 
 CArchive already did some file buffering, but only on writes. Added the
 equivalent code for reads. Also improved the write buffer case so that it
@@ -11785,10 +13114,10 @@ index 0148fcb..5b25be5 100644
 1.9.1
 
 
-From 9af4c5bc3e7e532bd7f757a4829c6be700c5d51f Mon Sep 17 00:00:00 2001
+From 85ef87b0f82e5570a80ab10137388e6bfa07af81 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 5 Feb 2014 11:46:33 +0000
-Subject: [PATCH 47/66] [rbp/settings] Allow av sync type to be enabled
+Subject: [PATCH 50/83] [rbp/settings] Allow av sync type to be enabled
 
 It works for dvdplayer
 ---
@@ -11817,10 +13146,10 @@ index 2b7d0a6..1429256 100644
 1.9.1
 
 
-From b2c548a5dfcb23652795535c3baa7bba4acc64ca Mon Sep 17 00:00:00 2001
+From 93b4fd19546915540c35608124bb4f4fb4ec49e8 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 16 Feb 2014 17:38:05 +0000
-Subject: [PATCH 48/66] [omxcodec] Only do essential calls in texture thread
+Subject: [PATCH 51/83] [omxcodec] Only do essential calls in texture thread
  [omxcodec] Fix for files with no valid pts values. [omxcodec] Fix stall on
  seek/trickplay - need to reset start flag [omxcodec] Make sure we have a
  valid context when video decode starts before first fanart is decoded
@@ -12170,10 +13499,10 @@ index c8ad4d8..f234f6d 100644
 1.9.1
 
 
-From 7f5af963dce7a380ba41a719c7dc1787d6839de5 Mon Sep 17 00:00:00 2001
+From 96a8870d2eb10971d1c9587b1be76582efa84c51 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 1 Mar 2014 14:24:08 +0000
-Subject: [PATCH 49/66] [omxplayer] Allow small audio packets to be
+Subject: [PATCH 52/83] [omxplayer] Allow small audio packets to be
  concatenated to make better use of audio fifo
 
 Some audio codecs produce small packets which causes a high overhead when submitting to GPU, and doesn't make full use of GPU side buffering.
@@ -12591,10 +13920,10 @@ index 8219015..a4c11777 100644
 1.9.1
 
 
-From 96d7b5575d728402aecaef264f5ba10720ab3308 Mon Sep 17 00:00:00 2001
+From 0ed122b9b04e2c559bc1fd59396920dbad4a775b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 5 Mar 2014 22:10:01 +0000
-Subject: [PATCH 50/66] [omxplayer] Use media for determing audio delay and
+Subject: [PATCH 53/83] [omxplayer] Use media for determing audio delay and
  cache time
 
 I've also added caching to the call to OMXMediaTime as the GPU round trip is expensive when called too frequently
@@ -12850,10 +14179,10 @@ index d7d06fe..f83074a 100644
 1.9.1
 
 
-From 270c6aef981ec3c6322b1689f415a5baaf0331f4 Mon Sep 17 00:00:00 2001
+From a3342f94f2b8f4b75a53ac2ddc257d665101df2e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Mar 2014 22:24:19 +0000
-Subject: [PATCH 51/66] [omx] Skip the resize when not needed when decoding
+Subject: [PATCH 54/83] [omx] Skip the resize when not needed when decoding
  jpegs
 
 The decode to texture path almost always uses cached jpegs that are the correct size, so the resize is rarely needed.
@@ -13204,10 +14533,10 @@ index 4456fdb..262a004 100644
 1.9.1
 
 
-From b2932b4b68385cc036b9a5c77d6f4f7ebaab3109 Mon Sep 17 00:00:00 2001
+From fe41d3d9cf51c7cfe6821ff83154f2479766c7da Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 8 Mar 2014 15:36:06 +0000
-Subject: [PATCH 52/66] [hifiberry] Hack: force it to be recognised as IEC958
+Subject: [PATCH 55/83] [hifiberry] Hack: force it to be recognised as IEC958
  capable to enable passthrough options
 
 ---
@@ -13233,10 +14562,10 @@ index b48a4fc..d9897e5 100644
 1.9.1
 
 
-From 4bc9bd1607f9cb35b05c217652009cf719155039 Mon Sep 17 00:00:00 2001
+From f669848f16fabd3a351f6c524024142374fb8267 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 11 Mar 2014 18:50:23 +0000
-Subject: [PATCH 53/66] [dvdplayer] Use inexact seeking like omxplayer
+Subject: [PATCH 56/83] [dvdplayer] Use inexact seeking like omxplayer
 
 ---
  xbmc/cores/dvdplayer/DVDPlayer.cpp | 11 +++++++++++
@@ -13287,10 +14616,10 @@ index 82d3720..54d22d7 100644
 1.9.1
 
 
-From 4c297d5c2124d2a6fe64b4e1e80aaebf00039185 Mon Sep 17 00:00:00 2001
+From 0a24694717fed6ede63fe34f9ef49fdc403567d3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 13 Mar 2014 16:08:46 +0000
-Subject: [PATCH 54/66] [omxplayer] Make use of TrueHD fastpath when downmixing
+Subject: [PATCH 57/83] [omxplayer] Make use of TrueHD fastpath when downmixing
 
 The TrueHD codec actually works in 3 stages. It decodes the downmixed stereo. It then decodes the differences required to produce 5.1.
 It then decodes the differences required to produce 7.1.
@@ -13335,10 +14664,10 @@ index 557e847..7f6ef6e 100644
 1.9.1
 
 
-From 2e7d67d862283da2f472d74aa8c6861e87062929 Mon Sep 17 00:00:00 2001
+From a84b1eff5480fe38c1b2c2c177d0ab415e12f3a3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 15 Mar 2014 19:38:38 +0000
-Subject: [PATCH 55/66] [omxplayer] When in dual audio mode, make one output
+Subject: [PATCH 58/83] [omxplayer] When in dual audio mode, make one output
  the slave
 
 May help audio sync between the two outputs
@@ -13372,10 +14701,10 @@ index 3e64de0..72e42ec 100644
 1.9.1
 
 
-From b23ab40b66bceafe9571cc707c1243a2a2fd7419 Mon Sep 17 00:00:00 2001
+From 10224503cf18f8a8f045b96d624f914c1269ab3e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 30 Dec 2013 12:02:14 +0000
-Subject: [PATCH 56/66] [rbp] Hardware accelerated resampling
+Subject: [PATCH 59/83] [rbp] Hardware accelerated resampling
 
 This replaces the format conversion, up/down mixing and resampling code from ActiveAE with a GPU accelerated version.
 Should significantly reduce CPU when using paplayer or dvdplayer.
@@ -14077,7 +15406,7 @@ index 0000000..b3fcb15
 +
 +}
 diff --git a/xbmc/cores/AudioEngine/Makefile.in b/xbmc/cores/AudioEngine/Makefile.in
-index c22c87e..d739564c 100644
+index b49c3cc..2ba50f9 100644
 --- a/xbmc/cores/AudioEngine/Makefile.in
 +++ b/xbmc/cores/AudioEngine/Makefile.in
 @@ -31,6 +31,7 @@ SRCS += Engines/ActiveAE/ActiveAESink.cpp
@@ -14114,10 +15443,10 @@ index 99e407a..8d3c86a 100644
 1.9.1
 
 
-From ed8c6a9f20ba179bfe0ee17130b5b23414d4158e Mon Sep 17 00:00:00 2001
+From 1c2e9c1a956138f8620d12b4e255adb21b289245 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 27 Mar 2014 00:22:05 +0000
-Subject: [PATCH 57/66] [PiResample] Work around AE not providing correct
+Subject: [PATCH 60/83] [PiResample] Work around AE not providing correct
  src_bits
 
 ---
@@ -14160,10 +15489,10 @@ index 4d6f4ae..5d03bb1 100644
 1.9.1
 
 
-From 9b5b27f5bb523d030153d81510ca4dfe181d7daf Mon Sep 17 00:00:00 2001
+From d72caff9e7c2b66aae1a9ae461c2fb0125bcc210 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 25 Mar 2014 19:43:07 +0000
-Subject: [PATCH 58/66] [ffmpeg] Speed up wtv index creation
+Subject: [PATCH 61/83] [ffmpeg] Speed up wtv index creation
 
 The index creation is O(N^2) with number of entries (typically thousands).
 On a Pi this can take more than 60 seconds to execute for a recording of a few hours.
@@ -14213,10 +15542,10 @@ index e423370..70898bd 100644
 1.9.1
 
 
-From 9c39628521fd4b740bdf0445026bef0a4652a58f Mon Sep 17 00:00:00 2001
+From f9e0b32568ddb086f794b571473ef4f95d8c0acf Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 18:19:32 +0100
-Subject: [PATCH 59/66] [rbp/omxplayer] When opening a stream don't try to
+Subject: [PATCH 62/83] [rbp/omxplayer] When opening a stream don't try to
  update gui so often
 
 ---
@@ -14243,10 +15572,10 @@ index e9ba7d3..0fdc3c2 100644
 1.9.1
 
 
-From 5a62f3318e2a0287ce675539113f2bfc4c4b9440 Mon Sep 17 00:00:00 2001
+From 4c26752ade5e4e709104c3143f67c789a2602724 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 15:28:57 +0100
-Subject: [PATCH 60/66] [omxcodec] Clamp video texture at edges to avoid image
+Subject: [PATCH 63/83] [omxcodec] Clamp video texture at edges to avoid image
  wrapping
 
 ---
@@ -14270,10 +15599,10 @@ index a57abe4..e22a153 100644
 1.9.1
 
 
-From 3e7adf966b607e80229c692b9c749f2308c8d0cc Mon Sep 17 00:00:00 2001
+From 24d197676246bddb17a8e21f86215a6f854a37ff Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 6 Apr 2014 18:35:58 +0100
-Subject: [PATCH 61/66] [PiSink] Grab resample coefficients by submitting
+Subject: [PATCH 64/83] [PiSink] Grab resample coefficients by submitting
  identity samples
 
 ---
@@ -14367,10 +15696,10 @@ index 5d03bb1..f8e312d 100644
 1.9.1
 
 
-From c868a99770e1d371156e0408896bdc1be4bc78d3 Mon Sep 17 00:00:00 2001
+From 2adb216d69d8805ecc9b61a7f79c41fa886caaed Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 17:36:19 +0100
-Subject: [PATCH 62/66] [PiSink] Remove unneeded header and use CAEChannelInfo
+Subject: [PATCH 65/83] [PiSink] Remove unneeded header and use CAEChannelInfo
  directly
 
 ---
@@ -14446,10 +15775,10 @@ index 9ce00e3..070e6eb 100644
 1.9.1
 
 
-From 6bd1d919eeed32164c115892445c95722a42c868 Mon Sep 17 00:00:00 2001
+From 36fb4db22fbfdca4da107ef13f7dbafc95946973 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 17:37:41 +0100
-Subject: [PATCH 63/66] [omxplayer] Remove PCMRemap and handle multichannel
+Subject: [PATCH 66/83] [omxplayer] Remove PCMRemap and handle multichannel
  mixing like ActiveAE does
 
 ---
@@ -16110,10 +17439,10 @@ index a273cd1..0000000
 1.9.1
 
 
-From 314c2a7a45224410d882e8629be98a97141c0011 Mon Sep 17 00:00:00 2001
+From 58c32cd2bae19d5775830155a69187420954132e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 13 Apr 2014 15:13:10 +0100
-Subject: [PATCH 64/66] [omxplayer] Fix for 3d video in mono mode
+Subject: [PATCH 67/83] [omxplayer] Fix for 3d video in mono mode
 
 The test for no aspect wasn't correct, causing large black bars
 ---
@@ -16137,37 +17466,10 @@ index 66a351d..f058a35 100644
 1.9.1
 
 
-From 368b21d07185ceaf850da4ed88bae54d3880b633 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Sat, 12 Apr 2014 17:57:19 +0100
-Subject: [PATCH 65/66] [omxplayer] Ignore occasionally valid pts values, they
- cause live tv stutter
-
----
- xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
-index a5620da..caa822a 100644
---- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
-+++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
-@@ -484,7 +484,7 @@ void OMXPlayerVideo::Process()
-         // if a stream has had more than 4 valid pts values in the last 16, the use UNKNOWN, otherwise use dts
-         m_history_valid_pts = (m_history_valid_pts << 1) | (pPacket->pts != DVD_NOPTS_VALUE);
-         double pts = pPacket->pts;
--        if(pPacket->pts == DVD_NOPTS_VALUE && count_bits(m_history_valid_pts & 0xffff) < 4)
-+        if(count_bits(m_history_valid_pts & 0xffff) < 4)
-           pts = pPacket->dts;
- 
-         if (pts != DVD_NOPTS_VALUE)
--- 
-1.9.1
-
-
-From 7fd55bc64fb2fd9f8385f95013ece0dcee111a3f Mon Sep 17 00:00:00 2001
+From 0cb26d7d5ce231fe78f9da5ae431a29f66ef657c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 10 Apr 2014 17:19:18 +0100
-Subject: [PATCH 66/66] [omxplayer] Remove unused framerate functions
+Subject: [PATCH 68/83] [omxplayer] Remove unused framerate functions
 
 ---
  xbmc/cores/omxplayer/OMXPlayerVideo.cpp |  4 +---
@@ -16176,7 +17478,7 @@ Subject: [PATCH 66/66] [omxplayer] Remove unused framerate functions
  3 files changed, 1 insertion(+), 42 deletions(-)
 
 diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
-index caa822a..58885a6 100644
+index a5620da..019f4b2 100644
 --- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
 +++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
 @@ -527,7 +527,7 @@ bool OMXPlayerVideo::OpenDecoder()
@@ -16270,6 +17572,1715 @@ index f83074a..7bb6d4d 100644
    static double NormalizeFrameduration(double frameduration);
  };
  
+-- 
+1.9.1
+
+
+From 83fc694a27c6b2c6272b6af5a2f1659b2eb06f4f Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sun, 30 Mar 2014 15:54:34 +0100
+Subject: [PATCH 69/83] [omxplayer] Make the sharpness control act as a
+ sharpness control.
+
+This fixes scaling kernel as Mitchell Netravali, and varies sharpness over range B=[5/3,0] C=[-1/3,1/2]
+---
+ xbmc/cores/omxplayer/OMXPlayer.cpp | 338 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 338 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayer.cpp b/xbmc/cores/omxplayer/OMXPlayer.cpp
+index 0b80be5..463ef3c 100644
+--- a/xbmc/cores/omxplayer/OMXPlayer.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayer.cpp
+@@ -1051,6 +1051,334 @@ bool COMXPlayer::IsBetterStream(COMXCurrentStream& current, CDemuxStream* stream
+   return false;
+ }
+ 
++static void SetSharpness(float sharpness)
++{
++  const int16_t mitchells[][32] =
++  {
++      { // B=1.66667 C=-0.33333
++         0,  3,  8, 15, 24, 35, 49, 55, 70, 92,100,107,109,113,113,114,114,113,113,109,107,100, 92, 70, 55, 49, 35, 24, 15,  8,  3,  0,
++      },
++      { // B=1.64000 C=-0.32000
++         0,  3,  7, 14, 24, 34, 48, 54, 69, 91,100,107,111,114,116,116,116,116,114,111,107,100, 91, 69, 54, 48, 34, 24, 14,  7,  3,  0,
++      },
++      { // B=1.61333 C=-0.30667
++         0,  3,  7, 14, 23, 34, 47, 53, 68, 90, 99,107,112,115,118,118,118,118,115,112,107, 99, 90, 68, 53, 47, 34, 23, 14,  7,  3,  0,
++      },
++      { // B=1.58667 C=-0.29333
++         0,  2,  7, 14, 22, 33, 46, 52, 67, 89, 99,107,113,117,119,121,121,119,117,113,107, 99, 89, 67, 52, 46, 33, 22, 14,  7,  2,  0,
++      },
++      { // B=1.56000 C=-0.28000
++         0,  2,  7, 13, 22, 32, 45, 51, 66, 88, 98,107,114,119,121,123,123,121,119,114,107, 98, 88, 66, 51, 45, 32, 22, 13,  7,  2,  0,
++      },
++      { // B=1.53333 C=-0.26667
++         0,  2,  7, 12, 21, 31, 44, 50, 65, 87, 98,108,114,120,123,125,125,123,120,114,108, 98, 87, 65, 50, 44, 31, 21, 12,  7,  2,  0,
++      },
++      { // B=1.50667 C=-0.25333
++         0,  2,  6, 12, 20, 30, 43, 49, 64, 86, 98,108,116,122,125,127,127,125,122,116,108, 98, 86, 64, 49, 43, 30, 20, 12,  6,  2,  0,
++      },
++      { // B=1.48000 C=-0.24000
++         0,  2,  6, 12, 19, 29, 42, 47, 63, 85, 98,108,117,123,127,130,130,127,123,117,108, 98, 85, 63, 47, 42, 29, 19, 12,  6,  2,  0,
++      },
++      { // B=1.45333 C=-0.22667
++         0,  2,  6, 11, 19, 28, 41, 46, 62, 85, 97,108,118,125,129,132,132,129,125,118,108, 97, 85, 62, 46, 41, 28, 19, 11,  6,  2,  0,
++      },
++      { // B=1.42667 C=-0.21333
++         0,  2,  5, 11, 18, 28, 40, 45, 61, 84, 97,108,119,126,131,134,134,131,126,119,108, 97, 84, 61, 45, 40, 28, 18, 11,  5,  2,  0,
++      },
++      { // B=1.40000 C=-0.20000
++         0,  2,  5, 10, 18, 27, 39, 44, 60, 84, 96,109,119,127,134,136,136,134,127,119,109, 96, 84, 60, 44, 39, 27, 18, 10,  5,  2,  0,
++      },
++      { // B=1.37333 C=-0.18667
++         0,  1,  5, 10, 17, 26, 38, 43, 58, 82, 96,109,120,129,135,139,139,135,129,120,109, 96, 82, 58, 43, 38, 26, 17, 10,  5,  1,  0,
++      },
++      { // B=1.34667 C=-0.17333
++         0,  2,  4, 10, 16, 25, 37, 42, 57, 81, 96,109,121,131,137,141,141,137,131,121,109, 96, 81, 57, 42, 37, 25, 16, 10,  4,  2,  0,
++      },
++      { // B=1.32000 C=-0.16000
++         0,  1,  4,  9, 15, 24, 36, 41, 56, 81, 95,110,122,132,139,143,143,139,132,122,110, 95, 81, 56, 41, 36, 24, 15,  9,  4,  1,  0,
++      },
++      { // B=1.29333 C=-0.14667
++         0,  1,  4,  8, 15, 23, 35, 40, 55, 80, 95,110,123,133,141,146,146,141,133,123,110, 95, 80, 55, 40, 35, 23, 15,  8,  4,  1,  0,
++      },
++      { // B=1.26667 C=-0.13333
++         0,  1,  4,  8, 14, 22, 33, 38, 54, 79, 95,110,124,135,143,148,148,143,135,124,110, 95, 79, 54, 38, 33, 22, 14,  8,  4,  1,  0,
++      },
++      { // B=1.24000 C=-0.12000
++         0,  1,  4,  7, 14, 21, 33, 37, 53, 78, 94,110,125,136,145,150,150,145,136,125,110, 94, 78, 53, 37, 33, 21, 14,  7,  4,  1,  0,
++      },
++      { // B=1.21333 C=-0.10667
++         0,  1,  3,  7, 13, 20, 32, 36, 52, 77, 94,110,127,138,147,152,152,147,138,127,110, 94, 77, 52, 36, 32, 20, 13,  7,  3,  1,  0,
++      },
++      { // B=1.18667 C=-0.09333
++         0,  1,  3,  7, 12, 20, 30, 35, 51, 77, 93,111,125,140,149,155,155,149,140,125,111, 93, 77, 51, 35, 30, 20, 12,  7,  3,  1,  0,
++      },
++      { // B=1.16000 C=-0.08000
++         0,  1,  3,  6, 11, 19, 29, 34, 50, 76, 93,111,128,141,151,157,157,151,141,128,111, 93, 76, 50, 34, 29, 19, 11,  6,  3,  1,  0,
++      },
++      { // B=1.13333 C=-0.06667
++         0,  1,  3,  5, 11, 18, 28, 33, 49, 75, 93,111,129,143,153,159,159,153,143,129,111, 93, 75, 49, 33, 28, 18, 11,  5,  3,  1,  0,
++      },
++      { // B=1.10667 C=-0.05333
++         0,  1,  2,  5, 10, 17, 27, 32, 48, 74, 93,111,130,144,155,161,161,155,144,130,111, 93, 74, 48, 32, 27, 17, 10,  5,  2,  1,  0,
++      },
++      { // B=1.08000 C=-0.04000
++         0,  1,  2,  5,  9, 16, 26, 31, 46, 73, 92,112,130,145,157,164,164,157,145,130,112, 92, 73, 46, 31, 26, 16,  9,  5,  2,  1,  0,
++      },
++      { // B=1.05333 C=-0.02667
++         0,  0,  2,  4,  9, 15, 25, 29, 45, 72, 92,112,131,147,159,166,166,159,147,131,112, 92, 72, 45, 29, 25, 15,  9,  4,  2,  0,  0,
++      },
++      { // B=1.02667 C=-0.01333
++         0,  0,  1,  4,  8, 14, 24, 28, 44, 72, 92,112,132,148,161,168,168,161,148,132,112, 92, 72, 44, 28, 24, 14,  8,  4,  1,  0,  0,
++      },
++      { // B=1.00000 C=0.00000
++         0,  0,  1,  4,  7, 14, 23, 27, 43, 71, 91,112,133,150,163,170,170,163,150,133,112, 91, 71, 43, 27, 23, 14,  7,  4,  1,  0,  0,
++      },
++      { // B=0.97333 C=0.01333
++         0,  0,  1,  3,  7, 12, 22, 26, 42, 70, 91,113,133,152,165,173,173,165,152,133,113, 91, 70, 42, 26, 22, 12,  7,  3,  1,  0,  0,
++      },
++      { // B=0.94667 C=0.02667
++         0,  0,  1,  2,  6, 12, 21, 25, 41, 69, 90,113,135,153,167,175,175,167,153,135,113, 90, 69, 41, 25, 21, 12,  6,  2,  1,  0,  0,
++      },
++      { // B=0.92000 C=0.04000
++         0,  0,  0,  2,  5, 11, 20, 24, 40, 68, 90,113,136,154,169,177,177,169,154,136,113, 90, 68, 40, 24, 20, 11,  5,  2,  0,  0,  0,
++      },
++      { // B=0.89333 C=0.05333
++         0,  0,  0,  1,  5, 10, 19, 23, 39, 67, 90,114,136,156,171,179,179,171,156,136,114, 90, 67, 39, 23, 19, 10,  5,  1,  0,  0,  0,
++      },
++      { // B=0.86667 C=0.06667
++         0,  0,  0,  1,  4,  9, 18, 22, 38, 66, 89,114,137,157,173,182,182,173,157,137,114, 89, 66, 38, 22, 18,  9,  4,  1,  0,  0,  0,
++      },
++      { // B=0.84000 C=0.08000
++         0,  0, -1,  1,  3,  9, 17, 21, 37, 65, 89,114,138,159,175,184,184,175,159,138,114, 89, 65, 37, 21, 17,  9,  3,  1, -1,  0,  0,
++      },
++      { // B=0.81333 C=0.09333
++         0,  0, -1,  0,  3,  7, 16, 19, 36, 65, 89,114,139,160,177,186,186,177,160,139,114, 89, 65, 36, 19, 16,  7,  3,  0, -1,  0,  0,
++      },
++      { // B=0.78667 C=0.10667
++         0, -1, -1,  0,  2,  6, 15, 18, 35, 64, 88,115,139,162,179,188,188,179,162,139,115, 88, 64, 35, 18, 15,  6,  2,  0, -1, -1,  0,
++      },
++      { // B=0.76000 C=0.12000
++         0, -1, -1, -1,  1,  6, 14, 17, 33, 63, 88,115,141,163,181,191,191,181,163,141,115, 88, 63, 33, 17, 14,  6,  1, -1, -1, -1,  0,
++      },
++      { // B=0.73333 C=0.13333
++         0, -1, -1, -1,  0,  5, 13, 16, 32, 62, 87,115,142,165,183,193,193,183,165,142,115, 87, 62, 32, 16, 13,  5,  0, -1, -1, -1,  0,
++      },
++      { // B=0.70667 C=0.14667
++         0, -1, -1, -2,  0,  4, 12, 15, 31, 61, 87,115,143,166,185,195,195,185,166,143,115, 87, 61, 31, 15, 12,  4,  0, -2, -1, -1,  0,
++      },
++      { // B=0.68000 C=0.16000
++         0, -1, -2, -2, -1,  3, 11, 14, 30, 61, 87,116,142,168,187,197,197,187,168,142,116, 87, 61, 30, 14, 11,  3, -1, -2, -2, -1,  0,
++      },
++      { // B=0.65333 C=0.17333
++         0, -1, -2, -3, -1,  2, 10, 13, 29, 60, 86,116,144,169,189,200,200,189,169,144,116, 86, 60, 29, 13, 10,  2, -1, -3, -2, -1,  0,
++      },
++      { // B=0.62667 C=0.18667
++         0, -1, -3, -3, -2,  1,  9, 12, 28, 59, 86,116,145,171,191,202,202,191,171,145,116, 86, 59, 28, 12,  9,  1, -2, -3, -3, -1,  0,
++      },
++      { // B=0.60000 C=0.20000
++         0, -1, -3, -3, -3,  0,  8, 10, 27, 58, 86,116,146,172,193,204,204,193,172,146,116, 86, 58, 27, 10,  8,  0, -3, -3, -3, -1,  0,
++      },
++      { // B=0.57333 C=0.21333
++         0, -1, -3, -4, -3, -1,  7,  9, 26, 57, 86,116,147,174,194,207,207,194,174,147,116, 86, 57, 26,  9,  7, -1, -3, -4, -3, -1,  0,
++      },
++      { // B=0.54667 C=0.22667
++         0, -2, -3, -5, -4, -1,  5,  8, 25, 57, 85,117,148,176,196,209,209,196,176,148,117, 85, 57, 25,  8,  5, -1, -4, -5, -3, -2,  0,
++      },
++      { // B=0.52000 C=0.24000
++         0, -1, -4, -5, -5, -2,  4,  7, 24, 55, 85,117,149,177,199,211,211,199,177,149,117, 85, 55, 24,  7,  4, -2, -5, -5, -4, -1,  0,
++      },
++      { // B=0.49333 C=0.25333
++         0, -2, -4, -5, -6, -3,  3,  6, 23, 55, 84,117,150,178,200,214,214,200,178,150,117, 84, 55, 23,  6,  3, -3, -6, -5, -4, -2,  0,
++      },
++      { // B=0.46667 C=0.26667
++         0, -2, -4, -6, -6, -4,  2,  6, 22, 54, 84,118,150,180,202,216,216,202,180,150,118, 84, 54, 22,  6,  2, -4, -6, -6, -4, -2,  0,
++      },
++      { // B=0.44000 C=0.28000
++         0, -2, -4, -6, -7, -5,  2,  5, 21, 53, 83,118,150,181,205,218,218,205,181,150,118, 83, 53, 21,  5,  2, -5, -7, -6, -4, -2,  0,
++      },
++      { // B=0.41333 C=0.29333
++         0, -2, -4, -7, -7, -6,  0,  5, 20, 53, 83,118,152,183,207,220,220,207,183,152,118, 83, 53, 20,  5,  0, -6, -7, -7, -4, -2,  0,
++      },
++      { // B=0.38667 C=0.30667
++         0, -2, -5, -7, -8, -7, -1,  4, 19, 52, 83,118,153,185,208,223,223,208,185,153,118, 83, 52, 19,  4, -1, -7, -8, -7, -5, -2,  0,
++      },
++      { // B=0.36000 C=0.32000
++         0, -2, -5, -8, -8, -8, -2,  3, 19, 51, 83,118,155,186,210,225,225,210,186,155,118, 83, 51, 19,  3, -2, -8, -8, -8, -5, -2,  0,
++      },
++      { // B=0.33333 C=0.33333
++         0, -2, -6, -8,-10, -8, -3,  2, 18, 50, 82,119,155,187,213,227,227,213,187,155,119, 82, 50, 18,  2, -3, -8,-10, -8, -6, -2,  0,
++      },
++      { // B=0.32667 C=0.33667
++         0, -2, -6, -8,-10, -8, -3,  2, 18, 49, 82,119,155,188,213,228,228,213,188,155,119, 82, 49, 18,  2, -3, -8,-10, -8, -6, -2,  0,
++      },
++      { // B=0.32000 C=0.34000
++         0, -2, -6, -8,-10, -9, -3,  2, 18, 49, 82,119,155,188,214,228,228,214,188,155,119, 82, 49, 18,  2, -3, -9,-10, -8, -6, -2,  0,
++      },
++      { // B=0.31333 C=0.34333
++         0, -2, -6, -8,-10, -9, -4,  1, 18, 49, 82,119,155,188,214,229,229,214,188,155,119, 82, 49, 18,  1, -4, -9,-10, -8, -6, -2,  0,
++      },
++      { // B=0.30667 C=0.34667
++         0, -2, -6, -9,-10, -9, -4,  1, 18, 49, 82,119,156,189,214,229,229,214,189,156,119, 82, 49, 18,  1, -4, -9,-10, -9, -6, -2,  0,
++      },
++      { // B=0.30000 C=0.35000
++         0, -3, -5, -9,-10,-10, -4,  1, 18, 49, 82,119,156,189,215,230,230,215,189,156,119, 82, 49, 18,  1, -4,-10,-10, -9, -5, -3,  0,
++      },
++      { // B=0.29333 C=0.35333
++         0, -2, -6, -9,-10,-10, -4,  1, 17, 48, 82,119,156,190,215,231,231,215,190,156,119, 82, 48, 17,  1, -4,-10,-10, -9, -6, -2,  0,
++      },
++      { // B=0.28667 C=0.35667
++         0, -2, -6, -9,-11,-10, -5,  1, 17, 48, 82,119,157,190,216,231,231,216,190,157,119, 82, 48, 17,  1, -5,-10,-11, -9, -6, -2,  0,
++      },
++      { // B=0.28000 C=0.36000
++         0, -3, -6, -9,-11,-10, -5,  0, 17, 48, 82,119,157,190,217,231,231,217,190,157,119, 82, 48, 17,  0, -5,-10,-11, -9, -6, -3,  0,
++      },
++      { // B=0.27333 C=0.36333
++         0, -3, -6, -9,-11,-11, -5,  0, 17, 48, 82,119,157,191,217,232,232,217,191,157,119, 82, 48, 17,  0, -5,-11,-11, -9, -6, -3,  0,
++      },
++      { // B=0.26667 C=0.36667
++         0, -3, -6, -9,-11,-11, -5,  0, 17, 48, 81,119,157,191,217,233,233,217,191,157,119, 81, 48, 17,  0, -5,-11,-11, -9, -6, -3,  0,
++      },
++      { // B=0.26000 C=0.37000
++         0, -3, -6,-10,-11,-11, -5,  0, 16, 47, 81,120,156,191,218,233,233,218,191,156,120, 81, 47, 16,  0, -5,-11,-11,-10, -6, -3,  0,
++      },
++      { // B=0.25333 C=0.37333
++         0, -3, -6, -9,-12,-11, -6,  0, 16, 47, 81,119,158,192,218,234,234,218,192,158,119, 81, 47, 16,  0, -6,-11,-12, -9, -6, -3,  0,
++      },
++      { // B=0.24667 C=0.37667
++         0, -3, -6,-10,-12,-11, -6,  0, 16, 47, 81,120,157,192,219,234,234,219,192,157,120, 81, 47, 16,  0, -6,-11,-12,-10, -6, -3,  0,
++      },
++      { // B=0.24000 C=0.38000
++         0, -3, -6,-10,-12,-12, -6, -1, 16, 47, 81,120,158,193,219,235,235,219,193,158,120, 81, 47, 16, -1, -6,-12,-12,-10, -6, -3,  0,
++      },
++      { // B=0.23333 C=0.38333
++         0, -3, -6,-10,-12,-12, -6, -1, 16, 46, 81,120,158,193,220,236,236,220,193,158,120, 81, 46, 16, -1, -6,-12,-12,-10, -6, -3,  0,
++      },
++      { // B=0.22667 C=0.38667
++         0, -3, -6,-10,-12,-12, -7, -1, 15, 47, 80,120,158,194,220,236,236,220,194,158,120, 80, 47, 15, -1, -7,-12,-12,-10, -6, -3,  0,
++      },
++      { // B=0.22000 C=0.39000
++         0, -3, -6,-10,-13,-12, -7, -1, 15, 46, 80,120,159,194,221,237,237,221,194,159,120, 80, 46, 15, -1, -7,-12,-13,-10, -6, -3,  0,
++      },
++      { // B=0.21333 C=0.39333
++         0, -3, -6,-10,-13,-12, -8, -1, 15, 46, 80,120,159,194,221,237,237,221,194,159,120, 80, 46, 15, -1, -8,-12,-13,-10, -6, -3,  0,
++      },
++      { // B=0.20667 C=0.39667
++         0, -3, -7,-10,-13,-12, -8, -2, 15, 46, 80,120,159,194,222,238,238,222,194,159,120, 80, 46, 15, -2, -8,-12,-13,-10, -7, -3,  0,
++      },
++      { // B=0.20000 C=0.40000
++         0, -3, -7,-10,-13,-13, -8, -2, 15, 45, 81,120,159,195,222,238,238,222,195,159,120, 81, 45, 15, -2, -8,-13,-13,-10, -7, -3,  0,
++      },
++      { // B=0.19333 C=0.40333
++         0, -3, -7,-11,-13,-13, -8, -2, 15, 45, 81,120,160,195,223,239,239,223,195,160,120, 81, 45, 15, -2, -8,-13,-13,-11, -7, -3,  0,
++      },
++      { // B=0.18667 C=0.40667
++         0, -3, -7,-10,-14,-13, -9, -2, 14, 45, 80,120,160,196,223,240,240,223,196,160,120, 80, 45, 14, -2, -9,-13,-14,-10, -7, -3,  0,
++      },
++      { // B=0.18000 C=0.41000
++         0, -3, -7,-11,-13,-13, -9, -2, 14, 45, 80,120,160,196,224,240,240,224,196,160,120, 80, 45, 14, -2, -9,-13,-13,-11, -7, -3,  0,
++      },
++      { // B=0.17333 C=0.41333
++         0, -3, -7,-11,-13,-14, -9, -3, 14, 45, 80,120,160,196,225,240,240,225,196,160,120, 80, 45, 14, -3, -9,-14,-13,-11, -7, -3,  0,
++      },
++      { // B=0.16667 C=0.41667
++         0, -3, -7,-11,-14,-14, -9, -3, 14, 44, 80,120,161,197,225,241,241,225,197,161,120, 80, 44, 14, -3, -9,-14,-14,-11, -7, -3,  0,
++      },
++      { // B=0.16000 C=0.42000
++         0, -3, -7,-11,-14,-14,-10, -3, 14, 44, 80,120,161,197,225,242,242,225,197,161,120, 80, 44, 14, -3,-10,-14,-14,-11, -7, -3,  0,
++      },
++      { // B=0.15333 C=0.42333
++         0, -3, -7,-11,-14,-14,-10, -3, 13, 44, 80,120,161,197,226,242,242,226,197,161,120, 80, 44, 13, -3,-10,-14,-14,-11, -7, -3,  0,
++      },
++      { // B=0.14667 C=0.42667
++         0, -3, -7,-11,-15,-14,-10, -4, 14, 43, 80,120,163,198,226,243,243,226,198,163,120, 80, 43, 14, -4,-10,-14,-15,-11, -7, -3,  0,
++      },
++      { // B=0.14000 C=0.43000
++         0, -3, -7,-12,-14,-15,-10, -4, 14, 43, 80,120,163,198,227,243,243,227,198,163,120, 80, 43, 14, -4,-10,-15,-14,-12, -7, -3,  0,
++      },
++      { // B=0.13333 C=0.43333
++         0, -3, -7,-12,-14,-15,-11, -4, 13, 43, 79,121,161,199,227,244,244,227,199,161,121, 79, 43, 13, -4,-11,-15,-14,-12, -7, -3,  0,
++      },
++      { // B=0.12667 C=0.43667
++         0, -3, -7,-12,-14,-15,-11, -4, 13, 43, 79,120,163,199,228,245,245,228,199,163,120, 79, 43, 13, -4,-11,-15,-14,-12, -7, -3,  0,
++      },
++      { // B=0.12000 C=0.44000
++         0, -3, -7,-12,-15,-15,-12, -5, 13, 43, 79,121,162,199,228,245,245,228,199,162,121, 79, 43, 13, -5,-12,-15,-15,-12, -7, -3,  0,
++      },
++      { // B=0.11333 C=0.44333
++         0, -3, -7,-12,-15,-16,-11, -5, 13, 42, 79,121,162,200,229,246,246,229,200,162,121, 79, 42, 13, -5,-11,-16,-15,-12, -7, -3,  0,
++      },
++      { // B=0.10667 C=0.44667
++         0, -3, -8,-12,-15,-16,-12, -5, 13, 42, 79,121,162,200,229,246,246,229,200,162,121, 79, 42, 13, -5,-12,-16,-15,-12, -8, -3,  0,
++      },
++      { // B=0.10000 C=0.45000
++         0, -3, -8,-12,-16,-16,-12, -6, 13, 42, 79,121,163,200,230,247,247,230,200,163,121, 79, 42, 13, -6,-12,-16,-16,-12, -8, -3,  0,
++      },
++      { // B=0.09333 C=0.45333
++         0, -3, -8,-12,-16,-16,-13, -5, 12, 42, 79,121,163,201,230,248,248,230,201,163,121, 79, 42, 12, -5,-13,-16,-16,-12, -8, -3,  0,
++      },
++      { // B=0.08667 C=0.45667
++         0, -3, -8,-12,-16,-16,-13, -5, 12, 41, 79,121,163,201,231,248,248,231,201,163,121, 79, 41, 12, -5,-13,-16,-16,-12, -8, -3,  0,
++      },
++      { // B=0.08000 C=0.46000
++         0, -3, -8,-12,-16,-17,-13, -6, 12, 41, 79,121,163,201,232,248,248,232,201,163,121, 79, 41, 12, -6,-13,-17,-16,-12, -8, -3,  0,
++      },
++      { // B=0.07333 C=0.46333
++         0, -3, -8,-13,-16,-17,-13, -6, 12, 41, 79,121,164,202,232,249,249,232,202,164,121, 79, 41, 12, -6,-13,-17,-16,-13, -8, -3,  0,
++      },
++      { // B=0.06667 C=0.46667
++         0, -3, -8,-13,-16,-17,-14, -6, 11, 41, 79,121,164,202,233,249,249,233,202,164,121, 79, 41, 11, -6,-14,-17,-16,-13, -8, -3,  0,
++      },
++      { // B=0.06000 C=0.47000
++         0, -3, -8,-13,-16,-18,-14, -6, 11, 40, 79,121,164,203,233,250,250,233,203,164,121, 79, 40, 11, -6,-14,-18,-16,-13, -8, -3,  0,
++      },
++      { // B=0.05333 C=0.47333
++         0, -3, -8,-13,-17,-18,-14, -6, 11, 40, 79,121,165,203,233,251,251,233,203,165,121, 79, 40, 11, -6,-14,-18,-17,-13, -8, -3,  0,
++      },
++      { // B=0.04667 C=0.47667
++         0, -4, -8,-13,-17,-18,-14, -7, 11, 40, 79,121,166,203,234,251,251,234,203,166,121, 79, 40, 11, -7,-14,-18,-17,-13, -8, -4,  0,
++      },
++      { // B=0.04000 C=0.48000
++         0, -4, -8,-13,-17,-18,-14, -7, 11, 40, 78,121,166,204,234,251,251,234,204,166,121, 78, 40, 11, -7,-14,-18,-17,-13, -8, -4,  0,
++      },
++      { // B=0.03333 C=0.48333
++         0, -4, -8,-14,-17,-18,-15, -7, 11, 40, 78,122,164,204,235,252,252,235,204,164,122, 78, 40, 11, -7,-15,-18,-17,-14, -8, -4,  0,
++      },
++      { // B=0.02667 C=0.48667
++         0, -4, -8,-14,-17,-19,-15, -7, 10, 40, 78,122,164,205,235,253,253,235,205,164,122, 78, 40, 10, -7,-15,-19,-17,-14, -8, -4,  0,
++      },
++      { // B=0.02000 C=0.49000
++         0, -4, -8,-14,-17,-19,-15, -7, 10, 39, 78,122,164,205,236,253,253,236,205,164,122, 78, 39, 10, -7,-15,-19,-17,-14, -8, -4,  0,
++      },
++      { // B=0.01333 C=0.49333
++         0, -4, -8,-14,-18,-19,-16, -7,  9, 40, 78,122,165,205,236,254,254,236,205,165,122, 78, 40,  9, -7,-16,-19,-18,-14, -8, -4,  0,
++      },
++      { // B=0.00667 C=0.49667
++         0, -4, -9,-14,-18,-19,-15, -8, 10, 39, 78,122,166,206,236,254,254,236,206,166,122, 78, 39, 10, -8,-15,-19,-18,-14, -9, -4,  0,
++      },
++      { // B=0.00000 C=0.50000
++         0, -4, -8,-14,-18,-19,-16, -8,  9, 39, 77,122,166,206,237,255,255,237,206,166,122, 77, 39,  9, -8,-16,-19,-18,-14, -8, -4,  0,
++      },
++  };
++  int index = (sharpness + 1.0f) * 50.0f + 0.5f;
++  if (index >=0 && index <= 100)
++  {
++    const int16_t *coef = mitchells[index];
++
++    char command[33*12];
++    char response[33*12];
++    unsigned int len = sprintf(command, "scaling_kernel ");
++    for (int i=0; i < 32; i++) {
++       if (len + 12 < sizeof command)
++         len += sprintf(command+len, "%d ", coef[i]);
++    }
++    // no interpolate flag
++    if (len + 12 < sizeof command)
++      len += sprintf(command+len, " %d", 0);
++    //printf("%i: %s\n", index, command);
++    vc_gencmd(response, sizeof response, command);
++  }
++}
++
+ void COMXPlayer::Process()
+ {
+   bool bOmxWaitVideo = false;
+@@ -1183,6 +1511,8 @@ void COMXPlayer::Process()
+     SetCaching(CACHESTATE_FLUSH);
+ 
+   EDEINTERLACEMODE current_deinterlace = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
++  float current_sharpness = CMediaSettings::Get().GetCurrentVideoSettings().m_Sharpness;
++  SetSharpness(current_sharpness);
+ 
+   while (!m_bAbortRequest)
+   {
+@@ -1214,6 +1544,13 @@ void COMXPlayer::Process()
+         current_deinterlace = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
+       }
+ 
++      // if sharpness setting has changed, we should update it
++      if (current_sharpness != CMediaSettings::Get().GetCurrentVideoSettings().m_Sharpness)
++      {
++        current_sharpness = CMediaSettings::Get().GetCurrentVideoSettings().m_Sharpness;
++        SetSharpness(current_sharpness);
++      }
++
+       m_video_fifo = (int)(100.0*(m_omxPlayerVideo.GetDecoderBufferSize()-m_omxPlayerVideo.GetDecoderFreeSpace())/m_omxPlayerVideo.GetDecoderBufferSize());
+       m_audio_fifo = (int)(100.0*audio_fifo/m_omxPlayerAudio.GetCacheTotal());
+ 
+@@ -4569,6 +4906,7 @@ void COMXPlayer::GetRenderFeatures(std::vector<int> &renderFeatures)
+   renderFeatures.push_back(RENDERFEATURE_CROP);
+   renderFeatures.push_back(RENDERFEATURE_PIXEL_RATIO);
+   renderFeatures.push_back(RENDERFEATURE_ZOOM);
++  renderFeatures.push_back(RENDERFEATURE_SHARPNESS);
+ }
+ 
+ void COMXPlayer::GetDeinterlaceMethods(std::vector<int> &deinterlaceMethods)
+-- 
+1.9.1
+
+
+From a14a2b60f7ef34d1d4461b5b2fa840c73ff2428b Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 10 Apr 2014 17:24:51 +0100
+Subject: [PATCH 70/83] [rpi] Include ntsc frequencies in list of supported
+ resolutions
+
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp         |  8 ------
+ xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp | 35 ++++++++++++++++++++++++-
+ xbmc/windowing/egl/WinSystemEGL.cpp             |  3 ++-
+ 3 files changed, 36 insertions(+), 10 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index 019f4b2..b8a3871 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -556,14 +556,6 @@ bool OMXPlayerVideo::OpenDecoder()
+         m_omxVideo.GetDecoderName().c_str() , m_hints.width, m_hints.height, m_hints.profile, m_fFrameRate);
+ 
+     m_codecname = m_omxVideo.GetDecoderName();
+-
+-    // if we are closer to ntsc version of framerate, let gpu know
+-    int   iFrameRate  = (int)(m_fFrameRate + 0.5f);
+-    bool  bNtscFreq  = fabs(m_fFrameRate * 1001.0f / 1000.0f - iFrameRate) < fabs(m_fFrameRate - iFrameRate);
+-    char  response[80], command[80];
+-    sprintf(command, "hdmi_ntsc_freqs %d", bNtscFreq);
+-    CLog::Log(LOGINFO, "OMXPlayerVideo::OpenDecoder fps: %f %s\n", m_fFrameRate, command);
+-    m_DllBcmHost.vc_gencmd(response, sizeof response, command);
+   }
+ 
+   // start from assuming all recent frames had valid pts
+diff --git a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+index dc47095..21b8cc4 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+@@ -20,6 +20,7 @@
+ #include "system.h"
+ 
+ #include <EGL/egl.h>
++#include <math.h>
+ #include "EGLNativeTypeRaspberryPI.h"
+ #include "utils/log.h"
+ #include "guilib/gui3d.h"
+@@ -236,6 +237,18 @@ bool CEGLNativeTypeRaspberryPI::SetNativeResolution(const RESOLUTION_INFO &res)
+       property.param2 = 0;
+       vc_tv_hdmi_set_property(&property);
+     }
++
++    HDMI_PROPERTY_PARAM_T property;
++    property.property = HDMI_PROPERTY_PIXEL_CLOCK_TYPE;
++    // if we are closer to ntsc version of framerate, let gpu know
++    int   iFrameRate  = (int)(res.fRefreshRate + 0.5f);
++    if (fabsf(res.fRefreshRate * (1001.0f / 1000.0f) - iFrameRate) < fabsf(res.fRefreshRate - iFrameRate))
++      property.param1 = HDMI_PIXEL_CLOCK_TYPE_NTSC;
++    else
++      property.param1 = HDMI_PIXEL_CLOCK_TYPE_PAL;
++    property.param2 = 0;
++    vc_tv_hdmi_set_property(&property);
++
+     int success = m_DllBcmHost->vc_tv_hdmi_power_on_explicit_new(HDMI_MODE_HDMI, GETFLAGS_GROUP(res.dwFlags), GETFLAGS_MODE(res.dwFlags));
+ 
+     if (success == 0)
+@@ -442,7 +455,10 @@ bool CEGLNativeTypeRaspberryPI::ProbeResolutions(std::vector<RESOLUTION_INFO> &r
+         m_desktopRes.dwFlags |= D3DPRESENTFLAG_MODE3DTB;
+         m_desktopRes.fPixelRatio *= 0.5;
+       }
+-      m_desktopRes.fRefreshRate = (float)tv_state.display.hdmi.frame_rate;
++      HDMI_PROPERTY_PARAM_T property;
++      property.property = HDMI_PROPERTY_PIXEL_CLOCK_TYPE;
++      vc_tv_hdmi_get_property(&property);
++      m_desktopRes.fRefreshRate = property.param1 == HDMI_PIXEL_CLOCK_TYPE_NTSC ? tv_state.display.hdmi.frame_rate * (1000.0f/1001.0f) : tv_state.display.hdmi.frame_rate;
+     }
+     else // sdtv
+     {
+@@ -576,6 +592,12 @@ void CEGLNativeTypeRaspberryPI::GetSupportedModes(HDMI_RES_GROUP_T group, std::v
+       res.iSubtitles    = (int)(0.965 * res.iHeight);
+ 
+       AddUniqueResolution(res, resolutions);
++      if (tv->frame_rate == 24 || tv->frame_rate == 30 || tv->frame_rate == 60)
++      {
++        RESOLUTION_INFO res2 = res;
++        res2.fRefreshRate  = (float)tv->frame_rate * (1000.0f/1001.0f);
++        AddUniqueResolution(res2, resolutions);
++      }
+ 
+       // Also add 3D versions of modes
+       if (tv->struct_3d_mask & HDMI_3D_STRUCT_SIDE_BY_SIDE_HALF_HORIZONTAL)
+@@ -590,6 +612,11 @@ void CEGLNativeTypeRaspberryPI::GetSupportedModes(HDMI_RES_GROUP_T group, std::v
+         res2.iSubtitles    = (int)(0.965 * res2.iHeight);
+ 
+         AddUniqueResolution(res2, resolutions);
++        if (tv->frame_rate == 24 || tv->frame_rate == 30 || tv->frame_rate == 60)
++        {
++          res2.fRefreshRate  = (float)tv->frame_rate * (1000.0f/1001.0f);
++          AddUniqueResolution(res2, resolutions);
++        }
+       }
+       if (tv->struct_3d_mask & HDMI_3D_STRUCT_TOP_AND_BOTTOM)
+       {
+@@ -603,6 +630,12 @@ void CEGLNativeTypeRaspberryPI::GetSupportedModes(HDMI_RES_GROUP_T group, std::v
+         res2.iSubtitles    = (int)(0.965 * res2.iHeight);
+ 
+         AddUniqueResolution(res2, resolutions);
++        if (tv->frame_rate == 24 || tv->frame_rate == 30 || tv->frame_rate == 60)
++        {
++          res2.fRefreshRate  = (float)tv->frame_rate * (1000.0f/1001.0f);
++          AddUniqueResolution(res2, resolutions);
++        }
++
+       }
+     }
+   }
+diff --git a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemEGL.cpp
+index 0c32947..258a293 100644
+--- a/xbmc/windowing/egl/WinSystemEGL.cpp
++++ b/xbmc/windowing/egl/WinSystemEGL.cpp
+@@ -34,6 +34,7 @@
+ #include "EGLWrapper.h"
+ #include "EGLQuirks.h"
+ #include <vector>
++#include <float.h>
+ ////////////////////////////////////////////////////////////////////////////////////////////
+ CWinSystemEGL::CWinSystemEGL() : CWinSystemBase()
+ {
+@@ -399,7 +400,7 @@ void CWinSystemEGL::UpdateResolutions()
+        resDesktop.iScreenWidth == resolutions[i].iScreenWidth &&
+        resDesktop.iScreenHeight == resolutions[i].iScreenHeight &&
+        (resDesktop.dwFlags & D3DPRESENTFLAG_MODEMASK) == (resolutions[i].dwFlags & D3DPRESENTFLAG_MODEMASK) &&
+-       resDesktop.fRefreshRate == resolutions[i].fRefreshRate)
++       fabs(resDesktop.fRefreshRate - resolutions[i].fRefreshRate) < FLT_EPSILON)
+     {
+       ResDesktop = res_index;
+     }
+-- 
+1.9.1
+
+
+From 4a12a198b4d23aba01822bdebbdbe4d8e60e1798 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 10 Apr 2014 17:26:20 +0100
+Subject: [PATCH 71/83] [omxplayer] Allow a framerate callback from GPU to
+ trigger a hdmi mode change
+
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp |  8 +++++---
+ xbmc/cores/omxplayer/OMXPlayerVideo.h   |  4 ++--
+ xbmc/cores/omxplayer/OMXVideo.cpp       | 35 +++++++++++++++++----------------
+ xbmc/cores/omxplayer/OMXVideo.h         |  2 +-
+ 4 files changed, 26 insertions(+), 23 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index b8a3871..e9010b1 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -694,7 +694,7 @@ void OMXPlayerVideo::RenderUpdateCallBack(const void *ctx, const CRect &SrcRect,
+   player->SetVideoRect(SrcRect, DestRect);
+ }
+ 
+-void OMXPlayerVideo::ResolutionUpdateCallBack(uint32_t width, uint32_t height, float display_aspect)
++void OMXPlayerVideo::ResolutionUpdateCallBack(uint32_t width, uint32_t height, float framerate, float display_aspect)
+ {
+   RESOLUTION res  = g_graphicsContext.GetVideoResolution();
+   uint32_t video_width   = CDisplaySettings::Get().GetResolutionInfo(res).iScreenWidth;
+@@ -743,6 +743,8 @@ void OMXPlayerVideo::ResolutionUpdateCallBack(uint32_t width, uint32_t height, f
+   else if( display_aspect != 0.0f )
+     iDisplayWidth = (int) (iDisplayHeight * display_aspect);
+ 
++  m_fFrameRate = DVD_TIME_BASE / CDVDCodecUtils::NormalizeFrameduration((double)DVD_TIME_BASE / framerate);
++
+   CLog::Log(LOGDEBUG,"%s - change configuration. video:%dx%d. framerate: %4.2f. %dx%d format: BYPASS",
+       __FUNCTION__, video_width, video_height, m_fFrameRate, iDisplayWidth, iDisplayHeight);
+ 
+@@ -757,9 +759,9 @@ void OMXPlayerVideo::ResolutionUpdateCallBack(uint32_t width, uint32_t height, f
+   g_renderManager.RegisterRenderUpdateCallBack((const void*)this, RenderUpdateCallBack);
+ }
+ 
+-void OMXPlayerVideo::ResolutionUpdateCallBack(void *ctx, uint32_t width, uint32_t height, float display_aspect)
++void OMXPlayerVideo::ResolutionUpdateCallBack(void *ctx, uint32_t width, uint32_t height, float framerate, float display_aspect)
+ {
+   OMXPlayerVideo *player = static_cast<OMXPlayerVideo*>(ctx);
+-  player->ResolutionUpdateCallBack(width, height, display_aspect);
++  player->ResolutionUpdateCallBack(width, height, framerate, display_aspect);
+ }
+ 
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.h b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+index b49748f..33564dd 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.h
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+@@ -125,7 +125,7 @@ class OMXPlayerVideo : public CThread
+   int GetFreeSpace();
+   void  SetVideoRect(const CRect &SrcRect, const CRect &DestRect);
+   static void RenderUpdateCallBack(const void *ctx, const CRect &SrcRect, const CRect &DestRect);
+-  void ResolutionUpdateCallBack(uint32_t width, uint32_t height, float pixel_aspect);
+-  static void ResolutionUpdateCallBack(void *ctx, uint32_t width, uint32_t height, float pixel_aspect);
++  void ResolutionUpdateCallBack(uint32_t width, uint32_t height, float framerate, float pixel_aspect);
++  static void ResolutionUpdateCallBack(void *ctx, uint32_t width, uint32_t height, float framerate, float pixel_aspect);
+ };
+ #endif
+diff --git a/xbmc/cores/omxplayer/OMXVideo.cpp b/xbmc/cores/omxplayer/OMXVideo.cpp
+index f058a35..02bf554 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXVideo.cpp
+@@ -171,6 +171,22 @@ bool COMXVideo::PortSettingsChanged()
+     CLog::Log(LOGERROR, "%s::%s - error m_omx_decoder.GetParameter(OMX_IndexParamBrcmPixelAspectRatio) omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
+   }
+ 
++  OMX_CONFIG_INTERLACETYPE interlace;
++  OMX_INIT_STRUCTURE(interlace);
++  interlace.nPortIndex = m_omx_decoder.GetOutputPort();
++  omx_err = m_omx_decoder.GetConfig(OMX_IndexConfigCommonInterlace, &interlace);
++
++  if(m_deinterlace_request == VS_DEINTERLACEMODE_FORCE)
++    m_deinterlace = true;
++  else if(m_deinterlace_request == VS_DEINTERLACEMODE_OFF)
++    m_deinterlace = false;
++  else
++    m_deinterlace = interlace.eMode != OMX_InterlaceProgressive;
++
++    CLog::Log(LOGDEBUG, "%s::%s - %dx%d@%.2f interlace:%d deinterlace:%d", CLASSNAME, __func__,
++      port_image.format.video.nFrameWidth, port_image.format.video.nFrameHeight,
++      port_image.format.video.xFramerate / (float)(1<<16), interlace.eMode, m_deinterlace);
++
+   // let OMXPlayerVideo know about resolution so it can inform RenderManager
+   if (m_res_callback)
+   {
+@@ -178,7 +194,8 @@ bool COMXVideo::PortSettingsChanged()
+     if (pixel_aspect.nX && pixel_aspect.nY)
+       display_aspect = (float)pixel_aspect.nX * port_image.format.video.nFrameWidth /
+         ((float)pixel_aspect.nY * port_image.format.video.nFrameHeight);
+-    m_res_callback(m_res_ctx, port_image.format.video.nFrameWidth, port_image.format.video.nFrameHeight, display_aspect);
++    m_res_callback(m_res_ctx, port_image.format.video.nFrameWidth, port_image.format.video.nFrameHeight,
++        port_image.format.video.xFramerate / (float)(1<<16), display_aspect);
+   }
+ 
+   if (m_settings_changed)
+@@ -187,27 +204,11 @@ bool COMXVideo::PortSettingsChanged()
+     return true;
+   }
+ 
+-  OMX_CONFIG_INTERLACETYPE interlace;
+-  OMX_INIT_STRUCTURE(interlace);
+-  interlace.nPortIndex = m_omx_decoder.GetOutputPort();
+-  omx_err = m_omx_decoder.GetConfig(OMX_IndexConfigCommonInterlace, &interlace);
+-
+-  if(m_deinterlace_request == VS_DEINTERLACEMODE_FORCE)
+-    m_deinterlace = true;
+-  else if(m_deinterlace_request == VS_DEINTERLACEMODE_OFF)
+-    m_deinterlace = false;
+-  else
+-    m_deinterlace = interlace.eMode != OMX_InterlaceProgressive;
+-
+   if(!m_omx_render.Initialize("OMX.broadcom.video_render", OMX_IndexParamVideoInit))
+     return false;
+ 
+   m_omx_render.ResetEos();
+ 
+-  CLog::Log(LOGDEBUG, "%s::%s - %dx%d@%.2f interlace:%d deinterlace:%d", CLASSNAME, __func__,
+-      port_image.format.video.nFrameWidth, port_image.format.video.nFrameHeight,
+-      port_image.format.video.xFramerate / (float)(1<<16), interlace.eMode, m_deinterlace);
+-
+   if(!m_omx_sched.Initialize("OMX.broadcom.video_scheduler", OMX_IndexParamVideoInit))
+     return false;
+ 
+diff --git a/xbmc/cores/omxplayer/OMXVideo.h b/xbmc/cores/omxplayer/OMXVideo.h
+index d69f854..fd23e70 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.h
++++ b/xbmc/cores/omxplayer/OMXVideo.h
+@@ -38,7 +38,7 @@
+ 
+ #define CLASSNAME "COMXVideo"
+ 
+-typedef void (*ResolutionUpdateCallBackFn)(void *ctx, uint32_t width, uint32_t height, float display_aspect);
++typedef void (*ResolutionUpdateCallBackFn)(void *ctx, uint32_t width, uint32_t height, float framerate, float display_aspect);
+ 
+ class COMXVideo
+ {
+-- 
+1.9.1
+
+
+From ea50a2fe3d126ce32570dda7990a270197daeeaf Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 11 Apr 2014 19:01:26 +0100
+Subject: [PATCH 72/83] [omxplayer] Request to be notified about framerate
+ changes
+
+---
+ xbmc/cores/omxplayer/OMXVideo.cpp | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXVideo.cpp b/xbmc/cores/omxplayer/OMXVideo.cpp
+index 02bf554..1b1711d 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXVideo.cpp
+@@ -183,7 +183,7 @@ bool COMXVideo::PortSettingsChanged()
+   else
+     m_deinterlace = interlace.eMode != OMX_InterlaceProgressive;
+ 
+-    CLog::Log(LOGDEBUG, "%s::%s - %dx%d@%.2f interlace:%d deinterlace:%d", CLASSNAME, __func__,
++  CLog::Log(LOGDEBUG, "%s::%s - %dx%d@%.2f interlace:%d deinterlace:%d", CLASSNAME, __func__,
+       port_image.format.video.nFrameWidth, port_image.format.video.nFrameHeight,
+       port_image.format.video.xFramerate / (float)(1<<16), interlace.eMode, m_deinterlace);
+ 
+@@ -558,7 +558,17 @@ bool COMXVideo::Open(CDVDStreamInfo &hints, OMXClock *clock, EDEINTERLACEMODE de
+     CLog::Log(LOGERROR, "COMXVideo::Open OMX_IndexConfigRequestCallback error (0%08x)\n", omx_err);
+     return false;
+   }
+-
++  // request portsettingschanged on refresh rate change
++  if (CSettings::Get().GetInt("videoplayer.adjustrefreshrate") == ADJUST_REFRESHRATE_ALWAYS)
++  {
++    notifications.nIndex = OMX_IndexParamPortDefinition;
++    omx_err = m_omx_decoder.SetParameter((OMX_INDEXTYPE)OMX_IndexConfigRequestCallback, &notifications);
++    if (omx_err != OMX_ErrorNone)
++    {
++      CLog::Log(LOGERROR, "COMXVideo::Open OMX_IndexConfigRequestCallback error (0%08x)\n", omx_err);
++      //return false;
++    }
++  }
+   OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE concanParam;
+   OMX_INIT_STRUCTURE(concanParam);
+   if(g_advancedSettings.m_omxDecodeStartWithValidFrame)
+-- 
+1.9.1
+
+
+From 70008a6b3de3cbf7486ded348f880321c61de5d4 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Wed, 16 Apr 2014 21:18:06 +0100
+Subject: [PATCH 73/83] [omxplayer] Don't propagate 3d flags based on supported
+ 3d modes
+
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 29 ++++-------------------------
+ 1 file changed, 4 insertions(+), 25 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index e9010b1..c170cfb 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -703,36 +703,15 @@ void OMXPlayerVideo::ResolutionUpdateCallBack(uint32_t width, uint32_t height, f
+   unsigned flags = 0;
+   ERenderFormat format = RENDER_FMT_BYPASS;
+ 
++  /* figure out steremode expected based on user settings and hints */
++  unsigned int stereo_flags = GetStereoModeFlags(GetStereoMode());
++
+   if(m_bAllowFullscreen)
+   {
+     flags |= CONF_FLAGS_FULLSCREEN;
+     m_bAllowFullscreen = false; // only allow on first configure
+   }
+-
+-  flags |= GetStereoModeFlags(GetStereoMode());
+-
+-  if(flags & CONF_FLAGS_STEREO_MODE_SBS)
+-  {
+-    if(g_Windowing.Support3D(video_width, video_height, D3DPRESENTFLAG_MODE3DSBS))
+-      CLog::Log(LOGNOTICE, "3DSBS movie found");
+-    else
+-    {
+-      flags &= ~CONF_FLAGS_STEREO_MODE_MASK(~0);
+-      CLog::Log(LOGNOTICE, "3DSBS movie found but not supported");
+-    }
+-  }
+-  else if(flags & CONF_FLAGS_STEREO_MODE_TAB)
+-  {
+-    if(g_Windowing.Support3D(video_width, video_height, D3DPRESENTFLAG_MODE3DTB))
+-      CLog::Log(LOGNOTICE, "3DTB movie found");
+-    else
+-    {
+-      flags &= ~CONF_FLAGS_STEREO_MODE_MASK(~0);
+-      CLog::Log(LOGNOTICE, "3DTB movie found but not supported");
+-    }
+-  }
+-  else
+-    CLog::Log(LOGNOTICE, "not a 3D movie");
++  flags |= stereo_flags;
+ 
+   unsigned int iDisplayWidth  = width;
+   unsigned int iDisplayHeight = height;
+-- 
+1.9.1
+
+
+From 8864603784754114c213a1667228886197bc4ad4 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 14 Apr 2014 17:04:57 +0100
+Subject: [PATCH 74/83] [omxplayer] Support stereo view modes with scaling
+
+The Pi only supported a single view rectangle, which is sufficient for all mono view modes,
+but only supports a subset of stereo modes.
+
+To work around this, the scaling rectangles were ignored in 3D modes and 3D video was treated as unscaled.
+While this worked or square pixel, 16:9 content on a 16:9 display, it went wrong is various other conditions.
+
+@sraue reported that mono view of SBS/TAB content wasn't scaled correctly, and other forum reports
+aspect ratio errors in widescreen 3D videos.
+
+As it wasn't trivial to work around these bug reports, I've added a new stereo flags to the firmware
+that allows a second display region to be created for the second eye, allowing scaling to work.
+
+I've been through the video stereo modes (none, sbs, tab) and the display stereo modes (mono, sbs, tab)
+and all the zoom modes, and compared the scaling to xbmc on windows and all seem to match
+
+Requires udpated firmware.
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 103 +++++++++++++++++++++-----------
+ xbmc/cores/omxplayer/OMXPlayerVideo.h   |   4 +-
+ xbmc/cores/omxplayer/OMXVideo.cpp       |  47 +++++++++------
+ xbmc/cores/omxplayer/OMXVideo.h         |   3 +-
+ 4 files changed, 101 insertions(+), 56 deletions(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index c170cfb..e9f86f3 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -97,6 +97,9 @@ OMXPlayerVideo::OMXPlayerVideo(OMXClock *av_clock,
+ 
+   m_src_rect.SetRect(0, 0, 0, 0);
+   m_dst_rect.SetRect(0, 0, 0, 0);
++  m_video_stereo_mode = RENDER_STEREO_MODE_OFF;
++  m_display_stereo_mode = RENDER_STEREO_MODE_OFF;
++  m_StereoInvert = false;
+   m_started = false;
+   m_iCurrentPts = DVD_NOPTS_VALUE;
+   m_nextOverlay = DVD_NOPTS_VALUE;
+@@ -120,6 +123,9 @@ bool OMXPlayerVideo::OpenStream(CDVDStreamInfo &hints)
+   // force SetVideoRect to be called initially
+   m_src_rect.SetRect(0, 0, 0, 0);
+   m_dst_rect.SetRect(0, 0, 0, 0);
++  m_video_stereo_mode = RENDER_STEREO_MODE_OFF;
++  m_display_stereo_mode = RENDER_STEREO_MODE_OFF;
++  m_StereoInvert = false;
+ 
+   if (!m_DllBcmHost.Load())
+     return false;
+@@ -634,58 +640,85 @@ int OMXPlayerVideo::GetFreeSpace()
+ 
+ void OMXPlayerVideo::SetVideoRect(const CRect &InSrcRect, const CRect &InDestRect)
+ {
+-  CRect SrcRect = InSrcRect, DestRect = InDestRect;
++  // we get called twice a frame for left/right. Can ignore the rights.
++  if (g_graphicsContext.GetStereoView() == RENDER_STEREO_VIEW_RIGHT)
++    return;
+ 
+-  // in 3d modes skip this - we get called as the gui switches from left eye to right eye
++  CRect SrcRect = InSrcRect, DestRect = InDestRect;
+   unsigned flags = GetStereoModeFlags(GetStereoMode());
+-
+-  if (CONF_FLAGS_STEREO_MODE_MASK(flags))
+-  {
+-    if (g_graphicsContext.GetStereoMode() == RENDER_STEREO_MODE_MONO)
+-    {
+-       if (GetStereoMode() == "left_right")
+-         SrcRect.SetRect(0, 0, m_hints.width>>1, m_hints.height);
+-       else if (GetStereoMode() == "right_left")
+-         SrcRect.SetRect(m_hints.width>>1, 0, m_hints.width, m_hints.height);
+-       else if (GetStereoMode() == "top_bottom")
+-         SrcRect.SetRect(0, 0, m_hints.width, m_hints.height>>1);
+-       else if (GetStereoMode() == "bottom_top")
+-         SrcRect.SetRect(0, m_hints.height>>1, m_hints.width, m_hints.height);
+-    }
+-    else
+-      SrcRect.SetRect(0, 0, m_hints.width, m_hints.height);
+-    // interpreted as fullscreen
+-    DestRect.SetRect(0, 0, 0, 0);
+-  }
++  RENDER_STEREO_MODE video_stereo_mode = (flags & CONF_FLAGS_STEREO_MODE_SBS) ? RENDER_STEREO_MODE_SPLIT_VERTICAL :
++                                         (flags & CONF_FLAGS_STEREO_MODE_TAB) ? RENDER_STEREO_MODE_SPLIT_HORIZONTAL : RENDER_STEREO_MODE_OFF;
++  bool stereo_invert                   = (flags & CONF_FLAGS_STEREO_CADANCE_RIGHT_LEFT) ? true : false;
++  RENDER_STEREO_MODE display_stereo_mode = g_graphicsContext.GetStereoMode();
+ 
+   // check if destination rect or video view mode has changed
+-  if (m_dst_rect != DestRect || m_src_rect != SrcRect)
+-  {
+-    m_src_rect  = SrcRect;
+-    m_dst_rect  = DestRect;
+-  }
+-  else
+-  {
++  if (!(m_dst_rect != DestRect) && !(m_src_rect != SrcRect) && m_video_stereo_mode == video_stereo_mode && m_display_stereo_mode == display_stereo_mode && m_StereoInvert == stereo_invert)
+     return;
+-  }
++
++  CLog::Log(LOGDEBUG, "OMXPlayerVideo::%s %d,%d,%d,%d -> %d,%d,%d,%d (%d,%d,%d,%d,%s)", __func__,
++      (int)SrcRect.x1, (int)SrcRect.y1, (int)SrcRect.x2, (int)SrcRect.y2,
++      (int)DestRect.x1, (int)DestRect.y1, (int)DestRect.x2, (int)DestRect.y2,
++      video_stereo_mode, display_stereo_mode, CMediaSettings::Get().GetCurrentVideoSettings().m_StereoInvert, g_graphicsContext.GetStereoView(), OMXPlayerVideo::GetStereoMode().c_str());
++
++  m_src_rect = SrcRect;
++  m_dst_rect = DestRect;
++  m_video_stereo_mode = video_stereo_mode;
++  m_display_stereo_mode = display_stereo_mode;
++  m_StereoInvert = stereo_invert;
+ 
+   // might need to scale up m_dst_rect to display size as video decodes
+   // to separate video plane that is at display size.
+   RESOLUTION res = g_graphicsContext.GetVideoResolution();
+   CRect gui(0, 0, CDisplaySettings::Get().GetResolutionInfo(res).iWidth, CDisplaySettings::Get().GetResolutionInfo(res).iHeight);
+   CRect display(0, 0, CDisplaySettings::Get().GetResolutionInfo(res).iScreenWidth, CDisplaySettings::Get().GetResolutionInfo(res).iScreenHeight);
+-  CRect dst_rect(m_dst_rect);
++
++  switch (video_stereo_mode)
++  {
++  case RENDER_STEREO_MODE_SPLIT_VERTICAL:
++    // optimisation - use simpler display mode in common case of unscaled 3d with same display mode
++    if (video_stereo_mode == display_stereo_mode && DestRect.x1 == 0.0f && DestRect.x2 * 2.0f == gui.Width() && !stereo_invert)
++    {
++      SrcRect.x2 *= 2.0f;
++      DestRect.x2 *= 2.0f;
++      video_stereo_mode = RENDER_STEREO_MODE_OFF;
++      display_stereo_mode = RENDER_STEREO_MODE_OFF;
++    }
++    else if (stereo_invert)
++    {
++      SrcRect.x1 += m_hints.width / 2;
++      SrcRect.x2 += m_hints.width / 2;
++    }
++    break;
++
++  case RENDER_STEREO_MODE_SPLIT_HORIZONTAL:
++    // optimisation - use simpler display mode in common case of unscaled 3d with same display mode
++    if (video_stereo_mode == display_stereo_mode && DestRect.y1 == 0.0f && DestRect.y2 * 2.0f == gui.Height() && !stereo_invert)
++    {
++      SrcRect.y2 *= 2.0f;
++      DestRect.y2 *= 2.0f;
++      video_stereo_mode = RENDER_STEREO_MODE_OFF;
++      display_stereo_mode = RENDER_STEREO_MODE_OFF;
++    }
++    else if (stereo_invert)
++    {
++      SrcRect.y1 += m_hints.height / 2;
++      SrcRect.y2 += m_hints.height / 2;
++    }
++    break;
++
++  default: break;
++  }
+ 
+   if (gui != display)
+   {
+     float xscale = display.Width()  / gui.Width();
+     float yscale = display.Height() / gui.Height();
+-    dst_rect.x1 *= xscale;
+-    dst_rect.x2 *= xscale;
+-    dst_rect.y1 *= yscale;
+-    dst_rect.y2 *= yscale;
++    DestRect.x1 *= xscale;
++    DestRect.x2 *= xscale;
++    DestRect.y1 *= yscale;
++    DestRect.y2 *= yscale;
+   }
+-  m_omxVideo.SetVideoRect(SrcRect, dst_rect);
++  m_omxVideo.SetVideoRect(SrcRect, DestRect, video_stereo_mode, display_stereo_mode);
+ }
+ 
+ void OMXPlayerVideo::RenderUpdateCallBack(const void *ctx, const CRect &SrcRect, const CRect &DestRect)
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.h b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+index 33564dd..6f19395 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.h
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.h
+@@ -69,7 +69,9 @@ class OMXPlayerVideo : public CThread
+ 
+   CRect                     m_src_rect;
+   CRect                     m_dst_rect;
+-
++  RENDER_STEREO_MODE        m_video_stereo_mode;
++  RENDER_STEREO_MODE        m_display_stereo_mode;
++  bool                      m_StereoInvert;
+   uint32_t                  m_history_valid_pts;
+   DllBcmHost                m_DllBcmHost;
+ 
+diff --git a/xbmc/cores/omxplayer/OMXVideo.cpp b/xbmc/cores/omxplayer/OMXVideo.cpp
+index 1b1711d..dceb8bf 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXVideo.cpp
+@@ -836,7 +836,7 @@ void COMXVideo::Reset(void)
+ }
+ 
+ ///////////////////////////////////////////////////////////////////////////////////////////
+-void COMXVideo::SetVideoRect(const CRect& SrcRect, const CRect& DestRect)
++void COMXVideo::SetVideoRect(const CRect& SrcRect, const CRect& DestRect, RENDER_STEREO_MODE video_mode, RENDER_STEREO_MODE display_mode)
+ {
+   CSingleLock lock (m_critSection);
+   if(!m_is_open)
+@@ -846,27 +846,36 @@ void COMXVideo::SetVideoRect(const CRect& SrcRect, const CRect& DestRect)
+ 
+   OMX_INIT_STRUCTURE(configDisplay);
+   configDisplay.nPortIndex = m_omx_render.GetInputPort();
+-  configDisplay.set                 = (OMX_DISPLAYSETTYPE)(OMX_DISPLAY_SET_DEST_RECT|OMX_DISPLAY_SET_SRC_RECT|OMX_DISPLAY_SET_FULLSCREEN|OMX_DISPLAY_SET_NOASPECT);
+-  configDisplay.dest_rect.x_offset  = (int)(DestRect.x1+0.5f);
+-  configDisplay.dest_rect.y_offset  = (int)(DestRect.y1+0.5f);
+-  configDisplay.dest_rect.width     = (int)(DestRect.Width()+0.5f);
+-  configDisplay.dest_rect.height    = (int)(DestRect.Height()+0.5f);
+-
+-  configDisplay.src_rect.x_offset   = (int)(SrcRect.x1+0.5f);
+-  configDisplay.src_rect.y_offset   = (int)(SrcRect.y1+0.5f);
+-  configDisplay.src_rect.width      = (int)(SrcRect.Width()+0.5f);
+-  configDisplay.src_rect.height     = (int)(SrcRect.Height()+0.5f);
+-
+-  if (configDisplay.dest_rect.width == 0 || configDisplay.dest_rect.height == 0)
+-    configDisplay.fullscreen = OMX_TRUE;
+-  if (configDisplay.src_rect.width != 0 && configDisplay.src_rect.height != 0)
+-    configDisplay.noaspect = OMX_TRUE;
++  configDisplay.set                 = (OMX_DISPLAYSETTYPE)(OMX_DISPLAY_SET_DEST_RECT|OMX_DISPLAY_SET_SRC_RECT|OMX_DISPLAY_SET_FULLSCREEN|OMX_DISPLAY_SET_NOASPECT|OMX_DISPLAY_SET_MODE);
++  configDisplay.dest_rect.x_offset  = lrintf(DestRect.x1);
++  configDisplay.dest_rect.y_offset  = lrintf(DestRect.y1);
++  configDisplay.dest_rect.width     = lrintf(DestRect.Width());
++  configDisplay.dest_rect.height    = lrintf(DestRect.Height());
++
++  configDisplay.src_rect.x_offset   = lrintf(SrcRect.x1);
++  configDisplay.src_rect.y_offset   = lrintf(SrcRect.y1);
++  configDisplay.src_rect.width      = lrintf(SrcRect.Width());
++  configDisplay.src_rect.height     = lrintf(SrcRect.Height());
++
++  configDisplay.fullscreen = OMX_FALSE;
++  configDisplay.noaspect = OMX_TRUE;
++
++  if (video_mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL && display_mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL)
++    configDisplay.mode = OMX_DISPLAY_MODE_STEREO_TOP_TO_TOP;
++  else if (video_mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL && display_mode == RENDER_STEREO_MODE_SPLIT_VERTICAL)
++    configDisplay.mode = OMX_DISPLAY_MODE_STEREO_TOP_TO_LEFT;
++  else if (video_mode == RENDER_STEREO_MODE_SPLIT_VERTICAL && display_mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL)
++    configDisplay.mode = OMX_DISPLAY_MODE_STEREO_LEFT_TO_TOP;
++  else if (video_mode == RENDER_STEREO_MODE_SPLIT_VERTICAL && display_mode == RENDER_STEREO_MODE_SPLIT_VERTICAL)
++    configDisplay.mode = OMX_DISPLAY_MODE_STEREO_LEFT_TO_LEFT;
++  else
++    configDisplay.mode = OMX_DISPLAY_MODE_LETTERBOX;
+ 
+   m_omx_render.SetConfig(OMX_IndexConfigDisplayRegion, &configDisplay);
+ 
+-  CLog::Log(LOGDEBUG, "dest_rect.x_offset %d dest_rect.y_offset %d dest_rect.width %d dest_rect.height %d\n",
+-      configDisplay.dest_rect.x_offset, configDisplay.dest_rect.y_offset, 
+-      configDisplay.dest_rect.width, configDisplay.dest_rect.height);
++  CLog::Log(LOGDEBUG, "%s::%s %d,%d,%d,%d -> %d,%d,%d,%d mode:%d", CLASSNAME, __func__,
++      configDisplay.src_rect.x_offset, configDisplay.src_rect.y_offset, configDisplay.src_rect.width, configDisplay.src_rect.height,
++      configDisplay.dest_rect.x_offset, configDisplay.dest_rect.y_offset, configDisplay.dest_rect.width, configDisplay.dest_rect.height, configDisplay.mode);
+ }
+ 
+ int COMXVideo::GetInputBufferSize()
+diff --git a/xbmc/cores/omxplayer/OMXVideo.h b/xbmc/cores/omxplayer/OMXVideo.h
+index fd23e70..226000e 100644
+--- a/xbmc/cores/omxplayer/OMXVideo.h
++++ b/xbmc/cores/omxplayer/OMXVideo.h
+@@ -32,6 +32,7 @@
+ #include "DVDDemuxers/DVDDemux.h"
+ #include "xbmc/settings/VideoSettings.h"
+ #include "threads/CriticalSection.h"
++#include "xbmc/rendering/RenderSystem.h"
+ #include <string>
+ 
+ #define VIDEO_BUFFERS 60
+@@ -58,7 +59,7 @@ class COMXVideo
+   void Reset(void);
+   void SetDropState(bool bDrop);
+   std::string GetDecoderName() { return m_video_codec_name; };
+-  void SetVideoRect(const CRect& SrcRect, const CRect& DestRect);
++  void SetVideoRect(const CRect& SrcRect, const CRect& DestRect, RENDER_STEREO_MODE video_mode, RENDER_STEREO_MODE display_mode);
+   int GetInputBufferSize();
+   void SubmitEOS();
+   bool IsEOS();
+-- 
+1.9.1
+
+
+From 2c07dbcde9ea35e4441969c0e18f96cbf429f563 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 17 Apr 2014 13:00:52 +0100
+Subject: [PATCH 75/83] [graphics] Don't set stereo mode based on resolution
+
+The resolution change should follow stereo mode
+---
+ xbmc/guilib/GraphicContext.cpp | 22 ----------------------
+ 1 file changed, 22 deletions(-)
+
+diff --git a/xbmc/guilib/GraphicContext.cpp b/xbmc/guilib/GraphicContext.cpp
+index 5bffdf5..7e4fdd4 100644
+--- a/xbmc/guilib/GraphicContext.cpp
++++ b/xbmc/guilib/GraphicContext.cpp
+@@ -418,28 +418,6 @@ void CGraphicContext::SetVideoResolution(RESOLUTION res, bool forceUpdate)
+   Lock();
+ 
+   RESOLUTION_INFO info_org  = CDisplaySettings::Get().GetResolutionInfo(res);
+-  RESOLUTION_INFO info_last = CDisplaySettings::Get().GetResolutionInfo(lastRes);
+-
+-  RENDER_STEREO_MODE stereo_mode = m_stereoMode;
+-
+-  // if the new mode is an actual stereo mode, switch to that
+-  // if the old mode was an actual stereo mode, switch to no 3d mode
+-  if (info_org.dwFlags & D3DPRESENTFLAG_MODE3DTB)
+-    stereo_mode = RENDER_STEREO_MODE_SPLIT_HORIZONTAL;
+-  else if (info_org.dwFlags & D3DPRESENTFLAG_MODE3DSBS)
+-    stereo_mode = RENDER_STEREO_MODE_SPLIT_VERTICAL;
+-  else if ((info_last.dwFlags & D3DPRESENTFLAG_MODE3DSBS) != 0
+-        || (info_last.dwFlags & D3DPRESENTFLAG_MODE3DTB)  != 0)
+-    stereo_mode = RENDER_STEREO_MODE_OFF;
+-
+-  if(stereo_mode != m_stereoMode)
+-  {
+-    m_stereoView     = RENDER_STEREO_VIEW_OFF;
+-    m_stereoMode     = stereo_mode;
+-    m_nextStereoMode = stereo_mode;
+-    CSettings::Get().SetInt("videoscreen.stereoscopicmode", (int)m_stereoMode);
+-  }
+-
+   RESOLUTION_INFO info_mod = GetResInfo(res);
+ 
+   m_iScreenWidth  = info_mod.iWidth;
+-- 
+1.9.1
+
+
+From 4675a1d30f62b0f06175f01c89d26842630049b0 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 17 Apr 2014 13:01:51 +0100
+Subject: [PATCH 76/83] [graphics] Allow switching to a more suitable 3D
+ resolution
+
+---
+ xbmc/guilib/GraphicContext.cpp | 41 ++++++++++++++++++++++++++++++++++++++++-
+ xbmc/guilib/GraphicContext.h   |  1 +
+ 2 files changed, 41 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/guilib/GraphicContext.cpp b/xbmc/guilib/GraphicContext.cpp
+index 7e4fdd4..886b612 100644
+--- a/xbmc/guilib/GraphicContext.cpp
++++ b/xbmc/guilib/GraphicContext.cpp
+@@ -35,6 +35,7 @@
+ #include "utils/JobManager.h"
+ #include "video/VideoReferenceClock.h"
+ #include "cores/IPlayer.h"
++#include <float.h>
+ 
+ using namespace std;
+ 
+@@ -459,6 +460,44 @@ RESOLUTION CGraphicContext::GetVideoResolution() const
+   return m_Resolution;
+ }
+ 
++RESOLUTION CGraphicContext::Get3DVideoResolution(RENDER_STEREO_MODE mode) const
++{
++  RESOLUTION best = m_Resolution;
++  RESOLUTION_INFO curr = CDisplaySettings::Get().GetResolutionInfo(best);
++
++  // Find closest refresh rate
++  for (size_t i = (int)RES_DESKTOP; i < CDisplaySettings::Get().ResolutionInfoSize(); i++)
++  {
++    const RESOLUTION_INFO info = CDisplaySettings::Get().GetResolutionInfo((RESOLUTION)i);
++
++    //discard resolutions that are not the same width and height (and interlaced/3D flags)
++    //or have a too low refreshrate
++    if (info.iScreenWidth  != curr.iScreenWidth
++    ||  info.iScreenHeight != curr.iScreenHeight
++    ||  info.iScreen       != curr.iScreen
++    ||  (info.dwFlags & D3DPRESENTFLAG_INTERLACED) != (curr.dwFlags & D3DPRESENTFLAG_INTERLACED)
++    ||  fabs(info.fRefreshRate - curr.fRefreshRate) >= FLT_EPSILON)
++      continue;
++
++    if (mode == RENDER_STEREO_MODE_SPLIT_VERTICAL && info.dwFlags & D3DPRESENTFLAG_MODE3DSBS)
++    {
++      best = (RESOLUTION)i;
++      break;
++    }
++    else if (mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL && info.dwFlags & D3DPRESENTFLAG_MODE3DTB)
++    {
++      best = (RESOLUTION)i;
++      break;
++    }
++    else if ((mode == RENDER_STEREO_MODE_OFF || mode == RENDER_STEREO_MODE_MONO) && !(info.dwFlags & (D3DPRESENTFLAG_MODE3DSBS|D3DPRESENTFLAG_MODE3DTB)))
++    {
++      best = (RESOLUTION)i;
++      break;
++    }
++  }
++  return best;
++}
++
+ void CGraphicContext::ResetOverscan(RESOLUTION_INFO &res)
+ {
+   res.Overscan.left = 0;
+@@ -996,7 +1035,7 @@ void CGraphicContext::Flip(const CDirtyRegionList& dirty)
+   if(m_stereoMode != m_nextStereoMode)
+   {
+     m_stereoMode = m_nextStereoMode;
+-    SetVideoResolution(GetVideoResolution(), true);
++    SetVideoResolution(Get3DVideoResolution(m_stereoMode), true);
+     g_windowManager.SendMessage(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_RENDERER_RESET);
+   }
+ }
+diff --git a/xbmc/guilib/GraphicContext.h b/xbmc/guilib/GraphicContext.h
+index 0a27643..df55e92 100644
+--- a/xbmc/guilib/GraphicContext.h
++++ b/xbmc/guilib/GraphicContext.h
+@@ -108,6 +108,7 @@ class CGraphicContext : public CCriticalSection,
+   bool IsValidResolution(RESOLUTION res);
+   void SetVideoResolution(RESOLUTION res, bool forceUpdate = false);
+   RESOLUTION GetVideoResolution() const;
++  RESOLUTION Get3DVideoResolution(RENDER_STEREO_MODE mode) const;
+   void ResetOverscan(RESOLUTION res, OVERSCAN &overscan);
+   void ResetOverscan(RESOLUTION_INFO &resinfo);
+   void ResetScreenParameters(RESOLUTION res);
+-- 
+1.9.1
+
+
+From 4ef8ed68da4134e08ebd8f939688058f6a7ccc53 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Thu, 17 Apr 2014 13:38:55 +0100
+Subject: [PATCH 77/83] [3D] Support switching to 3D resolutions
+
+Include matching 3D flags (SBS/TAB) in the score of a resolution to switch to, to enable switching to 3d modes.
+Also remove the old code that treated 3D modes differently when assigning a score.
+---
+ xbmc/cores/VideoRenderers/BaseRenderer.cpp | 47 +++++++++++-------------------
+ 1 file changed, 17 insertions(+), 30 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/BaseRenderer.cpp b/xbmc/cores/VideoRenderers/BaseRenderer.cpp
+index 970b822..9ca1be1 100644
+--- a/xbmc/cores/VideoRenderers/BaseRenderer.cpp
++++ b/xbmc/cores/VideoRenderers/BaseRenderer.cpp
+@@ -222,10 +222,14 @@ void CBaseRenderer::FindResolutionFromFpsMatch(float fps, float& weight)
+ RESOLUTION CBaseRenderer::FindClosestResolution(float fps, float multiplier, RESOLUTION current, float& weight)
+ {
+   RESOLUTION_INFO curr = g_graphicsContext.GetResInfo(current);
++  RENDER_STEREO_MODE stereo_mode = g_graphicsContext.GetStereoMode();
+ 
+   float fRefreshRate = fps;
+ 
+-  float last_diff = fRefreshRate;
++  int c_weight = MathUtils::round_int(RefreshWeight(curr.fRefreshRate, fRefreshRate * multiplier) * 1000.0);
++  if (!(stereo_mode == RENDER_STEREO_MODE_SPLIT_VERTICAL) != !(curr.dwFlags & D3DPRESENTFLAG_MODE3DSBS) ||
++      !(stereo_mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL) != !(curr.dwFlags & D3DPRESENTFLAG_MODE3DTB))
++    c_weight += 1000;
+ 
+   // Find closest refresh rate
+   for (size_t i = (int)RES_DESKTOP; i < CDisplaySettings::Get().ResolutionInfoSize(); i++)
+@@ -241,40 +245,23 @@ RESOLUTION CBaseRenderer::FindClosestResolution(float fps, float multiplier, RES
+     ||  info.fRefreshRate < (fRefreshRate * multiplier / 1.001) - 0.001)
+       continue;
+ 
+-    // For 3D choose the closest refresh rate 
+-    if(CONF_FLAGS_STEREO_MODE_MASK(m_iFlags))
+-    {
+-      float diff = (info.fRefreshRate - fRefreshRate);
+-      if(diff < 0)
+-        diff *= -1.0f;
++    int i_weight = MathUtils::round_int(RefreshWeight(info.fRefreshRate, fRefreshRate * multiplier) * 1000.0);
+ 
+-      if(diff < last_diff)
+-      {
+-        last_diff = diff;
+-        current = (RESOLUTION)i;
+-        curr = info;
+-      }
+-    }
+-    else
+-    {
+-      int c_weight = MathUtils::round_int(RefreshWeight(curr.fRefreshRate, fRefreshRate * multiplier) * 1000.0);
+-      int i_weight = MathUtils::round_int(RefreshWeight(info.fRefreshRate, fRefreshRate * multiplier) * 1000.0);
++    if (!(stereo_mode == RENDER_STEREO_MODE_SPLIT_VERTICAL) != !(info.dwFlags & D3DPRESENTFLAG_MODE3DSBS) ||
++        !(stereo_mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL) != !(info.dwFlags & D3DPRESENTFLAG_MODE3DTB))
++      i_weight += 1000;
+ 
+-      // Closer the better, prefer higher refresh rate if the same
+-      if ((i_weight <  c_weight)
+-      ||  (i_weight == c_weight && info.fRefreshRate > curr.fRefreshRate))
+-      {
+-        current = (RESOLUTION)i;
+-        curr    = info;
+-      }
++    // Closer the better, prefer higher refresh rate if the same
++    if ((i_weight <  c_weight)
++    ||  (i_weight == c_weight && info.fRefreshRate > curr.fRefreshRate))
++    {
++      current  = (RESOLUTION)i;
++      curr     = info;
++      c_weight = i_weight;
+     }
+   }
+ 
+-  // For 3D overwrite weight
+-  if(CONF_FLAGS_STEREO_MODE_MASK(m_iFlags))
+-    weight = 0;
+-  else
+-    weight = RefreshWeight(curr.fRefreshRate, fRefreshRate * multiplier);
++  weight = RefreshWeight(curr.fRefreshRate, fRefreshRate * multiplier);
+ 
+   return current;
+ }
+-- 
+1.9.1
+
+
+From 17490e1c10d47034d1aed1ccd84cd09feddc9783 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Wed, 23 Apr 2014 00:05:07 +0100
+Subject: [PATCH 78/83] [graphics] Make pixel ratio for 3d modes consistent
+
+Note: Use the stored stereo flags from lists of resolutions.
+Use current stereo mode for current resolution.
+---
+ xbmc/cores/VideoRenderers/BaseRenderer.cpp      | 10 ++++----
+ xbmc/guilib/GraphicContext.cpp                  | 32 ++++++++++---------------
+ xbmc/guilib/GraphicContext.h                    |  4 ++--
+ xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp |  9 +------
+ 4 files changed, 20 insertions(+), 35 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/BaseRenderer.cpp b/xbmc/cores/VideoRenderers/BaseRenderer.cpp
+index 9ca1be1..6bf42bf 100644
+--- a/xbmc/cores/VideoRenderers/BaseRenderer.cpp
++++ b/xbmc/cores/VideoRenderers/BaseRenderer.cpp
+@@ -119,7 +119,7 @@ bool CBaseRenderer::FindResolutionFromOverride(float fps, float& weight, bool fa
+ 
+     for (size_t j = (int)RES_DESKTOP; j < CDisplaySettings::Get().ResolutionInfoSize(); j++)
+     {
+-      RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)j);
++      RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)j, false);
+ 
+       if (info.iScreenWidth  == curr.iScreenWidth
+        && info.iScreenHeight == curr.iScreenHeight
+@@ -179,7 +179,7 @@ void CBaseRenderer::FindResolutionFromFpsMatch(float fps, float& weight)
+       //get the resolution with the refreshrate closest to 60 hertz
+       for (size_t i = (int)RES_DESKTOP; i < CDisplaySettings::Get().ResolutionInfoSize(); i++)
+       {
+-        RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)i);
++        RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)i, false);
+ 
+         if (MathUtils::round_int(info.fRefreshRate) == 60
+          && info.iScreenWidth  == curr.iScreenWidth
+@@ -200,7 +200,7 @@ void CBaseRenderer::FindResolutionFromFpsMatch(float fps, float& weight)
+         CLog::Log(LOGDEBUG, "60 hertz refreshrate not available, choosing highest");
+         for (size_t i = (int)RES_DESKTOP; i < CDisplaySettings::Get().ResolutionInfoSize(); i++)
+         {
+-          RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)i);
++          RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)i, false);
+ 
+           if (info.fRefreshRate  >  curr.fRefreshRate
+            && info.iScreenWidth  == curr.iScreenWidth
+@@ -234,14 +234,14 @@ RESOLUTION CBaseRenderer::FindClosestResolution(float fps, float multiplier, RES
+   // Find closest refresh rate
+   for (size_t i = (int)RES_DESKTOP; i < CDisplaySettings::Get().ResolutionInfoSize(); i++)
+   {
+-    const RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)i);
++    const RESOLUTION_INFO info = g_graphicsContext.GetResInfo((RESOLUTION)i, false);
+ 
+     //discard resolutions that are not the same width and height (and interlaced/3D flags)
+     //or have a too low refreshrate
+     if (info.iScreenWidth  != curr.iScreenWidth
+     ||  info.iScreenHeight != curr.iScreenHeight
+     ||  info.iScreen       != curr.iScreen
+-    ||  (info.dwFlags & D3DPRESENTFLAG_MODEMASK) != (curr.dwFlags & D3DPRESENTFLAG_MODEMASK)
++    ||  (info.dwFlags & D3DPRESENTFLAG_INTERLACED) != (curr.dwFlags & D3DPRESENTFLAG_INTERLACED)
+     ||  info.fRefreshRate < (fRefreshRate * multiplier / 1.001) - 0.001)
+       continue;
+ 
+diff --git a/xbmc/guilib/GraphicContext.cpp b/xbmc/guilib/GraphicContext.cpp
+index 886b612..40a6362 100644
+--- a/xbmc/guilib/GraphicContext.cpp
++++ b/xbmc/guilib/GraphicContext.cpp
+@@ -707,32 +707,26 @@ void CGraphicContext::ApplyStateBlock()
+   g_Windowing.ApplyStateBlock();
+ }
+ 
+-const RESOLUTION_INFO CGraphicContext::GetResInfo(RESOLUTION res) const
++const RESOLUTION_INFO CGraphicContext::GetResInfo(RESOLUTION res, bool use_current_3d /*= true*/) const
+ {
+   RESOLUTION_INFO info = CDisplaySettings::Get().GetResolutionInfo(res);
+ 
+-  if(m_stereoMode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL)
++  if(use_current_3d ? m_stereoMode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL : (info.dwFlags & D3DPRESENTFLAG_MODE3DTB))
+   {
+-    if((info.dwFlags & D3DPRESENTFLAG_MODE3DTB) == 0)
+-    {
+-      info.fPixelRatio     /= 2;
+-      info.iBlanking        = 0;
+-      info.dwFlags         |= D3DPRESENTFLAG_MODE3DTB;
+-    }
++    info.fPixelRatio     /= 2;
++    info.iBlanking        = 0;
++    info.dwFlags         |= D3DPRESENTFLAG_MODE3DTB;
+     info.iHeight          = (info.iHeight         - info.iBlanking) / 2;
+     info.Overscan.top    /= 2;
+     info.Overscan.bottom  = (info.Overscan.bottom - info.iBlanking) / 2;
+     info.iSubtitles       = (info.iSubtitles      - info.iBlanking) / 2;
+   }
+ 
+-  if(m_stereoMode == RENDER_STEREO_MODE_SPLIT_VERTICAL)
++  if(use_current_3d ? m_stereoMode == RENDER_STEREO_MODE_SPLIT_VERTICAL : (info.dwFlags & D3DPRESENTFLAG_MODE3DSBS))
+   {
+-    if((info.dwFlags & D3DPRESENTFLAG_MODE3DSBS) == 0)
+-    {
+-      info.fPixelRatio     *= 2;
+-      info.iBlanking        = 0;
+-      info.dwFlags         |= D3DPRESENTFLAG_MODE3DSBS;
+-    }
++    info.fPixelRatio     *= 2;
++    info.iBlanking        = 0;
++    info.dwFlags         |= D3DPRESENTFLAG_MODE3DSBS;
+     info.iWidth           = (info.iWidth         - info.iBlanking) / 2;
+     info.Overscan.left   /= 2;
+     info.Overscan.right   = (info.Overscan.right - info.iBlanking) / 2;
+@@ -740,7 +734,7 @@ const RESOLUTION_INFO CGraphicContext::GetResInfo(RESOLUTION res) const
+   return info;
+ }
+ 
+-void CGraphicContext::SetResInfo(RESOLUTION res, const RESOLUTION_INFO& info)
++void CGraphicContext::SetResInfo(RESOLUTION res, const RESOLUTION_INFO& info, bool use_current_3d /*= true*/)
+ {
+   RESOLUTION_INFO& curr = CDisplaySettings::Get().GetResolutionInfo(res);
+   curr.Overscan   = info.Overscan;
+@@ -750,16 +744,14 @@ void CGraphicContext::SetResInfo(RESOLUTION res, const RESOLUTION_INFO& info)
+   if(info.dwFlags & D3DPRESENTFLAG_MODE3DSBS)
+   {
+     curr.Overscan.right  = info.Overscan.right  * 2 + info.iBlanking;
+-    if((curr.dwFlags & D3DPRESENTFLAG_MODE3DSBS) == 0)
+-      curr.fPixelRatio  /= 2.0;
++    curr.fPixelRatio  /= 2.0;
+   }
+ 
+   if(info.dwFlags & D3DPRESENTFLAG_MODE3DTB)
+   {
+     curr.Overscan.bottom = info.Overscan.bottom * 2 + info.iBlanking;
+     curr.iSubtitles      = info.iSubtitles      * 2 + info.iBlanking;
+-    if((curr.dwFlags & D3DPRESENTFLAG_MODE3DTB) == 0)
+-      curr.fPixelRatio  *= 2.0;
++    curr.fPixelRatio  *= 2.0;
+   }
+ }
+ 
+diff --git a/xbmc/guilib/GraphicContext.h b/xbmc/guilib/GraphicContext.h
+index df55e92..c77f2ff 100644
+--- a/xbmc/guilib/GraphicContext.h
++++ b/xbmc/guilib/GraphicContext.h
+@@ -124,8 +124,8 @@ class CGraphicContext : public CCriticalSection,
+   {
+     return GetResInfo(m_Resolution);
+   }
+-  const RESOLUTION_INFO GetResInfo(RESOLUTION res) const;
+-  void SetResInfo(RESOLUTION res, const RESOLUTION_INFO& info);
++  const RESOLUTION_INFO GetResInfo(RESOLUTION res, bool use_current_3d = true) const;
++  void SetResInfo(RESOLUTION res, const RESOLUTION_INFO& info, bool use_current_3d = true);
+ 
+   /* \brief Get UI scaling information from a given resolution to the screen resolution.
+    Takes account of overscan and UI zooming.
+diff --git a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+index 21b8cc4..4268f78 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeRaspberryPI.cpp
+@@ -446,15 +446,10 @@ bool CEGLNativeTypeRaspberryPI::ProbeResolutions(std::vector<RESOLUTION_INFO> &r
+       m_desktopRes.fPixelRatio  = get_display_aspect_ratio((HDMI_ASPECT_T)tv_state.display.hdmi.display_options.aspect) / ((float)m_desktopRes.iScreenWidth / (float)m_desktopRes.iScreenHeight);
+       // Also add 3D flags
+       if (tv_state.display.hdmi.format_3d == HDMI_3D_FORMAT_SBS_HALF)
+-      {
+         m_desktopRes.dwFlags |= D3DPRESENTFLAG_MODE3DSBS;
+-        m_desktopRes.fPixelRatio *= 2.0;
+-      }
+       else if (tv_state.display.hdmi.format_3d == HDMI_3D_FORMAT_TB_HALF)
+-      {
+         m_desktopRes.dwFlags |= D3DPRESENTFLAG_MODE3DTB;
+-        m_desktopRes.fPixelRatio *= 0.5;
+-      }
++
+       HDMI_PROPERTY_PARAM_T property;
+       property.property = HDMI_PROPERTY_PIXEL_CLOCK_TYPE;
+       vc_tv_hdmi_get_property(&property);
+@@ -605,7 +600,6 @@ void CEGLNativeTypeRaspberryPI::GetSupportedModes(HDMI_RES_GROUP_T group, std::v
+         RESOLUTION_INFO res2 = res;
+         res2.dwFlags |= D3DPRESENTFLAG_MODE3DSBS;
+         res2.fPixelRatio    = get_display_aspect_ratio((HDMI_ASPECT_T)tv->aspect_ratio) / ((float)res2.iScreenWidth / (float)res2.iScreenHeight);
+-        res2.fPixelRatio   *= 2.0f;
+         SetResolutionString(res2);
+         CLog::Log(LOGDEBUG, "EGL mode %d: %s (%.2f)\n", i, res2.strMode.c_str(), res2.fPixelRatio);
+ 
+@@ -623,7 +617,6 @@ void CEGLNativeTypeRaspberryPI::GetSupportedModes(HDMI_RES_GROUP_T group, std::v
+         RESOLUTION_INFO res2 = res;
+         res2.dwFlags |= D3DPRESENTFLAG_MODE3DTB;
+         res2.fPixelRatio    = get_display_aspect_ratio((HDMI_ASPECT_T)tv->aspect_ratio) / ((float)res2.iScreenWidth / (float)res2.iScreenHeight);
+-        res2.fPixelRatio   *= 0.5f;
+         SetResolutionString(res2);
+         CLog::Log(LOGDEBUG, "EGL mode %d: %s (%.2f)\n", i, res2.strMode.c_str(), res2.fPixelRatio);
+ 
+-- 
+1.9.1
+
+
+From 32075031b096fd2c951b01a2e031d1ebfe0dfa4e Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Wed, 23 Apr 2014 21:07:51 +0100
+Subject: [PATCH 79/83] [PiSink] More attempts to reduce underrun audio
+ glitches with multichannl and high samplerate
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp | 79 +++++++++++--------------------
+ 1 file changed, 27 insertions(+), 52 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp
+index 070e6eb..133b9f6 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkPi.cpp
+@@ -186,7 +186,7 @@ bool CAESinkPi::Initialize(AEAudioFormat &format, std::string &device)
+   unsigned int sample_size = CAEUtil::DataFormatToBits(format.m_dataFormat) >> 3;
+   format.m_frameSize     = sample_size * channels;
+   format.m_sampleRate    = std::max(8000U, std::min(192000U, format.m_sampleRate));
+-  format.m_frames        = format.m_sampleRate * AUDIO_PLAYBUFFER;
++  format.m_frames        = format.m_sampleRate * AUDIO_PLAYBUFFER / NUM_OMX_BUFFERS;
+   format.m_frameSamples  = format.m_frames * channels;
+ 
+   SetAudioProps(m_passthrough, GetChannelMap(format.m_channelLayout, m_passthrough));
+@@ -232,7 +232,7 @@ bool CAESinkPi::Initialize(AEAudioFormat &format, std::string &device)
+     CLog::Log(LOGERROR, "%s:%s - error get OMX_IndexParamPortDefinition (input) omx_err(0x%08x)", CLASSNAME, __func__, omx_err);
+ 
+   port_param.nBufferCountActual = std::max((unsigned int)port_param.nBufferCountMin, (unsigned int)NUM_OMX_BUFFERS);
+-  port_param.nBufferSize = m_format.m_frameSize * m_format.m_frames / port_param.nBufferCountActual;
++  port_param.nBufferSize = m_format.m_frameSize * m_format.m_frames;
+ 
+   omx_err = m_omx_render.SetParameter(OMX_IndexParamPortDefinition, &port_param);
+   if (omx_err != OMX_ErrorNone)
+@@ -308,63 +308,38 @@ double CAESinkPi::GetCacheTotal()
+ 
+ unsigned int CAESinkPi::AddPackets(uint8_t *data, unsigned int frames, bool hasAudio, bool blocking)
+ {
+-  unsigned int sent = 0;
+-
+-  if (!m_Initialized)
++  if (!m_Initialized || !frames)
+     return frames;
+ 
+   OMX_ERRORTYPE omx_err   = OMX_ErrorNone;
+   OMX_BUFFERHEADERTYPE *omx_buffer = NULL;
+-  while (sent < frames)
++
++  double delay = GetDelay();
++  if (delay <= 0.0 && m_submitted)
++    CLog::Log(LOGNOTICE, "%s:%s Underrun (delay:%.2f frames:%d)", CLASSNAME, __func__, delay, frames);
++
++  omx_buffer = m_omx_render.GetInputBuffer(1000);
++  if (omx_buffer == NULL)
+   {
+-    double delay = GetDelay();
+-    double ideal_submission_time = AUDIO_PLAYBUFFER - delay;
+-    // ideal amount of audio we'd like submit (to make delay match AUDIO_PLAYBUFFER)
+-    int timeout = blocking ? 1000 : 0;
+-    int ideal_submission_samples = ideal_submission_time / (m_sinkbuffer_sec_per_byte * m_format.m_frameSize);
+-    // if we are almost full then sleep (to avoid repeatedly sending a few samples)
+-    bool too_laggy = ideal_submission_time < 0.25 * AUDIO_PLAYBUFFER;
+-    int sleeptime = (int)(AUDIO_PLAYBUFFER * 0.25 * 1000.0);
+-    if (too_laggy)
+-    {
+-      if (blocking)
+-      {
+-        Sleep(sleeptime);
+-        continue;
+-      }
+-      break;
+-    }
+-    omx_buffer = m_omx_render.GetInputBuffer(timeout);
+-    if (omx_buffer == NULL)
+-    {
+-      if (blocking)
+-        CLog::Log(LOGERROR, "COMXAudio::Decode timeout");
+-      break;
+-    }
+-
+-    unsigned int space = omx_buffer->nAllocLen / m_format.m_frameSize;
+-    unsigned int samples = std::min(std::min(space, (unsigned int)ideal_submission_samples), frames - sent);
+-
+-    omx_buffer->nFilledLen = samples * m_format.m_frameSize;
+-    omx_buffer->nTimeStamp = ToOMXTime(0);
+-    omx_buffer->nFlags = 0;
+-    memcpy(omx_buffer->pBuffer, (uint8_t *)data + sent * m_format.m_frameSize, omx_buffer->nFilledLen);
+-
+-    sent += samples;
+-
+-    if (sent == frames)
+-      omx_buffer->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
+-
+-    if (delay <= 0.0 && m_submitted)
+-      CLog::Log(LOGNOTICE, "%s:%s Underrun (delay:%.2f frames:%d)", CLASSNAME, __func__, delay, frames);
+-
+-    omx_err = m_omx_render.EmptyThisBuffer(omx_buffer);
+-    if (omx_err != OMX_ErrorNone)
+-      CLog::Log(LOGERROR, "%s:%s frames=%d err=%x", CLASSNAME, __func__, frames, omx_err);
+-    m_submitted++;
++    CLog::Log(LOGERROR, "CAESinkPi::AddPackets timeout");
++    return 0;
+   }
+ 
+-  return sent;
++  omx_buffer->nFilledLen = frames * m_format.m_frameSize;
++  // must be true
++  assert(omx_buffer->nFilledLen <= omx_buffer->nAllocLen);
++  omx_buffer->nTimeStamp = ToOMXTime(0);
++  omx_buffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
++  memcpy(omx_buffer->pBuffer, data, omx_buffer->nFilledLen);
++
++  omx_err = m_omx_render.EmptyThisBuffer(omx_buffer);
++  if (omx_err != OMX_ErrorNone)
++    CLog::Log(LOGERROR, "%s:%s frames=%d err=%x", CLASSNAME, __func__, frames, omx_err);
++  m_submitted++;
++  delay = GetDelay();
++  if (delay > AUDIO_PLAYBUFFER)
++    Sleep((int)(1000.0f * (delay - AUDIO_PLAYBUFFER)));
++  return frames;
+ }
+ 
+ void CAESinkPi::Drain()
+-- 
+1.9.1
+
+
+From fca13a55932f54589dd6749109a6f7b7e1e62bc3 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Wed, 23 Apr 2014 22:36:01 +0100
+Subject: [PATCH 80/83] [omxplayer] Fix for aspect ratio of portrait videos
+
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index e9f86f3..7e2c644 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -651,6 +651,16 @@ void OMXPlayerVideo::SetVideoRect(const CRect &InSrcRect, const CRect &InDestRec
+   bool stereo_invert                   = (flags & CONF_FLAGS_STEREO_CADANCE_RIGHT_LEFT) ? true : false;
+   RENDER_STEREO_MODE display_stereo_mode = g_graphicsContext.GetStereoMode();
+ 
++  // fix up transposed video
++  if (m_hints.orientation == 90 || m_hints.orientation == 270)
++  {
++    float diff = (DestRect.Height() - DestRect.Width()) * 0.5f;
++    DestRect.x1 -= diff;
++    DestRect.x2 += diff;
++    DestRect.y1 += diff;
++    DestRect.y2 -= diff;
++  }
++
+   // check if destination rect or video view mode has changed
+   if (!(m_dst_rect != DestRect) && !(m_src_rect != SrcRect) && m_video_stereo_mode == video_stereo_mode && m_display_stereo_mode == display_stereo_mode && m_StereoInvert == stereo_invert)
+     return;
+-- 
+1.9.1
+
+
+From 5c6a0d0b472d9348acab38f6a2b992ce88a4bf48 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 22 Apr 2014 12:23:23 +0100
+Subject: [PATCH 81/83] [omxplayer] Make dvdplayer the default for dvd images
+
+---
+ xbmc/cores/omxplayer/omxplayer_advancedsettings.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/omxplayer_advancedsettings.xml b/xbmc/cores/omxplayer/omxplayer_advancedsettings.xml
+index 77c6a15..51c0daf 100644
+--- a/xbmc/cores/omxplayer/omxplayer_advancedsettings.xml
++++ b/xbmc/cores/omxplayer/omxplayer_advancedsettings.xml
+@@ -2,6 +2,6 @@
+ <advancedsettings>
+   <video>
+     <defaultplayer>omxplayer</defaultplayer>
+-    <defaultdvdplayer>omxplayer</defaultdvdplayer>
++    <defaultdvdplayer>dvdplayer</defaultdvdplayer>
+   </video>
+ </advancedsettings>
+-- 
+1.9.1
+
+
+From bd92bc9f3e6280d29a174f523b4408815e938419 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sat, 26 Apr 2014 17:27:52 +0100
+Subject: [PATCH 82/83] [cec] Don't suspend pi on tv switch off - it can't wake
+ up
+
+---
+ system/peripherals.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index a906628..9b5271a 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -16,7 +16,7 @@
+     <setting key="send_inactive_source" type="bool" value="1" label="36025" order="5" />
+     <setting key="cec_standby_screensaver" type="bool" value="0" label="36009" order="6" />
+     <setting key="cec_wake_screensaver" type="bool" value="1" label="36010" order="7" />
+-    <setting key="standby_pc_on_tv_standby" type="enum" value="13011" label="36029" order="8" lvalues="36028|13005|13011" />
++    <setting key="standby_pc_on_tv_standby" type="enum" value="36028" label="36029" order="8" lvalues="36028|13005|13011" />
+     <setting key="standby_tv_on_pc_standby" type="bool" value="1" label="36026" order="9" />
+     <setting key="use_tv_menu_language" type="bool" value="1" label="36018" order="10" />
+     <setting key="pause_playback_on_deactivate" type="bool" value="1" label="36033" order="11" />
+-- 
+1.9.1
+
+
+From 61e7f37a0dace93a31df0dd39bb4a3ac220cb49a Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sat, 12 Apr 2014 17:57:19 +0100
+Subject: [PATCH 83/83] [omxplayer] Ignore occasionally valid pts values, they
+ cause live tv stutter
+
+---
+ xbmc/cores/omxplayer/OMXPlayerVideo.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+index 7e2c644..b3786f6 100644
+--- a/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
++++ b/xbmc/cores/omxplayer/OMXPlayerVideo.cpp
+@@ -490,7 +490,7 @@ void OMXPlayerVideo::Process()
+         // if a stream has had more than 4 valid pts values in the last 16, the use UNKNOWN, otherwise use dts
+         m_history_valid_pts = (m_history_valid_pts << 1) | (pPacket->pts != DVD_NOPTS_VALUE);
+         double pts = pPacket->pts;
+-        if(pPacket->pts == DVD_NOPTS_VALUE && count_bits(m_history_valid_pts & 0xffff) < 4)
++        if(count_bits(m_history_valid_pts & 0xffff) < 4)
+           pts = pPacket->dts;
+ 
+         if (pts != DVD_NOPTS_VALUE)
 -- 
 1.9.1
 
