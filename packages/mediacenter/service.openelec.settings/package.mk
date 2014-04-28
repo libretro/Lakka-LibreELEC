@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="service.openelec.settings"
-PKG_VERSION="0.3.14"
+PKG_VERSION="0.3.15"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
