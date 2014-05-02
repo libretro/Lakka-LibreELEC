@@ -36,7 +36,7 @@ for i in $SKINS; do
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $MEDIACENTER-theme-$i"
 done
 
-if [ "$MEDIACENTER" = "xbmc" ]; then
+if [ "$MEDIACENTER" = "xbmc" -o "$MEDIACENTER" = "xbmc-master" ]; then
 # some python stuff needed for various addons
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Imaging"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET simplejson"
