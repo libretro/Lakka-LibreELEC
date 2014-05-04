@@ -81,7 +81,14 @@ makeinstall_target() {
   fi
 
   mkdir -p $INSTALL/usr/share/bootloader
+
+  if [ -f "./u-boot.bin" ]; then
     cp ./u-boot.bin $INSTALL/usr/share/bootloader
+  fi
+
+  if [ -f "./u-boot.imx" ]; then
+    cp ./u-boot.imx $INSTALL/usr/share/bootloader
+  fi
 
   if [ -f "./u-boot.img" ]; then
     cp ./u-boot.img $INSTALL/usr/share/bootloader
