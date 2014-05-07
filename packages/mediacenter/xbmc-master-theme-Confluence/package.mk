@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xbmc-master-theme-Confluence"
-PKG_VERSION="14-297f4ad"
+PKG_VERSION="14-54a2dc7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
