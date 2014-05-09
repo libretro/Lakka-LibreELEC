@@ -55,9 +55,6 @@ if [ "$MESA_VAAPI_SUPPORT" = "yes" ]; then
 fi
 
 XA_CONFIG="--disable-xa"
-for drv in $GRAPHIC_DRIVERS; do
-  [ "$drv" = "vmware" ] && XA_CONFIG="--enable-xa"
-done
 
 PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            CXX_FOR_BUILD=$HOST_CXX \
