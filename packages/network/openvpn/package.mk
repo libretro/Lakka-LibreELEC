@@ -38,7 +38,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_have_decl_TUNSETPERSIST=no \
                            --enable-password-save \
                            --disable-plugins \
                            --enable-iproute2 IPROUTE=/sbin/ip \
-                           --disable-management \
+                           --enable-management \
                            --disable-socks \
                            --disable-http-proxy \
                            --disable-fragment \
