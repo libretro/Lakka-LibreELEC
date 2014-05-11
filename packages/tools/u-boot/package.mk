@@ -82,10 +82,6 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/usr/share/bootloader
 
-  if [ -f "./u-boot.bin" ]; then
-    cp ./u-boot.bin $INSTALL/usr/share/bootloader
-  fi
-
   if [ -f "./u-boot.imx" ]; then
     cp ./u-boot.imx $INSTALL/usr/share/bootloader
   fi
@@ -94,23 +90,17 @@ makeinstall_target() {
     cp ./u-boot.img $INSTALL/usr/share/bootloader
   fi
 
-  if [ -f "./MLO" ]; then
-    cp ./MLO $INSTALL/usr/share/bootloader
-  fi
-
   if [ -f "./SPL" ]; then
     cp ./SPL $INSTALL/usr/share/bootloader
-  fi
-
-  if [ -f "./boot.cfg" ]; then
-    cp ./boot.cfg $INSTALL/usr/share/bootloader
   fi
 
   if [ -f "./$UBOOT_CONFIGFILE" ]; then
     cp ./$UBOOT_CONFIGFILE $INSTALL/usr/share/bootloader
   fi
 
-  for config in $PROJECT_DIR/$PROJECT/bootloader/*; do
-    cp -PR $config $INSTALL/usr/share/bootloader
-  done
+  cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
+
+  if [ -f "$PROJECT_DIR/$PROJECT/bootloader/uEnv.txt" ]; then
+    cp -PR  $PROJECT_DIR/$PROJECT/bootloader/uEnv.txt $INSTALL/usr/share/bootloader
+  fi 
 }
