@@ -87,7 +87,7 @@ fi
     else
       parted -s "$LOOP" -a min unit s mkpart primary ext4 2048 $SYSTEM_PART_END
     fi
-  elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
+  elif [ "$BOOTLOADER" = "bcm2835-bootloader" -o "$BOOTLOADER" = "u-boot" ]; then
     parted -s "$LOOP" -a min unit s mkpart primary fat32 2048 $SYSTEM_PART_END
   fi
   if [ "$UEFI" = "yes" ] ; then
@@ -131,7 +131,7 @@ fi
       tune2fs -U $UUID_SYSTEM "$LOOP"
       e2fsck -n "$LOOP"
     fi
-  elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
+  elif [ "$BOOTLOADER" = "bcm2835-bootloader" -o "$BOOTLOADER" = "u-boot" ]; then
     mkfs.vfat "$LOOP"
   fi
   sync
@@ -227,6 +227,30 @@ EOF
     cp $RELEASE_DIR/3rdparty/bootloader/fixup.dat "$OE_TMP"
     cp $RELEASE_DIR/3rdparty/bootloader/start.elf "$OE_TMP"
     cp $RELEASE_DIR/3rdparty/bootloader/config.txt "$OE_TMP"
+elif [ "$BOOTLOADER" = "u-boot" ]; then
+  # create bootloader configuration
+    echo "image: creating bootloader configuration..."
+    if [ -f "$RELEASE_DIR/3rdparty/bootloader/uEnv.txt" ]; then
+      cp $RELEASE_DIR/3rdparty/bootloader/uEnv.txt "$OE_TMP"
+    elif [ -f "$RELEASE_DIR/3rdparty/bootloader/boot.scr" ]; then
+      cp $RELEASE_DIR/3rdparty/bootloader/boot.scr "$OE_TMP"
+    fi
+
+    echo "image: installing u-boot bootloader..."
+    if [ "$RELEASE_DIR/3rdparty/bootloader/SPL" ]; then
+      dd if="$RELEASE_DIR/3rdparty/bootloader/SPL" of="$DISK" bs=512 seek=2 conv=notrunc
+    elif [ "$RELEASE_DIR/3rdparty/bootloader/u-boot.imx" ]; then
+      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot.imx" of="$DISK" bs=512 seek=2 conv=notrunc
+    fi
+
+    echo "image: copying files to part1..."
+    cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/KERNEL"
+    cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
+    cp $RELEASE_DIR/3rdparty/bootloader/u-boot.img "$OE_TMP"
+
+    for dtb in $(ls $RELEASE_DIR/3rdparty/bootloader/*.dtb) ; do
+      cp "$dtb" "$OE_TMP"
+    done
 fi # bootloader
 
 # unmount part1
