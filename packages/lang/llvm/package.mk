@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="llvm"
-PKG_VERSION="3.4"
+PKG_VERSION="3.4.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://llvm.org/"
-PKG_URL="http://llvm.org/releases/3.4/${PKG_NAME}-${PKG_VERSION}.src.tar.gz"
+PKG_URL="http://llvm.org/releases/$PKG_VERSION/${PKG_NAME}-${PKG_VERSION}.src.tar.gz"
+PKG_SOURCE_DIR="${PKG_NAME}-${PKG_VERSION}.src"
 PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="toolchain llvm:host"
 PKG_PRIORITY="optional"
