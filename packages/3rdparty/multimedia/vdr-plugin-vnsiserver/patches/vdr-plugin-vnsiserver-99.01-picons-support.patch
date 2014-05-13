@@ -1,0 +1,111 @@
+From d606718fed2004403e16345227df3bd7232d5206 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 11 May 2014 11:59:38 +0200
+Subject: [PATCH] add picon reference for channels, ported from xvdr
+
+---
+ vnsiclient.c  | 46 +++++++++++++++++++++++++++++++++++++++++++++-
+ vnsiclient.h  |  2 ++
+ vnsicommand.h |  5 ++++-
+ 3 files changed, 51 insertions(+), 2 deletions(-)
+
+diff --git a/vnsiclient.c b/vnsiclient.c
+index a752ad0..d3f3b55 100644
+--- a/vnsiclient.c
++++ b/vnsiclient.c
+@@ -631,7 +631,7 @@ bool cVNSIClient::process_Login() /* OPCODE 1 */
+   m_resp->add_String(VNSI_SERVER_VERSION);
+   m_resp->finalise();
+ 
+-  if (m_protocolVersion != VNSI_PROTOCOLVERSION)
++  if (m_protocolVersion < VNSI_MIN_PROTOCOLVERSION)
+     ERRORLOG("Client '%s' have a not allowed protocol version '%u', terminating client", clientName, m_protocolVersion);
+   else
+     SetLoggedIn(true);
+@@ -1019,6 +1019,10 @@ bool cVNSIClient::processCHANNELS_GetChannels() /* OPCODE 63 */
+       caid_idx++;
+     }
+     m_resp->add_String((const char*)caids);
++    if (m_protocolVersion >= 6)
++    {
++      m_resp->add_String(CreatePiconRef(channel));
++    }
+   }
+ 
+   Channels.Unlock();
+@@ -2278,3 +2282,43 @@ bool cVNSIClient::processOSD_Hitkey() /* OPCODE 162 */
+   }
+   return true;
+ }
++
++// this method is taken from XVDR
++cString cVNSIClient::CreatePiconRef(cChannel* channel)
++{
++  int hash = 0;
++
++  if(cSource::IsSat(channel->Source()))
++  {
++    hash = channel->Source() & cSource::st_Pos;
++
++#if VDRVERSNUM >= 20101
++    hash = -hash;
++#endif
++
++    if(hash > 0x00007FFF)
++      hash |= 0xFFFF0000;
++
++    if(hash < 0)
++      hash = -hash;
++    else
++      hash = 1800 + hash;
++
++    hash = hash << 16;
++  }
++  else if(cSource::IsCable(channel->Source()))
++    hash = 0xFFFF0000;
++  else if(cSource::IsTerr(channel->Source()))
++    hash = 0xEEEE0000;
++  else if(cSource::IsAtsc(channel->Source()))
++    hash = 0xDDDD0000;
++
++  cString serviceref = cString::sprintf("1_0_%i_%X_%X_%X_%X_0_0_0",
++                                cVNSIChannelFilter::IsRadio(channel) ? 2 : (channel->Vtype() == 27) ? 19 : 1,
++                                channel->Sid(),
++                                channel->Tid(),
++                                channel->Nid(),
++                                hash);
++
++  return serviceref;
++}
+diff --git a/vnsiclient.h b/vnsiclient.h
+index b0f2ece..0db805f 100644
+--- a/vnsiclient.h
++++ b/vnsiclient.h
+@@ -181,6 +181,8 @@ class cVNSIClient : public cThread
+   bool processOSD_Connect();
+   bool processOSD_Disconnect();
+   bool processOSD_Hitkey();
++
++  cString CreatePiconRef(cChannel* channel);
+ };
+ 
+ #endif // VNSI_CLIENT_H
+diff --git a/vnsicommand.h b/vnsicommand.h
+index 3ffa722..fab608a 100644
+--- a/vnsicommand.h
++++ b/vnsicommand.h
+@@ -27,7 +27,10 @@
+ #define VNSI_COMMAND_H
+ 
+ /** Current VNSI Protocol Version number */
+-#define VNSI_PROTOCOLVERSION 5
++#define VNSI_PROTOCOLVERSION 6
++
++/** Minimum VNSI Protocol Version number */
++#define VNSI_MIN_PROTOCOLVERSION 5
+ 
+ /** Packet types */
+ #define VNSI_CHANNEL_REQUEST_RESPONSE 1
+-- 
+1.9.1
+
