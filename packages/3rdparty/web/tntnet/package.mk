@@ -50,10 +50,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-unittest \
                            --with-ssl=no \
                            --with-stressjob=no"
 
-pre_configure_target() {
-  strip_lto
-}
-
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/share
