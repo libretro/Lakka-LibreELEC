@@ -1,0 +1,60 @@
+diff -Naur bcm_sta-6.20.155.1/x86-32/src/wl/sys/wl_cfg80211.c bcm_sta-6.20.155.1.patch/x86-32/src/wl/sys/wl_cfg80211.c
+--- bcm_sta-6.20.155.1/x86-32/src/wl/sys/wl_cfg80211.c	2013-04-14 23:10:38.000000000 +0200
++++ bcm_sta-6.20.155.1.patch/x86-32/src/wl/sys/wl_cfg80211.c	2014-05-14 21:50:23.219067311 +0200
+@@ -1792,7 +1792,26 @@
+ 			wl_get_assoc_ies(wl);
+ 			memcpy(&wl->bssid, &e->addr, ETHER_ADDR_LEN);
+ 			wl_update_bss_info(wl);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0)
++			{
++				struct wl_bss_info *bi;
++				u16 bss_info_channel;
++				struct ieee80211_channel *channel;
++				u32 freq;
++
++				bi = (struct wl_bss_info *)(wl->extra_buf + 4);
++				bss_info_channel = bi->ctl_ch ? bi->ctl_ch : CHSPEC_CHANNEL(bi->chanspec);
++
++				freq = ieee80211_channel_to_frequency(bss_info_channel,
++					(bss_info_channel <= CH_MAX_2G_CHANNEL) ?
++					IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ);
++
++				channel = ieee80211_get_channel(wl_to_wiphy(wl), freq);
++				cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, channel, GFP_KERNEL);
++			}
++#else
+ 			cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, GFP_KERNEL);
++#endif
+ 			set_bit(WL_STATUS_CONNECTED, &wl->status);
+ 			wl->profile->active = true;
+ 		}
+diff -Naur bcm_sta-6.20.155.1/x86-64/src/wl/sys/wl_cfg80211.c bcm_sta-6.20.155.1.patch/x86-64/src/wl/sys/wl_cfg80211.c
+--- bcm_sta-6.20.155.1/x86-64/src/wl/sys/wl_cfg80211.c	2013-04-14 23:10:38.000000000 +0200
++++ bcm_sta-6.20.155.1.patch/x86-64/src/wl/sys/wl_cfg80211.c	2014-05-14 21:50:45.102092217 +0200
+@@ -1792,7 +1792,26 @@
+ 			wl_get_assoc_ies(wl);
+ 			memcpy(&wl->bssid, &e->addr, ETHER_ADDR_LEN);
+ 			wl_update_bss_info(wl);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0)
++			{
++				struct wl_bss_info *bi;
++				u16 bss_info_channel;
++				struct ieee80211_channel *channel;
++				u32 freq;
++
++				bi = (struct wl_bss_info *)(wl->extra_buf + 4);
++				bss_info_channel = bi->ctl_ch ? bi->ctl_ch : CHSPEC_CHANNEL(bi->chanspec);
++
++				freq = ieee80211_channel_to_frequency(bss_info_channel,
++					(bss_info_channel <= CH_MAX_2G_CHANNEL) ?
++					IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ);
++
++				channel = ieee80211_get_channel(wl_to_wiphy(wl), freq);
++				cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, channel, GFP_KERNEL);
++			}
++#else
+ 			cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, GFP_KERNEL);
++#endif
+ 			set_bit(WL_STATUS_CONNECTED, &wl->status);
+ 			wl->profile->active = true;
+ 		}
