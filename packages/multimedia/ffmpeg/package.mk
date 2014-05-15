@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="xbmc-de69c91"
+PKG_VERSION="xbmc-c7a04ca"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
