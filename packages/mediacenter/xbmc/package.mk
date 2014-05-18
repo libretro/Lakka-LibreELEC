@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xbmc"
-PKG_VERSION="13-692cfba"
+PKG_VERSION="13-a6a2713"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
