@@ -70,9 +70,9 @@ get_device_unmount() {
   # provides: DEVICES
 
   DEVICES=""
-  DEVICES=$(parted -s -m -l | grep ^/dev/sd | cut -f1 -d ":")
+  DEVICES=$(parted -s -m -l | grep -E '^/dev/sd|^/dev/mmcblk' | grep -E -v '.?rpmb|.?boot?' | cut -f1 -d ":")
 
-  for i in $(cat /proc/mounts | grep ^/dev/sd | cut -f1 -d " " | sed "s/[0-9]//"); do
+  for i in $(cat /proc/mounts | grep -E '^/dev/sd|^/dev/mmcblk' | cut -f1 -d " " | sed "s/[0-9]//"); do
     DEVICES=$(echo $DEVICES |sed -e "s|$i||")
   done
 }
@@ -190,6 +190,17 @@ do_install_quick() {
       INSTALL_DEVICE=$(cat "$TMPDIR/device_for_install")
       INSTALL_DEVICE_FULL=$(echo $DEVICE_LIST | sed "s|.*$INSTALL_DEVICE \([^ ]*\).*|$INSTALL_DEVICE \1|")
 
+      case $INSTALL_DEVICE in
+        "/dev/mmcblk"*)
+          PART1="p1"
+          PART2="p2"
+          ;;
+        *)
+          PART1="1"
+          PART2="2"
+          ;;
+      esac
+
       prompt_gpt
       prompt_ssh
       prompt_backup_unpack
@@ -262,39 +273,39 @@ do_install_quick() {
       # create filesystem
       msg_progress_install "23" "creating filesystem on ${INSTALL_DEVICE}1"
       if [ "$UEFI" = "1" ]; then
-        mkfs.vfat ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+        mkfs.vfat ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
       else
-        mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+        mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
       fi
 
-      msg_progress_install "25" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}1"
+      msg_progress_install "25" "set uuid and disklabel $DISKLABEL_SYSTEM on ${INSTALL_DEVICE}${PART1}"
       if [ "$UEFI" = "1" ]; then
-        dosfslabel ${INSTALL_DEVICE}1  $DISKLABEL_SYSTEM >> $LOGFILE 2>&1
+        dosfslabel ${INSTALL_DEVICE}${PART1}  $DISKLABEL_SYSTEM >> $LOGFILE 2>&1
       else
-        tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+        tune2fs -U random -L $DISKLABEL_SYSTEM  ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
       fi
 
-      msg_progress_install "28" "creating filesystem on ${INSTALL_DEVICE}2"
-      mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
+      msg_progress_install "28" "creating filesystem on ${INSTALL_DEVICE}${PART2}"
+      mke2fs -t ext4 -m 0 ${INSTALL_DEVICE}${PART2} >> $LOGFILE 2>&1
 
-      msg_progress_install "30" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}2"
-      tune2fs -U random -L $DISKLABEL_STORAGE  ${INSTALL_DEVICE}2 >> $LOGFILE 2>&1
+      msg_progress_install "30" "set uuid and disklabel $DISKLABEL_STORAGE on ${INSTALL_DEVICE}${PART2}"
+      tune2fs -U random -L $DISKLABEL_STORAGE  ${INSTALL_DEVICE}${PART2} >> $LOGFILE 2>&1
 
       # mount system partition
       msg_progress_install "35" "creating $TMPDIR/part1"
       mkdir -p $TMPDIR/part1 >> $LOGFILE 2>&1
 
-      msg_progress_install "40" "mounting ${INSTALL_DEVICE}1 to $TMPDIR/part1"
+      msg_progress_install "40" "mounting ${INSTALL_DEVICE}${PART1} to $TMPDIR/part1"
       if [ "$UEFI" = "1" ]; then
-        mount -t vfat ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+        mount -t vfat ${INSTALL_DEVICE}${PART1} $TMPDIR/part1 >> $LOGFILE 2>&1
       else
-        mount -t ext4 ${INSTALL_DEVICE}1 $TMPDIR/part1 >> $LOGFILE 2>&1
+        mount -t ext4 ${INSTALL_DEVICE}${PART1} $TMPDIR/part1 >> $LOGFILE 2>&1
       fi
 
       # installing extlinux
       msg_progress_install "50" "installing extlinux to $TMPDIR/part1"
       if [ "$UEFI" = "1" ]; then
-        syslinux -i ${INSTALL_DEVICE}1 >> $LOGFILE 2>&1
+        syslinux -i ${INSTALL_DEVICE}${PART1} >> $LOGFILE 2>&1
       else
         extlinux -i $TMPDIR/part1 >> $LOGFILE 2>&1
       fi
@@ -337,8 +348,8 @@ do_install_quick() {
         msg_progress_install "89" "creating $TMPDIR/part2"
         mkdir -p $TMPDIR/part2 >> $LOGFILE 2>&1
 
-        msg_progress_install "90" "mounting ${INSTALL_DEVICE}2 to $TMPDIR/part2"
-        mount -t ext4 ${INSTALL_DEVICE}2 $TMPDIR/part2 >> $LOGFILE 2>&1
+        msg_progress_install "90" "mounting ${INSTALL_DEVICE}${PART2} to $TMPDIR/part2"
+        mount -t ext4 ${INSTALL_DEVICE}${PART2} $TMPDIR/part2 >> $LOGFILE 2>&1
 
         msg_progress_install "92" "restoring backup"
         [ -f /flash/backup.tar.bz2 ] && tar -xjf /flash/backup.tar.bz2 -C $TMPDIR/part2 >> $LOGFILE 2>&1
