@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xbmc-master"
-PKG_VERSION="14-354a362"
+PKG_VERSION="14-0bf4fd0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
