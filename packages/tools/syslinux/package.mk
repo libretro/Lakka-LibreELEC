@@ -88,6 +88,9 @@ makeinstall_target() {
     cp bios/extlinux/extlinux $INSTALL/usr/bin
     cp bios/linux/syslinux $INSTALL/usr/bin
 
+  $STRIP $INSTALL/usr/bin/syslinux
+  $STRIP $INSTALL/usr/bin/extlinux
+
   mkdir -p $INSTALL/usr/share/syslinux
     cp bios/mbr/mbr.bin $INSTALL/usr/share/syslinux
     cp bios/mbr/gptmbr.bin $INSTALL/usr/share/syslinux
