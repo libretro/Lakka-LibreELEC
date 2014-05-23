@@ -43,4 +43,5 @@ pre_make_target() {
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/sensors-conf-convert
   rm -rf $INSTALL/usr/sbin/
+  $STRIP $INSTALL/usr/bin/sensors
 }
