@@ -119,43 +119,26 @@ if [ "$(type -t pre_patch)" = "function" ]; then
   pre_patch
 fi
 
-for i in $PKG_DIR/patches/$PKG_NAME-*.patch ; do
-  if [ -f "$i" ]; then
-    PATCH=`basename $i`
-    PT=`echo $PATCH | sed 's/.*\.\(.*\)$/\1/'`
-    if [ "$PT" != "patch" -a "$PT" != "$TARGET_ARCH" ]; then
-      printf "%${BUILD_INDENT}c ${boldyellow}SKIP PATCH${endcolor} ${boldwhite}(common)${endcolor}   $i\n" ' '>&$SILENT_OUT
-      continue;
-    else
-      printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}(common)${endcolor}   $i\n" ' '>&$SILENT_OUT
-      cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
-    fi
-  fi
-done
+for i in $PKG_DIR/patches/$PKG_NAME-*.patch \
+         $PKG_DIR/patches/$PKG_VERSION/*.patch \
+         $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/*.patch; do
 
-for i in $PKG_DIR/patches/$PKG_VERSION/*.patch ; do
-  if [ -f "$i" ]; then
-    PATCH=`basename $i`
-    PT=`echo $PATCH | sed 's/.*\.\(.*\)$/\1/'`
-    if [ "$PT" != "patch" -a "$PT" != "$TARGET_ARCH" ]; then
-      printf "%${BUILD_INDENT}c ${boldyellow}SKIP PATCH${endcolor} ${boldwhite}($PKG_VERSION)${endcolor}   $i\n" ' '>&$SILENT_OUT
-      continue;
-    else
-      printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}($PKG_VERSION)${endcolor}   $i\n" ' '>&$SILENT_OUT
-      cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
-    fi
+  if [ $(dirname $i) = "$PKG_DIR/patches" ]; then
+    PATCH_DESC="(common)"
+  elif [ $(dirname $i) = "$PKG_DIR/patches/$PKG_VERSION" ]; then
+    PATCH_DESC="($PKG_VERSION)"
+  elif [ $(dirname $i) = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME" ]; then
+    PATCH_DESC="(project)"
   fi
-done
 
-for i in $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/*.patch ; do
   if [ -f "$i" ]; then
     PATCH=`basename $i`
     PT=`echo $PATCH | sed 's/.*\.\(.*\)$/\1/'`
     if [ "$PT" != "patch" -a "$PT" != "$TARGET_ARCH" ]; then
-      printf "%${BUILD_INDENT}c ${boldyellow}SKIP PATCH${endcolor} ${boldwhite}(project)${endcolor}   $i\n" ' '>&$SILENT_OUT
+      printf "%${BUILD_INDENT}c ${boldyellow}SKIP PATCH${endcolor} ${boldwhite}${PATCH_DESC}${endcolor}   $i\n" ' '>&$SILENT_OUT
       continue;
     else
-      printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}(project)${endcolor}   $i\n" ' '>&$SILENT_OUT
+      printf "%${BUILD_INDENT}c ${boldgreen}APPLY PATCH${endcolor} ${boldwhite}${PATCH_DESC}${endcolor}   $i\n" ' '>&$SILENT_OUT
       cat $i | patch -d `echo "$PKG_BUILD" | cut -f1 -d\ ` -p1 >&$VERBOSE_OUT
     fi
   fi
