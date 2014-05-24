@@ -301,6 +301,11 @@ else
   XBMC_CRYSTALHD="--disable-crystalhd"
 fi
 
+if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
+# TODO: hack to for including FM patch on x86, rework this in OpenELEC-5.0
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET ffmpeg"
+fi
+
 export CXX_FOR_BUILD="$HOST_CXX"
 export CC_FOR_BUILD="$HOST_CC"
 export CXXFLAGS_FOR_BUILD="$HOST_CXXFLAGS"
