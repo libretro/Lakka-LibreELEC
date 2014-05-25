@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="wireless-regdb"
-PKG_VERSION="2013.11.27"
+PKG_VERSION="2014.05.19"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wireless.kernel.org/en/developers/Regulatory"
-PKG_URL="https://www.kernel.org/pub/software/network/$PKG_NAME/$PKG_NAME-2013.11.27.tar.gz"
+PKG_URL="https://www.kernel.org/pub/software/network/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
