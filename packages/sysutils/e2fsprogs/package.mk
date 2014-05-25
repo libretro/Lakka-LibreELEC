@@ -24,6 +24,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/$PKG_NAME/$PKG_NAME/1.42/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_INIT="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="e2fsprogs: Utilities for use with the ext2 filesystem"
@@ -63,6 +64,34 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --disable-rpath \
                            --with-gnu-ld"
 
+PKG_CONFIGURE_OPTS_INIT="--prefix=/ \
+                         --bindir=/bin \
+                         --sbindir=/sbin \
+                         --enable-verbose-makecmds \
+                         --enable-symlink-install \
+                         --enable-symlink-build \
+                         --disable-compression \
+                         --disable-htree \
+                         --disable-elf-shlibs \
+                         --disable-bsd-shlibs \
+                         --disable-profile \
+                         --disable-jbd-debug \
+                         --disable-blkid-debug \
+                         --disable-testio-debug \
+                         --enable-libuuid \
+                         --enable-libblkid \
+                         --disable-debugfs \
+                         --disable-imager \
+                         --disable-resizer \
+                         --enable-fsck \
+                         --disable-e2initrd-helper \
+                         --enable-tls \
+                         --disable-uuidd \
+                         --disable-nls \
+                         --disable-rpath \
+                         --with-gnu-ld"
+
+
 pre_configure_target() {
 # e2fsprogs fails to build with LTO support on gcc-4.9
   strip_lto
@@ -78,4 +107,14 @@ post_makeinstall_target() {
   rm -rf $INSTALL/sbin/filefrag
   rm -rf $INSTALL/sbin/logsave
   rm -rf $INSTALL/sbin/mklost+found
+}
+
+pre_configure_init() {
+# e2fsprogs fails to build with LTO support on gcc-4.9
+  strip_lto
+}
+
+makeinstall_init() {
+  mkdir -p $INSTALL/sbin
+  cp e2fsck/e2fsck $INSTALL/sbin
 }
