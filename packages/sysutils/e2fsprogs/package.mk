@@ -67,3 +67,15 @@ pre_configure_target() {
 # e2fsprogs fails to build with LTO support on gcc-4.9
   strip_lto
 }
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/sbin/badblocks
+  rm -rf $INSTALL/sbin/blkid
+  rm -rf $INSTALL/sbin/dumpe2fs
+  rm -rf $INSTALL/sbin/e2freefrag
+  rm -rf $INSTALL/sbin/e2undo
+  rm -rf $INSTALL/sbin/e4defrag
+  rm -rf $INSTALL/sbin/filefrag
+  rm -rf $INSTALL/sbin/logsave
+  rm -rf $INSTALL/sbin/mklost+found
+}
