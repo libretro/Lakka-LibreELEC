@@ -1,0 +1,200 @@
+From e0281842588c867fdf3f26fe15f70576e1363f4e Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 11 May 2014 12:01:23 +0200
+Subject: [PATCH] VNSI: add icon path to channels
+
+---
+ .../addon/resources/language/English/strings.po           |  6 +++++-
+ addons/pvr.vdr.vnsi/addon/resources/settings.xml          |  1 +
+ addons/pvr.vdr.vnsi/src/VNSIAdmin.cpp                     |  6 +++++-
+ addons/pvr.vdr.vnsi/src/VNSIData.cpp                      | 13 +++++++++++++
+ addons/pvr.vdr.vnsi/src/VNSISession.cpp                   |  6 +++---
+ addons/pvr.vdr.vnsi/src/VNSISession.h                     |  6 +++---
+ addons/pvr.vdr.vnsi/src/client.cpp                        | 15 +++++++++++++++
+ addons/pvr.vdr.vnsi/src/client.h                          |  1 +
+ addons/pvr.vdr.vnsi/src/vnsicommand.h                     |  5 ++++-
+ 9 files changed, 50 insertions(+), 9 deletions(-)
+
+diff --git a/addons/pvr.vdr.vnsi/addon/resources/language/English/strings.po b/addons/pvr.vdr.vnsi/addon/resources/language/English/strings.po
+index 0dbd547..b5ca004 100644
+--- a/addons/pvr.vdr.vnsi/addon/resources/language/English/strings.po
++++ b/addons/pvr.vdr.vnsi/addon/resources/language/English/strings.po
+@@ -210,7 +210,11 @@ msgctxt "#30047"
+ msgid "Request Timeshift"
+ msgstr ""
+ 
+-#empty strings from id 30048 to 30099
++msgctxt "#30048"
++msgid "Path to channel icons"
++msgstr ""
++
++#empty strings from id 30049 to 30099
+ 
+ msgctxt "#30100"
+ msgid "VDR OSD"
+diff --git a/addons/pvr.vdr.vnsi/addon/resources/settings.xml b/addons/pvr.vdr.vnsi/addon/resources/settings.xml
+index c75cc8c..e750ee0 100644
+--- a/addons/pvr.vdr.vnsi/addon/resources/settings.xml
++++ b/addons/pvr.vdr.vnsi/addon/resources/settings.xml
+@@ -8,4 +8,5 @@
+     <setting id="timeout" type="enum" label="30004" values="0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15" default="3"/>
+     <setting id="handlemessages" type="bool" label="30005" default="true" />
+     <setting id="autochannelgroups" type="bool" label="30046" default="false" />
++    <setting id="iconpath" type="folder" source="files" label="30048" default="" />
+ </settings>
+diff --git a/addons/pvr.vdr.vnsi/src/VNSIAdmin.cpp b/addons/pvr.vdr.vnsi/src/VNSIAdmin.cpp
+index a8b5403..36a2dff 100644
+--- a/addons/pvr.vdr.vnsi/src/VNSIAdmin.cpp
++++ b/addons/pvr.vdr.vnsi/src/VNSIAdmin.cpp
+@@ -1427,11 +1427,15 @@ bool cVNSIAdmin::ReadChannelList(bool radio)
+     char *strChannelName  = vresp->extract_String();
+     channel.m_name = strChannelName;
+     char *strProviderName = vresp->extract_String();
+-    channel.m_provider = strProviderName;
++    channel.m_provider    = strProviderName;
+     channel.m_id          = vresp->extract_U32();
+                             vresp->extract_U32(); // first caid
+     char *strCaids        = vresp->extract_String();
+     channel.SetCaids(strCaids);
++    if (m_protocol >= 6)
++    {
++      std::string ref = vresp->extract_String();
++    }
+     channel.m_radio       = radio;
+ 
+     delete[] strChannelName;
+diff --git a/addons/pvr.vdr.vnsi/src/VNSIData.cpp b/addons/pvr.vdr.vnsi/src/VNSIData.cpp
+index cc14adf..34ed599 100644
+--- a/addons/pvr.vdr.vnsi/src/VNSIData.cpp
++++ b/addons/pvr.vdr.vnsi/src/VNSIData.cpp
+@@ -235,6 +235,19 @@ bool cVNSIData::GetChannelsList(ADDON_HANDLE handle, bool radio)
+     tag.iUniqueId         = vresp->extract_U32();
+     tag.iEncryptionSystem = vresp->extract_U32();
+     char *strCaids        = vresp->extract_String();
++    if (m_protocol >= 6)
++    {
++      std::string path = g_szIconPath;
++      std::string ref = vresp->extract_String();
++      if (!path.empty())
++      {
++        if (path[path.length()-1] != '/')
++          path += '/';
++        path += ref;
++        path += ".png";
++        strncpy(tag.strIconPath, path.c_str(), sizeof(tag.strIconPath) - 1);
++      }
++    }
+     tag.bIsRadio          = radio;
+ 
+     PVR->TransferChannelEntry(handle, &tag);
+diff --git a/addons/pvr.vdr.vnsi/src/VNSISession.cpp b/addons/pvr.vdr.vnsi/src/VNSISession.cpp
+index fe2766f..01ff652 100644
+--- a/addons/pvr.vdr.vnsi/src/VNSISession.cpp
++++ b/addons/pvr.vdr.vnsi/src/VNSISession.cpp
+@@ -44,8 +44,8 @@ using namespace ADDON;
+ using namespace PLATFORM;
+ 
+ cVNSISession::cVNSISession()
+-  : m_socket(NULL)
+-  , m_protocol(0)
++  : m_protocol(0)
++  , m_socket(NULL)
+   , m_connectionLost(false)
+ {
+ }
+@@ -131,7 +131,7 @@ bool cVNSISession::Login()
+     m_version   = ServerVersion;
+     m_protocol  = (int)protocol;
+ 
+-    if (m_protocol < VNSI_PROTOCOLVERSION)
++    if (m_protocol < VNSI_MIN_PROTOCOLVERSION)
+       throw "Protocol versions do not match";
+ 
+     if (m_name.empty())
+diff --git a/addons/pvr.vdr.vnsi/src/VNSISession.h b/addons/pvr.vdr.vnsi/src/VNSISession.h
+index c09e276..b8bdabc 100644
+--- a/addons/pvr.vdr.vnsi/src/VNSISession.h
++++ b/addons/pvr.vdr.vnsi/src/VNSISession.h
+@@ -70,6 +70,9 @@ class cVNSISession
+   int              m_port;
+   std::string      m_name;
+   PLATFORM::CMutex m_mutex;
++  int              m_protocol;
++  std::string      m_server;
++  std::string      m_version;
+ 
+ private:
+ 
+@@ -77,8 +80,5 @@ class cVNSISession
+ 
+   PLATFORM::CTcpConnection *m_socket;
+   PLATFORM::CMutex          m_readMutex;
+-  int                       m_protocol;
+-  std::string               m_server;
+-  std::string               m_version;
+   bool                      m_connectionLost;
+ };
+diff --git a/addons/pvr.vdr.vnsi/src/client.cpp b/addons/pvr.vdr.vnsi/src/client.cpp
+index 5898615..9cd7f8f 100644
+--- a/addons/pvr.vdr.vnsi/src/client.cpp
++++ b/addons/pvr.vdr.vnsi/src/client.cpp
+@@ -49,6 +49,7 @@ int           g_iConnectTimeout         = DEFAULT_TIMEOUT;      ///< The Socket
+ int           g_iPriority               = DEFAULT_PRIORITY;     ///< The Priority this client have in response to other clients
+ bool          g_bAutoChannelGroups      = DEFAULT_AUTOGROUPS;
+ int           g_iTimeshift              = 1;
++std::string   g_szIconPath              = "";
+ 
+ CHelper_libXBMC_addon *XBMC   = NULL;
+ CHelper_libXBMC_codec *CODEC  = NULL;
+@@ -178,6 +179,20 @@ ADDON_STATUS ADDON_Create(void* hdl, void* props)
+     g_bAutoChannelGroups = DEFAULT_AUTOGROUPS;
+   }
+ 
++  /* Read setting "iconpath" from settings.xml */
++  buffer = (char*) malloc(512);
++  buffer[0] = 0; /* Set the end of string */
++
++  if (XBMC->GetSetting("iconpath", buffer))
++    g_szIconPath = buffer;
++  else
++  {
++    /* If setting is unknown fallback to defaults */
++    XBMC->Log(LOG_ERROR, "Couldn't get 'iconpath' setting");
++    g_szHostname = "";
++  }
++  free(buffer);
++
+   VNSIData = new cVNSIData;
+   if (!VNSIData->Open(g_szHostname, g_iPort))
+   {
+diff --git a/addons/pvr.vdr.vnsi/src/client.h b/addons/pvr.vdr.vnsi/src/client.h
+index 454be38..02093fa 100644
+--- a/addons/pvr.vdr.vnsi/src/client.h
++++ b/addons/pvr.vdr.vnsi/src/client.h
+@@ -41,6 +41,7 @@ extern int          g_iPriority;          ///< The Priority this client have in
+ extern bool         g_bCharsetConv;       ///< Convert VDR's incoming strings to UTF8 character set
+ extern bool         g_bHandleMessages;    ///< Send VDR's OSD status messages to XBMC OSD
+ extern int          g_iTimeshift;
++extern std::string  g_szIconPath;         ///< path to channel icons
+ 
+ extern ADDON::CHelper_libXBMC_addon *XBMC;
+ extern CHelper_libXBMC_codec *CODEC;
+diff --git a/addons/pvr.vdr.vnsi/src/vnsicommand.h b/addons/pvr.vdr.vnsi/src/vnsicommand.h
+index f570fd3..c227188 100644
+--- a/addons/pvr.vdr.vnsi/src/vnsicommand.h
++++ b/addons/pvr.vdr.vnsi/src/vnsicommand.h
+@@ -23,7 +23,10 @@
+ #define VNSI_COMMAND_H
+ 
+ /** Current VNSI Protocol Version number */
+-#define VNSI_PROTOCOLVERSION 5
++#define VNSI_PROTOCOLVERSION 6
++
++/** Minimum VNSI Protocol Version number */
++#define VNSI_MIN_PROTOCOLVERSION 5
+ 
+ /** Packet types */
+ #define VNSI_CHANNEL_REQUEST_RESPONSE 1
+-- 
+1.9.3
+
