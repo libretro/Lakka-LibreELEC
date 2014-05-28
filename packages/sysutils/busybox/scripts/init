@@ -445,6 +445,8 @@
   mount_storage() {    
     progress "Mounting storage"
 
+    check_part $disk
+
     wakeonlan
 
     if [ -n "$disk" ]; then
@@ -467,6 +469,24 @@
 
       mount_part "$disk" "/storage" "rw,noatime"
     fi
+  }
+
+  check_part() {
+    case $1 in
+      # skip if non local fs
+      LABEL=*|UUID=*|/*)
+        progress "checking $1"
+
+        # assuming /storage is ext234, e2fsck -p is safe
+        # if not ext234, I dont care. I dont want to support non-ext234 /storage
+        /sbin/e2fsck -p $1 &>/dev/null
+        if [ $? -eq 4 -o $? -eq 8 ] ; then
+          # TODO: e2fsck -y (a call for disaster)
+          #  or debug shell + some info for how to manualy repair
+          : # k0p k0p placeholder. do nothing
+        fi
+        ;;
+    esac
   }
 
   check_update() {
