@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="212"
+PKG_VERSION="213"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -51,8 +51,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-ima \
                            --disable-chkconfig \
                            --disable-selinux \
+                           --disable-apparmor \
                            --disable-xz \
-                           --disable-tcpwrap \
                            --disable-pam \
                            --disable-acl \
                            --disable-xattr \
@@ -62,6 +62,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-libcryptsetup \
                            --disable-qrencode \
                            --disable-microhttpd \
+                           --disable-gnutls \
                            --disable-binfmt \
                            --disable-vconsole \
                            --disable-readahead \
@@ -69,25 +70,28 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-quotacheck \
                            --enable-tmpfiles \
                            --disable-randomseed \
-                           --enable-logind \
                            --disable-backlight \
+                           --disable-rfkill \
+                           --enable-logind \
                            --disable-machined \
                            --disable-hostnamed \
                            --disable-timedated \
+                           --disable-timesyncd \
                            --disable-localed \
                            --disable-coredump \
                            --disable-polkit \
-                           --disable-multi-seat-x \
+                           --disable-resolved \
                            --disable-networkd \
                            --disable-efi \
+                           --disable-multi-seat-x \
                            --disable-kdbus \
                            --disable-myhostname \
                            --enable-gudev \
                            --disable-manpages \
+                           --enable-split-usr \
                            --disable-tests \
                            --without-python \
                            --disable-python-devel \
-                           --enable-split-usr \
                            --with-firmware-path=/storage/.config/firmware:/lib/firmware \
                            --with-sysvinit-path= \
                            --with-sysvrcnd-path= \
