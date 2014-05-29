@@ -65,34 +65,7 @@ PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
                            --disable-rpath \
                            --with-gnu-ld"
 
-PKG_CONFIGURE_OPTS_INIT="BUILD_CC=$HOST_CC \
-                         --prefix=/ \
-                         --bindir=/bin \
-                         --sbindir=/sbin \
-                         --enable-verbose-makecmds \
-                         --enable-symlink-install \
-                         --enable-symlink-build \
-                         --disable-compression \
-                         --disable-htree \
-                         --disable-elf-shlibs \
-                         --disable-bsd-shlibs \
-                         --disable-profile \
-                         --disable-jbd-debug \
-                         --disable-blkid-debug \
-                         --disable-testio-debug \
-                         --enable-libuuid \
-                         --enable-libblkid \
-                         --disable-debugfs \
-                         --disable-imager \
-                         --disable-resizer \
-                         --enable-fsck \
-                         --disable-e2initrd-helper \
-                         --enable-tls \
-                         --disable-uuidd \
-                         --disable-nls \
-                         --disable-rpath \
-                         --with-gnu-ld"
-
+PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
 
 pre_configure_target() {
 # e2fsprogs fails to build with LTO support on gcc-4.9
