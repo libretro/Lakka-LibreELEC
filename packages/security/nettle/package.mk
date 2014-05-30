@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lysator.liu.se/~nisse/nettle"
 PKG_URL="http://www.lysator.liu.se/~nisse/archive/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain gmp"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="security"
 PKG_SHORTDESC="nettle: a cryptographic library"
@@ -32,7 +32,7 @@ PKG_LONGDESC="Nettle is a cryptographic library that is designed to fit easily i
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-openssl CC_FOR_BUILD=$HOST_CC"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-openssl --enable-mini-gmp CC_FOR_BUILD=$HOST_CC"
 
 pre_configure_target() {
 # dont build parallel
