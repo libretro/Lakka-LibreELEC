@@ -50,6 +50,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-hardware-acceleration \
                            --disable-guile \
                            --disable-valgrind-tests \
                            --without-lzo \
+                           --with-nettle-mini \
                            --with-gnu-ld"
 
 post_makeinstall_target() {
