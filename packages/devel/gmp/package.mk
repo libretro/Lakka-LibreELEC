@@ -25,7 +25,6 @@ PKG_LICENSE="LGPLv3+"
 PKG_SITE="http://gmplib.org/"
 PKG_URL="https://gmplib.org/download/gmp/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="ccache:host"
-PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="gmp: The GNU MP (multiple precision arithmetic) library"
@@ -35,15 +34,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-cxx"
-PKG_CONFIGURE_OPTS_TARGET="--disable-cxx"
 
 pre_configure_host() {
   export CFLAGS="$CFLAGS -fPIC -DPIC"
   export CPPFLAGS="$CPPFLAGS -fexceptions"
-}
-
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-  export CPPFLAGS="$CPPFLAGS -fexceptions"
-  export CC_FOR_BUILD="$HOST_CC"
 }
