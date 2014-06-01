@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="glib"
-PKG_VERSION="2.34.3"
+PKG_VERSION="2.40.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
-PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/2.34/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/2.40/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="ccache:host libffi:host libxml2:host zlib:host Python:host"
 PKG_DEPENDS_TARGET="toolchain zlib libffi pcre glib:host Python:host"
 PKG_PRIORITY="optional"
@@ -58,7 +58,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
                            --disable-man \
                            --disable-dtrace \
                            --disable-systemtap \
-                           --disable-gcov \
                            --enable-Bsymbolic \
                            --with-gnu-ld \
                            --with-threads=posix \
