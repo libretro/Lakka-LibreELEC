@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.42.8"
+PKG_VERSION="1.42.10"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -37,7 +37,8 @@ if [ "$HFSTOOLS" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET diskdev_cmds"
 fi
 
-PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
+PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
+                           --prefix=/usr \
                            --bindir=/bin \
                            --sbindir=/sbin \
                            --enable-verbose-makecmds \
@@ -64,7 +65,8 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --disable-rpath \
                            --with-gnu-ld"
 
-PKG_CONFIGURE_OPTS_INIT="--prefix=/ \
+PKG_CONFIGURE_OPTS_INIT="BUILD_CC=$HOST_CC \
+                         --prefix=/ \
                          --bindir=/bin \
                          --sbindir=/sbin \
                          --enable-verbose-makecmds \
