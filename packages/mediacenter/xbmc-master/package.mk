@@ -17,13 +17,14 @@
 ################################################################################
 
 PKG_NAME="xbmc-master"
-PKG_VERSION="14-686ffc8"
+PKG_VERSION="14-f733da1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.xbmc.org"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain boost Python zlib bzip2 systemd pciutils lzo pcre swig:host libass enca curl rtmpdump fontconfig fribidi gnutls tinyxml libjpeg-turbo libpng tiff freetype jasper libogg libcdio libmodplug faad2 flac libmpeg2 taglib libxml2 libxslt yajl sqlite libvorbis ffmpeg"
+PKG_DEPENDS_TARGET="toolchain boost Python zlib bzip2 systemd pciutils lzo pcre swig:host libass enca curl rtmpdump fontconfig fribidi gnutls tinyxml libjpeg-turbo libpng tiff freetype jasper libogg libcdio libmodplug faad2 flac libmpeg2 taglib libxml2 libxslt yajl sqlite libvorbis ffmpeg xbmc-master:host"
+PKG_DEPENDS_HOST="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="xbmc: XBMC Mediacenter"
@@ -366,6 +367,20 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_CODEC \
                            $XBMC_PLAYER"
 
+pre_configure_host() {
+# xbmc fails to build in subdirs
+  cd $ROOT/$PKG_BUILD
+    rm -rf .$HOST_NAME
+}
+
+make_host() {
+  make -C tools/depends/native/JsonSchemaBuilder
+}
+
+makeinstall_host() {
+  cp -PR tools/depends/native/JsonSchemaBuilder/native/JsonSchemaBuilder $ROOT/$TOOLCHAIN/bin
+}
+
 pre_build_target() {
 # adding fake Makefile for stripped skin
   mkdir -p $PKG_BUILD/addons/skin.confluence/media
@@ -389,13 +404,11 @@ pre_configure_target() {
   export CFLAGS="$CFLAGS $XBMC_CFLAGS"
   export CXXFLAGS="$CXXFLAGS $XBMC_CXXFLAGS"
   export LIBS="$LIBS -lz"
+
+  export JSON_BUILDER=$ROOT/$TOOLCHAIN/bin/JsonSchemaBuilder
 }
 
 make_target() {
-# build helpertools for host
-  make -C tools/depends/native/JsonSchemaBuilder \
-       CXX="$HOST_CXX" CFLAGS="$HOST_CXXFLAGS" LFLAGS="$HOST_LDFLAGS"
-
 # setup skin dir from default skin
   SKIN_DIR="skin.`tolower $SKIN_DEFAULT`"
 
