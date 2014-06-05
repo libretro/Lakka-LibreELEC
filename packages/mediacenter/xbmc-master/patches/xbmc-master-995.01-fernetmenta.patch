@@ -1,7 +1,2564 @@
-From daa708d34f474b893c548bc410001bc858683a33 Mon Sep 17 00:00:00 2001
+From 4e76bac89d9272bc4a4d75d23082ebeb3eea0fa2 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 24 May 2014 15:02:08 +0200
+Subject: [PATCH 01/37] AE: accept planar formats and timestamps at input
+
+---
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp      | 34 +++++++++---
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h |  5 +-
+ .../Engines/ActiveAE/ActiveAEBuffer.cpp            | 27 ++++++++--
+ .../AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h  |  6 ++-
+ .../AudioEngine/Engines/ActiveAE/ActiveAESink.cpp  | 17 ++++--
+ .../AudioEngine/Engines/ActiveAE/ActiveAESink.h    |  1 +
+ .../Engines/ActiveAE/ActiveAEStream.cpp            | 60 ++++++++++------------
+ .../AudioEngine/Engines/ActiveAE/ActiveAEStream.h  |  3 +-
+ xbmc/cores/AudioEngine/Interfaces/AEStream.h       | 18 +++++--
+ 9 files changed, 116 insertions(+), 55 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index fa8bc55..acca48a 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -42,13 +42,15 @@ void CEngineStats::Reset(unsigned int sampleRate)
+   m_sinkSampleRate = sampleRate;
+   m_bufferedSamples = 0;
+   m_suspended = false;
++  m_playingPTS = 0;
+ }
+ 
+-void CEngineStats::UpdateSinkDelay(double delay, int samples)
++void CEngineStats::UpdateSinkDelay(double delay, int samples, int64_t pts)
+ {
+   CSingleLock lock(m_lock);
+   m_sinkUpdate = XbmcThreads::SystemClockMillis();
+   m_sinkDelay = delay;
++  m_playingPTS = pts;
+   if (samples > m_bufferedSamples)
+   {
+     CLog::Log(LOGERROR, "CEngineStats::UpdateSinkDelay - inconsistency in buffer time");
+@@ -120,6 +122,21 @@ float CEngineStats::GetCacheTotal(CActiveAEStream *stream)
+   return MAX_CACHE_LEVEL + m_sinkCacheTotal;
+ }
+ 
++int64_t CEngineStats::GetPlayingPTS()
++{
++  CSingleLock lock(m_lock);
++  unsigned int now = XbmcThreads::SystemClockMillis();
++  if (m_playingPTS == 0)
++    return 0;
++
++  int64_t pts = m_playingPTS + (now-m_sinkUpdate);
++
++  if (pts < 0)
++    return 0;
++
++  return pts;
++}
++
+ float CEngineStats::GetWaterLevel()
+ {
+   CSingleLock lock(m_lock);
+@@ -1071,7 +1088,7 @@ void CActiveAE::Configure(AEAudioFormat *desiredFmt)
+     else
+     {
+       outputFormat = m_sinkFormat;
+-      outputFormat.m_dataFormat = AE_FMT_FLOAT;
++      outputFormat.m_dataFormat = AE_IS_PLANAR(outputFormat.m_dataFormat) ? AE_FMT_FLOATP : AE_FMT_FLOAT;
+       outputFormat.m_frameSize = outputFormat.m_channelLayout.Count() *
+                                  (CAEUtil::DataFormatToBits(outputFormat.m_dataFormat) >> 3);
+ 
+@@ -1415,7 +1432,7 @@ void CActiveAE::ApplySettingsToFormat(AEAudioFormat &format, AudioSettings &sett
+   }
+   else
+   {
+-    format.m_dataFormat = AE_FMT_FLOAT;
++    format.m_dataFormat = AE_IS_PLANAR(format.m_dataFormat) ? AE_FMT_FLOATP : AE_FMT_FLOAT;
+     // consider user channel layout for those cases
+     // 1. input stream is multichannel
+     // 2. stereo upmix is selected
+@@ -1909,13 +1926,13 @@ bool CActiveAE::RunStages()
+             }
+             else
+               CLog::Log(LOGWARNING,"ActiveAE::%s - viz ran out of free buffers", __FUNCTION__);
+-            unsigned int now = XbmcThreads::SystemClockMillis();
+-            unsigned int timestamp = now + m_stats.GetDelay() * 1000;
++            double now = (double)XbmcThreads::SystemClockMillis();
++            double timestamp = now + m_stats.GetDelay() * 1000;
+             busy |= m_vizBuffers->ResampleBuffers(timestamp);
+             while(!m_vizBuffers->m_outputSamples.empty())
+             {
+               CSampleBuffer *buf = m_vizBuffers->m_outputSamples.front();
+-              if ((now - buf->timestamp) & 0x80000000)
++              if ((now - buf->timestamp) < 0)
+                 break;
+               else
+               {
+@@ -1942,6 +1959,11 @@ bool CActiveAE::RunStages()
+           m_encoder->Encode(out->pkt->data[0], out->pkt->planes*out->pkt->linesize,
+                             buf->pkt->data[0], buf->pkt->planes*buf->pkt->linesize);
+           buf->pkt->nb_samples = buf->pkt->max_nb_samples;
++
++          // set pts of last sample
++          buf->pkt_start_offset = buf->pkt->nb_samples;
++          buf->timestamp = out->timestamp;
++
+           out->Return();
+           out = buf;
+         }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+index 700098b..467f18e 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+@@ -160,13 +160,14 @@ class CEngineStats
+ {
+ public:
+   void Reset(unsigned int sampleRate);
+-  void UpdateSinkDelay(double delay, int samples);
++  void UpdateSinkDelay(double delay, int samples, int64_t pts);
+   void AddSamples(int samples, std::list<CActiveAEStream*> &streams);
+   float GetDelay();
+   float GetDelay(CActiveAEStream *stream);
+   float GetCacheTime(CActiveAEStream *stream);
+   float GetCacheTotal(CActiveAEStream *stream);
+   float GetWaterLevel();
++  int64_t GetPlayingPTS();
+   void SetSuspended(bool state);
+   void SetSinkCacheTotal(float time) { m_sinkCacheTotal = time; }
+   void SetSinkLatency(float time) { m_sinkLatency = time; }
+@@ -174,6 +175,7 @@ class CEngineStats
+   CCriticalSection *GetLock() { return &m_lock; }
+ protected:
+   float m_sinkDelay;
++  int64_t m_playingPTS;
+   float m_sinkCacheTotal;
+   float m_sinkLatency;
+   int m_bufferedSamples;
+@@ -243,6 +245,7 @@ class CActiveAE : public IAE, private CThread
+   uint8_t **AllocSoundSample(SampleConfig &config, int &samples, int &bytes_per_sample, int &planes, int &linesize);
+   void FreeSoundSample(uint8_t **data);
+   float GetDelay(CActiveAEStream *stream) { return m_stats.GetDelay(stream); }
++  int64_t GetPlayingPTS() { return m_stats.GetPlayingPTS(); }
+   float GetCacheTime(CActiveAEStream *stream) { return m_stats.GetCacheTime(stream); }
+   float GetCacheTotal(CActiveAEStream *stream) { return m_stats.GetCacheTotal(stream); }
+   void FlushStream(CActiveAEStream *stream);
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+index a10753e..56045e2 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+@@ -44,6 +44,7 @@ CSoundPacket::~CSoundPacket()
+ CSampleBuffer::CSampleBuffer() : pkt(NULL), pool(NULL)
+ {
+   refCount = 0;
++  timestamp = 0.0;
+ }
+ 
+ CSampleBuffer::~CSampleBuffer()
+@@ -218,7 +219,7 @@ void CActiveAEBufferPoolResample::ChangeResampler()
+   m_changeResampler = false;
+ }
+ 
+-bool CActiveAEBufferPoolResample::ResampleBuffers(unsigned int timestamp)
++bool CActiveAEBufferPoolResample::ResampleBuffers(double timestamp)
+ {
+   bool busy = false;
+   CSampleBuffer *in;
+@@ -234,7 +235,8 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(unsigned int timestamp)
+     {
+       in = m_inputSamples.front();
+       m_inputSamples.pop_front();
+-      in->timestamp = timestamp;
++      if (timestamp)
++        in->timestamp = timestamp;
+       m_outputSamples.push_back(in);
+       busy = true;
+     }
+@@ -290,6 +292,25 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(unsigned int timestamp)
+       busy = true;
+       m_empty = (out_samples == 0);
+ 
++      if (in)
++      {
++        if (!timestamp)
++          m_lastSamplePts = in->timestamp;
++        else
++        {
++          m_lastSamplePts = timestamp;
++          in->pkt_start_offset = 0;
++        }
++
++        // pts of last sample we added to the buffer
++        m_lastSamplePts += (in->pkt->nb_samples-in->pkt_start_offset)/m_format.m_sampleRate * 1000;
++      }
++
++      // calculate pts for last sample in m_procSample
++      int bufferedSamples = m_resampler->GetBufferedSamples();
++      m_procSample->pkt_start_offset = m_procSample->pkt->nb_samples;
++      m_procSample->timestamp = m_lastSamplePts - bufferedSamples/m_format.m_sampleRate*1000;
++
+       if ((m_drain || m_changeResampler) && m_empty)
+       {
+         if (m_fillPackets && m_procSample->pkt->nb_samples != 0)
+@@ -304,7 +325,6 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(unsigned int timestamp)
+             memset(m_procSample->pkt->data[i]+start, 0, m_procSample->pkt->linesize-start);
+           }
+         }
+-        m_procSample->timestamp = timestamp;
+ 
+         // check if draining is finished
+         if (m_drain && m_procSample->pkt->nb_samples == 0)
+@@ -322,7 +342,6 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(unsigned int timestamp)
+       // some methods like encode require completely filled packets
+       else if (!m_fillPackets || (m_procSample->pkt->nb_samples == m_procSample->pkt->max_nb_samples))
+       {
+-        m_procSample->timestamp = timestamp;
+         m_outputSamples.push_back(m_procSample);
+         m_procSample = NULL;
+       }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+index a854470..008ebdd 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+@@ -70,7 +70,8 @@ class CSampleBuffer
+   void Return();
+   CSoundPacket *pkt;
+   CActiveAEBufferPool *pool;
+-  unsigned int timestamp;
++  int64_t timestamp;
++  int pkt_start_offset;
+   int refCount;
+ };
+ 
+@@ -96,7 +97,7 @@ class CActiveAEBufferPoolResample : public CActiveAEBufferPool
+   virtual ~CActiveAEBufferPoolResample();
+   virtual bool Create(unsigned int totaltime, bool remap, bool upmix, bool normalize = true);
+   void ChangeResampler();
+-  bool ResampleBuffers(unsigned int timestamp = 0);
++  bool ResampleBuffers(double timestamp = 0);
+   float GetDelay();
+   void Flush();
+   AEAudioFormat m_inputFormat;
+@@ -113,6 +114,7 @@ class CActiveAEBufferPoolResample : public CActiveAEBufferPool
+   AEQuality m_resampleQuality;
+   bool m_stereoUpmix;
+   bool m_normalize;
++  int64_t m_lastSamplePts;
+ };
+ 
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
+index c773ced..5d4c6bd 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
+@@ -190,6 +190,7 @@ void CActiveAESink::StateMachine(int signal, Protocol *port, Message *msg)
+             reply.hasVolume = m_sink->HasVolume();
+             m_state = S_TOP_CONFIGURED_IDLE;
+             m_extTimeout = 10000;
++            m_sinkLatency = (int64_t)(reply.latency * 1000);
+             msg->Reply(CSinkControlProtocol::ACC, &reply, sizeof(SinkReply));
+           }
+           else
+@@ -821,7 +822,7 @@ unsigned int CActiveAESink::OutputSamples(CSampleBuffer* samples)
+       {
+         m_extError = true;
+         CLog::Log(LOGERROR, "CActiveAESink::OutputSamples - failed");
+-        m_stats->UpdateSinkDelay(0, frames);
++        m_stats->UpdateSinkDelay(0, frames, 0.0);
+         return 0;
+       }
+       else
+@@ -831,12 +832,22 @@ unsigned int CActiveAESink::OutputSamples(CSampleBuffer* samples)
+     {
+       m_extError = true;
+       CLog::Log(LOGERROR, "CActiveAESink::OutputSamples - sink returned error");
+-      m_stats->UpdateSinkDelay(0, samples->pool ? maxFrames : 0);
++      m_stats->UpdateSinkDelay(0, samples->pool ? maxFrames : 0, 0.0);
+       return 0;
+     }
+     frames -= written;
+     sinkDelay = m_sink->GetDelay();
+-    m_stats->UpdateSinkDelay(sinkDelay, samples->pool ? written : 0);
++
++    int64_t pts = 0;
++    if (samples->timestamp)
++    {
++      int pastSamples = samples->pkt->nb_samples - samples->pkt_start_offset;
++      pts = samples->timestamp - sinkDelay*1000 + pastSamples/m_sinkFormat.m_sampleRate*1000;
++      pts -= m_sinkLatency;
++      if (pts < 0)
++        pts = 0;
++    }
++    m_stats->UpdateSinkDelay(sinkDelay, samples->pool ? written : 0, pts);
+   }
+   return sinkDelay*1000;
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
+index a04cd6a..0650a70 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
+@@ -142,6 +142,7 @@ class CActiveAESink : private CThread
+   AEAudioFormat m_sinkFormat, m_requestedFormat;
+   CEngineStats *m_stats;
+   float m_volume;
++  int m_sinkLatency;
+ };
+ 
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+index eb3845f..88e4787 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+@@ -192,59 +192,47 @@ unsigned int CActiveAEStream::GetSpace()
+   return m_streamFreeBuffers * m_streamSpace;
+ }
+ 
+-unsigned int CActiveAEStream::AddData(void *data, unsigned int size)
++unsigned int CActiveAEStream::AddData(uint8_t* const *data, unsigned int offset, unsigned int frames, double pts)
+ {
+   Message *msg;
+-  unsigned int copied = 0;
+-  unsigned int bytesToCopy = size;
+-  uint8_t *buf = (uint8_t*)data;
++  int copied = 0;
++  int sourceFrames = frames;
++  uint8_t* const *buf = data;
+ 
+-  while(copied < size)
++  while(copied < frames)
+   {
+-    buf = ((uint8_t*)data) + copied;
+-    bytesToCopy = size - copied;
++    sourceFrames = frames - copied;
+ 
+     if (m_currentBuffer)
+     {
+-      // fill leftover buffer and copy it first
+-      if (m_leftoverBytes && bytesToCopy >= (m_format.m_frameSize - m_leftoverBytes))
+-      {
+-        int fillbytes = m_format.m_frameSize - m_leftoverBytes;
+-        memcpy(m_leftoverBuffer+m_leftoverBytes, buf, fillbytes);
+-        copied += fillbytes;
+-        // leftover buffer will be copied on next cycle
+-        buf = m_leftoverBuffer;
+-        bytesToCopy = m_format.m_frameSize;
+-        m_leftoverBytes = 0;
+-      }
+-
+       int start = m_currentBuffer->pkt->nb_samples *
+                   m_currentBuffer->pkt->bytes_per_sample *
+                   m_currentBuffer->pkt->config.channels /
+                   m_currentBuffer->pkt->planes;
+ 
+-      int freeSamples = m_currentBuffer->pkt->max_nb_samples - m_currentBuffer->pkt->nb_samples;
+-      int availableSamples = bytesToCopy / m_format.m_frameSize;
++      int freeSpace = m_currentBuffer->pkt->max_nb_samples - m_currentBuffer->pkt->nb_samples;
++      int minFrames = std::min(freeSpace, sourceFrames);
++      int planes = m_currentBuffer->pkt->planes;
++      int bufOffset = (offset + copied)*m_format.m_frameSize/planes;
+ 
+-      // if we don't have a full frame, copy to leftover buffer
+-      if (!availableSamples && bytesToCopy)
++      if (!copied)
+       {
+-        memcpy(m_leftoverBuffer+m_leftoverBytes, buf, bytesToCopy);
+-        m_leftoverBytes = bytesToCopy;
+-        copied += bytesToCopy;
++        m_currentBuffer->timestamp = pts;
++        m_currentBuffer->pkt_start_offset = m_currentBuffer->pkt->nb_samples;
+       }
+ 
+-      int samples = std::min(freeSamples, availableSamples);
+-      int bytes = samples * m_format.m_frameSize;
++      for (int i=0; i<planes; i++)
++      {
++        memcpy(m_currentBuffer->pkt->data[i]+start, buf[i]+bufOffset, minFrames*m_format.m_frameSize/planes);
++      }
++      copied += minFrames;
+ 
+-      memcpy(m_currentBuffer->pkt->data[0] + start, buf, bytes);
+       {
+         CSingleLock lock(*m_statsLock);
+-        m_currentBuffer->pkt->nb_samples += samples;
+-        m_bufferedTime += (double)samples / m_currentBuffer->pkt->config.sample_rate;
++        m_currentBuffer->pkt->nb_samples += minFrames;
++        m_bufferedTime += (double)minFrames / m_currentBuffer->pkt->config.sample_rate;
+       }
+-      if (buf != m_leftoverBuffer)
+-        copied += bytes;
++
+       if (m_currentBuffer->pkt->nb_samples == m_currentBuffer->pkt->max_nb_samples)
+       {
+         MsgStreamSample msgData;
+@@ -261,6 +249,7 @@ unsigned int CActiveAEStream::AddData(void *data, unsigned int size)
+       if (msg->signal == CActiveAEDataProtocol::STREAMBUFFER)
+       {
+         m_currentBuffer = *((CSampleBuffer**)msg->data);
++        m_currentBuffer->timestamp = 0;
+         msg->Release();
+         DecFreeBuffers();
+         continue;
+@@ -283,6 +272,11 @@ double CActiveAEStream::GetDelay()
+   return AE.GetDelay(this);
+ }
+ 
++int64_t CActiveAEStream::GetPlayingPTS()
++{
++  return AE.GetPlayingPTS();
++}
++
+ bool CActiveAEStream::IsBuffering()
+ {
+   CSingleLock lock(m_streamLock);
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+index 77d718b..927c4d8 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+@@ -42,8 +42,9 @@ class CActiveAEStream : public IAEStream
+ 
+ public:
+   virtual unsigned int GetSpace();
+-  virtual unsigned int AddData(void *data, unsigned int size);
++  virtual unsigned int AddData(uint8_t* const *data, unsigned int offset, unsigned int frames, double pts);
+   virtual double GetDelay();
++  virtual int64_t GetPlayingPTS();
+   virtual bool IsBuffering();
+   virtual double GetCacheTime();
+   virtual double GetCacheTotal();
+diff --git a/xbmc/cores/AudioEngine/Interfaces/AEStream.h b/xbmc/cores/AudioEngine/Interfaces/AEStream.h
+index ed5e64a..bf9b1d1 100644
+--- a/xbmc/cores/AudioEngine/Interfaces/AEStream.h
++++ b/xbmc/cores/AudioEngine/Interfaces/AEStream.h
+@@ -50,12 +50,14 @@ class IAEStream
+   virtual unsigned int GetSpace() = 0;
+ 
+   /**
+-   * Add interleaved PCM data to the stream
+-   * @param data The interleaved PCM data
+-   * @param size The size in bytes of data, if this is > GetSpace() only up to GetSpace() bytes will be consumed
+-   * @return The number of bytes consumed
++   * Add planar or interleaved PCM data to the stream
++   * @param data array of pointers to the planes
++   * @param offset to frame in frames
++   * @param frames number of frames
++   * @param pts timestamp
++   * @return The number of frames consumed
+    */
+-  virtual unsigned int AddData(void *data, unsigned int size) = 0;
++  virtual unsigned int AddData(uint8_t* const *data, unsigned int offset, unsigned int frames, double pts) = 0;
+ 
+   /**
+    * Returns the time in seconds that it will take
+@@ -65,6 +67,12 @@ class IAEStream
+   virtual double GetDelay() = 0;
+ 
+   /**
++   * Returns playing PTS
++   * @return millis
++   */
++  virtual int64_t GetPlayingPTS() = 0;
++
++  /**
+    * Returns if the stream is buffering
+    * @return True if the stream is buffering
+    */
+-- 
+1.9.3
+
+
+From 62292f00b18a1bff62ef924e9cab7f49fb7c9abb Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 24 May 2014 15:03:37 +0200
+Subject: [PATCH 02/37] dvdplayer audio: simplify interface to AE, feed
+ timestamps
+
+---
+ xbmc/cores/dvdplayer/DVDAudio.cpp                  | 146 ++++-----------------
+ xbmc/cores/dvdplayer/DVDAudio.h                    |   7 +-
+ .../dvdplayer/DVDCodecs/Audio/DVDAudioCodec.h      |  21 +--
+ .../DVDCodecs/Audio/DVDAudioCodecFFmpeg.cpp        | 132 +++----------------
+ .../DVDCodecs/Audio/DVDAudioCodecFFmpeg.h          |   6 +-
+ xbmc/cores/dvdplayer/DVDPlayerAudio.cpp            |  23 ++--
+ xbmc/cores/dvdplayer/DVDPlayerAudio.h              |   1 -
+ 7 files changed, 72 insertions(+), 264 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDAudio.cpp b/xbmc/cores/dvdplayer/DVDAudio.cpp
+index 5166b9e..9594912 100644
+--- a/xbmc/cores/dvdplayer/DVDAudio.cpp
++++ b/xbmc/cores/dvdplayer/DVDAudio.cpp
+@@ -91,33 +91,12 @@ double CPTSOutputQueue::Current(double timestamp)
+   return m_current.pts + min(m_current.duration, (timestamp - m_current.timestamp));
+ }
+ 
+-/** \brief Reallocs the memory block pointed to by src by the size len.
+-*   \param[in] src Pointer to a memory block.
+-*   \param[in] len New size of the memory block.
+-*   \exception realloc failed
+-*   \return A pointer to the reallocated memory block. 
+-*/
+-static void* realloc_or_free(void* src, int len) throw(exception)
+-{
+-  void* new_pBuffer = realloc(src, len);
+-  if (new_pBuffer)
+-    return new_pBuffer;
+-  else
+-  {
+-    CLog::Log(LOGERROR, "DVDAUDIO - %s : could not realloc the buffer",  __FUNCTION__);
+-    free(src);
+-    throw exception();
+-  }
+-}
+-
+ CDVDAudio::CDVDAudio(volatile bool &bStop)
+   : m_bStop(bStop)
+ {
+   m_pAudioStream = NULL;
+   m_pAudioCallback = NULL;
+-  m_iBufferSize = 0;
+-  m_dwPacketSize = 0;
+-  m_pBuffer = NULL;
++  m_frameSize = 0;
+   m_bPassthrough = false;
+   m_iBitsPerSample = 0;
+   m_iBitrate = 0;
+@@ -130,8 +109,6 @@ CDVDAudio::~CDVDAudio()
+   CSingleLock lock (m_critSection);
+   if (m_pAudioStream)
+     CAEFactory::FreeStream(m_pAudioStream);
+-
+-  free(m_pBuffer);
+ }
+ 
+ bool CDVDAudio::Create(const DVDAudioFrame &audioframe, AVCodecID codec, bool needresampler)
+@@ -162,14 +139,13 @@ bool CDVDAudio::Create(const DVDAudioFrame &audioframe, AVCodecID codec, bool ne
+   m_iBitsPerSample = audioframe.bits_per_sample;
+   m_bPassthrough   = audioframe.passthrough;
+   m_channelLayout  = audioframe.channel_layout;
+-  m_dwPacketSize   = m_pAudioStream->GetFrameSize();
++  m_frameSize      = m_pAudioStream->GetFrameSize();
+ 
+   if(m_channelLayout.Count() && m_iBitrate && m_iBitsPerSample)
+     m_SecondsPerByte = 1.0 / (m_channelLayout.Count() * m_iBitrate * (m_iBitsPerSample>>3));
+   else
+     m_SecondsPerByte = 0.0;
+ 
+-  m_iBufferSize = 0;
+   SetDynamicRangeCompression((long)(CMediaSettings::Get().GetCurrentVideoSettings().m_VolumeAmplification * 100));
+ 
+   if (m_pAudioCallback)
+@@ -185,36 +161,37 @@ void CDVDAudio::Destroy()
+   if (m_pAudioStream)
+     CAEFactory::FreeStream(m_pAudioStream);
+ 
+-  free(m_pBuffer);
+-  m_pBuffer = NULL;
+-  m_dwPacketSize = 0;
++  m_frameSize = 0;
+   m_pAudioStream = NULL;
+-  m_iBufferSize = 0;
+   m_iBitrate = 0;
+   m_iBitsPerSample = 0;
+   m_bPassthrough = false;
+   m_bPaused = true;
+-  m_time.Flush();
+ }
+ 
+-unsigned int CDVDAudio::AddPacketsRenderer(unsigned char* data, unsigned int len, CSingleLock &lock)
++unsigned int CDVDAudio::AddPacketsRenderer(uint8_t* const *data, unsigned int frames, double pts, CSingleLock &lock)
+ {
+   if(!m_pAudioStream)
+     return 0;
+ 
+   //Calculate a timeout when this definitely should be done
+   double timeout;
+-  timeout  = DVD_SEC_TO_TIME(m_pAudioStream->GetDelay() + len * m_SecondsPerByte);
++  timeout  = DVD_SEC_TO_TIME(m_pAudioStream->GetDelay() + frames*m_frameSize * m_SecondsPerByte);
+   timeout += DVD_SEC_TO_TIME(1.0);
+   timeout += CDVDClock::GetAbsoluteClock();
+ 
+-  unsigned int  total = len;
++  unsigned int total = frames;
++  unsigned int offset = 0;
+   do
+   {
+-    unsigned int copied = m_pAudioStream->AddData(data, len);
+-    data += copied;
+-    len -= copied;
+-    if (len < m_dwPacketSize)
++    int64_t iPts = 0;
++    if (pts != DVD_NOPTS_VALUE && !offset)
++      iPts = (int64_t)DVD_TIME_TO_MSEC(pts);
++
++    unsigned int copied = m_pAudioStream->AddData(data, offset, frames, iPts);
++    offset += copied;
++    frames -= copied;
++    if (frames <= 0)
+       break;
+ 
+     if (copied == 0 && timeout < CDVDClock::GetAbsoluteClock())
+@@ -228,64 +205,16 @@ unsigned int CDVDAudio::AddPacketsRenderer(unsigned char* data, unsigned int len
+     lock.Enter();
+   } while (!m_bStop);
+ 
+-  return total - len;
++  return total - frames;
+ }
+ 
+ unsigned int CDVDAudio::AddPackets(const DVDAudioFrame &audioframe)
+ {
+   CSingleLock lock (m_critSection);
+ 
+-  unsigned char* data = audioframe.data;
+-  unsigned int len = audioframe.size;
+-
+-  unsigned int total = len;
+-  unsigned int copied;
+-
+-  if (m_iBufferSize > 0) // See if there are carryover bytes from the last call. need to add them 1st.
+-  {
+-    copied = std::min(m_dwPacketSize - m_iBufferSize % m_dwPacketSize, len); // Smaller of either the data provided or the leftover data
+-    if(copied)
+-    {
+-      m_pBuffer = (uint8_t*)realloc_or_free(m_pBuffer, m_iBufferSize + copied);
+-      memcpy(m_pBuffer + m_iBufferSize, data, copied); // Tack the caller's data onto the end of the buffer
+-      data += copied; // Move forward in caller's data
+-      len -= copied; // Decrease amount of data available from caller
+-      m_iBufferSize += copied; // Increase amount of data available in buffer
+-    }
+-
+-    if(m_iBufferSize < m_dwPacketSize) // If we don't have enough data to give to the renderer, wait until next time
+-      return copied;
+-
+-    if(AddPacketsRenderer(m_pBuffer, m_iBufferSize, lock) != m_iBufferSize)
+-    {
+-      m_iBufferSize = 0;
+-      CLog::Log(LOGERROR, "%s - failed to add leftover bytes to render", __FUNCTION__);
+-      return copied;
+-    }
+-
+-    m_iBufferSize = 0;
+-    if (!len)
+-      return copied; // We used up all the caller's data
+-  }
+-
+-  copied = AddPacketsRenderer(data, len, lock);
+-  data += copied;
+-  len -= copied;
++  unsigned int copied = AddPacketsRenderer(audioframe.data, audioframe.nb_frames, audioframe.pts, lock);
+ 
+-  // if we have more data left, save it for the next call to this funtion
+-  if (len > 0 && !m_bStop)
+-  {
+-    m_pBuffer     = (uint8_t*)realloc_or_free(m_pBuffer, len);
+-    m_iBufferSize = len;
+-    memcpy(m_pBuffer, data, len);
+-  }
+-
+-  double time_added = DVD_SEC_TO_TIME(m_SecondsPerByte * (data - audioframe.data));
+-  double delay      = GetDelay();
+-  double timestamp  = CDVDClock::GetAbsoluteClock();
+-  m_time.Add(audioframe.pts, delay - time_added, audioframe.duration, timestamp);
+-
+-  return total;
++  return copied;
+ }
+ 
+ void CDVDAudio::Finish()
+@@ -293,21 +222,6 @@ void CDVDAudio::Finish()
+   CSingleLock lock (m_critSection);
+   if (!m_pAudioStream)
+     return;
+-
+-  unsigned int silence = m_dwPacketSize - m_iBufferSize % m_dwPacketSize;
+-
+-  if(silence > 0 && m_iBufferSize > 0)
+-  {
+-    CLog::Log(LOGDEBUG, "CDVDAudio::Drain - adding %d bytes of silence, buffer size: %d, chunk size: %d", silence, m_iBufferSize, m_dwPacketSize);
+-    m_pBuffer = (uint8_t*)realloc_or_free(m_pBuffer, m_iBufferSize + silence);
+-    memset(m_pBuffer+m_iBufferSize, 0, silence);
+-    m_iBufferSize += silence;
+-  }
+-
+-  if(AddPacketsRenderer(m_pBuffer, m_iBufferSize, lock) != m_iBufferSize)
+-    CLog::Log(LOGERROR, "CDVDAudio::Drain - failed to play the final %d bytes", m_iBufferSize);
+-
+-  m_iBufferSize = 0;
+ }
+ 
+ void CDVDAudio::Drain()
+@@ -360,7 +274,6 @@ void CDVDAudio::Pause()
+ {
+   CSingleLock lock (m_critSection);
+   if (m_pAudioStream) m_pAudioStream->Pause();
+-  m_time.Flush();
+ }
+ 
+ void CDVDAudio::Resume()
+@@ -377,8 +290,6 @@ double CDVDAudio::GetDelay()
+   if(m_pAudioStream)
+     delay = m_pAudioStream->GetDelay();
+ 
+-  delay += m_SecondsPerByte * m_iBufferSize;
+-
+   return delay * DVD_TIME_BASE;
+ }
+ 
+@@ -390,8 +301,6 @@ void CDVDAudio::Flush()
+   {
+     m_pAudioStream->Flush();
+   }
+-  m_iBufferSize = 0;
+-  m_time.Flush();
+ }
+ 
+ bool CDVDAudio::IsValidFormat(const DVDAudioFrame &audioframe)
+@@ -428,8 +337,6 @@ double CDVDAudio::GetCacheTime()
+   if(m_pAudioStream)
+     delay = m_pAudioStream->GetCacheTime();
+ 
+-  delay += m_SecondsPerByte * m_iBufferSize;
+-
+   return delay;
+ }
+ 
+@@ -441,16 +348,15 @@ double CDVDAudio::GetCacheTotal()
+   return m_pAudioStream->GetCacheTotal();
+ }
+ 
+-void CDVDAudio::SetPlayingPts(double pts)
++double CDVDAudio::GetPlayingPts()
+ {
+   CSingleLock lock (m_critSection);
+-  m_time.Flush();
+-  double delay     = GetDelay();
+-  double timestamp = CDVDClock::GetAbsoluteClock();
+-  m_time.Add(pts, delay, 0, timestamp);
+-}
++  if(!m_pAudioStream)
++    return DVD_NOPTS_VALUE;
+ 
+-double CDVDAudio::GetPlayingPts()
+-{
+-  return m_time.Current(CDVDClock::GetAbsoluteClock());
++  double pts = m_pAudioStream->GetPlayingPTS();
++  if (!pts)
++    return DVD_NOPTS_VALUE;
++
++  return DVD_MSEC_TO_TIME(pts);
+ }
+diff --git a/xbmc/cores/dvdplayer/DVDAudio.h b/xbmc/cores/dvdplayer/DVDAudio.h
+index 4e22383..8c13719 100644
+--- a/xbmc/cores/dvdplayer/DVDAudio.h
++++ b/xbmc/cores/dvdplayer/DVDAudio.h
+@@ -86,11 +86,8 @@ class CDVDAudio
+ 
+   IAEStream *m_pAudioStream;
+ protected:
+-  CPTSOutputQueue m_time;
+-  unsigned int AddPacketsRenderer(unsigned char* data, unsigned int len, CSingleLock &lock);
+-  uint8_t*     m_pBuffer; // should be [m_dwPacketSize]
+-  unsigned int m_iBufferSize;
+-  unsigned int m_dwPacketSize;
++  unsigned int AddPacketsRenderer(uint8_t* const *data, unsigned int frames, double pts, CSingleLock &lock);
++  unsigned int m_frameSize;
+   CCriticalSection m_critSection;
+ 
+   int m_iBitrate;
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodec.h
+index 7ebf84a..a935db7 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodec.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodec.h
+@@ -43,10 +43,12 @@ class CDVDCodecOptions;
+ 
+ typedef struct stDVDAudioFrame
+ {
+-  uint8_t*          data;
++  uint8_t*          data[16];
+   double            pts;
+   double            duration;
+-  unsigned int      size;
++  unsigned int      nb_frames;
++  unsigned int      framesize;
++  unsigned int      planes;
+ 
+   int               channel_count;
+   int               encoded_channel_count;
+@@ -92,22 +94,25 @@ class CDVDAudioCodec
+    */
+   virtual void GetData(DVDAudioFrame &frame)
+   {
+-    frame.size                  = GetData(&frame.data);
+-    if(frame.size == 0u)
++    frame.nb_frames = 0;
++    frame.data_format           = GetDataFormat();
++    frame.channel_count         = GetChannels();
++    frame.framesize             = (CAEUtil::DataFormatToBits(frame.data_format) >> 3) * frame.channel_count;
++    if(frame.framesize == 0)
+       return;
++    frame.nb_frames             = GetData(frame.data)/frame.framesize;
+     frame.channel_layout        = GetChannelMap();
+     frame.channel_count         = GetChannels();
++    frame.planes                = AE_IS_PLANAR(frame.data_format) ? frame.channel_count : 1;
+     frame.encoded_channel_count = GetEncodedChannels();
+-    frame.data_format           = GetDataFormat();
+     frame.bits_per_sample       = CAEUtil::DataFormatToBits(frame.data_format);
+     frame.sample_rate           = GetSampleRate();
+     frame.encoded_sample_rate   = GetEncodedSampleRate();
+     frame.passthrough           = NeedPassthrough();
+     frame.pts                   = DVD_NOPTS_VALUE;
+     // compute duration.
+-    int n = (frame.channel_count * frame.bits_per_sample * frame.sample_rate)>>3;
+-    if (n)
+-      frame.duration = ((double)frame.size * DVD_TIME_BASE) / n;
++    if (frame.sample_rate)
++      frame.duration = ((double)frame.nb_frames * DVD_TIME_BASE) / frame.sample_rate;
+     else
+       frame.duration = 0.0;
+   }
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.cpp
+index 6749c2e..5ba1e1b 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.cpp
+@@ -32,14 +32,8 @@
+ 
+ CDVDAudioCodecFFmpeg::CDVDAudioCodecFFmpeg() : CDVDAudioCodec()
+ {
+-  m_iBufferSize1 = 0;
+-  m_iBufferSize2 = 0;
+-  m_iBufferTotalSize2 = 0;
+-  m_pBuffer2     = NULL;
+-
+   m_iBuffered = 0;
+   m_pCodecContext = NULL;
+-  m_pConvert = NULL;
+   m_bOpenedCodec = false;
+ 
+   m_channels = 0;
+@@ -47,6 +41,7 @@ CDVDAudioCodecFFmpeg::CDVDAudioCodecFFmpeg() : CDVDAudioCodec()
+   
+   m_pFrame1 = NULL;
+   m_iSampleFormat = AV_SAMPLE_FMT_NONE;
++  m_gotFrame = 0;
+ }
+ 
+ CDVDAudioCodecFFmpeg::~CDVDAudioCodecFFmpeg()
+@@ -113,12 +108,6 @@ void CDVDAudioCodecFFmpeg::Dispose()
+   if (m_pFrame1) av_free(m_pFrame1);
+   m_pFrame1 = NULL;
+ 
+-  if (m_pConvert)
+-    swr_free(&m_pConvert);
+-
+-  if (m_pBuffer2)
+-    av_freep(&m_pBuffer2);
+-
+   if (m_pCodecContext)
+   {
+     if (m_bOpenedCodec) avcodec_close(m_pCodecContext);
+@@ -127,33 +116,26 @@ void CDVDAudioCodecFFmpeg::Dispose()
+     m_pCodecContext = NULL;
+   }
+ 
+-  m_iBufferSize1 = 0;
+-  m_iBufferSize2 = 0;
+-  m_iBufferTotalSize2 = 0;
+   m_iBuffered = 0;
+ }
+ 
+ int CDVDAudioCodecFFmpeg::Decode(uint8_t* pData, int iSize)
+ {
+-  int iBytesUsed, got_frame;
++  int iBytesUsed;
+   if (!m_pCodecContext) return -1;
+ 
+-  m_iBufferSize2 = 0;
+-
+   AVPacket avpkt;
+   av_init_packet(&avpkt);
+   avpkt.data = pData;
+   avpkt.size = iSize;
+   iBytesUsed = avcodec_decode_audio4( m_pCodecContext
+                                                  , m_pFrame1
+-                                                 , &got_frame
++                                                 , &m_gotFrame
+                                                  , &avpkt);
+-  if (iBytesUsed < 0 || !got_frame)
++  if (iBytesUsed < 0 || !m_gotFrame)
+   {
+-    m_iBufferSize1 = 0;
+     return iBytesUsed;
+   }
+-  m_iBufferSize1 = m_pFrame1->nb_samples * m_pCodecContext->channels * av_get_bytes_per_sample(m_pCodecContext->sample_fmt);
+ 
+   /* some codecs will attempt to consume more data than what we gave */
+   if (iBytesUsed > iSize)
+@@ -162,104 +144,23 @@ int CDVDAudioCodecFFmpeg::Decode(uint8_t* pData, int iSize)
+     iBytesUsed = iSize;
+   }
+ 
+-  if(m_iBufferSize1 == 0 && iBytesUsed >= 0)
++  if(iBytesUsed >= 0)
+     m_iBuffered += iBytesUsed;
+   else
+     m_iBuffered = 0;
+   
+-  bool convert = false;
+-  switch(m_pCodecContext->sample_fmt)
+-  {
+-    case AV_SAMPLE_FMT_U8:
+-    case AV_SAMPLE_FMT_S16:
+-    case AV_SAMPLE_FMT_S32:
+-    case AV_SAMPLE_FMT_FLT:
+-    case AV_SAMPLE_FMT_DBL:
+-      break;
+-    case AV_SAMPLE_FMT_NONE:
+-      CLog::Log(LOGERROR, "CDVDAudioCodecFFmpeg::Decode - invalid data format");
+-      return -1;
+-    default:
+-      convert = true;
+-  }
+-  if(convert)
+-    ConvertToFloat();
+-
+   return iBytesUsed;
+ }
+ 
+-void CDVDAudioCodecFFmpeg::ConvertToFloat()
+-{
+-  if(m_pCodecContext->sample_fmt != AV_SAMPLE_FMT_FLT && m_iBufferSize1 > 0)
+-  {
+-    if(m_pConvert && (m_pCodecContext->sample_fmt != m_iSampleFormat || m_channels != m_pCodecContext->channels))
+-      swr_free(&m_pConvert);
+-
+-    if(!m_pConvert)
+-    {
+-      m_iSampleFormat = m_pCodecContext->sample_fmt;
+-      m_pConvert = swr_alloc_set_opts(NULL,
+-                      av_get_default_channel_layout(m_pCodecContext->channels), AV_SAMPLE_FMT_FLT, m_pCodecContext->sample_rate,
+-                      av_get_default_channel_layout(m_pCodecContext->channels), m_pCodecContext->sample_fmt, m_pCodecContext->sample_rate,
+-                      0, NULL);
+-
+-      if(!m_pConvert || swr_init(m_pConvert) < 0)
+-      {
+-          CLog::Log(LOGERROR, "CDVDAudioCodecFFmpeg::Decode - Unable to convert %d to AV_SAMPLE_FMT_FLT", m_pCodecContext->sample_fmt);
+-          m_iBufferSize1 = 0;
+-          m_iBufferSize2 = 0;
+-          return;
+-      }
+-    }
+-
+-    int needed_buf_size = av_samples_get_buffer_size(NULL, m_pCodecContext->channels, m_pFrame1->nb_samples, AV_SAMPLE_FMT_FLT, 0);
+-    if(m_iBufferTotalSize2 < needed_buf_size)
+-    {
+-        m_pBuffer2 = (uint8_t*)av_realloc(m_pBuffer2, needed_buf_size);
+-        if(!m_pBuffer2)
+-        {
+-            CLog::Log(LOGERROR, "CDVDAudioCodecFFmpeg::Decode - Unable to allocate a %i bytes buffer for resampling", needed_buf_size);
+-            m_iBufferSize1 = 0;
+-            m_iBufferSize2 = 0;
+-            m_iBufferTotalSize2 = 0;
+-            return;
+-        }
+-        m_iBufferTotalSize2 = needed_buf_size;
+-    }
+-
+-    int outsamples;
+-    outsamples = swr_convert(m_pConvert, &m_pBuffer2, m_iBufferTotalSize2, (const uint8_t**)m_pFrame1->extended_data, m_pFrame1->nb_samples);
+-
+-    if(outsamples < 0)
+-    {
+-      CLog::Log(LOGERROR, "CDVDAudioCodecFFmpeg::Decode - Unable to convert %d to AV_SAMPLE_FMT_FLT", (int)m_pCodecContext->sample_fmt);
+-      m_iBufferSize1 = 0;
+-      m_iBufferSize2 = 0;
+-      return;
+-    }
+-
+-    if(outsamples < m_pFrame1->nb_samples)
+-    {
+-      CLog::Log(LOGWARNING, "CDVDAudioCodecFFmpeg::Decode - Resampler produced less samples than what it was given");
+-    }
+-
+-    m_iBufferSize1 = 0;
+-    m_iBufferSize2 = m_pFrame1->nb_samples * m_pCodecContext->channels * av_get_bytes_per_sample(AV_SAMPLE_FMT_FLT);
+-  }
+-}
+-
+ int CDVDAudioCodecFFmpeg::GetData(uint8_t** dst)
+ {
+-  if(m_iBufferSize1)
+-  {
+-    *dst = m_pFrame1->data[0];
+-    return m_iBufferSize1;
+-  }
+-
+-  if(m_iBufferSize2)
++  if(m_gotFrame)
+   {
+-    *dst = m_pBuffer2;
+-    return m_iBufferSize2;
++    int planes = av_sample_fmt_is_planar(m_pCodecContext->sample_fmt) ? m_pFrame1->channels : 1;
++    for (int i=0; i<planes; i++)
++      dst[i] = m_pFrame1->extended_data[i];
++    m_gotFrame = 0;
++    return m_pFrame1->nb_samples * m_pFrame1->channels * av_get_bytes_per_sample(m_pCodecContext->sample_fmt);
+   }
+ 
+   return 0;
+@@ -268,9 +169,8 @@ int CDVDAudioCodecFFmpeg::GetData(uint8_t** dst)
+ void CDVDAudioCodecFFmpeg::Reset()
+ {
+   if (m_pCodecContext) avcodec_flush_buffers(m_pCodecContext);
+-  m_iBufferSize1 = 0;
+-  m_iBufferSize2 = 0;
+   m_iBuffered = 0;
++  m_gotFrame = 0;
+ }
+ 
+ int CDVDAudioCodecFFmpeg::GetChannels()
+@@ -290,15 +190,19 @@ enum AEDataFormat CDVDAudioCodecFFmpeg::GetDataFormat()
+   switch(m_pCodecContext->sample_fmt)
+   {
+     case AV_SAMPLE_FMT_U8 : return AE_FMT_U8;
++    case AV_SAMPLE_FMT_U8P : return AE_FMT_U8P;
+     case AV_SAMPLE_FMT_S16: return AE_FMT_S16NE;
++    case AV_SAMPLE_FMT_S16P: return AE_FMT_S16NEP;
+     case AV_SAMPLE_FMT_S32: return AE_FMT_S32NE;
++    case AV_SAMPLE_FMT_S32P: return AE_FMT_S32NEP;
+     case AV_SAMPLE_FMT_FLT: return AE_FMT_FLOAT;
++    case AV_SAMPLE_FMT_FLTP: return AE_FMT_FLOATP;
+     case AV_SAMPLE_FMT_DBL: return AE_FMT_DOUBLE;
++    case AV_SAMPLE_FMT_DBLP: return AE_FMT_DOUBLEP;
+     case AV_SAMPLE_FMT_NONE:
++    default:
+       CLog::Log(LOGERROR, "CDVDAudioCodecFFmpeg::GetDataFormat - invalid data format");
+       return AE_FMT_INVALID;
+-    default:
+-      return AE_FMT_FLOAT;
+   }
+ }
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.h b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.h
+index 3946e01..9d00c3f 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecFFmpeg.h
+@@ -49,15 +49,11 @@ class CDVDAudioCodecFFmpeg : public CDVDAudioCodec
+ 
+ protected:
+   AVCodecContext*     m_pCodecContext;
+-  SwrContext*         m_pConvert;
+   enum AVSampleFormat m_iSampleFormat;  
+   CAEChannelInfo      m_channelLayout;
+ 
+   AVFrame* m_pFrame1;
+-  int      m_iBufferSize1;
+-  uint8_t*    m_pBuffer2;
+-  int      m_iBufferSize2;
+-  int      m_iBufferTotalSize2;
++  int m_gotFrame;
+ 
+   bool m_bOpenedCodec;
+   int m_iBuffered;
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+index be8214a..174660d 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+@@ -246,7 +246,7 @@ int CDVDPlayerAudio::DecodeFrame(DVDAudioFrame &audioframe)
+   int result = 0;
+ 
+   // make sure the sent frame is clean
+-  memset(&audioframe, 0, sizeof(DVDAudioFrame));
++  audioframe.nb_frames = 0;
+ 
+   while (!m_bStop)
+   {
+@@ -280,7 +280,7 @@ int CDVDPlayerAudio::DecodeFrame(DVDAudioFrame &audioframe)
+       // get decoded data and the size of it
+       m_pAudioCodec->GetData(audioframe);
+ 
+-      if (audioframe.size == 0)
++      if (audioframe.nb_frames == 0)
+         continue;
+ 
+       if (audioframe.pts == DVD_NOPTS_VALUE)
+@@ -358,7 +358,6 @@ int CDVDPlayerAudio::DecodeFrame(DVDAudioFrame &audioframe)
+         m_audioClock = pMsgGeneralResync->m_timestamp;
+ 
+       m_ptsInput.Flush();
+-      m_dvdAudio.SetPlayingPts(m_audioClock);
+       if (pMsgGeneralResync->m_clock)
+         m_pClock->Discontinuity(m_dvdAudio.GetPlayingPts());
+     }
+@@ -527,7 +526,7 @@ void CDVDPlayerAudio::Process()
+       break;
+     }
+ 
+-    if( audioframe.size == 0 )
++    if( audioframe.nb_frames == 0 )
+       continue;
+ 
+     packetadded = true;
+@@ -551,14 +550,13 @@ void CDVDPlayerAudio::Process()
+ 
+     // Zero out the frame data if we are supposed to silence the audio
+     if (m_silence)
+-      memset(audioframe.data, 0, audioframe.size);
+-
+-    if(result & DECODE_FLAG_DROP)
+     {
+-      // keep output times in sync
+-     m_dvdAudio.SetPlayingPts(m_audioClock);
++      int size = audioframe.nb_frames * audioframe.channel_count / audioframe.planes;
++      for (int i=0; i<audioframe.planes; i++)
++        memset(audioframe.data[i], 0, size);
+     }
+-    else
++
++    if(!(result & DECODE_FLAG_DROP))
+     {
+       SetSyncType(audioframe.passthrough);
+ 
+@@ -622,7 +620,10 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
+ {
+   double absolute;
+   double clock = m_pClock->GetClock(absolute);
+-  double error = m_dvdAudio.GetPlayingPts() - clock;
++  double pts = m_dvdAudio.GetPlayingPts();
++  if (pts == DVD_NOPTS_VALUE)
++    return;
++  double error = pts - clock;
+   EMasterClock master = m_pClock->GetMaster();
+ 
+   if( (fabs(error) > DVD_MSEC_TO_TIME(100) || m_syncclock)
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerAudio.h b/xbmc/cores/dvdplayer/DVDPlayerAudio.h
+index 4b48514..1731d6b 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerAudio.h
++++ b/xbmc/cores/dvdplayer/DVDPlayerAudio.h
+@@ -139,7 +139,6 @@ class CDVDPlayerAudio : public CThread
+   // holds stream information for current playing stream
+   CDVDStreamInfo m_streaminfo;
+ 
+-  CPTSOutputQueue m_ptsOutput;
+   CPTSInputQueue  m_ptsInput;
+ 
+   double GetCurrentPts()                            { return m_dvdAudio.GetPlayingPts(); }
+-- 
+1.9.3
+
+
+From 621790ac8f01fd73fc3ac40994c0d4c4a7b4a31c Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 24 May 2014 15:04:32 +0200
+Subject: [PATCH 03/37] paplayer: adapt to interface change of AE, feed entire
+ frames into AE
+
+---
+ xbmc/cores/paplayer/DVDPlayerCodec.cpp | 97 ++++++++++++++++++++++++++++++----
+ xbmc/cores/paplayer/DVDPlayerCodec.h   | 17 +++++-
+ xbmc/cores/paplayer/PAPlayer.cpp       |  9 ++--
+ 3 files changed, 107 insertions(+), 16 deletions(-)
+
+diff --git a/xbmc/cores/paplayer/DVDPlayerCodec.cpp b/xbmc/cores/paplayer/DVDPlayerCodec.cpp
+index 5a13093..3a35a49 100644
+--- a/xbmc/cores/paplayer/DVDPlayerCodec.cpp
++++ b/xbmc/cores/paplayer/DVDPlayerCodec.cpp
+@@ -20,6 +20,7 @@
+ 
+ #include "DVDPlayerCodec.h"
+ #include "cores/AudioEngine/Utils/AEUtil.h"
++#include "cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.h"
+ 
+ #include "cores/dvdplayer/DVDInputStreams/DVDFactoryInputStream.h"
+ #include "cores/dvdplayer/DVDDemuxers/DVDFactoryDemuxer.h"
+@@ -42,10 +43,12 @@ DVDPlayerCodec::DVDPlayerCodec()
+   m_nAudioStream = -1;
+   m_audioPos = 0;
+   m_pPacket = NULL;
+-  m_decoded = NULL;
+   m_nDecodedLen = 0;
+   m_strFileName = "";
+   m_bInited = false;
++  m_pResampler = NULL;
++  m_needConvert = false;
++  m_srcFrameSize = 0;
+ }
+ 
+ DVDPlayerCodec::~DVDPlayerCodec()
+@@ -71,7 +74,6 @@ bool DVDPlayerCodec::Init(const CStdString &strFile, unsigned int filecache)
+     DeInit();
+   }
+ 
+-  m_decoded = NULL;
+   m_nDecodedLen = 0;
+ 
+   CStdString strFileToOpen = strFile;
+@@ -224,6 +226,32 @@ bool DVDPlayerCodec::Init(const CStdString &strFile, unsigned int filecache)
+   }
+   m_pDemuxer->GetStreamCodecName(m_nAudioStream,m_CodecName);
+ 
++  m_needConvert = false;
++  if (NeedConvert(m_DataFormat))
++  {
++    m_needConvert = true;
++    m_pResampler = new ActiveAE::CActiveAEResample();
++    m_pResampler->Init(ActiveAE::CActiveAEResample::GetAVChannelLayout(m_ChannelInfo),
++                       m_ChannelInfo.Count(),
++                       m_SampleRate,
++                       ActiveAE::CActiveAEResample::GetAVSampleFormat(AE_FMT_FLOAT),
++                       CAEUtil::DataFormatToUsedBits(AE_FMT_FLOAT),
++                       ActiveAE::CActiveAEResample::GetAVChannelLayout(m_ChannelInfo),
++                       m_ChannelInfo.Count(),
++                       m_SampleRate,
++                       ActiveAE::CActiveAEResample::GetAVSampleFormat(m_DataFormat),
++                       CAEUtil::DataFormatToUsedBits(m_DataFormat),
++                       false,
++                       false,
++                       NULL,
++                       AE_QUALITY_UNKNOWN);
++    m_planes = AE_IS_PLANAR(m_DataFormat) ? m_ChannelInfo.Count() : 1;
++    m_srcFormat = m_DataFormat;
++    m_srcFrameSize = (CAEUtil::DataFormatToBits(m_DataFormat)>>3) * m_ChannelInfo.Count();
++    m_DataFormat = AE_FMT_FLOAT;
++    m_BitsPerSample = CAEUtil::DataFormatToBits(m_DataFormat);
++  }
++
+   m_strFileName = strFile;
+   m_bInited = true;
+ 
+@@ -254,6 +282,9 @@ void DVDPlayerCodec::DeInit()
+     m_pAudioCodec = NULL;
+   }
+ 
++  delete m_pResampler;
++  m_pResampler = NULL;
++
+   // cleanup format information
+   m_TotalTime = 0;
+   m_SampleRate = 0;
+@@ -264,7 +295,6 @@ void DVDPlayerCodec::DeInit()
+   m_Bitrate = 0;
+ 
+   m_audioPos = 0;
+-  m_decoded = NULL;
+   m_nDecodedLen = 0;
+ 
+   m_strFileName = "";
+@@ -287,7 +317,6 @@ int64_t DVDPlayerCodec::Seek(int64_t iSeekTime)
+   bool ret = m_pDemuxer->SeekTime((int)iSeekTime, seekback);
+   m_pAudioCodec->Reset();
+ 
+-  m_decoded = NULL;
+   m_nDecodedLen = 0;
+ 
+   if (!ret)
+@@ -298,17 +327,29 @@ int64_t DVDPlayerCodec::Seek(int64_t iSeekTime)
+ 
+ int DVDPlayerCodec::ReadPCM(BYTE *pBuffer, int size, int *actualsize)
+ {
+-  if (m_decoded && m_nDecodedLen > 0)
++  if (m_nDecodedLen > 0)
+   {
+     int nLen = (size<m_nDecodedLen)?size:m_nDecodedLen;
+     *actualsize = nLen;
+-    memcpy(pBuffer, m_decoded, *actualsize);
++    if (m_needConvert)
++    {
++      int samples = *actualsize / (m_BitsPerSample>>3);
++      int frames = samples / m_Channels;
++      m_pResampler->Resample(&pBuffer, frames, m_audioPlanes, frames, 1.0);
++      for (int i=0; i<m_planes; i++)
++      {
++        m_audioPlanes[i] += frames*m_srcFrameSize/m_planes;
++      }
++    }
++    else
++    {
++      memcpy(pBuffer, m_audioPlanes[0], *actualsize);
++      m_audioPlanes[0] += (*actualsize);
++    }
+     m_nDecodedLen -= nLen;
+-    m_decoded += (*actualsize);
+     return READ_SUCCESS;
+   }
+ 
+-  m_decoded = NULL;
+   m_nDecodedLen = 0;
+ 
+   // dvdplayer returns a read error on a single invalid packet, while
+@@ -354,14 +395,30 @@ int DVDPlayerCodec::ReadPCM(BYTE *pBuffer, int size, int *actualsize)
+ 
+   m_audioPos += decodeLen;
+ 
+-  m_nDecodedLen = m_pAudioCodec->GetData(&m_decoded);
++  // scale decoded bytes to destination format
++  m_nDecodedLen = m_pAudioCodec->GetData(m_audioPlanes);
++  if (m_needConvert)
++    m_nDecodedLen *= (m_BitsPerSample>>3) / (m_srcFrameSize / m_Channels);
+ 
+   *actualsize = (m_nDecodedLen <= size) ? m_nDecodedLen : size;
+   if (*actualsize > 0)
+   {
+-    memcpy(pBuffer, m_decoded, *actualsize);
++    if (m_needConvert)
++    {
++      int samples = *actualsize / (m_BitsPerSample>>3);
++      int frames = samples / m_Channels;
++      m_pResampler->Resample(&pBuffer, frames, m_audioPlanes, frames, 1.0);
++      for (int i=0; i<m_planes; i++)
++      {
++        m_audioPlanes[i] += frames*m_srcFrameSize/m_planes;
++      }
++    }
++    else
++    {
++      memcpy(pBuffer, m_audioPlanes[0], *actualsize);
++      m_audioPlanes[0] += *actualsize;
++    }
+     m_nDecodedLen -= *actualsize;
+-    m_decoded += (*actualsize);
+   }
+ 
+   return READ_SUCCESS;
+@@ -376,3 +433,21 @@ bool DVDPlayerCodec::CanSeek()
+ {
+   return m_bCanSeek;
+ }
++
++bool DVDPlayerCodec::NeedConvert(AEDataFormat fmt)
++{
++  if (AE_IS_RAW(fmt))
++    return false;
++
++  switch(fmt)
++  {
++    case AE_FMT_U8:
++    case AE_FMT_S16NE:
++    case AE_FMT_S32NE:
++    case AE_FMT_FLOAT:
++    case AE_FMT_DOUBLE:
++      return false;
++    default:
++      return true;
++  }
++}
+diff --git a/xbmc/cores/paplayer/DVDPlayerCodec.h b/xbmc/cores/paplayer/DVDPlayerCodec.h
+index 5919925..8b594f8 100644
+--- a/xbmc/cores/paplayer/DVDPlayerCodec.h
++++ b/xbmc/cores/paplayer/DVDPlayerCodec.h
+@@ -27,6 +27,11 @@
+ #include "cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodec.h"
+ #include "cores/dvdplayer/DVDInputStreams/DVDInputStream.h"
+ 
++namespace ActiveAE
++{
++  class CActiveAEResample;
++};
++
+ class DVDPlayerCodec : public ICodec
+ {
+ public:
+@@ -43,6 +48,8 @@ class DVDPlayerCodec : public ICodec
+ 
+   void SetContentType(const CStdString &strContent);
+ 
++  bool NeedConvert(AEDataFormat fmt);
++
+ private:
+   CDVDDemux* m_pDemuxer;
+   CDVDInputStream* m_pInputStream;
+@@ -55,15 +62,21 @@ class DVDPlayerCodec : public ICodec
+   int m_nAudioStream;
+ 
+   int m_audioPos;
+-  DemuxPacket* m_pPacket ;
++  DemuxPacket* m_pPacket;
+ 
+-  BYTE *m_decoded;
+   int  m_nDecodedLen;
+ 
+   CAEChannelInfo m_ChannelInfo;
+ 
+   bool m_bInited;
+   bool m_bCanSeek;
++
++  ActiveAE::CActiveAEResample *m_pResampler;
++  uint8_t *m_audioPlanes[8];
++  int m_planes;
++  bool m_needConvert;
++  AEDataFormat m_srcFormat;
++  int m_srcFrameSize;
+ };
+ 
+ #endif
+diff --git a/xbmc/cores/paplayer/PAPlayer.cpp b/xbmc/cores/paplayer/PAPlayer.cpp
+index e9cde86..df7bc56 100644
+--- a/xbmc/cores/paplayer/PAPlayer.cpp
++++ b/xbmc/cores/paplayer/PAPlayer.cpp
+@@ -828,15 +828,18 @@ bool PAPlayer::QueueData(StreamInfo *si)
+   if (!samples)
+     return true;
+ 
+-  void* data = si->m_decoder.GetData(samples);
++  // we want complete frames
++  samples -= samples % si->m_channelInfo.Count();
++
++  uint8_t* data = (uint8_t*)si->m_decoder.GetData(samples);
+   if (!data)
+   {
+     CLog::Log(LOGERROR, "PAPlayer::QueueData - Failed to get data from the decoder");
+     return false;
+   }
+ 
+-  unsigned int added = si->m_stream->AddData(data, samples * si->m_bytesPerSample);
+-  si->m_framesSent += added / si->m_bytesPerFrame;
++  unsigned int added = si->m_stream->AddData(&data, 0, samples/si->m_channelInfo.Count(), 0);
++  si->m_framesSent += added;
+ 
+   const ICodec* codec = si->m_decoder.GetCodec();
+   m_playerGUIData.m_cacheLevel = codec ? codec->GetCacheLevel() : 0; //update for GUI
+-- 
+1.9.3
+
+
+From 6006782066965a566ebbcf67f31e8c80b6aa6502 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 24 May 2014 15:29:27 +0200
+Subject: [PATCH 04/37] dvdplayer: drop obsolete pcm audio codecs
+
+---
+ .../DVDCodecs/Audio/DVDAudioCodecLPcm.cpp          | 100 -------
+ .../dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.h  |  46 ---
+ .../dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.cpp | 331 ---------------------
+ .../dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.h   |  60 ----
+ xbmc/cores/dvdplayer/DVDCodecs/Audio/Makefile.in   |   2 -
+ xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp |  51 +---
+ 6 files changed, 1 insertion(+), 589 deletions(-)
+ delete mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.cpp
+ delete mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.h
+ delete mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.cpp
+ delete mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.h
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.cpp
+deleted file mode 100644
+index ad33392..0000000
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.cpp
++++ /dev/null
+@@ -1,100 +0,0 @@
+-/*
+- *      Copyright (C) 2005-2013 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "DVDAudioCodecLPcm.h"
+-#include "DVDStreamInfo.h"
+-
+-CDVDAudioCodecLPcm::CDVDAudioCodecLPcm() : CDVDAudioCodecPcm()
+-{
+-  m_codecID = AV_CODEC_ID_NONE;
+-  m_bufferSize = 0;
+-  m_buffer = NULL;
+-}
+-
+-CDVDAudioCodecLPcm::~CDVDAudioCodecLPcm()
+-{
+-  delete m_buffer;
+-}
+-
+-bool CDVDAudioCodecLPcm::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
+-{
+-  m_codecID = hints.codec;
+-
+-  CDVDStreamInfo hints2(hints, true);
+-  hints2.codec = AV_CODEC_ID_NONE;
+-#if 0
+-  if (hints.codecID = AV_CODEC_ID_LPCM_S24BE) hints2.codec = AV_CODEC_ID_PCM_S24BE;
+-#endif
+-  if (hints2.codec != AV_CODEC_ID_NONE)
+-    return CDVDAudioCodecPcm::Open(hints2, options);
+-
+-  return false;
+-}
+-
+-int CDVDAudioCodecLPcm::Decode(uint8_t* pData, int iSize)
+-{
+-  uint8_t* d = m_buffer;
+-  uint8_t* s = pData;
+-
+-  if (iSize > m_bufferSize)
+-  {
+-    delete m_buffer;
+-    d = m_buffer = new uint8_t[iSize];
+-    if(!m_buffer)
+-      return -1;
+-    m_bufferSize = iSize;
+-  }
+-
+-  if (iSize >= 12)
+-  {
+-    int iDecoded = 0;
+-#if 0
+-    if (m_codecID == AV_CODEC_ID_LPCM_S24BE)
+-#endif
+-    {
+-      for (iDecoded = 0; iDecoded <= (iSize - 12); iDecoded += 12)
+-      {
+-        // first sample
+-        d[0] = s[0];
+-        d[1] = s[1];
+-        d[2] = s[8];
+-        // second sample
+-        d[3] = s[2];
+-        d[4] = s[3];
+-        d[5] = s[9];
+-        // third sample
+-        d[6] = s[4];
+-        d[7] = s[5];
+-        d[8] = s[10];
+-        // fourth sample
+-        d[9] = s[6];
+-        d[10] = s[7];
+-        d[11] = s[11];
+-
+-        s += 12;
+-        d += 12;
+-      }
+-    }
+-
+-    return CDVDAudioCodecPcm::Decode(m_buffer, iDecoded);
+-  }
+-
+-  return iSize;
+-}
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.h b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.h
+deleted file mode 100644
+index b459026..0000000
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecLPcm.h
++++ /dev/null
+@@ -1,46 +0,0 @@
+-#pragma once
+-
+-/*
+- *      Copyright (C) 2005-2013 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "DVDAudioCodec.h"
+-#include "DVDCodecs/DVDCodecs.h"
+-#include "DVDAudioCodecPcm.h"
+-
+-class CDVDAudioCodecLPcm : public CDVDAudioCodecPcm
+-{
+-public:
+-  CDVDAudioCodecLPcm();
+-  virtual ~CDVDAudioCodecLPcm();
+-  virtual bool Open(CDVDStreamInfo &hints, CDVDCodecOptions &options);
+-  virtual int Decode(uint8_t* pData, int iSize);
+-  virtual const char* GetName()  { return "lpcm"; }
+-
+-protected:
+-
+-  int m_bufferSize;
+-  uint8_t *m_buffer;
+-
+-  AVCodecID m_codecID;
+-
+-private:
+-  CDVDAudioCodecLPcm(const CDVDAudioCodecLPcm&);
+-  CDVDAudioCodecLPcm const& operator=(CDVDAudioCodecLPcm const&);
+-};
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.cpp
+deleted file mode 100644
+index 14ea4af..0000000
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.cpp
++++ /dev/null
+@@ -1,331 +0,0 @@
+-/*
+- *      Copyright (C) 2005-2013 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "DVDAudioCodecPcm.h"
+-#include "DVDStreamInfo.h"
+-#include "DVDCodecs/DVDCodecs.h"
+-
+-/* from g711.c by SUN microsystems (unrestricted use) */
+-#define	SIGN_BIT	(0x80)		/* Sign bit for a A-law byte. */
+-#define	QUANT_MASK	(0xf)		/* Quantization field mask. */
+-#define	NSEGS		(8)		/* Number of A-law segments. */
+-#define	SEG_SHIFT	(4)		/* Left shift for segment number. */
+-#define	SEG_MASK	(0x70)		/* Segment field mask. */
+-
+-#define	BIAS		(0x84)		/* Bias for linear code. */
+-
+-/*
+- * alaw2linear() - Convert an A-law value to 16-bit linear PCM
+- *
+- */
+-static int alaw2linear(unsigned char	a_val)
+-{
+-	int		t;
+-	int		seg;
+-
+-	a_val ^= 0x55;
+-
+-	t = a_val & QUANT_MASK;
+-	seg = ((unsigned)a_val & SEG_MASK) >> SEG_SHIFT;
+-	if(seg) t= (t + t + 1 + 32) << (seg + 2);
+-	else    t= (t + t + 1     ) << 3;
+-
+-	return ((a_val & SIGN_BIT) ? t : -t);
+-}
+-
+-static int ulaw2linear(unsigned char	u_val)
+-{
+-	int		t;
+-
+-	/* Complement to obtain normal u-law value. */
+-	u_val = ~u_val;
+-
+-	/*
+-	 * Extract and bias the quantization bits. Then
+-	 * shift up by the segment number and subtract out the bias.
+-	 */
+-	t = ((u_val & QUANT_MASK) << 3) + BIAS;
+-	t <<= ((unsigned)u_val & SEG_MASK) >> SEG_SHIFT;
+-
+-	return ((u_val & SIGN_BIT) ? (BIAS - t) : (t - BIAS));
+-}
+-
+-/**
+- * \brief convert samples to 16 bit
+- * \param bps byte per sample for the source format, must be >= 2
+- * \param le 0 for big-, 1 for little-endian
+- * \param us 0 for signed, 1 for unsigned input
+- * \param src input samples
+- * \param samples output samples
+- * \param src_len number of bytes in src
+- */
+-static inline void decode_to16(int bps, int le, int us, uint8_t **src, short **samples, int src_len)
+-{
+-    register int n = src_len / bps;
+-    if (le) *src += bps - 2;
+-    for(;n>0;n--) {
+-        *(*samples)++ = ((*src)[le] << 8 | (*src)[1 - le]) - (us?0x8000:0);
+-        *src += bps;
+-    }
+-    if (le) *src -= bps - 2;
+-}
+-
+-const uint8_t ff_reverse[256] =
+-    {
+-      0x00,0x80,0x40,0xC0,0x20,0xA0,0x60,0xE0,0x10,0x90,0x50,0xD0,0x30,0xB0,0x70,0xF0,
+-      0x08,0x88,0x48,0xC8,0x28,0xA8,0x68,0xE8,0x18,0x98,0x58,0xD8,0x38,0xB8,0x78,0xF8,
+-      0x04,0x84,0x44,0xC4,0x24,0xA4,0x64,0xE4,0x14,0x94,0x54,0xD4,0x34,0xB4,0x74,0xF4,
+-      0x0C,0x8C,0x4C,0xCC,0x2C,0xAC,0x6C,0xEC,0x1C,0x9C,0x5C,0xDC,0x3C,0xBC,0x7C,0xFC,
+-      0x02,0x82,0x42,0xC2,0x22,0xA2,0x62,0xE2,0x12,0x92,0x52,0xD2,0x32,0xB2,0x72,0xF2,
+-      0x0A,0x8A,0x4A,0xCA,0x2A,0xAA,0x6A,0xEA,0x1A,0x9A,0x5A,0xDA,0x3A,0xBA,0x7A,0xFA,
+-      0x06,0x86,0x46,0xC6,0x26,0xA6,0x66,0xE6,0x16,0x96,0x56,0xD6,0x36,0xB6,0x76,0xF6,
+-      0x0E,0x8E,0x4E,0xCE,0x2E,0xAE,0x6E,0xEE,0x1E,0x9E,0x5E,0xDE,0x3E,0xBE,0x7E,0xFE,
+-      0x01,0x81,0x41,0xC1,0x21,0xA1,0x61,0xE1,0x11,0x91,0x51,0xD1,0x31,0xB1,0x71,0xF1,
+-      0x09,0x89,0x49,0xC9,0x29,0xA9,0x69,0xE9,0x19,0x99,0x59,0xD9,0x39,0xB9,0x79,0xF9,
+-      0x05,0x85,0x45,0xC5,0x25,0xA5,0x65,0xE5,0x15,0x95,0x55,0xD5,0x35,0xB5,0x75,0xF5,
+-      0x0D,0x8D,0x4D,0xCD,0x2D,0xAD,0x6D,0xED,0x1D,0x9D,0x5D,0xDD,0x3D,0xBD,0x7D,0xFD,
+-      0x03,0x83,0x43,0xC3,0x23,0xA3,0x63,0xE3,0x13,0x93,0x53,0xD3,0x33,0xB3,0x73,0xF3,
+-      0x0B,0x8B,0x4B,0xCB,0x2B,0xAB,0x6B,0xEB,0x1B,0x9B,0x5B,0xDB,0x3B,0xBB,0x7B,0xFB,
+-      0x07,0x87,0x47,0xC7,0x27,0xA7,0x67,0xE7,0x17,0x97,0x57,0xD7,0x37,0xB7,0x77,0xF7,
+-      0x0F,0x8F,0x4F,0xCF,0x2F,0xAF,0x6F,0xEF,0x1F,0x9F,0x5F,0xDF,0x3F,0xBF,0x7F,0xFF,
+-    };
+-
+-CDVDAudioCodecPcm::CDVDAudioCodecPcm() : CDVDAudioCodec()
+-{
+-  m_iSourceChannels = 0;
+-  m_iSourceSampleRate = 0;
+-  m_iSourceBitrate = 0;
+-  m_decodedDataSize = 0;
+-  m_codecID = AV_CODEC_ID_NONE;
+-  m_iOutputChannels = 0;
+-
+-  m_decodedData = NULL;
+-  m_decodedDataBufSize = 0;
+-  memset(table, 0, sizeof(table));
+-}
+-
+-CDVDAudioCodecPcm::~CDVDAudioCodecPcm()
+-{
+-  Dispose();
+-  delete m_decodedData;
+-}
+-
+-bool CDVDAudioCodecPcm::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
+-{
+-  SetDefault();
+-
+-  m_codecID = hints.codec;
+-  m_iSourceChannels = hints.channels;
+-  m_iSourceSampleRate = hints.samplerate;
+-  m_iSourceBitrate = 16;
+-
+-  switch (m_codecID)
+-  {
+-    case AV_CODEC_ID_PCM_ALAW:
+-    {
+-      for (int i = 0; i < 256; i++) table[i] = alaw2linear(i);
+-      break;
+-    }
+-    case AV_CODEC_ID_PCM_MULAW:
+-    {
+-      for (int i = 0; i < 256; i++) table[i] = ulaw2linear(i);
+-      break;
+-    }
+-    default:
+-    {
+-      break;
+-    }
+-  }
+-
+-  // set desired output
+-  m_iOutputChannels = m_iSourceChannels;
+-
+-  return true;
+-}
+-
+-void CDVDAudioCodecPcm::Dispose()
+-{
+-}
+-
+-int CDVDAudioCodecPcm::Decode(uint8_t* pData, int iSize)
+-{
+-    int n;
+-    short *samples;
+-    uint8_t *src;
+-
+-    samples = (short*)m_decodedData;
+-    src = pData;
+-    int buf_size = iSize;
+-
+-    if (iSize > m_decodedDataBufSize)
+-    {
+-        delete m_decodedData;
+-        samples = m_decodedData = new short[iSize];
+-        if(!m_decodedData)
+-            return -1;
+-        m_decodedDataBufSize = iSize;
+-    }
+-
+-    switch (m_codecID)
+-    {
+-    case AV_CODEC_ID_PCM_S32LE:
+-        decode_to16(4, 1, 0, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_S32BE:
+-        decode_to16(4, 0, 0, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_U32LE:
+-        decode_to16(4, 1, 1, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_U32BE:
+-        decode_to16(4, 0, 1, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_S24LE:
+-        decode_to16(3, 1, 0, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_S24BE:
+-        decode_to16(3, 0, 0, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_U24LE:
+-        decode_to16(3, 1, 1, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_U24BE:
+-        decode_to16(3, 0, 1, &src, &samples, buf_size);
+-        break;
+-    case AV_CODEC_ID_PCM_S24DAUD:
+-        n = buf_size / 3;
+-        for(;n>0;n--) {
+-          uint32_t v = src[0] << 16 | src[1] << 8 | src[2];
+-          v >>= 4; // sync flags are here
+-          *samples++ = ff_reverse[(v >> 8) & 0xff] +
+-                       (ff_reverse[v & 0xff] << 8);
+-          src += 3;
+-        }
+-        break;
+-    case AV_CODEC_ID_PCM_S16LE:
+-        n = buf_size >> 1;
+-        for(;n>0;n--) {
+-            *samples++ = src[0] | (src[1] << 8);
+-            src += 2;
+-        }
+-        break;
+-    case AV_CODEC_ID_PCM_S16BE:
+-        n = buf_size >> 1;
+-        for(;n>0;n--) {
+-            *samples++ = (src[0] << 8) | src[1];
+-            src += 2;
+-        }
+-        break;
+-    case AV_CODEC_ID_PCM_U16LE:
+-        n = buf_size >> 1;
+-        for(;n>0;n--) {
+-            *samples++ = (src[0] | (src[1] << 8)) - 0x8000;
+-            src += 2;
+-        }
+-        break;
+-    case AV_CODEC_ID_PCM_U16BE:
+-        n = buf_size >> 1;
+-        for(;n>0;n--) {
+-            *samples++ = ((src[0] << 8) | src[1]) - 0x8000;
+-            src += 2;
+-        }
+-        break;
+-    case AV_CODEC_ID_PCM_S8:
+-        n = buf_size;
+-        for(;n>0;n--) {
+-            *samples++ = src[0] << 8;
+-            src++;
+-        }
+-        break;
+-    case AV_CODEC_ID_PCM_U8:
+-        n = buf_size;
+-        for(;n>0;n--) {
+-            *samples++ = ((int)src[0] - 128) << 8;
+-            src++;
+-        }
+-        break;
+-    case AV_CODEC_ID_PCM_ALAW:
+-    case AV_CODEC_ID_PCM_MULAW:
+-        n = buf_size;
+-        for(;n>0;n--) {
+-            *samples++ = table[src[0]];
+-            src++;
+-        }
+-        break;
+-    default:
+-        return -1;
+-    }
+-
+-    m_decodedDataSize = (uint8_t*)samples - (uint8_t*)m_decodedData;
+-    return iSize;
+-}
+-
+-int CDVDAudioCodecPcm::GetData(uint8_t** dst)
+-{
+-  *dst = (uint8_t*)m_decodedData;
+-  return m_decodedDataSize;
+-}
+-
+-void CDVDAudioCodecPcm::SetDefault()
+-{
+-  m_iSourceChannels = 0;
+-  m_iSourceSampleRate = 0;
+-  m_iSourceBitrate = 0;
+-  m_decodedDataSize = 0;
+-  m_codecID = AV_CODEC_ID_NONE;
+-}
+-
+-void CDVDAudioCodecPcm::Reset()
+-{
+-  //SetDefault();
+-}
+-
+-int CDVDAudioCodecPcm::GetChannels()
+-{
+-  return m_iOutputChannels;
+-}
+-
+-CAEChannelInfo CDVDAudioCodecPcm::GetChannelMap()
+-{
+-  assert(m_iOutputChannels > 0 && m_iOutputChannels <= 8);
+-  static enum AEChannel map[8][9] =
+-  {
+-    /* MONO   */ {AE_CH_FC, AE_CH_NULL,                                                                      },
+-    /* STEREO */ {AE_CH_FL, AE_CH_FR, AE_CH_NULL,                                                            },
+-    /* 3.0 ?  */ {AE_CH_FL, AE_CH_FR, AE_CH_FC, AE_CH_NULL,                                                  },
+-    /* 4.0 ?  */ {AE_CH_FL, AE_CH_FR, AE_CH_BL, AE_CH_BR , AE_CH_NULL,                                       },
+-    /* 5.0    */ {AE_CH_FL, AE_CH_FR, AE_CH_FC, AE_CH_BL , AE_CH_BR, AE_CH_NULL                              },
+-    /* 5.1    */ {AE_CH_FL, AE_CH_FR, AE_CH_FC, AE_CH_LFE, AE_CH_BL, AE_CH_BR, AE_CH_NULL,                   },
+-    /* 7.0 ?  */ {AE_CH_FL, AE_CH_FR, AE_CH_FC, AE_CH_BL , AE_CH_BR, AE_CH_SL, AE_CH_SR, AE_CH_NULL          },
+-    /* 7.1 ?  */ {AE_CH_FL, AE_CH_FR, AE_CH_FC, AE_CH_LFE, AE_CH_BL, AE_CH_BR, AE_CH_SL, AE_CH_SR, AE_CH_NULL}
+-  };
+-
+-  return map[m_iOutputChannels - 1];
+-}
+-
+-int CDVDAudioCodecPcm::GetSampleRate()
+-{
+-  return m_iSourceSampleRate;
+-}
+-
+-enum AEDataFormat CDVDAudioCodecPcm::GetDataFormat()
+-{
+-  return AE_FMT_S16NE;
+-}
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.h b/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.h
+deleted file mode 100644
+index c2a36d0..0000000
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/DVDAudioCodecPcm.h
++++ /dev/null
+@@ -1,60 +0,0 @@
+-#pragma once
+-
+-/*
+- *      Copyright (C) 2005-2013 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#include "DVDAudioCodec.h"
+-
+-class CDVDAudioCodecPcm : public CDVDAudioCodec
+-{
+-public:
+-  CDVDAudioCodecPcm();
+-  virtual ~CDVDAudioCodecPcm();
+-  virtual bool Open(CDVDStreamInfo &hints, CDVDCodecOptions &options);
+-  virtual void Dispose();
+-  virtual int Decode(uint8_t* pData, int iSize);
+-  virtual int GetData(uint8_t** dst);
+-  virtual void Reset();
+-  virtual int GetChannels();
+-  virtual CAEChannelInfo GetChannelMap();
+-  virtual int GetSampleRate();
+-  virtual enum AEDataFormat GetDataFormat();
+-  virtual const char* GetName()  { return "pcm"; }
+-
+-protected:
+-  virtual void SetDefault();
+-
+-  short* m_decodedData;
+-  int m_decodedDataBufSize;
+-  int m_decodedDataSize;
+-
+-  AVCodecID m_codecID;
+-  int m_iSourceSampleRate;
+-  int m_iSourceChannels;
+-  int m_iSourceBitrate;
+-
+-  int m_iOutputChannels;
+-
+-  short table[256];
+-
+-private:
+-  CDVDAudioCodecPcm(const CDVDAudioCodecPcm&);
+-  CDVDAudioCodecPcm const& operator=(CDVDAudioCodecPcm const&);
+-};
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Audio/Makefile.in b/xbmc/cores/dvdplayer/DVDCodecs/Audio/Makefile.in
+index cb6b3d7..6446ee9 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Audio/Makefile.in
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Audio/Makefile.in
+@@ -3,9 +3,7 @@ INCLUDES+=-I@abs_top_srcdir@/xbmc/cores/dvdplayer
+ CXXFLAGS+=-DHAVE_MMX
+ 
+ SRCS  = DVDAudioCodecFFmpeg.cpp
+-SRCS += DVDAudioCodecLPcm.cpp
+ SRCS += DVDAudioCodecPassthrough.cpp
+-SRCS += DVDAudioCodecPcm.cpp
+ 
+ LIB=Audio.a
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
+index 402093d..f77ac40 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
+@@ -25,6 +25,7 @@
+ #include "Video/DVDVideoCodec.h"
+ #include "Audio/DVDAudioCodec.h"
+ #include "Overlay/DVDOverlayCodec.h"
++#include "cores/dvdplayer/DVDCodecs/DVDCodecs.h"
+ 
+ #if defined(TARGET_DARWIN_OSX)
+ #include "Video/DVDVideoCodecVDA.h"
+@@ -48,8 +49,6 @@
+ #include "android/activity/AndroidFeatures.h"
+ #endif
+ #include "Audio/DVDAudioCodecFFmpeg.h"
+-#include "Audio/DVDAudioCodecPcm.h"
+-#include "Audio/DVDAudioCodecLPcm.h"
+ #include "Audio/DVDAudioCodecPassthrough.h"
+ #include "Overlay/DVDOverlayCodecSSA.h"
+ #include "Overlay/DVDOverlayCodecText.h"
+@@ -326,54 +325,6 @@ CDVDAudioCodec* CDVDFactoryCodec::CreateAudioCodec( CDVDStreamInfo &hint)
+   pCodec = OpenCodec( new CDVDAudioCodecPassthrough(), hint, options );
+   if( pCodec ) return pCodec;
+ 
+-  switch (hint.codec)
+-  {
+-  case AV_CODEC_ID_MP2:
+-  case AV_CODEC_ID_MP3:
+-    {
+-      pCodec = OpenCodec( new CDVDAudioCodecFFmpeg(), hint, options );
+-      if( pCodec ) return pCodec;
+-      break;
+-    }
+-  case AV_CODEC_ID_PCM_S32LE:
+-  case AV_CODEC_ID_PCM_S32BE:
+-  case AV_CODEC_ID_PCM_U32LE:
+-  case AV_CODEC_ID_PCM_U32BE:
+-  case AV_CODEC_ID_PCM_S24LE:
+-  case AV_CODEC_ID_PCM_S24BE:
+-  case AV_CODEC_ID_PCM_U24LE:
+-  case AV_CODEC_ID_PCM_U24BE:
+-  case AV_CODEC_ID_PCM_S24DAUD:
+-  case AV_CODEC_ID_PCM_S16LE:
+-  case AV_CODEC_ID_PCM_S16BE:
+-  case AV_CODEC_ID_PCM_U16LE:
+-  case AV_CODEC_ID_PCM_U16BE:
+-  case AV_CODEC_ID_PCM_S8:
+-  case AV_CODEC_ID_PCM_U8:
+-  case AV_CODEC_ID_PCM_ALAW:
+-  case AV_CODEC_ID_PCM_MULAW:
+-    {
+-      pCodec = OpenCodec( new CDVDAudioCodecPcm(), hint, options );
+-      if( pCodec ) return pCodec;
+-      break;
+-    }
+-#if 0
+-  //case AV_CODEC_ID_LPCM_S16BE:
+-  //case AV_CODEC_ID_LPCM_S20BE:
+-  case AV_CODEC_ID_LPCM_S24BE:
+-    {
+-      pCodec = OpenCodec( new CDVDAudioCodecLPcm(), hint, options );
+-      if( pCodec ) return pCodec;
+-      break;
+-    }
+-#endif
+-  default:
+-    {
+-      pCodec = NULL;
+-      break;
+-    }
+-  }
+-
+   pCodec = OpenCodec( new CDVDAudioCodecFFmpeg(), hint, options );
+   if( pCodec ) return pCodec;
+ 
+-- 
+1.9.3
+
+
+From d9fe1f474f50754d09e48ddac05a15e246fe6f2d Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 24 May 2014 19:00:46 +0200
+Subject: [PATCH 05/37] AE: let player signal a discontinuity after a clock
+ change
+
+---
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp    | 17 +++++++++++++++--
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h      |  5 ++++-
+ .../AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp     | 10 +++++++++-
+ .../cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h |  1 +
+ .../cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp |  2 +-
+ .../AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp     |  6 ++++++
+ .../cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h |  2 ++
+ xbmc/cores/AudioEngine/Interfaces/AEStream.h            |  5 +++++
+ xbmc/cores/dvdplayer/DVDAudio.cpp                       |  9 +++++++++
+ xbmc/cores/dvdplayer/DVDAudio.h                         |  1 +
+ xbmc/cores/dvdplayer/DVDPlayerAudio.cpp                 | 11 +++++++++--
+ 11 files changed, 62 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index acca48a..0a291b2 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -45,12 +45,12 @@ void CEngineStats::Reset(unsigned int sampleRate)
+   m_playingPTS = 0;
+ }
+ 
+-void CEngineStats::UpdateSinkDelay(double delay, int samples, int64_t pts)
++void CEngineStats::UpdateSinkDelay(double delay, int samples, int64_t pts, int clockId)
+ {
+   CSingleLock lock(m_lock);
+   m_sinkUpdate = XbmcThreads::SystemClockMillis();
+   m_sinkDelay = delay;
+-  m_playingPTS = pts;
++  m_playingPTS = (clockId == m_clockId) ? pts : 0;
+   if (samples > m_bufferedSamples)
+   {
+     CLog::Log(LOGERROR, "CEngineStats::UpdateSinkDelay - inconsistency in buffer time");
+@@ -137,6 +137,17 @@ int64_t CEngineStats::GetPlayingPTS()
+   return pts;
+ }
+ 
++int CEngineStats::Discontinuity(bool reset)
++{
++  CSingleLock lock(m_lock);
++  m_playingPTS = 0;
++  if (reset)
++    m_clockId = 0;
++  else
++    m_clockId++;
++  return m_clockId;
++}
++
+ float CEngineStats::GetWaterLevel()
+ {
+   CSingleLock lock(m_lock);
+@@ -1237,6 +1248,7 @@ CActiveAEStream* CActiveAE::CreateStream(MsgStreamNew *streamMsg)
+   stream->m_statsLock = m_stats.GetLock();
+   stream->m_fadingSamples = 0;
+   stream->m_started = false;
++  stream->m_clockId = m_stats.Discontinuity(true);
+ 
+   if (streamMsg->options & AESTREAM_PAUSED)
+     stream->m_paused = true;
+@@ -1963,6 +1975,7 @@ bool CActiveAE::RunStages()
+           // set pts of last sample
+           buf->pkt_start_offset = buf->pkt->nb_samples;
+           buf->timestamp = out->timestamp;
++          buf->clockId = out->clockId;
+ 
+           out->Return();
+           out = buf;
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+index 467f18e..733551a 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+@@ -160,7 +160,7 @@ class CEngineStats
+ {
+ public:
+   void Reset(unsigned int sampleRate);
+-  void UpdateSinkDelay(double delay, int samples, int64_t pts);
++  void UpdateSinkDelay(double delay, int samples, int64_t pts, int clockId = 0);
+   void AddSamples(int samples, std::list<CActiveAEStream*> &streams);
+   float GetDelay();
+   float GetDelay(CActiveAEStream *stream);
+@@ -168,6 +168,7 @@ class CEngineStats
+   float GetCacheTotal(CActiveAEStream *stream);
+   float GetWaterLevel();
+   int64_t GetPlayingPTS();
++  int Discontinuity(bool reset = false);
+   void SetSuspended(bool state);
+   void SetSinkCacheTotal(float time) { m_sinkCacheTotal = time; }
+   void SetSinkLatency(float time) { m_sinkLatency = time; }
+@@ -176,6 +177,7 @@ class CEngineStats
+ protected:
+   float m_sinkDelay;
+   int64_t m_playingPTS;
++  int m_clockId;
+   float m_sinkCacheTotal;
+   float m_sinkLatency;
+   int m_bufferedSamples;
+@@ -246,6 +248,7 @@ class CActiveAE : public IAE, private CThread
+   void FreeSoundSample(uint8_t **data);
+   float GetDelay(CActiveAEStream *stream) { return m_stats.GetDelay(stream); }
+   int64_t GetPlayingPTS() { return m_stats.GetPlayingPTS(); }
++  int Discontinuity() { return m_stats.Discontinuity(); }
+   float GetCacheTime(CActiveAEStream *stream) { return m_stats.GetCacheTime(stream); }
+   float GetCacheTotal(CActiveAEStream *stream) { return m_stats.GetCacheTotal(stream); }
+   void FlushStream(CActiveAEStream *stream);
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+index 56045e2..c1cdf97 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+@@ -44,7 +44,8 @@ CSoundPacket::~CSoundPacket()
+ CSampleBuffer::CSampleBuffer() : pkt(NULL), pool(NULL)
+ {
+   refCount = 0;
+-  timestamp = 0.0;
++  timestamp = 0;
++  clockId = -1;
+ }
+ 
+ CSampleBuffer::~CSampleBuffer()
+@@ -236,7 +237,10 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(double timestamp)
+       in = m_inputSamples.front();
+       m_inputSamples.pop_front();
+       if (timestamp)
++      {
+         in->timestamp = timestamp;
++        in->clockId = -1;
++      }
+       m_outputSamples.push_back(in);
+       busy = true;
+     }
+@@ -295,11 +299,15 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(double timestamp)
+       if (in)
+       {
+         if (!timestamp)
++        {
+           m_lastSamplePts = in->timestamp;
++          m_procSample->clockId = in->clockId;
++        }
+         else
+         {
+           m_lastSamplePts = timestamp;
+           in->pkt_start_offset = 0;
++          m_procSample->clockId = -1;
+         }
+ 
+         // pts of last sample we added to the buffer
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+index 008ebdd..ffc307a 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+@@ -71,6 +71,7 @@ class CSampleBuffer
+   CSoundPacket *pkt;
+   CActiveAEBufferPool *pool;
+   int64_t timestamp;
++  int clockId;
+   int pkt_start_offset;
+   int refCount;
+ };
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
+index 5d4c6bd..027c7e5 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
+@@ -847,7 +847,7 @@ unsigned int CActiveAESink::OutputSamples(CSampleBuffer* samples)
+       if (pts < 0)
+         pts = 0;
+     }
+-    m_stats->UpdateSinkDelay(sinkDelay, samples->pool ? written : 0, pts);
++    m_stats->UpdateSinkDelay(sinkDelay, samples->pool ? written : 0, pts, samples->clockId);
+   }
+   return sinkDelay*1000;
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+index 88e4787..1833e9a 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+@@ -218,6 +218,7 @@ unsigned int CActiveAEStream::AddData(uint8_t* const *data, unsigned int offset,
+       if (!copied)
+       {
+         m_currentBuffer->timestamp = pts;
++        m_currentBuffer->clockId = m_clockId;
+         m_currentBuffer->pkt_start_offset = m_currentBuffer->pkt->nb_samples;
+       }
+ 
+@@ -277,6 +278,11 @@ int64_t CActiveAEStream::GetPlayingPTS()
+   return AE.GetPlayingPTS();
+ }
+ 
++void CActiveAEStream::Discontinuity()
++{
++  m_clockId = AE.Discontinuity();
++}
++
+ bool CActiveAEStream::IsBuffering()
+ {
+   CSingleLock lock(m_streamLock);
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+index 927c4d8..8932e98 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+@@ -77,6 +77,7 @@ class CActiveAEStream : public IAEStream
+   virtual void FadeVolume(float from, float to, unsigned int time);
+   virtual bool IsFading();
+   virtual void RegisterSlave(IAEStream *stream);
++  virtual void Discontinuity();
+ 
+ protected:
+ 
+@@ -98,6 +99,7 @@ class CActiveAEStream : public IAEStream
+   CSampleBuffer *m_currentBuffer;
+   CSoundPacket *m_remapBuffer;
+   CActiveAEResample *m_remapper;
++  int m_clockId;
+ 
+   // only accessed by engine
+   CActiveAEBufferPool *m_inputBuffers;
+diff --git a/xbmc/cores/AudioEngine/Interfaces/AEStream.h b/xbmc/cores/AudioEngine/Interfaces/AEStream.h
+index bf9b1d1..052e5a7 100644
+--- a/xbmc/cores/AudioEngine/Interfaces/AEStream.h
++++ b/xbmc/cores/AudioEngine/Interfaces/AEStream.h
+@@ -233,5 +233,10 @@ class IAEStream
+    * Slave a stream to resume when this stream has drained
+    */
+   virtual void RegisterSlave(IAEStream *stream) = 0;
++
++  /**
++   * Sginal a clock change
++   */
++  virtual void Discontinuity() = 0;
+ };
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDAudio.cpp b/xbmc/cores/dvdplayer/DVDAudio.cpp
+index 9594912..675c61b 100644
+--- a/xbmc/cores/dvdplayer/DVDAudio.cpp
++++ b/xbmc/cores/dvdplayer/DVDAudio.cpp
+@@ -360,3 +360,12 @@ double CDVDAudio::GetPlayingPts()
+ 
+   return DVD_MSEC_TO_TIME(pts);
+ }
++
++void CDVDAudio::Discontinuity()
++{
++  CSingleLock lock (m_critSection);
++  if(!m_pAudioStream)
++    return;
++
++  m_pAudioStream->Discontinuity();
++}
+diff --git a/xbmc/cores/dvdplayer/DVDAudio.h b/xbmc/cores/dvdplayer/DVDAudio.h
+index 8c13719..fec9a24 100644
+--- a/xbmc/cores/dvdplayer/DVDAudio.h
++++ b/xbmc/cores/dvdplayer/DVDAudio.h
+@@ -80,6 +80,7 @@ class CDVDAudio
+   void Flush();
+   void Finish();
+   void Drain();
++  void Discontinuity();
+ 
+   void SetSpeed(int iSpeed);
+   void SetResampleRatio(double ratio);
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+index 174660d..2183b43 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+@@ -359,7 +359,12 @@ int CDVDPlayerAudio::DecodeFrame(DVDAudioFrame &audioframe)
+ 
+       m_ptsInput.Flush();
+       if (pMsgGeneralResync->m_clock)
+-        m_pClock->Discontinuity(m_dvdAudio.GetPlayingPts());
++      {
++        if (m_dvdAudio.GetPlayingPts() != DVD_NOPTS_VALUE)
++          m_pClock->Discontinuity(m_dvdAudio.GetPlayingPts());
++        else
++          m_pClock->Discontinuity(m_audioClock);
++      }
+     }
+     else if (pMsg->IsType(CDVDMsg::GENERAL_RESET))
+     {
+@@ -634,6 +639,7 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
+     m_errors.Flush();
+     m_error = 0;
+     m_syncclock = false;
++    m_dvdAudio.Discontinuity();
+ 
+     return;
+   }
+@@ -664,7 +670,8 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
+         error = m_error;
+       }
+ 
+-      m_pClock->Update(clock+error, absolute, limit - 0.001, "CDVDPlayerAudio::HandleSyncError2");
++      if (m_pClock->Update(clock+error, absolute, limit - 0.001, "CDVDPlayerAudio::HandleSyncError2"))
++        m_dvdAudio.Discontinuity();
+     }
+     else if (m_synctype == SYNC_RESAMPLE)
+     {
+-- 
+1.9.3
+
+
+From 2da861b243fb59a7e22310526a968ae1308e682c Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 24 May 2014 20:17:30 +0200
+Subject: [PATCH 06/37] dvdplayer audio: remove obsolte methods and useless
+ locks
+
+---
+ xbmc/cores/dvdplayer/DVDAudio.cpp       | 21 ---------------------
+ xbmc/cores/dvdplayer/DVDAudio.h         |  2 --
+ xbmc/cores/dvdplayer/DVDPlayerAudio.cpp |  3 ---
+ 3 files changed, 26 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDAudio.cpp b/xbmc/cores/dvdplayer/DVDAudio.cpp
+index 675c61b..9c543ab 100644
+--- a/xbmc/cores/dvdplayer/DVDAudio.cpp
++++ b/xbmc/cores/dvdplayer/DVDAudio.cpp
+@@ -282,17 +282,6 @@ void CDVDAudio::Resume()
+   if (m_pAudioStream) m_pAudioStream->Resume();
+ }
+ 
+-double CDVDAudio::GetDelay()
+-{
+-  CSingleLock lock (m_critSection);
+-
+-  double delay = 0.0;
+-  if(m_pAudioStream)
+-    delay = m_pAudioStream->GetDelay();
+-
+-  return delay * DVD_TIME_BASE;
+-}
+-
+ void CDVDAudio::Flush()
+ {
+   CSingleLock lock (m_critSection);
+@@ -340,17 +329,8 @@ double CDVDAudio::GetCacheTime()
+   return delay;
+ }
+ 
+-double CDVDAudio::GetCacheTotal()
+-{
+-  CSingleLock lock (m_critSection);
+-  if(!m_pAudioStream)
+-    return 0.0;
+-  return m_pAudioStream->GetCacheTotal();
+-}
+-
+ double CDVDAudio::GetPlayingPts()
+ {
+-  CSingleLock lock (m_critSection);
+   if(!m_pAudioStream)
+     return DVD_NOPTS_VALUE;
+ 
+@@ -363,7 +343,6 @@ double CDVDAudio::GetPlayingPts()
+ 
+ void CDVDAudio::Discontinuity()
+ {
+-  CSingleLock lock (m_critSection);
+   if(!m_pAudioStream)
+     return;
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDAudio.h b/xbmc/cores/dvdplayer/DVDAudio.h
+index fec9a24..7023c75 100644
+--- a/xbmc/cores/dvdplayer/DVDAudio.h
++++ b/xbmc/cores/dvdplayer/DVDAudio.h
+@@ -72,11 +72,9 @@ class CDVDAudio
+   bool IsValidFormat(const DVDAudioFrame &audioframe);
+   void Destroy();
+   unsigned int AddPackets(const DVDAudioFrame &audioframe);
+-  double GetDelay(); // returns the time it takes to play a packet if we add one at this time
+   double GetPlayingPts();
+   void   SetPlayingPts(double pts);
+   double GetCacheTime();  // returns total amount of data cached in audio output at this time
+-  double GetCacheTotal(); // returns total amount the audio device can buffer
+   void Flush();
+   void Finish();
+   void Drain();
+diff --git a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+index 2183b43..0e4eeec 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayerAudio.cpp
+@@ -580,9 +580,6 @@ void CDVDPlayerAudio::Process()
+       m_messageParent.Put(new CDVDMsgInt(CDVDMsg::PLAYER_STARTED, DVDPLAYER_AUDIO));
+     }
+ 
+-    if( m_dvdAudio.GetPlayingPts() == DVD_NOPTS_VALUE )
+-      continue;
+-
+     if( m_speed != DVD_PLAYSPEED_NORMAL )
+       continue;
+ 
+-- 
+1.9.3
+
+
+From 288c027f4e238995e6bf9b407a5ff4b2a1c270c2 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Wed, 28 May 2014 10:41:27 +0200
+Subject: [PATCH 07/37] WASAPI: fall back to float if engine requests a planar
+ format
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
+index 31c3588..a17352d 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
+@@ -1005,8 +1005,14 @@ bool CAESinkWASAPI::InitializeExclusive(AEAudioFormat &format)
+ 
+   if (format.m_dataFormat <= AE_FMT_FLOAT)
+     BuildWaveFormatExtensible(format, wfxex);
+-  else
++  else if (AE_IS_RAW(format.m_dataFormat))
+     BuildWaveFormatExtensibleIEC61397(format, wfxex_iec61937);
++  else
++  {
++    // planar formats are currently not supported by this sink
++    format.m_dataFormat = AE_FMT_FLOAT;
++    BuildWaveFormatExtensible(format, wfxex);
++  }
+ 
+   /* Test for incomplete format and provide defaults */
+   if (format.m_sampleRate == 0 ||
+-- 
+1.9.3
+
+
+From 3ffc519ef58c12dd4a0a47b9c61398a5e4d8cf11 Mon Sep 17 00:00:00 2001
+From: fritsch <Peter.Fruehberger@gmail.com>
+Date: Wed, 28 May 2014 09:20:33 +0200
+Subject: [PATCH 08/37] AESinkPULSE: Correctly handle unsupported formats and
+ fallback to float
+
+---
+ xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
+index 4adfd46..dcb31f1 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
+@@ -484,6 +484,14 @@ bool CAESinkPULSE::Initialize(AEAudioFormat &format, std::string &device)
+   struct pa_channel_map map;
+   pa_channel_map_init(&map);
+ 
++   // PULSE cannot cope with e.g. planar formats so we fallback to FLOAT
++   // when we receive an invalid pulse format
++   if (AEFormatToPulseFormat(format.m_dataFormat) == PA_SAMPLE_INVALID)
++   {
++     CLog::Log(LOGDEBUG, "PULSE does not support format: %s - will fallback to AE_FMT_FLOAT", CAEUtil::DataFormatToStr(format.m_dataFormat));
++     format.m_dataFormat = AE_FMT_FLOAT;
++   }
++
+   m_passthrough = AE_IS_RAW(format.m_dataFormat);
+ 
+   if(m_passthrough)
+-- 
+1.9.3
+
+
+From 7630fd6e771b98a1b8e001a1e8a59368783c005d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:34:39 +0200
-Subject: [PATCH 01/25] videoplayer: adapt lateness detection and dropping to
+Subject: [PATCH 09/37] videoplayer: adapt lateness detection and dropping to
  buffering
 
 ---
@@ -289,7 +2846,7 @@ index 75ac0f2..1a80a48 100644
 +  int    m_codecControlFlags;
  };
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 99b3155..e8c587f 100644
+index 7e88bfc..6f3b0dd 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -38,6 +38,7 @@
@@ -300,7 +2857,7 @@ index 99b3155..e8c587f 100644
  #include <sstream>
  #include <iomanip>
  #include <numeric>
-@@ -320,8 +321,10 @@ void CDVDPlayerVideo::Process()
+@@ -317,8 +318,10 @@ void CDVDPlayerVideo::Process()
  
    int iDropped = 0; //frames dropped in a row
    bool bRequestDrop = false;
@@ -311,7 +2868,7 @@ index 99b3155..e8c587f 100644
  
    while (!m_bStop)
    {
-@@ -431,6 +434,7 @@ void CDVDPlayerVideo::Process()
+@@ -430,6 +433,7 @@ void CDVDPlayerVideo::Process()
        picture.iFlags &= ~DVP_FLAG_ALLOCATED;
        m_packets.clear();
        m_started = false;
@@ -319,7 +2876,7 @@ index 99b3155..e8c587f 100644
      }
      else if (pMsg->IsType(CDVDMsg::GENERAL_FLUSH)) // private message sent by (CDVDPlayerVideo::Flush())
      {
-@@ -443,6 +447,7 @@ void CDVDPlayerVideo::Process()
+@@ -442,6 +446,7 @@ void CDVDPlayerVideo::Process()
        //we need to recalculate the framerate
        //TODO: this needs to be set on a streamchange instead
        ResetFrameRateCalc();
@@ -327,7 +2884,7 @@ index 99b3155..e8c587f 100644
  
        m_stalled = true;
        m_started = false;
-@@ -462,6 +467,7 @@ void CDVDPlayerVideo::Process()
+@@ -461,6 +466,7 @@ void CDVDPlayerVideo::Process()
          m_iNrOfPicturesNotToSkip = 0;
        if (m_pVideoCodec)
          m_pVideoCodec->SetSpeed(m_speed);
@@ -335,7 +2892,7 @@ index 99b3155..e8c587f 100644
      }
      else if (pMsg->IsType(CDVDMsg::PLAYER_STARTED))
      {
-@@ -507,6 +513,28 @@ void CDVDPlayerVideo::Process()
+@@ -506,6 +512,28 @@ void CDVDPlayerVideo::Process()
          m_iNrOfPicturesNotToSkip = 1;
        }
  
@@ -364,7 +2921,7 @@ index 99b3155..e8c587f 100644
        if (m_messageQueue.GetDataSize() == 0
        ||  m_speed < 0)
        {
-@@ -559,15 +587,7 @@ void CDVDPlayerVideo::Process()
+@@ -558,15 +586,7 @@ void CDVDPlayerVideo::Process()
        }
  
        m_videoStats.AddSampleBytes(pPacket->iSize);
@@ -381,9 +2938,9 @@ index 99b3155..e8c587f 100644
        // reset the request, the following while loop may break before
        // setting the flag to a new value
        bRequestDrop = false;
-@@ -1176,33 +1196,12 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+@@ -1180,33 +1200,12 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
    m_FlipTimeStamp += max(0.0, iSleepTime);
-   m_FlipTimeStamp += iFrameDuration;
+   m_FlipTimePts    = pts;
  
 -  if (iSleepTime <= 0 && m_speed)
 -    m_iLateFrames++;
@@ -419,7 +2976,7 @@ index 99b3155..e8c587f 100644
  
    // set fieldsync if picture is interlaced
    EFIELDSYNC mDisplayField = FS_NONE;
-@@ -1235,7 +1234,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+@@ -1239,7 +1238,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
    if (index < 0)
      return EOS_DROPPED;
  
@@ -428,7 +2985,7 @@ index 99b3155..e8c587f 100644
  
    return result;
  #else
-@@ -1535,3 +1534,131 @@ void CDVDPlayerVideo::CalcFrameRate()
+@@ -1539,3 +1538,131 @@ void CDVDPlayerVideo::CalcFrameRate()
      m_iFrameRateCount = 0;
    }
  }
@@ -561,7 +3118,7 @@ index 99b3155..e8c587f 100644
 +  m_totalGain += frametime;
 +}
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.h b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
-index f8ad541..186e271 100644
+index 9e578bf..fcbdd3d 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.h
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
 @@ -36,6 +36,25 @@ class CDVDOverlayCodecCC;
@@ -598,7 +3155,7 @@ index f8ad541..186e271 100644
  
    void AutoCrop(DVDVideoPicture* pPicture);
    void AutoCrop(DVDVideoPicture *pPicture, RECT &crop);
-@@ -129,6 +149,7 @@ class CDVDPlayerVideo : public CThread
+@@ -130,6 +150,7 @@ class CDVDPlayerVideo : public CThread
  
    void   ResetFrameRateCalc();
    void   CalcFrameRate();
@@ -606,7 +3163,7 @@ index f8ad541..186e271 100644
  
    double m_fFrameRate;       //framerate of the video currently playing
    bool   m_bCalcFrameRate;  //if we should calculate the framerate from the timestamps
-@@ -182,5 +203,7 @@ class CDVDPlayerVideo : public CThread
+@@ -183,5 +204,7 @@ class CDVDPlayerVideo : public CThread
    CPullupCorrection m_pullupCorrection;
  
    std::list<DVDMessageListItem> m_packets;
@@ -618,10 +3175,10 @@ index f8ad541..186e271 100644
 1.9.3
 
 
-From b66b34da3d5c0744bea11e3aaffafa4346f8ca83 Mon Sep 17 00:00:00 2001
+From 068cdbf74a5eca286dfc91d39a4d34c753613cd7 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 02/25] video player: present correct pts to user for a/v sync
+Subject: [PATCH 10/37] video player: present correct pts to user for a/v sync
  (after buffering in renderer)
 
 ---
@@ -630,10 +3187,10 @@ Subject: [PATCH 02/25] video player: present correct pts to user for a/v sync
  2 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index e8c587f..e7781dc 100644
+index 6f3b0dd..8f31a2c 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1454,6 +1454,22 @@ void CDVDPlayerVideo::ResetFrameRateCalc()
+@@ -1458,6 +1458,22 @@ void CDVDPlayerVideo::ResetFrameRateCalc()
                          g_advancedSettings.m_videoFpsDetect == 0;
  }
  
@@ -657,7 +3214,7 @@ index e8c587f..e7781dc 100644
  #define MAXFRAMESERR    1000
  
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.h b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
-index 186e271..59c7f09 100644
+index fcbdd3d..51962fa 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.h
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
 @@ -100,7 +100,7 @@ class CDVDPlayerVideo : public CThread
@@ -673,10 +3230,10 @@ index 186e271..59c7f09 100644
 1.9.3
 
 
-From 0014b029b1513d7d0d10c19d28662557ea15ecbb Mon Sep 17 00:00:00 2001
+From 183929f793343f450d73a1ce716a29f59cc9bdb6 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 1 Jun 2013 11:21:19 +0200
-Subject: [PATCH 03/25] renderer: bump buffers to 5
+Subject: [PATCH 11/37] renderer: bump buffers to 5
 
 ---
  xbmc/cores/VideoRenderers/BaseRenderer.h | 2 +-
@@ -699,10 +3256,10 @@ index fb41ccf..f5e5677 100644
 1.9.3
 
 
-From 380fb6663c28e31fcc2582d7bd2412b854f0deee Mon Sep 17 00:00:00 2001
+From ed9f3ab8bbbfbaea961d5fc568b449ef50ac2440 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:41:31 +0200
-Subject: [PATCH 04/25] videoplayer: update frametime, it might change due to
+Subject: [PATCH 12/37] videoplayer: update frametime, it might change due to
  fps detection
 
 ---
@@ -710,10 +3267,10 @@ Subject: [PATCH 04/25] videoplayer: update frametime, it might change due to
  1 file changed, 2 insertions(+)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index e7781dc..24e34d4 100644
+index 8f31a2c..759f39f 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -707,6 +707,8 @@ void CDVDPlayerVideo::Process()
+@@ -706,6 +706,8 @@ void CDVDPlayerVideo::Process()
  
              int iResult = OutputPicture(&picture, pts);
  
@@ -726,10 +3283,10 @@ index e7781dc..24e34d4 100644
 1.9.3
 
 
-From 8a0a481b0c24822b1e59aeea83182f6f80206f9f Mon Sep 17 00:00:00 2001
+From 394d504300781f1e98952211d697aff5d5279257 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:43:06 +0200
-Subject: [PATCH 05/25] videoplayer: give streams with invalid fps a chance for
+Subject: [PATCH 13/37] videoplayer: give streams with invalid fps a chance for
  fps detection
 
 ---
@@ -737,10 +3294,10 @@ Subject: [PATCH 05/25] videoplayer: give streams with invalid fps a chance for
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 24e34d4..e1911f5 100644
+index 759f39f..14aaf6b 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1496,7 +1496,7 @@ void CDVDPlayerVideo::CalcFrameRate()
+@@ -1500,7 +1500,7 @@ void CDVDPlayerVideo::CalcFrameRate()
    double frameduration = m_pullupCorrection.GetFrameDuration();
  
    if (frameduration == DVD_NOPTS_VALUE ||
@@ -753,10 +3310,10 @@ index 24e34d4..e1911f5 100644
 1.9.3
 
 
-From 55ddff9f371b63a8adbe9aa0e0faf68638a94bfb Mon Sep 17 00:00:00 2001
+From 4f7656c9137946f20c271515e946cdcba5299f6c Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 06/25] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 14/37] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -764,10 +3321,10 @@ Subject: [PATCH 06/25] dvdplayer: allow rewinding at end of stream, do a seek
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 3f2e0df..097af37 100644
+index 8aaef28..559ed82 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-@@ -1633,7 +1633,7 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1634,7 +1634,7 @@ void CDVDPlayer::HandlePlaySpeed()
  
      }
      else if (m_CurrentVideo.id >= 0
@@ -776,7 +3333,7 @@ index 3f2e0df..097af37 100644
            &&  m_SpeedState.lastpts  != m_dvdPlayerVideo.GetCurrentPts()
            &&  m_SpeedState.lasttime != GetTime())
      {
-@@ -2294,6 +2294,12 @@ void CDVDPlayer::HandleMessages()
+@@ -2296,6 +2296,12 @@ void CDVDPlayer::HandleMessages()
            pvrinputstream->Pause( speed == 0 );
          }
  
@@ -793,10 +3350,10 @@ index 3f2e0df..097af37 100644
 1.9.3
 
 
-From 199783edad6c1f95ee2d8029b6e8b19658ed474b Mon Sep 17 00:00:00 2001
+From 1334bd1212a83d9c2394d5eed6c52c997fc5f87a Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 07/25] dvdplayer: observe pts counter overflow
+Subject: [PATCH 15/37] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 197 ++++++++++++++++++++-
@@ -1079,10 +3636,10 @@ index 44e101c..3b0f615 100644
 1.9.3
 
 
-From 5a36af71402f870b29bf408eb332d9a6edd28f14 Mon Sep 17 00:00:00 2001
+From 1b1b64748c8513ddff234bae0f8256b5efebaad3 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 08/25] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 16/37] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -1090,10 +3647,10 @@ Subject: [PATCH 08/25] dvdplayer: avoid short screen flicker caused by
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index e1911f5..71add2f 100644
+index 14aaf6b..737ca42 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1053,13 +1053,16 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+@@ -1052,13 +1052,16 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
  
  #ifdef HAS_VIDEO_PLAYBACK
    double config_framerate = m_bFpsInvalid ? 0.0 : m_fFrameRate;
@@ -1115,10 +3672,10 @@ index e1911f5..71add2f 100644
 1.9.3
 
 
-From 929e16dbbbfe8ffca980e4c67b5538c5bc4c2714 Mon Sep 17 00:00:00 2001
+From 1b1f8fcd7ca91f1fa3d2ca1ea1ab0612d5fde55c Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 09/25] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 17/37] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -1146,7 +3703,7 @@ index e58681b..3f87a7d 100644
      if (deint != -1)
      {
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index 342299c..5484918 100644
+index 6835504..7d50649 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
 @@ -157,6 +157,8 @@ void CAdvancedSettings::Initialize()
@@ -1184,10 +3741,10 @@ index c57a9fb..6c505a8 100644
 1.9.3
 
 
-From 69722824d597a55fc378ecef601c900e4ff8e2ac Mon Sep 17 00:00:00 2001
+From 850f6b7d782253eacf6fa45a79d86bda4438107e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 10/25] player: fix rewind
+Subject: [PATCH 18/37] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 ++++-
@@ -1198,7 +3755,7 @@ Subject: [PATCH 10/25] player: fix rewind
  5 files changed, 31 insertions(+), 16 deletions(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDMessage.h b/xbmc/cores/dvdplayer/DVDMessage.h
-index 2ea8b8f..e8274f9 100644
+index be6603a..6ff2400 100644
 --- a/xbmc/cores/dvdplayer/DVDMessage.h
 +++ b/xbmc/cores/dvdplayer/DVDMessage.h
 @@ -220,7 +220,7 @@ class CDVDMsgPlayerSetState : public CDVDMsg
@@ -1235,10 +3792,10 @@ index 2ea8b8f..e8274f9 100644
  
  class CDVDMsgPlayerSeekChapter : public CDVDMsg
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 097af37..c41b0b7 100644
+index 559ed82..26c3542 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-@@ -1634,11 +1634,13 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1635,11 +1635,13 @@ void CDVDPlayer::HandlePlaySpeed()
      }
      else if (m_CurrentVideo.id >= 0
            &&  (m_CurrentVideo.inited == true || GetPlaySpeed() < 0) // allow rewind at end of file
@@ -1253,7 +3810,7 @@ index 097af37..c41b0b7 100644
        // check how much off clock video is when ff/rw:ing
        // a problem here is that seeking isn't very accurate
        // and since the clock will be resynced after seek
-@@ -1657,7 +1659,7 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1658,7 +1660,7 @@ void CDVDPlayer::HandlePlaySpeed()
        {
          CLog::Log(LOGDEBUG, "CDVDPlayer::Process - Seeking to catch up");
          int64_t iTime = (int64_t)DVD_TIME_TO_MSEC(m_clock.GetClock() + m_State.time_offset + 500000.0 * m_playSpeed / DVD_PLAYSPEED_NORMAL);
@@ -1262,7 +3819,7 @@ index 097af37..c41b0b7 100644
        }
      }
    }
-@@ -2143,7 +2145,7 @@ void CDVDPlayer::HandleMessages()
+@@ -2145,7 +2147,7 @@ void CDVDPlayer::HandleMessages()
            else
              m_StateInput.dts = start;
  
@@ -1271,7 +3828,7 @@ index 097af37..c41b0b7 100644
          }
          else
            CLog::Log(LOGWARNING, "error while seeking");
-@@ -2279,9 +2281,10 @@ void CDVDPlayer::HandleMessages()
+@@ -2281,9 +2283,10 @@ void CDVDPlayer::HandleMessages()
            double offset;
            offset  = CDVDClock::GetAbsoluteClock() - m_State.timestamp;
            offset *= m_playSpeed / DVD_PLAYSPEED_NORMAL;
@@ -1283,7 +3840,7 @@ index 097af37..c41b0b7 100644
            m_State.timestamp =  CDVDClock::GetAbsoluteClock();
          }
  
-@@ -2297,7 +2300,8 @@ void CDVDPlayer::HandleMessages()
+@@ -2299,7 +2302,8 @@ void CDVDPlayer::HandleMessages()
          // do a seek after rewind, clock is not in sync with current pts
          if (m_playSpeed < 0 && speed >= 0)
          {
@@ -1293,8 +3850,8 @@ index 097af37..c41b0b7 100644
          }
  
          // if playspeed is different then DVD_PLAYSPEED_NORMAL or DVD_PLAYSPEED_PAUSE
-@@ -3294,7 +3298,7 @@ bool CDVDPlayer::CloseTeletextStream(bool bWaitForBuffers)
-   return true;
+@@ -3315,7 +3319,7 @@ void CDVDPlayer::UpdateClockMaster()
+   }
  }
  
 -void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
@@ -1302,7 +3859,7 @@ index 097af37..c41b0b7 100644
  {
    double startpts;
    if(accurate)
-@@ -3306,19 +3310,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3327,19 +3331,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
    if(startpts != DVD_NOPTS_VALUE)
      startpts -= m_offset_pts;
  
@@ -1330,7 +3887,7 @@ index 097af37..c41b0b7 100644
    m_CurrentTeletext.dts      = DVD_NOPTS_VALUE;
    m_CurrentTeletext.startpts = startpts;
  
-@@ -3362,7 +3370,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3383,7 +3391,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
        m_CurrentTeletext.started = false;
      }
  
@@ -1340,7 +3897,7 @@ index 097af37..c41b0b7 100644
      UpdatePlayState(0);
  
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.h b/xbmc/cores/dvdplayer/DVDPlayer.h
-index e2a836b..6ecaf3f 100644
+index 03e91b2..8857884 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.h
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.h
 @@ -308,7 +308,7 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
@@ -1352,7 +3909,7 @@ index e2a836b..6ecaf3f 100644
  
    void HandleMessages();
    void HandlePlaySpeed();
-@@ -357,8 +357,9 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
+@@ -358,8 +358,9 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
    int m_playSpeed;
    struct SSpeedState
    {
@@ -1365,10 +3922,10 @@ index e2a836b..6ecaf3f 100644
  
    int m_errorCount;
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 71add2f..b2bd1b0 100644
+index 737ca42..bf784d5 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1469,7 +1469,7 @@ double CDVDPlayerVideo::GetCurrentPts()
+@@ -1473,7 +1473,7 @@ double CDVDPlayerVideo::GetCurrentPts()
  
    if( m_stalled )
      iRenderPts = DVD_NOPTS_VALUE;
@@ -1377,7 +3934,7 @@ index 71add2f..b2bd1b0 100644
      iRenderPts = iRenderPts - max(0.0, iSleepTime);
  
    return iRenderPts;
-@@ -1568,6 +1568,8 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
+@@ -1572,6 +1572,8 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
    int    iDroppedPics = -1;
    int    iBufferLevel;
  
@@ -1387,7 +3944,7 @@ index 71add2f..b2bd1b0 100644
    if (!m_pVideoCodec->GetCodecStats(iDecoderPts, iDroppedPics))
      iDecoderPts = pts;
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.h b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
-index 59c7f09..65dea76 100644
+index 51962fa..6fe596c 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.h
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.h
 @@ -50,6 +50,7 @@ class CDroppingStats
@@ -1402,10 +3959,10 @@ index 59c7f09..65dea76 100644
 1.9.3
 
 
-From 80b5227a15454f9412bb4d201e7865b8f9be54d8 Mon Sep 17 00:00:00 2001
+From 9163b138553d609650b3536fc0a5b8bb9cd7e8f4 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 15:18:53 +0100
-Subject: [PATCH 11/25] OMXPlayer: some caching fixes for pvr
+Subject: [PATCH 19/37] OMXPlayer: some caching fixes for pvr
 
 ---
  xbmc/cores/omxplayer/OMXPlayer.cpp | 3 ++-
@@ -1429,20 +3986,20 @@ index 502df4a..c8579a2 100644
 1.9.3
 
 
-From d7e72dead7ae1e29cd59d23a7b68da41bd84bf01 Mon Sep 17 00:00:00 2001
+From eba56c5efaf7bdd624fd9634f398509fe2cc6f81 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 12/25] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 20/37] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index e1539bf..dfdc55d 100644
+index 82dbee5..5a6ae42 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2323,10 +2323,11 @@ void CApplication::Render()
+@@ -2311,10 +2311,11 @@ void CApplication::Render()
      if (frameTime < singleFrameTime)
        Sleep(singleFrameTime - frameTime);
    }
@@ -1459,10 +4016,10 @@ index e1539bf..dfdc55d 100644
 1.9.3
 
 
-From 22decd379c0779cb2fe4b2ead6bb3dcf50138c5c Mon Sep 17 00:00:00 2001
+From 26e019a9e7764ab1e2afa112508dd9a5e4e47dc7 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Jun 2013 16:20:29 +0200
-Subject: [PATCH 13/25] renderer: allow some lateness within vblank interval
+Subject: [PATCH 21/37] renderer: allow some lateness within vblank interval
 
 ---
  xbmc/cores/VideoRenderers/RenderManager.cpp | 12 ++++++++++--
@@ -1522,17 +4079,17 @@ index 949c652b..d84ff6c 100644
 1.9.3
 
 
-From c7e7a518bb40afdd81b4324514cceecb853ed37c Mon Sep 17 00:00:00 2001
+From da7276c90afd26fdc6c67b83d86b08406fef8094 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 14/25] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 22/37] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-index 4bd2c32..4350ac8 100644
+index 0a291b2..4ef75d5 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 @@ -30,8 +30,8 @@ using namespace ActiveAE;
@@ -1550,10 +4107,10 @@ index 4bd2c32..4350ac8 100644
 1.9.3
 
 
-From e22c5b2da20a654fd121bd8701fca43be77b4b38 Mon Sep 17 00:00:00 2001
+From be35477dc1eb80b10201458087ef8fbf0297de0c Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 15/25] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 23/37] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -1609,10 +4166,10 @@ index 3f87a7d..f7418e8 100644
 1.9.3
 
 
-From 387cf368b3c9c55600f286c7dd59cd2558809ee5 Mon Sep 17 00:00:00 2001
+From cf724f8fce14c5b27e783124462af1abbd4095d9 Mon Sep 17 00:00:00 2001
 From: Marcel Groothuis <margro.xbmc@gmail.com>
 Date: Thu, 5 Dec 2013 22:02:50 +0100
-Subject: [PATCH 16/25] ffmpeg demuxer: faster channel change for PVR addons
+Subject: [PATCH 24/37] ffmpeg demuxer: faster channel change for PVR addons
  without internal demuxing (such as MediaPortal, ArgusTV, MythTV, NextPVR)
  Credits: FernetMenta, Davilla, Popcornmix, Whaupt
 
@@ -1926,10 +4483,10 @@ index ca689d0..f383563 100644
 1.9.3
 
 
-From 487c7e4d49ca83752ce7f5459ebbdcb416450c9f Mon Sep 17 00:00:00 2001
+From 14e1b975fa66c1954f8b8f195bd22e60ba17498f Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 14 Nov 2013 20:35:04 +0100
-Subject: [PATCH 17/25] ffmpeg demuxer: make sure we start mpegts video with an
+Subject: [PATCH 25/37] ffmpeg demuxer: make sure we start mpegts video with an
  i-frame
 
 ---
@@ -2013,10 +4570,10 @@ index 083182e..26ee264 100644
 1.9.3
 
 
-From c06bbd9a5b92781fb824661bfbebe7031e7dc16b Mon Sep 17 00:00:00 2001
+From 44b93dd842bd0a37f61e22bf61366a7ff13e53f3 Mon Sep 17 00:00:00 2001
 From: Wolfgang Haupt <w.haupt@at-visions.com>
 Date: Thu, 5 Dec 2013 22:11:57 +0100
-Subject: [PATCH 18/25] DVDFactoryDemuxer: skip streaminfo for udp tcp and
+Subject: [PATCH 26/37] DVDFactoryDemuxer: skip streaminfo for udp tcp and
  pvr-channels
 
 ---
@@ -2140,10 +4697,10 @@ index b94e94c..b45630f 100644
 1.9.3
 
 
-From 3fb4abe57203eef44151b7dbac505143c5cf1012 Mon Sep 17 00:00:00 2001
+From 6afeed968a8e8a3ff8347d38699c1dbb0f70a63d Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 28 Jan 2014 08:43:29 +0100
-Subject: [PATCH 19/25] squash fast switch
+Subject: [PATCH 27/37] squash fast switch
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 23 ++++++++++++++--------
@@ -2209,10 +4766,10 @@ index 56eaccc..d0f13a1 100644
 1.9.3
 
 
-From 13dddaee3f4bece06863773163ed1465422f3a91 Mon Sep 17 00:00:00 2001
+From 74ca9198acceec6c9f63de70771e7eb9b23a66a2 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 13 Apr 2014 10:52:26 +0200
-Subject: [PATCH 20/25] squash fast channel
+Subject: [PATCH 28/37] squash fast channel
 
 ---
  xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 13 ++++++++++---
@@ -2289,10 +4846,10 @@ index 26ee264..322a3b8 100644
 1.9.3
 
 
-From 43e72f96912322ad4bbfc664ee0a593f6e471c1b Mon Sep 17 00:00:00 2001
+From b721145b7619edecbcdfc519b1c39a69cb19b74f Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 22 Dec 2013 14:52:29 +0100
-Subject: [PATCH 21/25] linux: add shared lib for sse4 operations
+Subject: [PATCH 29/37] linux: add shared lib for sse4 operations
 
 ---
  Makefile.in                   |   8 ++-
@@ -2587,10 +5144,10 @@ index 0000000..45aa826
 1.9.3
 
 
-From ea04c03cee4da4575110d94655d9949585517b77 Mon Sep 17 00:00:00 2001
+From d5bff220ec13394d5d568aae7acd72e62b839473 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 19 Dec 2013 15:36:11 +0100
-Subject: [PATCH 22/25] vaapi: option to enable sw filters
+Subject: [PATCH 30/37] vaapi: option to enable sw filters
 
 ---
  language/English/strings.po                        |  17 ++-
@@ -2606,10 +5163,10 @@ Subject: [PATCH 22/25] vaapi: option to enable sw filters
  10 files changed, 290 insertions(+), 37 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 951bfcb..df4cd0d 100755
+index fb26ead..c6822b1 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
-@@ -6157,7 +6157,13 @@ msgctxt "#13456"
+@@ -6162,7 +6162,13 @@ msgctxt "#13456"
  msgid "Hardware accelerated"
  msgstr ""
  
@@ -2624,7 +5181,7 @@ index 951bfcb..df4cd0d 100755
  
  #: system/settings/settings.xml
  msgctxt "#13500"
-@@ -15274,7 +15280,14 @@ msgctxt "#36431"
+@@ -15279,7 +15285,14 @@ msgctxt "#36431"
  msgid "Defines whether video decoding should be performed in software (requires more CPU) or with hardware acceleration where possible."
  msgstr ""
  
@@ -3183,10 +5740,10 @@ index ec99162..616b124 100644
  
  }
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index b2bd1b0..2580c76 100644
+index bf784d5..979c74c 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -553,28 +553,6 @@ void CDVDPlayerVideo::Process()
+@@ -552,28 +552,6 @@ void CDVDPlayerVideo::Process()
        // decoder still needs to provide an empty image structure, with correct flags
        m_pVideoCodec->SetDropState(bRequestDrop);
  
@@ -3215,7 +5772,7 @@ index b2bd1b0..2580c76 100644
        int iDecoderState = m_pVideoCodec->Decode(pPacket->pData, pPacket->iSize, pPacket->dts, pPacket->pts);
  
        // buffer packets so we can recover should decoder flush for some reason
-@@ -661,6 +639,8 @@ void CDVDPlayerVideo::Process()
+@@ -660,6 +638,8 @@ void CDVDPlayerVideo::Process()
  
              //Deinterlace if codec said format was interlaced or if we have selected we want to deinterlace
              //this video
@@ -3224,7 +5781,7 @@ index b2bd1b0..2580c76 100644
              if ((mDeintMode == VS_DEINTERLACEMODE_AUTO && (picture.iFlags & DVP_FLAG_INTERLACED)) || mDeintMode == VS_DEINTERLACEMODE_FORCE)
              {
                if(mInt == VS_INTERLACEMETHOD_SW_BLEND)
-@@ -703,7 +683,13 @@ void CDVDPlayerVideo::Process()
+@@ -702,7 +682,13 @@ void CDVDPlayerVideo::Process()
              }
  
              if (picture.iRepeatPicture)
@@ -3242,10 +5799,10 @@ index b2bd1b0..2580c76 100644
 1.9.3
 
 
-From 69220053875bda76dbea5a40aefdbbcc94226dc5 Mon Sep 17 00:00:00 2001
+From f1beaaef353bb1a89165466d5772257c66fc207b Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 28 Jan 2014 10:05:26 +0100
-Subject: [PATCH 23/25] xbmc pr 3080
+Subject: [PATCH 31/37] xbmc pr 3080
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp      | 14 ++++++++++++--
@@ -3287,10 +5844,10 @@ index 3b70aa0..80915d4 100644
 1.9.3
 
 
-From b73554bcf7b32421b806a6dd94978f560ecd6877 Mon Sep 17 00:00:00 2001
+From 10c9dff872513b9bf786f53702dd3a7f2c88d74b Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 28 Jan 2014 17:24:58 +0100
-Subject: [PATCH 24/25] set preatpicture if pts is equal to last frame
+Subject: [PATCH 32/37] set preatpicture if pts is equal to last frame
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp | 8 ++++++++
@@ -3320,20 +5877,20 @@ index 80915d4..ab36704 100644
 1.9.3
 
 
-From 22f8e9a540ac656ee113988288600bcd14346b77 Mon Sep 17 00:00:00 2001
+From 5f8d9343ade961f4a8af7e38757c2102b6a81074 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Feb 2014 18:15:06 +0100
-Subject: [PATCH 25/25] ActiveAE: add some debug logging
+Subject: [PATCH 33/37] ActiveAE: add some debug logging
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
-index 0287e73..6904cb9 100644
+index 1833e9a..413005a 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
-@@ -276,7 +276,13 @@ unsigned int CActiveAEStream::AddData(void *data, unsigned int size)
+@@ -263,7 +263,13 @@ unsigned int CActiveAEStream::AddData(uint8_t* const *data, unsigned int offset,
        }
      }
      if (!m_inMsgEvent.WaitMSec(200))
@@ -3347,6 +5904,106 @@ index 0287e73..6904cb9 100644
    }
    return copied;
  }
+-- 
+1.9.3
+
+
+From 3285a4eb92799bdfd6c1c89181c5af4edba26069 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 25 May 2014 21:25:31 +0200
+Subject: [PATCH 34/37] squash swfilter
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 315f3ca..4452cfb 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -519,6 +519,8 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+       m_surfaces_proc.push_back(pic);
+       if (m_surfaces_proc.size() < m_renderbuffers_count)
+         return VC_BUFFER;
++
++      return VC_PICTURE;
+     }
+ 
+     return VC_BUFFER | VC_PICTURE;
+-- 
+1.9.3
+
+
+From 21be5f9ad1211c140092a7e268e2c8240583cb58 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Mon, 26 May 2014 08:07:39 +0200
+Subject: [PATCH 35/37] swfilter, squash me too
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 4452cfb..befb6d6 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -517,7 +517,7 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+       av_frame_ref(&pic.frame, frame);
+       pic.surface = *it;
+       m_surfaces_proc.push_back(pic);
+-      if (m_surfaces_proc.size() < m_renderbuffers_count)
++      if (m_surfaces_proc.size() < m_renderbuffers_count + 1)
+         return VC_BUFFER;
+ 
+       return VC_PICTURE;
+@@ -526,7 +526,15 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+     return VC_BUFFER | VC_PICTURE;
+   }
+   else
+-    return VC_BUFFER;
++  {
++    if (m_use_filter)
++    {
++      if (m_surfaces_proc.size() < m_renderbuffers_count + 1)
++        return VC_BUFFER;
++    }
++    else
++      return VC_BUFFER;
++  }
+ }
+ 
+ bool CDecoder::GetPicture(AVCodecContext* avctx, AVFrame* frame, DVDVideoPicture* picture)
+-- 
+1.9.3
+
+
+From 4cbf9280725cbd829c0ae859a0d8de01e8612e69 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 31 May 2014 09:19:23 +0200
+Subject: [PATCH 37/37] squash me
+
+---
+ xbmc/cores/paplayer/DVDPlayerCodec.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xbmc/cores/paplayer/DVDPlayerCodec.cpp b/xbmc/cores/paplayer/DVDPlayerCodec.cpp
+index 3a35a49..31bc974 100644
+--- a/xbmc/cores/paplayer/DVDPlayerCodec.cpp
++++ b/xbmc/cores/paplayer/DVDPlayerCodec.cpp
+@@ -236,11 +236,13 @@ bool DVDPlayerCodec::Init(const CStdString &strFile, unsigned int filecache)
+                        m_SampleRate,
+                        ActiveAE::CActiveAEResample::GetAVSampleFormat(AE_FMT_FLOAT),
+                        CAEUtil::DataFormatToUsedBits(AE_FMT_FLOAT),
++                       CAEUtil::DataFormatToDitherBits(AE_FMT_FLOAT),
+                        ActiveAE::CActiveAEResample::GetAVChannelLayout(m_ChannelInfo),
+                        m_ChannelInfo.Count(),
+                        m_SampleRate,
+                        ActiveAE::CActiveAEResample::GetAVSampleFormat(m_DataFormat),
+                        CAEUtil::DataFormatToUsedBits(m_DataFormat),
++                       CAEUtil::DataFormatToDitherBits(m_DataFormat),
+                        false,
+                        false,
+                        NULL,
 -- 
 1.9.3
 
