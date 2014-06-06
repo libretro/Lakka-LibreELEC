@@ -24,6 +24,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://daniel-baumann.ch/software/dosfstools/"
 PKG_URL="http://daniel-baumann.ch/files/software/dosfstools/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_INIT="toolchain dosfstools"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="dosfstools: utilities for making and checking MS-DOS FAT filesystems."
@@ -35,3 +36,13 @@ PKG_AUTORECONF="no"
 PKG_MAKE_OPTS_TARGET="PREFIX=/usr"
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
+make_init() {
+  : # reuse make_target()
+}
+
+makeinstall_init() {
+  mkdir -p $INSTALL/sbin
+    cp fsck.fat $INSTALL/sbin
+    ln -sf fsck.fat $INSTALL/sbin/fsck.msdos
+    ln -sf fsck.fat $INSTALL/sbin/fsck.vfat
+}
