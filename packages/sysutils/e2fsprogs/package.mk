@@ -80,6 +80,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/sbin/e2undo
   rm -rf $INSTALL/sbin/e4defrag
   rm -rf $INSTALL/sbin/filefrag
+  rm -rf $INSTALL/sbin/fsck
   rm -rf $INSTALL/sbin/logsave
   rm -rf $INSTALL/sbin/mklost+found
 }
@@ -91,5 +92,9 @@ pre_configure_init() {
 
 makeinstall_init() {
   mkdir -p $INSTALL/sbin
-  cp e2fsck/e2fsck $INSTALL/sbin
+    cp e2fsck/e2fsck $INSTALL/sbin
+    ln -sf e2fsck $INSTALL/sbin/fsck.ext2
+    ln -sf e2fsck $INSTALL/sbin/fsck.ext3
+    ln -sf e2fsck $INSTALL/sbin/fsck.ext4
+    ln -sf e2fsck $INSTALL/sbin/fsck.ext4dev
 }
