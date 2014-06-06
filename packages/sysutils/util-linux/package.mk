@@ -23,6 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v2.24/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_INIT="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="util-linux: Miscellaneous system utilities for Linux"
@@ -96,6 +97,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-systemdsystemunitdir"
 
 PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
+PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
@@ -120,6 +122,13 @@ post_makeinstall_target() {
             -e "s,@SWAP_ENABLED_DEFAULT@,$SWAP_ENABLED_DEFAULT,g" \
             > $INSTALL/etc/swap.conf
   fi
+}
+
+post_makeinstall_init() {
+  rm -rf $INSTALL/usr
+
+  mkdir -p $INSTALL/sbin
+    cp .libs/fsck $INSTALL/sbin
 }
 
 post_install () {
