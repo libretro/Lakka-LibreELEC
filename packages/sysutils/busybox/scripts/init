@@ -47,6 +47,8 @@
   MD5_FAILED="0"
   MD5_NOCHECK="0"
   SIZE_FAILED="0"
+  RUN_FSCK="yes"
+  RUN_FSCK_DISKS=""
 
   NBD_DEVS="0"
   FLASH_FREE_MIN="5"
@@ -82,6 +84,9 @@
             UPDATE_DISABLED=yes
             FLASH_NETBOOT=yes
             ;;
+          /dev/*|LABEL=*|UUID=*)
+            RUN_FSCK_DISKS="$RUN_FSCK_DISKS $boot"
+            ;;
         esac
         ;;
       disk=*)
@@ -89,6 +94,9 @@
         case $disk in
           CIFS=*|SMB=*|ISCSI=*|NBD=*|NFS=*)
             STORAGE_NETBOOT=yes
+            ;;
+          /dev/*|LABEL=*|UUID=*)
+            RUN_FSCK_DISKS="$RUN_FSCK_DISKS $disk"
             ;;
         esac
         ;;
@@ -113,6 +121,9 @@
       progress)
         PROGRESS=yes
         INIT_ARGS="$INIT_ARGS --show-status=1"
+        ;;
+      nofsck)
+        RUN_FSCK=no
         ;;
       nosplash)
         SPLASH=no
@@ -344,23 +355,6 @@
     umount /sysroot
   }
 
-  hfsdiskprep() {
-    for DEVICE in $(/bin/busybox blkid /dev/sd* | sed -e "s,\",,g"| grep $boot); do
-      for device in $(/bin/busybox blkid $DEVICE); do
-        case $device in
-          TYPE=*)
-            FS_TYPE=${device#TYPE=}
-            ;;
-        esac
-      done
-
-      if [ "$FS_TYPE" = "\"hfs\"" -o "$FS_TYPE" = "\"hfsplus\"" ]; then
-        progress "check filesystem $DEVICE [$FS_TYPE]..."
-        /bin/fsck_hfs -r -y $DEVICE >&$SILENT_OUT 2>&1
-      fi
-    done
-  }
-
   load_modules() {
     progress "Loading kernel modules"
 
@@ -405,11 +399,30 @@
   }
 
   check_disks() {
-    progress "Checking disks"
+    if [ "$RUN_FSCK" = "yes" -a -n "$RUN_FSCK_DISKS" ]; then
+      progress "Checking disk(s): $RUN_FSCK_DISKS"
+        /sbin/fsck -T -M -p -a $RUN_FSCK_DISKS > /dev/null 2>&1
+        FSCK_RET="$?"
 
-    if [ -x /bin/fsck_hfs ]; then
-      # deal with hfs partitions
-      hfsdiskprep
+        case "$FSCK_RET" in
+          0) # no errors found
+            progress "no filesystem errors found, continuing..."
+            ;;
+          1) # filesystem errors corrected
+            progress "filesystem errors corrected , continuing..."
+            ;;
+          2) # reboot needed
+            echo "filesystem repaired, reboot needed..."
+            sleep 5
+            sync
+            reboot
+            ;;
+          4) # errors left
+            error "could not repair filesystem, dropping to debug shell, try to run 'fsck' manually, exit with 'exit'"
+            sync
+            reboot
+            ;;
+        esac
     fi
   }
 
