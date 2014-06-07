@@ -43,7 +43,6 @@
   IMAGE_SYSTEM="SYSTEM"
 
   BOOT_STEP="start"
-  REBOOT="0"
   MD5_FAILED="0"
   MD5_NOCHECK="0"
   SIZE_FAILED="0"
@@ -398,6 +397,25 @@
     fi
   }
 
+  do_reboot() {
+    echo "System reboots now..."
+
+    # syncing filesystem
+      sync
+
+    # unmount filesystems
+      if /bin/busybox mountpoint -q /flash ; then
+         /bin/busybox umount /flash
+      fi
+
+      if /bin/busybox mountpoint -q /storage ; then
+        /bin/busybox umount /storage
+      fi
+
+    usleep 2000000
+    /bin/busybox reboot
+  }
+
   check_disks() {
     if [ "$RUN_FSCK" = "yes" -a -n "$RUN_FSCK_DISKS" ]; then
       progress "Checking disk(s): $RUN_FSCK_DISKS"
@@ -413,14 +431,11 @@
             ;;
           2) # reboot needed
             echo "filesystem repaired, reboot needed..."
-            sleep 5
-            sync
-            reboot
+            do_reboot
             ;;
           4) # errors left
-            error "could not repair filesystem, dropping to debug shell, try to run 'fsck' manually, exit with 'exit'"
-            sync
-            reboot
+            error "could not repair filesystem, dropping to debug shell, try to run 'fsck' manually"
+            do_reboot
             ;;
         esac
     fi
@@ -571,7 +586,7 @@
           update "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
           update "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
           update_bootloader
-          REBOOT="1"
+          do_reboot
         else
           rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
           echo "md5 check failed. normal startup in 30s..."
@@ -585,12 +600,6 @@
         sync
         usleep 30000000
       fi
-    fi
-
-    if test "$REBOOT" -eq "1"; then
-      echo "System reboots now..."
-      usleep 2000000
-      reboot
     fi
   }
 
