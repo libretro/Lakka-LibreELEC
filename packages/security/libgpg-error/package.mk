@@ -32,7 +32,7 @@ PKG_LONGDESC="This is a library that defines common error values for all GnuPG c
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-nls --disable-rpath --with-gnu-ld"
+PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC --disable-nls --disable-rpath --with-gnu-ld"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
