@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libICE"
-PKG_VERSION="1.0.8"
+PKG_VERSION="1.0.9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
