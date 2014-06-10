@@ -22,10 +22,6 @@ case "$LINUX" in
     PKG_VERSION="cuboxi-592b2d9"
     PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
-  3.14)
-    PKG_VERSION="3.14.6"
-    PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
-    ;;
   *)
     PKG_VERSION="3.15"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v3.x/$PKG_NAME-$PKG_VERSION.tar.xz"
