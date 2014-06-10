@@ -16,13 +16,13 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libva-driver-intel"
+PKG_NAME="libva-intel-driver"
 PKG_VERSION="1.3.1"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"
-PKG_URL="http://cgit.freedesktop.org/vaapi/intel-driver/snapshot/intel-driver-$PKG_VERSION.tar.gz"
+PKG_URL="http://www.freedesktop.org/software/vaapi/releases/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libva libdrm"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
@@ -33,12 +33,3 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules --with-drivers-path=/usr/lib/va"
-
-unpack () {
-  if [ -d $BUILD/$PKG_NAME-$PKG_VERSION ]; then
-    rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
-  fi
-
-  tar -xzf $SOURCES/$PKG_NAME/intel-driver-$PKG_VERSION.tar.gz -C $BUILD
-  mv $BUILD/intel-driver-$PKG_VERSION $BUILD/$PKG_NAME-$PKG_VERSION
-}
