@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="213"
+PKG_VERSION="214"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="http://www.freedesktop.org/software/systemd/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain attr libcap kmod util-linux glib libgcrypt"
+PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux glib libgcrypt"
 PKG_PRIORITY="required"
 PKG_SECTION="system"
 PKG_SHORTDESC="systemd: a system and session manager"
@@ -55,7 +55,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-xz \
                            --disable-pam \
                            --disable-acl \
-                           --disable-xattr \
                            --disable-smack \
                            --disable-gcrypt \
                            --disable-audit \
