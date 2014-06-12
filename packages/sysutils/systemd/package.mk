@@ -207,6 +207,9 @@ post_makeinstall_target() {
 post_install() {
   add_group systemd-journal 190
 
+  add_group systemd-network 193
+  add_user systemd-network x 193 193 "systemd-network" "/" "/bin/sh"
+
   add_group audio 63
   add_group cdrom 11
   add_group dialout 18
