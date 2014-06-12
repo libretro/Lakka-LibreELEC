@@ -114,6 +114,7 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/lib/kernel/install.d
     rm -rf $INSTALL/usr/lib/rpm
     rm  -f $INSTALL/usr/bin/kernel-install
+    rm -rf $INSTALL/etc/xdg
 
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-OUI.hwdb
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-acpi-vendor.hwdb
