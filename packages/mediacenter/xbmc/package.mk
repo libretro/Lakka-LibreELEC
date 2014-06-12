@@ -516,4 +516,5 @@ post_install() {
   enable_service xbmc-waitonnetwork.service
   enable_service xbmc.service
   enable_service xbmc-lirc-suspend.service
+  enable_service display-manager.service
 }
