@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="libusb"
-PKG_VERSION="1.0.9"
+PKG_VERSION="1.0.19"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libusb.sourceforge.net/"
 PKG_URL="$SOURCEFORGE_SRC/libusb/files/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain systemd"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="libusb: OS independent USB device access"
@@ -36,4 +36,5 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-shared \
             --enable-static \
             --disable-log \
             --disable-debug-log \
+            --enable-udev \
             --disable-examples-build"
