@@ -1,0 +1,100 @@
+From 0c5e8ed4943e302f6154e07368c0831e14c24187 Mon Sep 17 00:00:00 2001
+From: law <law@138bc75d-0d04-0410-961f-82ee72b054a4>
+Date: Tue, 13 May 2014 20:26:30 +0000
+Subject: [PATCH] 	PR tree-optimization/60902
+ 	* tree-ssa-threadedge.c
+ 	(record_temporary_equivalences_from_stmts_at_dest): Make sure to
+ 	invalidate outputs from statements that do not produce useful
+ 	outputs for threading.
+
+	PR tree-optimization/60902
+	* gcc.target/i386/pr60902.c: New test.
+
+git-svn-id: svn+ssh://gcc.gnu.org/svn/gcc/branches/gcc-4_9-branch@210398 138bc75d-0d04-0410-961f-82ee72b054a4
+---
+ gcc/testsuite/gcc.target/i386/pr60902.c |   32 +++++++++++++++++++++++++++++++
+ gcc/tree-ssa-threadedge.c               |   29 +++++++++++++++++++++++++++-
+ 4 files changed, 79 insertions(+), 1 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr60902.c
+
+diff --git a/gcc/testsuite/gcc.target/i386/pr60902.c b/gcc/testsuite/gcc.target/i386/pr60902.c
+new file mode 100644
+index 0000000..b81dcd7
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr60902.c
+@@ -0,0 +1,32 @@
++/* { dg-do run } */
++/* { dg-options "-O2" } */
++extern void abort ();
++extern void exit (int);
++
++int x;
++
++foo()
++{
++  static int count;
++  count++;
++  if (count > 1)
++    abort ();
++}
++
++static inline int
++frob ()
++{
++  int a;
++  __asm__ ("mov %1, %0\n\t" : "=r" (a) : "m" (x));
++  x++;
++  return a;
++}
++
++int
++main ()
++{
++  int i;
++  for (i = 0; i < 10 && frob () == 0; i++)
++    foo();
++  exit (0);
++}
+diff --git a/gcc/tree-ssa-threadedge.c b/gcc/tree-ssa-threadedge.c
+index c447b72..8a0103b 100644
+--- a/gcc/tree-ssa-threadedge.c
++++ b/gcc/tree-ssa-threadedge.c
+@@ -387,7 +387,34 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
+           && (gimple_code (stmt) != GIMPLE_CALL
+               || gimple_call_lhs (stmt) == NULL_TREE
+               || TREE_CODE (gimple_call_lhs (stmt)) != SSA_NAME))
+-	continue;
++	{
++	  /* STMT might still have DEFS and we need to invalidate any known
++	     equivalences for them.
++
++	     Consider if STMT is a GIMPLE_ASM with one or more outputs that
++	     feeds a conditional inside a loop.  We might derive an equivalence
++	     due to the conditional.  */
++	  tree op;
++	  ssa_op_iter iter;
++
++	  if (backedge_seen)
++	    FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
++	      {
++		/* This call only invalidates equivalences created by
++		   PHI nodes.  This is by design to keep the cost of
++		   of invalidation reasonable.  */
++		invalidate_equivalences (op, stack, src_map, dst_map);
++
++		/* However, conditionals can imply values for real
++		   operands as well.  And those won't be recorded in the
++		   maps.  In fact, those equivalences may be recorded totally
++		   outside the threading code.  We can just create a new
++		   temporary NULL equivalence here.  */
++	        record_temporary_equivalence (op, NULL_TREE, stack);
++	      }
++
++	  continue;
++	}
+ 
+       /* The result of __builtin_object_size depends on all the arguments
+ 	 of a phi node. Temporarily using only one edge produces invalid
+-- 
+1.7.1
+
