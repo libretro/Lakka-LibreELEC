@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="cmake"
-PKG_VERSION="2.8.12.1"
+PKG_VERSION="3.0.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.cmake.org/"
-PKG_URL="http://www.cmake.org/files/v2.8/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://www.cmake.org/files/v3.0/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
@@ -33,15 +33,13 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_host() {
-  ../configure --no-qt-gui -- -DBUILD_CursesDialog=0
+  ../configure --prefix=$ROOT/$TOOLCHAIN \
+               --no-qt-gui \
+               -- \
+               -DBUILD_CursesDialog=0
 }
 
-makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp -P bin/cmake $ROOT/$TOOLCHAIN/bin
-    cp -P bin/cpack $ROOT/$TOOLCHAIN/bin
-    cp -P bin/ctest $ROOT/$TOOLCHAIN/bin
-
+post_makeinstall_host() {
   mkdir -p $ROOT/$TOOLCHAIN/etc
 
   cat >$ROOT/$TOOLCHAIN/etc/cmake-$TARGET_NAME.conf <<EOF
