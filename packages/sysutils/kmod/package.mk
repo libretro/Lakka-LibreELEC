@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kmod"
-PKG_VERSION="17"
+PKG_VERSION="18"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
