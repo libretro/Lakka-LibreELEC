@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libva-intel-driver"
-PKG_VERSION="1.3.2.pre1"
+PKG_VERSION="1.3.2"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"
-PKG_URL="http://www.freedesktop.org/software/vaapi/testing/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://www.freedesktop.org/software/vaapi/releases/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libva libdrm"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
