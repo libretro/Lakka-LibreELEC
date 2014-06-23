@@ -52,6 +52,8 @@ BOOTSTRAP_CONFIGURE_OPTS="--host=$HOST_NAME \
                           --disable-libada \
                           --disable-libmudflap \
                           --disable-libatomic \
+                          --disable-libitm \
+                          --disable-libsanitizer \
                           --enable-gold \
                           --enable-ld=default \
                           --enable-plugin \
@@ -68,7 +70,8 @@ BOOTSTRAP_CONFIGURE_OPTS="--host=$HOST_NAME \
                           --disable-decimal-float \
                           $GCC_OPTS \
                           --disable-nls \
-                          --disable-cloog-version-check"
+                          --disable-cloog-version-check \
+                          --enable-checking=release"
 
 PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --with-sysroot=$SYSROOT_PREFIX \
@@ -96,14 +99,17 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --enable-cloog-backend=isl \
                          --enable-tls \
                          --enable-shared \
+                         --disable-static \
                          --enable-c99 \
                          --enable-long-long \
                          --enable-threads=posix \
                          --disable-libstdcxx-pch \
+                         --enable-libstdcxx-time \
                          --enable-clocale=gnu \
                          $GCC_OPTS \
                          --disable-nls \
-                         --disable-cloog-version-check"
+                         --disable-cloog-version-check \
+                         --enable-checking=release"
 
 pre_configure_bootstrap() {
   setup_toolchain host
