@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libbluray"
-PKG_VERSION="0.5.0"
+PKG_VERSION="0.6.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
