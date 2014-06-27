@@ -16,25 +16,25 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="eglibc"
-PKG_VERSION="2.19-25249"
+PKG_NAME="glibc"
+PKG_VERSION="2.19"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.eglibc.org/"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="http://www.gnu.org/software/libc/"
+PKG_URL="ftp://ftp.gnu.org/pub/gnu/glibc/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="ccache:host autotools:host autoconf:host linux:host gcc:bootstrap"
-PKG_DEPENDS_INIT="eglibc"
+PKG_DEPENDS_INIT="glibc"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
-PKG_SHORTDESC="eglibc: The Embedded GNU C library"
-PKG_LONGDESC="The Embedded GLIBC (EGLIBC) is a variant of the GNU C Library (GLIBC) that is designed to work well on embedded systems. EGLIBC strives to be source and binary compatible with GLIBC. EGLIBC's goals include reduced footprint, configurable components, better support for cross-compilation and cross-testing. In contrast to what Ulrich Drepper makes out of GLIBC, in EGLIBC all patches assigned to the FSF will be considered regardless of individual or company affiliation and cooperation is encouraged, as well as communication, civility, and respect among developers."
+PKG_SHORTDESC="glibc: The GNU C library"
+PKG_LONGDESC="The Glibc package contains the main C library. This library provides the basic routines for allocating memory, searching directories, opening and closing files, reading and writing files, string handling, pattern matching, arithmetic, and so on."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
-                           --libexecdir=/usr/lib/eglibc \
+                           --libexecdir=/usr/lib/glibc \
                            --cache-file=config.cache \
                            --disable-profile \
                            --disable-sanity-checks \
@@ -57,15 +57,14 @@ if [ "$DEBUG" = yes ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-debug"
 else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-debug"
-  DEBUG_OPTIONS="  OPTION_EGLIBC_MEMUSAGE = n"
 fi
 
 NSS_CONF_DIR="$PKG_BUILD/nss"
 
-EGLIBC_EXCLUDE_BIN="catchsegv getconf iconv iconvconfig ldconfig lddlibc4"
-EGLIBC_EXCLUDE_BIN="$EGLIBC_EXCLUDE_BIN localedef makedb mtrace pcprofiledump"
-EGLIBC_EXCLUDE_BIN="$EGLIBC_EXCLUDE_BIN pldd rpcgen sln sotruss sprof tzselect"
-EGLIBC_EXCLUDE_BIN="$EGLIBC_EXCLUDE_BIN xtrace zdump zic"
+GLIBC_EXCLUDE_BIN="catchsegv gencat getconf iconv iconvconfig ldconfig lddlibc4"
+GLIBC_EXCLUDE_BIN="$GLIBC_EXCLUDE_BIN localedef makedb mtrace pcprofiledump"
+GLIBC_EXCLUDE_BIN="$GLIBC_EXCLUDE_BIN pldd rpcgen sln sotruss sprof tzselect"
+GLIBC_EXCLUDE_BIN="$GLIBC_EXCLUDE_BIN xtrace zdump zic"
 
 pre_build_target() {
   cd $PKG_BUILD
@@ -78,7 +77,7 @@ pre_configure_target() {
 # Fails to compile with GCC's link time optimization.
   strip_lto
 
-# eglibc dont support GOLD linker.
+# glibc dont support GOLD linker.
   strip_gold
 
 # Filter out some problematic *FLAGS
@@ -103,49 +102,6 @@ pre_configure_target() {
   export BUILD_CC=$HOST_CC
   export OBJDUMP_FOR_HOST=objdump
 
-# create configuration
-cat >option-groups.config <<EOF
-
-  OPTION_EGLIBC_ADVANCED_INET6 = n
-
-# needed for connman:
-  OPTION_EGLIBC_BACKTRACE = y
-
-  OPTION_EGLIBC_BIG_MACROS = n
-  OPTION_EGLIBC_BSD = n
-  OPTION_EGLIBC_CATGETS = n
-
-# libiconv replacement:
-  OPTION_EGLIBC_CHARSETS = y
-
-  OPTION_EGLIBC_DB_ALIASES = n
-  OPTION_EGLIBC_LOCALES = n
-
-# needed for example with glib and Python:
-  OPTION_EGLIBC_LOCALE_CODE = y
-
-# activeperl fails without libnsl. keep it enabled for now
-  OPTION_EGLIBC_NIS = y
-  OPTION_EGLIBC_NSSWITCH = y
-  OPTION_EGLIBC_RCMD = n
-
-# needed by eglibc byself (todo):
-  OPTION_EGLIBC_RTLD_DEBUG = y
-
-# needed for speed (optionally/todo)
-  OPTION_POSIX_REGEXP_GLIBC = y
-
-# needed for PAM and Mysql:
-  OPTION_EGLIBC_GETLOGIN = y
-
-# needed for systemd and dropbear:
-  OPTION_EGLIBC_UTMP = y
-  OPTION_EGLIBC_UTMPX = y
-
-# debugging options:
-  $DEBUG_OPTIONS
-EOF
-
 cat >config.cache <<EOF
 ac_cv_header_cpuid_h=yes
 libc_cv_forced_unwind=yes
@@ -166,15 +122,22 @@ post_makeinstall_target() {
   ln -sf $(basename $INSTALL/lib/ld-*.so) $INSTALL/lib/ld.so
 
 # cleanup
-  for i in $EGLIBC_EXCLUDE_BIN; do
+  for i in $GLIBC_EXCLUDE_BIN; do
     rm -rf $INSTALL/usr/bin/$i
   done
   rm -rf $INSTALL/usr/lib/audit
-  rm -rf $INSTALL/usr/lib/eglibc
+  rm -rf $INSTALL/usr/lib/glibc
   rm -rf $INSTALL/usr/lib/libc_pic
   rm -rf $INSTALL/usr/lib/*.o
   rm -rf $INSTALL/usr/lib/*.map
   rm -rf $INSTALL/var
+
+# remove locales and charmaps
+  rm -rf $INSTALL/usr/share/i18n/charmaps
+  rm -rf $INSTALL/usr/share/i18n/locales
+
+  mkdir -p $INSTALL/usr/share/i18n/locales
+    cp -PR $ROOT/$PKG_BUILD/localedata/locales/POSIX $INSTALL/usr/share/i18n/locales
 
 # create default configs
   mkdir -p $INSTALL/etc
