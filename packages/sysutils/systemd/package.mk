@@ -32,9 +32,6 @@ PKG_LONGDESC="systemd is a system and session manager for Linux, compatible with
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-# libgcrypt is needed actually only for autoreconf
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libgcrypt"
-
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            KMOD=/usr/bin/kmod \
                            --disable-nls \
