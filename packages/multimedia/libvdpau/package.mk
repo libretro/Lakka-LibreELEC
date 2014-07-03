@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libvdpau"
-PKG_VERSION="0.7"
+PKG_VERSION="0.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
