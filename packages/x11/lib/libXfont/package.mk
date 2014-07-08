@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libXfont"
-PKG_VERSION="1.4.8"
+PKG_VERSION="1.4.99.901"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
