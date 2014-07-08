@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="xf86-input-evdev"
-PKG_VERSION="2.8.4"
+PKG_VERSION="2.9.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain util-macros"
+PKG_DEPENDS_TARGET="toolchain util-macros inputproto libevdev systemd"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/driver"
 PKG_SHORTDESC="xf86-input-evdev: Generic Xorg Linux input driver"
