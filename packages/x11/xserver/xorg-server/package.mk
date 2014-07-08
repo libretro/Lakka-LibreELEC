@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.15.2"
+PKG_VERSION="1.15.99.904"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -85,7 +85,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --enable-dpms \
                            --enable-config-udev \
                            --enable-config-udev-kms \
-                           --disable-config-dbus \
                            --disable-config-hal \
                            --disable-config-wscons \
                            --enable-xfree86-utils \
@@ -98,6 +97,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --enable-pciaccess \
                            --enable-linux-acpi \
                            --enable-linux-apm \
+                           --disable-systemd-logind \
                            --enable-xorg \
                            --disable-dmx \
                            --disable-xvfb \
@@ -125,6 +125,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --with-int10=x86emu \
                            --with-gnu-ld \
                            --with-sha1=libcrypto \
+                           --without-systemd-daemon \
                            --with-os-vendor=OpenELEC.tv \
                            --with-module-dir=$XORG_PATH_MODULES \
                            --with-xkb-path=$XORG_PATH_XKB \
