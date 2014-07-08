@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="fontsproto"
-PKG_VERSION="2.1.2"
+PKG_VERSION="2.1.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
