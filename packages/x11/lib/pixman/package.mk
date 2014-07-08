@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pixman"
-PKG_VERSION="0.32.4"
+PKG_VERSION="0.32.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
