@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libhdhomerun"
-PKG_VERSION="20140121"
+PKG_VERSION="20140604"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
