@@ -18,9 +18,9 @@
 
 PKG_NAME="service.openelec.settings"
 if [ "$XBMC" = "master" ]; then
-  PKG_VERSION="0.4.1"
+  PKG_VERSION="0.4.2"
 else
-  PKG_VERSION="0.3.18"
+  PKG_VERSION="0.3.19"
 fi
 PKG_REV="1"
 PKG_ARCH="any"
