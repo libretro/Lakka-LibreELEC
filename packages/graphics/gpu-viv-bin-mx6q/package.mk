@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gpu-viv-bin-mx6q"
-PKG_VERSION="3.10.17-1.0.0"
+PKG_VERSION="3.10.17-1.0.0-1"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
