@@ -20577,69 +20577,6 @@ index 908c8b6..938ad26 100644
 1.9.3
 
 
-From 047a175bf8900da078611cf030c51b16f3ad7edc Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Tue, 11 Jun 2013 16:20:29 +0200
-Subject: [PATCH 091/122] renderer: allow some lateness within vblank interval
-
----
- xbmc/cores/VideoRenderers/RenderManager.cpp | 12 ++++++++++--
- xbmc/cores/VideoRenderers/RenderManager.h   |  1 +
- 2 files changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index f4b381e..5e9f666 100644
---- a/xbmc/cores/VideoRenderers/RenderManager.cpp
-+++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
-@@ -380,6 +380,8 @@ void CXBMCRenderManager::FrameFinish()
-   if(g_graphicsContext.IsFullScreenVideo())
-     WaitPresentTime(m.timestamp);
- 
-+  m_clock_framefinish = GetPresentTime();
-+
-   { CSingleLock lock(m_presentlock);
- 
-     if(m_presentstep == PRESENT_FRAME)
-@@ -1032,6 +1034,12 @@ void CXBMCRenderManager::PrepareNextRender()
- 
-   double clocktime = GetPresentTime();
-   double frametime = 1.0 / GetMaximumFPS();
-+  double correction = 0.0;
-+  int fps = g_VideoReferenceClock.GetRefreshRate();
-+  if((fps > 0) && g_graphicsContext.IsFullScreenVideo() && (clocktime != m_clock_framefinish))
-+  {
-+    correction = frametime;
-+  }
- 
-   /* see if any future queued frames are already due */
-   std::deque<int>::reverse_iterator curr, prev;
-@@ -1040,8 +1048,8 @@ void CXBMCRenderManager::PrepareNextRender()
-   ++prev;
-   while (prev != m_queued.rend())
-   {
--    if(clocktime > m_Queue[*prev].timestamp                 /* previous frame is late */
--    && clocktime > m_Queue[*curr].timestamp - frametime)    /* selected frame is close to it's display time */
-+    if(clocktime > m_Queue[*prev].timestamp + correction                 /* previous frame is late */
-+    && clocktime > m_Queue[*curr].timestamp - frametime + correction)    /* selected frame is close to it's display time */
-       break;
-     ++curr;
-     ++prev;
-diff --git a/xbmc/cores/VideoRenderers/RenderManager.h b/xbmc/cores/VideoRenderers/RenderManager.h
-index 949c652b..d84ff6c 100644
---- a/xbmc/cores/VideoRenderers/RenderManager.h
-+++ b/xbmc/cores/VideoRenderers/RenderManager.h
-@@ -252,6 +252,7 @@ class CXBMCRenderManager
-   XbmcThreads::ConditionVariable  m_presentevent;
-   CCriticalSection m_presentlock;
-   CEvent     m_flushEvent;
-+  double     m_clock_framefinish;
- 
- 
-   OVERLAY::CRenderer m_overlays;
--- 
-1.9.3
-
-
 From 2b302b36fed7bb6cb223c83bd02f251d009e7c8a Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 16 Jun 2013 13:22:58 +0200
