@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="imx-vpu"
-PKG_VERSION="3.10.17-1.0.0_beta"
+PKG_VERSION="3.10.17-1.0.0"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
