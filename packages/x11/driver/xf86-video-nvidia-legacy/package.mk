@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-nvidia-legacy"
-PKG_VERSION="304.121"
+PKG_VERSION="304.123"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="nonfree"
