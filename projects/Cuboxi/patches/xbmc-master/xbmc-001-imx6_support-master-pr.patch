@@ -1,12 +1,11 @@
-From 058c482cfe48dfc9e27bebd812777baf03b2ef0f Mon Sep 17 00:00:00 2001
+From 053ee11795e547f04f18280e6cd3aac1fbe7d672 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Fri, 31 Jan 2014 14:43:24 +0100
-Subject: [PATCH 01/56] ADD: Freeescale imx h/w codec
+Subject: [PATCH 01/49] ADD: Freeescale imx h/w codec
 
 ---
  configure.in                                       |   13 +-
  xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp        |   23 +-
- xbmc/cores/AudioEngine/Utils/AEConvert.cpp         |    2 +-
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |  103 +-
  xbmc/cores/VideoRenderers/LinuxRendererGLES.h      |    7 +
  xbmc/cores/VideoRenderers/RenderFormats.h          |    1 +
@@ -25,7 +24,7 @@ Subject: [PATCH 01/56] ADD: Freeescale imx h/w codec
  xbmc/windowing/egl/EGLNativeTypeIMX.h              |   62 +
  xbmc/windowing/egl/EGLWrapper.cpp                  |    6 +-
  xbmc/windowing/egl/Makefile.in                     |    1 +
- 21 files changed, 3363 insertions(+), 21 deletions(-)
+ 20 files changed, 3362 insertions(+), 20 deletions(-)
  create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
  create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
  create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/mfw_gst_ts.c
@@ -34,10 +33,10 @@ Subject: [PATCH 01/56] ADD: Freeescale imx h/w codec
  create mode 100644 xbmc/windowing/egl/EGLNativeTypeIMX.h
 
 diff --git a/configure.in b/configure.in
-index 20caba5..abc9d01 100644
+index 1766ce1..a3775fd 100644
 --- a/configure.in
 +++ b/configure.in
-@@ -537,7 +537,7 @@ AC_ARG_ENABLE([gtest],
+@@ -536,7 +536,7 @@ AC_ARG_ENABLE([gtest],
  
  AC_ARG_ENABLE([codec],
    [AS_HELP_STRING([--enable-codec],
@@ -46,7 +45,7 @@ index 20caba5..abc9d01 100644
    [add_codecs=$enableval],
    [add_codecs=no])
  
-@@ -2004,6 +2004,17 @@ for codecs in `echo $add_codecs | sed 's/,/ /g'`; do
+@@ -1990,6 +1990,17 @@ for codecs in `echo $add_codecs | sed 's/,/ /g'`; do
      *libstagefright*)
          XB_ADD_CODEC([LIBSTAGEFRIGHT], [libstagefright], [$codecs])
          ;;
@@ -65,7 +64,7 @@ index 20caba5..abc9d01 100644
    esac
  done
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-index b48a4fc..8c0bad6 100644
+index 8cbf6e5..c26ad44 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
 @@ -720,7 +720,10 @@ void CAESinkALSA::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
@@ -113,19 +112,6 @@ index b48a4fc..8c0bad6 100644
    if (name.substr(0, 4) == "hdmi")
      return AE_DEVTYPE_HDMI;
    else if (name.substr(0, 6) == "iec958" || name.substr(0, 5) == "spdif")
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-index 711ec04..d113f09 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-@@ -841,7 +841,7 @@ unsigned int CAEConvert::Float_S24NE4(float *data, const unsigned int samples, u
-   _mm_empty();
-   #else /* no SSE2 */
-   for (uint32_t i = 0; i < samples; ++i)
--    *dst++ = (safeRound(*data++ * ((float)INT24_MAX+.5f)) & 0xFFFFFF) << 8;
-+    *dst++ = safeRound(*data++ * ((float)INT24_MAX+.5f)) & 0x00FFFFFF;
-   #endif
- 
-   return samples << 2;
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
 index 72eb725..913fb0f 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
@@ -372,10 +358,10 @@ index 6832721..a9d071d 100644
    else if(pic.format == RENDER_FMT_EGLIMG)
      m_pRenderer->AddProcessor(pic.stf, pic.eglimg, index);
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
-index 402093d..1de462e 100644
+index f77ac40..a8eeb2b 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
-@@ -35,6 +35,9 @@
+@@ -36,6 +36,9 @@
  #include "Video/DVDVideoCodecFFmpeg.h"
  #include "Video/DVDVideoCodecOpenMax.h"
  #include "Video/DVDVideoCodecLibMpeg2.h"
@@ -385,7 +371,7 @@ index 402093d..1de462e 100644
  #include "Video/DVDVideoCodecStageFright.h"
  #if defined(HAVE_LIBCRYSTALHD)
  #include "Video/DVDVideoCodecCrystalHD.h"
-@@ -190,7 +193,11 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
+@@ -189,7 +192,11 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
  #elif defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
    hwSupport += "VAAPI:no ";
  #endif
@@ -398,7 +384,7 @@ index 402093d..1de462e 100644
    CLog::Log(LOGDEBUG, "CDVDFactoryCodec: compiled in hardware support: %s", hwSupport.c_str());
  
    if (hint.stills && (hint.codec == AV_CODEC_ID_MPEG2VIDEO || hint.codec == AV_CODEC_ID_MPEG1VIDEO))
-@@ -207,6 +214,15 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
+@@ -206,6 +213,15 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
    }
  #endif
  
@@ -415,10 +401,10 @@ index 402093d..1de462e 100644
    if (!hint.software && CSettings::Get().GetBool("videoplayer.usevda"))
    {
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
-index 1553789..3e61edc 100644
+index 741017d..f6e576e 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
-@@ -49,6 +49,7 @@ namespace VDPAU { class CVdpauRenderPicture; }
+@@ -51,6 +51,7 @@ namespace VDPAU { class CVdpauRenderPicture; }
  class COpenMax;
  class COpenMaxVideo;
  struct OpenMaxVideoBuffer;
@@ -426,7 +412,7 @@ index 1553789..3e61edc 100644
  class CDVDVideoCodecStageFright;
  class CDVDMediaCodecInfo;
  typedef void* EGLImageKHR;
-@@ -75,17 +76,19 @@ struct DVDVideoPicture
+@@ -77,17 +78,19 @@ struct DVDVideoPicture
      struct {
        VAAPI::CHolder* vaapi;
      };
@@ -3337,10 +3323,10 @@ index 0000000..f5d66c4
 +
 +#endif /*_TIMESTAMP_H_ */
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 99b3155..9ce20dd 100644
+index 633e333..cdddd66 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -994,6 +994,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
+@@ -995,6 +995,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
      case RENDER_FMT_CVBREF:    return "BGRA";
      case RENDER_FMT_EGLIMG:    return "EGLIMG";
      case RENDER_FMT_BYPASS:    return "BYPASS";
@@ -3348,6 +3334,10 @@ index 99b3155..9ce20dd 100644
      case RENDER_FMT_MEDIACODEC:return "MEDIACODEC";
      case RENDER_FMT_NONE:      return "NONE";
    }
+diff --git a/xbmc/input/linux/LinuxInputDevices.cpp b/xbmc/input/linux/LinuxInputDevices.cpp
+index ee21474..1446a56 100644
+diff --git a/xbmc/powermanagement/PowerManager.cpp b/xbmc/powermanagement/PowerManager.cpp
+index fe72016..acc373c 100644
 diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
 new file mode 100644
 index 0000000..4ac19c4
@@ -3737,10 +3727,10 @@ index f800b7f..f59f9cb 100644
 1.9.3
 
 
-From 01ccb802fe0285c9bf83efee2d0f94c81afc6699 Mon Sep 17 00:00:00 2001
+From 403a451c7f14e3f6c933409e351bb4f10f09c861 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 6 Feb 2014 16:26:29 +0100
-Subject: [PATCH 02/56] CHG: [imx] remove V4L and baseline software rendering
+Subject: [PATCH 02/49] CHG: [imx] remove V4L and baseline software rendering
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |  103 +-
@@ -4001,10 +3991,10 @@ index a9d071d..6832721 100644
    else if(pic.format == RENDER_FMT_EGLIMG)
      m_pRenderer->AddProcessor(pic.stf, pic.eglimg, index);
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
-index 3e61edc..1553789 100644
+index f6e576e..741017d 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
-@@ -49,7 +49,6 @@ namespace VDPAU { class CVdpauRenderPicture; }
+@@ -51,7 +51,6 @@ namespace VDPAU { class CVdpauRenderPicture; }
  class COpenMax;
  class COpenMaxVideo;
  struct OpenMaxVideoBuffer;
@@ -4012,7 +4002,7 @@ index 3e61edc..1553789 100644
  class CDVDVideoCodecStageFright;
  class CDVDMediaCodecInfo;
  typedef void* EGLImageKHR;
-@@ -76,16 +75,14 @@ struct DVDVideoPicture
+@@ -78,16 +77,14 @@ struct DVDVideoPicture
      struct {
        VAAPI::CHolder* vaapi;
      };
@@ -5555,10 +5545,10 @@ index d72b899..cc0f26c 100644
  
  };
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 9ce20dd..99b3155 100644
+index cdddd66..633e333 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -994,7 +994,6 @@ static std::string GetRenderFormatName(ERenderFormat format)
+@@ -995,7 +995,6 @@ static std::string GetRenderFormatName(ERenderFormat format)
      case RENDER_FMT_CVBREF:    return "BGRA";
      case RENDER_FMT_EGLIMG:    return "EGLIMG";
      case RENDER_FMT_BYPASS:    return "BYPASS";
@@ -5629,10 +5619,10 @@ index f59f9cb..85abb44 100644
 1.9.3
 
 
-From a29b91502d109417b0eb8d6ff97d8b56aa056bc9 Mon Sep 17 00:00:00 2001
+From 8406b04208038f84c00e74b1c6d987590bb97e95 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Tue, 11 Feb 2014 13:42:53 +0100
-Subject: [PATCH 03/56] CHG: [IMX] baseline direct buffer rendering
+Subject: [PATCH 03/49] CHG: [IMX] baseline direct buffer rendering
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    | 107 ++++++++++++++++++++-
@@ -5944,7 +5934,7 @@ index 21a4ee2..7e82149 100644
    else if (m_format == RENDER_FMT_NV12)
      m_defines += "#define XBMC_NV12\n";
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
-index 1553789..760c264 100644
+index 741017d..c25eb38 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 @@ -25,6 +25,7 @@
@@ -5955,7 +5945,7 @@ index 1553789..760c264 100644
  
  extern "C" {
  #include "libavcodec/avcodec.h"
-@@ -93,6 +94,11 @@ struct DVDVideoPicture
+@@ -95,6 +96,11 @@ struct DVDVideoPicture
      struct {
        CDVDMediaCodecInfo *mediacodec;
      };
@@ -6143,10 +6133,10 @@ index 0000000..18078d3
 +
 +#endif // DVDVIDEOCODECINFO_H
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 99b3155..a823b69 100644
+index 633e333..cf7b4fc 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -995,6 +995,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
+@@ -996,6 +996,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
      case RENDER_FMT_EGLIMG:    return "EGLIMG";
      case RENDER_FMT_BYPASS:    return "BYPASS";
      case RENDER_FMT_MEDIACODEC:return "MEDIACODEC";
@@ -6158,10 +6148,10 @@ index 99b3155..a823b69 100644
 1.9.3
 
 
-From bf6fadeccef83b7a9e7a0f615a78979244e4bfeb Mon Sep 17 00:00:00 2001
+From a65dda63aa97ba0c977c4d24caa9d5d7f3bba1c5 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 13 Feb 2014 17:43:23 +0100
-Subject: [PATCH 04/56] ADD: [imx] direct texture rendering
+Subject: [PATCH 04/49] ADD: [imx] direct texture rendering
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    | 171 +++++++++++++++++++++
@@ -6728,10 +6718,10 @@ index 18078d3..6096bf4 100644
    int                 iLineSize[4];   // [4] = alpha channel, currently not used
  };
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index a823b69..7a03b4f 100644
+index cf7b4fc..7c9bd4a 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -996,6 +996,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
+@@ -997,6 +997,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
      case RENDER_FMT_BYPASS:    return "BYPASS";
      case RENDER_FMT_MEDIACODEC:return "MEDIACODEC";
      case RENDER_FMT_YV12_BUFFER:     return "YV12BUF";
@@ -6845,10 +6835,10 @@ index 4ac19c4..b44d4b8 100644
 1.9.3
 
 
-From 4cc2f136bb116a2be3307bbdeedab749d99447f1 Mon Sep 17 00:00:00 2001
+From f2b45426b2f60e9e7c44d611e889369d3d366069 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Mon, 17 Feb 2014 22:09:19 +0100
-Subject: [PATCH 05/56] Fixed include and display size issues
+Subject: [PATCH 05/49] Fixed include and display size issues
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |  6 +++
@@ -6990,10 +6980,10 @@ index 7c5c26b..a5d9eeb 100644
 1.9.3
 
 
-From 1e0617aeed91f814b48375f197cb7e5e16b76dc8 Mon Sep 17 00:00:00 2001
+From 36b7b50e5e6c956112b085e59126b2cace4b9c42 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Mon, 17 Feb 2014 23:26:07 +0100
-Subject: [PATCH 06/56] Removed debug output used for testing
+Subject: [PATCH 06/49] Removed debug output used for testing
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp | 3 ---
@@ -7017,10 +7007,10 @@ index 4f3d042..2c7f132 100644
 1.9.3
 
 
-From a425d31b4a87b5159a07944fb8921a081af4f09e Mon Sep 17 00:00:00 2001
+From 0fc718531cb2f1da8a9924e100b295eff096ba7b Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Tue, 18 Feb 2014 16:07:23 +0000
-Subject: [PATCH 07/56] Attempt to fix potential race condition and
+Subject: [PATCH 07/49] Attempt to fix potential race condition and
  mutlithreading issues ... to be tested
 
 ---
@@ -7339,10 +7329,10 @@ index 5487bfe..df568e5 100644
 1.9.3
 
 
-From 0a82a632aac1bb0abb9079a6a690d832ca918017 Mon Sep 17 00:00:00 2001
+From dc01ee8b2d181795a336f21bbf9ed098b3bb8eb0 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Tue, 18 Feb 2014 19:19:09 +0100
-Subject: [PATCH 08/56] Fixed buffer reference and added more logs to track a
+Subject: [PATCH 08/49] Fixed buffer reference and added more logs to track a
  frames lifetime
 
 ---
@@ -7451,10 +7441,10 @@ index df568e5..1aef626 100644
 1.9.3
 
 
-From b7057e10de5fce70abb5eebbb00c92bf39a35545 Mon Sep 17 00:00:00 2001
+From c059fcd74ad1f28b91268053e4631622728468dc Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Tue, 18 Feb 2014 20:03:46 +0100
-Subject: [PATCH 09/56] Missing initialization and extradata handling backport
+Subject: [PATCH 09/49] Missing initialization and extradata handling backport
  from wolfgar
 
 ---
@@ -7498,10 +7488,10 @@ index 75aba7c..f3a7adc 100644
 1.9.3
 
 
-From 39919bed88a47c97b1a404d4df490ed49d8f6715 Mon Sep 17 00:00:00 2001
+From 9751bc766f087659cad764eef276320a5455c25a Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Tue, 18 Feb 2014 22:38:31 +0100
-Subject: [PATCH 10/56] Added safety check to render texture and moved
+Subject: [PATCH 10/49] Added safety check to render texture and moved
  invalidation of frames before destroying the VPU handle
 
 ---
@@ -7559,10 +7549,10 @@ index f3a7adc..6689261 100644
 1.9.3
 
 
-From 55036f10d747b957a18f6fb3439a918747a5713b Mon Sep 17 00:00:00 2001
+From bb7e12f317133ae1bba2513c12582e3be88ac902 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Tue, 18 Feb 2014 23:29:48 +0100
-Subject: [PATCH 11/56] Added Reset of buffers
+Subject: [PATCH 11/49] Added Reset of buffers
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 7 ++++++-
@@ -7603,10 +7593,10 @@ index 6689261..a6de84f 100644
 1.9.3
 
 
-From 9244890a694fac56c7005dd90e42841ea1c797eb Mon Sep 17 00:00:00 2001
+From cc9f6a9c8d88a03f67fd3ffa69c9f277adc29d1d Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Wed, 19 Feb 2014 00:29:48 +0100
-Subject: [PATCH 12/56] Fixed lost frames when seeking
+Subject: [PATCH 12/49] Fixed lost frames when seeking
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 22 +++++++++++++++++-----
@@ -7693,10 +7683,10 @@ index 1aef626..b17e51b 100644
 1.9.3
 
 
-From f23871c5d85ee1c9965b119fceda6b35c7a790e8 Mon Sep 17 00:00:00 2001
+From fde017f6fda6a913133cad942dfad9e121255613 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Wed, 19 Feb 2014 02:18:24 +0100
-Subject: [PATCH 13/56] Change copyright notice to remove explicit mention of
+Subject: [PATCH 13/49] Change copyright notice to remove explicit mention of
  my name and be compliant with xbmc rules for upstreaming
 
 ---
@@ -7720,10 +7710,10 @@ index 7e26756..58075bc 100644
 1.9.3
 
 
-From 19c41ffeb9242e19abd1cab0be18adac2f10735b Mon Sep 17 00:00:00 2001
+From f48da345e3c174f2d32285f2ab7fd070330a6941 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Wed, 19 Feb 2014 03:19:00 +0100
-Subject: [PATCH 14/56] Fix includes for yocto cross toolchain
+Subject: [PATCH 14/49] Fix includes for yocto cross toolchain
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp | 4 ++--
@@ -7748,10 +7738,10 @@ index cef2f65..f731beb 100644
 1.9.3
 
 
-From a4067d060f5a367c3a15a2f5c171f5cca6b9bb95 Mon Sep 17 00:00:00 2001
+From aa026e8f777c55e7a9670c5aedd259e65d0a0042 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Wed, 19 Feb 2014 03:25:10 +0100
-Subject: [PATCH 15/56] pts simplification (merge latest changes from my imxpts
+Subject: [PATCH 15/49] pts simplification (merge latest changes from my imxpts
  branch)
 
 ---
@@ -8033,10 +8023,10 @@ index b17e51b..c4418fe 100644
 1.9.3
 
 
-From 3aec4fcadb8200b6b75f9a5738e902a1d28183da Mon Sep 17 00:00:00 2001
+From b072c1aa63299c43f26ece456be1ad4c766d424d Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Wed, 19 Feb 2014 04:08:19 +0100
-Subject: [PATCH 16/56] Remove mfw_gst_ts from build
+Subject: [PATCH 16/49] Remove mfw_gst_ts from build
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in  |   2 +-
@@ -8997,10 +8987,10 @@ index f5d66c4..0000000
 1.9.3
 
 
-From e3fb12fc3681798b072103b67c46cc145c250366 Mon Sep 17 00:00:00 2001
+From 3e40defd4634c49c56d6dcd91dfb07b40fb4f98a Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Wed, 19 Feb 2014 12:35:40 +0100
-Subject: [PATCH 17/56] FIX: [imx] cosmetics
+Subject: [PATCH 17/49] FIX: [imx] cosmetics
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 73 ++++++++++------------
@@ -9350,10 +9340,10 @@ index 61d5833..b9162ee
 1.9.3
 
 
-From 34643579eebb603ee08b1b660b65bdba074cac57 Mon Sep 17 00:00:00 2001
+From e9cbd60e76d772d1312e82ff2aa29b89c6bc9508 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Wed, 19 Feb 2014 12:41:34 +0100
-Subject: [PATCH 18/56] FIX: [imx] avoid potential segfault
+Subject: [PATCH 18/49] FIX: [imx] avoid potential segfault
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp | 10 ++++------
@@ -9389,10 +9379,10 @@ index f731beb..4c286f8
 1.9.3
 
 
-From 67d06c9dbf33d628471f94889da77c0d56649118 Mon Sep 17 00:00:00 2001
+From f9d6accde22dded80680b800bf67388bea902a91 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Wed, 19 Feb 2014 13:00:37 +0100
-Subject: [PATCH 19/56] FIX: [imx] CDVDVideoCodecIMXBuffer optimizations
+Subject: [PATCH 19/49] FIX: [imx] CDVDVideoCodecIMXBuffer optimizations
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 37 ++++++++--------------
@@ -9500,10 +9490,10 @@ index ac0345f..1b9a2b8 100755
 1.9.3
 
 
-From 0291838e8bc0bcf4db8b21f30febece36b426ec1 Mon Sep 17 00:00:00 2001
+From 4f307c6f92aacbe0b5c55cf028a4268f353ce912 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Fri, 21 Feb 2014 07:04:02 +0000
-Subject: [PATCH 20/56] chmod -x
+Subject: [PATCH 20/49] chmod -x
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
@@ -9530,10 +9520,10 @@ new mode 100644
 1.9.3
 
 
-From 22048a486c7c42a72817be07fd11e4e348e7a5cf Mon Sep 17 00:00:00 2001
+From b587982c2fe1cde38681d7047dcfc9992eea5e2b Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 20 Feb 2014 17:42:39 +0100
-Subject: [PATCH 21/56] ADD: [imx] dynamic resolutions / refresh rates
+Subject: [PATCH 21/49] ADD: [imx] dynamic resolutions / refresh rates
 
 ---
  xbmc/windowing/egl/EGLNativeTypeIMX.cpp | 199 ++++++++++++++++++++++----------
@@ -9895,10 +9885,10 @@ index b9162ee..df7b3b7 100755
 1.9.3
 
 
-From aef2e65a9941d0be6e8bad5329cac089d4be216e Mon Sep 17 00:00:00 2001
+From bcb712c5f15ccfc312f5fbdc583248c5ce17b589 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Fri, 21 Feb 2014 13:02:34 +0100
-Subject: [PATCH 22/56] Merge pull request #9
+Subject: [PATCH 22/49] Merge pull request #9
 
 FIX: [imx] runtime vivante egl extensions
 ---
@@ -9952,10 +9942,10 @@ index 4c286f8..1c2fc86 100644
 1.9.3
 
 
-From 505f31ea096e74e41dc97286b6ff60eeb5ab4580 Mon Sep 17 00:00:00 2001
+From 843a06a1323283c19fa9b008b2da2157d69e3291 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Mon, 24 Feb 2014 11:18:51 +0100
-Subject: [PATCH 23/56] FIX: cross-complation
+Subject: [PATCH 23/49] FIX: cross-complation
 
 ---
  xbmc/cores/VideoRenderers/RenderManager.cpp | 2 ++
@@ -9980,10 +9970,10 @@ index 836bcd1..60b9118 100644
 1.9.3
 
 
-From ed7cb7eca920a8d7c8987092e8fc843165bd905e Mon Sep 17 00:00:00 2001
+From 36a0fc8009724dd4d15ef43ae22027ec74a1d383 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Mon, 24 Feb 2014 22:55:58 +0100
-Subject: [PATCH 24/56] Fix mode (remove x) on EGLNativeTypeIMX.* files
+Subject: [PATCH 24/49] Fix mode (remove x) on EGLNativeTypeIMX.* files
 
 ---
  xbmc/windowing/egl/EGLNativeTypeIMX.cpp | 0
@@ -10002,10 +9992,10 @@ new mode 100644
 1.9.3
 
 
-From a4f319e55e9ab66e14bd6f1c8372d2d9156e6ffc Mon Sep 17 00:00:00 2001
+From 0791af311fdaf83b29d3b8ae22321b30544b7e4d Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Fri, 21 Feb 2014 16:48:09 +0100
-Subject: [PATCH 25/56] CHG: [imx] force vsync depending on FB_MULTI_BUFFER
+Subject: [PATCH 25/49] CHG: [imx] force vsync depending on FB_MULTI_BUFFER
  value
 
 ---
@@ -10054,10 +10044,10 @@ index 3e3e45e..3d32705 100644
 1.9.3
 
 
-From 76b8499b7ea9ed4295e23ebb46355d54957d9f04 Mon Sep 17 00:00:00 2001
+From 6c32b52ef31d5350dcac2e413a4f0cc33978d84f Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Wed, 26 Feb 2014 18:37:05 +0100
-Subject: [PATCH 26/56] FIX: [imx] drop decoder frames which are returned with
+Subject: [PATCH 26/49] FIX: [imx] drop decoder frames which are returned with
  flag VPU_DEC_OUTPUT_MOSAIC_DIS set
 
 ---
@@ -10117,10 +10107,10 @@ index 2b9002a..c85bd8a 100644
 1.9.3
 
 
-From 8bf8bfdf4a66b1c6129d8d3509bf80d7c0c864bc Mon Sep 17 00:00:00 2001
+From 4d494b15aadb744785ac6224143d791ef763b849 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Thu, 27 Feb 2014 07:26:21 +0000
-Subject: [PATCH 27/56] FIX: [imx] removed unnecessary block that releases an
+Subject: [PATCH 27/49] FIX: [imx] removed unnecessary block that releases an
  associated pts
 
 ---
@@ -10149,10 +10139,10 @@ index c85bd8a..46ddaac 100644
 1.9.3
 
 
-From 1af4d8af5dc45d4e8b4c99de22b473e7c3f1b3f1 Mon Sep 17 00:00:00 2001
+From 126d9e74f46fb2573de5032b43aa4fb70fc4d019 Mon Sep 17 00:00:00 2001
 From: "Chris \"koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 27 Feb 2014 09:49:49 +0000
-Subject: [PATCH 28/56] FIX: [imx] Do not force resolution if the same as
+Subject: [PATCH 28/49] FIX: [imx] Do not force resolution if the same as
  current
 
 ---
@@ -10188,10 +10178,10 @@ index 3d32705..729fe56 100644
 1.9.3
 
 
-From 01b52f21f378ce8d9cfe14fb47e9655348783a43 Mon Sep 17 00:00:00 2001
+From 1e7c5ec258de911f553f4460f21c1d875b74650c Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 27 Feb 2014 11:58:31 +0100
-Subject: [PATCH 29/56] FIX: [imx] dynamic allocation of buffer array
+Subject: [PATCH 29/49] FIX: [imx] dynamic allocation of buffer array
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 68 +++++++++++++---------
@@ -10379,10 +10369,10 @@ index 1b9a2b8..139d918 100644
 1.9.3
 
 
-From 4f86c9c0319538dd813ed466c6ff6de6bafe2223 Mon Sep 17 00:00:00 2001
+From 7ed59c18a7a2e95c5903c28a1ff68bfe1bd7d527 Mon Sep 17 00:00:00 2001
 From: tomlohave <tomlohave@gmail.com>
 Date: Sat, 1 Mar 2014 07:52:01 +0100
-Subject: [PATCH 30/56] fix CheckCompatibility for newer kernel
+Subject: [PATCH 30/49] fix CheckCompatibility for newer kernel
 
 on newer kernel (3.10.30),
  cat  /sys/class/graphics/fb0/device/modalias returns "platform:mxc_sdc_fb.28"
@@ -10411,10 +10401,10 @@ index 729fe56..65063e9 100644
 1.9.3
 
 
-From f56913c9feb4687d0be4d5ce4bb750d730ce31a0 Mon Sep 17 00:00:00 2001
+From c078bd7b2b83fc910a7f1d2c44e9752650bc5339 Mon Sep 17 00:00:00 2001
 From: Chris Browet <koying@semperpax.com>
 Date: Sat, 1 Mar 2014 09:06:02 +0100
-Subject: [PATCH 31/56] fixup: remove obsolete comment
+Subject: [PATCH 31/49] fixup: remove obsolete comment
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h | 1 -
@@ -10436,10 +10426,10 @@ index 139d918..d71e975 100644
 1.9.3
 
 
-From ad1b3caa51d043beeb937864f87b8bce62edfd3a Mon Sep 17 00:00:00 2001
+From e1623abd7e3badba2afc984c1897cab182756080 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Sat, 1 Mar 2014 09:32:24 +0100
-Subject: [PATCH 32/56] FIX: [imx] force mod 16 output frame size
+Subject: [PATCH 32/49] FIX: [imx] force mod 16 output frame size
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 5 +++++
@@ -10465,10 +10455,10 @@ index d0d035a..8d9a5e6 100644
 1.9.3
 
 
-From 79703ebce98ce2a31f20c3dfad2af11dcd389008 Mon Sep 17 00:00:00 2001
+From 091b6e8aa9ca4de184e78455a06e658d3a636d60 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Sat, 1 Mar 2014 10:23:37 +0100
-Subject: [PATCH 33/56] [imx] Add IPU hardware deinterlacing support
+Subject: [PATCH 33/49] [imx] Add IPU hardware deinterlacing support
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |   3 +-
@@ -11282,10 +11272,10 @@ index d71e975..71a0d39 100644
 1.9.3
 
 
-From d319a27f4d6a828efdc577b4f8747f3527df8e64 Mon Sep 17 00:00:00 2001
+From d08d7a8e3f635246a0a8a9da25aba8b3d1ce22a0 Mon Sep 17 00:00:00 2001
 From: tomlohave <tomlohave@gmail.com>
 Date: Sun, 2 Mar 2014 17:26:30 +0100
-Subject: [PATCH 34/56] fix CheckCompatibility for newer kernel (try2)
+Subject: [PATCH 34/49] fix CheckCompatibility for newer kernel (try2)
 
 Use "mxc_sdc_fb" instead of "mxc" as requested by Chris
 ---
@@ -11309,10 +11299,10 @@ index 65063e9..91e223f 100644
 1.9.3
 
 
-From f6f6d7436f96c24ee8e291c049c25be0205435c7 Mon Sep 17 00:00:00 2001
+From da9e58d2305ad5b4a8456ef38939dcab26e8f29b Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Sun, 2 Mar 2014 03:05:46 +0100
-Subject: [PATCH 35/56] Properly track pts in case the associated frame is
+Subject: [PATCH 35/49] Properly track pts in case the associated frame is
  consumed at next ::Decode call
 
 ---
@@ -11438,10 +11428,10 @@ index 71a0d39..1cfb2a4 100644
 1.9.3
 
 
-From d903f7bcffdff65493c29d3a9b52ed50042f8489 Mon Sep 17 00:00:00 2001
+From 5c48e2d4031ce54a6b269c4539b226e70574bd74 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Fri, 28 Feb 2014 12:48:26 +0100
-Subject: [PATCH 36/56] [imx] attempt to recover audio from resolution change
+Subject: [PATCH 36/49] [imx] attempt to recover audio from resolution change
 
 ---
  xbmc/windowing/egl/EGLNativeTypeIMX.cpp | 5 +++++
@@ -11474,10 +11464,10 @@ index 91e223f..4ffa708 100644
 1.9.3
 
 
-From 6ab8235cd5a99eb9354c4c4e36ce00e610732bb7 Mon Sep 17 00:00:00 2001
+From ce2e0548ae4ed15825af99d928620dd3fa81f39f Mon Sep 17 00:00:00 2001
 From: "Chris \"koying\" Browet" <cbro@semperpax.com>
 Date: Fri, 28 Feb 2014 19:12:16 +0000
-Subject: [PATCH 37/56] [imx] A VPU_DEC_FLUSH should amount to a Reset()
+Subject: [PATCH 37/49] [imx] A VPU_DEC_FLUSH should amount to a Reset()
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 6 +-----
@@ -11504,10 +11494,10 @@ index 26ba552..44bfe34 100644
 1.9.3
 
 
-From 91ecb933bc80e9e2e809b147253ac114ac00c8d8 Mon Sep 17 00:00:00 2001
+From 78e5172667ff355fac92eb90fb93f1ff5db7c6f7 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Tue, 4 Mar 2014 12:48:32 +0100
-Subject: [PATCH 38/56] CHG: [imx] decouple compile options for vpu & fb
+Subject: [PATCH 38/49] CHG: [imx] decouple compile options for vpu & fb
 
 ---
  configure.in                      | 9 +++++++++
@@ -11516,10 +11506,10 @@ Subject: [PATCH 38/56] CHG: [imx] decouple compile options for vpu & fb
  3 files changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/configure.in b/configure.in
-index abc9d01..0a5e902 100644
+index a3775fd..3a8128b 100644
 --- a/configure.in
 +++ b/configure.in
-@@ -978,6 +978,15 @@ else
+@@ -983,6 +983,15 @@ else
    AC_MSG_RESULT($wayland_disabled)
  fi
  
@@ -11565,10 +11555,10 @@ index 85abb44..ec84c1d 100644
 1.9.3
 
 
-From 10c22eb22a1684622350520c68092a4e378fb453 Mon Sep 17 00:00:00 2001
+From be02a7d3453779b33801701148a6f5baba92ec90 Mon Sep 17 00:00:00 2001
 From: "Chris \"koying\" Browet" <cbro@semperpax.com>
 Date: Mon, 3 Mar 2014 18:46:45 +0000
-Subject: [PATCH 39/56] FIX: [imx] lower log spam
+Subject: [PATCH 39/49] FIX: [imx] lower log spam
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 4 +++-
@@ -11593,10 +11583,10 @@ index 44bfe34..a6f3712 100644
 1.9.3
 
 
-From 9064e76224bf94b67bc46508db23bcb30b6f8894 Mon Sep 17 00:00:00 2001
+From 0718c74fcb8e7ac98971b6eb0619f4b1cbd10822 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Sat, 15 Mar 2014 02:30:15 +0100
-Subject: [PATCH 40/56] Revert to sw decoding for AVC hi10 profile and divX3
+Subject: [PATCH 40/49] Revert to sw decoding for AVC hi10 profile and divX3
  codecs
 
 ---
@@ -11634,10 +11624,10 @@ index a6f3712..4110f83 100644
 1.9.3
 
 
-From 260df66f3fac6965578e42b28d972445c6d16f13 Mon Sep 17 00:00:00 2001
+From e4677d666f0df315dc131a9967e9b07a7e9ea9d7 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Sun, 16 Mar 2014 01:53:02 +0100
-Subject: [PATCH 41/56] Add VPU support for MPEG1
+Subject: [PATCH 41/49] Add VPU support for MPEG1
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 4 ++++
@@ -11662,10 +11652,10 @@ index 4110f83..a4f6ede 100644
 1.9.3
 
 
-From 2266cf79a1eeff8828c9e68dc1e23c2a7410f15a Mon Sep 17 00:00:00 2001
+From 65c207fa5471f590c9e57566f82753ba80c97447 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Sun, 16 Mar 2014 23:53:01 +0100
-Subject: [PATCH 42/56] Avoid to invoke VPU decoding without additional data
+Subject: [PATCH 42/49] Avoid to invoke VPU decoding without additional data
  when we are not specifically in PR28 context as it improves VC1 issue
  reported in #41 To do so, Test if frame size (and thus
  VPU_DEC_ONE_FRM_CONSUMED) is handled before dealing with m_bytesToBeConsumed
@@ -11722,10 +11712,10 @@ index 1cfb2a4..6c935f1 100644
 1.9.3
 
 
-From f6b11849813afabef4d3c4b4e1f7e01085a7233c Mon Sep 17 00:00:00 2001
+From 642d258db641567e936a2352427b6fcd1f925fc2 Mon Sep 17 00:00:00 2001
 From: wolfgar <stephan.rafin@laposte.net>
 Date: Wed, 19 Mar 2014 03:08:48 +0100
-Subject: [PATCH 43/56] Handle dts properly instead of reverting to NOPTS when
+Subject: [PATCH 43/49] Handle dts properly instead of reverting to NOPTS when
  only dts is available (no pts provided) Also try to decode harder
 
 ---
@@ -11905,10 +11895,10 @@ index 6c935f1..1ae2618 100644
 1.9.3
 
 
-From 2ff1d520759e2fc0f7992534c24dda1e2cf2de5f Mon Sep 17 00:00:00 2001
+From 38626442fdbf428848487a86a824b84bcb5fc4de Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Sun, 2 Mar 2014 17:13:52 +0100
-Subject: [PATCH 44/56] [imx] Move deinterlacing processing into render thread
+Subject: [PATCH 44/49] [imx] Move deinterlacing processing into render thread
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    | 40 ++++++++-
@@ -12289,10 +12279,10 @@ index 1ae2618..1b1786e 100644
 1.9.3
 
 
-From e63bd0444c55a992febca76b34f84eaa227c2c83 Mon Sep 17 00:00:00 2001
+From 1e34d040ff5b431d2019e1a4543e0f6f04e85582 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Mon, 3 Mar 2014 19:39:17 +0100
-Subject: [PATCH 45/56] ADD: [imx] Deinterlacing options configurable from gui
+Subject: [PATCH 45/49] ADD: [imx] Deinterlacing options configurable from gui
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    | 38 +++++++++++++++++-----
@@ -12449,10 +12439,10 @@ index 1b1786e..37d5734 100644
 1.9.3
 
 
-From 63c66af9fb1e0a23fdbcec838e0559d0da89cd6f Mon Sep 17 00:00:00 2001
+From e384ec1fd13254176ed91b6ea96802f2eae3bd6c Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Tue, 11 Mar 2014 20:49:40 +0100
-Subject: [PATCH 46/56] [imx] Cleanups after code review
+Subject: [PATCH 46/49] [imx] Cleanups after code review
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    | 28 ++++++++++++----------
@@ -12461,7 +12451,7 @@ Subject: [PATCH 46/56] [imx] Cleanups after code review
  3 files changed, 25 insertions(+), 26 deletions(-)
 
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
-index 8a28e3b..6490fd0f 100644
+index 8a28e3b..6490fd0 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
 @@ -2740,15 +2740,15 @@ void CLinuxRendererGLES::UploadIMXMAPTexture(int index)
@@ -12637,10 +12627,10 @@ index 37d5734..a76575f 100644
 1.9.3
 
 
-From 36f7165a1b80a47531b9f5757a6fae4bbce754c2 Mon Sep 17 00:00:00 2001
+From 5daa4b1a87e04b37a5cf8a742611dcadff4f79a0 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
 Date: Fri, 14 Mar 2014 15:27:24 +0000
-Subject: [PATCH 47/56] [imx] Fixed low motion deinterlacing picture jumps
+Subject: [PATCH 47/49] [imx] Fixed low motion deinterlacing picture jumps
 
 ---
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 129 ++++++++++++++-------
@@ -13099,10 +13089,10 @@ index a76575f..05722ce 100644
 1.9.3
 
 
-From 183ecc207f0785bfa319038225a3227a7d249442 Mon Sep 17 00:00:00 2001
+From 7aabf0c4038642ae2f981dff7cc7c57083913b94 Mon Sep 17 00:00:00 2001
 From: Thomas Genty <tomlohave@openbricks.org>
 Date: Sun, 6 Apr 2014 13:57:12 +0200
-Subject: [PATCH 48/56] detect imx device on all platform using file
+Subject: [PATCH 48/49] detect imx device on all platform using file
  /sys/class/graphics/fb0/fsl_disp_dev_property
 
 ---
@@ -13144,10 +13134,10 @@ index 4ffa708..404bd3c 100644
 1.9.3
 
 
-From 14d71c83c774b65a527025681fc08b0544006c0c Mon Sep 17 00:00:00 2001
+From ea9cdc6246bcc272a80a8fd6ffc3c4d30e667719 Mon Sep 17 00:00:00 2001
 From: Thomas Genty <tomlohave@openbricks.org>
 Date: Tue, 8 Apr 2014 19:02:52 +0200
-Subject: [PATCH 49/56] detect imx device on all platforms (try2)
+Subject: [PATCH 49/49] detect imx device on all platforms (try2)
 
 ---
  xbmc/windowing/egl/EGLNativeTypeIMX.cpp | 5 +----
@@ -13169,860 +13159,6 @@ index 404bd3c..3dc64a3 100644
  }
  
  void CEGLNativeTypeIMX::Initialize()
--- 
-1.9.3
-
-
-From 0579a8528e58eb21f18ba74b038cde305c8e1b02 Mon Sep 17 00:00:00 2001
-From: warped-rudi <r.ihle@s-t.de>
-Date: Mon, 14 Apr 2014 08:07:14 +0200
-Subject: [PATCH 50/56] Fix sample conversion from signed 24bit big-endian to
- float
-
----
- xbmc/cores/AudioEngine/Utils/AEConvert.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-index d113f09..9454f7d 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-@@ -244,7 +244,7 @@ unsigned int CAEConvert::S24BE3_Float(uint8_t *data, const unsigned int samples,
- {
-   for (unsigned int i = 0; i < samples; ++i, data += 3)
-   {
--    int s = (data[1] << 24) | (data[2] << 16) | (data[3] << 8);
-+    int s = (data[0] << 24) | (data[1] << 16) | (data[2] << 8);
-     *dest++ = (float)s * INT32_SCALE;
-   }
-   return samples;
--- 
-1.9.3
-
-
-From 2ad3b9b2edf82be39a8b148da41716c5d42dc9f5 Mon Sep 17 00:00:00 2001
-From: warped-rudi <r.ihle@s-t.de>
-Date: Tue, 15 Apr 2014 15:41:59 +0200
-Subject: [PATCH 51/56] Rename AE_FMT_S24xE4 to AE_FMT_S24xE4H to indicate
- upper 3 bytes are used
-
----
- .../AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp    |  8 ++++----
- xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp              |  4 ++--
- xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp             | 12 ++++++------
- xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp            |  6 +++---
- xbmc/cores/AudioEngine/Utils/AEAudioFormat.h             |  8 ++++----
- xbmc/cores/AudioEngine/Utils/AEConvert.cpp               | 16 ++++++++--------
- xbmc/cores/AudioEngine/Utils/AEConvert.h                 |  6 +++---
- xbmc/cores/AudioEngine/Utils/AEUtil.cpp                  | 10 +++++-----
- 8 files changed, 35 insertions(+), 35 deletions(-)
-
-diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp
-index 6478f3a..d40c096 100644
---- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp
-+++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp
-@@ -281,14 +281,14 @@ AVSampleFormat CActiveAEResample::GetAVSampleFormat(AEDataFormat format)
-   if      (format == AE_FMT_U8)     return AV_SAMPLE_FMT_U8;
-   else if (format == AE_FMT_S16NE)  return AV_SAMPLE_FMT_S16;
-   else if (format == AE_FMT_S32NE)  return AV_SAMPLE_FMT_S32;
--  else if (format == AE_FMT_S24NE4) return AV_SAMPLE_FMT_S32;
-+  else if (format == AE_FMT_S24NE4H) return AV_SAMPLE_FMT_S32;
-   else if (format == AE_FMT_FLOAT)  return AV_SAMPLE_FMT_FLT;
-   else if (format == AE_FMT_DOUBLE) return AV_SAMPLE_FMT_DBL;
- 
-   else if (format == AE_FMT_U8P)     return AV_SAMPLE_FMT_U8P;
-   else if (format == AE_FMT_S16NEP)  return AV_SAMPLE_FMT_S16P;
-   else if (format == AE_FMT_S32NEP)  return AV_SAMPLE_FMT_S32P;
--  else if (format == AE_FMT_S24NE4P) return AV_SAMPLE_FMT_S32P;
-+  else if (format == AE_FMT_S24NE4HP) return AV_SAMPLE_FMT_S32P;
-   else if (format == AE_FMT_FLOATP)  return AV_SAMPLE_FMT_FLTP;
-   else if (format == AE_FMT_DOUBLEP) return AV_SAMPLE_FMT_DBLP;
- 
-@@ -300,14 +300,14 @@ AEDataFormat CActiveAEResample::GetAESampleFormat(AVSampleFormat format, int bit
-   if      (format == AV_SAMPLE_FMT_U8)   return AE_FMT_U8;
-   else if (format == AV_SAMPLE_FMT_S16)  return AE_FMT_S16NE;
-   else if (format == AV_SAMPLE_FMT_S32 && bits == 32)  return AE_FMT_S32NE;
--  else if (format == AV_SAMPLE_FMT_S32 && bits == 24)  return AE_FMT_S24NE4;
-+  else if (format == AV_SAMPLE_FMT_S32 && bits == 24)  return AE_FMT_S24NE4H;
-   else if (format == AV_SAMPLE_FMT_FLT)  return AE_FMT_FLOAT;
-   else if (format == AV_SAMPLE_FMT_DBL)  return AE_FMT_DOUBLE;
- 
-   else if (format == AV_SAMPLE_FMT_U8P)   return AE_FMT_U8P;
-   else if (format == AV_SAMPLE_FMT_S16P)  return AE_FMT_S16NEP;
-   else if (format == AV_SAMPLE_FMT_S32P && bits == 32)  return AE_FMT_S32NEP;
--  else if (format == AV_SAMPLE_FMT_S32P && bits == 24)  return AE_FMT_S24NE4P;
-+  else if (format == AV_SAMPLE_FMT_S32P && bits == 24)  return AE_FMT_S24NE4HP;
-   else if (format == AV_SAMPLE_FMT_FLTP)  return AE_FMT_FLOATP;
-   else if (format == AV_SAMPLE_FMT_DBLP)  return AE_FMT_DOUBLEP;
- 
-diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-index 8c0bad6..baa5dbe 100644
---- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-+++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-@@ -268,7 +268,7 @@ snd_pcm_format_t CAESinkALSA::AEFormatToALSAFormat(const enum AEDataFormat forma
-     case AE_FMT_S16NE : return SND_PCM_FORMAT_S16;
-     case AE_FMT_S16LE : return SND_PCM_FORMAT_S16_LE;
-     case AE_FMT_S16BE : return SND_PCM_FORMAT_S16_BE;
--    case AE_FMT_S24NE4: return SND_PCM_FORMAT_S24;
-+    case AE_FMT_S24NE4H: return SND_PCM_FORMAT_S24;
- #ifdef __BIG_ENDIAN__
-     case AE_FMT_S24NE3: return SND_PCM_FORMAT_S24_3BE;
- #else
-@@ -343,7 +343,7 @@ bool CAESinkALSA::InitializeHW(const ALSAConfig &inconfig, ALSAConfig &outconfig
-       {
-         /* if we opened in 32bit and only have 24bits, pack into 24 */
-         if (fmtBits == 32 && bits == 24)
--          i = AE_FMT_S24NE4;
-+          i = AE_FMT_S24NE4H;
-         else
-           continue;
-       }
-diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-index 54af197..67e6104 100644
---- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-+++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-@@ -80,9 +80,9 @@ static pa_sample_format AEFormatToPulseFormat(AEDataFormat format)
-     case AE_FMT_S24LE3: return PA_SAMPLE_S24LE;
-     case AE_FMT_S24BE3: return PA_SAMPLE_S24BE;
-     case AE_FMT_S24NE3: return PA_SAMPLE_S24NE;
--    case AE_FMT_S24LE4: return PA_SAMPLE_S24_32LE;
--    case AE_FMT_S24BE4: return PA_SAMPLE_S24_32BE;
--    case AE_FMT_S24NE4: return PA_SAMPLE_S24_32NE;
-+    case AE_FMT_S24LE4H: return PA_SAMPLE_S24_32LE;
-+    case AE_FMT_S24BE4H: return PA_SAMPLE_S24_32BE;
-+    case AE_FMT_S24NE4H: return PA_SAMPLE_S24_32NE;
-     case AE_FMT_S32BE : return PA_SAMPLE_S32BE;
-     case AE_FMT_S32LE : return PA_SAMPLE_S32LE;
-     case AE_FMT_S32NE : return PA_SAMPLE_S32NE;
-@@ -119,9 +119,9 @@ static AEDataFormat defaultDataFormats[] = {
-   AE_FMT_S24LE3,
-   AE_FMT_S24BE3,
-   AE_FMT_S24NE3,
--  AE_FMT_S24LE4,
--  AE_FMT_S24BE4,
--  AE_FMT_S24NE4,
-+  AE_FMT_S24LE4H,
-+  AE_FMT_S24BE4H,
-+  AE_FMT_S24NE4H,
-   AE_FMT_S32BE,
-   AE_FMT_S32LE,
-   AE_FMT_S32NE,
-diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
-index e895dd2..df3c385 100644
---- a/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
-+++ b/xbmc/cores/AudioEngine/Sinks/AESinkWASAPI.cpp
-@@ -111,7 +111,7 @@ struct sampleFormat
- /* Sample formats go from float -> 32 bit int -> 24 bit int (packed in 32) -> -> 24 bit int -> 16 bit int */
- static const sampleFormat testFormats[] = { {KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, 32, 32, AE_FMT_FLOAT},
-                                             {KSDATAFORMAT_SUBTYPE_PCM, 32, 32, AE_FMT_S32NE},
--                                            {KSDATAFORMAT_SUBTYPE_PCM, 32, 24, AE_FMT_S24NE4},
-+                                            {KSDATAFORMAT_SUBTYPE_PCM, 32, 24, AE_FMT_S24NE4H},
-                                             {KSDATAFORMAT_SUBTYPE_PCM, 24, 24, AE_FMT_S24NE3},
-                                             {KSDATAFORMAT_SUBTYPE_PCM, 16, 16, AE_FMT_S16NE} };
- 
-@@ -758,7 +758,7 @@ void CAESinkWASAPI::EnumerateDevicesEx(AEDeviceInfoList &deviceInfoList, bool fo
-         wfxex.Format.wBitsPerSample     = CAEUtil::DataFormatToBits((AEDataFormat) p);
-         wfxex.Format.nBlockAlign        = wfxex.Format.nChannels * (wfxex.Format.wBitsPerSample >> 3);
-         wfxex.Format.nAvgBytesPerSec    = wfxex.Format.nSamplesPerSec * wfxex.Format.nBlockAlign;
--        if (p <= AE_FMT_S24NE4 && p >= AE_FMT_S24BE4)
-+        if (p <= AE_FMT_S24NE4H && p >= AE_FMT_S24BE4H)
-         {
-           wfxex.Samples.wValidBitsPerSample = 24;
-         }
-@@ -1149,7 +1149,7 @@ bool CAESinkWASAPI::InitializeExclusive(AEAudioFormat &format)
-       else if (wfxex.Samples.wValidBitsPerSample == 32)
-         format.m_dataFormat = AE_FMT_S32NE;
-       else
--        format.m_dataFormat = AE_FMT_S24NE4;
-+        format.m_dataFormat = AE_FMT_S24NE4H;
-     }
-     else if (wfxex.Format.wBitsPerSample == 24)
-       format.m_dataFormat = AE_FMT_S24NE3;
-diff --git a/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h b/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h
-index 9ac5c79..10576bf 100644
---- a/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h
-+++ b/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h
-@@ -41,9 +41,9 @@ enum AEDataFormat
-   AE_FMT_S32LE,
-   AE_FMT_S32NE,
-   
--  AE_FMT_S24BE4,
--  AE_FMT_S24LE4,
--  AE_FMT_S24NE4, /* S24 in 4 bytes */
-+  AE_FMT_S24BE4H,
-+  AE_FMT_S24LE4H,
-+  AE_FMT_S24NE4H, /* S24 in upper 4 bytes */
- 
-   AE_FMT_S24BE3,
-   AE_FMT_S24LE3,
-@@ -65,7 +65,7 @@ enum AEDataFormat
-   AE_FMT_U8P,
-   AE_FMT_S16NEP,
-   AE_FMT_S32NEP,
--  AE_FMT_S24NE4P,
-+  AE_FMT_S24NE4HP,
-   AE_FMT_S24NE3P,
-   AE_FMT_DOUBLEP,
-   AE_FMT_FLOATP,
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-index 9454f7d..31e025a 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-@@ -69,18 +69,18 @@ CAEConvert::AEConvertToFn CAEConvert::ToFloat(enum AEDataFormat dataFormat)
- #ifdef __BIG_ENDIAN__
-     case AE_FMT_S16NE : return &S16BE_Float;
-     case AE_FMT_S32NE : return &S32BE_Float;
--    case AE_FMT_S24NE4: return &S24BE4_Float;
-+    case AE_FMT_S24NE4H: return &S24BE4H_Float;
-     case AE_FMT_S24NE3: return &S24BE3_Float;
- #else
-     case AE_FMT_S16NE : return &S16LE_Float;
-     case AE_FMT_S32NE : return &S32LE_Float;
--    case AE_FMT_S24NE4: return &S24LE4_Float;
-+    case AE_FMT_S24NE4H: return &S24LE4H_Float;
-     case AE_FMT_S24NE3: return &S24LE3_Float;
- #endif
-     case AE_FMT_S16LE : return &S16LE_Float;
-     case AE_FMT_S16BE : return &S16BE_Float;
--    case AE_FMT_S24LE4: return &S24LE4_Float;
--    case AE_FMT_S24BE4: return &S24BE4_Float;
-+    case AE_FMT_S24LE4H: return &S24LE4H_Float;
-+    case AE_FMT_S24BE4H: return &S24BE4H_Float;
-     case AE_FMT_S24LE3: return &S24LE3_Float;
-     case AE_FMT_S24BE3: return &S24BE3_Float;
- #if defined(__ARM_NEON__)
-@@ -112,7 +112,7 @@ CAEConvert::AEConvertFrFn CAEConvert::FrFloat(enum AEDataFormat dataFormat)
- #endif
-     case AE_FMT_S16LE : return &Float_S16LE;
-     case AE_FMT_S16BE : return &Float_S16BE;
--    case AE_FMT_S24NE4: return &Float_S24NE4;
-+    case AE_FMT_S24NE4H: return &Float_S24NE4H;
-     case AE_FMT_S24NE3: return &Float_S24NE3;
- #if defined(__ARM_NEON__)
-     case AE_FMT_S32LE : return &Float_S32LE_Neon;
-@@ -210,7 +210,7 @@ unsigned int CAEConvert::S16BE_Float(uint8_t* data, const unsigned int samples,
-   return samples;
- }
- 
--unsigned int CAEConvert::S24LE4_Float(uint8_t *data, const unsigned int samples, float *dest)
-+unsigned int CAEConvert::S24LE4H_Float(uint8_t *data, const unsigned int samples, float *dest)
- {
-   for (unsigned int i = 0; i < samples; ++i, data += 4)
-   {
-@@ -220,7 +220,7 @@ unsigned int CAEConvert::S24LE4_Float(uint8_t *data, const unsigned int samples,
-   return samples;
- }
- 
--unsigned int CAEConvert::S24BE4_Float(uint8_t *data, const unsigned int samples, float *dest)
-+unsigned int CAEConvert::S24BE4H_Float(uint8_t *data, const unsigned int samples, float *dest)
- {
-   for (unsigned int i = 0; i < samples; ++i, data += 4)
-   {
-@@ -786,7 +786,7 @@ unsigned int CAEConvert::Float_S16BE(float *data, const unsigned int samples, ui
-   return samples << 1;
- }
- 
--unsigned int CAEConvert::Float_S24NE4(float *data, const unsigned int samples, uint8_t *dest)
-+unsigned int CAEConvert::Float_S24NE4H(float *data, const unsigned int samples, uint8_t *dest)
- {
-   int32_t *dst = (int32_t*)dest;
-   #ifdef __SSE2__
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.h b/xbmc/cores/AudioEngine/Utils/AEConvert.h
-index 7ded823..cf547c8 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.h
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.h
-@@ -28,8 +28,8 @@ class CAEConvert{
-   static unsigned int S8_Float    (uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S16LE_Float (uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S16BE_Float (uint8_t *data, const unsigned int samples, float   *dest);
--  static unsigned int S24LE4_Float(uint8_t *data, const unsigned int samples, float   *dest);
--  static unsigned int S24BE4_Float(uint8_t *data, const unsigned int samples, float   *dest);
-+  static unsigned int S24LE4H_Float(uint8_t *data, const unsigned int samples, float   *dest);
-+  static unsigned int S24BE4H_Float(uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S24LE3_Float(uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S24BE3_Float(uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S32LE_Float (uint8_t *data, const unsigned int samples, float   *dest);
-@@ -41,7 +41,7 @@ class CAEConvert{
-   static unsigned int Float_S8    (float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S16LE (float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S16BE (float   *data, const unsigned int samples, uint8_t *dest);
--  static unsigned int Float_S24NE4(float   *data, const unsigned int samples, uint8_t *dest);
-+  static unsigned int Float_S24NE4H(float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S24NE3(float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S32LE (float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S32BE (float   *data, const unsigned int samples, uint8_t *dest);
-diff --git a/xbmc/cores/AudioEngine/Utils/AEUtil.cpp b/xbmc/cores/AudioEngine/Utils/AEUtil.cpp
-index feaa621..a70f20c 100644
---- a/xbmc/cores/AudioEngine/Utils/AEUtil.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEUtil.cpp
-@@ -125,7 +125,7 @@ const unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
- 
- const unsigned int CAEUtil::DataFormatToUsedBits(const enum AEDataFormat dataFormat)
- {
--  if (dataFormat == AE_FMT_S24BE4 || dataFormat == AE_FMT_S24LE4 || dataFormat == AE_FMT_S24NE4)
-+  if (dataFormat == AE_FMT_S24BE4H || dataFormat == AE_FMT_S24LE4H || dataFormat == AE_FMT_S24NE4H)
-     return 24;
-   else
-     return DataFormatToBits(dataFormat);
-@@ -149,9 +149,9 @@ const char* CAEUtil::DataFormatToStr(const enum AEDataFormat dataFormat)
-     "AE_FMT_S32LE",
-     "AE_FMT_S32NE",
-     
--    "AE_FMT_S24BE4",
--    "AE_FMT_S24LE4",
--    "AE_FMT_S24NE4",  /* S24 in 4 bytes */
-+    "AE_FMT_S24BE4H",
-+    "AE_FMT_S24LE4H",
-+    "AE_FMT_S24NE4H",  /* S24 in 4 bytes */
-     
-     "AE_FMT_S24BE3",
-     "AE_FMT_S24LE3",
-@@ -173,7 +173,7 @@ const char* CAEUtil::DataFormatToStr(const enum AEDataFormat dataFormat)
-     "AE_FMT_U8P",
-     "AE_FMT_S16NEP",
-     "AE_FMT_S32NEP",
--    "AE_FMT_S24NE4P",
-+    "AE_FMT_S24NE4HP",
-     "AE_FMT_S24NE3P",
-     "AE_FMT_DOUBLEP",
-     "AE_FMT_FLOATP"
--- 
-1.9.3
-
-
-From 9dc9d38c8a8823a2af32714f98b8559e3fe50cc0 Mon Sep 17 00:00:00 2001
-From: warped-rudi <r.ihle@s-t.de>
-Date: Tue, 15 Apr 2014 16:15:05 +0200
-Subject: [PATCH 52/56] Make S24xE4H conversions always act on upper 3 bytes
-
----
- xbmc/cores/AudioEngine/Utils/AEConvert.cpp | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-index 31e025a..3222af2 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-@@ -214,7 +214,7 @@ unsigned int CAEConvert::S24LE4H_Float(uint8_t *data, const unsigned int samples
- {
-   for (unsigned int i = 0; i < samples; ++i, data += 4)
-   {
--    int s = (data[2] << 24) | (data[1] << 16) | (data[0] << 8);
-+    int s = (data[3] << 24) | (data[2] << 16) | (data[1] << 8);
-     *dest++ = (float)s * INT32_SCALE;
-   }
-   return samples;
-@@ -841,7 +841,7 @@ unsigned int CAEConvert::Float_S24NE4H(float *data, const unsigned int samples,
-   _mm_empty();
-   #else /* no SSE2 */
-   for (uint32_t i = 0; i < samples; ++i)
--    *dst++ = safeRound(*data++ * ((float)INT24_MAX+.5f)) & 0x00FFFFFF;
-+    *dst++ = safeRound(*data++ * ((float)INT24_MAX+.5f)) << 8;
-   #endif
- 
-   return samples << 2;
--- 
-1.9.3
-
-
-From d21209b7066ed7d11ad56f754b13d5c2612a4d99 Mon Sep 17 00:00:00 2001
-From: warped-rudi <r.ihle@s-t.de>
-Date: Tue, 15 Apr 2014 17:56:51 +0200
-Subject: [PATCH 53/56] Introduce new formats AE_FMT_S24xE4L which use the
- lower 3 bytes of a 4 byte word
-
----
- xbmc/cores/AudioEngine/Utils/AEAudioFormat.h |  5 ++
- xbmc/cores/AudioEngine/Utils/AEConvert.cpp   | 87 ++++++++++++++++++++++++++++
- xbmc/cores/AudioEngine/Utils/AEConvert.h     |  3 +
- xbmc/cores/AudioEngine/Utils/AEUtil.cpp      | 25 +++++---
- 4 files changed, 113 insertions(+), 7 deletions(-)
-
-diff --git a/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h b/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h
-index 10576bf..0916abb 100644
---- a/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h
-+++ b/xbmc/cores/AudioEngine/Utils/AEAudioFormat.h
-@@ -45,6 +45,10 @@ enum AEDataFormat
-   AE_FMT_S24LE4H,
-   AE_FMT_S24NE4H, /* S24 in upper 4 bytes */
- 
-+  AE_FMT_S24BE4L,
-+  AE_FMT_S24LE4L,
-+  AE_FMT_S24NE4L, /* S24 in lower 4 bytes */
-+
-   AE_FMT_S24BE3,
-   AE_FMT_S24LE3,
-   AE_FMT_S24NE3, /* S24 in 3 bytes */
-@@ -66,6 +70,7 @@ enum AEDataFormat
-   AE_FMT_S16NEP,
-   AE_FMT_S32NEP,
-   AE_FMT_S24NE4HP,
-+  AE_FMT_S24NE4LP,
-   AE_FMT_S24NE3P,
-   AE_FMT_DOUBLEP,
-   AE_FMT_FLOATP,
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-index 3222af2..b454a20 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-@@ -70,17 +70,21 @@ CAEConvert::AEConvertToFn CAEConvert::ToFloat(enum AEDataFormat dataFormat)
-     case AE_FMT_S16NE : return &S16BE_Float;
-     case AE_FMT_S32NE : return &S32BE_Float;
-     case AE_FMT_S24NE4H: return &S24BE4H_Float;
-+    case AE_FMT_S24NE4L: return &S24BE4L_Float;
-     case AE_FMT_S24NE3: return &S24BE3_Float;
- #else
-     case AE_FMT_S16NE : return &S16LE_Float;
-     case AE_FMT_S32NE : return &S32LE_Float;
-     case AE_FMT_S24NE4H: return &S24LE4H_Float;
-+    case AE_FMT_S24NE4L: return &S24LE4L_Float;
-     case AE_FMT_S24NE3: return &S24LE3_Float;
- #endif
-     case AE_FMT_S16LE : return &S16LE_Float;
-     case AE_FMT_S16BE : return &S16BE_Float;
-     case AE_FMT_S24LE4H: return &S24LE4H_Float;
-+    case AE_FMT_S24LE4L: return &S24LE4L_Float;
-     case AE_FMT_S24BE4H: return &S24BE4H_Float;
-+    case AE_FMT_S24BE4L: return &S24BE4L_Float;
-     case AE_FMT_S24LE3: return &S24LE3_Float;
-     case AE_FMT_S24BE3: return &S24BE3_Float;
- #if defined(__ARM_NEON__)
-@@ -113,6 +117,7 @@ CAEConvert::AEConvertFrFn CAEConvert::FrFloat(enum AEDataFormat dataFormat)
-     case AE_FMT_S16LE : return &Float_S16LE;
-     case AE_FMT_S16BE : return &Float_S16BE;
-     case AE_FMT_S24NE4H: return &Float_S24NE4H;
-+    case AE_FMT_S24NE4L: return &Float_S24NE4L;
-     case AE_FMT_S24NE3: return &Float_S24NE3;
- #if defined(__ARM_NEON__)
-     case AE_FMT_S32LE : return &Float_S32LE_Neon;
-@@ -220,6 +225,16 @@ unsigned int CAEConvert::S24LE4H_Float(uint8_t *data, const unsigned int samples
-   return samples;
- }
- 
-+unsigned int CAEConvert::S24LE4L_Float(uint8_t *data, const unsigned int samples, float *dest)
-+{
-+  for (unsigned int i = 0; i < samples; ++i, data += 4)
-+  {
-+    int s = (data[2] << 24) | (data[1] << 16) | (data[0] << 8);
-+    *dest++ = (float)s * INT32_SCALE;
-+  }
-+  return samples;
-+}
-+
- unsigned int CAEConvert::S24BE4H_Float(uint8_t *data, const unsigned int samples, float *dest)
- {
-   for (unsigned int i = 0; i < samples; ++i, data += 4)
-@@ -230,6 +245,16 @@ unsigned int CAEConvert::S24BE4H_Float(uint8_t *data, const unsigned int samples
-   return samples;
- }
- 
-+unsigned int CAEConvert::S24BE4L_Float(uint8_t *data, const unsigned int samples, float *dest)
-+{
-+  for (unsigned int i = 0; i < samples; ++i, data += 4)
-+  {
-+    int s = (data[1] << 24) | (data[2] << 16) | (data[3] << 8);
-+    *dest++ = (float)s * INT32_SCALE;
-+  }
-+  return samples;
-+}
-+
- unsigned int CAEConvert::S24LE3_Float(uint8_t *data, const unsigned int samples, float *dest)
- {
-   for (unsigned int i = 0; i < samples; ++i, data += 3)
-@@ -847,6 +872,68 @@ unsigned int CAEConvert::Float_S24NE4H(float *data, const unsigned int samples,
-   return samples << 2;
- }
- 
-+unsigned int CAEConvert::Float_S24NE4L(float *data, const unsigned int samples, uint8_t *dest)
-+{
-+  int32_t *dst = (int32_t*)dest;
-+  #ifdef __SSE2__
-+
-+  const __m128i msk = _mm_set1_epi32(0xFFFFFF);
-+  const __m128 mul = _mm_set_ps1((float)INT24_MAX+.5f);
-+  unsigned int count = samples;
-+
-+  /* work around invalid alignment */
-+  while ((((uintptr_t)data & 0xF) || ((uintptr_t)dest & 0xF)) && count > 0)
-+  {
-+    dst[0] = safeRound(data[0] * ((float)INT24_MAX+.5f)) & 0xFFFFFF;
-+    ++data;
-+    ++dst;
-+    --count;
-+  }
-+
-+  const uint32_t even = count & ~0x3;
-+  for (uint32_t i = 0; i < even; i += 4, data += 4, dst += 4)
-+  {
-+    __m128  in  = _mm_mul_ps(_mm_load_ps(data), mul);
-+    __m128i con = _mm_cvtps_epi32(in);
-+    con         = _mm_and_si128(con, msk);
-+    memcpy(dst, &con, sizeof(int32_t) * 4);
-+  }
-+
-+  if (count != even)
-+  {
-+    const uint32_t odd = count - even;
-+    if (odd == 1)
-+      dst[0] = safeRound(data[0] * ((float)INT24_MAX+.5f)) & 0xFFFFFF;
-+    else
-+    {
-+      __m128 in;
-+      if (odd == 2)
-+      {
-+        in = _mm_setr_ps(data[0], data[1], 0, 0);
-+        in = _mm_mul_ps(in, mul);
-+        __m128i con = _mm_cvtps_epi32(in);
-+        con         = _mm_and_si128(con, msk);
-+        memcpy(dst, &con, sizeof(int32_t) * 2);
-+      }
-+      else
-+      {
-+        in = _mm_setr_ps(data[0], data[1], data[2], 0);
-+        in = _mm_mul_ps(in, mul);
-+        __m128i con = _mm_cvtps_epi32(in);
-+        con         = _mm_and_si128(con, msk);
-+        memcpy(dst, &con, sizeof(int32_t) * 3);
-+      }
-+    }
-+  }
-+  _mm_empty();
-+  #else /* no SSE2 */
-+  for (uint32_t i = 0; i < samples; ++i)
-+    *dst++ = safeRound(*data++ * ((float)INT24_MAX+.5f)) & 0xFFFFFF;
-+  #endif
-+
-+  return samples << 2;
-+}
-+
- unsigned int CAEConvert::Float_S24NE3(float *data, const unsigned int samples, uint8_t *dest)
- {
-   /* We do not want to shift for S24LE3, since left-shifting would actually
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.h b/xbmc/cores/AudioEngine/Utils/AEConvert.h
-index cf547c8..82afd4b 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.h
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.h
-@@ -29,7 +29,9 @@ class CAEConvert{
-   static unsigned int S16LE_Float (uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S16BE_Float (uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S24LE4H_Float(uint8_t *data, const unsigned int samples, float   *dest);
-+  static unsigned int S24LE4L_Float(uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S24BE4H_Float(uint8_t *data, const unsigned int samples, float   *dest);
-+  static unsigned int S24BE4L_Float(uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S24LE3_Float(uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S24BE3_Float(uint8_t *data, const unsigned int samples, float   *dest);
-   static unsigned int S32LE_Float (uint8_t *data, const unsigned int samples, float   *dest);
-@@ -42,6 +44,7 @@ class CAEConvert{
-   static unsigned int Float_S16LE (float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S16BE (float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S24NE4H(float   *data, const unsigned int samples, uint8_t *dest);
-+  static unsigned int Float_S24NE4L(float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S24NE3(float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S32LE (float   *data, const unsigned int samples, uint8_t *dest);
-   static unsigned int Float_S32BE (float   *data, const unsigned int samples, uint8_t *dest);
-diff --git a/xbmc/cores/AudioEngine/Utils/AEUtil.cpp b/xbmc/cores/AudioEngine/Utils/AEUtil.cpp
-index a70f20c..095fc8f 100644
---- a/xbmc/cores/AudioEngine/Utils/AEUtil.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEUtil.cpp
-@@ -92,9 +92,13 @@ const unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
-     32,                  /* S32LE  */
-     32,                  /* S32NE  */
-     
--    32,                  /* S24BE  */
--    32,                  /* S24LE  */
--    32,                  /* S24NE  */
-+    32,                  /* S24BE4H */
-+    32,                  /* S24LE4H */
-+    32,                  /* S24NE4H */
-+    
-+    32,                  /* S24BE4L */
-+    32,                  /* S24LE4L */
-+    32,                  /* S24NE4L */
-     
-     24,                  /* S24BE3 */
-     24,                  /* S24LE3 */
-@@ -114,8 +118,9 @@ const unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
-      8,                  /* U8P    */
-     16,                  /* S16NEP */
-     32,                  /* S32NEP */
--    32,                  /* S24NEP */
--    24,                  /* S24NE3P*/
-+    32,                  /* S24NE4HP */
-+    32,                  /* S24NE4LP */
-+    24,                  /* S24NE3P */
-     sizeof(double) << 3, /* DOUBLEP */
-     sizeof(float ) << 3  /* FLOATP  */
-  };
-@@ -125,7 +130,8 @@ const unsigned int CAEUtil::DataFormatToBits(const enum AEDataFormat dataFormat)
- 
- const unsigned int CAEUtil::DataFormatToUsedBits(const enum AEDataFormat dataFormat)
- {
--  if (dataFormat == AE_FMT_S24BE4H || dataFormat == AE_FMT_S24LE4H || dataFormat == AE_FMT_S24NE4H)
-+  if (dataFormat == AE_FMT_S24BE4H || dataFormat == AE_FMT_S24LE4H || dataFormat == AE_FMT_S24NE4H ||
-+      dataFormat == AE_FMT_S24BE4L || dataFormat == AE_FMT_S24LE4L || dataFormat == AE_FMT_S24NE4L)
-     return 24;
-   else
-     return DataFormatToBits(dataFormat);
-@@ -151,7 +157,11 @@ const char* CAEUtil::DataFormatToStr(const enum AEDataFormat dataFormat)
-     
-     "AE_FMT_S24BE4H",
-     "AE_FMT_S24LE4H",
--    "AE_FMT_S24NE4H",  /* S24 in 4 bytes */
-+    "AE_FMT_S24NE4H",  /* S24 in upper 4 bytes */
-+    
-+    "AE_FMT_S24BE4L",
-+    "AE_FMT_S24LE4L",
-+    "AE_FMT_S24NE4L",  /* S24 in lower 4 bytes */
-     
-     "AE_FMT_S24BE3",
-     "AE_FMT_S24LE3",
-@@ -174,6 +184,7 @@ const char* CAEUtil::DataFormatToStr(const enum AEDataFormat dataFormat)
-     "AE_FMT_S16NEP",
-     "AE_FMT_S32NEP",
-     "AE_FMT_S24NE4HP",
-+    "AE_FMT_S24NE4LP",
-     "AE_FMT_S24NE3P",
-     "AE_FMT_DOUBLEP",
-     "AE_FMT_FLOATP"
--- 
-1.9.3
-
-
-From b638d524250f7928f8d6d8566072c3219fcd4321 Mon Sep 17 00:00:00 2001
-From: warped-rudi <r.ihle@s-t.de>
-Date: Tue, 15 Apr 2014 18:14:27 +0200
-Subject: [PATCH 54/56] Use AE_FMT_S24xE4L in conjunction with ALSA and
- PulseAudio
-
----
- xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp  |  4 ++--
- xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp | 12 ++++++------
- 2 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-index baa5dbe..3270bc9 100644
---- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-+++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-@@ -268,7 +268,7 @@ snd_pcm_format_t CAESinkALSA::AEFormatToALSAFormat(const enum AEDataFormat forma
-     case AE_FMT_S16NE : return SND_PCM_FORMAT_S16;
-     case AE_FMT_S16LE : return SND_PCM_FORMAT_S16_LE;
-     case AE_FMT_S16BE : return SND_PCM_FORMAT_S16_BE;
--    case AE_FMT_S24NE4H: return SND_PCM_FORMAT_S24;
-+    case AE_FMT_S24NE4L: return SND_PCM_FORMAT_S24;
- #ifdef __BIG_ENDIAN__
-     case AE_FMT_S24NE3: return SND_PCM_FORMAT_S24_3BE;
- #else
-@@ -343,7 +343,7 @@ bool CAESinkALSA::InitializeHW(const ALSAConfig &inconfig, ALSAConfig &outconfig
-       {
-         /* if we opened in 32bit and only have 24bits, pack into 24 */
-         if (fmtBits == 32 && bits == 24)
--          i = AE_FMT_S24NE4H;
-+          i = AE_FMT_S24NE4L;
-         else
-           continue;
-       }
-diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-index 67e6104..c6a39c2 100644
---- a/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-+++ b/xbmc/cores/AudioEngine/Sinks/AESinkPULSE.cpp
-@@ -80,9 +80,9 @@ static pa_sample_format AEFormatToPulseFormat(AEDataFormat format)
-     case AE_FMT_S24LE3: return PA_SAMPLE_S24LE;
-     case AE_FMT_S24BE3: return PA_SAMPLE_S24BE;
-     case AE_FMT_S24NE3: return PA_SAMPLE_S24NE;
--    case AE_FMT_S24LE4H: return PA_SAMPLE_S24_32LE;
--    case AE_FMT_S24BE4H: return PA_SAMPLE_S24_32BE;
--    case AE_FMT_S24NE4H: return PA_SAMPLE_S24_32NE;
-+    case AE_FMT_S24LE4L: return PA_SAMPLE_S24_32LE;
-+    case AE_FMT_S24BE4L: return PA_SAMPLE_S24_32BE;
-+    case AE_FMT_S24NE4L: return PA_SAMPLE_S24_32NE;
-     case AE_FMT_S32BE : return PA_SAMPLE_S32BE;
-     case AE_FMT_S32LE : return PA_SAMPLE_S32LE;
-     case AE_FMT_S32NE : return PA_SAMPLE_S32NE;
-@@ -119,9 +119,9 @@ static AEDataFormat defaultDataFormats[] = {
-   AE_FMT_S24LE3,
-   AE_FMT_S24BE3,
-   AE_FMT_S24NE3,
--  AE_FMT_S24LE4H,
--  AE_FMT_S24BE4H,
--  AE_FMT_S24NE4H,
-+  AE_FMT_S24LE4L,
-+  AE_FMT_S24BE4L,
-+  AE_FMT_S24NE4L,
-   AE_FMT_S32BE,
-   AE_FMT_S32LE,
-   AE_FMT_S32NE,
--- 
-1.9.3
-
-
-From 7003558c899666d2d24e6f069d3cf65835538c7e Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Tue, 15 Apr 2014 21:59:39 +0200
-Subject: [PATCH 55/56] Remove unneccessary mask operations in Float_S24NE4H
-
----
- xbmc/cores/AudioEngine/Utils/AEConvert.cpp | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-index b454a20..c2bafb8 100644
---- a/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-+++ b/xbmc/cores/AudioEngine/Utils/AEConvert.cpp
-@@ -822,7 +822,7 @@ unsigned int CAEConvert::Float_S24NE4H(float *data, const unsigned int samples,
-   /* work around invalid alignment */
-   while ((((uintptr_t)data & 0xF) || ((uintptr_t)dest & 0xF)) && count > 0)
-   {
--    dst[0] = (safeRound(data[0] * ((float)INT24_MAX+.5f)) & 0xFFFFFF) << 8;
-+    dst[0] = safeRound(data[0] * ((float)INT24_MAX+.5f)) << 8;
-     ++data;
-     ++dst;
-     --count;
-@@ -841,7 +841,7 @@ unsigned int CAEConvert::Float_S24NE4H(float *data, const unsigned int samples,
-   {
-     const uint32_t odd = count - even;
-     if (odd == 1)
--      dst[0] = (safeRound(data[0] * ((float)INT24_MAX+.5f)) & 0xFFFFFF) << 8;
-+      dst[0] = safeRound(data[0] * ((float)INT24_MAX+.5f)) << 8;
-     else
-     {
-       __m128 in;
--- 
-1.9.3
-
-
-From fb025071366c170bc9dc03884cdbee06f8b48d5e Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Tue, 15 Apr 2014 23:12:49 +0200
-Subject: [PATCH 56/56] Avoid intermediate floating point conversion when
- outputting S24NE4L
-
----
- .../Engines/ActiveAE/ActiveAEResample.cpp          |  2 +
- .../AudioEngine/Engines/ActiveAE/ActiveAESink.cpp  | 55 ++++++++++++++++++----
- .../AudioEngine/Engines/ActiveAE/ActiveAESink.h    |  2 +
- 3 files changed, 50 insertions(+), 9 deletions(-)
-
-diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp
-index d40c096..9bf017d 100644
---- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp
-+++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResample.cpp
-@@ -282,6 +282,7 @@ AVSampleFormat CActiveAEResample::GetAVSampleFormat(AEDataFormat format)
-   else if (format == AE_FMT_S16NE)  return AV_SAMPLE_FMT_S16;
-   else if (format == AE_FMT_S32NE)  return AV_SAMPLE_FMT_S32;
-   else if (format == AE_FMT_S24NE4H) return AV_SAMPLE_FMT_S32;
-+  else if (format == AE_FMT_S24NE4L) return AV_SAMPLE_FMT_S32;
-   else if (format == AE_FMT_FLOAT)  return AV_SAMPLE_FMT_FLT;
-   else if (format == AE_FMT_DOUBLE) return AV_SAMPLE_FMT_DBL;
- 
-@@ -289,6 +290,7 @@ AVSampleFormat CActiveAEResample::GetAVSampleFormat(AEDataFormat format)
-   else if (format == AE_FMT_S16NEP)  return AV_SAMPLE_FMT_S16P;
-   else if (format == AE_FMT_S32NEP)  return AV_SAMPLE_FMT_S32P;
-   else if (format == AE_FMT_S24NE4HP) return AV_SAMPLE_FMT_S32P;
-+  else if (format == AE_FMT_S24NE4LP) return AV_SAMPLE_FMT_S32P;
-   else if (format == AE_FMT_FLOATP)  return AV_SAMPLE_FMT_FLTP;
-   else if (format == AE_FMT_DOUBLEP) return AV_SAMPLE_FMT_DBLP;
- 
-diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
-index 56b72d3..ca31516 100644
---- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
-+++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp
-@@ -796,6 +796,12 @@ void CActiveAESink::ReturnBuffers()
-   }
- }
- 
-+static inline void RShift8_32_buf(uint32_t *src, uint32_t *dst, uint32_t count)
-+{
-+  while (count--)
-+    *dst++ = *src++ >> 8;
-+}
-+
- unsigned int CActiveAESink::OutputSamples(CSampleBuffer* samples)
- {
-   uint8_t *buffer = samples->pkt->data[0];
-@@ -816,14 +822,22 @@ unsigned int CActiveAESink::OutputSamples(CSampleBuffer* samples)
-   case NEED_BYTESWAP:
-     Endian_Swap16_buf((uint16_t *)buffer, (uint16_t *)buffer, frames * samples->pkt->config.channels);
-     break;
-+  case NEED_RSHIFT8:
-+    RShift8_32_buf((uint32_t *)buffer, (uint32_t *)buffer, frames * samples->pkt->config.channels);
-+    break;
-   case CHECK_CONVERT:
-     ConvertInit(samples);
-     if (m_convertState == NEED_CONVERT)
-       buffer = Convert(samples);
-     else if (m_convertState == NEED_BYTESWAP)
-       Endian_Swap16_buf((uint16_t *)buffer, (uint16_t *)buffer, frames * samples->pkt->config.channels);
-+    else if (m_convertState == NEED_RSHIFT8)
-+      RShift8_32_buf((uint32_t *)buffer, (uint32_t *)buffer, frames * samples->pkt->config.channels);
-+    else if (m_convertState == SKIP_OUTPUT)
-+      frames = 0;
-     break;
--  default:
-+  case SKIP_OUTPUT:
-+    frames = 0;
-     break;
-   }
- 
-@@ -862,15 +876,38 @@ unsigned int CActiveAESink::OutputSamples(CSampleBuffer* samples)
- 
- void CActiveAESink::ConvertInit(CSampleBuffer* samples)
- {
--  if (CActiveAEResample::GetAESampleFormat(samples->pkt->config.fmt, samples->pkt->config.bits_per_sample) != m_sinkFormat.m_dataFormat)
-+  AEDataFormat srcFmt = CActiveAEResample::GetAESampleFormat(samples->pkt->config.fmt, samples->pkt->config.bits_per_sample);
-+  
-+  if (srcFmt != m_sinkFormat.m_dataFormat)
-   {
--    m_convertFn = CAEConvert::FrFloat(m_sinkFormat.m_dataFormat);
--    if (m_convertBuffer)
--      _aligned_free(m_convertBuffer);
--    m_convertBufferSampleSize = samples->pkt->max_nb_samples;
--    m_convertBuffer = (uint8_t*)_aligned_malloc(samples->pkt->max_nb_samples * m_sinkFormat.m_channelLayout.Count() * m_sinkFormat.m_frameSize, 16);
--    memset(m_convertBuffer, 0, samples->pkt->max_nb_samples * m_sinkFormat.m_channelLayout.Count() * m_sinkFormat.m_frameSize);
--    m_convertState = NEED_CONVERT;
-+    switch (srcFmt)
-+    {
-+    case AE_FMT_FLOAT:
-+    case AE_FMT_FLOATP:
-+      m_convertFn = CAEConvert::FrFloat(m_sinkFormat.m_dataFormat);
-+      if (m_convertBuffer)
-+        _aligned_free(m_convertBuffer);
-+      m_convertBufferSampleSize = samples->pkt->max_nb_samples;
-+      m_convertBuffer = (uint8_t*)_aligned_malloc(samples->pkt->max_nb_samples * m_sinkFormat.m_channelLayout.Count() * m_sinkFormat.m_frameSize, 16);
-+      memset(m_convertBuffer, 0, samples->pkt->max_nb_samples * m_sinkFormat.m_channelLayout.Count() * m_sinkFormat.m_frameSize);
-+      m_convertState = NEED_CONVERT;
-+      break;
-+    case AE_FMT_S24NE4H:
-+      m_convertState = (m_sinkFormat.m_dataFormat == AE_FMT_S24NE4L) ? NEED_RSHIFT8 : SKIP_OUTPUT;
-+      break;
-+    case AE_FMT_S24NE4HP:
-+      m_convertState = (m_sinkFormat.m_dataFormat == AE_FMT_S24NE4LP) ? NEED_RSHIFT8 : SKIP_OUTPUT;
-+      break;
-+    default:
-+      m_convertState = SKIP_OUTPUT;
-+      break;
-+    }
-+
-+    if (m_convertState == SKIP_OUTPUT)
-+    {
-+      CLog::Log(LOGERROR, "CActiveAESink::ConvertInit - cannot convert from %s to %s",
-+                CAEUtil::DataFormatToStr(srcFmt), CAEUtil::DataFormatToStr(m_sinkFormat.m_dataFormat));
-+    }
-   }
-   else if (AE_IS_RAW(m_requestedFormat.m_dataFormat) && CAEUtil::S16NeedsByteSwap(AE_FMT_S16NE, m_sinkFormat.m_dataFormat))
-   {
-diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
-index 81b1117..68d7454 100644
---- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
-+++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.h
-@@ -139,6 +139,8 @@ class CActiveAESink : private CThread
-     NEED_CONVERT,
-     NEED_BYTESWAP,
-     SKIP_CONVERT,
-+    NEED_RSHIFT8,
-+    SKIP_OUTPUT
-   } m_convertState;
- 
-   std::string m_deviceFriendlyName;
 -- 
 1.9.3
 
