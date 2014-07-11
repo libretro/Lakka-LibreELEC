@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libfslvpuwrap"
-PKG_VERSION="3.10.9-1.0.0"
+PKG_VERSION="1.0.46"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
