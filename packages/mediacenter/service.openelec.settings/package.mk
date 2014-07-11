@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="service.openelec.settings"
-if [ "$XBMC" = "master" ]; then
+if [ "$MEDIACENTER" = "xbmc-master" ]; then
   PKG_VERSION="0.4.2"
 else
   PKG_VERSION="0.3.19"
