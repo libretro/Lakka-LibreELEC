@@ -1,0 +1,79 @@
+From 1f689261eca006dfe11d7fd220218209a8d4d190 Mon Sep 17 00:00:00 2001
+From: Aris Adamantiadis <aris@0xbadc0de.be>
+Date: Wed, 08 Jan 2014 15:58:49 +0000
+Subject: threads: support libgcrypt 1.6 hack
+
+Not 100% satisfied of this patch, but the way libgcrypt handles
+threading in 1.6 is not compatible with custom handlers. The
+new code basicaly uses pthreads in every case. This will probably
+not work on windows.
+---
+diff --git a/doc/threading.dox b/doc/threading.dox
+index a11c82f..95eee6b 100644
+--- a/doc/threading.dox
++++ b/doc/threading.dox
+@@ -61,5 +61,6 @@ implement the following methods :
+ - mutex_destroy
+ - thread_id
+ 
++libgcrypt 1.6 and bigger backend does not support custom callback. Using anything else than pthreads (ssh_threads_get_pthread()) here will fail.
+ Good luck !
+ */
+diff --git a/include/libssh/callbacks.h b/include/libssh/callbacks.h
+index a841f2e..9aa8bab 100644
+--- a/include/libssh/callbacks.h
++++ b/include/libssh/callbacks.h
+@@ -801,6 +801,8 @@ struct ssh_threads_callbacks_struct {
+  *
+  * @see ssh_threads_callbacks_struct
+  * @see SSH_THREADS_PTHREAD
++ * @bug libgcrypt 1.6 and bigger backend does not support custom callback.
++ *      Using anything else than pthreads here will fail.
+  */
+ LIBSSH_API int ssh_threads_set_callbacks(struct ssh_threads_callbacks_struct
+     *cb);
+diff --git a/src/threads.c b/src/threads.c
+index 107c65d..7f3a304 100644
+--- a/src/threads.c
++++ b/src/threads.c
+@@ -59,8 +59,27 @@ struct ssh_threads_callbacks_struct *ssh_threads_get_noop(void) {
+ static struct ssh_threads_callbacks_struct *user_callbacks =&ssh_threads_noop;
+ 
+ #ifdef HAVE_LIBGCRYPT
++#if (GCRYPT_VERSION_NUMBER >= 0x010600)
++/* libgcrypt >= 1.6 does not support custom callbacks */
++GCRY_THREAD_OPTION_PTHREAD_IMPL;
+ 
+-/* Libgcrypt specific way of handling thread callbacks */
++static int libgcrypt_thread_init(void){
++	if(user_callbacks == NULL)
++		return SSH_ERROR;
++	if(user_callbacks == &ssh_threads_noop)
++		return SSH_OK;
++	if (strcmp(user_callbacks->type, "threads_pthread") == 0){
++		gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
++		return SSH_OK;
++	} else {
++		/* not supported */
++		gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
++		return SSH_OK;
++	}
++}
++
++#else
++/* Libgcrypt < 1.6 specific way of handling thread callbacks */
+ 
+ static struct gcry_thread_cbs gcrypt_threads_callbacks;
+ 
+@@ -79,7 +99,8 @@ static int libgcrypt_thread_init(void){
+ 	gcry_control(GCRYCTL_SET_THREAD_CBS, &gcrypt_threads_callbacks);
+ 	return SSH_OK;
+ }
+-#else
++#endif /* GCRYPT_VERSION_NUMBER */
++#else /* HAVE_LIBGCRYPT */
+ 
+ /* Libcrypto specific stuff */
+ 
+--
+cgit v0.9.1
