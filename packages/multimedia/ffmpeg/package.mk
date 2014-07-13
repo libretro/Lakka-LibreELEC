@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://ffmpeg.org"
 PKG_URL="https://www.ffmpeg.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 libvorbis gnutls"
+PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 libvorbis libressl"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
@@ -162,7 +162,7 @@ configure_target() {
               --disable-w32threads \
               --disable-x11grab \
               --enable-network \
-              --enable-gnutls \
+              --disable-gnutls --enable-openssl --enable-nonfree \
               --disable-gray \
               --enable-swscale-alpha \
               $FFMPEG_OPTIM \
