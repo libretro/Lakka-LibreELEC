@@ -1,0 +1,68 @@
+diff -Naur Python-2.7.3/Lib/socket.py Python-2.7.3.patch/Lib/socket.py
+--- Python-2.7.3/Lib/socket.py	2012-04-10 01:07:31.000000000 +0200
++++ Python-2.7.3.patch/Lib/socket.py	2014-07-18 04:33:44.132850756 +0200
+@@ -67,7 +67,6 @@
+     from _ssl import SSLError as sslerror
+     from _ssl import \
+          RAND_add, \
+-         RAND_egd, \
+          RAND_status, \
+          SSL_ERROR_ZERO_RETURN, \
+          SSL_ERROR_WANT_READ, \
+diff -Naur Python-2.7.3/Lib/ssl.py Python-2.7.3.patch/Lib/ssl.py
+--- Python-2.7.3/Lib/ssl.py	2012-04-10 01:07:31.000000000 +0200
++++ Python-2.7.3.patch/Lib/ssl.py	2014-07-18 05:06:34.938100455 +0200
+@@ -62,7 +62,7 @@
+ from _ssl import OPENSSL_VERSION_NUMBER, OPENSSL_VERSION_INFO, OPENSSL_VERSION
+ from _ssl import SSLError
+ from _ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
+-from _ssl import RAND_status, RAND_egd, RAND_add
++from _ssl import RAND_status, RAND_add
+ from _ssl import \
+      SSL_ERROR_ZERO_RETURN, \
+      SSL_ERROR_WANT_READ, \
+diff -Naur Python-2.7.3/Modules/_ssl.c Python-2.7.3.patch/Modules/_ssl.c
+--- Python-2.7.3/Modules/_ssl.c	2012-04-10 01:07:33.000000000 +0200
++++ Python-2.7.3.patch/Modules/_ssl.c	2014-07-18 04:37:28.324453450 +0200
+@@ -1531,32 +1531,6 @@
+ It is necessary to seed the PRNG with RAND_add() on some platforms before\n\
+ using the ssl() function.");
+ 
+-static PyObject *
+-PySSL_RAND_egd(PyObject *self, PyObject *arg)
+-{
+-    int bytes;
+-
+-    if (!PyString_Check(arg))
+-        return PyErr_Format(PyExc_TypeError,
+-                            "RAND_egd() expected string, found %s",
+-                            Py_TYPE(arg)->tp_name);
+-    bytes = RAND_egd(PyString_AS_STRING(arg));
+-    if (bytes == -1) {
+-        PyErr_SetString(PySSLErrorObject,
+-                        "EGD connection failed or EGD did not return "
+-                        "enough data to seed the PRNG");
+-        return NULL;
+-    }
+-    return PyInt_FromLong(bytes);
+-}
+-
+-PyDoc_STRVAR(PySSL_RAND_egd_doc,
+-"RAND_egd(path) -> bytes\n\
+-\n\
+-Queries the entropy gather daemon (EGD) on the socket named by 'path'.\n\
+-Returns number of bytes read.  Raises SSLError if connection to EGD\n\
+-fails or if it does provide enough data to seed PRNG.");
+-
+ #endif
+ 
+ /* List of functions exported by this module. */
+@@ -1569,8 +1543,6 @@
+ #ifdef HAVE_OPENSSL_RAND
+     {"RAND_add",            PySSL_RAND_add, METH_VARARGS,
+      PySSL_RAND_add_doc},
+-    {"RAND_egd",            PySSL_RAND_egd, METH_O,
+-     PySSL_RAND_egd_doc},
+     {"RAND_status",         (PyCFunction)PySSL_RAND_status, METH_NOARGS,
+      PySSL_RAND_status_doc},
+ #endif
