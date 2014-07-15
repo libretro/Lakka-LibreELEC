@@ -32,7 +32,8 @@ PKG_LONGDESC="GNU nano (Nano's ANOther editor, or Not ANOther editor) is an enha
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-utf8"
+PKG_CONFIGURE_OPTS_TARGET="--disable-utf8 \
+                           --disable-nls"
 
 export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/ncurses"
 export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
