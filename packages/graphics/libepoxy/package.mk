@@ -16,6 +16,11 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+# libepoxy (actually) needs to be built shared, to avoid
+# (EE) Failed to load /usr/lib/xorg/modules/libglamoregl.so: 
+# /usr/lib/xorg/modules/libglamoregl.so: undefined symbol: epoxy_eglCreateImageKHR
+# in Xorg.log
+
 PKG_NAME="libepoxy"
 PKG_VERSION="b2ae054"
 PKG_REV="1"
@@ -32,4 +37,3 @@ PKG_LONGDESC="Epoxy is a library for handling OpenGL function pointer management
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
