@@ -42,6 +42,13 @@ if [ "$MEDIACENTER" = "xbmc" -o "$MEDIACENTER" = "xbmc-master" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET simplejson"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pycrypto"
 
+# XBMC audio encoder addons
+  if [ "$MEDIACENTER" = "xbmc-master" -a "$OPTICAL_DRIVE_SUPPORT" = "yes" ]; then
+    for audioencoder in $XBMC_AUDIOENCODER_ADDONS; do
+      PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xbmc-audioencoder-$audioencoder"
+    done
+  fi
+
 # various PVR clients
   if [ "$MEDIACENTER" = "xbmc-master" ]; then
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xbmc-pvr-addons-master"
