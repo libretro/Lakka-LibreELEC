@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libXi"
-PKG_VERSION="1.7.3"
+PKG_VERSION="1.7.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
