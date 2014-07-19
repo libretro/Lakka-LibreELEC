@@ -50,6 +50,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-nasm \
                            --with-fileio=lame \
                            GTK_CONFIG=no"
 
+if [ "$MEDIACENTER" = "xbmc-master" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-static --disable-shared"
+fi
+
 post_make_target() {
   # dont build parallel
     MAKEFLAGS=-j1
