@@ -60,7 +60,7 @@ PKG_CONFIGURE_OPTS_HOST="--enable-rpath \
                          --disable-diskaudio \
                          --disable-dummyaudio \
                          --disable-mintaudio \
-                         --enable-nasm \
+                         --disable-nasm \
                          --disable-altivec \
                          --disable-ipod \
                          --disable-video \
@@ -133,7 +133,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-rpath \
                            --disable-diskaudio \
                            --disable-dummyaudio \
                            --disable-mintaudio \
-                           --enable-nasm \
+                           --disable-nasm \
                            --disable-altivec \
                            --disable-ipod \
                            --disable-video-nanox \
