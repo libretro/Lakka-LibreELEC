@@ -177,13 +177,6 @@ if [ "$FAAC_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET faac"
 fi
 
-if [ "$ENCODER_LAME" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET lame"
-  XBMC_LAMEENC="--enable-libmp3lame"
-else
-  XBMC_LAMEENC="--disable-libmp3lame"
-fi
-
 if [ "$BLURAY_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libbluray"
   XBMC_BLURAY="--enable-libbluray"
@@ -348,7 +341,6 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_AFP \
                            --enable-libvorbisenc \
                            --disable-libcap \
-                           $XBMC_LAMEENC \
                            $XBMC_DVDCSS \
                            --disable-mid \
                            --disable-hal \
