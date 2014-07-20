@@ -18,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="vdr-addon"
-PKG_VERSION="4.1"
-PKG_REV="7"
+PKG_VERSION="4.3"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
