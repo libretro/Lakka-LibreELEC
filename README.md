@@ -64,8 +64,6 @@ providing cutting edge hardware support to deliver a set-top box experience.
   SSH allows command line access to your openelec.tv machine for configuration
   and file transfer. Linux/Mac clients can natively use SSH, while Windows
   users might want to try PuTTY for their terminal access.
-  Starting with OpenELEC 2.0, SSH is disabled by default but all that is needed
-  is an empty “ssh_enable” file to exist in /storage/.config to enable it.
 * $HOME is mounted on /storage (the second ext4 partition on the drive). 
   All data transfered to the machine will go here, the rest of the system is
   read-only with the exception of /var (containing runtime configuration data).
