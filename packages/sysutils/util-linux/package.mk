@@ -94,6 +94,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-ncurses \
                            --without-slang \
                            --without-utempter \
+                           --without-python \
                            --without-systemdsystemunitdir"
 
 PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
