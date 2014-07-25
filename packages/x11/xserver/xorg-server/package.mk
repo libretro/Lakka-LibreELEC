@@ -95,8 +95,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --enable-libdrm \
                            --enable-clientids \
                            --enable-pciaccess \
-                           --enable-linux-acpi \
-                           --enable-linux-apm \
+                           --disable-linux-acpi \
+                           --disable-linux-apm \
                            --disable-systemd-logind \
                            --enable-xorg \
                            --disable-dmx \
