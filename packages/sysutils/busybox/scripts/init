@@ -52,6 +52,14 @@
   NBD_DEVS="0"
   FLASH_FREE_MIN="5"
 
+  INSTALLED_MEMORY=`cat /proc/meminfo | grep 'MemTotal:' | awk '{print $2}'`
+  SYSTEM_TORAM_LIMIT=1024000
+
+  # load any configuration
+  if [ -f "/etc/initramfs.conf" ]; then
+    . /etc/initramfs.conf
+  fi
+
   # hide kernel log messages on console
   echo '1 4 1 7' > /proc/sys/kernel/printk
 
@@ -115,6 +123,9 @@
         ;;
       nosplash)
         SPLASH=no
+        ;;
+      noram)
+        SYSTEM_TORAM=no
         ;;
       overlay)
         OVERLAY=yes
@@ -592,7 +603,13 @@
   prepare_sysroot() {
     progress "Preparing system"
 
-    mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+    if [ "$SYSTEM_TORAM" = "no" -o "$INSTALLED_MEMORY" -lt "$SYSTEM_TORAM_LIMIT" ]; then
+      mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+    else
+      cp /flash/$IMAGE_SYSTEM /dev/$IMAGE_SYSTEM
+      mount_part "/dev/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
+    fi
+
     mount --move /flash /sysroot/flash
 
     if [ -n "$disk" ]; then
