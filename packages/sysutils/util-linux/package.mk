@@ -39,7 +39,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --enable-libuuid \
                            --enable-libblkid \
                            --enable-libmount \
-                           --disable-libsmartcols \
                            --disable-deprecated-mount \
                            --disable-mount \
                            --enable-fsck \
@@ -99,7 +98,13 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-systemdsystemunitdir"
 
 PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
-PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
+PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET --disable-libsmartcols"
+
+if [ "$SWAP_SUPPORT" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-libsmartcols"
+else
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-libsmartcols"
+fi
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
