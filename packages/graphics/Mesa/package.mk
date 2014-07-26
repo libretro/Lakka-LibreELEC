@@ -74,7 +74,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-gles2 \
                            --disable-openvg \
                            --enable-dri \
-                           --enable-dri3 \
+                           --disable-dri3 \
                            --enable-glx \
                            --disable-osmesa \
                            --enable-egl --with-egl-platforms=x11,drm \
