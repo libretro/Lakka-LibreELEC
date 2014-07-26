@@ -39,6 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --enable-libuuid \
                            --enable-libblkid \
                            --enable-libmount \
+                           --disable-libsmartcols \
                            --disable-deprecated-mount \
                            --disable-mount \
                            --enable-fsck \
