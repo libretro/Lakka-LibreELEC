@@ -33,7 +33,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 # package specific configure options
-PKG_CONFIGURE_OPTS_TARGET="--disable-nasm \
+PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+                           --disable-shared \
+                           --disable-nasm \
                            --disable-rpath \
                            --disable-cpml \
                            --disable-gtktest \
@@ -49,10 +51,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-nasm \
                            --with-gnu-ld \
                            --with-fileio=lame \
                            GTK_CONFIG=no"
-
-if [ "$MEDIACENTER" = "xbmc-master" ]; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-static --disable-shared"
-fi
 
 post_make_target() {
   # dont build parallel
