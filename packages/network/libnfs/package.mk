@@ -16,10 +16,8 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# TODO: libnfs-1.9.3 fails at runtime (xbmc)
-
 PKG_NAME="libnfs"
-PKG_VERSION="1.8.0"
+PKG_VERSION="1.9.5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
