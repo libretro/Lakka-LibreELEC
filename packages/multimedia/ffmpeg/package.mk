@@ -162,7 +162,7 @@ configure_target() {
               --disable-w32threads \
               --disable-x11grab \
               --enable-network \
-              --disable-gnutls --enable-openssl --enable-nonfree \
+              --disable-gnutls --enable-libressl \
               --disable-gray \
               --enable-swscale-alpha \
               $FFMPEG_OPTIM \
