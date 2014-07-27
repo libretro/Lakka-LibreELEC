@@ -33,7 +33,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 # package specific configure options
-PKG_CONFIGURE_OPTS_TARGET="--disable-rpath \
+PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+                           --disable-shared \
+                           --disable-rpath \
                            --disable-altivec \
                            --disable-doxygen-docs \
                            --disable-thorough-tests \
@@ -42,10 +44,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-rpath \
                            --disable-oggtest \
                            --with-ogg=$SYSROOT_PREFIX/usr \
                            --with-gnu-ld"
-
-if [ "$MEDIACENTER" = "xbmc-master" ]; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-static --disable-shared"
-fi
 
 if [ $TARGET_ARCH = "i386" -o $TARGET_ARCH = "x86_64" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-sse"
