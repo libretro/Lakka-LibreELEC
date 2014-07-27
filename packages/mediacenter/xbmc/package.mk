@@ -17,13 +17,14 @@
 ################################################################################
 
 PKG_NAME="xbmc"
-PKG_VERSION="13-6d3bb09"
+PKG_VERSION="14-67f025d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.xbmc.org"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain boost Python zlib bzip2 systemd pciutils lzo pcre swig:host libass enca curl rtmpdump fontconfig fribidi gnutls tinyxml libjpeg-turbo libpng tiff freetype jasper libmad libsamplerate libogg libcdio libmodplug flac libmpeg2 taglib libxml2 libxslt yajl sqlite libvorbis"
+PKG_DEPENDS_TARGET="toolchain boost Python zlib bzip2 systemd pciutils lzo pcre swig:host libass enca curl rtmpdump fontconfig fribidi tinyxml libjpeg-turbo libpng tiff freetype jasper libogg libcdio libmodplug libmpeg2 taglib libxml2 libxslt yajl sqlite libvorbis ffmpeg xbmc:host"
+PKG_DEPENDS_HOST="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="xbmc: XBMC Mediacenter"
@@ -176,13 +177,6 @@ if [ "$FAAC_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET faac"
 fi
 
-if [ "$ENCODER_LAME" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET lame"
-  XBMC_LAMEENC="--enable-libmp3lame"
-else
-  XBMC_LAMEENC="--disable-libmp3lame"
-fi
-
 if [ "$BLURAY_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libbluray"
   XBMC_BLURAY="--enable-libbluray"
@@ -301,11 +295,6 @@ else
   XBMC_CRYSTALHD="--disable-crystalhd"
 fi
 
-if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
-# TODO: hack to for including FM patch on x86, rework this in OpenELEC-5.0
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET ffmpeg"
-fi
-
 export CXX_FOR_BUILD="$HOST_CXX"
 export CC_FOR_BUILD="$HOST_CC"
 export CXXFLAGS_FOR_BUILD="$HOST_CXXFLAGS"
@@ -320,8 +309,6 @@ export ac_python_version="$PYTHON_VERSION"
 
 PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            ac_cv_lib_bluetooth_hci_devid=no \
-                           --with-arch=$TARGET_ARCH \
-                           --with-cpu=$TARGET_CPU \
                            --disable-debug \
                            --disable-optimizations \
                            $XBMC_OPENGL \
@@ -331,8 +318,6 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_VDPAU \
                            $XBMC_VAAPI \
                            $XBMC_CRYSTALHD \
-                           --disable-xvba \
-                           --disable-vdadecoder \
                            --disable-vtbdecoder \
                            --disable-tegra \
                            --disable-profiling \
@@ -356,8 +341,6 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_AFP \
                            --enable-libvorbisenc \
                            --disable-libcap \
-                           --enable-ffmpeg-libvorbis \
-                           $XBMC_LAMEENC \
                            $XBMC_DVDCSS \
                            --disable-mid \
                            --disable-hal \
@@ -372,10 +355,23 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_WEBSERVER \
                            $XBMC_OPTICAL \
                            $XBMC_BLURAY \
-                           --enable-texturepacker --with-texturepacker-root="$ROOT/$TOOLCHAIN" \
-                           --disable-external-libraries \
+                           --enable-texturepacker \
                            $XBMC_CODEC \
                            $XBMC_PLAYER"
+
+pre_configure_host() {
+# xbmc fails to build in subdirs
+  cd $ROOT/$PKG_BUILD
+    rm -rf .$HOST_NAME
+}
+
+make_host() {
+  make -C tools/depends/native/JsonSchemaBuilder
+}
+
+makeinstall_host() {
+  cp -PR tools/depends/native/JsonSchemaBuilder/native/JsonSchemaBuilder $ROOT/$TOOLCHAIN/bin
+}
 
 pre_build_target() {
 # adding fake Makefile for stripped skin
@@ -400,6 +396,8 @@ pre_configure_target() {
   export CFLAGS="$CFLAGS $XBMC_CFLAGS"
   export CXXFLAGS="$CXXFLAGS $XBMC_CXXFLAGS"
   export LIBS="$LIBS -lz"
+
+  export JSON_BUILDER=$ROOT/$TOOLCHAIN/bin/JsonSchemaBuilder
 }
 
 make_target() {
@@ -516,5 +514,4 @@ post_install() {
   enable_service xbmc-waitonnetwork.service
   enable_service xbmc.service
   enable_service xbmc-lirc-suspend.service
-  enable_service display-manager.service
 }
