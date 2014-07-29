@@ -282,7 +282,7 @@ if [ "$VAAPI" = yes ]; then
 # configure GPU drivers and dependencies:
   get_graphicdrivers
 
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $LIBVA"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-intel-driver"
   XBMC_VAAPI="--enable-vaapi"
 else
   XBMC_VAAPI="--disable-vaapi"
