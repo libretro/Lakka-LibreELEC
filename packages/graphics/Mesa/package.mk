@@ -50,10 +50,6 @@ else
   MESA_VDPAU="--disable-vdpau"
 fi
 
-if [ "$MESA_VAAPI_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $LIBVA"
-fi
-
 XA_CONFIG="--disable-xa"
 
 PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
