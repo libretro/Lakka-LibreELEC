@@ -91,7 +91,9 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-systemdsystemunitdir"
 
 PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
-PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET --disable-libsmartcols"
+PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET \
+                         --enable-static --disable-shared \
+                         --disable-libsmartcols "
 
 if [ "$SWAP_SUPPORT" = "yes" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-libsmartcols"
@@ -128,7 +130,7 @@ post_makeinstall_init() {
   rm -rf $INSTALL/usr
 
   mkdir -p $INSTALL/sbin
-    cp .libs/fsck $INSTALL/sbin
+    cp fsck $INSTALL/sbin
 }
 
 post_install () {
