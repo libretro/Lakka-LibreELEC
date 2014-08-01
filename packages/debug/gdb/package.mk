@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="gdb"
-PKG_VERSION="7.7"
+PKG_VERSION="7.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"
-PKG_URL="http://ftp.gnu.org/gnu/gdb/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://ftp.gnu.org/gnu/gdb/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib ncurses expat"
 PKG_PRIORITY="optional"
 PKG_SECTION="debug"
