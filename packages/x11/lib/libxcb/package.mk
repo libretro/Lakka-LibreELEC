@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libxcb"
-PKG_VERSION="1.10"
+PKG_VERSION="1.11"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
