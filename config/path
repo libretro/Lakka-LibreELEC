@@ -64,8 +64,12 @@ SED="sed -i"
   PKG_IS_ADDON="no"
 
   if [ -n "$1" ]; then
+    _PKG_ROOT_NAME=$(echo $1 | cut -d: -f1)
+
+    # first check project folder for a package
     FOUND=0
-    for DIR in $ROOT/`find $PACKAGES -type d -name $(echo $1| awk -F : '{print $1}') ! -wholename \*\/source\/\* 2>/dev/null` ; do
+    ALL_DIRS=""
+    for DIR in $ROOT/`find projects/$PROJECT/packages -type d -name $_PKG_ROOT_NAME ! -wholename \*\/source\/\* 2>/dev/null` ; do
       # keep track of dirs with meta for debugging
       if [ -z "$ALL_DIRS" ] ; then
         ALL_DIRS="$DIR"
@@ -84,6 +88,31 @@ SED="sed -i"
         fi
       fi
     done
+
+    # then check packages folder if not found already
+    if [ $FOUND -eq 0 ] ; then
+      FOUND=0
+      ALL_DIRS=""
+      for DIR in $ROOT/`find $PACKAGES -type d -name $_PKG_ROOT_NAME ! -wholename \*\/source\/\* 2>/dev/null` ; do
+        # keep track of dirs with meta for debugging
+        if [ -z "$ALL_DIRS" ] ; then
+          ALL_DIRS="$DIR"
+        else
+          ALL_DIRS="$ALL_DIRS\\n$DIR"
+        fi
+        if [ -f "$DIR/package.mk" ] ; then
+          FOUND=$((FOUND+1))
+          # found first. set $PKG_DIR
+          PKG_DIR="$DIR"
+          if [ $FOUND -gt 1 ] ; then
+            # found more ? fail
+            echo "Error - multiple package folders:"
+            echo -e "$ALL_DIRS"
+            exit 1
+          fi
+        fi
+      done
+    fi
   fi
 
   if [ -r $PKG_DIR/package.mk ]; then
