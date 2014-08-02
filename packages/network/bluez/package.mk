@@ -46,7 +46,7 @@ fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-silent-rules \
-                           --enable-library \
+                           --disable-library \
                            --enable-udev \
                            --disable-cups \
                            --disable-obex \
