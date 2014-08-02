@@ -45,6 +45,8 @@ post_makeinstall_target() {
   # dont include ntfsprogs.
   rm -rf $INSTALL/usr/sbin
   rm -rf $INSTALL/usr/bin
+  rm -rf $INSTALL/bin/lowntfs-3g
+  rm -rf $INSTALL/sbin/mount.lowntfs-3g
 
   mkdir -p $INSTALL/sbin
     ln -sf /bin/ntfs-3g $INSTALL/sbin/mount.ntfs
