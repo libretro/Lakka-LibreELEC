@@ -54,6 +54,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
                            --disable-selinux \
                            --disable-fam \
                            --enable-xattr \
+                           --disable-libelf \
                            --disable-gtk-doc \
                            --disable-man \
                            --disable-dtrace \
