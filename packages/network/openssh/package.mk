@@ -32,7 +32,8 @@ PKG_LONGDESC="This is a Linux port of OpenBSD's excellent OpenSSH. OpenSSH is ba
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--libexecdir=/usr/lib/openssh \
+PKG_CONFIGURE_OPTS_TARGET="--sysconfdir=/etc/ssh \
+                           --libexecdir=/usr/lib/openssh \
                            --disable-strip \
                            --disable-lastlog \
                            --with-sandbox=no \
@@ -45,6 +46,7 @@ PKG_CONFIGURE_OPTS_TARGET="--libexecdir=/usr/lib/openssh \
                            --disable-pututline \
                            --disable-pututxline \
                            --disable-etc-default-login \
+                           --with-keydir=/storage/.cache/ssh \
                            --without-pam"
 
 pre_configure_target() {
@@ -53,19 +55,11 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/etc
-    cp $PKG_DIR/config/ssh_config $INSTALL/etc
-    cp $PKG_DIR/config/sshd_config $INSTALL/etc
-
-  mkdir -p $INSTALL/usr/sbin
-    cp -P $PKG_DIR/scripts/sshd-keygen $INSTALL/usr/sbin
-
   rm -rf $INSTALL/usr/lib/openssh/ssh-keysign
   rm -rf $INSTALL/usr/lib/openssh/ssh-pkcs11-helper
   if [ ! $SFTP_SERVER = "yes" ]; then
     rm -rf $INSTALL/usr/lib/openssh/sftp-server
   fi
-  # k0p
   rm -rf $INSTALL/usr/bin/ssh-add
   rm -rf $INSTALL/usr/bin/ssh-agent
   rm -rf $INSTALL/usr/bin/ssh-keyscan
