@@ -444,10 +444,8 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/applications
   rm -rf $INSTALL/usr/share/icons
   rm -rf $INSTALL/usr/share/xbmc/addons/repository.pvr-*
-  rm -rf $INSTALL/usr/share/xbmc/addons/script.module.pysqlite
   rm -rf $INSTALL/usr/share/xbmc/addons/script.module.simplejson
   rm -rf $INSTALL/usr/share/xbmc/addons/visualization.dxspectrum
-  rm -rf $INSTALL/usr/share/xbmc/addons/visualization.itunes
   rm -rf $INSTALL/usr/share/xbmc/addons/visualization.milkdrop
   rm -rf $INSTALL/usr/share/xbmc/addons/service.xbmc.versioncheck
   rm -rf $INSTALL/usr/share/xsessions
