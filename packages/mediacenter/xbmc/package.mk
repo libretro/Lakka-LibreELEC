@@ -288,13 +288,6 @@ else
   XBMC_VAAPI="--disable-vaapi"
 fi
 
-if [ "$CRYSTALHD" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET crystalhd"
-  XBMC_CRYSTALHD="--enable-crystalhd"
-else
-  XBMC_CRYSTALHD="--disable-crystalhd"
-fi
-
 export CXX_FOR_BUILD="$HOST_CXX"
 export CC_FOR_BUILD="$HOST_CC"
 export CXXFLAGS_FOR_BUILD="$HOST_CXXFLAGS"
@@ -317,7 +310,7 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_OPENMAX \
                            $XBMC_VDPAU \
                            $XBMC_VAAPI \
-                           $XBMC_CRYSTALHD \
+                           --disable-crystalhd \
                            --disable-vtbdecoder \
                            --disable-tegra \
                            --disable-profiling \
