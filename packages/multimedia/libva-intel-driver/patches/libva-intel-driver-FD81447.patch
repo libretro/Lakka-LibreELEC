@@ -1,0 +1,36 @@
+From a8127c6e60225b0ccad670ecd296860f15efafd5 Mon Sep 17 00:00:00 2001
+From: Zhong Li <zhong.li@intel.com>
+Date: Tue, 5 Aug 2014 15:58:10 +0800
+Subject: [PATCH] Check first_mb_in_slice of the first slice
+Cc: zhong.li@intel.com
+
+Check of first_mb_in_slice of the first slice to avoid GPU hang.
+FirstMbY and FirstMbX must be 0 if phantom slice is not added.
+This is to fix the GPU hang bug: https://bugs.freedesktop.org/show_bug.cgi?id=81447
+
+Signed-off-by: Zhong Li <zhong.li@intel.com>
+---
+ src/i965_decoder_utils.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/i965_decoder_utils.c b/src/i965_decoder_utils.c
+index 0af46cb..c861abb 100644
+--- a/src/i965_decoder_utils.c
++++ b/src/i965_decoder_utils.c
+@@ -824,6 +824,13 @@ intel_decoder_check_avc_parameter(VADriverContextP ctx,
+         decode_state->reference_objects[i] = obj_surface;
+     }
+ 
++    /* As phantom slice is not supported right now, 
++     * discard this frame if first_mb_in_slice of the first slice is not 0 
++     */
++    slice_param = (VASliceParameterBufferH264 *)decode_state->slice_params[0]->buffer;
++    if (slice_param->first_mb_in_slice != 0)
++        goto error;
++
+     for (j = 0; j < decode_state->num_slice_params; j++) {
+         assert(decode_state->slice_params && decode_state->slice_params[j]->buffer);
+         slice_param = (VASliceParameterBufferH264 *)decode_state->slice_params[j]->buffer;
+-- 
+1.7.9.5
+
