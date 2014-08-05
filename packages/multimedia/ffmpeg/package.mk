@@ -61,13 +61,6 @@ else
   FFMPEG_OPTIM="--disable-small"
 fi
 
-if [ "$CRYSTALHD" = yes ]; then
-# disabled, we use XBMC's internal solution
-  FFMPEG_CRYSTALHD="--disable-crystalhd"
-else
-  FFMPEG_CRYSTALHD="--disable-crystalhd"
-fi
-
 case "$TARGET_ARCH" in
   arm)
       FFMPEG_CPU=""
@@ -170,7 +163,7 @@ configure_target() {
               --enable-fft \
               --enable-mdct \
               --enable-rdft \
-              $FFMPEG_CRYSTALHD \
+              --disable-crystalhd \
               $FFMPEG_VAAPI \
               $FFMPEG_VDPAU \
               --disable-dxva2 \
