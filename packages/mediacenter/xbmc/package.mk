@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xbmc"
-PKG_VERSION="14-bb86c12"
+PKG_VERSION="14-94bc482"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -310,7 +310,6 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $XBMC_OPENMAX \
                            $XBMC_VDPAU \
                            $XBMC_VAAPI \
-                           --disable-crystalhd \
                            --disable-vtbdecoder \
                            --disable-tegra \
                            --disable-profiling \

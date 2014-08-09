@@ -1,97 +1,64 @@
-From 233c97d88577ae7758884386b5e8c49d52bdd22f Mon Sep 17 00:00:00 2001
+From 5d2b9a1d40720c8cc3306e7dab4e850271a1f00e Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
-Date: Sun, 3 Aug 2014 13:00:06 +0300
+Date: Fri, 8 Aug 2014 18:22:44 +0300
 Subject: [PATCH] service addons: use a wrapper to setup systemd
 
 ---
- xbmc/addons/AddonDatabase.cpp  |  3 +++
- xbmc/addons/AddonInstaller.cpp | 10 ++++++++++
- xbmc/addons/AddonInstaller.h   |  2 ++
- 3 files changed, 15 insertions(+)
+ xbmc/addons/Service.cpp | 12 ++++++++++++
+ xbmc/addons/Service.h   |  3 +++
+ 2 files changed, 15 insertions(+)
 
-diff --git a/xbmc/addons/AddonDatabase.cpp b/xbmc/addons/AddonDatabase.cpp
-index 51a8da8..deedb04 100644
---- a/xbmc/addons/AddonDatabase.cpp
-+++ b/xbmc/addons/AddonDatabase.cpp
-@@ -20,6 +20,7 @@
+diff --git a/xbmc/addons/Service.cpp b/xbmc/addons/Service.cpp
+index c406b11..c23b18a 100644
+--- a/xbmc/addons/Service.cpp
++++ b/xbmc/addons/Service.cpp
+@@ -53,6 +53,9 @@ AddonPtr CService::Clone() const
+ bool CService::Start()
+ {
+   bool ret = true;
++
++  CallOEWrapper(ID(), false);
++
+   switch (m_type)
+   {
+ #ifdef HAS_PYTHON
+@@ -88,6 +91,8 @@ bool CService::Stop()
+     break;
+   }
  
- #include "AddonDatabase.h"
- #include "addons/AddonManager.h"
-+#include "addons/AddonInstaller.h"
- #include "utils/log.h"
- #include "utils/Variant.h"
- #include "utils/StringUtils.h"
-@@ -596,6 +597,7 @@ bool CAddonDatabase::DisableAddon(const std::string &addonID, bool disable /* =
-           boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(addon);
-           if (service)
-             service->Stop();
-+          CAddonInstaller::Get().CallOEWrapper(addonID, true);
-         }
-         // restart the pvr manager when disabling a pvr add-on with the pvr manager enabled
-         else if (CAddonMgr::Get().GetAddon(addonID, addon, ADDON_PVRDLL, false) && addon &&
-@@ -616,6 +618,7 @@ bool CAddonDatabase::DisableAddon(const std::string &addonID, bool disable /* =
-       // If the addon is a service, start it
-       if (CAddonMgr::Get().GetAddon(addonID, addon, ADDON_SERVICE, false) && addon && disabled)
-       {
-+        CAddonInstaller::Get().CallOEWrapper(addonID, false);
-         boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(addon);
-         if (service)
-           service->Start();
-diff --git a/xbmc/addons/AddonInstaller.cpp b/xbmc/addons/AddonInstaller.cpp
-index b410d6c..d33f8a6 100644
---- a/xbmc/addons/AddonInstaller.cpp
-+++ b/xbmc/addons/AddonInstaller.cpp
-@@ -70,6 +70,13 @@ CAddonInstaller &CAddonInstaller::Get()
-   return addonInstaller;
++  CallOEWrapper(ID(), true);
++
+   return ret;
  }
  
-+void CAddonInstaller::CallOEWrapper(const std::string& ID, bool disable)
+@@ -113,6 +118,13 @@ void CService::BuildServiceType()
+   }
+ }
+ 
++void CService::CallOEWrapper(const std::string& ID, bool disable)
 +{
 +  char cmd[255];
 +  snprintf(cmd, sizeof(cmd), "/usr/lib/openelec/systemd-addon-wrapper %s %d", ID.c_str(), disable);
 +  system(cmd);
 +}
 +
- void CAddonInstaller::OnJobComplete(unsigned int jobID, bool success, CJob* job)
+ void CService::OnDisabled()
  {
-   if (success)
-@@ -644,6 +651,7 @@ bool CAddonInstallJob::OnPreInstall()
-       boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(localAddon);
-       if (service)
-         service->Stop();
-+      CAddonInstaller::Get().CallOEWrapper(m_addon->ID(), true);
-     }
-     return !CAddonMgr::Get().IsAddonDisabled(m_addon->ID());
-   }
-@@ -773,6 +781,7 @@ void CAddonInstallJob::OnPostInstall(bool reloadAddon)
-       if (CAddonMgr::Get().GetAddon(m_addon->ID(), localAddon, ADDON_SERVICE, false))
-       {
-         boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(localAddon);
-+        CAddonInstaller::Get().CallOEWrapper(m_addon->ID(), false);
-         if (service)
-           service->Start();
-       }
-@@ -840,6 +849,7 @@ bool CAddonUnInstallJob::DoWork()
-     boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(m_addon);
-     if (service)
-       service->Stop();
-+    CAddonInstaller::Get().CallOEWrapper(m_addon->ID(), true);
-   }
- 
-   AddonPtr repoPtr = CAddonInstallJob::GetRepoForAddon(m_addon);
-diff --git a/xbmc/addons/AddonInstaller.h b/xbmc/addons/AddonInstaller.h
-index ab93a2f..7d62b5b 100644
---- a/xbmc/addons/AddonInstaller.h
-+++ b/xbmc/addons/AddonInstaller.h
-@@ -38,6 +38,8 @@ class CAddonInstaller : public IJobCallback
- public:
-   static CAddonInstaller &Get();
- 
-+  void CallOEWrapper(const std::string& ID, bool disable);
+   Stop();
+diff --git a/xbmc/addons/Service.h b/xbmc/addons/Service.h
+index 98ec8b6..36e4109 100644
+--- a/xbmc/addons/Service.h
++++ b/xbmc/addons/Service.h
+@@ -47,6 +47,9 @@ namespace ADDON
+     bool Stop();
+     TYPE GetServiceType() { return m_type; }
+     START_OPTION GetStartOption() { return m_startOption; }
 +
-   bool IsDownloading() const;
-   void GetInstallList(ADDON::VECADDONS &addons) const;
-   bool GetProgress(const std::string &addonID, unsigned int &percent) const;
++    void CallOEWrapper(const std::string& ID, bool disable);
++
+     virtual void OnDisabled();
+     virtual void OnEnabled();
+     virtual bool OnPreInstall();
 -- 
 1.9.1
 
