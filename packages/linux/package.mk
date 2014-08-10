@@ -19,7 +19,7 @@
 PKG_NAME="linux"
 case "$LINUX" in
   imx6)
-    PKG_VERSION="cuboxi-27bb585"
+    PKG_VERSION="cuboxi-a5afa23"
     PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   *)
