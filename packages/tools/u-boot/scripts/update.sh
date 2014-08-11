@@ -41,7 +41,7 @@
   fi
 
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/SPL ]; then
-    echo "*** updating u-boot SPL Blob on: $DISK ..."
+    echo "*** updating u-boot SPL Blob on: $BOOT_DISK ..."
     dd if="$SYSTEM_ROOT/usr/share/bootloader/SPL" of="$BOOT_DISK" bs=1k seek=1 conv=fsync
   fi
 
