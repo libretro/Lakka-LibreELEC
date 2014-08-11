@@ -31,15 +31,7 @@ PKG_SHORTDESC="expat: XML parser library"
 PKG_LONGDESC="Expat is an XML parser library written in C. It is a stream-oriented parser in which an application registers handlers for things the parser might find in the XML document (like start tags). An introductory article on using Expat is available on xml.com."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
-
-pre_configure_target() {
-  ( cd ..; do_autoreconf -I conftools)
-}
-
-pre_configure_host() {
-  ( cd ..; do_autoreconf -I conftools)
-}
+PKG_AUTORECONF="yes"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
