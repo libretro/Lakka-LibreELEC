@@ -494,7 +494,6 @@ post_install() {
 
   enable_service xbmc-autostart.service
   enable_service xbmc-cleanlogs.service
-  enable_service xbmc-config.service
   enable_service xbmc-hacks.service
   enable_service xbmc-sources.service
   enable_service xbmc-halt.service
