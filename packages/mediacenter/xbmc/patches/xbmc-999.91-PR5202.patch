@@ -1,7 +1,7 @@
-From cb8668cbfc946e558134be722cf0356d0f224af5 Mon Sep 17 00:00:00 2001
+From 13b9c7491eca92e94ee52dd8c0dbecfdd34436b6 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 7 Aug 2014 13:46:49 +0200
-Subject: [PATCH 1/4] ADD: Freeescale IMX h/w codec
+Subject: [PATCH 1/2] ADD: Freescale i.MX6 h/w codec
 
 ---
  configure.in                                       |   13 +-
@@ -11,12 +11,12 @@ Subject: [PATCH 1/4] ADD: Freeescale IMX h/w codec
  xbmc/cores/VideoRenderers/RenderManager.cpp        |    4 +
  xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp |   18 +-
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      |    6 +
- .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 1501 ++++++++++++++++++++
- .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h   |  215 +++
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 1477 ++++++++++++++++++++
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h   |  216 +++
  .../dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h  |   38 +
  xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in   |    3 +
  xbmc/cores/dvdplayer/DVDPlayerVideo.cpp            |    1 +
- 12 files changed, 2064 insertions(+), 3 deletions(-)
+ 12 files changed, 2041 insertions(+), 3 deletions(-)
  create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
  create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
  create mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h
@@ -434,7 +434,7 @@ index 642cded..54f0c18 100644
  };
  
  enum RenderQuality
-@@ -170,6 +172,7 @@ public:
+@@ -170,6 +172,7 @@ class CLinuxRendererGLES : public CBaseRenderer
    // mediaCodec
    virtual void         AddProcessor(CDVDMediaCodecInfo *mediacodec, int index);
  #endif
@@ -442,7 +442,7 @@ index 642cded..54f0c18 100644
  
  protected:
    virtual void Render(DWORD flags, int index);
-@@ -209,6 +212,10 @@ protected:
+@@ -209,6 +212,10 @@ class CLinuxRendererGLES : public CBaseRenderer
    void DeleteSurfaceTexture(int index);
    bool CreateSurfaceTexture(int index);
  
@@ -453,7 +453,7 @@ index 642cded..54f0c18 100644
    void CalculateTextureSourceRects(int source, int num_planes);
  
    // renderers
-@@ -219,6 +226,7 @@ protected:
+@@ -219,6 +226,7 @@ class CLinuxRendererGLES : public CBaseRenderer
    void RenderEglImage(int index, int field);       // Android OES texture
    void RenderCoreVideoRef(int index, int field);  // CoreVideo reference
    void RenderSurfaceTexture(int index, int field);// MediaCodec rendering using SurfaceTexture
@@ -461,7 +461,7 @@ index 642cded..54f0c18 100644
  
    CFrameBufferObject m_fbo;
  
-@@ -285,6 +293,7 @@ protected:
+@@ -285,6 +293,7 @@ class CLinuxRendererGLES : public CBaseRenderer
      // mediacodec
      CDVDMediaCodecInfo *mediacodec;
  #endif
@@ -565,10 +565,10 @@ index 741017d..c25eb38 100644
    unsigned int iFlags;
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 new file mode 100644
-index 0000000..782510f
+index 0000000..f8b2915
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -0,0 +1,1501 @@
+@@ -0,0 +1,1477 @@
 +/*
 + *      Copyright (C) 2010-2013 Team XBMC
 + *      http://www.xbmc.org
@@ -604,20 +604,18 @@ index 0000000..782510f
 +#include "DVDClock.h"
 +#include "threads/Atomics.h"
 +
-+
-+// FIXME get rid of these defines properly
 +#define FRAME_ALIGN 16
 +#define MEDIAINFO 1
 +#define _4CC(c1,c2,c3,c4) (((uint32_t)(c4)<<24)|((uint32_t)(c3)<<16)|((uint32_t)(c2)<<8)|(uint32_t)(c1))
 +#define Align(ptr,align)  (((unsigned int)ptr + (align) - 1)/(align)*(align))
 +
-+// Extrace physical and virtual addresses from CDVDVideoCodecBuffer pointers
++// Helpers to extract physical and virtual addresses from CDVDVideoCodecBuffer pointers
 +#define GET_PHYS_ADDR(buf) (buf)->data[1]
 +#define GET_VIRT_ADDR(buf) (buf)->data[0]
 +#define GET_DEINTERLACER(buf) (buf)->data[2]
 +#define GET_FIELDTYPE(buf) (buf)->data[3]
 +
-+// Experiments show that we need at least one more (+1) V4L buffer than the min value returned by the VPU
++// Experiments show that we need at least one more (+1) VPU buffer than the min value returned by the VPU
 +const int CDVDVideoCodecIMX::m_extraVpuBuffers = 6;
 +const int CDVDVideoCodecIMX::m_maxVpuDecodeLoops = 5;
 +CCriticalSection CDVDVideoCodecIMX::m_codecBufferLock;
@@ -786,7 +784,7 @@ index 0000000..782510f
 +  }
 +
 +  // Note that libvpufsl (file vpu_wrapper.c) associates VPU_DEC_CAP_FRAMESIZE
-+  // capability to the value of  nDecFrameRptEnabled which is in fact directly
++  // capability to the value of nDecFrameRptEnabled which is in fact directly
 +  // related to the ability to generate VPU_DEC_ONE_FRM_CONSUMED even if the
 +  // naming is misleading...
 +  ret = VPU_DecGetCapability(m_vpuHandle, VPU_DEC_CAP_FRAMESIZE, &param);
@@ -885,13 +883,12 @@ index 0000000..782510f
 +    m_vpuFrameBuffers[i].pbufCb=ptr+ySize;
 +    m_vpuFrameBuffers[i].pbufCr=0;
 +    m_vpuFrameBuffers[i].pbufMvCol=ptr+ySize+uvSize;
-+    //ptr+=ySize+uSize+vSize+mvSize;
++
 +    // fill virt addr
 +    m_vpuFrameBuffers[i].pbufVirtY=ptrVirt;
 +    m_vpuFrameBuffers[i].pbufVirtCb=ptrVirt+ySize;
 +    m_vpuFrameBuffers[i].pbufVirtCr=0;
 +    m_vpuFrameBuffers[i].pbufVirtMvCol=ptrVirt+ySize+uvSize;
-+    //ptrVirt+=ySize+uSize+vSize+mvSize;
 +
 +    m_vpuFrameBuffers[i].pbufY_tilebot=0;
 +    m_vpuFrameBuffers[i].pbufCb_tilebot=0;
@@ -1023,12 +1020,6 @@ index 0000000..782510f
 +    m_decOpenParam.CodecFormat = VPU_V_VC1_AP;
 +    m_pFormatName = "iMX-vc1";
 +    break;
-+/* FIXME TODO
-+ * => for this type we have to set height, width, nChromaInterleave and nMapType
-+  case CODEC_ID_MJPEG:
-+    m_decOpenParam.CodecFormat = VPU_V_MJPG;
-+    m_pFormatName = "iMX-mjpg";
-+    break;*/
 +  case CODEC_ID_CAVS:
 +  case CODEC_ID_AVS:
 +    m_decOpenParam.CodecFormat = VPU_V_AVS;
@@ -1086,7 +1077,7 @@ index 0000000..782510f
 +  VpuDecRetCode  ret;
 +  bool VPU_loaded = m_vpuHandle;
 +
-+  // Block render thread from using that framebuffers
++  // Prevent rendering thread from using frame buffers
 +  Enter();
 +
 +  // Release last buffer
@@ -1120,7 +1111,7 @@ index 0000000..782510f
 +  m_frameCounter = 0;
 +  m_deinterlacer.Close();
 +
-+  // Clear memory
++  // Release memory
 +  if (m_outputBuffers != NULL)
 +  {
 +    delete m_outputBuffers;
@@ -1213,7 +1204,6 @@ index 0000000..782510f
 +    inData.nSize = demuxer_bytes;
 +    inData.pPhyAddr = NULL;
 +    inData.pVirAddr = demuxer_content;
-+    // FIXME TODO VP8 & DivX3 require specific sCodecData values
 +    if ((m_decOpenParam.CodecFormat == VPU_V_MPEG2) ||
 +        (m_decOpenParam.CodecFormat == VPU_V_VC1_AP)||
 +        (m_decOpenParam.CodecFormat == VPU_V_XVID))
@@ -1512,22 +1502,12 @@ index 0000000..782510f
 +    CLog::Log(LOGDEBUG, "+  %02d dts %f pts %f  (VPU)\n", idx, pDvdVideoPicture->dts, pDvdVideoPicture->pts);
 +#endif
 +
-+    /*
-+    // This does not work reliably since some streams do not report
-+    // correctly if a frame is interlaced.
-+    if (m_frameInfo.eFieldType != VPU_FIELD_NONE)
-+      GET_DEINTERLACER(buffer) = (uint8_t*)&m_deinterlacer;
-+    else
-+      GET_DEINTERLACER(buffer) = NULL;
-+    */
-+
 +    pDvdVideoPicture->codecinfo = buffer;
 +    pDvdVideoPicture->codecinfo->Lock();
 +
 +    // Save last buffer
 +    if (m_lastBuffer)
 +      SAFE_RELEASE(m_lastBuffer);
-+
 +    m_lastBuffer = buffer;
 +    m_lastBuffer->Lock();
 +  }
@@ -1544,7 +1524,7 @@ index 0000000..782510f
 +
 +  // We are fast enough to continue to really decode every frames
 +  // and avoid artefacts...
-+  // (Of course these frames won't be rendered but only decoded !)
++  // (Of course these frames won't be rendered but only decoded)
 +
 +  if (m_dropState != bDrop)
 +  {
@@ -2034,8 +2014,7 @@ index 0000000..782510f
 +  CDVDVideoCodecIPUBuffer *target = NULL;
 +  bool ret = true;
 +
-+  // TODO: Needs further checks on real streams
-+  if (!m_bufferNum /*|| (fieldType == VPU_FIELD_NONE)*/)
++  if (!m_bufferNum)
 +    return NULL;
 +
 +  for (int i=0; i < m_bufferNum; i++ )
@@ -2046,7 +2025,7 @@ index 0000000..782510f
 +    // SRC: Current VPU physical buffer address + last VPU buffer address
 +    // DST: IPU buffer[i]
 +    ret = m_buffers[i]->Process(m_ipuHandle, (CDVDVideoCodecIMXBuffer*)sourceBuffer,
-+                                fieldType, m_currentFieldFmt/* | IPU_DEINTERLACE_RATE_EN*/,
++                                fieldType, m_currentFieldFmt,
 +                                lowMotion);
 +    if (ret)
 +    {
@@ -2065,17 +2044,14 @@ index 0000000..782510f
 +    CLog::Log(LOGERROR, "Deinterlacing: did not find free buffer, forward unprocessed frame\n");
 +  }
 +
-+  // Toggle frame index bit
-+  //m_currentFieldFmt ^= IPU_DEINTERLACE_RATE_FRAME1;
-+
 +  return target;
 +}
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
 new file mode 100644
-index 0000000..05722ce
+index 0000000..bd712d9
 --- /dev/null
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -0,0 +1,215 @@
+@@ -0,0 +1,216 @@
 +#pragma once
 +/*
 + *      Copyright (C) 2010-2013 Team XBMC
@@ -2266,7 +2242,8 @@ index 0000000..05722ce
 +
 +  static const int          m_extraVpuBuffers;   // Number of additional buffers for VPU
 +  static const int          m_maxVpuDecodeLoops; // Maximum iterations in VPU decoding loop
-+  static CCriticalSection   m_codecBufferLock;
++  static CCriticalSection   m_codecBufferLock;   // Lock to protect buffers handled 
++                                                 // by both decoding and rendering threads
 +
 +  CDVDStreamInfo            m_hints;             // Hints from demuxer at stream opening
 +  const char               *m_pFormatName;       // Current decoder format name
@@ -2277,15 +2254,15 @@ index 0000000..05722ce
 +  bool                      m_dropState;         // Current drop state
 +  int                       m_vpuFrameBufferNum; // Total number of allocated frame buffers
 +  VpuFrameBuffer           *m_vpuFrameBuffers;   // Table of VPU frame buffers description
-+  CDVDVideoCodecIPUBuffers  m_deinterlacer;
-+  CDVDVideoCodecIMXBuffer **m_outputBuffers;
-+  CDVDVideoCodecIMXBuffer  *m_lastBuffer;
++  CDVDVideoCodecIPUBuffers  m_deinterlacer;      // Pool of buffers used for deinterlacing
++  CDVDVideoCodecIMXBuffer **m_outputBuffers;     // Table of VPU output buffers
++  CDVDVideoCodecIMXBuffer  *m_lastBuffer;        // Keep track of previous VPU output buffer (needed by deinterlacing motion engin)
 +  VpuMemDesc               *m_extraMem;          // Table of allocated extra Memory
 +  int                       m_frameCounter;      // Decoded frames counter
 +  bool                      m_usePTS;            // State whether pts out of decoding process should be used
-+  VpuDecOutFrameInfo        m_frameInfo;
-+  CBitstreamConverter      *m_converter;
-+  bool                      m_convert_bitstream;
++  VpuDecOutFrameInfo        m_frameInfo;         // Store last VPU output frame info
++  CBitstreamConverter      *m_converter;         // H264 annex B converter
++  bool                      m_convert_bitstream; // State whether bitstream conversion is required
 +  int                       m_bytesToBeConsumed; // Remaining bytes in VPU
 +  double                    m_previousPts;       // Enable to keep pts when needed
 +  bool                      m_frameReported;     // State whether the frame consumed event will be reported by libfslvpu
@@ -2362,5 +2339,489 @@ index be532ec..7812523 100644
    }
    return "UNKNOWN";
 -- 
-1.9.3
+2.0.3
+
+
+From 01f64d4b6ecce932cbc0f632651e0a24d94e9fc1 Mon Sep 17 00:00:00 2001
+From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
+Date: Thu, 7 Aug 2014 13:51:15 +0200
+Subject: [PATCH 2/2] ADD: [imx] native framebuffer support
+
+---
+ configure.in                            |   9 +
+ xbmc/windowing/egl/EGLNativeTypeIMX.cpp | 321 ++++++++++++++++++++++++++++++++
+ xbmc/windowing/egl/EGLNativeTypeIMX.h   |  60 ++++++
+ xbmc/windowing/egl/EGLWrapper.cpp       |  11 +-
+ xbmc/windowing/egl/Makefile.in          |   4 +
+ 5 files changed, 402 insertions(+), 3 deletions(-)
+ create mode 100644 xbmc/windowing/egl/EGLNativeTypeIMX.cpp
+ create mode 100644 xbmc/windowing/egl/EGLNativeTypeIMX.h
+
+diff --git a/configure.in b/configure.in
+index c8a9ce2..a505582 100644
+--- a/configure.in
++++ b/configure.in
+@@ -985,6 +985,15 @@ else
+   AC_MSG_RESULT($wayland_disabled)
+ fi
+ 
++# i.MX6
++AC_MSG_CHECKING([for i.MX framebuffer support])
++AC_CHECK_HEADER([linux/mxcfb.h], have_imxfb=yes,have_imxfb=no)
++AC_MSG_RESULT($have_imxfb)
++if test "x$have_imxfb" = "xyes"; then
++  AC_DEFINE([HAS_IMXFB], [1], [Whether i.MX framebuffer support is enabled.])
++  AC_SUBST([USE_IMXFB], 1)
++fi
++
+ # Checks for platforms libraries.
+ if test "$use_gles" = "yes"; then
+   use_gl="no"
+diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
+new file mode 100644
+index 0000000..577452b
+--- /dev/null
++++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
+@@ -0,0 +1,321 @@
++/*
++ *      Copyright (C) 2011-2013 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include <linux/mxcfb.h>
++#include "system.h"
++#include <EGL/egl.h>
++
++#include "EGLNativeTypeIMX.h"
++#include <math.h>
++#include <sys/mman.h>
++#include <sys/ioctl.h>
++#include "utils/log.h"
++#include "utils/RegExp.h"
++#include "utils/StringUtils.h"
++#include "utils/Environment.h"
++#include "guilib/gui3d.h"
++#include "windowing/WindowingFactory.h"
++#include "cores/AudioEngine/AEFactory.h"
++#include <fstream>
++
++CEGLNativeTypeIMX::CEGLNativeTypeIMX()
++  : m_display(NULL)
++  , m_window(NULL)
++{
++}
++
++CEGLNativeTypeIMX::~CEGLNativeTypeIMX()
++{
++}
++
++bool CEGLNativeTypeIMX::CheckCompatibility()
++{
++  std::ifstream file("/sys/class/graphics/fb0/fsl_disp_dev_property");
++  return file;
++}
++
++void CEGLNativeTypeIMX::Initialize()
++{
++  int fd;
++
++  fd = open("/dev/fb0",O_RDWR);
++  if (fd < 0)
++  {
++    CLog::Log(LOGERROR, "%s - Error while opening /dev/fb0.\n", __FUNCTION__);
++    return;
++  }
++
++  // Unblank the fb
++  if (ioctl(fd, FBIOBLANK, 0) < 0)
++  {
++    CLog::Log(LOGERROR, "%s - Error while unblanking fb0.\n", __FUNCTION__);
++  }
++
++  close(fd);
++
++  // Check if we can change the framebuffer resolution
++  fd = open("/sys/class/graphics/fb0/mode", O_RDWR);
++  if (fd >= 0)
++  {
++    CLog::Log(LOGNOTICE, "%s - graphics sysfs is writable", __FUNCTION__);
++    m_readonly = false;
++  }
++  else
++  {
++    CLog::Log(LOGNOTICE, "%s - graphics sysfs is read-only", __FUNCTION__);
++    m_readonly = true;
++  }
++  close(fd);
++
++  return;
++}
++
++void CEGLNativeTypeIMX::Destroy()
++{
++  struct fb_fix_screeninfo fixed_info;
++  void *fb_buffer;
++  int fd;
++
++  fd = open("/dev/fb0",O_RDWR);
++  if (fd < 0)
++  {
++    CLog::Log(LOGERROR, "%s - Error while opening /dev/fb0.\n", __FUNCTION__);
++    return;
++  }
++
++  ioctl( fd, FBIOGET_FSCREENINFO, &fixed_info);
++  // Black fb0
++  fb_buffer = mmap(NULL, fixed_info.smem_len, PROT_WRITE, MAP_SHARED, fd, 0);
++  if (fb_buffer == MAP_FAILED)
++  {
++    CLog::Log(LOGERROR, "%s - fb mmap failed %s.\n", __FUNCTION__, strerror(errno));
++  }
++  else
++  {
++    memset(fb_buffer, 0x0, fixed_info.smem_len);
++    munmap(fb_buffer, fixed_info.smem_len);
++  }
++
++  close(fd);
++
++  return;
++}
++
++bool CEGLNativeTypeIMX::CreateNativeDisplay()
++{
++  // Force double-buffering
++  CEnvironment::setenv("FB_MULTI_BUFFER", "2", 0);
++
++  // EGL will be rendered on fb0
++  m_display = fbGetDisplayByIndex(0);
++  m_nativeDisplay = &m_display;
++  return true;
++}
++
++bool CEGLNativeTypeIMX::CreateNativeWindow()
++{
++  m_window = fbCreateWindow(m_display, 0, 0, 0, 0);
++  m_nativeWindow = &m_window;
++  return true;
++}
++
++bool CEGLNativeTypeIMX::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
++{
++  if (!nativeDisplay)
++    return false;
++  if (!m_nativeDisplay)
++    return false;
++  *nativeDisplay = (XBNativeDisplayType*)m_nativeDisplay;
++  return true;
++}
++
++bool CEGLNativeTypeIMX::GetNativeWindow(XBNativeWindowType **nativeWindow) const
++{
++  if (!nativeWindow)
++    return false;
++  if (!m_nativeWindow || !m_window)
++    return false;
++  *nativeWindow = (XBNativeWindowType*)m_nativeWindow;
++  return true;
++}
++
++bool CEGLNativeTypeIMX::DestroyNativeDisplay()
++{
++  if (m_display)
++    fbDestroyDisplay(m_display);
++  m_display =  NULL;
++  return true;
++}
++
++bool CEGLNativeTypeIMX::DestroyNativeWindow()
++{
++  if (m_window)
++    fbDestroyWindow(m_window);
++  m_window =  NULL;
++  return true;
++}
++
++bool CEGLNativeTypeIMX::GetNativeResolution(RESOLUTION_INFO *res) const
++{
++  std::string mode;
++  get_sysfs_str("/sys/class/graphics/fb0/mode", mode);
++  return ModeToResolution(mode, res);
++}
++
++bool CEGLNativeTypeIMX::SetNativeResolution(const RESOLUTION_INFO &res)
++{
++  if (m_readonly)
++    return false;
++
++  std::string mode;
++  get_sysfs_str("/sys/class/graphics/fb0/mode", mode);
++  if (res.strId == mode)
++    return false;
++
++  DestroyNativeWindow();
++  DestroyNativeDisplay();
++
++  set_sysfs_str("/sys/class/graphics/fb0/mode", res.strId);
++
++  CreateNativeDisplay();
++
++  CLog::Log(LOGDEBUG, "%s: %s",__FUNCTION__, res.strId.c_str());
++
++  // Reset AE
++  CAEFactory::DeviceChange();
++
++  return true;
++}
++
++bool CEGLNativeTypeIMX::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
++{
++  if (m_readonly)
++    return false;
++
++  std::string valstr;
++  get_sysfs_str("/sys/class/graphics/fb0/modes", valstr);
++  std::vector<std::string> probe_str;
++  probe_str = StringUtils::Split(valstr, "\n");
++
++  resolutions.clear();
++  RESOLUTION_INFO res;
++  for (size_t i = 0; i < probe_str.size(); i++)
++  {
++    if(!StringUtils::StartsWith(probe_str[i], "S:"))
++      continue;
++    if(ModeToResolution(probe_str[i], &res))
++      resolutions.push_back(res);
++  }
++  return resolutions.size() > 0;
++}
++
++bool CEGLNativeTypeIMX::GetPreferredResolution(RESOLUTION_INFO *res) const
++{
++  return GetNativeResolution(res);
++}
++
++bool CEGLNativeTypeIMX::ShowWindow(bool show)
++{
++  // Force vsync by default
++  eglSwapInterval(g_Windowing.GetEGLDisplay(), 1);
++  EGLint result = eglGetError();
++  if(result != EGL_SUCCESS)
++    CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, result);
++
++  return false;
++}
++
++int CEGLNativeTypeIMX::get_sysfs_str(std::string path, std::string& valstr) const
++{
++  int len;
++  char buf[256] = {0};
++
++  int fd = open(path.c_str(), O_RDONLY);
++  if (fd >= 0)
++  {
++    while ((len = read(fd, buf, 255)) > 0)
++      valstr.append(buf, len);
++    close(fd);
++  }
++  else
++  {
++    CLog::Log(LOGERROR, "%s: error reading %s",__FUNCTION__, path.c_str());
++    valstr = "fail";
++    return -1;
++  }
++  return 0;
++}
++
++int CEGLNativeTypeIMX::set_sysfs_str(std::string path, std::string val) const
++{
++  int fd = open(path.c_str(), O_WRONLY);
++  if (fd >= 0)
++  {
++    val += '\n';
++    write(fd, val.c_str(), val.size());
++    close(fd);
++    return 0;
++  }
++  CLog::Log(LOGERROR, "%s: error writing %s",__FUNCTION__, path.c_str());
++  return -1;
++}
++
++bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res) const
++{
++  if (!res)
++    return false;
++
++  res->iWidth = 0;
++  res->iHeight= 0;
++
++  if(mode.empty())
++    return false;
++
++  std::string fromMode = StringUtils::Mid(mode, 2);
++  StringUtils::Trim(fromMode);
++
++  CRegExp split(true);
++  split.RegComp("([0-9]+)x([0-9]+)([pi])-([0-9]+)");
++  if (split.RegFind(fromMode) < 0)
++    return false;
++
++  int w = atoi(split.GetMatch(1).c_str());
++  int h = atoi(split.GetMatch(2).c_str());
++  std::string p = split.GetMatch(3);
++  int r = atoi(split.GetMatch(4).c_str());
++
++  res->iWidth = w;
++  res->iHeight= h;
++  res->iScreenWidth = w;
++  res->iScreenHeight= h;
++  res->fRefreshRate = r;
++  res->dwFlags = p[0] == 'p' ? D3DPRESENTFLAG_PROGRESSIVE : D3DPRESENTFLAG_INTERLACED;
++
++  res->iScreen       = 0;
++  res->bFullScreen   = true;
++  res->iSubtitles    = (int)(0.965 * res->iHeight);
++  res->fPixelRatio   = 1.0f;
++  res->strMode       = StringUtils::Format("%dx%d @ %.2f%s - Full Screen", res->iScreenWidth, res->iScreenHeight, res->fRefreshRate,
++                                           res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "");
++  res->strId         = mode;
++
++  return res->iWidth > 0 && res->iHeight> 0;
++}
++
+diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.h b/xbmc/windowing/egl/EGLNativeTypeIMX.h
+new file mode 100644
+index 0000000..df7b3b7
+--- /dev/null
++++ b/xbmc/windowing/egl/EGLNativeTypeIMX.h
+@@ -0,0 +1,60 @@
++#pragma once
++
++/*
++ *      Copyright (C) 2011-2013 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#include <linux/fb.h>
++#include "EGLNativeType.h"
++#include "EGL/eglvivante.h"
++
++class CEGLNativeTypeIMX : public CEGLNativeType
++{
++public:
++  CEGLNativeTypeIMX();
++  virtual ~CEGLNativeTypeIMX();
++  virtual std::string GetNativeName() const { return "iMX"; }
++  virtual bool  CheckCompatibility();
++  virtual void  Initialize();
++  virtual void  Destroy();
++  virtual int   GetQuirks() { return EGL_QUIRK_NONE; }
++
++  virtual bool  CreateNativeDisplay();
++  virtual bool  CreateNativeWindow();
++  virtual bool  GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const;
++  virtual bool  GetNativeWindow(XBNativeWindowType **nativeWindow) const;
++
++  virtual bool  DestroyNativeWindow();
++  virtual bool  DestroyNativeDisplay();
++
++  virtual bool  GetNativeResolution(RESOLUTION_INFO *res) const;
++  virtual bool  SetNativeResolution(const RESOLUTION_INFO &res);
++  virtual bool  ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions);
++  virtual bool  GetPreferredResolution(RESOLUTION_INFO *res) const;
++
++  virtual bool  ShowWindow(bool show);
++
++protected:
++  bool m_readonly;
++  int get_sysfs_str(std::string path, std::string& valstr) const;
++  int set_sysfs_str(std::string path, std::string val) const;
++  bool ModeToResolution(std::string mode, RESOLUTION_INFO *res) const;
++
++  EGLNativeDisplayType m_display;
++  EGLNativeWindowType  m_window;
++};
+diff --git a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.cpp
+index 045cdfc..4d74be5 100644
+--- a/xbmc/windowing/egl/EGLWrapper.cpp
++++ b/xbmc/windowing/egl/EGLWrapper.cpp
+@@ -17,16 +17,17 @@
+  *  <http://www.gnu.org/licenses/>.
+  *
+  */
+-
+ #include "system.h"
+ 
+ #ifdef HAS_EGL
+-
+ #include "utils/log.h"
+ #include "EGLNativeTypeAndroid.h"
+ #include "EGLNativeTypeAmlogic.h"
+ #include "EGLNativeTypeRaspberryPI.h"
+ #include "EGLNativeTypeWayland.h"
++#ifdef HAS_IMXVPU
++#include "EGLNativeTypeIMX.h"
++#endif
+ #include "EGLWrapper.h"
+ 
+ #define CheckError() m_result = eglGetError(); if(m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
+@@ -83,7 +84,11 @@ bool CEGLWrapper::Initialize(const std::string &implementation)
+   if ((nativeGuess = CreateEGLNativeType<CEGLNativeTypeWayland>(implementation)) ||
+       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAndroid>(implementation)) ||
+       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlogic>(implementation)) ||
+-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRaspberryPI>(implementation)))
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRaspberryPI>(implementation))
++#ifdef HAS_IMXFB
++      || (nativeGuess = CreateEGLNativeType<CEGLNativeTypeIMX>(implementation))
++#endif
++      )
+   {
+     m_nativeTypes = nativeGuess;
+ 
+diff --git a/xbmc/windowing/egl/Makefile.in b/xbmc/windowing/egl/Makefile.in
+index f800b7f..ec84c1d 100644
+--- a/xbmc/windowing/egl/Makefile.in
++++ b/xbmc/windowing/egl/Makefile.in
+@@ -24,6 +24,10 @@ SRCS+= wayland/Callback.cpp \
+        wayland/XBMCSurface.cpp
+ endif
+ 
++ifeq (@USE_IMXFB@,1)
++SRCS+= EGLNativeTypeIMX.cpp
++endif
++
+ LIB = windowing_egl.a
+ 
+ include ../../../Makefile.include
+-- 
+2.0.3
 
