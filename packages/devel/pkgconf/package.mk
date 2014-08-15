@@ -16,27 +16,28 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="pkg-config"
-PKG_VERSION="0.28"
+PKG_NAME="pkgconf"
+PKG_VERSION="0.9.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.freedesktop.org/software/pkgconfig/"
-PKG_URL="http://pkgconfig.freedesktop.org/releases/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_HOST="ccache:host gettext:host"
+PKG_SITE="https://github.com/pkgconf/pkgconf"
+PKG_URL="https://github.com/pkgconf/pkgconf/archive/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_HOST="ccache:host gettext:host automake:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
-PKG_SHORTDESC="pkg-config: A library configuration management system"
-PKG_LONGDESC="pkg-config is a system for managing library compile/link flags that works with automake and autoconf. It replaces the ubiquitous *-config scripts you may have seen with a single tool."
+PKG_SHORTDESC="pkgconf: compiler and linker configuration for development frameworks"
+PKG_LONGDESC="pkgconf provides compiler and linker configuration for development frameworks"
+
+PKG_SOURCE_DIR="${PKG_NAME}-${PKG_NAME}-${PKG_VERSION}"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_HOST="--disable-silent-rules \
-                         --with-internal-glib --disable-dtrace \
-                         --with-gnu-ld"
+pre_configure_host() {
+  sh autogen.sh
+}
 
 post_makeinstall_host() {
-  mkdir -p $SYSROOT_PREFIX/usr/share/aclocal
-    cp ../pkg.m4 $SYSROOT_PREFIX/usr/share/aclocal
+  ln -sf pkgconf $ROOT/$TOOLCHAIN/bin/pkg-config
 }
