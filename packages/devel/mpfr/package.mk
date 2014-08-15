@@ -33,8 +33,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
+                         --enable-static --disable-shared \
                          --prefix=$ROOT/$TOOLCHAIN \
-                         --enable-shared \
                          --with-gmp-lib=$ROOT/$TOOLCHAIN/lib \
                          --with-gmp-include=$ROOT/$TOOLCHAIN/include"
 
