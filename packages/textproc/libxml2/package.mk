@@ -33,14 +33,16 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_HOST="--prefix=$ROOT/$TOOLCHAIN \
+PKG_CONFIGURE_OPTS_HOST="ac_cv_header_ansidecl_h=no \
+             --prefix=$ROOT/$TOOLCHAIN \
              --disable-silent-rules \
              --disable-ipv6 \
              --with-python \
              --with-zlib \
              --without-lzma"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static \
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_ansidecl_h=no \
+             --enable-static \
              --enable-shared \
              --disable-silent-rules \
              --enable-ipv6 \
