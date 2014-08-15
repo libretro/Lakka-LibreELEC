@@ -28,7 +28,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/binutils/binutils.html"
 PKG_URL="http://ftp.gnu.org/gnu/binutils/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_HOST="ccache:host bison:host flex:host linux:host gmp:host mpfr:host"
+PKG_DEPENDS_HOST="ccache:host bison:host flex:host linux:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
 PKG_SHORTDESC="binutils: A GNU collection of binary utilities"
@@ -40,8 +40,6 @@ PKG_AUTORECONF="no"
 PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --with-sysroot=$SYSROOT_PREFIX \
                          --with-lib-path=$SYSROOT_PREFIX/lib:$SYSROOT_PREFIX/usr/lib \
-                         --with-gmp=$ROOT/$TOOLCHAIN \
-                         --with-mpfr=$ROOT/$TOOLCHAIN \
                          --without-ppl \
                          --without-cloog \
                          --disable-werror \
