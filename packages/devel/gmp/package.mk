@@ -33,7 +33,7 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_HOST="--enable-cxx"
+PKG_CONFIGURE_OPTS_HOST="--enable-cxx --enable-static --disable-shared"
 
 pre_configure_host() {
   export CFLAGS="$CFLAGS -fPIC -DPIC"
