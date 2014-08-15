@@ -1,7 +1,7 @@
-From 1cbeabd74a69bf58cff58187a6b9dcd5ebecf7b0 Mon Sep 17 00:00:00 2001
+From 88deef19f68a7994a8c4e9e42029f449e9120c97 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 11 Dec 2013 17:21:54 +0000
-Subject: [PATCH 01/91] Move the reference-counting of Begin and End calls from
+Subject: [PATCH 01/94] Move the reference-counting of Begin and End calls from
  DX and GL source files into GUIFontTTF.cpp.
 
 ---
@@ -392,10 +392,10 @@ index c0bb53a..735fb3a 100644
 2.0.3
 
 
-From dd49f1c895bb9832976d7595155ca50bcc237fc2 Mon Sep 17 00:00:00 2001
+From a23efe5dc4a0aca091ab56537beb5978619f638c Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 11 Dec 2013 18:47:54 +0000
-Subject: [PATCH 02/91] Convert CGUIFontTTFBase::m_vertex to be managed as a
+Subject: [PATCH 02/94] Convert CGUIFontTTFBase::m_vertex to be managed as a
  std::vector.
 
 Also retired CGUIFontTTFBase::m_vertex_count and
@@ -578,10 +578,10 @@ index 97853fd..b76c6a5 100644
 2.0.3
 
 
-From db560c6886b6719551200d1e2f3374e3962d90e0 Mon Sep 17 00:00:00 2001
+From 760c0eab478e2ee285a20c2ed3fe639d951748b4 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 16 Dec 2013 18:58:12 +0000
-Subject: [PATCH 03/91] CGUIFontTTFBase::RenderCharacter can now append to
+Subject: [PATCH 03/94] CGUIFontTTFBase::RenderCharacter can now append to
  arbitrary vectors of vertices rather than only CGUIFontTTFBase::m_vertex
 
 ---
@@ -657,10 +657,10 @@ index 10a7060..dde0350 100644
 2.0.3
 
 
-From 4172b050eaa1856f319d1ebee07f94bb86c71320 Mon Sep 17 00:00:00 2001
+From df3bbded4d97d53f295205008f02a5663459d1f4 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 17:18:38 +0000
-Subject: [PATCH 04/91] Add a cache of font glyph bounding box vertices.
+Subject: [PATCH 04/94] Add a cache of font glyph bounding box vertices.
 
 This is implemented as a template because ultimately we will key on different
 parameters and store values of different types, depending upon whether we
@@ -669,7 +669,7 @@ applicable transformation matrices permit the use of hardware clipping.
 ---
  XBMC.xcodeproj/project.pbxproj             |  10 ++
  project/VS2010Express/XBMC.vcxproj         |   2 +
- project/VS2010Express/XBMC.vcxproj.filters |   8 +-
+ project/VS2010Express/XBMC.vcxproj.filters |   6 +
  xbmc/guilib/GUIFontCache.cpp               | 105 ++++++++++++++
  xbmc/guilib/GUIFontCache.h                 | 217 +++++++++++++++++++++++++++++
  xbmc/guilib/GUIFontTTF.cpp                 | 181 +++++++++++++-----------
@@ -678,10 +678,110 @@ applicable transformation matrices permit the use of hardware clipping.
  xbmc/guilib/GraphicContext.h               |   1 +
  xbmc/guilib/Makefile.in                    |   1 +
  xbmc/guilib/TransformMatrix.h              |  11 ++
- 11 files changed, 457 insertions(+), 85 deletions(-)
+ 11 files changed, 456 insertions(+), 84 deletions(-)
  create mode 100644 xbmc/guilib/GUIFontCache.cpp
  create mode 100644 xbmc/guilib/GUIFontCache.h
 
+diff --git a/XBMC.xcodeproj/project.pbxproj b/XBMC.xcodeproj/project.pbxproj
+index 51c3757..e87f5d8 100644
+--- a/XBMC.xcodeproj/project.pbxproj
++++ b/XBMC.xcodeproj/project.pbxproj
+@@ -168,6 +168,9 @@
+ 		1D638128161E211E003603ED /* PeripheralImon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1D638126161E211E003603ED /* PeripheralImon.cpp */; };
+ 		1DAFDB7C16DFDCA7007F8C68 /* PeripheralBusCEC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1DAFDB7A16DFDCA7007F8C68 /* PeripheralBusCEC.cpp */; };
+ 		1DE0443515828F4B005DDB4D /* Exception.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1DE0443315828F4B005DDB4D /* Exception.cpp */; };
++		2F4564D51970129A00396109 /* GUIFontCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F4564D31970129A00396109 /* GUIFontCache.cpp */; };
++		2F4564D61970129A00396109 /* GUIFontCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F4564D31970129A00396109 /* GUIFontCache.cpp */; };
++		2F4564D71970129A00396109 /* GUIFontCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2F4564D31970129A00396109 /* GUIFontCache.cpp */; };
+ 		32C631281423A90F00F18420 /* JpegIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 32C631261423A90F00F18420 /* JpegIO.cpp */; };
+ 		36A9443D15821E2800727135 /* DatabaseUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A9443B15821E2800727135 /* DatabaseUtils.cpp */; };
+ 		36A9444115821E7C00727135 /* SortUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36A9443F15821E7C00727135 /* SortUtils.cpp */; };
+@@ -4005,6 +4008,8 @@
+ 		1DAFDB7B16DFDCA7007F8C68 /* PeripheralBusCEC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PeripheralBusCEC.h; sourceTree = "<group>"; };
+ 		1DE0443315828F4B005DDB4D /* Exception.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Exception.cpp; path = commons/Exception.cpp; sourceTree = "<group>"; };
+ 		1DE0443415828F4B005DDB4D /* Exception.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Exception.h; path = commons/Exception.h; sourceTree = "<group>"; };
++		2F4564D31970129A00396109 /* GUIFontCache.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GUIFontCache.cpp; sourceTree = "<group>"; };
++		2F4564D41970129A00396109 /* GUIFontCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GUIFontCache.h; sourceTree = "<group>"; };
+ 		32C631261423A90F00F18420 /* JpegIO.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JpegIO.cpp; sourceTree = "<group>"; };
+ 		32C631271423A90F00F18420 /* JpegIO.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JpegIO.h; sourceTree = "<group>"; };
+ 		36A9443B15821E2800727135 /* DatabaseUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DatabaseUtils.cpp; sourceTree = "<group>"; };
+@@ -6508,6 +6513,8 @@
+ 				18B7C7101294222D009E7A26 /* GUIFixedListContainer.h */,
+ 				18B7C76B1294222E009E7A26 /* GUIFont.cpp */,
+ 				18B7C7111294222D009E7A26 /* GUIFont.h */,
++				2F4564D31970129A00396109 /* GUIFontCache.cpp */,
++				2F4564D41970129A00396109 /* GUIFontCache.h */,
+ 				18B7C76C1294222E009E7A26 /* GUIFontManager.cpp */,
+ 				18B7C7121294222D009E7A26 /* GUIFontManager.h */,
+ 				18B7C76D1294222E009E7A26 /* GUIFontTTF.cpp */,
+@@ -10984,6 +10991,7 @@
+ 				7C5608C70F1754930056433A /* ExternalPlayer.cpp in Sources */,
+ 				F584E12E0F257C5100DB26A5 /* HTTPDirectory.cpp in Sources */,
+ 				F54C51D20F1E783200D46E3C /* GUIDialogKaraokeSongSelector.cpp in Sources */,
++				2F4564D51970129A00396109 /* GUIFontCache.cpp in Sources */,
+ 				F54C51D50F1E784800D46E3C /* karaokelyricscdg.cpp in Sources */,
+ 				F54C51D80F1E785700D46E3C /* karaokelyrics.cpp in Sources */,
+ 				F54C51E50F1E787700D46E3C /* karaokelyricstextkar.cpp in Sources */,
+@@ -12649,6 +12657,7 @@
+ 				DFF0F45B17528350002DA3A4 /* Control.cpp in Sources */,
+ 				DFF0F45C17528350002DA3A4 /* Dialog.cpp in Sources */,
+ 				DFF0F45D17528350002DA3A4 /* File.cpp in Sources */,
++				2F4564D71970129A00396109 /* GUIFontCache.cpp in Sources */,
+ 				DFF0F45E17528350002DA3A4 /* InfoTagMusic.cpp in Sources */,
+ 				DFF0F45F17528350002DA3A4 /* InfoTagVideo.cpp in Sources */,
+ 				DFF0F46017528350002DA3A4 /* Keyboard.cpp in Sources */,
+@@ -13447,6 +13456,7 @@
+ 				E499131D174E5DAD00741B6D /* GUIVisualisationControl.cpp in Sources */,
+ 				E499131E174E5DAD00741B6D /* GUIWindow.cpp in Sources */,
+ 				E499131F174E5DAD00741B6D /* GUIWindowManager.cpp in Sources */,
++				2F4564D61970129A00396109 /* GUIFontCache.cpp in Sources */,
+ 				E4991320174E5DAD00741B6D /* GUIWrappingListContainer.cpp in Sources */,
+ 				E4991321174E5DAD00741B6D /* imagefactory.cpp in Sources */,
+ 				E4991322174E5DAD00741B6D /* IWindowManagerCallback.cpp in Sources */,
+diff --git a/project/VS2010Express/XBMC.vcxproj b/project/VS2010Express/XBMC.vcxproj
+index e5b6e16..68f10ad 100644
+--- a/project/VS2010Express/XBMC.vcxproj
++++ b/project/VS2010Express/XBMC.vcxproj
+@@ -425,6 +425,7 @@
+     <ClCompile Include="..\..\xbmc\guilib\GUIFadeLabelControl.cpp" />
+     <ClCompile Include="..\..\xbmc\guilib\GUIFixedListContainer.cpp" />
+     <ClCompile Include="..\..\xbmc\guilib\GUIFont.cpp" />
++    <ClCompile Include="..\..\xbmc\guilib\GUIFontCache.cpp" />
+     <ClCompile Include="..\..\xbmc\guilib\GUIFontManager.cpp" />
+     <ClCompile Include="..\..\xbmc\guilib\GUIFontTTF.cpp" />
+     <ClCompile Include="..\..\xbmc\guilib\GUIFontTTFDX.cpp" />
+@@ -1740,6 +1741,7 @@
+     <ClInclude Include="..\..\xbmc\guilib\GUIFadeLabelControl.h" />
+     <ClInclude Include="..\..\xbmc\guilib\GUIFixedListContainer.h" />
+     <ClInclude Include="..\..\xbmc\guilib\GUIFont.h" />
++    <ClInclude Include="..\..\xbmc\guilib\GUIFontCache.h" />
+     <ClInclude Include="..\..\xbmc\guilib\GUIFontManager.h" />
+     <ClInclude Include="..\..\xbmc\guilib\GUIFontTTF.h" />
+     <ClInclude Include="..\..\xbmc\guilib\GUIFontTTFDX.h" />
+diff --git a/project/VS2010Express/XBMC.vcxproj.filters b/project/VS2010Express/XBMC.vcxproj.filters
+index 6469841..ab1085e 100644
+--- a/project/VS2010Express/XBMC.vcxproj.filters
++++ b/project/VS2010Express/XBMC.vcxproj.filters
+@@ -988,6 +988,9 @@
+     <ClCompile Include="..\..\xbmc\guilib\GUIFont.cpp">
+       <Filter>guilib</Filter>
+     </ClCompile>
++    <ClCompile Include="..\..\xbmc\guilib\GUIFontCache.cpp">
++      <Filter>guilib</Filter>
++    </ClCompile>
+     <ClCompile Include="..\..\xbmc\guilib\GUIFontManager.cpp">
+       <Filter>guilib</Filter>
+     </ClCompile>
+@@ -3873,6 +3876,9 @@
+     <ClInclude Include="..\..\xbmc\guilib\GUIFont.h">
+       <Filter>guilib</Filter>
+     </ClInclude>
++    <ClInclude Include="..\..\xbmc\guilib\GUIFontCache.h">
++      <Filter>guilib</Filter>
++    </ClInclude>
+     <ClInclude Include="..\..\xbmc\guilib\GUIFontManager.h">
+       <Filter>guilib</Filter>
+     </ClInclude>
 diff --git a/xbmc/guilib/GUIFontCache.cpp b/xbmc/guilib/GUIFontCache.cpp
 new file mode 100644
 index 0000000..2c72f9c
@@ -1323,10 +1423,10 @@ index f351c99..9036ba9 100644
 2.0.3
 
 
-From aa209733ce05e652607a4dd64d20d5b464d8c9bb Mon Sep 17 00:00:00 2001
+From 5727ab5e7748f9439fd9082209117f2f71f97f06 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 23 Jan 2014 22:24:17 +0000
-Subject: [PATCH 05/91] Lay the groundwork for hardware clipping.
+Subject: [PATCH 05/94] Lay the groundwork for hardware clipping.
 
 For glScissor() to replace CGraphicContext::ClipRect, a necessary condition
 is that no shear or rotation is introduced between the coordinate systems
@@ -1591,10 +1691,10 @@ index 98e398a..81ee49e 100644
 2.0.3
 
 
-From 82379d243c0f77a2391042753a7e47a2b3f446a3 Mon Sep 17 00:00:00 2001
+From 6fdc19dfb418b8c6624df884c3be719d4d40e81a Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 23 Jan 2014 16:42:22 +0000
-Subject: [PATCH 06/91] Increase font cache hit rate by keying on the
+Subject: [PATCH 06/94] Increase font cache hit rate by keying on the
  fractional part of m_originX and m_originY *after* they have been through the
  graphics context's transformation matrix, plus the scale/rotation elements of
  the matrix, rather than the origin in the original frame of reference plus
@@ -1798,10 +1898,10 @@ index 77111bc..39bfa52 100644
 2.0.3
 
 
-From 05bfd7d9c6470c6fcd58a90c36a82b6da1c7b185 Mon Sep 17 00:00:00 2001
+From 52932f558083ee968d0ad5a56af53236e80427c5 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 8 Jan 2014 12:16:33 +0000
-Subject: [PATCH 07/91] Rewrite of scrolling text code.
+Subject: [PATCH 07/94] Rewrite of scrolling text code.
 
 No longer shuffles the string round to minimise the number of characters
 before the clipping rectangle; this doesn't save much on rendering time but
@@ -2120,10 +2220,10 @@ index 2cda726..fbc579e 100644
 2.0.3
 
 
-From df1bddd031b6bc77bf4f4f5cb9f7ec04ab181515 Mon Sep 17 00:00:00 2001
+From 9f2e43ed1c754ac0d9f6fc5993222fe2d3dc6d63 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Mon, 27 Jan 2014 23:21:10 +0000
-Subject: [PATCH 08/91] Move the application of the translation offsets into
+Subject: [PATCH 08/94] Move the application of the translation offsets into
  the GLES code.
 
 Still all pure software at this stage. Main change is in the data types at
@@ -2320,10 +2420,10 @@ index 9935ea4..18c9358 100644
 2.0.3
 
 
-From 20388f9421c57b49d4bf16461ea926af47b24daf Mon Sep 17 00:00:00 2001
+From 6f3cfbcd08d9e524310b56416ef7e83ba683c5d3 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 15:28:06 +0000
-Subject: [PATCH 09/91] Rather than applying the translation offsets to the
+Subject: [PATCH 09/94] Rather than applying the translation offsets to the
  vertices, now applies them to the model view matrix from the top of the
  matrix stack and pushes it over to OpenGL. The vertices themselves are still
  all held client-side.
@@ -2470,10 +2570,10 @@ index 81ee49e..d2f9cd1 100644
 2.0.3
 
 
-From a9e79067d783011f2eff7693b2b10e43318ef804 Mon Sep 17 00:00:00 2001
+From a8529c5556cd78d2147cf7176f120c9102d37957 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 29 Jan 2014 13:21:19 +0000
-Subject: [PATCH 10/91] Enable hardware clipping.
+Subject: [PATCH 10/94] Enable hardware clipping.
 
 ---
  xbmc/guilib/GUIFontTTF.cpp   | 4 ++--
@@ -2549,10 +2649,10 @@ index ea08bf4..b63e337 100644
 2.0.3
 
 
-From b583334bdd9505b7e2d527baaf665688c888811b Mon Sep 17 00:00:00 2001
+From 0b041247e6b0ea0353ae2b1719b308218bd03493 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 15:32:51 +0000
-Subject: [PATCH 11/91] Move the vertex data across to a vertex buffer object
+Subject: [PATCH 11/94] Move the vertex data across to a vertex buffer object
  just prior to drawing.
 
 ---
@@ -2606,10 +2706,10 @@ index b63e337..b00055d 100644
 2.0.3
 
 
-From 7e85079f21961b8cb6afb05d81ea93b8bb0a85fb Mon Sep 17 00:00:00 2001
+From 0e16e004016ffd8c8ed5183ccdfe5f84b03e9ec4 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Wed, 15 Jan 2014 16:04:04 +0000
-Subject: [PATCH 12/91] Move vertex data into an OpenGL VBO when the font cache
+Subject: [PATCH 12/94] Move vertex data into an OpenGL VBO when the font cache
  entry is populated.
 
 The font cache now stores the "name" (handle) of the VBO, rather than a vector
@@ -2885,10 +2985,10 @@ index 735fb3a..6102c90 100644
 2.0.3
 
 
-From 7763c0907b155de5c6bfdca16007c373ebc599f8 Mon Sep 17 00:00:00 2001
+From ddbb5153890e14056b7340a15bb6964ff60059b4 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 16 Jan 2014 16:29:42 +0000
-Subject: [PATCH 13/91] Switch from glDrawArrays() to glDrawElements().
+Subject: [PATCH 13/94] Switch from glDrawArrays() to glDrawElements().
 
 This involves setting up a static VBO containing the indexes necessary to
 convert from quads to triangles on the fly in the GPU.
@@ -3112,10 +3212,10 @@ index 6de3532..258a293 100644
 2.0.3
 
 
-From d8f712671b3bda532577c45f68c1dbd8f17092a6 Mon Sep 17 00:00:00 2001
+From 3a365a33c2746867f54472dbd5743134cb146072 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 10 Jan 2014 12:10:43 +0000
-Subject: [PATCH 14/91] [rbp] Don't override dvdplayer with omxplayer.
+Subject: [PATCH 14/94] [rbp] Don't override dvdplayer with omxplayer.
 
 Using dvdplayer can be useful on the Pi. We can actually play sd (up to 640x480 MPEG-4 video) video in real time.
 This is useful for codec variants like DivX3 which we don't currently play.
@@ -3148,10 +3248,10 @@ index c590cca..57b524f 100644
 2.0.3
 
 
-From abf3c112e80a9e9c24bb8be1a6bd9e69c1232cf1 Mon Sep 17 00:00:00 2001
+From 71ec2afecafa2668f5a1f6b2ab895770baa32e28 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 10 Jan 2014 15:37:41 +0000
-Subject: [PATCH 15/91] [players] Use default players rather than hard coded
+Subject: [PATCH 15/94] [players] Use default players rather than hard coded
  DVDPlayer/PAPlayer
 
 ---
@@ -3210,10 +3310,10 @@ index 57dfcdd..7be9799 100644
 2.0.3
 
 
-From 84cf2101dfa1f557eaf740523a7b107eeee7f3d7 Mon Sep 17 00:00:00 2001
+From 8652c4b7948cf6456e33b900fcc4e476bb0cbae3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 11 Jan 2014 18:23:42 +0000
-Subject: [PATCH 16/91] [rbp] Don't force dvdplayer for airplay
+Subject: [PATCH 16/94] [rbp] Don't force dvdplayer for airplay
 
 ---
  xbmc/network/AirPlayServer.cpp | 2 ++
@@ -3239,10 +3339,10 @@ index 80ea552..497898f 100644
 2.0.3
 
 
-From b33ca38db5ac06bfe590b5d32d5a06e7b277bd7c Mon Sep 17 00:00:00 2001
+From 12da97fc4c4781d5b4e3042961bc88655be74ee9 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 13 Jan 2014 13:11:06 +0000
-Subject: [PATCH 17/91] [rbp] Give plugins omxplayer when they request
+Subject: [PATCH 17/94] [rbp] Give plugins omxplayer when they request
  dvdplayer on pi
 
 ---
@@ -3269,10 +3369,10 @@ index dfdca99..2a819ef 100644
 2.0.3
 
 
-From 10aebcf03045706dbab09edf04f1e9bfe5c826f1 Mon Sep 17 00:00:00 2001
+From 879cf3407ac8aa32367d3ca987faec930731ec1b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 14 Jan 2014 18:04:07 +0000
-Subject: [PATCH 18/91] [rbp] Allow ALSA to be chosen in addition to Pi sink
+Subject: [PATCH 18/94] [rbp] Allow ALSA to be chosen in addition to Pi sink
 
 Needs --enable-alsa in ./configure step and alsa support on platform
 ---
@@ -3282,10 +3382,10 @@ Needs --enable-alsa in ./configure step and alsa support on platform
  3 files changed, 17 insertions(+), 4 deletions(-)
 
 diff --git a/configure.in b/configure.in
-index fb02f14..8a4260d 100644
+index 725a271..214c08d 100644
 --- a/configure.in
 +++ b/configure.in
-@@ -686,7 +686,6 @@ case $use_platform in
+@@ -711,7 +711,6 @@ case $use_platform in
       use_arch="arm"
       use_cpu=arm1176jzf-s
       use_hardcoded_tables="yes"
@@ -3294,7 +3394,7 @@ index fb02f14..8a4260d 100644
       AC_DEFINE(HAS_EGLGLES, [1], [Define if supporting EGL based GLES Framebuffer])
       USE_OMXLIB=1; AC_DEFINE([HAVE_OMXLIB],[1],["Define to 1 if OMX libs is enabled"])
 diff --git a/tools/depends/target/Makefile b/tools/depends/target/Makefile
-index fce60df..8a3858e 100644
+index f5374b2..73a939c 100644
 --- a/tools/depends/target/Makefile
 +++ b/tools/depends/target/Makefile
 @@ -58,10 +58,11 @@ LINUX_SYSTEM_LIBS=
@@ -3363,10 +3463,10 @@ index e42d973..715b4f1 100644
 2.0.3
 
 
-From 1f40508161e1e1f5f89eb45fe030569f834d7aca Mon Sep 17 00:00:00 2001
+From 677d845340667ca229e1c7ae2221606cba1722e5 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 16 Jan 2014 01:39:29 +0000
-Subject: [PATCH 19/91] [omxcodec] Add hardware decode to dvdplayer for Pi
+Subject: [PATCH 19/94] [omxcodec] Add hardware decode to dvdplayer for Pi
 
 Hijack the abandoned OpenMaxVideo codec
 ---
@@ -3388,10 +3488,10 @@ Hijack the abandoned OpenMaxVideo codec
  15 files changed, 894 insertions(+), 1099 deletions(-)
 
 diff --git a/configure.in b/configure.in
-index 8a4260d..63be749 100644
+index 214c08d..d2b8322 100644
 --- a/configure.in
 +++ b/configure.in
-@@ -1900,9 +1900,24 @@ if test "$host_vendor" = "apple" ; then
+@@ -1858,9 +1858,24 @@ if test "$host_vendor" = "apple" ; then
    USE_OPENMAX=0
    AC_MSG_NOTICE($openmax_disabled)
  elif test "$target_platform" = "target_raspberry_pi"; then
@@ -3503,10 +3603,10 @@ index b6fb1a3..be3ce46 100644
  #ifdef TARGET_DARWIN
    else if(pic.format == RENDER_FMT_CVBREF)
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
-index 32d58d4..d58067c 100644
+index 181d755..34cc95d 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
-@@ -268,9 +268,12 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
+@@ -236,9 +236,12 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
  #endif
  
  #if defined(HAVE_LIBOPENMAX)
@@ -3952,10 +4052,10 @@ index fb80d02..67cc235 100644
  
  #endif
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in b/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in
-index 8a97889..ebf7123 100644
+index 9c13da8..390d940 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/Makefile.in
-@@ -20,7 +20,6 @@ SRCS += DVDVideoCodecVDA.cpp
+@@ -16,7 +16,6 @@ SRCS += DVDVideoCodecVDA.cpp
  SRCS += VDA.cpp
  endif
  ifeq (@USE_OPENMAX@,1)
@@ -6021,20 +6121,20 @@ index 05052e5..6ade180 100644
 2.0.3
 
 
-From f6ff245b61cc208a0e94d648d70c5bc2a53ba8a3 Mon Sep 17 00:00:00 2001
+From 3dd7c5dc4f820779a024055006a3d309dfcc4c06 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 20 Jan 2014 16:03:40 +0000
-Subject: [PATCH 20/91] [omxcodec] Enable for dvd menus
+Subject: [PATCH 20/94] [omxcodec] Enable for dvd menus
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp | 4 ++++
  1 file changed, 4 insertions(+)
 
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
-index d58067c..f3fd3e2 100644
+index 34cc95d..e713967 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/DVDFactoryCodec.cpp
-@@ -192,6 +192,10 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
+@@ -184,6 +184,10 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, unsigne
  
    CLog::Log(LOGDEBUG, "CDVDFactoryCodec: compiled in hardware support: %s", hwSupport.c_str());
  
@@ -6049,10 +6149,10 @@ index d58067c..f3fd3e2 100644
 2.0.3
 
 
-From d2422910b697f3fb3cb725e1fc9e48eb778b8e1e Mon Sep 17 00:00:00 2001
+From a4e5fcafc26d36fa70be1f8ffdf140fad7aacebf Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 22:27:44 +0000
-Subject: [PATCH 21/91] [omxcodec] Add omx specific texture
+Subject: [PATCH 21/94] [omxcodec] Add omx specific texture
  create/upload/delete functions
 
 ---
@@ -6130,10 +6230,10 @@ index 5a6a2be..52df291 100644
 2.0.3
 
 
-From 7889fcd5a66465710f4df12bd903468016e07176 Mon Sep 17 00:00:00 2001
+From 546e55c751a5b6662012406a0c860d048009fef9 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 22:50:43 +0000
-Subject: [PATCH 22/91] [omxcodec] Add shared pointer to delay shutdown of
+Subject: [PATCH 22/94] [omxcodec] Add shared pointer to delay shutdown of
  codec until buffers are returned
 
 ---
@@ -6314,10 +6414,10 @@ index 9079c13..0975e8a 100644
 2.0.3
 
 
-From 309f45b9a429a9a58c9cc8feab9c6e8710a08c15 Mon Sep 17 00:00:00 2001
+From f2fa3fde57773c23d573529c0da629c013bb6f27 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 23:11:31 +0000
-Subject: [PATCH 23/91] [omxcodec] Fix for aspect ratio in non-square pixel
+Subject: [PATCH 23/94] [omxcodec] Fix for aspect ratio in non-square pixel
  modes
 
 ---
@@ -6406,10 +6506,10 @@ index 0975e8a..9138a20 100644
 2.0.3
 
 
-From dacc74e5fb68013be2631448af6d96885f55edb4 Mon Sep 17 00:00:00 2001
+From 5825b39684748a183c0904df61dfd53dbfa31a90 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Feb 2014 23:19:22 +0000
-Subject: [PATCH 24/91] [omxcodec] Report error when codec not enabled
+Subject: [PATCH 24/94] [omxcodec] Report error when codec not enabled
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/OpenMaxVideo.cpp | 10 +++++++++-
@@ -6454,10 +6554,10 @@ index 7e23c87..2ae722b 100644
 2.0.3
 
 
-From 599bafa6c92e0ba58029df285ac35409cde629ff Mon Sep 17 00:00:00 2001
+From fa7bafcccfe755ea50180bd1a323e47cc61b14bc Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 4 Feb 2014 17:29:37 +0000
-Subject: [PATCH 25/91] [omxcodec] Add deinterlace support
+Subject: [PATCH 25/94] [omxcodec] Add deinterlace support
 
 ---
  xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |   2 +-
@@ -6694,10 +6794,10 @@ index 9138a20..c8ad4d8 100644
 2.0.3
 
 
-From 821adbd7f057085b5fbbe6e34376d205eb9a118a Mon Sep 17 00:00:00 2001
+From edb0bf3457fcbaa438471684ba115360758d770c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 5 Feb 2014 11:46:33 +0000
-Subject: [PATCH 26/91] [rbp/settings] Allow av sync type to be enabled
+Subject: [PATCH 26/94] [rbp/settings] Allow av sync type to be enabled
 
 It works for dvdplayer
 ---
@@ -6726,10 +6826,10 @@ index 28e68eb..60086d8 100644
 2.0.3
 
 
-From ec39f5cf99574273abeb58bc81fce46813853426 Mon Sep 17 00:00:00 2001
+From b3b5c3f4e6018517c3319f765c26e7f8597ef880 Mon Sep 17 00:00:00 2001
 From: Ben Avison <bavison@riscosopen.org>
 Date: Thu, 1 May 2014 16:28:39 +0100
-Subject: [PATCH 27/91] Improved file buffering in CArchive
+Subject: [PATCH 27/94] Improved file buffering in CArchive
 
 Even though memcpy is typically inlined by the compiler into byte/word loads
 and stores (at least for release builds), the frequency with which 1, 2 and 4
@@ -6792,10 +6892,10 @@ index 6ed0f8f..8506d95 100644
 2.0.3
 
 
-From 5529f7076d6613afa65446592f69637646cef812 Mon Sep 17 00:00:00 2001
+From 502b038dd6bc46853790d8ed34d03658c9dafd95 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 16 Feb 2014 17:38:05 +0000
-Subject: [PATCH 28/91] [omxcodec] Only do essential calls in texture thread
+Subject: [PATCH 28/94] [omxcodec] Only do essential calls in texture thread
  [omxcodec] Fix for files with no valid pts values. [omxcodec] Fix stall on
  seek/trickplay - need to reset start flag [omxcodec] Make sure we have a
  valid context when video decode starts before first fanart is decoded
@@ -7145,10 +7245,10 @@ index c8ad4d8..f234f6d 100644
 2.0.3
 
 
-From 3d0f3216d45afc3198ed3ceae730a1cc3dffeccf Mon Sep 17 00:00:00 2001
+From 5a4c7f2d336d59c8ea5025870f8461f62fa2ae41 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 8 Mar 2014 15:36:06 +0000
-Subject: [PATCH 29/91] [hifiberry] Hack: force it to be recognised as IEC958
+Subject: [PATCH 29/94] [hifiberry] Hack: force it to be recognised as IEC958
  capable to enable passthrough options
 
 ---
@@ -7174,10 +7274,10 @@ index 8dee4bc..cc79e80 100644
 2.0.3
 
 
-From 29d5854e951dfd8f3f0c8c15d2298acfaa62b127 Mon Sep 17 00:00:00 2001
+From 096b2caae65c8ed81aa604b9c3e30563824dd61f Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 11 Mar 2014 18:50:23 +0000
-Subject: [PATCH 30/91] [dvdplayer] Use inexact seeking like omxplayer
+Subject: [PATCH 30/94] [dvdplayer] Use inexact seeking like omxplayer
 
 ---
  xbmc/cores/dvdplayer/DVDPlayer.cpp | 11 +++++++++++
@@ -7228,10 +7328,10 @@ index 5da4608..b40188a 100644
 2.0.3
 
 
-From ab4401e16997d86be9ade4d16c2fe1a2a1b05b16 Mon Sep 17 00:00:00 2001
+From 03f74970a27a5720d560501f56b368bd076e83a9 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 18:19:32 +0100
-Subject: [PATCH 31/91] [rbp/omxplayer] When opening a stream don't try to
+Subject: [PATCH 31/94] [rbp/omxplayer] When opening a stream don't try to
  update gui so often
 
 ---
@@ -7258,10 +7358,10 @@ index e9ba7d3..0fdc3c2 100644
 2.0.3
 
 
-From 24078afd12004d5dacde1ba51bfddffe83fd6ee4 Mon Sep 17 00:00:00 2001
+From c3cb0ffe2de06d2315541c45e2c36b662ecdfb6d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 15:28:57 +0100
-Subject: [PATCH 32/91] [omxcodec] Clamp video texture at edges to avoid image
+Subject: [PATCH 32/94] [omxcodec] Clamp video texture at edges to avoid image
  wrapping
 
 ---
@@ -7285,10 +7385,10 @@ index 51f56aa..2929a37 100644
 2.0.3
 
 
-From 266e8a53b98276ca31936c3f5f44ded21fbba0a9 Mon Sep 17 00:00:00 2001
+From 7abd8d9ba6de9d735d44f60fb199c4d092740824 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 30 Mar 2014 15:54:34 +0100
-Subject: [PATCH 33/91] [omxplayer] Make the sharpness control act as a
+Subject: [PATCH 33/94] [omxplayer] Make the sharpness control act as a
  sharpness control.
 
 This fixes scaling kernel as Mitchell Netravali, and varies sharpness over range B=[5/3,0] C=[-1/3,1/2]
@@ -7670,10 +7770,10 @@ index e7a39fa..60ecf9a 100644
 2.0.3
 
 
-From 86ef8eb6091d0b614505382d67873dc3b02dd42e Mon Sep 17 00:00:00 2001
+From d59bfd9faab40e184028fcfd8659f2abc6951b17 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 16 Apr 2014 21:18:06 +0100
-Subject: [PATCH 34/91] [omxplayer] Don't propagate 3d flags based on supported
+Subject: [PATCH 34/94] [omxplayer] Don't propagate 3d flags based on supported
  3d modes
 
 ---
@@ -7729,10 +7829,10 @@ index af71235..0514e78 100644
 2.0.3
 
 
-From 4861ea3e10de834875867c4badcdfb98a7eaa6dc Mon Sep 17 00:00:00 2001
+From 711e988150ee24fed958d3b1ffed669de56a706d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 17 Apr 2014 13:00:52 +0100
-Subject: [PATCH 35/91] [graphics] Don't set stereo mode based on resolution
+Subject: [PATCH 35/94] [graphics] Don't set stereo mode based on resolution
 
 The resolution change should follow stereo mode
 ---
@@ -7776,10 +7876,10 @@ index 5bffdf5..7e4fdd4 100644
 2.0.3
 
 
-From 86493847b7198a719e8512b1528b3381d6ac1056 Mon Sep 17 00:00:00 2001
+From a536e0c0784c0edeb7b8141d8e601b1e0abde911 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 17 Apr 2014 13:01:51 +0100
-Subject: [PATCH 36/91] [graphics] Allow switching to a more suitable 3D
+Subject: [PATCH 36/94] [graphics] Allow switching to a more suitable 3D
  resolution
 
 ---
@@ -7869,10 +7969,10 @@ index 0a27643..df55e92 100644
 2.0.3
 
 
-From 137035fb6a2333d2867f17ce0f0ae93e25f2638e Mon Sep 17 00:00:00 2001
+From 8de8383f92f07dda801e3c57e7043fc8f1016a87 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 17 Apr 2014 13:38:55 +0100
-Subject: [PATCH 37/91] [3D] Support switching to 3D resolutions
+Subject: [PATCH 37/94] [3D] Support switching to 3D resolutions
 
 Include matching 3D flags (SBS/TAB) in the score of a resolution to switch to, to enable switching to 3d modes.
 Also remove the old code that treated 3D modes differently when assigning a score.
@@ -7957,10 +8057,10 @@ index 83c3adb..8076e76 100644
 2.0.3
 
 
-From cb0d9b2df5add8e3a0a600bb58ec04886400bfdc Mon Sep 17 00:00:00 2001
+From 71a046933e26f16494357b7562bf3e10be3a9d8b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 23 Apr 2014 00:05:07 +0100
-Subject: [PATCH 38/91] [graphics] Make pixel ratio for 3d modes consistent
+Subject: [PATCH 38/94] [graphics] Make pixel ratio for 3d modes consistent
 
 Note: Use the stored stereo flags from lists of resolutions.
 Use current stereo mode for current resolution.
@@ -8148,10 +8248,10 @@ index c58c28a..bf1e589 100644
 2.0.3
 
 
-From fba69e34eb89cfcc7e2683d568cba80f680c8e81 Mon Sep 17 00:00:00 2001
+From a676c63fc5f67835c39494c332f24e8f78d2cc60 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 22 Apr 2014 12:23:23 +0100
-Subject: [PATCH 39/91] [omxplayer] Make dvdplayer the default for dvd images
+Subject: [PATCH 39/94] [omxplayer] Make dvdplayer the default for dvd images
 
 ---
  xbmc/cores/omxplayer/omxplayer_advancedsettings.xml | 2 +-
@@ -8173,10 +8273,10 @@ index 77c6a15..51c0daf 100644
 2.0.3
 
 
-From 85dd9e0aabf0169c3ac0a156ddb8428a17be6e32 Mon Sep 17 00:00:00 2001
+From aa3165b530d7bc738a3be5da54e63025fd02ff78 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 26 Apr 2014 17:27:52 +0100
-Subject: [PATCH 40/91] [cec] Don't suspend pi on tv switch off - it can't wake
+Subject: [PATCH 40/94] [cec] Don't suspend pi on tv switch off - it can't wake
  up
 
 ---
@@ -8200,10 +8300,10 @@ index a906628..9b5271a 100644
 2.0.3
 
 
-From 562b683026b3d9802c6c2dace7de21bb354e6f1e Mon Sep 17 00:00:00 2001
+From 573a99190197f937aba90c76e817b0676a427c60 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 27 Jun 2013 01:25:57 +0100
-Subject: [PATCH 42/91] [rbp/omxplayer] Do we need discontinuity handling?
+Subject: [PATCH 42/94] [rbp/omxplayer] Do we need discontinuity handling?
 
 So far I've not seen what this is needed for and it does cause problems for some files.
 ---
@@ -8226,10 +8326,10 @@ index 60ecf9a..16417b6 100644
 2.0.3
 
 
-From 20de945594f9bd63ff1131ac90ece60f7d7e3881 Mon Sep 17 00:00:00 2001
+From bb42d8455a69e048e80bb8336cd87482e4581e5b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 24 Oct 2013 00:53:26 +0100
-Subject: [PATCH 43/91] [rbp/omxplayer] Avoid marking non-monotonic timestamps
+Subject: [PATCH 43/94] [rbp/omxplayer] Avoid marking non-monotonic timestamps
  as unknown
 
 Following a single spurious timestamp that is in the future,
@@ -8271,10 +8371,10 @@ index a2f9b0c..c0c3a3f 100644
 2.0.3
 
 
-From e63de20cabe6f3f84d8d63879a9ab2e5dbf0f64a Mon Sep 17 00:00:00 2001
+From eb1446f29152baac7e36c3c259005f3da551ac93 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 13 Dec 2013 16:25:23 +0000
-Subject: [PATCH 45/91] Add time taken to resample to log
+Subject: [PATCH 45/94] Add time taken to resample to log
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp    | 7 +++++++
@@ -8318,10 +8418,10 @@ index 01aafe3..5ab83a2 100644
 2.0.3
 
 
-From 289d977ef08d7e4f17856b16f12e09f9d99e942f Mon Sep 17 00:00:00 2001
+From 01d797f215cda93bf51a2892a5d8660cb39aaba5 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 14 Dec 2013 16:55:05 +0000
-Subject: [PATCH 46/91] logging: Add microsecond timer to log messages
+Subject: [PATCH 46/94] logging: Add microsecond timer to log messages
 
 ---
  xbmc/utils/log.cpp | 12 +++++++++---
@@ -8382,10 +8482,10 @@ index dd6ef26..8edf2fd 100644
 2.0.3
 
 
-From 6026ce07f260adea5f36f41d80c8ad4575523909 Mon Sep 17 00:00:00 2001
+From 01924af897b3b1c703a6e358dc606b5ec8c2c70c Mon Sep 17 00:00:00 2001
 From: Jonathan Marshall <jmarshall@xbmc.org>
 Date: Sat, 2 Nov 2013 23:49:17 +1300
-Subject: [PATCH 47/91] adds GetTvShowSeasons
+Subject: [PATCH 47/94] adds GetTvShowSeasons
 
 ---
  xbmc/video/VideoDatabase.cpp | 30 ++++++++++++++++++++++++------
@@ -8393,10 +8493,10 @@ Subject: [PATCH 47/91] adds GetTvShowSeasons
  2 files changed, 25 insertions(+), 6 deletions(-)
 
 diff --git a/xbmc/video/VideoDatabase.cpp b/xbmc/video/VideoDatabase.cpp
-index 796d8f3..7b28f94 100644
+index c4ca0ff..f79187f 100644
 --- a/xbmc/video/VideoDatabase.cpp
 +++ b/xbmc/video/VideoDatabase.cpp
-@@ -4108,7 +4108,7 @@ bool CVideoDatabase::RemoveArtForItem(int mediaId, const MediaType &mediaType, c
+@@ -4213,7 +4213,7 @@ bool CVideoDatabase::RemoveArtForItem(int mediaId, const MediaType &mediaType, c
    return result;
  }
  
@@ -8405,7 +8505,7 @@ index 796d8f3..7b28f94 100644
  {
    try
    {
-@@ -4119,19 +4119,37 @@ bool CVideoDatabase::GetTvShowSeasonArt(int showId, map<int, map<string, string>
+@@ -4224,19 +4224,37 @@ bool CVideoDatabase::GetTvShowSeasonArt(int showId, map<int, map<string, string>
      CStdString sql = PrepareSQL("select idSeason,season from seasons where idShow=%i", showId);
      m_pDS2->query(sql.c_str());
  
@@ -8449,10 +8549,10 @@ index 796d8f3..7b28f94 100644
      return true;
    }
 diff --git a/xbmc/video/VideoDatabase.h b/xbmc/video/VideoDatabase.h
-index 492eebb..f6026c2 100644
+index 78259ed..cbb26b7 100644
 --- a/xbmc/video/VideoDatabase.h
 +++ b/xbmc/video/VideoDatabase.h
-@@ -744,6 +744,7 @@ class CVideoDatabase : public CDatabase
+@@ -746,6 +746,7 @@ class CVideoDatabase : public CDatabase
    std::string GetArtForItem(int mediaId, const MediaType &mediaType, const std::string &artType);
    bool RemoveArtForItem(int mediaId, const MediaType &mediaType, const std::string &artType);
    bool RemoveArtForItem(int mediaId, const MediaType &mediaType, const std::set<std::string> &artTypes);
@@ -8464,20 +8564,20 @@ index 492eebb..f6026c2 100644
 2.0.3
 
 
-From 562a61b7178897baff6d981909deb87448c1199d Mon Sep 17 00:00:00 2001
+From 73002c75f9ff079cc71d24854bac29740825dca8 Mon Sep 17 00:00:00 2001
 From: Jonathan Marshall <jmarshall@xbmc.org>
 Date: Sat, 2 Nov 2013 23:50:10 +1300
-Subject: [PATCH 48/91] move AddSeason() public.
+Subject: [PATCH 48/94] move AddSeason() public.
 
 ---
  xbmc/video/VideoDatabase.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/video/VideoDatabase.h b/xbmc/video/VideoDatabase.h
-index f6026c2..a7acea3 100644
+index cbb26b7..1a79c00 100644
 --- a/xbmc/video/VideoDatabase.h
 +++ b/xbmc/video/VideoDatabase.h
-@@ -755,6 +755,7 @@ class CVideoDatabase : public CDatabase
+@@ -757,6 +757,7 @@ class CVideoDatabase : public CDatabase
  
    virtual bool GetFilter(CDbUrl &videoUrl, Filter &filter, SortDescription &sorting);
  
@@ -8485,7 +8585,7 @@ index f6026c2..a7acea3 100644
    int AddSet(const CStdString& strSet);
    void ClearMovieSet(int idMovie);
    void SetMovieSet(int idMovie, int idSet);
-@@ -785,7 +786,6 @@ class CVideoDatabase : public CDatabase
+@@ -787,7 +788,6 @@ class CVideoDatabase : public CDatabase
  
    int AddTvShow();
    int AddMusicVideo(const CStdString& strFilenameAndPath);
@@ -8497,10 +8597,10 @@ index f6026c2..a7acea3 100644
 2.0.3
 
 
-From 641374b5df817a5cb5813352b65e67a7849e6742 Mon Sep 17 00:00:00 2001
+From 52a3526c439e685d037456f7fc4290f14940aab7 Mon Sep 17 00:00:00 2001
 From: Jonathan Marshall <jmarshall@xbmc.org>
 Date: Sat, 2 Nov 2013 23:48:24 +1300
-Subject: [PATCH 49/91] adds GetArt function to (video) scraper, allowing art
+Subject: [PATCH 49/94] adds GetArt function to (video) scraper, allowing art
  to be fetched given the video identifier.
 
 ---
@@ -8618,10 +8718,10 @@ index 22ac229..75bc341 100644
 2.0.3
 
 
-From e2ab15d9d9e46e54719ee50d1d978bf9b355650d Mon Sep 17 00:00:00 2001
+From 1cee0a89693885132e31f85c7304ca6f442c906b Mon Sep 17 00:00:00 2001
 From: Jonathan Marshall <jmarshall@xbmc.org>
 Date: Sat, 2 Nov 2013 23:53:14 +1300
-Subject: [PATCH 50/91] refresh season art if a new season is found that isn't
+Subject: [PATCH 50/94] refresh season art if a new season is found that isn't
  recorded in the database yet. Fixes #14339
 
 ---
@@ -8728,10 +8828,10 @@ index 7da1bf2..c764e20 100644
 2.0.3
 
 
-From 31ea9ad54afd362c4837ceb9cbdcd3508c17a0e9 Mon Sep 17 00:00:00 2001
+From 4d284f2167cdb91e3610591dc72b36f260dd6807 Mon Sep 17 00:00:00 2001
 From: Jonathan Marshall <jmarshall@xbmc.org>
 Date: Sat, 2 Nov 2013 23:53:34 +1300
-Subject: [PATCH 51/91] REMOVEME: updated thetvdb.com scraper to support art
+Subject: [PATCH 51/94] REMOVEME: updated thetvdb.com scraper to support art
  updates
 
 ---
@@ -8842,10 +8942,10 @@ index 39e604d..60a0e96 100644
 2.0.3
 
 
-From 7f6ba0f1d583378a7c3b4d4b5e81cb9eddf586d7 Mon Sep 17 00:00:00 2001
+From 002d1aaac820bd8e7b1f0e7a4e1c3a8ee61b61d2 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 22 Mar 2014 16:40:01 +0000
-Subject: [PATCH 52/91] Enable PYTHONOPTIMIZE for Pi
+Subject: [PATCH 52/94] Enable PYTHONOPTIMIZE for Pi
 
 ---
  xbmc/interfaces/python/XBPython.cpp | 4 ++++
@@ -8870,10 +8970,10 @@ index cba242d..35a4509 100644
 2.0.3
 
 
-From 0e411aebdf07c9abeed4f5fca499003942892c62 Mon Sep 17 00:00:00 2001
+From ab3872243fa5d78859b6a9710550f2572aabe863 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 28 Apr 2014 18:07:45 +0100
-Subject: [PATCH 53/91] [rpi] Make ActiveAE thread higher priority to make
+Subject: [PATCH 53/94] [rpi] Make ActiveAE thread higher priority to make
  audio underrun less likely
 
 ---
@@ -8901,10 +9001,10 @@ index 08346d2..e302098 100644
 2.0.3
 
 
-From fe4d2f27a7005e66c32157cd7238cbad6525944f Mon Sep 17 00:00:00 2001
+From 34a6c15d86133a6366da81f6fc50e5c493c8a57e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 29 Apr 2014 15:23:22 +0100
-Subject: [PATCH 54/91] [ffmpeg] Speed up wtv index creation
+Subject: [PATCH 54/94] [ffmpeg] Speed up wtv index creation
 
 The index creation is O(N^2) with number of entries (typically thousands).
 On a Pi this can take more than 60 seconds to execute for a recording of a few hours.
@@ -8993,10 +9093,10 @@ index 0000000..8f5f989
 2.0.3
 
 
-From eb9f538f829ad218620c21e478daf6b9ac90f927 Mon Sep 17 00:00:00 2001
+From 7c0da0363b469d20d0257f442c5b08837c6ad8c5 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 8 Jul 2014 15:18:47 +0100
-Subject: [PATCH 55/91] ffmpeg: Add armv6 acceleration for imdct/fft used by
+Subject: [PATCH 55/94] ffmpeg: Add armv6 acceleration for imdct/fft used by
  ac3/aac
 
 armv6: Accelerate ff_imdct_half for general case (mdct_bits != 6)
@@ -9890,10 +9990,10 @@ index 0000000..db0118f
 2.0.3
 
 
-From a83ea82753c5ef561bfe1d215d0dfdc709b2b57b Mon Sep 17 00:00:00 2001
+From 0a18e29b4ccfa90cdd63779e0bbd6943864d093a Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 12 May 2014 23:06:43 +0100
-Subject: [PATCH 56/91] [omxcodec] Updates to work better with dropping and
+Subject: [PATCH 56/94] [omxcodec] Updates to work better with dropping and
  lateness detection
 
 ---
@@ -10185,10 +10285,10 @@ index f234f6d..adf53b5 100644
 2.0.3
 
 
-From 712f9030e096352fcdc8f8e6a10b86c6f792b92f Mon Sep 17 00:00:00 2001
+From b9c825069be83f845099bd6930f79c32473ddfe8 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 11 Apr 2014 16:12:27 +0100
-Subject: [PATCH 57/91] [omxplayer] Add ability to log more timestamp info in
+Subject: [PATCH 57/94] [omxplayer] Add ability to log more timestamp info in
  extra debug settings
 
 ---
@@ -10201,10 +10301,10 @@ Subject: [PATCH 57/91] [omxplayer] Add ability to log more timestamp info in
  6 files changed, 44 insertions(+), 34 deletions(-)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index a78c892..2679312 100755
+index 6e7c98c..1c3b6a6 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
-@@ -2880,6 +2880,11 @@ msgctxt "#679"
+@@ -2886,6 +2886,11 @@ msgctxt "#679"
  msgid "Verbose logging for CEC library"
  msgstr ""
  
@@ -10364,10 +10464,10 @@ index 5f3f2d8..56f9783 100644
 2.0.3
 
 
-From 1769861229b904c1a9a3992194f7a96713669621 Mon Sep 17 00:00:00 2001
+From 59213ea859c1538e70e25946d7c24d7692b183ee Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 7 Apr 2014 23:13:55 +0100
-Subject: [PATCH 58/91] [omxplayer] Add ability to dump out audio/video data
+Subject: [PATCH 58/94] [omxplayer] Add ability to dump out audio/video data
  for later debugging
 
 ---
@@ -10379,10 +10479,10 @@ Subject: [PATCH 58/91] [omxplayer] Add ability to dump out audio/video data
  5 files changed, 112 insertions(+)
 
 diff --git a/language/English/strings.po b/language/English/strings.po
-index 2679312..a03eb0b 100755
+index 1c3b6a6..a3ead30 100755
 --- a/language/English/strings.po
 +++ b/language/English/strings.po
-@@ -2885,6 +2885,16 @@ msgctxt "#697"
+@@ -2891,6 +2891,16 @@ msgctxt "#697"
  msgid "Verbose logging for OMXPLAYER"
  msgstr ""
  
@@ -10612,10 +10712,10 @@ index 56f9783..627080b 100644
 2.0.3
 
 
-From 660fd3e724902110bf2e3250d1254d9cf07a91f0 Mon Sep 17 00:00:00 2001
+From ad1661b1128ab133fa1f7b90f0b9a09ce4d92c53 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 28 May 2014 18:30:51 +0100
-Subject: [PATCH 59/91] [omxcodec] Reduce GPU memory use by 2 video frames
+Subject: [PATCH 59/94] [omxcodec] Reduce GPU memory use by 2 video frames
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/OpenMaxVideo.cpp | 14 ++++++++++++++
@@ -10650,10 +10750,10 @@ index 612ae21..494fdf5 100644
 2.0.3
 
 
-From a972af14b596e85431e7fa252fbf2fe12ca974ed Mon Sep 17 00:00:00 2001
+From 052478eb83c73aa9eb48a11709c1fe1e17a708f3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 30 May 2014 14:58:43 +0100
-Subject: [PATCH 60/91] [settings] Experiment: Report DESKTOP resolution in
+Subject: [PATCH 60/94] [settings] Experiment: Report DESKTOP resolution in
  video settings
 
 ---
@@ -10678,10 +10778,10 @@ index bb31f15..eae549b 100644
 2.0.3
 
 
-From cc5c3093709ac78fa0c9f0b71414ea40d2b0a681 Mon Sep 17 00:00:00 2001
+From ecaa05b2a108b2c2c2636cc3e98250dd34dd6faa Mon Sep 17 00:00:00 2001
 From: Matthias Kortstiege <vdrfan@xbmc.org>
 Date: Sun, 1 Jun 2014 18:47:20 +0200
-Subject: [PATCH 61/91] changed: avoid useless filesytem io while searching for
+Subject: [PATCH 61/94] changed: avoid useless filesytem io while searching for
  subtitles
 
 ---
@@ -10714,10 +10814,10 @@ index 042c3f7..d8c50e8 100644
 2.0.3
 
 
-From 0eb97f948647e5858925041d97f1cb0b4caf8c1e Mon Sep 17 00:00:00 2001
+From fb7814d3f9ffa7a04df2b7bbdbff071d63ff2840 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 30 Dec 2013 12:02:14 +0000
-Subject: [PATCH 62/91] [rbp] Hardware accelerated resampling
+Subject: [PATCH 62/94] [rbp] Hardware accelerated resampling
 
 This replaces the format conversion, up/down mixing and resampling code from ActiveAE with a GPU accelerated version.
 Should significantly reduce CPU when using paplayer or dvdplayer.
@@ -11550,10 +11650,10 @@ index 6cc4970..2ac9b7e 100644
 2.0.3
 
 
-From f142e58e1b88b61baa9f605e1b986cc35cd23bfc Mon Sep 17 00:00:00 2001
+From a397e63e8b328251c878edc061cbe7819bd9e9cd Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 1 Jun 2014 12:15:17 +0100
-Subject: [PATCH 63/91] [resamplepi] Support planar formats
+Subject: [PATCH 63/94] [resamplepi] Support planar formats
 
 ---
  .../Engines/ActiveAE/ActiveAEResamplePi.cpp        | 101 ++++++++++++---------
@@ -11753,10 +11853,10 @@ index 9a1e549..1604030 100644
 2.0.3
 
 
-From 68b5c485d9a00787deaeb2e4da0723f4d4183d7d Mon Sep 17 00:00:00 2001
+From 36828df473f7566ce861597dfc5c1549362ee1ef Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 15 Jun 2014 13:20:53 +0100
-Subject: [PATCH 64/91] gles: Avoid crash when capturing snapshot when using
+Subject: [PATCH 64/94] gles: Avoid crash when capturing snapshot when using
  dvdplayer
 
 Note: snapshot will be blank, but that's better than crashing
@@ -11782,10 +11882,10 @@ index 2929a37..53873f6 100644
 2.0.3
 
 
-From ca2935c4933faa21cb10618750f82bc6e5a07868 Mon Sep 17 00:00:00 2001
+From 7c93b9ea79b3d34f961a3498efa5481e58f3f610 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 16 Jun 2014 19:05:14 +0100
-Subject: [PATCH 65/91] sqlite: Bump to 3080500
+Subject: [PATCH 65/94] sqlite: Bump to 3080500
 
 ---
  tools/depends/target/sqlite3/Makefile | 4 +++-
@@ -11810,10 +11910,10 @@ index 87f7eaa..8fe61e8 100644
 2.0.3
 
 
-From c7c9cd989caf9c41c70c1dae8bb587df4eb059ba Mon Sep 17 00:00:00 2001
+From 1f2aeab9b3d463247d5e5f381e35c69ff54bb71c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 16 Jun 2014 19:06:00 +0100
-Subject: [PATCH 66/91] [experimental] Disable quiet-noise generation
+Subject: [PATCH 66/94] [experimental] Disable quiet-noise generation
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAESink.cpp | 2 ++
@@ -11843,10 +11943,10 @@ index 488a0df..d9f4a43 100644
 2.0.3
 
 
-From 9a0eb0ab99c78ed605336a8434fb564bd17d9aaa Mon Sep 17 00:00:00 2001
+From 4c2c8d844e8c7e684545d574ab086389a95723bb Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 16 Jun 2014 19:07:21 +0100
-Subject: [PATCH 67/91] [omxcodec] Adjust asserts
+Subject: [PATCH 67/94] [omxcodec] Adjust asserts
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/OpenMaxVideo.cpp | 11 +++++++----
@@ -11885,10 +11985,10 @@ index 494fdf5..23aaa9f 100644
 2.0.3
 
 
-From aaf052a53805336f9b78633044350955d9363241 Mon Sep 17 00:00:00 2001
+From f8f9cd89479c1b13e4c5313cc1dd2b63e4bdac68 Mon Sep 17 00:00:00 2001
 From: macrule <macrule2001@yahoo.de>
 Date: Thu, 11 Apr 2013 18:24:42 +0200
-Subject: [PATCH 68/91] Added some vc_tv_* functions that were missing in
+Subject: [PATCH 68/94] Added some vc_tv_* functions that were missing in
  DllBCM.
 
 ---
@@ -11926,10 +12026,10 @@ index b92fdb8..9c7e293 100644
 2.0.3
 
 
-From e9d75809a4c4ad769667ff5ec7052e79357c90af Mon Sep 17 00:00:00 2001
+From 533ba4200dfee0471aafd2c1046e7e52223b55bd Mon Sep 17 00:00:00 2001
 From: macrule <macrule2001@yahoo.de>
 Date: Thu, 11 Apr 2013 18:29:03 +0200
-Subject: [PATCH 69/91] Added private utility function to map a float display
+Subject: [PATCH 69/94] Added private utility function to map a float display
  aspect, to the respective SDTV_ASPECT_* enum value.
 
 ---
@@ -11970,10 +12070,10 @@ index bf1e589..518a87d 100644
 2.0.3
 
 
-From e127de5de4e3909cb8c00d41266cb91367e546d5 Mon Sep 17 00:00:00 2001
+From 5058eea04dd50d2e70c1b19b99827444e2ff1cc5 Mon Sep 17 00:00:00 2001
 From: macrule <macrule2001@yahoo.de>
 Date: Thu, 11 Apr 2013 19:50:58 +0200
-Subject: [PATCH 70/91] Changed SDTV resolutions to be treated similarly to
+Subject: [PATCH 70/94] Changed SDTV resolutions to be treated similarly to
  HDMI resolutions in SetNativeResolution. This means that the SDTV interface
  is powered up and set to the right mode.
 
@@ -12073,10 +12173,10 @@ index 59401f5..a0acb1a 100644
 2.0.3
 
 
-From 1c0fdc88b53ea2806021c1b18e2d586c6ad87b2f Mon Sep 17 00:00:00 2001
+From 2728bb0da46b4cb41c9cfbadcd83817886d1fed8 Mon Sep 17 00:00:00 2001
 From: macrule <macrule2001@yahoo.de>
 Date: Thu, 11 Apr 2013 19:54:59 +0200
-Subject: [PATCH 71/91] Added methods SuspendVideoOutput() and
+Subject: [PATCH 71/94] Added methods SuspendVideoOutput() and
  ResumeVideoOutput() to CRBP class, which can be used to power down the
  Raspberry PI's video interface, and restore it at a later point.
 
@@ -12143,10 +12243,10 @@ index 9dc39d5..ca36082 100644
 2.0.3
 
 
-From 308b3cf08abd7763a2869baafef5ba79e9cbd1fa Mon Sep 17 00:00:00 2001
+From 97d0728a782ea92bdfbbf524366ab268ab7526be Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 11 Aug 2013 15:03:36 +0100
-Subject: [PATCH 72/91] PowerManager (and its IPowerSyscall instance) now gets
+Subject: [PATCH 72/94] PowerManager (and its IPowerSyscall instance) now gets
  called from CApplication::OnKey() and can process and suppress key presses.
  This is a requirement to implement a virtual sleep state.
 
@@ -12158,10 +12258,10 @@ Subject: [PATCH 72/91] PowerManager (and its IPowerSyscall instance) now gets
  4 files changed, 23 insertions(+)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index a2e4fe8..995781e 100644
+index f6b2901..48d6afb 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2365,6 +2365,13 @@ bool CApplication::OnKey(const CKey& key)
+@@ -2358,6 +2358,13 @@ bool CApplication::OnKey(const CKey& key)
    // special handling if the screensaver is active
    CAction action = CButtonTranslator::GetInstance().GetAction(iWin, key);
  
@@ -12242,10 +12342,10 @@ index 0b1f10a..e42b143 100644
 2.0.3
 
 
-From 806b047efbb3dc47b1ed88de61df5338b12b9a3b Mon Sep 17 00:00:00 2001
+From 69725511949af7bb7f037c097427eaba814fc5a0 Mon Sep 17 00:00:00 2001
 From: macrule <macrule2001@yahoo.de>
 Date: Wed, 17 Apr 2013 13:23:01 +0200
-Subject: [PATCH 73/91] Added CPowerSyscallVirtualSleep class, which acts as a
+Subject: [PATCH 73/94] Added CPowerSyscallVirtualSleep class, which acts as a
  base class for devices that have no native standby mode, and need to fake it
  in some way.
 
@@ -12424,10 +12524,10 @@ index 0000000..ef6e682
 2.0.3
 
 
-From 7052670b16d0ee7853cf565aee76b45778615080 Mon Sep 17 00:00:00 2001
+From d3cb1a0f61f162f8d0f68a12f13876901a527677 Mon Sep 17 00:00:00 2001
 From: macrule <macrule2001@yahoo.de>
 Date: Wed, 17 Apr 2013 13:24:22 +0200
-Subject: [PATCH 74/91] Added power management support for the Raspberry Pi.
+Subject: [PATCH 74/94] Added power management support for the Raspberry Pi.
  Since it doesn't support true standby, we fake it by turning video on or off,
  and ignoring remote inputs during the standby phase.
 
@@ -12576,10 +12676,10 @@ index 0000000..fd1d67c
 2.0.3
 
 
-From 63ed5533460e6b13c16bba7e963a7e10e77820d9 Mon Sep 17 00:00:00 2001
+From a54b4ced36ce74ecf3c5dfad3fddc7fb70edc10d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Mar 2014 16:16:29 +0000
-Subject: [PATCH 75/91] [power] hack - don't kill lirc or cec
+Subject: [PATCH 75/94] [power] hack - don't kill lirc or cec
 
 ---
  xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 37 +++++++++++++++++++++++
@@ -12666,10 +12766,10 @@ index 2d8c750..901f449 100644
 2.0.3
 
 
-From b77cb024976fee6b9898c9274e995d368a1cc5d3 Mon Sep 17 00:00:00 2001
+From 960a483861c3a7f96e98ed2fd6a83afa94b54ae4 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Mar 2014 16:47:54 +0000
-Subject: [PATCH 76/91] [power] hack - wake on any action
+Subject: [PATCH 76/94] [power] hack - wake on any action
 
 ---
  xbmc/powermanagement/PowerSyscallVirtualSleep.cpp | 6 +++---
@@ -12701,10 +12801,10 @@ index 6a1e47b..a717a09 100644
 2.0.3
 
 
-From b45f716af31d0add8094faa2cc2b066b2405f6d4 Mon Sep 17 00:00:00 2001
+From 9f7463ade813ece86849313957aa6949fa072f29 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 3 Mar 2014 17:30:07 +0000
-Subject: [PATCH 77/91] [power] hack - Make suspend toggle suspend state
+Subject: [PATCH 77/94] [power] hack - Make suspend toggle suspend state
 
 ---
  xbmc/powermanagement/PowerSyscallVirtualSleep.cpp | 5 +++++
@@ -12730,10 +12830,10 @@ index a717a09..d39c3ed 100644
 2.0.3
 
 
-From 6e25c74f0b927fac75b30596c7e7a2db1fbae5a9 Mon Sep 17 00:00:00 2001
+From 3a666a6986826725ccc0cb76da2ded8dd97915ff Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 4 Mar 2014 19:33:44 +0000
-Subject: [PATCH 78/91] [power] Add back in powerdown and reboot
+Subject: [PATCH 78/94] [power] Add back in powerdown and reboot
 
 ---
  .../linux/RaspberryPIPowerSyscall.cpp              | 34 ++++++++++++++++++++++
@@ -12814,10 +12914,10 @@ index fd1d67c..062132e 100644
 2.0.3
 
 
-From 58203679b87964b5ec2e1d8330c2a379f08debb0 Mon Sep 17 00:00:00 2001
+From 490ff9bb3879df7b815804e196cd816ac985f601 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 27 Jun 2014 00:01:05 +0100
-Subject: [PATCH 81/91] [rbp] Resume video output on startup
+Subject: [PATCH 81/94] [rbp] Resume video output on startup
 
 ---
  xbmc/linux/RBP.cpp | 3 +++
@@ -12841,10 +12941,10 @@ index e03d673..cea5ac5 100644
 2.0.3
 
 
-From dc1ecd3ff0d11ab94870da74b8964f1ff68a17f8 Mon Sep 17 00:00:00 2001
+From d3ee6d2b59b31ede0be90649eb5c4d4f3abe8d3d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 9 Jul 2014 22:45:43 +0100
-Subject: [PATCH 82/91] [rbp] Make cachemembuffersize default depend on memory
+Subject: [PATCH 82/94] [rbp] Make cachemembuffersize default depend on memory
  size
 
 ---
@@ -12903,10 +13003,10 @@ index 627080b..d5708ad 100644
 2.0.3
 
 
-From f4f79ff0ef42a643e0d82c238fc291e0cc5120c0 Mon Sep 17 00:00:00 2001
+From 07e85c397dcfc4b53988780a745881868080b649 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 27 Jun 2014 00:36:29 +0100
-Subject: [PATCH 83/91] [omxplayer] Experimental support for anaglyph rendering
+Subject: [PATCH 83/94] [omxplayer] Experimental support for anaglyph rendering
  of 3d videos
 
 Requires updated firmware
@@ -13191,10 +13291,10 @@ index 64e0d16..8a58893 100644
 2.0.3
 
 
-From aeb785ef86aae422bc3c9ce0af485a1358f04688 Mon Sep 17 00:00:00 2001
+From 594b2912dac06c8e10d9cbc4b8e92ff5d3468aba Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 2 Jul 2014 12:24:01 +0100
-Subject: [PATCH 84/91] [settings] Add update flag to omx acceleration
+Subject: [PATCH 84/94] [settings] Add update flag to omx acceleration
 
 ---
  system/settings/settings.xml | 3 +++
@@ -13202,10 +13302,10 @@ Subject: [PATCH 84/91] [settings] Add update flag to omx acceleration
  2 files changed, 4 insertions(+)
 
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index cc331b7..5378c97 100644
+index d69ffc0..fb358c1 100644
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -740,6 +740,9 @@
+@@ -744,6 +744,9 @@
            </dependencies>
            <level>2</level>
            <default>true</default>
@@ -13216,10 +13316,10 @@ index cc331b7..5378c97 100644
          </setting>
          <setting id="videoplayer.usevideotoolbox" type="boolean" label="13432" help="36162">
 diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
-index b5ed60a..84b3225 100644
+index 797e91a..c0ca299 100644
 --- a/xbmc/settings/Settings.cpp
 +++ b/xbmc/settings/Settings.cpp
-@@ -720,6 +720,7 @@ void CSettings::InitializeISettingCallbacks()
+@@ -723,6 +723,7 @@ void CSettings::InitializeISettingCallbacks()
    settingSet.insert("videoscreen.testpattern");
    settingSet.insert("videoplayer.useamcodec");
    settingSet.insert("videoplayer.usemediacodec");
@@ -13231,10 +13331,10 @@ index b5ed60a..84b3225 100644
 2.0.3
 
 
-From 70a1ad0ca5d468496ebf69b0c97af715d503c5f1 Mon Sep 17 00:00:00 2001
+From 3f7eaeab626d858a303034be7256f7d35129686d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 2 Jul 2014 20:41:29 +0100
-Subject: [PATCH 85/91] [pi] Reduce time textures are held for when memory is
+Subject: [PATCH 85/94] [pi] Reduce time textures are held for when memory is
  low
 
 ---
@@ -13244,10 +13344,10 @@ Subject: [PATCH 85/91] [pi] Reduce time textures are held for when memory is
  3 files changed, 20 insertions(+)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 995781e..6efd2a1 100644
+index 48d6afb..9cabb6f 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -348,6 +348,10 @@
+@@ -345,6 +345,10 @@
  #include "utils/AMLUtils.h"
  #endif
  
@@ -13258,7 +13358,7 @@ index 995781e..6efd2a1 100644
  #include "cores/FFmpeg.h"
  
  using namespace std;
-@@ -5195,6 +5199,11 @@ void CApplication::ProcessSlow()
+@@ -5180,6 +5184,11 @@ void CApplication::ProcessSlow()
    if (!m_pPlayer->IsPlayingVideo())
      g_largeTextureManager.CleanupUnusedImages();
  
@@ -13307,10 +13407,10 @@ index 04ddaa0..3ad2327 100644
 2.0.3
 
 
-From 7eefe3eb6afd498f2ca6508ea99cff40a383e93a Mon Sep 17 00:00:00 2001
+From 052693f67c5255f45f38eea72290edc51af9b382 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sat, 5 Jul 2014 19:26:46 +0100
-Subject: [PATCH 86/91] [omxplayer] Explictly choose deinterlace method for
+Subject: [PATCH 86/94] [omxplayer] Explictly choose deinterlace method for
  1080i
 
 As the 1080i deinterlace doesn't require the 3 frames of context we can save ~9MB by requesting it explicitly
@@ -13338,10 +13438,10 @@ index b100018..15b62af 100644
 2.0.3
 
 
-From 283a873a213bfccfaa4d4884900f9366a6abc9ba Mon Sep 17 00:00:00 2001
+From bded1154d0c265ac19db8d13f35d9451b594086b Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 8 Jul 2014 21:00:44 +0100
-Subject: [PATCH 87/91] [omxcodec] Fix 3D rendering for dvdplayer
+Subject: [PATCH 87/94] [omxcodec] Fix 3D rendering for dvdplayer
 
 Similar to https://github.com/xbmc/xbmc/pull/3887
 ---
@@ -13408,10 +13508,10 @@ index 53873f6..84a46ec 100644
 2.0.3
 
 
-From 32f827f30158fa7dac5703b02a7559cfcfbdd597 Mon Sep 17 00:00:00 2001
+From c123c7a2876cfe2bc0f36e662c635b9b21847af6 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 13 Jul 2014 11:28:20 +0100
-Subject: [PATCH 88/91] [ResamplePi] Fix xbmc crash with usb audio when music
+Subject: [PATCH 88/94] [ResamplePi] Fix xbmc crash with usb audio when music
  file switched
 
 Need to handle the case where AE requests fewer output samples that are produced.
@@ -13562,34 +13662,106 @@ index 47a9e08..b88a90b 100644
 2.0.3
 
 
-From a10235c5a0644144b4cc6cae0ed4e6f1ec2f4df6 Mon Sep 17 00:00:00 2001
+From 6c82d36c25c010de686e2e8a7e7598cb9f08682e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
-Date: Tue, 5 Aug 2014 00:44:35 +0100
-Subject: [PATCH 91/91] [airplay] Fix for airplay init race condition
+Date: Sun, 10 Aug 2014 16:45:16 +0100
+Subject: [PATCH 91/94] filesystem: Make support of browsing into archives
+ optional
 
-http://forum.xbmc.org/showthread.php?tid=201355
+The ability to browse, scan and play content in archives can cause problems on low powered/low memory devices.
+It's quite common to see reports of a large rar file that causes xbmc to crash with an out-of-memory error when browsing or scanning.
+It also can be slow as any archive in the directory is opened and extracted.
+
+Add a settings option to enable this feature and default to disabled on Pi
 ---
- xbmc/network/AirTunesServer.cpp | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ language/English/strings.po              | 10 ++++++++++
+ system/settings/rbp.xml                  | 10 ++++++++++
+ system/settings/settings.xml             |  5 +++++
+ xbmc/filesystem/FileDirectoryFactory.cpp |  4 ++++
+ 4 files changed, 29 insertions(+)
 
-diff --git a/xbmc/network/AirTunesServer.cpp b/xbmc/network/AirTunesServer.cpp
-index 1ba4136..167faf3 100644
---- a/xbmc/network/AirTunesServer.cpp
-+++ b/xbmc/network/AirTunesServer.cpp
-@@ -265,8 +265,11 @@ void  CAirTunesServer::AudioOutputFunctions::audio_process(void *cls, void *sess
- 
- void  CAirTunesServer::AudioOutputFunctions::audio_flush(void *cls, void *session)
- {
--  XFILE::CPipeFile *pipe=(XFILE::CPipeFile *)cls;
--  pipe->Flush();
-+  if (g_application.m_pPlayer && g_application.m_pPlayer->IsPlaying())
+diff --git a/language/English/strings.po b/language/English/strings.po
+index a3ead30..b36e249 100755
+--- a/language/English/strings.po
++++ b/language/English/strings.po
+@@ -15850,3 +15850,13 @@ msgstr ""
+ msgctxt "#37030"
+ msgid "Unlimited"
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#37031"
++msgid "Support browsing into archives"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#37032"
++msgid "Allow viewing and playing files in archives (e.g. zip, rar)"
++msgstr ""
+diff --git a/system/settings/rbp.xml b/system/settings/rbp.xml
+index 60086d8..b65136a 100644
+--- a/system/settings/rbp.xml
++++ b/system/settings/rbp.xml
+@@ -1,5 +1,15 @@
+ <?xml version="1.0" encoding="utf-8" ?>
+ <settings>
++  <section id="appearance">
++    <category id="filelists">
++      <group id="1">
++        <setting id="filelists.browsearchives" type="boolean" label="37031" help="37032">
++          <default>false</default>
++        </setting>
++      </group>
++    </category>
++  </section>
++
+   <section id="videos">
+     <category id="videoacceleration">
+       <group id="1">
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index fb358c1..fdc44fb 100644
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -226,6 +226,11 @@
+           <default>false</default>
+           <control type="toggle" />
+         </setting>
++        <setting id="filelists.browsearchives" type="boolean" label="37031" help="37032">
++          <level>1</level>
++          <default>true</default>
++          <control type="toggle" />
++        </setting>
+       </group>
+     </category>
+     <category id="screensaver" label="360" help="36128">
+diff --git a/xbmc/filesystem/FileDirectoryFactory.cpp b/xbmc/filesystem/FileDirectoryFactory.cpp
+index 7fc240886..692c767 100644
+--- a/xbmc/filesystem/FileDirectoryFactory.cpp
++++ b/xbmc/filesystem/FileDirectoryFactory.cpp
+@@ -46,6 +46,7 @@
+ #include "Directory.h"
+ #include "File.h"
+ #include "ZipManager.h"
++#include "settings/Settings.h"
+ #include "settings/AdvancedSettings.h"
+ #include "FileItem.h"
+ #include "utils/StringUtils.h"
+@@ -142,6 +143,8 @@ IFileDirectory* CFileDirectoryFactory::Create(const CURL& url, CFileItem* pItem,
+     return NULL;
+   }
+ #endif
++  if (CSettings::Get().GetBool("filelists.browsearchives"))
 +  {
-+    XFILE::CPipeFile *pipe=(XFILE::CPipeFile *)cls;
-+    pipe->Flush();
+   if (url.IsFileType("zip"))
+   {
+     CURL zipURL = URIUtils::CreateArchivePath("zip", url);
+@@ -215,6 +218,7 @@ IFileDirectory* CFileDirectoryFactory::Create(const CURL& url, CFileItem* pItem,
+     }
+     return NULL;
+   }
 +  }
- }
- 
- void  CAirTunesServer::AudioOutputFunctions::audio_destroy(void *cls, void *session)
+   if (url.IsFileType("xsp"))
+   { // XBMC Smart playlist - just XML renamed to XSP
+     // read the name of the playlist in
 -- 
 2.0.3
-
