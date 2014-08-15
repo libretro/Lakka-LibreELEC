@@ -30,17 +30,10 @@ PKG_SHORTDESC="mpfr: A C library for multiple-precision floating-point computati
 PKG_LONGDESC="The MPFR library is a C library for multiple-precision floating-point computations with exact rounding (also called correct rounding). It is based on the GMP multiple-precision library. The main goal of MPFR is to provide a library for multiple-precision floating-point computation which is both efficient and has well-defined semantics. It copies the good ideas from the ANSI/IEEE-754 standard for double-precision floating-point arithmetic (53-bit mantissa)."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --enable-static --disable-shared \
                          --prefix=$ROOT/$TOOLCHAIN \
                          --with-gmp-lib=$ROOT/$TOOLCHAIN/lib \
                          --with-gmp-include=$ROOT/$TOOLCHAIN/include"
-
-pre_build_host() {
-  ( cd $PKG_BUILD
-    libtoolize
-    autoreconf -vif
-  )
-}
