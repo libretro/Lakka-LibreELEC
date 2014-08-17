@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="boost"
-PKG_VERSION="1_55_0"
+PKG_VERSION="1_56_0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.boost.org/"
-PKG_URL="$SOURCEFORGE_SRC/boost/boost/1.55.0/${PKG_NAME}_${PKG_VERSION}.tar.bz2"
+PKG_URL="$SOURCEFORGE_SRC/boost/boost/1.56.0/${PKG_NAME}_${PKG_VERSION}.tar.bz2"
 PKG_SOURCE_DIR="${PKG_NAME}_${PKG_VERSION}"
 PKG_DEPENDS_HOST=""
 PKG_DEPENDS_TARGET="toolchain boost:host Python:host zlib bzip2"
@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_host() {
-  cd tools/build/v2/engine
+  cd tools/build/src/engine
     sh build.sh
 }
 
@@ -59,7 +59,7 @@ configure_target() {
                   --with-python=$ROOT/$TOOLCHAIN/bin/python \
 
   echo "using gcc : `$TARGET_CC -v 2>&1  | tail -n 1 |awk '{print $3}'` : $TARGET_CC  : <compileflags>\"$CFLAGS\" <linkflags>\"$LDFLAGS\" ;" \
-    > tools/build/v2/user-config.jam
+    > tools/build/src/user-config.jam
 }
 
 make_target() {
