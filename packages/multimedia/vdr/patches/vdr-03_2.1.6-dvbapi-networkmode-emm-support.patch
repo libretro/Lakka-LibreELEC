@@ -1,0 +1,169 @@
+From: https://github.com/manio/vdr-plugin-dvbapi/issues/52
+Date: Wed, 6 Aug 2014 14:25:43 +0200
+Subject: [PATCH] Support EMMs in Network Mode at DVBApi
+
+---
+ ci.c    | 85 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++----
+ ci.h    |  4 ++--
+ remux.h |  1 +
+ 3 files changed, 84 insertions(+), 6 deletions(-)
+
+diff --git a/ci.c b/ci.c
+index 6b0805d..b8b01b0 100644
+--- a/ci.c
++++ b/ci.c
+@@ -20,6 +20,8 @@
+ #include "device.h"
+ #include "pat.h"
+ #include "receiver.h"
++#include "remux.h"
++#include "libsi/si.h"
+ #include "tools.h"
+ 
+ // Set these to 'true' for debug output:
+@@ -105,14 +107,89 @@ static char *GetString(int &Length, const uint8_t **Data)
+ 
+ // --- cCaPidReceiver --------------------------------------------------------
+ 
+-// A dummy receiver, just used to make the device receive the CA pids.
++// A receiver that is used to make the device receive the ECM pids, as well as the
++// CAT and the EMM pids.
+ 
+ class cCaPidReceiver : public cReceiver {
++private:
++  int catVersion;
++  cVector<int> emmPids;
++  void AddEmmPid(int Pid);
++  void DelEmmPids(void);
++protected:
++  virtual void Activate(bool On);
+ public:
++  cCaPidReceiver(void);
+   virtual ~cCaPidReceiver() { Detach(); }
+-  virtual void Receive(uchar *Data, int Length) {}
++  virtual void Receive(uchar *Data, int Length);
++  bool HasCaPids(void) { return NumPids() - emmPids.Size() - 1 > 0; }
+   };
+ 
++cCaPidReceiver::cCaPidReceiver(void)
++{
++  catVersion = -1;
++  AddPid(CATPID);
++}
++
++void cCaPidReceiver::AddEmmPid(int Pid)
++{
++  for (int i = 0; i < emmPids.Size(); i++) {
++      if (emmPids[i] == Pid)
++         return;
++      }
++  emmPids.Append(Pid);
++  AddPid(Pid);
++}
++
++void cCaPidReceiver::DelEmmPids(void)
++{
++  for (int i = 0; i < emmPids.Size(); i++)
++      DelPid(emmPids[i]);
++  emmPids.Clear();
++}
++
++void cCaPidReceiver::Activate(bool On)
++{
++  catVersion = -1; // can be done independent of 'On'
++}
++
++void cCaPidReceiver::Receive(uchar *Data, int Length)
++{
++  if (TsPid(Data) == CATPID && Data[5] == SI::TableIdCAT) {
++     int l = (int(Data[6] & 0x03) << 8) | Data[7]; // section length
++     if (l > 5) {
++        int v = (Data[10] & 0x3E) >> 1; // version number
++        if (v != catVersion) {
++           if (Data[11] == 0 && Data[12] == 0) { // section number, last section number
++              if (l <= TS_SIZE - 8) {
++                 DelEmmPids();
++                 for (int i = 13; i < l + 8 - 4; i++) { // +8 = header, -4 = checksum
++                     if (Data[i] == 0x09) {
++                        int CaId = int(Data[i + 2] << 8) | Data[i + 3];
++                        int EmmPid = int(((Data[i + 4] & 0x1F) << 8)) | Data[i + 5];
++                        AddEmmPid(EmmPid);
++                        switch (CaId >> 8) {
++                          case 0x01: for (int j = i + 7; j < Data[i + 1] + 2; j += 4) {
++                                         EmmPid = (int(Data[j] & 0x0F) << 8) | Data[j + 1];
++                                         AddEmmPid(EmmPid);
++                                         }
++                                     break;
++                          }
++                        i += Data[i + 1] - 1; // -1 to compensate for the loop increment
++                        }
++                     }
++                 }
++              else
++                 dsyslog("multi packet CAT section - unhandled!");
++              }
++           else
++              dsyslog("multi table CAT section - unhandled!");
++           catVersion = v;
++           }
++        }
++     }
++}
++
+ // --- cTPDU -----------------------------------------------------------------
+ 
+ #define MAX_TPDU_SIZE  2048
+@@ -1811,7 +1888,7 @@ void cCamSlot::SendCaPmt(uint8_t CmdId)
+      const int *CaSystemIds = cas->GetCaSystemIds();
+      if (CaSystemIds && *CaSystemIds) {
+         if (caProgramList.Count()) {
+-           if (caPidReceiver && caPidReceiver->NumPids()) {
++           if (caPidReceiver && caPidReceiver->HasCaPids()) {
+               if (cDevice *d = Device())
+                  d->Detach(caPidReceiver);
+               }
+@@ -1845,7 +1922,7 @@ void cCamSlot::SendCaPmt(uint8_t CmdId)
+                       }
+                    }
+                }
+-           if (caPidReceiver && caPidReceiver->NumPids()) {
++           if (caPidReceiver && caPidReceiver->HasCaPids()) {
+               if (cDevice *d = Device())
+                  d->AttachReceiver(caPidReceiver);
+               }
+diff --git a/ci.h b/ci.h
+index ac029c2..f68884b 100644
+--- a/ci.h
++++ b/ci.h
+@@ -119,7 +119,7 @@ class cTPDU;
+ class cCiTransportConnection;
+ class cCiSession;
+ class cCiCaProgramData;
+-class cReceiver;
++class cCaPidReceiver;
+ 
+ class cCamSlot : public cListObject {
+   friend class cCiAdapter;
+@@ -128,7 +128,7 @@ class cCamSlot : public cListObject {
+   cMutex mutex;
+   cCondVar processed;
+   cCiAdapter *ciAdapter;
+-  cReceiver *caPidReceiver;
++  cCaPidReceiver *caPidReceiver;
+   int slotIndex;
+   int slotNumber;
+   cCiTransportConnection *tc[MAX_CONNECTIONS_PER_CAM_SLOT + 1];  // connection numbering starts with 1
+diff --git a/remux.h b/remux.h
+index 5574635..ffe04b5 100644
+--- a/remux.h
++++ b/remux.h
+@@ -50,6 +50,7 @@ class cRemux {
+ #define TS_ADAPT_EXTENSION    0x01
+ 
+ #define PATPID 0x0000 // PAT PID (constant 0)
++#define CATPID 0x0001 // CAT PID (constant 1)
+ #define MAXPID 0x2000 // for arrays that use a PID as the index
+ 
+ #define PTSTICKS  90000 // number of PTS ticks per second
+-- 
+2.0.3
