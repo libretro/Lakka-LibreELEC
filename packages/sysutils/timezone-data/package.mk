@@ -50,9 +50,6 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/etc
     ln -sf /var/run/localtime $INSTALL/etc/localtime
-
-  mkdir -p $INSTALL/usr/lib/openelec
-    cp -PR $PKG_DIR/scripts/tzdata-setup $INSTALL/usr/lib/openelec
 }
 
 post_install() {
