@@ -23,7 +23,6 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sourceware.org/$PKG_NAME/"
 PKG_URL="ftp://sourceware.org/pub/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_HOST="ccache:host autoconf:host automake:host libtool:host intltool:host autoconf-archive:host"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
@@ -32,12 +31,6 @@ PKG_LONGDESC="The libffi library provides a portable, high level programming int
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
-
-PKG_CONFIGURE_OPTS_HOST="--disable-debug \
-             --enable-structs \
-             --enable-raw-api \
-             --disable-purify-safety \
-             --with-gnu-ld"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
              --enable-structs \
