@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/dbus"
 PKG_URL="http://dbus.freedesktop.org/releases/dbus-glib/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_HOST="glib:host dbus:host"
-PKG_DEPENDS_TARGET="toolchain dbus glib expat dbus-glib:host"
+PKG_DEPENDS_TARGET="toolchain dbus glib expat"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="dbus-glib: A message bus system"
@@ -40,13 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_have_abstract_sockets=yes \
                            --disable-shared \
                            --disable-tests \
                            --disable-bash-completion \
-                           --enable-asserts=no \
-                           --with-introspect-xml=$PKG_BUILD/.$HOST_NAME/introspect.xml \
-                           --with-dbus-binding-tool=$ROOT/$TOOLCHAIN/bin/dbus-binding-tool"
-
-PKG_CONFIGURE_OPTS_HOST="--disable-tests \
-                         --disable-bash-completion \
-                         --enable-asserts=yes"
+                           --enable-asserts=no"
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -fPIC -DPIC"
