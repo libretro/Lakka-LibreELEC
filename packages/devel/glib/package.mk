@@ -23,8 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
 PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/2.40/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_HOST="ccache:host libffi:host libxml2:host zlib:host Python:host"
-PKG_DEPENDS_TARGET="toolchain zlib libffi pcre glib:host Python:host"
+PKG_DEPENDS_TARGET="toolchain zlib libffi pcre Python:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="glib: C support library"
@@ -32,15 +31,6 @@ PKG_LONGDESC="GLib is a library which includes support routines for C such as li
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
-
-PKG_CONFIGURE_OPTS_HOST="--with-gnu-ld \
-                         --with-libiconv=no \
-                         --enable-debug=no \
-                         --disable-man \
-                         --disable-dtrace \
-                         --disable-systemtap \
-                         --disable-rebuilds \
-                         --disable-gtk-doc"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
                            ac_cv_func_posix_getpwuid_r=yes \
@@ -63,25 +53,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
                            --with-gnu-ld \
                            --with-threads=posix \
                            --with-pcre=system"
-
-pre_build_host() {
-  # hack: we need pkg.m4 for autoreconf, but pkgconfig depends on glib so install
-  # pkg.m4 first
-  $SCRIPTS/unpack pkg-config
-  cp $BUILD/pkg-config-*/pkg.m4 $TOOLCHAIN/share/aclocal
-}
-
-pre_configure_host() {
-  export ZLIB_CFLAGS=""
-  export ZLIB_LIBS=""
-  export LIBFFI_CFLAGS="-I$ROOT/$TOOLCHAIN/include/libffi"
-  export LIBFFI_LIBS="-L$ROOT/$TOOLCHAIN/lib -lffi"
-}
-
-post_makeinstall_host() {
-  cp -f gobject/.libs/glib-genmarshal $ROOT/$TOOLCHAIN/bin
-  cp -f gobject/glib-mkenums $ROOT/$TOOLCHAIN/bin
-}
 
 post_makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
