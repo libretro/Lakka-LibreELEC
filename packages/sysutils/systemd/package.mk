@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="http://www.freedesktop.org/software/systemd/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux glib libgcrypt"
+PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux libgcrypt"
 PKG_PRIORITY="required"
 PKG_SECTION="system"
 PKG_SHORTDESC="systemd: a system and session manager"
@@ -89,7 +89,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-terminal \
                            --disable-kdbus \
                            --disable-myhostname \
-                           --enable-gudev \
+                           --disable-gudev \
                            --disable-manpages \
                            --disable-ldconfig \
                            --enable-split-usr \
