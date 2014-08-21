@@ -1,7 +1,7 @@
 From 13b9c7491eca92e94ee52dd8c0dbecfdd34436b6 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 7 Aug 2014 13:46:49 +0200
-Subject: [PATCH 1/2] ADD: Freescale i.MX6 h/w codec
+Subject: [PATCH 1/3] ADD: Freescale i.MX6 h/w codec
 
 ---
  configure.in                                       |   13 +-
@@ -2339,13 +2339,13 @@ index be532ec..7812523 100644
    }
    return "UNKNOWN";
 -- 
-2.0.3
+2.0.4
 
 
 From 01f64d4b6ecce932cbc0f632651e0a24d94e9fc1 Mon Sep 17 00:00:00 2001
 From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
 Date: Thu, 7 Aug 2014 13:51:15 +0200
-Subject: [PATCH 2/2] ADD: [imx] native framebuffer support
+Subject: [PATCH 2/3] ADD: [imx] native framebuffer support
 
 ---
  configure.in                            |   9 +
@@ -2823,5 +2823,1108 @@ index f800b7f..ec84c1d 100644
  
  include ../../../Makefile.include
 -- 
-2.0.3
+2.0.4
+
+
+From 7ed99d4098b471232c19742475bf52bb92e806f2 Mon Sep 17 00:00:00 2001
+From: wolfgar <stephan.rafin@laposte.net>
+Date: Thu, 21 Aug 2014 01:55:00 +0200
+Subject: [PATCH 3/3] Cleanup after first reviewing : * Remove imx
+ deinterlacing support : It will be reworked and submited later   as a new PR
+ with dedicated methods for imx deinterlacing * class CDVDVideoCodecBuffer
+ removed and specific   CDVDVideoCodecIMXBuffer used * Renaming of codecinfo
+ to IMXBuffer * Useless includes removed * Remove the IMXFB define as
+ linux/mxcfb.h is no longer used
+
+---
+ configure.in                                       |   9 -
+ xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |  96 +++--
+ xbmc/cores/VideoRenderers/LinuxRendererGLES.h      |   9 +-
+ xbmc/cores/VideoRenderers/RenderManager.cpp        |   2 +-
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      |   6 +-
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 408 +--------------------
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h   |  77 +---
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h  |  38 --
+ xbmc/windowing/egl/EGLNativeTypeIMX.cpp            |  17 +-
+ xbmc/windowing/egl/EGLNativeTypeIMX.h              |   1 -
+ xbmc/windowing/egl/EGLWrapper.cpp                  |   8 +-
+ xbmc/windowing/egl/Makefile.in                     |   5 +-
+ 12 files changed, 85 insertions(+), 591 deletions(-)
+ delete mode 100644 xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h
+
+diff --git a/configure.in b/configure.in
+index a505582..c8a9ce2 100644
+--- a/configure.in
++++ b/configure.in
+@@ -985,15 +985,6 @@ else
+   AC_MSG_RESULT($wayland_disabled)
+ fi
+ 
+-# i.MX6
+-AC_MSG_CHECKING([for i.MX framebuffer support])
+-AC_CHECK_HEADER([linux/mxcfb.h], have_imxfb=yes,have_imxfb=no)
+-AC_MSG_RESULT($have_imxfb)
+-if test "x$have_imxfb" = "xyes"; then
+-  AC_DEFINE([HAS_IMXFB], [1], [Whether i.MX framebuffer support is enabled.])
+-  AC_SUBST([USE_IMXFB], 1)
+-fi
+-
+ # Checks for platforms libraries.
+ if test "$use_gles" = "yes"; then
+   use_gl="no"
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
+index 9e32a69..8db4ea1 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
+@@ -114,7 +114,9 @@ CLinuxRendererGLES::YUVBUFFER::YUVBUFFER()
+ #if defined(TARGET_ANDROID)
+   mediacodec = NULL;
+ #endif
+-  codecinfo = NULL;
++#ifdef HAS_IMXVPU
++  IMXBuffer = NULL;
++#endif
+ }
+ 
+ CLinuxRendererGLES::YUVBUFFER::~YUVBUFFER()
+@@ -930,6 +932,16 @@ void CLinuxRendererGLES::ReleaseBuffer(int idx)
+     }
+   }
+ #endif
++#ifdef HAS_IMXVPU
++  if (m_renderMethod & RENDER_IMXMAP)
++  {
++    if (buf.IMXBuffer)
++    {
++      SAFE_RELEASE(buf.IMXBuffer);
++      buf.IMXBuffer = NULL;
++    }
++  }
++#endif
+ }
+ 
+ void CLinuxRendererGLES::Render(DWORD flags, int index)
+@@ -1629,13 +1641,13 @@ void CLinuxRendererGLES::RenderIMXMAPTexture(int index, int field)
+ #endif
+ 
+   YUVPLANE &plane = m_buffers[index].fields[field][0];
+-  CDVDVideoCodecBuffer* codecinfo = m_buffers[index].codecinfo;
++  CDVDVideoCodecIMXBuffer *buffer = m_buffers[index].IMXBuffer;
+ 
+-  if(codecinfo == NULL) return;
++  if(buffer == NULL) return;
+ 
+   CDVDVideoCodecIMX::Enter();
+ 
+-  if(!codecinfo->IsValid())
++  if(!buffer->IsValid())
+   {
+     CDVDVideoCodecIMX::Leave();
+     return;
+@@ -2637,65 +2649,45 @@ void CLinuxRendererGLES::UploadIMXMAPTexture(int index)
+ {
+ #ifdef HAS_IMXVPU
+   YUVBUFFER& buf =  m_buffers[index];
+-  CDVDVideoCodecBuffer* codecinfo = buf.codecinfo;
++  CDVDVideoCodecIMXBuffer* IMXBuffer = buf.IMXBuffer;
+ 
+-  if(codecinfo)
++  if(IMXBuffer)
+   {
+     CDVDVideoCodecIMX::Enter();
+ 
+-    if(!codecinfo->IsValid())
++    if(!IMXBuffer->IsValid())
+     {
+       CDVDVideoCodecIMX::Leave();
+       return;
+     }
+ 
+     YUVPLANE &plane = m_buffers[index].fields[0][0];
+-    CDVDVideoCodecIPUBuffers *deinterlacer = (CDVDVideoCodecIPUBuffers*)codecinfo->data[2];
+-
+-    if (deinterlacer)
+-    {
+-      EDEINTERLACEMODE deinterlacemode = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
+-
+-      if (deinterlacemode != VS_DEINTERLACEMODE_OFF)
+-      {
+-        CDVDVideoCodecBuffer *deint;
+-        EINTERLACEMETHOD interlacemethod = CMediaSettings::Get().GetCurrentVideoSettings().m_InterlaceMethod;
+-        deint = deinterlacer->Process(codecinfo, (VpuFieldType)(int)codecinfo->data[3],
+-                                      interlacemethod == VS_INTERLACEMETHOD_DEINTERLACE);
+-        if (deint)
+-        {
+-          SAFE_RELEASE(buf.codecinfo);
+-          buf.codecinfo = deint;
+-          buf.codecinfo->Lock();
+-          codecinfo = buf.codecinfo;
+-        }
+-      }
+-    }
+ 
+     glActiveTexture(GL_TEXTURE0);
+     glBindTexture(m_textureTarget, plane.id);
+ 
+     GLuint physical = ~0U;
+-    GLvoid *virt = (GLvoid*)codecinfo->data[0];
+-    glTexDirectVIVMap(m_textureTarget, codecinfo->iWidth, codecinfo->iHeight, GL_VIV_NV12,
++    GLvoid *virt = (GLvoid*)IMXBuffer->m_VirtAddr;
++    glTexDirectVIVMap(m_textureTarget, IMXBuffer->m_iWidth, IMXBuffer->m_iHeight, GL_VIV_NV12,
+                       (GLvoid **)&virt, &physical);
+     glTexDirectInvalidateVIV(m_textureTarget);
+ 
+     glBindTexture(m_textureTarget, 0);
+ 
+     plane.flipindex = m_buffers[index].flipindex;
+-    plane.texwidth  = codecinfo->iWidth;
+-    plane.texheight = codecinfo->iHeight;
++    plane.texwidth  = IMXBuffer->m_iWidth;
++    plane.texheight = IMXBuffer->m_iHeight;
+ 
+     CalculateTextureSourceRects(index, 1);
+ 
+     CDVDVideoCodecIMX::Leave();
+   }
+-
+ #endif
+ }
++
+ void CLinuxRendererGLES::DeleteIMXMAPTexture(int index)
+ {
++#ifdef HAS_IMXVPU
+   YUVBUFFER &buf = m_buffers[index];
+   YUVPLANE &plane = buf.fields[0][0];
+ 
+@@ -2703,8 +2695,10 @@ void CLinuxRendererGLES::DeleteIMXMAPTexture(int index)
+     glDeleteTextures(1, &plane.id);
+   plane.id = 0;
+ 
+-  SAFE_RELEASE(buf.codecinfo);
++  SAFE_RELEASE(buf.IMXBuffer);
++#endif
+ }
++
+ bool CLinuxRendererGLES::CreateIMXMAPTexture(int index)
+ {
+   YV12Image &im     = m_buffers[index].image;
+@@ -2804,14 +2798,12 @@ bool CLinuxRendererGLES::Supports(EDEINTERLACEMODE mode)
+   if(m_renderMethod & RENDER_CVREF)
+     return false;
+ 
+-#ifdef HAS_IMXVPU
+-  if(mode == VS_DEINTERLACEMODE_AUTO)
+-    return true;
+-#else
++  if(m_renderMethod & RENDER_IMXMAP)
++    return false;
++
+   if(mode == VS_DEINTERLACEMODE_AUTO
+   || mode == VS_DEINTERLACEMODE_FORCE)
+     return true;
+-#endif
+ 
+   return false;
+ }
+@@ -2837,18 +2829,12 @@ bool CLinuxRendererGLES::Supports(EINTERLACEMETHOD method)
+   if(m_renderMethod & RENDER_CVREF)
+     return false;
+ 
++  if(m_renderMethod & RENDER_IMXMAP)
++    return false;
++
+   if(method == VS_INTERLACEMETHOD_AUTO)
+     return true;
+ 
+-  if(m_renderMethod & RENDER_IMXMAP)
+-  {
+-    if(method == VS_INTERLACEMETHOD_DEINTERLACE
+-    || method == VS_INTERLACEMETHOD_DEINTERLACE_HALF)
+-      return true;
+-    else
+-      return false;
+-  }
+-
+ #if defined(__i386__) || defined(__x86_64__)
+   if(method == VS_INTERLACEMETHOD_DEINTERLACE
+   || method == VS_INTERLACEMETHOD_DEINTERLACE_HALF
+@@ -2898,7 +2884,7 @@ EINTERLACEMETHOD CLinuxRendererGLES::AutoInterlaceMethod()
+     return VS_INTERLACEMETHOD_NONE;
+ 
+   if(m_renderMethod & RENDER_IMXMAP)
+-    return VS_INTERLACEMETHOD_DEINTERLACE_HALF;
++    return VS_INTERLACEMETHOD_NONE;
+ 
+ #if defined(__i386__) || defined(__x86_64__)
+   return VS_INTERLACEMETHOD_DEINTERLACE_HALF;
+@@ -2984,16 +2970,18 @@ void CLinuxRendererGLES::AddProcessor(CDVDMediaCodecInfo *mediacodec, int index)
+ }
+ #endif
+ 
+-void CLinuxRendererGLES::AddProcessor(CDVDVideoCodecBuffer *codecinfo, int index)
++#ifdef HAS_IMXVPU
++void CLinuxRendererGLES::AddProcessor(CDVDVideoCodecIMXBuffer *buffer, int index)
+ {
+   YUVBUFFER &buf = m_buffers[index];
+ 
+-  SAFE_RELEASE(buf.codecinfo);
+-  buf.codecinfo = codecinfo;
++  SAFE_RELEASE(buf.IMXBuffer);
++  buf.IMXBuffer = buffer;
+ 
+-  if (codecinfo)
+-    codecinfo->Lock();
++  if (buffer)
++    buffer->Lock();
+ }
++#endif
+ 
+ #endif
+ 
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoRenderers/LinuxRendererGLES.h
+index 54f0c18..1e89ecf 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGLES.h
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGLES.h
+@@ -33,7 +33,6 @@
+ #include "guilib/GraphicContext.h"
+ #include "BaseRenderer.h"
+ #include "xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h"
+-#include "xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h"
+ 
+ class CRenderCapture;
+ 
+@@ -172,7 +171,9 @@ class CLinuxRendererGLES : public CBaseRenderer
+   // mediaCodec
+   virtual void         AddProcessor(CDVDMediaCodecInfo *mediacodec, int index);
+ #endif
+-  virtual void         AddProcessor(CDVDVideoCodecBuffer *codecinfo, int index);
++#ifdef HAS_IMXVPU
++  virtual void         AddProcessor(CDVDVideoCodecIMXBuffer *codecinfo, int index);
++#endif
+ 
+ protected:
+   virtual void Render(DWORD flags, int index);
+@@ -293,7 +294,9 @@ class CLinuxRendererGLES : public CBaseRenderer
+     // mediacodec
+     CDVDMediaCodecInfo *mediacodec;
+ #endif
+-    CDVDVideoCodecBuffer *codecinfo;
++#ifdef HAS_IMXVPU
++    CDVDVideoCodecIMXBuffer *IMXBuffer;
++#endif
+   };
+ 
+   typedef YUVBUFFER          YUVBUFFERS[NUM_BUFFERS];
+diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
+index 6598e00..101d1c7 100644
+--- a/xbmc/cores/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
+@@ -934,7 +934,7 @@ int CXBMCRenderManager::AddVideoPicture(DVDVideoPicture& pic)
+ #endif
+ #ifdef HAS_IMXVPU
+   else if(pic.format == RENDER_FMT_IMXMAP)
+-    m_pRenderer->AddProcessor(pic.codecinfo, index);
++    m_pRenderer->AddProcessor(pic.IMXBuffer, index);
+ #endif
+ 
+   m_pRenderer->ReleaseImage(index, false);
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
+index c25eb38..7e3f0eb 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
+@@ -25,7 +25,8 @@
+ #include <vector>
+ #include <string>
+ #include "cores/VideoRenderers/RenderFormats.h"
+-#include "DVDVideoCodecInfo.h"
++
++
+ 
+ extern "C" {
+ #include "libavcodec/avcodec.h"
+@@ -54,6 +55,7 @@ class COpenMaxVideo;
+ struct OpenMaxVideoBuffer;
+ class CDVDVideoCodecStageFright;
+ class CDVDMediaCodecInfo;
++class CDVDVideoCodecIMXBuffer;
+ typedef void* EGLImageKHR;
+ 
+ 
+@@ -98,7 +100,7 @@ struct DVDVideoPicture
+     };
+   
+     struct {
+-      CDVDVideoCodecBuffer *codecinfo;
++      CDVDVideoCodecIMXBuffer *IMXBuffer;
+     };
+ 
+   };
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index f8b2915..adbb27e 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -26,8 +26,6 @@
+ #include <sys/ioctl.h>
+ #include <unistd.h>
+ #include <sys/mman.h>
+-#include <linux/mxcfb.h>
+-#include <linux/ipu.h>
+ #include "threads/SingleLock.h"
+ #include "utils/log.h"
+ #include "DVDClock.h"
+@@ -38,12 +36,6 @@
+ #define _4CC(c1,c2,c3,c4) (((uint32_t)(c4)<<24)|((uint32_t)(c3)<<16)|((uint32_t)(c2)<<8)|(uint32_t)(c1))
+ #define Align(ptr,align)  (((unsigned int)ptr + (align) - 1)/(align)*(align))
+ 
+-// Helpers to extract physical and virtual addresses from CDVDVideoCodecBuffer pointers
+-#define GET_PHYS_ADDR(buf) (buf)->data[1]
+-#define GET_VIRT_ADDR(buf) (buf)->data[0]
+-#define GET_DEINTERLACER(buf) (buf)->data[2]
+-#define GET_FIELDTYPE(buf) (buf)->data[3]
+-
+ // Experiments show that we need at least one more (+1) VPU buffer than the min value returned by the VPU
+ const int CDVDVideoCodecIMX::m_extraVpuBuffers = 6;
+ const int CDVDVideoCodecIMX::m_maxVpuDecodeLoops = 5;
+@@ -331,20 +323,6 @@ bool CDVDVideoCodecIMX::VpuAllocFrameBuffers(void)
+ #endif
+   }
+ 
+-  if (m_initInfo.nInterlace)
+-  {
+-    CLog::Log(LOGNOTICE, "IMX: Enable hardware deinterlacing\n");
+-    if (!m_deinterlacer.Init(m_initInfo.nPicWidth, m_initInfo.nPicHeight, GetAllowedReferences()+1, nAlign))
+-    {
+-      CLog::Log(LOGWARNING, "IMX: Failed to initialize IPU buffers: deinterlacing disabled\n");
+-    }
+-    else
+-    {
+-      for (int i=0; i<m_vpuFrameBufferNum; i++)
+-        GET_DEINTERLACER(m_outputBuffers[i]) = (uint8_t*)&m_deinterlacer;
+-    }
+-  }
+-
+   return true;
+ }
+ 
+@@ -538,7 +516,6 @@ void CDVDVideoCodecIMX::Dispose(void)
+   }
+ 
+   m_frameCounter = 0;
+-  m_deinterlacer.Close();
+ 
+   // Release memory
+   if (m_outputBuffers != NULL)
+@@ -857,7 +834,6 @@ void CDVDVideoCodecIMX::Reset()
+     m_outputBuffers[i]->ReleaseFramebuffer(&m_vpuHandle);
+ 
+   m_frameCounter = 0;
+-  m_deinterlacer.Reset();
+   m_bytesToBeConsumed = 0;
+   m_previousPts = DVD_NOPTS_VALUE;
+ 
+@@ -879,7 +855,7 @@ bool CDVDVideoCodecIMX::ClearPicture(DVDVideoPicture* pDvdVideoPicture)
+ {
+   if (pDvdVideoPicture)
+   {
+-    SAFE_RELEASE(pDvdVideoPicture->codecinfo);
++    SAFE_RELEASE(pDvdVideoPicture->IMXBuffer);
+   }
+ 
+   return true;
+@@ -931,8 +907,8 @@ bool CDVDVideoCodecIMX::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+     CLog::Log(LOGDEBUG, "+  %02d dts %f pts %f  (VPU)\n", idx, pDvdVideoPicture->dts, pDvdVideoPicture->pts);
+ #endif
+ 
+-    pDvdVideoPicture->codecinfo = buffer;
+-    pDvdVideoPicture->codecinfo->Lock();
++    pDvdVideoPicture->IMXBuffer = buffer;
++    pDvdVideoPicture->IMXBuffer->Lock();
+ 
+     // Save last buffer
+     if (m_lastBuffer)
+@@ -989,7 +965,6 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer()
+   , m_pts(DVD_NOPTS_VALUE)
+   , m_previousBuffer(NULL)
+ {
+-  GET_DEINTERLACER(this) = NULL;
+ }
+ 
+ void CDVDVideoCodecIMXBuffer::Lock()
+@@ -1055,11 +1030,10 @@ void CDVDVideoCodecIMXBuffer::Queue(VpuDecOutFrameInfo *frameInfo,
+   if (m_previousBuffer)
+     m_previousBuffer->Lock();
+ 
+-  iWidth  = frameInfo->pExtInfo->nFrmWidth;
+-  iHeight = frameInfo->pExtInfo->nFrmHeight;
+-  GET_VIRT_ADDR(this) = m_frameBuffer->pbufVirtY;
+-  GET_PHYS_ADDR(this) = m_frameBuffer->pbufY;
+-  GET_FIELDTYPE(this) = (uint8_t*)frameInfo->eFieldType;
++  m_iWidth  = frameInfo->pExtInfo->nFrmWidth;
++  m_iHeight = frameInfo->pExtInfo->nFrmHeight;
++  m_VirtAddr = m_frameBuffer->pbufVirtY;
++  m_phyAddr = m_frameBuffer->pbufY;
+ }
+ 
+ VpuDecRetCode CDVDVideoCodecIMXBuffer::ReleaseFramebuffer(VpuDecHandle *handle)
+@@ -1107,371 +1081,3 @@ CDVDVideoCodecIMXBuffer::~CDVDVideoCodecIMXBuffer()
+   CLog::Log(LOGDEBUG, "~  %02d  (VPU)\n", m_idx);
+ #endif
+ }
+-
+-#ifdef TRACE_FRAMES
+-CDVDVideoCodecIPUBuffer::CDVDVideoCodecIPUBuffer(int idx)
+-  : m_refs(1)
+-  , m_idx(idx)
+-#else
+-CDVDVideoCodecIPUBuffer::CDVDVideoCodecIPUBuffer()
+-  : m_refs(1)
+-#endif
+-  , m_source(NULL)
+-  , m_pPhyAddr(NULL)
+-  , m_pVirtAddr(NULL)
+-  , m_nSize(0)
+-{
+-}
+-
+-CDVDVideoCodecIPUBuffer::~CDVDVideoCodecIPUBuffer()
+-{
+-  assert(m_refs == 0);
+-#ifdef TRACE_FRAMES
+-  CLog::Log(LOGDEBUG, "~  %02d  (IPU)\n", m_idx);
+-#endif
+-}
+-
+-void CDVDVideoCodecIPUBuffer::Lock()
+-{
+-#ifdef TRACE_FRAMES
+-  long count = AtomicIncrement(&m_refs);
+-  CLog::Log(LOGDEBUG, "R+ %02d  -  ref : %d  (IPU)\n", m_idx, count);
+-#else
+-  AtomicIncrement(&m_refs);
+-#endif
+-
+-}
+-
+-long CDVDVideoCodecIPUBuffer::Release()
+-{
+-  long count = AtomicDecrement(&m_refs);
+-#ifdef TRACE_FRAMES
+-  CLog::Log(LOGDEBUG, "R- %02d  -  ref : %d  (IPU)\n", m_idx, count);
+-#endif
+-  if (count == 1)
+-  {
+-    ReleaseFrameBuffer();
+-  }
+-  else if (count == 0)
+-  {
+-    delete this;
+-  }
+-
+-  return count;
+-}
+-
+-bool CDVDVideoCodecIPUBuffer::IsValid()
+-{
+-  return m_source && m_source->IsValid() && m_pPhyAddr;
+-}
+-
+-bool CDVDVideoCodecIPUBuffer::Process(int fd, CDVDVideoCodecIMXBuffer *buffer,
+-                                      VpuFieldType fieldType, int fieldFmt,
+-                                      bool lowMotion)
+-{
+-  CDVDVideoCodecIMXBuffer *previousBuffer;
+-  struct ipu_task task;
+-  memset(&task, 0, sizeof(task));
+-  task.priority = IPU_TASK_PRIORITY_HIGH;
+-
+-  if (lowMotion)
+-    previousBuffer = buffer->GetPreviousBuffer();
+-  else
+-    previousBuffer = NULL;
+-
+-  SAFE_RELEASE(m_source);
+-
+-  iWidth             = buffer->iWidth;
+-  iHeight            = buffer->iHeight;
+-
+-  // Input is the VPU decoded frame
+-  task.input.width   = iWidth;
+-  task.input.height  = iHeight;
+-  task.input.format  = IPU_PIX_FMT_NV12;
+-
+-  // Output is our IPU buffer
+-  task.output.width  = iWidth;
+-  task.output.height = iHeight;
+-  task.output.format = IPU_PIX_FMT_NV12;
+-  task.output.paddr  = (int)GET_PHYS_ADDR(this);
+-
+-  // Fill current and next buffer address
+-  if (lowMotion && previousBuffer && previousBuffer->IsValid())
+-  {
+-    task.input.paddr              = (int)GET_PHYS_ADDR(previousBuffer);
+-    task.input.paddr_n            = (int)GET_PHYS_ADDR(buffer);
+-    task.input.deinterlace.motion = LOW_MOTION;
+-  }
+-  else
+-  {
+-    task.input.paddr              = (int)GET_PHYS_ADDR(buffer);
+-    task.input.deinterlace.motion = HIGH_MOTION;
+-  }
+-
+-  task.input.deinterlace.enable = 1;
+-  task.input.deinterlace.field_fmt = fieldFmt;
+-
+-  switch (fieldType)
+-  {
+-  case VPU_FIELD_TOP:
+-  case VPU_FIELD_TB:
+-    task.input.deinterlace.field_fmt |= IPU_DEINTERLACE_FIELD_TOP;
+-    break;
+-  case VPU_FIELD_BOTTOM:
+-  case VPU_FIELD_BT:
+-    task.input.deinterlace.field_fmt |= IPU_DEINTERLACE_FIELD_BOTTOM;
+-    break;
+-  default:
+-    break;
+-  }
+-
+-#ifdef IMX_PROFILE
+-  unsigned int time = XbmcThreads::SystemClockMillis();
+-#endif
+-  int ret = ioctl(fd, IPU_QUEUE_TASK, &task);
+-#ifdef IMX_PROFILE
+-  CLog::Log(LOGDEBUG, "DEINT: tm:%d\n", XbmcThreads::SystemClockMillis() - time);
+-#endif
+-  if (ret < 0)
+-  {
+-    CLog::Log(LOGERROR, "IPU task failed: %s\n", strerror(errno));
+-    return false;
+-  }
+-
+-  buffer->Lock();
+-
+-  // Remember the source buffer. This is actually not necessary since the output
+-  // buffer is the one that is used by the renderer. But keep it bound for now
+-  // since this state is used in IsValid which then needs to become a flag in
+-  // this class.
+-  m_source = buffer;
+-  m_source->Lock();
+-
+-  buffer->Release();
+-
+-  return true;
+-}
+-
+-void CDVDVideoCodecIPUBuffer::ReleaseFrameBuffer()
+-{
+-#ifdef TRACE_FRAMES
+-  CLog::Log(LOGDEBUG, "-  %02d  (IPU)\n", m_idx);
+-#endif
+-  CSingleLock lock(CDVDVideoCodecIMX::m_codecBufferLock);
+-  SAFE_RELEASE(m_source);
+-}
+-
+-bool CDVDVideoCodecIPUBuffer::Allocate(int fd, int width, int height, int nAlign)
+-{
+-  m_iWidth = Align(width,FRAME_ALIGN);
+-  m_iHeight = Align(height,(2*FRAME_ALIGN));
+-  // NV12 == 12 bpp
+-  m_nSize = m_iWidth*m_iHeight*12/8;
+-  m_pPhyAddr = m_nSize;
+-
+-  GET_PHYS_ADDR(this) = GET_VIRT_ADDR(this) = NULL;
+-
+-  int r = ioctl(fd, IPU_ALLOC, &m_pPhyAddr);
+-  if (r < 0)
+-  {
+-    m_pPhyAddr = 0;
+-    CLog::Log(LOGERROR, "ioctl IPU_ALLOC fail: disable deinterlacing: %s\n", strerror(errno));
+-    return false;
+-  }
+-
+-  CLog::Log(LOGNOTICE, "IPU: alloc %d bytes for frame of %dx%d at 0x%x\n",
+-            m_nSize, m_iWidth, m_iHeight, m_pPhyAddr);
+-
+-  m_pVirtAddr = (uint8_t*)mmap(0, m_nSize, PROT_READ | PROT_WRITE, MAP_SHARED,
+-                               fd, m_pPhyAddr);
+-  if (!m_pVirtAddr)
+-  {
+-    CLog::Log(LOGERROR, "IPU mmap failed: disable deinterlacing: %s\n", strerror(errno));
+-    return false;
+-  }
+-
+-  if (nAlign>1)
+-  {
+-    GET_PHYS_ADDR(this) = (uint8_t*)Align(m_pPhyAddr, nAlign);
+-    GET_VIRT_ADDR(this) = (uint8_t*)Align(m_pVirtAddr, nAlign);
+-  }
+-  else
+-  {
+-    GET_PHYS_ADDR(this) = (uint8_t*)m_pPhyAddr;
+-    GET_VIRT_ADDR(this) = (uint8_t*)m_pVirtAddr;
+-  }
+-
+-  GET_DEINTERLACER(this) = NULL;
+-
+-  return true;
+-}
+-
+-bool CDVDVideoCodecIPUBuffer::Free(int fd)
+-{
+-  CSingleLock lock(CDVDVideoCodecIMX::m_codecBufferLock);
+-  bool ret = true;
+-
+-  // Unmap virtual memory
+-  if (m_pVirtAddr != NULL)
+-  {
+-    if(munmap(m_pVirtAddr, m_nSize))
+-    {
+-      CLog::Log(LOGERROR, "IPU unmap failed: %s\n", strerror(errno));
+-      ret = false;
+-    }
+-
+-    m_pVirtAddr = NULL;
+-  }
+-
+-  // Free IPU memory
+-  if (m_pPhyAddr)
+-  {
+-    if (ioctl(fd, IPU_FREE, &m_pPhyAddr))
+-    {
+-      CLog::Log(LOGERROR, "IPU free buffer 0x%x failed: %s\n",
+-                m_pPhyAddr, strerror(errno));
+-      ret = false;
+-    }
+-
+-    m_pPhyAddr = 0;
+-  }
+-
+-  GET_PHYS_ADDR(this) = GET_VIRT_ADDR(this) = NULL;
+-  SAFE_RELEASE(m_source);
+-
+-  return ret;
+-}
+-
+-CDVDVideoCodecIPUBuffers::CDVDVideoCodecIPUBuffers()
+-  : m_ipuHandle(0)
+-  , m_bufferNum(0)
+-  , m_buffers(NULL)
+-  , m_currentFieldFmt(0)
+-{
+-}
+-
+-CDVDVideoCodecIPUBuffers::~CDVDVideoCodecIPUBuffers()
+-{
+-  Close();
+-}
+-
+-bool CDVDVideoCodecIPUBuffers::Init(int width, int height, int numBuffers, int nAlign)
+-{
+-  if (numBuffers<=0)
+-  {
+-    CLog::Log(LOGERROR, "IPU Init: invalid number of buffers: %d\n", numBuffers);
+-    return false;
+-  }
+-
+-  m_ipuHandle = open("/dev/mxc_ipu", O_RDWR, 0);
+-  if (m_ipuHandle<=0)
+-  {
+-    CLog::Log(LOGWARNING, "Failed to initialize IPU: deinterlacing disabled: %s\n",
+-              strerror(errno));
+-    m_ipuHandle = 0;
+-    return false;
+-  }
+-
+-  m_bufferNum = numBuffers;
+-  m_buffers = new CDVDVideoCodecIPUBuffer*[m_bufferNum];
+-  m_currentFieldFmt = 0;
+-
+-  for (int i=0; i < m_bufferNum; i++)
+-  {
+-#ifdef TRACE_FRAMES
+-    m_buffers[i] = new CDVDVideoCodecIPUBuffer(i);
+-#else
+-    m_buffers[i] = new CDVDVideoCodecIPUBuffer;
+-#endif
+-    if (!m_buffers[i]->Allocate(m_ipuHandle, width, height, nAlign))
+-    {
+-      Close();
+-      return false;
+-    }
+-  }
+-
+-  return true;
+-}
+-
+-bool CDVDVideoCodecIPUBuffers::Reset()
+-{
+-  for (int i=0; i < m_bufferNum; i++)
+-    m_buffers[i]->ReleaseFrameBuffer();
+-  m_currentFieldFmt = 0;
+-}
+-
+-bool CDVDVideoCodecIPUBuffers::Close()
+-{
+-  bool ret = true;
+-
+-  if (m_ipuHandle)
+-  {
+-    for (int i=0; i < m_bufferNum; i++)
+-    {
+-      if (m_buffers[i] == NULL ) continue;
+-      if (!m_buffers[i]->Free(m_ipuHandle))
+-        ret = false;
+-    }
+-
+-    // Close IPU device
+-    if (close(m_ipuHandle))
+-    {
+-      CLog::Log(LOGERROR, "IPU failed to close interface: %s\n", strerror(errno));
+-      ret = false;
+-    }
+-
+-    m_ipuHandle = 0;
+-  }
+-
+-  if (m_buffers)
+-  {
+-    for (int i=0; i < m_bufferNum; i++)
+-      SAFE_RELEASE(m_buffers[i]);
+-
+-    delete m_buffers;
+-    m_buffers = NULL;
+-  }
+-
+-  m_bufferNum = 0;
+-  return true;
+-}
+-
+-CDVDVideoCodecIPUBuffer *
+-CDVDVideoCodecIPUBuffers::Process(CDVDVideoCodecBuffer *sourceBuffer,
+-                                  VpuFieldType fieldType, bool lowMotion)
+-{
+-  CDVDVideoCodecIPUBuffer *target = NULL;
+-  bool ret = true;
+-
+-  if (!m_bufferNum)
+-    return NULL;
+-
+-  for (int i=0; i < m_bufferNum; i++ )
+-  {
+-    if (!m_buffers[i]->Rendered()) continue;
+-
+-    // IPU process:
+-    // SRC: Current VPU physical buffer address + last VPU buffer address
+-    // DST: IPU buffer[i]
+-    ret = m_buffers[i]->Process(m_ipuHandle, (CDVDVideoCodecIMXBuffer*)sourceBuffer,
+-                                fieldType, m_currentFieldFmt,
+-                                lowMotion);
+-    if (ret)
+-    {
+-#ifdef TRACE_FRAMES
+-      CLog::Log(LOGDEBUG, "+  %02d  (IPU)\n", i);
+-#endif
+-      target = m_buffers[i];
+-    }
+-    break;
+-  }
+-
+-  // Buffers are there but there is no free one, this is an error!
+-  // Rendering will continue with unprocessed frames ...
+-  if (ret && target==NULL)
+-  {
+-    CLog::Log(LOGERROR, "Deinterlacing: did not find free buffer, forward unprocessed frame\n");
+-  }
+-
+-  return target;
+-}
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+index bd712d9..12c5331 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+@@ -22,7 +22,6 @@
+ #include <imx-mm/vpu/vpu_wrapper.h>
+ #include "DVDVideoCodec.h"
+ #include "DVDStreamInfo.h"
+-#include "DVDVideoCodecInfo.h"
+ #include "threads/CriticalSection.h"
+ #include "utils/BitstreamConverter.h"
+ 
+@@ -49,9 +48,7 @@ class CDecMemInfo
+   VpuMemDesc* phyMem;
+ };
+ 
+-class CDVDVideoCodecIPUBuffer;
+-
+-class CDVDVideoCodecIMXBuffer : public CDVDVideoCodecBuffer
++class CDVDVideoCodecIMXBuffer
+ {
+ public:
+ #ifdef TRACE_FRAMES
+@@ -73,6 +70,11 @@ class CDVDVideoCodecIMXBuffer : public CDVDVideoCodecBuffer
+   double                   GetPts(void) const;
+   CDVDVideoCodecIMXBuffer *GetPreviousBuffer() const;
+ 
++  uint32_t       m_iWidth;
++  uint32_t       m_iHeight;
++  uint8_t       *m_phyAddr;
++  uint8_t       *m_VirtAddr;
++
+ private:
+   // private because we are reference counted
+   virtual                  ~CDVDVideoCodecIMXBuffer();
+@@ -89,72 +91,6 @@ class CDVDVideoCodecIMXBuffer : public CDVDVideoCodecBuffer
+                                              // previous buffer
+ };
+ 
+-// Shared buffer that holds an IPU allocated memory block and serves as target
+-// for IPU operations such as deinterlacing, rotation or color conversion.
+-class CDVDVideoCodecIPUBuffer : public CDVDVideoCodecBuffer
+-{
+-public:
+-#ifdef TRACE_FRAMES
+-  CDVDVideoCodecIPUBuffer(int idx);
+-#else
+-  CDVDVideoCodecIPUBuffer();
+-#endif
+-
+-  // reference counting
+-  virtual void             Lock();
+-  virtual long             Release();
+-  virtual bool             IsValid();
+-
+-  // Returns whether the buffer is ready to be used
+-  bool                     Rendered() const { return m_source == NULL; }
+-  bool                     Process(int fd, CDVDVideoCodecIMXBuffer *buffer,
+-                                   VpuFieldType fieldType, int fieldFmt,
+-                                   bool lowMotion);
+-  void                     ReleaseFrameBuffer();
+-
+-  bool                     Allocate(int fd, int width, int height, int nAlign);
+-  bool                     Free(int fd);
+-
+-private:
+-  virtual                  ~CDVDVideoCodecIPUBuffer();
+-
+-private:
+-#ifdef TRACE_FRAMES
+-  int                      m_idx;
+-#endif
+-  long                     m_refs;
+-  CDVDVideoCodecBuffer    *m_source;
+-  int                      m_pPhyAddr;
+-  uint8_t                 *m_pVirtAddr;
+-  int                      m_iWidth;
+-  int                      m_iHeight;
+-  int                      m_nSize;
+-};
+-
+-// Collection class that manages a pool of IPU buffers that are used for
+-// deinterlacing. In future they can also serve rotation or color conversion
+-// buffers.
+-class CDVDVideoCodecIPUBuffers
+-{
+-  public:
+-    CDVDVideoCodecIPUBuffers();
+-    ~CDVDVideoCodecIPUBuffers();
+-
+-    bool Init(int width, int height, int numBuffers, int nAlign);
+-    bool Reset();
+-    bool Close();
+-
+-    CDVDVideoCodecIPUBuffer *Process(CDVDVideoCodecBuffer *sourceBuffer,
+-                                     VpuFieldType fieldType, bool lowMotion);
+-
+-  private:
+-    int                       m_ipuHandle;
+-    int                       m_bufferNum;
+-    CDVDVideoCodecIPUBuffer **m_buffers;
+-    int                       m_currentFieldFmt;
+-};
+-
+-
+ class CDVDVideoCodecIMX : public CDVDVideoCodec
+ {
+   friend class CDVDVideoCodecIMXBuffer;
+@@ -200,7 +136,6 @@ class CDVDVideoCodecIMX : public CDVDVideoCodec
+   bool                      m_dropState;         // Current drop state
+   int                       m_vpuFrameBufferNum; // Total number of allocated frame buffers
+   VpuFrameBuffer           *m_vpuFrameBuffers;   // Table of VPU frame buffers description
+-  CDVDVideoCodecIPUBuffers  m_deinterlacer;      // Pool of buffers used for deinterlacing
+   CDVDVideoCodecIMXBuffer **m_outputBuffers;     // Table of VPU output buffers
+   CDVDVideoCodecIMXBuffer  *m_lastBuffer;        // Keep track of previous VPU output buffer (needed by deinterlacing motion engin)
+   VpuMemDesc               *m_extraMem;          // Table of allocated extra Memory
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h
+deleted file mode 100644
+index 6096bf4..0000000
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecInfo.h
++++ /dev/null
+@@ -1,38 +0,0 @@
+-/*
+- *      Copyright (C) 2010-2013 Team XBMC
+- *      http://xbmc.org
+- *
+- *  This Program is free software; you can redistribute it and/or modify
+- *  it under the terms of the GNU General Public License as published by
+- *  the Free Software Foundation; either version 2, or (at your option)
+- *  any later version.
+- *
+- *  This Program is distributed in the hope that it will be useful,
+- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+- *  GNU General Public License for more details.
+- *
+- *  You should have received a copy of the GNU General Public License
+- *  along with XBMC; see the file COPYING.  If not, see
+- *  <http://www.gnu.org/licenses/>.
+- *
+- */
+-
+-#ifndef DVDVIDEOCODECINFO_H
+-#define DVDVIDEOCODECINFO_H
+-
+-class CDVDVideoCodecBuffer
+-{
+-public:
+-  // reference counting
+-  virtual void                Lock() = 0;
+-  virtual long                Release() = 0;
+-  virtual bool                IsValid() = 0;
+-
+-  uint32_t            iWidth;
+-  uint32_t            iHeight;
+-  uint8_t*            data[4];      // [4] = alpha channel, currently not used
+-  int                 iLineSize[4];   // [4] = alpha channel, currently not used
+-};
+-
+-#endif // DVDVIDEOCODECINFO_H
+diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
+index 577452b..04cadc8 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
+@@ -18,7 +18,6 @@
+  *
+  */
+ 
+-#include <linux/mxcfb.h>
+ #include "system.h"
+ #include <EGL/egl.h>
+ 
+@@ -123,17 +122,25 @@ bool CEGLNativeTypeIMX::CreateNativeDisplay()
+   // Force double-buffering
+   CEnvironment::setenv("FB_MULTI_BUFFER", "2", 0);
+ 
++#ifdef HAS_IMXVPU
+   // EGL will be rendered on fb0
+   m_display = fbGetDisplayByIndex(0);
+   m_nativeDisplay = &m_display;
+   return true;
++#else
++  return false;
++#endif
+ }
+ 
+ bool CEGLNativeTypeIMX::CreateNativeWindow()
+ {
++#ifdef HAS_IMXVPU
+   m_window = fbCreateWindow(m_display, 0, 0, 0, 0);
+   m_nativeWindow = &m_window;
+   return true;
++#else
++  return false;
++#endif
+ }
+ 
+ bool CEGLNativeTypeIMX::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
+@@ -158,18 +165,26 @@ bool CEGLNativeTypeIMX::GetNativeWindow(XBNativeWindowType **nativeWindow) const
+ 
+ bool CEGLNativeTypeIMX::DestroyNativeDisplay()
+ {
++#ifdef HAS_IMXVPU
+   if (m_display)
+     fbDestroyDisplay(m_display);
+   m_display =  NULL;
+   return true;
++#else
++  return false;
++#endif
+ }
+ 
+ bool CEGLNativeTypeIMX::DestroyNativeWindow()
+ {
++#ifdef HAS_IMXVPU
+   if (m_window)
+     fbDestroyWindow(m_window);
+   m_window =  NULL;
+   return true;
++#else
++  return false;
++#endif
+ }
+ 
+ bool CEGLNativeTypeIMX::GetNativeResolution(RESOLUTION_INFO *res) const
+diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.h b/xbmc/windowing/egl/EGLNativeTypeIMX.h
+index df7b3b7..c95dcfb 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeIMX.h
++++ b/xbmc/windowing/egl/EGLNativeTypeIMX.h
+@@ -21,7 +21,6 @@
+  */
+ #include <linux/fb.h>
+ #include "EGLNativeType.h"
+-#include "EGL/eglvivante.h"
+ 
+ class CEGLNativeTypeIMX : public CEGLNativeType
+ {
+diff --git a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.cpp
+index 4d74be5..e19ce63 100644
+--- a/xbmc/windowing/egl/EGLWrapper.cpp
++++ b/xbmc/windowing/egl/EGLWrapper.cpp
+@@ -25,9 +25,7 @@
+ #include "EGLNativeTypeAmlogic.h"
+ #include "EGLNativeTypeRaspberryPI.h"
+ #include "EGLNativeTypeWayland.h"
+-#ifdef HAS_IMXVPU
+ #include "EGLNativeTypeIMX.h"
+-#endif
+ #include "EGLWrapper.h"
+ 
+ #define CheckError() m_result = eglGetError(); if(m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
+@@ -84,10 +82,8 @@ bool CEGLWrapper::Initialize(const std::string &implementation)
+   if ((nativeGuess = CreateEGLNativeType<CEGLNativeTypeWayland>(implementation)) ||
+       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAndroid>(implementation)) ||
+       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlogic>(implementation)) ||
+-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRaspberryPI>(implementation))
+-#ifdef HAS_IMXFB
+-      || (nativeGuess = CreateEGLNativeType<CEGLNativeTypeIMX>(implementation))
+-#endif
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRaspberryPI>(implementation)) ||
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeIMX>(implementation))
+       )
+   {
+     m_nativeTypes = nativeGuess;
+diff --git a/xbmc/windowing/egl/Makefile.in b/xbmc/windowing/egl/Makefile.in
+index ec84c1d..f59f9cb 100644
+--- a/xbmc/windowing/egl/Makefile.in
++++ b/xbmc/windowing/egl/Makefile.in
+@@ -5,6 +5,7 @@ SRCS+= EGLNativeTypeAmlogic.cpp
+ SRCS+= EGLNativeTypeAndroid.cpp
+ SRCS+= EGLNativeTypeRaspberryPI.cpp
+ SRCS+= EGLNativeTypeWayland.cpp
++SRCS+= EGLNativeTypeIMX.cpp
+ SRCS+= EGLWrapper.cpp
+ 
+ # Wayland specific detail
+@@ -24,10 +25,6 @@ SRCS+= wayland/Callback.cpp \
+        wayland/XBMCSurface.cpp
+ endif
+ 
+-ifeq (@USE_IMXFB@,1)
+-SRCS+= EGLNativeTypeIMX.cpp
+-endif
+-
+ LIB = windowing_egl.a
+ 
+ include ../../../Makefile.include
+-- 
+2.0.4
 
