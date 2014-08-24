@@ -38,6 +38,8 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
                          --disable-rpath \
                          --with-gnu-ld \
                          --disable-java \
+                         --disable-curses \
+                         --with-included-libxml \
                          --disable-native-java \
                          --disable-csharp \
                          --without-emacs"
