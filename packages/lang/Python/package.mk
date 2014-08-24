@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
 PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_HOST="zlib:host expat:host"
+PKG_DEPENDS_HOST="zlib:host"
 PKG_DEPENDS_TARGET="toolchain Python:host sqlite expat zlib bzip2 libressl libffi file"
 PKG_PRIORITY="optional"
 PKG_SECTION="lang"
@@ -38,8 +38,7 @@ PY_DISABLED_MODULES="readline _curses _curses_panel _tkinter nis gdbm bsddb"
 PKG_CONFIGURE_OPTS_HOST="--cache-file=config.cache \
                          --without-cxx-main \
                          --with-threads \
-                         --enable-unicode=ucs4 \
-                         --with-system-expat"
+                         --enable-unicode=ucs4"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_file_dev_ptc=no \
                            ac_cv_file_dev_ptmx=yes \
@@ -65,7 +64,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_file_dev_ptc=no \
 
 pre_configure_host() {
   export OPT="$HOST_CFLAGS"
-  export LDFLAGS="$LDFLAGS -lexpat"
 }
 
 make_host() {
