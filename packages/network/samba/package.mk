@@ -120,6 +120,7 @@ pre_configure_target() {
   )
 
   CFLAGS="$CFLAGS -fPIC -DPIC"
+  LDFLAGS="$LDFLAGS -fwhole-program"
 }
 
 make_target() {
