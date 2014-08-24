@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.158"
+PKG_VERSION="0.159"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -35,6 +35,7 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="utrace_cv_cc_biarch=false \
                            --disable-werror \
                            --disable-progs \
+                           --disable-nls \
                            --with-zlib \
                            --without-bzlib \
                            --without-lzma"
