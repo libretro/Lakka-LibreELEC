@@ -90,7 +90,9 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-python \
                            --without-systemdsystemunitdir"
 
-PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET"
+PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET \
+                         --enable-static --disable-shared"
+
 PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET \
                          --enable-static --disable-shared \
                          --disable-libsmartcols "
