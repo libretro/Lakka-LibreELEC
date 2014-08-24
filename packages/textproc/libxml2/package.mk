@@ -34,6 +34,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_HOST="ac_cv_header_ansidecl_h=no \
+             --enable-static \
+             --disable-shared \
              --prefix=$ROOT/$TOOLCHAIN \
              --disable-silent-rules \
              --disable-ipv6 \
