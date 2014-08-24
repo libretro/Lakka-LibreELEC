@@ -33,4 +33,4 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-ltdl-install"
+PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared"
