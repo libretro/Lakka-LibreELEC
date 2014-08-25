@@ -53,10 +53,6 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --enable-lto \
                          --disable-nls"
 
-if [ "$TARGET_ARCH" = "x86_64" ]; then
-  PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_HOST --enable-64-bit-bfd"
-fi
-
 pre_configure_host() {
   unset CPPFLAGS
   unset CFLAGS
