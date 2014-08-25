@@ -37,8 +37,6 @@ if [ "$UVESAFB_SUPPORT" = yes ]; then
 fi
 
 pre_configure_init() {
-  export LDFLAGS="$LDFLAGS -fwhole-program"
-
   # plymouth-lite dont support to build in subdirs
   cd $ROOT/$PKG_BUILD
     rm -rf .$TARGET_NAME-init
