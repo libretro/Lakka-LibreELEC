@@ -34,6 +34,10 @@ PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
 
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fPIC -DPIC"
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
 }
