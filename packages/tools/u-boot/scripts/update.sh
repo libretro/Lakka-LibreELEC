@@ -46,9 +46,9 @@
   fi
 
   # prefer uEnv.txt over boot.scr
-  if [ -f $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt ]; then
+  if [ -f $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt -a ! -f $BOOT_ROOT/uEnv.txt ]; then
     cp -p $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt $BOOT_ROOT
-  elif [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.scr ]; then
+  elif [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.scr -a ! -f $BOOT_ROOT/boot.scr ]; then
     cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.scr $BOOT_ROOT
   fi
 
