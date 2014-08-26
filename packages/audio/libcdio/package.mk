@@ -44,11 +44,11 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-cxx \
                            --disable-vcd-info \
                            --without-cd-drive \
                            --without-cd-info \
-                           --with-cd-paranoia \
                            --without-cdda-player \
                            --without-cd-read \
                            --without-iso-info \
                            --without-iso-read \
+                           --without-libiconv-prefix \
                            --with-gnu-ld"
 
 pre_configure_target() {
