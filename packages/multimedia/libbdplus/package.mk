@@ -16,43 +16,30 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libbluray"
-PKG_VERSION="0.6.0"
+PKG_NAME="libbdplus"
+PKG_VERSION="0.1.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.videolan.org/developers/libbluray.html"
-PKG_URL="ftp://ftp.videolan.org/pub/videolan/libbluray/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain freetype libxml2"
+PKG_SITE="https://www.videolan.org/developers/libbdplus.html"
+PKG_URL="ftp://ftp.videolan.org/pub/videolan/libbdplus/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain libgcrypt libgpg-error"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="libbluray: A Blu-Ray Discs playback library"
-PKG_LONGDESC="libbluray is an open-source library designed for Blu-Ray Discs playback for media players, like VLC or MPlayer."
+PKG_SHORTDESC="libbdplus: A project to implement the BD+ System Specifications"
+PKG_LONGDESC="libbdplus is a research project to implement the BD+ System Specifications."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-if [ "$AACS_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libaacs"
-fi
-
-if [ "$BDPLUS_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libbdplus"
-fi
-
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-extra-warnings \
                            --disable-optimizations \
-                           --disable-examples \
-                           --disable-bdjava \
-                           --disable-doxygen-doc \
-                           --disable-doxygen-dot \
-                           --disable-doxygen-man \
-                           --disable-doxygen-rtf \
-                           --disable-doxygen-xml \
-                           --disable-doxygen-chm \
-                           --disable-doxygen-chi \
-                           --disable-doxygen-html \
-                           --disable-doxygen-ps \
-                           --disable-doxygen-pdf \
                            --with-gnu-ld"
+
+if [ "$AACS_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libaacs"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --with-libaacs"
+else
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --without-libaacs"
+fi
