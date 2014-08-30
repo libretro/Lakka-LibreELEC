@@ -96,7 +96,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-tests \
                            --without-python \
                            --disable-python-devel \
-                           --with-firmware-path=/storage/.config/firmware:/lib/firmware \
                            --with-sysvinit-path= \
                            --with-sysvrcnd-path= \
                            --with-tty-gid=5 \
