@@ -73,7 +73,7 @@ PKG_CONFIGURE_OPTS_TARGET="--without-cxx \
 
 pre_configure_target() {
   # causes some segmentation fault's (dialog) when compiled with gcc's link time optimization.
-  strip_linker_plugin
+  strip_lto
 }
 
 make_target() {
