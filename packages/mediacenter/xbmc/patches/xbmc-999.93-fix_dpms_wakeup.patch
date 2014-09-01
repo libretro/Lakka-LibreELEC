@@ -1,0 +1,89 @@
+From cd6e87d934c52dc47e77054a3a640b20c585c62f Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Mon, 1 Sep 2014 19:24:32 +0200
+Subject: [PATCH] X11: recreate window after wakeup from dpms
+
+---
+ xbmc/powermanagement/DPMSSupport.cpp | 10 ++--------
+ xbmc/windowing/X11/WinSystemX11.cpp  | 13 ++++++++++---
+ xbmc/windowing/X11/WinSystemX11.h    |  1 +
+ 3 files changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/xbmc/powermanagement/DPMSSupport.cpp b/xbmc/powermanagement/DPMSSupport.cpp
+index 7c00281..3aefedd 100644
+--- a/xbmc/powermanagement/DPMSSupport.cpp
++++ b/xbmc/powermanagement/DPMSSupport.cpp
+@@ -174,14 +174,8 @@ bool DPMSSupport::PlatformSpecificDisablePowerSaving()
+   DPMSForceLevel(dpy, DPMSModeOn);
+   DPMSDisable(dpy);
+   XFlush(dpy);
+-  // On my ATI, the full-screen window stays blank after waking up from
+-  // DPMS, presumably due to being OpenGL. There is something magical about
+-  // window expose events (involving the window manager) that solves this
+-  // without fail.
+-  XUnmapWindow(dpy, g_Windowing.GetWindow());
+-  XFlush(dpy);
+-  XMapWindow(dpy, g_Windowing.GetWindow());
+-  XFlush(dpy);
++
++  g_Windowing.RecreateWindow();
+ 
+   return true;
+ }
+diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
+index bb30b52..9cae5ce 100644
+--- a/xbmc/windowing/X11/WinSystemX11.cpp
++++ b/xbmc/windowing/X11/WinSystemX11.cpp
+@@ -693,7 +693,6 @@ bool CWinSystemX11::Show(bool raise)
+ void CWinSystemX11::NotifyXRREvent()
+ {
+   CLog::Log(LOGDEBUG, "%s - notify display reset event", __FUNCTION__);
+-  m_windowDirty = true;
+ 
+   CSingleLock lock(g_graphicsContext);
+ 
+@@ -709,6 +708,15 @@ void CWinSystemX11::NotifyXRREvent()
+     UpdateResolutions();
+   }
+ 
++  RecreateWindow();
++}
++
++void CWinSystemX11::RecreateWindow()
++{
++  m_windowDirty = true;
++
++  CSingleLock lock(g_graphicsContext);
++
+   XOutput *out = g_xrandr.GetOutput(m_userOutput);
+   XMode   mode = g_xrandr.GetCurrentMode(m_userOutput);
+ 
+@@ -733,7 +741,7 @@ void CWinSystemX11::NotifyXRREvent()
+ 
+   if (!found)
+   {
+-    CLog::Log(LOGERROR, "CWinSystemX11::RefreshWindow - could not find resolution");
++    CLog::Log(LOGERROR, "CWinSystemX11::RecreateWindow - could not find resolution");
+     i = RES_DESKTOP;
+   }
+ 
+@@ -741,7 +749,6 @@ void CWinSystemX11::NotifyXRREvent()
+     g_graphicsContext.SetVideoResolution((RESOLUTION)i, true);
+   else
+     g_graphicsContext.SetVideoResolution(RES_WINDOW, true);
+-
+ }
+ 
+ void CWinSystemX11::OnLostDevice()
+diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
+index 6d0a740..ec333e8 100644
+--- a/xbmc/windowing/X11/WinSystemX11.h
++++ b/xbmc/windowing/X11/WinSystemX11.h
+@@ -72,6 +72,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
+   void NotifyXRREvent();
+   void GetConnectedOutputs(std::vector<CStdString> *outputs);
+   bool IsCurrentOutput(CStdString output);
++  void RecreateWindow();
+ 
+ protected:
+   bool RefreshGlxContext(bool force);
