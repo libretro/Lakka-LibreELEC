@@ -18,6 +18,7 @@
 
 import os
 import sys
+import subprocess
 import xbmcaddon
 
 __settings__      = xbmcaddon.Addon(id = 'driver.dvb.sundtek-mediatv')
@@ -28,9 +29,15 @@ __settings_xml__  = xbmc.translatePath(os.path.join(__cwd__, 'resources', 'setti
 __mediaclient__   = xbmc.translatePath(os.path.join(__cwd__, 'bin', 'mediaclient.bin'))
 __ld_preload__    = xbmc.translatePath(os.path.join(__cwd__, 'lib', 'libmediaclient.so'))
 __mediaclient_e__ = 'LD_PRELOAD=' + __ld_preload__ + ' ' + __mediaclient__ + ' -e'
+__update_sh__     = xbmc.translatePath(os.path.join(__cwd__, 'bin', 'update-driver.sh'))
 
 if __name__ == "__main__" and len(sys.argv) == 2 and sys.argv[1] == 'refresh_tuners':
   sys.path.append(__resources_lib__)
   from functions import refresh_sundtek_tuners
   refresh_sundtek_tuners(__settings_xml__, __mediaclient_e__)
+  __settings__.openSettings()
+elif __name__ == "__main__" and len(sys.argv) == 2 and sys.argv[1] == 'update_driver':
+  proc = subprocess.Popen([__update_sh__], shell = True)
+  return_code = proc.wait()
+  print "sundtek update driver rv", return_code
   __settings__.openSettings()
