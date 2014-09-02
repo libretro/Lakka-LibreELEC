@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="media_build"
-PKG_VERSION="1c8936d"
-MEDIA_BUILD_VERSION="2014-02-08"
+PKG_VERSION="c7673ba"
+MEDIA_BUILD_VERSION="2014-08-15-b250392"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -42,9 +42,6 @@ pre_make_target() {
 }
 
 make_target() {
-  wget http://www.linuxtv.org/downloads/firmware/dvb-firmwares.tar.bz2 -O dvb-firmwares.tar.bz2.tmp
-  cd v4l/firmware/; tar xvfj ../../dvb-firmwares.tar.bz2.tmp
-  cd ../..
   $SED -i  -e "/^LATEST_TAR/s/-LATEST/-$MEDIA_BUILD_VERSION/g" linux/Makefile
 
   make VER=$KERNEL_VER SRCDIR=$(kernel_path) -C linux/ download
@@ -57,7 +54,4 @@ makeinstall_target() {
   mkdir -p $INSTALL/lib/modules/$KERNEL_VER/updates/media_build
   find $ROOT/$PKG_BUILD/v4l/ -name \*.ko -exec strip --strip-debug {} \;
   find $ROOT/$PKG_BUILD/v4l/ -name \*.ko -exec cp {} $INSTALL/lib/modules/$KERNEL_VER/updates/media_build \;
-
-  mkdir -p $INSTALL/lib/firmware/
-  cp $ROOT/$PKG_BUILD/v4l/firmware/*.fw $INSTALL/lib/firmware/
 }
