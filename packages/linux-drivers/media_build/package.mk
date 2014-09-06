@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="media_build"
-PKG_VERSION="c7673ba"
-MEDIA_BUILD_VERSION="2014-08-15-b250392"
+PKG_VERSION="dbc32ea"
+MEDIA_BUILD_VERSION="2014-09-03-89fffac"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
