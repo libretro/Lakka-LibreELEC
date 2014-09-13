@@ -45,9 +45,6 @@ makeinstall_host() {
 }
 
 pre_configure_target() {
-# boost fails building with LTO support
-  strip_lto
-
   export CFLAGS="$CFLAGS -fPIC"
   export CXXFLAGS="$CXXFLAGS -fPIC"
   export LDFLAGS="$LDFLAGS -fPIC"
