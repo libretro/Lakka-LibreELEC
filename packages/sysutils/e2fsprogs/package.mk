@@ -67,11 +67,6 @@ PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
 
 PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
 
-pre_configure_target() {
-# e2fsprogs fails to build with LTO support on gcc-4.9
-  strip_lto
-}
-
 post_makeinstall_target() {
   rm -rf $INSTALL/sbin/badblocks
   rm -rf $INSTALL/sbin/blkid
@@ -83,11 +78,6 @@ post_makeinstall_target() {
   rm -rf $INSTALL/sbin/fsck
   rm -rf $INSTALL/sbin/logsave
   rm -rf $INSTALL/sbin/mklost+found
-}
-
-pre_configure_init() {
-# e2fsprogs fails to build with LTO support on gcc-4.9
-  strip_lto
 }
 
 makeinstall_init() {
