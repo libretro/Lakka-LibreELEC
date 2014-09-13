@@ -1,0 +1,169 @@
+From f35c4853cc5b0e51d8a460be390f7a20cd44ba44 Mon Sep 17 00:00:00 2001
+From: Cary Coutant <ccoutant@google.com>
+Date: Mon, 7 Jul 2014 10:14:45 -0700
+Subject: [PATCH] Fix internal error with LTO on ARM.
+
+This prevents the target-specific do_read_symbols methods from being called
+twice when do_layout_deferred_sections needs to layout an .eh_frame section.
+
+gold/
+	PR gold/15639
+	* dynobj.h (Sized_dynobj::base_read_symbols): New method.
+	* dynobj.cc (Sized_dynobj::do_read_symbols): Move body to...
+	(Sized_dynobj::base_read_symbols): ...new method.
+	* object.h (Sized_relobj_file::base_read_symbols): New method.
+	* object.cc (Sized_relobj_file::do_read_symbols): Move body to...
+	(Sized_relobj_file::base_read_symbols): ...new method.
+	* arm.cc (Arm_relobj::do_read_symbols): Call base_read_symbols.
+	* mips.cc: (Mips_relobj::do_read_symbols): Likewise.
+	* powerpc.cc (Powerpc_dynobj::do_read_symbols): Likewise.
+---
+ gold/ChangeLog  |   13 +++++++++++++
+ gold/arm.cc     |    4 ++--
+ gold/dynobj.cc  |   11 +++++++++++
+ gold/dynobj.h   |    6 ++++++
+ gold/mips.cc    |    2 +-
+ gold/object.cc  |   12 +++++++++++-
+ gold/object.h   |    5 +++++
+ gold/powerpc.cc |    6 +++---
+ 8 files changed, 52 insertions(+), 7 deletions(-)
+
+diff --git a/gold/arm.cc b/gold/arm.cc
+index 607f9d6..6c472bb 100644
+--- a/gold/arm.cc
++++ b/gold/arm.cc
+@@ -6683,7 +6683,7 @@ void
+ Arm_relobj<big_endian>::do_read_symbols(Read_symbols_data* sd)
+ {
+   // Call parent class to read symbol information.
+-  Sized_relobj_file<32, big_endian>::do_read_symbols(sd);
++  this->base_read_symbols(sd);
+ 
+   // If this input file is a binary file, it has no processor
+   // specific flags and attributes section.
+@@ -6974,7 +6974,7 @@ void
+ Arm_dynobj<big_endian>::do_read_symbols(Read_symbols_data* sd)
+ {
+   // Call parent class to read symbol information.
+-  Sized_dynobj<32, big_endian>::do_read_symbols(sd);
++  this->base_read_symbols(sd);
+ 
+   // Read processor-specific flags in ELF file header.
+   const unsigned char* pehdr = this->get_view(elfcpp::file_header_offset,
+diff --git a/gold/dynobj.cc b/gold/dynobj.cc
+index 2a1b9a3..baf8489 100644
+--- a/gold/dynobj.cc
++++ b/gold/dynobj.cc
+@@ -336,6 +336,17 @@ template<int size, bool big_endian>
+ void
+ Sized_dynobj<size, big_endian>::do_read_symbols(Read_symbols_data* sd)
+ {
++  this->base_read_symbols(sd);
++}
++
++// Read the symbols and sections from a dynamic object.  We read the
++// dynamic symbols, not the normal symbols.  This is common code for
++// all target-specific overrides of do_read_symbols().
++
++template<int size, bool big_endian>
++void
++Sized_dynobj<size, big_endian>::base_read_symbols(Read_symbols_data* sd)
++{
+   this->read_section_data(&this->elf_file_, sd);
+ 
+   const unsigned char* const pshdrs = sd->section_headers->data();
+diff --git a/gold/dynobj.h b/gold/dynobj.h
+index b8d4b90..03b8053 100644
+--- a/gold/dynobj.h
++++ b/gold/dynobj.h
+@@ -270,6 +270,12 @@ class Sized_dynobj : public Dynobj
+   do_get_global_symbols() const
+   { return this->symbols_; }
+ 
++ protected:
++  // Read the symbols.  This is common code for all target-specific
++  // overrides of do_read_symbols().
++  void
++  base_read_symbols(Read_symbols_data*);
++
+  private:
+   // For convenience.
+   typedef Sized_dynobj<size, big_endian> This;
+diff --git a/gold/object.cc b/gold/object.cc
+index c894c13..1811cda 100644
+--- a/gold/object.cc
++++ b/gold/object.cc
+@@ -755,6 +755,16 @@ template<int size, bool big_endian>
+ void
+ Sized_relobj_file<size, big_endian>::do_read_symbols(Read_symbols_data* sd)
+ {
++  this->base_read_symbols(sd);
++}
++
++// Read the sections and symbols from an object file.  This is common
++// code for all target-specific overrides of do_read_symbols().
++
++template<int size, bool big_endian>
++void
++Sized_relobj_file<size, big_endian>::base_read_symbols(Read_symbols_data* sd)
++{
+   this->read_section_data(&this->elf_file_, sd);
+ 
+   const unsigned char* const pshdrs = sd->section_headers->data();
+@@ -1848,7 +1858,7 @@ Sized_relobj_file<size, big_endian>::do_layout_deferred_sections(Layout* layout)
+ 
+ 	  // Reading the symbols again here may be slow.
+ 	  Read_symbols_data sd;
+-	  this->read_symbols(&sd);
++	  this->base_read_symbols(&sd);
+ 	  this->layout_eh_frame_section(layout,
+ 					sd.symbols->data(),
+ 					sd.symbols_size,
+diff --git a/gold/object.h b/gold/object.h
+index 38b06f0..92cdbdd 100644
+--- a/gold/object.h
++++ b/gold/object.h
+@@ -2214,6 +2214,11 @@ class Sized_relobj_file : public Sized_relobj<size, big_endian>
+   void
+   do_read_symbols(Read_symbols_data*);
+ 
++  // Read the symbols.  This is common code for all target-specific
++  // overrides of do_read_symbols.
++  void
++  base_read_symbols(Read_symbols_data*);
++
+   // Return the value of a local symbol.
+   uint64_t
+   do_local_symbol_value(unsigned int symndx, uint64_t addend) const
+diff --git a/gold/powerpc.cc b/gold/powerpc.cc
+index 96432ed..0a9ab7d 100644
+--- a/gold/powerpc.cc
++++ b/gold/powerpc.cc
+@@ -1839,7 +1839,7 @@ template<int size, bool big_endian>
+ void
+ Powerpc_relobj<size, big_endian>::do_read_symbols(Read_symbols_data* sd)
+ {
+-  Sized_relobj_file<size, big_endian>::do_read_symbols(sd);
++  this->base_read_symbols(sd);
+   if (size == 64)
+     {
+       const int shdr_size = elfcpp::Elf_sizes<size>::shdr_size;
+@@ -1896,14 +1896,14 @@ Powerpc_dynobj<size, big_endian>::set_abiversion(int ver)
+     }
+ }
+ 
+-// Call Sized_dynobj::do_read_symbols to read the symbols then
++// Call Sized_dynobj::base_read_symbols to read the symbols then
+ // read .opd from a dynamic object, filling in opd_ent_ vector,
+ 
+ template<int size, bool big_endian>
+ void
+ Powerpc_dynobj<size, big_endian>::do_read_symbols(Read_symbols_data* sd)
+ {
+-  Sized_dynobj<size, big_endian>::do_read_symbols(sd);
++  this->base_read_symbols(sd);
+   if (size == 64)
+     {
+       const int shdr_size = elfcpp::Elf_sizes<size>::shdr_size;
+-- 
+1.7.1

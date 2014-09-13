@@ -16,13 +16,8 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# binutils-2.24:
-#  - fails to build with GOLD support on ARM
-#    see https://sourceware.org/bugzilla/show_bug.cgi?id=15639
-#    ld.gold: internal error in do_read_symbols, at build.OpenELEC-RPi.arm-devel/binutils-2.24/gold/arm.cc:6734
-
 PKG_NAME="binutils"
-PKG_VERSION="2.23.2"
+PKG_VERSION="2.24"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
