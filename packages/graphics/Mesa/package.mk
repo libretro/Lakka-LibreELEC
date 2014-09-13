@@ -96,11 +96,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --with-sysroot=$SYSROOT_PREFIX"
 
 
-pre_configure_target() {
-  # Mesa fails to build with GOLD if we build with --enable-glx-tls
-  strip_gold
-}
-
 post_makeinstall_target() {
   # rename and relink for cooperate with nvidia drivers
     rm -rf $INSTALL/usr/lib/libGL.so
