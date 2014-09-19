@@ -1,7 +1,2266 @@
-From 03694dfeabfb6b2adf39da60cfe17a1a0730545f Mon Sep 17 00:00:00 2001
+From 0d0a987458aa8f2e4275df558f27ce061d84ed20 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 13 Sep 2014 09:03:49 +0200
+Subject: [PATCH 01/31] dxva: fix and rework video surface handling
+
+---
+ xbmc/cores/VideoRenderers/DXVA.cpp                 |  79 +++---
+ xbmc/cores/VideoRenderers/DXVA.h                   |   6 +-
+ xbmc/cores/VideoRenderers/DXVAHD.cpp               |  60 ++---
+ xbmc/cores/VideoRenderers/DXVAHD.h                 |   2 +-
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodec.h      |   4 +-
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp        |   1 +
+ xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp      | 268 ++++++++++++++-------
+ xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h        |  43 ++--
+ 8 files changed, 269 insertions(+), 194 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/DXVA.cpp b/xbmc/cores/VideoRenderers/DXVA.cpp
+index 8d57509..16d26c8 100644
+--- a/xbmc/cores/VideoRenderers/DXVA.cpp
++++ b/xbmc/cores/VideoRenderers/DXVA.cpp
+@@ -151,7 +151,6 @@ CProcessor::CProcessor()
+   m_time    = 0;
+   g_Windowing.Register(this);
+ 
+-  m_surfaces = NULL;
+   m_context = NULL;
+   m_index = 0;
+   m_progressive = true;
+@@ -174,21 +173,13 @@ void CProcessor::Close()
+ {
+   CSingleLock lock(m_section);
+   SAFE_RELEASE(m_process);
+-  for(unsigned i = 0; i < m_sample.size(); i++)
++  for(unsigned i = 0; i < m_samples.size(); i++)
+   {
+-    SAFE_RELEASE(m_sample[i].context);
+-    SAFE_RELEASE(m_sample[i].sample.SrcSurface);
++    SAFE_RELEASE(m_samples[i].renderPic);
+   }
+-  m_sample.clear();
++  m_samples.clear();
+ 
+   SAFE_RELEASE(m_context);
+-  if (m_surfaces)
+-  {
+-    for (unsigned i = 0; i < m_size; i++)
+-      SAFE_RELEASE(m_surfaces[i]);
+-    free(m_surfaces);
+-    m_surfaces = NULL;
+-  }
+ }
+ 
+ bool CProcessor::UpdateSize(const DXVA2_VideoDesc& dsc)
+@@ -499,17 +490,23 @@ bool CProcessor::OpenProcessor()
+ bool CProcessor::CreateSurfaces()
+ {
+   LPDIRECT3DDEVICE9 pD3DDevice = g_Windowing.Get3DDevice();
+-  m_surfaces = (LPDIRECT3DSURFACE9*)calloc(m_size, sizeof(LPDIRECT3DSURFACE9));
++  LPDIRECT3DSURFACE9 surfaces[32];
+   for (unsigned idx = 0; idx < m_size; idx++)
++  {
+     CHECK(pD3DDevice->CreateOffscreenPlainSurface(
+-                                (m_desc.SampleWidth + 15) & ~15,
+-                                (m_desc.SampleHeight + 15) & ~15,
+-                                m_desc.Format,
+-                                D3DPOOL_DEFAULT,
+-                                &m_surfaces[idx],
+-                                NULL));
++      (m_desc.SampleWidth + 15) & ~15,
++      (m_desc.SampleHeight + 15) & ~15,
++      m_desc.Format,
++      D3DPOOL_DEFAULT,
++      &surfaces[idx],
++      NULL));
++  }
+ 
+   m_context = new CSurfaceContext();
++  for (int i = 0; i < m_size; i++)
++  {
++    m_context->AddSurface(surfaces[i]);
++  }
+ 
+   return true;
+ }
+@@ -519,7 +516,6 @@ REFERENCE_TIME CProcessor::Add(DVDVideoPicture* picture)
+   CSingleLock lock(m_section);
+ 
+   IDirect3DSurface9* surface = NULL;
+-  CSurfaceContext* context = NULL;
+ 
+   if (picture->iFlags & DVP_FLAG_DROPPED)
+     return 0;
+@@ -528,18 +524,15 @@ REFERENCE_TIME CProcessor::Add(DVDVideoPicture* picture)
+   {
+     case RENDER_FMT_DXVA:
+     {
+-      surface = (IDirect3DSurface9*)picture->data[3];
+-      context = picture->context;
++      surface = picture->dxva->surface;
+       break;
+     }
+ 
+     case RENDER_FMT_YUV420P:
+     {
+-      surface = m_surfaces[m_index];
++      surface = m_context->GetAtIndex(m_index);
+       m_index = (m_index + 1) % m_size;
+ 
+-      context = m_context;
+-  
+       D3DLOCKED_RECT rectangle;
+       if (FAILED(surface->LockRect(&rectangle, NULL, 0)))
+         return 0;
+@@ -585,18 +578,18 @@ REFERENCE_TIME CProcessor::Add(DVDVideoPicture* picture)
+     }
+   }
+ 
+-  if (!surface || !context)
++  if (!surface)
+     return 0;
+ 
+   m_time += 2;
+ 
+-  surface->AddRef();
+-  context->Acquire();
+-
+   SVideoSample vs = {};
+   vs.sample.Start          = m_time;
+   vs.sample.End            = 0; 
+   vs.sample.SampleFormat   = m_desc.SampleFormat;
++  vs.renderPic = NULL;
++  if (picture->format == RENDER_FMT_DXVA)
++    vs.renderPic = picture->dxva->Acquire();
+ 
+   if (picture->iFlags & DVP_FLAG_INTERLACED)
+   {
+@@ -615,17 +608,14 @@ REFERENCE_TIME CProcessor::Add(DVDVideoPicture* picture)
+   vs.sample.SrcSurface     = surface;
+ 
+ 
+-  vs.context = context;
+-
+-  if(!m_sample.empty())
+-    m_sample.back().sample.End = vs.sample.Start;
++  if(!m_samples.empty())
++    m_samples.back().sample.End = vs.sample.Start;
+ 
+-  m_sample.push_back(vs);
+-  if (m_sample.size() > m_size)
++  m_samples.push_back(vs);
++  if (m_samples.size() > m_size)
+   {
+-    SAFE_RELEASE(m_sample.front().context);
+-    SAFE_RELEASE(m_sample.front().sample.SrcSurface);
+-    m_sample.pop_front();
++    SAFE_RELEASE(m_samples.front().renderPic);
++    m_samples.pop_front();
+   }
+ 
+   return m_time;
+@@ -671,20 +661,19 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFEREN
+   REFERENCE_TIME MinTime = time - m_max_back_refs*2;
+   REFERENCE_TIME MaxTime = time + m_max_fwd_refs*2;
+ 
+-  SSamples::iterator it = m_sample.begin();
+-  while (it != m_sample.end())
++  std::deque<SVideoSample>::iterator it = m_samples.begin();
++  while (it != m_samples.end())
+   {
+     if (it->sample.Start < MinTime)
+     {
+-      SAFE_RELEASE(it->context);
+-      SAFE_RELEASE(it->sample.SrcSurface);
+-      it = m_sample.erase(it);
++      SAFE_RELEASE(it->renderPic);
++      it = m_samples.erase(it);
+     }
+     else
+       ++it;
+   }
+ 
+-  if(m_sample.empty())
++  if(m_samples.empty())
+     return false;
+ 
+   // MinTime and MaxTime are now the first and last samples to feed the processor.
+@@ -711,7 +700,7 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFEREN
+   for (int i = 0; i < count; i++)
+     samp[i].SampleFormat.SampleFormat = DXVA2_SampleUnknown;
+ 
+-  for(it = m_sample.begin(); it != m_sample.end() && valid < count; ++it)
++  for(it = m_samples.begin(); it != m_samples.end() && valid < count; ++it)
+   {
+     if (it->sample.Start >= MinTime && it->sample.Start <= MaxTime)
+     {
+diff --git a/xbmc/cores/VideoRenderers/DXVA.h b/xbmc/cores/VideoRenderers/DXVA.h
+index 38da6f7..233c59b 100644
+--- a/xbmc/cores/VideoRenderers/DXVA.h
++++ b/xbmc/cores/VideoRenderers/DXVA.h
+@@ -84,13 +84,11 @@ class CProcessor
+   struct SVideoSample
+   {
+     DXVA2_VideoSample sample;
+-    CSurfaceContext* context;
++    CRenderPicture* renderPic;
+   };
+-  typedef std::deque<SVideoSample> SSamples;
+-  SSamples         m_sample;
++  std::deque<SVideoSample> m_samples;
+ 
+   CCriticalSection    m_section;
+-  LPDIRECT3DSURFACE9* m_surfaces;
+   CSurfaceContext*    m_context;
+   bool                m_quirk_nodeintprocforprog;
+   static CCriticalSection    m_dlSection;
+diff --git a/xbmc/cores/VideoRenderers/DXVAHD.cpp b/xbmc/cores/VideoRenderers/DXVAHD.cpp
+index e9ac51c..6788e58 100644
+--- a/xbmc/cores/VideoRenderers/DXVAHD.cpp
++++ b/xbmc/cores/VideoRenderers/DXVAHD.cpp
+@@ -88,7 +88,6 @@ CProcessorHD::CProcessorHD()
+   m_frame   = 0;
+   g_Windowing.Register(this);
+ 
+-  m_surfaces = NULL;
+   m_context  = NULL;
+ }
+ 
+@@ -112,21 +111,11 @@ void CProcessorHD::Close()
+ 
+   for(unsigned i = 0; i < m_frames.size(); i++)
+   {
+-    SAFE_RELEASE(m_frames[i].context);
+-    SAFE_RELEASE(m_frames[i].pSurface);
++    SAFE_RELEASE(m_frames[i].pRenderPic);
+   }
+   m_frames.clear();
+ 
+   SAFE_RELEASE(m_context);
+-  if (m_surfaces)
+-  {
+-    for (unsigned i = 0; i < m_size; i++)
+-    {
+-      SAFE_RELEASE(m_surfaces[i]);
+-    }
+-    free(m_surfaces);
+-    m_surfaces = NULL;
+-  }
+ }
+ 
+ bool CProcessorHD::UpdateSize(const DXVA2_VideoDesc& dsc)
+@@ -330,17 +319,23 @@ bool CProcessorHD::OpenProcessor()
+ bool CProcessorHD::CreateSurfaces()
+ {
+   LPDIRECT3DDEVICE9 pD3DDevice = g_Windowing.Get3DDevice();
+-  m_surfaces = (LPDIRECT3DSURFACE9*)calloc(m_size, sizeof(LPDIRECT3DSURFACE9));
++  LPDIRECT3DSURFACE9 surfaces[32];
+   for (unsigned idx = 0; idx < m_size; idx++)
++  {
+     CHECK(pD3DDevice->CreateOffscreenPlainSurface(
+-                                (m_width + 15) & ~15,
+-                                (m_height + 15) & ~15,
+-                                m_format,
+-                                m_VPDevCaps.InputPool,
+-                                &m_surfaces[idx],
+-                                NULL));
++      (m_width + 15) & ~15,
++      (m_height + 15) & ~15,
++      m_format,
++      m_VPDevCaps.InputPool,
++      &surfaces[idx],
++      NULL));
++  }
+ 
+   m_context = new CSurfaceContext();
++  for (int i = 0; i < m_size; i++)
++  {
++    m_context->AddSurface(surfaces[i]);
++  }
+ 
+   return true;
+ }
+@@ -350,7 +345,6 @@ REFERENCE_TIME CProcessorHD::Add(DVDVideoPicture* picture)
+   CSingleLock lock(m_section);
+ 
+   IDirect3DSurface9* surface = NULL;
+-  CSurfaceContext* context = NULL;
+ 
+   if (picture->iFlags & DVP_FLAG_DROPPED)
+   {
+@@ -361,23 +355,20 @@ REFERENCE_TIME CProcessorHD::Add(DVDVideoPicture* picture)
+   {
+     case RENDER_FMT_DXVA:
+     {
+-      surface = (IDirect3DSurface9*)picture->data[3];
+-      context = picture->context;
++      surface = picture->dxva->surface;
+       break;
+     }
+ 
+     case RENDER_FMT_YUV420P:
+     {
+-      if (!m_surfaces)
++      if (!m_context)
+       {
+         CLog::Log(LOGWARNING, __FUNCTION__" - not initialized.");
+         return 0;
+       }
+ 
+-      surface = m_surfaces[m_index];
++      surface = m_context->GetAtIndex(m_index);
+       m_index = (m_index + 1) % m_size;
+-
+-      context = m_context;
+   
+       D3DLOCKED_RECT rectangle;
+       if (FAILED(surface->LockRect(&rectangle, NULL, 0)))
+@@ -430,19 +421,18 @@ REFERENCE_TIME CProcessorHD::Add(DVDVideoPicture* picture)
+     }
+   }
+ 
+-  if (!surface || !context)
++  if (!surface)
+   {
+     return 0;
+   }
+   m_frame += 2;
+ 
+-  surface->AddRef();
+-  context->Acquire();
+-
+   SFrame frame = {};
+   frame.index       = m_frame;
+-  frame.pSurface    = surface; 
+-  frame.context     = context;
++  frame.pSurface    = surface;
++  frame.pRenderPic  = NULL;
++  if (picture->format == RENDER_FMT_DXVA)
++    frame.pRenderPic  = picture->dxva->Acquire();
+   frame.format      = DXVAHD_FRAME_FORMAT_PROGRESSIVE;
+ 
+   if (picture->iFlags & DVP_FLAG_INTERLACED)
+@@ -456,8 +446,7 @@ REFERENCE_TIME CProcessorHD::Add(DVDVideoPicture* picture)
+ 
+   if (m_frames.size() > m_size)
+   {
+-    SAFE_RELEASE(m_frames.front().context);
+-    SAFE_RELEASE(m_frames.front().pSurface);
++    SAFE_RELEASE(m_frames.front().pRenderPic);
+ 
+     m_frames.pop_front();
+   }
+@@ -526,8 +515,7 @@ bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFER
+   {
+     if (it->index < minFrame)
+     {
+-      SAFE_RELEASE(it->context);
+-      SAFE_RELEASE(it->pSurface);
++      SAFE_RELEASE(it->pRenderPic);
+       it = m_frames.erase(it);
+     }
+     else
+diff --git a/xbmc/cores/VideoRenderers/DXVAHD.h b/xbmc/cores/VideoRenderers/DXVAHD.h
+index 11cb194..a6ab9f5 100644
+--- a/xbmc/cores/VideoRenderers/DXVAHD.h
++++ b/xbmc/cores/VideoRenderers/DXVAHD.h
+@@ -97,7 +97,7 @@ class CProcessorHD
+   struct SFrame
+   {
+     IDirect3DSurface9*     pSurface;
+-    CSurfaceContext*       context;
++    CRenderPicture*        pRenderPic;
+     unsigned int           index;
+     unsigned               format;
+   };
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
+index 37c1c07..8333fb4 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
+@@ -47,7 +47,7 @@ struct DVDCodecAvailableType
+ #define FRAME_TYPE_B 3
+ #define FRAME_TYPE_D 4
+ 
+-namespace DXVA { class CSurfaceContext; }
++namespace DXVA { class CRenderPicture; }
+ namespace VAAPI { class CVaapiRenderPicture; }
+ namespace VDPAU { class CVdpauRenderPicture; }
+ class COpenMax;
+@@ -72,7 +72,7 @@ struct DVDVideoPicture
+       int iLineSize[4];   // [4] = alpha channel, currently not used
+     };
+     struct {
+-      DXVA::CSurfaceContext* context;
++      DXVA::CRenderPicture* dxva;
+     };
+     struct {
+       VDPAU::CVdpauRenderPicture* vdpau;
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index d06e47b..718d781 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -101,6 +101,7 @@ enum PixelFormat CDVDVideoCodecFFmpeg::GetFormat( struct AVCodecContext * avctx
+ #ifdef HAS_DX
+   if(DXVA::CDecoder::Supports(*cur) && CSettings::Get().GetBool("videoplayer.usedxva2"))
+   {
++    CLog::Log(LOGNOTICE, "CDVDVideoCodecFFmpeg::GetFormat - Creating DXVA(%ix%i)", avctx->width, avctx->height);
+     DXVA::CDecoder* dec = new DXVA::CDecoder();
+     if(dec->Open(avctx, *cur, ctx->m_uSurfacesCount))
+     {
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+index 65959bd..ef83840 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+@@ -218,6 +218,10 @@ static const dxva2_mode_t *dxva2_find_mode(const GUID *guid)
+     return NULL;
+ }
+ 
++//-----------------------------------------------------------------------------
++// DXVA Context
++//-----------------------------------------------------------------------------
++
+ CDXVAContext *CDXVAContext::m_context = NULL;
+ CCriticalSection CDXVAContext::m_section;
+ HMODULE CDXVAContext::m_dlHandle = NULL;
+@@ -464,40 +468,165 @@ bool CDXVAContext::IsValidDecoder(CDecoder *decoder)
+   return false;
+ }
+ 
++//-----------------------------------------------------------------------------
++// DXVA Video Surface states
++//-----------------------------------------------------------------------------
++#define SURFACE_USED_FOR_REFERENCE 0x01
++#define SURFACE_USED_FOR_RENDER 0x02
++
+ CSurfaceContext::CSurfaceContext()
+ {
+ }
+ 
+ CSurfaceContext::~CSurfaceContext()
+ {
+-  for (vector<IDirect3DSurface9*>::iterator it = m_heldsurfaces.begin(); it != m_heldsurfaces.end(); ++it)
+-    SAFE_RELEASE(*it);
++  CLog::Log(LOGDEBUG, "%s - destructing surface context", __FUNCTION__);
++  Reset();
++}
++
++void CSurfaceContext::AddSurface(IDirect3DSurface9* surf)
++{
++  CSingleLock lock(m_section);
++  surf->AddRef();
++  m_state[surf] = 0;
++  m_freeSurfaces.push_back(surf);
++}
++
++void CSurfaceContext::ClearReference(IDirect3DSurface9* surf)
++{
++  CSingleLock lock(m_section);
++  if (m_state.find(surf) == m_state.end())
++  {
++    CLog::Log(LOGWARNING, "%s - surface invalid", __FUNCTION__);
++    return;
++  }
++  m_state[surf] &= ~SURFACE_USED_FOR_REFERENCE;
++  if (m_state[surf] == 0)
++  {
++    m_freeSurfaces.push_back(surf);
++  }
++}
++
++bool CSurfaceContext::MarkRender(IDirect3DSurface9* surf)
++{
++  CSingleLock lock(m_section);
++  if (m_state.find(surf) == m_state.end())
++  {
++    CLog::Log(LOGWARNING, "%s - surface invalid", __FUNCTION__);
++    return false;
++  }
++  std::list<IDirect3DSurface9*>::iterator it;
++  it = std::find(m_freeSurfaces.begin(), m_freeSurfaces.end(), surf);
++  if (it != m_freeSurfaces.end())
++  {
++    m_freeSurfaces.erase(it);
++  }
++  m_state[surf] |= SURFACE_USED_FOR_RENDER;
++  return true;
++}
++
++void CSurfaceContext::ClearRender(IDirect3DSurface9* surf)
++{
++  CSingleLock lock(m_section);
++  if (m_state.find(surf) == m_state.end())
++  {
++    CLog::Log(LOGWARNING, "%s - surface invalid", __FUNCTION__);
++    return;
++  }
++  m_state[surf] &= ~SURFACE_USED_FOR_RENDER;
++  if (m_state[surf] == 0)
++  {
++    m_freeSurfaces.push_back(surf);
++  }
+ }
+ 
+-void CSurfaceContext::HoldSurface(IDirect3DSurface9* surface)
++bool CSurfaceContext::IsValid(IDirect3DSurface9* surf)
+ {
+-  surface->AddRef();
+-  m_heldsurfaces.push_back(surface);
++  CSingleLock lock(m_section);
++  if (m_state.find(surf) != m_state.end())
++    return true;
++  else
++    return false;
+ }
+ 
+-CDecoder::SVideoBuffer::SVideoBuffer()
++IDirect3DSurface9* CSurfaceContext::GetFree(IDirect3DSurface9* surf)
+ {
+-  surface = NULL;
+-  Clear();
++  CSingleLock lock(m_section);
++  if (m_state.find(surf) != m_state.end())
++  {
++    std::list<IDirect3DSurface9*>::iterator it;
++    it = std::find(m_freeSurfaces.begin(), m_freeSurfaces.end(), surf);
++    if (it == m_freeSurfaces.end())
++    {
++      CLog::Log(LOGWARNING, "%s - surface not free", __FUNCTION__);
++    }
++    else
++    {
++      m_freeSurfaces.erase(it);
++      m_state[surf] = SURFACE_USED_FOR_REFERENCE;
++      return surf;
++    }
++  }
++  if (!m_freeSurfaces.empty())
++  {
++    IDirect3DSurface9* freeSurf = m_freeSurfaces.front();
++    m_freeSurfaces.pop_front();
++    m_state[freeSurf] = SURFACE_USED_FOR_REFERENCE;
++    return freeSurf;
++  }
++  return NULL;
+ }
+ 
+-CDecoder::SVideoBuffer::~SVideoBuffer()
++IDirect3DSurface9* CSurfaceContext::GetAtIndex(unsigned int idx)
+ {
+-  Clear();
++  if (idx >= m_state.size())
++    return NULL;
++  std::map<IDirect3DSurface9*, int>::iterator it = m_state.begin();
++  for (unsigned int i = 0; i < idx; i++)
++    ++it;
++  return it->first;
+ }
+ 
+-void CDecoder::SVideoBuffer::Clear()
++void CSurfaceContext::Reset()
+ {
+-  SAFE_RELEASE(surface);
+-  age     = 0;
+-  used    = 0;
++  CSingleLock lock(m_section);
++  for (map<IDirect3DSurface9*, int>::iterator it = m_state.begin(); it != m_state.end(); ++it)
++    it->first->Release();
++  m_freeSurfaces.clear();
++  m_state.clear();
+ }
+ 
++int CSurfaceContext::Size()
++{
++  CSingleLock lock(m_section);
++  return m_state.size();
++}
++
++bool CSurfaceContext::HasFree()
++{
++  CSingleLock lock(m_section);
++  return !m_freeSurfaces.empty();
++}
++
++//-----------------------------------------------------------------------------
++// DXVA RednerPictures
++//-----------------------------------------------------------------------------
++
++CRenderPicture::CRenderPicture(CSurfaceContext *context)
++{
++  surface_context = context->Acquire();
++}
++
++CRenderPicture::~CRenderPicture()
++{
++  surface_context->ClearRender(surface);
++  surface_context->Release();
++}
++
++//-----------------------------------------------------------------------------
++// DXVA Decoder
++//-----------------------------------------------------------------------------
++
+ CDecoder::CDecoder()
+  : m_event(true)
+ {
+@@ -505,21 +634,21 @@ CDecoder::CDecoder()
+   m_state     = DXVA_OPEN;
+   m_device    = NULL;
+   m_decoder   = NULL;
+-  m_buffer_count = 0;
+-  m_buffer_age   = 0;
+   m_refs         = 0;
+   m_shared       = 0;
+   m_surface_context = NULL;
++  m_presentPicture = NULL;
+   m_dxva_context = NULL;
+   memset(&m_format, 0, sizeof(m_format));
+   m_context          = (dxva_context*)calloc(1, sizeof(dxva_context));
+   m_context->cfg     = (DXVA2_ConfigPictureDecode*)calloc(1, sizeof(DXVA2_ConfigPictureDecode));
+-  m_context->surface = (IDirect3DSurface9**)calloc(m_buffer_max, sizeof(IDirect3DSurface9*));
++  m_context->surface = (IDirect3DSurface9**)calloc(32, sizeof(IDirect3DSurface9*));
+   g_Windowing.Register(this);
+ }
+ 
+ CDecoder::~CDecoder()
+ {
++  CLog::Log(LOGDEBUG, "%s - destructing decoder, %ld", __FUNCTION__, this);
+   g_Windowing.Unregister(this);
+   Close();
+   free(m_context->surface);
+@@ -532,13 +661,14 @@ void CDecoder::Close()
+   CSingleLock lock(m_section);
+   SAFE_RELEASE(m_decoder);
+   SAFE_RELEASE(m_surface_context);
+-  for(unsigned i = 0; i < m_buffer_count; i++)
+-    m_buffer[i].Clear();
+-  m_buffer_count = 0;
++  SAFE_RELEASE(m_presentPicture);
+   memset(&m_format, 0, sizeof(m_format));
+ 
+   if (m_dxva_context)
++  {
++    CLog::Log(LOGNOTICE, "%s - closing decoder", __FUNCTION__);
+     m_dxva_context->Release(this);
++  }
+   m_dxva_context = NULL;
+ }
+ 
+@@ -769,7 +899,7 @@ bool CDecoder::Open(AVCodecContext *avctx, enum PixelFormat fmt, unsigned int su
+   if(!OpenDecoder())
+     return false;
+ 
+-  avctx->get_buffer2     = GetBufferS;
++  avctx->get_buffer2 = GetBufferS;
+   avctx->hwaccel_context = m_context;
+ 
+   D3DADAPTER_IDENTIFIER9 AIdentifier = g_Windowing.GetAIdentifier();
+@@ -801,12 +931,16 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
+   if(result)
+     return result;
+ 
++  SAFE_RELEASE(m_presentPicture);
++
+   if(frame)
+   {
+-    for(unsigned i = 0; i < m_buffer_count; i++)
++    if (m_surface_context->IsValid((IDirect3DSurface9*)frame->data[3]))
+     {
+-      if(m_buffer[i].surface == (IDirect3DSurface9*)frame->data[3])
+-        return VC_BUFFER | VC_PICTURE;
++      m_presentPicture = new CRenderPicture(m_surface_context);
++      m_presentPicture->surface = (IDirect3DSurface9*)frame->data[3];
++      m_surface_context->MarkRender(m_presentPicture->surface);
++      return VC_BUFFER | VC_PICTURE;
+     }
+     CLog::Log(LOGWARNING, "DXVA - ignoring invalid surface");
+     return VC_BUFFER;
+@@ -819,10 +953,10 @@ bool CDecoder::GetPicture(AVCodecContext* avctx, AVFrame* frame, DVDVideoPicture
+ {
+   ((CDVDVideoCodecFFmpeg*)avctx->opaque)->GetPictureCommon(picture);
+   CSingleLock lock(m_section);
++
++  picture->dxva = m_presentPicture;
+   picture->format = RENDER_FMT_DXVA;
+   picture->extended_format = (unsigned int)m_format.Format;
+-  picture->context = m_surface_context;
+-  picture->data[3]= frame->data[3];
+   return true;
+ }
+ 
+@@ -922,21 +1056,15 @@ bool CDecoder::OpenDecoder()
+ 
+   m_context->surface_count = m_refs + 1 + 1 + m_shared; // refs + 1 decode + 1 libavcodec safety + processor buffer
+ 
+-  if(m_context->surface_count > m_buffer_count)
+-  {
+-    CLog::Log(LOGDEBUG, "DXVA - allocating %d surfaces", m_context->surface_count - m_buffer_count);
++  CLog::Log(LOGDEBUG, "DXVA - allocating %d surfaces", m_context->surface_count);
+ 
+-    if (!m_dxva_context->CreateSurfaces(m_format.SampleWidth, m_format.SampleHeight, m_format.Format,
+-                                        m_context->surface_count - 1 - m_buffer_count, m_context->surface + m_buffer_count))
+-      return false;
+-
+-    for(unsigned i = m_buffer_count; i < m_context->surface_count; i++)
+-    {
+-      m_buffer[i].surface = m_context->surface[i];
+-      m_surface_context->HoldSurface(m_context->surface[i]);
+-    }
++  if (!m_dxva_context->CreateSurfaces(m_format.SampleWidth, m_format.SampleHeight, m_format.Format,
++                                      m_context->surface_count - 1, m_context->surface))
++    return false;
+ 
+-    m_buffer_count = m_context->surface_count;
++  for(unsigned i = 0; i < m_context->surface_count; i++)
++  {
++    m_surface_context->AddSurface(m_context->surface[i]);
+   }
+ 
+   if (!m_dxva_context->CreateDecoder(m_input, &m_format, m_context->cfg, m_context->surface, m_context->surface_count, &m_decoder))
+@@ -957,18 +1085,15 @@ bool CDecoder::Supports(enum PixelFormat fmt)
+ void CDecoder::RelBuffer(uint8_t *data)
+ {
+   CSingleLock lock(m_section);
+-  IDirect3DSurface9* surface = (IDirect3DSurface9*)data;
++  IDirect3DSurface9* surface = (IDirect3DSurface9*)(uintptr_t)data;
+ 
+-  for(unsigned i = 0; i < m_buffer_count; i++)
++  if (!m_surface_context->IsValid(surface))
+   {
+-    if(m_buffer[i].surface == surface)
+-    {
+-      m_buffer[i].used = false;
+-      m_buffer[i].age  = ++m_buffer_age;
+-      break;
+-    }
++    CLog::Log(LOGWARNING, "%s - return of invalid surface", __FUNCTION__);
+   }
+ 
++  m_surface_context->ClearReference(surface);
++
+   Release();
+ }
+ 
+@@ -979,46 +1104,12 @@ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic, int flags)
+   if (!m_decoder)
+     return -1;
+ 
+-  if(avctx->coded_width  != m_format.SampleWidth
+-  || avctx->coded_height != m_format.SampleHeight)
+-  {
+-    Close();
+-    if(!Open(avctx, avctx->pix_fmt, m_shared))
+-    {
+-      Close();
+-      return -1;
+-    }
+-  }
+-
+-  int           count = 0;
+-  SVideoBuffer* buf   = NULL;
+-  for(unsigned i = 0; i < m_buffer_count; i++)
+-  {
+-    if(m_buffer[i].used)
+-      count++;
+-    else
+-    {
+-      if(!buf || buf->age > m_buffer[i].age)
+-        buf = m_buffer+i;
+-    }
+-  }
+-
+-  if(count >= m_refs+2)
+-  {
+-    m_refs++;
+-#if ALLOW_ADDING_SURFACES
+-    if(!OpenDecoder())
+-      return -1;
+-    return GetBuffer(avctx, pic);
+-#else
+-    Close();
+-    return -1;
+-#endif
+-  }
+-
+-  if(!buf)
++  IDirect3DSurface9* surf = (IDirect3DSurface9*)(uintptr_t)pic->data[3];
++  surf = m_surface_context->GetFree(surf != 0 ? surf : NULL);
++  if (surf == NULL)
+   {
+-    CLog::Log(LOGERROR, "DXVA - unable to find new unused buffer");
++    CLog::Log(LOGERROR, "%s - no surface available - dec: %d, render: %d", __FUNCTION__);
++    m_state = DXVA_LOST;
+     return -1;
+   }
+ 
+@@ -1030,8 +1121,8 @@ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic, int flags)
+     pic->linesize[i] = 0;
+   }
+ 
+-  pic->data[0] = (uint8_t*)buf->surface;
+-  pic->data[3] = (uint8_t*)buf->surface;
++  pic->data[0] = (uint8_t*)surf;
++  pic->data[3] = (uint8_t*)surf;
+   AVBufferRef *buffer = av_buffer_create(pic->data[3], 0, RelBufferS, this, 0);
+   if (!buffer)
+   {
+@@ -1039,7 +1130,6 @@ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic, int flags)
+     return -1;
+   }
+   pic->buf[0] = buffer;
+-  buf->used = true;
+ 
+   Acquire();
+ 
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h
+index fa24556..1b8a45d 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h
+@@ -27,6 +27,7 @@
+ #include <dxva2api.h>
+ #include <deque>
+ #include <vector>
++#include <list>
+ #include "settings/VideoSettings.h"
+ #include "guilib/Geometry.h"
+ 
+@@ -49,10 +50,32 @@ class CSurfaceContext
+   CSurfaceContext();
+   ~CSurfaceContext();
+ 
+-   void HoldSurface(IDirect3DSurface9* surface);
++  void AddSurface(IDirect3DSurface9* surf);
++  void ClearReference(IDirect3DSurface9* surf);
++  bool MarkRender(IDirect3DSurface9* surf);
++  void ClearRender(IDirect3DSurface9* surf);
++  bool IsValid(IDirect3DSurface9* surf);
++  IDirect3DSurface9* GetFree(IDirect3DSurface9* surf);
++  IDirect3DSurface9* GetAtIndex(unsigned int idx);
++  void Reset();
++  int Size();
++  bool HasFree();
+ 
+ protected:
+-  std::vector<IDirect3DSurface9*> m_heldsurfaces;
++  std::map<IDirect3DSurface9*, int> m_state;
++  std::list<IDirect3DSurface9*> m_freeSurfaces;
++  CCriticalSection m_section;
++};
++
++class CRenderPicture
++  : public IDVDResourceCounted<CRenderPicture>
++{
++public:
++  CRenderPicture(CSurfaceContext *context);
++  ~CRenderPicture();
++  IDirect3DSurface9* surface;
++protected:
++  CSurfaceContext *surface_context;
+ };
+ 
+ typedef HRESULT(__stdcall *DXVA2CreateVideoServicePtr)(IDirect3DDevice9* pDD, REFIID riid, void** ppService);
+@@ -121,26 +144,12 @@ class CDecoder
+   virtual void OnLostDevice()    { CSingleLock lock(m_section); m_state = DXVA_LOST;  m_event.Reset(); }
+   virtual void OnResetDevice()   { CSingleLock lock(m_section); m_state = DXVA_RESET; m_event.Set();   }
+ 
+-  struct SVideoBuffer
+-  {
+-    SVideoBuffer();
+-   ~SVideoBuffer();
+-    void Clear();
+-
+-    IDirect3DSurface9* surface;
+-    bool               used;
+-    int                age;
+-  };
+-
+   IDirectXVideoDecoder*        m_decoder;
+   HANDLE                       m_device;
+   GUID                         m_input;
+   DXVA2_VideoDesc              m_format;
+-  static const unsigned        m_buffer_max = 32;
+-  SVideoBuffer                 m_buffer[m_buffer_max];
+-  unsigned                     m_buffer_count;
+-  unsigned                     m_buffer_age;
+   int                          m_refs;
++  CRenderPicture              *m_presentPicture;
+ 
+   struct dxva_context*         m_context;
+ 
+
+From f1ea9298555e290c05de91e08d73fd2b89f20350 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 14 Sep 2014 11:20:18 +0200
+Subject: [PATCH 02/31] dxva: let renderer control the render buffers
+
+---
+ xbmc/cores/VideoRenderers/BaseRenderer.h      |   3 +-
+ xbmc/cores/VideoRenderers/DXVA.cpp            | 277 +++++++++++---------------
+ xbmc/cores/VideoRenderers/DXVA.h              |  14 +-
+ xbmc/cores/VideoRenderers/DXVAHD.cpp          | 235 +++++-----------------
+ xbmc/cores/VideoRenderers/DXVAHD.h            |  14 +-
+ xbmc/cores/VideoRenderers/RenderManager.cpp   |  23 +--
+ xbmc/cores/VideoRenderers/WinRenderer.cpp     | 110 ++++++++--
+ xbmc/cores/VideoRenderers/WinRenderer.h       |  13 +-
+ xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp |   1 -
+ 9 files changed, 281 insertions(+), 409 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoRenderers/BaseRenderer.h
+index fb41ccf..d303598 100644
+--- a/xbmc/cores/VideoRenderers/BaseRenderer.h
++++ b/xbmc/cores/VideoRenderers/BaseRenderer.h
+@@ -29,7 +29,7 @@
+ 
+ #define MAX_PLANES 3
+ #define MAX_FIELDS 3
+-#define NUM_BUFFERS 3
++#define NUM_BUFFERS 6
+ 
+ class CSetting;
+ 
+@@ -93,6 +93,7 @@ class CBaseRenderer
+   virtual unsigned int GetMaxBufferSize() { return 0; }
+   virtual void         SetBufferSize(int numBuffers) { }
+   virtual void         ReleaseBuffer(int idx) { }
++  virtual bool         NeedBufferForRef(int idx) { return false; }
+ 
+   virtual bool Supports(ERENDERFEATURE feature) { return false; }
+ 
+diff --git a/xbmc/cores/VideoRenderers/DXVA.cpp b/xbmc/cores/VideoRenderers/DXVA.cpp
+index 16d26c8..e38a9f0 100644
+--- a/xbmc/cores/VideoRenderers/DXVA.cpp
++++ b/xbmc/cores/VideoRenderers/DXVA.cpp
+@@ -148,11 +148,9 @@ CProcessor::CProcessor()
+ {
+   m_service = NULL;
+   m_process = NULL;
+-  m_time    = 0;
+   g_Windowing.Register(this);
+ 
+   m_context = NULL;
+-  m_index = 0;
+   m_progressive = true;
+ }
+ 
+@@ -173,12 +171,6 @@ void CProcessor::Close()
+ {
+   CSingleLock lock(m_section);
+   SAFE_RELEASE(m_process);
+-  for(unsigned i = 0; i < m_samples.size(); i++)
+-  {
+-    SAFE_RELEASE(m_samples[i].renderPic);
+-  }
+-  m_samples.clear();
+-
+   SAFE_RELEASE(m_context);
+ }
+ 
+@@ -362,8 +354,6 @@ bool CProcessor::Open(UINT width, UINT height, unsigned int flags, unsigned int
+   if (!OpenProcessor())
+     return false;
+ 
+-  m_time = 0;
+-
+   return true;
+ }
+ 
+@@ -511,114 +501,71 @@ bool CProcessor::CreateSurfaces()
+   return true;
+ }
+ 
+-REFERENCE_TIME CProcessor::Add(DVDVideoPicture* picture)
++CRenderPicture *CProcessor::Convert(DVDVideoPicture* picture)
+ {
+-  CSingleLock lock(m_section);
+-
+-  IDirect3DSurface9* surface = NULL;
+-
+-  if (picture->iFlags & DVP_FLAG_DROPPED)
+-    return 0;
+-
+-  switch (picture->format)
++  if (picture->format != RENDER_FMT_YUV420P)
+   {
+-    case RENDER_FMT_DXVA:
+-    {
+-      surface = picture->dxva->surface;
+-      break;
+-    }
+-
+-    case RENDER_FMT_YUV420P:
+-    {
+-      surface = m_context->GetAtIndex(m_index);
+-      m_index = (m_index + 1) % m_size;
+-
+-      D3DLOCKED_RECT rectangle;
+-      if (FAILED(surface->LockRect(&rectangle, NULL, 0)))
+-        return 0;
+-
+-      // Convert to NV12 - Luma
+-      // TODO: Optimize this later using shaders/swscale/etc.
+-      uint8_t *s = picture->data[0];
+-      uint8_t* bits = (uint8_t*)(rectangle.pBits);
+-      for (unsigned y = 0; y < picture->iHeight; y++)
+-      {
+-        memcpy(bits, s, picture->iWidth);
+-        s += picture->iLineSize[0];
+-        bits += rectangle.Pitch;
+-      }
+-
+-      D3DSURFACE_DESC desc;
+-      if (FAILED(surface->GetDesc(&desc)))
+-        return 0;
+-
+-      // Convert to NV12 - Chroma
+-      for (unsigned y = 0; y < picture->iHeight/2; y++)
+-      {
+-        uint8_t *s_u = picture->data[1] + (y * picture->iLineSize[1]);
+-        uint8_t *s_v = picture->data[2] + (y * picture->iLineSize[2]);
+-        uint8_t *d_uv = ((uint8_t*)(rectangle.pBits)) + (desc.Height + y) * rectangle.Pitch;
+-        for (unsigned x = 0; x < picture->iWidth/2; x++)
+-        {
+-          *d_uv++ = *s_u++;
+-          *d_uv++ = *s_v++;
+-        }
+-      }
+-  
+-      if (FAILED(surface->UnlockRect()))
+-        return 0;
+-
+-      break;
+-    }
+-    
+-    default:
+-    {
+-      CLog::Log(LOGWARNING, "DXVA - colorspace not supported by processor, skipping frame");
+-      return 0;
+-    }
++    CLog::Log(LOGERROR, "%s - colorspace not supported by processor, skipping frame.", __FUNCTION__);
++    return NULL;
+   }
+ 
++  IDirect3DSurface9* surface = m_context->GetFree(NULL);
+   if (!surface)
+-    return 0;
+-
+-  m_time += 2;
++  {
++    CLog::Log(LOGERROR, "%s - no free video surface", __FUNCTION__);
++    return NULL;
++  }
+ 
+-  SVideoSample vs = {};
+-  vs.sample.Start          = m_time;
+-  vs.sample.End            = 0; 
+-  vs.sample.SampleFormat   = m_desc.SampleFormat;
+-  vs.renderPic = NULL;
+-  if (picture->format == RENDER_FMT_DXVA)
+-    vs.renderPic = picture->dxva->Acquire();
++  D3DLOCKED_RECT rectangle;
++  if (FAILED(surface->LockRect(&rectangle, NULL, 0)))
++  {
++    CLog::Log(LOGERROR, "%s - could not lock rect", __FUNCTION__);
++    m_context->ClearReference(surface);
++    return NULL;
++  }
+ 
+-  if (picture->iFlags & DVP_FLAG_INTERLACED)
++  // Convert to NV12 - Luma
++  // TODO: Optimize this later using shaders/swscale/etc.
++  uint8_t *s = picture->data[0];
++  uint8_t* bits = (uint8_t*)(rectangle.pBits);
++  for (unsigned y = 0; y < picture->iHeight; y++)
+   {
+-    if (picture->iFlags & DVP_FLAG_TOP_FIELD_FIRST)
+-      vs.sample.SampleFormat.SampleFormat = DXVA2_SampleFieldInterleavedEvenFirst;
+-    else
+-      vs.sample.SampleFormat.SampleFormat = DXVA2_SampleFieldInterleavedOddFirst;
++    memcpy(bits, s, picture->iWidth);
++    s += picture->iLineSize[0];
++    bits += rectangle.Pitch;
+   }
+-  else
++  D3DSURFACE_DESC desc;
++  if (FAILED(surface->GetDesc(&desc)))
+   {
+-    vs.sample.SampleFormat.SampleFormat = DXVA2_SampleProgressiveFrame;
++    CLog::Log(LOGERROR, "%s - could not get surface descriptor", __FUNCTION__);
++    m_context->ClearReference(surface);
++    return NULL;
+   }
+-
+-  vs.sample.PlanarAlpha    = DXVA2_Fixed32OpaqueAlpha();
+-  vs.sample.SampleData     = 0;
+-  vs.sample.SrcSurface     = surface;
+-
+-
+-  if(!m_samples.empty())
+-    m_samples.back().sample.End = vs.sample.Start;
+-
+-  m_samples.push_back(vs);
+-  if (m_samples.size() > m_size)
++  // Convert to NV12 - Chroma
++  uint8_t *s_u, *s_v, *d_uv;
++  for (unsigned y = 0; y < picture->iHeight / 2; y++)
+   {
+-    SAFE_RELEASE(m_samples.front().renderPic);
+-    m_samples.pop_front();
++    s_u = picture->data[1] + (y * picture->iLineSize[1]);
++    s_v = picture->data[2] + (y * picture->iLineSize[2]);
++    d_uv = ((uint8_t*)(rectangle.pBits)) + (desc.Height + y) * rectangle.Pitch;
++    for (unsigned x = 0; x < picture->iWidth / 2; x++)
++    {
++      *d_uv++ = *s_u++;
++      *d_uv++ = *s_v++;
++    }
++  }
++  if (FAILED(surface->UnlockRect()))
++  {
++    CLog::Log(LOGERROR, "%s - failed to unlock surface", __FUNCTION__);
++    m_context->ClearReference(surface);
++    return NULL;
+   }
+ 
+-  return m_time;
++  m_context->ClearReference(surface);
++  m_context->MarkRender(surface);
++  CRenderPicture *pic = new CRenderPicture(m_context);
++  pic->surface = surface;
++  return pic;
+ }
+ 
+ static DXVA2_Fixed32 ConvertRange(const DXVA2_ValueRange& range, int value, int min, int max, int def)
+@@ -635,10 +582,13 @@ static DXVA2_Fixed32 ConvertRange(const DXVA2_ValueRange& range, int value, int
+     return range.DefaultValue;
+ }
+ 
+-bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFERENCE_TIME time, DWORD flags)
++bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, IDirect3DSurface9** source, DWORD flags, UINT frameIdx)
+ {
+   CSingleLock lock(m_section);
+ 
++  if (!source[2])
++    return false;
++
+   // With auto deinterlacing, the Ion Gen. 1 drops some frames with deinterlacing processor + progressive flags for progressive material.
+   // For that GPU (or when specified by an advanced setting), use the progressive processor.
+   // This is at the expense of the switch speed when video interlacing flags change and a deinterlacing processor is actually required.
+@@ -657,29 +607,6 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFEREN
+       return false;
+   }
+   
+-  // MinTime and MaxTime are the first and last samples to keep. Delete the rest.
+-  REFERENCE_TIME MinTime = time - m_max_back_refs*2;
+-  REFERENCE_TIME MaxTime = time + m_max_fwd_refs*2;
+-
+-  std::deque<SVideoSample>::iterator it = m_samples.begin();
+-  while (it != m_samples.end())
+-  {
+-    if (it->sample.Start < MinTime)
+-    {
+-      SAFE_RELEASE(it->renderPic);
+-      it = m_samples.erase(it);
+-    }
+-    else
+-      ++it;
+-  }
+-
+-  if(m_samples.empty())
+-    return false;
+-
+-  // MinTime and MaxTime are now the first and last samples to feed the processor.
+-  MinTime = time - m_caps.NumBackwardRefSamples*2;
+-  MaxTime = time + m_caps.NumForwardRefSamples*2;
+-
+   D3DSURFACE_DESC desc;
+   CHECK(target->GetDesc(&desc));
+   CRect rectTarget(0, 0, desc.Width, desc.Height);
+@@ -687,12 +614,37 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFEREN
+   RECT sourceRECT = { src.x1, src.y1, src.x2, src.y2 };
+   RECT dstRECT    = { dst.x1, dst.y1, dst.x2, dst.y2 };
+ 
++  // set sample format for progressive and interlaced
++  UINT sampleFormat = DXVA2_SampleProgressiveFrame;
++  if (flags & RENDER_FLAG_FIELD0 && flags & RENDER_FLAG_TOP)
++    sampleFormat = DXVA2_SampleFieldInterleavedEvenFirst;
++  else if (flags & RENDER_FLAG_FIELD1 && flags & RENDER_FLAG_BOT)
++    sampleFormat = DXVA2_SampleFieldInterleavedEvenFirst;
++  if (flags & RENDER_FLAG_FIELD0 && flags & RENDER_FLAG_BOT)
++    sampleFormat = DXVA2_SampleFieldInterleavedOddFirst;
++  if (flags & RENDER_FLAG_FIELD1 && flags & RENDER_FLAG_TOP)
++    sampleFormat = DXVA2_SampleFieldInterleavedOddFirst;
+ 
+   // How to prepare the samples array for VideoProcessBlt
+   // - always provide current picture + the number of forward and backward references required by the current processor.
+   // - provide the surfaces in the array in increasing temporal order
+   // - at the start of playback, there may not be enough samples available. Use SampleFormat.SampleFormat = DXVA2_SampleUnknown for the missing samples.
+ 
++  unsigned int providedPast = 0;
++  for (int i = 3; i < 8; i++)
++  {
++    if (source[i])
++      providedPast++;
++  }
++  unsigned int providedFuture = 0;
++  for (int i = 1; i >= 0; i--)
++  {
++    if (source[i])
++      providedFuture++;
++  }
++  int futureFrames = std::min(providedFuture, m_caps.NumForwardRefSamples);
++  int pastFrames = std::min(providedPast, m_caps.NumBackwardRefSamples);
++
+   int count = 1 + m_caps.NumBackwardRefSamples + m_caps.NumForwardRefSamples;
+   int valid = 0;
+   auto_aptr<DXVA2_VideoSample> samp(new DXVA2_VideoSample[count]);
+@@ -700,50 +652,49 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFEREN
+   for (int i = 0; i < count; i++)
+     samp[i].SampleFormat.SampleFormat = DXVA2_SampleUnknown;
+ 
+-  for(it = m_samples.begin(); it != m_samples.end() && valid < count; ++it)
++  int start = 2 - futureFrames;
++  int end = 2 + pastFrames;
++  int sampIdx = 0;
++  for (int i = start; i <= end; i++)
+   {
+-    if (it->sample.Start >= MinTime && it->sample.Start <= MaxTime)
++    if (!source[i])
++      continue;
++
++    if (i < 2)
+     {
+-      DXVA2_VideoSample& vs = samp[(it->sample.Start - MinTime) / 2];
+-      vs = it->sample;
+-      vs.SrcRect = sourceRECT;
+-      vs.DstRect = dstRECT;
+-      if(vs.End == 0)
+-        vs.End = vs.Start + 2;
+-
+-      // Override the sample format when the processor doesn't need to deinterlace or when deinterlacing is forced and flags are missing.
+-      if (m_progressive)
+-        vs.SampleFormat.SampleFormat = DXVA2_SampleProgressiveFrame;
+-      else if (m_deinterlace_mode == VS_DEINTERLACEMODE_FORCE && vs.SampleFormat.SampleFormat == DXVA2_SampleProgressiveFrame)
+-        vs.SampleFormat.SampleFormat = DXVA2_SampleFieldInterleavedEvenFirst;
+-
+-      valid++;
++      // furture frames
++      sampIdx = 2 - i + m_caps.NumBackwardRefSamples;
+     }
+-  }
+-  
+-  // MS' guidelines above don't work. The blit fails when the processor is given DXVA2_SampleUnknown samples (with ATI at least).
+-  // The ATI driver works with a reduced number of samples though, support that for now.
+-  // Problem is an ambiguity if there are future refs requested by the processor. There are no such implementations at the moment.
+-  int offset = 0;
+-  if(valid < count)
+-  {
+-    CLog::Log(LOGWARNING, __FUNCTION__" - did not find all required samples, adjusting the sample array.");
+-
+-    for (int i = 0; i < count; i++)
++    else if (i == 2)
+     {
+-      if (samp[i].SampleFormat.SampleFormat == DXVA2_SampleUnknown)
+-        offset = i+1;
++      // current frame
++      sampIdx = m_caps.NumBackwardRefSamples;
+     }
+-    count -= offset;
+-    if (count == 0)
++    else
+     {
+-      CLog::Log(LOGWARNING, __FUNCTION__" - no usable samples.");
+-      return false;
++      // past frames
++      sampIdx = m_caps.NumBackwardRefSamples - (i-2);
+     }
++    DXVA2_VideoSample& vs = samp[sampIdx];
++    vs.SrcSurface = source[i];
++    vs.SrcRect = sourceRECT;
++    vs.DstRect = dstRECT;
++    vs.SampleData = 0;
++    vs.Start = frameIdx + sampIdx - m_caps.NumBackwardRefSamples;
++    vs.End = vs.Start + 2;
++    vs.PlanarAlpha = DXVA2_Fixed32OpaqueAlpha();
++    vs.SampleFormat.SampleFormat = sampleFormat;
++    
++    // Override the sample format when the processor doesn't need to deinterlace or when deinterlacing is forced and flags are missing.
++    if (m_progressive)
++      vs.SampleFormat.SampleFormat = DXVA2_SampleProgressiveFrame;
++    else if (m_deinterlace_mode == VS_DEINTERLACEMODE_FORCE && vs.SampleFormat.SampleFormat == DXVA2_SampleProgressiveFrame)
++      vs.SampleFormat.SampleFormat = DXVA2_SampleFieldInterleavedEvenFirst;
+   }
+ 
++ 
+   DXVA2_VideoProcessBltParams blt = {};
+-  blt.TargetFrame = time;
++  blt.TargetFrame = frameIdx;
+   if (flags & RENDER_FLAG_FIELD1)
+     blt.TargetFrame += 1;
+   blt.TargetRect  = dstRECT;
+@@ -776,7 +727,7 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFEREN
+   float verts[2][3]= {};
+   g_Windowing.Get3DDevice()->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 1, verts, 3*sizeof(float));
+ 
+-  CHECK(m_process->VideoProcessBlt(target, &blt, &samp[offset], count, NULL));
++  CHECK(m_process->VideoProcessBlt(target, &blt, &samp[0], count, NULL));
+   return true;
+ }
+ 
+diff --git a/xbmc/cores/VideoRenderers/DXVA.h b/xbmc/cores/VideoRenderers/DXVA.h
+index 233c59b..460e665 100644
+--- a/xbmc/cores/VideoRenderers/DXVA.h
++++ b/xbmc/cores/VideoRenderers/DXVA.h
+@@ -44,9 +44,10 @@ class CProcessor
+   virtual void           UnInit();
+   virtual bool           Open(UINT width, UINT height, unsigned int flags, unsigned int format, unsigned int extended_format);
+   virtual void           Close();
+-  virtual REFERENCE_TIME Add(DVDVideoPicture* picture);
+-  virtual bool           Render(CRect src, CRect dst, IDirect3DSurface9* target, const REFERENCE_TIME time, DWORD flags);
++  virtual CRenderPicture *Convert(DVDVideoPicture* picture);
++  virtual bool           Render(CRect src, CRect dst, IDirect3DSurface9* target, IDirect3DSurface9** source, DWORD flags, UINT frameIdx);
+   virtual unsigned       Size() { if (m_service) return m_size; return 0; }
++  virtual unsigned       PastRefs() { return m_max_back_refs; }
+ 
+   virtual void OnCreateDevice()  {}
+   virtual void OnDestroyDevice() { CSingleLock lock(m_section); Close(); }
+@@ -72,21 +73,12 @@ class CProcessor
+   DXVA2_ValueRange m_contrast;
+   DXVA2_ValueRange m_hue;
+   DXVA2_ValueRange m_saturation;
+-  REFERENCE_TIME   m_time;
+   unsigned         m_size;
+   unsigned         m_max_back_refs;
+   unsigned         m_max_fwd_refs;
+   EDEINTERLACEMODE m_deinterlace_mode;
+   EINTERLACEMETHOD m_interlace_method;
+   bool             m_progressive; // true for progressive source or to force ignoring interlacing flags.
+-  unsigned         m_index;
+-
+-  struct SVideoSample
+-  {
+-    DXVA2_VideoSample sample;
+-    CRenderPicture* renderPic;
+-  };
+-  std::deque<SVideoSample> m_samples;
+ 
+   CCriticalSection    m_section;
+   CSurfaceContext*    m_context;
+diff --git a/xbmc/cores/VideoRenderers/DXVAHD.cpp b/xbmc/cores/VideoRenderers/DXVAHD.cpp
+index 6788e58..8834aa5 100644
+--- a/xbmc/cores/VideoRenderers/DXVAHD.cpp
++++ b/xbmc/cores/VideoRenderers/DXVAHD.cpp
+@@ -84,8 +84,6 @@ CProcessorHD::CProcessorHD()
+ {
+   m_pDXVAHD = NULL;
+   m_pDXVAVP = NULL;
+-  m_index   = 0;
+-  m_frame   = 0;
+   g_Windowing.Register(this);
+ 
+   m_context  = NULL;
+@@ -108,13 +106,6 @@ void CProcessorHD::Close()
+ {
+   CSingleLock lock(m_section);
+   SAFE_RELEASE(m_pDXVAVP);
+-
+-  for(unsigned i = 0; i < m_frames.size(); i++)
+-  {
+-    SAFE_RELEASE(m_frames[i].pRenderPic);
+-  }
+-  m_frames.clear();
+-
+   SAFE_RELEASE(m_context);
+ }
+ 
+@@ -264,8 +255,6 @@ bool CProcessorHD::Open(UINT width, UINT height, unsigned int flags, unsigned in
+     return false;
+   }
+ 
+-  m_frame = 0;
+-
+   return true;
+ }
+ 
+@@ -340,120 +329,6 @@ bool CProcessorHD::CreateSurfaces()
+   return true;
+ }
+ 
+-REFERENCE_TIME CProcessorHD::Add(DVDVideoPicture* picture)
+-{
+-  CSingleLock lock(m_section);
+-
+-  IDirect3DSurface9* surface = NULL;
+-
+-  if (picture->iFlags & DVP_FLAG_DROPPED)
+-  {
+-    return 0;
+-  }
+-
+-  switch (picture->format)
+-  {
+-    case RENDER_FMT_DXVA:
+-    {
+-      surface = picture->dxva->surface;
+-      break;
+-    }
+-
+-    case RENDER_FMT_YUV420P:
+-    {
+-      if (!m_context)
+-      {
+-        CLog::Log(LOGWARNING, __FUNCTION__" - not initialized.");
+-        return 0;
+-      }
+-
+-      surface = m_context->GetAtIndex(m_index);
+-      m_index = (m_index + 1) % m_size;
+-  
+-      D3DLOCKED_RECT rectangle;
+-      if (FAILED(surface->LockRect(&rectangle, NULL, 0)))
+-      {
+-        return 0;
+-      }
+-
+-      // Convert to NV12 - Luma
+-      // TODO: Optimize this later using shaders/swscale/etc.
+-      uint8_t *s = picture->data[0];
+-      uint8_t* bits = (uint8_t*)(rectangle.pBits);
+-      for (unsigned y = 0; y < picture->iHeight; y++)
+-      {
+-        memcpy(bits, s, picture->iWidth);
+-        s += picture->iLineSize[0];
+-        bits += rectangle.Pitch;
+-      }
+-
+-      D3DSURFACE_DESC desc;
+-      if (FAILED(surface->GetDesc(&desc)))
+-      {
+-        return 0;
+-      }
+-
+-      // Convert to NV12 - Chroma
+-      uint8_t *s_u, *s_v, *d_uv;
+-      for (unsigned y = 0; y < picture->iHeight/2; y++)
+-      {
+-        s_u = picture->data[1] + (y * picture->iLineSize[1]);
+-        s_v = picture->data[2] + (y * picture->iLineSize[2]);
+-        d_uv = ((uint8_t*)(rectangle.pBits)) + (desc.Height + y) * rectangle.Pitch;
+-        for (unsigned x = 0; x < picture->iWidth/2; x++)
+-        {
+-          *d_uv++ = *s_u++;
+-          *d_uv++ = *s_v++;
+-        }
+-      }
+-  
+-      if (FAILED(surface->UnlockRect()))
+-      {
+-        return 0;
+-      }
+-      break;
+-    }
+-    
+-    default:
+-    {
+-      CLog::Log(LOGWARNING, __FUNCTION__" - colorspace not supported by processor, skipping frame.");
+-      return 0;
+-    }
+-  }
+-
+-  if (!surface)
+-  {
+-    return 0;
+-  }
+-  m_frame += 2;
+-
+-  SFrame frame = {};
+-  frame.index       = m_frame;
+-  frame.pSurface    = surface;
+-  frame.pRenderPic  = NULL;
+-  if (picture->format == RENDER_FMT_DXVA)
+-    frame.pRenderPic  = picture->dxva->Acquire();
+-  frame.format      = DXVAHD_FRAME_FORMAT_PROGRESSIVE;
+-
+-  if (picture->iFlags & DVP_FLAG_INTERLACED)
+-  {
+-    frame.format = picture->iFlags & DVP_FLAG_TOP_FIELD_FIRST
+-                     ? DXVAHD_FRAME_FORMAT_INTERLACED_TOP_FIELD_FIRST
+-                     : DXVAHD_FRAME_FORMAT_INTERLACED_BOTTOM_FIELD_FIRST;
+-  }
+-
+-  m_frames.push_back(frame);
+-
+-  if (m_frames.size() > m_size)
+-  {
+-    SAFE_RELEASE(m_frames.front().pRenderPic);
+-
+-    m_frames.pop_front();
+-  }
+-
+-  return m_frame;
+-}
+-
+ bool CProcessorHD::ApplyFilter(DXVAHD_FILTER filter, int value, int min, int max, int def)
+ {
+   if (filter > NUM_FILTERS)
+@@ -488,7 +363,7 @@ bool CProcessorHD::ApplyFilter(DXVAHD_FILTER filter, int value, int min, int max
+   return !FAILED( m_pDXVAVP->SetVideoProcessStreamState( 0, state, sizeof(data), &data ) );
+ }
+ 
+-bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFERENCE_TIME frame, DWORD flags)
++bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, IDirect3DSurface9** source, DWORD flags, UINT frameIdx)
+ {
+   CSingleLock lock(m_section);
+ 
+@@ -498,6 +373,9 @@ bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFER
+     return false;
+   }
+   
++  if (!source[2])
++    return false;
++
+   EDEINTERLACEMODE deinterlace_mode = CMediaSettings::Get().GetCurrentVideoSettings().m_DeinterlaceMode;
+   if (g_advancedSettings.m_DXVANoDeintProcForProgressive)
+     deinterlace_mode = (flags & RENDER_FLAG_FIELD0 || flags & RENDER_FLAG_FIELD1) ? VS_DEINTERLACEMODE_FORCE : VS_DEINTERLACEMODE_OFF;
+@@ -507,26 +385,6 @@ bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFER
+                   || (   interlace_method != VS_INTERLACEMETHOD_DXVA_BOB
+                       && interlace_method != VS_INTERLACEMETHOD_DXVA_BEST);
+ 
+-  // minFrame is the first samples to keep. Delete the rest.
+-  REFERENCE_TIME minFrame = frame - m_max_back_refs * 2;
+-
+-  SFrames::iterator it = m_frames.begin();
+-  while (it != m_frames.end())
+-  {
+-    if (it->index < minFrame)
+-    {
+-      SAFE_RELEASE(it->pRenderPic);
+-      it = m_frames.erase(it);
+-    }
+-    else
+-      ++it;
+-  }
+-
+-  if(m_frames.empty())
+-  {
+-    return false;
+-  }
+-
+   D3DSURFACE_DESC desc;
+   CHECK(target->GetDesc(&desc));
+   CRect rectTarget(0, 0, desc.Width, desc.Height);
+@@ -534,51 +392,62 @@ bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFER
+   RECT sourceRECT = { src.x1, src.y1, src.x2, src.y2 };
+   RECT dstRECT    = { dst.x1, dst.y1, dst.x2, dst.y2 };
+ 
+-  // MinTime and MaxTime are now the first and last samples to feed the processor.
+-  minFrame = frame - m_VPCaps.PastFrames * 2;
+-  REFERENCE_TIME maxFrame = frame + m_VPCaps.FutureFrames * 2;
+-
+-  bool isValid(false);
+   DXVAHD_FRAME_FORMAT dxvaFrameFormat = DXVAHD_FRAME_FORMAT_PROGRESSIVE;
+ 
++  unsigned int providedPast = 0;
++  for (int i = 3; i < 8; i++)
++  {
++    if (source[i])
++      providedPast++;
++  }
++  unsigned int providedFuture = 0;
++  for (int i = 1; i >= 0; i--)
++  {
++    if (source[i])
++      providedFuture++;
++  }
++  int futureFrames = std::min(providedFuture, m_VPCaps.FutureFrames);
++  int pastFrames = std::min(providedPast, m_VPCaps.PastFrames);
++
+   DXVAHD_STREAM_DATA stream_data = { 0 };
+   stream_data.Enable = TRUE;
+-  stream_data.PastFrames = 0;
+-  stream_data.FutureFrames = 0;
+-  stream_data.ppPastSurfaces = new IDirect3DSurface9*[m_VPCaps.PastFrames];
+-  stream_data.ppFutureSurfaces = new IDirect3DSurface9*[m_VPCaps.FutureFrames];
++  stream_data.PastFrames = pastFrames;
++  stream_data.FutureFrames = futureFrames;
++  stream_data.ppPastSurfaces = new IDirect3DSurface9*[pastFrames];
++  stream_data.ppFutureSurfaces = new IDirect3DSurface9*[futureFrames];
++
++  int start = 2 - futureFrames;
++  int end = 2 + pastFrames;
+ 
+-  for(it = m_frames.begin(); it != m_frames.end(); ++it)
++  for (int i = start; i <= end; i++)
+   {
+-    if (it->index >= minFrame && it->index <= maxFrame)
++    if (!source[i])
++      continue;
++
++    if (i > 2)
+     {
+-      if (it->index < frame)
+-      {
+-        // frames order should be { .., T-1, T-2, T-3 }
+-        stream_data.ppPastSurfaces[(frame - it->index)/2 - 1] = it->pSurface;
+-        stream_data.PastFrames++;
+-      }
+-      else if (it->index == frame)
+-      {
+-        stream_data.pInputSurface = it->pSurface;
+-        dxvaFrameFormat = (DXVAHD_FRAME_FORMAT) it->format;
+-        isValid = true;
+-      }
+-      else if (it->index > frame)
+-      {
+-        // frames order should be { T+1, T+2, T+3, .. }
+-        stream_data.ppFutureSurfaces[(it->index - frame)/2 - 1] = it->pSurface;
+-        stream_data.FutureFrames++;
+-      }
++      // frames order should be { ?, T-3, T-2, T-1 }
++      stream_data.ppPastSurfaces[2+pastFrames-i] = source[i];
++    }
++    else if (i == 2)
++    {
++      stream_data.pInputSurface = source[2];
++    }
++    else if (i < 2)
++    {
++      // frames order should be { T+1, T+2, T+3, .. }
++      stream_data.ppFutureSurfaces[1-i] = source[i];
+     }
+   }
+ 
+-  // no present frame, skip
+-  if (!isValid)
+-  {
+-    CLog::Log(LOGWARNING, __FUNCTION__" - uncomplete stream data, skipping frame.");
+-    return false;
+-  }
++  if (flags & RENDER_FLAG_FIELD0 && flags & RENDER_FLAG_TOP)
++    dxvaFrameFormat = DXVAHD_FRAME_FORMAT_INTERLACED_TOP_FIELD_FIRST;
++  else if (flags & RENDER_FLAG_FIELD1 && flags & RENDER_FLAG_BOT)
++    dxvaFrameFormat = DXVAHD_FRAME_FORMAT_INTERLACED_TOP_FIELD_FIRST;
++  if (flags & RENDER_FLAG_FIELD0 && flags & RENDER_FLAG_BOT)
++    dxvaFrameFormat = DXVAHD_FRAME_FORMAT_INTERLACED_BOTTOM_FIELD_FIRST;
++  if (flags & RENDER_FLAG_FIELD1 && flags & RENDER_FLAG_TOP)
++    dxvaFrameFormat = DXVAHD_FRAME_FORMAT_INTERLACED_BOTTOM_FIELD_FIRST;
+ 
+   // Override the sample format when the processor doesn't need to deinterlace or when deinterlacing is forced and flags are missing.
+   if (progressive)
+@@ -594,7 +463,7 @@ bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFER
+   bool frameProgressive = dxvaFrameFormat == DXVAHD_FRAME_FORMAT_PROGRESSIVE;
+ 
+   // Progressive or Interlaced video at normal rate.
+-  stream_data.InputFrameOrField = frame + (flags & RENDER_FLAG_FIELD1 ? 1 : 0);
++  stream_data.InputFrameOrField = frameIdx;
+   stream_data.OutputIndex = flags & RENDER_FLAG_FIELD1 && !frameProgressive ? 1 : 0;
+ 
+   DXVAHD_STREAM_STATE_FRAME_FORMAT_DATA frame_format = { dxvaFrameFormat };
+@@ -630,7 +499,7 @@ bool CProcessorHD::Render(CRect src, CRect dst, IDirect3DSurface9* target, REFER
+   LOGIFERROR( m_pDXVAVP->SetVideoProcessBltState( DXVAHD_BLT_STATE_TARGET_RECT
+                                                 , sizeof(targetRect), &targetRect ) );
+ 
+-  HRESULT hr = m_pDXVAVP->VideoProcessBltHD(target, frame, 1, &stream_data);
++  HRESULT hr = m_pDXVAVP->VideoProcessBltHD(target, frameIdx, 1, &stream_data);
+   if(FAILED(hr))
+   {
+     CLog::Log(LOGERROR, __FUNCTION__" - failed executing VideoProcessBltHD with error %x", hr);
+diff --git a/xbmc/cores/VideoRenderers/DXVAHD.h b/xbmc/cores/VideoRenderers/DXVAHD.h
+index a6ab9f5..00b6948 100644
+--- a/xbmc/cores/VideoRenderers/DXVAHD.h
++++ b/xbmc/cores/VideoRenderers/DXVAHD.h
+@@ -59,9 +59,9 @@ class CProcessorHD
+   virtual void           UnInit();
+   virtual bool           Open(UINT width, UINT height, unsigned int flags, unsigned int format, unsigned int extended_format);
+   virtual void           Close();
+-  virtual REFERENCE_TIME Add(DVDVideoPicture* picture);
+-  virtual bool           Render(CRect src, CRect dst, IDirect3DSurface9* target, const REFERENCE_TIME time, DWORD flags);
++  virtual bool           Render(CRect src, CRect dst, IDirect3DSurface9* target, IDirect3DSurface9 **source, DWORD flags, UINT frameIdx);
+   virtual unsigned       Size() { if (m_pDXVAHD) return m_size; return 0; }
++  virtual unsigned       PastRefs() { return m_max_back_refs; }
+ 
+   virtual void OnCreateDevice()  {}
+   virtual void OnDestroyDevice() { CSingleLock lock(m_section); UnInit(); }
+@@ -83,7 +83,6 @@ class CProcessorHD
+   unsigned int             m_width;
+   unsigned int             m_height;
+   D3DFORMAT                m_format;
+-  REFERENCE_TIME           m_frame;
+   unsigned int             m_flags;
+   unsigned int             m_renderFormat;
+ 
+@@ -94,15 +93,6 @@ class CProcessorHD
+   };
+   ProcAmpInfo              m_Filters[NUM_FILTERS];
+ 
+-  struct SFrame
+-  {
+-    IDirect3DSurface9*     pSurface;
+-    CRenderPicture*        pRenderPic;
+-    unsigned int           index;
+-    unsigned               format;
+-  };
+-  typedef std::deque<SFrame> SFrames;
+-  SFrames                  m_frames;
+   static DXVAHDCreateVideoServicePtr m_DXVAHDCreateVideoService;
+ };
+ 
+diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
+index b2f2d1f..7300896 100644
+--- a/xbmc/cores/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
+@@ -262,13 +262,7 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
+     m_format = format;
+ 
+     int processor = m_pRenderer->GetProcessorSize();
+-    if(processor > buffers)                          /* DXVA-HD returns processor size 6 */
+-      m_QueueSize = 3;                               /* we need queue size of 3 to get future frames in the processor */
+-    else if(processor)
+-      m_QueueSize = buffers - processor + 1;         /* respect maximum refs */
+-    else
+-      m_QueueSize = m_pRenderer->GetMaxBufferSize(); /* no refs to data */
+-
++    m_QueueSize = std::min(buffers, processor);
+     m_QueueSize = std::min(m_QueueSize, (int)m_pRenderer->GetMaxBufferSize());
+     m_QueueSize = std::min(m_QueueSize, NUM_BUFFERS);
+     if(m_QueueSize < 2)
+@@ -365,11 +359,16 @@ void CXBMCRenderManager::FrameMove()
+     /* release all previous */
+     for(std::deque<int>::iterator it = m_discard.begin(); it != m_discard.end(); )
+     {
+-      // TODO check for fence
+-      m_pRenderer->ReleaseBuffer(*it);
+-      m_overlays.Release(*it);
+-      m_free.push_back(*it);
+-      it = m_discard.erase(it);
++      // renderer may want to keep the frame for postprocessing
++      if (!m_pRenderer->NeedBufferForRef(*it))
++      {
++        m_pRenderer->ReleaseBuffer(*it);
++        m_overlays.Release(*it);
++        m_free.push_back(*it);
++        it = m_discard.erase(it);
++      }
++      else
++        ++it;
+     }
+   }
+ }
+diff --git a/xbmc/cores/VideoRenderers/WinRenderer.cpp b/xbmc/cores/VideoRenderers/WinRenderer.cpp
+index d76c6b0..a5e515f 100644
+--- a/xbmc/cores/VideoRenderers/WinRenderer.cpp
++++ b/xbmc/cores/VideoRenderers/WinRenderer.cpp
+@@ -198,6 +198,7 @@ void CWinRenderer::SelectRenderMethod()
+ 
+   RenderMethodDetail *rmdet = FindRenderMethod(m_renderMethod);
+   CLog::Log(LOGDEBUG, __FUNCTION__": Selected render method %d: %s", m_renderMethod, rmdet != NULL ? rmdet->name : "unknown");
++  m_frameIdx = 0;
+ }
+ 
+ bool CWinRenderer::UpdateRenderMethod()
+@@ -270,6 +271,11 @@ int CWinRenderer::NextYV12Texture()
+ 
+ bool CWinRenderer::AddVideoPicture(DVDVideoPicture* picture, int index)
+ {
++  if (!m_NumYV12Buffers)
++  {
++    return false;
++  }
++
+   if (m_renderMethod == RENDER_DXVA)
+   {
+     int source = index;
+@@ -277,7 +283,17 @@ bool CWinRenderer::AddVideoPicture(DVDVideoPicture* picture, int index)
+       return false;
+ 
+     DXVABuffer *buf = (DXVABuffer*)m_VideoBuffers[source];
+-    buf->id = m_processor->Add(picture);
++    SAFE_RELEASE(buf->pic);
++    if (picture->format == RENDER_FMT_DXVA)
++    {
++      buf->pic = picture->dxva->Acquire();
++    }
++    else
++    {
++      buf->pic = m_processor->Convert(picture);
++    }
++    buf->frameIdx = m_frameIdx;
++    m_frameIdx += 2;
+     return true;
+   }
+   return false;
+@@ -341,7 +357,9 @@ void CWinRenderer::RenderUpdate(bool clear, DWORD flags, DWORD alpha)
+   else
+     pD3DDevice->SetRenderState( D3DRS_ALPHABLENDENABLE, FALSE );
+ 
+-  if (!m_bConfigured) return;
++  if (!m_bConfigured) 
++    return;
++
+   ManageTextures();
+ 
+   CSingleLock lock(g_graphicsContext);
+@@ -998,6 +1016,9 @@ void CWinRenderer::RenderProcessor(DWORD flags)
+ 
+   DXVABuffer *image = (DXVABuffer*)m_VideoBuffers[m_iYV12RenderBuffer];
+ 
++  if (!image->pic)
++    return;
++
+   IDirect3DSurface9* target;
+   if ( m_bUseHQScaler 
+     || g_graphicsContext.GetStereoMode() == RENDER_STEREO_MODE_ANAGLYPH_RED_CYAN
+@@ -1014,7 +1035,50 @@ void CWinRenderer::RenderProcessor(DWORD flags)
+     }
+   }
+ 
+-  m_processor->Render(m_sourceRect, destRect, target, image->id, flags);
++  IDirect3DSurface9 *source[8];
++  memset(source, 0, 8 * sizeof(IDirect3DSurface9*));
++  source[2] = image->pic->surface;
++
++  int past = 0;
++  int future = 0;
++  DXVABuffer **buffers = (DXVABuffer**)m_VideoBuffers;
++
++  // set future frames
++  while (future < 2)
++  {
++    bool found = false;
++    for (int i = 0; i < m_NumYV12Buffers; i++)
++    {
++      if (buffers[i] && buffers[i]->pic && buffers[i]->frameIdx == image->frameIdx + (future + 2))
++      {
++        source[1 - future++] = buffers[i]->pic->surface;
++        found = true;
++        break;
++      }
++    }
++    if (!found)
++      break;
++  }
++
++  // set past frames
++  while (past < 4)
++  {
++    bool found = false;
++    for (int i = 0; i < m_NumYV12Buffers; i++)
++    {
++      if (buffers[i] && buffers[i]->pic && buffers[i]->frameIdx == image->frameIdx - (past + 2))
++      {
++        source[3 + past++] = buffers[i]->pic->surface;
++        found = true;
++        break;
++      }
++    }
++    if (!found)
++      break;
++  }
++
++
++  m_processor->Render(m_sourceRect, destRect, target, source, flags, image->frameIdx);
+ 
+   target->Release();
+ 
+@@ -1255,6 +1319,29 @@ unsigned int CWinRenderer::GetProcessorSize()
+     return 0;
+ }
+ 
++void CWinRenderer::ReleaseBuffer(int idx)
++{
++  if (m_renderMethod == RENDER_DXVA && m_VideoBuffers[idx])
++    SAFE_RELEASE(((DXVABuffer*)m_VideoBuffers[idx])->pic);
++}
++
++bool CWinRenderer::NeedBufferForRef(int idx)
++{
++  // check if processor wants to keep past frames
++  if (m_format == RENDER_FMT_DXVA && m_processor)
++  {
++    DXVABuffer** buffers = (DXVABuffer**)m_VideoBuffers;
++
++    int numPast = m_processor->PastRefs();
++    if (buffers[idx] && buffers[idx]->pic)
++    {
++      if (buffers[idx]->frameIdx + numPast*2 >= buffers[m_iYV12RenderBuffer]->frameIdx)
++        return true;
++    }
++  }
++  return false;
++}
++
+ //============================================
+ 
+ YUVBuffer::~YUVBuffer()
+@@ -1405,21 +1492,4 @@ void YUVBuffer::Clear()
+   }
+ }
+ 
+-
+-//==================================
+-
+-DXVABuffer::~DXVABuffer()
+-{
+-  Release();
+-}
+-
+-void DXVABuffer::Release()
+-{
+-  id = 0;
+-}
+-
+-void DXVABuffer::StartDecode()
+-{
+-  Release();
+-}
+ #endif
+diff --git a/xbmc/cores/VideoRenderers/WinRenderer.h b/xbmc/cores/VideoRenderers/WinRenderer.h
+index 10d7613..6d081a3 100644
+--- a/xbmc/cores/VideoRenderers/WinRenderer.h
++++ b/xbmc/cores/VideoRenderers/WinRenderer.h
+@@ -128,13 +128,11 @@ struct DXVABuffer : SVideoBuffer
+ {
+   DXVABuffer()
+   {
+-    id   = 0;
++    pic = NULL;
+   }
+-  ~DXVABuffer();
+-  virtual void Release();
+-  virtual void StartDecode();
+-
+-  int64_t           id;
++  ~DXVABuffer() { SAFE_RELEASE(pic); }
++  DXVA::CRenderPicture *pic;
++  unsigned int frameIdx;
+ };
+ 
+ class CWinRenderer : public CBaseRenderer
+@@ -173,6 +171,8 @@ class CWinRenderer : public CBaseRenderer
+   virtual unsigned int GetProcessorSize();
+   virtual void         SetBufferSize(int numBuffers) { m_neededBuffers = numBuffers; }
+   virtual unsigned int GetMaxBufferSize() { return NUM_BUFFERS; }
++  virtual void         ReleaseBuffer(int idx);
++  virtual bool         NeedBufferForRef(int idx);
+ 
+ protected:
+   virtual void Render(DWORD flags);
+@@ -240,6 +240,7 @@ class CWinRenderer : public CBaseRenderer
+   unsigned int         m_destHeight;
+ 
+   int                  m_neededBuffers;
++  unsigned int         m_frameIdx;
+ };
+ 
+ #else
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+index ef83840..b9c90c2 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+@@ -1091,7 +1091,6 @@ void CDecoder::RelBuffer(uint8_t *data)
+   {
+     CLog::Log(LOGWARNING, "%s - return of invalid surface", __FUNCTION__);
+   }
+-
+   m_surface_context->ClearReference(surface);
+ 
+   Release();
+
+From d838433713638503a74a6be70a351c06ca1c7747 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 14 Sep 2014 12:24:31 +0200
+Subject: [PATCH 03/31] dxva: flush ffmpeg buffers if it holds any refs on
+ close
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp | 25 ++++++++++++++++++++++++-
+ xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h   |  3 +++
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+index b9c90c2..8de6167 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+@@ -608,6 +608,17 @@ bool CSurfaceContext::HasFree()
+   return !m_freeSurfaces.empty();
+ }
+ 
++bool CSurfaceContext::HasRefs()
++{
++  CSingleLock lock(m_section);
++  for (map<IDirect3DSurface9*, int>::iterator it = m_state.begin(); it != m_state.end(); ++it)
++  {
++    if (it->second & SURFACE_USED_FOR_REFERENCE)
++      return true;
++  }
++  return false;
++}
++
+ //-----------------------------------------------------------------------------
+ // DXVA RednerPictures
+ //-----------------------------------------------------------------------------
+@@ -656,6 +667,16 @@ CDecoder::~CDecoder()
+   free(m_context);
+ }
+ 
++long CDecoder::Release()
++{
++  // if ffmpeg holds any references, flush buffers
++  if (m_surface_context && m_surface_context->HasRefs())
++  {
++    avcodec_flush_buffers(m_avctx);
++  }
++  return IHardwareDecoder::Release();
++}
++
+ void CDecoder::Close()
+ {
+   CSingleLock lock(m_section);
+@@ -902,6 +923,8 @@ bool CDecoder::Open(AVCodecContext *avctx, enum PixelFormat fmt, unsigned int su
+   avctx->get_buffer2 = GetBufferS;
+   avctx->hwaccel_context = m_context;
+ 
++  m_avctx = avctx;
++
+   D3DADAPTER_IDENTIFIER9 AIdentifier = g_Windowing.GetAIdentifier();
+   if (AIdentifier.VendorId == PCIV_Intel && m_input == DXVADDI_Intel_ModeH264_E)
+   {
+@@ -1093,7 +1116,7 @@ void CDecoder::RelBuffer(uint8_t *data)
+   }
+   m_surface_context->ClearReference(surface);
+ 
+-  Release();
++  IHardwareDecoder::Release();
+ }
+ 
+ int CDecoder::GetBuffer(AVCodecContext *avctx, AVFrame *pic, int flags)
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h
+index 1b8a45d..9d92efc 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.h
+@@ -60,6 +60,7 @@ class CSurfaceContext
+   void Reset();
+   int Size();
+   bool HasFree();
++  bool HasRefs();
+ 
+ protected:
+   std::map<IDirect3DSurface9*, int> m_state;
+@@ -122,6 +123,7 @@ class CDecoder
+   virtual void Close();
+   virtual const std::string Name() { return "dxva2"; }
+   virtual unsigned GetAllowedReferences();
++  virtual long Release();
+ 
+   bool  OpenTarget(const GUID &guid);
+   bool  OpenDecoder();
+@@ -155,6 +157,7 @@ class CDecoder
+ 
+   CSurfaceContext*             m_surface_context;
+   CDXVAContext*                m_dxva_context;
++  AVCodecContext*              m_avctx;
+ 
+   unsigned int                 m_shared;
+ 
+
+From 2cf7f1b4e7bde22067c5c4f18d8db02573bc098e Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Tue, 16 Sep 2014 11:50:11 +0200
+Subject: [PATCH 04/31] renderer: rename/correct GetProcessorSize, processor is
+ not exposed anymore
+
+---
+ xbmc/cores/VideoRenderers/BaseRenderer.h        |  2 +-
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp   | 14 +++++---------
+ xbmc/cores/VideoRenderers/LinuxRendererGL.h     |  2 +-
+ xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp | 10 ++--------
+ xbmc/cores/VideoRenderers/LinuxRendererGLES.h   |  2 +-
+ xbmc/cores/VideoRenderers/RenderManager.cpp     |  6 +++---
+ xbmc/cores/VideoRenderers/WinRenderer.cpp       |  4 ++--
+ xbmc/cores/VideoRenderers/WinRenderer.h         |  2 +-
+ 8 files changed, 16 insertions(+), 26 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoRenderers/BaseRenderer.h
+index d303598..7c2bc01 100644
+--- a/xbmc/cores/VideoRenderers/BaseRenderer.h
++++ b/xbmc/cores/VideoRenderers/BaseRenderer.h
+@@ -89,7 +89,7 @@ class CBaseRenderer
+   /**
+    * Returns number of references a single buffer can retain when rendering a single frame
+    */
+-  virtual unsigned int GetProcessorSize() { return 0; }
++  virtual unsigned int GetBufferSize() { return 0; }
+   virtual unsigned int GetMaxBufferSize() { return 0; }
+   virtual void         SetBufferSize(int numBuffers) { }
+   virtual void         ReleaseBuffer(int idx) { }
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+index 417577d..e5dbc2e 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+@@ -3496,16 +3496,12 @@ void CLinuxRendererGL::UnBindPbo(YUVBUFFER& buff)
+     glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+ }
+ 
+-unsigned int CLinuxRendererGL::GetProcessorSize()
+-{
+-  if(m_format == RENDER_FMT_VDPAU
+-  || m_format == RENDER_FMT_VDPAU_420
+-  || m_format == RENDER_FMT_VAAPI
+-  || m_format == RENDER_FMT_VAAPINV12
+-  || m_format == RENDER_FMT_CVBREF)
+-    return 1;
++unsigned int CLinuxRendererGL::GetBufferSize()
++{
++  if(m_format == RENDER_FMT_CVBREF)
++    return 2;
+   else
+-    return 0;
++    return 3;
+ }
+ 
+ #ifdef HAVE_LIBVDPAU
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.h b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
+index 1e46940..275ef29 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.h
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
+@@ -136,7 +136,7 @@ class CLinuxRendererGL : public CBaseRenderer
+   virtual void         ReleaseBuffer(int idx);
+   virtual void         SetBufferSize(int numBuffers) { m_NumYV12Buffers = numBuffers; }
+   virtual unsigned int GetMaxBufferSize() { return NUM_BUFFERS; }
+-  virtual unsigned int GetProcessorSize();
++  virtual unsigned int GetBufferSize();
+ 
+ #ifdef HAVE_LIBVDPAU
+   virtual void         AddProcessor(VDPAU::CVdpauRenderPicture* vdpau, int index);
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
+index 8db4ea1..24669e6 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
+@@ -2893,15 +2893,9 @@ EINTERLACEMETHOD CLinuxRendererGLES::AutoInterlaceMethod()
+ #endif
+ }
+ 
+-unsigned int CLinuxRendererGLES::GetProcessorSize()
++unsigned int CLinuxRendererGLES::GetBufferSize()
+ {
+-  if(m_format == RENDER_FMT_OMXEGL
+-  || m_format == RENDER_FMT_CVBREF
+-  || m_format == RENDER_FMT_EGLIMG
+-  || m_format == RENDER_FMT_MEDIACODEC)
+-    return 1;
+-  else
+-    return 0;
++  return 2;
+ }
+ 
+ #ifdef HAVE_LIBOPENMAX
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoRenderers/LinuxRendererGLES.h
+index 1e89ecf..058d76c 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGLES.h
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGLES.h
+@@ -143,7 +143,7 @@ class CLinuxRendererGLES : public CBaseRenderer
+   virtual void         ReleaseBuffer(int idx);
+   virtual void         SetBufferSize(int numBuffers) { m_NumYV12Buffers = numBuffers; }
+   virtual unsigned int GetMaxBufferSize() { return NUM_BUFFERS; }
+-  virtual unsigned int GetProcessorSize();
++  virtual unsigned int GetBufferSize();
+ 
+   virtual void RenderUpdate(bool clear, DWORD flags = 0, DWORD alpha = 255);
+ 
+diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
+index 7300896..cc72781 100644
+--- a/xbmc/cores/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
+@@ -261,14 +261,14 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
+     lock2.Enter();
+     m_format = format;
+ 
+-    int processor = m_pRenderer->GetProcessorSize();
+-    m_QueueSize = std::min(buffers, processor);
++    int renderbuffers = m_pRenderer->GetBufferSize();
++    m_QueueSize = std::min(buffers, renderbuffers);
+     m_QueueSize = std::min(m_QueueSize, (int)m_pRenderer->GetMaxBufferSize());
+     m_QueueSize = std::min(m_QueueSize, NUM_BUFFERS);
+     if(m_QueueSize < 2)
+     {
+       m_QueueSize = 2;
+-      CLog::Log(LOGWARNING, "CXBMCRenderManager::Configure - queue size too small (%d, %d, %d)", m_QueueSize, processor, buffers);
++      CLog::Log(LOGWARNING, "CXBMCRenderManager::Configure - queue size too small (%d, %d, %d)", m_QueueSize, renderbuffers, buffers);
+     }
+ 
+     m_pRenderer->SetBufferSize(m_QueueSize);
+diff --git a/xbmc/cores/VideoRenderers/WinRenderer.cpp b/xbmc/cores/VideoRenderers/WinRenderer.cpp
+index a5e515f..d995d77 100644
+--- a/xbmc/cores/VideoRenderers/WinRenderer.cpp
++++ b/xbmc/cores/VideoRenderers/WinRenderer.cpp
+@@ -1311,12 +1311,12 @@ EINTERLACEMETHOD CWinRenderer::AutoInterlaceMethod()
+     return VS_INTERLACEMETHOD_DEINTERLACE_HALF;
+ }
+ 
+-unsigned int CWinRenderer::GetProcessorSize()
++unsigned int CWinRenderer::GetBufferSize()
+ {
+   if (m_format == RENDER_FMT_DXVA && m_processor)
+     return m_processor->Size();
+   else
+-    return 0;
++    return 2;
+ }
+ 
+ void CWinRenderer::ReleaseBuffer(int idx)
+diff --git a/xbmc/cores/VideoRenderers/WinRenderer.h b/xbmc/cores/VideoRenderers/WinRenderer.h
+index 6d081a3..f8b0d6f 100644
+--- a/xbmc/cores/VideoRenderers/WinRenderer.h
++++ b/xbmc/cores/VideoRenderers/WinRenderer.h
+@@ -168,7 +168,7 @@ class CWinRenderer : public CBaseRenderer
+ 
+   void                 RenderUpdate(bool clear, DWORD flags = 0, DWORD alpha = 255);
+ 
+-  virtual unsigned int GetProcessorSize();
++  virtual unsigned int GetBufferSize();
+   virtual void         SetBufferSize(int numBuffers) { m_neededBuffers = numBuffers; }
+   virtual unsigned int GetMaxBufferSize() { return NUM_BUFFERS; }
+   virtual void         ReleaseBuffer(int idx);
+
+From 2abf53e056b70991f8610e62dc496962dca088aa Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Wed, 17 Sep 2014 11:14:43 +0200
+Subject: [PATCH 05/31] squash render
+
+---
+ xbmc/cores/VideoRenderers/DXVA.cpp | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/VideoRenderers/DXVA.cpp b/xbmc/cores/VideoRenderers/DXVA.cpp
+index e38a9f0..b3de758 100644
+--- a/xbmc/cores/VideoRenderers/DXVA.cpp
++++ b/xbmc/cores/VideoRenderers/DXVA.cpp
+@@ -645,13 +645,9 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, IDirect
+   int futureFrames = std::min(providedFuture, m_caps.NumForwardRefSamples);
+   int pastFrames = std::min(providedPast, m_caps.NumBackwardRefSamples);
+ 
+-  int count = 1 + m_caps.NumBackwardRefSamples + m_caps.NumForwardRefSamples;
+-  int valid = 0;
++  int count = 1 + pastFrames + futureFrames;
+   auto_aptr<DXVA2_VideoSample> samp(new DXVA2_VideoSample[count]);
+ 
+-  for (int i = 0; i < count; i++)
+-    samp[i].SampleFormat.SampleFormat = DXVA2_SampleUnknown;
+-
+   int start = 2 - futureFrames;
+   int end = 2 + pastFrames;
+   int sampIdx = 0;
+@@ -680,7 +676,7 @@ bool CProcessor::Render(CRect src, CRect dst, IDirect3DSurface9* target, IDirect
+     vs.SrcRect = sourceRECT;
+     vs.DstRect = dstRECT;
+     vs.SampleData = 0;
+-    vs.Start = frameIdx + sampIdx - m_caps.NumBackwardRefSamples;
++    vs.Start = frameIdx + (sampIdx - pastFrames) * 2;
+     vs.End = vs.Start + 2;
+     vs.PlanarAlpha = DXVA2_Fixed32OpaqueAlpha();
+     vs.SampleFormat.SampleFormat = sampleFormat;
+
+From 223f17f5921aa453053a56e1ee0fa7d2293e107d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:34:39 +0200
-Subject: [PATCH 01/23] videoplayer: adapt lateness detection and dropping to
+Subject: [PATCH 06/31] videoplayer: adapt lateness detection and dropping to
  buffering
 
 ---
@@ -15,10 +2274,10 @@ Subject: [PATCH 01/23] videoplayer: adapt lateness detection and dropping to
  7 files changed, 288 insertions(+), 48 deletions(-)
 
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index b2f2d1f..568c8b2 100644
+index cc72781..4d3dce1 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
-@@ -290,6 +290,8 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
+@@ -284,6 +284,8 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
      m_bIsStarted = true;
      m_bReconfigured = true;
      m_presentstep = PRESENT_IDLE;
@@ -27,7 +2286,7 @@ index b2f2d1f..568c8b2 100644
      m_presentevent.notifyAll();
  
      m_firstFlipPage = false;  // tempfix
-@@ -635,7 +637,7 @@ void CXBMCRenderManager::SetViewMode(int iViewMode)
+@@ -634,7 +636,7 @@ void CXBMCRenderManager::SetViewMode(int iViewMode)
      m_pRenderer->SetViewMode(iViewMode);
  }
  
@@ -36,7 +2295,7 @@ index b2f2d1f..568c8b2 100644
  {
    { CSharedLock lock(m_sharedSection);
  
-@@ -703,6 +705,7 @@ void CXBMCRenderManager::FlipPage(volatile bool& bStop, double timestamp /* = 0L
+@@ -702,6 +704,7 @@ void CXBMCRenderManager::FlipPage(volatile bool& bStop, double timestamp /* = 0L
      m.timestamp     = timestamp;
      m.presentfield  = sync;
      m.presentmethod = presentmethod;
@@ -44,7 +2303,7 @@ index b2f2d1f..568c8b2 100644
      requeue(m_queued, m_free);
  
      /* signal to any waiters to check state */
-@@ -1086,6 +1089,8 @@ void CXBMCRenderManager::PrepareNextRender()
+@@ -1085,6 +1088,8 @@ void CXBMCRenderManager::PrepareNextRender()
      m_discard.push_back(m_presentsource);
      m_presentsource = idx;
      m_queued.pop_front();
@@ -53,7 +2312,7 @@ index b2f2d1f..568c8b2 100644
      m_presentevent.notifyAll();
    }
  }
-@@ -1102,3 +1107,12 @@ void CXBMCRenderManager::DiscardBuffer()
+@@ -1101,3 +1106,12 @@ void CXBMCRenderManager::DiscardBuffer()
      m_presentstep   = PRESENT_IDLE;
    m_presentevent.notifyAll();
  }
@@ -114,7 +2373,7 @@ index 8b237fb..e8d4ca2 100644
    double     m_presenterr;
    double     m_errorbuff[ERRORBUFFSIZE];
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
-index 37c1c07..b236ad7 100644
+index 8333fb4..c4152f9 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 @@ -144,6 +144,10 @@ struct DVDVideoUserData
@@ -182,10 +2441,10 @@ index 37c1c07..b236ad7 100644
 +  virtual void SetCodecControl(int flags) {}
  };
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index aea738e..2481b66 100644
+index 718d781..d701066 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -167,6 +167,7 @@ CDVDVideoCodecFFmpeg::CDVDVideoCodecFFmpeg() : CDVDVideoCodec()
+@@ -173,6 +173,7 @@ CDVDVideoCodecFFmpeg::CDVDVideoCodecFFmpeg() : CDVDVideoCodec()
    m_iLastKeyframe = 0;
    m_dts = DVD_NOPTS_VALUE;
    m_started = false;
@@ -193,7 +2452,7 @@ index aea738e..2481b66 100644
  }
  
  CDVDVideoCodecFFmpeg::~CDVDVideoCodecFFmpeg()
-@@ -344,6 +345,14 @@ void CDVDVideoCodecFFmpeg::SetDropState(bool bDrop)
+@@ -342,6 +343,14 @@ void CDVDVideoCodecFFmpeg::SetDropState(bool bDrop)
  {
    if( m_pCodecContext )
    {
@@ -208,7 +2467,7 @@ index aea738e..2481b66 100644
      // i don't know exactly how high this should be set
      // couldn't find any good docs on it. think it varies
      // from codec to codec on what it does
-@@ -545,6 +554,7 @@ int CDVDVideoCodecFFmpeg::Decode(uint8_t* pData, int iSize, double dts, double p
+@@ -543,6 +552,7 @@ int CDVDVideoCodecFFmpeg::Decode(uint8_t* pData, int iSize, double dts, double p
  void CDVDVideoCodecFFmpeg::Reset()
  {
    m_started = false;
@@ -216,7 +2475,7 @@ index aea738e..2481b66 100644
    m_iLastKeyframe = m_pCodecContext->has_b_frames;
    avcodec_flush_buffers(m_pCodecContext);
  
-@@ -642,6 +652,22 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
+@@ -640,6 +650,22 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
    else
      pDvdVideoPicture->pts = DVD_NOPTS_VALUE;
  
@@ -239,7 +2498,7 @@ index aea738e..2481b66 100644
    if(!m_started)
      pDvdVideoPicture->iFlags |= DVP_FLAG_DROPPED;
  
-@@ -823,3 +849,18 @@ unsigned CDVDVideoCodecFFmpeg::GetAllowedReferences()
+@@ -821,3 +847,18 @@ unsigned CDVDVideoCodecFFmpeg::GetAllowedReferences()
    else
      return 0;
  }
@@ -643,10 +2902,10 @@ index dcd0ffd..1f0e661 100644
  };
  
 
-From 5f1691db1564313de3571f88309f6284179fadaa Mon Sep 17 00:00:00 2001
+From a6cfbd8cf73027448a8332227d588f1a38be8238 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 02/23] video player: present correct pts to user for a/v sync
+Subject: [PATCH 07/31] video player: present correct pts to user for a/v sync
  (after buffering in renderer)
 
 ---
@@ -695,33 +2954,10 @@ index 1f0e661..a38a9c3 100644
    double GetOutputDelay(); /* returns the expected delay, from that a packet is put in queue */
    int GetDecoderFreeSpace() { return 0; }
 
-From ab605fce4c73eacb58470d379069b0d1139d782b Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sat, 1 Jun 2013 11:21:19 +0200
-Subject: [PATCH 03/23] renderer: bump buffers to 5
-
----
- xbmc/cores/VideoRenderers/BaseRenderer.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoRenderers/BaseRenderer.h
-index fb41ccf..f5e5677 100644
---- a/xbmc/cores/VideoRenderers/BaseRenderer.h
-+++ b/xbmc/cores/VideoRenderers/BaseRenderer.h
-@@ -29,7 +29,7 @@
- 
- #define MAX_PLANES 3
- #define MAX_FIELDS 3
--#define NUM_BUFFERS 3
-+#define NUM_BUFFERS 5
- 
- class CSetting;
- 
-
-From 7dc1d09abdeb315734a8176d5be6c02040cde9f3 Mon Sep 17 00:00:00 2001
+From 61604a7af230cd43bc5186a62b9059976932fa51 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:41:31 +0200
-Subject: [PATCH 04/23] videoplayer: update frametime, it might change due to
+Subject: [PATCH 08/31] videoplayer: update frametime, it might change due to
  fps detection
 
 ---
@@ -742,10 +2978,10 @@ index 3bfa7f1..a41ed47 100644
              {
                m_codecname = m_pVideoCodec->GetName();
 
-From 61e121a808a5f79407b5390a0651a39c85dae0e2 Mon Sep 17 00:00:00 2001
+From 606885ecdf570f4420c2672cb05b28f50520b039 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:43:06 +0200
-Subject: [PATCH 05/23] videoplayer: give streams with invalid fps a chance for
+Subject: [PATCH 09/31] videoplayer: give streams with invalid fps a chance for
  fps detection
 
 ---
@@ -766,10 +3002,10 @@ index a41ed47..05f5d44 100644
      //reset the stored framerates if no good framerate was detected
      m_fStableFrameRate = 0.0;
 
-From 378f95b292e2abfec55d2c1f43f805ac5bf51f4c Mon Sep 17 00:00:00 2001
+From 9320c7718eb34bf92984d5022e6c724ac5cd4515 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 06/23] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 10/31] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -777,7 +3013,7 @@ Subject: [PATCH 06/23] dvdplayer: allow rewinding at end of stream, do a seek
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index e85c989..01389fb 100644
+index 9e3471d..9e949e0 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
 @@ -1793,7 +1793,7 @@ void CDVDPlayer::HandlePlaySpeed()
@@ -789,7 +3025,7 @@ index e85c989..01389fb 100644
            &&  m_SpeedState.lastpts  != m_dvdPlayerVideo->GetCurrentPts()
            &&  m_SpeedState.lasttime != GetTime())
      {
-@@ -2434,6 +2434,12 @@ void CDVDPlayer::HandleMessages()
+@@ -2440,6 +2440,12 @@ void CDVDPlayer::HandleMessages()
            pvrinputstream->Pause( speed == 0 );
          }
  
@@ -803,10 +3039,10 @@ index e85c989..01389fb 100644
          // audioplayer, stops outputing audio to audiorendere, but still tries to
          // sleep an correct amount for each packet
 
-From ea78242a598dacfbbdf3a1bb9a4c7b462ae84179 Mon Sep 17 00:00:00 2001
+From c3454495630dd1114e0d07f032f0f51f496a601e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 07/23] dvdplayer: observe pts counter overflow
+Subject: [PATCH 11/31] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 197 ++++++++++++++++++++-
@@ -1086,10 +3322,10 @@ index 08eb3df..dd89584 100644
  };
  
 
-From 2dbc55b2aba4648894a5ca3b90506f6b9eea38f3 Mon Sep 17 00:00:00 2001
+From a9f8bc71b8dce76824c501e880aab92e7028e606 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 08/23] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 12/31] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -1119,10 +3355,10 @@ index 05f5d44..5d84cd0 100644
     || ( m_output.extended_format != pPicture->extended_format )
     || ( m_output.color_matrix    != pPicture->color_matrix    && pPicture->color_matrix    != 0 ) // don't reconfigure on unspecified
 
-From f2a14ca102f5723b411a68f14976a1c144c2e84b Mon Sep 17 00:00:00 2001
+From b57e5f0fc8915d6f329e95458207d95ad30116f7 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 09/23] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 13/31] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -1150,7 +3386,7 @@ index 94c9188..1845198 100644
      if (deint != -1)
      {
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index 4af3c7a..f2ad5c8 100644
+index 237e903..55ab2e0 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
 @@ -156,6 +156,8 @@ void CAdvancedSettings::Initialize()
@@ -1162,8 +3398,8 @@ index 4af3c7a..f2ad5c8 100644
    m_videoVDPAUtelecine = false;
    m_videoVDPAUdeintSkipChromaHD = false;
    m_DXVACheckCompatibility = false;
-@@ -590,6 +592,8 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
-     XMLUtils::GetBoolean(pElement,"disableswmultithreading",m_videoDisableSWMultithreading);
+@@ -588,6 +590,8 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+     XMLUtils::GetFloat(pElement,"autoscalemaxfps",m_videoAutoScaleMaxFps, 0.0f, 1000.0f);
      XMLUtils::GetBoolean(pElement, "disablebackgrounddeinterlace", m_videoDisableBackgroundDeinterlace);
      XMLUtils::GetInt(pElement, "useocclusionquery", m_videoCaptureUseOcclusionQuery, -1, 1);
 +    XMLUtils::GetInt(pElement,"vdpauHDdeint",m_videoVDPAUdeintHD);
@@ -1172,7 +3408,7 @@ index 4af3c7a..f2ad5c8 100644
      XMLUtils::GetBoolean(pElement,"vdpauHDdeintSkipChroma",m_videoVDPAUdeintSkipChromaHD);
  
 diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
-index 7e50a63..980138e 100644
+index f58142f..d35354a 100644
 --- a/xbmc/settings/AdvancedSettings.h
 +++ b/xbmc/settings/AdvancedSettings.h
 @@ -162,6 +162,8 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
@@ -1185,10 +3421,10 @@ index 7e50a63..980138e 100644
      bool m_videoVDPAUdeintSkipChromaHD;
      bool m_musicUseTimeSeeking;
 
-From 835cae2abf126f601dec7fb420291ae1190ea606 Mon Sep 17 00:00:00 2001
+From 4c6748f2be3515d5e7bb02cf1648460290c7d4ae Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 10/23] player: fix rewind
+Subject: [PATCH 14/31] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 ++++-
@@ -1236,7 +3472,7 @@ index a365821..07366df 100644
  
  class CDVDMsgPlayerSeekChapter : public CDVDMsg
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 01389fb..cd88e9a 100644
+index 9e949e0..f5f4654 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
 @@ -1794,11 +1794,13 @@ void CDVDPlayer::HandlePlaySpeed()
@@ -1263,7 +3499,7 @@ index 01389fb..cd88e9a 100644
        }
      }
    }
-@@ -2283,7 +2285,7 @@ void CDVDPlayer::HandleMessages()
+@@ -2289,7 +2291,7 @@ void CDVDPlayer::HandleMessages()
            else
              m_StateInput.dts = start;
  
@@ -1272,7 +3508,7 @@ index 01389fb..cd88e9a 100644
          }
          else
            CLog::Log(LOGWARNING, "error while seeking");
-@@ -2419,9 +2421,10 @@ void CDVDPlayer::HandleMessages()
+@@ -2425,9 +2427,10 @@ void CDVDPlayer::HandleMessages()
            double offset;
            offset  = CDVDClock::GetAbsoluteClock() - m_State.timestamp;
            offset *= m_playSpeed / DVD_PLAYSPEED_NORMAL;
@@ -1284,7 +3520,7 @@ index 01389fb..cd88e9a 100644
            m_State.timestamp =  CDVDClock::GetAbsoluteClock();
          }
  
-@@ -2437,7 +2440,8 @@ void CDVDPlayer::HandleMessages()
+@@ -2443,7 +2446,8 @@ void CDVDPlayer::HandleMessages()
          // do a seek after rewind, clock is not in sync with current pts
          if (m_playSpeed < 0 && speed >= 0)
          {
@@ -1294,7 +3530,7 @@ index 01389fb..cd88e9a 100644
          }
  
          // if playspeed is different then DVD_PLAYSPEED_NORMAL or DVD_PLAYSPEED_PAUSE
-@@ -3407,7 +3411,7 @@ void CDVDPlayer::UpdateClockMaster()
+@@ -3414,7 +3418,7 @@ void CDVDPlayer::UpdateClockMaster()
    }
  }
  
@@ -1303,7 +3539,7 @@ index 01389fb..cd88e9a 100644
  {
    double startpts;
    if(accurate)
-@@ -3419,19 +3423,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3426,19 +3430,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
    if(startpts != DVD_NOPTS_VALUE)
      startpts -= m_offset_pts;
  
@@ -1331,7 +3567,7 @@ index 01389fb..cd88e9a 100644
    m_CurrentTeletext.dts      = DVD_NOPTS_VALUE;
    m_CurrentTeletext.startpts = startpts;
  
-@@ -3475,7 +3483,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3482,7 +3490,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
        m_CurrentTeletext.started = false;
      }
  
@@ -1341,7 +3577,7 @@ index 01389fb..cd88e9a 100644
      UpdatePlayState(0);
  
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.h b/xbmc/cores/dvdplayer/DVDPlayer.h
-index 951382c..3af2fdd 100644
+index 450366e..4419534 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.h
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.h
 @@ -345,7 +345,7 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
@@ -1400,10 +3636,10 @@ index a38a9c3..4e1b3d6 100644
    unsigned int m_dropRequests;
  };
 
-From f43e0ee1336efdd19589ec23d34a18b30c3719e4 Mon Sep 17 00:00:00 2001
+From 59d6229aed244e347709813b8dd94d7937068faa Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 11/23] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 15/31] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
@@ -1427,10 +3663,10 @@ index 94ee013..851a380 100644
  
    g_renderManager.UpdateResolution();
 
-From 07336ed8a97584833123d45194243315dbc4c316 Mon Sep 17 00:00:00 2001
+From 415413a83557510bcd31ed25a632db5797fd92b1 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 12/23] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 16/31] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
@@ -1452,10 +3688,10 @@ index fe5e893..c98c73b 100644
  
  void CEngineStats::Reset(unsigned int sampleRate)
 
-From e45f740bd3bf86b754012a2fcc558451c2ac752d Mon Sep 17 00:00:00 2001
+From 47b63f67c2f55f89e8c4e0c236edbb9ecbb92470 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 13/23] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 17/31] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -1508,10 +3744,10 @@ index 1845198..2bfea1a 100644
          m_mixersteps = 1;
        }
 
-From b45ee9a9efc0fe5050454afb0d20fd6b96d7d46b Mon Sep 17 00:00:00 2001
+From 534b19f577eef7dfb12f6d5193aa1ea7f169c683 Mon Sep 17 00:00:00 2001
 From: Marcel Groothuis <margro.xbmc@gmail.com>
 Date: Thu, 5 Dec 2013 22:02:50 +0100
-Subject: [PATCH 14/23] ffmpeg demuxer: faster channel change for PVR addons
+Subject: [PATCH 18/31] ffmpeg demuxer: faster channel change for PVR addons
  without internal demuxing (such as MediaPortal, ArgusTV, MythTV, NextPVR)
  Credits: FernetMenta, Davilla, Popcornmix, Whaupt
 
@@ -1868,10 +4104,10 @@ index ca689d0..f383563 100644
    else
      return NULL;
 
-From 74d5e2e408e2d6a0544265ec336f362bbcb12a5f Mon Sep 17 00:00:00 2001
+From 135d4027a7eae81eaa594db06a24ed7794ad3900 Mon Sep 17 00:00:00 2001
 From: Wolfgang Haupt <w.haupt@at-visions.com>
 Date: Thu, 5 Dec 2013 22:11:57 +0100
-Subject: [PATCH 15/23] DVDFactoryDemuxer: skip streaminfo for udp tcp and
+Subject: [PATCH 19/31] DVDFactoryDemuxer: skip streaminfo for udp tcp and
  pvr-channels
 
 ---
@@ -1992,10 +4228,10 @@ index 667f6d3..0094709 100644
    static void AddSlashAtEnd(std::string& strFolder);
    static bool HasSlashAtEnd(const std::string& strFile, bool checkURL = false);
 
-From 5a7d7f02e6a8e60480804407a0f588e633a37fa6 Mon Sep 17 00:00:00 2001
+From 0dec982c58a8cd5793997e1cd015dd941f175307 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Jul 2014 10:39:07 +0200
-Subject: [PATCH 16/23] fast channel switch, make sure extradata is decoded
+Subject: [PATCH 20/31] fast channel switch, make sure extradata is decoded
 
 ---
  xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 3 ++-
@@ -2016,10 +4252,10 @@ index c01bc11..d38bfab 100644
  
      // We are looking for an IDR frame
 
-From befaa2bc0573d558ac90bbc963a895422cd1e8a2 Mon Sep 17 00:00:00 2001
+From 806e4a5226d72d03bb5f6db7bb51f8549d48af5b Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 23 Jul 2014 15:07:37 +0200
-Subject: [PATCH 17/23] ffmpeg demuxer: allow a stream change if pat/pmt was
+Subject: [PATCH 21/31] ffmpeg demuxer: allow a stream change if pat/pmt was
  not seen on open
 
 ---
@@ -2079,20 +4315,20 @@ index d38bfab..2332b1b 100644
    {
      for (unsigned int i = 0; i < m_pFormatContext->programs[m_program]->nb_stream_indexes; i++)
 
-From 4558aaf44245f7ebc9f1b51b218c5ba46f2cccd9 Mon Sep 17 00:00:00 2001
+From ec65756751820e732ffcce9084ede6e1436bb861 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 28 Jan 2014 10:05:26 +0100
-Subject: [PATCH 18/23] xbmc pr 3080
+Subject: [PATCH 22/31] xbmc pr 3080
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp | 8 ++++++++
  1 file changed, 8 insertions(+)
 
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 2481b66..40816e3 100644
+index d701066..5231a28 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -477,6 +477,14 @@ int CDVDVideoCodecFFmpeg::Decode(uint8_t* pData, int iSize, double dts, double p
+@@ -475,6 +475,14 @@ int CDVDVideoCodecFFmpeg::Decode(uint8_t* pData, int iSize, double dts, double p
    av_init_packet(&avpkt);
    avpkt.data = pData;
    avpkt.size = iSize;
@@ -2108,10 +4344,10 @@ index 2481b66..40816e3 100644
     * Setting it correctly would allow CorePNG decoding. */
    avpkt.flags = AV_PKT_FLAG_KEY;
 
-From b658d8d670bcb58700e6ec89bbcf9d380e476494 Mon Sep 17 00:00:00 2001
+From b7fd4ca391798199de2045dfa4a18c8be7d8c24e Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Feb 2014 18:15:06 +0100
-Subject: [PATCH 19/23] ActiveAE: add some debug logging
+Subject: [PATCH 23/31] ActiveAE: add some debug logging
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp | 6 ++++++
@@ -2136,10 +4372,10 @@ index ec10397..3b67fc0 100644
    return copied;
  }
 
-From 4b73893f39f8f5b0bb1f7f23147967ea643fb0c8 Mon Sep 17 00:00:00 2001
+From b7f60ea46fc054d1826fa12038d14d144c56c1e2 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 26 Jul 2014 09:54:06 +0200
-Subject: [PATCH 20/23] ffmpeg: adapt depreciated attribute
+Subject: [PATCH 24/31] ffmpeg: adapt depreciated attribute
  max_analyze_duration
 
 ---
@@ -2160,10 +4396,10 @@ index 2332b1b..edaa006 100644
      isMpegts = true;
    }
 
-From f31a511ad65fb1b34df9a295ebaf560f48c3d728 Mon Sep 17 00:00:00 2001
+From bf82673fe5154a5b58ab134bb9345db236d3680c Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 23 Aug 2014 11:42:31 +0200
-Subject: [PATCH 21/23] dvdplayer: rename codec ctrl flags
+Subject: [PATCH 25/31] dvdplayer: rename codec ctrl flags
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h       | 14 ++++++++------
@@ -2173,7 +4409,7 @@ Subject: [PATCH 21/23] dvdplayer: rename codec ctrl flags
  4 files changed, 15 insertions(+), 13 deletions(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
-index b236ad7..c65c6e3 100644
+index c4152f9..08fea38 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h
 @@ -144,9 +144,9 @@ struct DVDVideoUserData
@@ -2206,10 +4442,10 @@ index b236ad7..c65c6e3 100644
     *                  this is signaled to codec. Codec can wait for post-proc
     *                  to be finished instead of returning empty and getting another
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 40816e3..8715d21 100644
+index 5231a28..a92fa07 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -667,7 +667,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
+@@ -665,7 +665,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
  
    if (m_requestSkipDeint)
    {
@@ -2275,10 +4511,10 @@ index bab0972..20aef4e 100644
        if (iDropDirective & EOS_DROPPED)
        {
 
-From 387abfc3db5e8fa214e4b7033966d064c727613a Mon Sep 17 00:00:00 2001
+From e13f91fbf6f6f1e9a2b6f18aa6bada2650ccd295 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 13 Jun 2014 14:37:16 +0200
-Subject: [PATCH 22/23] VAAPI: implement codec control flags
+Subject: [PATCH 26/31] VAAPI: implement codec control flags
 
 ---
  .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp         | 21 ++++++++++++++++++---
@@ -2286,10 +4522,10 @@ Subject: [PATCH 22/23] VAAPI: implement codec control flags
  2 files changed, 32 insertions(+), 6 deletions(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 8715d21..467a802 100644
+index a92fa07..c055a7a 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -630,6 +630,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
+@@ -628,6 +628,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
    pDvdVideoPicture->chroma_position = m_pCodecContext->chroma_sample_location;
    pDvdVideoPicture->color_primaries = m_pCodecContext->color_primaries;
    pDvdVideoPicture->color_transfer = m_pCodecContext->color_trc;
@@ -2297,7 +4533,7 @@ index 8715d21..467a802 100644
    if(m_pCodecContext->color_range == AVCOL_RANGE_JPEG
    || m_pCodecContext->pix_fmt     == PIX_FMT_YUVJ420P)
      pDvdVideoPicture->color_range = 1;
-@@ -653,10 +654,24 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
+@@ -651,10 +652,24 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
      pDvdVideoPicture->qscale_type = DVP_QSCALE_UNKNOWN;
    }
  
@@ -2382,10 +4618,10 @@ index 6685877..0edb0eb 100644
    VAProcFilterParameterBufferDeinterlacing *filterParams;
    VABufferID pipelineBuf;
 
-From 91aa3151634bb41b1e92a22e68c75b59ede4dd7c Mon Sep 17 00:00:00 2001
+From 32ef8314e8f0eae9aa63caa2f4195cf5a07f835a Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 4 Sep 2014 09:25:48 +0200
-Subject: [PATCH 23/23] consider rounding errors in dropping control
+Subject: [PATCH 27/31] consider rounding errors in dropping control
 
 ---
  xbmc/cores/dvdplayer/DVDPlayerVideo.cpp | 2 +-
@@ -2404,3 +4640,175 @@ index 20aef4e..2a10cfd 100644
      {
        CDroppingStats::CGain gain;
        gain.gain = iGain;
+
+From 8b5a42c770a488925dc7b598f8963e2309486d04 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Mon, 15 Sep 2014 17:20:39 +0200
+Subject: [PATCH 28/31] dvdplayer: temp message for debugging
+
+---
+ xbmc/cores/dvdplayer/DVDPlayer.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+index f5f4654..5de26a4 100644
+--- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
++++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
+@@ -1365,6 +1365,12 @@ void CDVDPlayer::Process()
+         m_pDemuxer->SetSpeed(DVD_PLAYSPEED_PAUSE);
+       }
+ 
++      if ((m_CurrentAudio.id >= 0 && m_dvdPlayerAudio->IsStalled()) ||
++          (m_CurrentVideo.id >= 0 && m_dvdPlayerVideo->IsStalled()))
++      {
++        CLog::Log(LOGWARNING, "%s - one queue is stalled while other does not accept data");
++      }
++
+       Sleep(10);
+       continue;
+     }
+
+From 7a56b2d58c00948282e65f8f532caaccd2f785e6 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Wed, 17 Sep 2014 12:27:49 +0200
+Subject: [PATCH 29/31] vaapi: flush ffmpeg buffers if it holds any refs on
+ close
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 20 ++++++++++++++++++++
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h   |  2 ++
+ 2 files changed, 22 insertions(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 0edb0eb..cb70740 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -417,6 +417,17 @@ bool CVideoSurfaces::HasFree()
+   return !m_freeSurfaces.empty();
+ }
+ 
++bool CVideoSurfaces::HasRefs()
++{
++  CSingleLock lock(m_section);
++  for (std::map<VASurfaceID, int>::iterator it = m_state.begin(); it != m_state.end(); ++it)
++  {
++    if (it->second & SURFACE_USED_FOR_REFERENCE)
++    return true;
++  }
++  return false;
++}
++
+ //-----------------------------------------------------------------------------
+ // VAAPI
+ //-----------------------------------------------------------------------------
+@@ -440,6 +451,7 @@ CDecoder::CDecoder() : m_vaapiOutput(&m_inMsgEvent)
+   m_vaapiConfig.context = 0;
+   m_vaapiConfig.contextId = VA_INVALID_ID;
+   m_vaapiConfig.configId = VA_INVALID_ID;
++  m_avctx = NULL;
+ }
+ 
+ CDecoder::~CDecoder()
+@@ -568,6 +580,8 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat fmt, unsigned
+   avctx->hwaccel_context = &m_hwContext;
+   avctx->get_buffer2 = CDecoder::FFGetBuffer;
+   avctx->slice_flags = SLICE_FLAG_CODED_ORDER|SLICE_FLAG_ALLOW_FIELD;
++
++  m_avctx = avctx;
+   return true;
+ }
+ 
+@@ -586,6 +600,12 @@ void CDecoder::Close()
+ 
+ long CDecoder::Release()
+ {
++  // if ffmpeg holds any references, flush buffers
++  if (m_avctx && m_videoSurfaces.HasRefs())
++  {
++    avcodec_flush_buffers(m_avctx);
++  }
++
+   // check if we should do some pre-cleanup here
+   // a second decoder might need resources
+   if (m_vaapiConfigured == true)
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+index d937eea..63fdb69 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+@@ -331,6 +331,7 @@ class CVideoSurfaces
+   void Reset();
+   int Size();
+   bool HasFree();
++  bool HasRefs();
+ protected:
+   std::map<VASurfaceID, int> m_state;
+   std::list<VASurfaceID> m_freeSurfaces;
+@@ -427,6 +428,7 @@ class CDecoder
+   CVaapiConfig  m_vaapiConfig;
+   CVideoSurfaces m_videoSurfaces;
+   vaapi_context m_hwContext;
++  AVCodecContext* m_avctx;
+ 
+   COutput m_vaapiOutput;
+   CVaapiBufferStats m_bufferStats;
+
+From 499284507842eb82a0497d03539bac576ec888f8 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Wed, 17 Sep 2014 12:30:09 +0200
+Subject: [PATCH 30/31] vaapi: drop unused member
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 1 -
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index cb70740..3ecd540 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -495,7 +495,6 @@ bool CDecoder::Open(AVCodecContext* avctx, const enum PixelFormat fmt, unsigned
+   m_vaapiConfig.surfaceWidth = avctx->width;
+   m_vaapiConfig.surfaceHeight = avctx->height;
+   m_vaapiConfig.aspect = avctx->sample_aspect_ratio;
+-  m_vaapiConfig.numRenderBuffers = surfaces;
+   m_decoderThread = CThread::GetCurrentThreadId();
+   m_DisplayState = VAAPI_OPEN;
+   m_vaapiConfigured = false;
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+index 63fdb69..c5a0071 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.h
+@@ -116,7 +116,6 @@ struct CVaapiConfig
+   CDecoder *vaapi;
+   int upscale;
+   CVideoSurfaces *videoSurfaces;
+-  int numRenderBuffers;
+   uint32_t maxReferences;
+   bool useInteropYuv;
+   CVAAPIContext *context;
+
+From be5471189e521da1b23ae78bd0b276b981cbf737 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Wed, 17 Sep 2014 12:50:47 +0200
+Subject: [PATCH 31/31] renderer: bump number of buffers for vdpau and vaapi
+
+---
+ xbmc/cores/VideoRenderers/LinuxRendererGL.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+index e5dbc2e..72bcbfa 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.cpp
+@@ -3500,6 +3500,11 @@ unsigned int CLinuxRendererGL::GetBufferSize()
+ {
+   if(m_format == RENDER_FMT_CVBREF)
+     return 2;
++  else if (m_format == RENDER_FMT_VAAPI ||
++           m_format == RENDER_FMT_VAAPINV12 ||
++           m_format == RENDER_FMT_VDPAU ||
++           m_format == RENDER_FMT_VDPAU_420)
++    return 5;
+   else
+     return 3;
+ }
