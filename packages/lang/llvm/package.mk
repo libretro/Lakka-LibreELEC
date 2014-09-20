@@ -37,6 +37,7 @@ PKG_AUTORECONF="no"
 # package specific configure options
 PKG_CONFIGURE_OPTS_HOST="--disable-polly \
                          --disable-libcpp \
+                         --disable-compiler-version-checks \
                          --disable-cxx11 \
                          --disable-split-dwarf \
                          --disable-clang-arcmt \
