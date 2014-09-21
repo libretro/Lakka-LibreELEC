@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xz"
-PKG_VERSION="5.0.5"
+PKG_VERSION="5.0.7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
