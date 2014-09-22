@@ -1,7 +1,7 @@
-From 223f17f5921aa453053a56e1ee0fa7d2293e107d Mon Sep 17 00:00:00 2001
+From d5424b93aa9f28b9c087106d80a00f60bfdb71e0 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:34:39 +0200
-Subject: [PATCH 06/31] videoplayer: adapt lateness detection and dropping to
+Subject: [PATCH 01/24] videoplayer: adapt lateness detection and dropping to
  buffering
 
 ---
@@ -15,7 +15,7 @@ Subject: [PATCH 06/31] videoplayer: adapt lateness detection and dropping to
  7 files changed, 288 insertions(+), 48 deletions(-)
 
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index cc72781..4d3dce1 100644
+index 64273f8..91d7635 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
 @@ -284,6 +284,8 @@ bool CXBMCRenderManager::Configure(unsigned int width, unsigned int height, unsi
@@ -44,7 +44,7 @@ index cc72781..4d3dce1 100644
      requeue(m_queued, m_free);
  
      /* signal to any waiters to check state */
-@@ -1085,6 +1088,8 @@ void CXBMCRenderManager::PrepareNextRender()
+@@ -1089,6 +1092,8 @@ void CXBMCRenderManager::PrepareNextRender()
      m_discard.push_back(m_presentsource);
      m_presentsource = idx;
      m_queued.pop_front();
@@ -53,7 +53,7 @@ index cc72781..4d3dce1 100644
      m_presentevent.notifyAll();
    }
  }
-@@ -1101,3 +1106,12 @@ void CXBMCRenderManager::DiscardBuffer()
+@@ -1105,3 +1110,12 @@ void CXBMCRenderManager::DiscardBuffer()
      m_presentstep   = PRESENT_IDLE;
    m_presentevent.notifyAll();
  }
@@ -67,7 +67,7 @@ index cc72781..4d3dce1 100644
 +  return true;
 +}
 diff --git a/xbmc/cores/VideoRenderers/RenderManager.h b/xbmc/cores/VideoRenderers/RenderManager.h
-index 8b237fb..e8d4ca2 100644
+index 8b6b79a..850890f 100644
 --- a/xbmc/cores/VideoRenderers/RenderManager.h
 +++ b/xbmc/cores/VideoRenderers/RenderManager.h
 @@ -98,10 +98,11 @@ class CXBMCRenderManager
@@ -289,7 +289,7 @@ index 1f564bb..48564d1 100644
 +  int    m_codecControlFlags;
  };
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 3ad22e8..c43af4d 100644
+index 21afca1..a89ea2c 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -38,6 +38,7 @@
@@ -643,10 +643,10 @@ index dcd0ffd..1f0e661 100644
  };
  
 
-From a6cfbd8cf73027448a8332227d588f1a38be8238 Mon Sep 17 00:00:00 2001
+From 250aa3d24b72203185c137a58845e46fc9d07864 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 07/31] video player: present correct pts to user for a/v sync
+Subject: [PATCH 02/24] video player: present correct pts to user for a/v sync
  (after buffering in renderer)
 
 ---
@@ -655,7 +655,7 @@ Subject: [PATCH 07/31] video player: present correct pts to user for a/v sync
  2 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index c43af4d..3bfa7f1 100644
+index a89ea2c..d3d37d1 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -1453,6 +1453,22 @@ void CDVDPlayerVideo::ResetFrameRateCalc()
@@ -695,10 +695,10 @@ index 1f0e661..a38a9c3 100644
    double GetOutputDelay(); /* returns the expected delay, from that a packet is put in queue */
    int GetDecoderFreeSpace() { return 0; }
 
-From 61604a7af230cd43bc5186a62b9059976932fa51 Mon Sep 17 00:00:00 2001
+From 1c6f5398784f9481d1c102a65be090319ee8aa1d Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:41:31 +0200
-Subject: [PATCH 08/31] videoplayer: update frametime, it might change due to
+Subject: [PATCH 03/24] videoplayer: update frametime, it might change due to
  fps detection
 
 ---
@@ -706,7 +706,7 @@ Subject: [PATCH 08/31] videoplayer: update frametime, it might change due to
  1 file changed, 2 insertions(+)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 3bfa7f1..a41ed47 100644
+index d3d37d1..c655d5a 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -708,6 +708,8 @@ void CDVDPlayerVideo::Process()
@@ -719,10 +719,10 @@ index 3bfa7f1..a41ed47 100644
              {
                m_codecname = m_pVideoCodec->GetName();
 
-From 606885ecdf570f4420c2672cb05b28f50520b039 Mon Sep 17 00:00:00 2001
+From af7adad373e88801c76951a2cc89a15e7636aa7e Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:43:06 +0200
-Subject: [PATCH 09/31] videoplayer: give streams with invalid fps a chance for
+Subject: [PATCH 04/24] videoplayer: give streams with invalid fps a chance for
  fps detection
 
 ---
@@ -730,7 +730,7 @@ Subject: [PATCH 09/31] videoplayer: give streams with invalid fps a chance for
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index a41ed47..05f5d44 100644
+index c655d5a..8cd3771 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -1497,7 +1497,7 @@ void CDVDPlayerVideo::CalcFrameRate()
@@ -743,10 +743,10 @@ index a41ed47..05f5d44 100644
      //reset the stored framerates if no good framerate was detected
      m_fStableFrameRate = 0.0;
 
-From 9320c7718eb34bf92984d5022e6c724ac5cd4515 Mon Sep 17 00:00:00 2001
+From 8df2dd36efc546079269a4719b60484ed7fab4dc Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 10/31] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 05/24] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -780,10 +780,10 @@ index 9e3471d..9e949e0 100644
          // audioplayer, stops outputing audio to audiorendere, but still tries to
          // sleep an correct amount for each packet
 
-From c3454495630dd1114e0d07f032f0f51f496a601e Mon Sep 17 00:00:00 2001
+From 8c321ab8b1a461c413c88388fc9ad5de03719879 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 11/31] dvdplayer: observe pts counter overflow
+Subject: [PATCH 06/24] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 197 ++++++++++++++++++++-
@@ -1063,10 +1063,10 @@ index 08eb3df..dd89584 100644
  };
  
 
-From a9f8bc71b8dce76824c501e880aab92e7028e606 Mon Sep 17 00:00:00 2001
+From fd64136c40b10df3bfbfa97302ab28d969317ac4 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 12/31] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 07/24] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -1074,7 +1074,7 @@ Subject: [PATCH 12/31] dvdplayer: avoid short screen flicker caused by
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 05f5d44..5d84cd0 100644
+index 8cd3771..51fba7e 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -1054,13 +1054,16 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
@@ -1096,10 +1096,10 @@ index 05f5d44..5d84cd0 100644
     || ( m_output.extended_format != pPicture->extended_format )
     || ( m_output.color_matrix    != pPicture->color_matrix    && pPicture->color_matrix    != 0 ) // don't reconfigure on unspecified
 
-From b57e5f0fc8915d6f329e95458207d95ad30116f7 Mon Sep 17 00:00:00 2001
+From bc3ef5ff20b9b9fc9013ed3c05cdc9831c22a675 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 13/31] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 08/24] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -1162,10 +1162,10 @@ index f58142f..d35354a 100644
      bool m_videoVDPAUdeintSkipChromaHD;
      bool m_musicUseTimeSeeking;
 
-From 4c6748f2be3515d5e7bb02cf1648460290c7d4ae Mon Sep 17 00:00:00 2001
+From 0afef849855c5d6ec6a6ae1bb18a209a3047c336 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 14/31] player: fix rewind
+Subject: [PATCH 09/24] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 ++++-
@@ -1343,7 +1343,7 @@ index 450366e..4419534 100644
  
    int m_errorCount;
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 5d84cd0..bab0972 100644
+index 51fba7e..35986e5 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -1468,7 +1468,7 @@ double CDVDPlayerVideo::GetCurrentPts()
@@ -1377,10 +1377,10 @@ index a38a9c3..4e1b3d6 100644
    unsigned int m_dropRequests;
  };
 
-From 59d6229aed244e347709813b8dd94d7937068faa Mon Sep 17 00:00:00 2001
+From 05655e811ddd3b6e340db64e26f39df95e6c4fe9 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 15/31] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 10/24] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
@@ -1404,17 +1404,17 @@ index 94ee013..851a380 100644
  
    g_renderManager.UpdateResolution();
 
-From 415413a83557510bcd31ed25a632db5797fd92b1 Mon Sep 17 00:00:00 2001
+From 05fd2f76527c20e69592fc51a43e968008fdbf67 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 16/31] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 11/24] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-index fe5e893..c98c73b 100644
+index de07de5..9efd922 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 @@ -32,8 +32,8 @@ using namespace ActiveAE;
@@ -1429,10 +1429,10 @@ index fe5e893..c98c73b 100644
  
  void CEngineStats::Reset(unsigned int sampleRate)
 
-From 47b63f67c2f55f89e8c4e0c236edbb9ecbb92470 Mon Sep 17 00:00:00 2001
+From 45b94d5a5423468be22bb36a4abb78f31f22557c Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 17/31] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 12/24] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -1485,10 +1485,10 @@ index 1845198..2bfea1a 100644
          m_mixersteps = 1;
        }
 
-From 534b19f577eef7dfb12f6d5193aa1ea7f169c683 Mon Sep 17 00:00:00 2001
+From 93b1ac938c6cff08b73c289fda13995042194093 Mon Sep 17 00:00:00 2001
 From: Marcel Groothuis <margro.xbmc@gmail.com>
 Date: Thu, 5 Dec 2013 22:02:50 +0100
-Subject: [PATCH 18/31] ffmpeg demuxer: faster channel change for PVR addons
+Subject: [PATCH 13/24] ffmpeg demuxer: faster channel change for PVR addons
  without internal demuxing (such as MediaPortal, ArgusTV, MythTV, NextPVR)
  Credits: FernetMenta, Davilla, Popcornmix, Whaupt
 
@@ -1845,10 +1845,10 @@ index ca689d0..f383563 100644
    else
      return NULL;
 
-From 135d4027a7eae81eaa594db06a24ed7794ad3900 Mon Sep 17 00:00:00 2001
+From a85788132fdc2a1e2017e221c1c88c393b287998 Mon Sep 17 00:00:00 2001
 From: Wolfgang Haupt <w.haupt@at-visions.com>
 Date: Thu, 5 Dec 2013 22:11:57 +0100
-Subject: [PATCH 19/31] DVDFactoryDemuxer: skip streaminfo for udp tcp and
+Subject: [PATCH 14/24] DVDFactoryDemuxer: skip streaminfo for udp tcp and
  pvr-channels
 
 ---
@@ -1969,10 +1969,10 @@ index 667f6d3..0094709 100644
    static void AddSlashAtEnd(std::string& strFolder);
    static bool HasSlashAtEnd(const std::string& strFile, bool checkURL = false);
 
-From 0dec982c58a8cd5793997e1cd015dd941f175307 Mon Sep 17 00:00:00 2001
+From 454ec8c7b565d4e0434353977db8e0e0260afcfa Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 18 Jul 2014 10:39:07 +0200
-Subject: [PATCH 20/31] fast channel switch, make sure extradata is decoded
+Subject: [PATCH 15/24] fast channel switch, make sure extradata is decoded
 
 ---
  xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 3 ++-
@@ -1993,10 +1993,10 @@ index c01bc11..d38bfab 100644
  
      // We are looking for an IDR frame
 
-From 806e4a5226d72d03bb5f6db7bb51f8549d48af5b Mon Sep 17 00:00:00 2001
+From 664d0d22be6b94431b97ef29762e5050c7e692c1 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Wed, 23 Jul 2014 15:07:37 +0200
-Subject: [PATCH 21/31] ffmpeg demuxer: allow a stream change if pat/pmt was
+Subject: [PATCH 16/24] ffmpeg demuxer: allow a stream change if pat/pmt was
  not seen on open
 
 ---
@@ -2056,10 +2056,10 @@ index d38bfab..2332b1b 100644
    {
      for (unsigned int i = 0; i < m_pFormatContext->programs[m_program]->nb_stream_indexes; i++)
 
-From ec65756751820e732ffcce9084ede6e1436bb861 Mon Sep 17 00:00:00 2001
+From 171e10a52ba1adefa4eceb6ac46811e167c2f053 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 28 Jan 2014 10:05:26 +0100
-Subject: [PATCH 22/31] xbmc pr 3080
+Subject: [PATCH 17/24] xbmc pr 3080
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp | 8 ++++++++
@@ -2085,20 +2085,20 @@ index d701066..5231a28 100644
     * Setting it correctly would allow CorePNG decoding. */
    avpkt.flags = AV_PKT_FLAG_KEY;
 
-From b7fd4ca391798199de2045dfa4a18c8be7d8c24e Mon Sep 17 00:00:00 2001
+From 7a1a3bec53f0d3e95e9838dc257f045155d1c5b9 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Feb 2014 18:15:06 +0100
-Subject: [PATCH 23/31] ActiveAE: add some debug logging
+Subject: [PATCH 18/24] ActiveAE: add some debug logging
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
-index ec10397..3b67fc0 100644
+index 16e5513..b536f22 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
-@@ -263,7 +263,13 @@ unsigned int CActiveAEStream::AddData(uint8_t* const *data, unsigned int offset,
+@@ -264,7 +264,13 @@ unsigned int CActiveAEStream::AddData(uint8_t* const *data, unsigned int offset,
        }
      }
      if (!m_inMsgEvent.WaitMSec(200))
@@ -2113,10 +2113,10 @@ index ec10397..3b67fc0 100644
    return copied;
  }
 
-From b7f60ea46fc054d1826fa12038d14d144c56c1e2 Mon Sep 17 00:00:00 2001
+From b79e6923b4b7406dfdd5c5dfac6839238352d6f3 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 26 Jul 2014 09:54:06 +0200
-Subject: [PATCH 24/31] ffmpeg: adapt depreciated attribute
+Subject: [PATCH 19/24] ffmpeg: adapt depreciated attribute
  max_analyze_duration
 
 ---
@@ -2137,10 +2137,10 @@ index 2332b1b..edaa006 100644
      isMpegts = true;
    }
 
-From bf82673fe5154a5b58ab134bb9345db236d3680c Mon Sep 17 00:00:00 2001
+From 9b4ce872051961557bb7a07bce46ee91a033058e Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 23 Aug 2014 11:42:31 +0200
-Subject: [PATCH 25/31] dvdplayer: rename codec ctrl flags
+Subject: [PATCH 20/24] dvdplayer: rename codec ctrl flags
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h       | 14 ++++++++------
@@ -2236,7 +2236,7 @@ index 2bfea1a..165f103 100644
          m_mixersteps = 1;
        }
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index bab0972..20aef4e 100644
+index 35986e5..e9df939 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -526,9 +526,9 @@ void CDVDPlayerVideo::Process()
@@ -2252,10 +2252,10 @@ index bab0972..20aef4e 100644
        if (iDropDirective & EOS_DROPPED)
        {
 
-From e13f91fbf6f6f1e9a2b6f18aa6bada2650ccd295 Mon Sep 17 00:00:00 2001
+From b1453d1cc870a61c31e31991f62d2a3834d8cebf Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 13 Jun 2014 14:37:16 +0200
-Subject: [PATCH 26/31] VAAPI: implement codec control flags
+Subject: [PATCH 21/24] VAAPI: implement codec control flags
 
 ---
  .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp         | 21 ++++++++++++++++++---
@@ -2303,10 +2303,10 @@ index a92fa07..c055a7a 100644
      pDvdVideoPicture->pts = DVD_NOPTS_VALUE;
  
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
-index 6685877..0edb0eb 100644
+index 3cbc681..3ecd540 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
-@@ -715,6 +715,8 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* pFrame)
+@@ -734,6 +734,8 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* pFrame)
      pic.DVDPic.color_matrix = avctx->colorspace;
      m_bufferStats.IncDecoded();
      m_vaapiOutput.m_dataPort.SendOutMessage(COutputDataProtocol::NEWFRAME, &pic, sizeof(pic));
@@ -2315,7 +2315,7 @@ index 6685877..0edb0eb 100644
    }
  
    int retval = 0;
-@@ -1684,8 +1686,8 @@ bool COutput::PreferPP()
+@@ -1703,8 +1705,8 @@ bool COutput::PreferPP()
  void COutput::InitCycle()
  {
    uint64_t latency;
@@ -2326,7 +2326,7 @@ index 6685877..0edb0eb 100644
  
    m_config.stats->SetCanSkipDeint(false);
  
-@@ -1693,7 +1695,8 @@ void COutput::InitCycle()
+@@ -1712,7 +1714,8 @@ void COutput::InitCycle()
    EINTERLACEMETHOD method = CMediaSettings::Get().GetCurrentVideoSettings().m_InterlaceMethod;
    bool interlaced = m_currentPicture.DVDPic.iFlags & DVP_FLAG_INTERLACED;
  
@@ -2336,7 +2336,7 @@ index 6685877..0edb0eb 100644
        (mode == VS_DEINTERLACEMODE_AUTO && interlaced)))
    {
      if((method == VS_INTERLACEMETHOD_AUTO && interlaced)
-@@ -2524,6 +2527,7 @@ bool CVppPostproc::AddPicture(CVaapiDecodedPicture &pic)
+@@ -2543,6 +2546,7 @@ bool CVppPostproc::AddPicture(CVaapiDecodedPicture &pic)
    m_decodedPics.push_front(pic);
    m_frameCount++;
    m_step = 0;
@@ -2344,7 +2344,7 @@ index 6685877..0edb0eb 100644
    return true;
  }
  
-@@ -2568,6 +2572,13 @@ bool CVppPostproc::Filter(CVaapiProcessedPicture &outPic)
+@@ -2587,6 +2591,13 @@ bool CVppPostproc::Filter(CVaapiProcessedPicture &outPic)
    }
    outPic.DVDPic = it->DVDPic;
  
@@ -2359,17 +2359,17 @@ index 6685877..0edb0eb 100644
    VAProcFilterParameterBufferDeinterlacing *filterParams;
    VABufferID pipelineBuf;
 
-From 32ef8314e8f0eae9aa63caa2f4195cf5a07f835a Mon Sep 17 00:00:00 2001
+From e1503bd0034edf892aac2d6f81f390ff48baa9a1 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 4 Sep 2014 09:25:48 +0200
-Subject: [PATCH 27/31] consider rounding errors in dropping control
+Subject: [PATCH 22/24] consider rounding errors in dropping control
 
 ---
  xbmc/cores/dvdplayer/DVDPlayerVideo.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 20aef4e..2a10cfd 100644
+index e9df939..173f748 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -1608,7 +1608,7 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
@@ -2382,10 +2382,10 @@ index 20aef4e..2a10cfd 100644
        CDroppingStats::CGain gain;
        gain.gain = iGain;
 
-From 8b5a42c770a488925dc7b598f8963e2309486d04 Mon Sep 17 00:00:00 2001
+From 183f4f60e1654c041a5d4985af15994a5a1450b7 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Mon, 15 Sep 2014 17:20:39 +0200
-Subject: [PATCH 28/31] dvdplayer: temp message for debugging
+Subject: [PATCH 23/24] dvdplayer: temp message for debugging
 
 ---
  xbmc/cores/dvdplayer/DVDPlayer.cpp | 6 ++++++
@@ -2408,3 +2408,28 @@ index f5f4654..5de26a4 100644
        Sleep(10);
        continue;
      }
+
+From 081329cae7472154ac2e9db70bb067eda81f0c06 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 21 Sep 2014 15:48:25 +0200
+Subject: [PATCH 24/24] AE: only send resample ratio if it was changed
+
+---
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+index b536f22..fec0313 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+@@ -437,8 +437,9 @@ double CActiveAEStream::GetResampleRatio()
+ 
+ bool CActiveAEStream::SetResampleRatio(double ratio)
+ {
++  if (ratio != m_streamResampleRatio)
++    AE.SetStreamResampleRatio(this, ratio);
+   m_streamResampleRatio = ratio;
+-  AE.SetStreamResampleRatio(this, m_streamResampleRatio);
+   return true;
+ }
+ 
