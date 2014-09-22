@@ -1,0 +1,171 @@
+From bb8573ac8a22dc69ab9628977316e9dae4d97399 Mon Sep 17 00:00:00 2001
+From: Hendrik Leppkes <h.leppkes@gmail.com>
+Date: Sun, 21 Sep 2014 02:29:27 +0200
+Subject: [PATCH 1/2] mlpdec: support major sync headers with optional
+ extension blocks
+
+Signed-off-by: Michael Niedermayer <michaelni@gmx.at>
+---
+ libavcodec/mlp_parser.c | 29 ++++++++++++++++++++++++-----
+ libavcodec/mlp_parser.h |  1 +
+ libavcodec/mlpdec.c     |  7 ++++++-
+ 3 files changed, 31 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/mlp_parser.c b/libavcodec/mlp_parser.c
+index 4bb82ee..deaa844 100644
+--- a/libavcodec/mlp_parser.c
++++ b/libavcodec/mlp_parser.c
+@@ -119,6 +119,23 @@ uint64_t ff_truehd_layout(int chanmap)
+     return layout;
+ }
+ 
++static int ff_mlp_get_major_sync_size(const uint8_t * buf, int bufsize)
++{
++    int has_extension, extensions = 0;
++    int size = 28;
++    if (bufsize < 28)
++        return -1;
++
++    if (AV_RB32(buf) == 0xf8726fba) {
++        has_extension = buf[25] & 1;
++        if (has_extension) {
++            extensions = buf[26] >> 4;
++            size += 2 + extensions * 2;
++        }
++    }
++    return size;
++}
++
+ /** Read a major sync info header - contains high level information about
+  *  the stream - sample rate, channel arrangement etc. Most of this
+  *  information is not actually necessary for decoding, only for playback.
+@@ -127,18 +144,19 @@ uint64_t ff_truehd_layout(int chanmap)
+ 
+ int ff_mlp_read_major_sync(void *log, MLPHeaderInfo *mh, GetBitContext *gb)
+ {
+-    int ratebits, channel_arrangement;
++    int ratebits, channel_arrangement, header_size;
+     uint16_t checksum;
+ 
+     av_assert1(get_bits_count(gb) == 0);
+ 
+-    if (gb->size_in_bits < 28 << 3) {
++    header_size = ff_mlp_get_major_sync_size(gb->buffer, gb->size_in_bits >> 3);
++    if (header_size < 0 || gb->size_in_bits < header_size << 3) {
+         av_log(log, AV_LOG_ERROR, "packet too short, unable to read major sync\n");
+         return -1;
+     }
+ 
+-    checksum = ff_mlp_checksum16(gb->buffer, 26);
+-    if (checksum != AV_RL16(gb->buffer+26)) {
++    checksum = ff_mlp_checksum16(gb->buffer, header_size - 2);
++    if (checksum != AV_RL16(gb->buffer+header_size-2)) {
+         av_log(log, AV_LOG_ERROR, "major sync info header checksum error\n");
+         return AVERROR_INVALIDDATA;
+     }
+@@ -147,6 +165,7 @@ int ff_mlp_read_major_sync(void *log, MLPHeaderInfo *mh, GetBitContext *gb)
+         return AVERROR_INVALIDDATA;
+ 
+     mh->stream_type = get_bits(gb, 8);
++    mh->header_size = header_size;
+ 
+     if (mh->stream_type == 0xbb) {
+         mh->group1_bits = mlp_quants[get_bits(gb, 4)];
+@@ -199,7 +218,7 @@ int ff_mlp_read_major_sync(void *log, MLPHeaderInfo *mh, GetBitContext *gb)
+ 
+     mh->num_substreams = get_bits(gb, 4);
+ 
+-    skip_bits_long(gb, 4 + 11 * 8);
++    skip_bits_long(gb, 4 + (header_size - 17) * 8);
+ 
+     return 0;
+ }
+diff --git a/libavcodec/mlp_parser.h b/libavcodec/mlp_parser.h
+index 5d1d2e7..0c0109e 100644
+--- a/libavcodec/mlp_parser.h
++++ b/libavcodec/mlp_parser.h
+@@ -32,6 +32,7 @@
+ typedef struct MLPHeaderInfo
+ {
+     int stream_type;                        ///< 0xBB for MLP, 0xBA for TrueHD
++    int header_size;                        ///< Size of the major sync header, in bytes
+ 
+     int group1_bits;                        ///< The bit depth of the first substream
+     int group2_bits;                        ///< Bit depth of the second substream (MLP only)
+diff --git a/libavcodec/mlpdec.c b/libavcodec/mlpdec.c
+index ed6a7fb..fddeb14 100644
+--- a/libavcodec/mlpdec.c
++++ b/libavcodec/mlpdec.c
+@@ -132,6 +132,9 @@ typedef struct MLPDecodeContext {
+     /// Current access unit being read has a major sync.
+     int         is_major_sync_unit;
+ 
++    /// Size of the major sync unit, in bytes
++    int         major_sync_header_size;
++
+     /// Set if a valid major sync block has been read. Otherwise no decoding is possible.
+     uint8_t     params_valid;
+ 
+@@ -349,6 +352,8 @@ static int read_major_sync(MLPDecodeContext *m, GetBitContext *gb)
+         return AVERROR_PATCHWELCOME;
+     }
+ 
++    m->major_sync_header_size = mh.header_size;
++
+     m->access_unit_size      = mh.access_unit_size;
+     m->access_unit_size_pow2 = mh.access_unit_size_pow2;
+ 
+@@ -1142,7 +1147,7 @@ static int read_access_unit(AVCodecContext *avctx, void* data,
+         if (read_major_sync(m, &gb) < 0)
+             goto error;
+         m->is_major_sync_unit = 1;
+-        header_size += 28;
++        header_size += m->major_sync_header_size;
+     }
+ 
+     if (!m->params_valid) {
+
+From 26a3740f6f3d3074d365256fb7a0840298e4d62e Mon Sep 17 00:00:00 2001
+From: Hendrik Leppkes <h.leppkes@gmail.com>
+Date: Sun, 21 Sep 2014 02:29:28 +0200
+Subject: [PATCH 2/2] mlpdec: support TrueHD streams with an Atmos substream
+
+The fourth substream is being discarded, since its not raw audio data,
+but an encoded Atmos stream which needs a specialized decoder.
+
+Fixes decoding of the true hd stream from Transformers\ -\ Age\ of\ Extinction\ 2014\ 1080P-003.mkv
+
+Signed-off-by: Michael Niedermayer <michaelni@gmx.at>
+---
+ libavcodec/mlp.h    | 2 +-
+ libavcodec/mlpdec.c | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/libavcodec/mlp.h b/libavcodec/mlp.h
+index bb9ca26..05d8dba 100644
+--- a/libavcodec/mlp.h
++++ b/libavcodec/mlp.h
+@@ -45,7 +45,7 @@
+ /** Maximum number of substreams that can be decoded.
+  *  MLP's limit is 2. TrueHD supports at least up to 3.
+  */
+-#define MAX_SUBSTREAMS      3
++#define MAX_SUBSTREAMS      4
+ 
+ /** which multiple of 48000 the maximum sample rate is */
+ #define MAX_RATEFACTOR      4
+diff --git a/libavcodec/mlpdec.c b/libavcodec/mlpdec.c
+index fddeb14..e443f81 100644
+--- a/libavcodec/mlpdec.c
++++ b/libavcodec/mlpdec.c
+@@ -358,7 +358,9 @@ static int read_major_sync(MLPDecodeContext *m, GetBitContext *gb)
+     m->access_unit_size_pow2 = mh.access_unit_size_pow2;
+ 
+     m->num_substreams        = mh.num_substreams;
+-    m->max_decoded_substream = m->num_substreams - 1;
++
++    /* limit to decoding 3 substreams, as the 4th is used by Dolby Atmos for non-audio data */
++    m->max_decoded_substream = FFMIN(m->num_substreams - 1, 2);
+ 
+     m->avctx->sample_rate    = mh.group1_samplerate;
+     m->avctx->frame_size     = mh.access_unit_size;
