@@ -1,0 +1,42 @@
+From 6e5461cc577376fe6efa291549d6987883a07123 Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi@xbmc.org>
+Date: Sun, 21 Sep 2014 19:26:42 +0300
+Subject: [PATCH] AEStreamInfo: Handle sync headers with extension blocks
+
+Fixes passthrough of Dolby TrueHD audio with Atmos.
+
+Behavior based on FFmpeg patch "mlpdec: support major sync headers with
+optional extension blocks" by Hendrik Leppkes.
+---
+ xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp b/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp
+index 08e375b..73b84f3 100644
+--- a/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp
++++ b/xbmc/cores/AudioEngine/Utils/AEStreamInfo.cpp
+@@ -666,10 +666,21 @@ unsigned int CAEStreamInfo::SyncTrueHD(uint8_t *data, unsigned int size)
+       if (rate == 0xF)
+         continue;
+ 
++      unsigned int major_sync_size = 28;
++      if (data[29] & 1)
++      {
++        /* extension(s) present, look up count */
++        int extension_count = data[30] >> 4;
++        major_sync_size += 2 + extension_count * 2;
++      }
++
++      if (left < 4 + major_sync_size)
++        return skip;
++
+       /* verify the crc of the audio unit */
+-      uint16_t crc = av_crc(m_crcTrueHD, 0, data + 4, 24);
+-      crc ^= (data[29] << 8) | data[28];
+-      if (((data[31] << 8) | data[30]) != crc)
++      uint16_t crc = av_crc(m_crcTrueHD, 0, data + 4, major_sync_size - 4);
++      crc ^= (data[4 + major_sync_size - 3] << 8) | data[4 + major_sync_size - 4];
++      if (((data[4 + major_sync_size - 1] << 8) | data[4 + major_sync_size - 2]) != crc)
+         continue;
+ 
+       /* get the sample rate and substreams, we have a valid master audio unit */
