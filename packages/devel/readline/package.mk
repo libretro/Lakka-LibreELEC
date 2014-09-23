@@ -33,3 +33,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-curses --without-purify"
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/ncurses"
+  CXXFLAGS="$CXXFLAGS -I$SYSROOT_PREFIX/usr/include/ncurses"
+}
+
