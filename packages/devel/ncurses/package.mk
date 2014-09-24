@@ -32,18 +32,23 @@ PKG_LONGDESC="The ncurses (new curses) library is a free software emulation of c
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--without-cxx \
+PKG_CONFIGURE_OPTS_TARGET="--without-ada \
+                           --without-cxx \
                            --without-cxx-binding \
-                           --without-ada \
+                           --disable-db-install \
+                           --without-manpages \
                            --without-progs \
-                           --with-shared \
+                           --without-tests \
+                           --without-curses-h \
+                           --without-shared \
                            --with-normal \
                            --without-debug \
                            --without-profile \
                            --without-termlib \
+                           --without-ticlib \
+                           --without-gpm \
                            --without-dbmalloc \
                            --without-dmalloc \
-                           --without-gpm \
                            --disable-rpath \
                            --disable-overwrite \
                            --disable-database \
@@ -51,7 +56,8 @@ PKG_CONFIGURE_OPTS_TARGET="--without-cxx \
                            --disable-big-core \
                            --enable-termcap \
                            --enable-getcap \
-                           --disable-getcap-cache \
+                           --enable-getcap-cache \
+                           --enable-symlinks \
                            --disable-bsdpad \
                            --without-rcs-ids \
                            --enable-ext-funcs \
@@ -76,18 +82,8 @@ pre_configure_target() {
   strip_lto
 }
 
-make_target() {
-  make -C include
-  make -C ncurses
-}
-
-makeinstall_target() {
-  $MAKEINSTALL -C include
-  $MAKEINSTALL -C ncurses
-
+post_makeinstall_target() {
   cp misc/ncurses-config $ROOT/$TOOLCHAIN/bin
     chmod +x $ROOT/$TOOLCHAIN/bin/ncurses-config
     $SED "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $ROOT/$TOOLCHAIN/bin/ncurses-config
-
-  make DESTDIR=$INSTALL -C ncurses install
 }
