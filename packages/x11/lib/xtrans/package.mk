@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xtrans"
-PKG_VERSION="1.3.4"
+PKG_VERSION="1.3.5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
