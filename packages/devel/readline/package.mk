@@ -32,4 +32,7 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--with-curses --without-purify"
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
+                           --enable-static \
+                           --with-curses \
+                           --without-purify"
