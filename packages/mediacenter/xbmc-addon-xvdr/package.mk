@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xbmc-addon-xvdr"
-PKG_VERSION="8c32c50"
+PKG_VERSION="a372421"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
