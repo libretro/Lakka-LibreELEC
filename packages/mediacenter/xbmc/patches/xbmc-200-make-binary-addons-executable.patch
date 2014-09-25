@@ -1,0 +1,54 @@
+From c572751d90ab26971d401819b146cf4daa64670c Mon Sep 17 00:00:00 2001
+From: vpeter4 <peter.vicman@gmail.com>
+Date: Wed, 1 Oct 2014 10:12:11 +0200
+Subject: [PATCH] make binary addons executable
+
+add executable mode to all files in addon's bin folder
+---
+ xbmc/addons/AddonInstaller.cpp | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/xbmc/addons/AddonInstaller.cpp b/xbmc/addons/AddonInstaller.cpp
+index d358a23..6b55c3a 100644
+--- a/xbmc/addons/AddonInstaller.cpp
++++ b/xbmc/addons/AddonInstaller.cpp
+@@ -39,6 +39,9 @@
+ #include "dialogs/GUIDialogKaiToast.h"
+ #include "dialogs/GUIDialogProgress.h"
+ #include "URL.h"
++#include <iostream>
++#include <dirent.h>
++#include <sys/stat.h>
+ 
+ using namespace std;
+ using namespace XFILE;
+@@ -715,6 +718,26 @@ bool CAddonInstallJob::Install(const std::string &installFrom, const AddonPtr& r
+ 
+ void CAddonInstallJob::OnPostInstall(bool reloadAddon)
+ {
++  std::string addonDirPath;
++  std::string chmodFilePath;
++  DIR *addonsDir;
++  struct dirent *fileDirent;
++  struct stat fileStat;
++  int statRet;
++
++  addonDirPath = "/storage/.xbmc/addons/" + m_addon->ID() + "/bin/";
++  if ((addonsDir = opendir(addonDirPath.c_str())) != NULL)
++  {
++    while ((fileDirent = readdir(addonsDir)) != NULL)
++    {
++      chmodFilePath = addonDirPath + fileDirent->d_name;
++      statRet = stat(chmodFilePath.c_str(), &fileStat);
++      if (statRet == 0 && (fileStat.st_mode & S_IFMT) != S_IFDIR)
++        chmod(chmodFilePath.c_str(), fileStat.st_mode | S_IXUSR | S_IXGRP | S_IXOTH);
++    }
++    closedir(addonsDir);
++  }
++
+   if (CSettings::Get().GetBool("general.addonnotifications"))
+   {
+     CGUIDialogKaiToast::QueueNotification(m_addon->Icon(),
+-- 
+1.8.1.2
+
