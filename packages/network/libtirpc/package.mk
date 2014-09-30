@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libtirpc"
-PKG_VERSION="0.2.4"
+PKG_VERSION="0.2.5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
