@@ -222,6 +222,5 @@ configure_target() {
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/share/ffmpeg/examples
 }
