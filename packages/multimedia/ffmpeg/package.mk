@@ -128,8 +128,8 @@ configure_target() {
               --extra-libs="" \
               --extra-version="" \
               --build-suffix="" \
-              --enable-static \
-              --disable-shared \
+              --disable-static \
+              --enable-shared \
               --enable-gpl \
               --disable-version3 \
               --disable-nonfree \
