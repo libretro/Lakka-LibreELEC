@@ -1,0 +1,72 @@
+From 2418829bd999ac9ce6c4c1ce1e8bc267327a4b86 Mon Sep 17 00:00:00 2001
+From: marc <mhocking@ubuntu-desktop.(none)>
+Date: Mon, 18 Feb 2013 17:18:18 +0000
+Subject: [PATCH 13/17] dxva-h264 Fix dxva playback of streams that don't start
+ with an I-Frame.
+
+---
+ libavcodec/dxva2_h264.c | 8 ++++++++
+ libavcodec/h264.c       | 1 +
+ libavcodec/h264.h       | 2 ++
+ libavcodec/h264_slice.c | 1 +
+ 4 files changed, 12 insertions(+)
+
+diff --git a/libavcodec/dxva2_h264.c b/libavcodec/dxva2_h264.c
+index 6deccc3..85b25fd 100644
+--- a/libavcodec/dxva2_h264.c
++++ b/libavcodec/dxva2_h264.c
+@@ -451,6 +451,14 @@ static int dxva2_h264_end_frame(AVCodecContext *avctx)
+ 
+     if (ctx_pic->slice_count <= 0 || ctx_pic->bitstream_size <= 0)
+         return -1;
++
++    // Wait for an I-frame before start decoding. Workaround for ATI UVD and UVD+ GPUs
++    if (!h->got_first_iframe) {
++        if (!(ctx_pic->pp.wBitFields & (1 << 15)))
++            return -1;
++        h->got_first_iframe = 1;
++    }
++
+     ret = ff_dxva2_common_end_frame(avctx, &h->cur_pic_ptr->f,
+                                     &ctx_pic->pp, sizeof(ctx_pic->pp),
+                                     &ctx_pic->qm, sizeof(ctx_pic->qm),
+diff --git a/libavcodec/h264.c b/libavcodec/h264.c
+index c4f4b05..080845c 100644
+--- a/libavcodec/h264.c
++++ b/libavcodec/h264.c
+@@ -1085,6 +1085,7 @@ void ff_h264_flush_change(H264Context *h)
+     h->list_count = 0;
+     h->current_slice = 0;
+     h->mmco_reset = 1;
++    h->got_first_iframe = 0;
+ }
+ 
+ /* forget old pics after a seek */
+diff --git a/libavcodec/h264.h b/libavcodec/h264.h
+index 5ec4f0c..d26cee3 100644
+--- a/libavcodec/h264.h
++++ b/libavcodec/h264.h
+@@ -740,6 +740,8 @@ typedef struct H264Context {
+     int luma_weight_flag[2];    ///< 7.4.3.2 luma_weight_lX_flag
+     int chroma_weight_flag[2];  ///< 7.4.3.2 chroma_weight_lX_flag
+ 
++    int got_first_iframe;
++
+     // Timestamp stuff
+     int sei_buffering_period_present;   ///< Buffering period SEI flag
+     int initial_cpb_removal_delay[32];  ///< Initial timestamps for CPBs
+diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
+index ffb7de5..338114e 100644
+--- a/libavcodec/h264_slice.c
++++ b/libavcodec/h264_slice.c
+@@ -1178,6 +1178,7 @@ static int h264_slice_header_init(H264Context *h, int reinit)
+         ff_h264_free_tables(h, 0);
+     h->first_field           = 0;
+     h->prev_interlaced_frame = 1;
++    h->got_first_iframe = 0;
+ 
+     init_scan_tables(h);
+     ret = ff_h264_alloc_tables(h);
+-- 
+1.9.3
+

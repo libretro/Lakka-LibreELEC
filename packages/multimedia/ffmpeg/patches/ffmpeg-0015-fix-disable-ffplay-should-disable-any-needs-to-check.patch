@@ -1,0 +1,58 @@
+From d01ef454fb11286e666d568c47ead0c1633d659a Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Mon, 12 May 2014 18:27:01 +0200
+Subject: [PATCH 15/17] fix --disable-ffplay should disable any needs to check
+ or add compile/link flags otherwise SDL gets spewed all over pkg-config files
+ and generally causes a mess
+
+---
+ configure | 32 +++++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/configure b/configure
+index 618dfab..30fe640 100755
+--- a/configure
++++ b/configure
+@@ -4911,22 +4911,24 @@ if enabled libdc1394; then
+     die "ERROR: No version of libdc1394 found "
+ fi
+ 
+-SDL_CONFIG="${cross_prefix}sdl-config"
+-if check_pkg_config sdl SDL_events.h SDL_PollEvent; then
+-    check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) >= 0x010201" $sdl_cflags &&
+-    check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) < 0x010300" $sdl_cflags &&
+-    enable sdl
+-else
+-  if "${SDL_CONFIG}" --version > /dev/null 2>&1; then
+-    sdl_cflags=$("${SDL_CONFIG}" --cflags)
+-    sdl_libs=$("${SDL_CONFIG}" --libs)
+-    check_func_headers SDL_version.h SDL_Linked_Version $sdl_cflags $sdl_libs &&
+-    check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) >= 0x010201" $sdl_cflags &&
+-    check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) < 0x010300" $sdl_cflags &&
+-    enable sdl
+-  fi
++if enabled ffplay; then
++    SDL_CONFIG="${cross_prefix}sdl-config"
++    if check_pkg_config sdl SDL_events.h SDL_PollEvent; then
++        check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) >= 0x010201" $sdl_cflags &&
++        check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) < 0x010300" $sdl_cflags &&
++        enable sdl
++    else
++      if "${SDL_CONFIG}" --version > /dev/null 2>&1; then
++        sdl_cflags=$("${SDL_CONFIG}" --cflags)
++        sdl_libs=$("${SDL_CONFIG}" --libs)
++        check_func_headers SDL_version.h SDL_Linked_Version $sdl_cflags $sdl_libs &&
++        check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) >= 0x010201" $sdl_cflags &&
++        check_cpp_condition SDL.h "(SDL_MAJOR_VERSION<<16 | SDL_MINOR_VERSION<<8 | SDL_PATCHLEVEL) < 0x010300" $sdl_cflags &&
++        enable sdl
++      fi
++    fi
++    enabled sdl && add_cflags $sdl_cflags && add_extralibs $sdl_libs
+ fi
+-enabled sdl && add_cflags $sdl_cflags && add_extralibs $sdl_libs
+ 
+ makeinfo --version > /dev/null 2>&1 && enable makeinfo  || disable makeinfo
+ enabled makeinfo && (makeinfo --version | \
+-- 
+1.9.3
+
