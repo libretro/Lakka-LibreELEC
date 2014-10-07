@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="dvb-firmware"
-PKG_VERSION="0.0.45"
+PKG_VERSION="0.0.46"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Free-to-use"
