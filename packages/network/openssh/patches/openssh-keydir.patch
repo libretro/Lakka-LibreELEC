@@ -1,49 +1,11 @@
-diff -Naur openssh-6.6p1/configure.ac openssh-6.6p1.patch/configure.ac
---- openssh-6.6p1/configure.ac	2014-02-21 18:09:34.000000000 +0100
-+++ openssh-6.6p1.patch/configure.ac	2014-08-03 14:19:49.867173481 +0200
-@@ -4444,6 +4444,17 @@
- 	]
- )
- 
-+# Set keydir
-+AC_ARG_WITH([keydir],
-+	[  --with-keydir=      Specify different path for storing keys],
-+	[
-+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-+		    test "x${withval}" != "xyes"; then
-+			KEYDIR=$withval
-+		fi
-+	]
-+)
-+AC_SUBST([KEYDIR])
- 
- AC_MSG_CHECKING([if we need to convert IPv4 in IPv6-mapped addresses])
- IPV4_IN6_HACK_MSG="no"
-@@ -4814,6 +4825,7 @@
- H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
- I=`eval echo ${user_path}` ; I=`eval echo ${I}`
- J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
-+K=`eval echo ${KEYDIR}` ; K=`eval echo ${K}`
- 
- echo ""
- echo "OpenSSH has been configured with the following options:"
-@@ -4837,6 +4849,9 @@
- if test ! -z "$superuser_path" ; then
- echo "          sshd superuser user PATH: $J"
- fi
-+if test ! -z "$KEYDIR" ; then
-+echo "                      sshd keydir : $K"
-+fi
- echo "                    Manpage format: $MANTYPE"
- echo "                       PAM support: $PAM_MSG"
- echo "                   OSF SIA support: $SIA_MSG"
-diff -Naur openssh-6.6p1/Makefile.in openssh-6.6p1.patch/Makefile.in
---- openssh-6.6p1/Makefile.in	2014-02-04 01:12:56.000000000 +0100
-+++ openssh-6.6p1.patch/Makefile.in	2014-08-03 14:12:36.716017883 +0200
-@@ -29,8 +29,10 @@
- PRIVSEP_PATH=@PRIVSEP_PATH@
+diff --git a/Makefile.in b/Makefile.in
+index 06be3d5..5272bda 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -30,8 +30,10 @@ PRIVSEP_PATH=@PRIVSEP_PATH@
  SSH_PRIVSEP_USER=@SSH_PRIVSEP_USER@
  STRIP_OPT=@STRIP_OPT@
+ TEST_SHELL=@TEST_SHELL@
 +KEYDIR=@KEYDIR@
  
  PATHS= -DSSHDIR=\"$(sysconfdir)\" \
@@ -51,7 +13,7 @@ diff -Naur openssh-6.6p1/Makefile.in openssh-6.6p1.patch/Makefile.in
  	-D_PATH_SSH_PROGRAM=\"$(SSH_PROGRAM)\" \
  	-D_PATH_SSH_ASKPASS_DEFAULT=\"$(ASKPASS_PROGRAM)\" \
  	-D_PATH_SFTP_SERVER=\"$(SFTP_SERVER)\" \
-@@ -111,11 +113,11 @@
+@@ -121,11 +123,11 @@ PATHSUBS	= \
  	-e 's|/etc/ssh/sshd_config|$(sysconfdir)/sshd_config|g' \
  	-e 's|/usr/libexec|$(libexecdir)|g' \
  	-e 's|/etc/shosts.equiv|$(sysconfdir)/shosts.equiv|g' \
@@ -68,9 +30,50 @@ diff -Naur openssh-6.6p1/Makefile.in openssh-6.6p1.patch/Makefile.in
  	-e 's|/var/run/sshd.pid|$(piddir)/sshd.pid|g' \
  	-e 's|/etc/moduli|$(sysconfdir)/moduli|g' \
  	-e 's|/etc/ssh/moduli|$(sysconfdir)/moduli|g' \
-diff -Naur openssh-6.6p1/pathnames.h openssh-6.6p1.patch/pathnames.h
---- openssh-6.6p1/pathnames.h	2013-12-07 01:24:02.000000000 +0100
-+++ openssh-6.6p1.patch/pathnames.h	2014-08-03 13:03:43.612029243 +0200
+diff --git a/configure.ac b/configure.ac
+index 67c4486..b4297bf 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -4429,6 +4429,17 @@ AC_ARG_WITH([superuser-path],
+ 	]
+ )
+ 
++# Set keydir
++AC_ARG_WITH([keydir],
++	[  --with-keydir=      Specify different path for storing keys],
++	[
++		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
++                    test "x${withval}" != "xyes"; then
++			KEYDIR=$withval
++		fi
++	]
++)
++AC_SUBST([KEYDIR])
+ 
+ AC_MSG_CHECKING([if we need to convert IPv4 in IPv6-mapped addresses])
+ IPV4_IN6_HACK_MSG="no"
+@@ -4799,6 +4810,7 @@ G=`eval echo ${piddir}` ; G=`eval echo ${G}`
+ H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
+ I=`eval echo ${user_path}` ; I=`eval echo ${I}`
+ J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
++K=`eval echo ${KEYDIR}` ; K=`eval echo ${K}`
+ 
+ echo ""
+ echo "OpenSSH has been configured with the following options:"
+@@ -4822,6 +4834,9 @@ fi
+ if test ! -z "$superuser_path" ; then
+ echo "          sshd superuser user PATH: $J"
+ fi
++if test ! -z "$KEYDIR" ; then
++echo "                       sshd keydir: $K"
++fi
+ echo "                    Manpage format: $MANTYPE"
+ echo "                       PAM support: $PAM_MSG"
+ echo "                   OSF SIA support: $SIA_MSG"
+diff --git a/pathnames.h b/pathnames.h
+index ec89fc6..8a33ca2 100644
+--- a/pathnames.h
++++ b/pathnames.h
 @@ -18,6 +18,10 @@
  #define SSHDIR				ETCDIR "/ssh"
  #endif
