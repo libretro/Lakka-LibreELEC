@@ -65,49 +65,40 @@ SED="sed -i"
 
   if [ -n "$1" ]; then
     _PKG_ROOT_NAME=$(echo $1 | cut -d: -f1)
+    _ALL_DIRS=""
+    _FOUND=0
+    PKG_DIR=""
 
     # first check project folder for a package
-    FOUND=0
-    ALL_DIRS=""
-    for DIR in `find $ROOT/projects/$PROJECT/packages -type d -name $_PKG_ROOT_NAME ! -wholename \*\/source\/\* 2>/dev/null` ; do
-      # keep track of dirs with meta for debugging
-      if [ -z "$ALL_DIRS" ] ; then
-        ALL_DIRS="$DIR"
-      else
-        ALL_DIRS="$ALL_DIRS\\n$DIR"
-      fi
-      if [ -f "$DIR/package.mk" ] ; then
-        FOUND=$((FOUND+1))
-        # found first. set $PKG_DIR
+    for DIR in $(find $ROOT/projects/$PROJECT/packages -type d -name $_PKG_ROOT_NAME 2>/dev/null); do
+      if [ -r "$DIR/package.mk" ]; then
+        # found first, set $PKG_DIR
         PKG_DIR="$DIR"
-        if [ $FOUND -gt 1 ] ; then
-          # found more ? fail
+        # keep track of dirs with package.mk for detecting multiple folders
+        _ALL_DIRS="${_ALL_DIRS}${DIR}\\n"
+        _FOUND=$((_FOUND+1))
+        if [ $_FOUND -gt 1 ]; then
+          # _FOUND more ? fail
           echo "Error - multiple package folders:"
-          echo -e "$ALL_DIRS"
+          echo -e "$_ALL_DIRS"
           exit 1
         fi
       fi
     done
 
     # then check packages folder if not found already
-    if [ $FOUND -eq 0 ] ; then
-      FOUND=0
-      ALL_DIRS=""
-      for DIR in `find $ROOT/$PACKAGES -type d -name $_PKG_ROOT_NAME ! -wholename \*\/source\/\* 2>/dev/null` ; do
-        # keep track of dirs with meta for debugging
-        if [ -z "$ALL_DIRS" ] ; then
-          ALL_DIRS="$DIR"
-        else
-          ALL_DIRS="$ALL_DIRS\\n$DIR"
-        fi
-        if [ -f "$DIR/package.mk" ] ; then
-          FOUND=$((FOUND+1))
-          # found first. set $PKG_DIR
+    if [ $_FOUND -eq 0 ]; then
+      for DIR in $(find $ROOT/$PACKAGES -type d -name $_PKG_ROOT_NAME 2>/dev/null); do
+        if [ -r "$DIR/package.mk" ]; then
+          # found first, set $PKG_DIR
           PKG_DIR="$DIR"
-          if [ $FOUND -gt 1 ] ; then
+          # keep track of dirs with package.mk for detecting multiple folders
+          _ALL_DIRS="${_ALL_DIRS}${DIR}\\n"
+          _FOUND=$((_FOUND+1))
+          if [ $_FOUND -gt 1 ]; then
             # found more ? fail
             echo "Error - multiple package folders:"
-            echo -e "$ALL_DIRS"
+            echo -e "$_ALL_DIRS"
             exit 1
           fi
         fi
