@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="wireless-regdb"
-PKG_VERSION="2014.05.19"
+PKG_VERSION="2014.10.07"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
