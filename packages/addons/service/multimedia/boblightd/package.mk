@@ -42,7 +42,7 @@ if [ "$OPENGL_SUPPORT" = "yes" ] ; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Mesa glu"
 fi
 
-if [ ! "$OPENGL" = "Mesa" ]; then
+if [ "$OPENGL" = "no" ]; then
   EXTRAOPTS="--without-opengl"
 fi
 
