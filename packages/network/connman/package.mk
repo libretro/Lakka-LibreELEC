@@ -75,6 +75,8 @@ PKG_CONFIGURE_OPTS_TARGET="WPASUPPLICANT=/usr/bin/wpa_supplicant \
                            --disable-tools \
                            --enable-client \
                            --enable-datafiles \
+                           --with-dbusconfdir=/etc \
+                           --with-systemdunitdir=/usr/lib/systemd/system \
                            --disable-silent-rules"
 
 
