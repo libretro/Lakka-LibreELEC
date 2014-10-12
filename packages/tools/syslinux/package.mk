@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="syslinux"
-PKG_VERSION="6.02"
+PKG_VERSION="6.03"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://syslinux.zytor.com/"
-PKG_URL="http://www.kernel.org/pub/linux/utils/boot/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://www.kernel.org/pub/linux/utils/boot/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="util-linux:host"
 PKG_DEPENDS_TARGET="toolchain util-linux e2fsprogs syslinux:host"
 PKG_PRIORITY="optional"
