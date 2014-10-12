@@ -49,9 +49,9 @@ else
   XBMC_XORG="--disable-x11 --disable-xrandr"
 fi
 
-if [ "$OPENGL" = "Mesa" ]; then
+if [ ! "$OPENGL" = "no" ]; then
 # for OpenGL (GLX) support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Mesa glu glew"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGL glu glew"
   XBMC_OPENGL="--enable-gl"
 else
   XBMC_OPENGL="--disable-gl"
