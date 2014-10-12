@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto dri3proto fixesproto damageproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto glproto presentproto libpciaccess libX11 libXfont libXinerama libxshmfence libxkbfile libdrm libressl freetype pixman fontsproto libepoxy systemd xorg-launch-helper"
+PKG_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto dri3proto fixesproto damageproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto presentproto libpciaccess libX11 libXfont libXinerama libxshmfence libxkbfile libdrm libressl freetype pixman fontsproto systemd xorg-launch-helper"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/xserver"
 PKG_SHORTDESC="xorg-server: The Xorg X server"
@@ -41,11 +41,11 @@ else
   XORG_COMPOSITE="--disable-composite"
 fi
 
-if [ "$OPENGL" = "Mesa" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Mesa glu"
-  XORG_MESA="--enable-glx --enable-dri"
+if [ ! "$OPENGL" = "no" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET glproto $OPENGL libepoxy glu"
+  XORG_MESA="--enable-glx --enable-dri --enable-glamor"
 else
-  XORG_MESA="--disable-glx --disable-dri"
+  XORG_MESA="--disable-glx --disable-dri --disable-glamor"
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
@@ -105,7 +105,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-xquartz \
                            --disable-standalone-xpbproxy \
                            --disable-xwin \
-                           --enable-glamor \
                            --disable-kdrive \
                            --disable-xephyr \
                            --disable-xfake \
@@ -150,10 +149,12 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/xorg
     cp -P $PKG_DIR/scripts/xorg-configure $INSTALL/usr/lib/xorg
 
-  if [ -f $INSTALL/usr/lib/xorg/modules/extensions/libglx.so ]; then
-    mv $INSTALL/usr/lib/xorg/modules/extensions/libglx.so \
-       $INSTALL/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename for cooperate with nvidia drivers
-    ln -sf /var/lib/libglx.so $INSTALL/usr/lib/xorg/modules/extensions/libglx.so
+  if [ ! "$OPENGL" = "no" ]; then
+    if [ -f $INSTALL/usr/lib/xorg/modules/extensions/libglx.so ]; then
+      mv $INSTALL/usr/lib/xorg/modules/extensions/libglx.so \
+         $INSTALL/usr/lib/xorg/modules/extensions/libglx_mesa.so # rename for cooperate with nvidia drivers
+      ln -sf /var/lib/libglx.so $INSTALL/usr/lib/xorg/modules/extensions/libglx.so
+    fi
   fi
 
   mkdir -p $INSTALL/etc/X11
