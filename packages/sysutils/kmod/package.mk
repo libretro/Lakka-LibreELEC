@@ -67,10 +67,6 @@ post_makeinstall_target() {
     ln -sf /usr/bin/kmod $INSTALL/sbin/modinfo
     ln -sf /usr/bin/kmod $INSTALL/sbin/modprobe
 
-# add system modprobe.d dir
-  mkdir -p $INSTALL/etc/modprobe.d
-    cp $PKG_DIR/modprobe.d/* $INSTALL/etc/modprobe.d
-
 # add user modprobe.d dir
   mkdir -p $INSTALL/usr/config/modprobe.d
 }
