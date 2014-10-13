@@ -213,9 +213,6 @@ makeinstall_init() {
 }
 
 post_install() {
-  mkdir -p $INSTALL/etc/modprobe.d
-    cp $PKG_DIR/modprobe.d/*.conf $INSTALL/etc/modprobe.d
-
   ln -sf /storage/.config/firmware/ $INSTALL/lib/firmware/updates
 
   enable_service cpufreq-threshold.service
