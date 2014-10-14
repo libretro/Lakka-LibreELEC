@@ -32,42 +32,29 @@ PKG_LONGDESC="The userspace interface library to kernel DRM services."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-configure_target() {
-# overwrite default configure_target() to support $(kernel_path)
+get_graphicdrivers
 
-  export LIBUDEV_CFLAGS="-I`ls -d $ROOT/$BUILD/udev*`"
-  export LIBUDEV_LIBS="-I`ls -d $ROOT/$BUILD/udev*`"
+DRM_CONFIG="--disable-libkms --disable-intel --disable-radeon"
+DRM_CONFIG="$DRM_CONFIG --disable-nouveau --disable-vmwgfx"
 
-  get_graphicdrivers
+for drv in $GRAPHIC_DRIVERS; do
+  [ "$drv" = "i915" -o "$drv" = "i965" ] && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-intel/enable-intel/'`
 
-  DRM_CONFIG="--disable-libkms --disable-intel --disable-radeon"
-  DRM_CONFIG="$DRM_CONFIG --disable-nouveau --disable-vmwgfx"
+  [ "$drv" = "r200" -o "$drv" = "r300" -o "$drv" = "r600" -o "$drv" = "radeonsi" ] && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-radeon/enable-radeon/'`
 
-  for drv in $GRAPHIC_DRIVERS; do
-    [ "$drv" = "i915" -o "$drv" = "i965" ] && \
-      DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
-      DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-intel/enable-intel/'`
+  [ "$drv" = "nouveau" ] && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-nouveau/enable-nouveau/'`
+done
 
-    [ "$drv" = "r200" -o "$drv" = "r300" -o "$drv" = "r600" -o "$drv" = "radeonsi" ] && \
-      DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
-      DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-radeon/enable-radeon/'`
-
-    [ "$drv" = "nouveau" ] && \
-      DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
-      DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-nouveau/enable-nouveau/'`
-  done
-
-  ../configure --host=$TARGET_NAME \
-               --build=$HOST_NAME \
-               --prefix=/usr \
-               --sysconfdir=/etc \
-               --disable-static \
-               --enable-shared \
-               --disable-udev \
-               --enable-largefile \
-               --with-kernel-source=$(kernel_path) \
-               $DRM_CONFIG \
-               --disable-install-test-programs \
-               --disable-cairo-tests \
-               --disable-manpages
-}
+PKG_CONFIGURE_OPTS_TARGET="--disable-udev \
+                           --enable-largefile \
+                           --with-kernel-source=$(kernel_path) \
+                           $DRM_CONFIG \
+                           --disable-install-test-programs \
+                           --disable-cairo-tests \
+                           --disable-manpages"
