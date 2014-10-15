@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="tvheadend"
-PKG_VERSION="3.9.1083"
-PKG_REV="0"
+PKG_VERSION="3.9.1847"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lonelycoder.com/hts/tvheadend_overview.html"
@@ -36,6 +36,7 @@ PKG_AUTORECONF="no"
 pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
   cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
+  export CROSS_COMPILE=$TARGET_PREFIX
 }
 
 configure_target() {
@@ -43,12 +44,18 @@ configure_target() {
             --arch=$TARGET_ARCH \
             --cpu=$TARGET_CPU \
             --cc=$TARGET_CC \
+            --enable-hdhomerun_client \
+            --enable-hdhomerun_static \
             --enable-timeshift \
-            --disable-libav \
             --disable-avahi \
-            --python=$ROOT/$TOOLCHAIN/bin/python \
+            --disable-libav \
+            --enable-inotify \
+            --enable-epoll \
             --disable-uriparser \
-            --enable-bundle
+            --enable-tvhcsa \
+            --enable-bundle \
+            --disable-dbus_1 \
+            --python=$ROOT/$TOOLCHAIN/bin/python
 }
 
 post_make_target() {
