@@ -1,6 +1,6 @@
-From e5d98e8b261526ab41234b2fbc090c99bd009631 Mon Sep 17 00:00:00 2001
+From 8bd7907427f0153920b81e615b08e9f6e9c9ee40 Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
-Date: Thu, 22 May 2014 20:00:40 +0300
+Date: Mon, 6 Oct 2014 13:42:00 +0300
 Subject: [PATCH] dvb: ngene/octopus
 
 source: http://linuxtv.org/hg/~endriss/media_build_experimental/
@@ -31,11 +31,11 @@ note: SYS_DVBC2 not added. ci extensions (en50221) not added.
  drivers/media/dvb-frontends/stv6111.h        |    5 +
  drivers/media/dvb-frontends/tda18212dd.c     |  974 +++++++
  drivers/media/dvb-frontends/tda18212dd.h     |    5 +
- drivers/media/dvb-frontends/tda18271c2dd.c   |   15 +-
+ drivers/media/dvb-frontends/tda18271c2dd.c   |   17 +-
  drivers/media/dvb-frontends/tda18271c2dd.h   |    6 +-
  drivers/media/pci/ddbridge/Kconfig           |   11 +-
  drivers/media/pci/ddbridge/Makefile          |    2 -
- drivers/media/pci/ddbridge/ddbridge-core.c   | 3707 ++++++++++++++++++------
+ drivers/media/pci/ddbridge/ddbridge-core.c   | 3718 ++++++++++++++++++------
  drivers/media/pci/ddbridge/ddbridge-i2c.c    |  257 ++
  drivers/media/pci/ddbridge/ddbridge-i2c.h    |  105 +
  drivers/media/pci/ddbridge/ddbridge-mod.c    | 1131 ++++++++
@@ -48,14 +48,14 @@ note: SYS_DVBC2 not added. ci extensions (en50221) not added.
  drivers/media/pci/ngene/Makefile             |    3 +-
  drivers/media/pci/ngene/ngene-av.c           |  348 +++
  drivers/media/pci/ngene/ngene-cards.c        |  778 +++--
- drivers/media/pci/ngene/ngene-core.c         |  382 ++-
+ drivers/media/pci/ngene/ngene-core.c         |  396 ++-
  drivers/media/pci/ngene/ngene-dvb.c          |  372 +++
  drivers/media/pci/ngene/ngene-eeprom.c       |  284 ++
  drivers/media/pci/ngene/ngene-i2c.c          |  113 +
  drivers/media/pci/ngene/ngene.h              |   40 +
  include/uapi/linux/dvb/mod.h                 |   22 +
  include/uapi/linux/dvb/ns.h                  |   68 +
- 48 files changed, 25191 insertions(+), 3431 deletions(-)
+ 48 files changed, 25183 insertions(+), 3466 deletions(-)
  create mode 100644 drivers/media/dvb-core/dvb_netstream.c
  create mode 100644 drivers/media/dvb-core/dvb_netstream.h
  create mode 100644 drivers/media/dvb-frontends/cxd2843.c
@@ -517,7 +517,7 @@ index 983db75..a813389 100644
  static int dvb_uevent(struct device *dev, struct kobj_uevent_env *env)
  {
 diff --git a/drivers/media/dvb-core/dvbdev.h b/drivers/media/dvb-core/dvbdev.h
-index 93a9470..e534ef1 100644
+index f96b28e..f901b54 100644
 --- a/drivers/media/dvb-core/dvbdev.h
 +++ b/drivers/media/dvb-core/dvbdev.h
 @@ -47,6 +47,10 @@
@@ -532,12 +532,12 @@ index 93a9470..e534ef1 100644
  #define DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr) \
  	static short adapter_nr[] = \
 diff --git a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kconfig
-index 025fc54..a080569 100644
+index fe0ddcc..b0be45b 100644
 --- a/drivers/media/dvb-frontends/Kconfig
 +++ b/drivers/media/dvb-frontends/Kconfig
-@@ -63,6 +63,33 @@ config DVB_TDA18271C2DD
+@@ -72,6 +72,33 @@ config DVB_SI2165
  
- 	  Say Y when you want to support this tuner.
+ 	  Say Y when you want to support this frontend.
  
 +config DVB_STV0367DD
 +	tristate "STV 0367 (DD)"
@@ -570,13 +570,13 @@ index 025fc54..a080569 100644
  	depends on DVB_CORE
  
 diff --git a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/Makefile
-index 282aba2..fac3f5f 100644
+index edf103d..912ac69 100644
 --- a/drivers/media/dvb-frontends/Makefile
 +++ b/drivers/media/dvb-frontends/Makefile
-@@ -99,6 +99,9 @@ obj-$(CONFIG_DVB_STV0367) += stv0367.o
- obj-$(CONFIG_DVB_CXD2820R) += cxd2820r.o
+@@ -106,6 +106,9 @@ obj-$(CONFIG_DVB_CXD2820R) += cxd2820r.o
  obj-$(CONFIG_DVB_DRXK) += drxk.o
  obj-$(CONFIG_DVB_TDA18271C2DD) += tda18271c2dd.o
+ obj-$(CONFIG_DVB_SI2165) += si2165.o
 +obj-$(CONFIG_DVB_STV0367DD) += stv0367dd.o
 +obj-$(CONFIG_DVB_TDA18212DD) += tda18212dd.o
 +obj-$(CONFIG_DVB_CXD2843) += cxd2843.o
@@ -22380,7 +22380,7 @@ index 0000000..687fab4a
 +				       struct i2c_adapter *i2c, u8 adr);
 +#endif
 diff --git a/drivers/media/dvb-frontends/tda18271c2dd.c b/drivers/media/dvb-frontends/tda18271c2dd.c
-index 2c54586..ad7c72e 100644
+index de0a1c1..ad7c72e 100644
 --- a/drivers/media/dvb-frontends/tda18271c2dd.c
 +++ b/drivers/media/dvb-frontends/tda18271c2dd.c
 @@ -32,10 +32,6 @@
@@ -22415,6 +22415,15 @@ index 2c54586..ad7c72e 100644
  }
  
  static int WriteReg(struct tda_state *state, u8 SubAddr, u8 Reg)
+@@ -1030,7 +1019,7 @@ static int ChannelConfiguration(struct tda_state *state,
+ 			state->m_Regs[EP4] = state->m_EP4 | state->m_IFLevelDigital;
+ 
+ 		if ((Standard == HF_FM_Radio) && state->m_bFMInput)
+-			state->m_Regs[EP4] |= 0x80;
++			state->m_Regs[EP4] |= 80;
+ 
+ 		state->m_Regs[MPD] &= ~0x80;
+ 		if (Standard > HF_AnalogMax)
 diff --git a/drivers/media/dvb-frontends/tda18271c2dd.h b/drivers/media/dvb-frontends/tda18271c2dd.h
 index dd84f7b..1389c74 100644
 --- a/drivers/media/dvb-frontends/tda18271c2dd.h
@@ -22476,7 +22485,7 @@ index 7446c8b..2610161 100644
  
  ccflags-y += -Idrivers/media/dvb-core/
 diff --git a/drivers/media/pci/ddbridge/ddbridge-core.c b/drivers/media/pci/ddbridge/ddbridge-core.c
-index fb52bda..c85796a 100644
+index da8f848..9cd98a4 100644
 --- a/drivers/media/pci/ddbridge/ddbridge-core.c
 +++ b/drivers/media/pci/ddbridge/ddbridge-core.c
 @@ -1,7 +1,8 @@
@@ -24230,9 +24239,7 @@ index fb52bda..c85796a 100644
 +	}
 +	dvb->attached = 0x00;
 +}
- 
--	case 2:
--		dvb_dmx_release(&input->demux);
++
 +static int dvb_register_adapters(struct ddb *dev)
 +{
 +	int i, ret = 0;
@@ -24255,9 +24262,7 @@ index fb52bda..c85796a 100644
 +		}
 +		return 0;
 +	}
- 
--	case 1:
--		dvb_unregister_adapter(adap);
++
 +	for (i = 0; i < dev->info->port_num; i++) {
 +		port = &dev->port[i];
 +		switch (port->class) {
@@ -24284,7 +24289,9 @@ index fb52bda..c85796a 100644
 +				return ret;
 +			port->dvb[1].adap_registered = 1;
 +			break;
-+
+ 
+-	case 2:
+-		dvb_dmx_release(&input->demux);
 +		case DDB_PORT_CI:
 +		case DDB_PORT_LOOP:
 +			adap = port->dvb[0].adap;
@@ -24312,7 +24319,9 @@ index fb52bda..c85796a 100644
 +	}
 +	return ret;
 +}
-+
+ 
+-	case 1:
+-		dvb_unregister_adapter(adap);
 +static void dvb_unregister_adapters(struct ddb *dev)
 +{
 +	int i;
@@ -24634,13 +24643,13 @@ index fb52bda..c85796a 100644
 +	struct i2c_adapter *i2c = &port->i2c->adap;
 +	u8 val;
 +	int res;
- 
--	poll_wait(file, &read_queue, wait);
--	poll_wait(file, &write_queue, wait);
++
 +	res = i2c_read_reg(i2c, 0x10, 0x04, &val);
 +	if (res < 0)
 +		return res;
-+
+ 
+-	poll_wait(file, &read_queue, wait);
+-	poll_wait(file, &write_queue, wait);
 +	if (val != 0x02)  {
 +		pr_info("Port %d: invalid XO2\n", port->nr);
 +		return -1;
@@ -25853,10 +25862,7 @@ index fb52bda..c85796a 100644
 +				  DVB_DEVICE_NSD);
 +	return ret;
 +}
- 
--/******************************************************************************/
--/******************************************************************************/
--/******************************************************************************/
++
 +static void ddb_nsd_detach(struct ddb *dev)
 +{
 +	if (dev->nsd_dev->users > 2) {
@@ -25867,7 +25873,10 @@ index fb52bda..c85796a 100644
 +}
 +
 +#endif
-+
+ 
+-/******************************************************************************/
+-/******************************************************************************/
+-/******************************************************************************/
 +/****************************************************************************/
 +/****************************************************************************/
 +/****************************************************************************/
@@ -26169,7 +26178,7 @@ index fb52bda..c85796a 100644
  	default:
  		return -ENOTTY;
  	}
-@@ -1477,251 +3073,508 @@ static long ddb_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+@@ -1477,284 +3073,494 @@ static long ddb_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  static const struct file_operations ddb_fops = {
  	.unlocked_ioctl = ddb_ioctl,
  	.open           = ddb_open,
@@ -26357,16 +26366,16 @@ index fb52bda..c85796a 100644
 +	struct i2c_adapter *adap;
 +	u8 tmp[4];
 +	s16 i, q;
-+
+ 
+-	ddb_unmap(dev);
+-	pci_set_drvdata(pdev, 0);
+-	pci_disable_device(pdev);
 +	adap = &dev->i2c[1].adap;
 +	if (i2c_read_regs16(adap, 0x1f, 0xf480, tmp, 4) < 0)
 +		return sprintf(buf, "read_error\n");
 +	i = (s16) (((u16) tmp[1]) << 14) | (((u16) tmp[0]) << 6);
 +	q = (s16) (((u16) tmp[3]) << 14) | (((u16) tmp[2]) << 6);
- 
--	ddb_unmap(dev);
--	pci_set_drvdata(pdev, 0);
--	pci_disable_device(pdev);
++
 +	return sprintf(buf, "%d %d\n", i, q);
  }
 +#endif
@@ -26462,19 +26471,19 @@ index fb52bda..c85796a 100644
 +	ddb_set_led(dev, num, val);
 +	return count;
 +}
- 
--#ifdef CONFIG_PCI_MSI
--	if (pci_msi_enabled())
--		stat = pci_enable_msi(dev->pdev);
--	if (stat) {
--		printk(KERN_INFO ": MSI not available.\n");
++
 +static ssize_t snr_show(struct device *device,
 +			struct device_attribute *attr, char *buf)
 +{
 +	struct ddb *dev = dev_get_drvdata(device);
 +	char snr[32];
 +	int num = attr->attr.name[3] - 0x30;
-+
+ 
+-#ifdef CONFIG_PCI_MSI
+-	if (pci_msi_enabled())
+-		stat = pci_enable_msi(dev->pdev);
+-	if (stat) {
+-		printk(KERN_INFO ": MSI not available.\n");
 +	if (dev->port[num].type >= DDB_TUNER_XO2) {
 +		if (i2c_read_regs(&dev->i2c[num].adap, 0x10, 0x10, snr, 16) < 0)
 +			return sprintf(buf, "NO SNR\n");
@@ -26581,16 +26590,28 @@ index fb52bda..c85796a 100644
 +		return res;
 +	pr_info("redirect: %02x, %02x\n", i, p);
 +	return count;
-+}
-+
+ }
+ 
+-/******************************************************************************/
+-/******************************************************************************/
+-/******************************************************************************/
 +static ssize_t gap_show(struct device *device,
 +			struct device_attribute *attr, char *buf)
 +{
 +	struct ddb *dev = dev_get_drvdata(device);
 +	int num = attr->attr.name[3] - 0x30;
-+
+ 
+-static struct ddb_info ddb_none = {
+-	.type     = DDB_NONE,
+-	.name     = "Digital Devices PCIe bridge",
+-};
 +	return sprintf(buf, "%d\n", dev->port[num].gap);
-+
+ 
+-static struct ddb_info ddb_octopus = {
+-	.type     = DDB_OCTOPUS,
+-	.name     = "Digital Devices Octopus DVB adapter",
+-	.port_num = 4,
+-};
 +}
 +static ssize_t gap_store(struct device *device, struct device_attribute *attr,
 +			 const char *buf, size_t count)
@@ -26606,19 +26627,35 @@ index fb52bda..c85796a 100644
 +	dev->port[num].gap = val;
 +	return count;
 +}
-+
+ 
+-static struct ddb_info ddb_octopus_le = {
+-	.type     = DDB_OCTOPUS,
+-	.name     = "Digital Devices Octopus LE DVB adapter",
+-	.port_num = 2,
+-};
 +static ssize_t version_show(struct device *device,
 +			    struct device_attribute *attr, char *buf)
 +{
 +	struct ddb *dev = dev_get_drvdata(device);
-+
+ 
+-static struct ddb_info ddb_octopus_mini = {
+-	.type     = DDB_OCTOPUS,
+-	.name     = "Digital Devices Octopus Mini",
+-	.port_num = 4,
+-};
 +	return sprintf(buf, "%08x %08x\n",
 +		       ddbreadl(dev, 0), ddbreadl(dev, 4));
- }
++}
  
--/******************************************************************************/
--/******************************************************************************/
--/******************************************************************************/
+-static struct ddb_info ddb_v6 = {
+-	.type     = DDB_OCTOPUS,
+-	.name     = "Digital Devices Cine S2 V6 DVB adapter",
+-	.port_num = 3,
+-};
+-static struct ddb_info ddb_v6_5 = {
+-	.type     = DDB_OCTOPUS,
+-	.name     = "Digital Devices Cine S2 V6.5 DVB adapter",
+-	.port_num = 4,
 +static ssize_t hwid_show(struct device *device,
 +			 struct device_attribute *attr, char *buf)
 +{
@@ -26634,41 +26671,33 @@ index fb52bda..c85796a 100644
 +
 +	return sprintf(buf, "0x%08X\n", dev->ids.regmapid);
 +}
- 
--static struct ddb_info ddb_none = {
--	.type     = DDB_NONE,
--	.name     = "Digital Devices PCIe bridge",
++
 +static struct device_attribute ddb_attrs[] = {
 +	__ATTR_RO(version),
 +	__ATTR_RO(ports),
 +	__ATTR_RO(ts_irq),
 +	__ATTR_RO(i2c_irq),
-+	__ATTR(gap0, 0666, gap_show, gap_store),
-+	__ATTR(gap1, 0666, gap_show, gap_store),
-+	__ATTR(gap2, 0666, gap_show, gap_store),
-+	__ATTR(gap3, 0666, gap_show, gap_store),
 +	__ATTR_RO(hwid),
 +	__ATTR_RO(regmap),
 +#if 0
 +	__ATTR_RO(qam),
 +#endif
-+	__ATTR(redirect, 0666, redirect_show, redirect_store),
 +	__ATTR_MRO(snr,  bsnr_show),
 +	__ATTR_NULL,
  };
  
--static struct ddb_info ddb_octopus = {
+-static struct ddb_info ddb_dvbct = {
 -	.type     = DDB_OCTOPUS,
--	.name     = "Digital Devices Octopus DVB adapter",
--	.port_num = 4,
+-	.name     = "Digital Devices DVBCT V6.1 DVB adapter",
+-	.port_num = 3,
 +static struct device_attribute ddb_attrs_temp[] = {
 +	__ATTR_RO(temp),
  };
  
--static struct ddb_info ddb_octopus_le = {
+-static struct ddb_info ddb_satixS2v3 = {
 -	.type     = DDB_OCTOPUS,
--	.name     = "Digital Devices Octopus LE DVB adapter",
--	.port_num = 2,
+-	.name     = "Mystique SaTiX-S2 V3 DVB adapter",
+-	.port_num = 3,
 +static struct device_attribute ddb_attrs_mod[] = {
 +	__ATTR_MRO(mod0, mod_show),
 +	__ATTR_MRO(mod1, mod_show),
@@ -26682,12 +26711,11 @@ index fb52bda..c85796a 100644
 +	__ATTR_MRO(mod9, mod_show),
  };
  
--static struct ddb_info ddb_v6 = {
+-static struct ddb_info ddb_octopusv3 = {
 -	.type     = DDB_OCTOPUS,
--	.name     = "Digital Devices Cine S2 V6 DVB adapter",
--	.port_num = 3,
+-	.name     = "Digital Devices Octopus V3 DVB adapter",
+-	.port_num = 4,
 +static struct device_attribute ddb_attrs_fan[] = {
-+	__ATTR(fan, 0666, fan_show, fan_store),
  };
  
 -#define DDVID 0xdd01 /* Digital Devices Vendor ID */
@@ -26701,24 +26729,20 @@ index fb52bda..c85796a 100644
 -	DDB_ID(DDVID, 0x0002, DDVID, 0x0001, ddb_octopus),
 -	DDB_ID(DDVID, 0x0003, DDVID, 0x0001, ddb_octopus),
 -	DDB_ID(DDVID, 0x0003, DDVID, 0x0002, ddb_octopus_le),
--	DDB_ID(DDVID, 0x0003, DDVID, 0x0010, ddb_octopus),
+-	DDB_ID(DDVID, 0x0003, DDVID, 0x0010, ddb_octopus_mini),
 -	DDB_ID(DDVID, 0x0003, DDVID, 0x0020, ddb_v6),
+-	DDB_ID(DDVID, 0x0003, DDVID, 0x0021, ddb_v6_5),
+-	DDB_ID(DDVID, 0x0003, DDVID, 0x0030, ddb_dvbct),
+-	DDB_ID(DDVID, 0x0003, DDVID, 0xdb03, ddb_satixS2v3),
+-	DDB_ID(DDVID, 0x0005, DDVID, 0x0004, ddb_octopusv3),
 -	/* in case sub-ids got deleted in flash */
 -	DDB_ID(DDVID, 0x0003, PCI_ANY_ID, PCI_ANY_ID, ddb_none),
 -	{0}
 +static struct device_attribute ddb_attrs_snr[] = {
-+	__ATTR(snr0, 0666, snr_show, snr_store),
-+	__ATTR(snr1, 0666, snr_show, snr_store),
-+	__ATTR(snr2, 0666, snr_show, snr_store),
-+	__ATTR(snr3, 0666, snr_show, snr_store),
  };
 -MODULE_DEVICE_TABLE(pci, ddb_id_tbl);
  
 +static struct device_attribute ddb_attrs_led[] = {
-+	__ATTR(led0, 0666, led_show, led_store),
-+	__ATTR(led1, 0666, led_show, led_store),
-+	__ATTR(led2, 0666, led_show, led_store),
-+	__ATTR(led3, 0666, led_show, led_store),
 +};
  
 -static struct pci_driver ddb_pci_driver = {
@@ -29259,7 +29283,7 @@ index a3ccb31..0c064ae 100644
 +
 diff --git a/drivers/media/pci/ddbridge/ddbridge.c b/drivers/media/pci/ddbridge/ddbridge.c
 new file mode 100644
-index 0000000..d48c860
+index 0000000..a2c3c43
 --- /dev/null
 +++ b/drivers/media/pci/ddbridge/ddbridge.c
 @@ -0,0 +1,449 @@
@@ -31754,7 +31778,7 @@ index 9e82d21..c9b1bd4 100644
  	.link_reset = ngene_link_reset,
  	.slot_reset = ngene_slot_reset,
 diff --git a/drivers/media/pci/ngene/ngene-core.c b/drivers/media/pci/ngene/ngene-core.c
-index 970e833..84510db 100644
+index 4930b55..84510db 100644
 --- a/drivers/media/pci/ngene/ngene-core.c
 +++ b/drivers/media/pci/ngene/ngene-core.c
 @@ -86,6 +86,14 @@ static void event_tasklet(unsigned long data)
@@ -32095,7 +32119,40 @@ index 970e833..84510db 100644
  
  /****************************************************************************/
  /* nGene hardware init and release functions ********************************/
-@@ -1065,6 +1302,85 @@ static u32 Buffer2Sizes[MAX_STREAM] = {
+@@ -910,6 +1147,7 @@ static int AllocateRingBuffers(struct pci_dev *pci_dev,
+ {
+ 	dma_addr_t tmp;
+ 	u32 i, j;
++	int status = 0;
+ 	u32 SCListMemSize = pRingBuffer->NumBuffers
+ 		* ((Buffer2Length != 0) ? (NUM_SCATTER_GATHER_ENTRIES * 2) :
+ 		    NUM_SCATTER_GATHER_ENTRIES)
+@@ -1009,12 +1247,14 @@ static int AllocateRingBuffers(struct pci_dev *pci_dev,
+ 
+ 	}
+ 
+-	return 0;
++	return status;
+ }
+ 
+ static int FillTSIdleBuffer(struct SRingBufferDescriptor *pIdleBuffer,
+ 			    struct SRingBufferDescriptor *pRingBuffer)
+ {
++	int status = 0;
++
+ 	/* Copy pointer to scatter gather list in TSRingbuffer
+ 	   structure for buffer 2
+ 	   Load number of buffer
+@@ -1035,7 +1275,7 @@ static int FillTSIdleBuffer(struct SRingBufferDescriptor *pIdleBuffer,
+ 			pIdleBuffer->Head->ngeneBuffer.Number_of_entries_1;
+ 		Cur = Cur->Next;
+ 	}
+-	return 0;
++	return status;
+ }
+ 
+ static u32 RingBufferSizes[MAX_STREAM] = {
+@@ -1062,6 +1302,85 @@ static u32 Buffer2Sizes[MAX_STREAM] = {
  	0
  };
  
@@ -32181,7 +32238,23 @@ index 970e833..84510db 100644
  
  static int AllocCommonBuffers(struct ngene *dev)
  {
-@@ -1318,6 +1634,10 @@ static int ngene_buffer_config(struct ngene *dev)
+@@ -1075,11 +1394,12 @@ static int AllocCommonBuffers(struct ngene *dev)
+ 	dev->ngenetohost = dev->FWInterfaceBuffer + 256;
+ 	dev->EventBuffer = dev->FWInterfaceBuffer + 512;
+ 
+-	dev->OverflowBuffer = pci_zalloc_consistent(dev->pci_dev,
+-						    OVERFLOW_BUFFER_SIZE,
+-						    &dev->PAOverflowBuffer);
++	dev->OverflowBuffer = pci_alloc_consistent(dev->pci_dev,
++						   OVERFLOW_BUFFER_SIZE,
++						   &dev->PAOverflowBuffer);
+ 	if (!dev->OverflowBuffer)
+ 		return -ENOMEM;
++	memset(dev->OverflowBuffer, 0, OVERFLOW_BUFFER_SIZE);
+ 
+ 	for (i = STREAM_VIDEOIN1; i < MAX_STREAM; i++) {
+ 		int type = dev->card_info->io_type[i];
+@@ -1314,6 +1634,10 @@ static int ngene_buffer_config(struct ngene *dev)
  		u8 tsin12_config[6]   = { 0x60, 0x60, 0x00, 0x00, 0x00, 0x00 };
  		u8 tsin1234_config[6] = { 0x30, 0x30, 0x00, 0x30, 0x30, 0x00 };
  		u8 tsio1235_config[6] = { 0x30, 0x30, 0x00, 0x28, 0x00, 0x38 };
@@ -32192,7 +32265,7 @@ index 970e833..84510db 100644
  		u8 *bconf = tsin12_config;
  
  		if (dev->card_info->io_type[2]&NGENE_IO_TSIN &&
-@@ -1327,10 +1647,22 @@ static int ngene_buffer_config(struct ngene *dev)
+@@ -1323,10 +1647,22 @@ static int ngene_buffer_config(struct ngene *dev)
  			    dev->ci.en)
  				bconf = tsio1235_config;
  		}
@@ -32215,7 +32288,7 @@ index 970e833..84510db 100644
  		if (dev->card_info->io_type[3] == NGENE_IO_TSIN)
  			bconf = BUFFER_CONFIG_3333;
  		stat = ngene_command_config_buf(dev, bconf);
-@@ -1403,8 +1735,10 @@ static int ngene_start(struct ngene *dev)
+@@ -1399,8 +1735,10 @@ static int ngene_start(struct ngene *dev)
  	if (stat < 0)
  		goto fail;
  
@@ -32227,7 +32300,7 @@ index 970e833..84510db 100644
  fail:
  	ngwritel(0, NGENE_INT_ENABLE);
  	free_irq(dev->pci_dev->irq, dev);
-@@ -1622,7 +1956,7 @@ static void ngene_unlink(struct ngene *dev)
+@@ -1618,7 +1956,7 @@ static void ngene_unlink(struct ngene *dev)
  
  void ngene_shutdown(struct pci_dev *pdev)
  {
@@ -32236,7 +32309,7 @@ index 970e833..84510db 100644
  
  	if (!dev || !shutdown_workaround)
  		return;
-@@ -1648,6 +1982,7 @@ void ngene_remove(struct pci_dev *pdev)
+@@ -1644,6 +1982,7 @@ void ngene_remove(struct pci_dev *pdev)
  		cxd_detach(dev);
  	ngene_stop(dev);
  	ngene_release_buffers(dev);
@@ -32244,7 +32317,7 @@ index 970e833..84510db 100644
  	pci_disable_device(pdev);
  }
  
-@@ -1687,10 +2022,36 @@ int ngene_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
+@@ -1683,10 +2022,36 @@ int ngene_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
  
  
  	dev->i2c_current_bus = -1;
@@ -32283,7 +32356,7 @@ index 970e833..84510db 100644
  		goto fail2;
  
  	return 0;
-@@ -1701,5 +2062,6 @@ fail1:
+@@ -1697,5 +2062,6 @@ fail1:
  	ngene_release_buffers(dev);
  fail0:
  	pci_disable_device(pci_dev);
