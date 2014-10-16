@@ -213,7 +213,8 @@ makeinstall_init() {
 }
 
 post_install() {
-  ln -sf /storage/.config/firmware/ $INSTALL/lib/firmware/updates
+  mkdir -p $INSTALL/lib/firmware/
+    ln -sf /storage/.config/firmware/ $INSTALL/lib/firmware/updates
 
   enable_service cpufreq-threshold.service
 }
