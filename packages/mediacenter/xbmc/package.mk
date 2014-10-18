@@ -44,49 +44,49 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext"
 # for libXrandr support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXrandr"
-  XBMC_XORG="--enable-x11 --enable-xrandr"
+  KODI_XORG="--enable-x11 --enable-xrandr"
 else
-  XBMC_XORG="--disable-x11 --disable-xrandr"
+  KODI_XORG="--disable-x11 --disable-xrandr"
 fi
 
 if [ ! "$OPENGL" = "no" ]; then
 # for OpenGL (GLX) support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGL glu glew"
-  XBMC_OPENGL="--enable-gl"
+  KODI_OPENGL="--enable-gl"
 else
-  XBMC_OPENGL="--disable-gl"
+  KODI_OPENGL="--disable-gl"
 fi
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
 # for OpenGL-ES support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGLES"
-  XBMC_OPENGLES="--enable-gles"
+  KODI_OPENGLES="--enable-gles"
 else
-  XBMC_OPENGLES="--disable-gles"
+  KODI_OPENGLES="--disable-gles"
 fi
 
 if [ "$SDL_SUPPORT" = yes ]; then
 # for SDL support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET SDL SDL_image"
-  XBMC_SDL="--enable-sdl"
+  KODI_SDL="--enable-sdl"
 else
-  XBMC_SDL="--disable-sdl"
+  KODI_SDL="--disable-sdl"
 fi
 
 if [ "$ALSA_SUPPORT" = yes ]; then
 # for ALSA support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET alsa-lib"
-  XBMC_ALSA="--enable-alsa"
+  KODI_ALSA="--enable-alsa"
 else
-  XBMC_ALSA="--disable-alsa"
+  KODI_ALSA="--disable-alsa"
 fi
 
 if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
 # for PulseAudio support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
-  XBMC_PULSEAUDIO="--enable-pulse"
+  KODI_PULSEAUDIO="--enable-pulse"
 else
-  XBMC_PULSEAUDIO="--disable-pulse"
+  KODI_PULSEAUDIO="--disable-pulse"
 fi
 
 if [ "$ESPEAK_SUPPORT" = yes ]; then
@@ -97,80 +97,80 @@ fi
 if [ "$CEC_SUPPORT" = yes ]; then
 # for CEC support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libcec"
-  XBMC_CEC="--enable-libcec"
+  KODI_CEC="--enable-libcec"
 else
-  XBMC_CEC="--disable-libcec"
+  KODI_CEC="--disable-libcec"
 fi
 
-if [ "$XBMC_SCR_RSXS" = yes ]; then
+if [ "$KODI_SCR_RSXS" = yes ]; then
 # for RSXS Screensaver support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXt libXmu"
-  XBMC_RSXS="--enable-rsxs"
+  KODI_RSXS="--enable-rsxs"
 # fix build of RSXS Screensaver support if not using libiconv
   export jm_cv_func_gettimeofday_clobber=no
 else
-  XBMC_RSXS="--disable-rsxs"
+  KODI_RSXS="--disable-rsxs"
 fi
 
-if [ "$XBMC_VIS_PROJECTM" = yes ]; then
+if [ "$KODI_VIS_PROJECTM" = yes ]; then
 # for ProjectM Visualisation support
-  XBMC_PROJECTM="--enable-projectm"
+  KODI_PROJECTM="--enable-projectm"
 else
-  XBMC_PROJECTM="--disable-projectm"
+  KODI_PROJECTM="--disable-projectm"
 fi
 
-if [ "$XBMC_VIS_GOOM" = yes ]; then
+if [ "$KODI_VIS_GOOM" = yes ]; then
 # for GOOM Visualisation support
-  XBMC_GOOM="--enable-goom"
+  KODI_GOOM="--enable-goom"
 else
-  XBMC_GOOM="--disable-goom"
+  KODI_GOOM="--disable-goom"
 fi
 
-if [ "$XBMC_VIS_WAVEFORM" = yes ]; then
+if [ "$KODI_VIS_WAVEFORM" = yes ]; then
 # for Waveform Visualisation support
-  XBMC_WAVEFORM="--enable-waveform"
+  KODI_WAVEFORM="--enable-waveform"
 else
-  XBMC_WAVEFORM="--disable-waveform"
+  KODI_WAVEFORM="--disable-waveform"
 fi
 
-if [ "$XBMC_VIS_SPECTRUM" = yes ]; then
+if [ "$KODI_VIS_SPECTRUM" = yes ]; then
 # for Spectrum Visualisation support
-  XBMC_SPECTRUM="--enable-spectrum"
+  KODI_SPECTRUM="--enable-spectrum"
 else
-  XBMC_SPECTRUM="--disable-spectrum"
+  KODI_SPECTRUM="--disable-spectrum"
 fi
 
-if [ "$XBMC_VIS_FISHBMC" = yes ]; then
+if [ "$KODI_VIS_FISHBMC" = yes ]; then
 # for FishBMC Visualisation support
-  XBMC_FISHBMC="--enable-fishbmc"
+  KODI_FISHBMC="--enable-fishbmc"
 else
-  XBMC_FISHBMC="--disable-fishbmc"
+  KODI_FISHBMC="--disable-fishbmc"
 fi
 
 if [ "$JOYSTICK_SUPPORT" = yes ]; then
 # for Joystick support
-  XBMC_JOYSTICK="--enable-joystick"
+  KODI_JOYSTICK="--enable-joystick"
 else
-  XBMC_JOYSTICK="--disable-joystick"
+  KODI_JOYSTICK="--disable-joystick"
 fi
 
 if [ "$OPTICAL_DRIVE_SUPPORT" = yes ]; then
-  XBMC_OPTICAL="--enable-optical-drive"
+  KODI_OPTICAL="--enable-optical-drive"
 else
-  XBMC_OPTICAL="--disable-optical-drive"
+  KODI_OPTICAL="--disable-optical-drive"
 fi
 
 if [ "$NONFREE_SUPPORT" = yes ]; then
 # for non-free support
-  XBMC_NONFREE="--enable-non-free"
+  KODI_NONFREE="--enable-non-free"
 else
-  XBMC_NONFREE="--disable-non-free"
+  KODI_NONFREE="--disable-non-free"
 fi
 
 if [ "$DVDCSS_SUPPORT" = yes ]; then
-  XBMC_DVDCSS="--enable-dvdcss"
+  KODI_DVDCSS="--enable-dvdcss"
 else
-  XBMC_DVDCSS="--disable-dvdcss"
+  KODI_DVDCSS="--disable-dvdcss"
 fi
 
 if [ "$FAAC_SUPPORT" = yes ]; then
@@ -179,103 +179,103 @@ fi
 
 if [ "$BLURAY_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libbluray"
-  XBMC_BLURAY="--enable-libbluray"
+  KODI_BLURAY="--enable-libbluray"
 else
-  XBMC_BLURAY="--disable-libbluray"
+  KODI_BLURAY="--disable-libbluray"
 fi
 
 if [ "$AVAHI_DAEMON" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET avahi nss-mdns"
-  XBMC_AVAHI="--enable-avahi"
+  KODI_AVAHI="--enable-avahi"
 else
-  XBMC_AVAHI="--disable-avahi"
+  KODI_AVAHI="--disable-avahi"
 fi
 
 if [ "$MYSQL_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET mysql"
-  XBMC_MYSQL="--enable-mysql"
+  KODI_MYSQL="--enable-mysql"
 else
-  XBMC_MYSQL="--disable-mysql"
+  KODI_MYSQL="--disable-mysql"
 fi
 
 if [ "$AIRPLAY_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libplist"
-  XBMC_AIRPLAY="--enable-airplay"
+  KODI_AIRPLAY="--enable-airplay"
 else
-  XBMC_AIRPLAY="--disable-airplay"
+  KODI_AIRPLAY="--disable-airplay"
 fi
 
 if [ "$AIRTUNES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libshairplay"
-  XBMC_AIRTUNES="--enable-airtunes"
+  KODI_AIRTUNES="--enable-airtunes"
 else
-  XBMC_AIRTUNES="--disable-airtunes"
+  KODI_AIRTUNES="--disable-airtunes"
 fi
 
 if [ "$NFS_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libnfs"
-  XBMC_NFS="--enable-nfs"
+  KODI_NFS="--enable-nfs"
 else
-  XBMC_NFS="--disable-nfs"
+  KODI_NFS="--disable-nfs"
 fi
 
 if [ "$AFP_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET afpfs-ng"
-  XBMC_AFP="--enable-afpclient"
+  KODI_AFP="--enable-afpclient"
 else
-  XBMC_AFP="--disable-afpclient"
+  KODI_AFP="--disable-afpclient"
 fi
 
 if [ "$SAMBA_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET samba"
-  XBMC_SAMBA="--enable-samba"
+  KODI_SAMBA="--enable-samba"
 else
-  XBMC_SAMBA="--disable-samba"
+  KODI_SAMBA="--disable-samba"
 fi
 
 if [ "$WEBSERVER" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libmicrohttpd"
-  XBMC_WEBSERVER="--enable-webserver"
+  KODI_WEBSERVER="--enable-webserver"
 else
-  XBMC_WEBSERVER="--disable-webserver"
+  KODI_WEBSERVER="--disable-webserver"
 fi
 
 if [ "$UPNP_SUPPORT" = yes ]; then
-  XBMC_UPNP="--enable-upnp"
+  KODI_UPNP="--enable-upnp"
 else
-  XBMC_UPNP="--disable-upnp"
+  KODI_UPNP="--disable-upnp"
 fi
 
 if [ "$SSHLIB_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libssh"
-  XBMC_SSH="--enable-ssh"
+  KODI_SSH="--enable-ssh"
 else
-  XBMC_SSH="--disable-ssh"
+  KODI_SSH="--disable-ssh"
 fi
 
-if [ ! "$XBMCPLAYER_DRIVER" = default ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $XBMCPLAYER_DRIVER"
+if [ ! "$KODIPLAYER_DRIVER" = default ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $KODIPLAYER_DRIVER"
 
-  if [ "$XBMCPLAYER_DRIVER" = bcm2835-driver ]; then
-    XBMC_OPENMAX="--enable-openmax"
-    XBMC_PLAYER="--enable-player=omxplayer"
-    XBMC_CODEC="--with-platform=raspberry-pi"
+  if [ "$KODIPLAYER_DRIVER" = bcm2835-driver ]; then
+    KODI_OPENMAX="--enable-openmax"
+    KODI_PLAYER="--enable-player=omxplayer"
+    KODI_CODEC="--with-platform=raspberry-pi"
     BCM2835_INCLUDES="-I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
-    XBMC_CFLAGS="$XBMC_CFLAGS $BCM2835_INCLUDES"
-    XBMC_CXXFLAGS="$XBMC_CXXFLAGS $BCM2835_INCLUDES"
-  elif [ "$XBMCPLAYER_DRIVER" = libfslvpuwrap ]; then
-    XBMC_CODEC="--enable-codec=imxvpu"
+    KODI_CFLAGS="$KODI_CFLAGS $BCM2835_INCLUDES"
+    KODI_CXXFLAGS="$KODI_CXXFLAGS $BCM2835_INCLUDES"
+  elif [ "$KODIPLAYER_DRIVER" = libfslvpuwrap ]; then
+    KODI_CODEC="--enable-codec=imxvpu"
   else
-    XBMC_OPENMAX="--disable-openmax"
+    KODI_OPENMAX="--disable-openmax"
   fi
 fi
 
 if [ "$VDPAU" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
-  XBMC_VDPAU="--enable-vdpau"
+  KODI_VDPAU="--enable-vdpau"
 else
-  XBMC_VDPAU="--disable-vdpau"
+  KODI_VDPAU="--disable-vdpau"
 fi
 
 if [ "$VAAPI" = yes ]; then
@@ -283,9 +283,9 @@ if [ "$VAAPI" = yes ]; then
   get_graphicdrivers
 
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-intel-driver"
-  XBMC_VAAPI="--enable-vaapi"
+  KODI_VAAPI="--enable-vaapi"
 else
-  XBMC_VAAPI="--disable-vaapi"
+  KODI_VAAPI="--disable-vaapi"
 fi
 
 export CXX_FOR_BUILD="$HOST_CXX"
@@ -304,52 +304,52 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            ac_cv_lib_bluetooth_hci_devid=no \
                            --disable-debug \
                            --disable-optimizations \
-                           $XBMC_OPENGL \
-                           $XBMC_OPENGLES \
-                           $XBMC_SDL \
-                           $XBMC_OPENMAX \
-                           $XBMC_VDPAU \
-                           $XBMC_VAAPI \
+                           $KODI_OPENGL \
+                           $KODI_OPENGLES \
+                           $KODI_SDL \
+                           $KODI_OPENMAX \
+                           $KODI_VDPAU \
+                           $KODI_VAAPI \
                            --disable-vtbdecoder \
                            --disable-tegra \
                            --disable-profiling \
-                           $XBMC_JOYSTICK \
-                           $XBMC_CEC \
+                           $KODI_JOYSTICK \
+                           $KODI_CEC \
                            --enable-udev \
                            --disable-libusb \
-                           $XBMC_GOOM \
-                           $XBMC_RSXS \
-                           $XBMC_PROJECTM \
-                           $XBMC_WAVEFORM \
-                           $XBMC_SPECTRUM \
-                           $XBMC_FISHBMC \
-                           $XBMC_XORG \
+                           $KODI_GOOM \
+                           $KODI_RSXS \
+                           $KODI_PROJECTM \
+                           $KODI_WAVEFORM \
+                           $KODI_SPECTRUM \
+                           $KODI_FISHBMC \
+                           $KODI_XORG \
                            --disable-ccache \
-                           $XBMC_ALSA \
-                           $XBMC_PULSEAUDIO \
+                           $KODI_ALSA \
+                           $KODI_PULSEAUDIO \
                            --enable-rtmp \
-                           $XBMC_SAMBA \
-                           $XBMC_NFS \
-                           $XBMC_AFP \
+                           $KODI_SAMBA \
+                           $KODI_NFS \
+                           $KODI_AFP \
                            --enable-libvorbisenc \
                            --disable-libcap \
-                           $XBMC_DVDCSS \
+                           $KODI_DVDCSS \
                            --disable-mid \
-                           $XBMC_AVAHI \
-                           $XBMC_UPNP \
-                           $XBMC_MYSQL \
-                           $XBMC_SSH \
-                           $XBMC_AIRPLAY \
-                           $XBMC_AIRTUNES \
-                           $XBMC_NONFREE \
+                           $KODI_AVAHI \
+                           $KODI_UPNP \
+                           $KODI_MYSQL \
+                           $KODI_SSH \
+                           $KODI_AIRPLAY \
+                           $KODI_AIRTUNES \
+                           $KODI_NONFREE \
                            --disable-asap-codec \
-                           $XBMC_WEBSERVER \
-                           $XBMC_OPTICAL \
-                           $XBMC_BLURAY \
+                           $KODI_WEBSERVER \
+                           $KODI_OPTICAL \
+                           $KODI_BLURAY \
                            --enable-texturepacker \
                            --with-ffmpeg=shared \
-                           $XBMC_CODEC \
-                           $XBMC_PLAYER"
+                           $KODI_CODEC \
+                           $KODI_PLAYER"
 
 pre_configure_host() {
 # xbmc fails to build in subdirs
@@ -385,8 +385,8 @@ pre_configure_target() {
 # Todo: XBMC segfaults on exit when building with LTO support
   strip_lto
 
-  export CFLAGS="$CFLAGS $XBMC_CFLAGS"
-  export CXXFLAGS="$CXXFLAGS $XBMC_CXXFLAGS"
+  export CFLAGS="$CFLAGS $KODI_CFLAGS"
+  export CXXFLAGS="$CXXFLAGS $KODI_CXXFLAGS"
   export LIBS="$LIBS -lz"
 
   export JSON_BUILDER=$ROOT/$TOOLCHAIN/bin/JsonSchemaBuilder
@@ -433,11 +433,11 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/lib/xbmc/xbmc-xrandr
   fi
 
-  if [ ! "$XBMC_SCR_RSXS" = yes ]; then
+  if [ ! "$KODI_SCR_RSXS" = yes ]; then
     rm -rf $INSTALL/usr/share/xbmc/addons/screensaver.rsxs.*
   fi
 
-  if [ ! "$XBMC_VIS_PROJECTM" = yes ]; then
+  if [ ! "$KODI_VIS_PROJECTM" = yes ]; then
     rm -rf $INSTALL/usr/share/xbmc/addons/visualization.projectm
   fi
 
@@ -483,7 +483,7 @@ post_makeinstall_target() {
       cp $PKG_DIR/config/appliance.xml $INSTALL/usr/share/xbmc/system/settings
     fi
 
-  if [ "$XBMC_EXTRA_FONTS" = yes ]; then
+  if [ "$KODI_EXTRA_FONTS" = yes ]; then
     mkdir -p $INSTALL/usr/share/xbmc/media/Fonts
       cp $PKG_DIR/fonts/*.ttf $INSTALL/usr/share/xbmc/media/Fonts
   fi
