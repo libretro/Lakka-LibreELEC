@@ -44,7 +44,7 @@ if [ "$MEDIACENTER" = "xbmc" ]; then
 
 # XBMC audio encoder addons
   if [ "$OPTICAL_DRIVE_SUPPORT" = "yes" ]; then
-    for audioencoder in $XBMC_AUDIOENCODER_ADDONS; do
+    for audioencoder in $KODI_AUDIOENCODER_ADDONS; do
       PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xbmc-audioencoder-$audioencoder"
     done
   fi
