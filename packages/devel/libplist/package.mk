@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libplist"
-PKG_VERSION="1.8"
+PKG_VERSION="1.12"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -30,21 +30,9 @@ PKG_SHORTDESC="libplist: a library for manipulating Apple Binary and XML Propert
 PKG_LONGDESC="libplist is a library for manipulating Apple Binary and XML Property Lists"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
-pre_configure_target() {
-# dont build parallel
-  MAKEFLAGS=-j1
-}
-
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DENABLE_PYTHON="OFF" \
-        -DENABLE_CYTHON="OFF" \
-        -DENABLE_SWIG="OFF" \
-        ..
-}
+PKG_CONFIGURE_OPTS_TARGET="--without-cython"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
