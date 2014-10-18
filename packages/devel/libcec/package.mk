@@ -34,7 +34,7 @@ PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-cubox"
 
-if [ "$XBMCPLAYER_DRIVER" = "bcm2835-driver" ]; then
+if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 
   export CFLAGS="$CFLAGS \
@@ -51,7 +51,7 @@ else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-rpi"
 fi
 
-if [ "$XBMCPLAYER_DRIVER" = "libfslvpuwrap" ]; then
+if [ "$KODIPLAYER_DRIVER" = "libfslvpuwrap" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-imx6"
 else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-imx6"
