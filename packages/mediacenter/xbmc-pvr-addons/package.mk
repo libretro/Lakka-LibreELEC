@@ -42,6 +42,6 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-addons-with-dependencies $PVRADDONS_MYSQL"
 
 post_makeinstall_target() {
   if [ "$DEBUG" != yes ]; then
-    $STRIP $INSTALL/usr/lib/xbmc/addons/pvr.*/*.pvr
+    $STRIP $INSTALL/usr/lib/kodi/addons/pvr.*/*.pvr
   fi
 }
