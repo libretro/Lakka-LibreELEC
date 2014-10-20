@@ -32,7 +32,7 @@ PKG_LONGDESC="This addon allows XBMC PVR to connect to the VDR server."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr/share/xbmc"
+PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr/share/kodi"
 
 export CXXFLAGS="$CXXFLAGS -DZLIB_INTERNAL=1"
 
@@ -43,6 +43,6 @@ pre_make_target() {
 
 post_makeinstall_target() {
   if [ "$DEBUG" != yes ]; then
-    $STRIP $INSTALL/usr/share/xbmc/addons/pvr.vdr.xvdr/XBMC_VDR_xvdr.pvr
+    $STRIP $INSTALL/usr/share/kodi/addons/pvr.vdr.xvdr/XBMC_VDR_xvdr.pvr
   fi
 }
