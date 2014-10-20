@@ -44,8 +44,8 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/xbmc/addons/service.openelec.settings
-    cp -R * $INSTALL/usr/share/xbmc/addons/service.openelec.settings
+  mkdir -p $INSTALL/usr/share/kodi/addons/service.openelec.settings
+    cp -R * $INSTALL/usr/share/kodi/addons/service.openelec.settings
 
   mkdir -p $INSTALL/usr/lib/openelec
     cp $PKG_DIR/scripts/* $INSTALL/usr/lib/openelec
@@ -55,11 +55,11 @@ makeinstall_target() {
       rm -f resources/lib/modules/bluetooth.py
     fi
 
-  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/xbmc/addons/service.openelec.settings/resources/lib/ -f
-  rm -rf `find $INSTALL/usr/share/xbmc/addons/service.openelec.settings/resources/lib/ -name "*.py"`
+  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.openelec.settings/resources/lib/ -f
+  rm -rf `find $INSTALL/usr/share/kodi/addons/service.openelec.settings/resources/lib/ -name "*.py"`
 
-  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/xbmc/addons/service.openelec.settings/oe.py -f
-  rm -rf $INSTALL/usr/share/xbmc/addons/service.openelec.settings/oe.py
+  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.openelec.settings/oe.py -f
+  rm -rf $INSTALL/usr/share/kodi/addons/service.openelec.settings/oe.py
 }
 
 post_install() {
