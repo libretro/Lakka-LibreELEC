@@ -456,8 +456,8 @@ post_makeinstall_target() {
     cp -R $PKG_DIR/config/repository.openelec.tv $INSTALL/usr/share/kodi/addons
     $SED "s|@ADDON_URL@|$ADDON_URL|g" -i $INSTALL/usr/share/kodi/addons/repository.openelec.tv/addon.xml
 
-  mkdir -p $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/xbmc
-    cp -R tools/EventClients/lib/python/* $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/xbmc
+  mkdir -p $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/kodi
+    cp -R tools/EventClients/lib/python/* $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/kodi
 
 # install project specific configs
   mkdir -p $INSTALL/usr/share/kodi/config
