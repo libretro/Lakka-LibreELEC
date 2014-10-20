@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xbmc"
-PKG_VERSION="14-31ce987"
+PKG_VERSION="14-71f2030"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -400,10 +400,10 @@ make_target() {
   sed -i -e "s|skin.confluence|$SKIN_DIR|g" $ROOT/$PKG_BUILD/xbmc/settings/Settings.h
 
   make externals
-  make xbmc.bin
+  make kodi.bin
 
   if [ "$DISPLAYSERVER" = "x11" ]; then
-    make xbmc-xrandr
+    make kodi-xrandr
   fi
 
   make -C tools/TexturePacker
@@ -411,14 +411,16 @@ make_target() {
 }
 
 post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/kodi
+  rm -rf $INSTALL/usr/bin/kodi-standalone
   rm -rf $INSTALL/usr/bin/xbmc
   rm -rf $INSTALL/usr/bin/xbmc-standalone
-  rm -rf $INSTALL/usr/lib/xbmc/*.cmake
+  rm -rf $INSTALL/usr/lib/kodi/*.cmake
 
-  mkdir -p $INSTALL/usr/lib/xbmc
-    cp $PKG_DIR/scripts/xbmc-config $INSTALL/usr/lib/xbmc
-    cp $PKG_DIR/scripts/xbmc-hacks $INSTALL/usr/lib/xbmc
-    cp $PKG_DIR/scripts/xbmc-sources $INSTALL/usr/lib/xbmc
+  mkdir -p $INSTALL/usr/lib/kodi
+    cp $PKG_DIR/scripts/kodi-config $INSTALL/usr/lib/kodi
+    cp $PKG_DIR/scripts/kodi-hacks $INSTALL/usr/lib/kodi
+    cp $PKG_DIR/scripts/kodi-sources $INSTALL/usr/lib/kodi
 
   mkdir -p $INSTALL/usr/lib/openelec
     cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/openelec
@@ -427,80 +429,81 @@ post_makeinstall_target() {
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
       ln -sf cputemp $INSTALL/usr/bin/gputemp
     cp $PKG_DIR/scripts/setwakeup.sh $INSTALL/usr/bin
-    cp tools/EventClients/Clients/XBMC\ Send/xbmc-send.py $INSTALL/usr/bin/xbmc-send
+    cp tools/EventClients/Clients/Kodi\ Send/kodi-send.py $INSTALL/usr/bin/kodi-send
 
   if [ ! "$DISPLAYSERVER" = "x11" ]; then
-    rm -rf $INSTALL/usr/lib/xbmc/xbmc-xrandr
+    rm -rf $INSTALL/usr/lib/kodi/kodi-xrandr
   fi
 
   if [ ! "$KODI_SCR_RSXS" = yes ]; then
-    rm -rf $INSTALL/usr/share/xbmc/addons/screensaver.rsxs.*
+    rm -rf $INSTALL/usr/share/kodi/addons/screensaver.rsxs.*
   fi
 
   if [ ! "$KODI_VIS_PROJECTM" = yes ]; then
-    rm -rf $INSTALL/usr/share/xbmc/addons/visualization.projectm
+    rm -rf $INSTALL/usr/share/kodi/addons/visualization.projectm
   fi
 
   rm -rf $INSTALL/usr/share/applications
   rm -rf $INSTALL/usr/share/icons
-  rm -rf $INSTALL/usr/share/xbmc/addons/repository.pvr-*
-  rm -rf $INSTALL/usr/share/xbmc/addons/script.module.simplejson
-  rm -rf $INSTALL/usr/share/xbmc/addons/visualization.dxspectrum
-  rm -rf $INSTALL/usr/share/xbmc/addons/visualization.milkdrop
-  rm -rf $INSTALL/usr/share/xbmc/addons/service.xbmc.versioncheck
+  rm -rf $INSTALL/usr/share/kodi/addons/service.xbmc.versioncheck
   rm -rf $INSTALL/usr/share/xsessions
 
-  mkdir -p $INSTALL/usr/share/xbmc/addons
-    cp -R $PKG_DIR/config/os.openelec.tv $INSTALL/usr/share/xbmc/addons
-    $SED "s|@OS_VERSION@|$OS_VERSION|g" -i $INSTALL/usr/share/xbmc/addons/os.openelec.tv/addon.xml
-    cp -R $PKG_DIR/config/repository.openelec.tv $INSTALL/usr/share/xbmc/addons
-    $SED "s|@ADDON_URL@|$ADDON_URL|g" -i $INSTALL/usr/share/xbmc/addons/repository.openelec.tv/addon.xml
+  mkdir -p $INSTALL/usr/share/kodi/addons
+    cp -R $PKG_DIR/config/os.openelec.tv $INSTALL/usr/share/kodi/addons
+    $SED "s|@OS_VERSION@|$OS_VERSION|g" -i $INSTALL/usr/share/kodi/addons/os.openelec.tv/addon.xml
+    cp -R $PKG_DIR/config/repository.openelec.tv $INSTALL/usr/share/kodi/addons
+    $SED "s|@ADDON_URL@|$ADDON_URL|g" -i $INSTALL/usr/share/kodi/addons/repository.openelec.tv/addon.xml
 
   mkdir -p $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/xbmc
     cp -R tools/EventClients/lib/python/* $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/xbmc
 
 # install project specific configs
-  mkdir -p $INSTALL/usr/share/xbmc/config
-    if [ -f $PROJECT_DIR/$PROJECT/xbmc/guisettings.xml ]; then
-      cp -R $PROJECT_DIR/$PROJECT/xbmc/guisettings.xml $INSTALL/usr/share/xbmc/config
+  mkdir -p $INSTALL/usr/share/kodi/config
+    if [ -f $PROJECT_DIR/$PROJECT/kodi/guisettings.xml ]; then
+      cp -R $PROJECT_DIR/$PROJECT/kodi/guisettings.xml $INSTALL/usr/share/kodi/config
     fi
 
-    if [ -f $PROJECT_DIR/$PROJECT/xbmc/sources.xml ]; then
-      cp -R $PROJECT_DIR/$PROJECT/xbmc/sources.xml $INSTALL/usr/share/xbmc/config
+    if [ -f $PROJECT_DIR/$PROJECT/kodi/sources.xml ]; then
+      cp -R $PROJECT_DIR/$PROJECT/kodi/sources.xml $INSTALL/usr/share/kodi/config
     fi
 
-  mkdir -p $INSTALL/usr/share/xbmc/system/
-    if [ -f $PROJECT_DIR/$PROJECT/xbmc/advancedsettings.xml ]; then
-      cp $PROJECT_DIR/$PROJECT/xbmc/advancedsettings.xml $INSTALL/usr/share/xbmc/system/
+  mkdir -p $INSTALL/usr/share/kodi/system/
+    if [ -f $PROJECT_DIR/$PROJECT/kodi/advancedsettings.xml ]; then
+      cp $PROJECT_DIR/$PROJECT/kodi/advancedsettings.xml $INSTALL/usr/share/kodi/system/
     else
-      cp $PKG_DIR/config/advancedsettings.xml $INSTALL/usr/share/xbmc/system/
+      cp $PKG_DIR/config/advancedsettings.xml $INSTALL/usr/share/kodi/system/
     fi
 
-  mkdir -p $INSTALL/usr/share/xbmc/system/settings
-    if [ -f $PROJECT_DIR/$PROJECT/xbmc/appliance.xml ]; then
-      cp $PROJECT_DIR/$PROJECT/xbmc/appliance.xml $INSTALL/usr/share/xbmc/system/settings
+  mkdir -p $INSTALL/usr/share/kodi/system/settings
+    if [ -f $PROJECT_DIR/$PROJECT/kodi/appliance.xml ]; then
+      cp $PROJECT_DIR/$PROJECT/kodi/appliance.xml $INSTALL/usr/share/kodi/system/settings
     else
-      cp $PKG_DIR/config/appliance.xml $INSTALL/usr/share/xbmc/system/settings
+      cp $PKG_DIR/config/appliance.xml $INSTALL/usr/share/kodi/system/settings
     fi
 
   if [ "$KODI_EXTRA_FONTS" = yes ]; then
-    mkdir -p $INSTALL/usr/share/xbmc/media/Fonts
-      cp $PKG_DIR/fonts/*.ttf $INSTALL/usr/share/xbmc/media/Fonts
+    mkdir -p $INSTALL/usr/share/kodi/media/Fonts
+      cp $PKG_DIR/fonts/*.ttf $INSTALL/usr/share/kodi/media/Fonts
   fi
 }
 
 post_install() {
-# link default.target to xbmc.target
-  ln -sf xbmc.target $INSTALL/usr/lib/systemd/system/default.target
+# link default.target to kodi.target
+  ln -sf kodi.target $INSTALL/usr/lib/systemd/system/default.target
 
-  enable_service xbmc-autostart.service
-  enable_service xbmc-cleanlogs.service
-  enable_service xbmc-hacks.service
-  enable_service xbmc-sources.service
-  enable_service xbmc-halt.service
-  enable_service xbmc-poweroff.service
-  enable_service xbmc-reboot.service
-  enable_service xbmc-waitonnetwork.service
-  enable_service xbmc.service
-  enable_service xbmc-lirc-suspend.service
+# TODO: for compatibility to be removed soon
+  ln -sf kodi.target $INSTALL/usr/lib/systemd/system/xbmc.target
+  ln -sf kodi.service $INSTALL/usr/lib/systemd/system/xbmc.service
+
+# enable default services
+  enable_service kodi-autostart.service
+  enable_service kodi-cleanlogs.service
+  enable_service kodi-hacks.service
+  enable_service kodi-sources.service
+  enable_service kodi-halt.service
+  enable_service kodi-poweroff.service
+  enable_service kodi-reboot.service
+  enable_service kodi-waitonnetwork.service
+  enable_service kodi.service
+  enable_service kodi-lirc-suspend.service
 }
