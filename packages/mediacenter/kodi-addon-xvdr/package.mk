@@ -16,18 +16,18 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="xbmc-addon-xvdr"
+PKG_NAME="kodi-addon-xvdr"
 PKG_VERSION="2bf2563"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/pipelka/xbmc-addon-xvdr"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain zlib"
+PKG_DEPENDS_TARGET="toolchain zlib kodi"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
-PKG_SHORTDESC="XVDR addon for XBMC"
-PKG_LONGDESC="This addon allows XBMC PVR to connect to the VDR server."
+PKG_SHORTDESC="XVDR addon for Kodi"
+PKG_LONGDESC="This addon allows Kodi PVR to connect to the VDR server."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
