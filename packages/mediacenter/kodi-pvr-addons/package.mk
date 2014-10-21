@@ -16,18 +16,18 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="xbmc-pvr-addons"
+PKG_NAME="kodi-pvr-addons"
 PKG_VERSION="259d150"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/opdenkamp/xbmc-pvr-addons"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain curl"
+PKG_DEPENDS_TARGET="toolchain curl kodi"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
-PKG_SHORTDESC="Various PVR addons for XBMC" 
-PKG_LONGDESC="This addons allows XBMC PVR to connect to various TV/PVR backends and tuners."
+PKG_SHORTDESC="Various PVR addons for Kodi"
+PKG_LONGDESC="This addons allows Kodi PVR to connect to various TV/PVR backends and tuners."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
