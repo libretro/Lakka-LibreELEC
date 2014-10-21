@@ -16,18 +16,18 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="xbmc-audioencoder-wav"
+PKG_NAME="kodi-audioencoder-wav"
 PKG_VERSION="91a2b72"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.xbmc.org/"
+PKG_SITE="http://www.kodi.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain kodi"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="xbmc-audioencoder-wav: A audioencoder addon for XBMC"
-PKG_LONGDESC="xbmc-audioencoder-wav is a audioencoder addon for XBMC"
+PKG_SHORTDESC="kodi-audioencoder-wav: A audioencoder addon for Kodi"
+PKG_LONGDESC="kodi-audioencoder-wav is a audioencoder addon for Kodi"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
