@@ -1,0 +1,72 @@
+From e01a6ba94249c6c8fde24aff5eaf66da4dd2bea0 Mon Sep 17 00:00:00 2001
+From: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+Date: Mon, 20 Oct 2014 08:29:55 +0300
+Subject: Revert "iwlwifi: mvm: treat EAPOLs like mgmt frames wrt rate"
+
+This reverts commit aa11bbf3df026d6b1c6b528bef634fd9de7c2619.
+This commit was causing connection issues and is not needed
+if IWL_MVM_RS_RSSI_BASED_INIT_RATE is set to false by default.
+
+Regardless of the issues mentioned above, this patch added the
+following WARNING:
+
+WARNING: CPU: 0 PID: 3946 at drivers/net/wireless/iwlwifi/mvm/tx.c:190 iwl_mvm_set_tx_params+0x60a/0x6f0 [iwlmvm]()
+Got an HT rate for a non data frame 0x8
+CPU: 0 PID: 3946 Comm: wpa_supplicant Tainted: G           O   3.17.0+ #6
+Hardware name: LENOVO 20ANCTO1WW/20ANCTO1WW, BIOS GLET71WW (2.25 ) 07/02/2014
+ 0000000000000009 ffffffff814fa911 ffff8804288db8f8 ffffffff81064f52
+ 0000000000001808 ffff8804288db948 ffff88040add8660 ffff8804291b5600
+ 0000000000000000 ffffffff81064fb7 ffffffffa07b73d0 0000000000000020
+Call Trace:
+ [<ffffffff814fa911>] ? dump_stack+0x41/0x51
+ [<ffffffff81064f52>] ? warn_slowpath_common+0x72/0x90
+ [<ffffffff81064fb7>] ? warn_slowpath_fmt+0x47/0x50
+ [<ffffffffa07a39ea>] ? iwl_mvm_set_tx_params+0x60a/0x6f0 [iwlmvm]
+ [<ffffffffa07a3cf8>] ? iwl_mvm_tx_skb+0x48/0x3c0 [iwlmvm]
+ [<ffffffffa079cb9b>] ? iwl_mvm_mac_tx+0x7b/0x180 [iwlmvm]
+ [<ffffffffa0746ce9>] ? __ieee80211_tx+0x2b9/0x3c0 [mac80211]
+ [<ffffffffa07492f3>] ? ieee80211_tx+0xb3/0x100 [mac80211]
+ [<ffffffffa0749c49>] ? ieee80211_subif_start_xmit+0x459/0xca0 [mac80211]
+ [<ffffffff814116e7>] ? dev_hard_start_xmit+0x337/0x5f0
+ [<ffffffff81430d46>] ? sch_direct_xmit+0x96/0x1f0
+ [<ffffffff81411ba3>] ? __dev_queue_xmit+0x203/0x4f0
+ [<ffffffff8142f670>] ? ether_setup+0x70/0x70
+ [<ffffffff814e96a1>] ? packet_sendmsg+0xf81/0x1110
+ [<ffffffff8140625c>] ? skb_free_datagram+0xc/0x40
+ [<ffffffff813f7538>] ? sock_sendmsg+0x88/0xc0
+ [<ffffffff813f7274>] ? move_addr_to_kernel.part.20+0x14/0x60
+ [<ffffffff811c47c2>] ? __inode_wait_for_writeback+0x62/0xb0
+ [<ffffffff813f7a91>] ? SYSC_sendto+0xf1/0x180
+ [<ffffffff813f88f9>] ? __sys_recvmsg+0x39/0x70
+ [<ffffffff8150066d>] ? system_call_fastpath+0x1a/0x1f
+---[ end trace cc19a150d311fc63 ]---
+
+which was reported here: https://bugzilla.kernel.org/show_bug.cgi?id=85691
+
+CC: <stable@vger.kernel.org> [3.13+]
+Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+
+diff --git a/drivers/net/wireless/iwlwifi/mvm/tx.c b/drivers/net/wireless/iwlwifi/mvm/tx.c
+index 1cb793a..c6a517c 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/tx.c
++++ b/drivers/net/wireless/iwlwifi/mvm/tx.c
+@@ -175,14 +175,10 @@ static void iwl_mvm_set_tx_cmd_rate(struct iwl_mvm *mvm,
+ 
+ 	/*
+ 	 * for data packets, rate info comes from the table inside the fw. This
+-	 * table is controlled by LINK_QUALITY commands. Exclude ctrl port
+-	 * frames like EAPOLs which should be treated as mgmt frames. This
+-	 * avoids them being sent initially in high rates which increases the
+-	 * chances for completion of the 4-Way handshake.
++	 * table is controlled by LINK_QUALITY commands
+ 	 */
+ 
+-	if (ieee80211_is_data(fc) && sta &&
+-	    !(info->control.flags & IEEE80211_TX_CTRL_PORT_CTRL_PROTO)) {
++	if (ieee80211_is_data(fc) && sta) {
+ 		tx_cmd->initial_rate_index = 0;
+ 		tx_cmd->tx_flags |= cpu_to_le32(TX_CMD_FLG_STA_RATE);
+ 		return;
+-- 
+cgit v0.10.1
+
