@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-vnsiserver"
-PKG_VERSION="7d4aa81"
+PKG_VERSION="a7cb405"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/opdenkamp/xbmc-pvr-addons/tree/master/addons/pvr.vdr.vnsi/vdr-plugin-vnsiserver"
+PKG_SITE="https://github.com/FernetMenta/vdr-plugin-vnsiserver"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain vdr"
 PKG_PRIORITY="optional"
@@ -30,7 +30,6 @@ PKG_SHORTDESC="TV"
 PKG_LONGDESC="TV"
 
 PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 pre_configure_target() {
