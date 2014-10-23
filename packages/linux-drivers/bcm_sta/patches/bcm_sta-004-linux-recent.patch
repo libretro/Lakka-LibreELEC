@@ -1,0 +1,102 @@
+--- a/x86-32/src/wl/sys/wl_cfg80211_hybrid.c	2014-06-26 12:42:08.000000000 +0200
++++ b/x86-32/src/wl/sys/wl_cfg80211_hybrid.c	2014-10-08 18:47:07.549476082 +0200
+@@ -2071,7 +2071,22 @@
+ 			wl_get_assoc_ies(wl);
+ 			memcpy(&wl->bssid, &e->addr, ETHER_ADDR_LEN);
+ 			wl_update_bss_info(wl);
+-			cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, GFP_KERNEL);
++			{
++				struct wl_bss_info *bi;
++				u16 bss_info_channel;
++				struct ieee80211_channel *channel;
++				u32 freq;
++
++				bi = (struct wl_bss_info *)(wl->extra_buf + 4);
++				bss_info_channel = bi->ctl_ch ? bi->ctl_ch : CHSPEC_CHANNEL(bi->chanspec);
++
++				freq = ieee80211_channel_to_frequency(bss_info_channel,
++				       (bss_info_channel <= CH_MAX_2G_CHANNEL) ?
++				       IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ);
++
++				channel = ieee80211_get_channel(wl_to_wiphy(wl), freq);
++				cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, channel, GFP_KERNEL);
++			}
+ 			set_bit(WL_STATUS_CONNECTED, &wl->status);
+ 			wl->profile->active = true;
+ 		}
+--- a/x86-32/src/wl/sys/wl_linux.c	2014-06-26 12:42:08.000000000 +0200
++++ b/x86-32/src/wl/sys/wl_linux.c	2014-10-08 18:47:19.526693719 +0200
+@@ -878,7 +878,7 @@
+ static SIMPLE_DEV_PM_OPS(wl_pm_ops, wl_suspend, wl_resume);
+ #endif
+ 
+-static struct pci_driver wl_pci_driver = {
++static struct pci_driver wl_pci_driver __refdata = {
+ 	.name =		"wl",
+ 	.probe =	wl_pci_probe,
+ 	.remove =	__devexit_p(wl_remove),
+@@ -1307,7 +1307,12 @@
+ 	dev->priv = priv_link;
+ #else
+ 
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0))
+ 	dev = alloc_netdev(sizeof(priv_link_t), intf_name, ether_setup);
++#else
++	dev = alloc_netdev(sizeof(priv_link_t), intf_name, NET_NAME_UNKNOWN,
++			   ether_setup);
++#endif
+ 	if (!dev) {
+ 		WL_ERROR(("wl%d: %s: alloc_netdev failed\n",
+ 			(wl->pub)?wl->pub->unit:wlif->subunit, __FUNCTION__));
+
+--- a/x86-64/src/wl/sys/wl_cfg80211_hybrid.c	2014-06-26 12:42:08.000000000 +0200
++++ b/x86-64/src/wl/sys/wl_cfg80211_hybrid.c	2014-10-08 18:47:07.549476082 +0200
+@@ -2071,7 +2071,22 @@
+ 			wl_get_assoc_ies(wl);
+ 			memcpy(&wl->bssid, &e->addr, ETHER_ADDR_LEN);
+ 			wl_update_bss_info(wl);
+-			cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, GFP_KERNEL);
++			{
++				struct wl_bss_info *bi;
++				u16 bss_info_channel;
++				struct ieee80211_channel *channel;
++				u32 freq;
++
++				bi = (struct wl_bss_info *)(wl->extra_buf + 4);
++				bss_info_channel = bi->ctl_ch ? bi->ctl_ch : CHSPEC_CHANNEL(bi->chanspec);
++
++				freq = ieee80211_channel_to_frequency(bss_info_channel,
++				       (bss_info_channel <= CH_MAX_2G_CHANNEL) ?
++				       IEEE80211_BAND_2GHZ : IEEE80211_BAND_5GHZ);
++
++				channel = ieee80211_get_channel(wl_to_wiphy(wl), freq);
++				cfg80211_ibss_joined(ndev, (u8 *)&wl->bssid, channel, GFP_KERNEL);
++			}
+ 			set_bit(WL_STATUS_CONNECTED, &wl->status);
+ 			wl->profile->active = true;
+ 		}
+--- a/x86-64/src/wl/sys/wl_linux.c	2014-06-26 12:42:08.000000000 +0200
++++ b/x86-64/src/wl/sys/wl_linux.c	2014-10-08 18:47:19.526693719 +0200
+@@ -878,7 +878,7 @@
+ static SIMPLE_DEV_PM_OPS(wl_pm_ops, wl_suspend, wl_resume);
+ #endif
+ 
+-static struct pci_driver wl_pci_driver = {
++static struct pci_driver wl_pci_driver __refdata = {
+ 	.name =		"wl",
+ 	.probe =	wl_pci_probe,
+ 	.remove =	__devexit_p(wl_remove),
+@@ -1307,7 +1307,12 @@
+ 	dev->priv = priv_link;
+ #else
+ 
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0))
+ 	dev = alloc_netdev(sizeof(priv_link_t), intf_name, ether_setup);
++#else
++	dev = alloc_netdev(sizeof(priv_link_t), intf_name, NET_NAME_UNKNOWN,
++			   ether_setup);
++#endif
+ 	if (!dev) {
+ 		WL_ERROR(("wl%d: %s: alloc_netdev failed\n",
+ 			(wl->pub)?wl->pub->unit:wlif->subunit, __FUNCTION__));
+

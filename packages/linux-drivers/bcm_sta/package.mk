@@ -20,7 +20,7 @@
 # http://www.broadcom.com/support/802.11/linux_sta.php
 
 PKG_NAME="bcm_sta"
-PKG_VERSION="6.20.155.1"
+PKG_VERSION="6.30.223.248"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="nonfree"
