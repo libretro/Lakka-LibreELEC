@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="usbutils"
-PKG_VERSION="007"
+PKG_VERSION="008"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.linux-usb.org/"
 PKG_URL="http://kernel.org/pub/linux/utils/usb/usbutils/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain zlib libusb"
+PKG_DEPENDS_TARGET="toolchain libusb systemd"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="usbutils: Linux USB Utilities"
@@ -32,13 +32,7 @@ PKG_LONGDESC="This package contains various utilities for inspecting and setting
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-  cp -f usbutils.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
-
-  mkdir -p $INSTALL/usr/bin
-    cp -P lsusb $INSTALL/usr/bin
-
-  mkdir -p $INSTALL/usr/share
-    cp $PKG_DIR/config/usb.ids $INSTALL/usr/share
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/bin/lsusb.py
+  rm -rf $INSTALL/usr/bin/usbhid-dump
 }
