@@ -49,4 +49,7 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/usr/share/kodi/addons/skin.confluence/media
     cp Textures.xbt $INSTALL/usr/share/kodi/addons/skin.confluence/media
+
+# Rebrand
+  sed -e "s,@DISTRONAME@,$DISTRONAME,g" -i $INSTALL/usr/share/kodi/addons/skin.confluence/720p/IncludesHomeMenuItems.xml
 }
