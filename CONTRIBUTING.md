@@ -35,10 +35,6 @@ Feature requests are great, but they usually end up lying around the issue
 tracker indefinitely. Sending a pull request is a much better way of getting a
 particular feature into OpenELEC.
 
-### BIG FAT WARNING for RPi users
-
-If you overclock your RPi (or overclocked it in the past), please don't report bugs.
-
 ### Reporting build failures
 
 As buildsystem / core packages (toolchain) / random libraries change from time to time, it is required
