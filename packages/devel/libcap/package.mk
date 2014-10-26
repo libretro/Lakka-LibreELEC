@@ -17,18 +17,13 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# Notes:
-# See http://www.mail-archive.com/systemd-devel@lists.freedesktop.org/msg00068.html
-# libcap-2.23: linux/capability.h needs uapi/linux/capability.h which seems like a 
-#              private header, until its solved we cant update from 2.22
-
 PKG_NAME="libcap"
-PKG_VERSION="2.22"
+PKG_VERSION="2.24"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
-PKG_URL="http://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain attr"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
@@ -47,18 +42,15 @@ make_target() {
        BUILD_CFLAGS="$HOST_CFLAGS -I$ROOT/$PKG_BUILD/libcap/include" \
        PAM_CAP=no \
        lib=/lib \
-       -C libcap libcap.a
-#       for 2.23:
-#       -C libcap libcap.pc libcap.a
+       -C libcap libcap.pc libcap.a
 }
 
 makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib
     cp libcap/libcap.a $SYSROOT_PREFIX/usr/lib
 
-# for 2.23:
-#  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
-#    cp libcap/libcap.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp libcap/libcap.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
 
   mkdir -p $SYSROOT_PREFIX/usr/include/sys
     cp libcap/include/sys/capability.h $SYSROOT_PREFIX/usr/include/sys
