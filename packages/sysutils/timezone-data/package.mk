@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="timezone-data"
-PKG_VERSION="2013d"
+PKG_VERSION="2014i"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Public Domain"
