@@ -24,7 +24,7 @@ import shutil
 import xmlpp
 from xml.dom import minidom
 
-__sundtek_userspace__ = '/storage/.xbmc/userdata/addon_data/driver.dvb.sundtek-mediatv/'
+__sundtek_userspace__ = '/storage/.kodi/userdata/addon_data/driver.dvb.sundtek-mediatv/'
 
 ######################################################################################################
 # backup setting.xml file only if backup doesn't exist
