@@ -32,8 +32,8 @@ unlock() { flock -u $HDHR_LOCKFD; flock -xn $HDHR_LOCKFD && rm -f "$HDHR_LOCKFIL
 # exclusive lock
 exlock
 
-HDHR_ADDON_DIR="$HOME/.xbmc/addons/driver.dvb.hdhomerun"
-HDHR_ADDON_HOME="$HOME/.xbmc/userdata/addon_data/driver.dvb.hdhomerun"
+HDHR_ADDON_DIR="$HOME/.kodi/addons/driver.dvb.hdhomerun"
+HDHR_ADDON_HOME="$HOME/.kodi/userdata/addon_data/driver.dvb.hdhomerun"
 HDHR_ADDON_SETTINGS="$HDHR_ADDON_HOME/settings.xml"
 
 # modules are not automatically loaded
