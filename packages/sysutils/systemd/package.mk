@@ -126,8 +126,6 @@ post_makeinstall_target() {
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-bluetooth-vendor-product.hwdb
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-pci-classes.hwdb
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-pci-vendor-model.hwdb
-   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-usb-classes.hwdb
-   rm -f $INSTALL/usr/lib/udev/hwdb.d/20-usb-vendor-model.hwdb
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-net-ifname.hwdb
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-sdio-classes.hwdb
    rm -f $INSTALL/usr/lib/udev/hwdb.d/20-sdio-vendor-model.hwdb
