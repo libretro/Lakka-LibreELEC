@@ -41,7 +41,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_have_decl_TUNSETPERSIST=no \
                            --enable-management \
                            --disable-socks \
                            --disable-http-proxy \
-                           --disable-fragment \
+                           --enable-fragment \
                            --disable-multihome \
                            --disable-port-share \
                            --disable-debug"
