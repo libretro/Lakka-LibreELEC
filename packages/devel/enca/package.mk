@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="enca"
-PKG_VERSION="1.14"
+PKG_VERSION="1.16"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freshmeat.net/projects/enca/"
-PKG_URL="http://dl.cihar.com/enca/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://dl.cihar.com/enca/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
