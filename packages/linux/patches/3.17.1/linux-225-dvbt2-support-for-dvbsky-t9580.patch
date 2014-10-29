@@ -1,0 +1,137 @@
+diff -urN b/drivers/media/pci/cx23885/cx23885-dvb.c c/drivers/media/pci/cx23885/cx23885-dvb.c
+--- b/drivers/media/pci/cx23885/cx23885-dvb.c	2014-10-27 19:08:58.000000000 +0200
++++ c/drivers/media/pci/cx23885/cx23885-dvb.c	2014-10-28 08:49:07.456447843 +0200
+@@ -75,6 +75,8 @@
+ #include "a8293.h"
+ #include "mb86a20s.h"
+ #include "si2165.h"
++#include "si2168.h"
++#include "si2157.h"
+ 
+ static unsigned int debug;
+ 
+@@ -955,6 +957,12 @@
+ 	struct videobuf_dvb_frontend *fe0, *fe1 = NULL;
+ 	int mfe_shared = 0; /* bus not shared by default */
+ 	int ret;
++	struct si2168_config si2168_config;
++	struct si2157_config si2157_config;
++	struct i2c_board_info info;
++	struct i2c_adapter *adapter;
++	struct i2c_client *client_demod;
++	struct i2c_client *client_tuner;
+ 
+ 	/* Get the first frontend */
+ 	fe0 = videobuf_dvb_get_frontend(&port->frontends, 1);
+@@ -1589,6 +1597,50 @@
+ 			break;
+ 		/* port C */
+ 		case 2:
++			i2c_bus = &dev->i2c_bus[0];
++
++			/* attach frontend */
++			memset(&si2168_config, 0, sizeof(si2168_config));
++			si2168_config.i2c_adapter = &adapter;
++			si2168_config.fe = &fe0->dvb.frontend;
++			si2168_config.ts_mode = SI2168_TS_SERIAL;
++			memset(&info, 0, sizeof(struct i2c_board_info));
++			strlcpy(info.type, "si2168", I2C_NAME_SIZE);
++			info.addr = 0x64;
++			info.platform_data = &si2168_config;
++			request_module(info.type);
++			client_demod = i2c_new_device(&i2c_bus->i2c_adap, &info);
++			if (client_demod == NULL ||
++					client_demod->dev.driver == NULL)
++				goto frontend_detach;
++			if (!try_module_get(client_demod->dev.driver->owner)) {
++				i2c_unregister_device(client_demod);
++				goto frontend_detach;
++			}
++			port->i2c_client_demod = client_demod;
++
++			/* attach tuner */
++			memset(&si2157_config, 0, sizeof(si2157_config));
++			si2157_config.fe = fe0->dvb.frontend;
++			memset(&info, 0, sizeof(struct i2c_board_info));
++			strlcpy(info.type, "si2157", I2C_NAME_SIZE);
++			info.addr = 0x60;
++			info.platform_data = &si2157_config;
++			request_module(info.type);
++			client_tuner = i2c_new_device(adapter, &info);
++			if (client_tuner == NULL ||
++					client_tuner->dev.driver == NULL) {
++				module_put(client_demod->dev.driver->owner);
++				i2c_unregister_device(client_demod);
++				goto frontend_detach;
++			}
++			if (!try_module_get(client_tuner->dev.driver->owner)) {
++				i2c_unregister_device(client_tuner);
++				module_put(client_demod->dev.driver->owner);
++				i2c_unregister_device(client_demod);
++				goto frontend_detach;
++			}
++			port->i2c_client_tuner = client_tuner;
+ 			break;
+ 		}
+ 		break;				
+@@ -1818,6 +1870,7 @@
+ int cx23885_dvb_unregister(struct cx23885_tsport *port)
+ {
+ 	struct videobuf_dvb_frontend *fe0;
++	struct i2c_client *client;
+ 
+ 	/* FIXME: in an error condition where the we have
+ 	 * an expected number of frontends (attach problem)
+@@ -1826,6 +1879,21 @@
+ 	 * This comment only applies to future boards IF they
+ 	 * implement MFE support.
+ 	 */
++
++	/* remove I2C client for tuner */
++	client = port->i2c_client_tuner;
++	if (client) {
++		module_put(client->dev.driver->owner);
++		i2c_unregister_device(client);
++	}
++
++	/* remove I2C client for demodulator */
++	client = port->i2c_client_demod;
++	if (client) {
++		module_put(client->dev.driver->owner);
++		i2c_unregister_device(client);
++	}
++
+ 	fe0 = videobuf_dvb_get_frontend(&port->frontends, 1);
+ 	if (fe0 && fe0->dvb.frontend)
+ 		videobuf_dvb_unregister_bus(&port->frontends);
+diff -urN b/drivers/media/pci/cx23885/cx23885.h c/drivers/media/pci/cx23885/cx23885.h
+--- b/drivers/media/pci/cx23885/cx23885.h	2014-10-27 19:08:58.000000000 +0200
++++ c/drivers/media/pci/cx23885/cx23885.h	2014-10-28 08:48:17.700446770 +0200
+@@ -334,6 +334,9 @@
+ 	/* Workaround for a temp dvb_frontend that the tuner can attached to */
+ 	struct dvb_frontend analog_fe;
+ 
++	struct i2c_client *i2c_client_demod;
++	struct i2c_client *i2c_client_tuner;
++
+ 	int (*set_frontend)(struct dvb_frontend *fe);
+ };
+ 
+diff -urN b/drivers/media/pci/cx23885/Kconfig c/drivers/media/pci/cx23885/Kconfig
+--- b/drivers/media/pci/cx23885/Kconfig	2014-10-27 19:08:58.000000000 +0200
++++ c/drivers/media/pci/cx23885/Kconfig	2014-10-28 08:50:30.804449641 +0200
+@@ -34,12 +34,14 @@
+ 	select DVB_A8293 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_MB86A20S if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_SI2165 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_SI2168 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_MT2063 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_MT2131 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_XC2028 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_TDA8290 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_TDA18271 if MEDIA_SUBDRV_AUTOSELECT
+ 	select MEDIA_TUNER_XC5000 if MEDIA_SUBDRV_AUTOSELECT
++	select MEDIA_TUNER_SI2157 if MEDIA_SUBDRV_AUTOSELECT
+ 	select DVB_TUNER_DIB0070 if MEDIA_SUBDRV_AUTOSELECT
+ 	---help---
+ 	  This is a video4linux driver for Conexant 23885 based
