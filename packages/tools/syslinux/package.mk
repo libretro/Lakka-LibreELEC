@@ -81,6 +81,8 @@ makeinstall_host() {
     cp bios/mbr/gptmbr.bin $ROOT/$TOOLCHAIN/share/syslinux
     cp efi64/efi/syslinux.efi $ROOT/$TOOLCHAIN/share/syslinux/bootx64.efi
     cp efi64/com32/elflink/ldlinux/ldlinux.e64  $ROOT/$TOOLCHAIN/share/syslinux
+    cp efi32/efi/syslinux.efi $ROOT/$TOOLCHAIN/share/syslinux/bootx32.efi
+    cp efi32/com32/elflink/ldlinux/ldlinux.e32  $ROOT/$TOOLCHAIN/share/syslinux
 }
 
 makeinstall_target() {
@@ -96,4 +98,6 @@ makeinstall_target() {
     cp bios/mbr/gptmbr.bin $INSTALL/usr/share/syslinux
     cp efi64/efi/syslinux.efi $INSTALL/usr/share/syslinux/bootx64.efi
     cp efi64/com32/elflink/ldlinux/ldlinux.e64  $INSTALL/usr/share/syslinux
+    cp efi32/efi/syslinux.efi $INSTALL/usr/share/syslinux/bootx32.efi
+    cp efi32/com32/elflink/ldlinux/ldlinux.e32  $INSTALL/usr/share/syslinux
 }
