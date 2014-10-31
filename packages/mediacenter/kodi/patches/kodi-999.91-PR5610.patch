@@ -1,0 +1,334 @@
+From 4037c9fd07fbec1873549e71e0b1c2833a5a87db Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Mon, 27 Oct 2014 14:42:30 +0100
+Subject: [PATCH 1/8] [CEC] fixed: don't try to stick a value > 255 in a byte
+
+---
+ system/peripherals.xml                            | 2 +-
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 57af5d1..5fcff7c 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -30,7 +30,7 @@
+     <setting key="device_type" type="int" value="1" configurable="0" />
+     <setting key="wake_devices_advanced" type="string" value="" configurable="0" />
+     <setting key="standby_devices_advanced" type="string" value="" configurable="0" />
+-    <setting key="double_tap_timeout_ms" type="int" min="0" value="2000" configurable="0" />
++    <setting key="double_tap_timeout_ms" type="int" min="0" value="300" configurable="0" />
+   </peripheral>
+ 
+   <peripheral vendor_product="2548:1001,2548:1002" bus="usb" name="Pulse-Eight CEC Adapter" mapTo="cec">
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 9907ba2..1d068dc 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1347,8 +1347,8 @@ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+   m_configuration.bPowerOffOnStandby = iStandbyAction == 13011 ? 1 : 0;
+   m_configuration.bShutdownOnStandby = iStandbyAction == 13005 ? 1 : 0;
+ 
+-  // double tap prevention timeout in ms
+-  m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms");
++  // double tap prevention timeout in ms. libCEC uses 50ms units for this in 2.2.0, so divide by 50
++  m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms") / 50;
+ }
+ 
+ void CPeripheralCecAdapter::ReadLogicalAddresses(const CStdString &strString, cec_logical_addresses &addresses)
+
+From c82453eaf7af90d1c0a8846776d77fb62bd14246 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Mon, 27 Oct 2014 12:29:09 +0100
+Subject: [PATCH 2/8] [CEC] bump libCEC to 2.2.0
+
+---
+ project/BuildDependencies/scripts/libcec_d.txt | 2 +-
+ tools/depends/target/libcec/Makefile           | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/project/BuildDependencies/scripts/libcec_d.txt b/project/BuildDependencies/scripts/libcec_d.txt
+index a126c74..3d0265e 100644
+--- a/project/BuildDependencies/scripts/libcec_d.txt
++++ b/project/BuildDependencies/scripts/libcec_d.txt
+@@ -1,3 +1,3 @@
+ ; filename                        source of the file
+ 
+-libcec-2.1.4.zip                  http://mirrors.xbmc.org/build-deps/win32/
++libcec-2.2.0-win32.zip            http://mirrors.xbmc.org/build-deps/win32/
+diff --git a/tools/depends/target/libcec/Makefile b/tools/depends/target/libcec/Makefile
+index 16fec1b..0f54921 100644
+--- a/tools/depends/target/libcec/Makefile
++++ b/tools/depends/target/libcec/Makefile
+@@ -3,9 +3,9 @@ DEPS= ../../Makefile.include Makefile
+ 
+ # lib name, version
+ LIBNAME=libcec
+-VERSION=2.1.4
+-SOURCE=$(LIBNAME)-$(VERSION)-2
+-ARCHIVE=$(SOURCE).tar.gz
++VERSION=2.2.0
++SOURCE=$(LIBNAME)-$(VERSION)
++ARCHIVE=$(SOURCE)-2.tar.gz
+ 
+ # configuration settings
+ CONFIGURE=./configure --prefix=$(PREFIX) --disable-rpi \
+
+From b5f567522961409e70eceba9629f7906069b1e0f Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Mon, 27 Oct 2014 15:32:36 +0100
+Subject: [PATCH 3/8] [CEC] prevent bus rescan on a Pi, since the adapter
+ cannot be removed
+
+---
+ xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
+index b02535a..4941ae6 100644
+--- a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
++++ b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
+@@ -101,6 +101,8 @@ bool CPeripheralBusCEC::PerformDeviceScan(PeripheralScanResults &results)
+       break;
+     case ADAPTERTYPE_RPI:
+       result.m_mappedBusType = PERIPHERAL_BUS_RPI;
++      /** the Pi's adapter cannot be removed, no need to rescan */
++      m_bNeedsPolling = false;
+       break;
+     default:
+       break;
+
+From 9b573e0fdb666339beb1f4cc6104c8c0d0f93829 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Mon, 27 Oct 2014 21:01:00 +0100
+Subject: [PATCH 4/8] [CEC] fixed: don't return garbage from CEC related app
+ messenger methods see
+ https://github.com/xbmc/xbmc/commit/19d37944ca2a2ac2f3e71a40a94e9ea289d8f2db#commitcomment-8248480
+
+---
+ xbmc/Application.cpp          | 14 ++++++++------
+ xbmc/ApplicationMessenger.cpp | 20 +++++---------------
+ xbmc/ApplicationMessenger.h   |  4 ++--
+ 3 files changed, 15 insertions(+), 23 deletions(-)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index d5604dc..4d26183 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -2366,16 +2366,18 @@ bool CApplication::OnKey(const CKey& key)
+ 
+   if (StringUtils::StartsWithNoCase(action.GetName(),"CECToggleState") || StringUtils::StartsWithNoCase(action.GetName(),"CECStandby"))
+   {
+-    bool ret = true;
+-
+-    CLog::LogF(LOGDEBUG, "action %s [%d], toggling state of playing device", action.GetName().c_str(), action.GetID());
+     // do not wake up the screensaver right after switching off the playing device
+     if (StringUtils::StartsWithNoCase(action.GetName(),"CECToggleState"))
+-      ret = CApplicationMessenger::Get().CECToggleState();
++    {
++      CLog::LogF(LOGDEBUG, "action %s [%d], toggling state of playing device", action.GetName().c_str(), action.GetID());
++      if (!CApplicationMessenger::Get().CECToggleState())
++        return true;
++    }
+     else
+-      ret = CApplicationMessenger::Get().CECStandby();
+-    if (!ret) /* display is switched off */
++    {
++      CApplicationMessenger::Get().CECStandby();
+       return true;
++    }
+   }
+ 
+   ResetScreenSaver();
+diff --git a/xbmc/ApplicationMessenger.cpp b/xbmc/ApplicationMessenger.cpp
+index 1a59c5c..d228273 100644
+--- a/xbmc/ApplicationMessenger.cpp
++++ b/xbmc/ApplicationMessenger.cpp
+@@ -843,12 +843,12 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
+     }
+     case TMSG_CECACTIVATESOURCE:
+     {
+-      *((bool*)pMsg->lpVoid) = g_peripherals.ToggleDeviceState(STATE_ACTIVATE_SOURCE);
++      g_peripherals.ToggleDeviceState(STATE_ACTIVATE_SOURCE);
+       break;
+     }
+     case TMSG_CECSTANDBY:
+     {
+-      *((bool*)pMsg->lpVoid) = g_peripherals.ToggleDeviceState(STATE_STANDBY);
++      g_peripherals.ToggleDeviceState(STATE_STANDBY);
+       break;
+     }
+     case TMSG_START_ANDROID_ACTIVITY:
+@@ -1396,29 +1396,19 @@ bool CApplicationMessenger::CECToggleState()
+ 
+   ThreadMessage tMsg = {TMSG_CECTOGGLESTATE};
+   tMsg.lpVoid = (void*)&result;
+-  SendMessage(tMsg, false);
++  SendMessage(tMsg, true);
+ 
+   return result;
+ }
+ 
+-bool CApplicationMessenger::CECActivateSource()
++void CApplicationMessenger::CECActivateSource()
+ {
+-  bool result;
+-
+   ThreadMessage tMsg = {TMSG_CECACTIVATESOURCE};
+-  tMsg.lpVoid = (void*)&result;
+   SendMessage(tMsg, false);
+-
+-  return result;
+ }
+ 
+-bool CApplicationMessenger::CECStandby()
++void CApplicationMessenger::CECStandby()
+ {
+-  bool result;
+-
+   ThreadMessage tMsg = {TMSG_CECSTANDBY};
+-  tMsg.lpVoid = (void*)&result;
+   SendMessage(tMsg, false);
+-
+-  return result;
+ }
+diff --git a/xbmc/ApplicationMessenger.h b/xbmc/ApplicationMessenger.h
+index 9013567..543e065 100644
+--- a/xbmc/ApplicationMessenger.h
++++ b/xbmc/ApplicationMessenger.h
+@@ -219,8 +219,8 @@ class CApplicationMessenger
+ 
+   void LoadProfile(unsigned int idx);
+   bool CECToggleState();
+-  bool CECActivateSource();
+-  bool CECStandby();
++  void CECActivateSource();
++  void CECStandby();
+ 
+   CStdString GetResponse();
+   int SetResponse(CStdString response);
+
+From 3e0a6a3d083fbc3773517b6d8846a5bd86e03004 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Tue, 28 Oct 2014 14:52:16 +0100
+Subject: [PATCH 5/8] [CEC] renamed the iDoubleTapTimeoutMs in the new libCEC
+ for clarity. does not change binary compatibility
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 1d068dc..ad123d9 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1347,8 +1347,13 @@ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+   m_configuration.bPowerOffOnStandby = iStandbyAction == 13011 ? 1 : 0;
+   m_configuration.bShutdownOnStandby = iStandbyAction == 13005 ? 1 : 0;
+ 
++#if defined(CEC_DOUBLE_TAP_TIMEOUT_MS_OLD)
+   // double tap prevention timeout in ms. libCEC uses 50ms units for this in 2.2.0, so divide by 50
+-  m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms") / 50;
++  m_configuration.iDoubleTapTimeout50Ms = GetSettingInt("double_tap_timeout_ms") / 50;
++#else
++  // backwards compatibility. will be removed once the next major release of libCEC is out
++  m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms");
++#endif
+ }
+ 
+ void CPeripheralCecAdapter::ReadLogicalAddresses(const CStdString &strString, cec_logical_addresses &addresses)
+
+From 3d6cc38152adbd67cb2ef633e0e5a6f098ec619c Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Tue, 28 Oct 2014 16:08:00 +0100
+Subject: [PATCH 6/8] [CEC] fixed - don't use CEC_CLIENT_VERSION_CURRENT for
+ the client version, because it will lead to issues when XBMC is rebuilt after
+ a libCEC bump that changes something
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index ad123d9..015daef 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1268,8 +1268,8 @@ void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configu
+ 
+ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+ {
+-  // use the same client version as libCEC version
+-  m_configuration.clientVersion = CEC_CLIENT_VERSION_CURRENT;
++  // client version matches the version of libCEC that we originally used the API from
++  m_configuration.clientVersion = CEC_CLIENT_VERSION_2_2_0;
+ 
+   // device name 'XBMC'
+   snprintf(m_configuration.strDeviceName, 13, "%s", GetSettingString("device_name").c_str());
+
+From da8c086eb4f644c5c607d7a721511230e9a078c0 Mon Sep 17 00:00:00 2001
+From: Lars Op den Kamp <lars@opdenkamp.eu>
+Date: Fri, 31 Oct 2014 12:08:03 +0100
+Subject: [PATCH 7/8] [CEC] use device name 'Kodi' instead of 'XBMC'
+
+---
+ system/peripherals.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 5fcff7c..a67dc2f 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -26,7 +26,7 @@
+     <setting key="port" type="string" value="" label="36022" order="15" />
+ 
+     <setting key="tv_vendor" type="int" value="0" configurable="0" />
+-    <setting key="device_name" type="string" value="XBMC" configurable="0" />
++    <setting key="device_name" type="string" value="Kodi" configurable="0" />
+     <setting key="device_type" type="int" value="1" configurable="0" />
+     <setting key="wake_devices_advanced" type="string" value="" configurable="0" />
+     <setting key="standby_devices_advanced" type="string" value="" configurable="0" />
+
+From b38a4e4aeebe43d76045fb376f2f9dcb18c4f78f Mon Sep 17 00:00:00 2001
+From: Karlson2k <k2k@narod.ru>
+Date: Fri, 31 Oct 2014 13:54:00 +0300
+Subject: [PATCH 8/8] [cec] [win32] Use new package format
+
+---
+ project/BuildDependencies/scripts/0_package.list |  1 +
+ project/BuildDependencies/scripts/libcec_d.bat   | 15 ---------------
+ 2 files changed, 1 insertion(+), 15 deletions(-)
+ delete mode 100644 project/BuildDependencies/scripts/libcec_d.bat
+
+diff --git a/project/BuildDependencies/scripts/0_package.list b/project/BuildDependencies/scripts/0_package.list
+index 8127b15..e2a4a1f 100644
+--- a/project/BuildDependencies/scripts/0_package.list
++++ b/project/BuildDependencies/scripts/0_package.list
+@@ -12,6 +12,7 @@ gnutls-3.2.3-win32.zip
+ jsonschemabuilder-1.0.0-win32-3.7z
+ libass-0.10.2-win32.7z
+ libbluray-0.4.0-win32.zip
++libcec-2.2.0-win32-1.7z
+ libiconv-1.14-win32-vc120.7z
+ libjpeg-turbo-1.2.0-win32.7z
+ libnfs-1.6.2-win32.7z
+diff --git a/project/BuildDependencies/scripts/libcec_d.bat b/project/BuildDependencies/scripts/libcec_d.bat
+deleted file mode 100644
+index b5104c3..0000000
+--- a/project/BuildDependencies/scripts/libcec_d.bat
++++ /dev/null
+@@ -1,15 +0,0 @@
+-@ECHO OFF
+-
+-SET LOC_PATH=%CD%
+-SET FILES=%LOC_PATH%\libcec_d.txt
+-
+-CALL dlextract.bat libcec %FILES%
+-
+-cd %TMP_PATH%
+-
+-mkdir "%CUR_PATH%\include\libcec"
+-xcopy libcec\include\* "%CUR_PATH%\include\libcec\." /E /Q /I /Y
+-
+-copy libcec\libcec.dll "%APP_PATH%\system\."
+-
+-cd %LOC_PATH%
