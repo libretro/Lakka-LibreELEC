@@ -67,7 +67,7 @@ fi
 
 if [ "$SDL_SUPPORT" = yes ]; then
 # for SDL support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET SDL SDL_image"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET SDL2"
   KODI_SDL="--enable-sdl"
 else
   KODI_SDL="--disable-sdl"
