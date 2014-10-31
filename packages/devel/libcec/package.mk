@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libcec"
-PKG_VERSION="2.1.4"
+PKG_VERSION="2.2.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
-PKG_URL="http://packages.pulse-eight.net/pulse/sources/libcec/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://mirrors.xbmc.org/build-deps/sources/$PKG_NAME-$PKG_VERSION-2.tar.gz"
 PKG_DEPENDS_TARGET="toolchain systemd lockdev"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
@@ -32,7 +32,7 @@ PKG_LONGDESC="libCEC is an open-source dual licensed library designed for commun
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-cubox"
+PKG_CONFIGURE_OPTS_TARGET="--disable-cubox --disable-exynos"
 
 if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"

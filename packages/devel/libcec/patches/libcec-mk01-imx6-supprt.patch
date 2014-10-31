@@ -1,34 +1,7 @@
-From 36a63772ea697682613b71e8b578fe005e309d68 Mon Sep 17 00:00:00 2001
-From: wolfgar <stephan.rafin@laposte.net>
-Date: Sat, 28 Sep 2013 13:31:13 +0200
-Subject: [PATCH 1/2] Early support for i.MX6
-
-Fix compiler warning (or even error depending on fpermissive flag)
-
-Fix adapter thanks to geexbox and rudi (0003-fix-adapter-factory.patch)
----
- configure.ac                                       |  19 ++
- include/cectypes.h                                 |  14 +-
- src/lib/CECTypeUtils.h                             |   2 +
- src/lib/Makefile.am                                |   5 +
- src/lib/adapter/AdapterFactory.cpp                 |  29 ++-
- src/lib/adapter/IMX/AdapterMessageQueue.h          | 134 ++++++++++
- src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp | 279 +++++++++++++++++++++
- src/lib/adapter/IMX/IMXCECAdapterCommunication.h   | 114 +++++++++
- src/lib/adapter/IMX/IMXCECAdapterDetection.cpp     |  42 ++++
- src/lib/adapter/IMX/IMXCECAdapterDetection.h       |  36 +++
- 10 files changed, 671 insertions(+), 3 deletions(-)
- create mode 100644 src/lib/adapter/IMX/AdapterMessageQueue.h
- create mode 100644 src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
- create mode 100644 src/lib/adapter/IMX/IMXCECAdapterCommunication.h
- create mode 100644 src/lib/adapter/IMX/IMXCECAdapterDetection.cpp
- create mode 100644 src/lib/adapter/IMX/IMXCECAdapterDetection.h
-
-diff --git a/configure.ac b/configure.ac
-index 510d851..923d7e5 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -93,6 +93,14 @@ if test "x$use_rpi" != "xno"; then
+diff -Naur libcec-2.2-8d84f8b/configure.ac libcec-2.2-8d84f8b.patch/configure.ac
+--- libcec-2.2-8d84f8b/configure.ac	2014-10-27 12:55:30.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/configure.ac	2014-10-27 13:11:03.726445999 +0100
+@@ -100,6 +100,14 @@
    esac
  fi
  
@@ -43,9 +16,9 @@ index 510d851..923d7e5 100644
  ## add the top dir and include to the include path, so we can include config.h and cec.h
  CPPFLAGS="$CPPFLAGS -I\$(abs_top_srcdir)/src -I\$(abs_top_srcdir)/include"
  
-@@ -270,6 +278,17 @@ else
-   features="$features\n  TDA995x support :\t\t\tno"
+@@ -305,6 +313,17 @@
  fi
+ 
  
 +## mark i.MX6 support as available
 +if test "x$use_imx6" != "xno"; then
@@ -61,12 +34,11 @@ index 510d851..923d7e5 100644
  ## check if our build system is complete
  AC_CHECK_HEADER(algorithm,,AC_MSG_ERROR($msg_required_header_missing))
  AC_CHECK_HEADER(ctype.h,,AC_MSG_ERROR($msg_required_header_missing))
-diff --git a/include/cectypes.h b/include/cectypes.h
-index 9f86253..7fabf00 100644
---- a/include/cectypes.h
-+++ b/include/cectypes.h
-@@ -295,6 +295,17 @@ namespace CEC {
- #define CEC_TDA995x_VIRTUAL_COM		"CuBox"
+diff -Naur libcec-2.2-8d84f8b/include/cectypes.h libcec-2.2-8d84f8b.patch/include/cectypes.h
+--- libcec-2.2-8d84f8b/include/cectypes.h	2014-10-27 12:55:30.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/include/cectypes.h	2014-10-27 13:12:22.785470074 +0100
+@@ -306,6 +306,17 @@
+ #define CEC_EXYNOS_VIRTUAL_COM		"Exynos"
  
  /*!
 + * the path to use for the i.MX CEC wire
@@ -83,50 +55,21 @@ index 9f86253..7fabf00 100644
   * Mimimum client version
   */
  #define CEC_MIN_LIB_VERSION          2
-@@ -858,7 +869,8 @@ typedef enum cec_adapter_type
-   ADAPTERTYPE_P8_EXTERNAL      = 0x1,
+@@ -887,7 +898,8 @@
    ADAPTERTYPE_P8_DAUGHTERBOARD = 0x2,
    ADAPTERTYPE_RPI              = 0x100,
--  ADAPTERTYPE_TDA995x          = 0x200
-+  ADAPTERTYPE_TDA995x          = 0x200,
-+  ADAPTERTYPE_IMX	       = 0x300,
+   ADAPTERTYPE_TDA995x          = 0x200,
+-  ADAPTERTYPE_EXYNOS           = 0x300
++  ADAPTERTYPE_EXYNOS           = 0x300,
++  ADAPTERTYPE_IMX              = 0x400
  } cec_adapter_type;
  
  typedef struct cec_menu_language
-diff --git a/src/lib/CECTypeUtils.h b/src/lib/CECTypeUtils.h
-index dc4e5f1..1cf7ef1 100644
---- a/src/lib/CECTypeUtils.h
-+++ b/src/lib/CECTypeUtils.h
-@@ -858,6 +858,8 @@ namespace CEC
-         return "Raspberry Pi";
-       case ADAPTERTYPE_TDA995x:
-         return "TDA995x";
-+      case ADAPTERTYPE_IMX:
-+        return "i.MX";
-       default:
-         return "unknown";
-       }
-diff --git a/src/lib/Makefile.am b/src/lib/Makefile.am
-index 9117d8e..6788303 100644
---- a/src/lib/Makefile.am
-+++ b/src/lib/Makefile.am
-@@ -59,5 +59,10 @@ libcec_la_SOURCES += adapter/TDA995x/TDA995xCECAdapterDetection.cpp \
-                      adapter/TDA995x/TDA995xCECAdapterCommunication.cpp
- endif
- 
-+## i.MX6 support
-+if USE_IMX_API
-+libcec_la_SOURCES += adapter/IMX/IMXCECAdapterDetection.cpp \
-+                     adapter/IMX/IMXCECAdapterCommunication.cpp
-+endif
- 
- libcec_la_LDFLAGS = @LIBS_LIBCEC@ -version-info @VERSION@
-diff --git a/src/lib/adapter/AdapterFactory.cpp b/src/lib/adapter/AdapterFactory.cpp
-index 42cdd0b..576589f 100644
---- a/src/lib/adapter/AdapterFactory.cpp
-+++ b/src/lib/adapter/AdapterFactory.cpp
-@@ -52,6 +52,11 @@
- #include "TDA995x/TDA995xCECAdapterCommunication.h"
+diff -Naur libcec-2.2-8d84f8b/src/lib/adapter/AdapterFactory.cpp libcec-2.2-8d84f8b.patch/src/lib/adapter/AdapterFactory.cpp
+--- libcec-2.2-8d84f8b/src/lib/adapter/AdapterFactory.cpp	2014-10-27 12:55:30.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/adapter/AdapterFactory.cpp	2014-10-27 13:16:07.856765188 +0100
+@@ -57,6 +57,11 @@
+ #include "Exynos/ExynosCECAdapterCommunication.h"
  #endif
  
 +#if defined(HAVE_IMX_API)
@@ -137,9 +80,9 @@ index 42cdd0b..576589f 100644
  using namespace std;
  using namespace CEC;
  
-@@ -109,7 +114,22 @@ int8_t CAdapterFactory::DetectAdapters(cec_adapter_descriptor *deviceList, uint8
-   }
+@@ -127,7 +132,22 @@
  #endif
+ 
  
 -#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API)
 +
@@ -161,170 +104,24 @@ index 42cdd0b..576589f 100644
  #error "libCEC doesn't have support for any type of adapter. please check your build system or configuration"
  #endif
  
-@@ -128,11 +148,16 @@ IAdapterCommunication *CAdapterFactory::GetInstance(const char *strPort, uint16_
-     return new CRPiCECAdapterCommunication(m_lib->m_cec);
+@@ -155,7 +175,12 @@
+   return new CUSBCECAdapterCommunication(m_lib->m_cec, strPort, iBaudRate);
  #endif
  
+-#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API) && !defined(HAVE_EXYNOS_API)
 +#if defined(HAVE_IMX_API)
 +  if (!strcmp(strPort, CEC_IMX_VIRTUAL_COM))
 +    return new CIMXCECAdapterCommunication(m_lib->m_cec);
 +#endif
 +
- #if defined(HAVE_P8_USB)
-   return new CUSBCECAdapterCommunication(m_lib->m_cec, strPort, iBaudRate);
- #endif
- 
--#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API)
-+#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API) && !defined(HAVE_IMX_API)
++#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API) && !defined(HAVE_EXYNOS_API) && !defined(HAVE_IMX_API)
    return NULL;
  #endif
  }
-diff --git a/src/lib/adapter/IMX/AdapterMessageQueue.h b/src/lib/adapter/IMX/AdapterMessageQueue.h
-new file mode 100644
-index 0000000..c8bcf71
---- /dev/null
-+++ b/src/lib/adapter/IMX/AdapterMessageQueue.h
-@@ -0,0 +1,134 @@
-+#pragma once
-+/*
-+ * This file is part of the libCEC(R) library.
-+ *
-+ * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
-+ * libCEC(R) is an original work, containing original code.
-+ *
-+ * libCEC(R) is a trademark of Pulse-Eight Limited.
-+ *
-+ * This program is dual-licensed; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ *
-+ *
-+ * Alternatively, you can license this library under a commercial license,
-+ * please contact Pulse-Eight Licensing for more information.
-+ *
-+ * For more information contact:
-+ * Pulse-Eight Licensing       <license@pulse-eight.com>
-+ *     http://www.pulse-eight.com/
-+ *     http://www.pulse-eight.net/
-+ */
-+
-+#include "lib/platform/threads/mutex.h"
-+
-+namespace CEC
-+{
-+  using namespace PLATFORM;
-+  
-+  class CAdapterMessageQueueEntry
-+  {
-+  public:
-+    CAdapterMessageQueueEntry(const cec_command &command)
-+       : m_bWaiting(true), m_retval((uint32_t)-1), m_bSucceeded(false)
-+    {
-+      m_hash = hashValue(
-+    	uint32_t(command.opcode_set ? command.opcode : CEC_OPCODE_NONE),
-+        command.initiator, command.destination);
-+    }
-+    
-+    virtual ~CAdapterMessageQueueEntry(void) {}
-+
-+    /*!
-+     * @brief Query result from worker thread
-+     */
-+    uint32_t Result() const
-+    {
-+      return m_retval;
-+    }
-+    
-+    /*!
-+     * @brief Signal waiting threads
-+     */
-+    void Broadcast(void)
-+    {
-+      CLockObject lock(m_mutex);
-+      m_condition.Broadcast();
-+    }
-+
-+    /*!
-+     * @brief Signal waiting thread(s) when message matches this entry
-+     */
-+    bool CheckMatch(uint32_t opcode, cec_logical_address initiator, 
-+                    cec_logical_address destination, uint32_t response)
-+    {
-+      uint32_t hash = hashValue(opcode, initiator, destination);
-+      
-+      if (hash == m_hash)
-+      {
-+        CLockObject lock(m_mutex);
-+
-+        m_retval = response;
-+        m_bSucceeded = true;
-+        m_condition.Signal();
-+        return true;
-+      }
-+      
-+      return false;
-+    }
-+
-+    /*!
-+     * @brief Wait for a response to this command.
-+     * @param iTimeout The timeout to use while waiting.
-+     * @return True when a response was received before the timeout passed, false otherwise.
-+     */
-+    bool Wait(uint32_t iTimeout)
-+    {
-+      CLockObject lock(m_mutex);
-+      
-+      bool bReturn = m_bSucceeded ? true : m_condition.Wait(m_mutex, m_bSucceeded, iTimeout);
-+      m_bWaiting = false;
-+      return bReturn;
-+    }
-+
-+    /*!
-+     * @return True while a thread is waiting for a signal or isn't waiting yet, false otherwise.
-+     */
-+    bool IsWaiting(void)
-+    {
-+      CLockObject lock(m_mutex);
-+      return m_bWaiting;
-+    }
-+
-+    /*!
-+     * @return Hash value for given cec_command
-+     */
-+    static uint32_t hashValue(uint32_t opcode, 
-+                              cec_logical_address initiator,  
-+                              cec_logical_address destination)
-+    {
-+      return 1 | ((uint32_t)initiator << 8) | 
-+             ((uint32_t)destination << 16) | ((uint32_t)opcode << 16);
-+    }
-+    
-+  private:    
-+    bool                         m_bWaiting;     /**< true while a thread is waiting or when it hasn't started waiting yet */
-+    PLATFORM::CCondition<bool>   m_condition;    /**< the condition to wait on */
-+    PLATFORM::CMutex             m_mutex;        /**< mutex for changes to this class */
-+    uint32_t                  	 m_hash;
-+    uint32_t                     m_retval;
-+    bool                         m_bSucceeded;
-+  };
-+ 
-+};
-diff --git a/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
-new file mode 100644
-index 0000000..54e5662
---- /dev/null
-+++ b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
-@@ -0,0 +1,279 @@
+diff -Naur libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
+--- libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp	1970-01-01 01:00:00.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp	2014-10-27 13:11:03.735446822 +0100
+@@ -0,0 +1,367 @@
 +/*
 + * This file is part of the libCEC(R) library.
 + *
@@ -334,6 +131,7 @@ index 0000000..54e5662
 + * libCEC(R) is a trademark of Pulse-Eight Limited.
 + * 
 + * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
++ *                     Copyright (C) 2014 by Matus Kral
 + * 
 + * You can redistribute this file and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -361,37 +159,12 @@ index 0000000..54e5662
 +#include "lib/LibCEC.h"
 +#include "lib/platform/sockets/cdevsocket.h"
 +#include "lib/platform/util/StdString.h"
-+#include "lib/platform/util/buffer.h"
-+
-+/*
-+ * Ioctl definitions from kernel header
-+ */
-+#define HDMICEC_IOC_MAGIC  'H'
-+#define HDMICEC_IOC_SETLOGICALADDRESS _IOW(HDMICEC_IOC_MAGIC,  1, unsigned char)
-+#define HDMICEC_IOC_STARTDEVICE _IO(HDMICEC_IOC_MAGIC,  2)
-+#define HDMICEC_IOC_STOPDEVICE  _IO(HDMICEC_IOC_MAGIC,  3)
-+#define HDMICEC_IOC_GETPHYADDRESS _IOR(HDMICEC_IOC_MAGIC,  4, unsigned char[4])
-+
-+#define MAX_CEC_MESSAGE_LEN 17
-+
-+#define MESSAGE_TYPE_RECEIVE_SUCCESS 1
-+#define MESSAGE_TYPE_NOACK 2
-+#define MESSAGE_TYPE_DISCONNECTED 3
-+#define MESSAGE_TYPE_CONNECTED 4
-+#define MESSAGE_TYPE_SEND_SUCCESS 5
-+
-+typedef struct hdmi_cec_event{
-+  int event_type;
-+  int msg_len;
-+  unsigned char msg[MAX_CEC_MESSAGE_LEN];
-+}hdmi_cec_event;
-+
 +
 +using namespace std;
 +using namespace CEC;
 +using namespace PLATFORM;
 +
-+#include "AdapterMessageQueue.h"
++#include "IMXCECAdapterMessageQueue.h"
 +
 +#define LIB_CEC m_callback->GetLib()
 +
@@ -405,16 +178,15 @@ index 0000000..54e5662
 +#define CEC_MSG_FAIL_DEST_NOT_ACK       0x85	/*Message transmisson failed: Destination Address not aknowledged*/
 +#define CEC_MSG_FAIL_DATA_NOT_ACK       0x86	/*Message transmisson failed: Databyte not acknowledged*/
 +
-+
 +CIMXCECAdapterCommunication::CIMXCECAdapterCommunication(IAdapterCommunicationCallback *callback) :
-+    IAdapterCommunication(callback)/*,
-+    m_bLogicalAddressChanged(false)*/
++    IAdapterCommunication(callback)
 +{ 
 +  CLockObject lock(m_mutex);
 +
 +  m_iNextMessage = 0;
-+  //m_logicalAddresses.Clear();
-+  m_logicalAddress = CECDEVICE_UNKNOWN;
++  m_logicalAddress = CECDEVICE_UNKNOWN; 
++  m_bLogicalAddressRegistered = false;
++  m_bInitialised = false;
 +  m_dev = new CCDevSocket(CEC_IMX_PATH);
 +}
 +
@@ -437,10 +209,12 @@ index 0000000..54e5662
 +  if (m_dev->Open(iTimeoutMs))
 +  {
 +    if (!bStartListening || CreateThread()) {
-+      if (m_dev->Ioctl(HDMICEC_IOC_STARTDEVICE, NULL) != 0) {
-+        LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to start device\n", __func__);
++      if (m_dev->Ioctl(HDMICEC_IOC_STARTDEVICE, NULL) == 0) {
++        m_bInitialised = true;
++        RegisterLogicalAddress(CECDEVICE_BROADCAST);
++        return true;
 +      }
-+      return true;
++      LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to start device\n", __func__);
 +    }
 +    m_dev->Close();
 +  }
@@ -451,9 +225,16 @@ index 0000000..54e5662
 +
 +void CIMXCECAdapterCommunication::Close(void)
 +{
-+  StopThread(0);
-+  if (m_dev->Ioctl(HDMICEC_IOC_STOPDEVICE, NULL) != 0) {
-+    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to stop device\n", __func__);
++  StopThread(-1);
++  if (m_bInitialised)
++  {
++    m_bInitialised = false;
++    UnregisterLogicalAddress();
++
++    if (m_dev->Ioctl(HDMICEC_IOC_STOPDEVICE, NULL) != 0)
++    {
++      LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to stop device\n", __func__);
++    }
 +  }
 +  m_dev->Close();
 +}
@@ -467,17 +248,19 @@ index 0000000..54e5662
 +
 +
 +cec_adapter_message_state CIMXCECAdapterCommunication::Write(
-+  const cec_command &data, bool &UNUSED(bRetry), uint8_t UNUSED(iLineTimeout), bool UNUSED(bIsReply))
++  const cec_command &data, bool &bRetry, uint8_t iLineTimeout, bool UNUSED(bIsReply))
 +{
-+  //cec_frame frame;
-+  unsigned char message[MAX_CEC_MESSAGE_LEN];
++  unsigned char message[MAX_MESSAGE_LEN];
++  CIMXCECAdapterMessageQueueEntry *entry;
 +  int msg_len = 1;
 +  cec_adapter_message_state rc = ADAPTER_MESSAGE_STATE_ERROR;
 +
++  bRetry = true;
 +  if ((size_t)data.parameters.size + data.opcode_set + 1 > sizeof(message))
 +  {
 +    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: data size too large !", __func__);
-+    return ADAPTER_MESSAGE_STATE_ERROR;
++    bRetry = false;
++    return rc;
 +  }
 +
 +  message[0] = (data.initiator << 4) | (data.destination & 0x0f);
@@ -489,625 +272,6 @@ index 0000000..54e5662
 +    msg_len+=data.parameters.size;
 +  }
 +
-+  if (m_dev->Write(message, msg_len) == msg_len)
-+  {
-+    rc = ADAPTER_MESSAGE_STATE_SENT_ACKED;
-+  }
-+    else
-+      LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: sent command error !", __func__);
-+
-+  return rc;
-+}
-+
-+
-+uint16_t CIMXCECAdapterCommunication::GetFirmwareVersion(void)
-+{
-+  /* FIXME add ioctl ? */
-+  return 0;
-+}
-+
-+
-+cec_vendor_id CIMXCECAdapterCommunication::GetVendorId(void)
-+{
-+  return CEC_VENDOR_UNKNOWN;
-+}
-+
-+
-+uint16_t CIMXCECAdapterCommunication::GetPhysicalAddress(void)
-+{
-+  uint32_t info;
-+
-+  if (m_dev->Ioctl(HDMICEC_IOC_GETPHYADDRESS, &info) != 0)
-+  {
-+    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_GETPHYADDRESS failed !", __func__);
-+    return CEC_INVALID_PHYSICAL_ADDRESS; 
-+  }
-+
-+  return info;
-+}
-+
-+
-+cec_logical_addresses CIMXCECAdapterCommunication::GetLogicalAddresses(void)
-+{
-+  cec_logical_addresses addresses;
-+  addresses.Clear();
-+
-+  CLockObject lock(m_mutex);
-+  if ( m_logicalAddress != CECDEVICE_UNKNOWN)
-+    addresses.Set(m_logicalAddress);
-+
-+  return addresses;
-+}
-+
-+
-+bool CIMXCECAdapterCommunication::SetLogicalAddresses(const cec_logical_addresses &addresses)
-+{
-+  int log_addr = addresses.primary;
-+
-+  CLockObject lock(m_mutex);
-+  if (m_logicalAddress == log_addr)
-+      return true;
-+
-+  if (m_dev->Ioctl(HDMICEC_IOC_SETLOGICALADDRESS, (void *)log_addr) != 0)
-+  {
-+    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_SETLOGICALADDRESS failed !", __func__);
-+    return false;
-+  }
-+
-+  m_logicalAddress = (cec_logical_address)log_addr;
-+  return true;
-+}
-+
-+
-+void *CIMXCECAdapterCommunication::Process(void)
-+{
-+  bool bHandled;
-+  hdmi_cec_event event;
-+  int ret;
-+
-+  uint32_t opcode, status;
-+  cec_logical_address initiator, destination;
-+
-+  while (!IsStopped())
-+  {
-+    ret = m_dev->Read((char *)&event, sizeof(event), 5000);
-+    if (ret > 0)
-+    {
-+
-+      initiator = cec_logical_address(event.msg[0] >> 4);
-+      destination = cec_logical_address(event.msg[0] & 0x0f);
-+
-+      //LIB_CEC->AddLog(CEC_LOG_DEBUG, "%s: Read data : type : %d initiator %d dest %d", __func__, event.event_type, initiator, destination);
-+      if (event.event_type == MESSAGE_TYPE_RECEIVE_SUCCESS)
-+      /* Message received */
-+      {
-+        cec_command cmd;
-+
-+        cec_command::Format(
-+          cmd, initiator, destination,
-+          ( event.msg_len > 1 ) ? cec_opcode(event.msg[1]) : CEC_OPCODE_NONE);
-+
-+        for( uint8_t i = 2; i < event.msg_len; i++ )
-+          cmd.parameters.PushBack(event.msg[i]);
-+
-+        if (!IsStopped())
-+          m_callback->OnCommandReceived(cmd);
-+      }
-+      /* We are not interested in other events */
-+    } /*else {
-+      LIB_CEC->AddLog(CEC_LOG_DEBUG, "%s: Read returned %d", __func__, ret);
-+    }*/
-+
-+  }
-+
-+  return 0;
-+}
-+
-+#endif	// HAVE_IMX_API
-diff --git a/src/lib/adapter/IMX/IMXCECAdapterCommunication.h b/src/lib/adapter/IMX/IMXCECAdapterCommunication.h
-new file mode 100644
-index 0000000..910dd39
---- /dev/null
-+++ b/src/lib/adapter/IMX/IMXCECAdapterCommunication.h
-@@ -0,0 +1,114 @@
-+#pragma once
-+/*
-+ * This file is part of the libCEC(R) library.
-+ *
-+ * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
-+ * libCEC(R) is an original work, containing original code.
-+ *
-+ * libCEC(R) is a trademark of Pulse-Eight Limited.
-+ *
-+ * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
-+ * 
-+ * You can redistribute this file and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ *
-+ *
-+ */
-+
-+#if defined(HAVE_IMX_API)
-+
-+#include "lib/platform/threads/mutex.h"
-+#include "lib/platform/threads/threads.h"
-+#include "lib/platform/sockets/socket.h"
-+#include "lib/adapter/AdapterCommunication.h"
-+#include <map>
-+
-+#define IMX_ADAPTER_VID 0x0471 /*FIXME TBD*/
-+#define IMX_ADAPTER_PID 0x1001
-+
-+
-+
-+namespace PLATFORM
-+{
-+  class CCDevSocket;
-+};
-+
-+
-+namespace CEC
-+{
-+  class CAdapterMessageQueueEntry;
-+
-+  class CIMXCECAdapterCommunication : public IAdapterCommunication, public PLATFORM::CThread
-+  {
-+  public:
-+    /*!
-+     * @brief Create a new USB-CEC communication handler.
-+     * @param callback The callback to use for incoming CEC commands.
-+     */
-+    CIMXCECAdapterCommunication(IAdapterCommunicationCallback *callback);
-+    virtual ~CIMXCECAdapterCommunication(void);
-+
-+    /** @name IAdapterCommunication implementation */
-+    ///{
-+    bool Open(uint32_t iTimeoutMs = CEC_DEFAULT_CONNECT_TIMEOUT, bool bSkipChecks = false, bool bStartListening = true);
-+    void Close(void);
-+    bool IsOpen(void);
-+    std::string GetError(void) const;
-+    cec_adapter_message_state Write(const cec_command &data, bool &bRetry, uint8_t iLineTimeout, bool bIsReply);
-+
-+    bool SetLineTimeout(uint8_t UNUSED(iTimeout)) { return true; }
-+    bool StartBootloader(void) { return false; }
-+    bool SetLogicalAddresses(const cec_logical_addresses &addresses);
-+    cec_logical_addresses GetLogicalAddresses(void);
-+    bool PingAdapter(void) { return IsInitialised(); }
-+    uint16_t GetFirmwareVersion(void);
-+    uint32_t GetFirmwareBuildDate(void) { return 0; }
-+    bool IsRunningLatestFirmware(void) { return true; }
-+    bool PersistConfiguration(const libcec_configuration & UNUSED(configuration)) { return false; }
-+    bool GetConfiguration(libcec_configuration & UNUSED(configuration)) { return false; }
-+    std::string GetPortName(void) { return std::string("IMX"); }
-+    uint16_t GetPhysicalAddress(void);
-+    bool SetControlledMode(bool UNUSED(controlled)) { return true; }
-+    cec_vendor_id GetVendorId(void);
-+    bool SupportsSourceLogicalAddress(const cec_logical_address address) { return address > CECDEVICE_TV && address <= CECDEVICE_BROADCAST; }
-+    cec_adapter_type GetAdapterType(void) { return ADAPTERTYPE_IMX; }
-+    uint16_t GetAdapterVendorId(void) const { return IMX_ADAPTER_VID; }
-+    uint16_t GetAdapterProductId(void) const { return IMX_ADAPTER_PID; }
-+    void SetActiveSource(bool UNUSED(bSetTo), bool UNUSED(bClientUnregistered)) {}
-+    ///}
-+
-+    /** @name PLATFORM::CThread implementation */
-+    ///{
-+    void *Process(void);
-+    ///}
-+
-+  private:
-+    bool IsInitialised(void) const { return m_dev != 0; };
-+
-+    std::string                 m_strError; /**< current error message */
-+
-+    //cec_logical_addresses       m_logicalAddresses;
-+    cec_logical_address         m_logicalAddress;
-+
-+    PLATFORM::CMutex            m_mutex;
-+    PLATFORM::CCDevSocket       *m_dev;	/**< the device connection */
-+    
-+    PLATFORM::CMutex            m_messageMutex;
-+    uint32_t                    m_iNextMessage;
-+    std::map<uint32_t, CAdapterMessageQueueEntry *> m_messages;
-+  };
-+  
-+};
-+
-+#endif
-diff --git a/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp b/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp
-new file mode 100644
-index 0000000..6c93c45
---- /dev/null
-+++ b/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp
-@@ -0,0 +1,42 @@
-+/*
-+ * This file is part of the libCEC(R) library.
-+ *
-+ * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
-+ * libCEC(R) is an original work, containing original code.
-+ *
-+ * libCEC(R) is a trademark of Pulse-Eight Limited.
-+ * 
-+ * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
-+ * 
-+ * You can redistribute this file and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ *
-+ *
-+ */
-+
-+#include "env.h"
-+#include <stdio.h>
-+
-+#if defined(HAVE_IMX_API)
-+#include "IMXCECAdapterDetection.h"
-+
-+
-+using namespace CEC;
-+
-+bool CIMXCECAdapterDetection::FindAdapter(void)
-+{
-+  return access(CEC_IMX_PATH, 0) == 0;
-+}
-+
-+#endif
-diff --git a/src/lib/adapter/IMX/IMXCECAdapterDetection.h b/src/lib/adapter/IMX/IMXCECAdapterDetection.h
-new file mode 100644
-index 0000000..d54891d
---- /dev/null
-+++ b/src/lib/adapter/IMX/IMXCECAdapterDetection.h
-@@ -0,0 +1,36 @@
-+#pragma once
-+/*
-+ * This file is part of the libCEC(R) library.
-+ *
-+ * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
-+ * libCEC(R) is an original work, containing original code.
-+ *
-+ * libCEC(R) is a trademark of Pulse-Eight Limited.
-+ * 
-+ * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
-+ * 
-+ * You can redistribute this file and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ *
-+ *
-+ */
-+
-+namespace CEC
-+{
-+  class CIMXCECAdapterDetection
-+  {
-+  public:
-+    static bool FindAdapter(void);
-+  };
-+}
-
-From b15d8de0993286abc2551b2d7d66b7f1f193c044 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Wed, 10 Sep 2014 22:23:37 +0200
-Subject: [PATCH 2/2] update to IMX6 support
-
----
- src/lib/adapter/IMX/AdapterMessageQueue.h          | 134 -----------
- src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp | 246 ++++++++++++++-------
- src/lib/adapter/IMX/IMXCECAdapterCommunication.h   |  22 +-
- src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h    | 118 ++++++++++
- src/lib/adapter/IMX/mxc_hdmi-cec.h                 |  47 ++++
- 5 files changed, 349 insertions(+), 218 deletions(-)
- delete mode 100644 src/lib/adapter/IMX/AdapterMessageQueue.h
- create mode 100644 src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h
- create mode 100644 src/lib/adapter/IMX/mxc_hdmi-cec.h
-
-diff --git a/src/lib/adapter/IMX/AdapterMessageQueue.h b/src/lib/adapter/IMX/AdapterMessageQueue.h
-deleted file mode 100644
-index c8bcf71..0000000
---- a/src/lib/adapter/IMX/AdapterMessageQueue.h
-+++ /dev/null
-@@ -1,134 +0,0 @@
--#pragma once
--/*
-- * This file is part of the libCEC(R) library.
-- *
-- * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
-- * libCEC(R) is an original work, containing original code.
-- *
-- * libCEC(R) is a trademark of Pulse-Eight Limited.
-- *
-- * This program is dual-licensed; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License as published by
-- * the Free Software Foundation; either version 2 of the License, or
-- * (at your option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- * GNU General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-- *
-- *
-- * Alternatively, you can license this library under a commercial license,
-- * please contact Pulse-Eight Licensing for more information.
-- *
-- * For more information contact:
-- * Pulse-Eight Licensing       <license@pulse-eight.com>
-- *     http://www.pulse-eight.com/
-- *     http://www.pulse-eight.net/
-- */
--
--#include "lib/platform/threads/mutex.h"
--
--namespace CEC
--{
--  using namespace PLATFORM;
--  
--  class CAdapterMessageQueueEntry
--  {
--  public:
--    CAdapterMessageQueueEntry(const cec_command &command)
--       : m_bWaiting(true), m_retval((uint32_t)-1), m_bSucceeded(false)
--    {
--      m_hash = hashValue(
--    	uint32_t(command.opcode_set ? command.opcode : CEC_OPCODE_NONE),
--        command.initiator, command.destination);
--    }
--    
--    virtual ~CAdapterMessageQueueEntry(void) {}
--
--    /*!
--     * @brief Query result from worker thread
--     */
--    uint32_t Result() const
--    {
--      return m_retval;
--    }
--    
--    /*!
--     * @brief Signal waiting threads
--     */
--    void Broadcast(void)
--    {
--      CLockObject lock(m_mutex);
--      m_condition.Broadcast();
--    }
--
--    /*!
--     * @brief Signal waiting thread(s) when message matches this entry
--     */
--    bool CheckMatch(uint32_t opcode, cec_logical_address initiator, 
--                    cec_logical_address destination, uint32_t response)
--    {
--      uint32_t hash = hashValue(opcode, initiator, destination);
--      
--      if (hash == m_hash)
--      {
--        CLockObject lock(m_mutex);
--
--        m_retval = response;
--        m_bSucceeded = true;
--        m_condition.Signal();
--        return true;
--      }
--      
--      return false;
--    }
--
--    /*!
--     * @brief Wait for a response to this command.
--     * @param iTimeout The timeout to use while waiting.
--     * @return True when a response was received before the timeout passed, false otherwise.
--     */
--    bool Wait(uint32_t iTimeout)
--    {
--      CLockObject lock(m_mutex);
--      
--      bool bReturn = m_bSucceeded ? true : m_condition.Wait(m_mutex, m_bSucceeded, iTimeout);
--      m_bWaiting = false;
--      return bReturn;
--    }
--
--    /*!
--     * @return True while a thread is waiting for a signal or isn't waiting yet, false otherwise.
--     */
--    bool IsWaiting(void)
--    {
--      CLockObject lock(m_mutex);
--      return m_bWaiting;
--    }
--
--    /*!
--     * @return Hash value for given cec_command
--     */
--    static uint32_t hashValue(uint32_t opcode, 
--                              cec_logical_address initiator,  
--                              cec_logical_address destination)
--    {
--      return 1 | ((uint32_t)initiator << 8) | 
--             ((uint32_t)destination << 16) | ((uint32_t)opcode << 16);
--    }
--    
--  private:    
--    bool                         m_bWaiting;     /**< true while a thread is waiting or when it hasn't started waiting yet */
--    PLATFORM::CCondition<bool>   m_condition;    /**< the condition to wait on */
--    PLATFORM::CMutex             m_mutex;        /**< mutex for changes to this class */
--    uint32_t                  	 m_hash;
--    uint32_t                     m_retval;
--    bool                         m_bSucceeded;
--  };
-- 
--};
-diff --git a/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
-index 54e5662..8467ba7 100644
---- a/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
-+++ b/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
-@@ -7,6 +7,7 @@
-  * libCEC(R) is a trademark of Pulse-Eight Limited.
-  * 
-  * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
-+ *                     Copyright (C) 2014 by Matus Kral
-  * 
-  * You can redistribute this file and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -34,37 +35,12 @@
- #include "lib/LibCEC.h"
- #include "lib/platform/sockets/cdevsocket.h"
- #include "lib/platform/util/StdString.h"
--#include "lib/platform/util/buffer.h"
--
--/*
-- * Ioctl definitions from kernel header
-- */
--#define HDMICEC_IOC_MAGIC  'H'
--#define HDMICEC_IOC_SETLOGICALADDRESS _IOW(HDMICEC_IOC_MAGIC,  1, unsigned char)
--#define HDMICEC_IOC_STARTDEVICE _IO(HDMICEC_IOC_MAGIC,  2)
--#define HDMICEC_IOC_STOPDEVICE  _IO(HDMICEC_IOC_MAGIC,  3)
--#define HDMICEC_IOC_GETPHYADDRESS _IOR(HDMICEC_IOC_MAGIC,  4, unsigned char[4])
--
--#define MAX_CEC_MESSAGE_LEN 17
--
--#define MESSAGE_TYPE_RECEIVE_SUCCESS 1
--#define MESSAGE_TYPE_NOACK 2
--#define MESSAGE_TYPE_DISCONNECTED 3
--#define MESSAGE_TYPE_CONNECTED 4
--#define MESSAGE_TYPE_SEND_SUCCESS 5
--
--typedef struct hdmi_cec_event{
--  int event_type;
--  int msg_len;
--  unsigned char msg[MAX_CEC_MESSAGE_LEN];
--}hdmi_cec_event;
--
- 
- using namespace std;
- using namespace CEC;
- using namespace PLATFORM;
- 
--#include "AdapterMessageQueue.h"
-+#include "IMXCECAdapterMessageQueue.h"
- 
- #define LIB_CEC m_callback->GetLib()
- 
-@@ -78,16 +54,15 @@ using namespace PLATFORM;
- #define CEC_MSG_FAIL_DEST_NOT_ACK       0x85	/*Message transmisson failed: Destination Address not aknowledged*/
- #define CEC_MSG_FAIL_DATA_NOT_ACK       0x86	/*Message transmisson failed: Databyte not acknowledged*/
- 
--
- CIMXCECAdapterCommunication::CIMXCECAdapterCommunication(IAdapterCommunicationCallback *callback) :
--    IAdapterCommunication(callback)/*,
--    m_bLogicalAddressChanged(false)*/
-+    IAdapterCommunication(callback)
- { 
-   CLockObject lock(m_mutex);
- 
-   m_iNextMessage = 0;
--  //m_logicalAddresses.Clear();
--  m_logicalAddress = CECDEVICE_UNKNOWN;
-+  m_logicalAddress = CECDEVICE_UNKNOWN; 
-+  m_bLogicalAddressRegistered = false;
-+  m_bInitialised = false;
-   m_dev = new CCDevSocket(CEC_IMX_PATH);
- }
- 
-@@ -110,10 +85,12 @@ bool CIMXCECAdapterCommunication::Open(uint32_t iTimeoutMs, bool UNUSED(bSkipChe
-   if (m_dev->Open(iTimeoutMs))
-   {
-     if (!bStartListening || CreateThread()) {
--      if (m_dev->Ioctl(HDMICEC_IOC_STARTDEVICE, NULL) != 0) {
--        LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to start device\n", __func__);
-+      if (m_dev->Ioctl(HDMICEC_IOC_STARTDEVICE, NULL) == 0) {
-+        m_bInitialised = true;
-+        RegisterLogicalAddress(CECDEVICE_BROADCAST);
-+        return true;
-       }
--      return true;
-+      LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to start device\n", __func__);
-     }
-     m_dev->Close();
-   }
-@@ -124,9 +101,16 @@ bool CIMXCECAdapterCommunication::Open(uint32_t iTimeoutMs, bool UNUSED(bSkipChe
- 
- void CIMXCECAdapterCommunication::Close(void)
- {
--  StopThread(0);
--  if (m_dev->Ioctl(HDMICEC_IOC_STOPDEVICE, NULL) != 0) {
--    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to stop device\n", __func__);
-+  StopThread(-1);
-+  if (m_bInitialised)
-+  {
-+    m_bInitialised = false;
-+    UnregisterLogicalAddress();
-+
-+    if (m_dev->Ioctl(HDMICEC_IOC_STOPDEVICE, NULL) != 0)
-+    {
-+      LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: Unable to stop device\n", __func__);
-+    }
-   }
-   m_dev->Close();
- }
-@@ -140,17 +124,19 @@ std::string CIMXCECAdapterCommunication::GetError(void) const
- 
- 
- cec_adapter_message_state CIMXCECAdapterCommunication::Write(
--  const cec_command &data, bool &UNUSED(bRetry), uint8_t UNUSED(iLineTimeout), bool UNUSED(bIsReply))
-+  const cec_command &data, bool &bRetry, uint8_t iLineTimeout, bool UNUSED(bIsReply))
- {
--  //cec_frame frame;
--  unsigned char message[MAX_CEC_MESSAGE_LEN];
-+  unsigned char message[MAX_MESSAGE_LEN];
-+  CIMXCECAdapterMessageQueueEntry *entry;
-   int msg_len = 1;
-   cec_adapter_message_state rc = ADAPTER_MESSAGE_STATE_ERROR;
- 
-+  bRetry = true;
-   if ((size_t)data.parameters.size + data.opcode_set + 1 > sizeof(message))
-   {
-     LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: data size too large !", __func__);
--    return ADAPTER_MESSAGE_STATE_ERROR;
-+    bRetry = false;
-+    return rc;
-   }
- 
-   message[0] = (data.initiator << 4) | (data.destination & 0x0f);
-@@ -162,12 +148,46 @@ cec_adapter_message_state CIMXCECAdapterCommunication::Write(
-     msg_len+=data.parameters.size;
-   }
- 
--  if (m_dev->Write(message, msg_len) == msg_len)
 +  entry = new CIMXCECAdapterMessageQueueEntry(message[0], data.opcode);
 +  m_messageMutex.Lock();
 +  uint32_t msgKey = ++m_iNextMessage;
@@ -1136,72 +300,76 @@ index 54e5662..8467ba7 100644
 +    }
 +  }
 +  else
-   {
--    rc = ADAPTER_MESSAGE_STATE_SENT_ACKED;
++  {
 +    Sleep(CEC_DEFAULT_TRANSMIT_RETRY_WAIT);
 +#ifdef CEC_DEBUGGING
 +    LIB_CEC->AddLog(CEC_LOG_WARNING, "%s: write failed !", __func__);
 +#endif
-   }
--    else
--      LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: sent command error !", __func__);
++  }
 +
 +  m_messageMutex.Lock();
 +  m_messages.erase(msgKey);
 +  m_messageMutex.Unlock();
 +
 +  delete entry;
- 
-   return rc;
- }
-@@ -188,15 +208,16 @@ cec_vendor_id CIMXCECAdapterCommunication::GetVendorId(void)
- 
- uint16_t CIMXCECAdapterCommunication::GetPhysicalAddress(void)
- {
--  uint32_t info;
++
++  return rc;
++}
++
++
++uint16_t CIMXCECAdapterCommunication::GetFirmwareVersion(void)
++{
++  /* FIXME add ioctl ? */
++  return 0;
++}
++
++
++cec_vendor_id CIMXCECAdapterCommunication::GetVendorId(void)
++{
++  return CEC_VENDOR_UNKNOWN;
++}
++
++
++uint16_t CIMXCECAdapterCommunication::GetPhysicalAddress(void)
++{
 +  uint8_t phy_addr[4];
- 
--  if (m_dev->Ioctl(HDMICEC_IOC_GETPHYADDRESS, &info) != 0)
++
 +  if (m_dev->Ioctl(HDMICEC_IOC_GETPHYADDRESS, &phy_addr) != 0)
-   {
-     LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_GETPHYADDRESS failed !", __func__);
-     return CEC_INVALID_PHYSICAL_ADDRESS; 
-   }
- 
--  return info;
++  {
++    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_GETPHYADDRESS failed !", __func__);
++    return CEC_INVALID_PHYSICAL_ADDRESS; 
++  }
++
 +  m_physicalAddress = ((phy_addr[0] << 4 | phy_addr[1]) << 8) | (phy_addr[2] << 4 | phy_addr[3]);
 +  return m_physicalAddress;
- }
- 
- 
-@@ -206,31 +227,72 @@ cec_logical_addresses CIMXCECAdapterCommunication::GetLogicalAddresses(void)
-   addresses.Clear();
- 
-   CLockObject lock(m_mutex);
--  if ( m_logicalAddress != CECDEVICE_UNKNOWN)
++}
++
++
++cec_logical_addresses CIMXCECAdapterCommunication::GetLogicalAddresses(void)
++{
++  cec_logical_addresses addresses;
++  addresses.Clear();
++
++  CLockObject lock(m_mutex);
 +  if (m_bLogicalAddressRegistered)
-     addresses.Set(m_logicalAddress);
- 
-   return addresses;
- }
- 
++    addresses.Set(m_logicalAddress);
++
++  return addresses;
++}
++
 +void CIMXCECAdapterCommunication::HandleLogicalAddressLost(cec_logical_address UNUSED(oldAddress))
 +{
 +  UnregisterLogicalAddress();
 +}
- 
--bool CIMXCECAdapterCommunication::SetLogicalAddresses(const cec_logical_addresses &addresses)
++
 +bool CIMXCECAdapterCommunication::UnregisterLogicalAddress(void)
- {
--  int log_addr = addresses.primary;
++{
 +  {
 +    CLockObject lock(m_mutex);
 +    if (!m_bLogicalAddressRegistered)
 +      return true;
 +  }
- 
--  CLockObject lock(m_mutex);
--  if (m_logicalAddress == log_addr)
++
 +  if (m_dev->Ioctl(HDMICEC_IOC_SETLOGICALADDRESS, (void *)CECDEVICE_BROADCAST) != 0)
 +  {
 +    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_SETLOGICALADDRESS failed !", __func__);
@@ -1221,18 +389,16 @@ index 54e5662..8467ba7 100644
 +    CLockObject lock(m_mutex);
 +    if (m_logicalAddress == address && m_bLogicalAddressRegistered)
 +    {
-       return true;
++      return true;
 +    }
 +  }
- 
--  if (m_dev->Ioctl(HDMICEC_IOC_SETLOGICALADDRESS, (void *)log_addr) != 0)
++
 +  if (m_dev->Ioctl(HDMICEC_IOC_SETLOGICALADDRESS, (void *)address) != 0)
-   {
-     LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_SETLOGICALADDRESS failed !", __func__);
-     return false;
-   }
- 
--  m_logicalAddress = (cec_logical_address)log_addr;
++  {
++    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: HDMICEC_IOC_SETLOGICALADDRESS failed !", __func__);
++    return false;
++  }
++
 +  CLockObject lock(m_mutex);
 +
 +#ifdef CEC_DEBUGGING
@@ -1241,9 +407,9 @@ index 54e5662..8467ba7 100644
 +
 +  m_logicalAddress = address;
 +  m_bLogicalAddressRegistered = (address != CECDEVICE_BROADCAST) ? true : false;
-   return true;
- }
- 
++  return true;
++}
++
 +bool CIMXCECAdapterCommunication::SetLogicalAddresses(const cec_logical_addresses &addresses)
 +{
 +  int log_addr = addresses.primary;
@@ -1251,47 +417,23 @@ index 54e5662..8467ba7 100644
 +  return RegisterLogicalAddress((cec_logical_address)log_addr);
 +}
 +
- 
- void *CIMXCECAdapterCommunication::Process(void)
- {
-@@ -238,39 +300,65 @@ void *CIMXCECAdapterCommunication::Process(void)
-   hdmi_cec_event event;
-   int ret;
- 
--  uint32_t opcode, status;
-   cec_logical_address initiator, destination;
- 
-   while (!IsStopped())
-   {
--    ret = m_dev->Read((char *)&event, sizeof(event), 5000);
--    if (ret > 0)
++
++void *CIMXCECAdapterCommunication::Process(void)
++{
++  bool bHandled;
++  hdmi_cec_event event;
++  int ret;
++
++  cec_logical_address initiator, destination;
++
++  while (!IsStopped())
++  {
 +    if (IsInitialised() && (ret = m_dev->Read((char *)&event, sizeof(event), 5000)) > 0)
-     {
- 
-       initiator = cec_logical_address(event.msg[0] >> 4);
-       destination = cec_logical_address(event.msg[0] & 0x0f);
- 
--      //LIB_CEC->AddLog(CEC_LOG_DEBUG, "%s: Read data : type : %d initiator %d dest %d", __func__, event.event_type, initiator, destination);
--      if (event.event_type == MESSAGE_TYPE_RECEIVE_SUCCESS)
--      /* Message received */
--      {
--        cec_command cmd;
--
--        cec_command::Format(
--          cmd, initiator, destination,
--          ( event.msg_len > 1 ) ? cec_opcode(event.msg[1]) : CEC_OPCODE_NONE);
--
--        for( uint8_t i = 2; i < event.msg_len; i++ )
--          cmd.parameters.PushBack(event.msg[i]);
--
--        if (!IsStopped())
--          m_callback->OnCommandReceived(cmd);
--      }
--      /* We are not interested in other events */
--    } /*else {
--      LIB_CEC->AddLog(CEC_LOG_DEBUG, "%s: Read returned %d", __func__, ret);
--    }*/
--
++    {
++
++      initiator = cec_logical_address(event.msg[0] >> 4);
++      destination = cec_logical_address(event.msg[0] & 0x0f);
++
 +        if (event.event_type == MESSAGE_TYPE_RECEIVE_SUCCESS)
 +        {
 +            cec_command cmd;
@@ -1341,93 +483,231 @@ index 54e5662..8467ba7 100644
 +        else
 +            LIB_CEC->AddLog(CEC_LOG_WARNING, "%s: unhandled response received %d!", __func__, event.event_type);
 +    }       
-   }
- 
-   return 0;
-diff --git a/src/lib/adapter/IMX/IMXCECAdapterCommunication.h b/src/lib/adapter/IMX/IMXCECAdapterCommunication.h
-index 910dd39..f551122 100644
---- a/src/lib/adapter/IMX/IMXCECAdapterCommunication.h
-+++ b/src/lib/adapter/IMX/IMXCECAdapterCommunication.h
-@@ -8,6 +8,7 @@
-  * libCEC(R) is a trademark of Pulse-Eight Limited.
-  *
-  * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
++  }
++
++  return 0;
++}
++
++#endif	// HAVE_IMX_API
+diff -Naur libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterCommunication.h libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.h
+--- libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterCommunication.h	1970-01-01 01:00:00.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.h	2014-10-27 13:11:03.736446898 +0100
+@@ -0,0 +1,126 @@
++#pragma once
++/*
++ * This file is part of the libCEC(R) library.
++ *
++ * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
++ * libCEC(R) is an original work, containing original code.
++ *
++ * libCEC(R) is a trademark of Pulse-Eight Limited.
++ *
++ * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
 + *                     Copyright (C) 2014 by Matus Kral
-  * 
-  * You can redistribute this file and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -31,12 +32,18 @@
- #include "lib/platform/threads/mutex.h"
- #include "lib/platform/threads/threads.h"
- #include "lib/platform/sockets/socket.h"
++ * 
++ * You can redistribute this file and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ *
++ */
++
++#if defined(HAVE_IMX_API)
++
++#include "lib/platform/threads/mutex.h"
++#include "lib/platform/threads/threads.h"
++#include "lib/platform/sockets/socket.h"
 +#include "lib/adapter/IMX/mxc_hdmi-cec.h"
- #include "lib/adapter/AdapterCommunication.h"
- #include <map>
- 
- #define IMX_ADAPTER_VID 0x0471 /*FIXME TBD*/
- #define IMX_ADAPTER_PID 0x1001
- 
++#include "lib/adapter/AdapterCommunication.h"
++#include <map>
++
++#define IMX_ADAPTER_VID 0x0471 /*FIXME TBD*/
++#define IMX_ADAPTER_PID 0x1001
++
 +typedef struct hdmi_cec_event{
 +  int event_type;
 +  int msg_len;
 +  unsigned char msg[MAX_MESSAGE_LEN];
 +}hdmi_cec_event;
- 
- 
- namespace PLATFORM
-@@ -44,10 +51,9 @@ namespace PLATFORM
-   class CCDevSocket;
- };
- 
--
- namespace CEC
- {
--  class CAdapterMessageQueueEntry;
++
++
++namespace PLATFORM
++{
++  class CCDevSocket;
++};
++
++namespace CEC
++{
 +  class CIMXCECAdapterMessageQueueEntry;
- 
-   class CIMXCECAdapterCommunication : public IAdapterCommunication, public PLATFORM::CThread
-   {
-@@ -81,6 +87,7 @@ namespace CEC
-     uint16_t GetPhysicalAddress(void);
-     bool SetControlledMode(bool UNUSED(controlled)) { return true; }
-     cec_vendor_id GetVendorId(void);
++
++  class CIMXCECAdapterCommunication : public IAdapterCommunication, public PLATFORM::CThread
++  {
++  public:
++    /*!
++     * @brief Create a new USB-CEC communication handler.
++     * @param callback The callback to use for incoming CEC commands.
++     */
++    CIMXCECAdapterCommunication(IAdapterCommunicationCallback *callback);
++    virtual ~CIMXCECAdapterCommunication(void);
++
++    /** @name IAdapterCommunication implementation */
++    ///{
++    bool Open(uint32_t iTimeoutMs = CEC_DEFAULT_CONNECT_TIMEOUT, bool bSkipChecks = false, bool bStartListening = true);
++    void Close(void);
++    bool IsOpen(void);
++    std::string GetError(void) const;
++    cec_adapter_message_state Write(const cec_command &data, bool &bRetry, uint8_t iLineTimeout, bool bIsReply);
++
++    bool SetLineTimeout(uint8_t UNUSED(iTimeout)) { return true; }
++    bool StartBootloader(void) { return false; }
++    bool SetLogicalAddresses(const cec_logical_addresses &addresses);
++    cec_logical_addresses GetLogicalAddresses(void);
++    bool PingAdapter(void) { return IsInitialised(); }
++    uint16_t GetFirmwareVersion(void);
++    uint32_t GetFirmwareBuildDate(void) { return 0; }
++    bool IsRunningLatestFirmware(void) { return true; }
++    bool PersistConfiguration(const libcec_configuration & UNUSED(configuration)) { return false; }
++    bool GetConfiguration(libcec_configuration & UNUSED(configuration)) { return false; }
++    std::string GetPortName(void) { return std::string("IMX"); }
++    uint16_t GetPhysicalAddress(void);
++    bool SetControlledMode(bool UNUSED(controlled)) { return true; }
++    cec_vendor_id GetVendorId(void);
 +    void HandleLogicalAddressLost(cec_logical_address UNUSED(oldAddress));
-     bool SupportsSourceLogicalAddress(const cec_logical_address address) { return address > CECDEVICE_TV && address <= CECDEVICE_BROADCAST; }
-     cec_adapter_type GetAdapterType(void) { return ADAPTERTYPE_IMX; }
-     uint16_t GetAdapterVendorId(void) const { return IMX_ADAPTER_VID; }
-@@ -94,19 +101,24 @@ namespace CEC
-     ///}
- 
-   private:
--    bool IsInitialised(void) const { return m_dev != 0; };
++    bool SupportsSourceLogicalAddress(const cec_logical_address address) { return address > CECDEVICE_TV && address <= CECDEVICE_BROADCAST; }
++    cec_adapter_type GetAdapterType(void) { return ADAPTERTYPE_IMX; }
++    uint16_t GetAdapterVendorId(void) const { return IMX_ADAPTER_VID; }
++    uint16_t GetAdapterProductId(void) const { return IMX_ADAPTER_PID; }
++    void SetActiveSource(bool UNUSED(bSetTo), bool UNUSED(bClientUnregistered)) {}
++    ///}
++
++    /** @name PLATFORM::CThread implementation */
++    ///{
++    void *Process(void);
++    ///}
++
++  private:
 +    bool IsInitialised(void) { return m_bInitialised; };
 +    bool RegisterLogicalAddress(const cec_logical_address address);
 +    bool UnregisterLogicalAddress(void);
- 
-     std::string                 m_strError; /**< current error message */
- 
--    //cec_logical_addresses       m_logicalAddresses;
-     cec_logical_address         m_logicalAddress;
++
++    std::string                 m_strError; /**< current error message */
++
++    cec_logical_address         m_logicalAddress;
 +    uint16_t                    m_physicalAddress;
- 
-     PLATFORM::CMutex            m_mutex;
-     PLATFORM::CCDevSocket       *m_dev;	/**< the device connection */
-     
-     PLATFORM::CMutex            m_messageMutex;
-     uint32_t                    m_iNextMessage;
--    std::map<uint32_t, CAdapterMessageQueueEntry *> m_messages;
++
++    PLATFORM::CMutex            m_mutex;
++    PLATFORM::CCDevSocket       *m_dev;	/**< the device connection */
++    
++    PLATFORM::CMutex            m_messageMutex;
++    uint32_t                    m_iNextMessage;
 +    std::map<uint32_t, CIMXCECAdapterMessageQueueEntry *> m_messages;
 +
 +    bool                        m_bLogicalAddressRegistered;
 +    bool                        m_bInitialised;
-   };
-   
- };
-diff --git a/src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h b/src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h
-new file mode 100644
-index 0000000..340b702
---- /dev/null
-+++ b/src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h
++  };
++  
++};
++
++#endif
+diff -Naur libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp
+--- libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp	1970-01-01 01:00:00.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp	2014-10-27 13:11:03.733446659 +0100
+@@ -0,0 +1,42 @@
++/*
++ * This file is part of the libCEC(R) library.
++ *
++ * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
++ * libCEC(R) is an original work, containing original code.
++ *
++ * libCEC(R) is a trademark of Pulse-Eight Limited.
++ * 
++ * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
++ * 
++ * You can redistribute this file and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ *
++ */
++
++#include "env.h"
++#include <stdio.h>
++
++#if defined(HAVE_IMX_API)
++#include "IMXCECAdapterDetection.h"
++
++
++using namespace CEC;
++
++bool CIMXCECAdapterDetection::FindAdapter(void)
++{
++  return access(CEC_IMX_PATH, 0) == 0;
++}
++
++#endif
+diff -Naur libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterDetection.h libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.h
+--- libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterDetection.h	1970-01-01 01:00:00.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.h	2014-10-27 13:11:03.734446742 +0100
+@@ -0,0 +1,36 @@
++#pragma once
++/*
++ * This file is part of the libCEC(R) library.
++ *
++ * libCEC(R) is Copyright (C) 2011-2013 Pulse-Eight Limited.  All rights reserved.
++ * libCEC(R) is an original work, containing original code.
++ *
++ * libCEC(R) is a trademark of Pulse-Eight Limited.
++ * 
++ * IMX adpater port is Copyright (C) 2013 by Stephan Rafin
++ * 
++ * You can redistribute this file and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ *
++ */
++
++namespace CEC
++{
++  class CIMXCECAdapterDetection
++  {
++  public:
++    static bool FindAdapter(void);
++  };
++}
+diff -Naur libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h
+--- libcec-2.2-8d84f8b/src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h	1970-01-01 01:00:00.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/IMXCECAdapterMessageQueue.h	2014-10-27 13:11:03.736446898 +0100
 @@ -0,0 +1,118 @@
 +#pragma once
 +/*
@@ -1547,11 +827,9 @@ index 0000000..340b702
 +  };
 + 
 +};
-diff --git a/src/lib/adapter/IMX/mxc_hdmi-cec.h b/src/lib/adapter/IMX/mxc_hdmi-cec.h
-new file mode 100644
-index 0000000..bc5bbce
---- /dev/null
-+++ b/src/lib/adapter/IMX/mxc_hdmi-cec.h
+diff -Naur libcec-2.2-8d84f8b/src/lib/adapter/IMX/mxc_hdmi-cec.h libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/mxc_hdmi-cec.h
+--- libcec-2.2-8d84f8b/src/lib/adapter/IMX/mxc_hdmi-cec.h	1970-01-01 01:00:00.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/adapter/IMX/mxc_hdmi-cec.h	2014-10-27 13:11:03.736446898 +0100
 @@ -0,0 +1,47 @@
 +/*
 + * Copyright 2005-2013 Freescale Semiconductor, Inc. All Rights Reserved.
@@ -1600,3 +878,29 @@ index 0000000..bc5bbce
 +
 +#endif				/* !_HDMICEC_H_ */
 +
+diff -Naur libcec-2.2-8d84f8b/src/lib/CECTypeUtils.h libcec-2.2-8d84f8b.patch/src/lib/CECTypeUtils.h
+--- libcec-2.2-8d84f8b/src/lib/CECTypeUtils.h	2014-10-27 12:55:30.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/CECTypeUtils.h	2014-10-27 13:11:03.729446299 +0100
+@@ -877,6 +877,8 @@
+         return "Raspberry Pi";
+       case ADAPTERTYPE_TDA995x:
+         return "TDA995x";
++      case ADAPTERTYPE_IMX:
++        return "i.MX";
+       default:
+         return "unknown";
+       }
+diff -Naur libcec-2.2-8d84f8b/src/lib/Makefile.am libcec-2.2-8d84f8b.patch/src/lib/Makefile.am
+--- libcec-2.2-8d84f8b/src/lib/Makefile.am	2014-10-27 12:55:30.000000000 +0100
++++ libcec-2.2-8d84f8b.patch/src/lib/Makefile.am	2014-10-27 13:14:08.229600205 +0100
+@@ -69,4 +69,10 @@
+                      adapter/Exynos/ExynosCECAdapterCommunication.cpp
+ endif
+ 
++## i.MX6 support
++if USE_IMX_API
++libcec_la_SOURCES += adapter/IMX/IMXCECAdapterDetection.cpp \
++                     adapter/IMX/IMXCECAdapterCommunication.cpp
++endif
++
+ libcec_la_LDFLAGS = @LIBS_LIBCEC@ -version-info @VERSION@
