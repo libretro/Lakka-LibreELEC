@@ -136,7 +136,7 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
-  EXCLUDE_DIRS="bsddb curses idlelib lib-tk lib2to3 msilib pydoc_data test unittest"
+  EXCLUDE_DIRS="bsddb curses idlelib lib-tk lib2to3 msilib pydoc_data test unittest distutils"
   for dir in $EXCLUDE_DIRS; do
     rm -rf $INSTALL/usr/lib/python*/$dir
   done
