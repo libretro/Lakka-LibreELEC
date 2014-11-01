@@ -1,0 +1,123 @@
+diff -urN a/source3/include/proto.h b/source3/include/proto.h
+--- a/source3/include/proto.h	2014-06-23 08:03:27.000000000 +0200
++++ b/source3/include/proto.h	2014-11-01 13:02:42.918300338 +0100
+@@ -947,7 +947,7 @@
+ 		size_t maxlength);
+ char *StrnCpy_fn(const char *fn, int line,char *dest,const char *src,size_t n);
+ bool in_list(const char *s, const char *list, bool casesensitive);
+-void string_free(char **s);
++void smb_string_free(char **s);
+ bool string_set(char **dest,const char *src);
+ void string_sub2(char *s,const char *pattern, const char *insert, size_t len,
+ 		 bool remove_unsafe_characters, bool replace_once,
+diff -urN a/source3/lib/util_str.c b/source3/lib/util_str.c
+--- a/source3/lib/util_str.c	2014-06-23 08:03:27.000000000 +0200
++++ b/source3/lib/util_str.c	2014-11-01 13:03:11.113658974 +0100
+@@ -764,7 +764,7 @@
+  Free a string value.
+ **/
+ 
+-void string_free(char **s)
++void smb_string_free(char **s)
+ {
+ 	if (!s || !(*s))
+ 		return;
+@@ -780,7 +780,7 @@
+ 
+ bool string_set(char **dest,const char *src)
+ {
+-	string_free(dest);
++	smb_string_free(dest);
+ 	return(string_init(dest,src));
+ }
+ 
+diff -urN a/source3/param/loadparm.c b/source3/param/loadparm.c
+--- a/source3/param/loadparm.c	2014-06-23 08:03:27.000000000 +0200
++++ b/source3/param/loadparm.c	2014-11-01 13:03:03.872057887 +0100
+@@ -4998,7 +4998,7 @@
+ 	if ((parm.type == P_STRING) ||
+ 	    (parm.type == P_USTRING))
+ 	{
+-		string_free((char**)parm_ptr);
++		smb_string_free((char**)parm_ptr);
+ 	} else if (parm.type == P_LIST) {
+ 		TALLOC_FREE(*((char***)parm_ptr));
+ 	}
+@@ -5160,7 +5160,7 @@
+ 	if (!done_init) {
+ 		/* The logfile can be set before this is invoked. Free it if so. */
+ 		if (Globals.szLogFile != NULL) {
+-			string_free(&Globals.szLogFile);
++			smb_string_free(&Globals.szLogFile);
+ 			Globals.szLogFile = NULL;
+ 		}
+ 		done_init = True;
+@@ -6108,7 +6108,7 @@
+ 
+ 	while (data) {
+ 		if (strwicmp(data->key, param_key) == 0) {
+-			string_free(&param_key);
++			smb_string_free(&param_key);
+ 			return data;
+ 		}
+ 		data = data->next;
+@@ -6120,14 +6120,14 @@
+ 		data = Globals.param_opt;
+ 		while (data) {
+ 		        if (strwicmp(data->key, param_key) == 0) {
+-			        string_free(&param_key);
++			        smb_string_free(&param_key);
+ 				return data;
+ 			}
+ 			data = data->next;
+ 		}
+ 	}
+ 
+-	string_free(&param_key);
++	smb_string_free(&param_key);
+ 
+ 	return NULL;
+ }
+@@ -6350,8 +6350,8 @@
+ 	}
+ 	opt = *popts;
+ 	while (opt != NULL) {
+-		string_free(&opt->key);
+-		string_free(&opt->value);
++		smb_string_free(&opt->key);
++		smb_string_free(&opt->value);
+ 		TALLOC_FREE(opt->list);
+ 		next_opt = opt->next;
+ 		SAFE_FREE(opt);
+@@ -6375,7 +6375,7 @@
+ 
+ 	free_parameters(pservice);
+ 
+-	string_free(&pservice->szService);
++	smb_string_free(&pservice->szService);
+ 	TALLOC_FREE(pservice->copymap);
+ 
+ 	free_param_opts(&pservice->param_opt);
+@@ -7085,7 +7085,7 @@
+ 				   overridden */
+ 				return;
+ 			}
+-			string_free(&opt->value);
++			smb_string_free(&opt->value);
+ 			TALLOC_FREE(opt->list);
+ 			opt->value = SMB_STRDUP(opt_value);
+ 			opt->flags = flags;
+diff -urN a/source3/smbd/conn.c b/source3/smbd/conn.c
+--- a/source3/smbd/conn.c	2014-06-23 08:03:27.000000000 +0200
++++ b/source3/smbd/conn.c	2014-11-01 13:02:49.008926676 +0100
+@@ -412,8 +412,8 @@
+ 	free_namearray(conn->veto_oplock_list);
+ 	free_namearray(conn->aio_write_behind_list);
+ 
+-	string_free(&conn->connectpath);
+-	string_free(&conn->origpath);
++	smb_string_free(&conn->connectpath);
++	smb_string_free(&conn->origpath);
+ 
+ 	ZERO_STRUCTP(conn);
+ 	talloc_destroy(conn);
