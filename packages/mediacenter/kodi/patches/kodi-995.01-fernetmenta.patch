@@ -1,7 +1,7 @@
-From 809ea3eb89ef0a91faf26efd4bc82aed0b461226 Mon Sep 17 00:00:00 2001
+From 48428057ad993372a2ab509c5b24fd82976130db Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:34:39 +0200
-Subject: [PATCH 01/25] videoplayer: adapt lateness detection and dropping to
+Subject: [PATCH 01/23] videoplayer: adapt lateness detection and dropping to
  buffering
 
 ---
@@ -289,7 +289,7 @@ index 1f564bb..48564d1 100644
 +  int    m_codecControlFlags;
  };
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index e039c2b..cbec313 100644
+index 5a758ab..e0bb4d0 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -38,6 +38,7 @@
@@ -308,7 +308,7 @@ index e039c2b..cbec313 100644
    m_iDroppedFrames = 0;
    m_fFrameRate = 25;
    m_bCalcFrameRate = false;
-@@ -299,7 +299,6 @@ void CDVDPlayerVideo::OnStartup()
+@@ -296,7 +296,6 @@ void CDVDPlayerVideo::OnStartup()
    m_crop.x1 = m_crop.x2 = 0.0f;
    m_crop.y1 = m_crop.y2 = 0.0f;
  
@@ -316,7 +316,7 @@ index e039c2b..cbec313 100644
    m_FlipTimeStamp = m_pClock->GetAbsoluteClock();
    m_FlipTimePts   = 0.0;
  }
-@@ -321,8 +320,10 @@ void CDVDPlayerVideo::Process()
+@@ -318,8 +317,10 @@ void CDVDPlayerVideo::Process()
  
    int iDropped = 0; //frames dropped in a row
    bool bRequestDrop = false;
@@ -327,7 +327,7 @@ index e039c2b..cbec313 100644
  
    while (!m_bStop)
    {
-@@ -434,6 +435,7 @@ void CDVDPlayerVideo::Process()
+@@ -431,6 +432,7 @@ void CDVDPlayerVideo::Process()
        picture.iFlags &= ~DVP_FLAG_ALLOCATED;
        m_packets.clear();
        m_started = false;
@@ -335,7 +335,7 @@ index e039c2b..cbec313 100644
      }
      else if (pMsg->IsType(CDVDMsg::GENERAL_FLUSH)) // private message sent by (CDVDPlayerVideo::Flush())
      {
-@@ -446,6 +448,7 @@ void CDVDPlayerVideo::Process()
+@@ -443,6 +445,7 @@ void CDVDPlayerVideo::Process()
        //we need to recalculate the framerate
        //TODO: this needs to be set on a streamchange instead
        ResetFrameRateCalc();
@@ -343,7 +343,7 @@ index e039c2b..cbec313 100644
  
        m_stalled = true;
        m_started = false;
-@@ -465,6 +468,7 @@ void CDVDPlayerVideo::Process()
+@@ -462,6 +465,7 @@ void CDVDPlayerVideo::Process()
          m_iNrOfPicturesNotToSkip = 0;
        if (m_pVideoCodec)
          m_pVideoCodec->SetSpeed(m_speed);
@@ -351,7 +351,7 @@ index e039c2b..cbec313 100644
      }
      else if (pMsg->IsType(CDVDMsg::PLAYER_STARTED))
      {
-@@ -510,6 +514,28 @@ void CDVDPlayerVideo::Process()
+@@ -507,6 +511,28 @@ void CDVDPlayerVideo::Process()
          m_iNrOfPicturesNotToSkip = 1;
        }
  
@@ -380,7 +380,7 @@ index e039c2b..cbec313 100644
        if (m_messageQueue.GetDataSize() == 0
        ||  m_speed < 0)
        {
-@@ -562,15 +588,7 @@ void CDVDPlayerVideo::Process()
+@@ -559,15 +585,7 @@ void CDVDPlayerVideo::Process()
        }
  
        m_videoStats.AddSampleBytes(pPacket->iSize);
@@ -397,7 +397,7 @@ index e039c2b..cbec313 100644
        // reset the request, the following while loop may break before
        // setting the flag to a new value
        bRequestDrop = false;
-@@ -1173,45 +1191,17 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+@@ -1170,45 +1188,17 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
                      , "CDVDPlayerVideo::OutputPicture");
    }
  
@@ -447,7 +447,7 @@ index e039c2b..cbec313 100644
  
    // set fieldsync if picture is interlaced
    EFIELDSYNC mDisplayField = FS_NONE;
-@@ -1244,7 +1234,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+@@ -1241,7 +1231,7 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
    if (index < 0)
      return EOS_DROPPED;
  
@@ -456,7 +456,7 @@ index e039c2b..cbec313 100644
  
    return result;
  #else
-@@ -1546,3 +1536,124 @@ void CDVDPlayerVideo::CalcFrameRate()
+@@ -1543,3 +1533,124 @@ void CDVDPlayerVideo::CalcFrameRate()
      m_iFrameRateCount = 0;
    }
  }
@@ -643,10 +643,10 @@ index dcd0ffd..1f0e661 100644
  };
  
 
-From b99be4f964628418dd297848f1736400d8b250d5 Mon Sep 17 00:00:00 2001
+From d3979dfb41485a01d35de62105b2b9544f19f113 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Sun, 2 Sep 2012 16:05:21 +0200
-Subject: [PATCH 02/25] video player: present correct pts to user for a/v sync
+Subject: [PATCH 02/23] video player: present correct pts to user for a/v sync
  (after buffering in renderer)
 
 ---
@@ -655,10 +655,10 @@ Subject: [PATCH 02/25] video player: present correct pts to user for a/v sync
  2 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index cbec313..374f4bd 100644
+index e0bb4d0..43382b5 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1454,6 +1454,22 @@ void CDVDPlayerVideo::ResetFrameRateCalc()
+@@ -1451,6 +1451,22 @@ void CDVDPlayerVideo::ResetFrameRateCalc()
                          g_advancedSettings.m_videoFpsDetect == 0;
  }
  
@@ -695,10 +695,10 @@ index 1f0e661..a38a9c3 100644
    double GetOutputDelay(); /* returns the expected delay, from that a packet is put in queue */
    int GetDecoderFreeSpace() { return 0; }
 
-From 9593b30af54cb1373fc06e3715a98774de8c147f Mon Sep 17 00:00:00 2001
+From e766dcceb4930978a72f0119198c4bc872e988c9 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:41:31 +0200
-Subject: [PATCH 03/25] videoplayer: update frametime, it might change due to
+Subject: [PATCH 03/23] videoplayer: update frametime, it might change due to
  fps detection
 
 ---
@@ -706,10 +706,10 @@ Subject: [PATCH 03/25] videoplayer: update frametime, it might change due to
  1 file changed, 2 insertions(+)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 374f4bd..4a255c6 100644
+index 43382b5..ec0c0eb 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -708,6 +708,8 @@ void CDVDPlayerVideo::Process()
+@@ -705,6 +705,8 @@ void CDVDPlayerVideo::Process()
  
              int iResult = OutputPicture(&picture, pts);
  
@@ -719,10 +719,10 @@ index 374f4bd..4a255c6 100644
              {
                m_codecname = m_pVideoCodec->GetName();
 
-From 47c2aa4204d69e323bb868b0bef1ec4bf388dc6f Mon Sep 17 00:00:00 2001
+From 37e14f9e3bf28721741d43f7e31a46cf2d9ab0bc Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:43:06 +0200
-Subject: [PATCH 04/25] videoplayer: give streams with invalid fps a chance for
+Subject: [PATCH 04/23] videoplayer: give streams with invalid fps a chance for
  fps detection
 
 ---
@@ -730,10 +730,10 @@ Subject: [PATCH 04/25] videoplayer: give streams with invalid fps a chance for
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 4a255c6..391d802 100644
+index ec0c0eb..b2ee525 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1498,7 +1498,7 @@ void CDVDPlayerVideo::CalcFrameRate()
+@@ -1495,7 +1495,7 @@ void CDVDPlayerVideo::CalcFrameRate()
      frameduration = m_pullupCorrection.GetMinFrameDuration();
  
    if ((frameduration==DVD_NOPTS_VALUE) ||
@@ -743,10 +743,10 @@ index 4a255c6..391d802 100644
      //reset the stored framerates if no good framerate was detected
      m_fStableFrameRate = 0.0;
 
-From d2526968c1bd8dedd3260e3438a37a571a2dc546 Mon Sep 17 00:00:00 2001
+From aa89c7ec1c7108cfec60b2804f3297fa5043a480 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 05/25] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 05/23] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -780,10 +780,10 @@ index 63cbe66..f5f697e 100644
          // audioplayer, stops outputing audio to audiorendere, but still tries to
          // sleep an correct amount for each packet
 
-From 3e5828029247ca604cf9410c3bccbb62dca0eb98 Mon Sep 17 00:00:00 2001
+From 782c60b53a253d348b68ac74e3596820e673f431 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 06/25] dvdplayer: observe pts counter overflow
+Subject: [PATCH 06/23] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 197 ++++++++++++++++++++-
@@ -1062,10 +1062,10 @@ index 48f0a69..bdc84b2 100644
  };
  
 
-From ff139f2838539f5914b7c588d711c93585d4dab2 Mon Sep 17 00:00:00 2001
+From f2d82a63baea6ab7324eeca1a3161318db7abbf4 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 07/25] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 07/23] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -1073,10 +1073,10 @@ Subject: [PATCH 07/25] dvdplayer: avoid short screen flicker caused by
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 391d802..0fe775f 100644
+index b2ee525..aef2635 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1055,13 +1055,16 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
+@@ -1052,13 +1052,16 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
  
  #ifdef HAS_VIDEO_PLAYBACK
    double config_framerate = m_bFpsInvalid ? 0.0 : m_fFrameRate;
@@ -1095,10 +1095,10 @@ index 391d802..0fe775f 100644
     || ( m_output.extended_format != pPicture->extended_format )
     || ( m_output.color_matrix    != pPicture->color_matrix    && pPicture->color_matrix    != 0 ) // don't reconfigure on unspecified
 
-From a7acb2ac4c76d74a7f05545b52a46a37a98c396a Mon Sep 17 00:00:00 2001
+From 28a8600a537cdb87495baf7f7b98dbdd97e57d97 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 08/25] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 08/23] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -1126,7 +1126,7 @@ index e5e7970..8c353af 100644
      if (deint != -1)
      {
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index 3aff9f6..c92f1ce 100644
+index 7d04872..89069a9 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
 @@ -157,6 +157,8 @@ void CAdvancedSettings::Initialize()
@@ -1138,7 +1138,7 @@ index 3aff9f6..c92f1ce 100644
    m_videoVDPAUtelecine = false;
    m_videoVDPAUdeintSkipChromaHD = false;
    m_DXVACheckCompatibility = false;
-@@ -590,6 +592,8 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+@@ -588,6 +590,8 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
      XMLUtils::GetFloat(pElement,"autoscalemaxfps",m_videoAutoScaleMaxFps, 0.0f, 1000.0f);
      XMLUtils::GetBoolean(pElement, "disablebackgrounddeinterlace", m_videoDisableBackgroundDeinterlace);
      XMLUtils::GetInt(pElement, "useocclusionquery", m_videoCaptureUseOcclusionQuery, -1, 1);
@@ -1148,7 +1148,7 @@ index 3aff9f6..c92f1ce 100644
      XMLUtils::GetBoolean(pElement,"vdpauHDdeintSkipChroma",m_videoVDPAUdeintSkipChromaHD);
  
 diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
-index 1d9021e..1a5a28c 100644
+index 7df586e..eccd25c 100644
 --- a/xbmc/settings/AdvancedSettings.h
 +++ b/xbmc/settings/AdvancedSettings.h
 @@ -162,6 +162,8 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
@@ -1161,10 +1161,10 @@ index 1d9021e..1a5a28c 100644
      bool m_videoVDPAUdeintSkipChromaHD;
      bool m_musicUseTimeSeeking;
 
-From e078b3892b2b1cb43130b67d0296b5e220cba4b9 Mon Sep 17 00:00:00 2001
+From 3b3bdcac20a65cea8bed5de0a90cae5d8c13edf5 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 09/25] player: fix rewind
+Subject: [PATCH 09/23] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 ++++-
@@ -1342,10 +1342,10 @@ index dac00e9..9bcfc02 100644
  
    int m_errorCount;
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 0fe775f..6250d55 100644
+index aef2635..bd97d62 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1469,7 +1469,7 @@ double CDVDPlayerVideo::GetCurrentPts()
+@@ -1466,7 +1466,7 @@ double CDVDPlayerVideo::GetCurrentPts()
  
    if( m_stalled )
      iRenderPts = DVD_NOPTS_VALUE;
@@ -1354,7 +1354,7 @@ index 0fe775f..6250d55 100644
      iRenderPts = iRenderPts - max(0.0, iSleepTime);
  
    return iRenderPts;
-@@ -1570,6 +1570,8 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
+@@ -1567,6 +1567,8 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
    int    iDroppedPics = -1;
    int    iBufferLevel;
  
@@ -1376,20 +1376,20 @@ index a38a9c3..4e1b3d6 100644
    unsigned int m_dropRequests;
  };
 
-From e4d7a97d16dbe8f24aece5dd4056f5d8d88f9838 Mon Sep 17 00:00:00 2001
+From 3a6811a6f1672382882081e4a73961d69620ee71 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 10/25] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 10/23] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index bb4342e..55c4cf4 100644
+index d5604dc..1d7990d 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2319,10 +2319,11 @@ void CApplication::Render()
+@@ -2326,10 +2326,11 @@ void CApplication::Render()
      if (frameTime < singleFrameTime)
        Sleep(singleFrameTime - frameTime);
    }
@@ -1403,10 +1403,10 @@ index bb4342e..55c4cf4 100644
  
    g_renderManager.UpdateResolution();
 
-From b37fc41f7df0e17fa5bc942315bf443e90c1c232 Mon Sep 17 00:00:00 2001
+From e3368368565f4266876bba560bfedaa5dcb978cd Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 11/25] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 11/23] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
@@ -1428,10 +1428,10 @@ index 0e4d8da..99538dc 100644
  
  void CEngineStats::Reset(unsigned int sampleRate)
 
-From 3286b3504f1eab59279098b847bd16caf2a9c9e2 Mon Sep 17 00:00:00 2001
+From 52caa1299bb91e7807d24c28cdeb26b53186ca90 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 12/25] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 12/23] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -1484,10 +1484,10 @@ index 8c353af..33ec1f4 100644
          m_mixersteps = 1;
        }
 
-From 7f91eefdde73877dcb49f1e651f55338050ed1ce Mon Sep 17 00:00:00 2001
+From 562200d01eaaf57f307a228b06360a5a3aa969fc Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 28 Jan 2014 10:05:26 +0100
-Subject: [PATCH 13/25] xbmc pr 3080
+Subject: [PATCH 13/23] xbmc pr 3080
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp | 8 ++++++++
@@ -1513,10 +1513,10 @@ index 2d955c2..245ef50 100644
     * Setting it correctly would allow CorePNG decoding. */
    avpkt.flags = AV_PKT_FLAG_KEY;
 
-From 58a59f432309d49f421699b5f2ed1e7b66a5d478 Mon Sep 17 00:00:00 2001
+From aad64950df2c09264bff2b96de02be539b3c4be0 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Feb 2014 18:15:06 +0100
-Subject: [PATCH 14/25] ActiveAE: add some debug logging
+Subject: [PATCH 14/23] ActiveAE: add some debug logging
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp | 6 ++++++
@@ -1541,10 +1541,10 @@ index 96bce12..7bd9c9b 100644
    return copied;
  }
 
-From 3a7699cc6b002a53738498e6a663616dac3c7bef Mon Sep 17 00:00:00 2001
+From ec7b7635467812012195d432588068198e5afca9 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 23 Aug 2014 11:42:31 +0200
-Subject: [PATCH 15/25] dvdplayer: rename codec ctrl flags
+Subject: [PATCH 15/23] dvdplayer: rename codec ctrl flags
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodec.h       | 14 ++++++++------
@@ -1640,10 +1640,10 @@ index 33ec1f4..300b901 100644
          m_mixersteps = 1;
        }
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 6250d55..c216ce5 100644
+index bd97d62..d30a0ad 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -526,9 +526,9 @@ void CDVDPlayerVideo::Process()
+@@ -523,9 +523,9 @@ void CDVDPlayerVideo::Process()
        }
        int codecControl = 0;
        if (iDropDirective & EOS_BUFFER_LEVEL)
@@ -1656,10 +1656,10 @@ index 6250d55..c216ce5 100644
        if (iDropDirective & EOS_DROPPED)
        {
 
-From 8cdde771fa0ff751fa77e8abbb023c3671f4b96a Mon Sep 17 00:00:00 2001
+From a10235c233e6033b0aa684fe4089871a703b5746 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 13 Jun 2014 14:37:16 +0200
-Subject: [PATCH 16/25] VAAPI: implement codec control flags
+Subject: [PATCH 16/23] VAAPI: implement codec control flags
 
 ---
  .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp         | 21 ++++++++++++++++++---
@@ -1763,20 +1763,20 @@ index 87e66fe..732e92b 100644
    VAProcFilterParameterBufferDeinterlacing *filterParams;
    VABufferID pipelineBuf;
 
-From 41d3e4368c6e22071560a32f63e48014dd02a957 Mon Sep 17 00:00:00 2001
+From ebcd73d2e432a07f5b6a9730fb947ce3c09c3846 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 4 Sep 2014 09:25:48 +0200
-Subject: [PATCH 17/25] consider rounding errors in dropping control
+Subject: [PATCH 17/23] consider rounding errors in dropping control
 
 ---
  xbmc/cores/dvdplayer/DVDPlayerVideo.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index c216ce5..7235cb4 100644
+index d30a0ad..c2d4b31 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -1609,7 +1609,7 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
+@@ -1606,7 +1606,7 @@ int CDVDPlayerVideo::CalcDropRequirement(double pts)
        m_droppingStats.m_dropRequests = 0;
        CLog::Log(LOGDEBUG,"CDVDPlayerVideo::CalcDropRequirement - dropped pictures, Sleeptime: %f, Bufferlevel: %d, Gain: %f", iSleepTime, iBufferLevel, iGain);
      }
@@ -1787,10 +1787,10 @@ index c216ce5..7235cb4 100644
        gain.gain = iGain;
 
 
-From 79c91b12014813c368c23fa9e81b8ae884298a97 Mon Sep 17 00:00:00 2001
+From c71b09b5a21b5ff95527e33ba4ad921ff64a64f3 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 4 Oct 2014 21:25:31 +0200
-Subject: [PATCH 19/25] vaapi: lock gfx context on pre-cleanup
+Subject: [PATCH 19/23] vaapi: lock gfx context on pre-cleanup
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 1 +
@@ -1809,171 +1809,10 @@ index 732e92b..849e26a 100644
      if (m_vaapiOutput.m_controlPort.SendOutMessageSync(COutputControlProtocol::PRECLEANUP,
                                                     &reply,
 
-From c1352bbe96d55904d5e309861e9cf3a2f4d48ead Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Wed, 15 Oct 2014 13:21:07 +0200
-Subject: [PATCH 20/25] X11: expose crtc needed by drm video sync
-
----
- xbmc-xrandr.c                       |  4 ++--
- xbmc/windowing/X11/WinSystemX11.cpp | 23 ++++++++++++++++++++---
- xbmc/windowing/X11/WinSystemX11.h   |  3 +++
- xbmc/windowing/X11/XRandR.cpp       | 19 +++++++++++++++++++
- xbmc/windowing/X11/XRandR.h         |  2 ++
- 5 files changed, 46 insertions(+), 5 deletions(-)
-
-diff --git a/xbmc-xrandr.c b/xbmc-xrandr.c
-index 3c686e2..7d164d0 100644
---- a/xbmc-xrandr.c
-+++ b/xbmc-xrandr.c
-@@ -3005,9 +3005,9 @@ main (int argc, char **argv)
- 	    if (mode)
- 	    {
- 		if (crtc_info) {
--		    printf (" w=\"%d\" h=\"%d\" x=\"%d\" y=\"%d\"",
-+		    printf (" w=\"%d\" h=\"%d\" x=\"%d\" y=\"%d\" crtc=\"%d\"",
- 			    crtc_info->width, crtc_info->height,
--			    crtc_info->x, crtc_info->y);
-+			    crtc_info->x, crtc_info->y, crtc->crtc.index);
- 		} else {
- 		    printf (" w=\"%d\" h=\"%d\" x=\"%d\" y=\"%d\"",
- 			    mode->width, mode->height, output->x, output->y);
-diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
-index e5fa05a..83ad7df 100644
---- a/xbmc/windowing/X11/WinSystemX11.cpp
-+++ b/xbmc/windowing/X11/WinSystemX11.cpp
-@@ -217,10 +217,13 @@ bool CWinSystemX11::ResizeWindow(int newWidth, int newHeight, int newLeft, int n
-     }
-   }
- 
--  if(m_nWidth  == newWidth
--  && m_nHeight == newHeight
--  && m_userOutput.compare(m_currentOutput) == 0)
-+  if(m_nWidth  == newWidth &&
-+     m_nHeight == newHeight &&
-+     m_userOutput.compare(m_currentOutput) == 0)
-+  {
-+    UpdateCrtc();
-     return true;
-+  }
- 
-   if (!SetWindow(newWidth, newHeight, false, m_userOutput))
-   {
-@@ -1232,6 +1235,8 @@ bool CWinSystemX11::SetWindow(int width, int height, bool fullscreen, const std:
- #endif
-   }
- 
-+  UpdateCrtc();
-+
-   return true;
- }
- 
-@@ -1423,4 +1428,16 @@ bool CWinSystemX11::HasWindowManager()
-   return true;
- }
- 
-+void CWinSystemX11::UpdateCrtc()
-+{
-+  XWindowAttributes winattr;
-+  int posx, posy;
-+  Window child;
-+  XGetWindowAttributes(m_dpy, m_mainWindow, &winattr);
-+  XTranslateCoordinates(m_dpy, m_mainWindow, RootWindow(m_dpy, m_nScreen), winattr.x, winattr.y,
-+                        &posx, &posy, &child);
-+
-+  m_crtc = g_xrandr.GetCrtc(posx+winattr.width/2, posy+winattr.height/2);
-+}
-+
- #endif
-diff --git a/xbmc/windowing/X11/WinSystemX11.h b/xbmc/windowing/X11/WinSystemX11.h
-index 35ae99f..d156554 100644
---- a/xbmc/windowing/X11/WinSystemX11.h
-+++ b/xbmc/windowing/X11/WinSystemX11.h
-@@ -87,6 +87,7 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
-   void GetConnectedOutputs(std::vector<CStdString> *outputs);
-   bool IsCurrentOutput(CStdString output);
-   void RecreateWindow();
-+  int GetCrtc() { return m_crtc; }
- 
- protected:
-   bool RefreshGlxContext(bool force);
-@@ -118,12 +119,14 @@ class CWinSystemX11 : public CWinSystemBase, public ISettingCallback
-   bool                         m_bIsInternalXrr;
-   bool                         m_newGlContext;
-   int m_MouseX, m_MouseY;
-+  int m_crtc;
- 
- private:
-   bool IsSuitableVisual(XVisualInfo *vInfo);
-   static int XErrorHandler(Display* dpy, XErrorEvent* error);
-   bool CreateIconPixmap();
-   bool HasWindowManager();
-+  void UpdateCrtc();
- 
-   CStopWatch m_screensaverReset;
- };
-diff --git a/xbmc/windowing/X11/XRandR.cpp b/xbmc/windowing/X11/XRandR.cpp
-index 3102f3d..d9d7a8f 100644
---- a/xbmc/windowing/X11/XRandR.cpp
-+++ b/xbmc/windowing/X11/XRandR.cpp
-@@ -117,6 +117,7 @@ bool CXRandR::Query(bool force, int screennum, bool ignoreoff)
-     xoutput.h = (output->Attribute("h") != NULL ? atoi(output->Attribute("h")) : 0);
-     xoutput.x = (output->Attribute("x") != NULL ? atoi(output->Attribute("x")) : 0);
-     xoutput.y = (output->Attribute("y") != NULL ? atoi(output->Attribute("y")) : 0);
-+    xoutput.crtc = (output->Attribute("crtc") != NULL ? atoi(output->Attribute("crtc")) : 0);
-     xoutput.wmm = (output->Attribute("wmm") != NULL ? atoi(output->Attribute("wmm")) : 0);
-     xoutput.hmm = (output->Attribute("hmm") != NULL ? atoi(output->Attribute("hmm")) : 0);
-     if (output->Attribute("rotation") != NULL
-@@ -477,6 +478,24 @@ XOutput* CXRandR::GetOutput(CStdString outputName)
-   return result;
- }
- 
-+int CXRandR::GetCrtc(int x, int y)
-+{
-+  int crtc = 0;
-+  for (unsigned int i = 0; i < m_outputs.size(); ++i)
-+  {
-+    if (!m_outputs[i].isConnected)
-+      continue;
-+
-+    if ((m_outputs[i].x <= x && (m_outputs[i].x+m_outputs[i].w) > x) &&
-+        (m_outputs[i].y <= y && (m_outputs[i].y+m_outputs[i].h) > y))
-+    {
-+      crtc = m_outputs[i].crtc;
-+      break;
-+    }
-+  }
-+  return crtc;
-+}
-+
- CXRandR g_xrandr;
- 
- #endif // HAS_XRANDR
-diff --git a/xbmc/windowing/X11/XRandR.h b/xbmc/windowing/X11/XRandR.h
-index ab7cc63..4538bad 100644
---- a/xbmc/windowing/X11/XRandR.h
-+++ b/xbmc/windowing/X11/XRandR.h
-@@ -84,6 +84,7 @@ class XOutput
-   int h;
-   int x;
-   int y;
-+  int crtc;
-   int wmm;
-   int hmm;
-   std::vector<XMode> modes;
-@@ -107,6 +108,7 @@ class CXRandR
-   bool IsOutputConnected(CStdString name);
-   bool TurnOffOutput(CStdString name);
-   bool TurnOnOutput(CStdString name);
-+  int GetCrtc(int x, int y);
-   //bool Has1080i();
-   //bool Has1080p();
-   //bool Has720p();
-
-From b44f111e7ea6831b3da31776756f43d2cd922446 Mon Sep 17 00:00:00 2001
+From 7aea148f78db91c4a2e75c280972e98735791a28 Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Sun, 19 Oct 2014 21:34:47 +0300
-Subject: [PATCH 21/25] [linux] Add FDEventMonitor for monitoring file
+Subject: [PATCH 20/23] [linux] Add FDEventMonitor for monitoring file
  descriptors
 
 Add FDEventMonitor helper thread for monitoring file descriptors for
@@ -2353,10 +2192,10 @@ index c147d8f..744fd06 100644
  SRCS += LinuxTimezone.cpp
  SRCS += PosixMountProvider.cpp
 
-From 4e8ff5755b8173f5b520c0b96dc6945c7981d652 Mon Sep 17 00:00:00 2001
+From b465939ca69cc2e02190a815d7b3e7291e14ca87 Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Sun, 19 Oct 2014 21:36:44 +0300
-Subject: [PATCH 22/25] [AE] ALSA: Add ALSADeviceMonitor for monitoring card
+Subject: [PATCH 21/23] [AE] ALSA: Add ALSADeviceMonitor for monitoring card
  removals/additions
 
 ---
@@ -2632,10 +2471,10 @@ index 0000000..f9e2f26
 +#endif
 +
 
-From 2e9eefd989c5294e4710f3533cc59c83ffd0a77e Mon Sep 17 00:00:00 2001
+From f5555b53d7886387a624f011e7a58ec5cd247635 Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Sun, 19 Oct 2014 21:37:49 +0300
-Subject: [PATCH 23/25] [AE] ALSA: Add ALSADeviceMonitor for monitoring ELD
+Subject: [PATCH 22/23] [AE] ALSA: Add ALSADeviceMonitor for monitoring ELD
  changes
 
 ELD changes can happen e.g. when the connected HDMI sink is changed.
@@ -2976,2359 +2815,26 @@ index 0000000..56dfd50
 +#endif
 +
 
-From 1b20da8454ceeee95158aa4b1d046bb4e8e44b2d Mon Sep 17 00:00:00 2001
+From 09b1724482fd9666e976c831976e30afe33537ab Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
-Date: Fri, 17 Oct 2014 08:55:16 +0200
-Subject: [PATCH 24/25] videorefclock: refactoring
+Date: Sat, 1 Nov 2014 07:47:16 +0100
+Subject: [PATCH 23/23] videorefclock: use videosync DRM on AMD systems
 
 ---
- Makefile.in                                |   1 +
- project/VS2010Express/XBMC.vcxproj         |   5 +-
- project/VS2010Express/XBMC.vcxproj.filters |  14 +-
- xbmc/cores/dvdplayer/DVDPlayerVideo.cpp    |   5 +-
- xbmc/settings/AdvancedSettings.cpp         |   4 -
- xbmc/settings/AdvancedSettings.h           |   3 -
- xbmc/video/VideoReferenceClock.cpp         | 871 ++---------------------------
- xbmc/video/VideoReferenceClock.h           |  90 +--
- xbmc/video/videosync/Makefile              |   7 +
- xbmc/video/videosync/VideoSync.h           |  34 ++
- xbmc/video/videosync/VideoSyncCocoa.cpp    |  40 ++
- xbmc/video/videosync/VideoSyncCocoa.h      |  32 ++
- xbmc/video/videosync/VideoSyncD3D.cpp      | 208 +++++++
- xbmc/video/videosync/VideoSyncD3D.h        |  50 ++
- xbmc/video/videosync/VideoSyncGLX.cpp      | 287 ++++++++++
- xbmc/video/videosync/VideoSyncGLX.h        |  55 ++
- 16 files changed, 777 insertions(+), 929 deletions(-)
- create mode 100644 xbmc/video/videosync/Makefile
- create mode 100644 xbmc/video/videosync/VideoSync.h
- create mode 100644 xbmc/video/videosync/VideoSyncCocoa.cpp
- create mode 100644 xbmc/video/videosync/VideoSyncCocoa.h
- create mode 100644 xbmc/video/videosync/VideoSyncD3D.cpp
- create mode 100644 xbmc/video/videosync/VideoSyncD3D.h
- create mode 100644 xbmc/video/videosync/VideoSyncGLX.cpp
- create mode 100644 xbmc/video/videosync/VideoSyncGLX.h
+ xbmc/video/VideoReferenceClock.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/Makefile.in b/Makefile.in
-index bd28e52..1ce9039 100644
---- a/Makefile.in
-+++ b/Makefile.in
-@@ -96,6 +96,7 @@ DIRECTORY_ARCHIVES=$(DVDPLAYER_ARCHIVES) \
-                    xbmc/storage/storage.a \
-                    xbmc/utils/utils.a \
-                    xbmc/video/dialogs/videodialogs.a \
-+                   xbmc/video/videosync/videosync.a \
-                    xbmc/video/video.a \
-                    xbmc/video/windows/videowindows.a \
-                    xbmc/view/view.a \
-diff --git a/project/VS2010Express/XBMC.vcxproj b/project/VS2010Express/XBMC.vcxproj
-index ed5ad2a..cb3505d 100644
---- a/project/VS2010Express/XBMC.vcxproj
-+++ b/project/VS2010Express/XBMC.vcxproj
-@@ -1139,6 +1139,7 @@
-     <ClCompile Include="..\..\xbmc\utils\win32\Win32Log.cpp" />
-     <ClCompile Include="..\..\xbmc\utils\XSLTUtils.cpp" />
-     <ClCompile Include="..\..\xbmc\video\PlayerController.cpp" />
-+    <ClCompile Include="..\..\xbmc\video\videosync\VideoSyncD3D.cpp" />
-     <ClCompile Include="..\..\xbmc\video\VideoThumbLoader.cpp" />
-     <ClCompile Include="..\..\xbmc\music\MusicThumbLoader.cpp" />
-     <ClCompile Include="..\..\xbmc\ThumbnailCache.cpp" />
-@@ -2025,6 +2026,8 @@
-     <ClInclude Include="..\..\xbmc\DatabaseManager.h" />
-     <ClInclude Include="..\..\xbmc\ThumbLoader.h" />
-     <ClInclude Include="..\..\xbmc\video\PlayerController.h" />
-+    <ClInclude Include="..\..\xbmc\video\videosync\VideoSync.h" />
-+    <ClInclude Include="..\..\xbmc\video\videosync\VideoSyncD3D.h" />
-     <ClInclude Include="..\..\xbmc\video\VideoThumbLoader.h" />
-     <ClInclude Include="..\..\xbmc\music\MusicThumbLoader.h" />
-     <ClInclude Include="..\..\xbmc\ThumbnailCache.h" />
-@@ -2551,4 +2554,4 @@
-     </VisualStudio>
-   </ProjectExtensions>
-   <Import Project="$(SolutionDir)\$(ProjectFileName).targets.user" Condition="Exists('$(SolutionDir)\$(ProjectFileName).targets.user')" />
--</Project>
-+</Project>
-\ No newline at end of file
-diff --git a/project/VS2010Express/XBMC.vcxproj.filters b/project/VS2010Express/XBMC.vcxproj.filters
-index ca16ec8..dbb9b9d 100644
---- a/project/VS2010Express/XBMC.vcxproj.filters
-+++ b/project/VS2010Express/XBMC.vcxproj.filters
-@@ -319,6 +319,9 @@
-     <Filter Include="utils\win32">
-       <UniqueIdentifier>{3adbba6a-6fbf-4192-b215-108d94bde1e0}</UniqueIdentifier>
-     </Filter>
-+    <Filter Include="video\videosync">
-+      <UniqueIdentifier>{9775d5c0-c640-4606-a625-e6cdcf9f959e}</UniqueIdentifier>
-+    </Filter>
-   </ItemGroup>
-   <ItemGroup>
-     <ClCompile Include="..\..\xbmc\win32\pch.cpp">
-@@ -3077,6 +3080,9 @@
-     <ClCompile Include="..\..\xbmc\filesystem\BlurayFile.cpp">
-       <Filter>filesystem</Filter>
-     </ClCompile>
-+    <ClCompile Include="..\..\xbmc\video\videosync\VideoSyncD3D.cpp">
-+      <Filter>video\videosync</Filter>
-+    </ClCompile>
-   </ItemGroup>
-   <ItemGroup>
-     <ClInclude Include="..\..\xbmc\win32\pch.h">
-@@ -6022,6 +6028,12 @@
-     <ClInclude Include="..\..\xbmc\filesystem\BlurayFile.h">
-       <Filter>filesystem</Filter>
-     </ClInclude>
-+    <ClInclude Include="..\..\xbmc\video\videosync\VideoSyncD3D.h">
-+      <Filter>video\videosync</Filter>
-+    </ClInclude>
-+    <ClInclude Include="..\..\xbmc\video\videosync\VideoSync.h">
-+      <Filter>video\videosync</Filter>
-+    </ClInclude>
-   </ItemGroup>
-   <ItemGroup>
-     <ResourceCompile Include="..\..\xbmc\win32\XBMC_PC.rc">
-@@ -6067,4 +6079,4 @@
-       <Filter>interfaces\swig</Filter>
-     </None>
-   </ItemGroup>
--</Project>
-+</Project>
-\ No newline at end of file
-diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 7235cb4..c2d4b31 100644
---- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-+++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-@@ -164,7 +164,7 @@ CDVDPlayerVideo::CDVDPlayerVideo( CDVDClock* pClock
- CDVDPlayerVideo::~CDVDPlayerVideo()
- {
-   StopThread();
--  g_VideoReferenceClock.StopThread();
-+  g_VideoReferenceClock.Stop();
- }
- 
- double CDVDPlayerVideo::GetOutputDelay()
-@@ -205,9 +205,6 @@ bool CDVDPlayerVideo::OpenStream( CDVDStreamInfo &hint )
-   if(CSettings::Get().GetBool("videoplayer.usedisplayasclock") && !g_VideoReferenceClock.IsRunning())
-   {
-     g_VideoReferenceClock.Create();
--    //we have to wait for the clock to start otherwise alsa can cause trouble
--    if (!g_VideoReferenceClock.WaitStarted(2000))
--      CLog::Log(LOGDEBUG, "g_VideoReferenceClock didn't start in time");
-   }
- 
-   if(m_messageQueue.IsInited())
-diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index c92f1ce..89069a9 100644
---- a/xbmc/settings/AdvancedSettings.cpp
-+++ b/xbmc/settings/AdvancedSettings.cpp
-@@ -365,8 +365,6 @@ void CAdvancedSettings::Initialize()
-   m_bPVRAutoScanIconsUserSet       = false;
-   m_iPVRNumericChannelSwitchTimeout = 1000;
- 
--  m_measureRefreshrate = false;
--
-   m_cacheMemBufferSize = 1024 * 1024 * 20;
-   m_networkBufferMode = 0; // Default (buffer all internet streams/filesystems)
-   // the following setting determines the readRate of a player data
-@@ -1097,8 +1095,6 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
-     XMLUtils::GetInt(pPVR, "numericchannelswitchtimeout", m_iPVRNumericChannelSwitchTimeout, 50, 60000);
-   }
- 
--  XMLUtils::GetBoolean(pRootElement, "measurerefreshrate", m_measureRefreshrate);
--
-   TiXmlElement* pDatabase = pRootElement->FirstChildElement("videodatabase");
-   if (pDatabase)
-   {
-diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
-index 1a5a28c..eccd25c 100644
---- a/xbmc/settings/AdvancedSettings.h
-+++ b/xbmc/settings/AdvancedSettings.h
-@@ -367,9 +367,6 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
-     bool m_bPVRAutoScanIconsUserSet; /*!< @brief mark channel icons populated by auto scan as "user set" */
-     int m_iPVRNumericChannelSwitchTimeout; /*!< @brief time in ms before the numeric dialog auto closes when confirmchannelswitch is disabled */
- 
--    bool m_measureRefreshrate; //when true the videoreferenceclock will measure the refreshrate when direct3d is used
--                               //otherwise it will use the windows refreshrate
--
-     DatabaseSettings m_databaseMusic; // advanced music database setup
-     DatabaseSettings m_databaseVideo; // advanced video database setup
-     DatabaseSettings m_databaseTV;    // advanced tv database setup
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index 6d84b60..cd713bc 100644
+index 03f8bf3..1d403bd 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
-@@ -26,88 +26,19 @@
- #include "utils/TimeUtils.h"
- #include "utils/StringUtils.h"
- #include "threads/SingleLock.h"
-+#include "guilib/GraphicContext.h"
-+#include "video/videosync/VideoSync.h"
- 
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--  #include <sstream>
--  #include <X11/extensions/Xrandr.h>
--  #include "windowing/WindowingFactory.h"
--  #include "guilib/GraphicContext.h"
--#elif defined(TARGET_DARWIN_OSX)
--  #include <QuartzCore/CVDisplayLink.h>
--  #include "osx/CocoaInterface.h"
--#elif defined(TARGET_DARWIN_IOS)
--  #include "windowing/WindowingFactory.h"
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--  #pragma comment (lib,"d3d9.lib")
--  #if (D3DX_SDK_VERSION >= 42) //aug 2009 sdk and up there is no dxerr9 anymore
--    #include <Dxerr.h>
--    #pragma comment (lib,"DxErr.lib")
--  #else
--    #include <dxerr9.h>
--    #define DXGetErrorString(hr)      DXGetErrorString9(hr)
--    #define DXGetErrorDescription(hr) DXGetErrorDescription9(hr)
--    #pragma comment (lib,"Dxerr9.lib")
--  #endif
--  #include "windowing/WindowingFactory.h"
--  #include "settings/AdvancedSettings.h"
-+#if defined(HAS_GLX)
-+#include "video/videosync/VideoSyncGLX.h"
-+#endif
-+#if defined(TARGET_WINDOWS)
-+#include "video/videosync/VideoSyncD3D.h"
- #endif
- 
- using namespace std;
- 
--#if defined(TARGET_WINDOWS) && defined(HAS_DX)
--
--  void CD3DCallback::Reset()
--  {
--    m_devicevalid = true;
--    m_deviceused = false;
--  }
--
--  void CD3DCallback::OnDestroyDevice()
--  {
--    CSingleLock lock(m_critsection);
--    m_devicevalid = false;
--    while (m_deviceused)
--    {
--      lock.Leave();
--      m_releaseevent.Wait();
--      lock.Enter();
--    }
--  }
--
--  void CD3DCallback::OnCreateDevice()
--  {
--    CSingleLock lock(m_critsection);
--    m_devicevalid = true;
--    m_createevent.Set();
--  }
--
--  void CD3DCallback::Aquire()
--  {
--    CSingleLock lock(m_critsection);
--    while(!m_devicevalid)
--    {
--      lock.Leave();
--      m_createevent.Wait();
--      lock.Enter();
--    }
--    m_deviceused = true;
--  }
--
--  void CD3DCallback::Release()
--  {
--    CSingleLock lock(m_critsection);
--    m_deviceused = false;
--    m_releaseevent.Set();
--  }
--
--  bool CD3DCallback::IsValid()
--  {
--    return m_devicevalid;
--  }
--
--#endif
--
--CVideoReferenceClock::CVideoReferenceClock() : CThread("VideoReferenceClock")
-+CVideoReferenceClock::CVideoReferenceClock() : CThread("RefClock")
- {
-   m_SystemFrequency = CurrentHostFrequency();
-   m_ClockSpeed = 1.0;
-@@ -119,34 +50,34 @@ CVideoReferenceClock::CVideoReferenceClock() : CThread("VideoReferenceClock")
-   m_CurrTime = 0;
-   m_LastIntTime = 0;
-   m_CurrTimeFract = 0.0;
--  m_LastRefreshTime = 0;
-   m_fineadjust = 0.0;
-   m_RefreshRate = 0.0;
--  m_PrevRefreshRate = 0;
-   m_MissedVblanks = 0;
-   m_RefreshChanged = 0;
-   m_VblankTime = 0;
- 
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--  m_glXWaitVideoSyncSGI = NULL;
--  m_glXGetVideoSyncSGI = NULL;
--  m_Dpy = NULL;
--  m_vInfo = NULL;
--  m_Window = 0;
--  m_Context = NULL;
--#endif
-+  m_pVideoSync = NULL;
- }
- 
- CVideoReferenceClock::~CVideoReferenceClock()
- {
--#if defined(HAS_GLX)
--  // some ATI voodoo, if we don't close the display, we crash on exit
--  if (m_Dpy)
-+}
-+
-+void CVideoReferenceClock::Stop()
-+{
-+  CSingleExit lock(g_graphicsContext);
-+  StopThread();
-+}
-+
-+void CVideoReferenceClock::CBUpdateClock(int NrVBlanks, uint64_t time)
-+{
-   {
--    XCloseDisplay(m_Dpy);
--    m_Dpy = NULL;
-+    CSingleLock lock(g_VideoReferenceClock.m_CritSection);
-+    g_VideoReferenceClock.m_VblankTime = time;
-+    g_VideoReferenceClock.UpdateClock(NrVBlanks, true);
-   }
--#endif
-+
-+  g_VideoReferenceClock.SendVblankSignal();
- }
- 
- void CVideoReferenceClock::Process()
-@@ -154,33 +85,21 @@ void CVideoReferenceClock::Process()
-   bool SetupSuccess = false;
-   int64_t Now;
- 
--#if defined(TARGET_WINDOWS) && defined(HAS_DX)
--  //register callback
--  m_D3dCallback.Reset();
--  g_Windowing.Register(&m_D3dCallback);
--#endif
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--  g_Windowing.Register(this);
--  m_xrrEvent = false;
--#endif
--
-   while(!m_bStop)
-   {
-     //set up the vblank clock
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--    SetupSuccess = SetupGLX();
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--    SetupSuccess = SetupD3D();
--#elif defined(TARGET_DARWIN)
--    SetupSuccess = SetupCocoa();
--#elif defined(HAS_GLX)
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: compiled without RandR support");
-+#if defined(HAS_GLX)
-+    m_pVideoSync = new CVideoSyncGLX();
- #elif defined(TARGET_WINDOWS)
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: only available on directx build");
--#else
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: no implementation available");
-+    m_pVideoSync = new CVideoSyncD3D();
-+#elif defined(TARGET_DARWIN)
-+    m_pVideoSync = new CVideoSyncCocoa();
- #endif
- 
-+    SetupSuccess = m_pVideoSync->Setup(CBUpdateClock);
-+
-+    UpdateRefreshrate();
-+
-     CSingleLock SingleLock(m_CritSection);
-     Now = CurrentHostCounter();
-     m_CurrTime = Now + m_ClockOffset; //add the clock offset from the previous time we stopped
-@@ -190,6 +109,7 @@ void CVideoReferenceClock::Process()
-     m_TotalMissedVblanks = 0;
-     m_fineadjust = 1.0;
-     m_RefreshChanged = 0;
-+    m_MissedVblanks = 0;
-     m_Started.Set();
- 
-     if (SetupSuccess)
-@@ -199,14 +119,7 @@ void CVideoReferenceClock::Process()
-       SingleLock.Leave();
- 
-       //run the clock
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--      RunGLX();
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--      RunD3D();
--#elif defined(TARGET_DARWIN)
--      RunCocoa();
--#endif
--
-+      m_pVideoSync->Run(m_bStop);
-     }
-     else
-     {
-@@ -221,650 +134,13 @@ void CVideoReferenceClock::Process()
-     SingleLock.Leave();
- 
-     //clean up the vblank clock
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--    CleanupGLX();
--    if (m_xrrEvent)
--    {
--      m_releaseEvent.Set();
--      while (!m_bStop)
--      {
--        if (m_resetEvent.WaitMSec(100))
--          break;
--      }
--      m_xrrEvent = false;
--    }
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--    CleanupD3D();
--#elif defined(TARGET_DARWIN)
--    CleanupCocoa();
--#endif
--    if (!SetupSuccess) break;
--  }
--
--#if defined(TARGET_WINDOWS) && defined(HAS_DX)
--  g_Windowing.Unregister(&m_D3dCallback);
--#endif
--#if defined(HAS_GLX)
--  g_Windowing.Unregister(this);
--#endif
--}
--
--bool CVideoReferenceClock::WaitStarted(int MSecs)
--{
--  //not waiting here can cause issues with alsa
--  return m_Started.WaitMSec(MSecs);
--}
--
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--
--void CVideoReferenceClock::OnLostDevice()
--{
--  if (!m_xrrEvent)
--  {
--    m_releaseEvent.Reset();
--    m_resetEvent.Reset();
--    m_xrrEvent = true;
--    m_releaseEvent.Wait();
--  }
--}
--
--void CVideoReferenceClock::OnResetDevice()
--{
--  m_xrrEvent = false;
--  m_resetEvent.Set();
--}
--
--bool CVideoReferenceClock::SetupGLX()
--{
--  int singleBufferAttributes[] = {
--    GLX_RGBA,
--    GLX_RED_SIZE,      0,
--    GLX_GREEN_SIZE,    0,
--    GLX_BLUE_SIZE,     0,
--    None
--  };
--
--  int ReturnV, SwaMask;
--  unsigned int GlxTest;
--  XSetWindowAttributes Swa;
--
--  m_vInfo = NULL;
--  m_Context = NULL;
--  m_Window = 0;
--
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Setting up GLX");
--
--  if (!m_Dpy)
--  {
--    m_Dpy = XOpenDisplay(NULL);
--    if (!m_Dpy)
--    {
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Unable to open display");
--      return false;
--    }
--  }
--
--  if (!glXQueryExtension(m_Dpy, NULL, NULL))
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: X server does not support GLX");
--    return false;
--  }
--
--  bool          ExtensionFound = false;
--  istringstream Extensions(glXQueryExtensionsString(m_Dpy, g_Windowing.GetCurrentScreen()));
--  string        ExtensionStr;
--
--  while (!ExtensionFound)
--  {
--    Extensions >> ExtensionStr;
--    if (Extensions.fail())
-+    m_pVideoSync->Cleanup();
-+    delete m_pVideoSync;
-+    if (!SetupSuccess)
-       break;
--
--    if (ExtensionStr == "GLX_SGI_video_sync")
--      ExtensionFound = true;
--  }
--
--  if (!ExtensionFound)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: X server does not support GLX_SGI_video_sync");
--    return false;
--  }
--
--  m_vInfo = glXChooseVisual(m_Dpy, g_Windowing.GetCurrentScreen(), singleBufferAttributes);
--  if (!m_vInfo)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXChooseVisual returned NULL");
--    return false;
--  }
--
--  Swa.border_pixel = 0;
--  Swa.event_mask = StructureNotifyMask;
--  Swa.colormap = XCreateColormap(m_Dpy, g_Windowing.GetWindow(), m_vInfo->visual, AllocNone );
--  SwaMask = CWBorderPixel | CWColormap | CWEventMask;
--
--  m_Window = XCreateWindow(m_Dpy, g_Windowing.GetWindow(), 0, 0, 256, 256, 0,
--                           m_vInfo->depth, InputOutput, m_vInfo->visual, SwaMask, &Swa);
--
--  m_Context = glXCreateContext(m_Dpy, m_vInfo, NULL, True);
--  if (!m_Context)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXCreateContext returned NULL");
--    return false;
--  }
--
--  ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
--  if (ReturnV != True)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
--    return false;
--  }
--
--  m_glXWaitVideoSyncSGI = (int (*)(int, int, unsigned int*))glXGetProcAddress((const GLubyte*)"glXWaitVideoSyncSGI");
--  if (!m_glXWaitVideoSyncSGI)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI not found");
--    return false;
--  }
--
--  ReturnV = m_glXWaitVideoSyncSGI(2, 0, &GlxTest);
--  if (ReturnV)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI returned %i", ReturnV);
--    return false;
--  }
--
--  m_glXGetVideoSyncSGI = (int (*)(unsigned int*))glXGetProcAddress((const GLubyte*)"glXGetVideoSyncSGI");
--  if (!m_glXGetVideoSyncSGI)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXGetVideoSyncSGI not found");
--    return false;
--  }
--
--  ReturnV = m_glXGetVideoSyncSGI(&GlxTest);
--  if (ReturnV)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXGetVideoSyncSGI returned %i", ReturnV);
--    return false;
--  }
--
--  XRRSizes(m_Dpy, m_vInfo->screen, &ReturnV);
--  if (ReturnV == 0)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: RandR not supported");
--    return false;
--  }
--
--  UpdateRefreshrate(true); //forced refreshrate update
--  m_MissedVblanks = 0;
--
--  return true;
--}
--
--void CVideoReferenceClock::CleanupGLX()
--{
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up GLX");
--
--  if (m_vInfo)
--  {
--    XFree(m_vInfo);
--    m_vInfo = NULL;
--  }
--  if (m_Context)
--  {
--    glXMakeCurrent(m_Dpy, None, NULL);
--    glXDestroyContext(m_Dpy, m_Context);
--    m_Context = NULL;
--  }
--  if (m_Window)
--  {
--    XDestroyWindow(m_Dpy, m_Window);
--    m_Window = 0;
--  }
--
--  //ati saves the Display* in their libGL, if we close it here, we crash
--  if (m_Dpy)
--  {
--    XCloseDisplay(m_Dpy);
--    m_Dpy = NULL;
-   }
- }
- 
--void CVideoReferenceClock::RunGLX()
--{
--  unsigned int  PrevVblankCount;
--  unsigned int  VblankCount;
--  int           ReturnV;
--  bool          IsReset = false;
--  int64_t       Now;
--
--  CSingleLock SingleLock(m_CritSection);
--  SingleLock.Leave();
--
--  //get the current vblank counter
--  m_glXGetVideoSyncSGI(&VblankCount);
--  PrevVblankCount = VblankCount;
--
--  while(!m_bStop)
--  {
--    if (m_xrrEvent)
--      return;
--
--    //wait for the next vblank
--    ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
--    m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
--    Now = CurrentHostCounter();         //get the timestamp of this vblank
--
--    if(ReturnV)
--    {
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI returned %i", ReturnV);
--      return;
--    }
--
--    if (VblankCount > PrevVblankCount)
--    {
--      //update the vblank timestamp, update the clock and send a signal that we got a vblank
--      SingleLock.Enter();
--      m_VblankTime = Now;
--      UpdateClock((int)(VblankCount - PrevVblankCount), true);
--      SingleLock.Leave();
--      SendVblankSignal();
--      IsReset = false;
--    }
--    else
--    {
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Vblank counter has reset");
--
--      //only try reattaching once
--      if (IsReset)
--        return;
--
--      //because of a bug in the nvidia driver, glXWaitVideoSyncSGI breaks when the vblank counter resets
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detaching glX context");
--      ReturnV = glXMakeCurrent(m_Dpy, None, NULL);
--      if (ReturnV != True)
--      {
--        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
--        return;
--      }
--
--      //sleep here so we don't busy spin when this constantly happens, for example when the display went to sleep
--      Sleep(1000);
--
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Attaching glX context");
--      ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
--      if (ReturnV != True)
--      {
--        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
--        return;
--      }
--
--      m_glXGetVideoSyncSGI(&VblankCount);
--
--      IsReset = true;
--    }
--    PrevVblankCount = VblankCount;
--  }
--}
--
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--
--void CVideoReferenceClock::RunD3D()
--{
--  D3DRASTER_STATUS RasterStatus;
--  int64_t       Now;
--  int64_t       LastVBlankTime;
--  unsigned int  LastLine;
--  int           NrVBlanks;
--  double        VBlankTime;
--  int           ReturnV;
--
--  CSingleLock SingleLock(m_CritSection);
--  SingleLock.Leave();
--
--  //get the scanline we're currently at
--  m_D3dDev->GetRasterStatus(0, &RasterStatus);
--  if (RasterStatus.InVBlank) LastLine = 0;
--  else LastLine = RasterStatus.ScanLine;
--
--  //init the vblanktime
--  Now = CurrentHostCounter();
--  LastVBlankTime = Now;
--
--  while(!m_bStop && m_D3dCallback.IsValid())
--  {
--    //get the scanline we're currently at
--    ReturnV = m_D3dDev->GetRasterStatus(0, &RasterStatus);
--    if (ReturnV != D3D_OK)
--    {
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: GetRasterStatus returned returned %s: %s",
--                DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
--      return;
--    }
--
--    //if InVBlank is set, or the current scanline is lower than the previous scanline, a vblank happened
--    if ((RasterStatus.InVBlank && LastLine > 0) || (RasterStatus.ScanLine < LastLine))
--    {
--      //calculate how many vblanks happened
--      Now = CurrentHostCounter() - m_SystemFrequency * RasterStatus.ScanLine / (m_Height * MathUtils::round_int(m_RefreshRate));
--      VBlankTime = (double)(Now - LastVBlankTime) / (double)m_SystemFrequency;
--      NrVBlanks = MathUtils::round_int(VBlankTime * m_RefreshRate);
--
--      //update the vblank timestamp, update the clock and send a signal that we got a vblank
--      SingleLock.Enter();
--      m_VblankTime = Now;
--      UpdateClock(NrVBlanks, true);
--      SingleLock.Leave();
--      SendVblankSignal();
--
--      if (UpdateRefreshrate())
--      {
--        //we have to measure the refreshrate again
--        CLog::Log(LOGDEBUG, "CVideoReferenceClock: Displaymode changed");
--        return;
--      }
--
--      //save the timestamp of this vblank so we can calculate how many vblanks happened next time
--      LastVBlankTime = Now;
--
--      //because we had a vblank, sleep until half the refreshrate period
--      Now = CurrentHostCounter();
--      int SleepTime = (int)((LastVBlankTime + (m_SystemFrequency / MathUtils::round_int(m_RefreshRate) / 2) - Now) * 1000 / m_SystemFrequency);
--      if (SleepTime > 100) SleepTime = 100; //failsafe
--      if (SleepTime > 0) ::Sleep(SleepTime);
--    }
--    else
--    {
--      ::Sleep(1);
--    }
--
--    if (RasterStatus.InVBlank) LastLine = 0;
--    else LastLine = RasterStatus.ScanLine;
--  }
--}
--
--//how many times we measure the refreshrate
--#define NRMEASURES 6
--//how long to measure in milliseconds
--#define MEASURETIME 250
--
--bool CVideoReferenceClock::SetupD3D()
--{
--  int ReturnV;
--
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Setting up Direct3d");
--
--  m_D3dCallback.Aquire();
--
--  //get d3d device
--  m_D3dDev = g_Windowing.Get3DDevice();
--
--  //we need a high priority thread to get accurate timing
--  if (!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL))
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: SetThreadPriority failed");
--
--  D3DCAPS9 DevCaps;
--  ReturnV = m_D3dDev->GetDeviceCaps(&DevCaps);
--  if (ReturnV != D3D_OK)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: GetDeviceCaps returned %s: %s",
--                         DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
--    return false;
--  }
--
--  if ((DevCaps.Caps & D3DCAPS_READ_SCANLINE) != D3DCAPS_READ_SCANLINE)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Hardware does not support GetRasterStatus");
--    return false;
--  }
--
--  D3DRASTER_STATUS RasterStatus;
--  ReturnV = m_D3dDev->GetRasterStatus(0, &RasterStatus);
--  if (ReturnV != D3D_OK)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: GetRasterStatus returned returned %s: %s",
--              DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
--    return false;
--  }
--
--  D3DDISPLAYMODE DisplayMode;
--  ReturnV = m_D3dDev->GetDisplayMode(0, &DisplayMode);
--  if (ReturnV != D3D_OK)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: GetDisplayMode returned returned %s: %s",
--              DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
--    return false;
--  }
--
--  //forced update of windows refreshrate
--  UpdateRefreshrate(true);
--
--  if (g_advancedSettings.m_measureRefreshrate)
--  {
--    //measure the refreshrate a couple times
--    list<double> Measures;
--    for (int i = 0; i < NRMEASURES; i++)
--      Measures.push_back(MeasureRefreshrate(MEASURETIME));
--
--    //build up a string of measured rates
--    CStdString StrRates;
--    for (list<double>::iterator it = Measures.begin(); it != Measures.end(); it++)
--      StrRates += StringUtils::Format("%.2f ", *it);
--
--    //get the top half of the measured rates
--    Measures.sort();
--    double RefreshRate = 0.0;
--    int    NrMeasurements = 0;
--    while (NrMeasurements < NRMEASURES / 2 && !Measures.empty())
--    {
--      if (Measures.back() > 0.0)
--      {
--        RefreshRate += Measures.back();
--        NrMeasurements++;
--      }
--      Measures.pop_back();
--    }
--
--    if (NrMeasurements < NRMEASURES / 2)
--    {
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: refreshrate measurements: %s, unable to get a good measurement",
--        StrRates.c_str(), m_RefreshRate);
--      return false;
--    }
--
--    RefreshRate /= NrMeasurements;
--    m_RefreshRate = RefreshRate;
--
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: refreshrate measurements: %s, assuming %i hertz", StrRates.c_str(), m_RefreshRate);
--  }
--  else
--  {
--    m_RefreshRate = m_PrevRefreshRate;
--    if (MathUtils::round_int(m_RefreshRate) == 23 ||
--        MathUtils::round_int(m_RefreshRate) == 29 ||
--        MathUtils::round_int(m_RefreshRate) == 59)
--      m_RefreshRate++;
--
--    if (m_Interlaced)
--    {
--      m_RefreshRate *= 2;
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: display is interlaced");
--    }
--
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: detected refreshrate: %i hertz, assuming %i hertz", m_PrevRefreshRate, MathUtils::round_int(m_RefreshRate));
--  }
--
--  m_MissedVblanks = 0;
--
--  return true;
--}
--
--double CVideoReferenceClock::MeasureRefreshrate(int MSecs)
--{
--  D3DRASTER_STATUS RasterStatus;
--  int64_t          Now;
--  int64_t          Target;
--  int64_t          Prev;
--  int64_t          AvgInterval;
--  int64_t          MeasureCount;
--  unsigned int     LastLine;
--  int              ReturnV;
--
--  Now = CurrentHostCounter();
--  Target = Now + (m_SystemFrequency * MSecs / 1000);
--  Prev = -1;
--  AvgInterval = 0;
--  MeasureCount = 0;
--
--  //start measuring vblanks
--  LastLine = 0;
--  while(Now <= Target)
--  {
--    ReturnV = m_D3dDev->GetRasterStatus(0, &RasterStatus);
--    Now = CurrentHostCounter();
--    if (ReturnV != D3D_OK)
--    {
--      CLog::Log(LOGDEBUG, "CVideoReferenceClock: GetRasterStatus returned returned %s: %s",
--                DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
--      return -1.0;
--    }
--
--    if ((RasterStatus.InVBlank && LastLine != 0) || (!RasterStatus.InVBlank && RasterStatus.ScanLine < LastLine))
--    { //we got a vblank
--      if (Prev != -1) //need two for a measurement
--      {
--        AvgInterval += Now - Prev; //save how long this vblank lasted
--        MeasureCount++;
--      }
--      Prev = Now; //save this time for the next measurement
--    }
--
--    //save the current scanline
--    if (RasterStatus.InVBlank)
--      LastLine = 0;
--    else
--      LastLine = RasterStatus.ScanLine;
--
--    ::Sleep(1);
--  }
--
--  if (MeasureCount < 1)
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Didn't measure any vblanks");
--    return -1.0;
--  }
--
--  double fRefreshRate = 1.0 / ((double)AvgInterval / (double)MeasureCount / (double)m_SystemFrequency);
--
--  return fRefreshRate;
--}
--
--void CVideoReferenceClock::CleanupD3D()
--{
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up Direct3d");
--  m_D3dCallback.Release();
--}
--
--#elif defined(TARGET_DARWIN)
--#if defined(TARGET_DARWIN_OSX)
--// Called by the Core Video Display Link whenever it's appropriate to render a frame.
--static CVReturn DisplayLinkCallBack(CVDisplayLinkRef displayLink, const CVTimeStamp* inNow, const CVTimeStamp* inOutputTime, CVOptionFlags flagsIn, CVOptionFlags* flagsOut, void* displayLinkContext)
--{
--  double fps = 60.0;
--
--  if (inNow->videoRefreshPeriod > 0)
--    fps = (double)inOutputTime->videoTimeScale / (double)inOutputTime->videoRefreshPeriod;
--
--  // Create an autorelease pool (necessary to call into non-Obj-C code from Obj-C code)
--  void* pool = Cocoa_Create_AutoReleasePool();
--
--  CVideoReferenceClock *VideoReferenceClock = reinterpret_cast<CVideoReferenceClock*>(displayLinkContext);
--  VideoReferenceClock->VblankHandler(inOutputTime->hostTime, fps);
--
--  // Destroy the autorelease pool
--  Cocoa_Destroy_AutoReleasePool(pool);
--
--  return kCVReturnSuccess;
--}
--#endif
--bool CVideoReferenceClock::SetupCocoa()
--{
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: setting up Cocoa");
--
--  //init the vblank timestamp
--  m_LastVBlankTime = CurrentHostCounter();
--  m_MissedVblanks = 0;
--  m_RefreshRate = 60;              //init the refreshrate so we don't get any division by 0 errors
--
--  #if defined(TARGET_DARWIN_IOS)
--  {
--    g_Windowing.InitDisplayLink();
--  }
--  #else
--  if (!Cocoa_CVDisplayLinkCreate((void*)DisplayLinkCallBack, reinterpret_cast<void*>(this)))
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cocoa_CVDisplayLinkCreate failed");
--    return false;
--  }
--  else
--  #endif
--  {
--    UpdateRefreshrate(true);
--    return true;
--  }
--}
--
--void CVideoReferenceClock::RunCocoa()
--{
--  //because cocoa has a vblank callback, we just keep sleeping until we're asked to stop the thread
--  while(!m_bStop)
--  {
--    Sleep(1000);
--  }
--}
--
--void CVideoReferenceClock::CleanupCocoa()
--{
--  CLog::Log(LOGDEBUG, "CVideoReferenceClock: cleaning up Cocoa");
--  #if defined(TARGET_DARWIN_IOS)
--    g_Windowing.DeinitDisplayLink();
--  #else
--    Cocoa_CVDisplayLinkRelease();
--  #endif
--}
--
--void CVideoReferenceClock::VblankHandler(int64_t nowtime, double fps)
--{
--  int           NrVBlanks;
--  double        VBlankTime;
--  int           RefreshRate = MathUtils::round_int(fps);
--
--  CSingleLock SingleLock(m_CritSection);
--
--  if (RefreshRate != MathUtils::round_int(m_RefreshRate))
--  {
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate: %f hertz, rounding to %i hertz", fps, RefreshRate);
--    m_RefreshRate = RefreshRate;
--  }
--  m_LastRefreshTime = m_CurrTime;
--
--  //calculate how many vblanks happened
--  VBlankTime = (double)(nowtime - m_LastVBlankTime) / (double)m_SystemFrequency;
--  NrVBlanks = MathUtils::round_int(VBlankTime * m_RefreshRate);
--
--  //save the timestamp of this vblank so we can calculate how many happened next time
--  m_LastVBlankTime = nowtime;
--
--  //update the vblank timestamp, update the clock and send a signal that we got a vblank
--  m_VblankTime = nowtime;
--  UpdateClock(NrVBlanks, true);
--
--  SingleLock.Leave();
--
--  SendVblankSignal();
--  UpdateRefreshrate();
--}
--#endif
--
- //this is called from the vblank run function and from CVideoReferenceClock::Wait in case of a late update
- void CVideoReferenceClock::UpdateClock(int NrVBlanks, bool CheckMissed)
- {
-@@ -979,79 +255,12 @@ double CVideoReferenceClock::GetSpeed()
-     return 1.0;
- }
- 
--bool CVideoReferenceClock::UpdateRefreshrate(bool Forced /*= false*/)
-+void CVideoReferenceClock::UpdateRefreshrate()
- {
--  //if the graphicscontext signaled that the refreshrate changed, we check it about one second later
--  if (m_RefreshChanged == 1 && !Forced)
--  {
--    m_LastRefreshTime = m_CurrTime;
--    m_RefreshChanged = 2;
--    return false;
--  }
--
--  //update the refreshrate about once a second, or update immediately if a forced update is required
--  if (m_CurrTime - m_LastRefreshTime < m_SystemFrequency && !Forced)
--    return false;
--
--  if (Forced)
--    m_LastRefreshTime = 0;
--  else
--    m_LastRefreshTime = m_CurrTime;
--
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--
--  if (!Forced)
--    m_RefreshChanged = 0;
--
--  if (!Forced) //refreshrate did not change
--    return false;
--
-   CSingleLock SingleLock(m_CritSection);
--  m_RefreshRate = g_graphicsContext.GetFPS();
-+  m_RefreshRate = m_pVideoSync->GetFps();
- 
-   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate: %.3f hertz", m_RefreshRate);
--
--  return true;
--
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--
--  D3DDISPLAYMODE DisplayMode;
--  m_D3dDev->GetDisplayMode(0, &DisplayMode);
--
--  //0 indicates adapter default
--  if (DisplayMode.RefreshRate == 0)
--    DisplayMode.RefreshRate = 60;
--
--  if (m_PrevRefreshRate != DisplayMode.RefreshRate || m_Width != DisplayMode.Width || m_Height != DisplayMode.Height ||
--      m_Interlaced != g_Windowing.Interlaced() || Forced )
--  {
--    m_PrevRefreshRate = DisplayMode.RefreshRate;
--    m_Width = DisplayMode.Width;
--    m_Height = DisplayMode.Height;
--    m_Interlaced = g_Windowing.Interlaced();
--    return true;
--  }
--
--  return false;
--
--#elif defined(TARGET_DARWIN)
--  #if defined(TARGET_DARWIN_IOS)
--    int RefreshRate = round(g_Windowing.GetDisplayLinkFPS() + 0.5);
--  #else
--    int RefreshRate = MathUtils::round_int(Cocoa_GetCVDisplayLinkRefreshPeriod());
--  #endif
--
--  if (RefreshRate != MathUtils::round_int(m_RefreshRate) || Forced)
--  {
--    CSingleLock SingleLock(m_CritSection);
--    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate: %i hertz", RefreshRate);
--    m_RefreshRate = RefreshRate;
--    return true;
--  }
--  return false;
--#endif
--
--  return false;
- }
- 
- //dvdplayer needs to know the refreshrate for matching the fps of the video playing to it
-diff --git a/xbmc/video/VideoReferenceClock.h b/xbmc/video/VideoReferenceClock.h
-index 6027031..f7a3982 100644
---- a/xbmc/video/VideoReferenceClock.h
-+++ b/xbmc/video/VideoReferenceClock.h
-@@ -19,47 +19,12 @@
-  *
-  */
- 
--#include "system.h" // for HAS_XRANDR, and Win32 types
- #include "threads/Thread.h"
- #include "threads/CriticalSection.h"
- 
--//TODO: get rid of #ifdef hell, abstract implementations in separate classes
--
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--  #include "system_gl.h"
--  #include <X11/X.h>
--  #include <X11/Xlib.h>
--  #include <GL/glx.h>
--  #include "guilib/DispResource.h"
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--  #include <d3d9.h>
--  #include "guilib/D3DResource.h"
--
--class CD3DCallback : public ID3DResource
--{
--  public:
--    void Reset();
--    void OnDestroyDevice();
--    void OnCreateDevice();
--    void Aquire();
--    void Release();
--    bool IsValid();
--
--  private:
--    bool m_devicevalid;
--    bool m_deviceused;
--
--    CCriticalSection m_critsection;
--    CEvent           m_createevent;
--    CEvent           m_releaseevent;
--};
--
--#endif
-+class CVideoSync;
- 
- class CVideoReferenceClock : public CThread
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--                            ,public IDispResource
--#endif
- {
-   public:
-     CVideoReferenceClock();
-@@ -71,40 +36,30 @@ class CVideoReferenceClock : public CThread
-     double  GetSpeed();
-     double  GetRefreshRate(double* interval = NULL);
-     int64_t Wait(int64_t Target);
--    bool    WaitStarted(int MSecs);
-     bool    GetClockInfo(int& MissedVblanks, double& ClockSpeed, double& RefreshRate);
-     void    SetFineAdjust(double fineadjust);
-     void    RefreshChanged() { m_RefreshChanged = 1; }
--
--#if defined(TARGET_DARWIN)
--    void VblankHandler(int64_t nowtime, double fps);
--#endif
--
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--    virtual void OnLostDevice();
--    virtual void OnResetDevice();
--#endif
-+    void    Stop();
- 
-   private:
-     void    Process();
--    bool    UpdateRefreshrate(bool Forced = false);
-+    void    UpdateRefreshrate();
-     void    SendVblankSignal();
-     void    UpdateClock(int NrVBlanks, bool CheckMissed);
-     double  UpdateInterval();
-     int64_t TimeOfNextVblank();
-+    static void CBUpdateClock(int NrVBlanks, uint64_t time);
- 
-     int64_t m_CurrTime;          //the current time of the clock when using vblank as clock source
-     int64_t m_LastIntTime;       //last interpolated clock value, to make sure the clock doesn't go backwards
-     double  m_CurrTimeFract;     //fractional part that is lost due to rounding when updating the clock
-     double  m_ClockSpeed;        //the frequency of the clock set by dvdplayer
-     int64_t m_ClockOffset;       //the difference between the vblank clock and systemclock, set when vblank clock is stopped
--    int64_t m_LastRefreshTime;   //last time we updated the refreshrate
-     int64_t m_SystemFrequency;   //frequency of the systemclock
-     double  m_fineadjust;
- 
-     bool    m_UseVblank;         //set to true when vblank is used as clock source
-     double  m_RefreshRate;       //current refreshrate
--    int     m_PrevRefreshRate;   //previous refreshrate, used for log printing and getting refreshrate from nvidia-settings
-     int     m_MissedVblanks;     //number of clock updates missed by the vblank clock
-     int     m_RefreshChanged;    //1 = we changed the refreshrate, 2 = we should check the refreshrate forced
-     int     m_TotalMissedVblanks;//total number of clock updates missed, used by codec information screen
-@@ -115,42 +70,7 @@ class CVideoReferenceClock : public CThread
- 
-     CCriticalSection m_CritSection;
- 
--#if defined(HAS_GLX) && defined(HAS_XRANDR)
--    bool SetupGLX();
--    void RunGLX();
--    void CleanupGLX();
--
--    int  (*m_glXWaitVideoSyncSGI) (int, int, unsigned int*);
--    int  (*m_glXGetVideoSyncSGI)  (unsigned int*);
--
--    Display*     m_Dpy;
--    XVisualInfo *m_vInfo;
--    Window       m_Window;
--    GLXContext   m_Context;
--    bool         m_xrrEvent;
--    CEvent       m_releaseEvent, m_resetEvent;
--
--#elif defined(TARGET_WINDOWS) && defined(HAS_DX)
--    bool   SetupD3D();
--    double MeasureRefreshrate(int MSecs);
--    void   RunD3D();
--    void   CleanupD3D();
--
--    LPDIRECT3DDEVICE9 m_D3dDev;
--    CD3DCallback      m_D3dCallback;
--
--    unsigned int  m_Width;
--    unsigned int  m_Height;
--    bool          m_Interlaced;
--
--#elif defined(TARGET_DARWIN)
--    bool SetupCocoa();
--    void RunCocoa();
--    void CleanupCocoa();
--
--    int64_t m_LastVBlankTime;  //timestamp of the last vblank, used for calculating how many vblanks happened
--                               //not the same as m_VblankTime
--#endif
-+    CVideoSync *m_pVideoSync;
- };
- 
- extern CVideoReferenceClock g_VideoReferenceClock;
-diff --git a/xbmc/video/videosync/Makefile b/xbmc/video/videosync/Makefile
-new file mode 100644
-index 0000000..ce74840
---- /dev/null
-+++ b/xbmc/video/videosync/Makefile
-@@ -0,0 +1,7 @@
-+SRCS=VideoSyncGLX.cpp \
-+     VideoSyncCocoa.cpp \
-+
-+LIB=videosync.a
-+
-+include ../../../Makefile.include
-+-include $(patsubst %.cpp,%.P,$(patsubst %.c,%.P,$(SRCS)))
-\ No newline at end of file
-diff --git a/xbmc/video/videosync/VideoSync.h b/xbmc/video/videosync/VideoSync.h
-new file mode 100644
-index 0000000..f87a2b5
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSync.h
-@@ -0,0 +1,34 @@
-+#pragma once
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+typedef void (*PUPDATECLOCK)(int NrVBlanks, uint64_t time);
-+
-+class CVideoSync
-+{
-+public:
-+  virtual bool Setup(PUPDATECLOCK func) = 0;
-+  virtual void Run(volatile bool& stop) = 0;
-+  virtual void Cleanup() = 0;
-+  virtual float GetFps() = 0;
-+protected:
-+  PUPDATECLOCK UpdateClock;
-+  float m_fps;
-+};
-diff --git a/xbmc/video/videosync/VideoSyncCocoa.cpp b/xbmc/video/videosync/VideoSyncCocoa.cpp
-new file mode 100644
-index 0000000..733f32d
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncCocoa.cpp
-@@ -0,0 +1,40 @@
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#include "system.h"
-+
-+#if defined(TARGET_DARWIN)
-+
-+bool CVideoSyncCocoa::Setup(PUPDATECLOCK func)
-+{
-+  return false;
-+}
-+
-+void CVideoSyncCocoa::Run(volatile bool& stop)
-+{
-+
-+}
-+
-+void CVideoSyncCocoa::Cleanup()
-+{
-+
-+}
-+
-+#endif
-diff --git a/xbmc/video/videosync/VideoSyncCocoa.h b/xbmc/video/videosync/VideoSyncCocoa.h
-new file mode 100644
-index 0000000..5112874
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncCocoa.h
-@@ -0,0 +1,32 @@
-+#pragma once
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#if defined(TARGET_DARWIN)
-+
-+class CVideoSyncCocoa : public CVideoSync
-+{
-+public:
-+  virtual bool Setup(PUPDATECLOCK func);
-+  virtual void Run(volatile bool& stop);
-+  virtual void Cleanup();
-+};
-+
-+#endif
-diff --git a/xbmc/video/videosync/VideoSyncD3D.cpp b/xbmc/video/videosync/VideoSyncD3D.cpp
-new file mode 100644
-index 0000000..166635f
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncD3D.cpp
-@@ -0,0 +1,208 @@
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#include "system.h"
-+
-+#if defined(TARGET_WINDOWS)
-+
-+#pragma comment (lib,"d3d9.lib")
-+#pragma comment (lib,"DxErr.lib")
-+#include <Dxerr.h>
-+#include "utils/log.h"
-+#include "Utils/TimeUtils.h"
-+#include "Utils/MathUtils.h"
-+#include "windowing\WindowingFactory.h"
-+#include "video/videosync/VideoSyncD3D.h"
-+#include "guilib/GraphicContext.h"
-+
-+void CVideoSyncD3D::OnDestroyDevice()
-+{
-+  if (!m_displayLost)
-+  {
-+    m_displayLost = true;
-+    m_lostEvent.Wait();
-+  }
-+}
-+
-+void CVideoSyncD3D::OnResetDevice()
-+{
-+  m_displayReset = true;
-+}
-+
-+bool CVideoSyncD3D::Setup(PUPDATECLOCK func)
-+{
-+  int ReturnV;
-+  CLog::Log(LOGDEBUG, "CVideoSyncD3D: Setting up Direct3d");
-+  CSingleLock lock(g_graphicsContext);
-+  g_Windowing.Register(this);
-+  m_displayLost = false;
-+  m_displayReset = false;
-+  m_lostEvent.Reset();
-+  UpdateClock = func;
-+
-+  //get d3d device
-+  m_D3dDev = g_Windowing.Get3DDevice();
-+  //we need a high priority thread to get accurate timing
-+  if (!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL))
-+    CLog::Log(LOGDEBUG, "CVideoSyncD3D: SetThreadPriority failed");
-+
-+  D3DCAPS9 DevCaps;
-+  ReturnV = m_D3dDev->GetDeviceCaps(&DevCaps);
-+
-+  if (ReturnV != D3D_OK)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoSyncD3D: GetDeviceCaps returned %s: %s",
-+      DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
-+    return false;
-+  }
-+
-+  if ((DevCaps.Caps & D3DCAPS_READ_SCANLINE) != D3DCAPS_READ_SCANLINE)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoSyncD3D: Hardware does not support GetRasterStatus");
-+    return false;
-+  }
-+
-+  D3DRASTER_STATUS RasterStatus;
-+  ReturnV = m_D3dDev->GetRasterStatus(0, &RasterStatus);
-+  if (ReturnV != D3D_OK)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoSyncD3D: GetRasterStatus returned returned %s: %s",
-+      DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
-+    return false;
-+  }
-+
-+  D3DDISPLAYMODE DisplayMode;
-+  ReturnV = m_D3dDev->GetDisplayMode(0, &DisplayMode);
-+  if (ReturnV != D3D_OK)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoSyncD3D: GetDisplayMode returned returned %s: %s",
-+      DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
-+    return false;
-+  }
-+  m_height = DisplayMode.Height;
-+
-+  return true;
-+}
-+
-+void CVideoSyncD3D::Run(volatile bool& stop)
-+{
-+  D3DRASTER_STATUS RasterStatus;
-+  int64_t Now;
-+  int64_t LastVBlankTime;
-+  unsigned int LastLine;
-+  int NrVBlanks;
-+  double VBlankTime;
-+  int ReturnV;
-+  int64_t systemFrequency = CurrentHostFrequency();
-+
-+  //get the scanline we're currently at
-+  m_D3dDev->GetRasterStatus(0, &RasterStatus);
-+  if (RasterStatus.InVBlank)
-+    LastLine = 0;
-+  else
-+    LastLine = RasterStatus.ScanLine;
-+
-+  //init the vblanktime
-+  Now = CurrentHostCounter();
-+  LastVBlankTime = Now;
-+  m_lastUpdateTime = Now - systemFrequency;
-+  while (!stop && !m_displayLost && !m_displayReset)
-+  {
-+    //get the scanline we're currently at
-+    ReturnV = m_D3dDev->GetRasterStatus(0, &RasterStatus);
-+    if (ReturnV != D3D_OK)
-+    {
-+      CLog::Log(LOGDEBUG, "CVideoSyncD3D: GetRasterStatus returned returned %s: %s",
-+        DXGetErrorString(ReturnV), DXGetErrorDescription(ReturnV));
-+      return;
-+    }
-+
-+    //if InVBlank is set, or the current scanline is lower than the previous scanline, a vblank happened
-+    if ((RasterStatus.InVBlank && LastLine > 0) || (RasterStatus.ScanLine < LastLine))
-+    {
-+      //calculate how many vblanks happened
-+      Now = CurrentHostCounter() - systemFrequency * RasterStatus.ScanLine / (m_height * MathUtils::round_int(m_fps));
-+      VBlankTime = (double)(Now - LastVBlankTime) / (double)systemFrequency;
-+      NrVBlanks = MathUtils::round_int(VBlankTime * m_fps);
-+      //update the vblank timestamp, update the clock and send a signal that we got a vblank
-+      UpdateClock(NrVBlanks, Now);
-+
-+      //save the timestamp of this vblank so we can calculate how many vblanks happened next time
-+      LastVBlankTime = Now;
-+      //because we had a vblank, sleep until half the refreshrate period
-+      Now = CurrentHostCounter();
-+
-+      if ((Now - m_lastUpdateTime) >= systemFrequency)
-+      {
-+        if (m_fps != GetFps())
-+          break;
-+      }
-+
-+      int SleepTime = (int)((LastVBlankTime + (systemFrequency / MathUtils::round_int(m_fps) / 2) - Now) * 1000 / systemFrequency);
-+      if (SleepTime > 100) 
-+        SleepTime = 100; //failsafe
-+      if (SleepTime > 0)
-+        ::Sleep(SleepTime);
-+    }
-+    else
-+    {
-+      ::Sleep(1);
-+    }
-+
-+    if (RasterStatus.InVBlank)
-+      LastLine = 0;
-+    else
-+      LastLine = RasterStatus.ScanLine;
-+  }
-+
-+  m_lostEvent.Set();
-+  while (!stop && m_displayLost && !m_displayReset)
-+  {
-+    Sleep(10);
-+  }
-+}
-+
-+void CVideoSyncD3D::Cleanup()
-+{
-+  CLog::Log(LOGDEBUG, "CVideoSyncD3D: Cleaning up Direct3d");
-+  CSingleLock lock(g_graphicsContext);
-+
-+  m_lostEvent.Set();
-+  g_Windowing.Unregister(this);
-+}
-+
-+float CVideoSyncD3D::GetFps()
-+{
-+  D3DDISPLAYMODE DisplayMode;
-+  m_D3dDev->GetDisplayMode(0, &DisplayMode);
-+  m_fps = DisplayMode.RefreshRate;
-+  if (m_fps == 0)
-+    m_fps = 60;
-+  
-+  if (m_fps == 23 || m_fps == 29 || m_fps == 59)
-+    m_fps++;
-+
-+  if (g_Windowing.Interlaced())
-+  {
-+    m_fps *= 2;
-+  }
-+  return m_fps;
-+}
-+#endif
-diff --git a/xbmc/video/videosync/VideoSyncD3D.h b/xbmc/video/videosync/VideoSyncD3D.h
-new file mode 100644
-index 0000000..5ccbdd2
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncD3D.h
-@@ -0,0 +1,50 @@
-+#pragma once
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#if defined(TARGET_WINDOWS)
-+
-+#include "video/videosync/VideoSync.h"
-+#include <d3d9.h>
-+#include "guilib/D3DResource.h"
-+#include "threads/CriticalSection.h"
-+#include "threads/Event.h"
-+
-+class CVideoSyncD3D : public CVideoSync, ID3DResource
-+{
-+public:
-+  virtual bool Setup(PUPDATECLOCK func);
-+  virtual void Run(volatile bool& stop);
-+  virtual void Cleanup();
-+  virtual float GetFps();
-+
-+  virtual void OnCreateDevice() {}
-+  virtual void OnDestroyDevice();
-+  virtual void OnResetDevice();
-+private:
-+  LPDIRECT3DDEVICE9 m_D3dDev;
-+  int m_height;
-+  volatile bool m_displayLost;
-+  volatile bool m_displayReset;
-+  CEvent m_lostEvent;
-+  int64_t m_lastUpdateTime;
-+};
-+
-+#endif
-diff --git a/xbmc/video/videosync/VideoSyncGLX.cpp b/xbmc/video/videosync/VideoSyncGLX.cpp
-new file mode 100644
-index 0000000..fe83904
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncGLX.cpp
-@@ -0,0 +1,287 @@
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#include "system.h"
-+
-+#if defined(HAS_GLX)
-+
-+#include "video/videosync/VideoSyncGLX.h"
-+#include <sstream>
-+#include <X11/extensions/Xrandr.h>
-+#include "windowing/WindowingFactory.h"
-+#include "guilib/GraphicContext.h"
-+#include "threads/SingleLock.h"
-+#include "utils/log.h"
-+#include "utils/TimeUtils.h"
-+#include <string>
-+
-+using namespace std;
-+
-+Display* CVideoSyncGLX::m_Dpy = NULL;
-+
-+void CVideoSyncGLX::OnLostDevice()
-+{
-+  if (!m_displayLost)
-+  {
-+    m_displayLost = true;
-+    m_lostEvent.Wait();
-+  }
-+}
-+
-+void CVideoSyncGLX::OnResetDevice()
-+{
-+  m_displayReset = true;
-+}
-+
-+bool CVideoSyncGLX::Setup(PUPDATECLOCK func)
-+{
-+  CSingleLock lock(g_graphicsContext);
-+
-+  m_glXWaitVideoSyncSGI = NULL;
-+  m_glXGetVideoSyncSGI = NULL;
-+  m_vInfo = NULL;
-+  m_Window = 0;
-+  m_Context = NULL;
-+  UpdateClock = func;
-+
-+  int singleBufferAttributes[] = {
-+    GLX_RGBA,
-+    GLX_RED_SIZE,      0,
-+    GLX_GREEN_SIZE,    0,
-+    GLX_BLUE_SIZE,     0,
-+    None
-+  };
-+
-+  int ReturnV, SwaMask;
-+  unsigned int GlxTest;
-+  XSetWindowAttributes Swa;
-+
-+  m_vInfo = NULL;
-+  m_Context = NULL;
-+  m_Window = 0;
-+
-+  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Setting up GLX");
-+
-+  g_Windowing.Register(this);
-+
-+  m_displayLost = false;
-+  m_displayReset = false;
-+  m_lostEvent.Reset();
-+
-+  if (!m_Dpy)
-+  {
-+    m_Dpy = XOpenDisplay(NULL);
-+    if (!m_Dpy)
-+    {
-+      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Unable to open display");
-+      return false;
-+    }
-+  }
-+
-+  if (!glXQueryExtension(m_Dpy, NULL, NULL))
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: X server does not support GLX");
-+    return false;
-+  }
-+
-+  bool          ExtensionFound = false;
-+  istringstream Extensions(glXQueryExtensionsString(m_Dpy, g_Windowing.GetCurrentScreen()));
-+  string        ExtensionStr;
-+
-+  while (!ExtensionFound)
-+  {
-+    Extensions >> ExtensionStr;
-+    if (Extensions.fail())
-+      break;
-+
-+    if (ExtensionStr == "GLX_SGI_video_sync")
-+      ExtensionFound = true;
-+  }
-+
-+  if (!ExtensionFound)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: X server does not support GLX_SGI_video_sync");
-+    return false;
-+  }
-+
-+  m_vInfo = glXChooseVisual(m_Dpy, g_Windowing.GetCurrentScreen(), singleBufferAttributes);
-+  if (!m_vInfo)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXChooseVisual returned NULL");
-+    return false;
-+  }
-+
-+  Swa.border_pixel = 0;
-+  Swa.event_mask = StructureNotifyMask;
-+  Swa.colormap = XCreateColormap(m_Dpy, g_Windowing.GetWindow(), m_vInfo->visual, AllocNone );
-+  SwaMask = CWBorderPixel | CWColormap | CWEventMask;
-+
-+  m_Window = XCreateWindow(m_Dpy, g_Windowing.GetWindow(), 0, 0, 256, 256, 0,
-+                           m_vInfo->depth, InputOutput, m_vInfo->visual, SwaMask, &Swa);
-+
-+  m_Context = glXCreateContext(m_Dpy, m_vInfo, NULL, True);
-+  if (!m_Context)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXCreateContext returned NULL");
-+    return false;
-+  }
-+
-+  ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
-+  if (ReturnV != True)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
-+    return false;
-+  }
-+
-+  m_glXWaitVideoSyncSGI = (int (*)(int, int, unsigned int*))glXGetProcAddress((const GLubyte*)"glXWaitVideoSyncSGI");
-+  if (!m_glXWaitVideoSyncSGI)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI not found");
-+    return false;
-+  }
-+
-+  ReturnV = m_glXWaitVideoSyncSGI(2, 0, &GlxTest);
-+  if (ReturnV)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI returned %i", ReturnV);
-+    return false;
-+  }
-+
-+  m_glXGetVideoSyncSGI = (int (*)(unsigned int*))glXGetProcAddress((const GLubyte*)"glXGetVideoSyncSGI");
-+  if (!m_glXGetVideoSyncSGI)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXGetVideoSyncSGI not found");
-+    return false;
-+  }
-+
-+  ReturnV = m_glXGetVideoSyncSGI(&GlxTest);
-+  if (ReturnV)
-+  {
-+    CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXGetVideoSyncSGI returned %i", ReturnV);
-+    return false;
-+  }
-+
-+  return true;
-+}
-+
-+void CVideoSyncGLX::Run(volatile bool& stop)
-+{
-+  unsigned int  PrevVblankCount;
-+  unsigned int  VblankCount;
-+  int           ReturnV;
-+  bool          IsReset = false;
-+  int64_t       Now;
-+
-+  //get the current vblank counter
-+  m_glXGetVideoSyncSGI(&VblankCount);
-+  PrevVblankCount = VblankCount;
-+
-+  while(!stop && !m_displayLost && !m_displayReset)
-+  {
-+    //wait for the next vblank
-+    ReturnV = m_glXWaitVideoSyncSGI(2, (VblankCount + 1) % 2, &VblankCount);
-+    m_glXGetVideoSyncSGI(&VblankCount); //the vblank count returned by glXWaitVideoSyncSGI is not always correct
-+    Now = CurrentHostCounter();         //get the timestamp of this vblank
-+
-+    if(ReturnV)
-+    {
-+      CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXWaitVideoSyncSGI returned %i", ReturnV);
-+      return;
-+    }
-+
-+    if (VblankCount > PrevVblankCount)
-+    {
-+      UpdateClock((int)(VblankCount - PrevVblankCount), Now);
-+      IsReset = false;
-+    }
-+    else
-+    {
-+      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Vblank counter has reset");
-+
-+      //only try reattaching once
-+      if (IsReset)
-+        return;
-+
-+      //because of a bug in the nvidia driver, glXWaitVideoSyncSGI breaks when the vblank counter resets
-+      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detaching glX context");
-+      ReturnV = glXMakeCurrent(m_Dpy, None, NULL);
-+      if (ReturnV != True)
-+      {
-+        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
-+        return;
-+      }
-+
-+      //sleep here so we don't busy spin when this constantly happens, for example when the display went to sleep
-+      Sleep(1000);
-+
-+      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Attaching glX context");
-+      ReturnV = glXMakeCurrent(m_Dpy, m_Window, m_Context);
-+      if (ReturnV != True)
-+      {
-+        CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXMakeCurrent returned %i", ReturnV);
-+        return;
-+      }
-+
-+      m_glXGetVideoSyncSGI(&VblankCount);
-+
-+      IsReset = true;
-+    }
-+    PrevVblankCount = VblankCount;
-+  }
-+  m_lostEvent.Set();
-+  while(!stop && m_displayLost && !m_displayReset)
-+  {
-+    Sleep(10);
-+  }
-+}
-+
-+void CVideoSyncGLX::Cleanup()
-+{
-+  CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up GLX");
-+  CSingleLock lock(g_graphicsContext);
-+
-+  if (m_vInfo)
-+  {
-+    XFree(m_vInfo);
-+    m_vInfo = NULL;
-+  }
-+  if (m_Context)
-+  {
-+    glXMakeCurrent(m_Dpy, None, NULL);
-+    glXDestroyContext(m_Dpy, m_Context);
-+    m_Context = NULL;
-+  }
-+  if (m_Window)
-+  {
-+    XDestroyWindow(m_Dpy, m_Window);
-+    m_Window = 0;
-+  }
-+
-+  m_lostEvent.Set();
-+  g_Windowing.Unregister(this);
-+}
-+
-+float CVideoSyncGLX::GetFps()
-+{
-+  m_fps = g_graphicsContext.GetFPS();
-+  return m_fps;
-+}
-+
-+#endif
-diff --git a/xbmc/video/videosync/VideoSyncGLX.h b/xbmc/video/videosync/VideoSyncGLX.h
-new file mode 100644
-index 0000000..38d719d
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncGLX.h
-@@ -0,0 +1,55 @@
-+#pragma once
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#if defined(HAS_GLX)
-+
-+#include "video/videosync/VideoSync.h"
-+#include "system_gl.h"
-+#include <X11/X.h>
-+#include <X11/Xlib.h>
-+#include <GL/glx.h>
-+#include "guilib/DispResource.h"
-+#include "threads/Event.h"
-+
-+class CVideoSyncGLX : public CVideoSync, IDispResource
-+{
-+public:
-+  virtual bool Setup(PUPDATECLOCK func);
-+  virtual void Run(volatile bool& stop);
-+  virtual void Cleanup();
-+  virtual float GetFps();
-+  virtual void OnLostDevice();
-+  virtual void OnResetDevice();
-+
-+private:
-+  int  (*m_glXWaitVideoSyncSGI) (int, int, unsigned int*);
-+  int  (*m_glXGetVideoSyncSGI)  (unsigned int*);
-+
-+  static Display* m_Dpy;
-+  XVisualInfo *m_vInfo;
-+  Window       m_Window;
-+  GLXContext   m_Context;
-+  volatile bool m_displayLost;
-+  volatile bool m_displayReset;
-+  CEvent m_lostEvent;
-+};
-+
-+#endif
-
-From db963725b85eb9f6bc712884678c2b1bd976f5a2 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sat, 18 Oct 2014 11:47:02 +0200
-Subject: [PATCH 25/25] videorefclock: add video sync drm
-
----
- configure.in                          |   3 +
- xbmc/video/VideoReferenceClock.cpp    |  11 +-
- xbmc/video/videosync/Makefile         |   1 +
- xbmc/video/videosync/VideoSyncDRM.cpp | 191 ++++++++++++++++++++++++++++++++++
- xbmc/video/videosync/VideoSyncDRM.h   |  46 ++++++++
- 5 files changed, 251 insertions(+), 1 deletion(-)
- create mode 100644 xbmc/video/videosync/VideoSyncDRM.cpp
- create mode 100644 xbmc/video/videosync/VideoSyncDRM.h
-
-diff --git a/configure.in b/configure.in
-index d4d2fa6..a5bb1b0 100644
---- a/configure.in
-+++ b/configure.in
-@@ -1333,6 +1333,9 @@ if test "$use_x11" = "yes" && test "$host_vendor" != "apple"; then
-   PKG_CHECK_MODULES([XEXT],  [xext],
-     [INCLUDES="$INCLUDES $XEXT_CFLAGS"; LIBS="$LIBS $XEXT_LIBS"],
-     AC_MSG_ERROR($missing_library))
-+  PKG_CHECK_MODULES([DRM],  [libdrm],
-+    [INCLUDES="$INCLUDES $DRM_CFLAGS"; LIBS="$LIBS $DRM_LIBS"],
-+    AC_MSG_ERROR($missing_library))
-   AC_DEFINE([HAVE_X11], [1], [Define to 1 if you have X11 libs installed.])
- else
-   AC_MSG_RESULT($x11_disabled)
-diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index cd713bc..d50d196 100644
---- a/xbmc/video/VideoReferenceClock.cpp
-+++ b/xbmc/video/VideoReferenceClock.cpp
-@@ -28,10 +28,14 @@
- #include "threads/SingleLock.h"
- #include "guilib/GraphicContext.h"
- #include "video/videosync/VideoSync.h"
-+#include "windowing/WindowingFactory.h"
- 
+@@ -99,7 +99,8 @@ void CVideoReferenceClock::Process()
+ #if defined(HAVE_X11)
+   std::string gpuvendor = g_Windowing.GetRenderVendor();
+   std::transform(gpuvendor.begin(), gpuvendor.end(), gpuvendor.begin(), ::tolower);
+-  if (gpuvendor.compare(0, 5, "intel") == 0)
++  if ((gpuvendor.compare(0, 5, "intel") == 0 ||
++       gpuvendor.compare(0, 5, "x.org") == 0)) // AMD
+     m_pVideoSync = new CVideoSyncDRM();
  #if defined(HAS_GLX)
- #include "video/videosync/VideoSyncGLX.h"
- #endif
-+#if defined(HAVE_X11)
-+#include "video/videosync/VideoSyncDRM.h"
-+#endif
- #if defined(TARGET_WINDOWS)
- #include "video/videosync/VideoSyncD3D.h"
- #endif
-@@ -88,7 +92,12 @@ void CVideoReferenceClock::Process()
-   while(!m_bStop)
-   {
-     //set up the vblank clock
--#if defined(HAS_GLX)
-+#if defined(HAVE_X11)
-+  std::string gpuvendor = g_Windowing.GetRenderVendor();
-+  std::transform(gpuvendor.begin(), gpuvendor.end(), gpuvendor.begin(), ::tolower);
-+  if (gpuvendor.compare(0, 5, "intel") == 0)
-+    m_pVideoSync = new CVideoSyncDRM();
-+  else
-     m_pVideoSync = new CVideoSyncGLX();
- #elif defined(TARGET_WINDOWS)
-     m_pVideoSync = new CVideoSyncD3D();
-diff --git a/xbmc/video/videosync/Makefile b/xbmc/video/videosync/Makefile
-index ce74840..ff4aecb 100644
---- a/xbmc/video/videosync/Makefile
-+++ b/xbmc/video/videosync/Makefile
-@@ -1,5 +1,6 @@
- SRCS=VideoSyncGLX.cpp \
-      VideoSyncCocoa.cpp \
-+     VideoSyncDRM.cpp \
- 
- LIB=videosync.a
- 
-diff --git a/xbmc/video/videosync/VideoSyncDRM.cpp b/xbmc/video/videosync/VideoSyncDRM.cpp
-new file mode 100644
-index 0000000..1929a3a
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncDRM.cpp
-@@ -0,0 +1,191 @@
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#include "system.h"
-+
-+#if defined(HAVE_X11)
-+
-+#include "video/videosync/VideoSyncDRM.h"
-+#include "xf86drm.h"
-+#include <sys/poll.h>
-+#include <sys/time.h>
-+#include "utils/TimeUtils.h"
-+#include "utils/MathUtils.h"
-+#include "windowing/WindowingFactory.h"
-+#include "guilib/GraphicContext.h"
-+#include "utils/log.h"
-+
-+bool CVideoSyncDRM::Setup(PUPDATECLOCK func)
-+{
-+  CLog::Log(LOGDEBUG, "CVideoSyncDRM::%s - setting up DRM", __FUNCTION__);
-+
-+  UpdateClock = func;
-+
-+  m_fd = open("/dev/dri/card0", O_RDWR, 0);
-+  if (m_fd < 0)
-+  {
-+    CLog::Log(LOGERROR, "CVideoSyncDRM::%s - can't open /dev/dri/card0", __FUNCTION__);
-+    return false;
-+  }
-+
-+  drmVBlank vbl;
-+  int ret;
-+  vbl.request.type = DRM_VBLANK_RELATIVE;
-+  vbl.request.sequence = 0;
-+  ret = drmWaitVBlank(m_fd, &vbl);
-+  if (ret != 0)
-+  {
-+    CLog::Log(LOGERROR, "CVideoSyncDRM::%s - drmWaitVBlank returned error", __FUNCTION__);
-+    return false;
-+  }
-+
-+  m_abort = false;
-+  g_Windowing.Register(this);
-+
-+  return true;
-+}
-+
-+void CVideoSyncDRM::Run(volatile bool& stop)
-+{
-+  drmVBlank vbl;
-+  VblInfo info;
-+  int ret;
-+  int crtc = g_Windowing.GetCrtc();
-+
-+  vbl.request.type = DRM_VBLANK_RELATIVE;
-+  if (crtc == 1)
-+  {
-+    vbl.request.type = (drmVBlankSeqType)(vbl.request.type | DRM_VBLANK_SECONDARY);
-+  }
-+  else if (crtc > 1)
-+  {
-+    vbl.request.type = (drmVBlankSeqType)(vbl.request.type |
-+                       (crtc << DRM_VBLANK_HIGH_CRTC_SHIFT) & DRM_VBLANK_HIGH_CRTC_MASK);
-+  }
-+  vbl.request.sequence = 0;
-+  ret = drmWaitVBlank(m_fd, &vbl);
-+  if (ret != 0)
-+  {
-+    CLog::Log(LOGERROR, "CVideoSyncDRM::%s - drmWaitVBlank returned error", __FUNCTION__);
-+    return;
-+  }
-+
-+  info.start = CurrentHostCounter();
-+  info.videoSync = this;
-+
-+  vbl.request.type = (drmVBlankSeqType)(DRM_VBLANK_RELATIVE | DRM_VBLANK_EVENT);
-+  if (crtc == 1)
-+  {
-+    vbl.request.type = (drmVBlankSeqType)(vbl.request.type | DRM_VBLANK_SECONDARY);
-+  }
-+  else if (crtc > 1)
-+  {
-+    vbl.request.type = (drmVBlankSeqType)(vbl.request.type |
-+                       (crtc << DRM_VBLANK_HIGH_CRTC_SHIFT) & DRM_VBLANK_HIGH_CRTC_MASK);
-+  }
-+  vbl.request.sequence = 1;
-+  vbl.request.signal = (unsigned long)&info;
-+  ret = drmWaitVBlank(m_fd, &vbl);
-+  if (ret != 0)
-+  {
-+    CLog::Log(LOGERROR, "CVideoSyncDRM::%s - drmWaitVBlank returned error", __FUNCTION__);
-+    return;
-+  }
-+
-+  drmEventContext evctx;
-+  memset(&evctx, 0, sizeof evctx);
-+  evctx.version = DRM_EVENT_CONTEXT_VERSION;
-+  evctx.vblank_handler = EventHandler;
-+  evctx.page_flip_handler = NULL;
-+
-+  timeval timeout;
-+  fd_set fds;
-+  FD_ZERO(&fds);
-+  FD_SET(m_fd, &fds);
-+
-+  while (!stop && !m_abort)
-+  {
-+    timeout.tv_sec = 1;
-+    timeout.tv_usec = 0;
-+    ret = select(m_fd + 1, &fds, NULL, NULL, &timeout);
-+
-+    if (ret <= 0)
-+    {
-+      continue;
-+    }
-+
-+    ret = drmHandleEvent(m_fd, &evctx);
-+    if (ret != 0)
-+    {
-+      CLog::Log(LOGERROR, "CVideoSyncDRM::%s - drmHandleEvent returned error", __FUNCTION__);
-+      break;
-+    }
-+  }
-+}
-+
-+void CVideoSyncDRM::Cleanup()
-+{
-+  close(m_fd);
-+  g_Windowing.Unregister(this);
-+}
-+
-+void CVideoSyncDRM::EventHandler(int fd, unsigned int frame, unsigned int sec,
-+                                 unsigned int usec, void *data)
-+{
-+  drmVBlank vbl;
-+  struct timeval end;
-+  VblInfo *info = (VblInfo*)data;
-+  int crtc = g_Windowing.GetCrtc();
-+
-+  vbl.request.type = (drmVBlankSeqType)(DRM_VBLANK_RELATIVE | DRM_VBLANK_EVENT);
-+  if (crtc == 1)
-+  {
-+    vbl.request.type = (drmVBlankSeqType)(vbl.request.type | DRM_VBLANK_SECONDARY);
-+  }
-+  else if (crtc > 1)
-+  {
-+    vbl.request.type = (drmVBlankSeqType)(vbl.request.type |
-+                       (crtc << DRM_VBLANK_HIGH_CRTC_SHIFT) & DRM_VBLANK_HIGH_CRTC_MASK);
-+  }
-+  vbl.request.sequence = 1;
-+  vbl.request.signal = (unsigned long)data;
-+
-+  drmWaitVBlank(info->videoSync->m_fd, &vbl);
-+
-+  uint64_t now = CurrentHostCounter();
-+  float diff = (float)(now - info->start)/CurrentHostFrequency();
-+  int vblanks = MathUtils::round_int(diff * info->videoSync->m_fps);
-+  info->start = now;
-+
-+  info->videoSync->UpdateClock(vblanks, now);
-+}
-+
-+void CVideoSyncDRM::OnResetDevice()
-+{
-+  m_abort = true;
-+}
-+
-+float CVideoSyncDRM::GetFps()
-+{
-+  m_fps = g_graphicsContext.GetFPS();
-+  return m_fps;
-+}
-+
-+#endif
-diff --git a/xbmc/video/videosync/VideoSyncDRM.h b/xbmc/video/videosync/VideoSyncDRM.h
-new file mode 100644
-index 0000000..35f3e21
---- /dev/null
-+++ b/xbmc/video/videosync/VideoSyncDRM.h
-@@ -0,0 +1,46 @@
-+#pragma once
-+/*
-+ *      Copyright (C) 2005-2014 Team XBMC
-+ *      http://xbmc.org
-+ *
-+ *  This Program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2, or (at your option)
-+ *  any later version.
-+ *
-+ *  This Program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with XBMC; see the file COPYING.  If not, see
-+ *  <http://www.gnu.org/licenses/>.
-+ *
-+ */
-+
-+#if defined(HAVE_X11)
-+
-+#include "video/videosync/VideoSync.h"
-+#include "guilib/DispResource.h"
-+
-+class CVideoSyncDRM : public CVideoSync, IDispResource
-+{
-+public:
-+  virtual bool Setup(PUPDATECLOCK func);
-+  virtual void Run(volatile bool& stop);
-+  virtual void Cleanup();
-+  virtual float GetFps();
-+  virtual void OnResetDevice();
-+private:
-+  static void EventHandler(int fd, unsigned int frame, unsigned int sec, unsigned int usec, void *data);
-+  int m_fd;
-+  volatile bool m_abort;
-+  struct VblInfo
-+  {
-+    uint64_t start;
-+    CVideoSyncDRM *videoSync;
-+  };
-+};
-+
-+#endif
+   else
