@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi"
-PKG_VERSION="14-af6d342"
+PKG_VERSION="14-ba267af"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -41,7 +41,7 @@ PKG_AUTORECONF="no"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
 # for libX11 support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libdrm"
 # for libXrandr support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXrandr"
   KODI_XORG="--enable-x11 --enable-xrandr"
