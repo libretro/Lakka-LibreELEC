@@ -1,0 +1,206 @@
+From a2e2a3127261078129a5fc6f29222c7edbc3acea Mon Sep 17 00:00:00 2001
+From: vpeter4 <peter.vicman@gmail.com>
+Date: Sun, 5 Oct 2014 14:25:57 +0200
+Subject: [PATCH] tbs2910_device_tree_updates
+
+gpio ir receiver, red led as heartbeat, fan (as led output), spdif sound
+
+sgtl5000 audio codec by @milan on TBS forum
+	http://www.tbsdtv.com/forum/viewtopic.php?f=154&t=8859&p=32020#p32018
+
+---
+ arch/arm/boot/dts/imx6qdl.dtsi | 2 +-
+ arch/arm/boot/dts/imx6q-tbs2910.dts    |   4 ++
+ arch/arm/boot/dts/imx6qdl-tbs2910.dtsi | 106 ++++++++++++++++++++++-----------
+ 3 files changed, 76 insertions(+), 36 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6qdl-tbs2910.dtsi b/arch/arm/boot/dts/imx6qdl-tbs2910.dtsi
+index f351c21..53803c9 100644
+--- a/arch/arm/boot/dts/imx6qdl-tbs2910.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-tbs2910.dtsi
+@@ -21,6 +21,14 @@
+ 		mxcfb3 = &mxcfb4;
+ 	};
+ 
++	ir_recv: ir-receiver {
++		compatible = "gpio-ir-receiver";
++		gpios = <&gpio3 18 1>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_sabresd_ir>;
++		linux,rc-map-name = "rc-rc6-mce";
++	};
++	
+ 	chosen {
+ 		stdout-path = &uart1;
+ 	};
+@@ -57,9 +65,10 @@
+ 		reg_audio: regulator@2 {
+ 			compatible = "regulator-fixed";
+ 			reg = <2>;
+-			regulator-name = "wm8962-supply";
+-			gpio = <&gpio4 10 0>;
+-			enable-active-high;
++			regulator-name = "sgtl5000-supply";
++			regulator-min-microvolt = <3300000>;
++			regulator-max-microvolt = <3300000>;
++			regulator-always-on;
+ 		};
+ 
+ 		reg_mipi_dsi_pwr_on: mipi_dsi_pwr_on {
+@@ -98,20 +107,14 @@
+ 	};
+ 
+ 	sound {
+-		compatible = "fsl,imx6q-sabresd-wm8962",
+-			   "fsl,imx-audio-wm8962";
+-		model = "wm8962-audio";
++		compatible = "fsl,imx-audio-sgtl5000";
++		model = "imx-sgtl5000";
+ 		ssi-controller = <&ssi2>;
+ 		audio-codec = <&codec>;
+ 		audio-routing =
+-			"Headphone Jack", "HPOUTL",
+-			"Headphone Jack", "HPOUTR",
+-			"Ext Spk", "SPKOUTL",
+-			"Ext Spk", "SPKOUTR",
+-			"MICBIAS", "AMIC",
+-			"IN3R", "MICBIAS",
+-			"DMIC", "MICBIAS",
+-			"DMICDAT", "DMIC";
++			"MIC_IN", "Mic Jack",
++			"Mic Jack", "Mic Bias",
++			"Headphone Jack", "HP_OUT";
+ 		mux-int-port = <2>;
+ 		mux-ext-port = <3>;
+ 	};
+@@ -132,9 +135,22 @@
+ 		red {
+ 		        gpios = <&gpio1 2 0>;
+ 		        default-state = "on";
++		        linux,default-trigger = "heartbeat";
++		};
++
++		fan {
++			gpios = <&gpio3 28 0>;
++			default-state = "off";
+ 		};
+ 	};
+ 
++	sound-spdif {
++		compatible = "fsl,imx-audio-spdif";
++		model = "imx-spdif";
++		spdif-controller = <&spdif>;
++		spdif-out;
++	};
++
+ 	sound-hdmi {
+ 		compatible = "fsl,imx6q-audio-hdmi",
+ 			     "fsl,imx-audio-hdmi";
+@@ -257,27 +273,15 @@
+ 	pinctrl-0 = <&pinctrl_i2c1>;
+ 	status = "okay";
+ 
+-	codec: wm8962@1a {
+-		compatible = "wlf,wm8962";
+-		reg = <0x1a>;
++	codec: sgtl5000@0a {
+ 		clocks = <&clks 201>;
+-		DCVDD-supply = <&reg_audio>;
+-		DBVDD-supply = <&reg_audio>;
+-		AVDD-supply = <&reg_audio>;
+-		CPVDD-supply = <&reg_audio>;
+-		MICVDD-supply = <&reg_audio>;
+-		PLLVDD-supply = <&reg_audio>;
+-		SPKVDD1-supply = <&reg_audio>;
+-		SPKVDD2-supply = <&reg_audio>;
+-		gpio-cfg = <
+-			0x0000 /* 0:Default */
+-			0x0000 /* 1:Default */
+-			0x0013 /* 2:FN_DMICCLK */
+-			0x0000 /* 3:Default */
+-			0x8014 /* 4:FN_DMICCDAT */
+-			0x0000 /* 5:Default */
+-		>;
+-       };
++		compatible = "fsl,sgtl5000";
++		reg = <0x0a>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_sgtl5000>;
++		VDDA-supply = <&reg_audio>;
++		VDDIO-supply = <&reg_audio>;
++    };
+ };
+ 
+ &i2c2 {
+@@ -417,7 +421,6 @@
+ 				MX6QDL_PAD_NANDF_D1__GPIO2_IO01 0x80000000
+ 				MX6QDL_PAD_NANDF_D2__GPIO2_IO02 0x80000000
+ 				MX6QDL_PAD_NANDF_D3__GPIO2_IO03 0x80000000
+-				MX6QDL_PAD_GPIO_0__CCM_CLKO1    0x130b0
+ 				MX6QDL_PAD_NANDF_CLE__GPIO6_IO07 0x80000000
+ 				MX6QDL_PAD_ENET_TXD1__GPIO1_IO29 0x80000000
+ 				MX6QDL_PAD_EIM_D22__GPIO3_IO22  0x80000000
+@@ -429,6 +432,12 @@
+ 			>;
+ 		};
+ 
++		pinctrl_sgtl5000: sgtl5000grp {
++			fsl,pins = <
++				MX6QDL_PAD_GPIO_0__CCM_CLKO1	    0x130b0
++			>;
++		};
++
+ 		pinctrl_audmux: audmuxgrp {
+ 			fsl,pins = <
+ 				MX6QDL_PAD_CSI0_DAT7__AUD3_RXD		0x130b0
+@@ -475,6 +484,16 @@
+ 			>;
+ 		};
+ 
++		pinctrl_sabresd_ir: sabresd-ir {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_D18__GPIO3_IO18 0x80000000
++			>;
++		};
++
++		pinctrl_sabresd_spdif: sabresd-spdif {
++			fsl,pins = <MX6QDL_PAD_GPIO_19__SPDIF_OUT 0x13091>;
++		};
++
+ 		pinctrl_hdmi_cec: hdmi_cecgrp {
+ 			fsl,pins = <
+ 				MX6QDL_PAD_KEY_ROW2__HDMI_TX_CEC_LINE 0x1f8b0
+@@ -618,6 +637,7 @@
+ 		pinctrl_gpio_leds: gpioledsgrp {
+ 			fsl,pins = <
+ 				MX6QDL_PAD_GPIO_2__GPIO1_IO02 0x80000000
++				MX6QDL_PAD_EIM_D28__GPIO3_IO28 0x80000000
+ 			>;
+ 		};
+ 	};
+@@ -698,6 +718,22 @@
+ 	status = "okay";
+ };
+ 
++&spdif {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_sabresd_spdif>;
++	clocks = <&clks 197>, <&clks 0>,
++		 <&clks 197>, <&clks 0>,
++		 <&clks 0>,   <&clks 0>,
++		 <&clks 0>,   <&clks 0>,
++		 <&clks 0>;
++	clock-names = "core",  "rxtx0",
++		      "rxtx1", "rxtx2",
++		      "rxtx3", "rxtx4",
++		      "rxtx5", "rxtx6",
++		      "rxtx7";
++	status = "okay";
++};
++
+ &usbh1 {
+ 	vbus-supply = <&reg_usb_h1_vbus>;
+ 	status = "okay";
+-- 
+1.8.1.2
+
