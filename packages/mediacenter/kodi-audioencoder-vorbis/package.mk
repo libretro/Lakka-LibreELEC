@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi-audioencoder-vorbis"
-PKG_VERSION="a73ef7e"
+PKG_VERSION="f75f329"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
