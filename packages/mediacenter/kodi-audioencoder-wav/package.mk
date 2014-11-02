@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi-audioencoder-wav"
-PKG_VERSION="b28ab95"
+PKG_VERSION="40aaedf"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
