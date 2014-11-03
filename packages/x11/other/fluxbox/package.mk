@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://fluxbox.org/"
 PKG_URL="http://sourceforge.net/projects/fluxbox/files/fluxbox/${PKG_VERSION}/$PKG_NAME-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libX11"
+PKG_DEPENDS_TARGET="toolchain libX11 libXrandr libXext libXrender"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/other"
 PKG_SHORTDESC="Fluxbox is a windowmanager for X that was based on the Blackbox 0.61.1 code"
@@ -33,7 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
-                           ac_cv_func_malloc_0_nonnull=yes
+                           ac_cv_func_malloc_0_nonnull=yes \
                            --disable-toolbar \
                            --disable-slit \
                            --disable-systray \
