@@ -17,12 +17,20 @@
 ################################################################################
 
 PKG_NAME="libcec"
-PKG_VERSION="2.2.0"
+case "$KODIPLAYER_DRIVER" in
+  libfslvpuwrap)
+    PKG_VERSION="2.1.4"
+    PKG_URL="http://packages.pulse-eight.net/pulse/sources/libcec/$PKG_NAME-$PKG_VERSION.tar.gz"
+    ;;
+  *)
+    PKG_VERSION="2.2.0"
+    PKG_URL="http://mirrors.xbmc.org/build-deps/sources/$PKG_NAME-$PKG_VERSION-3.tar.gz"
+    ;;
+esac
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
-PKG_URL="http://mirrors.xbmc.org/build-deps/sources/$PKG_NAME-$PKG_VERSION-3.tar.gz"
 PKG_DEPENDS_TARGET="toolchain systemd lockdev"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
