@@ -1,0 +1,43 @@
+From 65342cfaebe4fcbea2e44bb61791b82197772ca1 Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi@xbmc.org>
+Date: Tue, 4 Nov 2014 19:22:03 +0200
+Subject: [PATCH] [AE] ALSA: Fix DeviceChange event triggered by enumeration
+
+All hctl elements get an SND_CTL_EVENT_MASK_REMOVE event when the ctl
+file descriptor is closed, which is done e.g. when re-enumerating
+devices.
+
+(SND_CTL_EVENT_MASK_REMOVE & SND_CTL_EVENT_MASK_VALUE) is true, and
+therefore we re-triggered enumeration (depending a bit on timing).
+
+Fix that by checking for the special _REMOVE value first and ignoring
+those events.
+---
+diff -Naur kodi-14-d6947be/xbmc/cores/AudioEngine/Sinks/alsa/ALSAHControlMonitor.cpp kodi-14-d6947be.patch/xbmc/cores/AudioEngine/Sinks/alsa/ALSAHControlMonitor.cpp
+--- kodi-14-d6947be/xbmc/cores/AudioEngine/Sinks/alsa/ALSAHControlMonitor.cpp	2014-11-05 09:22:22.494136199 +0100
++++ kodi-14-d6947be.patch/xbmc/cores/AudioEngine/Sinks/alsa/ALSAHControlMonitor.cpp	2014-11-05 09:25:41.754440039 +0100
+@@ -114,12 +114,20 @@
+ 
+ int CALSAHControlMonitor::HCTLCallback(snd_hctl_elem_t *elem, unsigned int mask)
+ {
+-  /*
+-   * Currently we just re-enumerate on any change.
+-   * Custom callbacks for handling other control monitoring may be implemented when needed.
+-   */
++  /* _REMOVE is a special value instead of a bit and must be checked first */
++  if (mask == SND_CTL_EVENT_MASK_REMOVE)
++  {
++    /* Either the device was removed (which is handled in ALSADeviceMonitor instead)
++     * or snd_hctl_close() got called. */
++    return 0;
++  }
++
+   if (mask & SND_CTL_EVENT_MASK_VALUE)
+   {
++    /*
++     * Currently we just re-enumerate on any change.
++     * Custom callbacks for handling other control monitoring may be implemented when needed.
++     */
+     CAEFactory::DeviceChange();
+   }
+ 
