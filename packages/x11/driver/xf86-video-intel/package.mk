@@ -49,7 +49,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-backlight \
                            --enable-glamor \
                            --disable-xaa \
                            --disable-dga \
-                           --enable-tear-free \
+                           --disable-tear-free \
                            --disable-rendernode \
                            --disable-create2 \
                            --disable-rotation \
