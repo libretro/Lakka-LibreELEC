@@ -1,0 +1,67 @@
+From 411b2097affa681e22e8e0fe1a1c30bebd574a0e Mon Sep 17 00:00:00 2001
+From: fritsch <Peter.Fruehberger@gmail.com>
+Date: Sat, 1 Nov 2014 12:44:54 +0100
+Subject: [PATCH] AdvancedSettings: Add minimalSampleRate to ActiveAE cause of
+ broken AVRs out there
+
+---
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 7 +++++++
+ xbmc/settings/AdvancedSettings.cpp                   | 3 +++
+ xbmc/settings/AdvancedSettings.h                     | 2 ++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index 0e4d8da..b9d74bf 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -1505,6 +1505,13 @@ void CActiveAE::ApplySettingsToFormat(AEAudioFormat &format, AudioSettings &sett
+       format.m_channelLayout = AE_CH_LAYOUT_2_0;
+     }
+ 
++    // OpenELEC workaround to define a minimum sample Rate for broken AVRs
++    if (format.m_sampleRate < g_advancedSettings.m_minimumSampleRate)
++    {
++      format.m_sampleRate = g_advancedSettings.m_minimumSampleRate;
++      CLog::Log(LOGDEBUG, "CActiveAE::MinimumSampleRate - Forced by use to samplerate %d", format.m_sampleRate);
++    }
++
+     if (m_settings.config == AE_CONFIG_FIXED)
+     {
+       format.m_sampleRate = m_settings.samplerate;
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index 7d04872..3d5432a 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -107,6 +107,8 @@ void CAdvancedSettings::Initialize()
+     return;
+ 
+   m_audioHeadRoom = 0;
++  // OpenELEC workaround for broken AVRs
++  m_minimumSampleRate = 8000;
+   m_ac3Gain = 12.0f;
+   m_audioApplyDrc = true;
+   m_dvdplayerIgnoreDTSinWAV = false;
+@@ -475,6 +477,7 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
+   {
+     XMLUtils::GetFloat(pElement, "ac3downmixgain", m_ac3Gain, -96.0f, 96.0f);
+     XMLUtils::GetInt(pElement, "headroom", m_audioHeadRoom, 0, 12);
++    XMLUtils::GetInt(pElement, "minimumsamplerate", m_minimumSampleRate, 8000, 192000);
+     XMLUtils::GetString(pElement, "defaultplayer", m_audioDefaultPlayer);
+     // 101 on purpose - can be used to never automark as watched
+     XMLUtils::GetFloat(pElement, "playcountminimumpercent", m_audioPlayCountMinimumPercent, 0.0f, 101.0f);
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index 7df586e..9b79a8a 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -136,6 +136,8 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
+     static void SettingOptionsLoggingComponentsFiller(const CSetting *setting, std::vector< std::pair<std::string, int> > &list, int &current, void *data);
+ 
+     int m_audioHeadRoom;
++    // OpenELEC workaround for minimum sample Rate
++    int m_minimumSampleRate;
+     float m_ac3Gain;
+     CStdString m_audioDefaultPlayer;
+     float m_audioPlayCountMinimumPercent;
+-- 
+1.9.1
+
