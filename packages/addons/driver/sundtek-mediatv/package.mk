@@ -58,6 +58,9 @@ makeinstall_target() {
 }
 
 addon() {
+  # wtf sundtek ????! mediasrv 0111/---x--x--x
+  chmod 755 $PKG_BUILD/opt/bin/mediasrv
+
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
   cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
   cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
