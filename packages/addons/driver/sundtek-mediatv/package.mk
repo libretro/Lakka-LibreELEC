@@ -18,7 +18,7 @@
 
 PKG_NAME="sundtek-mediatv"
 PKG_VERSION="4.3"
-PKG_REV="2"
+PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://support.sundtek.com/"
@@ -29,7 +29,7 @@ PKG_SECTION="driver/dvb"
 PKG_SHORTDESC="Sundtek USB Stick DVB userspace driver"
 PKG_LONGDESC="Driver for Sundtek MediaTV Pro (DVB-C, DVB-T, AnalogTV, Composite, S-Video, FM-Radio USB Stick) and Sundtek SkyTV Ultimate (DVB-S/S2 USB)."
 PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.python.script"
+PKG_ADDON_TYPE="kodi.service"
 PKG_AUTORECONF="no"
 
 make_target() {
@@ -49,9 +49,8 @@ make_target() {
   esac
   wget -O installer.tar.gz $INSTALLER_URL
   tar -xzf installer.tar.gz
-  # we run this via wrapper
-  mv opt/bin/mediaclient opt/bin/mediaclient.bin
-  chmod 755 opt/bin/*
+  
+  wget -O version.used http://sundtek.de/media/latest.phtml
 }
 
 makeinstall_target() {
@@ -64,4 +63,5 @@ addon() {
   cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
   cp -Pa $PKG_BUILD/opt/bin $ADDON_BUILD/$PKG_ADDON_ID/
   cp -Pa $PKG_BUILD/opt/lib $ADDON_BUILD/$PKG_ADDON_ID/
+  cp $PKG_BUILD/version.used $ADDON_BUILD/$PKG_ADDON_ID/
 }
