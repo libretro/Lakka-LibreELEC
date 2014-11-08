@@ -39,3 +39,11 @@ PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr -C utils/keytable"
 make_target() {
     make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
 }
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/etc/rc_keymaps
+    ln -sf /storage/.config/rc_keymaps $INSTALL/etc/rc_keymaps
+
+  mkdir -p $INSTALL/usr/config
+    cp -PR $PKG_DIR/config/* $INSTALL/usr/config
+}
