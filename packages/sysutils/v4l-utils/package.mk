@@ -19,7 +19,7 @@
 # with 1.0.0 repeat delay is broken. test on upgrade
 
 PKG_NAME="v4l-utils"
-PKG_VERSION="0.8.9"
+PKG_VERSION="1.6.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -38,11 +38,4 @@ PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr -C utils/keytable"
 
 make_target() {
     make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
-}
-
-post_makeinstall_target() {
-  rm -rf $INSTALL/lib/udev/rules.d
-
-  mkdir -p $INSTALL/usr/lib/udev/rules.d
-    cp utils/keytable/*.rules $INSTALL/usr/lib/udev/rules.d
 }
