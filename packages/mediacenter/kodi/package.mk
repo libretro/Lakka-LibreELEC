@@ -215,7 +215,7 @@ else
   KODI_AIRTUNES="--disable-airtunes"
 fi
 
-if [ "$NFS_SUPPORT" = yes ]; then
+if [ "$KODI_NFS_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libnfs"
   KODI_NFS="--enable-nfs"
 else
