@@ -249,7 +249,7 @@ else
   KODI_UPNP="--disable-upnp"
 fi
 
-if [ "$SSHLIB_SUPPORT" = yes ]; then
+if [ "$KODI_SSHLIB_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libssh"
   KODI_SSH="--enable-ssh"
 else
