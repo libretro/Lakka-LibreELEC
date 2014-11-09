@@ -163,7 +163,7 @@ else
   KODI_OPTICAL="--disable-optical-drive"
 fi
 
-if [ "$NONFREE_SUPPORT" = yes ]; then
+if [ "$KODI_NONFREE_SUPPORT" = yes ]; then
 # for non-free support
   KODI_NONFREE="--enable-non-free"
 else
