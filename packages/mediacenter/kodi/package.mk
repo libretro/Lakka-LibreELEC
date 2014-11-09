@@ -236,7 +236,7 @@ else
   KODI_SAMBA="--disable-samba"
 fi
 
-if [ "$WEBSERVER" = yes ]; then
+if [ "$KODI_WEBSERVER_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libmicrohttpd"
   KODI_WEBSERVER="--enable-webserver"
 else
