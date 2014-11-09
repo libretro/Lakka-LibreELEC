@@ -243,7 +243,7 @@ else
   KODI_WEBSERVER="--disable-webserver"
 fi
 
-if [ "$UPNP_SUPPORT" = yes ]; then
+if [ "$KODI_UPNP_SUPPORT" = yes ]; then
   KODI_UPNP="--enable-upnp"
 else
   KODI_UPNP="--disable-upnp"
