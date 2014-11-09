@@ -194,7 +194,7 @@ else
   KODI_AVAHI="--disable-avahi"
 fi
 
-if [ "$MYSQL_SUPPORT" = yes ]; then
+if [ "$KODI_MYSQL_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET mysql"
   KODI_MYSQL="--enable-mysql"
 else

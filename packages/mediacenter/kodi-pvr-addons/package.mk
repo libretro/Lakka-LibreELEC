@@ -31,7 +31,7 @@ PKG_LONGDESC="This addons allows Kodi PVR to connect to various TV/PVR backends 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-if [ "$MYSQL_SUPPORT" = yes ]; then
+if [ "$KODI_MYSQL_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET mysql"
   PVRADDONS_MYSQL="--enable-mysql"
 else
