@@ -201,7 +201,7 @@ else
   KODI_MYSQL="--disable-mysql"
 fi
 
-if [ "$AIRPLAY_SUPPORT" = yes ]; then
+if [ "$KODI_AIRPLAY_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libplist"
   KODI_AIRPLAY="--enable-airplay"
 else
