@@ -180,7 +180,7 @@ if [ "$FAAC_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET faac"
 fi
 
-if [ "$BLURAY_SUPPORT" = yes ]; then
+if [ "$KODI_BLURAY_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libbluray"
   KODI_BLURAY="--enable-libbluray"
 else
