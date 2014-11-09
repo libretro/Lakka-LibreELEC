@@ -77,6 +77,8 @@ if [ $? -ne 0 ]; then
   exit 4
 fi
 
+chmod -R 755 opt/ etc/
+
 killall -9 mediaclient &>/dev/null
 killall -9 mediasrv &>/dev/null
 
