@@ -37,7 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-optimizations \
                            --with-gnu-ld"
 
-if [ "$AACS_SUPPORT" = "yes" ]; then
+if [ "$BLURAY_AACS_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libaacs"
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --with-libaacs"
 else
