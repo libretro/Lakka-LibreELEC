@@ -157,7 +157,7 @@ else
   KODI_JOYSTICK="--disable-joystick"
 fi
 
-if [ "$OPTICAL_DRIVE_SUPPORT" = yes ]; then
+if [ "$KODI_OPTICAL_SUPPORT" = yes ]; then
   KODI_OPTICAL="--enable-optical-drive"
 else
   KODI_OPTICAL="--disable-optical-drive"

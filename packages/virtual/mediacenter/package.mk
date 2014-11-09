@@ -43,7 +43,7 @@ if [ "$MEDIACENTER" = "kodi" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pycrypto"
 
 # Kodi audio encoder addons
-  if [ "$OPTICAL_DRIVE_SUPPORT" = "yes" ]; then
+  if [ "$KODI_OPTICAL_SUPPORT" = "yes" ]; then
     for audioencoder in $KODI_AUDIOENCODER_ADDONS; do
       PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kodi-audioencoder-$audioencoder"
     done
