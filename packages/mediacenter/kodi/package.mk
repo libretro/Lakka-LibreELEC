@@ -229,7 +229,7 @@ else
   KODI_AFP="--disable-afpclient"
 fi
 
-if [ "$SAMBA_SUPPORT" = yes ]; then
+if [ "$KODI_SAMBA_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET samba"
   KODI_SAMBA="--enable-samba"
 else
