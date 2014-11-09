@@ -33,6 +33,9 @@ PKG_LONGDESC="Kodi Media Center (which was formerly named Xbox Media Center or X
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+# configure GPU drivers and dependencies:
+  get_graphicdrivers
+
 # for dbus support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dbus"
 
@@ -271,17 +274,14 @@ if [ ! "$KODIPLAYER_DRIVER" = default ]; then
   fi
 fi
 
-if [ "$VDPAU" = yes ]; then
+if [ "$VDPAU_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   KODI_VDPAU="--enable-vdpau"
 else
   KODI_VDPAU="--disable-vdpau"
 fi
 
-if [ "$VAAPI" = yes ]; then
-# configure GPU drivers and dependencies:
-  get_graphicdrivers
-
+if [ "$VAAPI_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-intel-driver"
   KODI_VAAPI="--enable-vaapi"
 else

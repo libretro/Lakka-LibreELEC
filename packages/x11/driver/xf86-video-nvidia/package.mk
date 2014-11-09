@@ -24,7 +24,7 @@ PKG_LICENSE="nonfree"
 PKG_SITE="http://www.nvidia.com/"
 [ "$TARGET_ARCH" = "i386" ] && PKG_URL="http://us.download.nvidia.com/XFree86/Linux-x86/$PKG_VERSION/NVIDIA-Linux-x86-$PKG_VERSION.run"
 [ "$TARGET_ARCH" = "x86_64" ] && PKG_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/$PKG_VERSION/NVIDIA-Linux-x86_64-$PKG_VERSION-no-compat32.run"
-PKG_DEPENDS_TARGET="toolchain util-macros linux xorg-server"
+PKG_DEPENDS_TARGET="toolchain util-macros linux xorg-server libvdpau"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/driver"
@@ -33,10 +33,6 @@ PKG_LONGDESC="These binary drivers provide optimized hardware acceleration of Op
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-if [ "$VDPAU" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
-fi
 
 unpack() {
   NV_PKG="`echo $PKG_URL | sed 's%.*/\(.*\)$%\1%'`"
@@ -78,9 +74,7 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp nvidia-smi $INSTALL/usr/bin
 
-  if [ "$VDPAU" = yes ]; then
-    mkdir -p $INSTALL/usr/lib/vdpau
-      cp libvdpau_nvidia.so* $INSTALL/usr/lib/vdpau/libvdpau_nvidia.so.1
-      ln -sf libvdpau_nvidia.so.1 $INSTALL/usr/lib/vdpau/libvdpau_nvidia.so
-  fi
+  mkdir -p $INSTALL/usr/lib/vdpau
+    cp libvdpau_nvidia.so* $INSTALL/usr/lib/vdpau/libvdpau_nvidia.so.1
+    ln -sf libvdpau_nvidia.so.1 $INSTALL/usr/lib/vdpau/libvdpau_nvidia.so
 }
