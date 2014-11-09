@@ -208,7 +208,7 @@ else
   KODI_AIRPLAY="--disable-airplay"
 fi
 
-if [ "$AIRTUNES_SUPPORT" = yes ]; then
+if [ "$KODI_AIRTUNES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libshairplay"
   KODI_AIRTUNES="--enable-airtunes"
 else
