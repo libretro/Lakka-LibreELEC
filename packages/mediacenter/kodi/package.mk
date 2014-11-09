@@ -222,7 +222,7 @@ else
   KODI_NFS="--disable-nfs"
 fi
 
-if [ "$AFP_SUPPORT" = yes ]; then
+if [ "$KODI_AFP_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET afpfs-ng"
   KODI_AFP="--enable-afpclient"
 else
