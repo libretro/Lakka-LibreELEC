@@ -170,7 +170,7 @@ else
   KODI_NONFREE="--disable-non-free"
 fi
 
-if [ "$DVDCSS_SUPPORT" = yes ]; then
+if [ "$KODI_DVDCSS_SUPPORT" = yes ]; then
   KODI_DVDCSS="--enable-dvdcss"
 else
   KODI_DVDCSS="--disable-dvdcss"
