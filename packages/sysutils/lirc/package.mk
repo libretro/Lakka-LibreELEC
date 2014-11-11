@@ -35,6 +35,7 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_path_LIBUSB_CONFIG= /
                            ac_cv_func_forkpty=no \
                            ac_cv_lib_util_forkpty=no \
+                           --localstatedir=/ \
                            --enable-sandboxed \
                            --with-gnu-ld \
                            --without-x \
