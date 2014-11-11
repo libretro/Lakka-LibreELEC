@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="pciutils"
-PKG_VERSION="3.2.1"
+PKG_VERSION="3.3.0"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://mj.ucw.cz/pciutils.shtml"
 PKG_URL="http://www.kernel.org/pub/software/utils/pciutils/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain kmod systemd"
 PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="pciutils: Linux PCI Utilities"
@@ -39,8 +39,7 @@ make_target() {
        CROSS_COMPILE=${TARGET_PREFIX} \
        HOST=$TARGET_ARCH-linux \
        $PKG_MAKE_OPTS \
-       ZLIB=no \
-       DNS=no
+       ZLIB=no DNS=no LIBKMOD=yes HWDB=yes
 }
 
 makeinstall_target() {
@@ -53,11 +52,7 @@ makeinstall_target() {
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin/setpci
-  rm -rf $INSTALL/usr/bin/update-pciids
-  rm -rf $INSTALL/usr/share
+  rm -rf $INSTALL/usr/sbin/setpci
   rm -rf $INSTALL/usr/sbin/update-pciids
-
-  mkdir -p $INSTALL/usr/share
-    cp $PKG_DIR/config/pci.ids $INSTALL/usr/share
+  rm -rf $INSTALL/usr/share
 }
