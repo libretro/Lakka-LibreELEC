@@ -1,7 +1,7 @@
-From 5acb9e7a7c70dc38ca18799d4908b96f242551dc Mon Sep 17 00:00:00 2001
+From 3a5bdd36382f3cd5891128f5ad8cc9a8a1866e24 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 28 May 2012 10:49:05 +0200
-Subject: [PATCH 04/24] dvdplayer: allow rewinding at end of stream, do a seek
+Subject: [PATCH 01/19] dvdplayer: allow rewinding at end of stream, do a seek
  after rewind
 
 ---
@@ -9,10 +9,10 @@ Subject: [PATCH 04/24] dvdplayer: allow rewinding at end of stream, do a seek
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index 63cbe66..f5f697e 100644
+index f586933..844b278 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-@@ -1793,7 +1793,7 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1704,7 +1704,7 @@ void CDVDPlayer::HandlePlaySpeed()
  
      }
      else if (m_CurrentVideo.id >= 0
@@ -21,7 +21,7 @@ index 63cbe66..f5f697e 100644
            &&  m_SpeedState.lastpts  != m_dvdPlayerVideo->GetCurrentPts()
            &&  m_SpeedState.lasttime != GetTime())
      {
-@@ -2440,6 +2440,12 @@ void CDVDPlayer::HandleMessages()
+@@ -2351,6 +2351,12 @@ void CDVDPlayer::HandleMessages()
            pvrinputstream->Pause( speed == 0 );
          }
  
@@ -35,10 +35,10 @@ index 63cbe66..f5f697e 100644
          // audioplayer, stops outputing audio to audiorendere, but still tries to
          // sleep an correct amount for each packet
 
-From 35a6e814939d4e4f900595f2b1efd5a2aa131ab0 Mon Sep 17 00:00:00 2001
+From b839effd5c32cdab55913e43980c10bb1a34ae42 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Mon, 20 Aug 2012 16:06:39 +0200
-Subject: [PATCH 05/24] dvdplayer: observe pts counter overflow
+Subject: [PATCH 02/19] dvdplayer: observe pts counter overflow
 
 ---
  .../cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 197 ++++++++++++++++++++-
@@ -46,7 +46,7 @@ Subject: [PATCH 05/24] dvdplayer: observe pts counter overflow
  2 files changed, 199 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
-index a9a8f0a..368de0e 100644
+index a9a8f0a..e9edd0c 100644
 --- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
 +++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
 @@ -18,7 +18,6 @@
@@ -122,7 +122,7 @@ index a9a8f0a..368de0e 100644
 +
 +      // seek may fail silently on streams which allow discontinuity
 +      // if current timestamp is way off asume a pts overflow and try bisect seek
-+      if (m_bPtsWrap && fabs(time - m_iCurrentPts/1000) > 10000)
++      if (m_bPtsWrap && fabs(time - m_currentPts/1000) > 10000)
 +      {
 +        ret = SeekTimeDiscont(seek_pts, backwords) ? 1 : -1;
 +      }
@@ -209,7 +209,7 @@ index a9a8f0a..368de0e 100644
 +    bool ret = SeekByte(pos_max);
 +    if (ret)
 +    {
-+      m_iCurrentPts = ConvertTimestamp(ts_max, m_pFormatContext->streams[defaultStream]->time_base.den,
++      m_currentPts = ConvertTimestamp(ts_max, m_pFormatContext->streams[defaultStream]->time_base.den,
 +                                       m_pFormatContext->streams[defaultStream]->time_base.num);
 +    }
 +    return ret;
@@ -286,7 +286,7 @@ index a9a8f0a..368de0e 100644
 +  bool ret = SeekByte(pos);
 +  if (ret)
 +  {
-+    m_iCurrentPts = ConvertTimestamp(ts, m_pFormatContext->streams[defaultStream]->time_base.den,
++    m_currentPts = ConvertTimestamp(ts, m_pFormatContext->streams[defaultStream]->time_base.den,
 +                                     m_pFormatContext->streams[defaultStream]->time_base.num);
 +  }
 +
@@ -317,10 +317,10 @@ index c2f607d..b7daa34 100644
  };
  
 
-From eb6c9ab05b9e11f9fba0ec2187102dbf50b48e47 Mon Sep 17 00:00:00 2001
+From 13e1f0a869af5aa79d99a447ed10860a587134bb Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Tue, 2 Oct 2012 13:02:10 +0200
-Subject: [PATCH 06/24] dvdplayer: avoid short screen flicker caused by
+Subject: [PATCH 03/19] dvdplayer: avoid short screen flicker caused by
  unnecessary reconfigure of renderer
 
 ---
@@ -328,7 +328,7 @@ Subject: [PATCH 06/24] dvdplayer: avoid short screen flicker caused by
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 4f35e3a..4c0551d 100644
+index 9eacad2..5461608 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -1052,13 +1052,16 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
@@ -350,10 +350,10 @@ index 4f35e3a..4c0551d 100644
     || ( m_output.extended_format != pPicture->extended_format )
     || ( m_output.color_matrix    != pPicture->color_matrix    && pPicture->color_matrix    != 0 ) // don't reconfigure on unspecified
 
-From 8a105d14b71c550128a2bb45a2e620992161ea28 Mon Sep 17 00:00:00 2001
+From a1c9620d33de0a17f199511f2f739db57c549c66 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 11 Oct 2012 12:05:50 +0200
-Subject: [PATCH 07/24] vdpau: advanced settings for auto deinterlacing
+Subject: [PATCH 04/19] vdpau: advanced settings for auto deinterlacing
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -381,7 +381,7 @@ index e5e7970..8c353af 100644
      if (deint != -1)
      {
 diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
-index 7d04872..89069a9 100644
+index a50ac84..23462d3 100644
 --- a/xbmc/settings/AdvancedSettings.cpp
 +++ b/xbmc/settings/AdvancedSettings.cpp
 @@ -157,6 +157,8 @@ void CAdvancedSettings::Initialize()
@@ -416,10 +416,10 @@ index 7df586e..eccd25c 100644
      bool m_videoVDPAUdeintSkipChromaHD;
      bool m_musicUseTimeSeeking;
 
-From 399576b60dda39f175c8e06b7f53be5a61e6417f Mon Sep 17 00:00:00 2001
+From 36977f10cf162718eba5a636daecd1d66dbbdaf9 Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Fri, 2 Nov 2012 13:20:03 +0100
-Subject: [PATCH 08/24] player: fix rewind
+Subject: [PATCH 05/19] player: fix rewind
 
 ---
  xbmc/cores/dvdplayer/DVDMessage.h       |  5 +++-
@@ -467,10 +467,10 @@ index a365821..07366df 100644
  
  class CDVDMsgPlayerSeekChapter : public CDVDMsg
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.cpp b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-index f5f697e..60dab1f 100644
+index 844b278..1a7f021 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.cpp
-@@ -590,6 +590,7 @@ bool CDVDPlayer::OpenFile(const CFileItem& file, const CPlayerOptions &options)
+@@ -601,6 +601,7 @@ bool CDVDPlayer::OpenFile(const CFileItem& file, const CPlayerOptions &options)
      SetPlaySpeed(DVD_PLAYSPEED_NORMAL);
  
      m_State.Clear();
@@ -478,7 +478,7 @@ index f5f697e..60dab1f 100644
      m_UpdateApplication = 0;
      m_offset_pts = 0;
      m_CurrentAudio.originaldts = DVD_NOPTS_VALUE;
-@@ -1794,11 +1795,13 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1705,11 +1706,13 @@ void CDVDPlayer::HandlePlaySpeed()
      }
      else if (m_CurrentVideo.id >= 0
            &&  (m_CurrentVideo.inited == true || GetPlaySpeed() < 0) // allow rewind at end of file
@@ -493,7 +493,7 @@ index f5f697e..60dab1f 100644
        // check how much off clock video is when ff/rw:ing
        // a problem here is that seeking isn't very accurate
        // and since the clock will be resynced after seek
-@@ -1815,9 +1818,15 @@ void CDVDPlayer::HandlePlaySpeed()
+@@ -1726,9 +1729,15 @@ void CDVDPlayer::HandlePlaySpeed()
  
        if(error > DVD_MSEC_TO_TIME(1000))
        {
@@ -512,7 +512,7 @@ index f5f697e..60dab1f 100644
        }
      }
    }
-@@ -2289,7 +2298,7 @@ void CDVDPlayer::HandleMessages()
+@@ -2200,7 +2209,7 @@ void CDVDPlayer::HandleMessages()
            else
              m_StateInput.dts = start;
  
@@ -521,7 +521,7 @@ index f5f697e..60dab1f 100644
          }
          else
            CLog::Log(LOGWARNING, "error while seeking");
-@@ -2425,9 +2434,10 @@ void CDVDPlayer::HandleMessages()
+@@ -2336,9 +2345,10 @@ void CDVDPlayer::HandleMessages()
            double offset;
            offset  = CDVDClock::GetAbsoluteClock() - m_State.timestamp;
            offset *= m_playSpeed / DVD_PLAYSPEED_NORMAL;
@@ -533,7 +533,7 @@ index f5f697e..60dab1f 100644
            m_State.timestamp =  CDVDClock::GetAbsoluteClock();
          }
  
-@@ -2443,7 +2453,8 @@ void CDVDPlayer::HandleMessages()
+@@ -2354,7 +2364,8 @@ void CDVDPlayer::HandleMessages()
          // do a seek after rewind, clock is not in sync with current pts
          if (m_playSpeed < 0 && speed >= 0)
          {
@@ -543,7 +543,7 @@ index f5f697e..60dab1f 100644
          }
  
          // if playspeed is different then DVD_PLAYSPEED_NORMAL or DVD_PLAYSPEED_PAUSE
-@@ -3414,7 +3425,7 @@ void CDVDPlayer::UpdateClockMaster()
+@@ -3328,7 +3339,7 @@ void CDVDPlayer::UpdateClockMaster()
    }
  }
  
@@ -552,7 +552,7 @@ index f5f697e..60dab1f 100644
  {
    double startpts;
    if(accurate && !m_omxplayer_mode)
-@@ -3426,19 +3437,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3340,19 +3351,23 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
    if(startpts != DVD_NOPTS_VALUE)
      startpts -= m_offset_pts;
  
@@ -580,7 +580,7 @@ index f5f697e..60dab1f 100644
    m_CurrentTeletext.dts      = DVD_NOPTS_VALUE;
    m_CurrentTeletext.startpts = startpts;
  
-@@ -3482,7 +3497,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
+@@ -3396,7 +3411,7 @@ void CDVDPlayer::FlushBuffers(bool queued, double pts, bool accurate)
        m_CurrentTeletext.started = false;
      }
  
@@ -590,10 +590,10 @@ index f5f697e..60dab1f 100644
      UpdatePlayState(0);
  
 diff --git a/xbmc/cores/dvdplayer/DVDPlayer.h b/xbmc/cores/dvdplayer/DVDPlayer.h
-index dac00e9..dbce0a0 100644
+index 9f75ccf..c8b81d7 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayer.h
 +++ b/xbmc/cores/dvdplayer/DVDPlayer.h
-@@ -339,7 +339,7 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
+@@ -351,7 +351,7 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
    bool GetCachingTimes(double& play_left, double& cache_left, double& file_offset);
  
  
@@ -602,7 +602,7 @@ index dac00e9..dbce0a0 100644
  
    void HandleMessages();
    void HandlePlaySpeed();
-@@ -393,8 +393,10 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
+@@ -405,8 +405,10 @@ class CDVDPlayer : public IPlayer, public CThread, public IDVDPlayer
    int m_playSpeed;
    struct SSpeedState
    {
@@ -616,7 +616,7 @@ index dac00e9..dbce0a0 100644
  
    int m_errorCount;
 diff --git a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
-index 4c0551d..0a4de2c 100644
+index 5461608..d98baeb 100644
 --- a/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 +++ b/xbmc/cores/dvdplayer/DVDPlayerVideo.cpp
 @@ -1160,6 +1160,20 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
@@ -671,17 +671,17 @@ index a38a9c3..4e1b3d6 100644
    unsigned int m_dropRequests;
  };
 
-From 48438ffa62caf266c82ef33dcd10d58d914de8ae Mon Sep 17 00:00:00 2001
+From 5f8454a1a679262316424324590550259398a38f Mon Sep 17 00:00:00 2001
 From: xbmc <fernetmenta@online.de>
 Date: Thu, 28 Mar 2013 20:50:59 +0100
-Subject: [PATCH 09/24] fix incorrect display of fps when dr kicks in
+Subject: [PATCH 06/19] fix incorrect display of fps when dr kicks in
 
 ---
  xbmc/Application.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index ee59549..338039e 100644
+index 48fa09b..415e4c2 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
 @@ -2326,10 +2326,11 @@ void CApplication::Render()
@@ -698,10 +698,10 @@ index ee59549..338039e 100644
  
    g_renderManager.UpdateResolution();
 
-From 47eea9d903f1bc98d4fb81365f40dcce508a3ae5 Mon Sep 17 00:00:00 2001
+From 2fc87d8796b4c102fb35ebe29c966c40962e5e43 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Thu, 25 Jul 2013 17:18:13 +0200
-Subject: [PATCH 10/24] ActiveAE: slightly reduce buffer size
+Subject: [PATCH 07/19] ActiveAE: slightly reduce buffer size
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 4 ++--
@@ -723,10 +723,10 @@ index 0e4d8da..99538dc 100644
  
  void CEngineStats::Reset(unsigned int sampleRate)
 
-From 55ccc433a49843001e8c2120aca2bc5ae245f521 Mon Sep 17 00:00:00 2001
+From dcc907a7cac7a980ba5057b84aec40248434a9cb Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sun, 4 Aug 2013 10:11:16 +0200
-Subject: [PATCH 11/24] Revert "vdpau: comment some features that will be added
+Subject: [PATCH 08/19] Revert "vdpau: comment some features that will be added
  later"
 
 This reverts commit e00b4f65864d623ab4d2e9e5c06db138e661f1cf.
@@ -779,39 +779,10 @@ index 8c353af..33ec1f4 100644
          m_mixersteps = 1;
        }
 
-From e41a871e824620d5b2d7f59cec4bcabba66d75ec Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Tue, 28 Jan 2014 10:05:26 +0100
-Subject: [PATCH 12/24] xbmc pr 3080
-
----
- xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 84b1eff..67f0e80 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -475,6 +475,14 @@ int CDVDVideoCodecFFmpeg::Decode(uint8_t* pData, int iSize, double dts, double p
-   av_init_packet(&avpkt);
-   avpkt.data = pData;
-   avpkt.size = iSize;
-+#define SET_PKT_TS(ts) \
-+  if(ts != DVD_NOPTS_VALUE)\
-+    avpkt.ts = (ts / DVD_TIME_BASE) * AV_TIME_BASE;\
-+  else\
-+    avpkt.ts = AV_NOPTS_VALUE
-+  SET_PKT_TS(pts);
-+  SET_PKT_TS(dts);
-+#undef SET_PKT_TS
-   /* We lie, but this flag is only used by pngdec.c.
-    * Setting it correctly would allow CorePNG decoding. */
-   avpkt.flags = AV_PKT_FLAG_KEY;
-
-From 2c55fb28f8287d6fdc6dbca4b2f9dd2aea9fabe2 Mon Sep 17 00:00:00 2001
+From b6ecdba8f294a2d83581b7188fbf3677283cbcde Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Tue, 11 Feb 2014 18:15:06 +0100
-Subject: [PATCH 13/24] ActiveAE: add some debug logging
+Subject: [PATCH 09/19] ActiveAE: add some debug logging
 
 ---
  xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp | 6 ++++++
@@ -836,10 +807,10 @@ index 96bce12..7bd9c9b 100644
    return copied;
  }
 
-From 6c08bfc1b52f13e5a28aab3cf59bc780470c9fb8 Mon Sep 17 00:00:00 2001
+From 8fb8a4320d136d92d2a07f71d9673674652634df Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 23 Aug 2014 11:42:31 +0200
-Subject: [PATCH 14/24] dvdplayer: rename codec ctrl flags
+Subject: [PATCH 10/19] dvdplayer: rename codec ctrl flags
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VDPAU.cpp | 8 ++++----
@@ -886,58 +857,17 @@ index 33ec1f4..300b901 100644
          m_mixersteps = 1;
        }
 
-From dcf0b4a0d5a8786f31eac6ee0693ab83d9f27cbc Mon Sep 17 00:00:00 2001
+From b0dfd947b0286ea60fcbdf1f04fc1071d94f9c92 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Fri, 13 Jun 2014 14:37:16 +0200
-Subject: [PATCH 15/24] VAAPI: implement codec control flags
+Subject: [PATCH 11/19] VAAPI: implement codec control flags
 
 ---
- .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp         | 21 ++++++++++++++++++---
- xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp      | 17 ++++++++++++++---
- 2 files changed, 32 insertions(+), 6 deletions(-)
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 67f0e80..2984847 100644
---- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-+++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -628,6 +628,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
-   pDvdVideoPicture->chroma_position = m_pCodecContext->chroma_sample_location;
-   pDvdVideoPicture->color_primaries = m_pCodecContext->color_primaries;
-   pDvdVideoPicture->color_transfer = m_pCodecContext->color_trc;
-+  pDvdVideoPicture->color_matrix = m_pCodecContext->colorspace;
-   if(m_pCodecContext->color_range == AVCOL_RANGE_JPEG
-   || m_pCodecContext->pix_fmt     == PIX_FMT_YUVJ420P)
-     pDvdVideoPicture->color_range = 1;
-@@ -651,10 +652,24 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(DVDVideoPicture* pDvdVideoPicture)
-     pDvdVideoPicture->qscale_type = DVP_QSCALE_UNKNOWN;
-   }
- 
--  pDvdVideoPicture->dts = m_dts;
-+  if (pDvdVideoPicture->iRepeatPicture)
-+    pDvdVideoPicture->dts = DVD_NOPTS_VALUE;
-+  else
-+    pDvdVideoPicture->dts = m_dts;
-+
-   m_dts = DVD_NOPTS_VALUE;
--  if (m_pFrame->reordered_opaque)
--    pDvdVideoPicture->pts = pts_itod(m_pFrame->reordered_opaque);
-+
-+  int64_t bpts = av_frame_get_best_effort_timestamp(m_pFrame);
-+  if(bpts != AV_NOPTS_VALUE)
-+  {
-+    pDvdVideoPicture->pts = (double)bpts * DVD_TIME_BASE / AV_TIME_BASE;
-+    if (pDvdVideoPicture->pts == m_decoderPts)
-+    {
-+      pDvdVideoPicture->iRepeatPicture = -0.5;
-+      pDvdVideoPicture->pts = DVD_NOPTS_VALUE;
-+      pDvdVideoPicture->dts = DVD_NOPTS_VALUE;
-+    }
-+  }
-   else
-     pDvdVideoPicture->pts = DVD_NOPTS_VALUE;
- 
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
-index 707d609..e0709226 100644
+index 0d6477a..a5e560a 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
 @@ -739,6 +739,8 @@ int CDecoder::Decode(AVCodecContext* avctx, AVFrame* pFrame)
@@ -949,7 +879,7 @@ index 707d609..e0709226 100644
    }
  
    int retval = 0;
-@@ -1799,8 +1801,8 @@ bool COutput::PreferPP()
+@@ -1800,8 +1802,8 @@ bool COutput::PreferPP()
  void COutput::InitCycle()
  {
    uint64_t latency;
@@ -960,7 +890,7 @@ index 707d609..e0709226 100644
  
    m_config.stats->SetCanSkipDeint(false);
  
-@@ -1808,7 +1810,8 @@ void COutput::InitCycle()
+@@ -1809,7 +1811,8 @@ void COutput::InitCycle()
    EINTERLACEMETHOD method = CMediaSettings::Get().GetCurrentVideoSettings().m_InterlaceMethod;
    bool interlaced = m_currentPicture.DVDPic.iFlags & DVP_FLAG_INTERLACED;
  
@@ -970,7 +900,7 @@ index 707d609..e0709226 100644
        (mode == VS_DEINTERLACEMODE_AUTO && interlaced)))
    {
      if((method == VS_INTERLACEMETHOD_AUTO && interlaced)
-@@ -2626,6 +2629,7 @@ bool CVppPostproc::AddPicture(CVaapiDecodedPicture &pic)
+@@ -2627,6 +2630,7 @@ bool CVppPostproc::AddPicture(CVaapiDecodedPicture &pic)
    m_decodedPics.push_front(pic);
    m_frameCount++;
    m_step = 0;
@@ -978,7 +908,7 @@ index 707d609..e0709226 100644
    return true;
  }
  
-@@ -2670,6 +2674,13 @@ bool CVppPostproc::Filter(CVaapiProcessedPicture &outPic)
+@@ -2671,6 +2675,13 @@ bool CVppPostproc::Filter(CVaapiProcessedPicture &outPic)
    }
    outPic.DVDPic = it->DVDPic;
  
@@ -994,17 +924,17 @@ index 707d609..e0709226 100644
    VABufferID pipelineBuf;
 
 
-From 0d3311557fe32505770ed28bcb8fbcde7c751399 Mon Sep 17 00:00:00 2001
+From 830d6fea068973b4585d90377f3d33e81d824819 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 4 Oct 2014 21:25:31 +0200
-Subject: [PATCH 17/24] vaapi: lock gfx context on pre-cleanup
+Subject: [PATCH 13/19] vaapi: lock gfx context on pre-cleanup
 
 ---
  xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
-index e0709226..a086d13 100644
+index a5e560a..823f613 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
 @@ -618,6 +618,7 @@ long CDecoder::Release()
@@ -1016,10 +946,10 @@ index e0709226..a086d13 100644
      if (m_vaapiOutput.m_controlPort.SendOutMessageSync(COutputControlProtocol::PRECLEANUP,
                                                     &reply,
 
-From 42bff6329800ba57459d135f54d0ca7d8eef1b79 Mon Sep 17 00:00:00 2001
+From 88d7d32432de9a12595ed79484f74c656dc09144 Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Sun, 19 Oct 2014 21:34:47 +0300
-Subject: [PATCH 18/24] [linux] Add FDEventMonitor for monitoring file
+Subject: [PATCH 14/19] [linux] Add FDEventMonitor for monitoring file
  descriptors
 
 Add FDEventMonitor helper thread for monitoring file descriptors for
@@ -1399,27 +1329,27 @@ index c147d8f..744fd06 100644
  SRCS += LinuxTimezone.cpp
  SRCS += PosixMountProvider.cpp
 
-From a7369e2f95722730f22ebd72e1d22bbf3d0fabe5 Mon Sep 17 00:00:00 2001
+From 69f614bd35389e5d61fc312872e169cfc72695df Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Sun, 19 Oct 2014 21:36:44 +0300
-Subject: [PATCH 19/24] [AE] ALSA: Add ALSADeviceMonitor for monitoring card
+Subject: [PATCH 15/19] [AE] ALSA: Add ALSADeviceMonitor for monitoring card
  removals/additions
 
 ---
  xbmc/cores/AudioEngine/Makefile.in                 |   1 +
  xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp        |   8 ++
- xbmc/cores/AudioEngine/Sinks/AESinkALSA.h          |   9 ++
+ xbmc/cores/AudioEngine/Sinks/AESinkALSA.h          |  10 ++
  .../AudioEngine/Sinks/alsa/ALSADeviceMonitor.cpp   | 131 +++++++++++++++++++++
  .../AudioEngine/Sinks/alsa/ALSADeviceMonitor.h     |  49 ++++++++
- 5 files changed, 198 insertions(+)
+ 5 files changed, 199 insertions(+)
  create mode 100644 xbmc/cores/AudioEngine/Sinks/alsa/ALSADeviceMonitor.cpp
  create mode 100644 xbmc/cores/AudioEngine/Sinks/alsa/ALSADeviceMonitor.h
 
 diff --git a/xbmc/cores/AudioEngine/Makefile.in b/xbmc/cores/AudioEngine/Makefile.in
-index efb44cc..614ede2 100644
+index 8491050..6f818e2 100644
 --- a/xbmc/cores/AudioEngine/Makefile.in
 +++ b/xbmc/cores/AudioEngine/Makefile.in
-@@ -50,6 +50,7 @@ SRCS += Sinks/osx/CoreAudioHelpers.cpp
+@@ -49,6 +49,7 @@ SRCS += Sinks/osx/CoreAudioHelpers.cpp
  SRCS += Sinks/osx/CoreAudioStream.cpp
  else
  SRCS += Sinks/AESinkALSA.cpp
@@ -1428,10 +1358,10 @@ index efb44cc..614ede2 100644
  ifeq (@USE_PULSE@,1)
  SRCS += Sinks/AESinkPULSE.cpp
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-index a464b4b..c2d5758 100644
+index d30cbab..c33d4dd 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-@@ -1066,6 +1066,10 @@ bool CAESinkALSA::OpenPCMDevice(const std::string &name, const std::string &para
+@@ -1101,6 +1101,10 @@ bool CAESinkALSA::OpenPCMDevice(const std::string &name, const std::string &para
  
  void CAESinkALSA::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
  {
@@ -1442,7 +1372,7 @@ index a464b4b..c2d5758 100644
    /* ensure that ALSA has been initialized */
    snd_lib_error_set_handler(sndLibErrorHandler);
    if(!snd_config || force)
-@@ -1577,4 +1581,8 @@ void CAESinkALSA::sndLibErrorHandler(const char *file, int line, const char *fun
+@@ -1612,4 +1616,8 @@ void CAESinkALSA::sndLibErrorHandler(const char *file, int line, const char *fun
    va_end(arg);
  }
  
@@ -1452,7 +1382,7 @@ index a464b4b..c2d5758 100644
 +
  #endif
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h
-index 7e05ce6..1177f41 100644
+index c284255..54402f9 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h
 @@ -24,6 +24,7 @@
@@ -1474,13 +1404,15 @@ index 7e05ce6..1177f41 100644
  class CAESinkALSA : public IAESink
  {
  public:
-@@ -82,6 +87,9 @@ class CAESinkALSA : public IAESink
+@@ -81,6 +86,11 @@ class CAESinkALSA : public IAESink
    // support fragmentation, e.g. looping in the sink to get a certain amount of data onto the device
    bool              m_fragmented;
    unsigned int      m_originalPeriodSize;
++
 +#if HAVE_LIBUDEV
 +  static CALSADeviceMonitor m_deviceMonitor;
 +#endif
++
    struct ALSAConfig
    {
      unsigned int sampleRate;
@@ -1677,10 +1609,10 @@ index 0000000..f9e2f26
 +#endif
 +
 
-From 51947c5716e52af108d701b6fb573e8ca145f132 Mon Sep 17 00:00:00 2001
+From 02117cd1588e15f1c3bc76c402a5614d5ea67c85 Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Sun, 19 Oct 2014 21:37:49 +0300
-Subject: [PATCH 20/24] [AE] ALSA: Add ALSADeviceMonitor for monitoring ELD
+Subject: [PATCH 16/19] [AE] ALSA: Add ALSADeviceMonitor for monitoring ELD
  changes
 
 ELD changes can happen e.g. when the connected HDMI sink is changed.
@@ -1695,10 +1627,10 @@ ELD changes can happen e.g. when the connected HDMI sink is changed.
  create mode 100644 xbmc/cores/AudioEngine/Sinks/alsa/ALSAHControlMonitor.h
 
 diff --git a/xbmc/cores/AudioEngine/Makefile.in b/xbmc/cores/AudioEngine/Makefile.in
-index 614ede2..8f13088 100644
+index 6f818e2..024618e 100644
 --- a/xbmc/cores/AudioEngine/Makefile.in
 +++ b/xbmc/cores/AudioEngine/Makefile.in
-@@ -51,6 +51,7 @@ SRCS += Sinks/osx/CoreAudioStream.cpp
+@@ -50,6 +50,7 @@ SRCS += Sinks/osx/CoreAudioStream.cpp
  else
  SRCS += Sinks/AESinkALSA.cpp
  SRCS += Sinks/alsa/ALSADeviceMonitor.cpp
@@ -1707,10 +1639,10 @@ index 614ede2..8f13088 100644
  ifeq (@USE_PULSE@,1)
  SRCS += Sinks/AESinkPULSE.cpp
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-index c2d5758..f92f488 100644
+index c33d4dd..634f35a 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-@@ -1083,6 +1083,8 @@ void CAESinkALSA::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
+@@ -1118,6 +1118,8 @@ void CAESinkALSA::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
    snd_config_t *config;
    snd_config_copy(&config, snd_config);
  
@@ -1719,7 +1651,7 @@ index c2d5758..f92f488 100644
    /* Always enumerate the default device.
     * Note: If "default" is a stereo device, EnumerateDevice()
     * will automatically add "@" instead to enable surroundXX mangling.
-@@ -1160,6 +1162,8 @@ void CAESinkALSA::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
+@@ -1195,6 +1197,8 @@ void CAESinkALSA::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
    }
    snd_device_name_free_hint(hints);
  
@@ -1728,7 +1660,7 @@ index c2d5758..f92f488 100644
    /* set the displayname for default device */
    if (!list.empty() && list[0].m_deviceName == "default")
    {
-@@ -1340,6 +1344,10 @@ void CAESinkALSA::EnumerateDevice(AEDeviceInfoList &list, const std::string &dev
+@@ -1375,6 +1379,10 @@ void CAESinkALSA::EnumerateDevice(AEDeviceInfoList &list, const std::string &dev
            {
              snd_hctl_load(hctl);
              bool badHDMI = false;
@@ -1739,7 +1671,7 @@ index c2d5758..f92f488 100644
              if (!GetELD(hctl, dev, info, badHDMI))
                CLog::Log(LOGDEBUG, "CAESinkALSA - Unable to obtain ELD information for device \"%s\" (not supported by device, or kernel older than 3.2)",
                          device.c_str());
-@@ -1584,5 +1592,6 @@ void CAESinkALSA::sndLibErrorHandler(const char *file, int line, const char *fun
+@@ -1619,5 +1627,6 @@ void CAESinkALSA::sndLibErrorHandler(const char *file, int line, const char *fun
  #if HAVE_LIBUDEV
  CALSADeviceMonitor CAESinkALSA::m_deviceMonitor; // ARGH
  #endif
@@ -1747,7 +1679,7 @@ index c2d5758..f92f488 100644
  
  #endif
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h
-index 1177f41..8be8709 100644
+index 54402f9..2059eaa 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.h
 @@ -25,6 +25,7 @@
@@ -1758,7 +1690,7 @@ index 1177f41..8be8709 100644
  #include <stdint.h>
  
  #define ALSA_PCM_NEW_HW_PARAMS_API
-@@ -87,6 +88,7 @@ class CAESinkALSA : public IAESink
+@@ -90,6 +91,7 @@ class CAESinkALSA : public IAESink
  #if HAVE_LIBUDEV
    static CALSADeviceMonitor m_deviceMonitor;
  #endif
@@ -2021,10 +1953,10 @@ index 0000000..56dfd50
 +#endif
 +
 
-From 1800cdd76ee8224dce93b7cea3e96d2c3df9ee49 Mon Sep 17 00:00:00 2001
+From 530c78a7a2daf79e7e2069fff515086e5d78570a Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Sun, 2 Nov 2014 21:10:51 +0200
-Subject: [PATCH 21/24] [AE] ALSA: Add more logging to device change triggers
+Subject: [PATCH 17/19] [AE] ALSA: Add more logging to device change triggers
 
 ---
  xbmc/cores/AudioEngine/Sinks/alsa/ALSADeviceMonitor.cpp   | 13 +++++++++++--
@@ -2073,10 +2005,10 @@ index 9b595ee..f9ca9ae 100644
    }
  
 
-From f8baf30230b7db45865e13260298830313481263 Mon Sep 17 00:00:00 2001
+From 879ce04fbccdfbb3b77d52897a50283cfd807970 Mon Sep 17 00:00:00 2001
 From: Anssi Hannula <anssi@xbmc.org>
 Date: Tue, 4 Nov 2014 19:22:03 +0200
-Subject: [PATCH 22/24] [AE] ALSA: Fix DeviceChange event triggered by
+Subject: [PATCH 18/19] [AE] ALSA: Fix DeviceChange event triggered by
  enumeration
 
 All hctl elements get an SND_CTL_EVENT_MASK_REMOVE event when the ctl
@@ -2124,20 +2056,20 @@ index f9ca9ae..89a7585 100644
    }
  
 
-From 8d85a4aec9e17f8ddb7e26e01df83f50b7c53eb2 Mon Sep 17 00:00:00 2001
+From f473448ddddbca43f2a62e872af50696cb1114dd Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 1 Nov 2014 07:47:16 +0100
-Subject: [PATCH 23/24] videorefclock: use videosync DRM on AMD systems
+Subject: [PATCH 19/19] videorefclock: use videosync DRM on AMD systems
 
 ---
  xbmc/video/VideoReferenceClock.cpp | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/video/VideoReferenceClock.cpp b/xbmc/video/VideoReferenceClock.cpp
-index be6be5f..2b506ad 100644
+index 2ba8cec..06d9ff4 100644
 --- a/xbmc/video/VideoReferenceClock.cpp
 +++ b/xbmc/video/VideoReferenceClock.cpp
-@@ -99,7 +99,8 @@ void CVideoReferenceClock::Process()
+@@ -98,7 +98,8 @@ void CVideoReferenceClock::Process()
  #if defined(HAVE_X11)
    std::string gpuvendor = g_Windowing.GetRenderVendor();
    std::transform(gpuvendor.begin(), gpuvendor.end(), gpuvendor.begin(), ::tolower);
@@ -2147,44 +2079,3 @@ index be6be5f..2b506ad 100644
      m_pVideoSync = new CVideoSyncDRM();
  #if defined(HAS_GLX)
    else
-
-From f5211d149c7af1b3f9273ed64c08a4af76fbc066 Mon Sep 17 00:00:00 2001
-From: fritsch <Peter.Fruehberger@gmail.com>
-Date: Fri, 7 Nov 2014 14:56:49 +0100
-Subject: [PATCH 24/24] DVDVideoCodecFFmpeg: Squash me to: 2551ee3a
-
----
- xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
-index 368de0e..e9edd0c 100644
---- a/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
-+++ b/xbmc/cores/dvdplayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
-@@ -928,7 +928,7 @@ bool CDVDDemuxFFmpeg::SeekTime(int time, bool backwords, double *startpts)
- 
-       // seek may fail silently on streams which allow discontinuity
-       // if current timestamp is way off asume a pts overflow and try bisect seek
--      if (m_bPtsWrap && fabs(time - m_iCurrentPts/1000) > 10000)
-+      if (m_bPtsWrap && fabs(time - m_currentPts/1000) > 10000)
-       {
-         ret = SeekTimeDiscont(seek_pts, backwords) ? 1 : -1;
-       }
-@@ -1026,7 +1026,7 @@ bool CDVDDemuxFFmpeg::SeekTimeDiscont(int64_t pts, bool backwards)
-     bool ret = SeekByte(pos_max);
-     if (ret)
-     {
--      m_iCurrentPts = ConvertTimestamp(ts_max, m_pFormatContext->streams[defaultStream]->time_base.den,
-+      m_currentPts = ConvertTimestamp(ts_max, m_pFormatContext->streams[defaultStream]->time_base.den,
-                                        m_pFormatContext->streams[defaultStream]->time_base.num);
-     }
-     return ret;
-@@ -1103,7 +1103,7 @@ bool CDVDDemuxFFmpeg::SeekTimeDiscont(int64_t pts, bool backwards)
-   bool ret = SeekByte(pos);
-   if (ret)
-   {
--    m_iCurrentPts = ConvertTimestamp(ts, m_pFormatContext->streams[defaultStream]->time_base.den,
-+    m_currentPts = ConvertTimestamp(ts, m_pFormatContext->streams[defaultStream]->time_base.den,
-                                      m_pFormatContext->streams[defaultStream]->time_base.num);
-   }
- 
