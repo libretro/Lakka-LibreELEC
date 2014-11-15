@@ -24,18 +24,35 @@ SUNDTEK_ADDON_DIR="$HOME/.kodi/addons/driver.dvb.sundtek-mediatv"
 SUNDTEK_ADDON_HOME="$HOME/.kodi/userdata/addon_data/driver.dvb.sundtek-mediatv"
 SUNDTEK_ADDON_SETTINGS="$SUNDTEK_ADDON_HOME/settings.xml"
 
-logger -t Sundtek "### Starting updating driver ###"
-kodi-send -a "Notification(Sundtek, Starting updating driver, 2000, $SUNDTEK_ADDON_DIR/icon.png)"
+trap_exit_install() {
+  kodi-send -a "Notification(Sundtek, Something went wrong. Cleaning..., 8000, $SUNDTEK_ADDON_DIR/icon.png)"
+  cd "$SUNDTEK_ADDON_DIR"
+  rm -fr tmp
+  exit 5
+}
+
+# kill process
+systemctl stop driver.dvb.sundtek-mediatv
+killall -9 mediaclient &>/dev/null
+killall -9 mediasrv &>/dev/null
+
+# exit on errors
+set -e
+
+trap trap_exit_install EXIT
 
 cd "$SUNDTEK_ADDON_DIR"
 rm -fr tmp
 mkdir tmp
 cd tmp
 
+logger -t Sundtek "### Starting updating driver ###"
+kodi-send -a "Notification(Sundtek, Starting updating driver, 2000, $SUNDTEK_ADDON_DIR/icon.png)"
+
 wget -O ../version.used http://sundtek.de/media/latest.phtml
 if [ $? -ne 0 ]; then
   logger -t Sundtek "### Can't get latest version ###"
-  kodi-send -a "Notification(Sundtek, Can't get latest version, 8000, $SUNDTEK_ADDON_DIR/icon.png)"
+  kodi-send -a "Notification(Sundtek, Cant get latest version, 8000, $SUNDTEK_ADDON_DIR/icon.png)"
   cd ..
   rm -fr tmp/
   exit 1
@@ -66,6 +83,7 @@ if [ $? -ne 0 ]; then
   rm -fr tmp/
   exit 3
 fi
+
 logger -t Sundtek "### Extracting archive ###"
 kodi-send -a "Notification(Sundtek, Extracting archive, 2000, $SUNDTEK_ADDON_DIR/icon.png)"
 tar -xzf installer.tar.gz
@@ -77,12 +95,12 @@ if [ $? -ne 0 ]; then
   exit 4
 fi
 
+# fix permissions
 chmod -R 755 opt/ etc/
 
-killall -9 mediaclient &>/dev/null
-killall -9 mediasrv &>/dev/null
-
-chmod 755 opt/bin/*
+rm -f  opt/bin/getinput.sh
+rm -f  opt/bin/lirc.sh
+rm -fr opt/lib/pm/
 
 cp -Pa opt/bin/* ../bin/
 cp -Pa opt/lib/* ../lib/
@@ -93,4 +111,9 @@ rm -fr tmp
 logger -t Sundtek "### Driver update finished ###"
 kodi-send -a "Notification(Sundtek, Driver update finished, 5000, $SUNDTEK_ADDON_DIR/icon.png)"
 kodi-send -a "Notification(Sundtek, Please reboot, 5000, $SUNDTEK_ADDON_DIR/icon.png)"
+
+trap - EXIT
+
+systemctl start driver.dvb.sundtek-mediatv
+
 exit 0
