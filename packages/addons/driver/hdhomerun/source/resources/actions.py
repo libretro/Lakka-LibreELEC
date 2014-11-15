@@ -16,32 +16,17 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="hdhomerun"
-PKG_VERSION="4.3"
-PKG_REV="2"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.silicondust.com/products/hdhomerun/dvbt/"
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
-PKG_SECTION="driver/dvb"
-PKG_SHORTDESC="A linux DVB driver for the HDHomeRun (http://www.silicondust.com)."
-PKG_LONGDESC="A linux DVB driver for the HDHomeRun (http://www.silicondust.com)."
-PKG_AUTORECONF="no"
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.python.script"
+import os
+import sys
+import xbmcaddon
 
-make_target() {
-  : # nothing to do here
-}
+__settings__      = xbmcaddon.Addon(id = 'driver.dvb.hdhomerun')
+__cwd__           = __settings__.getAddonInfo('path')
+__resources_lib__ = xbmc.translatePath(os.path.join(__cwd__, 'resources', 'lib'))
+__settings_xml__  = xbmc.translatePath(os.path.join(__cwd__, 'resources', 'settings.xml'))
 
-makeinstall_target() {
-  : # nothing to do here
-}
-
-addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -P $PKG_DIR/config/* $ADDON_BUILD/$PKG_ADDON_ID/config/
-  cp -P $PKG_DIR/settings-default.xml $ADDON_BUILD/$PKG_ADDON_ID/
-}
+if len(sys.argv) == 2 and sys.argv[1] == 'refresh_tuners':
+  sys.path.append(__resources_lib__)
+  from functions import refresh_hdhomerun_tuners
+  refresh_hdhomerun_tuners(__settings_xml__)
+  __settings__.openSettings()
