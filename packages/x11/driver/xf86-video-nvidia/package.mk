@@ -73,6 +73,7 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/usr/bin
     cp nvidia-smi $INSTALL/usr/bin
+    cp nvidia-xconfig $INSTALL/usr/bin
 
   mkdir -p $INSTALL/usr/lib/vdpau
     cp libvdpau_nvidia.so* $INSTALL/usr/lib/vdpau/libvdpau_nvidia.so.1
