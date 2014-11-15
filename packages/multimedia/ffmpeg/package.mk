@@ -55,12 +55,6 @@ else
   FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
-if [ "$OPTIMIZATIONS" = size ]; then
-  FFMPEG_OPTIM="--disable-small"
-else
-  FFMPEG_OPTIM="--disable-small"
-fi
-
 case "$TARGET_ARCH" in
   arm)
       FFMPEG_CPU=""
@@ -158,7 +152,7 @@ configure_target() {
               --disable-gnutls --enable-libressl \
               --disable-gray \
               --enable-swscale-alpha \
-              $FFMPEG_OPTIM \
+              --disable-small \
               --enable-dct \
               --enable-fft \
               --enable-mdct \
