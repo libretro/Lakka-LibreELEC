@@ -16,35 +16,44 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libftdi"
-PKG_VERSION="0.20"
+PKG_NAME="libftdi1"
+PKG_VERSION="1.2"
 PKG_REV=1""
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.intra2net.com/en/developer/libftdi/"
-PKG_URL="http://www.intra2net.com/en/developer/libftdi/download/libftdi-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libusb-compat"
+PKG_URL="http://www.intra2net.com/en/developer/libftdi/download/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_PRIORITY="optional"
-PKG_SECTION="driver"
+PKG_SECTION="devel"
 PKG_SHORTDESC="libFTDI is an open source library to talk to FTDI chips"
 PKG_LONGDESC="libFTDI is an open source library to talk to FTDI chips"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="ac_cv_path_HAVELIBUSB=$ROOT/$TOOLCHAIN/bin/libusb-config \
-                           LIBS=-lusb \
-                           --disable-shared \
-                           --enable-static \
-                           --disable-libftdipp \
-                           --disable-python-binding \
-                           --without-examples \
-                           --without-docs"
+configure_target() {
+  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DSTATICLIBS=ON \
+        -DDOCUMENTATION=FALSE \
+        -DEXAMPLES=FALSE \
+        -DFTDIPP=FALSE \
+        -DPYTHON_BINDINGS=FALSE \
+        ..
+}
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -fPIC -DPIC"
 }
 
-post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
+makeinstall_target() {
+  mkdir -p $SYSROOT_PREFIX/usr/include/libftdi1
+    cp ../src/ftdi.h $SYSROOT_PREFIX/usr/include/libftdi1
+
+  mkdir -p $SYSROOT_PREFIX/usr/lib
+    cp src/libftdi1.a $SYSROOT_PREFIX/usr/lib
+
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp libftdi1.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
 }
