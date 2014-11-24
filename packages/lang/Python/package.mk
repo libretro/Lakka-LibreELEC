@@ -84,12 +84,15 @@ makeinstall_host() {
   cp Parser/pgen $ROOT/$TOOLCHAIN/bin
 }
 
+pre_configure_target() {
+  export PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python
+  export BLDSHARED="$CC -shared"
+  export RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH"
+}
+
 make_target() {
   make  -j1 CC="$TARGET_CC" \
-        PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python \
         HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
-        BLDSHARED="$CC -shared" \
-        RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH" \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR"
@@ -98,10 +101,7 @@ make_target() {
 makeinstall_target() {
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$SYSROOT_PREFIX \
-        PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python \
         HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
-        BLDSHARED="$CC -shared" \
-        RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH" \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
@@ -113,10 +113,7 @@ makeinstall_target() {
 
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$INSTALL \
-        PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python \
         HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
-        BLDSHARED="$CC -shared" \
-        RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH" \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
@@ -129,14 +126,13 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/lib/python*/$dir
   done
 
+  # config/Makefile / pyconfig.h / sysconfig module nonsense at runtime
+  rm -rf $INSTALL/usr/lib/python*/config
+  rm -rf $INSTALL/usr/lib/python*/*sysconfig*.pyo
+  # TODO: fix _syscondigdata.py for cross builds
+
   python -Wi -t -B ../Lib/compileall.py $INSTALL/usr/lib/python*/ -f
   rm -rf `find $INSTALL/usr/lib/python*/ -name "*.py"`
-
-  rm -rf $INSTALL/usr/lib/python*/config/Setup*
-  rm -rf $INSTALL/usr/lib/python*/config/config.*
-  rm -rf $INSTALL/usr/lib/python*/config/install-sh
-  rm -rf $INSTALL/usr/lib/python*/config/makesetup
-  rm -rf $INSTALL/usr/lib/python*/config/python.o
 
   # TODO remove ?
   if [ ! -f $INSTALL/usr/lib/python*/lib-dynload/_socket.so ]; then
