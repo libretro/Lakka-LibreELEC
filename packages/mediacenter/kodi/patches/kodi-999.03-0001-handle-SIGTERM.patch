@@ -1,4 +1,4 @@
-From dbc86891d089a2a871be5a8663e8a5a9a1cffb53 Mon Sep 17 00:00:00 2001
+From eabb811c7f82695cb566b0aadf5d86cb7448368a Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
 Date: Thu, 5 Jun 2014 18:50:04 +0300
 Subject: [PATCH] handle SIGTERM
@@ -31,10 +31,10 @@ is requested externaly (ssh, 3rdparty script).
  6 files changed, 30 insertions(+), 4 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 7f1b764..4441969 100644
+index 875ca39..9572b62 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -3493,11 +3493,18 @@ bool CApplication::Cleanup()
+@@ -3477,12 +3477,19 @@ bool CApplication::Cleanup()
    }
  }
  
@@ -49,12 +49,13 @@ index 7f1b764..4441969 100644
  {
    try
    {
--    CVariant vExitCode(exitCode);
-+    CVariant vExitCode(m_ExitCode);
+     CVariant vExitCode(CVariant::VariantTypeObject);
+-    vExitCode["exitcode"] = exitCode;
++    vExitCode["exitcode"] = m_ExitCode;
      CAnnouncementManager::Get().Announce(System, "xbmc", "OnQuit", vExitCode);
  
      SaveFileState(true);
-@@ -3521,7 +3528,6 @@ void CApplication::Stop(int exitCode)
+@@ -3506,7 +3513,6 @@ void CApplication::Stop(int exitCode)
  
      m_bStop = true;
      m_AppFocused = false;
@@ -63,11 +64,11 @@ index 7f1b764..4441969 100644
  
      // cancel any jobs from the jobmanager
 diff --git a/xbmc/Application.h b/xbmc/Application.h
-index 2243f15..97fb316 100644
+index 0a332ff..a4d6b58 100644
 --- a/xbmc/Application.h
 +++ b/xbmc/Application.h
-@@ -149,6 +149,7 @@ public:
-   void StartPVRManager(bool bOpenPVRWindow = false);
+@@ -153,6 +153,7 @@ class CApplication : public CXBApplicationEx, public IPlayerCallback, public IMs
+   bool StartPVRManager();
    void StopPVRManager();
    bool IsCurrentThread() const;
 +  void SetExitCode(int exitCode);
@@ -75,10 +76,10 @@ index 2243f15..97fb316 100644
    void RestartApp();
    void UnloadSkin(bool forReload = false);
 diff --git a/xbmc/ApplicationMessenger.cpp b/xbmc/ApplicationMessenger.cpp
-index 3524e89..54a15da 100644
+index 2f4d651..0467893 100644
 --- a/xbmc/ApplicationMessenger.cpp
 +++ b/xbmc/ApplicationMessenger.cpp
-@@ -259,13 +259,14 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
+@@ -261,13 +261,14 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
  
      case TMSG_POWERDOWN:
        {
@@ -94,7 +95,7 @@ index 3524e89..54a15da 100644
          g_application.Stop(EXITCODE_QUIT);
        }
        break;
-@@ -287,7 +288,7 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
+@@ -289,7 +290,7 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
      case TMSG_RESTART:
      case TMSG_RESET:
        {
@@ -103,7 +104,7 @@ index 3524e89..54a15da 100644
          g_powerManager.Reboot();
        }
        break;
-@@ -295,6 +296,7 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
+@@ -297,6 +298,7 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
      case TMSG_RESTARTAPP:
        {
  #if defined(TARGET_WINDOWS) || defined(TARGET_LINUX)
@@ -127,7 +128,7 @@ diff --git a/xbmc/XBApplicationEx.h b/xbmc/XBApplicationEx.h
 index c46cba1..ed3f35f 100644
 --- a/xbmc/XBApplicationEx.h
 +++ b/xbmc/XBApplicationEx.h
-@@ -40,6 +40,7 @@ public:
+@@ -40,6 +40,7 @@ class CXBApplicationEx : public IWindowManagerCallback
    // Variables for timing
    bool m_bStop;
    int  m_ExitCode;
@@ -164,6 +165,3 @@ index ec86426..ad8fe6e 100644
    // set up some xbmc specific relationships
    XBMC::Context context;
  
--- 
-1.9.1
-
