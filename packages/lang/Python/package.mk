@@ -126,15 +126,9 @@ post_makeinstall_target() {
     rm -rf $INSTALL/usr/lib/python*/$dir
   done
 
-  # config/Makefile / pyconfig.h / sysconfig module nonsense at runtime
-  rm -rf $INSTALL/usr/lib/python*/config
-  rm -rf $INSTALL/usr/lib/python*/*sysconfig*.pyo
-  # TODO: fix _syscondigdata.py for cross builds
-
   python -Wi -t -B ../Lib/compileall.py $INSTALL/usr/lib/python*/ -f
   rm -rf `find $INSTALL/usr/lib/python*/ -name "*.py"`
 
-  # TODO remove ?
   if [ ! -f $INSTALL/usr/lib/python*/lib-dynload/_socket.so ]; then
     echo "sometimes Python dont build '_socket.so' for some reasons and continues without failing,"
     echo "let it fail here, to be sure '_socket.so' will be installed. A rebuild of Python fixes"
@@ -142,7 +136,7 @@ post_makeinstall_target() {
     exit 1
   fi
 
-  # k0p
+  rm -rf $INSTALL/usr/lib/python*/config
   rm -rf $INSTALL/usr/bin/2to3
   rm -rf $INSTALL/usr/bin/idle
   rm -rf $INSTALL/usr/bin/pydoc
