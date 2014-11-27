@@ -17,12 +17,11 @@
 ################################################################################
 
 PKG_NAME="tvheadend"
-PKG_VERSION="3.9.1847"
+PKG_VERSION="3.9.2168"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.lonelycoder.com/hts/tvheadend_overview.html"
-#PKG_URL="https://github.com/downloads/tvheadend/tvheadend/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+PKG_SITE="http://www.tvheadend.org"
 PKG_URL="$DISTRO_SRC/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libressl curl"
 PKG_PRIORITY="optional"
@@ -46,7 +45,6 @@ configure_target() {
             --cc=$TARGET_CC \
             --enable-hdhomerun_client \
             --enable-hdhomerun_static \
-            --enable-timeshift \
             --disable-avahi \
             --disable-libav \
             --enable-inotify \
