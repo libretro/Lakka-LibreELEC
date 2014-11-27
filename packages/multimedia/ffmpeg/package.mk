@@ -175,6 +175,7 @@ configure_target() {
               --enable-muxer=adts \
               --enable-muxer=asf \
               --enable-muxer=ipod \
+              --enable-muxer=mpegts \
               --enable-demuxers \
               --enable-parsers \
               --enable-bsfs \
