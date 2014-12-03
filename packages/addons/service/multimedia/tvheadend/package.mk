@@ -37,7 +37,9 @@ pre_build_target() {
   cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
   export CROSS_COMPILE=$TARGET_PREFIX
   # meh imx6..
-  export CFLAGS="$CFLAGS -mno-unaligned-access"
+  if [ "$TARGET_ARCH" == "arm" ] ; then
+    export CFLAGS="$CFLAGS -mno-unaligned-access"
+  fi
 }
 
 configure_target() {
