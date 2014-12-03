@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi-audioencoder-flac"
-PKG_VERSION="84bdf32"
+PKG_VERSION="a960eba"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
