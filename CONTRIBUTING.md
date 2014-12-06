@@ -35,6 +35,12 @@ Feature requests are great, but they usually end up lying around the issue
 tracker indefinitely. Sending a pull request is a much better way of getting a
 particular feature into OpenELEC.
 
+Please dont ask us to add 3rdparty drivers unless you are the maintainer/developer of the driver,
+we have no manpower to support a non-mainlined kernel driver for your hardware.
+However, OpenELEC comes with minimal set of kernel drivers enabled, if you are sure that your hardware
+is supported in mainline kernel, feel free to send us a Pull Request to enable it in our
+kernel defconfigs. We are always happy to support known-working hardware.
+
 ### Reporting build failures
 
 As buildsystem / core packages (toolchain) / random libraries change from time to time, it is required
