@@ -55,12 +55,18 @@ fi
     dd if="$SYSTEM_ROOT/usr/share/bootloader/SPL" of="$BOOT_DISK" bs=1k seek=1 conv=fsync
   fi
 
-  # prefer uEnv.txt over boot.scr
+# prefer uEnv.txt over boot.scr
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt -a ! -f $BOOT_ROOT/uEnv.txt ]; then
     cp -p $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt $BOOT_ROOT
   elif [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.scr -a ! -f $BOOT_ROOT/boot.scr ]; then
     cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.scr $BOOT_ROOT
   fi
+
+# fixes
+  if [ -f $BOOT_ROOT/uEnv.txt ]; then
+    sed -e "s,bpp=32,bpp=16,g" -i $BOOT_ROOT/uEnv.txt
+  fi
+
 
 # mount $BOOT_ROOT r/o
   sync
