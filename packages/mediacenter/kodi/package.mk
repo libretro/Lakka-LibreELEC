@@ -398,6 +398,7 @@ make_target() {
 
 # setup default skin inside the sources
   sed -i -e "s|skin.confluence|$SKIN_DIR|g" $ROOT/$PKG_BUILD/xbmc/settings/Settings.h
+  sed -i -e "s|skin.confluence|$SKIN_DIR|g" $ROOT/$PKG_BUILD/system/settings/settings.xml
 
   make externals
   make kodi.bin
