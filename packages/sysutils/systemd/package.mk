@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="217"
+PKG_VERSION="218"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -44,6 +44,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-compat-libs \
                            --disable-coverage \
                            --enable-kmod \
+                           --disable-xkbcommon \
                            --enable-blkid \
                            --disable-seccomp \
                            --disable-ima \
@@ -94,6 +95,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-ldconfig \
                            --enable-split-usr \
                            --disable-tests \
+                           --disable-hashmap-debug \
                            --without-python \
                            --disable-python-devel \
                            --with-sysvinit-path= \
@@ -141,6 +143,8 @@ post_makeinstall_target() {
 
   # replace systemd-machine-id-setup with ours
     mkdir -p $INSTALL/usr/bin
+      rm -rf $INSTALL/usr/lib/systemd/systemd-machine-id-commit
+      rm -rf $INSTALL/usr/lib/systemd/system/systemd-machine-id-commit.service
       rm -rf $INSTALL/usr/bin/systemd-machine-id-setup
       cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/usr/bin
 
