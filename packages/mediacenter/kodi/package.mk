@@ -269,6 +269,8 @@ if [ ! "$KODIPLAYER_DRIVER" = default ]; then
     KODI_CXXFLAGS="$KODI_CXXFLAGS $BCM2835_INCLUDES"
   elif [ "$KODIPLAYER_DRIVER" = libfslvpuwrap ]; then
     KODI_CODEC="--enable-codec=imxvpu"
+  elif [ "$KODIPLAYER_DRIVER" = libamcodec ]; then
+    KODI_CODEC="--enable-codec=amcodec"
   else
     KODI_OPENMAX="--disable-openmax"
   fi
