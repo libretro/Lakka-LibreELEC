@@ -43,7 +43,7 @@ mkdir -p $BASEDIR/$LOGDIR
 
 # kodi.log
   LOGFILE="01_KODI.log"
-  for i in `find /storage/.kodi/temp/ -type f -name "*.log*"`; do
+  for i in `find /storage/.kodi/temp/ -type f -name "*.log"`; do
     getlog_cmd cat $i
   done
 
@@ -52,6 +52,31 @@ mkdir -p $BASEDIR/$LOGDIR
   getlog_cmd dmesg
   getlog_cmd lsmod
   getlog_cmd ps xa
+  for i in /storage/.config/hwdb.d/*.hwdb \
+      /storage/.config/modprobe.d/*.conf \
+      /storage/.config/modules-load.d/*.conf \
+      /storage/.config/sleep.d/*.power \
+      /storage/.config/sysctl.d/*.conf \
+      /storage/.config/udev.rules.d/.rules \
+  ; do
+    if [ -f "$i" ] ; then
+      getlog_cmd cat $i
+    fi
+  done
+  if [ -f "/storage/.config/autostart.sh" ] ; then
+    getlog_cmd cat /storage/.config/autostart.sh
+  fi
+  if [ -f "/storage/.config/shutdown.sh" ] ; then
+    getlog_cmd cat /storage/.config/shutdown.sh
+  fi
+  getlog_cmd ls -laR /storage/.config/system.d
+  # note: we dont add .mount units here as they may contan
+  # login credentials
+  for i in /storage/.config/system.d/*.service ; do
+    if [ -f "$i" -a ! -L "$i" ] ; then
+      getlog_cmd cat $i
+    fi
+  done
 
 # Hardware.log
   LOGFILE="03_Hardware.log"
@@ -59,6 +84,7 @@ mkdir -p $BASEDIR/$LOGDIR
   getlog_cmd lsusb -vvv
   getlog_cmd lsusb -t
   getlog_cmd cat /proc/cpuinfo
+  getlog_cmd cat /proc/meminfo
 
 # Audio.log
   LOGFILE="04_Audio.log"
@@ -92,6 +118,7 @@ mkdir -p $BASEDIR/$LOGDIR
   LOGFILE="08_Filesystem.log"
   getlog_cmd cat /proc/mounts
   getlog_cmd df -h
+  getlog_cmd blkid
 
 # Journal (current)
   LOGFILE="09_Journal-cur.log"
@@ -100,6 +127,16 @@ mkdir -p $BASEDIR/$LOGDIR
 # Journal (prev)
   LOGFILE="10_Journal-prev.log"
   getlog_cmd journalctl --no-pager -b -1
+
+# addons
+  LOGFILE="11_Addons.log"
+  for i in /storage/.kodi/userdata/addon_data/*/*.log \
+      /storage/.kodi/userdata/addon_data/*/log/* \
+  ; do
+    if [ -f "$i" ] ; then
+      getlog_cmd cat $i
+    fi
+  done
 
 # pack logfiles
   mkdir -p /storage/logfiles
