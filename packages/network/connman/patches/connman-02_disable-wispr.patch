@@ -1,5 +1,18 @@
+From 868447475d81b852c728a2df0e4b8df7200426ec Mon Sep 17 00:00:00 2001
+From: Stefan Saraev <stefan@saraev.ca>
+Date: Sat, 13 Dec 2014 14:33:10 +0200
+Subject: [PATCH 2/5] disable wispr
+
+---
+ Makefile.am   |    1 +
+ configure.ac  |    3 +++
+ src/main.c    |    4 ++++
+ src/service.c |   16 ++++++++++++++++
+ src/wpad.c    |    4 ++++
+ 5 files changed, 28 insertions(+)
+
 diff --git a/Makefile.am b/Makefile.am
-index 5efa811..054d7ee 100644
+index 09a0d6b..41efc1f 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -184,6 +184,7 @@ endif
@@ -11,10 +24,10 @@ index 5efa811..054d7ee 100644
  				-DCONNMAN_PLUGIN_BUILTIN \
  				-DSTATEDIR=\""$(statedir)"\" \
 diff --git a/configure.ac b/configure.ac
-index 27add27..808611c 100644
+index e3326ad..5e07f83 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -345,12 +345,15 @@ AM_CONDITIONAL(CLIENT, test "${enable_client}" != "no")
+@@ -348,12 +348,15 @@ AM_CONDITIONAL(CLIENT, test "${enable_client}" != "no")
  if (test "${enable_wispr}" != "no"); then
  	PKG_CHECK_MODULES(GNUTLS, gnutls, dummy=yes,
  				AC_MSG_ERROR(GnuTLS library is required))
@@ -31,10 +44,10 @@ index 27add27..808611c 100644
  if (test "${enable_loopback}" != "no"); then
  	AC_CHECK_HEADERS(sys/inotify.h, dummy=yes,
 diff --git a/src/main.c b/src/main.c
-index 5eeade5..20653d3 100644
+index ba09eb6..7941aa1 100644
 --- a/src/main.c
 +++ b/src/main.c
-@@ -681,7 +681,9 @@ int main(int argc, char *argv[])
+@@ -678,7 +678,9 @@ int main(int argc, char *argv[])
  	__connman_dhcp_init();
  	__connman_dhcpv6_init();
  	__connman_wpad_init();
@@ -42,23 +55,23 @@ index 5eeade5..20653d3 100644
  	__connman_wispr_init();
 +#endif
  	__connman_rfkill_init();
+ 	__connman_machine_init();
  
- 	g_free(option_config);
-@@ -695,7 +697,9 @@ int main(int argc, char *argv[])
- 	g_source_remove(signal);
+@@ -694,7 +696,9 @@ int main(int argc, char *argv[])
  
+ 	__connman_machine_cleanup();
  	__connman_rfkill_cleanup();
 +#ifdef ENABLE_WISPR
  	__connman_wispr_cleanup();
 +#endif
  	__connman_wpad_cleanup();
  	__connman_dhcpv6_cleanup();
- 	__connman_dhcp_cleanup();
+ 	__connman_session_cleanup();
 diff --git a/src/service.c b/src/service.c
-index 45d817e..94cb197 100644
+index 9bba227..43e668e 100644
 --- a/src/service.c
 +++ b/src/service.c
-@@ -3164,6 +3164,7 @@ static DBusMessage *set_property(DBusConnection *conn,
+@@ -3266,6 +3266,7 @@ static DBusMessage *set_property(DBusConnection *conn,
  		update_nameservers(service);
  		dns_configuration_changed(service);
  
@@ -66,7 +79,7 @@ index 45d817e..94cb197 100644
  		if (__connman_service_is_connected_state(service,
  						CONNMAN_IPCONFIG_TYPE_IPV4))
  			__connman_wispr_start(service,
-@@ -3173,6 +3174,7 @@ static DBusMessage *set_property(DBusConnection *conn,
+@@ -3275,6 +3276,7 @@ static DBusMessage *set_property(DBusConnection *conn,
  						CONNMAN_IPCONFIG_TYPE_IPV6))
  			__connman_wispr_start(service,
  						CONNMAN_IPCONFIG_TYPE_IPV6);
@@ -74,7 +87,7 @@ index 45d817e..94cb197 100644
  
  		service_save(service);
  	} else if (g_str_equal(name, "Timeservers.Configuration")) {
-@@ -4352,7 +4354,9 @@ static void service_free(gpointer user_data)
+@@ -4415,7 +4417,9 @@ static void service_free(gpointer user_data)
  	__connman_notifier_service_remove(service);
  	service_schedule_removed(service);
  
@@ -84,7 +97,7 @@ index 45d817e..94cb197 100644
  	stats_stop(service);
  
  	service->path = NULL;
-@@ -5331,7 +5335,9 @@ static int service_indicate_state(struct connman_service *service)
+@@ -5382,7 +5386,9 @@ static int service_indicate_state(struct connman_service *service)
  
  		default_changed();
  
@@ -94,7 +107,7 @@ index 45d817e..94cb197 100644
  
  		__connman_wpad_stop(service);
  
-@@ -5498,7 +5504,11 @@ static void check_proxy_setup(struct connman_service *service)
+@@ -5555,7 +5561,11 @@ static void check_proxy_setup(struct connman_service *service)
  	return;
  
  done:
@@ -106,7 +119,7 @@ index 45d817e..94cb197 100644
  }
  
  /*
-@@ -5554,6 +5564,7 @@ static void service_rp_filter(struct connman_service *service,
+@@ -5611,6 +5621,7 @@ static void service_rp_filter(struct connman_service *service,
  		connected_networks_count, original_rp_filter);
  }
  
@@ -114,7 +127,7 @@ index 45d817e..94cb197 100644
  static gboolean redo_wispr(gpointer user_data)
  {
  	struct connman_service *service = user_data;
-@@ -5569,6 +5580,7 @@ static gboolean redo_wispr(gpointer user_data)
+@@ -5626,6 +5637,7 @@ static gboolean redo_wispr(gpointer user_data)
  
  	return FALSE;
  }
@@ -122,7 +135,7 @@ index 45d817e..94cb197 100644
  
  int __connman_service_online_check_failed(struct connman_service *service,
  					enum connman_ipconfig_type type)
-@@ -5591,7 +5603,9 @@ int __connman_service_online_check_failed(struct connman_service *service,
+@@ -5648,7 +5660,9 @@ int __connman_service_online_check_failed(struct connman_service *service,
  	 * necessary IPv6 router advertisement messages that might have
  	 * DNS data etc.
  	 */
@@ -132,7 +145,7 @@ index 45d817e..94cb197 100644
  
  	return EAGAIN;
  }
-@@ -5646,7 +5660,9 @@ int __connman_service_ipconfig_indicate_state(struct connman_service *service,
+@@ -5709,7 +5723,9 @@ int __connman_service_ipconfig_indicate_state(struct connman_service *service,
  			service_rp_filter(service, true);
  		} else {
  			service->online_check_count = 1;
@@ -168,3 +181,6 @@ index d40959b..62faf92 100644
  }
  
  int __connman_wpad_start(struct connman_service *service)
+-- 
+1.7.10.4
+
