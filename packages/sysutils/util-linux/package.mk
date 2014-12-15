@@ -39,19 +39,30 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --enable-libuuid \
                            --enable-libblkid \
                            --enable-libmount \
+                           --enable-libsmartcols \
                            --disable-mount \
+                           --enable-losetup \
                            --enable-fsck \
                            --disable-partx \
                            --enable-uuidd \
                            --disable-mountpoint \
                            --disable-fallocate \
                            --disable-unshare \
+                           --disable-nsenter \
+                           --disable-setpriv \
                            --disable-eject \
                            --disable-agetty \
                            --disable-cramfs \
+                           --disable-bfs \
+                           --disable-minix \
+                           --disable-fdformat \
+                           --disable-hwclock \
+                           --disable-wdctl \
                            --disable-switch-root \
                            --disable-pivot-root \
+                           --enable-tunelp \
                            --disable-kill \
+                           --enable-deprecated-last \
                            --disable-last \
                            --disable-utmpdump \
                            --disable-line \
@@ -66,6 +77,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --disable-login \
                            --disable-login-chown-vcs \
                            --disable-login-stat-mail \
+                           --disable-nologin \
                            --disable-sulogin \
                            --disable-su \
                            --disable-runuser \
@@ -76,6 +88,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --disable-schedutils \
                            --disable-wall \
                            --disable-write \
+                           --disable-bash-completion \
+                           --disable-pylibmount \
                            --disable-pg-bell \
                            --disable-use-tty-group \
                            --disable-makeinstall-chown \
@@ -91,8 +105,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
                            --without-systemdsystemunitdir"
 
 PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET \
-                         --enable-static --disable-shared \
-                         --disable-libsmartcols "
+                         --enable-static \
+                         --disable-shared"
 
 PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET \
                          --prefix=/ \
@@ -100,14 +114,7 @@ PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET \
                          --sbindir=/sbin \
                          --sysconfdir=/etc \
                          --libexecdir=/lib \
-                         --localstatedir=/var \
-                         --disable-libsmartcols"
-
-if [ "$SWAP_SUPPORT" = "yes" ]; then
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-libsmartcols"
-else
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-libsmartcols"
-fi
+                         --localstatedir=/var"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
@@ -117,11 +124,11 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/sbin
     cp .libs/blkid $INSTALL/usr/sbin
     cp .libs/fsck $INSTALL/usr/sbin
+    cp .libs/losetup $INSTALL/usr/sbin
 
   if [ "$SWAP_SUPPORT" = "yes" ]; then
-    mkdir -p $INSTALL/usr/sbin
-      cp .libs/swapon $INSTALL/usr/sbin
-      cp .libs/swapoff $INSTALL/usr/sbin
+    cp .libs/swapon $INSTALL/usr/sbin
+    cp .libs/swapoff $INSTALL/usr/sbin
 
     mkdir -p $INSTALL/usr/lib/openelec
       cp -PR $PKG_DIR/scripts/mount-swap $INSTALL/usr/lib/openelec
