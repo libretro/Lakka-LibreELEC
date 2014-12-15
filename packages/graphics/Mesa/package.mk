@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="Mesa"
-PKG_VERSION="10.3.5"
+PKG_VERSION="10.4.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -38,7 +38,7 @@ PKG_AUTORECONF="yes"
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET elfutils llvm"
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config-host"
-  MESA_GALLIUM_LLVM="--enable-gallium-llvm --with-llvm-shared-libs"
+  MESA_GALLIUM_LLVM="--enable-gallium-llvm --enable-llvm-shared-libs"
 else
   MESA_GALLIUM_LLVM="--disable-gallium-llvm"
 fi
@@ -49,8 +49,6 @@ if [ "$VDPAU_SUPPORT" = "yes" ]; then
 else
   MESA_VDPAU="--disable-vdpau"
 fi
-
-XA_CONFIG="--disable-xa"
 
 PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            CXX_FOR_BUILD=$HOST_CXX \
@@ -74,17 +72,20 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-glx \
                            --disable-osmesa \
                            --enable-egl --with-egl-platforms=x11,drm \
-                           $XA_CONFIG \
+                           --disable-xa \
                            --enable-gbm \
+                           --disable-nine \
                            --disable-xvmc \
                            $MESA_VDPAU \
-                           --disable-opencl \
+                           --disable-omx \
+                           --disable-va \
+                           --disable-opencl --enable-opencl-icd \
                            --disable-xlib-glx \
-                           --disable-gallium-egl \
-                           --disable-gallium-gbm \
                            --disable-r600-llvm-compiler \
                            --disable-gallium-tests \
+                           --disable-gallium-osmesa \
                            --enable-shared-glapi \
+                           --enable-sysfs \
                            --enable-glx-tls \
                            $MESA_GALLIUM_LLVM \
                            --disable-silent-rules \
@@ -93,7 +94,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --with-gallium-drivers=$GALLIUM_DRIVERS \
                            --with-dri-drivers=$DRI_DRIVERS \
                            --with-sysroot=$SYSROOT_PREFIX"
-
 
 post_makeinstall_target() {
   # rename and relink for cooperate with nvidia drivers
