@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="dosfstools"
-PKG_VERSION="3.0.25"
+PKG_VERSION="3.0.27"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://daniel-baumann.ch/software/dosfstools/"
-PKG_URL="http://daniel-baumann.ch/files/software/dosfstools/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/dosfstools/dosfstools"
+PKG_URL="https://github.com/dosfstools/dosfstools/releases/download/v$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain dosfstools"
 PKG_PRIORITY="optional"
