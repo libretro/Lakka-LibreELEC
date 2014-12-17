@@ -1,0 +1,36 @@
+From a15800839bf3f6eed04b6b1ae7014bd735b52261 Mon Sep 17 00:00:00 2001
+From: fritsch <Peter.Fruehberger@gmail.com>
+Date: Wed, 17 Dec 2014 18:30:17 +0100
+Subject: [PATCH] IMX: Fix changing resolutions Background:  - imx6 as only egl
+ driver is destroying nativedisplay on resolution change  - xbmc's EGL code is
+ not aware of this change (pointer to EGLDisplay can change but xbmc uses old
+ pointer  which was obtained on EGL init. in such case EGL properly  throws
+ error 300b - bad window - which comes from recreating new window on BAD
+ display)  - InitDisplay() is refreshing display pointer (and running
+ eglInitialize() has no effect on already initialised display)
+
+Author: Matus Kol (mk01) via: https://github.com/xbianonpi/xbian-package-xbmc/blob/master/patches/imx6-nightly/rend-GLES-cleanup.patch
+---
+ xbmc/windowing/egl/WinSystemEGL.cpp | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemEGL.cpp
+index d2a94c9..9e24935 100644
+--- a/xbmc/windowing/egl/WinSystemEGL.cpp
++++ b/xbmc/windowing/egl/WinSystemEGL.cpp
+@@ -151,6 +151,15 @@ bool CWinSystemEGL::CreateWindow(RESOLUTION_INFO &res)
+   if(m_egl)
+     m_egl->SetNativeResolution(res);
+ 
++#ifdef HAS_IMXVPU
++  if (m_context != EGL_NO_CONTEXT )
++    if (!m_egl->InitDisplay(&m_display))
++    {
++      CLog::Log(LOGERROR, "%s: Could not reinit display",__FUNCTION__);
++      return false;
++    }
++#endif
++
+   if (!m_egl->CreateSurface(m_display, m_config, &m_surface))
+   {
+     CLog::Log(LOGNOTICE, "%s: Could not create a surface. Trying with a fresh Native Window.",__FUNCTION__);
