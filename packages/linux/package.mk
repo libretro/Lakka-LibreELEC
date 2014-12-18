@@ -140,13 +140,13 @@ make_target() {
     $SCRIPTS/install initramfs
   )
 
-  LDFLAGS="" make $KERNEL_IMAGE $KERNEL_MAKE_EXTRACMD
-
   if [ "$BOOTLOADER" = "u-boot" -a -n "$KERNEL_UBOOT_EXTRA_TARGET" ]; then
     for extra_target in "$KERNEL_UBOOT_EXTRA_TARGET"; do
       LDFLAGS="" make $extra_target
     done
   fi
+
+  LDFLAGS="" make $KERNEL_IMAGE $KERNEL_MAKE_EXTRACMD
 
   if [ "$PERF_SUPPORT" = "yes" -a "$DEVTOOLS" = "yes" ]; then
     ( cd tools/perf
