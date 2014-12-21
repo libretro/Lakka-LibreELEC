@@ -1,7 +1,7 @@
-From 3f9d0e25e0126c5a3ea2f0b85fd2aa61bb9886ac Mon Sep 17 00:00:00 2001
+From 902ab5f10e718ac886446fc79574bf2ff2459abd Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 12 May 2013 12:24:19 +0100
-Subject: [PATCH 01/85] Main bcm2708 linux port
+Subject: [PATCH 01/76] Main bcm2708 linux port
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -5117,10 +5117,10 @@ index 09ebe57..582ce64 100644
  	unsigned int version;	/* SDHCI spec. version */
  
 
-From 4d7d7302e9333650bd4ac59692f361067c10e13c Mon Sep 17 00:00:00 2001
+From bc08fa921ef396693c279990ffc7f1be305292bf Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 Oct 2014 18:50:05 +0100
-Subject: [PATCH 02/85] Add bcm2708_gpio driver
+Subject: [PATCH 02/76] Add bcm2708_gpio driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 
@@ -5679,10 +5679,10 @@ index 0000000..fb69624
 +
 +#endif
 
-From f50f6699ab27d5ebc8eb43157b865724a959738e Mon Sep 17 00:00:00 2001
+From eff92148ee1b5a1ff07e5817179fefb4a0562b17 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 7 May 2013 22:20:24 +0100
-Subject: [PATCH 03/85] Add quick config.
+Subject: [PATCH 03/76] Add quick config.
 
 This is designed for quick compiling when developing.
 No modules are needed and it includes all Pi specific drivers
@@ -5895,10 +5895,10 @@ index 0000000..e5efe75
 +CONFIG_CRC_ITU_T=y
 +CONFIG_LIBCRC32C=y
 
-From 1dfc4e8ed08d3640d33e19bb0c81e53592e5ed0b Mon Sep 17 00:00:00 2001
+From 5526529e626408f649d60f3ec4693f93b6407ed7 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 19:46:17 +0100
-Subject: [PATCH 04/85] Add dwc_otg driver
+Subject: [PATCH 04/76] Add dwc_otg driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 
@@ -63008,10 +63008,10 @@ index 0000000..cdc9963
 +test_main();
 +0;
 
-From 4cff0d469419dac3318e9255fb0a004be146b59d Mon Sep 17 00:00:00 2001
+From 7c7ba78f95fcea4bfced5afff52c97d41eea5b62 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 19:54:32 +0100
-Subject: [PATCH 05/85] bcm2708 watchdog driver
+Subject: [PATCH 05/76] bcm2708 watchdog driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -63439,18 +63439,22 @@ index 0000000..8a27d68
 +MODULE_ALIAS_MISCDEV(TEMP_MINOR);
 +MODULE_LICENSE("GPL");
 
-From 3a1e67ec12ad0ae855b911ae46ed894ec818c965 Mon Sep 17 00:00:00 2001
+From 6c0d0b4b2384f95482b19b05eb5e7cad96b81bca Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 19:55:09 +0100
-Subject: [PATCH 06/85] bcm2708 framebuffer driver
+Subject: [PATCH 06/76] bcm2708 framebuffer driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
+
+bcm2708_fb : Implement blanking support using the mailbox property interface
+
+bcm2708_fb: Add pan and vsync controls
 ---
  drivers/video/fbdev/Kconfig               |   14 +
  drivers/video/fbdev/Makefile              |    1 +
- drivers/video/fbdev/bcm2708_fb.c          |  499 ++++++
+ drivers/video/fbdev/bcm2708_fb.c          |  557 +++++++
  drivers/video/logo/logo_linux_clut224.ppm | 2483 ++++++++++-------------------
- 4 files changed, 1395 insertions(+), 1602 deletions(-)
+ 4 files changed, 1453 insertions(+), 1602 deletions(-)
  create mode 100644 drivers/video/fbdev/bcm2708_fb.c
 
 diff --git a/drivers/video/fbdev/Kconfig b/drivers/video/fbdev/Kconfig
@@ -63492,10 +63496,10 @@ index 1979aff..57181ad 100644
  obj-$(CONFIG_FB_CLPS711X)	  += clps711x-fb.o
 diff --git a/drivers/video/fbdev/bcm2708_fb.c b/drivers/video/fbdev/bcm2708_fb.c
 new file mode 100644
-index 0000000..54cd760
+index 0000000..ac04125
 --- /dev/null
 +++ b/drivers/video/fbdev/bcm2708_fb.c
-@@ -0,0 +1,499 @@
+@@ -0,0 +1,557 @@
 +/*
 + *  linux/drivers/video/bcm2708_fb.c
 + *
@@ -63532,6 +63536,9 @@ index 0000000..54cd760
 +#include <asm/sizes.h>
 +#include <linux/io.h>
 +#include <linux/dma-mapping.h>
++
++//#define BCM2708_FB_DEBUG
++#define MODULE_NAME "bcm2708_fb"
 +
 +#ifdef BCM2708_FB_DEBUG
 +#define print_debug(fmt,...) pr_debug("%s:%s:%d: "fmt, MODULE_NAME, __func__, __LINE__, ##__VA_ARGS__)
@@ -63809,10 +63816,62 @@ index 0000000..54cd760
 +
 +static int bcm2708_fb_blank(int blank_mode, struct fb_info *info)
 +{
-+	/*print_debug("bcm2708_fb_blank\n"); */
-+	return -1;
++	s32 result = -1;
++	u32 p[7];
++	if ( 	(blank_mode == FB_BLANK_NORMAL) || 
++		(blank_mode == FB_BLANK_UNBLANK)) {
++
++		p[0] = 28; //  size = sizeof u32 * length of p
++		p[1] = VCMSG_PROCESS_REQUEST; // process request
++		p[2] = VCMSG_SET_BLANK_SCREEN; // (the tag id)
++		p[3] = 4; // (size of the response buffer)
++		p[4] = 4; // (size of the request data)
++		p[5] = blank_mode;
++		p[6] = VCMSG_PROPERTY_END; // end tag
++	
++		bcm_mailbox_property(&p, p[0]);
++	
++		if ( p[1] == VCMSG_REQUEST_SUCCESSFUL )
++			result = 0;
++		else
++			pr_err("bcm2708_fb_blank(%d) returns=%d p[1]=0x%x\n", blank_mode, p[5], p[1]);
++	}
++	return result;
 +}
 +
++static int bcm2708_fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
++{
++	s32 result = -1;
++	info->var.xoffset = var->xoffset;
++	info->var.yoffset = var->yoffset;
++	result = bcm2708_fb_set_par(info);
++	if (result != 0)
++		pr_err("bcm2708_fb_pan_display(%d,%d) returns=%d\n", var->xoffset, var->yoffset, result);
++	return result;
++}
++
++static int bcm2708_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
++{
++	s32 result = -1;
++	u32 p[7];
++	if (cmd == FBIO_WAITFORVSYNC) {
++		p[0] = 28; //  size = sizeof u32 * length of p
++		p[1] = VCMSG_PROCESS_REQUEST; // process request
++		p[2] = VCMSG_SET_VSYNC; // (the tag id)
++		p[3] = 4; // (size of the response buffer)
++		p[4] = 4; // (size of the request data)
++		p[5] = 0; // dummy
++		p[6] = VCMSG_PROPERTY_END; // end tag
++
++		bcm_mailbox_property(&p, p[0]);
++
++		pr_info("bcm2708_fb_ioctl %x,%lx returns=%d p[1]=0x%x\n", cmd, arg, p[5], p[1]);
++
++		if ( p[1] == VCMSG_REQUEST_SUCCESSFUL )
++			result = 0;
++	}
++	return result;
++}
 +static void bcm2708_fb_fillrect(struct fb_info *info,
 +				const struct fb_fillrect *rect)
 +{
@@ -63843,6 +63902,8 @@ index 0000000..54cd760
 +	.fb_fillrect = bcm2708_fb_fillrect,
 +	.fb_copyarea = bcm2708_fb_copyarea,
 +	.fb_imageblit = bcm2708_fb_imageblit,
++	.fb_pan_display = bcm2708_fb_pan_display,
++	.fb_ioctl = bcm2708_ioctl,
 +};
 +
 +static int bcm2708_fb_register(struct bcm2708_fb *fb)
@@ -63869,8 +63930,8 @@ index 0000000..54cd760
 +	strncpy(fb->fb.fix.id, bcm2708_name, sizeof(fb->fb.fix.id));
 +	fb->fb.fix.type = FB_TYPE_PACKED_PIXELS;
 +	fb->fb.fix.type_aux = 0;
-+	fb->fb.fix.xpanstep = 0;
-+	fb->fb.fix.ypanstep = 0;
++	fb->fb.fix.xpanstep = 1;
++	fb->fb.fix.ypanstep = 1;
 +	fb->fb.fix.ywrapstep = 0;
 +	fb->fb.fix.accel = FB_ACCEL_NONE;
 +
@@ -63900,6 +63961,7 @@ index 0000000..54cd760
 +	 */
 +
 +	fb_set_var(&fb->fb, &fb->fb.var);
++	bcm2708_fb_set_par(&fb->fb);
 +
 +	print_debug("BCM2708FB: registering framebuffer (%dx%d@%d) (%d)\n", fbwidth
 +		fbheight, fbdepth, fbswap);
@@ -66486,10 +66548,10 @@ index 3c14e43..7626beb 100644
 +0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0
 +0 0 0  0 0 0  0 0 0
 
-From 8b4a05fc4e5f8ce68ce54d761fbde07f6f70060b Mon Sep 17 00:00:00 2001
+From 14a1cf6175d4e0736a9de0f275557514ef32dcaf Mon Sep 17 00:00:00 2001
 From: Harm Hanemaaijer <fgenfb@yahoo.com>
 Date: Thu, 20 Jun 2013 20:21:39 +0200
-Subject: [PATCH 07/85] Speed up console framebuffer imageblit function
+Subject: [PATCH 07/76] Speed up console framebuffer imageblit function
 
 Especially on platforms with a slower CPU but a relatively high
 framebuffer fill bandwidth, like current ARM devices, the existing
@@ -66698,10 +66760,10 @@ index a2bb276..436494f 100644
  					start_index, pitch_index);
  	} else
 
-From 2b79bb11ffa770774c70bd97bbb585fd9d9d367b Mon Sep 17 00:00:00 2001
+From 2e0c1cd9a4c707a8d678ad2c590aa0f099eb6da5 Mon Sep 17 00:00:00 2001
 From: Siarhei Siamashka <siarhei.siamashka@gmail.com>
 Date: Mon, 17 Jun 2013 13:32:11 +0300
-Subject: [PATCH 08/85] fbdev: add FBIOCOPYAREA ioctl
+Subject: [PATCH 08/76] fbdev: add FBIOCOPYAREA ioctl
 
 Based on the patch authored by Ali Gholami Rudi at
     https://lkml.org/lkml/2009/7/13/153
@@ -66794,10 +66856,10 @@ index fb795c3..fa72af0 100644
  #define FB_TYPE_PACKED_PIXELS		0	/* Packed Pixels	*/
  #define FB_TYPE_PLANES			1	/* Non interleaved planes */
 
-From 18ec38a6f68a4d6a64d904b9230213da3d0412cb Mon Sep 17 00:00:00 2001
+From 213ec9d3b772e7ea710738a53c8dd30201c71417 Mon Sep 17 00:00:00 2001
 From: Siarhei Siamashka <siarhei.siamashka@gmail.com>
 Date: Mon, 17 Jun 2013 16:00:25 +0300
-Subject: [PATCH 09/85] bcm2708_fb: DMA acceleration for fb_copyarea
+Subject: [PATCH 09/76] bcm2708_fb: DMA acceleration for fb_copyarea
 
 Based on http://www.raspberrypi.org/phpBB3/viewtopic.php?p=62425#p62425
 Also used Simon's dmaer_master module as a reference for tweaking DMA
@@ -66879,7 +66941,7 @@ index f2568d4..a4aac4c 100644
  
  /* When listing features we can ask for when allocating DMA channels give
 diff --git a/drivers/video/fbdev/bcm2708_fb.c b/drivers/video/fbdev/bcm2708_fb.c
-index 54cd760..b3b1e04 100644
+index ac04125..9d7ecda 100644
 --- a/drivers/video/fbdev/bcm2708_fb.c
 +++ b/drivers/video/fbdev/bcm2708_fb.c
 @@ -21,13 +21,16 @@
@@ -66899,7 +66961,7 @@ index 54cd760..b3b1e04 100644
  #include <mach/platform.h>
  #include <mach/vcio.h>
  
-@@ -51,6 +54,10 @@ static int fbheight = 480; /* module parameter */
+@@ -54,6 +57,10 @@ static int fbheight = 480; /* module parameter */
  static int fbdepth = 16;   /* module parameter */
  static int fbswap = 0;     /* module parameter */
  
@@ -66910,7 +66972,7 @@ index 54cd760..b3b1e04 100644
  /* this data structure describes each frame buffer device we find */
  
  struct fbinfo_s {
-@@ -62,16 +69,74 @@ struct fbinfo_s {
+@@ -65,16 +72,74 @@ struct fbinfo_s {
  	u16 cmap[256];
  };
  
@@ -66985,7 +67047,7 @@ index 54cd760..b3b1e04 100644
  static int bcm2708_fb_set_bitfields(struct fb_var_screeninfo *var)
  {
  	int ret = 0;
-@@ -250,13 +315,15 @@ static int bcm2708_fb_set_par(struct fb_info *info)
+@@ -253,13 +318,15 @@ static int bcm2708_fb_set_par(struct fb_info *info)
  		else
  			fb->fb.fix.visual = FB_VISUAL_TRUECOLOR;
  
@@ -67002,7 +67064,7 @@ index 54cd760..b3b1e04 100644
  		if (!fb->fb.screen_base) {
  			/* the console may currently be locked */
  			console_trylock();
-@@ -267,7 +334,7 @@ static int bcm2708_fb_set_par(struct fb_info *info)
+@@ -270,7 +337,7 @@ static int bcm2708_fb_set_par(struct fb_info *info)
  	}
  	print_debug
  	    ("BCM2708FB: start = %p,%p width=%d, height=%d, bpp=%d, pitch=%d size=%d success=%d\n",
@@ -67011,7 +67073,7 @@ index 54cd760..b3b1e04 100644
  	     fbinfo->xres, fbinfo->yres, fbinfo->bpp,
  	     fbinfo->pitch, (int)fb->fb.screen_size, val);
  
-@@ -322,11 +389,148 @@ static void bcm2708_fb_fillrect(struct fb_info *info,
+@@ -377,11 +444,148 @@ static void bcm2708_fb_fillrect(struct fb_info *info,
  	cfb_fillrect(info, rect);
  }
  
@@ -67162,7 +67224,7 @@ index 54cd760..b3b1e04 100644
  }
  
  static void bcm2708_fb_imageblit(struct fb_info *info,
-@@ -336,6 +540,24 @@ static void bcm2708_fb_imageblit(struct fb_info *info,
+@@ -391,6 +595,24 @@ static void bcm2708_fb_imageblit(struct fb_info *info,
  	cfb_imageblit(info, image);
  }
  
@@ -67187,7 +67249,7 @@ index 54cd760..b3b1e04 100644
  static struct fb_ops bcm2708_fb_ops = {
  	.owner = THIS_MODULE,
  	.fb_check_var = bcm2708_fb_check_var,
-@@ -365,7 +587,7 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
+@@ -422,7 +644,7 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
  		fb->dma = dma;
  	}
  	fb->fb.fbops = &bcm2708_fb_ops;
@@ -67196,7 +67258,7 @@ index 54cd760..b3b1e04 100644
  	fb->fb.pseudo_palette = fb->cmap;
  
  	strncpy(fb->fb.fix.id, bcm2708_name, sizeof(fb->fb.fix.id));
-@@ -396,6 +618,7 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
+@@ -453,6 +675,7 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
  	fb->fb.monspecs.dclkmax = 100000000;
  
  	bcm2708_fb_set_bitfields(&fb->fb.var);
@@ -67204,7 +67266,7 @@ index 54cd760..b3b1e04 100644
  
  	/*
  	 * Allocate colourmap.
-@@ -421,14 +644,45 @@ static int bcm2708_fb_probe(struct platform_device *dev)
+@@ -479,14 +702,45 @@ static int bcm2708_fb_probe(struct platform_device *dev)
  	struct bcm2708_fb *fb;
  	int ret;
  
@@ -67252,7 +67314,7 @@ index 54cd760..b3b1e04 100644
  
  	fb->dev = dev;
  
-@@ -438,6 +692,11 @@ static int bcm2708_fb_probe(struct platform_device *dev)
+@@ -496,6 +750,11 @@ static int bcm2708_fb_probe(struct platform_device *dev)
  		goto out;
  	}
  
@@ -67264,7 +67326,7 @@ index 54cd760..b3b1e04 100644
  	kfree(fb);
  free_region:
  	dev_err(&dev->dev, "probe failed, err %d\n", ret);
-@@ -455,8 +714,15 @@ static int bcm2708_fb_remove(struct platform_device *dev)
+@@ -513,8 +772,15 @@ static int bcm2708_fb_remove(struct platform_device *dev)
  		iounmap(fb->fb.screen_base);
  	unregister_framebuffer(&fb->fb);
  
@@ -67281,10 +67343,10 @@ index 54cd760..b3b1e04 100644
  
  	return 0;
 
-From 2301368817e7f73dea8d70d554f6d4e8cb4af444 Mon Sep 17 00:00:00 2001
+From 43d9811fd811f4b59bcd5c199f61ed4201005722 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 2 Jul 2013 23:42:01 +0100
-Subject: [PATCH 10/85] bcm2708 vchiq driver
+Subject: [PATCH 10/76] bcm2708 vchiq driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 
@@ -80233,10 +80295,10 @@ index 0000000..b6bfa21
 +   return vchiq_build_time;
 +}
 
-From e077fadaca28a7721f64b960417188ef18d661cb Mon Sep 17 00:00:00 2001
+From 913b82a0fb3b5a292f027f3fcd80c79586b871f5 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 12 May 2014 15:12:02 +0100
-Subject: [PATCH 11/85] vchiq: Avoid high load when blocked and unkillable
+Subject: [PATCH 11/76] vchiq: Avoid high load when blocked and unkillable
 
 vchiq: Include SIGSTOP and SIGCONT in list of signals not-masked by vchiq to allow gdb to work
 ---
@@ -80398,10 +80460,10 @@ index c2eefef..05e7979 100644
  static inline int is_pow2(int i)
  {
 
-From 72104bc86e66984eb92bd869c416f261178dff42 Mon Sep 17 00:00:00 2001
+From c29d3b8b106d7dd4c1f01c315ab5bf21468fc046 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Jul 2013 00:31:47 +0100
-Subject: [PATCH 12/85] cma: Add vc_cma driver to enable use of CMA
+Subject: [PATCH 12/76] cma: Add vc_cma driver to enable use of CMA
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -81690,10 +81752,10 @@ index 0000000..5325832
 +
 +#endif /* VC_CMA_H */
 
-From 7b018b9c0d1ee9a723ab35b43686f52244159e8a Mon Sep 17 00:00:00 2001
+From 4489d2212bd91b2c891a300c6d5231560bb1ac34 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 26 Mar 2012 22:15:50 +0100
-Subject: [PATCH 13/85] bcm2708: alsa sound driver
+Subject: [PATCH 13/76] bcm2708: alsa sound driver
 
     Signed-off-by: popcornmix <popcornmix@gmail.com>
 
@@ -84456,10 +84518,10 @@ index 0000000..af3e6eb
 +
 +#endif // _VC_AUDIO_DEFS_H_
 
-From e1910d2b2eccadb15f87a9be2fe4f563cb019807 Mon Sep 17 00:00:00 2001
+From 8c9d231b5abbce7a782052d1f2e1e8b80f096b88 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Jul 2013 00:51:55 +0100
-Subject: [PATCH 14/85] Add hwrng (hardware random number generator) driver
+Subject: [PATCH 14/76] Add hwrng (hardware random number generator) driver
 
 ---
  drivers/char/hw_random/Kconfig       |  11 ++++
@@ -84625,10 +84687,10 @@ index 0000000..340f004
 +MODULE_DESCRIPTION("BCM2708 H/W Random Number Generator (RNG) driver");
 +MODULE_LICENSE("GPL and additional rights");
 
-From 267c8aac187046e859fd3be6310cf736d65998ba Mon Sep 17 00:00:00 2001
+From 4de5c39fa372f6b8e0575d7489d65da39c7988c6 Mon Sep 17 00:00:00 2001
 From: Aron Szabo <aron@aron.ws>
 Date: Sat, 16 Jun 2012 12:15:55 +0200
-Subject: [PATCH 15/85] lirc: added support for RaspberryPi GPIO
+Subject: [PATCH 15/76] lirc: added support for RaspberryPi GPIO
 
 lirc_rpi: Use read_current_timer to determine transmitter delay. Thanks to jjmz and others
 See: https://github.com/raspberrypi/linux/issues/525
@@ -85376,10 +85438,10 @@ index 0000000..887c36b
 +module_param(debug, bool, S_IRUGO | S_IWUSR);
 +MODULE_PARM_DESC(debug, "Enable debugging messages");
 
-From ce4bb1169a4f9595f62419909db35bbbecbae6cc Mon Sep 17 00:00:00 2001
+From a5312198c0161d6d4c63b46d57a540bbc8d9d252 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Jul 2013 00:49:20 +0100
-Subject: [PATCH 16/85] Add cpufreq driver
+Subject: [PATCH 16/76] Add cpufreq driver
 
 ---
  arch/arm/Kconfig                  |   1 +
@@ -85663,10 +85725,10 @@ index 0000000..447ca09
 +module_init(bcm2835_cpufreq_module_init);
 +module_exit(bcm2835_cpufreq_module_exit);
 
-From 76818e22a335924537255aeecf2086380409ca6f Mon Sep 17 00:00:00 2001
+From ea455618690499004afcfc687972711ddcf8b7e3 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 19:24:24 +0000
-Subject: [PATCH 17/85] Added hwmon/thermal driver for reporting core
+Subject: [PATCH 17/76] Added hwmon/thermal driver for reporting core
  temperature. Thanks Dorian
 
 ---
@@ -86188,10 +86250,10 @@ index 0000000..85fceb5
 +
 +module_platform_driver(bcm2835_thermal_driver);
 
-From 4ef49180615c2586ebc76944c241b213be7fea3d Mon Sep 17 00:00:00 2001
+From ff227891dbe0d68dc129ec25044504fc7ccbc562 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 17:26:38 +0000
-Subject: [PATCH 18/85] Allow mac address to be set in smsc95xx
+Subject: [PATCH 18/76] Allow mac address to be set in smsc95xx
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -86282,10 +86344,10 @@ index d07bf4c..5ae60ab 100644
  	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
  			dev->net->dev_addr) == 0) {
 
-From 226412aa56c7e3fadf70b7fd574b34c1dbae992d Mon Sep 17 00:00:00 2001
+From 6c948916e1db353ca8eda81e4cfeb88e710fbd42 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 4 Nov 2013 18:56:10 +0000
-Subject: [PATCH 19/85] Add Chris Boot's i2c and spi drivers.
+Subject: [PATCH 19/76] Add Chris Boot's i2c and spi drivers.
 
 i2c-bcm2708: fixed baudrate
 
@@ -87631,10 +87693,10 @@ index 0000000..b04a57d
 +MODULE_LICENSE("GPL v2");
 +MODULE_ALIAS("platform:" DRV_NAME);
 
-From f2fd6383f6e7d865d7389b0ce9bc128c42e2ea3f Mon Sep 17 00:00:00 2001
+From bd166f02c19b0adb56ffffffff159a458f62e50f Mon Sep 17 00:00:00 2001
 From: cbeytas <cbeytas@shaw.ca>
 Date: Mon, 24 Jun 2013 00:05:40 -0400
-Subject: [PATCH 20/85] Perform I2C combined transactions when possible
+Subject: [PATCH 20/76] Perform I2C combined transactions when possible
 
 Perform I2C combined transactions whenever possible, within the
 restrictions of the Broadcomm Serial Controller.
@@ -87706,10 +87768,10 @@ index f266f10..8750634 100644
  }
  
 
-From c87252c0008afd21485fffadd424c6d8996e9982 Mon Sep 17 00:00:00 2001
+From e1ac2431db53086c50001b9f40c5ecfc4293fc98 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 May 2013 11:46:50 +0100
-Subject: [PATCH 21/85] enabling the realtime clock 1-wire chip DS1307 and
+Subject: [PATCH 21/76] enabling the realtime clock 1-wire chip DS1307 and
  1-wire on GPIO4 (as a module)
 
 1-wire: Add support for configuring pin for w1-gpio kernel module
@@ -87981,17 +88043,17 @@ index 2820924..fd0550f 100644
  	}
  }
 
-From aae454d664b51f8236558bf366f8d768cb0e5378 Mon Sep 17 00:00:00 2001
+From b066e09163caa141635d7b86d9dbd902d71c6d09 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 12 Apr 2013 23:58:47 +0100
-Subject: [PATCH 23/85] config: add missing options from 3.6.y kernel
+Subject: [PATCH 23/76] config: add missing options from 3.6.y kernel
 
 ---
- arch/arm/configs/bcmrpi_defconfig | 652 ++++++++++++++++++++++++++++++++++++--
- 1 file changed, 632 insertions(+), 20 deletions(-)
+ arch/arm/configs/bcmrpi_defconfig | 650 ++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 629 insertions(+), 21 deletions(-)
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 6d2eae1..466f627 100644
+index 6d2eae1..c200be9 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
 @@ -1,3 +1,5 @@
@@ -88478,7 +88540,7 @@ index 6d2eae1..466f627 100644
  CONFIG_INPUT_MISC=y
  CONFIG_INPUT_AD714X=m
  CONFIG_INPUT_ATI_REMOTE2=m
-@@ -189,22 +521,208 @@ CONFIG_SERIO_RAW=m
+@@ -189,22 +521,205 @@ CONFIG_SERIO_RAW=m
  CONFIG_GAMEPORT=m
  CONFIG_GAMEPORT_NS558=m
  CONFIG_GAMEPORT_L4=m
@@ -88531,9 +88593,6 @@ index 6d2eae1..466f627 100644
 +CONFIG_MFD_ARIZONA_I2C=m
 +CONFIG_MFD_ARIZONA_SPI=m
 +CONFIG_MFD_WM5102=y
-+CONFIG_REGULATOR=y
-+CONFIG_REGULATOR_FIXED_VOLTAGE=m
-+CONFIG_REGULATOR_ARIZONA=m
 +CONFIG_MEDIA_SUPPORT=m
 +CONFIG_MEDIA_CAMERA_SUPPORT=y
 +CONFIG_MEDIA_ANALOG_TV_SUPPORT=y
@@ -88689,7 +88748,7 @@ index 6d2eae1..466f627 100644
  CONFIG_FRAMEBUFFER_CONSOLE=y
  CONFIG_LOGO=y
  # CONFIG_LOGO_LINUX_MONO is not set
-@@ -227,8 +745,10 @@ CONFIG_SND_BCM2835=m
+@@ -227,8 +742,10 @@ CONFIG_SND_BCM2835=m
  CONFIG_SND_USB_AUDIO=m
  CONFIG_SND_USB_UA101=m
  CONFIG_SND_USB_CAIAQ=m
@@ -88700,7 +88759,7 @@ index 6d2eae1..466f627 100644
  CONFIG_HID_A4TECH=m
  CONFIG_HID_ACRUX=m
  CONFIG_HID_APPLE=m
-@@ -267,9 +787,11 @@ CONFIG_HID_SUNPLUS=m
+@@ -267,9 +784,11 @@ CONFIG_HID_SUNPLUS=m
  CONFIG_HID_GREENASIA=m
  CONFIG_HID_SMARTJOYPLUS=m
  CONFIG_HID_TOPSEED=m
@@ -88712,7 +88771,7 @@ index 6d2eae1..466f627 100644
  CONFIG_HID_ZEROPLUS=m
  CONFIG_HID_ZYDACRON=m
  CONFIG_HID_PID=y
-@@ -277,6 +799,8 @@ CONFIG_USB_HIDDEV=y
+@@ -277,6 +796,8 @@ CONFIG_USB_HIDDEV=y
  CONFIG_USB=y
  CONFIG_USB_ANNOUNCE_NEW_DEVICES=y
  CONFIG_USB_MON=m
@@ -88721,7 +88780,7 @@ index 6d2eae1..466f627 100644
  CONFIG_USB_STORAGE=y
  CONFIG_USB_STORAGE_REALTEK=m
  CONFIG_USB_STORAGE_DATAFAB=m
-@@ -311,6 +835,7 @@ CONFIG_USB_SERIAL_IPAQ=m
+@@ -311,6 +832,7 @@ CONFIG_USB_SERIAL_IPAQ=m
  CONFIG_USB_SERIAL_IR=m
  CONFIG_USB_SERIAL_EDGEPORT=m
  CONFIG_USB_SERIAL_EDGEPORT_TI=m
@@ -88729,7 +88788,7 @@ index 6d2eae1..466f627 100644
  CONFIG_USB_SERIAL_GARMIN=m
  CONFIG_USB_SERIAL_IPW=m
  CONFIG_USB_SERIAL_IUU=m
-@@ -319,6 +844,7 @@ CONFIG_USB_SERIAL_KEYSPAN=m
+@@ -319,6 +841,7 @@ CONFIG_USB_SERIAL_KEYSPAN=m
  CONFIG_USB_SERIAL_KLSI=m
  CONFIG_USB_SERIAL_KOBIL_SCT=m
  CONFIG_USB_SERIAL_MCT_U232=m
@@ -88737,7 +88796,7 @@ index 6d2eae1..466f627 100644
  CONFIG_USB_SERIAL_MOS7720=m
  CONFIG_USB_SERIAL_MOS7840=m
  CONFIG_USB_SERIAL_NAVMAN=m
-@@ -336,7 +862,11 @@ CONFIG_USB_SERIAL_XIRCOM=m
+@@ -336,7 +859,11 @@ CONFIG_USB_SERIAL_XIRCOM=m
  CONFIG_USB_SERIAL_OPTION=m
  CONFIG_USB_SERIAL_OMNINET=m
  CONFIG_USB_SERIAL_OPTICON=m
@@ -88749,7 +88808,7 @@ index 6d2eae1..466f627 100644
  CONFIG_USB_SERIAL_DEBUG=m
  CONFIG_USB_EMI62=m
  CONFIG_USB_EMI26=m
-@@ -357,12 +887,79 @@ CONFIG_USB_IOWARRIOR=m
+@@ -357,12 +884,79 @@ CONFIG_USB_IOWARRIOR=m
  CONFIG_USB_TEST=m
  CONFIG_USB_ISIGHTFW=m
  CONFIG_USB_YUREX=m
@@ -88829,7 +88888,7 @@ index 6d2eae1..466f627 100644
  CONFIG_EXT4_FS=y
  CONFIG_EXT4_FS_POSIX_ACL=y
  CONFIG_EXT4_FS_SECURITY=y
-@@ -384,6 +981,8 @@ CONFIG_BTRFS_FS=m
+@@ -384,6 +978,8 @@ CONFIG_BTRFS_FS=m
  CONFIG_BTRFS_FS_POSIX_ACL=y
  CONFIG_NILFS2_FS=m
  CONFIG_FANOTIFY=y
@@ -88838,7 +88897,7 @@ index 6d2eae1..466f627 100644
  CONFIG_AUTOFS4_FS=y
  CONFIG_FUSE_FS=m
  CONFIG_CUSE=m
-@@ -399,18 +998,26 @@ CONFIG_MSDOS_FS=y
+@@ -399,18 +995,26 @@ CONFIG_MSDOS_FS=y
  CONFIG_VFAT_FS=y
  CONFIG_FAT_DEFAULT_IOCHARSET="ascii"
  CONFIG_NTFS_FS=m
@@ -88865,7 +88924,7 @@ index 6d2eae1..466f627 100644
  CONFIG_CIFS=m
  CONFIG_CIFS_WEAK_PW_HASH=y
  CONFIG_CIFS_XATTR=y
-@@ -455,36 +1062,41 @@ CONFIG_NLS_ISO8859_14=m
+@@ -455,36 +1059,40 @@ CONFIG_NLS_ISO8859_14=m
  CONFIG_NLS_ISO8859_15=m
  CONFIG_NLS_KOI8_R=m
  CONFIG_NLS_KOI8_U=m
@@ -88874,7 +88933,7 @@ index 6d2eae1..466f627 100644
  CONFIG_PRINTK_TIME=y
  CONFIG_BOOT_PRINTK_DELAY=y
 -CONFIG_DEBUG_INFO=y
- CONFIG_DEBUG_STACK_USAGE=y
+-CONFIG_DEBUG_STACK_USAGE=y
  CONFIG_DEBUG_MEMORY_INIT=y
  CONFIG_DETECT_HUNG_TASK=y
  CONFIG_TIMER_STATS=y
@@ -88913,10 +88972,10 @@ index 6d2eae1..466f627 100644
  # CONFIG_CRYPTO_HW is not set
  CONFIG_CRC_ITU_T=y
 
-From 14578c4748ce15200ab3753e8d1561c281e24150 Mon Sep 17 00:00:00 2001
+From 3df04c3bf190f0b483f95a288caeb6ec3852108e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 18 Dec 2013 22:16:19 +0000
-Subject: [PATCH 24/85] config: Enable CONFIG_MEMCG, but leave it disabled (due
+Subject: [PATCH 24/76] config: Enable CONFIG_MEMCG, but leave it disabled (due
  to memory cost). Enable with cgroup_enable=memory.
 
 ---
@@ -88926,7 +88985,7 @@ Subject: [PATCH 24/85] config: Enable CONFIG_MEMCG, but leave it disabled (due
  3 files changed, 25 insertions(+)
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 466f627..3610d0f 100644
+index c200be9..ecfe133 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
 @@ -19,6 +19,7 @@ CONFIG_CGROUP_FREEZER=y
@@ -88984,10 +89043,10 @@ index 48914e1..a08d374 100644
  
  #ifdef CONFIG_MEMCG_SWAP
 
-From c714150df574bae70439ead28fc85cc4e18b3989 Mon Sep 17 00:00:00 2001
+From df71198bcadc8f74372472d7c1e8f71ec0dcbb68 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Jul 2013 00:46:42 +0100
-Subject: [PATCH 25/85] Add FIQ patch to dwc_otg driver. Enable with
+Subject: [PATCH 25/76] Add FIQ patch to dwc_otg driver. Enable with
  dwc_otg.fiq_fix_enable=1. Should give about 10% more ARM performance. Thanks
  to Gordon and Costas
 
@@ -92283,10 +92342,10 @@ index 1b1f83c..c8590b5 100644
  
  								if (status.b.sr) {
 
-From 603ee522844ec5629f6521661f1cc1732cbfcfc9 Mon Sep 17 00:00:00 2001
+From da7b56d64c677e21e5176daf26408e8bfb740011 Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Wed, 19 Mar 2014 12:58:23 +0000
-Subject: [PATCH 26/85] dwc_otg: fiq_fsm: Base commit for driver rewrite
+Subject: [PATCH 26/76] dwc_otg: fiq_fsm: Base commit for driver rewrite
 
 This commit removes the previous FIQ fixes entirely and adds fiq_fsm.
 
@@ -97182,10 +97241,10 @@ index 5d310df..4b32941 100644
  		return -EBUSY;
  	}
 
-From 30a38190160af1f8bf6ef53c49a14c62f1cb6da2 Mon Sep 17 00:00:00 2001
+From e3b2a19aae7183eb7db66bcffaead4627d869250 Mon Sep 17 00:00:00 2001
 From: Vincent Sanders <vincent.sanders@collabora.co.uk>
 Date: Wed, 30 Jan 2013 12:45:18 +0000
-Subject: [PATCH 27/85] bcm2835: add v4l2 camera device
+Subject: [PATCH 27/76] bcm2835: add v4l2 camera device
 
 - Supports raw YUV capture, preview, JPEG and H264.
 - Uses videobuf2 for data transfer, using dma_buf.
@@ -103168,10 +103227,10 @@ index 0000000..9d1d11e
 +
 +#endif /* MMAL_VCHIQ_H */
 
-From 0325980b281b917f4b32120f1e4adaa48f419d72 Mon Sep 17 00:00:00 2001
+From d6bd17f9bbb5d1b0f20f403351f99c14de391e50 Mon Sep 17 00:00:00 2001
 From: Dave Stevenson <dsteve@broadcom.com>
 Date: Mon, 9 Dec 2013 10:58:01 +0000
-Subject: [PATCH 28/85] V4L2: Fixes from 6by9
+Subject: [PATCH 28/76] V4L2: Fixes from 6by9
 
 V4L2: Fix EV values. Add manual shutter speed control
 
@@ -103389,22 +103448,24 @@ There may be an exception if it detects a significant
 scene change, but there's no easy way around that.
 
 Signed-off-by: Dave Stevenson <dsteve@broadcom.com>
+
+bcm2835-camera: stop_streaming now has a void return
 ---
  arch/arm/configs/bcmrpi_defconfig                |   3 +
- drivers/media/platform/bcm2835/bcm2835-camera.c  | 561 ++++++++++++++----
+ drivers/media/platform/bcm2835/bcm2835-camera.c  | 578 ++++++++++++++----
  drivers/media/platform/bcm2835/bcm2835-camera.h  |  23 +-
  drivers/media/platform/bcm2835/controls.c        | 723 +++++++++++++++++++++--
  drivers/media/platform/bcm2835/mmal-common.h     |   1 +
  drivers/media/platform/bcm2835/mmal-encodings.h  |  34 ++
  drivers/media/platform/bcm2835/mmal-parameters.h | 121 +++-
  drivers/media/platform/bcm2835/mmal-vchiq.c      |   4 +-
- 8 files changed, 1292 insertions(+), 178 deletions(-)
+ 8 files changed, 1300 insertions(+), 187 deletions(-)
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 3610d0f..1f14e0c 100644
+index ecfe133..1dc68ce 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -706,6 +706,9 @@ CONFIG_DVB_B2C2_FLEXCOP_USB=m
+@@ -703,6 +703,9 @@ CONFIG_DVB_B2C2_FLEXCOP_USB=m
  CONFIG_VIDEO_EM28XX=m
  CONFIG_VIDEO_EM28XX_ALSA=m
  CONFIG_VIDEO_EM28XX_DVB=m
@@ -103415,7 +103476,7 @@ index 3610d0f..1f14e0c 100644
  CONFIG_USB_SI470X=m
  CONFIG_I2C_SI470X=m
 diff --git a/drivers/media/platform/bcm2835/bcm2835-camera.c b/drivers/media/platform/bcm2835/bcm2835-camera.c
-index 1c9d9d5..33fa37c 100644
+index 1c9d9d5..e5a0010 100644
 --- a/drivers/media/platform/bcm2835/bcm2835-camera.c
 +++ b/drivers/media/platform/bcm2835/bcm2835-camera.c
 @@ -36,7 +36,8 @@
@@ -103613,13 +103674,51 @@ index 1c9d9d5..33fa37c 100644
 +		vchiq_mmal_port_disable(dev->instance,
 +					dev->capture.camera_port);
 +		if (disable_camera(dev) < 0) {
-+			v4l2_err(&dev->v4l2_dev, "Failed to disable camera");
++			v4l2_err(&dev->v4l2_dev, "Failed to disable camera\n");
 +			return -EINVAL;
 +		}
  		return -1;
  	}
  
-@@ -530,6 +646,7 @@ static int vidioc_enum_fmt_vid_overlay(struct file *file, void *priv,
+@@ -439,7 +555,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
+ }
+ 
+ /* abort streaming and wait for last buffer */
+-static int stop_streaming(struct vb2_queue *vq)
++static void stop_streaming(struct vb2_queue *vq)
+ {
+ 	int ret;
+ 	struct bm2835_mmal_dev *dev = vb2_get_drv_priv(vq);
+@@ -451,8 +567,11 @@ static int stop_streaming(struct vb2_queue *vq)
+ 	dev->capture.frame_count = 0;
+ 
+ 	/* ensure a format has actually been set */
+-	if (dev->capture.port == NULL)
+-		return -EINVAL;
++	if (dev->capture.port == NULL) {
++		v4l2_err(&dev->v4l2_dev,
++			 "no capture port - stream not started?\n");
++		return;
++	}
+ 
+ 	v4l2_dbg(1, bcm2835_v4l2_debug, &dev->v4l2_dev, "stopping capturing\n");
+ 
+@@ -483,12 +602,8 @@ static int stop_streaming(struct vb2_queue *vq)
+ 			 ret);
+ 	}
+ 
+-	if (disable_camera(dev) < 0) {
+-		v4l2_err(&dev->v4l2_dev, "Failed to disable camera");
+-		return -EINVAL;
+-	}
+-
+-	return ret;
++	if (disable_camera(dev) < 0)
++		v4l2_err(&dev->v4l2_dev, "Failed to disable camera\n");
+ }
+ 
+ static void bm2835_mmal_lock(struct vb2_queue *vq)
+@@ -530,6 +645,7 @@ static int vidioc_enum_fmt_vid_overlay(struct file *file, void *priv,
  
  	strlcpy(f->description, fmt->name, sizeof(f->description));
  	f->pixelformat = fmt->fourcc;
@@ -103627,7 +103726,7 @@ index 1c9d9d5..33fa37c 100644
  
  	return 0;
  }
-@@ -647,10 +764,18 @@ static int vidioc_g_fbuf(struct file *file, void *fh,
+@@ -647,10 +763,18 @@ static int vidioc_g_fbuf(struct file *file, void *fh,
  {
  	/* The video overlay must stay within the framebuffer and can't be
  	   positioned independently. */
@@ -103649,7 +103748,7 @@ index 1c9d9d5..33fa37c 100644
  
  	return 0;
  }
-@@ -717,6 +842,8 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
+@@ -717,6 +841,8 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
  
  	strlcpy(f->description, fmt->name, sizeof(f->description));
  	f->pixelformat = fmt->fourcc;
@@ -103658,7 +103757,7 @@ index 1c9d9d5..33fa37c 100644
  	return 0;
  }
  
-@@ -729,20 +856,13 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
+@@ -729,20 +855,13 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
  	f->fmt.pix.height = dev->capture.height;
  	f->fmt.pix.field = V4L2_FIELD_NONE;
  	f->fmt.pix.pixelformat = dev->capture.fmt->fourcc;
@@ -103684,7 +103783,7 @@ index 1c9d9d5..33fa37c 100644
  	f->fmt.pix.priv = 0;
  
  	v4l2_dump_pix_format(1, bcm2835_v4l2_debug, &dev->v4l2_dev, &f->fmt.pix,
-@@ -766,21 +886,35 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
+@@ -766,21 +885,35 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
  	}
  
  	f->fmt.pix.field = V4L2_FIELD_NONE;
@@ -103730,7 +103829,7 @@ index 1c9d9d5..33fa37c 100644
  	v4l2_dump_pix_format(1, bcm2835_v4l2_debug, &dev->v4l2_dev, &f->fmt.pix,
  			     __func__);
  	return 0;
-@@ -818,8 +952,8 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
+@@ -818,8 +951,8 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
  	switch (mfmt->mmal_component) {
  	case MMAL_COMPONENT_CAMERA:
  		/* Make a further decision on port based on resolution */
@@ -103741,7 +103840,7 @@ index 1c9d9d5..33fa37c 100644
  			camera_port = port =
  			    &dev->component[MMAL_COMPONENT_CAMERA]->
  			    output[MMAL_CAMERA_PORT_VIDEO];
-@@ -861,8 +995,9 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
+@@ -861,8 +994,9 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
  	camera_port->es.video.crop.y = 0;
  	camera_port->es.video.crop.width = f->fmt.pix.width;
  	camera_port->es.video.crop.height = f->fmt.pix.height;
@@ -103752,7 +103851,7 @@ index 1c9d9d5..33fa37c 100644
  
  	ret = vchiq_mmal_port_set_format(dev->instance, camera_port);
  
-@@ -896,8 +1031,10 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
+@@ -896,8 +1030,10 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
  		preview_port->es.video.crop.y = 0;
  		preview_port->es.video.crop.width = f->fmt.pix.width;
  		preview_port->es.video.crop.height = f->fmt.pix.height;
@@ -103765,7 +103864,7 @@ index 1c9d9d5..33fa37c 100644
  		ret = vchiq_mmal_port_set_format(dev->instance, preview_port);
  		if (overlay_enabled) {
  			ret = vchiq_mmal_port_connect_tunnel(
-@@ -913,7 +1050,9 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
+@@ -913,7 +1049,9 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
  
  	if (ret) {
  		v4l2_dbg(1, bcm2835_v4l2_debug, &dev->v4l2_dev,
@@ -103776,7 +103875,7 @@ index 1c9d9d5..33fa37c 100644
  		/* ensure capture is not going to be tried */
  		dev->capture.port = NULL;
  	} else {
-@@ -927,69 +1066,91 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
+@@ -927,69 +1065,91 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
  			camera_port->current_buffer.num =
  			    camera_port->recommended_buffer.num;
  
@@ -103922,7 +104021,7 @@ index 1c9d9d5..33fa37c 100644
  			}
  		} else {
  			/* configure buffering */
-@@ -1001,13 +1162,20 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
+@@ -1001,13 +1161,20 @@ static int mmal_setup_components(struct bm2835_mmal_dev *dev,
  		if (!ret) {
  			dev->capture.fmt = mfmt;
  			dev->capture.stride = f->fmt.pix.bytesperline;
@@ -103945,7 +104044,7 @@ index 1c9d9d5..33fa37c 100644
  		}
  	}
  
-@@ -1048,14 +1216,115 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
+@@ -1048,14 +1215,115 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
  	}
  
  	ret = mmal_setup_components(dev, f);
@@ -104062,7 +104161,7 @@ index 1c9d9d5..33fa37c 100644
  static const struct v4l2_ioctl_ops camera0_ioctl_ops = {
  	/* overlay */
  	.vidioc_enum_fmt_vid_overlay = vidioc_enum_fmt_vid_overlay,
-@@ -1084,6 +1353,51 @@ static const struct v4l2_ioctl_ops camera0_ioctl_ops = {
+@@ -1084,6 +1352,51 @@ static const struct v4l2_ioctl_ops camera0_ioctl_ops = {
  	.vidioc_querybuf = vb2_ioctl_querybuf,
  	.vidioc_qbuf = vb2_ioctl_qbuf,
  	.vidioc_dqbuf = vb2_ioctl_dqbuf,
@@ -104114,7 +104213,7 @@ index 1c9d9d5..33fa37c 100644
  	.vidioc_streamon = vb2_ioctl_streamon,
  	.vidioc_streamoff = vb2_ioctl_streamoff,
  
-@@ -1122,8 +1436,10 @@ static int set_camera_parameters(struct vchiq_mmal_instance *instance,
+@@ -1122,8 +1435,10 @@ static int set_camera_parameters(struct vchiq_mmal_instance *instance,
  		.max_stills_h = MAX_HEIGHT,
  		.stills_yuv422 = 1,
  		.one_shot_stills = 1,
@@ -104127,7 +104226,7 @@ index 1c9d9d5..33fa37c 100644
  		.num_preview_video_frames = 3,
  		.stills_capture_circular_buffer_height = 0,
  		.fast_preview_resume = 0,
-@@ -1141,6 +1457,7 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
+@@ -1141,6 +1456,7 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
  {
  	int ret;
  	struct mmal_es_format *format;
@@ -104135,7 +104234,7 @@ index 1c9d9d5..33fa37c 100644
  
  	ret = vchiq_mmal_init(&dev->instance);
  	if (ret < 0)
-@@ -1176,8 +1493,8 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
+@@ -1176,8 +1492,8 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
  	format->es->video.crop.y = 0;
  	format->es->video.crop.width = 1024;
  	format->es->video.crop.height = 768;
@@ -104146,7 +104245,7 @@ index 1c9d9d5..33fa37c 100644
  
  	format =
  	    &dev->component[MMAL_COMPONENT_CAMERA]->
-@@ -1192,8 +1509,14 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
+@@ -1192,8 +1508,14 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
  	format->es->video.crop.y = 0;
  	format->es->video.crop.width = 1024;
  	format->es->video.crop.height = 768;
@@ -104163,7 +104262,7 @@ index 1c9d9d5..33fa37c 100644
  
  	format =
  	    &dev->component[MMAL_COMPONENT_CAMERA]->
-@@ -1207,13 +1530,22 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
+@@ -1207,13 +1529,22 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
  	format->es->video.crop.y = 0;
  	format->es->video.crop.width = 2592;
  	format->es->video.crop.height = 1944;
@@ -104187,7 +104286,7 @@ index 1c9d9d5..33fa37c 100644
  
  	/* get the preview component ready */
  	ret = vchiq_mmal_component_init(
-@@ -1260,6 +1592,14 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
+@@ -1260,6 +1591,14 @@ static int __init mmal_init(struct bm2835_mmal_dev *dev)
  	}
  
  	{
@@ -104202,7 +104301,7 @@ index 1c9d9d5..33fa37c 100644
  		unsigned int enable = 1;
  		vchiq_mmal_port_parameter_set(
  			dev->instance,
-@@ -1312,6 +1652,11 @@ static int __init bm2835_mmal_init_device(struct bm2835_mmal_dev *dev,
+@@ -1312,6 +1651,11 @@ static int __init bm2835_mmal_init_device(struct bm2835_mmal_dev *dev,
  	int ret;
  
  	*vfd = vdev_template;
@@ -104214,7 +104313,7 @@ index 1c9d9d5..33fa37c 100644
  
  	vfd->v4l2_dev = &dev->v4l2_dev;
  
-@@ -1326,8 +1671,9 @@ static int __init bm2835_mmal_init_device(struct bm2835_mmal_dev *dev,
+@@ -1326,8 +1670,9 @@ static int __init bm2835_mmal_init_device(struct bm2835_mmal_dev *dev,
  	if (ret < 0)
  		return ret;
  
@@ -104226,7 +104325,7 @@ index 1c9d9d5..33fa37c 100644
  
  	return 0;
  }
-@@ -1335,9 +1681,9 @@ static int __init bm2835_mmal_init_device(struct bm2835_mmal_dev *dev,
+@@ -1335,9 +1680,9 @@ static int __init bm2835_mmal_init_device(struct bm2835_mmal_dev *dev,
  static struct v4l2_format default_v4l2_format = {
  	.fmt.pix.pixelformat = V4L2_PIX_FMT_JPEG,
  	.fmt.pix.width = 1024,
@@ -104238,7 +104337,7 @@ index 1c9d9d5..33fa37c 100644
  };
  
  static int __init bm2835_mmal_init(void)
-@@ -1400,6 +1746,9 @@ static int __init bm2835_mmal_init(void)
+@@ -1400,6 +1745,9 @@ static int __init bm2835_mmal_init(void)
  	if (ret < 0)
  		goto unreg_dev;
  
@@ -105543,10 +105642,10 @@ index a06fb44..76f249e 100644
  
  release_msg:
 
-From f528dc1943dbcec6f0b94f7fcc0de8b1a4a29e46 Mon Sep 17 00:00:00 2001
+From f70bf7c2c80ffb0dcfd845ef8a6ddeae1dca494b Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 14:22:53 +0100
-Subject: [PATCH 29/85] dmaengine: Add support for BCM2708
+Subject: [PATCH 29/76] dmaengine: Add support for BCM2708
 
 Add support for DMA controller of BCM2708 as used in the Raspberry Pi.
 Currently it only supports cyclic DMA.
@@ -106672,10 +106771,10 @@ index 0000000..6766799
 +MODULE_AUTHOR("Gellert Weisz <gellert@raspberrypi.org>");
 +MODULE_LICENSE("GPL v2");
 
-From f2ab97a3caa7ff4e2f1ce7772ff8cbddf0156cec Mon Sep 17 00:00:00 2001
+From 96f4de49d613d3cadd11d570c5ad7d3fb25dfba2 Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 14:33:38 +0100
-Subject: [PATCH 30/85] ASoC: Add support for BCM2708
+Subject: [PATCH 30/76] ASoC: Add support for BCM2708
 
 This driver adds support for digital audio (I2S)
 for the BCM2708 SoC that is used by the
@@ -106685,12 +106784,50 @@ connected to the Raspberry Pi via P5 header.
 It relies on cyclic DMA engine support for BCM2708.
 
 Signed-off-by: Florian Meier <florian.meier@koalo.de>
+
+ASoC: BCM2708: Add 24 bit support
+
+This adds 24 bit support to the I2S driver of the BCM2708.
+Besides enabling the 24 bit flags, it includes two bug fixes:
+
+MMAP is not supported. Claiming this leads to strange issues
+when the format of driver and file do not match.
+
+The datasheet states that the width extension bit should be set
+for widths greater than 24, but greater or equal would be correct.
+This follows from the definition of the width field.
+
+Signed-off-by: Florian Meier <florian.meier@koalo.de>
+
+bcm2708-i2s: Update bclk_ratio to more correct values
+
+Move GPIO setup to hw_params.
+
+This is used to stop the I2S driver from breaking
+the GPIO setup for other uses of the PCM interface
+
+Configure GPIOs for I2S based on revision/card settings
+
+With RPi model B+, assignment of the I2S GPIO pins has changed.
+This patch uses the board revision to auto-detect the GPIOs used
+for I2S. It also allows sound card drivers to set the GPIOs that
+should be used. This is especially important with the Compute
+Module.
+
+bcm2708-i2s: Avoid leak from iomap when accessing gpio
+
+bcm2708: Eliminate i2s debugfs directory error
+
+Qualify the two regmap ranges uses by bcm2708-i2s ('-i2s' and '-clk')
+to avoid the name clash when registering debugfs entries.
 ---
  sound/soc/bcm/Kconfig       |  11 +
  sound/soc/bcm/Makefile      |   4 +
- sound/soc/bcm/bcm2708-i2s.c | 940 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 955 insertions(+)
+ sound/soc/bcm/bcm2708-i2s.c | 998 ++++++++++++++++++++++++++++++++++++++++++++
+ sound/soc/bcm/bcm2708-i2s.h |  35 ++
+ 4 files changed, 1048 insertions(+)
  create mode 100644 sound/soc/bcm/bcm2708-i2s.c
+ create mode 100644 sound/soc/bcm/bcm2708-i2s.h
 
 diff --git a/sound/soc/bcm/Kconfig b/sound/soc/bcm/Kconfig
 index 6a834e1..7e5b945 100644
@@ -106725,10 +106862,10 @@ index bc816b7..f8bbe1f 100644
 +obj-$(CONFIG_SND_BCM2708_SOC_I2S) += snd-soc-bcm2708-i2s.o
 diff --git a/sound/soc/bcm/bcm2708-i2s.c b/sound/soc/bcm/bcm2708-i2s.c
 new file mode 100644
-index 0000000..ebaf3d6
+index 0000000..3fcb740
 --- /dev/null
 +++ b/sound/soc/bcm/bcm2708-i2s.c
-@@ -0,0 +1,940 @@
+@@ -0,0 +1,998 @@
 +/*
 + * ALSA SoC I2S Audio Layer for Broadcom BCM2708 SoC
 + *
@@ -106762,6 +106899,8 @@ index 0000000..ebaf3d6
 + * General Public License for more details.
 + */
 +
++#include "bcm2708-i2s.h"
++
 +#include <linux/init.h>
 +#include <linux/module.h>
 +#include <linux/device.h>
@@ -106769,6 +106908,7 @@ index 0000000..ebaf3d6
 +#include <linux/delay.h>
 +#include <linux/io.h>
 +#include <linux/clk.h>
++#include <mach/gpio.h>
 +
 +#include <sound/core.h>
 +#include <sound/pcm.h>
@@ -106776,6 +106916,8 @@ index 0000000..ebaf3d6
 +#include <sound/initval.h>
 +#include <sound/soc.h>
 +#include <sound/dmaengine_pcm.h>
++
++#include <asm/system_info.h>
 +
 +/* Clock registers */
 +#define BCM2708_CLK_PCMCTL_REG  0x00
@@ -106894,6 +107036,9 @@ index 0000000..ebaf3d6
 +#define BCM2708_DMA_DREQ_PCM_TX		2
 +#define BCM2708_DMA_DREQ_PCM_RX		3
 +
++/* I2S pin configuration */
++static int bcm2708_i2s_gpio=BCM2708_I2S_GPIO_AUTO;
++
 +/* General device struct */
 +struct bcm2708_i2s_dev {
 +	struct device				*dev;
@@ -106904,6 +107049,12 @@ index 0000000..ebaf3d6
 +	struct regmap *i2s_regmap;
 +	struct regmap *clk_regmap;
 +};
++
++void bcm2708_i2s_set_gpio(int gpio) {
++	bcm2708_i2s_gpio=gpio;
++}
++EXPORT_SYMBOL(bcm2708_i2s_set_gpio);
++
 +
 +static void bcm2708_i2s_start_clock(struct bcm2708_i2s_dev *dev)
 +{
@@ -107036,6 +107187,67 @@ index 0000000..ebaf3d6
 +	return 0;
 +}
 +
++
++static int bcm2708_i2s_set_function(unsigned offset, int function)
++{
++	#define GPIOFSEL(x)  (0x00+(x)*4)
++	void __iomem *gpio = __io_address(GPIO_BASE);
++	unsigned alt = function <= 3 ? function + 4: function == 4 ? 3 : 2;
++	unsigned gpiodir;
++	unsigned gpio_bank = offset / 10;
++	unsigned gpio_field_offset = (offset - 10 * gpio_bank) * 3;
++
++	if (offset >= BCM2708_NR_GPIOS)
++		return -EINVAL;
++
++	gpiodir = readl(gpio + GPIOFSEL(gpio_bank));
++	gpiodir &= ~(7 << gpio_field_offset);
++	gpiodir |= alt << gpio_field_offset;
++	writel(gpiodir, gpio + GPIOFSEL(gpio_bank));
++	return 0;
++}
++
++static void bcm2708_i2s_setup_gpio(void)
++{
++	/*
++	 * This is the common way to handle the GPIO pins for
++	 * the Raspberry Pi.
++	 * TODO Better way would be to handle
++	 * this in the device tree!
++	 */
++	int pin,pinconfig,startpin,alt;
++
++	/* SPI is on different GPIOs on different boards */
++        /* for Raspberry Pi B+, this is pin GPIO18-21, for original on 28-31 */
++	if (bcm2708_i2s_gpio==BCM2708_I2S_GPIO_AUTO) {	
++		if ((system_rev & 0xffffff) >= 0x10) {
++			/* Model B+ */
++			pinconfig=BCM2708_I2S_GPIO_PIN18;
++		} else {
++			/* original */
++			pinconfig=BCM2708_I2S_GPIO_PIN28;
++		}
++	} else {
++		pinconfig=bcm2708_i2s_gpio;
++	}
++
++	if (pinconfig==BCM2708_I2S_GPIO_PIN18) {
++		startpin=18;
++		alt=BCM2708_I2S_GPIO_PIN18_ALT;
++	} else if (pinconfig==BCM2708_I2S_GPIO_PIN28) {
++		startpin=28;
++		alt=BCM2708_I2S_GPIO_PIN28_ALT;
++	} else {
++		printk(KERN_INFO "Can't configure I2S GPIOs, unknown pin mode for I2S: %i\n",pinconfig);
++		return;
++	}	
++
++	/* configure I2S pins to correct ALT mode */
++	for (pin = startpin; pin <= startpin+3; pin++) {
++		bcm2708_i2s_set_function(pin, alt);
++	}
++}
++
 +static int bcm2708_i2s_hw_params(struct snd_pcm_substream *substream,
 +				 struct snd_pcm_hw_params *params,
 +				 struct snd_soc_dai *dai)
@@ -107065,6 +107277,9 @@ index 0000000..ebaf3d6
 +	if (csreg & (BCM2708_I2S_TXON | BCM2708_I2S_RXON))
 +		return 0;
 +
++
++	bcm2708_i2s_setup_gpio();
++
 +	/*
 +	 * Adjust the data length according to the format.
 +	 * We prefill the half frame length with an integer
@@ -107075,11 +107290,15 @@ index 0000000..ebaf3d6
 +	switch (params_format(params)) {
 +	case SNDRV_PCM_FORMAT_S16_LE:
 +		data_length = 16;
-+		bclk_ratio = 40;
++		bclk_ratio = 50;
++		break;
++	case SNDRV_PCM_FORMAT_S24_LE:
++		data_length = 24;
++		bclk_ratio = 50;
 +		break;
 +	case SNDRV_PCM_FORMAT_S32_LE:
 +		data_length = 32;
-+		bclk_ratio = 80;
++		bclk_ratio = 100;
 +		break;
 +	default:
 +		return -EINVAL;
@@ -107155,7 +107374,7 @@ index 0000000..ebaf3d6
 +	/* Setup the frame format */
 +	format = BCM2708_I2S_CHEN;
 +
-+	if (data_length > 24)
++	if (data_length >= 24)
 +		format |= BCM2708_I2S_CHWEX;
 +
 +	format |= BCM2708_I2S_CHWID((data_length-8)&0xf);
@@ -107445,6 +107664,7 @@ index 0000000..ebaf3d6
 +		.channels_max = 2,
 +		.rates =	SNDRV_PCM_RATE_8000_192000,
 +		.formats =	SNDRV_PCM_FMTBIT_S16_LE
++				| SNDRV_PCM_FMTBIT_S24_LE
 +				| SNDRV_PCM_FMTBIT_S32_LE
 +		},
 +	.capture = {
@@ -107452,6 +107672,7 @@ index 0000000..ebaf3d6
 +		.channels_max = 2,
 +		.rates =	SNDRV_PCM_RATE_8000_192000,
 +		.formats =	SNDRV_PCM_FMTBIT_S16_LE
++				| SNDRV_PCM_FMTBIT_S24_LE
 +				| SNDRV_PCM_FMTBIT_S32_LE
 +		},
 +	.ops = &bcm2708_i2s_dai_ops,
@@ -107500,6 +107721,7 @@ index 0000000..ebaf3d6
 +		.precious_reg = bcm2708_i2s_precious_reg,
 +		.volatile_reg = bcm2708_i2s_volatile_reg,
 +		.cache_type = REGCACHE_RBTREE,
++		.name = "i2s",
 +	},
 +	{
 +		.reg_bits = 32,
@@ -107508,6 +107730,7 @@ index 0000000..ebaf3d6
 +		.max_register = BCM2708_CLK_PCMDIV_REG,
 +		.volatile_reg = bcm2708_clk_volatile_reg,
 +		.cache_type = REGCACHE_RBTREE,
++		.name = "clk",
 +	},
 +};
 +
@@ -107515,37 +107738,11 @@ index 0000000..ebaf3d6
 +	.name		= "bcm2708-i2s-comp",
 +};
 +
-+
-+static void bcm2708_i2s_setup_gpio(void)
-+{
-+	/*
-+	 * This is the common way to handle the GPIO pins for
-+	 * the Raspberry Pi.
-+	 * TODO Better way would be to handle
-+	 * this in the device tree!
-+	 */
-+#define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
-+#define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
-+
-+	unsigned int *gpio;
-+	int pin;
-+	gpio = ioremap(GPIO_BASE, SZ_16K);
-+
-+	/* SPI is on GPIO 7..11 */
-+	for (pin = 28; pin <= 31; pin++) {
-+		INP_GPIO(pin);		/* set mode to GPIO input first */
-+		SET_GPIO_ALT(pin, 2);	/* set mode to ALT 0 */
-+	}
-+#undef INP_GPIO
-+#undef SET_GPIO_ALT
-+}
-+
 +static const struct snd_pcm_hardware bcm2708_pcm_hardware = {
-+	.info			= SNDRV_PCM_INFO_MMAP |
-+				  SNDRV_PCM_INFO_MMAP_VALID |
-+				  SNDRV_PCM_INFO_INTERLEAVED |
++	.info			= SNDRV_PCM_INFO_INTERLEAVED |
 +				  SNDRV_PCM_INFO_JOINT_DUPLEX,
 +	.formats		= SNDRV_PCM_FMTBIT_S16_LE |
++				  SNDRV_PCM_FMTBIT_S24_LE |
 +				  SNDRV_PCM_FMTBIT_S32_LE,
 +	.period_bytes_min	= 32,
 +	.period_bytes_max	= 64 * PAGE_SIZE,
@@ -107590,8 +107787,6 @@ index 0000000..ebaf3d6
 +			   GFP_KERNEL);
 +	if (IS_ERR(dev))
 +		return PTR_ERR(dev);
-+
-+	bcm2708_i2s_setup_gpio();
 +
 +	dev->i2s_regmap = regmap[0];
 +	dev->clk_regmap = regmap[1];
@@ -107669,11 +107864,52 @@ index 0000000..ebaf3d6
 +MODULE_DESCRIPTION("BCM2708 I2S interface");
 +MODULE_AUTHOR("Florian Meier <florian.meier@koalo.de>");
 +MODULE_LICENSE("GPL v2");
+diff --git a/sound/soc/bcm/bcm2708-i2s.h b/sound/soc/bcm/bcm2708-i2s.h
+new file mode 100644
+index 0000000..94fed6a
+--- /dev/null
++++ b/sound/soc/bcm/bcm2708-i2s.h
+@@ -0,0 +1,35 @@
++/*
++ * I2S configuration for sound cards. 
++ *
++ * Copyright (c) 2014 Daniel Matuschek <daniel@hifiberry.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ */
++
++#ifndef BCM2708_I2S_H
++#define BCM2708_I2S_H
++
++/* I2S pin assignment */
++#define BCM2708_I2S_GPIO_AUTO	0
++#define BCM2708_I2S_GPIO_PIN18	1
++#define BCM2708_I2S_GPIO_PIN28	2
++
++/* Alt mode to enable I2S */
++#define BCM2708_I2S_GPIO_PIN18_ALT	0
++#define BCM2708_I2S_GPIO_PIN28_ALT	2
++
++extern void bcm2708_i2s_set_gpio(int gpio);
++
++#endif
 
-From 2b0172e7a1a7730514a556e7e116fae965c251cc Mon Sep 17 00:00:00 2001
+From 74820e3bd1bb4a2ce396dab04190b2318759b39b Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 14:59:51 +0100
-Subject: [PATCH 31/85] ASoC: Add support for PCM5102A codec
+Subject: [PATCH 31/76] ASoC: Add support for PCM5102A codec
 
 Some definitions to support the PCM5102A codec
 by Texas Instruments.
@@ -107798,10 +108034,10 @@ index 0000000..126f1e9
 +MODULE_AUTHOR("Florian Meier <florian.meier@koalo.de>");
 +MODULE_LICENSE("GPL v2");
 
-From 2a656e16608034df4967d2ff1c9102f59a95a501 Mon Sep 17 00:00:00 2001
+From 868612fc207c272b67a894bab0281b3b9558fae0 Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 19:04:54 +0100
-Subject: [PATCH 32/85] BCM2708: Add I2S support to board file
+Subject: [PATCH 32/76] BCM2708: Add I2S support to board file
 
 Adds the required initializations for I2S
 to the board file of mach-bcm2708.
@@ -107856,10 +108092,10 @@ index a740344..dca28ad 100644
  		struct amba_device *d = amba_devs[i];
  		amba_device_register(d, &iomem_resource);
 
-From ae7d450463f95ac738091c8e17058c6ed49e9183 Mon Sep 17 00:00:00 2001
+From 2c4398af1a1f24bcccee837a200e277a8c3e23db Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 19:19:08 +0100
-Subject: [PATCH 33/85] ASoC: Add support for HifiBerry DAC
+Subject: [PATCH 33/76] ASoC: Add support for HifiBerry DAC
 
 This adds a machine driver for the HifiBerry DAC.
 It is a sound card that can
@@ -108008,10 +108244,10 @@ index 0000000..4b70b45
 +MODULE_DESCRIPTION("ASoC Driver for HifiBerry DAC");
 +MODULE_LICENSE("GPL v2");
 
-From 5ead861fe0d6aaa7b623135984832c440a5449d6 Mon Sep 17 00:00:00 2001
+From 31f0e24ec324d48329ac50d0adf0ccf9bcf546f3 Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 19:21:34 +0100
-Subject: [PATCH 34/85] BCM2708: Add HifiBerry DAC to board file
+Subject: [PATCH 34/76] BCM2708: Add HifiBerry DAC to board file
 
 This adds the initalization of the HifiBerry DAC
 to the mach-bcm2708 board file.
@@ -108059,118 +108295,10 @@ index dca28ad..50d4991 100644
  		struct amba_device *d = amba_devs[i];
  		amba_device_register(d, &iomem_resource);
 
-From 912d59f23a050a66c56f28b621b91ff8a48a5071 Mon Sep 17 00:00:00 2001
-From: Florian Meier <florian.meier@koalo.de>
-Date: Fri, 6 Dec 2013 18:55:53 +0100
-Subject: [PATCH 35/85] ASoC: BCM2708: Add 24 bit support
-
-This adds 24 bit support to the I2S driver of the BCM2708.
-Besides enabling the 24 bit flags, it includes two bug fixes:
-
-MMAP is not supported. Claiming this leads to strange issues
-when the format of driver and file do not match.
-
-The datasheet states that the width extension bit should be set
-for widths greater than 24, but greater or equal would be correct.
-This follows from the definition of the width field.
-
-Signed-off-by: Florian Meier <florian.meier@koalo.de>
----
- sound/soc/bcm/bcm2708-i2s.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/sound/soc/bcm/bcm2708-i2s.c b/sound/soc/bcm/bcm2708-i2s.c
-index ebaf3d6..a179216 100644
---- a/sound/soc/bcm/bcm2708-i2s.c
-+++ b/sound/soc/bcm/bcm2708-i2s.c
-@@ -346,6 +346,10 @@ static int bcm2708_i2s_hw_params(struct snd_pcm_substream *substream,
- 		data_length = 16;
- 		bclk_ratio = 40;
- 		break;
-+	case SNDRV_PCM_FORMAT_S24_LE:
-+		data_length = 24;
-+		bclk_ratio = 40;
-+		break;
- 	case SNDRV_PCM_FORMAT_S32_LE:
- 		data_length = 32;
- 		bclk_ratio = 80;
-@@ -424,7 +428,7 @@ static int bcm2708_i2s_hw_params(struct snd_pcm_substream *substream,
- 	/* Setup the frame format */
- 	format = BCM2708_I2S_CHEN;
- 
--	if (data_length > 24)
-+	if (data_length >= 24)
- 		format |= BCM2708_I2S_CHWEX;
- 
- 	format |= BCM2708_I2S_CHWID((data_length-8)&0xf);
-@@ -714,6 +718,7 @@ static struct snd_soc_dai_driver bcm2708_i2s_dai = {
- 		.channels_max = 2,
- 		.rates =	SNDRV_PCM_RATE_8000_192000,
- 		.formats =	SNDRV_PCM_FMTBIT_S16_LE
-+				| SNDRV_PCM_FMTBIT_S24_LE
- 				| SNDRV_PCM_FMTBIT_S32_LE
- 		},
- 	.capture = {
-@@ -721,6 +726,7 @@ static struct snd_soc_dai_driver bcm2708_i2s_dai = {
- 		.channels_max = 2,
- 		.rates =	SNDRV_PCM_RATE_8000_192000,
- 		.formats =	SNDRV_PCM_FMTBIT_S16_LE
-+				| SNDRV_PCM_FMTBIT_S24_LE
- 				| SNDRV_PCM_FMTBIT_S32_LE
- 		},
- 	.ops = &bcm2708_i2s_dai_ops,
-@@ -810,11 +816,10 @@ static void bcm2708_i2s_setup_gpio(void)
- }
- 
- static const struct snd_pcm_hardware bcm2708_pcm_hardware = {
--	.info			= SNDRV_PCM_INFO_MMAP |
--				  SNDRV_PCM_INFO_MMAP_VALID |
--				  SNDRV_PCM_INFO_INTERLEAVED |
-+	.info			= SNDRV_PCM_INFO_INTERLEAVED |
- 				  SNDRV_PCM_INFO_JOINT_DUPLEX,
- 	.formats		= SNDRV_PCM_FMTBIT_S16_LE |
-+				  SNDRV_PCM_FMTBIT_S24_LE |
- 				  SNDRV_PCM_FMTBIT_S32_LE,
- 	.period_bytes_min	= 32,
- 	.period_bytes_max	= 64 * PAGE_SIZE,
-
-From 260917b5b5b1d0081265da5fa3cb20d01299ba20 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Sat, 13 Sep 2014 10:52:04 +0100
-Subject: [PATCH 36/85] bcm2708-i2s: Update bclk_ratio to more correct values
-
----
- sound/soc/bcm/bcm2708-i2s.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/sound/soc/bcm/bcm2708-i2s.c b/sound/soc/bcm/bcm2708-i2s.c
-index a179216..fd50e2d 100644
---- a/sound/soc/bcm/bcm2708-i2s.c
-+++ b/sound/soc/bcm/bcm2708-i2s.c
-@@ -344,15 +344,15 @@ static int bcm2708_i2s_hw_params(struct snd_pcm_substream *substream,
- 	switch (params_format(params)) {
- 	case SNDRV_PCM_FORMAT_S16_LE:
- 		data_length = 16;
--		bclk_ratio = 40;
-+		bclk_ratio = 50;
- 		break;
- 	case SNDRV_PCM_FORMAT_S24_LE:
- 		data_length = 24;
--		bclk_ratio = 40;
-+		bclk_ratio = 50;
- 		break;
- 	case SNDRV_PCM_FORMAT_S32_LE:
- 		data_length = 32;
--		bclk_ratio = 80;
-+		bclk_ratio = 100;
- 		break;
- 	default:
- 		return -EINVAL;
-
-From 6cf4b38303e0a8ad72ca2ff7b33ae928b8a87ead Mon Sep 17 00:00:00 2001
+From ece0d271217d4046a7782a77b02ef0546e6fd8c1 Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Mon, 2 Dec 2013 20:28:22 +0100
-Subject: [PATCH 37/85] BCM2708: Add I2S and DMA support to default config
+Subject: [PATCH 35/76] BCM2708: Add I2S and DMA support to default config
 
 This commit adds several modules that are needed for
 I2S support for the Raspberry Pi to the defconfig.
@@ -108181,10 +108309,10 @@ Signed-off-by: Florian Meier <florian.meier@koalo.de>
  1 file changed, 6 insertions(+)
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 1f14e0c..e0e624a 100644
+index 1dc68ce..312cf9a 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -751,6 +751,10 @@ CONFIG_SND_USB_UA101=m
+@@ -748,6 +748,10 @@ CONFIG_SND_USB_UA101=m
  CONFIG_SND_USB_CAIAQ=m
  CONFIG_SND_USB_CAIAQ_INPUT=y
  CONFIG_SND_USB_6FIRE=m
@@ -108195,7 +108323,7 @@ index 1f14e0c..e0e624a 100644
  CONFIG_SOUND_PRIME=m
  CONFIG_HIDRAW=y
  CONFIG_HID_A4TECH=m
-@@ -945,6 +949,8 @@ CONFIG_RTC_DRV_RS5C348=m
+@@ -942,6 +946,8 @@ CONFIG_RTC_DRV_RS5C348=m
  CONFIG_RTC_DRV_DS3234=m
  CONFIG_RTC_DRV_PCF2123=m
  CONFIG_RTC_DRV_RX4581=m
@@ -108205,10 +108333,10 @@ index 1f14e0c..e0e624a 100644
  CONFIG_UIO_PDRV_GENIRQ=m
  CONFIG_STAGING=y
 
-From 3944c2c0a139ec22f106857f00b063395f5f2983 Mon Sep 17 00:00:00 2001
+From f090d27be933b107fc42eb3cc0135835e60d6592 Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 6 Dec 2013 20:50:28 +0100
-Subject: [PATCH 38/85] ASoC: BCM2708: Add support for RPi-DAC
+Subject: [PATCH 36/76] ASoC: BCM2708: Add support for RPi-DAC
 
 This adds a machine driver for the RPi-DAC.
 
@@ -108227,10 +108355,10 @@ Signed-off-by: Florian Meier <florian.meier@koalo.de>
  create mode 100644 sound/soc/codecs/pcm1794a.c
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index e0e624a..063a443 100644
+index 312cf9a..05b3823 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -754,6 +754,7 @@ CONFIG_SND_USB_6FIRE=m
+@@ -751,6 +751,7 @@ CONFIG_SND_USB_6FIRE=m
  CONFIG_SND_SOC=m
  CONFIG_SND_BCM2708_SOC_I2S=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC=m
@@ -108516,10 +108644,10 @@ index 0000000..b4eaa44
 +MODULE_AUTHOR("Florian Meier <florian.meier@koalo.de>");
 +MODULE_LICENSE("GPL v2");
 
-From 7399d181c1fc80766b52569c754807f23da3e879 Mon Sep 17 00:00:00 2001
+From b5b2b5e93d52b1926c48898bb2c581a62b5c3198 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Wed, 15 Jan 2014 21:41:23 +0100
-Subject: [PATCH 39/85] ASoC: wm8804: Implement MCLK configuration options, add
+Subject: [PATCH 37/76] ASoC: wm8804: Implement MCLK configuration options, add
  32bit support WM8804 can run with PLL frequencies of 256xfs and 128xfs for
  most sample rates. At 192kHz only 128xfs is supported. The existing driver
  selects 128xfs automatically for some lower samples rates. By using an
@@ -108559,10 +108687,10 @@ index 0ea01df..4724553 100644
  #define WM8804_RATES (SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | \
  		      SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_64000 | \
 
-From d8c46fb50046c4c2b372c7f5f8a7192bd4e0cfdf Mon Sep 17 00:00:00 2001
+From b7917612d03df1a7172a547496231d1561bf8569 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Wed, 15 Jan 2014 21:42:08 +0100
-Subject: [PATCH 40/85] ASoC: BCM:Add support for HiFiBerry Digi. Driver is
+Subject: [PATCH 38/76] ASoC: BCM:Add support for HiFiBerry Digi. Driver is
  based on the patched WM8804 driver.
 
 Signed-off-by: Daniel Matuschek <daniel@matuschek.net>
@@ -108765,10 +108893,10 @@ index 0000000..e4f769d
 +MODULE_DESCRIPTION("ASoC Driver for HifiBerry Digi");
 +MODULE_LICENSE("GPL v2");
 
-From 17e1d65f5031e992500e8709a0ebfe02fdbb7315 Mon Sep 17 00:00:00 2001
+From 4f9d3dc3a6301ceede7cd6c79aa1ad095f650b04 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Thu, 16 Jan 2014 07:26:08 +0100
-Subject: [PATCH 41/85] BCM2708: Added support for HiFiBerry Digi board Board
+Subject: [PATCH 39/76] BCM2708: Added support for HiFiBerry Digi board Board
  initalization by I2C
 
 Signed-off-by: Daniel Matuschek <daniel@matuschek.net>
@@ -108815,10 +108943,10 @@ index 100c223..a57cb85 100644
          bcm_register_device(&snd_rpi_dac_device);
          bcm_register_device(&snd_pcm1794a_codec_device);
 
-From 703325995418f6f96f89920920454339b11e0871 Mon Sep 17 00:00:00 2001
+From 4a9d416ee41973acc8fe4c36df41df623bdc4c52 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Thu, 16 Jan 2014 07:27:28 +0100
-Subject: [PATCH 42/85] BCM2708: Added HiFiBerry Digi configuration option It
+Subject: [PATCH 40/76] BCM2708: Added HiFiBerry Digi configuration option It
  will be compiled as a module by default. This also includes the WM8804
  driver.
 
@@ -108828,10 +108956,10 @@ Signed-off-by: Daniel Matuschek <daniel@matuschek.net>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 063a443..8eda3b4 100644
+index 05b3823..5e3628a 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -754,6 +754,7 @@ CONFIG_SND_USB_6FIRE=m
+@@ -751,6 +751,7 @@ CONFIG_SND_USB_6FIRE=m
  CONFIG_SND_SOC=m
  CONFIG_SND_BCM2708_SOC_I2S=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC=m
@@ -108840,10 +108968,10 @@ index 063a443..8eda3b4 100644
  CONFIG_SND_SIMPLE_CARD=m
  CONFIG_SOUND_PRIME=m
 
-From 15b3981599b5f5f14d8c2e6052612a71b64f9507 Mon Sep 17 00:00:00 2001
+From cbad8f4a561f65a2cc5b33631044075f0a861d71 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Thu, 16 Jan 2014 07:36:35 +0100
-Subject: [PATCH 43/85] ASoC: wm8804: Set idle_bias_off to false Idle bias has
+Subject: [PATCH 41/76] ASoC: wm8804: Set idle_bias_off to false Idle bias has
  been change to remove warning on driver startup
 
 Signed-off-by: Daniel Matuschek <daniel@matuschek.net>
@@ -108865,10 +108993,10 @@ index 4724553..5d4140e 100644
  	.controls = wm8804_snd_controls,
  	.num_controls = ARRAY_SIZE(wm8804_snd_controls),
 
-From 4a086facd159ef13d6a3ee6d0fe1440a6e9d8616 Mon Sep 17 00:00:00 2001
+From 595dd18c08acbe5af114201c72544d57858fd00a Mon Sep 17 00:00:00 2001
 From: Gordon Garrity <gordon@iqaudio.com>
 Date: Sat, 8 Mar 2014 16:56:57 +0000
-Subject: [PATCH 44/85] Add IQaudIO Sound Card support for Raspberry Pi
+Subject: [PATCH 42/76] Add IQaudIO Sound Card support for Raspberry Pi
 
 ---
  arch/arm/configs/bcmrpi_defconfig |   1 +
@@ -108880,10 +109008,10 @@ Subject: [PATCH 44/85] Add IQaudIO Sound Card support for Raspberry Pi
  create mode 100644 sound/soc/bcm/iqaudio-dac.c
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 8eda3b4..0a3bfe8 100644
+index 5e3628a..0d26cc5 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -756,6 +756,7 @@ CONFIG_SND_BCM2708_SOC_I2S=m
+@@ -753,6 +753,7 @@ CONFIG_SND_BCM2708_SOC_I2S=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DIGI=m
  CONFIG_SND_BCM2708_SOC_RPI_DAC=m
@@ -109078,10 +109206,10 @@ index 0000000..8d0e2ae
 +MODULE_DESCRIPTION("ASoC Driver for IQAudio DAC");
 +MODULE_LICENSE("GPL v2");
 
-From 7bab98bf08eeee4e3e01e1485cef096525397b7a Mon Sep 17 00:00:00 2001
+From 0ec8dfe2d0c9b64d62e1b3b857749db604ca5319 Mon Sep 17 00:00:00 2001
 From: Howard Mitchell <hm@hmbedded.co.uk>
 Date: Wed, 30 Jul 2014 21:43:37 +0100
-Subject: [PATCH 45/85] soc-core: Fix volsw_range funcs so
+Subject: [PATCH 43/76] soc-core: Fix volsw_range funcs so
  SOC_DOUBLE_R_RANGE_TLV works.
 
 This is so that the correct range of values as specified
@@ -109155,10 +109283,10 @@ index a3e0a0d..ca4aa5a 100644
  
  	return 0;
 
-From 3d7bdfb72a894940cf3d03ae5212446df73e4aa9 Mon Sep 17 00:00:00 2001
+From 4c402038b4f2e17e6e0609ecc4d961a735d94e43 Mon Sep 17 00:00:00 2001
 From: Howard Mitchell <hm@hmbedded.co.uk>
 Date: Fri, 28 Mar 2014 16:40:31 +0000
-Subject: [PATCH 46/85] pcm512x: Use a range macro for Volume and rename to
+Subject: [PATCH 44/76] pcm512x: Use a range macro for Volume and rename to
  PCM.
 
 This allows limiting the output gain to avoid clipping in the
@@ -109183,109 +109311,10 @@ index 0c8aefa..8252e6d 100644
  	       PCM512x_LAGN_SHIFT, PCM512x_RAGN_SHIFT, 1, 1, analog_tlv),
  SOC_DOUBLE_TLV("Playback Boost Volume", PCM512x_ANALOG_GAIN_BOOST,
 
-From 29b46fbb7c322c09e2c7673fd79e84dde733e487 Mon Sep 17 00:00:00 2001
-From: Gordon Hollingworth <gordon@holliweb.co.uk>
-Date: Fri, 2 May 2014 16:13:59 +0100
-Subject: [PATCH 47/85] Move GPIO setup to hw_params.
-
-This is used to stop the I2S driver from breaking
-the GPIO setup for other uses of the PCM interface
----
- sound/soc/bcm/bcm2708-i2s.c | 55 +++++++++++++++++++++++----------------------
- 1 file changed, 28 insertions(+), 27 deletions(-)
-
-diff --git a/sound/soc/bcm/bcm2708-i2s.c b/sound/soc/bcm/bcm2708-i2s.c
-index fd50e2d..0c20d4d 100644
---- a/sound/soc/bcm/bcm2708-i2s.c
-+++ b/sound/soc/bcm/bcm2708-i2s.c
-@@ -305,6 +305,31 @@ static int bcm2708_i2s_set_dai_bclk_ratio(struct snd_soc_dai *dai,
- 	return 0;
- }
- 
-+
-+static void bcm2708_i2s_setup_gpio(void)
-+{
-+	/*
-+	 * This is the common way to handle the GPIO pins for
-+	 * the Raspberry Pi.
-+	 * TODO Better way would be to handle
-+	 * this in the device tree!
-+	 */
-+#define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
-+#define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
-+
-+	unsigned int *gpio;
-+	int pin;
-+	gpio = ioremap(GPIO_BASE, SZ_16K);
-+
-+	/* SPI is on GPIO 7..11 */
-+	for (pin = 28; pin <= 31; pin++) {
-+		INP_GPIO(pin);		/* set mode to GPIO input first */
-+		SET_GPIO_ALT(pin, 2);	/* set mode to ALT 0 */
-+	}
-+#undef INP_GPIO
-+#undef SET_GPIO_ALT
-+}
-+
- static int bcm2708_i2s_hw_params(struct snd_pcm_substream *substream,
- 				 struct snd_pcm_hw_params *params,
- 				 struct snd_soc_dai *dai)
-@@ -334,6 +359,9 @@ static int bcm2708_i2s_hw_params(struct snd_pcm_substream *substream,
- 	if (csreg & (BCM2708_I2S_TXON | BCM2708_I2S_RXON))
- 		return 0;
- 
-+
-+	bcm2708_i2s_setup_gpio();
-+
- 	/*
- 	 * Adjust the data length according to the format.
- 	 * We prefill the half frame length with an integer
-@@ -790,31 +818,6 @@ static const struct snd_soc_component_driver bcm2708_i2s_component = {
- 	.name		= "bcm2708-i2s-comp",
- };
- 
--
--static void bcm2708_i2s_setup_gpio(void)
--{
--	/*
--	 * This is the common way to handle the GPIO pins for
--	 * the Raspberry Pi.
--	 * TODO Better way would be to handle
--	 * this in the device tree!
--	 */
--#define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
--#define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
--
--	unsigned int *gpio;
--	int pin;
--	gpio = ioremap(GPIO_BASE, SZ_16K);
--
--	/* SPI is on GPIO 7..11 */
--	for (pin = 28; pin <= 31; pin++) {
--		INP_GPIO(pin);		/* set mode to GPIO input first */
--		SET_GPIO_ALT(pin, 2);	/* set mode to ALT 0 */
--	}
--#undef INP_GPIO
--#undef SET_GPIO_ALT
--}
--
- static const struct snd_pcm_hardware bcm2708_pcm_hardware = {
- 	.info			= SNDRV_PCM_INFO_INTERLEAVED |
- 				  SNDRV_PCM_INFO_JOINT_DUPLEX,
-@@ -865,8 +868,6 @@ static int bcm2708_i2s_probe(struct platform_device *pdev)
- 	if (IS_ERR(dev))
- 		return PTR_ERR(dev);
- 
--	bcm2708_i2s_setup_gpio();
--
- 	dev->i2s_regmap = regmap[0];
- 	dev->clk_regmap = regmap[1];
- 
-
-From b61fb2d19eececf7ef2e6abe1b79e803d4231cb5 Mon Sep 17 00:00:00 2001
+From e200eaa158bf79d0906e758d443091cb22d3140c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 18 Jun 2014 13:42:01 +0100
-Subject: [PATCH 48/85] vmstat: Workaround for issue where dirty page count
+Subject: [PATCH 45/76] vmstat: Workaround for issue where dirty page count
  goes negative
 
 See:
@@ -109312,10 +109341,10 @@ index 82e7db7..f87d16d 100644
  
  static inline void __inc_zone_page_state(struct page *page,
 
-From c9cdaae8baeb54e81f5e9bff701bd4f6e1288417 Mon Sep 17 00:00:00 2001
+From d1259da20166acd154c7d400e2488633b4548c8b Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Fri, 20 Jun 2014 16:03:12 +0100
-Subject: [PATCH 49/85] dwc_otg: Fix various issues with root port and
+Subject: [PATCH 46/76] dwc_otg: Fix various issues with root port and
  transaction errors
 
 Process the host port interrupts correctly (and don't trample them).
@@ -109385,10 +109414,10 @@ index d3e2035..6182d3e 100644
  					fiq_print(FIQDBG_ERR, dwc_otg_hcd->fiq_state, "RESET   ");
  				}
 
-From ea6bdb2639b8792cd8f1ba0181346505687f1f4a Mon Sep 17 00:00:00 2001
+From 12aa749b2bc959e4f6535c0db41e50bbe310bdcc Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Fri, 20 Jun 2014 17:23:20 +0100
-Subject: [PATCH 50/85] fiq_fsm: Implement hack for Split Interrupt
+Subject: [PATCH 47/76] fiq_fsm: Implement hack for Split Interrupt
  transactions
 
 Hubs aren't too picky about which endpoint we send Control type split
@@ -109474,10 +109503,10 @@ index ebc3553..c39ef31 100644
  			break;
  	}
 
-From 42b73143eab53b295ed1609687f826fcba1956f8 Mon Sep 17 00:00:00 2001
+From e0ac6112209b11360860c9cf43543fddbcd843b6 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Sun, 6 Jul 2014 12:07:25 +0200
-Subject: [PATCH 51/85] spi-bcm2708: Prepare for Common Clock Framework
+Subject: [PATCH 48/76] spi-bcm2708: Prepare for Common Clock Framework
  migration
 
 As part of migrating to use the Common Clock Framework, replace clk_enable()
@@ -109522,10 +109551,10 @@ index b04a57d..349d21f 100644
  	free_irq(bs->irq, master);
  	iounmap(bs->base);
 
-From 8bd2f4021ea5668ccd7938dfc2dfc277edd4d178 Mon Sep 17 00:00:00 2001
+From 5733bd304c27830853fb0f7521dd1e9c3f7c38e5 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Sun, 6 Jul 2014 12:09:30 +0200
-Subject: [PATCH 52/85] BCM2708: Migrate to the Common Clock Framework
+Subject: [PATCH 49/76] BCM2708: Migrate to the Common Clock Framework
 
 As part of moving towards using Device Tree, the Common Clock Framework
 has to be used instead of the BCM2708 clock implementation.
@@ -109795,14 +109824,22 @@ index 5f9d725..0000000
 -	unsigned long		rate;
 -};
 
-From eeaebcf0a3463b0eb2daceb76e8e20481f94778c Mon Sep 17 00:00:00 2001
+From 46a4b8205331808088f7815050684f4d6cb31e35 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Wed, 9 Jul 2014 14:46:08 +0200
-Subject: [PATCH 53/85] BCM2708: Add core Device Tree support
+Subject: [PATCH 50/76] BCM2708: Add core Device Tree support
 
 Add the bare minimum needed to boot BCM2708 from a Device Tree.
 
 Signed-off-by: Noralf Tronnes <notro@tronnes.org>
+
+BCM2708: DT: change 'axi' nodename to 'soc'
+
+Change DT node named 'axi' to 'soc' so it matches ARCH_BCM2835.
+The VC4 bootloader fills in certain properties in the 'axi' subtree,
+but since this is part of an upstreaming effort, the name is changed.
+
+Signed-off-by: Noralf Tronnes notro@tronnes.org
 ---
  arch/arm/boot/dts/Makefile          |  1 +
  arch/arm/boot/dts/bcm2708-rpi-b.dts |  8 ++++++++
@@ -109841,7 +109878,7 @@ index 0000000..e319c8e
 +};
 diff --git a/arch/arm/boot/dts/bcm2708.dtsi b/arch/arm/boot/dts/bcm2708.dtsi
 new file mode 100644
-index 0000000..678bd45
+index 0000000..50da059
 --- /dev/null
 +++ b/arch/arm/boot/dts/bcm2708.dtsi
 @@ -0,0 +1,27 @@
@@ -109859,7 +109896,7 @@ index 0000000..678bd45
 +		bootargs = "console=ttyAMA0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ";
 +	};
 +
-+	axi {
++	soc {
 +		compatible = "simple-bus";
 +		#address-cells = <1>;
 +		#size-cells = <1>;
@@ -109955,10 +109992,10 @@ index ef12cb8..747e27a 100644
  
  module_param(boardrev, uint, 0644);
 
-From a2c9e0f2e0dabdf977824849d125af42f2afc9f4 Mon Sep 17 00:00:00 2001
+From 0ab4eaa0d9f5b71a1876e4f1133af44d5e0659af Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Wed, 9 Jul 2014 14:47:48 +0200
-Subject: [PATCH 54/85] BCM2708: armctrl: Add IRQ Device Tree support
+Subject: [PATCH 51/76] BCM2708: armctrl: Add IRQ Device Tree support
 
 Add Device Tree IRQ support for BCM2708.
 Usage is the same as for irq-bcm2835.
@@ -109974,7 +110011,7 @@ Signed-off-by: Noralf Tronnes <notro@tronnes.org>
  2 files changed, 106 insertions(+)
 
 diff --git a/arch/arm/boot/dts/bcm2708.dtsi b/arch/arm/boot/dts/bcm2708.dtsi
-index 678bd45..54ecab7 100644
+index 50da059..a06f5b8 100644
 --- a/arch/arm/boot/dts/bcm2708.dtsi
 +++ b/arch/arm/boot/dts/bcm2708.dtsi
 @@ -4,6 +4,8 @@
@@ -110122,10 +110159,10 @@ index d4c5333..42f5e1c 100644
  	return 0;
  }
 
-From 912a2f5ef4fbb8e19dcf64c8d3c6370bc81ebfb1 Mon Sep 17 00:00:00 2001
+From 44ebe95b3434c3d861cf7d8a8fbdb5a14e62a233 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Thu, 10 Jul 2014 13:59:47 +0200
-Subject: [PATCH 55/85] pinctrl: add bcm2708 driver
+Subject: [PATCH 52/76] pinctrl: add bcm2708 driver
 
 This driver is a verbatim copy of the pinctrl-bcm2835 driver, except for:
 * changed 2835 to 2708
@@ -110139,17 +110176,19 @@ Binding document: brcm,bcm2835-gpio.txt
 It's not possible to set trigger type and level flags for IRQs in the DT.
 
 Signed-off-by: Noralf Tronnes <notro@tronnes.org>
+
+pinctrl-bcm2708: pinmux_ops no longer includes disable
 ---
  arch/arm/boot/dts/bcm2708.dtsi    |   7 +
  arch/arm/mach-bcm2708/Kconfig     |   3 +
  drivers/pinctrl/Kconfig           |   5 +
  drivers/pinctrl/Makefile          |   1 +
- drivers/pinctrl/pinctrl-bcm2708.c | 773 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 789 insertions(+)
+ drivers/pinctrl/pinctrl-bcm2708.c | 762 ++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 778 insertions(+)
  create mode 100644 drivers/pinctrl/pinctrl-bcm2708.c
 
 diff --git a/arch/arm/boot/dts/bcm2708.dtsi b/arch/arm/boot/dts/bcm2708.dtsi
-index 54ecab7..3f884b3 100644
+index a06f5b8..e02e67b 100644
 --- a/arch/arm/boot/dts/bcm2708.dtsi
 +++ b/arch/arm/boot/dts/bcm2708.dtsi
 @@ -26,6 +26,13 @@
@@ -110210,10 +110249,10 @@ index 05d2275..2014825 100644
  obj-$(CONFIG_PINCTRL_BCM281XX)	+= pinctrl-bcm281xx.o
 diff --git a/drivers/pinctrl/pinctrl-bcm2708.c b/drivers/pinctrl/pinctrl-bcm2708.c
 new file mode 100644
-index 0000000..40d9c86
+index 0000000..b0995fd
 --- /dev/null
 +++ b/drivers/pinctrl/pinctrl-bcm2708.c
-@@ -0,0 +1,773 @@
+@@ -0,0 +1,762 @@
 +/*
 + * Driver for Broadcom BCM2708 GPIO unit (pinctrl only)
 + *
@@ -110793,16 +110832,6 @@ index 0000000..40d9c86
 +	return 0;
 +}
 +
-+static void bcm2708_pmx_disable(struct pinctrl_dev *pctldev,
-+		unsigned func_selector,
-+		unsigned group_selector)
-+{
-+	struct bcm2708_pinctrl *pc = pinctrl_dev_get_drvdata(pctldev);
-+
-+	/* disable by setting to GPIO_IN */
-+	bcm2708_pinctrl_fsel_set(pc, group_selector, BCM2708_FSEL_GPIO_IN);
-+}
-+
 +static void bcm2708_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 +		struct pinctrl_gpio_range *range,
 +		unsigned offset)
@@ -110832,7 +110861,6 @@ index 0000000..40d9c86
 +	.get_function_name = bcm2708_pmx_get_function_name,
 +	.get_function_groups = bcm2708_pmx_get_function_groups,
 +	.enable = bcm2708_pmx_enable,
-+	.disable = bcm2708_pmx_disable,
 +	.gpio_disable_free = bcm2708_pmx_gpio_disable_free,
 +	.gpio_set_direction = bcm2708_pmx_gpio_set_direction,
 +};
@@ -110988,77 +111016,10 @@ index 0000000..40d9c86
 +MODULE_DESCRIPTION("BCM2708 Pin control driver");
 +MODULE_LICENSE("GPL");
 
-From fc54f7e8bfce1b9ef4510bf36cde6dd92444707e Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Mon, 14 Jul 2014 22:02:09 +0100
-Subject: [PATCH 56/85] hid: Reduce default mouse polling interval to 60Hz
-
-Reduces overhead when using X
----
- drivers/hid/usbhid/hid-core.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/hid/usbhid/hid-core.c b/drivers/hid/usbhid/hid-core.c
-index ddd547a..520d3cd 100644
---- a/drivers/hid/usbhid/hid-core.c
-+++ b/drivers/hid/usbhid/hid-core.c
-@@ -49,7 +49,7 @@
-  * Module parameters.
-  */
- 
--static unsigned int hid_mousepoll_interval;
-+static unsigned int hid_mousepoll_interval = ~0;
- module_param_named(mousepoll, hid_mousepoll_interval, uint, 0644);
- MODULE_PARM_DESC(mousepoll, "Polling interval of mice");
- 
-@@ -1095,8 +1095,12 @@ static int usbhid_start(struct hid_device *hid)
- 		}
- 
- 		/* Change the polling interval of mice. */
--		if (hid->collection->usage == HID_GD_MOUSE && hid_mousepoll_interval > 0)
--			interval = hid_mousepoll_interval;
-+		if (hid->collection->usage == HID_GD_MOUSE) {
-+				if (hid_mousepoll_interval == ~0 && interval < 16)
-+						interval = 16;
-+				else if (hid_mousepoll_interval != ~0 && hid_mousepoll_interval != 0)
-+						interval = hid_mousepoll_interval;
-+		}
- 
- 		ret = -ENOMEM;
- 		if (usb_endpoint_dir_in(endpoint)) {
-
-From 376fe2d101db7f495a0d323babb1a618dca74e49 Mon Sep 17 00:00:00 2001
-From: notro <notro@tronnes.org>
-Date: Fri, 18 Jul 2014 18:15:57 +0200
-Subject: [PATCH 57/85] BCM2708: DT: change 'axi' nodename to 'soc'
-
-Change DT node named 'axi' to 'soc' so it matches ARCH_BCM2835.
-The VC4 bootloader fills in certain properties in the 'axi' subtree,
-but since this is part of an upstreaming effort, the name is changed.
-
-Signed-off-by: Noralf Tronnes notro@tronnes.org
----
- arch/arm/boot/dts/bcm2708.dtsi | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/arch/arm/boot/dts/bcm2708.dtsi b/arch/arm/boot/dts/bcm2708.dtsi
-index 3f884b3..e02e67b 100644
---- a/arch/arm/boot/dts/bcm2708.dtsi
-+++ b/arch/arm/boot/dts/bcm2708.dtsi
-@@ -14,7 +14,7 @@
- 		bootargs = "console=ttyAMA0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ";
- 	};
- 
--	axi {
-+	soc {
- 		compatible = "simple-bus";
- 		#address-cells = <1>;
- 		#size-cells = <1>;
-
-From 775484a701f6a13dae3a59457ae629590bc5931d Mon Sep 17 00:00:00 2001
+From cb66c254f5ea4a068148cd905e4abf589eab420b Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Sun, 27 Jul 2014 20:12:58 +0200
-Subject: [PATCH 58/85] spi: bcm2708: add device tree support
+Subject: [PATCH 53/76] spi: bcm2708: add device tree support
 
 Add DT support to driver and add to .dtsi file.
 Setup pins and spidev in .dts file.
@@ -111177,10 +111138,10 @@ index 349d21f..041b5e2 100644
  	.probe		= bcm2708_spi_probe,
  	.remove		= bcm2708_spi_remove,
 
-From 8f69a3e8043d531ebd88c4277ed271ae91346a86 Mon Sep 17 00:00:00 2001
+From 11595f8ca7d15db6f0e2854e527e247c80cfb900 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Sun, 27 Jul 2014 20:13:44 +0200
-Subject: [PATCH 59/85] BCM2708: don't register SPI controller when using DT
+Subject: [PATCH 54/76] BCM2708: don't register SPI controller when using DT
 
 The device for the SPI controller is in the Device Tree.
 Only register the device when not using DT.
@@ -111251,10 +111212,10 @@ index 747e27a..0434cbf 100644
  	bcm_register_device(&bcm2708_bsc1_device);
  
 
-From d4ddab7cf30cac949419cc3c069f88687d9f563c Mon Sep 17 00:00:00 2001
+From a913832ca5008360ceaf5d480543e9b6180f56e7 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Sun, 27 Jul 2014 20:14:05 +0200
-Subject: [PATCH 60/85] spi: bcm2835: make driver available on ARCH_BCM2708
+Subject: [PATCH 55/76] spi: bcm2835: make driver available on ARCH_BCM2708
 
 Make this driver available on ARCH_BCM2708
 
@@ -111277,10 +111238,10 @@ index 6a7943c..6600723 100644
  	  This selects a driver for the Broadcom BCM2835 SPI master.
  
 
-From f32dc90cc3844d88d1401b633cdf5f4eea1baeda Mon Sep 17 00:00:00 2001
+From 2a96bb1098dc547371af967e0a77a3c035681513 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Tue, 29 Jul 2014 11:04:49 +0200
-Subject: [PATCH 61/85] i2c: bcm2708: add device tree support
+Subject: [PATCH 56/76] i2c: bcm2708: add device tree support
 
 Add DT support to driver and add to .dtsi file.
 Setup pins in .dts file.
@@ -111445,10 +111406,10 @@ index 8750634..728cb69 100644
  	.probe		= bcm2708_i2c_probe,
  	.remove		= bcm2708_i2c_remove,
 
-From c6d157232cd293f4a4c7abe537abd08db19e2a06 Mon Sep 17 00:00:00 2001
+From 5932cd4d797f4c929190afdf677965f2ce06665d Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Tue, 29 Jul 2014 11:05:18 +0200
-Subject: [PATCH 62/85] bcm2708: don't register i2c controllers when using DT
+Subject: [PATCH 57/76] bcm2708: don't register i2c controllers when using DT
 
 The devices for the i2c controllers are in the Device Tree.
 Only register devices when not using DT.
@@ -111490,10 +111451,10 @@ index 0434cbf..902f8c7 100644
  	bcm_register_device(&bcm2835_hwmon_device);
  	bcm_register_device(&bcm2835_thermal_device);
 
-From 0ba503da79da1409e14be79fbe82f15f7df65c0d Mon Sep 17 00:00:00 2001
+From e88ebf69f8f7bf0587b3f85f297ad40b281cbdab Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Tue, 29 Jul 2014 11:05:39 +0200
-Subject: [PATCH 63/85] i2c: bcm2835: make driver available on ARCH_BCM2708
+Subject: [PATCH 58/76] i2c: bcm2835: make driver available on ARCH_BCM2708
 
 Make this driver available on ARCH_BCM2708
 
@@ -111516,198 +111477,49 @@ index d8f8e2a..5f62d88 100644
  	  If you say yes to this option, support will be included for the
  	  BCM2835 I2C controller.
 
-From d3f307319327721fd728d2c821362188d11fbd3a Mon Sep 17 00:00:00 2001
-From: Daniel Matuschek <info@crazy-audio.com>
-Date: Fri, 25 Jul 2014 07:08:09 +0200
-Subject: [PATCH 64/85] Configure GPIOs for I2S based on revision/card settings
+From 12ee75138da3897a7fb9b5252c08653d5b3fc897 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 14 Jul 2014 22:02:09 +0100
+Subject: [PATCH 59/76] hid: Reduce default mouse polling interval to 60Hz
 
-With RPi model B+, assignment of the I2S GPIO pins has changed.
-This patch uses the board revision to auto-detect the GPIOs used
-for I2S. It also allows sound card drivers to set the GPIOs that
-should be used. This is especially important with the Compute
-Module.
-
-bcm2708-i2s: Avoid leak from iomap when accessing gpio
+Reduces overhead when using X
 ---
- sound/soc/bcm/bcm2708-i2s.c | 72 ++++++++++++++++++++++++++++++++++++++-------
- sound/soc/bcm/bcm2708-i2s.h | 35 ++++++++++++++++++++++
- 2 files changed, 96 insertions(+), 11 deletions(-)
- create mode 100644 sound/soc/bcm/bcm2708-i2s.h
+ drivers/hid/usbhid/hid-core.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/sound/soc/bcm/bcm2708-i2s.c b/sound/soc/bcm/bcm2708-i2s.c
-index 0c20d4d..9023984 100644
---- a/sound/soc/bcm/bcm2708-i2s.c
-+++ b/sound/soc/bcm/bcm2708-i2s.c
-@@ -31,6 +31,8 @@
-  * General Public License for more details.
+diff --git a/drivers/hid/usbhid/hid-core.c b/drivers/hid/usbhid/hid-core.c
+index ddd547a..520d3cd 100644
+--- a/drivers/hid/usbhid/hid-core.c
++++ b/drivers/hid/usbhid/hid-core.c
+@@ -49,7 +49,7 @@
+  * Module parameters.
   */
  
-+#include "bcm2708-i2s.h"
-+
- #include <linux/init.h>
- #include <linux/module.h>
- #include <linux/device.h>
-@@ -38,6 +40,7 @@
- #include <linux/delay.h>
- #include <linux/io.h>
- #include <linux/clk.h>
-+#include <mach/gpio.h>
+-static unsigned int hid_mousepoll_interval;
++static unsigned int hid_mousepoll_interval = ~0;
+ module_param_named(mousepoll, hid_mousepoll_interval, uint, 0644);
+ MODULE_PARM_DESC(mousepoll, "Polling interval of mice");
  
- #include <sound/core.h>
- #include <sound/pcm.h>
-@@ -46,6 +49,8 @@
- #include <sound/soc.h>
- #include <sound/dmaengine_pcm.h>
+@@ -1095,8 +1095,12 @@ static int usbhid_start(struct hid_device *hid)
+ 		}
  
-+#include <asm/system_info.h>
-+
- /* Clock registers */
- #define BCM2708_CLK_PCMCTL_REG  0x00
- #define BCM2708_CLK_PCMDIV_REG  0x04
-@@ -163,6 +168,9 @@ static const unsigned int bcm2708_clk_freq[BCM2708_CLK_SRC_HDMI+1] = {
- #define BCM2708_DMA_DREQ_PCM_TX		2
- #define BCM2708_DMA_DREQ_PCM_RX		3
- 
-+/* I2S pin configuration */
-+static int bcm2708_i2s_gpio=BCM2708_I2S_GPIO_AUTO;
-+
- /* General device struct */
- struct bcm2708_i2s_dev {
- 	struct device				*dev;
-@@ -174,6 +182,12 @@ struct bcm2708_i2s_dev {
- 	struct regmap *clk_regmap;
- };
- 
-+void bcm2708_i2s_set_gpio(int gpio) {
-+	bcm2708_i2s_gpio=gpio;
-+}
-+EXPORT_SYMBOL(bcm2708_i2s_set_gpio);
-+
-+
- static void bcm2708_i2s_start_clock(struct bcm2708_i2s_dev *dev)
- {
- 	/* Start the clock if in master mode */
-@@ -306,6 +320,25 @@ static int bcm2708_i2s_set_dai_bclk_ratio(struct snd_soc_dai *dai,
- }
- 
- 
-+static int bcm2708_i2s_set_function(unsigned offset, int function)
-+{
-+	#define GPIOFSEL(x)  (0x00+(x)*4)
-+	void __iomem *gpio = __io_address(GPIO_BASE);
-+	unsigned alt = function <= 3 ? function + 4: function == 4 ? 3 : 2;
-+	unsigned gpiodir;
-+	unsigned gpio_bank = offset / 10;
-+	unsigned gpio_field_offset = (offset - 10 * gpio_bank) * 3;
-+
-+	if (offset >= BCM2708_NR_GPIOS)
-+		return -EINVAL;
-+
-+	gpiodir = readl(gpio + GPIOFSEL(gpio_bank));
-+	gpiodir &= ~(7 << gpio_field_offset);
-+	gpiodir |= alt << gpio_field_offset;
-+	writel(gpiodir, gpio + GPIOFSEL(gpio_bank));
-+	return 0;
-+}
-+
- static void bcm2708_i2s_setup_gpio(void)
- {
- 	/*
-@@ -314,20 +347,37 @@ static void bcm2708_i2s_setup_gpio(void)
- 	 * TODO Better way would be to handle
- 	 * this in the device tree!
- 	 */
--#define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
--#define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
-+	int pin,pinconfig,startpin,alt;
-+
-+	/* SPI is on different GPIOs on different boards */
-+        /* for Raspberry Pi B+, this is pin GPIO18-21, for original on 28-31 */
-+	if (bcm2708_i2s_gpio==BCM2708_I2S_GPIO_AUTO) {	
-+		if ((system_rev & 0xffffff) >= 0x10) {
-+			/* Model B+ */
-+			pinconfig=BCM2708_I2S_GPIO_PIN18;
-+		} else {
-+			/* original */
-+			pinconfig=BCM2708_I2S_GPIO_PIN28;
+ 		/* Change the polling interval of mice. */
+-		if (hid->collection->usage == HID_GD_MOUSE && hid_mousepoll_interval > 0)
+-			interval = hid_mousepoll_interval;
++		if (hid->collection->usage == HID_GD_MOUSE) {
++				if (hid_mousepoll_interval == ~0 && interval < 16)
++						interval = 16;
++				else if (hid_mousepoll_interval != ~0 && hid_mousepoll_interval != 0)
++						interval = hid_mousepoll_interval;
 +		}
-+	} else {
-+		pinconfig=bcm2708_i2s_gpio;
-+	}
  
--	unsigned int *gpio;
--	int pin;
--	gpio = ioremap(GPIO_BASE, SZ_16K);
-+	if (pinconfig==BCM2708_I2S_GPIO_PIN18) {
-+		startpin=18;
-+		alt=BCM2708_I2S_GPIO_PIN18_ALT;
-+	} else if (pinconfig==BCM2708_I2S_GPIO_PIN28) {
-+		startpin=28;
-+		alt=BCM2708_I2S_GPIO_PIN28_ALT;
-+	} else {
-+		printk(KERN_INFO "Can't configure I2S GPIOs, unknown pin mode for I2S: %i\n",pinconfig);
-+		return;
-+	}	
- 
--	/* SPI is on GPIO 7..11 */
--	for (pin = 28; pin <= 31; pin++) {
--		INP_GPIO(pin);		/* set mode to GPIO input first */
--		SET_GPIO_ALT(pin, 2);	/* set mode to ALT 0 */
-+	/* configure I2S pins to correct ALT mode */
-+	for (pin = startpin; pin <= startpin+3; pin++) {
-+		bcm2708_i2s_set_function(pin, alt);
- 	}
--#undef INP_GPIO
--#undef SET_GPIO_ALT
- }
- 
- static int bcm2708_i2s_hw_params(struct snd_pcm_substream *substream,
-diff --git a/sound/soc/bcm/bcm2708-i2s.h b/sound/soc/bcm/bcm2708-i2s.h
-new file mode 100644
-index 0000000..94fed6a
---- /dev/null
-+++ b/sound/soc/bcm/bcm2708-i2s.h
-@@ -0,0 +1,35 @@
-+/*
-+ * I2S configuration for sound cards. 
-+ *
-+ * Copyright (c) 2014 Daniel Matuschek <daniel@hifiberry.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-+ */
-+
-+#ifndef BCM2708_I2S_H
-+#define BCM2708_I2S_H
-+
-+/* I2S pin assignment */
-+#define BCM2708_I2S_GPIO_AUTO	0
-+#define BCM2708_I2S_GPIO_PIN18	1
-+#define BCM2708_I2S_GPIO_PIN28	2
-+
-+/* Alt mode to enable I2S */
-+#define BCM2708_I2S_GPIO_PIN18_ALT	0
-+#define BCM2708_I2S_GPIO_PIN28_ALT	2
-+
-+extern void bcm2708_i2s_set_gpio(int gpio);
-+
-+#endif
+ 		ret = -ENOMEM;
+ 		if (usb_endpoint_dir_in(endpoint)) {
 
-From 80d70c48c0727b15a60fbc92aa90ce4bbf8bfefb Mon Sep 17 00:00:00 2001
+From 0e6ac52bd2ff0280bc9003f1d0043e2d2181bc24 Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Thu, 24 Jul 2014 21:24:03 +0100
-Subject: [PATCH 65/85] usb: core: make overcurrent messages more prominent
+Subject: [PATCH 60/76] usb: core: make overcurrent messages more prominent
 
 Hub overcurrent messages are more serious than "debug". Increase loglevel.
 ---
@@ -111728,10 +111540,10 @@ index 674c262..b1ac9e0 100644
  				USB_PORT_FEAT_C_OVER_CURRENT);
  		msleep(100);	/* Cool down */
 
-From e5eb2b3e634fecc8da084770ee39e846227dd25b Mon Sep 17 00:00:00 2001
+From 2f6ba571e6c9966303e1a8c42e52798958ba1d4d Mon Sep 17 00:00:00 2001
 From: Tim Gover <tgover@broadcom.com>
 Date: Tue, 22 Jul 2014 15:41:04 +0100
-Subject: [PATCH 66/85] vcsm: VideoCore shared memory service for BCM2835
+Subject: [PATCH 61/76] vcsm: VideoCore shared memory service for BCM2835
 
 Add experimental support for the VideoCore shared memory service.
 This allows user processes to allocate memory from VideoCore's
@@ -116064,10 +115876,10 @@ index 0000000..da1c523
 +MODULE_DESCRIPTION("VideoCore SharedMemory Driver");
 +MODULE_LICENSE("GPL v2");
 
-From 610a45dd3d133229c9ebfd919a76c205d97cfae4 Mon Sep 17 00:00:00 2001
+From 18df98569225b62214f111359b3a7872c01adef8 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 7 Aug 2014 02:03:50 +0100
-Subject: [PATCH 67/85] Revert "ARM: dma: Use dma_pfn_offset for dma address
+Subject: [PATCH 62/76] Revert "ARM: dma: Use dma_pfn_offset for dma address
  translation"
 
 This reverts commit 6ce0d20016925d031f1e24d64302e4c976d7cec6.
@@ -116119,10 +115931,10 @@ index c45b61a..0af6bd0 100644
  }
  
 
-From b24fa4c8525468be12d4a330f0358f1d625aa17b Mon Sep 17 00:00:00 2001
+From 8722c953c202910212a515a418df1b2d43428313 Mon Sep 17 00:00:00 2001
 From: gellert <gellert@raspberrypi.org>
 Date: Fri, 15 Aug 2014 16:35:06 +0100
-Subject: [PATCH 68/85] MMC: added alternative MMC driver
+Subject: [PATCH 63/76] MMC: added alternative MMC driver
 
 ---
  arch/arm/configs/bcmrpi_defconfig |    2 +
@@ -116134,10 +115946,10 @@ Subject: [PATCH 68/85] MMC: added alternative MMC driver
  create mode 100644 drivers/mmc/host/bcm2835-mmc.c
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 0a3bfe8..9f438cd 100644
+index 0d26cc5..0c17531 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -907,6 +907,8 @@ CONFIG_MMC=y
+@@ -904,6 +904,8 @@ CONFIG_MMC=y
  CONFIG_MMC_BLOCK_MINORS=32
  CONFIG_MMC_SDHCI=y
  CONFIG_MMC_SDHCI_PLTFM=y
@@ -117819,10 +117631,10 @@ index 0000000..123ff94
 +MODULE_LICENSE("GPL v2");
 +MODULE_AUTHOR("Gellert Weisz");
 
-From 637af20b7c6fe4637199e4d82a069d525e016bc9 Mon Sep 17 00:00:00 2001
+From 8a0edaa156944c1fbf6a21f9b4d5a0a66c8d6b23 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Mon, 4 Aug 2014 10:06:56 +0200
-Subject: [PATCH 69/85] Added support for HiFiBerry DAC+
+Subject: [PATCH 64/76] Added support for HiFiBerry DAC+
 
 The driver is based on the HiFiBerry DAC driver. However HiFiBerry DAC+ uses
 a different codec chip (PCM5122), therefore a new driver is necessary.
@@ -117836,10 +117648,10 @@ a different codec chip (PCM5122), therefore a new driver is necessary.
  create mode 100644 sound/soc/bcm/hifiberry_dacplus.c
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 9f438cd..7cde874 100644
+index 0c17531..a56e46f 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -754,6 +754,7 @@ CONFIG_SND_USB_6FIRE=m
+@@ -751,6 +751,7 @@ CONFIG_SND_USB_6FIRE=m
  CONFIG_SND_SOC=m
  CONFIG_SND_BCM2708_SOC_I2S=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC=m
@@ -118046,73 +117858,10 @@ index 0000000..c63387b
 +MODULE_DESCRIPTION("ASoC Driver for HiFiBerry DAC+");
 +MODULE_LICENSE("GPL v2");
 
-From 650940040fba7437a51a934e08c43ad834893f0e Mon Sep 17 00:00:00 2001
-From: android <trevd1234@gmail.com>
-Date: Mon, 25 Aug 2014 06:54:19 +0100
-Subject: [PATCH 70/85] bcm2708_fb : Implement blanking support using the
- mailbox property interface
-
-This implementation uses the userspace request style of an array of unsigned
-32bit ints rather the vc_msg/vc_msg_tag which is more confusing to work with.
-
-vcio.h : Added some extra enums to the vcio.h to improve readability
-vcio.h : Renamed DEVICE_FILE_NAME to something more appropriate. users of the
-vcio api will be unaffected  by this change as the device node is created manually
-in userspace
----
- drivers/video/fbdev/bcm2708_fb.c | 31 +++++++++++++++++++++++++++----
- 1 file changed, 27 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/video/fbdev/bcm2708_fb.c b/drivers/video/fbdev/bcm2708_fb.c
-index b3b1e04..b25dd5b 100644
---- a/drivers/video/fbdev/bcm2708_fb.c
-+++ b/drivers/video/fbdev/bcm2708_fb.c
-@@ -375,13 +375,36 @@ static int bcm2708_fb_setcolreg(unsigned int regno, unsigned int red,
- 	}
- 	return regno > 255;
- }
--
- static int bcm2708_fb_blank(int blank_mode, struct fb_info *info)
- {
--	/*print_debug("bcm2708_fb_blank\n"); */
--	return -1;
--}
-+	s32 result = -1 ; 
-+	u32 p[7];
-+	if ( 	(blank_mode == FB_BLANK_NORMAL) || 
-+		(blank_mode == FB_BLANK_UNBLANK)) {
-+		
-+		pr_info("bcm2708_fb_blank blank_mode=%d\n",blank_mode);
-+		
-+		
-+		p[0] = 28; //  size = sizeof u32 * length of p
-+		p[1] = VCMSG_PROCESS_REQUEST; // process request
-+		p[2] = VCMSG_SET_BLANK_SCREEN; // (the tag id)
-+		p[3] = 4; // (size of the response buffer)
-+		p[4] = 4; // (size of the request data)
-+		p[5] = blank_mode;
-+		p[6] = VCMSG_PROPERTY_END; // end tag
-+	
-+		bcm_mailbox_property(&p, p[0]);
-+	
-+		pr_info("bcm2708_fb_blank returns=%d p[1]=0x%x\n",p[5],p[1]);
-+	
-+		if ( p[1] == VCMSG_REQUEST_SUCCESSFUL )
-+			result = 0 ; 
-+	    
-+	}
-+	return result;
- 
-+
-+}
- static void bcm2708_fb_fillrect(struct fb_info *info,
- 				const struct fb_fillrect *rect)
- {
-
-From c2b4ea70177e62965638584c3f1d9479b029ddd3 Mon Sep 17 00:00:00 2001
+From 0a09ef6473ac8756bbf6042ac5dc3201f76e4a27 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Mon, 4 Aug 2014 11:09:58 +0200
-Subject: [PATCH 71/85] Added driver for HiFiBerry Amp amplifier add-on board
+Subject: [PATCH 65/76] Added driver for HiFiBerry Amp amplifier add-on board
 
 The driver contains a low-level hardware driver for the TAS5713 and the
 drivers for the Raspberry Pi I2S subsystem.
@@ -118132,10 +117881,10 @@ drivers for the Raspberry Pi I2S subsystem.
  create mode 100644 sound/soc/codecs/tas5713.h
 
 diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 7cde874..4a14387 100644
+index a56e46f..d1fabab 100644
 --- a/arch/arm/configs/bcmrpi_defconfig
 +++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -756,6 +756,7 @@ CONFIG_SND_BCM2708_SOC_I2S=m
+@@ -753,6 +753,7 @@ CONFIG_SND_BCM2708_SOC_I2S=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DACPLUS=m
  CONFIG_SND_BCM2708_SOC_HIFIBERRY_DIGI=m
@@ -118956,125 +118705,10 @@ index 0000000..8f019e0
 +
 +#endif  /* _TAS5713_H */
 
-From 9fa3b1276d69fef0d1c398e8a7e538eaa581ec77 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Wed, 3 Sep 2014 23:35:44 +0100
-Subject: [PATCH 72/85] bcm2708_fb: Add pan and vsync controls
-
----
- drivers/video/fbdev/bcm2708_fb.c | 56 ++++++++++++++++++++++++++++++++--------
- 1 file changed, 45 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/video/fbdev/bcm2708_fb.c b/drivers/video/fbdev/bcm2708_fb.c
-index b25dd5b..32aaaf5 100644
---- a/drivers/video/fbdev/bcm2708_fb.c
-+++ b/drivers/video/fbdev/bcm2708_fb.c
-@@ -38,6 +38,9 @@
- #include <linux/io.h>
- #include <linux/dma-mapping.h>
- 
-+//#define BCM2708_FB_DEBUG
-+#define MODULE_NAME "bcm2708_fb"
-+
- #ifdef BCM2708_FB_DEBUG
- #define print_debug(fmt,...) pr_debug("%s:%s:%d: "fmt, MODULE_NAME, __func__, __LINE__, ##__VA_ARGS__)
- #else
-@@ -375,16 +378,14 @@ static int bcm2708_fb_setcolreg(unsigned int regno, unsigned int red,
- 	}
- 	return regno > 255;
- }
-+
- static int bcm2708_fb_blank(int blank_mode, struct fb_info *info)
- {
--	s32 result = -1 ; 
-+	s32 result = -1;
- 	u32 p[7];
- 	if ( 	(blank_mode == FB_BLANK_NORMAL) || 
- 		(blank_mode == FB_BLANK_UNBLANK)) {
--		
--		pr_info("bcm2708_fb_blank blank_mode=%d\n",blank_mode);
--		
--		
-+
- 		p[0] = 28; //  size = sizeof u32 * length of p
- 		p[1] = VCMSG_PROCESS_REQUEST; // process request
- 		p[2] = VCMSG_SET_BLANK_SCREEN; // (the tag id)
-@@ -395,15 +396,46 @@ static int bcm2708_fb_blank(int blank_mode, struct fb_info *info)
- 	
- 		bcm_mailbox_property(&p, p[0]);
- 	
--		pr_info("bcm2708_fb_blank returns=%d p[1]=0x%x\n",p[5],p[1]);
--	
- 		if ( p[1] == VCMSG_REQUEST_SUCCESSFUL )
--			result = 0 ; 
--	    
-+			result = 0;
-+		else
-+			pr_err("bcm2708_fb_blank(%d) returns=%d p[1]=0x%x\n", blank_mode, p[5], p[1]);
- 	}
- 	return result;
-+}
- 
-+static int bcm2708_fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
-+{
-+	s32 result = -1;
-+	info->var.xoffset = var->xoffset;
-+	info->var.yoffset = var->yoffset;
-+	result = bcm2708_fb_set_par(info);
-+	if (result != 0)
-+		pr_err("bcm2708_fb_pan_display(%d,%d) returns=%d\n", var->xoffset, var->yoffset, result);
-+	return result;
-+}
- 
-+static int bcm2708_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
-+{
-+	s32 result = -1;
-+	u32 p[7];
-+	if (cmd == FBIO_WAITFORVSYNC) {
-+		p[0] = 28; //  size = sizeof u32 * length of p
-+		p[1] = VCMSG_PROCESS_REQUEST; // process request
-+		p[2] = VCMSG_SET_VSYNC; // (the tag id)
-+		p[3] = 4; // (size of the response buffer)
-+		p[4] = 4; // (size of the request data)
-+		p[5] = 0; // dummy
-+		p[6] = VCMSG_PROPERTY_END; // end tag
-+
-+		bcm_mailbox_property(&p, p[0]);
-+
-+		pr_info("bcm2708_fb_ioctl %x,%lx returns=%d p[1]=0x%x\n", cmd, arg, p[5], p[1]);
-+
-+		if ( p[1] == VCMSG_REQUEST_SUCCESSFUL )
-+			result = 0;
-+	}
-+	return result;
- }
- static void bcm2708_fb_fillrect(struct fb_info *info,
- 				const struct fb_fillrect *rect)
-@@ -590,6 +622,8 @@ static struct fb_ops bcm2708_fb_ops = {
- 	.fb_fillrect = bcm2708_fb_fillrect,
- 	.fb_copyarea = bcm2708_fb_copyarea,
- 	.fb_imageblit = bcm2708_fb_imageblit,
-+	.fb_pan_display = bcm2708_fb_pan_display,
-+	.fb_ioctl = bcm2708_ioctl,
- };
- 
- static int bcm2708_fb_register(struct bcm2708_fb *fb)
-@@ -616,8 +650,8 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
- 	strncpy(fb->fb.fix.id, bcm2708_name, sizeof(fb->fb.fix.id));
- 	fb->fb.fix.type = FB_TYPE_PACKED_PIXELS;
- 	fb->fb.fix.type_aux = 0;
--	fb->fb.fix.xpanstep = 0;
--	fb->fb.fix.ypanstep = 0;
-+	fb->fb.fix.xpanstep = 1;
-+	fb->fb.fix.ypanstep = 1;
- 	fb->fb.fix.ywrapstep = 0;
- 	fb->fb.fix.accel = FB_ACCEL_NONE;
- 
-
-From 426944fa3181a1cb744a7d5b21ba93ca04fc0bbd Mon Sep 17 00:00:00 2001
+From 10c8bd7a81440cdc84084b5cec7c782cb7f43c10 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Mon, 13 Oct 2014 11:47:53 +0100
-Subject: [PATCH 73/85] Improve __copy_to_user and __copy_from_user performance
+Subject: [PATCH 66/76] Improve __copy_to_user and __copy_from_user performance
 
 Provide a __copy_from_user that uses memcpy. On BCM2708, use
 optimised memcpy/memmove/memcmp/memset implementations.
@@ -120597,167 +120231,10 @@ index 3e58d71..0622891 100644
  static unsigned long noinline
  __clear_user_memset(void __user *addr, unsigned long n)
 
-From 5e1a1f4fab8fd5a112bd80d0b902034ec00de447 Mon Sep 17 00:00:00 2001
-From: Phil Elwell <phil@raspberrypi.org>
-Date: Wed, 15 Oct 2014 11:34:37 +0100
-Subject: [PATCH 74/85] bcm2708: Eliminate i2s debugfs directory error
-
-Qualify the two regmap ranges uses by bcm2708-i2s ('-i2s' and '-clk')
-to avoid the name clash when registering debugfs entries.
----
- sound/soc/bcm/bcm2708-i2s.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/sound/soc/bcm/bcm2708-i2s.c b/sound/soc/bcm/bcm2708-i2s.c
-index 9023984..3fcb740 100644
---- a/sound/soc/bcm/bcm2708-i2s.c
-+++ b/sound/soc/bcm/bcm2708-i2s.c
-@@ -853,6 +853,7 @@ static const struct regmap_config bcm2708_regmap_config[] = {
- 		.precious_reg = bcm2708_i2s_precious_reg,
- 		.volatile_reg = bcm2708_i2s_volatile_reg,
- 		.cache_type = REGCACHE_RBTREE,
-+		.name = "i2s",
- 	},
- 	{
- 		.reg_bits = 32,
-@@ -861,6 +862,7 @@ static const struct regmap_config bcm2708_regmap_config[] = {
- 		.max_register = BCM2708_CLK_PCMDIV_REG,
- 		.volatile_reg = bcm2708_clk_volatile_reg,
- 		.cache_type = REGCACHE_RBTREE,
-+		.name = "clk",
- 	},
- };
- 
-
-From 31c2b855fef5a5a7b5517a8085e8999ef0da2472 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Fri, 14 Nov 2014 16:02:26 +0000
-Subject: [PATCH 75/85] config: Remove CONFIG_REGULATOR - we don't have a
- regulator driver
-
----
- arch/arm/configs/bcmrpi_defconfig | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index 4a14387..baf7783 100644
---- a/arch/arm/configs/bcmrpi_defconfig
-+++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -569,9 +569,6 @@ CONFIG_UCB1400_CORE=m
- CONFIG_MFD_ARIZONA_I2C=m
- CONFIG_MFD_ARIZONA_SPI=m
- CONFIG_MFD_WM5102=y
--CONFIG_REGULATOR=y
--CONFIG_REGULATOR_FIXED_VOLTAGE=m
--CONFIG_REGULATOR_ARIZONA=m
- CONFIG_MEDIA_SUPPORT=m
- CONFIG_MEDIA_CAMERA_SUPPORT=y
- CONFIG_MEDIA_ANALOG_TV_SUPPORT=y
-
-From bc1b3e1e3cf2223f985779bed7b5b06bb463c0a7 Mon Sep 17 00:00:00 2001
-From: Phil Elwell <phil@raspberrypi.org>
-Date: Wed, 22 Oct 2014 09:33:15 +0100
-Subject: [PATCH 76/85] bcm2835-camera: stop_streaming now has a void return
-
----
- drivers/media/platform/bcm2835/bcm2835-camera.c | 19 +++++++++----------
- 1 file changed, 9 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/media/platform/bcm2835/bcm2835-camera.c b/drivers/media/platform/bcm2835/bcm2835-camera.c
-index 33fa37c..e5a0010 100644
---- a/drivers/media/platform/bcm2835/bcm2835-camera.c
-+++ b/drivers/media/platform/bcm2835/bcm2835-camera.c
-@@ -539,7 +539,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
- 		vchiq_mmal_port_disable(dev->instance,
- 					dev->capture.camera_port);
- 		if (disable_camera(dev) < 0) {
--			v4l2_err(&dev->v4l2_dev, "Failed to disable camera");
-+			v4l2_err(&dev->v4l2_dev, "Failed to disable camera\n");
- 			return -EINVAL;
- 		}
- 		return -1;
-@@ -555,7 +555,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
- }
- 
- /* abort streaming and wait for last buffer */
--static int stop_streaming(struct vb2_queue *vq)
-+static void stop_streaming(struct vb2_queue *vq)
- {
- 	int ret;
- 	struct bm2835_mmal_dev *dev = vb2_get_drv_priv(vq);
-@@ -567,8 +567,11 @@ static int stop_streaming(struct vb2_queue *vq)
- 	dev->capture.frame_count = 0;
- 
- 	/* ensure a format has actually been set */
--	if (dev->capture.port == NULL)
--		return -EINVAL;
-+	if (dev->capture.port == NULL) {
-+		v4l2_err(&dev->v4l2_dev,
-+			 "no capture port - stream not started?\n");
-+		return;
-+	}
- 
- 	v4l2_dbg(1, bcm2835_v4l2_debug, &dev->v4l2_dev, "stopping capturing\n");
- 
-@@ -599,12 +602,8 @@ static int stop_streaming(struct vb2_queue *vq)
- 			 ret);
- 	}
- 
--	if (disable_camera(dev) < 0) {
--		v4l2_err(&dev->v4l2_dev, "Failed to disable camera");
--		return -EINVAL;
--	}
--
--	return ret;
-+	if (disable_camera(dev) < 0)
-+		v4l2_err(&dev->v4l2_dev, "Failed to disable camera\n");
- }
- 
- static void bm2835_mmal_lock(struct vb2_queue *vq)
-
-From c3c8f67be7554be9dc1e8a49ed2920a2cfbc1242 Mon Sep 17 00:00:00 2001
-From: Phil Elwell <phil@raspberrypi.org>
-Date: Wed, 22 Oct 2014 09:39:17 +0100
-Subject: [PATCH 77/85] pinctrl-bcm2708: pinmux_ops no longer includes disable
-
----
- drivers/pinctrl/pinctrl-bcm2708.c | 11 -----------
- 1 file changed, 11 deletions(-)
-
-diff --git a/drivers/pinctrl/pinctrl-bcm2708.c b/drivers/pinctrl/pinctrl-bcm2708.c
-index 40d9c86..b0995fd 100644
---- a/drivers/pinctrl/pinctrl-bcm2708.c
-+++ b/drivers/pinctrl/pinctrl-bcm2708.c
-@@ -577,16 +577,6 @@ static int bcm2708_pmx_enable(struct pinctrl_dev *pctldev,
- 	return 0;
- }
- 
--static void bcm2708_pmx_disable(struct pinctrl_dev *pctldev,
--		unsigned func_selector,
--		unsigned group_selector)
--{
--	struct bcm2708_pinctrl *pc = pinctrl_dev_get_drvdata(pctldev);
--
--	/* disable by setting to GPIO_IN */
--	bcm2708_pinctrl_fsel_set(pc, group_selector, BCM2708_FSEL_GPIO_IN);
--}
--
- static void bcm2708_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
- 		struct pinctrl_gpio_range *range,
- 		unsigned offset)
-@@ -616,7 +606,6 @@ static const struct pinmux_ops bcm2708_pmx_ops = {
- 	.get_function_name = bcm2708_pmx_get_function_name,
- 	.get_function_groups = bcm2708_pmx_get_function_groups,
- 	.enable = bcm2708_pmx_enable,
--	.disable = bcm2708_pmx_disable,
- 	.gpio_disable_free = bcm2708_pmx_gpio_disable_free,
- 	.gpio_set_direction = bcm2708_pmx_gpio_set_direction,
- };
-
-From 7b3bd4ac452b7b7d921291691b2c572aa49acd90 Mon Sep 17 00:00:00 2001
+From c14827ecdaa36607f6110f9ce8df96e698672191 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Mon, 1 Sep 2014 16:35:56 +0100
-Subject: [PATCH 78/85] bcm2708: Allow option card devices to be configured via
+Subject: [PATCH 67/76] bcm2708: Allow option card devices to be configured via
  DT
 
 If the kernel is built with Device Tree support, and if a DT blob
@@ -121130,10 +120607,10 @@ index 123ff94..d8b034a 100644
  #else
  	mmc_of_parse(mmc);
 diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
-index 30e97bc..143328a 100644
+index d134710..2e2b6d0 100644
 --- a/drivers/of/fdt.c
 +++ b/drivers/of/fdt.c
-@@ -1085,8 +1085,12 @@ static struct debugfs_blob_wrapper flat_dt_blob;
+@@ -1083,8 +1083,12 @@ static struct debugfs_blob_wrapper flat_dt_blob;
  
  static int __init of_flat_dt_debugfs_export_fdt(void)
  {
@@ -121213,10 +120690,10 @@ index 2685fe4..e2c61d1 100644
  static struct platform_driver bcm2835_i2s_driver = {
  	.probe		= bcm2835_i2s_probe,
 
-From 45a53458cf1bbf095c4092ec6cddb9e7a57d878e Mon Sep 17 00:00:00 2001
+From 4f7d7eb7be6f52b26441ec243d65d5fa37288100 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 12 Nov 2014 17:07:02 +0000
-Subject: [PATCH 79/85] Adding Device Tree support for some RPi audio cards
+Subject: [PATCH 68/76] Adding Device Tree support for some RPi audio cards
 
 ---
  arch/arm/boot/dts/Makefile                      |  2 +
@@ -121395,7 +120872,7 @@ index 5893122..d8c6d15 100644
 +	pinctrl-0 = <&i2s_pins>;
 +};
 diff --git a/arch/arm/boot/dts/bcm2708.dtsi b/arch/arm/boot/dts/bcm2708.dtsi
-index edf3619..3e035db 100644
+index edf3619..4b86aaa 100644
 --- a/arch/arm/boot/dts/bcm2708.dtsi
 +++ b/arch/arm/boot/dts/bcm2708.dtsi
 @@ -7,11 +7,8 @@
@@ -121408,7 +120885,7 @@ index edf3619..3e035db 100644
 -		*/
 -		bootargs = "console=ttyAMA0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ";
 +		/* No padding required - the boot loader can do that. */
-+		bootargs = "console=ttyAMA0";
++		bootargs = "";
  	};
  
  	soc {
@@ -121841,89 +121318,20 @@ index 126f1e9..7c6598e 100644
  };
  
 
-From 87761b9790a8ad756fd82fe2797975aef0a5ac9c Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Sat, 13 Sep 2014 10:52:04 +0100
-Subject: [PATCH 80/85] config: squash: remove stack usage
-
----
- arch/arm/configs/bcmrpi_defconfig | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
-index baf7783..d1fabab 100644
---- a/arch/arm/configs/bcmrpi_defconfig
-+++ b/arch/arm/configs/bcmrpi_defconfig
-@@ -1079,7 +1079,6 @@ CONFIG_NLS_KOI8_U=m
- CONFIG_DLM=m
- CONFIG_PRINTK_TIME=y
- CONFIG_BOOT_PRINTK_DELAY=y
--CONFIG_DEBUG_STACK_USAGE=y
- CONFIG_DEBUG_MEMORY_INIT=y
- CONFIG_DETECT_HUNG_TASK=y
- CONFIG_TIMER_STATS=y
-
-From d223f288740e3614f7293d805988ca540cff1674 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Mon, 1 Dec 2014 15:23:44 +0000
-Subject: [PATCH 81/85] bcm2708_fb: Add fb_set_par call during init so fb is
- usable without fbcon
-
----
- drivers/video/fbdev/bcm2708_fb.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/video/fbdev/bcm2708_fb.c b/drivers/video/fbdev/bcm2708_fb.c
-index 32aaaf5..9d7ecda 100644
---- a/drivers/video/fbdev/bcm2708_fb.c
-+++ b/drivers/video/fbdev/bcm2708_fb.c
-@@ -682,6 +682,7 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
- 	 */
- 
- 	fb_set_var(&fb->fb, &fb->fb.var);
-+	bcm2708_fb_set_par(&fb->fb);
- 
- 	print_debug("BCM2708FB: registering framebuffer (%dx%d@%d) (%d)\n", fbwidth
- 		fbheight, fbdepth, fbswap);
-
-From 82ec92a4022ec3d4fa932380b71f2b7ae2371fe1 Mon Sep 17 00:00:00 2001
-From: Phil Elwell <phil@raspberrypi.org>
-Date: Fri, 5 Dec 2014 12:21:53 +0000
-Subject: [PATCH 82/85] Remove "console=ttyAMA0" from the base device tree
- files
-
----
- arch/arm/boot/dts/bcm2708.dtsi | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/arch/arm/boot/dts/bcm2708.dtsi b/arch/arm/boot/dts/bcm2708.dtsi
-index 3e035db..4b86aaa 100644
---- a/arch/arm/boot/dts/bcm2708.dtsi
-+++ b/arch/arm/boot/dts/bcm2708.dtsi
-@@ -8,7 +8,7 @@
- 
- 	chosen {
- 		/* No padding required - the boot loader can do that. */
--		bootargs = "console=ttyAMA0";
-+		bootargs = "";
- 	};
- 
- 	soc {
-
-From 0471319816fe14029f067c37c8a6fbd8885675d1 Mon Sep 17 00:00:00 2001
+From fb4aed1c963b0001fdd94146e774889dbc20c7c8 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 5 Dec 2014 17:26:26 +0000
-Subject: [PATCH 83/85] fdt: Add support for the CONFIG_CMDLINE_EXTEND option
+Subject: [PATCH 69/76] fdt: Add support for the CONFIG_CMDLINE_EXTEND option
 
 ---
- drivers/of/fdt.c | 26 +++++++++++++++++++++-----
- 1 file changed, 21 insertions(+), 5 deletions(-)
+ drivers/of/fdt.c | 29 ++++++++++++++++++++++++-----
+ 1 file changed, 24 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
-index 143328a..38091c1 100644
+index 2e2b6d0..badc6a3 100644
 --- a/drivers/of/fdt.c
 +++ b/drivers/of/fdt.c
-@@ -901,19 +901,35 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
+@@ -901,19 +901,38 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
  
  	/* Retrieve command line */
  	p = of_get_flat_dt_prop(node, "bootargs", &l);
@@ -121947,9 +121355,12 @@ index 143328a..38091c1 100644
 +
 +	if (p != NULL && l > 0)	{
 +#if defined(CONFIG_CMDLINE_EXTEND)
-+		if (((char *)data)[0])
++		int len = strlen(data);
++		if (len > 0) {
 +			strlcat(data, " ", COMMAND_LINE_SIZE);
-+		strlcat(data, p, min((int)l, COMMAND_LINE_SIZE));
++			len++;
++		}
++		strlcpy((char *)data + len, p, min((int)l, COMMAND_LINE_SIZE - len));
 +#elif defined(CONFIG_CMDLINE_FORCE)
 +		pr_warning("Ignoring bootargs property (using the default kernel command line)\n");
 +#else
@@ -121965,39 +121376,10 @@ index 143328a..38091c1 100644
  
  	pr_debug("Command line is: %s\n", (char*)data);
 
-From a09dd0888aeba1617c181fdad1aa1462e192ba70 Mon Sep 17 00:00:00 2001
-From: Phil Elwell <phil@raspberrypi.org>
-Date: Fri, 5 Dec 2014 20:42:50 +0000
-Subject: [PATCH 84/85] fdt: Take more care with the CMDLINE_EXTEND option
-
----
- drivers/of/fdt.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
-index 38091c1..9f92dda 100644
---- a/drivers/of/fdt.c
-+++ b/drivers/of/fdt.c
-@@ -917,9 +917,12 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
- 
- 	if (p != NULL && l > 0)	{
- #if defined(CONFIG_CMDLINE_EXTEND)
--		if (((char *)data)[0])
-+		int len = strlen(data);
-+		if (len > 0) {
- 			strlcat(data, " ", COMMAND_LINE_SIZE);
--		strlcat(data, p, min((int)l, COMMAND_LINE_SIZE));
-+			len++;
-+		}
-+		strlcpy((char *)data + len, p, min((int)l, COMMAND_LINE_SIZE - len));
- #elif defined(CONFIG_CMDLINE_FORCE)
- 		pr_warning("Ignoring bootargs property (using the default kernel command line)\n");
- #else
-
-From 513244c628b94aac666cd14aa04a21dfe030a633 Mon Sep 17 00:00:00 2001
+From 3724c39c11d9859b39c6343e559b163260dc023c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 25 Nov 2014 13:39:03 +0000
-Subject: [PATCH 85/85] config: Enable device tree
+Subject: [PATCH 70/76] config: Enable device tree
 
 ---
  arch/arm/configs/bcmrpi_defconfig | 1 +
@@ -122015,3 +121397,201 @@ index d1fabab..6e5d8b6 100644
  CONFIG_PREEMPT=y
  CONFIG_AEABI=y
  CONFIG_CLEANCACHE=y
+
+From a66ae5a1b822cd655b0be923afabe70b9b3dcd83 Mon Sep 17 00:00:00 2001
+From: Phil Elwell <phil@raspberrypi.org>
+Date: Thu, 11 Dec 2014 15:17:28 +0000
+Subject: [PATCH 71/76] bcm2708: Remove the prohibition on mixing SPIDEV and DT
+
+---
+ arch/arm/mach-bcm2708/Kconfig   | 2 +-
+ arch/arm/mach-bcm2708/bcm2708.c | 5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/mach-bcm2708/Kconfig b/arch/arm/mach-bcm2708/Kconfig
+index 1f29d7d..05945d6 100644
+--- a/arch/arm/mach-bcm2708/Kconfig
++++ b/arch/arm/mach-bcm2708/Kconfig
+@@ -44,7 +44,7 @@ config BCM2708_NOL2CACHE
+ 
+ config BCM2708_SPIDEV
+ 	bool "Bind spidev to SPI0 master"
+-	depends on MACH_BCM2708 && !USE_OF
++	depends on MACH_BCM2708
+ 	depends on SPI
+ 	default y
+ 	help
+diff --git a/arch/arm/mach-bcm2708/bcm2708.c b/arch/arm/mach-bcm2708/bcm2708.c
+index c6d4ff6..199d8a5 100644
+--- a/arch/arm/mach-bcm2708/bcm2708.c
++++ b/arch/arm/mach-bcm2708/bcm2708.c
+@@ -908,8 +908,9 @@ void __init bcm2708_init(void)
+ 	system_serial_low = serial;
+ 
+ #ifdef CONFIG_BCM2708_SPIDEV
+-	spi_register_board_info(bcm2708_spi_devices,
+-			ARRAY_SIZE(bcm2708_spi_devices));
++	if (!use_dt)
++	    spi_register_board_info(bcm2708_spi_devices,
++				    ARRAY_SIZE(bcm2708_spi_devices));
+ #endif
+ }
+ 
+
+From 240dc6f5b6f8636ab2820a1ebccfa8aaacdf2c68 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Fri, 12 Dec 2014 11:24:48 +0000
+Subject: [PATCH 72/76] config: Add CONFIG_R8188EU and CONFIG_R8723AU
+
+---
+ arch/arm/configs/bcmrpi_defconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
+index 6e5d8b6..58ad7dc 100644
+--- a/arch/arm/configs/bcmrpi_defconfig
++++ b/arch/arm/configs/bcmrpi_defconfig
+@@ -361,7 +361,6 @@ CONFIG_BT_MRVL=m
+ CONFIG_BT_MRVL_SDIO=m
+ CONFIG_BT_ATH3K=m
+ CONFIG_BT_WILINK=m
+-CONFIG_CFG80211=m
+ CONFIG_CFG80211_WEXT=y
+ CONFIG_MAC80211=m
+ CONFIG_MAC80211_MESH=y
+@@ -961,6 +960,8 @@ CONFIG_UIO_PDRV_GENIRQ=m
+ CONFIG_STAGING=y
+ CONFIG_PRISM2_USB=m
+ CONFIG_R8712U=m
++CONFIG_R8188EU=m
++CONFIG_R8723AU=m
+ CONFIG_VT6656=m
+ CONFIG_SPEAKUP=m
+ CONFIG_SPEAKUP_SYNTH_SOFT=m
+
+From da40eea599c98a31f47622e5068e727b0ec48c7b Mon Sep 17 00:00:00 2001
+From: gellert <gellert@raspberrypi.org>
+Date: Mon, 15 Dec 2014 17:44:18 +0000
+Subject: [PATCH 73/76] DMA: fix cyclic LITE length overflow bug
+
+---
+ drivers/dma/bcm2708-dmaengine.c | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/dma/bcm2708-dmaengine.c b/drivers/dma/bcm2708-dmaengine.c
+index 27ee1c1..e525190 100644
+--- a/drivers/dma/bcm2708-dmaengine.c
++++ b/drivers/dma/bcm2708-dmaengine.c
+@@ -391,7 +391,7 @@ static struct dma_async_tx_descriptor *bcm2835_dma_prep_dma_cyclic(
+ 	struct bcm2835_desc *d;
+ 	dma_addr_t dev_addr;
+ 	unsigned int es, sync_type;
+-	unsigned int frame;
++	unsigned int frame, max_size;
+ 
+ 	/* Grab configuration */
+ 	if (!is_slave_direction(direction)) {
+@@ -424,7 +424,14 @@ static struct dma_async_tx_descriptor *bcm2835_dma_prep_dma_cyclic(
+ 		return NULL;
+ 
+ 	d->dir = direction;
+-	d->frames = buf_len / period_len;
++
++	if (c->ch >= 8) /* we have a LITE channel */
++		max_size = MAX_LITE_TRANSFER;
++	else
++		max_size = MAX_NORMAL_TRANSFER;
++	period_len = min(period_len, max_size);
++
++	d->frames = (buf_len-1) / period_len + 1;
+ 
+ 	/* Allocate memory for control blocks */
+ 	d->control_block_size = d->frames * sizeof(struct bcm2835_dma_cb);
+@@ -469,7 +476,11 @@ static struct dma_async_tx_descriptor *bcm2835_dma_prep_dma_cyclic(
+ 				BCM2835_DMA_PER_MAP(c->cfg.slave_id);
+ 
+ 		/* Length of a frame */
+-		control_block->length = period_len;
++		if (frame != d->frames-1)
++			control_block->length = period_len;
++		else
++			control_block->length = buf_len - (d->frames - 1) * period_len;
++
+ 		d->size += control_block->length;
+ 
+ 		/*
+
+From 83e20a8f51a63aa5ac11ae6353181f1e8ef8e1c1 Mon Sep 17 00:00:00 2001
+From: Phil Elwell <phil@raspberrypi.org>
+Date: Tue, 16 Dec 2014 10:23:48 +0000
+Subject: [PATCH 74/76] DT: Add overrides to enable i2c0, i2c1, spi and i2s
+
+---
+ arch/arm/boot/dts/bcm2708-rpi-b-plus.dts | 10 ++++++++++
+ arch/arm/boot/dts/bcm2708-rpi-b.dts      | 10 ++++++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/arch/arm/boot/dts/bcm2708-rpi-b-plus.dts b/arch/arm/boot/dts/bcm2708-rpi-b-plus.dts
+index 983c23f..d9886c3 100644
+--- a/arch/arm/boot/dts/bcm2708-rpi-b-plus.dts
++++ b/arch/arm/boot/dts/bcm2708-rpi-b-plus.dts
+@@ -79,3 +79,13 @@
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2s_pins>;
+ };
++
++
++/ {
++	__overrides__ {
++		    i2s = <&i2s>,"status";
++		    spi = <&spi0>,"status";
++		    i2c0 = <&i2c0>,"status";
++		    i2c1 = <&i2c1>,"status";
++	};
++};
+diff --git a/arch/arm/boot/dts/bcm2708-rpi-b.dts b/arch/arm/boot/dts/bcm2708-rpi-b.dts
+index d8c6d15..167b22b 100644
+--- a/arch/arm/boot/dts/bcm2708-rpi-b.dts
++++ b/arch/arm/boot/dts/bcm2708-rpi-b.dts
+@@ -79,3 +79,13 @@
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2s_pins>;
+ };
++
++
++/ {
++	__overrides__ {
++		    i2s = <&i2s>,"status";
++		    spi = <&spi0>,"status";
++		    i2c0 = <&i2c0>,"status";
++		    i2c1 = <&i2c1>,"status";
++	};
++};
+
+From bcdba133f20add0f1709b0dc63377b43f72042f2 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Sat, 20 Dec 2014 19:07:31 +0000
+Subject: [PATCH 76/76] config: switch on powersave governor (will switch to
+ ondemand on boot)
+
+---
+ arch/arm/configs/bcmrpi_defconfig | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
+index 58ad7dc..b32c814 100644
+--- a/arch/arm/configs/bcmrpi_defconfig
++++ b/arch/arm/configs/bcmrpi_defconfig
+@@ -54,9 +54,10 @@ CONFIG_KEXEC=y
+ CONFIG_CPU_FREQ=y
+ CONFIG_CPU_FREQ_STAT=m
+ CONFIG_CPU_FREQ_STAT_DETAILS=y
+-CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND=y
+-CONFIG_CPU_FREQ_GOV_POWERSAVE=y
++CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE=y
++CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
+ CONFIG_CPU_FREQ_GOV_USERSPACE=y
++CONFIG_CPU_FREQ_GOV_ONDEMAND=y
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+ CONFIG_CPU_IDLE=y
+ CONFIG_VFP=y
