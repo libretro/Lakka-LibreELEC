@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
+#      Copyright (C) 2014 Alex Deryskyba (alex@codesnake.com)
 #
 #  OpenELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,30 +16,28 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="remote"
-PKG_VERSION="1"
+PKG_NAME="amremote"
+PKG_VERSION="aa0a9e8"
 PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.openelec.tv"
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain eventlircd v4l-utils"
+PKG_ARCH="arm"
+PKG_LICENSE="other"
+PKG_SITE="http://www.amlogic.com"
+PKG_URL="https://github.com/codesnake/amremote/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="remote: Meta package for installing various tools needed for remote support"
-PKG_LONGDESC="Meta package for installing various tools needed for remote support"
+PKG_SECTION="sysutils/remote"
+PKG_SHORTDESC="amremote - IR remote configuration utility for Amlogic-based devices"
+PKG_LONGDESC="amremote - IR remote configuration utility for Amlogic-based devices"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$ATVCLIENT_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET atvclient"
-fi
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/bin
+    cp remotecfg $INSTALL/usr/bin
+}
 
-if [ "$IRSERVER_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET irserver"
-fi
-
-if [ "$AMREMOTE_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET amremote"
-fi
+post_install() {
+  enable_service amlogic-remotecfg.service
+}
