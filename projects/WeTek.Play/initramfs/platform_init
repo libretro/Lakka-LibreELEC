@@ -1,0 +1,82 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2014 Alex Deryskyba (alex@codesnake.com)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+# Force 720p display mode at startup
+echo 720p > /sys/class/display/mode
+
+# Enable framebuffer device
+echo 0 > /sys/class/graphics/fb0/blank
+
+# Disable framebuffer scaling
+echo 0 > /sys/class/graphics/fb0/free_scale
+
+# Set framebuffer geometry
+fbset -fb /dev/fb0 -g 1280 720 1280 1440 32
+
+# Set framebuffer size in CVBS mode to match the resolution,
+# for splash screen to be shown correctly
+hpd_state=$(cat /sys/class/amhdmitx/amhdmitx0/hpd_state)
+if [ "$hpd_state" != "1" ]; then # HDMI is not connected
+  display_height=480
+  display_mode=$(cat /sys/class/display/mode)
+  if [ "$display_mode" = "576cvbs" ]; then
+    display_height=576
+  fi
+  fbset -fb /dev/fb0 -g 720 "$display_height" 720 "$display_height" 32
+  fbset -fb /dev/fb1 -g 720 "$display_height" 720 "$display_height" 32
+fi
+
+# Include deinterlacer into default VFM map
+echo rm default > /sys/class/vfm/map
+echo add default decoder ppmgr deinterlace amvideo > /sys/class/vfm/map
+
+# Parse command line arguments
+for arg in $(cat /proc/cmdline); do
+  case $arg in
+    scaling_governor=*)
+      scaling_governor="${arg#*=}"
+      ;;
+    scaling_min_freq=*)
+      scaling_min_freq="${arg#*=}"
+      ;;
+    scaling_max_freq=*)
+      scaling_max_freq="${arg#*=}"
+      ;;
+  esac
+done
+
+# Boot with performance governor, then switch to the governor specified in the kernel command line
+cpu_idx=0
+while [ $cpu_idx -lt 128 ]; do
+  cpufreq="/sys/devices/system/cpu/cpu$cpu_idx/cpufreq"
+  if [ ! -d "$cpufreq" ]; then
+    break
+  fi
+  if [ -n "$scaling_governor" ]; then
+    echo "$scaling_governor" > "$cpufreq/scaling_governor"
+  fi
+  if [ -n "$scaling_min_freq" ]; then
+    echo "$scaling_min_freq" > "$cpufreq/scaling_min_freq"
+  fi
+  if [ -n "$scaling_max_freq" ]; then
+    echo "$scaling_max_freq" > "$cpufreq/scaling_max_freq"
+  fi
+  cpu_idx=`expr $cpu_idx + 1`
+done

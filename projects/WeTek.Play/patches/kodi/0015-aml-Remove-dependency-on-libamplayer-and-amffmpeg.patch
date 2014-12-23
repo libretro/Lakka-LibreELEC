@@ -1,0 +1,179 @@
+From ea22621b073bf1c01aeeb3bb3c24468bf11e7e38 Mon Sep 17 00:00:00 2001
+From: Alex Deryskyba <alex@codesnake.com>
+Date: Thu, 6 Nov 2014 08:14:39 +0200
+Subject: [PATCH 15/16] [aml] Remove dependency on libamplayer and amffmpeg
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp  |   79 +-------------------
+ .../DVDCodecs/Video/DVDVideoCodecAmlogic.cpp       |    3 -
+ 2 files changed, 3 insertions(+), 79 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
+index 007f3a6..8422d7d 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
+@@ -50,9 +50,9 @@
+ #include <stdlib.h>
+ #include <sys/ioctl.h>
+ 
+-// amcodec include
+ extern "C" {
+ #include <amcodec/codec.h>
++#include <libavutil/avutil.h>
+ }  // extern "C"
+ 
+ typedef struct {
+@@ -91,19 +91,11 @@ public:
+   virtual int codec_set_cntl_mode(codec_para_t *pcodec, unsigned int mode)=0;
+   virtual int codec_set_cntl_avthresh(codec_para_t *pcodec, unsigned int avthresh)=0;
+   virtual int codec_set_cntl_syncthresh(codec_para_t *pcodec, unsigned int syncthresh)=0;
+-
+-  // grab these from libamplayer
+-  virtual int h263vld(unsigned char *inbuf, unsigned char *outbuf, int inbuf_len, int s263)=0;
+-  virtual int decodeble_h263(unsigned char *buf)=0;
+-
+-  // grab this from amffmpeg so we do not have to load DllAvUtil
+-  virtual AVRational av_d2q(double d, int max)=0;
+ };
+ 
+ class DllLibAmCodec : public DllDynamic, DllLibamCodecInterface
+ {
+-  // libamcodec is static linked into libamplayer.so
+-  DECLARE_DLL_WRAPPER(DllLibAmCodec, "libamplayer.so")
++  DECLARE_DLL_WRAPPER(DllLibAmCodec, "libamcodec.so")
+ 
+   DEFINE_METHOD1(int, codec_init,               (codec_para_t *p1))
+   DEFINE_METHOD1(int, codec_close,              (codec_para_t *p1))
+@@ -121,11 +113,6 @@ class DllLibAmCodec : public DllDynamic, DllLibamCodecInterface
+   DEFINE_METHOD2(int, codec_set_cntl_avthresh,  (codec_para_t *p1, unsigned int p2))
+   DEFINE_METHOD2(int, codec_set_cntl_syncthresh,(codec_para_t *p1, unsigned int p2))
+ 
+-  DEFINE_METHOD4(int, h263vld,                  (unsigned char *p1, unsigned char *p2, int p3, int p4))
+-  DEFINE_METHOD1(int, decodeble_h263,           (unsigned char *p1))
+-
+-  DEFINE_METHOD2(AVRational, av_d2q,            (double p1, int p2))
+-
+   BEGIN_METHOD_RESOLVE()
+     RESOLVE_METHOD(codec_init)
+     RESOLVE_METHOD(codec_close)
+@@ -142,11 +129,6 @@ class DllLibAmCodec : public DllDynamic, DllLibamCodecInterface
+     RESOLVE_METHOD(codec_set_cntl_mode)
+     RESOLVE_METHOD(codec_set_cntl_avthresh)
+     RESOLVE_METHOD(codec_set_cntl_syncthresh)
+-
+-    RESOLVE_METHOD(h263vld)
+-    RESOLVE_METHOD(decodeble_h263)
+-
+-    RESOLVE_METHOD(av_d2q)
+   END_METHOD_RESOLVE()
+ 
+ public:
+@@ -345,8 +327,6 @@ typedef struct am_private_t
+   unsigned int      video_ratio64;
+   unsigned int      video_rate;
+   unsigned int      video_rotation_degree;
+-  int               flv_flag;
+-  int               h263_decodable;
+   int               extrasize;
+   uint8_t           *extradata;
+   DllLibAmCodec     *m_dll;
+@@ -439,7 +419,6 @@ static vformat_t codecid_to_vformat(enum AVCodecID id)
+     case AV_CODEC_ID_H263I:
+     case AV_CODEC_ID_MSMPEG4V2:
+     case AV_CODEC_ID_MSMPEG4V3:
+-    case AV_CODEC_ID_FLV1:
+       format = VFORMAT_MPEG4;
+       break;
+     case AV_CODEC_ID_RV10:
+@@ -1221,51 +1200,6 @@ int set_header_info(am_private_t *para)
+       {
+         return divx3_prefix(pkt);
+       }
+-      else if (para->video_codec_type == VIDEO_DEC_FORMAT_H263)
+-      {
+-        return PLAYER_UNSUPPORT;
+-        unsigned char *vld_buf;
+-        int vld_len, vld_buf_size = para->video_width * para->video_height * 2;
+-
+-        if (!pkt->data_size) {
+-            return PLAYER_SUCCESS;
+-        }
+-
+-        if ((pkt->data[0] == 0) && (pkt->data[1] == 0) && (pkt->data[2] == 1) && (pkt->data[3] == 0xb6)) {
+-            return PLAYER_SUCCESS;
+-        }
+-
+-        vld_buf = (unsigned char*)malloc(vld_buf_size);
+-        if (!vld_buf) {
+-            return PLAYER_NOMEM;
+-        }
+-
+-        if (para->flv_flag) {
+-            vld_len = para->m_dll->h263vld(pkt->data, vld_buf, pkt->data_size, 1);
+-        } else {
+-            if (0 == para->h263_decodable) {
+-                para->h263_decodable = para->m_dll->decodeble_h263(pkt->data);
+-                if (0 == para->h263_decodable) {
+-                    CLog::Log(LOGDEBUG, "[%s]h263 unsupport video and audio, exit", __FUNCTION__);
+-                    return PLAYER_UNSUPPORT;
+-                }
+-            }
+-            vld_len = para->m_dll->h263vld(pkt->data, vld_buf, pkt->data_size, 0);
+-        }
+-
+-        if (vld_len > 0) {
+-            if (pkt->buf) {
+-                free(pkt->buf);
+-            }
+-            pkt->buf = vld_buf;
+-            pkt->buf_size = vld_buf_size;
+-            pkt->data = pkt->buf;
+-            pkt->data_size = vld_len;
+-        } else {
+-            free(vld_buf);
+-            pkt->data_size = 0;
+-        }
+-      }
+     } else if (para->video_format == VFORMAT_VC1) {
+         if (para->video_codec_type == VIDEO_DEC_FORMAT_WMV3) {
+             unsigned i, check_sum = 0, data_len = 0;
+@@ -1458,7 +1392,7 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
+   am_private->video_pid        = hints.pid;
+ 
+   // handle video ratio
+-  AVRational video_ratio       = m_dll->av_d2q(1, SHRT_MAX);
++  AVRational video_ratio       = av_d2q(1, SHRT_MAX);
+   //if (!hints.forced_aspect)
+   //  video_ratio = m_dll->av_d2q(hints.aspect, SHRT_MAX);
+   am_private->video_ratio      = ((int32_t)video_ratio.num << 16) | video_ratio.den;
+@@ -1529,13 +1463,6 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
+   else
+     am_private->video_codec_type = codec_tag_to_vdec_type(am_private->video_codec_id);
+ 
+-  am_private->flv_flag = 0;
+-  if (am_private->video_codec_id == AV_CODEC_ID_FLV1)
+-  {
+-    am_private->video_codec_tag = CODEC_TAG_F263;
+-    am_private->flv_flag = 1;
+-  }
+-
+   CLog::Log(LOGDEBUG, "CAMLCodec::OpenDecoder "
+     "hints.width(%d), hints.height(%d), hints.codec(%d), hints.codec_tag(%d), hints.pid(%d)",
+     hints.width, hints.height, hints.codec, hints.codec_tag, hints.pid);
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+index 960aae1..57f8e40 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+@@ -108,9 +108,6 @@ bool CDVDVideoCodecAmlogic::Open(CDVDStreamInfo &hints, CDVDCodecOptions &option
+       // amcodec can't handle h263
+       return false;
+       break;
+-    case AV_CODEC_ID_FLV1:
+-      m_pFormatName = "am-flv1";
+-      break;
+     case AV_CODEC_ID_RV10:
+     case AV_CODEC_ID_RV20:
+     case AV_CODEC_ID_RV30:
+-- 
+1.7.9.5
+

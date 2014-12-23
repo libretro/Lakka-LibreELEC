@@ -1,0 +1,113 @@
+From 8e7abac4cd92434339268123257245086ba37c21 Mon Sep 17 00:00:00 2001
+From: Alex Deryskyba <alex@codesnake.com>
+Date: Tue, 29 Jul 2014 10:31:07 +0300
+Subject: [PATCH 06/16] Fix the issue when the video display is disabled after
+ a resolution change
+
+---
+ xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp |   57 +--------------------------
+ xbmc/windowing/egl/EGLNativeTypeAmlogic.h   |    1 -
+ 2 files changed, 1 insertion(+), 57 deletions(-)
+
+diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
+index ab80343..468a99e 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
+@@ -65,7 +65,7 @@ void CEGLNativeTypeAmlogic::Initialize()
+   aml_permissions();
+   aml_cpufreq_min(true);
+   aml_cpufreq_max(true);
+-  return;
++  DisableFreeScale();
+ }
+ void CEGLNativeTypeAmlogic::Destroy()
+ {
+@@ -249,8 +249,6 @@ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
+   // switch display resolution
+   aml_set_sysfs_str("/sys/class/display/mode", modestr.c_str());
+ 
+-  DisableFreeScale();
+-
+   RESOLUTION_INFO res;
+   aml_mode_to_resolution(modestr, &res);
+   SetFramebufferResolution(res);
+@@ -258,64 +256,11 @@ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
+   return true;
+ }
+ 
+-void CEGLNativeTypeAmlogic::EnableFreeScale()
+-{
+-  // enable OSD free scale using frame buffer size of 720p
+-  aml_set_sysfs_int("/sys/class/graphics/fb0/free_scale", 0);
+-  aml_set_sysfs_int("/sys/class/graphics/fb1/free_scale", 0);
+-  aml_set_sysfs_int("/sys/class/graphics/fb0/scale_width",  1280);
+-  aml_set_sysfs_int("/sys/class/graphics/fb0/scale_height", 720);
+-  aml_set_sysfs_int("/sys/class/graphics/fb1/scale_width",  1280);
+-  aml_set_sysfs_int("/sys/class/graphics/fb1/scale_height", 720);
+-
+-  // enable video free scale (scaling to 1920x1080 with frame buffer size 1280x720)
+-  aml_set_sysfs_int("/sys/class/ppmgr/ppscaler", 0);
+-  aml_set_sysfs_int("/sys/class/video/disable_video", 1);
+-  aml_set_sysfs_int("/sys/class/ppmgr/ppscaler", 1);
+-  aml_set_sysfs_str("/sys/class/ppmgr/ppscaler_rect", "0 0 1919 1079 0");
+-  aml_set_sysfs_str("/sys/class/ppmgr/disp", "1280 720");
+-  //
+-  aml_set_sysfs_int("/sys/class/graphics/fb0/scale_width",  1280);
+-  aml_set_sysfs_int("/sys/class/graphics/fb0/scale_height", 720);
+-  aml_set_sysfs_int("/sys/class/graphics/fb1/scale_width",  1280);
+-  aml_set_sysfs_int("/sys/class/graphics/fb1/scale_height", 720);
+-  //
+-  aml_set_sysfs_int("/sys/class/video/disable_video", 2);
+-  aml_set_sysfs_str("/sys/class/display/axis", "0 0 1279 719 0 0 0 0");
+-  aml_set_sysfs_str("/sys/class/ppmgr/ppscaler_rect", "0 0 1279 719 1");
+-  //
+-  aml_set_sysfs_int("/sys/class/graphics/fb0/free_scale", 1);
+-  aml_set_sysfs_int("/sys/class/graphics/fb1/free_scale", 1);
+-  aml_set_sysfs_str("/sys/class/graphics/fb0/free_scale_axis", "0 0 1279 719");
+-}
+-
+ void CEGLNativeTypeAmlogic::DisableFreeScale()
+ {
+   // turn off frame buffer freescale
+   aml_set_sysfs_int("/sys/class/graphics/fb0/free_scale", 0);
+   aml_set_sysfs_int("/sys/class/graphics/fb1/free_scale", 0);
+-  aml_set_sysfs_str("/sys/class/graphics/fb0/free_scale_axis", "0 0 1279 719");
+-
+-  aml_set_sysfs_int("/sys/class/ppmgr/ppscaler", 0);
+-  aml_set_sysfs_int("/sys/class/video/disable_video", 0);
+-  // now default video display to off
+-  aml_set_sysfs_int("/sys/class/video/disable_video", 1);
+-
+-  // revert display axis
+-  int fd0;
+-  std::string framebuffer = "/dev/" + m_framebuffer_name;
+-
+-  if ((fd0 = open(framebuffer.c_str(), O_RDWR)) >= 0)
+-  {
+-    struct fb_var_screeninfo vinfo;
+-    if (ioctl(fd0, FBIOGET_VSCREENINFO, &vinfo) == 0)
+-    {
+-      char daxis_str[255] = {0};
+-      sprintf(daxis_str, "%d %d %d %d 0 0 0 0", 0, 0, vinfo.xres-1, vinfo.yres-1);
+-      aml_set_sysfs_str("/sys/class/display/axis", daxis_str);
+-    }
+-    close(fd0);
+-  }
+ }
+ 
+ void CEGLNativeTypeAmlogic::SetFramebufferResolution(const RESOLUTION_INFO &res) const
+diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
+index adb4d51..79e5733 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
++++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
+@@ -49,7 +49,6 @@ public:
+ 
+ protected:
+   bool SetDisplayResolution(const char *resolution);
+-  void EnableFreeScale();
+   void DisableFreeScale();
+ 
+ private:
+-- 
+1.7.9.5
+
