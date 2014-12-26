@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gettext"
-PKG_VERSION="0.19.3"
+PKG_VERSION="0.19.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
