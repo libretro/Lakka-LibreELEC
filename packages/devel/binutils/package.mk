@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="binutils"
-PKG_VERSION="2.24"
+PKG_VERSION="2.25"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
