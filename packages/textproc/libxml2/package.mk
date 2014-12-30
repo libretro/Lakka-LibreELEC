@@ -38,7 +38,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_ansidecl_h=no \
              --disable-silent-rules \
              --enable-ipv6 \
              --without-python \
-             --with-zlib \
+             --with-zlib=$SYSROOT_PREFIX/usr \
              --with-sysroot=$SYSROOT_PREFIX \
              --without-lzma"
 
