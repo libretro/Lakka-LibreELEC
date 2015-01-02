@@ -51,7 +51,7 @@ addon() {
   VDR_PLUGIN_EPGFIXER_DIR="$(get_build_dir vdr-plugin-epgfixer)"
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
-  cp $VDR_DIR/channels.conf $ADDON_BUILD/$PKG_ADDON_ID/config
+  touch $ADDON_BUILD/$PKG_ADDON_ID/config/channels.conf
   cp $VDR_DIR/diseqc.conf $ADDON_BUILD/$PKG_ADDON_ID/config
   cp $VDR_DIR/keymacros.conf $ADDON_BUILD/$PKG_ADDON_ID/config
   cp $VDR_DIR/scr.conf $ADDON_BUILD/$PKG_ADDON_ID/config
