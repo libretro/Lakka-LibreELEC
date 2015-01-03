@@ -41,7 +41,8 @@ pre_configure_target() {
   rm -rf .$TARGET_NAME
 
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
-  export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+#  export LDFLAGS="$LDFLAGS -L$SYSROOT_PREFIX/usr/lib -L$SYSROOT_PREFIX/lib"
+  export LDSHARED="$CC -shared"
 }
 
 make_target() {
