@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="freetype"
-PKG_VERSION="2.5.4"
+PKG_VERSION="2.5.5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
