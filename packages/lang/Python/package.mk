@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="Python"
-PKG_VERSION="2.7.8"
+PKG_VERSION="2.7.9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
