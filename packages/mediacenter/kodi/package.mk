@@ -422,6 +422,7 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi-config $INSTALL/usr/lib/kodi
+    cp $PKG_DIR/scripts/kodi.sh $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi-hacks $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi-sources $INSTALL/usr/lib/kodi
 # TODO: remove this later:
