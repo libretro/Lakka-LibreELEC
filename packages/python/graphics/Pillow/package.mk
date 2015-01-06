@@ -16,13 +16,13 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="Imaging"
-PKG_VERSION="1.1.7"
+PKG_NAME="Pillow"
+PKG_VERSION="2.7.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.pythonware.com/products/pil/"
-PKG_URL="http://effbot.org/media/downloads/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://pypi.python.org/packages/source/P/Pillow/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python distutilscross:host zlib freetype libjpeg-turbo"
 PKG_PRIORITY="optional"
 PKG_SECTION="python"
