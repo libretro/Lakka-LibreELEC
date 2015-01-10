@@ -20,10 +20,6 @@
 
 # usage:   sudo ./create_sdcard <drive>
 # example: sudo ./create_sdcard /dev/sdb
-# loop example: sudo ./create_sdcard /dev/loop0 ~/vSD.img
-
-# create an empty image file for use with loop device like this:
-# dd if=/dev/zero of=~/vSD.img bs=1M count=910
 
 if [ "$(id -u)" != "0" ]; then
   clear
@@ -40,9 +36,6 @@ if [ -z "$1" ]; then
   echo "# please execute with your drive as option              #"
   echo "# example: sudo ./create_sdcard /dev/sdb                #"
   echo "# or:      sudo ./create_sdcard /dev/mmcblk0            #"
-  echo "# or:      sudo ./create_sdcard /dev/loop0 ~/vSD.img    #"
-  echo "# to create an image file for /dev/loop0 option:        #"
-  echo "#   sudo dd if=/dev/zero of=~/vSD.img bs=1M count=910   #"
   echo "#########################################################"
   exit 1
 fi
@@ -52,12 +45,6 @@ case $DISK in
   "/dev/mmcblk"*)
     PART1="${DISK}p1"
     PART2="${DISK}p2"
-    ;;
-  "/dev/loop"*)
-    PART1="${DISK}p1"
-    PART2="${DISK}p2"
-    IMGFILE="$2"
-    losetup $DISK $IMGFILE
     ;;
   *)
     PART1="${DISK}1"
@@ -217,14 +204,6 @@ echo "#########################################################"
   echo "creating filesystem on $PART2..."
   mkfs.ext4 -O ^has_journal -E stride=2,stripe-width=1024 -b 4096 "$PART2" -L Storage
 
-# remount loopback device
-  if [ "$DISK" = "/dev/loop0" ]; then
-    sync
-    losetup -d $DISK
-    losetup $DISK $IMGFILE -o 1048576 --sizelimit 131071488
-    PART1=$DISK
-  fi
-
 # mount partition
   echo "mounting partition $PART1 ..."
   rm -rf /tmp/openelec_install
@@ -256,10 +235,5 @@ echo "#########################################################"
 # cleaning
   echo "cleaning tempdir..."
   rmdir $MOUNTPOINT
-
-# unmount loopback device
-  if [ "$DISK" = "/dev/loop0" ]; then
-    losetup -d $DISK
-  fi
 
 echo "...installation finished"
