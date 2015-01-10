@@ -82,15 +82,6 @@ makeinstall_host() {
        install
 
   cp Parser/pgen $ROOT/$TOOLCHAIN/bin
-
-# replace python-config to make sure python uses $SYSROOT_PREFIX
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    rm -rf $ROOT/$TOOLCHAIN/bin/python*-config
-
-    sed -e "s:%PREFIX%:$SYSROOT_PREFIX/usr:g" -e "s:%CFLAGS%:$TARGET_CFLAGS:g" \
-      $PKG_DIR/scripts/python-config > $ROOT/$TOOLCHAIN/bin/python2.7-config
-    chmod +x $ROOT/$TOOLCHAIN/bin/python2.7-config
-    ln -s python2.7-config $ROOT/$TOOLCHAIN/bin/python-config
 }
 
 pre_configure_target() {
