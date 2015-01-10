@@ -17,7 +17,8 @@
 ################################################################################
 
 PKG_NAME="connman"
-PKG_VERSION="1.27"
+# DO NOT UPGRADE!!
+PKG_VERSION="1.23"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
