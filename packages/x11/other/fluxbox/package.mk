@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="fluxbox"
-PKG_VERSION="1.3.5"
+PKG_VERSION="1.3.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -47,13 +47,12 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
                            --disable-test \
                            --disable-nls \
                            --disable-imlib2"
-                           
+
 post_install() {
   enable_service windowmanager.service
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin/fbrun
   rm -rf $INSTALL/usr/bin/fbsetbg
   rm -rf $INSTALL/usr/bin/fluxbox-generate_menu
   rm -rf $INSTALL/usr/bin/fluxbox-remote
@@ -62,7 +61,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/fluxbox/styles
   rm -rf $INSTALL/usr/share/fluxbox/init
   rm -rf $INSTALL/usr/share/fluxbox/keys
-  
+
   cp $PKG_DIR/config/init $INSTALL/usr/share/fluxbox/
   cp $PKG_DIR/config/keys $INSTALL/usr/share/fluxbox/
 }
