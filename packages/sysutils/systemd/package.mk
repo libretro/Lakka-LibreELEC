@@ -108,11 +108,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-rootprefix=/usr \
                            --with-rootlibdir=/lib"
 
-pre_make_target() {
-# dont build parallel
-  MAKEFLAGS=-j1
-}
-
 post_makeinstall_target() {
   # remove unneeded stuff
     rm -rf $INSTALL/etc/systemd/system
