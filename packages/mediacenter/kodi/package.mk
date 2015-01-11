@@ -84,14 +84,6 @@ else
   KODI_ALSA="--disable-alsa"
 fi
 
-if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
-# for PulseAudio support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
-  KODI_PULSEAUDIO="--enable-pulse"
-else
-  KODI_PULSEAUDIO="--disable-pulse"
-fi
-
 if [ "$ESPEAK_SUPPORT" = yes ]; then
 # for espeak support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET espeak"
@@ -328,7 +320,7 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $KODI_XORG \
                            --disable-ccache \
                            $KODI_ALSA \
-                           $KODI_PULSEAUDIO \
+                           --disable-pulse \
                            --enable-rtmp \
                            $KODI_SAMBA \
                            $KODI_NFS \
