@@ -213,6 +213,7 @@ post_makeinstall_target() {
   # replace systemd-machine-id-setup with ours
   rm -rf $INSTALL/usr/lib/systemd/systemd-machine-id-commit
   rm -rf $INSTALL/usr/lib/systemd/system/systemd-machine-id-commit.service
+  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-machine-id-commit.service
   rm -rf $INSTALL/usr/bin/systemd-machine-id-setup
   mkdir -p $INSTALL/usr/bin
   cp $PKG_DIR/scripts/systemd-machine-id-setup $INSTALL/usr/bin
