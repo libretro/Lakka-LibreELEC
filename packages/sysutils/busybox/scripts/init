@@ -640,6 +640,20 @@
 
   BOOT_STEP=final
 
+  # log if booting from usb / removable storage
+  STORAGE=$(cat /proc/mounts | grep " /sysroot/storage " | awk '{print $1}' | awk -F '/' '{print $3}')
+  FLASH=$(cat /proc/mounts | grep " /sysroot/flash " | awk '{print $1}' | awk -F '/' '{print $3}')
+  for i in $STORAGE $FLASH ; do
+    if [ -n "$i" ] ; then
+      removable="/sys/class/block/*/$i/../removable"
+      if [ -e $removable ] ; then
+        if [ "$(cat $removable 2>/dev/null)" = "1" ] ; then
+          echo "### BIG FAT WARNING" > /dev/kmsg
+          echo "### $i is removable. suspend/resume may not work" > /dev/kmsg
+        fi
+      fi
+    fi
+  done
   # move some special filesystems
   /bin/busybox mount --move /dev /sysroot/dev
   /bin/busybox mount --move /proc /sysroot/proc
