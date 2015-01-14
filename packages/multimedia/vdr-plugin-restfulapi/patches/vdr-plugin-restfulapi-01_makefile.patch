@@ -1,0 +1,49 @@
+diff -Nur vdr-plugin-restfulapi.orig/Makefile vdr-plugin-restfulapi/Makefile
+--- vdr-plugin-restfulapi.orig/Makefile	2015-01-14 17:56:59.017916074 +0100
++++ vdr-plugin-restfulapi/Makefile	2015-01-14 23:04:43.361230469 +0100
+@@ -16,21 +16,16 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(call PKGCFG,libdir)
+-LOCDIR = $(call PKGCFG,locdir)
+-PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+ ### The compiler options:
+ 
+-export CFLAGS   = $(call PKGCFG,cflags)
+-export CXXFLAGS = $(call PKGCFG,cxxflags)
++include $(VDRDIR)/Make.global
+ 
+ ### The version number of VDR's plugin API:
+ 
+-APIVERSION = $(call PKGCFG,apiversion)
++APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
+ 
+ ### Allow user defined options to overwrite defaults:
+ 
+@@ -47,11 +42,11 @@
+ 
+ ### Includes and Defines (add further entries here):
+ 
+-INCLUDES += -I/usr/include/vdr/plugins/wirbelscan
++INCLUDES += -I$(VDRDIR)/include
+ 
+ DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
+ 
+-LIBS    += $(shell cxxtools-config --libs) -lcxxtools-http
++LIBS    += -lcxxtools-http $(shell cxxtools-config --libs)
+ CONFDIR  = $(call PKGCFG,configdir)
+ PLGCONFDIR = $(CONFDIR)/plugins/$(PLUGIN)
+ 
+@@ -108,6 +103,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@ -Wl,--no-whole-archive $(LIBS)
++	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
