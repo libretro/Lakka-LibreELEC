@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="cxxtools"
-PKG_VERSION="2.2"
+PKG_VERSION="2.2.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL-2"
