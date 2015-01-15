@@ -1,0 +1,6082 @@
+diff -Naur a/drivers/amlogic/Kconfig b/drivers/amlogic/Kconfig
+--- a/drivers/amlogic/Kconfig	2015-01-04 18:07:57.000000000 +0100
++++ b/drivers/amlogic/Kconfig	2015-01-01 15:31:17.000000000 +0100
+@@ -76,7 +76,7 @@
+ source "drivers/amlogic/d2d3/Kconfig"
+ source "drivers/amlogic/amvecm/Kconfig"
+ source "drivers/amlogic/dvb_tv/Kconfig"
+-
++source "drivers/amlogic/wetek/Kconfig"
+ #
+ #	GPU
+ #
+diff -Naur a/drivers/amlogic/Makefile b/drivers/amlogic/Makefile
+--- a/drivers/amlogic/Makefile	2015-01-04 18:07:57.000000000 +0100
++++ b/drivers/amlogic/Makefile	2015-01-01 15:30:50.000000000 +0100
+@@ -84,6 +84,7 @@
+ obj-y += mhl/
+ obj-y += hdmi/
+ 
++obj-$(CONFIG_WETEK) += wetek/
+ obj-$(CONFIG_AM_DVB) += dvb_tv/
+ obj-$(CONFIG_AM_SMARTCARD) += smartcard/
+ 
+diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
+--- a/drivers/amlogic/wetek/avl6211.c	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/avl6211.c	2015-01-14 16:08:49.000000000 +0100
+@@ -0,0 +1,1970 @@
++/*
++ * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/firmware.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/version.h>
++
++#include "dvb_frontend.h"
++#include "avl6211_reg.h"
++#include "avl6211.h"
++
++
++const struct avl6211_pllconf pll_conf[] = {
++	/* The following set of PLL configuration at different reference clock frequencies refer to demod operation */
++	/* in standard performance mode. */
++	 { 503,  1, 7, 4, 2,  4000, 11200, 16800, 25200 } /* Reference clock 4 MHz,   Demod clock 112 MHz, FEC clock 168 MHz, MPEG clock 252 MHz */
++	,{ 447,  1, 7, 4, 2,  4500, 11200, 16800, 25200 } /* Reference clock 4.5 MHz, Demod clock 112 MHz, FEC clock 168 MHz, MPEG clock 252 MHz */
++	,{ 503,  4, 7, 4, 2, 10000, 11200, 16800, 25200 } /* Reference clock 10 MHz,  Demod clock 112 MHz, FEC clock 168 MHz, MPEG clock 252 MHz */
++	,{ 503,  7, 7, 4, 2, 16000, 11200, 16800, 25200 } /* Reference clock 16 MHz,  Demod clock 112 MHz, FEC clock 168 MHz, MPEG clock 252 MHz */
++	,{ 111,  2, 7, 4, 2, 27000, 11200, 16800, 25200 } /* Reference clock 27 MHz,  Demod clock 112 MHz, FEC clock 168 MHz, MPEG clock 252 MHz */
++	
++	/* The following set of PLL configuration at different reference clock frequencies refer to demod operation */
++	/* in high performance mode. */
++	,{ 566,  1, 7, 4, 2,  4000, 12600, 18900, 28350 } /* Reference clock 4 MHz,   Demod clock 126 MHz, FEC clock 189 MHz, MPEG clock 283.5 MHz */
++	,{ 503,  1, 7, 4, 2,  4500, 12600, 18900, 28350 } /* Reference clock 4.5 MHz, Demod clock 126 MHz, FEC clock 189 MHz, MPEG clock 283.5 MHz */
++	,{ 566,  4, 7, 4, 2, 10000, 12600, 18900, 28350 } /* Reference clock 10 MHz,  Demod clock 126 MHz, FEC clock 189 MHz, MPEG clock 283.5 MHz */
++	,{ 566,  7, 7, 4, 2, 16000, 12600, 18900, 28350 } /* Reference clock 16 MHz,  Demod clock 126 MHz, FEC clock 189 MHz, MPEG clock 283.5 MHz */
++	,{ 377,  8, 7, 4, 2, 27000, 12600, 18900, 28350 } /* Reference clock 27 MHz,  Demod clock 126 MHz, FEC clock 189 MHz, MPEG clock 283.5 MHz */
++};
++
++const unsigned short pll_array_size = sizeof(pll_conf) / sizeof(struct avl6211_pllconf);
++
++struct avl6211_state
++{
++	struct i2c_adapter* i2c;
++	struct avl6211_config* config;
++	struct dvb_frontend frontend;
++	
++	u8 diseqc_status;
++	u16 locked;
++	u32 frequency;
++	u32 symbol_rate;	
++	u32 flags;
++	
++	int demod_id;
++	
++	u16 tuner_lpf;
++	u16 demod_freq;	/* Demod clock in 10kHz units */
++	u16 fec_freq;	/* FEC clock in 10kHz units */
++	u16 mpeg_freq;	/* MPEG clock in 10kHz units */
++	
++};
++struct avl6211_diseqc_tx_status
++{
++	u8 tx_done;		
++	u8 tx_fifo_cnt;
++};
++static u16 extract_16(const u8 * buf)
++{
++	u16 data;
++	data = buf[0];
++	data = (u16)(data << 8) + buf[1];
++	return data;
++}
++static u32 extract_32(const u8 * buf)
++{
++	unsigned int data;
++	data = buf[0];
++	data = (data << 8) + buf[1];
++	data = (data << 8) + buf[2];
++	data = (data << 8) + buf[3];
++	return data;
++}
++static int avl6211_i2c_writereg(struct avl6211_state *state, u8 *data, u16 *size)
++{
++	int ret;
++	struct i2c_msg msg[1] = {
++			{
++				.addr = state->config->demod_address, 
++				.flags = 0,
++				.buf = data,
++				.len = *size,
++			}
++	};
++	
++	ret = i2c_transfer(state->i2c, msg, 1);	
++	if (ret == 1) {
++		ret = 0;
++	} else {
++		dev_warn(&state->i2c->dev, "i2c wr failed=%d", ret);
++		ret = -EREMOTEIO;
++	}
++	
++	return ret;
++}
++static int avl6211_i2c_readreg(struct avl6211_state* state, u8 * data, u16 * size)
++{
++	int ret;
++	struct i2c_msg msg[1] = {
++			{
++					.addr = state->config->demod_address, 
++					.flags = I2C_M_RD,
++					.buf = data,
++					.len = *size,
++			}
++	};
++
++	ret = i2c_transfer(state->i2c, msg, 1);
++	
++	if (ret == 1) {
++		ret = 0;
++	} else {
++		dev_warn(&state->i2c->dev, "i2c rd failed=%d", ret);
++		ret = -EREMOTEIO;
++	}
++	
++	return ret;
++}
++static int avl6211_i2c_read(struct avl6211_state* state, u32 offset, u8 * buf, u16 buf_size)
++{
++	int ret;
++	u8 buf_tmp[3];
++	u16 x1 = 3, x2 = 0;
++	u16 size;
++
++	format_addr(offset, buf_tmp);
++	ret = avl6211_i2c_writereg(state, buf_tmp, &x1);  
++	if (ret)
++		goto err;
++
++	if (buf_size & 1)
++		size = buf_size - 1;
++	else
++		size = buf_size;
++
++	while (size > I2C_MAX_READ) {
++		x1 = I2C_MAX_READ;
++		ret = avl6211_i2c_readreg(state, buf + x2, &x1);
++		if (ret)
++			goto err;			
++		x2 += I2C_MAX_READ;
++		size -= I2C_MAX_READ;
++	}
++
++	if (size != 0) {
++		ret = avl6211_i2c_readreg(state, buf + x2, &size);
++		if (ret)
++			goto err;
++	}
++
++	if (buf_size & 1) {
++		x1 = 2;
++		ret = avl6211_i2c_readreg(state, buf_tmp, &x1);
++		if (ret)
++			goto err;
++		buf[buf_size-1] = buf_tmp[0];
++	}
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_write(struct avl6211_state* state, u8 * buf, u16 buf_size)
++{
++	int ret;
++	u8 buf_tmp[5], *x3;
++	u16 x1, x2 = 0, tmp;
++	u16 size;
++	u32 addr;
++
++	if (WARN_ON(buf_size < 3))
++		return -EINVAL;	
++		
++	/* Actual data size */
++	buf_size -= 3;
++	/* Dump address */
++	addr = buf[0];
++	addr = addr << 8;
++	addr += buf[1];
++	addr = addr << 8;
++	addr += buf[2];
++	
++	if (buf_size & 1)
++		size = buf_size -1;
++	else
++		size = buf_size;
++	
++	tmp = (I2C_MAX_WRITE - 3) & 0xfffe; /* How many bytes data we can transfer every time */
++	
++	x2 = 0;
++	while( size > tmp ) {
++		x1 = tmp + 3;
++		/* Save the data */
++		buf_tmp[0] = buf[x2];
++		buf_tmp[1] = buf[x2 + 1];
++		buf_tmp[2] = buf[x2 + 2];
++		x3 = buf + x2;
++		format_addr(addr, x3);
++		ret = avl6211_i2c_writereg(state, buf + x2, &x1);
++		if (ret)
++			goto err;
++		/* Restore data */
++		buf[x2] = buf_tmp[0];
++		buf[x2 + 1] = buf_tmp[1];
++		buf[x2 + 2] = buf_tmp[2];
++		addr += tmp;
++		x2 += tmp;
++		size -= tmp;
++	}
++
++	x1 = size + 3;
++	/* Save the data */
++	buf_tmp[0] = buf[x2];
++	buf_tmp[1] = buf[x2 + 1];
++	buf_tmp[2] = buf[x2 + 2];
++	x3 = buf + x2;
++	format_addr(addr, x3);
++	ret = avl6211_i2c_writereg(state, buf + x2, &x1);
++	if (ret)
++		goto err;
++	/* Restore data */
++	buf[x2] = buf_tmp[0];
++	buf[x2 + 1] = buf_tmp[1];
++	buf[x2 + 2] = buf_tmp[2];
++	addr += size;
++	x2 += size;
++		
++	if (buf_size & 1) {
++		format_addr(addr, buf_tmp);
++		x1 = 3;
++		ret = avl6211_i2c_writereg(state, buf_tmp, &x1);
++		if (ret)
++			goto err;
++		x1 = 2;
++		ret = avl6211_i2c_readreg(state, buf_tmp + 3, &x1);
++			goto err;
++		buf_tmp[3] = buf[x2 + 3];
++		x1 = 5;
++		ret = avl6211_i2c_writereg(state, buf_tmp, &x1);
++		if (ret)
++			goto err;
++	}
++		
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_read16(struct avl6211_state* state, u32 addr, u16 *data)
++{
++	int ret;
++	u8 buf[2];
++
++	ret = avl6211_i2c_read(state, addr, buf, 2);
++	if (ret)
++		goto err;
++		
++	*data = extract_16(buf);
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_read32(struct avl6211_state* state, u32 addr, u32 *data)
++{
++	int ret;
++	u8 buf[4];
++
++	ret = avl6211_i2c_read(state, addr, buf, 4);
++	if (ret)
++		goto err;
++		
++	*data = extract_32(buf);
++
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_write16(struct avl6211_state* state, u32 addr, u16 data)
++{
++	int ret;
++	u8 buf[5], *p;
++
++	format_addr(addr, buf);
++	p = buf + 3;
++	format_16(data, p);
++
++	ret = avl6211_i2c_write(state, buf, 5);
++	if (ret)
++		goto err;
++		
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_write32(struct avl6211_state* state, u32 addr, u32 data)
++{
++	int ret;
++	u8 buf[7], *p;
++
++	format_addr(addr, buf);
++	p = buf + 3;
++	format_32(data, p);
++	ret = avl6211_i2c_write(state, buf, 7);
++	if (ret)
++		goto err;
++		
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_get_op_status(struct avl6211_state* state)
++{
++	int ret;
++	u8 buf[2];
++
++	ret = avl6211_i2c_read(state, rx_cmd_addr, buf, 2);
++	if (ret)
++		goto err;
++		
++	if (buf[1] != 0) {
++		ret = -EINVAL;
++		goto err;
++	}
++	
++	return 0;
++err:	
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_send_op(u8 ucOpCmd, struct avl6211_state* state)
++{
++	int ret;
++	u8 buf[2];
++	u16 x1;
++	int cnt = 20;
++
++	do {
++		ret = avl6211_get_op_status(state);
++		if (!ret)
++			break;
++	
++		msleep(10);
++		cnt--;
++	} while (cnt != 0);
++	
++	if (ret)
++		goto err;
++		
++	buf[0] = 0;
++	buf[1] = ucOpCmd;
++	x1 = extract_16(buf);
++	ret = avl6211_i2c_write16(state, rx_cmd_addr, x1);   
++	if (ret)
++		goto err;
++		
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_cpu_halt(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++    int ret, i = 0;
++	 
++	ret = avl6211_send_op(OP_RX_HALT, state);
++	if (ret)
++		goto err;
++	
++	while (i++ < 20) {
++		ret = avl6211_get_op_status(state);
++		if (!ret)
++			break;
++		else
++			mdelay(10);		
++ 	}
++	if (ret)
++		goto err;
++		
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_repeater_get_status(struct avl6211_state* state)
++{
++	int ret;
++	u8 buf[2];
++
++	ret = avl6211_i2c_read(state, i2cm_cmd_addr + I2CM_CMD_LENGTH - 2, buf, 2);
++	if (ret)
++		goto err;
++		
++	if (buf[1] != 0) {
++		ret = -EINVAL;
++		goto err;
++	}
++		
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int avl6211_i2c_repeater_exec(struct avl6211_state* state, u8 * buf, u8 size)
++{
++	int ret, i = 0;
++
++	do {
++		ret = avl6211_i2c_repeater_get_status(state);
++		if (ret && 60 < i++) 
++			goto err;
++			
++		msleep(5);
++	
++	} while (ret);
++	
++	ret = avl6211_i2c_write(state, buf, size);
++	if (ret)
++		goto err;
++		
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_repeater_send(struct avl6211_state* state, u8 * buf, u16 size)
++{
++	int ret;
++	u8 tmp_buf[I2CM_CMD_LENGTH + 3];
++	u16 i, j;
++	u16 cmd_size;
++
++	if (WARN_ON(size > I2CM_CMD_LENGTH - 3))
++		return -EINVAL;
++
++	memset(tmp_buf, 0, sizeof(tmp_buf));
++	
++	cmd_size = ((size + 3) % 2) + 3 + size;
++	format_addr(i2cm_cmd_addr + I2CM_CMD_LENGTH - cmd_size, tmp_buf);
++
++	i = 3 + ((3 + size) % 2);	  /* skip one byte if the size +3 is odd */
++
++	for (j = 0; j < size; j++)
++		tmp_buf[i++] = buf[j];
++
++	tmp_buf[i++] = (u8)size;
++	tmp_buf[i++] = state->config->tuner_address;
++	tmp_buf[i++] = OP_I2CM_WRITE;
++
++			
++	ret = avl6211_i2c_repeater_exec(state, tmp_buf, (u8)(cmd_size + 3));
++	if (ret)
++		goto err;
++		
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int avl6211_i2c_repeater_recv(struct avl6211_state* state, u8 * buf, u16 size)
++{
++	int ret, i = 0;
++	u8 tmp_buf[I2CM_RSP_LENGTH];
++
++	if (WARN_ON(size > I2CM_RSP_LENGTH))
++		return -EINVAL;
++
++	memset(tmp_buf, 0, sizeof(tmp_buf));
++	
++	format_addr(i2cm_cmd_addr + I2CM_CMD_LENGTH - 4, tmp_buf);
++	tmp_buf[3] = 0x0;
++	tmp_buf[4] = (u8)size;
++	tmp_buf[5] = state->config->tuner_address;
++	tmp_buf[6] = OP_I2CM_READ;
++
++	ret = avl6211_i2c_repeater_exec(state, tmp_buf, 7);
++	if (ret)
++		goto err;
++	
++	do {
++		ret = avl6211_i2c_repeater_get_status(state);
++		if (ret && 100 < i++) 
++			goto err;
++			
++		msleep(10);
++	
++	} while (ret);
++
++	ret = avl6211_i2c_read(state, i2cm_rsp_addr, buf, size);
++	if (ret)
++		goto err;
++		
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_i2c_repeater_init(u16 bus_clk, struct avl6211_state* state)
++{
++	u8 buf[5];
++	int ret;
++
++	ret = avl6211_i2c_write16(state, rc_i2cm_speed_kHz_addr, bus_clk);
++	if (ret)
++		goto err;
++		
++	format_addr(i2cm_cmd_addr + I2CM_CMD_LENGTH - 2, buf);
++	buf[3] = 0x01;
++	buf[4] = OP_I2CM_INIT;
++	ret = avl6211_i2c_repeater_exec(state, buf, 5);
++	if (ret)
++		goto err;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int AV2011_I2C_write(u8 reg_start, u8* buff, u8 len, struct avl6211_state* state)
++{
++	int ret, i = 0;
++	u8 ucTemp[50] = { 0 };
++	
++	msleep(5);
++	ucTemp[0] = reg_start;
++	ret = avl6211_i2c_repeater_get_status(state);
++	
++	do {
++		ret = avl6211_i2c_repeater_get_status(state);
++		if (ret && 100 < i++) 
++			goto err;
++			
++		msleep(1);
++	
++	} while (ret);
++		
++	for (i = 1; i < len + 1; i++)			
++		ucTemp[i] = *(buff + i - 1);
++			
++	ret = avl6211_i2c_repeater_send(state, ucTemp, len+1);
++	if (ret)
++		goto err;
++	
++	msleep(5);
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int av2011_tuner_lock_status(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;	
++	int ret;
++	u8 lock = 0x0b;
++	u8 locked = 0;
++	ret = avl6211_i2c_repeater_send(state, &lock, 1);
++	if (ret)
++		goto err;
++		
++	ret = avl6211_i2c_repeater_recv(state, &locked, 1);
++	if (ret)
++		goto err;
++
++	if (!(locked & 0x01)) 
++		return -EINVAL;
++		
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int av2011_freq_lpf_adjustment(struct dvb_frontend* fe,u16 *AdjustFreq)
++{
++	struct avl6211_state *state = fe->demodulator_priv;	
++	int ret;
++	u32 x1;
++	u16 x2;
++	u16 minimum_LPF_100kHz;
++	u16 carrierFrequency_100kHz;
++
++	ret = avl6211_i2c_read32(state, rc_Max_LowIf_SR_addr, &x1);
++	if (ret)
++		goto err;	
++	ret = avl6211_i2c_read16(state, rc_IfOffset_addr, &x2);
++	if (ret)
++		goto err;
++	
++	if (state->symbol_rate <= x1) {
++	
++		carrierFrequency_100kHz = (u16 )((x2/10) + (state->frequency / 100));
++
++		minimum_LPF_100kHz = (state->symbol_rate/100000 )*135/200 +  (x2/10) + 50;
++		
++		if (state->tuner_lpf < minimum_LPF_100kHz) 
++			state->tuner_lpf = (u16)(minimum_LPF_100kHz);		
++	} else
++		carrierFrequency_100kHz = state->frequency / 100;
++	
++	*AdjustFreq = carrierFrequency_100kHz;
++	return 0;
++	
++err:
++	*AdjustFreq = state->frequency / 100;
++	return ret;
++
++}
++static int av2011_lock(struct dvb_frontend* fe)
++{
++	int ret;
++	struct avl6211_state *state = fe->demodulator_priv;	
++	u8 reg[50];
++	u32 fracN;
++	u32 BW;
++	u32 BF;
++	u16 carrierFrequency_100kHz;
++
++	memset(reg, 0, sizeof(reg));
++	
++	/* Do not return on error */
++	ret = av2011_freq_lpf_adjustment(fe, &carrierFrequency_100kHz);
++
++	msleep(50);
++	
++	fracN = (((carrierFrequency_100kHz)/10) + 27/2) / 27;
++	if (fracN > 0xff)
++		fracN = 0xff;
++		
++	reg[0] = (char)(fracN & 0xff);
++	fracN = (((carrierFrequency_100kHz)/10) << 17) / 27;
++	fracN = fracN & 0x1ffff;
++	reg[1] = (char)((fracN >> 9) & 0xff);
++	reg[2] = (char)((fracN >> 1) & 0xff);
++	reg[3] = (char)((fracN << 7) & 0x80) | 0x50;
++
++	BW = (state->tuner_lpf * 100);
++	
++	if (BW < 4000)
++		BW = 4000;
++	if ( BW > 40000)
++		BW = 40000;
++	BF = (BW * 127 + 21100/2) / 21100; 
++	
++	dev_info(&state->i2c->dev, "BF is %d,BW is %d\n", BF, BW);
++	
++	reg[5] = (u8)BF;
++
++	msleep(5);
++	ret = AV2011_I2C_write(0, reg, 4, state);
++	if (ret)
++		goto err;
++		
++	msleep(5);
++	
++	ret = AV2011_I2C_write(0, reg, 4, state);
++	if (ret)
++		goto err;
++		
++	msleep(5);
++	
++	ret = AV2011_I2C_write(5, reg+5, 1, state);
++	if (ret)
++		goto err;
++		
++	msleep(5);
++			
++	reg[37] = 0x06;
++	ret = AV2011_I2C_write(37, reg+37, 1, state);
++	if (ret)
++		goto err;;
++		
++	msleep(5);
++		
++	reg[12] = 0x96 + (1 << 6);
++	ret = AV2011_I2C_write(12, reg+12, 1, state);
++	if (ret)
++		goto err;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int av2011_tuner_reg_init(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++    int ret;
++	
++	u8 reg[50] = { 
++		0x38, 0x00, 0x00, 0x50, 0x1f, 0xa3, 0xfd, 0x58, 0x0e,
++		0xc2, 0x88, 0xb4, 0xd6, 0x40, 0x94, 0x9a, 0x66, 0x40,
++		0x80, 0x2b, 0x6a, 0x50, 0x91, 0x27, 0x8f, 0xcc, 0x21,
++		0x10, 0x80, 0x02, 0xf5, 0x7f, 0x4a, 0x9b, 0xe0, 0xe0,
++		0x36, 0x00, 0xab, 0x97, 0xc5, 0xa8,
++	};
++	
++	ret = AV2011_I2C_write(0, reg, 12, state);
++	if (ret)
++		goto err;
++		
++	msleep(1);
++		
++	ret = AV2011_I2C_write(13, reg+13, 12, state);
++	if (ret)
++		goto err;
++		
++	ret = AV2011_I2C_write(25, reg+25, 11, state);
++	if (ret)
++		goto err;
++		
++	ret = AV2011_I2C_write(36, reg+36, 6, state);
++	if (ret)
++		goto err;
++		
++	msleep(1);
++		
++	ret = AV2011_I2C_write(12, reg+12, 1, state);
++	if (ret)
++		goto err;
++		
++	msleep(10);
++	
++	ret = AV2011_I2C_write(0, reg, 12, state);
++	if (ret)
++		goto err;
++			
++	msleep(1);
++					
++	ret = AV2011_I2C_write(13, reg+13 , 12, state);
++	if (ret)
++		goto err;
++			
++	ret = AV2011_I2C_write(25, reg+25 , 11, state);
++	if (ret)
++		goto err;
++			
++	ret = AV2011_I2C_write(36, reg+36, 6, state);
++	if (ret)
++		goto err;
++			
++	msleep(1);
++		
++	ret = AV2011_I2C_write(12, reg+12, 1, state);
++	if (ret)
++		goto err;
++		
++	msleep(5);
++	
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int av2011_tuner_init(struct dvb_frontend* fe) 
++{
++    struct avl6211_state *state = fe->demodulator_priv;
++    int ret;
++	
++    ret = avl6211_i2c_write16(state, rc_tuner_slave_addr_addr, state->config->tuner_address);
++	if (ret)
++		goto err;
++	/* Use external control */
++	ret = avl6211_i2c_write16(state, rc_tuner_use_internal_control_addr, 0);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_tuner_LPF_margin_100kHz_addr, 0);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_tuner_max_LPF_100kHz_addr, 360 );
++	if (ret)
++		goto err;
++	
++    ret = avl6211_i2c_repeater_init(state->config->tuner_i2c_clock, state);
++	if (ret)
++		goto err;
++
++	ret = av2011_tuner_reg_init(fe);
++	if (ret)
++		goto err;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++    return ret;
++}
++
++static int avl6211_diseqc_init(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 x1;
++	
++	ret = avl6211_i2c_write32(state, diseqc_srst_addr, 1);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, diseqc_samp_frac_n_addr, 200);	/* 2M = 200 * 10kHz */
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, diseqc_samp_frac_d_addr, state->demod_freq);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, diseqc_tone_frac_n_addr, (22 << 1));
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, diseqc_tone_frac_d_addr, state->demod_freq * 10);
++	if (ret)
++		goto err;
++
++	/* Initialize the tx_control */
++	ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++	if (ret)
++		goto err;
++	x1 &= 0x00000300;
++	x1 |= 0x20;		/* Reset tx_fifo */
++	x1 |= (u32)(0 << 6);
++	x1 |= (u32)(0 << 4);
++	x1 |= (1 << 3);			/* Enable tx gap */
++	ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++	if (ret)
++		goto err;
++	x1 &= ~(0x20);	/* Release tx_fifo reset */
++	ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++	if (ret)
++		goto err;
++
++	/* Initialize the rx_control */
++	x1 = (u32)(0 << 2);
++	x1 |= (1 << 1);	/* Activate the receiver */
++	x1 |= (1 << 3);	/* Envelop high when tone present */
++	ret = avl6211_i2c_write32(state, diseqc_rx_cntrl_addr, x1);
++	if (ret)
++		goto err;
++	x1 = (u32)(0 >> 12);
++	ret = avl6211_i2c_write32(state, diseqc_rx_msg_tim_addr, x1);
++	if (ret)
++		goto err;
++
++	ret = avl6211_i2c_write32(state, diseqc_srst_addr, 0);
++	if (ret)
++		goto err;
++
++	
++	state->diseqc_status = DISEQC_STATUS_INIT;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_diseqc_switch_mode(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret = 0;
++	u32 x1;
++
++	switch (state->diseqc_status) {
++		case DISEQC_STATUS_MOD:
++		case DISEQC_STATUS_TONE:
++			ret = avl6211_i2c_read32(state, diseqc_tx_st_addr, &x1);
++			if (ret)
++				goto err;
++			if (((x1 & 0x00000040) >> 6) != 1)
++				ret = -EINVAL;
++			break;
++		case DISEQC_STATUS_CONTINUOUS:
++		case DISEQC_STATUS_INIT:
++			break;
++		default:
++			ret = -EINVAL;
++			break;
++	}
++	if (ret)
++		goto err;
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_diseqc_get_tx_status(struct dvb_frontend* fe, struct avl6211_diseqc_tx_status * pTxStatus)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 x1;
++
++	if ((state->diseqc_status == DISEQC_STATUS_MOD) || 
++		(state->diseqc_status == DISEQC_STATUS_TONE)) {
++		ret = avl6211_i2c_read32(state, diseqc_tx_st_addr, &x1);
++		if (ret)
++			goto err;
++			
++		pTxStatus->tx_done = (u8)((x1 & 0x00000040) >> 6);
++		pTxStatus->tx_fifo_cnt = (u8)((x1 & 0x0000003c) >> 2);
++	}
++	else
++		ret = -EINVAL;
++
++	if (ret)
++		goto err;
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_diseqc_send_mod_data(struct dvb_frontend* fe, const u8 * buf, u8 size)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 x1, x2;
++	int cnt = 0;
++	u8 buf_tmp[8];
++	u8 Continuousflag = 0;
++
++
++	if (WARN_ON(size > 8))
++		return -EINVAL;		
++	else {
++		ret = avl6211_diseqc_switch_mode(fe);
++		if (ret)
++			goto err;
++		
++		if (state->diseqc_status == DISEQC_STATUS_CONTINUOUS) {
++			ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++			if (ret)
++				goto err;
++			if ((x1 >> 10) & 0x01) {
++				Continuousflag = 1;
++				x1 &= 0xfffff3ff;
++				ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++				if (ret)
++					goto err;
++				msleep(20);
++			}
++		}
++			/* Reset rx_fifo */
++		ret = avl6211_i2c_read32(state, diseqc_rx_cntrl_addr, &x2);
++		if (ret)
++			goto err;
++		ret = avl6211_i2c_write32(state, diseqc_rx_cntrl_addr, (x2 | 0x01));
++		if (ret)
++			goto err;
++		ret = avl6211_i2c_write32(state, diseqc_rx_cntrl_addr, (x2 & 0xfffffffe));
++		if (ret)
++			goto err;
++
++		ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++		if (ret)
++			goto err;
++		x1 &= 0xfffffff8;	//set to modulation mode and put it to FIFO load mode
++		ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++		if (ret)
++			goto err;
++			
++			/* Trunk address */
++		format_addr(diseqc_tx_fifo_map_addr, buf_tmp);
++		buf_tmp[3] = 0;
++		buf_tmp[4] = 0;
++		buf_tmp[5] = 0;
++		for (x2 = 0; x2 < size; x2++) {
++			buf_tmp[6] = buf[x2];
++			ret = avl6211_i2c_write(state, buf_tmp, 7);
++			if (ret)
++				goto err;
++		}
++
++		x1 |= (1 << 2);  //start fifo transmit.
++		ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++		if (ret)
++			goto err;
++		
++		state->diseqc_status = DISEQC_STATUS_MOD;
++		do 
++		{
++			msleep(1);
++			if (++cnt > 500) {
++				ret = -ETIME;
++				goto err;
++			}
++			ret = avl6211_i2c_read32(state, diseqc_tx_st_addr, &x1);
++			if (ret)
++				goto err;
++		} while ( 1 != ((x1 & 0x00000040) >> 6) );
++
++		msleep(20);
++		if (Continuousflag == 1)			//resume to send out wave
++		{
++			//No data in FIFO
++			ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++			if (ret)
++				goto err;
++			x1 &= 0xfffffff8; 
++			x1 |= 0x03;		//switch to continuous mode
++			ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++			if (ret)
++				goto err;
++
++			//start to send out wave
++			x1 |= (1<<10);  
++			ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++			if (ret)
++				goto err;
++			
++			state->diseqc_status = DISEQC_STATUS_CONTINUOUS;
++		}
++	}
++
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;;
++}
++
++static int avl6211_send_diseqc_msg(struct dvb_frontend* fe, struct dvb_diseqc_master_cmd *d)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	struct avl6211_diseqc_tx_status tx_status;
++	int cnt = 100;
++	int ret;
++
++	if ((d->msg_len < 3) || (d->msg_len > 6))
++        	return -EINVAL;
++
++	ret = avl6211_diseqc_send_mod_data(fe, d->msg, d->msg_len);
++	if (ret)
++		goto err;
++	
++	msleep(55);		
++		
++	do {
++		ret = avl6211_diseqc_get_tx_status(fe, &tx_status);
++		if (ret)
++			goto err;
++			
++		if ( tx_status.tx_done == 1 )
++			break;
++
++		msleep(10);
++		cnt--;
++		if (!cnt) {
++			ret = -ETIME;
++			goto err;
++		}
++	} while (tx_status.tx_done != 1);
++
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int avl6211_diseqc_send_burst(struct dvb_frontend* fe, fe_sec_mini_cmd_t burst)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	struct avl6211_diseqc_tx_status tx_status;
++	int cnt = 100;
++	int tx_cnt = 0;
++	int ret;
++	u32 x1;
++	u8 buf[8];
++	u8 Continuousflag = 0;
++	
++	ret = avl6211_diseqc_switch_mode(fe);
++	if (ret)
++		goto err;
++
++	if (state->diseqc_status == DISEQC_STATUS_CONTINUOUS) {
++		ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++		if (ret)
++			goto err;
++		if ((x1 >> 10) & 0x01) {
++			Continuousflag = 1;
++			x1 &= 0xfffff3ff;
++			ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++			if (ret)
++				goto err;
++			msleep(20);
++		}
++	}
++	/* No data in the FIFO */
++	ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++	if (ret)
++		goto err;
++	x1 &= 0xfffffff8;  /* Put it into the FIFO load mode */
++	if (burst == SEC_MINI_A)
++		x1 |= 0x02;
++	else
++		x1 |= 0x01;
++	ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++	if (ret)
++		goto err;
++	/* Trunk address */
++	format_addr(diseqc_tx_fifo_map_addr, buf);
++	buf[3] = 0;
++	buf[4] = 0;
++	buf[5] = 0;
++	buf[6] = 1;
++
++	ret = avl6211_i2c_write(state, buf, 7);
++	if (ret)
++		goto err;
++
++	x1 |= (1<<2);  /* Start fifo transmit */
++	ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++	if (ret)
++		goto err;
++	
++	state->diseqc_status = DISEQC_STATUS_TONE;
++	
++	do 
++	{
++		msleep(1);
++		if (++tx_cnt > 500) {
++			ret = -ETIME;
++			goto err;
++		}
++		ret = avl6211_i2c_read32(state, diseqc_tx_st_addr, &x1);
++		if (ret)
++			goto err;
++	} while ( 1 != ((x1 & 0x00000040) >> 6) );
++
++	msleep(20);
++	
++	if (Continuousflag == 1)			//resume to send out wave
++	{
++		//No data in FIFO
++		ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++		if (ret)
++			goto err;
++		x1 &= 0xfffffff8; 
++		x1 |= 0x03;		//switch to continuous mode
++		ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++		if (ret)
++			goto err;
++
++		//start to send out wave
++		x1 |= (1<<10);  
++		ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++		if (ret)
++			goto err;
++		
++		state->diseqc_status = DISEQC_STATUS_CONTINUOUS;
++			
++	}	
++	do {
++		ret = avl6211_diseqc_get_tx_status(fe, &tx_status);
++		if ( tx_status.tx_done == 1 )
++			break;
++
++		msleep(10);
++		cnt--;
++		if (!cnt) {
++			ret = -ETIME;
++			goto err;
++		}
++	} while (tx_status.tx_done != 1);
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_set_tone(struct dvb_frontend* fe, fe_sec_tone_mode_t tone)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 x1;
++
++	if (tone == SEC_TONE_ON) {
++		
++		ret = avl6211_diseqc_switch_mode(fe);
++		if (ret)
++			goto err;
++
++		ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++		if (ret)
++			goto err;
++		x1 &= 0xfffffff8;
++		x1 |= 0x03;	
++		ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++		if (ret)
++			goto err;
++		x1 |= (1 << 10);
++		ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++		if (ret)
++			goto err;
++			
++		state->diseqc_status = DISEQC_STATUS_CONTINUOUS;
++	} else {
++	
++		if (state->diseqc_status == DISEQC_STATUS_CONTINUOUS) {
++			ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++			if (ret)
++				goto err;
++			x1 &= 0xfffff3ff;
++			ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++			if (ret)
++				goto err;
++		}
++	}
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_set_voltage(struct dvb_frontend *fe,
++	fe_sec_voltage_t voltage)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 x1;
++	
++	if (voltage == SEC_VOLTAGE_13) {
++		if (state->config->use_lnb_pin59) {
++			ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++			if (ret)
++				goto err;
++			x1 &= 0xfffffdff;		
++			ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++			if (ret)
++				goto err;
++			msleep(20);	//delay 20ms
++		}
++		
++		if (state->config->use_lnb_pin60) {
++					
++			ret = avl6211_i2c_read32(state, gpio_reg_enb, &x1);
++			if (ret)
++				goto err;
++			x1 &= ~(1<<1);
++			ret = avl6211_i2c_write32(state, gpio_reg_enb, x1);  
++			if (ret)
++				goto err;
++			ret = avl6211_i2c_read32(state, gpio_data_reg_out, &x1);	
++			if (ret)
++				goto err;
++			x1 &= ~(1<<1) ;			
++			ret = avl6211_i2c_write32(state, gpio_data_reg_out, x1);
++			if (ret)
++				goto err;
++			msleep(20);
++
++		}		
++		if (state->config->set_external_vol_gpio) 
++			state->config->set_external_vol_gpio(&state->demod_id, voltage);
++		
++	} else if (voltage == SEC_VOLTAGE_18) {
++	
++		if (state->config->use_lnb_pin59) {
++			ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
++			if (ret)
++				goto err;
++			x1 &= 0xfffffdff;
++			x1 |= 0x200;
++			ret = avl6211_i2c_write32(state, diseqc_tx_cntrl_addr, x1);
++			if (ret)
++				goto err;
++			msleep(20);	//delay 20ms
++		}
++		if (state->config->use_lnb_pin60) {
++			ret = avl6211_i2c_read32(state, gpio_reg_enb, &x1);
++			if (ret)
++				goto err;
++			x1 &= ~(1<<1);
++			ret = avl6211_i2c_write32(state, gpio_reg_enb, x1);  
++			if (ret)
++				goto err;
++			ret = avl6211_i2c_read32(state, gpio_data_reg_out, &x1);	
++			if (ret)
++				goto err;
++			x1 |= 1<<1 ;			
++			ret = avl6211_i2c_write32(state, gpio_data_reg_out, x1);
++			if (ret)
++				goto err;
++			msleep(20);
++		}
++		if (state->config->set_external_vol_gpio)
++			state->config->set_external_vol_gpio(&state->demod_id, voltage);
++	}
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_read_ber(struct dvb_frontend* fe, u32* ber)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 r_ber;
++
++	*ber = 0;
++	
++	if (state->locked == 1) {		
++		ret = avl6211_i2c_read32(state, rp_uint_BER_addr, &r_ber);
++		if (ret)
++			goto err;
++			
++		if (r_ber > 0)			
++			*ber = r_ber / 1000000000;			
++	}
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int avl6211_read_snr(struct dvb_frontend* fe, u16* snr)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 r_snr;
++
++	*snr = 0;
++	
++	if (state->locked == 1) {
++		ret = avl6211_i2c_read32(state, rs_int_SNR_dB_addr, &r_snr);
++		if (ret)
++			goto err;
++		if (r_snr > 0 && r_snr <= 10000)
++			*snr = (r_snr * 0xffff) / 0x8B6;
++		
++	}
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++} 
++static int avl6211_read_signal_strength(struct dvb_frontend* fe, u16* signal_strength)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 rf;
++	*signal_strength = 0;
++		
++	if (state->locked == 1) {
++		ret = avl6211_i2c_read32(state, rx_aagc_gain, &rf);
++		if (ret)
++			goto err;
++		
++		rf += 0x800000;
++		rf &= 0xffffff;	
++		*signal_strength = (u16)(rf >> 8);
++
++	}
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_read_status(struct dvb_frontend* fe, fe_status_t* status)
++{
++	struct avl6211_state *state = fe->demodulator_priv;	
++	int ret;
++	*status = 0;
++	
++	ret = avl6211_i2c_read16(state, rs_fec_lock_addr, &state->locked);
++	if (ret)
++		goto err;
++
++	if (state->locked == 1) 
++		*status |= FE_HAS_SIGNAL | FE_HAS_CARRIER | 
++				FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK;
++		
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_read_ucblocks(struct dvb_frontend* fe, u32* ucblocks)
++{
++	*ucblocks = 0;
++	return 0;
++}
++static int avl6211_get_frontend(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
++	u32 code_rate;
++	u16 ret;
++		
++	if (!state->locked)
++		return 0;
++	
++	ret = avl6211_i2c_read32(state, rs_code_rate_addr, &code_rate);
++	if (ret)
++		goto err;
++		
++	p->frequency = state->frequency;
++	p->inversion = INVERSION_AUTO;
++	p->symbol_rate = state->symbol_rate;
++	
++	switch (code_rate) { 
++		case 0:
++		p->fec_inner = FEC_1_2;
++		break;
++		case 1:
++		p->fec_inner = FEC_2_3;
++		break;
++		case 2:
++		p->fec_inner = FEC_3_4;
++		break;
++		case 13:
++		p->fec_inner = FEC_4_5;
++		break;
++		case 14:
++		p->fec_inner = FEC_5_6;
++		break;
++		case 4:
++		p->fec_inner = FEC_6_7;
++		break;
++		case 5:
++		p->fec_inner = FEC_7_8;
++		break;
++		case 15:
++		p->fec_inner = FEC_8_9;
++		break;
++		case 10:
++		p->fec_inner = FEC_3_5;
++		break;
++		case 16:
++		p->fec_inner = FEC_9_10;
++		break;
++		default:
++		p->fec_inner = FEC_AUTO;
++		break;
++	}
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_channel_lock(struct dvb_frontend* fe)
++{
++    struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u32 IQ;
++	u32 autoIQ_Detect;
++	u16 Standard;
++	u16 auto_manual_lock;
++	int cnt = 0;
++
++	ret = avl6211_i2c_write16(state, rc_lock_mode_addr, 0);	
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_int_carrier_freq_half_range_MHz_addr, 500);
++	if (ret)
++		goto err;
++			
++	IQ = ((state->flags) & CI_FLAG_IQ_BIT_MASK) >> CI_FLAG_IQ_BIT;
++	ret = avl6211_i2c_write32(state, rc_specinv_addr, IQ);
++	if (ret)
++		goto err;
++	
++	Standard = (u16)(((state->flags) & CI_FLAG_DVBS2_BIT_MASK) >> CI_FLAG_DVBS2_BIT);
++	autoIQ_Detect = (((state->flags) & CI_FLAG_IQ_AUTO_BIT_MASK) >> CI_FLAG_IQ_AUTO_BIT);
++	auto_manual_lock = (u16)(((state->flags) & CI_FLAG_MANUAL_LOCK_MODE_BIT_MASK) >> CI_FLAG_MANUAL_LOCK_MODE_BIT);
++
++	
++	if((Standard == CI_FLAG_DVBS2_UNDEF) || (autoIQ_Detect == 1))
++		Standard = 0x14;
++
++	if (state->symbol_rate == 0)
++		state->symbol_rate = 1;
++	
++	ret = avl6211_i2c_write16(state, rc_fec_bypass_coderate_addr, auto_manual_lock);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_decode_mode_addr, Standard);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_iq_mode_addr, (u16)autoIQ_Detect);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, rc_int_sym_rate_MHz_addr, state->symbol_rate);
++	if (ret)
++		goto err;
++	
++	
++	ret = avl6211_send_op(OP_RX_INIT_GO, state);
++	if (ret)
++		goto err;
++		
++	do {
++		ret = avl6211_get_op_status(state);
++		if(!ret)
++			break;
++		msleep(1);
++	} while(cnt++ < 200);
++	
++	if (ret)
++		goto err;
++		
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_set_frontend(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int ret;
++	u16 cnt;
++	u32 max_time;
++	
++	
++	state->frequency = c->frequency;
++	state->symbol_rate = c->symbol_rate;
++	
++	state->locked = 0;
++
++	dev_info(&state->i2c->dev, 
++		"%s: delivery_system=%d frequency=%d symbol_rate=%d\n", 
++		__func__, c->delivery_system, c->frequency, c->symbol_rate);
++		
++	/* Halt CPU to improve tuner's locking speed */
++	ret = avl6211_cpu_halt(fe);
++	if (ret)
++		goto err;
++
++	state->tuner_lpf = ((state->symbol_rate * 75) / (10000000)) + 40;
++	
++	ret = av2011_lock(fe);
++	if (ret)
++		goto err;
++
++	/* Wait for tuner locking */
++	max_time = 150;  /* Max waiting time: 150ms */
++
++	cnt = max_time / 10;
++	do {	
++		ret = av2011_tuner_lock_status(fe);		
++
++		if (!ret)
++			break;
++		else {		
++			msleep(10);    /* Wait 10ms for demod to lock the channel */			
++			continue;
++		}		
++		
++	} while (--cnt);
++
++	if (!cnt) {
++		ret = -EAGAIN;
++		goto err;
++	}
++	
++	dev_info(&state->i2c->dev, "Tuner successfully lock!\n");
++
++	state->flags = (CI_FLAG_IQ_NO_SWAPPED) << CI_FLAG_IQ_BIT;			//Normal IQ
++	state->flags |= (CI_FLAG_IQ_AUTO_BIT_AUTO) << CI_FLAG_IQ_AUTO_BIT;	//Enable automatic IQ swap detection
++	state->flags |= (CI_FLAG_DVBS2_UNDEF) << CI_FLAG_DVBS2_BIT;			//Enable automatic standard detection
++	state->flags |= CI_FLAG_LOCK_MODE_BIT_MASK;
++
++	//This function should be called after tuner locked to lock the channel.
++	ret = avl6211_channel_lock(fe);
++	if (ret)
++		goto err;
++		
++	/* Wait a bit more when we have slow symbol rates */
++	if (c->symbol_rate < 5000000)
++		max_time = 5000*2; /* Max waiting time: 1000ms */
++	else if (c->symbol_rate < 10000000)
++		max_time = 600*2;  /* Max waiting time: 600ms */
++	else
++		max_time = 250*2;  /* Max waiting time: 250ms */
++
++	cnt = max_time / 10;
++	do {
++		ret = avl6211_i2c_read16(state, rs_fec_lock_addr, &state->locked);
++
++		if (!ret && state->locked == 1)
++				break;
++
++		msleep(10);    /* Wait 10ms for demod to lock the channel */		
++	} while (--cnt);
++	
++	if (!cnt) {
++		ret = -EAGAIN;
++		goto err;
++	}
++	dev_info(&state->i2c->dev, "Service locked!!!\n");
++
++	ret = avl6211_send_op(OP_RX_RESET_BERPER, state);
++	if (ret)
++		goto err;
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++	
++}
++
++static int avl6211_get_demod_status(struct dvb_frontend* fe)
++{
++	struct avl6211_state *state = fe->demodulator_priv;
++	int ret;
++	u8	buf[2]; 
++	u32 x1 = 0;
++	
++	ret = avl6211_i2c_read32(state, core_reset_b_reg, &x1);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_read16(state, core_ready_word_addr, (u16 *)buf);	
++	if (ret)
++		goto err;
++	
++	if ((x1 == 0) || (buf[0] != 0x5a) || (buf[1] != 0xa5)) {
++		ret = -EINVAL;
++		goto err;
++	}
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int avl6211_setup_pll(struct avl6211_state* state, const struct avl6211_pllconf * pll_ptr)
++{
++	int ret;
++	
++	ret = avl6211_i2c_write32(state, pll_clkf_map_addr, pll_ptr->m_uiClkf);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, pll_bwadj_map_addr, pll_ptr->m_uiClkf);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, pll_clkr_map_addr, pll_ptr->m_uiClkr);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, pll_od_map_addr, pll_ptr->m_uiPllod);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, pll_od2_map_addr, pll_ptr->m_uiPllod2);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, pll_od3_map_addr, pll_ptr->m_uiPllod3);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, pll_softvalue_en_map_addr, 1);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, reset_register_addr, 0);
++	if (ret)
++		goto err;
++	
++	/* Reset do not check for error */
++	avl6211_i2c_write32(state, reset_register_addr, 1);
++	
++	state->demod_freq = pll_ptr->demod_freq;
++	state->fec_freq = pll_ptr->fec_freq;
++	state->mpeg_freq = pll_ptr->mpeg_freq;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int avl6211_load_firmware(struct dvb_frontend* fe)
++{
++	struct avl6211_state* state = fe->demodulator_priv;
++	const struct firmware *fw = NULL;
++	u8 *buffer = NULL;
++	u32 buf_size, data_size;
++	u32 i = 4;
++	int ret;
++	
++	ret = avl6211_i2c_write32(state, core_reset_b_reg, 0);
++	if (ret)
++		goto err;
++
++	dev_info(&state->i2c->dev, "Uploading demod firmware (%s)...\n", AVL6211_DEMOD_FW);
++	ret = request_firmware(&fw, AVL6211_DEMOD_FW, &state->i2c->dev);
++	if (ret) {
++		dev_info(&state->i2c->dev, "Firmware upload failed. Timeout or file not found\n");
++		goto err;
++	}    
++
++	buffer = kmalloc(fw->size , GFP_KERNEL);
++	if (!buffer) {
++		release_firmware(fw);
++		fw = NULL;
++		dev_info(&state->i2c->dev, "Failed to allocate tmp memory for firmware\n");
++		return -ENOMEM;
++	}
++	memcpy(buffer, fw->data, fw->size);
++	
++	release_firmware(fw);
++	fw = NULL;
++	
++	data_size = extract_32(buffer);
++	while (i < data_size)
++	{
++		buf_size = extract_32(buffer + i);
++		i += 4;
++		ret = avl6211_i2c_write(state, buffer + i + 1, (u16)(buf_size + 3));
++		if (ret)
++			goto err;
++			
++		i += 4 + buf_size;
++	}
++	
++	ret = avl6211_i2c_write32(state, 0x00000000, 0x00003ffc);
++	if (ret)
++			goto err;
++	ret = avl6211_i2c_write16(state, core_ready_word_addr, 0x0000);
++	if (ret)
++			goto err;
++	ret = avl6211_i2c_write32(state, error_msg_addr, 0x00000000);
++	if (ret)
++			goto err;
++	ret = avl6211_i2c_write32(state, error_msg_addr + 4, 0x00000000);
++	if (ret)
++			goto err;
++
++	/* Reset do not check for error */
++	avl6211_i2c_write32(state, core_reset_b_reg, 1);
++	
++	kfree(buffer);
++	return 0;
++	
++err:
++	kfree(buffer);
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int avl6211_init(struct dvb_frontend* fe)
++{
++	struct avl6211_state* state = fe->demodulator_priv;
++	int ret;
++
++	ret = avl6211_setup_pll(state, (const struct avl6211_pllconf * )(pll_conf + state->config->demod_refclk));
++	if (ret)
++		goto err;
++	msleep(5);
++	
++	ret = avl6211_load_firmware(fe);
++	if (ret)
++		goto err;
++		
++	msleep(100);
++	
++	ret = avl6211_get_demod_status(fe);
++	if (ret)
++		goto err;
++	
++	/* Set clk to match the PLL */
++	ret = avl6211_i2c_write16(state, rc_int_dmd_clk_MHz_addr,  state->demod_freq);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_int_fec_clk_MHz_addr, state->fec_freq);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_int_mpeg_clk_MHz_addr, state->mpeg_freq);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, rc_format_addr, 1);
++	if (ret)
++		goto err;
++	
++	/* Set AGC polarization */
++	ret = avl6211_i2c_write32(state, rc_rfagc_pol_addr, (u32)state->config->tuner_rfagc);
++	if (ret)
++		goto err;	
++	/* Drive RF AGC */
++	ret = avl6211_i2c_write16(state, rc_aagc_ref_addr, 0x30);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, rc_rfagc_tri_enb, 1);
++	if (ret)
++		goto err;
++	
++	ret = avl6211_i2c_write16(state, rc_fast_reacquisition_addr, ENABLE_FAST_REACQ);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, rc_equalizer_addr, ENABLE_CCI);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_IfOffset_addr, IF_OFFSET);
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write32(state, rc_Max_LowIf_SR_addr, MAX_LOWIF_SR);	//Open the low symbol rate frequency offset
++	if (ret)
++		goto err;
++	
++	ret = avl6211_i2c_write16(state, rc_blind_scan_tuner_spectrum_inversion_addr, (u16)state->config->tuner_spectrum);
++	if (ret)
++		goto err;
++	
++	ret = avl6211_i2c_write32(state, rc_mpeg_mode_addr, (u32)(state->config->mpeg_format));
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_mpeg_serial_addr, (u16)(state->config->mpeg_mode));
++	if (ret)
++		goto err;
++	ret = avl6211_i2c_write16(state, rc_mpeg_posedge_addr, (u16)(state->config->mpeg_pol));
++	if (ret)
++		goto err;
++	
++	if (state->config->mpeg_mode) {
++		ret = avl6211_i2c_write32(state, rc_outpin_sel_addr, (u32)(state->config->mpeg_pin));		
++		if (ret)
++			goto err;
++	}
++	
++	ret = avl6211_i2c_write32(state, rc_mpeg_bus_tri_enb, 1);
++	if (ret)
++		goto err;
++	
++	ret = av2011_tuner_init(fe);
++	if (ret)
++		goto err;
++	ret = avl6211_diseqc_init(fe);
++	if (ret)
++		goto err;
++	
++	ret = avl6211_i2c_write32(state,  gpio_data_reg_out, 0);
++	if (ret)
++		goto err;
++	
++	ret = avl6211_i2c_write32(state, gpio_reg_enb, 0);
++	if (ret)
++		goto err;
++	
++	dev_info(&state->i2c->dev, "AVL6211+AV2011 init OK\n");
++	return 0;
++
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static void avl6211_release(struct dvb_frontend* fe)
++{
++	struct avl6211_state* state = fe->demodulator_priv;
++	kfree(state);
++}
++
++static struct dvb_frontend_ops avl6211_ops = {
++	.delsys = { SYS_DVBS, SYS_DVBS2 }, 
++	.info = {
++		.name = "Availink AVL6211+AV2011 DVB-S/S2",	
++		.frequency_min = 950000,
++		.frequency_max = 2150000,
++		.frequency_stepsize = 0,		
++		.frequency_tolerance = 0,
++		.symbol_rate_min = 800000,		/* Min = 800K */
++		.symbol_rate_max = 50000000,	/* Max = 50M */
++		.caps = FE_CAN_INVERSION_AUTO |
++			FE_CAN_FEC_1_2 | FE_CAN_FEC_2_3 | FE_CAN_FEC_3_4 |
++			FE_CAN_FEC_4_5 | FE_CAN_FEC_5_6 | FE_CAN_FEC_6_7 |
++			FE_CAN_FEC_7_8 | FE_CAN_FEC_8_9 | FE_CAN_FEC_AUTO |
++			FE_CAN_QPSK    | FE_CAN_RECOVER
++	},
++
++	.init = avl6211_init,
++	.release = avl6211_release,
++	.read_status = avl6211_read_status,
++	.read_ber = avl6211_read_ber,
++	.read_signal_strength = avl6211_read_signal_strength,
++	.read_snr = avl6211_read_snr,
++	.read_ucblocks = avl6211_read_ucblocks,
++	.set_tone = avl6211_set_tone,	
++	.set_voltage = avl6211_set_voltage,
++	.diseqc_send_master_cmd = avl6211_send_diseqc_msg,
++	.diseqc_send_burst = avl6211_diseqc_send_burst,
++	.set_frontend = avl6211_set_frontend,
++	.get_frontend = avl6211_get_frontend,
++};
++
++struct dvb_frontend* avl6211_attach(struct i2c_adapter* i2c,
++									struct avl6211_config* config,
++									int id)
++									
++{
++	struct avl6211_state* state = NULL;
++	int ret;
++	u32 ChipID = 0;
++	
++	state = kzalloc(sizeof(struct avl6211_state), GFP_KERNEL);
++	if (!state) {
++		ret = -ENOMEM;
++		dev_err(&i2c->dev, "kzalloc() failed\n");
++		goto err1;
++	}
++
++	state->config = config;
++	state->i2c = i2c;	
++	state->demod_id = id;
++	
++	ret = avl6211_i2c_read32(state, rs_cust_chip_id_addr, &ChipID);
++	if (ret || ChipID != 0x0000000F)
++		goto err2;
++
++	dev_info(&i2c->dev, "AVL6211+AV2011 DVB-S/S2 successfully attached\n");	
++	
++	memcpy(&state->frontend.ops, &avl6211_ops, sizeof(struct dvb_frontend_ops));
++	state->frontend.demodulator_priv = state;
++
++	return &state->frontend;
++	
++err2:	
++	kfree(state);
++err1:	
++	dev_dbg(&i2c->dev, "%s: failed=%d\n", __func__, ret);	
++	return NULL;
++}
++
++EXPORT_SYMBOL(avl6211_attach);
++
++MODULE_DESCRIPTION("Availink AVL6211+AV2011 demod+tuner driver");
++MODULE_AUTHOR("Sasa Savic <sasa.savic.sr@gmail.com>");
++MODULE_LICENSE("GPL");
+\ No newline at end of file
+diff -Naur a/drivers/amlogic/wetek/avl6211.h b/drivers/amlogic/wetek/avl6211.h
+--- a/drivers/amlogic/wetek/avl6211.h	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/avl6211.h	2015-01-11 16:04:04.000000000 +0100
+@@ -0,0 +1,156 @@
++/*
++ * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++ 
++#ifndef __AVL6211_H_
++#define __AVL6211_H_
++
++#include <linux/types.h>
++#include <linux/i2c.h>
++
++
++#define AVL6211_DEMOD_FW 		"dvb-fe-avl6211.fw" 
++
++#define I2C_MAX_READ	64
++#define I2C_MAX_WRITE	64
++
++
++#define CI_FLAG_IQ_BIT							0x00000000
++#define CI_FLAG_IQ_BIT_MASK						0x00000001
++#define CI_FLAG_IQ_NO_SWAPPED					0x00000000
++#define CI_FLAG_IQ_SWAPPED						0x00000001
++#define CI_FLAG_IQ_AUTO_BIT_MASK				0x00000020  
++
++
++#define CI_FLAG_IQ_AUTO_BIT						0x00000005
++#define CI_FLAG_IQ_AUTO_BIT_AUTO				0x00000001
++
++#define CI_FLAG_DVBS2_BIT						0x00000002
++#define CI_FLAG_DVBS2_UNDEF						0x00000004
++#define CI_FLAG_DVBS2_BIT_MASK					0x0000001c
++
++#define CI_FLAG_MANUAL_LOCK_MODE_BIT			0x00000001
++#define CI_FLAG_MANUAL_LOCK_MODE_BIT_MASK		0x00000002
++#define CI_FLAG_LOCK_MODE_BIT_MASK				0x00000040
++
++
++#define ENABLE_FAST_REACQ           0x01
++#define DISABLE_FAST_REACQ          0x00
++#define ENABLE_CCI                  0x03
++#define DISABLE_CCI                 0x02
++#define MAX_LOWIF_SR                5000000
++#define IF_OFFSET                   500
++
++
++/* Demod commands */
++#define OP_RX_NOOP                  0x00
++#define OP_RX_LD_DEFAULT            0x01
++#define OP_RX_INIT_GO               0x02
++#define OP_RX_RESET_BERPER          0x03
++#define OP_RX_HALT                  0x04
++#define OP_RX_SLEEP                 0x05
++#define OP_RX_WAKE                  0x06
++#define OP_RX_BLIND_SCAN            0x08
++#define OP_RX_STDOUT_MODE           0x09
++	
++/* Diseqc status */
++#define DISEQC_STATUS_UNINIT				0x00
++#define DISEQC_STATUS_INIT					0x01
++#define DISEQC_STATUS_CONTINUOUS			0x02
++#define DISEQC_STATUS_TONE					0x03
++#define DISEQC_STATUS_MOD					0x04
++
++#define I2CM_CMD_LENGTH   0x14
++#define I2CM_RSP_LENGTH   0x14
++
++#define OP_I2CM_NOOP      0x00
++#define OP_I2CM_INIT	  0x01
++#define OP_I2CM_WRITE     0x02
++#define OP_I2CM_READ      0x03
++
++	
++
++#define format_addr(X, Y)		\
++	do {						\
++		Y[0] =(u8)((X) >> 16);	\
++		Y[1] =(u8)((X) >> 8);	\
++		Y[2] =(u8)(X);			\
++	} while (0)
++
++
++#define format_16(X, Y)			\
++	do {						\
++		Y[0] =(u8)((X) >> 8);	\
++		Y[1] =(u8)((X) & 0xFF);	\
++	} while (0)
++
++
++#define format_32(X, Y)			\
++	do {						\
++		Y[0] =(u8)((X) >> 24);	\
++		Y[1] =(u8)((X) >> 16);	\
++		Y[2] =(u8)((X) >> 8);	\
++		Y[3] =(u8)((X) & 0xFF);	\
++	} while (0)
++
++
++struct avl6211_pllconf
++{
++	u16 m_uiClkf; /* Feedback clock divider */
++	u16 m_uiClkr; /* Reference clock divider */
++	u16 m_uiPllod; /* PLL output divider */
++	u16 m_uiPllod2; /* PLL output divider 2 */
++	u16 m_uiPllod3; /* PLL output divider 3 */
++	u16 ref_freq; /* Reference clock in kHz */
++	u16 demod_freq; /* Demod clock in 10kHz */
++	u16 fec_freq; /* FEC clock in 10kHz */
++	u16 mpeg_freq; /* MPEG clock in 10kHz */
++};
++
++struct avl6211_config
++{
++	u8 tuner_address; /* Tuner i2c address */
++	u16 tuner_i2c_clock;	
++	u8 demod_address;	/* The demodulator's i2c address  0x0C */ 
++				
++	u8 mpeg_pol; /* 0 - Falling, 1 - Rising */
++	u8 mpeg_mode; /* 0 - Parallel, 1 - Serial */
++	u8 mpeg_format; /* 0 - Default TS stream, 1 - TS stream plus parity format */
++	
++	u8 demod_refclk; /* Reference clock frequency selection */
++
++	/* Serial data is output on pin */
++	u8 mpeg_pin; /* 0 -  MPEG_DATA_0, 1 - MPEG_DATA_7 */
++	
++	u8 tuner_rfagc; /* 0 - Normal pol, 1 - Inverted pol */
++	u8 tuner_spectrum; /* 0 - signal spectrum normal, 1 - signal spectrum inverted */
++	
++	u8 use_lnb_pin59; /* control 13/18V over demod GPIO pin59 */
++	u8 use_lnb_pin60; /* control 13/18V over demod GPIO pin60 */
++
++	int (*set_external_vol_gpio)(int *demod_id, fe_sec_voltage_t voltage); /* external 13/18V control */
++};
++
++
++
++extern struct dvb_frontend* avl6211_attach(struct i2c_adapter* i2c,
++											struct avl6211_config* config,
++											int id);
++
++#endif
+\ No newline at end of file
+diff -Naur a/drivers/amlogic/wetek/avl6211_reg.h b/drivers/amlogic/wetek/avl6211_reg.h
+--- a/drivers/amlogic/wetek/avl6211_reg.h	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/avl6211_reg.h	2015-01-14 16:01:45.000000000 +0100
+@@ -0,0 +1,106 @@
++/*
++ * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++ 
++#ifndef __AVL6211_REG_H_
++#define __AVL6211_REG_H_
++
++
++#define core_reset_b_reg            				0x600000
++#define gpio_data_in_to_reg         				0x6C0004
++#define gpio_data_reg_out           				0x6C0008
++#define gpio_reg_enb                				0x6C000C
++
++#define pll_clkr_map_addr           				0x6C40C0
++#define pll_clkf_map_addr          					0x6C4100
++#define pll_od_map_addr             				0x6C4080
++#define pll_od2_map_addr            				0x6C4140
++#define pll_od3_map_addr            				0x6C4180
++#define pll_bwadj_map_addr          				0x6C41C0
++#define pll_softvalue_en_map_addr   				0x6C4200
++#define reset_register_addr         				0x6C4000
++
++	
++#define rx_aagc_gain                                0x0000261A
++#define rc_rfagc_tri_enb                            0x006C002C
++#define rc_mpeg_bus_tri_enb                         0x006C0028
++
++
++#define raptor_status_addr						   (0x00000860 + 0x0)
++#define rx_state_addr                              (0x00000690 + 0x0)
++#define rx_cmd_addr                                (0x00000400 + 0x0)
++#define i2cm_cmd_addr                              (0x00000404 + 0x0)
++#define i2cm_rsp_addr                              (0x00000418 + 0x0)
++#define error_msg_addr                             (0x0000042c + 0x0)
++#define rx_config_addr                             (0x0000043c + 0x0)
++#define core_ready_word_addr                       (0x00000434 + 0x0)
++
++
++
++#define rs_cust_chip_id_addr                        0x006C0030
++
++#define	rp_uint_BER_addr                           (raptor_status_addr + 0x0)
++#define	rc_rfagc_pol_addr                          (rx_config_addr + 0x0)
++#define	rc_equalizer_addr                          (rx_config_addr + 0x8)
++#define	rs_code_rate_addr                          (rx_state_addr + 0x8)
++#define	rc_format_addr                             (rx_config_addr + 0x10)
++#define	rc_mpeg_mode_addr                          (rx_config_addr + 0x20)
++#define	rc_outpin_sel_addr                         (rx_config_addr + 0x24)
++#define	rs_int_SNR_dB_addr                         (rx_state_addr + 0x40)
++#define	rc_aagc_ref_addr                           (rx_config_addr + 0xaa)
++#define	rc_mpeg_posedge_addr                       (rx_config_addr + 0xbc)
++#define	rc_mpeg_serial_addr                        (rx_config_addr + 0xbe)
++#define	rs_fec_lock_addr                           (rx_state_addr + 0x164)
++#define	rc_specinv_addr                            (rx_config_addr + 0x34)
++#define	rc_int_sym_rate_MHz_addr                   (rx_config_addr + 0x54)
++#define	rc_dvbs_ber_addr                           (rx_config_addr + 0x98)
++#define	rc_int_dmd_clk_MHz_addr                    (rx_config_addr + 0x162)
++#define	rc_int_fec_clk_MHz_addr                    (rx_config_addr + 0x164)
++#define	rc_int_mpeg_clk_MHz_addr                   (rx_config_addr + 0x166)
++#define	rc_int_carrier_freq_half_range_MHz_addr    (rx_config_addr + 0x16c)
++#define	rc_fec_bypass_coderate_addr                (rx_config_addr + 0x194)
++#define	rc_i2cm_speed_kHz_addr                     (rx_config_addr + 0x1ae)
++#define	rc_tuner_slave_addr_addr                   (rx_config_addr + 0x1b6)
++#define	rc_tuner_max_LPF_100kHz_addr               (rx_config_addr + 0x1b8)
++#define	rc_tuner_LPF_margin_100kHz_addr            (rx_config_addr + 0x1ba)
++#define	rc_tuner_use_internal_control_addr         (rx_config_addr + 0x1bc)
++
++#define	rc_decode_mode_addr                        (rx_config_addr + 0x202)
++#define	rc_iq_mode_addr                            (rx_config_addr + 0x204)
++#define	rc_lock_mode_addr                          (rx_config_addr + 0x20a)
++#define	rc_blind_scan_tuner_spectrum_inversion_addr (rx_config_addr + 0x220)
++
++
++
++#define diseqc_tx_cntrl_addr						0x00700000
++#define diseqc_tone_frac_n_addr						0x00700004
++#define diseqc_tone_frac_d_addr						0x00700008
++#define diseqc_tx_st_addr							0x0070000c
++#define diseqc_rx_msg_tim_addr						0x00700014
++#define diseqc_rx_cntrl_addr						0x0070001c
++#define diseqc_srst_addr							0x00700020
++#define diseqc_samp_frac_n_addr						0x00700028
++#define diseqc_samp_frac_d_addr						0x0070002c
++#define diseqc_tx_fifo_map_addr						0x00700080
++
++#define rc_fast_reacquisition_addr                  0x2622
++#define rc_Max_LowIf_SR_addr                        0x263E
++#define rc_IfOffset_addr                            0x2642
++
++#endif
+\ No newline at end of file
+diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
+--- a/drivers/amlogic/wetek/cxd2837.c	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/cxd2837.c	2015-01-13 01:11:54.000000000 +0100
+@@ -0,0 +1,1580 @@
++/*
++ * Sony CXD2837 DVB-T/T2/C demodulator driver
++ *
++ * Copyright (C) 2010-2013 Digital Devices GmbH
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/version.h>
++#include <linux/mutex.h>
++#include <asm/div64.h>
++#include "dvb_math.h"
++#include "dvb_frontend.h"
++#include "cxd2837.h"
++
++
++struct ts_clk {
++	u8 serialClkMode;      
++	u8 serialDutyMode;
++	u8 tsClkPeriod; 
++	u8 clkSelTsIf;
++};
++
++struct cxd_state {
++	struct dvb_frontend   frontend;
++	struct i2c_adapter   *i2c;
++	struct mutex          mutex;
++
++	u8  adrt;
++	u8  curbankt;
++
++	u8  adrx;
++	u8  curbankx;
++	
++	fe_delivery_system_t delivery_system;
++
++	enum EDemodState state;	
++	enum xtal_freq xtal;
++
++	u8	IF_AGC;
++	u8    IF_FS;
++	int   ContinuousClock;
++	int   SerialMode;
++	u8    SerialClockFrequency;
++	u8	ErrorPolarity;
++	u8	ClockPolarity;
++	u8	RfainMon;
++	u32   LockTimeout;
++	u32   TSLockTimeout;
++	u32   L1PostTimeout;
++	u32   DataSliceID;
++	int   FirstTimeLock;
++	u32   plp;
++	u32   last_status;
++
++	u32   bandwidth;
++	u32   bw;
++
++	unsigned long tune_time;
++
++	u32   LastBERNominator;
++	u32   LastBERDenominator;
++	u8    BERScaleMax;
++};
++static int i2c_write(struct i2c_adapter *adap, u8 adr, u8 *data, int len)
++{
++	int ret;
++	struct i2c_msg msg[1] = {
++			{
++					.addr = adr, 
++					.flags = 0,
++					.buf = data,
++					.len = len,
++			}
++	};
++
++	ret = i2c_transfer(adap, msg, 1);
++	if (ret == 1) {
++		ret = 0;
++	} else {
++			dev_warn(&adap->dev, "i2c wr failed=%d reg=%02x "
++							, ret, data[0]);
++			ret = -EREMOTEIO;
++	}
++	
++	return ret;
++}
++
++static int writeregs(struct cxd_state *state, u8 adr, u8 reg,
++		     u8 *regd, u16 len)
++{
++	u8 data[len + 1];
++
++	data[0] = reg;
++	memcpy(data + 1, regd, len);
++	return i2c_write(state->i2c, adr, data, len + 1);
++}
++
++static int writereg(struct cxd_state *state, u8 adr, u8 reg, u8 dat)
++{
++	u8 mm[2] = {reg, dat};
++
++	return i2c_write(state->i2c, adr, mm, 2);
++}
++
++static int i2c_read(struct i2c_adapter *adap,
++		    u8 adr, u8 *msg, int len, u8 *answ, int alen)
++{
++	int ret;
++	struct i2c_msg msgs[2] = { 
++			{ 
++					.addr = adr, 
++					.flags = 0,
++				    .buf = msg,
++					.len = len
++			}, { 
++					.addr = adr,
++					.flags = I2C_M_RD,					
++				    .buf = answ, 
++					.len = alen, 
++			} 
++	};
++	ret = i2c_transfer(adap, msgs, 2);
++	if (ret == 2) {
++		ret = 0;
++	} else {
++			dev_warn(&adap->dev, "i2c rd failed=%d reg=%02x "
++							, ret, *msg);
++			ret = -EREMOTEIO;
++	}
++	return ret;
++}
++
++static int readregs(struct cxd_state *state, u8 adr, u8 reg,
++		    u8 *val, int count)
++{
++	return i2c_read(state->i2c, adr, &reg, 1, val, count);
++}
++
++static int readregst_unlocked(struct cxd_state *cxd, u8 bank,
++			      u8 Address, u8 *pValue, u16 count)
++{
++	int status = 0;
++
++	if (bank != 0xFF && cxd->curbankt != bank) {
++		status = writereg(cxd, cxd->adrt, 0, bank);
++		if (status < 0) {
++			cxd->curbankt = 0xFF;
++			return status;
++		}
++		cxd->curbankt = bank;
++	}
++	status = readregs(cxd, cxd->adrt, Address, pValue, count);
++	return status;
++}
++
++static int readregst(struct cxd_state *cxd, u8 Bank,
++		     u8 Address, u8 *pValue, u16 count)
++{
++	int status;
++
++	mutex_lock(&cxd->mutex);
++	status = readregst_unlocked(cxd, Bank, Address, pValue, count);
++	mutex_unlock(&cxd->mutex);
++	return status;
++}
++
++static int readregsx_unlocked(struct cxd_state *cxd, u8 Bank,
++			      u8 Address, u8 *pValue, u16 count)
++{
++	int status = 0;
++
++	if (Bank != 0xFF && cxd->curbankx != Bank) {
++		status = writereg(cxd, cxd->adrx, 0, Bank);
++		if (status < 0) {
++			cxd->curbankx = 0xFF;
++			return status;
++		}
++		cxd->curbankx = Bank;
++	}
++	status = readregs(cxd, cxd->adrx, Address, pValue, count);
++	return status;
++}
++
++static int readregsx(struct cxd_state *cxd, u8 Bank,
++		     u8 Address, u8 *pValue, u16 count)
++{
++	int status;
++
++	mutex_lock(&cxd->mutex);
++	status = readregsx_unlocked(cxd, Bank, Address, pValue, count);
++	mutex_unlock(&cxd->mutex);
++	return status;
++}
++
++static int writeregsx_unlocked(struct cxd_state *cxd, u8 Bank,
++			       u8 Address, u8 *pValue, u16 count)
++{
++	int status = 0;
++
++	if (Bank != 0xFF && cxd->curbankx != Bank) {
++		status = writereg(cxd, cxd->adrx, 0, Bank);
++		if (status < 0) {
++			cxd->curbankx = 0xFF;
++			return status;
++		}
++		cxd->curbankx = Bank;
++	}
++	status = writeregs(cxd, cxd->adrx, Address, pValue, count);
++	return status;
++}
++
++static int writeregsx(struct cxd_state *cxd, u8 Bank, u8 Address,
++		      u8 *pValue, u16 count)
++{
++	int status;
++
++	mutex_lock(&cxd->mutex);
++	status = writeregsx_unlocked(cxd, Bank, Address, pValue, count);
++	mutex_unlock(&cxd->mutex);
++	return status;
++}
++
++static int writeregx(struct cxd_state *cxd, u8 Bank, u8 Address, u8 val)
++{
++	return writeregsx(cxd, Bank, Address, &val, 1);
++}
++
++static int writeregst_unlocked(struct cxd_state *cxd, u8 Bank,
++			       u8 Address, u8 *pValue, u16 count)
++{
++	int status = 0;
++
++	if (Bank != 0xFF && cxd->curbankt != Bank) {
++		status = writereg(cxd, cxd->adrt, 0, Bank);
++		if (status < 0) {
++			cxd->curbankt = 0xFF;
++			return status;
++		}
++		cxd->curbankt = Bank;
++	}
++	status = writeregs(cxd, cxd->adrt, Address, pValue, count);
++	return status;
++}
++
++static int writeregst(struct cxd_state *cxd, u8 Bank, u8 Address,
++		      u8 *pValue, u16 count)
++{
++	int status;
++
++	mutex_lock(&cxd->mutex);
++	status = writeregst_unlocked(cxd, Bank, Address, pValue, count);
++	mutex_unlock(&cxd->mutex);
++	return status;
++}
++
++static int writeregt(struct cxd_state *cxd, u8 Bank, u8 Address, u8 val)
++{
++	return writeregst(cxd, Bank, Address, &val, 1);
++}
++
++static int writebitsx(struct cxd_state *cxd, u8 Bank, u8 Address,
++		      u8 Value, u8 Mask)
++{
++	int status = 0;
++	u8 tmp;
++
++	mutex_lock(&cxd->mutex);
++	status = readregsx_unlocked(cxd, Bank, Address, &tmp, 1);
++	if (status < 0)
++		return status;
++	tmp = (tmp & ~Mask) | Value;
++	status = writeregsx_unlocked(cxd, Bank, Address, &tmp, 1);
++	mutex_unlock(&cxd->mutex);
++	return status;
++}
++
++static int writebitst(struct cxd_state *cxd, u8 Bank, u8 Address,
++		      u8 Value, u8 Mask)
++{
++	int status = 0;
++	u8 Tmp = 0x00;
++
++	mutex_lock(&cxd->mutex);
++	status = readregst_unlocked(cxd, Bank, Address, &Tmp, 1);
++	if (status < 0)
++		return status;
++	Tmp = (Tmp & ~Mask) | Value;
++	status = writeregst_unlocked(cxd, Bank, Address, &Tmp, 1);
++	mutex_unlock(&cxd->mutex);
++	return status;
++}
++
++static int freeze_regst(struct cxd_state *cxd)
++{
++	mutex_lock(&cxd->mutex);
++	return writereg(cxd, cxd->adrt, 1, 1);
++}
++
++static int unfreeze_regst(struct cxd_state *cxd)
++{
++	int status = 0;
++
++	status = writereg(cxd, cxd->adrt, 1, 0);
++	mutex_unlock(&cxd->mutex);
++	return status;
++}
++
++static inline u32 MulDiv32(u32 a, u32 b, u32 c)
++{
++	u64 tmp64;
++
++	tmp64 = ((u64)a * (u64)b) + (u64)20500000;
++	do_div(tmp64, c);
++
++	return (u32) tmp64;
++}
++
++/* TPSData[0] [7:6]  CNST[1:0] */
++/* TPSData[0] [5:3]  HIER[2:0] */
++/* TPSData[0] [2:0]  HRATE[2:0] */
++/* TPSData[1] [7:5]  LRATE[2:0] */
++/* TPSData[1] [4:3]  GI[1:0] */
++/* TPSData[1] [2:1]  MODE[1:0] */
++/* TPSData[2] [7:6]  FNUM[1:0] */
++/* TPSData[2] [5:0]  LENGTH_INDICATOR[5:0] */
++/* TPSData[3] [7:0]  CELLID[15:8] */
++/* TPSData[4] [7:0]  CELLID[7:0] */
++/* TPSData[5] [5:0]  RESERVE_EVEN[5:0] */
++/* TPSData[6] [5:0]  RESERVE_ODD[5:0] */
++
++static int read_tps(struct cxd_state *state, u8 *tps)
++{
++	if (state->last_status != 0x1f)
++		return 0;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x10, 0x2f, tps, 7);
++	unfreeze_regst(state);
++	return 0;
++}
++
++static void Active_to_Sleep(struct cxd_state *state)
++{
++	if (state->state <= Sleep)
++		return;
++
++	writeregt(state, 0x00, 0xC3, 0x01); /* Disable TS */
++	writeregt(state, 0x00, 0x80, 0x3F); /* Enable HighZ 1 */
++	writeregt(state, 0x00, 0x81, 0xFF); /* Enable HighZ 2 */
++	writeregx(state, 0x00, 0x18, 0x01); /* Disable ADC 4 */
++	writeregt(state, 0x00, 0x43, 0x0A); /* Disable ADC 2 */
++	writeregt(state, 0x00, 0x41, 0x0A); /* Disable ADC 1 */
++	writeregt(state, 0x00, 0x30, 0x00); /* Disable ADC Clock */
++	writeregt(state, 0x00, 0x2F, 0x00); /* Disable RF level Monitor */
++	writeregt(state, 0x00, 0x2C, 0x00); /* Disable Demod Clock */
++	state->state = Sleep;
++}
++
++static void ActiveT2_to_Sleep(struct cxd_state *state)
++{
++	if (state->state <= Sleep)
++		return;
++
++	writeregt(state, 0x00, 0xC3, 0x01); /* Disable TS */
++	writeregt(state, 0x00, 0x80, 0x3F); /* Enable HighZ 1 */
++	writeregt(state, 0x00, 0x81, 0xFF); /* Enable HighZ 2 */
++
++	writeregt(state, 0x13, 0x83, 0x40);
++	writeregt(state, 0x13, 0x86, 0x21);
++	writebitst(state, 0x13, 0x9E, 0x09, 0x0F);
++	writeregt(state, 0x13, 0x9F, 0xFB);
++
++	writeregx(state, 0x00, 0x18, 0x01); /* Disable ADC 4 */
++	writeregt(state, 0x00, 0x43, 0x0A); /* Disable ADC 2 */
++	writeregt(state, 0x00, 0x41, 0x0A); /* Disable ADC 1 */
++	writeregt(state, 0x00, 0x30, 0x00); /* Disable ADC Clock */
++	writeregt(state, 0x00, 0x2F, 0x00); /* Disable RF level Monitor */
++	writeregt(state, 0x00, 0x2C, 0x00); /* Disable Demod Clock */
++	state->state = Sleep;
++}
++
++static int ConfigureTS(struct cxd_state *state,
++		       fe_delivery_system_t delivery_system)
++{
++	int ret = 0;
++	u8 serialTs;
++    u8 tsRateCtrlOff;
++    u8 tsInOff;
++    u8 backwardsCompatible = 0;
++	struct ts_clk tsClk;
++	
++	struct ts_clk sTsClk[2][6] = {
++		{ 			
++			{ 3, 1, 8, 0 }, 
++			{ 3, 1, 8, 1 },
++			{ 3, 1, 8, 2 }, 
++			{ 0, 2, 16, 0 }, 
++			{ 0, 2, 16, 1 }, 
++			{ 0, 2, 16, 2 }  
++		},
++		{ 		
++			{ 1, 1, 8, 0 },			
++			{ 1, 1, 8, 1 },
++			{ 1, 1, 8, 2 }, 
++			{ 2, 2, 16, 0 }, 
++			{ 2, 2, 16, 1 }, 
++			{ 2, 2, 16, 2 }			
++		}
++	};
++
++    struct ts_clk pTsClk = { 0, 0, 8, 0 };
++	
++    struct ts_clk bsTsClk[2] = {
++		{ 3, 1, 8, 1 },		
++		{ 1, 1, 8, 1 }		
++	}; 
++    struct ts_clk bpTsClk = { 0, 0, 8, 1 };
++	
++	readregst(state, 0x00, 0xC4, &serialTs, 1);
++	readregst(state, 0x00, 0xD3, &tsRateCtrlOff, 1);
++	readregst(state, 0x00, 0xDE, &tsInOff, 1);
++	
++	if ((tsRateCtrlOff & 0x01) != (tsInOff & 0x01)) {
++		ret = -EINVAL;
++		goto error;
++	}
++	if ((tsRateCtrlOff & 0x01) && (tsInOff & 0x01)) {
++        backwardsCompatible = 1;
++          
++        if (serialTs & 0x80) 
++            tsClk = bsTsClk[state->ContinuousClock];
++        else           
++            tsClk = bpTsClk;
++        
++    }
++    else if (serialTs & 0x80) 
++		tsClk = sTsClk[state->ContinuousClock][state->SerialClockFrequency];
++    else       
++		tsClk = pTsClk;
++	
++	if (serialTs & 0x80) {
++		writebitst(state, 0x00, 0xC4, tsClk.serialClkMode, 0x03); 
++		writebitst(state, 0x00, 0xD1, tsClk.serialDutyMode, 0x03);
++	}
++	writeregt(state, 0x00, 0xD9, tsClk.tsClkPeriod);
++	writebitst(state, 0x00, 0x32, 0x00, 0x01); /* Disable TS IF */
++	
++	writebitst(state, 0x00, 0x33, tsClk.clkSelTsIf, 0x03);
++	writebitst(state, 0x00, 0x32, 0x01, 0x01); /* Enable TS IF */
++
++	if (delivery_system == SYS_DVBT)
++		writebitst(state, 0x10, 0x66, 0x01, 0x01);
++	if (delivery_system == SYS_DVBC_ANNEX_A)
++		writebitst(state, 0x40, 0x66, 0x01, 0x01);
++
++error:
++	return ret;
++}
++
++static void BandSettingT(struct cxd_state *state, u32 iffreq)
++{
++	u8 IF_data[3] = { (iffreq >> 16) & 0xff,
++			  (iffreq >> 8) & 0xff, iffreq & 0xff};
++
++	switch (state->bw) {
++	default:
++	case 8:
++	{
++		u8 TR_data[] = { 0x11, 0xF0, 0x00, 0x00, 0x00 };
++		u8 CL_data[] = { 0x01, 0xE0 };
++		u8 NF_data[] = { 0x01, 0x02 };
++
++		writeregst(state, 0x10, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x00, 0x07);
++		writeregst(state, 0x10, 0xD9, CL_data, sizeof(CL_data));
++		writeregst(state, 0x17, 0x38, NF_data, sizeof(NF_data));
++		break;
++	}
++	case 7:
++	{
++		u8 TR_data[] = { 0x14, 0x80, 0x00, 0x00, 0x00 };
++		u8 CL_data[] = { 0x12, 0xF8 };
++		u8 NF_data[] = { 0x00, 0x03 };
++
++		writeregst(state, 0x10, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x02, 0x07);
++		writeregst(state, 0x10, 0xD9, CL_data, sizeof(CL_data));
++		writeregst(state, 0x17, 0x38, NF_data, sizeof(NF_data));
++		break;
++	}
++	case 6:
++	{
++		u8 TR_data[] = { 0x17, 0xEA, 0xAA, 0xAA, 0xAA };
++		u8 CL_data[] = { 0x1F, 0xDC };
++		u8 NF_data[] = { 0x00, 0x03 };
++
++		writeregst(state, 0x10, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x04, 0x07);
++		writeregst(state, 0x10, 0xD9, CL_data, sizeof(CL_data));
++		writeregst(state, 0x17, 0x38, NF_data, sizeof(NF_data));
++		break;
++	}
++	case 5:
++	{
++		static u8 TR_data[] = { 0x1C, 0xB3, 0x33, 0x33, 0x33 };
++		static u8 CL_data[] = { 0x26, 0x3C };
++		static u8 NF_data[] = { 0x00, 0x03 };
++
++		writeregst(state, 0x10, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x06, 0x07);
++		writeregst(state, 0x10, 0xD9, CL_data, sizeof(CL_data));
++		writeregst(state, 0x17, 0x38, NF_data, sizeof(NF_data));
++		break;
++	}
++	}
++}
++
++static void Sleep_to_ActiveT(struct cxd_state *state, u32 iffreq)
++{
++	u8 data[2] = { 0x00, 0x00 }; 
++	
++	if( state->xtal == XTAL_41000KHz) {
++		data[0] = 0x0A;
++        data[1] = 0xD4;
++	} else {
++		data[0] = 0x09;
++        data[1] = 0x54;
++	}
++	
++	ConfigureTS(state, SYS_DVBT);
++	writeregx(state, 0x00, 0x17, 0x01);   /* Mode */
++	writeregt(state, 0x00, 0x2C, 0x01);   /* Demod Clock */
++	writeregt(state, 0x00, 0x2F, 0x00);   /* Disable RF Monitor */
++	writeregt(state, 0x00, 0x30, 0x00);   /* Enable ADC Clock */
++	writeregt(state, 0x00, 0x41, 0x1A);   /* Enable ADC1 */
++	
++	writeregst(state, 0x00, 0x43, data, 2);   /* Enable ADC 2+3 */
++	
++	writeregx(state, 0x00, 0x18, 0x00);   /* Enable ADC 4 */
++
++	writebitst(state, 0x10, 0xD2, 0x0C, 0x1F); /* IF AGC Gain */
++	writeregt(state, 0x11, 0x6A, 0x48); /* BB AGC Target Level */
++
++	writebitst(state, 0x10, 0xA5, 0x00, 0x01); /* ASCOT Off */
++
++	writebitst(state, 0x18, 0x36, 0x40, 0x07); /* Pre RS Monitoring */
++	writebitst(state, 0x18, 0x30, 0x01, 0x01); /* FEC Autorecover */
++	writebitst(state, 0x18, 0x31, 0x01, 0x01); /* FEC Autorecover */
++
++	writebitst(state, 0x00, 0xCE, 0x01, 0x01); /* TSIF ONOPARITY */
++	writebitst(state, 0x00, 0xCF, 0x01, 0x01);/*TSIF ONOPARITY_MANUAL_ON*/
++
++	BandSettingT(state, iffreq);
++
++	writebitst(state, 0x10, 0x60, 0x11, 0x1f); /* BER scaling */
++
++	writeregt(state, 0x00, 0x80, 0x28); /* Disable HiZ Setting 1 */
++	writeregt(state, 0x00, 0x81, 0x00); /* Disable HiZ Setting 2 */
++}
++
++static void BandSettingT2(struct cxd_state *state, u32 iffreq)
++{
++	u8 IF_data[3] = {(iffreq >> 16) & 0xff, (iffreq >> 8) & 0xff,
++			 iffreq & 0xff};
++
++	switch (state->bw) {
++	default:
++	case 8:
++	{
++		u8 TR_data[] = { 0x11, 0xF0, 0x00, 0x00, 0x00 };
++		/* Timing recovery */
++		writeregst(state, 0x20, 0x9F, TR_data, sizeof(TR_data));
++		/* Add EQ Optimisation for tuner here */
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		/* System Bandwidth */
++		writebitst(state, 0x10, 0xD7, 0x00, 0x07);
++	}
++	break;
++	case 7:
++	{
++		u8 TR_data[] = { 0x14, 0x80, 0x00, 0x00, 0x00 };
++		writeregst(state, 0x20, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x02, 0x07);
++	}
++	break;
++	case 6:
++	{
++		u8 TR_data[] = { 0x17, 0xEA, 0xAA, 0xAA, 0xAA };
++		writeregst(state, 0x20, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x04, 0x07);
++	}
++	break;
++	case 5:
++	{
++		u8 TR_data[] = { 0x1C, 0xB3, 0x33, 0x33, 0x33 };
++		writeregst(state, 0x20, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x06, 0x07);
++	}
++	break;
++	case 1: /* 1.7 MHz */
++	{
++		u8 TR_data[] = { 0x58, 0xE2, 0xAF, 0xE0, 0xBC };
++		writeregst(state, 0x20, 0x9F, TR_data, sizeof(TR_data));
++		writeregst(state, 0x10, 0xB6, IF_data, sizeof(IF_data));
++		writebitst(state, 0x10, 0xD7, 0x03, 0x07);
++	}
++	break;
++	}
++}
++
++
++static void Sleep_to_ActiveT2(struct cxd_state *state, u32 iffreq)
++{
++	u8 data[2] = { 0x00, 0x00 }; 
++	
++	if( state->xtal == XTAL_41000KHz) {
++		data[0] = 0x0A;
++        data[1] = 0xD4;
++	} else {
++		data[0] = 0x09;
++        data[1] = 0x54;
++	}
++	
++	ConfigureTS(state, SYS_DVBT2);
++
++	writeregx(state, 0x00, 0x17, 0x02);   /* Mode */
++	writeregt(state, 0x00, 0x2C, 0x01);   /* Demod Clock */
++	writeregt(state, 0x00, 0x2F, state->RfainMon ? 0x01 : 0x00);   /* Enable/Disable RF Monitor */
++	writeregt(state, 0x00, 0x30, 0x00);   /* Enable ADC Clock */
++	writeregt(state, 0x00, 0x41, 0x1A);   /* Enable ADC1 */
++
++	writeregst(state, 0x00, 0x43, data, 2);   /* Enable ADC 2+3 */
++	
++	writeregx(state, 0x00, 0x18, 0x00);   /* Enable ADC 4 */
++
++	writebitst(state, 0x10, 0xD2, 0x0C, 0x1F); /* IFAGC  coarse gain */
++	writeregt(state, 0x11, 0x6A, 0x50); /* BB AGC Target Level */
++	writebitst(state, 0x10, 0xA5, 0x00, 0x01); /* ASCOT Off */
++
++	writeregt(state, 0x20, 0x8B, 0x3C); /* SNR Good count */
++	writebitst(state, 0x2B, 0x76, 0x20, 0x70); /* Noise Gain ACQ */
++
++	writebitst(state, 0x00, 0xCE, 0x01, 0x01); /* TSIF ONOPARITY */
++	writebitst(state, 0x00, 0xCF, 0x01, 0x01);/*TSIF ONOPARITY_MANUAL_ON*/
++
++	writeregt(state, 0x13, 0x83, 0x10); /* T2 Inital settings */
++	writeregt(state, 0x13, 0x86, 0x34);
++	writebitst(state, 0x13, 0x9E, 0x09, 0x0F);
++	writeregt(state, 0x13, 0x9F, 0xD8);
++
++	BandSettingT2(state, iffreq);
++
++	writebitst(state, 0x20, 0x72, 0x08, 0x0f); /* BER scaling */
++
++	writeregt(state, 0x00, 0x80, 0x28); /* Disable HiZ Setting 1 */
++	writeregt(state, 0x00, 0x81, 0x00); /* Disable HiZ Setting 2 */
++}
++
++
++static void BandSettingC(struct cxd_state *state, u32 iffreq)
++{
++	u8 data[3];
++
++	data[0] = (iffreq >> 16) & 0xFF;
++	data[1] = (iffreq >>  8) & 0xFF;
++	data[2] = (iffreq) & 0xFF;
++	writeregst(state, 0x10, 0xB6, data, 3);
++}
++
++static void Sleep_to_ActiveC(struct cxd_state *state, u32 iffreq)
++{
++	u8 data[2] = { 0x00, 0x00 }; 
++	
++	if( state->xtal == XTAL_41000KHz) {
++		data[0] = 0x0A;
++        data[1] = 0xD4;
++	} else {
++		data[0] = 0x09;
++        data[1] = 0x54;
++	}
++	
++	ConfigureTS(state, SYS_DVBC_ANNEX_A);
++
++	writeregx(state, 0x00, 0x17, 0x04);   /* Mode */
++	writeregt(state, 0x00, 0x2C, 0x01);   /* Demod Clock */
++	writeregt(state, 0x00, 0x2F, 0x00);   /* Disable RF Monitor */
++	writeregt(state, 0x00, 0x30, 0x00);   /* Enable ADC Clock */
++	writeregt(state, 0x00, 0x41, 0x1A);   /* Enable ADC1 */
++
++
++	writeregst(state, 0x00, 0x43, data, 2);   /* Enable ADC 2+3 */
++	
++	writeregx(state, 0x00, 0x18, 0x00);   /* Enable ADC 4 */
++
++	writebitst(state, 0x10, 0xD2, 0x09, 0x1F); /* IF AGC Gain */
++	writeregt(state, 0x11, 0x6A, 0x48); /* BB AGC Target Level */
++	writebitst(state, 0x10, 0xA5, 0x00, 0x01); /* ASCOT Off */
++
++	writebitst(state, 0x40, 0xC3, 0x00, 0x04); /* OREG_BNDET_EN_64 */
++
++	writebitst(state, 0x00, 0xCE, 0x01, 0x01); /* TSIF ONOPARITY */
++	writebitst(state, 0x00, 0xCF, 0x01, 0x01);/*TSIF ONOPARITY_MANUAL_ON*/
++
++	BandSettingC(state, iffreq);
++
++	writebitst(state, 0x40, 0x60, 0x11, 0x1f); /* BER scaling */
++
++	writeregt(state, 0x00, 0x80, 0x28); /* Disable HiZ Setting 1 */
++	writeregt(state, 0x00, 0x81, 0x00); /* Disable HiZ Setting 2 */
++}
++static void T2_SetParameters(struct cxd_state *state)
++{
++	u8 Profile = 0x00;    /* Automatic Profile detection */
++	u8 notT2time = 40;    /* early unlock detection time */
++	
++	writeregt(state, 0x23, 0xAD, 0x00);
++	
++	writebitst(state, 0x2E, 0x10, Profile, 0x07);
++	writeregt(state, 0x2B, 0x9D, notT2time);
++	
++}
++static void Stop(struct cxd_state *state)
++{
++
++	writeregt(state, 0x00, 0xC3, 0x01); /* Disable TS */
++}
++
++static void ShutDown(struct cxd_state *state)
++{
++	switch (state->delivery_system) {
++	case SYS_DVBT2:
++		ActiveT2_to_Sleep(state);
++		break;
++	default:
++		Active_to_Sleep(state);
++		break;
++	}
++}
++
++static int gate_ctrl(struct dvb_frontend *fe, int enable)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++
++	return writebitsx(state, 0xFF, 0x08, enable ? 0x01 : 0x00, 0x01);
++}
++
++static void release(struct dvb_frontend *fe)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++
++	Stop(state);
++	ShutDown(state);
++	kfree(state);
++}
++static int set_parameters(struct dvb_frontend *fe)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int ret;
++	u32 IF = 0;
++
++	if (c->delivery_system != SYS_DVBC_ANNEX_A) {	
++		switch (c->bandwidth_hz) {
++		case 1700000:
++			state->bw = 1;
++			break;
++		case 5000000:
++			state->bw = 5;
++			break;
++		case 6000000:
++			state->bw = 6;
++			break;
++		case 7000000:
++			state->bw = 7;
++			break;
++		case 8000000:
++			state->bw = 8;
++			break;
++		default:
++			return -EINVAL;
++		}
++	}	
++		
++		
++	if (fe->ops.tuner_ops.set_params) {
++		ret = fe->ops.tuner_ops.set_params(fe);
++		if (ret)
++			goto err;
++	}
++		
++	if (fe->ops.tuner_ops.get_if_frequency) {
++		ret = fe->ops.tuner_ops.get_if_frequency(fe, &IF);
++		if (ret)
++			goto err;
++	}
++		
++	IF = MulDiv32(IF, 16777216, 41000000);
++	
++	state->LockTimeout = 0;
++	state->TSLockTimeout = 0;
++	state->L1PostTimeout = 0;
++	state->last_status = 0;
++	state->FirstTimeLock = 1;
++	state->LastBERNominator = 0;
++	state->LastBERDenominator = 1;
++	state->BERScaleMax = 19;
++	
++	switch (c->delivery_system) {
++	case SYS_DVBC_ANNEX_A:
++		state->BERScaleMax = 19;
++		if ( state->state == Active && c->delivery_system == state->delivery_system) {
++			writeregt(state, 0x00, 0xC3, 0x01);   /* Disable TS Output */
++		} else if (state->state == Active && c->delivery_system != state->delivery_system) {
++			Active_to_Sleep(state);
++			Sleep_to_ActiveC(state, IF);
++			state->delivery_system = c->delivery_system;
++		} else if (state->state == Sleep) {
++			Sleep_to_ActiveC(state, IF);
++			state->delivery_system = c->delivery_system;
++			state->state = Active;
++		}
++	break;
++	case SYS_DVBT:
++		state->BERScaleMax = 18;
++		/* Stick with HP ( 0x01 = LP ) */
++		writeregt(state, 0x10, 0x67, 0x00);
++		if ( state->state == Active && c->delivery_system == state->delivery_system) {
++			writeregt(state, 0x00, 0xC3, 0x01);   /* Disable TS Output */
++			BandSettingT(state, IF);
++		} else if (state->state == Active && c->delivery_system != state->delivery_system) {	
++			Active_to_Sleep(state);
++			Sleep_to_ActiveT(state, IF);
++			state->delivery_system = c->delivery_system;
++		} else if (state->state == Sleep) {
++			Sleep_to_ActiveT(state, IF);
++			state->delivery_system = c->delivery_system;
++			state->state = Active;
++		}
++	break;
++	case SYS_DVBT2:
++		state->BERScaleMax = 12;
++		T2_SetParameters(state);
++		if ( state->state == Active && c->delivery_system == state->delivery_system) {
++			writeregt(state, 0x00, 0xC3, 0x01);   /* Disable TS Output */
++			BandSettingT2(state, IF);
++		} else if (state->state == Active && c->delivery_system != state->delivery_system) {	
++			ActiveT2_to_Sleep(state);
++			Sleep_to_ActiveT2(state, IF);
++			state->delivery_system = c->delivery_system;
++		} else if (state->state == Sleep) {
++			Sleep_to_ActiveT2(state, IF);
++			state->delivery_system = c->delivery_system;
++			state->state = Active;
++		}
++		break;
++	default:
++		ret = -EINVAL;
++		goto err;
++	}
++
++	writeregt(state, 0x00, 0xFE, 0x01);   /* SW Reset */
++	writeregt(state, 0x00, 0xC3, 0x00);   /* Enable TS Output */
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
++	return ret;
++}
++
++
++static int init(struct dvb_frontend *fe)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++
++	u8 data[2] = { 0x00, state->xtal == XTAL_41000KHz ? 0x01 : 0x00 }; 
++	
++	
++	state->delivery_system = SYS_UNDEFINED;
++	state->state = Unknown;
++
++	state->curbankt = 0xff;
++	state->curbankx = 0xff;
++	
++	/* Start: demod any state to Sleep T / C state. */
++	writeregx(state, 0xFF, 0x02, 0x00);
++	usleep_range(4000, 5000);
++	
++	writeregx(state, 0x00, 0x10, 0x01);
++
++	writeregsx(state, 0x00, 0x13, data, 2);
++	
++	writeregx(state, 0x00, 0x10, 0x00);
++	usleep_range(2000, 3000);
++	
++	writeregt(state, 0x00, 0x43, 0x0A);
++	writeregt(state, 0x00, 0x41, 0x0A);	
++	
++	state->state = Sleep;
++	
++	/* Set demod config */
++	writebitst(state, 0x10, 0xCB, state->IF_AGC ? 0x40 : 0x00, 0x40);
++	writeregt(state, 0x10, 0xCD, state->IF_FS);
++
++	writebitst(state, 0x00, 0xCB, state->ErrorPolarity ? 0x00 : 0x01, 0x01); 
++	writebitst(state, 0x00, 0xC5, state->ClockPolarity ? 0x01 : 0x00, 0x01); 
++	
++	return 0;
++}
++
++
++static void init_state(struct cxd_state *state, struct cxd2837_cfg *cfg)
++{
++	state->adrt = cfg->adr;
++	state->adrx = cfg->adr + 0x02;
++	state->curbankt = 0xff;
++	state->curbankx = 0xff;
++	mutex_init(&state->mutex);
++
++	state->RfainMon = cfg->rfain_monitoring;
++	state->ErrorPolarity = cfg->ts_error_polarity;
++	state->ClockPolarity = cfg->clock_polarity;
++	state->IF_AGC = cfg->if_agc_polarity;
++	state->xtal = cfg->xtal;
++	state->ContinuousClock = 1;
++	state->SerialClockFrequency = cfg->ts_clock; /* 1 = fastest (82 MBit/s), 5 = slowest */
++	state->IF_FS = 0x50; /* 1.4Vpp - Default */
++		
++		
++	switch(cfg->ifagc_adc_range) {
++	case 0:	
++		break;
++	case 1:		        
++        state->IF_FS = 0x39; /* 1.0Vpp */
++		break;
++	case 2:          
++        state->IF_FS = 0x28; /* 0.7Vpp */
++        break;
++	default:	
++		break;
++	}	
++}
++
++static int get_tune_settings(struct dvb_frontend *fe,
++			     struct dvb_frontend_tune_settings *s)
++{
++	s->min_delay_ms = 1500;
++	s->step_size = fe->ops.info.frequency_stepsize;
++	
++	return 0;
++}
++
++static int read_status(struct dvb_frontend *fe, fe_status_t *status)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++	u8 rdata;
++
++	*status = 0;
++	switch (state->delivery_system) {
++	case SYS_DVBC_ANNEX_A:
++		readregst(state, 0x40, 0x88, &rdata, 1);
++		if (rdata & 0x02)
++			break;
++		if (rdata & 0x01) {
++			*status |= 0x07;
++			readregst(state, 0x40, 0x10, &rdata, 1);
++			if (rdata & 0x20)
++				*status |= 0x1f;
++		}
++		break;
++	case SYS_DVBT:
++		readregst(state, 0x10, 0x10, &rdata, 1);
++		if (rdata & 0x10)
++			break;
++		if ((rdata & 0x07) == 0x06) {
++			*status |= 0x07;
++			if (rdata & 0x20)
++				*status |= 0x1f;
++		}
++		break;
++	case SYS_DVBT2:
++		readregst(state, 0x20, 0x10, &rdata, 1);		
++		if (rdata & 0x10)
++			break;
++		if ((rdata & 0x07) == 0x06) {
++			*status |= 0x07;
++			if (rdata & 0x20)
++				*status |= 0x08;
++		}
++		if (*status & 0x08) {
++			readregst(state, 0x22, 0x12, &rdata, 1);
++			if (rdata & 0x01)
++				*status |= 0x10;
++		}
++		break;
++	default:
++		break;
++	}
++	state->last_status = *status;
++	return 0;
++}
++
++static int get_ber_t(struct cxd_state *state, u32 *n, u32 *d)
++{
++	u8 BERRegs[3];
++	u8 Scale;
++
++	*n = 0;
++	*d = 1;
++
++	readregst(state, 0x10, 0x62, BERRegs, 3);
++	readregst(state, 0x10, 0x60, &Scale, 1);
++	Scale &= 0x1F;
++
++	if (BERRegs[0] & 0x80) {
++		state->LastBERNominator = (((u32) BERRegs[0] & 0x3F) << 16) |
++			(((u32) BERRegs[1]) << 8) | BERRegs[2];
++		state->LastBERDenominator = 1632 << Scale;
++		if (state->LastBERNominator < 256 &&
++		    Scale < state->BERScaleMax) {
++			writebitst(state, 0x10, 0x60, Scale + 1, 0x1F);
++		} else if (state->LastBERNominator > 512 && Scale > 11)
++			writebitst(state, 0x10, 0x60, Scale - 1, 0x1F);
++	}
++	*n = state->LastBERNominator;
++	*d = state->LastBERDenominator;
++
++	return 0;
++}
++
++static int get_ber_t2(struct cxd_state *state, u32 *n, u32 *d)
++{
++	*n = 0;
++	*d = 1;
++	return 0;
++}
++
++static int get_ber_c(struct cxd_state *state, u32 *n, u32 *d)
++{
++	u8 BERRegs[3];
++	u8 Scale;
++
++	*n = 0;
++	*d = 1;
++
++	readregst(state, 0x40, 0x62, BERRegs, 3);
++	readregst(state, 0x40, 0x60, &Scale, 1);
++	Scale &= 0x1F;
++
++	if (BERRegs[0] & 0x80) {
++		state->LastBERNominator = (((u32) BERRegs[0] & 0x3F) << 16) |
++			(((u32) BERRegs[1]) << 8) | BERRegs[2];
++		state->LastBERDenominator = 1632 << Scale;
++		if (state->LastBERNominator < 256 &&
++		    Scale < state->BERScaleMax) {
++			writebitst(state, 0x40, 0x60, Scale + 1, 0x1F);
++		} else if (state->LastBERNominator > 512 && Scale > 11)
++			writebitst(state, 0x40, 0x60, Scale - 1, 0x1F);
++	}
++	*n = state->LastBERNominator;
++	*d = state->LastBERDenominator;
++
++	return 0;
++}
++
++static int read_ber(struct dvb_frontend *fe, u32 *ber)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++	u32 n, d;
++	int s = 0;
++
++	*ber = 0;
++	
++	if (state->last_status != 0x1f)
++		return 0;
++		
++	switch (state->delivery_system) {
++	case SYS_DVBT:
++		s = get_ber_t(state, &n, &d);
++		break;
++	case SYS_DVBT2:
++		s = get_ber_t2(state, &n, &d);
++		break;
++	case SYS_DVBC_ANNEX_A:
++		s = get_ber_c(state, &n, &d);
++		break;
++	default:
++		break;
++	}
++	if (s)
++		return s;
++
++	return 0;
++}
++
++static int get_signal_strengthC(struct cxd_state *state, u16 *strength)
++{
++	int ret;
++	u8 buf[2];
++	u16 tmp;
++	
++	ret = readregst(state, 0x40, 0x49, buf, 2);	
++	if (ret)
++		goto err;
++
++	tmp = (buf[0] & 0x0f) << 8 | buf[1];
++	tmp = ~tmp & 0x0fff;
++
++	/* scale value to 0x0000-0xffff from 0x0000-0x0fff */
++	*strength = tmp * 0xffff / 0x0fff;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
++	return ret;
++}
++static int get_signal_strengthT(struct cxd_state *state, u16 *strength)
++{
++	int ret;
++	u8 buf[2];
++	u16 tmp;
++	
++	ret = readregst(state, 0x10, 0x26, buf, 2);	
++	if (ret)
++		goto err;
++
++	tmp = (buf[0] & 0x0f) << 8 | buf[1];
++	tmp = ~tmp & 0x0fff;
++
++	/* scale value to 0x0000-0xffff from 0x0000-0x0fff */
++	*strength = tmp * 0xffff / 0x0fff;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
++	return ret;
++	
++}
++static int get_signal_strengthT2(struct cxd_state *state, u16 *strength)
++{
++	int ret;
++	u8 buf[2];
++	u16 tmp;
++	
++	ret = readregst(state, 0x20, 0x26, buf, 2);	
++	if (ret)
++		goto err;
++
++	tmp = (buf[0] & 0x0f) << 8 | buf[1];
++	tmp = ~tmp & 0x0fff;
++
++	/* scale value to 0x0000-0xffff from 0x0000-0x0fff */
++	*strength = tmp * 0xffff / 0x0fff;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
++	return ret;
++}
++
++static int read_signal_strength(struct dvb_frontend *fe, u16 *strength)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++	int ret = 0;
++	*strength = 0;
++	
++	if (state->last_status != 0x1f)
++		return 0;
++		
++	switch (state->delivery_system) {
++	case SYS_DVBC_ANNEX_A:
++		ret = get_signal_strengthC(state, strength);
++		break;
++	case SYS_DVBT:
++		ret = get_signal_strengthT(state, strength);
++		break;
++	case SYS_DVBT2:
++		ret = get_signal_strengthT2(state, strength);
++		break;
++	default:
++		break;
++	}
++	
++	return ret;
++}
++
++static s32 Log10x100(u32 x)
++{
++	static u32 LookupTable[100] = {
++		101157945, 103514217, 105925373, 108392691, 110917482,
++		113501082, 116144861, 118850223, 121618600, 124451461,
++		127350308, 130316678, 133352143, 136458314, 139636836,
++		142889396, 146217717, 149623566, 153108746, 156675107,
++		160324539, 164058977, 167880402, 171790839, 175792361,
++		179887092, 184077200, 188364909, 192752491, 197242274,
++		201836636, 206538016, 211348904, 216271852, 221309471,
++		226464431, 231739465, 237137371, 242661010, 248313311,
++		254097271, 260015956, 266072506, 272270131, 278612117,
++		285101827, 291742701, 298538262, 305492111, 312607937,
++		319889511, 327340695, 334965439, 342767787, 350751874,
++		358921935, 367282300, 375837404, 384591782, 393550075,
++		402717034, 412097519, 421696503, 431519077, 441570447,
++		451855944, 462381021, 473151259, 484172368, 495450191,
++		506990708, 518800039, 530884444, 543250331, 555904257,
++		568852931, 582103218, 595662144, 609536897, 623734835,
++		638263486, 653130553, 668343918, 683911647, 699841996,
++		716143410, 732824533, 749894209, 767361489, 785235635,
++		803526122, 822242650, 841395142, 860993752, 881048873,
++		901571138, 922571427, 944060876, 966050879, 988553095,
++	};
++	s32 y;
++	int i;
++
++	if (x == 0)
++		return 0;
++	y = 800;
++	if (x >= 1000000000) {
++		x /= 10;
++		y += 100;
++	}
++
++	while (x < 100000000) {
++		x *= 10;
++		y -= 100;
++	}
++	i = 0;
++	while (i < 100 && x > LookupTable[i])
++		i += 1;
++	y += i;
++	return y;
++}
++static void GetSignalToNoiseT2(struct cxd_state *state, u16 *SignalToNoise)
++{
++	u8 Data[2];
++	u32 reg;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x20, 0x28, Data, sizeof(Data));
++	unfreeze_regst(state);
++
++	reg = (Data[0] << 8) | Data[1];
++	if (reg > 10876)
++		reg = 10876;
++
++	*SignalToNoise = 100 * (intlog10(reg) - intlog10(12600 - reg)) + 320;
++}
++
++static void GetSignalToNoiseT(struct cxd_state *state, u16 *SignalToNoise)
++{
++	u8 Data[2];
++	u32 reg;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x10, 0x28, Data, sizeof(Data));
++	unfreeze_regst(state);
++
++	reg = (Data[0] << 8) | Data[1];
++	if (reg > 4996)
++		reg = 4996;
++
++	*SignalToNoise = 100 * (intlog10(reg) - intlog10(5350 - reg)) + 285;
++}
++static void GetSignalToNoiseC(struct cxd_state *state, u16 *SignalToNoise)
++{
++	u8 Data[2];
++	u8 Constellation = 0;
++	u32 reg;
++
++	*SignalToNoise = 0;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x40, 0x19, &Constellation, 1);
++	readregst_unlocked(state, 0x40, 0x4C, Data, sizeof(Data));
++	unfreeze_regst(state);
++
++	reg = ((u32)(Data[0] & 0x1F) << 8) | (Data[1]);
++	if (reg == 0)
++		return;
++
++	switch (Constellation & 0x07) {
++	case 0: /* QAM 16 */
++	case 2: /* QAM 64 */
++	case 4: /* QAM 256 */
++		if (reg < 126)
++			reg = 126;
++		*SignalToNoise = ((439 - Log10x100(reg)) * 2134 + 500) / 1000;
++		break;
++	case 1: /* QAM 32 */
++	case 3: /* QAM 128 */
++		if (reg < 69)
++			reg = 69;
++		*SignalToNoise = ((432 - Log10x100(reg)) * 2015 + 500) / 1000;
++		break;
++	}
++}
++
++static int read_snr(struct dvb_frontend *fe, u16 *snr)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++
++	*snr = 0;
++	
++	if (state->last_status != 0x1f)
++		return 0;
++
++	switch (state->delivery_system) {
++	case SYS_DVBC_ANNEX_A:
++		GetSignalToNoiseC(state, snr);
++		break;
++	case SYS_DVBT:
++		GetSignalToNoiseT(state, snr);
++		break;
++	case SYS_DVBT2:
++		GetSignalToNoiseT2(state, snr);
++		break;
++	default:
++		break;
++	}
++	return 0;
++}
++
++static int read_ucblocks(struct dvb_frontend *fe, u32 *ucblocks)
++{
++	*ucblocks = 0;
++	return 0;
++}
++static int get_fe_t(struct cxd_state *state)
++{
++	struct dvb_frontend *fe = &state->frontend;
++	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
++	u8 tps[7];
++
++	read_tps(state, tps);
++
++/*  TPSData[0] [7:6]  CNST[1:0]
++    TPSData[0] [5:3]  HIER[2:0]
++    TPSData[0] [2:0]  HRATE[2:0]
++*/
++	switch ((tps[0] >> 6) & 0x03) {
++	case 0:
++		p->modulation = QPSK;
++		break;
++	case 1:
++		p->modulation = QAM_16;
++		break;
++	case 2:
++		p->modulation = QAM_64;
++		break;
++	}
++	switch ((tps[0] >> 3) & 0x07) {
++	case 0:
++		p->hierarchy = HIERARCHY_NONE;
++		break;
++	case 1:
++		p->hierarchy = HIERARCHY_1;
++		break;
++	case 2:
++		p->hierarchy = HIERARCHY_2;
++		break;
++	case 3:
++		p->hierarchy = HIERARCHY_4;
++		break;
++	}
++	switch ((tps[0] >> 0) & 0x07) {
++	case 0:
++		p->code_rate_HP = FEC_1_2;
++		break;
++	case 1:
++		p->code_rate_HP = FEC_2_3;
++		break;
++	case 2:
++		p->code_rate_HP = FEC_3_4;
++		break;
++	case 3:
++		p->code_rate_HP = FEC_5_6;
++		break;
++	case 4:
++		p->code_rate_HP = FEC_7_8;
++		break;
++	}
++
++/*  TPSData[1] [7:5]  LRATE[2:0]
++    TPSData[1] [4:3]  GI[1:0]
++    TPSData[1] [2:1]  MODE[1:0]
++*/
++	switch ((tps[1] >> 5) & 0x07) {
++	case 0:
++		p->code_rate_LP = FEC_1_2;
++		break;
++	case 1:
++		p->code_rate_LP = FEC_2_3;
++		break;
++	case 2:
++		p->code_rate_LP = FEC_3_4;
++		break;
++	case 3:
++		p->code_rate_LP = FEC_5_6;
++		break;
++	case 4:
++		p->code_rate_LP = FEC_7_8;
++		break;
++	}
++	switch ((tps[1] >> 3) & 0x03) {
++	case 0:
++		p->guard_interval = GUARD_INTERVAL_1_32;
++		break;
++	case 1:
++		p->guard_interval = GUARD_INTERVAL_1_16;
++		break;
++	case 2:
++		p->guard_interval = GUARD_INTERVAL_1_8;
++		break;
++	case 3:
++		p->guard_interval = GUARD_INTERVAL_1_4;
++		break;
++	}
++	switch ((tps[1] >> 1) & 0x03) {
++	case 0:
++		p->transmission_mode = TRANSMISSION_MODE_2K;
++		break;
++	case 1:
++		p->transmission_mode = TRANSMISSION_MODE_8K;
++		break;
++	}
++
++	return 0;
++}
++
++static int get_fe_c(struct cxd_state *state)
++{
++	struct dvb_frontend *fe = &state->frontend;
++	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
++	u8 qam;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x40, 0x19, &qam, 1);
++	unfreeze_regst(state);
++	p->modulation = qam & 0x07;
++	return 0;
++}
++
++static int get_frontend(struct dvb_frontend *fe)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++
++	if (state->last_status != 0x1f)
++		return 0;
++
++	switch (state->delivery_system) {
++	case SYS_DVBT:
++		get_fe_t(state);
++		break;
++	case SYS_DVBT2:
++		break;
++	case SYS_DVBC_ANNEX_A:
++		get_fe_c(state);
++		break;
++	default:
++		break;
++	}
++	return 0;
++}
++
++static struct dvb_frontend_ops cxd_2837_ops = {
++	.delsys = { SYS_DVBC_ANNEX_A, SYS_DVBT, SYS_DVBT2 },
++	.info = {
++		.name = "CXD2837 DVB-C DVB-T/T2",
++		.frequency_min = 47000000,	/* DVB-T: 47125000 */
++		.frequency_max = 865000000,	/* DVB-C: 862000000 */
++		.caps = 	FE_CAN_FEC_1_2 |
++					FE_CAN_FEC_2_3 |
++					FE_CAN_FEC_3_4 |
++					FE_CAN_FEC_5_6 |
++					FE_CAN_FEC_7_8 |
++					FE_CAN_FEC_AUTO |
++					FE_CAN_QPSK |
++					FE_CAN_QAM_16 |
++					FE_CAN_QAM_32 |
++					FE_CAN_QAM_64 |
++					FE_CAN_QAM_128 |
++					FE_CAN_QAM_256 |
++					FE_CAN_QAM_AUTO |
++					FE_CAN_TRANSMISSION_MODE_AUTO |
++					FE_CAN_GUARD_INTERVAL_AUTO |
++					FE_CAN_HIERARCHY_AUTO |
++					FE_CAN_MUTE_TS |
++					FE_CAN_2G_MODULATION |
++					FE_CAN_MULTISTREAM
++	},
++	.init = init,
++	.release = release,
++	.i2c_gate_ctrl = gate_ctrl,
++	.set_frontend = set_parameters,
++	.get_tune_settings = get_tune_settings,
++	.read_status = read_status,
++	.read_ber = read_ber,
++	.read_signal_strength = read_signal_strength,
++	.read_snr = read_snr,
++	.read_ucblocks = read_ucblocks,
++	.get_frontend = get_frontend,
++	
++};
++
++struct dvb_frontend *cxd2837_attach(struct i2c_adapter *i2c,
++				    struct cxd2837_cfg *cfg)
++{
++	struct cxd_state *state = NULL;
++	int ret;
++	u8 ChipID = 0x00;
++	
++	state = kzalloc(sizeof(struct cxd_state), GFP_KERNEL);
++	if (!state) {
++		ret = -ENOMEM;
++		dev_err(&i2c->dev, "kzalloc() failed\n");
++		goto err1;
++	}
++
++	state->i2c = i2c;
++	init_state(state, cfg);
++	
++	ret = readregst(state, 0x00, 0xFD, &ChipID, 1);
++	if (ret) {
++		ret = readregsx(state, 0x00, 0xFD, &ChipID, 1);
++		if (ret)
++			goto err2;
++	}
++		
++	if (ChipID != 0xB1)
++		goto err2;
++		
++	dev_info(&i2c->dev, "CXD2837 DVB-T/T2/C successfully attached\n");						
++		
++	memcpy(&state->frontend.ops, &cxd_2837_ops,
++		       sizeof(struct dvb_frontend_ops));
++			   
++	state->frontend.demodulator_priv = state;
++	
++	return &state->frontend;
++	
++err2:	
++	kfree(state);
++err1:	
++	dev_dbg(&i2c->dev, "%s: failed=%d\n", __func__, ret);	
++	return NULL;
++}
++EXPORT_SYMBOL(cxd2837_attach);
++
++MODULE_DESCRIPTION("Sony CXD2837 DVB-T/T2/C demodulator driver");
++MODULE_AUTHOR("Ralph Metzler, Manfred Voelkel");
++MODULE_LICENSE("GPL");
+diff -Naur a/drivers/amlogic/wetek/cxd2837.h b/drivers/amlogic/wetek/cxd2837.h
+--- a/drivers/amlogic/wetek/cxd2837.h	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/cxd2837.h	2015-01-03 15:19:36.000000000 +0100
+@@ -0,0 +1,107 @@
++/*
++ * Driver for the Sony CXD2837ER DVB-T/T2/C demodulator.
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++
++#ifndef _CXD2837_H_
++#define _CXD2837_H_
++
++#include <linux/types.h>
++#include <linux/i2c.h>
++
++enum EDemodState { 
++	Unknown,
++	Shutdown,
++	Sleep,
++	Active 
++};
++
++enum xtal_freq {
++	XTAL_20500KHz,           /* 20.5 MHz */
++	XTAL_41000KHz            /* 41 MHz */
++};
++
++enum ts_serial_clk {
++	SERIAL_TS_CLK_HIGH_FULL,   /* High frequency, full rate */
++	SERIAL_TS_CLK_MID_FULL,    /* Mid frequency, full rate */
++	SERIAL_TS_CLK_LOW_FULL,    /* Low frequency, full rate */
++	SERIAL_TS_CLK_HIGH_HALF,   /* High frequency, half rate */
++	SERIAL_TS_CLK_MID_HALF,    /* Mid frequency, half rate */
++	SERIAL_TS_CLK_LOW_HALF     /* Low frequency, half rate */
++};
++
++struct cxd2837_cfg {
++
++	/* Demodulator I2C address.
++	 * Default: none, must set
++	 * Values: 0x6c, 0x6d
++	 */
++	u8 adr;
++
++	/* IF AGC polarity.
++	 * Default: 0
++	 * Values: 0, 1
++	 */
++	bool if_agc_polarity;
++	
++	/* RFAIN monitoring.
++	 * Default: 0
++	 * Values: 0, 1
++	 */
++	bool rfain_monitoring;
++		
++	/* TS error polarity.
++	 * Default: 0
++	 * Values: 0 : low, 1 : high
++	 */
++	bool ts_error_polarity;
++	
++	/* Clock polarity.
++	 * Default: 0
++	 * Values:  0 : Falling edge, 1 : Rising edge
++	 */
++	bool clock_polarity;
++	
++	/* IFAGC ADC range/
++	 * Default: 0
++	 * Values:  0 : 1.4Vpp, 1 : 1.0Vpp, 2 : 0.7Vpp 
++	 */
++	u8 ifagc_adc_range;
++
++	/* Spectrum inversion.
++	 * Default: 0
++	 * Values: 0, 1
++	 */
++	bool spec_inv;
++	
++	/* Demodulator crystal frequency.
++	*/
++	enum xtal_freq xtal;
++	
++	
++	/* TS serial clock frequency
++	*/
++	enum ts_serial_clk ts_clock;
++};
++
++
++extern struct dvb_frontend *cxd2837_attach(struct i2c_adapter *i2c,
++					   struct cxd2837_cfg *cfg);
++
++#endif
+diff -Naur a/drivers/amlogic/wetek/Kconfig b/drivers/amlogic/wetek/Kconfig
+--- a/drivers/amlogic/wetek/Kconfig	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/Kconfig	2015-01-01 15:34:30.000000000 +0100
+@@ -0,0 +1,14 @@
++#
++# WetekPlay driver configuration
++#
++
++menu "WetekPlay driver"
++
++config WETEK
++	tristate "WetekPlay driver"
++	default n
++	select DVB_CORE
++	help
++		Select to enable WetekPlay driver.
++endmenu
++
+diff -Naur a/drivers/amlogic/wetek/Makefile b/drivers/amlogic/wetek/Makefile
+--- a/drivers/amlogic/wetek/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/Makefile	2015-01-12 21:02:38.000000000 +0100
+@@ -0,0 +1,10 @@
++#
++# Makefile for the WetekPlay driver.
++#
++
++obj-$(CONFIG_WETEK) += wetekplay.o
++
++wetekplay-objs = nimdetect.o mxl603.o cxd2837.o avl6211.o mn88436.o
++
++EXTRA_CFLAGS += -Idrivers/media/dvb-core -Idrivers/media/tuners
++EXTRA_CFLAGS += -I.
+diff -Naur a/drivers/amlogic/wetek/mn88436.c b/drivers/amlogic/wetek/mn88436.c
+--- a/drivers/amlogic/wetek/mn88436.c	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/mn88436.c	2015-01-11 20:30:56.000000000 +0100
+@@ -0,0 +1,378 @@
++/*
++ * Driver for the Panasonic MN88436 ATSC demodulator
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/firmware.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/version.h>
++#include "dvb_frontend.h"
++#include "mn88436.h"
++
++struct mn88436_state { 
++	struct dvb_frontend frontend;
++	struct i2c_adapter   *i2c;
++	fe_modulation_t current_modulation;
++	u32 current_frequency;	
++	u8 mn88436_bank[DMD_REG_BANK];
++	bool boot;
++};
++static int mn88436_write_reg(struct mn88436_state *state, u8 id, u8 reg, u8 val)
++{
++	int ret;
++	u8 buf[] = { reg, val };
++	struct i2c_msg msg = {	.addr = state->mn88436_bank[id], 
++							.flags = 0,
++							.buf = buf, 
++							.len = 2 
++						};
++	
++		
++	ret = i2c_transfer(state->i2c, &msg, 1);
++	if (ret == 1) {
++		ret = 0;
++	} else {
++		dev_warn(&state->i2c->dev, "i2c wr failed=%d reg=%02x "
++				, ret, reg);				
++		ret = -EREMOTEIO;
++	}
++	return ret;
++}
++static int mn88436_read_reg(struct mn88436_state *state, u8 id, u8 reg, u8 *val)
++{	
++	int ret;
++	u8 buf[] = { reg };
++	struct i2c_msg msg[] = {
++		{	.addr = state->mn88436_bank[id], 
++			.flags = 0,
++			.buf = buf, 
++			.len = 1 
++		},
++		{ 	.addr = state->mn88436_bank[id], 
++			.flags = I2C_M_RD,
++			.buf = val, 
++			.len = 1 
++		}, 
++	};
++
++	ret = i2c_transfer(state->i2c, msg, 2);
++	if (ret == 2) {
++		ret = 0;
++	} else {
++		dev_warn(&state->i2c->dev, "i2c rd failed=%d reg=%02x "
++				, ret, reg);
++		ret = -EREMOTEIO;
++	}
++	return ret;
++}
++static int mn88436_write_reg_mask(struct mn88436_state *state, u8 id,
++								u8 reg , u8 mask , u8 data)
++{
++	int ret;
++	u8 rd;
++	
++	ret = mn88436_read_reg(state, id, reg, &rd);
++	if (ret)
++		goto err;
++	
++	rd |= mask & data;
++	rd &= (mask ^ 0xff) | data;
++	
++	ret = mn88436_write_reg(state, id, reg, rd);
++	if (ret)
++		goto err;
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++
++static int mn88436_read_status(struct dvb_frontend* fe, fe_status_t* status)
++{
++	struct mn88436_state* state = fe->demodulator_priv;	
++	int ret;
++	u8 locked;
++	*status = 0;
++	
++	ret = mn88436_read_reg(state, 0, DMD_MAIN_STSMON1, &locked);
++	if (ret)
++		goto err;
++
++	if (locked & 1) 
++		*status |= FE_HAS_SIGNAL | FE_HAS_CARRIER | 
++				FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK;
++		
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++	
++}
++static int mn88436_set_frontend(struct dvb_frontend* fe)
++{
++	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
++	struct mn88436_state* state = fe->demodulator_priv;
++	int cnt = 50, ret;
++	u8 locked;
++	
++	if (!state->boot) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	if (fe->ops.tuner_ops.set_params) {
++		ret = fe->ops.tuner_ops.set_params(fe);
++		if (ret)
++			goto err;
++	}
++	
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_RSTSET1, 0x77);
++	if (ret)
++		goto err;
++			
++		
++	do {
++		ret = mn88436_read_reg(state, 0, DMD_MAIN_STSMON1, &locked);
++
++		if (!ret && (locked & 1))
++				break;
++
++		msleep(10);   
++		
++	} while (--cnt);
++	
++	if (!cnt) {
++		ret = -EAGAIN;
++		goto err;
++	}
++	
++	dev_info(&state->i2c->dev, "Service locked!!!\n");
++	
++	state->current_frequency = p->frequency;
++	state->current_modulation = p->modulation;
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int mn88436_get_frontend(struct dvb_frontend *fe)
++{
++	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
++	struct mn88436_state *state = fe->demodulator_priv;
++
++	p->modulation = state->current_modulation;
++	p->frequency = state->current_frequency;
++	
++	return 0;
++}
++
++
++static int mn88436_init(struct dvb_frontend* fe)
++{
++	struct mn88436_state* state = fe->demodulator_priv;
++	const struct firmware *fw = NULL;	
++	int ret, i;
++	u8 d;
++	
++	state->boot = false;
++	
++	dev_info(&state->i2c->dev, "Uploading demod firmware (%s)...\n", MN88436_DEMOD_ATSC);
++	
++	ret = request_firmware(&fw, MN88436_DEMOD_ATSC, &state->i2c->dev);
++	if (ret) {
++		dev_info(&state->i2c->dev, "Firmware upload failed. Timeout or file not found\n");
++		goto err1;
++	}    
++	
++	for (i = 0;;) {
++	
++		if (fw->data[i] == 0xff) 
++			break;
++			
++		ret = mn88436_write_reg(state, fw->data[i], fw->data[i + 1], fw->data[i + 2]);
++		if (ret)
++			goto err2;
++					
++		i = i + 3;		
++	}
++	
++	release_firmware(fw);
++	fw = NULL;
++	
++	dev_info(&state->i2c->dev, "Uploading demod pseq (%s)...\n", MN88436_DEMOD_PSEQ);
++	ret = request_firmware(&fw, MN88436_DEMOD_PSEQ, &state->i2c->dev);
++	if (ret) {
++		dev_info(&state->i2c->dev, "Pseq upload failed. Timeout or file not found\n");
++		goto err1;
++	}    
++	
++	/* Load PSEQ Program */
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_PSEQSET , 0x03);
++	if (ret)
++		goto err2;
++	
++	for (i = 0; i < fw->size; i++) {
++		ret = mn88436_write_reg(state, 0, DMD_MAIN_PSEQPRG , fw->data[i]);
++		if (ret)
++			goto err2;
++	}
++	
++	release_firmware(fw);
++	fw = NULL;
++	
++	/* Check Parity bit */
++	ret = mn88436_read_reg(state, 0, DMD_MAIN_PSEQSET , &d);
++	if (ret)
++		goto err1;
++	
++	if (d & 0x20) {
++		ret = -EAGAIN;
++		goto err1;
++	}
++	
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_PSEQSET , 0x00);
++	if (ret)
++		goto err1;
++		
++		
++	/* TS parallel (Fixed clock mode) */
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_CPOSET2, 0xc1);
++	if (ret)
++		goto err1;
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_GPSET1, 0xff);
++	if (ret)
++		goto err1;
++		
++
++	/* Set TCB Through Mode */
++	ret = mn88436_write_reg_mask(state, 0, DMD_MAIN_TCBSET, 0x7f, 0x53);	
++	if (ret)
++		goto err1;		
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_TCBADR, 0x00);
++	if (ret)
++		goto err1;
++	
++	
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_VEQSET2, 0x80);
++	if (ret)
++		goto err1;
++		
++	state->boot = true;
++	
++	return 0;
++	
++err2:
++	release_firmware(fw);
++	fw = NULL;
++err1:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++	
++}
++static void mn88436_release(struct dvb_frontend* fe)
++{
++	struct mn88436_state* state = fe->demodulator_priv;
++	kfree(state);
++}
++
++
++static struct dvb_frontend_ops mn88436_ops = {
++	.delsys = { SYS_ATSC },
++	.info = {
++		.name = "Panasonic MN88436",		
++		.frequency_min = 51000000,
++		.frequency_max = 858000000,
++		.caps = FE_CAN_8VSB
++	},
++	.init = mn88436_init,
++	.release = mn88436_release,	
++	.set_frontend = mn88436_set_frontend,
++	.get_frontend = mn88436_get_frontend,	
++	.read_status = mn88436_read_status,
++	
++};
++
++struct dvb_frontend *mn88436_attach(struct i2c_adapter *i2c, 
++									u8 device_id)
++{
++	struct mn88436_state *state = NULL;
++	int ret;
++	
++	
++	state = kzalloc(sizeof(struct mn88436_state), GFP_KERNEL);
++	if (!state) {
++		ret = -ENOMEM;
++		dev_err(&i2c->dev, "kzalloc() failed\n");
++		goto err1;
++	}
++
++	state->i2c = i2c;
++	
++	switch (device_id) {
++	case 0:
++	default:
++		state->mn88436_bank[0] = 0x18;
++		state->mn88436_bank[1] = 0x10;
++		break;
++	case 1:
++		state->mn88436_bank[0] = 0x19;
++		state->mn88436_bank[1] = 0x11;
++		break;
++	case 2:
++		state->mn88436_bank[0] = 0x1A;
++		state->mn88436_bank[1] = 0x12;
++		break;
++	case 3:
++		state->mn88436_bank[0] = 0x1B;
++		state->mn88436_bank[1] = 0x13;
++		break;		
++	}
++	/* Try SOFT reset */
++	ret = mn88436_write_reg(state, 0, DMD_MAIN_RSTSET1, 0x77);
++	if (ret)
++		goto err2;
++	
++	dev_info(&i2c->dev, "MN88436 ATSC successfully attached\n");						
++		
++	memcpy(&state->frontend.ops, &mn88436_ops,
++		       sizeof(struct dvb_frontend_ops));
++			   
++	state->frontend.demodulator_priv = state;
++	
++	return &state->frontend;
++	
++err2:	
++	kfree(state);
++err1:	
++	dev_dbg(&i2c->dev, "%s: failed=%d\n", __func__, ret);	
++	return NULL;
++}
++EXPORT_SYMBOL(mn88436_attach);
++
++MODULE_DESCRIPTION("Panasonic MN88436 ATSC demod driver");
++MODULE_AUTHOR("Sasa Savic <sasa.savic.sr@gmail.com>");
++MODULE_LICENSE("GPL");
+diff -Naur a/drivers/amlogic/wetek/mn88436.h b/drivers/amlogic/wetek/mn88436.h
+--- a/drivers/amlogic/wetek/mn88436.h	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/mn88436.h	2015-01-11 20:22:02.000000000 +0100
+@@ -0,0 +1,47 @@
++/*
++ * Driver for the Panasonic MN88436 ATSC demodulator
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++ 
++#ifndef __MN88436_H_
++#define __MN88436_H_
++
++#include <linux/types.h>
++#include <linux/i2c.h>
++
++
++#define MN88436_DEMOD_ATSC 		"dvb-fe-mn88436-atsc.fw" 
++#define MN88436_DEMOD_PSEQ 		"dvb-fe-mn88436-pseq.fw" 
++
++#define DMD_REG_BANK    		2
++
++#define DMD_MAIN_CPOSET2		0x2
++#define DMD_MAIN_GPSET1			0x5
++#define DMD_MAIN_RSTSET1		0x10
++#define DMD_MAIN_TCBSET			0x15
++#define DMD_MAIN_TCBADR			0x17
++#define DMD_MAIN_VEQSET2		0x69
++#define DMD_MAIN_STSMON1		0xC4
++#define DMD_MAIN_PSEQSET		0xF0
++#define DMD_MAIN_PSEQPRG		0xF1
++
++
++extern struct dvb_frontend *mn88436_attach(struct i2c_adapter *i2c,
++											u8 device_id);
++
++#endif
+\ No newline at end of file
+diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
+--- a/drivers/amlogic/wetek/mxl603.c	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/mxl603.c	2015-01-11 20:17:30.000000000 +0100
+@@ -0,0 +1,1092 @@
++/*
++ * Driver for the MaxLinear MxL603 tuner
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include <linux/i2c.h>
++#include <linux/types.h>
++#include "tuner-i2c.h"
++#include "mxl603.h"
++
++
++enum mxl603_mode {
++	MxL603_MODE_CABLE,
++	MxL603_MODE_ISDBT_ATSC,
++	MxL603_MODE_DVBT,
++};
++
++enum mxl603_bw_mhz {
++	MxL603_CABLE_BW_6MHz = 0x00,
++	MxL603_CABLE_BW_7MHz = 0x01,
++	MxL603_CABLE_BW_8MHz = 0x02,
++	MxL603_TERR_BW_6MHz = 0x20,
++	MxL603_TERR_BW_7MHz = 0x21,
++	MxL603_TERR_BW_8MHz = 0x22,
++};
++
++struct reg_pair_t {
++	u8 reg;
++	u8 val;
++};
++
++struct freq_table {
++	u32 center_freq;
++	u8 reg1;
++	u8 reg2;
++};
++
++static struct freq_table MxL603_Cable[] = {
++	{ 1        , 0x00, 0xD8 },
++	{ 695000000, 0x20, 0xD7 },
++	{ 0, 0, 0 },
++};
++
++static struct freq_table MxL603_Digital[] = {
++	{ 1, 0x00, 0xD8 },
++	{ 0, 0, 0 },
++};
++
++static struct reg_pair_t MxL603_DigitalDvbc[] = {
++	{ 0x0C, 0x00 },
++	{ 0x13, 0x04 },
++	{ 0x53, 0x7E },
++	{ 0x57, 0x91 },
++	{ 0x5C, 0xB1 },
++	{ 0x62, 0xF2 },
++	{ 0x6E, 0x03 },
++	{ 0x6F, 0xD1 },
++	{ 0x87, 0x77 },
++	{ 0x88, 0x55 },
++	{ 0x93, 0x33 },
++	{ 0x97, 0x03 },
++	{ 0xBA, 0x40 },
++	{ 0x98, 0xAF },
++	{ 0x9B, 0x20 },
++	{ 0x9C, 0x1E },
++	{ 0xA0, 0x18 },
++	{ 0xA5, 0x09 },
++	{ 0xC2, 0xA9 },
++	{ 0xC5, 0x7C },
++	{ 0xCD, 0x64 },
++	{ 0xCE, 0x7C },
++	{ 0xD5, 0x05 },
++	{ 0xD9, 0x00 },
++	{ 0xEA, 0x00 },
++	{ 0xDC, 0x1C },
++	{ 0, 0 }
++};
++
++static struct reg_pair_t MxL603_DigitalIsdbtAtsc[] = {
++	{ 0x0C, 0x00 },
++	{ 0x13, 0x04 },
++	{ 0x53, 0xFE },
++	{ 0x57, 0x91 },
++	{ 0x62, 0xC2 },
++	{ 0x6E, 0x01 },
++	{ 0x6F, 0x51 },
++	{ 0x87, 0x77 },
++	{ 0x88, 0x55 },
++	{ 0x93, 0x22 },
++	{ 0x97, 0x02 },
++	{ 0xBA, 0x30 },
++	{ 0x98, 0xAF },
++	{ 0x9B, 0x20 },
++	{ 0x9C, 0x1E },
++	{ 0xA0, 0x18 },
++	{ 0xA5, 0x09 },
++	{ 0xC2, 0xA9 },
++	{ 0xC5, 0x7C },
++	{ 0xCD, 0xEB },
++	{ 0xCE, 0x7F },
++	{ 0xD5, 0x03 },
++	{ 0xD9, 0x04 },
++	{ 0, 0 }
++};
++
++static struct reg_pair_t MxL603_DigitalDvbt[] = {
++	{ 0x0C, 0x00 },
++	{ 0x13, 0x04 },
++	{ 0x53, 0xFE },
++	{ 0x57, 0x91 },
++	{ 0x62, 0xC2 },
++	{ 0x6E, 0x01 },
++	{ 0x6F, 0x51 },
++	{ 0x87, 0x77 },
++	{ 0x88, 0x55 },
++	{ 0x93, 0x22 },
++	{ 0x97, 0x02 },
++	{ 0xBA, 0x30 },
++	{ 0x98, 0xAF },
++	{ 0x9B, 0x20 },
++	{ 0x9C, 0x1E },
++	{ 0xA0, 0x18 },
++	{ 0xA5, 0x09 },
++	{ 0xC2, 0xA9 },
++	{ 0xC5, 0x7C },
++	{ 0xCD, 0x64 },
++	{ 0xCE, 0x7C },
++	{ 0xD5, 0x03 },
++	{ 0xD9, 0x04 },
++	{ 0, 0 }
++};
++
++struct mxl603_state {
++	struct mxl603_config *config;
++	struct i2c_adapter   *i2c;
++	u8 addr;
++	u32 frequency;
++	u32 bandwidth;
++};
++
++static int mxl603_write_reg(struct mxl603_state *state, u8 reg, u8 val)
++{
++	
++	u8 buf[] = { reg, val };
++	struct i2c_msg msg = { .addr = state->addr, .flags = 0,
++			       .buf = buf, .len = 2 };
++	int ret;
++		
++	ret = i2c_transfer(state->i2c, &msg, 1);
++	if (ret == 1) {
++		ret = 0;
++	} else {
++		dev_warn(&state->i2c->dev, "i2c wr failed=%d reg=%02x "
++				, ret, reg);				
++		ret = -EREMOTEIO;
++	}
++	return ret;
++}
++
++static int mxl603_write_regs(struct mxl603_state *state,
++			       struct reg_pair_t *reg_pair)
++{
++	unsigned int i = 0;
++	int ret = 0;
++
++	while ((ret == 0) && (reg_pair[i].reg || reg_pair[i].val)) {
++		ret = mxl603_write_reg(state,
++					 reg_pair[i].reg, reg_pair[i].val);
++		i++;
++	}
++	return ret;
++}
++static int mxl603_read_reg(struct mxl603_state *state, u8 reg, u8 *val)
++{
++	
++	u8 buf[2] = { 0xfb, reg };
++	struct i2c_msg msg[] = {
++		{ .addr = state->addr, .flags = 0,
++		  .buf = buf, .len = 2 },
++		{ .addr = state->addr, .flags = I2C_M_RD,
++		  .buf = val, .len = 1 },
++	};
++	int ret;
++
++	ret = i2c_transfer(state->i2c, msg, 2);
++	if (ret == 2) {
++		ret = 0;
++	} else {
++		dev_warn(&state->i2c->dev, "i2c rd failed=%d reg=%02x "
++				, ret, reg);
++		ret = -EREMOTEIO;
++	}
++	return ret;
++}
++static int mxl603_get_if_frequency(struct dvb_frontend *fe, u32 *frequency)
++{
++	struct mxl603_state *state = fe->tuner_priv;
++
++	*frequency = 0;
++
++	switch (state->config->if_freq_hz) {
++	case MXL603_IF_3_65MHz:
++		*frequency = 3650000;
++		break;
++	case MXL603_IF_4MHz:
++		*frequency = 4000000;
++		break;
++	case MXL603_IF_4_1MHz:
++		*frequency = 4100000;
++		break;
++	case MXL603_IF_4_15MHz:
++		*frequency = 4150000;
++		break;
++	case MXL603_IF_4_5MHz:
++		*frequency = 4500000;
++		break;
++	case MXL603_IF_4_57MHz:
++		*frequency = 4570000;
++		break;
++	case MXL603_IF_5MHz:
++		*frequency = 5000000;
++		break;
++	case MXL603_IF_5_38MHz:
++		*frequency = 5380000;
++		break;
++	case MXL603_IF_6MHz:
++		*frequency = 6000000;
++		break;
++	case MXL603_IF_6_28MHz:
++		*frequency = 6280000;
++		break;
++	case MXL603_IF_7_2MHz:
++		*frequency = 7200000;
++		break;
++	case MXL603_IF_8_25MHz:
++		*frequency = 8250000;
++		break;
++	case MXL603_IF_35_25MHz:
++		*frequency = 35250000;
++		break;
++	case MXL603_IF_36MHz:
++		*frequency = 36000000;
++		break;
++	case MXL603_IF_36_15MHz:
++		*frequency = 36150000;
++		break;
++	case MXL603_IF_36_65MHz:
++		*frequency = 36650000;
++		break;
++	case MXL603_IF_44MHz:
++		*frequency = 44000000;
++		break;
++	}
++	return 0;
++}
++
++static int mxl603_set_freq(struct mxl603_state *state,
++						   int freq,
++						   enum mxl603_mode mode,
++						   enum mxl603_bw_mhz bw,
++						   struct freq_table *ftable)
++{
++	u8 d = 0, d1 = 0, d2 = 0, d3 = 0;
++	u16 f;
++	u32 tmp, div;
++	int ret;
++	int i;
++
++	ret = mxl603_write_reg(state, 0x12, 0x00);
++	if (ret)
++		goto err;
++
++	if (freq < 700000000) {
++		ret = mxl603_write_reg(state, 0x7C, 0x1F);
++		if (ret)
++			goto err;
++
++		if (mode == MxL603_MODE_CABLE)
++			d = 0xC1;
++		else
++			d = 0x81;
++
++	} else {
++		ret = mxl603_write_reg(state, 0x7C, 0x9F);
++		if (ret)
++			goto err;
++
++		if (mode == MxL603_MODE_CABLE)
++			d = 0xD1;
++		else
++			d = 0x91;
++	}
++
++	ret = mxl603_write_reg(state, 0x00, 0x01);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x31, d);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x00);
++	if (ret)
++		goto err;
++
++	for (i = 0; 0 != ftable->center_freq; i++, ftable++) {
++
++		if (ftable->center_freq == 1) {
++			d1 = ftable->reg1;
++			d2 = ftable->reg2;
++			break;
++		}
++	}
++
++	for (i = 0; 0 != ftable->center_freq; i++, ftable++) {
++
++		if ((ftable->center_freq - 500000) <= freq &&
++			(ftable->center_freq + 500000) >= freq) {
++			d1 = ftable->reg1;
++			d2 = ftable->reg2;
++			break;
++		}
++	}
++
++	ret = mxl603_write_reg(state, 0xEA, d1);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0xEB, d2);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x0F, bw);
++	if (ret)
++		goto err;
++
++	 /* convert freq to 10.6 fixed point float [MHz] */
++	f = freq / 1000000;
++	tmp = freq % 1000000;
++	div = 1000000;
++	for (i = 0; i < 6; i++) {
++		f <<= 1;
++		div >>= 1;
++			if (tmp > div) {
++				tmp -= div;
++				f |= 1;
++			}
++	}
++	if (tmp > 7812)
++		f++;
++
++	d1 = f & 0xFF;
++	d2 = f >> 8;
++
++	ret = mxl603_write_reg(state, 0x10, d1);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x11, d2);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x0B, 0x01);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x01);
++	if (ret)
++		goto err;
++
++	ret = mxl603_read_reg(state, 0x96, &d);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x00);
++	if (ret)
++		goto err;
++
++	ret = mxl603_read_reg(state, 0xB6, &d1);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x01);
++	if (ret)
++		goto err;
++
++	ret = mxl603_read_reg(state, 0x60, &d2);
++	if (ret)
++		goto err;
++
++	ret = mxl603_read_reg(state, 0x5F, &d3);
++	if (ret)
++		goto err;
++
++	if ((d & 0x10) == 0x10) {
++
++		d1 &= 0xBF;
++		d1 |= 0x0E;
++
++		d2 &= 0xC0;
++		d2 |= 0x0E;
++
++		d3 &= 0xC0;
++		d3 |= 0x0E;
++	} else {
++
++		d1 |= 0x40;
++		d1 &= 0xC0;
++
++		d2 &= 0xC0;
++		d2 |= 0x37;
++
++		d3 &= 0xC0;
++		d3 |= 0x37;
++
++	}
++
++	ret = mxl603_write_reg(state, 0x60, d2);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x5F, d3);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x00);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0xB6, d);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x12, 0x01);
++	if (ret)
++		goto err;
++
++	msleep(20);
++
++	d |= 0x40;
++
++	ret = mxl603_write_reg(state, 0xB6, d);
++	if (ret)
++		goto err;
++
++	msleep(20);
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int mxl603_set_mode(struct dvb_frontend *fe,
++						struct mxl603_state *state,
++						enum mxl603_mode mode)
++{
++
++	u8 cfg_0, cfg_1, pwr, dfe;
++	int ret;
++	u32 if_out_freq;
++	struct reg_pair_t *reg_table;
++
++	ret = mxl603_get_if_frequency(fe, &if_out_freq);
++	if (!if_out_freq)
++		goto err;
++
++	if_out_freq /= 1000;
++
++	switch (mode) {
++	case MxL603_MODE_CABLE:
++		reg_table = MxL603_DigitalDvbc;
++		pwr = 0;
++		dfe = 0xFF;
++
++		if (if_out_freq <  35250) {
++			cfg_0 = 0xFE;
++			cfg_1 = 0x10;
++
++		} else {
++			cfg_0 = 0xD9;
++			cfg_1 = 0x16;
++		}
++		
++		break;
++	case MxL603_MODE_ISDBT_ATSC:
++		reg_table = MxL603_DigitalIsdbtAtsc;
++		dfe = 0x1C;
++
++		if (if_out_freq <  35250) {
++			cfg_0 = 0xF9;
++			cfg_1 = 0x18;
++			pwr = 0xF1;
++		} else {
++			cfg_0 = 0xD9;
++			cfg_1 = 0x16;
++			pwr = 0xB1;
++		}
++		switch(state->config->gain_level)
++		{
++			case 0x09: dfe = 0x44; break;
++			case 0x08: dfe = 0x43; break;
++			case 0x07: dfe = 0x42; break;
++			case 0x06: dfe = 0x41; break;
++			case 0x05: dfe = 0x40; break;
++			default: break;
++		}
++
++		break;
++	case MxL603_MODE_DVBT:
++		reg_table = MxL603_DigitalDvbt;
++		dfe = 0;
++		if (if_out_freq <  35250) {
++			cfg_0 = 0xFE;
++			cfg_1 = 0x18;
++			pwr = 0xF1;
++		} else {
++			cfg_0 = 0xD9;
++			cfg_1 = 0x16;
++			pwr = 0xB1;
++		}
++		switch(state->config->gain_level)
++		{
++			case 0x09: dfe = 0x44; break;
++			case 0x08: dfe = 0x43; break;
++			case 0x07: dfe = 0x42; break;
++			case 0x06: dfe = 0x41; break;
++			case 0x05: dfe = 0x40; break;
++			default: break;
++		}
++		break;
++	default:
++			return -EINVAL;
++	}
++
++	ret = mxl603_write_regs(state, reg_table);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x5A, cfg_0);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x5B, cfg_1);
++	if (ret)
++		goto err;
++
++	if (pwr) {
++		ret = mxl603_write_reg(state, 0x5C, pwr);
++		if (ret)
++			goto err;
++	}
++
++	ret = mxl603_write_reg(state, 0xEA,
++				state->config->xtal_freq_hz ? 0x0E : 0x0D);
++	if (ret)
++		goto err;
++
++	if (dfe != 0xFF) {
++		ret = mxl603_write_reg(state, 0xDC, dfe);
++		if (ret)
++			goto err;
++	}
++
++	ret = mxl603_write_reg(state, 0x03, 0x00);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x03, 0x01);
++	if (ret)
++		goto err;
++
++	msleep(50);
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int mxl603_set_agc(struct mxl603_state *state)
++{
++	u8 d = 0;
++	int ret;
++
++	ret = mxl603_read_reg(state, 0x08, &d);
++	if (ret)
++		goto err;
++
++	d &= 0xF2;
++	d = (u8) (d | (state->config->agc_type << 2) | 0x01);
++	ret = mxl603_write_reg(state, 0x08, d);
++	if (ret)
++		goto err;
++
++	ret = mxl603_read_reg(state, 0x09, &d);
++	if (ret)
++		goto err;
++
++	d &= 0x80;
++	d |= state->config->agc_set_point;
++	ret = mxl603_write_reg(state, 0x09, d);
++	if (ret)
++		goto err;
++
++	ret = mxl603_read_reg(state, 0x5E, &d);
++	if (ret)
++		goto err;
++
++	d &= 0xEF;
++	d |= (state->config->agc_invert_pol << 4);
++	ret = mxl603_write_reg(state, 0x5E, d);
++	if (ret)
++		goto err;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int mxl603_set_if_out(struct mxl603_state *state)
++{
++	u8 d = 0;
++	int ret;
++
++	ret = mxl603_read_reg(state, 0x04, &d);
++	if (ret)
++		goto err;
++
++	d |= state->config->if_freq_hz;
++
++	ret = mxl603_write_reg(state, 0x04, d);
++	if (ret)
++		goto err;
++
++	d = 0;
++	if (state->config->invert_if)
++		d = 0x3 << 6;
++
++	d += (state->config->gain_level & 0x0F);
++	d |= 0x20;
++	ret = mxl603_write_reg(state, 0x05, d);
++	if (ret)
++		goto err;
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int mxl603_set_xtal(struct mxl603_state *state)
++{
++	u8 d = 0;
++	int ret;
++
++	d = (u8)((state->config->xtal_freq_hz << 5)
++			| (state->config->xtal_cap & 0x1F));
++	d |= (state->config->clk_out_enable << 7);
++
++	ret = mxl603_write_reg(state, 0x01, d);
++	if (ret)
++		goto err;
++
++	d = (0x01 & (u8)state->config->clk_out_div);
++
++	if (state->config->xtal_sharing_mode) {
++		d |= 0x40;
++
++		ret = mxl603_write_reg(state, 0x02, d);
++		if (ret)
++			goto err;
++		ret = mxl603_write_reg(state, 0x6D, 0x80);
++		if (ret)
++			goto err;
++	} else {
++		d &= 0x01;
++		ret = mxl603_write_reg(state, 0x02, d);
++		if (ret)
++			goto err;
++		ret = mxl603_write_reg(state, 0x6D, 0x0A);
++		if (ret)
++			goto err;
++	}
++
++	if (state->config->single_supply_3_3V) {
++		ret = mxl603_write_reg(state, 0x0E, 0x14);
++		if (ret)
++			goto err;
++	}
++
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int mxl603_tuner_init_default(struct mxl603_state *state)
++{
++	u8 d = 0;
++	int ret;
++	
++	ret = mxl603_write_reg(state, 0xFF, 0x00);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_regs(state, MxL603_DigitalDvbc);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x01);
++	if (ret)
++		goto err;
++
++	ret = mxl603_read_reg(state, 0x31, &d);
++	if (ret)
++		goto err;
++
++	d &= 0x2F;
++	d |= 0xD0;
++
++	ret = mxl603_write_reg(state, 0x31, d);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x00);
++	if (ret)
++		goto err;
++
++	if (state->config->single_supply_3_3V) {
++		ret = mxl603_write_reg(state, 0x0E, 0x04);
++		if (ret)
++			goto err;
++	}
++
++	mdelay(1);
++	
++	return 0;
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int mxl603_synth_lock_status(struct mxl603_state *state,
++				      int *rf_locked, int *ref_locked)
++{
++	u8 d = 0;
++	int ret;
++
++	*rf_locked = 0;
++	*ref_locked = 0;
++
++	ret = mxl603_read_reg(state, 0x2B, &d);
++	if (ret)
++		goto err;
++
++	if ((d & 0x02) == 0x02)
++		*rf_locked = 1;
++
++	if ((d & 0x01) == 0x01)
++		*ref_locked = 1;
++	
++	return 0;
++	
++err:
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int mxl603_get_status(struct dvb_frontend *fe, u32 *status)
++{
++	struct mxl603_state *state = fe->tuner_priv;
++	int rf_locked, ref_locked, ret;
++
++	*status = 0;
++
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 1);
++
++	ret = mxl603_synth_lock_status(state, &rf_locked, &ref_locked);
++	if (ret)
++		goto err;
++
++	dev_info(&state->i2c->dev, "%s%s", rf_locked ? "rf locked " : "",
++			ref_locked ? "ref locked" : "");
++
++	if ((rf_locked) || (ref_locked))
++		*status |= TUNER_STATUS_LOCKED;
++
++		
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++
++	return 0;
++	
++err:
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++		
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++static int mxl603_set_params(struct dvb_frontend *fe)
++{	
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	struct mxl603_state *state = fe->tuner_priv;	
++	struct freq_table *ftable;
++	enum mxl603_bw_mhz bw;
++	enum mxl603_mode mode;
++	int ret;
++	u32 freq = c->frequency;
++	
++	dev_info(&state->i2c->dev, 
++		"%s: delivery_system=%d frequency=%d bandwidth_hz=%d\n", 
++		__func__, c->delivery_system, c->frequency, c->bandwidth_hz);		
++
++	switch (c->delivery_system) {
++	case SYS_ATSC:
++		mode = MxL603_MODE_ISDBT_ATSC;
++		bw = MxL603_TERR_BW_6MHz;
++		ftable = MxL603_Digital;
++		break;
++	case SYS_DVBC_ANNEX_A:
++		mode = MxL603_MODE_CABLE;
++		ftable = MxL603_Cable;
++		bw = MxL603_CABLE_BW_8MHz;	
++		break;
++	case SYS_DVBT:
++	case SYS_DVBT2:
++		mode = MxL603_MODE_DVBT;
++		ftable = MxL603_Digital;
++		switch (c->bandwidth_hz) {
++		case 6000000:
++			bw = MxL603_TERR_BW_6MHz;
++			break;
++		case 7000000:
++			bw = MxL603_TERR_BW_7MHz;
++			break;
++		case 8000000:
++			bw = MxL603_TERR_BW_8MHz;
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	default:
++		 dev_dbg(&state->i2c->dev, "%s: err state=%d\n", 
++			__func__, fe->dtv_property_cache.delivery_system);
++		return -EINVAL;
++	}
++
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 1);
++	
++	ret = mxl603_tuner_init_default(state);
++	if (ret)
++		goto err;
++
++	ret = mxl603_set_xtal(state);
++	if (ret)
++		goto err;
++
++	ret = mxl603_set_if_out(state);
++	if (ret)
++		goto err;
++
++	ret = mxl603_set_agc(state);
++	if (ret)
++		goto err;
++
++	ret = mxl603_set_mode(fe, state, mode);
++	if (ret)
++		goto err;
++		
++	ret = mxl603_set_freq(state, freq, mode, bw, ftable);
++	if (ret)
++		goto err;
++
++	state->frequency = freq;
++	state->bandwidth = c->bandwidth_hz;
++
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++		
++	msleep(15);
++		
++	return 0;
++	
++err:
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++		
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int mxl603_get_frequency(struct dvb_frontend *fe, u32 *frequency)
++{
++	struct mxl603_state *state = fe->tuner_priv;
++	*frequency = state->frequency;
++	return 0;
++}
++
++static int mxl603_get_bandwidth(struct dvb_frontend *fe, u32 *bandwidth)
++{
++	struct mxl603_state *state = fe->tuner_priv;
++	*bandwidth = state->bandwidth;
++	return 0;
++}
++
++static int mxl603_init(struct dvb_frontend *fe)
++{
++	struct mxl603_state *state = fe->tuner_priv;
++	int ret;
++
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 1);
++
++	/* wake from standby */
++	ret = mxl603_write_reg(state, 0x0B, 0x01);
++	if (ret)
++		goto err;
++	ret = mxl603_write_reg(state, 0x12, 0x01);
++	if (ret)
++		goto err;
++	ret = mxl603_write_reg(state, 0x00, 0x01);
++	if (ret)
++		goto err;
++
++	if (state->config->loop_thru_enable)
++		ret = mxl603_write_reg(state, 0x60, 0x0E);
++	else
++		ret = mxl603_write_reg(state, 0x60, 0x37);
++	if (ret)
++		goto err;
++
++	ret = mxl603_write_reg(state, 0x00, 0x00);
++	if (ret)
++		goto err;
++		
++	return 0;
++	
++err:
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++		
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int mxl603_sleep(struct dvb_frontend *fe)
++{
++	struct mxl603_state *state = fe->tuner_priv;
++	int ret;
++
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 1);
++
++	/* enter standby mode */
++	ret = mxl603_write_reg(state, 0x12, 0x00);
++	if (ret)
++		goto err;
++		
++	ret = mxl603_write_reg(state, 0x0B, 0x00);
++	if (ret)
++		goto err;
++		
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++
++	return 0;
++	
++err:
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++		
++	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
++static int mxl603_release(struct dvb_frontend *fe)
++{
++	struct mxl603_state *state = fe->tuner_priv;
++
++	fe->tuner_priv = NULL;
++	kfree(state);
++	
++	return 0;
++}
++static struct dvb_tuner_ops mxl603_tuner_ops = {
++	.info = {
++		.name = "MaxLinear MxL603",
++	},
++	.init              = mxl603_init,
++	.sleep             = mxl603_sleep,
++	.set_params        = mxl603_set_params,
++	.get_status        = mxl603_get_status,
++	.get_frequency     = mxl603_get_frequency,
++	.get_bandwidth     = mxl603_get_bandwidth,
++	.release           = mxl603_release,
++	.get_if_frequency  = mxl603_get_if_frequency,
++};
++static int mxl603_get_chip_id(struct mxl603_state *state)
++{
++	int ret;
++	u8 id;
++
++	ret = mxl603_read_reg(state, 0x18, &id);
++	if (ret)
++		goto err;
++
++	if (id != 0x02) {
++		ret = -ENODEV;
++		goto err;
++	}
++
++	dev_info(&state->i2c->dev, "MxL603 detected id(%02x)\n"
++			, id);
++			
++	return ret;
++
++err:
++	dev_warn(&state->i2c->dev, "MxL603 unable to identify device(%02x)\n"
++			, id);
++	return ret;
++}
++struct dvb_frontend *mxl603_attach(struct dvb_frontend *fe,
++				     struct i2c_adapter *i2c, u8 addr,
++				     struct mxl603_config *config)
++{
++	struct mxl603_state *state = NULL;
++	int ret = 0;
++
++	state = kzalloc(sizeof(struct mxl603_state), GFP_KERNEL);
++	if (!state) {
++		ret = -ENOMEM;
++		dev_err(&i2c->dev, "kzalloc() failed\n");
++		goto err1;
++	}
++	
++	state->config = config;
++	state->i2c = i2c;
++	state->addr = addr;
++	
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 1);
++
++	ret = mxl603_get_chip_id(state);
++
++	if (fe->ops.i2c_gate_ctrl)
++		fe->ops.i2c_gate_ctrl(fe, 0);
++
++	/* check return value of mxl603_get_chip_id */
++	if (ret)
++		goto err2;
++	
++	dev_info(&i2c->dev, "Attaching MxL603\n");
++	
++	fe->tuner_priv = state;
++
++	memcpy(&fe->ops.tuner_ops, &mxl603_tuner_ops,
++	       sizeof(struct dvb_tuner_ops));
++
++	return fe;
++	
++err2:
++	kfree(state);
++err1:
++	return NULL;
++}
++EXPORT_SYMBOL(mxl603_attach);
++
++MODULE_DESCRIPTION("MaxLinear MxL603 tuner driver");
++MODULE_AUTHOR("Sasa Savic <sasa.savic.sr@gmail.com>");
++MODULE_LICENSE("GPL");
+diff -Naur a/drivers/amlogic/wetek/mxl603.h b/drivers/amlogic/wetek/mxl603.h
+--- a/drivers/amlogic/wetek/mxl603.h	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/mxl603.h	2015-01-11 15:01:50.000000000 +0100
+@@ -0,0 +1,82 @@
++/*
++ * Driver for the MaxLinear MxL603 tuner
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++ 
++#ifndef __MXL603_H__
++#define __MXL603_H__
++
++#include <linux/dvb/version.h>
++#include "dvb_frontend.h"
++
++enum mxl603_if_freq {
++	MXL603_IF_3_65MHz,
++	MXL603_IF_4MHz,
++	MXL603_IF_4_1MHz,
++	MXL603_IF_4_15MHz,
++	MXL603_IF_4_5MHz, 
++	MXL603_IF_4_57MHz,
++	MXL603_IF_5MHz,
++	MXL603_IF_5_38MHz, 
++	MXL603_IF_6MHz,
++	MXL603_IF_6_28MHz,
++	MXL603_IF_7_2MHz, 
++	MXL603_IF_8_25MHz,
++	MXL603_IF_35_25MHz,
++	MXL603_IF_36MHz, 
++	MXL603_IF_36_15MHz, 
++	MXL603_IF_36_65MHz,
++	MXL603_IF_44MHz,
++};
++
++enum mxl603_xtal_freq {
++	MXL603_XTAL_16MHz,
++	MXL603_XTAL_24MHz,
++};
++
++enum mxl603_agc {
++	MXL603_AGC_SELF,   
++	MXL603_AGC_EXTERNAL,
++};
++
++struct mxl603_config {
++	enum mxl603_xtal_freq xtal_freq_hz;
++	enum mxl603_if_freq if_freq_hz;
++	enum mxl603_agc agc_type;
++	
++	u8 xtal_cap;
++	u8 gain_level;
++	u8 agc_set_point;
++	
++	u8 agc_invert_pol;
++	u8 invert_if;
++	u8 loop_thru_enable;
++	u8 clk_out_enable;
++	u8 clk_out_div;
++	u8 clk_out_ext;
++	u8 xtal_sharing_mode;
++	u8 single_supply_3_3V;
++};
++
++
++
++extern struct dvb_frontend *mxl603_attach(struct dvb_frontend *fe,
++					    struct i2c_adapter *i2c, u8 addr,
++					    struct mxl603_config *cfg);
++
++#endif /* __MXL603_H__ */
+diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect.c
+--- a/drivers/amlogic/wetek/nimdetect.c	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/nimdetect.c	2015-01-11 20:28:06.000000000 +0100
+@@ -0,0 +1,411 @@
++/*
++ * Wetek NIMs/DVB detection
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++
++
++#include <linux/amlogic/aml_gpio_consumer.h>
++#include <linux/usb.h>
++#include "nimdetect.h"
++
++#include "cxd2837.h"
++#include "mxl603.h"
++#include "avl6211.h"
++#include "mn88436.h"
++
++
++#define TOTAL_I2C		 	2
++#define TOTAL_DEMODS 		2
++#define TOTAL_AML_INPUTS 	3
++
++
++static struct wetek_nims weteknims;
++
++static struct cxd2837_cfg cxd2837cfg = {
++		.adr = 0x6C,
++		.if_agc_polarity = 1,
++		.rfain_monitoring = 0,
++		.ts_error_polarity = 0,
++		.clock_polarity = 1,
++		.ifagc_adc_range = 0,
++		.spec_inv = 0,
++		.xtal = XTAL_20500KHz,
++		.ts_clock = SERIAL_TS_CLK_MID_FULL,
++};
++
++static struct mxl603_config mxl603cfg = {
++		.xtal_freq_hz = MXL603_XTAL_24MHz,
++		.if_freq_hz = MXL603_IF_5MHz,
++		.agc_type = MXL603_AGC_SELF,
++		.xtal_cap = 16,
++		.gain_level = 11,
++		.agc_set_point = 66,
++		.agc_invert_pol = 0,
++		.invert_if = 1,
++		.loop_thru_enable = 0,
++		.clk_out_enable = 1,
++		.clk_out_div = 0,
++		.clk_out_ext = 0,
++		.xtal_sharing_mode = 0,
++		.single_supply_3_3V = 1,
++};
++
++static struct mxl603_config mxl603cfg_atsc = {
++		.xtal_freq_hz = MXL603_XTAL_24MHz,
++		.if_freq_hz = MXL603_IF_5MHz,
++		.agc_type = MXL603_AGC_EXTERNAL,
++		.xtal_cap = 31,
++		.gain_level = 11,
++		.agc_set_point = 66,
++		.agc_invert_pol = 0,
++		.invert_if = 0,
++		.loop_thru_enable = 0,
++		.clk_out_enable = 1,
++		.clk_out_div = 0,
++		.clk_out_ext = 0,
++		.xtal_sharing_mode = 0,
++		.single_supply_3_3V = 1,
++};
++
++static struct avl6211_config avl6211cfg[] = {
++	{
++		.tuner_address = 0xC2,
++		.tuner_i2c_clock = 200,	
++		.demod_address = 0x0C,
++		.mpeg_pol = 1,
++		.mpeg_mode = 0,
++		.mpeg_format = 0,
++		.demod_refclk = 4,
++		.mpeg_pin = 0,
++		.tuner_rfagc = 1,
++		.tuner_spectrum = 0,
++		.use_lnb_pin59 = 1,
++		.use_lnb_pin60 = 0,
++		.set_external_vol_gpio = set_external_vol_gpio,
++	},
++	{
++		.tuner_address = 0xC2,
++		.tuner_i2c_clock = 200,		
++		.demod_address = 0x0C,
++		.mpeg_pol = 1,
++		.mpeg_mode = 0,
++		.mpeg_format = 0,
++		.demod_refclk = 4,
++		.mpeg_pin = 0,
++		.tuner_rfagc = 1,
++		.tuner_spectrum = 0,
++		.use_lnb_pin59 = 1,
++		.use_lnb_pin60 = 0,
++		.set_external_vol_gpio = set_external_vol_gpio,
++	}
++};
++
++extern struct list_head usb_bus_list;
++extern struct mutex usb_bus_list_lock;
++extern struct usb_device *usb_hub_find_child(struct usb_device *hdev, int port1);
++extern struct usb_device *usb_get_dev(struct usb_device *dev);
++extern int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
++                     __u8 requesttype, __u16 value, __u16 index, void *data,
++                     __u16 size, int timeout);
++EXPORT_SYMBOL(usb_bus_list);
++EXPORT_SYMBOL(usb_bus_list_lock);
++EXPORT_SYMBOL(usb_hub_find_child);
++EXPORT_SYMBOL(usb_get_dev);
++EXPORT_SYMBOL(usb_control_msg);
++EXPORT_SYMBOL(get_nims_infos);
++
++
++
++void get_nims_infos(struct wetek_nims *p)
++{
++	memcpy(p, &weteknims, sizeof(struct wetek_nims));
++}
++
++int set_external_vol_gpio(int *demod_id, fe_sec_voltage_t voltage)
++{
++	if (voltage == SEC_VOLTAGE_18) {
++		if (*demod_id == 0 ) 		
++			amlogic_gpio_direction_output(GPIOAO_8, 1, "nimdetect");
++        else if (*demod_id == 1)
++			amlogic_gpio_direction_output(GPIOAO_9, 1, "nimdetect");
++	} else if (voltage == SEC_VOLTAGE_13) {                
++		if (*demod_id == 0 ) 
++			amlogic_gpio_direction_output(GPIOAO_8, 0, "nimdetect");
++        else if (*demod_id == 1)		
++			amlogic_gpio_direction_output(GPIOAO_9, 0, "nimdetect");               
++    }
++	return 0;
++}
++
++static void nim_dvb_pinctrl_put(struct wetek_nims *p)
++{
++	if (p->ts[0].pinctrl) {
++		devm_pinctrl_put(p->ts[0].pinctrl);
++		p->ts[0].pinctrl = NULL;
++	}
++}
++static struct pinctrl * __must_check nim_dvb_pinctrl_get_select(
++		struct device *dev, struct wetek_nims *p, const char *name)
++{
++	/*all dvb pinctrls share the ts[0]'s pinctrl.*/
++	struct pinctrl *pctl = p->ts[0].pinctrl;
++	
++	struct pinctrl_state *s;
++	int ret;
++
++	if (!pctl) {
++		pctl = devm_pinctrl_get(dev);
++		if (IS_ERR(pctl))
++			return pctl;
++			
++		p->ts[0].pinctrl = pctl;
++	}
++
++	s = pinctrl_lookup_state(pctl, name);
++	if (IS_ERR(s)) {
++		devm_pinctrl_put(pctl);
++		return ERR_CAST(s);
++	}
++
++	ret = pinctrl_select_state(pctl, s);
++	if (ret < 0) {
++		devm_pinctrl_put(pctl);
++		return ERR_PTR(ret);
++	}
++
++	return pctl;
++}
++static int nim_dvb_probe(struct platform_device *pdev)
++{
++	int i;
++	int ret = 0;
++
++	
++
++	weteknims.pdev = pdev;
++	weteknims.dev  = &pdev->dev;
++
++	for (i = 0; i < TOTAL_I2C; i++) {
++		weteknims.i2c[i] = i2c_get_adapter(i + 1);
++		if (weteknims.i2c[i] != NULL)
++			dev_info(&pdev->dev, "Found Wetek i2c-%d adapter ...\n", i + 1);
++		else {
++			dev_info(&pdev->dev, "Failed to acquire Wetek i2c-%d adapter ...\n", i + 1);	
++			ret = -ENODEV;
++			goto error2;
++		}
++	
++	}
++	if (pdev->dev.of_node) {
++		for (i = 0; i <  TOTAL_AML_INPUTS; i++) {
++			char buf[32];
++			const char *str;
++
++			snprintf(buf, sizeof(buf), "ts%d", i);
++			ret = of_property_read_string(pdev->dev.of_node, buf, &str);
++			if (!ret) {
++				if (!strcmp(str, "parallel")) {
++					dev_info(&pdev->dev, "%s: parallel\n", buf);
++					snprintf(buf, sizeof(buf), "p_ts%d", i);
++					weteknims.ts[i].mode    = 1;
++					weteknims.ts[i].pinctrl = nim_dvb_pinctrl_get_select(&pdev->dev, &weteknims, buf);
++				}
++			}
++		}
++	}
++
++	/* FEC_RESET */
++	amlogic_gpio_request(GPIOD_8, "nimdetect"); 
++	
++	/* INPUT1 POWER CTRL */
++	amlogic_gpio_request(GPIOAO_8, "nimdetect");
++	
++	/* INPUT2 POWER CTRL */
++	amlogic_gpio_request(GPIOAO_9, "nimdetect");
++
++
++	/* RESET DEMOD(s) */
++	amlogic_gpio_direction_output(GPIOD_8, 0, "nimdetect");
++	msleep(600);
++	amlogic_gpio_direction_output(GPIOD_8, 1, "nimdetect");
++
++	msleep(200);
++
++
++	dev_info(&pdev->dev, "Wetek NIM(s) detection in progress ...\n");
++
++	for (i = 0; i < TOTAL_DEMODS; i++) {		
++		if (i == 0) {		
++			dev_info(&pdev->dev, "Checking for Sony CXD2837 DVB-C/T/T2 demod ...\n");	
++			
++			weteknims.fe[i] =  dvb_attach(cxd2837_attach, weteknims.i2c[i], &cxd2837cfg);				
++			
++			if (weteknims.fe[i] != NULL) {			
++				amlogic_gpio_direction_output(GPIOAO_9, 0, "nimdetect"); //SWITCH OFF INPUT2 POWER									
++				
++				if (dvb_attach(mxl603_attach, weteknims.fe[i], weteknims.i2c[i], 0x60, &mxl603cfg) == NULL) {
++					dev_info(&pdev->dev, "Failed to find MxL603 tuner!\n");
++					dev_info(&pdev->dev, "Detaching Sony CXD2837 DVB-C/T/T2 frontend!\n");
++					dvb_frontend_detach(weteknims.fe[i]);
++					goto error1;
++				}
++				
++				weteknims.total_nims++;
++				dev_info(&pdev->dev, "Total Wetek NIM(s) found: %d\n", weteknims.total_nims);
++				return ret;
++			}
++			
++			dev_info(&pdev->dev, "Checking for Panasonic MN88436 ATSC demod ...\n");	
++			
++			weteknims.fe[i] =  dvb_attach(mn88436_attach, weteknims.i2c[i], 0);				
++			
++			if (weteknims.fe[i] != NULL) {			
++				amlogic_gpio_direction_output(GPIOAO_9, 0, "nimdetect"); //SWITCH OFF INPUT2 POWER									
++				
++				if (dvb_attach(mxl603_attach, weteknims.fe[i], weteknims.i2c[i], 0x60, &mxl603cfg_atsc) == NULL) {
++					dev_info(&pdev->dev, "Failed to find MxL603 tuner!\n");
++					dev_info(&pdev->dev, "Detaching Panasonic MN88436 ATSC frontend!\n");
++					dvb_frontend_detach(weteknims.fe[i]);
++					goto error1;
++				}
++				
++				weteknims.total_nims++;
++				dev_info(&pdev->dev, "Total Wetek NIM(s) found: %d\n", weteknims.total_nims);
++				return ret;
++			}
++			
++			
++			
++		}
++		dev_info(&pdev->dev, "Checking for AVL6211 DVB-S/S2 demod ...\n");
++		weteknims.fe[i] = dvb_attach(avl6211_attach, weteknims.i2c[i], &avl6211cfg[i], i);
++		if (weteknims.fe[i] != NULL) {
++		
++			weteknims.total_nims++;
++		}
++	}
++	
++	if (weteknims.total_nims > 0) {		
++		dev_info(&pdev->dev, "Total Wetek NIM(s) found: %d\n", weteknims.total_nims);
++		return 0;
++	}
++	
++error1:
++	/* Failed to find any DEMOD(s) */
++	ret = -ENODEV;
++	amlogic_gpio_free(GPIOD_8, "nimdetect");
++	amlogic_gpio_free(GPIOAO_8, "nimdetect");
++	amlogic_gpio_free(GPIOAO_9, "nimdetect");
++	nim_dvb_pinctrl_put(&weteknims);
++	
++error2:
++	for (i = 0; i < TOTAL_I2C; i++) {
++		if (weteknims.i2c[i] != NULL)
++			i2c_put_adapter(weteknims.i2c[i]);
++	}
++	return ret;
++}
++static int nim_dvb_remove(struct platform_device *pdev)
++{
++	int i;
++	
++	for (i = 0; i < TOTAL_DEMODS; i++) {
++		if (weteknims.fe[i] != NULL) 
++			dvb_frontend_detach(weteknims.fe[i]);
++	}
++
++	for (i = 0; i < TOTAL_I2C; i++) {
++		if (weteknims.i2c[i] != NULL)
++			i2c_put_adapter(weteknims.i2c[i]);
++	}
++	amlogic_gpio_free(GPIOD_8, "nimdetect");
++	amlogic_gpio_free(GPIOAO_8, "nimdetect");
++	amlogic_gpio_free(GPIOAO_9, "nimdetect");
++	nim_dvb_pinctrl_put(&weteknims);
++	return 0;
++}
++static int wetekcard_probe(struct platform_device *pdev)
++{
++	if (pdev->dev.of_node)
++		weteknims.card_pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
++
++	return 0;
++}
++static int wetekcard_remove(struct platform_device *pdev)
++{
++	if(weteknims.card_pinctrl)
++		devm_pinctrl_put(weteknims.card_pinctrl);
++	return 0;
++}
++static const struct of_device_id nim_dvb_dt_match[] = {
++	{
++		.compatible = "amlogic,dvb",
++	},
++	{},
++};
++static struct platform_driver nim_dvb_detection = {
++	.probe		= nim_dvb_probe,
++	.remove		= nim_dvb_remove,
++	.driver		= {
++		.name	= "wetek-dvb",
++		.owner	= THIS_MODULE,
++		.of_match_table = nim_dvb_dt_match,
++	}
++};
++
++static const struct of_device_id wetekcard_dt_match[]={
++	{	.compatible = "amlogic,smartcard",
++	},
++	{},
++};
++
++static struct platform_driver wetekcard_driver = {
++	.probe		= wetekcard_probe,
++    .remove		= wetekcard_remove,
++	.driver		= {
++		.name	= "wetek-card",
++		.owner	= THIS_MODULE,
++		.of_match_table = wetekcard_dt_match,
++	}
++};
++
++int __init nim_dvb_init(void)
++{
++	int ret;
++	
++	memset(&weteknims, 0, sizeof(struct wetek_nims));
++	
++	ret = platform_driver_register(&nim_dvb_detection);
++	if (!ret)
++		return platform_driver_register(&wetekcard_driver);
++		
++	return ret;
++}
++void __exit nim_dvb_exit(void)
++{
++	platform_driver_unregister(&nim_dvb_detection);
++	platform_driver_unregister(&wetekcard_driver);
++}
++
++module_init(nim_dvb_init);
++module_exit(nim_dvb_exit);
++
++MODULE_DESCRIPTION("Wetek NIMs DVB detection");
++MODULE_AUTHOR("Sasa Savic <sasa.savic.sr@gmail.com>");
++MODULE_LICENSE("GPL");
+diff -Naur a/drivers/amlogic/wetek/nimdetect.h b/drivers/amlogic/wetek/nimdetect.h
+--- a/drivers/amlogic/wetek/nimdetect.h	1970-01-01 01:00:00.000000000 +0100
++++ b/drivers/amlogic/wetek/nimdetect.h	2015-01-08 16:23:49.000000000 +0100
+@@ -0,0 +1,50 @@
++/*
++ * Wetek NIM tuner(s) detection
++ *
++ * Copyright (C) 2014 Sasa Savic <sasa.savic.sr@gmail.com>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ *
++ *    You should have received a copy of the GNU General Public License along
++ *    with this program; if not, write to the Free Software Foundation, Inc.,
++ *    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++ 
++#ifndef __NIMDETECT_H
++#define __NIMDETECT_H
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/dvb/version.h>
++#include <linux/platform_device.h>
++#include "dvb_frontend.h"
++
++struct ts_input {
++	int                  mode;
++	struct pinctrl      *pinctrl;
++	int                  control;
++};
++
++struct wetek_nims {
++	struct dvb_frontend 	*fe[2];
++	struct i2c_adapter 		*i2c[2];	
++	struct ts_input	   		ts[3];
++	struct device       	*dev;
++	struct platform_device  *pdev;
++	struct pinctrl      	*card_pinctrl;
++	u32 total_nims;
++};
++
++void get_nims_infos(struct wetek_nims *p);
++int set_external_vol_gpio(int *demod_id, fe_sec_voltage_t voltage);
++
++#endif /* __NIMDETECT_H */
