@@ -114,7 +114,8 @@ PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET \
                          --sbindir=/sbin \
                          --sysconfdir=/etc \
                          --libexecdir=/lib \
-                         --localstatedir=/var"
+                         --localstatedir=/var \
+                         --enable-static --disable-shared"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
