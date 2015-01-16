@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-restfulapi"
-PKG_VERSION="20150114180413unstable"
+PKG_VERSION="20150115225816unstable"
 PKG_REV="0yavdr0~trusty"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -42,11 +42,6 @@ pre_configure_target() {
 pre_make_target() {
   # dont build parallel
   MAKEFLAGS=-j1
-}
-
-pre_build_target() {                                                                                                                                                                                               
-  WIRBELSCAN_DIR=$(get_build_dir vdr-wirbelscan)
-  ln -sf $WIRBELSCAN_DIR/wirbelscan_services.h $PKG_BUILD
 }
 
 make_target() {
