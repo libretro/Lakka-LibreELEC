@@ -1,0 +1,53 @@
+--- a/include/linux/amlogic/ge2d/ge2d_wq.h	2015-01-14 00:46:24.916408987 +0100
++++ b/include/linux/amlogic/ge2d/ge2d_wq.h	2015-01-14 00:45:24.233715480 +0100
+@@ -81,6 +81,7 @@
+    ge2d_event_t			event ;
+    int		 			irq_num;
+    int 		 			ge2d_state;
++   spinlock_t	 			state_lock;  //for sync access to ge2d_state
+    int					process_queue_state;
+ }ge2d_manager_t ;
+ 
+--- a/drivers/amlogic/display/ge2d/ge2d_wq.c	2015-01-14 00:59:18.775744127 +0100
++++ b/drivers/amlogic/display/ge2d/ge2d_wq.c	2015-01-14 00:58:59.440160948 +0100
+@@ -144,9 +144,11 @@
+ 	}while(pos!=head);
+ 	ge2d_manager.last_wq=wq;
+ exit:
++	spin_lock(&ge2d_manager.state_lock);
+ 	if(ge2d_manager.ge2d_state==GE2D_STATE_REMOVING_WQ)
+-	complete(&ge2d_manager.event.process_complete);
++	    complete(&ge2d_manager.event.process_complete);
+ 	ge2d_manager.ge2d_state=GE2D_STATE_IDLE;
++	spin_unlock(&ge2d_manager.state_lock);
+ 	return ret;	
+ }
+ 
+@@ -854,8 +856,17 @@
+ 		spin_unlock(&ge2d_manager.event.sem_lock);
+ 		if((ge2d_manager.current_wq==ge2d_work_queue)&&(ge2d_manager.ge2d_state== GE2D_STATE_RUNNING))
+ 		{
+-			ge2d_manager.ge2d_state=GE2D_STATE_REMOVING_WQ;
+-			wait_for_completion(&ge2d_manager.event.process_complete);
++		        // check again with lock
++		        int wasRunning = 0;
++		        spin_lock(&ge2d_manager.state_lock);
++		        if (ge2d_manager.ge2d_state== GE2D_STATE_RUNNING)
++		        {
++			  ge2d_manager.ge2d_state=GE2D_STATE_REMOVING_WQ;
++			  wasRunning = 1;
++			}
++			spin_unlock(&ge2d_manager.state_lock);
++			if (wasRunning)
++			    wait_for_completion(&ge2d_manager.event.process_complete);
+ 			ge2d_manager.last_wq=NULL;  //condition so complex ,simplify it .
+ 		}//else we can delete it safely.
+ 		
+@@ -902,6 +913,7 @@
+ 	//prepare bottom half		
+ 	
+ 	spin_lock_init(&ge2d_manager.event.sem_lock);
++	spin_lock_init(&ge2d_manager.state_lock);
+ 	sema_init (&ge2d_manager.event.cmd_in_sem,1); 
+ 	init_waitqueue_head (&ge2d_manager.event.cmd_complete);
+ 	init_completion(&ge2d_manager.event.process_complete);
