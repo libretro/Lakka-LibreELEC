@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="bison"
-PKG_VERSION="3.0.2"
+PKG_VERSION="3.0.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
