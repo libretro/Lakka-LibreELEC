@@ -110,4 +110,8 @@ addon() {
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/epgfixer
   cp -PR $VDR_PLUGIN_EPGFIXER_DIR/epgfixer/*.conf $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/epgfixer
+
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/res/plugins/restfulapi
+  cp -P $VDR_PLUGIN_RESTFULAPI_DIR/web/* $ADDON_BUILD/$PKG_ADDON_ID/res/plugins/restfulapi
+  cp -P $VDR_PLUGIN_RESTFULAPI_DIR/API.html $ADDON_BUILD/$PKG_ADDON_ID/res/plugins/restfulapi
 }
