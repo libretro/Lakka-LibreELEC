@@ -417,8 +417,6 @@ post_makeinstall_target() {
     cp $PKG_DIR/scripts/kodi.sh $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi-hacks $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi-sources $INSTALL/usr/lib/kodi
-# TODO: remove this later:
-    cp $PKG_DIR/scripts/kodi-rebrand $INSTALL/usr/lib/kodi
 
   mkdir -p $INSTALL/usr/lib/openelec
     cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/openelec
@@ -504,7 +502,4 @@ post_install() {
   enable_service kodi-waitonnetwork.service
   enable_service kodi.service
   enable_service kodi-lirc-suspend.service
-
-# TODO: remove this later
-  enable_service kodi-rebrand.service
 }
