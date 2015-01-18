@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-restfulapi"
-PKG_VERSION="20150115225816unstable"
+PKG_VERSION="20150117203925unstable"
 PKG_REV="0yavdr0~trusty"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
