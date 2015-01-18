@@ -1,16 +1,16 @@
-From ee4bbfe929ce547310358c74c83468d514a7e288 Mon Sep 17 00:00:00 2001
+From f1271c71370fbce8d18817ce32b677c005028c5c Mon Sep 17 00:00:00 2001
 From: Alex Deryskyba <alex@codesnake.com>
 Date: Wed, 16 Apr 2014 23:08:58 +0300
 Subject: [PATCH 03/16] Enable true 1920x1080 output without upscaling on
  Amlogic-based devices.
 
 ---
- xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp |   48 +++++++++++++++++++++++----
+ xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp |   44 +++++++++++++++++++++++++--
  xbmc/windowing/egl/EGLNativeTypeAmlogic.h   |    3 ++
- 2 files changed, 44 insertions(+), 7 deletions(-)
+ 2 files changed, 44 insertions(+), 3 deletions(-)
 
 diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
-index c19124c..ee17f73 100644
+index 7064836..362db6d 100644
 --- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
 +++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
 @@ -87,9 +87,12 @@ bool CEGLNativeTypeAmlogic::CreateNativeWindow()
@@ -41,24 +41,19 @@ index c19124c..ee17f73 100644
    switch((int)(0.5 + res.fRefreshRate))
    {
      default:
-@@ -220,12 +229,11 @@ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
+@@ -219,7 +228,10 @@ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
+   CStdString mode = resolution;
    // switch display resolution
-   aml_set_sysfs_str("/sys/class/display/mode", modestr.c_str());
- 
--  // setup gui freescale depending on display resolution
-   DisableFreeScale();
--  if (StringUtils::StartsWith(modestr, "1080"))
--  {
--    EnableFreeScale();
--  }
+   aml_set_sysfs_str("/sys/class/display/mode", mode.c_str());
+-  SetupVideoScaling(mode.c_str());
 +
 +  RESOLUTION_INFO res;
-+  aml_mode_to_resolution(modestr, &res);
++  aml_mode_to_resolution(mode, &res);
 +  SetFramebufferResolution(res);
  
    return true;
  }
-@@ -289,3 +297,29 @@ void CEGLNativeTypeAmlogic::DisableFreeScale()
+@@ -304,3 +316,29 @@ void CEGLNativeTypeAmlogic::DisableFreeScale()
      close(fd0);
    }
  }
@@ -89,10 +84,10 @@ index c19124c..ee17f73 100644
 +  }
 +}
 diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
-index 87be029..69ca00a 100644
+index cc34ff7..781a153 100644
 --- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
 +++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
-@@ -53,5 +53,8 @@ protected:
+@@ -54,5 +54,8 @@ protected:
    void DisableFreeScale();
  
  private:
