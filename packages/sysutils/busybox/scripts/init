@@ -108,10 +108,10 @@
         wol_wait="${arg#*=}"
         ;;
       textmode)
-        INIT_ARGS="$INIT_ARGS --unit=textmode.target"
+        INIT_UNIT="--unit=textmode.target"
         ;;
       installer)
-        INIT_ARGS="$INIT_ARGS --unit=installer.target"
+        INIT_UNIT="--unit=installer.target"
         ;;
       debugging)
         DEBUG=yes
@@ -662,7 +662,20 @@
   if [ "$STORAGE_NETBOOT" = "yes" ] ; then
     echo "" > /sysroot/dev/.storage_netboot
   fi
+
+  if [ -f /sysroot/storage/.please_resize_me ] ; then
+    INIT_ARGS="--unit=fs-resize.target"
+  fi
+
+  BACKUP_FILE=`ls -1 /sysroot/storage/.restore/??????????????.tar 2>/dev/null | head -n 1`
+  if [ -f "$BACKUP_FILE" ] ; then
+    INIT_UNIT="--unit=backup-restore.target"
+  fi
+
+  if [ -f /sysroot/storage/.cache/reset_oe -o -f /sysroot/storage/.cache/reset_xbmc ] ; then
+    INIT_UNIT="--unit=factory-reset.target"
+  fi
   # switch to new sysroot and start real init
-  exec /bin/busybox switch_root /sysroot /usr/lib/systemd/systemd $INIT_ARGS
+  exec /bin/busybox switch_root /sysroot /usr/lib/systemd/systemd $INIT_ARGS $INIT_UNIT
 
   error "switch_root" "Error in initramfs. Could not switch to new root"
