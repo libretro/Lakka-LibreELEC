@@ -62,12 +62,6 @@ fi
     cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.scr $BOOT_ROOT
   fi
 
-# fixes
-  if [ -f $BOOT_ROOT/uEnv.txt ]; then
-    sed -e "s,bpp=32,bpp=16,g" -i $BOOT_ROOT/uEnv.txt
-  fi
-
-
 # mount $BOOT_ROOT r/o
   sync
   mount -o remount,ro $BOOT_ROOT
