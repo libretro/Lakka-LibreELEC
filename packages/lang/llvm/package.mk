@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="llvm"
-PKG_VERSION="3.5.0"
+PKG_VERSION="3.5.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
