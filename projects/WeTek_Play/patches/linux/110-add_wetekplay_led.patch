@@ -1,0 +1,136 @@
+--- a/drivers/leds/Makefile.orig	2015-01-18 14:29:58.091729932 +0100
++++ b/drivers/leds/Makefile	2015-01-18 13:59:03.465220281 +0100
+@@ -53,6 +53,7 @@
+ obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
+ obj-$(CONFIG_LEDS_LM355x)		+= leds-lm355x.o
+ obj-$(CONFIG_LEDS_BLINKM)		+= leds-blinkm.o
++obj-$(CONFIG_LEDS_WETEKPLAY)		+= leds-wetekplay.o
+ 
+ 
+ # LED SPI Drivers
+--- a/drivers/leds/Kconfig.orig	2015-01-18 14:30:02.727729748 +0100
++++ b/drivers/leds/Kconfig	2015-01-18 14:00:07.433217741 +0100
+@@ -479,6 +479,13 @@
+ 	  This option enables support for the BlinkM RGB LED connected
+ 	  through I2C. Say Y to enable support for the BlinkM LED.
+ 
++config LEDS_WETEKPLAY
++	tristate "LED support for the WeTek.Play status LED"
++	depends on LEDS_CLASS
++	help
++	  This option enables support for controlling the status LED
++	  of the WeTek.Play box. ON means BLUE, OFF means RED.
++
+ 
+ comment "LED Triggers"
+ source "drivers/leds/trigger/Kconfig"
+--- /dev/null	2015-01-18 13:52:01.718570970 +0100
++++ b/drivers/leds/leds-wetekplay.c	2015-01-18 16:00:12.791515784 +0100
+@@ -0,0 +1,107 @@
++/*
++ * LEDs driver for the "User LED" on WeTek.Play
++ *
++ * Copyright (C) 2015 Memphiz <memphiz@kodi.tv>
++ *
++ * Based on leds.rb532
++ */
++
++#include <linux/leds.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include <mach/am_regs.h>
++#include <plat/regops.h>
++
++static void wetekplay_led_set(struct led_classdev *cdev,
++			  enum led_brightness brightness)
++{
++
++	if (brightness) {
++		//printk(KERN_INFO "%s() LED BLUE\n", __FUNCTION__);
++		aml_set_reg32_bits(SECBUS2_REG_ADDR(0), 1, 0, 1);	// set TEST_n output mode
++		aml_set_reg32_bits(AOBUS_REG_ADDR(0x24), 1, 31, 1);  // set TEST_n pin H
++	}
++	else {
++		//printk(KERN_INFO "%s() LED RED\n", __FUNCTION__);
++		aml_set_reg32_bits(SECBUS2_REG_ADDR(0), 1, 0, 1);	// set TEST_n output mode
++		aml_set_reg32_bits(AOBUS_REG_ADDR(0x24), 0, 31, 1);  // set TEST_n pin L
++	}
++}
++
++static enum led_brightness wetekplay_led_get(struct led_classdev *cdev)
++{
++	if (aml_get_reg32_bits(AOBUS_REG_ADDR(0x24), 31, 1))
++	    return 255;
++	else
++	    return 0;
++}
++
++static struct led_classdev wetekplay_powerled = {
++	.name = "wetek:blue:powerled",
++	.brightness_set = wetekplay_led_set,
++	.brightness_get = wetekplay_led_get,
++	.default_trigger = "default-on",
++};
++
++static int wetekplay_led_probe(struct platform_device *pdev)
++{
++	return led_classdev_register(&pdev->dev, &wetekplay_powerled);
++}
++
++static int wetekplay_led_remove(struct platform_device *pdev)
++{
++	led_classdev_unregister(&wetekplay_powerled);
++	return 0;
++}
++
++#ifdef CONFIG_USE_OF
++static const struct of_device_id amlogic_wetekplayled_dt_match[]={
++	{	.compatible = "amlogic,wetekplay-led",
++	},
++	{},
++};
++#else
++#define amlogic_wetekplayled_dt_match, NULL
++#endif
++
++
++static struct platform_driver wetekplay_led_driver = {
++	.probe = wetekplay_led_probe,
++	.remove = wetekplay_led_remove,
++	.driver = {
++		.name = "wetekplay-led",
++		.of_match_table = amlogic_wetekplayled_dt_match,
++	},
++};
++
++static int __init
++wetekplay_led_init_module(void)
++{
++    int err;
++
++    printk("wetekplay_led_init_module\n");
++    if ((err = platform_driver_register(&wetekplay_led_driver))) {
++        return err;
++    }
++
++    return err;
++
++}
++
++static void __exit
++wetekplay_led_remove_module(void)
++{
++    platform_driver_unregister(&wetekplay_led_driver);
++    printk("wetekplay-led module removed.\n");
++}
++
++
++//module_platform_driver(wetekplay_led_driver);
++module_init(wetekplay_led_init_module);
++module_exit(wetekplay_led_remove_module);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Power LED support for WeTek.Play");
++MODULE_AUTHOR("Memphiz <memphiz@kodi.tv>");
++MODULE_ALIAS("platform:wetekplay-led");

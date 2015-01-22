@@ -1,0 +1,165 @@
+From 4ac75e4f0aa7b1be61fe4a495248a11f49d3f204 Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Mon, 19 Jan 2015 20:27:36 +0100
+Subject: [PATCH] [LED] - add remote control ledtrigger
+
+---
+ drivers/input/input.c                         | 13 ++++-
+ drivers/leds/trigger/Kconfig                  |  7 +++
+ drivers/leds/trigger/Makefile                 |  1 +
+ drivers/leds/trigger/ledtrig-remote-control.c | 76 +++++++++++++++++++++++++++
+ 4 files changed, 96 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/leds/trigger/ledtrig-remote-control.c
+
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+index a161021..08829e3 100644
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -28,6 +28,11 @@
+ #include <linux/mutex.h>
+ #include <linux/rcupdate.h>
+ #include "input-compat.h"
++// Led Trigger Support.
++#ifdef CONFIG_LEDS_TRIGGER_REMOTE_CONTROL
++#include <linux/leds.h> 
++extern void ledtrig_rc_activity(struct led_classdev *led_cdev); 
++#endif
+ 
+ MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
+ MODULE_DESCRIPTION("Input core");
+@@ -179,9 +184,12 @@ static void input_repeat_key(unsigned long data)
+ {
+ 	struct input_dev *dev = (void *) data;
+ 	unsigned long flags;
+-
++#ifdef CONFIG_LEDS_TRIGGER_REMOTE_CONTROL
++	ledtrig_rc_activity(NULL);
++#endif
+ 	spin_lock_irqsave(&dev->event_lock, flags);
+ 
++
+ 	if (test_bit(dev->repeat_key, dev->key) &&
+ 	    is_event_supported(dev->repeat_key, dev->keybit, KEY_MAX)) {
+ 		struct input_value vals[] =  {
+@@ -427,6 +435,9 @@ void input_event(struct input_dev *dev,
+ 
+ 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
+ 
++#ifdef CONFIG_LEDS_TRIGGER_REMOTE_CONTROL
++ledtrig_rc_activity(NULL);
++#endif
+ 		spin_lock_irqsave(&dev->event_lock, flags);
+ 		input_handle_event(dev, type, code, value);
+ 		spin_unlock_irqrestore(&dev->event_lock, flags);
+diff --git a/drivers/leds/trigger/Kconfig b/drivers/leds/trigger/Kconfig
+index 49794b4..e911914 100644
+--- a/drivers/leds/trigger/Kconfig
++++ b/drivers/leds/trigger/Kconfig
+@@ -41,6 +41,13 @@ config LEDS_TRIGGER_IDE_DISK
+ 	  This allows LEDs to be controlled by IDE disk activity.
+ 	  If unsure, say Y.
+ 
++config LEDS_TRIGGER_REMOTE_CONTROL
++	bool "LED Remote Control Trigger"
++	depends on AM_REMOTE
++	help
++	  This allows LEDs to be controlled by Remote Control activity.
++	  If unsure, say Y.
++
+ config LEDS_TRIGGER_HEARTBEAT
+ 	tristate "LED Heartbeat Trigger"
+ 	depends on LEDS_TRIGGERS
+diff --git a/drivers/leds/trigger/Makefile b/drivers/leds/trigger/Makefile
+index 1abf48d..868976b 100644
+--- a/drivers/leds/trigger/Makefile
++++ b/drivers/leds/trigger/Makefile
+@@ -8,3 +8,4 @@ obj-$(CONFIG_LEDS_TRIGGER_CPU)		+= ledtrig-cpu.o
+ obj-$(CONFIG_LEDS_TRIGGER_DEFAULT_ON)	+= ledtrig-default-on.o
+ obj-$(CONFIG_LEDS_TRIGGER_TRANSIENT)	+= ledtrig-transient.o
+ obj-$(CONFIG_LEDS_TRIGGER_CAMERA)	+= ledtrig-camera.o
++obj-$(CONFIG_LEDS_TRIGGER_REMOTE_CONTROL) += ledtrig-remote-control.o
+diff --git a/drivers/leds/trigger/ledtrig-remote-control.c b/drivers/leds/trigger/ledtrig-remote-control.c
+new file mode 100644
+index 0000000..96dc71a
+--- /dev/null
++++ b/drivers/leds/trigger/ledtrig-remote-control.c
+@@ -0,0 +1,76 @@
++/*
++ * LED Remote Control Activity Trigger
++ *
++ * Copyright 2015 Memphiz (memphiz@kodi.tv)
++ * Copyright 2013 Rene van Dorst
++ * Copyright 2006 Openedhand Ltd.
++ *
++ * Author: Richard Purdie <rpurdie@openedhand.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/jiffies.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/timer.h>
++#include <linux/leds.h>
++
++/* Delay on in mSec */
++ #define delay_on 20 
++
++static void ledtrig_rc_timerfunc(unsigned long data);
++
++
++static DEFINE_TIMER(ledtrig_rc_timer, ledtrig_rc_timerfunc, 0, 0);
++static int rc_activity;
++static int rc_lastactivity;
++
++void ledtrig_rc_activity(struct led_classdev *led_cdev)
++{
++	rc_activity++;
++	if (!timer_pending(&ledtrig_rc_timer))
++		mod_timer(&ledtrig_rc_timer, jiffies + msecs_to_jiffies(delay_on));
++}
++EXPORT_SYMBOL(ledtrig_rc_activity);
++
++static struct led_trigger ledtrig_rc = {
++	.name     = "rc",
++	.activate = ledtrig_rc_activity,
++};
++
++
++static void ledtrig_rc_timerfunc(unsigned long data)
++{
++	if (rc_lastactivity != rc_activity) {
++		rc_lastactivity = rc_activity;
++		/* INT_MAX will set each LED to its maximum brightness */
++		led_trigger_event(&ledtrig_rc, LED_OFF);
++		mod_timer(&ledtrig_rc_timer, jiffies + msecs_to_jiffies(delay_on));
++	} else {
++		led_trigger_event(&ledtrig_rc, INT_MAX);
++	}
++}
++
++static int __init ledtrig_rc_init(void)
++{
++	led_trigger_register(&ledtrig_rc);
++	return 0;
++}
++
++static void __exit ledtrig_rc_exit(void)
++{
++	led_trigger_unregister(&ledtrig_rc);
++}
++
++module_init(ledtrig_rc_init);
++module_exit(ledtrig_rc_exit);
++
++MODULE_AUTHOR("Memphiz <memphiz@kodi.tv>");
++MODULE_DESCRIPTION("LED Remote Control Activity Trigger");
++MODULE_LICENSE("GPL");
++
+-- 
+1.9.3 (Apple Git-50)
+
