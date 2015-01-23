@@ -137,6 +137,7 @@ make_target() {
   rm -f $INSTALL/lib/modules/*/source
 
   ( cd $ROOT
+    rm -rf $ROOT/$BUILD/initramfs
     $SCRIPTS/install initramfs
   )
 
