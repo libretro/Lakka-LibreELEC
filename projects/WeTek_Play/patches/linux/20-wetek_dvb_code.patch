@@ -1,3 +1,39 @@
+diff -Naur a/arch/arm/plat-meson/include/plat/bt_device.h b/arch/arm/plat-meson/include/plat/bt_device.h
+--- a/arch/arm/plat-meson/include/plat/bt_device.h	2015-01-15 18:54:51.000000000 +0100
++++ b/arch/arm/plat-meson/include/plat/bt_device.h	2015-01-22 14:31:05.000000000 +0100
+@@ -21,6 +21,7 @@
+ 	int gpio_en;
+ 	int gpio_host_wake;
+ 	int gpio_wake;
++	struct pinctrl *pinctrl;
+ };
+ 
+ #endif
+diff -Naur a/drivers/amlogic/bluetooth/bt_device.c b/drivers/amlogic/bluetooth/bt_device.c
+--- a/drivers/amlogic/bluetooth/bt_device.c	2015-01-15 18:54:08.000000000 +0100
++++ b/drivers/amlogic/bluetooth/bt_device.c	2015-01-22 14:26:14.000000000 +0100
+@@ -170,6 +170,9 @@
+ 		} else {
+ 		    pdata->gpio_wake = amlogic_gpio_name_map_num(str);
+ 		}
++		
++		pdata->pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
++		
+ 	}
+ #else
+     pdata = (struct bt_dev_data *)(pdev->dev.platform_data);
+@@ -242,7 +245,10 @@
+ 	    pdata = prdata->pdata;
+ 	}
+ 
+-	if(pdata) {
++	if(pdata) {	
++		if (pdata->pinctrl)
++			devm_pinctrl_put(pdata->pinctrl);
++			
+ 	    bt_device_deinit(pdata);
+ 	    kfree(pdata);
+ 	}
 diff -Naur a/drivers/amlogic/Kconfig b/drivers/amlogic/Kconfig
 --- a/drivers/amlogic/Kconfig	2015-01-04 18:07:57.000000000 +0100
 +++ b/drivers/amlogic/Kconfig	2015-01-01 15:31:17.000000000 +0100
@@ -23,8 +59,8 @@ diff -Naur a/drivers/amlogic/Makefile b/drivers/amlogic/Makefile
  
 diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 --- a/drivers/amlogic/wetek/avl6211.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/avl6211.c	2015-01-14 16:08:49.000000000 +0100
-@@ -0,0 +1,1970 @@
++++ b/drivers/amlogic/wetek/avl6211.c	2015-01-22 14:01:34.000000000 +0100
+@@ -0,0 +1,1977 @@
 +/*
 + * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
 + *
@@ -98,6 +134,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	u16 fec_freq;	/* FEC clock in 10kHz units */
 +	u16 mpeg_freq;	/* MPEG clock in 10kHz units */
 +	
++	bool boot;
 +};
 +struct avl6211_diseqc_tx_status
 +{
@@ -1814,6 +1851,9 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	struct avl6211_state* state = fe->demodulator_priv;
 +	int ret;
 +
++	if (state->boot)
++		return 0;
++		
 +	ret = avl6211_setup_pll(state, (const struct avl6211_pllconf * )(pll_conf + state->config->demod_refclk));
 +	if (ret)
 +		goto err;
@@ -1907,7 +1947,10 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	if (ret)
 +		goto err;
 +	
++	state->boot = true;
++	
 +	dev_info(&state->i2c->dev, "AVL6211+AV2011 init OK\n");
++	
 +	return 0;
 +
 +err:
@@ -3997,8 +4040,8 @@ diff -Naur a/drivers/amlogic/wetek/Makefile b/drivers/amlogic/wetek/Makefile
 +EXTRA_CFLAGS += -I.
 diff -Naur a/drivers/amlogic/wetek/mn88436.c b/drivers/amlogic/wetek/mn88436.c
 --- a/drivers/amlogic/wetek/mn88436.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/mn88436.c	2015-01-11 20:30:56.000000000 +0100
-@@ -0,0 +1,378 @@
++++ b/drivers/amlogic/wetek/mn88436.c	2015-01-22 13:56:46.000000000 +0100
+@@ -0,0 +1,379 @@
 +/*
 + * Driver for the Panasonic MN88436 ATSC demodulator
 + *
@@ -4199,8 +4242,9 @@ diff -Naur a/drivers/amlogic/wetek/mn88436.c b/drivers/amlogic/wetek/mn88436.c
 +	int ret, i;
 +	u8 d;
 +	
-+	state->boot = false;
-+	
++	if (state->boot)
++		return 0;
++		
 +	dev_info(&state->i2c->dev, "Uploading demod firmware (%s)...\n", MN88436_DEMOD_ATSC);
 +	
 +	ret = request_firmware(&fw, MN88436_DEMOD_ATSC, &state->i2c->dev);
@@ -5613,8 +5657,8 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.h b/drivers/amlogic/wetek/mxl603.h
 +#endif /* __MXL603_H__ */
 diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect.c
 --- a/drivers/amlogic/wetek/nimdetect.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/nimdetect.c	2015-01-11 20:28:06.000000000 +0100
-@@ -0,0 +1,411 @@
++++ b/drivers/amlogic/wetek/nimdetect.c	2015-01-20 19:31:24.000000000 +0100
+@@ -0,0 +1,422 @@
 +/*
 + * Wetek NIMs/DVB detection
 + *
@@ -5740,14 +5784,26 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +extern int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
 +                     __u8 requesttype, __u16 value, __u16 index, void *data,
 +                     __u16 size, int timeout);
++extern const unsigned long cpu_bit_bitmap[BITS_PER_LONG+1][BITS_TO_LONGS(NR_CPUS)];
++extern int __irq_set_affinity(unsigned int irq, const struct cpumask *mask, bool force);
++
 +EXPORT_SYMBOL(usb_bus_list);
 +EXPORT_SYMBOL(usb_bus_list_lock);
 +EXPORT_SYMBOL(usb_hub_find_child);
 +EXPORT_SYMBOL(usb_get_dev);
 +EXPORT_SYMBOL(usb_control_msg);
 +EXPORT_SYMBOL(get_nims_infos);
++EXPORT_SYMBOL(__irq_set_affinity);
 +
 +
++
++const struct cpumask *aml_get_cpu_mask(unsigned int cpu)
++{
++	const unsigned long *p = cpu_bit_bitmap[1 + cpu % BITS_PER_LONG];
++	p -= cpu / BITS_PER_LONG;
++	return to_cpumask(p);
++}
++EXPORT_SYMBOL(aml_get_cpu_mask);
 +
 +void get_nims_infos(struct wetek_nims *p)
 +{
@@ -5861,7 +5917,6 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +	amlogic_gpio_direction_output(GPIOD_8, 0, "nimdetect");
 +	msleep(600);
 +	amlogic_gpio_direction_output(GPIOD_8, 1, "nimdetect");
-+
 +	msleep(200);
 +
 +
