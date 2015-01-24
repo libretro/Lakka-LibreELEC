@@ -55,6 +55,11 @@ pre_configure_target() {
   # flac-1.3.1 dont build with LTO support
   strip_lto
 
+  # k0p -ggdb. dont allow debug builds
+  CFLAGS=`echo $CFLAGS | sed -e "s|-ggdb||"`
+  LDFLAGS=`echo $LDFLAGS | sed -e "s|-ggdb||"`
+  CXXFLAGS=`echo $CXXFLAGS | sed -e "s|-ggdb||"`
+
   export CFLAGS="$CFLAGS -fPIC -DPIC"
 }
 
