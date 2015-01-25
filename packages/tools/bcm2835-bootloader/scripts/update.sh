@@ -30,6 +30,9 @@
   cp -p $SYSTEM_ROOT/usr/share/bootloader/fixup.dat $BOOT_ROOT
   cp -p $SYSTEM_ROOT/usr/share/bootloader/start.elf $BOOT_ROOT
 
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/*.dtb $BOOT_ROOT
+  cp -pR $SYSTEM_ROOT/usr/share/bootloader/overlays $BOOT_ROOT
+
 # cleanup not more needed files
   rm -rf $BOOT_ROOT/loader.bin
   rm -rf $BOOT_ROOT/fixup_x.dat
