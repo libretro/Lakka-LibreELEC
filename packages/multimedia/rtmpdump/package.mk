@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="rtmpdump"
-PKG_VERSION="e0056c5"
+PKG_VERSION="a107cef"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
