@@ -214,13 +214,6 @@ else
   KODI_NFS="--disable-nfs"
 fi
 
-if [ "$KODI_AFP_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET afpfs-ng"
-  KODI_AFP="--enable-afpclient"
-else
-  KODI_AFP="--disable-afpclient"
-fi
-
 if [ "$KODI_SAMBA_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET samba"
   KODI_SAMBA="--enable-samba"
@@ -324,7 +317,7 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            --enable-rtmp \
                            $KODI_SAMBA \
                            $KODI_NFS \
-                           $KODI_AFP \
+                           --disable-afpclient \
                            --enable-libvorbisenc \
                            --disable-libcap \
                            $KODI_DVDCSS \
