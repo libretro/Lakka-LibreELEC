@@ -1,52 +1,54 @@
-From 6746387ee5681508c40a8d02747f9c1f3a7cdbc2 Mon Sep 17 00:00:00 2001
+From 5259de8dcb34a4a3caacfbff8afae05c48c739d6 Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
 Date: Fri, 8 Aug 2014 18:22:44 +0300
 Subject: [PATCH] use a wrapper to setup systemd services
 
 ---
- xbmc/addons/Service.cpp | 12 ++++++++++++
+ xbmc/addons/Service.cpp | 14 ++++++++++++++
  xbmc/addons/Service.h   |  3 +++
- 2 files changed, 15 insertions(+)
+ 2 files changed, 17 insertions(+)
 
 diff --git a/xbmc/addons/Service.cpp b/xbmc/addons/Service.cpp
-index c406b11..808f498 100644
+index c406b11..3c7eef5 100644
 --- a/xbmc/addons/Service.cpp
 +++ b/xbmc/addons/Service.cpp
-@@ -53,6 +53,7 @@ AddonPtr CService::Clone() const
+@@ -53,6 +53,9 @@ AddonPtr CService::Clone() const
  bool CService::Start()
  {
    bool ret = true;
 +
++  CallOEWrapper(ID(), false, true);
++
    switch (m_type)
    {
  #ifdef HAS_PYTHON
-@@ -113,13 +114,24 @@ void CService::BuildServiceType()
+@@ -113,13 +116,24 @@ void CService::BuildServiceType()
    }
  }
  
-+void CService::CallOEWrapper(const std::string& ID, bool disable)
++void CService::CallOEWrapper(const std::string& ID, bool disable, bool check)
 +{
 +  char cmd[255];
-+  snprintf(cmd, sizeof(cmd), "/usr/lib/openelec/systemd-addon-wrapper %s %d", ID.c_str(), disable);
++  snprintf(cmd, sizeof(cmd), "/usr/lib/openelec/systemd-addon-wrapper %s %d", ID.c_str(), disable, check);
 +  system(cmd);
 +}
 +
  void CService::OnDisabled()
  {
-+  CallOEWrapper(ID(), true);
++  CallOEWrapper(ID(), true, false);
 +
    Stop();
  }
  
  void CService::OnEnabled()
  {
-+  CallOEWrapper(ID(), false);
++  CallOEWrapper(ID(), false, false);
 +
    Start();
  }
  
 diff --git a/xbmc/addons/Service.h b/xbmc/addons/Service.h
-index 98ec8b6..36e4109 100644
+index 98ec8b6..accd9e2 100644
 --- a/xbmc/addons/Service.h
 +++ b/xbmc/addons/Service.h
 @@ -47,6 +47,9 @@ namespace ADDON
@@ -54,7 +56,7 @@ index 98ec8b6..36e4109 100644
      TYPE GetServiceType() { return m_type; }
      START_OPTION GetStartOption() { return m_startOption; }
 +
-+    void CallOEWrapper(const std::string& ID, bool disable);
++    void CallOEWrapper(const std::string& ID, bool disable, bool check);
 +
      virtual void OnDisabled();
      virtual void OnEnabled();
