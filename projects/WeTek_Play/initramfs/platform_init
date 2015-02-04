@@ -18,25 +18,14 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# Force 720p display mode at startup
-echo 720p > /sys/class/display/mode
-
-# Enable framebuffer device
-echo 0 > /sys/class/graphics/fb0/blank
-
-# Disable framebuffer scaling
-echo 0 > /sys/class/graphics/fb0/free_scale
-
-# Set framebuffer geometry
-fbset -fb /dev/fb0 -g 1280 720 1280 1440 32
-
-# Include deinterlacer into default VFM map
-echo rm default > /sys/class/vfm/map
-echo add default decoder ppmgr deinterlace amvideo > /sys/class/vfm/map
+hdmimode=720p
 
 # Parse command line arguments
 for arg in $(cat /proc/cmdline); do
   case $arg in
+    hdmimode=*)
+      hdmimode="${arg#*=}"
+      ;;
     scaling_governor=*)
       scaling_governor="${arg#*=}"
       ;;
@@ -48,6 +37,28 @@ for arg in $(cat /proc/cmdline); do
       ;;
   esac
 done
+
+echo "$hdmimode" > /sys/class/display/mode
+
+# Enable framebuffer device
+echo 0 > /sys/class/graphics/fb0/blank
+
+# Disable framebuffer scaling
+echo 0 > /sys/class/graphics/fb0/free_scale
+
+# Set framebuffer geometry to match the resolution
+case "$hdmimode" in
+  720*)
+    fbset -fb /dev/fb0 -g 1280 720 1280 1440 32
+    ;;
+  1080*)
+    fbset -fb /dev/fb0 -g 1920 1080 1920 2160 32
+    ;;
+esac
+
+# Include deinterlacer into default VFM map
+echo rm default > /sys/class/vfm/map
+echo add default decoder ppmgr deinterlace amvideo > /sys/class/vfm/map
 
 # Boot with performance governor, then switch to the governor specified in the kernel command line
 for cpufreq in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
