@@ -17,13 +17,12 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-restfulapi"
-PKG_VERSION="20150117203925unstable"
-PKG_REV="0yavdr0~trusty"
+PKG_VERSION="0.1.3"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://launchpad.net/~yavdr"
-PKG_URL="https://launchpad.net/~yavdr/+archive/ubuntu/unstable-vdr/+files/${PKG_NAME}_${PKG_VERSION}-${PKG_REV}.tar.gz"
-PKG_SOURCE_DIR="${PKG_NAME}_${PKG_VERSION}"
+PKG_SITE="https://github.com/yavdr/vdr-plugin-restfulapi"
+PKG_URL="https://github.com/yavdr/${PKG_NAME}/releases/download/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr cxxtools vdr-wirbelscan"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
