@@ -34,7 +34,7 @@ PKG_AUTORECONF="no"
 
 configure_host() {
   ../configure --prefix=$ROOT/$TOOLCHAIN \
-               --no-qt-gui \
+               --no-qt-gui --no-system-libs \
                -- \
                -DBUILD_CursesDialog=0
 }
