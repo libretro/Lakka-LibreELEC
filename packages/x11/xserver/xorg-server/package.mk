@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.16.4"
+PKG_VERSION="1.17.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -59,7 +59,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-xselinux \
                            --enable-aiglx \
                            --enable-glx-tls \
-                           --enable-registry \
                            $XORG_COMPOSITE \
                            --enable-mitshm \
                            --disable-xres \
@@ -113,6 +112,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-kdrive-mouse \
                            --disable-kdrive-evdev \
                            --disable-libunwind \
+                           --enable-xshmfence \
                            --disable-install-setuid \
                            --enable-unix-transport \
                            --disable-tcp-transport \
