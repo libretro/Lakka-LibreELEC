@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libssh"
-PKG_VERSION="0.6.3"
+PKG_VERSION="0.6.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OpenSource"
 PKG_SITE="http://www.libssh.org/"
-PKG_URL="https://red.libssh.org/attachments/download/87/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://red.libssh.org/attachments/download/107/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib libressl"
 PKG_PRIORITY="optional"
 PKG_SECTION="network"
