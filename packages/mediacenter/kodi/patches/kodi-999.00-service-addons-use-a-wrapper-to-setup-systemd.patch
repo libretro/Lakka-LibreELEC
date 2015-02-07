@@ -1,28 +1,29 @@
-From 5259de8dcb34a4a3caacfbff8afae05c48c739d6 Mon Sep 17 00:00:00 2001
+From 0ccbc5043710b3c770e076d17b292964c91bfd23 Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
 Date: Fri, 8 Aug 2014 18:22:44 +0300
 Subject: [PATCH] use a wrapper to setup systemd services
 
 ---
- xbmc/addons/Service.cpp | 14 ++++++++++++++
+ xbmc/addons/Service.cpp | 23 +++++++++++++++++++++++
  xbmc/addons/Service.h   |  3 +++
- 2 files changed, 17 insertions(+)
+ 2 files changed, 26 insertions(+)
 
 diff --git a/xbmc/addons/Service.cpp b/xbmc/addons/Service.cpp
-index c406b11..3c7eef5 100644
+index c406b11..f68b427 100644
 --- a/xbmc/addons/Service.cpp
 +++ b/xbmc/addons/Service.cpp
-@@ -53,6 +53,9 @@ AddonPtr CService::Clone() const
+@@ -53,6 +53,10 @@ AddonPtr CService::Clone() const
  bool CService::Start()
  {
    bool ret = true;
 +
++  // systemctl enable but dont force start
 +  CallOEWrapper(ID(), false, true);
 +
    switch (m_type)
    {
  #ifdef HAS_PYTHON
-@@ -113,13 +116,24 @@ void CService::BuildServiceType()
+@@ -113,13 +117,26 @@ void CService::BuildServiceType()
    }
  }
  
@@ -35,6 +36,7 @@ index c406b11..3c7eef5 100644
 +
  void CService::OnDisabled()
  {
++  // systemctl stop & disable on addon disable
 +  CallOEWrapper(ID(), true, false);
 +
    Stop();
@@ -42,11 +44,26 @@ index c406b11..3c7eef5 100644
  
  void CService::OnEnabled()
  {
++  // systemctl enable & start on addon enable
 +  CallOEWrapper(ID(), false, false);
 +
    Start();
  }
  
+@@ -145,7 +162,13 @@ void CService::OnPostInstall(bool restart, bool update)
+     {
+       boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(localAddon);
+       if (service)
++      {
++        // systemctl stop & disable / enable & start on addon upgrade
++        CallOEWrapper(ID(), true, false);
++        CallOEWrapper(ID(), false, false);
++
+         service->Start();
++      }
+     }
+   }
+ }
 diff --git a/xbmc/addons/Service.h b/xbmc/addons/Service.h
 index 98ec8b6..accd9e2 100644
 --- a/xbmc/addons/Service.h
@@ -61,6 +78,3 @@ index 98ec8b6..accd9e2 100644
      virtual void OnDisabled();
      virtual void OnEnabled();
      virtual bool OnPreInstall();
--- 
-2.1.0
-
