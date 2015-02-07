@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libpciaccess"
-PKG_VERSION="0.13.2"
+PKG_VERSION="0.13.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
