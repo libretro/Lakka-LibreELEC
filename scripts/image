@@ -335,76 +335,82 @@ IMAGE_NAME="$DISTRONAME-$TARGET_VERSION"
       rm -rf $RELEASE_DIR
 
     # create release dir
-      mkdir -p $RELEASE_DIR
+      mkdir -p $RELEASE_DIR/${DISTRONAME}_${PROJECT}
 
-      cp -PR $ROOT/config/$1/* $RELEASE_DIR
+      cp -PR $ROOT/config/$1/* $RELEASE_DIR/${DISTRONAME}_${PROJECT}
 
-      cp $ROOT/README* $RELEASE_DIR
-      cp $ROOT/CHANGELOG $RELEASE_DIR/release_notes.txt
+      cp $ROOT/README* $RELEASE_DIR/${DISTRONAME}_${PROJECT}
+      cp $ROOT/CHANGELOG $RELEASE_DIR/${DISTRONAME}_${PROJECT}/release_notes.txt
 
 
       sed -e "s%@DISTRONAME@%$DISTRONAME%g" \
+          -e "s%@PROJECT@%$PROJECT%g" \
           -e "s%@OPENELEC_VERSION@%$OPENELEC_VERSION%g" \
           -e "s%@RELEASE_DATE@%$(date +%F)%g" \
           -e "s%@KERNEL_VERSION@%$(kernel_version)%g" \
           -e "s%@DESCRIPTION@%$DESCRIPTION%g" \
-          -i $RELEASE_DIR/os.json
+          -i $RELEASE_DIR/${DISTRONAME}_${PROJECT}/os.json
 
       sed -e "s%@DISTRONAME@%$DISTRONAME%g" \
-          -i $RELEASE_DIR/partitions.json
+          -e "s%@PROJECT@%$PROJECT%g" \
+          -i $RELEASE_DIR/${DISTRONAME}_${PROJECT}/partitions.json
 
     # create System dir
-      mkdir -p $RELEASE_DIR/System
+      mkdir -p $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System
 
         BOOTLOADER_DIR=`find $PACKAGES -type d -name $BOOTLOADER 2>/dev/null`
         if [ -d "$BOOTLOADER_DIR"/files/3rdparty/bootloader/ ]; then
-          cp -PR $BOOTLOADER_DIR/files/3rdparty/bootloader/* $RELEASE_DIR/System
+          cp -PR $BOOTLOADER_DIR/files/3rdparty/bootloader/* $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System
         fi
 
       # copy Bootloader
-        cp -PR $BUILD/bcm2835-bootloader-*/LICENCE* $RELEASE_DIR/System/
-        cp -PR $BUILD/bcm2835-bootloader-*/bootcode.bin $RELEASE_DIR/System/
-        cp -PR $BUILD/bcm2835-bootloader-*/fixup_x.dat $RELEASE_DIR/System/fixup.dat
-        cp -PR $BUILD/bcm2835-bootloader-*/start_x.elf $RELEASE_DIR/System/start.elf
+        cp -PR $BUILD/bcm2835-bootloader-*/LICENCE* $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/
+        cp -PR $BUILD/bcm2835-bootloader-*/bootcode.bin $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/
+        cp -PR $BUILD/bcm2835-bootloader-*/fixup_x.dat $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/fixup.dat
+        cp -PR $BUILD/bcm2835-bootloader-*/start_x.elf $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/start.elf
 
       # copy system files
-        cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/System/SYSTEM
-        cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/System/kernel.img
+        cp $TARGET_IMG/$IMAGE_NAME.system $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/SYSTEM
+        cp $TARGET_IMG/$IMAGE_NAME.kernel $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/kernel.img
 
-        if [ -f $INSTALL/usr/share/bootloader/*.dtb ]; then
-          cp -PR $INSTALL/usr/share/bootloader/*.dtb $RELEASE_DIR/System
-        fi
+        for dtb in $INSTALL/usr/share/bootloader/*.dtb ; do
+          if [ -f $dtb ]; then
+            cp -PR $dtb $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System
+          fi
+        done
 
-        if [ -f $INSTALL/usr/share/bootloader/overlays/* ]; then
-          mkdir -p $RELEASE_DIR/System/overlays
-          cp -PR $INSTALL/usr/share/bootloader/overlays/* $RELEASE_DIR/System/overlays
-        fi
+        for overlay in $INSTALL/usr/share/bootloader/overlays/* ; do
+          if [ -f $overlay ]; then
+            mkdir -p $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/overlays
+            cp -PR $overlay $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/overlays
+          fi
+        done
 
       # create md5sum's
-        ( cd $RELEASE_DIR/System;
+        ( cd $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System;
           md5sum -t SYSTEM > SYSTEM.md5;
           md5sum -t kernel.img > kernel.img.md5;
         )
 
       # copy additional files
-        cp -R $CONFIG/release/openelec.ico $RELEASE_DIR/System
-        mkdir -p $RELEASE_DIR/System/licenses
-          cp $ROOT/licenses/* $RELEASE_DIR/System/licenses
+        cp -R $CONFIG/release/openelec.ico $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System
+        mkdir -p $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/licenses
+          cp $ROOT/licenses/* $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/licenses
 
     # create Storage dir
-      mkdir -p $RELEASE_DIR/Storage
+      mkdir -p $RELEASE_DIR/${DISTRONAME}_${PROJECT}/Storage
 
     # remove an previous created release tarball
-      rm -rf $RELEASE_DIR/${DISTRONAME}System.tar.xz
-      rm -rf $RELEASE_DIR/${DISTRONAME}Storage.tar.xz
+      rm -rf $RELEASE_DIR/${DISTRONAME}_${PROJECT}/${DISTRONAME}_${PROJECT}_System.tar.xz
+      rm -rf $RELEASE_DIR/${DISTRONAME}_${PROJECT}/${DISTRONAME}_${PROJECT}_Storage.tar.xz
 
     # create filesystem tarballs
-      tar cJf $RELEASE_DIR/${DISTRONAME}System.tar.xz -C $RELEASE_DIR/System/ .
-      tar cJf $RELEASE_DIR/${DISTRONAME}Storage.tar.xz -C $RELEASE_DIR/Storage/ .
+      tar cJf $RELEASE_DIR/${DISTRONAME}_${PROJECT}/${DISTRONAME}_${PROJECT}_System.tar.xz -C $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System/ .
+      tar cJf $RELEASE_DIR/${DISTRONAME}_${PROJECT}/${DISTRONAME}_${PROJECT}_Storage.tar.xz -C $RELEASE_DIR/${DISTRONAME}_${PROJECT}/Storage/ .
 
     # remove an filesystem dirs
-      rm -rf $RELEASE_DIR/System
-      rm -rf $RELEASE_DIR/Storage
+      rm -rf $RELEASE_DIR/${DISTRONAME}_${PROJECT}/System
+      rm -rf $RELEASE_DIR/${DISTRONAME}_${PROJECT}/Storage
 
     # remove an previous created release tarball
       rm -rf $TARGET_IMG/${IMAGE_NAME}-$1.tar
