@@ -1,0 +1,52 @@
+From 9cbf6c98775dd8f4052c08aa18eb7401d8b17a12 Mon Sep 17 00:00:00 2001
+From: smallint <tahoma@gmx.de>
+Date: Thu, 5 Feb 2015 19:37:13 +0000
+Subject: [PATCH 11/12] [RenderManager] preserve field type for
+ Renderer::RenderUpdate
+
+---
+ xbmc/cores/VideoRenderers/RenderManager.cpp | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
+index 36c2842..85c3565 100644
+--- a/xbmc/cores/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
+@@ -676,7 +676,10 @@ void CXBMCRenderManager::FlipPage(volatile bool& bStop, double timestamp /* = 0L
+       deinterlacemode = VS_DEINTERLACEMODE_OFF;
+ 
+     if (deinterlacemode == VS_DEINTERLACEMODE_OFF)
++    {
+       presentmethod = PRESENT_METHOD_SINGLE;
++      sync = FS_NONE;
++    }
+     else
+     {
+       if (deinterlacemode == VS_DEINTERLACEMODE_AUTO && sync == FS_NONE)
+@@ -691,6 +694,7 @@ void CXBMCRenderManager::FlipPage(volatile bool& bStop, double timestamp /* = 0L
+         else if (interlacemethod == VS_INTERLACEMETHOD_RENDER_BOB_INVERTED)   { presentmethod = PRESENT_METHOD_BOB; invert = true; }
+         else if (interlacemethod == VS_INTERLACEMETHOD_DXVA_BOB)                presentmethod = PRESENT_METHOD_BOB;
+         else if (interlacemethod == VS_INTERLACEMETHOD_DXVA_BEST)               presentmethod = PRESENT_METHOD_BOB;
++        else if (interlacemethod == VS_INTERLACEMETHOD_IMX_FASTMOTION_DOUBLE)   presentmethod = PRESENT_METHOD_BOB;
+         else                                                                    presentmethod = PRESENT_METHOD_SINGLE;
+ 
+         /* default to odd field if we want to deinterlace and don't know better */
+@@ -837,8 +841,14 @@ bool CXBMCRenderManager::IsVideoLayer()
+ void CXBMCRenderManager::PresentSingle(bool clear, DWORD flags, DWORD alpha)
+ {
+   CSingleLock lock(g_graphicsContext);
++  SPresent& m = m_Queue[m_presentsource];
+ 
+-  m_pRenderer->RenderUpdate(clear, flags, alpha);
++  if (m.presentfield == FS_BOT)
++    m_pRenderer->RenderUpdate(clear, flags | RENDER_FLAG_BOT, alpha);
++  else if (m.presentfield == FS_TOP)
++    m_pRenderer->RenderUpdate(clear, flags | RENDER_FLAG_TOP, alpha);
++  else
++    m_pRenderer->RenderUpdate(clear, flags, alpha);
+ }
+ 
+ /* new simpler method of handling interlaced material, *
+-- 
+1.9.3
+

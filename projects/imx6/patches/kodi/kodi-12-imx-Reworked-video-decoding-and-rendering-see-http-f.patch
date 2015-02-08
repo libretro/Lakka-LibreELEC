@@ -1,245 +1,92 @@
-From b71b5abc387c6d3feda9c1a6dadb1f565dfb15e1 Mon Sep 17 00:00:00 2001
+From 0f14c3a002498cdfda1243898865f9b77a6867c0 Mon Sep 17 00:00:00 2001
 From: smallint <tahoma@gmx.de>
-Date: Thu, 22 Jan 2015 10:15:38 +0100
-Subject: [PATCH 6/6] [imx] Rework of frame processing and rendering based on
- fullscreen PR
+Date: Thu, 5 Feb 2015 19:39:33 +0000
+Subject: [PATCH 12/12] [imx] Reworked video decoding and rendering, see
+ http://forum.kodi.tv/showthread.php?tid=211289&pid=1892440#pid1892440
 
 Conflicts:
 	xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
 ---
- language/English/strings.po                        |   14 +-
- xbmc/Application.cpp                               |   34 +-
- xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |  144 ++-
+ xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp    |  219 ++--
  xbmc/cores/VideoRenderers/LinuxRendererGLES.h      |    3 +
- xbmc/cores/VideoRenderers/RenderManager.cpp        |   12 +-
- .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 1102 +++++++++++++++++---
- .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h   |  336 ++++--
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 1084 +++++++++++++++++---
+ .../dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h   |  319 ++++--
  xbmc/guilib/GUIVideoControl.cpp                    |    4 +
- xbmc/guilib/GUIWindow.h                            |    2 +-
- xbmc/guilib/GUIWindowManager.cpp                   |    2 +-
- xbmc/settings/VideoSettings.h                      |    3 +
  xbmc/utils/Screenshot.cpp                          |   13 +-
- xbmc/video/dialogs/GUIDialogVideoSettings.cpp      |    2 +
- xbmc/video/windows/GUIWindowFullScreen.cpp         |    6 +-
+ xbmc/video/windows/GUIWindowFullScreen.cpp         |    4 +
  xbmc/windowing/egl/EGLNativeTypeIMX.cpp            |   70 +-
  xbmc/windowing/egl/WinSystemEGL.cpp                |    9 +-
- 16 files changed, 1453 insertions(+), 303 deletions(-)
+ 9 files changed, 1370 insertions(+), 355 deletions(-)
 
-diff --git a/language/English/strings.po b/language/English/strings.po
-index 15090fc..d994570 100755
---- a/language/English/strings.po
-+++ b/language/English/strings.po
-@@ -7548,7 +7548,19 @@ msgctxt "#16333"
- msgid "MMAL - Bob (Half)"
- msgstr ""
- 
--#empty strings from id 16334 to 16399
-+#. Description of OSD video settings for deinterlace method with label #16334
-+#: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+msgctxt "#16334"
-+msgid "IMX - Fast motion"
-+msgstr ""
-+
-+#. Description of OSD video settings for deinterlace method with label #16335
-+#: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+msgctxt "#16335"
-+msgid "IMX - Fast motion (Double)"
-+msgstr ""
-+
-+#empty strings from id 16336 to 16399
- 
- #: xbmc/video/dialogs/GUIDialogVideoSettings.cpp
- msgctxt "#16400"
-diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index 137872c..fe44706 100644
---- a/xbmc/Application.cpp
-+++ b/xbmc/Application.cpp
-@@ -706,7 +706,7 @@ bool CApplication::Create()
-       CLog::Log(LOGNOTICE, "WARNING: unsupported ffmpeg version detected");
-   }
- #endif
--  
-+
-   std::string cpuModel(g_cpuInfo.getCPUModel());
-   if (!cpuModel.empty())
-     CLog::Log(LOGNOTICE, "Host CPU: %s, %d core%s available", cpuModel.c_str(), g_cpuInfo.getCPUCount(), (g_cpuInfo.getCPUCount() == 1) ? "" : "s");
-@@ -1407,7 +1407,7 @@ bool CApplication::Initialize()
- 
-     g_windowManager.Add(new CGUIDialogPeripheralManager);
-     g_windowManager.Add(new CGUIDialogPeripheralSettings);
--    
-+
-     g_windowManager.Add(new CGUIDialogMediaFilter);
-     g_windowManager.Add(new CGUIDialogSubtitles);
- 
-@@ -1811,7 +1811,7 @@ bool CApplication::OnSettingUpdate(CSetting* &setting, const char *oldSettingId,
-     CSettingString *audioDevice = (CSettingString*)setting;
-     // Gotham and older didn't enumerate audio devices per stream on osx
-     // add stream0 per default which should be ok for all old settings.
--    if (!StringUtils::EqualsNoCase(audioDevice->GetValue(), "DARWINOSX:default") && 
-+    if (!StringUtils::EqualsNoCase(audioDevice->GetValue(), "DARWINOSX:default") &&
-         StringUtils::FindWords(audioDevice->GetValue().c_str(), ":stream") == std::string::npos)
-     {
-       std::string newSetting = audioDevice->GetValue();
-@@ -2538,8 +2538,8 @@ bool CApplication::OnAction(const CAction &action)
-   if (action.IsMouse())
-     g_Mouse.SetActive(true);
- 
--  
--  if (action.GetID() == ACTION_CREATE_EPISODE_BOOKMARK)   
-+
-+  if (action.GetID() == ACTION_CREATE_EPISODE_BOOKMARK)
-   {
-     CGUIDialogVideoBookmarks::OnAddEpisodeBookmark();
-   }
-@@ -2547,7 +2547,7 @@ bool CApplication::OnAction(const CAction &action)
-   {
-     CGUIDialogVideoBookmarks::OnAddBookmark();
-   }
--  
-+
-   // The action PLAYPAUSE behaves as ACTION_PAUSE if we are currently
-   // playing or ACTION_PLAYER_PLAY if we are seeking (FF/RW) or not playing.
-   if (action.GetID() == ACTION_PLAYER_PLAYPAUSE)
-@@ -3447,7 +3447,7 @@ bool CApplication::Cleanup()
- #ifdef HAS_DVD_DRIVE
-     CLibcdio::ReleaseInstance();
- #endif
--#endif 
-+#endif
- #if defined(TARGET_ANDROID)
-     // enable for all platforms once it's safe
-     g_sectionLoader.UnloadAll();
-@@ -3729,7 +3729,7 @@ PlayBackRet CApplication::PlayStack(const CFileItem& item, bool bRestart)
-   else
-   {
-     LoadVideoSettings(item.GetPath());
--    
-+
-     // see if we have the info in the database
-     // TODO: If user changes the time speed (FPS via framerate conversion stuff)
-     //       then these times will be wrong.
-@@ -4034,7 +4034,7 @@ PlayBackRet CApplication::PlayFile(const CFileItem& item, bool bRestart)
-     CSingleLock lock(m_playStateMutex);
-     // tell system we are starting a file
-     m_bPlaybackStarting = true;
--    
-+
-     // for playing a new item, previous playing item's callback may already
-     // pushed some delay message into the threadmessage list, they are not
-     // expected be processed after or during the new item playback starting.
-@@ -4344,7 +4344,7 @@ void CApplication::SaveFileState(bool bForeground /* = false */)
-       m_progressTrackingVideoResumeBookmark,
-       m_progressTrackingPlayCountUpdate,
-       CMediaSettings::Get().GetCurrentVideoSettings());
--  
-+
-   if (bForeground)
-   {
-     // Run job in the foreground to make sure it finishes
-@@ -4437,11 +4437,11 @@ void CApplication::LoadVideoSettings(const std::string &path)
-   if (dbs.Open())
-   {
-     CLog::Log(LOGDEBUG, "Loading settings for %s", path.c_str());
--    
-+
-     // Load stored settings if they exist, otherwise use default
-     if (!dbs.GetVideoSettings(path, CMediaSettings::Get().GetCurrentVideoSettings()))
-       CMediaSettings::Get().GetCurrentVideoSettings() = CMediaSettings::Get().GetDefaultVideoSettings();
--    
-+
-     dbs.Close();
-   }
- }
-@@ -4762,7 +4762,7 @@ bool CApplication::OnMessage(CGUIMessage& message)
- 
-       // Update our infoManager with the new details etc.
-       if (m_nextPlaylistItem >= 0)
--      { 
-+      {
-         // playing an item which is not in the list - player might be stopped already
-         // so do nothing
-         if (playList.size() <= m_nextPlaylistItem)
-@@ -5364,7 +5364,7 @@ float CApplication::GetVolume(bool percentage /* = true */) const
-     // converts the hardware volume to a percentage
-     return m_volumeLevel * 100.0f;
-   }
--  
-+
-   return m_volumeLevel;
- }
- 
-@@ -5839,15 +5839,15 @@ void CApplication::CloseNetworkShares()
- #if defined(HAS_FILESYSTEM_SMB) && !defined(TARGET_WINDOWS)
-   smb.Deinit();
- #endif
--  
-+
- #ifdef HAS_FILESYSTEM_NFS
-   gNfsConnection.Deinit();
- #endif
--  
-+
- #ifdef HAS_FILESYSTEM_AFP
-   gAfpConnection.Deinit();
- #endif
--  
-+
- #ifdef HAS_FILESYSTEM_SFTP
-   CSFTPSessionManager::DisconnectAllSessions();
- #endif
 diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
-index a765461..74e950c 100644
+index a765461..94fb19b 100644
 --- a/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
 +++ b/xbmc/cores/VideoRenderers/LinuxRendererGLES.cpp
-@@ -89,7 +89,12 @@ static PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR;
+@@ -88,12 +88,6 @@ static PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR;
+ #ifdef HAS_IMXVPU
  #include "windowing/egl/EGLWrapper.h"
  #include "DVDCodecs/Video/DVDVideoCodecIMX.h"
+-
+-#define GL_VIV_NV12 0x8FC1
+-typedef void (GL_APIENTRYP PFNGLTEXDIRECTVIVMAPPROC) (GLenum Target, GLsizei Width, GLsizei Height, GLenum Format, GLvoid ** Logical, const GLuint * Physical);
+-typedef void (GL_APIENTRYP PFNGLTEXDIRECTINVALIDATEVIVPROC) (GLenum Target);
+-static PFNGLTEXDIRECTVIVMAPPROC glTexDirectVIVMap;
+-static PFNGLTEXDIRECTINVALIDATEVIVPROC glTexDirectInvalidateVIV;
+ #endif
  
-+#define GL_VIV_YV12 0x8FC0
- #define GL_VIV_NV12 0x8FC1
-+#define GL_VIV_YUY2 0x8FC2
-+#define GL_VIV_UYVY 0x8FC3
-+#define GL_VIV_NV21 0x8FC4
-+#define GL_VIV_I420 0x8FC5
- typedef void (GL_APIENTRYP PFNGLTEXDIRECTVIVMAPPROC) (GLenum Target, GLsizei Width, GLsizei Height, GLenum Format, GLvoid ** Logical, const GLuint * Physical);
- typedef void (GL_APIENTRYP PFNGLTEXDIRECTINVALIDATEVIVPROC) (GLenum Target);
- static PFNGLTEXDIRECTVIVMAPPROC glTexDirectVIVMap;
-@@ -608,6 +613,69 @@ void CLinuxRendererGLES::RenderUpdateVideo(bool clear, DWORD flags, DWORD alpha)
+ #if defined(TARGET_ANDROID)
+@@ -185,13 +179,6 @@ CLinuxRendererGLES::CLinuxRendererGLES()
+     eglClientWaitSyncKHR = (PFNEGLCLIENTWAITSYNCKHRPROC) eglGetProcAddress("eglClientWaitSyncKHR");
+   }
+ #endif
+-
+-#ifdef HAS_IMXVPU
+-  if (!glTexDirectVIVMap)
+-    glTexDirectVIVMap = (PFNGLTEXDIRECTVIVMAPPROC) CEGLWrapper::GetProcAddress("glTexDirectVIVMap");
+-  if (!glTexDirectInvalidateVIV)
+-    glTexDirectInvalidateVIV = (PFNGLTEXDIRECTINVALIDATEVIVPROC) CEGLWrapper::GetProcAddress("glTexDirectInvalidateVIV");
+-#endif
+ }
+ 
+ CLinuxRendererGLES::~CLinuxRendererGLES()
+@@ -608,6 +595,64 @@ void CLinuxRendererGLES::RenderUpdateVideo(bool clear, DWORD flags, DWORD alpha)
  
      return;
    }
 +#ifdef HAS_IMXVPU
 +  else if (m_renderMethod & RENDER_IMXMAP)
 +  {
-+    ManageDisplay();
-+
++#if 0
++    static unsigned long long previous = 0;
++    unsigned long long current = XbmcThreads::SystemClockMillis();
++    printf("r->r: %d\n", (int)(current-previous));
++    previous = current;
++#endif
 +    CDVDVideoCodecIMXBuffer *buffer = m_buffers[m_iYV12RenderBuffer].IMXBuffer;
 +    if (buffer != NULL && buffer->IsValid())
 +    {
++      ManageDisplay();
 +      g_IMXContext.SetBlitRects(m_sourceRect, m_destRect);
 +
 +      bool topFieldFirst = true;
-+      bool done = true;
 +
 +      // Deinterlacing requested
 +      if (flags & RENDER_FLAG_FIELDMASK)
 +      {
++        if ((buffer->GetFieldType() == VPU_FIELD_BOTTOM)
++        ||  (buffer->GetFieldType() == VPU_FIELD_BT) )
++          topFieldFirst = false;
++
 +        if (flags & RENDER_FLAG_FIELD0)
 +        {
 +          // Double rate first frame
-+          topFieldFirst = flags & RENDER_FLAG_TOP;
 +          g_IMXContext.SetDeInterlacing(true);
 +          g_IMXContext.SetDoubleRate(true);
 +          g_IMXContext.SetInterpolatedFrame(true);
-+          done = false;
 +        }
 +        else if (flags & RENDER_FLAG_FIELD1)
 +        {
 +          // Double rate second frame
-+          // FIELD1 swaps the render field order, we need to
-+          // swap it back for the IPU
-+          topFieldFirst = flags & RENDER_FLAG_BOT;
 +          g_IMXContext.SetDeInterlacing(true);
 +          g_IMXContext.SetDoubleRate(true);
 +          g_IMXContext.SetInterpolatedFrame(false);
@@ -247,7 +94,6 @@ index a765461..74e950c 100644
 +        else
 +        {
 +          // Fast motion
-+          topFieldFirst = flags & RENDER_FLAG_TOP;
 +          g_IMXContext.SetDeInterlacing(true);
 +          g_IMXContext.SetDoubleRate(false);
 +        }
@@ -256,34 +102,19 @@ index a765461..74e950c 100644
 +      else
 +        g_IMXContext.SetDeInterlacing(false);
 +
-+#if 0
-+      int page = g_IMXContext.GetCurrentPage();
-+      page = 1-page;
-+
-+      g_IMXContext.Blit(page, NULL, buffer, topFieldFirst);
-+      g_IMXContext.ShowPage(page);
-+#else
 +      g_IMXContext.BlitAsync(NULL, buffer, topFieldFirst);
-+#endif
-+
-+      // Prevent rendering again
-+      if (done)
-+        SAFE_RELEASE(m_buffers[m_iYV12RenderBuffer].IMXBuffer);
 +    }
++
++#if 0
++    unsigned long long current2 = XbmcThreads::SystemClockMillis();
++    printf("r: %d  %d\n", m_iYV12RenderBuffer, (int)(current2-current));
++#endif
 +  }
 +#endif
  }
  
  void CLinuxRendererGLES::FlipPage(int source)
-@@ -618,7 +686,6 @@ void CLinuxRendererGLES::FlipPage(int source)
-     m_iYV12RenderBuffer = NextYV12Texture();
- 
-   m_buffers[m_iYV12RenderBuffer].flipindex = ++m_flipindex;
--
-   return;
- }
- 
-@@ -963,13 +1030,7 @@ void CLinuxRendererGLES::ReleaseBuffer(int idx)
+@@ -963,13 +1008,7 @@ void CLinuxRendererGLES::ReleaseBuffer(int idx)
  #endif
  #ifdef HAS_IMXVPU
    if (m_renderMethod & RENDER_IMXMAP)
@@ -298,7 +129,7 @@ index a765461..74e950c 100644
  #endif
  }
  
-@@ -1241,7 +1302,7 @@ void CLinuxRendererGLES::RenderMultiPass(int index, int field)
+@@ -1241,7 +1280,7 @@ void CLinuxRendererGLES::RenderMultiPass(int index, int field)
  //    imgwidth  *= planes[0].pixpertex_x;
  //    imgheight *= planes[0].pixpertex_y;
  //  }
@@ -307,23 +138,89 @@ index a765461..74e950c 100644
  //  glBegin(GL_QUADS);
  //
  //  glMultiTexCoord2fARB(GL_TEXTURE0, planes[0].rect.x1, planes[0].rect.y1);
-@@ -1679,6 +1740,7 @@ void CLinuxRendererGLES::RenderCoreVideoRef(int index, int field)
+@@ -1679,81 +1718,6 @@ void CLinuxRendererGLES::RenderCoreVideoRef(int index, int field)
  
  void CLinuxRendererGLES::RenderIMXMAPTexture(int index, int field)
  {
-+#if 0
- #if defined(HAS_IMXVPU)
- #ifdef DEBUG_VERBOSE
-   unsigned int time = XbmcThreads::SystemClockMillis();
-@@ -1754,6 +1816,7 @@ void CLinuxRendererGLES::RenderIMXMAPTexture(int index, int field)
-   CLog::Log(LOGDEBUG, "RenderIMXMAPTexture %d: tm:%d\n", index, XbmcThreads::SystemClockMillis() - time);
- #endif
- #endif
-+#endif
+-#if defined(HAS_IMXVPU)
+-#ifdef DEBUG_VERBOSE
+-  unsigned int time = XbmcThreads::SystemClockMillis();
+-#endif
+-
+-  YUVPLANE &plane = m_buffers[index].fields[field][0];
+-  CDVDVideoCodecIMXBuffer *buffer = m_buffers[index].IMXBuffer;
+-
+-  if(buffer == NULL) return;
+-
+-  CDVDVideoCodecIMX::Enter();
+-
+-  if(!buffer->IsValid())
+-  {
+-    CDVDVideoCodecIMX::Leave();
+-    return;
+-  }
+-
+-  glDisable(GL_DEPTH_TEST);
+-
+-  glActiveTexture(GL_TEXTURE0);
+-  glBindTexture(m_textureTarget, plane.id);
+-
+-  g_Windowing.EnableGUIShader(SM_TEXTURE_RGBA);
+-
+-  GLubyte idx[4] = {0, 1, 3, 2};        //determines order of triangle strip
+-  GLfloat ver[4][4];
+-  GLfloat tex[4][2];
+-  GLfloat col[3] = {1.0f, 1.0f, 1.0f};
+-
+-  GLint   posLoc = g_Windowing.GUIShaderGetPos();
+-  GLint   texLoc = g_Windowing.GUIShaderGetCoord0();
+-  GLint   colLoc = g_Windowing.GUIShaderGetCol();
+-
+-  glVertexAttribPointer(posLoc, 4, GL_FLOAT, 0, 0, ver);
+-  glVertexAttribPointer(texLoc, 2, GL_FLOAT, 0, 0, tex);
+-  glVertexAttribPointer(colLoc, 3, GL_FLOAT, 0, 0, col);
+-
+-  glEnableVertexAttribArray(posLoc);
+-  glEnableVertexAttribArray(texLoc);
+-  glEnableVertexAttribArray(colLoc);
+-
+-  // Set vertex coordinates
+-  for(int i = 0; i < 4; i++)
+-  {
+-    ver[i][0] = m_rotatedDestCoords[i].x;
+-    ver[i][1] = m_rotatedDestCoords[i].y;
+-    ver[i][2] = 0.0f;// set z to 0
+-    ver[i][3] = 1.0f;
+-  }
+-
+-  // Set texture coordinates
+-  tex[0][0] = tex[3][0] = plane.rect.x1;
+-  tex[0][1] = tex[1][1] = plane.rect.y1;
+-  tex[1][0] = tex[2][0] = plane.rect.x2;
+-  tex[2][1] = tex[3][1] = plane.rect.y2;
+-
+-  glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, idx);
+-
+-  glDisableVertexAttribArray(posLoc);
+-  glDisableVertexAttribArray(texLoc);
+-  glDisableVertexAttribArray(colLoc);
+-
+-  g_Windowing.DisableGUIShader();
+-  VerifyGLState();
+-
+-  glBindTexture(m_textureTarget, 0);
+-  VerifyGLState();
+-
+-  CDVDVideoCodecIMX::Leave();
+-
+-#ifdef DEBUG_VERBOSE
+-  CLog::Log(LOGDEBUG, "RenderIMXMAPTexture %d: tm:%d\n", index, XbmcThreads::SystemClockMillis() - time);
+-#endif
+-#endif
  }
  
  bool CLinuxRendererGLES::RenderCapture(CRenderCapture* capture)
-@@ -2717,42 +2780,6 @@ void CLinuxRendererGLES::SetTextureFilter(GLenum method)
+@@ -2717,42 +2681,6 @@ void CLinuxRendererGLES::SetTextureFilter(GLenum method)
  //********************************************************************************************************
  void CLinuxRendererGLES::UploadIMXMAPTexture(int index)
  {
@@ -366,7 +263,7 @@ index a765461..74e950c 100644
  }
  
  void CLinuxRendererGLES::DeleteIMXMAPTexture(int index)
-@@ -2868,9 +2895,6 @@ bool CLinuxRendererGLES::Supports(EDEINTERLACEMODE mode)
+@@ -2868,9 +2796,6 @@ bool CLinuxRendererGLES::Supports(EDEINTERLACEMODE mode)
    if(m_renderMethod & RENDER_CVREF)
      return false;
  
@@ -376,7 +273,7 @@ index a765461..74e950c 100644
    if(mode == VS_DEINTERLACEMODE_AUTO
    || mode == VS_DEINTERLACEMODE_FORCE)
      return true;
-@@ -2899,13 +2923,19 @@ bool CLinuxRendererGLES::Supports(EINTERLACEMETHOD method)
+@@ -2899,13 +2824,19 @@ bool CLinuxRendererGLES::Supports(EINTERLACEMETHOD method)
    if(m_renderMethod & RENDER_CVREF)
      return false;
  
@@ -400,7 +297,7 @@ index a765461..74e950c 100644
    if(method == VS_INTERLACEMETHOD_DEINTERLACE
    || method == VS_INTERLACEMETHOD_DEINTERLACE_HALF
    || method == VS_INTERLACEMETHOD_SW_BLEND)
-@@ -2926,6 +2956,9 @@ bool CLinuxRendererGLES::Supports(ESCALINGMETHOD method)
+@@ -2926,6 +2857,9 @@ bool CLinuxRendererGLES::Supports(ESCALINGMETHOD method)
      return itr != m_scalingMethods.end();
    }
  
@@ -410,7 +307,7 @@ index a765461..74e950c 100644
    if(method == VS_SCALINGMETHOD_NEAREST
    || method == VS_SCALINGMETHOD_LINEAR)
      return true;
-@@ -2954,7 +2987,7 @@ EINTERLACEMETHOD CLinuxRendererGLES::AutoInterlaceMethod()
+@@ -2954,7 +2888,7 @@ EINTERLACEMETHOD CLinuxRendererGLES::AutoInterlaceMethod()
      return VS_INTERLACEMETHOD_NONE;
  
    if(m_renderMethod & RENDER_IMXMAP)
@@ -419,7 +316,7 @@ index a765461..74e950c 100644
  
  #if defined(__i386__) || defined(__x86_64__)
    return VS_INTERLACEMETHOD_DEINTERLACE_HALF;
-@@ -2970,6 +3003,9 @@ unsigned int CLinuxRendererGLES::GetOptimalBufferSize()
+@@ -2970,6 +2904,9 @@ unsigned int CLinuxRendererGLES::GetOptimalBufferSize()
       m_format == RENDER_FMT_EGLIMG ||
       m_format == RENDER_FMT_MEDIACODEC)
      return 2;
@@ -429,7 +326,7 @@ index a765461..74e950c 100644
    else
      return 3;
  }
-@@ -3061,7 +3097,7 @@ void CLinuxRendererGLES::AddProcessor(CDVDVideoCodecIMXBuffer *buffer, int index
+@@ -3061,7 +2998,7 @@ void CLinuxRendererGLES::AddProcessor(CDVDVideoCodecIMXBuffer *buffer, int index
  
  bool CLinuxRendererGLES::IsGuiLayer()
  {
@@ -452,47 +349,8 @@ index b865033..ce5356d 100644
  typedef std::vector<int>     Features;
  
  
-diff --git a/xbmc/cores/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoRenderers/RenderManager.cpp
-index b394d7b..72ad819 100644
---- a/xbmc/cores/VideoRenderers/RenderManager.cpp
-+++ b/xbmc/cores/VideoRenderers/RenderManager.cpp
-@@ -668,7 +668,10 @@ void CXBMCRenderManager::FlipPage(volatile bool& bStop, double timestamp /* = 0L
-       deinterlacemode = VS_DEINTERLACEMODE_OFF;
- 
-     if (deinterlacemode == VS_DEINTERLACEMODE_OFF)
-+    {
-       presentmethod = PRESENT_METHOD_SINGLE;
-+      sync = FS_NONE;
-+    }
-     else
-     {
-       if (deinterlacemode == VS_DEINTERLACEMODE_AUTO && sync == FS_NONE)
-@@ -683,6 +686,7 @@ void CXBMCRenderManager::FlipPage(volatile bool& bStop, double timestamp /* = 0L
-         else if (interlacemethod == VS_INTERLACEMETHOD_RENDER_BOB_INVERTED)   { presentmethod = PRESENT_METHOD_BOB; invert = true; }
-         else if (interlacemethod == VS_INTERLACEMETHOD_DXVA_BOB)                presentmethod = PRESENT_METHOD_BOB;
-         else if (interlacemethod == VS_INTERLACEMETHOD_DXVA_BEST)               presentmethod = PRESENT_METHOD_BOB;
-+        else if (interlacemethod == VS_INTERLACEMETHOD_IMX_FASTMOTION_DOUBLE)   presentmethod = PRESENT_METHOD_BOB;
-         else                                                                    presentmethod = PRESENT_METHOD_SINGLE;
- 
-         /* default to odd field if we want to deinterlace and don't know better */
-@@ -829,8 +833,14 @@ bool CXBMCRenderManager::IsVideoLayer()
- void CXBMCRenderManager::PresentSingle(bool clear, DWORD flags, DWORD alpha)
- {
-   CSingleLock lock(g_graphicsContext);
-+  SPresent& m = m_Queue[m_presentsource];
- 
--  m_pRenderer->RenderUpdate(clear, flags, alpha);
-+  if (m.presentfield == FS_BOT)
-+    m_pRenderer->RenderUpdate(clear, flags | RENDER_FLAG_BOT, alpha);
-+  else if (m.presentfield == FS_TOP)
-+    m_pRenderer->RenderUpdate(clear, flags | RENDER_FLAG_TOP, alpha);
-+  else
-+    m_pRenderer->RenderUpdate(clear, flags, alpha);
- }
- 
- /* new simpler method of handling interlaced material, *
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index ca0abcc..a4d3c7e 100644
+index ca0abcc..65adced 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 @@ -20,25 +20,34 @@
@@ -701,8 +559,7 @@ index ca0abcc..a4d3c7e 100644
 +    mvSize = Align(mvSize, nAlign);
    }
  
--  m_outputBuffers = new CDVDVideoCodecIMXBuffer*[m_vpuFrameBufferNum];
-+  m_outputBuffers = new CDVDVideoCodecIMXVPUBuffer*[m_vpuFrameBufferNum];
+   m_outputBuffers = new CDVDVideoCodecIMXBuffer*[m_vpuFrameBufferNum];
  
    for (int i=0 ; i < m_vpuFrameBufferNum; i++)
    {
@@ -776,11 +633,10 @@ index ca0abcc..a4d3c7e 100644
 +    m_vpuFrameBuffers[i].pbufVirtCb_tilebot = 0;
  
  #ifdef TRACE_FRAMES
--    m_outputBuffers[i] = new CDVDVideoCodecIMXBuffer(i);
-+    m_outputBuffers[i] = new CDVDVideoCodecIMXVPUBuffer(i);
+     m_outputBuffers[i] = new CDVDVideoCodecIMXBuffer(i);
  #else
 -    m_outputBuffers[i] = new CDVDVideoCodecIMXBuffer();
-+    m_outputBuffers[i] = new CDVDVideoCodecIMXVPUBuffer;
++    m_outputBuffers[i] = new CDVDVideoCodecIMXBuffer;
  #endif
 +    // Those buffers are ours so lock them to prevent destruction
 +    m_outputBuffers[i]->Lock();
@@ -947,8 +803,9 @@ index ca0abcc..a4d3c7e 100644
 -          idx = VpuFindBuffer(m_frameInfo.pDisplayFrameBuf->pbufY);
 -          m_outputBuffers[idx]->SetPts(pts);
 -        }
-+          CDVDVideoCodecIMXVPUBuffer *buffer = m_outputBuffers[idx];
-+
++          CDVDVideoCodecIMXBuffer *buffer = m_outputBuffers[idx];
+ 
+-        retStatus |= VC_PICTURE;
 +          /* quick & dirty fix to get proper timestamping for VP8 codec */
 +          if (m_decOpenParam.CodecFormat == VPU_V_VP8)
 +            buffer->SetPts(pts);
@@ -976,8 +833,7 @@ index ca0abcc..a4d3c7e 100644
 +          SAFE_RELEASE(m_lastBuffer);
 +          m_lastBuffer = buffer;
 +          m_lastBuffer->Lock();
- 
--        retStatus |= VC_PICTURE;
++
 +#ifdef IMX_PROFILE_BUFFERS
 +          static unsigned long long lastD = 0;
 +          unsigned long long current = XbmcThreads::SystemClockMillis(), tmp;
@@ -1103,7 +959,7 @@ index ca0abcc..a4d3c7e 100644
  
    return true;
  }
-@@ -980,44 +1124,64 @@ void CDVDVideoCodecIMX::Leave()
+@@ -980,44 +1124,54 @@ void CDVDVideoCodecIMX::Leave()
  }
  
  /*******************************************/
@@ -1118,12 +974,16 @@ index ca0abcc..a4d3c7e 100644
  CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer()
 -  : m_refs(1)
 +  :
-+#endif
+ #endif
 +    m_pts(DVD_NOPTS_VALUE)
 +  , m_dts(DVD_NOPTS_VALUE)
-+{
-+}
-+
+   , m_frameBuffer(NULL)
+   , m_rendered(false)
+-  , m_pts(DVD_NOPTS_VALUE)
+   , m_previousBuffer(NULL)
+ {
+ }
+ 
 +void CDVDVideoCodecIMXBuffer::SetPts(double pts)
 +{
 +  m_pts = pts;
@@ -1134,22 +994,7 @@ index ca0abcc..a4d3c7e 100644
 +  m_dts = dts;
 +}
 +
-+#ifdef TRACE_FRAMES
-+CDVDVideoCodecIMXVPUBuffer::CDVDVideoCodecIMXVPUBuffer(int idx)
-+  : CDVDVideoCodecIMXBuffer(idx)
-+#else
-+CDVDVideoCodecIMXVPUBuffer::CDVDVideoCodecIMXVPUBuffer()
-+  : CDVDVideoCodecIMXBuffer()
- #endif
-   , m_frameBuffer(NULL)
-   , m_rendered(false)
--  , m_pts(DVD_NOPTS_VALUE)
-   , m_previousBuffer(NULL)
- {
- }
- 
--void CDVDVideoCodecIMXBuffer::Lock()
-+void CDVDVideoCodecIMXVPUBuffer::Lock()
+ void CDVDVideoCodecIMXBuffer::Lock()
  {
  #ifdef TRACE_FRAMES
 -  long count = AtomicIncrement(&m_refs);
@@ -1161,8 +1006,7 @@ index ca0abcc..a4d3c7e 100644
  #endif
  }
  
--long CDVDVideoCodecIMXBuffer::Release()
-+long CDVDVideoCodecIMXVPUBuffer::Release()
+ long CDVDVideoCodecIMXBuffer::Release()
  {
 -  long count = AtomicDecrement(&m_refs);
 +  long count = AtomicDecrement(&m_iRefs);
@@ -1180,30 +1024,24 @@ index ca0abcc..a4d3c7e 100644
    {
      // If count drops to 1 then the only reference is being held by the codec
      // that it can be released in the next Decode call.
-@@ -1038,18 +1202,18 @@ long CDVDVideoCodecIMXBuffer::Release()
-   return count;
- }
- 
--bool CDVDVideoCodecIMXBuffer::IsValid()
-+bool CDVDVideoCodecIMXVPUBuffer::IsValid()
- {
+@@ -1043,6 +1197,16 @@ bool CDVDVideoCodecIMXBuffer::IsValid()
    return m_frameBuffer != NULL;
  }
  
--bool CDVDVideoCodecIMXBuffer::Rendered() const
-+bool CDVDVideoCodecIMXVPUBuffer::Rendered() const
++void CDVDVideoCodecIMXBuffer::BeginRender()
++{
++  CDVDVideoCodecIMX::Enter();
++}
++
++void CDVDVideoCodecIMXBuffer::EndRender()
++{
++  CDVDVideoCodecIMX::Leave();
++}
++
+ bool CDVDVideoCodecIMXBuffer::Rendered() const
  {
    return m_rendered;
- }
- 
--void CDVDVideoCodecIMXBuffer::Queue(VpuDecOutFrameInfo *frameInfo,
--                                    CDVDVideoCodecIMXBuffer *previous)
-+void CDVDVideoCodecIMXVPUBuffer::Queue(VpuDecOutFrameInfo *frameInfo,
-+                                       CDVDVideoCodecIMXVPUBuffer *previous)
- {
-   // No lock necessary because at this time there is definitely no
-   // thread still holding a reference
-@@ -1059,13 +1223,19 @@ void CDVDVideoCodecIMXBuffer::Queue(VpuDecOutFrameInfo *frameInfo,
+@@ -1059,10 +1223,16 @@ void CDVDVideoCodecIMXBuffer::Queue(VpuDecOutFrameInfo *frameInfo,
    if (m_previousBuffer)
      m_previousBuffer->Lock();
  
@@ -1223,11 +1061,7 @@ index ca0abcc..a4d3c7e 100644
 +  m_fieldType = frameInfo->eFieldType;
  }
  
--VpuDecRetCode CDVDVideoCodecIMXBuffer::ReleaseFramebuffer(VpuDecHandle *handle)
-+VpuDecRetCode CDVDVideoCodecIMXVPUBuffer::ReleaseFramebuffer(VpuDecHandle *handle)
- {
-   // Again no lock required because this is only issued after the last
-   // external reference was released
+ VpuDecRetCode CDVDVideoCodecIMXBuffer::ReleaseFramebuffer(VpuDecHandle *handle)
 @@ -1082,31 +1252,679 @@ VpuDecRetCode CDVDVideoCodecIMXBuffer::ReleaseFramebuffer(VpuDecHandle *handle)
  #endif
    m_rendered = false;
@@ -1240,7 +1074,7 @@ index ca0abcc..a4d3c7e 100644
  }
  
 -void CDVDVideoCodecIMXBuffer::SetPts(double pts)
-+CDVDVideoCodecIMXVPUBuffer::~CDVDVideoCodecIMXVPUBuffer()
++CDVDVideoCodecIMXBuffer::~CDVDVideoCodecIMXBuffer()
  {
 -  m_pts = pts;
 +  assert(m_iRefs == 0);
@@ -1578,7 +1412,7 @@ index ca0abcc..a4d3c7e 100644
 +
 +#define clamp_byte(x) (x<0?0:(x>255?255:x))
 +
-+void CIMXContext::CapureDisplay(unsigned char *buffer, int iWidth, int iHeight)
++void CIMXContext::CaptureDisplay(unsigned char *buffer, int iWidth, int iHeight)
 +{
 +  if (m_fbVar.nonstd != _4CC('U', 'Y', 'V', 'Y'))
 +  {
@@ -1830,12 +1664,12 @@ index ca0abcc..a4d3c7e 100644
 +  // Need to find another interface to protect ipu.current from disposing
 +  // in CDVDVideoCodecIMX::Dispose. CIMXContext must not have knowledge
 +  // about CDVDVideoCodecIMX.
-+  CDVDVideoCodecIMX::Enter();
++  ipu.current->BeginRender();
 +  if (ipu.current->IsValid())
 +    ret = ioctl(m_ipuHandle, IPU_QUEUE_TASK, &ipu.task);
 +  else
 +    ret = 0;
-+  CDVDVideoCodecIMX::Leave();
++  ipu.current->EndRender();
 +
 +  if (ret < 0)
 +  {
@@ -1852,7 +1686,7 @@ index ca0abcc..a4d3c7e 100644
 +
 +#ifdef IMX_PROFILE_BUFFERS
 +  unsigned long long after = XbmcThreads::SystemClockMillis();
-+  printf("+P  %f  %d\n", ((CDVDVideoCodecIMXBuffer*)ipu.current)->GetPts(), (int)(after-before));
++  CLog::Log(LOGNOTICE, "+P  %f  %d\n", ((CDVDVideoCodecIMXBuffer*)ipu.current)->GetPts(), (int)(after-before));
 +#endif
 +
 +  return true;
@@ -1920,10 +1754,10 @@ index ca0abcc..a4d3c7e 100644
 +  return;
  }
 diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 6533683..50d9efa 100644
+index 6533683..dca3f2f 100644
 --- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
 +++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -18,17 +18,198 @@
+@@ -18,17 +18,201 @@
   *  <http://www.gnu.org/licenses/>.
   *
   */
@@ -1945,14 +1779,14 @@ index 6533683..50d9efa 100644
 +#include <linux/mxcfb.h>
 +#include <imx-mm/vpu/vpu_wrapper.h>
 +
-+
+ 
 +// The decoding format of the VPU buffer. Comment this to decode
 +// as NV12. The VPU works faster with NV12 in combination with
 +// deinterlacing.
 +// Progressive content seems to be handled faster with I420 whereas
 +// interlaced content is processed faster with NV12 as output format.
 +//#define IMX_INPUT_FORMAT_I420
- 
++
 +// This enables logging of times for Decode, Render->Render,
 +// Deinterlace. It helps to profile several stages of
 +// processing with respect to changed kernels or other configurations.
@@ -1982,6 +1816,9 @@ index 6533683..50d9efa 100644
 +  virtual void Lock() = 0;
 +  virtual long Release() = 0;
 +  virtual bool IsValid() = 0;
++
++  virtual void BeginRender() = 0;
++  virtual void EndRender() = 0;
 +
 +public:
 +  uint32_t     iWidth;
@@ -2050,7 +1887,7 @@ index 6533683..50d9efa 100644
 +
 +  // Captures the current visible frame buffer page and blends it into
 +  // the passed overlay. The buffer format is BGRA (4 byte)
-+  void CapureDisplay(unsigned char *buffer, int iWidth, int iHeight);
++  void CaptureDisplay(unsigned char *buffer, int iWidth, int iHeight);
 +
 +private:
 +  struct IPUTask
@@ -2126,7 +1963,7 @@ index 6533683..50d9efa 100644
  class CDecMemInfo
  {
  public:
-@@ -40,16 +221,17 @@ public:
+@@ -40,16 +224,17 @@ public:
    {}
  
    //virtual mem info
@@ -2150,36 +1987,9 @@ index 6533683..50d9efa 100644
  public:
  #ifdef TRACE_FRAMES
    CDVDVideoCodecIMXBuffer(int idx);
-@@ -57,95 +239,111 @@ public:
-   CDVDVideoCodecIMXBuffer();
+@@ -58,94 +243,98 @@ public:
  #endif
  
-+  void SetPts(double pts);
-+  double GetPts() const { return m_pts; }
-+
-+  void SetDts(double dts);
-+  double GetDts() const { return m_dts; }
-+
-+protected:
-+#ifdef TRACE_FRAMES
-+  int           m_idx;
-+#endif
-+
-+private:
-+  double        m_pts;
-+  double        m_dts;
-+};
-+
-+
-+class CDVDVideoCodecIMXVPUBuffer : public CDVDVideoCodecIMXBuffer
-+{
-+public:
-+#ifdef TRACE_FRAMES
-+  CDVDVideoCodecIMXVPUBuffer(int idx);
-+#else
-+  CDVDVideoCodecIMXVPUBuffer();
-+#endif
-+
    // reference counting
 -  virtual void             Lock();
 -  virtual long             Release();
@@ -2201,34 +2011,44 @@ index 6533683..50d9efa 100644
 +  virtual long Release();
 +  virtual bool IsValid();
 +
++  virtual void BeginRender();
++  virtual void EndRender();
++
++  void SetPts(double pts);
++  double GetPts() const { return m_pts; }
++
++  void SetDts(double dts);
++  double GetDts() const { return m_dts; }
++
 +  bool Rendered() const;
 +  void Queue(VpuDecOutFrameInfo *frameInfo,
-+             CDVDVideoCodecIMXVPUBuffer *previous);
++             CDVDVideoCodecIMXBuffer *previous);
 +  VpuDecRetCode ReleaseFramebuffer(VpuDecHandle *handle);
-+  CDVDVideoCodecIMXVPUBuffer *GetPreviousBuffer() const { return m_previousBuffer; }
++  CDVDVideoCodecIMXBuffer *GetPreviousBuffer() const { return m_previousBuffer; }
 +  VpuFieldType GetFieldType() const { return m_fieldType; }
-+  bool IsInterlaced() const { return m_fieldType != VPU_FIELD_NONE; }
  
  private:
    // private because we are reference counted
 -  virtual                  ~CDVDVideoCodecIMXBuffer();
-+  virtual ~CDVDVideoCodecIMXVPUBuffer();
++  virtual ~CDVDVideoCodecIMXBuffer();
  
- private:
--#ifdef TRACE_FRAMES
--  int                      m_idx;
--#endif
+-private:
++protected:
+ #ifdef TRACE_FRAMES
+   int                      m_idx;
+ #endif
 -  long                     m_refs;
--  VpuFrameBuffer          *m_frameBuffer;
--  bool                     m_rendered;
++
++private:
++  double                   m_pts;
++  double                   m_dts;
++  VpuFieldType             m_fieldType;
+   VpuFrameBuffer          *m_frameBuffer;
+   bool                     m_rendered;
 -  double                   m_pts;
 -  CDVDVideoCodecIMXBuffer *m_previousBuffer; // Holds a the reference counted
 -                                             // previous buffer
-+  VpuFieldType                m_fieldType;
-+  VpuFrameBuffer             *m_frameBuffer;
-+  bool                        m_rendered;
-+  CDVDVideoCodecIMXVPUBuffer *m_previousBuffer; // Holds a the reference counted
-+                                                // previous buffer
++  CDVDVideoCodecIMXBuffer *m_previousBuffer; // Holds the reference counted previous buffer
  };
  
 +
@@ -2305,9 +2125,9 @@ index 6533683..50d9efa 100644
 +  bool                         m_dropState;         // Current drop state
 +  int                          m_vpuFrameBufferNum; // Total number of allocated frame buffers
 +  VpuFrameBuffer              *m_vpuFrameBuffers;   // Table of VPU frame buffers description
-+  CDVDVideoCodecIMXVPUBuffer **m_outputBuffers;     // Table of VPU output buffers
-+  CDVDVideoCodecIMXVPUBuffer  *m_lastBuffer;        // Keep track of previous VPU output buffer (needed by deinterlacing motion engin)
-+  CDVDVideoCodecIMXVPUBuffer  *m_currentBuffer;
++  CDVDVideoCodecIMXBuffer    **m_outputBuffers;     // Table of VPU output buffers
++  CDVDVideoCodecIMXBuffer     *m_lastBuffer;        // Keep track of previous VPU output buffer (needed by deinterlacing motion engin)
++  CDVDVideoCodecIMXBuffer     *m_currentBuffer;
 +  VpuMemDesc                  *m_extraMem;          // Table of allocated extra Memory
 +  int                          m_frameCounter;      // Decoded frames counter
 +  bool                         m_usePTS;            // State whether pts out of decoding process should be used
@@ -2337,48 +2157,8 @@ index 126e95f..2b8c2cf 100644
        g_graphicsContext.SetScissors(old);
        g_graphicsContext.EndPaint();
      }
-diff --git a/xbmc/guilib/GUIWindow.h b/xbmc/guilib/GUIWindow.h
-index af82934..0e05493 100644
---- a/xbmc/guilib/GUIWindow.h
-+++ b/xbmc/guilib/GUIWindow.h
-@@ -101,7 +101,7 @@ public:
-   /*! \brief Do any post render activities.
-     Check if window closing animation is finished and finalize window closing.
-    */
--  void AfterRender();
-+  virtual void AfterRender();
-   
-   /*! \brief Main update function, called every frame prior to rendering
-    Any window that requires updating on a frame by frame basis (such as to maintain
-diff --git a/xbmc/guilib/GUIWindowManager.cpp b/xbmc/guilib/GUIWindowManager.cpp
-index ef97251..fe2080e 100644
---- a/xbmc/guilib/GUIWindowManager.cpp
-+++ b/xbmc/guilib/GUIWindowManager.cpp
-@@ -539,7 +539,7 @@ void CGUIWindowManager::RenderPass() const
-   // we render the dialogs based on their render order.
-   vector<CGUIWindow *> renderList = m_activeDialogs;
-   stable_sort(renderList.begin(), renderList.end(), RenderOrderSortFunction);
--  
-+
-   for (iDialog it = renderList.begin(); it != renderList.end(); ++it)
-   {
-     if ((*it)->IsDialogRunning())
-diff --git a/xbmc/settings/VideoSettings.h b/xbmc/settings/VideoSettings.h
-index 6eaef1d..8644250 100644
---- a/xbmc/settings/VideoSettings.h
-+++ b/xbmc/settings/VideoSettings.h
-@@ -72,6 +72,9 @@ enum EINTERLACEMETHOD
-   VS_INTERLACEMETHOD_MMAL_BOB = 27,
-   VS_INTERLACEMETHOD_MMAL_BOB_HALF = 28,
- 
-+  VS_INTERLACEMETHOD_IMX_FASTMOTION = 29,
-+  VS_INTERLACEMETHOD_IMX_FASTMOTION_DOUBLE = 30,
-+
-   VS_INTERLACEMETHOD_MAX // do not use and keep as last enum value.
- };
- 
 diff --git a/xbmc/utils/Screenshot.cpp b/xbmc/utils/Screenshot.cpp
-index db73d4a..35a586e 100644
+index db73d4a..2335178 100644
 --- a/xbmc/utils/Screenshot.cpp
 +++ b/xbmc/utils/Screenshot.cpp
 @@ -37,6 +37,11 @@
@@ -2408,38 +2188,16 @@ index db73d4a..35a586e 100644
 +#ifdef HAS_IMXVPU
 +  // Captures the current visible framebuffer page and blends it into the
 +  // captured GL overlay
-+  g_IMXContext.CapureDisplay(m_buffer, m_width, m_height);
++  g_IMXContext.CaptureDisplay(m_buffer, m_width, m_height);
 +#endif
 +
  #else
    //nothing to take a screenshot from
    return false;
-diff --git a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-index ca65fdc..d350a02 100644
---- a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-+++ b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
-@@ -266,6 +266,8 @@ void CGUIDialogVideoSettings::InitializeSettings()
-   entries.push_back(make_pair(16331, VS_INTERLACEMETHOD_MMAL_ADVANCED_HALF));
-   entries.push_back(make_pair(16332, VS_INTERLACEMETHOD_MMAL_BOB));
-   entries.push_back(make_pair(16333, VS_INTERLACEMETHOD_MMAL_BOB_HALF));
-+  entries.push_back(make_pair(16334, VS_INTERLACEMETHOD_IMX_FASTMOTION));
-+  entries.push_back(make_pair(16335, VS_INTERLACEMETHOD_IMX_FASTMOTION_DOUBLE));
- 
-   /* remove unsupported methods */
-   for (StaticIntegerSettingOptions::iterator it = entries.begin(); it != entries.end(); )
 diff --git a/xbmc/video/windows/GUIWindowFullScreen.cpp b/xbmc/video/windows/GUIWindowFullScreen.cpp
-index ed7c090..e9beff7 100644
+index ed7c090..17857dd 100644
 --- a/xbmc/video/windows/GUIWindowFullScreen.cpp
 +++ b/xbmc/video/windows/GUIWindowFullScreen.cpp
-@@ -284,7 +284,7 @@ bool CGUIWindowFullScreen::OnAction(const CAction &action)
-           CStdString strChannel = StringUtils::Format("%i", action.GetID() - REMOTE_0);
-           if (CGUIDialogNumeric::ShowAndGetNumber(strChannel, g_localizeStrings.Get(19000)))
-             iChannelNumber = atoi(strChannel.c_str());
--            
-+
-           if (iChannelNumber > 0)
-             g_application.OnAction(CAction(ACTION_CHANNEL_SWITCH, (float)iChannelNumber));
-         }
 @@ -356,7 +356,11 @@ bool CGUIWindowFullScreen::OnAction(const CAction &action)
  void CGUIWindowFullScreen::ClearBackground()
  {
@@ -2453,7 +2211,7 @@ index ed7c090..e9beff7 100644
  
  void CGUIWindowFullScreen::OnWindowLoaded()
 diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-index 04cadc8..2b8180b 100644
+index 061f6e6..cf2f706 100644
 --- a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
 +++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
 @@ -25,6 +25,7 @@
@@ -2464,7 +2222,7 @@ index 04cadc8..2b8180b 100644
  #include "utils/log.h"
  #include "utils/RegExp.h"
  #include "utils/StringUtils.h"
-@@ -54,6 +55,40 @@ void CEGLNativeTypeIMX::Initialize()
+@@ -55,6 +56,40 @@ void CEGLNativeTypeIMX::Initialize()
  {
    int fd;
  
@@ -2505,7 +2263,7 @@ index 04cadc8..2b8180b 100644
    fd = open("/dev/fb0",O_RDWR);
    if (fd < 0)
    {
-@@ -61,6 +96,27 @@ void CEGLNativeTypeIMX::Initialize()
+@@ -62,6 +97,27 @@ void CEGLNativeTypeIMX::Initialize()
      return;
    }
  
@@ -2533,7 +2291,7 @@ index 04cadc8..2b8180b 100644
    // Unblank the fb
    if (ioctl(fd, FBIOBLANK, 0) < 0)
    {
-@@ -69,20 +125,6 @@ void CEGLNativeTypeIMX::Initialize()
+@@ -70,20 +126,6 @@ void CEGLNativeTypeIMX::Initialize()
  
    close(fd);
  
@@ -2589,5 +2347,5 @@ index 2bdd4fa..dec2ba9 100644
  
  void CWinSystemEGL::ShowOSMouse(bool show)
 -- 
-1.9.1
+1.9.3
 
