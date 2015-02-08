@@ -403,28 +403,62 @@
     /bin/busybox reboot
   }
 
+  force_fsck() {
+    echo "Filesystem corruption has been detected"
+    echo "To prevent an automatic repair attempt continuing"
+    echo "press any key or power off your system within the next 120 seconds"
+    echo ""
+    read -t120 -n1
+    # The exit status is 0 if input is available
+    # The exit status is greater than 128 if the timeout is exceeded
+    if [ "$?" -ne "0" -o "$?" -gt "128" ] ; then
+      echo "repairing filesystem.."
+      echo ""
+      /sbin/fsck -T -M -y $RUN_FSCK_DISKS
+      FSCK_RET="$?"
+      if [ "$(( $FSCK_RET & 8 ))" = 8 ] ; then
+        # fubar
+        echo "Forced fsck failed. Your system is broken beyond repair"
+        echo "Please re-install OpenELEC"
+        echo ""
+        echo "Press enter to shutdown now"
+        echo ""
+        read fubar
+        poweroff
+      fi
+      do_reboot
+    else
+      echo "shutting down..."
+      sleep 5
+      sync
+      poweroff
+    fi
+  }
+
   check_disks() {
     if [ "$RUN_FSCK" = "yes" -a -n "$RUN_FSCK_DISKS" ]; then
       progress "Checking disk(s): $RUN_FSCK_DISKS"
         /sbin/fsck -T -M -p -a $RUN_FSCK_DISKS > /dev/null 2>&1
         FSCK_RET="$?"
 
-        case "$FSCK_RET" in
-          0) # no errors found
-            progress "no filesystem errors found, continuing..."
-            ;;
-          1) # filesystem errors corrected
-            progress "filesystem errors corrected , continuing..."
-            ;;
-          2) # reboot needed
-            echo "filesystem repaired, reboot needed..."
-            do_reboot
-            ;;
-          4) # errors left
-            error "could not repair filesystem, dropping to debug shell, try to run 'fsck' manually"
-            do_reboot
-            ;;
-        esac
+        # FSCK_RET is the bit-wise OR of the exit codes for each filesystem that is checked.
+        if [ "$(( $FSCK_RET & 8 ))" = 8 ] ; then
+          # operational error
+          force_fsck
+        elif [ "$(( $FSCK_RET & 4 ))" = 4 ] ; then
+          # errors left
+          force_fsck
+        elif [ "$(( $FSCK_RET & 2 ))" = 2 ] ; then
+          # reboot needed
+          echo "filesystem repaired, reboot needed..."
+          do_reboot
+        elif [ "$(( $FSCK_RET & 1 ))" = 1 ] ; then
+          # filesystem errors corrected
+          progress "filesystem errors corrected , continuing..."
+        elif [ "$(( $FSCK_RET & 0 ))" = 0 ] ; then
+          # no errors found
+          progress "no filesystem errors found, continuing..."
+        fi
     fi
   }
 
