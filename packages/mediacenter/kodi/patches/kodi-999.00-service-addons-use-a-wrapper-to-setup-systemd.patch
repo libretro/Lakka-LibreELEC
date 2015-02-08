@@ -1,15 +1,15 @@
-From 0ccbc5043710b3c770e076d17b292964c91bfd23 Mon Sep 17 00:00:00 2001
+From a58ead6a20bcfd6132c6f234c3108b5d16a6440c Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
 Date: Fri, 8 Aug 2014 18:22:44 +0300
 Subject: [PATCH] use a wrapper to setup systemd services
 
 ---
- xbmc/addons/Service.cpp | 23 +++++++++++++++++++++++
- xbmc/addons/Service.h   |  3 +++
- 2 files changed, 26 insertions(+)
+ xbmc/addons/Service.cpp | 22 ++++++++++++++++++++++
+ xbmc/addons/Service.h   |  1 +
+ 2 files changed, 23 insertions(+)
 
 diff --git a/xbmc/addons/Service.cpp b/xbmc/addons/Service.cpp
-index c406b11..f68b427 100644
+index c406b11..f6afbe8 100644
 --- a/xbmc/addons/Service.cpp
 +++ b/xbmc/addons/Service.cpp
 @@ -53,6 +53,10 @@ AddonPtr CService::Clone() const
@@ -23,34 +23,32 @@ index c406b11..f68b427 100644
    switch (m_type)
    {
  #ifdef HAS_PYTHON
-@@ -113,13 +117,26 @@ void CService::BuildServiceType()
+@@ -113,13 +117,24 @@ void CService::BuildServiceType()
    }
  }
  
 +void CService::CallOEWrapper(const std::string& ID, bool disable, bool check)
 +{
 +  char cmd[255];
-+  snprintf(cmd, sizeof(cmd), "/usr/lib/openelec/systemd-addon-wrapper %s %d", ID.c_str(), disable, check);
++  snprintf(cmd, sizeof(cmd), "/usr/lib/openelec/systemd-addon-wrapper %s %d %d", ID.c_str(), disable, check);
 +  system(cmd);
 +}
 +
  void CService::OnDisabled()
  {
+   Stop();
 +  // systemctl stop & disable on addon disable
 +  CallOEWrapper(ID(), true, false);
-+
-   Stop();
  }
  
  void CService::OnEnabled()
  {
 +  // systemctl enable & start on addon enable
 +  CallOEWrapper(ID(), false, false);
-+
    Start();
  }
  
-@@ -145,7 +162,13 @@ void CService::OnPostInstall(bool restart, bool update)
+@@ -145,13 +160,20 @@ void CService::OnPostInstall(bool restart, bool update)
      {
        boost::shared_ptr<CService> service = boost::dynamic_pointer_cast<CService>(localAddon);
        if (service)
@@ -58,23 +56,31 @@ index c406b11..f68b427 100644
 +        // systemctl stop & disable / enable & start on addon upgrade
 +        CallOEWrapper(ID(), true, false);
 +        CallOEWrapper(ID(), false, false);
-+
          service->Start();
 +      }
      }
    }
  }
+ 
+ void CService::OnPreUnInstall()
+ {
++  // systemctl stop & disable on addon ininstall
++  CallOEWrapper(ID(), true, false);
+   Stop();
+ }
+ 
 diff --git a/xbmc/addons/Service.h b/xbmc/addons/Service.h
-index 98ec8b6..accd9e2 100644
+index 98ec8b6..683ae60 100644
 --- a/xbmc/addons/Service.h
 +++ b/xbmc/addons/Service.h
-@@ -47,6 +47,9 @@ namespace ADDON
+@@ -47,6 +47,7 @@ namespace ADDON
      bool Stop();
      TYPE GetServiceType() { return m_type; }
      START_OPTION GetStartOption() { return m_startOption; }
-+
 +    void CallOEWrapper(const std::string& ID, bool disable, bool check);
-+
      virtual void OnDisabled();
      virtual void OnEnabled();
      virtual bool OnPreInstall();
+-- 
+2.1.0
+
