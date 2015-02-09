@@ -1,45 +1,7 @@
-From 4b25061edec6da97b8a49b1872bcc765db1fca06 Mon Sep 17 00:00:00 2001
-From: Rainer Hochecker <fernetmenta@online.de>
-Date: Sat, 7 Feb 2015 18:16:12 +0100
-Subject: [PATCH 1/2] dvdplayer: fix clock speed
-
----
- xbmc/cores/dvdplayer/DVDClock.cpp | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/xbmc/cores/dvdplayer/DVDClock.cpp b/xbmc/cores/dvdplayer/DVDClock.cpp
-index 0a253e4..a4422a0 100644
---- a/xbmc/cores/dvdplayer/DVDClock.cpp
-+++ b/xbmc/cores/dvdplayer/DVDClock.cpp
-@@ -218,16 +218,17 @@ int CDVDClock::UpdateFramerate(double fps, double* interval /*= NULL*/)
- 
-   CSingleLock lock(m_speedsection);
- 
--  double weight = rate / (double)MathUtils::round_int(fps);
-+  double speed = 1.0;
- 
--  //set the speed of the videoreferenceclock based on fps, refreshrate and maximum speed adjust set by user
-   if (m_maxspeedadjust > 0.05)
-   {
--    if (weight / MathUtils::round_int(weight) < 1.0 + m_maxspeedadjust / 100.0
--    &&  weight / MathUtils::round_int(weight) > 1.0 - m_maxspeedadjust / 100.0)
--      weight = MathUtils::round_int(weight);
-+    speed = rate / fps;
-+    if (speed > 1.0 + m_maxspeedadjust/100)
-+      speed = 1.0 + m_maxspeedadjust/100;
-+    else  if (speed < 1.0 - m_maxspeedadjust/100)
-+      speed = 1.0 - m_maxspeedadjust/100;
-   }
--  double speed = rate / (fps * weight);
-+
-   lock.Leave();
- 
-   g_VideoReferenceClock.SetSpeed(speed);
-
-From 5647dd3c786ff78e5f43e3f83511cd8d7f187aa3 Mon Sep 17 00:00:00 2001
+From 9e65311555962ea40eae8cf34f2a545957a0beb0 Mon Sep 17 00:00:00 2001
 From: Rainer Hochecker <fernetmenta@online.de>
 Date: Sat, 7 Feb 2015 18:38:00 +0100
-Subject: [PATCH 2/2] dvdplayer: reset speed of video reference clock after
+Subject: [PATCH 1/2] dvdplayer: reset speed of video reference clock after
  refresh rate changed
 
 ---
@@ -58,3 +20,32 @@ index 9246a35..a3ee195 100644
  
    CLog::Log(LOGDEBUG, "CVideoReferenceClock: Detected refreshrate: %.3f hertz", m_RefreshRate);
  }
+-- 
+1.9.1
+
+
+From db557b5418b86d04dd6903ce04a9dee21df54882 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 8 Feb 2015 21:45:49 +0100
+Subject: [PATCH 2/2] dvdplayer: fix clock speed
+
+---
+ xbmc/cores/dvdplayer/DVDClock.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDClock.cpp b/xbmc/cores/dvdplayer/DVDClock.cpp
+index 0a253e4..a496ec0 100644
+--- a/xbmc/cores/dvdplayer/DVDClock.cpp
++++ b/xbmc/cores/dvdplayer/DVDClock.cpp
+@@ -218,7 +218,7 @@ int CDVDClock::UpdateFramerate(double fps, double* interval /*= NULL*/)
+ 
+   CSingleLock lock(m_speedsection);
+ 
+-  double weight = rate / (double)MathUtils::round_int(fps);
++  double weight = MathUtils::round_int(rate) / (double)MathUtils::round_int(fps);
+ 
+   //set the speed of the videoreferenceclock based on fps, refreshrate and maximum speed adjust set by user
+   if (m_maxspeedadjust > 0.05)
+-- 
+1.9.1
+
