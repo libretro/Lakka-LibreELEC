@@ -24,6 +24,9 @@
 #   Easiest way to reproduce is to install gdrive addon and play a video from
 #   there: http://forum.xbmc.org/showthread.php?tid=177557
 
+# downgraded to 7.37.1 because 1.38/1.39/1.40 is broken
+# if you want so much, upgrade it and live in pain.
+
 PKG_NAME="curl"
 PKG_VERSION="7.37.1"
 PKG_REV="1"
