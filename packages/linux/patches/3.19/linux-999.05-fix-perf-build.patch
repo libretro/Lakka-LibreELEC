@@ -1,0 +1,38 @@
+From	He Kuang <>
+Subject	[PATCH] perf: fix building error in x86_64
+Date	Wed, 11 Feb 2015 10:01:08 +0800
+
+
+When build with ARCH=x86_64, perf failed to compile with following error:
+
+tests/builtin-test.o:(.data+0x158): undefined reference to `test__perf_time_to_tsc'
+collect2: error: ld returned 1 exit status
+Makefile.perf:632: recipe for target 'perf' failed
+...
+
+Which is caused commit c6e5e9fbc3ea1 ("perf tools: Fix building error
+in x86_64 when dwarf unwind is on"), ARCH test in Makefile.perf
+conflicts with tests/builtin-test.c's __x86_64__.
+To x86/x86_64 platform, ARCH should always override to x86 while
+IS_64_BIT stands for the actual architecture.
+
+Signed-off-by: He Kuang <hekuang@huawei.com>
+---
+ tools/perf/config/Makefile.arch | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff --git a/tools/perf/config/Makefile.arch b/tools/perf/config/Makefile.arch
+index ff95a68..8c6214d 100644
+--- a/tools/perf/config/Makefile.arch
++++ b/tools/perf/config/Makefile.arch
+@@ -14,7 +14,7 @@ ifeq ($(RAW_ARCH),i386)
+ endif
+ 
+ ifeq ($(RAW_ARCH),x86_64)
+-  ARCH ?= x86
++  override ARCH := x86
+ 
+   ifneq (, $(findstring m32,$(CFLAGS)))
+     RAW_ARCH := x86_32
+-- 
+2.2.0.33.gc18b867
+
