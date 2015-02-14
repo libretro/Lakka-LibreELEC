@@ -62,8 +62,5 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  add_user nobody x 999 999 "Nobody" "/" "/bin/sh"
-  add_group nobody 999
-
   enable_service lcdd.service
 }
