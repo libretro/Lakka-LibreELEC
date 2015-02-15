@@ -24,18 +24,8 @@
 #   Easiest way to reproduce is to install gdrive addon and play a video from
 #   there: http://forum.xbmc.org/showthread.php?tid=177557
 
-# downgraded to 7.37.1 because 7.38/7.39/7.40 is broken
-# 7.38 had issues connecting our repository from a
-# threaded context.
-# 7.39 did not fix a single thing and is used nowhere in
-# the wild. If we experience issues we are on our owns
-# 7.40 has an issue with ftp thumbs the way Kodi works
-# 7.37.1 is the Ubuntu version which works nicely
-# Let's bump again when Ubuntu bumps or kodi bumps
-# curl is one of the central libs in kodi
-
 PKG_NAME="curl"
-PKG_VERSION="7.37.1"
+PKG_VERSION="7.40.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
