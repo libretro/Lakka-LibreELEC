@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="2.4.6"
+PKG_VERSION="2.5.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
