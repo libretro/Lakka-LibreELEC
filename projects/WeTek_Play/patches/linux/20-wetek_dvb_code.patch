@@ -1,39 +1,660 @@
 diff -Naur a/arch/arm/plat-meson/include/plat/bt_device.h b/arch/arm/plat-meson/include/plat/bt_device.h
---- a/arch/arm/plat-meson/include/plat/bt_device.h	2015-01-15 18:54:51.000000000 +0100
+--- a/arch/arm/plat-meson/include/plat/bt_device.h	2015-01-25 00:36:40.000000000 +0100
 +++ b/arch/arm/plat-meson/include/plat/bt_device.h	2015-01-22 14:31:05.000000000 +0100
-@@ -21,6 +21,7 @@
- 	int gpio_en;
- 	int gpio_host_wake;
- 	int gpio_wake;
+@@ -1,26 +1,27 @@
+-/*
+- * arch/arm/plat-meson/include/plat/bt_device.h
+- *
+- * Copyright (C) 2010-2014 Amlogic, Inc.
+- *
+- * This software is licensed under the terms of the GNU General Public
+- * License version 2, as published by the Free Software Foundation, and
+- * may be copied, distributed, and modified under those terms.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- */
+-
+-#ifndef __PLAT_MESON_BT_DEVICE_H
+-#define __PLAT_MESON_BT_DEVICE_H
+-
+-struct bt_dev_data {
+-	int gpio_reset;
+-	int gpio_en;
+-	int gpio_host_wake;
+-	int gpio_wake;
+-};
+-
+-#endif
++/*
++ * arch/arm/plat-meson/include/plat/bt_device.h
++ *
++ * Copyright (C) 2010-2014 Amlogic, Inc.
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#ifndef __PLAT_MESON_BT_DEVICE_H
++#define __PLAT_MESON_BT_DEVICE_H
++
++struct bt_dev_data {
++	int gpio_reset;
++	int gpio_en;
++	int gpio_host_wake;
++	int gpio_wake;
 +	struct pinctrl *pinctrl;
- };
- 
- #endif
++};
++
++#endif
 diff -Naur a/drivers/amlogic/bluetooth/bt_device.c b/drivers/amlogic/bluetooth/bt_device.c
---- a/drivers/amlogic/bluetooth/bt_device.c	2015-01-15 18:54:08.000000000 +0100
+--- a/drivers/amlogic/bluetooth/bt_device.c	2015-01-25 00:36:15.000000000 +0100
 +++ b/drivers/amlogic/bluetooth/bt_device.c	2015-01-22 14:26:14.000000000 +0100
-@@ -170,6 +170,9 @@
- 		} else {
- 		    pdata->gpio_wake = amlogic_gpio_name_map_num(str);
- 		}
+@@ -1,295 +1,301 @@
+-/*
+- *
+- * arch/arm/mach-meson/bcm-bt.c
+- *
+- *  Copyright (C) 2010 AMLOGIC, INC.
+- *
+- * License terms: GNU General Public License (GPL) version 2
+- * Platform machine definition.
+- */
+- 
+-#include <linux/module.h>
+-#include <linux/platform_device.h>
+-#include <linux/delay.h>
+-#include <linux/string.h>
+-#include <linux/ctype.h>
+-#include <linux/leds.h>
+-#include <linux/gpio.h>
+-#include <linux/rfkill.h>
+-#include <linux/slab.h>
+-#include <asm/uaccess.h>
+-#include <linux/amlogic/aml_gpio_consumer.h>
+-#include <mach/am_regs.h>
+-#include <plat/bt_device.h>
+-#ifdef CONFIG_AM_WIFI_SD_MMC
+-#include <linux/amlogic/wifi_dt.h>
+-#endif
+-
+-#ifdef CONFIG_HAS_EARLYSUSPEND
+-#include <linux/earlysuspend.h>
+-static struct early_suspend bt_early_suspend;
+-#endif
+-
+-#define BT_RFKILL "bt_rfkill"
+-
+-struct bt_dev_runtime_data {
+-    struct rfkill *bt_rfk;
+-    struct bt_dev_data *pdata;
+-};
+-
+-static void bt_device_init(struct bt_dev_data *pdata)
+-{
+-    if(pdata->gpio_reset > 0 ) {
+-        amlogic_gpio_request(pdata->gpio_reset, BT_RFKILL);
+-    }    
+-        
+-    if(pdata->gpio_en > 0 ) {
+-        amlogic_gpio_request(pdata->gpio_en, BT_RFKILL);
+-    }
+-        
+-    if(pdata->gpio_wake > 0 ) {
+-        amlogic_gpio_request(pdata->gpio_wake, BT_RFKILL);
+-        amlogic_gpio_direction_output(pdata->gpio_wake, 1, BT_RFKILL);
+-    }
+-
+-}
+-
+-static void bt_device_deinit(struct bt_dev_data *pdata)
+-{
+-      if(pdata->gpio_reset > 0 )
+-        amlogic_gpio_free(pdata->gpio_reset, BT_RFKILL);
+-        
+-    if(pdata->gpio_en > 0 )
+-        amlogic_gpio_free(pdata->gpio_en, BT_RFKILL);
+-        
+-    if(pdata->gpio_wake > 0 ) 
+-        amlogic_gpio_free(pdata->gpio_wake, BT_RFKILL);     
+-}
+-
+-static void bt_device_on(struct bt_dev_data *pdata)
+-{	
+-	if(pdata->gpio_reset > 0 )
+-	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
+-	if(pdata->gpio_en > 0 )
+-	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);	
+-	msleep(20);	
+-	if(pdata->gpio_reset > 0 )
+-	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
+-	if(pdata->gpio_en > 0 )
+-	    amlogic_gpio_direction_output(pdata->gpio_en, 1, BT_RFKILL);	
+-	msleep(20);
+-}
+-
+-static void bt_device_off(struct bt_dev_data *pdata)
+-{
+-    if(pdata->gpio_reset > 0 )
+-	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
+-	if(pdata->gpio_en > 0 )
+-	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);
+-	msleep(20);	
+-}
+-
+-static int bt_set_block(void *data, bool blocked)
+-{
+-    struct bt_dev_data *pdata = data;
+-    pr_info("BT_RADIO going: %s\n", blocked ? "off" : "on");
+-
+-	if (!blocked) {
+-		pr_info("BCM_BT: going ON\n");
+-		bt_device_on(pdata);
+-	} else {
+-		pr_info("BCM_BT: going OFF\n");
+-        bt_device_off(pdata);
+-	}
+-    return 0;
+-}
+-
+-static const struct rfkill_ops bt_rfkill_ops = {
+-	.set_block = bt_set_block,
+-};
+-#ifdef CONFIG_HAS_EARLYSUSPEND 
+-static void bt_earlysuspend(struct early_suspend *h)                                               
+-{
+-
+-    return;
+-}
+-
+-static void bt_lateresume(struct early_suspend *h)
+-{
+-
+-    return;
+-}
+-#endif
+-
+-static int bt_suspend(struct platform_device *pdev, pm_message_t state)                                               
+-{
+-
+-    return 0;
+-}
+-
+-static int bt_resume(struct platform_device *pdev)
+-{
+-
+-    return 0;
+-}
+-
+-static int bt_probe(struct platform_device *pdev)
+-{
+-	int ret = 0;
+-	struct rfkill *bt_rfk;
+-	struct bt_dev_data *pdata = NULL;
+-	struct bt_dev_runtime_data *prdata;
+-
+-#ifdef CONFIG_OF
+-	//plat = aml_get_driver_data(pdev);
+-	if (pdev->dev.of_node) {
+-	    const char *str;
+-	    
+-	    printk(KERN_DEBUG "enter bt_probe of_node\n");
+-	    pdata = kzalloc(sizeof(struct bt_dev_data), GFP_KERNEL);
+-		ret = of_property_read_string(pdev->dev.of_node,"gpio_reset",&str);
+-		if(ret){
+-			printk(KERN_WARNING "not get gpio_reset\n");
+-			pdata->gpio_reset = 0;
+-		} else {
+-		    pdata->gpio_reset = amlogic_gpio_name_map_num(str);
+-		}
+-		
+-        ret = of_property_read_string(pdev->dev.of_node,"gpio_en",&str);
+-		if(ret){
+-			printk(KERN_WARNING "not get gpio_en\n");
+-			pdata->gpio_en = 0;
+-		} else {
+-		    pdata->gpio_en = amlogic_gpio_name_map_num(str);
+-		}
+-		
+-		ret = of_property_read_string(pdev->dev.of_node,"gpio_wake",&str);
+-		if(ret){
+-			printk(KERN_WARNING "not get gpio_wake\n");
+-			pdata->gpio_wake = 0;
+-		} else {
+-		    pdata->gpio_wake = amlogic_gpio_name_map_num(str);
+-		}
+-	}
+-#else
+-    pdata = (struct bt_dev_data *)(pdev->dev.platform_data);
+-#endif
+-    
+-    bt_device_init(pdata);
+-    /* default to bluetooth off */
+-    //rfkill_switch_all(RFKILL_TYPE_BLUETOOTH, 1);
+-    bt_device_off(pdata);
+-    
+-	bt_rfk = rfkill_alloc("bt-dev", &pdev->dev, RFKILL_TYPE_BLUETOOTH,
+-			&bt_rfkill_ops, pdata);
+-						   
+-	if (!bt_rfk) {
+-        printk("rfk alloc fail\n");
+-		ret = -ENOMEM;
+-		goto err_rfk_alloc;
+-	}
+-	/* if not set false, the bt_set_block will call when rfkill class resume */
+-    rfkill_init_sw_state(bt_rfk, false);      //we want to reset bt when system resume
+-	ret = rfkill_register(bt_rfk);
+-	if (ret){
+-        printk(KERN_ERR "rfkill_register fail\n");
+-		goto err_rfkill;
+-    }
+-    prdata = kmalloc(sizeof(struct bt_dev_runtime_data), GFP_KERNEL);
+-    if (!prdata) {
+-        printk(KERN_ERR  "bt_dev_runtime_data alloc fail\n");
+-		goto err_rfkill;
+-    }
+-#ifdef CONFIG_AM_WIFI_SD_MMC
+-    //setup 32k clock
+-    wifi_request_32k_clk(1, BT_RFKILL);
+-    msleep(100);
+-#endif
+-    
+-    prdata->bt_rfk = bt_rfk;
+-    prdata->pdata = pdata;
+-	platform_set_drvdata(pdev, prdata);
+-#ifdef CONFIG_HAS_EARLYSUSPEND                                                                                        
+-        bt_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+-        bt_early_suspend.suspend = bt_earlysuspend;
+-        bt_early_suspend.resume = bt_lateresume;
+-        bt_early_suspend.param = pdev;
+-        register_early_suspend(&bt_early_suspend);
+-#endif
+-
+-	return 0;	
+-	
+-err_rfkill:
+-	rfkill_destroy(bt_rfk);
+-err_rfk_alloc:
+-    bt_device_deinit(pdata);
+-	return ret;
+-	
+-}
+-
+-static int bt_remove(struct platform_device *pdev)
+-{
+-    struct bt_dev_runtime_data *prdata = platform_get_drvdata(pdev);
+-	struct rfkill *rfk = NULL;
+-	struct bt_dev_data *pdata = NULL;
+-
+-	platform_set_drvdata(pdev, NULL);
+-#ifdef CONFIG_AM_WIFI_SD_MMC
+-    wifi_request_32k_clk(0, BT_RFKILL);
+-#endif
+-	if(prdata) {
+-	    rfk = prdata->bt_rfk;
+-	    pdata = prdata->pdata;
+-	}
+-
+-	if(pdata) {
+-	    bt_device_deinit(pdata);
+-	    kfree(pdata);
+-	}
+-
+-	if (rfk) {
+-		rfkill_unregister(rfk);
+-		rfkill_destroy(rfk);
+-	}
+-	rfk = NULL;
+-
+-	return 0;
+-}
+-
+-#ifdef CONFIG_OF
+-static const struct of_device_id bt_dev_dt_match[]={
+-	{	.compatible = "amlogic,bt-dev",
+-	},
+-	{},
+-};
+-#else
+-#define bt_dev_dt_match NULL
+-#endif
+-
+-static struct platform_driver bt_driver = {
+-	.driver		= {
+-		.name	= "bt-dev",
+-		.of_match_table = bt_dev_dt_match,
+-	},
+-	.probe		= bt_probe,
+-	.remove		= bt_remove,
+-	.suspend    = bt_suspend,
+-    .resume     = bt_resume,
+-};
+-
+-static int __init bt_init(void)
+-{
+-    printk("amlogic rfkill init\n");
+-
+-	return platform_driver_register(&bt_driver);
+-}
+-static void __exit bt_exit(void)
+-{
+-	platform_driver_unregister(&bt_driver);
+-}
+-
+-module_init(bt_init);
+-module_exit(bt_exit);
+-MODULE_DESCRIPTION("bt rfkill");
+-MODULE_AUTHOR("");
+-MODULE_LICENSE("GPL");
++/*
++ *
++ * arch/arm/mach-meson/bcm-bt.c
++ *
++ *  Copyright (C) 2010 AMLOGIC, INC.
++ *
++ * License terms: GNU General Public License (GPL) version 2
++ * Platform machine definition.
++ */
++ 
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/delay.h>
++#include <linux/string.h>
++#include <linux/ctype.h>
++#include <linux/leds.h>
++#include <linux/gpio.h>
++#include <linux/rfkill.h>
++#include <linux/slab.h>
++#include <asm/uaccess.h>
++#include <linux/amlogic/aml_gpio_consumer.h>
++#include <mach/am_regs.h>
++#include <plat/bt_device.h>
++#ifdef CONFIG_AM_WIFI_SD_MMC
++#include <linux/amlogic/wifi_dt.h>
++#endif
++
++#ifdef CONFIG_HAS_EARLYSUSPEND
++#include <linux/earlysuspend.h>
++static struct early_suspend bt_early_suspend;
++#endif
++
++#define BT_RFKILL "bt_rfkill"
++
++struct bt_dev_runtime_data {
++    struct rfkill *bt_rfk;
++    struct bt_dev_data *pdata;
++};
++
++static void bt_device_init(struct bt_dev_data *pdata)
++{
++    if(pdata->gpio_reset > 0 ) {
++        amlogic_gpio_request(pdata->gpio_reset, BT_RFKILL);
++    }    
++        
++    if(pdata->gpio_en > 0 ) {
++        amlogic_gpio_request(pdata->gpio_en, BT_RFKILL);
++    }
++        
++    if(pdata->gpio_wake > 0 ) {
++        amlogic_gpio_request(pdata->gpio_wake, BT_RFKILL);
++        amlogic_gpio_direction_output(pdata->gpio_wake, 1, BT_RFKILL);
++    }
++
++}
++
++static void bt_device_deinit(struct bt_dev_data *pdata)
++{
++      if(pdata->gpio_reset > 0 )
++        amlogic_gpio_free(pdata->gpio_reset, BT_RFKILL);
++        
++    if(pdata->gpio_en > 0 )
++        amlogic_gpio_free(pdata->gpio_en, BT_RFKILL);
++        
++    if(pdata->gpio_wake > 0 ) 
++        amlogic_gpio_free(pdata->gpio_wake, BT_RFKILL);     
++}
++
++static void bt_device_on(struct bt_dev_data *pdata)
++{	
++	if(pdata->gpio_reset > 0 )
++	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
++	if(pdata->gpio_en > 0 )
++	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);	
++	msleep(20);	
++	if(pdata->gpio_reset > 0 )
++	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
++	if(pdata->gpio_en > 0 )
++	    amlogic_gpio_direction_output(pdata->gpio_en, 1, BT_RFKILL);	
++	msleep(20);
++}
++
++static void bt_device_off(struct bt_dev_data *pdata)
++{
++    if(pdata->gpio_reset > 0 )
++	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
++	if(pdata->gpio_en > 0 )
++	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);
++	msleep(20);	
++}
++
++static int bt_set_block(void *data, bool blocked)
++{
++    struct bt_dev_data *pdata = data;
++    pr_info("BT_RADIO going: %s\n", blocked ? "off" : "on");
++
++	if (!blocked) {
++		pr_info("BCM_BT: going ON\n");
++		bt_device_on(pdata);
++	} else {
++		pr_info("BCM_BT: going OFF\n");
++        bt_device_off(pdata);
++	}
++    return 0;
++}
++
++static const struct rfkill_ops bt_rfkill_ops = {
++	.set_block = bt_set_block,
++};
++#ifdef CONFIG_HAS_EARLYSUSPEND 
++static void bt_earlysuspend(struct early_suspend *h)                                               
++{
++
++    return;
++}
++
++static void bt_lateresume(struct early_suspend *h)
++{
++
++    return;
++}
++#endif
++
++static int bt_suspend(struct platform_device *pdev, pm_message_t state)                                               
++{
++
++    return 0;
++}
++
++static int bt_resume(struct platform_device *pdev)
++{
++
++    return 0;
++}
++
++static int bt_probe(struct platform_device *pdev)
++{
++	int ret = 0;
++	struct rfkill *bt_rfk;
++	struct bt_dev_data *pdata = NULL;
++	struct bt_dev_runtime_data *prdata;
++
++#ifdef CONFIG_OF
++	//plat = aml_get_driver_data(pdev);
++	if (pdev->dev.of_node) {
++	    const char *str;
++	    
++	    printk(KERN_DEBUG "enter bt_probe of_node\n");
++	    pdata = kzalloc(sizeof(struct bt_dev_data), GFP_KERNEL);
++		ret = of_property_read_string(pdev->dev.of_node,"gpio_reset",&str);
++		if(ret){
++			printk(KERN_WARNING "not get gpio_reset\n");
++			pdata->gpio_reset = 0;
++		} else {
++		    pdata->gpio_reset = amlogic_gpio_name_map_num(str);
++		}
++		
++        ret = of_property_read_string(pdev->dev.of_node,"gpio_en",&str);
++		if(ret){
++			printk(KERN_WARNING "not get gpio_en\n");
++			pdata->gpio_en = 0;
++		} else {
++		    pdata->gpio_en = amlogic_gpio_name_map_num(str);
++		}
++		
++		ret = of_property_read_string(pdev->dev.of_node,"gpio_wake",&str);
++		if(ret){
++			printk(KERN_WARNING "not get gpio_wake\n");
++			pdata->gpio_wake = 0;
++		} else {
++		    pdata->gpio_wake = amlogic_gpio_name_map_num(str);
++		}
 +		
 +		pdata->pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
 +		
- 	}
- #else
-     pdata = (struct bt_dev_data *)(pdev->dev.platform_data);
-@@ -242,7 +245,10 @@
- 	    pdata = prdata->pdata;
- 	}
- 
--	if(pdata) {
++	}
++#else
++    pdata = (struct bt_dev_data *)(pdev->dev.platform_data);
++#endif
++    
++    bt_device_init(pdata);
++    /* default to bluetooth off */
++    //rfkill_switch_all(RFKILL_TYPE_BLUETOOTH, 1);
++    bt_device_off(pdata);
++    
++	bt_rfk = rfkill_alloc("bt-dev", &pdev->dev, RFKILL_TYPE_BLUETOOTH,
++			&bt_rfkill_ops, pdata);
++						   
++	if (!bt_rfk) {
++        printk("rfk alloc fail\n");
++		ret = -ENOMEM;
++		goto err_rfk_alloc;
++	}
++	/* if not set false, the bt_set_block will call when rfkill class resume */
++    rfkill_init_sw_state(bt_rfk, false);      //we want to reset bt when system resume
++	ret = rfkill_register(bt_rfk);
++	if (ret){
++        printk(KERN_ERR "rfkill_register fail\n");
++		goto err_rfkill;
++    }
++    prdata = kmalloc(sizeof(struct bt_dev_runtime_data), GFP_KERNEL);
++    if (!prdata) {
++        printk(KERN_ERR  "bt_dev_runtime_data alloc fail\n");
++		goto err_rfkill;
++    }
++#ifdef CONFIG_AM_WIFI_SD_MMC
++    //setup 32k clock
++    wifi_request_32k_clk(1, BT_RFKILL);
++    msleep(100);
++#endif
++    
++    prdata->bt_rfk = bt_rfk;
++    prdata->pdata = pdata;
++	platform_set_drvdata(pdev, prdata);
++#ifdef CONFIG_HAS_EARLYSUSPEND                                                                                        
++        bt_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
++        bt_early_suspend.suspend = bt_earlysuspend;
++        bt_early_suspend.resume = bt_lateresume;
++        bt_early_suspend.param = pdev;
++        register_early_suspend(&bt_early_suspend);
++#endif
++
++	return 0;	
++	
++err_rfkill:
++	rfkill_destroy(bt_rfk);
++err_rfk_alloc:
++    bt_device_deinit(pdata);
++	return ret;
++	
++}
++
++static int bt_remove(struct platform_device *pdev)
++{
++    struct bt_dev_runtime_data *prdata = platform_get_drvdata(pdev);
++	struct rfkill *rfk = NULL;
++	struct bt_dev_data *pdata = NULL;
++
++	platform_set_drvdata(pdev, NULL);
++#ifdef CONFIG_AM_WIFI_SD_MMC
++    wifi_request_32k_clk(0, BT_RFKILL);
++#endif
++	if(prdata) {
++	    rfk = prdata->bt_rfk;
++	    pdata = prdata->pdata;
++	}
++
 +	if(pdata) {	
 +		if (pdata->pinctrl)
 +			devm_pinctrl_put(pdata->pinctrl);
 +			
- 	    bt_device_deinit(pdata);
- 	    kfree(pdata);
- 	}
++	    bt_device_deinit(pdata);
++	    kfree(pdata);
++	}
++
++	if (rfk) {
++		rfkill_unregister(rfk);
++		rfkill_destroy(rfk);
++	}
++	rfk = NULL;
++
++	return 0;
++}
++
++#ifdef CONFIG_OF
++static const struct of_device_id bt_dev_dt_match[]={
++	{	.compatible = "amlogic,bt-dev",
++	},
++	{},
++};
++#else
++#define bt_dev_dt_match NULL
++#endif
++
++static struct platform_driver bt_driver = {
++	.driver		= {
++		.name	= "bt-dev",
++		.of_match_table = bt_dev_dt_match,
++	},
++	.probe		= bt_probe,
++	.remove		= bt_remove,
++	.suspend    = bt_suspend,
++    .resume     = bt_resume,
++};
++
++static int __init bt_init(void)
++{
++    printk("amlogic rfkill init\n");
++
++	return platform_driver_register(&bt_driver);
++}
++static void __exit bt_exit(void)
++{
++	platform_driver_unregister(&bt_driver);
++}
++
++module_init(bt_init);
++module_exit(bt_exit);
++MODULE_DESCRIPTION("bt rfkill");
++MODULE_AUTHOR("");
++MODULE_LICENSE("GPL");
 diff -Naur a/drivers/amlogic/Kconfig b/drivers/amlogic/Kconfig
 --- a/drivers/amlogic/Kconfig	2015-01-04 18:07:57.000000000 +0100
 +++ b/drivers/amlogic/Kconfig	2015-01-01 15:31:17.000000000 +0100
@@ -59,8 +680,8 @@ diff -Naur a/drivers/amlogic/Makefile b/drivers/amlogic/Makefile
  
 diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 --- a/drivers/amlogic/wetek/avl6211.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/avl6211.c	2015-01-22 14:01:34.000000000 +0100
-@@ -0,0 +1,1977 @@
++++ b/drivers/amlogic/wetek/avl6211.c	2015-02-12 18:17:24.000000000 +0100
+@@ -0,0 +1,1987 @@
 +/*
 + * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
 + *
@@ -135,6 +756,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	u16 mpeg_freq;	/* MPEG clock in 10kHz units */
 +	
 +	bool boot;
++	bool gpio_on;
 +};
 +struct avl6211_diseqc_tx_status
 +{
@@ -1324,6 +1946,15 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	int ret;
 +	u32 x1;
 +	
++	if (voltage == SEC_VOLTAGE_OFF) {
++	
++		if (state->config->set_external_vol_gpio)
++			state->config->set_external_vol_gpio(&state->demod_id, 0);
++		
++		state->gpio_on = false;
++		
++		return 0;
++	}
 +	if (voltage == SEC_VOLTAGE_13) {
 +		if (state->config->use_lnb_pin59) {
 +			ret = avl6211_i2c_read32(state, diseqc_tx_cntrl_addr, &x1);
@@ -1354,10 +1985,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +				goto err;
 +			msleep(20);
 +
-+		}		
-+		if (state->config->set_external_vol_gpio) 
-+			state->config->set_external_vol_gpio(&state->demod_id, voltage);
-+		
++		}						
 +	} else if (voltage == SEC_VOLTAGE_18) {
 +	
 +		if (state->config->use_lnb_pin59) {
@@ -1387,11 +2015,14 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +			if (ret)
 +				goto err;
 +			msleep(20);
-+		}
-+		if (state->config->set_external_vol_gpio)
-+			state->config->set_external_vol_gpio(&state->demod_id, voltage);
++		}		
 +	}
 +	
++	if (!state->gpio_on) {	
++		state->gpio_on = true;		
++		if (state->config->set_external_vol_gpio) 
++			state->config->set_external_vol_gpio(&state->demod_id, voltage);
++	}
 +	return 0;
 +err:
 +	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
@@ -1977,7 +2608,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +			FE_CAN_FEC_1_2 | FE_CAN_FEC_2_3 | FE_CAN_FEC_3_4 |
 +			FE_CAN_FEC_4_5 | FE_CAN_FEC_5_6 | FE_CAN_FEC_6_7 |
 +			FE_CAN_FEC_7_8 | FE_CAN_FEC_8_9 | FE_CAN_FEC_AUTO |
-+			FE_CAN_QPSK    | FE_CAN_RECOVER | FE_CAN_2G_MODULATION
++			FE_CAN_QPSK    | FE_CAN_RECOVER | FE_CAN_2G_MODULATION			
 +	},
 +
 +	.init = avl6211_init,
@@ -2041,7 +2672,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 \ No newline at end of file
 diff -Naur a/drivers/amlogic/wetek/avl6211.h b/drivers/amlogic/wetek/avl6211.h
 --- a/drivers/amlogic/wetek/avl6211.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/avl6211.h	2015-01-11 16:04:04.000000000 +0100
++++ b/drivers/amlogic/wetek/avl6211.h	2015-01-26 21:34:29.000000000 +0100
 @@ -0,0 +1,156 @@
 +/*
 + * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
@@ -2189,7 +2820,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.h b/drivers/amlogic/wetek/avl6211.h
 +	u8 use_lnb_pin59; /* control 13/18V over demod GPIO pin59 */
 +	u8 use_lnb_pin60; /* control 13/18V over demod GPIO pin60 */
 +
-+	int (*set_external_vol_gpio)(int *demod_id, fe_sec_voltage_t voltage); /* external 13/18V control */
++	int (*set_external_vol_gpio)(int *demod_id, int on); /* external 13/18V control */
 +};
 +
 +
@@ -2202,7 +2833,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.h b/drivers/amlogic/wetek/avl6211.h
 \ No newline at end of file
 diff -Naur a/drivers/amlogic/wetek/avl6211_reg.h b/drivers/amlogic/wetek/avl6211_reg.h
 --- a/drivers/amlogic/wetek/avl6211_reg.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/avl6211_reg.h	2015-01-14 16:01:45.000000000 +0100
++++ b/drivers/amlogic/wetek/avl6211_reg.h	2015-01-25 00:48:17.000000000 +0100
 @@ -0,0 +1,106 @@
 +/*
 + * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
@@ -2313,8 +2944,8 @@ diff -Naur a/drivers/amlogic/wetek/avl6211_reg.h b/drivers/amlogic/wetek/avl6211
 \ No newline at end of file
 diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 --- a/drivers/amlogic/wetek/cxd2837.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/cxd2837.c	2015-01-13 01:11:54.000000000 +0100
-@@ -0,0 +1,1580 @@
++++ b/drivers/amlogic/wetek/cxd2837.c	2015-02-12 20:29:11.000000000 +0100
+@@ -0,0 +1,1731 @@
 +/*
 + * Sony CXD2837 DVB-T/T2/C demodulator driver
 + *
@@ -2370,7 +3001,8 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +	u8  curbankx;
 +	
 +	fe_delivery_system_t delivery_system;
-+
++	u32 freq;
++	
 +	enum EDemodState state;	
 +	enum xtal_freq xtal;
 +
@@ -2673,6 +3305,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +
 +	freeze_regst(state);
 +	readregst_unlocked(state, 0x10, 0x2f, tps, 7);
++	readregst_unlocked(state, 0x10, 0x3f, &tps[7], 1);
 +	unfreeze_regst(state);
 +	return 0;
 +}
@@ -2894,7 +3527,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +
 +	BandSettingT(state, iffreq);
 +
-+	writebitst(state, 0x10, 0x60, 0x11, 0x1f); /* BER scaling */
++	writebitst(state, 0x10, 0x60, 11, 0x1f); /* BER scaling */
 +
 +	writeregt(state, 0x00, 0x80, 0x28); /* Disable HiZ Setting 1 */
 +	writeregt(state, 0x00, 0x81, 0x00); /* Disable HiZ Setting 2 */
@@ -3048,7 +3681,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +
 +	BandSettingC(state, iffreq);
 +
-+	writebitst(state, 0x40, 0x60, 0x11, 0x1f); /* BER scaling */
++	writebitst(state, 0x40, 0x60, 11, 0x1f); /* BER scaling */
 +
 +	writeregt(state, 0x00, 0x80, 0x28); /* Disable HiZ Setting 1 */
 +	writeregt(state, 0x00, 0x81, 0x00); /* Disable HiZ Setting 2 */
@@ -3097,6 +3730,8 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +	ShutDown(state);
 +	kfree(state);
 +}
++static int read_status(struct dvb_frontend *fe, fe_status_t *status);
++
 +static int set_parameters(struct dvb_frontend *fe)
 +{
 +	struct cxd_state *state = fe->demodulator_priv;
@@ -3104,6 +3739,14 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +	int ret;
 +	u32 IF = 0;
 +
++	if (c->frequency == state->freq && c->delivery_system == state->delivery_system) {
++		fe_status_t status;
++		ret = read_status(fe, &status);
++		if (!ret && status == 0x1F) {
++			dev_info(&state->i2c->dev, "Ignoring tuning to same freq, allready locked!\n");	
++			return 0;
++		}
++	}
 +	if (c->delivery_system != SYS_DVBC_ANNEX_A) {	
 +		switch (c->bandwidth_hz) {
 +		case 1700000:
@@ -3205,7 +3848,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +
 +	writeregt(state, 0x00, 0xFE, 0x01);   /* SW Reset */
 +	writeregt(state, 0x00, 0xC3, 0x00);   /* Enable TS Output */
-+	
++	state->freq = c->frequency;
 +	return 0;
 +err:
 +	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
@@ -3344,74 +3987,139 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +	return 0;
 +}
 +
-+static int get_ber_t(struct cxd_state *state, u32 *n, u32 *d)
++static int get_ber_t(struct cxd_state *state, u32 *ber)
 +{
 +	u8 BERRegs[3];
 +	u8 Scale;
++	u32 bitError = 0;
++    u32 period = 0;
++	u32 div = 0;
++    u32 Q = 0;
++    u32 R = 0;
 +
-+	*n = 0;
-+	*d = 1;
-+
-+	readregst(state, 0x10, 0x62, BERRegs, 3);
-+	readregst(state, 0x10, 0x60, &Scale, 1);
-+	Scale &= 0x1F;
-+
-+	if (BERRegs[0] & 0x80) {
-+		state->LastBERNominator = (((u32) BERRegs[0] & 0x3F) << 16) |
-+			(((u32) BERRegs[1]) << 8) | BERRegs[2];
-+		state->LastBERDenominator = 1632 << Scale;
-+		if (state->LastBERNominator < 256 &&
-+		    Scale < state->BERScaleMax) {
-+			writebitst(state, 0x10, 0x60, Scale + 1, 0x1F);
-+		} else if (state->LastBERNominator > 512 && Scale > 11)
-+			writebitst(state, 0x10, 0x60, Scale - 1, 0x1F);
++	freeze_regst(state);
++	readregst_unlocked(state, 0x10, 0x39, BERRegs, 1);
++	readregst_unlocked(state, 0x10, 0x6F, &Scale, 1);
++	readregst_unlocked(state, 0x10, 0x22, &BERRegs[1], 2);
++	unfreeze_regst(state);
++	
++	if (!(BERRegs[0] & 0x10)) {
++		dev_info(&state->i2c->dev, "%s: no valid BER data\n", __func__);	
++		return 0;
 +	}
-+	*n = state->LastBERNominator;
-+	*d = state->LastBERDenominator;
-+
++	
++	bitError = ((u32)BERRegs[1] << 8) | (u32)BERRegs[2];
++	period = ((Scale & 0x07) == 0) ? 256 : (4096 << (Scale & 0x07));
++	
++	div = period / 128;
++	Q = (bitError * 3125) / div;
++    R = (bitError * 3125) % div;
++	R *= 25;
++    Q = Q * 25 + R / div;
++    R = R % div;
++	*ber = (R >= div / 2) ? Q + 1 : Q;
++	
 +	return 0;
 +}
 +
-+static int get_ber_t2(struct cxd_state *state, u32 *n, u32 *d)
++static int get_ber_t2(struct cxd_state *state, u32 *ber)
 +{
-+	*n = 0;
-+	*d = 1;
++	u8 BERRegs[4];
++	u8 Scale;
++	u8 plp;
++	u32 bitError = 0;
++    u32 periodExp = 0;
++	u32 div = 0;
++    u32 Q = 0;
++    u32 R = 0;
++	u32 n_ldpc = 0;
++	
++	freeze_regst(state);
++	readregst_unlocked(state, 0x20, 0x39, BERRegs, 4);
++	readregst_unlocked(state, 0x20, 0x6F, &Scale, 1);
++	readregst_unlocked(state, 0x22, 0x5E, &plp, 1);
++	unfreeze_regst(state);
++	
++	if (!(BERRegs[0] & 0x10)) {
++		dev_info(&state->i2c->dev, "%s: no valid BER data\n", __func__);	
++		return 0;
++	}
++	
++	bitError = ((BERRegs[0] & 0x0F) << 24) | (BERRegs[1] << 16) | (BERRegs[2] << 8) | BERRegs[3];	
++	periodExp = (Scale & 0x0F);
++	n_ldpc = ((plp & 0x03) == 0 ? 16200 : 64800);
++			
++	if (bitError > ((1U << periodExp) * n_ldpc)) {
++		dev_info(&state->i2c->dev, "%s: invalid BER value\n", __func__);	
++        return -EINVAL;
++    }
++
++    if (periodExp >= 4) {    
++		div = (1U << (periodExp - 4)) * (n_ldpc / 200);
++		Q = (bitError * 5) / div;
++		R = (bitError * 5) % div;
++		R *= 625;
++		Q = Q * 625 + R / div;
++		R = R % div;
++	} 
++	else {            
++		div = (1U << periodExp) * (n_ldpc / 200);
++		Q = (bitError * 10) / div;
++		R = (bitError * 10) % div;
++		R *= 5000;
++		Q = Q * 5000 + R / div;
++		R = R % div;
++	}
++
++	*ber = (R >= div/2) ? Q + 1 : Q;	
 +	return 0;
 +}
 +
-+static int get_ber_c(struct cxd_state *state, u32 *n, u32 *d)
-+{
++static int get_ber_c(struct cxd_state *state, u32 *ber)
++{	
 +	u8 BERRegs[3];
 +	u8 Scale;
-+
-+	*n = 0;
-+	*d = 1;
++	u32 bitError = 0;
++    u32 periodExp = 0;
++	u32 div = 0;
++    u32 Q = 0;
++    u32 R = 0;
 +
 +	readregst(state, 0x40, 0x62, BERRegs, 3);
 +	readregst(state, 0x40, 0x60, &Scale, 1);
-+	Scale &= 0x1F;
 +
-+	if (BERRegs[0] & 0x80) {
-+		state->LastBERNominator = (((u32) BERRegs[0] & 0x3F) << 16) |
-+			(((u32) BERRegs[1]) << 8) | BERRegs[2];
-+		state->LastBERDenominator = 1632 << Scale;
-+		if (state->LastBERNominator < 256 &&
-+		    Scale < state->BERScaleMax) {
-+			writebitst(state, 0x40, 0x60, Scale + 1, 0x1F);
-+		} else if (state->LastBERNominator > 512 && Scale > 11)
-+			writebitst(state, 0x40, 0x60, Scale - 1, 0x1F);
++		
++	if ((BERRegs[0] & 0x80) == 0) {
++		dev_info(&state->i2c->dev, "%s: no valid BER data\n", __func__);	
++		return 0;
 +	}
-+	*n = state->LastBERNominator;
-+	*d = state->LastBERDenominator;
++	
++	bitError = ((BERRegs[0] & 0x3F) << 16) | (BERRegs[1] << 8) | BERRegs[2];
++	periodExp = (Scale & 0x1F);
 +
++	if ((periodExp <= 11) && (bitError > (1U << periodExp) * 204 * 8)) {
++		dev_info(&state->i2c->dev, "%s: invalid BER value\n", __func__);	
++        return -EINVAL;
++    }
++	
++	div = (periodExp <= 8) ? ((1U << periodExp) * 51) : ((1U << 8) * 51);
++    Q = (bitError * 250) / div;
++    R = (bitError * 250) % div;
++    R *= 1250;
++    Q = Q * 1250 + R / div;
++    R = R % div;
++
++    if (periodExp > 8) 
++		*ber = (Q + (1 << (periodExp - 9))) >> (periodExp - 8);
++    else 
++		*ber = (R >= div/2) ? Q + 1 : Q;
++		
 +	return 0;
 +}
-+
 +static int read_ber(struct dvb_frontend *fe, u32 *ber)
 +{
 +	struct cxd_state *state = fe->demodulator_priv;
-+	u32 n, d;
-+	int s = 0;
++	int ret = 0;
 +
 +	*ber = 0;
 +	
@@ -3420,89 +4128,169 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +		
 +	switch (state->delivery_system) {
 +	case SYS_DVBT:
-+		s = get_ber_t(state, &n, &d);
++		ret = get_ber_t(state, ber);
 +		break;
 +	case SYS_DVBT2:
-+		s = get_ber_t2(state, &n, &d);
++		ret = get_ber_t2(state, ber);
 +		break;
 +	case SYS_DVBC_ANNEX_A:
-+		s = get_ber_c(state, &n, &d);
++		ret = get_ber_c(state, ber);
 +		break;
 +	default:
 +		break;
 +	}
-+	if (s)
-+		return s;
-+
++	
 +	return 0;
 +}
++static u32 sony_math_log10(u32 x)
++{
++	u32 count = 0;
 +
++	for (x >>= 1; x > 0; x >>= 1)
++		count++;
++	return 10000 * count / 332;
++}
++
++static u32 sony_math_log(u32 x)
++{
++	u32 count = 0;
++
++	for (x >>= 1; x > 0; x >>= 1)
++		count++;
++	return 10000 * count / 144;
++}
++
++static void GetSignalToNoiseT2(struct cxd_state *state, int *SignalToNoise)
++{
++	u8 Data[2];
++	u32 reg;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x20, 0x28, Data, sizeof(Data));
++	unfreeze_regst(state);
++
++	reg = ((u32)Data[0] << 8) | (u32)Data[1];
++	if (reg == 0) {
++		dev_info(&state->i2c->dev, "%s(): reg value out of range\n", __func__);
++		return;
++	}
++	if (reg > 10876)
++		reg = 10876;
++
++	*SignalToNoise = 100 * ((int)sony_math_log10(reg) - (int)sony_math_log10(12600 - reg));
++	*SignalToNoise += 32000;
++	
++}
++
++static void GetSignalToNoiseT(struct cxd_state *state, int *SignalToNoise)
++{
++	u8 Data[2];
++	u32 reg;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x10, 0x28, Data, sizeof(Data));
++	unfreeze_regst(state);
++
++	reg = ((u32)Data[0] << 8) | (u32)Data[1];
++	if (reg == 0) {
++		dev_info(&state->i2c->dev, "%s(): reg value out of range\n", __func__);
++		return;
++	}
++	if (reg > 4996)
++		reg = 4996;
++
++	*SignalToNoise = 100 * ((int)sony_math_log10(reg) - (int)sony_math_log10(5350 - reg));
++	*SignalToNoise += 28500;
++	
++	
++	return;
++}
++static void GetSignalToNoiseC(struct cxd_state *state, int *SignalToNoise)
++{
++	u8 Data[2];
++	u8 Constellation = 0;
++	u32 reg;
++		
++	*SignalToNoise = 0;
++
++	freeze_regst(state);
++	readregst_unlocked(state, 0x40, 0x19, &Constellation, 1);
++	readregst_unlocked(state, 0x40, 0x4C, Data, sizeof(Data));
++	unfreeze_regst(state);
++
++	reg = ((u32)(Data[0] & 0x1F) << 8) | ((u32)Data[1]);
++	if (reg == 0) {
++		dev_info(&state->i2c->dev, "%s(): reg value out of range\n", __func__);
++		return;
++	}
++
++	switch (Constellation & 0x07) {
++	case 0: /* QAM 16 */
++	case 2: /* QAM 64 */
++	case 4: /* QAM 256 */
++		if (reg < 126)
++			reg = 126;
++		*SignalToNoise = -95 * (int)sony_math_log(reg) + 95941;
++		break;
++	case 1: /* QAM 32 */
++	case 3: /* QAM 128 */
++		if (reg < 69)
++			reg = 69;
++		*SignalToNoise = -88 * (int)sony_math_log(reg) + 86999;
++		break;
++	}
++	
++}
++
++static int read_snr(struct dvb_frontend *fe, u16 *snr)
++{
++	struct cxd_state *state = fe->demodulator_priv;
++	int tSnr = 0;
++	*snr = 0;
++	
++	if (state->last_status != 0x1f)
++		return 0;
++
++	switch (state->delivery_system) {
++	case SYS_DVBC_ANNEX_A:
++		GetSignalToNoiseC(state, &tSnr);	
++		break;
++	case SYS_DVBT:
++		GetSignalToNoiseT(state, &tSnr);	
++		break;
++	case SYS_DVBT2:
++		GetSignalToNoiseT2(state, &tSnr);	
++		break;
++	default:
++		break;
++	}
++	*snr = tSnr & 0xffff;
++	return 0;
++}
 +static int get_signal_strengthC(struct cxd_state *state, u16 *strength)
 +{
-+	int ret;
-+	u8 buf[2];
-+	u16 tmp;
++	u8 data[2];
 +	
-+	ret = readregst(state, 0x40, 0x49, buf, 2);	
-+	if (ret)
-+		goto err;
-+
-+	tmp = (buf[0] & 0x0f) << 8 | buf[1];
-+	tmp = ~tmp & 0x0fff;
-+
-+	/* scale value to 0x0000-0xffff from 0x0000-0x0fff */
-+	*strength = tmp * 0xffff / 0x0fff;
-+
++	readregst(state, 0x40, 0x49, data, 2);
++	*strength = 65535 - (((((u16)data[0] & 0x0F) << 8) | (u16)(data[1] & 0xFF)) << 4);
 +	return 0;
-+	
-+err:
-+	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
-+	return ret;
 +}
 +static int get_signal_strengthT(struct cxd_state *state, u16 *strength)
 +{
-+	int ret;
-+	u8 buf[2];
-+	u16 tmp;
++	u8 data[2];
 +	
-+	ret = readregst(state, 0x10, 0x26, buf, 2);	
-+	if (ret)
-+		goto err;
-+
-+	tmp = (buf[0] & 0x0f) << 8 | buf[1];
-+	tmp = ~tmp & 0x0fff;
-+
-+	/* scale value to 0x0000-0xffff from 0x0000-0x0fff */
-+	*strength = tmp * 0xffff / 0x0fff;
-+
++	readregst(state, 0x10, 0x26, data, 2);
++	*strength = 65535 - (((((u16)data[0] & 0x0F) << 8) | (u16)(data[1] & 0xFF)) << 4);
 +	return 0;
-+	
-+err:
-+	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
-+	return ret;
 +	
 +}
 +static int get_signal_strengthT2(struct cxd_state *state, u16 *strength)
-+{
-+	int ret;
-+	u8 buf[2];
-+	u16 tmp;
++{	
++	u8 data[2];
 +	
-+	ret = readregst(state, 0x20, 0x26, buf, 2);	
-+	if (ret)
-+		goto err;
-+
-+	tmp = (buf[0] & 0x0f) << 8 | buf[1];
-+	tmp = ~tmp & 0x0fff;
-+
-+	/* scale value to 0x0000-0xffff from 0x0000-0x0fff */
-+	*strength = tmp * 0xffff / 0x0fff;
-+
++	readregst(state, 0x20, 0x26, data, 2);
++	*strength = 65535 - (((((u16)data[0] & 0x0F) << 8) | (u16)(data[1] & 0xFF)) << 4);
 +	return 0;
-+	
-+err:
-+	dev_dbg(&state->i2c->dev, "failed=%d\n", ret);	
-+	return ret;
 +}
 +
 +static int read_signal_strength(struct dvb_frontend *fe, u16 *strength)
@@ -3510,10 +4298,10 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +	struct cxd_state *state = fe->demodulator_priv;
 +	int ret = 0;
 +	*strength = 0;
-+	
++				
 +	if (state->last_status != 0x1f)
 +		return 0;
-+		
++			
 +	switch (state->delivery_system) {
 +	case SYS_DVBC_ANNEX_A:
 +		ret = get_signal_strengthC(state, strength);
@@ -3530,142 +4318,6 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +	
 +	return ret;
 +}
-+
-+static s32 Log10x100(u32 x)
-+{
-+	static u32 LookupTable[100] = {
-+		101157945, 103514217, 105925373, 108392691, 110917482,
-+		113501082, 116144861, 118850223, 121618600, 124451461,
-+		127350308, 130316678, 133352143, 136458314, 139636836,
-+		142889396, 146217717, 149623566, 153108746, 156675107,
-+		160324539, 164058977, 167880402, 171790839, 175792361,
-+		179887092, 184077200, 188364909, 192752491, 197242274,
-+		201836636, 206538016, 211348904, 216271852, 221309471,
-+		226464431, 231739465, 237137371, 242661010, 248313311,
-+		254097271, 260015956, 266072506, 272270131, 278612117,
-+		285101827, 291742701, 298538262, 305492111, 312607937,
-+		319889511, 327340695, 334965439, 342767787, 350751874,
-+		358921935, 367282300, 375837404, 384591782, 393550075,
-+		402717034, 412097519, 421696503, 431519077, 441570447,
-+		451855944, 462381021, 473151259, 484172368, 495450191,
-+		506990708, 518800039, 530884444, 543250331, 555904257,
-+		568852931, 582103218, 595662144, 609536897, 623734835,
-+		638263486, 653130553, 668343918, 683911647, 699841996,
-+		716143410, 732824533, 749894209, 767361489, 785235635,
-+		803526122, 822242650, 841395142, 860993752, 881048873,
-+		901571138, 922571427, 944060876, 966050879, 988553095,
-+	};
-+	s32 y;
-+	int i;
-+
-+	if (x == 0)
-+		return 0;
-+	y = 800;
-+	if (x >= 1000000000) {
-+		x /= 10;
-+		y += 100;
-+	}
-+
-+	while (x < 100000000) {
-+		x *= 10;
-+		y -= 100;
-+	}
-+	i = 0;
-+	while (i < 100 && x > LookupTable[i])
-+		i += 1;
-+	y += i;
-+	return y;
-+}
-+static void GetSignalToNoiseT2(struct cxd_state *state, u16 *SignalToNoise)
-+{
-+	u8 Data[2];
-+	u32 reg;
-+
-+	freeze_regst(state);
-+	readregst_unlocked(state, 0x20, 0x28, Data, sizeof(Data));
-+	unfreeze_regst(state);
-+
-+	reg = (Data[0] << 8) | Data[1];
-+	if (reg > 10876)
-+		reg = 10876;
-+
-+	*SignalToNoise = 100 * (intlog10(reg) - intlog10(12600 - reg)) + 320;
-+}
-+
-+static void GetSignalToNoiseT(struct cxd_state *state, u16 *SignalToNoise)
-+{
-+	u8 Data[2];
-+	u32 reg;
-+
-+	freeze_regst(state);
-+	readregst_unlocked(state, 0x10, 0x28, Data, sizeof(Data));
-+	unfreeze_regst(state);
-+
-+	reg = (Data[0] << 8) | Data[1];
-+	if (reg > 4996)
-+		reg = 4996;
-+
-+	*SignalToNoise = 100 * (intlog10(reg) - intlog10(5350 - reg)) + 285;
-+}
-+static void GetSignalToNoiseC(struct cxd_state *state, u16 *SignalToNoise)
-+{
-+	u8 Data[2];
-+	u8 Constellation = 0;
-+	u32 reg;
-+
-+	*SignalToNoise = 0;
-+
-+	freeze_regst(state);
-+	readregst_unlocked(state, 0x40, 0x19, &Constellation, 1);
-+	readregst_unlocked(state, 0x40, 0x4C, Data, sizeof(Data));
-+	unfreeze_regst(state);
-+
-+	reg = ((u32)(Data[0] & 0x1F) << 8) | (Data[1]);
-+	if (reg == 0)
-+		return;
-+
-+	switch (Constellation & 0x07) {
-+	case 0: /* QAM 16 */
-+	case 2: /* QAM 64 */
-+	case 4: /* QAM 256 */
-+		if (reg < 126)
-+			reg = 126;
-+		*SignalToNoise = ((439 - Log10x100(reg)) * 2134 + 500) / 1000;
-+		break;
-+	case 1: /* QAM 32 */
-+	case 3: /* QAM 128 */
-+		if (reg < 69)
-+			reg = 69;
-+		*SignalToNoise = ((432 - Log10x100(reg)) * 2015 + 500) / 1000;
-+		break;
-+	}
-+}
-+
-+static int read_snr(struct dvb_frontend *fe, u16 *snr)
-+{
-+	struct cxd_state *state = fe->demodulator_priv;
-+
-+	*snr = 0;
-+	
-+	if (state->last_status != 0x1f)
-+		return 0;
-+
-+	switch (state->delivery_system) {
-+	case SYS_DVBC_ANNEX_A:
-+		GetSignalToNoiseC(state, snr);
-+		break;
-+	case SYS_DVBT:
-+		GetSignalToNoiseT(state, snr);
-+		break;
-+	case SYS_DVBT2:
-+		GetSignalToNoiseT2(state, snr);
-+		break;
-+	default:
-+		break;
-+	}
-+	return 0;
-+}
-+
 +static int read_ucblocks(struct dvb_frontend *fe, u32 *ucblocks)
 +{
 +	*ucblocks = 0;
@@ -3675,7 +4327,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +{
 +	struct dvb_frontend *fe = &state->frontend;
 +	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
-+	u8 tps[7];
++	u8 tps[8];
 +
 +	read_tps(state, tps);
 +
@@ -3770,19 +4422,148 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +		break;
 +	}
 +
++	switch ((tps[7] >> 0) & 0x01) {
++	case 0:
++		p->inversion = INVERSION_OFF;
++		break;
++	case 1:
++		p->inversion = INVERSION_ON;
++		break;
++	}
++	
 +	return 0;
 +}
++static int get_fe_t2(struct cxd_state *state)
++{
++	struct dvb_frontend *fe = &state->frontend;
++	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
++	u8 tps[5];
++	
++	freeze_regst(state);
++	readregst_unlocked(state, 0x20, 0x5C, tps, 2); 
++	readregst_unlocked(state, 0x22, 0x5B, &tps[2], 1); 
++	readregst_unlocked(state, 0x22, 0x5C, &tps[3], 1); 
++	readregst_unlocked(state, 0x28, 0xE6, &tps[4], 1); 
++	unfreeze_regst(state);
++	
++	switch ((tps[0] >> 0) & 0x07) {
++	case 0:
++		p->transmission_mode = TRANSMISSION_MODE_2K;
++		break;
++	case 1:
++		p->transmission_mode = TRANSMISSION_MODE_8K;
++		break;
++	case 2:
++		p->transmission_mode = TRANSMISSION_MODE_4K;
++		break;
++	case 3:
++		p->transmission_mode = TRANSMISSION_MODE_1K;
++		break;
++	case 4:
++		p->transmission_mode = TRANSMISSION_MODE_16K;
++		break;
++	case 5:
++		p->transmission_mode = TRANSMISSION_MODE_32K;
++		break;
++	}
 +
++	switch ((tps[1] >> 4) & 0x07) {
++	case 0:
++		p->guard_interval = GUARD_INTERVAL_1_32;
++		break;
++	case 1:
++		p->guard_interval = GUARD_INTERVAL_1_16;
++		break;
++	case 2:
++		p->guard_interval = GUARD_INTERVAL_1_8;
++		break;
++	case 3:
++		p->guard_interval = GUARD_INTERVAL_1_4;
++		break;
++	case 4:
++		p->guard_interval = GUARD_INTERVAL_1_128;
++		break;
++	case 5:
++		p->guard_interval = GUARD_INTERVAL_19_128;
++		break;
++	case 6:
++		p->guard_interval = GUARD_INTERVAL_19_256;
++		break;
++	}
++	
++	switch ((tps[2] >> 0) & 0x07) {
++	case 0:
++		p->fec_inner = FEC_1_2;
++		break;
++	case 1:
++		p->fec_inner = FEC_3_5;
++		break;
++	case 2:
++		p->fec_inner = FEC_2_3;
++		break;
++	case 3:
++		p->fec_inner = FEC_3_4;
++		break;
++	case 4:
++		p->fec_inner = FEC_4_5;
++		break;
++	case 5:
++		p->fec_inner = FEC_5_6;
++		break;
++	}
++
++	switch ((tps[3] >> 0) & 0x07) {
++	case 0:
++		p->modulation = QPSK;
++		break;
++	case 1:
++		p->modulation = QAM_16;
++		break;
++	case 2:
++		p->modulation = QAM_64;
++		break;
++	case 3:
++		p->modulation = QAM_256;
++		break;
++	}
++	
++	switch (tps[4] & 0x01) {
++	case 0:
++		p->inversion = INVERSION_OFF;
++		break;
++	case 1:
++		p->inversion = INVERSION_ON;
++		break;
++	}
++	
++	return 0;
++	
++}
 +static int get_fe_c(struct cxd_state *state)
 +{
 +	struct dvb_frontend *fe = &state->frontend;
 +	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
 +	u8 qam;
++	u8 rate[2];
 +
 +	freeze_regst(state);
 +	readregst_unlocked(state, 0x40, 0x19, &qam, 1);
++	readregst_unlocked(state, 0x40, 0x1A, rate, 2);
 +	unfreeze_regst(state);
++	
++	p->symbol_rate = 2500 * ((rate[0] & 0x0f) << 8 | rate[1]);
++	
 +	p->modulation = qam & 0x07;
++	
++	switch (qam & 0x80) {
++	case 0:
++		p->inversion = INVERSION_OFF;
++		break;
++	case 1:
++		p->inversion = INVERSION_ON;
++		break;
++	}
++	
 +	return 0;
 +}
 +
@@ -3798,6 +4579,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +		get_fe_t(state);
 +		break;
 +	case SYS_DVBT2:
++		get_fe_t2(state);
 +		break;
 +	case SYS_DVBC_ANNEX_A:
 +		get_fe_c(state);
@@ -3897,7 +4679,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +MODULE_LICENSE("GPL");
 diff -Naur a/drivers/amlogic/wetek/cxd2837.h b/drivers/amlogic/wetek/cxd2837.h
 --- a/drivers/amlogic/wetek/cxd2837.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/cxd2837.h	2015-01-03 15:19:36.000000000 +0100
++++ b/drivers/amlogic/wetek/cxd2837.h	2015-01-25 00:48:17.000000000 +0100
 @@ -0,0 +1,107 @@
 +/*
 + * Driver for the Sony CXD2837ER DVB-T/T2/C demodulator.
@@ -4008,7 +4790,7 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.h b/drivers/amlogic/wetek/cxd2837.h
 +#endif
 diff -Naur a/drivers/amlogic/wetek/Kconfig b/drivers/amlogic/wetek/Kconfig
 --- a/drivers/amlogic/wetek/Kconfig	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/Kconfig	2015-01-01 15:34:30.000000000 +0100
++++ b/drivers/amlogic/wetek/Kconfig	2015-01-25 00:48:17.000000000 +0100
 @@ -0,0 +1,14 @@
 +#
 +# WetekPlay driver configuration
@@ -4026,7 +4808,7 @@ diff -Naur a/drivers/amlogic/wetek/Kconfig b/drivers/amlogic/wetek/Kconfig
 +
 diff -Naur a/drivers/amlogic/wetek/Makefile b/drivers/amlogic/wetek/Makefile
 --- a/drivers/amlogic/wetek/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/Makefile	2015-01-12 21:02:38.000000000 +0100
++++ b/drivers/amlogic/wetek/Makefile	2015-01-25 00:48:17.000000000 +0100
 @@ -0,0 +1,10 @@
 +#
 +# Makefile for the WetekPlay driver.
@@ -4040,7 +4822,7 @@ diff -Naur a/drivers/amlogic/wetek/Makefile b/drivers/amlogic/wetek/Makefile
 +EXTRA_CFLAGS += -I.
 diff -Naur a/drivers/amlogic/wetek/mn88436.c b/drivers/amlogic/wetek/mn88436.c
 --- a/drivers/amlogic/wetek/mn88436.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/mn88436.c	2015-01-22 13:56:46.000000000 +0100
++++ b/drivers/amlogic/wetek/mn88436.c	2015-01-25 00:48:17.000000000 +0100
 @@ -0,0 +1,379 @@
 +/*
 + * Driver for the Panasonic MN88436 ATSC demodulator
@@ -4423,7 +5205,7 @@ diff -Naur a/drivers/amlogic/wetek/mn88436.c b/drivers/amlogic/wetek/mn88436.c
 +MODULE_LICENSE("GPL");
 diff -Naur a/drivers/amlogic/wetek/mn88436.h b/drivers/amlogic/wetek/mn88436.h
 --- a/drivers/amlogic/wetek/mn88436.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/mn88436.h	2015-01-11 20:22:02.000000000 +0100
++++ b/drivers/amlogic/wetek/mn88436.h	2015-01-25 00:48:17.000000000 +0100
 @@ -0,0 +1,47 @@
 +/*
 + * Driver for the Panasonic MN88436 ATSC demodulator
@@ -4475,8 +5257,8 @@ diff -Naur a/drivers/amlogic/wetek/mn88436.h b/drivers/amlogic/wetek/mn88436.h
 \ No newline at end of file
 diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
 --- a/drivers/amlogic/wetek/mxl603.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/mxl603.c	2015-01-11 20:17:30.000000000 +0100
-@@ -0,0 +1,1092 @@
++++ b/drivers/amlogic/wetek/mxl603.c	2015-01-26 21:44:03.000000000 +0100
+@@ -0,0 +1,1093 @@
 +/*
 + * Driver for the MaxLinear MxL603 tuner
 + *
@@ -4991,7 +5773,7 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
 +			cfg_1 = 0x16;
 +			pwr = 0xB1;
 +		}
-+		switch(state->config->gain_level)
++		switch(state->config->if_out_gain_level)
 +		{
 +			case 0x09: dfe = 0x44; break;
 +			case 0x08: dfe = 0x43; break;
@@ -5014,7 +5796,7 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
 +			cfg_1 = 0x16;
 +			pwr = 0xB1;
 +		}
-+		switch(state->config->gain_level)
++		switch(state->config->if_out_gain_level)
 +		{
 +			case 0x09: dfe = 0x44; break;
 +			case 0x08: dfe = 0x43; break;
@@ -5094,7 +5876,7 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
 +		goto err;
 +
 +	d &= 0x80;
-+	d |= state->config->agc_set_point;
++	d |= (u8)(state->config->agc_set_point & 0xff);	
 +	ret = mxl603_write_reg(state, 0x09, d);
 +	if (ret)
 +		goto err;
@@ -5134,7 +5916,7 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
 +	if (state->config->invert_if)
 +		d = 0x3 << 6;
 +
-+	d += (state->config->gain_level & 0x0F);
++	d += (state->config->gain_level & 0x0F);	
 +	d |= 0x20;
 +	ret = mxl603_write_reg(state, 0x05, d);
 +	if (ret)
@@ -5309,6 +6091,7 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
 +	dev_info(&state->i2c->dev, 
 +		"%s: delivery_system=%d frequency=%d bandwidth_hz=%d\n", 
 +		__func__, c->delivery_system, c->frequency, c->bandwidth_hz);		
++			
 +
 +	switch (c->delivery_system) {
 +	case SYS_ATSC:
@@ -5571,8 +6354,8 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.c b/drivers/amlogic/wetek/mxl603.c
 +MODULE_LICENSE("GPL");
 diff -Naur a/drivers/amlogic/wetek/mxl603.h b/drivers/amlogic/wetek/mxl603.h
 --- a/drivers/amlogic/wetek/mxl603.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/mxl603.h	2015-01-11 15:01:50.000000000 +0100
-@@ -0,0 +1,82 @@
++++ b/drivers/amlogic/wetek/mxl603.h	2015-01-26 21:35:40.000000000 +0100
+@@ -0,0 +1,83 @@
 +/*
 + * Driver for the MaxLinear MxL603 tuner
 + *
@@ -5636,6 +6419,7 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.h b/drivers/amlogic/wetek/mxl603.h
 +	
 +	u8 xtal_cap;
 +	u8 gain_level;
++	u8 if_out_gain_level;
 +	u8 agc_set_point;
 +	
 +	u8 agc_invert_pol;
@@ -5657,8 +6441,8 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.h b/drivers/amlogic/wetek/mxl603.h
 +#endif /* __MXL603_H__ */
 diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect.c
 --- a/drivers/amlogic/wetek/nimdetect.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/nimdetect.c	2015-01-20 19:31:24.000000000 +0100
-@@ -0,0 +1,422 @@
++++ b/drivers/amlogic/wetek/nimdetect.c	2015-02-12 19:54:38.000000000 +0100
+@@ -0,0 +1,405 @@
 +/*
 + * Wetek NIMs/DVB detection
 + *
@@ -5716,6 +6500,7 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +		.agc_type = MXL603_AGC_SELF,
 +		.xtal_cap = 16,
 +		.gain_level = 11,
++		.if_out_gain_level = 11,
 +		.agc_set_point = 66,
 +		.agc_invert_pol = 0,
 +		.invert_if = 1,
@@ -5733,6 +6518,7 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +		.agc_type = MXL603_AGC_EXTERNAL,
 +		.xtal_cap = 31,
 +		.gain_level = 11,
++		.if_out_gain_level = 11,
 +		.agc_set_point = 66,
 +		.agc_invert_pol = 0,
 +		.invert_if = 0,
@@ -5810,14 +6596,14 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +	memcpy(p, &weteknims, sizeof(struct wetek_nims));
 +}
 +
-+int set_external_vol_gpio(int *demod_id, fe_sec_voltage_t voltage)
++int set_external_vol_gpio(int *demod_id, int on)
 +{
-+	if (voltage == SEC_VOLTAGE_18) {
++	if (on) {
 +		if (*demod_id == 0 ) 		
 +			amlogic_gpio_direction_output(GPIOAO_8, 1, "nimdetect");
 +        else if (*demod_id == 1)
 +			amlogic_gpio_direction_output(GPIOAO_9, 1, "nimdetect");
-+	} else if (voltage == SEC_VOLTAGE_13) {                
++	} else if (!on) {
 +		if (*demod_id == 0 ) 
 +			amlogic_gpio_direction_output(GPIOAO_8, 0, "nimdetect");
 +        else if (*demod_id == 1)		
@@ -5869,8 +6655,6 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +	int i;
 +	int ret = 0;
 +
-+	
-+
 +	weteknims.pdev = pdev;
 +	weteknims.dev  = &pdev->dev;
 +
@@ -5880,8 +6664,7 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +			dev_info(&pdev->dev, "Found Wetek i2c-%d adapter ...\n", i + 1);
 +		else {
 +			dev_info(&pdev->dev, "Failed to acquire Wetek i2c-%d adapter ...\n", i + 1);	
-+			ret = -ENODEV;
-+			goto error2;
++			return 0;
 +		}
 +	
 +	}
@@ -5912,6 +6695,8 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +	/* INPUT2 POWER CTRL */
 +	amlogic_gpio_request(GPIOAO_9, "nimdetect");
 +
++	amlogic_gpio_direction_output(GPIOAO_8, 0, "nimdetect"); //SWITCH OFF INPUT1 POWER		
++	amlogic_gpio_direction_output(GPIOAO_9, 0, "nimdetect"); //SWITCH OFF INPUT2 POWER		
 +
 +	/* RESET DEMOD(s) */
 +	amlogic_gpio_direction_output(GPIOD_8, 0, "nimdetect");
@@ -5929,18 +6714,17 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +			weteknims.fe[i] =  dvb_attach(cxd2837_attach, weteknims.i2c[i], &cxd2837cfg);				
 +			
 +			if (weteknims.fe[i] != NULL) {			
-+				amlogic_gpio_direction_output(GPIOAO_9, 0, "nimdetect"); //SWITCH OFF INPUT2 POWER									
-+				
++															
 +				if (dvb_attach(mxl603_attach, weteknims.fe[i], weteknims.i2c[i], 0x60, &mxl603cfg) == NULL) {
 +					dev_info(&pdev->dev, "Failed to find MxL603 tuner!\n");
 +					dev_info(&pdev->dev, "Detaching Sony CXD2837 DVB-C/T/T2 frontend!\n");
 +					dvb_frontend_detach(weteknims.fe[i]);
-+					goto error1;
++					return 0;
 +				}
 +				
 +				weteknims.total_nims++;
 +				dev_info(&pdev->dev, "Total Wetek NIM(s) found: %d\n", weteknims.total_nims);
-+				return ret;
++				return 0;
 +			}
 +			
 +			dev_info(&pdev->dev, "Checking for Panasonic MN88436 ATSC demod ...\n");	
@@ -5948,50 +6732,33 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +			weteknims.fe[i] =  dvb_attach(mn88436_attach, weteknims.i2c[i], 0);				
 +			
 +			if (weteknims.fe[i] != NULL) {			
-+				amlogic_gpio_direction_output(GPIOAO_9, 0, "nimdetect"); //SWITCH OFF INPUT2 POWER									
-+				
++												
 +				if (dvb_attach(mxl603_attach, weteknims.fe[i], weteknims.i2c[i], 0x60, &mxl603cfg_atsc) == NULL) {
 +					dev_info(&pdev->dev, "Failed to find MxL603 tuner!\n");
 +					dev_info(&pdev->dev, "Detaching Panasonic MN88436 ATSC frontend!\n");
 +					dvb_frontend_detach(weteknims.fe[i]);
-+					goto error1;
++					return 0;
 +				}
 +				
 +				weteknims.total_nims++;
 +				dev_info(&pdev->dev, "Total Wetek NIM(s) found: %d\n", weteknims.total_nims);
-+				return ret;
-+			}
-+			
-+			
-+			
++				return 0;
++			}			
 +		}
 +		dev_info(&pdev->dev, "Checking for AVL6211 DVB-S/S2 demod ...\n");
 +		weteknims.fe[i] = dvb_attach(avl6211_attach, weteknims.i2c[i], &avl6211cfg[i], i);
-+		if (weteknims.fe[i] != NULL) {
-+		
-+			weteknims.total_nims++;
++		if (i == 0 && weteknims.fe[i] == NULL) {
++			dev_info(&pdev->dev, "No available NIM(s) found ...\n");
++			return 0;			
 +		}
++		if (weteknims.fe[i] != NULL)
++			weteknims.total_nims++;		
 +	}
 +	
-+	if (weteknims.total_nims > 0) {		
++	if (weteknims.total_nims > 0)
 +		dev_info(&pdev->dev, "Total Wetek NIM(s) found: %d\n", weteknims.total_nims);
-+		return 0;
-+	}
 +	
-+error1:
-+	/* Failed to find any DEMOD(s) */
-+	ret = -ENODEV;
-+	amlogic_gpio_free(GPIOD_8, "nimdetect");
-+	amlogic_gpio_free(GPIOAO_8, "nimdetect");
-+	amlogic_gpio_free(GPIOAO_9, "nimdetect");
-+	nim_dvb_pinctrl_put(&weteknims);
-+	
-+error2:
-+	for (i = 0; i < TOTAL_I2C; i++) {
-+		if (weteknims.i2c[i] != NULL)
-+			i2c_put_adapter(weteknims.i2c[i]);
-+	}
-+	return ret;
++	return 0;
 +}
 +static int nim_dvb_remove(struct platform_device *pdev)
 +{
@@ -6083,7 +6850,7 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +MODULE_LICENSE("GPL");
 diff -Naur a/drivers/amlogic/wetek/nimdetect.h b/drivers/amlogic/wetek/nimdetect.h
 --- a/drivers/amlogic/wetek/nimdetect.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/nimdetect.h	2015-01-08 16:23:49.000000000 +0100
++++ b/drivers/amlogic/wetek/nimdetect.h	2015-01-26 21:27:14.000000000 +0100
 @@ -0,0 +1,50 @@
 +/*
 + * Wetek NIM tuner(s) detection
@@ -6132,6 +6899,6 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.h b/drivers/amlogic/wetek/nimdetect
 +};
 +
 +void get_nims_infos(struct wetek_nims *p);
-+int set_external_vol_gpio(int *demod_id, fe_sec_voltage_t voltage);
++int set_external_vol_gpio(int *demod_id, int on);
 +
 +#endif /* __NIMDETECT_H */
