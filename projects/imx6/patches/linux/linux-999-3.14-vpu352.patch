@@ -1,0 +1,76 @@
+diff -ruN linux-cuboxi-3.14-dc5edb8-original/arch/arm/mach-imx/busfreq-imx6.c linux-cuboxi-3.14-dc5edb8/arch/arm/mach-imx/busfreq-imx6.c
+--- linux-cuboxi-3.14-dc5edb8-original/arch/arm/mach-imx/busfreq-imx6.c	2015-02-16 21:54:12.298970658 +0100
++++ linux-cuboxi-3.14-dc5edb8/arch/arm/mach-imx/busfreq-imx6.c	2015-02-16 21:55:33.370972180 +0100
+@@ -925,11 +925,12 @@
+ 
+ static int __init busfreq_init(void)
+ {
++#ifndef CONFIG_MX6_VPU_352M
+ 	if (platform_driver_register(&busfreq_driver) != 0)
+ 		return -ENODEV;
+ 
+ 	printk(KERN_INFO "Bus freq driver module loaded\n");
+-
++#endif
+ 	return 0;
+ }
+ 
+diff -ruN linux-cuboxi-3.14-dc5edb8-original/arch/arm/mach-imx/clk-imx6q.c linux-cuboxi-3.14-dc5edb8/arch/arm/mach-imx/clk-imx6q.c
+--- linux-cuboxi-3.14-dc5edb8-original/arch/arm/mach-imx/clk-imx6q.c	2015-02-16 21:54:12.306970658 +0100
++++ linux-cuboxi-3.14-dc5edb8/arch/arm/mach-imx/clk-imx6q.c	2015-02-16 21:54:53.978971440 +0100
+@@ -713,6 +713,22 @@
+ 	/* Set pll4_audio to a value that can derive 5K-88.2KHz and 8K-96KHz */
+ 	clk_set_rate(clk[pll4_audio_div], 541900800);
+ 
++#ifdef CONFIG_MX6_VPU_352M
++	/*
++	 * If VPU 352M is enabled, then PLL2_PDF2 need to be
++	 * set to 352M, cpufreq will be disabled as VDDSOC/PU
++	 * need to be at highest voltage, scaling cpu freq is
++	 * not saving any power, and busfreq will be also disabled
++	 * as the PLL2_PFD2 is not at default freq, in a word,
++	 * all modules that sourceing clk from PLL2_PFD2 will
++	 * be impacted.
++	 */
++	clk_set_rate(clk[pll2_pfd2_396m], 352000000);
++	clk_set_parent(clk[vpu_axi_sel], clk[pll2_pfd2_396m]);
++	pr_info("VPU 352M is enabled!\n");
++#endif
++
++
+ 	/* Set initial power mode */
+ 	imx6q_set_lpm(WAIT_CLOCKED);
+ 
+diff -ruN linux-cuboxi-3.14-dc5edb8-original/arch/arm/mach-imx/mach-imx6q.c linux-cuboxi-3.14-dc5edb8/arch/arm/mach-imx/mach-imx6q.c
+--- linux-cuboxi-3.14-dc5edb8-original/arch/arm/mach-imx/mach-imx6q.c	2015-02-16 21:54:12.278970657 +0100
++++ linux-cuboxi-3.14-dc5edb8/arch/arm/mach-imx/mach-imx6q.c	2015-02-16 21:55:13.970971815 +0100
+@@ -364,6 +364,12 @@
+ 			if (dev_pm_opp_disable(cpu_dev, 852000000))
+ 				pr_warn("failed to disable 850 MHz OPP\n");
+ 	}
++	if (IS_ENABLED(CONFIG_MX6_VPU_352M)) {
++		if (dev_pm_opp_disable(cpu_dev, 396000000)) {
++			pr_warn("failed to disable 396MHz OPP\n");
++			pr_info("remove 396MHz OPP for VPU running at 352MHz!\n");
++       	}
++	}
+ 
+ put_node:
+ 	of_node_put(np);
+diff -ruN linux-cuboxi-3.14-dc5edb8-original/drivers/cpufreq/imx6-cpufreq.c linux-cuboxi-3.14-dc5edb8/drivers/cpufreq/imx6-cpufreq.c
+--- linux-cuboxi-3.14-dc5edb8-original/drivers/cpufreq/imx6-cpufreq.c	2015-02-16 21:54:09.350970602 +0100
++++ linux-cuboxi-3.14-dc5edb8/drivers/cpufreq/imx6-cpufreq.c	2015-02-16 21:55:49.778972488 +0100
+@@ -305,6 +305,13 @@
+ 			unsigned long volt = be32_to_cpup(val++);
+ 			if (freq_table[j].frequency == freq) {
+ 				imx6_soc_volt[soc_opp_count++] = volt;
++#ifdef CONFIG_MX6_VPU_352M
++				if (freq == 792000) {
++				  pr_info("increase SOC/PU voltage for VPU352MHz\n");
++				  imx6_soc_volt[soc_opp_count-1] = 1250000;
++				}
++#endif
++	
+ 				break;
+ 			}
+ 		}
