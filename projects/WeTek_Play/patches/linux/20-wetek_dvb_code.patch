@@ -1,660 +1,3 @@
-diff -Naur a/arch/arm/plat-meson/include/plat/bt_device.h b/arch/arm/plat-meson/include/plat/bt_device.h
---- a/arch/arm/plat-meson/include/plat/bt_device.h	2015-01-25 00:36:40.000000000 +0100
-+++ b/arch/arm/plat-meson/include/plat/bt_device.h	2015-01-22 14:31:05.000000000 +0100
-@@ -1,26 +1,27 @@
--/*
-- * arch/arm/plat-meson/include/plat/bt_device.h
-- *
-- * Copyright (C) 2010-2014 Amlogic, Inc.
-- *
-- * This software is licensed under the terms of the GNU General Public
-- * License version 2, as published by the Free Software Foundation, and
-- * may be copied, distributed, and modified under those terms.
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- * GNU General Public License for more details.
-- */
--
--#ifndef __PLAT_MESON_BT_DEVICE_H
--#define __PLAT_MESON_BT_DEVICE_H
--
--struct bt_dev_data {
--	int gpio_reset;
--	int gpio_en;
--	int gpio_host_wake;
--	int gpio_wake;
--};
--
--#endif
-+/*
-+ * arch/arm/plat-meson/include/plat/bt_device.h
-+ *
-+ * Copyright (C) 2010-2014 Amlogic, Inc.
-+ *
-+ * This software is licensed under the terms of the GNU General Public
-+ * License version 2, as published by the Free Software Foundation, and
-+ * may be copied, distributed, and modified under those terms.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef __PLAT_MESON_BT_DEVICE_H
-+#define __PLAT_MESON_BT_DEVICE_H
-+
-+struct bt_dev_data {
-+	int gpio_reset;
-+	int gpio_en;
-+	int gpio_host_wake;
-+	int gpio_wake;
-+	struct pinctrl *pinctrl;
-+};
-+
-+#endif
-diff -Naur a/drivers/amlogic/bluetooth/bt_device.c b/drivers/amlogic/bluetooth/bt_device.c
---- a/drivers/amlogic/bluetooth/bt_device.c	2015-01-25 00:36:15.000000000 +0100
-+++ b/drivers/amlogic/bluetooth/bt_device.c	2015-01-22 14:26:14.000000000 +0100
-@@ -1,295 +1,301 @@
--/*
-- *
-- * arch/arm/mach-meson/bcm-bt.c
-- *
-- *  Copyright (C) 2010 AMLOGIC, INC.
-- *
-- * License terms: GNU General Public License (GPL) version 2
-- * Platform machine definition.
-- */
-- 
--#include <linux/module.h>
--#include <linux/platform_device.h>
--#include <linux/delay.h>
--#include <linux/string.h>
--#include <linux/ctype.h>
--#include <linux/leds.h>
--#include <linux/gpio.h>
--#include <linux/rfkill.h>
--#include <linux/slab.h>
--#include <asm/uaccess.h>
--#include <linux/amlogic/aml_gpio_consumer.h>
--#include <mach/am_regs.h>
--#include <plat/bt_device.h>
--#ifdef CONFIG_AM_WIFI_SD_MMC
--#include <linux/amlogic/wifi_dt.h>
--#endif
--
--#ifdef CONFIG_HAS_EARLYSUSPEND
--#include <linux/earlysuspend.h>
--static struct early_suspend bt_early_suspend;
--#endif
--
--#define BT_RFKILL "bt_rfkill"
--
--struct bt_dev_runtime_data {
--    struct rfkill *bt_rfk;
--    struct bt_dev_data *pdata;
--};
--
--static void bt_device_init(struct bt_dev_data *pdata)
--{
--    if(pdata->gpio_reset > 0 ) {
--        amlogic_gpio_request(pdata->gpio_reset, BT_RFKILL);
--    }    
--        
--    if(pdata->gpio_en > 0 ) {
--        amlogic_gpio_request(pdata->gpio_en, BT_RFKILL);
--    }
--        
--    if(pdata->gpio_wake > 0 ) {
--        amlogic_gpio_request(pdata->gpio_wake, BT_RFKILL);
--        amlogic_gpio_direction_output(pdata->gpio_wake, 1, BT_RFKILL);
--    }
--
--}
--
--static void bt_device_deinit(struct bt_dev_data *pdata)
--{
--      if(pdata->gpio_reset > 0 )
--        amlogic_gpio_free(pdata->gpio_reset, BT_RFKILL);
--        
--    if(pdata->gpio_en > 0 )
--        amlogic_gpio_free(pdata->gpio_en, BT_RFKILL);
--        
--    if(pdata->gpio_wake > 0 ) 
--        amlogic_gpio_free(pdata->gpio_wake, BT_RFKILL);     
--}
--
--static void bt_device_on(struct bt_dev_data *pdata)
--{	
--	if(pdata->gpio_reset > 0 )
--	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
--	if(pdata->gpio_en > 0 )
--	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);	
--	msleep(20);	
--	if(pdata->gpio_reset > 0 )
--	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
--	if(pdata->gpio_en > 0 )
--	    amlogic_gpio_direction_output(pdata->gpio_en, 1, BT_RFKILL);	
--	msleep(20);
--}
--
--static void bt_device_off(struct bt_dev_data *pdata)
--{
--    if(pdata->gpio_reset > 0 )
--	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
--	if(pdata->gpio_en > 0 )
--	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);
--	msleep(20);	
--}
--
--static int bt_set_block(void *data, bool blocked)
--{
--    struct bt_dev_data *pdata = data;
--    pr_info("BT_RADIO going: %s\n", blocked ? "off" : "on");
--
--	if (!blocked) {
--		pr_info("BCM_BT: going ON\n");
--		bt_device_on(pdata);
--	} else {
--		pr_info("BCM_BT: going OFF\n");
--        bt_device_off(pdata);
--	}
--    return 0;
--}
--
--static const struct rfkill_ops bt_rfkill_ops = {
--	.set_block = bt_set_block,
--};
--#ifdef CONFIG_HAS_EARLYSUSPEND 
--static void bt_earlysuspend(struct early_suspend *h)                                               
--{
--
--    return;
--}
--
--static void bt_lateresume(struct early_suspend *h)
--{
--
--    return;
--}
--#endif
--
--static int bt_suspend(struct platform_device *pdev, pm_message_t state)                                               
--{
--
--    return 0;
--}
--
--static int bt_resume(struct platform_device *pdev)
--{
--
--    return 0;
--}
--
--static int bt_probe(struct platform_device *pdev)
--{
--	int ret = 0;
--	struct rfkill *bt_rfk;
--	struct bt_dev_data *pdata = NULL;
--	struct bt_dev_runtime_data *prdata;
--
--#ifdef CONFIG_OF
--	//plat = aml_get_driver_data(pdev);
--	if (pdev->dev.of_node) {
--	    const char *str;
--	    
--	    printk(KERN_DEBUG "enter bt_probe of_node\n");
--	    pdata = kzalloc(sizeof(struct bt_dev_data), GFP_KERNEL);
--		ret = of_property_read_string(pdev->dev.of_node,"gpio_reset",&str);
--		if(ret){
--			printk(KERN_WARNING "not get gpio_reset\n");
--			pdata->gpio_reset = 0;
--		} else {
--		    pdata->gpio_reset = amlogic_gpio_name_map_num(str);
--		}
--		
--        ret = of_property_read_string(pdev->dev.of_node,"gpio_en",&str);
--		if(ret){
--			printk(KERN_WARNING "not get gpio_en\n");
--			pdata->gpio_en = 0;
--		} else {
--		    pdata->gpio_en = amlogic_gpio_name_map_num(str);
--		}
--		
--		ret = of_property_read_string(pdev->dev.of_node,"gpio_wake",&str);
--		if(ret){
--			printk(KERN_WARNING "not get gpio_wake\n");
--			pdata->gpio_wake = 0;
--		} else {
--		    pdata->gpio_wake = amlogic_gpio_name_map_num(str);
--		}
--	}
--#else
--    pdata = (struct bt_dev_data *)(pdev->dev.platform_data);
--#endif
--    
--    bt_device_init(pdata);
--    /* default to bluetooth off */
--    //rfkill_switch_all(RFKILL_TYPE_BLUETOOTH, 1);
--    bt_device_off(pdata);
--    
--	bt_rfk = rfkill_alloc("bt-dev", &pdev->dev, RFKILL_TYPE_BLUETOOTH,
--			&bt_rfkill_ops, pdata);
--						   
--	if (!bt_rfk) {
--        printk("rfk alloc fail\n");
--		ret = -ENOMEM;
--		goto err_rfk_alloc;
--	}
--	/* if not set false, the bt_set_block will call when rfkill class resume */
--    rfkill_init_sw_state(bt_rfk, false);      //we want to reset bt when system resume
--	ret = rfkill_register(bt_rfk);
--	if (ret){
--        printk(KERN_ERR "rfkill_register fail\n");
--		goto err_rfkill;
--    }
--    prdata = kmalloc(sizeof(struct bt_dev_runtime_data), GFP_KERNEL);
--    if (!prdata) {
--        printk(KERN_ERR  "bt_dev_runtime_data alloc fail\n");
--		goto err_rfkill;
--    }
--#ifdef CONFIG_AM_WIFI_SD_MMC
--    //setup 32k clock
--    wifi_request_32k_clk(1, BT_RFKILL);
--    msleep(100);
--#endif
--    
--    prdata->bt_rfk = bt_rfk;
--    prdata->pdata = pdata;
--	platform_set_drvdata(pdev, prdata);
--#ifdef CONFIG_HAS_EARLYSUSPEND                                                                                        
--        bt_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
--        bt_early_suspend.suspend = bt_earlysuspend;
--        bt_early_suspend.resume = bt_lateresume;
--        bt_early_suspend.param = pdev;
--        register_early_suspend(&bt_early_suspend);
--#endif
--
--	return 0;	
--	
--err_rfkill:
--	rfkill_destroy(bt_rfk);
--err_rfk_alloc:
--    bt_device_deinit(pdata);
--	return ret;
--	
--}
--
--static int bt_remove(struct platform_device *pdev)
--{
--    struct bt_dev_runtime_data *prdata = platform_get_drvdata(pdev);
--	struct rfkill *rfk = NULL;
--	struct bt_dev_data *pdata = NULL;
--
--	platform_set_drvdata(pdev, NULL);
--#ifdef CONFIG_AM_WIFI_SD_MMC
--    wifi_request_32k_clk(0, BT_RFKILL);
--#endif
--	if(prdata) {
--	    rfk = prdata->bt_rfk;
--	    pdata = prdata->pdata;
--	}
--
--	if(pdata) {
--	    bt_device_deinit(pdata);
--	    kfree(pdata);
--	}
--
--	if (rfk) {
--		rfkill_unregister(rfk);
--		rfkill_destroy(rfk);
--	}
--	rfk = NULL;
--
--	return 0;
--}
--
--#ifdef CONFIG_OF
--static const struct of_device_id bt_dev_dt_match[]={
--	{	.compatible = "amlogic,bt-dev",
--	},
--	{},
--};
--#else
--#define bt_dev_dt_match NULL
--#endif
--
--static struct platform_driver bt_driver = {
--	.driver		= {
--		.name	= "bt-dev",
--		.of_match_table = bt_dev_dt_match,
--	},
--	.probe		= bt_probe,
--	.remove		= bt_remove,
--	.suspend    = bt_suspend,
--    .resume     = bt_resume,
--};
--
--static int __init bt_init(void)
--{
--    printk("amlogic rfkill init\n");
--
--	return platform_driver_register(&bt_driver);
--}
--static void __exit bt_exit(void)
--{
--	platform_driver_unregister(&bt_driver);
--}
--
--module_init(bt_init);
--module_exit(bt_exit);
--MODULE_DESCRIPTION("bt rfkill");
--MODULE_AUTHOR("");
--MODULE_LICENSE("GPL");
-+/*
-+ *
-+ * arch/arm/mach-meson/bcm-bt.c
-+ *
-+ *  Copyright (C) 2010 AMLOGIC, INC.
-+ *
-+ * License terms: GNU General Public License (GPL) version 2
-+ * Platform machine definition.
-+ */
-+ 
-+#include <linux/module.h>
-+#include <linux/platform_device.h>
-+#include <linux/delay.h>
-+#include <linux/string.h>
-+#include <linux/ctype.h>
-+#include <linux/leds.h>
-+#include <linux/gpio.h>
-+#include <linux/rfkill.h>
-+#include <linux/slab.h>
-+#include <asm/uaccess.h>
-+#include <linux/amlogic/aml_gpio_consumer.h>
-+#include <mach/am_regs.h>
-+#include <plat/bt_device.h>
-+#ifdef CONFIG_AM_WIFI_SD_MMC
-+#include <linux/amlogic/wifi_dt.h>
-+#endif
-+
-+#ifdef CONFIG_HAS_EARLYSUSPEND
-+#include <linux/earlysuspend.h>
-+static struct early_suspend bt_early_suspend;
-+#endif
-+
-+#define BT_RFKILL "bt_rfkill"
-+
-+struct bt_dev_runtime_data {
-+    struct rfkill *bt_rfk;
-+    struct bt_dev_data *pdata;
-+};
-+
-+static void bt_device_init(struct bt_dev_data *pdata)
-+{
-+    if(pdata->gpio_reset > 0 ) {
-+        amlogic_gpio_request(pdata->gpio_reset, BT_RFKILL);
-+    }    
-+        
-+    if(pdata->gpio_en > 0 ) {
-+        amlogic_gpio_request(pdata->gpio_en, BT_RFKILL);
-+    }
-+        
-+    if(pdata->gpio_wake > 0 ) {
-+        amlogic_gpio_request(pdata->gpio_wake, BT_RFKILL);
-+        amlogic_gpio_direction_output(pdata->gpio_wake, 1, BT_RFKILL);
-+    }
-+
-+}
-+
-+static void bt_device_deinit(struct bt_dev_data *pdata)
-+{
-+      if(pdata->gpio_reset > 0 )
-+        amlogic_gpio_free(pdata->gpio_reset, BT_RFKILL);
-+        
-+    if(pdata->gpio_en > 0 )
-+        amlogic_gpio_free(pdata->gpio_en, BT_RFKILL);
-+        
-+    if(pdata->gpio_wake > 0 ) 
-+        amlogic_gpio_free(pdata->gpio_wake, BT_RFKILL);     
-+}
-+
-+static void bt_device_on(struct bt_dev_data *pdata)
-+{	
-+	if(pdata->gpio_reset > 0 )
-+	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
-+	if(pdata->gpio_en > 0 )
-+	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);	
-+	msleep(20);	
-+	if(pdata->gpio_reset > 0 )
-+	    amlogic_gpio_direction_output(pdata->gpio_reset, 1, BT_RFKILL);
-+	if(pdata->gpio_en > 0 )
-+	    amlogic_gpio_direction_output(pdata->gpio_en, 1, BT_RFKILL);	
-+	msleep(20);
-+}
-+
-+static void bt_device_off(struct bt_dev_data *pdata)
-+{
-+    if(pdata->gpio_reset > 0 )
-+	    amlogic_gpio_direction_output(pdata->gpio_reset, 0, BT_RFKILL);
-+	if(pdata->gpio_en > 0 )
-+	    amlogic_gpio_direction_output(pdata->gpio_en, 0, BT_RFKILL);
-+	msleep(20);	
-+}
-+
-+static int bt_set_block(void *data, bool blocked)
-+{
-+    struct bt_dev_data *pdata = data;
-+    pr_info("BT_RADIO going: %s\n", blocked ? "off" : "on");
-+
-+	if (!blocked) {
-+		pr_info("BCM_BT: going ON\n");
-+		bt_device_on(pdata);
-+	} else {
-+		pr_info("BCM_BT: going OFF\n");
-+        bt_device_off(pdata);
-+	}
-+    return 0;
-+}
-+
-+static const struct rfkill_ops bt_rfkill_ops = {
-+	.set_block = bt_set_block,
-+};
-+#ifdef CONFIG_HAS_EARLYSUSPEND 
-+static void bt_earlysuspend(struct early_suspend *h)                                               
-+{
-+
-+    return;
-+}
-+
-+static void bt_lateresume(struct early_suspend *h)
-+{
-+
-+    return;
-+}
-+#endif
-+
-+static int bt_suspend(struct platform_device *pdev, pm_message_t state)                                               
-+{
-+
-+    return 0;
-+}
-+
-+static int bt_resume(struct platform_device *pdev)
-+{
-+
-+    return 0;
-+}
-+
-+static int bt_probe(struct platform_device *pdev)
-+{
-+	int ret = 0;
-+	struct rfkill *bt_rfk;
-+	struct bt_dev_data *pdata = NULL;
-+	struct bt_dev_runtime_data *prdata;
-+
-+#ifdef CONFIG_OF
-+	//plat = aml_get_driver_data(pdev);
-+	if (pdev->dev.of_node) {
-+	    const char *str;
-+	    
-+	    printk(KERN_DEBUG "enter bt_probe of_node\n");
-+	    pdata = kzalloc(sizeof(struct bt_dev_data), GFP_KERNEL);
-+		ret = of_property_read_string(pdev->dev.of_node,"gpio_reset",&str);
-+		if(ret){
-+			printk(KERN_WARNING "not get gpio_reset\n");
-+			pdata->gpio_reset = 0;
-+		} else {
-+		    pdata->gpio_reset = amlogic_gpio_name_map_num(str);
-+		}
-+		
-+        ret = of_property_read_string(pdev->dev.of_node,"gpio_en",&str);
-+		if(ret){
-+			printk(KERN_WARNING "not get gpio_en\n");
-+			pdata->gpio_en = 0;
-+		} else {
-+		    pdata->gpio_en = amlogic_gpio_name_map_num(str);
-+		}
-+		
-+		ret = of_property_read_string(pdev->dev.of_node,"gpio_wake",&str);
-+		if(ret){
-+			printk(KERN_WARNING "not get gpio_wake\n");
-+			pdata->gpio_wake = 0;
-+		} else {
-+		    pdata->gpio_wake = amlogic_gpio_name_map_num(str);
-+		}
-+		
-+		pdata->pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-+		
-+	}
-+#else
-+    pdata = (struct bt_dev_data *)(pdev->dev.platform_data);
-+#endif
-+    
-+    bt_device_init(pdata);
-+    /* default to bluetooth off */
-+    //rfkill_switch_all(RFKILL_TYPE_BLUETOOTH, 1);
-+    bt_device_off(pdata);
-+    
-+	bt_rfk = rfkill_alloc("bt-dev", &pdev->dev, RFKILL_TYPE_BLUETOOTH,
-+			&bt_rfkill_ops, pdata);
-+						   
-+	if (!bt_rfk) {
-+        printk("rfk alloc fail\n");
-+		ret = -ENOMEM;
-+		goto err_rfk_alloc;
-+	}
-+	/* if not set false, the bt_set_block will call when rfkill class resume */
-+    rfkill_init_sw_state(bt_rfk, false);      //we want to reset bt when system resume
-+	ret = rfkill_register(bt_rfk);
-+	if (ret){
-+        printk(KERN_ERR "rfkill_register fail\n");
-+		goto err_rfkill;
-+    }
-+    prdata = kmalloc(sizeof(struct bt_dev_runtime_data), GFP_KERNEL);
-+    if (!prdata) {
-+        printk(KERN_ERR  "bt_dev_runtime_data alloc fail\n");
-+		goto err_rfkill;
-+    }
-+#ifdef CONFIG_AM_WIFI_SD_MMC
-+    //setup 32k clock
-+    wifi_request_32k_clk(1, BT_RFKILL);
-+    msleep(100);
-+#endif
-+    
-+    prdata->bt_rfk = bt_rfk;
-+    prdata->pdata = pdata;
-+	platform_set_drvdata(pdev, prdata);
-+#ifdef CONFIG_HAS_EARLYSUSPEND                                                                                        
-+        bt_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-+        bt_early_suspend.suspend = bt_earlysuspend;
-+        bt_early_suspend.resume = bt_lateresume;
-+        bt_early_suspend.param = pdev;
-+        register_early_suspend(&bt_early_suspend);
-+#endif
-+
-+	return 0;	
-+	
-+err_rfkill:
-+	rfkill_destroy(bt_rfk);
-+err_rfk_alloc:
-+    bt_device_deinit(pdata);
-+	return ret;
-+	
-+}
-+
-+static int bt_remove(struct platform_device *pdev)
-+{
-+    struct bt_dev_runtime_data *prdata = platform_get_drvdata(pdev);
-+	struct rfkill *rfk = NULL;
-+	struct bt_dev_data *pdata = NULL;
-+
-+	platform_set_drvdata(pdev, NULL);
-+#ifdef CONFIG_AM_WIFI_SD_MMC
-+    wifi_request_32k_clk(0, BT_RFKILL);
-+#endif
-+	if(prdata) {
-+	    rfk = prdata->bt_rfk;
-+	    pdata = prdata->pdata;
-+	}
-+
-+	if(pdata) {	
-+		if (pdata->pinctrl)
-+			devm_pinctrl_put(pdata->pinctrl);
-+			
-+	    bt_device_deinit(pdata);
-+	    kfree(pdata);
-+	}
-+
-+	if (rfk) {
-+		rfkill_unregister(rfk);
-+		rfkill_destroy(rfk);
-+	}
-+	rfk = NULL;
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_OF
-+static const struct of_device_id bt_dev_dt_match[]={
-+	{	.compatible = "amlogic,bt-dev",
-+	},
-+	{},
-+};
-+#else
-+#define bt_dev_dt_match NULL
-+#endif
-+
-+static struct platform_driver bt_driver = {
-+	.driver		= {
-+		.name	= "bt-dev",
-+		.of_match_table = bt_dev_dt_match,
-+	},
-+	.probe		= bt_probe,
-+	.remove		= bt_remove,
-+	.suspend    = bt_suspend,
-+    .resume     = bt_resume,
-+};
-+
-+static int __init bt_init(void)
-+{
-+    printk("amlogic rfkill init\n");
-+
-+	return platform_driver_register(&bt_driver);
-+}
-+static void __exit bt_exit(void)
-+{
-+	platform_driver_unregister(&bt_driver);
-+}
-+
-+module_init(bt_init);
-+module_exit(bt_exit);
-+MODULE_DESCRIPTION("bt rfkill");
-+MODULE_AUTHOR("");
-+MODULE_LICENSE("GPL");
 diff -Naur a/drivers/amlogic/Kconfig b/drivers/amlogic/Kconfig
 --- a/drivers/amlogic/Kconfig	2015-01-04 18:07:57.000000000 +0100
 +++ b/drivers/amlogic/Kconfig	2015-01-01 15:31:17.000000000 +0100
@@ -680,8 +23,8 @@ diff -Naur a/drivers/amlogic/Makefile b/drivers/amlogic/Makefile
  
 diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 --- a/drivers/amlogic/wetek/avl6211.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/avl6211.c	2015-02-12 18:17:24.000000000 +0100
-@@ -0,0 +1,1987 @@
++++ b/drivers/amlogic/wetek/avl6211.c	2015-02-18 17:18:24.000000000 +0100
+@@ -0,0 +1,1979 @@
 +/*
 + * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
 + *
@@ -1078,31 +421,6 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
 +	return ret;
 +}
-+static int avl6211_cpu_halt(struct dvb_frontend* fe)
-+{
-+	struct avl6211_state *state = fe->demodulator_priv;
-+    int ret, i = 0;
-+	 
-+	ret = avl6211_send_op(OP_RX_HALT, state);
-+	if (ret)
-+		goto err;
-+	
-+	while (i++ < 20) {
-+		ret = avl6211_get_op_status(state);
-+		if (!ret)
-+			break;
-+		else
-+			mdelay(10);		
-+ 	}
-+	if (ret)
-+		goto err;
-+		
-+	return 0;
-+	
-+err:
-+	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
-+	return ret;
-+}
 +static int avl6211_i2c_repeater_get_status(struct avl6211_state* state)
 +{
 +	int ret;
@@ -1299,41 +617,6 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
 +	return ret;
 +}
-+static int av2011_freq_lpf_adjustment(struct dvb_frontend* fe,u16 *AdjustFreq)
-+{
-+	struct avl6211_state *state = fe->demodulator_priv;	
-+	int ret;
-+	u32 x1;
-+	u16 x2;
-+	u16 minimum_LPF_100kHz;
-+	u16 carrierFrequency_100kHz;
-+
-+	ret = avl6211_i2c_read32(state, rc_Max_LowIf_SR_addr, &x1);
-+	if (ret)
-+		goto err;	
-+	ret = avl6211_i2c_read16(state, rc_IfOffset_addr, &x2);
-+	if (ret)
-+		goto err;
-+	
-+	if (state->symbol_rate <= x1) {
-+	
-+		carrierFrequency_100kHz = (u16 )((x2/10) + (state->frequency / 100));
-+
-+		minimum_LPF_100kHz = (state->symbol_rate/100000 )*135/200 +  (x2/10) + 50;
-+		
-+		if (state->tuner_lpf < minimum_LPF_100kHz) 
-+			state->tuner_lpf = (u16)(minimum_LPF_100kHz);		
-+	} else
-+		carrierFrequency_100kHz = state->frequency / 100;
-+	
-+	*AdjustFreq = carrierFrequency_100kHz;
-+	return 0;
-+	
-+err:
-+	*AdjustFreq = state->frequency / 100;
-+	return ret;
-+
-+}
 +static int av2011_lock(struct dvb_frontend* fe)
 +{
 +	int ret;
@@ -1342,28 +625,30 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	u32 fracN;
 +	u32 BW;
 +	u32 BF;
-+	u16 carrierFrequency_100kHz;
++	u32 freq = state->frequency / 1000;
++	u32 LPF = state->tuner_lpf * 100;
 +
 +	memset(reg, 0, sizeof(reg));
-+	
-+	/* Do not return on error */
-+	ret = av2011_freq_lpf_adjustment(fe, &carrierFrequency_100kHz);
 +
 +	msleep(50);
 +	
-+	fracN = (((carrierFrequency_100kHz)/10) + 27/2) / 27;
++	fracN = (freq + 27/2) / 27;
 +	if (fracN > 0xff)
 +		fracN = 0xff;
 +		
 +	reg[0] = (char)(fracN & 0xff);
-+	fracN = (((carrierFrequency_100kHz)/10) << 17) / 27;
++	fracN = (freq << 17) / 27;
 +	fracN = fracN & 0x1ffff;
 +	reg[1] = (char)((fracN >> 9) & 0xff);
 +	reg[2] = (char)((fracN >> 1) & 0xff);
 +	reg[3] = (char)((fracN << 7) & 0x80) | 0x50;
 +
-+	BW = (state->tuner_lpf * 100);
-+	
++	BW = (LPF * 135) / 200;
++	if (LPF < 6500)
++		BW = BW + 6000;
++   	BW = BW + 2000;
++	BW = BW*108/100;
++
 +	if (BW < 4000)
 +		BW = 4000;
 +	if ( BW > 40000)
@@ -1380,13 +665,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +		goto err;
 +		
 +	msleep(5);
-+	
-+	ret = AV2011_I2C_write(0, reg, 4, state);
-+	if (ret)
-+		goto err;
 +		
-+	msleep(5);
-+	
 +	ret = AV2011_I2C_write(5, reg+5, 1, state);
 +	if (ret)
 +		goto err;
@@ -2051,11 +1330,15 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	return ret;
 +}
 +
-+static int avl6211_read_snr(struct dvb_frontend* fe, u16* snr)
++u8 DVBS_SNR[6] = { 12, 32, 41, 52, 58, 62 };
++u8 DVBS2Qpsk_SNR[8] = { 10, 24, 32, 41, 47, 52, 63, 65 };
++u8 DVBS28psk_SNR[6] = { 57, 67, 80, 95, 100, 110 };
++static int avl6211_read_snr(struct dvb_frontend* fe, u16 *snr)
 +{
 +	struct avl6211_state *state = fe->demodulator_priv;
 +	int ret;
-+	u32 r_snr;
++	u8 SNRrefer = 0;
++	u32 r_snr, code_rate, modulation;
 +
 +	*snr = 0;
 +	
@@ -2063,21 +1346,78 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +		ret = avl6211_i2c_read32(state, rs_int_SNR_dB_addr, &r_snr);
 +		if (ret)
 +			goto err;
-+		if (r_snr > 0 && r_snr <= 10000)
-+			*snr = (r_snr * 0xffff) / 0x8B6;
-+		
++		if (r_snr < 10000) {
++			ret = avl6211_i2c_read32(state, rs_code_rate_addr, &code_rate);
++			if (ret)
++				goto err;
++			ret = avl6211_i2c_read32(state, rs_modulation_addr, &modulation);
++			if (ret)
++				goto err;
++				
++			if (code_rate < 6)
++				SNRrefer = DVBS_SNR[code_rate];			
++			else {
++				if (modulation == 1)
++					SNRrefer = DVBS28psk_SNR[code_rate - 10];
++				else	
++					SNRrefer = DVBS2Qpsk_SNR[code_rate - 9];
++			}	
++			if ((r_snr / 10) > SNRrefer) {
++				r_snr = r_snr/10 - SNRrefer;
++				if (r_snr >= 100)
++					*snr = 99;
++				else if (r_snr >= 50)  //  >5.0dB
++					*snr = 80+ (r_snr - 50)*20/50;
++				else if (r_snr >= 25)  //  > 2.5dB
++					*snr = 50+ (r_snr - 25)*30/25;
++				else if (r_snr >= 10)  //  > 1dB
++					*snr = 25+ (r_snr - 10)*25/15;			
++				else 
++					*snr = 5 + (r_snr)*20/10;
++					
++					*snr = (*snr * 65535) / 100;
++			}
++		}
 +	}
 +	
 +	return 0;
 +err:
 +	dev_dbg(&state->i2c->dev, "%s: failed=%d\n", __func__, ret);
 +	return ret;
-+} 
++}
++struct Signal_Level
++{
++	u16 SignalLevel;
++	short SignalDBM;
++};
++struct Signal_Level  AGC_LUT [91]=
++{
++    {63688,  0},{62626, -1},{61840, -2},{61175, -3},{60626, -4},{60120, -5},{59647, -6},{59187, -7},{58741, -8},{58293, -9},
++    {57822,-10},{57387,-11},{56913,-12},{56491,-13},{55755,-14},{55266,-15},{54765,-16},{54221,-17},{53710,-18},{53244,-19},
++    {52625,-20},{52043,-21},{51468,-22},{50904,-23},{50331,-24},{49772,-25},{49260,-26},{48730,-27},{48285,-28},{47804,-29},
++    {47333,-30},{46880,-31},{46460,-32},{46000,-33},{45539,-34},{45066,-35},{44621,-36},{44107,-37},{43611,-38},{43082,-39},
++    {42512,-40},{41947,-41},{41284,-42},{40531,-43},{39813,-44},{38978,-45},{38153,-46},{37294,-47},{36498,-48},{35714,-49},
++    {35010,-50},{34432,-51},{33814,-52},{33315,-53},{32989,-54},{32504,-55},{32039,-56},{31608,-57},{31141,-58},{30675,-59},
++    {30215,-60},{29711,-61},{29218,-62},{28688,-63},{28183,-64},{27593,-65},{26978,-66},{26344,-67},{25680,-68},{24988,-69},
++    {24121,-70},{23285,-71},{22460,-72},{21496,-73},{20495,-74},{19320,-75},{18132,-76},{16926,-77},{15564,-78},{14398,-79},
++    {12875,-80},{11913,-81},{10514,-82},{ 9070,-83},{ 7588,-84},{ 6044,-85},{ 4613,-86},{ 3177,-87},{ 1614,-88},{  123,-89},
++    {    0,-90}
++};
 +static int avl6211_read_signal_strength(struct dvb_frontend* fe, u16* signal_strength)
 +{
++	#define Level_High_Stage	36
++	#define Level_Low_Stage		76
++
++	#define Percent_Space_High	10
++	#define Percent_Space_Mid	30
++	#define Percent_Space_Low	60
++	
 +	struct avl6211_state *state = fe->demodulator_priv;
 +	int ret;
 +	u32 rf;
++	u16 Level;
++	int i = 0;
++	int Percent = 0;
 +	*signal_strength = 0;
 +		
 +	if (state->locked == 1) {
@@ -2087,8 +1427,18 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +		
 +		rf += 0x800000;
 +		rf &= 0xffffff;	
-+		*signal_strength = (u16)(rf >> 8);
++		Level = (u16)(rf >> 8);
 +
++	while( Level < AGC_LUT[i++].SignalLevel);
++	
++	if (i <= Level_High_Stage)
++		Percent = Percent_Space_Low+Percent_Space_Mid+ (Level_High_Stage-i)*Percent_Space_High/Level_High_Stage;
++	else if(i<=Level_Low_Stage)
++		Percent = Percent_Space_Low+ (Level_Low_Stage-i)*Percent_Space_Mid/(Level_Low_Stage-Level_High_Stage);
++	else
++		Percent =(90-i)*Percent_Space_Low/(90-Level_Low_Stage);
++
++	*signal_strength = (Percent * 65535) / 100;	
 +	}
 +	
 +	return 0;
@@ -2191,10 +1541,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	ret = avl6211_i2c_write16(state, rc_lock_mode_addr, 0);	
 +	if (ret)
 +		goto err;
-+	ret = avl6211_i2c_write16(state, rc_int_carrier_freq_half_range_MHz_addr, 500);
-+	if (ret)
-+		goto err;
-+			
++		
 +	IQ = ((state->flags) & CI_FLAG_IQ_BIT_MASK) >> CI_FLAG_IQ_BIT;
 +	ret = avl6211_i2c_write32(state, rc_specinv_addr, IQ);
 +	if (ret)
@@ -2261,14 +1608,11 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	dev_info(&state->i2c->dev, 
 +		"%s: delivery_system=%d frequency=%d symbol_rate=%d\n", 
 +		__func__, c->delivery_system, c->frequency, c->symbol_rate);
-+		
-+	/* Halt CPU to improve tuner's locking speed */
-+	ret = avl6211_cpu_halt(fe);
-+	if (ret)
-+		goto err;
 +
-+	state->tuner_lpf = ((state->symbol_rate * 75) / (10000000)) + 40;
-+	
++	state->tuner_lpf = (state->symbol_rate / 100000);
++	if (state->tuner_lpf > 440)
++		state->tuner_lpf = 440;
++
 +	ret = av2011_lock(fe);
 +	if (ret)
 +		goto err;
@@ -2299,7 +1643,6 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	state->flags = (CI_FLAG_IQ_NO_SWAPPED) << CI_FLAG_IQ_BIT;			//Normal IQ
 +	state->flags |= (CI_FLAG_IQ_AUTO_BIT_AUTO) << CI_FLAG_IQ_AUTO_BIT;	//Enable automatic IQ swap detection
 +	state->flags |= (CI_FLAG_DVBS2_UNDEF) << CI_FLAG_DVBS2_BIT;			//Enable automatic standard detection
-+	state->flags |= CI_FLAG_LOCK_MODE_BIT_MASK;
 +
 +	//This function should be called after tuner locked to lock the channel.
 +	ret = avl6211_channel_lock(fe);
@@ -2488,7 +1831,8 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	ret = avl6211_setup_pll(state, (const struct avl6211_pllconf * )(pll_conf + state->config->demod_refclk));
 +	if (ret)
 +		goto err;
-+	msleep(5);
++		
++	msleep(100);
 +	
 +	ret = avl6211_load_firmware(fe);
 +	if (ret)
@@ -2500,6 +1844,10 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	if (ret)
 +		goto err;
 +	
++	
++	ret = avl6211_i2c_write32(state, 0x263E, 50000);
++	if (ret)
++		goto err;
 +	/* Set clk to match the PLL */
 +	ret = avl6211_i2c_write16(state, rc_int_dmd_clk_MHz_addr,  state->demod_freq);
 +	if (ret)
@@ -2525,20 +1873,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +	ret = avl6211_i2c_write32(state, rc_rfagc_tri_enb, 1);
 +	if (ret)
 +		goto err;
-+	
-+	ret = avl6211_i2c_write16(state, rc_fast_reacquisition_addr, ENABLE_FAST_REACQ);
-+	if (ret)
-+		goto err;
-+	ret = avl6211_i2c_write32(state, rc_equalizer_addr, ENABLE_CCI);
-+	if (ret)
-+		goto err;
-+	ret = avl6211_i2c_write16(state, rc_IfOffset_addr, IF_OFFSET);
-+	if (ret)
-+		goto err;
-+	ret = avl6211_i2c_write32(state, rc_Max_LowIf_SR_addr, MAX_LOWIF_SR);	//Open the low symbol rate frequency offset
-+	if (ret)
-+		goto err;
-+	
++
 +	ret = avl6211_i2c_write16(state, rc_blind_scan_tuner_spectrum_inversion_addr, (u16)state->config->tuner_spectrum);
 +	if (ret)
 +		goto err;
@@ -2669,10 +2004,9 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.c b/drivers/amlogic/wetek/avl6211.c
 +MODULE_DESCRIPTION("Availink AVL6211+AV2011 demod+tuner driver");
 +MODULE_AUTHOR("Sasa Savic <sasa.savic.sr@gmail.com>");
 +MODULE_LICENSE("GPL");
-\ No newline at end of file
 diff -Naur a/drivers/amlogic/wetek/avl6211.h b/drivers/amlogic/wetek/avl6211.h
 --- a/drivers/amlogic/wetek/avl6211.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/avl6211.h	2015-01-26 21:34:29.000000000 +0100
++++ b/drivers/amlogic/wetek/avl6211.h	2015-02-14 20:07:51.000000000 +0100
 @@ -0,0 +1,156 @@
 +/*
 + * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
@@ -2833,8 +2167,8 @@ diff -Naur a/drivers/amlogic/wetek/avl6211.h b/drivers/amlogic/wetek/avl6211.h
 \ No newline at end of file
 diff -Naur a/drivers/amlogic/wetek/avl6211_reg.h b/drivers/amlogic/wetek/avl6211_reg.h
 --- a/drivers/amlogic/wetek/avl6211_reg.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/avl6211_reg.h	2015-01-25 00:48:17.000000000 +0100
-@@ -0,0 +1,106 @@
++++ b/drivers/amlogic/wetek/avl6211_reg.h	2015-02-18 17:14:59.000000000 +0100
+@@ -0,0 +1,101 @@
 +/*
 + * Driver for the Availink AVL6211+AV2011 DVB-S/S2 demod+tuner
 + *
@@ -2874,7 +2208,7 @@ diff -Naur a/drivers/amlogic/wetek/avl6211_reg.h b/drivers/amlogic/wetek/avl6211
 +#define reset_register_addr         				0x6C4000
 +
 +	
-+#define rx_aagc_gain                                0x0000261A
++#define rx_aagc_gain                                0x0040004C
 +#define rc_rfagc_tri_enb                            0x006C002C
 +#define rc_mpeg_bus_tri_enb                         0x006C0028
 +
@@ -2888,14 +2222,13 @@ diff -Naur a/drivers/amlogic/wetek/avl6211_reg.h b/drivers/amlogic/wetek/avl6211
 +#define rx_config_addr                             (0x0000043c + 0x0)
 +#define core_ready_word_addr                       (0x00000434 + 0x0)
 +
-+
-+
-+#define rs_cust_chip_id_addr                        0x006C0030
++#define rs_cust_chip_id_addr                        0x006C0034
 +
 +#define	rp_uint_BER_addr                           (raptor_status_addr + 0x0)
 +#define	rc_rfagc_pol_addr                          (rx_config_addr + 0x0)
 +#define	rc_equalizer_addr                          (rx_config_addr + 0x8)
 +#define	rs_code_rate_addr                          (rx_state_addr + 0x8)
++#define	rs_modulation_addr                         (rx_state_addr + 0xc)
 +#define	rc_format_addr                             (rx_config_addr + 0x10)
 +#define	rc_mpeg_mode_addr                          (rx_config_addr + 0x20)
 +#define	rc_outpin_sel_addr                         (rx_config_addr + 0x24)
@@ -2936,16 +2269,11 @@ diff -Naur a/drivers/amlogic/wetek/avl6211_reg.h b/drivers/amlogic/wetek/avl6211
 +#define diseqc_samp_frac_d_addr						0x0070002c
 +#define diseqc_tx_fifo_map_addr						0x00700080
 +
-+#define rc_fast_reacquisition_addr                  0x2622
-+#define rc_Max_LowIf_SR_addr                        0x263E
-+#define rc_IfOffset_addr                            0x2642
-+
 +#endif
-\ No newline at end of file
 diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 --- a/drivers/amlogic/wetek/cxd2837.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/cxd2837.c	2015-02-12 20:29:11.000000000 +0100
-@@ -0,0 +1,1731 @@
++++ b/drivers/amlogic/wetek/cxd2837.c	2015-02-14 23:42:26.000000000 +0100
+@@ -0,0 +1,1790 @@
 +/*
 + * Sony CXD2837 DVB-T/T2/C demodulator driver
 + *
@@ -4318,9 +3646,68 @@ diff -Naur a/drivers/amlogic/wetek/cxd2837.c b/drivers/amlogic/wetek/cxd2837.c
 +	
 +	return ret;
 +}
++static int get_ucblocksC(struct cxd_state *state, u32 *ucblocks)
++{
++	u8 data[3];
++	
++	readregst(state, 0x40, 0xEA, data, 3);
++	
++	if (!(data[2] & 0x01))
++		return 0;
++
++    *ucblocks = (data[0] << 8) | data[1]; 
++	return 0;
++}
++static int get_ucblocksT(struct cxd_state *state, u32 *ucblocks)
++{
++	u8 data[3];
++	
++	readregst(state, 0x10, 0xEA, data, 3);
++	
++	if (!(data[2] & 0x01))
++		return 0;
++
++    *ucblocks = (data[0] << 8) | data[1]; 
++	return 0;
++	
++}
++static int get_ucblocksT2(struct cxd_state *state, u32 *ucblocks)
++{	
++	u8 data[3];
++	
++	readregst(state, 0x24, 0xFD, data, 3);
++	if (!(data[0] & 0x01))
++		return 0;
++   
++	*ucblocks =  ((data[1] << 0x08) | data[2]);
++	
++	return 0;
++}
++
++
 +static int read_ucblocks(struct dvb_frontend *fe, u32 *ucblocks)
 +{
++	struct cxd_state *state = fe->demodulator_priv;
++	int ret = 0;
 +	*ucblocks = 0;
++				
++	if (state->last_status != 0x1f)
++		return 0;
++			
++	switch (state->delivery_system) {
++	case SYS_DVBC_ANNEX_A:
++		ret = get_ucblocksC(state, ucblocks);
++		break;
++	case SYS_DVBT:
++		ret = get_ucblocksT(state, ucblocks);
++		break;
++	case SYS_DVBT2:
++		ret = get_ucblocksT2(state, ucblocks);
++		break;
++	default:
++		break;
++	}
++	
 +	return 0;
 +}
 +static int get_fe_t(struct cxd_state *state)
@@ -6441,7 +5828,7 @@ diff -Naur a/drivers/amlogic/wetek/mxl603.h b/drivers/amlogic/wetek/mxl603.h
 +#endif /* __MXL603_H__ */
 diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect.c
 --- a/drivers/amlogic/wetek/nimdetect.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/amlogic/wetek/nimdetect.c	2015-02-12 19:54:38.000000000 +0100
++++ b/drivers/amlogic/wetek/nimdetect.c	2015-02-18 15:33:06.000000000 +0100
 @@ -0,0 +1,405 @@
 +/*
 + * Wetek NIMs/DVB detection
@@ -6538,7 +5925,7 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +		.mpeg_pol = 1,
 +		.mpeg_mode = 0,
 +		.mpeg_format = 0,
-+		.demod_refclk = 4,
++		.demod_refclk = 9,
 +		.mpeg_pin = 0,
 +		.tuner_rfagc = 1,
 +		.tuner_spectrum = 0,
@@ -6553,7 +5940,7 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.c b/drivers/amlogic/wetek/nimdetect
 +		.mpeg_pol = 1,
 +		.mpeg_mode = 0,
 +		.mpeg_format = 0,
-+		.demod_refclk = 4,
++		.demod_refclk = 9,
 +		.mpeg_pin = 0,
 +		.tuner_rfagc = 1,
 +		.tuner_spectrum = 0,
@@ -6902,3 +6289,91 @@ diff -Naur a/drivers/amlogic/wetek/nimdetect.h b/drivers/amlogic/wetek/nimdetect
 +int set_external_vol_gpio(int *demod_id, int on);
 +
 +#endif /* __NIMDETECT_H */
+diff -Naur a/drivers/amlogic/wifi/wifi_dt.c b/drivers/amlogic/wifi/wifi_dt.c
+--- a/drivers/amlogic/wifi/wifi_dt.c	2015-02-14 20:42:24.000000000 +0100
++++ b/drivers/amlogic/wifi/wifi_dt.c	2015-02-14 20:24:00.000000000 +0100
+@@ -162,11 +162,48 @@
+         .of_match_table = wifi_match
+     },
+ };
++struct pinctrl      	*bt_pinctrl = NULL;
++
++static int bt_probe(struct platform_device *pdev)
++{
++#ifdef CONFIG_OF
++	if (pdev->dev.of_node) {
++		bt_pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
++	}
++#endif
++	return 0;
++}
++static int bt_remove(struct platform_device *pdev)
++{
++	if (bt_pinctrl)
++		devm_pinctrl_put(bt_pinctrl);
++
++	return 0;
++}
++#ifdef CONFIG_OF
++static const struct of_device_id bt_dev_dt_match[]={
++	{	.compatible = "amlogic,bt-dev",
++	},
++	{},
++};
++#else
++#define bt_dev_dt_match NULL
++#endif
++
++static struct platform_driver bt_driver = {
++	.driver		= {
++		.name	= "bt-dev",
++		.of_match_table = bt_dev_dt_match,
++	},
++	.probe		= bt_probe,
++	.remove		= bt_remove,
++};
+ 
+ static int __init wifi_dt_init(void)
+ {
+ 	int ret;
+ 	ret = platform_driver_register(&wifi_plat_driver);
++	ret = platform_driver_register(&bt_driver);
+ 	return ret;
+ }
+ // module_init(wifi_dt_init);
+@@ -175,6 +212,7 @@
+ static void __exit wifi_dt_exit(void)
+ {
+ 	platform_driver_unregister(&wifi_plat_driver);
++	platform_driver_unregister(&bt_driver);
+ }
+ module_exit(wifi_dt_exit);
+ 
+@@ -247,6 +285,27 @@
+ 		SHOW_PIN_OWN("power_on_pin2", wifi_info.power_on_pin2);
+ 	}
+ 
++	if (bt_pinctrl) {
++	
++		printk("bt_setup\n");
++		ret = amlogic_gpio_request(GPIOX_10, OWNER_NAME);
++		CHECK_RET(ret);
++		ret = amlogic_gpio_direction_output(GPIOX_10, 1, OWNER_NAME);
++		CHECK_RET(ret);
++		msleep(50);
++		
++		
++		ret = amlogic_gpio_request(GPIOE_11, OWNER_NAME);
++		CHECK_RET(ret);
++		ret = amlogic_gpio_direction_output(GPIOE_11, 0, OWNER_NAME);
++		CHECK_RET(ret);
++		msleep(20);
++				
++		ret = amlogic_gpio_direction_output(GPIOE_11, 1, OWNER_NAME);
++		CHECK_RET(ret);
++		msleep(50);
++	
++	}
+ 	return 0;
+ }
+ EXPORT_SYMBOL(wifi_setup_dt);
