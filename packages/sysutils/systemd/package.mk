@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="218"
+PKG_VERSION="219"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -39,6 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-gtk-doc-html \
                            --disable-gtk-doc-pdf \
                            --disable-python-devel \
+                           --disable-python-devel \
                            --disable-dbus \
                            --disable-utmp \
                            --disable-compat-libs \
@@ -52,6 +53,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-selinux \
                            --disable-apparmor \
                            --disable-xz \
+                           --disable-zlib \
+                           --disable-bzip2 \
                            --disable-lz4 \
                            --disable-pam \
                            --disable-acl \
@@ -77,6 +80,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-rfkill \
                            --enable-logind \
                            --disable-machined \
+                           --disable-importd \
                            --disable-hostnamed \
                            --disable-timedated \
                            --disable-timesyncd \
@@ -90,14 +94,13 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-kdbus \
                            --disable-myhostname \
                            --disable-gudev \
+                           --enable-hwdb \
                            --disable-manpages \
                            --disable-hibernate \
                            --disable-ldconfig \
                            --enable-split-usr \
                            --disable-tests \
-                           --disable-hashmap-debug \
                            --without-python \
-                           --disable-python-devel \
                            --with-sysvinit-path= \
                            --with-sysvrcnd-path= \
                            --with-tty-gid=5 \
@@ -117,7 +120,6 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/lib/rpm
   rm -rf $INSTALL/usr/lib/systemd/user
   rm -rf $INSTALL/usr/lib/tmpfiles.d/etc.conf
-  rm -rf $INSTALL/usr/lib/tmpfiles.d/systemd-remote.conf
   rm -rf $INSTALL/usr/share/factory
   rm -rf $INSTALL/usr/share/zsh
 
@@ -134,17 +136,6 @@ post_makeinstall_target() {
 
   # remove debug-shell.service, we install our own
   rm -rf $INSTALL/usr/lib/systemd/system/debug-shell.service
-
-  # remove systemd-ask-password
-  rm -rf $INSTALL/usr/bin/systemd-ask-password
-  rm -rf $INSTALL/usr/bin/systemd-tty-ask-password-agent
-  rm -rf $INSTALL/usr/lib/systemd/systemd-reply-password
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-console.path
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-console.service
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-wall.path
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-ask-password-wall.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-ask-password-console.path
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-ask-password-wall.path
 
   # remove getty units, we dont want a console
   rm -rf $INSTALL/usr/lib/systemd/system/autovt@.service
@@ -165,23 +156,6 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/lib/systemd/system/systemd-udev-hwdb-update.service
   rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-udev-hwdb-update.service
 
-  # remove rootfs fsck
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-fsck-root.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-fsck-root.service
-
-  # remove fsck
-  rm -rf $INSTALL/usr/lib/systemd/systemd-fsck
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-fsck@.service
-
-  # remove remount fs
-  rm -rf $INSTALL/usr/lib/systemd/systemd-remount-fs
-  rm -rf $INSTALL/usr/lib/systemd/system/systemd-remount-fs.service
-  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-remount-fs.service
-
-  # remove initrd services
-  rm -rf $INSTALL/usr/lib/systemd/system/initrd-*.service
-  rm -rf $INSTALL/usr/lib/systemd/system/initrd-*.target
-
   # remove nspawn
   rm -rf $INSTALL/usr/bin/systemd-nspawn
   rm -rf $INSTALL/usr/lib/systemd/system/systemd-nspawn@.service
@@ -195,9 +169,6 @@ post_makeinstall_target() {
 
   # remove networkd
   rm -rf $INSTALL/usr/lib/systemd/network
-
-  # remove systemd-journal-remote.conf
-  rm -rf $INSTALL/usr/lib/tmpfiles.d/systemd-remote.conf
 
   # tune journald.conf
   sed -e "s,^.*Compress=.*$,Compress=no,g" -i $INSTALL/etc/systemd/journald.conf
