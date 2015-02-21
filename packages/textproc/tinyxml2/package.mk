@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="tinyxml2"
-PKG_VERSION="78d450b"
+PKG_VERSION="1.0.12"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="zlib"
 PKG_SITE="http://www.grinninglizard.com/tinyxml2/index.html"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="textproc"
@@ -36,4 +36,9 @@ configure_target() {
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
         -DCMAKE_INSTALL_PREFIX=/usr \
         ..
+}
+
+post_makeinstall_target() {
+  rm $SYSROOT_PREFIX/usr/lib/libtinyxml2.so*
+  rm -rf $INSTALL/usr
 }
