@@ -39,6 +39,11 @@ fi
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-libusb --enable-drivers=$LCD_DRIVER,!curses,!svga --enable-seamless-hbars"
 
+pre_make_target() {
+  # dont build parallel
+    MAKEFLAGS=-j1
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/etc/lcd*.conf
   rm -rf $INSTALL/usr/bin
