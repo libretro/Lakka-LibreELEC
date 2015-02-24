@@ -48,7 +48,7 @@ fi
 
 get_graphicdrivers
 # Drivers
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xf86-input-evdev"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xf86-input-libinput"
   for drv in $XORG_DRIVERS; do
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xf86-video-$drv"
   done
