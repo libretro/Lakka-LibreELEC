@@ -1,0 +1,3246 @@
+diff -urN a/drivers/media/dvb-core/dvb-usb-ids.h b/drivers/media/dvb-core/dvb-usb-ids.h
+--- a/drivers/media/dvb-core/dvb-usb-ids.h	2014-12-27 21:06:31.575086154 +0200
++++ b/drivers/media/dvb-core/dvb-usb-ids.h	2014-12-27 21:12:45.915075033 +0200
+@@ -285,6 +285,8 @@
+ #define USB_PID_REALTEK_RTL2832U			0x2832
+ #define USB_PID_TECHNOTREND_CONNECT_S2_3600		0x3007
+ #define USB_PID_TECHNOTREND_CONNECT_S2_3650_CI		0x300a
++#define USB_PID_TECHNOTREND_CONNECT_CT2_4650_CI		0x3012
++#define USB_PID_TECHNOTREND_TVSTICK_CT2_4400		0x3014
+ #define USB_PID_NEBULA_DIGITV				0x0201
+ #define USB_PID_DVICO_BLUEBIRD_LGDT			0xd820
+ #define USB_PID_DVICO_BLUEBIRD_LG064F_COLD		0xd500
+diff -urN a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kconfig
+--- a/drivers/media/dvb-frontends/Kconfig	2014-12-27 21:08:23.439082831 +0200
++++ b/drivers/media/dvb-frontends/Kconfig	2014-12-27 21:33:11.363038629 +0200
+@@ -768,6 +768,16 @@
+ 	depends on DVB_CORE && I2C
+ 	default m if !MEDIA_SUBDRV_AUTOSELECT
+ 
++config DVB_SI2168
++	tristate "Afatech AF9033 DVB-T demodulator"
++	depends on DVB_CORE && I2C
++	default m if !MEDIA_SUBDRV_AUTOSELECT
++
++config DVB_SP2
++	tristate "Afatech AF9033 DVB-T demodulator"
++	depends on DVB_CORE && I2C
++	default m if !MEDIA_SUBDRV_AUTOSELECT
++
+ comment "Tools to develop new frontends"
+ 
+ config DVB_DUMMY_FE
+diff -urN a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/Makefile
+--- a/drivers/media/dvb-frontends/Makefile	2014-12-27 21:08:23.439082831 +0200
++++ b/drivers/media/dvb-frontends/Makefile	2014-12-27 21:32:23.591040048 +0200
+@@ -105,5 +105,7 @@
+ obj-$(CONFIG_DVB_RTL2832) += rtl2832.o
+ obj-$(CONFIG_DVB_M88RS2000) += m88rs2000.o
+ obj-$(CONFIG_DVB_AF9033) += af9033.o
++obj-$(CONFIG_DVB_SP2) += sp2.o
++obj-$(CONFIG_DVB_SI2168) += si2168.o
+ obj-$(CONFIG_DVB_DVBSKY_M88DS3103) += dvbsky_m88ds3103.o
+ obj-$(CONFIG_DVB_DVBSKY_M88DC2800) += dvbsky_m88dc2800.o
+diff -urN a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/si2168.c
+--- a/drivers/media/dvb-frontends/si2168.c	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/dvb-frontends/si2168.c	2014-12-27 21:21:55.835058697 +0200
+@@ -0,0 +1,756 @@
++/*
++ * Silicon Labs Si2168 DVB-T/T2/C demodulator driver
++ *
++ * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#include "si2168_priv.h"
++
++static const struct dvb_frontend_ops si2168_ops;
++
++/* execute firmware command */
++static int si2168_cmd_execute(struct si2168 *s, struct si2168_cmd *cmd)
++{
++	int ret;
++	unsigned long timeout;
++
++	mutex_lock(&s->i2c_mutex);
++
++	if (cmd->wlen) {
++		/* write cmd and args for firmware */
++		ret = i2c_master_send(s->client, cmd->args, cmd->wlen);
++		if (ret < 0) {
++			goto err_mutex_unlock;
++		} else if (ret != cmd->wlen) {
++			ret = -EREMOTEIO;
++			goto err_mutex_unlock;
++		}
++	}
++
++	if (cmd->rlen) {
++		/* wait cmd execution terminate */
++		#define TIMEOUT 50
++		timeout = jiffies + msecs_to_jiffies(TIMEOUT);
++		while (!time_after(jiffies, timeout)) {
++			ret = i2c_master_recv(s->client, cmd->args, cmd->rlen);
++			if (ret < 0) {
++				goto err_mutex_unlock;
++			} else if (ret != cmd->rlen) {
++				ret = -EREMOTEIO;
++				goto err_mutex_unlock;
++			}
++
++			/* firmware ready? */
++			if ((cmd->args[0] >> 7) & 0x01)
++				break;
++		}
++
++		dev_dbg(&s->client->dev, "cmd execution took %d ms\n",
++				jiffies_to_msecs(jiffies) -
++				(jiffies_to_msecs(timeout) - TIMEOUT));
++
++		if (!((cmd->args[0] >> 7) & 0x01)) {
++			ret = -ETIMEDOUT;
++			goto err_mutex_unlock;
++		}
++	}
++
++	ret = 0;
++
++err_mutex_unlock:
++	mutex_unlock(&s->i2c_mutex);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_read_status(struct dvb_frontend *fe, fe_status_t *status)
++{
++	struct si2168 *s = fe->demodulator_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int ret;
++	struct si2168_cmd cmd;
++
++	*status = 0;
++
++	if (!s->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	switch (c->delivery_system) {
++	case SYS_DVBT:
++		memcpy(cmd.args, "\xa0\x01", 2);
++		cmd.wlen = 2;
++		cmd.rlen = 13;
++		break;
++	case SYS_DVBC_ANNEX_A:
++		memcpy(cmd.args, "\x90\x01", 2);
++		cmd.wlen = 2;
++		cmd.rlen = 9;
++		break;
++	case SYS_DVBT2:
++		memcpy(cmd.args, "\x50\x01", 2);
++		cmd.wlen = 2;
++		cmd.rlen = 14;
++		break;
++	default:
++		ret = -EINVAL;
++		goto err;
++	}
++
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	/*
++	 * Possible values seen, in order from strong signal to weak:
++	 * 16 0001 0110 full lock
++	 * 1e 0001 1110 partial lock
++	 * 1a 0001 1010 partial lock
++	 * 18 0001 1000 no lock
++	 *
++	 * [b3:b1] lock bits
++	 * [b4] statistics ready? Set in a few secs after lock is gained.
++	 */
++
++	switch ((cmd.args[2] >> 1) & 0x03) {
++	case 0x01:
++		*status = FE_HAS_SIGNAL | FE_HAS_CARRIER;
++		break;
++	case 0x03:
++		*status = FE_HAS_SIGNAL | FE_HAS_CARRIER | FE_HAS_VITERBI |
++				FE_HAS_SYNC | FE_HAS_LOCK;
++		break;
++	}
++
++	s->fe_status = *status;
++
++	if (*status & FE_HAS_LOCK) {
++		c->cnr.len = 1;
++		c->cnr.stat[0].scale = FE_SCALE_DECIBEL;
++		c->cnr.stat[0].svalue = cmd.args[3] * 1000 / 4;
++	} else {
++		c->cnr.len = 1;
++		c->cnr.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
++	}
++
++	dev_dbg(&s->client->dev, "status=%02x args=%*ph\n",
++			*status, cmd.rlen, cmd.args);
++
++	return 0;
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_set_frontend(struct dvb_frontend *fe)
++{
++	struct si2168 *s = fe->demodulator_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int ret;
++	struct si2168_cmd cmd;
++	u8 bandwidth, delivery_system;
++
++	dev_dbg(&s->client->dev,
++			"delivery_system=%u modulation=%u frequency=%u bandwidth_hz=%u symbol_rate=%u inversion=%u, stream_id=%d\n",
++			c->delivery_system, c->modulation,
++			c->frequency, c->bandwidth_hz, c->symbol_rate,
++			c->inversion, c->stream_id);
++
++	if (!s->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	switch (c->delivery_system) {
++	case SYS_DVBT:
++		delivery_system = 0x20;
++		break;
++	case SYS_DVBC_ANNEX_A:
++		delivery_system = 0x30;
++		break;
++	case SYS_DVBT2:
++		delivery_system = 0x70;
++		break;
++	default:
++		ret = -EINVAL;
++		goto err;
++	}
++
++	if (c->bandwidth_hz <= 5000000)
++		bandwidth = 0x05;
++	else if (c->bandwidth_hz <= 6000000)
++		bandwidth = 0x06;
++	else if (c->bandwidth_hz <= 7000000)
++		bandwidth = 0x07;
++	else if (c->bandwidth_hz <= 8000000)
++		bandwidth = 0x08;
++	else if (c->bandwidth_hz <= 9000000)
++		bandwidth = 0x09;
++	else if (c->bandwidth_hz <= 10000000)
++		bandwidth = 0x0a;
++	else
++		bandwidth = 0x0f;
++
++	/* program tuner */
++	if (fe->ops.tuner_ops.set_params) {
++		ret = fe->ops.tuner_ops.set_params(fe);
++		if (ret)
++			goto err;
++	}
++
++	memcpy(cmd.args, "\x88\x02\x02\x02\x02", 5);
++	cmd.wlen = 5;
++	cmd.rlen = 5;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	/* that has no big effect */
++	if (c->delivery_system == SYS_DVBT)
++		memcpy(cmd.args, "\x89\x21\x06\x11\xff\x98", 6);
++	else if (c->delivery_system == SYS_DVBC_ANNEX_A)
++		memcpy(cmd.args, "\x89\x21\x06\x11\x89\xf0", 6);
++	else if (c->delivery_system == SYS_DVBT2)
++		memcpy(cmd.args, "\x89\x21\x06\x11\x89\x20", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 3;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	if (c->delivery_system == SYS_DVBT2) {
++		/* select PLP */
++		cmd.args[0] = 0x52;
++		cmd.args[1] = c->stream_id & 0xff;
++		cmd.args[2] = c->stream_id == NO_STREAM_ID_FILTER ? 0 : 1;
++		cmd.wlen = 3;
++		cmd.rlen = 1;
++		ret = si2168_cmd_execute(s, &cmd);
++		if (ret)
++			goto err;
++	}
++
++	memcpy(cmd.args, "\x51\x03", 2);
++	cmd.wlen = 2;
++	cmd.rlen = 12;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x12\x08\x04", 3);
++	cmd.wlen = 3;
++	cmd.rlen = 3;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x0c\x10\x12\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x06\x10\x24\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x07\x10\x00\x24", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x0a\x10\x00\x00", 6);
++	cmd.args[4] = delivery_system | bandwidth;
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	/* set DVB-C symbol rate */
++	if (c->delivery_system == SYS_DVBC_ANNEX_A) {
++		memcpy(cmd.args, "\x14\x00\x02\x11", 4);
++		cmd.args[4] = (c->symbol_rate / 1000) & 0xff;
++		cmd.args[5] = ((c->symbol_rate / 1000) >> 8) & 0xff;
++		cmd.wlen = 6;
++		cmd.rlen = 4;
++		ret = si2168_cmd_execute(s, &cmd);
++		if (ret)
++			goto err;
++	}
++
++	memcpy(cmd.args, "\x14\x00\x0f\x10\x10\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x09\x10\xe3\x08", 6);
++	cmd.args[5] |= s->ts_clock_inv ? 0x00 : 0x10;
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x08\x10\xd7\x05", 6);
++	cmd.args[5] |= s->ts_clock_inv ? 0x00 : 0x10;
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x01\x12\x00\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x14\x00\x01\x03\x0c\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	memcpy(cmd.args, "\x85", 1);
++	cmd.wlen = 1;
++	cmd.rlen = 1;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	s->delivery_system = c->delivery_system;
++
++	return 0;
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_init(struct dvb_frontend *fe)
++{
++	struct si2168 *s = fe->demodulator_priv;
++	int ret, len, remaining;
++	const struct firmware *fw = NULL;
++	u8 *fw_file;
++	const unsigned int i2c_wr_max = 8;
++	struct si2168_cmd cmd;
++	unsigned int chip_id;
++
++	dev_dbg(&s->client->dev, "\n");
++
++	/* initialize */
++	memcpy(cmd.args, "\xc0\x12\x00\x0c\x00\x0d\x16\x00\x00\x00\x00\x00\x00", 13);
++	cmd.wlen = 13;
++	cmd.rlen = 0;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	if (s->fw_loaded) {
++		/* resume */
++		memcpy(cmd.args, "\xc0\x06\x08\x0f\x00\x20\x21\x01", 8);
++		cmd.wlen = 8;
++		cmd.rlen = 1;
++		ret = si2168_cmd_execute(s, &cmd);
++		if (ret)
++			goto err;
++
++		memcpy(cmd.args, "\x85", 1);
++		cmd.wlen = 1;
++		cmd.rlen = 1;
++		ret = si2168_cmd_execute(s, &cmd);
++		if (ret)
++			goto err;
++
++		goto warm;
++	}
++
++	/* power up */
++	memcpy(cmd.args, "\xc0\x06\x01\x0f\x00\x20\x20\x01", 8);
++	cmd.wlen = 8;
++	cmd.rlen = 1;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	/* query chip revision */
++	memcpy(cmd.args, "\x02", 1);
++	cmd.wlen = 1;
++	cmd.rlen = 13;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	chip_id = cmd.args[1] << 24 | cmd.args[2] << 16 | cmd.args[3] << 8 |
++			cmd.args[4] << 0;
++
++	#define SI2168_A20 ('A' << 24 | 68 << 16 | '2' << 8 | '0' << 0)
++	#define SI2168_A30 ('A' << 24 | 68 << 16 | '3' << 8 | '0' << 0)
++	#define SI2168_B40 ('B' << 24 | 68 << 16 | '4' << 8 | '0' << 0)
++
++	switch (chip_id) {
++	case SI2168_A20:
++		fw_file = SI2168_A20_FIRMWARE;
++		break;
++	case SI2168_A30:
++		fw_file = SI2168_A30_FIRMWARE;
++		break;
++	case SI2168_B40:
++		fw_file = SI2168_B40_FIRMWARE;
++		break;
++	default:
++		dev_err(&s->client->dev,
++				"unknown chip version Si21%d-%c%c%c\n",
++				cmd.args[2], cmd.args[1],
++				cmd.args[3], cmd.args[4]);
++		ret = -EINVAL;
++		goto err;
++	}
++
++	/* cold state - try to download firmware */
++	dev_info(&s->client->dev, "found a '%s' in cold state\n",
++			si2168_ops.info.name);
++
++	/* request the firmware, this will block and timeout */
++	ret = request_firmware(&fw, fw_file, &s->client->dev);
++	if (ret) {
++		/* fallback mechanism to handle old name for Si2168 B40 fw */
++		if (chip_id == SI2168_B40) {
++			fw_file = SI2168_B40_FIRMWARE_FALLBACK;
++			ret = request_firmware(&fw, fw_file, &s->client->dev);
++		}
++
++		if (ret == 0) {
++			dev_notice(&s->client->dev,
++					"please install firmware file '%s'\n",
++					SI2168_B40_FIRMWARE);
++		} else {
++			dev_err(&s->client->dev,
++					"firmware file '%s' not found\n",
++					fw_file);
++			goto error_fw_release;
++		}
++	}
++
++	dev_info(&s->client->dev, "downloading firmware from file '%s'\n",
++			fw_file);
++
++	if ((fw->size % 17 == 0) && (fw->data[0] > 5)) {
++		/* firmware is in the new format */
++		for (remaining = fw->size; remaining > 0; remaining -= 17) {
++			len = fw->data[fw->size - remaining];
++			memcpy(cmd.args, &fw->data[(fw->size - remaining) + 1], len);
++			cmd.wlen = len;
++			cmd.rlen = 1;
++			ret = si2168_cmd_execute(s, &cmd);
++			if (ret) {
++				dev_err(&s->client->dev,
++						"firmware download failed=%d\n",
++						ret);
++				goto error_fw_release;
++			}
++		}
++	} else {
++		/* firmware is in the old format */
++		for (remaining = fw->size; remaining > 0; remaining -= i2c_wr_max) {
++			len = remaining;
++			if (len > i2c_wr_max)
++				len = i2c_wr_max;
++
++			memcpy(cmd.args, &fw->data[fw->size - remaining], len);
++			cmd.wlen = len;
++			cmd.rlen = 1;
++			ret = si2168_cmd_execute(s, &cmd);
++			if (ret) {
++				dev_err(&s->client->dev,
++						"firmware download failed=%d\n",
++						ret);
++				goto error_fw_release;
++			}
++		}
++	}
++
++	release_firmware(fw);
++	fw = NULL;
++
++	memcpy(cmd.args, "\x01\x01", 2);
++	cmd.wlen = 2;
++	cmd.rlen = 1;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	/* query firmware version */
++	memcpy(cmd.args, "\x11", 1);
++	cmd.wlen = 1;
++	cmd.rlen = 10;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	dev_dbg(&s->client->dev, "firmware version: %c.%c.%d\n",
++			cmd.args[6], cmd.args[7], cmd.args[8]);
++
++	/* set ts mode */
++	memcpy(cmd.args, "\x14\x00\x01\x10\x10\x00", 6);
++	cmd.args[4] |= s->ts_mode;
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	s->fw_loaded = true;
++
++	dev_info(&s->client->dev, "found a '%s' in warm state\n",
++			si2168_ops.info.name);
++warm:
++	s->active = true;
++
++	return 0;
++
++error_fw_release:
++	release_firmware(fw);
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_sleep(struct dvb_frontend *fe)
++{
++	struct si2168 *s = fe->demodulator_priv;
++	int ret;
++	struct si2168_cmd cmd;
++
++	dev_dbg(&s->client->dev, "\n");
++
++	s->active = false;
++
++	memcpy(cmd.args, "\x13", 1);
++	cmd.wlen = 1;
++	cmd.rlen = 0;
++	ret = si2168_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_get_tune_settings(struct dvb_frontend *fe,
++	struct dvb_frontend_tune_settings *s)
++{
++	s->min_delay_ms = 900;
++
++	return 0;
++}
++
++/*
++ * I2C gate logic
++ * We must use unlocked i2c_transfer() here because I2C lock is already taken
++ * by tuner driver.
++ */
++static int si2168_select(struct i2c_adapter *adap, void *mux_priv, u32 chan)
++{
++	struct si2168 *s = mux_priv;
++	int ret;
++	struct i2c_msg gate_open_msg = {
++		.addr = s->client->addr,
++		.flags = 0,
++		.len = 3,
++		.buf = "\xc0\x0d\x01",
++	};
++
++	mutex_lock(&s->i2c_mutex);
++
++	/* open tuner I2C gate */
++	ret = __i2c_transfer(s->client->adapter, &gate_open_msg, 1);
++	if (ret != 1) {
++		dev_warn(&s->client->dev, "i2c write failed=%d\n", ret);
++		if (ret >= 0)
++			ret = -EREMOTEIO;
++	} else {
++		ret = 0;
++	}
++
++	return ret;
++}
++
++static int si2168_deselect(struct i2c_adapter *adap, void *mux_priv, u32 chan)
++{
++	struct si2168 *s = mux_priv;
++	int ret;
++	struct i2c_msg gate_close_msg = {
++		.addr = s->client->addr,
++		.flags = 0,
++		.len = 3,
++		.buf = "\xc0\x0d\x00",
++	};
++
++	/* close tuner I2C gate */
++	ret = __i2c_transfer(s->client->adapter, &gate_close_msg, 1);
++	if (ret != 1) {
++		dev_warn(&s->client->dev, "i2c write failed=%d\n", ret);
++		if (ret >= 0)
++			ret = -EREMOTEIO;
++	} else {
++		ret = 0;
++	}
++
++	mutex_unlock(&s->i2c_mutex);
++
++	return ret;
++}
++
++static const struct dvb_frontend_ops si2168_ops = {
++	.delsys = {SYS_DVBT, SYS_DVBT2, SYS_DVBC_ANNEX_A},
++	.info = {
++		.name = "Silicon Labs Si2168",
++		.caps =	FE_CAN_FEC_1_2 |
++			FE_CAN_FEC_2_3 |
++			FE_CAN_FEC_3_4 |
++			FE_CAN_FEC_5_6 |
++			FE_CAN_FEC_7_8 |
++			FE_CAN_FEC_AUTO |
++			FE_CAN_QPSK |
++			FE_CAN_QAM_16 |
++			FE_CAN_QAM_32 |
++			FE_CAN_QAM_64 |
++			FE_CAN_QAM_128 |
++			FE_CAN_QAM_256 |
++			FE_CAN_QAM_AUTO |
++			FE_CAN_TRANSMISSION_MODE_AUTO |
++			FE_CAN_GUARD_INTERVAL_AUTO |
++			FE_CAN_HIERARCHY_AUTO |
++			FE_CAN_MUTE_TS |
++			FE_CAN_2G_MODULATION |
++			FE_CAN_MULTISTREAM
++	},
++
++	.get_tune_settings = si2168_get_tune_settings,
++
++	.init = si2168_init,
++	.sleep = si2168_sleep,
++
++	.set_frontend = si2168_set_frontend,
++
++	.read_status = si2168_read_status,
++};
++
++static int si2168_probe(struct i2c_client *client,
++		const struct i2c_device_id *id)
++{
++	struct si2168_config *config = client->dev.platform_data;
++	struct si2168 *s;
++	int ret;
++
++	dev_dbg(&client->dev, "\n");
++
++	s = kzalloc(sizeof(struct si2168), GFP_KERNEL);
++	if (!s) {
++		ret = -ENOMEM;
++		dev_err(&client->dev, "kzalloc() failed\n");
++		goto err;
++	}
++
++	s->client = client;
++	mutex_init(&s->i2c_mutex);
++
++	/* create mux i2c adapter for tuner */
++	s->adapter = i2c_add_mux_adapter(client->adapter, &client->dev, s,
++			0, 0, 0, si2168_select, si2168_deselect);
++	if (s->adapter == NULL) {
++		ret = -ENODEV;
++		goto err;
++	}
++
++	/* create dvb_frontend */
++	memcpy(&s->fe.ops, &si2168_ops, sizeof(struct dvb_frontend_ops));
++	s->fe.demodulator_priv = s;
++
++	*config->i2c_adapter = s->adapter;
++	*config->fe = &s->fe;
++	s->ts_mode = config->ts_mode;
++	s->ts_clock_inv = config->ts_clock_inv;
++	s->fw_loaded = false;
++
++	i2c_set_clientdata(client, s);
++
++	dev_info(&s->client->dev,
++			"Silicon Labs Si2168 successfully attached\n");
++	return 0;
++err:
++	kfree(s);
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_remove(struct i2c_client *client)
++{
++	struct si2168 *s = i2c_get_clientdata(client);
++
++	dev_dbg(&client->dev, "\n");
++
++	i2c_del_mux_adapter(s->adapter);
++
++	s->fe.ops.release = NULL;
++	s->fe.demodulator_priv = NULL;
++
++	kfree(s);
++
++	return 0;
++}
++
++static const struct i2c_device_id si2168_id[] = {
++	{"si2168", 0},
++	{}
++};
++MODULE_DEVICE_TABLE(i2c, si2168_id);
++
++static struct i2c_driver si2168_driver = {
++	.driver = {
++		.owner	= THIS_MODULE,
++		.name	= "si2168",
++	},
++	.probe		= si2168_probe,
++	.remove		= si2168_remove,
++	.id_table	= si2168_id,
++};
++
++module_i2c_driver(si2168_driver);
++
++MODULE_AUTHOR("Antti Palosaari <crope@iki.fi>");
++MODULE_DESCRIPTION("Silicon Labs Si2168 DVB-T/T2/C demodulator driver");
++MODULE_LICENSE("GPL");
++MODULE_FIRMWARE(SI2168_A20_FIRMWARE);
++MODULE_FIRMWARE(SI2168_A30_FIRMWARE);
++MODULE_FIRMWARE(SI2168_B40_FIRMWARE);
+diff -urN a/drivers/media/dvb-frontends/si2168.h b/drivers/media/dvb-frontends/si2168.h
+--- a/drivers/media/dvb-frontends/si2168.h	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/dvb-frontends/si2168.h	2014-12-27 21:21:55.839058697 +0200
+@@ -0,0 +1,49 @@
++/*
++ * Silicon Labs Si2168 DVB-T/T2/C demodulator driver
++ *
++ * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#ifndef SI2168_H
++#define SI2168_H
++
++#include <linux/dvb/frontend.h>
++/*
++ * I2C address
++ * 0x64
++ */
++struct si2168_config {
++	/*
++	 * frontend
++	 * returned by driver
++	 */
++	struct dvb_frontend **fe;
++
++	/*
++	 * tuner I2C adapter
++	 * returned by driver
++	 */
++	struct i2c_adapter **i2c_adapter;
++
++	/* TS mode */
++	u8 ts_mode;
++
++	/* TS clock inverted */
++	bool ts_clock_inv;
++
++};
++
++#define SI2168_TS_PARALLEL	0x06
++#define SI2168_TS_SERIAL	0x03
++
++#endif
+diff -urN a/drivers/media/dvb-frontends/si2168_priv.h b/drivers/media/dvb-frontends/si2168_priv.h
+--- a/drivers/media/dvb-frontends/si2168_priv.h	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/dvb-frontends/si2168_priv.h	2014-12-27 21:21:55.839058697 +0200
+@@ -0,0 +1,52 @@
++/*
++ * Silicon Labs Si2168 DVB-T/T2/C demodulator driver
++ *
++ * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#ifndef SI2168_PRIV_H
++#define SI2168_PRIV_H
++
++#include "si2168.h"
++#include "dvb_frontend.h"
++#include <linux/firmware.h>
++#include <linux/i2c-mux.h>
++
++#define SI2168_A20_FIRMWARE "dvb-demod-si2168-a20-01.fw"
++#define SI2168_A30_FIRMWARE "dvb-demod-si2168-a30-01.fw"
++#define SI2168_B40_FIRMWARE "dvb-demod-si2168-b40-01.fw"
++#define SI2168_B40_FIRMWARE_FALLBACK "dvb-demod-si2168-02.fw"
++
++/* state struct */
++struct si2168 {
++	struct i2c_client *client;
++	struct i2c_adapter *adapter;
++	struct mutex i2c_mutex;
++	struct dvb_frontend fe;
++	fe_delivery_system_t delivery_system;
++	fe_status_t fe_status;
++	bool active;
++	bool fw_loaded;
++	u8 ts_mode;
++	bool ts_clock_inv;
++};
++
++/* firmare command struct */
++#define SI2168_ARGLEN      30
++struct si2168_cmd {
++	u8 args[SI2168_ARGLEN];
++	unsigned wlen;
++	unsigned rlen;
++};
++
++#endif
+diff -urN a/drivers/media/dvb-frontends/sp2.c b/drivers/media/dvb-frontends/sp2.c
+--- a/drivers/media/dvb-frontends/sp2.c	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/dvb-frontends/sp2.c	2014-12-27 21:21:50.199058864 +0200
+@@ -0,0 +1,444 @@
++/*
++ * CIMaX SP2/SP2HF (Atmel T90FJR) CI driver
++ *
++ * Copyright (C) 2014 Olli Salonen <olli.salonen@iki.fi>
++ *
++ * Heavily based on CIMax2(R) SP2 driver in conjunction with NetUp Dual
++ * DVB-S2 CI card (cimax2) with following copyrights:
++ *
++ *  Copyright (C) 2009 NetUP Inc.
++ *  Copyright (C) 2009 Igor M. Liplianin <liplianin@netup.ru>
++ *  Copyright (C) 2009 Abylay Ospan <aospan@netup.ru>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#include "sp2_priv.h"
++
++static int sp2_read_i2c(struct sp2 *s, u8 reg, u8 *buf, int len)
++{
++	int ret;
++	struct i2c_client *client = s->client;
++	struct i2c_adapter *adap = client->adapter;
++	struct i2c_msg msg[] = {
++		{
++			.addr = client->addr,
++			.flags = 0,
++			.buf = &reg,
++			.len = 1
++		}, {
++			.addr = client->addr,
++			.flags	= I2C_M_RD,
++			.buf = buf,
++			.len = len
++		}
++	};
++
++	ret = i2c_transfer(adap, msg, 2);
++
++	if (ret != 2) {
++		dev_err(&client->dev, "i2c read error, reg = 0x%02x, status = %d\n",
++				reg, ret);
++		if (ret < 0)
++			return ret;
++		else
++			return -EIO;
++	}
++
++	dev_dbg(&s->client->dev, "addr=0x%04x, reg = 0x%02x, data = %02x\n",
++				client->addr, reg, buf[0]);
++
++	return 0;
++}
++
++static int sp2_write_i2c(struct sp2 *s, u8 reg, u8 *buf, int len)
++{
++	int ret;
++	u8 buffer[35];
++	struct i2c_client *client = s->client;
++	struct i2c_adapter *adap = client->adapter;
++	struct i2c_msg msg = {
++		.addr = client->addr,
++		.flags = 0,
++		.buf = &buffer[0],
++		.len = len + 1
++	};
++
++	if ((len + 1) > sizeof(buffer)) {
++		dev_err(&client->dev, "i2c wr reg=%02x: len=%d is too big!\n",
++				reg, len);
++		return -EINVAL;
++	}
++
++	buffer[0] = reg;
++	memcpy(&buffer[1], buf, len);
++
++	ret = i2c_transfer(adap, &msg, 1);
++
++	if (ret != 1) {
++		dev_err(&client->dev, "i2c write error, reg = 0x%02x, status = %d\n",
++				reg, ret);
++		if (ret < 0)
++			return ret;
++		else
++			return -EIO;
++	}
++
++	dev_dbg(&s->client->dev, "addr=0x%04x, reg = 0x%02x, data = %*ph\n",
++				client->addr, reg, len, buf);
++
++	return 0;
++}
++
++static int sp2_ci_op_cam(struct dvb_ca_en50221 *en50221, int slot, u8 acs,
++			u8 read, int addr, u8 data)
++{
++	struct sp2 *s = en50221->data;
++	u8 store;
++	int mem, ret;
++	int (*ci_op_cam)(void*, u8, int, u8, int*) = s->ci_control;
++
++	if (slot != 0)
++		return -EINVAL;
++
++	/*
++	 * change module access type between IO space and attribute memory
++	 * when needed
++	 */
++	if (s->module_access_type != acs) {
++		ret = sp2_read_i2c(s, 0x00, &store, 1);
++
++		if (ret)
++			return ret;
++
++		store &= ~(SP2_MOD_CTL_ACS1 | SP2_MOD_CTL_ACS0);
++		store |= acs;
++
++		ret = sp2_write_i2c(s, 0x00, &store, 1);
++		if (ret)
++			return ret;
++	}
++
++	s->module_access_type = acs;
++
++	/* implementation of ci_op_cam is device specific */
++	if (ci_op_cam) {
++		ret = ci_op_cam(s->priv, read, addr, data, &mem);
++	} else {
++		dev_err(&s->client->dev, "callback not defined");
++		return -EINVAL;
++	}
++
++	if (ret)
++		return ret;
++
++	dev_dbg(&s->client->dev, "%s: slot=%d, addr=0x%04x, %s, data=%x",
++			(read) ? "read" : "write", slot, addr,
++			(acs == SP2_CI_ATTR_ACS) ? "attr" : "io",
++			(read) ? mem : data);
++
++	if (read)
++		return mem;
++	else
++		return 0;
++
++}
++
++int sp2_ci_read_attribute_mem(struct dvb_ca_en50221 *en50221,
++				int slot, int addr)
++{
++	return sp2_ci_op_cam(en50221, slot, SP2_CI_ATTR_ACS,
++			SP2_CI_RD, addr, 0);
++}
++
++int sp2_ci_write_attribute_mem(struct dvb_ca_en50221 *en50221,
++				int slot, int addr, u8 data)
++{
++	return sp2_ci_op_cam(en50221, slot, SP2_CI_ATTR_ACS,
++			SP2_CI_WR, addr, data);
++}
++
++int sp2_ci_read_cam_control(struct dvb_ca_en50221 *en50221,
++				int slot, u8 addr)
++{
++	return sp2_ci_op_cam(en50221, slot, SP2_CI_IO_ACS,
++			SP2_CI_RD, addr, 0);
++}
++
++int sp2_ci_write_cam_control(struct dvb_ca_en50221 *en50221,
++				int slot, u8 addr, u8 data)
++{
++	return sp2_ci_op_cam(en50221, slot, SP2_CI_IO_ACS,
++			SP2_CI_WR, addr, data);
++}
++
++int sp2_ci_slot_reset(struct dvb_ca_en50221 *en50221, int slot)
++{
++	struct sp2 *s = en50221->data;
++	u8 buf;
++	int ret;
++
++	dev_dbg(&s->client->dev, "slot: %d\n", slot);
++
++	if (slot != 0)
++		return -EINVAL;
++
++	/* RST on */
++	buf = SP2_MOD_CTL_RST;
++	ret = sp2_write_i2c(s, 0x00, &buf, 1);
++
++	if (ret)
++		return ret;
++
++	usleep_range(500, 600);
++
++	/* RST off */
++	buf = 0x00;
++	ret = sp2_write_i2c(s, 0x00, &buf, 1);
++
++	if (ret)
++		return ret;
++
++	msleep(1000);
++
++	return 0;
++}
++
++int sp2_ci_slot_shutdown(struct dvb_ca_en50221 *en50221, int slot)
++{
++	struct sp2 *s = en50221->data;
++
++	dev_dbg(&s->client->dev, "slot:%d\n", slot);
++
++	/* not implemented */
++	return 0;
++}
++
++int sp2_ci_slot_ts_enable(struct dvb_ca_en50221 *en50221, int slot)
++{
++	struct sp2 *s = en50221->data;
++	u8 buf;
++
++	dev_dbg(&s->client->dev, "slot:%d\n", slot);
++
++	if (slot != 0)
++		return -EINVAL;
++
++	sp2_read_i2c(s, 0x00, &buf, 1);
++
++	/* disable bypass and enable TS */
++	buf |= (SP2_MOD_CTL_TSOEN | SP2_MOD_CTL_TSIEN);
++	return sp2_write_i2c(s, 0, &buf, 1);
++}
++
++int sp2_ci_poll_slot_status(struct dvb_ca_en50221 *en50221,
++				int slot, int open)
++{
++	struct sp2 *s = en50221->data;
++	u8 buf[2];
++	int ret;
++
++	dev_dbg(&s->client->dev, "slot:%d open:%d\n", slot, open);
++
++	/*
++	 * CAM module INSERT/REMOVE processing. Slow operation because of i2c
++	 * transfers. Throttle read to one per sec.
++	 */
++	if (time_after(jiffies, s->next_status_checked_time)) {
++		ret = sp2_read_i2c(s, 0x00, buf, 1);
++		s->next_status_checked_time = jiffies +	msecs_to_jiffies(1000);
++
++		if (ret)
++			return 0;
++
++		if (buf[0] & SP2_MOD_CTL_DET)
++			s->status = DVB_CA_EN50221_POLL_CAM_PRESENT |
++					DVB_CA_EN50221_POLL_CAM_READY;
++		else
++			s->status = 0;
++	}
++
++	return s->status;
++}
++
++static int sp2_init(struct sp2 *s)
++{
++	int ret = 0;
++	u8 buf;
++	u8 cimax_init[34] = {
++		0x00, /* module A control*/
++		0x00, /* auto select mask high A */
++		0x00, /* auto select mask low A */
++		0x00, /* auto select pattern high A */
++		0x00, /* auto select pattern low A */
++		0x44, /* memory access time A, 600 ns */
++		0x00, /* invert input A */
++		0x00, /* RFU */
++		0x00, /* RFU */
++		0x00, /* module B control*/
++		0x00, /* auto select mask high B */
++		0x00, /* auto select mask low B */
++		0x00, /* auto select pattern high B */
++		0x00, /* auto select pattern low B */
++		0x44, /* memory access time B, 600 ns */
++		0x00, /* invert input B */
++		0x00, /* RFU */
++		0x00, /* RFU */
++		0x00, /* auto select mask high Ext */
++		0x00, /* auto select mask low Ext */
++		0x00, /* auto select pattern high Ext */
++		0x00, /* auto select pattern low Ext */
++		0x00, /* RFU */
++		0x02, /* destination - module A */
++		0x01, /* power control reg, VCC power on */
++		0x00, /* RFU */
++		0x00, /* int status read only */
++		0x00, /* Interrupt Mask Register */
++		0x05, /* EXTINT=active-high, INT=push-pull */
++		0x00, /* USCG1 */
++		0x04, /* ack active low */
++		0x00, /* LOCK = 0 */
++		0x22, /* unknown */
++		0x00, /* synchronization? */
++	};
++
++	dev_dbg(&s->client->dev, "\n");
++
++	s->ca.owner = THIS_MODULE;
++	s->ca.read_attribute_mem = sp2_ci_read_attribute_mem;
++	s->ca.write_attribute_mem = sp2_ci_write_attribute_mem;
++	s->ca.read_cam_control = sp2_ci_read_cam_control;
++	s->ca.write_cam_control = sp2_ci_write_cam_control;
++	s->ca.slot_reset = sp2_ci_slot_reset;
++	s->ca.slot_shutdown = sp2_ci_slot_shutdown;
++	s->ca.slot_ts_enable = sp2_ci_slot_ts_enable;
++	s->ca.poll_slot_status = sp2_ci_poll_slot_status;
++	s->ca.data = s;
++	s->module_access_type = 0;
++
++	/* initialize all regs */
++	ret = sp2_write_i2c(s, 0x00, &cimax_init[0], 34);
++	if (ret)
++		goto err;
++
++	/* lock registers */
++	buf = 1;
++	ret = sp2_write_i2c(s, 0x1f, &buf, 1);
++	if (ret)
++		goto err;
++
++	/* power on slots */
++	ret = sp2_write_i2c(s, 0x18, &buf, 1);
++	if (ret)
++		goto err;
++
++	ret = dvb_ca_en50221_init(s->dvb_adap, &s->ca, 0, 1);
++	if (ret)
++		goto err;
++
++	return 0;
++
++err:
++	dev_dbg(&s->client->dev, "init failed=%d\n", ret);
++	return ret;
++}
++
++static int sp2_exit(struct i2c_client *client)
++{
++	struct sp2 *s;
++
++	dev_dbg(&client->dev, "\n");
++
++	if (client == NULL)
++		return 0;
++
++	s = i2c_get_clientdata(client);
++	if (s == NULL)
++		return 0;
++
++	if (s->ca.data == NULL)
++		return 0;
++
++	dvb_ca_en50221_release(&s->ca);
++
++	return 0;
++}
++
++static int sp2_probe(struct i2c_client *client,
++		const struct i2c_device_id *id)
++{
++	struct sp2_config *cfg = client->dev.platform_data;
++	struct sp2 *s;
++	int ret;
++
++	dev_dbg(&client->dev, "\n");
++
++	s = kzalloc(sizeof(struct sp2), GFP_KERNEL);
++	if (!s) {
++		ret = -ENOMEM;
++		dev_err(&client->dev, "kzalloc() failed\n");
++		goto err;
++	}
++
++	s->client = client;
++	s->dvb_adap = cfg->dvb_adap;
++	s->priv = cfg->priv;
++	s->ci_control = cfg->ci_control;
++
++	i2c_set_clientdata(client, s);
++
++	ret = sp2_init(s);
++	if (ret)
++		goto err;
++
++	dev_info(&s->client->dev, "CIMaX SP2 successfully attached\n");
++	return 0;
++err:
++	dev_dbg(&client->dev, "init failed=%d\n", ret);
++	kfree(s);
++
++	return ret;
++}
++
++static int sp2_remove(struct i2c_client *client)
++{
++	struct sp2 *s = i2c_get_clientdata(client);
++
++	dev_dbg(&client->dev, "\n");
++
++	sp2_exit(client);
++	if (s != NULL)
++		kfree(s);
++
++	return 0;
++}
++
++static const struct i2c_device_id sp2_id[] = {
++	{"sp2", 0},
++	{}
++};
++MODULE_DEVICE_TABLE(i2c, sp2_id);
++
++static struct i2c_driver sp2_driver = {
++	.driver = {
++		.owner	= THIS_MODULE,
++		.name	= "sp2",
++	},
++	.probe		= sp2_probe,
++	.remove		= sp2_remove,
++	.id_table	= sp2_id,
++};
++
++module_i2c_driver(sp2_driver);
++
++MODULE_DESCRIPTION("CIMaX SP2/HF CI driver");
++MODULE_AUTHOR("Olli Salonen <olli.salonen@iki.fi>");
++MODULE_LICENSE("GPL");
+diff -urN a/drivers/media/dvb-frontends/sp2.h b/drivers/media/dvb-frontends/sp2.h
+--- a/drivers/media/dvb-frontends/sp2.h	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/dvb-frontends/sp2.h	2014-12-27 21:21:50.199058864 +0200
+@@ -0,0 +1,53 @@
++/*
++ * CIMaX SP2/HF CI driver
++ *
++ * Copyright (C) 2014 Olli Salonen <olli.salonen@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#ifndef SP2_H
++#define SP2_H
++
++#include <linux/kconfig.h>
++#include "dvb_ca_en50221.h"
++
++/*
++ * I2C address
++ * 0x40 (port 0)
++ * 0x41 (port 1)
++ */
++struct sp2_config {
++	/* dvb_adapter to attach the ci to */
++	struct dvb_adapter *dvb_adap;
++
++	/* function ci_control handles the device specific ci ops */
++	void *ci_control;
++
++	/* priv is passed back to function ci_control */
++	void *priv;
++};
++
++extern int sp2_ci_read_attribute_mem(struct dvb_ca_en50221 *en50221,
++					int slot, int addr);
++extern int sp2_ci_write_attribute_mem(struct dvb_ca_en50221 *en50221,
++					int slot, int addr, u8 data);
++extern int sp2_ci_read_cam_control(struct dvb_ca_en50221 *en50221,
++					int slot, u8 addr);
++extern int sp2_ci_write_cam_control(struct dvb_ca_en50221 *en50221,
++					int slot, u8 addr, u8 data);
++extern int sp2_ci_slot_reset(struct dvb_ca_en50221 *en50221, int slot);
++extern int sp2_ci_slot_shutdown(struct dvb_ca_en50221 *en50221, int slot);
++extern int sp2_ci_slot_ts_enable(struct dvb_ca_en50221 *en50221, int slot);
++extern int sp2_ci_poll_slot_status(struct dvb_ca_en50221 *en50221,
++					int slot, int open);
++
++#endif
+diff -urN a/drivers/media/dvb-frontends/sp2_priv.h b/drivers/media/dvb-frontends/sp2_priv.h
+--- a/drivers/media/dvb-frontends/sp2_priv.h	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/dvb-frontends/sp2_priv.h	2014-12-27 21:21:50.199058864 +0200
+@@ -0,0 +1,50 @@
++/*
++ * CIMaX SP2/HF CI driver
++ *
++ * Copyright (C) 2014 Olli Salonen <olli.salonen@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#ifndef SP2_PRIV_H
++#define SP2_PRIV_H
++
++#include "sp2.h"
++#include "dvb_frontend.h"
++
++/* state struct */
++struct sp2 {
++	int status;
++	struct i2c_client *client;
++	struct dvb_adapter *dvb_adap;
++	struct dvb_ca_en50221 ca;
++	int module_access_type;
++	unsigned long next_status_checked_time;
++	void *priv;
++	void *ci_control;
++};
++
++#define SP2_CI_ATTR_ACS		0x00
++#define SP2_CI_IO_ACS		0x04
++#define SP2_CI_WR		0
++#define SP2_CI_RD		1
++
++/* Module control register (0x00 module A, 0x09 module B) bits */
++#define SP2_MOD_CTL_DET		0x01
++#define SP2_MOD_CTL_AUTO	0x02
++#define SP2_MOD_CTL_ACS0	0x04
++#define SP2_MOD_CTL_ACS1	0x08
++#define SP2_MOD_CTL_HAD		0x10
++#define SP2_MOD_CTL_TSIEN	0x20
++#define SP2_MOD_CTL_TSOEN	0x40
++#define SP2_MOD_CTL_RST		0x80
++
++#endif
+diff -urN a/drivers/media/tuners/Kconfig b/drivers/media/tuners/Kconfig
+--- a/drivers/media/tuners/Kconfig	2014-11-02 15:07:13.000000000 +0200
++++ b/drivers/media/tuners/Kconfig	2014-12-28 08:42:23.537845838 +0200
+@@ -242,4 +242,11 @@
+ 	default m if !MEDIA_SUBDRV_AUTOSELECT
+ 	help
+ 	  Rafael Micro R820T silicon tuner driver.
++
++config MEDIA_TUNER_SI2157
++	tristate "Silicon Labs Si2157 silicon tuner"
++	depends on MEDIA_SUPPORT && I2C
++	default m if !MEDIA_SUBDRV_AUTOSELECT
++	help
++	  Si2157 silicon tuner driver.
+ endmenu
+diff -urN a/drivers/media/tuners/Makefile b/drivers/media/tuners/Makefile
+--- a/drivers/media/tuners/Makefile	2014-11-02 15:07:13.000000000 +0200
++++ b/drivers/media/tuners/Makefile	2014-12-27 21:35:31.375034470 +0200
+@@ -37,6 +37,7 @@
+ obj-$(CONFIG_MEDIA_TUNER_FC0013) += fc0013.o
+ obj-$(CONFIG_MEDIA_TUNER_IT913X) += tuner_it913x.o
+ obj-$(CONFIG_MEDIA_TUNER_R820T) += r820t.o
++obj-$(CONFIG_MEDIA_TUNER_SI2157) += si2157.o
+ 
+ ccflags-y += -I$(srctree)/drivers/media/dvb-core
+ ccflags-y += -I$(srctree)/drivers/media/dvb-frontends
+diff -urN a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
+--- a/drivers/media/tuners/si2157.c	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/tuners/si2157.c	2014-12-27 21:35:08.859035139 +0200
+@@ -0,0 +1,417 @@
++/*
++ * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
++ *
++ * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#include "si2157_priv.h"
++
++static const struct dvb_tuner_ops si2157_ops;
++
++/* execute firmware command */
++static int si2157_cmd_execute(struct si2157 *s, struct si2157_cmd *cmd)
++{
++	int ret;
++	unsigned long timeout;
++
++	mutex_lock(&s->i2c_mutex);
++
++	if (cmd->wlen) {
++		/* write cmd and args for firmware */
++		ret = i2c_master_send(s->client, cmd->args, cmd->wlen);
++		if (ret < 0) {
++			goto err_mutex_unlock;
++		} else if (ret != cmd->wlen) {
++			ret = -EREMOTEIO;
++			goto err_mutex_unlock;
++		}
++	}
++
++	if (cmd->rlen) {
++		/* wait cmd execution terminate */
++		#define TIMEOUT 80
++		timeout = jiffies + msecs_to_jiffies(TIMEOUT);
++		while (!time_after(jiffies, timeout)) {
++			ret = i2c_master_recv(s->client, cmd->args, cmd->rlen);
++			if (ret < 0) {
++				goto err_mutex_unlock;
++			} else if (ret != cmd->rlen) {
++				ret = -EREMOTEIO;
++				goto err_mutex_unlock;
++			}
++
++			/* firmware ready? */
++			if ((cmd->args[0] >> 7) & 0x01)
++				break;
++		}
++
++		dev_dbg(&s->client->dev, "cmd execution took %d ms\n",
++				jiffies_to_msecs(jiffies) -
++				(jiffies_to_msecs(timeout) - TIMEOUT));
++
++		if (!((cmd->args[0] >> 7) & 0x01)) {
++			ret = -ETIMEDOUT;
++			goto err_mutex_unlock;
++		}
++	}
++
++	ret = 0;
++
++err_mutex_unlock:
++	mutex_unlock(&s->i2c_mutex);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2157_init(struct dvb_frontend *fe)
++{
++	struct si2157 *s = fe->tuner_priv;
++	int ret, len, remaining;
++	struct si2157_cmd cmd;
++	const struct firmware *fw = NULL;
++	u8 *fw_file;
++	unsigned int chip_id;
++
++	dev_dbg(&s->client->dev, "\n");
++
++	if (s->fw_loaded)
++		goto warm;
++
++	/* power up */
++	if (s->chiptype == SI2157_CHIPTYPE_SI2146) {
++		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
++		cmd.wlen = 9;
++	} else {
++		memcpy(cmd.args, "\xc0\x00\x0c\x00\x00\x01\x01\x01\x01\x01\x01\x02\x00\x00\x01", 15);
++		cmd.wlen = 15;
++	}
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	/* query chip revision */
++	memcpy(cmd.args, "\x02", 1);
++	cmd.wlen = 1;
++	cmd.rlen = 13;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	chip_id = cmd.args[1] << 24 | cmd.args[2] << 16 | cmd.args[3] << 8 |
++			cmd.args[4] << 0;
++
++	#define SI2158_A20 ('A' << 24 | 58 << 16 | '2' << 8 | '0' << 0)
++	#define SI2148_A20 ('A' << 24 | 48 << 16 | '2' << 8 | '0' << 0)
++	#define SI2157_A30 ('A' << 24 | 57 << 16 | '3' << 8 | '0' << 0)
++	#define SI2147_A30 ('A' << 24 | 47 << 16 | '3' << 8 | '0' << 0)
++	#define SI2146_A10 ('A' << 24 | 46 << 16 | '1' << 8 | '0' << 0)
++
++	switch (chip_id) {
++	case SI2158_A20:
++	case SI2148_A20:
++		fw_file = SI2158_A20_FIRMWARE;
++		break;
++	case SI2157_A30:
++	case SI2147_A30:
++	case SI2146_A10:
++		goto skip_fw_download;
++	default:
++		dev_err(&s->client->dev,
++				"unknown chip version Si21%d-%c%c%c\n",
++				cmd.args[2], cmd.args[1],
++				cmd.args[3], cmd.args[4]);
++		ret = -EINVAL;
++		goto err;
++	}
++
++	/* cold state - try to download firmware */
++	dev_info(&s->client->dev, "found a '%s' in cold state\n",
++			si2157_ops.info.name);
++
++	/* request the firmware, this will block and timeout */
++	ret = request_firmware(&fw, fw_file, &s->client->dev);
++	if (ret) {
++		dev_err(&s->client->dev, "firmware file '%s' not found\n",
++				fw_file);
++		goto err;
++	}
++
++	/* firmware should be n chunks of 17 bytes */
++	if (fw->size % 17 != 0) {
++		dev_err(&s->client->dev, "firmware file '%s' is invalid\n",
++				fw_file);
++		ret = -EINVAL;
++		goto fw_release_exit;
++	}
++
++	dev_info(&s->client->dev, "downloading firmware from file '%s'\n",
++			fw_file);
++
++	for (remaining = fw->size; remaining > 0; remaining -= 17) {
++		len = fw->data[fw->size - remaining];
++		memcpy(cmd.args, &fw->data[(fw->size - remaining) + 1], len);
++		cmd.wlen = len;
++		cmd.rlen = 1;
++		ret = si2157_cmd_execute(s, &cmd);
++		if (ret) {
++			dev_err(&s->client->dev,
++					"firmware download failed=%d\n",
++					ret);
++			goto fw_release_exit;
++		}
++	}
++
++	release_firmware(fw);
++	fw = NULL;
++
++skip_fw_download:
++	/* reboot the tuner with new firmware? */
++	memcpy(cmd.args, "\x01\x01", 2);
++	cmd.wlen = 2;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	s->fw_loaded = true;
++
++warm:
++	s->active = true;
++	return 0;
++
++fw_release_exit:
++	release_firmware(fw);
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2157_sleep(struct dvb_frontend *fe)
++{
++	struct si2157 *s = fe->tuner_priv;
++	int ret;
++	struct si2157_cmd cmd;
++
++	dev_dbg(&s->client->dev, "\n");
++
++	s->active = false;
++
++	/* standby */
++	memcpy(cmd.args, "\x16\x00", 2);
++	cmd.wlen = 2;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2157_set_params(struct dvb_frontend *fe)
++{
++	struct si2157 *s = fe->tuner_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int ret;
++	struct si2157_cmd cmd;
++	u8 bandwidth, delivery_system;
++
++	dev_dbg(&s->client->dev,
++			"delivery_system=%d frequency=%u bandwidth_hz=%u\n",
++			c->delivery_system, c->frequency,
++			c->bandwidth_hz);
++
++	if (!s->active) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	if (c->bandwidth_hz <= 6000000)
++		bandwidth = 0x06;
++	else if (c->bandwidth_hz <= 7000000)
++		bandwidth = 0x07;
++	else if (c->bandwidth_hz <= 8000000)
++		bandwidth = 0x08;
++	else
++		bandwidth = 0x0f;
++
++	switch (c->delivery_system) {
++	case SYS_ATSC:
++			delivery_system = 0x00;
++			break;
++	case SYS_DVBC_ANNEX_B:
++			delivery_system = 0x10;
++			break;
++	case SYS_DVBT:
++	case SYS_DVBT2: /* it seems DVB-T and DVB-T2 both are 0x20 here */
++			delivery_system = 0x20;
++			break;
++	case SYS_DVBC_ANNEX_A:
++			delivery_system = 0x30;
++			break;
++	default:
++			ret = -EINVAL;
++			goto err;
++	}
++
++	memcpy(cmd.args, "\x14\x00\x03\x07\x00\x00", 6);
++	cmd.args[4] = delivery_system | bandwidth;
++	if (s->inversion)
++		cmd.args[5] = 0x01;
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	if (s->chiptype == SI2157_CHIPTYPE_SI2146)
++		memcpy(cmd.args, "\x14\x00\x02\x07\x00\x01", 6);
++	else
++		memcpy(cmd.args, "\x14\x00\x02\x07\x01\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 4;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	/* set frequency */
++	memcpy(cmd.args, "\x41\x00\x00\x00\x00\x00\x00\x00", 8);
++	cmd.args[4] = (c->frequency >>  0) & 0xff;
++	cmd.args[5] = (c->frequency >>  8) & 0xff;
++	cmd.args[6] = (c->frequency >> 16) & 0xff;
++	cmd.args[7] = (c->frequency >> 24) & 0xff;
++	cmd.wlen = 8;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	dev_dbg(&s->client->dev, "failed=%d\n", ret);
++	return ret;
++}
++
++static int si2157_get_if_frequency(struct dvb_frontend *fe, u32 *frequency)
++{
++	*frequency = 5000000; /* default value of property 0x0706 */
++	return 0;
++}
++
++static const struct dvb_tuner_ops si2157_ops = {
++	.info = {
++		.name           = "Silicon Labs Si2146/2147/2148/2157/2158",
++		.frequency_min  = 110000000,
++		.frequency_max  = 862000000,
++	},
++
++	.init = si2157_init,
++	.sleep = si2157_sleep,
++	.set_params = si2157_set_params,
++	.get_if_frequency = si2157_get_if_frequency,
++};
++
++static int si2157_probe(struct i2c_client *client,
++		const struct i2c_device_id *id)
++{
++	struct si2157_config *cfg = client->dev.platform_data;
++	struct dvb_frontend *fe = cfg->fe;
++	struct si2157 *s;
++	struct si2157_cmd cmd;
++	int ret;
++
++	s = kzalloc(sizeof(struct si2157), GFP_KERNEL);
++	if (!s) {
++		ret = -ENOMEM;
++		dev_err(&client->dev, "kzalloc() failed\n");
++		goto err;
++	}
++
++	s->client = client;
++	s->fe = cfg->fe;
++	s->inversion = cfg->inversion;
++	s->fw_loaded = false;
++	s->chiptype = (u8)id->driver_data;
++	mutex_init(&s->i2c_mutex);
++
++	/* check if the tuner is there */
++	cmd.wlen = 0;
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(s, &cmd);
++	if (ret)
++		goto err;
++
++	fe->tuner_priv = s;
++	memcpy(&fe->ops.tuner_ops, &si2157_ops,
++			sizeof(struct dvb_tuner_ops));
++
++	i2c_set_clientdata(client, s);
++
++	dev_info(&s->client->dev,
++			"Silicon Labs %s successfully attached\n",
++			s->chiptype == SI2157_CHIPTYPE_SI2146 ?
++			"Si2146" : "Si2147/2148/2157/2158");
++
++	return 0;
++err:
++	dev_dbg(&client->dev, "failed=%d\n", ret);
++	kfree(s);
++
++	return ret;
++}
++
++static int si2157_remove(struct i2c_client *client)
++{
++	struct si2157 *s = i2c_get_clientdata(client);
++	struct dvb_frontend *fe = s->fe;
++
++	dev_dbg(&client->dev, "\n");
++
++	memset(&fe->ops.tuner_ops, 0, sizeof(struct dvb_tuner_ops));
++	fe->tuner_priv = NULL;
++	kfree(s);
++
++	return 0;
++}
++
++static const struct i2c_device_id si2157_id[] = {
++	{"si2157", 0},
++	{"si2146", 1},
++	{}
++};
++MODULE_DEVICE_TABLE(i2c, si2157_id);
++
++static struct i2c_driver si2157_driver = {
++	.driver = {
++		.owner	= THIS_MODULE,
++		.name	= "si2157",
++	},
++	.probe		= si2157_probe,
++	.remove		= si2157_remove,
++	.id_table	= si2157_id,
++};
++
++module_i2c_driver(si2157_driver);
++
++MODULE_DESCRIPTION("Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver");
++MODULE_AUTHOR("Antti Palosaari <crope@iki.fi>");
++MODULE_LICENSE("GPL");
++MODULE_FIRMWARE(SI2158_A20_FIRMWARE);
+diff -urN a/drivers/media/tuners/si2157.h b/drivers/media/tuners/si2157.h
+--- a/drivers/media/tuners/si2157.h	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/tuners/si2157.h	2014-12-27 21:35:08.859035139 +0200
+@@ -0,0 +1,39 @@
++/*
++ * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
++ *
++ * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#ifndef SI2157_H
++#define SI2157_H
++
++#include <linux/kconfig.h>
++#include "dvb_frontend.h"
++
++/*
++ * I2C address
++ * 0x60
++ */
++struct si2157_config {
++	/*
++	 * frontend
++	 */
++	struct dvb_frontend *fe;
++
++	/*
++	 * Spectral Inversion
++	 */
++	bool inversion;
++};
++
++#endif
+diff -urN a/drivers/media/tuners/si2157_priv.h b/drivers/media/tuners/si2157_priv.h
+--- a/drivers/media/tuners/si2157_priv.h	1970-01-01 02:00:00.000000000 +0200
++++ b/drivers/media/tuners/si2157_priv.h	2014-12-27 21:35:08.859035139 +0200
+@@ -0,0 +1,47 @@
++/*
++ * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
++ *
++ * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
++ *
++ *    This program is free software; you can redistribute it and/or modify
++ *    it under the terms of the GNU General Public License as published by
++ *    the Free Software Foundation; either version 2 of the License, or
++ *    (at your option) any later version.
++ *
++ *    This program is distributed in the hope that it will be useful,
++ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *    GNU General Public License for more details.
++ */
++
++#ifndef SI2157_PRIV_H
++#define SI2157_PRIV_H
++
++#include <linux/firmware.h>
++#include "si2157.h"
++
++/* state struct */
++struct si2157 {
++	struct mutex i2c_mutex;
++	struct i2c_client *client;
++	struct dvb_frontend *fe;
++	bool active;
++	bool fw_loaded;
++	bool inversion;
++	u8 chiptype;
++};
++
++#define SI2157_CHIPTYPE_SI2157 0
++#define SI2157_CHIPTYPE_SI2146 1
++
++/* firmware command struct */
++#define SI2157_ARGLEN      30
++struct si2157_cmd {
++	u8 args[SI2157_ARGLEN];
++	unsigned wlen;
++	unsigned rlen;
++};
++
++#define SI2158_A20_FIRMWARE "dvb-tuner-si2158-a20-01.fw"
++
++#endif
+diff -urN a/drivers/media/usb/dvb-usb-v2/dvbsky.c b/drivers/media/usb/dvb-usb-v2/dvbsky.c
+--- a/drivers/media/usb/dvb-usb-v2/dvbsky.c	2014-12-27 21:08:23.451082830 +0200
++++ b/drivers/media/usb/dvb-usb-v2/dvbsky.c	2014-12-27 22:35:55.726926802 +0200
+@@ -3,12 +3,6 @@
+  *
+  * Copyright (C) 2013 Max nibble <nibble.max@gmail.com>
+  *
+- * CIMax code is copied and modified from:
+- * CIMax2(R) SP2 driver in conjunction with NetUp Dual DVB-S2 CI card
+- * Copyright (C) 2009 NetUP Inc.
+- * Copyright (C) 2009 Igor M. Liplianin <liplianin@netup.ru>
+- * Copyright (C) 2009 Abylay Ospan <aospan@netup.ru>
+- *
+  *    This program is free software; you can redistribute it and/or modify
+  *    it under the terms of the GNU General Public License as published by
+  *    the Free Software Foundation; either version 2 of the License, or
+@@ -24,368 +18,95 @@
+  *    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  */
+ 
+-#include "dvb_ca_en50221.h"
+ #include "dvb_usb.h"
+-#include "dvbsky_m88ds3103.h"
+-
+-static int dvbsky_debug;
+-module_param(dvbsky_debug, int, 0644);
+-MODULE_PARM_DESC(dvbsky_debug, "Activates dvbsky usb debugging (default:0)");
+-
+-#define DVBSKY_CI_CTL		0x04
+-#define DVBSKY_CI_RD		1
+-
+-#define dprintk(args...) \
+-	do { \
+-		if (dvbsky_debug) \
+-			printk(KERN_INFO "dvbsky_usb: " args); \
+-	} while (0)
++#include "m88ds3103.h"
++#include "m88ts2022.h"
++#include "sp2.h"
++#include "si2168.h"
++#include "si2157.h"
++
++#define DVBSKY_MSG_DELAY	0/*2000*/
++#define DVBSKY_BUF_LEN	64
++
++static int dvb_usb_dvbsky_disable_rc;
++module_param_named(disable_rc, dvb_usb_dvbsky_disable_rc, int, 0644);
++MODULE_PARM_DESC(disable_rc, "Disable inbuilt IR receiver.");
+ 
+ DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr);
+ 
+ struct dvbsky_state {
+ 	struct mutex stream_mutex;
+-	u8 has_ci;
+-	u8 ci_attached;
+-	struct dvb_ca_en50221 ci;
+-	unsigned long next_status_checked_time;
+-	u8 ci_i2c_addr;
+-	u8 current_ci_flag;
+-	int ci_status;
++	u8 ibuf[DVBSKY_BUF_LEN];
++	u8 obuf[DVBSKY_BUF_LEN];
++	u8 last_lock;
++	struct i2c_client *i2c_client_demod;
++	struct i2c_client *i2c_client_tuner;
++	struct i2c_client *i2c_client_ci;
++
++	/* fe hook functions*/
++	int (*fe_set_voltage)(struct dvb_frontend *fe,
++		fe_sec_voltage_t voltage);
++	int (*fe_read_status)(struct dvb_frontend *fe,
++		fe_status_t *status);
+ };
+ 
+-static int dvbsky_stream_ctrl(struct dvb_usb_device *d, u8 onoff)
+-{
+-	struct dvbsky_state *state = d_to_priv(d);
+-	int ret;
+-	u8 obuf_pre[3] = { 0x37, 0, 0 };
+-	u8 obuf_post[3] = { 0x36, 3, 0 };
+-	dprintk("%s() -off \n", __func__);
+-	mutex_lock(&state->stream_mutex);
+-	ret = dvb_usbv2_generic_write(d, obuf_pre, 3);
+-	if (!ret && onoff) {
+-		msleep(10);
+-		ret = dvb_usbv2_generic_write(d, obuf_post, 3);
+-		dprintk("%s() -on \n", __func__);
+-	}
+-	mutex_unlock(&state->stream_mutex);
+-	return ret;
+-}
+-
+-/* CI opertaions */
+-static int dvbsky_ci_read_i2c(struct i2c_adapter *i2c_adap, u8 addr, u8 reg,
+-						u8 *buf, int len)
++static int dvbsky_usb_generic_rw(struct dvb_usb_device *d,
++		u8 *wbuf, u16 wlen, u8 *rbuf, u16 rlen)
+ {
+ 	int ret;
+-	struct i2c_msg msg[] = {
+-		{
+-			.addr	= addr,
+-			.flags	= 0,
+-			.buf	= &reg,
+-			.len	= 1
+-		}, {
+-			.addr	= addr,
+-			.flags	= I2C_M_RD,
+-			.buf	= buf,
+-			.len	= len
+-		}
+-	};
+-	
+-	ret = i2c_transfer(i2c_adap, msg, 2);
+-	
+-	if (ret != 2) {
+-		dprintk("%s: error, Reg = 0x%02x, Status = %d\n", __func__, reg, ret);
+-		return -1;
+-	}
+-	return 0;
+-}
+-
+-static int dvbsky_ci_write_i2c(struct i2c_adapter *i2c_adap, u8 addr, u8 reg,
+-						u8 *buf, int len)
+-{
+-	int ret;
+-	u8 buffer[len + 1];
+-
+-	struct i2c_msg msg = {
+-		.addr	= addr,
+-		.flags	= 0,
+-		.buf	= &buffer[0],
+-		.len	= len + 1
+-	};
+-
+-	buffer[0] = reg;
+-	memcpy(&buffer[1], buf, len);
+-
+-	ret = i2c_transfer(i2c_adap, &msg, 1);
+-
+-	if (ret != 1) {
+-		dprintk("%s: error, Reg=[0x%02x], Status=%d\n", __func__, reg, ret);
+-		return -1;
+-	}
+-	return 0;
+-}
+-
+-static int dvbsky_ci_op_cam(struct dvb_ca_en50221 *ci, int slot,
+-				u8 flag, u8 read, int addr, u8 data)
+-{
+-	struct dvb_usb_device *d = ci->data;
+-	struct dvbsky_state *state = d_to_priv(d);	
+-	u8 store;
+-	int ret;
+-	u8 command[4], respond[2], command_size, respond_size;
+-
+-	/*dprintk("%s()\n", __func__);*/
+-	if (0 != slot)
+-		return -EINVAL;
+-
+-	if (state->current_ci_flag != flag) {
+-		ret = dvbsky_ci_read_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-				0, &store, 1);
+-		if (ret != 0)
+-			return ret;
+-
+-		store &= ~0x0c;
+-		store |= flag;
+-
+-		ret = dvbsky_ci_write_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-				0, &store, 1);
+-		if (ret != 0)
+-			return ret;
+-	}
+-	state->current_ci_flag = flag;
+-
+-	command[1] = (u8)((addr >> 8) & 0xff); /*high part of address*/
+-	command[2] = (u8)(addr & 0xff); /*low part of address*/
+-	if (read) {
+-		command[0] = 0x71;
+-		command_size = 3;
+-		respond_size = 2;
+-	} else {
+-		command[0] = 0x70;
+-		command[3] = data;
+-		command_size = 4;
+-		respond_size = 1;
+-	}
+-	ret = dvb_usbv2_generic_rw(d, command, command_size, respond, respond_size);
+-
+-	return (read) ? respond[1] : 0;
+-}
+-
+-static int dvbsky_ci_read_attribute_mem(struct dvb_ca_en50221 *ci,
+-						int slot, int addr)
+-{
+-	return dvbsky_ci_op_cam(ci, slot, 0, DVBSKY_CI_RD, addr, 0);
+-}
+-
+-static int dvbsky_ci_write_attribute_mem(struct dvb_ca_en50221 *ci,
+-						int slot, int addr, u8 data)
+-{
+-	return dvbsky_ci_op_cam(ci, slot, 0, 0, addr, data);
+-}
+-
+-static int dvbsky_ci_read_cam_ctl(struct dvb_ca_en50221 *ci, int slot, u8 addr)
+-{
+-	return dvbsky_ci_op_cam(ci, slot, DVBSKY_CI_CTL, DVBSKY_CI_RD, addr, 0);
+-}
+-
+-static int dvbsky_ci_write_cam_ctl(struct dvb_ca_en50221 *ci, int slot,
+-							u8 addr, u8 data)
+-{
+-	return dvbsky_ci_op_cam(ci, slot, DVBSKY_CI_CTL, 0, addr, data);
+-}
+-
+-static int dvbsky_ci_slot_reset(struct dvb_ca_en50221 *ci, int slot)
+-{
+-	struct dvb_usb_device *d = ci->data;
+ 	struct dvbsky_state *state = d_to_priv(d);
+-	u8 buf =  0x80;
+-	int ret;
+-	dprintk("%s() slot=%d\n", __func__, slot);
+-
+-	if (0 != slot)
+-		return -EINVAL;
+-
+-	udelay(500);
+-	ret = dvbsky_ci_write_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-							0, &buf, 1);
+-
+-	if (ret != 0)
+-		return ret;
+-
+-	udelay(500);
+-
+-	buf = 0x00;
+-	ret = dvbsky_ci_write_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-							0, &buf, 1);
+-	msleep(1000);
+-	dprintk("%s() slot=%d complete\n", __func__, slot);
+-	return 0;
+ 
+-}
+-
+-static int dvbsky_ci_slot_shutdown(struct dvb_ca_en50221 *ci, int slot)
+-{
+-	/* not implemented */
+-	dprintk("%s()\n", __func__);
+-	return 0;
+-}
++	mutex_lock(&d->usb_mutex);
++	if (wlen != 0)
++		memcpy(state->obuf, wbuf, wlen);
+ 
+-static int dvbsky_ci_slot_ts_enable(struct dvb_ca_en50221 *ci, int slot)
+-{
+-	struct dvb_usb_device *d = ci->data;
+-	struct dvbsky_state *state = d_to_priv(d);
+-	u8 buf;
+-	int ret;
++	ret = dvb_usbv2_generic_rw_locked(d, state->obuf, wlen,
++			state->ibuf, rlen);
+ 
+-	dprintk("%s()\n", __func__);
+-	if (0 != slot)
+-		return -EINVAL;
++	if (!ret && (rlen != 0))
++		memcpy(rbuf, state->ibuf, rlen);
+ 
+-	dvbsky_ci_read_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-			0, &buf, 1);
+-	buf |= 0x60;
+-
+-	ret = dvbsky_ci_write_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-							0, &buf, 1);
++	mutex_unlock(&d->usb_mutex);
+ 	return ret;
+ }
+ 
+-static int dvbsky_ci_poll_slot_status(struct dvb_ca_en50221 *ci, int slot,
+-	int open)
+-{
+-	struct dvb_usb_device *d = ci->data;
+-	struct dvbsky_state *state = d_to_priv(d);
+-	int ret = 0;
+-	u8 buf = 0;
+-	/*dprintk("%s()\n", __func__);*/
+-
+-	/* CAM module INSERT/REMOVE processing. slow operation because of i2c
+-	 * transfers */
+-	if (time_after(jiffies, state->next_status_checked_time)) {
+-		ret = dvbsky_ci_read_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-				0, &buf, 1);
+-
+-		/*dprintk("%s() status=%x\n", __func__, buf);*/
+-		
+-		state->next_status_checked_time = jiffies
+-			+ msecs_to_jiffies(1000);
+-
+-		if (ret != 0)
+-			return 0;
+-
+-		if (buf & 1) {
+-			state->ci_status = DVB_CA_EN50221_POLL_CAM_PRESENT |
+-				DVB_CA_EN50221_POLL_CAM_READY;
+-		}
+-		else
+-			state->ci_status = 0;
+-	}
+-	/*dprintk("%s() ret=%x\n", __func__, state->ci_status);*/
+-	return state->ci_status;
+-}
+-
+-static int dvbsky_ci_init(struct dvb_usb_device *d)
++static int dvbsky_stream_ctrl(struct dvb_usb_device *d, u8 onoff)
+ {
+ 	struct dvbsky_state *state = d_to_priv(d);
+ 	int ret;
+-	u8 cimax_init[34] = {
+-		0x00, /* module A control*/
+-		0x00, /* auto select mask high A */
+-		0x00, /* auto select mask low A */
+-		0x00, /* auto select pattern high A */
+-		0x00, /* auto select pattern low A */
+-		0x44, /* memory access time A */
+-		0x00, /* invert input A */
+-		0x00, /* RFU */
+-		0x00, /* RFU */
+-		0x00, /* module B control*/
+-		0x00, /* auto select mask high B */
+-		0x00, /* auto select mask low B */
+-		0x00, /* auto select pattern high B */
+-		0x00, /* auto select pattern low B */
+-		0x44, /* memory access time B */
+-		0x00, /* invert input B */
+-		0x00, /* RFU */
+-		0x00, /* RFU */
+-		0x00, /* auto select mask high Ext */
+-		0x00, /* auto select mask low Ext */
+-		0x00, /* auto select pattern high Ext */
+-		0x00, /* auto select pattern low Ext */
+-		0x00, /* RFU */
+-		0x02, /* destination - module A */
+-		0x01, /* power on (use it like store place) */
+-		0x00, /* RFU */
+-		0x00, /* int status read only */
+-		0x00, /* Max: Disable the interrupt in USB solution.*/
+-		0x05, /* EXTINT=active-high, INT=push-pull */
+-		0x00, /* USCG1 */
+-		0x04, /* ack active low */
+-		0x00, /* LOCK = 0 */
+-		0x22, /* serial mode, rising in, rising out, MSB first*/
+-		0x00  /* synchronization */
+-	};	
+-	dprintk("%s()\n", __func__);
+-	state->current_ci_flag = 0xff;
+-	state->ci_status = 0;
+-	state->next_status_checked_time = jiffies + msecs_to_jiffies(1000);
+-	state->ci_i2c_addr = 0x40;
+-
+-	state->ci.owner               = THIS_MODULE;
+-	state->ci.read_attribute_mem  = dvbsky_ci_read_attribute_mem;
+-	state->ci.write_attribute_mem = dvbsky_ci_write_attribute_mem;
+-	state->ci.read_cam_control    = dvbsky_ci_read_cam_ctl;
+-	state->ci.write_cam_control   = dvbsky_ci_write_cam_ctl;
+-	state->ci.slot_reset          = dvbsky_ci_slot_reset;
+-	state->ci.slot_shutdown       = dvbsky_ci_slot_shutdown;
+-	state->ci.slot_ts_enable      = dvbsky_ci_slot_ts_enable;
+-	state->ci.poll_slot_status    = dvbsky_ci_poll_slot_status;
+-	state->ci.data                = d;
+-
+-	ret = dvbsky_ci_write_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-						0, &cimax_init[0], 34);
+-	/* lock registers */
+-	ret |= dvbsky_ci_write_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-						0x1f, &cimax_init[0x18], 1);
+-	/* power on slots */
+-	ret |= dvbsky_ci_write_i2c(&d->i2c_adap, state->ci_i2c_addr,
+-						0x18, &cimax_init[0x18], 1);
+-	if (0 != ret)
+-		return ret;
+-		
+-	ret = dvb_ca_en50221_init(&d->adapter[0].dvb_adap, &state->ci, 0, 1);
+-	if (ret)
+-		return ret;
+-	state->ci_attached = 1;
+-	dprintk("%s() complete.\n", __func__);
+-	return 0;
+-}
+-
+-static void dvbsky_ci_release(struct dvb_usb_device *d)
+-{
+-	struct dvbsky_state *state = d_to_priv(d);
+-
+-	/* detach CI */
+-	if (state->ci_attached)
+-		dvb_ca_en50221_release(&state->ci);
++	u8 obuf_pre[3] = { 0x37, 0, 0 };
++	u8 obuf_post[3] = { 0x36, 3, 0 };
+ 
+-	return;
++	mutex_lock(&state->stream_mutex);
++	ret = dvbsky_usb_generic_rw(d, obuf_pre, 3, NULL, 0);
++	if (!ret && onoff) {
++		msleep(20);
++		ret = dvbsky_usb_generic_rw(d, obuf_post, 3, NULL, 0);
++	}
++	mutex_unlock(&state->stream_mutex);
++	return ret;
+ }
+ 
+ static int dvbsky_streaming_ctrl(struct dvb_frontend *fe, int onoff)
+ {
+ 	struct dvb_usb_device *d = fe_to_d(fe);
+-	/*dprintk("%s() %d\n", __func__, onoff);*/
++
+ 	return dvbsky_stream_ctrl(d, (onoff == 0) ? 0 : 1);
+ }
+ 
+ /* GPIO */
+ static int dvbsky_gpio_ctrl(struct dvb_usb_device *d, u8 gport, u8 value)
+ {
+-	u8 obuf[64], ibuf[64];
++	int ret;
++	u8 obuf[3], ibuf[2];
++
+ 	obuf[0] = 0x0e;
+ 	obuf[1] = gport;
+ 	obuf[2] = value;
+-	return dvb_usbv2_generic_rw(d, obuf, 3, ibuf, 1);
++	ret = dvbsky_usb_generic_rw(d, obuf, 3, ibuf, 1);
++	if (ret)
++		dev_err(&d->udev->dev, "failed=%d\n", ret);
++	return ret;
+ }
+ 
+ /* I2C */
+@@ -394,20 +115,23 @@
+ {
+ 	struct dvb_usb_device *d = i2c_get_adapdata(adap);
+ 	int ret = 0;
+-	u8 ibuf[64], obuf[64]; 
++	u8 ibuf[64], obuf[64];
+ 
+ 	if (mutex_lock_interruptible(&d->i2c_mutex) < 0)
+ 		return -EAGAIN;
+ 
+ 	if (num > 2) {
+-		printk(KERN_ERR "dvbsky_usb: too many i2c messages[%d] than 2.", num);
++		dev_err(&d->udev->dev,
++		"too many i2c messages[%d], max 2.", num);
+ 		ret = -EOPNOTSUPP;
+ 		goto i2c_error;
+ 	}
+-		
+-	if(num == 1) {
++
++	if (num == 1) {
+ 		if (msg[0].len > 60) {
+-			printk(KERN_ERR "dvbsky_usb: too many i2c bytes[%d] than 60.", msg[0].len);
++			dev_err(&d->udev->dev,
++			"too many i2c bytes[%d], max 60.",
++			msg[0].len);
+ 			ret = -EOPNOTSUPP;
+ 			goto i2c_error;
+ 		}
+@@ -417,8 +141,10 @@
+ 			obuf[1] = 0;
+ 			obuf[2] = msg[0].len;
+ 			obuf[3] = msg[0].addr;
+-			ret = dvb_usbv2_generic_rw(d, obuf, 4, ibuf, msg[0].len + 1);
+-			/*dprintk("%s(): read status = %d\n", __func__, ibuf[0]);*/
++			ret = dvbsky_usb_generic_rw(d, obuf, 4,
++					ibuf, msg[0].len + 1);
++			if (ret)
++				dev_err(&d->udev->dev, "failed=%d\n", ret);
+ 			if (!ret)
+ 				memcpy(msg[0].buf, &ibuf[1], msg[0].len);
+ 		} else {
+@@ -427,12 +153,16 @@
+ 			obuf[1] = msg[0].addr;
+ 			obuf[2] = msg[0].len;
+ 			memcpy(&obuf[3], msg[0].buf, msg[0].len);
+-			ret = dvb_usbv2_generic_rw(d, obuf, msg[0].len + 3, ibuf, 1);
+-			/*dprintk("%s(): write status = %d\n", __func__, ibuf[0]);*/
++			ret = dvbsky_usb_generic_rw(d, obuf,
++					msg[0].len + 3, ibuf, 1);
++			if (ret)
++				dev_err(&d->udev->dev, "failed=%d\n", ret);
+ 		}
+ 	} else {
+ 		if ((msg[0].len > 60) || (msg[1].len > 60)) {
+-			printk(KERN_ERR "dvbsky_usb: too many i2c bytes[w-%d][r-%d] than 60.", msg[0].len, msg[1].len);
++			dev_err(&d->udev->dev,
++			"too many i2c bytes[w-%d][r-%d], max 60.",
++			msg[0].len, msg[1].len);
+ 			ret = -EOPNOTSUPP;
+ 			goto i2c_error;
+ 		}
+@@ -442,8 +172,11 @@
+ 		obuf[2] = msg[1].len;
+ 		obuf[3] = msg[0].addr;
+ 		memcpy(&obuf[4], msg[0].buf, msg[0].len);
+-		ret = dvb_usbv2_generic_rw(d, obuf, msg[0].len + 4, ibuf, msg[1].len + 1);
+-		/*dprintk("%s(): write then read status = %d\n", __func__, ibuf[0]);*/
++		ret = dvbsky_usb_generic_rw(d, obuf,
++			msg[0].len + 4, ibuf, msg[1].len + 1);
++		if (ret)
++			dev_err(&d->udev->dev, "failed=%d\n", ret);
++
+ 		if (!ret)
+ 			memcpy(msg[1].buf, &ibuf[1], msg[1].len);
+ 	}
+@@ -465,25 +198,16 @@
+ #if IS_ENABLED(CONFIG_RC_CORE)
+ static int dvbsky_rc_query(struct dvb_usb_device *d)
+ {
+-	u32 code = 0xffff;
+-	u8 obuf[2], ibuf[2], toggle;
+-	int ret;
+-	obuf[0] = 0x10;
+-	ret = dvb_usbv2_generic_rw(d, obuf, 1, ibuf, 2);
+-	if(ret == 0)
+-		code = (ibuf[0] << 8) | ibuf[1];
+-
+-	if (code != 0xffff) {
+-		dprintk("rc code: %x", code);
+-		toggle = (code & 0x800) ? 1 : 0;
+-		code &= 0x3f;
+-		rc_keydown(d->rc_dev, code, toggle);
+-	}
+ 	return 0;
+ }
+ 
+ static int dvbsky_get_rc_config(struct dvb_usb_device *d, struct dvb_usb_rc *rc)
+ {
++	if (dvb_usb_dvbsky_disable_rc) {
++		rc->map_name = NULL;
++		return 0;
++	}
++
+ 	rc->allowed_protos = RC_BIT_RC5;
+ 	rc->query          = dvbsky_rc_query;
+ 	rc->interval       = 300;
+@@ -493,34 +217,20 @@
+ 	#define dvbsky_get_rc_config NULL
+ #endif
+ 
+-static int dvbsky_sync_ctrl(struct dvb_frontend *fe)
+-{
+-	struct dvb_usb_device *d = fe_to_d(fe);
+-	return dvbsky_stream_ctrl(d, 1);
+-}
+-
+-static int dvbsky_usb_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
++static int dvbsky_usb_set_voltage(struct dvb_frontend *fe,
++	fe_sec_voltage_t voltage)
+ {
+ 	struct dvb_usb_device *d = fe_to_d(fe);
++	struct dvbsky_state *state = d_to_priv(d);
+ 	u8 value;
+ 
+ 	if (voltage == SEC_VOLTAGE_OFF)
+ 		value = 0;
+ 	else
+ 		value = 1;
+-	return dvbsky_gpio_ctrl(d, 0x80, value);
+-}
++	dvbsky_gpio_ctrl(d, 0x80, value);
+ 
+-static int dvbsky_usb_ci_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
+-{
+-	struct dvb_usb_device *d = fe_to_d(fe);
+-	u8 value;
+-
+-	if (voltage == SEC_VOLTAGE_OFF)
+-		value = 0;
+-	else
+-		value = 1;
+-	return dvbsky_gpio_ctrl(d, 0x00, value);
++	return state->fe_set_voltage(fe, voltage);
+ }
+ 
+ static int dvbsky_read_mac_addr(struct dvb_usb_adapter *adap, u8 mac[6])
+@@ -539,25 +249,38 @@
+ 			.flags = I2C_M_RD,
+ 			.buf = ibuf,
+ 			.len = 6,
+-
+ 		}
+ 	};
+-	
++
+ 	if (i2c_transfer(&d->i2c_adap, msg, 2) == 2)
+ 		memcpy(mac, ibuf, 6);
+ 
+-	printk(KERN_INFO "dvbsky_usb MAC address=%pM\n", mac);
+-	
+ 	return 0;
+ }
+ 
+-static struct dvbsky_m88ds3103_config dvbsky_usb_ds3103_config = {
+-	.demod_address = 0x68,
+-	.ci_mode = 1,
+-	.pin_ctrl = 0x83,
+-	.ts_mode = 0,
+-	.start_ctrl = dvbsky_sync_ctrl,
+-	.set_voltage = dvbsky_usb_set_voltage,
++static int dvbsky_usb_read_status(struct dvb_frontend *fe, fe_status_t *status)
++{
++	struct dvb_usb_device *d = fe_to_d(fe);
++	struct dvbsky_state *state = d_to_priv(d);
++	int ret;
++
++	ret = state->fe_read_status(fe, status);
++
++	/* it need resync slave fifo when signal change from unlock to lock.*/
++	if ((*status & FE_HAS_LOCK) && (!state->last_lock))
++		dvbsky_stream_ctrl(d, 1);
++
++	state->last_lock = (*status & FE_HAS_LOCK) ? 1 : 0;
++	return ret;
++}
++
++static const struct m88ds3103_config dvbsky_s960_m88ds3103_config = {
++	.i2c_addr = 0x68,
++	.clock = 27000000,
++	.i2c_wr_max = 33,
++	.clock_out = 0,
++	.ts_mode = M88DS3103_TS_CI,
++	.agc = 0x99,
+ };
+ 
+ static int dvbsky_s960_attach(struct dvb_usb_adapter *adap)
+@@ -565,36 +288,118 @@
+ 	struct dvbsky_state *state = adap_to_priv(adap);
+ 	struct dvb_usb_device *d = adap_to_d(adap);
+ 	int ret = 0;
+-	
+-	dprintk("%s()\n", __func__);
+-
+-	dvbsky_gpio_ctrl(d, 0x04, 1);
+-		
+-	dvbsky_gpio_ctrl(d, 0x83, 0);
+-	msleep(50);
+-	dvbsky_gpio_ctrl(d, 0x83, 1);
+-	msleep(20);
+-	
+-	adap->fe[0] = dvb_attach(dvbsky_m88ds3103_attach,
+-				&dvbsky_usb_ds3103_config,
+-				&d->i2c_adap);
++	/* demod I2C adapter */
++	struct i2c_adapter *i2c_adapter;
++	struct i2c_client *client;
++	struct i2c_board_info info;
++	struct m88ts2022_config m88ts2022_config = {
++			.clock = 27000000,
++		};
++	memset(&info, 0, sizeof(struct i2c_board_info));
++
++	/* attach demod */
++	adap->fe[0] = dvb_attach(m88ds3103_attach,
++			&dvbsky_s960_m88ds3103_config,
++			&d->i2c_adap,
++			&i2c_adapter);
+ 	if (!adap->fe[0]) {
+-		printk(KERN_ERR "dvbsky_s960_attach fail.");
++		dev_err(&d->udev->dev, "dvbsky_s960_attach fail.\n");
++		ret = -ENODEV;
++		goto fail_attach;
++	}
++
++	/* attach tuner */
++	m88ts2022_config.fe = adap->fe[0];
++	strlcpy(info.type, "m88ts2022", I2C_NAME_SIZE);
++	info.addr = 0x60;
++	info.platform_data = &m88ts2022_config;
++	request_module("m88ts2022");
++	client = i2c_new_device(i2c_adapter, &info);
++	if (client == NULL || client->dev.driver == NULL) {
++		dvb_frontend_detach(adap->fe[0]);
++		ret = -ENODEV;
++		goto fail_attach;
++	}
++
++	if (!try_module_get(client->dev.driver->owner)) {
++		i2c_unregister_device(client);
++		dvb_frontend_detach(adap->fe[0]);
+ 		ret = -ENODEV;
++		goto fail_attach;
+ 	}
+-	
+-	state->has_ci = 0;
+ 
++	/* delegate signal strength measurement to tuner */
++	adap->fe[0]->ops.read_signal_strength =
++			adap->fe[0]->ops.tuner_ops.get_rf_strength;
++
++	/* hook fe: need to resync the slave fifo when signal locks. */
++	state->fe_read_status = adap->fe[0]->ops.read_status;
++	adap->fe[0]->ops.read_status = dvbsky_usb_read_status;
++
++	/* hook fe: LNB off/on is control by Cypress usb chip. */
++	state->fe_set_voltage = adap->fe[0]->ops.set_voltage;
++	adap->fe[0]->ops.set_voltage = dvbsky_usb_set_voltage;
++
++	state->i2c_client_tuner = client;
++
++fail_attach:
+ 	return ret;
+ }
+ 
+-static struct dvbsky_m88ds3103_config dvbsky_usb_ds3103_ci_config = {
+-	.demod_address = 0x68,
+-	.ci_mode = 2,
+-	.pin_ctrl = 0x82,
+-	.ts_mode = 0,
+-	.start_ctrl = dvbsky_sync_ctrl,
+-	.set_voltage = dvbsky_usb_ci_set_voltage,
++static int dvbsky_usb_ci_set_voltage(struct dvb_frontend *fe,
++	fe_sec_voltage_t voltage)
++{
++	struct dvb_usb_device *d = fe_to_d(fe);
++	struct dvbsky_state *state = d_to_priv(d);
++	u8 value;
++
++	if (voltage == SEC_VOLTAGE_OFF)
++		value = 0;
++	else
++		value = 1;
++	dvbsky_gpio_ctrl(d, 0x00, value);
++
++	return state->fe_set_voltage(fe, voltage);
++}
++
++static int dvbsky_ci_ctrl(void *priv, u8 read, int addr,
++					u8 data, int *mem)
++{
++	struct dvb_usb_device *d = priv;
++	int ret = 0;
++	u8 command[4], respond[2], command_size, respond_size;
++
++	command[1] = (u8)((addr >> 8) & 0xff); /*high part of address*/
++	command[2] = (u8)(addr & 0xff); /*low part of address*/
++	if (read) {
++		command[0] = 0x71;
++		command_size = 3;
++		respond_size = 2;
++	} else {
++		command[0] = 0x70;
++		command[3] = data;
++		command_size = 4;
++		respond_size = 1;
++	}
++	ret = dvbsky_usb_generic_rw(d, command, command_size,
++			respond, respond_size);
++	if (ret)
++		goto err;
++	if (read)
++		*mem = respond[1];
++	return ret;
++err:
++	dev_err(&d->udev->dev, "ci control failed=%d\n", ret);
++	return ret;
++}
++
++static const struct m88ds3103_config dvbsky_s960c_m88ds3103_config = {
++	.i2c_addr = 0x68,
++	.clock = 27000000,
++	.i2c_wr_max = 33,
++	.clock_out = 0,
++	.ts_mode = M88DS3103_TS_CI,
++	.agc = 0x99,
+ };
+ 
+ static int dvbsky_s960c_attach(struct dvb_usb_adapter *adap)
+@@ -602,64 +407,319 @@
+ 	struct dvbsky_state *state = adap_to_priv(adap);
+ 	struct dvb_usb_device *d = adap_to_d(adap);
+ 	int ret = 0;
+-	
+-	dvbsky_gpio_ctrl(d, 0x04, 1);
+-	
+-	dvbsky_gpio_ctrl(d, 0x83, 0);
+-	msleep(50);
+-	dvbsky_gpio_ctrl(d, 0x83, 1);
+-	msleep(20);
+-	
+-	adap->fe[0] = dvb_attach(dvbsky_m88ds3103_attach,
+-				&dvbsky_usb_ds3103_ci_config,
+-				&d->i2c_adap);
++	/* demod I2C adapter */
++	struct i2c_adapter *i2c_adapter;
++	struct i2c_client *client_tuner, *client_ci;
++	struct i2c_board_info info;
++	struct sp2_config sp2_config;
++	struct m88ts2022_config m88ts2022_config = {
++			.clock = 27000000,
++		};
++	memset(&info, 0, sizeof(struct i2c_board_info));
++
++	/* attach demod */
++	adap->fe[0] = dvb_attach(m88ds3103_attach,
++			&dvbsky_s960c_m88ds3103_config,
++			&d->i2c_adap,
++			&i2c_adapter);
+ 	if (!adap->fe[0]) {
+-		printk(KERN_ERR "dvbsky_s960c_attach fail.");
++		dev_err(&d->udev->dev, "dvbsky_s960ci_attach fail.\n");
++		ret = -ENODEV;
++		goto fail_attach;
++	}
++
++	/* attach tuner */
++	m88ts2022_config.fe = adap->fe[0];
++	strlcpy(info.type, "m88ts2022", I2C_NAME_SIZE);
++	info.addr = 0x60;
++	info.platform_data = &m88ts2022_config;
++	request_module("m88ts2022");
++	client_tuner = i2c_new_device(i2c_adapter, &info);
++	if (client_tuner == NULL || client_tuner->dev.driver == NULL) {
++		ret = -ENODEV;
++		goto fail_tuner_device;
++	}
++
++	if (!try_module_get(client_tuner->dev.driver->owner)) {
++		ret = -ENODEV;
++		goto fail_tuner_module;
++	}
++
++	/* attach ci controller */
++	memset(&sp2_config, 0, sizeof(sp2_config));
++	sp2_config.dvb_adap = &adap->dvb_adap;
++	sp2_config.priv = d;
++	sp2_config.ci_control = dvbsky_ci_ctrl;
++	memset(&info, 0, sizeof(struct i2c_board_info));
++	strlcpy(info.type, "sp2", I2C_NAME_SIZE);
++	info.addr = 0x40;
++	info.platform_data = &sp2_config;
++	request_module("sp2");
++	client_ci = i2c_new_device(&d->i2c_adap, &info);
++	if (client_ci == NULL || client_ci->dev.driver == NULL) {
+ 		ret = -ENODEV;
++		goto fail_ci_device;
+ 	}
+-	
+-	state->has_ci = 1;
+ 
++	if (!try_module_get(client_ci->dev.driver->owner)) {
++		ret = -ENODEV;
++		goto fail_ci_module;
++	}
++
++	/* delegate signal strength measurement to tuner */
++	adap->fe[0]->ops.read_signal_strength =
++			adap->fe[0]->ops.tuner_ops.get_rf_strength;
++
++	/* hook fe: need to resync the slave fifo when signal locks. */
++	state->fe_read_status = adap->fe[0]->ops.read_status;
++	adap->fe[0]->ops.read_status = dvbsky_usb_read_status;
++
++	/* hook fe: LNB off/on is control by Cypress usb chip. */
++	state->fe_set_voltage = adap->fe[0]->ops.set_voltage;
++	adap->fe[0]->ops.set_voltage = dvbsky_usb_ci_set_voltage;
++
++	state->i2c_client_tuner = client_tuner;
++	state->i2c_client_ci = client_ci;
++	return ret;
++fail_ci_module:
++	i2c_unregister_device(client_ci);
++fail_ci_device:
++	module_put(client_tuner->dev.driver->owner);
++fail_tuner_module:
++	i2c_unregister_device(client_tuner);
++fail_tuner_device:
++	dvb_frontend_detach(adap->fe[0]);
++fail_attach:
++	return ret;
++}
++
++static int dvbsky_t680c_attach(struct dvb_usb_adapter *adap)
++{
++	struct dvbsky_state *state = adap_to_priv(adap);
++	struct dvb_usb_device *d = adap_to_d(adap);
++	int ret = 0;
++	struct i2c_adapter *i2c_adapter;
++	struct i2c_client *client_demod, *client_tuner, *client_ci;
++	struct i2c_board_info info;
++	struct si2168_config si2168_config;
++	struct si2157_config si2157_config;
++	struct sp2_config sp2_config;
++
++	/* attach demod */
++	memset(&si2168_config, 0, sizeof(si2168_config));
++	si2168_config.i2c_adapter = &i2c_adapter;
++	si2168_config.fe = &adap->fe[0];
++	si2168_config.ts_mode = SI2168_TS_PARALLEL;
++	memset(&info, 0, sizeof(struct i2c_board_info));
++	strlcpy(info.type, "si2168", I2C_NAME_SIZE);
++	info.addr = 0x64;
++	info.platform_data = &si2168_config;
++
++	request_module(info.type);
++	client_demod = i2c_new_device(&d->i2c_adap, &info);
++	if (client_demod == NULL ||
++			client_demod->dev.driver == NULL)
++		goto fail_demod_device;
++	if (!try_module_get(client_demod->dev.driver->owner))
++		goto fail_demod_module;
++
++	/* attach tuner */
++	memset(&si2157_config, 0, sizeof(si2157_config));
++	si2157_config.fe = adap->fe[0];
++	memset(&info, 0, sizeof(struct i2c_board_info));
++	strlcpy(info.type, "si2157", I2C_NAME_SIZE);
++	info.addr = 0x60;
++	info.platform_data = &si2157_config;
++
++	request_module(info.type);
++	client_tuner = i2c_new_device(i2c_adapter, &info);
++	if (client_tuner == NULL ||
++			client_tuner->dev.driver == NULL)
++		goto fail_tuner_device;
++	if (!try_module_get(client_tuner->dev.driver->owner))
++		goto fail_tuner_module;
++
++	/* attach ci controller */
++	memset(&sp2_config, 0, sizeof(sp2_config));
++	sp2_config.dvb_adap = &adap->dvb_adap;
++	sp2_config.priv = d;
++	sp2_config.ci_control = dvbsky_ci_ctrl;
++	memset(&info, 0, sizeof(struct i2c_board_info));
++	strlcpy(info.type, "sp2", I2C_NAME_SIZE);
++	info.addr = 0x40;
++	info.platform_data = &sp2_config;
++
++	request_module(info.type);
++	client_ci = i2c_new_device(&d->i2c_adap, &info);
++
++	if (client_ci == NULL || client_ci->dev.driver == NULL)
++		goto fail_ci_device;
++
++	if (!try_module_get(client_ci->dev.driver->owner))
++		goto fail_ci_module;
++
++	state->i2c_client_demod = client_demod;
++	state->i2c_client_tuner = client_tuner;
++	state->i2c_client_ci = client_ci;
++	return ret;
++fail_ci_module:
++	i2c_unregister_device(client_ci);
++fail_ci_device:
++	module_put(client_tuner->dev.driver->owner);
++fail_tuner_module:
++	i2c_unregister_device(client_tuner);
++fail_tuner_device:
++	module_put(client_demod->dev.driver->owner);
++fail_demod_module:
++	i2c_unregister_device(client_demod);
++fail_demod_device:
++	ret = -ENODEV;
++	return ret;
++}
++
++static int dvbsky_t330_attach(struct dvb_usb_adapter *adap)
++{
++	struct dvbsky_state *state = adap_to_priv(adap);
++	struct dvb_usb_device *d = adap_to_d(adap);
++	int ret = 0;
++	struct i2c_adapter *i2c_adapter;
++	struct i2c_client *client_demod, *client_tuner;
++	struct i2c_board_info info;
++	struct si2168_config si2168_config;
++	struct si2157_config si2157_config;
++
++	/* attach demod */
++	memset(&si2168_config, 0, sizeof(si2168_config));
++	si2168_config.i2c_adapter = &i2c_adapter;
++	si2168_config.fe = &adap->fe[0];
++	si2168_config.ts_mode = SI2168_TS_PARALLEL | 0x40;
++	memset(&info, 0, sizeof(struct i2c_board_info));
++	strlcpy(info.type, "si2168", I2C_NAME_SIZE);
++	info.addr = 0x64;
++	info.platform_data = &si2168_config;
++
++	request_module(info.type);
++	client_demod = i2c_new_device(&d->i2c_adap, &info);
++	if (client_demod == NULL ||
++			client_demod->dev.driver == NULL)
++		goto fail_demod_device;
++	if (!try_module_get(client_demod->dev.driver->owner))
++		goto fail_demod_module;
++
++	/* attach tuner */
++	memset(&si2157_config, 0, sizeof(si2157_config));
++	si2157_config.fe = adap->fe[0];
++	memset(&info, 0, sizeof(struct i2c_board_info));
++	strlcpy(info.type, "si2157", I2C_NAME_SIZE);
++	info.addr = 0x60;
++	info.platform_data = &si2157_config;
++
++	request_module(info.type);
++	client_tuner = i2c_new_device(i2c_adapter, &info);
++	if (client_tuner == NULL ||
++			client_tuner->dev.driver == NULL)
++		goto fail_tuner_device;
++	if (!try_module_get(client_tuner->dev.driver->owner))
++		goto fail_tuner_module;
++
++	state->i2c_client_demod = client_demod;
++	state->i2c_client_tuner = client_tuner;
++	return ret;
++fail_tuner_module:
++	i2c_unregister_device(client_tuner);
++fail_tuner_device:
++	module_put(client_demod->dev.driver->owner);
++fail_demod_module:
++	i2c_unregister_device(client_demod);
++fail_demod_device:
++	ret = -ENODEV;
+ 	return ret;
+ }
+ 
+ static int dvbsky_identify_state(struct dvb_usb_device *d, const char **name)
+ {
++	dvbsky_gpio_ctrl(d, 0x04, 1);
++	msleep(20);
++	dvbsky_gpio_ctrl(d, 0x83, 0);
++	dvbsky_gpio_ctrl(d, 0xc0, 1);
++	msleep(100);
++	dvbsky_gpio_ctrl(d, 0x83, 1);
++	dvbsky_gpio_ctrl(d, 0xc0, 0);
++	msleep(50);
++
+ 	return WARM;
+ }
+ 
+ static int dvbsky_init(struct dvb_usb_device *d)
+ {
+ 	struct dvbsky_state *state = d_to_priv(d);
+-	int ret;
+ 
+ 	/* use default interface */
++	/*
+ 	ret = usb_set_interface(d->udev, 0, 0);
+ 	if (ret)
+ 		return ret;
+-
++	*/
+ 	mutex_init(&state->stream_mutex);
+-	
+-	/* attach CI */
+-	if (state->has_ci) {
+-		dvbsky_gpio_ctrl(d, 0xc0, 1);
+-		msleep(100);
+-		dvbsky_gpio_ctrl(d, 0xc0, 0);
+-		msleep(50);
+-		state->ci_attached = 0;
+-		ret = dvbsky_ci_init(d);
+-		if (ret)
+-			return ret;
+-	}
++
++	state->last_lock = 0;
++
+ 	return 0;
+ }
+ 
+ static void dvbsky_exit(struct dvb_usb_device *d)
+ {
+-	return dvbsky_ci_release(d);
++	struct dvbsky_state *state = d_to_priv(d);
++	struct i2c_client *client;
++
++	client = state->i2c_client_tuner;
++	/* remove I2C tuner */
++	if (client) {
++		module_put(client->dev.driver->owner);
++		i2c_unregister_device(client);
++	}
++	client = state->i2c_client_demod;
++	/* remove I2C demod */
++	if (client) {
++		module_put(client->dev.driver->owner);
++		i2c_unregister_device(client);
++	}
++	client = state->i2c_client_ci;
++	/* remove I2C ci */
++	if (client) {
++		module_put(client->dev.driver->owner);
++		i2c_unregister_device(client);
++	}
+ }
+ 
+ /* DVB USB Driver stuff */
++static struct dvb_usb_device_properties dvbsky_s960_props = {
++	.driver_name = KBUILD_MODNAME,
++	.owner = THIS_MODULE,
++	.adapter_nr = adapter_nr,
++	.size_of_priv = sizeof(struct dvbsky_state),
++
++	.generic_bulk_ctrl_endpoint = 0x01,
++	.generic_bulk_ctrl_endpoint_response = 0x81,
++	.generic_bulk_ctrl_delay = DVBSKY_MSG_DELAY,
++
++	.i2c_algo         = &dvbsky_i2c_algo,
++	.frontend_attach  = dvbsky_s960_attach,
++	.init             = dvbsky_init,
++	.get_rc_config    = dvbsky_get_rc_config,
++	.streaming_ctrl   = dvbsky_streaming_ctrl,
++	.identify_state	  = dvbsky_identify_state,
++	.exit             = dvbsky_exit,
++	.read_mac_address = dvbsky_read_mac_addr,
++
++	.num_adapters = 1,
++	.adapter = {
++		{
++			.stream = DVB_USB_STREAM_BULK(0x82, 8, 4096),
++		}
++	}
++};
++
+ static struct dvb_usb_device_properties dvbsky_s960c_props = {
+ 	.driver_name = KBUILD_MODNAME,
+ 	.owner = THIS_MODULE,
+@@ -668,6 +728,7 @@
+ 
+ 	.generic_bulk_ctrl_endpoint = 0x01,
+ 	.generic_bulk_ctrl_endpoint_response = 0x81,
++	.generic_bulk_ctrl_delay = DVBSKY_MSG_DELAY,
+ 
+ 	.i2c_algo         = &dvbsky_i2c_algo,
+ 	.frontend_attach  = dvbsky_s960c_attach,
+@@ -676,6 +737,7 @@
+ 	.streaming_ctrl   = dvbsky_streaming_ctrl,
+ 	.identify_state	  = dvbsky_identify_state,
+ 	.exit             = dvbsky_exit,
++	.read_mac_address = dvbsky_read_mac_addr,
+ 
+ 	.num_adapters = 1,
+ 	.adapter = {
+@@ -685,7 +747,7 @@
+ 	}
+ };
+ 
+-static struct dvb_usb_device_properties dvbsky_s960_props = {
++static struct dvb_usb_device_properties dvbsky_t680c_props = {
+ 	.driver_name = KBUILD_MODNAME,
+ 	.owner = THIS_MODULE,
+ 	.adapter_nr = adapter_nr,
+@@ -693,9 +755,37 @@
+ 
+ 	.generic_bulk_ctrl_endpoint = 0x01,
+ 	.generic_bulk_ctrl_endpoint_response = 0x81,
++	.generic_bulk_ctrl_delay = DVBSKY_MSG_DELAY,
+ 
+ 	.i2c_algo         = &dvbsky_i2c_algo,
+-	.frontend_attach  = dvbsky_s960_attach,
++	.frontend_attach  = dvbsky_t680c_attach,
++	.init             = dvbsky_init,
++	.get_rc_config    = dvbsky_get_rc_config,
++	.streaming_ctrl   = dvbsky_streaming_ctrl,
++	.identify_state	  = dvbsky_identify_state,
++	.exit             = dvbsky_exit,
++	.read_mac_address = dvbsky_read_mac_addr,
++
++	.num_adapters = 1,
++	.adapter = {
++		{
++			.stream = DVB_USB_STREAM_BULK(0x82, 8, 4096),
++		}
++	}
++};
++
++static struct dvb_usb_device_properties dvbsky_t330_props = {
++	.driver_name = KBUILD_MODNAME,
++	.owner = THIS_MODULE,
++	.adapter_nr = adapter_nr,
++	.size_of_priv = sizeof(struct dvbsky_state),
++
++	.generic_bulk_ctrl_endpoint = 0x01,
++	.generic_bulk_ctrl_endpoint_response = 0x81,
++	.generic_bulk_ctrl_delay = DVBSKY_MSG_DELAY,
++
++	.i2c_algo         = &dvbsky_i2c_algo,
++	.frontend_attach  = dvbsky_t330_attach,
+ 	.init             = dvbsky_init,
+ 	.get_rc_config    = dvbsky_get_rc_config,
+ 	.streaming_ctrl   = dvbsky_streaming_ctrl,
+@@ -712,10 +802,22 @@
+ };
+ 
+ static const struct usb_device_id dvbsky_id_table[] = {
+-	{ DVB_USB_DEVICE(0x0572, 0x960c,
+-		&dvbsky_s960c_props, "DVBSky S960CI", RC_MAP_DVBSKY) },
+ 	{ DVB_USB_DEVICE(0x0572, 0x6831,
+ 		&dvbsky_s960_props, "DVBSky S960/S860", RC_MAP_DVBSKY) },
++	{ DVB_USB_DEVICE(0x0572, 0x960c,
++		&dvbsky_s960c_props, "DVBSky S960CI", RC_MAP_DVBSKY) },
++	{ DVB_USB_DEVICE(0x0572, 0x680c,
++		&dvbsky_t680c_props, "DVBSky T680CI", RC_MAP_DVBSKY) },
++	{ DVB_USB_DEVICE(0x0572, 0x0320,
++		&dvbsky_t330_props, "DVBSky T330", RC_MAP_DVBSKY) },
++	{ DVB_USB_DEVICE(USB_VID_TECHNOTREND,
++		USB_PID_TECHNOTREND_TVSTICK_CT2_4400,
++		&dvbsky_t330_props, "TechnoTrend TVStick CT2-4400",
++		RC_MAP_TT_1500) },
++	{ DVB_USB_DEVICE(USB_VID_TECHNOTREND,
++		USB_PID_TECHNOTREND_CONNECT_CT2_4650_CI,
++		&dvbsky_t680c_props, "TechnoTrend TT-connect CT2-4650 CI",
++		RC_MAP_TT_1500) },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(usb, dvbsky_id_table);
+@@ -735,5 +837,5 @@
+ module_usb_driver(dvbsky_usb_driver);
+ 
+ MODULE_AUTHOR("Max nibble <nibble.max@gmail.com>");
+-MODULE_DESCRIPTION("Driver for DVBSky USB2.0");
++MODULE_DESCRIPTION("Driver for DVBSky USB");
+ MODULE_LICENSE("GPL");
+diff -urN a/drivers/media/usb/dvb-usb-v2/Kconfig b/drivers/media/usb/dvb-usb-v2/Kconfig
+--- a/drivers/media/usb/dvb-usb-v2/Kconfig	2014-12-27 21:08:23.451082830 +0200
++++ b/drivers/media/usb/dvb-usb-v2/Kconfig	2014-12-27 21:37:03.247031741 +0200
+@@ -151,5 +151,8 @@
+ 	tristate "DVBSky USB2.0 support"
+ 	depends on DVB_USB_V2
+ 	select DVB_DVBSKY_M88DS3103 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_SI2168 if MEDIA_SUBDRV_AUTOSELECT
++	select DVB_SP2 if MEDIA_SUBDRV_AUTOSELECT
++	select MEDIA_TUNER_SI2157 if MEDIA_SUBDRV_AUTOSELECT
+ 	help
+ 	  Say Y here to support the USB receivers from DVBSky.
