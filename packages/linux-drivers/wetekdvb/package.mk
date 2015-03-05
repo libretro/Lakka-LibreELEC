@@ -44,9 +44,3 @@ makeinstall_target() {
   mkdir -p $INSTALL/lib/firmware
     cp firmware/* $INSTALL/lib/firmware
 }
-
-post_makeinstall_target() {
-  # load wetekdvb driver by default, it cant be loaded via udev
-  mkdir -p $INSTALL/usr/lib/modules-load.d
-    echo "wetekdvb" > $INSTALL/usr/lib/modules-load.d/wetekdvb.conf
-}
