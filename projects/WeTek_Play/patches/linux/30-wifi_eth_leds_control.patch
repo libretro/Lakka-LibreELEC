@@ -1,0 +1,108 @@
+diff -Naur a/drivers/amlogic/ethernet/am_net8218.c b/drivers/amlogic/ethernet/am_net8218.c
+--- a/drivers/amlogic/ethernet/am_net8218.c	2015-02-14 20:42:23.000000000 +0100
++++ b/drivers/amlogic/ethernet/am_net8218.c	2015-03-03 16:30:11.000000000 +0100
+@@ -54,6 +54,7 @@
+ 
+ #define DRV_NAME	DRIVER_NAME
+ #define DRV_VERSION	"v2.0.0"
++#define OWNER_NAME "meson-eth"
+ 
+ #undef CONFIG_HAS_EARLYSUSPEND
+ #ifdef CONFIG_HAS_EARLYSUSPEND
+@@ -975,6 +976,12 @@
+ 		return;
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
++	
++	if (phydev->link)	
++		amlogic_gpio_direction_output(GPIOC_14, 1, OWNER_NAME);
++	else
++		amlogic_gpio_direction_output(GPIOC_14, 0, OWNER_NAME);
++
+ 	if(phydev->phy_id == INTERNALPHY_ID){
+ 		val = (8<<27)|(7 << 24)|(1<<16)|(1<<15)|(1 << 13)|(1 << 12)|(4 << 4)|(0 << 1);
+ 		PERIPHS_SET_BITS(P_PREG_ETHERNET_ADDR0, val);
+@@ -1316,6 +1323,8 @@
+ 	free_ringdesc(dev);
+ 	free_irq(dev->irq, dev);
+ 
++	amlogic_gpio_direction_output(GPIOC_14, 0, OWNER_NAME);
++	
+ 	if (g_debug > 0) {
+ 		printk(KERN_DEBUG "%s: closed\n", dev->name);
+ 	}
+@@ -2870,7 +2879,7 @@
+ 
+ 	return ret;
+ }
+-#define OWNER_NAME "meson-eth"
++
+ void hardware_reset_phy(void){
+ 	if(reset_pin_enable){
+ 		amlogic_gpio_direction_output(reset_pin_num, 0, OWNER_NAME);
+@@ -2958,6 +2967,7 @@
+ 	}
+ 
+ #endif
++	amlogic_gpio_request(GPIOC_14, OWNER_NAME);	
+ 	printk(DRV_NAME "init(dbg[%p]=%d)\n", (&g_debug), g_debug);
+ 	switch_mod_gate_by_name("ethernet",1);
+ 	my_ndev = alloc_etherdev(sizeof(struct am_net_private));
+diff -Naur a/drivers/amlogic/wifi/broadcm_40181/dhd_linux.c b/drivers/amlogic/wifi/broadcm_40181/dhd_linux.c
+--- a/drivers/amlogic/wifi/broadcm_40181/dhd_linux.c	2015-02-14 20:42:23.000000000 +0100
++++ b/drivers/amlogic/wifi/broadcm_40181/dhd_linux.c	2015-03-03 16:33:58.000000000 +0100
+@@ -34,7 +34,7 @@
+ #include <bcmutils.h>
+ #include <bcmendian.h>
+ #include <bcmdevs.h>
+-
++#include <linux/amlogic/aml_gpio_consumer.h>
+ #include <proto/ethernet.h>
+ #include <proto/bcmip.h>
+ #include <dngl_stats.h>
+@@ -4878,7 +4878,7 @@
+ {
+ 
+ 	printk("%s: Enter\n", __FUNCTION__);
+-
++	amlogic_gpio_free(GPIOC_8, "WIFILED");
+ 	dhd_bus_unregister();
+ 
+ #if defined(CONFIG_WIFI_CONTROL_FUNC)
+@@ -4907,6 +4907,7 @@
+ 	int chip_up = 0;
+ #endif 
+ 
++	amlogic_gpio_request(GPIOC_8, "WIFILED");
+ 	printk("%s: Enter\n", __FUNCTION__);
+ 	if (wifi_setup_dt()) {
+ 		printk("wifi_dt : fail to setup dt\n");
+diff -Naur a/drivers/amlogic/wifi/broadcm_40181/wl_cfg80211.c b/drivers/amlogic/wifi/broadcm_40181/wl_cfg80211.c
+--- a/drivers/amlogic/wifi/broadcm_40181/wl_cfg80211.c	2015-02-14 20:42:23.000000000 +0100
++++ b/drivers/amlogic/wifi/broadcm_40181/wl_cfg80211.c	2015-03-03 16:35:01.000000000 +0100
+@@ -47,6 +47,7 @@
+ #include <wl_cfgp2p.h>
+ #include <wl_android.h>
+ #include <dhd_config.h>
++#include <linux/amlogic/aml_gpio_consumer.h>
+ 
+ #ifdef PROP_TXSTATUS
+ #include <dhd_wlfc.h>
+@@ -11181,6 +11182,8 @@
+ static void wl_link_up(struct wl_priv *wl)
+ {
+ 	wl->link_up = true;
++	amlogic_gpio_direction_output(GPIOC_8, 1, "WIFILED");
++	
+ }
+ 
+ static void wl_link_down(struct wl_priv *wl)
+@@ -11191,6 +11194,8 @@
+ 	wl->link_up = false;
+ 	conn_info->req_ie_len = 0;
+ 	conn_info->resp_ie_len = 0;
++	amlogic_gpio_direction_output(GPIOC_8, 0, "WIFILED");
++	
+ }
+ 
+ static unsigned long wl_lock_eq(struct wl_priv *wl)
