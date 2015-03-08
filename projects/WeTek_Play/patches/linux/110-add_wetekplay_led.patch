@@ -1,18 +1,23 @@
---- a/drivers/leds/Makefile.orig	2015-01-18 14:29:58.091729932 +0100
-+++ b/drivers/leds/Makefile	2015-01-18 13:59:03.465220281 +0100
-@@ -53,6 +53,7 @@
- obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
- obj-$(CONFIG_LEDS_LM355x)		+= leds-lm355x.o
- obj-$(CONFIG_LEDS_BLINKM)		+= leds-blinkm.o
-+obj-$(CONFIG_LEDS_WETEKPLAY)		+= leds-wetekplay.o
- 
- 
- # LED SPI Drivers
---- a/drivers/leds/Kconfig.orig	2015-01-18 14:30:02.727729748 +0100
-+++ b/drivers/leds/Kconfig	2015-01-18 14:00:07.433217741 +0100
-@@ -479,6 +479,13 @@
- 	  This option enables support for the BlinkM RGB LED connected
- 	  through I2C. Say Y to enable support for the BlinkM LED.
+From 67e61bb31fa7365ccff454bb7d88a5eac5a05657 Mon Sep 17 00:00:00 2001
+From: Memphiz <memphis@machzwo.de>
+Date: Sun, 8 Mar 2015 22:26:05 +0100
+Subject: [PATCH 1/4] [WeTek_Play] - add led driver for the 3 blue leds of the
+ wetekplay (powerled, ethled, wifiled)
+
+---
+ drivers/leds/Kconfig                     |   7 ++
+ drivers/leds/Makefile                    |   1 +
+ drivers/leds/leds-wetekplay.c            | 179 +++++++++++++++++++++++++++++++
+ 4 files changed, 203 insertions(+)
+ create mode 100644 drivers/leds/leds-wetekplay.c
+
+diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
+index ef99229..878428e 100644
+--- a/drivers/leds/Kconfig
++++ b/drivers/leds/Kconfig
+@@ -73,6 +73,13 @@ config LEDS_LM3642
+ 	  converter plus 1.5A constant current driver for a high-current
+ 	  white LED.
  
 +config LEDS_WETEKPLAY
 +	tristate "LED support for the WeTek.Play status LED"
@@ -22,11 +27,26 @@
 +	  of the WeTek.Play box. ON means BLUE, OFF means RED.
 +
  
- comment "LED Triggers"
- source "drivers/leds/trigger/Kconfig"
---- /dev/null	2015-01-18 13:52:01.718570970 +0100
-+++ b/drivers/leds/leds-wetekplay.c	2015-01-18 16:00:12.791515784 +0100
-@@ -0,0 +1,107 @@
+ config LEDS_LOCOMO
+ 	tristate "LED Support for Locomo device"
+diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
+index ac28977..843379e 100644
+--- a/drivers/leds/Makefile
++++ b/drivers/leds/Makefile
+@@ -53,6 +53,7 @@ obj-$(CONFIG_LEDS_RENESAS_TPU)		+= leds-renesas-tpu.o
+ obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
+ obj-$(CONFIG_LEDS_LM355x)		+= leds-lm355x.o
+ obj-$(CONFIG_LEDS_BLINKM)		+= leds-blinkm.o
++obj-$(CONFIG_LEDS_WETEKPLAY)		+= leds-wetekplay.o
+ 
+ # LED SPI Drivers
+ obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
+diff --git a/drivers/leds/leds-wetekplay.c b/drivers/leds/leds-wetekplay.c
+new file mode 100644
+index 0000000..4e00f3d
+--- /dev/null
++++ b/drivers/leds/leds-wetekplay.c
+@@ -0,0 +1,179 @@
 +/*
 + * LEDs driver for the "User LED" on WeTek.Play
 + *
@@ -38,11 +58,15 @@
 +#include <linux/leds.h>
 +#include <linux/module.h>
 +#include <linux/platform_device.h>
++#include <linux/amlogic/aml_gpio_consumer.h>
 +
 +#include <mach/am_regs.h>
 +#include <plat/regops.h>
 +
-+static void wetekplay_led_set(struct led_classdev *cdev,
++#define GPIO_OWNER_WIFILED "WIFILED"
++#define GPIO_OWNER_ETHLED "ETHLED"
++
++static void wetekplay_powerled_set(struct led_classdev *cdev,
 +			  enum led_brightness brightness)
 +{
 +
@@ -58,7 +82,7 @@
 +	}
 +}
 +
-+static enum led_brightness wetekplay_led_get(struct led_classdev *cdev)
++static enum led_brightness wetekplay_powerled_get(struct led_classdev *cdev)
 +{
 +	if (aml_get_reg32_bits(AOBUS_REG_ADDR(0x24), 31, 1))
 +	    return 255;
@@ -66,21 +90,89 @@
 +	    return 0;
 +}
 +
++static void wetekplay_wifiled_set(struct led_classdev *cdev,
++			  enum led_brightness brightness)
++{
++
++	if (brightness) {
++		//printk(KERN_INFO "%s() LED BLUE\n", __FUNCTION__);
++		amlogic_gpio_direction_output(GPIOC_8, 1, GPIO_OWNER_WIFILED);
++	}
++	else {
++		//printk(KERN_INFO "%s() LED OFF\n", __FUNCTION__);
++		amlogic_gpio_direction_output(GPIOC_8, 0, GPIO_OWNER_WIFILED);
++	}
++}
++
++static enum led_brightness wetekplay_wifiled_get(struct led_classdev *cdev)
++{
++	if (amlogic_get_value(GPIOC_8, GPIO_OWNER_WIFILED))
++	    return 255;
++	else
++	    return 0;
++}
++
++static void wetekplay_ethled_set(struct led_classdev *cdev,
++			  enum led_brightness brightness)
++{
++
++	if (brightness) {
++		//printk(KERN_INFO "%s() LED BLUE\n", __FUNCTION__);
++		amlogic_gpio_direction_output(GPIOC_14, 1, GPIO_OWNER_ETHLED);
++	}
++	else {
++		//printk(KERN_INFO "%s() LED OFF\n", __FUNCTION__);
++		amlogic_gpio_direction_output(GPIOC_14, 0, GPIO_OWNER_ETHLED);
++	}
++}
++
++static enum led_brightness wetekplay_ethled_get(struct led_classdev *cdev)
++{
++	if (amlogic_get_value(GPIOC_14, GPIO_OWNER_ETHLED))
++	    return 255;
++	else
++	    return 0;
++}
++
++
++
 +static struct led_classdev wetekplay_powerled = {
 +	.name = "wetek:blue:powerled",
-+	.brightness_set = wetekplay_led_set,
-+	.brightness_get = wetekplay_led_get,
++	.brightness_set = wetekplay_powerled_set,
++	.brightness_get = wetekplay_powerled_get,
 +	.default_trigger = "default-on",
++};
++
++static struct led_classdev wetekplay_wifiled = {
++	.name = "wetek:blue:wifiled",
++	.brightness_set = wetekplay_wifiled_set,
++	.brightness_get = wetekplay_wifiled_get,
++	.default_trigger = "wifilink",
++};
++
++static struct led_classdev wetekplay_ethled = {
++	.name = "wetek:blue:ethled",
++	.brightness_set = wetekplay_ethled_set,
++	.brightness_get = wetekplay_ethled_get,
++	.default_trigger = "ethlink",
 +};
 +
 +static int wetekplay_led_probe(struct platform_device *pdev)
 +{
-+	return led_classdev_register(&pdev->dev, &wetekplay_powerled);
++	amlogic_gpio_request(GPIOC_8, GPIO_OWNER_WIFILED);
++	amlogic_gpio_request(GPIOC_14, GPIO_OWNER_ETHLED);
++	led_classdev_register(&pdev->dev, &wetekplay_powerled);
++	led_classdev_register(&pdev->dev, &wetekplay_wifiled);
++	return led_classdev_register(&pdev->dev, &wetekplay_ethled);
 +}
 +
 +static int wetekplay_led_remove(struct platform_device *pdev)
 +{
++	amlogic_gpio_free(GPIOC_8, GPIO_OWNER_WIFILED);
++	amlogic_gpio_free(GPIOC_14, GPIO_OWNER_ETHLED);
 +	led_classdev_unregister(&wetekplay_powerled);
++	led_classdev_unregister(&wetekplay_wifiled);
++	led_classdev_unregister(&wetekplay_ethled);
 +	return 0;
 +}
 +
@@ -134,3 +226,5 @@
 +MODULE_DESCRIPTION("Power LED support for WeTek.Play");
 +MODULE_AUTHOR("Memphiz <memphiz@kodi.tv>");
 +MODULE_ALIAS("platform:wetekplay-led");
+-- 
+1.9.3 (Apple Git-50)
