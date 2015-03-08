@@ -16,14 +16,14 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="Mesa"
-PKG_VERSION="10.4.6"
+PKG_NAME="mesa"
+PKG_VERSION="10.5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
-PKG_URL="ftp://freedesktop.org/pub/mesa/$PKG_VERSION/MesaLib-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain Python:host expat glproto dri2proto presentproto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd dri3proto libxshmfence"
+PKG_URL="ftp://freedesktop.org/pub/mesa/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="toolchain Python:host Mako:host expat glproto dri2proto presentproto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd dri3proto libxshmfence"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="mesa: 3-D graphics library with OpenGL API"
@@ -59,11 +59,11 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            DRI_DRIVER_INSTALL_DIR=$XORG_PATH_DRI \
                            DRI_DRIVER_SEARCH_DIR=$XORG_PATH_DRI \
                            --disable-debug \
+                           --disable-mangling \
                            --enable-texture-float \
                            --enable-asm \
                            --disable-selinux \
                            --enable-opengl \
-                           --enable-driglx-direct \
                            --disable-gles1 \
                            --disable-gles2 \
                            --disable-openvg \
@@ -71,6 +71,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-dri3 \
                            --enable-glx \
                            --disable-osmesa \
+                           --disable-gallium-osmesa \
                            --enable-egl --with-egl-platforms=x11,drm \
                            --disable-xa \
                            --enable-gbm \
@@ -79,13 +80,15 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            $MESA_VDPAU \
                            --disable-omx \
                            --disable-va \
-                           --disable-opencl --enable-opencl-icd \
+                           --disable-opencl \
+                           --enable-opencl-icd \
                            --disable-xlib-glx \
                            --disable-r600-llvm-compiler \
                            --disable-gallium-tests \
-                           --disable-gallium-osmesa \
                            --enable-shared-glapi \
+                           --enable-shader-cache \
                            --enable-sysfs \
+                           --enable-driglx-direct \
                            --enable-glx-tls \
                            $MESA_GALLIUM_LLVM \
                            --disable-silent-rules \
