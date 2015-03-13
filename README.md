@@ -16,10 +16,6 @@ providing cutting edge hardware support to deliver a set-top box experience.
 
 * Please read the instructions in our wiki (http://wiki.openelec.tv/index.php?title=Installation) on how to install.
 
-**Known issues**
-
-* Testing snapshot
-
 **License**
 
 * OpenELEC is released under [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html). Please refer to the "licenses" folder and 
@@ -44,10 +40,9 @@ providing cutting edge hardware support to deliver a set-top box experience.
 
 **Features**
 
-* System size ~ 90 - 130MB
+* System size ~ 90 - 170MB
 * Minimal hardware requirements
 * Ultra fast boot
-* Optimized builds for platforms such as ION, Intel, Fusion
 * Simple configuration via Kodi itself
 * Plug and Play external storage
 
@@ -68,8 +63,7 @@ providing cutting edge hardware support to deliver a set-top box experience.
   All data transfered to the machine will go here, the rest of the system is
   read-only with the exception of /var (containing runtime configuration data).
 * Manual update/downgrade procedure is as follows:
-  Extract the snapshot and navigate to the 'target' directory.
-  Copy KERNEL and SYSTEM along with KERNEL.md5 and SYSTEM.md5 to the 'Update' network share (or /storage/.update) on
+  Copy the snapshot (.tar) to the 'Update' network share (or /storage/.update) on
   your openelec machine. Your system will automatically upgrade during the 
   next reboot.
 * Automatic mounting of filesystems is supported. Devices such as USB Flash 
