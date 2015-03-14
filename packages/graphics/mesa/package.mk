@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mesa"
-PKG_VERSION="10.5.0"
+PKG_VERSION="10.5.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
