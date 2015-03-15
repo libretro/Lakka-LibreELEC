@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libXxf86vm"
-PKG_VERSION="1.1.3"
+PKG_VERSION="1.1.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
