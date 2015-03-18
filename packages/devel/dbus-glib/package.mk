@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="dbus-glib"
-PKG_VERSION="0.102"
+PKG_VERSION="0.104"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
