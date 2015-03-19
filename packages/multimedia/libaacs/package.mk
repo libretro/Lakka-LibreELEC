@@ -35,17 +35,9 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-extra-warnings \
                            --disable-optimizations \
-                           --disable-examples \
-                           --disable-debug \
                            --with-gnu-ld"
-
-pre_configure_target() {
-# libaacs fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
-    rm -rf .$TARGET_NAME
-}
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/config/aacs
-    cp -P KEYDB.cfg $INSTALL/usr/config/aacs
+    cp -P ../KEYDB.cfg $INSTALL/usr/config/aacs
 }
