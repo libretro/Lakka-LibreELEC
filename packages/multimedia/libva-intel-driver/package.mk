@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libva-intel-driver"
-PKG_VERSION="1.5.0"
+PKG_VERSION="1.5.1"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
