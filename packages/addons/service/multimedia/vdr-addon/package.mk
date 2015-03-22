@@ -32,6 +32,7 @@ PKG_LONGDESC="This project describes how to build your own digital satellite rec
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.service"
+PKG_ADDON_PROVIDES=""
 
 make_target() {
   : # nothing to do here
