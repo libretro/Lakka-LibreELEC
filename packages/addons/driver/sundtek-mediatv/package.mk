@@ -30,6 +30,7 @@ PKG_SHORTDESC="Sundtek USB Stick DVB userspace driver"
 PKG_LONGDESC="Driver for Sundtek MediaTV Pro (DVB-C, DVB-T, AnalogTV, Composite, S-Video, FM-Radio USB Stick) and Sundtek SkyTV Ultimate (DVB-S/S2 USB)."
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.service"
+PKG_ADDON_PROVIDES=""
 PKG_AUTORECONF="no"
 
 make_target() {
