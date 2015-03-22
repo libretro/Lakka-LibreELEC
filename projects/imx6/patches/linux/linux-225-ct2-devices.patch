@@ -1,6 +1,6 @@
 diff -urN a/drivers/media/dvb-core/dvb-usb-ids.h b/drivers/media/dvb-core/dvb-usb-ids.h
---- a/drivers/media/dvb-core/dvb-usb-ids.h	2014-12-27 21:06:31.575086154 +0200
-+++ b/drivers/media/dvb-core/dvb-usb-ids.h	2014-12-27 21:12:45.915075033 +0200
+--- a/drivers/media/dvb-core/dvb-usb-ids.h	2015-03-22 14:14:48.000000000 +0200
++++ b/drivers/media/dvb-core/dvb-usb-ids.h	2015-03-22 14:17:59.566225151 +0200
 @@ -285,6 +285,8 @@
  #define USB_PID_REALTEK_RTL2832U			0x2832
  #define USB_PID_TECHNOTREND_CONNECT_S2_3600		0x3007
@@ -11,8 +11,8 @@ diff -urN a/drivers/media/dvb-core/dvb-usb-ids.h b/drivers/media/dvb-core/dvb-us
  #define USB_PID_DVICO_BLUEBIRD_LGDT			0xd820
  #define USB_PID_DVICO_BLUEBIRD_LG064F_COLD		0xd500
 diff -urN a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kconfig
---- a/drivers/media/dvb-frontends/Kconfig	2014-12-27 21:08:23.439082831 +0200
-+++ b/drivers/media/dvb-frontends/Kconfig	2014-12-27 21:33:11.363038629 +0200
+--- a/drivers/media/dvb-frontends/Kconfig	2015-03-22 14:16:43.000000000 +0200
++++ b/drivers/media/dvb-frontends/Kconfig	2015-03-22 14:17:59.566225151 +0200
 @@ -768,6 +768,16 @@
  	depends on DVB_CORE && I2C
  	default m if !MEDIA_SUBDRV_AUTOSELECT
@@ -30,9 +30,1083 @@ diff -urN a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kc
  comment "Tools to develop new frontends"
  
  config DVB_DUMMY_FE
+diff -urN a/drivers/media/dvb-frontends/m88ds3103.c b/drivers/media/dvb-frontends/m88ds3103.c
+--- a/drivers/media/dvb-frontends/m88ds3103.c	2014-11-02 15:07:14.000000000 +0200
++++ b/drivers/media/dvb-frontends/m88ds3103.c	2015-03-22 14:20:15.000000000 +0200
+@@ -1,5 +1,5 @@
+ /*
+- * Montage M88DS3103 demodulator driver
++ * Montage M88DS3103/M88RS6000 demodulator driver
+  *
+  * Copyright (C) 2013 Antti Palosaari <crope@iki.fi>
+  *
+@@ -159,9 +159,10 @@
+ {
+ 	int ret, i, j;
+ 	u8 buf[83];
++
+ 	dev_dbg(&priv->i2c->dev, "%s: tab_len=%d\n", __func__, tab_len);
+ 
+-	if (tab_len > 83) {
++	if (tab_len > 86) {
+ 		ret = -EINVAL;
+ 		goto err;
+ 	}
+@@ -244,11 +245,12 @@
+ 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+ 	int ret, len;
+ 	const struct m88ds3103_reg_val *init;
+-	u8 u8tmp, u8tmp1, u8tmp2;
+-	u8 buf[2];
+-	u16 u16tmp, divide_ratio;
+-	u32 tuner_frequency, target_mclk, ts_clk;
++	u8 u8tmp, u8tmp1 = 0, u8tmp2 = 0; /* silence compiler warning */
++	u8 buf[3];
++	u16 u16tmp, divide_ratio = 0;
++	u32 tuner_frequency, target_mclk;
+ 	s32 s32tmp;
++
+ 	dev_dbg(&priv->i2c->dev,
+ 			"%s: delivery_system=%d modulation=%d frequency=%d symbol_rate=%d inversion=%d pilot=%d rolloff=%d\n",
+ 			__func__, c->delivery_system,
+@@ -260,6 +262,22 @@
+ 		goto err;
+ 	}
+ 
++	/* reset */
++	ret = m88ds3103_wr_reg(priv, 0x07, 0x80);
++	if (ret)
++		goto err;
++
++	ret = m88ds3103_wr_reg(priv, 0x07, 0x00);
++	if (ret)
++		goto err;
++
++	/* Disable demod clock path */
++	if (priv->chip_id == M88RS6000_CHIP_ID) {
++		ret = m88ds3103_wr_reg(priv, 0x06, 0xe0);
++		if (ret)
++			goto err;
++	}
++
+ 	/* program tuner */
+ 	if (fe->ops.tuner_ops.set_params) {
+ 		ret = fe->ops.tuner_ops.set_params(fe);
+@@ -271,54 +289,53 @@
+ 		ret = fe->ops.tuner_ops.get_frequency(fe, &tuner_frequency);
+ 		if (ret)
+ 			goto err;
++	} else {
++		/*
++		 * Use nominal target frequency as tuner driver does not provide
++		 * actual frequency used. Carrier offset calculation is not
++		 * valid.
++		 */
++		tuner_frequency = c->frequency;
+ 	}
+ 
+-	/* reset */
+-	ret = m88ds3103_wr_reg(priv, 0x07, 0x80);
+-	if (ret)
+-		goto err;
+-
+-	ret = m88ds3103_wr_reg(priv, 0x07, 0x00);
+-	if (ret)
+-		goto err;
+-
+-	ret = m88ds3103_wr_reg(priv, 0xb2, 0x01);
+-	if (ret)
+-		goto err;
++	/* select M88RS6000 demod main mclk and ts mclk from tuner die. */
++	if (priv->chip_id == M88RS6000_CHIP_ID) {
++		if (c->symbol_rate > 45010000)
++			priv->mclk_khz = 110250;
++		else
++			priv->mclk_khz = 96000;
+ 
+-	ret = m88ds3103_wr_reg(priv, 0x00, 0x01);
+-	if (ret)
+-		goto err;
++		if (c->delivery_system == SYS_DVBS)
++			target_mclk = 96000;
++		else
++			target_mclk = 144000;
+ 
+-	switch (c->delivery_system) {
+-	case SYS_DVBS:
+-		len = ARRAY_SIZE(m88ds3103_dvbs_init_reg_vals);
+-		init = m88ds3103_dvbs_init_reg_vals;
+-		target_mclk = 96000;
+-		break;
+-	case SYS_DVBS2:
+-		len = ARRAY_SIZE(m88ds3103_dvbs2_init_reg_vals);
+-		init = m88ds3103_dvbs2_init_reg_vals;
++		/* Enable demod clock path */
++		ret = m88ds3103_wr_reg(priv, 0x06, 0x00);
++		if (ret)
++			goto err;
++		usleep_range(10000, 20000);
++	} else {
++	/* set M88DS3103 mclk and ts mclk. */
++		priv->mclk_khz = 96000;
+ 
+ 		switch (priv->cfg->ts_mode) {
+ 		case M88DS3103_TS_SERIAL:
+ 		case M88DS3103_TS_SERIAL_D7:
+-			if (c->symbol_rate < 18000000)
+-				target_mclk = 96000;
+-			else
+-				target_mclk = 144000;
++			target_mclk = priv->cfg->ts_clk;
+ 			break;
+ 		case M88DS3103_TS_PARALLEL:
+-		case M88DS3103_TS_PARALLEL_12:
+-		case M88DS3103_TS_PARALLEL_16:
+-		case M88DS3103_TS_PARALLEL_19_2:
+ 		case M88DS3103_TS_CI:
+-			if (c->symbol_rate < 18000000)
++			if (c->delivery_system == SYS_DVBS)
+ 				target_mclk = 96000;
+-			else if (c->symbol_rate < 28000000)
+-				target_mclk = 144000;
+-			else
+-				target_mclk = 192000;
++			else {
++				if (c->symbol_rate < 18000000)
++					target_mclk = 96000;
++				else if (c->symbol_rate < 28000000)
++					target_mclk = 144000;
++				else
++					target_mclk = 192000;
++			}
+ 			break;
+ 		default:
+ 			dev_dbg(&priv->i2c->dev, "%s: invalid ts_mode\n",
+@@ -326,6 +343,55 @@
+ 			ret = -EINVAL;
+ 			goto err;
+ 		}
++
++		switch (target_mclk) {
++		case 96000:
++			u8tmp1 = 0x02; /* 0b10 */
++			u8tmp2 = 0x01; /* 0b01 */
++			break;
++		case 144000:
++			u8tmp1 = 0x00; /* 0b00 */
++			u8tmp2 = 0x01; /* 0b01 */
++			break;
++		case 192000:
++			u8tmp1 = 0x03; /* 0b11 */
++			u8tmp2 = 0x00; /* 0b00 */
++			break;
++		}
++		ret = m88ds3103_wr_reg_mask(priv, 0x22, u8tmp1 << 6, 0xc0);
++		if (ret)
++			goto err;
++		ret = m88ds3103_wr_reg_mask(priv, 0x24, u8tmp2 << 6, 0xc0);
++		if (ret)
++			goto err;
++	}
++
++	ret = m88ds3103_wr_reg(priv, 0xb2, 0x01);
++	if (ret)
++		goto err;
++
++	ret = m88ds3103_wr_reg(priv, 0x00, 0x01);
++	if (ret)
++		goto err;
++
++	switch (c->delivery_system) {
++	case SYS_DVBS:
++		if (priv->chip_id == M88RS6000_CHIP_ID) {
++			len = ARRAY_SIZE(m88rs6000_dvbs_init_reg_vals);
++			init = m88rs6000_dvbs_init_reg_vals;
++		} else {
++			len = ARRAY_SIZE(m88ds3103_dvbs_init_reg_vals);
++			init = m88ds3103_dvbs_init_reg_vals;
++		}
++		break;
++	case SYS_DVBS2:
++		if (priv->chip_id == M88RS6000_CHIP_ID) {
++			len = ARRAY_SIZE(m88rs6000_dvbs2_init_reg_vals);
++			init = m88rs6000_dvbs2_init_reg_vals;
++		} else {
++			len = ARRAY_SIZE(m88ds3103_dvbs2_init_reg_vals);
++			init = m88ds3103_dvbs2_init_reg_vals;
++		}
+ 		break;
+ 	default:
+ 		dev_dbg(&priv->i2c->dev, "%s: invalid delivery_system\n",
+@@ -341,37 +407,44 @@
+ 			goto err;
+ 	}
+ 
+-	u8tmp1 = 0; /* silence compiler warning */
++	if (priv->chip_id == M88RS6000_CHIP_ID) {
++		if ((c->delivery_system == SYS_DVBS2)
++			&& ((c->symbol_rate / 1000) <= 5000)) {
++			ret = m88ds3103_wr_reg(priv, 0xc0, 0x04);
++			if (ret)
++				goto err;
++			buf[0] = 0x09;
++			buf[1] = 0x22;
++			buf[2] = 0x88;
++			ret = m88ds3103_wr_regs(priv, 0x8a, buf, 3);
++			if (ret)
++				goto err;
++		}
++		ret = m88ds3103_wr_reg_mask(priv, 0x9d, 0x08, 0x08);
++		if (ret)
++			goto err;
++		ret = m88ds3103_wr_reg(priv, 0xf1, 0x01);
++		if (ret)
++			goto err;
++		ret = m88ds3103_wr_reg_mask(priv, 0x30, 0x80, 0x80);
++		if (ret)
++			goto err;
++	}
++
+ 	switch (priv->cfg->ts_mode) {
+ 	case M88DS3103_TS_SERIAL:
+ 		u8tmp1 = 0x00;
+-		ts_clk = 0;
+-		u8tmp = 0x46;
++		u8tmp = 0x06;
+ 		break;
+ 	case M88DS3103_TS_SERIAL_D7:
+ 		u8tmp1 = 0x20;
+-		ts_clk = 0;
+-		u8tmp = 0x46;
++		u8tmp = 0x06;
+ 		break;
+ 	case M88DS3103_TS_PARALLEL:
+-		ts_clk = 24000;
+-		u8tmp = 0x42;
+-		break;
+-	case M88DS3103_TS_PARALLEL_12:
+-		ts_clk = 12000;
+-		u8tmp = 0x42;
+-		break;
+-	case M88DS3103_TS_PARALLEL_16:
+-		ts_clk = 16000;
+-		u8tmp = 0x42;
+-		break;
+-	case M88DS3103_TS_PARALLEL_19_2:
+-		ts_clk = 19200;
+-		u8tmp = 0x42;
++		u8tmp = 0x02;
+ 		break;
+ 	case M88DS3103_TS_CI:
+-		ts_clk = 6000;
+-		u8tmp = 0x43;
++		u8tmp = 0x03;
+ 		break;
+ 	default:
+ 		dev_dbg(&priv->i2c->dev, "%s: invalid ts_mode\n", __func__);
+@@ -379,6 +452,9 @@
+ 		goto err;
+ 	}
+ 
++	if (priv->cfg->ts_clk_pol)
++		u8tmp |= 0x40;
++
+ 	/* TS mode */
+ 	ret = m88ds3103_wr_reg(priv, 0xfd, u8tmp);
+ 	if (ret)
+@@ -390,21 +466,20 @@
+ 		ret = m88ds3103_wr_reg_mask(priv, 0x29, u8tmp1, 0x20);
+ 		if (ret)
+ 			goto err;
+-	}
+-
+-	if (ts_clk) {
+-		divide_ratio = DIV_ROUND_UP(target_mclk, ts_clk);
+-		u8tmp1 = divide_ratio / 2;
+-		u8tmp2 = DIV_ROUND_UP(divide_ratio, 2);
+-	} else {
+-		divide_ratio = 0;
+ 		u8tmp1 = 0;
+ 		u8tmp2 = 0;
++		break;
++	default:
++		if (priv->cfg->ts_clk) {
++			divide_ratio = DIV_ROUND_UP(target_mclk, priv->cfg->ts_clk);
++			u8tmp1 = divide_ratio / 2;
++			u8tmp2 = DIV_ROUND_UP(divide_ratio, 2);
++		}
+ 	}
+ 
+ 	dev_dbg(&priv->i2c->dev,
+ 			"%s: target_mclk=%d ts_clk=%d divide_ratio=%d\n",
+-			__func__, target_mclk, ts_clk, divide_ratio);
++			__func__, target_mclk, priv->cfg->ts_clk, divide_ratio);
+ 
+ 	u8tmp1--;
+ 	u8tmp2--;
+@@ -427,41 +502,6 @@
+ 	if (ret)
+ 		goto err;
+ 
+-	switch (target_mclk) {
+-	case 72000:
+-		u8tmp1 = 0x00; /* 0b00 */
+-		u8tmp2 = 0x03; /* 0b11 */
+-		break;
+-	case 96000:
+-		u8tmp1 = 0x02; /* 0b10 */
+-		u8tmp2 = 0x01; /* 0b01 */
+-		break;
+-	case 115200:
+-		u8tmp1 = 0x01; /* 0b01 */
+-		u8tmp2 = 0x01; /* 0b01 */
+-		break;
+-	case 144000:
+-		u8tmp1 = 0x00; /* 0b00 */
+-		u8tmp2 = 0x01; /* 0b01 */
+-		break;
+-	case 192000:
+-		u8tmp1 = 0x03; /* 0b11 */
+-		u8tmp2 = 0x00; /* 0b00 */
+-		break;
+-	default:
+-		dev_dbg(&priv->i2c->dev, "%s: invalid target_mclk\n", __func__);
+-		ret = -EINVAL;
+-		goto err;
+-	}
+-
+-	ret = m88ds3103_wr_reg_mask(priv, 0x22, u8tmp1 << 6, 0xc0);
+-	if (ret)
+-		goto err;
+-
+-	ret = m88ds3103_wr_reg_mask(priv, 0x24, u8tmp2 << 6, 0xc0);
+-	if (ret)
+-		goto err;
+-
+ 	if (c->symbol_rate <= 3000000)
+ 		u8tmp = 0x20;
+ 	else if (c->symbol_rate <= 10000000)
+@@ -485,7 +525,7 @@
+ 	if (ret)
+ 		goto err;
+ 
+-	u16tmp = DIV_ROUND_CLOSEST((c->symbol_rate / 1000) << 15, M88DS3103_MCLK_KHZ / 2);
++	u16tmp = DIV_ROUND_CLOSEST((c->symbol_rate / 1000) << 15, priv->mclk_khz / 2);
+ 	buf[0] = (u16tmp >> 0) & 0xff;
+ 	buf[1] = (u16tmp >> 8) & 0xff;
+ 	ret = m88ds3103_wr_regs(priv, 0x61, buf, 2);
+@@ -508,7 +548,7 @@
+ 			(tuner_frequency - c->frequency));
+ 
+ 	s32tmp = 0x10000 * (tuner_frequency - c->frequency);
+-	s32tmp = DIV_ROUND_CLOSEST(s32tmp, M88DS3103_MCLK_KHZ);
++	s32tmp = DIV_ROUND_CLOSEST(s32tmp, priv->mclk_khz);
+ 	if (s32tmp < 0)
+ 		s32tmp += 0x10000;
+ 
+@@ -539,8 +579,9 @@
+ 	struct m88ds3103_priv *priv = fe->demodulator_priv;
+ 	int ret, len, remaining;
+ 	const struct firmware *fw = NULL;
+-	u8 *fw_file = M88DS3103_FIRMWARE;
++	u8 *fw_file;
+ 	u8 u8tmp;
++
+ 	dev_dbg(&priv->i2c->dev, "%s:\n", __func__);
+ 
+ 	/* set cold state by default */
+@@ -559,15 +600,6 @@
+ 	if (ret)
+ 		goto err;
+ 
+-	/* reset */
+-	ret = m88ds3103_wr_reg(priv, 0x07, 0x60);
+-	if (ret)
+-		goto err;
+-
+-	ret = m88ds3103_wr_reg(priv, 0x07, 0x00);
+-	if (ret)
+-		goto err;
+-
+ 	/* firmware status */
+ 	ret = m88ds3103_rd_reg(priv, 0xb9, &u8tmp);
+ 	if (ret)
+@@ -578,10 +610,23 @@
+ 	if (u8tmp)
+ 		goto skip_fw_download;
+ 
++	/* global reset, global diseqc reset, golbal fec reset */
++	ret = m88ds3103_wr_reg(priv, 0x07, 0xe0);
++	if (ret)
++		goto err;
++
++	ret = m88ds3103_wr_reg(priv, 0x07, 0x00);
++	if (ret)
++		goto err;
++
+ 	/* cold state - try to download firmware */
+ 	dev_info(&priv->i2c->dev, "%s: found a '%s' in cold state\n",
+ 			KBUILD_MODNAME, m88ds3103_ops.info.name);
+ 
++	if (priv->chip_id == M88RS6000_CHIP_ID)
++		fw_file = M88RS6000_FIRMWARE;
++	else
++		fw_file = M88DS3103_FIRMWARE;
+ 	/* request the firmware, this will block and timeout */
+ 	ret = request_firmware(&fw, fw_file, priv->i2c->dev.parent);
+ 	if (ret) {
+@@ -595,7 +640,7 @@
+ 
+ 	ret = m88ds3103_wr_reg(priv, 0xb2, 0x01);
+ 	if (ret)
+-		goto err;
++		goto error_fw_release;
+ 
+ 	for (remaining = fw->size; remaining > 0;
+ 			remaining -= (priv->cfg->i2c_wr_max - 1)) {
+@@ -609,13 +654,13 @@
+ 			dev_err(&priv->i2c->dev,
+ 					"%s: firmware download failed=%d\n",
+ 					KBUILD_MODNAME, ret);
+-			goto err;
++			goto error_fw_release;
+ 		}
+ 	}
+ 
+ 	ret = m88ds3103_wr_reg(priv, 0xb2, 0x00);
+ 	if (ret)
+-		goto err;
++		goto error_fw_release;
+ 
+ 	release_firmware(fw);
+ 	fw = NULL;
+@@ -641,10 +686,10 @@
+ 	priv->warm = true;
+ 
+ 	return 0;
+-err:
+-	if (fw)
+-		release_firmware(fw);
+ 
++error_fw_release:
++	release_firmware(fw);
++err:
+ 	dev_dbg(&priv->i2c->dev, "%s: failed=%d\n", __func__, ret);
+ 	return ret;
+ }
+@@ -653,12 +698,18 @@
+ {
+ 	struct m88ds3103_priv *priv = fe->demodulator_priv;
+ 	int ret;
++	u8 u8tmp;
++
+ 	dev_dbg(&priv->i2c->dev, "%s:\n", __func__);
+ 
+ 	priv->delivery_system = SYS_UNDEFINED;
+ 
+ 	/* TS Hi-Z */
+-	ret = m88ds3103_wr_reg_mask(priv, 0x27, 0x00, 0x01);
++	if (priv->chip_id == M88RS6000_CHIP_ID)
++		u8tmp = 0x29;
++	else
++		u8tmp = 0x27;
++	ret = m88ds3103_wr_reg_mask(priv, u8tmp, 0x00, 0x01);
+ 	if (ret)
+ 		goto err;
+ 
+@@ -687,6 +738,7 @@
+ 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
+ 	int ret;
+ 	u8 buf[3];
++
+ 	dev_dbg(&priv->i2c->dev, "%s:\n", __func__);
+ 
+ 	if (!priv->warm || !(priv->fe_status & FE_HAS_LOCK)) {
+@@ -711,9 +763,6 @@
+ 		case 1:
+ 			c->inversion = INVERSION_ON;
+ 			break;
+-		default:
+-			dev_dbg(&priv->i2c->dev, "%s: invalid inversion\n",
+-					__func__);
+ 		}
+ 
+ 		switch ((buf[1] >> 5) & 0x07) {
+@@ -793,9 +842,6 @@
+ 		case 1:
+ 			c->pilot = PILOT_ON;
+ 			break;
+-		default:
+-			dev_dbg(&priv->i2c->dev, "%s: invalid pilot\n",
+-					__func__);
+ 		}
+ 
+ 		switch ((buf[0] >> 6) & 0x07) {
+@@ -823,9 +869,6 @@
+ 		case 1:
+ 			c->inversion = INVERSION_ON;
+ 			break;
+-		default:
+-			dev_dbg(&priv->i2c->dev, "%s: invalid inversion\n",
+-					__func__);
+ 		}
+ 
+ 		switch ((buf[2] >> 0) & 0x03) {
+@@ -855,7 +898,7 @@
+ 		goto err;
+ 
+ 	c->symbol_rate = 1ull * ((buf[1] << 8) | (buf[0] << 0)) *
+-			M88DS3103_MCLK_KHZ * 1000 / 0x10000;
++			priv->mclk_khz * 1000 / 0x10000;
+ 
+ 	return 0;
+ err:
+@@ -871,6 +914,7 @@
+ 	u8 buf[3];
+ 	u16 noise, signal;
+ 	u32 noise_tot, signal_tot;
++
+ 	dev_dbg(&priv->i2c->dev, "%s:\n", __func__);
+ 	/* reports SNR in resolution of 0.1 dB */
+ 
+@@ -893,7 +937,7 @@
+ 		/* SNR(X) dB = 10 * ln(X) / ln(10) dB */
+ 		tmp = DIV_ROUND_CLOSEST(tmp, 8 * M88DS3103_SNR_ITERATIONS);
+ 		if (tmp)
+-			*snr = 100ul * intlog2(tmp) / intlog2(10);
++			*snr = div_u64((u64) 100 * intlog2(tmp), intlog2(10));
+ 		else
+ 			*snr = 0;
+ 		break;
+@@ -922,7 +966,7 @@
+ 		/* SNR(X) dB = 10 * log10(X) dB */
+ 		if (signal > noise) {
+ 			tmp = signal / noise;
+-			*snr = 100ul * intlog10(tmp) / (1 << 24);
++			*snr = div_u64((u64) 100 * intlog10(tmp), (1 << 24));
+ 		} else {
+ 			*snr = 0;
+ 		}
+@@ -940,6 +984,87 @@
+ 	return ret;
+ }
+ 
++static int m88ds3103_read_ber(struct dvb_frontend *fe, u32 *ber)
++{
++	struct m88ds3103_priv *priv = fe->demodulator_priv;
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int ret;
++	unsigned int utmp;
++	u8 buf[3], u8tmp;
++
++	dev_dbg(&priv->i2c->dev, "%s:\n", __func__);
++
++	switch (c->delivery_system) {
++	case SYS_DVBS:
++		ret = m88ds3103_wr_reg(priv, 0xf9, 0x04);
++		if (ret)
++			goto err;
++
++		ret = m88ds3103_rd_reg(priv, 0xf8, &u8tmp);
++		if (ret)
++			goto err;
++
++		if (!(u8tmp & 0x10)) {
++			u8tmp |= 0x10;
++
++			ret = m88ds3103_rd_regs(priv, 0xf6, buf, 2);
++			if (ret)
++				goto err;
++
++			priv->ber = (buf[1] << 8) | (buf[0] << 0);
++
++			/* restart counters */
++			ret = m88ds3103_wr_reg(priv, 0xf8, u8tmp);
++			if (ret)
++				goto err;
++		}
++		break;
++	case SYS_DVBS2:
++		ret = m88ds3103_rd_regs(priv, 0xd5, buf, 3);
++		if (ret)
++			goto err;
++
++		utmp = (buf[2] << 16) | (buf[1] << 8) | (buf[0] << 0);
++
++		if (utmp > 3000) {
++			ret = m88ds3103_rd_regs(priv, 0xf7, buf, 2);
++			if (ret)
++				goto err;
++
++			priv->ber = (buf[1] << 8) | (buf[0] << 0);
++
++			/* restart counters */
++			ret = m88ds3103_wr_reg(priv, 0xd1, 0x01);
++			if (ret)
++				goto err;
++
++			ret = m88ds3103_wr_reg(priv, 0xf9, 0x01);
++			if (ret)
++				goto err;
++
++			ret = m88ds3103_wr_reg(priv, 0xf9, 0x00);
++			if (ret)
++				goto err;
++
++			ret = m88ds3103_wr_reg(priv, 0xd1, 0x00);
++			if (ret)
++				goto err;
++		}
++		break;
++	default:
++		dev_dbg(&priv->i2c->dev, "%s: invalid delivery_system\n",
++				__func__);
++		ret = -EINVAL;
++		goto err;
++	}
++
++	*ber = priv->ber;
++
++	return 0;
++err:
++	dev_dbg(&priv->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
+ 
+ static int m88ds3103_set_tone(struct dvb_frontend *fe,
+ 	fe_sec_tone_mode_t fe_sec_tone_mode)
+@@ -947,6 +1072,7 @@
+ 	struct m88ds3103_priv *priv = fe->demodulator_priv;
+ 	int ret;
+ 	u8 u8tmp, tone, reg_a1_mask;
++
+ 	dev_dbg(&priv->i2c->dev, "%s: fe_sec_tone_mode=%d\n", __func__,
+ 			fe_sec_tone_mode);
+ 
+@@ -958,7 +1084,7 @@
+ 	switch (fe_sec_tone_mode) {
+ 	case SEC_TONE_ON:
+ 		tone = 0;
+-		reg_a1_mask = 0x87;
++		reg_a1_mask = 0x47;
+ 		break;
+ 	case SEC_TONE_OFF:
+ 		tone = 1;
+@@ -987,12 +1113,64 @@
+ 	return ret;
+ }
+ 
++static int m88ds3103_set_voltage(struct dvb_frontend *fe,
++	fe_sec_voltage_t fe_sec_voltage)
++{
++	struct m88ds3103_priv *priv = fe->demodulator_priv;
++	int ret;
++	u8 u8tmp;
++	bool voltage_sel, voltage_dis;
++
++	dev_dbg(&priv->i2c->dev, "%s: fe_sec_voltage=%d\n", __func__,
++			fe_sec_voltage);
++
++	if (!priv->warm) {
++		ret = -EAGAIN;
++		goto err;
++	}
++
++	switch (fe_sec_voltage) {
++	case SEC_VOLTAGE_18:
++		voltage_sel = true;
++		voltage_dis = false;
++		break;
++	case SEC_VOLTAGE_13:
++		voltage_sel = false;
++		voltage_dis = false;
++		break;
++	case SEC_VOLTAGE_OFF:
++		voltage_sel = false;
++		voltage_dis = true;
++		break;
++	default:
++		dev_dbg(&priv->i2c->dev, "%s: invalid fe_sec_voltage\n",
++				__func__);
++		ret = -EINVAL;
++		goto err;
++	}
++
++	/* output pin polarity */
++	voltage_sel ^= priv->cfg->lnb_hv_pol;
++	voltage_dis ^= priv->cfg->lnb_en_pol;
++
++	u8tmp = voltage_dis << 1 | voltage_sel << 0;
++	ret = m88ds3103_wr_reg_mask(priv, 0xa2, u8tmp, 0x03);
++	if (ret)
++		goto err;
++
++	return 0;
++err:
++	dev_dbg(&priv->i2c->dev, "%s: failed=%d\n", __func__, ret);
++	return ret;
++}
++
+ static int m88ds3103_diseqc_send_master_cmd(struct dvb_frontend *fe,
+ 		struct dvb_diseqc_master_cmd *diseqc_cmd)
+ {
+ 	struct m88ds3103_priv *priv = fe->demodulator_priv;
+ 	int ret, i;
+ 	u8 u8tmp;
++
+ 	dev_dbg(&priv->i2c->dev, "%s: msg=%*ph\n", __func__,
+ 			diseqc_cmd->msg_len, diseqc_cmd->msg);
+ 
+@@ -1064,6 +1242,7 @@
+ 	struct m88ds3103_priv *priv = fe->demodulator_priv;
+ 	int ret, i;
+ 	u8 u8tmp, burst;
++
+ 	dev_dbg(&priv->i2c->dev, "%s: fe_sec_mini_cmd=%d\n", __func__,
+ 			fe_sec_mini_cmd);
+ 
+@@ -1136,6 +1315,7 @@
+ static void m88ds3103_release(struct dvb_frontend *fe)
+ {
+ 	struct m88ds3103_priv *priv = fe->demodulator_priv;
++
+ 	i2c_del_mux_adapter(priv->i2c_adapter);
+ 	kfree(priv);
+ }
+@@ -1198,18 +1378,22 @@
+ 	priv->i2c = i2c;
+ 	mutex_init(&priv->i2c_mutex);
+ 
+-	ret = m88ds3103_rd_reg(priv, 0x01, &chip_id);
++	/* 0x00: chip id[6:0], 0x01: chip ver[7:0], 0x02: chip ver[15:8] */
++	ret = m88ds3103_rd_reg(priv, 0x00, &chip_id);
+ 	if (ret)
+ 		goto err;
+ 
+-	dev_dbg(&priv->i2c->dev, "%s: chip_id=%02x\n", __func__, chip_id);
++	chip_id >>= 1;
++	dev_info(&priv->i2c->dev, "%s: chip_id=%02x\n", __func__, chip_id);
+ 
+ 	switch (chip_id) {
+-	case 0xd0:
++	case M88RS6000_CHIP_ID:
++	case M88DS3103_CHIP_ID:
+ 		break;
+ 	default:
+ 		goto err;
+ 	}
++	priv->chip_id = chip_id;
+ 
+ 	switch (priv->cfg->clock_out) {
+ 	case M88DS3103_CLOCK_OUT_DISABLED:
+@@ -1225,6 +1409,11 @@
+ 		goto err;
+ 	}
+ 
++	/* 0x29 register is defined differently for m88rs6000. */
++	/* set internal tuner address to 0x21 */
++	if (chip_id == M88RS6000_CHIP_ID)
++		u8tmp = 0x00;
++
+ 	ret = m88ds3103_wr_reg(priv, 0x29, u8tmp);
+ 	if (ret)
+ 		goto err;
+@@ -1252,6 +1441,9 @@
+ 
+ 	/* create dvb_frontend */
+ 	memcpy(&priv->fe.ops, &m88ds3103_ops, sizeof(struct dvb_frontend_ops));
++	if (priv->chip_id == M88RS6000_CHIP_ID)
++		strncpy(priv->fe.ops.info.name,
++			"Montage M88RS6000", sizeof(priv->fe.ops.info.name));
+ 	priv->fe.demodulator_priv = priv;
+ 
+ 	return &priv->fe;
+@@ -1298,14 +1490,17 @@
+ 
+ 	.read_status = m88ds3103_read_status,
+ 	.read_snr = m88ds3103_read_snr,
++	.read_ber = m88ds3103_read_ber,
+ 
+ 	.diseqc_send_master_cmd = m88ds3103_diseqc_send_master_cmd,
+ 	.diseqc_send_burst = m88ds3103_diseqc_send_burst,
+ 
+ 	.set_tone = m88ds3103_set_tone,
++	.set_voltage = m88ds3103_set_voltage,
+ };
+ 
+ MODULE_AUTHOR("Antti Palosaari <crope@iki.fi>");
+ MODULE_DESCRIPTION("Montage M88DS3103 DVB-S/S2 demodulator driver");
+ MODULE_LICENSE("GPL");
+ MODULE_FIRMWARE(M88DS3103_FIRMWARE);
++MODULE_FIRMWARE(M88RS6000_FIRMWARE);
+diff -urN a/drivers/media/dvb-frontends/m88ds3103.h b/drivers/media/dvb-frontends/m88ds3103.h
+--- a/drivers/media/dvb-frontends/m88ds3103.h	2014-11-02 15:07:14.000000000 +0200
++++ b/drivers/media/dvb-frontends/m88ds3103.h	2015-03-22 14:22:03.000000000 +0200
+@@ -47,14 +47,23 @@
+ 	 */
+ #define M88DS3103_TS_SERIAL             0 /* TS output pin D0, normal */
+ #define M88DS3103_TS_SERIAL_D7          1 /* TS output pin D7 */
+-#define M88DS3103_TS_PARALLEL           2 /* 24 MHz, normal */
+-#define M88DS3103_TS_PARALLEL_12        3 /* 12 MHz */
+-#define M88DS3103_TS_PARALLEL_16        4 /* 16 MHz */
+-#define M88DS3103_TS_PARALLEL_19_2      5 /* 19.2 MHz */
+-#define M88DS3103_TS_CI                 6 /* 6 MHz */
++#define M88DS3103_TS_PARALLEL           2 /* TS Parallel mode */
++#define M88DS3103_TS_CI                 3 /* TS CI Mode */
+ 	u8 ts_mode;
+ 
+ 	/*
++	 * TS clk in KHz
++	 * Default: 0.
++	 */
++	u32 ts_clk;
++
++	/*
++	 * TS clk polarity.
++	 * Default: 0. 1-active at falling edge; 0-active at rising edge.
++	 */
++	u8 ts_clk_pol:1;
++
++	/*
+ 	 * spectrum inversion
+ 	 * Default: 0
+ 	 */
+@@ -86,6 +95,22 @@
+ 	 * Default: none, must set
+ 	 */
+ 	u8 agc;
++
++	/*
++	 * LNB H/V pin polarity
++	 * Default: 0.
++	 * 1: pin high set to VOLTAGE_13, pin low to set VOLTAGE_18.
++	 * 0: pin high set to VOLTAGE_18, pin low to set VOLTAGE_13.
++	 */
++	u8 lnb_hv_pol:1;
++
++	/*
++	 * LNB enable pin polarity
++	 * Default: 0.
++	 * 1: pin high to enable, pin low to disable.
++	 * 0: pin high to disable, pin low to enable.
++	 */
++	u8 lnb_en_pol:1;
+ };
+ 
+ /*
+diff -urN a/drivers/media/dvb-frontends/m88ds3103_priv.h b/drivers/media/dvb-frontends/m88ds3103_priv.h
+--- a/drivers/media/dvb-frontends/m88ds3103_priv.h	2014-11-02 15:07:15.000000000 +0200
++++ b/drivers/media/dvb-frontends/m88ds3103_priv.h	2015-03-22 14:23:04.000000000 +0200
+@@ -22,9 +22,13 @@
+ #include "dvb_math.h"
+ #include <linux/firmware.h>
+ #include <linux/i2c-mux.h>
++#include <linux/math64.h>
+ 
+ #define M88DS3103_FIRMWARE "dvb-demod-m88ds3103.fw"
++#define M88RS6000_FIRMWARE "dvb-demod-m88rs6000.fw"
+ #define M88DS3103_MCLK_KHZ 96000
++#define M88RS6000_CHIP_ID 0x74
++#define M88DS3103_CHIP_ID 0x70
+ 
+ struct m88ds3103_priv {
+ 	struct i2c_adapter *i2c;
+@@ -34,8 +38,13 @@
+ 	struct dvb_frontend fe;
+ 	fe_delivery_system_t delivery_system;
+ 	fe_status_t fe_status;
++	u32 ber;
+ 	bool warm; /* FW running */
+ 	struct i2c_adapter *i2c_adapter;
++	/* auto detect chip id to do different config */
++	u8 chip_id;
++	/* main mclk is calculated for M88RS6000 dynamically */
++	u32 mclk_khz;
+ };
+ 
+ struct m88ds3103_reg_val {
+@@ -212,4 +221,178 @@
+ 	{0xb8, 0x00},
+ };
+ 
++static const struct m88ds3103_reg_val m88rs6000_dvbs_init_reg_vals[] = {
++	{0x23, 0x07},
++	{0x08, 0x03},
++	{0x0c, 0x02},
++	{0x20, 0x00},
++	{0x21, 0x54},
++	{0x25, 0x82},
++	{0x27, 0x31},
++	{0x30, 0x08},
++	{0x31, 0x40},
++	{0x32, 0x32},
++	{0x33, 0x35},
++	{0x35, 0xff},
++	{0x3a, 0x00},
++	{0x37, 0x10},
++	{0x38, 0x10},
++	{0x39, 0x02},
++	{0x42, 0x60},
++	{0x4a, 0x80},
++	{0x4b, 0x04},
++	{0x4d, 0x91},
++	{0x5d, 0xc8},
++	{0x50, 0x36},
++	{0x51, 0x36},
++	{0x52, 0x36},
++	{0x53, 0x36},
++	{0x63, 0x0f},
++	{0x64, 0x30},
++	{0x65, 0x40},
++	{0x68, 0x26},
++	{0x69, 0x4c},
++	{0x70, 0x20},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x40},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x60},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x80},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0xa0},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x1f},
++	{0x76, 0x38},
++	{0x77, 0xa6},
++	{0x78, 0x0c},
++	{0x79, 0x80},
++	{0x7f, 0x14},
++	{0x7c, 0x00},
++	{0xae, 0x82},
++	{0x80, 0x64},
++	{0x81, 0x66},
++	{0x82, 0x44},
++	{0x85, 0x04},
++	{0xcd, 0xf4},
++	{0x90, 0x33},
++	{0xa0, 0x44},
++	{0xbe, 0x00},
++	{0xc0, 0x08},
++	{0xc3, 0x10},
++	{0xc4, 0x08},
++	{0xc5, 0xf0},
++	{0xc6, 0xff},
++	{0xc7, 0x00},
++	{0xc8, 0x1a},
++	{0xc9, 0x80},
++	{0xe0, 0xf8},
++	{0xe6, 0x8b},
++	{0xd0, 0x40},
++	{0xf8, 0x20},
++	{0xfa, 0x0f},
++	{0x00, 0x00},
++	{0xbd, 0x01},
++	{0xb8, 0x00},
++	{0x29, 0x11},
++};
++
++static const struct m88ds3103_reg_val m88rs6000_dvbs2_init_reg_vals[] = {
++	{0x23, 0x07},
++	{0x08, 0x07},
++	{0x0c, 0x02},
++	{0x20, 0x00},
++	{0x21, 0x54},
++	{0x25, 0x82},
++	{0x27, 0x31},
++	{0x30, 0x08},
++	{0x32, 0x32},
++	{0x33, 0x35},
++	{0x35, 0xff},
++	{0x3a, 0x00},
++	{0x37, 0x10},
++	{0x38, 0x10},
++	{0x39, 0x02},
++	{0x42, 0x60},
++	{0x4a, 0x80},
++	{0x4b, 0x04},
++	{0x4d, 0x91},
++	{0x5d, 0xc8},
++	{0x50, 0x36},
++	{0x51, 0x36},
++	{0x52, 0x36},
++	{0x53, 0x36},
++	{0x63, 0x0f},
++	{0x64, 0x10},
++	{0x65, 0x20},
++	{0x68, 0x46},
++	{0x69, 0xcd},
++	{0x70, 0x20},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x40},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x60},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x80},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0xa0},
++	{0x71, 0x70},
++	{0x72, 0x04},
++	{0x73, 0x00},
++	{0x70, 0x1f},
++	{0x76, 0x38},
++	{0x77, 0xa6},
++	{0x78, 0x0c},
++	{0x79, 0x80},
++	{0x7f, 0x14},
++	{0x85, 0x08},
++	{0xcd, 0xf4},
++	{0x90, 0x33},
++	{0x86, 0x00},
++	{0x87, 0x0f},
++	{0x89, 0x00},
++	{0x8b, 0x44},
++	{0x8c, 0x66},
++	{0x9d, 0xc1},
++	{0x8a, 0x10},
++	{0xad, 0x40},
++	{0xa0, 0x44},
++	{0xbe, 0x00},
++	{0xc0, 0x08},
++	{0xc1, 0x10},
++	{0xc2, 0x08},
++	{0xc3, 0x10},
++	{0xc4, 0x08},
++	{0xc5, 0xf0},
++	{0xc6, 0xff},
++	{0xc7, 0x00},
++	{0xc8, 0x1a},
++	{0xc9, 0x80},
++	{0xca, 0x23},
++	{0xcb, 0x24},
++	{0xcc, 0xf4},
++	{0xce, 0x74},
++	{0x00, 0x00},
++	{0xbd, 0x01},
++	{0xb8, 0x00},
++	{0x29, 0x01},
++};
+ #endif
 diff -urN a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/Makefile
---- a/drivers/media/dvb-frontends/Makefile	2014-12-27 21:08:23.439082831 +0200
-+++ b/drivers/media/dvb-frontends/Makefile	2014-12-27 21:32:23.591040048 +0200
+--- a/drivers/media/dvb-frontends/Makefile	2015-03-22 14:16:43.000000000 +0200
++++ b/drivers/media/dvb-frontends/Makefile	2015-03-22 14:17:59.566225151 +0200
 @@ -105,5 +105,7 @@
  obj-$(CONFIG_DVB_RTL2832) += rtl2832.o
  obj-$(CONFIG_DVB_M88RS2000) += m88rs2000.o
@@ -43,7 +1117,7 @@ diff -urN a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/M
  obj-$(CONFIG_DVB_DVBSKY_M88DC2800) += dvbsky_m88dc2800.o
 diff -urN a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/si2168.c
 --- a/drivers/media/dvb-frontends/si2168.c	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/dvb-frontends/si2168.c	2014-12-27 21:21:55.835058697 +0200
++++ b/drivers/media/dvb-frontends/si2168.c	2015-03-22 14:17:59.570225151 +0200
 @@ -0,0 +1,756 @@
 +/*
 + * Silicon Labs Si2168 DVB-T/T2/C demodulator driver
@@ -803,7 +1877,7 @@ diff -urN a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/s
 +MODULE_FIRMWARE(SI2168_B40_FIRMWARE);
 diff -urN a/drivers/media/dvb-frontends/si2168.h b/drivers/media/dvb-frontends/si2168.h
 --- a/drivers/media/dvb-frontends/si2168.h	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/dvb-frontends/si2168.h	2014-12-27 21:21:55.839058697 +0200
++++ b/drivers/media/dvb-frontends/si2168.h	2015-03-22 14:17:59.570225151 +0200
 @@ -0,0 +1,49 @@
 +/*
 + * Silicon Labs Si2168 DVB-T/T2/C demodulator driver
@@ -856,7 +1930,7 @@ diff -urN a/drivers/media/dvb-frontends/si2168.h b/drivers/media/dvb-frontends/s
 +#endif
 diff -urN a/drivers/media/dvb-frontends/si2168_priv.h b/drivers/media/dvb-frontends/si2168_priv.h
 --- a/drivers/media/dvb-frontends/si2168_priv.h	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/dvb-frontends/si2168_priv.h	2014-12-27 21:21:55.839058697 +0200
++++ b/drivers/media/dvb-frontends/si2168_priv.h	2015-03-22 14:17:59.570225151 +0200
 @@ -0,0 +1,52 @@
 +/*
 + * Silicon Labs Si2168 DVB-T/T2/C demodulator driver
@@ -912,7 +1986,7 @@ diff -urN a/drivers/media/dvb-frontends/si2168_priv.h b/drivers/media/dvb-fronte
 +#endif
 diff -urN a/drivers/media/dvb-frontends/sp2.c b/drivers/media/dvb-frontends/sp2.c
 --- a/drivers/media/dvb-frontends/sp2.c	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/dvb-frontends/sp2.c	2014-12-27 21:21:50.199058864 +0200
++++ b/drivers/media/dvb-frontends/sp2.c	2015-03-22 14:17:59.570225151 +0200
 @@ -0,0 +1,444 @@
 +/*
 + * CIMaX SP2/SP2HF (Atmel T90FJR) CI driver
@@ -1360,7 +2434,7 @@ diff -urN a/drivers/media/dvb-frontends/sp2.c b/drivers/media/dvb-frontends/sp2.
 +MODULE_LICENSE("GPL");
 diff -urN a/drivers/media/dvb-frontends/sp2.h b/drivers/media/dvb-frontends/sp2.h
 --- a/drivers/media/dvb-frontends/sp2.h	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/dvb-frontends/sp2.h	2014-12-27 21:21:50.199058864 +0200
++++ b/drivers/media/dvb-frontends/sp2.h	2015-03-22 14:17:59.570225151 +0200
 @@ -0,0 +1,53 @@
 +/*
 + * CIMaX SP2/HF CI driver
@@ -1417,7 +2491,7 @@ diff -urN a/drivers/media/dvb-frontends/sp2.h b/drivers/media/dvb-frontends/sp2.
 +#endif
 diff -urN a/drivers/media/dvb-frontends/sp2_priv.h b/drivers/media/dvb-frontends/sp2_priv.h
 --- a/drivers/media/dvb-frontends/sp2_priv.h	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/dvb-frontends/sp2_priv.h	2014-12-27 21:21:50.199058864 +0200
++++ b/drivers/media/dvb-frontends/sp2_priv.h	2015-03-22 14:17:59.570225151 +0200
 @@ -0,0 +1,50 @@
 +/*
 + * CIMaX SP2/HF CI driver
@@ -1471,7 +2545,7 @@ diff -urN a/drivers/media/dvb-frontends/sp2_priv.h b/drivers/media/dvb-frontends
 +#endif
 diff -urN a/drivers/media/tuners/Kconfig b/drivers/media/tuners/Kconfig
 --- a/drivers/media/tuners/Kconfig	2014-11-02 15:07:13.000000000 +0200
-+++ b/drivers/media/tuners/Kconfig	2014-12-28 08:42:23.537845838 +0200
++++ b/drivers/media/tuners/Kconfig	2015-03-22 14:17:59.570225151 +0200
 @@ -242,4 +242,11 @@
  	default m if !MEDIA_SUBDRV_AUTOSELECT
  	help
@@ -1486,7 +2560,7 @@ diff -urN a/drivers/media/tuners/Kconfig b/drivers/media/tuners/Kconfig
  endmenu
 diff -urN a/drivers/media/tuners/Makefile b/drivers/media/tuners/Makefile
 --- a/drivers/media/tuners/Makefile	2014-11-02 15:07:13.000000000 +0200
-+++ b/drivers/media/tuners/Makefile	2014-12-27 21:35:31.375034470 +0200
++++ b/drivers/media/tuners/Makefile	2015-03-22 14:17:59.570225151 +0200
 @@ -37,6 +37,7 @@
  obj-$(CONFIG_MEDIA_TUNER_FC0013) += fc0013.o
  obj-$(CONFIG_MEDIA_TUNER_IT913X) += tuner_it913x.o
@@ -1497,7 +2571,7 @@ diff -urN a/drivers/media/tuners/Makefile b/drivers/media/tuners/Makefile
  ccflags-y += -I$(srctree)/drivers/media/dvb-frontends
 diff -urN a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
 --- a/drivers/media/tuners/si2157.c	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/tuners/si2157.c	2014-12-27 21:35:08.859035139 +0200
++++ b/drivers/media/tuners/si2157.c	2015-03-22 14:17:59.574225151 +0200
 @@ -0,0 +1,417 @@
 +/*
 + * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
@@ -1918,7 +2992,7 @@ diff -urN a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
 +MODULE_FIRMWARE(SI2158_A20_FIRMWARE);
 diff -urN a/drivers/media/tuners/si2157.h b/drivers/media/tuners/si2157.h
 --- a/drivers/media/tuners/si2157.h	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/tuners/si2157.h	2014-12-27 21:35:08.859035139 +0200
++++ b/drivers/media/tuners/si2157.h	2015-03-22 14:17:59.574225151 +0200
 @@ -0,0 +1,39 @@
 +/*
 + * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
@@ -1961,7 +3035,7 @@ diff -urN a/drivers/media/tuners/si2157.h b/drivers/media/tuners/si2157.h
 +#endif
 diff -urN a/drivers/media/tuners/si2157_priv.h b/drivers/media/tuners/si2157_priv.h
 --- a/drivers/media/tuners/si2157_priv.h	1970-01-01 02:00:00.000000000 +0200
-+++ b/drivers/media/tuners/si2157_priv.h	2014-12-27 21:35:08.859035139 +0200
++++ b/drivers/media/tuners/si2157_priv.h	2015-03-22 14:17:59.574225151 +0200
 @@ -0,0 +1,47 @@
 +/*
 + * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
@@ -2011,8 +3085,8 @@ diff -urN a/drivers/media/tuners/si2157_priv.h b/drivers/media/tuners/si2157_pri
 +
 +#endif
 diff -urN a/drivers/media/usb/dvb-usb-v2/dvbsky.c b/drivers/media/usb/dvb-usb-v2/dvbsky.c
---- a/drivers/media/usb/dvb-usb-v2/dvbsky.c	2014-12-27 21:08:23.451082830 +0200
-+++ b/drivers/media/usb/dvb-usb-v2/dvbsky.c	2014-12-27 22:35:55.726926802 +0200
+--- a/drivers/media/usb/dvb-usb-v2/dvbsky.c	2015-03-22 14:16:43.000000000 +0200
++++ b/drivers/media/usb/dvb-usb-v2/dvbsky.c	2015-03-22 14:17:59.574225151 +0200
 @@ -3,12 +3,6 @@
   *
   * Copyright (C) 2013 Max nibble <nibble.max@gmail.com>
@@ -3233,8 +4307,8 @@ diff -urN a/drivers/media/usb/dvb-usb-v2/dvbsky.c b/drivers/media/usb/dvb-usb-v2
 +MODULE_DESCRIPTION("Driver for DVBSky USB");
  MODULE_LICENSE("GPL");
 diff -urN a/drivers/media/usb/dvb-usb-v2/Kconfig b/drivers/media/usb/dvb-usb-v2/Kconfig
---- a/drivers/media/usb/dvb-usb-v2/Kconfig	2014-12-27 21:08:23.451082830 +0200
-+++ b/drivers/media/usb/dvb-usb-v2/Kconfig	2014-12-27 21:37:03.247031741 +0200
+--- a/drivers/media/usb/dvb-usb-v2/Kconfig	2015-03-22 14:16:43.000000000 +0200
++++ b/drivers/media/usb/dvb-usb-v2/Kconfig	2015-03-22 14:17:59.574225151 +0200
 @@ -151,5 +151,8 @@
  	tristate "DVBSky USB2.0 support"
  	depends on DVB_USB_V2
@@ -3244,3 +4318,17 @@ diff -urN a/drivers/media/usb/dvb-usb-v2/Kconfig b/drivers/media/usb/dvb-usb-v2/
 +	select MEDIA_TUNER_SI2157 if MEDIA_SUBDRV_AUTOSELECT
  	help
  	  Say Y here to support the USB receivers from DVBSky.
+diff -urN a/drivers/media/usb/em28xx/em28xx-dvb.c b/drivers/media/usb/em28xx/em28xx-dvb.c
+--- a/drivers/media/usb/em28xx/em28xx-dvb.c	2014-11-02 15:07:11.000000000 +0200
++++ b/drivers/media/usb/em28xx/em28xx-dvb.c	2015-03-22 14:25:19.230238544 +0200
+@@ -814,7 +814,9 @@
+ 	.clock = 27000000,
+ 	.i2c_wr_max = 33,
+ 	.clock_out = 0,
+-	.ts_mode = M88DS3103_TS_PARALLEL_16,
++	.ts_mode = M88DS3103_TS_PARALLEL,
++	.ts_clk = 16000,
++	.ts_clk_pol = 1,
+ 	.agc = 0x99,
+ };
+ 
