@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi-pvr-addons"
-PKG_VERSION="da4c212"
+PKG_VERSION="4854fbe"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -31,14 +31,13 @@ PKG_LONGDESC="This addons allows Kodi PVR to connect to various TV/PVR backends 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-if [ "$KODI_MYSQL_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET mysql"
-  PVRADDONS_MYSQL="--enable-mysql"
-else
-  PVRADDONS_MYSQL="--disable-mysql"
-fi
-
 PKG_CONFIGURE_OPTS_TARGET="--enable-addons-with-dependencies $PVRADDONS_MYSQL"
+
+pre_configure_target() {
+  # kodi-pvr-addons fails to build in subdirs
+  cd $ROOT/$PKG_BUILD
+    rm -rf .$TARGET_NAME
+}
 
 post_makeinstall_target() {
   if [ "$DEBUG" != yes ]; then
