@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gdb"
-PKG_VERSION="7.8.2"
+PKG_VERSION="7.9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
