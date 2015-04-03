@@ -19,7 +19,7 @@
 PKG_NAME="libva"
 PKG_VERSION="1.5.1"
 PKG_REV="1"
-PKG_ARCH="i386 x86_64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"
 PKG_URL="http://cgit.freedesktop.org/vaapi/libva/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"

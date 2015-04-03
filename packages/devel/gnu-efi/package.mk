@@ -20,7 +20,7 @@ PKG_NAME="gnu-efi"
 PKG_VERSION="3.0"
 PKG_VERSION_SRC="${PKG_VERSION}u"
 PKG_REV="1"
-PKG_ARCH="i386 x86_64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sourceforge.net/projects/gnu-efi/"
 PKG_URL="$SOURCEFORGE_SRC/project/$PKG_NAME/${PKG_NAME}_${PKG_VERSION_SRC}.orig.tar.gz"
@@ -44,8 +44,6 @@ pre_make_target() {
 
   if  [ "$TARGET_ARCH" = "x86_64" ]; then
     EFI_ARCH="x86_64"
-  elif [ "$TARGET_ARCH" = "i386" ]; then
-    EFI_ARCH="ia32"
   fi
 }
 

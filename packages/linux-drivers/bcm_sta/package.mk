@@ -22,7 +22,7 @@
 PKG_NAME="bcm_sta"
 PKG_VERSION="6.30.223.248"
 PKG_REV="1"
-PKG_ARCH="i386 x86_64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
@@ -36,14 +36,8 @@ PKG_LONGDESC="These packages contain Broadcom's IEEE 802.11a/b/g/n hybrid LinuxÂ
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$TARGET_ARCH" = "i386" ]; then
-  DRIVER_ARCH="x86-32"
-elif [ "$TARGET_ARCH" = "x86_64" ]; then
-  DRIVER_ARCH="x86-64"
-fi
-
 make_target() {
-  cd $DRIVER_ARCH
+  cd x86-64
     KBUILD_NOPEDANTIC=1 make V=1 CC=$CC -C $(kernel_path) M=`pwd` BINARCH=$TARGET_ARCH
 }
 
