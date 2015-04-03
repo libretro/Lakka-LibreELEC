@@ -18,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="vdr-addon"
-PKG_VERSION="4.3"
-PKG_REV="11"
+PKG_VERSION="6.0"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
@@ -33,6 +33,8 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_PROVIDES=""
+PKG_ADDON_REQUIRES="pvr.vdr.vnsi:0.0.0"
+PKG_ADDON_NAME="VDR PVR Backend"
 
 make_target() {
   : # nothing to do here
