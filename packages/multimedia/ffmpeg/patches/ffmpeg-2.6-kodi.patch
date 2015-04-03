@@ -1,7 +1,7 @@
-From cc70eab317cc54a46ebf14dee17a6670d470d716 Mon Sep 17 00:00:00 2001
+From 1c578904e8517f72f71852c79162e8bec9aec00e Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@ecce.se>
 Date: Sun, 11 Sep 2011 19:04:51 +0200
-Subject: [PATCH 01/13] Support raw dvdsub palette as stored on normal dvd's
+Subject: [PATCH 01/14] Support raw dvdsub palette as stored on normal dvd's
 
 This is how the palette is stored on dvd's. Currently
 only xbmc passes the palette information to libavcodec
@@ -11,7 +11,7 @@ this way.
  1 file changed, 24 insertions(+)
 
 diff --git a/libavcodec/dvdsubdec.c b/libavcodec/dvdsubdec.c
-index 222c71b..040a713 100644
+index ffb2bcc..fc2adde 100644
 --- a/libavcodec/dvdsubdec.c
 +++ b/libavcodec/dvdsubdec.c
 @@ -64,6 +64,24 @@ static void yuv_a_to_rgba(const uint8_t *ycbcr, const uint8_t *alpha, uint32_t *
@@ -39,7 +39,7 @@ index 222c71b..040a713 100644
  static int decode_run_2bit(GetBitContext *gb, int *color)
  {
      unsigned int v, t;
-@@ -700,6 +718,12 @@ static av_cold int dvdsub_init(AVCodecContext *avctx)
+@@ -707,6 +725,12 @@ static av_cold int dvdsub_init(AVCodecContext *avctx)
          parse_ifo_palette(ctx, ctx->ifo_str);
      if (ctx->palette_str)
          parse_palette(ctx, ctx->palette_str);
@@ -53,45 +53,10 @@ index 222c71b..040a713 100644
          int i;
          av_log(avctx, AV_LOG_DEBUG, "palette:");
 
-From d51b190099d13d293d94b876ea8dad422f2e4e39 Mon Sep 17 00:00:00 2001
-From: Joakim Plate <elupus@ecce.se>
-Date: Mon, 12 Sep 2011 21:37:17 +0200
-Subject: [PATCH 02/13] asf hacks
-
----
- libavformat/asfdec.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/libavformat/asfdec.c b/libavformat/asfdec.c
-index 7f7bb4d..8911987 100644
---- a/libavformat/asfdec.c
-+++ b/libavformat/asfdec.c
-@@ -1549,9 +1549,20 @@ static int asf_read_seek(AVFormatContext *s, int stream_index,
-     AVStream *st    = s->streams[stream_index];
-     int ret = 0;
- 
-+    if (pts == 0) {
-+      // this is a hack since av_gen_search searches the entire file in this case
-+      av_log(s, AV_LOG_DEBUG, "SEEKTO: %"PRId64"\n", s->data_offset);
-+      if (avio_seek(s->pb, s->data_offset, SEEK_SET) < 0)
-+          return -1;
-+      return 0;
-+    }
-+
-     if (s->packet_size <= 0)
-         return -1;
- 
-+    if (st->codec->codec_type != AVMEDIA_TYPE_VIDEO)
-+        return -1;
-+
-     /* Try using the protocol's read_seek if available */
-     if (s->pb) {
-         int ret = avio_seek_time(s->pb, stream_index, pts, flags);
-
-From d0dcf7d95bffe4509fb71a8129cc880e9e0552f9 Mon Sep 17 00:00:00 2001
+From ee03b1bdb3da5aa8226d768d391112e6ccbc6f69 Mon Sep 17 00:00:00 2001
 From: Cory Fields <theuni-nospam-@xbmc.org>
 Date: Mon, 28 Jun 2010 01:55:31 -0400
-Subject: [PATCH 03/13] if av_read_packet returns AVERROR_IO, we are done.
+Subject: [PATCH 02/14] if av_read_packet returns AVERROR_IO, we are done.
  ffmpeg's codecs might or might not handle returning any completed demuxed
  packets correctly
 
@@ -100,10 +65,10 @@ Subject: [PATCH 03/13] if av_read_packet returns AVERROR_IO, we are done.
  1 file changed, 2 insertions(+)
 
 diff --git a/libavformat/utils.c b/libavformat/utils.c
-index 78653d1..b233a2b 100644
+index 17ae300..bdb2cb5 100644
 --- a/libavformat/utils.c
 +++ b/libavformat/utils.c
-@@ -1307,6 +1307,8 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
+@@ -1319,6 +1319,8 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
          if (ret < 0) {
              if (ret == AVERROR(EAGAIN))
                  return ret;
@@ -113,10 +78,10 @@ index 78653d1..b233a2b 100644
              for (i = 0; i < s->nb_streams; i++) {
                  st = s->streams[i];
 
-From 37154452e754303f638cff93214c122d640c5d69 Mon Sep 17 00:00:00 2001
+From d7826914c19aa8b38633e2c719d25865c0886b76 Mon Sep 17 00:00:00 2001
 From: Cory Fields <theuni-nospam-@xbmc.org>
 Date: Mon, 28 Jun 2010 02:10:50 -0400
-Subject: [PATCH 04/13] added: Ticket #7187, TV Teletext support for DVB EBU
+Subject: [PATCH 03/14] added: Ticket #7187, TV Teletext support for DVB EBU
  Teletext streams
 
 ---
@@ -125,10 +90,10 @@ Subject: [PATCH 04/13] added: Ticket #7187, TV Teletext support for DVB EBU
  2 files changed, 6 insertions(+)
 
 diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
-index dabae1b..dd6ef3f 100644
+index 575dae1..4ea6e5a 100644
 --- a/libavcodec/avcodec.h
 +++ b/libavcodec/avcodec.h
-@@ -520,6 +520,10 @@ enum AVCodecID {
+@@ -524,6 +524,10 @@ enum AVCodecID {
      AV_CODEC_ID_PJS        = MKBETAG('P','h','J','S'),
      AV_CODEC_ID_ASS        = MKBETAG('A','S','S',' '),  ///< ASS as defined in Matroska
  
@@ -140,10 +105,10 @@ index dabae1b..dd6ef3f 100644
      AV_CODEC_ID_FIRST_UNKNOWN = 0x18000,           ///< A dummy ID pointing at the start of various fake codecs.
      AV_CODEC_ID_TTF = 0x18000,
 diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
-index 97da0a3..5dd28f1 100644
+index 9e9ad47..74a9cc5 100644
 --- a/libavformat/mpegts.c
 +++ b/libavformat/mpegts.c
-@@ -729,6 +729,8 @@ static const StreamType DESC_types[] = {
+@@ -731,6 +731,8 @@ static const StreamType DESC_types[] = {
      { 0x7b, AVMEDIA_TYPE_AUDIO,    AV_CODEC_ID_DTS          },
      { 0x56, AVMEDIA_TYPE_SUBTITLE, AV_CODEC_ID_DVB_TELETEXT },
      { 0x59, AVMEDIA_TYPE_SUBTITLE, AV_CODEC_ID_DVB_SUBTITLE }, /* subtitling descriptor */
@@ -153,20 +118,20 @@ index 97da0a3..5dd28f1 100644
  };
  
 
-From 7993eb16b229ab65a32a4a3ce5d1f18ab64349f2 Mon Sep 17 00:00:00 2001
+From 4365a36e019d9ece6c90184d5ccbf4665aff9577 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@ecce.se>
 Date: Sun, 18 Sep 2011 19:16:34 +0200
-Subject: [PATCH 05/13] Don't accept mpegts PMT that isn't current
+Subject: [PATCH 04/14] Don't accept mpegts PMT that isn't current
 
 ---
  libavformat/mpegts.c | 4 ++++
  1 file changed, 4 insertions(+)
 
 diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
-index 5dd28f1..9f85aed 100644
+index 74a9cc5..3c8d99b 100644
 --- a/libavformat/mpegts.c
 +++ b/libavformat/mpegts.c
-@@ -572,6 +572,7 @@ typedef struct SectionHeader {
+@@ -573,6 +573,7 @@ typedef struct SectionHeader {
      uint8_t tid;
      uint16_t id;
      uint8_t version;
@@ -174,7 +139,7 @@ index 5dd28f1..9f85aed 100644
      uint8_t sec_num;
      uint8_t last_sec_num;
  } SectionHeader;
-@@ -643,6 +644,7 @@ static int parse_section_header(SectionHeader *h,
+@@ -644,6 +645,7 @@ static int parse_section_header(SectionHeader *h,
      val = get8(pp, p_end);
      if (val < 0)
          return val;
@@ -182,7 +147,7 @@ index 5dd28f1..9f85aed 100644
      h->version = (val >> 1) & 0x1f;
      val = get8(pp, p_end);
      if (val < 0)
-@@ -1968,6 +1970,8 @@ static void pat_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
+@@ -1973,6 +1975,8 @@ static void pat_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
          return;
      if (ts->skip_changes)
          return;
@@ -192,20 +157,20 @@ index 5dd28f1..9f85aed 100644
      ts->stream->ts_id = h->id;
  
 
-From 3c994a2ad7873395455b834ce85458202c90266b Mon Sep 17 00:00:00 2001
+From 1c4b70896ff64aa3f444a957851de22cbd00fedc Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@ecce.se>
 Date: Sun, 18 Sep 2011 19:17:23 +0200
-Subject: [PATCH 06/13] Don't reparse PMT unless it's version has changed
+Subject: [PATCH 05/14] Don't reparse PMT unless it's version has changed
 
 ---
  libavformat/mpegts.c | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
-index 9f85aed..25007a6 100644
+index 3c8d99b..88e5638 100644
 --- a/libavformat/mpegts.c
 +++ b/libavformat/mpegts.c
-@@ -88,6 +88,7 @@ struct MpegTSFilter {
+@@ -87,6 +87,7 @@ struct MpegTSFilter {
      int es_id;
      int last_cc; /* last cc code (-1 if first packet) */
      int64_t last_pcr;
@@ -213,7 +178,7 @@ index 9f85aed..25007a6 100644
      enum MpegTSFilterType type;
      union {
          MpegTSPESFilter pes_filter;
-@@ -450,6 +451,7 @@ static MpegTSFilter *mpegts_open_filter(MpegTSContext *ts, unsigned int pid,
+@@ -449,6 +450,7 @@ static MpegTSFilter *mpegts_open_filter(MpegTSContext *ts, unsigned int pid,
      filter->es_id   = -1;
      filter->last_cc = -1;
      filter->last_pcr= -1;
@@ -221,7 +186,7 @@ index 9f85aed..25007a6 100644
  
      return filter;
  }
-@@ -1972,6 +1974,10 @@ static void pat_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
+@@ -1977,6 +1979,10 @@ static void pat_cb(MpegTSFilter *filter, const uint8_t *section, int section_len
          return;
      if (!h->current)
          return;
@@ -233,10 +198,10 @@ index 9f85aed..25007a6 100644
      ts->stream->ts_id = h->id;
  
 
-From b772f2fa2076904e3cf2c9e9a80c080cec25c523 Mon Sep 17 00:00:00 2001
+From 5104bd90c6a147dd126a98246e57fc828d230012 Mon Sep 17 00:00:00 2001
 From: Cory Fields <theuni-nospam-@xbmc.org>
 Date: Fri, 9 Jul 2010 16:43:31 -0400
-Subject: [PATCH 07/13] Read PID timestamps as well as PCR timestamps to find
+Subject: [PATCH 06/14] Read PID timestamps as well as PCR timestamps to find
  location in mpegts stream
 
 ---
@@ -244,10 +209,10 @@ Subject: [PATCH 07/13] Read PID timestamps as well as PCR timestamps to find
  1 file changed, 46 insertions(+), 2 deletions(-)
 
 diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
-index 25007a6..d5a8a45 100644
+index 88e5638..56cb44f 100644
 --- a/libavformat/mpegts.c
 +++ b/libavformat/mpegts.c
-@@ -2459,6 +2459,44 @@ static void seek_back(AVFormatContext *s, AVIOContext *pb, int64_t pos) {
+@@ -2464,6 +2464,44 @@ static void seek_back(AVFormatContext *s, AVIOContext *pb, int64_t pos) {
          av_log(s, pb->seekable ? AV_LOG_ERROR : AV_LOG_INFO, "Unable to seek back to the start\n");
  }
  
@@ -292,7 +257,7 @@ index 25007a6..d5a8a45 100644
  static int mpegts_read_header(AVFormatContext *s)
  {
      MpegTSContext *ts = s->priv_data;
-@@ -2658,6 +2696,7 @@ static av_unused int64_t mpegts_get_pcr(AVFormatContext *s, int stream_index,
+@@ -2664,6 +2702,7 @@ static av_unused int64_t mpegts_get_pcr(AVFormatContext *s, int stream_index,
      uint8_t buf[TS_PACKET_SIZE];
      int pcr_l, pcr_pid =
          ((PESContext *)s->streams[stream_index]->priv_data)->pcr_pid;
@@ -300,7 +265,7 @@ index 25007a6..d5a8a45 100644
      int pos47 = ts->pos47_full % ts->raw_packet_size;
      pos =
          ((*ppos + ts->raw_packet_size - 1 - pos47) / ts->raw_packet_size) *
-@@ -2679,6 +2718,11 @@ static av_unused int64_t mpegts_get_pcr(AVFormatContext *s, int stream_index,
+@@ -2685,6 +2724,11 @@ static av_unused int64_t mpegts_get_pcr(AVFormatContext *s, int stream_index,
              *ppos = pos;
              return timestamp;
          }
@@ -312,7 +277,7 @@ index 25007a6..d5a8a45 100644
          pos += ts->raw_packet_size;
      }
  
-@@ -2778,7 +2822,7 @@ AVInputFormat ff_mpegts_demuxer = {
+@@ -2784,7 +2828,7 @@ AVInputFormat ff_mpegts_demuxer = {
      .read_header    = mpegts_read_header,
      .read_packet    = mpegts_read_packet,
      .read_close     = mpegts_read_close,
@@ -321,7 +286,7 @@ index 25007a6..d5a8a45 100644
      .flags          = AVFMT_SHOW_IDS | AVFMT_TS_DISCONT,
      .priv_class     = &mpegts_class,
  };
-@@ -2790,7 +2834,7 @@ AVInputFormat ff_mpegtsraw_demuxer = {
+@@ -2796,7 +2840,7 @@ AVInputFormat ff_mpegtsraw_demuxer = {
      .read_header    = mpegts_read_header,
      .read_packet    = mpegts_raw_read_packet,
      .read_close     = mpegts_read_close,
@@ -331,20 +296,20 @@ index 25007a6..d5a8a45 100644
      .priv_class     = &mpegtsraw_class,
  };
 
-From ce94d83559b1f4e1affd6349abcd1bf794e2cd17 Mon Sep 17 00:00:00 2001
+From 986147a9978786b30408f3a968c82bd21b4a3745 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@ecce.se>
 Date: Sat, 22 Oct 2011 19:01:38 +0200
-Subject: [PATCH 08/13] Get stream durations using read_timestamp
+Subject: [PATCH 07/14] Get stream durations using read_timestamp
 
 ---
  libavformat/utils.c | 39 +++++++++++++++++++++++++++++++++++++++
  1 file changed, 39 insertions(+)
 
 diff --git a/libavformat/utils.c b/libavformat/utils.c
-index b233a2b..ccd8149 100644
+index bdb2cb5..fbbdbaa 100644
 --- a/libavformat/utils.c
 +++ b/libavformat/utils.c
-@@ -2359,6 +2359,41 @@ static void estimate_timings_from_bit_rate(AVFormatContext *ic)
+@@ -2381,6 +2381,41 @@ static void estimate_timings_from_bit_rate(AVFormatContext *ic)
  #define DURATION_MAX_READ_SIZE 250000LL
  #define DURATION_MAX_RETRY 4
  
@@ -386,7 +351,7 @@ index b233a2b..ccd8149 100644
  /* only usable for MPEG-PS streams */
  static void estimate_timings_from_pts(AVFormatContext *ic, int64_t old_offset)
  {
-@@ -2509,6 +2544,10 @@ static void estimate_timings(AVFormatContext *ic, int64_t old_offset)
+@@ -2531,6 +2566,10 @@ static void estimate_timings(AVFormatContext *ic, int64_t old_offset)
           * the components */
          fill_all_stream_timings(ic);
          ic->duration_estimation_method = AVFMT_DURATION_FROM_STREAM;
@@ -398,10 +363,10 @@ index b233a2b..ccd8149 100644
          /* less precise: use bitrate info */
          estimate_timings_from_bit_rate(ic);
 
-From d159d252efab3568335faf615d8083b7e88e5b51 Mon Sep 17 00:00:00 2001
+From 7ea45248ab021d5b58309e576d875f1b5f7fa9c7 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@ecce.se>
 Date: Wed, 8 Dec 2010 14:03:43 +0000
-Subject: [PATCH 09/13] changed: allow 4 second skew between streams in mov
+Subject: [PATCH 08/14] changed: allow 4 second skew between streams in mov
  before attempting to seek
 
 ---
@@ -409,10 +374,10 @@ Subject: [PATCH 09/13] changed: allow 4 second skew between streams in mov
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/libavformat/mov.c b/libavformat/mov.c
-index 7455e3b..4f6e207 100644
+index 986af57..0e1b6b4 100644
 --- a/libavformat/mov.c
 +++ b/libavformat/mov.c
-@@ -4049,8 +4049,8 @@ static AVIndexEntry *mov_find_next_sample(AVFormatContext *s, AVStream **st)
+@@ -4184,8 +4184,8 @@ static AVIndexEntry *mov_find_next_sample(AVFormatContext *s, AVStream **st)
              if (!sample || (!s->pb->seekable && current_sample->pos < sample->pos) ||
                  (s->pb->seekable &&
                   ((msc->pb != s->pb && dts < best_dts) || (msc->pb == s->pb &&
@@ -424,10 +389,10 @@ index 7455e3b..4f6e207 100644
                  best_dts = dts;
                  *st = avst;
 
-From bce4a8f7d52722aacf9d5d6256f70cb7c42e5480 Mon Sep 17 00:00:00 2001
+From 14817509dd53bcfa00e1a86c4c15ba210abdaed3 Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@ecce.se>
 Date: Fri, 26 Nov 2010 20:56:48 +0000
-Subject: [PATCH 10/13] fixed: memleak in mpegts demuxer on some malformed (??)
+Subject: [PATCH 09/14] fixed: memleak in mpegts demuxer on some malformed (??)
  mpegts files with too large pes packets
 
 at-visions sample file brokenStream.mpg
@@ -436,10 +401,10 @@ at-visions sample file brokenStream.mpg
  1 file changed, 6 insertions(+)
 
 diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
-index d5a8a45..e070f1f 100644
+index 56cb44f..b68a73a 100644
 --- a/libavformat/mpegts.c
 +++ b/libavformat/mpegts.c
-@@ -832,6 +832,10 @@ static void reset_pes_packet_state(PESContext *pes)
+@@ -834,6 +834,10 @@ static void reset_pes_packet_state(PESContext *pes)
  
  static void new_pes_packet(PESContext *pes, AVPacket *pkt)
  {
@@ -450,7 +415,7 @@ index d5a8a45..e070f1f 100644
      av_init_packet(pkt);
  
      pkt->buf  = pes->buffer;
-@@ -2649,6 +2653,8 @@ static int mpegts_read_packet(AVFormatContext *s, AVPacket *pkt)
+@@ -2655,6 +2659,8 @@ static int mpegts_read_packet(AVFormatContext *s, AVPacket *pkt)
  
      pkt->size = -1;
      ts->pkt = pkt;
@@ -460,20 +425,20 @@ index d5a8a45..e070f1f 100644
      if (ret < 0) {
          av_free_packet(ts->pkt);
 
-From 81ffa6832117d97c61aff62b27c1cd71b778daa0 Mon Sep 17 00:00:00 2001
+From 4ccc2cebdc67402833f368082075b8f1f51f79eb Mon Sep 17 00:00:00 2001
 From: Joakim Plate <elupus@ecce.se>
 Date: Mon, 28 Jun 2010 21:26:54 +0000
-Subject: [PATCH 11/13] Speed up mpegts av_find_stream_info
+Subject: [PATCH 10/14] Speed up mpegts av_find_stream_info
 
 ---
  libavformat/mpegts.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/libavformat/mpegts.c b/libavformat/mpegts.c
-index e070f1f..dd9e129 100644
+index b68a73a..336d869 100644
 --- a/libavformat/mpegts.c
 +++ b/libavformat/mpegts.c
-@@ -994,7 +994,7 @@ static int mpegts_push_data(MpegTSFilter *filter,
+@@ -996,7 +996,7 @@ static int mpegts_push_data(MpegTSFilter *filter,
                          goto skip;
  
                      /* stream not present in PMT */
@@ -483,10 +448,10 @@ index e070f1f..dd9e129 100644
                              goto skip;
  
 
-From 7cc40ff6285cb0e571ef2fccaffdbeda11600ccb Mon Sep 17 00:00:00 2001
+From 36fa4b26412d410f41aded01a0106c4a76f4a6c2 Mon Sep 17 00:00:00 2001
 From: marc <mhocking@ubuntu-desktop.(none)>
 Date: Mon, 18 Feb 2013 17:18:18 +0000
-Subject: [PATCH 12/13] dxva-h264 Fix dxva playback of streams that don't start
+Subject: [PATCH 11/14] dxva-h264 Fix dxva playback of streams that don't start
  with an I-Frame.
 
 ---
@@ -516,10 +481,10 @@ index 6deccc3..85b25fd 100644
                                      &ctx_pic->pp, sizeof(ctx_pic->pp),
                                      &ctx_pic->qm, sizeof(ctx_pic->qm),
 diff --git a/libavcodec/h264.c b/libavcodec/h264.c
-index 438c43f..a576e90 100644
+index 8ec46df..e8d5120 100644
 --- a/libavcodec/h264.c
 +++ b/libavcodec/h264.c
-@@ -1096,6 +1096,7 @@ void ff_h264_flush_change(H264Context *h)
+@@ -1093,6 +1093,7 @@ void ff_h264_flush_change(H264Context *h)
      h->list_count = 0;
      h->current_slice = 0;
      h->mmco_reset = 1;
@@ -528,10 +493,10 @@ index 438c43f..a576e90 100644
  
  /* forget old pics after a seek */
 diff --git a/libavcodec/h264.h b/libavcodec/h264.h
-index cb7e6f9..f819465 100644
+index 21e9952..ac3d51a 100644
 --- a/libavcodec/h264.h
 +++ b/libavcodec/h264.h
-@@ -742,6 +742,8 @@ typedef struct H264Context {
+@@ -740,6 +740,8 @@ typedef struct H264Context {
      int luma_weight_flag[2];    ///< 7.4.3.2 luma_weight_lX_flag
      int chroma_weight_flag[2];  ///< 7.4.3.2 chroma_weight_lX_flag
  
@@ -541,10 +506,10 @@ index cb7e6f9..f819465 100644
      int sei_buffering_period_present;   ///< Buffering period SEI flag
      int initial_cpb_removal_delay[32];  ///< Initial timestamps for CPBs
 diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
-index f03ab4e..ee22bc0 100644
+index e9a89d1..80d27e5 100644
 --- a/libavcodec/h264_slice.c
 +++ b/libavcodec/h264_slice.c
-@@ -1189,6 +1189,7 @@ static int h264_slice_header_init(H264Context *h, int reinit)
+@@ -1175,6 +1175,7 @@ static int h264_slice_header_init(H264Context *h, int reinit)
          ff_h264_free_tables(h, 0);
      h->first_field           = 0;
      h->prev_interlaced_frame = 1;
@@ -553,48 +518,262 @@ index f03ab4e..ee22bc0 100644
      init_scan_tables(h);
      ret = ff_h264_alloc_tables(h);
 
-From f723a5163e9a24080de5abdbd317ee8df61a79f7 Mon Sep 17 00:00:00 2001
-From: elupus <elupus@xbmc.org>
-Date: Tue, 1 Nov 2011 20:18:35 +0100
-Subject: [PATCH 13/13] add public version of ff_read_frame_flush
+From cb0afee6caf02396fcb594563a581a0ba47720b7 Mon Sep 17 00:00:00 2001
+From: wsnipex <wsnipex@a1.net>
+Date: Mon, 16 Feb 2015 09:58:28 +0100
+Subject: [PATCH 12/14] only check for a git rev if the src tree is in a git
+ repo
 
-We need this since we sometimes seek on the
-input stream behind ffmpeg's back. After this
-all data need to be flushed completely.
+fixes the version string when building from the kodi depends src tree
 ---
- libavformat/avformat.h | 5 +++++
- libavformat/utils.c    | 5 +++++
- 2 files changed, 10 insertions(+)
+ version.sh | 36 +++++++++++++++++++-----------------
+ 1 file changed, 19 insertions(+), 17 deletions(-)
 
-diff --git a/libavformat/avformat.h b/libavformat/avformat.h
-index 2e54ed1..3a9f292 100644
---- a/libavformat/avformat.h
-+++ b/libavformat/avformat.h
-@@ -2121,6 +2121,11 @@ int av_find_best_stream(AVFormatContext *ic,
- int av_read_frame(AVFormatContext *s, AVPacket *pkt);
+diff --git a/version.sh b/version.sh
+index f9754eb..cc23f80 100755
+--- a/version.sh
++++ b/version.sh
+@@ -2,30 +2,32 @@
  
- /**
-+ * Clear out any buffered data in context
-+ */
-+void av_read_frame_flush(AVFormatContext *s);
+ # Usage: version.sh <ffmpeg-root-dir> <output-version.h> <extra-version>
+ 
++if [ -d $1/.git ]; then  # only check for a git rev, if the src tree is in a git repo
+ # check for git short hash
+-if ! test "$revision"; then
++  if ! test "$revision"; then
+     if (cd "$1" && grep git RELEASE 2> /dev/null >/dev/null) ; then
+         revision=$(cd "$1" && git describe --tags --match N 2> /dev/null)
+     else
+         revision=$(cd "$1" && git describe --tags --always 2> /dev/null)
+     fi
+-fi
++  fi
 +
-+/**
-  * Seek to the keyframe at timestamp.
-  * 'timestamp' in 'stream_index'.
-  *
-diff --git a/libavformat/utils.c b/libavformat/utils.c
-index ccd8149..d241608 100644
---- a/libavformat/utils.c
-+++ b/libavformat/utils.c
-@@ -1627,6 +1627,11 @@ void ff_read_frame_flush(AVFormatContext *s)
++  # Shallow Git clones (--depth) do not have the N tag:
++  # use 'git-YYYY-MM-DD-hhhhhhh'.
++  test "$revision" || revision=$(cd "$1" &&
++    git log -1 --pretty=format:"git-%cd-%h" --date=short 2> /dev/null)
+ 
+-# Shallow Git clones (--depth) do not have the N tag:
+-# use 'git-YYYY-MM-DD-hhhhhhh'.
+-test "$revision" || revision=$(cd "$1" &&
+-  git log -1 --pretty=format:"git-%cd-%h" --date=short 2> /dev/null)
+-
+-# Snapshots from gitweb are in a directory called ffmpeg-hhhhhhh or
+-# ffmpeg-HEAD-hhhhhhh.
+-if [ -z "$revision" ]; then
+-  srcdir=$(cd "$1" && pwd)
+-  case "$srcdir" in
+-    */ffmpeg-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+-      git_hash="${srcdir##*-}";;
+-    */ffmpeg-HEAD-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+-      git_hash="${srcdir##*-}";;
+-  esac
++  # Snapshots from gitweb are in a directory called ffmpeg-hhhhhhh or
++  # ffmpeg-HEAD-hhhhhhh.
++  if [ -z "$revision" ]; then
++    srcdir=$(cd "$1" && pwd)
++    case "$srcdir" in
++      */ffmpeg-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
++        git_hash="${srcdir##*-}";;
++      */ffmpeg-HEAD-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
++        git_hash="${srcdir##*-}";;
++    esac
++  fi
+ fi
+ 
+ # no revision number found
+
+From b52c216539bdbee830e0d306b372037d4e0cb35f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Reimar=20D=C3=B6ffinger?= <Reimar.Doeffinger@gmx.de>
+Date: Sun, 8 Mar 2015 19:44:12 +0100
+Subject: [PATCH 13/14] pthread: Fix ff_thread_get_format issues when called
+ outside frame decode
+
+---
+ libavcodec/pthread_frame.c | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/libavcodec/pthread_frame.c b/libavcodec/pthread_frame.c
+index 5a4ab84..c29d0a9 100644
+--- a/libavcodec/pthread_frame.c
++++ b/libavcodec/pthread_frame.c
+@@ -53,6 +53,7 @@
+  * Context used by codec threads and stored in their AVCodecInternal thread_ctx.
+  */
+ typedef struct PerThreadContext {
++    int main_thread;
+     struct FrameThreadContext *parent;
+ 
+     pthread_t      thread;
+@@ -83,7 +84,8 @@ typedef struct PerThreadContext {
+                                      * Set when the codec calls get_format().
+                                      * State is returned to STATE_SETTING_UP afterwards.
+                                      */
+-        STATE_SETUP_FINISHED        ///< Set after the codec has called ff_thread_finish_setup().
++        STATE_SETUP_FINISHED,       ///< Set after the codec has called ff_thread_finish_setup().
++        STATE_UPDATE_CONTEXT,       ///< Main thread is updating its context
+     } state;
+ 
+     /**
+@@ -105,6 +107,7 @@ typedef struct PerThreadContext {
+  * Context stored in the client AVCodecInternal thread_ctx.
+  */
+ typedef struct FrameThreadContext {
++    int main_thread;
+     PerThreadContext *threads;     ///< The contexts for each thread.
+     PerThreadContext *prev_thread; ///< The last thread submit_packet() was called on.
+ 
+@@ -143,6 +146,7 @@ static attribute_align_arg void *frame_worker_thread(void *arg)
+     AVCodecContext *avctx = p->avctx;
+     const AVCodec *codec = avctx->codec;
+ 
++    av_assert0(!p->main_thread);
+     pthread_mutex_lock(&p->mutex);
+     while (1) {
+             while (p->state == STATE_INPUT_READY && !fctx->die)
+@@ -330,6 +334,8 @@ static int submit_packet(PerThreadContext *p, AVPacket *avpkt)
+ 
+     pthread_mutex_lock(&p->mutex);
+ 
++    p->state = STATE_UPDATE_CONTEXT;
++
+     release_delayed_buffers(p);
+ 
+     if (prev_thread) {
+@@ -408,6 +414,7 @@ int ff_thread_decode_frame(AVCodecContext *avctx,
+     int finished = fctx->next_finished;
+     PerThreadContext *p;
+     int err;
++    av_assert0(fctx->main_thread);
+ 
+     /*
+      * Submit a packet to the next decoding thread.
+@@ -515,6 +522,7 @@ void ff_thread_finish_setup(AVCodecContext *avctx) {
+ 
+     if (!(avctx->active_thread_type&FF_THREAD_FRAME)) return;
+ 
++    av_assert0(!p->main_thread);
+     if(p->state == STATE_SETUP_FINISHED){
+         av_log(avctx, AV_LOG_WARNING, "Multiple ff_thread_finish_setup() calls\n");
      }
+@@ -549,6 +557,7 @@ void ff_frame_thread_free(AVCodecContext *avctx, int thread_count)
+     const AVCodec *codec = avctx->codec;
+     int i;
+ 
++    av_assert0(fctx->main_thread);
+     park_frame_worker_threads(fctx, thread_count);
+ 
+     if (fctx->prev_thread && fctx->prev_thread != fctx->threads)
+@@ -634,6 +643,7 @@ int ff_frame_thread_init(AVCodecContext *avctx)
+     }
+ 
+     avctx->internal->thread_ctx = fctx = av_mallocz(sizeof(FrameThreadContext));
++    fctx->main_thread = 1;
+ 
+     fctx->threads = av_mallocz_array(thread_count, sizeof(PerThreadContext));
+     pthread_mutex_init(&fctx->buffer_mutex, NULL);
+@@ -718,6 +728,7 @@ void ff_thread_flush(AVCodecContext *avctx)
+ 
+     if (!fctx) return;
+ 
++    av_assert0(fctx->main_thread);
+     park_frame_worker_threads(fctx, avctx->thread_count);
+     if (fctx->prev_thread) {
+         if (fctx->prev_thread != &fctx->threads[0])
+@@ -743,7 +754,10 @@ void ff_thread_flush(AVCodecContext *avctx)
+ int ff_thread_can_start_frame(AVCodecContext *avctx)
+ {
+     PerThreadContext *p = avctx->internal->thread_ctx;
+-    if ((avctx->active_thread_type&FF_THREAD_FRAME) && p->state != STATE_SETTING_UP &&
++    if (!(avctx->active_thread_type&FF_THREAD_FRAME))
++        return 1;
++    av_assert0(!p->main_thread);
++    if (p->state != STATE_SETTING_UP &&
+         (avctx->codec->update_thread_context || !THREAD_SAFE_CALLBACKS(avctx))) {
+         return 0;
+     }
+@@ -762,6 +776,7 @@ static int thread_get_buffer_internal(AVCodecContext *avctx, ThreadFrame *f, int
+     if (!(avctx->active_thread_type & FF_THREAD_FRAME))
+         return ff_get_buffer(avctx, f->f, flags);
+ 
++    av_assert0(!p->main_thread);
+     if (p->state != STATE_SETTING_UP &&
+         (avctx->codec->update_thread_context || !THREAD_SAFE_CALLBACKS(avctx))) {
+         av_log(avctx, AV_LOG_ERROR, "get_buffer() cannot be called after ff_thread_finish_setup()\n");
+@@ -819,7 +834,8 @@ enum AVPixelFormat ff_thread_get_format(AVCodecContext *avctx, const enum AVPixe
+     enum AVPixelFormat res;
+     PerThreadContext *p = avctx->internal->thread_ctx;
+     if (!(avctx->active_thread_type & FF_THREAD_FRAME) || avctx->thread_safe_callbacks ||
+-        avctx->get_format == avcodec_default_get_format)
++        avctx->get_format == avcodec_default_get_format ||
++        p->main_thread || p->state == STATE_UPDATE_CONTEXT)
+         return ff_get_format(avctx, fmt);
+     if (p->state != STATE_SETTING_UP) {
+         av_log(avctx, AV_LOG_ERROR, "get_format() cannot be called after ff_thread_finish_setup()\n");
+
+From ef86b05da8ad38c9c83e6f075536635647e6b799 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Thu, 12 Mar 2015 12:49:48 +0100
+Subject: [PATCH 14/14] hevc: avoid unnecessary calls to get_format
+
+---
+ libavcodec/hevc.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/libavcodec/hevc.c b/libavcodec/hevc.c
+index b7ad29a..77b0c0c 100644
+--- a/libavcodec/hevc.c
++++ b/libavcodec/hevc.c
+@@ -280,7 +280,7 @@ static int decode_lt_rps(HEVCContext *s, LongTermRPS *rps, GetBitContext *gb)
+     return 0;
  }
  
-+void av_read_frame_flush(AVFormatContext *s)
-+{
-+  ff_read_frame_flush(s);
-+}
-+
- void ff_update_cur_dts(AVFormatContext *s, AVStream *ref_st, int64_t timestamp)
+-static int set_sps(HEVCContext *s, const HEVCSPS *sps)
++static int set_sps(HEVCContext *s, const HEVCSPS *sps, enum AVPixelFormat pix_fmt)
  {
-     int i;
+     #define HWACCEL_MAX (CONFIG_HEVC_DXVA2_HWACCEL)
+     enum AVPixelFormat pix_fmts[HWACCEL_MAX + 2], *fmt = pix_fmts;
+@@ -304,13 +304,18 @@ static int set_sps(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+     }
+ 
+-    *fmt++ = sps->pix_fmt;
+-    *fmt = AV_PIX_FMT_NONE;
++    if (pix_fmt == AV_PIX_FMT_NONE) {
++        *fmt++ = sps->pix_fmt;
++        *fmt = AV_PIX_FMT_NONE;
+ 
+-    ret = ff_thread_get_format(s->avctx, pix_fmts);
+-    if (ret < 0)
+-        goto fail;
+-    s->avctx->pix_fmt = ret;
++        ret = ff_thread_get_format(s->avctx, pix_fmts);
++        if (ret < 0)
++            goto fail;
++        s->avctx->pix_fmt = ret;
++    }
++    else {
++        s->avctx->pix_fmt = pix_fmt;
++    }
+ 
+     ff_set_sar(s->avctx, sps->vui.sar);
+ 
+@@ -420,7 +425,7 @@ static int hls_slice_header(HEVCContext *s)
+                 sh->no_output_of_prior_pics_flag = 0;
+         }
+         ff_hevc_clear_refs(s);
+-        ret = set_sps(s, s->sps);
++        ret = set_sps(s, s->sps, AV_PIX_FMT_NONE);
+         if (ret < 0)
+             return ret;
+ 
+@@ -3335,7 +3340,7 @@ static int hevc_update_thread_context(AVCodecContext *dst,
+     }
+ 
+     if (s->sps != s0->sps)
+-        if ((ret = set_sps(s, s0->sps)) < 0)
++        if ((ret = set_sps(s, s0->sps, src->pix_fmt)) < 0)
+             return ret;
+ 
+     s->seq_decode = s0->seq_decode;
