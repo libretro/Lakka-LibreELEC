@@ -33,8 +33,6 @@ PKG_LONGDESC="Kodi Media Center (which was formerly named Xbox Media Center or X
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-DEBUG="yes"
-
 # configure GPU drivers and dependencies:
   get_graphicdrivers
 
