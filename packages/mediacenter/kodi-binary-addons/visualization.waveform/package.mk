@@ -31,7 +31,7 @@ PKG_LONGDESC="visualization.waveform"
 PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.pvrclient"
+PKG_ADDON_TYPE="xbmc.player.musicviz"
 
 configure_target() {
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
