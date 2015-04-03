@@ -24,7 +24,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain attr libcap vdr vdr-plugin-xvdr vdr-plugin-vnsiserver vdr-iptv vdr-wirbelscan vdr-wirbelscancontrol vdr-plugin-dvbapi vdr-plugin-streamdev vdr-live vdr-epgsearch vdr-plugin-xmltv2vdr vdr-plugin-eepg vdr-dummydevice vdr-satip vdr-plugin-epgfixer vdr-plugin-restfulapi"
+PKG_DEPENDS_TARGET="toolchain attr libcap vdr vdr-plugin-vnsiserver vdr-iptv vdr-wirbelscan vdr-wirbelscancontrol vdr-plugin-dvbapi vdr-plugin-streamdev vdr-live vdr-epgsearch vdr-plugin-xmltv2vdr vdr-plugin-eepg vdr-dummydevice vdr-satip vdr-plugin-epgfixer vdr-plugin-restfulapi"
 PKG_PRIORITY="optional"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="vdr: A powerful DVB TV application"
@@ -45,7 +45,6 @@ makeinstall_target() {
 addon() {
   VDR_DIR="$(get_build_dir vdr)"
   VDR_LIVE_DIR="$(get_build_dir vdr-live)"
-  VDR_PLUGIN_XVDR_DIR="$(get_build_dir vdr-plugin-xvdr)"
   VDR_PLUGIN_VNSISERVER_DIR="$(get_build_dir vdr-plugin-vnsiserver)"
   VDR_PLUGIN_STREAMVEV_DIR="$(get_build_dir vdr-plugin-streamdev)"
   VDR_PLUGIN_XMLTV2VDR="$(get_build_dir vdr-plugin-xmltv2vdr)"
@@ -72,7 +71,6 @@ addon() {
   cp $VDR_PLUGIN_XMLTV2VDR/dist/epgdata2xmltv/epgdata2xmltv.dist $ADDON_BUILD/$PKG_ADDON_ID/config/epgsources/epgdata2xmltv
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/plugin
-  cp -PR $VDR_PLUGIN_XVDR_DIR/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $VDR_PLUGIN_VNSISERVER_DIR/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $(get_build_dir vdr-iptv)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
   cp -PR $(get_build_dir vdr-wirbelscan)/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
@@ -90,10 +88,6 @@ addon() {
   cp -PR $VDR_PLUGIN_RESTFULAPI_DIR/libvdr*.so.* $ADDON_BUILD/$PKG_ADDON_ID/plugin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/eepg
-
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/xvdr
-  cp -PR $VDR_PLUGIN_XVDR_DIR/xvdr/allowed_hosts.conf $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/xvdr
-  cp -PR $VDR_PLUGIN_XVDR_DIR/xvdr/xvdr.conf $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/xvdr
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/vnsiserver
   cp -PR $VDR_PLUGIN_VNSISERVER_DIR/vnsiserver/allowed_hosts.conf $ADDON_BUILD/$PKG_ADDON_ID/config/plugins/vnsiserver
