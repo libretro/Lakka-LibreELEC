@@ -32,9 +32,7 @@ PKG_LONGDESC="IR Trans transforms your PC into a programmable remote control: It
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$TARGET_ARCH" = "i386" ]; then
-  IRSERVER_BIN="irserver"
-elif [ "$TARGET_ARCH" = "x86_64" ]; then
+if [ "$TARGET_ARCH" = "x86_64" ]; then
   IRSERVER_BIN="irserver64"
 elif [ "$TARGET_ARCH" = "arm" ]; then
   IRSERVER_BIN="irserver_arm"

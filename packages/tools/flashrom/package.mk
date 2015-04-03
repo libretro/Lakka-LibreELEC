@@ -19,7 +19,7 @@
 PKG_NAME="flashrom"
 PKG_VERSION="0.9.6"
 PKG_REV="1"
-PKG_ARCH="i386 x86_64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.flashrom.org"
 PKG_URL="http://download.flashrom.org/releases/$PKG_NAME-$PKG_VERSION.tar.bz2"

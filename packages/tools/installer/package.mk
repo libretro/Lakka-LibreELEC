@@ -32,7 +32,7 @@ PKG_LONGDESC="OpenELEC.tv Install manager to install the system on any disk"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-if [ "$TARGET_ARCH" = "i386" -o "$TARGET_ARCH" = "x86_64" ]; then
+if [ "$TARGET_ARCH" = "x86_64" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET flashrom"
 fi
 

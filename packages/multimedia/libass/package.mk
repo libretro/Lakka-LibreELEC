@@ -39,7 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-test \
                            --disable-silent-rules \
                            --with-gnu-ld"
 
-if [ $TARGET_ARCH = "i386" -o $TARGET_ARCH = "x86_64" ]; then
+if [ $TARGET_ARCH = "x86_64" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET yasm:host"
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-asm"
 fi
