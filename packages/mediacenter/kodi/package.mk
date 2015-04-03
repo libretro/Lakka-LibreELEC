@@ -17,14 +17,14 @@
 ################################################################################
 
 PKG_NAME="kodi"
-PKG_VERSION="14-7cc53a9"
+PKG_VERSION="15.0-beta1-56af059"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain boost Python zlib bzip2 systemd pciutils lzo pcre swig:host libass enca curl rtmpdump fontconfig fribidi tinyxml libjpeg-turbo libpng tiff freetype jasper libogg libcdio libmodplug libmpeg2 taglib libxml2 libxslt yajl sqlite libvorbis ffmpeg kodi:host"
-PKG_DEPENDS_HOST="toolchain"
+PKG_DEPENDS_TARGET="toolchain kodi:host libsquish boost Python zlib bzip2 systemd pciutils lzo pcre swig:host libass curl rtmpdump fontconfig fribidi tinyxml libjpeg-turbo libpng tiff freetype jasper libogg libcdio libmpeg2 taglib libxml2 libxslt yajl sqlite libvorbis ffmpeg"
+PKG_DEPENDS_HOST="lzo:host libpng:host libjpeg-turbo:host giflib:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="kodi: Kodi Mediacenter"
@@ -33,14 +33,13 @@ PKG_LONGDESC="Kodi Media Center (which was formerly named Xbox Media Center or X
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+DEBUG="yes"
+
 # configure GPU drivers and dependencies:
   get_graphicdrivers
 
 # for dbus support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dbus"
-
-# needed for hosttools (Texturepacker)
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET lzo:host SDL:host SDL_image:host"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
 # for libX11 support
@@ -68,14 +67,6 @@ else
   KODI_OPENGLES="--disable-gles"
 fi
 
-if [ "$SDL_SUPPORT" = yes ]; then
-# for SDL support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET SDL2"
-  KODI_SDL="--enable-sdl"
-else
-  KODI_SDL="--disable-sdl"
-fi
-
 if [ "$ALSA_SUPPORT" = yes ]; then
 # for ALSA support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET alsa-lib"
@@ -97,53 +88,17 @@ else
   KODI_CEC="--disable-libcec"
 fi
 
-if [ "$KODI_SCR_RSXS" = yes ]; then
-# for RSXS Screensaver support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXt libXmu"
-  KODI_RSXS="--enable-rsxs"
-# fix build of RSXS Screensaver support if not using libiconv
-  export jm_cv_func_gettimeofday_clobber=no
-else
-  KODI_RSXS="--disable-rsxs"
-fi
-
-if [ "$KODI_VIS_PROJECTM" = yes ]; then
-# for ProjectM Visualisation support
-  KODI_PROJECTM="--enable-projectm"
-else
-  KODI_PROJECTM="--disable-projectm"
-fi
-
-if [ "$KODI_VIS_GOOM" = yes ]; then
-# for GOOM Visualisation support
-  KODI_GOOM="--enable-goom"
-else
-  KODI_GOOM="--disable-goom"
-fi
-
-if [ "$KODI_VIS_WAVEFORM" = yes ]; then
-# for Waveform Visualisation support
-  KODI_WAVEFORM="--enable-waveform"
-else
-  KODI_WAVEFORM="--disable-waveform"
-fi
-
-if [ "$KODI_VIS_SPECTRUM" = yes ]; then
-# for Spectrum Visualisation support
-  KODI_SPECTRUM="--enable-spectrum"
-else
-  KODI_SPECTRUM="--disable-spectrum"
-fi
-
-if [ "$KODI_VIS_FISHBMC" = yes ]; then
-# for FishBMC Visualisation support
-  KODI_FISHBMC="--enable-fishbmc"
-else
-  KODI_FISHBMC="--disable-fishbmc"
-fi
+# TODO remove
+KODI_RSXS="--disable-rsxs"
+KODI_PROJECTM="--disable-projectm"
+KODI_GOOM="--disable-goom"
+KODI_WAVEFORM="--disable-waveform"
+KODI_SPECTRUM="--disable-spectrum"
+KODI_FISHBMC="--disable-fishbmc"
 
 if [ "$JOYSTICK_SUPPORT" = yes ]; then
 # for Joystick support
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET SDL2"
   KODI_JOYSTICK="--enable-joystick"
 else
   KODI_JOYSTICK="--disable-joystick"
@@ -166,10 +121,6 @@ if [ "$KODI_DVDCSS_SUPPORT" = yes ]; then
   KODI_DVDCSS="--enable-dvdcss"
 else
   KODI_DVDCSS="--disable-dvdcss"
-fi
-
-if [ "$FAAC_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET faac"
 fi
 
 if [ "$KODI_BLURAY_SUPPORT" = yes ]; then
@@ -294,7 +245,6 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            --disable-optimizations \
                            $KODI_OPENGL \
                            $KODI_OPENGLES \
-                           $KODI_SDL \
                            $KODI_OPENMAX \
                            $KODI_VDPAU \
                            $KODI_VAAPI \
@@ -318,8 +268,6 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            --enable-rtmp \
                            $KODI_SAMBA \
                            $KODI_NFS \
-                           --disable-afpclient \
-                           --enable-libvorbisenc \
                            --disable-libcap \
                            $KODI_DVDCSS \
                            --disable-mid \
@@ -347,10 +295,13 @@ pre_configure_host() {
 
 make_host() {
   make -C tools/depends/native/JsonSchemaBuilder
+  make -C tools/depends/native/TexturePacker
 }
 
 makeinstall_host() {
   cp -PR tools/depends/native/JsonSchemaBuilder/native/JsonSchemaBuilder $ROOT/$TOOLCHAIN/bin
+  rm -f $ROOT/$TOOLCHAIN/bin/TexturePacker
+  cp -PR tools/depends/native/TexturePacker/native/TexturePacker $ROOT/$TOOLCHAIN/bin
 }
 
 pre_build_target() {
@@ -394,9 +345,6 @@ make_target() {
   if [ "$DISPLAYSERVER" = "x11" ]; then
     make kodi-xrandr
   fi
-
-  make -C tools/TexturePacker
-  cp -PR tools/TexturePacker/TexturePacker $ROOT/$TOOLCHAIN/bin
 }
 
 post_makeinstall_target() {
@@ -421,14 +369,6 @@ post_makeinstall_target() {
 
   if [ ! "$DISPLAYSERVER" = "x11" ]; then
     rm -rf $INSTALL/usr/lib/kodi/kodi-xrandr
-  fi
-
-  if [ ! "$KODI_SCR_RSXS" = yes ]; then
-    rm -rf $INSTALL/usr/share/kodi/addons/screensaver.rsxs.*
-  fi
-
-  if [ ! "$KODI_VIS_PROJECTM" = yes ]; then
-    rm -rf $INSTALL/usr/share/kodi/addons/visualization.projectm
   fi
 
   rm -rf $INSTALL/usr/share/applications
