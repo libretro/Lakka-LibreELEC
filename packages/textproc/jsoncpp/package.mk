@@ -16,32 +16,32 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="mediacenter"
-PKG_VERSION=""
+PKG_NAME="jsoncpp"
+PKG_VERSION="src-0.5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.openelec.tv"
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain $MEDIACENTER $MEDIACENTER-theme-$SKIN_DEFAULT"
+PKG_SITE="http://www.kodi.tv"
+PKG_URL="http://garr.dl.sourceforge.net/project/jsoncpp/jsoncpp/0.5.0/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Mediacenter: Metapackage"
-PKG_LONGDESC=""
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="jsoncpp"
+PKG_LONGDESC="jsoncpp"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-for i in $SKINS; do
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $MEDIACENTER-theme-$i"
-done
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fPIC"
+}
 
-if [ "$MEDIACENTER" = "kodi" ]; then
-# some python stuff needed for various addons
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Pillow"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET simplejson"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pycrypto"
+pre_build_target() {
+  cp $PKG_DIR/config/CMakeLists.txt $ROOT/$PKG_BUILD
+}
 
-# other packages
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET OpenELEC-settings"
-fi
+configure_target() {
+  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        ..
+}
