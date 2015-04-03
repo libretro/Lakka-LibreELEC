@@ -40,8 +40,7 @@ PKG_AUTORECONF="no"
 PKG_MAINTAINER="unofficial.addon.pro"
 
 make_target() {
-  $SED -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \
-     -e "s|@PROJECT@|$PROJECT|g" \
+  $SED -e "s|@PROJECT@|$PROJECT|g" \
      -e "s|@ARCH@|$TARGET_ARCH|g" \
      -e "s|@PKG_VERSION@|$PKG_VERSION|g" \
      -e "s|@PKG_REV@|$PKG_REV|g"\
