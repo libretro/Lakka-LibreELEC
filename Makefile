@@ -11,9 +11,6 @@ release:
 image:
 	./scripts/image mkimage
 
-image-efi:
-	./scripts/image mkimage efi
-
 noobs:
 	./scripts/image noobs
 
