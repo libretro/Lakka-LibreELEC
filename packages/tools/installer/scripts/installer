@@ -608,7 +608,6 @@ menu_main() {
             \Z1\Zb(this will delete ALL data on this device!)\Zn \
             \n\ZbRepair / Upgrade:\Zn do repair / upgrade \
             \n\ZbSetup:\Zn change some settings to run OpenELEC \
-            \n\ZbBIOS Update:\Zn backup and update your BIOS (only for OEMs) \
             \n\ZbShow logfile:\Zn show and save the logfile \
             \n \
             \nPlease select:"
@@ -619,8 +618,7 @@ menu_main() {
       1 "Quick Install of OpenELEC" \
       2 "Repair / Upgrade" \
       3 "Setup OpenELEC" \
-      4 "BIOS update (only for OEM's)" \
-      5 "Show logfile" 2> $TMPDIR/mainmenu
+      4 "Show logfile" 2> $TMPDIR/mainmenu
 
   case $? in
     0)
@@ -629,8 +627,7 @@ menu_main() {
         1) do_install_quick; break;;
         2) do_install_custom; break;;
         3) menu_setup; break;;
-        4) menu_bios; break;;
-        5) logfile_show; break;;
+        4) logfile_show; break;;
       esac
       ;;
     1)
@@ -646,92 +643,6 @@ menu_setup() {
   # TODO: show the setupmenu
   msg_not_implemented
   menu_main
-}
-
-menu_bios() {
-  # show the biosmenu
-  MSG_TITLE="\Z4[ BIOS MENU ]\Zn"
-  MSG_MENU="\n You can use the UP/DOWN arrow keys,\n or the number of the choice as a hotkey,\n to choose an option.\n\n Please choose an option:"
-  MSG_CANCEL="Back"
-
-  dialog --colors --backtitle "$BACKTITLE" --cancel-label "$MSG_CANCEL" \
-    --title "$MSG_TITLE" --menu "$MSG_MENU" 20 70 5 \
-      1 "Backup installed BIOS" \
-      2 "Update BIOS" \
-      3 "Erase BIOS (not recommended)" 2> $TMPDIR/biosmenu
-
-  case $? in
-    0)
-      ITEM_BIOSMENU=$(cat "$TMPDIR/biosmenu")
-      case $ITEM_BIOSMENU in
-        1) bios_backup; break;;
-        2) bios_update; break;;
-        3) bios_erase; break;;
-      esac
-      ;;
-    1)
-      menu_main
-      ;;
-    255)
-      do_poweroff
-      ;;
-  esac
-}
-
-bios_backup() {
-  # create a backup of the installed bios
-  if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
-
-    clear
-    echo "##### backup old BIOS to $BIOS_BACKUP #####"
-      usleep 1000000
-      mount -o remount,rw /flash
-      flashrom --read /flash/$BIOS_BACKUP
-      mount -o remount,ro /flash
-
-    echo "##### Please control the output and press any key to continue #####"
-    read -sn1
-
-  else
-    msg_oem_only
-  fi
-  menu_bios
-}
-
-bios_update() {
-  # update the bios
-  if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
-    clear
-    echo "##### erasing BIOS #####"
-    usleep 1000000
-    flashrom --erase
-
-    echo "##### writing new BIOS from $BIOS_FILE #####"
-    usleep 1000000
-    flashrom --write "$BIOS_FILE"
-
-    echo "##### Please control the output and press any key to continue #####"
-    read -sn1
-  else
-    msg_oem_only
-  fi
-  menu_bios
-}
-
-bios_erase() {
-  # erase the bios
-  if [ "$BIOS_UPDATE" = "yes" -a -f "$BIOS_FILE" ]; then
-    clear
-    echo "##### erasing BIOS #####"
-    usleep 1000000
-    flashrom --erase
-
-    echo "##### Please control the output and press any key to continue #####"
-    read -sn1
-  else
-    msg_oem_only
-  fi
-  menu_bios
 }
 
 logfile_show() {
