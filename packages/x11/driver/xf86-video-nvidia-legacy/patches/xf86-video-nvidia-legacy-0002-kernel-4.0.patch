@@ -1,0 +1,29 @@
+diff -Naur NVIDIA-Linux-x86_64-340.76-no-compat32/kernel/nv-pat.c NVIDIA-Linux-x86_64-340.76-no-compat32.patch/kernel/nv-pat.c
+--- NVIDIA-Linux-x86_64-340.76-no-compat32/kernel/nv-pat.c	2015-01-22 20:01:16.000000000 +0100
++++ NVIDIA-Linux-x86_64-340.76-no-compat32.patch/kernel/nv-pat.c	2015-04-04 19:16:01.931219988 +0200
+@@ -35,8 +35,13 @@
+     unsigned long cr0 = read_cr0();
+     write_cr0(((cr0 & (0xdfffffff)) | 0x40000000));
+     wbinvd();
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
+     *cr4 = read_cr4();
+     if (*cr4 & 0x80) write_cr4(*cr4 & ~0x80);
++#else
++    *cr4 = __read_cr4();
++    if (*cr4 & 0x80) __write_cr4(*cr4 & ~0x80);
++#endif
+     __flush_tlb();
+ }
+ 
+@@ -46,7 +51,11 @@
+     wbinvd();
+     __flush_tlb();
+     write_cr0((cr0 & 0x9fffffff));
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
+     if (cr4 & 0x80) write_cr4(cr4);
++#else
++    if (cr4 & 0x80) __write_cr4(cr4);
++#endif
+ }
+ 
+ static int nv_determine_pat_mode(void)
