@@ -42,12 +42,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --disable-dummy-driver \
                            --with-drivers-path=/usr/lib/va"
 
-pre_configure_target() {
-# libva fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
-  rm -rf .$TARGET_NAME
-}
-
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   if [ "$DEVTOOLS" = yes ]; then
