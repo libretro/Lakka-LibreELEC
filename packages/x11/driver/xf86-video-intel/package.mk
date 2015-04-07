@@ -57,7 +57,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-backlight \
                            --with-xorg-module-dir=$XORG_PATH_MODULES"
 
 pre_configure_target() {
-# TODO: xf86-video-intel-2.21.5 dont link with LTO enabled
+# xf86-video-intel is broken enough. dont link with LTO
   strip_lto
 }
 

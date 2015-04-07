@@ -232,7 +232,7 @@ post_install() {
   add_group tty 5
   add_group video 39
   add_group utmp 22
-  add_group input 199 # TODO change gid
+  add_group input 199
 
   enable_service machine-id.service
   enable_service debugconfig.service

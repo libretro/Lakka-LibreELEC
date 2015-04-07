@@ -86,7 +86,6 @@ else
   KODI_CEC="--disable-libcec"
 fi
 
-# TODO remove
 KODI_RSXS="--disable-rsxs"
 KODI_PROJECTM="--disable-projectm"
 KODI_GOOM="--disable-goom"
@@ -316,10 +315,7 @@ pre_configure_target() {
   cd $ROOT/$PKG_BUILD
     rm -rf .$TARGET_NAME
 
-# kodi fails to build with LTO optimization if build without GOLD support
-  [ ! "$GOLD_SUPPORT" = "yes" ] && strip_lto
-
-# Todo: kodi segfaults on exit when building with LTO support
+# kodi should never be built with lto
   strip_lto
 
   export CFLAGS="$CFLAGS $KODI_CFLAGS"
@@ -419,10 +415,6 @@ post_makeinstall_target() {
 post_install() {
 # link default.target to kodi.target
   ln -sf kodi.target $INSTALL/usr/lib/systemd/system/default.target
-
-# TODO: for compatibility to be removed soon
-  ln -sf kodi.target $INSTALL/usr/lib/systemd/system/xbmc.target
-  ln -sf kodi.service $INSTALL/usr/lib/systemd/system/xbmc.service
 
 # enable default services
   enable_service kodi-autostart.service

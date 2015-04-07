@@ -43,7 +43,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --with-drivers-path=/usr/lib/va"
 
 pre_configure_target() {
-# todo: libva fails to build in subdirs
+# libva fails to build in subdirs
   cd $ROOT/$PKG_BUILD
   rm -rf .$TARGET_NAME
 }
