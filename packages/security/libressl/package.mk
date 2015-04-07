@@ -36,9 +36,9 @@ post_makeinstall_target() {
 # ca-certification: provides a tool to download and create ca-bundle.crt
 # download url: http://curl.haxx.se
 # create new cert: perl ./mk-ca-bundle.pl
-  # TODO OE6.0 install in /etc/ssl and rebuild curl
   mkdir -p $INSTALL/$SSL_CERTIFICATES
-    cp $PKG_DIR/cert/ca-bundle.crt $INSTALL/$SSL_CERTIFICATES/cacert.pem
-  mkdir -p $INSTALL/etc/ssl
-  ln -sf $SSL_CERTIFICATES/cacert.pem $INSTALL/etc/ssl/cert.pem
+    cp $PKG_DIR/cert/ca-bundle.crt $INSTALL/$SSL_CERTIFICATES/cert.pem
+  # backwards comatibility
+  mkdir -p $INSTALL/etc/pki/tls
+  ln -sf $SSL_CERTIFICATES/cert.pem $INSTALL/etc/pki/tls/cacert.pem
 }
