@@ -38,8 +38,7 @@ make_target() {
       RANLIB=$TARGET_RANLIB \
       AR=$TARGET_AR \
       STRIP=$TARGET_STRIP \
-      CFLAGS="$CFLAGS" \
-      -f unix/Makefile generic
+      -f unix/Makefile generic LOCAL_UNZIP="$CFLAGS"
 }
 
 makeinstall_target() {
