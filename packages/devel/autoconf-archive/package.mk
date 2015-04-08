@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="autoconf-archive"
-PKG_VERSION="2013.11.01"
+PKG_VERSION="2015.02.24"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://ftp.gnu.org/gnu/autoconf-archive"
-PKG_URL="http://ftp.gnu.org/gnu/autoconf-archive/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="http://ftp.gnu.org/gnu/autoconf-archive/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
