@@ -44,6 +44,9 @@ fi
 
 post_install() {
   cd $ROOT/$BUILD/initramfs
+    if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
+      ln -s /lib $ROOT/$BUILD/initramfs/lib64
+    fi
     mkdir -p $ROOT/$BUILD/image/
     find . | cpio -H newc -ov -R 0:0 > $ROOT/$BUILD/image/initramfs.cpio
   cd -
