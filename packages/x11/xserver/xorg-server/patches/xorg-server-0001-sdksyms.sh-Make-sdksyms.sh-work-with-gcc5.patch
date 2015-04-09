@@ -1,0 +1,51 @@
+From 612eb45a2e7a0b35cc3790870e6d0cc42eb50c74 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Wed, 11 Feb 2015 16:26:40 +0100
+Subject: [PATCH] sdksyms.sh: Make sdksyms.sh work with gcc5.
+
+gcc5's cpp inserts patterns like this:
+
+extern
+      __attribute__((visibility("default")))
+                int WaitForSomething(int *
+    );
+
+This patch make sdksyms.sh work with this. Note my awk skills are weak, so
+there likely is a better way to deal with this.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ hw/xfree86/sdksyms.sh | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/hw/xfree86/sdksyms.sh b/hw/xfree86/sdksyms.sh
+index 2305073..99b0cae 100755
+--- a/hw/xfree86/sdksyms.sh
++++ b/hw/xfree86/sdksyms.sh
+@@ -350,6 +350,23 @@ BEGIN {
+     if (sdk) {
+ 	n = 3;
+ 
++	# detect the following gcc5 cpp pattern and skip it:
++	# extern
++	# # 320 "../../include/os.h" 3 4
++	#     __attribute__((visibility("default")))
++	# # 320 "../../include/os.h"
++	# Note in this case the "extern " or "extern void " always has
++	# a trailing space
++	if ($0 ~ "^extern.* $") {
++	    getline;
++	    getline;
++	    getline;
++	    getline;
++	    n = 1;
++	    while ($n == " ")
++		n++;
++	}
++
+ 	# skip attribute, if any
+ 	while ($n ~ /^(__attribute__|__global)/ ||
+ 	    # skip modifiers, if any
+-- 
+2.1.0
+
