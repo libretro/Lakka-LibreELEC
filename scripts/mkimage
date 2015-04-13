@@ -64,15 +64,22 @@ trap cleanup SIGINT
 # write a disklabel
   echo "image: creating partition table on $DISK..."
   losetup "$LOOP" "$DISK"
-  parted -s "$LOOP" mklabel gpt
+  if [ "$BOOTLOADER" = "syslinux" ]; then
+    parted -s "$LOOP" mklabel gpt
+  else
+    parted -s "$LOOP" mklabel msdos
+  fi
   sync
 
 # create part1
   echo "image: creating part1 on $DISK..."
   SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 2048 ))
   parted -s "$LOOP" -a min unit s mkpart primary fat32 2048 $SYSTEM_PART_END
-  parted -s "$LOOP" set 1 legacy_boot on
-
+  if [ "$BOOTLOADER" = "syslinux" ]; then
+    parted -s "$LOOP" set 1 legacy_boot on
+  else
+    parted -s "$LOOP" set 1 boot on
+  fi
 # create part2
   echo "image: creating part2 on $DISK..."
   STORAGE_PART_START=$(( $SYSTEM_PART_END + 2048 ))
