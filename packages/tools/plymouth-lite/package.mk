@@ -40,8 +40,6 @@ pre_configure_init() {
   # plymouth-lite dont support to build in subdirs
   cd $ROOT/$PKG_BUILD
     rm -rf .$TARGET_NAME-init
-    
-  LDFLAGS="$LDFLAGS -lm"
 }
 
 makeinstall_init() {
