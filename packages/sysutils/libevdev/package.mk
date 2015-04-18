@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libevdev"
-PKG_VERSION="1.4"
+PKG_VERSION="1.4.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
