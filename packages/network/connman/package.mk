@@ -96,6 +96,9 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/config
     cp $PKG_DIR/config/hosts.conf $INSTALL/usr/config
+
+  mkdir -p $INSTALL/usr/share/connman/
+    cp $PKG_DIR/config/settings $INSTALL/usr/share/connman/
 }
 
 post_install() {
