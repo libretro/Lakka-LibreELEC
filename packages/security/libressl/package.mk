@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libressl"
-PKG_VERSION="2.1.1"
+PKG_VERSION="2.1.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
