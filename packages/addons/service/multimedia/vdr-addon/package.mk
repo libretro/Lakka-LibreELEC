@@ -35,6 +35,7 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_PROVIDES=""
 PKG_ADDON_REQUIRES="pvr.vdr.vnsi:0.0.0"
 PKG_ADDON_NAME="VDR PVR Backend"
+PKG_ADDON_REPOVERSION="6.0"
 
 make_target() {
   : # nothing to do here

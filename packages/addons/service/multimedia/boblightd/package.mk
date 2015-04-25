@@ -32,6 +32,7 @@ PKG_LONGDESC="Boblight's main purpose is to create light effects from an externa
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_PROVIDES=""
+PKG_ADDON_REPOVERSION="6.0"
 
 PKG_AUTORECONF="yes"
 
