@@ -32,8 +32,6 @@ PKG_LONGDESC="LibreSSL is a FREE version of the SSL/TLS protocol forked from Ope
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared"
-
 post_makeinstall_target() {
 # ca-certification: provides a tool to download and create ca-bundle.crt
 # download url: http://curl.haxx.se
