@@ -86,13 +86,6 @@ else
   KODI_CEC="--disable-libcec"
 fi
 
-KODI_RSXS="--disable-rsxs"
-KODI_PROJECTM="--disable-projectm"
-KODI_GOOM="--disable-goom"
-KODI_WAVEFORM="--disable-waveform"
-KODI_SPECTRUM="--disable-spectrum"
-KODI_FISHBMC="--disable-fishbmc"
-
 if [ "$JOYSTICK_SUPPORT" = yes ]; then
 # for Joystick support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET SDL2"
@@ -252,12 +245,12 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            $KODI_CEC \
                            --enable-udev \
                            --disable-libusb \
-                           $KODI_GOOM \
-                           $KODI_RSXS \
-                           $KODI_PROJECTM \
-                           $KODI_WAVEFORM \
-                           $KODI_SPECTRUM \
-                           $KODI_FISHBMC \
+                           --disable-goom \
+                           --disable-rsxs \
+                           --disable-projectm \
+                           --disable-waveform \
+                           --disable-spectrum \
+                           --disable-fishbmc \
                            $KODI_XORG \
                            --disable-ccache \
                            $KODI_ALSA \
