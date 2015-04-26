@@ -1,86 +1,95 @@
-From 0a2ae6dd9fe63c713e1ea2336ca3263c00fa9bfc Mon Sep 17 00:00:00 2001
+From ba906db17bdb834aedf88ca35b1ce30ea2d2bbd4 Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
-Date: Fri, 8 Aug 2014 18:22:44 +0300
+Date: Fri, 24 Apr 2015 19:45:20 +0300
 Subject: [PATCH 09/12] use a wrapper to setup systemd services
 
 ---
- xbmc/addons/Service.cpp | 22 ++++++++++++++++++++++
- xbmc/addons/Service.h   |  1 +
- 2 files changed, 23 insertions(+)
+ xbmc/addons/Addon.cpp | 30 ++++++++++++++++++++++++++++++
+ xbmc/addons/Addon.h   |  2 ++
+ 2 files changed, 32 insertions(+)
 
-diff --git a/xbmc/addons/Service.cpp b/xbmc/addons/Service.cpp
-index 2fc7670..9126ce7 100644
---- a/xbmc/addons/Service.cpp
-+++ b/xbmc/addons/Service.cpp
-@@ -53,6 +53,10 @@ AddonPtr CService::Clone() const
- bool CService::Start()
- {
-   bool ret = true;
-+
-+  // systemctl enable but dont force start
-+  CallOEWrapper(ID(), false, true);
-+
-   switch (m_type)
-   {
- #ifdef HAS_PYTHON
-@@ -113,13 +117,24 @@ void CService::BuildServiceType()
-   }
+diff --git a/xbmc/addons/Addon.cpp b/xbmc/addons/Addon.cpp
+index 03325dd..b2bfafa 100644
+--- a/xbmc/addons/Addon.cpp
++++ b/xbmc/addons/Addon.cpp
+@@ -626,6 +626,13 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
+   return AddonVersion("0.0.0");
  }
  
-+void CService::CallOEWrapper(const std::string& ID, bool disable, bool check)
++void CallOEWrapper(const std::string& ID, bool disable)
 +{
 +  char cmd[255];
-+  snprintf(cmd, sizeof(cmd), "/usr/lib/openelec/systemd-addon-wrapper %s %d %d", ID.c_str(), disable, check);
++  snprintf(cmd, sizeof(cmd), "/usr/lib/openelec/systemd-addon-wrapper %s %d %d", ID.c_str(), disable);
 +  system(cmd);
 +}
 +
- void CService::OnDisabled()
+ void OnEnabled(const std::string& id)
  {
-   Stop();
-+  // systemctl stop & disable on addon disable
-+  CallOEWrapper(ID(), true, false);
- }
+   // If the addon is a special, call enabled handler
+@@ -633,6 +640,11 @@ void OnEnabled(const std::string& id)
+   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_PVRDLL))
+     return addon->OnEnabled();
  
- void CService::OnEnabled()
++  // OE: systemctl enable & start on addon enable
++  if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE))
++    CallOEWrapper(addon->ID(), false);
++  // OE
++
+   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE))
+     std::static_pointer_cast<CService>(addon)->Start();
+ 
+@@ -649,6 +661,11 @@ void OnDisabled(const std::string& id)
+   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE, false))
+     std::static_pointer_cast<CService>(addon)->Stop();
+ 
++  // OE: systemctl stop & disable on addon disable
++  if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE, false))
++    CallOEWrapper(addon->ID(), true);
++  // OE
++
+   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_CONTEXT_ITEM, false))
+     CContextMenuManager::Get().Unregister(std::static_pointer_cast<CContextItemAddon>(addon));
+ }
+@@ -672,6 +689,14 @@ void OnPreInstall(const AddonPtr& addon)
+ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
  {
-+  // systemctl enable & start on addon enable
-+  CallOEWrapper(ID(), false, false);
-   Start();
- }
+   AddonPtr localAddon;
++  // OE: systemctl stop & disable / enable & start on addon upgrade
++  if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
++  {
++    CallOEWrapper(addon->ID(), true);
++    CallOEWrapper(addon->ID(), false);
++  }
++  // OE
++
+   if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
+     std::static_pointer_cast<CService>(localAddon)->Start();
  
-@@ -145,13 +160,20 @@ void CService::OnPostInstall(bool restart, bool update, bool modal)
-     {
-       std::shared_ptr<CService> service = std::dynamic_pointer_cast<CService>(localAddon);
-       if (service)
-+      {
-+        // systemctl stop & disable / enable & start on addon upgrade
-+        CallOEWrapper(ID(), true, false);
-+        CallOEWrapper(ID(), false, false);
-         service->Start();
-+      }
-     }
-   }
- }
- 
- void CService::OnPreUnInstall()
+@@ -706,6 +731,11 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+ void OnPreUnInstall(const AddonPtr& addon)
  {
-+  // systemctl stop & disable on addon ininstall
-+  CallOEWrapper(ID(), true, false);
-   Stop();
- }
+   AddonPtr localAddon;
++  // OE: systemctl stop & disable on addon ininstall
++  if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
++    CallOEWrapper(addon->ID(), true);
++  // OE
++
+   if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
+     std::static_pointer_cast<CService>(localAddon)->Stop();
  
-diff --git a/xbmc/addons/Service.h b/xbmc/addons/Service.h
-index f7394de..1ba3f27 100644
---- a/xbmc/addons/Service.h
-+++ b/xbmc/addons/Service.h
-@@ -47,6 +47,7 @@ namespace ADDON
-     bool Stop();
-     TYPE GetServiceType() { return m_type; }
-     START_OPTION GetStartOption() { return m_startOption; }
-+    void CallOEWrapper(const std::string& ID, bool disable, bool check);
-     virtual void OnDisabled();
-     virtual void OnEnabled();
-     virtual bool OnPreInstall();
+diff --git a/xbmc/addons/Addon.h b/xbmc/addons/Addon.h
+index ca9cddb..46e30d3 100644
+--- a/xbmc/addons/Addon.h
++++ b/xbmc/addons/Addon.h
+@@ -171,6 +171,8 @@ public:
+   const InfoMap &ExtraInfo() const { return m_props.extrainfo; }
+   const ADDONDEPS &GetDeps() const { return m_props.dependencies; }
+ 
++  void CallOEWrapper(const std::string& ID, bool disable);
++
+   /*! \brief get the required version of a dependency.
+    \param dependencyID the addon ID of the dependency.
+    \return the version this addon requires.
 -- 
 2.1.4
 
