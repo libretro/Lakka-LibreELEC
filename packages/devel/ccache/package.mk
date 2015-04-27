@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="ccache"
-PKG_VERSION="3.1.8"
+PKG_VERSION="3.2.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
