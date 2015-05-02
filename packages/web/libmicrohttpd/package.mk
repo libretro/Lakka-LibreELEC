@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libmicrohttpd"
-PKG_VERSION="0.9.40"
+PKG_VERSION="0.9.41"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
