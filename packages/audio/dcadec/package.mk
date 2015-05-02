@@ -32,7 +32,10 @@ PKG_LONGDESC="DTS Coherent Acoustics decoder with support for HD extensions"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS_TARGET="PREFIX=/usr BINDIR=/usr/bin LIBDIR=/usr/lib INCLUDEDIR=/usr/include PKG_CONFIG_PATH=/usr/lib/pkgconfig"
+# todo: we need to build as shared library, otherwise sond dont work
+# in kodi with enabled dcadec support and we have 100% CPU usage
+# (to test disable passtrough and use a DTS-HD sample)
+PKG_MAKE_OPTS_TARGET="PREFIX=/usr BINDIR=/usr/bin LIBDIR=/usr/lib INCLUDEDIR=/usr/include PKG_CONFIG_PATH=/usr/lib/pkgconfig CONFIG_SHARED=1"
 PKG_MAKEINSTALL_OPTS_TARGET="$PKG_MAKE_OPTS_TARGET"
 
 pre_configure_target() {
