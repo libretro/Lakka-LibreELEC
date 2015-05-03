@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="wetekdvb"
-PKG_VERSION="20150307"
+PKG_VERSION="20150429"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
