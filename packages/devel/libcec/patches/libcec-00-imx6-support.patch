@@ -1,43 +1,33 @@
-diff -Naur libcec-2.2.0/configure.ac libcec-2.2.0.patch/configure.ac
---- libcec-2.2.0/configure.ac	2014-11-01 01:51:37.000000000 +0100
-+++ libcec-2.2.0.patch/configure.ac	2014-11-10 23:14:45.210162950 +0100
-@@ -100,6 +100,14 @@
-   esac
- fi
- 
-+## i.MX6 support
-+AC_ARG_ENABLE([imx6],
-+  [AS_HELP_STRING([--enable-imx6],
-+  [enable support for freescale i.MX6 (default is no)])],
-+  [use_imx6=$enableval],
-+  [use_imx6=no])
-+
-+
- ## add the top dir and include to the include path, so we can include config.h and cec.h
- CPPFLAGS="$CPPFLAGS -I\$(abs_top_srcdir)/src -I\$(abs_top_srcdir)/include"
- 
-@@ -306,6 +314,17 @@
- fi
- 
- 
-+## mark i.MX6 support as available
-+if test "x$use_imx6" != "xno"; then
-+  AC_DEFINE([HAVE_IMX_API],[1],[Define to 1 to include i.MX6 support])
-+  AM_CONDITIONAL(USE_IMX_API, true)
-+  features="$features\n  i.MX6 support :\t\t\tyes"
-+  LIB_INFO="$LIB_INFO 'i.MX6'"
-+else
-+  AM_CONDITIONAL(USE_IMX_API, false)
-+  features="$features\n  i.MX6 support :\t\t\tno"
-+fi
-+
- ## check if our build system is complete
- AC_CHECK_HEADER(algorithm,,AC_MSG_ERROR($msg_required_header_missing))
- AC_CHECK_HEADER(ctype.h,,AC_MSG_ERROR($msg_required_header_missing))
-diff -Naur libcec-2.2.0/include/cectypes.h libcec-2.2.0.patch/include/cectypes.h
---- libcec-2.2.0/include/cectypes.h	2014-10-28 16:20:50.000000000 +0100
-+++ libcec-2.2.0.patch/include/cectypes.h	2014-11-10 23:21:37.347945493 +0100
-@@ -307,6 +307,17 @@
+From a7f3315333c1a79259a763c6542a6cd71855b357 Mon Sep 17 00:00:00 2001
+From: Stefan Saraev <stefan@saraev.ca>
+Date: Thu, 7 May 2015 11:35:04 +0300
+Subject: [PATCH] imx support
+
+note. I am NOT the author of the patch. just rebased it
+---
+ include/cectypes.h                                 |  14 +-
+ src/libcec/CECTypeUtils.h                          |   2 +
+ src/libcec/adapter/AdapterFactory.cpp              |  29 +-
+ src/libcec/adapter/IMX/AdapterMessageQueue.h       | 134 +++++++++
+ .../adapter/IMX/IMXCECAdapterCommunication.cpp     | 328 +++++++++++++++++++++
+ .../adapter/IMX/IMXCECAdapterCommunication.h       | 119 ++++++++
+ src/libcec/adapter/IMX/IMXCECAdapterDetection.cpp  |  42 +++
+ src/libcec/adapter/IMX/IMXCECAdapterDetection.h    |  36 +++
+ src/libcec/cmake/CheckPlatformSupport.cmake        |  10 +
+ src/libcec/cmake/DisplayPlatformSupport.cmake      |   6 +
+ src/libcec/env.h.in                                |   3 +
+ 11 files changed, 720 insertions(+), 3 deletions(-)
+ create mode 100644 src/libcec/adapter/IMX/AdapterMessageQueue.h
+ create mode 100644 src/libcec/adapter/IMX/IMXCECAdapterCommunication.cpp
+ create mode 100644 src/libcec/adapter/IMX/IMXCECAdapterCommunication.h
+ create mode 100644 src/libcec/adapter/IMX/IMXCECAdapterDetection.cpp
+ create mode 100644 src/libcec/adapter/IMX/IMXCECAdapterDetection.h
+
+diff --git a/include/cectypes.h b/include/cectypes.h
+index acff259..0cfee8c 100644
+--- a/include/cectypes.h
++++ b/include/cectypes.h
+@@ -309,6 +309,17 @@ namespace CEC {
  #define CEC_EXYNOS_VIRTUAL_COM		"Exynos"
  
  /*!
@@ -54,8 +44,8 @@ diff -Naur libcec-2.2.0/include/cectypes.h libcec-2.2.0.patch/include/cectypes.h
 +/*!
   * Mimimum client version
   */
- #define CEC_MIN_LIB_VERSION          2
-@@ -888,7 +899,8 @@
+ #define CEC_MIN_LIB_VERSION          3
+@@ -876,7 +887,8 @@ typedef enum cec_adapter_type
    ADAPTERTYPE_P8_DAUGHTERBOARD = 0x2,
    ADAPTERTYPE_RPI              = 0x100,
    ADAPTERTYPE_TDA995x          = 0x200,
@@ -64,11 +54,25 @@ diff -Naur libcec-2.2.0/include/cectypes.h libcec-2.2.0.patch/include/cectypes.h
 +  ADAPTERTYPE_IMX              = 0x400
  } cec_adapter_type;
  
- typedef struct cec_menu_language
-diff -Naur libcec-2.2.0/src/lib/adapter/AdapterFactory.cpp libcec-2.2.0.patch/src/lib/adapter/AdapterFactory.cpp
---- libcec-2.2.0/src/lib/adapter/AdapterFactory.cpp	2014-10-28 16:20:50.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/adapter/AdapterFactory.cpp	2014-11-10 23:18:08.761485552 +0100
-@@ -57,6 +57,11 @@
+ /** force exporting through swig */
+diff --git a/src/libcec/CECTypeUtils.h b/src/libcec/CECTypeUtils.h
+index fd8046a..48cb215 100644
+--- a/src/libcec/CECTypeUtils.h
++++ b/src/libcec/CECTypeUtils.h
+@@ -765,6 +765,8 @@ namespace CEC
+         return "Raspberry Pi";
+       case ADAPTERTYPE_TDA995x:
+         return "TDA995x";
++      case ADAPTERTYPE_IMX:
++        return "i.MX";
+       default:
+         return "unknown";
+       }
+diff --git a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFactory.cpp
+index da05725..92e378b 100644
+--- a/src/libcec/adapter/AdapterFactory.cpp
++++ b/src/libcec/adapter/AdapterFactory.cpp
+@@ -58,6 +58,11 @@
  #include "Exynos/ExynosCECAdapterCommunication.h"
  #endif
  
@@ -77,10 +81,10 @@ diff -Naur libcec-2.2.0/src/lib/adapter/AdapterFactory.cpp libcec-2.2.0.patch/sr
 +#include "IMX/IMXCECAdapterCommunication.h"
 +#endif
 +
- using namespace std;
  using namespace CEC;
  
-@@ -127,7 +132,22 @@
+ int8_t CAdapterFactory::FindAdapters(cec_adapter *deviceList, uint8_t iBufSize, const char *strDevicePath /* = NULL */)
+@@ -127,7 +132,22 @@ int8_t CAdapterFactory::DetectAdapters(cec_adapter_descriptor *deviceList, uint8
  #endif
  
  
@@ -104,7 +108,7 @@ diff -Naur libcec-2.2.0/src/lib/adapter/AdapterFactory.cpp libcec-2.2.0.patch/sr
  #error "libCEC doesn't have support for any type of adapter. please check your build system or configuration"
  #endif
  
-@@ -151,11 +171,16 @@
+@@ -151,11 +171,16 @@ IAdapterCommunication *CAdapterFactory::GetInstance(const char *strPort, uint16_
      return new CRPiCECAdapterCommunication(m_lib->m_cec);
  #endif
  
@@ -122,9 +126,11 @@ diff -Naur libcec-2.2.0/src/lib/adapter/AdapterFactory.cpp libcec-2.2.0.patch/sr
    return NULL;
  #endif
  }
-diff -Naur libcec-2.2.0/src/lib/adapter/IMX/AdapterMessageQueue.h libcec-2.2.0.patch/src/lib/adapter/IMX/AdapterMessageQueue.h
---- libcec-2.2.0/src/lib/adapter/IMX/AdapterMessageQueue.h	1970-01-01 01:00:00.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/adapter/IMX/AdapterMessageQueue.h	2014-11-10 23:14:45.214162390 +0100
+diff --git a/src/libcec/adapter/IMX/AdapterMessageQueue.h b/src/libcec/adapter/IMX/AdapterMessageQueue.h
+new file mode 100644
+index 0000000..af6742c
+--- /dev/null
++++ b/src/libcec/adapter/IMX/AdapterMessageQueue.h
 @@ -0,0 +1,134 @@
 +#pragma once
 +/*
@@ -159,7 +165,7 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/AdapterMessageQueue.h libcec-2.2.0.p
 + *     http://www.pulse-eight.net/
 + */
 +
-+#include "lib/platform/threads/mutex.h"
++#include "platform/threads/mutex.h"
 +
 +namespace CEC
 +{
@@ -260,9 +266,11 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/AdapterMessageQueue.h libcec-2.2.0.p
 +  };
 + 
 +};
-diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp
---- libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp	1970-01-01 01:00:00.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp	2014-11-10 23:14:45.217161982 +0100
+diff --git a/src/libcec/adapter/IMX/IMXCECAdapterCommunication.cpp b/src/libcec/adapter/IMX/IMXCECAdapterCommunication.cpp
+new file mode 100644
+index 0000000..2daa8cb
+--- /dev/null
++++ b/src/libcec/adapter/IMX/IMXCECAdapterCommunication.cpp
 @@ -0,0 +1,328 @@
 +/*
 + * This file is part of the libCEC(R) library.
@@ -296,11 +304,11 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp libce
 +#if defined(HAVE_IMX_API)
 +#include "IMXCECAdapterCommunication.h"
 +
-+#include "lib/CECTypeUtils.h"
-+#include "lib/LibCEC.h"
-+#include "lib/platform/sockets/cdevsocket.h"
-+#include "lib/platform/util/StdString.h"
-+#include "lib/platform/util/buffer.h"
++#include "CECTypeUtils.h"
++#include "LibCEC.h"
++#include "platform/sockets/cdevsocket.h"
++#include "platform/util/StdString.h"
++#include "platform/util/buffer.h"
 +
 +/*
 + * Ioctl definitions from kernel header
@@ -592,9 +600,11 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.cpp libce
 +}
 +
 +#endif	// HAVE_IMX_API
-diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.h libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.h
---- libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.h	1970-01-01 01:00:00.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterCommunication.h	2014-11-10 23:14:45.217161982 +0100
+diff --git a/src/libcec/adapter/IMX/IMXCECAdapterCommunication.h b/src/libcec/adapter/IMX/IMXCECAdapterCommunication.h
+new file mode 100644
+index 0000000..9e899a3
+--- /dev/null
++++ b/src/libcec/adapter/IMX/IMXCECAdapterCommunication.h
 @@ -0,0 +1,119 @@
 +#pragma once
 +/*
@@ -626,10 +636,10 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.h libcec-
 +
 +#if defined(HAVE_IMX_API)
 +
-+#include "lib/platform/threads/mutex.h"
-+#include "lib/platform/threads/threads.h"
-+#include "lib/platform/sockets/socket.h"
-+#include "lib/adapter/AdapterCommunication.h"
++#include "platform/threads/mutex.h"
++#include "platform/threads/threads.h"
++#include "platform/sockets/socket.h"
++#include "adapter/AdapterCommunication.h"
 +#include <map>
 +
 +#define IMX_ADAPTER_VID 0x0471 /*FIXME TBD*/
@@ -715,9 +725,11 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterCommunication.h libcec-
 +};
 +
 +#endif
-diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp
---- libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp	1970-01-01 01:00:00.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp	2014-11-10 23:14:45.215162253 +0100
+diff --git a/src/libcec/adapter/IMX/IMXCECAdapterDetection.cpp b/src/libcec/adapter/IMX/IMXCECAdapterDetection.cpp
+new file mode 100644
+index 0000000..6c93c45
+--- /dev/null
++++ b/src/libcec/adapter/IMX/IMXCECAdapterDetection.cpp
 @@ -0,0 +1,42 @@
 +/*
 + * This file is part of the libCEC(R) library.
@@ -761,9 +773,11 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterDetection.cpp libcec-2.
 +}
 +
 +#endif
-diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterDetection.h libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.h
---- libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterDetection.h	1970-01-01 01:00:00.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/adapter/IMX/IMXCECAdapterDetection.h	2014-11-10 23:14:45.215162253 +0100
+diff --git a/src/libcec/adapter/IMX/IMXCECAdapterDetection.h b/src/libcec/adapter/IMX/IMXCECAdapterDetection.h
+new file mode 100644
+index 0000000..d54891d
+--- /dev/null
++++ b/src/libcec/adapter/IMX/IMXCECAdapterDetection.h
 @@ -0,0 +1,36 @@
 +#pragma once
 +/*
@@ -801,31 +815,65 @@ diff -Naur libcec-2.2.0/src/lib/adapter/IMX/IMXCECAdapterDetection.h libcec-2.2.
 +    static bool FindAdapter(void);
 +  };
 +}
-diff -Naur libcec-2.2.0/src/lib/CECTypeUtils.h libcec-2.2.0.patch/src/lib/CECTypeUtils.h
---- libcec-2.2.0/src/lib/CECTypeUtils.h	2014-10-28 16:20:50.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/CECTypeUtils.h	2014-11-10 23:14:45.212162668 +0100
-@@ -877,6 +877,8 @@
-         return "Raspberry Pi";
-       case ADAPTERTYPE_TDA995x:
-         return "TDA995x";
-+      case ADAPTERTYPE_IMX:
-+        return "i.MX";
-       default:
-         return "unknown";
-       }
-diff -Naur libcec-2.2.0/src/lib/Makefile.am libcec-2.2.0.patch/src/lib/Makefile.am
---- libcec-2.2.0/src/lib/Makefile.am	2014-10-28 16:20:50.000000000 +0100
-+++ libcec-2.2.0.patch/src/lib/Makefile.am	2014-11-10 23:20:02.597700521 +0100
-@@ -63,6 +63,12 @@
-                      adapter/TDA995x/TDA995xCECAdapterCommunication.cpp
- endif
+diff --git a/src/libcec/cmake/CheckPlatformSupport.cmake b/src/libcec/cmake/CheckPlatformSupport.cmake
+index 828cdb2..8b47795 100644
+--- a/src/libcec/cmake/CheckPlatformSupport.cmake
++++ b/src/libcec/cmake/CheckPlatformSupport.cmake
+@@ -8,6 +8,7 @@
+ #	HAVE_RANDR                1 if xrandr is supported
+ #	HAVE_LIBUDEV              1 if udev is supported
+ #	HAVE_RPI_API              1 if Raspberry Pi is supported
++#	HAVE_IMX_API              1 if i.MX is supported
+ #	HAVE_TDA995X_API          1 if TDA995X is supported
+ #	HAVE_EXYNOS_API           1 if Exynos is supported
+ # HAVE_P8_USB_DETECT        1 if Pulse-Eight devices can be auto-detected
+@@ -87,6 +88,15 @@ else()
+     list(APPEND CEC_SOURCES ${CEC_SOURCES_ADAPTER_RPI})
+   endif()
  
-+## i.MX6 support
-+if USE_IMX_API
-+libcec_la_SOURCES += adapter/IMX/IMXCECAdapterDetection.cpp \
-+                     adapter/IMX/IMXCECAdapterCommunication.cpp
-+endif
++  # i.MX
++  if (HAVE_IMX_API)
++    set(LIB_INFO "${LIB_INFO}, 'IMX'")
++    set(CEC_SOURCES_ADAPTER_IMX adapter/IMX/IMXCECAdapterDetection.cpp
++                                adapter/IMX/IMXCECAdapterCommunication.cpp)
++    source_group("Source Files\\adapter\\IMX" FILES ${CEC_SOURCES_ADAPTER_IMX})
++    list(APPEND CEC_SOURCES ${CEC_SOURCES_ADAPTER_IMX})
++  endif()
 +
- ## Exynos support
- if USE_EXYNOS_API
- libcec_la_SOURCES += adapter/Exynos/ExynosCECAdapterDetection.cpp \
+   # TDA995x
+   check_include_files("tda998x_ioctl.h;comps/tmdlHdmiCEC/inc/tmdlHdmiCEC_Types.h" HAVE_TDA995X_API)
+   if (HAVE_TDA995X_API)
+diff --git a/src/libcec/cmake/DisplayPlatformSupport.cmake b/src/libcec/cmake/DisplayPlatformSupport.cmake
+index feee111..0309c56 100644
+--- a/src/libcec/cmake/DisplayPlatformSupport.cmake
++++ b/src/libcec/cmake/DisplayPlatformSupport.cmake
+@@ -32,6 +32,12 @@ else()
+   message(STATUS "Raspberry Pi support:                   no")
+ endif()
+ 
++if (HAVE_IMX_API)
++  message(STATUS "i.MX support:                           yes")
++else()
++  message(STATUS "i.MX support:                           no")
++endif()
++
+ if (HAVE_TDA995X_API)
+   message(STATUS "TDA995x support:                        yes")
+ else()
+diff --git a/src/libcec/env.h.in b/src/libcec/env.h.in
+index a1a1f26..f90e729 100644
+--- a/src/libcec/env.h.in
++++ b/src/libcec/env.h.in
+@@ -60,6 +60,9 @@
+ /* Define to 1 for Raspberry Pi support */
+ #cmakedefine HAVE_RPI_API @HAVE_RPI_API@
+ 
++/* Define to 1 for IMX support */
++#cmakedefine HAVE_IMX_API @HAVE_IMX_API@
++
+ /* Define to 1 for TDA995x support */
+ #cmakedefine HAVE_TDA995X_API @HAVE_TDA995X_API@
+ 
+-- 
+2.1.4
+
