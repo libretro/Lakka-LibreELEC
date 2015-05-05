@@ -36,6 +36,11 @@ PKG_LONGDESC="These packages contain Broadcom's IEEE 802.11a/b/g/n hybrid LinuxÂ
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_make_target() {
+  # rename binary to comply with upstream patches
+  mv $ROOT/$PKG_BUILD/x86-64/lib/wlc_hybrid.o_shipped $ROOT/$PKG_BUILD/x86-64/lib/wlc_hybrid.o_shipped_x86_64
+}
+
 make_target() {
   cd x86-64
     KBUILD_NOPEDANTIC=1 make V=1 CC=$CC -C $(kernel_path) M=`pwd` BINARCH=$TARGET_ARCH
