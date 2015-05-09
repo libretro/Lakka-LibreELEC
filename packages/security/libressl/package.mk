@@ -41,4 +41,5 @@ post_makeinstall_target() {
   # backwards comatibility
   mkdir -p $INSTALL/etc/pki/tls
   ln -sf $SSL_CERTIFICATES/cacert.pem $INSTALL/etc/pki/tls/cacert.pem
+  ln -sf $SSL_CERTIFICATES/cacert.pem $INSTALL/etc/ssl/cert.pem
 }
