@@ -32,8 +32,6 @@ PKG_LONGDESC="Enca detects the encoding of text files, on the basis of knowledge
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-export CFLAGS="$CFLAGS -fPIC -DPIC"
-
 PKG_MAKEINSTALL_OPTS_TARGET="-C lib"
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_file__dev_random=yes \
                            ac_cv_file__dev_urandom=no \
@@ -46,6 +44,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_file__dev_random=yes \
                            --without-librecode \
                            --disable-rpath \
                            --with-gnu-ld"
+
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fPIC -DPIC"
+}
 
 pre_make_target() {
   make CC="$HOST_CC" \
