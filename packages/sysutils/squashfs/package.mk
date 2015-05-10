@@ -33,8 +33,6 @@ PKG_LONGDESC="Squashfs is intended to be a general read-only filesystem, for arc
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-export LDFLAGS="$LDFLAGS -fwhole-program"
-
 make_host() {
   make -C squashfs-tools mksquashfs \
        XZ_SUPPORT=1 LZO_SUPPORT=1 \
