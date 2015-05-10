@@ -32,7 +32,9 @@ PKG_LONGDESC="Xorg-launch-helper is a small utility that transforms the X server
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-export LIBS="-lsystemd"
+pre_configure_target() {
+  export LIBS="-lsystemd"
+}
 
 post_makeinstall_target() {
   # do not install systemd services

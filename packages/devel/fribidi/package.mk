@@ -42,8 +42,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --with-gnu-ld \
                            --without-glib"
 
-export CFLAGS="$CFLAGS -DFRIBIDI_CHUNK_SIZE=4080"
-export CFLAGS="$CFLAGS -fPIC -DPIC"
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -DFRIBIDI_CHUNK_SIZE=4080"
+  export CFLAGS="$CFLAGS -fPIC -DPIC"
+}
 
 post_makeinstall_target() {
   mkdir -p $ROOT/$TOOLCHAIN/bin

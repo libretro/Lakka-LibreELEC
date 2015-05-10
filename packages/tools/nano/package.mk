@@ -35,9 +35,11 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--disable-utf8 \
                            --disable-nls"
 
-export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/ncurses"
-export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
-export LIBS="$LIBS -lz"
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/ncurses"
+  export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
+  export LIBS="$LIBS -lz"
+}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/nano
