@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.ncsf"
-PKG_VERSION="5c99c79"
+PKG_VERSION="6cbec60"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
