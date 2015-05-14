@@ -1,0 +1,161 @@
+From 7938bdb186ed300a8de0d78dff514f3c43209bc1 Mon Sep 17 00:00:00 2001
+From: vpeter4 <peter.vicman@gmail.com>
+Date: Wed, 10 Dec 2014 11:58:19 +0100
+Subject: [PATCH] chipidea: ci_hdrc_imx: Allow handling the clock for an USB
+	phy/hub
+
+for file ci_hdrc_imx.c
+  1-2-chipidea-ci_hdrc_imx-Allow-handling-the-clock-for-an-USB-phy-hub.patch
+for file usbmisc_imx.c
+	unknown patch (used from https://github.com/mtx512/linux-imx/commits/imx_3.10.17_1.0.0_beta-udoo)
+
+Subject: [1/2] chipidea: ci_hdrc_imx: Allow handling the clock for an USB
+	phy/hub
+From: Fabio Estevam <festevam@gmail.com>
+Date: Thu, 14 Nov 2013 00:09:46 -0200
+
+When using external USB PHY or USB hub, it is common that they require a clock
+input.
+
+Add a 'clk_phy' clock, so that it can be retrieved from the device tree and 
+enabled in the driver, so that the clock can properly drive the external 
+USB phy/hub.
+
+Tested on a imx6q-udoo board, that connects via USBH1 to a USB2514 hub.
+
+In this board the USB2514 is clocked from a 24MHz clock that comes from the 
+imx6q CLKO2 pin.
+
+---
+ .../devicetree/bindings/usb/ci-hdrc-imx.txt          |  2 ++
+ .../drivers/usb/chipidea/ci_hdrc_imx.c               | 20 +++++++++++++++++++-
+ .../drivers/usb/chipidea/usbmisc_imx.c               | 18 ++++++++++++++++++
+ 3 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/usb/ci-hdrc-imx.txt b/Documentation/devicetree/bindings/usb/ci-hdrc-imx.txt
+index b4b5b79..07ba38c 100644
+--- a/Documentation/devicetree/bindings/usb/ci-hdrc-imx.txt
++++ b/Documentation/devicetree/bindings/usb/ci-hdrc-imx.txt
+@@ -18,6 +18,8 @@ Optional properties:
+ - vbus-supply: regulator for vbus
+ - disable-over-current: disable over current detect
+ - external-vbus-divider: enables off-chip resistor divider for Vbus
++- clocks: phandle to the clock that drives the USB hub
++- clock-names: must be "phy"
+ 
+ Examples:
+ usb@02184000 { /* USB OTG */
+diff --git a/drivers/usb/chipidea/ci_hdrc_imx.c b/drivers/usb/chipidea/ci_hdrc_imx.c
+index de6b965..4e621fd 100644
+--- a/drivers/usb/chipidea/ci_hdrc_imx.c
++++ b/drivers/usb/chipidea/ci_hdrc_imx.c
+@@ -68,6 +68,7 @@ struct ci_hdrc_imx_data {
+ 	struct usb_phy *phy;
+ 	struct platform_device *ci_pdev;
+ 	struct clk *clk;
++	struct clk *clk_phy;
+ 	struct imx_usbmisc_data *usbmisc_data;
+ 	bool supports_runtime_pm;
+ 	bool in_lpm;
+@@ -155,10 +156,22 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
++	data->clk_phy = devm_clk_get(&pdev->dev, "phy");
++	if (IS_ERR(data->clk_phy)) {
++		data->clk_phy = NULL;
++	} else {
++		ret = clk_prepare_enable(data->clk_phy);
++		if (ret) {
++			dev_err(&pdev->dev,
++				"Failed to enable clk_phy: %d\n", ret);
++			goto err_clk;
++		}
++	}
++
+ 	data->phy = devm_usb_get_phy_by_phandle(&pdev->dev, "fsl,usbphy", 0);
+ 	if (IS_ERR(data->phy)) {
+ 		ret = PTR_ERR(data->phy);
+-		goto err_clk;
++		goto err_clk_phy;
+ 	}
+ 
+ 	pdata.phy = data->phy;
+@@ -234,6 +247,9 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
+ 
+ disable_device:
+ 	ci_hdrc_remove_device(data->ci_pdev);
++err_clk_phy:
++	if (data->clk_phy)
++		clk_disable_unprepare(data->clk_phy);
+ err_clk:
+ 	clk_disable_unprepare(data->clk);
+ 	release_bus_freq(BUS_FREQ_HIGH);
+@@ -246,6 +262,8 @@ static int ci_hdrc_imx_remove(struct platform_device *pdev)
+ 
+ 	pm_runtime_disable(&pdev->dev);
+ 	ci_hdrc_remove_device(data->ci_pdev);
++	if (data->clk_phy)
++		clk_disable_unprepare(data->clk_phy);
+ 	clk_disable_unprepare(data->clk);
+ 	release_bus_freq(BUS_FREQ_HIGH);
+ 
+diff --git a/drivers/usb/chipidea/usbmisc_imx.c b/drivers/usb/chipidea/usbmisc_imx.c
+index 683bcec..86fd7e6 100644
+--- a/drivers/usb/chipidea/usbmisc_imx.c
++++ b/drivers/usb/chipidea/usbmisc_imx.c
+@@ -11,6 +11,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/of_platform.h>
++#include <linux/clk.h>
+ #include <linux/err.h>
+ #include <linux/io.h>
+ #include <linux/delay.h>
+@@ -50,6 +51,7 @@ struct usbmisc_ops {
+ struct imx_usbmisc {
+ 	void __iomem *base;
+ 	spinlock_t lock;
++	struct clk *clk;
+ 	const struct usbmisc_ops *ops;
+ };
+ 
+@@ -281,6 +283,7 @@ static int usbmisc_imx_probe(struct platform_device *pdev)
+ {
+ 	struct resource	*res;
+ 	struct imx_usbmisc *data;
++	int ret;
+ 	struct of_device_id *tmp_dev;
+ 
+ 	if (usbmisc)
+@@ -297,6 +300,20 @@ static int usbmisc_imx_probe(struct platform_device *pdev)
+ 	if (IS_ERR(data->base))
+ 		return PTR_ERR(data->base);
+ 
++	data->clk = devm_clk_get(&pdev->dev, NULL);
++	if (IS_ERR(data->clk)) {
++		dev_err(&pdev->dev,
++			"failed to get clock, err=%ld\n", PTR_ERR(data->clk));
++		return PTR_ERR(data->clk);
++	}
++
++	ret = clk_prepare_enable(data->clk);
++	if (ret) {
++		dev_err(&pdev->dev,
++			"clk_prepare_enable failed, err=%d\n", ret);
++		return ret;
++	}
++
+ 	tmp_dev = (struct of_device_id *)
+ 		of_match_device(usbmisc_imx_dt_ids, &pdev->dev);
+ 	data->ops = (const struct usbmisc_ops *)tmp_dev->data;
+@@ -319,6 +336,7 @@ static int usbmisc_imx_probe(struct platform_device *pdev)
+ 
+ static int usbmisc_imx_remove(struct platform_device *pdev)
+ {
++	clk_disable_unprepare(usbmisc->clk);
+ 	usbmisc = NULL;
+ 	return 0;
+ }
+-- 
+1.8.1.2
