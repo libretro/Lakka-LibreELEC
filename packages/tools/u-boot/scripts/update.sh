@@ -32,6 +32,13 @@ if [ -z "$BOOT_DISK" ]; then
   esac
 fi
 
+# we don't have mounted /etc in initramfs so just load system type
+if [ -f $SYSTEM_ROOT/etc/profile.d/01-system_type.conf ]; then
+  . $SYSTEM_ROOT/etc/profile.d/01-system_type.conf
+else
+  SYSTEM_TYPE=""
+fi
+
 # mount $BOOT_ROOT r/w
   mount -o remount,rw $BOOT_ROOT
 
@@ -45,18 +52,44 @@ fi
   done
 
 # update bootloader files
-  if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot.img ]; then
-    echo "*** updating u-boot image: $BOOT_ROOT/u-boot.img ..."
-    cp -p $SYSTEM_ROOT/usr/share/bootloader/u-boot.img $BOOT_ROOT
+  if [ "$SYSTEM_TYPE" = "matrix" ]; then
+    if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot-$SYSTEM_TYPE.imx ]; then
+      echo "*** updating u-boot image in eMMC ..."
+      # clean up u-boot parameters
+      #dd if=/dev/zero of=/dev/mmcblk0 bs=1024 seek=384 count=8
+      # access boot partition 1
+      echo 0 > /sys/block/mmcblk0boot0/force_ro
+      # write u-boot to eMMC
+      dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot-$SYSTEM_TYPE.imx of=/dev/mmcblk0boot0 bs=1k seek=1 conv=fsync
+      # re-enable read-only access
+      echo 1 > /sys/block/mmcblk0boot0/force_ro
+      # enable boot partion 1 to boot
+      echo 8 > /sys/devices/soc0/soc.1/2100000.aips-bus/219c000.usdhc/mmc_host/mmc2/mmc2:0001/boot_config
+    fi
+  else
+    if [ -n "$SYSTEM_TYPE" ]; then
+      UBOOT_IMG_SRC=u-boot-$SYSTEM_TYPE.img
+      SPL_SRC=SPL-$SYSTEM_TYPE
+    else
+      UBOOT_IMG_SRC=u-boot.img
+      SPL_SRC=SPL
+    fi
+
+    if [ -f $SYSTEM_ROOT/usr/share/bootloader/$UBOOT_IMG_SRC ]; then
+      echo "*** updating u-boot image: $BOOT_ROOT/u-boot.img ..."
+      cp -p $SYSTEM_ROOT/usr/share/bootloader/$UBOOT_IMG_SRC $BOOT_ROOT/u-boot.img
+    fi
+
+    if [ -f $SYSTEM_ROOT/usr/share/bootloader/$SPL_SRC ]; then
+      echo "*** updating u-boot SPL Blob on: $BOOT_DISK ..."
+      dd if="$SYSTEM_ROOT/usr/share/bootloader/$SPL_SRC" of="$BOOT_DISK" bs=1k seek=1 conv=fsync
+    fi
   fi
 
-  if [ -f $SYSTEM_ROOT/usr/share/bootloader/SPL ]; then
-    echo "*** updating u-boot SPL Blob on: $BOOT_DISK ..."
-    dd if="$SYSTEM_ROOT/usr/share/bootloader/SPL" of="$BOOT_DISK" bs=1k seek=1 conv=fsync
-  fi
-
-# prefer uEnv.txt over boot.scr
-  if [ -f $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt -a ! -f $BOOT_ROOT/uEnv.txt ]; then
+  # prefer uEnv.txt over boot.scr
+  if [ -n "$SYSTEM_TYPE" -a -f $SYSTEM_ROOT/usr/share/bootloader/uEnv-$SYSTEM_TYPE.txt -a ! -f $BOOT_ROOT/uEnv.txt ]; then
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/uEnv-$SYSTEM_TYPE.txt $BOOT_ROOT/uEnv.txt
+  elif [ -f $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt -a ! -f $BOOT_ROOT/uEnv.txt ]; then
     cp -p $SYSTEM_ROOT/usr/share/bootloader/uEnv.txt $BOOT_ROOT
   elif [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.scr -a ! -f $BOOT_ROOT/boot.scr ]; then
     cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.scr $BOOT_ROOT
