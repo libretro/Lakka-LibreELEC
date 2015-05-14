@@ -1,0 +1,67 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2015 Stephan Raue (stephan@openelec.tv)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. /etc/profile
+
+if [ "$SYSTEM_TYPE" != "matrix" ]; then
+  echo "Only for TBS Matrix system."
+  exit 1
+fi
+
+fan_on() {
+  echo 1 > /sys/class/leds/fan/brightness
+}
+
+fan_off() {
+  echo 0 > /sys/class/leds/fan/brightness
+}
+
+soc_temp() {
+  local temp=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp)
+  temp="$(( $temp / 1000 ))"
+  echo "$temp"
+}
+
+echo "SoC temp: $(soc_temp) C"
+
+ACTION=$1
+INTERVAL=$2
+
+if [ -n "$ACTION" -a "$ACTION" = "on" ]; then
+  echo "Turning fan on."
+  fan_on
+elif [ -n "$ACTION" -a "$ACTION" = "off" ]; then
+  echo "Turning fan off."
+  fan_off
+elif [ -n "$ACTION" -a "$ACTION" = "log" ]; then
+  if [ -n "$INTERVAL" ]; then
+    interval=$INTERVAL
+  else
+    interval=60
+  fi
+
+  while true; do
+    echo "SoC temp: $(soc_temp) C"
+
+    sleep $interval
+  done
+else
+  echo "Unknown argument - must be on, off or log [interval]."
+fi

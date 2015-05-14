@@ -1,0 +1,83 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2015 Stephan Raue (stephan@openelec.tv)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. /etc/profile
+
+if [ "$SYSTEM_TYPE" != "matrix" ]; then
+  echo "Only for TBS Matrix system."
+  exit 1
+fi
+
+debug_echo() {
+  if [ -n "$debug" -a "$debug" == "yes" ]; then
+    echo $*
+  fi
+}
+
+fan_on() {
+  echo 1 > /sys/class/leds/fan/brightness
+}
+
+fan_off() {
+  echo 0 > /sys/class/leds/fan/brightness
+}
+
+soc_temp() {
+  local temp=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp)
+  temp="$(( $temp / 1000 ))"
+  echo "$temp"
+}
+
+# default limits
+high=75
+low=60
+interval=30
+debug=no
+
+userconfig=/storage/.config/imx6-soc-fan-monitor.conf
+if [ -e $userconfig ]; then
+  . $userconfig
+  echo "Values from config: low=$low high=$high interval=$interval debug=$debug"
+else
+  echo "Default values: low=$low high=$high interval=$interval debug=$debug"
+fi
+
+#(
+#  # turn fan on for a moment
+#  fan_on
+#  sleep 2
+#  fan_off
+#)&
+
+while true; do
+  temp=$(soc_temp)
+  debug_echo "SoC temp: $temp [low: $low, high: $high]"
+  if [ $temp -gt $high ]; then
+    debug_echo "SoC temp exceeds $high celsius, fan on"
+    fan_on
+  fi
+
+  if [ $temp -lt $low ]; then
+    debug_echo "SoC temp below $low celsius, fan off"
+    fan_off
+  fi
+
+  sleep $interval
+done
