@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="kodi-platform"
-PKG_VERSION="48bdd985"
+PKG_VERSION="054a42f66"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain tinyxml kodi"
+PKG_DEPENDS_TARGET="toolchain tinyxml kodi platform"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="kodi-platform:"
