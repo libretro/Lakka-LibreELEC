@@ -63,6 +63,10 @@ PKG_AUTORECONF="yes"
 # mmap_size pragma.
   CFLAGS="$CFLAGS -DSQLITE_TEMP_STORE=3 -DSQLITE_DEFAULT_MMAP_SIZE=268435456"
 
+pre_make_target() {
+  # dont build parallel
+  MAKEFLAGS=-j1
+}
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
