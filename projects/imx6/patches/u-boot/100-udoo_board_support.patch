@@ -1,40 +1,42 @@
-From b64574fc512206b8bd5ccc8d9acb4dcb21d7b36e Mon Sep 17 00:00:00 2001
+From 6b8791fcb10110cec4c5bdf91babffcdcfc1a04f Mon Sep 17 00:00:00 2001
 From: vpeter4 <peter.vicman@gmail.com>
-Date: Sat, 29 Nov 2014 15:17:00 +0100
+Date: Sat, 16 May 2015 16:44:39 +0200
 Subject: [PATCH] udoo board support
 
 diff between
 	u-boot-2013.10-rc3
-	U-Boot_Unico-2013 1b90fd4 29.11.2014
+	U-Boot_Unico-2013 799fb9b 15.5.2015
 
 used macro MACH_TYPE_UDOO in cfb_console.c
   for version_string/BOARD_INFO_STRING
+L2 cache support is disabled
+  got error: ** No partition table - mmc 0 **
 
 make udoo_quad_config
 make udoo_dl_config
-
 ---
- arch/arm/cpu/armv7/cpu.c                 |  14 +
- arch/arm/imx-common/Makefile             |   2 +
- arch/arm/imx-common/cmd_plotmsg.c        |  74 +++
- arch/arm/imx-common/sata.c               |  33 ++
- arch/arm/include/asm/imx-common/sata.h   |  17 +
- board/udoo/1066mhz_4x256mx16_dl.cfg      |  58 +++
- board/udoo/1066mhz_4x256mx16_q.cfg       |  63 +++
- board/udoo/Makefile                      |  26 +
- board/udoo/clocks.cfg                    |  31 ++
- board/udoo/ddr-setup_dl.cfg              |  85 ++++
- board/udoo/ddr-setup_q.cfg               |  87 ++++
- board/udoo/udoo.c                        | 540 +++++++++++++++++++++
- board/udoo/udoo.cfg                      |  35 ++
- boards.cfg                               |   2 +
- common/Makefile                          |   1 +
- common/cmd_multiboot.c                   | 312 ++++++++++++
- drivers/video/cfb_console.c              |  13 +-
- include/configs/udoo.h                   | 265 ++++++++++
- include/micrel.h                         |   5 +
- include/video.h                          |   2 +
- 20 files changed, 1664 insertions(+), 1 deletion(-)
+ arch/arm/cpu/armv7/cpu.c               |   14 +
+ arch/arm/imx-common/Makefile           |    2 +
+ arch/arm/imx-common/cmd_plotmsg.c      |   74 +
+ arch/arm/imx-common/sata.c             |   33 +
+ arch/arm/include/asm/imx-common/sata.h |   17 +
+ board/boundary/nitrogen6x/nitrogen6x.c |   29 +-
+ board/udoo/1066mhz_4x256mx16_dl.cfg    |   58 +
+ board/udoo/1066mhz_4x256mx16_q.cfg     |   63 +
+ board/udoo/Makefile                    |   26 +
+ board/udoo/clocks.cfg                  |   31 +
+ board/udoo/ddr-setup_dl.cfg            |   85 ++
+ board/udoo/ddr-setup_q.cfg             |   87 ++
+ board/udoo/udoo.c                      |  540 ++++++++
+ board/udoo/udoo.cfg                    |   35 +
+ boards.cfg                             |    2 +
+ common/Makefile                        |    1 +
+ common/cmd_multiboot.c                 |  312 +++++
+ drivers/video/cfb_console.c            |   12 +
+ include/configs/udoo.h                 |  268 ++++
+ include/micrel.h                       |    5 +
+ include/video.h                        |    2 +
+ 21 files changed, 5482 insertions(+), 27 deletions(-)
  create mode 100644 arch/arm/imx-common/cmd_plotmsg.c
  create mode 100644 arch/arm/imx-common/sata.c
  create mode 100644 arch/arm/include/asm/imx-common/sata.h
@@ -245,6 +247,60 @@ index 0000000..40fbf77
 +
 +#endif
 +
+diff --git a/board/boundary/nitrogen6x/nitrogen6x.c b/board/boundary/nitrogen6x/nitrogen6x.c
+index 2b61e5d..0c26bcb 100644
+--- a/board/boundary/nitrogen6x/nitrogen6x.c
++++ b/board/boundary/nitrogen6x/nitrogen6x.c
+@@ -2,7 +2,7 @@
+  * Copyright (C) 2010-2013 Freescale Semiconductor, Inc.
+  * Copyright (C) 2013, Boundary Devices <info@boundarydevices.com>
+  *
+- * SPDX-License-Identifier:	GPL-2.0+ 
++ * SPDX-License-Identifier:	GPL-2.0+
+  */
+ 
+ #include <common.h>
+@@ -17,6 +17,7 @@
+ #include <asm/gpio.h>
+ #include <asm/imx-common/iomux-v3.h>
+ #include <asm/imx-common/mxc_i2c.h>
++#include <asm/imx-common/sata.h>
+ #include <asm/imx-common/boot_mode.h>
+ #include <mmc.h>
+ #include <fsl_esdhc.h>
+@@ -378,32 +379,6 @@ static void setup_buttons(void)
+ 					 ARRAY_SIZE(button_pads));
+ }
+ 
+-#ifdef CONFIG_CMD_SATA
+-
+-int setup_sata(void)
+-{
+-	struct iomuxc_base_regs *const iomuxc_regs
+-		= (struct iomuxc_base_regs *) IOMUXC_BASE_ADDR;
+-	int ret = enable_sata_clock();
+-	if (ret)
+-		return ret;
+-
+-	clrsetbits_le32(&iomuxc_regs->gpr[13],
+-			IOMUXC_GPR13_SATA_MASK,
+-			IOMUXC_GPR13_SATA_PHY_8_RXEQ_3P0DB
+-			|IOMUXC_GPR13_SATA_PHY_7_SATA2M
+-			|IOMUXC_GPR13_SATA_SPEED_3G
+-			|(3<<IOMUXC_GPR13_SATA_PHY_6_SHIFT)
+-			|IOMUXC_GPR13_SATA_SATA_PHY_5_SS_DISABLED
+-			|IOMUXC_GPR13_SATA_SATA_PHY_4_ATTEN_9_16
+-			|IOMUXC_GPR13_SATA_PHY_3_TXBOOST_0P00_DB
+-			|IOMUXC_GPR13_SATA_PHY_2_TX_1P104V
+-			|IOMUXC_GPR13_SATA_PHY_1_SLOW);
+-
+-	return 0;
+-}
+-#endif
+-
+ #if defined(CONFIG_VIDEO_IPUV3)
+ 
+ static iomux_v3_cfg_t const backlight_pads[] = {
 diff --git a/board/udoo/1066mhz_4x256mx16_dl.cfg b/board/udoo/1066mhz_4x256mx16_dl.cfg
 new file mode 100644
 index 0000000..e37c9f9
@@ -1219,7 +1275,7 @@ index 0000000..eb1102b
 +
 +#include "clocks.cfg"
 diff --git a/boards.cfg b/boards.cfg
-index 99cafc3..4877479 100644
+index 9480005..d20aebe 100644
 --- a/boards.cfg
 +++ b/boards.cfg
 @@ -286,6 +286,8 @@ Active  arm         armv7          mx5         freescale       mx53smd
@@ -1562,24 +1618,22 @@ index 0000000..79df3d8
 +	" - d Print detailed help.\n - [0-9, W] Seconds before default entry (if empty 5 sec). W = Wait forever"
 +);
 diff --git a/drivers/video/cfb_console.c b/drivers/video/cfb_console.c
-index c6f58c2..f02c8fc 100644
+index c6f58c2..9293e8d 100644
 --- a/drivers/video/cfb_console.c
 +++ b/drivers/video/cfb_console.c
-@@ -2036,8 +2036,12 @@ static void *video_logo(void)
+@@ -2036,7 +2036,11 @@ static void *video_logo(void)
  	if (board_cfb_skip())
  		return 0;
  
 +#ifndef MACH_TYPE_UDOO
  	sprintf(info, " %s", version_string);
--
 +#else
 +	sprintf(info, " %s", BOARD_INFO_STRING);
 +#endif
-+
+ 
  	space = (VIDEO_LINE_LEN / 2 - VIDEO_INFO_X) / VIDEO_FONT_WIDTH;
  	len = strlen(info);
- 
-@@ -2219,6 +2222,14 @@ static int video_init(void)
+@@ -2219,6 +2223,14 @@ static int video_init(void)
  	return 0;
  }
  
@@ -1596,10 +1650,10 @@ index c6f58c2..f02c8fc 100644
   * need to skip the video initialization.
 diff --git a/include/configs/udoo.h b/include/configs/udoo.h
 new file mode 100644
-index 0000000..07151f6
+index 0000000..e4077d4
 --- /dev/null
 +++ b/include/configs/udoo.h
-@@ -0,0 +1,265 @@
+@@ -0,0 +1,268 @@
 +/*
 + * Copyright (C) 2013 Freescale Semiconductor, Inc.
 + *
@@ -1626,6 +1680,9 @@ index 0000000..07151f6
 +#define CONFIG_SETUP_MEMORY_TAGS
 +#define CONFIG_INITRD_TAG
 +#define CONFIG_REVISION_TAG
++
++/* disable L2 cache support */
++#define CONFIG_SYS_L2CACHE_OFF
 +
 +/* Size of malloc() pool */
 +#define CONFIG_SYS_MALLOC_LEN		(10 * SZ_1M)

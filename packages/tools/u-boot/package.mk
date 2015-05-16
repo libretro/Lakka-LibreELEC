@@ -77,12 +77,12 @@ make_target() {
       elif [ "$UBOOT_TARGET" = "udoo_quad_config" ]; then
         TARGET_NAME="udoo_quad"
       else
-      	TARGET_NAME="undef"
+        TARGET_NAME="undef"
       fi
 
-      [ -f u-boot.img ] && mv u-boot.img u-boot-$TARGET_NAME.img
-      [ -f u-boot.imx ] && mv u-boot.imx u-boot-$TARGET_NAME.imx
-      [ -f SPL ] && mv SPL SPL-$TARGET_NAME
+      [ -f u-boot.img ] && mv u-boot.img u-boot-$TARGET_NAME.img || :
+      [ -f u-boot.imx ] && mv u-boot.imx u-boot-$TARGET_NAME.imx || :
+      [ -f SPL ] && mv SPL SPL-$TARGET_NAME || :
     fi
   done
 }
