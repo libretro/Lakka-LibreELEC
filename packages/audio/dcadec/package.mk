@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="dcadec"
-PKG_VERSION="7b3b44c"
+PKG_VERSION="37d8e68"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
