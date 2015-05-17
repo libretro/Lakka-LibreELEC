@@ -37,6 +37,13 @@ if [ "$OPENGL" = "no" ] ; then
   exit 0
 fi
 
+# dont build and upload for repos for now
+# TODO fix
+# undefined symbol: mt_32_to_double
+# vis.vsxu also not linked against libGL ?
+
+exit 0
+
 configure_target() {
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
         -DCMAKE_INSTALL_PREFIX=/usr \
