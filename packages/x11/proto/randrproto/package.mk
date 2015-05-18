@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="randrproto"
-PKG_VERSION="1.4.1"
+PKG_VERSION="1.5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
