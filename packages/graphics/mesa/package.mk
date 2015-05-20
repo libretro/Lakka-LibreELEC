@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="mesa"
-PKG_VERSION="10.5.5"
+PKG_VERSION="10.6.0-rc1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="ftp://freedesktop.org/pub/mesa/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="ftp://freedesktop.org/pub/mesa/10.6.0/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain Python:host expat glproto dri2proto presentproto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd dri3proto libxshmfence"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
@@ -66,7 +67,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-opengl \
                            --disable-gles1 \
                            --disable-gles2 \
-                           --disable-openvg \
                            --enable-dri \
                            --disable-dri3 \
                            --enable-glx \
