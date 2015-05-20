@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="RTL8188EU"
-PKG_VERSION="fcc9034"
+PKG_VERSION="3091828"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
