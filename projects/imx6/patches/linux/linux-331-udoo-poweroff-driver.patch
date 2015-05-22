@@ -1,3 +1,11 @@
+From c95f6c30e3230b02e90b98ca6ec8e8c2784141eb Mon Sep 17 00:00:00 2001
+From: vpeter4 <peter.vicman@gmail.com>
+Date: Thu, 21 May 2015 20:42:22 +0200
+Subject: [PATCH] Add poweroff driver.
+
+Use original power_off function from rtc-snvs if set.
+Arduino operation is controled by device tree parameter.
+
 From 1bc304cd507fe9eb5673223f0d76ec0aa4ff55f3 Mon Sep 17 00:00:00 2001
 From: mxt512 <mtx512@yahoo.co.uk>
 Date: Thu, 13 Feb 2014 20:13:27 +0000
@@ -7,33 +15,97 @@ Existing pm_power_off function was in rtc-snvs. Given we need to reset the SAM3X
 the 5v supply on power down, lets implement a power-off driver to do this for now.
 
 TODO: Not the cleanest solution but it works, should revisit.
-      Overwriting power_off function with udoo_power_off in case uddo is used.
+      Overwriting power_off function with udoo_power_off in case uddo is used. 
 
 ---
- arch/arm/boot/dts/imx6q-udoo.dts    |   6 ++
+ arch/arm/boot/dts/imx6q-udoo.dts    |  12 ++++
+ arch/arm/mach-imx/mach-imx6q.c      |  44 ++++++++++++++
  drivers/power/reset/Kconfig         |   8 +++
  drivers/power/reset/Makefile        |   1 +
- drivers/power/reset/udoo-poweroff.c | 114 ++++++++++++++++++++++++++++++++++++
- 4 files changed, 129 insertions(+)
+ drivers/power/reset/udoo-poweroff.c | 113 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 178 insertions(+)
  create mode 100644 drivers/power/reset/udoo-poweroff.c
 
 diff --git a/arch/arm/boot/dts/imx6q-udoo.dts b/arch/arm/boot/dts/imx6q-udoo.dts
-index 7cc0267..1b8cce1 100644
+index 7cc0267..6c9d46f 100644
 --- a/arch/arm/boot/dts/imx6q-udoo.dts
 +++ b/arch/arm/boot/dts/imx6q-udoo.dts
-@@ -23,6 +23,12 @@
+@@ -23,6 +23,13 @@
  	memory {
  		reg = <0x10000000 0x40000000>;
  	};
 +
 +	poweroff {
 +		compatible = "udoo,poweroff";
-+		sam3x_rst_gpio = <&gpio1 0 0>;
-+		pwr_5v_gpio = <&gpio2 4 0>;
++		sam3x_rst_gpio = <&gpio1 0 GPIO_ACTIVE_LOW>;
++		pwr_5v_gpio = <&gpio2 4 GPIO_ACTIVE_HIGH>;
++		arduino_mode = <0>;
 +	};
  };
  
  &fec {
+diff --git a/arch/arm/mach-imx/mach-imx6q.c b/arch/arm/mach-imx/mach-imx6q.c
+index a466891..ed49659 100644
+--- a/arch/arm/mach-imx/mach-imx6q.c
++++ b/arch/arm/mach-imx/mach-imx6q.c
+@@ -280,6 +280,46 @@ static inline void imx6q_enet_init(void)
+ 	imx6q_1588_init();
+ }
+ 
++#ifdef CONFIG_POWER_RESET_UDOO
++#define ARDUINO_MODE_STOPPED      1   /* does arduino starts at boot */
++#define ARDUINO_MODE_LEAVE_POWER  2   /* leave 5V power on after shutdown (to keep arduino reset) */
++
++static inline void imx6q_udoo_gpio_init(void)
++{
++  struct device_node *pwr_off_np;
++  int sam3x_rst_gpio = -EINVAL;
++  u32 arduino_mode = -EINVAL;
++  int ret;
++
++  pwr_off_np = of_find_compatible_node(NULL, NULL, "udoo,poweroff");
++  if (pwr_off_np == NULL)
++    return;
++
++  pr_emerg("%s: setup sam3x reset gpio\n", __func__);
++	
++  ret = of_property_read_u32(pwr_off_np, "arduino_mode", &arduino_mode);
++  if (ret != 0) {
++    pr_err("%s: arduino mode not found in dtb\n", __func__);
++    arduino_mode = 0;
++  }
++
++  pr_emerg("%s: arduino_mode set to %d\n", __func__, arduino_mode);
++  sam3x_rst_gpio = of_get_named_gpio(pwr_off_np, "sam3x_rst_gpio", 0);
++  of_node_put(pwr_off_np);
++
++  if (gpio_is_valid(sam3x_rst_gpio)) {
++    if (arduino_mode & ARDUINO_MODE_STOPPED) {
++      pr_emerg("%s: arduino stopped\n", __func__);
++      ret = gpio_request_one(sam3x_rst_gpio, GPIOF_OUT_INIT_LOW, "sam3x_rst_gpio");
++    } else {
++      ret = gpio_request_one(sam3x_rst_gpio, GPIOF_OUT_INIT_HIGH, "sam3x_rst_gpio");
++    }
++
++    ret = gpio_export(sam3x_rst_gpio, false);
++  }
++}
++#endif
++
+ static void __init imx6q_init_machine(void)
+ {
+ 	struct device *parent;
+@@ -299,6 +339,10 @@ static void __init imx6q_init_machine(void)
+ 	imx_anatop_init();
+ 	cpu_is_imx6q() ?  imx6q_pm_init() : imx6dl_pm_init();
+ 	imx6q_csi_mux_init();
++
++#ifdef CONFIG_POWER_RESET_UDOO
++  imx6q_udoo_gpio_init();
++#endif
+ }
+ 
+ #define OCOTP_CFG3			0x440
 diff --git a/drivers/power/reset/Kconfig b/drivers/power/reset/Kconfig
 index 6d452a7..1a0620f 100644
 --- a/drivers/power/reset/Kconfig
@@ -51,26 +123,26 @@ index 6d452a7..1a0620f 100644
 +	  Say Y if you have a UDOO.
 +
 diff --git a/drivers/power/reset/Makefile b/drivers/power/reset/Makefile
-index a5b4a77..b98df20 100644
+index a5b4a77..9b8e1b0 100644
 --- a/drivers/power/reset/Makefile
 +++ b/drivers/power/reset/Makefile
-@@ -4,4 +4,5 @@ obj-$(CONFIG_POWER_RESET_MSM) += msm-poweroff.o
- obj-$(CONFIG_POWER_RESET_QNAP) += qnap-poweroff.o
+@@ -5,3 +5,4 @@ obj-$(CONFIG_POWER_RESET_QNAP) += qnap-poweroff.o
  obj-$(CONFIG_POWER_RESET_RESTART) += restart-poweroff.o
  obj-$(CONFIG_POWER_RESET_VEXPRESS) += vexpress-poweroff.o
-+obj-$(CONFIG_POWER_RESET_UDOO) += udoo-poweroff.o
  obj-$(CONFIG_POWER_RESET_XGENE) += xgene-reboot.o
++obj-$(CONFIG_POWER_RESET_UDOO) += udoo-poweroff.o
 diff --git a/drivers/power/reset/udoo-poweroff.c b/drivers/power/reset/udoo-poweroff.c
 new file mode 100644
-index 0000000..0255401
+index 0000000..2a2aecf
 --- /dev/null
 +++ b/drivers/power/reset/udoo-poweroff.c
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,113 @@
 +/*
 + * UDOO board power off
 + *
 + *
 + * Copyright (C) 2014 Jasbir Matharu
++ * Copyright (C) 2015 vpeter
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
@@ -87,99 +159,96 @@ index 0000000..0255401
 +#include <linux/of_platform.h>
 +#include <linux/of_gpio.h>
 +
-+#define SNVS_LPCR 0x04
++#define ARDUINO_MODE_STOPPED      1   /* does arduino starts at boot */
++#define ARDUINO_MODE_LEAVE_POWER  2   /* leave 5V power on after shutdown (to keep arduino reset) */
 +
-+static int sam3x_rst_gpio,pwr_5v_gpio;
++static void (*pm_power_off_orig)(void) = NULL;
++static int sam3x_rst_gpio = -EINVAL;
++static int pwr_5v_gpio = -EINVAL;
++static u32 arduino_mode = -EINVAL;
 +
 +static void udoo_power_off(void) {
-+	struct device_node *snvs_np;
-+	void __iomem *mx6_snvs_base;
-+	u32 value;
++  int ret;
 +
-+	pr_info("Powering off udoo\n");
++  pr_emerg("%s: powering off\n", __func__);
++  if (pm_power_off_orig != NULL)
++    pm_power_off_orig();
 +
-+	snvs_np = of_find_compatible_node(NULL, NULL, "fsl,sec-v4.0-mon-rtc-lp");
-+	if (!snvs_np) {
-+		pr_err("%s: failed to find sec-v4.0-mon-rtc-lp node\n",__func__);
-+		return;
-+	}
++  if (gpio_is_valid(sam3x_rst_gpio)) {
++    pr_emerg("%s: sam3x reset\n", __func__);
++    ret = gpio_direction_output(sam3x_rst_gpio, 0);
++    if (ret)
++      pr_emerg("%s: sam3x reset unsuccessful\n", __func__);
 +
-+	mx6_snvs_base = of_iomap(snvs_np, 0);
-+	if (!mx6_snvs_base) {
-+		pr_err("%s: failed to map sec-v4.0-mon-rtc-lp\n",__func__);
-+		goto put_snvs_node;
-+	}
++    msleep(50);
++  }
 +
-+	value = readl(mx6_snvs_base + SNVS_LPCR);
-+  /*set TOP and DP_EN bit*/
-+  writel(value | 0x60, mx6_snvs_base + SNVS_LPCR);
-+
-+	gpio_request_one(sam3x_rst_gpio, GPIOF_OUT_INIT_LOW,"sam3x_rst_gpio"),
-+	msleep(5);
-+	gpio_request_one(pwr_5v_gpio, GPIOF_OUT_INIT_HIGH,"pwr_5v_gpio");
-+
-+put_snvs_node:
-+	of_node_put(snvs_np);
++  if (gpio_is_valid(pwr_5v_gpio) && (arduino_mode & ARDUINO_MODE_LEAVE_POWER) == 0) {
++    pr_emerg("%s: 5V power down\n", __func__);
++    ret = gpio_request_one(pwr_5v_gpio, GPIOF_OUT_INIT_HIGH, "pwr_5v_gpio");
++    if (ret)
++      pr_emerg("%s: 5V power down unsuccessful\n", __func__);
++  } else
++  	pr_emerg("%s: 5V power still on, sam3x reset\n", __func__);
 +}
 +
 +static int udoo_power_off_probe(struct platform_device *pdev)
 +{
-+	struct device_node *pwr_off_np;
++  struct device_node *pwr_off_np;
++  int ret;
 +
-+	pwr_off_np = of_find_compatible_node(NULL, NULL, "udoo,poweroff");
-+	if (pwr_off_np) {
-+		of_node_put(pwr_off_np);
-+		/* udoo dtb loaded, run poweroff function from
-+		   here and not snvs_poweroff */
-+		pr_err("%s: pm_power_off function already registered, overwriting with ours", __func__);
++  pr_emerg("%s: power-off probe\n", __func__);
 +
-+		sam3x_rst_gpio = of_get_named_gpio(pdev->dev.of_node, "sam3x_rst_gpio", 0);
-+		pwr_5v_gpio = of_get_named_gpio(pdev->dev.of_node, "pwr_5v_gpio", 0);
-+		if (gpio_is_valid(sam3x_rst_gpio) && gpio_is_valid(pwr_5v_gpio)) {
-+		} else {
-+			pr_err("%s : failed to find sam3x_rst_gpio or pwr_5v_gpio property \n",__func__);
-+			return ENOENT;
-+		}
-+  	
-+		pm_power_off = udoo_power_off;
-+		pr_info("%s: ok\n",__func__);
-+		return 0;
-+	}
++  pwr_off_np = of_find_compatible_node(NULL, NULL, "udoo,poweroff");
++  if (pwr_off_np) {
++    ret = of_property_read_u32(pwr_off_np, "arduino_mode", &arduino_mode);
++    if (ret != 0) {
++      pr_emerg("%s: arduino mode not found in dtb\n", __func__);
++      arduino_mode = 0;
++    }
 +
-+	/* If a pm_power_off function has already been added, leave it alone */
-+	if (pm_power_off != NULL) {
-+		pr_err("%s: pm_power_off function already registered",
-+		       __func__);
-+		return -EBUSY;
-+	}
++    sam3x_rst_gpio = of_get_named_gpio(pwr_off_np, "sam3x_rst_gpio", 0);
++    pwr_5v_gpio = of_get_named_gpio(pwr_off_np, "pwr_5v_gpio", 0);
++    of_node_put(pwr_off_np);
 +
-+	return -ENODEV;
++    pm_power_off_orig = pm_power_off;
++    pm_power_off = udoo_power_off;
++    return 0;
++  }
++
++  /* If a pm_power_off function has already been added, leave it alone */
++  if (pm_power_off != NULL) {
++    pr_emerg("%s: pm_power_off function already registered\n", __func__);
++    return -EBUSY;
++  }
++
++  return -ENODEV;
 +}
 +
 +static int udoo_power_off_remove(struct platform_device *pdev)
 +{
-+	return 0;
++  return 0;
 +}
 +
 +static const struct of_device_id power_off_dt_ids[] = {
-+	{ .compatible = "udoo,poweroff", },
-+	{ /* sentinel */ }
++  { .compatible = "udoo,poweroff", },
++  { /* sentinel */ }
 +};
 +MODULE_DEVICE_TABLE(of, power_off_dt_ids);
 +
 +static struct platform_driver udoo_power_off_driver = {
-+	.driver = {
-+		.name	= "udoo_power_off",
-+		.owner	= THIS_MODULE,
-+		.of_match_table = of_match_ptr(power_off_dt_ids),
-+	},
-+	.probe		= udoo_power_off_probe,
-+	.remove		= udoo_power_off_remove,
++  .driver = {
++    .name = "udoo_power_off",
++    .owner  = THIS_MODULE,
++    .of_match_table = of_match_ptr(power_off_dt_ids),
++  },
++  .probe    = udoo_power_off_probe,
++  .remove   = udoo_power_off_remove,
 +};
 +module_platform_driver(udoo_power_off_driver);
 +
-+MODULE_AUTHOR("Jasbir Matharu");
-+MODULE_DESCRIPTION("UDOO Power off driver");
++MODULE_AUTHOR("Jasbir Matharu, vpeter");
++MODULE_DESCRIPTION("UDOO Power off driver v2");
 +MODULE_LICENSE("GPL v2");
 -- 
 1.8.1.2
