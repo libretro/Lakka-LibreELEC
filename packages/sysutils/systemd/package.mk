@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="219"
+PKG_VERSION="227"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
-PKG_URL="http://www.freedesktop.org/software/systemd/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux"
 PKG_PRIORITY="required"
 PKG_SECTION="system"
@@ -35,13 +35,10 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            ac_cv_have_decl_IFLA_BOND_AD_INFO=no \
                            ac_cv_have_decl_IFLA_BRPORT_UNICAST_FLOOD=no \
+                           ac_cv_path_MOUNT_PATH="/bin/mount"
+                           ac_cv_path_UMOUNT_PATH="/bin/umount"
                            KMOD=/usr/bin/kmod \
                            --disable-nls \
-                           --disable-gtk-doc \
-                           --disable-gtk-doc-html \
-                           --disable-gtk-doc-pdf \
-                           --disable-python-devel \
-                           --disable-python-devel \
                            --disable-dbus \
                            --disable-utmp \
                            --disable-compat-libs \
@@ -51,7 +48,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --enable-blkid \
                            --disable-seccomp \
                            --disable-ima \
-                           --disable-chkconfig \
                            --disable-selinux \
                            --disable-apparmor \
                            --disable-xz \
@@ -93,10 +89,9 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --disable-resolved \
                            --disable-networkd \
                            --disable-efi \
-                           --disable-terminal \
+                           --disable-gnuefi \
                            --disable-kdbus \
                            --disable-myhostname \
-                           --disable-gudev \
                            --enable-hwdb \
                            --disable-manpages \
                            --disable-hibernate \
@@ -114,15 +109,28 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-rootprefix=/usr \
                            --with-rootlibdir=/lib"
 
+unpack() {
+  tar xf $ROOT/$SOURCES/systemd/v$PKG_VERSION.tar.gz -C $ROOT/$BUILD
+}
+
+pre_build_target() {
+# broken autoreconf
+  ( cd $PKG_BUILD
+    intltoolize --force
+  )
+}
+
 post_makeinstall_target() {
   # remove unneeded stuff
   rm -rf $INSTALL/etc/systemd/system
   rm -rf $INSTALL/etc/xdg
+  rm -rf $INSTALL/etc/X11
   rm  -f $INSTALL/usr/bin/kernel-install
   rm -rf $INSTALL/usr/lib/kernel/install.d
   rm -rf $INSTALL/usr/lib/rpm
   rm -rf $INSTALL/usr/lib/systemd/user
   rm -rf $INSTALL/usr/lib/tmpfiles.d/etc.conf
+  rm -rf $INSTALL/usr/lib/tmpfiles.d/home.conf
   rm -rf $INSTALL/usr/share/factory
   rm -rf $INSTALL/usr/share/zsh
 
