@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="arm-mem"
-PKG_VERSION="2e6f275"
+PKG_VERSION="4418bb4"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
@@ -34,6 +34,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_MAKE_OPTS_TARGET="libarmmem.so"
+
+pre_make_target() {
+  export CROSS_COMPILE=$TARGET_PREFIX
+}
 
 make_init() {
   : # reuse make_target()
