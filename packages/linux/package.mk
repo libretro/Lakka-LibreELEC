@@ -155,14 +155,11 @@ makeinstall_target() {
     done
   elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
     mkdir -p $INSTALL/usr/share/bootloader/overlays
-    touch $INSTALL/usr/share/bootloader/overlays/README.TXT
-    for dtb in arch/arm/boot/dts/*.dtb; do
-      if `echo "$dtb" | grep ".*/bcm2[^/]*$" >/dev/null`; then
-        cp $dtb $INSTALL/usr/share/bootloader 2>/dev/null || :
-      else
-        cp $dtb $INSTALL/usr/share/bootloader/overlays 2>/dev/null || :
-      fi
+    cp -p arch/arm/boot/dts/*.dtb $INSTALL/usr/share/bootloader
+    for dtb in arch/arm/boot/dts/overlays/*.dtb; do
+      cp $dtb $INSTALL/usr/share/bootloader/overlays 2>/dev/null || :
     done
+    cp -p arch/arm/boot/dts/overlays/README $INSTALL/usr/share/bootloader/overlays
   fi
 }
 
