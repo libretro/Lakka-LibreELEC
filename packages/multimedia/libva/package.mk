@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libva"
-PKG_VERSION="1.5.1"
+PKG_VERSION="1.6.0.pre1"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"
-PKG_URL="http://cgit.freedesktop.org/vaapi/libva/snapshot/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://www.freedesktop.org/software/vaapi/testing/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm mesa glu"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
