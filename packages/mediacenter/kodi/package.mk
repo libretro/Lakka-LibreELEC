@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi"
-PKG_VERSION="15.0-beta2-c34fc22"
+PKG_VERSION="15.0-beta2-81a115b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -340,9 +340,6 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/xbmc
   rm -rf $INSTALL/usr/bin/xbmc-standalone
   rm -rf $INSTALL/usr/lib/kodi/*.cmake
-
-  # fix binaryaddons multiarch build meh
-  cp -P project/cmake/scripts/linux/UseMultiArch.cmake $SYSROOT_PREFIX/usr/lib/kodi
 
   mkdir -p $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi-config $INSTALL/usr/lib/kodi
