@@ -54,7 +54,6 @@ configure_target() {
 
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
         -DBUILD_SHARED_LIBS=1 \
-        -DSKIP_PYTHON_WRAPPER:STRING=1 \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_INSTALL_LIBDIR=/usr/lib \
         -DCMAKE_INSTALL_LIBDIR_NOARCH=/usr/lib \
@@ -62,4 +61,8 @@ configure_target() {
         -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
         $EXTRA_CMAKE_OPTS \
         ..
+}
+
+post_makeinstall_target() {
+  mv $INSTALL/usr/lib/python2.7/dist-packages $INSTALL/usr/lib/python2.7/site-packages
 }
