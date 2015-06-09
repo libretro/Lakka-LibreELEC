@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="fuse"
-PKG_VERSION="2.9.3"
+PKG_VERSION="2.9.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
