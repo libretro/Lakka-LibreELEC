@@ -1,0 +1,83 @@
+From 56ca3555ed8e0f5fd741477fd23497f5455c3f53 Mon Sep 17 00:00:00 2001
+From: Stefan Saraev <stefan@saraev.ca>
+Date: Tue, 22 Apr 2014 15:58:50 +0300
+Subject: [PATCH] ALSA: hda - Avoid outputting HDMI audio before prepare() and after close()
+
+adapted to 3.15
+
+From a6024295fd3290a8c9c5519a03316081ee82378a Mon Sep 17 00:00:00 2001
+From: Anssi Hannula <anssi.hannula@iki.fi>
+Date: Sat, 16 Feb 2013 17:42:46 +0200
+Subject: [PATCH] ALSA: hda - Avoid outputting HDMI audio before prepare() and
+ after close()
+
+Some HDMI codecs (at least NVIDIA 0x10de000b:0x10de0101:0x100100) start
+transmitting an empty audio stream as soon as PIN_OUT and AC_DIG1_ENABLE
+are enabled.
+
+Since commit 6169b673618bf0b2518ce413b54925782a603f06 ("ALSA: hda -
+Always turn on pins for HDMI/DP") this happens at first open() time, and
+will continue even after close().
+
+Additionally, some codecs (at least Intel PantherPoint HDMI) currently
+continue transmitting HDMI audio even after close() in case some actual
+audio was output after open() (this happens regardless of PIN_OUT).
+
+Empty HDMI audio transmission when not intended has the effect that a
+possible HDMI audio sink/receiver may prefer the empty HDMI audio stream
+over an actual audio stream on its S/PDIF inputs.
+
+To avoid the issue before first prepare(), set stream format to 0 on
+codec initialization. 0 is not a valid format value for HDMI and will
+prevent the audio stream from being output.
+
+Additionally, at close() time, make sure that the stream is cleaned up.
+This will ensure that the format is reset to 0 at that time, preventing
+audio from being output in that case.
+
+Thanks to OpenELEC developers and users for their help in investigating
+this issue on the affected NVIDIA "ION2" hardware. Testing of the final
+version on NVIDIA ION2 was done by OpenELEC user "MrXIII". Testing on
+Intel PantherPoint was done by myself.
+
+Signed-off-by: Anssi Hannula <anssi.hannula@iki.fi>
+Cc: stable@vger.kernel.org
+---
+ sound/pci/hda/patch_hdmi.c |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
+
+diff --git a/sound/pci/hda/patch_hdmi.c b/sound/pci/hda/patch_hdmi.c
+index 0cb5b89..e92f24f 100644
+--- a/sound/pci/hda/patch_hdmi.c
++++ b/sound/pci/hda/patch_hdmi.c
+@@ -1698,6 +1698,14 @@ static int hdmi_add_cvt(struct hda_codec *codec, hda_nid_t cvt_nid)
+ 	if (err < 0)
+ 		return err;
+ 
++	/*
++	 * Some HDMI codecs (at least NVIDIA 0x10de000b:0x10de0101:0x100100)
++	 * start transmitting an empty audio stream as soon as PIN_OUT and
++	 * AC_DIG1_ENABLE are enabled, which happens at open() time.
++	 * To avoid that, set format to 0, which is not valid for HDMI.
++	*/
++	snd_hda_codec_write(codec, cvt_nid, 0, AC_VERB_SET_STREAM_FORMAT, 0);
++
+ 	if (spec->num_cvts < ARRAY_SIZE(spec->cvt_nids))
+ 		spec->cvt_nids[spec->num_cvts] = cvt_nid;
+ 	spec->num_cvts++;
+@@ -1823,6 +1831,12 @@ static int hdmi_pcm_close(struct hda_pcm_stream *hinfo,
+ 	int pinctl;
+ 
+ 	if (hinfo->nid) {
++		/*
++		 * Make sure no empty audio is output after this point by
++		 * setting stream format to 0, which is not valid for HDMI.
++		*/
++		__snd_hda_codec_cleanup_stream(codec, hinfo->nid, 1);
++
+ 		cvt_idx = cvt_nid_to_cvt_index(codec, hinfo->nid);
+ 		if (snd_BUG_ON(cvt_idx < 0))
+ 			return -EINVAL;
+-- 
+1.7.2.5
+
