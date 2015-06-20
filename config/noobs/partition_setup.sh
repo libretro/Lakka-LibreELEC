@@ -40,7 +40,7 @@ md5sumCheck() {
   )
 }
 
-if [ -z $part1 -o -z $part2 -o -z $id1 -o -z $id2]; then
+if [ -z $part1 -o -z $part2 -o -z $id1 -o -z $id2 ]; then
   echo "error: part1, part2, id1 or id2 not specified"
   echo "actual values:"
   echo "part1:" $part1
