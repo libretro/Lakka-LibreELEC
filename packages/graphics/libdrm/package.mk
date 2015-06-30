@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.61"
+PKG_VERSION="2.4.62"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -53,4 +53,5 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-udev \
                            $DRM_CONFIG \
                            --disable-install-test-programs \
                            --disable-cairo-tests \
-                           --disable-manpages"
+                           --disable-manpages \
+                           --disable-valgrind"
