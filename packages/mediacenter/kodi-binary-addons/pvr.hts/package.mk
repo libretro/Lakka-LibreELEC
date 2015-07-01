@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.hts"
-PKG_VERSION="cd7ca22"
+PKG_VERSION="a220074"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
