@@ -1,14 +1,14 @@
-From 206e92e6a26ca57aff2ceba09275f5c1441a155c Mon Sep 17 00:00:00 2001
+From 2d08dc140cc5a0db518984a558ae31779ad65ca0 Mon Sep 17 00:00:00 2001
 From: vpeter4 <peter.vicman@gmail.com>
-Date: Wed, 3 Jun 2015 17:58:54 +0200
+Date: Thu, 18 Jun 2015 05:33:23 +0200
 Subject: [PATCH] udoo quad device tree
 
 ---
- arch/arm/boot/dts/imx6q-udoo.dts | 348 ++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 342 insertions(+), 6 deletions(-)
+ arch/arm/boot/dts/imx6q-udoo.dts | 452 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 446 insertions(+), 6 deletions(-)
 
 diff --git a/arch/arm/boot/dts/imx6q-udoo.dts b/arch/arm/boot/dts/imx6q-udoo.dts
-index 7cc0267..d4f6acb 100644
+index 7cc0267..26e56af 100644
 --- a/arch/arm/boot/dts/imx6q-udoo.dts
 +++ b/arch/arm/boot/dts/imx6q-udoo.dts
 @@ -2,6 +2,10 @@
@@ -22,7 +22,7 @@ index 7cc0267..d4f6acb 100644
   *
   * This program is free software; you can redistribute it and/or modify
   * it under the terms of the GNU General Public License version 2 as
-@@ -17,12 +21,213 @@
+@@ -17,12 +21,220 @@
  	compatible = "udoo,imx6q-udoo", "fsl,imx6q";
  
  	chosen {
@@ -35,6 +35,7 @@ index 7cc0267..d4f6acb 100644
 +    mxcfb1 = &mxcfb2;
 +    mxcfb2 = &mxcfb3;
 +    mxcfb3 = &mxcfb4;
++    ssi0 = &ssi1;
 +  };
 +
  	memory {
@@ -106,16 +107,16 @@ index 7cc0267..d4f6acb 100644
 +    status = "okay";
 +  };
 +
-+  mxcfb2: fb@1 {
-+    compatible = "fsl,mxc_sdc_fb";
-+    disp_dev = "hdmi";
-+    interface_pix_fmt = "RGB24";
-+    mode_str ="1920x1080M@60";
-+    default_bpp = <24>;
-+    int_clk = <0>;
-+    late_init = <0>;
-+    status = "disabled";
-+  };
++	mxcfb2: fb@1 {
++		compatible = "fsl,mxc_sdc_fb";
++		disp_dev = "ldb";
++		default_bpp = <24>;
++		interface_pix_fmt = "RGB24";
++		mode_str ="";
++		int_clk = <0>;
++		late_init = <1>;
++		status = "okay";
++	};
 +
 +  mxcfb3: fb@2 {
 +    compatible = "fsl,mxc_sdc_fb";
@@ -140,30 +141,16 @@ index 7cc0267..d4f6acb 100644
 +  };
 +
 +  codec: vt1613 {
-+    compatible = "wlf,vt1613";
-+    amic-mono;
++		compatible = "via,vt1613";
 +  };
 +
 +  sound {
-+    compatible = "fsl,imx6q-udoo-vt1613",
-+         "fsl,imx-audio-vt1613";
-+    model = "vt1613-audio";
++		compatible = "udoo,imx-vt1613-audio";
 +    ssi-controller = <&ssi1>;
 +    audio-codec = <&codec>;
-+    audio-routing =
-+      "Headphone Jack", "HPOUTL",
-+      "Headphone Jack", "HPOUTR",
-+      "Ext Spk", "SPKOUTL",
-+      "Ext Spk", "SPKOUTR",
-+      "MICBIAS", "AMIC",
-+      "IN3R", "MICBIAS",
-+      "DMIC", "MICBIAS",
-+      "DMICDAT", "DMIC";
 +    mux-int-port = <1>;
 +    mux-ext-port = <6>;
 +  };
-+//    hp-det-gpios = <&gpio7 8 1>;
-+//    mic-det-gpios = <&gpio1 9 1>;
 +
 +  sound-hdmi {
 +    compatible = "fsl,imx6q-audio-hdmi",
@@ -185,6 +172,23 @@ index 7cc0267..d4f6acb 100644
 +    compatible = "fsl,mxc_v4l2_output";
 +    status = "okay";
 +  };
++
++  poweroff {
++    compatible = "udoo,poweroff";
++    sam3x_rst_gpio = <&gpio1 0 GPIO_ACTIVE_LOW>;
++    pwr_5v_gpio = <&gpio2 4 GPIO_ACTIVE_HIGH>;
++    arduino_mode = <0>;
++  };
++};
++
++&ldb {
++  ipu_id = <1>;
++  disp_id = <0>;
++  ext_ref = <1>;
++  mode = "sep0";
++	sec_ipu_id = <1>;
++	sec_disp_id = <1>;
++	status = "okay";
 +};
 +
 +&hdmi_audio {
@@ -215,15 +219,7 @@ index 7cc0267..d4f6acb 100644
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&pinctrl_i2c2_2>;
 +	status = "okay";
-+/*
-+	egalax_ts@04 {
-+		compatible = "eeti,egalax_ts";
-+		reg = <0x04>;
-+		interrupt-parent = <&gpio2>;
-+		interrupts = <28 2>;
-+		wakeup-gpios = <&gpio2 28 0>;
-+	};
-+*/
++
 +	hdmi: edid@50 {
 +		compatible = "fsl,imx6-hdmi-i2c";
 +		reg = <0x50>;
@@ -234,10 +230,21 @@ index 7cc0267..d4f6acb 100644
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&pinctrl_i2c3_5>;
 +	status = "okay";
++
++  touchscreen: st1232@55 {
++    compatible = "sitronix,st1232";
++    reg = <0x55>;
++    interrupt-parent = <&gpio1>;
++    interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
++    gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;
++    /* udoo poweroff driver */
++    lcd_panel_on_gpio = <&gpio1 2 GPIO_ACTIVE_HIGH>;
++    lcd_backlight_gpio = <&gpio1 4 GPIO_ACTIVE_HIGH>;
++  };
  };
  
  &fec {
-@@ -33,9 +238,68 @@
+@@ -33,9 +245,62 @@
  };
  
  &iomuxc {
@@ -251,7 +258,6 @@ index 7cc0267..d4f6acb 100644
 +				MX6QDL_PAD_NANDF_D4__GPIO2_IO04   0x80000000  /* 5v enable      */
 +				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11  0x80000000  /* Vtt suspend    */
 +				MX6QDL_PAD_SD2_DAT0__GPIO1_IO15   0x80000000  /* touch reset    */
-+				MX6QDL_PAD_EIM_EB2__GPIO2_IO30    0x80000000  /* audio reset    */
 +				MX6QDL_PAD_EIM_EB3__GPIO2_IO31    0x80000000  /* ethernet power */
 +
 +				MX6QDL_PAD_GPIO_17__GPIO7_IO12    0x80000000  /* usb hub reset  */
@@ -273,16 +279,11 @@ index 7cc0267..d4f6acb 100644
 +				MX6QDL_PAD_CSI0_DAT17__GPIO6_IO03 0x80000000  /* input mon serial*/
 +				MX6QDL_PAD_EIM_A19__GPIO2_IO19    0x80000000  /* writeprotect spi*/
 +				MX6QDL_PAD_GPIO_3__GPIO1_IO03     0x30b1      /* arduino pinout  */
-+
-+				MX6QDL_PAD_DI0_PIN2__AUD6_TXD     0x80000000  /* audio audmux */
-+				MX6QDL_PAD_DI0_PIN3__AUD6_TXFS    0x80000000  /* audio audmux */
-+				MX6QDL_PAD_DI0_PIN4__AUD6_RXD     0x80000000  /* audio audmux */
-+				MX6QDL_PAD_DI0_PIN15__AUD6_TXC    0x80000000  /* audio audmux */
 +			>;
 +		};
 +
 +		pinctrl_i2c1_2: i2c1grp-2 {
- 			fsl,pins = <
++			fsl,pins = <
 +				MX6QDL_PAD_CSI0_DAT8__I2C1_SDA 0x4001b8b1
 +				MX6QDL_PAD_CSI0_DAT9__I2C1_SCL 0x4001b8b1
 +			>;
@@ -296,7 +297,7 @@ index 7cc0267..d4f6acb 100644
 +		};
 +
 +		pinctrl_i2c3_5: i2c3grp-5 {
-+			fsl,pins = <
+ 			fsl,pins = <
 +				MX6QDL_PAD_GPIO_5__I2C3_SCL  0x4001b8b1
 +				MX6QDL_PAD_GPIO_6__I2C3_SDA  0x4001b8b1
 +			>;
@@ -307,7 +308,7 @@ index 7cc0267..d4f6acb 100644
  				MX6QDL_PAD_RGMII_RXC__RGMII_RXC		0x1b0b0
  				MX6QDL_PAD_RGMII_RD0__RGMII_RD0		0x1b0b0
  				MX6QDL_PAD_RGMII_RD1__RGMII_RD1		0x1b0b0
-@@ -51,10 +315,10 @@
+@@ -51,10 +316,10 @@
  				MX6QDL_PAD_ENET_REF_CLK__ENET_TX_CLK	0x1b0b0
  				MX6QDL_PAD_ENET_MDIO__ENET_MDIO		0x1b0b0
  				MX6QDL_PAD_ENET_MDC__ENET_MDC		0x1b0b0
@@ -320,7 +321,7 @@ index 7cc0267..d4f6acb 100644
  		pinctrl_uart2: uart2grp {
  			fsl,pins = <
  				MX6QDL_PAD_EIM_D26__UART2_TX_DATA	0x1b0b1
-@@ -62,19 +326,51 @@
+@@ -62,19 +327,90 @@
  			>;
  		};
  
@@ -362,9 +363,48 @@ index 7cc0267..d4f6acb 100644
 +				MX6QDL_PAD_EIM_A25__HDMI_TX_CEC_LINE 0x1f8b0
 +			>;
 +		};*/
++
++		ac97link_running: ac97link_runninggrp {
++			fsl,pins = <
++				MX6QDL_PAD_DI0_PIN2__AUD6_TXD   0x80000000
++				MX6QDL_PAD_DI0_PIN3__AUD6_TXFS  0x80000000
++				MX6QDL_PAD_DI0_PIN4__AUD6_RXD   0x80000000
++				MX6QDL_PAD_DI0_PIN15__AUD6_TXC  0x80000000
++			>;
++	};
++
++ 		ac97link_reset: ac97link_resetgrp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_EB2__GPIO2_IO30   0x80000000
++				MX6QDL_PAD_DI0_PIN3__GPIO4_IO19  0x80000000
++				MX6QDL_PAD_DI0_PIN2__GPIO4_IO18  0x80000000
++			>;
++		};
++
++ 		ac97link_warm_reset: ac97link_warm_resetgrp {
++			fsl,pins = <
++				MX6QDL_PAD_DI0_PIN3__GPIO4_IO19  0x80000000
++			>;
++		};
  	};
  };
  
++&audmux {
++	status = "okay";
++};
++
++&ssi1 {
++	fsl,mode = "ac97-slave";
++	pinctrl-names = "default", "ac97-running", "ac97-reset", "ac97-warm-reset";
++	pinctrl-0 = <&ac97link_running>;
++	pinctrl-1 = <&ac97link_running>;
++	pinctrl-2 = <&ac97link_reset>;
++	pinctrl-3 = <&ac97link_warm_reset>;
++	/* sync, sdata (output), reset */
++	ac97-gpios = <&gpio4 19 0 &gpio4 18 0 &gpio2 30 0>;
++	status = "okay";
++};
++
 +&spdif {
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&pinctrl_spdif_1>;
@@ -374,7 +414,7 @@ index 7cc0267..d4f6acb 100644
  &sata {
  	status = "okay";
  };
-@@ -85,9 +381,49 @@
+@@ -85,9 +421,33 @@
  	status = "okay";
  };
  
@@ -400,29 +440,13 @@ index 7cc0267..d4f6acb 100644
 +	vbus-supply = <&reg_usb_h1_vbus>;
 +	clocks = <&clks 201>;
 +	clock-names = "phy";
-+	status = "okay";
-+};
+ 	status = "okay";
+ };
 +
 +&hdmi_cec {
 +	/*pinctrl-names = "default";
 +	pinctrl-0 = <&pinctrl_hdmi_cec_1>;*/
 +	status = "disabled";
 +};
-+
-+&mxcfb1 {
-+	status = "okay";
-+};
-+
-+&mxcfb2 {
-+	status = "okay";
-+};
-+
-+&mxcfb3 {
-+	status = "okay";
-+};
-+
-+&mxcfb4 {
- 	status = "okay";
- };
 -- 
 1.8.1.2
