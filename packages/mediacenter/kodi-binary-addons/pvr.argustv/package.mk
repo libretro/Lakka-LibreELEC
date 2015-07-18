@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.argustv"
-PKG_VERSION="3e2350c"
+PKG_VERSION="96c8026"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
