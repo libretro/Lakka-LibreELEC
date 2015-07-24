@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xkeyboard-config"
-PKG_VERSION="2.10.1"
+PKG_VERSION="2.15"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
