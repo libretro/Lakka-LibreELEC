@@ -53,8 +53,14 @@ STAMP=$STAMPS/$PACKAGE_NAME/build_$TARGET
 
 $SCRIPTS/unpack $PACKAGE_NAME
 
-if [ -f $STAMP -a $PKG_DIR/package.mk -nt $STAMP ]; then
-  rm -f $STAMP
+STAMP_DEPENDS="$PKG_DIR $PKG_NEED_UNPACK $PROJECT_DIR/$PROJECT/patches/$PKG_NAME"
+
+if [ -f $STAMP ] ; then
+  . $STAMP
+  PKG_DEEPMD5=$(md5deep -r $STAMP_DEPENDS 2>/dev/null | sort | md5sum | cut -d" " -f1)
+  if [ ! "$PKG_DEEPMD5" = "$STAMP_PKG_DEEPMD5" ] ; then
+    rm -f $STAMP
+  fi
 fi
 
 if [ ! -f $STAMP ]; then
@@ -358,7 +364,8 @@ if [ ! -f $STAMP ]; then
       $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $i; \
     done
 
-    for i in `sed -n "s/^\([^#].*\)=\".*$/\1/p" $PROJECT_DIR/$PROJECT/options | grep -v "#"`; do
+    PKG_DEEPMD5=$(md5deep -r $STAMP_DEPENDS 2>/dev/null | sort | md5sum | cut -d" " -f1)
+    for i in PKG_NAME PKG_DEEPMD5; do
       eval val=\$$i
       echo "STAMP_$i=\"$val\"" >> $STAMP
     done
