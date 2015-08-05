@@ -51,6 +51,9 @@ SET(CMAKE_SYSTEM_NAME Linux)
 #this one not so much
 SET(CMAKE_SYSTEM_VERSION 1)
 
+# processor (or hardware) of the target system
+SET(CMAKE_SYSTEM_PROCESSOR  $TARGET_ARCH)
+
 # specify the cross compiler
 SET(CMAKE_C_COMPILER   $TARGET_CC)
 SET(CMAKE_CXX_COMPILER $TARGET_CXX)
