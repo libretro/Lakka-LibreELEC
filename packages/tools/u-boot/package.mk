@@ -74,8 +74,8 @@ make_target() {
         TARGET_NAME="cuboxi"
       elif [ "$UBOOT_TARGET" = "matrix" ]; then
         TARGET_NAME="matrix"
-      elif [ "$UBOOT_TARGET" = "udoo_quad_config" ]; then
-        TARGET_NAME="udoo_quad"
+      elif [ "$UBOOT_TARGET" = "udoo_config" ]; then
+        TARGET_NAME="udoo"
       else
         TARGET_NAME="undef"
       fi
