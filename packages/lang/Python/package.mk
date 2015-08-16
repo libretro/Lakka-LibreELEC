@@ -17,14 +17,14 @@
 ################################################################################
 
 PKG_NAME="Python"
-PKG_VERSION="2.7.3"
+PKG_VERSION="2.7.10"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
 PKG_URL="http://www.python.org/ftp/python/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_HOST="zlib:host"
-PKG_DEPENDS_TARGET="toolchain Python:host sqlite expat zlib bzip2 libressl libffi"
+PKG_DEPENDS_TARGET="toolchain sqlite expat zlib bzip2 libressl libffi Python:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="lang"
 PKG_SHORTDESC="python: The Python programming language"
@@ -48,6 +48,9 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_file_dev_ptc=no \
                            ac_cv_buggy_getaddrinfo=no \
                            ac_cv_header_bluetooth_bluetooth_h=no \
                            ac_cv_header_bluetooth_h=no \
+                           ac_cv_file__dev_ptmx=no \
+                           ac_cv_file__dev_ptc=no \
+                           ac_cv_have_long_long_format=yes \
                            --with-threads \
                            --enable-unicode=ucs4 \
                            --enable-ipv6 \
@@ -72,19 +75,6 @@ make_host() {
        PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES"
 }
 
-make_target() {
-  make  -j1 CC="$TARGET_CC" \
-        HOSTPYTHON=$ROOT/$TOOLCHAIN/bin/python \
-        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
-        BLDSHARED="$CC -shared" \
-        RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH" \
-        PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
-        CROSS_COMPILE="$TARGET_NAME" \
-        CROSS_COMPILE_TARGET="yes" \
-        PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
-        PYTHON_MODULES_LIB="$TARGET_LIBDIR"
-}
-
 makeinstall_host() {
   make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
@@ -103,33 +93,37 @@ makeinstall_host() {
     ln -s python2.7-config $ROOT/$TOOLCHAIN/bin/python-config
 }
 
+pre_configure_target() {
+  export PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python
+  export BLDSHARED="$CC -shared"
+  export RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH"
+}
+
+make_target() {
+  make  -j1 CC="$TARGET_CC" \
+        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
+        PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
+        PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
+        PYTHON_MODULES_LIB="$TARGET_LIBDIR"
+}
+
 makeinstall_target() {
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$SYSROOT_PREFIX \
-        HOSTPYTHON=$ROOT/$TOOLCHAIN/bin/python \
         HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
-        BLDSHARED="$CC -shared" \
-        RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH" \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
-        CROSS_COMPILE="$TARGET_NAME" \
-        CROSS_COMPILE_TARGET="yes" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
         install
 
-# python distutils per default adds -L$LIBDIR when linking binary extensions
+  # python distutils per default adds -L$LIBDIR when linking binary extensions
   sed -e "s|^LIBDIR=.*|LIBDIR= $SYSROOT_PREFIX/usr/lib|" \
       -i $SYSROOT_PREFIX/usr/lib/python*/config/Makefile
 
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$INSTALL \
-        HOSTPYTHON=$ROOT/$TOOLCHAIN/bin/python \
         HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
-        BLDSHARED="$CC -shared" \
-        RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH" \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
-        CROSS_COMPILE="$TARGET_NAME" \
-        CROSS_COMPILE_TARGET="yes" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
         install
@@ -144,12 +138,6 @@ post_makeinstall_target() {
   python -Wi -t -B ../Lib/compileall.py $INSTALL/usr/lib/python*/ -f
   rm -rf `find $INSTALL/usr/lib/python*/ -name "*.py"`
 
-  rm -rf $INSTALL/usr/lib/python*/config/Setup*
-  rm -rf $INSTALL/usr/lib/python*/config/config.*
-  rm -rf $INSTALL/usr/lib/python*/config/install-sh
-  rm -rf $INSTALL/usr/lib/python*/config/makesetup
-  rm -rf $INSTALL/usr/lib/python*/config/python.o
-
   if [ ! -f $INSTALL/usr/lib/python*/lib-dynload/_socket.so ]; then
     echo "sometimes Python dont build '_socket.so' for some reasons and continues without failing,"
     echo "let it fail here, to be sure '_socket.so' will be installed. A rebuild of Python fixes"
@@ -157,7 +145,7 @@ post_makeinstall_target() {
     exit 1
   fi
 
-  # k0p
+  rm -rf $INSTALL/usr/lib/python*/config
   rm -rf $INSTALL/usr/bin/2to3
   rm -rf $INSTALL/usr/bin/idle
   rm -rf $INSTALL/usr/bin/pydoc
