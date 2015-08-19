@@ -38,36 +38,19 @@ mkdir -p $BUILD
 
 [ ! -d "$SOURCES/$1" -a ! -d "$PKG_DIR/sources" ] && exit 0
 
+STAMP_DEPENDS="$PKG_DIR $PKG_NEED_UNPACK $PROJECT_DIR/$PROJECT/patches/$PKG_NAME"
+
 for i in $BUILD/$1-*; do
   if [ -d $i -a -f "$i/.openelec-unpack" ] ; then
     . "$i/.openelec-unpack"
     if [ "$STAMP_PKG_NAME" = "$1" ]; then
-      # trigger unpack / full rebuild on any package.mk change
-      if [ $PKG_DIR/package.mk -nt "$i/.openelec-unpack" ]; then
-        CLEAN_SOURCE=yes
-        break
+      PKG_DEEPMD5=$(md5deep -r $STAMP_DEPENDS 2>/dev/null | sort | md5sum | cut -d" " -f1)
+      if [ ! "$PKG_DEEPMD5" = "$STAMP_PKG_DEEPMD5" ] ; then
+        $SCRIPTS/clean $1
       fi
-      # handle $PKG_NEED_UNPACK
-      for file in $PKG_NEED_UNPACK; do
-        if [ -f "$file" -a "$file" -nt "$i/.openelec-unpack" ] ; then
-          CLEAN_SOURCE=yes
-          break
-        fi
-      done
-      # trigger unpack / full rebuild on any patch / script / etc.. change
-      for file in $PKG_DIR/{patches,scripts,config}/* $PKG_DIR/patches/$PKG_VERSION/*.patch $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/*.patch; do
-        if [ -f "$file" -a "$file" -nt "$i/.openelec-unpack" ]; then
-          CLEAN_SOURCE=yes
-          break
-        fi
-      done
     fi
   fi
 done
-
-if [ "$CLEAN_SOURCE" = "yes" ]; then
-  $SCRIPTS/clean $1
-fi
 
 [ -f "$STAMP" ] && exit 0
 
@@ -165,7 +148,8 @@ done
 
 rm -f $STAMPS/$1/build_*
 
-for i in PKG_NAME PKG_VERSION PKG_REV PKG_SHORTDESC PKG_LONGDESC PKG_SITE PKG_URL PKG_SECTION; do
+PKG_DEEPMD5=$(md5deep -r $STAMP_DEPENDS 2>/dev/null | sort | md5sum | cut -d" " -f1)
+for i in PKG_NAME PKG_DEEPMD5; do
   eval val=\$$i
-  echo "STAMP_$i=\"$val"\" >> $STAMP
+  echo "STAMP_$i=\"$val\"" >> $STAMP
 done
