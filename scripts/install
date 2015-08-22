@@ -32,20 +32,16 @@ if [ -z "$INSTALL" ] ; then
 fi
 
 # set defaults
-  PACKAGE_NAME=$(echo $1 | awk -F : '{print $1}')
-  TARGET=$(echo $1 | awk -F : '{print $2}')
-  if [ -z "$TARGET" ]; then
-    TARGET="target"
-  fi
+PACKAGE_NAME=$(echo $1 | awk -F : '{print $1}')
+TARGET=$(echo $1 | awk -F : '{print $2}')
+if [ -z "$TARGET" ]; then
+  TARGET="target"
+fi
 
 STAMP=$STAMPS_INSTALL/$PACKAGE_NAME/install_$TARGET
 mkdir -p $STAMPS_INSTALL/$PACKAGE_NAME
 
-if [ -f $STAMP -a $PKG_DIR/install -nt $STAMP ]; then
-  rm -f $STAMP
-fi
-
-[ -f $STAMP -a $FORCE_INSTALL = "no" ] && exit 0
+[ -f $STAMP ] && exit 0
 
 if [ -n "$PKG_ARCH" -a ! "$PKG_ARCH" = "any" ]; then
   echo "$PKG_ARCH" | grep -q "$TARGET_ARCH" || exit 0
@@ -123,45 +119,41 @@ if [ "$TARGET" = target ] ; then
 
   if [ -d $PKG_DIR/debug.d ]; then
     mkdir -p $INSTALL/usr/share/debugconf
-      cp $PKG_DIR/debug.d/*.conf $INSTALL/usr/share/debugconf
+    cp $PKG_DIR/debug.d/*.conf $INSTALL/usr/share/debugconf
   fi
 
   if [ -d $PKG_DIR/modprobe.d ]; then
     mkdir -p $INSTALL/lib/modprobe.d
     cp $PKG_DIR/modprobe.d/*.conf $INSTALL/lib/modprobe.d
   fi
-
 fi
 
 # unset functions
-  unset -f pre_install
-  unset -f post_install
+unset -f pre_install
+unset -f post_install
 
 # include buildfile
-  . $PKG_DIR/package.mk
+. $PKG_DIR/package.mk
 
 # install
-  if [ "$TARGET" = target ] ; then
-    if [ "$(type -t pre_install)" = "function" ]; then
-      pre_install
-    fi
+if [ "$TARGET" = target ] ; then
+  if [ "$(type -t pre_install)" = "function" ]; then
+    pre_install
   fi
+fi
 
-  if [ "$TARGET" = "target" -a -d $PKG_BUILD/.install_pkg ]; then
-    mkdir -p $INSTALL
-      cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
-  elif [ "$TARGET" = "init" -a -d $PKG_BUILD/.install_init ]; then
-    mkdir -p $INSTALL
-      cp -PR $PKG_BUILD/.install_init/* $INSTALL
+if [ "$TARGET" = "target" -a -d $PKG_BUILD/.install_pkg ]; then
+  mkdir -p $INSTALL
+  cp -PR $PKG_BUILD/.install_pkg/* $INSTALL
+elif [ "$TARGET" = "init" -a -d $PKG_BUILD/.install_init ]; then
+  mkdir -p $INSTALL
+  cp -PR $PKG_BUILD/.install_init/* $INSTALL
+fi
+
+if [ "$TARGET" = target ] ; then
+  if [ "$(type -t post_install)" = "function" ]; then
+    post_install
   fi
+fi
 
-  if [ "$TARGET" = target ] ; then
-    if [ "$(type -t post_install)" = "function" ]; then
-      post_install
-    fi
-  fi
-
-for i in `sed -n "s/^\([^#].*\)=\".*$/\1/p" $PROJECT_DIR/$PROJECT/options | grep -v "#"`; do
-  eval val=\$$i
-  echo "STAMP_$i=\"$val"\" >> $STAMP
-done
+touch $STAMP
