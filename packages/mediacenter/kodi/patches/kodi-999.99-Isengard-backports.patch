@@ -1,0 +1,624 @@
+From eaeaf6d8321073c79e562afb5f8da7132c5fd20a Mon Sep 17 00:00:00 2001
+From: ronie <ronie@poedel.net>
+Date: Sun, 9 Aug 2015 15:17:58 +0200
+Subject: [PATCH 01/17] fix Window.IsMedia infobool
+
+---
+ xbmc/GUIInfoManager.cpp | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/GUIInfoManager.cpp b/xbmc/GUIInfoManager.cpp
+index 8cf1202..355e9a5 100644
+--- a/xbmc/GUIInfoManager.cpp
++++ b/xbmc/GUIInfoManager.cpp
+@@ -1203,10 +1203,8 @@ int CGUIInfoManager::TranslateSingleString(const std::string &strCondition, bool
+         { // TODO: The parameter for these should really be on the first not the second property
+           if (prop.param().find("xml") != std::string::npos)
+             return AddMultiInfo(GUIInfo(window_bools[i].val, 0, ConditionalStringParameter(prop.param())));
+-          int winID = prop.param().empty() ? 0 : CButtonTranslator::TranslateWindow(prop.param());
+-          if (winID != WINDOW_INVALID)
+-            return AddMultiInfo(GUIInfo(window_bools[i].val, winID, 0));
+-          return 0;
++          int winID = prop.param().empty() ? WINDOW_INVALID : CButtonTranslator::TranslateWindow(prop.param());
++          return winID != WINDOW_INVALID ? AddMultiInfo(GUIInfo(window_bools[i].val, winID, 0)) : window_bools[i].val;
+         }
+       }
+     }
+
+From 7da667b2733d3b125b200fcda120ea512ae599f1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?P=C3=A4r=20Bj=C3=B6rklund?= <per.bjorklund@gmail.com>
+Date: Sun, 9 Aug 2015 19:31:11 +0200
+Subject: [PATCH 02/17] Updated taglib that fixes a crash when playing flac
+ files
+
+---
+ project/BuildDependencies/scripts/0_package.list | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/project/BuildDependencies/scripts/0_package.list b/project/BuildDependencies/scripts/0_package.list
+index b0d90e1..fdc1d54 100644
+--- a/project/BuildDependencies/scripts/0_package.list
++++ b/project/BuildDependencies/scripts/0_package.list
+@@ -47,6 +47,6 @@ PIL-1.1.7p-win32.7z
+ python-2.7.8-win32.7z
+ sqlite-3.8.6-win32-vc120.7z
+ swig-2.0.7-win32-1.7z
+-taglib-1.9.1-win32-vc120.7z
++taglib-1.9.1-patched-win32-vc120.7z
+ texturepacker-1.0.2-win32.7z
+ tinyxml-2.6.2_3-win32-vc120.7z
+
+From d1d7a506c44da50b7da11aedc469c20badbac805 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Sun, 16 Aug 2015 21:34:08 +0100
+Subject: [PATCH 04/17] [mysql] Fix incomprehensible error message [backport]
+
+---
+ xbmc/dbwrappers/mysqldataset.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/dbwrappers/mysqldataset.cpp b/xbmc/dbwrappers/mysqldataset.cpp
+index 34c2477..f133dde 100644
+--- a/xbmc/dbwrappers/mysqldataset.cpp
++++ b/xbmc/dbwrappers/mysqldataset.cpp
+@@ -277,7 +277,7 @@ int MysqlDatabase::copy(const char *backup_name) {
+       if ( (ret=query_with_reconnect(sql)) != MYSQL_OK )
+       {
+         mysql_free_result(res);
+-        throw DbErrors("Can't copy schema for table '%s'\nError: %d", db.c_str(), ret);
++        throw DbErrors("Can't copy schema for table '%s'\nError: %d", row[0], ret);
+       }
+ 
+       // copy the table data
+
+From de0c4bde9ee5d03cbc8df67f3aae42d605b124c1 Mon Sep 17 00:00:00 2001
+From: Frank Razenberg <frank@zzattack.org>
+Date: Wed, 12 Aug 2015 23:44:38 +0200
+Subject: [PATCH 05/17] [action] Disregard sign of volume adjustment actions to
+ match seeking behavior
+
+---
+ xbmc/Application.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index f3f65c5..352df29 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -2415,9 +2415,9 @@ bool CApplication::OnAction(const CAction &action)
+         step *= action.GetRepeat() * 50; // 50 fps
+ #endif
+       if (action.GetID() == ACTION_VOLUME_UP)
+-        volume += (float)fabs(action.GetAmount()) * action.GetAmount() * step;
++        volume += (float)(action.GetAmount() * action.GetAmount() * step);
+       else if (action.GetID() == ACTION_VOLUME_DOWN)
+-        volume -= (float)fabs(action.GetAmount()) * action.GetAmount() * step;
++        volume -= (float)(action.GetAmount() * action.GetAmount() * step);
+       else
+         volume = action.GetAmount() * step;
+       if (volume != m_volumeLevel)
+
+From a657826315ad536ac8791413508f0645eb2d8492 Mon Sep 17 00:00:00 2001
+From: Frank Razenberg <frank@zzattack.org>
+Date: Wed, 12 Aug 2015 23:44:52 +0200
+Subject: [PATCH 06/17] [keymap] undo workaround for volume adjustment issue
+
+---
+ system/keymaps/joystick.Sony.PLAYSTATION(R)3.Controller.xml | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/system/keymaps/joystick.Sony.PLAYSTATION(R)3.Controller.xml b/system/keymaps/joystick.Sony.PLAYSTATION(R)3.Controller.xml
+index e4d2d07..43aee76 100644
+--- a/system/keymaps/joystick.Sony.PLAYSTATION(R)3.Controller.xml
++++ b/system/keymaps/joystick.Sony.PLAYSTATION(R)3.Controller.xml
+@@ -93,8 +93,10 @@
+       <button id="3">ActivateWindow(PlayerControls)</button>
+       <axis id="1">AnalogSeekForward</axis>
+       <axis id="2">AnalogSeekBack</axis>
+-      <axis id="3">VolumeUp</axis>
+-      <axis id="4">VolumeDown</axis>
++      <axis id="3" limit="+1">VolumeUp</axis>
++      <axis id="3" limit="-1">VolumeDown</axis>
++      <axis id="4" limit="+1">VolumeDown</axis>
++      <axis id="4" limit="-1">VolumeUp</axis>
+       <axis trigger="true" rest="-32768" id="13">ScrollUp</axis>
+       <axis trigger="true" rest="-32768" id="14">ScrollDown</axis>
+       <button id="5">Up</button>
+
+From 81030f4eda4d66005807d284979cdfa8936c3ebb Mon Sep 17 00:00:00 2001
+From: Anton Fedchin <afedchin@ruswizards.com>
+Date: Mon, 3 Aug 2015 18:47:02 +0300
+Subject: [PATCH 07/17] [win32] Move call to SetSuspendState/InitiateShutdown
+ out from main thread.
+
+Calling SetSuspend in main thread prevents to receiving WM_POWERBROADCAST message on Suspend/Hibernate. This restores receiving WM_POWERBROADCAST message.
+---
+ xbmc/powermanagement/windows/Win32PowerSyscall.cpp | 49 ++++++++++++++++------
+ xbmc/powermanagement/windows/Win32PowerSyscall.h   | 21 ++++++++++
+ xbmc/win32/WIN32Util.cpp                           |  7 +---
+ 3 files changed, 60 insertions(+), 17 deletions(-)
+
+diff --git a/xbmc/powermanagement/windows/Win32PowerSyscall.cpp b/xbmc/powermanagement/windows/Win32PowerSyscall.cpp
+index 09787ca..cbc9842 100644
+--- a/xbmc/powermanagement/windows/Win32PowerSyscall.cpp
++++ b/xbmc/powermanagement/windows/Win32PowerSyscall.cpp
+@@ -26,34 +26,59 @@
+ bool CWin32PowerSyscall::m_OnResume = false;
+ bool CWin32PowerSyscall::m_OnSuspend = false;
+ 
++bool CWin32PowerStateWorker::QueryStateChange(PowerState state)
++{
++  if (!IsRunning())
++    return false;
++
++  if (m_state.exchange(state) != state)
++  {
++    m_queryEvent.Set();
++    return true;
++  }
++
++  return false;
++}
++
++void CWin32PowerStateWorker::Process(void)
++{
++  while (!m_bStop)
++  {
++    if (AbortableWait(m_queryEvent, -1) == WAIT_SIGNALED)
++    {
++      CWIN32Util::PowerManagement(m_state.load());
++      m_state.exchange(POWERSTATE_NONE);
++      m_queryEvent.Reset();
++    }
++  }
++}
+ 
+ CWin32PowerSyscall::CWin32PowerSyscall()
+ {
++  m_worker.Create();
++}
++
++CWin32PowerSyscall::~CWin32PowerSyscall()
++{
++  if (m_worker.IsRunning())
++    m_worker.StopThread();
+ }
+ 
+ bool CWin32PowerSyscall::Powerdown()
+ {
+-  return CWIN32Util::PowerManagement(POWERSTATE_SHUTDOWN);
++  return m_worker.QueryStateChange(POWERSTATE_SHUTDOWN);
+ }
+ bool CWin32PowerSyscall::Suspend()
+ {
+-  // On Vista+, we don't receive the PBT_APMSUSPEND message as we have fired the suspend mode
+-  // Set the flag manually
+-  CWin32PowerSyscall::SetOnSuspend();
+-
+-  return CWIN32Util::PowerManagement(POWERSTATE_SUSPEND);
++  return m_worker.QueryStateChange(POWERSTATE_SUSPEND);
+ }
+ bool CWin32PowerSyscall::Hibernate()
+ {
+-  // On Vista+, we don't receive the PBT_APMSUSPEND message as we have fired the suspend mode
+-  // Set the flag manually
+-  CWin32PowerSyscall::SetOnSuspend();
+-
+-  return CWIN32Util::PowerManagement(POWERSTATE_HIBERNATE);
++  return m_worker.QueryStateChange(POWERSTATE_HIBERNATE);
+ }
+ bool CWin32PowerSyscall::Reboot()
+ {
+-  return CWIN32Util::PowerManagement(POWERSTATE_REBOOT);
++  return m_worker.QueryStateChange(POWERSTATE_REBOOT);
+ }
+ 
+ bool CWin32PowerSyscall::CanPowerdown()
+diff --git a/xbmc/powermanagement/windows/Win32PowerSyscall.h b/xbmc/powermanagement/windows/Win32PowerSyscall.h
+index 95d4027..f2f0dd7 100644
+--- a/xbmc/powermanagement/windows/Win32PowerSyscall.h
++++ b/xbmc/powermanagement/windows/Win32PowerSyscall.h
+@@ -24,11 +24,31 @@
+ #ifndef _WIN32_POWER_SYSCALL_H_
+ #define _WIN32_POWER_SYSCALL_H_
+ #include "powermanagement/IPowerSyscall.h"
++#include "powermanagement/PowerManager.h"
++#include "threads/Event.h"
++#include "threads/Thread.h"
++#include <atomic>
++
++class CWin32PowerStateWorker : public CThread
++{
++public:
++  CWin32PowerStateWorker() : CThread("CWin32PowerStateWorker"), m_queryEvent(true), m_state(POWERSTATE_NONE) {}
++  bool QueryStateChange(PowerState State);
++
++protected:
++  virtual void Process(void);
++  virtual void OnStartup() { SetPriority(THREAD_PRIORITY_IDLE); };
++
++private:
++  std::atomic<PowerState> m_state;
++  CEvent                  m_queryEvent;
++};
+ 
+ class CWin32PowerSyscall : public CAbstractPowerSyscall
+ {
+ public:
+   CWin32PowerSyscall();
++  ~CWin32PowerSyscall();
+ 
+   virtual bool Powerdown();
+   virtual bool Suspend();
+@@ -48,6 +68,7 @@ class CWin32PowerSyscall : public CAbstractPowerSyscall
+   static bool IsSuspending() { return m_OnSuspend; }
+ 
+ private:
++  CWin32PowerStateWorker m_worker;
+ 
+   static bool m_OnResume;
+   static bool m_OnSuspend;
+diff --git a/xbmc/win32/WIN32Util.cpp b/xbmc/win32/WIN32Util.cpp
+index f484935..0bf3a98 100644
+--- a/xbmc/win32/WIN32Util.cpp
++++ b/xbmc/win32/WIN32Util.cpp
+@@ -217,18 +217,15 @@ bool CWIN32Util::PowerManagement(PowerState State)
+       return false;
+   }
+ 
+-  // process OnSleep() events. This is called in main thread.
+-  g_powerManager.ProcessEvents();
+-
+   switch (State)
+   {
+   case POWERSTATE_HIBERNATE:
+     CLog::Log(LOGINFO, "Asking Windows to hibernate...");
+-    return SetSuspendState(true,true,false) == TRUE;
++    return SetSuspendState(true, true, false) == TRUE;
+     break;
+   case POWERSTATE_SUSPEND:
+     CLog::Log(LOGINFO, "Asking Windows to suspend...");
+-    return SetSuspendState(false,true,false) == TRUE;
++    return SetSuspendState(false, true, false) == TRUE;
+     break;
+   case POWERSTATE_SHUTDOWN:
+     CLog::Log(LOGINFO, "Shutdown Windows...");
+
+From 483ce5ee702a0f51607bbdf21136c6128609278d Mon Sep 17 00:00:00 2001
+From: Anton Fedchin <afedchin@ruswizards.com>
+Date: Mon, 3 Aug 2015 18:54:11 +0300
+Subject: [PATCH 08/17] [PowerManager] Show dialog busy only when processing
+ OnSleep.
+
+---
+ xbmc/powermanagement/PowerManager.cpp | 28 ++++++++--------------------
+ 1 file changed, 8 insertions(+), 20 deletions(-)
+
+diff --git a/xbmc/powermanagement/PowerManager.cpp b/xbmc/powermanagement/PowerManager.cpp
+index 6754f42..1a0b68c 100644
+--- a/xbmc/powermanagement/PowerManager.cpp
++++ b/xbmc/powermanagement/PowerManager.cpp
+@@ -180,31 +180,14 @@ bool CPowerManager::Powerdown()
+ 
+ bool CPowerManager::Suspend()
+ {
+-  if (CanSuspend() && m_instance->Suspend())
+-  {
+-    CGUIDialogBusy* dialog = (CGUIDialogBusy*)g_windowManager.GetWindow(WINDOW_DIALOG_BUSY);
+-    if (dialog)
+-      dialog->Show();
+-
+-    return true;
+-  }
+-
+-  return false;
++  return (CanSuspend() && m_instance->Suspend());
+ }
+ 
+ bool CPowerManager::Hibernate()
+ {
+-  if (CanHibernate() && m_instance->Hibernate())
+-  {
+-    CGUIDialogBusy* dialog = (CGUIDialogBusy*)g_windowManager.GetWindow(WINDOW_DIALOG_BUSY);
+-    if (dialog)
+-      dialog->Show();
+-
+-    return true;
+-  }
+-
+-  return false;
++  return (CanHibernate() && m_instance->Hibernate());
+ }
++
+ bool CPowerManager::Reboot()
+ {
+   bool success = CanReboot() ? m_instance->Reboot() : false;
+@@ -254,6 +237,11 @@ void CPowerManager::ProcessEvents()
+ void CPowerManager::OnSleep()
+ {
+   CAnnouncementManager::Get().Announce(System, "xbmc", "OnSleep");
++
++  CGUIDialogBusy* dialog = (CGUIDialogBusy*)g_windowManager.GetWindow(WINDOW_DIALOG_BUSY);
++  if (dialog)
++    dialog->Show();
++
+   CLog::Log(LOGNOTICE, "%s: Running sleep jobs", __FUNCTION__);
+ 
+   // stop lirc
+
+From 523e4db8802b3e73acca0a0dfd70fab8ee8c66b4 Mon Sep 17 00:00:00 2001
+From: Anton Fedchin <afedchin@ruswizards.com>
+Date: Tue, 11 Aug 2015 14:45:36 +0300
+Subject: [PATCH 09/17] [ApplicationMessenger] Moved call
+ PVRManager::SetWakeupCommand to PowerManager::OnSleep for execute it when a
+ actual suspend/hibernate occurs.
+
+---
+ xbmc/ApplicationMessenger.cpp         | 2 --
+ xbmc/powermanagement/PowerManager.cpp | 2 ++
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/ApplicationMessenger.cpp b/xbmc/ApplicationMessenger.cpp
+index 90424af..e0152aa 100644
+--- a/xbmc/ApplicationMessenger.cpp
++++ b/xbmc/ApplicationMessenger.cpp
+@@ -269,14 +269,12 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
+ 
+     case TMSG_HIBERNATE:
+       {
+-        g_PVRManager.SetWakeupCommand();
+         g_powerManager.Hibernate();
+       }
+       break;
+ 
+     case TMSG_SUSPEND:
+       {
+-        g_PVRManager.SetWakeupCommand();
+         g_powerManager.Suspend();
+       }
+       break;
+diff --git a/xbmc/powermanagement/PowerManager.cpp b/xbmc/powermanagement/PowerManager.cpp
+index 1a0b68c..53a5217 100644
+--- a/xbmc/powermanagement/PowerManager.cpp
++++ b/xbmc/powermanagement/PowerManager.cpp
+@@ -35,6 +35,7 @@
+ #include "guilib/GUIWindowManager.h"
+ #include "dialogs/GUIDialogBusy.h"
+ #include "dialogs/GUIDialogKaiToast.h"
++#include "pvr/PVRManager.h"
+ 
+ #if defined(TARGET_DARWIN)
+ #include "osx/CocoaPowerSyscall.h"
+@@ -250,6 +251,7 @@ void CPowerManager::OnSleep()
+   CBuiltins::Execute("LIRC.Stop");
+ #endif
+ 
++  PVR::CPVRManager::Get().SetWakeupCommand();
+   g_application.SaveFileState(true);
+   g_application.StopPlaying();
+   g_application.StopShutdownTimer();
+
+From 95bc7e24d528045f6bab2ef1ec02f80e33d05058 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?P=C3=A4r=20Bj=C3=B6rklund?= <per.bjorklund@gmail.com>
+Date: Wed, 12 Aug 2015 17:30:33 +0200
+Subject: [PATCH 10/17] [xbmc][win32] Fixes side flyout appearing when using
+ touch
+
+When querying for gesture capable controls the result was written over the x coordinate of the event and resent causing the flyout to think there's a mouseover.
+closes trac #16173
+---
+ xbmc/guilib/GUIWindow.cpp                              |  3 ++-
+ xbmc/input/touch/generic/GenericTouchActionHandler.cpp | 10 +++++++++-
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/guilib/GUIWindow.cpp b/xbmc/guilib/GUIWindow.cpp
+index a700ebe..562c949 100644
+--- a/xbmc/guilib/GUIWindow.cpp
++++ b/xbmc/guilib/GUIWindow.cpp
+@@ -656,7 +656,8 @@ bool CGUIWindow::OnMessage(CGUIMessage& message)
+     {
+       CAction action(ACTION_GESTURE_NOTIFY, 0, (float)message.GetParam1(), (float)message.GetParam2(), 0, 0);
+       EVENT_RESULT result = OnMouseAction(action);
+-      message.SetParam1(result);
++      auto res = new int(result);
++      message.SetPointer(static_cast<void*>(res));
+       return result != EVENT_RESULT_UNHANDLED;
+     }
+   case GUI_MSG_ADD_CONTROL:
+diff --git a/xbmc/input/touch/generic/GenericTouchActionHandler.cpp b/xbmc/input/touch/generic/GenericTouchActionHandler.cpp
+index fc8599c..ebd538d 100644
+--- a/xbmc/input/touch/generic/GenericTouchActionHandler.cpp
++++ b/xbmc/input/touch/generic/GenericTouchActionHandler.cpp
+@@ -148,7 +148,15 @@ int CGenericTouchActionHandler::QuerySupportedGestures(float x, float y)
+   if (!g_windowManager.SendMessage(msg))
+     return 0;
+ 
+-  return msg.GetParam1();
++  int result = 0;
++  if (msg.GetPointer())
++  {
++    int *p = static_cast<int*>(msg.GetPointer());
++    msg.SetPointer(nullptr);
++    result = *p;
++    delete p;
++  }
++  return result;
+ }
+ 
+ void CGenericTouchActionHandler::touch(uint8_t type, uint8_t button, uint16_t x, uint16_t y)
+
+From 47219512d32f37df3d5338f63049e0726a6c2fa5 Mon Sep 17 00:00:00 2001
+From: Thomas Amland <thomas.amland@gmail.com>
+Date: Tue, 18 Aug 2015 13:15:49 +0200
+Subject: [PATCH 12/17] [lang] fix fallback after 'no' was changed to 'nb_NO'
+
+---
+ xbmc/addons/AddonManager.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xbmc/addons/AddonManager.cpp b/xbmc/addons/AddonManager.cpp
+index 81b80b6..1c07fe0 100644
+--- a/xbmc/addons/AddonManager.cpp
++++ b/xbmc/addons/AddonManager.cpp
+@@ -789,6 +789,8 @@ std::string CAddonMgr::GetTranslatedString(const cp_cfg_element_t *root, const c
+         translatedValues.insert(std::make_pair(lang, child.value != NULL ? child.value : ""));
+       else if (lang == NULL || strcmp(lang, "en") == 0 || strcmp(lang, "en_GB") == 0)
+         translatedValues.insert(std::make_pair("en_GB", child.value != NULL ? child.value : ""));
++      else if (strcmp(lang, "no") == 0)
++        translatedValues.insert(std::make_pair("nb_NO", child.value != NULL ? child.value : ""));
+     }
+   }
+ 
+
+From c6b7a2a070e1d7d0bd61ad1110a68c9a6b27b16f Mon Sep 17 00:00:00 2001
+From: Thomas Amland <thomas.amland@gmail.com>
+Date: Tue, 18 Aug 2015 16:11:23 +0200
+Subject: [PATCH 13/17] [addons] fix foreign filter after 'no' was changed to
+ 'nb_NO'
+
+---
+ xbmc/addons/GUIWindowAddonBrowser.cpp | 33 ++++++++++++++++++---------------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
+
+diff --git a/xbmc/addons/GUIWindowAddonBrowser.cpp b/xbmc/addons/GUIWindowAddonBrowser.cpp
+index 3623014..ff53f09 100644
+--- a/xbmc/addons/GUIWindowAddonBrowser.cpp
++++ b/xbmc/addons/GUIWindowAddonBrowser.cpp
+@@ -302,17 +302,23 @@ void CGUIWindowAddonBrowser::UpdateButtons()
+   CGUIMediaWindow::UpdateButtons();
+ }
+ 
+-static bool FilterVar(bool valid, const CVariant& variant,
+-                                  const std::string& check)
++static bool IsForeign(const std::string& languages)
+ {
+-  if (!valid)
++  if (languages.empty())
+     return false;
+ 
+-  if (variant.isNull() || variant.asString().empty())
+-    return false;
+-
+-  std::string regions = variant.asString();
+-  return regions.find(check) == std::string::npos;
++  for (const auto& lang : StringUtils::Split(languages, " "))
++  {
++    if (lang == "en" ||
++        lang == g_langInfo.GetLocale().GetLanguageCode() ||
++        lang == g_langInfo.GetLocale().ToShortString())
++      return false;
++
++    // for backwards compatibility
++    if (lang == "no" && g_langInfo.GetLocale().ToShortString() == "nb_NO")
++      return false;
++  }
++  return true;
+ }
+ 
+ bool CGUIWindowAddonBrowser::GetDirectory(const std::string& strDirectory,
+@@ -350,14 +356,11 @@ bool CGUIWindowAddonBrowser::GetDirectory(const std::string& strDirectory,
+         int i=0;
+         while (i < items.Size())
+         {
+-          if (!FilterVar(true, items[i]->GetProperty("Addon.Language"), "en") ||
+-              !FilterVar(true, items[i]->GetProperty("Addon.Language"), g_langInfo.GetLocale().GetLanguageCode()) ||
+-              !FilterVar(true, items[i]->GetProperty("Addon.Language"), g_langInfo.GetLocale().ToShortString()))
+-          {
+-            i++;
+-          }
+-          else
++          auto prop = items[i]->GetProperty("Addon.Language");
++          if (!prop.isNull() && IsForeign(prop.asString()))
+             items.Remove(i);
++          else
++            ++i;
+         }
+       }
+       if (CSettings::Get().GetBool("general.addonbrokenfilter"))
+
+From 67b604e14458802d86ee2dd57f3d5a9c6ae27d43 Mon Sep 17 00:00:00 2001
+From: Matthias Kortstiege <mkortstiege@kodi.tv>
+Date: Tue, 18 Aug 2015 20:26:07 +0200
+Subject: [PATCH 14/17] [recentlyadded] fix empty LatestAlbum.Artist (closes
+ #16200)
+
+---
+ xbmc/utils/RecentlyAddedJob.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/utils/RecentlyAddedJob.cpp b/xbmc/utils/RecentlyAddedJob.cpp
+index a2f130e..094133d 100644
+--- a/xbmc/utils/RecentlyAddedJob.cpp
++++ b/xbmc/utils/RecentlyAddedJob.cpp
+@@ -272,7 +272,7 @@ bool CRecentlyAddedJob::UpdateMusic()
+       
+       home->SetProperty("LatestAlbum." + value + ".Title"   , album.strAlbum);
+       home->SetProperty("LatestAlbum." + value + ".Year"    , album.iYear);
+-      home->SetProperty("LatestAlbum." + value + ".Artist"  , album.artist);
++      home->SetProperty("LatestAlbum." + value + ".Artist"  , StringUtils::Join(album.artist, g_advancedSettings.m_videoItemSeparator));
+       home->SetProperty("LatestAlbum." + value + ".Rating"  , album.iRating);
+       home->SetProperty("LatestAlbum." + value + ".Path"    , strDBpath);
+       home->SetProperty("LatestAlbum." + value + ".Thumb"   , strThumb);
+
+From b186cd8e7c0a47f45d1342250d70c9ee8e226b66 Mon Sep 17 00:00:00 2001
+From: Matthias Kortstiege <mkortstiege@kodi.tv>
+Date: Tue, 18 Aug 2015 19:29:00 +0200
+Subject: [PATCH 15/17] [guilib] fix double memory free in panel container
+
+---
+ xbmc/guilib/GUIPanelContainer.cpp | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/guilib/GUIPanelContainer.cpp b/xbmc/guilib/GUIPanelContainer.cpp
+index 6bb3f79..21fd4aa 100644
+--- a/xbmc/guilib/GUIPanelContainer.cpp
++++ b/xbmc/guilib/GUIPanelContainer.cpp
+@@ -54,8 +54,9 @@ void CGUIPanelContainer::Process(unsigned int currentTime, CDirtyRegionList &dir
+   int cacheBefore, cacheAfter;
+   GetCacheOffsets(cacheBefore, cacheAfter);
+ 
+-  // Free memory not used on screen at the moment, do this first so there's more memory for the new items.
+-  FreeMemory(CorrectOffset(offset - cacheBefore, 0), CorrectOffset(offset + cacheAfter + m_itemsPerPage + 1, 0));
++  // Free memory not used on screen
++  if ((int)m_items.size() > m_itemsPerPage + cacheBefore + cacheAfter)
++    FreeMemory(CorrectOffset(offset - cacheBefore, 0), CorrectOffset(offset + m_itemsPerPage + 1 + cacheAfter, 0));
+ 
+   CPoint origin = CPoint(m_posX, m_posY) + m_renderOffset;
+   float pos = (m_orientation == VERTICAL) ? origin.y : origin.x;
+@@ -107,9 +108,6 @@ void CGUIPanelContainer::Render()
+   int cacheBefore, cacheAfter;
+   GetCacheOffsets(cacheBefore, cacheAfter);
+ 
+-  // Free memory not used on screen at the moment, do this first so there's more memory for the new items.
+-  FreeMemory(CorrectOffset(offset - cacheBefore, 0), CorrectOffset(offset + cacheAfter + m_itemsPerPage + 1, 0));
+-
+   if (g_graphicsContext.SetClipRegion(m_posX, m_posY, m_width, m_height))
+   {
+     CPoint origin = CPoint(m_posX, m_posY) + m_renderOffset;
+
+From c34028e6af638f614623874d5fceb111f94a77fa Mon Sep 17 00:00:00 2001
+From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
+Date: Fri, 21 Aug 2015 18:09:46 +0200
+Subject: [PATCH 16/17] Revert "[aml] - fix draining message queue"
+
+This breaks ff/rw/seek
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
+index 450b4a9..0503bec 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
+@@ -1867,7 +1867,9 @@ int CAMLCodec::Decode(uint8_t *pData, size_t iSize, double dts, double pts)
+   if (m_old_pictcnt == m_cur_pictcnt)
+     m_ready_event.WaitMSec(25);
+ 
+-  int rtn = 0;
++  // we must return VC_BUFFER or VC_PICTURE,
++  // default to VC_BUFFER.
++  int rtn = VC_BUFFER;
+   if (m_old_pictcnt != m_cur_pictcnt)
+   {
+     m_old_pictcnt++;
+
