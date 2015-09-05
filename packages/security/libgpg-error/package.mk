@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libgpg-error"
-PKG_VERSION="1.18"
+PKG_VERSION="1.20"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.gnupg.org/"
-PKG_URL="ftp://ftp.gnupg.org/gcrypt/libgpg-error/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://www.gnupg.org"
+PKG_URL="https://www.gnupg.org/ftp/gcrypt/libgpg-error/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="security"
