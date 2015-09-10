@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="util-linux"
-PKG_VERSION="2.26.2"
+PKG_VERSION="2.27"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v2.26/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v2.27/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_INIT="toolchain"
 PKG_PRIORITY="optional"
@@ -32,105 +32,70 @@ PKG_LONGDESC="The util-linux package contains a large variety of low-level syste
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-gtk-doc \
-                           --disable-nls \
-                           --disable-rpath \
-                           --enable-tls \
+UTILLINUX_CONFIG_DEFAULT="--disable-gtk-doc \
+                          --disable-nls \
+                          --disable-rpath \
+                          --enable-tls \
+                          --disable-all-programs \
+                          --enable-chsh-only-listed \
+                          --enable-libmount-force-mountinfo \
+                          --disable-bash-completion \
+                          --disable-colors-default \
+                          --disable-pylibmount \
+                          --disable-pg-bell \
+                          --disable-use-tty-group \
+                          --disable-makeinstall-chown \
+                          --disable-makeinstall-setuid \
+                          --with-gnu-ld \
+                          --without-selinux \
+                          --without-audit \
+                          --without-udev \
+                          --without-ncurses \
+                          --without-readline \
+                          --without-slang \
+                          --without-termcap \
+                          --without-tinfo \
+                          --without-utempter \
+                          --without-util \
+                          --without-libz \
+                          --without-user \
+                          --without-systemd \
+                          --without-smack \
+                          --without-python \
+                          --without-systemdsystemunitdir"
+
+PKG_CONFIGURE_OPTS_TARGET="$UTILLINUX_CONFIG_DEFAULT \
                            --enable-libuuid \
                            --enable-libblkid \
                            --enable-libmount \
                            --enable-libsmartcols \
-                           --disable-mount \
                            --enable-losetup \
                            --enable-fsck \
-                           --disable-partx \
-                           --enable-uuidd \
-                           --disable-mountpoint \
-                           --disable-fallocate \
-                           --disable-unshare \
-                           --disable-nsenter \
-                           --disable-setpriv \
-                           --disable-eject \
-                           --disable-agetty \
-                           --disable-cramfs \
-                           --disable-bfs \
-                           --disable-minix \
-                           --disable-fdformat \
-                           --disable-hwclock \
-                           --disable-wdctl \
-                           --disable-switch-root \
-                           --disable-pivot-root \
-                           --enable-tunelp \
-                           --disable-kill \
-                           --enable-deprecated-last \
-                           --disable-last \
-                           --disable-utmpdump \
-                           --disable-line \
-                           --disable-mesg \
-                           --disable-raw \
-                           --disable-rename \
-                           --disable-reset \
-                           --disable-vipw \
-                           --disable-newgrp \
-                           --disable-chfn-chsh \
-                           --enable-chsh-only-listed \
-                           --disable-login \
-                           --disable-login-chown-vcs \
-                           --disable-login-stat-mail \
-                           --disable-nologin \
-                           --disable-sulogin \
-                           --disable-su \
-                           --disable-runuser \
-                           --disable-ul \
-                           --disable-more \
-                           --disable-pg \
-                           --disable-setterm \
-                           --disable-schedutils \
-                           --disable-wall \
-                           --disable-write \
-                           --disable-bash-completion \
-                           --disable-pylibmount \
-                           --disable-pg-bell \
-                           --disable-use-tty-group \
-                           --disable-makeinstall-chown \
-                           --disable-makeinstall-setuid \
-                           --with-gnu-ld \
-                           --without-selinux \
-                           --without-audit \
-                           --without-udev \
-                           --without-ncurses \
-                           --without-slang \
-                           --without-utempter \
-                           --without-python \
-                           --without-systemdsystemunitdir"
+                           --enable-blkid"
 
-PKG_CONFIGURE_OPTS_HOST="$PKG_CONFIGURE_OPTS_TARGET \
-                         --enable-static \
-                         --disable-shared"
+if [ "$SWAP_SUPPORT" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-swapon"
+fi
 
-PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET \
-                         --prefix=/ \
+PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared $UTILLINUX_CONFIG_DEFAULT"
+
+PKG_CONFIGURE_OPTS_INIT="--prefix=/ \
                          --bindir=/bin \
                          --sbindir=/sbin \
                          --sysconfdir=/etc \
                          --libexecdir=/lib \
                          --localstatedir=/var \
-                         --enable-static --disable-shared"
+                         $UTILLINUX_CONFIG_DEFAULT \
+                         --enable-libblkid \
+                         --enable-libmount \
+                         --enable-fsck"
+                         
+if [ "$INITRAMFS_PARTED_SUPPORT" = "yes" ]; then
+  PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_INIT --enable-mkfs --enable-libuuid"
+fi
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
-  rm -rf $INSTALL/usr/sbin
-  rm -rf $INSTALL/usr/share
-
-  mkdir -p $INSTALL/usr/sbin
-    cp .libs/blkid $INSTALL/usr/sbin
-    cp .libs/fsck $INSTALL/usr/sbin
-    cp .libs/losetup $INSTALL/usr/sbin
-
   if [ "$SWAP_SUPPORT" = "yes" ]; then
-    cp .libs/swapon $INSTALL/usr/sbin
-    cp .libs/swapoff $INSTALL/usr/sbin
-
     mkdir -p $INSTALL/usr/lib/openelec
       cp -PR $PKG_DIR/scripts/mount-swap $INSTALL/usr/lib/openelec
 
@@ -140,24 +105,6 @@ post_makeinstall_target() {
             -e "s,@SWAP_ENABLED_DEFAULT@,$SWAP_ENABLED_DEFAULT,g" \
             > $INSTALL/etc/swap.conf
   fi
-}
-
-post_makeinstall_init() {
-  rm -rf $INSTALL/bin
-  rm -rf $INSTALL/sbin
-
-  if [ $INITRAMFS_PARTED_SUPPORT = "yes" ]; then
-    # install libuuid and libblkid here, needed by 'parted'
-    rm -rf $INSTALL/lib/libmount.so*
-
-    mkdir -p $INSTALL/sbin
-      cp mkfs $INSTALL/sbin
-  else
-    rm -rf $INSTALL/lib
-  fi
-
-  mkdir -p $INSTALL/sbin
-    cp fsck $INSTALL/sbin
 }
 
 post_install () {
