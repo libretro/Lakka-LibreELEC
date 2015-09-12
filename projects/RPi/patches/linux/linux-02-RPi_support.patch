@@ -1,0 +1,1362 @@
+From be4447c2a97d581eae2533d2a53185d7f6d7399c Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 18 Aug 2015 11:50:03 +0100
+Subject: [PATCH 01/12] spi: bcm2835: Fix buld error from previous commit
+
+---
+ drivers/spi/spi-bcm2835.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/spi/spi-bcm2835.c b/drivers/spi/spi-bcm2835.c
+index cedffe1..338babc3 100644
+--- a/drivers/spi/spi-bcm2835.c
++++ b/drivers/spi/spi-bcm2835.c
+@@ -592,7 +592,6 @@ static int bcm2835_spi_transfer_one(struct spi_master *master,
+ 	return bcm2835_spi_transfer_one_irq(master, spi, tfr, cs);
+ }
+ 
+-#if 0
+ static void bcm2835_spi_handle_err(struct spi_master *master,
+ 				   struct spi_message *msg)
+ {
+@@ -607,7 +606,6 @@ static void bcm2835_spi_handle_err(struct spi_master *master,
+ 	/* and reset */
+ 	bcm2835_spi_reset_hw(master);
+ }
+-#endif
+ 
+ static void bcm2835_spi_set_cs(struct spi_device *spi, bool gpio_level)
+ {
+
+From 08f17a889c2ef85d0113b00ce11f89ae9f9e5b4a Mon Sep 17 00:00:00 2001
+From: Phil Elwell <phil@raspberrypi.org>
+Date: Wed, 19 Aug 2015 11:38:10 +0100
+Subject: [PATCH 02/12] BCM270X_DT: README - add note on indentation
+
+---
+ arch/arm/boot/dts/overlays/README | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/overlays/README b/arch/arm/boot/dts/overlays/README
+index bda8c14..ac9c427 100644
+--- a/arch/arm/boot/dts/overlays/README
++++ b/arch/arm/boot/dts/overlays/README
+@@ -74,6 +74,10 @@ behaviour. See the list of overlays below for a description of the parameters an
+ The Overlay and Parameter Reference
+ ===================================
+ 
++N.B. When editing this file, please preserve the indentation levels to make it simple to parse
++programmatically. NO HARD TABS.
++
++
+ Name:   <The base DTB>
+ Info:   Configures the base Raspberry Pi hardware
+ Load:   <loaded automatically>
+
+From df51828276d7bba5c54bb88a0c3df7a319a70300 Mon Sep 17 00:00:00 2001
+From: Phil Elwell <phil@raspberrypi.org>
+Date: Thu, 20 Aug 2015 13:50:18 +0100
+Subject: [PATCH 03/12] bcm2708-dmaengine: Use more DMA channels (but not 12)
+
+1) Only the bcm2708_fb drivers uses the legacy DMA API, and
+it requires a BULK-capable channel, so all other types
+(FAST, NORMAL and LITE) can be made available to the regular
+DMA API.
+
+2) DMA channels 11-14 share an interrupt. The driver can't
+handle this, so don't use channels 12-14 (12 was used, probably
+because it appears to have an interrupt, but in reality that
+interrupt is for activity on ANY channel). This may explain
+a lockup encountered when running out of DMA channels.
+
+The combined effect of this patch is to leave 7 DMA channels
+available + channel 0 for bcm2708_fb via the legacy API.
+
+See: https://github.com/raspberrypi/linux/issues/1110
+     https://github.com/raspberrypi/linux/issues/1108
+---
+ arch/arm/boot/dts/bcm2708_common.dtsi |  5 ++--
+ drivers/dma/bcm2708-dmaengine.c       | 43 +++++++++++++++++++++++------------
+ 2 files changed, 31 insertions(+), 17 deletions(-)
+
+diff --git a/arch/arm/boot/dts/bcm2708_common.dtsi b/arch/arm/boot/dts/bcm2708_common.dtsi
+index ea3bd9ca..f096f45 100644
+--- a/arch/arm/boot/dts/bcm2708_common.dtsi
++++ b/arch/arm/boot/dts/bcm2708_common.dtsi
+@@ -59,11 +59,10 @@
+ 				     <1 24>,
+ 				     <1 25>,
+ 				     <1 26>,
+-				     <1 27>,
+-				     <1 28>;
++				     <1 27>;
+ 
+ 			#dma-cells = <1>;
+-			brcm,dma-channel-mask = <0x7f35>;
++			brcm,dma-channel-mask = <0x0f35>;
+ 		};
+ 
+ 		intc: interrupt-controller {
+diff --git a/drivers/dma/bcm2708-dmaengine.c b/drivers/dma/bcm2708-dmaengine.c
+index 73c6c00..85ce18b 100644
+--- a/drivers/dma/bcm2708-dmaengine.c
++++ b/drivers/dma/bcm2708-dmaengine.c
+@@ -184,7 +184,7 @@ static void vc_dmaman_init(struct vc_dmaman *dmaman, void __iomem *dma_base,
+ }
+ 
+ static int vc_dmaman_chan_alloc(struct vc_dmaman *dmaman,
+-				unsigned preferred_feature_set)
++				unsigned required_feature_set)
+ {
+ 	u32 chans;
+ 	int chan = 0;
+@@ -193,10 +193,8 @@ static int vc_dmaman_chan_alloc(struct vc_dmaman *dmaman,
+ 	chans = dmaman->chan_available;
+ 	for (feature = 0; feature < BCM_DMA_FEATURE_COUNT; feature++)
+ 		/* select the subset of available channels with the desired
+-		   feature so long as some of the candidate channels have that
+-		   feature */
+-		if ((preferred_feature_set & (1 << feature)) &&
+-		    (chans & dmaman->has_feature[feature]))
++		   features */
++		if (required_feature_set & (1 << feature))
+ 			chans &= dmaman->has_feature[feature];
+ 
+ 	if (!chans)
+@@ -228,7 +226,7 @@ static int vc_dmaman_chan_free(struct vc_dmaman *dmaman, int chan)
+ 
+ /* DMA Manager Monitor */
+ 
+-extern int bcm_dma_chan_alloc(unsigned preferred_feature_set,
++extern int bcm_dma_chan_alloc(unsigned required_feature_set,
+ 			      void __iomem **out_dma_base, int *out_dma_irq)
+ {
+ 	struct vc_dmaman *dmaman = g_dmaman;
+@@ -240,7 +238,7 @@ extern int bcm_dma_chan_alloc(unsigned preferred_feature_set,
+ 		return -ENODEV;
+ 
+ 	mutex_lock(&dmaman->lock);
+-	chan = vc_dmaman_chan_alloc(dmaman, preferred_feature_set);
++	chan = vc_dmaman_chan_alloc(dmaman, required_feature_set);
+ 	if (chan < 0)
+ 		goto out;
+ 
+@@ -442,6 +440,7 @@ static inline struct bcm2835_desc *to_bcm2835_dma_desc(
+ 	return container_of(t, struct bcm2835_desc, vd.tx);
+ }
+ 
++#if 0
+ static void dma_dumpregs(struct bcm2835_chan *c)
+ {
+ 	pr_debug("-------------DMA DUMPREGS-------------\n");
+@@ -457,6 +456,7 @@ static void dma_dumpregs(struct bcm2835_chan *c)
+ 		readl(c->chan_base + BCM2835_DMA_NEXTCB));
+ 	pr_debug("--------------------------------------\n");
+ }
++#endif
+ 
+ static void bcm2835_dma_desc_free(struct virt_dma_desc *vd)
+ {
+@@ -862,6 +862,7 @@ static struct dma_async_tx_descriptor *bcm2835_dma_prep_slave_sg(
+ 		uint32_t len = sg_dma_len(sgent);
+ 
+ 		for (j = 0; j < len; j += max_size) {
++			u32 waits;
+ 			struct bcm2835_dma_cb *control_block =
+ 				&d->control_block_base[i+splitct];
+ 
+@@ -879,7 +880,7 @@ static struct dma_async_tx_descriptor *bcm2835_dma_prep_slave_sg(
+ 			}
+ 
+ 			/* Common part */
+-			u32 waits = SDHCI_BCM_DMA_WAITS;
++			waits = SDHCI_BCM_DMA_WAITS;
+ 			if ((dma_debug >> 0) & 0x1f)
+ 				waits = (dma_debug >> 0) & 0x1f;
+ 			control_block->info |= BCM2835_DMA_WAITS(waits);
+@@ -1074,6 +1075,14 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
+ 	int rc;
+ 	int i;
+ 	int irq;
++#ifdef CONFIG_DMA_BCM2708_LEGACY
++	static const u32 wanted_features[] = {
++		BCM_DMA_FEATURE_FAST,
++		BCM_DMA_FEATURE_NORMAL,
++		BCM_DMA_FEATURE_LITE
++	};
++	int j;
++#endif
+ 
+ 
+ 	if (!pdev->dev.dma_mask)
+@@ -1120,20 +1129,24 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, od);
+ 
+-	for (i = 0; i < 5; i++) {
++	for (i = 0, j = 0; j < ARRAY_SIZE(wanted_features);) {
++
+ 		void __iomem *chan_base;
+ 		int chan_id;
+ 
+-		chan_id = bcm_dma_chan_alloc(BCM_DMA_FEATURE_LITE,
+-			&chan_base,
+-			&irq);
++		chan_id = bcm_dma_chan_alloc(wanted_features[j],
++					     &chan_base,
++					     &irq);
+ 
+-		if (chan_id < 0)
+-			break;
++		if (chan_id < 0) {
++			j++;
++			continue;
++		}
+ 
+ 		rc = bcm2708_dma_chan_init(od, chan_base, chan_id, irq);
+ 		if (rc)
+ 			goto err_no_dma;
++		i++;
+ 	}
+ 
+ 	if (pdev->dev.of_node) {
+@@ -1146,6 +1159,8 @@ static int bcm2835_dma_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
++	dev_info(&pdev->dev, "Initialized %i DMA channels (+ 1 legacy)\n", i);
++
+ #else
+ 	rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+ 	if (rc)
+
+From bba9094e11201faafc16c376d2be8b5e2812af95 Mon Sep 17 00:00:00 2001
+From: Jan Grulich <jan@grulich.eu>
+Date: Mon, 24 Aug 2015 16:03:47 +0100
+Subject: [PATCH 04/12] RaspiDAC3 support
+
+Signed-off-by: Jan Grulich <jan@grulich.eu>
+---
+ arch/arm/boot/dts/overlays/Makefile              |   1 +
+ arch/arm/boot/dts/overlays/README                |   6 +
+ arch/arm/boot/dts/overlays/raspidac3-overlay.dts |  45 ++++++
+ arch/arm/configs/bcm2709_defconfig               |   1 +
+ arch/arm/configs/bcmrpi_defconfig                |   1 +
+ sound/soc/bcm/Kconfig                            |   8 +
+ sound/soc/bcm/Makefile                           |   2 +
+ sound/soc/bcm/raspidac3.c                        | 191 +++++++++++++++++++++++
+ 8 files changed, 255 insertions(+)
+ create mode 100644 arch/arm/boot/dts/overlays/raspidac3-overlay.dts
+ create mode 100644 sound/soc/bcm/raspidac3.c
+
+diff --git a/arch/arm/boot/dts/overlays/Makefile b/arch/arm/boot/dts/overlays/Makefile
+index 956e395..9b03b1f 100644
+--- a/arch/arm/boot/dts/overlays/Makefile
++++ b/arch/arm/boot/dts/overlays/Makefile
+@@ -37,6 +37,7 @@ dtb-$(RPI_DT_OVERLAYS) += pitft28-resistive-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += pps-gpio-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += pwm-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += pwm-2chan-overlay.dtb
++dtb-$(RPI_DT_OVERLAYS) += raspidac3-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += rpi-dac-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += rpi-display-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += rpi-ft5406-overlay.dtb
+diff --git a/arch/arm/boot/dts/overlays/README b/arch/arm/boot/dts/overlays/README
+index ac9c427..7e38eb3 100644
+--- a/arch/arm/boot/dts/overlays/README
++++ b/arch/arm/boot/dts/overlays/README
+@@ -455,6 +455,12 @@ Params: pin                      Output pin (default 18) - see table
+         clock                    PWM clock frequency (informational)
+ 
+ 
++Name:   raspidac3
++Info:   Configures the RaspiDAV Rev.3x audio card
++Load:   dtoverlay=raspidac3
++Params: <None>
++
++
+ Name:   rpi-dac
+ Info:   Configures the RPi DAC audio card
+ Load:   dtoverlay=rpi-dac
+diff --git a/arch/arm/boot/dts/overlays/raspidac3-overlay.dts b/arch/arm/boot/dts/overlays/raspidac3-overlay.dts
+new file mode 100644
+index 0000000..1bd8054
+--- /dev/null
++++ b/arch/arm/boot/dts/overlays/raspidac3-overlay.dts
+@@ -0,0 +1,45 @@
++// Definitions for RaspiDACv3
++/dts-v1/;
++/plugin/;
++
++/ {
++	compatible = "brcm,bcm2708";
++
++	fragment@0 {
++		target = <&sound>;
++		__overlay__ {
++			compatible = "jg,raspidacv3";
++			i2s-controller = <&i2s>;
++			status = "okay";
++		};
++	};
++
++	fragment@1 {
++		target = <&i2s>;
++		__overlay__ {
++			status = "okay";
++		};
++	};
++
++	fragment@2 {
++		target = <&i2c1>;
++		__overlay__ {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "okay";
++
++			pcm5122@4c {
++				#sound-dai-cells = <0>;
++				compatible = "ti,pcm5122";
++				reg = <0x4c>;
++				status = "okay";
++			};
++
++			tpa6130a2: tpa6130a2@60 {
++				compatible = "ti,tpa6130a2";
++				reg = <0x60>;
++				status = "okay";
++			};
++		};
++	};
++};
+diff --git a/arch/arm/configs/bcm2709_defconfig b/arch/arm/configs/bcm2709_defconfig
+index d7457fc..0d457a3 100644
+--- a/arch/arm/configs/bcm2709_defconfig
++++ b/arch/arm/configs/bcm2709_defconfig
+@@ -832,6 +832,7 @@ CONFIG_SND_BCM2708_SOC_HIFIBERRY_AMP=m
+ CONFIG_SND_BCM2708_SOC_RPI_DAC=m
+ CONFIG_SND_BCM2708_SOC_RPI_PROTO=m
+ CONFIG_SND_BCM2708_SOC_IQAUDIO_DAC=m
++CONFIG_SND_BCM2708_SOC_RASPIDAC3=m
+ CONFIG_SND_SOC_WM8804_I2C=m
+ CONFIG_SND_SIMPLE_CARD=m
+ CONFIG_SOUND_PRIME=m
+diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
+index 59b2fdd..8979f23 100644
+--- a/arch/arm/configs/bcmrpi_defconfig
++++ b/arch/arm/configs/bcmrpi_defconfig
+@@ -825,6 +825,7 @@ CONFIG_SND_BCM2708_SOC_HIFIBERRY_AMP=m
+ CONFIG_SND_BCM2708_SOC_RPI_DAC=m
+ CONFIG_SND_BCM2708_SOC_RPI_PROTO=m
+ CONFIG_SND_BCM2708_SOC_IQAUDIO_DAC=m
++CONFIG_SND_BCM2708_SOC_RASPIDAC3=m
+ CONFIG_SND_SOC_WM8804_I2C=m
+ CONFIG_SND_SIMPLE_CARD=m
+ CONFIG_SOUND_PRIME=m
+diff --git a/sound/soc/bcm/Kconfig b/sound/soc/bcm/Kconfig
+index fc151ea..3db2852 100644
+--- a/sound/soc/bcm/Kconfig
++++ b/sound/soc/bcm/Kconfig
+@@ -67,3 +67,11 @@ config SND_BCM2708_SOC_IQAUDIO_DAC
+ 	select SND_SOC_PCM512x_I2C
+ 	help
+ 	  Say Y or M if you want to add support for IQaudIO-DAC.
++
++config SND_BCM2708_SOC_RASPIDAC3
++	tristate "Support for RaspiDAC Rev.3x"
++	depends on SND_BCM2708_SOC_I2S
++	select SND_SOC_PCM512x_I2C
++	select SND_SOC_TPA6130A2
++	help
++	  Say Y or M if you want to add support for RaspiDAC Rev.3x.
+diff --git a/sound/soc/bcm/Makefile b/sound/soc/bcm/Makefile
+index 883241b..621358b 100644
+--- a/sound/soc/bcm/Makefile
++++ b/sound/soc/bcm/Makefile
+@@ -16,6 +16,7 @@ snd-soc-hifiberry-amp-objs := hifiberry_amp.o
+ snd-soc-rpi-dac-objs := rpi-dac.o
+ snd-soc-rpi-proto-objs := rpi-proto.o
+ snd-soc-iqaudio-dac-objs := iqaudio-dac.o
++snd-soc-raspidac3-objs := raspidac3.o
+ 
+ obj-$(CONFIG_SND_BCM2708_SOC_HIFIBERRY_DAC) += snd-soc-hifiberry-dac.o
+ obj-$(CONFIG_SND_BCM2708_SOC_HIFIBERRY_DACPLUS) += snd-soc-hifiberry-dacplus.o
+@@ -24,3 +25,4 @@ obj-$(CONFIG_SND_BCM2708_SOC_HIFIBERRY_AMP) += snd-soc-hifiberry-amp.o
+ obj-$(CONFIG_SND_BCM2708_SOC_RPI_DAC) += snd-soc-rpi-dac.o
+ obj-$(CONFIG_SND_BCM2708_SOC_RPI_PROTO) += snd-soc-rpi-proto.o
+ obj-$(CONFIG_SND_BCM2708_SOC_IQAUDIO_DAC) += snd-soc-iqaudio-dac.o
++obj-$(CONFIG_SND_BCM2708_SOC_RASPIDAC3) += snd-soc-raspidac3.o
+diff --git a/sound/soc/bcm/raspidac3.c b/sound/soc/bcm/raspidac3.c
+new file mode 100644
+index 0000000..fddaeec
+--- /dev/null
++++ b/sound/soc/bcm/raspidac3.c
+@@ -0,0 +1,191 @@
++/*
++ * ASoC Driver for RaspiDAC v3
++ *
++ * Author:	Jan Grulich <jan@grulich.eu>
++ *		Copyright 2015
++ *              based on code by Daniel Matuschek <daniel@hifiberry.com>
++ *		based on code by Florian Meier <florian.meier@koalo.de>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++
++#include <linux/module.h>
++#include <linux/platform_device.h>
++
++#include <sound/core.h>
++#include <sound/pcm.h>
++#include <sound/pcm_params.h>
++#include <sound/soc.h>
++#include <sound/jack.h>
++#include <sound/soc-dapm.h>
++
++#include "../codecs/pcm512x.h"
++#include "../codecs/tpa6130a2.h"
++
++/* sound card init */
++static int snd_rpi_raspidac3_init(struct snd_soc_pcm_runtime *rtd)
++{
++	int ret;
++	struct snd_soc_card *card = rtd->card;
++	struct snd_soc_codec *codec = rtd->codec;
++	snd_soc_update_bits(codec, PCM512x_GPIO_EN, 0x08, 0x08);
++	snd_soc_update_bits(codec, PCM512x_GPIO_OUTPUT_4, 0xf, 0x02);
++	snd_soc_update_bits(codec, PCM512x_GPIO_CONTROL_1, 0x08,0x00);
++
++	ret = snd_soc_limit_volume(codec, "Digital Playback Volume", 207);
++	if (ret < 0)
++		dev_warn(card->dev, "Failed to set volume limit: %d\n", ret);
++	else {
++		struct snd_kcontrol *kctl;
++
++		ret = tpa6130a2_add_controls(codec);
++		if (ret < 0)
++			dev_warn(card->dev, "Failed to add TPA6130A2 controls: %d\n",
++				 ret);
++		ret = snd_soc_limit_volume(codec,
++					   "TPA6130A2 Headphone Playback Volume",
++					   54);
++		if (ret < 0)
++			dev_warn(card->dev, "Failed to set TPA6130A2 volume limit: %d\n",
++				 ret);
++		kctl = snd_soc_card_get_kcontrol(card,
++						 "TPA6130A2 Headphone Playback Volume");
++		if (kctl) {
++			strcpy(kctl->id.name, "Headphones Playback Volume");
++			/* disable the volume dB scale so alsamixer works */
++			kctl->vd[0].access = SNDRV_CTL_ELEM_ACCESS_READWRITE;
++		}
++
++		kctl = snd_soc_card_get_kcontrol(card,
++						 "TPA6130A2 Headphone Playback Switch");
++		if (kctl)
++			strcpy(kctl->id.name, "Headphones Playback Switch");
++	}
++
++	return 0;
++}
++
++/* set hw parameters */
++static int snd_rpi_raspidac3_hw_params(struct snd_pcm_substream *substream,
++				       struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
++
++	unsigned int sample_bits =
++		snd_pcm_format_physical_width(params_format(params));
++
++	return snd_soc_dai_set_bclk_ratio(cpu_dai, sample_bits * 2);
++}
++
++/* startup */
++static int snd_rpi_raspidac3_startup(struct snd_pcm_substream *substream) {
++	struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	struct snd_soc_codec *codec = rtd->codec;
++	snd_soc_update_bits(codec, PCM512x_GPIO_CONTROL_1, 0x08,0x08);
++	tpa6130a2_stereo_enable(codec, 1);
++	return 0;
++}
++
++/* shutdown */
++static void snd_rpi_raspidac3_shutdown(struct snd_pcm_substream *substream) {
++	struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	struct snd_soc_codec *codec = rtd->codec;
++	snd_soc_update_bits(codec, PCM512x_GPIO_CONTROL_1, 0x08,0x00);
++	tpa6130a2_stereo_enable(codec, 0);
++}
++
++/* machine stream operations */
++static struct snd_soc_ops snd_rpi_raspidac3_ops = {
++	.hw_params = snd_rpi_raspidac3_hw_params,
++	.startup = snd_rpi_raspidac3_startup,
++	.shutdown = snd_rpi_raspidac3_shutdown,
++};
++
++/* interface setup */
++static struct snd_soc_dai_link snd_rpi_raspidac3_dai[] = {
++{
++	.name		= "RaspiDAC Rev.3x",
++	.stream_name	= "RaspiDAC HiFi",
++	.cpu_dai_name	= "bcm2708-i2s.0",
++	.codec_dai_name	= "pcm512x-hifi",
++	.platform_name	= "bcm2708-i2s.0",
++	.codec_name	= "pcm512x.1-004c",
++	.dai_fmt	= SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
++				SND_SOC_DAIFMT_CBS_CFS,
++	.ops		= &snd_rpi_raspidac3_ops,
++	.init		= snd_rpi_raspidac3_init,
++},
++};
++
++/* audio machine driver */
++static struct snd_soc_card snd_rpi_raspidac3 = {
++	.name         = "RaspiDAC Rev.3x HiFi Audio Card",
++	.dai_link     = snd_rpi_raspidac3_dai,
++	.num_links    = ARRAY_SIZE(snd_rpi_raspidac3_dai),
++};
++
++/* sound card test */
++static int snd_rpi_raspidac3_probe(struct platform_device *pdev)
++{
++	int ret = 0;
++
++	snd_rpi_raspidac3.dev = &pdev->dev;
++
++	if (pdev->dev.of_node) {
++	    struct device_node *i2s_node;
++	    struct snd_soc_dai_link *dai = &snd_rpi_raspidac3_dai[0];
++	    i2s_node = of_parse_phandle(pdev->dev.of_node,
++					"i2s-controller", 0);
++
++	    if (i2s_node) {
++		dai->cpu_dai_name = NULL;
++		dai->cpu_of_node = i2s_node;
++		dai->platform_name = NULL;
++		dai->platform_of_node = i2s_node;
++	    }
++	}
++
++	ret = snd_soc_register_card(&snd_rpi_raspidac3);
++	if (ret)
++		dev_err(&pdev->dev,
++			"snd_soc_register_card() failed: %d\n", ret);
++
++	return ret;
++}
++
++/* sound card disconnect */
++static int snd_rpi_raspidac3_remove(struct platform_device *pdev)
++{
++	return snd_soc_unregister_card(&snd_rpi_raspidac3);
++}
++
++static const struct of_device_id raspidac3_of_match[] = {
++	{ .compatible = "jg,raspidacv3", },
++	{},
++};
++MODULE_DEVICE_TABLE(of, raspidac3_of_match);
++
++/* sound card platform driver */
++static struct platform_driver snd_rpi_raspidac3_driver = {
++	.driver = {
++		.name   = "snd-rpi-raspidac3",
++		.owner  = THIS_MODULE,
++		.of_match_table = raspidac3_of_match,
++	},
++	.probe          = snd_rpi_raspidac3_probe,
++	.remove         = snd_rpi_raspidac3_remove,
++};
++
++module_platform_driver(snd_rpi_raspidac3_driver);
++
++MODULE_AUTHOR("Jan Grulich <jan@grulich.eu>");
++MODULE_DESCRIPTION("ASoC Driver for RaspiDAC Rev.3x");
++MODULE_LICENSE("GPL v2");
+
+From 01cf510f87806da99165ea002e440c5f8fbd8e00 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 14 Jul 2015 16:55:02 +0100
+Subject: [PATCH 05/12] config: Add SND_SOC_ADAU1701 module
+
+---
+ arch/arm/configs/bcm2709_defconfig | 1 +
+ arch/arm/configs/bcmrpi_defconfig  | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm/configs/bcm2709_defconfig b/arch/arm/configs/bcm2709_defconfig
+index 0d457a3..16a8354 100644
+--- a/arch/arm/configs/bcm2709_defconfig
++++ b/arch/arm/configs/bcm2709_defconfig
+@@ -833,6 +833,7 @@ CONFIG_SND_BCM2708_SOC_RPI_DAC=m
+ CONFIG_SND_BCM2708_SOC_RPI_PROTO=m
+ CONFIG_SND_BCM2708_SOC_IQAUDIO_DAC=m
+ CONFIG_SND_BCM2708_SOC_RASPIDAC3=m
++CONFIG_SND_SOC_ADAU1701=m
+ CONFIG_SND_SOC_WM8804_I2C=m
+ CONFIG_SND_SIMPLE_CARD=m
+ CONFIG_SOUND_PRIME=m
+diff --git a/arch/arm/configs/bcmrpi_defconfig b/arch/arm/configs/bcmrpi_defconfig
+index 8979f23..7dd4fd4 100644
+--- a/arch/arm/configs/bcmrpi_defconfig
++++ b/arch/arm/configs/bcmrpi_defconfig
+@@ -826,6 +826,7 @@ CONFIG_SND_BCM2708_SOC_RPI_DAC=m
+ CONFIG_SND_BCM2708_SOC_RPI_PROTO=m
+ CONFIG_SND_BCM2708_SOC_IQAUDIO_DAC=m
+ CONFIG_SND_BCM2708_SOC_RASPIDAC3=m
++CONFIG_SND_SOC_ADAU1701=m
+ CONFIG_SND_SOC_WM8804_I2C=m
+ CONFIG_SND_SIMPLE_CARD=m
+ CONFIG_SOUND_PRIME=m
+
+From 0ea0a9218222a8a44287ce3c3eae342c506f0275 Mon Sep 17 00:00:00 2001
+From: Martin Sperl <kernel@martin.sperl.org>
+Date: Tue, 28 Jul 2015 14:03:12 +0000
+Subject: [PATCH 06/12] spi: bcm2835: set up spi-mode before asserting cs-gpio
+
+When using reverse polarity for clock (spi-cpol) on a device
+the clock line gets altered after chip-select has been asserted
+resulting in an additional clock beat, which confuses hardware.
+
+This did not show when using native-CS, as the same register
+is used to control cs as well as polarity, so the changes came
+into effect at the same time. Unfortunately this is not true
+with gpio-cs.
+
+To avoid this situation this patch moves the setup of polarity
+(spi-cpol and spi-cpha) outside of the chip-select into
+prepare_message, which is run prior to asserting chip-select.
+
+Also fixes resetting 3-wire mode after use of rx-mode, so that
+a 3-Wire sequence TX, RX, TX works as well (right now it runs
+TX, RX, RX instead)
+
+Reported-by: Noralf Tronnes <noralf@tronnes.org>
+Signed-off-by: Martin Sperl <kernel@martin.sperl.org>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+Cc: stable@vger.kernel.org
+(cherry picked from commit acace73df2c1913a526c1b41e4741a4a6704c863)
+---
+ drivers/spi/spi-bcm2835.c | 28 +++++++++++++++++++++++-----
+ 1 file changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/spi/spi-bcm2835.c b/drivers/spi/spi-bcm2835.c
+index 338babc3..bad36c5 100644
+--- a/drivers/spi/spi-bcm2835.c
++++ b/drivers/spi/spi-bcm2835.c
+@@ -553,13 +553,11 @@ static int bcm2835_spi_transfer_one(struct spi_master *master,
+ 	spi_used_hz = cdiv ? (clk_hz / cdiv) : (clk_hz / 65536);
+ 	bcm2835_wr(bs, BCM2835_SPI_CLK, cdiv);
+ 
+-	/* handle all the modes */
++	/* handle all the 3-wire mode */
+ 	if ((spi->mode & SPI_3WIRE) && (tfr->rx_buf))
+ 		cs |= BCM2835_SPI_CS_REN;
+-	if (spi->mode & SPI_CPOL)
+-		cs |= BCM2835_SPI_CS_CPOL;
+-	if (spi->mode & SPI_CPHA)
+-		cs |= BCM2835_SPI_CS_CPHA;
++	else
++		cs &= ~BCM2835_SPI_CS_REN;
+ 
+ 	/* for gpio_cs set dummy CS so that no HW-CS get changed
+ 	 * we can not run this in bcm2835_spi_set_cs, as it does
+@@ -592,6 +590,25 @@ static int bcm2835_spi_transfer_one(struct spi_master *master,
+ 	return bcm2835_spi_transfer_one_irq(master, spi, tfr, cs);
+ }
+ 
++static int bcm2835_spi_prepare_message(struct spi_master *master,
++				       struct spi_message *msg)
++{
++	struct spi_device *spi = msg->spi;
++	struct bcm2835_spi *bs = spi_master_get_devdata(master);
++	u32 cs = bcm2835_rd(bs, BCM2835_SPI_CS);
++
++	cs &= ~(BCM2835_SPI_CS_CPOL | BCM2835_SPI_CS_CPHA);
++
++	if (spi->mode & SPI_CPOL)
++		cs |= BCM2835_SPI_CS_CPOL;
++	if (spi->mode & SPI_CPHA)
++		cs |= BCM2835_SPI_CS_CPHA;
++
++	bcm2835_wr(bs, BCM2835_SPI_CS, cs);
++
++	return 0;
++}
++
+ static void bcm2835_spi_handle_err(struct spi_master *master,
+ 				   struct spi_message *msg)
+ {
+@@ -768,6 +785,7 @@ static int bcm2835_spi_probe(struct platform_device *pdev)
+ 	master->set_cs = bcm2835_spi_set_cs;
+ 	master->transfer_one = bcm2835_spi_transfer_one;
+ 	master->handle_err = bcm2835_spi_handle_err;
++	master->prepare_message = bcm2835_spi_prepare_message;
+ 	master->dev.of_node = pdev->dev.of_node;
+ 
+ 	bs = spi_master_get_devdata(master);
+
+From 90a45e29caa6417d23fcba215779e471dd9a4748 Mon Sep 17 00:00:00 2001
+From: Martin Sperl <kernel@martin.sperl.org>
+Date: Wed, 29 Jul 2015 07:34:10 +0000
+Subject: [PATCH 07/12] spi: bcm2835: fix overflow in calculation of transfer
+ time
+
+This resulted in the use of polling mode when other approaches
+(dma or interrupts) would have been more appropriate.
+
+Happened for transfers longer than 477 bytes.
+
+Reported-by: Noralf Tronnes <noralf@tronnes.org>
+Signed-off-by: Martin Sperl <kernel@martin.sperl.org>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+(cherry picked from commit 0122a5183088e3117bb9c8fbe248914efb502f3f)
+---
+ drivers/spi/spi-bcm2835.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/spi/spi-bcm2835.c b/drivers/spi/spi-bcm2835.c
+index bad36c5..b68991c 100644
+--- a/drivers/spi/spi-bcm2835.c
++++ b/drivers/spi/spi-bcm2835.c
+@@ -480,7 +480,7 @@ static int bcm2835_spi_transfer_one_poll(struct spi_master *master,
+ 					 struct spi_device *spi,
+ 					 struct spi_transfer *tfr,
+ 					 u32 cs,
+-					 unsigned long xfer_time_us)
++					 unsigned long long xfer_time_us)
+ {
+ 	struct bcm2835_spi *bs = spi_master_get_devdata(master);
+ 	unsigned long timeout;
+@@ -531,7 +531,8 @@ static int bcm2835_spi_transfer_one(struct spi_master *master,
+ {
+ 	struct bcm2835_spi *bs = spi_master_get_devdata(master);
+ 	unsigned long spi_hz, clk_hz, cdiv;
+-	unsigned long spi_used_hz, xfer_time_us;
++	unsigned long spi_used_hz;
++	unsigned long long xfer_time_us;
+ 	u32 cs = bcm2835_rd(bs, BCM2835_SPI_CS);
+ 
+ 	/* set clock */
+@@ -573,9 +574,10 @@ static int bcm2835_spi_transfer_one(struct spi_master *master,
+ 	bs->rx_len = tfr->len;
+ 
+ 	/* calculate the estimated time in us the transfer runs */
+-	xfer_time_us = tfr->len
++	xfer_time_us = (unsigned long long)tfr->len
+ 		* 9 /* clocks/byte - SPI-HW waits 1 clock after each byte */
+-		* 1000000 / spi_used_hz;
++		* 1000000;
++	do_div(xfer_time_us, spi_used_hz);
+ 
+ 	/* for short requests run polling*/
+ 	if (xfer_time_us <= BCM2835_SPI_POLLING_LIMIT_US)
+
+From e0664c2cab66019054cabb4ca7af973e74fea983 Mon Sep 17 00:00:00 2001
+From: Phil Elwell <phil@raspberrypi.org>
+Date: Tue, 8 Sep 2015 15:14:50 +0100
+Subject: [PATCH 08/12] BCM270X_DT: Add SDIO overlay
+
+Enable SDIO from MMC interface via GPIOs 22-27. Includes the sdhost
+overlay to free up the MMC interface.
+---
+ arch/arm/boot/dts/overlays/Makefile         |  1 +
+ arch/arm/boot/dts/overlays/README           | 15 +++++++++++++++
+ arch/arm/boot/dts/overlays/sdio-overlay.dts | 29 +++++++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+)
+ create mode 100644 arch/arm/boot/dts/overlays/sdio-overlay.dts
+
+diff --git a/arch/arm/boot/dts/overlays/Makefile b/arch/arm/boot/dts/overlays/Makefile
+index 9b03b1f..43e9c96 100644
+--- a/arch/arm/boot/dts/overlays/Makefile
++++ b/arch/arm/boot/dts/overlays/Makefile
+@@ -44,6 +44,7 @@ dtb-$(RPI_DT_OVERLAYS) += rpi-ft5406-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += rpi-proto-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += rpi-sense-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += sdhost-overlay.dtb
++dtb-$(RPI_DT_OVERLAYS) += sdio-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += spi-bcm2708-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += spi-bcm2835-overlay.dtb
+ dtb-$(RPI_DT_OVERLAYS) += spi-dma-overlay.dtb
+diff --git a/arch/arm/boot/dts/overlays/README b/arch/arm/boot/dts/overlays/README
+index 7e38eb3..a749ff7 100644
+--- a/arch/arm/boot/dts/overlays/README
++++ b/arch/arm/boot/dts/overlays/README
+@@ -513,6 +513,21 @@ Params: overclock_50             Clock (in MHz) to use when the MMC framework
+         debug                    Enable debug output (default off)
+ 
+ 
++Name:   sdio
++Info:   Selects the bcm2835-sdhost SD/MMC driver, optionally with overclock,
++        and enables SDIO via GPIOs 22-27.
++Load:   dtoverlay=sdio,<param>=<val>
++Params: overclock_50             Clock (in MHz) to use when the MMC framework
++                                 requests 50MHz
++
++        force_pio                Disable DMA support (default off)
++
++        pio_limit                Number of blocks above which to use DMA
++                                 (default 1)
++
++        debug                    Enable debug output (default off)
++
++
+ Name:   spi-bcm2708
+ Info:   Selects the bcm2708-spi SPI driver
+ Load:   dtoverlay=spi-bcm2708
+diff --git a/arch/arm/boot/dts/overlays/sdio-overlay.dts b/arch/arm/boot/dts/overlays/sdio-overlay.dts
+new file mode 100644
+index 0000000..164f269
+--- /dev/null
++++ b/arch/arm/boot/dts/overlays/sdio-overlay.dts
+@@ -0,0 +1,29 @@
++/* Enable SDIO from MMC interface via GPIOs 22-27. Includes sdhost overlay. */
++
++/include/ "sdhost-overlay.dts"
++
++/{
++	compatible = "brcm,bcm2708";
++
++	fragment@3 {
++		target = <&mmc>;
++		__overlay__ {
++			compatible = "brcm,bcm2835-mmc";
++			pinctrl-names = "default";
++			pinctrl-0 = <&sdio_pins>;
++			non-removable;
++			status = "okay";
++		};
++	};
++
++	fragment@4 {
++		target = <&gpio>;
++		__overlay__ {
++			sdio_pins: sdio_pins {
++				brcm,pins = <22 23 24 25 26 27>;
++				brcm,function = <7 7 7 7 7 7>; /* ALT3 = SD1 */
++				brcm,pull = <0 2 2 2 2 2>;
++			};
++		};
++	};
++};
+
+From 4e178f3d83985b0f175004f74337bdb2c8903e01 Mon Sep 17 00:00:00 2001
+From: Luke Wren <luke@raspberrypi.org>
+Date: Fri, 21 Aug 2015 23:14:48 +0100
+Subject: [PATCH 09/12] Add /dev/gpiomem device for rootless user GPIO access
+
+Signed-off-by: Luke Wren <luke@raspberrypi.org>
+---
+ arch/arm/boot/dts/bcm2708.dtsi          |   6 +
+ arch/arm/boot/dts/bcm2709.dtsi          |   6 +
+ drivers/char/broadcom/Kconfig           |   9 ++
+ drivers/char/broadcom/Makefile          |   3 +
+ drivers/char/broadcom/bcm2835-gpiomem.c | 265 ++++++++++++++++++++++++++++++++
+ 5 files changed, 289 insertions(+)
+ create mode 100644 drivers/char/broadcom/bcm2835-gpiomem.c
+
+diff --git a/arch/arm/boot/dts/bcm2708.dtsi b/arch/arm/boot/dts/bcm2708.dtsi
+index 0d47427..3bed0a6 100644
+--- a/arch/arm/boot/dts/bcm2708.dtsi
++++ b/arch/arm/boot/dts/bcm2708.dtsi
+@@ -15,5 +15,11 @@
+ 		arm-pmu {
+ 			compatible = "arm,arm1176-pmu";
+ 		};
++
++		gpiomem {
++			compatible = "brcm,bcm2835-gpiomem";
++			reg = <0x7e200000 0x1000>;
++			status = "okay";
++		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/bcm2709.dtsi b/arch/arm/boot/dts/bcm2709.dtsi
+index 5e0b935..811d825 100644
+--- a/arch/arm/boot/dts/bcm2709.dtsi
++++ b/arch/arm/boot/dts/bcm2709.dtsi
+@@ -16,6 +16,12 @@
+ 			compatible = "arm,cortex-a7-pmu";
+ 			interrupts = <3 9>;
+ 		};
++
++		gpiomem {
++			compatible = "brcm,bcm2835-gpiomem";
++			reg = <0x7e200000 0x1000>;
++			status = "okay";
++		};
+ 	};
+ 
+ 	timer {
+diff --git a/drivers/char/broadcom/Kconfig b/drivers/char/broadcom/Kconfig
+index fc40846..bc2eb1e 100644
+--- a/drivers/char/broadcom/Kconfig
++++ b/drivers/char/broadcom/Kconfig
+@@ -38,3 +38,12 @@ config BCM_VC_SM
+ 	help
+ 	Support for the VC shared memory on the Broadcom reference
+ 	design. Uses the VCHIQ stack.
++
++config BCM2835_DEVGPIOMEM
++	tristate "/dev/gpiomem rootless GPIO access via mmap() on the BCM2835"
++	default m
++	help
++		Provides users with root-free access to the GPIO registers
++		on the 2835. Calling mmap(/dev/gpiomem) will map the GPIO
++		register page to the user's pointer.
++
+diff --git a/drivers/char/broadcom/Makefile b/drivers/char/broadcom/Makefile
+index 18171e2..664e2c4 100644
+--- a/drivers/char/broadcom/Makefile
++++ b/drivers/char/broadcom/Makefile
+@@ -2,3 +2,6 @@ obj-$(CONFIG_BCM_VC_CMA)	+= vc_cma/
+ obj-$(CONFIG_BCM2708_VCMEM)	+= vc_mem.o
+ obj-$(CONFIG_BCM_VCIO)		+= vcio.o
+ obj-$(CONFIG_BCM_VC_SM)         += vc_sm/
++
++obj-$(CONFIG_BCM2835_DEVGPIOMEM)+= bcm2835-gpiomem.o
++
+diff --git a/drivers/char/broadcom/bcm2835-gpiomem.c b/drivers/char/broadcom/bcm2835-gpiomem.c
+new file mode 100644
+index 0000000..0085e13
+--- /dev/null
++++ b/drivers/char/broadcom/bcm2835-gpiomem.c
+@@ -0,0 +1,265 @@
++/**
++ * GPIO memory device driver
++ *
++ * Creates a chardev /dev/gpiomem which will provide user access to
++ * the BCM2835's GPIO registers when it is mmap()'d.
++ * No longer need root for user GPIO access, but without relaxing permissions
++ * on /dev/mem.
++ *
++ * Written by Luke Wren <luke@raspberrypi.org>
++ * Copyright (c) 2015, Raspberry Pi (Trading) Ltd.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions, and the following disclaimer,
++ *    without modification.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The names of the above-listed copyright holders may not be used
++ *    to endorse or promote products derived from this software without
++ *    specific prior written permission.
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2, as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
++ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
++ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
++ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/mm.h>
++#include <linux/slab.h>
++#include <linux/cdev.h>
++#include <linux/pagemap.h>
++#include <linux/io.h>
++
++#define DEVICE_NAME "bcm2835-gpiomem"
++#define DRIVER_NAME "gpiomem-bcm2835"
++#define DEVICE_MINOR 0
++
++struct bcm2835_gpiomem_instance {
++	unsigned long gpio_regs_phys;
++	struct device *dev;
++};
++
++static struct cdev bcm2835_gpiomem_cdev;
++static dev_t bcm2835_gpiomem_devid;
++static struct class *bcm2835_gpiomem_class;
++static struct device *bcm2835_gpiomem_dev;
++static struct bcm2835_gpiomem_instance *inst;
++
++
++/****************************************************************************
++*
++*   GPIO mem chardev file ops
++*
++***************************************************************************/
++
++static int bcm2835_gpiomem_open(struct inode *inode, struct file *file)
++{
++	int dev = iminor(inode);
++	int ret = 0;
++
++	dev_info(inst->dev, "gpiomem device opened.");
++
++	if (dev != DEVICE_MINOR) {
++		dev_err(inst->dev, "Unknown minor device: %d", dev);
++		ret = -ENXIO;
++	}
++	return ret;
++}
++
++static int bcm2835_gpiomem_release(struct inode *inode, struct file *file)
++{
++	int dev = iminor(inode);
++	int ret = 0;
++
++	if (dev != DEVICE_MINOR) {
++		dev_err(inst->dev, "Unknown minor device %d", dev);
++		ret = -ENXIO;
++	}
++	return ret;
++}
++
++static const struct vm_operations_struct bcm2835_gpiomem_vm_ops = {
++#ifdef CONFIG_HAVE_IOREMAP_PROT
++	.access = generic_access_phys
++#endif
++};
++
++static int bcm2835_gpiomem_mmap(struct file *file, struct vm_area_struct *vma)
++{
++	/* Ignore what the user says - they're getting the GPIO regs
++	   whether they like it or not! */
++	unsigned long gpio_page = inst->gpio_regs_phys >> PAGE_SHIFT;
++
++	vma->vm_page_prot = phys_mem_access_prot(file, gpio_page,
++						 PAGE_SIZE,
++						 vma->vm_page_prot);
++	vma->vm_ops = &bcm2835_gpiomem_vm_ops;
++	if (remap_pfn_range(vma, vma->vm_start,
++			gpio_page,
++			PAGE_SIZE,
++			vma->vm_page_prot)) {
++		return -EAGAIN;
++	}
++	return 0;
++}
++
++static const struct file_operations
++bcm2835_gpiomem_fops = {
++	.owner = THIS_MODULE,
++	.open = bcm2835_gpiomem_open,
++	.release = bcm2835_gpiomem_release,
++	.mmap = bcm2835_gpiomem_mmap,
++};
++
++
++ /****************************************************************************
++*
++*   Probe and remove functions
++*
++***************************************************************************/
++
++
++static int bcm2835_gpiomem_probe(struct platform_device *pdev)
++{
++	int err;
++	void *ptr_err;
++	struct device *dev = &pdev->dev;
++	struct device_node *node = dev->of_node;
++	struct resource *ioresource;
++
++	/* Allocate buffers and instance data */
++
++	inst = kzalloc(sizeof(struct bcm2835_gpiomem_instance), GFP_KERNEL);
++
++	if (!inst) {
++		err = -ENOMEM;
++		goto failed_inst_alloc;
++	}
++
++	inst->dev = dev;
++
++	/* Create character device entries */
++
++	err = alloc_chrdev_region(&bcm2835_gpiomem_devid,
++				  DEVICE_MINOR, 1, DEVICE_NAME);
++	if (err != 0) {
++		dev_err(inst->dev, "unable to allocate device number");
++		goto failed_alloc_chrdev;
++	}
++	cdev_init(&bcm2835_gpiomem_cdev, &bcm2835_gpiomem_fops);
++	bcm2835_gpiomem_cdev.owner = THIS_MODULE;
++	err = cdev_add(&bcm2835_gpiomem_cdev, bcm2835_gpiomem_devid, 1);
++	if (err != 0) {
++		dev_err(inst->dev, "unable to register device");
++		goto failed_cdev_add;
++	}
++
++	/* Create sysfs entries */
++
++	bcm2835_gpiomem_class = class_create(THIS_MODULE, DEVICE_NAME);
++	ptr_err = bcm2835_gpiomem_class;
++	if (IS_ERR(ptr_err))
++		goto failed_class_create;
++
++	bcm2835_gpiomem_dev = device_create(bcm2835_gpiomem_class, NULL,
++					bcm2835_gpiomem_devid, NULL,
++					"gpiomem");
++	ptr_err = bcm2835_gpiomem_dev;
++	if (IS_ERR(ptr_err))
++		goto failed_device_create;
++
++	/* Get address from device tree if available (*_resource() correctly
++	   converts the bus address in device tree to a physical address),
++	   or use hardcoded offset + BCM2708_PERI_BASE if not.
++	   (In spite of its name 2708 actually seems to have the correct
++	   mach-dependent value on 2709 etc, as it is defined in
++	   mach-bcm270x/platform.h) */
++
++	if (node) {
++		ioresource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++		inst->gpio_regs_phys = ioresource->start;
++	} else {
++		inst->gpio_regs_phys = GPIO_BASE;
++	}
++
++	dev_info(inst->dev, "Initialised: Registers at 0x%08lx",
++		inst->gpio_regs_phys);
++
++	return 0;
++
++failed_device_create:
++	class_destroy(bcm2835_gpiomem_class);
++failed_class_create:
++	cdev_del(&bcm2835_gpiomem_cdev);
++	err = PTR_ERR(ptr_err);
++failed_cdev_add:
++	unregister_chrdev_region(bcm2835_gpiomem_devid, 1);
++failed_alloc_chrdev:
++	kfree(inst);
++failed_inst_alloc:
++	dev_err(inst->dev, "could not load bcm2835_gpiomem");
++	return err;
++}
++
++static int bcm2835_gpiomem_remove(struct platform_device *pdev)
++{
++	struct device *dev = inst->dev;
++
++	kfree(inst);
++	device_destroy(bcm2835_gpiomem_class, bcm2835_gpiomem_devid);
++	class_destroy(bcm2835_gpiomem_class);
++	cdev_del(&bcm2835_gpiomem_cdev);
++	unregister_chrdev_region(bcm2835_gpiomem_devid, 1);
++
++	dev_info(dev, "GPIO mem driver removed - OK");
++	return 0;
++}
++
++ /****************************************************************************
++*
++*   Register the driver with device tree
++*
++***************************************************************************/
++
++static const struct of_device_id bcm2835_gpiomem_of_match[] = {
++	{.compatible = "brcm,bcm2835-gpiomem",},
++	{ /* sentinel */ },
++};
++
++MODULE_DEVICE_TABLE(of, bcm2835_gpiomem_of_match);
++
++static struct platform_driver bcm2835_gpiomem_driver = {
++	.probe = bcm2835_gpiomem_probe,
++	.remove = bcm2835_gpiomem_remove,
++	.driver = {
++		   .name = DRIVER_NAME,
++		   .owner = THIS_MODULE,
++		   .of_match_table = bcm2835_gpiomem_of_match,
++		   },
++};
++
++module_platform_driver(bcm2835_gpiomem_driver);
++
++MODULE_ALIAS("platform:gpiomem-bcm2835");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("gpiomem driver for accessing GPIO from userspace");
++MODULE_AUTHOR("Luke Wren <luke@raspberrypi.org>");
+
+From deb277db6b48926090fa8e09231b155d07f3667b Mon Sep 17 00:00:00 2001
+From: Jan Grulich <jan@grulich.eu>
+Date: Mon, 24 Aug 2015 16:02:34 +0100
+Subject: [PATCH 10/12] tpa6130a2: Add headphone switch control
+
+Signed-off-by: Jan Grulich <jan@grulich.eu>
+---
+ sound/soc/codecs/tpa6130a2.c | 29 ++++++++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
+
+diff --git a/sound/soc/codecs/tpa6130a2.c b/sound/soc/codecs/tpa6130a2.c
+index 6fac9e0..f60ebe1c 100644
+--- a/sound/soc/codecs/tpa6130a2.c
++++ b/sound/soc/codecs/tpa6130a2.c
+@@ -4,6 +4,7 @@
+  * Copyright (C) Nokia Corporation
+  *
+  * Author: Peter Ujfalusi <peter.ujfalusi@ti.com>
++ * Modified: Jan Grulich <jan@grulich.eu>
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+@@ -52,6 +53,8 @@ struct tpa6130a2_data {
+ 	enum tpa_model id;
+ };
+ 
++static void tpa6130a2_channel_enable(u8 channel, int enable);
++
+ static int tpa6130a2_i2c_read(int reg)
+ {
+ 	struct tpa6130a2_data *data;
+@@ -189,7 +192,7 @@ static int tpa6130a2_power(u8 power)
+ }
+ 
+ static int tpa6130a2_get_volsw(struct snd_kcontrol *kcontrol,
+-		struct snd_ctl_elem_value *ucontrol)
++			       struct snd_ctl_elem_value *ucontrol)
+ {
+ 	struct soc_mixer_control *mc =
+ 		(struct soc_mixer_control *)kcontrol->private_value;
+@@ -218,7 +221,7 @@ static int tpa6130a2_get_volsw(struct snd_kcontrol *kcontrol,
+ }
+ 
+ static int tpa6130a2_put_volsw(struct snd_kcontrol *kcontrol,
+-		struct snd_ctl_elem_value *ucontrol)
++			       struct snd_ctl_elem_value *ucontrol)
+ {
+ 	struct soc_mixer_control *mc =
+ 		(struct soc_mixer_control *)kcontrol->private_value;
+@@ -255,8 +258,22 @@ static int tpa6130a2_put_volsw(struct snd_kcontrol *kcontrol,
+ 	return 1;
+ }
+ 
++static int tpa6130a2_put_hp_sw(struct snd_kcontrol *kcontrol,
++			       struct snd_ctl_elem_value *ucontrol)
++{
++	int enable = ucontrol->value.integer.value[0];
++	unsigned int state;
++
++	state = (tpa6130a2_read(TPA6130A2_REG_VOL_MUTE) & 0x80) == 0;
++	if (state == enable)
++		return 0; /* No change */
++
++	tpa6130a2_channel_enable(TPA6130A2_HP_EN_R | TPA6130A2_HP_EN_L, enable);
++	return 1; /* Changed */
++}
++
+ /*
+- * TPA6130 volume. From -59.5 to 4 dB with increasing step size when going
++ * TPA6130 volume. From -59.5 to +4.0 dB with increasing step size when going
+  * down in gain.
+  */
+ static const unsigned int tpa6130_tlv[] = {
+@@ -278,6 +295,9 @@ static const struct snd_kcontrol_new tpa6130a2_controls[] = {
+ 		       TPA6130A2_REG_VOL_MUTE, 0, 0x3f, 0,
+ 		       tpa6130a2_get_volsw, tpa6130a2_put_volsw,
+ 		       tpa6130_tlv),
++	SOC_SINGLE_EXT("TPA6130A2 Headphone Playback Switch",
++		       TPA6130A2_REG_VOL_MUTE, 7, 1, 1,
++		       tpa6130a2_get_volsw, tpa6130a2_put_hp_sw),
+ };
+ 
+ static const unsigned int tpa6140_tlv[] = {
+@@ -292,6 +312,9 @@ static const struct snd_kcontrol_new tpa6140a2_controls[] = {
+ 		       TPA6130A2_REG_VOL_MUTE, 1, 0x1f, 0,
+ 		       tpa6130a2_get_volsw, tpa6130a2_put_volsw,
+ 		       tpa6140_tlv),
++	SOC_SINGLE_EXT("TPA6140A2 Headphone Playback Switch",
++		       TPA6130A2_REG_VOL_MUTE, 7, 1, 1,
++		       tpa6130a2_get_volsw, tpa6130a2_put_hp_sw),
+ };
+ 
+ /*
+
+From a95e79da7f940215d3dbeec1493927f4b8f291ad Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
+Date: Sat, 11 Jul 2015 18:48:10 +0200
+Subject: [PATCH 11/12] staging: fbtft: Add reset to fbtft_init_display_dt()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When an init sequence is present in the Device Tree,
+fbtft_init_display_dt() is used to initialize the display.
+Add missing reset function call and activation of
+chip select for parallel bus.
+
+Signed-off-by: Noralf Trønnes <noralf@tronnes.org>
+---
+ drivers/staging/fbtft/fbtft-core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/staging/fbtft/fbtft-core.c b/drivers/staging/fbtft/fbtft-core.c
+index 53b748b..4f165d3 100644
+--- a/drivers/staging/fbtft/fbtft-core.c
++++ b/drivers/staging/fbtft/fbtft-core.c
+@@ -1074,6 +1074,11 @@ static int fbtft_init_display_dt(struct fbtft_par *par)
+ 	p = of_prop_next_u32(prop, NULL, &val);
+ 	if (!p)
+ 		return -EINVAL;
++
++	par->fbtftops.reset(par);
++	if (par->gpio.cs != -1)
++		gpio_set_value(par->gpio.cs, 0);  /* Activate chip */
++
+ 	while (p) {
+ 		if (val & FBTFT_OF_INIT_CMD) {
+ 			val &= 0xFFFF;
+
+From 316c4fc6527d392a6a437cd33a97017aafb29542 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
+Date: Sun, 19 Jul 2015 18:57:06 +0200
+Subject: [PATCH 12/12] BCM270X_DT: mz61581: Revert to spi-bcm2708
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The MZ61581 display does not work with spi-bcm2835 and software
+chip select. It works before the commit:
+spi: bcm2835: transform native-cs to gpio-cs on first spi_setup
+
+Revert to spi-bcm2708 until the cause has been detected and the
+issue resolved.
+
+Signed-off-by: Noralf Trønnes <noralf@tronnes.org>
+---
+ arch/arm/boot/dts/overlays/mz61581-overlay.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/overlays/mz61581-overlay.dts b/arch/arm/boot/dts/overlays/mz61581-overlay.dts
+index c06fe12..f674a66 100644
+--- a/arch/arm/boot/dts/overlays/mz61581-overlay.dts
++++ b/arch/arm/boot/dts/overlays/mz61581-overlay.dts
+@@ -12,6 +12,8 @@
+ 	fragment@0 {
+ 		target = <&spi0>;
+ 		__overlay__ {
++			/* does not work with spi-bcm2835 using software chip selects */
++			compatible = "brcm,bcm2708-spi";
+ 			status = "okay";
+ 
+ 			spidev@0{
