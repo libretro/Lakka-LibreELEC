@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="libogg"
-PKG_VERSION="1.3.1"
+PKG_VERSION="1.3.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
-PKG_SITE="http://www.xiph.org/ogg/"
+PKG_SITE="https://www.xiph.org/ogg/"
 PKG_URL="http://downloads.xiph.org/releases/ogg/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
