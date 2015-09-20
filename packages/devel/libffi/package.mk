@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libffi"
-PKG_VERSION="3.1"
+PKG_VERSION="3.2.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
