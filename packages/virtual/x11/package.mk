@@ -49,7 +49,7 @@ fi
 get_graphicdrivers
 
 # Drivers 
-if [ -n $LIBINPUT ]; then
+if [ -n "$LIBINPUT" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xf86-input-libinput"
 else
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xf86-input-evdev"
