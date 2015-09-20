@@ -139,10 +139,13 @@ post_makeinstall_target() {
 
 # remove locales and charmaps
   rm -rf $INSTALL/usr/share/i18n/charmaps
-  rm -rf $INSTALL/usr/share/i18n/locales
 
-  mkdir -p $INSTALL/usr/share/i18n/locales
-    cp -PR $ROOT/$PKG_BUILD/localedata/locales/POSIX $INSTALL/usr/share/i18n/locales
+  if [ ! "$GLIBC_LOCALES" = yes ]; then
+    rm -rf $INSTALL/usr/share/i18n/locales
+
+    mkdir -p $INSTALL/usr/share/i18n/locales
+      cp -PR $ROOT/$PKG_BUILD/localedata/locales/POSIX $INSTALL/usr/share/i18n/locales
+  fi
 
 # create default configs
   mkdir -p $INSTALL/etc
