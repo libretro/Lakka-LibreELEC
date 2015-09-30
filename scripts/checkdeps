@@ -20,32 +20,30 @@
 
 . config/options $1
 
-deps=
-deps_pkg=
-files=
-files_pkg=
+if  [ -f /etc/lsb-release ]; then
+  DISTRO=$(grep DISTRIB_ID /etc/lsb-release | cut -d "=" -f 2 | tr A-Z a-z)
+fi
 
-case $1 in
-  get)
-    deps="wget"
-    deps_pkg="wget"
-    ;;
-  build)
-    deps="bash bc gcc g++ sed patch touch tar bzip2 gzip perl cp gawk makeinfo gperf zip unzip mkfontscale mkfontdir bdftopcf diff xsltproc java md5deep"
-    deps_pkg="bash bc gcc g++ sed patch fileutils tar bzip2 gzip perl coreutils gawk texinfo gperf zip unzip xfonts-utils xfonts-utils xfonts-utils diff xsltproc default-jre md5deep"
-    files="/usr/include/stdio.h /usr/include/ncurses.h"
-    files_pkg="libc6-dev libncurses5-dev"
-    if [ -f /etc/redhat-release ]; then
-      deps_pkg="bash bc gcc gcc-c++ sed patch fileutils tar bzip2 gzip perl coreutils gawk texinfo gperf zip unzip xorg-x11-font-utils xorg-x11-font-utils diffutils libxslt java-1.7.0-openjdk"
+if  [ -f /etc/os-release ]; then
+  DISTRO=$(grep ^ID= /etc/os-release | cut -d "=" -f 2 | tr A-Z a-z)
+fi
+
+deps="wget bash bc gcc sed patch tar bzip2 gzip perl gawk md5deep gperf zip unzip diff makeinfo"
+deps_pkg="wget bash bc gcc sed patch tar bzip2 gzip perl gawk md5deep gperf zip unzip diffutils texinfo"
+
+files="/usr/include/stdio.h /usr/include/ncurses.h"
+files_pkg="libc6-dev libncurses5-dev"
+
+case "$DISTRO" in
+    fedora|centos|rhel)
+      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java"
+      deps_pkg="$deps_pkg gcc-c++ xorg-x11-font-utils xorg-x11-font-utils xorg-x11-font-utils libxslt java-1.7.0-openjdk"
       files_pkg="glibc-headers ncurses-devel"
-    fi
-    ;;
-  qemu)
-    if [ ! `which qemu` ]; then
-      echo "Your system doesn't seem to have QEMU installed"
-      exit 1
-    fi
-    ;;
+      ;;
+    *)
+      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java"
+      deps_pkg="$deps_pkg g++ xfonts-utils xfonts-utils xfonts-utils xsltproc default-jre"
+      ;;
 esac
 
 # project specific dependencies
@@ -75,26 +73,12 @@ done
 if [ -n "$need" ]; then
   echo "**** Your system lacks the following tools needed to $1 $DISTRONAME ****"
   echo $need
-
-  if  [ -f /etc/lsb-release ]; then
-    DISTRO=$(grep DISTRIB_ID /etc/lsb-release | cut -d "=" -f 2 | tr A-Z a-z)
-  fi
-
-  if  [ -f /etc/os-release ]; then
-    DISTRO=$(grep ^ID= /etc/os-release | cut -d "=" -f 2 | tr A-Z a-z)
-  fi
-
   echo "**** You seem to use a $DISTRO system ****"
 
   case "$DISTRO" in
     ubuntu|debian)
       read -p "would you like to install the needed tools ? (y/n) " ans
-      if [ "$ans" = "y" ]; then
-        sudo apt-get install $need_pkg
-      else
-        echo "********"
-        exit 1
-      fi
+      [ "$ans" = "y" ] && sudo apt-get install $need_pkg
       ;;
     fedora|centos|rhel)
       read -p "would you like to install the needed tools ? (y/n) " ans
