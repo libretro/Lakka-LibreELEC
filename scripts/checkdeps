@@ -77,62 +77,42 @@ if [ -n "$need" ]; then
   echo $need
 
   if  [ -f /etc/lsb-release ]; then
-    DISTRO=$(grep DISTRIB_ID /etc/lsb-release | cut -d "=" -f 2)
+    DISTRO=$(grep DISTRIB_ID /etc/lsb-release | cut -d "=" -f 2 | tr A-Z a-z)
   fi
 
-  if [ "$DISTRO" = "Ubuntu" ]; then
-    echo "**** You seem to use a $DISTRO system ****"
-    read -p "would you like to install the needed tools ? (y/n) " ans
-    if ( ! [ -z "`which aptitude 2>/dev/null`" ] && [ "$ans" = "y" ]); then
-      sudo aptitude install $need_pkg
-    elif [ "$ans" = "y" ]; then
-      echo "**** The recommended Package-Manager Aptitude is not installed"
-      read -p "(y) install Aptitude :: (n) use APT " ans
+  if  [ -f /etc/os-release ]; then
+    DISTRO=$(grep ^ID= /etc/os-release | cut -d "=" -f 2 | tr A-Z a-z)
+  fi
+
+  echo "**** You seem to use a $DISTRO system ****"
+
+  case "$DISTRO" in
+    ubuntu|debian)
+      read -p "would you like to install the needed tools ? (y/n) " ans
       if [ "$ans" = "y" ]; then
-        sudo apt-get -y install aptitude
-        sudo aptitude install $need_pkg
-      elif [ "$ans" = "n" ]; then
         sudo apt-get install $need_pkg
       else
         echo "********"
         exit 1
       fi
-    else
-      echo "********"
+      ;;
+    fedora|centos|rhel)
+      read -p "would you like to install the needed tools ? (y/n) " ans
+      [ "$ans" = "y" ] && sudo yum install $need_pkg
+      ;;
+    gentoo)
+      read -p "would you like to install the needed tools ? (y/n) " ans
+      [ "$ans" = "y" ] && sudo emerge -D $need_pkg
+      ;;
+    mageia)
+      read -p "would you like to install the needed tools ? (y/n) " ans
+      [ "$ans" = "y" ] && sudo urpmi $need_pkg
+      ;;
+    *)
+      echo "**** unsupported distro $DISTRO ****"
       exit 1
-    fi
-  elif ( ! [ -z "`which aptitude 2>/dev/null`" ]); then
-   DISTRO="a Debian" 
-   echo "**** You seem to use $DISTRO system ****"
-    read -p "would you like to install the needed tools ? (y/n) " ans
-    if ([ "$ans" = "y" ] && ! [ $(sudo -n uptime 2>&1|grep "load"|wc -l) ]); then
-      sudo aptitude install $need_pkg
-    elif [ "$ans" = "y" ]; then
-      su -c "aptitude install $need_pkg"
-    else
-      echo "********"
-      exit 1
-    fi
-  elif [ -f /etc/mandrake-release -a -n "`which urpmi 2>/dev/null`" ]; then
-    echo "**** You seem to use a mandrake system ****"
-    read -p "would you like to install the needed tools ? (y/n) " ans
-    [ "$ans" = "y" ] && sudo urpmi $need_pkg
-  elif [ -f /etc/gentoo-release -a -n "`which emerge 2>/dev/null`" ]; then
-    echo "**** You seem to use a gentoo system ****"
-    read -p "would you like to install the needed tools ? (y/n) " ans
-    [ "$ans" = "y" ] && sudo emerge -D $need_pkg
-  elif [ -f /etc/fedora-release -a -n "`which yum 2>/dev/null`" ]; then
-    echo "**** You seem to use a fedora system ****"
-    read -p "would you like to install the needed tools ? (y/n) " ans
-    [ "$ans" = "y" ] && sudo yum install $need_pkg
-  elif [ -f /etc/redhat-release -a "`which yum 2>/dev/null`" ]; then
-    echo "**** You seem to use a RedHat or clone (CentOS) system ****"
-    read -p "would you like to install the needed tools ? (y/n) " ans
-    [ "$ans" = "y" ] && sudo yum install $need_pkg
-  else
-    echo "********"
-    exit 1
-  fi
+      ;;
+  esac
 fi
 
 
