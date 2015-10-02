@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libnfs"
-PKG_VERSION="1.9.7"
+PKG_VERSION="1.9.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
