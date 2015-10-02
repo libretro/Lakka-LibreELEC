@@ -22,99 +22,46 @@
 PKG_NAME="kodi"
 PKG_VERSION=""
 BRANCH="Isengard"
-BRANCH_FOR_ADDONS="master"
 GIT_REPO="git://github.com/xbmc/xbmc.git"
 DEST_DIR="$PKG_NAME-$BRANCH"
 
-git_clone() {
-  # git_clone https://repo.url branch ./target_dir [githash]
-  echo "[mkpkg] Checking out $1 ..."
-  if [ ! -d "$3" ]; then
-    git clone "$1" -b $2 "$3"
-  else
-    if [ -d "$3" ] ; then
-      cd "$3"
-      git checkout $2 >/dev/null 2>/dev/null
-      git pull
-      if [ ! -z "$4" ] ; then
-        git branch -D $4 >/dev/null 2>/dev/null
-        git checkout $4 -b $4 >/dev/null 2>/dev/null
-      fi
-      cd ..
-    fi
+echo "getting sources..."
+  if [ ! -d $DEST_DIR.git ]; then
+    git clone $GIT_REPO -b $BRANCH $DEST_DIR.git
   fi
-}
 
-copy_sources() {
-  # copy_sources source_dir package_name package_version
-  if [ -d "$1" ] ; then
-    echo "[mkpkg] Copying sources: $2-$3" ...
-    rm -rf "$2-$3"
-    cp -R "$1" "$2-$3"
-    echo "$GIT_HASH" > "$2-$3/VERSION"
+  cd $DEST_DIR.git
+  git pull
 
-    echo "[mkpkg] Cleaning $2-$3 ..."
-    rm -rf "$2-$3/.git"
+echo "getting version..."
+  GIT_HASH=`git log -n1 --format=%h`
+  VERSION_MAJOR=$(grep ^VERSION_MAJOR version.txt | cut -d" " -f2)
+  VERSION_MINOR=$(grep ^VERSION_MINOR version.txt | cut -d" " -f2)
+  VERSION_TAG=$(grep ^VERSION_TAG version.txt | cut -d" " -f2 | tr A-Z a-z)
+  PKG_VERSION="$VERSION_MAJOR.$VERSION_MINOR-$VERSION_TAG-$GIT_HASH"
+  # hack: empty version tag on release builds:
+  if [ "$VERSION_TAG" = "version_tag" ] ; then
+    PKG_VERSION="$VERSION_MAJOR.$VERSION_MINOR-$GIT_HASH"
   fi
-}
+  echo $PKG_VERSION
+  cd ..
 
-package_sources() {
-  # package_sources source_dir
-  if [ -d "$1" ] ; then
-    echo "[mkpkg] Packing $1.tar.xz ..."
-    if [ ! -f "$1.tar.xz" ] ; then
-      tar cvJf "$1.tar.xz" "$1"
-    fi
-    rm -rf "$1"
-  fi
-}
+echo "copying sources..."
+  rm -rf $PKG_NAME-$PKG_VERSION
+  cp -R $DEST_DIR.git $PKG_NAME-$PKG_VERSION
+  echo "$GIT_HASH" > $PKG_NAME-$PKG_VERSION/VERSION
 
-# kodi
-git_clone $GIT_REPO $BRANCH $DEST_DIR.git
+echo "cleaning sources..."
+  rm -rf $PKG_NAME-$PKG_VERSION/.git
 
-# kodi-platform
-REPO=$(cat $DEST_DIR.git/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $2}')
-GIT_HASH=$(cat $DEST_DIR.git/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $3}')
-if [ ! -e kodi-platform-$GIT_HASH.tar.xz ] ; then
-  git_clone $REPO $BRANCH_FOR_ADDONS kodi-platform.git $GIT_HASH
-  copy_sources kodi-platform.git kodi-platform $GIT_HASH
-  package_sources kodi-platform-$GIT_HASH
-else
-  echo "[mkpkg] kodi-platform-$GIT_HASH.tar.xz already exists ..."
-fi
+echo "seperating theme..."
+  rm -rf $PKG_NAME-theme-Confluence-$PKG_VERSION
+  mv $PKG_NAME-$PKG_VERSION/addons/skin.confluence $PKG_NAME-theme-Confluence-$PKG_VERSION
 
-# addons
-for addon in $DEST_DIR.git/project/cmake/addons/addons/*.* ; do
-  PVR_ADDON=$(basename $addon)
-  REPO=$(cat $DEST_DIR.git/project/cmake/addons/addons/$PVR_ADDON/$PVR_ADDON.txt | awk '{print $2}')
-  GIT_HASH=$(cat $DEST_DIR.git/project/cmake/addons/addons/$PVR_ADDON/$PVR_ADDON.txt | awk '{print $3}')
-  if [ ! -e $PVR_ADDON-$GIT_HASH.tar.xz ] ; then
-    git_clone $REPO $BRANCH_FOR_ADDONS $PVR_ADDON.git $GIT_HASH
-    copy_sources $PVR_ADDON.git $PVR_ADDON $GIT_HASH
-    package_sources $PVR_ADDON-$GIT_HASH
-  else
-    echo "[mkpkg] $PVR_ADDON-$GIT_HASH.tar.xz already exists ..."
-  fi
-done
+echo "packing sources..."
+  tar cvJf $PKG_NAME-$PKG_VERSION.tar.xz $PKG_NAME-$PKG_VERSION
+  tar cvJf $PKG_NAME-theme-Confluence-$PKG_VERSION.tar.xz $PKG_NAME-theme-Confluence-$PKG_VERSION
 
-cd $DEST_DIR.git
-GIT_HASH=`git log -n1 --format=%h`
-VERSION_MAJOR=$(grep ^VERSION_MAJOR version.txt | cut -d" " -f2)
-VERSION_MINOR=$(grep ^VERSION_MINOR version.txt | cut -d" " -f2)
-VERSION_TAG=$(grep ^VERSION_TAG version.txt | cut -d" " -f2 | tr A-Z a-z)
-PKG_VERSION="$VERSION_MAJOR.$VERSION_MINOR-$VERSION_TAG-$GIT_HASH"
-# hack: empty version tag on release builds:
-if [ "$VERSION_TAG" = "version_tag" ] ; then
-  PKG_VERSION="$VERSION_MAJOR.$VERSION_MINOR-$GIT_HASH"
-fi
-echo $PKG_VERSION
-cd ..
-
-copy_sources $PKG_NAME-$BRANCH.git $PKG_NAME $PKG_VERSION
-
-echo "[mkpkg] Seperating skin.confluence ..."
-rm -rf $PKG_NAME-theme-Confluence-$PKG_VERSION
-mv $PKG_NAME-$PKG_VERSION/addons/skin.confluence $PKG_NAME-theme-Confluence-$PKG_VERSION
-
-package_sources $PKG_NAME-$PKG_VERSION
-package_sources $PKG_NAME-theme-Confluence-$PKG_VERSION
+echo "remove temporary sourcedir..."
+  rm -rf $PKG_NAME-$PKG_VERSION
+  rm -rf $PKG_NAME-theme-Confluence-$PKG_VERSION
