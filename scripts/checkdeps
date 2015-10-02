@@ -38,7 +38,18 @@ case "$DISTRO" in
     fedora|centos|rhel)
       deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java"
       deps_pkg="$deps_pkg gcc-c++ xorg-x11-font-utils xorg-x11-font-utils xorg-x11-font-utils libxslt java-1.7.0-openjdk"
+      [[ ! `rpm -qa glibc-static` ]] && deps="$deps glibc-static" && deps_pkg="$deps_pkg glibc-static"
+      [[ ! `rpm -qa libstdc++-static` ]] && deps="$deps libstdc++-static" && deps_pkg="$deps_pkg libstdc++-static"
       files_pkg="glibc-headers ncurses-devel"
+      ;;
+    gentoo)
+      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java"
+      deps_pkg="$deps_pkg g++ mkfontscale mkfontdir bdftopcf libxslt jre"
+      ;;
+    arch)
+      # md5deep is only available in the aur
+      deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java"
+      deps_pkg="$deps_pkg g++ xorg-mkfontscale xorg-mkfontdir xorg-bdftopcf libxslt java-runtime-common"
       ;;
     *)
       deps="$deps g++ mkfontscale mkfontdir bdftopcf xsltproc java"
@@ -71,7 +82,7 @@ while file=`getarg $i $files` && [ -n "$file" ]; do
 done
 
 if [ -n "$need" ]; then
-  echo "**** Your system lacks the following tools needed to $1 $DISTRONAME ****"
+  echo "**** Your system lacks the following tools needed to build $DISTRONAME ****"
   echo $need
   echo "**** You seem to use a $DISTRO system ****"
 
@@ -81,16 +92,21 @@ if [ -n "$need" ]; then
       [ "$ans" = "y" ] && sudo apt-get install $need_pkg
       ;;
     fedora|centos|rhel)
+      if [ `which dnf` ]; then YUM=dnf; else YUM=yum; fi
       read -p "would you like to install the needed tools ? (y/n) " ans
-      [ "$ans" = "y" ] && sudo yum install $need_pkg
+      [ "$ans" = "y" ] && sudo $YUM install $need_pkg
       ;;
     gentoo)
       read -p "would you like to install the needed tools ? (y/n) " ans
-      [ "$ans" = "y" ] && sudo emerge -D $need_pkg
+      [ "$ans" = "y" ] && sudo emerge --ask --deep $need_pkg
       ;;
     mageia)
       read -p "would you like to install the needed tools ? (y/n) " ans
       [ "$ans" = "y" ] && sudo urpmi $need_pkg
+      ;;
+    arch)
+      read -p "would you like to install the needed tools ? (y/n) " ans
+      [ "$ans" = "y" ] && sudo pacman -Sy $need_pkg
       ;;
     *)
       echo "**** unsupported distro $DISTRO ****"
