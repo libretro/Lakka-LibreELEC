@@ -1,0 +1,125 @@
+#!/bin/sh
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2012 Stephan Raue (stephan@openelec.tv)
+#
+#  This Program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2, or (at your option)
+#  any later version.
+#
+#  This Program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.tv; see the file COPYING.  If not, write to
+#  the Free Software Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110, USA.
+#  http://www.gnu.org/copyleft/gpl.html
+################################################################################
+
+KODI_DIR="kodi-Isengard.git"
+
+git_clone() {
+  # git_clone https://repo.url branch ./target_dir [githash]
+  echo "[mkpkg] Checking out $1 ..."
+  if [ ! -d "$3" ]; then
+    git clone "$1" -b $2 "$3"
+  else
+    if [ -d "$3" ] ; then
+      cd "$3"
+      git checkout $2 >/dev/null 2>/dev/null
+      git pull
+      cd ..
+    fi
+  fi
+  if [ ! -z "$4" ] ; then
+    cd "$3"
+    git fetch >/dev/null 2>/dev/null
+    git branch -D $4 >/dev/null 2>/dev/null
+    git checkout $4 -b ref-$4 >/dev/null 2>/dev/null
+    cd ..
+  fi
+}
+
+copy_sources() {
+  # copy_sources source_dir package_name package_version
+  if [ -d "$1" ] ; then
+    echo "[mkpkg] Copying sources: $2-$3" ...
+    rm -rf "$2-$3"
+    cp -R "$1" "$2-$3"
+    echo "$GIT_HASH" > "$2-$3/VERSION"
+
+    echo "[mkpkg] Cleaning $2-$3 ..."
+    rm -rf "$2-$3/.git"
+  fi
+}
+
+package_sources() {
+  # package_sources source_dir
+  if [ -d "$1" ] ; then
+    echo "[mkpkg] Packing $1.tar.xz ..."
+    if [ ! -f "$1.tar.xz" ] ; then
+      tar cvJf "$1.tar.xz" "$1"
+    fi
+    rm -rf "$1"
+  fi
+}
+
+resolve_hash() {
+  if [ -d "$1" ] ; then
+    cd "$1"
+    git rev-parse --short $2 2>/dev/null
+  fi
+}
+
+copy_and_package() {
+  REPO="$1"
+  PKG_NAME="$2"
+  GIT_HASH="$3"
+  git_clone $REPO master $PKG_NAME.git $GIT_HASH
+  RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
+  if [ ! -e $PKG_NAME-$RESOLVED_HASH.tar.xz ] ; then
+    copy_sources $PKG_NAME.git $PKG_NAME $RESOLVED_HASH
+    package_sources $PKG_NAME-$RESOLVED_HASH
+  else
+    echo "[mkpkg] $PKG_NAME-$RESOLVED_HASH.tar.xz already exists ..."
+  fi
+}
+
+if [ ! -d $KODI_DIR ] ; then
+  echo "meh.. $KODI_DIR does not exist"
+  exit 127
+fi
+
+# kodi-platform
+REPO=$(cat $KODI_DIR/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $2}')
+GIT_HASH=$(cat $KODI_DIR/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $3}')
+
+copy_and_package $REPO kodi-platform $GIT_HASH
+
+if [ -f ../../packages/mediacenter/kodi-platform/package.mk ] ; then
+  # update package.mk
+  RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
+  sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-platform/package.mk
+fi
+
+# addons
+for addon in $KODI_DIR/project/cmake/addons/addons/*.* ; do
+  ADDON=$(basename $addon)
+  REPO=$(cat $KODI_DIR/project/cmake/addons/addons/$ADDON/$ADDON.txt | awk '{print $2}')
+  GIT_HASH=$(cat $KODI_DIR/project/cmake/addons/addons/$ADDON/$ADDON.txt | awk '{print $3}')
+
+  if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt ; then
+    continue
+  fi
+
+  copy_and_package $REPO $ADDON $GIT_HASH
+
+  if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
+    # update package.mk
+    RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
+    sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+  fi
+done
