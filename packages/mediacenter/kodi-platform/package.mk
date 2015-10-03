@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi-platform"
-PKG_VERSION="054a42f66"
+PKG_VERSION="054a42f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

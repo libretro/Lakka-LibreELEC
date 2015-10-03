@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.pctv"
-PKG_VERSION="d23160c"
+PKG_VERSION="bca8165"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
