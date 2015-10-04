@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="imx-vpu"
-PKG_VERSION="5.4.28"
+PKG_VERSION="5.4.31"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
