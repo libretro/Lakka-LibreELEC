@@ -120,6 +120,10 @@ pre_build_target() {
   )
 }
 
+pre_configure_target() {
+  export CFLAGS="$CFLAGS -fno-schedule-insns -fno-schedule-insns2"
+}
+
 post_makeinstall_target() {
   # remove unneeded stuff
   rm -rf $INSTALL/etc/systemd/system
