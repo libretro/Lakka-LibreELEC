@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="make"
-PKG_VERSION="4.0"
+PKG_VERSION="4.1"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.gnu.org/software/make/"
-PKG_URL="http://ftp.gnu.org/gnu/make/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_LICENSE="GPLv3"
+PKG_SITE="https://www.gnu.org/software/make/"
+PKG_URL="https://ftp.gnu.org/gnu/make/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_HOST=""
 PKG_PRIORITY="optional"
 PKG_SECTION="toolchain/devel"
