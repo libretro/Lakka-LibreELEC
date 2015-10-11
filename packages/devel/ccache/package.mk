@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="ccache"
-PKG_VERSION="3.2.1"
+PKG_VERSION="3.2.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -33,6 +33,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 export CC=$LOCAL_CC
+
+PKG_CONFIGURE_OPTS_HOST="--with-bundled-zlib"
 
 post_makeinstall_host() {
 # setup ccache
