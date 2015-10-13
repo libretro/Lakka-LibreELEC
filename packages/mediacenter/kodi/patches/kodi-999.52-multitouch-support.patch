@@ -1,0 +1,337 @@
+From 8ff131750e527416274e4f21685312785a8d0bb2 Mon Sep 17 00:00:00 2001
+From: Floris Bos <bos@je-eigen-domein.nl>
+Date: Wed, 23 Sep 2015 22:34:20 +0200
+Subject: [PATCH 1/3] Fix Linux touchscreen support
+
+Touch devices tend to send a key event first and coordinates later.
+
+==
+Event: type 1 (EV_KEY), code 330 (BTN_TOUCH), value 1
+Event: type 3 (EV_ABS), code 0 (ABS_X), value 45
+Event: type 3 (EV_ABS), code 1 (ABS_Y), value 27
+==
+
+This does not go along well with the XBMC mouse handling code that
+expects to already have the coordinates when processing the EV_KEY.
+Fetch the current coordinates with ioctl() as workaround.
+
+Signed-off-by: Floris Bos <bos@je-eigen-domein.nl>
+---
+ xbmc/input/linux/LinuxInputDevices.cpp | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/xbmc/input/linux/LinuxInputDevices.cpp b/xbmc/input/linux/LinuxInputDevices.cpp
+index b028cd1..b8f13d3 100644
+--- a/xbmc/input/linux/LinuxInputDevices.cpp
++++ b/xbmc/input/linux/LinuxInputDevices.cpp
+@@ -275,6 +275,7 @@ typedef enum
+   LI_CAPS_KEYS    = 1,
+   LI_CAPS_BUTTONS = 2,
+   LI_CAPS_AXES    = 4,
++  LI_CAPS_ABS     = 8
+ } LinuxInputCapsType;
+ 
+ static char remoteStatus = 0xFF; // paired, battery OK
+@@ -470,6 +471,23 @@ bool CLinuxInputDevice::KeyEvent(const struct input_event& levt, XBMC_Event& dev
+     if (levt.value == 2)
+       return false;
+ 
++    /* touch devices tend to send the key event before the coordinates, so we
++       cannot rely on m_mouseX and m_mouseY already having the correct values */
++    if (m_deviceCaps & LI_CAPS_ABS)
++    {
++      struct input_absinfo absinfo;
++
++      if (ioctl(m_fd, EVIOCGABS(ABS_X), &absinfo) == 0)
++      {
++        m_mouseX = absinfo.value;
++      }
++
++      if (ioctl(m_fd, EVIOCGABS(ABS_Y), &absinfo) == 0)
++      {
++        m_mouseY = absinfo.value;
++      }
++    }
++
+     devt.type = levt.value ? XBMC_MOUSEBUTTONDOWN : XBMC_MOUSEBUTTONUP;
+     devt.button.state = levt.value ? XBMC_PRESSED : XBMC_RELEASED;
+     devt.button.type = devt.type;
+@@ -954,6 +972,12 @@ void CLinuxInputDevice::GetInfo(int fd)
+     m_deviceMaxAxis = std::max(num_rels, num_abs) - 1;
+   }
+ 
++  /* Absolute X,Y coordinates */
++  if (num_abs >= 2 && num_rels == 0)
++  {
++    m_deviceCaps |= LI_CAPS_ABS;
++  }
++
+   /* Decide which primary input device to be. */
+   if (m_deviceType & LI_DEVICE_KEYBOARD)
+     m_devicePreferredId = LI_DEVICE_KEYBOARD;
+
+From a7b5f1489dbfcb577e12c747626fe7d45ff2009d Mon Sep 17 00:00:00 2001
+From: Floris Bos <bos@je-eigen-domein.nl>
+Date: Fri, 25 Sep 2015 01:07:30 +0200
+Subject: [PATCH 2/3] LinuxInputDevice: add support for multi-touch devices
+
+Adds support for multi-touch devices on Linux.
+Support is limited to devices that are capable of
+tracking identifiable contacts, and use the type B events of:
+
+https://www.kernel.org/doc/Documentation/input/multi-touch-protocol.txt
+
+Signed-off-by: Floris Bos <bos@je-eigen-domein.nl>
+---
+ Makefile.in                            |   2 +
+ xbmc/input/linux/LinuxInputDevices.cpp | 109 ++++++++++++++++++++++++++++++++-
+ xbmc/input/linux/LinuxInputDevices.h   |   8 +++
+ xbmc/input/touch/ITouchInputHandler.h  |   1 +
+ xbmc/windowing/WinEventsLinux.cpp      |   5 ++
+ xbmc/windowing/WinEventsLinux.h        |   1 +
+ 6 files changed, 125 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile.in b/Makefile.in
+index d579e11..2d4b1c8 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -157,6 +157,8 @@ DIRECTORY_ARCHIVES += xbmc/storage/android/storage_android.a
+ DIRECTORY_ARCHIVES += xbmc/windowing/X11/windowing_X11.a
+ else
+ DIRECTORY_ARCHIVES += xbmc/input/linux/input_linux.a
++DIRECTORY_ARCHIVES += xbmc/input/touch/input_touch.a
++DIRECTORY_ARCHIVES += xbmc/input/touch/generic/input_touch_generic.a
+ DIRECTORY_ARCHIVES += xbmc/network/linux/network_linux.a
+ DIRECTORY_ARCHIVES += xbmc/powermanagement/linux/powermanagement_linux.a
+ DIRECTORY_ARCHIVES += xbmc/storage/linux/storage_linux.a
+diff --git a/xbmc/input/linux/LinuxInputDevices.cpp b/xbmc/input/linux/LinuxInputDevices.cpp
+index b8f13d3..6e1cd1d 100644
+--- a/xbmc/input/linux/LinuxInputDevices.cpp
++++ b/xbmc/input/linux/LinuxInputDevices.cpp
+@@ -96,6 +96,8 @@ typedef unsigned long kernel_ulong_t;
+ #include "LinuxInputDevices.h"
+ #include "input/MouseStat.h"
+ #include "utils/log.h"
++#include "input/touch/generic/GenericTouchActionHandler.h"
++#include "input/touch/generic/GenericTouchInputHandler.h"
+ 
+ #ifndef BITS_PER_LONG
+ #define BITS_PER_LONG        (sizeof(long) * 8)
+@@ -267,7 +269,8 @@ typedef enum
+   LI_DEVICE_MOUSE    = 1,
+   LI_DEVICE_JOYSTICK = 2,
+   LI_DEVICE_KEYBOARD = 4,
+-  LI_DEVICE_REMOTE   = 8
++  LI_DEVICE_REMOTE   = 8,
++  LI_DEVICE_MULTITOUCH = 16
+ } LinuxInputDeviceType;
+ 
+ typedef enum
+@@ -302,6 +305,10 @@ CLinuxInputDevice::CLinuxInputDevice(const std::string& fileName, int index):
+   m_deviceMaxKeyCode = 0;
+   m_deviceMaxAxis = 0;
+   m_bUnplugged = false;
++  m_mt_currentSlot = 0;
++  memset(&m_mt_x, 0, sizeof(m_mt_x));
++  memset(&m_mt_y, 0, sizeof(m_mt_y));
++  memset(&m_mt_event, 0, sizeof(m_mt_event));
+ 
+   Open();
+ }
+@@ -681,11 +688,102 @@ bool CLinuxInputDevice::AbsEvent(const struct input_event& levt, XBMC_Event& dev
+ }
+ 
+ /*
++ * Process multi-touch absolute events
++ * Only store the information, do not fire event until we receive an EV_SYN
++ */
++bool CLinuxInputDevice::mtAbsEvent(const struct input_event& levt)
++{
++  switch (levt.code)
++  {
++  case ABS_MT_SLOT:
++    m_mt_currentSlot = levt.value;
++    break;
++
++  case ABS_MT_TRACKING_ID:
++    if (m_mt_currentSlot < TOUCH_MAX_POINTERS)
++    {
++      if (levt.value == -1)
++        m_mt_event[m_mt_currentSlot] = TouchInputUp;
++      else
++        m_mt_event[m_mt_currentSlot] = TouchInputDown;
++    }
++    break;
++
++  case ABS_MT_POSITION_X:
++    if (m_mt_currentSlot < TOUCH_MAX_POINTERS)
++    {
++      m_mt_x[m_mt_currentSlot] = levt.value;
++      if (m_mt_event[m_mt_currentSlot] == TouchInputUnchanged)
++        m_mt_event[m_mt_currentSlot] = TouchInputMove;
++    }
++    break;
++
++  case ABS_MT_POSITION_Y:
++    if (m_mt_currentSlot < TOUCH_MAX_POINTERS)
++    {
++      m_mt_y[m_mt_currentSlot] = levt.value;
++      if (m_mt_event[m_mt_currentSlot] == TouchInputUnchanged)
++        m_mt_event[m_mt_currentSlot] = TouchInputMove;
++    }
++    break;
++
++  default:
++    return false;
++  }
++
++  return true;
++}
++
++/*
++ * Process stored multi-touch events
++ */
++bool CLinuxInputDevice::mtSynEvent(const struct input_event& levt)
++{
++  float size = 10.0f;
++  int64_t nanotime = levt.time.tv_sec * 1000000000LL + levt.time.tv_usec * 1000LL;
++
++  for (int ptr=0; ptr < TOUCH_MAX_POINTERS; ptr++)
++  {
++    /* While the comments of ITouchInputHandler::UpdateTouchPointer() say
++       "If there's an event for every touch action this method does not need to be called at all"
++       gesture detection currently doesn't work properly without this call. */
++    CGenericTouchInputHandler::Get().UpdateTouchPointer(ptr, m_mt_x[ptr], m_mt_y[ptr], nanotime, size);
++  }
++
++  for (int ptr=0; ptr < TOUCH_MAX_POINTERS; ptr++)
++  {
++    if (m_mt_event[ptr] != TouchInputUnchanged)
++    {
++      CGenericTouchInputHandler::Get().HandleTouchInput(m_mt_event[ptr], m_mt_x[ptr], m_mt_y[ptr], nanotime, ptr, size);
++      m_mt_event[ptr] = TouchInputUnchanged;
++    }
++  }
++
++  return true;
++}
++
++/*
+  * Translates a Linux input event into a DirectFB input event.
+  */
+ bool CLinuxInputDevice::TranslateEvent(const struct input_event& levt,
+     XBMC_Event& devt)
+ {
++  if (m_devicePreferredId == LI_DEVICE_MULTITOUCH)
++  {
++    switch (levt.type)
++    {
++    case EV_ABS:
++      return mtAbsEvent(levt);
++
++    case EV_SYN:
++      return mtSynEvent(levt);
++
++    default:
++      // Ignore legacy (key) events
++      return false;
++    }
++  }
++
+   switch (levt.type)
+   {
+   case EV_KEY:
+@@ -930,6 +1028,10 @@ void CLinuxInputDevice::GetInfo(int fd)
+     for (i = 0; i < ABS_PRESSURE; i++)
+       if (test_bit( i, absbit ))
+         num_abs++;
++
++    /* test if it is a multi-touch type B device */
++    if (test_bit(ABS_MT_SLOT, absbit))
++      m_deviceType |= LI_DEVICE_MULTITOUCH;
+   }
+ 
+   /* Mouse, Touchscreen or Smartpad ? */
+@@ -981,6 +1083,11 @@ void CLinuxInputDevice::GetInfo(int fd)
+   /* Decide which primary input device to be. */
+   if (m_deviceType & LI_DEVICE_KEYBOARD)
+     m_devicePreferredId = LI_DEVICE_KEYBOARD;
++  else if (m_deviceType & LI_DEVICE_MULTITOUCH)
++  {
++    m_devicePreferredId = LI_DEVICE_MULTITOUCH;
++    CGenericTouchInputHandler::Get().RegisterHandler(&CGenericTouchActionHandler::Get());
++  }
+   else if (m_deviceType & LI_DEVICE_REMOTE)
+     m_devicePreferredId = LI_DEVICE_REMOTE;
+   else if (m_deviceType & LI_DEVICE_JOYSTICK)
+diff --git a/xbmc/input/linux/LinuxInputDevices.h b/xbmc/input/linux/LinuxInputDevices.h
+index 954d823..8c88a1d 100644
+--- a/xbmc/input/linux/LinuxInputDevices.h
++++ b/xbmc/input/linux/LinuxInputDevices.h
+@@ -26,6 +26,8 @@
+ #include "windowing/XBMC_events.h"
+ #include "input/XBMC_keyboard.h"
+ #include "threads/SingleLock.h"
++#include "input/touch/ITouchInputHandler.h"
++#include "input/touch/generic/IGenericTouchGestureDetector.h"
+ 
+ struct KeymapEntry
+ {
+@@ -60,6 +62,8 @@ class CLinuxInputDevice
+   XBMCMod UpdateModifiers(XBMC_Event& devt);
+   bool GetKeymapEntry(KeymapEntry& entry);
+   int KeyboardGetSymbol(unsigned short value);
++  bool mtAbsEvent(const struct input_event& levt);
++  bool mtSynEvent(const struct input_event& levt);
+ 
+   int m_fd;
+   int m_vt_fd;
+@@ -81,6 +85,10 @@ class CLinuxInputDevice
+   bool m_bSkipNonKeyEvents;
+   bool m_bUnplugged;
+   std::deque<XBMC_Event> m_equeue;
++  int m_mt_currentSlot;
++  int m_mt_x[TOUCH_MAX_POINTERS];
++  int m_mt_y[TOUCH_MAX_POINTERS];
++  TouchInput m_mt_event[TOUCH_MAX_POINTERS];
+ };
+ 
+ class CLinuxInputDevices
+diff --git a/xbmc/input/touch/ITouchInputHandler.h b/xbmc/input/touch/ITouchInputHandler.h
+index 6ea47db..43c7a76 100644
+--- a/xbmc/input/touch/ITouchInputHandler.h
++++ b/xbmc/input/touch/ITouchInputHandler.h
+@@ -28,6 +28,7 @@
+  * \brief Touch input event
+  */
+ typedef enum {
++  TouchInputUnchanged = 0,
+   TouchInputAbort,
+   TouchInputDown,
+   TouchInputUp,
+diff --git a/xbmc/windowing/WinEventsLinux.cpp b/xbmc/windowing/WinEventsLinux.cpp
+index 89aca2b..04e3544 100644
+--- a/xbmc/windowing/WinEventsLinux.cpp
++++ b/xbmc/windowing/WinEventsLinux.cpp
+@@ -241,4 +241,9 @@ size_t CWinEventsLinux::GetQueueSize()
+   return m_devices.Size();
+ }
+ 
++void CWinEventsLinux::MessagePush(XBMC_Event *ev)
++{
++  g_application.OnEvent(*ev);
++}
++
+ #endif
+diff --git a/xbmc/windowing/WinEventsLinux.h b/xbmc/windowing/WinEventsLinux.h
+index 5c2b583..dc73b39 100644
+--- a/xbmc/windowing/WinEventsLinux.h
++++ b/xbmc/windowing/WinEventsLinux.h
+@@ -31,6 +31,7 @@ class CWinEventsLinux : public IWinEvents
+   CWinEventsLinux();
+   bool MessagePump();
+   size_t GetQueueSize();
++  void MessagePush(XBMC_Event *ev);
+   void RefreshDevices();
+   void Notify(const Observable &obs, const ObservableMessage msg)
+   {
