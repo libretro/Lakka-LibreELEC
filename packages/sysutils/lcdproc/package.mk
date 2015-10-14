@@ -37,6 +37,16 @@ if [ "$IRSERVER_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET irserver"
 fi
 
+IFS=$','
+for i in $LCD_DRIVER; do
+  case $i in
+    glcd) PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET serdisplib"
+      ;;
+    *)
+  esac
+done
+unset IFS
+
 PKG_CONFIGURE_OPTS_TARGET="--enable-libusb --enable-drivers=$LCD_DRIVER,!curses,!svga --enable-seamless-hbars"
 
 pre_make_target() {
@@ -59,6 +69,7 @@ post_makeinstall_target() {
       -e "s|^#Hello=\"   LCDproc!\"|Hello=\"$DISTRONAME\"|" \
       -e "s|^#GoodBye=\"Thanks for using\"|GoodBye=\"Thanks for using\"|" \
       -e "s|^#GoodBye=\"   LCDproc!\"|GoodBye=\"$DISTRONAME\"|" \
+      -e "s|^#normal_font=.*$|normal_font=/usr/share/fonts/liberation/LiberationMono-Bold.ttf|" \
       -i $INSTALL/etc/LCDd.conf
 
     mkdir -p $INSTALL/usr/lib/openelec
