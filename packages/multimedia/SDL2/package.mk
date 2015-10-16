@@ -55,7 +55,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static \
                            --with-alsa-prefix=$SYSROOT_PREFIX/usr/lib \
                            --with-alsa-inc-prefix=$SYSROOT_PREFIX/usr/include \
                            --disable-esd --disable-esdtest --disable-esd-shared \
-                           --disable-pulseaudio --disable-pulseaudio-shared \
                            --disable-arts --disable-arts-shared \
                            --disable-nas --enable-nas-shared \
                            --disable-sndio --enable-sndio-shared \
@@ -101,6 +100,14 @@ if [ ! "$OPENGL" = "no" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-video-opengl --disable-video-opengles"
 else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-video-opengl --disable-video-opengles"
+fi
+
+if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
+
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-pulseaudio --enable-pulseaudio-shared"
+else
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-pulseaudio --disable-pulseaudio-shared"
 fi
 
 pre_make_target() {
