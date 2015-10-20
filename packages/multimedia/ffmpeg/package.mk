@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="2.6.4"
+PKG_VERSION="2.8.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://ffmpeg.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 libvorbis libressl"
+PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 libvorbis libressl dcadec"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
@@ -47,13 +47,6 @@ if [ "$VDPAU_SUPPORT" = yes ]; then
   FFMPEG_VDPAU="--enable-vdpau"
 else
   FFMPEG_VDPAU="--disable-vdpau"
-fi
-
-if [ "$DCADEC_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dcadec"
-  FFMPEG_LIBDCADEC="--enable-libdcadec"
-else
-  FFMPEG_LIBDCADEC="--disable-libdcadec"
 fi
 
 if [ "$DEBUG" = yes ]; then
@@ -150,7 +143,7 @@ configure_target() {
               --disable-w32threads \
               --disable-x11grab \
               --enable-network \
-              --disable-gnutls --enable-libressl \
+              --disable-gnutls --enable-openssl \
               --disable-gray \
               --enable-swscale-alpha \
               --disable-small \
@@ -191,7 +184,7 @@ configure_target() {
               --disable-libopencore-amrwb \
               --disable-libopencv \
               --disable-libdc1394 \
-              $FFMPEG_LIBDCADEC \
+              --enable-libdcadec \
               --disable-libfaac \
               --disable-libfreetype \
               --disable-libgsm \
