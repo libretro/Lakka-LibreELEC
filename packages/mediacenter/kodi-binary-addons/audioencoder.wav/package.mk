@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audioencoder.wav"
-PKG_VERSION="797c990"
+PKG_VERSION="0c6ec77"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

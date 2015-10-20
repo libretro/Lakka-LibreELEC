@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="screensaver.matrixtrails"
-PKG_VERSION="ae13b62"
+PKG_VERSION="16057e7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

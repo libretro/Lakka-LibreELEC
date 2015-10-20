@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="screensaver.asteroids"
-PKG_VERSION="09d7693"
+PKG_VERSION="c7ae05f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

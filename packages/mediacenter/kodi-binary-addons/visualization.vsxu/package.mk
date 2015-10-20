@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.vsxu"
-PKG_VERSION="059e5e0"
+PKG_VERSION="990332f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

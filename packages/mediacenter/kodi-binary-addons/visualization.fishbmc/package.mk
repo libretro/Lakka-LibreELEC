@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.fishbmc"
-PKG_VERSION="30ea279b"
+PKG_VERSION="b0a9bcb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
