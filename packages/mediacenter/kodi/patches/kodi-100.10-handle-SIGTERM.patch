@@ -1,40 +1,62 @@
-From d70e7c8826a95852a05ef3de0fea71c8b85accb1 Mon Sep 17 00:00:00 2001
+From 66fa8d82238e001dc81b0a266e323c6a2f8b11b2 Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
 Date: Mon, 15 Dec 2014 21:28:54 +0200
-Subject: [PATCH 10/12] handle SIGTERM
+Subject: [PATCH 10/13] handle SIGTERM
 
-In some situations, due to deadlocks or crashes, xbmc fails to exit properly in
-CApplication::Stop(), so  g_powerManager.Reboot() / g_powerManager.Powerdown() never gets
-called, that's a big no-no for openelec as our users can't shutdown or reboot.
-There are few addons reported to cause this behaviour: trakkt.tv, watchdog, weather.underground.
+0. CApplication::Stop cant be trusted. (deadlocks crashes and boo)
 
-I've also noticed that sometimes new threads (FileCache ??) get started AFTER
-CApplication::Stop() is called, delaying shutdown with 1+ minute (2 curl timeoouts?).
-The problem seems to be in CJobManager::CancelJobs() but I am too lame to understand where,
-why, and how to fix it.
+so, when shutdown/reboot is requested:
 
-To me, it seems best to let systemd handle it. systemd sends SIGTERM, then waits
-TimeoutStopSec=xx seconds then sends SIGKILL,s so dont call g_application.Stop() from
-ApplicationMessenger as it can not be trusted. save the requested exitcode instead
-(that's required for CEC to switch off the tv) and do it from a simple SIGTERM handler instead.
-
-CEC thread has enough time (5 seconds in xbmc.service) to switch of the TV after receiving OnQuit.
-As a side "effect", now guisettings.xml will ALWAYS be saved, even if shutdown / rebooot
-is requested externaly (ssh, 3rdparty script).
+1. save an exit code (for CEC...)
+2. call CPowerManager::{Reboot,PowerDown}
+3. ... then systemd sends TERM and waits xx seconds before sending KILL
+4. CApplication::Stop has xx seconds to save guisettings.xml and boo
+5. CEC thread has xx seconds to switch off after it received OnQuit
+6. addons / pvrmanager / cec / everything else.. are free to deadlock / crash now, we dont care
+7. KILL
 ---
- xbmc/Application.cpp          | 10 ++++++++--
- xbmc/Application.h            |  1 +
- xbmc/ApplicationMessenger.cpp |  6 ++++--
- xbmc/XBApplicationEx.cpp      |  1 +
- xbmc/XBApplicationEx.h        |  1 +
- xbmc/main/main.cpp            | 15 +++++++++++++++
- 6 files changed, 30 insertions(+), 4 deletions(-)
+ xbmc/Application.cpp     | 17 ++++++++++++-----
+ xbmc/Application.h       |  1 +
+ xbmc/XBApplicationEx.cpp |  1 +
+ xbmc/XBApplicationEx.h   |  1 +
+ xbmc/main/main.cpp       | 15 +++++++++++++++
+ 5 files changed, 30 insertions(+), 5 deletions(-)
 
 diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index da6aa6e..b39c906 100644
+index 1c906a2..99ca567 100644
 --- a/xbmc/Application.cpp
 +++ b/xbmc/Application.cpp
-@@ -2583,12 +2583,19 @@ bool CApplication::Cleanup()
+@@ -2490,12 +2490,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+   switch (pMsg->dwMessage)
+   {
+   case TMSG_POWERDOWN:
+-    Stop(EXITCODE_POWERDOWN);
++    SetExitCode(EXITCODE_POWERDOWN);
+     g_powerManager.Powerdown();
+     break;
+ 
+   case TMSG_QUIT:
+-    Stop(EXITCODE_QUIT);
++    SetExitCode(EXITCODE_QUIT);
+     break;
+   
+   case TMSG_SHUTDOWN:
+@@ -2539,12 +2539,13 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+ 
+   case TMSG_RESTART:
+   case TMSG_RESET:
+-    Stop(EXITCODE_REBOOT);
++    SetExitCode(EXITCODE_REBOOT);
+     g_powerManager.Reboot();
+     break;
+ 
+   case TMSG_RESTARTAPP:
+ #if defined(TARGET_WINDOWS) || defined(TARGET_LINUX)
++    SetExitCode(EXITCODE_RESTARTAPP);
+     Stop(EXITCODE_RESTARTAPP);
+ #endif
+     break;
+@@ -2890,12 +2891,19 @@ bool CApplication::Cleanup()
    }
  }
  
@@ -52,10 +74,10 @@ index da6aa6e..b39c906 100644
      CVariant vExitCode(CVariant::VariantTypeObject);
 -    vExitCode["exitcode"] = exitCode;
 +    vExitCode["exitcode"] = m_ExitCode;
-     CAnnouncementManager::Get().Announce(System, "xbmc", "OnQuit", vExitCode);
+     CAnnouncementManager::GetInstance().Announce(System, "xbmc", "OnQuit", vExitCode);
  
-     SaveFileState(true);
-@@ -2612,7 +2619,6 @@ void CApplication::Stop(int exitCode)
+     // Abort any active screensaver
+@@ -2922,7 +2930,6 @@ void CApplication::Stop(int exitCode)
  
      m_bStop = true;
      m_AppFocused = false;
@@ -64,56 +86,19 @@ index da6aa6e..b39c906 100644
  
      // cancel any jobs from the jobmanager
 diff --git a/xbmc/Application.h b/xbmc/Application.h
-index b4da8f2..b5fdae6 100644
+index f1dfe0d..200abee 100644
 --- a/xbmc/Application.h
 +++ b/xbmc/Application.h
 @@ -154,6 +154,7 @@ public:
-   bool StartPVRManager();
+   void StartPVRManager();
    void StopPVRManager();
    bool IsCurrentThread() const;
 +  void SetExitCode(int exitCode);
    void Stop(int exitCode);
    void RestartApp();
    void UnloadSkin(bool forReload = false);
-diff --git a/xbmc/ApplicationMessenger.cpp b/xbmc/ApplicationMessenger.cpp
-index a46c9be..9bb6804 100644
---- a/xbmc/ApplicationMessenger.cpp
-+++ b/xbmc/ApplicationMessenger.cpp
-@@ -261,13 +261,14 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
- 
-     case TMSG_POWERDOWN:
-       {
--        g_application.Stop(EXITCODE_POWERDOWN);
-+        g_application.SetExitCode(EXITCODE_POWERDOWN);
-         g_powerManager.Powerdown();
-       }
-       break;
- 
-     case TMSG_QUIT:
-       {
-+        g_application.SetExitCode(EXITCODE_QUIT);
-         g_application.Stop(EXITCODE_QUIT);
-       }
-       break;
-@@ -289,7 +290,7 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
-     case TMSG_RESTART:
-     case TMSG_RESET:
-       {
--        g_application.Stop(EXITCODE_REBOOT);
-+        g_application.SetExitCode(EXITCODE_REBOOT);
-         g_powerManager.Reboot();
-       }
-       break;
-@@ -297,6 +298,7 @@ void CApplicationMessenger::ProcessMessage(ThreadMessage *pMsg)
-     case TMSG_RESTARTAPP:
-       {
- #if defined(TARGET_WINDOWS) || defined(TARGET_LINUX)
-+        g_application.SetExitCode(EXITCODE_RESTARTAPP);
-         g_application.Stop(EXITCODE_RESTARTAPP);
- #endif
-       }
 diff --git a/xbmc/XBApplicationEx.cpp b/xbmc/XBApplicationEx.cpp
-index ad6a145..6058938 100644
+index 048a6c1..fa99ac1 100644
 --- a/xbmc/XBApplicationEx.cpp
 +++ b/xbmc/XBApplicationEx.cpp
 @@ -40,6 +40,7 @@ CXBApplicationEx::CXBApplicationEx()
@@ -137,10 +122,10 @@ index c46cba1..ed3f35f 100644
    bool m_renderGUI;
  
 diff --git a/xbmc/main/main.cpp b/xbmc/main/main.cpp
-index 87fe2fd..3bfb338 100644
+index 01027f8..4cfb04e 100644
 --- a/xbmc/main/main.cpp
 +++ b/xbmc/main/main.cpp
-@@ -41,9 +41,24 @@
+@@ -41,12 +41,27 @@
  #include "input/linux/LIRC.h"
  #endif
  #include "XbmcContext.h"
@@ -154,6 +139,9 @@ index 87fe2fd..3bfb338 100644
 +  g_application.Stop(EXITCODE_RESTARTAPP);
 +}
  
+ #ifdef __cplusplus
+ extern "C"
+ #endif
  int main(int argc, char* argv[])
  {
 +  // SIGTERM handler
@@ -166,5 +154,5 @@ index 87fe2fd..3bfb338 100644
    XBMC::Context context;
  
 -- 
-2.1.4
+2.5.0
 

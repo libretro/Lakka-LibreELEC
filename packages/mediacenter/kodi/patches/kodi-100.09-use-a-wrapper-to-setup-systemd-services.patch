@@ -1,7 +1,7 @@
-From ba906db17bdb834aedf88ca35b1ce30ea2d2bbd4 Mon Sep 17 00:00:00 2001
+From 74ed25108f5a5c4771e001aa9921f175872c076e Mon Sep 17 00:00:00 2001
 From: Stefan Saraev <stefan@saraev.ca>
 Date: Fri, 24 Apr 2015 19:45:20 +0300
-Subject: [PATCH 09/12] use a wrapper to setup systemd services
+Subject: [PATCH 09/13] use a wrapper to setup systemd services
 
 ---
  xbmc/addons/Addon.cpp | 30 ++++++++++++++++++++++++++++++
@@ -9,10 +9,10 @@ Subject: [PATCH 09/12] use a wrapper to setup systemd services
  2 files changed, 32 insertions(+)
 
 diff --git a/xbmc/addons/Addon.cpp b/xbmc/addons/Addon.cpp
-index 03325dd..b2bfafa 100644
+index 377a49c..2fda194 100644
 --- a/xbmc/addons/Addon.cpp
 +++ b/xbmc/addons/Addon.cpp
-@@ -626,6 +626,13 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
+@@ -638,6 +638,13 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
    return AddonVersion("0.0.0");
  }
  
@@ -26,62 +26,62 @@ index 03325dd..b2bfafa 100644
  void OnEnabled(const std::string& id)
  {
    // If the addon is a special, call enabled handler
-@@ -633,6 +640,11 @@ void OnEnabled(const std::string& id)
-   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_PVRDLL))
+@@ -646,6 +653,11 @@ void OnEnabled(const std::string& id)
+       CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_ADSPDLL))
      return addon->OnEnabled();
  
 +  // OE: systemctl enable & start on addon enable
-+  if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE))
++  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE))
 +    CallOEWrapper(addon->ID(), false);
 +  // OE
 +
-   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE))
+   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE))
      std::static_pointer_cast<CService>(addon)->Start();
  
-@@ -649,6 +661,11 @@ void OnDisabled(const std::string& id)
-   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE, false))
+@@ -663,6 +675,11 @@ void OnDisabled(const std::string& id)
+   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE, false))
      std::static_pointer_cast<CService>(addon)->Stop();
  
 +  // OE: systemctl stop & disable on addon disable
-+  if (CAddonMgr::Get().GetAddon(id, addon, ADDON_SERVICE, false))
++  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE, false))
 +    CallOEWrapper(addon->ID(), true);
 +  // OE
 +
-   if (CAddonMgr::Get().GetAddon(id, addon, ADDON_CONTEXT_ITEM, false))
-     CContextMenuManager::Get().Unregister(std::static_pointer_cast<CContextItemAddon>(addon));
+   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_CONTEXT_ITEM, false))
+     CContextMenuManager::GetInstance().Unregister(std::static_pointer_cast<CContextMenuAddon>(addon));
  }
-@@ -672,6 +689,14 @@ void OnPreInstall(const AddonPtr& addon)
+@@ -686,6 +703,14 @@ void OnPreInstall(const AddonPtr& addon)
  void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
  {
    AddonPtr localAddon;
 +  // OE: systemctl stop & disable / enable & start on addon upgrade
-+  if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
++  if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
 +  {
 +    CallOEWrapper(addon->ID(), true);
 +    CallOEWrapper(addon->ID(), false);
 +  }
 +  // OE
 +
-   if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
+   if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
      std::static_pointer_cast<CService>(localAddon)->Start();
  
-@@ -706,6 +731,11 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+@@ -720,6 +745,11 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
  void OnPreUnInstall(const AddonPtr& addon)
  {
    AddonPtr localAddon;
 +  // OE: systemctl stop & disable on addon ininstall
-+  if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
++  if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
 +    CallOEWrapper(addon->ID(), true);
 +  // OE
 +
-   if (CAddonMgr::Get().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
+   if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
      std::static_pointer_cast<CService>(localAddon)->Stop();
  
 diff --git a/xbmc/addons/Addon.h b/xbmc/addons/Addon.h
-index ca9cddb..46e30d3 100644
+index d0a40d3..0742374 100644
 --- a/xbmc/addons/Addon.h
 +++ b/xbmc/addons/Addon.h
-@@ -171,6 +171,8 @@ public:
+@@ -173,6 +173,8 @@ public:
    const InfoMap &ExtraInfo() const { return m_props.extrainfo; }
    const ADDONDEPS &GetDeps() const { return m_props.dependencies; }
  
@@ -91,5 +91,5 @@ index ca9cddb..46e30d3 100644
     \param dependencyID the addon ID of the dependency.
     \return the version this addon requires.
 -- 
-2.1.4
+2.5.0
 
