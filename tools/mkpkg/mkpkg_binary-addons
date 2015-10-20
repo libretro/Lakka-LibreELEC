@@ -19,7 +19,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-KODI_DIR="kodi-Isengard.git"
+KODI_DIR="kodi-master.git"
 
 git_clone() {
   # git_clone https://repo.url branch ./target_dir [githash]
@@ -106,20 +106,26 @@ if [ -f ../../packages/mediacenter/kodi-platform/package.mk ] ; then
 fi
 
 # addons
-for addon in $KODI_DIR/project/cmake/addons/addons/*.* ; do
-  ADDON=$(basename $addon)
-  REPO=$(cat $KODI_DIR/project/cmake/addons/addons/$ADDON/$ADDON.txt | awk '{print $2}')
-  GIT_HASH=$(cat $KODI_DIR/project/cmake/addons/addons/$ADDON/$ADDON.txt | awk '{print $3}')
+for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.txt ; do
+  ADDONS=$(cat $addontxt | awk '{print $1}')
+  ADDONREPO=$(cat $addontxt | awk '{print $2}')
+  GIT_HASH=$(cat $addontxt | awk '{print $3}')
+  git_clone $ADDONREPO master $ADDONS.git $GIT_HASH
+  for addon in $ADDONS.git/*.*/ ; do
+    ADDON=$(basename $addon)
+    REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
+    GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
 
-  if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt ; then
-    continue
-  fi
+    if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
+      continue
+    fi
 
-  copy_and_package $REPO $ADDON $GIT_HASH
+    copy_and_package $REPO $ADDON $GIT_HASH
 
-  if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
-    # update package.mk
-    RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-    sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
-  fi
+    if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
+      # update package.mk
+      RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
+      sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+    fi
+  done
 done
