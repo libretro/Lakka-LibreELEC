@@ -32,11 +32,9 @@ if [ -z "$BOOT_DISK" ]; then
   esac
 fi
 
-# we don't have mounted /etc in initramfs so just load system type
-if [ -f $SYSTEM_ROOT/etc/profile.d/01-system_type.conf ]; then
-  . $SYSTEM_ROOT/etc/profile.d/01-system_type.conf
-else
-  SYSTEM_TYPE=""
+SYSTEM_TYPE=""
+if [ -f $SYSTEM_ROOT/usr/lib/openelec/imx6-system-type ]; then
+  . $SYSTEM_ROOT/usr/lib/openelec/imx6-system-type
 fi
 
 # mount $BOOT_ROOT r/w
