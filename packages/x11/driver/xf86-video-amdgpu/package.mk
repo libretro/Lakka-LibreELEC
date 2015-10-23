@@ -16,23 +16,26 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-ACTION!="add|change", GOTO="end_video"
+PKG_NAME="xf86-video-amdgpu"
+PKG_VERSION="3b0a3c8"
+PKG_REV="1"
+PKG_ARCH="x86_64"
+PKG_LICENSE="OSS"
+PKG_SITE="http://www.x.org/"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_TARGET="toolchain xorg-server"
+PKG_PRIORITY="optional"
+PKG_SECTION="x11/driver"
+PKG_SHORTDESC="xf86-video-amdgpu - AMD Radeon video driver for the Xorg X server"
+PKG_LONGDESC="AMD Xorg video driver"
 
-# xorg_start only does something for subsystem "pci" and "video" class.
-SUBSYSTEM=="pci", ATTR{class}=="0x030000", GOTO="subsystem_pci"
-SUBSYSTEM=="drivers", GOTO="subsystem_drivers"
-GOTO="end_video"
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="yes"
 
-# check for drivers dont use the pci substem
-LABEL="subsystem_drivers"
-KERNEL=="nvidia", ENV{xorg_driver}="nvidia", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@nvidia.service"
-GOTO="end_video"
+PKG_CONFIGURE_OPTS_TARGET="--enable-udev \
+                           --enable-glamor \
+                           --with-xorg-module-dir=$XORG_PATH_MODULES"
 
-# check for drivers using the pci substem
-LABEL="subsystem_pci"
-DRIVER=="i915", ENV{xorg_driver}="i915", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@i915.service"
-DRIVER=="amdgpu", ENV{xorg_driver}="amdgpu", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@amdgpu.service"
-DRIVER=="radeon", ENV{xorg_driver}="radeon", TAG+="systemd", ENV{SYSTEMD_WANTS}+="xorg-configure@radeon.service"
-GOTO="end_video"
-
-LABEL="end_video"
+post_makeinstall_target() {
+  rm -r $INSTALL/usr/share
+}

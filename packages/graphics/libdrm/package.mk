@@ -34,7 +34,7 @@ PKG_AUTORECONF="yes"
 
 get_graphicdrivers
 
-DRM_CONFIG="--disable-libkms --disable-intel --disable-radeon"
+DRM_CONFIG="--disable-libkms --disable-intel --disable-radeon --disable-amdgpu"
 DRM_CONFIG="$DRM_CONFIG --disable-nouveau --disable-vmwgfx"
 
 for drv in $GRAPHIC_DRIVERS; do
@@ -44,7 +44,8 @@ for drv in $GRAPHIC_DRIVERS; do
 
   [ "$drv" = "r200" -o "$drv" = "r300" -o "$drv" = "r600" -o "$drv" = "radeonsi" ] && \
     DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-libkms/enable-libkms/'` && \
-    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-radeon/enable-radeon/'`
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-radeon/enable-radeon/'` && \
+    DRM_CONFIG=`echo $DRM_CONFIG | sed -e 's/disable-amdgpu/enable-amdgpu/'`
 done
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-udev \
