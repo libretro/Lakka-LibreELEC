@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libshairplay"
-PKG_VERSION="0f41ade"
+PKG_VERSION="498bc5b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
