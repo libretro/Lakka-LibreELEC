@@ -40,9 +40,25 @@ make_init() {
   : # reuse make_target()
 }
 
+pre_build_host() {
+  mkdir -p $PKG_BUILD/.$HOST_NAME
+  cp -RP $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
+}
+
+make_host() {
+  cd $ROOT/$PKG_BUILD/.$HOST_NAME
+  make PREFIX=/usr
+}
+
 makeinstall_init() {
   mkdir -p $INSTALL/sbin
     cp fsck.fat $INSTALL/sbin
     ln -sf fsck.fat $INSTALL/sbin/fsck.msdos
     ln -sf fsck.fat $INSTALL/sbin/fsck.vfat
+}
+
+makeinstall_host() {
+  mkdir -p $ROOT/$TOOLCHAIN/sbin
+    cp mkfs.fat $ROOT/$TOOLCHAIN/sbin
+    ln -sf mkfs.fat $ROOT/$TOOLCHAIN/sbin/mkfs.vfat
 }
