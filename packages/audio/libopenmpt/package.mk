@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="libopenmpt"
-PKG_VERSION="0.2.5598"
+PKG_VERSION="0.2.4764"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://lib.openmpt.org/libopenmpt/"
-PKG_URL="http://buildbot.openmpt.org/builds/auto/src/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
