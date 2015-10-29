@@ -1,0 +1,36 @@
+From 6aab0376e7a4afdf5fbbbfa6c5394d302fb35a11 Mon Sep 17 00:00:00 2001
+From: Chris Browet <koying@semperpax.com>
+Date: Mon, 18 May 2015 14:28:02 +0200
+Subject: [PATCH] FIX: [aml] avoid decoder being deadlocked
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
+index 981ddd0..7046be3 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
+@@ -1855,7 +1855,8 @@ int CAMLCodec::Decode(uint8_t *pData, size_t iSize, double dts, double pts)
+     // loop until we write all into codec, am_pkt.isvalid
+     // will get set to zero once everything is consumed.
+     // PLAYER_SUCCESS means all is ok, not all bytes were written.
+-    while (am_private->am_pkt.isvalid)
++    int loop = 0;
++    while (am_private->am_pkt.isvalid && loop < 100)
+     {
+       // abort on any errors.
+       if (write_av_packet(am_private, &am_private->am_pkt) != PLAYER_SUCCESS)
+@@ -1863,6 +1864,12 @@ int CAMLCodec::Decode(uint8_t *pData, size_t iSize, double dts, double pts)
+ 
+       if (am_private->am_pkt.isvalid)
+         CLog::Log(LOGDEBUG, "CAMLCodec::Decode: write_av_packet looping");
++      loop++;
++    }
++    if (loop == 100)
++    {
++      // Decoder got stuck; Reset
++      Reset();
+     }
+     if (!m_dll_has_video_delay)
+     {
