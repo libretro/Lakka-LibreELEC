@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libnl"
-PKG_VERSION="3.2.26"
+PKG_VERSION="3.2.27"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
