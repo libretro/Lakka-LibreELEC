@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="7.0"
+PKG_VERSION="7.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -109,13 +109,6 @@ post_makeinstall_target() {
 
   cp $PKG_DIR/config/system.pa $INSTALL/etc/pulse/
   cp $PKG_DIR/config/pulseaudio-system.conf $INSTALL/etc/dbus-1/system.d/
-
-  # Remove unwanted symlinks
-  for file in $INSTALL/*; do
-    if [ -L "$file" ]; then
-      rm $file
-    fi
-  done
 }
 
 post_install() {
