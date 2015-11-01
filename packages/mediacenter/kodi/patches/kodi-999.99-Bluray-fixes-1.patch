@@ -1,0 +1,217 @@
+From f2d12c9b6fb41a1a920afa54beaae9045f11a3c5 Mon Sep 17 00:00:00 2001
+From: ace20022 <ace20022@xbmc.org>
+Date: Fri, 20 Mar 2015 16:38:47 +0100
+Subject: [PATCH 02/12] [curl][udf] The separator between the image path and
+ the file path (inside the image) must be '/'.
+
+---
+ xbmc/URL.cpp | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/xbmc/URL.cpp b/xbmc/URL.cpp
+index ac4a9c6..2ecf050 100644
+--- a/xbmc/URL.cpp
++++ b/xbmc/URL.cpp
+@@ -160,6 +160,17 @@ void CURL::Parse(const std::string& strURL1)
+     return;
+   }
+ 
++  if (IsProtocol("udf"))
++  {
++    std::string lower(strURL);
++    StringUtils::ToLower(lower);
++    size_t isoPos = lower.find(".iso\\", iPos);
++    if (isoPos != std::string::npos)
++    {
++      strURL = strURL.replace(isoPos + 4, 1, "/");
++    }
++  }
++
+   // check for username/password - should occur before first /
+   if (iPos == std::string::npos) iPos = 0;
+ 
+
+From 4e38b5c178e089adc30c6f31d7a52b388c6e73f7 Mon Sep 17 00:00:00 2001
+From: ace20022 <ace20022@xbmc.org>
+Date: Tue, 9 Sep 2014 14:45:04 +0200
+Subject: [PATCH 03/12] [bluray] Add PLAYMARK event.
+
+---
+ xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+index 544261c..ccbdbad 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+@@ -586,6 +586,8 @@ void CDVDInputStreamBluray::ProcessEvent() {
+   case BD_EVENT_SECONDARY_VIDEO:
+   case BD_EVENT_SECONDARY_VIDEO_SIZE:
+   case BD_EVENT_SECONDARY_VIDEO_STREAM:
++  case BD_EVENT_PLAYMARK:
++    break;
+ 
+   case BD_EVENT_NONE:
+     break;
+
+From 24e1fa5424ef73c8951f21081c95cb79df5e686f Mon Sep 17 00:00:00 2001
+From: ace20022 <ace20022@xbmc.org>
+Date: Thu, 6 Nov 2014 11:54:29 +0100
+Subject: [PATCH 04/12] [bluray] Move player setup to an own method and
+ refactor it.
+
+---
+ .../DVDInputStreams/DVDInputStreamBluray.cpp       | 32 +++++++++++++---------
+ .../DVDInputStreams/DVDInputStreamBluray.h         |  3 ++
+ 2 files changed, 22 insertions(+), 13 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+index ccbdbad..cb8fff4 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+@@ -384,19 +384,8 @@ bool CDVDInputStreamBluray::Open(const char* strFile, const std::string& content
+ 
+   if(m_navmode)
+   {
+-    int region = CSettings::Get().GetInt("dvds.playerregion");
+-    if(region == 0)
+-    {
+-      CLog::Log(LOGWARNING, "CDVDInputStreamBluray::Open - region dvd must be set in setting, assuming region 1");
+-      region = 1;
+-    }
+-    m_dll->bd_set_player_setting    (m_bd, BLURAY_PLAYER_SETTING_REGION_CODE,  region);
+-    m_dll->bd_set_player_setting    (m_bd, BLURAY_PLAYER_SETTING_PARENTAL,     0);
+-    m_dll->bd_set_player_setting    (m_bd, BLURAY_PLAYER_SETTING_PLAYER_PROFILE, 0);
+-    m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_AUDIO_LANG,   g_langInfo.GetDVDAudioLanguage().c_str());
+-    m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_PG_LANG,      g_langInfo.GetDVDSubtitleLanguage().c_str());
+-    m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_MENU_LANG,    g_langInfo.GetDVDMenuLanguage().c_str());
+-    m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_COUNTRY_CODE, "us");
++    SetupPlayerSettings();
++
+     m_dll->bd_register_overlay_proc (m_bd, this, bluray_overlay_cb);
+ #ifdef HAVE_LIBBLURAY_BDJ
+     m_dll->bd_register_argb_overlay_proc (m_bd, this, bluray_overlay_argb_cb, NULL);
+@@ -1130,4 +1119,21 @@ bool CDVDInputStreamBluray::HasMenu()
+   return m_navmode;
+ }
+ 
++void CDVDInputStreamBluray::SetupPlayerSettings()
++{
++  int region = CSettings::Get().GetInt("dvds.playerregion");
++  if (region == 0)
++  {
++    CLog::Log(LOGWARNING, "CDVDInputStreamBluray::Open - region dvd must be set in setting, assuming region 1");
++    region = 1;
++  }
++  m_dll->bd_set_player_setting(m_bd, BLURAY_PLAYER_SETTING_REGION_CODE, region);
++  m_dll->bd_set_player_setting(m_bd, BLURAY_PLAYER_SETTING_PARENTAL, 0);
++  m_dll->bd_set_player_setting(m_bd, BLURAY_PLAYER_SETTING_PLAYER_PROFILE, 0);
++  m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_AUDIO_LANG, g_langInfo.GetDVDAudioLanguage().c_str());
++  m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_PG_LANG, g_langInfo.GetDVDSubtitleLanguage().c_str());
++  m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_MENU_LANG, g_langInfo.GetDVDMenuLanguage().c_str());
++  m_dll->bd_set_player_setting_str(m_bd, BLURAY_PLAYER_SETTING_COUNTRY_CODE, "us");
++}
++
+ #endif
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
+index f05c406..19a6f65 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
+@@ -161,4 +161,7 @@ class CDVDInputStreamBluray
+ #ifdef HAVE_LIBBLURAY_BDJ
+   struct bd_argb_buffer_s m_argb;
+ #endif
++
++  private:
++    void SetupPlayerSettings();
+ };
+
+From 0c3cb1e2deffd63a779fe58b586f3d34b077e854 Mon Sep 17 00:00:00 2001
+From: ace20022 <ace20022@ymail.com>
+Date: Sun, 16 Nov 2014 16:53:43 +0100
+Subject: [PATCH 10/12] [bluray] Initialize m_angle.
+
+---
+ xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+index 5031799..17a7318 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+@@ -189,6 +189,7 @@ CDVDInputStreamBluray::CDVDInputStreamBluray(IDVDPlayer* player) :
+ {
+   m_title = NULL;
+   m_clip  = (uint32_t)-1;
++  m_angle = 0;
+   m_playlist = (uint32_t)-1;
+   m_menu  = false;
+   m_bd    = NULL;
+
+From 10ea7cc8057604d960fd505c854cb7d745880dc3 Mon Sep 17 00:00:00 2001
+From: ace20022 <ace20022@ymail.com>
+Date: Sat, 13 Sep 2014 14:13:34 +0200
+Subject: [PATCH 11/12] [bluray] Add Abort implementation.
+
+---
+ xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp | 10 ++++++++--
+ xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h   |  4 +++-
+ 2 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+index 17a7318..c8abbc1 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.cpp
+@@ -216,6 +216,11 @@ CDVDInputStreamBluray::~CDVDInputStreamBluray()
+   delete m_dll;
+ }
+ 
++void CDVDInputStreamBluray::Abort()
++{
++  m_hold = HOLD_EXIT;
++}
++
+ bool CDVDInputStreamBluray::IsEOF()
+ {
+   return false;
+@@ -605,7 +610,8 @@ int CDVDInputStreamBluray::Read(uint8_t* buf, int buf_size)
+       if(m_hold == HOLD_HELD)
+         return 0;
+ 
+-      if(m_hold == HOLD_ERROR)
++      if(  m_hold == HOLD_ERROR
++        || m_hold == HOLD_EXIT)
+         return -1;
+ 
+       result = m_dll->bd_read_ext (m_bd, buf, buf_size, &m_event);
+@@ -1011,7 +1017,7 @@ void CDVDInputStreamBluray::GetStreamInfo(int pid, char* language)
+ 
+ CDVDInputStream::ENextStream CDVDInputStreamBluray::NextStream()
+ {
+-  if(!m_navmode)
++  if(!m_navmode || m_hold == HOLD_EXIT)
+     return NEXTSTREAM_NONE;
+ 
+   if (m_hold == HOLD_ERROR)
+diff --git a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
+index af06e82..b41f64c 100644
+--- a/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
++++ b/xbmc/cores/dvdplayer/DVDInputStreams/DVDInputStreamBluray.h
+@@ -54,6 +54,7 @@ class CDVDInputStreamBluray
+   virtual int Read(uint8_t* buf, int buf_size);
+   virtual int64_t Seek(int64_t offset, int whence);
+   virtual bool Pause(double dTime) { return false; };
++  void Abort();
+   virtual bool IsEOF();
+   virtual int64_t GetLength();
+   virtual int GetBlockSize() { return 6144; }
+@@ -156,7 +157,8 @@ class CDVDInputStreamBluray
+     HOLD_HELD,
+     HOLD_DATA,
+     HOLD_STILL,
+-    HOLD_ERROR
++    HOLD_ERROR,
++    HOLD_EXIT
+   } m_hold;
+   BD_EVENT m_event;
+ #ifdef HAVE_LIBBLURAY_BDJ
