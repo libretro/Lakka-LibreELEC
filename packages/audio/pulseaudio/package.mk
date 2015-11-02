@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="7.0"
+PKG_VERSION="7.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -98,12 +98,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --with-module-dir=/usr/lib/pulse"
 
 post_makeinstall_target() {
-# add_user pulse x 499 498 "PulseAudio System Daemon" "/var/run/pulse" "/bin/sh"
-# add_group pulse 498
-# add_group pulse-access 497
-
-  sed -e 's%user="pulse"%user="root"%g' -i $INSTALL/etc/dbus-1/system.d/pulseaudio-system.conf
-
   rm -rf $INSTALL/usr/bin/esdcompat
   rm -rf $INSTALL/usr/include
   rm -rf $INSTALL/usr/lib/cmake
@@ -114,13 +108,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/bash-completion
 
   cp $PKG_DIR/config/system.pa $INSTALL/etc/pulse/
-
-  # Remove unwanted symlinks
-  for file in $INSTALL/*; do
-    if [ -L "$file" ]; then
-      rm $file
-    fi
-  done
+  cp $PKG_DIR/config/pulseaudio-system.conf $INSTALL/etc/dbus-1/system.d/
 }
 
 post_install() {
