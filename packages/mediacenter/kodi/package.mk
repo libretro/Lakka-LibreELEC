@@ -41,12 +41,10 @@ PKG_AUTORECONF="no"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
 # for libX11 support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libdrm"
-# for libXrandr support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libXrandr"
-  KODI_XORG="--enable-x11 --enable-xrandr"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libdrm libXrandr"
+  KODI_XORG="--enable-x11"
 else
-  KODI_XORG="--disable-x11 --disable-xrandr"
+  KODI_XORG="--disable-x11"
 fi
 
 if [ ! "$OPENGL" = "no" ]; then
