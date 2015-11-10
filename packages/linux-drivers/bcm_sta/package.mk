@@ -20,7 +20,7 @@
 # http://www.broadcom.com/support/802.11/linux_sta.php
 
 PKG_NAME="bcm_sta"
-PKG_VERSION="6.30.223.248"
+PKG_VERSION="6.30.223.271"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
@@ -35,11 +35,6 @@ PKG_LONGDESC="These packages contain Broadcom's IEEE 802.11a/b/g/n hybrid LinuxÂ
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-pre_make_target() {
-  # rename binary to comply with upstream patches
-  mv $ROOT/$PKG_BUILD/x86-64/lib/wlc_hybrid.o_shipped $ROOT/$PKG_BUILD/x86-64/lib/wlc_hybrid.o_shipped_x86_64
-}
 
 make_target() {
   cd x86-64
