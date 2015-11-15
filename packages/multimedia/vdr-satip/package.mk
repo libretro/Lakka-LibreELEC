@@ -33,18 +33,25 @@ PKG_LONGDESC="vdr-satip is a SAT>IP plugin for VDR"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-  export CXXFLAGS="$CXXFLAGS -fPIC"
-  export LDFLAGS="$LDFLAGS -fPIC"
-}
-
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
-  make VDRDIR=$VDR_DIR \
+  export PKG_CONFIG_PATH=$VDR_DIR:$PKG_CONFIG_PATH
+  export CPLUS_INCLUDE_PATH=$VDR_DIR/include
+
+  make \
     SATIP_USE_TINYXML=1 \
     LIBDIR="." \
-    LOCALEDIR="./locale"
+    LOCDIR="./locale" \
+    all install-i18n
+}
+
+post_make_target() {
+  VDR_DIR=$(get_build_dir vdr)
+  VDR_APIVERSION=`sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$/\1/p' $VDR_DIR/config.h`
+  LIB_NAME=lib${PKG_NAME/-plugin/}
+
+  cp --remove-destination $ROOT/$PKG_BUILD/${LIB_NAME}.so $ROOT/$PKG_BUILD/${LIB_NAME}.so.${VDR_APIVERSION}
+  $STRIP libvdr-*.so*
 }
 
 makeinstall_target() {
