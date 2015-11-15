@@ -33,17 +33,26 @@ PKG_IS_ADDON="no"
 
 PKG_AUTORECONF="no"
 
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-  export CXXFLAGS="$CXXFLAGS -fPIC"
-  export LDFLAGS="$LDFLAGS -fPIC"
-}
-
 make_target() {
   VDR_DIR=$(get_build_dir vdr)
-  make VDRDIR=$VDR_DIR \
+  export PKG_CONFIG_PATH=$VDR_DIR:$PKG_CONFIG_PATH
+  export CPLUS_INCLUDE_PATH=$VDR_DIR/include
+
+  make \
     LIBDIR="." \
-    LOCALEDIR="./locale"
+    LOCDIR="./locale" \
+    all
+}
+
+post_make_target() {
+  VDR_DIR=$(get_build_dir vdr)
+  VDR_APIVERSION=`sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$/\1/p' $VDR_DIR/config.h`
+  LIB_NAME=lib${PKG_NAME/-plugin/}
+  cp --remove-destination $ROOT/$PKG_BUILD/server/${LIB_NAME}-server.so $ROOT/$PKG_BUILD/server/${LIB_NAME}-server.so.${VDR_APIVERSION}
+  cp --remove-destination $ROOT/$PKG_BUILD/client/${LIB_NAME}-client.so $ROOT/$PKG_BUILD/client/${LIB_NAME}-client.so.${VDR_APIVERSION}
+
+  $STRIP client/libvdr-*.so*
+  $STRIP server/libvdr-*.so*
 }
 
 makeinstall_target() {
