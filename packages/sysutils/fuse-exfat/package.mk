@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="fuse-exfat"
-PKG_VERSION="1.2.0"
+PKG_VERSION="1.2.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2+"
