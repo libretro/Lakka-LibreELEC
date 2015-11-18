@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="Pillow"
-PKG_VERSION="2.7.0"
+PKG_VERSION="3.0.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
