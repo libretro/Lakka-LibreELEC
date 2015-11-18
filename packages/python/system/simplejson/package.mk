@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="simplejson"
-PKG_VERSION="3.5.3"
+PKG_VERSION="3.8.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -33,6 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_make_target() {
+  strip_lto
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
 }
 
