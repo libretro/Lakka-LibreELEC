@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="ratpoison"
-PKG_VERSION="1.4.6"
+PKG_VERSION="1.4.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
