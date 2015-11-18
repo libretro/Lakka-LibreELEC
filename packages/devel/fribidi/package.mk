@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="fribidi"
-PKG_VERSION="0.19.5"
+PKG_VERSION="0.19.7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
