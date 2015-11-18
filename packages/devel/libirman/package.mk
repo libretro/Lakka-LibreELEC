@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libirman"
-PKG_VERSION="0.4.5"
+PKG_VERSION="0.5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
