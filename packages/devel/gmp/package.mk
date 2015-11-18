@@ -17,8 +17,7 @@
 ################################################################################
 
 PKG_NAME="gmp"
-PKG_VERSION="6.0.0a"
-PKG_SOURCE_DIR="$PKG_NAME-6.0.0"
+PKG_VERSION="6.1.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv3+"
