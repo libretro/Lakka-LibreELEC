@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.161"
+PKG_VERSION="0.164"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
