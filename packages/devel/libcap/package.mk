@@ -24,6 +24,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL="http://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_DEPENDS_HOST="ccache:host attr:host"
 PKG_DEPENDS_TARGET="toolchain attr"
 PKG_PRIORITY="optional"
 PKG_SECTION="devel"
@@ -33,7 +34,29 @@ PKG_LONGDESC="As of Linux 2.2.0, the power of the superuser has been partitioned
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+post_unpack() {
+  mkdir -p $ROOT/$PKG_BUILD/.$HOST_NAME
+  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$HOST_NAME
+  mkdir -p $ROOT/$PKG_BUILD/.$TARGET_NAME 
+  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$TARGET_NAME
+}
+
+
+make_host() {
+  cd $ROOT/$PKG_BUILD/.$HOST_NAME
+  make CC=$HOST_CC \
+       AR=$HOST_AR \
+       RANLIB=$HOST_RANLIB \
+       CFLAGS="$HOST_CFLAGS" \
+       BUILD_CC=$HOST_CC \
+       BUILD_CFLAGS="$HOST_CFLAGS -I$ROOT/$PKG_BUILD/libcap/include" \
+       PAM_CAP=no \
+       lib=/lib \
+       -C libcap libcap.pc libcap.a
+}
+
 make_target() {
+  cd $ROOT/$PKG_BUILD/.$TARGET_NAME
   make CC=$TARGET_CC \
        AR=$TARGET_AR \
        RANLIB=$TARGET_RANLIB \
@@ -43,6 +66,17 @@ make_target() {
        PAM_CAP=no \
        lib=/lib \
        -C libcap libcap.pc libcap.a
+}
+
+makeinstall_host() {
+  mkdir -p $ROOT/$TOOLCHAIN/lib
+    cp libcap/libcap.a $ROOT/$TOOLCHAIN/lib
+
+  mkdir -p $ROOT/$TOOLCHAIN/lib/pkgconfig
+    cp libcap/libcap.pc $ROOT/$TOOLCHAIN/lib/pkgconfig
+
+  mkdir -p $ROOT/$TOOLCHAIN/include/sys
+    cp libcap/include/sys/capability.h $ROOT/$TOOLCHAIN/include/sys
 }
 
 makeinstall_target() {
