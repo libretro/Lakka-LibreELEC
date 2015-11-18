@@ -55,7 +55,7 @@ EOF
 }
 
 make_target() {
-  make vdr
+  make vdr vdr.pc
   make include-dir
 }
 
