@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pkg-config"
-PKG_VERSION="0.28"
+PKG_VERSION="0.29"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -38,5 +38,5 @@ PKG_CONFIGURE_OPTS_HOST="--disable-silent-rules \
 
 post_makeinstall_host() {
   mkdir -p $SYSROOT_PREFIX/usr/share/aclocal
-    cp ../pkg.m4 $SYSROOT_PREFIX/usr/share/aclocal
+    cp pkg.m4 $SYSROOT_PREFIX/usr/share/aclocal
 }
