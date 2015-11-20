@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="xf86-video-amdgpu"
-PKG_VERSION="3b0a3c8"
+PKG_VERSION="1.0.0"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain xorg-server"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/driver"
