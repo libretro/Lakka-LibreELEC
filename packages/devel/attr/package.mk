@@ -24,7 +24,6 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL="http://download.savannah.gnu.org/releases-noredirect/attr/$PKG_NAME-$PKG_VERSION.src.tar.gz"
-PKG_DEPENDS_TARGET=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="accessibility"
@@ -33,12 +32,6 @@ PKG_LONGDESC="Extended attributes are name:value pairs associated permanently wi
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-PKG_CONFIGURE_OPTS_HOST="OPTIMIZER= \
-                           CONFIG_SHELL=/bin/bash \
-                           INSTALL_USER=root INSTALL_GROUP=root \
-                           --disable-shared --enable-static"
-
 
 PKG_CONFIGURE_OPTS_TARGET="OPTIMIZER= \
                            CONFIG_SHELL=/bin/bash \
@@ -51,20 +44,10 @@ else
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET DEBUG=-DNDEBUG"
 fi
 
-post_unpack() {
+pre_configure_target() {
 # attr fails to build in subdirs
-  mkdir -p $ROOT/$PKG_BUILD/.$HOST_NAME
-  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$HOST_NAME
-  mkdir -p $ROOT/$PKG_BUILD/.$TARGET_NAME
-  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$TARGET_NAME
-}
-
-makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/lib/
-    cp libattr/.libs/libattr.a $ROOT/$TOOLCHAIN/lib/
-
-  mkdir -p $ROOT/$TOOLCHAIN/include/attr
-    cp include/*.h $ROOT/$TOOLCHAIN/include/attr
+  cd $ROOT/$PKG_BUILD
+    rm -rf .$TARGET_NAME
 }
 
 makeinstall_target() {
