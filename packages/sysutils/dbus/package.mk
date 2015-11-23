@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="dbus"
-PKG_VERSION="1.8.20"
+PKG_VERSION="1.10.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -48,7 +48,6 @@ PKG_CONFIGURE_OPTS_TARGET="export ac_cv_have_abstract_sockets=yes \
                            --disable-libaudit \
                            --enable-systemd \
                            --enable-inotify \
-                           --without-dbus-glib \
                            --without-valgrind \
                            --without-x \
                            --with-dbus-user=dbus"
