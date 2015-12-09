@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="nano"
-PKG_VERSION="2.4.3"
+PKG_VERSION="2.5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
