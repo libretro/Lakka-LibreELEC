@@ -162,6 +162,7 @@ configure_target() {
               --enable-encoder=ac3 \
               --enable-encoder=aac \
               --enable-encoder=wmav2 \
+              --enable-encoder=mjpeg \
               --disable-decoder=mpeg_xvmc \
               --enable-hwaccels \
               --disable-muxers \
