@@ -2,7 +2,7 @@ diff --git a/drivers/media/common/Kconfig b/drivers/media/common/Kconfig
 index b85f88c..238b2ed 100644
 --- a/drivers/media/common/Kconfig
 +++ b/drivers/media/common/Kconfig
-@@ -22,4 +22,5 @@ config CYPRESS_FIRMWARE
+@@ -18,4 +18,5 @@ config CYPRESS_FIRMWARE
  
  source "drivers/media/common/b2c2/Kconfig"
  source "drivers/media/common/saa7146/Kconfig"
@@ -16,8 +16,8 @@ index d208de3..b3c373d 100644
 -obj-y += b2c2/ saa7146/ siano/
 +obj-y += b2c2/ saa7146/ saa716x/ siano/
  obj-$(CONFIG_VIDEO_CX2341X) += cx2341x.o
- obj-$(CONFIG_VIDEO_BTCX)  += btcx-risc.o
  obj-$(CONFIG_VIDEO_TVEEPROM) += tveeprom.o
+ obj-$(CONFIG_CYPRESS_FIRMWARE) += cypress_firmware.o
 diff --git a/drivers/media/common/saa716x/Kconfig b/drivers/media/common/saa716x/Kconfig
 new file mode 100644
 index 0000000..e667a58
@@ -1192,7 +1192,7 @@ index 0000000..6b52fc1
 +#define SAA716x_MODEL_TWINHAN_VP1028	"Twinhan/Azurewave VP-1028"
 +#define SAA716x_DEV_TWINHAN_VP1028	"DVB-S"
 +
-+static int vp1028_dvbs_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
++static int vp1028_dvbs_set_voltage(struct dvb_frontend *fe, enum fe_sec_voltage voltage)
 +{
 +	struct saa716x_dev *saa716x = fe->dvb->priv;
 +
@@ -2485,10 +2485,11 @@ new file mode 100644
 index 0000000..21d1dd8
 --- /dev/null
 +++ b/drivers/media/common/saa716x/saa716x_dma.c
-@@ -0,0 +1,306 @@
+@@ -0,0 +1,307 @@
 +#include <linux/kernel.h>
 +#include <linux/pci.h>
 +#include <linux/scatterlist.h>
++#include <linux/vmalloc.h>
 +#include <asm/page.h>
 +#include <asm/pgtable.h>
 +
@@ -6771,7 +6772,7 @@ index 0000000..27e5e71
 +	.request_firmware	= tda1004x_vp6090_request_firmware,
 +};
 +
-+static int vp6090_dvbs_set_voltage(struct dvb_frontend *fe, fe_sec_voltage_t voltage)
++static int vp6090_dvbs_set_voltage(struct dvb_frontend *fe, enum fe_sec_voltage voltage)
 +{
 +	struct saa716x_dev *saa716x = fe->dvb->priv;
 +
@@ -7198,7 +7199,7 @@ new file mode 100644
 index 0000000..91a091d
 --- /dev/null
 +++ b/drivers/media/common/saa716x/saa716x_i2c.c
-@@ -0,0 +1,734 @@
+@@ -0,0 +1,731 @@
 +#include <linux/delay.h>
 +
 +#include <linux/signal.h>
@@ -7909,7 +7910,7 @@ index 0000000..91a091d
 +{
 +	struct saa716x_i2c *i2c		= saa716x->i2c;
 +	struct i2c_adapter *adapter	= NULL;
-+	int i, err = 0;
++	int i;
 +
 +	dprintk(SAA716x_DEBUG, 1, "Removing SAA%02x I2C Core", saa716x->pdev->device);
 +
@@ -7928,9 +7929,6 @@ index 0000000..91a091d
 +	dprintk(SAA716x_DEBUG, 1, "SAA%02x I2C Core succesfully removed", saa716x->pdev->device);
 +
 +	return 0;
-+
-+exit:
-+	return err;
 +}
 +EXPORT_SYMBOL_GPL(saa716x_i2c_exit);
 diff --git a/drivers/media/common/saa716x/saa716x_i2c.h b/drivers/media/common/saa716x/saa716x_i2c.h
@@ -8930,7 +8928,9 @@ new file mode 100644
 index 0000000..7fa6bad
 --- /dev/null
 +++ b/drivers/media/common/saa716x/saa716x_pci.c
-@@ -0,0 +1,275 @@
+@@ -0,0 +1,272 @@
++#include <asm/atomic.h>
++#include <linux/spinlock_types.h>
 +#include <asm/io.h>
 +#include <asm/pgtable.h>
 +#include <asm/page.h>
@@ -8949,11 +8949,6 @@ index 0000000..7fa6bad
 +#include "saa716x_priv.h"
 +
 +#define DRIVER_NAME				"SAA716x Core"
-+
-+static irqreturn_t saa716x_msi_handler(int irq, void *dev_id)
-+{
-+	return IRQ_HANDLED;
-+}
 +
 +static int saa716x_enable_msi(struct saa716x_dev *saa716x)
 +{
