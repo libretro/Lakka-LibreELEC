@@ -33,9 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 post_makeinstall_target() {
-# ca-certification: provides a tool to download and create ca-bundle.crt
-# download url: http://curl.haxx.se
-# create new cert: perl ./mk-ca-bundle.pl
+# create new cert: ./mkcerts.sh
   mkdir -p $INSTALL/$SSL_CERTIFICATES
     cp $PKG_DIR/cert/ca-bundle.crt $INSTALL/$SSL_CERTIFICATES/cacert.pem
   # backwards comatibility
