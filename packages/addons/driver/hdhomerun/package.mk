@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="hdhomerun"
-PKG_VERSION="6.0"
+PKG_VERSION="7.0"
 PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -32,7 +32,7 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.python.script"
 PKG_ADDON_PROVIDES=""
-PKG_ADDON_REPOVERSION="6.0"
+PKG_ADDON_REPOVERSION="7.0"
 
 make_target() {
   : # nothing to do here
