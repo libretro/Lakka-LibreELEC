@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="alsa-utils"
-PKG_VERSION="1.0.29"
+PKG_VERSION="1.1.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -39,6 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-alsaconf \
                            --disable-alsaloop \
                            --enable-alsatest \
+                           --disable-bat \
                            --disable-nls"
 
 
