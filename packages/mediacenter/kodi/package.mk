@@ -71,11 +71,6 @@ else
   KODI_ALSA="--disable-alsa"
 fi
 
-if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
-# for PulseAudio support
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
-fi
-
 if [ "$ESPEAK_SUPPORT" = yes ]; then
 # for espeak support
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET espeak"
