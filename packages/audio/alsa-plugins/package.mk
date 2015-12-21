@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="alsa-plugins"
-PKG_VERSION="1.0.29"
+PKG_VERSION="1.1.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -32,9 +32,17 @@ PKG_LONGDESC=""
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+if [ "$PULSEAUDIO_SUPPORT" = yes ]; then
+# for PulseAudio support
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pulseaudio"
+  ALSA_PLUGINS_PULSEAUDIO="--enable-pulseaudio"
+else
+  ALSA_PLUGINS_PULSEAUDIO="--disable-pulseaudio"
+fi
+
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--disable-jack \
-                           --enable-pulseaudio \
+                           $ALSA_PLUGINS_PULSEAUDIO \
                            --disable-samplerate \
                            --disable-maemo-plugin \
                            --disable-maemo-resource-manager \
