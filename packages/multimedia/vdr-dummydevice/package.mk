@@ -47,8 +47,9 @@ make_target() {
 post_make_target() {
   VDR_DIR=$(get_build_dir vdr)
   VDR_APIVERSION=`sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$/\1/p' $VDR_DIR/config.h`
+  LIB_NAME=lib${PKG_NAME}
 
-  cp --remove-destination libvdr*.so libvdr.so.${VDR_APIVERSION}
+  cp --remove-destination ${LIB_NAME}.so ${LIB_NAME}.so.${VDR_APIVERSION}
   $STRIP libvdr-*.so*
 }
 
