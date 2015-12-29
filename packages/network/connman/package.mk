@@ -18,7 +18,7 @@
 
 PKG_NAME="connman"
 # DO NOT UPGRADE!!
-PKG_VERSION="1.30"
+PKG_VERSION="1.31"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -72,6 +72,7 @@ PKG_MAKE_OPTS_TARGET="storagedir=/storage/.cache/connman \
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/lib/systemd
+  rm -rf $INSTALL/usr/lib/tmpfiles.d/connman_resolvconf.conf
 
   mkdir -p $INSTALL/usr/bin
     cp -P client/connmanctl $INSTALL/usr/bin
@@ -81,7 +82,10 @@ post_makeinstall_target() {
     cp -P $PKG_DIR/scripts/connman-setup $INSTALL/usr/lib/connman
 
   mkdir -p $INSTALL/etc
-    ln -sf /var/cache/resolv.conf $INSTALL/etc/resolv.conf
+    ln -sf /run/connman/resolv.conf $INSTALL/etc/resolv.conf
+
+    # /etc/hosts must be writeable
+    ln -sf /run/connman/hosts $INSTALL/etc/hosts
 
   mkdir -p $INSTALL/etc/connman
     cp ../src/main.conf $INSTALL/etc/connman

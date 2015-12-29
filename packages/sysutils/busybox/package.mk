@@ -183,9 +183,6 @@ makeinstall_target() {
   # /etc/machine-id, needed by systemd and dbus
     ln -sf /run/machine-id $INSTALL/etc/machine-id
 
-  # /etc/hosts must be writeable
-    ln -sf /var/cache/hosts $INSTALL/etc/hosts
-
   # /etc/mtab is needed by udisks etc...
     ln -sf /proc/self/mounts $INSTALL/etc/mtab
 
