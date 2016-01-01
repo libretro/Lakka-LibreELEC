@@ -33,5 +33,3 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-kernel=$(kernel_path)"
-
-MAKEFLAGS="-j1"
