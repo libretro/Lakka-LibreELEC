@@ -28,6 +28,16 @@ if [ -z "$1" ]; then
 fi
 
 if [ -n "$PKG_URL" ]; then
+  mkdir -p $SOURCES/$1
+
+  # Avoid concurrent downloads of the same package
+  _isblocked=N
+  exec 99>$SOURCES/$1/.lock
+  while ! flock --nonblock --exclusive 99; do
+    [ ${_isblocked} == N ] && { echo "Project ${PROJECT} waiting to avoid concurrent download of ${1}..."; _isblocked=Y; }
+    sleep 1
+  done
+
   for i in $PKG_URL; do
     SOURCE_NAME="`basename $i`"
     PACKAGE="$SOURCES/$1/$SOURCE_NAME"
@@ -39,8 +49,6 @@ if [ -n "$PKG_URL" ]; then
 
     STAMP="$PACKAGE.url"
     MD5SUM="$PACKAGE.md5"
-
-    mkdir -p $SOURCES/$1
 
     if [ -f "$STAMP" ]; then
       [ "`cat $STAMP`" = "$i" ] && continue
