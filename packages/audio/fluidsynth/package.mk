@@ -33,5 +33,11 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=0 -Denable-readline=0 ..
+  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_SHARED_LIBS=0 \
+        -Denable-readline=0 \
+        -Denable-pulseaudio=0 \
+        -Denable-libsndfile=0 \
+        ..
 }
