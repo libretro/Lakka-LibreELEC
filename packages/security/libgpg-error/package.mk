@@ -63,5 +63,5 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share
 
   sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i src/gpg-error-config
-  cp src/gpg-error-config $ROOT/$TOOLCHAIN/bin
+  cp src/gpg-error-config $SYSROOT_PREFIX/usr/bin
 }
