@@ -32,7 +32,7 @@ PKG_LONGDESC="Libgcrypt is a general purpose cryptographic library based on the 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-asm --with-gnu-ld"
+PKG_CONFIGURE_OPTS_TARGET="--disable-asm --with-gnu-ld --with-libgpg-error-prefix=$SYSROOT_PREFIX/usr"
 
 post_makeinstall_target() {
   sed -e "s:\(['= ]\)\"/usr:\\1\"$SYSROOT_PREFIX/usr:g" -i src/$PKG_NAME-config
