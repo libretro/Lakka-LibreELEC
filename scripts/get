@@ -27,7 +27,7 @@ if [ -z "$1" ]; then
   done
 fi
 
-if [ -n "$PKG_URL" ]; then
+if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
   mkdir -p $SOURCES/$1
 
   # Avoid concurrent downloads of the same package
@@ -38,40 +38,41 @@ if [ -n "$PKG_URL" ]; then
     sleep 1
   done
 
-  for i in $PKG_URL; do
-    SOURCE_NAME="`basename $i`"
-    PACKAGE="$SOURCES/$1/$SOURCE_NAME"
-    PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$SOURCE_NAME"
-    [ "$VERBOSE" != "yes" ] && WGET_OPT=-q
-    WGET_CMD="wget --timeout=30 --passive-ftp --no-check-certificate -c $WGET_OPT -P $SOURCES/$1"
+  PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
+  PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$PKG_SOURCE_NAME"
+  [ "$VERBOSE" != "yes" ] && WGET_OPT=-q
+  WGET_CMD="wget --timeout=30 --passive-ftp --no-check-certificate -c $WGET_OPT -O $SOURCES/$1/$PKG_SOURCE_NAME"
 
-    NBWGET="1"
+  NBWGET="1"
 
-    STAMP="$PACKAGE.url"
-    MD5SUM="$PACKAGE.md5"
+  STAMP="$PACKAGE.url"
+  MD5SUM="$PACKAGE.md5"
 
-    if [ -f "$STAMP" ]; then
-      [ "`cat $STAMP`" = "$i" ] && continue
-    fi
-    DL="yes"
+  DL="yes"
+  if [ -f "$STAMP" ]; then
+    [ "`cat $STAMP`" == "$PKG_URL" ] && DL="no"
+  fi
 
+  if [ "$DL" == "yes" ]; then
     rm -f $STAMP
 
     printf "%${BUILD_INDENT}c ${boldcyan}GET${endcolor}      $1\n" ' '>&$SILENT_OUT
     export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
-    until [ -f "$STAMP" ] || $WGET_CMD $i || $WGET_CMD $PACKAGE_MIRROR; do
+    until [ -f "$STAMP" ] || $WGET_CMD $PKG_URL || $WGET_CMD $PACKAGE_MIRROR; do
       NBWGET=$(($NBWGET+1))
       if [ "$NBWGET" -gt "10" ]; then
-        echo -e "\nCant't get $1 sources : $i\n Try later !!"
+        echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
         exit 1
       fi
     done
 
-    echo $i > $STAMP
+    echo $PKG_URL > $STAMP
     md5sum -t $PACKAGE > $MD5SUM
 
     rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
     rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
-  done
+  fi
 fi
+
+exit 0

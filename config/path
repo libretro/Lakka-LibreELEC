@@ -61,6 +61,8 @@ SED="sed -i"
   PKG_LICENSE="unknown"
   PKG_SITE=""
   PKG_URL=""
+  PKG_SOURCE_NAME=""
+  PKG_SOURCE_DIR=""
   PKG_DEPENDS_TARGET=""
   PKG_DEPENDS_HOST=""
   PKG_DEPENDS_INIT=""
@@ -154,6 +156,38 @@ SED="sed -i"
 
   if [ "$PKG_IS_ADDON" = "yes" ] ; then
     [ -z $PKG_SECTION ] && PKG_ADDON_ID="$PKG_NAME" || PKG_ADDON_ID="`echo $PKG_SECTION | sed 's,/,.,g'`.$PKG_NAME"
+  fi
+
+  # Automatically set PKG_SOURCE_NAME unless it is already defined.
+  # PKG_SOURCE_NAME will be automatically set to a name based on
+  # the $PKG_NAME-$PKG_VERSION convention.
+  #
+  # Any $PKG_URL that references more than a single url will abort
+  # the build as these are no longer supported - use mkpkg instead.
+  if [ -n "$PKG_URL" -a -z "$PKG_SOURCE_NAME" ]; then
+    if [[ $PKG_URL =~ .*\ .* ]]; then
+      echo "Error - packages with multiple urls are no longer supported, use mkpkg:"
+      echo "$PKG_URL"
+      exit 1
+    fi
+    PKG_SOURCE_NAME="$(basename "$PKG_URL")"
+    case $PKG_SOURCE_NAME in
+      ${PKG_NAME}-${PKG_VERSION}.*)
+        PKG_SOURCE_NAME=$PKG_SOURCE_NAME
+        ;;
+      *.tar | *.tbz | *.tgz | *.txz | *.7z | *.zip)
+        PKG_SOURCE_NAME=${PKG_NAME}-${PKG_VERSION}.${PKG_SOURCE_NAME##*\.}
+        ;;
+      *.tar.bz2 | *.tar.gz | *.tar.xz)
+        PKG_SOURCE_NAME=${PKG_NAME}-${PKG_VERSION}.tar.${PKG_SOURCE_NAME##*\.}
+        ;;
+       *.diff | *.patch | *.diff.bz2 | *.patch.bz2 | patch-*.bz2 | *.diff.gz | *.patch.gz | patch-*.gz)
+        PKG_SOURCE_NAME=$PKG_SOURCE_NAME
+        ;;
+      *)
+        PKG_SOURCE_NAME=${PKG_NAME}-${PKG_VERSION}.${PKG_SOURCE_NAME##*\.}
+        ;;
+    esac
   fi
 
   PKG_BUILD="$BUILD/${PKG_NAME}-${PKG_VERSION}"

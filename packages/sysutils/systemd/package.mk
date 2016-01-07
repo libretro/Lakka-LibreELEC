@@ -109,10 +109,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-rootprefix=/usr \
                            --with-rootlibdir=/lib"
 
-unpack() {
-  tar xf $ROOT/$SOURCES/systemd/v$PKG_VERSION.tar.gz -C $ROOT/$BUILD
-}
-
 pre_build_target() {
 # broken autoreconf
   ( cd $PKG_BUILD
