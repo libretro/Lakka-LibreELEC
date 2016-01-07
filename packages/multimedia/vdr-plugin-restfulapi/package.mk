@@ -45,7 +45,6 @@ make_target() {
   make \
     LIBDIR="." \
     LOCDIR="./locale" \
-    LIBS="-lcxxtools-http -lcxxtools" \
     all install-i18n
 }
 
