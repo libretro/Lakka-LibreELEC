@@ -35,8 +35,8 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--disable-asm --with-gnu-ld"
 
 post_makeinstall_target() {
-  sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i src/libgcrypt-config
-  cp src/libgcrypt-config $ROOT/$TOOLCHAIN/bin
+  sed -e "s:\(['= ]\)\"/usr:\\1\"$SYSROOT_PREFIX/usr:g" -i src/$PKG_NAME-config
+  cp src/$PKG_NAME-config $SYSROOT_PREFIX/usr/bin
 
   rm -rf $INSTALL/usr/bin
 }
