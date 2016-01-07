@@ -101,5 +101,4 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/curl-config
 
   sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/curl-config
-  mv $SYSROOT_PREFIX/usr/bin/curl-config $ROOT/$TOOLCHAIN/bin
 }
