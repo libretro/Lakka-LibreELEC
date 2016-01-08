@@ -43,10 +43,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_ansidecl_h=no \
              --without-lzma"
 
 post_makeinstall_target() {
-  $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" \
-    $SYSROOT_PREFIX/usr/bin/xml2-config
-
-  mv $SYSROOT_PREFIX/usr/bin/xml2-config $ROOT/$TOOLCHAIN/bin
+  $SED "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" $SYSROOT_PREFIX/usr/bin/xml2-config
 
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/lib/xml2Conf.sh
