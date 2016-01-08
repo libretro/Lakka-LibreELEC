@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="opengl-meson6"
-PKG_VERSION="r4p1-armhf"
+PKG_VERSION="r5p1-01rel0-armhf"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
