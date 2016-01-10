@@ -35,6 +35,8 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-extra-warnings \
                            --disable-optimizations \
+                           --with-libgcrypt-prefix=$SYSROOT_PREFIX/usr \
+                           --with-libgpg-error-prefix=$SYSROOT_PREFIX/usr \
                            --with-gnu-ld"
 
 post_makeinstall_target() {

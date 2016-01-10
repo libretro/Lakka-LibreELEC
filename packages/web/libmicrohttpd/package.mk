@@ -35,7 +35,8 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --enable-static \
                            --disable-curl \
-                           --disable-https"
+                           --disable-https \
+                           --with-libgcrypt-prefix=$SYSROOT_PREFIX/usr"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin

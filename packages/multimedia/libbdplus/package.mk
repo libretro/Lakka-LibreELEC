@@ -35,6 +35,8 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-extra-warnings \
                            --disable-optimizations \
+                           --with-libgcrypt-prefix=$SYSROOT_PREFIX/usr \
+                           --with-gpg-error-prefix=$SYSROOT_PREFIX/usr \
                            --with-gnu-ld"
 
 if [ "$BLURAY_AACS_SUPPORT" = "yes" ]; then
