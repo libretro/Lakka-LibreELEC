@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-xmltv2vdr"
-PKG_VERSION="30903cc0"
+PKG_VERSION="b48e0bec"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
