@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-streamdev"
-PKG_VERSION="84c6f6b"
+PKG_VERSION="fc52e92"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://projects.vdr-developer.org/projects/show/plg-streamdev"
+PKG_SITE="http://projects.vdr-developer.org/projects/plg-streamdev"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain vdr libressl"
 PKG_PRIORITY="optional"
