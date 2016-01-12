@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.projectm"
-PKG_VERSION="58dba3e"
+PKG_VERSION="8ca7efb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

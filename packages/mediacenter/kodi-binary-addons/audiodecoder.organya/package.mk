@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.organya"
-PKG_VERSION="2284431"
+PKG_VERSION="ed0d3a5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
