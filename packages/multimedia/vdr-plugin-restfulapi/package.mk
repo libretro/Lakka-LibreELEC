@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-restfulapi"
-PKG_VERSION="0.2.1.4"
+PKG_VERSION="0.2.5.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -45,7 +45,8 @@ make_target() {
   make \
     LIBDIR="." \
     LOCDIR="./locale" \
-    all install-i18n
+    all install-i18n \
+    USE_LIBMAGICKPLUSPLUS=0
 }
 
 post_make_target() {

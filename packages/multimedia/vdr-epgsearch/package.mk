@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-epgsearch"
-PKG_VERSION="29c174a"
+PKG_VERSION="0b09f90"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
