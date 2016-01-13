@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.fluidsynth"
-PKG_VERSION="be8d248"
+PKG_VERSION="4780e25"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
