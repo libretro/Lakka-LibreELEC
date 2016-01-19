@@ -55,6 +55,10 @@ else
   FFMPEG_DEBUG="--disable-debug --enable-stripping"
 fi
 
+if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
+fi
+
 case "$TARGET_ARCH" in
   arm)
       FFMPEG_CPU=""
@@ -89,6 +93,11 @@ pre_configure_target() {
 
 # ffmpeg fails running with GOLD support
   strip_gold
+
+  if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
+    export CFLAGS="-I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux -DRPI=1 $CFLAGS"
+    export FFMPEG_LIBS="-lbcm_host -lvcos -lvchiq_arm -lmmal -lmmal_core -lmmal_util -lvcsm"
+  fi
 }
 
 configure_target() {
@@ -112,7 +121,7 @@ configure_target() {
               --host-libs="-lm" \
               --extra-cflags="$CFLAGS" \
               --extra-ldflags="$LDFLAGS -fPIC" \
-              --extra-libs="" \
+              --extra-libs="$FFMPEG_LIBS" \
               --extra-version="" \
               --build-suffix="" \
               --disable-static \
