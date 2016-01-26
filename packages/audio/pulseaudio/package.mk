@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="7.1"
+PKG_VERSION="8.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -108,6 +108,11 @@ post_makeinstall_target() {
 
   cp $PKG_DIR/config/system.pa $INSTALL/etc/pulse/
   cp $PKG_DIR/config/pulseaudio-system.conf $INSTALL/etc/dbus-1/system.d/
+
+  mkdir -p $INSTALL/usr/config
+    cp -PR $PKG_DIR/config/pulse-daemon.conf.d $INSTALL/usr/config
+
+  ln -sf /storage/.config/pulse-daemon.conf.d $INSTALL/etc/pulse/daemon.conf.d
 }
 
 post_install() {
