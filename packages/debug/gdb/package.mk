@@ -18,7 +18,7 @@
 
 PKG_NAME="gdb"
 PKG_VERSION="7.10.1"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"
@@ -43,6 +43,7 @@ pre_configure_target() {
 PKG_CONFIGURE_OPTS_TARGET="bash_cv_have_mbstate_t=set \
                            --disable-shared \
                            --enable-static \
+                           --with-auto-load-safe-path=/ \
                            --disable-nls \
                            --disable-sim \
                            --without-x \
