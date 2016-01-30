@@ -408,6 +408,8 @@ post_makeinstall_target() {
     mkdir -p $INSTALL/usr/share/kodi/media/Fonts
       cp $PKG_DIR/fonts/*.ttf $INSTALL/usr/share/kodi/media/Fonts
   fi
+
+  debug_strip $INSTALL/usr/lib/kodi/kodi.bin
 }
 
 post_install() {
