@@ -213,6 +213,10 @@ post_makeinstall_target() {
   ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/shutdown
   ln -sf /usr/bin/systemctl $INSTALL/usr/sbin/telinit
 
+  # strip
+  debug_strip $INSTALL/usr
+
+  # defaults
   mkdir -p $INSTALL/usr/config
   cp -PR $PKG_DIR/config/* $INSTALL/usr/config
 
