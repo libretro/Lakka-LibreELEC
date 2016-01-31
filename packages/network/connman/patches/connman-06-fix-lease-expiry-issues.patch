@@ -1,0 +1,67 @@
+From f61f547e64aaf466522cf2a92af2ab450dc1134f Mon Sep 17 00:00:00 2001
+From: nasingh <naveensingh0977@gmail.com>
+Date: Wed, 6 Jan 2016 22:19:36 -0800
+Subject: dhcp: Nameserver issue on IP address renewal after lease expiry
+
+After lease expiry and releasing its current IP, when device eventually
+gets an IP address, DNS resolution stops working. This is because
+nameserver list in service structure is empty. On lease expiry when
+apply_dhcp_invalidate_on_network(dhcp) is called, it removes
+nameservers from the service structure but it does not free namservers in
+dhcp structure. Now next time when device gets an IP address and
+apply_lease_available_on_network is called, nameserver is not updated as
+compare_string_arrays(nameservers, dhcp->nameservers) would return true.
+The fix for this would be to free dhcp->nameservers when lease is lost so
+that on successful renewal next time, nameserver properly gets updated.
+---
+ src/dhcp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/dhcp.c b/src/dhcp.c
+index e4497fc..159fecb 100644
+--- a/src/dhcp.c
++++ b/src/dhcp.c
+@@ -114,6 +114,8 @@ static bool apply_dhcp_invalidate_on_network(struct connman_dhcp *dhcp)
+ 			__connman_service_nameserver_remove(service,
+ 						dhcp->nameservers[i], false);
+ 		}
++		g_strfreev(dhcp->nameservers);
++		dhcp->nameservers = NULL;
+ 	}
+ 
+ 	return true;
+-- 
+cgit v0.12
+
+From ccfae23093a170ffac92bc3c633bcec5a00c974c Mon Sep 17 00:00:00 2001
+From: Patrik Flykt <patrik.flykt@linux.intel.com>
+Date: Mon, 11 Jan 2016 10:52:26 +0200
+Subject: dhcp: Timeserver issue on IP address renewal after lease expiry
+
+Similar to nameservers, timeservers are also checked against previous
+values when added. When there is no change in timeservers when the DHCP
+lease is lost and reacquired, the service will not be notified if the
+timeservers have changed. With timeservers removed on lease lost,
+timeservers are not properly updated once reacquired.
+
+Fix this by removing timeservers from the dhcp struct when lease is lost.
+---
+ src/dhcp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/dhcp.c b/src/dhcp.c
+index 159fecb..4040ad1 100644
+--- a/src/dhcp.c
++++ b/src/dhcp.c
+@@ -108,6 +108,8 @@ static bool apply_dhcp_invalidate_on_network(struct connman_dhcp *dhcp)
+ 			__connman_service_timeserver_remove(service,
+ 							dhcp->timeservers[i]);
+ 		}
++		g_strfreev(dhcp->timeservers);
++		dhcp->timeservers = NULL;
+ 	}
+ 	if (dhcp->nameservers) {
+ 		for (i = 0; dhcp->nameservers[i]; i++) {
+-- 
+cgit v0.12
+
