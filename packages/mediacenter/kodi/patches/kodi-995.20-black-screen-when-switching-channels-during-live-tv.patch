@@ -1,0 +1,56 @@
+Arnold Neugebauer Zweikeks jpc_husky@yahoo.de
+bug fix for http://trac.kodi.tv #16515
+http://openelec.tv/forum/87-vdr-addon/79303-need-help-live-tv-freeze-after-a-short-play
+
+diff -Naur kodi-16.0-rc1-1f22732.orig/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp kodi-16.0-rc1-1f22732/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp
+--- kodi-16.0-rc1-1f22732.orig/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp	2016-01-31 13:14:30.374861770 +0100
++++ kodi-16.0-rc1-1f22732/xbmc/cores/dvdplayer/DVDCodecs/Video/AMLCodec.cpp	2016-01-30 20:13:20.699416700 +0100
+@@ -150,11 +150,11 @@
+ 
+     // order matters, so pay attention
+     // to codec_para_t in codec_types.h
+-    CBitstreamConverter::write_bits(&bs, 32, 0);                   // CODEC_HANDLE handle
+-    CBitstreamConverter::write_bits(&bs, 32, 0);                   // CODEC_HANDLE cntl_handle
+-    CBitstreamConverter::write_bits(&bs, 32, 0);                   // CODEC_HANDLE sub_handle
++    CBitstreamConverter::write_bits(&bs, 32, -1);                  // CODEC_HANDLE handle, init to invalid
++    CBitstreamConverter::write_bits(&bs, 32, -1);                  // CODEC_HANDLE cntl_handle
++    CBitstreamConverter::write_bits(&bs, 32, -1);                  // CODEC_HANDLE sub_handle
+ 
+-    CBitstreamConverter::write_bits(&bs, 32, 0);                   // CODEC_HANDLE audio_utils_handle
++    CBitstreamConverter::write_bits(&bs, 32, -1);                  // CODEC_HANDLE audio_utils_handle
+ 
+     CBitstreamConverter::write_bits(&bs, 32, p_in->stream_type);   // stream_type_t stream_type
+ 
+@@ -199,6 +199,10 @@
+ #else
+     // direct struct usage, we do not know which flavor
+     // so just use what we get from headers and pray.
++    p_out->handle             = -1; //init to invalid
++    p_out->cntl_handle        = -1;
++    p_out->sub_handle         = -1;
++    p_out->audio_utils_handle = -1;
+     p_out->has_video          = 1;
+     p_out->noblock            = p_in->noblock;
+     p_out->video_pid          = p_in->video_pid;
+@@ -1389,6 +1393,10 @@
+     m_dll->Load();
+   }
+   am_private->m_dll = m_dll;
++  am_private->vcodec.handle             = -1; //init to invalid
++  am_private->vcodec.cntl_handle        = -1;
++  am_private->vcodec.sub_handle         = -1;
++  am_private->vcodec.audio_utils_handle = -1;
+ }
+ 
+ 
+@@ -1667,10 +1675,6 @@
+   SysfsUtils::SetInt("/sys/class/tsync/enable", 1);
+ 
+   ShowMainVideo(false);
+-
+-  // add a little delay after closing in case
+-  // we are reopened too fast.
+-  usleep(500 * 1000);
+ }
+ 
+ void CAMLCodec::Reset()
