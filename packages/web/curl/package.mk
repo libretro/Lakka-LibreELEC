@@ -60,8 +60,9 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --disable-tftp \
                            --disable-pop3 \
                            --disable-imap \
+                           --disable-smb \
                            --disable-smtp \
-                           --disable-gophper \
+                           --disable-gopher \
                            --disable-manual \
                            --enable-libgcc \
                            --enable-ipv6 \
@@ -72,7 +73,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --disable-sspi \
                            --enable-crypto-auth \
                            --enable-cookies \
-                           --enable-hidden-symbols \
+                           --enable-symbol-hiding \
                            --disable-soname-bump \
                            --with-gnu-ld \
                            --without-krb4 \
@@ -88,6 +89,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --without-nss \
                            --with-ca-bundle=$SSL_CERTIFICATES/cacert.pem \
                            --without-ca-path \
+                           --without-libpsl \
+                           --without-libmetalink \
                            --without-libssh2 \
                            --with-librtmp=$SYSROOT_PREFIX/usr \
                            --without-libidn"
@@ -98,6 +101,7 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
+  rm -rf $INSTALL/usr/share/zsh
   rm -rf $INSTALL/usr/bin/curl-config
 
   sed -e "s:\(['= ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $SYSROOT_PREFIX/usr/bin/curl-config
