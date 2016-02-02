@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.dvblink"
-PKG_VERSION="3524d32"
+PKG_VERSION="dcec4c8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
