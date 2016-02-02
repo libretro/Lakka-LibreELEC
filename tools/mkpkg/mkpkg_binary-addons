@@ -97,6 +97,18 @@ if [ ! -d $KODI_DIR ] ; then
   exit 127
 fi
 
+# platform
+REPO=$(cat $KODI_DIR/project/cmake/addons/depends/common/platform/platform.txt | awk '{print $2}')
+GIT_HASH=$(cat $KODI_DIR/project/cmake/addons/depends/common/platform/platform.txt | awk '{print $3}')
+
+copy_and_package $REPO platform $GIT_HASH
+
+if [ -f ../../packages/mediacenter/platform/package.mk ] ; then
+  # update package.mk
+  RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
+  sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/platform/package.mk
+fi
+
 # kodi-platform
 REPO=$(cat $KODI_DIR/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $2}')
 GIT_HASH=$(cat $KODI_DIR/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $3}')
@@ -124,12 +136,14 @@ for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.t
       continue
     fi
 
-    copy_and_package $REPO $ADDON $GIT_HASH
-
     if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
+      copy_and_package $REPO $ADDON $GIT_HASH
+
       # update package.mk
       RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
       sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+    else
+      echo "[mkpkg] Skipped $ADDON"
     fi
   done
 done
