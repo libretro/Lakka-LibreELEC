@@ -76,7 +76,6 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/bin
     cp -P client/connmanctl $INSTALL/usr/bin
-    cp -P $PKG_DIR/scripts/cm-online $INSTALL/usr/bin
 
   mkdir -p $INSTALL/usr/lib/connman
     cp -P $PKG_DIR/scripts/connman-setup $INSTALL/usr/lib/connman
