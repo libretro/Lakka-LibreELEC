@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="setuptools"
-PKG_VERSION="2.0.2"
+PKG_VERSION="19.7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
