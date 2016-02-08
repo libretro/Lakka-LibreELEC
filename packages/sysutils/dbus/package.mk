@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="dbus"
-PKG_VERSION="1.10.4"
+PKG_VERSION="1.10.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://dbus.freedesktop.org"
-PKG_URL="http://dbus.freedesktop.org/releases/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SITE="https://dbus.freedesktop.org"
+PKG_URL="https://dbus.freedesktop.org/releases/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain expat systemd"
 PKG_PRIORITY="required"
 PKG_SECTION="system"
