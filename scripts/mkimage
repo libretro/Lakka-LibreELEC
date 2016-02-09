@@ -25,7 +25,7 @@
 
 # set variables
   OE_TMP=$(mktemp -d)
-  LOOP=$(losetup -f)
+  SAVE_ERROR="$OE_TMP/save_error"
 
   SYSTEM_SIZE=512
   STORAGE_SIZE=32 # STORAGE_SIZE must be >= 32 !
@@ -36,10 +36,17 @@
 # functions
   cleanup() {
     echo "image: cleanup..."
-    umount "$OE_TMP" &>/dev/null || :
-    losetup -d "$LOOP"
-    [ -f "$OE_TMP/ldlinux.sys" ] && chattr -i "$OE_TMP/ldlinux.sys" || :
     rm -rf "$OE_TMP"
+    echo
+    exit
+  }
+
+  show_error() {
+    echo "image: error happen..."
+    echo
+    cat "$SAVE_ERROR"
+    echo
+    cleanup
     exit
   }
 
@@ -51,40 +58,35 @@ trap cleanup SIGINT
   FAT_VOL_ID="${UUID_1}${UUID_2}"
   UUID_SYSTEM="${UUID_1}-${UUID_2}"
 
-# ensure loopX not in use
-  umount "$OE_TMP" &>/dev/null || :
-  umount "$LOOP" &>/dev/null >/dev/null || :
-  losetup -d "$LOOP" &>/dev/null >/dev/null || :
-
 # create an image
-  echo "image: creating image: $DISK..."
-  dd if=/dev/zero of="$DISK" bs=1M count="$DISK_SIZE"
-  sync
+  echo
+  echo "image: creating file $(basename $DISK)..."
+  dd if=/dev/zero of="$DISK" bs=1M count="$DISK_SIZE" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
 
 # write a disklabel
-  echo "image: creating partition table on $DISK..."
-  losetup "$LOOP" "$DISK"
+  echo "image: creating partition table..."
   if [ "$BOOTLOADER" = "syslinux" ]; then
-    parted -s "$LOOP" mklabel gpt
+    parted -s "$DISK" mklabel gpt
   else
-    parted -s "$LOOP" mklabel msdos
+    parted -s "$DISK" mklabel msdos
   fi
   sync
 
 # create part1
-  echo "image: creating part1 on $DISK..."
+  echo "image: creating part1..."
   SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 2048 ))
-  parted -s "$LOOP" -a min unit s mkpart primary fat32 2048 $SYSTEM_PART_END
+  parted -s "$DISK" -a min unit s mkpart primary fat32 2048 $SYSTEM_PART_END
   if [ "$BOOTLOADER" = "syslinux" ]; then
-    parted -s "$LOOP" set 1 legacy_boot on
+    parted -s "$DISK" set 1 legacy_boot on
   else
-    parted -s "$LOOP" set 1 boot on
+    parted -s "$DISK" set 1 boot on
   fi
+  sync
 # create part2
-  echo "image: creating part2 on $DISK..."
+  echo "image: creating part2..."
   STORAGE_PART_START=$(( $SYSTEM_PART_END + 2048 ))
   STORAGE_PART_END=$(( $STORAGE_PART_START + (( $STORAGE_SIZE * 1024 * 1024 / 512 )) ))
-  parted -s "$LOOP" -a min unit s mkpart primary ext4 $STORAGE_PART_START $STORAGE_PART_END
+  parted -s "$DISK" -a min unit s mkpart primary ext4 $STORAGE_PART_START $STORAGE_PART_END
   sync
 
 if [ "$BOOTLOADER" = "syslinux" ]; then
@@ -92,28 +94,28 @@ if [ "$BOOTLOADER" = "syslinux" ]; then
     echo "image: writing mbr..."
     MBR="$ROOT/$TOOLCHAIN/share/syslinux/gptmbr.bin"
     if [ -n "$MBR" ]; then
-      dd bs=440 count=1 conv=notrunc if="$MBR" of="$LOOP"
+      dd bs=440 count=1 conv=fsync,notrunc if="$MBR" of="$DISK" >"$SAVE_ERROR" 2>&1 || show_error
     fi
-    sync
 fi
 
 # create filesystem on part1
-  losetup -d "$LOOP"
-  sync
   echo "image: creating filesystem on part1..."
   OFFSET=$(( 2048 * 512 ))
-  SIZELIMIT=$(( $SYSTEM_SIZE * 1024 * 1024 ))
-  losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
+  HEADS=4
+  TRACKS=32
+  SECTORS=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 / $HEADS / $TRACKS ))
+  
+  shopt -s expand_aliases  # enables alias expansion in script
+  alias mformat="mformat -i $DISK@@$OFFSET -h $HEADS -t $TRACKS -s $SECTORS"
+  alias mcopy="mcopy -i $DISK@@$OFFSET"
+  alias mmd="mmd -i $DISK@@$OFFSET"
+
   if [ "$BOOTLOADER" = "syslinux" ]; then
-    mkfs.vfat -i "$FAT_VOL_ID" "$LOOP"
+    mformat -v "$FAT_VOL_ID" -N "$FAT_VOL_ID" ::
   elif [ "$BOOTLOADER" = "bcm2835-bootloader" -o "$BOOTLOADER" = "u-boot" ]; then
-    mkfs.vfat "$LOOP"
+    mformat ::
   fi
   sync
-
-# mount partition
-  echo "image: mounting part1 on $OE_TMP..."
-  mount "$LOOP" "$OE_TMP"
 
 if [ "$BOOTLOADER" = "syslinux" ]; then
   # create bootloader configuration
@@ -133,18 +135,20 @@ LABEL live
   APPEND boot=UUID=$UUID_SYSTEM live quiet tty vga=current
 EOF
 
+    mcopy "$OE_TMP/syslinux.cfg" ::
+
   # install extlinux
     echo "image: installing extlinux to part1..."
-    syslinux --heads=4 --sector=32 -i "$LOOP"
+    syslinux.mtools --offset "$OFFSET" -i "$DISK"
 
   # copy files
     echo "image: copying files to part1..."
-    cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/$KERNEL_NAME"
-    cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
-    mkdir -p "$OE_TMP/EFI/BOOT"
-    cp $ROOT/$TOOLCHAIN/share/syslinux/bootx64.efi "$OE_TMP/EFI/BOOT"
-    cp $ROOT/$TOOLCHAIN/share/syslinux/ldlinux.e64 "$OE_TMP/EFI/BOOT"
-    cp "$OE_TMP"/syslinux.cfg "$OE_TMP"/EFI/BOOT/syslinux.cfg
+    mcopy $TARGET_IMG/$IMAGE_NAME.kernel "::/$KERNEL_NAME"
+    mcopy $TARGET_IMG/$IMAGE_NAME.system ::/SYSTEM
+    mmd EFI EFI/BOOT
+    mcopy $ROOT/$TOOLCHAIN/share/syslinux/bootx64.efi ::/EFI/BOOT
+    mcopy $ROOT/$TOOLCHAIN/share/syslinux/ldlinux.e64 ::/EFI/BOOT
+    mcopy "$OE_TMP"/syslinux.cfg ::/EFI/BOOT
 elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
@@ -152,95 +156,92 @@ elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
 boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 quiet $EXTRA_CMDLINE
 EOF
 
+    mcopy "$OE_TMP/cmdline.txt" ::
+
   # copy files
     echo "image: copying files to part1..."
-    cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/$KERNEL_NAME"
-    cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
-    cp $RELEASE_DIR/3rdparty/bootloader/bootcode.bin "$OE_TMP"
-    cp $RELEASE_DIR/3rdparty/bootloader/fixup.dat "$OE_TMP"
-    cp $RELEASE_DIR/3rdparty/bootloader/start.elf "$OE_TMP"
-    cp $RELEASE_DIR/3rdparty/bootloader/config.txt "$OE_TMP"
+    mcopy $TARGET_IMG/$IMAGE_NAME.kernel "::/$KERNEL_NAME"
+    mcopy $TARGET_IMG/$IMAGE_NAME.system ::/SYSTEM
+    mcopy $RELEASE_DIR/3rdparty/bootloader/bootcode.bin ::
+    mcopy $RELEASE_DIR/3rdparty/bootloader/fixup.dat ::
+    mcopy $RELEASE_DIR/3rdparty/bootloader/start.elf ::
+    mcopy $RELEASE_DIR/3rdparty/bootloader/config.txt ::
 
     for dtb in $RELEASE_DIR/3rdparty/bootloader/*.dtb ; do
       if [ -f $dtb ] ; then
-        cp "$dtb" "$OE_TMP"
+        mcopy "$dtb" ::/$(basename "$dtb")
       fi
     done
 
     if [ -d $RELEASE_DIR/3rdparty/bootloader/overlays ]; then
-      cp -r $RELEASE_DIR/3rdparty/bootloader/overlays "$OE_TMP"
+      mcopy -s $RELEASE_DIR/3rdparty/bootloader/overlays ::
     fi
 
 elif [ "$BOOTLOADER" = "u-boot" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
     if [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/uEnv-$UBOOT_SYSTEM.txt" ]; then
-      cp "$RELEASE_DIR/3rdparty/bootloader/uEnv-$UBOOT_SYSTEM.txt" "$OE_TMP/uEnv.txt"
+      mcopy "$RELEASE_DIR/3rdparty/bootloader/uEnv-$UBOOT_SYSTEM.txt" ::/uEnv.txt
     elif [ -f "$RELEASE_DIR/3rdparty/bootloader/uEnv.txt" ]; then
-      cp $RELEASE_DIR/3rdparty/bootloader/uEnv.txt "$OE_TMP"
+      mcopy $RELEASE_DIR/3rdparty/bootloader/uEnv.txt ::
     elif [ -f "$RELEASE_DIR/3rdparty/bootloader/boot.scr" ]; then
-      cp $RELEASE_DIR/3rdparty/bootloader/boot.scr "$OE_TMP"
+      mcopy $RELEASE_DIR/3rdparty/bootloader/boot.scr ::
     fi
 
     echo "image: installing u-boot bootloader..."
     if [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/SPL-$UBOOT_SYSTEM" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/SPL-$UBOOT_SYSTEM" of="$DISK" bs=512 seek=2 conv=notrunc
+      dd if="$RELEASE_DIR/3rdparty/bootloader/SPL-$UBOOT_SYSTEM" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
     elif [ -f "$RELEASE_DIR/3rdparty/bootloader/SPL" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/SPL" of="$DISK" bs=512 seek=2 conv=notrunc
+      dd if="$RELEASE_DIR/3rdparty/bootloader/SPL" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
     elif [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.imx" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.imx" of="$DISK" bs=512 seek=2 conv=notrunc
+      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.imx" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
     elif [ -f "$RELEASE_DIR/3rdparty/bootloader/u-boot.imx" ]; then
-      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot.imx" of="$DISK" bs=512 seek=2 conv=notrunc
+      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot.imx" of="$DISK" bs=512 seek=2 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
     fi
 
     echo "image: copying files to part1..."
-    cp $TARGET_IMG/$IMAGE_NAME.kernel "$OE_TMP/$KERNEL_NAME"
-    cp $TARGET_IMG/$IMAGE_NAME.system "$OE_TMP/SYSTEM"
+    mcopy $TARGET_IMG/$IMAGE_NAME.kernel "::/$KERNEL_NAME"
+    mcopy $TARGET_IMG/$IMAGE_NAME.system ::/SYSTEM
 
     if [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.img" ]; then
-      cp "$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.img" "$OE_TMP/u-boot.img"
+      mcopy "$RELEASE_DIR/3rdparty/bootloader/u-boot-$UBOOT_SYSTEM.img" ::/u-boot.img
     elif [ -f $RELEASE_DIR/3rdparty/bootloader/u-boot.img ]; then
-      cp $RELEASE_DIR/3rdparty/bootloader/u-boot.img "$OE_TMP"
+      mcopy $RELEASE_DIR/3rdparty/bootloader/u-boot.img ::
     fi
 
     for dtb in $RELEASE_DIR/3rdparty/bootloader/*.dtb ; do
       if [ -f $dtb ] ; then
-        cp "$dtb" "$OE_TMP"
+        mcopy "$dtb" ::/$(basename "$dtb")
       fi
     done
 fi # bootloader
 
-# unmount part1
-  echo "image: unmounting part1..."
+# extract part2 from image to format and copy files
+  echo "image: extracting part2 from image..."
+  STORAGE_PART_COUNT=$(( $STORAGE_PART_END - $STORAGE_PART_START + 1 ))
   sync
-  umount "$LOOP"
+  dd if="$DISK" of="$OE_TMP/part2.ext4" bs=512 skip="$STORAGE_PART_START" count="$STORAGE_PART_COUNT" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
 
 # create filesystem on part2
-  losetup -d "$LOOP"
-  sync
   echo "image: creating filesystem on part2..."
-  OFFSET=$(( $STORAGE_PART_START * 512 ))
-  SIZELIMIT=$(( $STORAGE_SIZE * 1024 * 1024 ))
-  losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
-  mke2fs -q -t ext4 -m 0 "$LOOP"
-  tune2fs -U $UUID_STORAGE "$LOOP"
-  e2fsck -n "$LOOP"
+  mke2fs -F -q -t ext4 -m 0 "$OE_TMP/part2.ext4"
+  tune2fs -U $UUID_STORAGE "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
+  e2fsck -n "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
   sync
-
-# mount part2
-  echo "image: mounting part2 on $OE_TMP..."
-  mount "$LOOP" "$OE_TMP"
 
 # add resize mark
   if [ "$BOOTLOADER" != "syslinux" ]; then
-    touch "$OE_TMP/.please_resize_me"
+    mkdir "$OE_TMP/part2.fs"
+    touch "$OE_TMP/part2.fs/.please_resize_me"
+    echo "image: populating filesystem on part2..."
+    populatefs -U -d "$OE_TMP/part2.fs" "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
     sync
+    e2fsck -n "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
   fi
 
-# unmount part2
-  echo "image: unmounting part2..."
-  umount "$LOOP"
-  sync
+# merge part2 back to disk image
+  echo "image: merging part2 back to image..."
+  dd if="$OE_TMP/part2.ext4" of="$DISK" bs=512 seek="$STORAGE_PART_START" conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
 
 # gzip
   echo "image: compressing..."

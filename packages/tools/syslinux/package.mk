@@ -72,6 +72,7 @@ makeinstall_host() {
   mkdir -p $ROOT/$TOOLCHAIN/bin
     cp bios/extlinux/extlinux $ROOT/$TOOLCHAIN/bin
     cp bios/linux/syslinux $ROOT/$TOOLCHAIN/bin
+    cp bios/mtools/syslinux $ROOT/$TOOLCHAIN/bin/syslinux.mtools
 
   mkdir -p $ROOT/$TOOLCHAIN/share/syslinux
     cp bios/mbr/mbr.bin $ROOT/$TOOLCHAIN/share/syslinux
