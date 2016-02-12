@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="228"
+PKG_VERSION="229"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
