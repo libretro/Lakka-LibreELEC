@@ -245,7 +245,31 @@ mkdir -p $TARGET_IMG
 rm -rf $TARGET_IMG/$IMAGE_NAME.kernel
 
 # copy kernel to target dir
-cp -PR $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET $TARGET_IMG/$IMAGE_NAME.kernel
+if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
+  echo "Building Amlogic DeviceTreeBlobs and injecting them to kernel..."
+  pushd "$BUILD/linux-$(kernel_version)" > /dev/null
+  rm -rf arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/*.dtb arch/$TARGET_KERNEL_ARCH/boot/dtb.img arch/$TARGET_KERNEL_ARCH/boot/boot.img
+  for extra_target in $KERNEL_UBOOT_EXTRA_TARGET; do
+    LDFLAGS="" make $extra_target > /dev/null
+  done
+  DTB_BLOBS=($(ls arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/*.dtb 2>/dev/null || true))
+  DTB_BLOBS_COUNT="${#DTB_BLOBS[@]}"
+  if [ "$DTB_BLOBS_COUNT" -gt 1 ]; then
+    $ROOT/tools/dtbTool/dtbTool -o arch/$TARGET_KERNEL_ARCH/boot/dtb.img -p scripts/dtc/ arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/
+    ANDROID_BOOTIMG_SECOND="--second arch/$TARGET_KERNEL_ARCH/boot/dtb.img"
+  elif [ "$DTB_BLOBS_COUNT" -eq 1 ]; then
+    ANDROID_BOOTIMG_SECOND="--second $DTB_BLOBS"
+  else
+    ANDROID_BOOTIMG_SECOND=""
+  fi
+  mkbootimg --kernel arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET --ramdisk $ROOT/$BUILD/image/initramfs.cpio \
+      $ANDROID_BOOTIMG_SECOND $ANDROID_BOOTIMG_OPTIONS --output arch/$TARGET_KERNEL_ARCH/boot/boot.img
+  echo "...done"
+  popd > /dev/null
+  cp -PR $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/boot.img $TARGET_IMG/$IMAGE_NAME.kernel
+else
+  cp -PR $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET $TARGET_IMG/$IMAGE_NAME.kernel
+fi
 chmod 0644 $TARGET_IMG/$IMAGE_NAME.kernel
 
 # create squashfs file
