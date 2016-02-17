@@ -43,6 +43,12 @@ else
   EXTRA_CMAKE_OPTS="-DHAVE_IMX_API=0"
 fi
 
+if [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
+  EXTRA_CMAKE_OPTS="-DHAVE_AMLOGIC_API=1"
+else
+  EXTRA_CMAKE_OPTS="-DHAVE_AMLOGIC_API=0"
+fi
+
 configure_target() {
   if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
     export CXXFLAGS="$CXXFLAGS \
