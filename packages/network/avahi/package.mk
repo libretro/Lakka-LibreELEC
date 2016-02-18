@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="avahi"
-PKG_VERSION="0.6.31"
+PKG_VERSION="0.6.32"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -30,7 +30,8 @@ PKG_SHORTDESC="avahi: A Zeroconf mDNS/DNS-SD responder"
 PKG_LONGDESC="Avahi is a framework for Multicast DNS Service Discovery (mDNS/DNS-SD a.k.a. Zeroconf) on Linux. It allows programs to publish and discover services running on a local network with no specific configuration. For example, you can plug into a network and instantly find printers to print to, files to look at, and people to talk to."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+#broken
+PKG_AUTORECONF="no"
 
 MAKEFLAGS="-j1"
 
@@ -74,6 +75,10 @@ PKG_CONFIGURE_OPTS_TARGET="py_cv_mod_gtk_=yes \
                            --with-avahi-user=avahi \
                            --with-avahi-group=avahi \
                            --disable-nls"
+
+pre_configure_target() {
+  NOCONFIGURE=1 ./autogen.sh
+}
 
 post_makeinstall_target() {
 # for some reason avai can fail to start see: http://forums.gentoo.org/viewtopic-p-7322172.html#7322172
