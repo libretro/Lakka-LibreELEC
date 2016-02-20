@@ -71,6 +71,11 @@ PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
 
 PKG_CONFIGURE_OPTS_INIT="$PKG_CONFIGURE_OPTS_TARGET"
 
+pre_make_host() {
+  # dont build parallel
+  MAKEFLAGS=-j1
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/sbin/badblocks
   rm -rf $INSTALL/sbin/blkid
