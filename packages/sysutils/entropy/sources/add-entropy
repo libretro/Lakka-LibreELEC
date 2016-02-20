@@ -1,0 +1,24 @@
+#!/usr/bin/python
+
+import os
+import struct
+
+RNDADDENTROPY = 0x40085203
+import fcntl
+
+def add_entropy(fd, data):
+    add = struct.pack('ii', len(data)*8, len(data)) + data
+    fcntl.ioctl(fd, RNDADDENTROPY, add)
+
+if not os.path.isfile("/storage/.cache/random.data"):
+    os.system("dd if=/dev/urandom of=/storage/.cache/random.data count=4 >/dev/null")
+
+cache=os.open("/storage/.cache/random.data", os.O_RDONLY)
+
+rnd=os.open("/dev/random", os.O_RDWR)
+
+while True:
+    data=os.read(cache, 512)
+    if len(data) == 0:
+        break
+    add_entropy(rnd, data)
