@@ -1,5 +1,5 @@
 diff -Nur a/include/cectypes.h b/include/cectypes.h
---- a/include/cectypes.h	2016-02-10 11:50:03.658878388 +0100
+--- a/include/cectypes.h	2016-02-21 01:11:20.791177759 +0100
 +++ b/include/cectypes.h	2016-02-10 13:45:19.057046951 +0100
 @@ -320,6 +320,16 @@
  
@@ -45,7 +45,7 @@ diff -Nur a/README.md b/README.md
  To compile in support for TDA995x devices, you have to pass the argument -DHAVE_TDA995X_API=1 to cmake:
  ```
 diff -Nur a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFactory.cpp
---- a/src/libcec/adapter/AdapterFactory.cpp	2016-02-10 11:49:46.887067255 +0100
+--- a/src/libcec/adapter/AdapterFactory.cpp	2016-02-21 01:11:12.579266950 +0100
 +++ b/src/libcec/adapter/AdapterFactory.cpp	2016-02-10 12:41:44.252060917 +0100
 @@ -63,6 +63,11 @@
  #include "IMX/IMXCECAdapterCommunication.h"
@@ -101,8 +101,8 @@ diff -Nur a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFa
  }
 diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp
 --- a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp	2016-02-10 13:54:51.298457229 +0100
-@@ -0,0 +1,259 @@
++++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp	2016-02-20 12:46:02.458728701 +0100
+@@ -0,0 +1,269 @@
 +/*
 + * This file is part of the libCEC(R) library.
 + *
@@ -339,6 +339,16 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +
 +      if (size > 0)
 +      {
++          if (buffer[0] == 0xff) // driver wants us to reread the physical address
++          {
++              if (!IsStopped())
++              {
++                  uint16_t iNewAddress = GetPhysicalAddress();
++                  m_callback->HandlePhysicalAddressChanged(iNewAddress);
++              }
++              continue;
++          }
++
 +          initiator = cec_logical_address(buffer[0] >> 4);
 +          destination = cec_logical_address(buffer[0] & 0x0f);
 +
@@ -364,8 +374,8 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +#endif	// HAVE_AMLOGIC_API
 diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h
 --- a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h	2016-02-10 13:49:16.546310466 +0100
-@@ -0,0 +1,105 @@
++++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h	2016-02-20 12:46:02.438728945 +0100
+@@ -0,0 +1,104 @@
 +#pragma once
 +/*
 + * This file is part of the libCEC(R) library.
@@ -465,8 +475,7 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h b/src/li
 +
 +    bool                        m_bLogicalAddressChanged;
 +    cec_logical_addresses       m_logicalAddresses;
-+
-+    PLATFORM::CMutex          m_mutex;
++    PLATFORM::CMutex	        m_mutex;
 +    int                         m_fd;
 +  };
 +};
@@ -621,7 +630,7 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCEC.h b/src/libcec/adapter/Amlogic
 +#define CEC_IOC_GETPADDR    _IO('c', 1)
 +#define CEC_MAX_FRAME_SIZE  16
 diff -Nur a/src/libcec/cmake/CheckPlatformSupport.cmake b/src/libcec/cmake/CheckPlatformSupport.cmake
---- a/src/libcec/cmake/CheckPlatformSupport.cmake	2016-02-10 11:49:46.891067210 +0100
+--- a/src/libcec/cmake/CheckPlatformSupport.cmake	2016-02-21 01:11:12.579266950 +0100
 +++ b/src/libcec/cmake/CheckPlatformSupport.cmake	2016-02-10 13:18:20.847385373 +0100
 @@ -11,6 +11,7 @@
  #	HAVE_IMX_API              1 if i.MX is supported
@@ -651,7 +660,7 @@ diff -Nur a/src/libcec/cmake/CheckPlatformSupport.cmake b/src/libcec/cmake/Check
  
  # rt
 diff -Nur a/src/libcec/cmake/DisplayPlatformSupport.cmake b/src/libcec/cmake/DisplayPlatformSupport.cmake
---- a/src/libcec/cmake/DisplayPlatformSupport.cmake	2016-02-10 11:49:46.891067210 +0100
+--- a/src/libcec/cmake/DisplayPlatformSupport.cmake	2016-02-21 01:11:12.579266950 +0100
 +++ b/src/libcec/cmake/DisplayPlatformSupport.cmake	2016-02-10 12:47:10.380408360 +0100
 @@ -50,6 +50,12 @@
    message(STATUS "Exynos support:                         no")
@@ -680,7 +689,7 @@ diff -Nur a/src/libcec/CMakeLists.txt b/src/libcec/CMakeLists.txt
                  adapter/Pulse-Eight/USBCECAdapterCommunication.h
                  adapter/Pulse-Eight/USBCECAdapterCommands.h
 diff -Nur a/src/libcec/env.h.in b/src/libcec/env.h.in
---- a/src/libcec/env.h.in	2016-02-10 11:49:46.891067210 +0100
+--- a/src/libcec/env.h.in	2016-02-21 01:11:12.579266950 +0100
 +++ b/src/libcec/env.h.in	2016-02-10 11:57:58.449532413 +0100
 @@ -69,6 +69,9 @@
  /* Define to 1 for Exynos support */
