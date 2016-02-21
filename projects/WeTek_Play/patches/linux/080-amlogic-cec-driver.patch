@@ -55,10 +55,10 @@ index 7a944cd..f74ec1f 100755
  #EXTRA_CFLAGS += -O2
 diff --git a/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 new file mode 100644
-index 0000000..e5397c9
+index 0000000..fdcd447
 --- /dev/null
 +++ b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
-@@ -0,0 +1,648 @@
+@@ -0,0 +1,647 @@
 +/* linux/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 + *
 + * Copyright (c) 2016 Gerald Dachs
@@ -99,11 +99,21 @@ index 0000000..e5397c9
 +
 +#define CONFIG_TV_DEBUG // for verbose output
 +//#undef CONFIG_TV_DEBUG
-+bool cec_msg_dbg_en = 1;
++unsigned long amlogic_cec_debug_flag = 1;
 +
 +MODULE_AUTHOR("Gerald Dachs");
 +MODULE_DESCRIPTION("Amlogic CEC driver");
 +MODULE_LICENSE("GPL");
++
++//unused, only left to satisfy the linker
++bool cec_msg_dbg_en = 1;
++
++#define DRV_NAME "amlogic_cec"
++#ifndef amlogic_cec_log_dbg
++#define amlogic_cec_log_dbg(fmt, ...) \
++    if (amlogic_cec_debug_flag)       \
++	printk(KERN_INFO "[%s] %s(): " fmt, DRV_NAME, __func__, ##__VA_ARGS__)
++#endif
 +
 +#define CEC_IOC_MAGIC        'c'
 +#define CEC_IOC_SETLADDR     _IOW(CEC_IOC_MAGIC, 0, unsigned int)
@@ -116,17 +126,6 @@ index 0000000..e5397c9
 +#define CEC_RX_BUFF_SIZE            16
 +/* CEC Tx buffer size */
 +#define CEC_TX_BUFF_SIZE            16
-+
-+#define DRV_NAME "amlogic_cec"
-+#ifndef amlogic_cec_log_dbg
-+#ifdef CONFIG_TV_DEBUG
-+#define amlogic_cec_log_dbg(fmt, ...)					\
-+		printk(KERN_INFO "[%s] %s(): " fmt,		\
-+		DRV_NAME, __func__, ##__VA_ARGS__)
-+#else
-+#define amlogic_cec_log_dbg(fmt, ...)
-+#endif
-+#endif
 +
 +struct cec_rx_list {
 +	u8 buffer[CEC_RX_BUFF_SIZE];
@@ -186,7 +185,7 @@ index 0000000..e5397c9
 +  int pos;
 +  unsigned char msg_log_buf[128] = { 0 };
 +
-+  if (cec_msg_dbg_en  == 1)
++  if (amlogic_cec_debug_flag == 1)
 +  {
 +      pos = 0;
 +      pos += sprintf(msg_log_buf + pos, "msg %s len: %d   dat: ", msg_tag, count);
@@ -708,7 +707,7 @@ index 0000000..e5397c9
 +module_exit(amlogic_cec_exit);
 +
 diff --git a/drivers/amlogic/hdmi/hdmi_tx/hdmi_tx.c b/drivers/amlogic/hdmi/hdmi_tx/hdmi_tx.c
-index 3e043bc..69b3ffc 100755
+index 3e043bc..2b11c72 100755
 --- a/drivers/amlogic/hdmi/hdmi_tx/hdmi_tx.c
 +++ b/drivers/amlogic/hdmi/hdmi_tx/hdmi_tx.c
 @@ -542,6 +542,7 @@ static ssize_t store_disp_mode(struct device * dev, struct device_attribute *att
@@ -719,15 +718,28 @@ index 3e043bc..69b3ffc 100755
  /*cec attr*/
  static ssize_t show_cec(struct device * dev, struct device_attribute *attr, char * buf)
  {
-@@ -589,6 +590,7 @@ static ssize_t show_cec_lang_config(struct device * dev, struct device_attribute
+@@ -589,6 +590,20 @@ static ssize_t show_cec_lang_config(struct device * dev, struct device_attribute
      pos+=snprintf(buf+pos, PAGE_SIZE, "%x\n",cec_global_info.cec_node_info[cec_global_info.my_node_index].menu_lang);
      return pos;
  }
++#else
++
++extern unsigned long amlogic_cec_debug_flag;
++
++static ssize_t show_amlogic_cec_debug_config(struct device *dev, struct device_attribute *attr, char *buf)
++{
++    return snprintf(buf, PAGE_SIZE, "amlogic_cec_debug:%lu\n", amlogic_cec_debug_flag);
++}
++
++static ssize_t store_amlogic_cec_debug_config(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
++{
++   return kstrtoul(buf, 16, &amlogic_cec_debug_flag) ? 0 : count;
++}
 +#endif
  
  /*aud_mode attr*/
  static ssize_t show_aud_mode(struct device * dev, struct device_attribute *attr, char * buf)
-@@ -963,10 +965,12 @@ static DEVICE_ATTR(disp_cap_3d, S_IWUSR | S_IRUGO, show_disp_cap_3d, NULL);
+@@ -963,10 +978,14 @@ static DEVICE_ATTR(disp_cap_3d, S_IWUSR | S_IRUGO, show_disp_cap_3d, NULL);
  static DEVICE_ATTR(hdcp_ksv_info, S_IWUSR | S_IRUGO, show_hdcp_ksv_info, NULL);
  static DEVICE_ATTR(hpd_state, S_IWUSR | S_IRUGO, show_hpd_state, NULL);
  static DEVICE_ATTR(support_3d, S_IWUSR | S_IRUGO, show_support_3d, NULL);
@@ -736,11 +748,23 @@ index 3e043bc..69b3ffc 100755
  static DEVICE_ATTR(cec_config, S_IWUSR | S_IRUGO | S_IWGRP, show_cec_config, store_cec_config);
  //static DEVICE_ATTR(cec_config, S_IWUGO | S_IRUGO , NULL, store_cec_config);
  static DEVICE_ATTR(cec_lang_config, S_IWUSR | S_IRUGO | S_IWGRP, show_cec_lang_config, store_cec_lang_config);
++#else
++static DEVICE_ATTR(amlogic_cec_debug_config, S_IWUSR | S_IRUGO | S_IWGRP, show_amlogic_cec_debug_config, store_amlogic_cec_debug_config);
 +#endif
  
  /*****************************
  *    hdmitx display client interface
-@@ -1643,9 +1647,11 @@ static int amhdmitx_probe(struct platform_device *pdev)
+@@ -1582,7 +1601,9 @@ extern void register_hdmi_is_special_tv_func( int (*pfunc)(void) );
+ 
+ static int amhdmitx_probe(struct platform_device *pdev)
+ {
++#ifndef CONFIG_AML_HDMI_TX_NEW_CEC_DRIVER
+     extern struct switch_dev lang_dev;
++#endif
+     int r,ret=0;
+ 
+ #ifdef CONFIG_USE_OF
+@@ -1643,9 +1664,13 @@ static int amhdmitx_probe(struct platform_device *pdev)
      ret=device_create_file(hdmitx_dev, &dev_attr_hdcp_ksv_info);
      ret=device_create_file(hdmitx_dev, &dev_attr_hpd_state);
      ret=device_create_file(hdmitx_dev, &dev_attr_support_3d);
@@ -748,11 +772,13 @@ index 3e043bc..69b3ffc 100755
      ret=device_create_file(hdmitx_dev, &dev_attr_cec);
      ret=device_create_file(hdmitx_dev, &dev_attr_cec_config);
      ret=device_create_file(hdmitx_dev, &dev_attr_cec_lang_config);
++#else
++    ret=device_create_file(hdmitx_dev, &dev_attr_amlogic_cec_debug_config);
 +#endif
  
      if (hdmitx_dev == NULL) {
          hdmi_print(ERR, SYS "device_create create error\n");
-@@ -1732,7 +1738,9 @@ static int amhdmitx_probe(struct platform_device *pdev)
+@@ -1732,7 +1757,9 @@ static int amhdmitx_probe(struct platform_device *pdev)
      }
  #endif
      switch_dev_register(&sdev);
@@ -762,7 +788,7 @@ index 3e043bc..69b3ffc 100755
  
      hdmitx_init_parameters(&hdmitx_device.hdmi_info);
      HDMITX_Meson_Init(&hdmitx_device);
-@@ -1771,8 +1779,9 @@ static int amhdmitx_remove(struct platform_device *pdev)
+@@ -1771,8 +1798,9 @@ static int amhdmitx_remove(struct platform_device *pdev)
      device_remove_file(hdmitx_dev, &dev_attr_disp_cap_3d);
      device_remove_file(hdmitx_dev, &dev_attr_hpd_state);
      device_remove_file(hdmitx_dev, &dev_attr_support_3d);
