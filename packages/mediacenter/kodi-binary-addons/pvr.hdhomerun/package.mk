@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.hdhomerun"
-PKG_VERSION="a1bf18c"
+PKG_VERSION="456913e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

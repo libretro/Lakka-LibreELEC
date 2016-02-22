@@ -1,0 +1,69 @@
+From 7216c71bfd250f8c3f9fa82685ec635cf7be4b60 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 21 Feb 2016 17:54:20 +0100
+Subject: [PATCH] vaapi: fix segfault
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+index 19f05ca..540f914 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/VAAPI.cpp
+@@ -738,12 +738,14 @@ int CDecoder::FFGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flags)
+ 
+ void CDecoder::FFReleaseBuffer(uint8_t *data)
+ {
+-  VASurfaceID surf;
++  {
++    VASurfaceID surf;
+ 
+-  CSingleLock lock(m_DecoderSection);
++    CSingleLock lock(m_DecoderSection);
+ 
+-  surf = (VASurfaceID)(uintptr_t)data;
+-  m_videoSurfaces.ClearReference(surf);
++    surf = (VASurfaceID)(uintptr_t)data;
++    m_videoSurfaces.ClearReference(surf);
++  }
+ 
+   IHardwareDecoder::Release();
+ }
+
+From eb7ccc54a4db746368191927c5b2fe77b4f678fe Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 21 Feb 2016 18:00:24 +0100
+Subject: [PATCH] dxva2: fix segfault
+
+---
+ xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+index 1fc5061..a340183 100644
+--- a/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
++++ b/xbmc/cores/dvdplayer/DVDCodecs/Video/DXVA.cpp
+@@ -1144,14 +1144,16 @@ bool CDecoder::Supports(enum PixelFormat fmt)
+ 
+ void CDecoder::RelBuffer(uint8_t *data)
+ {
+-  CSingleLock lock(m_section);
+-  ID3D11VideoDecoderOutputView* view = (ID3D11VideoDecoderOutputView*)(uintptr_t)data;
+-
+-  if (!m_surface_context->IsValid(view))
+   {
+-    CLog::Log(LOGWARNING, "%s - return of invalid surface", __FUNCTION__);
++    CSingleLock lock(m_section);
++    ID3D11VideoDecoderOutputView* view = (ID3D11VideoDecoderOutputView*)(uintptr_t)data;
++
++    if (!m_surface_context->IsValid(view))
++    {
++      CLog::Log(LOGWARNING, "%s - return of invalid surface", __FUNCTION__);
++    }
++    m_surface_context->ClearReference(view);
+   }
+-  m_surface_context->ClearReference(view);
+ 
+   IHardwareDecoder::Release();
+ }
