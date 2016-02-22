@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.dvbviewer"
-PKG_VERSION="5f32ad5"
+PKG_VERSION="2628660"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
