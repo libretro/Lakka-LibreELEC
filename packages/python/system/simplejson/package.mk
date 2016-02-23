@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="simplejson"
-PKG_VERSION="3.8.1"
+PKG_VERSION="3.8.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
