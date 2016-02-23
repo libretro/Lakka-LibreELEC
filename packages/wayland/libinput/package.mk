@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libinput"
-PKG_VERSION="1.1.8"
+PKG_VERSION="1.2.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -37,4 +37,5 @@ PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=$SYSROOT_PREFIX \
                            --disable-static \
                            --disable-documentation \
                            --disable-event-gui \
-                           --disable-tests"
+                           --disable-tests \
+                           --disable-libwacom"
