@@ -17,12 +17,11 @@
 ################################################################################
 
 PKG_NAME="amremote"
-PKG_VERSION="aa0a9e8"
+PKG_VERSION="a4a7c4e"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.amlogic.com"
-PKG_URL="https://github.com/codesnake/amremote/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain usbutils"
 PKG_PRIORITY="optional"
