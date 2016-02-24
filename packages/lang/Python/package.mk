@@ -65,14 +65,15 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_file_dev_ptc=no \
                            --with-system-ffi \
                            --with-system-expat"
 
-pre_configure_host() {
-  export OPT="$HOST_CFLAGS"
-}
-
 make_host() {
   make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
        PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES"
+
+  sed -e "s|$ROOT/$TOOLCHAIN/include|$SYSROOT_PREFIX/usr/include|g" \
+      -e "s|$ROOT/$TOOLCHAIN/lib|$SYSROOT_PREFIX/usr/lib|g" \
+      -e "s|$ROOT/$TOOLCHAIN/bin/host-gcc|${TARGET_PREFIX}gcc|g" \
+      -i build/lib.linux-$(uname -m)-2.7/_sysconfigdata.py
 }
 
 makeinstall_host() {
