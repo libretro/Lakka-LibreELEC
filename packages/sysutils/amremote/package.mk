@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2014 Alex Deryskyba (alex@codesnake.com)
+#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 #
 #  OpenELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="amremote"
-PKG_VERSION="a4a7c4e"
+PKG_VERSION="ecdf401"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
