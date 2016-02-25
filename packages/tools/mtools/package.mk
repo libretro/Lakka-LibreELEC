@@ -36,5 +36,5 @@ makeinstall_host() {
   $STRIP mtools
 
   mkdir -p $ROOT/$TOOLCHAIN/sbin
-  cp -P mtools mformat mcopy mmd $ROOT/$TOOLCHAIN/sbin
+  find . -type l -exec cp -P \{\} $ROOT/$TOOLCHAIN/sbin \;
 }
