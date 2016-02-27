@@ -1,0 +1,159 @@
+From ae4e63aa165583ef5eaab4759e7af24eeffbb197 Mon Sep 17 00:00:00 2001
+From: croniccorey <cronmod.dev@gmail.com>
+Date: Sun, 13 Dec 2015 16:37:05 -0500
+Subject: [PATCH] KODI: Add support for aarch64 platform
+
+---
+ addons/library.xbmc.addon/libXBMC_addon.h   |  2 ++
+ configure.ac                                | 12 ++++++++++++
+ m4/xbmc_arch.m4                             |  2 +-
+ xbmc/cores/DllLoader/DllLoader.h            |  2 +-
+ xbmc/cores/DllLoader/ldt_keeper.c           |  2 +-
+ xbmc/cores/VideoRenderers/LinuxRendererGL.h |  2 +-
+ xbmc/linux/PlatformDefs.h                   |  2 +-
+ xbmc/threads/Atomics.cpp                    |  2 +-
+ xbmc/utils/CPUInfo.cpp                      |  2 +-
+ xbmc/utils/MathUtils.h                      |  3 ++-
+ 10 files changed, 23 insertions(+), 8 deletions(-)
+
+diff --git a/addons/library.xbmc.addon/libXBMC_addon.h b/addons/library.xbmc.addon/libXBMC_addon.h
+index c3ed54f..76190b6 100644
+--- a/addons/library.xbmc.addon/libXBMC_addon.h
++++ b/addons/library.xbmc.addon/libXBMC_addon.h
+@@ -55,6 +55,8 @@ typedef intptr_t      ssize_t;
+ #define ADDON_HELPER_ARCH       "powerpc64-linux"
+ #elif defined(__ARMEL__)
+ #define ADDON_HELPER_ARCH       "arm"
++#elif defined(__aarch64__)
++#define ADDON_HELPER_ARCH       "aarch64"
+ #elif defined(__mips__)
+ #define ADDON_HELPER_ARCH       "mips"
+ #else
+diff --git a/configure.ac b/configure.ac
+index c767357..80f3807 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -691,6 +691,18 @@ case $host in
+      use_wayland=no
+      USE_STATIC_FFMPEG=1
+      ;;
++  aarch64*-*-linux-gnu*)
++     target_platform=target_linux
++     ARCH="aarch64"
++     use_arch="aarch64"
++     use_cpu=cortex-a53
++     use_joystick=no
++     use_neon=yes
++     use_gles=yes
++     use_gl=no
++     use_wayland=no
++     USE_STATIC_FFMPEG=1
++     ;;
+   arm*-*linux-android*)
+      target_platform=target_android
+      use_arch="arm"
+diff --git a/m4/xbmc_arch.m4 b/m4/xbmc_arch.m4
+index 0b66a82..fa08537 100644
+--- a/m4/xbmc_arch.m4
++++ b/m4/xbmc_arch.m4
+@@ -60,7 +60,7 @@ case $host in
+   powerpc64-*-linux-gnu*|powerpc64-*-linux-uclibc*)
+      AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX -D_POWERPC64")
+      ;;
+-  arm*-*-linux-gnu*|arm*-*-linux-uclibc*)
++  arm*-*-linux-gnu*|arm*-*-linux-uclibc*|aarch64*-*-linux-gnu*)
+      AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
+      ;;
+   mips*-*-linux-gnu*|mips*-*-linux-uclibc*)
+diff --git a/xbmc/cores/DllLoader/DllLoader.h b/xbmc/cores/DllLoader/DllLoader.h
+index 070aee6..e669203 100644
+--- a/xbmc/cores/DllLoader/DllLoader.h
++++ b/xbmc/cores/DllLoader/DllLoader.h
+@@ -23,7 +23,7 @@
+ #include "coffldr.h"
+ #include "LibraryLoader.h"
+ 
+-#if defined(__linux__) && !defined(__powerpc__) && !defined(__arm__) && !defined(__mips__)
++#if defined(__linux__) && !defined(__powerpc__) && !defined(__arm__) && !defined(__mips__) && !defined(__aarch64__)
+ #define USE_LDT_KEEPER
+ #include "ldt_keeper.h"
+ #endif
+diff --git a/xbmc/cores/DllLoader/ldt_keeper.c b/xbmc/cores/DllLoader/ldt_keeper.c
+index 8af9a86..1c0cdb2 100644
+--- a/xbmc/cores/DllLoader/ldt_keeper.c
++++ b/xbmc/cores/DllLoader/ldt_keeper.c
+@@ -19,7 +19,7 @@
+  */
+ 
+ //#ifndef __powerpc__
+-#if !defined(__powerpc__) && !defined(__ppc__) && !defined(__arm__) && !defined(__mips__)
++#if !defined(__powerpc__) && !defined(__ppc__) && !defined(__arm__) && !defined(__mips__) && !defined(__aarch64__)
+ 
+ #include "ldt_keeper.h"
+ 
+diff --git a/xbmc/cores/VideoRenderers/LinuxRendererGL.h b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
+index fcdea8d..5a3e3df 100644
+--- a/xbmc/cores/VideoRenderers/LinuxRendererGL.h
++++ b/xbmc/cores/VideoRenderers/LinuxRendererGL.h
+@@ -323,7 +323,7 @@ class CLinuxRendererGL : public CBaseRenderer
+ 
+ 
+ inline int NP2( unsigned x ) {
+-#if defined(TARGET_POSIX) && !defined(__POWERPC__) && !defined(__PPC__) && !defined(__arm__) && !defined(__mips__)
++#if defined(TARGET_POSIX) && !defined(__POWERPC__) && !defined(__PPC__) && !defined(__arm__) && !defined(__mips__) && !defined(__aarch64__)
+   // If there are any issues compiling this, just append a ' && 0'
+   // to the above to make it '#if defined(TARGET_POSIX) && 0'
+ 
+diff --git a/xbmc/linux/PlatformDefs.h b/xbmc/linux/PlatformDefs.h
+index 4350075..2c6fff4 100644
+--- a/xbmc/linux/PlatformDefs.h
++++ b/xbmc/linux/PlatformDefs.h
+@@ -161,7 +161,7 @@
+ #define __int64   long long
+ #define __uint64  unsigned long long
+ 
+-#if defined(__x86_64__) || defined(__powerpc__) || defined(__ppc__) || defined (__arm__) || defined(__mips__) // should this be powerpc64 only?
++#if defined(__x86_64__) || defined(__powerpc__) || defined(__ppc__) || defined (__arm__) || defined(__mips__) || defined(__aarch64__)
+ #define __stdcall
+ #else /* !__x86_64__ */
+ #define __stdcall   __attribute__((__stdcall__))
+diff --git a/xbmc/threads/Atomics.cpp b/xbmc/threads/Atomics.cpp
+index 417b2b6..c172867 100644
+--- a/xbmc/threads/Atomics.cpp
++++ b/xbmc/threads/Atomics.cpp
+@@ -106,7 +106,7 @@ long cas(volatile long *pAddr, long expectedVal, long swapVal)
+ ///////////////////////////////////////////////////////////////////////////
+ long long cas2(volatile long long* pAddr, long long expectedVal, long long swapVal)
+ {
+-#if defined(__ppc__) || defined(__powerpc__) || defined(__arm__)// PowerPC and ARM
++#if defined(__ppc__) || defined(__powerpc__) || defined(__arm__) || defined(__aarch64__) // PowerPC and ARM
+ // Not available/required
+ // Hack to allow compilation
+   throw "cas2 is not implemented";
+diff --git a/xbmc/utils/CPUInfo.cpp b/xbmc/utils/CPUInfo.cpp
+index 9e709e7..d7fef37 100644
+--- a/xbmc/utils/CPUInfo.cpp
++++ b/xbmc/utils/CPUInfo.cpp
+@@ -914,7 +914,7 @@ void CCPUInfo::ReadCPUFeatures()
+   #endif
+ #elif defined(LINUX)
+ // empty on purpose, the implementation is in the constructor
+-#elif !defined(__powerpc__) && !defined(__ppc__) && !defined(__arm__)
++#elif !defined(__powerpc__) && !defined(__ppc__) && !defined(__arm__) && !defined(__aarch64__)
+   m_cpuFeatures |= CPU_FEATURE_MMX;
+ #elif defined(__powerpc__) || defined(__ppc__)
+   m_cpuFeatures |= CPU_FEATURE_ALTIVEC;
+diff --git a/xbmc/utils/MathUtils.h b/xbmc/utils/MathUtils.h
+index 08140b7..249b4dd 100644
+--- a/xbmc/utils/MathUtils.h
++++ b/xbmc/utils/MathUtils.h
+@@ -35,7 +35,8 @@
+ #if defined(__ppc__) || \
+     defined(__powerpc__) || \
+     defined(__mips__) || \
+-    defined(__arm__)
++    defined(__arm__) || \
++    defined(__aarch64__)
+   #define DISABLE_MATHUTILS_ASM_ROUND_INT
+ #endif
+ 
