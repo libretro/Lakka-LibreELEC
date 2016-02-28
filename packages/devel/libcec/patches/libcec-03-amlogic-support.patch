@@ -1,6 +1,6 @@
-diff -Nur a/include/cectypes.h b/include/cectypes.h
---- a/include/cectypes.h	2016-02-21 01:11:20.791177759 +0100
-+++ b/include/cectypes.h	2016-02-10 13:45:19.057046951 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/include/cectypes.h libcec-3.0.1-with-amlogic-adapter/include/cectypes.h
+--- libcec-3.0.1/include/cectypes.h	2016-02-21 01:11:20.791177759 +0100
++++ libcec-3.0.1-with-amlogic-adapter/include/cectypes.h	2016-02-10 13:45:19.057046951 +0100
 @@ -320,6 +320,16 @@
  
  
@@ -28,9 +28,9 @@ diff -Nur a/include/cectypes.h b/include/cectypes.h
  } cec_adapter_type;
  
  /** force exporting through swig */
-diff -Nur a/README.md b/README.md
---- a/README.md	2015-07-03 19:20:49.000000000 +0200
-+++ b/README.md	2016-02-10 12:03:54.517523977 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/README.md libcec-3.0.1-with-amlogic-adapter/README.md
+--- libcec-3.0.1/README.md	2015-07-03 19:20:49.000000000 +0200
++++ libcec-3.0.1-with-amlogic-adapter/README.md	2016-02-10 12:03:54.517523977 +0100
 @@ -58,6 +58,12 @@
  cmake -DHAVE_EXYNOS_API=1 ..
  ```
@@ -44,9 +44,9 @@ diff -Nur a/README.md b/README.md
  ## TDA995x ##
  To compile in support for TDA995x devices, you have to pass the argument -DHAVE_TDA995X_API=1 to cmake:
  ```
-diff -Nur a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFactory.cpp
---- a/src/libcec/adapter/AdapterFactory.cpp	2016-02-21 01:11:12.579266950 +0100
-+++ b/src/libcec/adapter/AdapterFactory.cpp	2016-02-10 12:41:44.252060917 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/adapter/AdapterFactory.cpp libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/AdapterFactory.cpp
+--- libcec-3.0.1/src/libcec/adapter/AdapterFactory.cpp	2016-02-21 01:11:12.579266950 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/AdapterFactory.cpp	2016-02-10 12:41:44.252060917 +0100
 @@ -63,6 +63,11 @@
  #include "IMX/IMXCECAdapterCommunication.h"
  #endif
@@ -99,10 +99,10 @@ diff -Nur a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFa
    return NULL;
  #endif
  }
-diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp
---- a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp	2016-02-20 12:46:02.458728701 +0100
-@@ -0,0 +1,269 @@
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp
+--- libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp	1970-01-01 01:00:00.000000000 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp	2016-02-28 12:31:26.771045268 +0100
+@@ -0,0 +1,298 @@
 +/*
 + * This file is part of the libCEC(R) library.
 + *
@@ -176,14 +176,17 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +
 +bool CAmlogicCECAdapterCommunication::IsOpen(void)
 +{
++  CLockObject lock(m_mutex);
 +  return IsInitialised() && m_fd != INVALID_SOCKET_VALUE;
 +}
 +
 +
 +bool CAmlogicCECAdapterCommunication::Open(uint32_t UNUSED(iTimeoutMs), bool UNUSED(bSkipChecks), bool bStartListening)
 +{
-+  if (m_fd != INVALID_SOCKET_VALUE)
-+    close(m_fd);
++  if (IsOpen())
++    Close();
++
++  CLockObject lock(m_mutex);
 +
 +  if ((m_fd = open(CEC_AMLOGIC_PATH, O_RDWR)) > 0)
 +  {
@@ -191,6 +194,7 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +        return true;
 +    }
 +    close(m_fd);
++    m_fd = INVALID_SOCKET_VALUE;
 +  }
 +  return false;
 +}
@@ -199,6 +203,8 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +void CAmlogicCECAdapterCommunication::Close(void)
 +{
 +  StopThread(0);
++
++  CLockObject lock(m_mutex);
 +
 +  close(m_fd);
 +  m_fd = INVALID_SOCKET_VALUE;
@@ -211,6 +217,14 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +  return strError;
 +}
 +
++int CAmlogicCECAdapterCommunication::getFileDescriptor(void)
++{
++  CLockObject lock(m_mutex);
++
++  return m_fd;
++}
++
++
 +
 +cec_adapter_message_state CAmlogicCECAdapterCommunication::Write(
 +  const cec_command &data, bool &UNUSED(bRetry), uint8_t UNUSED(iLineTimeout), bool UNUSED(bIsReply))
@@ -221,6 +235,8 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +
 +  if (!IsOpen())
 +    return rc;
++
++  CLockObject lock(m_mutex);
 +
 +  if ((size_t)data.parameters.size + data.opcode_set > sizeof(buffer))
 +  {
@@ -268,10 +284,10 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +{
 +  int phys_addr = CEC_DEFAULT_PADDR;
 +
-+  CLockObject lock(m_mutex);
-+
 +  if (!IsOpen())
 +    return (uint16_t)phys_addr;
++
++  CLockObject lock(m_mutex);
 +
 +  if ((phys_addr = ioctl(m_fd, CEC_IOC_GETPADDR)) < 0)
 +  {
@@ -291,10 +307,10 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +bool CAmlogicCECAdapterCommunication::SetLogicalAddresses(const cec_logical_addresses &addresses)
 +{
 +  unsigned int log_addr = addresses.primary;
-+  CLockObject lock(m_mutex);
-+
 +  if (!IsOpen())
 +    return false;
++
++  CLockObject lock(m_mutex);
 +
 +  if (ioctl(m_fd, CEC_IOC_SETLADDR, &log_addr))
 +  {
@@ -311,6 +327,12 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +void CAmlogicCECAdapterCommunication::HandleLogicalAddressLost(cec_logical_address UNUSED(oldAddress))
 +{
 +  unsigned int log_addr = CECDEVICE_BROADCAST;
++
++  if (!IsOpen())
++    return;
++
++  CLockObject lock(m_mutex);
++
 +  if (ioctl(m_fd, CEC_IOC_SETLADDR, &log_addr))
 +  {
 +    LIB_CEC->AddLog(CEC_LOG_ERROR, "%s: IOCTL SetLogicalAddr failed !", __func__);
@@ -328,14 +350,21 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +  if (!IsOpen())
 +    return 0;
 +
-+  FD_ZERO(&rfds);
-+  FD_SET(m_fd, &rfds);
-+
 +  while (!IsStopped())
 +  {
-+    if (select(m_fd + 1, &rfds, NULL, NULL, NULL) >= 0 )
++    int fd = getFileDescriptor();
++
++    if (fd == INVALID_SOCKET_VALUE)
 +    {
-+      size = read(m_fd, buffer, CEC_MAX_FRAME_SIZE);
++      break;
++    }
++
++    FD_ZERO(&rfds);
++    FD_SET(fd, &rfds);
++
++    if (select(fd + 1, &rfds, NULL, NULL, NULL) >= 0 )
++    {
++      size = read(fd, buffer, CEC_MAX_FRAME_SIZE);
 +
 +      if (size > 0)
 +      {
@@ -372,10 +401,10 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/
 +}
 +
 +#endif	// HAVE_AMLOGIC_API
-diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h
---- a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h	2016-02-20 12:46:02.438728945 +0100
-@@ -0,0 +1,104 @@
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h
+--- libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h	1970-01-01 01:00:00.000000000 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h	2016-02-28 12:16:30.985474428 +0100
+@@ -0,0 +1,105 @@
 +#pragma once
 +/*
 + * This file is part of the libCEC(R) library.
@@ -470,6 +499,7 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h b/src/li
 +
 +  private:
 +    bool IsInitialised(void) const { return 1; };
++    int getFileDescriptor(void);
 +
 +    std::string                 m_strError; /**< current error message */
 +
@@ -480,9 +510,9 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h b/src/li
 +  };
 +};
 +#endif
-diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp b/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp
---- a/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp	2016-02-10 11:57:58.445532459 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp
+--- libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp	1970-01-01 01:00:00.000000000 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp	2016-02-10 11:57:58.445532459 +0100
 @@ -0,0 +1,50 @@
 +/*
 + * This file is part of the libCEC(R) library.
@@ -534,9 +564,9 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.cpp b/src/libc
 +}
 +
 +#endif
-diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h b/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h
---- a/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h	2016-02-10 11:57:58.445532459 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h
+--- libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h	1970-01-01 01:00:00.000000000 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h	2016-02-10 11:57:58.445532459 +0100
 @@ -0,0 +1,46 @@
 +#pragma once
 +/*
@@ -584,9 +614,9 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCECAdapterDetection.h b/src/libcec
 +    static bool FindAdapter(void);
 +  };
 +}
-diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCEC.h b/src/libcec/adapter/Amlogic/AmlogicCEC.h
---- a/src/libcec/adapter/Amlogic/AmlogicCEC.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/src/libcec/adapter/Amlogic/AmlogicCEC.h	2016-02-10 11:57:58.445532459 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCEC.h libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCEC.h
+--- libcec-3.0.1/src/libcec/adapter/Amlogic/AmlogicCEC.h	1970-01-01 01:00:00.000000000 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/adapter/Amlogic/AmlogicCEC.h	2016-02-10 11:57:58.445532459 +0100
 @@ -0,0 +1,41 @@
 +#pragma once
 +/*
@@ -629,9 +659,9 @@ diff -Nur a/src/libcec/adapter/Amlogic/AmlogicCEC.h b/src/libcec/adapter/Amlogic
 +#define CEC_IOC_SETLADDR    _IOW('c', 0, unsigned int)
 +#define CEC_IOC_GETPADDR    _IO('c', 1)
 +#define CEC_MAX_FRAME_SIZE  16
-diff -Nur a/src/libcec/cmake/CheckPlatformSupport.cmake b/src/libcec/cmake/CheckPlatformSupport.cmake
---- a/src/libcec/cmake/CheckPlatformSupport.cmake	2016-02-21 01:11:12.579266950 +0100
-+++ b/src/libcec/cmake/CheckPlatformSupport.cmake	2016-02-10 13:18:20.847385373 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/cmake/CheckPlatformSupport.cmake libcec-3.0.1-with-amlogic-adapter/src/libcec/cmake/CheckPlatformSupport.cmake
+--- libcec-3.0.1/src/libcec/cmake/CheckPlatformSupport.cmake	2016-02-21 01:11:12.579266950 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/cmake/CheckPlatformSupport.cmake	2016-02-10 13:18:20.847385373 +0100
 @@ -11,6 +11,7 @@
  #	HAVE_IMX_API              1 if i.MX is supported
  #	HAVE_TDA995X_API          1 if TDA995X is supported
@@ -659,9 +689,9 @@ diff -Nur a/src/libcec/cmake/CheckPlatformSupport.cmake b/src/libcec/cmake/Check
  endif()
  
  # rt
-diff -Nur a/src/libcec/cmake/DisplayPlatformSupport.cmake b/src/libcec/cmake/DisplayPlatformSupport.cmake
---- a/src/libcec/cmake/DisplayPlatformSupport.cmake	2016-02-21 01:11:12.579266950 +0100
-+++ b/src/libcec/cmake/DisplayPlatformSupport.cmake	2016-02-10 12:47:10.380408360 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/cmake/DisplayPlatformSupport.cmake libcec-3.0.1-with-amlogic-adapter/src/libcec/cmake/DisplayPlatformSupport.cmake
+--- libcec-3.0.1/src/libcec/cmake/DisplayPlatformSupport.cmake	2016-02-21 01:11:12.579266950 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/cmake/DisplayPlatformSupport.cmake	2016-02-10 12:47:10.380408360 +0100
 @@ -50,6 +50,12 @@
    message(STATUS "Exynos support:                         no")
  endif()
@@ -675,9 +705,9 @@ diff -Nur a/src/libcec/cmake/DisplayPlatformSupport.cmake b/src/libcec/cmake/Dis
  if (HAVE_PYTHON)
    message(STATUS "Python support:                         version ${PYTHONLIBS_VERSION_STRING} (${PYTHON_VERSION})")
  else()
-diff -Nur a/src/libcec/CMakeLists.txt b/src/libcec/CMakeLists.txt
---- a/src/libcec/CMakeLists.txt	2015-07-03 19:20:49.000000000 +0200
-+++ b/src/libcec/CMakeLists.txt	2016-02-10 11:57:58.445532459 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/CMakeLists.txt libcec-3.0.1-with-amlogic-adapter/src/libcec/CMakeLists.txt
+--- libcec-3.0.1/src/libcec/CMakeLists.txt	2015-07-03 19:20:49.000000000 +0200
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/CMakeLists.txt	2016-02-10 11:57:58.445532459 +0100
 @@ -83,6 +83,9 @@
                  adapter/Exynos/ExynosCEC.h
                  adapter/Exynos/ExynosCECAdapterDetection.h
@@ -688,9 +718,9 @@ diff -Nur a/src/libcec/CMakeLists.txt b/src/libcec/CMakeLists.txt
                  adapter/Pulse-Eight/USBCECAdapterMessageQueue.h
                  adapter/Pulse-Eight/USBCECAdapterCommunication.h
                  adapter/Pulse-Eight/USBCECAdapterCommands.h
-diff -Nur a/src/libcec/env.h.in b/src/libcec/env.h.in
---- a/src/libcec/env.h.in	2016-02-21 01:11:12.579266950 +0100
-+++ b/src/libcec/env.h.in	2016-02-10 11:57:58.449532413 +0100
+diff -Nur -x .cproject -x .project -x .settings libcec-3.0.1/src/libcec/env.h.in libcec-3.0.1-with-amlogic-adapter/src/libcec/env.h.in
+--- libcec-3.0.1/src/libcec/env.h.in	2016-02-21 01:11:12.579266950 +0100
++++ libcec-3.0.1-with-amlogic-adapter/src/libcec/env.h.in	2016-02-10 11:57:58.449532413 +0100
 @@ -69,6 +69,9 @@
  /* Define to 1 for Exynos support */
  #cmakedefine HAVE_EXYNOS_API @HAVE_EXYNOS_API@
