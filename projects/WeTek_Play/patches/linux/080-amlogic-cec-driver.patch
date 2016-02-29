@@ -55,10 +55,10 @@ index 7a944cd..f74ec1f 100755
  #EXTRA_CFLAGS += -O2
 diff --git a/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 new file mode 100644
-index 0000000..7d8992a
+index 0000000..9565115
 --- /dev/null
 +++ b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
-@@ -0,0 +1,603 @@
+@@ -0,0 +1,634 @@
 +/* linux/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 + *
 + * Copyright (c) 2016 Gerald Dachs
@@ -165,6 +165,7 @@ index 0000000..7d8992a
 +cec_global_info_t cec_global_info;
 +
 +static hdmitx_dev_t* hdmitx_device = NULL;
++static struct workqueue_struct *cec_workqueue = NULL;
 +
 +static void amlogic_cec_set_rx_state(enum cec_state state)
 +{
@@ -240,16 +241,16 @@ index 0000000..7d8992a
 +          data[i]= amlogic_cec_read_reg(CEC_RX_MSG_0_HEADER + i);
 +      }
 +
++      amlogic_cec_msg_dump("RX", data, *count);
++
 +      ret = RX_DONE;
 +    }
 +
-+    amlogic_cec_write_reg(CEC_RX_MSG_CMD, RX_ACK_CURRENT);
++#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
++    aml_write_reg32(P_AO_CEC_INTR_CLR, aml_read_reg32(P_AO_CEC_INTR_CLR) | (1 << 2));
++#endif
++    amlogic_cec_write_reg(CEC_RX_MSG_CMD, RX_ACK_NEXT);
 +    amlogic_cec_write_reg(CEC_RX_MSG_CMD, RX_NO_OP);
-+
-+    if (valid_msg)
-+    {
-+	amlogic_cec_msg_dump("RX", data, *count);
-+    }
 +
 +    return ret;
 +}
@@ -427,6 +428,15 @@ index 0000000..7d8992a
 +
 +    amlogic_cec_set_tx_state(STATE_TX);
 +
++    // just for the case that the first write starts
++    // before the end of amlogic_cec_delayed_init()
++    if (wait_event_interruptible(cec_tx_struct.waitq, hdmitx_device->cec_init_ready == 1))
++    {
++	amlogic_cec_log_dbg("error during wait on state change\n");
++	printk(KERN_ERR "[amlogic] ##### cec write error! #####\n");
++	return -ERESTARTSYS;
++    }
++
 +    amlogic_cec_write_hw(data, count);
 +
 +    if (wait_event_interruptible_timeout(cec_tx_struct.waitq,
@@ -568,6 +578,47 @@ index 0000000..7d8992a
 +    return IRQ_HANDLED;
 +}
 +
++static void amlogic_cec_delayed_init(struct work_struct *work)
++{
++    hdmitx_dev_t* hdmitx_device = (hdmitx_dev_t*)container_of(work, hdmitx_dev_t, cec_work);
++
++    amlogic_cec_log_dbg("amlogic_cec_delayed_init: enter\n");
++
++    msleep_interruptible(15000);
++
++#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
++    cec_gpi_init();
++#endif
++
++#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
++    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 25, 1);
++    // Clear CEC Int. state and set CEC Int. mask
++    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR) | (1 << 23));    // Clear the interrupt
++    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) | (1 << 23));            // Enable the hdmi cec interrupt
++
++#endif
++#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
++#if 1           // Please match with H/W cec config
++// GPIOAO_12
++    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 0, 14, 1);       // bit[14]: AO_PWM_C pinmux                  //0xc8100014
++    aml_set_reg32_bits(P_AO_RTI_PULL_UP_REG, 1, 12, 1);       // bit[12]: enable AO_12 internal pull-up   //0xc810002c
++    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 1, 17, 1);       // bit[17]: AO_CEC pinmux                    //0xc8100014
++    ao_cec_init();
++#else
++// GPIOH_3
++    aml_set_reg32_bits(P_PAD_PULL_UP_EN_REG1, 0, 19, 1);    // disable gpioh_3 internal pull-up
++    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 23, 1);      // gpioh_3 cec pinmux
++#endif
++    cec_arbit_bit_time_set(3, 0x118, 0);
++    cec_arbit_bit_time_set(5, 0x000, 0);
++    cec_arbit_bit_time_set(7, 0x2aa, 0);
++#endif
++    hdmitx_device->cec_init_ready = 1;
++    wake_up_interruptible(&cec_tx_struct.waitq);
++
++    amlogic_cec_log_dbg("amlogic_cec_delayed_init: leave\n");
++}
++
 +static int amlogic_cec_init(void)
 +{
 +    extern hdmitx_dev_t * get_hdmitx_device(void);
@@ -613,35 +664,14 @@ index 0000000..7d8992a
 +	return -EBUSY;
 +    }
 +
-+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-+    cec_gpi_init();
-+#endif
-+
-+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 25, 1);
-+    // Clear CEC Int. state and set CEC Int. mask
-+    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR) | (1 << 23));    // Clear the interrupt
-+    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) | (1 << 23));            // Enable the hdmi cec interrupt
-+
-+#endif
-+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-+#if 1           // Please match with H/W cec config
-+// GPIOAO_12
-+    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 0, 14, 1);       // bit[14]: AO_PWM_C pinmux                  //0xc8100014
-+    aml_set_reg32_bits(P_AO_RTI_PULL_UP_REG, 1, 12, 1);       // bit[12]: enable AO_12 internal pull-up   //0xc810002c
-+    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 1, 17, 1);       // bit[17]: AO_CEC pinmux                    //0xc8100014
-+    ao_cec_init();
-+#else
-+// GPIOH_3
-+    aml_set_reg32_bits(P_PAD_PULL_UP_EN_REG1, 0, 19, 1);    // disable gpioh_3 internal pull-up
-+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 23, 1);      // gpioh_3 cec pinmux
-+#endif
-+    cec_arbit_bit_time_set(3, 0x118, 0);
-+    cec_arbit_bit_time_set(5, 0x000, 0);
-+    cec_arbit_bit_time_set(7, 0x2aa, 0);
-+#endif
-+
-+    hdmitx_device->cec_init_ready = 1;
++    cec_workqueue = create_workqueue("cec_work");
++    if (cec_workqueue == NULL)
++    {
++	printk("create work queue failed\n");
++	return -EFAULT;
++    }
++    INIT_WORK(&hdmitx_device->cec_work, amlogic_cec_delayed_init);
++    queue_work(cec_workqueue, &hdmitx_device->cec_work);    // for init
 +
 +    amlogic_cec_log_dbg("hdmitx_device->cec_init_ready:0x%x\n", hdmitx_device->cec_init_ready);
 +
@@ -662,6 +692,7 @@ index 0000000..7d8992a
 +
 +module_init(amlogic_cec_init);
 +module_exit(amlogic_cec_exit);
++
 diff --git a/drivers/amlogic/hdmi/hdmi_tx/hdmi_tx.c b/drivers/amlogic/hdmi/hdmi_tx/hdmi_tx.c
 index 3e043bc..2b11c72 100755
 --- a/drivers/amlogic/hdmi/hdmi_tx/hdmi_tx.c
