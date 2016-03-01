@@ -52,8 +52,10 @@ PKG_MAKE_OPTS_HOST="ARCH=$TARGET_KERNEL_ARCH headers_check"
 
 if [ "$BOOTLOADER" = "u-boot" ]; then
   KERNEL_IMAGE="$KERNEL_UBOOT_TARGET"
-else
+elif [ "$TARGET_KERNEL_ARCH" = "arm" ]; then
   KERNEL_IMAGE="bzImage"
+else
+  KERNEL_IMAGE="Image"
 fi
 
 if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
@@ -157,16 +159,16 @@ make_target() {
 makeinstall_target() {
   if [ "$BOOTLOADER" = "u-boot" ]; then
     mkdir -p $INSTALL/usr/share/bootloader
-    for dtb in arch/TARGET_KERNEL_ARCH/boot/dts/*.dtb; do
+    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb; do
       cp $dtb $INSTALL/usr/share/bootloader 2>/dev/null || :
     done
   elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
     mkdir -p $INSTALL/usr/share/bootloader/overlays
-    cp -p arch/TARGET_KERNEL_ARCH/boot/dts/*.dtb $INSTALL/usr/share/bootloader
-    for dtb in arch/TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtb; do
+    cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb $INSTALL/usr/share/bootloader
+    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/*.dtb; do
       cp $dtb $INSTALL/usr/share/bootloader/overlays 2>/dev/null || :
     done
-    cp -p arch/TARGET_KERNEL_ARCH/boot/dts/overlays/README $INSTALL/usr/share/bootloader/overlays
+    cp -p arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/README $INSTALL/usr/share/bootloader/overlays
   fi
 }
 
