@@ -44,4 +44,8 @@ if [ "$MEDIACENTER" = "kodi" ]; then
 
 # other packages
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET OpenELEC-settings"
+
+  if [ "$KODI_LANGUAGE_ADDONS" = "yes" ]; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET kodi-language-addons"
+  fi
 fi
