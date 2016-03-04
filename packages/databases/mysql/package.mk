@@ -24,7 +24,7 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mysql.com"
 PKG_URL="http://ftp.gwdg.de/pub/misc/$PKG_NAME/Downloads/MySQL-5.1/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="zlib:host"
-PKG_DEPENDS_TARGET="toolchain zlib ncurses mysql:host"
+PKG_DEPENDS_TARGET="toolchain zlib ncurses libressl mysql:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="database"
 PKG_SHORTDESC="mysql: A database server"
@@ -43,6 +43,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_c_stack_direction=-1 \
                            --with-unix-socket-path=/var/tmp/mysql.socket \
                            --with-tcp-port=3306 \
                            --enable-static \
+                           --with-ssl=$SYSROOT_PREFIX/usr/lib \
                            --disable-shared \
                            --with-low-memory \
                            --enable-largefile \
