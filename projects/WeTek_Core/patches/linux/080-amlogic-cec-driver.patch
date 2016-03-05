@@ -55,10 +55,10 @@ index 7a944cd..f74ec1f 100755
  #EXTRA_CFLAGS += -O2
 diff --git a/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 new file mode 100644
-index 0000000..9565115
+index 0000000..bd31aaa
 --- /dev/null
 +++ b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
-@@ -0,0 +1,634 @@
+@@ -0,0 +1,596 @@
 +/* linux/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 + *
 + * Copyright (c) 2016 Gerald Dachs
@@ -165,7 +165,6 @@ index 0000000..9565115
 +cec_global_info_t cec_global_info;
 +
 +static hdmitx_dev_t* hdmitx_device = NULL;
-+static struct workqueue_struct *cec_workqueue = NULL;
 +
 +static void amlogic_cec_set_rx_state(enum cec_state state)
 +{
@@ -282,8 +281,6 @@ index 0000000..9565115
 +    unsigned long spin_flags;
 +    struct cec_rx_list *entry;
 +
-+    amlogic_cec_log_dbg("cec node init: enter\n");
-+
 +    cec_phy_addr = (((hdmitx_device->hdmi_info.vsdb_phy_addr.a) & 0xf) << 12)
 +                 | (((hdmitx_device->hdmi_info.vsdb_phy_addr.b) & 0xf) << 8)
 +                 | (((hdmitx_device->hdmi_info.vsdb_phy_addr.c) & 0xf) << 4)
@@ -334,193 +331,12 @@ index 0000000..9565115
 +    amlogic_cec_log_dbg("cec node init: cec features ok !\n");
 +}
 +
-+static int amlogic_cec_open(struct inode *inode, struct file *file)
-+{
-+    int ret = 0;
-+
-+    if (atomic_read(&hdmi_on))
-+    {
-+	amlogic_cec_log_dbg("do not allow multiple open for tvout cec\n");
-+	ret = -EBUSY;
-+    }
-+    else
-+    {
-+	atomic_inc(&hdmi_on);
-+    }
-+    return ret;
-+}
-+
-+static int amlogic_cec_release(struct inode *inode, struct file *file)
-+{
-+    atomic_dec(&hdmi_on);
-+
-+    return 0;
-+}
-+
-+static ssize_t amlogic_cec_read(struct file *file, char __user *buffer,
-+				size_t count, loff_t *ppos)
-+{
-+    ssize_t retval;
-+    unsigned long spin_flags;
-+    struct cec_rx_list* entry = NULL;
-+
-+    amlogic_cec_log_dbg("amlogic_cec_read: enter\n");
-+
-+    if (wait_event_interruptible(cec_rx_struct.waitq,
-+				 atomic_read(&cec_rx_struct.state) == STATE_DONE))
-+    {
-+	amlogic_cec_log_dbg("error during wait on state change\n");
-+	return -ERESTARTSYS;
-+    }
-+
-+    spin_lock_irqsave(&cec_rx_struct.lock, spin_flags);
-+
-+    entry = list_first_entry_or_null(&cec_rx_struct.list, struct cec_rx_list, list);
-+
-+    if (entry == NULL || entry->size > count)
-+    {
-+	amlogic_cec_log_dbg("entry is NULL, or empty\n");
-+	retval = -1;
-+	goto error_exit;
-+    }
-+
-+    if (copy_to_user(buffer, entry->buffer, entry->size))
-+    {
-+	printk(KERN_ERR " copy_to_user() failed!\n");
-+
-+	retval = -EFAULT;
-+	goto error_exit;
-+    }
-+
-+    retval = entry->size;
-+
-+    amlogic_cec_set_rx_state(STATE_RX);
-+
-+error_exit:
-+    if (entry != NULL)
-+    {
-+    	list_del(&entry->list);
-+    	kfree(entry);
-+    }
-+
-+    spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
-+
-+    amlogic_cec_log_dbg("amlogic_cec_read: leave\n");
-+
-+    return retval;
-+}
-+
-+static ssize_t amlogic_cec_write(struct file *file, const char __user *buffer,
-+			size_t count, loff_t *ppos)
-+{
-+    char data[CEC_TX_BUFF_SIZE];
-+    amlogic_cec_log_dbg("amlogic_cec_write: enter\n");
-+
-+    /* check data size */
-+    if (count > CEC_TX_BUFF_SIZE || count == 0)
-+	return -1;
-+
-+    if (copy_from_user(data, buffer, count))
-+    {
-+	printk(KERN_ERR " copy_from_user() failed!\n");
-+	return -EFAULT;
-+    }
-+
-+    amlogic_cec_set_tx_state(STATE_TX);
-+
-+    // just for the case that the first write starts
-+    // before the end of amlogic_cec_delayed_init()
-+    if (wait_event_interruptible(cec_tx_struct.waitq, hdmitx_device->cec_init_ready == 1))
-+    {
-+	amlogic_cec_log_dbg("error during wait on state change\n");
-+	printk(KERN_ERR "[amlogic] ##### cec write error! #####\n");
-+	return -ERESTARTSYS;
-+    }
-+
-+    amlogic_cec_write_hw(data, count);
-+
-+    if (wait_event_interruptible_timeout(cec_tx_struct.waitq,
-+        atomic_read(&cec_tx_struct.state) != STATE_TX, 2 * HZ) <= 0)
-+    {
-+	amlogic_cec_log_dbg("error during wait on state change, resetting\n");
-+	printk(KERN_ERR "[amlogic] ##### cec write error! #####\n");
-+	amlogic_cec_write_reg(CEC_TX_MSG_CMD, TX_ABORT); // stop cec tx for hw retry.
-+	amlogic_cec_write_reg(CEC_TX_MSG_CMD, TX_NO_OP);
-+	return -ERESTARTSYS;
-+    }
-+
-+    if (atomic_read(&cec_tx_struct.state) != STATE_DONE)
-+    {
-+	printk(KERN_ERR "[amlogic] ##### cec write error! #####\n");
-+	return -1;
-+    }
-+
-+    amlogic_cec_log_dbg("amlogic_cec_write: leave\n");
-+
-+    return count;
-+}
-+
-+static long amlogic_cec_ioctl(struct file *file, unsigned int cmd,
-+						unsigned long arg)
-+{
-+    unsigned char logical_addr;
-+    amlogic_cec_log_dbg("amlogic_cec_ioctl: enter\n");
-+
-+    switch(cmd) {
-+    case CEC_IOC_SETLADDR:
-+        if (get_user(logical_addr, (unsigned char __user *)arg))
-+        {
-+            amlogic_cec_log_dbg("Failed to get logical addr from user\n");
-+            return -EFAULT;
-+        }
-+
-+        amlogic_cec_write_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | logical_addr);
-+        amlogic_cec_log_dbg("amlogic_cec_ioctl: Set logical address: %d\n", logical_addr);
-+        return 0;
-+
-+    case CEC_IOC_GETPADDR:
-+        amlogic_cec_log_dbg("amlogic_cec_ioctl: return physical address 0x%x\n", aml_read_reg32(P_AO_DEBUG_REG1));
-+    	return aml_read_reg32(P_AO_DEBUG_REG1);
-+    }
-+
-+    return -EINVAL;
-+}
-+
-+static u32 amlogic_cec_poll(struct file *file, poll_table *wait)
-+{
-+    poll_wait(file, &cec_rx_struct.waitq, wait);
-+
-+    if (atomic_read(&cec_rx_struct.state) == STATE_DONE)
-+    {
-+	return POLLIN | POLLRDNORM;
-+    }
-+    return 0;
-+}
-+
-+static const struct file_operations cec_fops = {
-+    .owner   = THIS_MODULE,
-+    .open    = amlogic_cec_open,
-+    .release = amlogic_cec_release,
-+    .read    = amlogic_cec_read,
-+    .write   = amlogic_cec_write,
-+    .unlocked_ioctl = amlogic_cec_ioctl,
-+    .poll    = amlogic_cec_poll,
-+};
-+
-+static struct miscdevice cec_misc_device = {
-+    .minor = CEC_MINOR,
-+    .name  = "AmlogicCEC",
-+    .fops  = &cec_fops,
-+};
-+
 +static irqreturn_t amlogic_cec_irq_handler(int irq, void *dummy)
 +{
 +    unsigned long spin_flags;
 +    struct cec_rx_list *entry;
 +    unsigned int tx_msg_state;
 +    unsigned int rx_msg_state;
-+
-+    amlogic_cec_log_dbg("amlogic_cec_irq_handler: enter\n");
 +
 +    udelay(100); //Delay execution a little. This fixes an issue when HDMI CEC stops working after a while.
 +
@@ -573,51 +389,232 @@ index 0000000..9565115
 +	wake_up_interruptible(&cec_rx_struct.waitq);
 +    }
 +
-+    amlogic_cec_log_dbg("amlogic_cec_irq_handler: leave\n");
-+
 +    return IRQ_HANDLED;
 +}
 +
-+static void amlogic_cec_delayed_init(struct work_struct *work)
++static int amlogic_cec_open(struct inode *inode, struct file *file)
 +{
-+    hdmitx_dev_t* hdmitx_device = (hdmitx_dev_t*)container_of(work, hdmitx_dev_t, cec_work);
++    int ret = 0;
 +
-+    amlogic_cec_log_dbg("amlogic_cec_delayed_init: enter\n");
-+
-+    msleep_interruptible(15000);
-+
++    if (atomic_read(&hdmi_on))
++    {
++	amlogic_cec_log_dbg("do not allow multiple open for tvout cec\n");
++	ret = -EBUSY;
++    }
++    else
++    {
++	atomic_inc(&hdmi_on);
 +#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-+    cec_gpi_init();
++        if (request_irq(INT_HDMI_CEC, &amlogic_cec_irq_handler,
++        IRQF_SHARED, "amhdmitx-cec",(void *)hdmitx_device))
++        {
++    	    amlogic_cec_log_dbg("Can't register IRQ %d\n",INT_HDMI_CEC);
++            return -EFAULT;
++        }
++#endif
++#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
++        if (request_irq(INT_AO_CEC, &amlogic_cec_irq_handler,
++        IRQF_SHARED, "amhdmitx-aocec",(void *)hdmitx_device))
++        {
++    	    amlogic_cec_log_dbg("Can't register IRQ %d\n",INT_HDMI_CEC);
++            return -EFAULT;
++        }
 +#endif
 +
 +#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 25, 1);
-+    // Clear CEC Int. state and set CEC Int. mask
-+    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR) | (1 << 23));    // Clear the interrupt
-+    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) | (1 << 23));            // Enable the hdmi cec interrupt
++        cec_gpi_init();
++#endif
 +
++#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
++        aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 25, 1);
++        // Clear CEC Int. state and set CEC Int. mask
++        aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_STAT_CLR) | (1 << 23));    // Clear the interrupt
++        aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) | (1 << 23));            // Enable the hdmi cec interrupt
 +#endif
 +#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 +#if 1           // Please match with H/W cec config
 +// GPIOAO_12
-+    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 0, 14, 1);       // bit[14]: AO_PWM_C pinmux                  //0xc8100014
-+    aml_set_reg32_bits(P_AO_RTI_PULL_UP_REG, 1, 12, 1);       // bit[12]: enable AO_12 internal pull-up   //0xc810002c
-+    aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 1, 17, 1);       // bit[17]: AO_CEC pinmux                    //0xc8100014
-+    ao_cec_init();
++        aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 0, 14, 1);       // bit[14]: AO_PWM_C pinmux                  //0xc8100014
++        aml_set_reg32_bits(P_AO_RTI_PULL_UP_REG, 1, 12, 1);       // bit[12]: enable AO_12 internal pull-up   //0xc810002c
++        aml_set_reg32_bits(P_AO_RTI_PIN_MUX_REG, 1, 17, 1);       // bit[17]: AO_CEC pinmux                    //0xc8100014
++        ao_cec_init();
 +#else
 +// GPIOH_3
-+    aml_set_reg32_bits(P_PAD_PULL_UP_EN_REG1, 0, 19, 1);    // disable gpioh_3 internal pull-up
-+    aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 23, 1);      // gpioh_3 cec pinmux
++        aml_set_reg32_bits(P_PAD_PULL_UP_EN_REG1, 0, 19, 1);    // disable gpioh_3 internal pull-up
++        aml_set_reg32_bits(P_PERIPHS_PIN_MUX_1, 1, 23, 1);      // gpioh_3 cec pinmux
 +#endif
-+    cec_arbit_bit_time_set(3, 0x118, 0);
-+    cec_arbit_bit_time_set(5, 0x000, 0);
-+    cec_arbit_bit_time_set(7, 0x2aa, 0);
++        cec_arbit_bit_time_set(3, 0x118, 0);
++        cec_arbit_bit_time_set(5, 0x000, 0);
++        cec_arbit_bit_time_set(7, 0x2aa, 0);
 +#endif
-+    hdmitx_device->cec_init_ready = 1;
-+    wake_up_interruptible(&cec_tx_struct.waitq);
++        hdmitx_device->cec_init_ready = 1;
 +
-+    amlogic_cec_log_dbg("amlogic_cec_delayed_init: leave\n");
++    }
++    return ret;
 +}
++
++static int amlogic_cec_release(struct inode *inode, struct file *file)
++{
++#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
++    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) & ~(1 << 23));            // Disable the hdmi cec interrupt
++    free_irq(INT_HDMI_CEC, (void *)hdmitx_device);
++#endif
++#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
++    free_irq(INT_AO_CEC, (void *)hdmitx_device);
++#endif
++
++    atomic_dec(&hdmi_on);
++
++    return 0;
++}
++
++static ssize_t amlogic_cec_read(struct file *file, char __user *buffer,
++				size_t count, loff_t *ppos)
++{
++    ssize_t retval;
++    unsigned long spin_flags;
++    struct cec_rx_list* entry = NULL;
++
++    if (wait_event_interruptible(cec_rx_struct.waitq,
++				 atomic_read(&cec_rx_struct.state) == STATE_DONE))
++    {
++	amlogic_cec_log_dbg("error during wait on state change\n");
++	return -ERESTARTSYS;
++    }
++
++    spin_lock_irqsave(&cec_rx_struct.lock, spin_flags);
++
++    entry = list_first_entry_or_null(&cec_rx_struct.list, struct cec_rx_list, list);
++
++    if (entry == NULL || entry->size > count)
++    {
++	amlogic_cec_log_dbg("entry is NULL, or empty\n");
++	retval = -1;
++	goto error_exit;
++    }
++
++    if (copy_to_user(buffer, entry->buffer, entry->size))
++    {
++	printk(KERN_ERR " copy_to_user() failed!\n");
++
++	retval = -EFAULT;
++	goto error_exit;
++    }
++
++    retval = entry->size;
++
++    amlogic_cec_set_rx_state(STATE_RX);
++
++error_exit:
++    if (entry != NULL)
++    {
++    	list_del(&entry->list);
++    	kfree(entry);
++    }
++
++    spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
++
++    return retval;
++}
++
++static ssize_t amlogic_cec_write(struct file *file, const char __user *buffer,
++			size_t count, loff_t *ppos)
++{
++    char data[CEC_TX_BUFF_SIZE];
++
++    /* check data size */
++    if (count > CEC_TX_BUFF_SIZE || count == 0)
++	return -1;
++
++    if (copy_from_user(data, buffer, count))
++    {
++	printk(KERN_ERR " copy_from_user() failed!\n");
++	return -EFAULT;
++    }
++
++    amlogic_cec_set_tx_state(STATE_TX);
++
++    // just for the case that the first write starts
++    // before the end of amlogic_cec_delayed_init()
++    if (wait_event_interruptible(cec_tx_struct.waitq, hdmitx_device->cec_init_ready == 1))
++    {
++	amlogic_cec_log_dbg("error during wait on state change\n");
++	printk(KERN_ERR "[amlogic] ##### cec write error! #####\n");
++	return -ERESTARTSYS;
++    }
++
++    amlogic_cec_write_hw(data, count);
++
++    if (wait_event_interruptible_timeout(cec_tx_struct.waitq,
++        atomic_read(&cec_tx_struct.state) != STATE_TX, 2 * HZ) <= 0)
++    {
++	amlogic_cec_log_dbg("error during wait on state change, resetting\n");
++	printk(KERN_ERR "[amlogic] ##### cec write error! #####\n");
++	amlogic_cec_write_reg(CEC_TX_MSG_CMD, TX_ABORT); // stop cec tx for hw retry.
++	amlogic_cec_write_reg(CEC_TX_MSG_CMD, TX_NO_OP);
++	return -ERESTARTSYS;
++    }
++
++    if (atomic_read(&cec_tx_struct.state) != STATE_DONE)
++    {
++	printk(KERN_ERR "[amlogic] ##### cec write error! #####\n");
++	return -1;
++    }
++
++    return count;
++}
++
++static long amlogic_cec_ioctl(struct file *file, unsigned int cmd,
++						unsigned long arg)
++{
++    unsigned char logical_addr;
++
++    switch(cmd) {
++    case CEC_IOC_SETLADDR:
++        if (get_user(logical_addr, (unsigned char __user *)arg))
++        {
++            amlogic_cec_log_dbg("Failed to get logical addr from user\n");
++            return -EFAULT;
++        }
++
++        amlogic_cec_write_reg(CEC_LOGICAL_ADDR0, (0x1 << 4) | logical_addr);
++        amlogic_cec_log_dbg("amlogic_cec_ioctl: Set logical address: %d\n", logical_addr);
++        return 0;
++
++    case CEC_IOC_GETPADDR:
++        amlogic_cec_log_dbg("amlogic_cec_ioctl: return physical address 0x%x\n", aml_read_reg32(P_AO_DEBUG_REG1));
++    	return aml_read_reg32(P_AO_DEBUG_REG1);
++    }
++
++    return -EINVAL;
++}
++
++static u32 amlogic_cec_poll(struct file *file, poll_table *wait)
++{
++    poll_wait(file, &cec_rx_struct.waitq, wait);
++
++    if (atomic_read(&cec_rx_struct.state) == STATE_DONE)
++    {
++	return POLLIN | POLLRDNORM;
++    }
++    return 0;
++}
++
++static const struct file_operations cec_fops = {
++    .owner   = THIS_MODULE,
++    .open    = amlogic_cec_open,
++    .release = amlogic_cec_release,
++    .read    = amlogic_cec_read,
++    .write   = amlogic_cec_write,
++    .unlocked_ioctl = amlogic_cec_ioctl,
++    .poll    = amlogic_cec_poll,
++};
++
++static struct miscdevice cec_misc_device = {
++    .minor = CEC_MINOR,
++    .name  = "AmlogicCEC",
++    .fops  = &cec_fops,
++};
 +
 +static int amlogic_cec_init(void)
 +{
@@ -631,23 +628,6 @@ index 0000000..9565115
 +#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
 +    hdmi_wr_reg(CEC0_BASE_ADDR+CEC_CLOCK_DIV_H, 0x00 );
 +    hdmi_wr_reg(CEC0_BASE_ADDR+CEC_CLOCK_DIV_L, 0xf0 );
-+#endif
-+
-+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-+    if (request_irq(INT_HDMI_CEC, &amlogic_cec_irq_handler,
-+    IRQF_SHARED, "amhdmitx-cec",(void *)hdmitx_device))
-+    {
-+    	amlogic_cec_log_dbg("Can't register IRQ %d\n",INT_HDMI_CEC);
-+        return -EFAULT;
-+    }
-+#endif
-+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-+    if (request_irq(INT_AO_CEC, &amlogic_cec_irq_handler,
-+    IRQF_SHARED, "amhdmitx-aocec",(void *)hdmitx_device))
-+    {
-+    	amlogic_cec_log_dbg("Can't register IRQ %d\n",INT_HDMI_CEC);
-+        return -EFAULT;
-+    }
 +#endif
 +
 +    init_waitqueue_head(&cec_rx_struct.waitq);
@@ -664,29 +644,11 @@ index 0000000..9565115
 +	return -EBUSY;
 +    }
 +
-+    cec_workqueue = create_workqueue("cec_work");
-+    if (cec_workqueue == NULL)
-+    {
-+	printk("create work queue failed\n");
-+	return -EFAULT;
-+    }
-+    INIT_WORK(&hdmitx_device->cec_work, amlogic_cec_delayed_init);
-+    queue_work(cec_workqueue, &hdmitx_device->cec_work);    // for init
-+
-+    amlogic_cec_log_dbg("hdmitx_device->cec_init_ready:0x%x\n", hdmitx_device->cec_init_ready);
-+
 +    return 0;
 +}
 +
 +static void amlogic_cec_exit(void)
 +{
-+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-+    aml_write_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK, aml_read_reg32(P_SYS_CPU_0_IRQ_IN1_INTR_MASK) & ~(1 << 23));            // Disable the hdmi cec interrupt
-+    free_irq(INT_HDMI_CEC, (void *)hdmitx_device);
-+#endif
-+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-+    free_irq(INT_AO_CEC, (void *)hdmitx_device);
-+#endif
 +    misc_deregister(&cec_misc_device);
 +}
 +
