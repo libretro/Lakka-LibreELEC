@@ -1,0 +1,92 @@
+From 8d2246fd092ba7e9593ec9fe329ad647be73d46a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?= <ville.syrjala@linux.intel.com>
+Date: Tue, 1 Mar 2016 21:50:13 +0200
+Subject: [PATCH] drm/edid: Extract SADs properly from multiple audio data blocks
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+SADs may span multiple CEA audio data blocks in the EDID.
+
+CEA-861-E says:
+"The order of the Data Blocks is not constrained. It is also possible
+to have more than one of a specific type of data block if necessary to
+include all of the descriptors needed to describe the sinkâ€™s capabilities."
+
+Each audio data block can carry up to 10 SADs, whereas the ELD SAD limit
+is 15 according to HDA 1.0a spec. So we should support at least two data
+blocks. And apparently some devices take a more liberal interpretation
+and stuff only one SAD per data block even when they would fit into one.
+
+So let's try to extract all the SADs we can fit into the ELD even when
+they span multiple data blocks.
+
+While at it, toss in a comment to explain the 13 byte monitor name
+string limit which confused me at first.
+
+Cc: Arturo PÃ©rez <artur999555@gmail.com>
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=94197
+Signed-off-by: Ville SyrjÃ¤lÃ¤ <ville.syrjala@linux.intel.com>
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ drivers/gpu/drm/drm_edid.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_edid.c b/drivers/gpu/drm/drm_edid.c
+index fdb1eb014586..414d7f61aa05 100644
+--- a/drivers/gpu/drm/drm_edid.c
++++ b/drivers/gpu/drm/drm_edid.c
+@@ -3308,7 +3308,7 @@ void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
+ 	u8 *cea;
+ 	u8 *name;
+ 	u8 *db;
+-	int sad_count = 0;
++	int total_sad_count = 0;
+ 	int mnl;
+ 	int dbl;
+ 
+@@ -3322,6 +3322,7 @@ void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
+ 
+ 	name = NULL;
+ 	drm_for_each_detailed_block((u8 *)edid, monitor_name, &name);
++	/* max: 13 bytes EDID, 16 bytes ELD */
+ 	for (mnl = 0; name && mnl < 13; mnl++) {
+ 		if (name[mnl] == 0x0a)
+ 			break;
+@@ -3350,11 +3351,15 @@ void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
+ 			dbl = cea_db_payload_len(db);
+ 
+ 			switch (cea_db_tag(db)) {
++				int sad_count;
++
+ 			case AUDIO_BLOCK:
+ 				/* Audio Data Block, contains SADs */
+-				sad_count = dbl / 3;
+-				if (dbl >= 1)
+-					memcpy(eld + 20 + mnl, &db[1], dbl);
++				sad_count = min(dbl / 3, 15 - total_sad_count);
++				if (sad_count >= 1)
++					memcpy(eld + 20 + mnl + total_sad_count * 3,
++					       &db[1], sad_count * 3);
++				total_sad_count += sad_count;
+ 				break;
+ 			case SPEAKER_BLOCK:
+ 				/* Speaker Allocation Data Block */
+@@ -3371,13 +3376,13 @@ void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
+ 			}
+ 		}
+ 	}
+-	eld[5] |= sad_count << 4;
++	eld[5] |= total_sad_count << 4;
+ 
+ 	eld[DRM_ELD_BASELINE_ELD_LEN] =
+ 		DIV_ROUND_UP(drm_eld_calc_baseline_block_size(eld), 4);
+ 
+ 	DRM_DEBUG_KMS("ELD size %d, SAD count %d\n",
+-		      drm_eld_size(eld), sad_count);
++		      drm_eld_size(eld), total_sad_count);
+ }
+ EXPORT_SYMBOL(drm_edid_to_eld);
+ 
+-- 
+2.4.10
