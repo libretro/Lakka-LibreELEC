@@ -64,6 +64,13 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_file_dev_ptc=no \
                            --without-cxx-main \
                            --with-system-ffi \
                            --with-system-expat"
+post_patch() {
+  # This is needed to make sure the Python build process doesn't try to
+  # regenerate those files with the pgen program. Otherwise, it builds
+  # pgen for the target, and tries to run it on the host.
+    touch $PKG_BUILD/Include/graminit.h
+    touch $PKG_BUILD/Python/graminit.c
+}
 
 make_host() {
   make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
@@ -81,8 +88,6 @@ makeinstall_host() {
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
        PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
        install
-
-  cp Parser/pgen $ROOT/$TOOLCHAIN/bin
 
 # replace python-config to make sure python uses $SYSROOT_PREFIX
   mkdir -p $ROOT/$TOOLCHAIN/bin
@@ -102,7 +107,6 @@ pre_configure_target() {
 
 make_target() {
   make  -j1 CC="$TARGET_CC" \
-        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR"
@@ -111,7 +115,6 @@ make_target() {
 makeinstall_target() {
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$SYSROOT_PREFIX \
-        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
@@ -123,7 +126,6 @@ makeinstall_target() {
 
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$INSTALL \
-        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
