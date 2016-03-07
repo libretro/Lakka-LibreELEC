@@ -135,13 +135,6 @@ post_makeinstall_target() {
   python -Wi -t -B ../Lib/compileall.py $INSTALL/usr/lib/python*/ -f
   rm -rf `find $INSTALL/usr/lib/python*/ -name "*.py"`
 
-  if [ ! -f $INSTALL/usr/lib/python*/lib-dynload/_socket.so ]; then
-    echo "sometimes Python dont build '_socket.so' for some reasons and continues without failing,"
-    echo "let it fail here, to be sure '_socket.so' will be installed. A rebuild of Python fixes"
-    echo "the issue in most cases"
-    exit 1
-  fi
-
   rm -rf $INSTALL/usr/lib/python*/config
   rm -rf $INSTALL/usr/bin/2to3
   rm -rf $INSTALL/usr/bin/idle
