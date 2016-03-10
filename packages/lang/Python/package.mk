@@ -31,7 +31,7 @@ PKG_SHORTDESC="python: The Python programming language"
 PKG_LONGDESC="Python is an interpreted object-oriented programming language, and is often compared with Tcl, Perl, Java or Scheme."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
 PY_DISABLED_MODULES="readline _curses _curses_panel _tkinter nis gdbm bsddb ossaudiodev"
 
@@ -64,16 +64,21 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_file_dev_ptc=no \
                            --without-cxx-main \
                            --with-system-ffi \
                            --with-system-expat"
+post_patch() {
+  # This is needed to make sure the Python build process doesn't try to
+  # regenerate those files with the pgen program. Otherwise, it builds
+  # pgen for the target, and tries to run it on the host.
+    touch $PKG_BUILD/Include/graminit.h
+    touch $PKG_BUILD/Python/graminit.c
+}
 
 make_host() {
   make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
        PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES"
 
-  sed -e "s|$ROOT/$TOOLCHAIN/include|$SYSROOT_PREFIX/usr/include|g" \
-      -e "s|$ROOT/$TOOLCHAIN/lib|$SYSROOT_PREFIX/usr/lib|g" \
-      -e "s|$ROOT/$TOOLCHAIN/bin/host-gcc|${TARGET_PREFIX}gcc|g" \
-      -i build/lib.linux-$(uname -m)-2.7/_sysconfigdata.py
+  # python distutils per default adds -L$LIBDIR when linking binary extensions
+    sed -e "s|^ 'LIBDIR':.*| 'LIBDIR': '/usr/lib',|g" -i $(cat pybuilddir.txt)/_sysconfigdata.py
 }
 
 makeinstall_host() {
@@ -81,28 +86,14 @@ makeinstall_host() {
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
        PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
        install
-
-  cp Parser/pgen $ROOT/$TOOLCHAIN/bin
-
-# replace python-config to make sure python uses $SYSROOT_PREFIX
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    rm -rf $ROOT/$TOOLCHAIN/bin/python*-config
-
-    sed -e "s:%PREFIX%:$SYSROOT_PREFIX/usr:g" -e "s:%CFLAGS%:$TARGET_CFLAGS:g" \
-      $PKG_DIR/scripts/python-config > $ROOT/$TOOLCHAIN/bin/python2.7-config
-    chmod +x $ROOT/$TOOLCHAIN/bin/python2.7-config
-    ln -s python2.7-config $ROOT/$TOOLCHAIN/bin/python-config
 }
 
 pre_configure_target() {
   export PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python
-  export BLDSHARED="$CC -shared"
-  export RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH"
 }
 
 make_target() {
-  make  -j1 CC="$TARGET_CC" \
-        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
+  make  -j1 CC="$TARGET_CC" LDFLAGS="$TARGET_LDFLAGS -L." \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR"
@@ -111,19 +102,13 @@ make_target() {
 makeinstall_target() {
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$SYSROOT_PREFIX \
-        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
         install
 
-  # python distutils per default adds -L$LIBDIR when linking binary extensions
-  sed -e "s|^LIBDIR=.*|LIBDIR= $SYSROOT_PREFIX/usr/lib|" \
-      -i $SYSROOT_PREFIX/usr/lib/python*/config/Makefile
-
   make  -j1 CC="$TARGET_CC" \
         DESTDIR=$INSTALL \
-        HOSTPGEN=$ROOT/$TOOLCHAIN/bin/pgen \
         PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
         PYTHON_MODULES_INCLUDE="$TARGET_INCDIR" \
         PYTHON_MODULES_LIB="$TARGET_LIBDIR" \
@@ -138,13 +123,6 @@ post_makeinstall_target() {
 
   python -Wi -t -B ../Lib/compileall.py $INSTALL/usr/lib/python*/ -f
   rm -rf `find $INSTALL/usr/lib/python*/ -name "*.py"`
-
-  if [ ! -f $INSTALL/usr/lib/python*/lib-dynload/_socket.so ]; then
-    echo "sometimes Python dont build '_socket.so' for some reasons and continues without failing,"
-    echo "let it fail here, to be sure '_socket.so' will be installed. A rebuild of Python fixes"
-    echo "the issue in most cases"
-    exit 1
-  fi
 
   rm -rf $INSTALL/usr/lib/python*/config
   rm -rf $INSTALL/usr/bin/2to3

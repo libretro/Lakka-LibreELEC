@@ -32,6 +32,11 @@ PKG_LONGDESC="D-BUS is a message bus, used for sending messages between applicat
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+pre_configure_target() {
+  export PYTHON_INCLUDES="$($SYSROOT_PREFIX/usr/bin/python2-config --includes)"
+  export PYTHON_LIBS="$($SYSROOT_PREFIX/usr/bin/python2-config --ldflags)"
+}
+
 post_makeinstall_target() {
   find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
   find $INSTALL/usr/lib -name "*.pyc" -exec rm -rf "{}" ";"
