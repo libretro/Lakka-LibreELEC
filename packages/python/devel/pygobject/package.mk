@@ -34,6 +34,10 @@ PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-thread --disable-introspection"
 
+pre_configure_target() {
+  export PYTHON_INCLUDES="$($SYSROOT_PREFIX/usr/bin/python2-config --includes)"
+}
+
 post_makeinstall_target() {
   find $INSTALL/usr/lib -name "*.py" -exec rm -rf "{}" ";"
   find $INSTALL/usr/lib -name "*.pyc" -exec rm -rf "{}" ";"
