@@ -99,8 +99,6 @@ makeinstall_host() {
 
 pre_configure_target() {
   export PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python
-  export BLDSHARED="$CC -shared"
-  export RUNSHARED="LD_LIBRARY_PATH=$ROOT/$TOOLCHAIN/lib:$LD_LIBRARY_PATH"
 }
 
 make_target() {
