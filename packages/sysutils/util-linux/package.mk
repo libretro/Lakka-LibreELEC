@@ -100,8 +100,8 @@ fi
 
 post_makeinstall_target() {
   if [ "$SWAP_SUPPORT" = "yes" ]; then
-    mkdir -p $INSTALL/usr/lib/openelec
-      cp -PR $PKG_DIR/scripts/mount-swap $INSTALL/usr/lib/openelec
+    mkdir -p $INSTALL/usr/lib/libreelec
+      cp -PR $PKG_DIR/scripts/mount-swap $INSTALL/usr/lib/libreelec
 
     mkdir -p $INSTALL/etc
       cat $PKG_DIR/config/swap.conf | \

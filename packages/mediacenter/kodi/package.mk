@@ -349,8 +349,8 @@ post_makeinstall_target() {
     cp $PKG_DIR/scripts/kodi-config $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi.sh $INSTALL/usr/lib/kodi
 
-  mkdir -p $INSTALL/usr/lib/openelec
-    cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/openelec
+  mkdir -p $INSTALL/usr/lib/libreelec
+    cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/libreelec
 
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
@@ -369,10 +369,10 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/xsessions
 
   mkdir -p $INSTALL/usr/share/kodi/addons
-    cp -R $PKG_DIR/config/os.openelec.tv $INSTALL/usr/share/kodi/addons
-    $SED "s|@OS_VERSION@|$OS_VERSION|g" -i $INSTALL/usr/share/kodi/addons/os.openelec.tv/addon.xml
-    cp -R $PKG_DIR/config/repository.openelec.tv $INSTALL/usr/share/kodi/addons
-    $SED "s|@ADDON_URL@|$ADDON_URL|g" -i $INSTALL/usr/share/kodi/addons/repository.openelec.tv/addon.xml
+    cp -R $PKG_DIR/config/os.libreelec.tv $INSTALL/usr/share/kodi/addons
+    $SED "s|@OS_VERSION@|$OS_VERSION|g" -i $INSTALL/usr/share/kodi/addons/os.libreelec.tv/addon.xml
+    cp -R $PKG_DIR/config/repository.libreelec.tv $INSTALL/usr/share/kodi/addons
+    $SED "s|@ADDON_URL@|$ADDON_URL|g" -i $INSTALL/usr/share/kodi/addons/repository.libreelec.tv/addon.xml
 
   mkdir -p $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/kodi
     cp -R tools/EventClients/lib/python/* $INSTALL/usr/lib/python"$PYTHON_VERSION"/site-packages/kodi

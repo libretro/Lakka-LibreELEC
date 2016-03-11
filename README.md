@@ -1,8 +1,8 @@
-[OpenELEC](http://www.openelec.tv)
+[LibreELEC](http://www.libreelec.tv)
 
-# OpenELEC - Open Embedded Linux Entertainment Center
+# LibreELEC - Libre Embedded Linux Entertainment Center
 
-OpenELEC runs [Kodi](http://kodi.tv), an award-winning free and open source (GPL) software media 
+LibreELEC runs [Kodi](http://kodi.tv), an award-winning free and open source (GPL) software media 
 player and entertainment hub for digital media. For more info see http://kodi.tv .
 The base system has been designed and built from the ground up to be as 
 efficient as possible – consuming only tiny disk and memory footprints and
@@ -10,26 +10,26 @@ providing cutting edge hardware support to deliver a set-top box experience.
 
 **Source code**
 
-* https://github.com/OpenELEC/OpenELEC.tv
+* https://github.com/LibreELEC/LibreELEC.tv
 
 **Installation**
 
-* Please read the instructions in our wiki (http://wiki.openelec.tv/index.php?title=Installation) on how to install.
+* Please read the instructions in our wiki (http://wiki.libreelec.tv/index.php?title=Installation) on how to install.
 
 **License**
 
-* OpenELEC is released under [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html). Please refer to the "licenses" folder and 
+* LibreELEC is released under [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html). Please refer to the "licenses" folder and 
   source code for clarification on upstream licensing.
 
 **Copyright**
 
-* Since OpenELEC includes code from many up stream projects it includes many 
-  copyright owners. OpenELEC makes NO claim of copyright on any upstream code. 
-  However all OpenELEC authored code is copyright openelec.tv.
+* Since LibreELEC includes code from many up stream projects it includes many 
+  copyright owners. LibreELEC makes NO claim of copyright on any upstream code. 
+  However all LibreELEC authored code is copyright libreelec.tv.
   For a complete copyright list checkout the source code to examine the headers.
-  Unless expressly stated otherwise all code submitted DIRECTLY to the OpenELEC 
+  Unless expressly stated otherwise all code submitted DIRECTLY to the LibreELEC 
   project (in any form) is licensed under [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) and the Copyright is donated to 
-  openelec.tv.
+  libreelec.tv.
   This allows the project to stay manageable in the long term by giving us the
   freedom to maintain the code as part of the whole without the management 
   overhead of preserving contact with every submitter ever e.g. move to GPLv3.
@@ -55,8 +55,8 @@ providing cutting edge hardware support to deliver a set-top box experience.
 
 **Notes**
 
-* SSH login details are user: “root” password: “openelec”.
-  SSH allows command line access to your openelec.tv machine for configuration
+* SSH login details are user: “root” password: “libreelec”.
+  SSH allows command line access to your libreelec.tv machine for configuration
   and file transfer. Linux/Mac clients can natively use SSH, while Windows
   users might want to try PuTTY for their terminal access.
 * $HOME is mounted on /storage (the second ext4 partition on the drive). 
@@ -64,7 +64,7 @@ providing cutting edge hardware support to deliver a set-top box experience.
   read-only with the exception of /var (containing runtime configuration data).
 * Manual update/downgrade procedure is as follows:
   Copy the snapshot (.tar) to the 'Update' network share (or /storage/.update) on
-  your openelec machine. Your system will automatically upgrade during the 
+  your libreelec machine. Your system will automatically upgrade during the 
   next reboot.
 * Automatic mounting of filesystems is supported. Devices such as USB Flash 
   sticks can be plugged into a running machine and will be mounted to /media,
@@ -74,7 +74,7 @@ providing cutting edge hardware support to deliver a set-top box experience.
 
 **Questions/Support**
 
-* Forums on [http://openelec.tv](http://openelec.tv)
-* IRC chatroom **#openelec** on Freenode
+* Forums on [http://libreelec.tv](http://libreelec.tv)
+* IRC chatroom **#libreelec** on Freenode
 
-**Happy OpenELEC'ing**
+**Happy LibreELEC'ing**

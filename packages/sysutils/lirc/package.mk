@@ -59,8 +59,8 @@ post_makeinstall_target() {
     cp $PKG_DIR/config/lircd.conf.xbox $INSTALL/etc/lirc
     cp $PKG_DIR/config/lircd.conf.rpi $INSTALL/etc/lirc
 
-  mkdir -p $INSTALL/usr/lib/openelec
-    cp $PKG_DIR/scripts/lircd_helper $INSTALL/usr/lib/openelec
+  mkdir -p $INSTALL/usr/lib/libreelec
+    cp $PKG_DIR/scripts/lircd_helper $INSTALL/usr/lib/libreelec
 
   mkdir -p $INSTALL/usr/lib/udev
     cp $PKG_DIR/scripts/lircd_wakeup_enable $INSTALL/usr/lib/udev
