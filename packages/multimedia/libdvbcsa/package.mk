@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="libdvbcsa"
-PKG_VERSION="1.1.0"
+PKG_VERSION="f988715"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.videolan.org/developers/libdvbcsa.html"
-PKG_URL="http://download.videolan.org/pub/videolan/libdvbcsa/${PKG_VERSION}/libdvbcsa-${PKG_VERSION}.tar.gz"
+PKG_SITE="https://github.com/glenvt18/libdvbcsa/"
+PKG_URL="$DISTRO_SRC/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="lib"
@@ -33,3 +34,16 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static --with-sysroot=$SYSROOT_PREFIX"
+
+if echo "$TARGET_FPU" | grep -q '^neon'; then
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-neon"
+elif [ "$TARGET_ARCH" = x86_64  ]; then
+  if echo "$PROJECT_CFLAGS" | grep -q '\-mssse3'; then
+    PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-ssse3"
+  elif echo "$PROJECT_CFLAGS" | grep -q '\-msse2'; then
+    PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-sse2"
+  else
+    PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-uint64"
+  fi
+fi
+
