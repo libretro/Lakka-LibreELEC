@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-intel"
-PKG_VERSION="300319e"
+PKG_VERSION="0204e55"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
@@ -50,7 +50,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-backlight \
                            --disable-xaa \
                            --disable-dga \
                            --disable-tear-free \
-                           --disable-rendernode \
                            --disable-create2 \
                            --disable-async-swap \
                            --with-xorg-module-dir=$XORG_PATH_MODULES"
