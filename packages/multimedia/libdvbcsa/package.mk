@@ -47,3 +47,8 @@ elif [ "$TARGET_ARCH" = x86_64  ]; then
   fi
 fi
 
+pre_configure_target() {
+# libdvbcsa is a bit faster without LTO, and tests will fail with gcc-5.x
+  strip_lto
+}
+
