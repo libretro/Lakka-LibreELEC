@@ -1,20 +1,20 @@
-### Questions about OpenELEC?
+### Questions about LibreELEC?
 
-To get your questions answered, please ask in the OpenELEC [Forum], on IRC: 
-\#openelec on freenode.net, or [webchat]. 
+To get your questions answered, please ask in the LibreELEC [Forum], on IRC: 
+\#libreelec on freenode.net, or [webchat]. 
 
 Do not open an issue.
 
 ### Issue Reports
 
 **BEFORE you report a bug make sure you got the latest testing version of 
-OpenELEC. Your bug might be already fixed.**
+LibreELEC. Your bug might be already fixed.**
 
-If you are at all unsure whether it's a bug in OpenELEC or a problem with 
-something else, post in the OpenELEC [Forum] instead. If it turns out that it is
+If you are at all unsure whether it's a bug in LibreELEC or a problem with 
+something else, post in the LibreELEC [Forum] instead. If it turns out that it is
 a bug, an issue can always be opened later.
 
-If you are sure that it's a bug in OpenELEC and you have not found a [similar issue], open a new [issue]
+If you are sure that it's a bug in LibreELEC and you have not found a [similar issue], open a new [issue]
 and try to answer the following questions:
 - What did you do?
 - What did you expect to happen?
@@ -23,21 +23,21 @@ and try to answer the following questions:
 **It is also importent to provide logs for debugging.
 A zip file can be found in the [logfiles] samba share, this will contain all the logs needed.**
 
-Make sure to specify which version of OpenELEC you are using.
-- OpenELEC version
-- OpenELEC build
-- OpenELEC arch
+Make sure to specify which version of LibreELEC you are using.
+- LibreELEC version
+- LibreELEC build
+- LibreELEC arch
 
 Please don't paste log messages in the issue reports or issue comments - use 
 [sprunge.us](http://sprunge.us) instead.
 
 Feature requests are great, but they usually end up lying around the issue
 tracker indefinitely. Sending a pull request is a much better way of getting a
-particular feature into OpenELEC.
+particular feature into LibreELEC.
 
 Please dont ask us to add 3rdparty drivers unless you are the maintainer/developer of the driver,
 we have no manpower to support a non-mainlined kernel driver for your hardware.
-However, OpenELEC comes with minimal set of kernel drivers enabled, if you are sure that your hardware
+However, LibreELEC comes with minimal set of kernel drivers enabled, if you are sure that your hardware
 is supported in mainline kernel, feel free to send us a Pull Request to enable it in our
 kernel defconfigs. We are always happy to support known-working hardware.
 
@@ -66,11 +66,11 @@ Please follow this process; it's the best way to get your work included in the p
 
 ```bash
    # clone your fork of the repo into the current directory in terminal
-   git clone git@github.com:<your username>/OpenELEC.tv.git
+   git clone git@github.com:<your username>/LibreELEC.tv.git
    # navigate to the newly cloned directory
-   cd OpenELEC.tv
+   cd LibreELEC.tv
    # assign the original repo to a remote called "upstream"
-   git remote add upstream https://github.com/OpenELEC/OpenELEC.tv.git
+   git remote add upstream https://github.com/Libre/LibreELEC.tv.git
    ```
 
 - If you cloned a while ago, get the latest changes from upstream:
@@ -104,8 +104,8 @@ Please follow this process; it's the best way to get your work included in the p
 - [Open a Pull Request](https://help.github.com/articles/using-pull-requests) with a
     clear title and description.
 
-[Forum]: http://openelec.tv/forum
-[issue]: https://github.com/OpenELEC/OpenELEC.tv/issues
-[webchat]: http://openelec.tv/support/chat
-[logfiles]: http://wiki.openelec.tv/index.php?title=OpenELEC_FAQ#Support_Logs
-[similar issue]: https://github.com/OpenELEC/OpenELEC.tv/search?&ref=cmdform&type=Issues
+[Forum]: http://libreelec.tv/forum
+[issue]: https://github.com/LibreELEC/LibreELEC.tv/issues
+[webchat]: http://libreelec.tv/support/chat
+[logfiles]: http://wiki.libreelec.tv/index.php?title=LibreELEC_FAQ#Support_Logs
+[similar issue]: https://github.com/LibreELEC/LibreELEC.tv/search?&ref=cmdform&type=Issues

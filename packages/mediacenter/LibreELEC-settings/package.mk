@@ -16,18 +16,18 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="OpenELEC-settings"
-PKG_VERSION="0.6.12"
+PKG_NAME="LibreELEC-settings"
+PKG_VERSION="6d8d3b6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
-PKG_SITE="http://www.openelec.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_SITE="http://www.libreelec.tv"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain Python connman pygobject dbus-python"
 PKG_PRIORITY="optional"
 PKG_SECTION=""
-PKG_SHORTDESC="OpenELEC-settings: Settings dialog for OpenELEC"
-PKG_LONGDESC="OpenELEC-settings: is a settings dialog for OpenELEC"
+PKG_SHORTDESC="LibreELEC-settings: Settings dialog for LibreELEC"
+PKG_LONGDESC="LibreELEC-settings: is a settings dialog for LibreELEC"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -41,19 +41,19 @@ else
 fi
 
 post_makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/openelec
-    cp $PKG_DIR/scripts/* $INSTALL/usr/lib/openelec
+  mkdir -p $INSTALL/usr/lib/libreelec
+    cp $PKG_DIR/scripts/* $INSTALL/usr/lib/libreelec
 
 #  # bluetooth is optional
 #    if [ ! "$BLUETOOTH_SUPPORT" = yes ]; then
 #      rm -f resources/lib/modules/bluetooth.py
 #    fi
 
-  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.openelec.settings/resources/lib/ -f
-  rm -rf `find $INSTALL/usr/share/kodi/addons/service.openelec.settings/resources/lib/ -name "*.py"`
+  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.libreelec.settings/resources/lib/ -f
+  rm -rf `find $INSTALL/usr/share/kodi/addons/service.libreelec.settings/resources/lib/ -name "*.py"`
 
-  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.openelec.settings/oe.py -f
-  rm -rf $INSTALL/usr/share/kodi/addons/service.openelec.settings/oe.py
+  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.libreelec.settings/oe.py -f
+  rm -rf $INSTALL/usr/share/kodi/addons/service.libreelec.settings/oe.py
 }
 
 post_install() {

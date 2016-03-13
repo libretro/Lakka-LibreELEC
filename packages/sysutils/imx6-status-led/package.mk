@@ -36,8 +36,8 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/openelec
-  cp $PKG_DIR/scripts/* $INSTALL/usr/lib/openelec
+  mkdir -p $INSTALL/usr/lib/libreelec
+  cp $PKG_DIR/scripts/* $INSTALL/usr/lib/libreelec
 }
 
 post_install() {

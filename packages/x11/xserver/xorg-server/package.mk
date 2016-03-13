@@ -126,7 +126,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --with-gnu-ld \
                            --with-sha1=libcrypto \
                            --without-systemd-daemon \
-                           --with-os-vendor=OpenELEC.tv \
+                           --with-os-vendor=LibreELEC.tv \
                            --with-module-dir=$XORG_PATH_MODULES \
                            --with-xkb-path=$XORG_PATH_XKB \
                            --with-xkb-output=/var/cache/xkb \
