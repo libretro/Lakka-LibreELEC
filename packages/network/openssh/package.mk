@@ -66,6 +66,8 @@ post_makeinstall_target() {
 
   sed -i $INSTALL/etc/ssh/sshd_config -e "s|^#PermitRootLogin.*|PermitRootLogin yes|g"
   echo "PubkeyAcceptedKeyTypes +ssh-dss" >> $INSTALL/etc/ssh/sshd_config
+
+  debug_strip $INSTALL/usr
 }
 
 post_install() {

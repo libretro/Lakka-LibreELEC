@@ -130,4 +130,8 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/pydoc
   rm -rf $INSTALL/usr/bin/smtpd.py
   rm -rf $INSTALL/usr/bin/python*-config
+
+  # strip
+  chmod u+w $INSTALL/usr/lib/libpython*.so.*
+  debug_strip $INSTALL/usr
 }
