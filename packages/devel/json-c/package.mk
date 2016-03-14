@@ -18,7 +18,7 @@
 ################################################################################
 
 PKG_NAME="json-c"
-PKG_VERSION="0645020"
+PKG_VERSION="537f8bc"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
