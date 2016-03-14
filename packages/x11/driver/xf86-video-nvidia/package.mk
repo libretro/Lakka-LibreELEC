@@ -37,10 +37,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 unpack() {
-  NV_PKG="`echo $PKG_URL | sed 's%.*/\(.*\)$%\1%'`"
   [ -d $PKG_BUILD ] && rm -rf $PKG_BUILD
 
-  sh $SOURCES/$PKG_NAME/$NV_PKG --extract-only --target $BUILD/$PKG_NAME-$PKG_VERSION
+  sh $SOURCES/$PKG_NAME/$PKG_SOURCE_NAME --extract-only --target $PKG_BUILD
 }
 
 make_target() {
