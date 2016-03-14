@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="RTL8192EU"
-PKG_VERSION="6793bae"
+PKG_VERSION="a322c84"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
