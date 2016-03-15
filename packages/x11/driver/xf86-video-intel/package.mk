@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="xf86-video-intel"
-PKG_VERSION="300319e"
+PKG_VERSION="0204e55"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://intellinuxgraphics.org/"
-PKG_URL="http://xorg.freedesktop.org/archive/individual/driver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://cgit.freedesktop.org/xorg/driver/xf86-video-intel/snapshot/$PKG_VERSION.tar.xz"
+PKG_SOURCE_DIR="$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain libXcomposite util-macros fontsproto systemd xorg-server"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/driver"
@@ -50,7 +50,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-backlight \
                            --disable-xaa \
                            --disable-dga \
                            --disable-tear-free \
-                           --disable-rendernode \
                            --disable-create2 \
                            --disable-async-swap \
                            --with-xorg-module-dir=$XORG_PATH_MODULES"
