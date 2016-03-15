@@ -124,6 +124,7 @@ post_makeinstall_target() {
   python -Wi -t -B ../Lib/compileall.py $INSTALL/usr/lib/python*/ -f
   rm -rf `find $INSTALL/usr/lib/python*/ -name "*.py"`
 
+  rm -rf $INSTALL/usr/lib/python*/_sysconfigdata.pyo
   rm -rf $INSTALL/usr/lib/python*/config
   rm -rf $INSTALL/usr/bin/2to3
   rm -rf $INSTALL/usr/bin/idle
