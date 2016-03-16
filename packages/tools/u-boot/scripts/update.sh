@@ -33,8 +33,8 @@ if [ -z "$BOOT_DISK" ]; then
 fi
 
 SYSTEM_TYPE=""
-if [ -f $SYSTEM_ROOT/usr/lib/openelec/imx6-system-type ]; then
-  . $SYSTEM_ROOT/usr/lib/openelec/imx6-system-type
+if [ -f $SYSTEM_ROOT/usr/lib/librenelec/imx6-system-type ]; then
+  . $SYSTEM_ROOT/usr/lib/libreelec/imx6-system-type
 fi
 
 # mount $BOOT_ROOT r/w
