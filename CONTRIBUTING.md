@@ -70,7 +70,7 @@ Please follow this process; it's the best way to get your work included in the p
    # navigate to the newly cloned directory
    cd LibreELEC.tv
    # assign the original repo to a remote called "upstream"
-   git remote add upstream https://github.com/Libre/LibreELEC.tv.git
+   git remote add upstream https://github.com/LibreELEC/LibreELEC.tv.git
    ```
 
 - If you cloned a while ago, get the latest changes from upstream:
