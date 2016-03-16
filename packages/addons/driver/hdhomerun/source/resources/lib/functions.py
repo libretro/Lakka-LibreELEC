@@ -64,7 +64,7 @@ def get_devices_hdhomerun():
   return tuners
 
   """
-openelec:~ # hdhomerun_config discover
+libreelec:~ # hdhomerun_config discover
 hdhomerun device 12345678 found at 192.168.0.3
   """
 
