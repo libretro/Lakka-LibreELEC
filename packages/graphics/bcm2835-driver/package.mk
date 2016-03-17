@@ -56,6 +56,7 @@ make_target() {
     cp -PRv $FLOAT/opt/vc/lib/libmmal_util.so $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libmmal_vc_client.so $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libvcsm.so $SYSROOT_PREFIX/usr/lib
+    cp -PRv $FLOAT/opt/vc/lib/libdtovl.so $SYSROOT_PREFIX/usr/lib
 }
 
 makeinstall_target() {
@@ -76,9 +77,11 @@ makeinstall_target() {
     cp -PRv $FLOAT/opt/vc/lib/libmmal_util.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libmmal_vc_client.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libvcsm.so $INSTALL/usr/lib
+    cp -PRv $FLOAT/opt/vc/lib/libdtovl.so $INSTALL/usr/lib
 
 # some usefull debug tools
   mkdir -p $INSTALL/usr/bin
+    cp -PRv $FLOAT/opt/vc/bin/dtoverlay $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/bin/vcdbg $INSTALL/usr/bin
       cp -PRv $FLOAT/opt/vc/lib/libdebug_sym.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/bin/vcgencmd $INSTALL/usr/bin
