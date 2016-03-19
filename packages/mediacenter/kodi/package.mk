@@ -369,6 +369,8 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/xsessions
 
   mkdir -p $INSTALL/usr/share/kodi/addons
+    cp -R $PKG_DIR/config/os.openelec.tv $INSTALL/usr/share/kodi/addons
+    $SED "s|@OS_VERSION@|$OS_VERSION|g" -i $INSTALL/usr/share/kodi/addons/os.openelec.tv/addon.xml
     cp -R $PKG_DIR/config/os.libreelec.tv $INSTALL/usr/share/kodi/addons
     $SED "s|@OS_VERSION@|$OS_VERSION|g" -i $INSTALL/usr/share/kodi/addons/os.libreelec.tv/addon.xml
     cp -R $PKG_DIR/config/repository.libreelec.tv $INSTALL/usr/share/kodi/addons
