@@ -50,6 +50,11 @@ else
   MESA_VDPAU="--disable-vdpau"
 fi
 
+XA_CONFIG="--disable-xa"
+for drv in $GRAPHIC_DRIVERS; do
+  [ "$drv" = "vmware" ] && XA_CONFIG="--enable-xa"
+done
+
 PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            CXX_FOR_BUILD=$HOST_CXX \
                            CFLAGS_FOR_BUILD= \
@@ -72,7 +77,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-osmesa \
                            --disable-gallium-osmesa \
                            --enable-egl --with-egl-platforms=x11,drm \
-                           --disable-xa \
+                           $XA_CONFIG \
                            --enable-gbm \
                            --disable-nine \
                            --disable-xvmc \

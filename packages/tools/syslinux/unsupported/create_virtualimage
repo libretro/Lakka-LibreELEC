@@ -1,0 +1,332 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2014 Stephan Raue (stephan@openelec.tv)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+# usage:   sudo ./create_virtualmachine <path> <size(MB)> [<type>] [system partition size(MB)]
+# example: sudo ./create_virtualmachine /home/test/VM 512 [vdi] [128]
+
+if [ "$(id -u)" != "0" ]; then
+  echo "##############################################################"
+  echo "# please execute with 'sudo' or -DANGEROUS!!!- as root       #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>]    #"
+  echo "##############################################################"
+  exit 1
+fi
+
+if [ -z "$1" -o -z "$2" ]; then
+  echo "##############################################################"
+  echo "# please execute as follows                                  #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine <path> <size(MB)> [<type>]    #"
+  echo "##############################################################"
+  exit 1
+fi
+
+if [ ! -d "$1" ]; then
+  echo "##############################################################"
+  echo "# please create target directory                             #"
+  echo "# example:                                                   #"
+  echo "# mkdir <path>                                               #"
+  echo "##############################################################"
+  exit 1
+fi
+
+if [ "$2" -lt "200" -o "$2" -gt "2048" ]; then
+  echo "##############################################################"
+  echo "# use a value between 200MB and 2048MB (2GB)                 #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine /home/test/VM 512             #"
+  echo "##############################################################"
+  exit 1
+fi
+
+if [ ! -z "$3" -a "$3" != "vdi" -a "$3" != "vmdk" ]; then
+  echo "##############################################################"
+  echo "# only vdi or vmdk types are supported                       #"
+  echo "# example:                                                   #"
+  echo "# sudo ./create_virtualmachine /home/test/VM 512 [vdi]       #"
+  echo "##############################################################"
+  exit 1
+elif [ "$3" = "vdi" ]; then
+  TYPE="vdi"
+elif [ -z "$3" -o "$3" = "vmdk" ]; then
+  TYPE="vmdk"
+fi
+
+if [ -z "$4" ]; then
+  SYSTEM_SIZE=192
+else
+  if [ "$4" -lt "128" -o "$4" -gt "1024" -o "$4" -gt "$2" ]; then
+    echo "##############################################################"
+    echo "# use a value between 128MB and 1024MB                       #"
+    echo "# example:                                                   #"
+    echo "# sudo ./create_virtualmachine /home/test/VM 512 [vdi] [256] #"
+    echo "##############################################################"
+    exit 1
+  else
+    SYSTEM_SIZE=$4
+  fi
+fi
+
+DISK="$1/OpenELEC.img"
+IMAGE="$1/OpenELEC.$TYPE"
+LOOP=$(losetup -f)
+DISK_SIZE=$2
+STORAGE_SIZE=$(( $DISK_SIZE - $SYSTEM_SIZE ))
+
+echo ""
+echo "      folder: $1"
+echo "        loop: $LOOP"
+echo "        disk: $DISK"
+echo "       image: $IMAGE"
+echo "        type: $TYPE"
+echo "   disk size: $DISK_SIZE MB"
+echo " system size: $SYSTEM_SIZE MB"
+echo "storage size: $STORAGE_SIZE MB"
+
+# check for some required tools
+
+  # this is needed to create a bootloader
+  which syslinux > /dev/null
+  if [ "$?" = "1" ]; then
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"syslinux\"     #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to create a bootloader
+  which extlinux > /dev/null
+  if [ "$?" = "1" ]; then
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"extlinux\"     #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed by syslinux
+  which mcopy > /dev/null
+    if [ "$?" = "1" ]; then
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"mcopy\"        #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#      NOTE: Some distributions call this package       #"
+    echo "#      \"mtools\".                                      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed to partion the drive
+  which parted > /dev/null
+  if [ "$?" = "1" ]; then
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"parted\"       #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+  # this is needed fo convert harddisk image to vmdk or vdi format
+  which qemu-img > /dev/null
+  if [ "$?" = "1" ]; then
+    echo "#########################################################"
+    echo "#                                                       #"
+    echo "# OpenELEC.tv missing tool - Installation will quit     #"
+    echo "#                                                       #"
+    echo "#      We can't find the required tool \"qemu-img\"     #"
+    echo "#      on your system.                                  #"
+    echo "#      Please install it via your package manager.      #"
+    echo "#                                                       #"
+    echo "#########################################################"
+    exit 1
+  fi
+
+# ensure loopX not in use
+  echo ""
+  echo "next two errors can be ignored..."
+  sync
+  umount "$LOOP"
+  losetup -d "$LOOP"
+
+# create an image
+  echo ""
+  echo "creating new empty harddisk image: $DISK..."
+  dd if=/dev/zero of="$DISK" bs=1M count="$DISK_SIZE"
+
+# write a disklabel
+  echo ""
+  echo "creating new partition table: $DISK..."
+  sync
+  losetup "$LOOP" "$DISK"
+  parted -s "$LOOP" mklabel msdos
+
+# create partition1
+  echo ""
+  echo "creating partition1 on $DISK..."
+  SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 64 ))
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 64 $SYSTEM_PART_END
+
+# create partition2
+  echo ""
+  echo "creating partition2 on $DISK..."
+  STORAGE_PART_START=$(( $SYSTEM_PART_END + 1 ))
+  parted -s "$LOOP" -a min unit s mkpart primary ext4 $STORAGE_PART_START 100%
+
+# make partition1 active (bootable)
+  echo ""
+  echo "marking partition1 active..."
+  parted -s "$LOOP" set 1 boot on
+
+# write mbr
+  echo ""
+  echo "writing mbr..."
+  if [ -f /usr/lib/syslinux/mbr.bin ]; then
+    MBR="/usr/lib/syslinux/mbr.bin"       # example: debian, ubuntu
+  elif [ -f /usr/share/syslinux/mbr.bin ]; then
+    MBR="/usr/share/syslinux/mbr.bin"     # example: fedora
+  elif [ -f /usr/lib/syslinux/bios/mbr.bin ]; then
+    MBR="/usr/lib/syslinux/bios/mbr.bin"
+  else
+    echo "Can't find syslinux's mbr.bin on Host OS"
+    exit 1
+  fi
+
+  if [ -n "$MBR" ]; then
+    cat "$MBR" > "$LOOP"
+  fi
+
+# sync disk
+  echo ""
+  echo "syncing disk..."
+  sync
+
+# create filesystem on partition1
+  echo ""
+  sync
+  losetup -d "$LOOP"
+  echo "creating filesystem on partition1..."
+  OFFSET=$(( 64 * 512 ))
+  SIZELIMIT=$(( $SYSTEM_SIZE * 1024 * 1024 ))
+  losetup -o $OFFSET --sizelimit $SIZELIMIT "$LOOP" "$DISK"
+  mke2fs -q -t ext4 -m 0 "$LOOP"
+  tune2fs -U random -L "System" "$LOOP"
+  sync
+  e2fsck -n "$LOOP"
+
+# mount partition
+  echo ""
+  echo "mounting partition1 on /tmp/vmware_install..."
+  mkdir -p /tmp/vmware_install
+  mount "$LOOP" /tmp/vmware_install
+
+# create bootloader configuration
+  echo ""
+  echo "creating bootloader configuration..."
+
+  cat >/tmp/vmware_install/syslinux.cfg << EOF
+DEFAULT linux
+PROMPT 0
+
+LABEL linux
+  KERNEL /KERNEL
+  APPEND boot=LABEL=System disk=LABEL=Storage quiet ssh
+
+EOF
+
+# install extlinux
+  echo ""
+  echo "installing extlinux to partition1..."
+  extlinux --heads=4 --sector=32 -i /tmp/vmware_install
+
+# copy files
+  echo ""
+  echo "copying files to partition1..."
+  cp target/KERNEL /tmp/vmware_install
+  cp target/SYSTEM /tmp/vmware_install
+
+# sync disk
+  echo ""
+  echo "syncing disk..."
+  sync
+
+# unmount partition1
+  echo ""
+  echo "unmounting partition1..."
+  umount "$LOOP"
+  sync
+
+# create filesystem on partition2
+  echo ""
+  sync
+  losetup -d "$LOOP"
+  echo "creating filesystem on partition2..."
+  OFFSET=$(( $STORAGE_PART_START * 512 ))
+  losetup -o $OFFSET "$LOOP" "$DISK"
+  mke2fs -q -t ext4 -m 0 "$LOOP"
+  tune2fs -U random -L "Storage" "$LOOP"
+  sync
+  e2fsck -n "$LOOP"
+
+# detach loopX
+  sync
+  losetup -d "$LOOP"
+
+# cleaning
+  echo ""
+  echo "cleaning tempdir..."
+  [ -f /tmp/vmware_install/ldlinux.sys ] && chattr -i /tmp/vmware_install/ldlinux.sys
+  rm -rf /tmp/vmware_install
+
+# convert image to vmdk or vdi
+  echo ""
+  echo "converting $DISK to $TYPE format..."
+  qemu-img convert -O $TYPE "$DISK" "$IMAGE"
+  rm -f "$DISK"
+
+# sync disk
+  echo ""
+  echo "syncing disk..."
+  sync
+
+  echo ""
+  echo "installation finished..."
+  echo ""
