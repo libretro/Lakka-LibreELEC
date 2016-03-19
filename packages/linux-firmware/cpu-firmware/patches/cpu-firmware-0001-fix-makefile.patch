@@ -1,0 +1,66 @@
+diff -Naur a/Makefile b/Makefile
+--- a/Makefile	2016-01-12 07:14:57.000000000 -0800
++++ b/Makefile	2016-03-19 13:59:39.937499052 -0700
+@@ -14,34 +14,25 @@
+ MICROCODE_AMD   = amd-ucode-2012-09-10.tar
+ 
+ INS             = install
+-CC              = gcc
+-KERNELHEADER    = /usr/src/linux/include
++CC              ?= gcc
++KERNELHEADER    ?= /usr/src/linux/include
+ CFLAGS          = -g -Wall -O2 -I $(KERNELHEADER)
+ 
+-DESTDIR         =
+-PREFIX          = /usr/local
++DESTDIR         ?=
++PREFIX          ?= /usr/local
+ 
+ INSDIR          = $(PREFIX)/sbin
+ MANDIR          = $(PREFIX)/share/man/man8
+ DOCDIR          = $(PREFIX)/share/doc/microcode_ctl
+-MICDIR          = /lib/firmware
++MICDIR          ?= /lib/firmware
+ MICDIRAMD       = $(MICDIR)/amd-ucode
+ 
+-RCFILE          = microcode_ctl.start
+-RCFILEFINAL     = microcode_ctl
+-# this is a bit nasty...
+-RCDIR           = $(shell if [ -d /etc/init.d ]; then echo "/etc"; else echo "/etc/rc.d"; fi)
+-RCHOMEDIR       = init.d
+-RCFILETO        = $(RCDIR)/$(RCHOMEDIR)
+-
+ all: microcode_ctl
+ 
+-microcode_ctl: microcode_ctl.c
+-	$(CC) $(CFLAGS) -o $(PROGRAM) microcode_ctl.c
+-	mkdir intel-ucode amd-ucode
++microcode_ctl:
++	mkdir -p intel-ucode amd-ucode
+ 	tar xfz $(MICROCODE_INTEL) -C intel-ucode
+ 	tar --strip-components 1 -xf $(MICROCODE_AMD) -C amd-ucode
+-	echo "$(RCDIR)/$(RCHOMEDIR)/microcode_ctl" > microcode-filelist
+ 
+ clean:
+ 	rm -rf $(PROGRAM) intel-ucode amd-ucode
+@@ -50,20 +41,9 @@
+ 	$(INS) -d $(DESTDIR)$(INSDIR) $(DESTDIR)$(MICDIRAMD) \
+ 			$(DESTDIR)$(MANDIR) $(DESTDIR)$(RCFILETO) \
+ 			$(DESTDIR)$(RCLINKTO) $(DESTDIR)$(DOCDIR)
+-	$(INS) -m 755 $(PROGRAM) $(DESTDIR)$(INSDIR)
+-	$(INS) -m 644 $(MANPAGE) $(DESTDIR)$(MANDIR)
+-	gzip -9f $(DESTDIR)$(MANDIR)/$(MANPAGE)
+-	$(INS) -m 755 $(RCFILE) $(DESTDIR)$(RCFILETO)/$(RCFILEFINAL)
+ 	$(INS) -m 644 intel-ucode/microcode.dat $(DESTDIR)$(MICDIR)
+ 	$(INS) -m 644 amd-ucode/microcode_amd.bin $(DESTDIR)$(MICDIR)/amd-ucode/
+ 	$(INS) -m 644 amd-ucode/microcode_amd_fam15h.bin $(DESTDIR)$(MICDIR)/amd-ucode/
+-	$(INS) -m 644 amd-ucode/microcode_amd.bin.README \
+-		$(DESTDIR)$(DOCDIR)/README.microcode_amd.bin
+-	$(INS) -m 644 amd-ucode/microcode_amd_fam15h.bin.README \
+-		$(DESTDIR)$(DOCDIR)/README.microcode_amd_fam15h.bin
+-	$(INS) -m 644 amd-ucode/LICENSE $(DESTDIR)$(DOCDIR)/LICENSE.microcode_amd
+-	$(INS) -m 644 amd-ucode/README $(DESTDIR)$(DOCDIR)/README.microcode_amd
+-	$(INS) -m 644 amd-ucode/INSTALL $(DESTDIR)$(DOCDIR)/INSTALL.microcode_amd
+ 
+ ifndef DESTDIR
+ 		chkconfig --add $(RCFILEFINAL)

@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="cpu-firmware"
-PKG_VERSION="9885c9c"
+PKG_VERSION="5e23731"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="other"
-PKG_SITE="https://git.fedorahosted.org/cgit/microcode_ctl.git/"
-PKG_GIT_URL="https://github.com/OpenELEC/cpu-firmware.git"
-PKG_GIT_BRANCH="master"
+PKG_SITE="https://git.fedorahosted.org/cgit/microcode_ctl.git"
+PKG_URL="https://git.fedorahosted.org/cgit/microcode_ctl.git/snapshot/$PKG_VERSION.tar.xz"
+PKG_SOURCE_DIR="$PKG_VERSION"
 PKG_DEPENDS_INIT="toolchain"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -35,17 +35,21 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_init() {
-  : # nothing todo
+  PREFIX=/
+  MICDIR=/lib/firmware
+  make
 }
 
 makeinstall_init() {
-  DESTDIR=$INSTALL ./install
+  DESTDIR=$INSTALL make install
 }
 
 make_target() {
-  : # nothing todo
+  PREFIX=/
+  MICDIR=/lib/firmware
+  make
 }
 
 makeinstall_target() {
-  DESTDIR=$INSTALL ./install
+  DESTDIR=$INSTALL make install
 }
