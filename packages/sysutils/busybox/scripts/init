@@ -24,6 +24,7 @@
   /bin/busybox mkdir -p /dev
   /bin/busybox mkdir -p /proc
   /bin/busybox mkdir -p /sys
+  /bin/busybox mkdir -p /tmp
   /bin/busybox mkdir -p /flash
   /bin/busybox mkdir -p /sysroot
   /bin/busybox mkdir -p /storage
@@ -36,7 +37,9 @@
   # set needed variables
   MODULE_DIR=/lib/modules
 
-  UPDATE_DIR=/storage/.update
+  UPDATE_ROOT=/storage/.update
+  UPDATE_DIR="$UPDATE_ROOT"
+
   UPDATE_KERNEL="KERNEL"
   UPDATE_SYSTEM="SYSTEM"
   IMAGE_KERNEL="KERNEL"
@@ -44,8 +47,6 @@
 
   BOOT_STEP="start"
   MD5_FAILED="0"
-  MD5_NOCHECK="0"
-  SIZE_FAILED="0"
   RUN_FSCK="yes"
   RUN_FSCK_DISKS=""
 
@@ -57,10 +58,24 @@
 
   LIVE="no"
 
-  # load cpu firmware if possible
-  if [ -e /sys/devices/system/cpu/microcode/reload ]; then
-    echo 1 > /sys/devices/system/cpu/microcode/reload
-  fi
+  # Show frame-buffer cursor
+  showcursor() {
+    echo -en "\033[?25h"
+
+    # show cursor
+    if [ -f /sys/devices/virtual/graphics/fbcon/cursor_blink ] ; then
+      echo 1 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+    fi
+  }
+
+  # Hide frame-buffer cursor
+  hidecursor() {
+    echo -en "\033[?25l"
+
+    if [ -f /sys/devices/virtual/graphics/fbcon/cursor_blink ] ; then
+      echo 0 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+    fi
+  }
 
   # hide kernel log messages on console
   echo '1 4 1 7' > /proc/sys/kernel/printk
@@ -77,9 +92,7 @@
 
   # clear screen and hide cursor
   clear
-  if [ -f /sys/devices/virtual/graphics/fbcon/cursor_blink ] ; then
-    echo 0 > /sys/devices/virtual/graphics/fbcon/cursor_blink
-  fi
+  hidecursor
 
   # parse command line arguments
   for arg in $(cat /proc/cmdline); do
@@ -169,8 +182,7 @@
   debug_shell() {
     echo "### Starting debugging shell... type  exit  to quit ###"
 
-    # show cursor
-    echo 0 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+    showcursor
 
     sh </dev/tty1 >/dev/tty1 2>&1
   }
@@ -189,6 +201,112 @@
         debug_shell
         ;;
     esac
+  }
+
+  # Start a progress meter
+  # $1: spinner, percent, countdown
+  # $2: [all types] message to display
+  # [percent]
+  #   $3: name of filename to be progress monitored
+  #   $4: terminal size (in bytes) of $3 when progress is complete
+  # [countdown]
+  #   $3: number of seconds to start counting down from
+  #   $4: completion message, default is nothing
+  StartProgress() {
+    # Use files for inter-process communication.
+    # This file is used to indicate a metter is running/active
+    echo > /tmp/progress.run
+
+    if [ "$1" = "spinner" ]; then
+      ProgressTask_Spinner "$2" &
+    elif [ "$1" = "percent" ]; then
+      ProgressTask_Percent "$2" $3 $4 &
+    elif [ "$1" = "countdown" ]; then
+      ProgressTask_Countdown "$2" $3 "$4"
+    else
+      echo "Unknown spinner type: $1"
+      return 1
+    fi
+
+    return 0
+  }
+
+  # Stop a progress meter, displaying optional completion message
+  # $1: optional completion message (appropriate default used if not specified)
+  StopProgress() {
+    # Instruct running progress meter to end, showing specified completion message
+    echo "${1}" > /tmp/progress.stop
+
+    # Wait for progress meter to stop running
+    while [ -f /tmp/progress.run ]; do
+      usleep 250000
+    done
+
+    # Clean up
+    rm -f /tmp/progress.stop
+    return 0
+  }
+
+  # Use this task for processes of indeterminate duration
+  ProgressTask_Spinner() {
+    local msg="$1"
+    local spinner="|/-\\|/-\\"
+    local count=0 done
+
+    echo -n "${msg} "
+
+    while [ ! -f /tmp/progress.stop ]; do
+      echo -en "\b${spinner:$count:1}"
+      usleep 500000
+      count=$(((count + 1) % 8))
+    done
+
+    done="$(cat /tmp/progress.stop)"
+    echo -e "\b${done:-done}"
+
+    rm -f /tmp/progress.run
+
+    exit 0
+  }
+
+  # Use this task when transferring a file of known size
+  ProgressTask_Percent() {
+    local msg="$1" filename="$2" fsize=$3 csize done
+
+    echo -n "${msg}    "
+
+    while [ ! -f /tmp/progress.stop ]; do
+      [ -f ${filename} ] && csize=$(stat -t "${filename}" | awk '{print $2}') || csize=0
+      echo $csize $fsize | awk '{ printf "\b\b\b\b%3d%%", ($1 * 100 / $2) }'
+      usleep 250000
+    done
+
+    done="$(cat /tmp/progress.stop)"
+    echo -e "\b\b\b\b${done:-100%}"
+
+    rm -f /tmp/progress.run
+
+    exit 0
+  }
+
+  # Use this task to countdown a number of seconds
+  # (needs more work for durations > 99 seconds)
+  ProgressTask_Countdown() {
+    local msg="$1" startfrom=$2 done="$3"
+
+    echo -n "${msg}  "
+
+    while [ ${startfrom} -gt 0 ]; do
+      echo ${startfrom} | awk '{ printf "\b\b%2d", $1 }'
+      sleep 1
+      startfrom=$((startfrom - 1))
+    done
+
+    echo -e "\b\b${done}"
+
+    rm -f /tmp/progress.run
+
+    return 0
   }
 
   # Mount handlers
@@ -339,9 +457,16 @@
 
   update_file() {
     if [ -f "$UPDATE_DIR/$2" -a -f "$3" ]; then
-      echo "updating $1..."
       mount -o remount,rw /flash
-      mv $UPDATE_DIR/$2 $3 2>/dev/null
+
+      StartProgress percent "Updating $1... " "$3" $(stat -t "$UPDATE_DIR/$2" | awk '{print $2}')
+        # use dd here with conv=fsync so that all writes are non-buffered
+        # ensuring accurate progress - take the sync hit during the
+        # transfer, rather than when flushing file buffers after the progress
+        # meter declares the transfer already complete
+        dd if=$UPDATE_DIR/$2 of=$3 bs=1M conv=fsync 2>/dev/null
+        StopProgress
+
       # loopback file needs writable /flash all the time
       if [ "${disk%%=*}" != "FILE" ]; then
         mount -o remount,ro /flash
@@ -351,22 +476,30 @@
   }
 
   update_partition() {
+    local result
+
     if [ -f "$UPDATE_DIR/$2" -a -b "$3" ]; then
-      echo "updating $1..."
-      dd if="$UPDATE_DIR/$2" of="$3"
-     fi
+      StartProgress spinner "Updating $1... "
+        result="$(dd if="$UPDATE_DIR/$2" of="$3" conv=fsync 2>&1)"
+        StopProgress "done"
+      echo "${result}"
+    fi
    }
 
   update_bootloader() {
+    local result
+
     export BOOT_ROOT="/flash"
     export SYSTEM_ROOT="/sysroot"
 
     mount_part "/flash/$IMAGE_SYSTEM" "/sysroot" "ro,loop"
 
     if [ -f $SYSTEM_ROOT/usr/share/bootloader/update.sh ]; then
-      echo "updating Bootloader..."
-      sh $SYSTEM_ROOT/usr/share/bootloader/update.sh
-      sync
+      StartProgress spinner "Updating Bootloader... "
+        result="$(sh $SYSTEM_ROOT/usr/share/bootloader/update.sh 2>&1)"
+        sync
+        StopProgress "done"
+      [ -n "${result}" ] && echo "${result}"
     fi
 
     umount /sysroot
@@ -419,31 +552,31 @@
     echo "System reboots now..."
 
     # syncing filesystem
-      sync
+    sync
 
     # unmount filesystems
-      if /bin/busybox mountpoint -q /flash ; then
-         /bin/busybox umount /flash
-      fi
+    if /bin/busybox mountpoint -q /flash ; then
+      /bin/busybox umount /flash
+    fi
 
-      if /bin/busybox mountpoint -q /storage ; then
-        /bin/busybox umount /storage
-      fi
+    if /bin/busybox mountpoint -q /storage ; then
+      /bin/busybox umount /storage
+    fi
 
     usleep 2000000
     /bin/busybox reboot
   }
 
   force_fsck() {
-    echo "Filesystem corruption has been detected"
-    echo "To prevent an automatic repair attempt continuing"
+    echo "Filesystem corruption has been detected!"
+    echo "To prevent an automatic repair attempt continuing,"
     echo "press any key or power off your system within the next 120 seconds"
     echo ""
     read -t120 -n1
     # The exit status is 0 if input is available
     # The exit status is greater than 128 if the timeout is exceeded
     if [ "$?" -ne "0" -o "$?" -gt "128" ] ; then
-      echo "repairing filesystem.."
+      echo "Repairing filesystem..."
       echo ""
       /sbin/fsck -T -M -y $RUN_FSCK_DISKS
       FSCK_RET="$?"
@@ -459,7 +592,7 @@
       fi
       do_reboot
     else
-      echo "shutting down..."
+      echo "Shutting down..."
       sleep 5
       sync
       poweroff
@@ -469,24 +602,24 @@
   check_disks() {
     if [ "$RUN_FSCK" = "yes" -a -n "$RUN_FSCK_DISKS" ]; then
       progress "Checking disk(s): $RUN_FSCK_DISKS"
-        /sbin/fsck -T -M -p -a $RUN_FSCK_DISKS > /dev/null 2>&1
-        FSCK_RET="$?"
+      /sbin/fsck -T -M -p -a $RUN_FSCK_DISKS > /dev/null 2>&1
+      FSCK_RET="$?"
 
-        # FSCK_RET is the bit-wise OR of the exit codes for each filesystem that is checked.
-        if [ "$(( $FSCK_RET & 4 ))" = 4 ] ; then
-          # errors left
-          force_fsck
-        elif [ "$(( $FSCK_RET & 2 ))" = 2 ] ; then
-          # reboot needed
-          echo "filesystem repaired, reboot needed..."
-          do_reboot
-        elif [ "$(( $FSCK_RET & 1 ))" = 1 ] ; then
-          # filesystem errors corrected
-          progress "filesystem errors corrected , continuing..."
-        elif [ "$(( $FSCK_RET & 0 ))" = 0 ] ; then
-          # no errors found
-          progress "no filesystem errors found, continuing..."
-        fi
+      # FSCK_RET is the bit-wise OR of the exit codes for each filesystem that is checked.
+      if [ "$(( $FSCK_RET & 4 ))" = 4 ] ; then
+        # errors left
+        force_fsck
+      elif [ "$(( $FSCK_RET & 2 ))" = 2 ] ; then
+        # reboot needed
+        echo "Filesystem repaired, reboot needed..."
+        do_reboot
+      elif [ "$(( $FSCK_RET & 1 ))" = 1 ] ; then
+        # filesystem errors corrected
+        progress "Filesystem errors corrected , continuing..."
+      elif [ "$(( $FSCK_RET & 0 ))" = 0 ] ; then
+        # no errors found
+        progress "No filesystem errors found, continuing..."
+      fi
     fi
   }
 
@@ -506,7 +639,7 @@
 
       if ! ping -q -c 2 "$wol_ip" &>/dev/null; then
         ether-wake "$wol_mac"
-        sleep "$wol_wait"
+        StartProgress countdown "WOL magic packet sent to $wol_ip, waiting $wol_wait seconds... " $wol_wait "done"
       fi
     fi
   }
@@ -554,115 +687,216 @@
     fi
   }
 
-  check_update() {
-    progress "Checking for updates"
+  do_cleanup() {
+    StartProgress spinner "Cleaning up... "
 
-    UPDATE_TAR=`ls -1 "$UPDATE_DIR"/*.tar 2>/dev/null | head -n 1`
-    if [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" -o -f "$UPDATE_TAR" ] ; then
-      if [ "$UPDATE_DISABLED" = "yes" ] ; then
-        rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-        echo "Updating not supported on netboot. normal startup in 10s..."
-        sync
-        usleep 10000000
-        return 0
+    if [ -d $UPDATE_ROOT/.tmp/mnt ]; then
+      if mountpoint -q $UPDATE_ROOT/.tmp/mnt ; then
+        # busybox umount deletes loop device automatically
+        umount $UPDATE_ROOT/.tmp/mnt
       fi
 
-      # check for .tar
-      if [ -f "$UPDATE_TAR" ] ; then
-        echo "Found new .tar archive. extracting..."
+      [ -n $LOOP ] && losetup -d $LOOP &>/dev/null
+    fi
+
+    [ -f "$UPDATE_TAR" ] && rm -f "$UPDATE_TAR" &>/dev/null
+    [ -f "$UPDATE_IMG_GZ" ] && rm -f "$UPDATE_IMG_GZ" &>/dev/null
+    [ -f "$UPDATE_IMG" ] && rm -f "$UPDATE_IMG" &>/dev/null
+
+    rm -rf $UPDATE_ROOT/.tmp &>/dev/null
+    rm -rf $UPDATE_ROOT/[0-9a-zA-Z]* &>/dev/null
+
+    sync
+
+    StopProgress "done"
+  }
+
+  check_update() {
+    progress "Checking for updates"
+    UPDATE_TAR=`ls -1 "$UPDATE_DIR"/*.tar 2>/dev/null | head -n 1`
+    UPDATE_IMG_GZ=`ls -1 "$UPDATE_DIR"/*.img.gz 2>/dev/null | head -n 1`
+    UPDATE_IMG=`ls -1 "$UPDATE_DIR"/*.img 2>/dev/null | head -n 1`
+
+    if ! [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] &&
+       ! [ -f "$UPDATE_TAR" -o -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ]; then
+      return 0
+    fi
+
+    if [ "$UPDATE_DISABLED" = "yes" ] ; then
+      echo "Updating is not supported on netboot"
+      do_cleanup
+      StartProgress countdown "Normal startup in 10s... " 10 "NOW"
+      return 0
+    fi
+
+    # remove temporary folder if exist from previous run
+    rm -fr "$UPDATE_DIR/.tmp" &>/dev/null
+
+    if [ -f "$UPDATE_TAR" ] ; then
+      echo "Found new .tar archive"
+      StartProgress spinner "Extracting tar... "
         mkdir -p $UPDATE_DIR/.tmp &>/dev/null
         tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp &>/dev/null
         mv $UPDATE_DIR/.tmp/*/target/* $UPDATE_DIR &>/dev/null
-        rm -f "$UPDATE_TAR" &>/dev/null
-        rm -rf $UPDATE_DIR/.tmp &>/dev/null
         sync
-        if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
-          echo "missing ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}... normal startup in 10s"
+        StopProgress "done"
+    elif [ -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ] ; then
+      mkdir -p $UPDATE_DIR/.tmp/mnt &>/dev/null
+      IMG_FILE="$UPDATE_DIR/.tmp/update.img"
+      GZRESULT="0"
+
+      if [ -f "$UPDATE_IMG_GZ" ]; then
+        echo "Found new compressed image file"
+
+        StartProgress spinner "Decompressing image file... "
+          gunzip -d -c "$UPDATE_IMG_GZ" 1>$IMG_FILE 2>/tmp/gzresult.txt || GZRESULT="1"
           sync
-          usleep 10000000
+          [ "${GZRESULT}" -eq "0" ] && StopProgress "OK" || StopProgress "FAILED"
+
+        if [ "${GZRESULT}" -eq "1" ]; then
+          echo "Failed to decompress image file!"
+          echo "gunzip result: '$(cat /tmp/gzresult.txt)'"
+          do_cleanup
+          StartProgress countdown "Normal startup in 30s... " 30 "NOW"
+          return 0
+        fi
+      else
+        echo "Found new image file"
+        mv "$UPDATE_IMG" $IMG_FILE
+      fi
+
+      LOOP=$(losetup -f)
+      LOOP_NUM=$(echo $LOOP | sed 's|/dev/loop||')
+      mknod $LOOP b 7 $LOOP_NUM
+      losetup $LOOP $IMG_FILE
+
+      # check for MBR partititon
+      OFFSET=$(fdisk -u -l $LOOP 2>/dev/null | awk '/^[ ]*Device/{part=1; next}; part{if ($2 == "*") {print $3} else {print $2} ; exit}')
+      if [ -z "$OFFSET" ]; then
+        # check for GPT partititon
+        OFFSET=$(fdisk -u -l $LOOP 2>/dev/null | awk '/^Number/{part=1; next}; part{print $2; exit}')
+        if [ -z "$OFFSET" ]; then
+          echo "Could not find a valid system partition in image file!"
+          do_cleanup
+          StartProgress countdown "Normal startup in 10s... " 10 "NOW"
           return 0
         fi
       fi
 
-      if [ -f "$UPDATE_DIR/.nocheck" ] ; then
-        MD5_NOCHECK="1"
-      fi
+      SECTOR_SIZE=$(cat /sys/devices/virtual/block/loop${LOOP_NUM}/queue/hw_sector_size)
+      losetup -d $LOOP
+      sync
 
-      # check md5 sums if .nocheck doesn't exist
-      if [ "$MD5_NOCHECK" -eq "0" ] ; then
-        if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
-          # *.md5 size-check
-          if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
-            echo "zero-sized .md5 file..."
-            MD5_FAILED="1"
-          else
-            sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_KERNEL}.md5"
-            sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_SYSTEM}.md5"
+      OFFSET=$(($OFFSET * $SECTOR_SIZE))
 
-            echo "Checking ${UPDATE_KERNEL}.md5..."
-            md5sum -c "$UPDATE_DIR/${UPDATE_KERNEL}.md5" || MD5_FAILED="1"
+      # use losetup because busybox mount does not support the -o offset option
+      echo "Mounting system partition..."
+      losetup -o $OFFSET $LOOP $IMG_FILE
+      mount -o ro,loop $LOOP $UPDATE_DIR/.tmp/mnt
 
-            echo "Checking ${UPDATE_SYSTEM}.md5..."
-            md5sum -c "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" || MD5_FAILED="1"
-          fi
-        else
-          echo "missing ${UPDATE_KERNEL}.md5 or ${UPDATE_SYSTEM}.md5..."
+      # don't make temporary files but instead copy
+      # directly from mountpoint to /flash
+      UPDATE_DIR=$UPDATE_ROOT/.tmp/mnt
+      UPDATE_KERNEL=$(basename $IMAGE_KERNEL)
+    fi
+
+    sync
+
+    if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
+      echo "Missing ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}!"
+      do_cleanup
+      StartProgress countdown "Normal startup in 10s... " 10 "NOW"
+      return 0
+    fi
+
+    # check md5 sums if .nocheck doesn't exist
+    if [ ! -f "$UPDATE_DIR/.nocheck" ]; then
+      if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
+        # *.md5 size-check
+        if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
+          echo "Zero-sized .md5 file!"
           MD5_FAILED="1"
-        fi
-      fi
-
-      # get sizes
-      FLASH_FREE=$(df /flash/ | awk '/[0-9]%/{print $4}')
-      FLASH_FREE=$(( $FLASH_FREE * 1024 ))
-
-      OLD_KERNEL="0"
-      if [ ! -b $IMAGE_KERNEL ]; then
-        OLD_KERNEL=$(stat -t "/flash/$IMAGE_KERNEL" | awk '{print $2}')
-      fi
-
-      OLD_SYSTEM=$(stat -t "/flash/$IMAGE_SYSTEM" | awk '{print $2}')
-      NEW_KERNEL=$(stat -t "$UPDATE_DIR/$UPDATE_KERNEL" | awk '{print $2}')
-      NEW_SYSTEM=$(stat -t "$UPDATE_DIR/$UPDATE_SYSTEM" | awk '{print $2}')
-
-      # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher then 5MB
-      # at least 5MB free after update
-
-      TMP_SIZE=$(($OLD_KERNEL+$OLD_SYSTEM+$FLASH_FREE-$NEW_KERNEL-$NEW_SYSTEM))
-      FLASH_FREE_MIN=$(($FLASH_FREE_MIN*1024*1024))
-
-      if [ $TMP_SIZE -ge $FLASH_FREE_MIN ]; then
-        echo "Checking size: OK"
-      else
-        echo "Checking size: FAILED"
-        SIZE_FAILED="1"
-      fi
-
-      # update if size check is ok
-      if [ "$SIZE_FAILED" -eq "0" ] ; then
-        # update if md5 check is ok or .nocheck exists
-        if [ "$MD5_FAILED" -eq "0" -o "$MD5_NOCHECK" -eq "1" ] ; then
-          if [ -b $IMAGE_KERNEL ]; then
-            update_partition "Kernel" "$UPDATE_KERNEL" "$IMAGE_KERNEL"
-          else
-            update_file "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
-          fi
-          update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
-          update_bootloader
-          rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-          do_reboot
         else
-          rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-          echo "md5 check failed. normal startup in 30s..."
-          sync
-          usleep 30000000
+          sed "s#target/KERNEL#$UPDATE_DIR/$UPDATE_KERNEL#g" "$UPDATE_DIR/${UPDATE_KERNEL}.md5" >"$UPDATE_ROOT/${UPDATE_KERNEL}.check.md5"
+          sed "s#target#$UPDATE_DIR#g" "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" >"$UPDATE_ROOT/${UPDATE_SYSTEM}.check.md5"
+
+          StartProgress spinner "Checking ${UPDATE_KERNEL}.md5... "
+            if md5sum -sc "$UPDATE_ROOT/${UPDATE_KERNEL}.check.md5"; then
+              StopProgress "OK"
+            else
+              StopProgress "FAILED"
+              MD5_FAILED="1"
+	    fi
+
+          StartProgress spinner "Checking ${UPDATE_SYSTEM}.md5... "
+            if md5sum -sc "$UPDATE_ROOT/${UPDATE_SYSTEM}.check.md5"; then
+              StopProgress "OK"
+            else
+              StopProgress "FAILED"
+              MD5_FAILED="1"
+            fi
         fi
       else
-        rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-        echo "size check failed. normal startup in 30s..."
-        sync
-        usleep 30000000
+        echo "Missing ${UPDATE_KERNEL}.md5 or ${UPDATE_SYSTEM}.md5!"
+        MD5_FAILED="1"
+      fi
+
+      if [ "$MD5_FAILED" -eq "1" ]; then
+        echo "md5 check failed!"
+        do_cleanup
+        StartProgress countdown "Normal startup in 30s... " 30 "NOW"
+        return 0
       fi
     fi
+
+    # get sizes
+    FLASH_FREE=$(df /flash/ | awk '/[0-9]%/{print $4}')
+    FLASH_FREE=$(( $FLASH_FREE * 1024 ))
+
+    # Disregard kernel size if it's a a block device, which is the case on Amlogic/WeTek devices
+    if [ ! -b $IMAGE_KERNEL ]; then
+      OLD_KERNEL=$(stat -t "/flash/$IMAGE_KERNEL" | awk '{print $2}')
+    else
+      OLD_KERNEL="0"
+    fi
+
+    OLD_SYSTEM=$(stat -t "/flash/$IMAGE_SYSTEM" | awk '{print $2}')
+    NEW_KERNEL=$(stat -t "$UPDATE_DIR/$UPDATE_KERNEL" | awk '{print $2}')
+    NEW_SYSTEM=$(stat -t "$UPDATE_DIR/$UPDATE_SYSTEM" | awk '{print $2}')
+
+    # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher then 5MB
+    # at least 5MB free after update
+
+    TMP_SIZE=$(($OLD_KERNEL+$OLD_SYSTEM+$FLASH_FREE-$NEW_KERNEL-$NEW_SYSTEM))
+    FLASH_FREE_MIN=$(($FLASH_FREE_MIN*1024*1024))
+
+    if [ $TMP_SIZE -ge $FLASH_FREE_MIN ]; then
+      echo "Checking size: OK"
+    else
+      echo "Checking size: FAILED"
+      echo ""
+      echo "Your System (FAT) partition is too small for this update,"
+      echo "and there is not enough space for the update to be installed!"
+      echo ""
+      echo "You must re-install your system using the disk image of a"
+      echo "current release, or you must re-size your existing partitions"
+      echo "so that the System (FAT) partition is at least 512MB in size."
+      echo ""
+      do_cleanup
+      StartProgress countdown "Normal startup in 60s... " 60 "NOW"
+      return 0
+    fi
+
+    # all ok, update
+    if [ -b $IMAGE_KERNEL ]; then
+      update_partition "Kernel" "$UPDATE_KERNEL" "$IMAGE_KERNEL"
+    else
+      update_file "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
+    fi
+    update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+    update_bootloader
+    do_cleanup
+    do_reboot
   }
 
   prepare_sysroot() {
@@ -680,17 +914,14 @@
 
     if [ ! -d "/sysroot/lib/modules/$(uname -r)/" -a -f "/sysroot/usr/lib/systemd/systemd" ]; then
       echo ""
-      echo "NEVER TOUCH boot= in extlinux.conf / cmdline.txt"
-      echo "if you dont know what you are doing"
+      echo "NEVER TOUCH boot= in extlinux.conf / cmdline.txt!"
+      echo "If you don't know what you are doing,"
+      echo "your installation is now broken."
       echo ""
-      echo "your installation is now broken"
-      echo ""
-      echo "normal boot in 60s..."
-      usleep 60000000
+      StartProgress countdown "Normal startup in 60s... " 60 "NOW"
     fi
 
-
-    [ -f "/sysroot/usr/lib/systemd/systemd" ] || error "final_check" "Could not find system."
+    [ -f "/sysroot/usr/lib/systemd/systemd" ] || error "final_check" "Could not find systemd!"
   }
 
   if [ "${boot%%=*}" = "FILE" ]; then
@@ -730,6 +961,7 @@
   /bin/busybox mount --move /dev /sysroot/dev
   /bin/busybox mount --move /proc /sysroot/proc
   /bin/busybox mount --move /sys /sysroot/sys
+  /bin/busybox rm -fr /tmp
 
   # tell OE settings addon to disable updates
   if [ "$UPDATE_DISABLED" = "yes" ] ; then
@@ -752,6 +984,7 @@
   if [ -f /sysroot/storage/.cache/reset_oe -o -f /sysroot/storage/.cache/reset_xbmc ] ; then
     INIT_UNIT="--unit=factory-reset.target"
   fi
+
   # switch to new sysroot and start real init
   exec /bin/busybox switch_root /sysroot /usr/lib/systemd/systemd $INIT_ARGS $INIT_UNIT
 
