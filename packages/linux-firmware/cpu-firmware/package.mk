@@ -1,7 +1,6 @@
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
-#      Copyright (C) 2010-2011 Roman Weber (roman@openelec.tv)
 #
 #  OpenELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,23 +16,40 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="json-c"
-PKG_VERSION="537f8bc"
+PKG_NAME="cpu-firmware"
+PKG_VERSION="5e23731"
 PKG_REV="1"
-PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/json-c/json-c/wiki"
-PKG_URL="https://github.com/json-c/json-c/archive/$PKG_VERSION.tar.gz"
+PKG_ARCH="i386 x86_64"
+PKG_LICENSE="other"
+PKG_SITE="https://git.fedorahosted.org/cgit/microcode_ctl.git"
+PKG_URL="https://git.fedorahosted.org/cgit/microcode_ctl.git/snapshot/$PKG_VERSION.tar.xz"
+PKG_SOURCE_DIR="$PKG_VERSION"
+PKG_DEPENDS_INIT="toolchain"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="accessibility"
-PKG_SHORTDESC="json-c"
-PKG_LONGDESC="JSON-C implements a reference counting object model that allows you to easily construct JSON objects in C, output them as JSON formatted strings and parse JSON formatted strings back into the C representation of JSON objects"
+PKG_SECTION="linux-firmware"
+PKG_SHORTDESC="cpu-microcode: Intel and AMD CPU microcodes"
+PKG_LONGDESC="cpu-microcode: Intel and AMD CPU microcodes"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
-                           ac_cv_func_malloc_0_nonnull=yes \
-                           --enable-static --disable-shared \
-                           --disable-oldname-compat"
+make_init() {
+  PREFIX=/
+  MICDIR=/lib/firmware
+  make
+}
+
+makeinstall_init() {
+  DESTDIR=$INSTALL make install
+}
+
+make_target() {
+  PREFIX=/
+  MICDIR=/lib/firmware
+  make
+}
+
+makeinstall_target() {
+  DESTDIR=$INSTALL make install
+}

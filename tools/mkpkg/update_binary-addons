@@ -47,48 +47,10 @@ git_clone() {
   fi
 }
 
-copy_sources() {
-  # copy_sources source_dir package_name package_version
-  if [ -d "$1" ] ; then
-    echo "[mkpkg] Copying sources: $2-$3" ...
-    rm -rf "$2-$3"
-    cp -R "$1" "$2-$3"
-    echo "$GIT_HASH" > "$2-$3/VERSION"
-
-    echo "[mkpkg] Cleaning $2-$3 ..."
-    rm -rf "$2-$3/.git"
-  fi
-}
-
-package_sources() {
-  # package_sources source_dir
-  if [ -d "$1" ] ; then
-    echo "[mkpkg] Packing $1.tar.xz ..."
-    if [ ! -f "$1.tar.xz" ] ; then
-      tar cvJf "$1.tar.xz" "$1"
-    fi
-    rm -rf "$1"
-  fi
-}
-
 resolve_hash() {
   if [ -d "$1" ] ; then
     cd "$1"
     git rev-parse --short $2 2>/dev/null
-  fi
-}
-
-copy_and_package() {
-  REPO="$1"
-  PKG_NAME="$2"
-  GIT_HASH="$3"
-  git_clone $REPO master $PKG_NAME.git $GIT_HASH
-  RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-  if [ ! -e $PKG_NAME-$RESOLVED_HASH.tar.xz ] ; then
-    copy_sources $PKG_NAME.git $PKG_NAME $RESOLVED_HASH
-    package_sources $PKG_NAME-$RESOLVED_HASH
-  else
-    echo "[mkpkg] $PKG_NAME-$RESOLVED_HASH.tar.xz already exists ..."
   fi
 }
 
@@ -100,26 +62,32 @@ fi
 # platform
 REPO=$(cat $KODI_DIR/project/cmake/addons/depends/common/platform/platform.txt | awk '{print $2}')
 GIT_HASH=$(cat $KODI_DIR/project/cmake/addons/depends/common/platform/platform.txt | awk '{print $3}')
+PKG_NAME="platform"
 
-copy_and_package $REPO platform $GIT_HASH
-
+git_clone $REPO master $PKG_NAME.git $GIT_HASH
 if [ -f ../../packages/mediacenter/platform/package.mk ] ; then
   # update package.mk
   RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-  sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/platform/package.mk
+  sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" \
+      -e "s|PKG_GIT_URL=.*|PKG_GIT_URL=\"$REPO\"|g" \
+      -i ../../packages/mediacenter/platform/package.mk
 fi
+rm -rf $PKG_NAME.git
 
 # kodi-platform
 REPO=$(cat $KODI_DIR/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $2}')
 GIT_HASH=$(cat $KODI_DIR/project/cmake/addons/depends/common/kodi-platform/kodi-platform.txt | awk '{print $3}')
+PKG_NAME="kodi-platform"
 
-copy_and_package $REPO kodi-platform $GIT_HASH
-
+git_clone $REPO master $PKG_NAME.git $GIT_HASH
 if [ -f ../../packages/mediacenter/kodi-platform/package.mk ] ; then
   # update package.mk
   RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-  sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-platform/package.mk
+  sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" \
+      -e "s|PKG_GIT_URL=.*|PKG_GIT_URL=\"$REPO\"|g" \
+      -i ../../packages/mediacenter/kodi-platform/package.mk
 fi
+rm -rf $PKG_NAME.git
 
 # addons
 for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.txt ; do
@@ -131,17 +99,23 @@ for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.t
     ADDON=$(basename $addon)
     REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
     GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
+    PKG_NAME="$ADDON"
 
     if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
       continue
     fi
 
     if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
-      copy_and_package $REPO $ADDON $GIT_HASH
+      git_clone $REPO master $PKG_NAME.git $GIT_HASH
 
       # update package.mk
       RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-      sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+      sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" \
+          -e "s|PKG_GIT_URL=.*|PKG_GIT_URL=\"$REPO\"|g" \
+          -i ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+
+      rm -rf $PKG_NAME.git
+
     else
       echo "[mkpkg] Skipped $ADDON"
     fi
