@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="pvr.nextpvr"
-PKG_VERSION="d82c0c5"
+PKG_VERSION="9214bc0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/kodi-pvr/pvr.nextpvr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_PRIORITY="optional"
 PKG_SECTION=""

@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="pvr.demo"
-PKG_VERSION="8673b1a"
+PKG_VERSION="46d7bfb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/kodi-pvr/pvr.demo/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_PRIORITY="optional"
 PKG_SECTION=""
