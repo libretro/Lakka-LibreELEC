@@ -18,15 +18,20 @@
 ################################################################################
 
 if [ -e /storage/.please_resize_me ] ; then
+  . /usr/lib/libreelec/functions
+
+  hidecursor
+
   # this sh** was never intended to be used
   # on already installed and runing system
   if [ -d /storage/.kodi -o -d /storage/.config -o -d /storage/.cache ] ; then
     rm -f /storage/.please_resize_me
     sync
-    echo "resizing not allowed. rebooting in 15s"
-    sleep 15
+    echo "Resizing is not permitted - the system has already been initialised."
+    StartProgress countdown "Rebooting in 15s... " 15 "NOW"
     reboot -f
   fi
+
   # get the disk. /storage on 2nd partition
   PART=$(grep "/storage " /proc/mounts | cut -d" " -f1 | grep '2$')
 
@@ -51,18 +56,18 @@ if [ -e /storage/.please_resize_me ] ; then
     # failed to get partition start offset ?
     if [ ! -z "$PART_START" ] ; then
       umount $PART
-      echo "resizing /storage..."
-      echo "this may take a while. please do not reboot or turn off your computer"
-      echo "... parted -s -m $DISK rm 2"
-      parted -s -m $DISK rm 2 &>/dev/null
-      echo "... parted -s -m $DISK unit b mkpart primary $PART_START 100%"
-      parted -s -m $DISK unit b mkpart primary $PART_START 100% &>/dev/null
-      echo "... e2fsck -f -p $PART"
-      e2fsck -f -p $PART &>/dev/null
-      echo "... resize2fs $PART"
-      resize2fs $PART &>/dev/null
-      echo "...done. rebooting in 15s"
-      sleep 15
+
+      echo "Resizing partitions to make use of all available space."
+      echo ""
+      echo "This procedure may take a while - please do NOT reboot or turn off your computer!"
+      echo ""
+
+      StartProgress spinner "Deleting /storage... " "parted -s -m $DISK rm 2 &>/dev/null"
+      StartProgress spinner "Creating /storage ..." "parted -s -m $DISK unit b mkpart primary $PART_START 100% &>/dev/null"
+      StartProgress spinner "Checking /storage... " "e2fsck -f -p $PART &>/dev/null"
+      StartProgress spinner "Resizing /storage... " "resize2fs $PART &>/dev/null"
+
+      StartProgress countdown "Rebooting in 15s... " 15 "NOW"
     fi
   fi
 fi
