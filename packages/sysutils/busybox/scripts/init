@@ -36,7 +36,9 @@
   # set needed variables
   MODULE_DIR=/lib/modules
 
-  UPDATE_DIR=/storage/.update
+  UPDATE_ROOT=/storage/.update
+  UPDATE_DIR="$UPDATE_ROOT"
+
   UPDATE_KERNEL="KERNEL"
   UPDATE_SYSTEM="SYSTEM"
   IMAGE_KERNEL="KERNEL"
@@ -44,8 +46,6 @@
 
   BOOT_STEP="start"
   MD5_FAILED="0"
-  MD5_NOCHECK="0"
-  SIZE_FAILED="0"
   RUN_FSCK="yes"
   RUN_FSCK_DISKS=""
 
@@ -341,7 +341,7 @@
     if [ -f "$UPDATE_DIR/$2" -a -f "$3" ]; then
       echo "updating $1..."
       mount -o remount,rw /flash
-      mv $UPDATE_DIR/$2 $3 2>/dev/null
+      cp $UPDATE_DIR/$2 $3 2>/dev/null
       # loopback file needs writable /flash all the time
       if [ "${disk%%=*}" != "FILE" ]; then
         mount -o remount,ro /flash
@@ -554,115 +554,178 @@
     fi
   }
 
-  check_update() {
-    progress "Checking for updates"
-
-    UPDATE_TAR=`ls -1 "$UPDATE_DIR"/*.tar 2>/dev/null | head -n 1`
-    if [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" -o -f "$UPDATE_TAR" ] ; then
-      if [ "$UPDATE_DISABLED" = "yes" ] ; then
-        rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-        echo "Updating not supported on netboot. normal startup in 10s..."
-        sync
-        usleep 10000000
-        return 0
+  do_cleanup() {
+    if [ -d $UPDATE_ROOT/.tmp/mnt ]; then
+      if mountpoint -q $UPDATE_ROOT/.tmp/mnt ; then
+        # busybox umount deletes loop device automatically
+        umount $UPDATE_ROOT/.tmp/mnt
       fi
 
-      # check for .tar
-      if [ -f "$UPDATE_TAR" ] ; then
-        echo "Found new .tar archive. extracting..."
-        mkdir -p $UPDATE_DIR/.tmp &>/dev/null
-        tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp &>/dev/null
-        mv $UPDATE_DIR/.tmp/*/target/* $UPDATE_DIR &>/dev/null
-        rm -f "$UPDATE_TAR" &>/dev/null
-        rm -rf $UPDATE_DIR/.tmp &>/dev/null
-        sync
-        if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
-          echo "missing ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}... normal startup in 10s"
-          sync
-          usleep 10000000
+      [ -n $LOOP ] && losetup -d $LOOP &>/dev/null
+    fi
+
+    [ -f "$UPDATE_TAR" ] && rm -f "$UPDATE_TAR" &>/dev/null
+    [ -f "$UPDATE_IMG_GZ" ] && rm -f "$UPDATE_IMG_GZ" &>/dev/null
+    [ -f "$UPDATE_IMG" ] && rm -f "$UPDATE_IMG" &>/dev/null
+
+    rm -rf $UPDATE_ROOT/.tmp &>/dev/null
+    rm -rf $UPDATE_ROOT/[0-9a-zA-Z]* &>/dev/null
+    sync
+  }
+
+  check_update() {
+    progress "Checking for updates"
+    UPDATE_TAR=`ls -1 "$UPDATE_DIR"/*.tar 2>/dev/null | head -n 1`
+    UPDATE_IMG_GZ=`ls -1 "$UPDATE_DIR"/*.img.gz 2>/dev/null | head -n 1`
+    UPDATE_IMG=`ls -1 "$UPDATE_DIR"/*.img 2>/dev/null | head -n 1`
+
+    if ! [ -f "$UPDATE_DIR/$UPDATE_KERNEL" -a -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] &&
+       ! [ -f "$UPDATE_TAR" -o -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ]; then
+      return 0
+    fi
+
+    if [ "$UPDATE_DISABLED" = "yes" ] ; then
+      echo "Updating not supported on netboot. normal startup in 10s..."
+      do_cleanup
+      sync
+      usleep 10000000
+      return 0
+    fi
+
+    # remove temporary folder if exist from previous run
+    rm -fr "$UPDATE_DIR/.tmp" &>/dev/null
+
+    if [ -f "$UPDATE_TAR" ] ; then
+      echo "Found new .tar archive. extracting..."
+      mkdir -p $UPDATE_DIR/.tmp &>/dev/null
+      tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp &>/dev/null
+      mv $UPDATE_DIR/.tmp/*/target/* $UPDATE_DIR &>/dev/null
+    elif [ -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ] ; then
+      mkdir -p $UPDATE_DIR/.tmp/mnt &>/dev/null
+      IMG_FILE="$UPDATE_DIR/.tmp/update.img"
+
+      if [ -f "$UPDATE_IMG_GZ" ]; then
+        echo "Found new .img.gz archive. extracting..."
+        gunzip -d -c "$UPDATE_IMG_GZ" > $IMG_FILE
+      else
+        echo "Found new .img file..."
+        mv "$UPDATE_IMG" $IMG_FILE
+      fi
+
+      LOOP=$(losetup -f)
+      LOOP_NUM=$(echo $LOOP | sed 's|/dev/loop||')
+      mknod $LOOP b 7 $LOOP_NUM
+      losetup $LOOP $IMG_FILE
+
+      # check for MBR partititon
+      OFFSET=$(fdisk -u -l $LOOP | awk '/^[ ]*Device/{part=1; next}; part{if ($2 == "*") {print $3} else {print $2} ; exit}')
+      if [ -z "$OFFSET" ]; then
+        # check for GPT partititon
+        OFFSET=$(fdisk -u -l $LOOP | awk '/^Number/{part=1; next}; part{print $2; exit}')
+        if [ -z "$OFFSET" ]; then
+          do_cleanup
+          error "img update" "Can't get system partition from image file"
           return 0
         fi
       fi
 
-      if [ -f "$UPDATE_DIR/.nocheck" ] ; then
-        MD5_NOCHECK="1"
-      fi
+      SECTOR_SIZE=$(cat /sys/devices/virtual/block/loop${LOOP_NUM}/queue/hw_sector_size)
+      losetup -d $LOOP
+      sync
 
-      # check md5 sums if .nocheck doesn't exist
-      if [ "$MD5_NOCHECK" -eq "0" ] ; then
-        if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
-          # *.md5 size-check
-          if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
-            echo "zero-sized .md5 file..."
-            MD5_FAILED="1"
-          else
-            sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_KERNEL}.md5"
-            sed  -i 's#target#/storage/.update#g' "$UPDATE_DIR/${UPDATE_SYSTEM}.md5"
+      OFFSET=$(($OFFSET * $SECTOR_SIZE))
 
-            echo "Checking ${UPDATE_KERNEL}.md5..."
-            md5sum -c "$UPDATE_DIR/${UPDATE_KERNEL}.md5" || MD5_FAILED="1"
+      # use losetup because busybox mount does not support the -o offset option
+      echo "Mounting system partition..."
+      losetup -o $OFFSET $LOOP $IMG_FILE
+      mount -o ro,loop $LOOP $UPDATE_DIR/.tmp/mnt
 
-            echo "Checking ${UPDATE_SYSTEM}.md5..."
-            md5sum -c "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" || MD5_FAILED="1"
-          fi
-        else
-          echo "missing ${UPDATE_KERNEL}.md5 or ${UPDATE_SYSTEM}.md5..."
+      # don't make temporary files but instead copy
+      # directly from mountpoint to /flash
+      UPDATE_DIR=$UPDATE_ROOT/.tmp/mnt
+      UPDATE_KERNEL=$(basename $IMAGE_KERNEL)
+    fi
+
+    sync
+    if [ ! -f "$UPDATE_DIR/$UPDATE_KERNEL" -o ! -f "$UPDATE_DIR/$UPDATE_SYSTEM" ] ; then
+      echo "missing ${UPDATE_KERNEL} or ${UPDATE_SYSTEM}... normal startup in 10s"
+      do_cleanup
+      sync
+      usleep 10000000
+      return 0
+    fi
+
+    # check md5 sums if .nocheck doesn't exist
+    if [ ! -f "$UPDATE_DIR/.nocheck" ]; then
+      if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
+        # *.md5 size-check
+        if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
+          echo "zero-sized .md5 file..."
           MD5_FAILED="1"
-        fi
-      fi
-
-      # get sizes
-      FLASH_FREE=$(df /flash/ | awk '/[0-9]%/{print $4}')
-      FLASH_FREE=$(( $FLASH_FREE * 1024 ))
-
-      OLD_KERNEL="0"
-      if [ ! -b $IMAGE_KERNEL ]; then
-        OLD_KERNEL=$(stat -t "/flash/$IMAGE_KERNEL" | awk '{print $2}')
-      fi
-
-      OLD_SYSTEM=$(stat -t "/flash/$IMAGE_SYSTEM" | awk '{print $2}')
-      NEW_KERNEL=$(stat -t "$UPDATE_DIR/$UPDATE_KERNEL" | awk '{print $2}')
-      NEW_SYSTEM=$(stat -t "$UPDATE_DIR/$UPDATE_SYSTEM" | awk '{print $2}')
-
-      # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher then 5MB
-      # at least 5MB free after update
-
-      TMP_SIZE=$(($OLD_KERNEL+$OLD_SYSTEM+$FLASH_FREE-$NEW_KERNEL-$NEW_SYSTEM))
-      FLASH_FREE_MIN=$(($FLASH_FREE_MIN*1024*1024))
-
-      if [ $TMP_SIZE -ge $FLASH_FREE_MIN ]; then
-        echo "Checking size: OK"
-      else
-        echo "Checking size: FAILED"
-        SIZE_FAILED="1"
-      fi
-
-      # update if size check is ok
-      if [ "$SIZE_FAILED" -eq "0" ] ; then
-        # update if md5 check is ok or .nocheck exists
-        if [ "$MD5_FAILED" -eq "0" -o "$MD5_NOCHECK" -eq "1" ] ; then
-          if [ -b $IMAGE_KERNEL ]; then
-            update_partition "Kernel" "$UPDATE_KERNEL" "$IMAGE_KERNEL"
-          else
-            update_file "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
-          fi
-          update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
-          update_bootloader
-          rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-          do_reboot
         else
-          rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-          echo "md5 check failed. normal startup in 30s..."
-          sync
-          usleep 30000000
+          sed "s#target/KERNEL#$UPDATE_DIR/$UPDATE_KERNEL#g" "$UPDATE_DIR/${UPDATE_KERNEL}.md5" >"$UPDATE_ROOT/${UPDATE_KERNEL}.check.md5"
+          sed "s#target#$UPDATE_DIR#g" "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" >"$UPDATE_ROOT/${UPDATE_SYSTEM}.check.md5"
+
+          echo "Checking ${UPDATE_KERNEL}.md5..."
+          md5sum -c "$UPDATE_ROOT/${UPDATE_KERNEL}.check.md5" || MD5_FAILED="1"
+
+          echo "Checking ${UPDATE_SYSTEM}.md5..."
+          md5sum -c "$UPDATE_ROOT/${UPDATE_SYSTEM}.check.md5" || MD5_FAILED="1"
         fi
       else
-        rm -rf $UPDATE_DIR/[0-9a-zA-Z]* &>/dev/null
-        echo "size check failed. normal startup in 30s..."
+        echo "missing ${UPDATE_KERNEL}.md5 or ${UPDATE_SYSTEM}.md5..."
+        MD5_FAILED="1"
+      fi
+
+      if [ "$MD5_FAILED" -eq "1" ]; then
+        echo "md5 check failed. normal startup in 30s..."
+        do_cleanup
         sync
         usleep 30000000
+        return 0
       fi
     fi
+
+    # get sizes
+    FLASH_FREE=$(df /flash/ | awk '/[0-9]%/{print $4}')
+    FLASH_FREE=$(( $FLASH_FREE * 1024 ))
+
+    OLD_KERNEL="0"
+    if [ ! -b $IMAGE_KERNEL ]; then
+      OLD_KERNEL=$(stat -t "/flash/$IMAGE_KERNEL" | awk '{print $2}')
+    fi
+
+    OLD_SYSTEM=$(stat -t "/flash/$IMAGE_SYSTEM" | awk '{print $2}')
+    NEW_KERNEL=$(stat -t "$UPDATE_DIR/$UPDATE_KERNEL" | awk '{print $2}')
+    NEW_SYSTEM=$(stat -t "$UPDATE_DIR/$UPDATE_SYSTEM" | awk '{print $2}')
+
+    # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher then 5MB
+    # at least 5MB free after update
+
+    TMP_SIZE=$(($OLD_KERNEL+$OLD_SYSTEM+$FLASH_FREE-$NEW_KERNEL-$NEW_SYSTEM))
+    FLASH_FREE_MIN=$(($FLASH_FREE_MIN*1024*1024))
+
+    if [ $TMP_SIZE -ge $FLASH_FREE_MIN ]; then
+      echo "Checking size: OK"
+    else
+      echo "Checking size: FAILED"
+      do_cleanup
+      echo "size check failed. normal startup in 30s..."
+      sync
+      usleep 30000000
+      return 0
+    fi
+
+    # all ok, update
+    if [ -b $IMAGE_KERNEL ]; then
+      update_partition "Kernel" "$UPDATE_KERNEL" "$IMAGE_KERNEL"
+    else
+      update_file "Kernel" "$UPDATE_KERNEL" "/flash/$IMAGE_KERNEL"
+    fi
+    update_file "System" "$UPDATE_SYSTEM" "/flash/$IMAGE_SYSTEM"
+    update_bootloader
+    do_cleanup
+    do_reboot
   }
 
   prepare_sysroot() {
