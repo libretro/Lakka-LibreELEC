@@ -31,7 +31,7 @@ PKG_SHORTDESC="Tvheadend (Version: $PKG_VERSION_NUMBER): is a TV streaming serve
 PKG_LONGDESC="Tvheadend (Version: $PKG_VERSION_NUMBER): is a TV streaming server for Linux supporting DVB-S, DVB-S2, DVB-C, DVB-T, ATSC, IPTV,SAT>IP."
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Tvheadend"
+PKG_ADDON_NAME="Tvheadend 4.0"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="no"
 PKG_ADDON_REPOVERSION="7.0"
