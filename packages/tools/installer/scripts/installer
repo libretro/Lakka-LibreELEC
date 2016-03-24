@@ -253,15 +253,20 @@ do_install_quick() {
         cat /usr/share/syslinux/mbr.bin > $INSTALL_DEVICE
       fi
 
+      partsize_system_start=$PARTSIZE_SYSTEM_OFFSET
+      partsize_system_end=$(((PARTSIZE_SYSTEM * 1024 * 1024 / 512) + partsize_system_start))
+      partsize_storage_start=$((partsize_system_end + 2048))
+      partsize_storage_end=-1024
+
       msg_progress_install "10" "creating partition on $INSTALL_DEVICE"
       if [ "$UEFI" = "1" ]; then
-        parted -s $INSTALL_DEVICE unit cyl mkpart primary fat32 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+        parted -s $INSTALL_DEVICE unit s mkpart primary fat32 -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
       else
-        parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- 0 $PARTSIZE_SYSTEM >> $LOGFILE 2>&1
+        parted -s $INSTALL_DEVICE unit s mkpart primary ext2  -- $partsize_system_start $partsize_system_end >> $LOGFILE 2>&1
       fi
 
       msg_progress_install "13" "creating partition on $INSTALL_DEVICE"
-      parted -s $INSTALL_DEVICE unit cyl mkpart primary ext2 -- $PARTSIZE_SYSTEM -2 >> $LOGFILE 2>&1
+      parted -s $INSTALL_DEVICE unit s mkpart primary ext2 -- $partsize_storage_start $partsize_storage_end >> $LOGFILE 2>&1
 
       msg_progress_install "16" "setup bootflag on partition 1 of $INSTALL_DEVICE"
       parted -s $INSTALL_DEVICE set 1 boot on >> $LOGFILE 2>&1
@@ -629,7 +634,7 @@ do_poweroff() {
 }
 
 # setup needed variables
-INSTALLER_VERSION="0.2.7"
+INSTALLER_VERSION="0.2.8"
 OS_VERSION=$(lsb_release)
 BACKTITLE="LibreELEC Installer $INSTALLER_VERSION - $OS_VERSION"
 
