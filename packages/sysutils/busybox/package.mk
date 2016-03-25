@@ -166,6 +166,7 @@ makeinstall_target() {
     ln -sf pastebinit $INSTALL/usr/bin/paste
 
   mkdir -p $INSTALL/usr/lib/libreelec
+    cp $PKG_DIR/scripts/functions $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/fs-resize $INSTALL/usr/lib/libreelec
 
   mkdir -p $INSTALL/etc
@@ -247,6 +248,7 @@ makeinstall_init() {
     chmod 755 $INSTALL/platform_init
   fi
 
+  cp $PKG_DIR/scripts/functions $INSTALL
   cp $PKG_DIR/scripts/init $INSTALL
   chmod 755 $INSTALL/init
 }
