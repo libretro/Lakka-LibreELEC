@@ -49,11 +49,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-docs \
                            --without-kernel-modules \
                            --with-sysroot=$SYSROOT_PREFIX"
 
-unpack() {
-  # ugly
-  $SCRIPTS/extract $PKG_NAME "$PKG_VERSION.tar.gz" $BUILD
+post_unpack() {
   mv $PKG_BUILD/$PKG_NAME/* $PKG_BUILD/
-  rm -r $PKG_BUILD/$PKG_NAME
 }
 
 pre_configure_target() {
