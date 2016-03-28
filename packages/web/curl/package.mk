@@ -25,7 +25,7 @@
 #   there: http://forum.xbmc.org/showthread.php?tid=177557
 
 PKG_NAME="curl"
-PKG_VERSION="7.47.1"
+PKG_VERSION="7.48.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
