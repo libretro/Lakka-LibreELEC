@@ -208,7 +208,7 @@ if [ ! "$KODIPLAYER_DRIVER" = default ]; then
   fi
 fi
 
-if [ "$VDPAU_SUPPORT" = yes ]; then
+if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   KODI_VDPAU="--enable-vdpau"
 else
