@@ -42,7 +42,7 @@ else
   FFMPEG_VAAPI="--disable-vaapi"
 fi
 
-if [ "$VDPAU_SUPPORT" = yes ]; then
+if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   FFMPEG_VDPAU="--enable-vdpau"
 else
