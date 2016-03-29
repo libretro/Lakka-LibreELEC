@@ -16,33 +16,34 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="tinyxml2"
-PKG_VERSION="1.0.12"
+PKG_NAME="visualization.shadertoy"
+PKG_VERSION="f998800"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="zlib"
-PKG_SITE="http://www.grinninglizard.com/tinyxml2/index.html"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_LICENSE="GPL"
+PKG_SITE="https://github.com/notspiff/visualization.shadertoy"
+PKG_GIT_URL="https://github.com/notspiff/visualization.shadertoy"
+PKG_GIT_BRANCH="master"
+PKG_DEPENDS_TARGET="toolchain kodi-platform $OPENGL glew"
 PKG_PRIORITY="optional"
-PKG_SECTION="textproc"
-PKG_SHORTDESC="tinyxml2: XML parser library"
-PKG_LONGDESC="TinyXML2 is a simple, small, C++ XML parser that can be easily integrating into other programs."
-
-PKG_IS_ADDON="no"
+PKG_SECTION=""
+PKG_SHORTDESC="visualization.shadertoy"
+PKG_LONGDESC="visualization.shadertoy"
 PKG_AUTORECONF="no"
 
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fPIC"
-}
+PKG_IS_ADDON="yes"
+PKG_ADDON_TYPE="xbmc.player.musicviz"
 
 configure_target() {
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DBUILD_SHARED_LIBS=off \
+        -DCMAKE_MODULE_PATH=$SYSROOT_PREFIX/usr/lib/kodi \
+        -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
         ..
 }
 
-post_makeinstall_target() {
-  rm -rf $INSTALL/usr
+addon() {
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/
+  cp -PR $PKG_BUILD/.install_pkg/usr/share/kodi/addons/$PKG_NAME/* $ADDON_BUILD/$PKG_ADDON_ID/
+  cp -PL $PKG_BUILD/.install_pkg/usr/lib/kodi/addons/$PKG_NAME/*.so $ADDON_BUILD/$PKG_ADDON_ID/
 }

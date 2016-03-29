@@ -19,7 +19,7 @@
 PKG_NAME="visualization.vsxu"
 PKG_VERSION="990332f"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/notspiff/visualization.vsxu"
 PKG_URL="https://github.com/notspiff/visualization.vsxu/archive/$PKG_VERSION.tar.gz"
@@ -32,17 +32,6 @@ PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.player.musicviz"
-
-if [ "$OPENGL" = "no" ] ; then
-  exit 0
-fi
-
-# dont build and upload for repos for now
-# TODO fix
-# undefined symbol: mt_32_to_double
-# vis.vsxu also not linked against libGL ?
-
-exit 0
 
 configure_target() {
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
