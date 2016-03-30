@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="libinput"
-PKG_VERSION="1.2.1"
+PKG_VERSION="1.2.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/libinput/"
 PKG_URL="http://www.freedesktop.org/software/libinput/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain libevdev mtdev"
+PKG_DEPENDS_TARGET="toolchain systemd libevdev mtdev"
 PKG_PRIORITY="optional"
 PKG_SECTION="wayland"
 PKG_SHORTDESC="libinput is a library to handle input devices in Wayland compositors and to provide a generic X.Org input driver."

@@ -37,6 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
                            --disable-mdi \
                            --enable-cxx \
+                           --with-gl=no \
                            --with-jpeg-lib-dir=$SYSROOT_PREFIX/usr/lib \
                            --with-jpeg-include-dir=$SYSROOT_PREFIX/usr/include \
                            --without-x"

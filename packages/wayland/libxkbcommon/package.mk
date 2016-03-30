@@ -16,26 +16,25 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="debug"
-PKG_VERSION=""
+PKG_NAME="libxkbcommon"
+PKG_VERSION="0.6.0"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="http://www.openelec.tv"
-PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain gdb"
+PKG_LICENSE="OSS"
+PKG_SITE="http://xkbcommon.org"
+PKG_URL="http://xkbcommon.org/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="debug: Metapackage for installing debugging tools"
-PKG_LONGDESC="debug is a Metapackage for installing debugging tools"
+PKG_SECTION="wayland"
+PKG_SHORTDESC="xkbcommon: a library to handle keyboard descriptions"
+PKG_LONGDESC="xkbcommon is a library to handle keyboard descriptions, including loading them from disk, parsing them and handling their state. It's mainly meant for client toolkits, window systems, and other system applications; currently that includes Wayland, kmscon, GTK+, Qt, Clutter, and more. It is also used by some XCB applications for proper keyboard support."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
-# configure GPU drivers and dependencies:
-  get_graphicdrivers
-
-if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET vdpauinfo"
+if [ "$DISPLAYSERVER" = "x11" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xkeyboard-config"
+  PKG_CONFIGURE_OPTS_TARGET="--enable-x11"
+else
+  PKG_CONFIGURE_OPTS_TARGET="--disable-x11"
 fi
-
