@@ -27,7 +27,11 @@
   OE_TMP=$(mktemp -d)
   SAVE_ERROR="$OE_TMP/save_error"
 
-  SYSTEM_SIZE=512
+  if [ -z "$SYSTEM_SIZE" -o -z "$SYSTEM_PART_START" ]; then
+    echo "mkimage: SYSTEM_SIZE and SYSTEM_PART_START must be configured!"
+    exit 1
+  fi
+
   STORAGE_SIZE=32 # STORAGE_SIZE must be >= 32 !
 
   DISK_SIZE=$(( $SYSTEM_SIZE + $STORAGE_SIZE + 4 ))
@@ -74,8 +78,8 @@ trap cleanup SIGINT
 
 # create part1
   echo "image: creating part1..."
-  SYSTEM_PART_END=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 + 2048 ))
-  parted -s "$DISK" -a min unit s mkpart primary fat32 2048 $SYSTEM_PART_END
+  SYSTEM_PART_END=$(( ($SYSTEM_SIZE * 1024 * 1024 / 512) + $SYSTEM_PART_START ))
+  parted -s "$DISK" -a min unit s mkpart primary fat32 $SYSTEM_PART_START $SYSTEM_PART_END
   if [ "$BOOTLOADER" = "syslinux" ]; then
     parted -s "$DISK" set 1 legacy_boot on
   else
@@ -100,7 +104,7 @@ fi
 
 # create filesystem on part1
   echo "image: creating filesystem on part1..."
-  OFFSET=$(( 2048 * 512 ))
+  OFFSET=$(( $SYSTEM_PART_START * 512 ))
   HEADS=4
   TRACKS=32
   SECTORS=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 / $HEADS / $TRACKS ))
