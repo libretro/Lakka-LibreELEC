@@ -1,0 +1,67 @@
+From fd627f6435db524f3e1fd8df6f64a17dcda5c8b9 Mon Sep 17 00:00:00 2001
+From: Hendrik Leppkes <h.leppkes@gmail.com>
+Date: Fri, 26 Feb 2016 00:23:53 +0100
+Subject: [PATCH] h264_parser: fix parsing of mvc slices in some corner cases
+
+---
+ libavcodec/h264.h        |  2 +-
+ libavcodec/h264_parser.c | 10 +++++-----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/h264.h b/libavcodec/h264.h
+index 9e1d377..846e4dc 100644
+--- a/libavcodec/h264.h
++++ b/libavcodec/h264.h
+@@ -828,7 +828,7 @@ typedef struct H264Context {
+     int cur_bit_depth_luma;
+     int16_t slice_row[MAX_SLICES]; ///< to detect when MAX_SLICES is too low
+ 
+-    uint8_t parse_history[6];
++    uint8_t parse_history[9];
+     int parse_history_count;
+     int parse_last_mb;
+ 
+diff --git a/libavcodec/h264_parser.c b/libavcodec/h264_parser.c
+index 4337c8c..2fd3f2b 100644
+--- a/libavcodec/h264_parser.c
++++ b/libavcodec/h264_parser.c
+@@ -39,6 +39,7 @@ typedef struct H264ParseContext {
+     ParseContext pc;
+     int got_first;
+     int is_mvc;
++    int slice_ext;
+ } H264ParseContext;
+ 
+ 
+@@ -97,18 +98,17 @@ static int h264_find_frame_end(H264ParseContext *p, const uint8_t *buf,
+                        nalu_type == NAL_IDR_SLICE || (p->is_mvc && nalu_type == NAL_SLICE_EXT)) {
+                 state += 8;
+ 
+-                if (nalu_type == NAL_SLICE_EXT)
+-                    i += 3; // skip mvc extension
++                p->slice_ext = (nalu_type == NAL_SLICE_EXT);
+                 continue;
+             }
+             state = 7;
+         } else {
+             h->parse_history[h->parse_history_count++]= buf[i];
+-            if (h->parse_history_count>5) {
++            if (h->parse_history_count>8) {
+                 unsigned int mb, last_mb= h->parse_last_mb;
+                 GetBitContext gb;
+ 
+-                init_get_bits(&gb, h->parse_history, 8*h->parse_history_count);
++                init_get_bits8(&gb, h->parse_history + 3*p->slice_ext, h->parse_history_count - 3*p->slice_ext);
+                 h->parse_history_count=0;
+                 mb= get_ue_golomb_long(&gb);
+                 h->parse_last_mb= mb;
+@@ -131,7 +131,7 @@ static int h264_find_frame_end(H264ParseContext *p, const uint8_t *buf,
+     pc->frame_start_found = 0;
+     if (h->is_avc)
+         return next_avc;
+-    return i - (state & 5) - 5 * (state > 7);
++    return i - (state & 5) - 8 * (state > 7);
+ }
+ 
+ static int scan_mmco_reset(AVCodecParserContext *s)
+
