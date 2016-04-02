@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain libusb"
 PKG_PRIORITY="optional"
 PKG_SECTION="service/multimedia"
 PKG_SHORTDESC="boblightd: an ambilight controller."
-PKG_LONGDESC="Boblight's main purpose is to create light effects from an external input, such as a video stream.\n\nSee this thread on the Openelec forums for howto and demonstration: http://bit.ly/oe-boblight"
+PKG_LONGDESC="Boblight's main purpose is to create light effects from an external input, such as a video stream."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.service"
