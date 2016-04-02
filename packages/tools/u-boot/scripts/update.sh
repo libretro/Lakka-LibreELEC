@@ -58,7 +58,7 @@ fi
       # access boot partition 1
       echo 0 > /sys/block/mmcblk0boot0/force_ro
       # write u-boot to eMMC
-      dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot-$SYSTEM_TYPE.imx of=/dev/mmcblk0boot0 bs=1k seek=1 conv=fsync
+      dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot-$SYSTEM_TYPE.imx of=/dev/mmcblk0boot0 bs=1k seek=1 conv=fsync &>/dev/null
       # re-enable read-only access
       echo 1 > /sys/block/mmcblk0boot0/force_ro
       # enable boot partion 1 to boot
@@ -80,7 +80,7 @@ fi
 
     if [ -f $SYSTEM_ROOT/usr/share/bootloader/$SPL_SRC ]; then
       echo "*** updating u-boot SPL Blob on: $BOOT_DISK ..."
-      dd if="$SYSTEM_ROOT/usr/share/bootloader/$SPL_SRC" of="$BOOT_DISK" bs=1k seek=1 conv=fsync
+      dd if="$SYSTEM_ROOT/usr/share/bootloader/$SPL_SRC" of="$BOOT_DISK" bs=1k seek=1 conv=fsync &>/dev/null
     fi
   fi
 
