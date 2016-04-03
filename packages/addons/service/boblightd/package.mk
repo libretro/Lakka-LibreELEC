@@ -30,12 +30,10 @@ PKG_SHORTDESC="boblightd: an ambilight controller."
 PKG_LONGDESC="Boblight's main purpose is to create light effects from an external input, such as a video stream."
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_PROVIDES=""
 PKG_ADDON_NAME="Boblight"
-PKG_ADDON_REPOVERSION="7.0"
-
+PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="yes"
+PKG_ADDON_REPOVERSION="7.0"
 
 if [ "$DISPLAYSERVER" = "x11" ] ; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libXrender"

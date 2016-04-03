@@ -17,14 +17,14 @@
 ################################################################################
 
 PKG_NAME="tvheadend"
-PKG_VERSION="7f3fb87"
+PKG_VERSION="ac9e47d"
 PKG_VERSION_NUMBER="4.0.9"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain curl libdvbcsa libressl Python:host"
+PKG_DEPENDS_TARGET="toolchain curl libdvbcsa libiconv libressl Python:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="Tvheadend (Version: $PKG_VERSION_NUMBER): is a TV streaming server for Linux."
