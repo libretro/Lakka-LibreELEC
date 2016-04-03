@@ -1,0 +1,35 @@
+--- a/drivers/of/fdt.c	2016-01-17 14:32:52.792880390 +0100
++++ b/drivers/of/fdt.c	2016-01-17 14:34:00.170297953 +0100
+@@ -934,6 +934,7 @@
+ {
+ 	int l;
+ 	const char *p;
++	char tmp_command_line[COMMAND_LINE_SIZE] = CONFIG_CMDLINE;
+ 
+ 	pr_debug("search \"chosen\", depth: %d, uname: %s\n", depth, uname);
+ 
+@@ -952,12 +953,23 @@
+ 	 * CONFIG_CMDLINE is meant to be a default in case nothing else
+ 	 * managed to set the command line, unless CONFIG_CMDLINE_FORCE
+ 	 * is set in which case we override whatever was found earlier.
++	 *
++	 * But we do prepend CONFIG_CMDLINE to bootloader arguments anyway.
+ 	 */
+ #ifdef CONFIG_CMDLINE
+ #ifndef CONFIG_CMDLINE_FORCE
+ 	if (!((char *)data)[0])
+-#endif
+ 		strlcpy(data, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
++	else {
++		/* append bootloader arguments to CONFIG_CMDLINE */
++		strlcat(tmp_command_line, " ", COMMAND_LINE_SIZE);
++		strlcat(tmp_command_line, data, COMMAND_LINE_SIZE);
++		/* copy everything back */
++		strlcpy(data, tmp_command_line, COMMAND_LINE_SIZE);		
++	}
++#else
++	strlcpy(data, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
++#endif /* CONFIG_CMDLINE_FORCE */
+ #endif /* CONFIG_CMDLINE */
+ 
+ 	pr_debug("Command line is: %s\n", (char*)data);
