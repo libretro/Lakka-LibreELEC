@@ -1,0 +1,63 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of LibreELEC - https://LibreELEC.tv
+#      Copyright (C) 2016 Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. /etc/profile
+
+oe_setup_addon service.softcam.oscam
+
+mkdir -p $ADDON_HOME/config
+mkdir -p $ADDON_HOME/log
+
+for config_name in \
+  oscam.ac oscam.cert oscam.dvbapi oscam.guess oscam.ird oscam.provid \
+  oscam.server oscam.services oscam.srvid oscam.tiers oscam.user
+do
+  [ ! -f $ADDON_HOME/config/$config_name ] && touch $ADDON_HOME/config/$config_name
+done
+
+if [ ! -f "$ADDON_HOME/config/oscam.conf" ]; then
+  cp $ADDON_DIR/oscam-default.conf $ADDON_HOME/config/oscam.conf
+fi
+
+find $ADDON_DIR/bin -maxdepth 1 -type f ! -perm 0755 -exec chmod 0755 \{\} \;
+
+if [ "$WORKAROUND_SLEEP" == "true" ] ; then
+  sleep $WORKAROUND_SLEEP_TIME
+fi
+
+# start userspace DVB driver/addon
+for driver_dvb in $(find /storage/.kodi/addons/driver.dvb.*/bin/userspace-driver.sh -type f 2>/dev/null); do
+  driver_dvb_name=$(echo $driver_dvb | awk 'BEGIN {FS="/"} {printf("%s", $5)}')
+  logger -t OSCAM "### Loading userspace DVB driver: $driver_dvb_name ###"
+  # use ". " because of variable export
+  . $driver_dvb
+done
+
+if [ "$WAIT_FOR_FEINIT" == "true" ] ; then
+  while [ true ] ; do
+    if [ -e /dev/dvb/adapter$((NUM_ADAPTERS-1))/frontend0 ] ; then
+      break
+    fi
+    sleep 1
+  done
+fi
+
+exec oscam -c $ADDON_HOME/config > /dev/null 2>&1
+
