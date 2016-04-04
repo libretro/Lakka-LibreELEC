@@ -48,7 +48,7 @@ case "$LINUX" in
     PKG_SOURCE_DIR="$PKG_NAME-$PKG_VERSION-$PKG_COMMIT"
     PKG_SOURCE_NAME="$PKG_SOURCE_DIR.tar.xz"
     PKG_URL="$DISTRO_SRC/$PKG_SOURCE_NAME"
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan"
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan irqbalanced"
     ;;
   *)
     PKG_VERSION="4.4.6"
