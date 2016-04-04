@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="script.config.vdr"
-PKG_VERSION="1.0.8"
-PKG_REV="100"
+PKG_VERSION="1.1.0"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.libreelec.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/LibreELEC/script.config.vdr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET=""
 PKG_PRIORITY="optional"
 PKG_SECTION=""
@@ -31,10 +31,8 @@ PKG_LONGDESC="script.config.vdr"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
-PKG_ADDON_PROVIDES=""
-PKG_ADDON_REPOVERSION="7.0"
-
 PKG_AUTORECONF="no"
+PKG_ADDON_REPOVERSION="7.0"
 
 make_target() {
   : # nothing to do here
