@@ -18,20 +18,19 @@
 
 PKG_NAME="hyperion"
 PKG_VERSION="f64b6eb"
-PKG_REV="0"
+PKG_REV="100"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/tvdzwan/hyperion"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain Python libusb qt"
 PKG_SECTION="service"
-PKG_SHORTDESC="hyperion: an ambilight controller"
-PKG_LONGDESC="$PKG_NAME-$PKG_VERSION\nHyperion is an opensource 'AmbiLight' implementation"
+PKG_SHORTDESC="Hyperion: an AmbiLight controller"
+PKG_LONGDESC="Hyperion($PKG_VERSION) is an modern opensource AmbiLight implementation."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Hyperion"
 PKG_ADDON_TYPE="xbmc.service"
-
-PKG_MAINTAINER="Lukas Rusak (lrusak@libreelec.tv)"
+PKG_ADDON_REPOVERSION="7.0"
 
 AMLOGIC_SUPPORT="-DENABLE_AMLOGIC=0"
 DISPMANX_SUPPORT="-DENABLE_DISPMANX=0"
