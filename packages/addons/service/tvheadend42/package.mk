@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="a4afbee"
-PKG_VERSION_NUMBER="4.1.1832"
+PKG_VERSION="616413f"
+PKG_VERSION_NUMBER="4.1.1892"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -37,6 +37,14 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="no"
 PKG_ADDON_REPOVERSION="7.0"
 
+# transcoding only for generic
+if [ "$TARGET_ARCH" = x86_64 ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-intel-driver"
+  TVH_TRANSCODING="--enable-ffmpeg_static --enable-libav --enable-libfdkaac --disable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --disable-qsv"
+else
+  TVH_TRANSCODING="--disable-ffmpeg_static --disable-libav"
+fi
+
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --arch=$TARGET_ARCH \
                            --cpu=$TARGET_CPU \
@@ -52,8 +60,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --enable-inotify \
                            --disable-nvenc \
                            --disable-uriparser \
-                           --disable-libav \
-                           --disable-ffmpeg_static \
+                           $TVH_TRANSCODING \
                            --enable-tvhcsa \
                            --nowerror \
                            --python=$ROOT/$TOOLCHAIN/bin/python"
@@ -67,9 +74,21 @@ pre_configure_target() {
   cd $ROOT/$PKG_BUILD
   rm -rf .$TARGET_NAME
 
+# transcoding
+  if [ "$TARGET_ARCH" = x86_64 ]; then
+    export AS=$ROOT/$TOOLCHAIN/bin/yasm
+  fi
+
   export CROSS_COMPILE=$TARGET_PREFIX
   export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/iconv -L$SYSROOT_PREFIX/usr/lib/iconv"
 }
+
+# transcoding link tvheadend with g++
+if [ "$TARGET_ARCH" = x86_64 ]; then
+  pre_make_target() {
+    export CXX=$TARGET_CXX
+  }
+fi
 
 post_make_target() {
   $CC -O -fbuiltin -fomit-frame-pointer -fPIC -shared -o capmt_ca.so src/extra/capmt_ca.c -ldl
