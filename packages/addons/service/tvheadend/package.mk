@@ -44,6 +44,7 @@ pre_build_target() {
   mkdir -p $PKG_BUILD/.$TARGET_NAME
   cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
   export CROSS_COMPILE=$TARGET_PREFIX
+  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/iconv -L$SYSROOT_PREFIX/usr/lib/iconv"
 }
 
 configure_target() {
