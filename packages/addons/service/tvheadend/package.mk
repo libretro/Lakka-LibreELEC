@@ -36,34 +36,34 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="no"
 PKG_ADDON_REPOVERSION="7.0"
 
+PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
+                           --arch=$TARGET_ARCH \
+                           --cpu=$TARGET_CPU \
+                           --cc=$TARGET_CC \
+                           --enable-hdhomerun_client \
+                           --enable-hdhomerun_static \
+                           --disable-avahi \
+                           --disable-libav \
+                           --enable-inotify \
+                           --enable-epoll \
+                           --disable-uriparser \
+                           --enable-tvhcsa \
+                           --enable-bundle \
+                           --enable-dvbcsa \
+                           --disable-dbus_1 \
+                           --python=$ROOT/$TOOLCHAIN/bin/python"
+
 post_unpack() {
   sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$PKG_ADDON_REPOVERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
 }
 
-pre_build_target() {
-  mkdir -p $PKG_BUILD/.$TARGET_NAME
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
+pre_configure_target() {
+# fails to build in subdirs
+  cd $ROOT/$PKG_BUILD
+  rm -rf .$TARGET_NAME
+
   export CROSS_COMPILE=$TARGET_PREFIX
   export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/iconv -L$SYSROOT_PREFIX/usr/lib/iconv"
-}
-
-configure_target() {
-  ./configure --prefix=/usr \
-            --arch=$TARGET_ARCH \
-            --cpu=$TARGET_CPU \
-            --cc=$TARGET_CC \
-            --enable-hdhomerun_client \
-            --enable-hdhomerun_static \
-            --disable-avahi \
-            --disable-libav \
-            --enable-inotify \
-            --enable-epoll \
-            --disable-uriparser \
-            --enable-tvhcsa \
-            --enable-bundle \
-            --enable-dvbcsa \
-            --disable-dbus_1 \
-            --python=$ROOT/$TOOLCHAIN/bin/python
 }
 
 post_make_target() {
