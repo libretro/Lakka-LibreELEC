@@ -36,7 +36,7 @@ PKG_AUTORECONF="no"
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
   export CXXFLAGS="$CXXFLAGS -fPIC"
-  export LDFLAGS="$LDFLAGS -fPIC"
+  export LDFLAGS="$LDFLAGS -fPIC -L$SYSROOT_PREFIX/usr/lib/iconv"
 }
 
 pre_make_target() {
