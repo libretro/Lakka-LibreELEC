@@ -35,6 +35,8 @@ PKG_AUTORECONF="no"
 PKG_CONFIGURE_OPTS_TARGET="--host=$TARGET_NAME \
             --build=$HOST_NAME \
             --prefix=/usr \
+            --includedir=/usr/include/iconv \
+            --libdir=/usr/lib/iconv \
             --sysconfdir=/etc \
             --enable-static \
             --disable-shared \
