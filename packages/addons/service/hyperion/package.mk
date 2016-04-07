@@ -18,7 +18,7 @@
 
 PKG_NAME="hyperion"
 PKG_VERSION="f64b6eb"
-PKG_REV="100"
+PKG_REV="101"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/tvdzwan/hyperion"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
