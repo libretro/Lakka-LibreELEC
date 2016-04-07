@@ -72,7 +72,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-gles1 \
                            --disable-gles2 \
                            --enable-dri \
-                           --disable-dri3 \
+                           --enable-dri3 \
                            --enable-glx \
                            --disable-osmesa \
                            --disable-gallium-osmesa \
@@ -101,6 +101,10 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --with-gallium-drivers=$GALLIUM_DRIVERS \
                            --with-dri-drivers=$DRI_DRIVERS \
                            --with-sysroot=$SYSROOT_PREFIX"
+
+pre_configure_target() {
+  export LIBS="-lxcb-dri3 -lxcb-present -lxcb-sync -lxshmfence"
+}
 
 post_makeinstall_target() {
   # rename and relink for cooperate with nvidia drivers
