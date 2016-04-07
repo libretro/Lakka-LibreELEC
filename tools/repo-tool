@@ -1,0 +1,152 @@
+#!/bin/bash
+
+################################################################################
+#      This file is part of LibreELEC - http://www.libreelec.tv
+#      Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+. config/options
+
+update_addons_xml() {
+  echo "[*] cleanup addons ..."
+  olddir=""
+  find target/addons/$ADDON_VERSION -iname 'changelog*.txt' | sort -rV | while read line ; do
+    dir=$(dirname $line)
+    if [ "$olddir" = "$dir" ] ; then
+      rm -f $line
+    fi
+    olddir=$dir
+  done
+
+  olddir=""
+  find target/addons/$ADDON_VERSION -iname '*.zip' | sort -rV | while read line ; do
+    dir=$(dirname $line)
+    if [ "$olddir" = "$dir" ] ; then
+      rm -f $line
+    fi
+    olddir=$dir
+  done
+
+  echo "[*] updating addons.xml* ..."
+  rm -rf .addons
+  pwd=`pwd`
+  find target/addons/$ADDON_VERSION -iname addons.xml | while read line ; do
+    localdir=`echo $line | sed s/addons.xml//g`
+    echo " [*] updating $line..."
+    echo '<?xml version="1.0" encoding="UTF-8"?>
+<addons>
+' > $line.tmp
+    for zip in $localdir/*/*.zip ; do
+      mkdir -p ".addons/$localdir"
+      unzip $zip "*/addon.xml" -d ".addons/$localdir" &>/dev/null
+    done
+    find .addons/$localdir -iname addon.xml | grep -v resources/ | while read xml ; do
+      cat $xml | grep -v "<?" >> $line.tmp
+    done
+    echo '
+</addons>' >> $line.tmp
+    mv $line.tmp $line
+    cd $localdir
+
+    md5sum addons.xml > addons.xml.md5
+    cd $pwd
+  done
+  rm -rf .addons
+}
+
+touch_addons_xml() {
+  for PROJECT in Generic RPi2 WeTek_Play; do
+    for archfile in projects/$PROJECT/linux/linux.*.conf ; do
+      ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
+      if [ ! -d target/addons/$ADDON_VERSION/$PROJECT/$ARCH ]; then
+        break
+      fi
+      if [ ! -f target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml ]; then
+        touch target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml
+      fi
+    done
+  done
+}
+
+upload() {
+  if [ -f .work/repoconfig ] ; then
+    . .work/repoconfig
+  fi
+  if [ -z "$RSYNC_REPO" ] ; then
+    echo "*** ERROR: \$RSYNC_REPO not set. see .work/repoconfig ***"
+    exit 0
+  fi
+  touch_addons_xml
+  update_addons_xml
+  rsync -av --progress --delete target/addons/$ADDON_VERSION $RSYNC_REPO
+}
+
+build() {
+  for PROJECT in $(ls -1 projects); do
+    for archfile in projects/$PROJECT/linux/linux.*.conf ; do
+      ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
+      for package in $(find $1* -iname package.mk) ; do
+        (
+        . $package
+        if [ "$PKG_IS_ADDON" = "yes" ] ; then
+          ADDON=$PKG_NAME
+          PROJECT=$PROJECT ARCH=$ARCH ./scripts/create_addon $ADDON
+        fi
+        )
+      done
+    done
+  done
+}
+
+update_revision() {
+  for package in $(find $1 -iname package.mk) ; do
+    (
+    . $package
+    if [ "$PKG_IS_ADDON" = "yes" ] ; then
+      sed -i -e "s|PKG_REV=.*|PKG_REV=\"$((PKG_REV+1))\"|" $package
+    fi
+    )
+  done
+}
+
+usage() {
+  echo "  usage: $0 -u                                to upload"
+  echo "         $0 -b  [binary|official|unofficial]  to build"
+  echo "         $0 -ru [official|unofficial]         to update PKG_REV"
+  echo "         $0 -xml                              to update the addons.xml"
+}
+
+repo="packages/mediacenter/kodi-binary-addons/game.libretro."
+
+case $1 in
+  -b)
+    build $repo
+    ;;
+  -u)
+    upload
+    ;;
+  -ru)
+    update_revision $repo
+    ;;
+  -xml)
+    touch_addons_xml
+    update_addons_xml
+    ;;
+  *)
+    usage
+    ;;
+esac
+

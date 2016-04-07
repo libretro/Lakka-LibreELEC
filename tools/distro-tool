@@ -1,0 +1,383 @@
+#!/bin/bash
+################################################################################
+#      This file is part of LibreELEC - http://www.libreelec.tv
+#      Copyright (C) 2009-2016 Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+set -e
+
+LIBREELEC_DIR=$HOME/LibreELEC.tv
+TARGET_DIR=/var/www/sources
+DOWNLOAD_DIR=$HOME/download
+REVISION=
+PACKAGE=
+DRYRUN=no
+IGNORE_ERRORS=no
+DOGIT=no
+PROGRESS=yes
+ISMIRROR=yes
+VERBOSE=no
+
+[ -z "${PROJECT}" ] && PROJECT=Generic
+[ -z "${ARCH}" ]    && ARCH=x86_64
+
+if command -v tput >/dev/null; then
+  TXRED="$(tput setaf 1 bold)"
+  TXGREEN="$(tput setaf 2 bold)"
+  TXYELLOW="$(tput setaf 3 bold)"
+  TXBLUE="$(tput setaf 4 bold)"
+  TXMAGENTA="$(tput setaf 5 bold)"
+  TXCYAN="$(tput setaf 6 bold)"
+  TXRESET="$(tput sgr0)"
+fi
+
+help() {
+  [ -n "$1" ] && echo -e "ERROR: Unknown argument [$1]\n"
+  cat <<EOF
+Usage: $(basename $0) -d|--download <path> [-t|--target <path>] [-l|--libreelec <path>]
+           [-m|--mirror] [-s|--source] [-a|-all] [-p|--package <package_name> [-r|--revision <revision>]]
+          [--git] [--dry-run] [--noprogress] [-v|--verbose] [-h|--help]
+
+Options:
+  -d, --download:   Directory path into which new package files will be downloaded - default is $HOME/download[1]
+  -t, --target:     Directory path for existing packages that are to be refreshed, default is /var/www/sources[2]
+  -l, --libreelec:  LibreELEC.tv repo, default is ${HOME}/LibreELEC.tv
+  -m, --mirror:     Target is mirror not source - mirror uses a hierarchical per-package folder structure
+  -s, --source:     Target is source not mirror - source uses a flattened file structure. Default is mirror
+  -a, --all:        Ignore download failures, continue processing all packages
+  -p, --package:    Package to process, otherwise process all packages
+  -r, --revision:   Version to use in place of PKG_VERSION, only applicable in conjunction with -p
+      --git:        Clone (if not available) or pull the LibreELEC.tv repository
+      --dry-run:    Don't actually download anything (will still git clone/pull if configured)
+      --noprogress: Do not show progress indicator
+  -v, --verbose:    Output more verbose sync information
+  -h, --help:      This message
+
+  Note#1. The download directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
+  Note#2. The target directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
+EOF
+}
+
+get_libreelec_branch() {
+  cd $LIBREELEC_DIR
+  git rev-parse --abbrev-ref HEAD
+}
+
+# 1: LibreELEC variable, eg. LIBREELEC_VERSION
+get_libreelec_option() {
+  local variable="$1"
+  cd $LIBREELEC_DIR
+  . config/options
+  echo "${!variable}"
+}
+
+# 1: name of package
+# 2: package variable, eg. PKG_URL
+get_pkg_option() {
+  local package="$1" variable="$2"
+  cd $LIBREELEC_DIR
+  . config/options ${package} 2>/dev/null
+  echo "${!variable}"
+}
+
+# Return success if the specified package is not found locally
+need_package() {
+  local package_name="$1"
+  local package_source="$2"
+
+  if [ ${ISMIRROR} == no ]; then
+    [ -f ${TARGET_DIR}/${package_source} ] && return 1
+    [ -f ${DOWNLOAD_DIR}/${package_source} ] && return 1
+  else
+    [ -f ${TARGET_DIR}/${package_name}/${package_source} ] && return 1
+    [ -f ${DOWNLOAD_DIR}/${package_name}/${package_source} ] && return 1
+  fi
+
+  return 0
+}
+
+remote_file_exists() {
+  [ "$(curl -sfIL --connect-timeout 15 --retry 3  -w "%{http_code}" -o /dev/null ${1} 2>/dev/null)" == "404" ] && return 1 || return 0
+}
+
+download_file() {
+  local url="$1"
+  local retries=10
+  local attempts=0
+
+  while [ ${attempts} -lt ${retries} ]; do
+    attempts=$((attempts + 1))
+    wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -O ${DOWNLOAD_DIR}/.tmp ${url} 2>/tmp/sync.log && return 0
+  done
+  return 1
+}
+
+# Download the specified package
+getkpkg() {
+  local package_name="$1"
+  local package_source="$2"
+  local package_url="$3"
+  local result
+  local onsource=no onmirror=no
+
+  [ -n "${package_url}" ] || return 0
+
+  remote_file_exists ${package_url} && onsource=yes
+  if [ ${onsource} == no ]; then
+    remote_file_exists ${DISTRO_MIRROR}/${package_name}/${package_source} && onmirror=yes
+  fi
+
+  # If the PKG_URL is the DISTRO_SRC server...
+  if [[ ${package_url} =~ ^${DISTRO_SOURCE}.* ]]; then
+    # Warn the user if package is not found on either source or mirror
+    if [ ${onsource} == no -a ${onmirror} == no ]; then
+      echo "${LINE_PREFIX}${TXMAGENTA}PACKAGE UPDATE OR MKPKG REQUIRED?${TXRESET}: Unable to download ${package_name} from url ${package_url} (and not on mirror)" >&2
+      return 0
+    fi
+  fi
+
+  if [ ${DRYRUN} == yes ]; then
+    echo -n "${LINE_PREFIX}Downloading package: ${package_name} (${package_source})..."
+    [ ${onsource} == yes -o ${onmirror} == yes ] && echo -n " ${TXGREEN}AVAILABLE${TXRESET}" || echo -n " ${TXRED}NOT AVAILABLE${TXRESET} ${package_url}"
+    [ ${onsource} == no  -a ${onmirror} == yes ] && echo " ${TXYELLOW}(found on mirror)${TXRESET}" || echo
+    return 0
+  fi
+
+  rm -f ${DOWNLOAD_DIR}/.tmp /tmp/sync.log
+
+  echo -n "${LINE_PREFIX}Downloading package: ${package_name} (${package_source})..."
+
+  if [ ${onsource} == yes ]; then
+    download_file ${package_url} && result=0 || result=1
+  elif [ ${onmirror} == yes ]; then
+    download_file ${DISTRO_MIRROR}/${package_name}/${package_source} && result=0 || result=1
+  else
+    result=1
+  fi
+
+  if [ ${result} -ne 0 -o ! -s ${DOWNLOAD_DIR}/.tmp ]; then
+    echo " ${TXRED}FAILED!!${TXRESET}"
+    [ -f /tmp/sync.log ] && cat /tmp/sync.log >&2
+    rm -f ${DOWNLOAD_DIR}/.tmp
+  else
+    echo " ${TXGREEN}OK${TXRESET}"
+    if [ ${ISMIRROR} == yes ]; then
+      mkdir -p ${DOWNLOAD_DIR}/${package_name}
+      mv ${DOWNLOAD_DIR}/.tmp ${DOWNLOAD_DIR}/${package_name}/${package_source}
+    else
+      mv ${DOWNLOAD_DIR}/.tmp ${DOWNLOAD_DIR}/${package_source}
+    fi
+  fi
+
+  [ ${IGNORE_ERRORS} == yes ] && return 0 || return ${result}
+}
+
+check_single_package() {
+  local package_name="$1" revision="$2"
+  local package_dir="$(cd ${LIBREELEC_DIR}; find packages -type d -name ${PACKAGE})"
+
+  if [ -n "${package_dir}" ]; then
+    if [ -f ${LIBREELEC_DIR}/${package_dir}/package.mk ]; then
+      check_package "${package_dir}/package.mk" "${revision}"
+      return 0
+    else
+      echo "ERROR: ${package_name} is not a valid package - package.mk does not exist"
+    fi
+  else
+    echo "ERROR: ${package_name} is not a valid package - directory does not exist"
+  fi
+  return 1
+}
+
+# Download a package if required
+check_package() {
+  local package_file="$1" revision="$2"
+  local package_name="$(basename $(dirname ${package_file}))"
+  local package_source package_url package_ver
+
+  package_source="$(get_pkg_option "${package_name}" PKG_SOURCE_NAME)"
+  if [ -n "${revision}" ]; then
+    package_ver=$(get_pkg_option "${package_name}" PKG_VERSION)
+    package_source="${package_source/${package_ver}/${revision}}"
+  fi
+
+  [ -n "${package_source}" ] || return 0
+
+  if need_package "${package_name}" "${package_source}"; then
+    package_url="$(get_pkg_option "${package_name}" PKG_URL)"
+    if [ -n "${revision}" ]; then
+      package_url="${package_url/${package_ver}/${revision}}"
+    fi
+    getkpkg  "${package_name}" "${package_source}" "${package_url}"
+  else
+    [ ${VERBOSE} == yes ] && echo "${LINE_PREFIX}Already downloaded : ${package_name} (${package_source}) ${TXGREEN}OK${TXRESET}" || true
+  fi
+}
+
+check_exists() {
+  if [ -z "${!1}" ]; then
+    echo "ERROR: ${1} must not be undefined"
+    return 1
+  fi
+
+  [ -d ${!1} ] && return 0
+
+  echo "ERROR: ${1} ${!1} does not exist"
+  return 1
+}
+
+get_abs_path() {
+  echo "$(readlink -f $1)"
+}
+
+get_package_path() {
+  echo "$(basename "$(dirname "$0")") $0"
+}
+
+get_packages() {
+  export -f get_package_path
+  cd $LIBREELEC_DIR
+  find packages -name package.mk -exec bash -c get_package_path "{}" \; | sort -k1 | cut -d' ' -f2-
+}
+
+COUNT=0
+progress() {
+  COUNT=$((COUNT + 1))
+  printf "Working... %3d%%\r" $((COUNT * 100 / $1))
+}
+
+while [ : ]; do
+  [ -z "$1" ] && break
+  case $1 in
+    -d|--download)
+      shift
+      DOWNLOAD_DIR=$1
+      ;;
+    -l|--libreelec)
+      shift
+      LIBREELEC_DIR=$1
+      ;;
+    -t|--target)
+      shift
+      TARGET_DIR=$1
+      ;;
+    -a|--all)
+      IGNORE_ERRORS=yes
+      ;;
+    -p|--package)
+      shift
+      PACKAGE=$1
+      VERBOSE=yes
+      ;;
+    -r|--revision)
+      shift
+      REVISION=$1
+      ;;
+    -m|--mirror)
+      ISMIRROR=yes
+      ;;
+    -s|--source)
+      ISMIRROR=no
+      ;;
+    --dry-run|--dryrun)
+      DRYRUN=yes
+      LINE_PREFIX="**DRY-RUN** "
+      ;;
+    --git)
+      DOGIT=yes
+      ;;
+    -v|--verbose)
+      VERBOSE=yes
+      ;;
+    --noprogress)
+      PROGRESS=no
+      ;;
+    -h|--help)
+      help
+      exit 0
+      ;;
+    *)
+      help "$1"
+      exit 0
+      ;;
+  esac
+  shift
+done
+
+if [ ${DOGIT} == yes ]; then
+  (
+    if [ -d ${LIBREELEC_DIR}/.git ]; then
+      cd ${LIBREELEC_DIR}
+      git pull
+    else
+      mkdir -p $(dirname "${LIBREELEC_DIR}") 2>/dev/null
+      cd $(dirname "${LIBREELEC_DIR}")
+      git clone https://github.com/LibreELEC/LibreELEC.tv.git $(basename "${LIBREELEC_DIR}")
+    fi
+  )
+fi
+
+check_exists LIBREELEC_DIR || exit
+LIBREELEC_DIR="$(get_abs_path "${LIBREELEC_DIR}")"
+
+DISTRO_SOURCE="$(get_libreelec_option DISTRO_SRC)"
+DISTRO_MIRROR="$(get_libreelec_option DISTRO_MIRROR)"
+LIBREELEC_VER="$(get_libreelec_option LIBREELEC_VERSION)"
+
+if [ ${ISMIRROR} == no ]; then
+  TARGET_DIR="$(get_abs_path "${TARGET_DIR}/${LIBREELEC_VER}")"
+else
+  TARGET_DIR="$(get_abs_path "${TARGET_DIR}/mirror")"
+fi
+check_exists TARGET_DIR || exit
+
+if [ ${ISMIRROR} == no ]; then
+  DOWNLOAD_DIR="$(get_abs_path "${DOWNLOAD_DIR}/${LIBREELEC_VER}")"
+else
+  DOWNLOAD_DIR="$(get_abs_path "${DOWNLOAD_DIR}/mirror")"
+fi
+check_exists DOWNLOAD_DIR || exit
+
+if [ -n "${REVISION}" -a -z "${PACKAGE}" ]; then
+  echo "ERROR: A single package must be specified with custom revision"
+  exit 1
+fi
+
+echo
+if [ ${ISMIRROR} == yes ]; then
+  echo "Synchronising LibreELEC.tv (branch: $(get_libreelec_branch), version: ${LIBREELEC_VER}) with MIRROR server ${TARGET_DIR}"
+else
+  echo "Synchronising LibreELEC.tv (branch: $(get_libreelec_branch), version: ${LIBREELEC_VER}) with SOURCE server ${TARGET_DIR}"
+fi
+echo
+echo "Distro Source is: ${DISTRO_SOURCE}"
+echo "Distro Mirror is: ${DISTRO_MIRROR}"
+echo " Syncing against: ${TARGET_DIR}"
+echo "  Downloading to: ${DOWNLOAD_DIR}"
+echo "         Dry run: ${DRYRUN^}"
+echo
+
+[ -z "${NODELAY}" ] && echo -n "Sync starts in 5 seconds..." && sleep 5 && echo -en "\n\n"
+
+if [ -n "${PACKAGE}" ]; then
+  check_single_package "${PACKAGE}" "${REVISION}"
+else
+  packages="$(get_packages)"
+  pcount="$(echo "${packages}" | wc -l)"
+  for package_mk in ${packages}; do
+    [ ${PROGRESS} == yes ] && progress ${pcount}
+    check_package ${package_mk}
+  done
+fi
