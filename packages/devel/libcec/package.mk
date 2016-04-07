@@ -71,5 +71,7 @@ configure_target() {
 }
 
 post_makeinstall_target() {
-  mv $INSTALL/usr/lib/python2.7/dist-packages $INSTALL/usr/lib/python2.7/site-packages
+  if [ -d $INSTALL/usr/lib/python2.7/dist-packages ]; then 
+    mv $INSTALL/usr/lib/python2.7/dist-packages $INSTALL/usr/lib/python2.7/site-packages
+  fi
 }
