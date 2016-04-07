@@ -34,10 +34,10 @@ PKG_AUTORECONF="yes"
 
 post_makeinstall_target() {
 # create new cert: ./mkcerts.sh
-  mkdir -p $INSTALL/$SSL_CERTIFICATES
-    cp $PKG_DIR/cert/ca-bundle.crt $INSTALL/$SSL_CERTIFICATES/cacert.pem
+  mkdir -p $INSTALL/etc/ssl
+    cp $PKG_DIR/cert/ca-bundle.crt $INSTALL/etc/ssl/cacert.pem
   # backwards comatibility
   mkdir -p $INSTALL/etc/pki/tls
-  ln -sf $SSL_CERTIFICATES/cacert.pem $INSTALL/etc/pki/tls/cacert.pem
-  ln -sf $SSL_CERTIFICATES/cacert.pem $INSTALL/etc/ssl/cert.pem
+  ln -sf /etc/ssl/cacert.pem $INSTALL/etc/pki/tls/cacert.pem
+  ln -sf /etc/ssl/cacert.pem $INSTALL/etc/ssl/cert.pem
 }
