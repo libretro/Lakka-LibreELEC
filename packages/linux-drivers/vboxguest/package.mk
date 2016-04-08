@@ -17,13 +17,12 @@
 ################################################################################
 
 PKG_NAME="vboxguest"
-PKG_VERSION="5.0.12"
+PKG_VERSION="5.0.20"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.virtualbox.org"
-PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain linux"
+PKG_DEPENDS_TARGET="toolchain linux xf86-video-virtualbox"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_PRIORITY="optional"
 PKG_SECTION="driver"
@@ -38,10 +37,11 @@ pre_make_target() {
 }
 
 make_target() {
+  cd $(get_build_dir xf86-video-virtualbox)/src/${PKG_NAME}-${PKG_VERSION}/
   make KERN_DIR=$(kernel_path)
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
-    cp *.ko $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
+  cp *.ko $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
 }

@@ -32,7 +32,12 @@ PKG_LONGDESC="LibXdamage provides an X Window System client interface to the DAM
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
+SHARED_SUPPORT="--disable-shared"
+if [ "$PROJECT" = "Virtual" ]; then
+  SHARED_SUPPORT="--enable-shared"
+fi
+
+PKG_CONFIGURE_OPTS_TARGET="--enable-static $SHARED_SUPPORT"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
