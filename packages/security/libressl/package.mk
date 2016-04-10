@@ -31,13 +31,3 @@ PKG_LONGDESC="LibreSSL is a FREE version of the SSL/TLS protocol forked from Ope
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
-
-post_makeinstall_target() {
-# create new cert: ./mkcerts.sh
-  mkdir -p $INSTALL/$SSL_CERTIFICATES
-    cp $PKG_DIR/cert/ca-bundle.crt $INSTALL/$SSL_CERTIFICATES/cacert.pem
-  # backwards comatibility
-  mkdir -p $INSTALL/etc/pki/tls
-  ln -sf $SSL_CERTIFICATES/cacert.pem $INSTALL/etc/pki/tls/cacert.pem
-  ln -sf $SSL_CERTIFICATES/cacert.pem $INSTALL/etc/ssl/cert.pem
-}
