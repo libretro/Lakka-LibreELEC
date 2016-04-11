@@ -55,6 +55,12 @@ for drv in $GRAPHIC_DRIVERS; do
   [ "$drv" = "vmware" ] && XA_CONFIG="--enable-xa"
 done
 
+if [ "$OPENGLES_SUPPORT" = "yes" ]; then
+  MESA_GLES="--enable-gles2"
+else
+  MESA_GLES="--disable-gles2"
+fi
+ 
 PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            CXX_FOR_BUILD=$HOST_CXX \
                            CFLAGS_FOR_BUILD= \
@@ -70,7 +76,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-selinux \
                            --enable-opengl \
                            --disable-gles1 \
-                           --disable-gles2 \
+                           $MESA_GLES \
                            --enable-dri \
                            --enable-dri3 \
                            --enable-glx \
