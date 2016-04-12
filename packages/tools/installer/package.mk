@@ -52,6 +52,7 @@ post_install() {
     fi
     sed -e "s/@SYSTEM_SIZE@/$SYSTEM_SIZE/g" \
         -e "s/@SYSTEM_PART_START@/$SYSTEM_PART_START/g" \
+        -e "s/@EXTLINUX_PARAMETERS@/$EXTLINUX_PARAMETERS/g" \
         -i $INSTALL/etc/installer.conf
 
   enable_service installer.service
