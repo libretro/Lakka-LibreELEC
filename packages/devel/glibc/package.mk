@@ -34,6 +34,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
+                           ac_cv_path_PERL= \
+                           ac_cv_prog_MAKEINFO= \
                            --libexecdir=/usr/lib/glibc \
                            --cache-file=config.cache \
                            --disable-profile \
@@ -97,11 +99,8 @@ pre_configure_target() {
 
   unset LD_LIBRARY_PATH
 
-# set some CFLAGS we need
+  # set some CFLAGS we need
   export CFLAGS="$CFLAGS -g -fno-stack-protector -fgnu89-inline"
-
-# dont build parallel
-  export MAKEFLAGS=-j1
 
   export BUILD_CC=$HOST_CC
   export OBJDUMP_FOR_HOST=objdump
