@@ -45,8 +45,8 @@ makeinstall_target() {
 
     cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
     
-    if [ -f $DISTRO_DIR/config/config.txt ]; then
-      cp -PRv $DISTRO_DIR/config/config.txt $INSTALL/usr/share/bootloader
+    if [ -f $DISTRO_DIR/$DISTRO/config/config.txt ]; then
+      cp -PRv $DISTRO_DIR/$DISTRO/config/config.txt $INSTALL/usr/share/bootloader
     else
       cp -PRv $PKG_DIR/files/3rdparty/bootloader/config.txt $INSTALL/usr/share/bootloader
     fi

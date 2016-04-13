@@ -174,9 +174,9 @@ makeinstall_target() {
     if [ -f $PROJECT_DIR/$PROJECT/config/smb.conf ]; then
       mkdir -p $INSTALL/etc/samba
         cp $PROJECT_DIR/$PROJECT/config/smb.conf $INSTALL/etc/samba
-    elif [ -f $DISTRO_DIR/config/smb.conf ]; then
+    elif [ -f $DISTRO_DIR/$DISTRO/config/smb.conf ]; then
       mkdir -p $INSTALL/etc/samba
-        cp $DISTRO_DIR/config/smb.conf $INSTALL/etc/samba
+        cp $DISTRO_DIR/$DISTRO/config/smb.conf $INSTALL/etc/samba
     else
       mkdir -p $INSTALL/etc/samba
         cp $PKG_DIR/config/smb.conf $INSTALL/etc/samba
