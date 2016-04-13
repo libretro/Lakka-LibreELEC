@@ -168,6 +168,8 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/functions $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/fs-resize $INSTALL/usr/lib/libreelec
+    sed -e "s/@DISTRONAME@/$DISTRONAME/g" \
+        -i $INSTALL/usr/lib/libreelec/fs-resize
 
   mkdir -p $INSTALL/etc
     cp $PKG_DIR/config/profile $INSTALL/etc
@@ -250,5 +252,7 @@ makeinstall_init() {
 
   cp $PKG_DIR/scripts/functions $INSTALL
   cp $PKG_DIR/scripts/init $INSTALL
+  sed -e "s/@DISTRONAME@/$DISTRONAME/g" \
+      -i $INSTALL/init
   chmod 755 $INSTALL/init
 }
