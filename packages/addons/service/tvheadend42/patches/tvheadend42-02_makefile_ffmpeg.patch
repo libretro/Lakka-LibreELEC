@@ -1,0 +1,82 @@
+From: Team LibreELEC - https://LibreELEC.tv
+Subject: adjust Tvheadend ffmpeg build to work with LibreELEC (transcoding) 06.04.2016
+
+---
+
+diff --git a/Makefile.ffmpeg b/Makefile.ffmpeg
+--- a/Makefile.ffmpeg
++++ b/Makefile.ffmpeg
+@@ -24,6 +24,9 @@
+ FFMPEG_TARGET := x86-linux-gcc
+ endif
+ 
++FFMPEG_HOST   := $(ARCH)-libreelec-linux-gnu
++FFMPEG_TARGET := $(ARCH)-libreelec-linux-gnu
++
+ unexport CFLAGS
+ unexport LDFLAGS
+ 
+@@ -135,7 +141,7 @@
+ 
+ $(LIB_ROOT)/$(YASM)/.tvh_build: \
+ 		$(LIB_ROOT)/$(YASM)/.tvh_download
+-	cd $(LIB_ROOT)/$(YASM) && $(CONFIGURE)
++	cd $(LIB_ROOT)/$(YASM) && $(CONFIGURE) CC=$(HOST_CC)
+ 	DESTDIR=$(EBUILDIR) \
+ 		$(MAKE) -C $(LIB_ROOT)/$(YASM) install
+ 	@touch $@
+@@ -224,6 +226,7 @@
+ 	cd $(LIB_ROOT)/$(LIBX265)/build/linux && cmake -G "Unix Makefiles" \
+ 		-DCMAKE_INSTALL_PREFIX="/ffmpeg" \
+ 		-DENABLE_SHARED:BOOL=OFF \
++		-DEXTRA_LINK_FLAGS="-ldl" \
+ 		../../source
+ 	DESTDIR=$(EBUILDIR) \
+ 		$(MAKE) -C $(LIB_ROOT)/$(LIBX265)/build/linux install
+@@ -257,7 +260,7 @@
+ ifeq (yes,$(CONFIG_LIBVPX_STATIC))
+ 
+ ifneq (,$(FFMPEG_TARGET))
+-LIBVPX_TARGET := --target=$(FFMPEG_TARGET)
++LIBVPX_TARGET := --target=generic-gnu
+ endif
+ 
+ $(LIB_ROOT)/$(LIBVPX)/.tvh_download:
+@@ -268,7 +271,7 @@
+ $(LIB_ROOT)/$(LIBVPX)/.tvh_build: \
+ 		$(LIB_ROOT)/$(YASM)/.tvh_build \
+ 		$(LIB_ROOT)/$(LIBVPX)/.tvh_download
+-	cd $(LIB_ROOT)/$(LIBVPX) && $(CONFIGURE) \
++	cd $(LIB_ROOT)/$(LIBVPX) && CROSS=$(FFMPEG_TARGET)- $(CONFIGURE) \
+ 		--disable-examples \
+ 		--disable-docs \
+ 		--disable-unit-tests \
+@@ -342,7 +345,8 @@
+ 		$(LIB_ROOT)/$(LIBOGG)/.tvh_build \
+ 		$(LIB_ROOT)/$(LIBTHEORA)/.tvh_download
+ 	cd $(LIB_ROOT)/$(LIBTHEORA) && $(CONFIGURE) \
+-		--with-ogg=$(EPREFIX) \
++		OGG_CFLAGS=-I$(EPREFIX)/include \
++		OGG_LIBS=-L$(EPREFIX)/lib \
+ 		--disable-examples \
+ 		$(LIBTHEORA_HOST)
+ 	DESTDIR=$(EBUILDIR) \
+@@ -387,7 +391,8 @@
+ 		$(LIB_ROOT)/$(LIBOGG)/.tvh_build \
+ 		$(LIB_ROOT)/$(LIBVORBIS)/.tvh_download
+ 	cd $(LIB_ROOT)/$(LIBVORBIS) && $(CONFIGURE) \
+-		--with-ogg=$(EPREFIX)
++		OGG_CFLAGS=-I$(EPREFIX)/include \
++		OGG_LIBS=-L$(EPREFIX)/lib
+ 	DESTDIR=$(EBUILDIR) \
+ 		$(MAKE) -C $(LIB_ROOT)/$(LIBVORBIS) install
+ 	@touch $@
+@@ -538,6 +543,8 @@
+ 		$(LIB_ROOT)/$(LIBMFX)/.tvh_build \
+ 		$(LIB_ROOT)/$(FFMPEG)/.tvh_download
+ 	cd $(LIB_ROOT)/$(FFMPEG) && $(CONFIGURE) \
++		--cc=$(FFMPEG_HOST)-gcc \
++		--cxx=$(FFMPEG_HOST)-g++ \
+ 		--disable-all \
+ 		--enable-gpl \
+ 		--extra-cflags="$(ECFLAGS)" \
