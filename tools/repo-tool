@@ -68,7 +68,7 @@ update_addons_xml() {
 }
 
 touch_addons_xml() {
-  for PROJECT in Generic RPi2 WeTek_Play; do
+  for PROJECT in $(ls -1 projects); do
     for archfile in projects/$PROJECT/linux/linux.*.conf ; do
       ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
       if [ ! -d target/addons/$ADDON_VERSION/$PROJECT/$ARCH ]; then
@@ -95,10 +95,10 @@ upload() {
 }
 
 build() {
-  for PROJECT in $(ls -1 projects); do
+  for PROJECT in $2; do
     for archfile in projects/$PROJECT/linux/linux.*.conf ; do
       ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
-      for package in $(find $1* -iname package.mk) ; do
+      for package in $(find $1 -iname package.mk) ; do
         (
         . $package
         if [ "$PKG_IS_ADDON" = "yes" ] ; then
@@ -112,7 +112,7 @@ build() {
 }
 
 update_revision() {
-  for package in $(find $1 -iname package.mk) ; do
+  for package in $(find packages/addons -iname package.mk) ; do
     (
     . $package
     if [ "$PKG_IS_ADDON" = "yes" ] ; then
@@ -123,23 +123,47 @@ update_revision() {
 }
 
 usage() {
-  echo "  usage: $0 -u                                to upload"
-  echo "         $0 -b  [binary|official|unofficial]  to build"
-  echo "         $0 -ru [official|unofficial]         to update PKG_REV"
-  echo "         $0 -xml                              to update the addons.xml"
+  echo "  usage: $0 -u                                      to upload"
+  echo "         $0 -b   binary|official|all [project-name] to build [for a single project]"
+  echo "         $0 -ru                                     to update PKG_REV"
+  echo "         $0 -xml                                    to update the addons.xml"
 }
 
-repo="packages/mediacenter/kodi-binary-addons/game.libretro."
+if [ "$1" = "-b" -a -z "$2" ]; then
+  usage
+  exit 0
+else
+  case $2 in
+    binary)
+      repo="packages/mediacenter/kodi-binary-addons"
+      ;;
+    official)
+      repo="packages/addons"
+      ;;
+    all)
+      repo="packages/addons packages/mediacenter/kodi-binary-addons"
+      ;;
+    *)
+      usage
+      ;;
+  esac
+
+  project="$(ls -1 projects)"
+  if [ -n "$3" ]; then
+    project="$3"
+  fi
+
+fi
 
 case $1 in
   -b)
-    build $repo
+    build "$repo" "$project"
     ;;
   -u)
     upload
     ;;
   -ru)
-    update_revision $repo
+    update_revision
     ;;
   -xml)
     touch_addons_xml
