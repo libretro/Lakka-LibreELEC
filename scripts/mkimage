@@ -108,7 +108,7 @@ fi
   HEADS=4
   TRACKS=32
   SECTORS=$(( $SYSTEM_SIZE * 1024 * 1024 / 512 / $HEADS / $TRACKS ))
-  
+
   shopt -s expand_aliases  # enables alias expansion in script
   alias mformat="mformat -i $DISK@@$OFFSET -h $HEADS -t $TRACKS -s $SECTORS"
   alias mcopy="mcopy -i $DISK@@$OFFSET"
@@ -138,6 +138,18 @@ LABEL live
   KERNEL /$KERNEL_NAME
   APPEND boot=UUID=$UUID_SYSTEM live quiet tty vga=current
 EOF
+
+  if [ "$PROJECT" = Virtual ]; then
+    cat << EOF > "$OE_TMP"/syslinux.cfg
+DEFAULT virtual
+TIMEOUT 50
+PROMPT 0
+
+LABEL virtual
+  KERNEL /$KERNEL_NAME
+  APPEND boot=UUID=$UUID_SYSTEM disk=UUID=$UUID_STORAGE quiet tty vga=current
+EOF
+  fi
 
     mcopy "$OE_TMP/syslinux.cfg" ::
 
@@ -255,7 +267,7 @@ fi # bootloader
   sync
 
 # add resize mark
-  if [ "$BOOTLOADER" != "syslinux" ]; then
+  if [ "$BOOTLOADER" != "syslinux" -o "$PROJECT" = Virtual ]; then
     mkdir "$OE_TMP/part2.fs"
     touch "$OE_TMP/part2.fs/.please_resize_me"
     echo "image: populating filesystem on part2..."
@@ -268,6 +280,7 @@ fi # bootloader
   echo "image: merging part2 back to image..."
   dd if="$OE_TMP/part2.ext4" of="$DISK" bs=512 seek="$STORAGE_PART_START" conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
 
+
 # extract part1 from image to run fsck
   echo "image: extracting part1 from image..."
   SYSTEM_PART_COUNT=$(( $SYSTEM_PART_END - $SYSTEM_PART_START + 1 ))
@@ -275,6 +288,17 @@ fi # bootloader
   dd if="$DISK" of="$OE_TMP/part1.fat" bs=512 skip="$SYSTEM_PART_START" count="$SYSTEM_PART_COUNT" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
   echo "image: checking filesystem on part1..."
   fsck -n $OE_TMP/part1.fat >"$SAVE_ERROR" 2>&1 || show_error
+
+# create virtual images
+  if [ "$PROJECT" = Virtual ]; then
+    echo "image: creating open virtual appliance..."
+    qemu-img convert -O vmdk -o subformat=streamOptimized "$DISK" "$DISK.vmdk"
+    sed -e "s,@DISTRO@,$DISTRO,g" -e "s,@DISK@,$(basename $DISK),g" -e "s,@DISK_SIZE@,$(ls -l $DISK.vmdk | awk '{print $5}'),g" $PROJECT_DIR/$PROJECT/config/ovf.template > $DISK.ovf
+    tar -C $TARGET_IMG -cf $DISK.ova $(basename $DISK).ovf $(basename $DISK).vmdk
+    echo "image: cleaning up..."
+    rm $DISK.vmdk $DISK.ovf
+    [ -n "$SUDO_USER" ] && chown $SUDO_USER: $DISK.ova
+  fi
 
 # gzip
   echo "image: compressing..."
