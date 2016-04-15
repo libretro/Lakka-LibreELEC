@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://invisible-island.net/dialog/"
 PKG_URL="ftp://invisible-island.net/dialog/$PKG_NAME-$PKG_VERSION.tgz"
-PKG_DEPENDS_TARGET="toolchain ncurses"
+PKG_DEPENDS_TARGET="toolchain netbsd-curses"
 PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="dialog: A utility for creating TTY dialog boxes"
@@ -42,8 +42,4 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
                            --disable-form \
                            --disable-mixedform \
                            --disable-tailbox"
-
-pre_configure_target() {
-  export NCURSES_CONFIG="$ROOT/$TOOLCHAIN/bin/ncurses-config"
-}
 
