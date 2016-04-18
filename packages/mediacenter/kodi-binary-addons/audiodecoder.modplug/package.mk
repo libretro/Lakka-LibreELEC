@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.modplug"
-PKG_VERSION="03b772d"
+PKG_VERSION="3faec25"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audioencoder.lame"
-PKG_VERSION="52f84dd"
+PKG_VERSION="ffaf9cb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="adsp.biquad.filters"
-PKG_VERSION="d63d8ac"
+PKG_VERSION="af575f3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
