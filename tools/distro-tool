@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
 #      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2009-2016 Team LibreELEC
+#      Copyright (C) 2016 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,37 +18,562 @@
 ################################################################################
 set -e
 
+[ -z "${DEBUG_LOG}" ] && DEBUG_LOG=/tmp/distro-tool.log
+
 LIBREELEC_DIR=$HOME/LibreELEC.tv
 TARGET_DIR=/var/www/sources
 DOWNLOAD_DIR=$HOME/download
 REVISION=
 PACKAGE=
-DRYRUN=no
+DRY_RUN=no
 IGNORE_ERRORS=no
 DOGIT=no
+CHECK_NEWER=yes
 PROGRESS=yes
-ISMIRROR=yes
-VERBOSE=no
+IS_MIRROR=yes
+VERBOSE=0
+WORKER_THREADS=32
+
+# Source in GIT_USERNAME and GIT_PASSWORD to avoid API limitations
+[ -f ~/.git.conf ] && source ~/.git.conf
+
+PYTHON_PROG='
+from __future__ import print_function
+import sys, os, json, codecs, re, threading, subprocess, glob, datetime, shutil
+
+if sys.version_info >= (3, 0):
+  import queue as Queue
+else:
+  import Queue
+
+class MyUtility(object):
+  isPython3 = (sys.version_info >= (3, 0))
+
+  if sys.version_info >= (3, 1):
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+  else:
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr)
+
+  search_major_minor_patch  = re.compile("[0-9]*\.[0-9]*\.[0-9]*")
+  extract_major_minor_patch = re.compile("[^0-9]*([0-9]*\.[0-9]*\.[0-9]*).*")
+
+  search_major_minor        = re.compile("[0-9]*\.[0-9]*")
+  extract_major_minor       = re.compile("[^0-9]*([0-9]*\.[0-9]*).*")
+
+  leading_zeros             = re.compile("^0[0-9]")
+
+  search_HTTP_OK            = re.compile("HTTP\/[1-9]\.[0-9] 200 OK", flags=re.IGNORECASE)
+  search_HTTP_NOT_FOUND     = re.compile("404 not found", flags=re.IGNORECASE)
+  search_HTTP_NOT_ALLOWED   = re.compile("405 method not allowed", flags=re.IGNORECASE)
+  search_HTTP_CODE          = re.compile("__HTTP_CODE__@([0-9]*)@")
+
+  colours = {}
+  colours["red"]    = "\x1b[31m"
+  colours["green"]  = "\x1b[32m"
+  colours["yellow"] = "\x1b[33m"
+  colours["blue"]   = "\x1b[34m"
+  colours["magenta"]= "\x1b[35m"
+  colours["cyan"]   = "\x1b[36m"
+  colours["reset"]  = "\x1b(B\x1b[m"
+
+  @staticmethod
+  def colour(colour, text):
+    return "%s%s%s" % (MyUtility.colours[colour], text, MyUtility.colours["reset"])
+
+  @staticmethod
+  def logmsg(msgs, level, text):
+    msgs.append({"level": level, "text": text})
+
+  @staticmethod
+  def show(msgs, level, colour, prefix, text):
+    if colour:
+      tc = MyUtility.colours[colour]
+      tr = MyUtility.colours["reset"]
+    else:
+      tc = tr = ""
+    MyUtility.logmsg(msgs, level, "%s%-21s%s: %s" % (tc, prefix, tr, text))
+
+  @staticmethod
+  def runcommand(msgs, command, logfile=None, redacted=None):
+    MyUtility.logmsg(msgs, 3, "Running command: [%s]" % (redacted if redacted else command))
+    _logfile = open(logfile, "w") if logfile else subprocess.STDOUT
+    try:
+      if MyUtility.isPython3:
+        return (0, subprocess.check_output(command.split(" "), stderr=_logfile).decode("utf-8"))
+      else:
+        return (0, subprocess.check_output(command.split(" "), stderr=_logfile))
+    except  subprocess.CalledProcessError as cpe:
+      if MyUtility.isPython3:
+        return (cpe.returncode, cpe.output.decode("utf-8"))
+      else:
+        return (cpe.returncode, cpe.output)
+    finally:
+      if logfile and _logfile:
+        _logfile.close()
+
+  @staticmethod
+  def readfile(filename):
+    inputfile = codecs.open(filename, "rb", encoding="utf-8")
+    data= inputfile.read()
+    inputfile.close()
+    return data
+
+  @staticmethod
+  def get_alternate_versions(package_version):
+    if not package_version:
+      return
+
+    if MyUtility.search_major_minor_patch.search(package_version):
+      mmp = True
+      ver = MyUtility.extract_major_minor_patch.search(package_version).group(1)
+    elif MyUtility.search_major_minor.search(package_version):
+      mmp = False
+      ver = MyUtility.extract_major_minor.search(package_version).group(1)
+    else:
+      return
+
+    # Split parts
+    parts_p0 = ver.split(".")
+    parts_p0_lz = ["", "", ""]
+    parts_p1 = [0, 0, 0]
+    parts_p1_lz = ["", "", ""]
+    c = 0
+    for p in parts_p0:
+      if c > 2: break
+      parts_p1[c] = int(p) + 1
+      # Add leading zeros if originally present
+      if MyUtility.leading_zeros.search(parts_p0[c]):
+        parts_p0_lz[c] = "0"
+      if parts_p0_lz[c] == "0" and parts_p1[c] < 10:
+        parts_p1_lz[c] = "0"
+      c += 1
+
+    if mmp:
+      tmp1 = "%s%d.%s%d.%s%d" % (parts_p1_lz[0], parts_p1[0], parts_p0_lz[1], 0, parts_p0_lz[2], 0)
+      yield package_version.replace(ver, tmp1)
+
+    # If minor or patch >= 10, then we are not sure if leading zeros are
+    # required, so try them anyway
+      if int(parts_p0[1]) >= 10 or int(parts_p0[2]) >= 10:
+        tmp2 = "%s%d.00.00" % (parts_p1_lz[0], parts_p1[0])
+        if tmp1 != tmp2:
+          yield package_version.replace(ver, tmp2)
+
+      tmp1 = "%s.%s%d.%s%d" % (parts_p0[0], parts_p1_lz[1], parts_p1[1], parts_p0_lz[2], 0)
+      yield package_version.replace(ver, tmp1)
+
+      if int(parts_p0[2]) >= 10:
+        tmp2 = "%s.%s%d.00" % (parts_p0[0], parts_p1_lz[1], parts_p1[1])
+        if tmp1 != tmp2:
+          yield package_version.replace(ver, tmp2)
+
+      tmp1 = "%s.%s.%s%d" % (parts_p0[0], parts_p0[1], parts_p1_lz[2], parts_p1[2])
+      yield package_version.replace(ver, tmp1)
+    else:
+      tmp1 = "%s%d.%s%d" % (parts_p1_lz[0], parts_p1[0], parts_p0_lz[1], 0)
+      yield package_version.replace(ver, tmp1)
+
+    # If minor or patch >= 10, then we are not sure if leading zeros are
+    # required, so try them anyway
+      if int(parts_p0[1]) >= 10:
+        tmp2 = "%s%d.00" % (parts_p1_lz[0], parts_p1[0])
+        if tmp1 != tmp2:
+          yield package_version.replace(ver, tmp2)
+
+      tmp1 = "%s.%s%d" % (parts_p0[0], parts_p1_lz[1], parts_p1[1])
+      yield package_version.replace(ver, tmp1)
+
+  @staticmethod
+  def get_latest_commit(msgs, package_url):
+    urlfields = package_url.split("/")
+    urlapi = "https://api.github.com/repos/%s/%s/commits" % (urlfields[3], urlfields[4])
+    tmpfile_data = "%s/%s" % (SCRATCH_DIR, threading.current_thread().name)
+    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --retry 3 --write-out __HTTP_CODE__@%%{http_code}@ --output %s --url %s" % (tmpfile_data, urlapi)
+
+    if os.path.exists(tmpfile_data):
+      os.remove(tmpfile_data)
+
+    authentication = "-u %s:%s" % (GIT_USERNAME, GIT_PASSWORD) if GIT_USERNAME and GIT_PASSWORD else ""
+
+    (result, headers) = MyUtility.runcommand(msgs, "%s %s" % (curl_args, authentication), redacted=curl_args)
+
+    search_obj = MyUtility.search_HTTP_CODE.search(headers)
+    http_code = search_obj.group(1) if search_obj else ""
+
+    MyUtility.logmsg(msgs, 3, "CURL exit code: %d, http_code: %s" % (result, http_code))
+    MyUtility.logmsg(msgs, 3, "[\n%s]" % headers)
+
+    if os.path.exists(tmpfile_data):
+      data = MyUtility.readfile(tmpfile_data)
+      os.remove(tmpfile_data)
+      MyUtility.logmsg(msgs, 3, "GITHUB RESPONSE (first 1024 bytes): [\n%s\n]" % data[0:1024])
+      if http_code == "200" and data:
+        jdata = json.loads(data)
+        if "message" not in jdata:
+          return jdata[0]["sha"]
+
+    return None
+
+  @staticmethod
+  def have_package(package_name, package_source):
+    if IS_MIRROR:
+      return os.path.exists("%s/%s/%s" % (TARGET_DIR, package_name, package_source)) or \
+             os.path.exists("%s/%s/%s" % (DOWNLOAD_DIR, package_name, package_source))
+    else:
+      return os.path.exists("%s/%s" % (TARGET_DIR, package_source)) or \
+             os.path.exists("%s/%s" % (DOWNLOAD_DIR, package_source))
+
+    return False
+
+  @staticmethod
+  def remote_file_exists(msgs, url):
+    retry = 5
+    maxattempts = retry * 3
+    headers = ""
+    result = 0
+    HEAD_supported = True
+    ts = datetime.datetime.now()
+    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --retry 3 --write-out __HTTP_CODE__@%{http_code}@"
+    http_code = ""
+
+    MyUtility.logmsg(msgs, 3, "Remote headers for %s..." % url)
+
+    # Retry up to $retry times in case of transient errors. Do not count
+    # 35/56 as retries, could have several of these before a successful
+    # request - limit total number of retries as ${retry} * 3.
+    while retry > 0 and maxattempts > 0:
+      if stopped.is_set(): break
+      if HEAD_supported:
+        (result, headers) = MyUtility.runcommand(msgs, "%s --head --output - --url %s" % (curl_args, url))
+      else:
+        (result, headers) = MyUtility.runcommand(msgs, "%s --range 0-1024 --output /dev/null --url %s" % (curl_args, url))
+
+      search_obj = MyUtility.search_HTTP_CODE.search(headers)
+      http_code = search_obj.group(1) if search_obj else ""
+
+      MyUtility.logmsg(msgs, 3, "CURL exit code: %d, http_code: %s, retries %d" % (result, http_code, retry))
+
+      if result == 22:
+        # 404 Not Found
+        if http_code == "404" or MyUtility.search_HTTP_NOT_FOUND.search(headers):
+          break
+        # 405 Server does not support HEAD
+        elif HEAD_supported and (http_code == "405" or MyUtility.search_HTTP_NOT_ALLOWED.search(headers)):
+          MyUtility.logmsg(msgs, 3, "HEAD not supported - retrying with range-limited GET")
+          HEAD_supported = False
+          continue
+
+      if result in [0, 9, 10, 19]:
+        break
+
+      if result not in [35, 56]:
+        retry -= 1
+
+    MyUtility.logmsg(msgs, 3, "[\n%s]" % headers)
+
+    # Success if HTTP 200
+    result = True if MyUtility.search_HTTP_OK.search(headers) else False
+
+    tDelta = (datetime.datetime.now() - ts)
+
+    MyUtility.show(msgs, 2 if VERBOSE == 2 else 3, None, "Remote File Exists", "%s (%s) %f seconds" % (result, url, tDelta.total_seconds()))
+
+    return result
+
+  # Use wget with same parameters as scripts/get is using
+  @staticmethod
+  def download_file(msgs, filename_data, filename_log, url):
+    retries=10
+    attempts=0
+
+    while attempts < retries:
+      if stopped.is_set(): break
+      attempts += 1
+      (result, output) = MyUtility.runcommand(msgs, "wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -O %s %s" % (filename_data, url), logfile=filename_log)
+      if result == 0:
+        return True
+
+    return False
+
+  @staticmethod
+  def get_package(msgs, package_name, package_source, package_url):
+    onsource = False
+    onmirror = False
+
+    onsource = MyUtility.remote_file_exists(msgs, package_url)
+    if not onsource:
+      onmirror = MyUtility.remote_file_exists(msgs, "%s/%s/%s" % (DISTRO_MIRROR, package_name, package_source))
+
+    # If the only PKG_URL source is the DISTRO_SRC server...
+    if package_url.startswith(DISTRO_SOURCE):
+      # Warn the user if package is not found on either source or mirror
+      if not onsource and not onmirror:
+        MyUtility.show(msgs, 0, "magenta", "MKPKG REQUIRED?", "%s (%s) unable to download from DISTRO_SRC %s - we have no source!" % \
+          (package_name, package_url, MyUtility.colour("red", "and not on mirror")))
+        return False
+
+    if DRY_RUN:
+      text = "Package status: %s (%s)" % (package_name, package_source)
+      if not onsource and onmirror:
+        text = "%s %s" % (text, MyUtility.colour("yellow", "(found on mirror)"))
+      if onsource or onmirror:
+        MyUtility.show(msgs, 0, "green", "PACKAGE AVAILABLE", text)
+        return True
+      else:
+        MyUtility.show(msgs, 0, "red", "PACKAGE NOT AVAILABLE", text)
+        return False
+
+    tmpfile_data = "%s/%s" % (SCRATCH_DIR, threading.current_thread().name)
+    tmpfile_log  = "%s.log" % tmpfile_data
+
+    if os.path.exists(tmpfile_data):
+      os.remove(tmpfile_data)
+    if os.path.exists(tmpfile_log):
+      os.remove(tmpfile_log)
+
+    if onsource:
+      result = MyUtility.download_file(msgs, tmpfile_data, tmpfile_log, package_url)
+    elif onmirror:
+      result = MyUtility.download_file(msgs, tmpfile_data, tmpfile_log, "%s/%s/%s" % (DISTRO_MIRROR, package_name, package_source))
+    else:
+      result=False
+
+    if result == False or not os.path.exists(tmpfile_data):
+      result = False
+      MyUtility.show(msgs, 0, "red", "DOWNLOAD FAILED!!", "%s (%s)" % (package_name, package_url))
+      if os.path.exists(tmpfile_log):
+        MyUtility.logmsg(msgs, 0, MyUtility.readfile(tmpfile_log))
+    else:
+      MyUtility.show(msgs, 0, "green", "Successful Download", "%s (%s)" % (package_name, package_source))
+      if IS_MIRROR:
+        if not os.path.exists("%s/%s" % (DOWNLOAD_DIR, package_name)):
+          os.makedirs("%s/%s" % (DOWNLOAD_DIR, package_name))
+        shutil.move(tmpfile_data, "%s/%s/%s" % (DOWNLOAD_DIR, package_name, package_source))
+      else:
+        shutil.move(tmpfile_data, "%s/%s" % (DOWNLOAD_DIR, package_source))
+
+    if os.path.exists(tmpfile_data):
+      os.remove(tmpfile_data)
+    if os.path.exists(tmpfile_log):
+      os.remove(tmpfile_log)
+
+    return result
+
+  # Check for newer versions: "X+1.[0]0[.[0]0]" "X.[0]Y+1[.[0]0]" "X.[0]Y.[0]Z+1"
+  @staticmethod
+  def check_newer(msgs, package_name, package_url, package_ver):
+    alt_versions = []
+    is_git_rev = False
+
+    for v in MyUtility.get_alternate_versions(package_ver):
+      if v: alt_versions.append(v)
+
+    if alt_versions == []:
+      if not package_url.startswith("https://github.com/"):
+        return
+
+      is_git_rev = True
+      latestrev = MyUtility.get_latest_commit(msgs, package_url)
+      MyUtility.logmsg(msgs, 3, "Github latest commit [%s]" % latestrev)
+      if latestrev is None or latestrev.startswith(package_ver):
+        return
+      alt_versions.append(latestrev[0:len(package_ver)])
+
+    MyUtility.show(msgs, 2 if VERBOSE == 2 else 3, None, "Checking for newer", "%s, current version %s - checking %s" % (package_name, package_ver, ", ".join(alt_versions)))
+
+    newurl = package_url.replace(package_ver, "@@VER@@")
+
+    for newver in alt_versions:
+      url = newurl.replace("@@VER@@", newver)
+      if MyUtility.remote_file_exists(msgs, url):
+        MyUtility.show(msgs, 0, "yellow" if is_git_rev else "magenta", "New package available", "%s (%s => %s) %s" % (package_name, package_ver, newver, url))
+        break
+
+#
+# Thread
+#
+class MyThread(threading.Thread):
+  def __init__(self, input_queue, output_queue):
+    threading.Thread.__init__(self)
+    self.input_queue = input_queue
+    self.output_queue = output_queue
+
+  def run(self):
+    while not stopped.is_set():
+      try:
+        qItem = self.input_queue.get(block=False)
+        self.input_queue.task_done()
+
+        pkg_name = qItem["PKG_NAME"]
+        pkg_version = qItem["PKG_VERSION"]
+        pkg_url = qItem["PKG_URL"]
+        pkg_section = qItem["PKG_SECTION"]
+        pkg_source_name = qItem["PKG_SOURCE_NAME"]
+
+        msgs = []
+
+        if pkg_version == "" or pkg_url == "":
+          if pkg_section != "virtual":
+            MyUtility.show(msgs, 0, "cyan", "BLANK URL OR VERSION", "%s (ver [%s], url [%s])" % (pkg_name, pkg_version, pkg_url))
+            self.output_queue.put(msgs)
+          continue
+
+        tDelta_get_package = datetime.timedelta(0)
+        tDelta_check_newer = datetime.timedelta(0)
+
+        self.output_queue.put([{"start": True, "name": threading.current_thread().name, "data": {"url": pkg_url, "tstamp": datetime.datetime.now()}}])
+
+        MyUtility.logmsg(msgs, 3, ">>>>>>>>>>>>>>>>> %s, %s, %s" % (pkg_name, pkg_version, pkg_url))
+
+        if MyUtility.have_package(pkg_name, pkg_source_name):
+          MyUtility.show(msgs, 1, "green", "Already downloaded", "%s (%s)" % (pkg_name, pkg_source_name))
+        else:
+          tStart = datetime.datetime.now()
+          if not IGNORE_ERRORS and \
+             not stopped.is_set() and \
+             not MyUtility.get_package(msgs, pkg_name, pkg_source_name, pkg_url):
+             stopped.set()
+          tDelta_get_package = datetime.datetime.now() - tStart
+
+        if CHECK_NEWER and not stopped.is_set():
+          tStart = datetime.datetime.now()
+          MyUtility.check_newer(msgs, pkg_name, pkg_url, pkg_version)
+          tDelta_check_newer = datetime.datetime.now() - tStart
+
+        self.output_queue.put([{"stop": True, "name": threading.current_thread().name, "url": pkg_url}])
+
+        MyUtility.logmsg(msgs, 3, "<<<<<<<<<<<<<<<<< %s %s %s get_package %f check_newer %f" % \
+          (pkg_name, pkg_version, pkg_url, tDelta_get_package.total_seconds(), tDelta_check_newer.total_seconds()))
+
+        self.output_queue.put(msgs)
+
+      except Queue.Empty:
+        break
+
+    # This thread is going down...
+    self.output_queue.put(None)
+
+def main():
+  if not os.path.exists(SCRATCH_DIR):
+    os.makedirs(SCRATCH_DIR)
+  else:
+    for file in glob.glob("%s/*" % SCRATCH_DIR):
+      os.remove(file)
+
+  data = []
+  for line in sys.stdin: data.append(line)
+  if data == []:
+    sys.exit(1)
+
+  input_queue = Queue.Queue()
+  output_queue = Queue.Queue()
+
+  for item in json.loads("".join(data)):
+    input_queue.put(item)
+
+  pcount = 0
+  pmax = input_queue.qsize()
+
+  # Create threads to process input queue
+  threadcount = input_queue.qsize() if input_queue.qsize() <= WORKER_THREADS else WORKER_THREADS
+  threads = []
+  for i in range(threadcount):
+    t = MyThread(input_queue, output_queue)
+    threads.append(t)
+    t.setDaemon(False)
+
+  # Start the threads...
+  for t in threads: t.start()
+
+  qtimeout = 10
+  running = {}
+  stopping = False
+
+  while threadcount > 0:
+    try:
+      qItem = output_queue.get(block=True, timeout=qtimeout)
+      output_queue.task_done()
+
+      if qItem is None:
+        threadcount -= 1
+        continue
+
+      finished = False
+
+      for msg in qItem:
+        if msg.get("start", False):
+          running[msg["name"]] = msg["data"]
+        elif msg.get("stop", False):
+          del running[msg["name"]]
+        elif "level" in msg:
+          finished = True
+          if VERBOSE >= msg["level"]:
+            if msg["level"] <= 2:
+              print(msg["text"])
+            else:
+              print(msg["text"], file=sys.stderr)
+
+      if not stopping and stopped.is_set():
+        stopping = True
+        print(MyUtility.colour("red", "** STOPPING DUE TO FAILURE - WAITING FOR %d THREADS TO FINISH **" % threadcount))
+
+      # Do not enable progress when detailed debug logging is enabled as
+      # this will most likely be redirected to a file
+      if finished and PROGRESS and VERBOSE <= 2:
+        pcount += 1
+        print("Processing... %3d%% (%d threads active)\x1b[K\r" % ((pcount * 100 / pmax), threadcount), end="", file=sys.stderr)
+
+    except Queue.Empty:
+      if VERBOSE >= 3 and len(running) != 0:
+        print("============ WAITING ON FOLLOWING %d THREADS ============" % len(running), file=sys.stderr)
+        for t in running:
+          data = running[t]
+          print("SLOW RUNNING THREAD %s for %f secs: %s" % (t, (datetime.datetime.now() - data["tstamp"]).total_seconds(), data["url"]), file=sys.stderr)
+
+  if PROGRESS and VERBOSE <= 2:
+    print("\r\x1b[K", end="", file=sys.stderr)
+
+  sys.exit(1 if stopped.is_set() else 0)
+
+if __name__ == "__main__":
+  try:
+    args = sys.argv[1:]
+    DOWNLOAD_DIR = args[0]
+    TARGET_DIR = args[1]
+    DISTRO_SOURCE = args[2]
+    DISTRO_MIRROR = args[3]
+    IS_MIRROR = True if args[4] == "yes" else False
+    IGNORE_ERRORS = True if args[5] == "yes" else False
+    DRY_RUN = True if args[6] == "yes" else False
+    CHECK_NEWER = True if args[7] == "yes" else False
+    PROGRESS=True if args[8] == "yes" else False
+    WORKER_THREADS=int(args[9])
+    GIT_USERNAME = args[10]
+    GIT_PASSWORD = args[11]
+    VERBOSE = int(args[12])
+    SCRATCH_DIR="%s/.tmp" % DOWNLOAD_DIR
+
+    stopped = threading.Event()
+
+    main()
+  except (KeyboardInterrupt, SystemExit) as e:
+    if type(e) == SystemExit: sys.exit(int(str(e)))
+  except Exception:
+    raise
+'
 
 [ -z "${PROJECT}" ] && PROJECT=Generic
 [ -z "${ARCH}" ]    && ARCH=x86_64
-
-if command -v tput >/dev/null; then
-  TXRED="$(tput setaf 1 bold)"
-  TXGREEN="$(tput setaf 2 bold)"
-  TXYELLOW="$(tput setaf 3 bold)"
-  TXBLUE="$(tput setaf 4 bold)"
-  TXMAGENTA="$(tput setaf 5 bold)"
-  TXCYAN="$(tput setaf 6 bold)"
-  TXRESET="$(tput sgr0)"
-fi
 
 help() {
   [ -n "$1" ] && echo -e "ERROR: Unknown argument [$1]\n"
   cat <<EOF
 Usage: $(basename $0) -d|--download <path> [-t|--target <path>] [-l|--libreelec <path>]
            [-m|--mirror] [-s|--source] [-a|-all] [-p|--package <package_name> [-r|--revision <revision>]]
-          [--git] [--dry-run] [--noprogress] [-v|--verbose] [-h|--help]
+           [--git] [-n|--notnewer] [--dry-run] [--noprogress] [-T #|--threads #] [-U|--gituser] [-P|--gitpass]
+           [-v|--verbose] [-h|--help]
 
 Options:
   -d, --download:   Directory path into which new package files will be downloaded - default is $HOME/download[1]
@@ -60,10 +585,14 @@ Options:
   -p, --package:    Package to process, otherwise process all packages
   -r, --revision:   Version to use in place of PKG_VERSION, only applicable in conjunction with -p
       --git:        Clone (if not available) or pull the LibreELEC.tv repository
+  -n, --notnewer    Don't check for newer packages ('X.Y.Z+1' 'X.Y+1.0' 'X+1.0.0')
       --dry-run:    Don't actually download anything (will still git clone/pull if configured)
       --noprogress: Do not show progress indicator
-  -v, --verbose:    Output more verbose sync information
-  -h, --help:      This message
+  -T, --threads:    Number of worker threads, default is 32
+  -U, --gituser:    Git username (or source from ~/.git.conf) - avoids API limits
+  -P, --gitpass:    Git password (or source from ~/.git.conf) - avoids API limits
+  -v, --verbose:    Output more verbose sync information. Repeat for more detail
+  -h, --help:       This message
 
   Note#1. The download directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
   Note#2. The target directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
@@ -83,147 +612,47 @@ get_libreelec_option() {
   echo "${!variable}"
 }
 
-# 1: name of package
-# 2: package variable, eg. PKG_URL
-get_pkg_option() {
-  local package="$1" variable="$2"
-  cd $LIBREELEC_DIR
-  . config/options ${package} 2>/dev/null
-  echo "${!variable}"
-}
-
-# Return success if the specified package is not found locally
-need_package() {
-  local package_name="$1"
-  local package_source="$2"
-
-  if [ ${ISMIRROR} == no ]; then
-    [ -f ${TARGET_DIR}/${package_source} ] && return 1
-    [ -f ${DOWNLOAD_DIR}/${package_source} ] && return 1
-  else
-    [ -f ${TARGET_DIR}/${package_name}/${package_source} ] && return 1
-    [ -f ${DOWNLOAD_DIR}/${package_name}/${package_source} ] && return 1
-  fi
-
-  return 0
-}
-
-remote_file_exists() {
-  [ "$(curl -sfIL --connect-timeout 15 --retry 3  -w "%{http_code}" -o /dev/null ${1} 2>/dev/null)" == "404" ] && return 1 || return 0
-}
-
-download_file() {
-  local url="$1"
-  local retries=10
-  local attempts=0
-
-  while [ ${attempts} -lt ${retries} ]; do
-    attempts=$((attempts + 1))
-    wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -O ${DOWNLOAD_DIR}/.tmp ${url} 2>/tmp/sync.log && return 0
-  done
-  return 1
-}
-
-# Download the specified package
-getkpkg() {
-  local package_name="$1"
-  local package_source="$2"
-  local package_url="$3"
-  local result
-  local onsource=no onmirror=no
-
-  [ -n "${package_url}" ] || return 0
-
-  remote_file_exists ${package_url} && onsource=yes
-  if [ ${onsource} == no ]; then
-    remote_file_exists ${DISTRO_MIRROR}/${package_name}/${package_source} && onmirror=yes
-  fi
-
-  # If the PKG_URL is the DISTRO_SRC server...
-  if [[ ${package_url} =~ ^${DISTRO_SOURCE}.* ]]; then
-    # Warn the user if package is not found on either source or mirror
-    if [ ${onsource} == no -a ${onmirror} == no ]; then
-      echo "${LINE_PREFIX}${TXMAGENTA}PACKAGE UPDATE OR MKPKG REQUIRED?${TXRESET}: Unable to download ${package_name} from url ${package_url} (and not on mirror)" >&2
-      return 0
-    fi
-  fi
-
-  if [ ${DRYRUN} == yes ]; then
-    echo -n "${LINE_PREFIX}Downloading package: ${package_name} (${package_source})..."
-    [ ${onsource} == yes -o ${onmirror} == yes ] && echo -n " ${TXGREEN}AVAILABLE${TXRESET}" || echo -n " ${TXRED}NOT AVAILABLE${TXRESET} ${package_url}"
-    [ ${onsource} == no  -a ${onmirror} == yes ] && echo " ${TXYELLOW}(found on mirror)${TXRESET}" || echo
-    return 0
-  fi
-
-  rm -f ${DOWNLOAD_DIR}/.tmp /tmp/sync.log
-
-  echo -n "${LINE_PREFIX}Downloading package: ${package_name} (${package_source})..."
-
-  if [ ${onsource} == yes ]; then
-    download_file ${package_url} && result=0 || result=1
-  elif [ ${onmirror} == yes ]; then
-    download_file ${DISTRO_MIRROR}/${package_name}/${package_source} && result=0 || result=1
-  else
-    result=1
-  fi
-
-  if [ ${result} -ne 0 -o ! -s ${DOWNLOAD_DIR}/.tmp ]; then
-    echo " ${TXRED}FAILED!!${TXRESET}"
-    [ -f /tmp/sync.log ] && cat /tmp/sync.log >&2
-    rm -f ${DOWNLOAD_DIR}/.tmp
-  else
-    echo " ${TXGREEN}OK${TXRESET}"
-    if [ ${ISMIRROR} == yes ]; then
-      mkdir -p ${DOWNLOAD_DIR}/${package_name}
-      mv ${DOWNLOAD_DIR}/.tmp ${DOWNLOAD_DIR}/${package_name}/${package_source}
-    else
-      mv ${DOWNLOAD_DIR}/.tmp ${DOWNLOAD_DIR}/${package_source}
-    fi
-  fi
-
-  [ ${IGNORE_ERRORS} == yes ] && return 0 || return ${result}
-}
-
-check_single_package() {
+generate_work() {
   local package_name="$1" revision="$2"
-  local package_dir="$(cd ${LIBREELEC_DIR}; find packages -type d -name ${PACKAGE})"
+  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SECTION PKG_SOURCE_NAME"
+  local packages pcount c=0
 
-  if [ -n "${package_dir}" ]; then
-    if [ -f ${LIBREELEC_DIR}/${package_dir}/package.mk ]; then
-      check_package "${package_dir}/package.mk" "${revision}"
-      return 0
-    else
-      echo "ERROR: ${package_name} is not a valid package - package.mk does not exist"
-    fi
-  else
-    echo "ERROR: ${package_name} is not a valid package - directory does not exist"
-  fi
-  return 1
-}
+  [ ${PROGRESS} == yes ] && echo -en "Acquiring packages...\r" >&2
 
-# Download a package if required
-check_package() {
-  local package_file="$1" revision="$2"
-  local package_name="$(basename $(dirname ${package_file}))"
-  local package_source package_url package_ver
+  packages="$(get_packages ${package_name})"
+  pcount="$(echo "${packages}" | wc -l)"
 
-  package_source="$(get_pkg_option "${package_name}" PKG_SOURCE_NAME)"
-  if [ -n "${revision}" ]; then
-    package_ver=$(get_pkg_option "${package_name}" PKG_VERSION)
-    package_source="${package_source/${package_ver}/${revision}}"
+  if [ -n "${package_name}" -a -z "${packages}" ]; then
+    echo "ERROR: ${package_name} is not a valid package - package.mk does not exist" >&2
+    exit 1
   fi
 
-  [ -n "${package_source}" ] || return 0
+  (
+    init_progress
 
-  if need_package "${package_name}" "${package_source}"; then
-    package_url="$(get_pkg_option "${package_name}" PKG_URL)"
-    if [ -n "${revision}" ]; then
-      package_url="${package_url/${package_ver}/${revision}}"
-    fi
-    getkpkg  "${package_name}" "${package_source}" "${package_url}"
-  else
-    [ ${VERBOSE} == yes ] && echo "${LINE_PREFIX}Already downloaded : ${package_name} (${package_source}) ${TXGREEN}OK${TXRESET}" || true
-  fi
+    cd $LIBREELEC_DIR
+
+    echo "["
+    for package_name in ${packages}; do
+      [ ${PROGRESS} == yes ] && progress ${pcount}
+
+      . config/options ${package_name} 2>/dev/null || true
+
+      if [ -n "${revision}" ]; then
+        PKG_URL="${PKG_URL/${PKG_VERSION}/${revision}}"
+        PKG_SOURCE_NAME="${PKG_SOURCE_NAME/${PKG_VERSION}/${revision}}"
+        PKG_VERSION="${revision}"
+      fi
+
+      echo "  {"
+      for var in ${wanted_vars}; do
+        [ "${var}" != "PKG_SOURCE_NAME" ] && echo "    \"${var}\": \"${!var}\"," || echo "    \"${var}\": \"${!var}\""
+      done
+      c=$((c+1))
+      [ ${c} -lt ${pcount} ] && echo "  }," || echo "  }"
+    done
+    echo "]"
+  )
 }
 
 check_exists() {
@@ -247,15 +676,36 @@ get_package_path() {
 }
 
 get_packages() {
+  local package_name="$1"
+
   export -f get_package_path
+
   cd $LIBREELEC_DIR
-  find packages -name package.mk -exec bash -c get_package_path "{}" \; | sort -k1 | cut -d' ' -f2-
+
+  if [ -n "${package_name}" ]; then
+    basename $(dirname $(find packages -path "*/${package_name}/*" -name package.mk) 2>/dev/null) 2>/dev/null
+  else
+    find packages -name package.mk -exec bash -c get_package_path "{}" \; | sort -k1 | cut -d' ' -f1
+  fi
+  return 0
 }
 
-COUNT=0
+init_progress() {
+  PCOUNT=0
+}
+
 progress() {
-  COUNT=$((COUNT + 1))
-  printf "Working... %3d%%\r" $((COUNT * 100 / $1))
+  PCOUNT=$((PCOUNT + 1))
+  printf "Generating workload... %3d%%\r" $((PCOUNT * 100 / $1)) >&2
+}
+
+exec_worker_prog() {
+  echo "${PYTHON_PROG}" >/tmp/distro-tool.py
+  python /tmp/distro-tool.py "${DOWNLOAD_DIR}" "${TARGET_DIR}" "${DISTRO_SOURCE}" "${DISTRO_MIRROR}" \
+                             "${IS_MIRROR}" "${IGNORE_ERRORS}" "${DRY_RUN}" "${CHECK_NEWER}" \
+                             "${PROGRESS}" "${WORKER_THREADS}" "${GIT_USERNAME}" "${GIT_PASSWORD}" \
+                             "${VERBOSE}"
+  rm -f /tmp/distro-tool.py
 }
 
 while [ : ]; do
@@ -279,27 +729,41 @@ while [ : ]; do
     -p|--package)
       shift
       PACKAGE=$1
-      VERBOSE=yes
       ;;
     -r|--revision)
       shift
       REVISION=$1
       ;;
     -m|--mirror)
-      ISMIRROR=yes
+      IS_MIRROR=yes
       ;;
     -s|--source)
-      ISMIRROR=no
+      IS_MIRROR=no
       ;;
     --dry-run|--dryrun)
-      DRYRUN=yes
+      DRY_RUN=yes
       LINE_PREFIX="**DRY-RUN** "
       ;;
     --git)
       DOGIT=yes
       ;;
+    -n|--notnewer)
+      CHECK_NEWER=no
+      ;;
+    -T|--threads)
+      shift
+      [ $1 -gt 0 ] && WORKER_THREADS=$1
+      ;;
+    -U|--gituser)
+      shift
+      GIT_USERNAME=$1
+      ;;
+    -P|--gitpass)
+      shift
+      GIT_PASSWORD=$1
+      ;;
     -v|--verbose)
-      VERBOSE=yes
+      VERBOSE=$((VERBOSE + 1))
       ;;
     --noprogress)
       PROGRESS=no
@@ -315,6 +779,8 @@ while [ : ]; do
   esac
   shift
 done
+
+[ -n "${PACKAGE}" -a ${VERBOSE} -eq 0 ] && VERBOSE=1
 
 if [ ${DOGIT} == yes ]; then
   (
@@ -336,14 +802,14 @@ DISTRO_SOURCE="$(get_libreelec_option DISTRO_SRC)"
 DISTRO_MIRROR="$(get_libreelec_option DISTRO_MIRROR)"
 LIBREELEC_VER="$(get_libreelec_option LIBREELEC_VERSION)"
 
-if [ ${ISMIRROR} == no ]; then
+if [ ${IS_MIRROR} == no ]; then
   TARGET_DIR="$(get_abs_path "${TARGET_DIR}/${LIBREELEC_VER}")"
 else
   TARGET_DIR="$(get_abs_path "${TARGET_DIR}/mirror")"
 fi
 check_exists TARGET_DIR || exit
 
-if [ ${ISMIRROR} == no ]; then
+if [ ${IS_MIRROR} == no ]; then
   DOWNLOAD_DIR="$(get_abs_path "${DOWNLOAD_DIR}/${LIBREELEC_VER}")"
 else
   DOWNLOAD_DIR="$(get_abs_path "${DOWNLOAD_DIR}/mirror")"
@@ -356,7 +822,7 @@ if [ -n "${REVISION}" -a -z "${PACKAGE}" ]; then
 fi
 
 echo
-if [ ${ISMIRROR} == yes ]; then
+if [ ${IS_MIRROR} == yes ]; then
   echo "Synchronising LibreELEC.tv (branch: $(get_libreelec_branch), version: ${LIBREELEC_VER}) with MIRROR server ${TARGET_DIR}"
 else
   echo "Synchronising LibreELEC.tv (branch: $(get_libreelec_branch), version: ${LIBREELEC_VER}) with SOURCE server ${TARGET_DIR}"
@@ -366,18 +832,18 @@ echo "Distro Source is: ${DISTRO_SOURCE}"
 echo "Distro Mirror is: ${DISTRO_MIRROR}"
 echo " Syncing against: ${TARGET_DIR}"
 echo "  Downloading to: ${DOWNLOAD_DIR}"
-echo "         Dry run: ${DRYRUN^}"
+echo "     Check Newer: ${CHECK_NEWER^}"
+echo "         Dry run: ${DRY_RUN^}"
+if [ ${VERBOSE} -gt 2 ]; then
+  echo " Debugging level: ${VERBOSE} (${DEBUG_LOG})"
+  echo "  Worker Threads: ${WORKER_THREADS}"
+fi
 echo
 
 [ -z "${NODELAY}" ] && echo -n "Sync starts in 5 seconds..." && sleep 5 && echo -en "\n\n"
 
-if [ -n "${PACKAGE}" ]; then
-  check_single_package "${PACKAGE}" "${REVISION}"
+if [ ${VERBOSE} -gt 2 -a -n "${DEBUG_LOG}" ]; then
+  generate_work "${PACKAGE}" "${REVISION}" | exec_worker_prog 2>${DEBUG_LOG}
 else
-  packages="$(get_packages)"
-  pcount="$(echo "${packages}" | wc -l)"
-  for package_mk in ${packages}; do
-    [ ${PROGRESS} == yes ] && progress ${pcount}
-    check_package ${package_mk}
-  done
+  generate_work "${PACKAGE}" "${REVISION}" | exec_worker_prog
 fi
