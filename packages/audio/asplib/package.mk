@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="asplib"
-PKG_VERSION="2fac1bf"
+PKG_VERSION="da66f51"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

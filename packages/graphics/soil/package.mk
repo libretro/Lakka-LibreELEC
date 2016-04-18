@@ -17,30 +17,26 @@
 ################################################################################
 
 PKG_NAME="soil"
-PKG_VERSION="1.07"
+PKG_VERSION="1.16"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="PD"
+PKG_LICENSE="CCPL"
 PKG_SITE="http://www.lonesock.net/soil.html"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="mesa"
+PKG_DEPENDS_TARGET="toolchain mesa"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
-PKG_SHORTDESC="libsoil: Simple OpenGL Image Library"
-PKG_LONGDESC="libsoil: Simple OpenGL Image Library"
+PKG_SHORTDESC="A tiny C lib primarily for loading textures into OpenGL"
+PKG_LONGDESC="A tiny C lib primarily for loading textures into OpenGL"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  mkdir projects/makefile/obj
-  make CXX="$CXX" CC="$CC" LD="$CC" AR="$AR" CFLAGS="-fPIC -O2" CXXFLAGS="-fPIC -O2" -C projects/makefile
+pre_make_target() {
+  sed "s/1.07-20071110/$PKG_VERSION/" -i Makefile
+  export CFLAGS="$CFLAGS -fPIC"
 }
 
-makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp -PR lib/libSOIL.a $SYSROOT_PREFIX/usr/lib
-
-  mkdir -p $SYSROOT_PREFIX/usr/include/SOIL
-    cp -P src/SOIL.h $SYSROOT_PREFIX/usr/include/SOIL
+pre_makeinstall_target() {
+  export DESTDIR=$SYSROOT_PREFIX
 }

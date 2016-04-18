@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="adsp.basic"
-PKG_VERSION="cb56e0e"
+PKG_VERSION="5cf12e8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

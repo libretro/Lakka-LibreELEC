@@ -37,7 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --enable-drm \
                            --enable-x11 \
                            --enable-glx \
-                           --disable-egl \
+                           --enable-egl \
                            --disable-wayland \
                            --disable-dummy-driver \
                            --with-drivers-path=/usr/lib/va"

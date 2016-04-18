@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.pctv"
-PKG_VERSION="0096770"
+PKG_VERSION="f188048"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
