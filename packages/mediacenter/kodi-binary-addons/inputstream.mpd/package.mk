@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+#      Copyright (C) 2016 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ configure_target() {
         ..
 }
 
-post_make_target() {
+post_makeinstall_target() {
   mkdir -p wv && cd wv
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
         -DCMAKE_INSTALL_PREFIX=/usr \
@@ -44,6 +44,8 @@ post_make_target() {
         -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
         $ROOT/$PKG_BUILD/wvdecrypter
   make
+
+  cp -P $ROOT/$PKG_BUILD/.$TARGET_NAME/wv/libssd_wv.so $INSTALL/usr/lib
 }
 
 addon() {
@@ -53,8 +55,6 @@ addon() {
   ADDONSO=$(xmlstarlet sel -t -v "/addon/extension/@library_linux" $ADDON_BUILD/$PKG_ADDON_ID/addon.xml)
   cp -L $PKG_BUILD/.install_pkg/usr/lib/kodi/addons/$PKG_NAME/$ADDONSO $ADDON_BUILD/$PKG_ADDON_ID/
 
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/decrypter/
-    cp -P $PKG_BUILD/.$TARGET_NAME/wv/libssd_wv.so $ADDON_BUILD/$PKG_ADDON_ID/lib/
-
-  ln -sf /storage/decrypters/libwidevinecdm.so $ADDON_BUILD/$PKG_ADDON_ID/decrypter/libwidevinecdm.so
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/
+    cp -P $PKG_BUILD/.$TARGET_NAME/wv/libssd_wv.so $ADDON_BUILD/$PKG_ADDON_ID/lib
 }
