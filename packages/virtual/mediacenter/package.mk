@@ -40,11 +40,11 @@ if [ "$MEDIACENTER" = "kodi" ]; then
   done
   
 # some python stuff needed for various addons
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Pillow"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET simplejson"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET pycrypto"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xmlstarlet"
-
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET Pillow \
+                                          simplejson \
+                                          pycrypto"
 # other packages
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET LibreELEC-settings"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET LibreELEC-settings \
+                                          xmlstarlet \
+                                          peripheral.joystick"
 fi
