@@ -48,11 +48,18 @@ else
   PULSEAUDIO_AVAHI="--disable-avahi"
 fi
 
+if [ "$TARGET_FPU" = "neon" -o "$TARGET_FPU" = "neon-fp16" -o "$TARGET_FPU" = "neon-vfpv4" ]; then
+  PULSEAUDIO_NEON="--enable-neon-opt"
+else
+  PULSEAUDIO_NEON="--disable-neon-opt"
+fi
+
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --disable-nls \
                            --enable-largefile \
                            --disable-rpath \
+                           $PULSEAUDIO_NEON \
                            --disable-x11 \
                            --disable-tests \
                            --disable-samplerate \
