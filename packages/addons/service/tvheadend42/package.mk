@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="616413f"
-PKG_VERSION_NUMBER="4.1.1892"
+PKG_VERSION="ac2d90e"
+PKG_VERSION_NUMBER="4.1.1928"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
