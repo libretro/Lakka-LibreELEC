@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="49.0.2623.87"
-PKG_REV="100"
+PKG_VERSION="50.0.2661.75"
+PKG_REV="101"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
@@ -75,7 +75,7 @@ make_target() {
     -Dlinux_use_bundled_binutils=0
     -Dlinux_use_bundled_gold=0
     -Dlinux_use_gold_flags=0
-    -Dicu_use_data_file_flag=0
+    -Dicu_use_data_file_flag=1
     -Dlogging_like_official_build=1
     -Dtracing_like_official_build=1
     -Dfieldtrial_testing_like_official_build=1
@@ -126,7 +126,7 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -P  $PKG_BUILD/out/Release/chrome $ADDON_BUILD/$PKG_ADDON_ID/bin/chromium.bin
   cp -P  $PKG_BUILD/out/Release/chrome_sandbox $ADDON_BUILD/$PKG_ADDON_ID/bin/chrome-sandbox
-  cp -P  $PKG_BUILD/out/Release/{*.pak,*.bin,libwidevinecdmadapter.so} $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -P  $PKG_BUILD/out/Release/{*.pak,*.dat,*.bin,libwidevinecdmadapter.so} $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -PR $PKG_BUILD/out/Release/locales $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
   $STRIP $ADDON_BUILD/$PKG_ADDON_ID/bin/chromium.bin
@@ -149,9 +149,6 @@ addon() {
   # gtk
   cp -PL $(get_build_dir gtk+)/.install_pkg/usr/lib/libgdk-x11-2.0.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -PL $(get_build_dir gtk+)/.install_pkg/usr/lib/libgtk-x11-2.0.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
-
-  # atk
-  # cp -PL $(get_build_dir atk)/.install_pkg/usr/lib/libatk-1.0.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # harfbuzz
   cp -PL $(get_build_dir harfbuzz)/.install_pkg/usr/lib/libharfbuzz.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
