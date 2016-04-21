@@ -24,7 +24,7 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mysql.com"
 PKG_URL="http://ftp.gwdg.de/pub/misc/$PKG_NAME/Downloads/MySQL-5.1/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="zlib:host"
-PKG_DEPENDS_TARGET="toolchain zlib ncurses libressl mysql:host"
+PKG_DEPENDS_TARGET="toolchain zlib netbsd-curses libressl mysql:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="database"
 PKG_SHORTDESC="mysql: A database server"
@@ -33,7 +33,7 @@ PKG_LONGDESC="MySQL is a SQL (Structured Query Language) database server. SQL is
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-TARGET_CFLAGS="$TARGET_CFLAGS -fPIC -DPIC -I$SYSROOT_PREFIX/usr/include/ncurses"
+TARGET_CFLAGS="$TARGET_CFLAGS -fPIC -DPIC"
 
 PKG_CONFIGURE_OPTS_HOST="--with-zlib-dir=$ROOT/$TOOLCHAIN"
 
