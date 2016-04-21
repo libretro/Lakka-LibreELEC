@@ -18,7 +18,7 @@
 
 PKG_NAME="script.config.vdr"
 PKG_VERSION="1.1.0"
-PKG_REV="101"
+PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.libreelec.tv"
@@ -32,7 +32,7 @@ PKG_LONGDESC="script.config.vdr"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
 PKG_AUTORECONF="no"
-PKG_ADDON_REPOVERSION="7.0"
+PKG_ADDON_REPOVERSION="8.0"
 
 make_target() {
   : # nothing to do here

@@ -19,7 +19,7 @@
 PKG_NAME="tvheadend"
 PKG_VERSION="ac9e47d"
 PKG_VERSION_NUMBER="4.0.9"
-PKG_REV="101"
+PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -34,7 +34,7 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Tvheadend 4.0"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="no"
-PKG_ADDON_REPOVERSION="7.0"
+PKG_ADDON_REPOVERSION="8.0"
 
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --arch=$TARGET_ARCH \

@@ -18,7 +18,7 @@
 
 PKG_NAME="boblightd"
 PKG_VERSION="478"
-PKG_REV="101"
+PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://code.google.com/p/boblight"
@@ -33,7 +33,7 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Boblight"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="yes"
-PKG_ADDON_REPOVERSION="7.0"
+PKG_ADDON_REPOVERSION="8.0"
 
 if [ "$DISPLAYSERVER" = "x11" ] ; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libX11 libXext libXrender"
