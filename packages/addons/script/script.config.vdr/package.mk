@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="script.config.vdr"
-PKG_VERSION="1.1.0"
+PKG_VERSION="1.1.1"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
