@@ -24,7 +24,7 @@ PKG_ADDON_PROJECTS="Generic RPi RPi2"
 PKG_LICENSE="ASL"
 PKG_SITE="http://www.docker.com/"
 PKG_URL="https://github.com/docker/docker/archive/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain sqlite go:host"
+PKG_DEPENDS_TARGET="toolchain sqlite go:host containerd runc"
 PKG_PRIORITY="optional"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Docker is an open-source engine that automates the deployment of any application as a lightweight, portable, self-sufficient container that will run virtually anywhere."
@@ -70,8 +70,6 @@ configure_target() {
   export GOROOT=$ROOT/$TOOLCHAIN/lib/golang
   export PATH=$PATH:$GOROOT/bin
 
-  ./hack/vendor.sh
-
   ln -fs $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/vendor/src/github.com/docker/docker
 
   # used for docker version
@@ -91,6 +89,14 @@ makeinstall_target() {
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
-    cp -a $ROOT/$PKG_BUILD/bin/docker $ADDON_BUILD/$PKG_ADDON_ID/bin/
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $ROOT/$PKG_BUILD/bin/docker $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # containerd
+    cp -P $(get_build_dir containerd)/bin/containerd $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd
+    cp -P $(get_build_dir containerd)/bin/containerd-shim $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd-shim
+    cp -P $(get_build_dir containerd)/bin/ctr $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd-ctr
+
+    # runc
+    cp -P $(get_build_dir runc)/bin/runc $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-runc
 }
