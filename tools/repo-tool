@@ -122,17 +122,32 @@ update_revision() {
   done
 }
 
+update_repo_version() {
+  for package in $(find packages/addons -iname package.mk) ; do
+    (
+    . $package
+    if [ "$PKG_IS_ADDON" = "yes" ] ; then
+      sed -i -e "s|PKG_ADDON_REPOVERSION=.*|PKG_ADDON_REPOVERSION=\"$ADDON_VERSION\"|" $package
+      sed -i -e "s|PKG_REV=.*|PKG_REV=\"100\"|" $package
+      changelog="$(echo $package | sed 's/package.mk/changelog.txt/')"
+      sed -i "1i${ADDON_VERSION}.100\n- Update for LibreELEC ${ADDON_VERSION}\n" $changelog
+    fi
+    )
+  done
+}
+
 usage() {
   echo "  usage: $0 -u                                      to upload"
   echo "         $0 -b   binary|official|all [project-name] to build [for a single project]"
   echo "         $0 -ru                                     to update PKG_REV"
+  echo "         $0 -rv                                     to update PKG_ADDON_REPOVERSION"
   echo "         $0 -xml                                    to update the addons.xml"
 }
 
 if [ "$1" = "-b" -a -z "$2" ]; then
   usage
   exit 0
-else
+elif [ "$1" = "-b" -a -n "$2" ]; then
   case $2 in
     binary)
       repo="packages/mediacenter/kodi-binary-addons"
@@ -145,6 +160,7 @@ else
       ;;
     *)
       usage
+      exit 0
       ;;
   esac
 
@@ -165,12 +181,16 @@ case $1 in
   -ru)
     update_revision
     ;;
+  -rv)
+     update_repo_version
+     ;;
   -xml)
     touch_addons_xml
     update_addons_xml
     ;;
   *)
     usage
+    exit 0
     ;;
 esac
 
