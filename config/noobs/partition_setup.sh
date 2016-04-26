@@ -29,7 +29,7 @@ md5sumCheck() {
       echo "# LibreELEC failed md5 check - Installation will quit #"
       echo "#                                                     #"
       echo "#    Your original download was probably corrupt.     #"
-      echo "#  Please visit www.libreelec.tv and get another copy #"
+      echo "#   Please visit libreelec.tv and get another copy    #"
       echo "#                                                     #"
       echo "#######################################################"
       exit 1
