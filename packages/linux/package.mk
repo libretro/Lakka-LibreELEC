@@ -171,7 +171,7 @@ make_target() {
 
   if [ "$BUILD_ANDROID_BOOTIMG" = "yes" ]; then
     LDFLAGS="" mkbootimg --kernel arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET --ramdisk $ROOT/$BUILD/image/initramfs.cpio \
-      --second "$ANDROID_BOOTIMG_SECOND" --output arch/$TARGET_KERNEL_ARCH/boot/boot.img
+      $ANDROID_BOOTIMG_OPTIONS --output arch/$TARGET_KERNEL_ARCH/boot/boot.img
     mv -f arch/$TARGET_KERNEL_ARCH/boot/boot.img arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET
   fi
 }
