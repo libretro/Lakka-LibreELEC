@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mega-nerd.com/libsndfile/"
 PKG_URL="http://www.mega-nerd.com/$PKG_NAME/files/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain alsa-lib flac libvorbis libogg"
+PKG_DEPENDS_TARGET="toolchain alsa-lib"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="libsndfile: A library for accessing various audio file formats"
@@ -37,7 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --disable-silent-rules \
                            --disable-sqlite \
                            --enable-alsa \
-                           --enable-external-libs \
+                           --disable-external-libs \
                            --disable-experimental \
                            --disable-test-coverage \
                            --enable-largefile \
