@@ -55,10 +55,10 @@ index 7a944cd..f74ec1f 100755
  #EXTRA_CFLAGS += -O2
 diff --git a/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 new file mode 100644
-index 0000000..a3556b3
+index 0000000..1bfc29b
 --- /dev/null
 +++ b/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
-@@ -0,0 +1,671 @@
+@@ -0,0 +1,679 @@
 +/* linux/drivers/amlogic/hdmi/hdmi_tx/amlogic_cec.c
 + *
 + * Copyright (c) 2016 Gerald Dachs
@@ -549,13 +549,17 @@ index 0000000..a3556b3
 +
 +    retval = entry->size;
 +
-+    amlogic_cec_set_rx_state(STATE_RX);
 +
 +error_exit:
 +    if (entry != NULL)
 +    {
 +    	list_del(&entry->list);
 +    	kfree(entry);
++    }
++
++    if (list_empty(&cec_rx_struct.list))
++    {
++        amlogic_cec_set_rx_state(STATE_RX);
 +    }
 +
 +    spin_unlock_irqrestore(&cec_rx_struct.lock, spin_flags);
@@ -651,7 +655,11 @@ index 0000000..a3556b3
 +
 +static u32 amlogic_cec_poll(struct file *file, poll_table *wait)
 +{
-+    poll_wait(file, &cec_rx_struct.waitq, wait);
++
++    if (atomic_read(&cec_rx_struct.state) != STATE_DONE)
++    {
++        poll_wait(file, &cec_rx_struct.waitq, wait);
++    }
 +
 +    if (atomic_read(&cec_rx_struct.state) == STATE_DONE)
 +    {
