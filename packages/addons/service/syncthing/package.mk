@@ -1,0 +1,86 @@
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016 Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+PKG_NAME="syncthing"
+PKG_VERSION="0.12.22"
+PKG_REV="100"
+PKG_ARCH="any"
+PKG_LICENSE="MPLv2"
+PKG_SITE="https://syncthing.net/"
+PKG_URL="https://github.com/syncthing/syncthing/archive/v${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain go:host"
+PKG_PRIORITY="optional"
+PKG_SECTION="service/system"
+
+PKG_SHORTDESC="Open Source Continuous File Synchronization"
+PKG_LONGDESC="Syncthing replaces proprietary sync and cloud services with something open, trustworthy and decentralized. Your data is your data alone and you deserve to choose where it is stored, if it is shared with some third party and how it's transmitted over the Internet."
+PKG_MAINTAINER="Anton Voyl (awiouy at gmail dot com)"
+PKG_ADDON_REPOVERSION="8.0"
+
+PKG_IS_ADDON="yes"
+PKG_ADDON_TYPE="xbmc.service"
+PKG_ADDON_PROVIDES=""
+PKG_AUTORECONF="no"
+
+configure_target() {
+
+  case $TARGET_ARCH in
+    x86_64)
+      export GOARCH=amd64
+      ;;
+    arm)
+      export GOARCH=arm
+      case $TARGET_CPU in
+        arm1176jzf-s)
+          export GOARM=6
+          ;;
+        cortex-a7|cortex-a9)
+          export GOARM=7
+          ;;
+      esac
+      ;;
+  esac
+
+  export GOOS=linux
+  export CGO_ENABLED=1
+  export CGO_NO_EMULATION=1
+  export CGO_CFLAGS=$CFLAGS
+  export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $TARGET_CC -X main.Version=v$PKG_VERSION"
+  export GOLANG=$ROOT/$TOOLCHAIN/lib/golang/bin/go
+  export GOPATH=$ROOT/$PKG_BUILD:$ROOT/$PKG_BUILD/Godeps/_workspace
+  export GOROOT=$ROOT/$TOOLCHAIN/lib/golang
+  export PATH=$PATH:$GOROOT/bin
+
+  mkdir -p $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing
+  ln -fs $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing
+
+}
+
+make_target() {
+  mkdir -p bin
+  $GOLANG build -v -o bin/syncthing -a -tags noupgrade -ldflags "$LDFLAGS" ./cmd/syncthing
+}
+
+makeinstall_target() {
+  :
+}
+
+addon() {
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -P $ROOT/$PKG_BUILD/bin/syncthing $ADDON_BUILD/$PKG_ADDON_ID/bin
+}
