@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of dvb tools and programs"
-PKG_LONGDESC="A bundle of dvb tools and programs"
+PKG_LONGDESC="This bundle currently includes dvb-apps, dvb-fe-tool and dvblast."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="DVB Tools"

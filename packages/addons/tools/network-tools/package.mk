@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of network tools and programs"
-PKG_LONGDESC="A bundle of network tools and programs"
+PKG_LONGDESC="This bundle currently includes bwm-ng, iftop, iperf, irssi, iw, lftp, ncftp, ngrep, nmap, rsync, sshfs, tcpdump, udpxy and wireless_tools."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Network Tools"
