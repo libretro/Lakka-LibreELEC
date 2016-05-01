@@ -43,6 +43,7 @@ import sys, os, json, codecs, re, threading, subprocess, glob, datetime, shutil
 
 if sys.version_info >= (3, 0):
   import queue as Queue
+  basestring = (str, bytes)
 else:
   import Queue
 
@@ -56,11 +57,11 @@ class MyUtility(object):
     sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
     sys.stderr = codecs.getwriter("utf-8")(sys.stderr)
 
-  search_major_minor_patch  = re.compile("[0-9]*\.[0-9]*\.[0-9]*")
-  extract_major_minor_patch = re.compile("[^0-9]*([0-9]*\.[0-9]*\.[0-9]*).*")
+  search_major_minor_patch  = re.compile("[0-9]+\.[0-9]+\.[0-9]+")
+  extract_major_minor_patch = re.compile(".*([0-9]+\.[0-9]+\.[0-9]+).*")
 
-  search_major_minor        = re.compile("[0-9]*\.[0-9]*")
-  extract_major_minor       = re.compile("[^0-9]*([0-9]*\.[0-9]*).*")
+  search_major_minor        = re.compile("[0-9]+\.[0-9]+")
+  extract_major_minor       = re.compile(".*([0-9]+\.[0-9]+).*")
 
   leading_zeros             = re.compile("^0[0-9]")
 
@@ -190,7 +191,7 @@ class MyUtility(object):
     urlfields = package_url.split("/")
     urlapi = "https://api.github.com/repos/%s/%s/commits" % (urlfields[3], urlfields[4])
     tmpfile_data = "%s/%s" % (SCRATCH_DIR, threading.current_thread().name)
-    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --retry 3 --write-out __HTTP_CODE__@%%{http_code}@ --output %s --url %s" % (tmpfile_data, urlapi)
+    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --max-time 60 --retry 3 --write-out __HTTP_CODE__@%%{http_code}@ --output %s --url %s" % (tmpfile_data, urlapi)
 
     if os.path.exists(tmpfile_data):
       os.remove(tmpfile_data)
@@ -235,7 +236,7 @@ class MyUtility(object):
     result = 0
     HEAD_supported = True
     ts = datetime.datetime.now()
-    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --retry 3 --write-out __HTTP_CODE__@%{http_code}@"
+    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --max-time 60 --retry 0 --write-out __HTTP_CODE__@%{http_code}@"
     http_code = ""
 
     MyUtility.logmsg(msgs, 3, "Remote headers for %s..." % url)
@@ -245,6 +246,7 @@ class MyUtility(object):
     # request - limit total number of retries as ${retry} * 3.
     while retry > 0 and maxattempts > 0:
       if stopped.is_set(): break
+      ts_cmd = datetime.datetime.now()
       if HEAD_supported:
         (result, headers) = MyUtility.runcommand(msgs, "%s --head --output - --url %s" % (curl_args, url))
       else:
@@ -253,28 +255,40 @@ class MyUtility(object):
       search_obj = MyUtility.search_HTTP_CODE.search(headers)
       http_code = search_obj.group(1) if search_obj else ""
 
-      MyUtility.logmsg(msgs, 3, "CURL exit code: %d, http_code: %s, retries %d" % (result, http_code, retry))
+      tDelta = (datetime.datetime.now() - ts_cmd)
+      MyUtility.logmsg(msgs, 3, "CURL exit code: %d, http_code: %s, remaining retries %d, time taken %f seconds" % (result, http_code, retry, tDelta.total_seconds()))
 
       if result == 22:
         # 404 Not Found
         if http_code == "404" or MyUtility.search_HTTP_NOT_FOUND.search(headers):
           break
-        # 405 Server does not support HEAD
-        elif HEAD_supported and (http_code == "405" or MyUtility.search_HTTP_NOT_ALLOWED.search(headers)):
+        # 403/405 Server does not support HEAD
+        elif HEAD_supported and (http_code in ["403", "405"] or MyUtility.search_HTTP_NOT_ALLOWED.search(headers)):
           MyUtility.logmsg(msgs, 3, "HEAD not supported - retrying with range-limited GET")
           HEAD_supported = False
           continue
 
-      if result in [0, 9, 10, 19]:
+      # Success or fatal error - no point continuing
+      #  0: CURLE_OK
+      #  6: CURLE_COULDNT_RESOLVE_HOST
+      #  7: CURLE_COULDNT_CONNECT
+      #  9: CURLE_REMOTE_ACCESS_DENIED
+      # 10: CURLE_FTP_ACCEPT_FAILED
+      # 19: CURLE_FTP_COULDNT_RETR_FILE
+      # 28: CURLE_OPERATION_TIMEDOUT
+      if result in [0, 6, 7, 9, 10, 19, 28]:
         break
 
+      # Keep retrying following errors until success or failure.
+      # 35: CURLE_SSL_CONNECT_ERROR
+      # 56: CURLE_RECV_ERROR
       if result not in [35, 56]:
         retry -= 1
 
     MyUtility.logmsg(msgs, 3, "[\n%s]" % headers)
 
-    # Success if HTTP 200
-    if http_code == "200" or MyUtility.search_HTTP_OK.search(headers):
+    # Success if HTTP 200 or 206 (partial content when using ranged request)
+    if http_code in ["200", "206"] or MyUtility.search_HTTP_OK.search(headers):
       result = True
     elif http_code == "350" and url.startswith("ftp:"):
       result = True
@@ -396,6 +410,29 @@ class MyUtility(object):
         MyUtility.show(msgs, 0, "yellow" if is_git_rev else "magenta", "New package available", "%s (%s => %s) %s" % (package_name, package_ver, newver, url))
         break
 
+  @staticmethod
+  def toUnicode(data):
+    if MyUtility.isPython3: return data
+
+    if isinstance(data, basestring):
+      if not isinstance(data, unicode):
+        try:
+          data = unicode(data, encoding="utf-8", errors="ignore")
+        except UnicodeDecodeError:
+          pass
+
+    return data
+
+  @staticmethod
+  def printout(data, end="\n"):
+    sys.stdout.write("%s%s" % (MyUtility.toUnicode(data), end))
+    sys.stdout.flush()
+
+  @staticmethod
+  def printerr(data, end="\n"):
+    sys.stderr.write("%s%s" % (MyUtility.toUnicode(data), end))
+    sys.stderr.flush()
+
 #
 # Thread
 #
@@ -516,29 +553,29 @@ def main():
           finished = True
           if VERBOSE >= msg["level"]:
             if msg["level"] <= 2:
-              print(msg["text"])
+              MyUtility.printout(msg["text"])
             else:
-              print(msg["text"], file=sys.stderr)
+              MyUtility.printerr(msg["text"])
 
       if not stopping and stopped.is_set():
         stopping = True
-        print(MyUtility.colour("red", "** STOPPING DUE TO FAILURE - WAITING FOR %d THREADS TO FINISH **" % threadcount))
+        MyUtility.printout(MyUtility.colour("red", "** STOPPING DUE TO FAILURE - WAITING FOR %d THREADS TO FINISH **" % threadcount))
 
       # Do not enable progress when detailed debug logging is enabled as
       # this will most likely be redirected to a file
       if finished and PROGRESS and VERBOSE <= 2:
         pcount += 1
-        print("Processing... %3d%% (%d threads active)\x1b[K\r" % ((pcount * 100 / pmax), threadcount), end="", file=sys.stderr)
+        MyUtility.printerr("Processing... %3d%% (%d threads active)\x1b[K\r" % ((pcount * 100 / pmax), threadcount), end="")
 
     except Queue.Empty:
       if VERBOSE >= 3 and len(running) != 0:
-        print("============ WAITING ON FOLLOWING %d THREADS ============" % len(running), file=sys.stderr)
+        MyUtility.printerr("============ WAITING ON FOLLOWING %d THREADS ============" % len(running))
         for t in running:
           data = running[t]
-          print("SLOW RUNNING THREAD %s for %f secs: %s" % (t, (datetime.datetime.now() - data["tstamp"]).total_seconds(), data["url"]), file=sys.stderr)
+          MyUtility.printerr("SLOW RUNNING THREAD %s for %f secs: %s" % (t, (datetime.datetime.now() - data["tstamp"]).total_seconds(), data["url"]))
 
   if PROGRESS and VERBOSE <= 2:
-    print("\r\x1b[K", end="", file=sys.stderr)
+    MyUtility.printerr("\r\x1b[K", end="")
 
   sys.exit(1 if stopped.is_set() else 0)
 
@@ -657,6 +694,8 @@ generate_work() {
       [ ${c} -lt ${pcount} ] && echo "  }," || echo "  }"
     done
     echo "]"
+
+    end_progress
   )
 }
 
@@ -702,6 +741,10 @@ init_progress() {
 progress() {
   PCOUNT=$((PCOUNT + 1))
   printf "Generating workload... %3d%%\r" $((PCOUNT * 100 / $1)) >&2
+}
+
+end_progress() {
+  printf "\033[K\r" >&2
 }
 
 exec_worker_prog() {
@@ -844,8 +887,6 @@ if [ ${VERBOSE} -gt 2 ]; then
   echo "  Worker Threads: ${WORKER_THREADS}"
 fi
 echo
-
-[ -z "${NODELAY}" ] && echo -n "Sync starts in 5 seconds..." && sleep 5 && echo -en "\n\n"
 
 if [ ${VERBOSE} -gt 2 -a -n "${DEBUG_LOG}" ]; then
   generate_work "${PACKAGE}" "${REVISION}" | exec_worker_prog 2>${DEBUG_LOG}
