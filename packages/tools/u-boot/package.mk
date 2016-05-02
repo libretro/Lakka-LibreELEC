@@ -17,11 +17,7 @@
 ################################################################################
 
 PKG_NAME="u-boot"
-if [ "$UBOOT_VERSION" = "default" ]; then
-  PKG_VERSION="2011.03-rc1"
-  PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
-  PKG_URL="ftp://ftp.denx.de/pub/u-boot/$PKG_NAME-$PKG_VERSION.tar.bz2"
-elif [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
+if [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
   PKG_VERSION="imx6-408544d"
   PKG_SITE="http://imx.solid-run.com/wiki/index.php?title=Building_the_kernel_and_u-boot_for_the_CuBox-i_and_the_HummingBoard"
   # https://github.com/SolidRun/u-boot-imx6.git
