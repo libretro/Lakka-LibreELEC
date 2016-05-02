@@ -184,7 +184,7 @@ makeinstall_target() {
     touch $INSTALL/etc/fstab
 
   # /etc/machine-id, needed by systemd and dbus
-    ln -sf /run/machine-id $INSTALL/etc/machine-id
+    ln -sf /storage/.cache/machine-id $INSTALL/etc/machine-id
 
   # /etc/mtab is needed by udisks etc...
     ln -sf /proc/self/mounts $INSTALL/etc/mtab
