@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="docker"
-PKG_VERSION="1.11.0"
-PKG_REV="101"
+PKG_VERSION="1.11.1"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2"
 PKG_LICENSE="ASL"
@@ -38,6 +38,7 @@ PKG_ADDON_REPOVERSION="8.0"
 
 configure_target() {
   export DOCKER_BUILDTAGS="daemon \
+                           autogen \
                            exclude_graphdriver_devicemapper \
                            exclude_graphdriver_aufs \
                            exclude_graphdriver_btrfs"
