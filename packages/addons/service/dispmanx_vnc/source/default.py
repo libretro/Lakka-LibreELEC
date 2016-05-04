@@ -15,3 +15,22 @@
 #  You should have received a copy of the GNU General Public License
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
+
+import subprocess
+import xbmc
+import xbmcaddon
+
+
+class Monitor(xbmc.Monitor):
+
+   def __init__(self, *args, **kwargs):
+      xbmc.Monitor.__init__(self)
+      self.id = xbmcaddon.Addon().getAddonInfo('id')
+
+   def onSettingsChanged(self):
+      subprocess.call(['systemctl', 'restart', self.id])
+
+
+if __name__ == "__main__":
+   Monitor().waitForAbort()
+

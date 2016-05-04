@@ -17,27 +17,24 @@
 ################################################################################
 
 PKG_NAME="dispmanx_vnc"
-PKG_ADDON_NAME="Raspberry Pi VNC"
 PKG_VERSION="78e6673"
 PKG_REV="100"
 PKG_ARCH="arm"
+PKG_ADDON_PROJECTS="RPi RPi2"
 PKG_LICENSE="OSS"
 PKG_SITE="https://github.com/patrikolausson/dispmanx_vnc"
 PKG_URL="https://github.com/patrikolausson/dispmanx_vnc/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libvncserver bcm2835-bootloader libconfig"
 PKG_PRIORITY="optional"
 PKG_SECTION="service/system"
-PKG_SHORTDESC="VNC Server for Raspberry PI using dispmanx"
-PKG_LONGDESC="VNC Server for Raspberry PI using dispmanx"
-
-PKG_IS_ADDON="yes"
-PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_PROVIDES=""
-PKG_ADDON_PROJECTS="RPi RPi2"
-PKG_ADDON_REPOVERSION="8.0"
-
+PKG_SHORTDESC="VNC Server for Raspberry Pi"
+PKG_LONGDESC="VNC Server for Raspberry Pi using dispmanx"
 PKG_AUTORECONF="no"
 
+PKG_IS_ADDON="yes"
+PKG_ADDON_NAME="Raspberry Pi VNC"
+PKG_ADDON_TYPE="xbmc.service"
+PKG_ADDON_REPOVERSION="8.0"
 PKG_MAINTAINER="Anton Voyl (awiouy at gmail dot com)"
 
 pre_make_target() {
@@ -51,7 +48,4 @@ makeinstall_target() {
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -p $PKG_BUILD/dispmanx_vncserver $ADDON_BUILD/$PKG_ADDON_ID/bin
-
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
-    cp $PKG_DIR/source/config/dispmanx_vncserver.conf $ADDON_BUILD/$PKG_ADDON_ID/config/
 }
