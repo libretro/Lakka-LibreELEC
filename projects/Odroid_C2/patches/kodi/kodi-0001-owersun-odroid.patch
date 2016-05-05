@@ -1,0 +1,2709 @@
+commit a1dae5b39eb3d5366d2da49e0b56c5bbeb51c8e1
+Author: Owersun <owersun@gmail.com>
+Date:   Sat Apr 23 22:34:30 2016 +0200
+
+    Odroids: All the codecs and display drivers
+
+diff --git a/configure.ac b/configure.ac
+index c4e83a2..48bfa43 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -84,7 +84,7 @@ AC_DEFUN([XB_FIND_SONAME],
+     for path in $gcc_lib_path $env_lib_path $host_lib_path; do
+       lib=[`ls -- $path/lib$2.dylib 2>/dev/null`]
+       if test x$lib != x; then
+-        # we want the path/name that is embedded in the dylib 
++        # we want the path/name that is embedded in the dylib
+         $1_FILENAME=[`otool -L $lib | grep -v lib$2.dylib | grep lib$2 | awk '{V=1; print $V}'`]
+         $1_SONAME=[`basename $$1_FILENAME`]
+       fi
+@@ -218,6 +218,10 @@ libbluetooth_enabled="== libbluetooth enabled. =="
+ libbluetooth_disabled="== libbluetooth disabled. Bluetooth support will not be available. =="
+ 
+ 
++# Odroid stuff
++hybris_enabled="== Libhybris enabled. =="
++hybris_disabled="== Libhybris disabled. =="
++
+ AC_ARG_WITH([ffmpeg],
+   [AS_HELP_STRING([--with-ffmpeg],
+   [ffmpeg options: auto (search pkg-config or auto build), force (always build ffmpeg), shared (link dynamically), path_to_ffmpeg [default=force]])],
+@@ -379,7 +383,7 @@ AC_ARG_ENABLE([avahi],
+   [disable Avahi support (default is enabled if libavahi-common and libavahi-client is found)])],
+   [use_avahi=$enableval],
+   [use_avahi=yes])
+-  
++
+   AC_ARG_ENABLE([mdnsembedded],
+   [AS_HELP_STRING([--disable-mdnsembedded],
+   [disable mDNSEmbedded support (default is auto)])],
+@@ -485,7 +489,7 @@ AC_ARG_ENABLE([breakpad],
+ 
+ AC_ARG_ENABLE([codec],
+   [AS_HELP_STRING([--enable-codec],
+-  [enable additional codecs from a list of comma separated names, (default is none, choices are amcodec and imxvpu)])],
++  [enable additional codecs from a list of comma separated names, (default is none, choices are mfc, amcodec and imxvpu)])],
+   [add_codecs=$enableval],
+   [add_codecs=no])
+ 
+@@ -496,6 +500,13 @@ AC_ARG_ENABLE([libav-compat],
+   [use_libav_hacks=$enableval],
+   [use_libav_hacks=no])
+ 
++# Odroid stuff
++AC_ARG_ENABLE([hybris],
++  [AS_HELP_STRING([--enable-hybris],
++  [enable use of Libhybris (default is no) 'Linux only'])],
++  [use_hybris=$enableval],
++  [use_hybris=no])
++
+ ### End of external library options
+ 
+ if test "x$host_vendor" != "xapple"; then
+@@ -534,7 +545,7 @@ case $host in
+      use_gles=yes
+      use_optical_drive=no
+      use_x11=no
+-     build_shared_lib=yes    
++     build_shared_lib=yes
+      ;;
+   i*86*-linux-gnu*|i*86*-*-linux-uclibc*)
+      target_platform=target_linux
+@@ -794,7 +813,7 @@ elif test "$use_arch" = "arm"; then
+   CFLAGS="$CFLAGS -mno-apcs-stack-check"
+   CXXFLAGS="$CXXFLAGS -mno-apcs-stack-check"
+   if test "$use_tegra" = "yes"; then
+-    # Compile for ARMv7a architecture, need to test gcc for vfpv3-d16 support 
++    # Compile for ARMv7a architecture, need to test gcc for vfpv3-d16 support
+     SAVE_CFLAGS="$CFLAGS"
+     CFLAGS="-mfpu=vfpv3-d16"
+     AC_COMPILE_IFELSE(
+@@ -803,10 +822,10 @@ elif test "$use_arch" = "arm"; then
+         CXXFLAGS="$CXXFLAGS -Wno-psabi -Wa,-march=armv7a -mtune=cortex-a9 -mfpu=vfpv3-d16 -mthumb-interwork"
+         use_cpu=cortex-a9],
+       [ CFLAGS="$SAVE_CFLAGS -Wa,-march=armv6 -mtune=cortex-a8 -mthumb-interwork"
+-        CXXFLAGS="$CXXFLAGS -Wa,-march=armv6 -mtune=cortex-a8 -mthumb-interwork"    
++        CXXFLAGS="$CXXFLAGS -Wa,-march=armv6 -mtune=cortex-a8 -mthumb-interwork"
+         use_cpu=cortex-a8])
+   else
+-    if test "$use_neon" = "yes"; then 
++    if test "$use_neon" = "yes"; then
+       CFLAGS="$CFLAGS -mfpu=neon -mvectorize-with-neon-quad"
+       CXXFLAGS="$CXXFLAGS -mfpu=neon -mvectorize-with-neon-quad"
+     fi
+@@ -1496,6 +1515,23 @@ else
+   AC_MSG_NOTICE($libcap_disabled)
+ fi
+ 
++# Odroid stuff
++if test "x$use_hybris" != "xno"; then
++  AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX -DTARGET_HYBRIS")
++  USE_HYBRIS=1;
++  AC_DEFINE(HAS_EGLGLES, [1], [Define if supporting EGL based GLES Framebuffer])
++  AC_DEFINE(HAS_HYBRIS, [1], [Define if supporting Hybris based systems])
++  PKG_CHECK_MODULES([HWCOMPOSEREGL],  [hwcomposer-egl >= 0.1],
++    [INCLUDES="$INCLUDES -I/usr/include/hybris $HWCOMPOSEREGL_CFLAGS"; LIBS="$LIBS $HWCOMPOSEREGL_LIBS"],
++    AC_MSG_ERROR($missing_library))
++  PKG_CHECK_MODULES([HYBRISEGL],  [hybris-egl-platform >= 0.1],
++    [INCLUDES="$INCLUDES $HYBRISEGL_CFLAGS"; LIBS="$LIBS $HYBRISEGL_LIBS"],
++    AC_MSG_ERROR($missing_library))
++  PKG_CHECK_MODULES([LIBHARDWARE],  [libhardware >= 0.1],
++    [INCLUDES="$INCLUDES $LIBHARDWARE_CFLAGS"; LIBS="$LIBS $LIBHARDWARE_LIBS -lsync -lmedia"],
++    AC_MSG_ERROR($missing_library))
++fi
++
+ # FFmpeg
+ FFMPEG_LIBNAMES="libavcodec >= 56.26.100
+                  libavfilter >= 5.11.102
+@@ -1581,7 +1617,7 @@ fi
+ 
+ if test "$FFMPEG_FOUND" != "true"; then
+   PKG_CHECK_MODULES([FFMPEG], [$FFMPEG_LIBNAMES],
+-    [INCLUDES="$INCLUDES $FFMPEG_CFLAGS"; LIBS="$LIBS $FFMPEG_LIBS"; FFMPEG_FOUND="true"], 
++    [INCLUDES="$INCLUDES $FFMPEG_CFLAGS"; LIBS="$LIBS $FFMPEG_LIBS"; FFMPEG_FOUND="true"],
+     [AC_MSG_ERROR("ffmpeg not found")])
+ fi
+ 
+@@ -1736,6 +1772,9 @@ esac
+ # remember to convert commas to spaces
+ for codecs in `echo $add_codecs | sed 's/,/ /g'`; do
+   case $codecs in
++    *mfc*)
++        XB_ADD_CODEC([MFC], [mfc], [$codecs])
++        ;;
+     *amcodec*)
+       AC_CHECK_HEADER([amcodec/codec_error.h],, AC_MSG_ERROR($missing_headers))
+       XB_ADD_CODEC([LIBAMCODEC], [amcodec], [$codecs])
+@@ -2076,7 +2115,7 @@ else
+ fi
+ 
+ if test "x$use_airtunes" != "xno"; then
+-  final_message="$final_message\n  AirTunes support (libshairplay):\tYes"  
++  final_message="$final_message\n  AirTunes support (libshairplay):\tYes"
+ else
+   final_message="$final_message\n  AirTunes support:\tNo"
+ fi
+@@ -2139,6 +2178,13 @@ else
+   final_message="$final_message\n  additional codecs:\tNo"
+ fi
+ 
++# Odroid stuff
++if test "x$use_hybris" != "xno"; then
++  final_message="$final_message\n  Odroid Hybris support:\tYes"
++else
++  final_message="$final_message\n  Odroid Hybris support:\tNo"
++fi
++
+ ### External libraries messages
+ 
+ if test "$host_vendor" = "apple" ; then
+@@ -2335,6 +2381,7 @@ AC_SUBST(USE_SSE4)
+ AC_SUBST(USE_MMAL)
+ AC_SUBST(USE_X11)
+ AC_SUBST(USE_BREAKPAD)
++AC_SUBST(USE_HYBRIS)
+ AC_SUBST(CROSS_COMPILING)
+ 
+ # pushd and popd are not available in other shells besides bash, so implement
+@@ -2393,7 +2440,7 @@ XB_CONFIG_MODULE([lib/cpluff], [
+     --host=$host_alias \
+     --build=$build_alias \
+     --target=$target_alias CFLAGS="$CFLAGS" CC="$CC" CXX="$CXX" LDFLAGS="$LDFLAGS" LIBS=""
+-    #LDFLAGS="$LDFLAGS -Wl,-read_only_relocs,suppress"    
++    #LDFLAGS="$LDFLAGS -Wl,-read_only_relocs,suppress"
+ ], [0])
+ 
+ XB_CONFIG_MODULE([lib/gtest], [
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+index 95db8cf..420a6d3 100644
+--- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
+@@ -490,6 +490,7 @@ snd_pcm_chmap_t* CAESinkALSA::SelectALSAChannelMap(const CAEChannelInfo& info)
+ 
+ void CAESinkALSA::GetAESParams(const AEAudioFormat& format, std::string& params)
+ {
++#if !defined(HAS_LIBAMCODEC)
+   if (m_passthrough)
+     params = "AES0=0x06";
+   else
+@@ -506,6 +507,7 @@ void CAESinkALSA::GetAESParams(const AEAudioFormat& format, std::string& params)
+   else if (format.m_sampleRate ==  44100) params += ",AES3=0x00";
+   else if (format.m_sampleRate ==  32000) params += ",AES3=0x03";
+   else params += ",AES3=0x01";
++#endif
+ }
+ 
+ bool CAESinkALSA::Initialize(AEAudioFormat &format, std::string &device)
+@@ -744,16 +746,16 @@ bool CAESinkALSA::InitializeHW(const ALSAConfig &inconfig, ALSAConfig &outconfig
+   snd_pcm_hw_params_get_buffer_size_max(hw_params, &bufferSize);
+   snd_pcm_hw_params_get_period_size_max(hw_params, &periodSize, NULL);
+ 
+-  /* 
+-   We want to make sure, that we have max 200 ms Buffer with 
++  /*
++   We want to make sure, that we have max 200 ms Buffer with
+    a periodSize of approx 50 ms. Choosing a higher bufferSize
+    will cause problems with menu sounds. Buffer will be increased
+    after those are fixed.
+   */
+   periodSize  = std::min(periodSize, (snd_pcm_uframes_t) sampleRate / 20);
+   bufferSize  = std::min(bufferSize, (snd_pcm_uframes_t) sampleRate / 5);
+-  
+-  /* 
++
++  /*
+    According to upstream we should set buffer size first - so make sure it is always at least
+    4x period size to not get underruns (some systems seem to have issues with only 2 periods)
+   */
+@@ -772,7 +774,7 @@ bool CAESinkALSA::InitializeHW(const ALSAConfig &inconfig, ALSAConfig &outconfig
+     snd_pcm_hw_params_copy(hw_params_copy, hw_params); // restore working copy
+     CLog::Log(LOGDEBUG, "CAESinkALSA::InitializeHW - Request: Failed to limit periodSize to %lu", periodSizeMax);
+   }
+-  
++
+   // first trying bufferSize, PeriodSize
+   // for more info see here:
+   // http://mailman.alsa-project.org/pipermail/alsa-devel/2009-September/021069.html
+@@ -782,22 +784,24 @@ bool CAESinkALSA::InitializeHW(const ALSAConfig &inconfig, ALSAConfig &outconfig
+   snd_pcm_uframes_t periodSizeTemp, bufferSizeTemp;
+   periodSizeTemp = periodSize;
+   bufferSizeTemp = bufferSize;
+-  if (snd_pcm_hw_params_set_buffer_size_near(m_pcm, hw_params_copy, &bufferSize) != 0
+-    || snd_pcm_hw_params_set_period_size_near(m_pcm, hw_params_copy, &periodSize, NULL) != 0
++  int dir = 0;
++
++  if (snd_pcm_hw_params_set_period_size_near(m_pcm, hw_params_copy, &periodSize, &dir) != 0
++    || snd_pcm_hw_params_set_buffer_size_near(m_pcm, hw_params_copy, &bufferSize) != 0
+     || snd_pcm_hw_params(m_pcm, hw_params_copy) != 0)
+   {
+     bufferSize = bufferSizeTemp;
+     periodSize = periodSizeTemp;
+     // retry with PeriodSize, bufferSize
+     snd_pcm_hw_params_copy(hw_params_copy, hw_params); // restore working copy
+-    if (snd_pcm_hw_params_set_period_size_near(m_pcm, hw_params_copy, &periodSize, NULL) != 0
++    if (snd_pcm_hw_params_set_period_size_near(m_pcm, hw_params_copy, &periodSize, &dir) != 0
+       || snd_pcm_hw_params_set_buffer_size_near(m_pcm, hw_params_copy, &bufferSize) != 0
+       || snd_pcm_hw_params(m_pcm, hw_params_copy) != 0)
+     {
+       // try only periodSize
+       periodSize = periodSizeTemp;
+       snd_pcm_hw_params_copy(hw_params_copy, hw_params); // restore working copy
+-      if(snd_pcm_hw_params_set_period_size_near(m_pcm, hw_params_copy, &periodSize, NULL) != 0 
++      if(snd_pcm_hw_params_set_period_size_near(m_pcm, hw_params_copy, &periodSize, &dir) != 0
+         || snd_pcm_hw_params(m_pcm, hw_params_copy) != 0)
+       {
+         // try only BufferSize
+@@ -819,7 +823,7 @@ bool CAESinkALSA::InitializeHW(const ALSAConfig &inconfig, ALSAConfig &outconfig
+       snd_pcm_get_params(m_pcm, &bufferSize, &periodSize);
+     }
+   }
+-  
++
+   CLog::Log(LOGDEBUG, "CAESinkALSA::InitializeHW - Got: periodSize %lu, bufferSize %lu", periodSize, bufferSize);
+ 
+   /* set the format parameters */
+@@ -1301,6 +1305,15 @@ void CAESinkALSA::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
+ 
+ AEDeviceType CAESinkALSA::AEDeviceTypeFromName(const std::string &name)
+ {
++
++#if defined(HAS_LIBAMCODEC)
++  // ugly workaround to show DTS / AC3 caps
++  // but don't run into multi channel issues
++  // as we can only open 2 pcm channels
++  // God, forgive me I wrote this
++  return AE_DEVTYPE_IEC958;
++#endif
++
+   if (name.substr(0, 4) == "hdmi")
+     return AE_DEVTYPE_HDMI;
+   else if (name.substr(0, 6) == "iec958" || name.substr(0, 5) == "spdif")
+@@ -1405,9 +1418,9 @@ void CAESinkALSA::EnumerateDevice(AEDeviceInfoList &list, const std::string &dev
+ 
+             if (badHDMI)
+             {
+-              /* 
+-               * Warn about disconnected devices, but keep them enabled 
+-               * Detection can go wrong on Intel, Nvidia and on all 
++              /*
++               * Warn about disconnected devices, but keep them enabled
++               * Detection can go wrong on Intel, Nvidia and on all
+                * AMD (fglrx) hardware, so it is not safe to close those
+                * handles
+                */
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
+index 355257c..c6eccca 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
+@@ -45,6 +45,9 @@
+ #include "Video/DVDVideoCodecAndroidMediaCodec.h"
+ #include "platform/android/activity/AndroidFeatures.h"
+ #endif
++#if defined(HAS_MFC)
++#include "Video/DVDVideoCodecMFC.h"
++#endif
+ #include "Audio/DVDAudioCodecFFmpeg.h"
+ #include "Audio/DVDAudioCodecPassthrough.h"
+ #include "Overlay/DVDOverlayCodecSSA.h"
+@@ -158,6 +161,8 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, CProces
+     pCodec = OpenCodec(new CDVDVideoCodecOpenMax(processInfo), hint, options);
+ #elif defined(HAS_MMAL)
+     pCodec = OpenCodec(new CMMALVideo(processInfo), hint, options);
++#elif defined(HAS_MFC)
++    pCodec = OpenCodec(new CDVDVideoCodecMFC(processInfo), hint, options);
+ #endif
+     if (pCodec)
+       return pCodec;
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
+index 0a97893..f4c4bc5 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
+@@ -361,7 +361,7 @@ void dumpfile_write(am_private_t *para, void* buf, int bufsiz)
+   }
+ 
+   if (para->dumpdemux && para->dumpfile != -1)
+-    write(para->dumpfile, buf, bufsiz);
++    int ret = write(para->dumpfile, buf, bufsiz);
+ }
+ 
+ /*************************************************************************/
+@@ -387,13 +387,14 @@ static int64_t get_pts_video()
+ 
+ static int set_pts_pcrscr(int64_t value)
+ {
++  int ret;
+   int fd = open("/sys/class/tsync/pts_pcrscr", O_WRONLY);
+   if (fd >= 0)
+   {
+     char pts_str[64];
+     unsigned long pts = (unsigned long)value;
+     sprintf(pts_str, "0x%lx", pts);
+-    write(fd, pts_str, strlen(pts_str));
++    ret = write(fd, pts_str, strlen(pts_str));
+     close(fd);
+     return 0;
+   }
+@@ -714,7 +715,7 @@ int write_av_packet(am_private_t *para, am_packet_t *pkt)
+         }
+         pkt->newflag = 0;
+     }
+-	
++
+     buf = pkt->data;
+     size = pkt->data_size ;
+     if (size == 0 && pkt->isvalid) {
+@@ -1566,7 +1567,7 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
+       // h264 in an avi file
+       if (m_hints.ptsinvalid)
+         am_private->gcodec.param = (void*)(EXTERNAL_PTS | SYNC_OUTSIDE);
+-      break; 
++      break;
+     case VFORMAT_REAL:
+       am_private->stream_type = AM_STREAM_RM;
+       am_private->vcodec.noblock = 1;
+@@ -1631,7 +1632,7 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
+ 
+   Create();
+ 
+-  m_display_rect = CRect(0, 0, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iWidth, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iHeight);
++  m_display_rect = CRect(0, 0, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iScreenWidth, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iScreenHeight);
+ 
+   std::string strScaler;
+   SysfsUtils::GetString("/sys/class/ppmgr/ppscaler", strScaler);
+@@ -2112,7 +2113,6 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+         int diff = (int) ((dst_rect.Height() - dst_rect.Width()) / 2);
+         dst_rect = CRect(DestRect.x1 - diff, DestRect.y1, DestRect.x2 + diff, DestRect.y2);
+       }
+-
+   }
+ 
+   if (m_dst_rect != dst_rect)
+@@ -2134,7 +2134,7 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+ #ifdef TARGET_ANDROID
+   display = m_display_rect;
+ #else
+-  display = gui;
++  display = CRect(0, 0, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iScreenWidth, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iScreenHeight);;
+ #endif
+   if (gui != display)
+   {
+@@ -2206,6 +2206,8 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+   std::string s_gui = StringUtils::Format("%i,%i,%i,%i",
+     (int)gui.x1, (int)gui.y1,
+     (int)gui.Width(), (int)gui.Height());
++  CLog::Log(LOGDEBUG, "CAMLCodec::SetVideoRect:SrcRect(%i,%i,%i,%i)", (int)SrcRect.x1, (int)SrcRect.y1, (int)SrcRect.Width(), (int)SrcRect.Height());
++  CLog::Log(LOGDEBUG, "CAMLCodec::SetVideoRect:DestRect(%i,%i,%i,%i)", (int)DestRect.x1, (int)DestRect.y1, (int)DestRect.Width(), (int)DestRect.Height());
+   CLog::Log(LOGDEBUG, "CAMLCodec::SetVideoRect:display(%s)", s_display.c_str());
+   CLog::Log(LOGDEBUG, "CAMLCodec::SetVideoRect:gui(%s)", s_gui.c_str());
+   CLog::Log(LOGDEBUG, "CAMLCodec::SetVideoRect:m_dst_rect(%s)", s_m_dst_rect.c_str());
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.cpp
+new file mode 100644
+index 0000000..900c5d8
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.cpp
+@@ -0,0 +1,585 @@
++#include "system.h"
++
++#ifndef THIS_IS_NOT_XBMC
++  #if (defined HAVE_CONFIG_H) && (!defined WIN32)
++    #include "config.h"
++  #endif
++  #include "DVDDemuxers/DVDDemux.h"
++  #include "DVDStreamInfo.h"
++  #include "DVDClock.h"
++  #include "guilib/GraphicContext.h"
++  #include "DVDCodecs/DVDCodecs.h"
++  #include "DVDCodecs/DVDCodecUtils.h"
++  #include "settings/Settings.h"
++  #include "settings/DisplaySettings.h"
++  #include "settings/AdvancedSettings.h"
++  #include "utils/log.h"
++#endif
++
++#include "DVDVideoCodecMFC.h"
++
++#include <sys/mman.h>
++#include <sys/ioctl.h>
++#include <unistd.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <poll.h>
++#include <sys/mman.h>
++#include <dirent.h>
++
++#ifdef CLASSNAME
++#undef CLASSNAME
++#endif
++#define CLASSNAME "CDVDVideoCodecMFC"
++
++CDVDVideoCodecMFC::CDVDVideoCodecMFC(CProcessInfo &processInfo) : CDVDVideoCodec(processInfo) {
++
++  m_iDecoderHandle = NULL;
++  m_iConverterHandle = NULL;
++  m_MFCOutput = NULL;
++  m_MFCCapture = NULL;
++  m_FIMCOutput = NULL;
++  m_FIMCCapture = NULL;
++
++  m_Buffer = NULL;
++  m_BufferNowOnScreen = NULL;
++
++  memzero(m_videoBuffer);
++
++}
++
++CDVDVideoCodecMFC::~CDVDVideoCodecMFC() {
++
++  Dispose();
++
++}
++
++bool CDVDVideoCodecMFC::OpenDevices() {
++  DIR *dir;
++
++  if ((dir = opendir ("/sys/class/video4linux/")) != NULL) {
++    struct dirent *ent;
++    while ((ent = readdir (dir)) != NULL) {
++      if (strncmp(ent->d_name, "video", 5) == 0) {
++        char *p;
++        char name[64];
++        char devname[64];
++        char sysname[64];
++        char drivername[32];
++        char target[1024];
++        int ret;
++
++        snprintf(sysname, 64, "/sys/class/video4linux/%s", ent->d_name);
++        snprintf(name, 64, "/sys/class/video4linux/%s/name", ent->d_name);
++
++        FILE* fp = fopen(name, "r");
++        if (fgets(drivername, 32, fp) != NULL) {
++          p = strchr(drivername, '\n');
++          if (p != NULL)
++            *p = '\0';
++        } else {
++          fclose(fp);
++          continue;
++        }
++        fclose(fp);
++
++        ret = readlink(sysname, target, sizeof(target));
++        if (ret < 0)
++          continue;
++        target[ret] = '\0';
++        p = strrchr(target, '/');
++        if (p == NULL)
++          continue;
++
++        sprintf(devname, "/dev/%s", ++p);
++
++        if (!m_iDecoderHandle && strstr(drivername, "mfc") != NULL && strstr(drivername, "dec") != NULL) {
++          int fd = open(devname, O_RDWR | O_NONBLOCK, 0);
++          if (fd > -1) {
++            struct v4l2_capability cap;
++            memzero(cap);
++            if (ioctl(fd, VIDIOC_QUERYCAP, &cap) == 0)
++              if (cap.capabilities & V4L2_CAP_STREAMING &&
++                (cap.capabilities & V4L2_CAP_VIDEO_M2M_MPLANE ||
++                (cap.capabilities & (V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_VIDEO_OUTPUT_MPLANE)))) {
++                m_iDecoderHandle = new V4l2Device;
++                m_iDecoderHandle->device = fd;
++                strcpy(m_iDecoderHandle->name, drivername);
++                CLog::Log(LOGDEBUG, "%s::%s - MFC Found %s %s", CLASSNAME, __func__, drivername, devname);
++                struct v4l2_format fmt;
++                memzero(fmt);
++                fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
++                fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12M;
++                if (ioctl(fd, VIDIOC_TRY_FMT, &fmt) == 0) {
++                  CLog::Log(LOGDEBUG, "%s::%s - Direct decoding to untiled picture on device %s is supported, no conversion needed", CLASSNAME, __func__, m_iDecoderHandle->name);
++                  delete m_iConverterHandle;
++                  m_iConverterHandle = NULL;
++                  return true;
++                }
++              }
++          }
++          if (!m_iDecoderHandle)
++            close(fd);
++        }
++        if (!m_iConverterHandle && strstr(drivername, "fimc") != NULL && strstr(drivername, "m2m") != NULL) {
++          int fd = open(devname, O_RDWR | O_NONBLOCK, 0);
++          if (fd > -1) {
++            struct v4l2_capability cap;
++            memzero(cap);
++            if (ioctl(fd, VIDIOC_QUERYCAP, &cap) == 0)
++              if (cap.capabilities & V4L2_CAP_STREAMING &&
++                (cap.capabilities & V4L2_CAP_VIDEO_M2M_MPLANE ||
++                (cap.capabilities & (V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_VIDEO_OUTPUT_MPLANE)))) {
++                m_iConverterHandle = new V4l2Device;
++                m_iConverterHandle->device = fd;
++                strcpy(m_iConverterHandle->name, drivername);
++                CLog::Log(LOGDEBUG, "%s::%s - FIMC Found %s %s", CLASSNAME, __func__, drivername, devname);
++              }
++          }
++          if (!m_iConverterHandle)
++            close(fd);
++        }
++        if (m_iDecoderHandle && m_iConverterHandle) {
++          closedir (dir);
++          return true;
++        }
++      }
++    }
++    closedir (dir);
++  }
++
++  return false;
++
++}
++
++void CDVDVideoCodecMFC::Dispose() {
++
++  CLog::Log(LOGDEBUG, "%s::%s - Starting cleanup", CLASSNAME, __func__);
++
++  delete m_BufferNowOnScreen;
++  delete m_Buffer;
++
++  m_Buffer = NULL;
++  m_BufferNowOnScreen = NULL;
++
++  delete m_FIMCCapture;
++  delete m_FIMCOutput;
++  delete m_MFCCapture;
++  delete m_MFCOutput;
++
++  m_MFCOutput = NULL;
++  m_MFCCapture = NULL;
++  m_FIMCOutput = NULL;
++  m_FIMCCapture = NULL;
++
++  if (m_iConverterHandle) {
++    close(m_iConverterHandle->device);
++    delete m_iConverterHandle;
++    m_iConverterHandle = NULL;
++  }
++
++  if (m_iDecoderHandle) {
++    close(m_iDecoderHandle->device);
++    delete m_iDecoderHandle;
++    m_iDecoderHandle = NULL;
++  }
++
++}
++
++bool CDVDVideoCodecMFC::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options) {
++  struct v4l2_format fmt;
++  struct v4l2_crop crop;
++  struct V4l2SinkBuffer sinkBuffer;
++  V4l2Device *finalSink = NULL;
++  int finalFormat = -1;
++  int resultVideoWidth;
++  int resultVideoHeight;
++  int resultLineSize;
++  unsigned int extraSize = 0;
++  uint8_t *extraData = NULL;
++
++  m_hints = hints;
++  if (m_hints.software)
++    return false;
++
++  Dispose();
++
++  m_Buffer = new V4l2SinkBuffer();
++  m_BufferNowOnScreen = new V4l2SinkBuffer();
++  m_BufferNowOnScreen->iIndex = -1;
++  m_bVideoConvert = false;
++  m_bDropPictures = false;
++  memzero(m_videoBuffer);
++
++  if (!OpenDevices()) {
++    CLog::Log(LOGERROR, "%s::%s - No Exynos MFC Decoder/Converter found", CLASSNAME, __func__);
++    return false;
++  }
++
++  m_bVideoConvert = m_converter.Open(m_hints.codec, (uint8_t *)m_hints.extradata, m_hints.extrasize, true);
++
++  if(m_bVideoConvert) {
++    if(m_converter.GetExtraData() != NULL && m_converter.GetExtraSize() > 0) {
++      extraSize = m_converter.GetExtraSize();
++      extraData = m_converter.GetExtraData();
++    }
++  } else {
++    if(m_hints.extrasize > 0 && m_hints.extradata != NULL) {
++      extraSize = m_hints.extrasize;
++      extraData = (uint8_t*)m_hints.extradata;
++    }
++  }
++
++  // Test what formats we can get finally
++  // If converter is present, it is our final sink
++  (m_iConverterHandle) ? finalSink = m_iConverterHandle : finalSink = m_iDecoderHandle;
++  // Test NV12 2 Planes Y/CbCr
++  memzero(fmt);
++  fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
++  fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12M;
++  if (ioctl(finalSink->device, VIDIOC_TRY_FMT, &fmt) == 0)
++    finalFormat = V4L2_PIX_FMT_NV12M;
++  memzero(fmt);
++/*
++  // Test YUV420 3 Planes Y/Cb/Cr
++  fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
++  fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420M;
++  if (ioctl(finalSink->device, VIDIOC_TRY_FMT, &fmt) == 0)
++    finalFormat = V4L2_PIX_FMT_YUV420M;
++*/
++
++  // No suitable output formats available
++  if (finalFormat < 0) {
++    CLog::Log(LOGERROR, "%s::%s - No suitable format on %s to convert to found", CLASSNAME, __func__, finalSink->name);
++    return false;
++  }
++
++  // Create MFC Output sink (the one where encoded frames are feed)
++  m_MFCOutput = new CLinuxV4l2Sink(m_iDecoderHandle, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
++  memzero(fmt);
++  switch(m_hints.codec)
++  {
++    case AV_CODEC_ID_VC1:
++      fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_VC1_ANNEX_G;
++      m_name = "mfc-vc1";
++      break;
++    case AV_CODEC_ID_MPEG1VIDEO:
++      fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_MPEG1;
++      m_name = "mfc-mpeg1";
++      break;
++    case AV_CODEC_ID_MPEG2VIDEO:
++      fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_MPEG2;
++      m_name = "mfc-mpeg2";
++      break;
++    case AV_CODEC_ID_MPEG4:
++      fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_MPEG4;
++      m_name = "mfc-mpeg4";
++      break;
++    case AV_CODEC_ID_H263:
++      fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H263;
++      m_name = "mfc-h263";
++      break;
++    case AV_CODEC_ID_H264:
++      fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
++      m_name = "mfc-h264";
++      break;
++    default:
++      return false;
++      break;
++  }
++  fmt.fmt.pix_mp.plane_fmt[0].sizeimage = BUFFER_SIZE;
++  // Set encoded format
++  if (!m_MFCOutput->SetFormat(&fmt))
++    return false;
++  // Init with number of input buffers predefined
++  if (!m_MFCOutput->Init(INPUT_BUFFERS))
++    return false;
++
++  // Get empty buffer to fill
++  if (!m_MFCOutput->GetBuffer(&sinkBuffer))
++    return false;
++  // Fill it with the header
++  sinkBuffer.iBytesUsed[0] = extraSize;
++  memcpy(sinkBuffer.cPlane[0], extraData, extraSize);
++  // Enqueue buffer
++  if (!m_MFCOutput->PushBuffer(&sinkBuffer))
++    return false;
++
++  // Create MFC Capture sink (the one from which decoded frames are read)
++  m_MFCCapture = new CLinuxV4l2Sink(m_iDecoderHandle, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
++  memzero(fmt);
++  // If there is no converter set output format on the MFC Capture sink
++  if (!m_iConverterHandle) {
++    fmt.fmt.pix_mp.pixelformat = finalFormat;
++    if (!m_MFCCapture->SetFormat(&fmt))
++        return false;
++  }
++
++  // Turn on MFC Output with header in it to initialize MFC with all we just setup
++  m_MFCOutput->StreamOn(VIDIOC_STREAMON);
++
++  // Initialize MFC Capture
++  if (!m_MFCCapture->Init(0))
++    return false;
++  // Queue all buffers (empty) to MFC Capture
++  m_MFCCapture->QueueAll();
++
++  // Read the format of MFC Capture
++  if (!m_MFCCapture->GetFormat(&fmt))
++    return false;
++  // Size of resulting picture coming out of MFC
++  // It will be aligned by 16 since the picture is tiled
++  // We need this to know where to split buffer line by line
++  resultLineSize = fmt.fmt.pix_mp.width;
++  // Get MFC capture crop settings
++  if (!m_MFCCapture->GetCrop(&crop))
++    return false;
++  // This is the picture boundaries we are interested in, everything outside is alignement because of tiled MFC output
++  resultVideoWidth = crop.c.width;
++  resultVideoHeight = crop.c.height;
++
++  // Turn on MFC Capture
++  m_MFCCapture->StreamOn(VIDIOC_STREAMON);
++
++  // If converter is needed (we need to untile the picture from format MFC produces it)
++  if (m_iConverterHandle) {
++    // Create FIMC Output sink
++    m_FIMCOutput = new CLinuxV4l2Sink(m_iConverterHandle, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
++    // Set the FIMC Output format to the one read from MFC
++    if (!m_FIMCOutput->SetFormat(&fmt))
++      return false;
++    // Set the FIMC Output crop to the one read from MFC
++    if (!m_FIMCOutput->SetCrop(&crop))
++      return false;
++    // Init FIMC Output and link it to buffers of MFC Capture
++    if (!m_FIMCOutput->Init(m_MFCCapture))
++      return false;
++    // Get FIMC Output crop settings
++    if (!m_FIMCOutput->GetCrop(&crop))
++      return false;
++
++    // Create FIMC Capture sink
++    m_FIMCCapture = new CLinuxV4l2Sink(m_iConverterHandle, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
++    // Set the final picture format and the same picture dimension settings to FIMC Capture
++    // as picture crop coming from MFC (original picture dimensions)
++    memzero(fmt);
++    fmt.fmt.pix_mp.pixelformat = finalFormat;
++    fmt.fmt.pix_mp.width = crop.c.width;
++    fmt.fmt.pix_mp.height = crop.c.height;
++    fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
++    if (!m_FIMCCapture->SetFormat(&fmt))
++      return false;
++    // Init FIMC capture with number of buffers predefined
++    if (!m_FIMCCapture->Init(OUTPUT_BUFFERS))
++      return false;
++
++    // Queue all buffers (empty) to FIMC Capture
++    m_FIMCCapture->QueueAll();
++
++    // Read FIMC capture format settings
++    if (!m_FIMCCapture->GetFormat(&fmt))
++      return false;
++    resultLineSize = fmt.fmt.pix_mp.width;
++    // Read FIMC capture crop settings
++    if (!m_FIMCCapture->GetCrop(&crop))
++      return false;
++    resultVideoWidth = crop.c.width;
++    resultVideoHeight = crop.c.height;
++
++    // Turn on FIMC Output and Capture enabling the converter
++    m_FIMCOutput->StreamOn(VIDIOC_STREAMON);
++    m_FIMCCapture->StreamOn(VIDIOC_STREAMON);
++  }
++
++  m_videoBuffer.iFlags          = DVP_FLAG_ALLOCATED;
++
++  m_videoBuffer.color_range     = 0;
++  m_videoBuffer.color_matrix    = 4;
++
++  m_videoBuffer.iDisplayWidth   = resultVideoWidth;
++  m_videoBuffer.iDisplayHeight  = resultVideoHeight;
++  m_videoBuffer.iWidth          = resultVideoWidth;
++  m_videoBuffer.iHeight         = resultVideoHeight;
++
++  m_videoBuffer.data[0]         = NULL;
++  m_videoBuffer.data[1]         = NULL;
++  m_videoBuffer.data[2]         = NULL;
++  m_videoBuffer.data[3]         = NULL;
++
++  m_videoBuffer.pts             = DVD_NOPTS_VALUE;
++  m_videoBuffer.dts             = DVD_NOPTS_VALUE;
++
++  m_videoBuffer.iLineSize[0]    = resultLineSize;
++  m_videoBuffer.iLineSize[3]    = 0;
++
++  if (finalFormat == V4L2_PIX_FMT_NV12M) {
++    m_videoBuffer.format          = RENDER_FMT_NV12;
++    m_videoBuffer.iLineSize[1]    = resultLineSize;
++    m_videoBuffer.iLineSize[2]    = 0;
++  } else if (finalFormat == V4L2_PIX_FMT_YUV420M) {
++    /*
++     Due to BUG in MFC v8 (-XU3) firmware the Y plane of the picture has the right line size,
++     but the U and V planes line sizes are actually halves of Y plane line size padded to 32
++     This is pure workaround for -XU3 MFCv8 firmware "MFC v8.0, F/W: 14yy, 01mm, 13dd (D)
++     Seems that only MPEG2 is affected
++    */
++    // Only on -XU3 there are no converter, but the output format can be YUV420
++    // So this is the easiest way to distinguish -XU3 from -U3 with FIMC
++    if (!m_iConverterHandle && m_hints.codec == AV_CODEC_ID_MPEG2VIDEO)
++      resultLineSize = resultLineSize + (32 - resultLineSize%32);
++
++    m_videoBuffer.format          = RENDER_FMT_YUV420P;
++    m_videoBuffer.iLineSize[1]    = resultLineSize >> 1;
++    m_videoBuffer.iLineSize[2]    = resultLineSize >> 1;
++  }
++
++  m_BufferNowOnScreen->iIndex = -1;
++  m_bCodecHealthy = true;
++
++  CLog::Log(LOGNOTICE, "%s::%s - MFC Setup succesfull (%dx%d, linesize %d, format 0x%x), start streaming", CLASSNAME, __func__, resultVideoWidth, resultVideoHeight, resultLineSize, finalFormat);
++
++  return true;
++
++}
++
++void CDVDVideoCodecMFC::SetDropState(bool bDrop) {
++
++  m_bDropPictures = bDrop;
++  if (m_bDropPictures)
++    m_videoBuffer.iFlags |=  DVP_FLAG_DROPPED;
++  else
++    m_videoBuffer.iFlags &= ~DVP_FLAG_DROPPED;
++
++}
++
++int CDVDVideoCodecMFC::Decode(BYTE* pData, int iSize, double dts, double pts) {
++
++  if (m_hints.ptsinvalid)
++    pts = DVD_NOPTS_VALUE;
++
++  //unsigned int dtime = XbmcThreads::SystemClockMillis();
++  debug_log(LOGDEBUG, "%s::%s - input frame iSize %d, pts %lf, dts %lf", CLASSNAME, __func__, iSize, pts, dts);
++
++  if(pData) {
++    int demuxer_bytes = iSize;
++    uint8_t *demuxer_content = pData;
++
++    if(m_bVideoConvert) {
++      m_converter.Convert(demuxer_content, demuxer_bytes);
++      demuxer_bytes = m_converter.GetConvertSize();
++      demuxer_content = m_converter.GetConvertBuffer();
++    }
++
++    m_MFCOutput->Poll(1000/3); // Wait up to 0.3 of a second for buffer availability
++    if (m_MFCOutput->GetBuffer(m_Buffer)) {
++      debug_log(LOGDEBUG, "%s::%s - Got empty buffer %d from MFC Output, filling", CLASSNAME, __func__, m_Buffer->iIndex);
++      m_Buffer->iBytesUsed[0] = demuxer_bytes;
++      memcpy((uint8_t *)m_Buffer->cPlane[0], demuxer_content, m_Buffer->iBytesUsed[0]);
++      long* longPts = (long*)&pts;
++      m_Buffer->timeStamp.tv_sec = longPts[0];
++      m_Buffer->timeStamp.tv_usec = longPts[1];
++
++      if (!m_MFCOutput->PushBuffer(m_Buffer)) {
++        m_bCodecHealthy = false;
++        return VC_FLUSHED; // MFC unrecoverable error, reset needed
++      }
++    } else {
++      if (errno == EAGAIN)
++        CLog::Log(LOGERROR, "%s::%s - MFC OUTPUT All buffers are queued and busy, no space for new frame to decode. Very broken situation. Current encoded frame will be lost", CLASSNAME, __func__);
++      else {
++        m_bCodecHealthy = false;
++        return VC_FLUSHED; // MFC unrecoverable error, reset needed
++      }
++    }
++  }
++
++  // Get a buffer from MFC Capture
++  if (!m_MFCCapture->DequeueBuffer(m_Buffer)) {
++    if (errno == EAGAIN)
++      return VC_BUFFER;
++    else
++      return VC_ERROR;
++  }
++
++  if (m_bDropPictures) {
++
++    CLog::Log(LOGWARNING, "%s::%s - Dropping frame with index %d", CLASSNAME, __func__, m_Buffer->iIndex);
++    // Queue it back to MFC CAPTURE since the picture is dropped anyway
++    m_MFCCapture->PushBuffer(m_Buffer);
++    return VC_DROPPED | VC_BUFFER;
++
++  }
++
++  if (m_iConverterHandle) {
++    // Push the buffer got from MFC Capture to FIMC Output (decoded from decoder to converter)
++    if (!m_FIMCOutput->PushBuffer(m_Buffer)) {
++      m_bCodecHealthy = false;
++      return VC_FLUSHED; // FIMC unrecoverable error, reset needed
++    }
++    // Get a buffer from FIMC Capture
++    if (!m_FIMCCapture->DequeueBuffer(m_Buffer)) {
++      if (errno == EAGAIN)
++        return VC_BUFFER;
++      else
++        return VC_ERROR;
++    }
++  }
++
++  // We got a new buffer to show, so we can enqeue back the buffer wich was on screen
++  if (m_BufferNowOnScreen->iIndex > -1) {
++    if (m_iConverterHandle)
++      m_FIMCCapture->PushBuffer(m_BufferNowOnScreen);
++    else
++      m_MFCCapture->PushBuffer(m_BufferNowOnScreen);
++    m_BufferNowOnScreen->iIndex = -1;
++  }
++
++  long longPts[2] = { m_Buffer->timeStamp.tv_sec, m_Buffer->timeStamp.tv_usec };
++  m_videoBuffer.data[0]         = (BYTE*)m_Buffer->cPlane[0];
++  m_videoBuffer.data[1]         = (BYTE*)m_Buffer->cPlane[1];
++  m_videoBuffer.data[2]         = (BYTE*)m_Buffer->cPlane[2];
++  m_videoBuffer.pts             = *((double*)&longPts[0]);
++
++  std::swap(m_Buffer, m_BufferNowOnScreen);
++
++  if (m_iConverterHandle && m_FIMCOutput->DequeueBuffer(m_Buffer))
++    m_MFCCapture->PushBuffer(m_Buffer);
++
++  //debug_log("Decode time: %d", XbmcThreads::SystemClockMillis() - dtime);
++  // Picture is finally ready to be processed further and more info can be enqueued
++  return VC_PICTURE | VC_BUFFER;
++
++}
++
++void CDVDVideoCodecMFC::Reset() {
++
++  if (m_bCodecHealthy) {
++    CLog::Log(LOGDEBUG, "%s::%s - Codec Reset requested, but codec is healthy, doing soft-flush", CLASSNAME, __func__);
++    m_MFCOutput->SoftRestart();
++    m_MFCCapture->SoftRestart();
++    if (!m_iConverterHandle)
++      m_BufferNowOnScreen->iIndex = -1;
++  } else {
++    CLog::Log(LOGERROR, "%s::%s - Codec Reset. Reinitializing", CLASSNAME, __func__);
++    CDVDCodecOptions options;
++    // We need full MFC/FIMC reset with device reopening.
++    // I wasn't able to reinitialize both IP's without fully closing and reopening them.
++    // There are always some clips that cause MFC or FIMC go into state which cannot be reset without close/open
++    Open(m_hints, options);
++  }
++
++}
++
++bool CDVDVideoCodecMFC::GetPicture(DVDVideoPicture* pDvdVideoPicture) {
++
++  *pDvdVideoPicture = m_videoBuffer;
++  debug_log(LOGDEBUG, "%s::%s - output frame pts %lf", CLASSNAME, __func__, m_videoBuffer.pts);
++  return true;
++
++}
++
++bool CDVDVideoCodecMFC::ClearPicture(DVDVideoPicture* pDvdVideoPicture) {
++
++  return CDVDVideoCodec::ClearPicture(pDvdVideoPicture);
++
++}
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.h
+new file mode 100644
+index 0000000..679cf8c
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.h
+@@ -0,0 +1,64 @@
++#pragma once
++
++#ifndef THIS_IS_NOT_XBMC
++  #include "DVDVideoCodec.h"
++  #include "DVDStreamInfo.h"
++  #include "utils/BitstreamConverter.h"
++  #include "xbmc/linux/LinuxV4l2Sink.h"
++#else
++  #include "xbmcstubs.h"
++  #include "LinuxV4l2Sink.h"
++#endif
++
++#ifndef V4L2_CAP_VIDEO_M2M_MPLANE
++  #define V4L2_CAP_VIDEO_M2M_MPLANE 0x00004000
++#endif
++
++#define BUFFER_SIZE        1048576 // Compressed frame size. 1080p mpeg4 10Mb/s can be >256k in size, so this is to make sure frame fits into the buffer
++                                   // For very unknown reason lesser than 1Mb buffer causes MFC to corrupt its own setup, setting inapropriate values
++#define INPUT_BUFFERS      3       // 3 input buffers. 2 is enough almost for everything, but on some heavy videos 3 makes a difference
++#define OUTPUT_BUFFERS     3       // Triple buffering for smooth output
++
++#define memzero(x) memset(&(x), 0, sizeof (x))
++
++class CDVDVideoCodecMFC : public CDVDVideoCodec
++{
++public:
++  CDVDVideoCodecMFC(CProcessInfo &processInfo);
++  virtual ~CDVDVideoCodecMFC();
++  virtual bool Open(CDVDStreamInfo &hints, CDVDCodecOptions &options);
++  virtual void Dispose();
++  virtual int Decode(BYTE* pData, int iSize, double dts, double pts);
++  virtual void Reset();
++  bool GetPictureCommon(DVDVideoPicture* pDvdVideoPicture);
++  virtual bool GetPicture(DVDVideoPicture* pDvdVideoPicture);
++  virtual bool ClearPicture(DVDVideoPicture* pDvdVideoPicture);
++  virtual void SetDropState(bool bDrop);
++  virtual const char* GetName() { return m_name.c_str(); }; // m_name is never changed after open
++
++protected:
++  std::string m_name;
++
++  bool m_bCodecHealthy;
++
++  V4l2Device *m_iDecoderHandle;
++  V4l2Device *m_iConverterHandle;
++
++  CLinuxV4l2Sink *m_MFCCapture;
++  CLinuxV4l2Sink *m_MFCOutput;
++  CLinuxV4l2Sink *m_FIMCCapture;
++  CLinuxV4l2Sink *m_FIMCOutput;
++
++  V4l2SinkBuffer *m_Buffer;
++  V4l2SinkBuffer *m_BufferNowOnScreen;
++
++  bool m_bVideoConvert;
++  CDVDStreamInfo m_hints;
++
++  CBitstreamConverter m_converter;
++  bool m_bDropPictures;
++
++  DVDVideoPicture   m_videoBuffer;
++
++  bool OpenDevices();
++};
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in b/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
+index a1a3447..600f7d0 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
+@@ -36,8 +36,11 @@ ifeq (@USE_MMAL@,1)
+ SRCS += MMALCodec.cpp MMALFFmpeg.cpp
+ endif
+ 
++ifeq (@USE_MFC@,1)
++SRCS += DVDVideoCodecMFC.cpp
++endif
++
+ LIB=Video.a
+ 
+ include @abs_top_srcdir@/Makefile.include
+ -include $(patsubst %.cpp,%.P,$(patsubst %.c,%.P,$(SRCS)))
+-
+diff --git a/xbmc/linux/LinuxV4l2Sink.cpp b/xbmc/linux/LinuxV4l2Sink.cpp
+new file mode 100644
+index 0000000..bd5201e
+--- /dev/null
++++ b/xbmc/linux/LinuxV4l2Sink.cpp
+@@ -0,0 +1,311 @@
++#include "system.h"
++
++#ifndef THIS_IS_NOT_XBMC
++  #if (defined HAVE_CONFIG_H) && (!defined WIN32)
++    #include "config.h"
++  #endif
++
++  #include "utils/log.h"
++#endif
++
++#include <sys/mman.h>
++#include <sys/ioctl.h>
++#include <unistd.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <poll.h>
++#include <sys/mman.h>
++#include <linux/media.h>
++
++#include "LinuxV4l2Sink.h"
++
++#ifdef CLASSNAME
++#undef CLASSNAME
++#endif
++#define CLASSNAME "CLinuxV4l2Sink"
++
++CLinuxV4l2Sink::CLinuxV4l2Sink(V4l2Device *device, enum v4l2_buf_type type) {
++  CLog::Log(LOGDEBUG, "%s::%s - Creating Sink, Device %s, Type %d", CLASSNAME, __func__, device->name, type);
++  m_Device = device;
++  m_Type = type;
++  m_NumBuffers = 0;
++  m_NumPlanes = 0;
++  m_Addresses = NULL;
++  m_Buffers = NULL;
++  m_Planes = NULL;
++}
++
++CLinuxV4l2Sink::~CLinuxV4l2Sink() {
++  CLog::Log(LOGDEBUG, "%s::%s - Destroying Sink, Device %s, Type %d", CLASSNAME, __func__, m_Device->name, m_Type);
++
++  StreamOn(VIDIOC_STREAMOFF);
++
++  if (m_Memory == V4L2_MEMORY_MMAP)
++    for (int i = 0; i < m_NumBuffers*m_NumPlanes; i++)
++      if(m_Addresses[i] != (unsigned long)MAP_FAILED)
++        if (munmap((void *)m_Addresses[i], m_Planes[i].length) == 0)
++          CLog::Log(LOGDEBUG, "%s::%s - Device %s, Munmapped Plane %d size %u at 0x%lx", CLASSNAME, __func__, m_Device->name, i, m_Planes[i].length, m_Addresses[i]);
++  if (m_Planes)
++    delete[] m_Planes;
++  if (m_Buffers)
++    delete[] m_Buffers;
++  if (m_Addresses)
++    delete[] m_Addresses;
++}
++
++// Init for MMAP buffers
++bool CLinuxV4l2Sink::Init(int buffersCount = 0) {
++  CLog::Log(LOGDEBUG, "%s::%s - Device %s, Type %d, Init MMAP %d buffers", CLASSNAME, __func__, m_Device->name, m_Type, buffersCount);
++  m_Memory = V4L2_MEMORY_MMAP;
++
++  struct v4l2_format format;
++  if (!GetFormat(&format))
++    return false;
++
++  if (buffersCount == 0 && m_Type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
++    struct v4l2_control ctrl;
++    ctrl.id = V4L2_CID_MIN_BUFFERS_FOR_CAPTURE;
++    if (ioctl(m_Device->device, VIDIOC_G_CTRL, &ctrl)) {
++      CLog::Log(LOGERROR, "%s::%s - Device %s, Type %d, Error getting number of buffers for capture (V4L2_CID_MIN_BUFFERS_FOR_CAPTURE VIDIOC_G_CTRL)", CLASSNAME, __func__, m_Device->name, m_Type);
++      return false;
++    }
++    buffersCount = (int)(ctrl.value * 1.5); //Most of the time we need 50% more extra capture buffers than device reported would be enough
++  }
++
++  m_NumBuffers = RequestBuffers(buffersCount);
++  if (m_NumBuffers < 1)
++    return false;
++  m_Buffers = new v4l2_buffer[m_NumBuffers];
++  m_Planes = new v4l2_plane[m_NumPlanes * m_NumBuffers];
++  m_Addresses = new unsigned long[m_NumPlanes * m_NumBuffers];
++  if (!QueryBuffers())
++    return false;
++  if (!MmapBuffers())
++    return false;
++  return true;
++}
++// Init for USERPTR buffers
++bool CLinuxV4l2Sink::Init(CLinuxV4l2Sink *sink) {
++  CLog::Log(LOGDEBUG, "%s::%s - Device %s, Type %d, Init UserPTR", CLASSNAME, __func__, m_Device->name, m_Type);
++  m_Memory = V4L2_MEMORY_USERPTR;
++
++  struct v4l2_format format;
++  if (!GetFormat(&format))
++    return false;
++
++  m_NumBuffers = sink->m_NumBuffers;
++  m_NumBuffers = RequestBuffers(m_NumBuffers);
++  if (m_NumBuffers < 1)
++    return false;
++  m_Buffers = new v4l2_buffer[m_NumBuffers];
++  m_Planes = new v4l2_plane[m_NumPlanes * m_NumBuffers];
++  m_Addresses = new unsigned long[m_NumPlanes * m_NumBuffers];
++  if (!QueryBuffers())
++    return false;
++  for (int i = 0; i < m_NumPlanes * m_NumBuffers; i++) {
++    m_Addresses[i] = sink->m_Addresses[i];
++    m_Planes[i].m.userptr = m_Addresses[i];
++  }
++  return true;
++}
++
++void CLinuxV4l2Sink::SoftRestart() {
++  StreamOn(VIDIOC_STREAMOFF);
++
++  while (!iFreeBuffers.empty())
++    iFreeBuffers.pop();
++  for (int i = 0; i < m_NumBuffers; i++)
++    iFreeBuffers.push(m_Buffers[i].index);
++
++  if (m_Type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
++    QueueAll();
++
++  StreamOn(VIDIOC_STREAMON);
++}
++
++bool CLinuxV4l2Sink::GetFormat(v4l2_format *format) {
++  memset(format, 0, sizeof(struct v4l2_format));
++  format->type = m_Type;
++  if (ioctl(m_Device->device, VIDIOC_G_FMT, format)) {
++    CLog::Log(LOGERROR, "%s::%s - Error getting sink format. Device %s, Type %d. (VIDIOC_G_FMT)", CLASSNAME, __func__, m_Device->name, m_Type);
++    return false;
++  }
++  m_NumPlanes = format->fmt.pix_mp.num_planes;
++  CLog::Log(LOGDEBUG, "%s::%s - G_FMT Device %s, Type %d format 0x%x (%dx%d), planes=%d, plane[0]=%d plane[1]=%d, plane[2]=%d", CLASSNAME, __func__, m_Device->name, format->type, format->fmt.pix_mp.pixelformat, format->fmt.pix_mp.width, format->fmt.pix_mp.height, format->fmt.pix_mp.num_planes, format->fmt.pix_mp.plane_fmt[0].sizeimage, format->fmt.pix_mp.plane_fmt[1].sizeimage, format->fmt.pix_mp.plane_fmt[2].sizeimage);
++  return true;
++}
++
++bool CLinuxV4l2Sink::SetFormat(v4l2_format *format) {
++  format->type = m_Type;
++  CLog::Log(LOGDEBUG, "%s::%s - S_FMT Device %s, Type %d format 0x%x (%dx%d), planes=%d, plane[0]=%d plane[1]=%d, plane[2]=%d", CLASSNAME, __func__, m_Device->name, format->type, format->fmt.pix_mp.pixelformat, format->fmt.pix_mp.width, format->fmt.pix_mp.height, format->fmt.pix_mp.num_planes, format->fmt.pix_mp.plane_fmt[0].sizeimage, format->fmt.pix_mp.plane_fmt[1].sizeimage, format->fmt.pix_mp.plane_fmt[2].sizeimage);
++  if (ioctl(m_Device->device, VIDIOC_S_FMT, format)) {
++    CLog::Log(LOGERROR, "%s::%s - Error setting sink format. Device %s, Type %d. (VIDIOC_G_FMT)", CLASSNAME, __func__, m_Device->name, m_Type);
++    return false;
++  }
++  return true;
++}
++
++bool CLinuxV4l2Sink::GetCrop(v4l2_crop *crop) {
++  memset(crop, 0, sizeof(struct v4l2_crop));
++  crop->type = m_Type;
++  if (ioctl(m_Device->device, VIDIOC_G_CROP, crop)) {
++    CLog::Log(LOGERROR, "%s::%s - Error getting sink crop. Device %s, Type %d. (VIDIOC_G_CROP)", CLASSNAME, __func__, m_Device->name, m_Type);
++    return false;
++  }
++  CLog::Log(LOGDEBUG, "%s::%s - G_CROP Device %s, Type %d, crop (%dx%d)", CLASSNAME, __func__, m_Device->name, crop->type, crop->c.width, crop->c.height);
++  return true;
++}
++
++bool CLinuxV4l2Sink::SetCrop(v4l2_crop *crop) {
++  crop->type = m_Type;
++  CLog::Log(LOGDEBUG, "%s::%s - S_CROP Device %s, Type %d, crop (%dx%d)", CLASSNAME, __func__, m_Device->name, crop->type, crop->c.width, crop->c.height);
++  if (ioctl(m_Device->device, VIDIOC_S_CROP, crop)) {
++    CLog::Log(LOGERROR, "%s::%s - Error setting sink crop. Device %s, Type %d. (VIDIOC_G_CROP)", CLASSNAME, __func__, m_Device->name, m_Type);
++    return false;
++  }
++  return true;
++}
++
++int CLinuxV4l2Sink::RequestBuffers(int buffersCount) {
++  CLog::Log(LOGDEBUG, "%s::%s - Device %s, Type %d, Memory %d, RequestBuffers %d", CLASSNAME, __func__, m_Device->name, m_Type, m_Memory, buffersCount);
++  struct v4l2_requestbuffers reqbuf;
++  memset(&reqbuf, 0, sizeof(struct v4l2_requestbuffers));
++  reqbuf.type     = m_Type;
++  reqbuf.memory   = m_Memory;
++  reqbuf.count    = buffersCount;
++
++  if (ioctl(m_Device->device, VIDIOC_REQBUFS, &reqbuf)) {
++    CLog::Log(LOGERROR, "%s::%s - Error requesting buffers. Device %s, Type %d, Memory %d. (VIDIOC_REQBUFS)", CLASSNAME, __func__, m_Device->name, m_Type, m_Memory);
++    return V4L2_ERROR;
++  }
++
++  CLog::Log(LOGDEBUG, "%s::%s - Device %s, Type %d, Memory %d, Buffers allowed %d", CLASSNAME, __func__, m_Device->name, m_Type, m_Memory, reqbuf.count);
++  return reqbuf.count;
++}
++
++bool CLinuxV4l2Sink::QueryBuffers() {
++  memset(m_Buffers, 0, m_NumBuffers * sizeof(struct v4l2_buffer));
++  memset(m_Planes, 0, m_NumBuffers * m_NumPlanes * sizeof(struct v4l2_plane));
++
++  for(int i = 0; i < m_NumBuffers; i++) {
++    m_Buffers[i].type      = m_Type;
++    m_Buffers[i].memory    = m_Memory;
++    m_Buffers[i].index     = i;
++    m_Buffers[i].m.planes  = &m_Planes[i*m_NumPlanes];
++    m_Buffers[i].length    = m_NumPlanes;
++
++    if (ioctl(m_Device->device, VIDIOC_QUERYBUF, &m_Buffers[i])) {
++      CLog::Log(LOGERROR, "%s::%s - Error querying buffers. Device %s, Type %d, Memory %d. (VIDIOC_QUERYBUF)", CLASSNAME, __func__, m_Device->name, m_Type, m_Memory);
++      return false;
++    }
++
++    iFreeBuffers.push(m_Buffers[i].index);
++  }
++  return true;
++}
++
++bool CLinuxV4l2Sink::MmapBuffers() {
++  for(int i = 0; i < m_NumBuffers * m_NumPlanes; i++) {
++    if(m_Planes[i].length) {
++      m_Addresses[i] = (unsigned long)mmap(NULL, m_Planes[i].length, PROT_READ | PROT_WRITE, MAP_SHARED, m_Device->device, m_Planes[i].m.mem_offset);
++      if (m_Addresses[i] == (unsigned long)MAP_FAILED)
++        return false;
++      CLog::Log(LOGDEBUG, "%s::%s - Device %s, Type %d, MMapped Plane %d at 0x%x to address 0x%lx", CLASSNAME, __func__, m_Device->name, m_Type, i, m_Planes[i].m.mem_offset, m_Addresses[i]);
++    }
++  }
++  return true;
++}
++
++bool CLinuxV4l2Sink::StreamOn(int state) {
++  if(ioctl(m_Device->device, state, &m_Type)) {
++    CLog::Log(LOGERROR, "%s::%s - Error setting device state to %d, Device %s, Type %d.", CLASSNAME, __func__, state, m_Device->name, m_Type);
++    return false;
++  }
++  CLog::Log(LOGDEBUG, "%s::%s - Device %s, Type %d, %d", CLASSNAME, __func__, m_Device->name, m_Type, state);
++  return true;
++}
++
++bool CLinuxV4l2Sink::QueueBuffer(v4l2_buffer *buffer) {
++  debug_log(LOGDEBUG, "%s::%s - Device %s, Type %d, Memory %d <- %d", CLASSNAME, __func__, m_Device->name, buffer->type, buffer->memory, buffer->index);
++  if (ioctl(m_Device->device, VIDIOC_QBUF, buffer)) {
++    CLog::Log(LOGERROR, "%s::%s - Error queueing buffer. Device %s, Type %d, Memory %d. Buffer %d, errno %d", CLASSNAME, __func__, m_Device->name, buffer->type, buffer->memory, buffer->index, errno);
++    return false;
++  }
++  return true;
++}
++bool CLinuxV4l2Sink::DequeueBuffer(v4l2_buffer *buffer) {
++  if (ioctl(m_Device->device, VIDIOC_DQBUF, buffer)) {
++    if (errno != EAGAIN) CLog::Log(LOGERROR, "%s::%s - Error dequeueing buffer. Device %s, Type %d, Memory %d. Buffer %d, errno %d", CLASSNAME, __func__, m_Device->name, buffer->type, buffer->memory, buffer->index, errno);
++    return false;
++  }
++  debug_log(LOGDEBUG, "%s::%s - Device %s, Type %d, Memory %d -> %d", CLASSNAME, __func__, m_Device->name, buffer->type, buffer->memory, buffer->index);
++  return true;
++}
++
++bool CLinuxV4l2Sink::DequeueBuffer(V4l2SinkBuffer *buffer) {
++  struct v4l2_buffer buf;
++  struct v4l2_plane  planes[m_NumPlanes];
++  memset(&planes, 0, sizeof(struct v4l2_plane) * m_NumPlanes);
++  memset(&buf, 0, sizeof(struct v4l2_buffer));
++  buf.type     = m_Type;
++  buf.memory   = m_Memory;
++  buf.m.planes = planes;
++  buf.length   = m_NumPlanes;
++  if (!DequeueBuffer(&buf))
++    return false;
++
++  buffer->iIndex = buf.index;
++  buffer->timeStamp = buf.timestamp;
++  for (int i = 0; i < m_NumPlanes; i++)
++    buffer->cPlane[i] = (void *)m_Addresses[buffer->iIndex * m_NumPlanes + i];
++  return true;
++}
++
++bool CLinuxV4l2Sink::GetBuffer(V4l2SinkBuffer *buffer) {
++  if (iFreeBuffers.empty()) {
++    if (!DequeueBuffer(buffer))
++      return false;
++  } else {
++    buffer->iIndex = iFreeBuffers.front();
++    buffer->timeStamp = m_Buffers[buffer->iIndex].timestamp;
++    iFreeBuffers.pop();
++    for (int i = 0; i < m_NumPlanes; i++)
++      buffer->cPlane[i] = (void *)m_Addresses[buffer->iIndex * m_NumPlanes + i];
++  }
++  return true;
++}
++
++bool CLinuxV4l2Sink::PushBuffer(V4l2SinkBuffer *buffer) {
++  if (m_Memory == V4L2_MEMORY_USERPTR)
++    for (int i = 0; i < m_NumPlanes; i++)
++      m_Buffers[buffer->iIndex].m.planes[i].m.userptr = (long unsigned int)buffer->cPlane[i];
++
++  if (m_Type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
++    m_Buffers[buffer->iIndex].timestamp = buffer->timeStamp;
++    m_Buffers[buffer->iIndex].flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
++    for (int i = 0; i < m_NumPlanes; i++)
++      m_Buffers[buffer->iIndex].m.planes[i].bytesused = buffer->iBytesUsed[i];
++  }
++
++  if (!QueueBuffer(&m_Buffers[buffer->iIndex]))
++    return false;
++  return true;
++}
++
++int CLinuxV4l2Sink::Poll(int timeout) {
++  struct pollfd p;
++  p.fd = m_Device->device;
++  p.events = POLLERR;
++  (m_Type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) ? p.events |= POLLOUT : p.events |= POLLIN;
++
++  return poll(&p, 1, timeout);
++}
++
++bool CLinuxV4l2Sink::QueueAll() {
++  while (!iFreeBuffers.empty()) {
++    if (!QueueBuffer(&m_Buffers[iFreeBuffers.front()]))
++      return false;
++    iFreeBuffers.pop();
++  }
++  return true;
++}
+diff --git a/xbmc/linux/LinuxV4l2Sink.h b/xbmc/linux/LinuxV4l2Sink.h
+new file mode 100644
+index 0000000..d04d52d
+--- /dev/null
++++ b/xbmc/linux/LinuxV4l2Sink.h
+@@ -0,0 +1,71 @@
++#pragma once
++
++#include <queue>
++#include <string>
++#include <poll.h>
++#include <linux/videodev2.h>
++
++#ifndef V4L2_BUF_FLAG_TIMESTAMP_COPY
++  #define V4L2_BUF_FLAG_TIMESTAMP_COPY 0x4000
++#endif
++
++#define V4L2_ERROR -1
++#define V4L2_BUSY  1
++#define V4L2_READY 2
++#define V4L2_OK    3
++
++#ifdef _DEBUG
++  #define debug_log(...) CLog::Log(__VA_ARGS__)
++#else
++  #define debug_log(...)
++#endif
++
++typedef struct V4l2Device
++{
++  int     device;
++  char    name[32];
++} V4l2Device;
++
++typedef struct V4l2SinkBuffer
++{
++  int     iIndex;
++  int     iBytesUsed[4];
++  void    *cPlane[4];
++  struct  timeval timeStamp;
++} V4l2SinkBuffer;
++
++class CLinuxV4l2Sink
++{
++public:
++  CLinuxV4l2Sink(V4l2Device *device, enum v4l2_buf_type type);
++  ~CLinuxV4l2Sink();
++
++  bool Init(int buffersCount);
++  bool Init(CLinuxV4l2Sink *sink);
++  void SoftRestart();
++  bool GetFormat(v4l2_format *format);
++  bool SetFormat(v4l2_format *format);
++  bool GetCrop(v4l2_crop *crop);
++  bool SetCrop(v4l2_crop *crop);
++  bool GetBuffer(V4l2SinkBuffer* buffer);
++  bool DequeueBuffer(V4l2SinkBuffer* buffer);
++  bool PushBuffer(V4l2SinkBuffer* buffer);
++  bool StreamOn(int state);
++  bool QueueAll();
++  int Poll(int timeout);
++private:
++  V4l2Device *m_Device;
++  int m_NumPlanes;
++  int m_NumBuffers;
++  std::queue<int> iFreeBuffers;
++  enum v4l2_memory m_Memory;
++  enum v4l2_buf_type m_Type;
++  v4l2_buffer *m_Buffers;
++  v4l2_plane *m_Planes;
++  unsigned long *m_Addresses;
++  int RequestBuffers(int buffersCount);
++  bool QueryBuffers();
++  bool MmapBuffers();
++  bool QueueBuffer(v4l2_buffer *buffer);
++  bool DequeueBuffer(v4l2_buffer *buffer);
++};
+diff --git a/xbmc/linux/Makefile.in b/xbmc/linux/Makefile.in
+index 744fd06..94ee9eb 100644
+--- a/xbmc/linux/Makefile.in
++++ b/xbmc/linux/Makefile.in
+@@ -12,6 +12,7 @@ SRCS += XFileUtils.cpp
+ SRCS += XHandle.cpp
+ SRCS += XMemUtils.cpp
+ SRCS += XTimeUtils.cpp
++SRCS += LinuxV4l2Sink.cpp
+ 
+ SRCS += RBP.cpp
+ 
+diff --git a/xbmc/utils/AMLUtils.cpp b/xbmc/utils/AMLUtils.cpp
+index 5915e61..5392658 100644
+--- a/xbmc/utils/AMLUtils.cpp
++++ b/xbmc/utils/AMLUtils.cpp
+@@ -79,7 +79,7 @@ bool aml_wired_present()
+ }
+ 
+ bool aml_permissions()
+-{  
++{
+   if (!aml_present())
+     return false;
+ 
+@@ -195,7 +195,8 @@ bool aml_support_h264_4k2k()
+ 
+ void aml_set_audio_passthrough(bool passthrough)
+ {
+-  SysfsUtils::SetInt("/sys/class/audiodsp/digital_raw", passthrough ? 2:0);
++  CLog::Log(LOGDEBUG, "AML: Setting passthrough %d", passthrough);
++  SysfsUtils::SetString("/sys/class/audiodsp/digital_raw", passthrough ? "2":"0");
+ }
+ 
+ void aml_probe_hdmi_audio()
+@@ -213,7 +214,7 @@ void aml_probe_hdmi_audio()
+   {
+     char valstr[1024] = {0};
+ 
+-    read(fd, valstr, sizeof(valstr) - 1);
++    int tmp = read(fd, valstr, sizeof(valstr) - 1);
+     valstr[strlen(valstr)] = '\0';
+     close(fd);
+ 
+@@ -348,6 +349,60 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+     res->fRefreshRate = 50;
+     res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
+   }
++  else if (StringUtils::EqualsNoCase(fromMode, "720p23hz")) // fake
++  {
++    res->iWidth = 1280;
++    res->iHeight= 720;
++    res->iScreenWidth = 1280;
++    res->iScreenHeight= 720;
++    res->fRefreshRate = 23.98;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
++  else if (StringUtils::EqualsNoCase(fromMode, "720p24hz")) // fake
++  {
++    res->iWidth = 1280;
++    res->iHeight= 720;
++    res->iScreenWidth = 1280;
++    res->iScreenHeight= 720;
++    res->fRefreshRate = 24;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
++  else if (StringUtils::EqualsNoCase(fromMode, "720p25hz")) // fake
++  {
++    res->iWidth = 1280;
++    res->iHeight= 720;
++    res->iScreenWidth = 1280;
++    res->iScreenHeight= 720;
++    res->fRefreshRate = 25;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
++  else if (StringUtils::EqualsNoCase(fromMode, "720p29hz")) // fake
++  {
++    res->iWidth = 1280;
++    res->iHeight= 720;
++    res->iScreenWidth = 1280;
++    res->iScreenHeight= 720;
++    res->fRefreshRate = 29.97;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
++  else if (StringUtils::EqualsNoCase(fromMode, "720p30hz")) // fake
++  {
++    res->iWidth = 1280;
++    res->iHeight= 720;
++    res->iScreenWidth = 1280;
++    res->iScreenHeight= 720;
++    res->fRefreshRate = 30;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
++  else if (StringUtils::EqualsNoCase(fromMode, "720p59hz")) // real
++  {
++    res->iWidth = 1280;
++    res->iHeight= 720;
++    res->iScreenWidth = 1280;
++    res->iScreenHeight= 720;
++    res->fRefreshRate = 59.94;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
+   else if (StringUtils::EqualsNoCase(fromMode, "720p") || StringUtils::EqualsNoCase(fromMode, "720p60hz"))
+   {
+     res->iWidth = 1280;
+@@ -393,6 +448,24 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+     res->fRefreshRate = 24;
+     res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
+   }
++  else if (StringUtils::EqualsNoCase(fromMode, "1080p25hz"))
++  {
++    res->iWidth = 1920;
++    res->iHeight= 1080;
++    res->iScreenWidth = 1920;
++    res->iScreenHeight= 1080;
++    res->fRefreshRate = 25;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
++  else if (StringUtils::EqualsNoCase(fromMode, "1080p29hz")) // fake
++  {
++    res->iWidth = 1920;
++    res->iHeight= 1080;
++    res->iScreenWidth = 1920;
++    res->iScreenHeight= 1080;
++    res->fRefreshRate = 29.97;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
+   else if (StringUtils::EqualsNoCase(fromMode, "1080p30hz"))
+   {
+     res->iWidth = 1920;
+@@ -501,7 +574,7 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+     res->fRefreshRate = 30;
+     res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
+   }
+-  else if (StringUtils::EqualsNoCase(fromMode, "2160p50hz420"))
++  else if (StringUtils::EqualsNoCase(fromMode, "2160p50hz"))
+   {
+     res->iWidth = 1920;
+     res->iHeight= 1080;
+@@ -510,7 +583,16 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+     res->fRefreshRate = 50;
+     res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
+   }
+-  else if (StringUtils::EqualsNoCase(fromMode, "2160p60hz420"))
++  else if (StringUtils::EqualsNoCase(fromMode, "4k2k59hz") || StringUtils::EqualsNoCase(fromMode, "2160p59hz"))
++  {
++    res->iWidth = 1920;
++    res->iHeight= 1080;
++    res->iScreenWidth = 3840;
++    res->iScreenHeight= 2160;
++    res->fRefreshRate = 59.940;
++    res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  }
++  else if (StringUtils::EqualsNoCase(fromMode, "2160p60hz"))
+   {
+     res->iWidth = 1920;
+     res->iHeight= 1080;
+@@ -535,4 +617,3 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+ 
+   return res->iWidth > 0 && res->iHeight> 0;
+ }
+-
+diff --git a/xbmc/utils/CPUInfo.cpp b/xbmc/utils/CPUInfo.cpp
+index a2a775f..f1f9751 100644
+--- a/xbmc/utils/CPUInfo.cpp
++++ b/xbmc/utils/CPUInfo.cpp
+@@ -117,7 +117,7 @@ CCPUInfo::CCPUInfo(void)
+ #if defined(TARGET_DARWIN)
+   size_t len = 4;
+   std::string cpuVendor;
+-  
++
+   // The number of cores.
+   if (sysctlbyname("hw.activecpu", &m_cpuCount, &len, NULL, 0) == -1)
+       m_cpuCount = 1;
+@@ -138,7 +138,7 @@ CCPUInfo::CCPUInfo(void)
+   len = 512;
+   if (sysctlbyname("machdep.cpu.vendor", &buffer, &len, NULL, 0) == 0)
+     cpuVendor = buffer;
+-  
++
+ #endif
+   // Go through each core.
+   for (int i=0; i<m_cpuCount; i++)
+@@ -263,9 +263,9 @@ CCPUInfo::CCPUInfo(void)
+   if (m_fProcTemperature == NULL)
+     m_fProcTemperature = fopen("/proc/acpi/thermal_zone/TZ0/temperature", "r");
+   // read from the new location of the temperature data on new kernels, 2.6.39, 3.0 etc
+-  if (m_fProcTemperature == NULL)   
++  if (m_fProcTemperature == NULL)
+     m_fProcTemperature = fopen("/sys/class/hwmon/hwmon0/temp1_input", "r");
+-  if (m_fProcTemperature == NULL)   
++  if (m_fProcTemperature == NULL)
+     m_fProcTemperature = fopen("/sys/class/thermal/thermal_zone0/temp", "r");  // On Raspberry PIs
+ 
+   m_fCPUFreq = fopen ("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", "r");
+@@ -541,7 +541,7 @@ float CCPUInfo::getCPUFrequency()
+       return float(cnt.FirstValue);
+     }
+   }
+-  
++
+   if (!m_cores.empty())
+     return float(m_cores.begin()->second.m_fSpeed);
+   else
+@@ -587,7 +587,7 @@ bool CCPUInfo::getTemperature(CTemperature& temperature)
+ {
+   int         value = 0;
+   char        scale = 0;
+-  
++
+ #ifdef TARGET_POSIX
+ #if defined(TARGET_DARWIN_OSX)
+   value = SMCGetTemperature(SMC_KEY_CPU_TEMP);
+@@ -616,23 +616,24 @@ bool CCPUInfo::getTemperature(CTemperature& temperature)
+     // procfs is deprecated in the linux kernel, we should move away from
+     // using it for temperature data.  It doesn't seem that sysfs has a
+     // general enough interface to bother implementing ATM.
+-    
++
+     rewind(m_fProcTemperature);
+     fflush(m_fProcTemperature);
+     ret = fscanf(m_fProcTemperature, "temperature: %d %c", &value, &scale);
+-    
++
+     // read from the temperature file of the new kernels
+     if (!ret)
+     {
+       ret = fscanf(m_fProcTemperature, "%d", &value);
+-      value = value / 1000;
++      if ((int)value > 1000)
++        value = value / 1000;
+       scale = 'c';
+       ret++;
+     }
+   }
+ 
+   if (ret != 2)
+-    return false; 
++    return false;
+ #endif
+ #endif // TARGET_POSIX
+ 
+@@ -642,7 +643,7 @@ bool CCPUInfo::getTemperature(CTemperature& temperature)
+     temperature = CTemperature::CreateFromFahrenheit(value);
+   else
+     return false;
+-  
++
+   return true;
+ }
+ 
+@@ -697,7 +698,7 @@ bool CCPUInfo::readProcStat(unsigned long long& user, unsigned long long& nice,
+         const LONGLONG deltaTotal = coreTotal - curCore.m_total,
+                        deltaIdle  = coreIdle - curCore.m_idle;
+         const double load = (double(deltaTotal - deltaIdle) * 100.0) / double(deltaTotal);
+-        
++
+         // win32 has some problems with calculation of load if load close to zero
+         curCore.m_fPct = (load < 0) ? 0 : load;
+         if (load >= 0 || deltaTotal > 5 * 10 * 1000 * 1000) // do not update (smooth) values for 5 seconds on negative loads
+diff --git a/xbmc/windowing/X11/WinSystemX11.cpp b/xbmc/windowing/X11/WinSystemX11.cpp
+index ee85585..7261f78 100644
+--- a/xbmc/windowing/X11/WinSystemX11.cpp
++++ b/xbmc/windowing/X11/WinSystemX11.cpp
+@@ -203,7 +203,7 @@ bool CWinSystemX11::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+     mode.hz  = CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP).fRefreshRate;
+     mode.id  = CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP).strId;
+   }
+- 
++
+   XMode   currmode = g_xrandr.GetCurrentMode(out.name);
+   if (!currmode.name.empty())
+   {
+diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
+index 3d6598a..cc62734 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
+@@ -23,13 +23,18 @@
+ #include "utils/AMLUtils.h"
+ #include "utils/StringUtils.h"
+ #include "utils/SysfsUtils.h"
++#include "utils/log.h"
+ 
+-#include <stdio.h>
+ #include <stdlib.h>
+ #include <linux/fb.h>
+ #include <sys/ioctl.h>
+ #include <EGL/egl.h>
+ 
++#ifdef CLASSNAME
++#undef CLASSNAME
++#endif
++#define CLASSNAME "CEGLNativeTypeAmlogic"
++
+ CEGLNativeTypeAmlogic::CEGLNativeTypeAmlogic()
+ {
+   const char *env_framebuffer = getenv("FRAMEBUFFER");
+@@ -53,10 +58,12 @@ bool CEGLNativeTypeAmlogic::CheckCompatibility()
+ {
+   std::string name;
+   std::string modalias = "/sys/class/graphics/" + m_framebuffer_name + "/device/modalias";
++  std::string meson = "meson";
++  std::string fb = "fb";
+ 
+   SysfsUtils::GetString(modalias, name);
+   StringUtils::Trim(name);
+-  if (name == "platform:mesonfb")
++  if (name.find(meson) != std::string::npos && name.find(fb) != std::string::npos)
+     return true;
+   return false;
+ }
+@@ -64,28 +71,37 @@ bool CEGLNativeTypeAmlogic::CheckCompatibility()
+ void CEGLNativeTypeAmlogic::Initialize()
+ {
+   aml_permissions();
+-  DisableFreeScale();
++  FreeScale(false);
+ }
++
+ void CEGLNativeTypeAmlogic::Destroy()
+ {
++  SetScreenScale(1, 1, false);
+   return;
+ }
+ 
+ bool CEGLNativeTypeAmlogic::CreateNativeDisplay()
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+   m_nativeDisplay = EGL_DEFAULT_DISPLAY;
+   return true;
+ }
+ 
+ bool CEGLNativeTypeAmlogic::CreateNativeWindow()
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+ #if defined(_FBDEV_WINDOW_H_)
+   fbdev_window *nativeWindow = new fbdev_window;
+   if (!nativeWindow)
+     return false;
+ 
+-  nativeWindow->width = 1920;
+-  nativeWindow->height = 1080;
++  RESOLUTION_INFO res;
++  GetPreferredResolution(&res);
++
++  nativeWindow->width = res.iWidth;
++  nativeWindow->height = res.iHeight;
+   m_nativeWindow = nativeWindow;
+ 
+   SetFramebufferResolution(nativeWindow->width, nativeWindow->height);
+@@ -98,6 +114,8 @@ bool CEGLNativeTypeAmlogic::CreateNativeWindow()
+ 
+ bool CEGLNativeTypeAmlogic::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+   if (!nativeDisplay)
+     return false;
+   *nativeDisplay = (XBNativeDisplayType*) &m_nativeDisplay;
+@@ -106,6 +124,8 @@ bool CEGLNativeTypeAmlogic::GetNativeDisplay(XBNativeDisplayType **nativeDisplay
+ 
+ bool CEGLNativeTypeAmlogic::GetNativeWindow(XBNativeWindowType **nativeWindow) const
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+   if (!nativeWindow)
+     return false;
+   *nativeWindow = (XBNativeWindowType*) &m_nativeWindow;
+@@ -114,11 +134,15 @@ bool CEGLNativeTypeAmlogic::GetNativeWindow(XBNativeWindowType **nativeWindow) c
+ 
+ bool CEGLNativeTypeAmlogic::DestroyNativeDisplay()
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+   return true;
+ }
+ 
+ bool CEGLNativeTypeAmlogic::DestroyNativeWindow()
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+ #if defined(_FBDEV_WINDOW_H_)
+   delete (fbdev_window*)m_nativeWindow, m_nativeWindow = NULL;
+ #endif
+@@ -134,6 +158,8 @@ bool CEGLNativeTypeAmlogic::GetNativeResolution(RESOLUTION_INFO *res) const
+ 
+ bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
+ {
++  CLog::Log(LOGNOTICE, "%s::%s to %dx%d@%f", CLASSNAME, __func__, res.iScreenWidth, res.iScreenHeight, res.fRefreshRate);
++
+ #if defined(_FBDEV_WINDOW_H_)
+   if (m_nativeWindow)
+   {
+@@ -153,6 +179,8 @@ bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
+ 
+ bool CEGLNativeTypeAmlogic::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+   std::string valstr;
+   SysfsUtils::GetString("/sys/class/amhdmitx/amhdmitx0/disp_cap", valstr);
+   std::vector<std::string> probe_str = StringUtils::Split(valstr, "\n");
+@@ -165,11 +193,12 @@ bool CEGLNativeTypeAmlogic::ProbeResolutions(std::vector<RESOLUTION_INFO> &resol
+       resolutions.push_back(res);
+   }
+   return resolutions.size() > 0;
+-
+ }
+ 
+ bool CEGLNativeTypeAmlogic::GetPreferredResolution(RESOLUTION_INFO *res) const
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+   // check display/mode, it gets defaulted at boot
+   if (!GetNativeResolution(res))
+   {
+@@ -182,6 +211,8 @@ bool CEGLNativeTypeAmlogic::GetPreferredResolution(RESOLUTION_INFO *res) const
+ 
+ bool CEGLNativeTypeAmlogic::ShowWindow(bool show)
+ {
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
+   std::string blank_framebuffer = "/sys/class/graphics/" + m_framebuffer_name + "/blank";
+   SysfsUtils::SetInt(blank_framebuffer.c_str(), show ? 0 : 1);
+   return true;
+@@ -189,6 +220,8 @@ bool CEGLNativeTypeAmlogic::ShowWindow(bool show)
+ 
+ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
+ {
++  CLog::Log(LOGNOTICE, "%s::%s to %s", CLASSNAME, __func__, resolution);
++
+   std::string mode = resolution;
+   // switch display resolution
+   SysfsUtils::SetString("/sys/class/display/mode", mode.c_str());
+@@ -196,36 +229,46 @@ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
+   RESOLUTION_INFO res;
+   aml_mode_to_resolution(mode.c_str(), &res);
+   SetFramebufferResolution(res);
++  DealWithScale(res);
+ 
+   return true;
+ }
+ 
+-void CEGLNativeTypeAmlogic::SetupVideoScaling(const char *mode)
++void CEGLNativeTypeAmlogic::FreeScale(bool state)
+ {
+-  SysfsUtils::SetInt("/sys/class/graphics/fb0/blank",      1);
+-  SysfsUtils::SetInt("/sys/class/graphics/fb0/free_scale", 0);
+-  SysfsUtils::SetInt("/sys/class/graphics/fb1/free_scale", 0);
+-  SysfsUtils::SetInt("/sys/class/ppmgr/ppscaler",          0);
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
+ 
+-  if (strstr(mode, "1080"))
+-  {
+-    SysfsUtils::SetString("/sys/class/graphics/fb0/request2XScale", "8");
+-    SysfsUtils::SetString("/sys/class/graphics/fb1/scale_axis",     "1280 720 1920 1080");
+-    SysfsUtils::SetString("/sys/class/graphics/fb1/scale",          "0x10001");
+-  }
+-  else
+-  {
+-    SysfsUtils::SetString("/sys/class/graphics/fb0/request2XScale", "16 1280 720");
++  std::string freescale_framebuffer = "/sys/class/graphics/" + m_framebuffer_name + "/free_scale";
++  SysfsUtils::SetInt(freescale_framebuffer.c_str(), state ? 1 : 0);
++}
++
++void CEGLNativeTypeAmlogic::DealWithScale(const RESOLUTION_INFO &res)
++{
++  CLog::Log(LOGDEBUG, "%s::%s Interface is %dx%d, screen size is %dx%d", CLASSNAME, __func__, res.iWidth, res.iHeight, res.iScreenWidth, res.iScreenHeight);
++
++  if (res.iScreenWidth > res.iWidth && res.iScreenHeight > res.iHeight) {
++    CLog::Log(LOGNOTICE, "%s::%s Scaling interfaces of size %dx%d to full screen", CLASSNAME, __func__, res.iWidth, res.iHeight);
++    SetScreenScale(res.iWidth, res.iHeight, true);
+   }
++}
+ 
+-  SysfsUtils::SetInt("/sys/class/graphics/fb0/blank", 0);
++void CEGLNativeTypeAmlogic::SetScreenScale(int width, int height, bool state)
++{
++  char setting[256] = {};
++  sprintf(setting, "0 0 %d %d", width - 1 , height - 1);
++  std::string framebuffer = "/sys/class/graphics/" + m_framebuffer_name;
++  SysfsUtils::SetString(framebuffer + "/scale_axis", setting);
++  SysfsUtils::SetString(framebuffer + "/scale", state ? "0x10001" : "0x0");
+ }
+ 
+-void CEGLNativeTypeAmlogic::DisableFreeScale()
++bool CEGLNativeTypeAmlogic::IsHdmiConnected() const
+ {
+-  // turn off frame buffer freescale
+-  SysfsUtils::SetInt("/sys/class/graphics/fb0/free_scale", 0);
+-  SysfsUtils::SetInt("/sys/class/graphics/fb1/free_scale", 0);
++  CLog::Log(LOGDEBUG, "%s::%s", CLASSNAME, __func__);
++
++  std::string hpd_state;
++  SysfsUtils::GetString("/sys/class/amhdmitx/amhdmitx0/disp_cap", hpd_state);
++  StringUtils::Trim(hpd_state);
++  return hpd_state == "1";
+ }
+ 
+ void CEGLNativeTypeAmlogic::SetFramebufferResolution(const RESOLUTION_INFO &res) const
+@@ -245,8 +288,8 @@ void CEGLNativeTypeAmlogic::SetFramebufferResolution(int width, int height) cons
+     {
+       vinfo.xres = width;
+       vinfo.yres = height;
+-      vinfo.xres_virtual = 1920;
+-      vinfo.yres_virtual = 2160;
++      vinfo.xres_virtual = width;
++      vinfo.yres_virtual = height * 2;
+       vinfo.bits_per_pixel = 32;
+       vinfo.activate = FB_ACTIVATE_ALL;
+       ioctl(fd0, FBIOPUT_VSCREENINFO, &vinfo);
+diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
+index 6867c38..ca39273 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
++++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
+@@ -21,6 +21,19 @@
+  */
+ 
+ #include "EGLNativeType.h"
++#include <linux/fb.h>
++
++#ifndef _FBDEV_WINDOW_H_
++// Define it right here, since some platforms doesn't has fbdev_window.h at all.
++// This will not make it fail on these platforms badly, since it will fail softly anyway on some other init steps.
++#define _FBDEV_WINDOW_H_
++typedef struct fbdev_window
++{
++  unsigned short width;
++  unsigned short height;
++} fbdev_window;
++#endif
++
+ class CEGLNativeTypeAmlogic : public CEGLNativeType
+ {
+ public:
+@@ -49,12 +62,14 @@ public:
+ 
+ protected:
+   bool SetDisplayResolution(const char *resolution);
+-  void SetupVideoScaling(const char *mode);
+-  void DisableFreeScale();
+ 
+ private:
+   void SetFramebufferResolution(const RESOLUTION_INFO &res) const;
+   void SetFramebufferResolution(int width, int height) const;
++  void FreeScale(bool state);
++  void DealWithScale(const RESOLUTION_INFO &res);
++  void SetScreenScale(int width, int height, bool state);
++  bool IsHdmiConnected() const;
+ 
+   std::string m_framebuffer_name;
+ };
+diff --git a/xbmc/windowing/egl/EGLNativeTypeFbdev.cpp b/xbmc/windowing/egl/EGLNativeTypeFbdev.cpp
+new file mode 100644
+index 0000000..5c25eb6
+--- /dev/null
++++ b/xbmc/windowing/egl/EGLNativeTypeFbdev.cpp
+@@ -0,0 +1,183 @@
++/*
++ *      Copyright (C) 2011-2012 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#include <EGL/egl.h>
++#include "EGLNativeTypeFbdev.h"
++#include "utils/log.h"
++#include <stdlib.h>
++#include <linux/fb.h>
++#include <sys/ioctl.h>
++#include "utils/StringUtils.h"
++#include "guilib/gui3d.h"
++#include <linux/media.h>
++
++#include <unistd.h>
++
++#include "utils/StringUtils.h"
++
++#ifdef CLASSNAME
++#undef CLASSNAME
++#endif
++#define CLASSNAME "CEGLNativeTypeFbdev"
++
++CEGLNativeTypeFbdev::CEGLNativeTypeFbdev()
++{
++  m_iFBHandle = -1;
++  m_nativeWindow  = NULL;
++  m_nativeDisplay = NULL;
++}
++
++CEGLNativeTypeFbdev::~CEGLNativeTypeFbdev()
++{
++}
++
++bool CEGLNativeTypeFbdev::CheckCompatibility()
++{
++  m_iFBHandle = open("/dev/fb0", O_RDWR, 0);
++  if(m_iFBHandle < 0)
++    return false;
++
++  vinfo = new fb_var_screeninfo();
++  if(ioctl(m_iFBHandle, FBIOGET_VSCREENINFO, vinfo) == -1)
++    return false;
++
++  CLog::Log(LOGNOTICE, "%s::%s FBDev device: %d, info.xres %d info.yres %d info.upper_margin %d info.lower_margin %d info.pixclock %d",
++    CLASSNAME, __func__, m_iFBHandle, vinfo->xres, vinfo->yres, vinfo->upper_margin, vinfo->lower_margin, vinfo->pixclock);
++
++  finfo = new fb_fix_screeninfo();
++  if(ioctl(m_iFBHandle, FBIOGET_FSCREENINFO, finfo) == -1)
++    return false;
++
++  return true;
++}
++
++void CEGLNativeTypeFbdev::Initialize()
++{
++  return;
++}
++void CEGLNativeTypeFbdev::Destroy()
++{
++  return;
++}
++
++bool CEGLNativeTypeFbdev::CreateNativeDisplay()
++{
++  m_nativeDisplay = EGL_DEFAULT_DISPLAY;
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::CreateNativeWindow()
++{
++  fbdev_window *nativeWindow = new fbdev_window;
++  if (!nativeWindow)
++    return false;
++
++  nativeWindow->width = vinfo->xres;
++  nativeWindow->height = vinfo->yres;
++  m_nativeWindow = nativeWindow;
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
++{
++  if (!nativeDisplay)
++    return false;
++  *nativeDisplay = (XBNativeDisplayType*) &m_nativeDisplay;
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::GetNativeWindow(XBNativeWindowType **nativeWindow) const
++{
++  if (!nativeWindow)
++    return false;
++  *nativeWindow = (XBNativeWindowType*) &m_nativeWindow;
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::DestroyNativeDisplay()
++{
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::DestroyNativeWindow()
++{
++  free(m_nativeWindow);
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::GetNativeResolution(RESOLUTION_INFO *res) const
++{
++  res->iWidth = vinfo->xres;
++  res->iHeight = vinfo->yres;
++  res->fRefreshRate = 60;
++  res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  res->iScreen = 0;
++  res->bFullScreen = true;
++  res->iSubtitles = (int)(0.965 * res->iHeight);
++  res->fPixelRatio = 1.0f;
++  res->iScreenWidth = res->iWidth;
++  res->iScreenHeight = res->iHeight;
++  res->strMode = StringUtils::Format("%dx%d @ %.2f%s - Full Screen", res->iScreenWidth, res->iScreenHeight, res->fRefreshRate, res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "");
++
++  CLog::Log(LOGNOTICE, "Current resolution: %s", res->strMode.c_str());
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::SetNativeResolution(const RESOLUTION_INFO &res)
++{
++
++  vinfo->activate = FB_ACTIVATE_NOW;
++
++  if (ioctl(m_iFBHandle, FBIOPUT_VSCREENINFO, vinfo) == -1)
++  {
++    CLog::Log(LOGERROR, "%s::%s - FBIOPUT_VSCREENINFO error", CLASSNAME, __func__);
++    return false;
++  }
++  if (ioctl(m_iFBHandle, FBIOPAN_DISPLAY, vinfo) == -1)
++  {
++    CLog::Log(LOGERROR, "%s::%s - FBIOPAN_DISPLAY error", CLASSNAME, __func__);
++    return false;
++  }
++
++  CLog::Log(LOGNOTICE, "%s::%s width %d height %d refresh %f", CLASSNAME, __func__, res.iScreenWidth, res.iScreenHeight, res.fRefreshRate);
++
++  return true;
++}
++
++bool CEGLNativeTypeFbdev::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
++{
++  RESOLUTION_INFO res;
++  if (GetNativeResolution(&res) && res.iWidth > 1 && res.iHeight > 1)
++  {
++    resolutions.push_back(res);
++    return true;
++  }
++  return false;
++}
++
++bool CEGLNativeTypeFbdev::GetPreferredResolution(RESOLUTION_INFO *res) const
++{
++    GetNativeResolution(res);
++    return true;
++}
++
++bool CEGLNativeTypeFbdev::ShowWindow(bool show)
++{
++  return false;
++}
+diff --git a/xbmc/windowing/egl/EGLNativeTypeFbdev.h b/xbmc/windowing/egl/EGLNativeTypeFbdev.h
+new file mode 100644
+index 0000000..04e7023
+--- /dev/null
++++ b/xbmc/windowing/egl/EGLNativeTypeFbdev.h
+@@ -0,0 +1,68 @@
++#pragma once
++
++/*
++ *      Copyright (C) 2011-2012 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "EGLNativeType.h"
++#include <linux/fb.h>
++#include <list>
++
++#ifndef _FBDEV_WINDOW_H_
++// Define it right here, since some platforms doesn't has fbdev_window.h at all.
++// This will not make it fail on these platforms badly, since it will fail softly anyway on some other init steps.
++#define _FBDEV_WINDOW_H_
++typedef struct fbdev_window
++{
++  unsigned short width;
++  unsigned short height;
++} fbdev_window;
++#endif
++
++class CEGLNativeTypeFbdev : public CEGLNativeType
++{
++public:
++  CEGLNativeTypeFbdev();
++  virtual ~CEGLNativeTypeFbdev();
++  virtual std::string GetNativeName() const { return "FBDev"; };
++  virtual bool  CheckCompatibility();
++  virtual void  Initialize();
++  virtual void  Destroy();
++  virtual int   GetQuirks() { return EGL_QUIRK_NONE; };
++
++  virtual bool  CreateNativeDisplay();
++  virtual bool  CreateNativeWindow();
++  virtual bool  GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const;
++  virtual bool  GetNativeWindow(XBNativeWindowType **nativeWindow) const;
++
++  virtual bool  DestroyNativeWindow();
++  virtual bool  DestroyNativeDisplay();
++
++  virtual bool  GetNativeResolution(RESOLUTION_INFO *res) const;
++  virtual bool  SetNativeResolution(const RESOLUTION_INFO &res);
++  virtual bool  ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions);
++  virtual bool  GetPreferredResolution(RESOLUTION_INFO *res) const;
++
++  virtual bool  ShowWindow(bool show);
++
++protected:
++  int m_iFBHandle;
++  fb_var_screeninfo *vinfo;
++  fb_fix_screeninfo *finfo;
++};
+diff --git a/xbmc/windowing/egl/EGLNativeTypeHybris.cpp b/xbmc/windowing/egl/EGLNativeTypeHybris.cpp
+new file mode 100644
+index 0000000..767946e
+--- /dev/null
++++ b/xbmc/windowing/egl/EGLNativeTypeHybris.cpp
+@@ -0,0 +1,279 @@
++/*
++ *      Copyright (C) 2011-2012 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#if defined(TARGET_HYBRIS)
++#include <hwcomposerwindow/hwcomposer_window.h>
++#include <hardware/hardware.h>
++#include <hardware/hwcomposer.h>
++#endif
++
++#include "system.h"
++#include <EGL/egl.h>
++#include "EGLNativeTypeHybris.h"
++#include "utils/log.h"
++#include "guilib/gui3d.h"
++
++#include "utils/StringUtils.h"
++
++HWComposer::HWComposer(unsigned int width,
++                      unsigned int height,
++                      unsigned int format,
++                      hwc_composer_device_1_t *device,
++                      hwc_display_contents_1_t **mList,
++                      hwc_layer_1_t *layer)
++                      : HWComposerNativeWindow(width, height, format)
++{
++    fblayer = layer;
++    hwcdevice = device;
++    mlist = mList;
++}
++
++void HWComposer::present(HWComposerNativeWindowBuffer *buffer)
++{
++    int oldretire = mlist[0]->retireFenceFd;
++    mlist[0]->retireFenceFd = -1;
++    fblayer->handle = buffer->handle;
++    fblayer->acquireFenceFd = getFenceBufferFd(buffer);
++    fblayer->releaseFenceFd = -1;
++    int err = hwcdevice->prepare(hwcdevice, HWC_NUM_DISPLAY_TYPES, mlist);
++    assert(err == 0);
++
++    err = hwcdevice->set(hwcdevice, HWC_NUM_DISPLAY_TYPES, mlist);
++    assert(err == 0);
++    setFenceBufferFd(buffer, fblayer->releaseFenceFd);
++
++    if (oldretire != -1)
++    {
++        sync_wait(oldretire, -1);
++        close(oldretire);
++    }
++}
++
++CEGLNativeTypeHybris::CEGLNativeTypeHybris()
++#if defined(TARGET_HYBRIS)
++ : m_hwcModule(NULL), m_bufferList(NULL), m_hwcDevicePtr(NULL)
++{
++  m_nativeWindow = NULL;
++  m_hwNativeWindow = NULL;
++  m_swNativeWindow = NULL;
++}
++#else
++{
++}
++#endif
++
++CEGLNativeTypeHybris::~CEGLNativeTypeHybris()
++{
++}
++
++bool CEGLNativeTypeHybris::CheckCompatibility()
++{
++#if defined(TARGET_HYBRIS)
++  if(hw_get_module(HWC_HARDWARE_MODULE_ID, (const hw_module_t **) &m_hwcModule))
++  {
++    return false;
++  }
++
++  if(hwc_open_1(m_hwcModule, &m_hwcDevicePtr))
++  {
++    return false;
++  }
++
++  m_hwcDevicePtr->blank(m_hwcDevicePtr, 0, 0);
++  return true;
++#else
++  return false;
++#endif
++}
++
++void CEGLNativeTypeHybris::Initialize()
++{
++}
++
++void CEGLNativeTypeHybris::Destroy()
++{
++  return;
++}
++
++bool CEGLNativeTypeHybris::CreateNativeDisplay()
++{
++  m_nativeDisplay = EGL_DEFAULT_DISPLAY;
++  return true;
++}
++
++bool CEGLNativeTypeHybris::CreateNativeWindow()
++{
++#if defined(TARGET_HYBRIS)
++  RESOLUTION_INFO res;
++  if (!GetNativeResolution(&res))
++    return false;
++
++  size_t size = sizeof(hwc_display_contents_1_t) + 2 * sizeof(hwc_layer_1_t);
++  hwc_display_contents_1_t *list = (hwc_display_contents_1_t *) malloc(size);
++  m_bufferList = (hwc_display_contents_1_t **) malloc(HWC_NUM_DISPLAY_TYPES * sizeof(hwc_display_contents_1_t *));
++  const hwc_rect_t r = { 0, 0, res.iWidth, res.iHeight };
++
++  for (int counter = 0; counter < HWC_NUM_DISPLAY_TYPES; counter++)
++    m_bufferList[counter] = list;
++
++  hwc_layer_1_t *layer;
++
++  layer = &list->hwLayers[0];
++  memset(layer, 0, sizeof(hwc_layer_1_t));
++  layer->compositionType = HWC_FRAMEBUFFER;
++  layer->hints = 0;
++  layer->flags = 0;
++  layer->handle = 0;
++  layer->transform = 0;
++  layer->blending = HWC_BLENDING_NONE;
++  layer->sourceCrop = r;
++  layer->displayFrame = r;
++  layer->visibleRegionScreen.numRects = 1;
++  layer->visibleRegionScreen.rects = &layer->displayFrame;
++  layer->acquireFenceFd = -1;
++  layer->releaseFenceFd = -1;
++
++  layer = &list->hwLayers[1];
++  memset(layer, 0, sizeof(hwc_layer_1_t));
++  layer->compositionType = HWC_FRAMEBUFFER_TARGET;
++  layer->hints = 0;
++  layer->flags = 0;
++  layer->handle = 0;
++  layer->transform = 0;
++  layer->blending = HWC_BLENDING_NONE;
++  layer->sourceCrop = r;
++  layer->displayFrame = r;
++  layer->visibleRegionScreen.numRects = 1;
++  layer->visibleRegionScreen.rects = &layer->displayFrame;
++  layer->acquireFenceFd = -1;
++  layer->releaseFenceFd = -1;
++
++  list->retireFenceFd = -1;
++  list->flags = HWC_GEOMETRY_CHANGED;
++  list->numHwLayers = 2;
++
++  m_hwNativeWindow = new HWComposer(res.iWidth, res.iHeight, HAL_PIXEL_FORMAT_RGBA_8888, m_hwcDevicePtr, m_bufferList, &list->hwLayers[1]);
++  if (m_hwNativeWindow == NULL)
++  {
++    CLog::Log(LOGERROR, "HWComposer native window failed!");
++    return false;
++  }
++  m_swNativeWindow = (static_cast<ANativeWindow *> (m_hwNativeWindow));
++
++  return true;
++#else
++  return false;
++#endif
++}
++
++bool CEGLNativeTypeHybris::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
++{
++  if (!nativeDisplay)
++    return false;
++
++  *nativeDisplay = (XBNativeDisplayType*) &m_nativeDisplay;
++
++  return true;
++}
++
++bool CEGLNativeTypeHybris::GetNativeWindow(XBNativeWindowType **nativeWindow) const
++{
++  if (!nativeWindow)
++    return false;
++
++#if defined(TARGET_HYBRIS)
++  *nativeWindow = (XBNativeWindowType*) &m_swNativeWindow;
++  return (m_swNativeWindow != NULL);
++#else
++  return false;
++#endif
++}
++
++bool CEGLNativeTypeHybris::DestroyNativeDisplay()
++{
++  return true;
++}
++
++bool CEGLNativeTypeHybris::DestroyNativeWindow()
++{
++  m_nativeWindow = NULL;
++  return true;
++}
++
++bool CEGLNativeTypeHybris::GetNativeResolution(RESOLUTION_INFO *res) const
++{
++#if defined(TARGET_HYBRIS)
++  uint32_t configs[5];
++  size_t numConfigs = 5;
++
++  int err = m_hwcDevicePtr->getDisplayConfigs(m_hwcDevicePtr, 0, configs, &numConfigs);
++  if (err) {
++      CLog::Log(LOGERROR, "getDisplayConfigs failed!");
++      return false;
++  }
++  int32_t attr_values[3];
++  uint32_t attributes[] = { HWC_DISPLAY_WIDTH, HWC_DISPLAY_HEIGHT, HWC_DISPLAY_VSYNC_PERIOD, HWC_DISPLAY_NO_ATTRIBUTE };
++
++  m_hwcDevicePtr->getDisplayAttributes(m_hwcDevicePtr, 0, configs[0], attributes, attr_values);
++
++  res->iWidth        = attr_values[0];
++  res->iHeight       = attr_values[1];
++  res->fRefreshRate  = 1000000000 / attr_values[2];
++
++  res->dwFlags       = D3DPRESENTFLAG_PROGRESSIVE;
++  res->iScreen       = 0;
++  res->bFullScreen   = true;
++  res->iSubtitles    = (int)(0.965 * res->iHeight);
++  res->fPixelRatio   = 1.0f;
++  res->iScreenWidth  = res->iWidth;
++  res->iScreenHeight = res->iHeight;
++  res->strMode       = StringUtils::Format("%dx%d @ %.2f%s - Full Screen", res->iScreenWidth, res->iScreenHeight, res->fRefreshRate,
++  res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "");
++  CLog::Log(LOGNOTICE,"Current resolution: %s\n",res->strMode.c_str());
++  return true;
++#endif
++}
++
++bool CEGLNativeTypeHybris::SetNativeResolution(const RESOLUTION_INFO &res)
++{
++  return false;
++}
++
++bool CEGLNativeTypeHybris::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
++{
++  RESOLUTION_INFO res;
++  if (GetNativeResolution(&res) && res.iWidth > 1 && res.iHeight > 1)
++  {
++    resolutions.push_back(res);
++    return true;
++  }
++  return false;
++}
++
++bool CEGLNativeTypeHybris::GetPreferredResolution(RESOLUTION_INFO *res) const
++{
++  if (GetNativeResolution(res))
++    return true;
++  return false;
++}
++
++bool CEGLNativeTypeHybris::ShowWindow(bool show)
++{
++  return true;
++}
+diff --git a/xbmc/windowing/egl/EGLNativeTypeHybris.h b/xbmc/windowing/egl/EGLNativeTypeHybris.h
+new file mode 100644
+index 0000000..73aa14d
+--- /dev/null
++++ b/xbmc/windowing/egl/EGLNativeTypeHybris.h
+@@ -0,0 +1,77 @@
++#pragma once
++
++/*
++ *      Copyright (C) 2011-2012 Team XBMC
++ *      http://www.xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#if defined(TARGET_HYBRIS)
++#include <hwcomposerwindow/hwcomposer_window.h>
++#include <hardware/hardware.h>
++#include <hardware/hwcomposer.h>
++#endif
++
++#include "EGLNativeType.h"
++#include "threads/Thread.h"
++
++class HWComposer : public HWComposerNativeWindow
++{
++  private:
++    hwc_layer_1_t *fblayer;
++    hwc_composer_device_1_t *hwcdevice;
++    hwc_display_contents_1_t **mlist;
++  protected:
++    void present(HWComposerNativeWindowBuffer *buffer);
++  public:
++    HWComposer(unsigned int width, unsigned int height, unsigned int format, hwc_composer_device_1_t *device, hwc_display_contents_1_t **mList, hwc_layer_1_t *layer);
++};
++
++class CEGLNativeTypeHybris : public CEGLNativeType
++{
++public:
++  CEGLNativeTypeHybris();
++  virtual ~CEGLNativeTypeHybris();
++  virtual std::string GetNativeName() const { return "hybris"; };
++  virtual bool  CheckCompatibility();
++  virtual void  Initialize();
++  virtual void  Destroy();
++  virtual int   GetQuirks() { return 0; };
++
++  virtual bool  CreateNativeDisplay();
++  virtual bool  CreateNativeWindow();
++  virtual bool  GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const;
++  virtual bool  GetNativeWindow(XBNativeWindowType **nativeWindow) const;
++
++  virtual bool  DestroyNativeWindow();
++  virtual bool  DestroyNativeDisplay();
++
++  virtual bool  GetNativeResolution(RESOLUTION_INFO *res) const;
++  virtual bool  SetNativeResolution(const RESOLUTION_INFO &res);
++  virtual bool  ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions);
++  virtual bool  GetPreferredResolution(RESOLUTION_INFO *res) const;
++
++  virtual bool  ShowWindow(bool show);
++#if defined(TARGET_HYBRIS)
++private:
++  hw_module_t                *m_hwcModule;
++  hwc_display_contents_1_t   **m_bufferList;
++  hwc_composer_device_1_t    *m_hwcDevicePtr;
++  HWComposerNativeWindow     *m_hwNativeWindow;
++  ANativeWindow              *m_swNativeWindow;
++#endif
++};
+diff --git a/xbmc/windowing/egl/EGLWrapper.cpp b/xbmc/windowing/egl/EGLWrapper.cpp
+index 0074027..526a9fe 100644
+--- a/xbmc/windowing/egl/EGLWrapper.cpp
++++ b/xbmc/windowing/egl/EGLWrapper.cpp
+@@ -34,6 +34,10 @@
+   #include "EGLNativeTypeIMX.h"
+ #endif
+ #include "EGLNativeTypeAmlogic.h"
++#ifdef HAS_HYBRIS
++#include "EGLNativeTypeHybris.h"
++#endif
++#include "EGLNativeTypeFbdev.h"
+ #include "EGLWrapper.h"
+ 
+ #define CheckError() m_result = eglGetError(); if(m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
+@@ -94,11 +98,14 @@ bool CEGLWrapper::Initialize(const std::string &implementation)
+       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAndroid>(implementation)) ||
+ #endif
+ #if defined(TARGET_RASPBERRY_PI)
+-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRaspberryPI>(implementation))
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeRaspberryPI>(implementation)) ||
+ #elif defined(HAS_IMXVPU)
+-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeIMX>(implementation))
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeIMX>(implementation)) ||
++#elif defined(HAS_HYBRIS)
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeHybris>(implementation)) ||
+ #else
+-      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlogic>(implementation))
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeAmlogic>(implementation)) ||
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeFbdev>(implementation))
+ #endif
+       )
+   {
+@@ -420,4 +427,3 @@ bool CEGLWrapper::SurfaceAttrib(EGLDisplay display, EGLSurface surface, EGLint a
+   return eglSurfaceAttrib(display, surface, attribute, value);
+ }
+ #endif
+-
+diff --git a/xbmc/windowing/egl/Makefile.in b/xbmc/windowing/egl/Makefile.in
+index 3754233..c863504 100644
+--- a/xbmc/windowing/egl/Makefile.in
++++ b/xbmc/windowing/egl/Makefile.in
+@@ -13,6 +13,10 @@ endif
+ ifeq (@USE_IMXVPU@,1)
+ SRCS+= EGLNativeTypeIMX.cpp
+ endif
++ifeq (@USE_HYBRIS@,1)
++SRCS+= EGLNativeTypeHybris.cpp
++endif
++SRCS+= EGLNativeTypeFbdev.cpp
+ SRCS+= EGLWrapper.cpp
+ 
+ LIB = windowing_egl.a
