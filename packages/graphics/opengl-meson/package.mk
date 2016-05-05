@@ -18,7 +18,7 @@
 
 PKG_NAME="opengl-meson"
 PKG_REV="1"
-PKG_ARCH="arm"
+PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://openlinux.amlogic.com:8000/download/ARM/filesystem/"
 case $MESON_FAMILY in
@@ -27,6 +27,9 @@ case $MESON_FAMILY in
     ;;
   6)
     PKG_VERSION="6-r5p1-01rel0-armhf"
+    ;;
+  gxbb)
+    PKG_VERSION="gxbb-r5p1-01rel0"
     ;;
 esac
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
