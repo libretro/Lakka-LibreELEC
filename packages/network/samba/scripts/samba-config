@@ -21,44 +21,46 @@ SMB_USERCONF="/storage/.config/samba.conf"
 SMB_DEFCONF="/etc/samba/smb.conf"
 SMB_CONF="/run/samba/smb.conf"
 
-if [ -f /storage/.cache/services/samba.conf ]; then
-  . /storage/.cache/services/samba.conf
+if [ ! -f /storage/.cache/services/samba.conf ]; then
+  /bin/cp /usr/share/services/samba.conf /storage/.cache/services
+fi
 
-  mkdir -p /run/samba
-  if [ -f $SMB_USERCONF ]; then
-    cp $SMB_USERCONF $SMB_CONF
-  else
-    cp $SMB_DEFCONF $SMB_CONF
-  fi
+. /storage/.cache/services/samba.conf
 
-  # handle external drives
-  if [ "$SAMBA_AUTOSHARE" == "true" ] ; then
-    for dir in /media/* ; do
-      if [ -d "$dir" ] ; then
-        name=$(basename "$dir")
-        echo -e "[$name]\n  path = $dir\n  available = yes\n  browsable = yes\n  public = yes\n  writable = yes\n" >> $SMB_CONF
-      fi
-    done
-  fi
+mkdir -p /run/samba
+if [ -f $SMB_USERCONF ]; then
+  cp $SMB_USERCONF $SMB_CONF
+else
+  cp $SMB_DEFCONF $SMB_CONF
+fi
 
-  # only letters & numbers permitted for username & password
-  SAMBA_USERNAME=`echo $SAMBA_USERNAME | sed "s/[^a-zA-Z0-9]//g;"`
-  SAMBA_PASSWORD=`echo $SAMBA_PASSWORD | sed "s/[^a-zA-Z0-9]//g;"`
+# handle external drives
+if [ "$SAMBA_AUTOSHARE" == "true" ] ; then
+  for dir in /media/* ; do
+    if [ -d "$dir" ] ; then
+      name=$(basename "$dir")
+      echo -e "[$name]\n  path = $dir\n  available = yes\n  browsable = yes\n  public = yes\n  writable = yes\n" >> $SMB_CONF
+    fi
+  done
+fi
 
-  if [ "$SAMBA_SECURE" == "true" -a ! "$SAMBA_USERNAME" == "" -a ! "$SAMBA_PASSWORD" == "" ] ; then
-    # username map: first line makes sure plain root does not work all the time
-    # processing continues, so if user chooses root as username, second line overrides the first
-    # this is done always in case user uses passwords in userconf.
-    # many thanks to viljoviitanen for this
-    echo -e "$SAMBA_PASSWORD\n$SAMBA_PASSWORD" | smbpasswd -s -a root >/dev/null 2>&1
-    echo -e "nobody = root\nroot = $SAMBA_USERNAME" > /var/run/samba.map
+# only letters & numbers permitted for username & password
+SAMBA_USERNAME=`echo $SAMBA_USERNAME | sed "s/[^a-zA-Z0-9]//g;"`
+SAMBA_PASSWORD=`echo $SAMBA_PASSWORD | sed "s/[^a-zA-Z0-9]//g;"`
 
-    sed -e 's|^.[ \t]*.public.=.*|  public = no |' -i $SMB_CONF
-    sed -e 's|^.[ \t]*.username map.=.*||' -i $SMB_CONF
-    sed -e 's|^.[ \t]*.security.=.*|  security = user\n  username map = /var/run/samba.map|' -i $SMB_CONF
-  else
-    sed -e 's|^.[ \t]*.public.=.*|  public = yes |' -i $SMB_CONF
-    sed -e 's|^.[ \t]*.username map.=.*||' -i $SMB_CONF
-    sed -e 's|^.[ \t]*.security.=.*|  security = share|' -i $SMB_CONF
-  fi
+if [ "$SAMBA_SECURE" == "true" -a ! "$SAMBA_USERNAME" == "" -a ! "$SAMBA_PASSWORD" == "" ] ; then
+  # username map: first line makes sure plain root does not work all the time
+  # processing continues, so if user chooses root as username, second line overrides the first
+  # this is done always in case user uses passwords in userconf.
+  # many thanks to viljoviitanen for this
+  echo -e "$SAMBA_PASSWORD\n$SAMBA_PASSWORD" | smbpasswd -s -a root >/dev/null 2>&1
+  echo -e "nobody = root\nroot = $SAMBA_USERNAME" > /var/run/samba.map
+
+  sed -e 's|^.[ \t]*.public.=.*|  public = no |' -i $SMB_CONF
+  sed -e 's|^.[ \t]*.username map.=.*||' -i $SMB_CONF
+  sed -e 's|^.[ \t]*.security.=.*|  security = user\n  username map = /var/run/samba.map|' -i $SMB_CONF
+else
+  sed -e 's|^.[ \t]*.public.=.*|  public = yes |' -i $SMB_CONF
+  sed -e 's|^.[ \t]*.username map.=.*||' -i $SMB_CONF
+  sed -e 's|^.[ \t]*.security.=.*|  security = share|' -i $SMB_CONF
 fi
