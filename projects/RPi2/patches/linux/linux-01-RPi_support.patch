@@ -1,7 +1,7 @@
-From f72f775ef8f0fe390f14ab75e98a647443fe232c Mon Sep 17 00:00:00 2001
+From 1b2886dd8e34eb830c21ebe9cfa2debb03f8303b Mon Sep 17 00:00:00 2001
 From: Steve Glendinning <steve.glendinning@smsc.com>
 Date: Thu, 19 Feb 2015 18:47:12 +0000
-Subject: [PATCH 001/128] smsx95xx: fix crimes against truesize
+Subject: [PATCH 001/127] smsx95xx: fix crimes against truesize
 
 smsc95xx is adjusting truesize when it shouldn't, and following a recent patch from Eric this is now triggering warnings.
 
@@ -13,10 +13,10 @@ Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
  1 file changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 66b3ab9..ea2dbe5 100644
+index 2edc2bc..2ce8d2b 100644
 --- a/drivers/net/usb/smsc95xx.c
 +++ b/drivers/net/usb/smsc95xx.c
-@@ -74,6 +74,10 @@ static bool turbo_mode = true;
+@@ -75,6 +75,10 @@ static bool turbo_mode = true;
  module_param(turbo_mode, bool, 0644);
  MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
  
@@ -27,7 +27,7 @@ index 66b3ab9..ea2dbe5 100644
  static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
  					    u32 *data, int in_pm)
  {
-@@ -1785,7 +1789,8 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+@@ -1795,7 +1799,8 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
  				if (dev->net->features & NETIF_F_RXCSUM)
  					smsc95xx_rx_csum_offload(skb);
  				skb_trim(skb, skb->len - 4); /* remove fcs */
@@ -37,7 +37,7 @@ index 66b3ab9..ea2dbe5 100644
  
  				return 1;
  			}
-@@ -1803,7 +1808,8 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+@@ -1813,7 +1818,8 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
  			if (dev->net->features & NETIF_F_RXCSUM)
  				smsc95xx_rx_csum_offload(ax_skb);
  			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
@@ -48,20 +48,20 @@ index 66b3ab9..ea2dbe5 100644
  			usbnet_skb_return(dev, ax_skb);
  		}
 
-From 8c5874120b7a3b0ed4ff719ce7435c8d707ad6a6 Mon Sep 17 00:00:00 2001
+From 1e9afc70ef49f913ed8df5f21f95a0a56a7f6a21 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 17 Apr 2015 16:58:45 +0100
-Subject: [PATCH 002/128] smsc95xx: Disable turbo mode by default
+Subject: [PATCH 002/127] smsc95xx: Disable turbo mode by default
 
 ---
  drivers/net/usb/smsc95xx.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index ea2dbe5..714cfe0 100644
+index 2ce8d2b..35ebf75 100644
 --- a/drivers/net/usb/smsc95xx.c
 +++ b/drivers/net/usb/smsc95xx.c
-@@ -70,7 +70,7 @@ struct smsc95xx_priv {
+@@ -71,7 +71,7 @@ struct smsc95xx_priv {
  	u8 suspend_flags;
  };
  
@@ -71,10 +71,154 @@ index ea2dbe5..714cfe0 100644
  MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
  
 
-From 94a59464d0f85dc4d6c43ce2a6fa6841ba08e090 Mon Sep 17 00:00:00 2001
+From 51f6514381bfbc65c63dce644918b4de877cf951 Mon Sep 17 00:00:00 2001
+From: Sam Nazarko <email@samnazarko.co.uk>
+Date: Fri, 1 Apr 2016 17:27:21 +0100
+Subject: [PATCH 003/127] add smsc95xx packetsize module_param
+
+Signed-off-by: Sam Nazarko <email@samnazarko.co.uk>
+---
+ drivers/net/usb/smsc95xx.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 35ebf75..3cac3c9 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -79,6 +79,10 @@ static bool truesize_mode = false;
+ module_param(truesize_mode, bool, 0644);
+ MODULE_PARM_DESC(truesize_mode, "Report larger truesize value");
+ 
++static int packetsize = 0;
++module_param(packetsize, int, 0644);
++MODULE_PARM_DESC(packetsize, "Override the RX URB packet size");
++
+ static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
+ 					    u32 *data, int in_pm)
+ {
+@@ -960,13 +964,13 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 
+ 	if (!turbo_mode) {
+ 		burst_cap = 0;
+-		dev->rx_urb_size = MAX_SINGLE_PACKET_SIZE;
++		dev->rx_urb_size = packetsize ? packetsize : MAX_SINGLE_PACKET_SIZE;
+ 	} else if (dev->udev->speed == USB_SPEED_HIGH) {
+-		burst_cap = DEFAULT_HS_BURST_CAP_SIZE / HS_USB_PKT_SIZE;
+-		dev->rx_urb_size = DEFAULT_HS_BURST_CAP_SIZE;
++		dev->rx_urb_size = packetsize ? packetsize : DEFAULT_HS_BURST_CAP_SIZE;
++		burst_cap = dev->rx_urb_size / HS_USB_PKT_SIZE;
+ 	} else {
+-		burst_cap = DEFAULT_FS_BURST_CAP_SIZE / FS_USB_PKT_SIZE;
+-		dev->rx_urb_size = DEFAULT_FS_BURST_CAP_SIZE;
++		dev->rx_urb_size = packetsize ? packetsize : DEFAULT_FS_BURST_CAP_SIZE;
++		burst_cap = dev->rx_urb_size / FS_USB_PKT_SIZE;
+ 	}
+ 
+ 	netif_dbg(dev, ifup, dev->net, "rx_urb_size=%ld\n",
+
+From 032ef644cb0c680e63722d22ee6452cae8578375 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Tue, 26 Mar 2013 17:26:38 +0000
+Subject: [PATCH 004/127] Allow mac address to be set in smsc95xx
+
+Signed-off-by: popcornmix <popcornmix@gmail.com>
+---
+ drivers/net/usb/smsc95xx.c | 56 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 56 insertions(+)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 3cac3c9..d9bdc74 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -60,6 +60,7 @@
+ #define SUSPEND_SUSPEND3		(0x08)
+ #define SUSPEND_ALLMODES		(SUSPEND_SUSPEND0 | SUSPEND_SUSPEND1 | \
+ 					 SUSPEND_SUSPEND2 | SUSPEND_SUSPEND3)
++#define MAC_ADDR_LEN                    (6)
+ 
+ struct smsc95xx_priv {
+ 	u32 mac_cr;
+@@ -83,6 +84,10 @@ static int packetsize = 0;
+ module_param(packetsize, int, 0644);
+ MODULE_PARM_DESC(packetsize, "Override the RX URB packet size");
+ 
++static char *macaddr = ":";
++module_param(macaddr, charp, 0);
++MODULE_PARM_DESC(macaddr, "MAC address");
++
+ static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
+ 					    u32 *data, int in_pm)
+ {
+@@ -772,6 +777,53 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ 	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
+ }
+ 
++/* Check the macaddr module parameter for a MAC address */
++static int smsc95xx_is_macaddr_param(struct usbnet *dev, u8 *dev_mac)
++{
++       int i, j, got_num, num;
++       u8 mtbl[MAC_ADDR_LEN];
++
++       if (macaddr[0] == ':')
++               return 0;
++
++       i = 0;
++       j = 0;
++       num = 0;
++       got_num = 0;
++       while (j < MAC_ADDR_LEN) {
++               if (macaddr[i] && macaddr[i] != ':') {
++                       got_num++;
++                       if ('0' <= macaddr[i] && macaddr[i] <= '9')
++                               num = num * 16 + macaddr[i] - '0';
++                       else if ('A' <= macaddr[i] && macaddr[i] <= 'F')
++                               num = num * 16 + 10 + macaddr[i] - 'A';
++                       else if ('a' <= macaddr[i] && macaddr[i] <= 'f')
++                               num = num * 16 + 10 + macaddr[i] - 'a';
++                       else
++                               break;
++                       i++;
++               } else if (got_num == 2) {
++                       mtbl[j++] = (u8) num;
++                       num = 0;
++                       got_num = 0;
++                       i++;
++               } else {
++                       break;
++               }
++       }
++
++       if (j == MAC_ADDR_LEN) {
++               netif_dbg(dev, ifup, dev->net, "Overriding MAC address with: "
++               "%02x:%02x:%02x:%02x:%02x:%02x\n", mtbl[0], mtbl[1], mtbl[2],
++                                               mtbl[3], mtbl[4], mtbl[5]);
++               for (i = 0; i < MAC_ADDR_LEN; i++)
++                       dev_mac[i] = mtbl[i];
++               return 1;
++       } else {
++               return 0;
++       }
++}
++
+ static void smsc95xx_init_mac_address(struct usbnet *dev)
+ {
+ 	const u8 *mac_addr;
+@@ -793,6 +845,10 @@ static void smsc95xx_init_mac_address(struct usbnet *dev)
+ 		}
+ 	}
+ 
++	/* Check module parameters */
++	if (smsc95xx_is_macaddr_param(dev, dev->net->dev_addr))
++		return;
++
+ 	/* no useful static MAC address found. generate a random one */
+ 	eth_hw_addr_random(dev->net);
+ 	netif_dbg(dev, ifup, dev->net, "MAC address set to eth_random_addr\n");
+
+From ba6bbf9258f385ffb4041a4e6c2cfad2a214b12f Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 9 Mar 2016 13:28:24 +0000
-Subject: [PATCH 003/128] serial: Take care starting a hung-up tty's port
+Subject: [PATCH 005/127] serial: Take care starting a hung-up tty's port
 
 tty_port_hangup sets a port's tty field to NULL (holding the port lock),
 but uart_tx_stopped, called from __uart_start (with the port lock),
@@ -102,10 +246,10 @@ index cbfcf38..96bc15a 100644
  	return 0;
  }
 
-From 15afd620c6a164f59c9042b59fc53221ac1319bb Mon Sep 17 00:00:00 2001
+From 86d8f472067cd70e772ade772b358fe2a87e76c2 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 18 Jun 2014 13:42:01 +0100
-Subject: [PATCH 004/128] vmstat: Workaround for issue where dirty page count
+Subject: [PATCH 006/127] vmstat: Workaround for issue where dirty page count
  goes negative
 
 See:
@@ -132,10 +276,10 @@ index 73fae8c..5dd1278 100644
  
  static inline void __inc_zone_page_state(struct page *page,
 
-From ad5576d363c2cb3a53f831a6957d47f8f5bb343e Mon Sep 17 00:00:00 2001
+From ba655ca5ae1c17ada7be78647e2d873edbdc859f Mon Sep 17 00:00:00 2001
 From: Eric Anholt <eric@anholt.net>
 Date: Thu, 18 Dec 2014 16:07:15 -0800
-Subject: [PATCH 005/128] mm: Remove the PFN busy warning
+Subject: [PATCH 007/127] mm: Remove the PFN busy warning
 
 See commit dae803e165a11bc88ca8dbc07a11077caf97bbcb -- the warning is
 expected sometimes when using CMA.  However, that commit still spams
@@ -147,7 +291,7 @@ Signed-off-by: Eric Anholt <eric@anholt.net>
  1 file changed, 2 deletions(-)
 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 59de90d..a7b5691 100644
+index c1069ef..fe21be6 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -7101,8 +7101,6 @@ int alloc_contig_range(unsigned long start, unsigned long end,
@@ -160,10 +304,10 @@ index 59de90d..a7b5691 100644
  		goto done;
  	}
 
-From 2d052f1817d9f91a901f28b32d12bc18669eb4b1 Mon Sep 17 00:00:00 2001
+From 4ace7dcd0fde2660959d6eeefbee9743dc3594cd Mon Sep 17 00:00:00 2001
 From: Robert Tiemann <rtie@gmx.de>
 Date: Mon, 20 Jul 2015 11:01:25 +0200
-Subject: [PATCH 006/128] BCM2835_DT: Fix I2S register map
+Subject: [PATCH 008/127] BCM2835_DT: Fix I2S register map
 
 ---
  Documentation/devicetree/bindings/dma/brcm,bcm2835-dma.txt   | 4 ++--
@@ -201,10 +345,10 @@ index 65783de..a89fe42 100644
  	dmas = <&dma 2>,
  	       <&dma 3>;
 
-From 0dd32785136507607d78af6a31a886d9e5ad3867 Mon Sep 17 00:00:00 2001
+From 27d085230a9573ece6a7d97e271cfd9b9b1d5006 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 4 Dec 2015 17:41:50 +0000
-Subject: [PATCH 007/128] irq-bcm2836: Prevent spurious interrupts, and trap
+Subject: [PATCH 009/127] irq-bcm2836: Prevent spurious interrupts, and trap
  them early
 
 The old arch-specific IRQ macros included a dsb to ensure the
@@ -231,10 +375,10 @@ index b6e950d..bbb92c2 100644
  #endif
  	} else if (stat) {
 
-From 259e7b360bf2eda4246964b5dd1486d6a925dc4a Mon Sep 17 00:00:00 2001
+From 0cce08ce18ed35458f174d1e7f56fa0e7d23fd53 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Fri, 12 Jun 2015 19:01:05 +0200
-Subject: [PATCH 008/128] irqchip: bcm2835: Add FIQ support
+Subject: [PATCH 010/127] irqchip: bcm2835: Add FIQ support
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -363,10 +507,10 @@ index bf9cc5f..3f601f9 100644
  }
  
 
-From 13dda194ad402826df99ea4f8ce82b266e295070 Mon Sep 17 00:00:00 2001
+From ddd81e207ca8ce2938612312ed47e288a667be2a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Fri, 23 Oct 2015 16:26:55 +0200
-Subject: [PATCH 009/128] irqchip: irq-bcm2835: Add 2836 FIQ support
+Subject: [PATCH 011/127] irqchip: irq-bcm2835: Add 2836 FIQ support
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -462,10 +606,10 @@ index 3f601f9..20deb28 100644
  	for (b = 0; b < NR_BANKS; b++) {
  		for (i = 0; i < bank_irqs[b]; i++) {
 
-From 0ac75aea74e497c211093148d5643e30e1b17224 Mon Sep 17 00:00:00 2001
+From c58c021e75c5ffff512831c572878e3d4e427fe1 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Tue, 14 Jul 2015 10:26:09 +0100
-Subject: [PATCH 010/128] spidev: Add "spidev" compatible string to silence
+Subject: [PATCH 012/127] spidev: Add "spidev" compatible string to silence
  warning
 
 See: https://github.com/raspberrypi/linux/issues/1054
@@ -486,10 +630,10 @@ index e3c19f3..f4963e3 100644
  };
  MODULE_DEVICE_TABLE(of, spidev_dt_ids);
 
-From 5d196257fb1527d64641964ba91a0aa5d21baf01 Mon Sep 17 00:00:00 2001
+From 52f2391026b8aeb996dd77f95d23d3740cbf4d51 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Tue, 30 Jun 2015 14:12:42 +0100
-Subject: [PATCH 011/128] serial: 8250: Don't crash when nr_uarts is 0
+Subject: [PATCH 013/127] serial: 8250: Don't crash when nr_uarts is 0
 
 ---
  drivers/tty/serial/8250/8250_core.c | 2 ++
@@ -509,10 +653,10 @@ index 2f4f5ee..edc1355 100644
  	for (i = 0; i < nr_uarts; i++) {
  		struct uart_8250_port *up = &serial8250_ports[i];
 
-From 51010d51d7fec2840eb63c66f1064b45334ab8f3 Mon Sep 17 00:00:00 2001
+From 64cb4b3ecb3702f0d64e02b6716250df0145ff4e Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Thu, 10 Jul 2014 13:59:47 +0200
-Subject: [PATCH 012/128] pinctrl-bcm2835: Set base to 0 give expected gpio
+Subject: [PATCH 014/127] pinctrl-bcm2835: Set base to 0 give expected gpio
  numbering
 
 Signed-off-by: Noralf Tronnes <notro@tronnes.org>
@@ -534,10 +678,10 @@ index 08b1d93..0a23c81 100644
  	.can_sleep = false,
  };
 
-From 30b9b35ed9c50d60b1ed0ec7928e67aea55c637a Mon Sep 17 00:00:00 2001
+From fecd73c4386371108a8da1aca689c76d49925d82 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Tue, 24 Feb 2015 13:40:50 +0000
-Subject: [PATCH 013/128] pinctrl-bcm2835: Fix interrupt handling for GPIOs
+Subject: [PATCH 015/127] pinctrl-bcm2835: Fix interrupt handling for GPIOs
  28-31 and 46-53
 
 Contrary to the documentation, the BCM2835 GPIO controller actually has
@@ -683,10 +827,10 @@ index 0a23c81..b793bbd 100644
  	},
  };
 
-From 6f8bfcb9073426e5a7ae05f1e6def75147c88f75 Mon Sep 17 00:00:00 2001
+From 3c910dd2f0cf87273da0cb3a2345447188c92964 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 26 Feb 2015 09:58:22 +0000
-Subject: [PATCH 014/128] pinctrl-bcm2835: Only request the interrupts listed
+Subject: [PATCH 016/127] pinctrl-bcm2835: Only request the interrupts listed
  in the DTB
 
 Although the GPIO controller can generate three interrupts (four counting
@@ -713,10 +857,10 @@ index b793bbd..8683a1b 100644
  		pc->irq_data[i].irqgroup = i;
  
 
-From 8d88a7baf2ea1b5ea8e7e7a60c72286ae536d547 Mon Sep 17 00:00:00 2001
+From 950d4b6cf504ffe5b155f93bc20cffaae9dee731 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 24 Jun 2015 14:10:44 +0100
-Subject: [PATCH 015/128] spi-bcm2835: Support pin groups other than 7-11
+Subject: [PATCH 017/127] spi-bcm2835: Support pin groups other than 7-11
 
 The spi-bcm2835 driver automatically uses GPIO chip-selects due to
 some unreliability of the native ones. In doing so it chooses the
@@ -797,10 +941,10 @@ index f35cc10..5dfe20f 100644
  	/* and set up the "mode" and level */
  	dev_info(&spi->dev, "setting up native-CS%i as GPIO %i\n",
 
-From 05c4dd0ce685e35f1ca9c8b0caa3b75143ff75a0 Mon Sep 17 00:00:00 2001
+From 5599d098d592c8e73cbbbc724c0158bc6eaa7a12 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Wed, 3 Jun 2015 12:26:13 +0200
-Subject: [PATCH 016/128] ARM: bcm2835: Set Serial number and Revision
+Subject: [PATCH 018/127] ARM: bcm2835: Set Serial number and Revision
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -858,10 +1002,10 @@ index 834d676..3b68a8d 100644
  
  static const char * const bcm2835_compat[] = {
 
-From cc6b07292a7ed49073db041ea4d6fa458cd494aa Mon Sep 17 00:00:00 2001
+From bf9f3bc976acd55237148d9967a63081bf6fb215 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:21:16 +0200
-Subject: [PATCH 017/128] bcm2835-i2s: add 24bit support, update bclk_ratio to
+Subject: [PATCH 019/127] bcm2835-i2s: add 24bit support, update bclk_ratio to
  more correct values
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
@@ -932,10 +1076,10 @@ index 1c1f221..d2663e7 100644
  		},
  	.ops = &bcm2835_i2s_dai_ops,
 
-From a64e8b139909740de25655fbc7d3095bc39194d3 Mon Sep 17 00:00:00 2001
+From efb13c56337295f0d2b4616c37fa0c8b06272a07 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:35:20 +0200
-Subject: [PATCH 018/128] bcm2835-i2s: Register PCM device
+Subject: [PATCH 020/127] bcm2835-i2s: Register PCM device
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
 
@@ -998,10 +1142,10 @@ index d2663e7..3a8468d 100644
  		dev_err(&pdev->dev, "Could not register PCM: %d\n", ret);
  		return ret;
 
-From 3554744b9b94c59d46107d72d0121e09ee129815 Mon Sep 17 00:00:00 2001
+From db81e4e4cd0700b176c5409a57f1d5853389b3b9 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:55:21 +0200
-Subject: [PATCH 019/128] bcm2835-i2s: Enable MMAP support via a DT property
+Subject: [PATCH 021/127] bcm2835-i2s: Enable MMAP support via a DT property
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
 
@@ -1045,10 +1189,10 @@ index 3a8468d..c7f3fc7 100644
  			   GFP_KERNEL);
  	if (!dev)
 
-From b8f38a6f9549e66a9b611450d20c1e37dc676e74 Mon Sep 17 00:00:00 2001
+From aa3df9d9dff17b91cd9163ed60e61aa68f037d7f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Thu, 9 Apr 2015 12:34:11 +0200
-Subject: [PATCH 020/128] dmaengine: bcm2835: Add slave dma support
+Subject: [PATCH 022/127] dmaengine: bcm2835: Add slave dma support
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -1368,10 +1512,10 @@ index 996c4b0..b278c66 100644
 +MODULE_AUTHOR("Gellert Weisz <gellert@raspberrypi.org>");
  MODULE_LICENSE("GPL v2");
 
-From 6b70773bc87b4e14d6be4b3b6003b19f9e2cd2c5 Mon Sep 17 00:00:00 2001
+From eb3ae4bdc4fc1399672c06b8f071218a0dfaa2e8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Sat, 3 Oct 2015 15:58:59 +0200
-Subject: [PATCH 021/128] dmaengine: bcm2835: set residue_granularity field
+Subject: [PATCH 023/127] dmaengine: bcm2835: set residue_granularity field
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -1400,10 +1544,10 @@ index b278c66..696fb30 100644
  	INIT_LIST_HEAD(&od->ddev.channels);
  	spin_lock_init(&od->lock);
 
-From c0708fd35386a238fa888ad12014aa8ed36ed3f0 Mon Sep 17 00:00:00 2001
+From 4451b12e104e3140367d4e0e24e5f74b4d12c084 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Sat, 3 Oct 2015 22:22:55 +0200
-Subject: [PATCH 022/128] dmaengine: bcm2835: Load driver early and support
+Subject: [PATCH 024/127] dmaengine: bcm2835: Load driver early and support
  legacy API
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -1503,10 +1647,10 @@ index 696fb30..5db0a95 100644
  MODULE_ALIAS("platform:bcm2835-dma");
  MODULE_DESCRIPTION("BCM2835 DMA engine driver");
 
-From 459c2cb3c385d37356aedf4e3d23820ce27b06a9 Mon Sep 17 00:00:00 2001
+From 53c877a4c44534aa8a16265efbf769e3d59d0155 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sat, 10 Oct 2015 12:29:18 +0200
-Subject: [PATCH 023/128] bcm2835-dma: Fix dreq not set for slave transfers
+Subject: [PATCH 025/127] bcm2835-dma: Fix dreq not set for slave transfers
 
 Set dreq to slave_id if it is not set like in bcm2708-dmaengine.
 ---
@@ -1527,10 +1671,10 @@ index 5db0a95..fe1fd60 100644
  	return 0;
  }
 
-From 19103b20691d8071a282dc41cd9441e2d364ae05 Mon Sep 17 00:00:00 2001
+From cf896d2c5e228c82e31640b23e5de441b95e1f95 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 12:28:30 +0200
-Subject: [PATCH 024/128] bcm2835-dma: Limit cyclic transfers on lite channels
+Subject: [PATCH 026/127] bcm2835-dma: Limit cyclic transfers on lite channels
  to 32k
 
 Transfers larger than 32k cause repeated clicking with I2S soundcards.
@@ -1567,10 +1711,10 @@ index fe1fd60..0adc347 100644
  		max_size = MAX_NORMAL_TRANSFER;
  	period_len = min(period_len, max_size);
 
-From 7dbb4a59ac09bb77ff7a4742f3f81c0036b93393 Mon Sep 17 00:00:00 2001
+From 1f9c9173f0e141ce9a84078b74690d16626c8a33 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Mon, 16 Nov 2015 14:05:35 +0000
-Subject: [PATCH 025/128] bcm2835-dma: Fix up convert to DMA pool
+Subject: [PATCH 027/127] bcm2835-dma: Fix up convert to DMA pool
 
 ---
  drivers/dma/bcm2835-dma.c | 36 ++++++++++++++++++++++++++----------
@@ -1655,10 +1799,10 @@ index 0adc347..985019b 100644
  				/* Next block is empty. */
  				control_block->next = 0;
 
-From 20914cd2d9d0aa1d8e8f0816939ebc70a444db3e Mon Sep 17 00:00:00 2001
+From 72f47d366bfe5281cc80772741f96074a015b01d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Sat, 15 Aug 2015 20:50:02 +0200
-Subject: [PATCH 026/128] bcm2835: Add support for uart1
+Subject: [PATCH 028/127] bcm2835: Add support for uart1
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -1715,10 +1859,10 @@ index 3b68a8d..e72e522 100644
  
  static const char * const bcm2835_compat[] = {
 
-From cc8d01536c4bb261ec1951d54fcf4da0e6de633e Mon Sep 17 00:00:00 2001
+From 16aa0c0c6c07c2069689d48c8f1ae7bd01579166 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 25 Jan 2016 17:25:12 +0000
-Subject: [PATCH 027/128] firmware: Updated mailbox header
+Subject: [PATCH 029/127] firmware: Updated mailbox header
 
 ---
  include/soc/bcm2835/raspberrypi-firmware.h | 10 ++++++++++
@@ -1779,10 +1923,10 @@ index 3fb3571..73e4956 100644
  	RPI_FIRMWARE_GET_COMMAND_LINE =                       0x00050001,
  	RPI_FIRMWARE_GET_DMA_CHANNELS =                       0x00060001,
 
-From 7be59d079145bb08abcb0d19d6e3a4233dd2643c Mon Sep 17 00:00:00 2001
+From f53023ac784ee442c6a616b9ec6ed1f3209db0b5 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Sun, 12 May 2013 12:24:19 +0100
-Subject: [PATCH 028/128] Main bcm2708/bcm2709 linux port
+Subject: [PATCH 030/127] Main bcm2708/bcm2709 linux port
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -4292,10 +4436,10 @@ index 8dd4d29..f7fe8bd 100644
  	mmc_pm_flag_t		pm_caps;	/* supported pm features */
  
 
-From 453bffd985eb42e15941b1f35147fdfc136b0d05 Mon Sep 17 00:00:00 2001
+From 82dc48cbde1e14665e1f6666e6c5f99d561c1653 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 11 Nov 2015 21:01:15 +0000
-Subject: [PATCH 029/128] squash: include ARCH_BCM2708 / ARCH_BCM2709
+Subject: [PATCH 031/127] squash: include ARCH_BCM2708 / ARCH_BCM2709
 
 ---
  drivers/char/hw_random/Kconfig    |  2 +-
@@ -4472,10 +4616,10 @@ index 6a834e1..c5070ae 100644
  	select REGMAP_MMIO
  	help
 
-From 6911cd05e84d64f5b20fcc49c33e42f545d4f18e Mon Sep 17 00:00:00 2001
+From d84c2920fedaae7d04dbc61c55caf5b433e31db0 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 1 May 2013 19:46:17 +0100
-Subject: [PATCH 030/128] Add dwc_otg driver
+Subject: [PATCH 032/127] Add dwc_otg driver
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -65501,10 +65645,10 @@ index 0000000..cdc9963
 +test_main();
 +0;
 
-From f410ec50ebad0fa62c00d445fedd20987f9f4b90 Mon Sep 17 00:00:00 2001
+From 5668c8bb98deea4c37505d407d0cc6fd68ba61b0 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 17 Jun 2015 17:06:34 +0100
-Subject: [PATCH 031/128] bcm2708 framebuffer driver
+Subject: [PATCH 033/127] bcm2708 framebuffer driver
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -68966,10 +69110,10 @@ index 3c14e43..7626beb 100644
 +0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0
 +0 0 0  0 0 0  0 0 0
 
-From bd2cab5eed0b7a91ece20f645d87a90ee4251173 Mon Sep 17 00:00:00 2001
+From 267f03f9536f602dd1a4307f5860ddbc0953b270 Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 14:22:53 +0100
-Subject: [PATCH 032/128] dmaengine: Add support for BCM2708
+Subject: [PATCH 034/127] dmaengine: Add support for BCM2708
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -69589,10 +69733,10 @@ index 0000000..99cc7fd
 +
 +#endif /* _PLAT_BCM2708_DMA_H */
 
-From efa40d37efcf199886a929a8032b9da08e39b2e5 Mon Sep 17 00:00:00 2001
+From e59dfb8e12f1daf44f4d947574b901563b1dc8dc Mon Sep 17 00:00:00 2001
 From: gellert <gellert@raspberrypi.org>
 Date: Fri, 15 Aug 2014 16:35:06 +0100
-Subject: [PATCH 033/128] MMC: added alternative MMC driver
+Subject: [PATCH 035/127] MMC: added alternative MMC driver
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -71339,10 +71483,10 @@ index 0000000..ceb3793
 +MODULE_LICENSE("GPL v2");
 +MODULE_AUTHOR("Gellert Weisz");
 
-From 6e4116bef5addb1dbd8355c8f5549cfb96d467c6 Mon Sep 17 00:00:00 2001
+From 11c5f19859be149252e46ba9aeac8f3976dede86 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 25 Mar 2015 17:49:47 +0000
-Subject: [PATCH 034/128] Adding bcm2835-sdhost driver, and an overlay to
+Subject: [PATCH 036/127] Adding bcm2835-sdhost driver, and an overlay to
  enable it
 
 BCM2835 has two SD card interfaces. This driver uses the other one.
@@ -73632,10 +73776,10 @@ index 0000000..f43aae0
 +MODULE_LICENSE("GPL v2");
 +MODULE_AUTHOR("Phil Elwell");
 
-From 17f168b109d0f44a6a73aaf5c11c004c8aa89b4f Mon Sep 17 00:00:00 2001
+From 97d3c658c0e33fcc48721da452540eb626df136c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Jul 2013 00:31:47 +0100
-Subject: [PATCH 035/128] cma: Add vc_cma driver to enable use of CMA
+Subject: [PATCH 037/127] cma: Add vc_cma driver to enable use of CMA
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -74978,10 +75122,10 @@ index 0000000..be2819d
 +
 +#endif /* VC_CMA_H */
 
-From 83cca26157d192228268ce5dff5db892f76cbb95 Mon Sep 17 00:00:00 2001
+From 92a591aee5a71c2330c6ea21826089534423978c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 26 Mar 2012 22:15:50 +0100
-Subject: [PATCH 036/128] bcm2708: alsa sound driver
+Subject: [PATCH 038/127] bcm2708: alsa sound driver
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -77679,10 +77823,10 @@ index 0000000..af3e6eb
 +
 +#endif // _VC_AUDIO_DEFS_H_
 
-From 86e51b08e585238b161567d83324a8ca7ab35536 Mon Sep 17 00:00:00 2001
+From 32997c83ba836ae7ac98cdaf091563cd421e8e5c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 2 Jul 2013 23:42:01 +0100
-Subject: [PATCH 037/128] bcm2708 vchiq driver
+Subject: [PATCH 039/127] bcm2708 vchiq driver
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -91009,10 +91153,10 @@ index 0000000..b6bfa21
 +   return vchiq_build_time;
 +}
 
-From ac69eb3239df145738ba0d568b712af92560b583 Mon Sep 17 00:00:00 2001
+From d17de594d889f7e6b4cf1a69303d509ab1b06ac8 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 17 Jun 2015 16:07:06 +0100
-Subject: [PATCH 038/128] vc_mem: Add vc_mem driver
+Subject: [PATCH 040/127] vc_mem: Add vc_mem driver
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -92017,10 +92161,10 @@ index 0000000..20a4753
 +
 +#endif  /* _VC_MEM_H */
 
-From 963aa148d8786d7068168a00d88ad25d1855e2bb Mon Sep 17 00:00:00 2001
+From dcbfae74f8de8b457277eb3140b5bf453fe54488 Mon Sep 17 00:00:00 2001
 From: Tim Gover <tgover@broadcom.com>
 Date: Tue, 22 Jul 2014 15:41:04 +0100
-Subject: [PATCH 039/128] vcsm: VideoCore shared memory service for BCM2835
+Subject: [PATCH 041/127] vcsm: VideoCore shared memory service for BCM2835
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -96436,10 +96580,10 @@ index 0000000..334f36d
 +
 +#endif /* __VMCS_SM_IOCTL_H__INCLUDED__ */
 
-From 1bc29561f10a72330be2289c72699491a4b2edfe Mon Sep 17 00:00:00 2001
+From 4fcea9a5aadac0062a687f0186d7ab8e32585d85 Mon Sep 17 00:00:00 2001
 From: Luke Wren <luke@raspberrypi.org>
 Date: Fri, 21 Aug 2015 23:14:48 +0100
-Subject: [PATCH 040/128] Add /dev/gpiomem device for rootless user GPIO access
+Subject: [PATCH 042/127] Add /dev/gpiomem device for rootless user GPIO access
 
 Signed-off-by: Luke Wren <luke@raspberrypi.org>
 
@@ -96750,10 +96894,10 @@ index 0000000..911f5b7
 +MODULE_DESCRIPTION("gpiomem driver for accessing GPIO from userspace");
 +MODULE_AUTHOR("Luke Wren <luke@raspberrypi.org>");
 
-From e6426f6f634d4d7aa18dd85e83b8635653531bdf Mon Sep 17 00:00:00 2001
+From 04d43170a82e9f953beaf89c1c387daddf0cca8e Mon Sep 17 00:00:00 2001
 From: Luke Wren <wren6991@gmail.com>
 Date: Sat, 5 Sep 2015 01:14:45 +0100
-Subject: [PATCH 041/128] Add SMI driver
+Subject: [PATCH 043/127] Add SMI driver
 
 Signed-off-by: Luke Wren <wren6991@gmail.com>
 ---
@@ -98704,10 +98848,10 @@ index 0000000..ee3a75e
 +
 +#endif /* BCM2835_SMI_H */
 
-From 1b794b326b0a65034cbc75d16e3967a1de07afee Mon Sep 17 00:00:00 2001
+From 02d74501ea767813d6be2313960cfc09a5d0d181 Mon Sep 17 00:00:00 2001
 From: Luke Wren <wren6991@gmail.com>
 Date: Sat, 5 Sep 2015 01:16:10 +0100
-Subject: [PATCH 042/128] Add SMI NAND driver
+Subject: [PATCH 044/127] Add SMI NAND driver
 
 Signed-off-by: Luke Wren <wren6991@gmail.com>
 ---
@@ -99072,10 +99216,10 @@ index 0000000..02adda6
 +	("Driver for NAND chips using Broadcom Secondary Memory Interface");
 +MODULE_AUTHOR("Luke Wren <luke@raspberrypi.org>");
 
-From 5338d2498c8cc434725c234e7ae31db5ce464a94 Mon Sep 17 00:00:00 2001
+From 2b37be5eb618c53d661a6cfa83fd3d3059566a4c Mon Sep 17 00:00:00 2001
 From: Aron Szabo <aron@aron.ws>
 Date: Sat, 16 Jun 2012 12:15:55 +0200
-Subject: [PATCH 043/128] lirc: added support for RaspberryPi GPIO
+Subject: [PATCH 045/127] lirc: added support for RaspberryPi GPIO
 
 lirc_rpi: Use read_current_timer to determine transmitter delay. Thanks to jjmz and others
 See: https://github.com/raspberrypi/linux/issues/525
@@ -99924,10 +100068,10 @@ index 0000000..fb69624
 +
 +#endif
 
-From b7de44263faad3fbc068e8a2f6ae7cc6b0796f11 Mon Sep 17 00:00:00 2001
+From b1cd7eb221793d1a489e6aed7148ebeed6a8e691 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 3 Jul 2013 00:49:20 +0100
-Subject: [PATCH 044/128] Add cpufreq driver
+Subject: [PATCH 046/127] Add cpufreq driver
 
 Signed-off-by: popcornmix <popcornmix@gmail.com>
 ---
@@ -100189,10 +100333,10 @@ index 0000000..3eb9e93
 +module_init(bcm2835_cpufreq_module_init);
 +module_exit(bcm2835_cpufreq_module_exit);
 
-From b28ebd063c8429954ff6ebaf62997a189cf38181 Mon Sep 17 00:00:00 2001
+From 73a9d5263edf480908f4af8dbb06867c04612663 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 26 Mar 2013 19:24:24 +0000
-Subject: [PATCH 045/128] Added hwmon/thermal driver for reporting core
+Subject: [PATCH 047/127] Added hwmon/thermal driver for reporting core
  temperature. Thanks Dorian
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -100390,10 +100534,10 @@ index 0000000..08d8dc7
 +MODULE_DESCRIPTION("Thermal driver for bcm2835 chip");
 +MODULE_LICENSE("GPL");
 
-From 930b009498b18a5d92ef7e54efd0e739081aa7aa Mon Sep 17 00:00:00 2001
+From b44d469c1b6212e0d796752ef46ff40ab989e844 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 17 Jun 2015 15:44:08 +0100
-Subject: [PATCH 046/128] Add Chris Boot's i2c driver
+Subject: [PATCH 048/127] Add Chris Boot's i2c driver
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -101050,10 +101194,10 @@ index 0000000..c9b8e5c
 +MODULE_LICENSE("GPL v2");
 +MODULE_ALIAS("platform:" DRV_NAME);
 
-From a40a8a93b246b0c672e74d9991a9cfb32b473995 Mon Sep 17 00:00:00 2001
+From 50ab4dae61162d26ab0af27a5db2e0970e079a9d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Fri, 26 Jun 2015 14:27:06 +0200
-Subject: [PATCH 047/128] char: broadcom: Add vcio module
+Subject: [PATCH 049/127] char: broadcom: Add vcio module
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -101279,10 +101423,10 @@ index 0000000..c19bc20
 +MODULE_DESCRIPTION("Mailbox userspace access");
 +MODULE_LICENSE("GPL");
 
-From 1af2c936a1e3f330e1dba6025db7e220f7e511ce Mon Sep 17 00:00:00 2001
+From 20dd488a22aa8c857c4b2a3dac1cca01825b8e97 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Noralf=20Tr=C3=B8nnes?= <noralf@tronnes.org>
 Date: Fri, 26 Jun 2015 14:25:01 +0200
-Subject: [PATCH 048/128] firmware: bcm2835: Support ARCH_BCM270x
+Subject: [PATCH 050/127] firmware: bcm2835: Support ARCH_BCM270x
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -101388,10 +101532,10 @@ index dd506cd3..b980d53 100644
  MODULE_AUTHOR("Eric Anholt <eric@anholt.net>");
  MODULE_DESCRIPTION("Raspberry Pi firmware driver");
 
-From f9d680055e773e4fdb7de4708fb519d9d45e5448 Mon Sep 17 00:00:00 2001
+From 3eed03e7b3d6facd9018324ff9ba56083ae6909f Mon Sep 17 00:00:00 2001
 From: Vincent Sanders <vincent.sanders@collabora.co.uk>
 Date: Wed, 30 Jan 2013 12:45:18 +0000
-Subject: [PATCH 049/128] bcm2835: add v4l2 camera device
+Subject: [PATCH 051/127] bcm2835: add v4l2 camera device
 
 - Supports raw YUV capture, preview, JPEG and H264.
 - Uses videobuf2 for data transfer, using dma_buf.
@@ -108783,10 +108927,10 @@ index 0000000..9d1d11e
 +
 +#endif /* MMAL_VCHIQ_H */
 
-From 4e52ea443fae548bf9c59439dd827fea9210da9d Mon Sep 17 00:00:00 2001
+From d5b966230696f644b6324356775c7047b4c5533d Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Mon, 11 May 2015 09:00:42 +0100
-Subject: [PATCH 050/128] scripts: Add mkknlimg and knlinfo scripts from tools
+Subject: [PATCH 052/127] scripts: Add mkknlimg and knlinfo scripts from tools
  repo
 
 The Raspberry Pi firmware looks for a trailer on the kernel image to
@@ -109251,10 +109395,10 @@ index 0000000..3998d43
 +	return (($val eq 'y') || ($val eq '1'));
 +}
 
-From bc5ac8f736752697f1cadb81595d15718478ece6 Mon Sep 17 00:00:00 2001
+From 2264f31ebb5c1f533deff325fe6459898a378f19 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 5 Dec 2014 17:26:26 +0000
-Subject: [PATCH 051/128] fdt: Add support for the CONFIG_CMDLINE_EXTEND option
+Subject: [PATCH 053/127] fdt: Add support for the CONFIG_CMDLINE_EXTEND option
 
 ---
  drivers/of/fdt.c | 29 ++++++++++++++++++++++++-----
@@ -109309,10 +109453,10 @@ index 3349d2a..1e26605 100644
  
  	pr_debug("Command line is: %s\n", (char*)data);
 
-From 33ec06add369c238ab2fe6b1c93f659d2be4f838 Mon Sep 17 00:00:00 2001
+From df8b2f901a496502f3008e2bf010d070b9ed9e45 Mon Sep 17 00:00:00 2001
 From: notro <notro@tronnes.org>
 Date: Wed, 9 Jul 2014 14:46:08 +0200
-Subject: [PATCH 052/128] BCM2708: Add core Device Tree support
+Subject: [PATCH 054/127] BCM2708: Add core Device Tree support
 
 Add the bare minimum needed to boot BCM2708 from a Device Tree.
 
@@ -116443,10 +116587,10 @@ index 0000000..8498134
 +
 +};
 
-From 1ad7fda7f10717fb4bdcae50531253d5473ab68a Mon Sep 17 00:00:00 2001
+From c8f5a80364f715eaa69d685d1a00d3a0faf9d099 Mon Sep 17 00:00:00 2001
 From: Siarhei Siamashka <siarhei.siamashka@gmail.com>
 Date: Mon, 17 Jun 2013 13:32:11 +0300
-Subject: [PATCH 053/128] fbdev: add FBIOCOPYAREA ioctl
+Subject: [PATCH 055/127] fbdev: add FBIOCOPYAREA ioctl
 
 Based on the patch authored by Ali Gholami Rudi at
     https://lkml.org/lkml/2009/7/13/153
@@ -116539,10 +116683,10 @@ index fb795c3..fa72af0 100644
  #define FB_TYPE_PACKED_PIXELS		0	/* Packed Pixels	*/
  #define FB_TYPE_PLANES			1	/* Non interleaved planes */
 
-From 864d8794c8d130c07440ec8b7e28b9fa030b3816 Mon Sep 17 00:00:00 2001
+From adc8fd58629ef4d3244c0031cb1f248fb2a1729c Mon Sep 17 00:00:00 2001
 From: Harm Hanemaaijer <fgenfb@yahoo.com>
 Date: Thu, 20 Jun 2013 20:21:39 +0200
-Subject: [PATCH 054/128] Speed up console framebuffer imageblit function
+Subject: [PATCH 056/127] Speed up console framebuffer imageblit function
 
 Especially on platforms with a slower CPU but a relatively high
 framebuffer fill bandwidth, like current ARM devices, the existing
@@ -116751,104 +116895,10 @@ index a2bb276..436494f 100644
  					start_index, pitch_index);
  	} else
 
-From 8d1be697ad3fcb49dd2ac4fa33684f08951f8443 Mon Sep 17 00:00:00 2001
-From: popcornmix <popcornmix@gmail.com>
-Date: Tue, 26 Mar 2013 17:26:38 +0000
-Subject: [PATCH 055/128] Allow mac address to be set in smsc95xx
-
-Signed-off-by: popcornmix <popcornmix@gmail.com>
----
- drivers/net/usb/smsc95xx.c | 56 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 56 insertions(+)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 714cfe0..08ced57 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -59,6 +59,7 @@
- #define SUSPEND_SUSPEND3		(0x08)
- #define SUSPEND_ALLMODES		(SUSPEND_SUSPEND0 | SUSPEND_SUSPEND1 | \
- 					 SUSPEND_SUSPEND2 | SUSPEND_SUSPEND3)
-+#define MAC_ADDR_LEN                    (6)
- 
- struct smsc95xx_priv {
- 	u32 mac_cr;
-@@ -78,6 +79,10 @@ static bool truesize_mode = false;
- module_param(truesize_mode, bool, 0644);
- MODULE_PARM_DESC(truesize_mode, "Report larger truesize value");
- 
-+static char *macaddr = ":";
-+module_param(macaddr, charp, 0);
-+MODULE_PARM_DESC(macaddr, "MAC address");
-+
- static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
- 					    u32 *data, int in_pm)
- {
-@@ -767,8 +772,59 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
- 	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
- }
- 
-+/* Check the macaddr module parameter for a MAC address */
-+static int smsc95xx_is_macaddr_param(struct usbnet *dev, u8 *dev_mac)
-+{
-+       int i, j, got_num, num;
-+       u8 mtbl[MAC_ADDR_LEN];
-+
-+       if (macaddr[0] == ':')
-+               return 0;
-+
-+       i = 0;
-+       j = 0;
-+       num = 0;
-+       got_num = 0;
-+       while (j < MAC_ADDR_LEN) {
-+               if (macaddr[i] && macaddr[i] != ':') {
-+                       got_num++;
-+                       if ('0' <= macaddr[i] && macaddr[i] <= '9')
-+                               num = num * 16 + macaddr[i] - '0';
-+                       else if ('A' <= macaddr[i] && macaddr[i] <= 'F')
-+                               num = num * 16 + 10 + macaddr[i] - 'A';
-+                       else if ('a' <= macaddr[i] && macaddr[i] <= 'f')
-+                               num = num * 16 + 10 + macaddr[i] - 'a';
-+                       else
-+                               break;
-+                       i++;
-+               } else if (got_num == 2) {
-+                       mtbl[j++] = (u8) num;
-+                       num = 0;
-+                       got_num = 0;
-+                       i++;
-+               } else {
-+                       break;
-+               }
-+       }
-+
-+       if (j == MAC_ADDR_LEN) {
-+               netif_dbg(dev, ifup, dev->net, "Overriding MAC address with: "
-+               "%02x:%02x:%02x:%02x:%02x:%02x\n", mtbl[0], mtbl[1], mtbl[2],
-+                                               mtbl[3], mtbl[4], mtbl[5]);
-+               for (i = 0; i < MAC_ADDR_LEN; i++)
-+                       dev_mac[i] = mtbl[i];
-+               return 1;
-+       } else {
-+               return 0;
-+       }
-+}
-+
- static void smsc95xx_init_mac_address(struct usbnet *dev)
- {
-+       /* Check module parameters */
-+       if (smsc95xx_is_macaddr_param(dev, dev->net->dev_addr))
-+               return;
-+
- 	/* try reading mac address from EEPROM */
- 	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
- 			dev->net->dev_addr) == 0) {
-
-From 09711b4cb3274f86a61056cf7ed82ce9089a5590 Mon Sep 17 00:00:00 2001
+From 78c6d848cc4d771dfc5caf62150602ff07f8f7d7 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 8 May 2013 11:46:50 +0100
-Subject: [PATCH 056/128] enabling the realtime clock 1-wire chip DS1307 and
+Subject: [PATCH 057/127] enabling the realtime clock 1-wire chip DS1307 and
  1-wire on GPIO4 (as a module)
 
 1-wire: Add support for configuring pin for w1-gpio kernel module
@@ -117098,10 +117148,10 @@ index d58594a..feae942 100644
  	unsigned int ext_pullup_enable_pin;
  	unsigned int pullup_duration;
 
-From 31afd7cf0f39d6ec2ceea7a497c0e36587cefe99 Mon Sep 17 00:00:00 2001
+From 16b2b742719d46c3cef87b22438ecd5f3b51e116 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 18 Dec 2013 22:16:19 +0000
-Subject: [PATCH 057/128] config: Enable CONFIG_MEMCG, but leave it disabled
+Subject: [PATCH 058/127] config: Enable CONFIG_MEMCG, but leave it disabled
  (due to memory cost). Enable with cgroup_enable=memory.
 
 ---
@@ -117151,10 +117201,10 @@ index 909a7d3..a57ae60 100644
   * css_tryget_online_from_dir - get corresponding css from a cgroup dentry
   * @dentry: directory dentry of interest
 
-From e3dba9cfb7b8aa837f4f71681490af7ddcb320e4 Mon Sep 17 00:00:00 2001
+From f1aabe8a61c78bfae1e03571db656b694effc6f6 Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 14:59:51 +0100
-Subject: [PATCH 058/128] ASoC: Add support for PCM5102A codec
+Subject: [PATCH 059/127] ASoC: Add support for PCM5102A codec
 
 Some definitions to support the PCM5102A codec
 by Texas Instruments.
@@ -117287,10 +117337,10 @@ index 0000000..7c6598e
 +MODULE_AUTHOR("Florian Meier <florian.meier@koalo.de>");
 +MODULE_LICENSE("GPL v2");
 
-From a56d224ad5eeba041e80fd5f2b0c15dfa4bf97dd Mon Sep 17 00:00:00 2001
+From cbb0520a8e9014764e0486a00f659bbaae30198f Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Fri, 22 Nov 2013 19:19:08 +0100
-Subject: [PATCH 059/128] ASoC: Add support for HifiBerry DAC
+Subject: [PATCH 060/127] ASoC: Add support for HifiBerry DAC
 
 This adds a machine driver for the HifiBerry DAC.
 It is a sound card that can
@@ -117461,10 +117511,10 @@ index 0000000..29ecc08
 +MODULE_DESCRIPTION("ASoC Driver for HifiBerry DAC");
 +MODULE_LICENSE("GPL v2");
 
-From c4e4c5c554cf6b8928225c29ec5958a3bd8d3807 Mon Sep 17 00:00:00 2001
+From e7b3a86085aa1c26211625e96900901b08bd411b Mon Sep 17 00:00:00 2001
 From: Florian Meier <florian.meier@koalo.de>
 Date: Mon, 25 Jan 2016 15:48:59 +0000
-Subject: [PATCH 060/128] ASoC: Add support for Rpi-DAC
+Subject: [PATCH 061/127] ASoC: Add support for Rpi-DAC
 
 ---
  sound/soc/bcm/Kconfig       |   7 +++
@@ -117752,10 +117802,10 @@ index 0000000..afe1b41
 +MODULE_AUTHOR("Florian Meier <florian.meier@koalo.de>");
 +MODULE_LICENSE("GPL v2");
 
-From 3ad62a21c1c7938e4cc463a506edbcef39cab0b4 Mon Sep 17 00:00:00 2001
+From c2edaf13234af4006a8952a1bff1d53b7e50277c Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Wed, 15 Jan 2014 21:41:23 +0100
-Subject: [PATCH 061/128] ASoC: wm8804: Implement MCLK configuration options,
+Subject: [PATCH 062/127] ASoC: wm8804: Implement MCLK configuration options,
  add 32bit support WM8804 can run with PLL frequencies of 256xfs and 128xfs
  for most sample rates. At 192kHz only 128xfs is supported. The existing
  driver selects 128xfs automatically for some lower samples rates. By using an
@@ -117795,10 +117845,10 @@ index 8d91470..5795fb1 100644
  #define WM8804_RATES (SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | \
  		      SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_64000 | \
 
-From 60400a74ef8d44c4545feda79345db64b9f0b8c6 Mon Sep 17 00:00:00 2001
+From 71ef415a7c7943f091f48f7cd7a1594ef43f7d6d Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Wed, 15 Jan 2014 21:42:08 +0100
-Subject: [PATCH 062/128] ASoC: BCM:Add support for HiFiBerry Digi. Driver is
+Subject: [PATCH 063/127] ASoC: BCM:Add support for HiFiBerry Digi. Driver is
  based on the patched WM8804 driver.
 
 Signed-off-by: Daniel Matuschek <daniel@matuschek.net>
@@ -118086,10 +118136,10 @@ index 0000000..9840e15
 +MODULE_DESCRIPTION("ASoC Driver for HifiBerry Digi");
 +MODULE_LICENSE("GPL v2");
 
-From e22c980982209dd830ef6e56d00a6deec240d1c6 Mon Sep 17 00:00:00 2001
+From 5c540d21f3e767d62eebeb7d2e904d9ec3678339 Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Thu, 16 Jan 2014 07:36:35 +0100
-Subject: [PATCH 063/128] ASoC: wm8804: Set idle_bias_off to false Idle bias
+Subject: [PATCH 064/127] ASoC: wm8804: Set idle_bias_off to false Idle bias
  has been change to remove warning on driver startup
 
 Signed-off-by: Daniel Matuschek <daniel@matuschek.net>
@@ -118111,10 +118161,10 @@ index 5795fb1..c846716 100644
  	.dapm_widgets = wm8804_dapm_widgets,
  	.num_dapm_widgets = ARRAY_SIZE(wm8804_dapm_widgets),
 
-From 2c9fcfed0b3393c63404d6a2324b34bb9d17738f Mon Sep 17 00:00:00 2001
+From 4c2200f8f9219093103af1357f7db17849b6ce9a Mon Sep 17 00:00:00 2001
 From: Gordon Garrity <gordon@iqaudio.com>
 Date: Sat, 8 Mar 2014 16:56:57 +0000
-Subject: [PATCH 064/128] Add IQaudIO Sound Card support for Raspberry Pi
+Subject: [PATCH 065/127] Add IQaudIO Sound Card support for Raspberry Pi
 
 Set a limit of 0dB on Digital Volume Control
 
@@ -118312,10 +118362,10 @@ index 0000000..a5eaa9e
 +MODULE_DESCRIPTION("ASoC Driver for IQAudio DAC");
 +MODULE_LICENSE("GPL v2");
 
-From b1bac050dcdd1f4bf5cb6fdef43415ae3b400345 Mon Sep 17 00:00:00 2001
+From 4b5319859b31beb6ac8f5295459458c42e31a2a7 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 14 Jul 2014 22:02:09 +0100
-Subject: [PATCH 065/128] hid: Reduce default mouse polling interval to 60Hz
+Subject: [PATCH 066/127] hid: Reduce default mouse polling interval to 60Hz
 
 Reduces overhead when using X
 ---
@@ -118351,10 +118401,10 @@ index ae83af6..4a7af9d 100644
  		ret = -ENOMEM;
  		if (usb_endpoint_dir_in(endpoint)) {
 
-From 48431c319f74c294959735627097a13dd72317a7 Mon Sep 17 00:00:00 2001
+From bccc5b9a1e6b2594bacb2e0be3f86fbbdf1c1acf Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Mon, 4 Aug 2014 10:06:56 +0200
-Subject: [PATCH 066/128] Added support for HiFiBerry DAC+
+Subject: [PATCH 067/127] Added support for HiFiBerry DAC+
 
 The driver is based on the HiFiBerry DAC driver. However HiFiBerry DAC+ uses
 a different codec chip (PCM5122), therefore a new driver is necessary.
@@ -118968,10 +119018,10 @@ index 047c489..090fe0e 100644
  		dev_err(dev, "No LRCLK?\n");
  		return -EINVAL;
 
-From e1d68f6a427e98aaa1ffacd68732cc6cc806f909 Mon Sep 17 00:00:00 2001
+From b5e57b4a06135c4d35c265cc0ab1137e954f4d6b Mon Sep 17 00:00:00 2001
 From: Daniel Matuschek <info@crazy-audio.com>
 Date: Mon, 4 Aug 2014 11:09:58 +0200
-Subject: [PATCH 067/128] Added driver for HiFiBerry Amp amplifier add-on board
+Subject: [PATCH 068/127] Added driver for HiFiBerry Amp amplifier add-on board
 
 The driver contains a low-level hardware driver for the TAS5713 and the
 drivers for the Raspberry Pi I2S subsystem.
@@ -119803,10 +119853,10 @@ index 0000000..8f019e0
 +
 +#endif  /* _TAS5713_H */
 
-From f6bb4896d087f846d7276d263368b28f81a512d6 Mon Sep 17 00:00:00 2001
+From b8b8e3740d97282bf80b3f174896a30fac617a9c Mon Sep 17 00:00:00 2001
 From: Ryan Coe <bluemrp9@gmail.com>
 Date: Sat, 31 Jan 2015 18:25:49 -0700
-Subject: [PATCH 068/128] Update ds1307 driver for device-tree support
+Subject: [PATCH 069/127] Update ds1307 driver for device-tree support
 
 Signed-off-by: Ryan Coe <bluemrp9@gmail.com>
 ---
@@ -119833,10 +119883,10 @@ index ecb7dba..f0a699c 100644
  	.driver = {
  		.name	= "rtc-ds1307",
 
-From 313cf3f715ffe2855d96dd5359fe52e6fcaad125 Mon Sep 17 00:00:00 2001
+From 9ac8b34d95e2a09d5d93962d0475c565134b3943 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 6 Feb 2015 13:50:57 +0000
-Subject: [PATCH 069/128] BCM270x_DT: Add pwr_led, and the required "input"
+Subject: [PATCH 070/127] BCM270x_DT: Add pwr_led, and the required "input"
  trigger
 
 The "input" trigger makes the associated GPIO an input.  This is to support
@@ -120009,10 +120059,10 @@ index f203a8f..555cf15 100644
  	/* Set LED brightness level
  	 * Must not sleep. Use brightness_set_blocking for drivers
 
-From 1662aa19988c2374eafde021ce12a5370142fb4b Mon Sep 17 00:00:00 2001
+From ba93c5d5b817b5626d5f213a9ec1c4f1d5ca5e2a Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 27 Feb 2015 15:10:24 +0000
-Subject: [PATCH 070/128] enc28j60: Add device tree compatible string and an
+Subject: [PATCH 071/127] enc28j60: Add device tree compatible string and an
  overlay
 
 ---
@@ -120041,10 +120091,10 @@ index 86ea17e..a1b20c1 100644
  	.probe = enc28j60_probe,
  	.remove = enc28j60_remove,
 
-From 5a47a1eb756677bd50194c050580bf775848d078 Mon Sep 17 00:00:00 2001
+From b4a8226e7a8042276fea9b3fdd75edcc25a4a4ab Mon Sep 17 00:00:00 2001
 From: Waldemar Brodkorb <wbrodkorb@conet.de>
 Date: Wed, 25 Mar 2015 09:26:17 +0100
-Subject: [PATCH 071/128] Add driver for rpi-proto
+Subject: [PATCH 072/127] Add driver for rpi-proto
 
 Forward port of 3.10.x driver from https://github.com/koalo
 We are using a custom board and would like to use rpi 3.18.x
@@ -120260,10 +120310,10 @@ index 0000000..9db678e
 +MODULE_DESCRIPTION("ASoC Driver for Raspberry Pi connected to PROTO board (WM8731)");
 +MODULE_LICENSE("GPL");
 
-From a9485a67d50015a3ea68f4b304d2cccef6caebac Mon Sep 17 00:00:00 2001
+From a09fec13ad2602152de8c4e2060f8094ecce3a1e Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 13 Apr 2015 17:16:29 +0100
-Subject: [PATCH 072/128] config: Add default configs
+Subject: [PATCH 073/127] config: Add default configs
 
 ---
  arch/arm/configs/bcm2709_defconfig | 1262 +++++++++++++++++++++++++++++++++++
@@ -122818,10 +122868,10 @@ index 0000000..0b87299
 +CONFIG_CRC_ITU_T=y
 +CONFIG_LIBCRC32C=y
 
-From 1fd64e5a68aff77d38ad583a571121b9cd36036a Mon Sep 17 00:00:00 2001
+From f50a55158c7da415a11a258abbf1e1702b895daf Mon Sep 17 00:00:00 2001
 From: Gordon Hollingworth <gordon@raspberrypi.org>
 Date: Tue, 12 May 2015 14:47:56 +0100
-Subject: [PATCH 073/128] rpi-ft5406: Add touchscreen driver for pi LCD display
+Subject: [PATCH 074/127] rpi-ft5406: Add touchscreen driver for pi LCD display
 
 Fix driver detection failure Check that the buffer response is non-zero meaning the touchscreen was detected
 
@@ -123116,10 +123166,10 @@ index 0000000..b27dbee
 +MODULE_DESCRIPTION("Touchscreen driver for memory based FT5406");
 +MODULE_LICENSE("GPL");
 
-From 17b91da9ba4b26290be0f4efa9e7652c780a35e5 Mon Sep 17 00:00:00 2001
+From 1a6ade21cd9960fe8f89ee05faead9a91cc19ecb Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Mon, 13 Oct 2014 11:47:53 +0100
-Subject: [PATCH 074/128] Improve __copy_to_user and __copy_from_user
+Subject: [PATCH 075/127] Improve __copy_to_user and __copy_from_user
  performance
 
 Provide a __copy_from_user that uses memcpy. On BCM2708, use
@@ -124675,10 +124725,10 @@ index 6bd1089..cd17dd1 100644
  static unsigned long noinline
  __clear_user_memset(void __user *addr, unsigned long n)
 
-From 93c62a05e8879eef0e51d42559ef60760b3a08a5 Mon Sep 17 00:00:00 2001
+From fb7f92843ae79059c8915898c69f614d9f90734c Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 25 Jun 2015 12:16:11 +0100
-Subject: [PATCH 075/128] gpio-poweroff: Allow it to work on Raspberry Pi
+Subject: [PATCH 076/127] gpio-poweroff: Allow it to work on Raspberry Pi
 
 The Raspberry Pi firmware manages the power-down and reboot
 process. To do this it installs a pm_power_off handler, causing
@@ -124713,10 +124763,10 @@ index be3d81f..a030ae9 100644
  			"%s: pm_power_off function already registered",
  		       __func__);
 
-From d1c5cc52c63b362e97f15ccf1767ced2a6f477b2 Mon Sep 17 00:00:00 2001
+From 53e1511a334b50884a9c6d36f3f3377a827f2078 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <pelwell@users.noreply.github.com>
 Date: Tue, 14 Jul 2015 14:32:47 +0100
-Subject: [PATCH 076/128] mfd: Add Raspberry Pi Sense HAT core driver
+Subject: [PATCH 077/127] mfd: Add Raspberry Pi Sense HAT core driver
 
 ---
  drivers/input/joystick/Kconfig           |   8 +
@@ -125582,10 +125632,10 @@ index 0000000..56196dc
 +
 +#endif
 
-From fb538428f17708631f8894c59946b1fff9739ec2 Mon Sep 17 00:00:00 2001
+From dda0deda0aaa7a7433386e1c3ed749a5c7065617 Mon Sep 17 00:00:00 2001
 From: Jan Grulich <jan@grulich.eu>
 Date: Mon, 24 Aug 2015 16:03:47 +0100
-Subject: [PATCH 077/128] RaspiDAC3 support
+Subject: [PATCH 078/127] RaspiDAC3 support
 
 Signed-off-by: Jan Grulich <jan@grulich.eu>
 
@@ -125834,10 +125884,10 @@ index 0000000..e7422e2
 +MODULE_DESCRIPTION("ASoC Driver for RaspiDAC Rev.3x");
 +MODULE_LICENSE("GPL v2");
 
-From 184fc20f37ddaec2ca30e95406cf6a5a0f21d08a Mon Sep 17 00:00:00 2001
+From 1c05e3d932d60a42cc1f6514f83316e8b655ccd4 Mon Sep 17 00:00:00 2001
 From: Jan Grulich <jan@grulich.eu>
 Date: Mon, 24 Aug 2015 16:02:34 +0100
-Subject: [PATCH 078/128] tpa6130a2: Add headphone switch control
+Subject: [PATCH 079/127] tpa6130a2: Add headphone switch control
 
 Signed-off-by: Jan Grulich <jan@grulich.eu>
 ---
@@ -125928,10 +125978,10 @@ index 11d85c5..3caaa17 100644
  
  /*
 
-From 72db0adcf4e743aa3494dcf0d7efd7aa2aa74de8 Mon Sep 17 00:00:00 2001
+From 026507a8b2ecbf1f19e46ea39e905ca704881249 Mon Sep 17 00:00:00 2001
 From: P33M <P33M@github.com>
 Date: Wed, 21 Oct 2015 14:55:21 +0100
-Subject: [PATCH 079/128] rpi_display: add backlight driver and overlay
+Subject: [PATCH 080/127] rpi_display: add backlight driver and overlay
 
 Add a mailbox-driven backlight controller for the Raspberry Pi DSI
 touchscreen display. Requires updated GPU firmware to recognise the
@@ -126100,10 +126150,10 @@ index 0000000..14a0d9b
 +MODULE_DESCRIPTION("Raspberry Pi mailbox based Backlight Driver");
 +MODULE_LICENSE("GPL");
 
-From 869399a0cdc9d6d3ae124453cf3091c1e980e3b0 Mon Sep 17 00:00:00 2001
+From 412d20905fc073ec6457e344877334bc8f344404 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 11 Nov 2015 11:38:59 +0000
-Subject: [PATCH 080/128] scripts: Multi-platform support for mkknlimg and
+Subject: [PATCH 081/127] scripts: Multi-platform support for mkknlimg and
  knlinfo
 
 The firmware uses tags in the kernel trailer to choose which dtb file
@@ -126352,53 +126402,10 @@ index 3998d43..005f404 100755
 -	return (($val eq 'y') || ($val eq '1'));
 -}
 
-From ecb161ae52a143370ca14f75b80256031d1b8a95 Mon Sep 17 00:00:00 2001
-From: Craig Roberts <cjr@craigroberts.net>
-Date: Tue, 16 Feb 2016 10:03:42 +0000
-Subject: [PATCH 081/128] Updated smsc95xx driver to check for a valid MAC
- address in eeprom before using smsc95xx.macaddr parameter passed on command
- line.
-
-The built-in RPi adaptor will still get a MAC address based on the parameter passed on the command line as the RPi hardware does not have an eeprom,
-however usb->ethernet adaptors using the same driver should have an eeprom with MAC address as part of their hardware and therefore will use this
-meaning they don't end up with the same MAC address as the built-in RPi adaptor.
----
- drivers/net/usb/smsc95xx.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 08ced57..a61bd08 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -821,10 +821,6 @@ static int smsc95xx_is_macaddr_param(struct usbnet *dev, u8 *dev_mac)
- 
- static void smsc95xx_init_mac_address(struct usbnet *dev)
- {
--       /* Check module parameters */
--       if (smsc95xx_is_macaddr_param(dev, dev->net->dev_addr))
--               return;
--
- 	/* try reading mac address from EEPROM */
- 	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
- 			dev->net->dev_addr) == 0) {
-@@ -835,7 +831,11 @@ static void smsc95xx_init_mac_address(struct usbnet *dev)
- 		}
- 	}
- 
--	/* no eeprom, or eeprom values are invalid. generate random MAC */
-+	/* Check module parameters */
-+	if (smsc95xx_is_macaddr_param(dev, dev->net->dev_addr))
-+		return;
-+
-+	/* no eeprom, or eeprom values are invalid, and no module parameter specified to set MAC. Generate random MAC */
- 	eth_hw_addr_random(dev->net);
- 	netif_dbg(dev, ifup, dev->net, "MAC address set to eth_random_addr\n");
- }
-
-From 21e96baed27697c3de1fd9835b54f7f942c9575a Mon Sep 17 00:00:00 2001
+From ab62eec2305d00569fa75f7517a617d0f41273db Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 23 Feb 2016 19:56:04 +0000
-Subject: [PATCH 082/128] bcm2835-virtgpio: Virtual GPIO driver
+Subject: [PATCH 082/127] bcm2835-virtgpio: Virtual GPIO driver
 
 Add a virtual GPIO driver that uses the firmware mailbox interface to
 request that the VPU toggles LEDs.
@@ -126624,10 +126631,10 @@ index 0000000..f3e0f16
 +MODULE_DESCRIPTION("brcmvirt GPIO driver");
 +MODULE_ALIAS("platform:brcmvirt-gpio");
 
-From af2491daa4e6ccee89b554c46a737b958fac90c3 Mon Sep 17 00:00:00 2001
+From a103ce8ba24f72c5a3bf4891097cbb6baa59a9ed Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Fri, 4 Mar 2016 12:49:09 +0000
-Subject: [PATCH 083/128] DRM_VC4: Allow to be built for ARCH_BCM270x
+Subject: [PATCH 083/127] DRM_VC4: Allow to be built for ARCH_BCM270x
 
 ---
  drivers/gpu/drm/vc4/Kconfig | 2 +-
@@ -126646,10 +126653,10 @@ index 5848104..870fea5 100644
  	select DRM_KMS_HELPER
  	select DRM_KMS_CMA_HELPER
 
-From 0e0cf5508a270dacf53e9b0def67ab079825292a Mon Sep 17 00:00:00 2001
+From f945e3fa30205878622438869b6da385bb3eeb78 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 17 Dec 2015 13:37:07 +0000
-Subject: [PATCH 084/128] hci_h5: Don't send conf_req when ACTIVE
+Subject: [PATCH 084/127] hci_h5: Don't send conf_req when ACTIVE
 
 Without this patch, a modem and kernel can continuously bombard each
 other with conf_req and conf_rsp messages, in a demented game of tag.
@@ -126672,10 +126679,10 @@ index 0879d64..5161ab3 100644
  		if (H5_HDR_LEN(hdr) > 2)
  			h5->tx_win = (data[2] & 0x07);
 
-From 116ee2ac84dd90fe54dadd7db6622da9af1d7820 Mon Sep 17 00:00:00 2001
+From 4b1d21b1a25a5192fe041611012d42eedcc0341c Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Tue, 23 Feb 2016 17:26:48 +0000
-Subject: [PATCH 085/128] amba_pl011: Don't use DT aliases for numbering
+Subject: [PATCH 085/127] amba_pl011: Don't use DT aliases for numbering
 
 The pl011 driver looks for DT aliases of the form "serial<n>",
 and if found uses <n> as the device ID. This can cause
@@ -126704,10 +126711,10 @@ index 7c198e0..4f9e97b 100644
  	uap->old_cr = 0;
  	uap->port.dev = dev;
 
-From ab5b916299772f6dab566c72c08c5b3a181f723d Mon Sep 17 00:00:00 2001
+From 85a7467b181d583a404275005d5bd6e7f70c1739 Mon Sep 17 00:00:00 2001
 From: wm4 <wm4@nowhere>
 Date: Wed, 13 Jan 2016 19:41:45 +0100
-Subject: [PATCH 086/128] bcm2835-pcm: Numerous enhancements
+Subject: [PATCH 086/127] bcm2835-pcm: Numerous enhancements
 
 bcm2835: extend allowed range of channels and samplerates
 
@@ -127550,10 +127557,10 @@ index af3e6eb..5f4409f 100644
 +#endif // _VC_AUDIO_DEFS_H_
 \ No newline at end of file
 
-From 7c1606d95e3e08f814cdccf280ef8213a00974ac Mon Sep 17 00:00:00 2001
+From 0cb71415bb727743dfbb1353aae0bf6deb2f34af Mon Sep 17 00:00:00 2001
 From: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
 Date: Wed, 3 Dec 2014 13:23:28 +0200
-Subject: [PATCH 087/128] OF: DT-Overlay configfs interface
+Subject: [PATCH 087/127] OF: DT-Overlay configfs interface
 
 This is a port of Pantelis Antoniou's v3 port that makes use of the
 new upstreamed configfs support for binary attributes.
@@ -127969,10 +127976,10 @@ index 0000000..7b66deb
 +}
 +late_initcall(of_cfs_init);
 
-From 47611bd3ee6a56a26d0b69a2d48ac77da9d8fa32 Mon Sep 17 00:00:00 2001
+From 2527fbc482d767bf0460593cce7ab04ea595eec0 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 13 Mar 2015 12:43:36 +0000
-Subject: [PATCH 088/128] Protect __release_resource against resources without
+Subject: [PATCH 088/127] Protect __release_resource against resources without
  parents
 
 Without this patch, removing a device tree overlay can crash here.
@@ -128000,10 +128007,10 @@ index 9b5f044..f8a9af6 100644
  	for (;;) {
  		tmp = *p;
 
-From 17e14b659be57597820ce9eae76a509db9c20457 Mon Sep 17 00:00:00 2001
+From e763b93a15bdc9aec3695bf9ad86e2115197245a Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 13 Mar 2015 20:00:21 +0000
-Subject: [PATCH 089/128] BCM270X_DT: Add a .dtbo target, use for overlays
+Subject: [PATCH 089/127] BCM270X_DT: Add a .dtbo target, use for overlays
 
 Change the filenames and extensions to keep the pre-DDT style of
 overlay (<name>-overlay.dtb) distinct from new ones that use a
@@ -128086,10 +128093,10 @@ index ddf83d0..c819ddc 100644
  
  # Bzip2
 
-From ca21d44f0773e3c41f10c0b1d5bd2ed33b978f0c Mon Sep 17 00:00:00 2001
+From b4cca20c390cb2b946bdc75e00de4115cd5e7a09 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Fri, 29 May 2015 11:18:58 +0100
-Subject: [PATCH 090/128] scripts/knlinfo: Decode DDTK atom
+Subject: [PATCH 090/127] scripts/knlinfo: Decode DDTK atom
 
 Show the DDTK atom as being a boolean.
 
@@ -128120,10 +128127,10 @@ index b9ef124..263ec93 100755
  
  sub format_int
 
-From c32d1a5dedfc7a5778beb3f500964079a9b83d9f Mon Sep 17 00:00:00 2001
+From 42e4f84bb11e7abc8fdd28f015232f1b9923d73e Mon Sep 17 00:00:00 2001
 From: Cheong2K <cheong@redbear.cc>
 Date: Fri, 26 Feb 2016 18:20:10 +0800
-Subject: [PATCH 091/128] brcm: adds support for BCM43341 wifi
+Subject: [PATCH 091/127] brcm: adds support for BCM43341 wifi
 
 ---
  drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c       | 2 ++
@@ -128163,10 +128170,10 @@ index 699f2c2..15598b3 100644
  #define BRCM_CC_4335_CHIP_ID		0x4335
  #define BRCM_CC_4339_CHIP_ID		0x4339
 
-From 1b9297e869e6e265efd6d50934996c389a2f348a Mon Sep 17 00:00:00 2001
+From ec263e2f749f881ad5330cfd0ffc0afba956d3fe Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 9 Mar 2016 17:25:59 +0000
-Subject: [PATCH 092/128] brcmfmac: Disable power management
+Subject: [PATCH 092/127] brcmfmac: Disable power management
 
 Disable wireless power saving in the brcmfmac WLAN driver. This is a
 temporary measure until the connectivity loss resulting from power
@@ -128191,10 +128198,10 @@ index d5c2a27..5a08f59 100644
  	if (!check_vif_up(ifp->vif)) {
  
 
-From 2266e5fa610f884241404c3a8c7f92071bda1523 Mon Sep 17 00:00:00 2001
+From 7ff1fc101256f83c2c484b640728e20de3408e50 Mon Sep 17 00:00:00 2001
 From: Eric Anholt <eric@anholt.net>
 Date: Fri, 22 Jan 2016 13:06:39 -0800
-Subject: [PATCH 093/128] drm/vc4: Add a debugfs node for tracking execution
+Subject: [PATCH 093/127] drm/vc4: Add a debugfs node for tracking execution
  state.
 
 Signed-off-by: Eric Anholt <eric@anholt.net>
@@ -128254,10 +128261,10 @@ index 8d4384f..aa4517c 100644
  vc4_queue_hangcheck(struct drm_device *dev)
  {
 
-From ca44cf7fd4d8877b8b5c3b5ca35d8d3ada4575e2 Mon Sep 17 00:00:00 2001
+From 06ff91e3598e8f24cc84b98e81743a9aea00a2b7 Mon Sep 17 00:00:00 2001
 From: Eric Anholt <eric@anholt.net>
 Date: Mon, 25 Jan 2016 13:03:33 -0800
-Subject: [PATCH 094/128] drm/vc4: Include vc4_drm.h in uapi in downstream
+Subject: [PATCH 094/127] drm/vc4: Include vc4_drm.h in uapi in downstream
  build.
 
 Signed-off-by: Eric Anholt <eric@anholt.net>
@@ -128278,10 +128285,10 @@ index 9355dd8..68828bf 100644
  header-y += vmwgfx_drm.h
  header-y += msm_drm.h
 
-From 4f216ea04bdb48d843a2b0608419ad5ed0029916 Mon Sep 17 00:00:00 2001
+From d873eeae390223e6037efdc2a7f9be2529bbdf00 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 23 Mar 2016 17:22:10 +0000
-Subject: [PATCH 095/128] DT configfs: Fix build errors on other platforms
+Subject: [PATCH 095/127] DT configfs: Fix build errors on other platforms
 
 Signed-off-by: Phil Elwell <phil@raspberrypi.org>
 ---
@@ -128310,10 +128317,10 @@ index 7b66deb..168b9d3 100644
  
  	if (overlay->dtbo == NULL)
 
-From 8f184c363213d9ada37b8c74343ec2d658221e0f Mon Sep 17 00:00:00 2001
+From 17781ff69bb0b46c7262fae89a2fca6021593845 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Mon, 10 Aug 2015 09:49:15 +0100
-Subject: [PATCH 096/128] scripts/dtc: Update to upstream version 1.4.1
+Subject: [PATCH 096/127] scripts/dtc: Update to upstream version 1.4.1
 
 Includes the new localfixups format.
 
@@ -131149,10 +131156,10 @@ index 11d93e6..2595dfd 100644
 -#define DTC_VERSION "DTC 1.4.1-gb06e55c8"
 +#define DTC_VERSION "DTC 1.4.1-g25efc119"
 
-From 4c12f60fffe5b63af8de0eac995c44390ece63cf Mon Sep 17 00:00:00 2001
+From a1fd2bfd9848d1d5bdc1a45ed207b9ac5efd6fca Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 31 Mar 2016 16:49:52 +0100
-Subject: [PATCH 097/128] config: Enabled IPV6_SUBTREES
+Subject: [PATCH 097/127] config: Enabled IPV6_SUBTREES
 
 ---
  arch/arm/configs/bcm2709_defconfig | 1 +
@@ -131184,10 +131191,10 @@ index 0b87299..bfb6936 100644
  CONFIG_IP_ROUTE_VERBOSE=y
  CONFIG_IP_PNP=y
 
-From 27f2eb72b8b9471052903ee33fcce8d4a3d37d87 Mon Sep 17 00:00:00 2001
+From 0e03ed5e69eb7ff6f614dfdc92d4b7a075508d88 Mon Sep 17 00:00:00 2001
 From: Slawomir Stepien <sst@poczta.fm>
 Date: Sun, 3 Apr 2016 13:11:58 +0200
-Subject: [PATCH 098/128] [media]: bcm2835-camera: fix compilation error
+Subject: [PATCH 098/127] [media]: bcm2835-camera: fix compilation error
 
 There is an error when compiling rpi-4.6.y branch:
   CC [M]  drivers/media/platform/bcm2835/bcm2835-camera.o
@@ -131219,10 +131226,10 @@ index fbf89a2..fd20d1e 100644
  		       unsigned int sizes[], void *alloc_ctxs[])
  {
 
-From 5c9cccb7edc38644ece83569794fa4d8e46d4196 Mon Sep 17 00:00:00 2001
+From 4b3da632bdc50a57c8b8fc6ffa8e1566ffde7aa0 Mon Sep 17 00:00:00 2001
 From: Slawomir Stepien <sst@poczta.fm>
 Date: Sun, 3 Apr 2016 18:59:57 +0200
-Subject: [PATCH 099/128] DT configfs: fix build error
+Subject: [PATCH 099/127] DT configfs: fix build error
 
 There is an error when compiling rpi-4.6.y branch:
   CC      drivers/of/configfs.o
@@ -131273,10 +131280,10 @@ index 168b9d3..68f889d 100644
  	ret = configfs_register_subsystem(&of_cfs_subsys);
  	if (ret != 0) {
 
-From 5392dddf678c4b5ca2acf6ec8f703751041fe88f Mon Sep 17 00:00:00 2001
+From 062ac5aa6156a939aa2bd1f0b8f8ebccaba9bf23 Mon Sep 17 00:00:00 2001
 From: dienet <dienet@poczta.fm>
 Date: Wed, 13 Apr 2016 19:07:46 +0200
-Subject: [PATCH 100/128] vchiq_arm: do not use page_cache_release(page) macro
+Subject: [PATCH 100/127] vchiq_arm: do not use page_cache_release(page) macro
  (#1403)
 
 This macro is gone since 1fa64f198b9f8d6ec0f7aec7c18dc94684391140.
@@ -131323,10 +131330,10 @@ index a5cc385..dd62676 100644
  	kfree(pages);
  }
 
-From 6b8a01dbcf2cc17654701ebee22a895a0beb8e96 Mon Sep 17 00:00:00 2001
+From 6edb053beb80dd2523a8245025597f0a17fd254c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Mon, 18 Apr 2016 23:00:31 +0100
-Subject: [PATCH 101/128] vchiq: Upate to match get_user_pages prototype
+Subject: [PATCH 101/127] vchiq: Upate to match get_user_pages prototype
 
 ---
  drivers/misc/vc04_services/interface/vchiq_arm/vchiq_2835_arm.c | 2 +-
@@ -131361,10 +131368,10 @@ index dd62676..a76060c 100644
  		num_pages,                /* len */
  		0,                        /* write */
 
-From a80463d6527ae162eaa712237fdbb9b1fc75312d Mon Sep 17 00:00:00 2001
+From b1712493561bf70a7a9e16c107eccbdcf9f14c86 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 21 Apr 2016 13:49:32 +0100
-Subject: [PATCH 102/128] vchiq_arm: Add completion records under the mutex
+Subject: [PATCH 102/127] vchiq_arm: Add completion records under the mutex
 
 An issue was observed when flushing openmax components
 which generate a large number of messages returning
@@ -131427,10 +131434,10 @@ index a76060c..51e6018 100644
  
  	return VCHIQ_SUCCESS;
 
-From 9ad2f3fbb9a0d4c288e811ee432dad26d509e68a Mon Sep 17 00:00:00 2001
+From 056c624cae04ce35d0cb07b42db02d32a3fea682 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 21 Apr 2016 15:44:14 +0100
-Subject: [PATCH 103/128] bcm2835-i2s: Reduce the TX DREQ threshold
+Subject: [PATCH 103/127] bcm2835-i2s: Reduce the TX DREQ threshold
 
 TX FIFO overrun is thought to be the cause of channel swapping, so
 reducing the DREQ threshold seems reasonable and appears to be
@@ -131478,10 +131485,10 @@ index c7f3fc7..8064e3f 100644
  	/* Clear FIFOs */
  	bcm2835_i2s_clear_fifos(dev, true, true);
 
-From c4b680ef62b426b38a55f9366959fafccc7d75af Mon Sep 17 00:00:00 2001
+From cb9dfe26682c4c4b7c0fd93d41db373689377933 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Mon, 4 Apr 2016 16:03:18 +0100
-Subject: [PATCH 104/128] bcm2835-sdhost: Firmware manages the clock divisor
+Subject: [PATCH 104/127] bcm2835-sdhost: Firmware manages the clock divisor
 
 The bcm2835-sdhost driver hands control of the CDIV clock divisor
 register to matching firmware, allowing it to adjust to a changing
@@ -131694,10 +131701,10 @@ index f43aae0..54087b2 100644
  	if (ret)
  		goto err;
 
-From ba4aee54bde1afe0832e4f3a08d774baab85d4d1 Mon Sep 17 00:00:00 2001
+From 07f713d70e919c337bac217ca057841dc81cd275 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Mon, 11 Apr 2016 12:50:58 +0100
-Subject: [PATCH 105/128] bcm2835-sdhost: Reset the clock in task context
+Subject: [PATCH 105/127] bcm2835-sdhost: Reset the clock in task context
 
 Since reprogramming the clock can now involve a round-trip to the
 firmware it must not be done at atomic context, and a tasklet
@@ -131804,55 +131811,10 @@ index 54087b2..a57faed 100644
  	host->pio_limit = 1;
  	host->max_delay = 1; /* Warn if over 1ms */
 
-From 90f2f300c53c2f045f604012adc5c5d4ab06d111 Mon Sep 17 00:00:00 2001
-From: Sam Nazarko <email@samnazarko.co.uk>
-Date: Fri, 1 Apr 2016 17:27:21 +0100
-Subject: [PATCH 106/128] add smsc95xx packetsize module_param
-
-Signed-off-by: Sam Nazarko <email@samnazarko.co.uk>
----
- drivers/net/usb/smsc95xx.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index a61bd08..3c23b11 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -83,6 +83,10 @@ static char *macaddr = ":";
- module_param(macaddr, charp, 0);
- MODULE_PARM_DESC(macaddr, "MAC address");
- 
-+static int packetsize = 0;
-+module_param(packetsize, int, 0644);
-+MODULE_PARM_DESC(packetsize, "Override the RX URB packet size");
-+
- static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
- 					    u32 *data, int in_pm)
- {
-@@ -1006,13 +1010,13 @@ static int smsc95xx_reset(struct usbnet *dev)
- 
- 	if (!turbo_mode) {
- 		burst_cap = 0;
--		dev->rx_urb_size = MAX_SINGLE_PACKET_SIZE;
-+		dev->rx_urb_size = packetsize ? packetsize : MAX_SINGLE_PACKET_SIZE;
- 	} else if (dev->udev->speed == USB_SPEED_HIGH) {
--		burst_cap = DEFAULT_HS_BURST_CAP_SIZE / HS_USB_PKT_SIZE;
--		dev->rx_urb_size = DEFAULT_HS_BURST_CAP_SIZE;
-+		dev->rx_urb_size = packetsize ? packetsize : DEFAULT_HS_BURST_CAP_SIZE;
-+		burst_cap = dev->rx_urb_size / HS_USB_PKT_SIZE;
- 	} else {
--		burst_cap = DEFAULT_FS_BURST_CAP_SIZE / FS_USB_PKT_SIZE;
--		dev->rx_urb_size = DEFAULT_FS_BURST_CAP_SIZE;
-+		dev->rx_urb_size = packetsize ? packetsize : DEFAULT_FS_BURST_CAP_SIZE;
-+		burst_cap = dev->rx_urb_size / FS_USB_PKT_SIZE;
- 	}
- 
- 	netif_dbg(dev, ifup, dev->net, "rx_urb_size=%ld\n",
-
-From d45bb32b00237d1d9217f6d333963659332b0d08 Mon Sep 17 00:00:00 2001
+From 97b8e380024b7cda31bd514c573903fc9c78043c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 19 Apr 2016 12:57:52 +0100
-Subject: [PATCH 107/128] bcm2835_thermal: Don't report unsupported trip type
+Subject: [PATCH 106/127] bcm2835_thermal: Don't report unsupported trip type
 
 ---
  drivers/thermal/bcm2835-thermal.c | 34 +---------------------------------
@@ -131921,10 +131883,10 @@ index 08d8dc7..c63fb9f 100644
  	if (IS_ERR(tz)) {
  		dev_err(&pdev->dev, "Failed to register the thermal device\n");
 
-From dba0b83a7cf6ed507afa507c16dea40b3025d68e Mon Sep 17 00:00:00 2001
+From ace20c0533afba213edc287b83ac1f64ff70482e Mon Sep 17 00:00:00 2001
 From: Khem Raj <raj.khem@gmail.com>
 Date: Sun, 17 Apr 2016 04:44:47 -0700
-Subject: [PATCH 108/128] vmcs: Remove unused sm_cache_map_vector definition
+Subject: [PATCH 107/127] vmcs: Remove unused sm_cache_map_vector definition
  (#1411)
 
 The code using it also ifdef'ed with 0, anyyd gcc 6
@@ -131959,10 +131921,10 @@ index 5d16e35..1db6716 100644
  /* ---- Private Function Prototypes -------------------------------------- */
  
 
-From e10e3329413e13384b4e30708c82686c4d431db3 Mon Sep 17 00:00:00 2001
+From fb9dd819a80aa2f25cf0f24c978439eb8111f416 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Tue, 5 Apr 2016 13:01:54 +0100
-Subject: [PATCH 109/128] BCM270X_DT: Add dpi24 overlay
+Subject: [PATCH 108/127] BCM270X_DT: Add dpi24 overlay
 
 Signed-off-by: Phil Elwell <phil@raspberrypi.org>
 ---
@@ -132041,10 +132003,10 @@ index 0000000..e4dbe40
 +	};
 +};
 
-From 6cd9fb199ed66351a75794c8cd397967ebbf7934 Mon Sep 17 00:00:00 2001
+From cb1ce5a308f08988719c3a02342eff032324b452 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Tue, 5 Apr 2016 19:40:12 +0100
-Subject: [PATCH 110/128] reboot: Use power off rather than busy spinning when
+Subject: [PATCH 109/127] reboot: Use power off rather than busy spinning when
  halt is requested
 
 ---
@@ -132069,10 +132031,10 @@ index 71a2ff9..812c15e 100644
  
  /*
 
-From eb9810b89233b701707c0186e52454bbf471f64a Mon Sep 17 00:00:00 2001
+From f68d577eb4cbfd83bd2ddea37fa0feaa8119c2eb Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Wed, 30 Mar 2016 17:23:15 +0100
-Subject: [PATCH 111/128] cpufreq: Temporarily ignore io_is_busy=1
+Subject: [PATCH 110/127] cpufreq: Temporarily ignore io_is_busy=1
 
 To speed testing of the new sdhost driver that adapts to changes in
 core_freq, hack the on-demand governor to treat io_is_busy=1 as
@@ -132103,10 +132065,10 @@ index acd8027..72c5a4c 100644
  	/* we need to re-evaluate prev_cpu_idle */
  	gov_update_cpu_data(dbs_data);
 
-From 1e5c7460854aa8d57f108c1aafa361f30f5533e5 Mon Sep 17 00:00:00 2001
+From 9ba4ac5e0fc9aa4685d684cb832ecf64407ce42c Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 21 Apr 2016 20:24:17 +0100
-Subject: [PATCH 112/128] config: Make IPV6 a module and regenerate with
+Subject: [PATCH 111/127] config: Make IPV6 a module and regenerate with
  defconfig
 
 ---
@@ -132169,10 +132131,10 @@ index bfb6936..4cfb186 100644
  CONFIG_IPV6_MROUTE_MULTIPLE_TABLES=y
  CONFIG_IPV6_PIMSM_V2=y
 
-From 74215e15a288b055a34669347d3359e81bf50b92 Mon Sep 17 00:00:00 2001
+From 48fcd332c74b17cf64f0d9c01371c8aec30cc9aa Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Thu, 21 Apr 2016 20:31:55 +0100
-Subject: [PATCH 113/128] firmware: Add RPI_FIRMWARE_SET_SDHOST_CLOCK
+Subject: [PATCH 112/127] firmware: Add RPI_FIRMWARE_SET_SDHOST_CLOCK
 
 ---
  include/soc/bcm2835/raspberrypi-firmware.h | 1 +
@@ -132191,10 +132153,10 @@ index 73e4956..227a107 100644
  	/* Dispmanx TAGS */
  	RPI_FIRMWARE_FRAMEBUFFER_ALLOCATE =                   0x00040001,
 
-From f38ff8219a9de9681ea94936356b96424eae2b2f Mon Sep 17 00:00:00 2001
+From e6458a6111e44274bfeaffada58ead4932820826 Mon Sep 17 00:00:00 2001
 From: dienet <dienet@poczta.fm>
 Date: Fri, 22 Apr 2016 21:58:41 +0200
-Subject: [PATCH 114/128] fbdev: bcm2708_fb: remove unused variable and
+Subject: [PATCH 113/127] fbdev: bcm2708_fb: remove unused variable and
  duplicated comment (#1426)
 
 The yres varialbe is not used anywhere in this function. Also this comment looks
@@ -132220,10 +132182,10 @@ index a20539a..cae5aab 100644
  		info->var.xres, info->var.yres, info->var.xres_virtual,
  		info->var.yres_virtual, (int)info->screen_size,
 
-From f8599fd1eb4e992be1aceb75deffb657ed5bd850 Mon Sep 17 00:00:00 2001
+From 46cd4ce6f5c89e996d6110efab30d9877a782292 Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 27 Apr 2016 16:59:24 +0100
-Subject: [PATCH 115/128] Revert "ASoC: bcm2835: move to use the clock
+Subject: [PATCH 114/127] Revert "ASoC: bcm2835: move to use the clock
  framework"
 
 This reverts commit 517e7a1537ae4663268be5d0c0ec62c563b9fc99.
@@ -132650,10 +132612,10 @@ index 8064e3f..c38ad99 100644
  	/* Set the bus width */
  	dev->dma_data[SNDRV_PCM_STREAM_PLAYBACK].addr_width =
 
-From ea9061354eefe289f93da4827e721a19a684dca5 Mon Sep 17 00:00:00 2001
+From 0f8998e762cdd3698fd2f948418ab75e1fa8648d Mon Sep 17 00:00:00 2001
 From: popcornmix <popcornmix@gmail.com>
 Date: Wed, 27 Apr 2016 17:43:28 +0100
-Subject: [PATCH 116/128] Revert "SUNRPC: Make NFS swap work with multipath"
+Subject: [PATCH 115/127] Revert "SUNRPC: Make NFS swap work with multipath"
 
 This reverts commit 15001e5a7e1e207b6bd258cd8f187814cd15b6dc.
 ---
@@ -132747,10 +132709,10 @@ index 7e0c9bf..0693685 100644
  EXPORT_SYMBOL_GPL(rpc_clnt_swap_deactivate);
  #endif /* CONFIG_SUNRPC_SWAP */
 
-From ee0843d81af9de479241f6844910fe774fc98bc3 Mon Sep 17 00:00:00 2001
+From 842942da0b4bb8ba6cca5a2a632b70c9db4fca56 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 28 Apr 2016 12:05:49 +0100
-Subject: [PATCH 117/128] Revert "bcm2835-i2s: Reduce the TX DREQ threshold"
+Subject: [PATCH 116/127] Revert "bcm2835-i2s: Reduce the TX DREQ threshold"
 
 This reverts commit 01ede038c816ae19fe2676ecf7bef0f40e1b5446.
 ---
@@ -132792,10 +132754,10 @@ index c38ad99..a89f0d2 100644
  	/* Clear FIFOs */
  	bcm2835_i2s_clear_fifos(dev, true, true);
 
-From 01b52de12d447f2face2e0889664b540f66c940c Mon Sep 17 00:00:00 2001
+From 200834977f772ff545fd22c8053d14fd640482b6 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 28 Apr 2016 12:05:59 +0100
-Subject: [PATCH 118/128] Revert "bcm2835-i2s: Enable MMAP support via a DT
+Subject: [PATCH 117/127] Revert "bcm2835-i2s: Enable MMAP support via a DT
  property"
 
 This reverts commit 9aeeaa19f04bf6e176c3b670fb4b8cacb0aca444.
@@ -132829,10 +132791,10 @@ index a89f0d2..c1af739 100644
  			   GFP_KERNEL);
  	if (!dev)
 
-From 8d4aa9ae0cc918d6aff794bd2c097570acffd5ff Mon Sep 17 00:00:00 2001
+From a0fa68710201f898653c81c44383ebc83cbe8f49 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 28 Apr 2016 12:06:07 +0100
-Subject: [PATCH 119/128] Revert "bcm2835-i2s: Register PCM device"
+Subject: [PATCH 118/127] Revert "bcm2835-i2s: Register PCM device"
 
 This reverts commit 37fee13e055338fcb70c9f215470d4dbadb3d72d.
 ---
@@ -132881,10 +132843,10 @@ index c1af739..23e5470 100644
  		dev_err(&pdev->dev, "Could not register PCM: %d\n", ret);
  		return ret;
 
-From d6058bd851aabb8962685fbdf93600e4724d5900 Mon Sep 17 00:00:00 2001
+From 1891ed84bec888967da2952b4e7fad20498f38d2 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 28 Apr 2016 12:06:13 +0100
-Subject: [PATCH 120/128] Revert "bcm2835-i2s: add 24bit support, update
+Subject: [PATCH 119/127] Revert "bcm2835-i2s: add 24bit support, update
  bclk_ratio to more correct values"
 
 This reverts commit e780aed0c66a082d773330ce656f8722436dd8a1.
@@ -132932,10 +132894,10 @@ index 23e5470..3303d5f 100644
  		},
  	.ops = &bcm2835_i2s_dai_ops,
 
-From 365e2b8d9ee0add5345a5c571833f0d254fbf14a Mon Sep 17 00:00:00 2001
+From 57317269425547449a7bb9f5c867df72ac69e98e Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 16:44:05 +0200
-Subject: [PATCH 121/128] bcm2835-i2s: get base address for DMA from devicetree
+Subject: [PATCH 120/127] bcm2835-i2s: get base address for DMA from devicetree
 
 Code copied from spi-bcm2835. Get physical address from devicetree
 instead of using hardcoded constant.
@@ -133000,10 +132962,10 @@ index 3303d5f..0f25db4 100644
  	/* Set the bus width */
  	dev->dma_data[SNDRV_PCM_STREAM_PLAYBACK].addr_width =
 
-From b184dbc1dd9adf135036642dab2bd853d9664ed8 Mon Sep 17 00:00:00 2001
+From a4823c1a6076459cf5ee89cdce87f5525ed85228 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:21:16 +0200
-Subject: [PATCH 122/128] bcm2835-i2s: add 24bit support, update bclk_ratio to
+Subject: [PATCH 121/127] bcm2835-i2s: add 24bit support, update bclk_ratio to
  more correct values
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
@@ -133082,10 +133044,10 @@ index 0f25db4..0f35d7c 100644
  		},
  	.ops = &bcm2835_i2s_dai_ops,
 
-From bed948b66e539b3e3888f701e6cc8d31eb75daf1 Mon Sep 17 00:00:00 2001
+From f837d23abc52957bbf4c5abd7108812f1ee81eb8 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:25:51 +0200
-Subject: [PATCH 123/128] bcm2835-i2s: setup clock only if CPU is clock master
+Subject: [PATCH 122/127] bcm2835-i2s: setup clock only if CPU is clock master
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
 
@@ -133140,10 +133102,10 @@ index 0f35d7c..d5e4123 100644
  	/* Setup the frame format */
  	format = BCM2835_I2S_CHEN;
 
-From 74ca20ab5a41ebbd9fa01747bd12355b055ec934 Mon Sep 17 00:00:00 2001
+From c7ef52dac3dd2e82f2b4ed9d74ee1e8233a9205a Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:49:51 +0200
-Subject: [PATCH 124/128] bcm2835-i2s: Eliminate debugfs directory error
+Subject: [PATCH 123/127] bcm2835-i2s: Eliminate debugfs directory error
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
 
@@ -133179,10 +133141,10 @@ index d5e4123..2d29050 100644
  };
  
 
-From 5913175a9c8ca8d02cd7d7dc2de8cb47a0b3f110 Mon Sep 17 00:00:00 2001
+From 34399504172ac76ae0186cb4dfd998d3a254b89b Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:35:20 +0200
-Subject: [PATCH 125/128] bcm2835-i2s: Register PCM device
+Subject: [PATCH 124/127] bcm2835-i2s: Register PCM device
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
 
@@ -133245,10 +133207,10 @@ index 2d29050..ce93ef0 100644
  		dev_err(&pdev->dev, "Could not register PCM: %d\n", ret);
  		return ret;
 
-From ee29d630045af74bd782375f5289c711fae0b42f Mon Sep 17 00:00:00 2001
+From 364cb5e01c8f90d2e86b8ca977bd54c82922e604 Mon Sep 17 00:00:00 2001
 From: Matthias Reichl <hias@horus.com>
 Date: Sun, 11 Oct 2015 15:55:21 +0200
-Subject: [PATCH 126/128] bcm2835-i2s: Enable MMAP support via a DT property
+Subject: [PATCH 125/127] bcm2835-i2s: Enable MMAP support via a DT property
 
 Code ported from bcm2708-i2s driver in Raspberry Pi tree.
 
@@ -133292,10 +133254,10 @@ index ce93ef0..6f60c2c 100644
  	for (i = 0; i <= 1; i++) {
  		void __iomem *base;
 
-From 7de919e7b064903b35bcefbd65c34ca649b6194b Mon Sep 17 00:00:00 2001
+From dc06787720ed852a0ac690676054498c8db94309 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 21 Apr 2016 15:44:14 +0100
-Subject: [PATCH 127/128] bcm2835-i2s: Reduce the TX DREQ threshold
+Subject: [PATCH 126/127] bcm2835-i2s: Reduce the TX DREQ threshold
 
 TX FIFO overrun is thought to be the cause of channel swapping, so
 reducing the DREQ threshold seems reasonable and appears to be
@@ -133343,10 +133305,10 @@ index 6f60c2c..b26f958 100644
  	/* Clear FIFOs */
  	bcm2835_i2s_clear_fifos(dev, true, true);
 
-From e3f3dc026fad8e7c4193837c93c94b5e18cc1df9 Mon Sep 17 00:00:00 2001
+From 0fff492d94187a1f495c7bc8938504d5294573a3 Mon Sep 17 00:00:00 2001
 From: Phil Elwell <phil@raspberrypi.org>
 Date: Thu, 28 Apr 2016 17:13:47 +0100
-Subject: [PATCH 128/128] brcmfmac: Use original country code as a fallback
+Subject: [PATCH 127/127] brcmfmac: Use original country code as a fallback
 
 Commit 73345fd212980d2e28a5c6d83801c903bd773680:
 
