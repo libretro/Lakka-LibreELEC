@@ -17,21 +17,25 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-# Attempts to generate a unique machine ID based on one local MAC address
-# MACHINEID SHOULD be the same between upgrades/reinstalls
-# MAC is hashed so that it cant be reversed making it anonymous
-# Used to help with global usage statistics, also used for dbus and systemd
+# Creates a unique machine-id based on a local MAC address which persists over
+# reboots, upgrades and reinstallation. For systems with slow loading network
+# drivers (no MAC's available) dbus-uuidgen is used which persists over reboot
+# and upgrades but not reinstallation. If a MAC is used it is hashed to make it
+# anonymous. The machine-id is used by dbus and systemd, and to collect basic
+# active-installation statistics on LibreELEC users.
 
-# creating machine-id, systemd otherwise does this automatically if not present.
-# this we want to avoid to have the same machine-id over reboot, fallback
-# to systemd's solution if this dont work here
-
-if [ -e "/sys/class/net/eth0/address" ]; then
-  MAC_ADRESS=`cat /sys/class/net/eth0/address`
+if [ -e "/storage/.cache/machine-id" ]; then
+  MACHINEID=`cat /storage/.cache/machine-id`
+elif [ -e "/sys/class/net/eth0/address" ]; then
+  MAC_ADDRESS=`cat /sys/class/net/eth0/address`
 elif [ -e "/sys/class/net/wlan0/address" ]; then
-  MAC_ADRESS=`cat /sys/class/net/wlan0/address`
+  MAC_ADDRESS=`cat /sys/class/net/wlan0/address`
+else
+  MAC_ADDRESS=`/usr/bin/dbus-uuidgen`
 fi
 
-MACHINEID=`echo $MAC_ADRESS | md5sum | cut -f1 -d" "`
+if [ -z "$MACHINEID" ]; then
+  MACHINEID=`echo $MAC_ADDRESS | md5sum | cut -f1 -d" "`
+fi
 
-echo "$MACHINEID" > /run/machine-id
+echo "$MACHINEID" > /storage/.cache/machine-id
