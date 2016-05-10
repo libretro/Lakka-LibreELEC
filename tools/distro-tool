@@ -69,6 +69,7 @@ class MyUtility(object):
   search_HTTP_NOT_FOUND     = re.compile("404 not found", flags=re.IGNORECASE)
   search_HTTP_NOT_ALLOWED   = re.compile("405 method not allowed", flags=re.IGNORECASE)
   search_HTTP_CODE          = re.compile("__HTTP_CODE__@([0-9]*)@")
+  search_CONTENT_TYPE       = re.compile("__CONTENT_TYPE__@(.*)@")
 
   colours = {}
   colours["red"]    = "\x1b[31m"
@@ -191,31 +192,34 @@ class MyUtility(object):
     urlfields = package_url.split("/")
     urlapi = "https://api.github.com/repos/%s/%s/commits" % (urlfields[3], urlfields[4])
     tmpfile_data = "%s/%s" % (SCRATCH_DIR, threading.current_thread().name)
-    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --max-time 60 --retry 3 --write-out __HTTP_CODE__@%%{http_code}@ --output %s --url %s" % (tmpfile_data, urlapi)
+    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --max-time 60 --retry 3 --write-out __HTTP_CODE__@%{http_code}@\\n__CONTENT_TYPE__@%{content_type}@"
+
+    if GIT_USERNAME and GIT_PASSWORD:
+      curl_args += " -u %s:%s" % (GIT_USERNAME, GIT_PASSWORD)
 
     if os.path.exists(tmpfile_data):
       os.remove(tmpfile_data)
 
-    authentication = "-u %s:%s" % (GIT_USERNAME, GIT_PASSWORD) if GIT_USERNAME and GIT_PASSWORD else ""
-
-    (result, headers) = MyUtility.runcommand(msgs, "%s %s" % (curl_args, authentication), redacted=curl_args)
+    (result, headers) = MyUtility.runcommand(msgs, "%s --output %s --url %s" % (curl_args, tmpfile_data, urlapi), redacted=curl_args)
 
     search_obj = MyUtility.search_HTTP_CODE.search(headers)
     http_code = search_obj.group(1) if search_obj else ""
+    search_obj = MyUtility.search_CONTENT_TYPE.search(headers)
+    content_type = search_obj.group(1) if search_obj else ""
 
-    MyUtility.logmsg(msgs, 3, "CURL exit code: %d, http_code: %s" % (result, http_code))
+    MyUtility.logmsg(msgs, 3, "CURL exit code: %d, http_code: %s, content type: [%s]" % (result, http_code, content_type))
     MyUtility.logmsg(msgs, 3, "[\n%s]" % headers)
 
     if os.path.exists(tmpfile_data):
       data = MyUtility.readfile(tmpfile_data)
       os.remove(tmpfile_data)
       MyUtility.logmsg(msgs, 3, "GITHUB RESPONSE (first 1024 bytes): [\n%s\n]" % data[0:1024])
-      if http_code == "200" and data:
+      if http_code == "200" and data and content_type.startswith("application/json"):
         jdata = json.loads(data)
         if "message" not in jdata:
           return jdata[0]["sha"]
 
-    return None
+    return ""
 
   @staticmethod
   def have_package(package_name, package_source):
@@ -236,8 +240,9 @@ class MyUtility(object):
     result = 0
     HEAD_supported = True
     ts = datetime.datetime.now()
-    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --max-time 60 --retry 0 --write-out __HTTP_CODE__@%{http_code}@"
+    curl_args = "curl --verbose --silent --fail --location --connect-timeout 15 --max-time 60 --retry 0 --write-out __HTTP_CODE__@%{http_code}@\\n__CONTENT_TYPE__@%{content_type}@"
     http_code = ""
+    content_type = ""
 
     MyUtility.logmsg(msgs, 3, "Remote headers for %s..." % url)
 
@@ -254,9 +259,13 @@ class MyUtility(object):
 
       search_obj = MyUtility.search_HTTP_CODE.search(headers)
       http_code = search_obj.group(1) if search_obj else ""
+      search_obj = MyUtility.search_CONTENT_TYPE.search(headers)
+      content_type = search_obj.group(1) if search_obj else ""
 
       tDelta = (datetime.datetime.now() - ts_cmd)
-      MyUtility.logmsg(msgs, 3, "CURL exit code: %d, http_code: %s, remaining retries %d, time taken %f seconds" % (result, http_code, retry, tDelta.total_seconds()))
+      MyUtility.logmsg(msgs, 3, \
+        "CURL exit code: %d, http_code: %s, content type: [%s], remaining retries %d, time taken %f seconds" % \
+        (result, http_code, content_type, retry, tDelta.total_seconds()))
 
       if result == 22:
         # 404 Not Found
@@ -288,8 +297,11 @@ class MyUtility(object):
     MyUtility.logmsg(msgs, 3, "[\n%s]" % headers)
 
     # Success if HTTP 200 or 206 (partial content when using ranged request)
+    # A content_type of "text/html" indicates we were served an error page of
+    # some kind (eg. iperf) and not the requested file, which would be "application/<something>".
+    # "text/plain" indicates a misconfigured server (eg. libgcrypt, libgpg-error) so accept this.
     if http_code in ["200", "206"] or MyUtility.search_HTTP_OK.search(headers):
-      result = True
+      result = True if (content_type.startswith("application/") or content_type.startswith("text/plain")) else False
     elif http_code == "350" and url.startswith("ftp:"):
       result = True
     else:
@@ -394,10 +406,14 @@ class MyUtility(object):
         return
 
       is_git_rev = True
+
       latestrev = MyUtility.get_latest_commit(msgs, package_url)
+
       MyUtility.logmsg(msgs, 3, "Github latest commit [%s]" % latestrev)
-      if latestrev is None or latestrev.startswith(package_ver):
+
+      if latestrev == "" or latestrev.startswith(package_ver):
         return
+
       alt_versions.append(latestrev[0:len(package_ver)])
 
     MyUtility.show(msgs, 2 if VERBOSE == 2 else 3, None, "Checking for newer", "%s, current version %s - checking %s" % (package_name, package_ver, ", ".join(alt_versions)))
