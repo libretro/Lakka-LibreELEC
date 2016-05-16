@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mpfr"
-PKG_VERSION="3.1.3"
+PKG_VERSION="3.1.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
