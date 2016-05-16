@@ -19,7 +19,7 @@
 PKG_NAME="lm_sensors"
 PKG_VERSION="3.4.0"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="arm x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://secure.netroedge.com/~lm78/"
 PKG_URL="http://ftp.gwdg.de/pub/linux/misc/lm-sensors/$PKG_NAME-$PKG_VERSION.tar.bz2"
