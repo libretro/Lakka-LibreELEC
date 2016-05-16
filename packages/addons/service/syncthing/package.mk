@@ -43,6 +43,9 @@ configure_target() {
     x86_64)
       export GOARCH=amd64
       ;;
+    aarch64)
+      export GOARCH=arm64
+      ;;
     arm)
       export GOARCH=arm
       case $TARGET_CPU in
