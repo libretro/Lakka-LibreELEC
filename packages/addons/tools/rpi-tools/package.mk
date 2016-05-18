@@ -18,16 +18,16 @@
 
 PKG_NAME="rpi-tools"
 PKG_VERSION=""
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE=""
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain RPi.GPIO picamera gpiozero"
+PKG_DEPENDS_TARGET="toolchain RPi.GPIO picamera gpiozero Adafruit_Python_LED_Backpack Adafruit_Python_GPIO Adafruit_Python_PureIO"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of tools and programs for use on the Raspberry Pi"
-PKG_LONGDESC="This bundle currently includes RPi.GPIO, picamera, and gpiozero python modules"
+PKG_LONGDESC="This bundle currently includes RPi.GPIO, picamera, gpiozero and same Adafruit (LED-Backpack, GPIO, PureIO) python modules"
 PKG_DISCAIMER="Raspberry Pi is a trademark of the Raspberry Pi Foundation http://www.raspberrypi.org"
 
 PKG_IS_ADDON="yes"
@@ -44,6 +44,9 @@ addon() {
     cp -PR $(get_build_dir RPi.GPIO)/build/lib.linux-*/RPi/* $ADDON_BUILD/$PKG_ADDON_ID/lib/RPi
     cp -PR $(get_build_dir picamera)/picamera $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir gpiozero)/gpiozero $ADDON_BUILD/$PKG_ADDON_ID/lib/
+    cp -PR $(get_build_dir Adafruit_Python_PureIO)/Adafruit_PureIO $ADDON_BUILD/$PKG_ADDON_ID/lib/
+    cp -PR $(get_build_dir Adafruit_Python_GPIO)/Adafruit_GPIO $ADDON_BUILD/$PKG_ADDON_ID/lib/
+    cp -PR $(get_build_dir Adafruit_Python_LED_Backpack)/Adafruit_LED_Backpack $ADDON_BUILD/$PKG_ADDON_ID/lib/
 
   BCM2835_DIR="$(get_build_dir bcm2835-driver)"
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
