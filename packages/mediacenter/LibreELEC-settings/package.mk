@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="LibreELEC-settings"
-PKG_VERSION="7b04bb8"
+PKG_VERSION="c0aa38f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
