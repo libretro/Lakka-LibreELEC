@@ -19,7 +19,7 @@
 PKG_NAME="moonlight-embedded"
 PKG_VERSION="2.2.0"
 PKG_REV="1"
-PKG_ARCH="arm aarch64"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/irtimmer/moonlight-embedded"
 PKG_URL="https://github.com/irtimmer/moonlight-embedded/archive/v$PKG_VERSION.tar.gz"
@@ -38,6 +38,8 @@ elif [ "$KODIPLAYER_DRIVER" = "libfslvpuwrap" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx-gpu-viv"
 elif [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libamcodec"
+elif [ "$DISPLAYSERVER" = "x11" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau SDL2 ffmpeg libxcb"
 fi
 
 pre_build_target() {
