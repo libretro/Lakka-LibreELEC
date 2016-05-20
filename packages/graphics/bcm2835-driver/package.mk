@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain dtc"
 PKG_PRIORITY="optional"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="OpenMAX-bcm2835: OpenGL-ES and OpenMAX driver for BCM2835"
@@ -82,8 +82,9 @@ makeinstall_target() {
 # some usefull debug tools
   mkdir -p $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/bin/dtoverlay $INSTALL/usr/bin
+    ln -s dtoverlay $INSTALL/usr/bin/dtparam
     cp -PRv $FLOAT/opt/vc/bin/vcdbg $INSTALL/usr/bin
-      cp -PRv $FLOAT/opt/vc/lib/libdebug_sym.so $INSTALL/usr/lib
+    cp -PRv $FLOAT/opt/vc/lib/libdebug_sym.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/bin/vcgencmd $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/bin/tvservice $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/bin/edidparser $INSTALL/usr/bin
