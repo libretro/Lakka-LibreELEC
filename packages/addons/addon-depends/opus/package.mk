@@ -32,5 +32,12 @@ PKG_LONGDESC="Codec designed for interactive speech and audio transmission over 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+if [ "$TARGET_ARCH" = "arm" ]; then
+  FIXED_POINT="--enable-fixed-point"
+else
+  FIXED_POINT="--disable-fixed-point"
+fi
+
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --disable-shared"
+                           --disable-shared \
+                           $FIXED_POINT"

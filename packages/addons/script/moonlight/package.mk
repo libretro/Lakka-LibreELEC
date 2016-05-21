@@ -18,8 +18,8 @@
 
 PKG_NAME="moonlight"
 PKG_VERSION="c371ff8"
-PKG_REV="0"
-PKG_ARCH="arm aarch64"
+PKG_REV="1"
+PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dead/moonlight-openelec-rpi2"
 PKG_URL="https://github.com/dead/moonlight-openelec-rpi2/archive/$PKG_VERSION.tar.gz"
