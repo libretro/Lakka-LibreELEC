@@ -75,7 +75,7 @@ post_patch() {
 make_host() {
   make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
-       PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES"
+       PYTHON_DISABLE_MODULES="readline _curses _curses_panel $PY_DISABLED_MODULES"
 
   # python distutils per default adds -L$LIBDIR when linking binary extensions
     sed -e "s|^ 'LIBDIR':.*| 'LIBDIR': '/usr/lib',|g" -i $(cat pybuilddir.txt)/_sysconfigdata.py
@@ -84,7 +84,7 @@ make_host() {
 makeinstall_host() {
   make PYTHON_MODULES_INCLUDE="$HOST_INCDIR" \
        PYTHON_MODULES_LIB="$HOST_LIBDIR" \
-       PYTHON_DISABLE_MODULES="$PY_DISABLED_MODULES" \
+       PYTHON_DISABLE_MODULES="readline _curses _curses_panel $PY_DISABLED_MODULES" \
        install
 }
 
