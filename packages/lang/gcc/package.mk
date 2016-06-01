@@ -110,6 +110,10 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --enable-checking=release \
                          --with-default-libstdcxx-abi=gcc4-compatible"
 
+pre_configure_host() {
+  export CXXFLAGS="$CXXFLAGS -std=gnu++98"
+}
+
 pre_configure_bootstrap() {
   setup_toolchain host
 }
