@@ -23,24 +23,20 @@ PKG_VERSION="0.19.15"
 PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://mpd.wikia.com/wiki/Music_Player_Daemon_Wiki"
+PKG_SITE="https://www.musicpd.org"
 PKG_URL="http://www.musicpd.org/download/${PKG_NAME}/${PKG_VERSION%.*}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain boost glib ffmpeg libmad libogg flac faad2 curl alsa-lib yajl libid3tag lame"
 PKG_PRIORITY="optional"
 PKG_SECTION="service.multimedia"
-PKG_SHORTDESC="Flexible, powerful, server-side application for playing music"
-PKG_LONGDESC="Flexible, powerful, server-side application for playing music"
+PKG_SHORTDESC="Music Player Daemon (MPD): a free and open Music Player Server"
+PKG_LONGDESC="Music Player Daemon($PKG_VERSION_NUMBER) is a flexible and powerful server-side application for playing music"
+PKG_AUTORECONF="yes"
 
 PKG_IS_ADDON="yes"
+PKG_ADDON_NAME="Music Player Daemon (MPD)"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_PROVIDES=""
 PKG_ADDON_REPOVERSION="8.0"
-
-PKG_AUTORECONF="yes"
-
-PKG_DISCLAIMER="This may block your xbmc audio. It might also play no audio at all, if streamsilence is enabled and you try to use the very same device"
-
-PKG_MAINTAINER="Lukas Sabota (LTsmooth42@gmail.com)"
 
 pre_configure_target() {
   export LDFLAGS="$LDFLAGS -ldl -logg"
