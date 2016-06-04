@@ -29,7 +29,7 @@ PKG_DEPENDS_TARGET="toolchain boost glib ffmpeg libmad libogg flac faad2 curl al
 PKG_PRIORITY="optional"
 PKG_SECTION="service.multimedia"
 PKG_SHORTDESC="Music Player Daemon (MPD): a free and open Music Player Server"
-PKG_LONGDESC="Music Player Daemon($PKG_VERSION_NUMBER) is a flexible and powerful server-side application for playing music"
+PKG_LONGDESC="Music Player Daemon ($PKG_VERSION) is a flexible and powerful server-side application for playing music"
 PKG_AUTORECONF="yes"
 
 PKG_IS_ADDON="yes"
