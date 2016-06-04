@@ -18,7 +18,7 @@
 
 PKG_NAME="syncthing"
 PKG_VERSION="0.12.24"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2"
 PKG_SITE="https://syncthing.net/"
@@ -33,6 +33,7 @@ PKG_MAINTAINER="Anton Voyl (awiouy at gmail dot com)"
 PKG_ADDON_REPOVERSION="8.0"
 
 PKG_IS_ADDON="yes"
+PKG_ADDON_NAME="Syncthing"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_PROVIDES=""
 PKG_AUTORECONF="no"
@@ -76,7 +77,7 @@ configure_target() {
 
 make_target() {
   mkdir -p bin
-  $GOLANG build -v -o bin/syncthing -a -tags noupgrade -ldflags "$LDFLAGS" ./cmd/syncthing
+  $GOLANG build -v -o bin/syncthing -a -ldflags "$LDFLAGS" ./cmd/syncthing
 }
 
 makeinstall_target() {
