@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="docker"
-PKG_VERSION="1.11.1"
-PKG_REV="103"
+PKG_VERSION="1.11.2"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2"
 PKG_LICENSE="ASL"
