@@ -24,6 +24,9 @@
 # mount $BOOT_ROOT r/w
   mount -o remount,rw $BOOT_ROOT
 
+# Something has gone horribly wrong... clean up
+  [ -s $BOOT_ROOT/overlays ] || rm -fr $BOOT_ROOT/overlays $BOOT_ROOT/FSCK*.REC
+
 # update bootloader files
   cp -p $SYSTEM_ROOT/usr/share/bootloader/LICENCE* $BOOT_ROOT
   cp -p $SYSTEM_ROOT/usr/share/bootloader/bootcode.bin $BOOT_ROOT
