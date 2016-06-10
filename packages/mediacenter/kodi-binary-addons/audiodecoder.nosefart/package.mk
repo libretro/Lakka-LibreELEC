@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.nosefart"
-PKG_VERSION="646a7cb"
+PKG_VERSION="1d3de76"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

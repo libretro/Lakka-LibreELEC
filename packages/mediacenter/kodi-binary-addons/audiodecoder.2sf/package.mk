@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.2sf"
-PKG_VERSION="b78be21"
+PKG_VERSION="05fa941"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
