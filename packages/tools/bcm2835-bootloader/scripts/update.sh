@@ -58,7 +58,7 @@
 
 # Add distro config file.
   if [ -f $SYSTEM_ROOT/usr/share/bootloader/distroconfig.txt ]; then
-    cp $SYSTEM_ROOT/usr/share/bootloader/distroconfig.txt $BOOT_ROOT
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/distroconfig.txt $BOOT_ROOT
   fi
 
 # mount $BOOT_ROOT r/o
