@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.nextpvr"
-PKG_VERSION="fa13c7d"
+PKG_VERSION="150698b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

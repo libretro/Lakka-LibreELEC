@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.waveform"
-PKG_VERSION="89aec48"
+PKG_VERSION="a603d10"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
