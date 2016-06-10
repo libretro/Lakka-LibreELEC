@@ -54,7 +54,10 @@
 #    sed -e "s,gpu_mem_256=100,# gpu_mem_256=128,g" -i $BOOT_ROOT/config.txt
 #    sed -e "s,gpu_mem_512=128,# gpu_mem_512=128,g" -i $BOOT_ROOT/config.txt
   # Add distribution specific extra configuration file for the bootloader
-  elif [ -f $SYSTEM_ROOT/usr/share/bootloader/distroconfig.txt ]; then
+  fi
+
+# Add distro config file.
+  if [ -f $SYSTEM_ROOT/usr/share/bootloader/distroconfig.txt ]; then
     cp $SYSTEM_ROOT/usr/share/bootloader/distroconfig.txt $BOOT_ROOT
   fi
 
