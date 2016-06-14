@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-input-libinput"
-PKG_VERSION="0.18.0"
+PKG_VERSION="0.19.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -36,5 +36,5 @@ PKG_CONFIGURE_OPTS_TARGET="--with-xorg-module-dir=$XORG_PATH_MODULES"
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/share/X11/xorg.conf.d
-    cp $ROOT/$PKG_BUILD/conf/90-libinput.conf $INSTALL/usr/share/X11/xorg.conf.d
+    cp $ROOT/$PKG_BUILD/conf/*-libinput.conf $INSTALL/usr/share/X11/xorg.conf.d
 }
