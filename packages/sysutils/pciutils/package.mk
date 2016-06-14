@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pciutils"
-PKG_VERSION="3.4.1"
+PKG_VERSION="3.5.1"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
