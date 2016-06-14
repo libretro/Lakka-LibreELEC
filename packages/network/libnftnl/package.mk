@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libnftnl"
-PKG_VERSION="1.0.5"
+PKG_VERSION="1.0.6"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
