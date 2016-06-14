@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libusb-compat"
-PKG_VERSION="0.1.4"
+PKG_VERSION="0.1.5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
