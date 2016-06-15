@@ -32,12 +32,7 @@ PKG_LONGDESC="X Composite Library"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-SHARED_SUPPORT="--disable-shared"
-if [ "$PROJECT" = "Virtual" ]; then
-  SHARED_SUPPORT="--enable-shared"
-fi
-
-PKG_CONFIGURE_OPTS_TARGET="--enable-static $SHARED_SUPPORT"
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
