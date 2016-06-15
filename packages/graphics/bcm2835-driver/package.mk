@@ -94,6 +94,5 @@ makeinstall_target() {
 }
 
 post_install() {
-  enable_service fbset.service
   enable_service unbind-console.service
 }
