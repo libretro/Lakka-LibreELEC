@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libpng"
-PKG_VERSION="1.6.21"
+PKG_VERSION="1.6.22"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"

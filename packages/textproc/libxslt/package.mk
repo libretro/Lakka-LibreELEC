@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libxslt"
-PKG_VERSION="1.1.28"
+PKG_VERSION="1.1.29"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"

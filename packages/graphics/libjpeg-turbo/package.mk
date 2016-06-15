@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libjpeg-turbo"
-PKG_VERSION="1.4.2"
+PKG_VERSION="1.5.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -47,7 +47,7 @@ pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC -DPIC"
 }
 
-if [ $SIMD_SUPPORT = "no" ]; then
+if [ "$SIMD_SUPPORT" = "no" ]; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --without-simd"
 fi
 
