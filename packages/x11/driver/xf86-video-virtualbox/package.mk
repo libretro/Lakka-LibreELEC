@@ -22,8 +22,9 @@ PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.virtualbox.org"
-PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain libXcomposite libXdamage libXfixes libXext libX11 libxcb libXau"
+PKG_URL="http://download.virtualbox.org/virtualbox/$PKG_VERSION/VirtualBox-$PKG_VERSION.tar.bz2"
+PKG_SOURCE_DIR="VirtualBox-$PKG_VERSION"
+PKG_DEPENDS_TARGET="toolchain libXcomposite libXdamage libXfixes libXext libX11 libxcb libXau libXmu"
 PKG_PRIORITY="optional"
 PKG_SECTION="x11/driver"
 PKG_SHORTDESC="xf86-video-virtualbox: The Xorg driver for virtualbox video"
@@ -32,20 +33,51 @@ PKG_LONGDESC="xf86-video-virtualbox: The Xorg driver for virtualbox video"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_configure_target() {
+  # let's use our sysroot instead
+  for include in x11 xorg pixman-1; do
+    sed -i "s| \(/usr/include/${include}\)| ${SYSROOT_PREFIX}\1|" $ROOT/$PKG_BUILD/src/VBox/Additions/x11/vboxvideo/Makefile.kmk
+  done
+}
+
+configure_target() {
+  cd $ROOT/$PKG_BUILD
+  ./configure --nofatal \
+              --disable-xpcom \
+              --disable-sdl-ttf \
+              --disable-pulse \
+              --disable-alsa \
+              --with-gcc=$CC \
+              --with-g++=$CXX \
+              --target-arch=amd64 \
+              --with-linux=$(kernel_path) \
+              --build-headless
+}
+
 make_target() {
-  : # nothing todo
+  . env.sh
+  export VBOX_GCC_OPT="${CFLAGS} ${CPPFLAGS}"
+
+  kmk TOOL_YASM_AS=yasm \
+      VBOX_USE_SYSTEM_XORG_HEADERS=1 \
+      KBUILD_PATH="$ROOT/$PKG_BUILD/kBuild" \
+      KBUILD_VERBOSE=2 
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/$XORG_PATH_MODULES/drivers
-    cp -P lib/VBoxGuestAdditions/vboxvideo_drv_118.so $INSTALL/$XORG_PATH_MODULES/drivers/vboxvideo_drv.so
+  mkdir -p $INSTALL/usr/sbin
+    cp -P $ROOT/$PKG_BUILD/out/linux.amd64/release/bin/additions/VBoxService $INSTALL/usr/sbin/vboxguest-service
+    cp -P $ROOT/$PKG_BUILD/out/linux.amd64/release/bin/additions/mount.vboxsf $INSTALL/usr/sbin
 
-  mkdir -p $INSTALL/usr/lib/dri
-    cp -P lib/VBoxOGL.so $INSTALL/usr/lib/dri/vboxvideo_dri.so
+  mkdir -p $INSTALL/usr/bin
+    cp -P $ROOT/$PKG_BUILD/out/linux.amd64/release/bin/additions/VBoxControl $INSTALL/usr/bin
+    cp -P $ROOT/$PKG_BUILD/out/linux.amd64/release/bin/additions/VBoxClient $INSTALL/usr/bin
+}
 
-  mkdir -p $INSTALL/usr/lib
-    cp -aP lib/* $INSTALL/usr/lib
+post_install() {
+  # automount Error: VBoxServiceAutoMountWorker: Group "vboxsf" does not exist
+  add_group vboxsf 300
 
-  mkdir -p $INSTALL/etc/X11
-    cp $PKG_DIR/config/*.conf $INSTALL/etc/X11
+  enable_service virtualbox-display.service
+  enable_service virtualbox-guest-additions.service
 }
