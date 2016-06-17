@@ -96,7 +96,7 @@ addon() {
   fi
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
-    cp -P $PKG_BUILD/config/hyperion.config.json $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
+    cp -P $PKG_BUILD/config/hyperion.config.json.example $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
     sed -i -e "s,/opt/hyperion/effects,/storage/.kodi/addons/service.hyperion/effects,g" \
       $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
 
