@@ -1,7 +1,6 @@
-#!/bin/sh
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+#      Copyright (C) 2016 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,25 +16,26 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-echo "getting sources..."
-  if [ ! -d hyperion.git ]; then
-    git clone --depth 1 --recursive https://github.com/tvdzwan/hyperion hyperion.git
-  fi
+PKG_NAME="rpi_ws281x"
+PKG_VERSION="dfcf740"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE=""
+PKG_SITE="https://github.com/penfold42/rpi_ws281x"
+PKG_URL="https://github.com/penfold42/rpi_ws281x/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_PRIORITY="optional"
+PKG_SECTION=""
+PKG_SHORTDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
+PKG_LONGDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
 
-  cd hyperion.git
-    git pull
-    GIT_REV=`git log -n1 --format=%h`
-  cd ..
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
 
-echo "copying sources..."
-  rm -rf hyperion-$GIT_REV
-  cp -R hyperion.git hyperion-$GIT_REV
+make_target() {
+  :
+}
 
-echo "cleaning sources..."
-  rm -rf hyperion-$GIT_REV/.git
-
-echo "packing sources..."
-  tar cvJf hyperion-$GIT_REV.tar.xz hyperion-$GIT_REV
-
-echo "remove temporary sourcedir..."
-  rm -rf hyperion-$GIT_REV
+makeinstall_target() {
+  :
+}

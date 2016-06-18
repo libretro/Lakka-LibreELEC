@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="hyperion"
-PKG_VERSION="f64b6eb"
-PKG_REV="100"
+PKG_VERSION="d2f4725"
+PKG_REV="101"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/tvdzwan/hyperion"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain Python libusb qt protobuf"
+PKG_URL="https://github.com/tvdzwan/hyperion/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain Python libusb qt protobuf rpi_ws281x"
 PKG_SECTION="service"
 PKG_SHORTDESC="Hyperion: an AmbiLight controller"
 PKG_LONGDESC="Hyperion($PKG_VERSION) is an modern opensource AmbiLight implementation."
@@ -48,6 +48,10 @@ elif [ "$DISPLAYSERVER" = "x11" ]; then
   X11_SUPPORT="-DENABLE_X11=1"
 fi
 
+pre_build_target() {
+  cp -a $(get_build_dir rpi_ws281x)/* $ROOT/$PKG_BUILD/dependencies/external/rpi_ws281x
+}
+
 configure_target() {
   echo "" > ../cmake/FindGitVersion.cmake
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
@@ -59,7 +63,7 @@ configure_target() {
         $DISPMANX_SUPPORT \
         $FB_SUPPORT \
         -DENABLE_OSX=0 \
-        -DENABLE_PROTOBUF=1 \
+        -DUSE_SYSTEM_PROTO_LIBS=ON \
         -DENABLE_SPIDEV=1 \
         -DENABLE_TINKERFORGE=0 \
         -DENABLE_V4L2=1 \
@@ -92,7 +96,7 @@ addon() {
   fi
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
-    cp -P $PKG_BUILD/config/hyperion.config.json $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
+    cp -P $PKG_BUILD/config/hyperion.config.json.example $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
     sed -i -e "s,/opt/hyperion/effects,/storage/.kodi/addons/service.hyperion/effects,g" \
       $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
 
