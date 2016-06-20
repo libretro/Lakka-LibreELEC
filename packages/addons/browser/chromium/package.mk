@@ -20,12 +20,12 @@
 
 PKG_NAME="chromium"
 PKG_VERSION="50.0.2661.75"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
 PKG_URL="https://commondatastorage.googleapis.com/chromium-browser-official/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain pciutils dbus libXcomposite libXcursor libXtst alsa-lib bzip2 yasm nss libXScrnSaver libexif ninja:host libpng harfbuzz atk gtk+ libva-vdpau-driver"
+PKG_DEPENDS_TARGET="toolchain pciutils dbus libXcomposite libXcursor libXtst alsa-lib bzip2 yasm nss libXScrnSaver libexif ninja:host libpng harfbuzz atk gtk+ libva-vdpau-driver unclutter"
 PKG_PRIORITY="optional"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Chromium Browser: the open-source web browser from Google"
@@ -171,4 +171,7 @@ addon() {
 
   # libva-vdpau-driver
   cp -PL $(get_build_dir libva-vdpau-driver)/.install_pkg/usr/lib/va/*.so $ADDON_BUILD/$PKG_ADDON_ID/lib
+
+  # unclutter
+  cp -P $(get_build_dir unclutter)/.install_pkg/usr/bin/unclutter $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
