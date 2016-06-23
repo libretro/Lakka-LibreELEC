@@ -17,13 +17,12 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-iptv"
-PKG_VERSION="2.2.1"
+PKG_VERSION="2226be2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.saunalahti.fi/~rahrenbe/vdr/iptv/"
-PKG_URL="http://www.saunalahti.fi/~rahrenbe/vdr/iptv/files/${PKG_NAME/-plugin/}-$PKG_VERSION.tgz"
-PKG_SOURCE_DIR="iptv-${PKG_VERSION}"
+PKG_URL="https://github.com/rofafor/vdr-plugin-iptv/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain vdr curl"
 PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
