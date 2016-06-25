@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="8.0"
+PKG_VERSION="9.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
