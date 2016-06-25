@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="kodi"
-PKG_VERSION="17.0-alpha2-e31bee7"
+PKG_VERSION="17.0-alpha2-d9fd774"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain kodi:host xmlstarlet:host Python zlib systemd pciutils lzo pcre swig:host libass curl rtmpdump fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt yajl sqlite ffmpeg crossguid giflib libdvdnav"
+PKG_DEPENDS_TARGET="toolchain kodi:host xmlstarlet:host Python zlib systemd pciutils lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt yajl sqlite ffmpeg crossguid giflib libdvdnav"
 PKG_DEPENDS_HOST="lzo:host libpng:host libjpeg-turbo:host giflib:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="mediacenter"
@@ -254,7 +254,6 @@ PKG_CONFIGURE_OPTS_TARGET="gl_cv_func_gettimeofday_clobber=no \
                            --disable-ccache \
                            $KODI_ALSA \
                            $KODI_PULSEAUDIO \
-                           --enable-rtmp \
                            $KODI_SAMBA \
                            $KODI_NFS \
                            --disable-libcap \
