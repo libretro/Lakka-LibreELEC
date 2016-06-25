@@ -42,7 +42,7 @@ rm -fr raspberrypi-kodi
 
 # If we have a persisted version of the repo, quickly copy it
 if [ -d raspberrypi-kodi.stash ]; then
-  echo "Copying raspberrypi-kodi.stash raspberrypi-kodii..."
+  echo "Copying raspberrypi-kodi.stash raspberrypi-kodi..."
   cp -r raspberrypi-kodi.stash raspberrypi-kodi
   cd raspberrypi-kodi
   git checkout ${BRANCH}
@@ -91,7 +91,7 @@ BRANCH="${BRANCH//_/-}"
 echo
 echo "cp /tmp/skin.patch projects/RPi/patches/${SKIN2}/${SKIN2}-001-${BRANCH}.patch"
 echo "cp /tmp/skin.patch projects/RPi2/patches/${SKIN2}/${SKIN2}-001-${BRANCH}.patch"
-echo "git commit -am \"RPi/RPi2: Update kodi-theme-${SKIN} support patches\""
+echo "git commit -am \"RPi/RPi2: Update ${SKIN2} support patches\""
 
 echo
 echo "cp /tmp/kodi.patch projects/RPi/patches/kodi/kodi-001-${BRANCH}.patch"

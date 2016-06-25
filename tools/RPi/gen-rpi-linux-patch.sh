@@ -55,6 +55,9 @@ if [ -z "${KERNEL}" ]; then
   git remote add -t linux-${BRANCH}.y linux-stable https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 fi
 
+# Apply the following config change to reduce chance of duplicate hashes
+git config --local core.abbrev 40 
+
 git fetch --all --depth=${DEPTH}
 git reset --hard origin/rpi-${BRANCH}.y${REBASE}
 
