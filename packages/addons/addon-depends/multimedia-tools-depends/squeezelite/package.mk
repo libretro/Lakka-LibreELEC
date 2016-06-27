@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/ralph-irving/squeezelite"
 PKG_URL="https://github.com/ralph-irving/squeezelite/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain faad2 ffmpeg flac lirc libmad libvorbis mpg123 soxr"
+PKG_DEPENDS_TARGET="toolchain faad2 ffmpeg flac libmad libvorbis mpg123 soxr"
 PKG_SECTION="tools"
 PKG_PRIORITY="optional"
 PKG_SHORTDESC="squeezelite"
@@ -33,7 +33,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_make_target() {
-  OPTS="-DDSD -DIR -DFFMPEG -DRESAMPLE -DVISEXPORT -DIR"
+  OPTS="-DDSD -DFFMPEG -DRESAMPLE -DVISEXPORT"
   CFLAGS="$CFLAGS $OPTS"
   LDFLAGS="$LDFLAGS -lasound -lpthread -lm -lrt"
 }
