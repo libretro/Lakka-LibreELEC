@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.wavforhue"
-PKG_VERSION="e57e436"
+PKG_VERSION="b1805db"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
