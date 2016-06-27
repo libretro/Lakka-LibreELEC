@@ -54,6 +54,24 @@ resolve_hash() {
   fi
 }
 
+# Get url in git:// notation for a package.mk, assuming it is a github.com url
+# Return 1 if not a github domain
+geturl() {
+  local addon="$1"
+  local domain owner repo
+
+  . ../../packages/mediacenter/kodi-binary-addons/${addon}/package.mk 1>/dev/null 2>/dev/null
+
+  domain="$(echo "${PKG_URL}" | cut -d/ -f3)"
+  [ "${domain}" = "github.com" ] || return 1
+
+  owner="$(echo "${PKG_URL}" | cut -d/ -f4)"
+  repo="$(echo "${PKG_URL}" | cut -d/ -f5)"
+
+  echo "git://${domain}/${owner}/${repo}.git"
+  return 0
+}
+
 if [ ! -d $KODI_DIR ] ; then
   echo "meh.. $KODI_DIR does not exist"
   exit 127
@@ -87,6 +105,9 @@ if [ -f ../../packages/mediacenter/kodi-platform/package.mk ] ; then
 fi
 rm -rf $PKG_NAME.git
 
+PROCESSED=/tmp/update_binary_addons.dat
+rm -f ${PROCESSED}
+
 # addons
 for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.txt ; do
   ADDONS=$(cat $addontxt | awk '{print $1}')
@@ -98,6 +119,8 @@ for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.t
     REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
     GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
     PKG_NAME="$ADDON"
+
+    echo "${PKG_NAME}" >> ${PROCESSED}
 
     if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
       continue
@@ -121,4 +144,23 @@ for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.t
   done
   echo "followed addons was skipped, please add packages for this:"
   echo "$SKIPPED_ADDONS"
+done
+
+# finally, any other unofficial addons
+for ADDON in $(ls -1 ../../packages/mediacenter/kodi-binary-addons); do
+  # ignore already processed addons
+  grep -qE "^${ADDON}$" ${PROCESSED} && continue
+
+  # Obtain git url - ignore if not a suitable repo
+  REPO="$(geturl "${ADDON}")" || continue
+
+  git_clone $REPO master $ADDON.git HEAD
+
+  # update package.mk for stale github.com packages
+  RESOLVED_HASH=$(resolve_hash ${ADDON}.git HEAD) || continue
+
+  sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" \
+    -i ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+
+  rm -rf $ADDON.git
 done
