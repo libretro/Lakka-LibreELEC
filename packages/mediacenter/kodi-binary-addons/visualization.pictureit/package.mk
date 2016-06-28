@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.pictureit"
-PKG_VERSION="e11d577"
+PKG_VERSION="66f88ff"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
