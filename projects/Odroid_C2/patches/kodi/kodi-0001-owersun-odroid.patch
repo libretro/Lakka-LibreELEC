@@ -1,10 +1,10 @@
-From 7433b6824809ece337a4e8060db409558edd3074 Mon Sep 17 00:00:00 2001
+From aeef849a8f4307cd1792600602ec8e3d47a7b52e Mon Sep 17 00:00:00 2001
 From: Owersun <owersun@gmail.com>
 Date: Sat, 23 Apr 2016 22:34:30 +0200
-Subject: [PATCH] Odroids: All the codecs and display drivers
+Subject: [PATCH 1/2] Odroids: All the codecs and display drivers
 
 ---
- configure.ac                                       |  49 +-
+ configure.ac                                       |  41 +-
  m4/xbmc_arch.m4                                    |   6 +
  xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp        |  39 +-
  .../VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp      |   5 +
@@ -18,7 +18,7 @@ Subject: [PATCH] Odroids: All the codecs and display drivers
  xbmc/utils/AMLUtils.cpp                            |  93 +++-
  xbmc/utils/CPUInfo.cpp                             |  25 +-
  xbmc/windowing/X11/WinSystemX11.cpp                |   2 +-
- xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp        |  97 +++-
+ xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp        |  98 +++-
  xbmc/windowing/egl/EGLNativeTypeAmlogic.h          |  19 +-
  xbmc/windowing/egl/EGLNativeTypeFbdev.cpp          | 183 +++++++
  xbmc/windowing/egl/EGLNativeTypeFbdev.h            |  68 +++
@@ -26,7 +26,7 @@ Subject: [PATCH] Odroids: All the codecs and display drivers
  xbmc/windowing/egl/EGLNativeTypeHybris.h           |  77 +++
  xbmc/windowing/egl/EGLWrapper.cpp                  |  14 +-
  xbmc/windowing/egl/Makefile.in                     |   4 +
- 22 files changed, 1940 insertions(+), 75 deletions(-)
+ 22 files changed, 1933 insertions(+), 75 deletions(-)
  create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.cpp
  create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecMFC.h
  create mode 100644 xbmc/linux/LinuxV4l2Sink.cpp
@@ -37,10 +37,10 @@ Subject: [PATCH] Odroids: All the codecs and display drivers
  create mode 100644 xbmc/windowing/egl/EGLNativeTypeHybris.h
 
 diff --git a/configure.ac b/configure.ac
-index 75cfc57..b3f2097 100644
+index 8cc0ba8..6a727bd 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -215,6 +215,10 @@ libbluetooth_enabled="== libbluetooth enabled. =="
+@@ -213,6 +213,10 @@ libbluetooth_enabled="== libbluetooth enabled. =="
  libbluetooth_disabled="== libbluetooth disabled. Bluetooth support will not be available. =="
  
  
@@ -51,7 +51,7 @@ index 75cfc57..b3f2097 100644
  AC_ARG_WITH([ffmpeg],
    [AS_HELP_STRING([--with-ffmpeg],
    [ffmpeg options: auto (search pkg-config or auto build), force (always build ffmpeg), shared (link dynamically), path_to_ffmpeg [default=force]])],
-@@ -476,7 +480,7 @@ AC_ARG_ENABLE([breakpad],
+@@ -474,7 +478,7 @@ AC_ARG_ENABLE([breakpad],
  
  AC_ARG_ENABLE([codec],
    [AS_HELP_STRING([--enable-codec],
@@ -60,7 +60,7 @@ index 75cfc57..b3f2097 100644
    [add_codecs=$enableval],
    [add_codecs=no])
  
-@@ -487,6 +491,13 @@ AC_ARG_ENABLE([libav-compat],
+@@ -485,6 +489,13 @@ AC_ARG_ENABLE([libav-compat],
    [use_libav_hacks=$enableval],
    [use_libav_hacks=no])
  
@@ -74,22 +74,7 @@ index 75cfc57..b3f2097 100644
  ### End of external library options
  
  if test "x$host_vendor" != "xapple"; then
-@@ -622,6 +633,14 @@ case $host in
-      use_gl=no
-      USE_STATIC_FFMPEG=1
-      ;;
-+  aarch64-*-linux-gnu*)
-+     target_platform=target_linux
-+     ARCH="arm64"
-+     use_arch="aarch64"
-+     use_joystick=no
-+     use_gles=yes
-+     use_gl=no
-+     ;;
-   arm*-*linux-android*)
-      target_platform=target_android
-      CORE_SYSTEM_NAME=android
-@@ -1485,6 +1504,23 @@ else
+@@ -1480,6 +1491,23 @@ else
    AC_MSG_NOTICE($libcap_disabled)
  fi
  
@@ -113,7 +98,7 @@ index 75cfc57..b3f2097 100644
  # FFmpeg
  FFMPEG_LIBNAMES="libavcodec >= 56.26.100
                   libavfilter >= 5.11.102
-@@ -1707,6 +1743,9 @@ esac
+@@ -1701,6 +1729,9 @@ esac
  # remember to convert commas to spaces
  for codecs in `echo $add_codecs | sed 's/,/ /g'`; do
    case $codecs in
@@ -123,7 +108,7 @@ index 75cfc57..b3f2097 100644
      *amcodec*)
        AC_CHECK_HEADER([amcodec/codec_error.h],, AC_MSG_ERROR($missing_headers))
        XB_ADD_CODEC([LIBAMCODEC], [amcodec], [$codecs])
-@@ -2104,6 +2143,13 @@ else
+@@ -2098,6 +2129,13 @@ else
    final_message="$final_message\n  additional codecs:\tNo"
  fi
  
@@ -137,7 +122,7 @@ index 75cfc57..b3f2097 100644
  ### External libraries messages
  
  if test "$host_vendor" = "apple" ; then
-@@ -2298,6 +2344,7 @@ AC_SUBST(USE_MMAL)
+@@ -2290,6 +2328,7 @@ AC_SUBST(USE_MMAL)
  AC_SUBST(USE_X11)
  AC_SUBST(USE_OPTICAL_DRIVE)
  AC_SUBST(USE_BREAKPAD)
@@ -146,7 +131,7 @@ index 75cfc57..b3f2097 100644
  
  # pushd and popd are not available in other shells besides bash, so implement
 diff --git a/m4/xbmc_arch.m4 b/m4/xbmc_arch.m4
-index fddae99..9456f9d 100644
+index d28f263..07f1770 100644
 --- a/m4/xbmc_arch.m4
 +++ b/m4/xbmc_arch.m4
 @@ -26,6 +26,9 @@ case $build in
@@ -160,7 +145,7 @@ index fddae99..9456f9d 100644
       AC_MSG_ERROR(unsupported native build platform: $build)
  esac
 @@ -63,6 +66,9 @@ case $host in
-   arm*-*-linux-gnu*|arm*-*-linux-uclibc*)
+   arm*-*-linux-gnu*|arm*-*-linux-uclibc*|aarch64*-*-linux-gnu*|aarch64*-*-linux-uclibc*)
       AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
       ;;
 +  aarch64-*-linux-gnu*)
@@ -170,7 +155,7 @@ index fddae99..9456f9d 100644
       AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
       ;;
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
-index 95db8cf..420a6d3 100644
+index 6a9066b..30653a3 100644
 --- a/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkALSA.cpp
 @@ -490,6 +490,7 @@ snd_pcm_chmap_t* CAESinkALSA::SelectALSAChannelMap(const CAEChannelInfo& info)
@@ -287,7 +272,7 @@ index 95db8cf..420a6d3 100644
                 * handles
                 */
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
-index 5206cfa..c73457b 100644
+index bb5bfe0..9351b3e 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
 @@ -41,6 +41,9 @@
@@ -300,7 +285,7 @@ index 5206cfa..c73457b 100644
  #include "Audio/DVDAudioCodecFFmpeg.h"
  #include "Audio/DVDAudioCodecPassthrough.h"
  #include "Overlay/DVDOverlayCodecSSA.h"
-@@ -152,6 +155,8 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, CProces
+@@ -149,6 +152,8 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, CProces
      pCodec = OpenCodec(new CDVDVideoCodecOpenMax(processInfo), hint, options);
  #elif defined(HAS_MMAL)
      pCodec = OpenCodec(new CMMALVideo(processInfo), hint, options);
@@ -310,19 +295,16 @@ index 5206cfa..c73457b 100644
      if (pCodec)
        return pCodec;
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
-index 0a97893..f4c4bc5 100644
+index aa30474..bfc862e 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
-@@ -361,7 +361,7 @@ void dumpfile_write(am_private_t *para, void* buf, int bufsiz)
+@@ -398,18 +398,19 @@ void dumpfile_write(am_private_t *para, void* buf, int bufsiz)
    }
  
    if (para->dumpdemux && para->dumpfile != -1)
 -    write(para->dumpfile, buf, bufsiz);
 +    int ret = write(para->dumpfile, buf, bufsiz);
  }
- 
- /*************************************************************************/
-@@ -387,13 +387,14 @@ static int64_t get_pts_video()
  
  static int set_pts_pcrscr(int64_t value)
  {
@@ -338,7 +320,7 @@ index 0a97893..f4c4bc5 100644
      close(fd);
      return 0;
    }
-@@ -714,7 +715,7 @@ int write_av_packet(am_private_t *para, am_packet_t *pkt)
+@@ -730,7 +731,7 @@ int write_av_packet(am_private_t *para, am_packet_t *pkt)
          }
          pkt->newflag = 0;
      }
@@ -347,7 +329,7 @@ index 0a97893..f4c4bc5 100644
      buf = pkt->data;
      size = pkt->data_size ;
      if (size == 0 && pkt->isvalid) {
-@@ -1566,7 +1567,7 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
+@@ -1580,7 +1581,7 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
        // h264 in an avi file
        if (m_hints.ptsinvalid)
          am_private->gcodec.param = (void*)(EXTERNAL_PTS | SYNC_OUTSIDE);
@@ -356,7 +338,7 @@ index 0a97893..f4c4bc5 100644
      case VFORMAT_REAL:
        am_private->stream_type = AM_STREAM_RM;
        am_private->vcodec.noblock = 1;
-@@ -1631,7 +1632,7 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
+@@ -1645,7 +1646,7 @@ bool CAMLCodec::OpenDecoder(CDVDStreamInfo &hints)
  
    Create();
  
@@ -365,7 +347,7 @@ index 0a97893..f4c4bc5 100644
  
    std::string strScaler;
    SysfsUtils::GetString("/sys/class/ppmgr/ppscaler", strScaler);
-@@ -2112,7 +2113,6 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+@@ -2187,7 +2188,6 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
          int diff = (int) ((dst_rect.Height() - dst_rect.Width()) / 2);
          dst_rect = CRect(DestRect.x1 - diff, DestRect.y1, DestRect.x2 + diff, DestRect.y2);
        }
@@ -373,7 +355,7 @@ index 0a97893..f4c4bc5 100644
    }
  
    if (m_dst_rect != dst_rect)
-@@ -2134,7 +2134,7 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+@@ -2209,7 +2209,7 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
  #ifdef TARGET_ANDROID
    display = m_display_rect;
  #else
@@ -382,7 +364,7 @@ index 0a97893..f4c4bc5 100644
  #endif
    if (gui != display)
    {
-@@ -2206,6 +2206,8 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+@@ -2281,6 +2281,8 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
    std::string s_gui = StringUtils::Format("%i,%i,%i,%i",
      (int)gui.x1, (int)gui.y1,
      (int)gui.Width(), (int)gui.Height());
@@ -1053,7 +1035,7 @@ index 0000000..679cf8c
 +  bool OpenDevices();
 +};
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in b/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
-index 1bf5a89..46f7cc9 100644
+index 62d44ce..99a5556 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
 @@ -34,8 +34,11 @@ ifeq (@USE_MMAL@,1)
@@ -1476,7 +1458,7 @@ index 0cf90d1..ff2c2dc 100644
  SRCS += RBP.cpp
  
 diff --git a/xbmc/utils/AMLUtils.cpp b/xbmc/utils/AMLUtils.cpp
-index 5915e61..5392658 100644
+index 4ae45f3..f4911119 100644
 --- a/xbmc/utils/AMLUtils.cpp
 +++ b/xbmc/utils/AMLUtils.cpp
 @@ -79,7 +79,7 @@ bool aml_wired_present()
@@ -1488,7 +1470,7 @@ index 5915e61..5392658 100644
    if (!aml_present())
      return false;
  
-@@ -195,7 +195,8 @@ bool aml_support_h264_4k2k()
+@@ -210,7 +210,8 @@ bool aml_support_h264_4k2k()
  
  void aml_set_audio_passthrough(bool passthrough)
  {
@@ -1498,7 +1480,7 @@ index 5915e61..5392658 100644
  }
  
  void aml_probe_hdmi_audio()
-@@ -213,7 +214,7 @@ void aml_probe_hdmi_audio()
+@@ -228,7 +229,7 @@ void aml_probe_hdmi_audio()
    {
      char valstr[1024] = {0};
  
@@ -1507,7 +1489,7 @@ index 5915e61..5392658 100644
      valstr[strlen(valstr)] = '\0';
      close(fd);
  
-@@ -348,6 +349,60 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+@@ -363,6 +364,60 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
      res->fRefreshRate = 50;
      res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
    }
@@ -1568,7 +1550,7 @@ index 5915e61..5392658 100644
    else if (StringUtils::EqualsNoCase(fromMode, "720p") || StringUtils::EqualsNoCase(fromMode, "720p60hz"))
    {
      res->iWidth = 1280;
-@@ -393,6 +448,24 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+@@ -408,6 +463,24 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
      res->fRefreshRate = 24;
      res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
    }
@@ -1593,7 +1575,7 @@ index 5915e61..5392658 100644
    else if (StringUtils::EqualsNoCase(fromMode, "1080p30hz"))
    {
      res->iWidth = 1920;
-@@ -501,7 +574,7 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+@@ -516,7 +589,7 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
      res->fRefreshRate = 30;
      res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
    }
@@ -1602,7 +1584,7 @@ index 5915e61..5392658 100644
    {
      res->iWidth = 1920;
      res->iHeight= 1080;
-@@ -510,7 +583,16 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+@@ -525,7 +598,16 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
      res->fRefreshRate = 50;
      res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
    }
@@ -1620,7 +1602,7 @@ index 5915e61..5392658 100644
    {
      res->iWidth = 1920;
      res->iHeight= 1080;
-@@ -535,4 +617,3 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+@@ -550,4 +632,3 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
  
    return res->iWidth > 0 && res->iHeight> 0;
  }
@@ -1738,7 +1720,7 @@ index ee85585..7261f78 100644
    if (!currmode.name.empty())
    {
 diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
-index 3d6598a..cc62734 100644
+index 88cd385..cc62734 100644
 --- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
 +++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
 @@ -23,13 +23,18 @@
@@ -1761,7 +1743,7 @@ index 3d6598a..cc62734 100644
  CEGLNativeTypeAmlogic::CEGLNativeTypeAmlogic()
  {
    const char *env_framebuffer = getenv("FRAMEBUFFER");
-@@ -53,10 +58,12 @@ bool CEGLNativeTypeAmlogic::CheckCompatibility()
+@@ -53,9 +58,12 @@ bool CEGLNativeTypeAmlogic::CheckCompatibility()
  {
    std::string name;
    std::string modalias = "/sys/class/graphics/" + m_framebuffer_name + "/device/modalias";
@@ -1769,13 +1751,13 @@ index 3d6598a..cc62734 100644
 +  std::string fb = "fb";
  
    SysfsUtils::GetString(modalias, name);
-   StringUtils::Trim(name);
--  if (name == "platform:mesonfb")
+-  if (name.find("meson") != std::string::npos)
++  StringUtils::Trim(name);
 +  if (name.find(meson) != std::string::npos && name.find(fb) != std::string::npos)
      return true;
    return false;
  }
-@@ -64,28 +71,37 @@ bool CEGLNativeTypeAmlogic::CheckCompatibility()
+@@ -63,28 +71,37 @@ bool CEGLNativeTypeAmlogic::CheckCompatibility()
  void CEGLNativeTypeAmlogic::Initialize()
  {
    aml_permissions();
@@ -1816,7 +1798,7 @@ index 3d6598a..cc62734 100644
    m_nativeWindow = nativeWindow;
  
    SetFramebufferResolution(nativeWindow->width, nativeWindow->height);
-@@ -98,6 +114,8 @@ bool CEGLNativeTypeAmlogic::CreateNativeWindow()
+@@ -97,6 +114,8 @@ bool CEGLNativeTypeAmlogic::CreateNativeWindow()
  
  bool CEGLNativeTypeAmlogic::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
  {
@@ -1825,7 +1807,7 @@ index 3d6598a..cc62734 100644
    if (!nativeDisplay)
      return false;
    *nativeDisplay = (XBNativeDisplayType*) &m_nativeDisplay;
-@@ -106,6 +124,8 @@ bool CEGLNativeTypeAmlogic::GetNativeDisplay(XBNativeDisplayType **nativeDisplay
+@@ -105,6 +124,8 @@ bool CEGLNativeTypeAmlogic::GetNativeDisplay(XBNativeDisplayType **nativeDisplay
  
  bool CEGLNativeTypeAmlogic::GetNativeWindow(XBNativeWindowType **nativeWindow) const
  {
@@ -1834,7 +1816,7 @@ index 3d6598a..cc62734 100644
    if (!nativeWindow)
      return false;
    *nativeWindow = (XBNativeWindowType*) &m_nativeWindow;
-@@ -114,11 +134,15 @@ bool CEGLNativeTypeAmlogic::GetNativeWindow(XBNativeWindowType **nativeWindow) c
+@@ -113,11 +134,15 @@ bool CEGLNativeTypeAmlogic::GetNativeWindow(XBNativeWindowType **nativeWindow) c
  
  bool CEGLNativeTypeAmlogic::DestroyNativeDisplay()
  {
@@ -1850,7 +1832,7 @@ index 3d6598a..cc62734 100644
  #if defined(_FBDEV_WINDOW_H_)
    delete (fbdev_window*)m_nativeWindow, m_nativeWindow = NULL;
  #endif
-@@ -134,6 +158,8 @@ bool CEGLNativeTypeAmlogic::GetNativeResolution(RESOLUTION_INFO *res) const
+@@ -133,6 +158,8 @@ bool CEGLNativeTypeAmlogic::GetNativeResolution(RESOLUTION_INFO *res) const
  
  bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
  {
@@ -1859,7 +1841,7 @@ index 3d6598a..cc62734 100644
  #if defined(_FBDEV_WINDOW_H_)
    if (m_nativeWindow)
    {
-@@ -153,6 +179,8 @@ bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
+@@ -152,6 +179,8 @@ bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
  
  bool CEGLNativeTypeAmlogic::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
  {
@@ -1868,7 +1850,7 @@ index 3d6598a..cc62734 100644
    std::string valstr;
    SysfsUtils::GetString("/sys/class/amhdmitx/amhdmitx0/disp_cap", valstr);
    std::vector<std::string> probe_str = StringUtils::Split(valstr, "\n");
-@@ -165,11 +193,12 @@ bool CEGLNativeTypeAmlogic::ProbeResolutions(std::vector<RESOLUTION_INFO> &resol
+@@ -164,11 +193,12 @@ bool CEGLNativeTypeAmlogic::ProbeResolutions(std::vector<RESOLUTION_INFO> &resol
        resolutions.push_back(res);
    }
    return resolutions.size() > 0;
@@ -1882,7 +1864,7 @@ index 3d6598a..cc62734 100644
    // check display/mode, it gets defaulted at boot
    if (!GetNativeResolution(res))
    {
-@@ -182,6 +211,8 @@ bool CEGLNativeTypeAmlogic::GetPreferredResolution(RESOLUTION_INFO *res) const
+@@ -181,6 +211,8 @@ bool CEGLNativeTypeAmlogic::GetPreferredResolution(RESOLUTION_INFO *res) const
  
  bool CEGLNativeTypeAmlogic::ShowWindow(bool show)
  {
@@ -1891,7 +1873,7 @@ index 3d6598a..cc62734 100644
    std::string blank_framebuffer = "/sys/class/graphics/" + m_framebuffer_name + "/blank";
    SysfsUtils::SetInt(blank_framebuffer.c_str(), show ? 0 : 1);
    return true;
-@@ -189,6 +220,8 @@ bool CEGLNativeTypeAmlogic::ShowWindow(bool show)
+@@ -188,6 +220,8 @@ bool CEGLNativeTypeAmlogic::ShowWindow(bool show)
  
  bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
  {
@@ -1900,7 +1882,7 @@ index 3d6598a..cc62734 100644
    std::string mode = resolution;
    // switch display resolution
    SysfsUtils::SetString("/sys/class/display/mode", mode.c_str());
-@@ -196,36 +229,46 @@ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
+@@ -195,36 +229,46 @@ bool CEGLNativeTypeAmlogic::SetDisplayResolution(const char *resolution)
    RESOLUTION_INFO res;
    aml_mode_to_resolution(mode.c_str(), &res);
    SetFramebufferResolution(res);
@@ -1966,7 +1948,7 @@ index 3d6598a..cc62734 100644
  }
  
  void CEGLNativeTypeAmlogic::SetFramebufferResolution(const RESOLUTION_INFO &res) const
-@@ -245,8 +288,8 @@ void CEGLNativeTypeAmlogic::SetFramebufferResolution(int width, int height) cons
+@@ -244,8 +288,8 @@ void CEGLNativeTypeAmlogic::SetFramebufferResolution(int width, int height) cons
      {
        vinfo.xres = width;
        vinfo.yres = height;
@@ -1978,11 +1960,11 @@ index 3d6598a..cc62734 100644
        vinfo.activate = FB_ACTIVATE_ALL;
        ioctl(fd0, FBIOPUT_VSCREENINFO, &vinfo);
 diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
-index 6867c38..ca39273 100644
+index cfb33ca..bdb08b6 100644
 --- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
 +++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.h
-@@ -21,6 +21,19 @@
-  */
+@@ -24,6 +24,19 @@
+ #include <vector>
  
  #include "EGLNativeType.h"
 +#include <linux/fb.h>
@@ -2001,7 +1983,7 @@ index 6867c38..ca39273 100644
  class CEGLNativeTypeAmlogic : public CEGLNativeType
  {
  public:
-@@ -49,12 +62,14 @@ public:
+@@ -52,12 +65,14 @@ public:
  
  protected:
    bool SetDisplayResolution(const char *resolution);
@@ -2702,3 +2684,39 @@ index 3754233..c863504 100644
  SRCS+= EGLWrapper.cpp
  
  LIB = windowing_egl.a
+
+From b8dec29c61200cc84d4f7bc5cb1fe195daa63a2b Mon Sep 17 00:00:00 2001
+From: Owersun <owersun@gmail.com>
+Date: Tue, 10 May 2016 22:18:03 +0200
+Subject: [PATCH 2/2] Changes missing for native compilation
+
+---
+ m4/xbmc_arch.m4 | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/m4/xbmc_arch.m4 b/m4/xbmc_arch.m4
+index 07f1770..b8511d5 100644
+--- a/m4/xbmc_arch.m4
++++ b/m4/xbmc_arch.m4
+@@ -23,10 +23,7 @@ case $build in
+   powerpc64-*-linux-gnu*|powerpc64-*-linux-uclibc*)
+      AC_SUBST(NATIVE_ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX -D_POWERPC64")
+      ;;
+-  arm*-*-linux-gnu*|arm*-*-linux-uclibc*)
+-     AC_SUBST(NATIVE_ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
+-     ;;
+-  aarch64-*-linux-gnu*)
++  arm*-*-linux-gnu*|arm*-*-linux-uclibc*|aarch64*-*-linux-gnu*|aarch64*-*-linux-uclibc*)
+      AC_SUBST(NATIVE_ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
+      ;;
+   *)
+@@ -66,9 +63,6 @@ case $host in
+   arm*-*-linux-gnu*|arm*-*-linux-uclibc*|aarch64*-*-linux-gnu*|aarch64*-*-linux-uclibc*)
+      AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
+      ;;
+-  aarch64-*-linux-gnu*)
+-     AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
+-     ;;
+   mips*-*-linux-gnu*|mips*-*-linux-uclibc*)
+      AC_SUBST(ARCH_DEFINES, "-DTARGET_POSIX -DTARGET_LINUX -D_LINUX")
+      ;;
