@@ -18,6 +18,7 @@ usage()
   echo
   echo "Example: ${me} jarvis_rbp_backports d11fabefb909e75e7186bd9ecd0cbff9e8b24577"
   echo "Example: ${me} jarvis_rbp_backports Jarvis"
+  echo "Example: ${me} newclock5 master"
   echo
   echo "For sha, see https://github.com/xbmc/xbmc/compare/Jarvis...popcornmix:jarvis_rbp_backports (replace branches as appropriate)"
   exit 1
@@ -58,8 +59,19 @@ else
   BASEREV="xbmc/${BASEREV}"
 fi
 
+# Apply the following config change to reduce chance of duplicate hashes
+git config --local core.abbrev 40
+
 git fetch --all --depth=${DEPTH}
 git reset --hard origin/${BRANCH}
+
+TOPREV="$(git log --oneline --grep "UNSTABLE: This is a placeholder. Commits after this point are considered experimental." | awk '{print $1}')"
+if [ -n "${TOPREV}" ]; then
+  echo "Found UNSTABLE placeholder with rev ${TOPREV}, making this the new HEAD"
+  git reset --hard ${TOPREV}
+else
+  echo "WARNING: UNSTABLE placeholder not found, assuming it is not present in branch ${BRANCH}"
+fi
 
 if [ -d addons/skin.confluence ]; then
   SKIN1=skin.confluence
@@ -69,6 +81,7 @@ else
   SKIN2=kodi-theme-Estuary
 fi
 
+GIT_SEQUENCE_EDITOR=${BIN}/rpi-kodi-rebase.sh git rebase -i ${BASEREV}
 git format-patch --no-signature --stdout ${BASEREV} -- addons/${SKIN1} | sed -E 's#addons/skin\.[^/]*/##g' >/tmp/skin.patch
 git format-patch --no-signature --stdout ${BASEREV} -- . ":!addons/${SKIN1}" >/tmp/kodi.patch
 
@@ -89,13 +102,21 @@ echo "git checkout -b somebranch"
 BRANCH="${BRANCH//_/-}"
 
 echo
-echo "cp /tmp/skin.patch projects/RPi/patches/${SKIN2}/${SKIN2}-001-${BRANCH}.patch"
-echo "cp /tmp/skin.patch projects/RPi2/patches/${SKIN2}/${SKIN2}-001-${BRANCH}.patch"
-echo "git commit -am \"RPi/RPi2: Update ${SKIN2} support patches\""
+if [ -s /tmp/skin.patch ]; then
+  echo "cp /tmp/skin.patch projects/RPi/patches/${SKIN2}/${SKIN2}-001-backport.patch"
+  echo "cp /tmp/skin.patch projects/RPi2/patches/${SKIN2}/${SKIN2}-001-backport.patch"
+  echo "git commit -am \"RPi/RPi2: Update ${SKIN2} support patches\""
+else
+  echo "NO SKIN PATCH REQUIRED"
+fi
 
 echo
-echo "cp /tmp/kodi.patch projects/RPi/patches/kodi/kodi-001-${BRANCH}.patch"
-echo "cp /tmp/kodi.patch projects/RPi2/patches/kodi/kodi-001-${BRANCH}.patch"
-echo "git commit -am \"RPi/RPi2: Update kodi support patches\""
+if [ -s /tmp/kodi.patch ]; then
+  echo "cp /tmp/kodi.patch projects/RPi/patches/kodi/kodi-001-backport.patch"
+  echo "cp /tmp/kodi.patch projects/RPi2/patches/kodi/kodi-001-backport.patch"
+  echo "git commit -am \"RPi/RPi2: Update kodi support patches\""
+else
+  echo "NO KODI PATCH REQUIRED"
+fi
 
 echo
