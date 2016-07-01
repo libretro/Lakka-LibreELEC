@@ -61,23 +61,16 @@ pre_configure_target() {
 }
 
 makeinstall_target() {
-  : # nop
+  make -C "$ROOT/$PKG_BUILD/.$HOST_NAME" install DESTDIR="$INSTALL"
+  make -C "$ROOT/$PKG_BUILD/.$TARGET_NAME" install DESTDIR="$INSTALL"
+  rm -fr "$INSTALL/storage/.kodi/addons/$PKG_SECTION.$PKG_NAME/include"
+  rm -fr "$INSTALL/storage/.kodi/addons/$PKG_SECTION.$PKG_NAME/share/man"
+  $STRIP "$INSTALL/storage/.kodi/addons/$PKG_SECTION.$PKG_NAME/bin/mono"
 }
 
 addon() {
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID"  
-
-  make -C "$PKG_BUILD/.$HOST_NAME" install DESTDIR="$ROOT/$ADDON_BUILD/$PKG_ADDON_ID"
-  make -C "$PKG_BUILD/.$TARGET_NAME" install DESTDIR="$ROOT/$ADDON_BUILD/$PKG_ADDON_ID"
-
-  mv "$ADDON_BUILD/$PKG_ADDON_ID/storage/.kodi/addons/$PKG_SECTION.$PKG_NAME"/* \
-     "$ADDON_BUILD/$PKG_ADDON_ID/"
-
-  rm -fr "$ADDON_BUILD/$PKG_ADDON_ID/storage"
-  rm -fr "$ADDON_BUILD/$PKG_ADDON_ID/include"
-  rm -fr "$ADDON_BUILD/$PKG_ADDON_ID/share/man"
-
-  $STRIP "$ADDON_BUILD/$PKG_ADDON_ID/bin/mono"
+  cp -PR "$PKG_BUILD/.install_pkg/storage/.kodi/addons/$PKG_SECTION.$PKG_NAME"/* "$ADDON_BUILD/$PKG_ADDON_ID/"
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
   for p in           \
