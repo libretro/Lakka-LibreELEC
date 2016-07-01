@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="ffmpeg"
-# Current branch is: release/3.0-xbmc
-PKG_VERSION="c44bf39"
+# Current branch is: release/3.1-xbmc
+PKG_VERSION="67171c3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
