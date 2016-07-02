@@ -24,7 +24,7 @@ if [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
   # https://github.com/SolidRun/u-boot-imx6.git
   PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 elif [ "$UBOOT_VERSION" = "hardkernel" ]; then
-  PKG_VERSION="502b13b"
+  PKG_VERSION="83bf8f0"
   PKG_SITE="https://github.com/hardkernel/u-boot"
   PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-none-elf:host"

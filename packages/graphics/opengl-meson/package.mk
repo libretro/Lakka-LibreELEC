@@ -29,7 +29,7 @@ case $MESON_FAMILY in
     PKG_VERSION="6-r5p1-01rel0-armhf"
     ;;
   gxbb)
-    PKG_VERSION="gxbb-r5p1-01rel0"
+    PKG_VERSION="gxbb-r6p1-01rel0"
     ;;
 esac
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"

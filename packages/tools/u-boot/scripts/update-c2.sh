@@ -50,6 +50,10 @@ dd if=$SYSTEM_ROOT/usr/share/bootloader/bl1 of=$BOOT_DISK conv=fsync bs=1 count=
 dd if=$SYSTEM_ROOT/usr/share/bootloader/bl1 of=$BOOT_DISK conv=fsync bs=512 seek=1 skip=1
 dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=512 seek=97
 
+# monkey patch boot.ini for updated kernel
+  sed -i '/setenv bootcmd "${kernel}; ${dtb}; ${bootseq}"/i \setenv timer   "fdt addr 0x1000000; fdt rm /timer"' /flash/boot.ini
+  sed -i 's|setenv bootcmd "${kernel}; ${dtb}; ${bootseq}"|setenv bootcmd "${kernel}; ${dtb}; ${timer}; ${bootseq}"|' /flash/boot.ini
+
 # mount $BOOT_ROOT r/o
   sync
   mount -o remount,ro $BOOT_ROOT
