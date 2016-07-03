@@ -16,18 +16,18 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="Adafruit_Python_GPIO"
-PKG_VERSION="fdf0fca"
+PKG_NAME="Adafruit_Python_LSM303"
+PKG_VERSION="03b344d"
 PKG_REV="1"
-PKG_ARCH="arm"
+PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
 PKG_URL="https://github.com/adafruit/${PKG_NAME}/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python distutilscross:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="python"
-PKG_SHORTDESC="Adafruit Python GPIO Library"
-PKG_LONGDESC="Library to provide a cross-platform GPIO interface on the Raspberry Pi and Beaglebone Black using the RPi.GPIO and Adafruit_BBIO librarie"
+PKG_SHORTDESC="Adafruit Python LSM303 Library"
+PKG_LONGDESC="Python code to use the LSM303 accelerometer & magnetometer with Raspberry Pi & BeagleBone Black."
 PKG_AUTORECONF="no"
 
 make_target() {
