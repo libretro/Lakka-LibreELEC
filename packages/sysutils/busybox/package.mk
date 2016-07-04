@@ -253,6 +253,7 @@ makeinstall_init() {
   cp $PKG_DIR/scripts/functions $INSTALL
   cp $PKG_DIR/scripts/init $INSTALL
   sed -e "s/@DISTRONAME@/$DISTRONAME/g" \
+      -e "s/@KERNEL_NAME@/$KERNEL_NAME/g" \
       -i $INSTALL/init
   chmod 755 $INSTALL/init
 }
