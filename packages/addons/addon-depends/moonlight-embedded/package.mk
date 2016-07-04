@@ -32,10 +32,12 @@ PKG_LONGDESC="Moonlight Embedded is an open source implementation of NVIDIA's Ga
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+FREESCALE_V4L_INCLUDE=""
 if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
 elif [ "$KODIPLAYER_DRIVER" = "libfslvpuwrap" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gpu-viv-bin-mx6q"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libfslvpuwrap gpu-viv-bin-mx6q v4l-utils"
+  FREESCALE_V4L_INCLUDE="-DFREESCALE_INCLUDE_DIR=$(get_build_dir v4l-utils)/lib/include"
 elif [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libamcodec"
 elif [ "$DISPLAYSERVER" = "x11" ]; then
@@ -51,6 +53,7 @@ configure_target() {
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_INSTALL_LIBDIR=/usr/lib \
         -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
+        $FREESCALE_V4L_INCLUDE \
         ..
 }
 
