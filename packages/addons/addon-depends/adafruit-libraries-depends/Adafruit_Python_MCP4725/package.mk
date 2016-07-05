@@ -16,18 +16,18 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="Adafruit_Python_LED_Backpack"
-PKG_VERSION="d3bd401"
+PKG_NAME="Adafruit_Python_MCP4725"
+PKG_VERSION="5b5fc87"
 PKG_REV="1"
-PKG_ARCH="arm"
+PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
 PKG_URL="https://github.com/adafruit/${PKG_NAME}/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain Python distutilscross:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="python"
-PKG_SHORTDESC="Python library for controlling LED backpack displays."
-PKG_LONGDESC="Python library for controlling LED backpack displays such as 8x8 matrices, bar graphs, and 7/14-segment displays on a Raspberry Pi or BeagleBone Black."
+PKG_SHORTDESC="Adafruit Python MCP4725 Library"
+PKG_LONGDESC="Python code to use the MCP4725 digital to analog converter with a Raspberry Pi or BeagleBone black."
 PKG_AUTORECONF="no"
 
 make_target() {
