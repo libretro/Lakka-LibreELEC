@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libsndfile"
-PKG_VERSION="1.0.26"
+PKG_VERSION="1.0.27"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
