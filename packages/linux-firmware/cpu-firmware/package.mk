@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="cpu-firmware"
-PKG_VERSION="5e23731"
+PKG_VERSION="ad1238f"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="other"
