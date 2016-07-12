@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="amremote"
-PKG_VERSION="d4f6458"
+PKG_VERSION="6431040"
 PKG_REV="1"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="other"
