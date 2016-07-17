@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="syncthing"
-PKG_VERSION="0.12.24"
-PKG_REV="102"
+PKG_VERSION="0.13.10"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2"
 PKG_SITE="https://syncthing.net/"
@@ -39,6 +39,14 @@ PKG_ADDON_PROVIDES=""
 PKG_AUTORECONF="no"
 
 configure_target() {
+
+  export GOLANG=$ROOT/$TOOLCHAIN/lib/golang/bin/go
+
+  mkdir -p $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing
+  ln -fs $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing
+  cd $ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing
+
+  go run build.go assets
 
   case $TARGET_ARCH in
     x86_64)
@@ -65,14 +73,10 @@ configure_target() {
   export CGO_NO_EMULATION=1
   export CGO_CFLAGS=$CFLAGS
   export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $TARGET_CC -X main.Version=v$PKG_VERSION"
-  export GOLANG=$ROOT/$TOOLCHAIN/lib/golang/bin/go
-  export GOPATH=$ROOT/$PKG_BUILD:$ROOT/$PKG_BUILD/Godeps/_workspace
+  export GOPATH=$ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing:$ROOT/$PKG_BUILD/Godeps/_workspace
   export GOROOT=$ROOT/$TOOLCHAIN/lib/golang
   export PATH=$PATH:$GOROOT/bin
-
-  mkdir -p $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing
-  ln -fs $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing
-
+  export GO15VENDOREXPERIMENT=1
 }
 
 make_target() {
