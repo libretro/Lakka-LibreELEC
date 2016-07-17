@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="emby"
-PKG_VERSION="3.0.5972"
-PKG_REV="100"
+PKG_VERSION="3.0.5985"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
 PKG_URL="https://github.com/MediaBrowser/Emby/releases/download/$PKG_VERSION/Emby.Mono.zip"
-PKG_DEPENDS_TARGET="toolchain mono imagemagick"
+PKG_DEPENDS_TARGET="toolchain imagemagick"
 PKG_PRIORITY="optional"
 PKG_SECTION="service"
 PKG_SHORTDESC="Emby: a personal media server"
