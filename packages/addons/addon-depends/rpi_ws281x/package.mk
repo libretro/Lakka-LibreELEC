@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="rpi_ws281x"
-PKG_VERSION="dfcf740"
+PKG_VERSION="3e6ea50"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE=""
-PKG_SITE="https://github.com/penfold42/rpi_ws281x"
-PKG_URL="https://github.com/penfold42/rpi_ws281x/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/hyperion-project/rpi_ws281x"
+PKG_URL="https://github.com/hyperion-project/rpi_ws281x/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION=""
