@@ -36,6 +36,10 @@ systemctl stop driver.dvb.sundtek-mediatv
 killall -9 mediaclient &>/dev/null
 killall -9 mediasrv &>/dev/null
 
+# remove the entry
+BUILD_DATE="#"
+sed -i "s|\(id=\"BUILD_DATE\" .* values=\)\"[^\"]*\"|\1\"$BUILD_DATE\"|" $SUNDTEK_ADDON_DIR/resources/settings.xml
+
 # exit on errors
 set -e
 
@@ -47,7 +51,7 @@ mkdir tmp
 cd tmp
 
 logger -t Sundtek "### Starting updating driver ###"
-kodi-send -a "Notification(Sundtek, Starting updating driver, 2000, $SUNDTEK_ADDON_DIR/icon.png)"
+kodi-send -a "Notification(Sundtek, Starting updating driver, 3000, $SUNDTEK_ADDON_DIR/icon.png)"
 
 wget -O ../version.used http://sundtek.de/media/latest.phtml
 if [ $? -ne 0 ]; then
@@ -63,6 +67,8 @@ if [ "$ARCH" = "x86_64" ]; then
   INSTALLER_URL="http://sundtek.de/media/netinst/64bit/installer.tar.gz"
 elif [ "$ARCH" = "arm" ]; then
   INSTALLER_URL="http://sundtek.de/media/netinst/armsysvhf/installer.tar.gz"
+elif [ "$ARCH" = "aarch64" ]; then
+  INSTALLER_URL="http://sundtek.de/media/netinst/arm64/installer.tar.gz"
 else
   logger -t Sundtek "### Unsupported architecture ###"
   kodi-send -a "Notification(Sundtek, Unsupported architecture, 8000, $SUNDTEK_ADDON_DIR/icon.png)"
@@ -72,7 +78,7 @@ else
 fi
 
 logger -t Sundtek "### Downloading driver archive for $ARCH ###"
-kodi-send -a "Notification(Sundtek, Downloading driver archive for $ARCH, 2000, $SUNDTEK_ADDON_DIR/icon.png)"
+kodi-send -a "Notification(Sundtek, Downloading driver archive for $ARCH, 3000, $SUNDTEK_ADDON_DIR/icon.png)"
 wget -O installer.tar.gz $INSTALLER_URL
 if [ $? -ne 0 ]; then
   logger -t Sundtek "### Archive damaged ###"
@@ -83,7 +89,7 @@ if [ $? -ne 0 ]; then
 fi
 
 logger -t Sundtek "### Extracting archive ###"
-kodi-send -a "Notification(Sundtek, Extracting archive, 2000, $SUNDTEK_ADDON_DIR/icon.png)"
+kodi-send -a "Notification(Sundtek, Extracting archive, 3000, $SUNDTEK_ADDON_DIR/icon.png)"
 tar -xzf installer.tar.gz
 if [ $? -ne 0 ]; then
   logger -t Sundtek "### Archive damaged ###"

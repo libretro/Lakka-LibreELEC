@@ -36,8 +36,17 @@ SUNDTEK_ADDON_SETTINGS="$SUNDTEK_ADDON_HOME/settings.xml"
 
 mkdir -p $SUNDTEK_ADDON_HOME
 
+# remove the entry
+BUILD_DATE="#"
+sed -i "s|\(id=\"BUILD_DATE\" .* values=\)\"[^\"]*\"|\1\"$BUILD_DATE\"|" $SUNDTEK_ADDON_DIR/resources/settings.xml
+
 if [ ! -f "$SUNDTEK_ADDON_HOME/sundtek.conf" ]; then
   cp $SUNDTEK_ADDON_DIR/config/* $SUNDTEK_ADDON_HOME/
+  
+  # update driver on first run
+  echo "update driver" >/tmp/ppp
+  systemd-run $SUNDTEK_ADDON_DIR/bin/sundtek-update-driver.sh
+  exit 0	# will be started later
 else
   # in case of missing entries in addon home's sundtek.conf
   entry_set="$(grep use_hwpidfilter $SUNDTEK_ADDON_HOME/sundtek.conf 2>/dev/null)"
@@ -244,4 +253,8 @@ if [ -z "$(pidof mediasrv)" ]; then
   fi
 fi
 
-logger -t Sundtek "### Sundtek ready ###"
+# change build date in addon settings
+BUILD_DATE=$(mediasrv --build 2>&1)
+sed -i "s|\(id=\"BUILD_DATE\" .* values=\)\"[^\"]*\"|\1\"$BUILD_DATE\"|" $SUNDTEK_ADDON_DIR/resources/settings.xml
+
+logger -t Sundtek "### Sundtek ready ($BUILD_DATE) ###"
