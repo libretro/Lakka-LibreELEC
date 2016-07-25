@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pcre"
-PKG_VERSION="8.38"
+PKG_VERSION="8.39"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
