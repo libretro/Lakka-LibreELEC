@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.18.3"
+PKG_VERSION="1.18.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
