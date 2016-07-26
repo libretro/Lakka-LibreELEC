@@ -49,6 +49,8 @@ pre_build_target() {
 }
 
 configure_target() {
+  [ "$PROJECT" = "imx6" ] && strip_gold
+
   cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_INSTALL_LIBDIR=/usr/lib \
