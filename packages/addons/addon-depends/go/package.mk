@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="go"
-PKG_VERSION="1.6.2"
+PKG_VERSION="1.6.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
