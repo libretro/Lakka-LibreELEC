@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="docker"
-PKG_VERSION="1.11.2"
-PKG_REV="104"
+PKG_VERSION="1.12.0"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2"
 PKG_LICENSE="ASL"
@@ -82,7 +82,8 @@ configure_target() {
 
 make_target() {
   mkdir -p bin
-  $GOLANG build -v -o bin/docker -a -tags "$DOCKER_BUILDTAGS" -ldflags "$LDFLAGS" ./docker
+  $GOLANG build -v -o bin/docker -a -tags "$DOCKER_BUILDTAGS" -ldflags "$LDFLAGS" ./cmd/docker
+  $GOLANG build -v -o bin/dockerd -a -tags "$DOCKER_BUILDTAGS" -ldflags "$LDFLAGS" ./cmd/dockerd
 }
 
 makeinstall_target() {
@@ -92,11 +93,11 @@ makeinstall_target() {
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $ROOT/$PKG_BUILD/bin/docker $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $ROOT/$PKG_BUILD/bin/dockerd $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # containerd
     cp -P $(get_build_dir containerd)/bin/containerd $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd
     cp -P $(get_build_dir containerd)/bin/containerd-shim $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd-shim
-    cp -P $(get_build_dir containerd)/bin/ctr $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd-ctr
 
     # runc
     cp -P $(get_build_dir runc)/bin/runc $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-runc
