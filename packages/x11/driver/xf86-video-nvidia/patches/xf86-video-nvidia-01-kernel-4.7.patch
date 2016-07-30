@@ -1,0 +1,48 @@
+diff -Naur a/kernel/nvidia-uvm/uvm_linux.h a/kernel/nvidia-uvm/uvm_linux.h
+--- a/kernel/nvidia-uvm/uvm_linux.h	2016-06-23 15:43:00.191459104 +0100
++++ b/kernel/nvidia-uvm/uvm_linux.h	2016-06-23 15:43:43.655703055 +0100
+@@ -563,7 +563,7 @@
+     INIT_RADIX_TREE(tree, GFP_NOWAIT);
+ }
+ 
+-static bool radix_tree_empty(struct radix_tree_root *tree)
++static bool nv_radix_tree_empty(struct radix_tree_root *tree)
+ {
+     void *dummy;
+     return radix_tree_gang_lookup(tree, &dummy, 0, 1) == 0;
+diff -Naur a/kernel/nvidia-uvm/uvm8_gpu.c b/kernel/nvidia-uvm/uvm8_gpu.c
+--- a/kernel/nvidia-uvm/uvm8_gpu.c	2016-06-23 15:42:53.087419218 +0100
++++ b/kernel/nvidia-uvm/uvm8_gpu.c	2016-06-23 15:43:26.235605292 +0100
+@@ -638,7 +638,7 @@
+                    gpu->id, uvm_gpu_retained_count(gpu));
+ 
+     // All channels should have been removed before the retained count went to 0
+-    UVM_ASSERT(radix_tree_empty(&gpu->instance_ptr_table));
++    UVM_ASSERT(nv_radix_tree_empty(&gpu->instance_ptr_table));
+ 
+     // Remove the GPU from the table.
+     uvm_spin_lock_irqsave(&g_uvm_global.gpu_table_lock);
+diff -Naur a/kernel/nvidia-drm/nvidia-drm-fb.c b/kernel/nvidia-drm/nvidia-drm-fb.c
+--- a/kernel/nvidia-drm/nvidia-drm-fb.c	2016-06-23 16:06:44.913671941 +0100
++++ b/kernel/nvidia-drm/nvidia-drm-fb.c	2016-06-23 16:07:10.469839787 +0100
+@@ -114,7 +114,7 @@
+      * We don't support any planar format, pick up first buffer only.
+      */
+ 
+-    gem = drm_gem_object_lookup(dev, file, cmd->handles[0]);
++    gem = drm_gem_object_lookup(file, cmd->handles[0]);
+ 
+     if (gem == NULL)
+     {
+diff -Naur a/kernel/nvidia-drm/nvidia-drm-gem.c b/kernel/nvidia-drm/nvidia-drm-gem.c
+--- a/kernel/nvidia-drm/nvidia-drm-gem.c	2016-06-23 16:06:53.689729630 +0100
++++ b/kernel/nvidia-drm/nvidia-drm-gem.c	2016-06-23 16:07:34.029994134 +0100
+@@ -408,7 +408,7 @@
+ 
+     mutex_lock(&dev->struct_mutex);
+ 
+-    gem = drm_gem_object_lookup(dev, file, handle);
++    gem = drm_gem_object_lookup(file, handle);
+ 
+     if (gem == NULL)
+     {
