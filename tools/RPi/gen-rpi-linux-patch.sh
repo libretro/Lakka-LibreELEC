@@ -10,17 +10,27 @@ fi
 
 DEPTH=1000
 BRANCH="$1"
-[ -n "${2}" ] && REBASE="_rebase"
+
+while [ $# -gt 1 ]; do
+  if [ "${2,,}" == "rebase" ]; then
+    REBASE="_rebase"
+  elif [[ ${2} =~ ^[0-9a-f]*$ ]]; then
+    BASEREV="${2}"
+  fi
+  shift
+done
 
 usage()
 {
   local me="$(basename $0)"
 
-  echo "Usage:   ${me} <major.minor>|<major.minor.patch> [rebase]"
+  echo "Usage:   ${me} <major.minor>|<major.minor.patch> [rebase] [baserev]"
   echo
   echo "Example: 4.4 (for rpi-4.4.y) or 4.4.6 - specifying an exact kernel version avoids fetching the upstream repo"
   echo "         4.4 rebase  - use rpi-4.4.y_rebase branch"
   echo "         4.6-rc6"
+  echo "         4.7 523d939ef98fd712632d93a5a2b588e477a7565e"
+  echo "         4.7.0"
   exit 1
 }
 
@@ -38,6 +48,9 @@ elif [[ ${BRANCH} =~ [0-9]*\.[0-9]*-rc[0-9] ]]; then
   BRANCH="${BRANCH%-*}"
 fi
 
+# On initial release, eg. 4.7.0, the kernel will actually be known as 4.7 in git so strip the trailing .0
+[[ ${KERNEL} =~ ^[0-9]*\.[0-9]*\.0*$ ]] && KERNEL="${KERNEL%.*}"
+
 rm -fr raspberrypi-linux
 
 # If we have a persisted version of the repo, quickly copy it
@@ -51,7 +64,7 @@ else
   cd raspberrypi-linux
 fi
 
-if [ -z "${KERNEL}" ]; then
+if [ -z "${KERNEL}" -a -z "${BASEREV}" ]; then
   git remote add -t linux-${BRANCH}.y linux-stable https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 fi
 
@@ -61,7 +74,9 @@ git config --local core.abbrev 40
 git fetch --all --depth=${DEPTH}
 git reset --hard origin/rpi-${BRANCH}.y${REBASE}
 
-if [ -z "${KERNEL}" ]; then
+if [ -n "${BASEREV}" ]; then
+  :
+elif [ -z "${KERNEL}" ]; then
   BASEREV="linux-stable/linux-${BRANCH}.y"
 else
   BASEREV="$(git log --grep "Linux ${KERNEL}" --pretty=oneline | head -1)"
