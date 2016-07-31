@@ -18,7 +18,7 @@
 
 PKG_NAME="docker"
 PKG_VERSION="1.12.0"
-PKG_REV="105"
+PKG_REV="106"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2 imx6"
 PKG_LICENSE="ASL"
@@ -84,6 +84,7 @@ make_target() {
   mkdir -p bin
   $GOLANG build -v -o bin/docker -a -tags "$DOCKER_BUILDTAGS" -ldflags "$LDFLAGS" ./cmd/docker
   $GOLANG build -v -o bin/dockerd -a -tags "$DOCKER_BUILDTAGS" -ldflags "$LDFLAGS" ./cmd/dockerd
+  $GOLANG build -v -o bin/docker-proxy -a -ldflags "$LDFLAGS" ./vendor/src/github.com/docker/libnetwork/cmd/proxy
 }
 
 makeinstall_target() {
@@ -94,6 +95,7 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $ROOT/$PKG_BUILD/bin/docker $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $ROOT/$PKG_BUILD/bin/dockerd $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $ROOT/$PKG_BUILD/bin/docker-proxy $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # containerd
     cp -P $(get_build_dir containerd)/bin/containerd $ADDON_BUILD/$PKG_ADDON_ID/bin/docker-containerd
