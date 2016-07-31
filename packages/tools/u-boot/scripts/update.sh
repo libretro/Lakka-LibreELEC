@@ -33,7 +33,7 @@ if [ -z "$BOOT_DISK" ]; then
 fi
 
 SYSTEM_TYPE=""
-if [ -f $SYSTEM_ROOT/usr/lib/librenelec/imx6-system-type ]; then
+if [ -f $SYSTEM_ROOT/usr/lib/libreelec/imx6-system-type ]; then
   . $SYSTEM_ROOT/usr/lib/libreelec/imx6-system-type
 fi
 
