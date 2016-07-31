@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="bcm2835-driver"
-PKG_VERSION="1ba9c9a"
+PKG_VERSION="b8ef00f"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="nonfree"
@@ -43,8 +43,8 @@ make_target() {
     cp -PRv $FLOAT/opt/vc/include/* $SYSROOT_PREFIX/usr/include
 
   mkdir -p $SYSROOT_PREFIX/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/libEGL.so $SYSROOT_PREFIX/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/libGLESv2.so $SYSROOT_PREFIX/usr/lib
+    cp -PRv $FLOAT/opt/vc/lib/libbrcmEGL.so $SYSROOT_PREFIX/usr/lib
+    cp -PRv $FLOAT/opt/vc/lib/libbrcmGLESv2.so $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libbcm_host.so $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libcontainers.so $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libopenmaxil.so $SYSROOT_PREFIX/usr/lib
@@ -64,8 +64,10 @@ makeinstall_target() {
     cp -PRv $FLOAT/opt/vc/sbin/vcfiled $INSTALL/usr/sbin
 
   mkdir -p $INSTALL/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/libEGL.so $INSTALL/usr/lib
-    cp -PRv $FLOAT/opt/vc/lib/libGLESv2.so $INSTALL/usr/lib
+    cp -PRv $FLOAT/opt/vc/lib/libbrcmEGL.so $INSTALL/usr/lib
+    ln -s /usr/lib/libbrcmEGL.so $INSTALL/usr/lib/libEGL.so
+    cp -PRv $FLOAT/opt/vc/lib/libbrcmGLESv2.so $INSTALL/usr/lib
+    ln -s /usr/lib/libbrcmGLESv2.so $INSTALL/usr/lib/libGLESv2.so
     cp -PRv $FLOAT/opt/vc/lib/libbcm_host.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libcontainers.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libopenmaxil.so $INSTALL/usr/lib

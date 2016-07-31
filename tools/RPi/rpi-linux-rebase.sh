@@ -14,23 +14,10 @@ TODO=$1
 
 # Drop commits not used
 DROP_COMMITS="
-Add non-mainline source for rtl8192cu wireless driver version
-rtl8192c_rf6052\: PHY_RFShadowRefresh\(\)\: fix off-by-one
-rtl8192cu\: Add PID for D-Link DWA 131
-Added Device IDs for August DVB-T 205
 net\: Add non-mainline source for rtl8192cu wlan
 net\: Fix rtl8192cu build errors on other platforms
-Enable cfg80211 support
-suppress spurious messages
-Add #if for 3\.14 kernel change \(#87\)
-Set dev_type to wlan
-Tentatively added support for more 8188CUS based devices\.
-Add support for more 8188CUS and 8192CUS devices
-Add ProductId for the Netgear N150 - WNA1000M
-Fixes CONFIG_CONCURRENT_MODE CONFIG_MULTI_VIR_IFACES
-Fixes compatibility with 3\.13
-Enables warning in the compiler and fixes some issues, reference => https\:\/\/github\.com\/diederikdehaas\/rtl8812AU
-Starts device in station mode instead of monitor, fixes NetworkManager issues
+Added Device IDs for August DVB-T 205
+#Enable cfg80211 support
 "
 
 IFS=$'\n'
