@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi-theme-Estuary"
-PKG_VERSION="17.0-alpha2-f3ca4ea"
+PKG_VERSION="17.0-alpha3-fc46cf2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -50,7 +50,6 @@ makeinstall_target() {
     cp -R */ $INSTALL/usr/share/kodi/addons/skin.estuary
     cp *.txt $INSTALL/usr/share/kodi/addons/skin.estuary
     cp *.xml $INSTALL/usr/share/kodi/addons/skin.estuary
-    cp *.png $INSTALL/usr/share/kodi/addons/skin.estuary
       rm -rf $INSTALL/usr/share/kodi/addons/skin.estuary/media
 
   mkdir -p $INSTALL/usr/share/kodi/addons/skin.estuary/media
