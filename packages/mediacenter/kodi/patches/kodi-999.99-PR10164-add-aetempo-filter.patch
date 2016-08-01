@@ -1,0 +1,2039 @@
+From 7f4f89ba3a36454b01c80103068e338a7d65dbfa Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Mon, 18 Jul 2016 08:42:06 +0200
+Subject: [PATCH 1/4] AE: change usage of swr_set_compensation
+
+---
+ .../Engines/ActiveAE/ActiveAEResampleFFMPEG.cpp     | 21 +++++++++++----------
+ .../Engines/ActiveAE/ActiveAEResampleFFMPEG.h       |  1 +
+ 2 files changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.cpp
+index c6a7f56..b0ab84b 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.cpp
+@@ -58,6 +58,7 @@ bool CActiveAEResampleFFMPEG::Init(uint64_t dst_chan_layout, int dst_channels, i
+   m_src_fmt = src_fmt;
+   m_src_bits = src_bits;
+   m_src_dither_bits = src_dither;
++  m_resampleRatio = 1.0;
+ 
+   if (m_dst_chan_layout == 0)
+     m_dst_chan_layout = av_get_default_channel_layout(m_dst_channels);
+@@ -180,18 +181,18 @@ bool CActiveAEResampleFFMPEG::Init(uint64_t dst_chan_layout, int dst_channels, i
+ 
+ int CActiveAEResampleFFMPEG::Resample(uint8_t **dst_buffer, int dst_samples, uint8_t **src_buffer, int src_samples, double ratio)
+ {
+-  int delta = 0;
+-  int distance = 0;
+-  if (ratio != 1.0)
+-  {
+-    delta = (dst_samples*ratio-dst_samples)*m_dst_rate/m_src_rate;
+-    distance = dst_samples*m_dst_rate/m_src_rate;
+-  }
+ 
+-  if (swr_set_compensation(m_pContext, delta, distance) < 0)
++  if (ratio != m_resampleRatio)
+   {
+-    CLog::Log(LOGERROR, "CActiveAEResampleFFMPEG::Resample - set compensation failed");
+-    return -1;
++    int delta = m_dst_rate * ratio - m_dst_rate;
++    int distance = m_dst_rate;
++
++    if (swr_set_compensation(m_pContext, delta, distance) < 0)
++    {
++      CLog::Log(LOGERROR, "CActiveAEResampleFFMPEG::Resample - set compensation failed");
++      return -1;
++    }
++    m_resampleRatio = ratio;
+   }
+ 
+   int ret = swr_convert(m_pContext, dst_buffer, dst_samples, (const uint8_t**)src_buffer, src_samples);
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.h
+index 372c8ee..f34f6f4 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEResampleFFMPEG.h
+@@ -58,6 +58,7 @@ class CActiveAEResampleFFMPEG : public IAEResample
+   int m_src_dither_bits, m_dst_dither_bits;
+   SwrContext *m_pContext;
+   double m_rematrix[AE_CH_MAX][AE_CH_MAX];
++  double m_resampleRatio;
+ };
+ 
+ }
+
+From 8c676dee5542cb1fadca77c1b003f31e0c3d42ef Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sat, 23 Jul 2016 16:17:06 +0200
+Subject: [PATCH 2/4] AE: refactor resample buffers
+
+---
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp      | 149 +++++++++-----------
+ .../Engines/ActiveAE/ActiveAEBuffer.cpp            |  70 ++++++++++
+ .../AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h  |  52 ++++---
+ .../Engines/ActiveAE/ActiveAEStream.cpp            | 150 +++++++++++++++++++++
+ .../AudioEngine/Engines/ActiveAE/ActiveAEStream.h  |  31 ++++-
+ 5 files changed, 343 insertions(+), 109 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index 5bb87b2..26c99c7 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -115,10 +115,10 @@ void CEngineStats::UpdateStream(CActiveAEStream *stream)
+       float delay = 0;
+       str.m_syncState = stream->m_syncState;
+       str.m_syncError = stream->m_syncError.GetLastError(str.m_errorTime);
+-      if (stream->m_resampleBuffers)
++      if (stream->m_processingBuffers)
+       {
+-        str.m_resampleRatio = stream->m_resampleBuffers->m_resampleRatio;
+-        delay += stream->m_resampleBuffers->GetDelay();
++        str.m_resampleRatio = stream->m_processingBuffers->GetRR();
++        delay += stream->m_processingBuffers->GetDelay();
+       }
+       else
+       {
+@@ -403,7 +403,7 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+         case CActiveAEDataProtocol::DRAINSTREAM:
+           stream = *(CActiveAEStream**)msg->data;
+           stream->m_drain = true;
+-          stream->m_resampleBuffers->m_drain = true;
++          stream->m_processingBuffers->SetDrain(true);
+           msg->Reply(CActiveAEDataProtocol::ACC);
+           stream->m_streamPort->SendInMessage(CActiveAEDataProtocol::STREAMDRAINED);
+           return;
+@@ -638,9 +638,9 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+           return;
+         case CActiveAEControlProtocol::STREAMRESAMPLERATIO:
+           par = (MsgStreamParameter*)msg->data;
+-          if (par->stream->m_resampleBuffers)
++          if (par->stream->m_processingBuffers)
+           {
+-            par->stream->m_resampleBuffers->m_resampleRatio = par->parameter.double_par;
++            par->stream->m_processingBuffers->SetRR(par->parameter.double_par);
+           }
+           return;
+         case CActiveAEControlProtocol::STREAMFFMPEGINFO:
+@@ -724,7 +724,7 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+           if (msgData->buffer->pkt->nb_samples == 0)
+             msgData->buffer->Return();
+           else
+-            msgData->stream->m_resampleBuffers->m_inputSamples.push_back(msgData->buffer);
++            msgData->stream->m_processingBuffers->m_inputSamples.push_back(msgData->buffer);
+           m_extTimeout = 0;
+           m_state = AE_TOP_CONFIGURED_PLAY;
+           return;
+@@ -750,7 +750,7 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+         case CActiveAEDataProtocol::DRAINSTREAM:
+           stream = *(CActiveAEStream**)msg->data;
+           stream->m_drain = true;
+-          stream->m_resampleBuffers->m_drain = true;
++          stream->m_processingBuffers->SetDrain(true);
+           m_extTimeout = 0;
+           m_state = AE_TOP_CONFIGURED_PLAY;
+           msg->Reply(CActiveAEDataProtocol::ACC);
+@@ -1272,26 +1272,28 @@ void CActiveAE::Configure(AEAudioFormat *desiredFmt)
+         // if input format does not follow ffmpeg channel mask, we may need to remap channels
+         (*it)->InitRemapper();
+       }
+-      if (initSink && (*it)->m_resampleBuffers)
++      if (initSink && (*it)->m_processingBuffers)
+       {
+-        m_discardBufferPools.push_back((*it)->m_resampleBuffers);
+-        (*it)->m_resampleBuffers = NULL;
++        m_discardBufferPools.push_back((*it)->m_processingBuffers->GetResampleBuffers());
++        delete (*it)->m_processingBuffers;
++        (*it)->m_processingBuffers = nullptr;
+       }
+-      if (!(*it)->m_resampleBuffers)
++      if (!(*it)->m_processingBuffers)
+       {
+         bool useDSP = !isRaw ? m_settings.dspaddonsenabled : false;
+ 
+-        (*it)->m_resampleBuffers = new CActiveAEBufferPoolResample((*it)->m_inputBuffers->m_format, outputFormat, m_settings.resampleQuality);
+-        (*it)->m_resampleBuffers->m_forceResampler = (*it)->m_forceResampler;
+-        (*it)->m_resampleBuffers->m_bypassDSP = (*it)->m_bypassDSP;
+-        if (useDSP && !(*it)->m_resampleBuffers->m_bypassDSP)
+-          (*it)->m_resampleBuffers->SetExtraData((*it)->m_profile, (*it)->m_matrixEncoding, (*it)->m_audioServiceType);
+-        (*it)->m_resampleBuffers->Create(MAX_CACHE_LEVEL*1000, false, m_settings.stereoupmix, m_settings.normalizelevels, useDSP);
++        (*it)->m_processingBuffers = new CActiveAEStreamBuffers((*it)->m_inputBuffers->m_format, outputFormat, m_settings.resampleQuality);
++        (*it)->m_processingBuffers->ForceResampler((*it)->m_forceResampler);
++        (*it)->m_processingBuffers->SetDSPConfig(useDSP, (*it)->m_bypassDSP);
++
++        if (useDSP && !(*it)->m_bypassDSP)
++          (*it)->m_processingBuffers->SetExtraData((*it)->m_profile, (*it)->m_matrixEncoding, (*it)->m_audioServiceType);
++        (*it)->m_processingBuffers->Create(MAX_CACHE_LEVEL*1000, false, m_settings.stereoupmix, m_settings.normalizelevels, useDSP);
+ 
+         m_stats.SetDSP(useDSP);
+       }
+       if (m_mode == MODE_TRANSCODE || m_streams.size() > 1)
+-        (*it)->m_resampleBuffers->m_fillPackets = true;
++        (*it)->m_processingBuffers->FillBuffer();
+ 
+       // amplification
+       (*it)->m_limiter.SetSamplerate(outputFormat.m_sampleRate);
+@@ -1395,7 +1397,7 @@ CActiveAEStream* CActiveAE::CreateStream(MsgStreamNew *streamMsg)
+ 
+   // create buffer pool
+   stream->m_inputBuffers = NULL; // create in Configure when we know the sink format
+-  stream->m_resampleBuffers = NULL; // create in Configure when we know the sink format
++  stream->m_processingBuffers = NULL; // create in Configure when we know the sink format
+   stream->m_fadingSamples = 0;
+   stream->m_started = false;
+   stream->m_resampleMode = 0;
+@@ -1437,8 +1439,9 @@ void CActiveAE::DiscardStream(CActiveAEStream *stream)
+       }
+       if ((*it)->m_inputBuffers)
+         m_discardBufferPools.push_back((*it)->m_inputBuffers);
+-      if ((*it)->m_resampleBuffers)
+-        m_discardBufferPools.push_back((*it)->m_resampleBuffers);
++      if ((*it)->m_processingBuffers)
++        m_discardBufferPools.push_back((*it)->m_processingBuffers->GetResampleBuffers());
++      delete (*it)->m_processingBuffers;
+       CLog::Log(LOGDEBUG, "CActiveAE::DiscardStream - audio stream deleted");
+       m_stats.RemoveStream((*it)->m_id);
+       delete (*it)->m_streamPort;
+@@ -1459,7 +1462,7 @@ void CActiveAE::SFlushStream(CActiveAEStream *stream)
+     stream->m_processingSamples.front()->Return();
+     stream->m_processingSamples.pop_front();
+   }
+-  stream->m_resampleBuffers->Flush();
++  stream->m_processingBuffers->Flush();
+   stream->m_streamPort->Purge();
+   stream->m_bufferedTime = 0.0;
+   stream->m_paused = false;
+@@ -1561,36 +1564,7 @@ void CActiveAE::ChangeResamplers()
+   std::list<CActiveAEStream*>::iterator it;
+   for(it=m_streams.begin(); it!=m_streams.end(); ++it)
+   {
+-    bool normalize = true;
+-    if (((*it)->m_resampleBuffers->m_format.m_channelLayout.Count() <
+-         (*it)->m_resampleBuffers->m_inputFormat.m_channelLayout.Count()) &&
+-         !m_settings.normalizelevels)
+-      normalize = false;
+-
+-    /* Disable upmix if DSP layout > 2.0, becomes perfomed by DSP */
+-    bool ignoreUpmix = false;
+-    if (m_settings.dspaddonsenabled && (*it)->m_resampleBuffers->m_useDSP && (*it)->m_resampleBuffers->m_processor->GetChannelLayout().Count() > 2)
+-      ignoreUpmix = true;
+-
+-    if ((*it)->m_resampleBuffers->m_useResampler &&
+-        (((*it)->m_resampleBuffers->m_resampleQuality != m_settings.resampleQuality) ||
+-        (((*it)->m_resampleBuffers->m_stereoUpmix != m_settings.stereoupmix) && !ignoreUpmix) ||
+-        ((*it)->m_resampleBuffers->m_normalize != normalize)))
+-    {
+-      (*it)->m_resampleBuffers->m_changeResampler = true;
+-    }
+-    if ((*it)->m_resampleBuffers->m_useDSP != m_settings.dspaddonsenabled ||
+-        ((*it)->m_resampleBuffers->m_useDSP &&
+-        (((*it)->m_resampleBuffers->m_resampleQuality != m_settings.resampleQuality) ||
+-        ((*it)->m_resampleBuffers->m_stereoUpmix != m_settings.stereoupmix))))
+-    {
+-      (*it)->m_resampleBuffers->m_changeDSP = true;
+-    }
+-
+-    (*it)->m_resampleBuffers->m_useDSP = m_settings.dspaddonsenabled;
+-    (*it)->m_resampleBuffers->m_resampleQuality = m_settings.resampleQuality;
+-    (*it)->m_resampleBuffers->m_stereoUpmix = m_settings.stereoupmix;
+-    (*it)->m_resampleBuffers->m_normalize = normalize;
++    (*it)->m_processingBuffers->ConfigureResampler(m_settings.normalizelevels, m_settings.dspaddonsenabled, m_settings.stereoupmix, m_settings.resampleQuality);
+   }
+ }
+ 
+@@ -1850,12 +1824,12 @@ bool CActiveAE::RunStages()
+   std::list<CActiveAEStream*>::iterator it;
+   for (it = m_streams.begin(); it != m_streams.end(); ++it)
+   {
+-    if ((*it)->m_resampleBuffers && !(*it)->m_paused)
+-      busy = (*it)->m_resampleBuffers->ResampleBuffers();
++    if ((*it)->m_processingBuffers && !(*it)->m_paused)
++      busy = (*it)->m_processingBuffers->ProcessBuffers();
+ 
+     if ((*it)->m_streamIsBuffering &&
+-        (*it)->m_resampleBuffers &&
+-        ((*it)->m_resampleBuffers->m_inputSamples.size() > (*it)->m_resampleBuffers->m_allSamples.size() * 0.5))
++        (*it)->m_processingBuffers &&
++        ((*it)->m_processingBuffers->HasInputLevel(50)))
+     {
+       CSingleLock lock((*it)->m_streamLock);
+       (*it)->m_streamIsBuffering = false;
+@@ -1880,13 +1854,12 @@ bool CActiveAE::RunStages()
+     }
+     else
+     {
+-      if ((*it)->m_resampleBuffers->m_inputSamples.empty() &&
+-          (*it)->m_resampleBuffers->m_outputSamples.empty() &&
++      if ((*it)->m_processingBuffers->IsDrained() &&
+           (*it)->m_processingSamples.empty())
+       {
+         (*it)->m_streamPort->SendInMessage(CActiveAEDataProtocol::STREAMDRAINED);
+         (*it)->m_drain = false;
+-        (*it)->m_resampleBuffers->m_drain = false;
++        (*it)->m_processingBuffers->SetDrain(false);
+         (*it)->m_started = false;
+ 
+         // set variables being polled via stream interface
+@@ -1915,13 +1888,13 @@ bool CActiveAE::RunStages()
+     // calculate sync error
+     for (it = m_streams.begin(); it != m_streams.end(); ++it)
+     {
+-      if ((*it)->m_paused || !(*it)->m_started || !(*it)->m_resampleBuffers || !(*it)->m_pClock)
++      if ((*it)->m_paused || !(*it)->m_started || !(*it)->m_processingBuffers || !(*it)->m_pClock)
+         continue;
+ 
+-      if ((*it)->m_resampleBuffers->m_outputSamples.empty())
++      if ((*it)->m_processingBuffers->m_outputSamples.empty())
+         continue;
+ 
+-      CSampleBuffer *buf = (*it)->m_resampleBuffers->m_outputSamples.front();
++      CSampleBuffer *buf = (*it)->m_processingBuffers->m_outputSamples.front();
+       if (buf->timestamp)
+       {
+         AEDelayStatus status;
+@@ -1959,20 +1932,20 @@ bool CActiveAE::RunStages()
+       bool allStreamsReady = true;
+       for (it = m_streams.begin(); it != m_streams.end(); ++it)
+       {
+-        if ((*it)->m_paused || !(*it)->m_started || !(*it)->m_resampleBuffers)
++        if ((*it)->m_paused || !(*it)->m_started || !(*it)->m_processingBuffers)
+           continue;
+ 
+-        if ((*it)->m_resampleBuffers->m_outputSamples.empty())
++        if ((*it)->m_processingBuffers->m_outputSamples.empty())
+           allStreamsReady = false;
+       }
+ 
+       bool needClamp = false;
+       for (it = m_streams.begin(); it != m_streams.end() && allStreamsReady; ++it)
+       {
+-        if ((*it)->m_paused || !(*it)->m_resampleBuffers)
++        if ((*it)->m_paused || !(*it)->m_processingBuffers)
+           continue;
+ 
+-        if (!(*it)->m_resampleBuffers->m_outputSamples.empty())
++        if (!(*it)->m_processingBuffers->m_outputSamples.empty())
+         {
+           CSampleBuffer *tmp = SyncStream(*it);
+           m_stats.UpdateStream(*it);
+@@ -1987,8 +1960,8 @@ bool CActiveAE::RunStages()
+ 
+           if (!out)
+           {
+-            out = (*it)->m_resampleBuffers->m_outputSamples.front();
+-            (*it)->m_resampleBuffers->m_outputSamples.pop_front();
++            out = (*it)->m_processingBuffers->m_outputSamples.front();
++            (*it)->m_processingBuffers->m_outputSamples.pop_front();
+ 
+             int nb_floats = out->pkt->nb_samples * out->pkt->config.channels / out->pkt->planes;
+             int nb_loops = 1;
+@@ -2020,7 +1993,7 @@ bool CActiveAE::RunStages()
+             // turned off downmix normalization,
+             // or if sink format is float (in order to prevent from clipping)
+             // we need to run on a per sample basis
+-            if ((*it)->m_amplify != 1.0 || !(*it)->m_resampleBuffers->m_normalize || (m_sinkFormat.m_dataFormat == AE_FMT_FLOAT))
++            if ((*it)->m_amplify != 1.0 || !(*it)->m_processingBuffers->DoesNormalize() || (m_sinkFormat.m_dataFormat == AE_FMT_FLOAT))
+             {
+               nb_floats = out->pkt->config.channels / out->pkt->planes;
+               nb_loops = out->pkt->nb_samples;
+@@ -2063,8 +2036,8 @@ bool CActiveAE::RunStages()
+           else
+           {
+             CSampleBuffer *mix = NULL;
+-            mix = (*it)->m_resampleBuffers->m_outputSamples.front();
+-            (*it)->m_resampleBuffers->m_outputSamples.pop_front();
++            mix = (*it)->m_processingBuffers->m_outputSamples.front();
++            (*it)->m_processingBuffers->m_outputSamples.pop_front();
+ 
+             int nb_floats = mix->pkt->nb_samples * mix->pkt->config.channels / mix->pkt->planes;
+             int nb_loops = 1;
+@@ -2087,7 +2060,7 @@ bool CActiveAE::RunStages()
+ 
+             // for streams amplification of turned off downmix normalization
+             // we need to run on a per sample basis
+-            if ((*it)->m_amplify != 1.0 || !(*it)->m_resampleBuffers->m_normalize)
++            if ((*it)->m_amplify != 1.0 || !(*it)->m_processingBuffers->DoesNormalize())
+             {
+               nb_floats = out->pkt->config.channels / out->pkt->planes;
+               nb_loops = out->pkt->nb_samples;
+@@ -2244,15 +2217,15 @@ bool CActiveAE::RunStages()
+       CSampleBuffer *buffer;
+       for (it = m_streams.begin(); it != m_streams.end(); ++it)
+       {
+-        if (!(*it)->m_resampleBuffers->m_outputSamples.empty() && !(*it)->m_paused)
++        if (!(*it)->m_processingBuffers->m_outputSamples.empty() && !(*it)->m_paused)
+         {
+           (*it)->m_started = true;
+           buffer = SyncStream(*it);
+           m_stats.UpdateStream(*it);
+           if (!buffer)
+           {
+-            buffer = (*it)->m_resampleBuffers->m_outputSamples.front();
+-            (*it)->m_resampleBuffers->m_outputSamples.pop_front();
++            buffer = (*it)->m_processingBuffers->m_outputSamples.front();
++            (*it)->m_processingBuffers->m_outputSamples.pop_front();
+           }
+           m_stats.AddSamples(1, m_streams);
+           m_sinkBuffers->m_inputSamples.push_back(buffer);
+@@ -2288,9 +2261,7 @@ bool CActiveAE::HasWork()
+   std::list<CActiveAEStream*>::iterator it;
+   for (it = m_streams.begin(); it != m_streams.end(); ++it)
+   {
+-    if (!(*it)->m_resampleBuffers->m_inputSamples.empty())
+-      return true;
+-    if (!(*it)->m_resampleBuffers->m_outputSamples.empty())
++    if (!(*it)->m_processingBuffers->HasWork())
+       return true;
+     if (!(*it)->m_processingSamples.empty())
+       return true;
+@@ -2310,7 +2281,7 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+   {
+     stream->m_syncState = CAESyncInfo::AESyncState::SYNC_MUTE;
+     stream->m_syncError.Flush(100);
+-    stream->m_resampleBuffers->m_resampleRatio = 1.0;
++    stream->m_processingBuffers->SetRR(1.0);
+     stream->m_resampleIntegral = 0;
+     CLog::Log(LOGDEBUG,"ActiveAE - start sync of audio stream");
+   }
+@@ -2331,7 +2302,7 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+   if (newerror && fabs(error) > threshold && stream->m_syncState == CAESyncInfo::AESyncState::SYNC_INSYNC)
+   {
+     stream->m_syncState = CAESyncInfo::AESyncState::SYNC_ADJUST;
+-    stream->m_resampleBuffers->m_resampleRatio = 1.0;
++    stream->m_processingBuffers->SetRR(1.0);
+     stream->m_resampleIntegral = 0;
+     stream->m_lastSyncError = error;
+     CLog::Log(LOGDEBUG,"ActiveAE::SyncStream - average error %f above threshold of %f", error, threshold);
+@@ -2345,11 +2316,11 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+ 
+   if (stream->m_syncState == CAESyncInfo::AESyncState::SYNC_MUTE)
+   {
+-    CSampleBuffer *buf = stream->m_resampleBuffers->m_outputSamples.front();
++    CSampleBuffer *buf = stream->m_processingBuffers->m_outputSamples.front();
+     if (m_mode == MODE_RAW)
+     {
+       buf->pkt->nb_samples = 0;
+-      buf->pkt->pause_burst_ms = stream->m_resampleBuffers->m_format.m_streamInfo.GetDuration();
++      buf->pkt->pause_burst_ms = stream->m_processingBuffers->m_inputFormat.m_streamInfo.GetDuration();
+     }
+     else
+     {
+@@ -2408,7 +2379,7 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+     }
+     else
+     {
+-      CSampleBuffer *buf = stream->m_resampleBuffers->m_outputSamples.front();
++      CSampleBuffer *buf = stream->m_processingBuffers->m_outputSamples.front();
+       int framesToSkip = -error / 1000 * buf->pkt->config.sample_rate;
+       if (framesToSkip > buf->pkt->nb_samples)
+         framesToSkip = buf->pkt->nb_samples;
+@@ -2455,7 +2426,7 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+         stream->m_syncState = CAESyncInfo::AESyncState::SYNC_INSYNC;
+         stream->m_syncError.Flush(1000);
+         stream->m_resampleIntegral = 0;
+-        stream->m_resampleBuffers->m_resampleRatio = 1.0;
++        stream->m_processingBuffers->SetRR(1.0);
+         CLog::Log(LOGDEBUG,"ActiveAE::SyncStream - average error %f below threshold of %f", error, 30.0);
+       }
+     }
+@@ -2468,14 +2439,14 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+ 
+   if (stream->m_resampleMode)
+   {
+-    if (stream->m_resampleBuffers)
++    if (stream->m_processingBuffers)
+     {
+-      stream->m_resampleBuffers->m_resampleRatio = stream->CalcResampleRatio(error);
++      stream->m_processingBuffers->SetRR(stream->CalcResampleRatio(error));
+     }
+   }
+-  else if (stream->m_resampleBuffers)
++  else if (stream->m_processingBuffers)
+   {
+-    stream->m_resampleBuffers->m_resampleRatio = 1.0;
++    stream->m_processingBuffers->SetRR(1.0);
+   }
+   return ret;
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+index bc49ce2..8e58a07 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+@@ -544,6 +544,40 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(int64_t timestamp)
+   return busy;
+ }
+ 
++void CActiveAEBufferPoolResample::ConfigureResampler(bool normalizelevels, bool dspenabled, bool stereoupmix, AEQuality quality)
++{
++  bool normalize = true;
++  if ((m_format.m_channelLayout.Count() < m_inputFormat.m_channelLayout.Count()) &&
++      normalizelevels)
++    normalize = false;
++
++  /* Disable upmix if DSP layout > 2.0, becomes perfomed by DSP */
++  bool ignoreUpmix = false;
++  if (dspenabled && m_useDSP && m_processor->GetChannelLayout().Count() > 2)
++    ignoreUpmix = true;
++
++  if (m_useResampler &&
++      ((m_resampleQuality != quality) ||
++       ((m_stereoUpmix != stereoupmix) && !ignoreUpmix) ||
++       (m_normalize != normalize)))
++  {
++    m_changeResampler = true;
++  }
++
++  if (m_useDSP != dspenabled ||
++      (m_useDSP &&
++      ((m_resampleQuality != quality) ||
++      (m_stereoUpmix != stereoupmix))))
++  {
++    m_changeDSP = true;
++  }
++
++  m_useDSP = dspenabled;
++  m_resampleQuality = quality;
++  m_stereoUpmix = stereoupmix;
++  m_normalize = normalize;
++}
++
+ float CActiveAEBufferPoolResample::GetDelay()
+ {
+   float delay = 0;
+@@ -603,3 +637,39 @@ void CActiveAEBufferPoolResample::Flush()
+   if (m_resampler)
+     ChangeResampler();
+ }
++
++void CActiveAEBufferPoolResample::SetDrain(bool drain)
++{
++  m_drain = drain;
++}
++
++void CActiveAEBufferPoolResample::SetRR(double rr)
++{
++  m_resampleRatio = rr;
++}
++
++double CActiveAEBufferPoolResample::GetRR()
++{
++  return m_resampleRatio;
++}
++
++void CActiveAEBufferPoolResample::FillBuffer()
++{
++  m_fillPackets = true;
++}
++
++bool CActiveAEBufferPoolResample::DoesNormalize()
++{
++  return m_normalize;
++}
++
++void CActiveAEBufferPoolResample::ForceResampler(bool force)
++{
++  m_forceResampler = force;
++}
++
++void CActiveAEBufferPoolResample::SetDSPConfig(bool usedsp, bool bypassdsp)
++{
++  m_useDSP = usedsp;
++  m_bypassDSP = bypassdsp;
++}
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+index 3bb7990..37e03d2 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+@@ -96,42 +96,56 @@ class CActiveAEBufferPoolResample : public CActiveAEBufferPool
+ public:
+   CActiveAEBufferPoolResample(AEAudioFormat inputFormat, AEAudioFormat outputFormat, AEQuality quality);
+   virtual ~CActiveAEBufferPoolResample();
+-  virtual bool Create(unsigned int totaltime, bool remap, bool upmix, bool normalize = true, bool useDSP = false);
++  bool Create(unsigned int totaltime, bool remap, bool upmix, bool normalize = true, bool useDSP = false);
+   void SetExtraData(int profile, enum AVMatrixEncoding matrix_encoding, enum AVAudioServiceType audio_service_type);
+-  void ChangeResampler();
+-  void ChangeAudioDSP();
+   bool ResampleBuffers(int64_t timestamp = 0);
++  void ConfigureResampler(bool normalizelevels, bool dspenabled, bool stereoupmix, AEQuality quality);
+   float GetDelay();
+   void Flush();
++  void SetDrain(bool drain);
++  void SetRR(double rr);
++  double GetRR();
++  void FillBuffer();
++  bool DoesNormalize();
++  void ForceResampler(bool force);
++  void SetDSPConfig(bool usedsp, bool bypassdsp);
+   AEAudioFormat m_inputFormat;
+-  AEAudioFormat m_dspFormat;
+   std::deque<CSampleBuffer*> m_inputSamples;
+   std::deque<CSampleBuffer*> m_outputSamples;
++
++protected:
++  void ChangeResampler();
++
++  uint8_t *m_planes[16];
++  bool m_empty;
++  bool m_drain;
++  int m_Profile;
++  int64_t m_lastSamplePts;
++  bool m_remap;
+   CSampleBuffer *m_procSample;
+   IAEResample *m_resampler;
+-  CSampleBuffer *m_dspSample;
+-  CActiveAEBufferPool *m_dspBuffer;
+-  CActiveAEDSPProcessPtr m_processor;
+-  uint8_t *m_planes[16];
++  double m_resampleRatio;
+   bool m_fillPackets;
+-  bool m_drain;
+-  bool m_empty;
++  bool m_stereoUpmix;
++  bool m_normalize;
+   bool m_useResampler;
+-  bool m_useDSP;
+-  bool m_bypassDSP;
+   bool m_changeResampler;
+   bool m_forceResampler;
+-  bool m_changeDSP;
+-  double m_resampleRatio;
+   AEQuality m_resampleQuality;
+-  bool m_stereoUpmix;
+-  bool m_normalize;
+-  bool m_remap;
+-  int64_t m_lastSamplePts;
++
++  // ADSP
++  // TODO move away from resample buffers
++  void ChangeAudioDSP();
+   unsigned int m_streamId;
+   enum AVMatrixEncoding m_MatrixEncoding;
+   enum AVAudioServiceType m_AudioServiceType;
+-  int m_Profile;
++  CSampleBuffer *m_dspSample;
++  AEAudioFormat m_dspFormat;
++  CActiveAEDSPProcessPtr m_processor;
++  CActiveAEBufferPool *m_dspBuffer;
++  bool m_changeDSP;
++  bool m_useDSP;
++  bool m_bypassDSP;
+ };
+ 
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+index 1d58691..cc5837f 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+@@ -569,3 +569,153 @@ void CActiveAEStream::RegisterSlave(IAEStream *slave)
+   m_streamSlave = slave;
+ }
+ 
++//------------------------------------------------------------------------------
++// CActiveAEStreamBuffers
++//------------------------------------------------------------------------------
++
++CActiveAEStreamBuffers::CActiveAEStreamBuffers(AEAudioFormat inputFormat, AEAudioFormat outputFormat, AEQuality quality)
++{
++  m_inputFormat = inputFormat;
++  m_resampleBuffers = new CActiveAEBufferPoolResample(inputFormat, outputFormat, quality);
++}
++
++CActiveAEStreamBuffers::~CActiveAEStreamBuffers()
++{
++  delete m_resampleBuffers;
++}
++
++bool CActiveAEStreamBuffers::HasInputLevel(int level)
++{
++  if (m_inputSamples.size() > m_resampleBuffers->m_allSamples.size() * 100 / level)
++    return true;
++  else
++    return false;
++}
++
++bool CActiveAEStreamBuffers::Create(unsigned int totaltime, bool remap, bool upmix, bool normalize, bool useDSP)
++{
++  return m_resampleBuffers->Create(totaltime, remap, upmix, normalize, useDSP);
++}
++
++void CActiveAEStreamBuffers::SetExtraData(int profile, enum AVMatrixEncoding matrix_encoding, enum AVAudioServiceType audio_service_type)
++{
++  m_resampleBuffers->SetExtraData(profile, matrix_encoding, audio_service_type);
++}
++
++bool CActiveAEStreamBuffers::ProcessBuffers()
++{
++  bool busy = false;
++  CSampleBuffer *buf;
++
++  while (!m_inputSamples.empty())
++  {
++    buf = m_inputSamples.front();
++    m_inputSamples.pop_front();
++    m_resampleBuffers->m_inputSamples.push_back(buf);
++    busy = true;
++  }
++
++  busy |= m_resampleBuffers->ResampleBuffers();
++
++  while (!m_resampleBuffers->m_outputSamples.empty())
++  {
++    buf = m_resampleBuffers->m_outputSamples.front();
++    m_resampleBuffers->m_outputSamples.pop_front();
++    m_outputSamples.push_back(buf);
++    busy = true;
++  }
++
++  return busy;
++}
++
++void CActiveAEStreamBuffers::ConfigureResampler(bool normalizelevels, bool dspenabled, bool stereoupmix, AEQuality quality)
++{
++  m_resampleBuffers->ConfigureResampler(normalizelevels, dspenabled, stereoupmix, quality);
++}
++
++float CActiveAEStreamBuffers::GetDelay()
++{
++  return m_resampleBuffers->GetDelay();
++}
++
++void CActiveAEStreamBuffers::Flush()
++{
++  m_resampleBuffers->Flush();
++  while (!m_inputSamples.empty())
++  {
++    m_inputSamples.front()->Return();
++    m_inputSamples.pop_front();
++  }
++  while (!m_outputSamples.empty())
++  {
++    m_outputSamples.front()->Return();
++    m_outputSamples.pop_front();
++  }
++}
++
++void CActiveAEStreamBuffers::SetDrain(bool drain)
++{
++  m_resampleBuffers->SetDrain(drain);
++}
++
++bool CActiveAEStreamBuffers::IsDrained()
++{
++  if (m_resampleBuffers->m_inputSamples.empty() &&
++      m_resampleBuffers->m_outputSamples.empty() &&
++      m_inputSamples.empty() &&
++      m_outputSamples.empty())
++    return true;
++  else
++    return false;
++}
++
++void CActiveAEStreamBuffers::SetRR(double rr)
++{
++  m_resampleBuffers->SetRR(rr);
++}
++
++double CActiveAEStreamBuffers::GetRR()
++{
++  return m_resampleBuffers->GetRR();
++}
++
++void CActiveAEStreamBuffers::FillBuffer()
++{
++  m_resampleBuffers->FillBuffer();
++}
++
++bool CActiveAEStreamBuffers::DoesNormalize()
++{
++  return m_resampleBuffers->DoesNormalize();
++}
++
++void CActiveAEStreamBuffers::ForceResampler(bool force)
++{
++  m_resampleBuffers->ForceResampler(force);
++}
++
++void CActiveAEStreamBuffers::SetDSPConfig(bool usedsp, bool bypassdsp)
++{
++  m_resampleBuffers->SetDSPConfig(usedsp, bypassdsp);
++}
++
++CActiveAEBufferPool* CActiveAEStreamBuffers::GetResampleBuffers()
++{
++  CActiveAEBufferPool *ret = m_resampleBuffers;
++  m_resampleBuffers = nullptr;
++  return ret;
++}
++
++bool CActiveAEStreamBuffers::HasWork()
++{
++  if (!m_inputSamples.empty())
++    return true;
++  if (!m_outputSamples.empty())
++    return true;
++  if (!m_resampleBuffers->m_inputSamples.empty())
++    return true;
++  if (!m_resampleBuffers->m_outputSamples.empty())
++    return true;
++
++  return false;
++}
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+index 0fd959b..1340efd 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+@@ -89,6 +89,35 @@ class CSyncError
+   XbmcThreads::EndTime m_timer;
+ };
+ 
++class CActiveAEStreamBuffers
++{
++public:
++  CActiveAEStreamBuffers(AEAudioFormat inputFormat, AEAudioFormat outputFormat, AEQuality quality);
++  virtual ~CActiveAEStreamBuffers();
++  bool Create(unsigned int totaltime, bool remap, bool upmix, bool normalize = true, bool useDSP = false);
++  void SetExtraData(int profile, enum AVMatrixEncoding matrix_encoding, enum AVAudioServiceType audio_service_type);
++  bool ProcessBuffers();
++  void ConfigureResampler(bool normalizelevels, bool dspenabled, bool stereoupmix, AEQuality quality);
++  bool HasInputLevel(int level);
++  float GetDelay();
++  void Flush();
++  void SetDrain(bool drain);
++  bool IsDrained();
++  void SetRR(double rr);
++  double GetRR();
++  void FillBuffer();
++  bool DoesNormalize();
++  void ForceResampler(bool force);
++  void SetDSPConfig(bool usedsp, bool bypassdsp);
++  bool HasWork();
++  CActiveAEBufferPool *GetResampleBuffers();
++  AEAudioFormat m_inputFormat;
++  std::deque<CSampleBuffer*> m_outputSamples;
++  std::deque<CSampleBuffer*> m_inputSamples;
++
++protected:
++  CActiveAEBufferPoolResample *m_resampleBuffers;
++};
+ 
+ class CActiveAEStream : public IAEStream
+ {
+@@ -176,7 +205,7 @@ class CActiveAEStream : public IAEStream
+ 
+   // only accessed by engine
+   CActiveAEBufferPool *m_inputBuffers;
+-  CActiveAEBufferPoolResample *m_resampleBuffers;
++  CActiveAEStreamBuffers *m_processingBuffers;
+   std::deque<CSampleBuffer*> m_processingSamples;
+   CActiveAEDataProtocol *m_streamPort;
+   CEvent m_inMsgEvent;
+
+From 3acccef70908fbcc947307789e91987cfa981395 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Fri, 15 Jul 2016 08:36:01 +0200
+Subject: [PATCH 3/4] AE: add ffmpeg atempo filter
+
+---
+ Kodi.xcodeproj/project.pbxproj                     |   8 +
+ project/VS2010Express/XBMC.vcxproj                 |   2 +
+ project/VS2010Express/XBMC.vcxproj.filters         |   8 +-
+ xbmc/cores/AudioEngine/CMakeLists.txt              |   2 +
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp      |   6 +
+ .../Engines/ActiveAE/ActiveAEBuffer.cpp            | 259 +++++++++++++++-
+ .../AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h  |  32 ++
+ .../Engines/ActiveAE/ActiveAEFilter.cpp            | 332 +++++++++++++++++++++
+ .../AudioEngine/Engines/ActiveAE/ActiveAEFilter.h  |  69 +++++
+ .../Engines/ActiveAE/ActiveAEStream.cpp            |  72 ++++-
+ .../AudioEngine/Engines/ActiveAE/ActiveAEStream.h  |   3 +
+ xbmc/cores/AudioEngine/Makefile.in                 |   1 +
+ 12 files changed, 787 insertions(+), 7 deletions(-)
+ create mode 100644 xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.cpp
+ create mode 100644 xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.h
+
+diff --git a/Kodi.xcodeproj/project.pbxproj b/Kodi.xcodeproj/project.pbxproj
+index fee595b..7b8f019 100644
+--- a/Kodi.xcodeproj/project.pbxproj
++++ b/Kodi.xcodeproj/project.pbxproj
+@@ -692,6 +692,8 @@
+ 		7CE3FB911C9D40EA00366A4C /* ServiceBroker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7CE3FB8E1C9D40EA00366A4C /* ServiceBroker.cpp */; };
+ 		7CE514AA1CD5154A0046BC5C /* GUIDialogKeyboardTouch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7CE514A81CD5154A0046BC5C /* GUIDialogKeyboardTouch.cpp */; };
+ 		7CE514AB1CD5154A0046BC5C /* GUIDialogKeyboardTouch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7CE514A81CD5154A0046BC5C /* GUIDialogKeyboardTouch.cpp */; };
++		7CE5D0B41D37EB6900211428 /* ActiveAEFilter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7CE5D0B21D37EB6900211428 /* ActiveAEFilter.cpp */; };
++		7CE5D0B51D37EB6900211428 /* ActiveAEFilter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7CE5D0B21D37EB6900211428 /* ActiveAEFilter.cpp */; };
+ 		7CEBD8A80F33A0D800CAF6AD /* SpecialProtocolDirectory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7CEBD8A60F33A0D800CAF6AD /* SpecialProtocolDirectory.cpp */; };
+ 		7CED59391CD340460093F573 /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7CED59381CD340460093F573 /* VideoToolbox.framework */; };
+ 		7CED593A1CD340460093F573 /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7CED59381CD340460093F573 /* VideoToolbox.framework */; };
+@@ -3406,6 +3408,8 @@
+ 		7CE3FB8F1C9D40EA00366A4C /* ServiceBroker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ServiceBroker.h; sourceTree = "<group>"; };
+ 		7CE514A81CD5154A0046BC5C /* GUIDialogKeyboardTouch.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GUIDialogKeyboardTouch.cpp; sourceTree = "<group>"; };
+ 		7CE514A91CD5154A0046BC5C /* GUIDialogKeyboardTouch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GUIDialogKeyboardTouch.h; sourceTree = "<group>"; };
++		7CE5D0B21D37EB6900211428 /* ActiveAEFilter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ActiveAEFilter.cpp; sourceTree = "<group>"; };
++		7CE5D0B31D37EB6900211428 /* ActiveAEFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ActiveAEFilter.h; sourceTree = "<group>"; };
+ 		7CEBD8A60F33A0D800CAF6AD /* SpecialProtocolDirectory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SpecialProtocolDirectory.cpp; sourceTree = "<group>"; };
+ 		7CEBD8A70F33A0D800CAF6AD /* SpecialProtocolDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SpecialProtocolDirectory.h; sourceTree = "<group>"; };
+ 		7CED59381CD340460093F573 /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
+@@ -9232,6 +9236,8 @@
+ 				F5CC22D41814FF3B006B5E91 /* ActiveAE.h */,
+ 				F5CC22D51814FF3B006B5E91 /* ActiveAEBuffer.cpp */,
+ 				F5CC22D61814FF3B006B5E91 /* ActiveAEBuffer.h */,
++				7CE5D0B21D37EB6900211428 /* ActiveAEFilter.cpp */,
++				7CE5D0B31D37EB6900211428 /* ActiveAEFilter.h */,
+ 				DF32466019E931A8005E8CFB /* ActiveAEResampleFFMPEG.cpp */,
+ 				DF32466119E931A8005E8CFB /* ActiveAEResampleFFMPEG.h */,
+ 				F5CC22D91814FF3B006B5E91 /* ActiveAESink.cpp */,
+@@ -10387,6 +10393,7 @@
+ 				C84828DE156CFCD8005A996F /* GUIWindowPVRBase.cpp in Sources */,
+ 				C84828DF156CFCD8005A996F /* GUIWindowPVRChannels.cpp in Sources */,
+ 				C84828E1156CFCD8005A996F /* GUIWindowPVRGuide.cpp in Sources */,
++				7CE5D0B41D37EB6900211428 /* ActiveAEFilter.cpp in Sources */,
+ 				C84828E2156CFCD8005A996F /* GUIWindowPVRRecordings.cpp in Sources */,
+ 				C84828E3156CFCD8005A996F /* GUIWindowPVRSearch.cpp in Sources */,
+ 				C84828E4156CFCD8005A996F /* GUIWindowPVRTimers.cpp in Sources */,
+@@ -11397,6 +11404,7 @@
+ 				E49913F7174E5FB000741B6D /* PVRChannelGroups.cpp in Sources */,
+ 				E49913F8174E5FB000741B6D /* PVRChannelGroupsContainer.cpp in Sources */,
+ 				E49913F9174E5FB000741B6D /* GUIDialogPVRChannelManager.cpp in Sources */,
++				7CE5D0B51D37EB6900211428 /* ActiveAEFilter.cpp in Sources */,
+ 				E49913FA174E5FB000741B6D /* GUIDialogPVRChannelsOSD.cpp in Sources */,
+ 				E49913FD174E5FB000741B6D /* GUIDialogPVRGroupManager.cpp in Sources */,
+ 				E49913FE174E5FB000741B6D /* GUIDialogPVRGuideInfo.cpp in Sources */,
+diff --git a/project/VS2010Express/XBMC.vcxproj b/project/VS2010Express/XBMC.vcxproj
+index 8667a55..e657c1c 100644
+--- a/project/VS2010Express/XBMC.vcxproj
++++ b/project/VS2010Express/XBMC.vcxproj
+@@ -261,6 +261,7 @@ copy "..\Win32BuildSetup\dependencies\python27.dll" "$(TargetDir)"</Command>
+     <ClCompile Include="..\..\xbmc\cores\AudioEngine\Encoders\AEEncoderFFmpeg.cpp" />
+     <ClCompile Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAE.cpp" />
+     <ClCompile Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAEBuffer.cpp" />
++    <ClCompile Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAEFilter.cpp" />
+     <ClCompile Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAEResampleFFMPEG.cpp" />
+     <ClCompile Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAESink.cpp" />
+     <ClCompile Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAESound.cpp" />
+@@ -1022,6 +1023,7 @@ copy "..\Win32BuildSetup\dependencies\python27.dll" "$(TargetDir)"</Command>
+     <ClInclude Include="..\..\xbmc\contrib\kissfft\kiss_fft.h" />
+     <ClInclude Include="..\..\xbmc\contrib\kissfft\kiss_fftr.h" />
+     <ClInclude Include="..\..\xbmc\contrib\kissfft\_kiss_fft_guts.h" />
++    <ClInclude Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAEFilter.h" />
+     <ClInclude Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\AudioDSPAddons\ActiveAEDSP.h" />
+     <ClInclude Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\AudioDSPAddons\ActiveAEDSPAddon.h" />
+     <ClInclude Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\AudioDSPAddons\ActiveAEDSPDatabase.h" />
+diff --git a/project/VS2010Express/XBMC.vcxproj.filters b/project/VS2010Express/XBMC.vcxproj.filters
+index 595e123..04c7024 100644
+--- a/project/VS2010Express/XBMC.vcxproj.filters
++++ b/project/VS2010Express/XBMC.vcxproj.filters
+@@ -2845,6 +2845,9 @@
+     <ClCompile Include="..\..\xbmc\dialogs\GUIDialogPlayerProcessInfo.cpp">
+       <Filter>dialogs</Filter>
+     </ClCompile>
++    <ClCompile Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAEFilter.cpp">
++      <Filter>cores\AudioEngine\Engines\ActiveAE</Filter>
++    </ClCompile>
+   </ItemGroup>
+   <ItemGroup>
+     <ClCompile Include="..\..\xbmc\media\MediaType.cpp">
+@@ -6706,6 +6709,9 @@
+     </ClInclude>
+     <ClInclude Include="..\..\xbmc\dialogs\GUIDialogPlayerProcessInfo.h">
+       <Filter>dialogs</Filter>
++    </ClCompile>
++    <ClInclude Include="..\..\xbmc\cores\AudioEngine\Engines\ActiveAE\ActiveAEFilter.h">
++      <Filter>cores\AudioEngine\Engines\ActiveAE</Filter>
+     </ClInclude>
+   </ItemGroup>
+   <ItemGroup>
+@@ -6793,4 +6799,4 @@
+       <Filter>shaders</Filter>
+     </FxCompile>
+   </ItemGroup>
+-</Project>
+\ No newline at end of file
++</Project>
+diff --git a/xbmc/cores/AudioEngine/CMakeLists.txt b/xbmc/cores/AudioEngine/CMakeLists.txt
+index b50fc4d..b088d6f 100644
+--- a/xbmc/cores/AudioEngine/CMakeLists.txt
++++ b/xbmc/cores/AudioEngine/CMakeLists.txt
+@@ -9,6 +9,7 @@ set(SOURCES AEFactory.cpp
+             Encoders/AEEncoderFFmpeg.cpp
+             Engines/ActiveAE/ActiveAE.cpp
+             Engines/ActiveAE/ActiveAEBuffer.cpp
++            Engines/ActiveAE/ActiveAEFilter.cpp
+             Engines/ActiveAE/ActiveAESink.cpp
+             Engines/ActiveAE/ActiveAEStream.cpp
+             Engines/ActiveAE/ActiveAESound.cpp
+@@ -33,6 +34,7 @@ set(HEADERS AEFactory.h
+             Encoders/AEEncoderFFmpeg.h
+             Engines/ActiveAE/ActiveAE.h
+             Engines/ActiveAE/ActiveAEBuffer.h
++            Engines/ActiveAE/ActiveAEFilter.h
+             Engines/ActiveAE/ActiveAESink.h
+             Engines/ActiveAE/ActiveAESound.h
+             Engines/ActiveAE/ActiveAEStream.h
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index 26c99c7..e77aecb 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -1274,7 +1274,9 @@ void CActiveAE::Configure(AEAudioFormat *desiredFmt)
+       }
+       if (initSink && (*it)->m_processingBuffers)
+       {
++        (*it)->m_processingBuffers->Flush();
+         m_discardBufferPools.push_back((*it)->m_processingBuffers->GetResampleBuffers());
++        m_discardBufferPools.push_back((*it)->m_processingBuffers->GetAtempoBuffers());
+         delete (*it)->m_processingBuffers;
+         (*it)->m_processingBuffers = nullptr;
+       }
+@@ -1440,7 +1442,11 @@ void CActiveAE::DiscardStream(CActiveAEStream *stream)
+       if ((*it)->m_inputBuffers)
+         m_discardBufferPools.push_back((*it)->m_inputBuffers);
+       if ((*it)->m_processingBuffers)
++      {
++        (*it)->m_processingBuffers->Flush();
+         m_discardBufferPools.push_back((*it)->m_processingBuffers->GetResampleBuffers());
++        m_discardBufferPools.push_back((*it)->m_processingBuffers->GetAtempoBuffers());
++      }
+       delete (*it)->m_processingBuffers;
+       CLog::Log(LOGDEBUG, "CActiveAE::DiscardStream - audio stream deleted");
+       m_stats.RemoveStream((*it)->m_id);
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+index 8e58a07..3ca667c 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.cpp
+@@ -19,6 +19,7 @@
+  */
+ 
+ #include "ActiveAEBuffer.h"
++#include "ActiveAEFilter.h"
+ #include "cores/AudioEngine/AEFactory.h"
+ #include "cores/AudioEngine/Engines/ActiveAE/AudioDSPAddons/ActiveAEDSPProcess.h"
+ #include "cores/AudioEngine/Engines/ActiveAE/ActiveAE.h"
+@@ -145,7 +146,9 @@ bool CActiveAEBufferPool::Create(unsigned int totaltime)
+   return true;
+ }
+ 
+-//-----------------------------------------------------------------------------
++// ----------------------------------------------------------------------------------
++// Resample
++// ----------------------------------------------------------------------------------
+ 
+ CActiveAEBufferPoolResample::CActiveAEBufferPoolResample(AEAudioFormat inputFormat, AEAudioFormat outputFormat, AEQuality quality)
+   : CActiveAEBufferPool(outputFormat)
+@@ -180,7 +183,10 @@ CActiveAEBufferPoolResample::CActiveAEBufferPoolResample(AEAudioFormat inputForm
+ 
+ CActiveAEBufferPoolResample::~CActiveAEBufferPoolResample()
+ {
++  Flush();
++
+   delete m_resampler;
++  
+   if (m_useDSP)
+     CServiceBroker::GetADSP().DestroyDSPs(m_streamId);
+   if (m_dspBuffer)
+@@ -673,3 +679,254 @@ void CActiveAEBufferPoolResample::SetDSPConfig(bool usedsp, bool bypassdsp)
+   m_useDSP = usedsp;
+   m_bypassDSP = bypassdsp;
+ }
++
++// ----------------------------------------------------------------------------------
++// Atempo
++// ----------------------------------------------------------------------------------
++
++CActiveAEBufferPoolAtempo::CActiveAEBufferPoolAtempo(AEAudioFormat format) : CActiveAEBufferPool(format)
++{
++  m_drain = false;
++  m_empty = true;
++  m_tempo = 1.0;
++  m_changeFilter = false;
++  m_procSample = nullptr;
++}
++
++CActiveAEBufferPoolAtempo::~CActiveAEBufferPoolAtempo()
++{
++  Flush();
++}
++
++bool CActiveAEBufferPoolAtempo::Create(unsigned int totaltime)
++{
++  CActiveAEBufferPool::Create(totaltime);
++
++  m_pTempoFilter.reset(new CActiveAEFilter());
++  m_pTempoFilter->Init(CAEUtil::GetAVSampleFormat(m_format.m_dataFormat), m_format.m_sampleRate, CAEUtil::GetAVChannelLayout(m_format.m_channelLayout));
++
++  return true;
++}
++
++void CActiveAEBufferPoolAtempo::ChangeFilter()
++{
++  m_pTempoFilter->SetTempo(m_tempo);
++  m_changeFilter = false;
++}
++
++bool CActiveAEBufferPoolAtempo::ProcessBuffers()
++{
++  bool busy = false;
++  CSampleBuffer *in;
++
++  if (!m_pTempoFilter->IsActive())
++  {
++    if (m_changeFilter)
++    {
++      if (m_changeFilter)
++        ChangeFilter();
++      return true;
++    }
++    while(!m_inputSamples.empty())
++    {
++      in = m_inputSamples.front();
++      m_inputSamples.pop_front();
++      m_outputSamples.push_back(in);
++      busy = true;
++    }
++  }
++  else if (m_procSample || !m_freeSamples.empty())
++  {
++    int free_samples;
++    if (m_procSample)
++      free_samples = m_procSample->pkt->max_nb_samples - m_procSample->pkt->nb_samples;
++    else
++      free_samples = m_format.m_frames;
++
++    bool skipInput = false;
++
++    // avoid that bufferscr grows too large
++    if (!m_pTempoFilter->NeedData())
++      skipInput = true;
++
++    bool hasInput = !m_inputSamples.empty();
++
++    if (hasInput || skipInput || m_drain || m_changeFilter)
++    {
++      if (!m_procSample)
++      {
++        m_procSample = GetFreeBuffer();
++      }
++
++      if (hasInput && !skipInput && !m_changeFilter)
++      {
++        in = m_inputSamples.front();
++        m_inputSamples.pop_front();
++      }
++      else
++        in = nullptr;
++
++      int start = m_procSample->pkt->nb_samples *
++                  m_procSample->pkt->bytes_per_sample *
++                  m_procSample->pkt->config.channels /
++                  m_procSample->pkt->planes;
++
++      for (int i=0; i<m_procSample->pkt->planes; i++)
++      {
++        m_planes[i] = m_procSample->pkt->data[i] + start;
++      }
++
++      int out_samples = m_pTempoFilter->ProcessFilter(m_planes,
++                                                      m_procSample->pkt->max_nb_samples - m_procSample->pkt->nb_samples,
++                                                      in ? in->pkt->data : nullptr,
++                                                      in ? in->pkt->nb_samples : 0,
++                                                      in ? in->pkt->linesize * in->pkt->planes : 0);
++
++      // in case of error, trigger re-create of filter
++      if (out_samples < 0)
++      {
++        out_samples = 0;
++        m_changeFilter = true;
++      }
++
++      m_procSample->pkt->nb_samples += out_samples;
++      busy = true;
++      m_empty = m_pTempoFilter->IsEof();
++
++      if (in)
++      {
++        if (in->timestamp)
++          m_lastSamplePts = in->timestamp;
++        else
++          in->pkt_start_offset = 0;
++
++        // pts of last sample we added to the buffer
++        m_lastSamplePts += (in->pkt->nb_samples-in->pkt_start_offset) * 1000 / m_format.m_sampleRate;
++      }
++
++      // calculate pts for last sample in m_procSample
++      int bufferedSamples = m_pTempoFilter->GetBufferedSamples();
++      m_procSample->pkt_start_offset = m_procSample->pkt->nb_samples;
++      m_procSample->timestamp = m_lastSamplePts - bufferedSamples * 1000 / m_format.m_sampleRate;
++
++      if ((m_drain || m_changeFilter) && m_empty)
++      {
++        if (m_fillPackets && m_procSample->pkt->nb_samples != 0)
++        {
++          // pad with zero
++          start = m_procSample->pkt->nb_samples *
++          m_procSample->pkt->bytes_per_sample *
++          m_procSample->pkt->config.channels /
++          m_procSample->pkt->planes;
++          for (int i=0; i<m_procSample->pkt->planes; i++)
++          {
++            memset(m_procSample->pkt->data[i]+start, 0, m_procSample->pkt->linesize-start);
++          }
++        }
++
++        // check if draining is finished
++        if (m_drain && m_procSample->pkt->nb_samples == 0)
++        {
++          m_procSample->Return();
++          busy = false;
++        }
++        else
++          m_outputSamples.push_back(m_procSample);
++
++        m_procSample = nullptr;
++
++        if (m_changeFilter)
++        {
++          ChangeFilter();
++        }
++      }
++      // some methods like encode require completely filled packets
++      else if (!m_fillPackets || (m_procSample->pkt->nb_samples == m_procSample->pkt->max_nb_samples))
++      {
++        m_outputSamples.push_back(m_procSample);
++        m_procSample = nullptr;
++      }
++
++      if (in)
++        in->Return();
++    }
++  }
++  return busy;
++}
++
++void CActiveAEBufferPoolAtempo::Flush()
++{
++  if (m_procSample)
++  {
++    m_procSample->Return();
++    m_procSample = nullptr;
++  }
++  while (!m_inputSamples.empty())
++  {
++    m_inputSamples.front()->Return();
++    m_inputSamples.pop_front();
++  }
++  while (!m_outputSamples.empty())
++  {
++    m_outputSamples.front()->Return();
++    m_outputSamples.pop_front();
++  }
++  if (m_pTempoFilter)
++    ChangeFilter();
++}
++
++float CActiveAEBufferPoolAtempo::GetDelay()
++{
++  float delay = 0;
++
++  if (m_procSample)
++    delay += (float)m_procSample->pkt->nb_samples / m_procSample->pkt->config.sample_rate;
++
++  for (auto &buf : m_inputSamples)
++  {
++    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
++  }
++
++  for (auto &buf : m_outputSamples)
++  {
++    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
++  }
++
++  if (m_pTempoFilter->IsActive())
++  {
++    int samples = m_pTempoFilter->GetBufferedSamples();
++    delay += (float)samples / m_format.m_sampleRate;
++  }
++
++  return delay;
++}
++
++void CActiveAEBufferPoolAtempo::SetTempo(float tempo)
++{
++  if (tempo > 2.0)
++    tempo = 2.0;
++  else if (tempo < 0.5)
++    tempo = 0.5;
++
++  if (tempo != m_tempo)
++    m_changeFilter = true;
++
++  m_tempo = tempo;
++}
++
++float CActiveAEBufferPoolAtempo::GetTempo()
++{
++  return m_tempo;
++}
++
++void CActiveAEBufferPoolAtempo::FillBuffer()
++{
++  m_fillPackets = true;
++}
++
++void CActiveAEBufferPoolAtempo::SetDrain(bool drain)
++{
++  m_drain = drain;
++  if (!m_drain)
++    m_changeFilter = true;
++}
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+index 37e03d2..68e8942 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEBuffer.h
+@@ -23,6 +23,7 @@
+ #include "cores/AudioEngine/Interfaces/AE.h"
+ #include "cores/AudioEngine/Engines/ActiveAE/AudioDSPAddons/ActiveAEDSP.h"
+ #include <deque>
++#include <memory>
+ 
+ extern "C" {
+ #include "libavutil/avutil.h"
+@@ -148,4 +149,35 @@ class CActiveAEBufferPoolResample : public CActiveAEBufferPool
+   bool m_bypassDSP;
+ };
+ 
++class CActiveAEFilter;
++
++class CActiveAEBufferPoolAtempo : public CActiveAEBufferPool
++{
++public:
++  CActiveAEBufferPoolAtempo(AEAudioFormat format);
++  virtual ~CActiveAEBufferPoolAtempo();
++  bool Create(unsigned int totaltime) override;
++  bool ProcessBuffers();
++  float GetDelay();
++  void Flush();
++  void SetTempo(float tempo);
++  float GetTempo();
++  void FillBuffer();
++  void SetDrain(bool drain);
++  std::deque<CSampleBuffer*> m_inputSamples;
++  std::deque<CSampleBuffer*> m_outputSamples;
++
++protected:
++  void ChangeFilter();
++  std::unique_ptr<CActiveAEFilter> m_pTempoFilter;
++  uint8_t *m_planes[16];
++  CSampleBuffer *m_procSample;
++  bool m_empty;
++  bool m_drain;
++  bool m_changeFilter;
++  float m_tempo;
++  int64_t m_lastSamplePts;
++  bool m_fillPackets;
++};
++  
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.cpp
+new file mode 100644
+index 0000000..e721eff
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.cpp
+@@ -0,0 +1,332 @@
++/*
++ *      Copyright (C) 2010-2016 Team Kodi
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "ActiveAEFilter.h"
++#include "utils/log.h"
++#include "utils/StringUtils.h"
++#include <algorithm>
++
++extern "C" {
++#include "libavfilter/avfilter.h"
++#include "libavfilter/buffersink.h"
++#include "libavfilter/buffersrc.h"
++#include "libswresample/swresample.h"
++}
++
++using namespace ActiveAE;
++
++CActiveAEFilter::CActiveAEFilter()
++{
++  m_pFilterGraph = nullptr;
++  m_pFilterCtxIn = nullptr;
++  m_pFilterCtxOut = nullptr;
++  m_pOutFrame = nullptr;
++  m_pConvertCtx = nullptr;
++  m_pConvertFrame = nullptr;
++  m_needConvert = false;
++}
++
++CActiveAEFilter::~CActiveAEFilter()
++{
++  CloseFilter();
++}
++
++void CActiveAEFilter::Init(AVSampleFormat fmt, int sampleRate, uint64_t channelLayout)
++{
++  m_sampleFormat = fmt;
++  m_sampleRate = sampleRate;
++  m_channelLayout = channelLayout;
++  m_tempo = 1.0;
++  m_bufferedSamples = 0;
++}
++
++bool CActiveAEFilter::SetTempo(float tempo)
++{
++  m_tempo = tempo;
++  if (m_tempo == 1.0)
++  {
++    CloseFilter();
++    return true;
++  }
++
++  if (!CreateFilterGraph())
++    return false;
++
++  if (!CreateAtempoFilter())
++  {
++    CloseFilter();
++    return false;
++  }
++
++  m_bufferedSamples = 0;
++  return true;
++}
++
++bool CActiveAEFilter::CreateFilterGraph()
++{
++  CloseFilter();
++
++  m_pFilterGraph = avfilter_graph_alloc();
++  if (!m_pFilterGraph)
++  {
++    CLog::Log(LOGERROR, "CActiveAEFilter::CreateFilterGraph - unable to alloc filter graph");
++    return false;
++  }
++
++  AVFilter* srcFilter = avfilter_get_by_name("abuffer");
++  AVFilter* outFilter = avfilter_get_by_name("abuffersink");
++
++  std::string args = StringUtils::Format("time_base=1/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%" PRIx64,
++                                         m_sampleRate,
++                                         m_sampleRate,
++                                         av_get_sample_fmt_name(m_sampleFormat),
++                                         m_channelLayout);
++
++  int ret = avfilter_graph_create_filter(&m_pFilterCtxIn, srcFilter, "in", args.c_str(), NULL, m_pFilterGraph);
++  if (ret < 0)
++  {
++    CLog::Log(LOGERROR, "CActiveAEFilter::CreateFilterGraph - avfilter_graph_create_filter: src");
++    return false;
++  }
++
++  ret = avfilter_graph_create_filter(&m_pFilterCtxOut, outFilter, "out", NULL, NULL, m_pFilterGraph);
++  if (ret < 0)
++  {
++    CLog::Log(LOGERROR, "CActiveAEFilter::CreateFilterGraph - avfilter_graph_create_filter: out");
++    return false;
++  }
++
++  m_pOutFrame = av_frame_alloc();
++
++  return true;
++}
++
++bool CActiveAEFilter::CreateAtempoFilter()
++{
++  AVFilter *atempo;
++
++  atempo = avfilter_get_by_name("atempo");
++  m_pFilterCtxAtempo = avfilter_graph_alloc_filter(m_pFilterGraph, atempo, "atempo");
++  std::string args =  StringUtils::Format("tempo=%f", m_tempo);
++  int ret = avfilter_init_str(m_pFilterCtxAtempo, args.c_str());
++
++  if (ret < 0)
++  {
++    CLog::Log(LOGERROR, "CActiveAEFilter::CreateAtempoFilter - avfilter_init_str failed");
++    return false;
++  }
++
++  ret = avfilter_link(m_pFilterCtxIn, 0, m_pFilterCtxAtempo, 0);
++  if (ret < 0)
++  {
++    CLog::Log(LOGERROR, "CActiveAEFilter::CreateAtempoFilter - avfilter_link failed for in filter");
++    return false;
++  }
++
++  ret = avfilter_link(m_pFilterCtxAtempo, 0, m_pFilterCtxOut, 0);
++  if (ret < 0)
++  {
++    CLog::Log(LOGERROR, "CActiveAEFilter::CreateAtempoFilter - avfilter_link failed for out filter");
++    return false;
++  }
++
++  ret = avfilter_graph_config(m_pFilterGraph, NULL);
++  if (ret < 0)
++  {
++    CLog::Log(LOGERROR, "CActiveAEFilter::CreateAtempoFilter - avfilter_graph_config failed");
++    return false;
++  }
++
++  m_needConvert = false;
++  if (m_pFilterCtxAtempo->outputs[0]->format != m_sampleFormat)
++  {
++    m_needConvert = true;
++    m_pConvertCtx = swr_alloc();
++    m_pConvertFrame = av_frame_alloc();
++  }
++
++  m_hasData = false;
++  m_needData = true;
++  m_filterEof = false;
++
++  return true;
++}
++
++void CActiveAEFilter::CloseFilter()
++{
++  if (m_pFilterGraph)
++  {
++    avfilter_graph_free(&m_pFilterGraph);
++
++    m_pFilterCtxIn = nullptr;
++    m_pFilterCtxOut = nullptr;
++  }
++
++  if (m_pOutFrame)
++    av_frame_free(&m_pOutFrame);
++
++  if (m_pConvertFrame)
++    av_frame_free(&m_pConvertFrame);
++
++  if (m_pConvertCtx)
++    swr_free(&m_pConvertCtx);
++
++  m_bufferedSamples = 0;
++}
++
++int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_t **src_buffer, int src_samples, int src_bufsize)
++{
++  int result;
++
++  if (src_samples)
++  {
++    m_bufferedSamples += src_samples;
++
++    AVFrame *frame = av_frame_alloc();
++    if (!frame)
++      return -1;
++
++    int channels = av_get_channel_layout_nb_channels(m_channelLayout);
++
++    av_frame_set_channel_layout(frame, m_channelLayout);
++    av_frame_set_channels(frame, channels);
++    av_frame_set_sample_rate(frame, m_sampleRate);
++    frame->nb_samples = src_samples;
++    frame->format = m_sampleFormat;
++
++    result = avcodec_fill_audio_frame(frame, channels, m_sampleFormat,
++                             src_buffer[0], src_bufsize, 16);
++    if (result < 0)
++    {
++      CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - avcodec_fill_audio_frame failed");
++      return -1;
++    }
++
++    result = av_buffersrc_write_frame(m_pFilterCtxIn, frame);
++    av_frame_free(&frame);
++    if (result < 0)
++    {
++      CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - av_buffersrc_add_frame failed");
++      return -1;
++    }
++  }
++  else if (!m_filterEof && m_needData)
++  {
++    result = av_buffersrc_write_frame(m_pFilterCtxIn, nullptr);
++    if (result < 0)
++    {
++      CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - av_buffersrc_add_frame");
++      return -1;
++    }
++  }
++
++  if (!m_hasData)
++  {
++    m_needData = false;
++    AVFrame *outFrame = m_needConvert ? m_pConvertFrame : m_pOutFrame;
++
++    result = av_buffersink_get_frame(m_pFilterCtxOut, outFrame);
++
++    if (result  == AVERROR(EAGAIN))
++    {
++      m_needData = true;
++      return 0;
++    }
++    else if (result == AVERROR_EOF)
++    {
++      result = av_buffersink_get_frame(m_pFilterCtxOut, outFrame);
++      m_filterEof = true;
++      if (result < 0)
++        return 0;
++    }
++    else if (result < 0)
++    {
++      CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - av_buffersink_get_frame");
++      return -1;
++    }
++
++    if (m_needConvert)
++    {
++      av_frame_unref(m_pOutFrame);
++      m_pOutFrame->format = m_sampleFormat;
++      av_frame_set_channel_layout(m_pOutFrame, m_channelLayout);
++      av_frame_set_sample_rate(m_pOutFrame, m_sampleRate);
++      result = swr_convert_frame(m_pConvertCtx, m_pOutFrame, m_pConvertFrame);
++      if (result < 0)
++      {
++        CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - swr_convert_frame failed");
++        return -1;
++      }
++    }
++
++    m_hasData = true;
++    m_sampleOffset = 0;
++  }
++
++  if (m_hasData)
++  {
++    int channels = av_get_channel_layout_nb_channels(m_channelLayout);
++    int planes = av_sample_fmt_is_planar(m_sampleFormat) ? channels : 1;
++    int samples = std::min(dst_samples, m_pOutFrame->nb_samples - m_sampleOffset);
++    int bytes = samples * av_get_bytes_per_sample(m_sampleFormat) * channels / planes;
++    int bytesOffset = m_sampleOffset * av_get_bytes_per_sample(m_sampleFormat) * channels / planes;
++    for (int i=0; i<planes; i++)
++    {
++      memcpy(dst_buffer[i], m_pOutFrame->extended_data[i] + bytesOffset, bytes);
++    }
++    m_sampleOffset += samples;
++
++    if (m_sampleOffset >= m_pOutFrame->nb_samples)
++    {
++      av_frame_unref(m_pOutFrame);
++      m_hasData = false;
++    }
++
++    m_bufferedSamples -= samples * m_tempo;
++    if (m_bufferedSamples < 0)
++      m_bufferedSamples = 0;
++    return samples;
++  }
++
++  return 0;
++}
++
++bool CActiveAEFilter::IsEof()
++{
++  return m_filterEof;
++}
++
++bool CActiveAEFilter::NeedData()
++{
++  return m_needData;
++}
++
++bool CActiveAEFilter::IsActive()
++{
++  if (m_pFilterGraph)
++    return true;
++  else
++    return false;
++}
++
++int CActiveAEFilter::GetBufferedSamples()
++{
++  return m_bufferedSamples;
++}
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.h
+new file mode 100644
+index 0000000..5eb9a52
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.h
+@@ -0,0 +1,69 @@
++#pragma once
++/*
++ *      Copyright (C) 2010-2016 Team Kodi
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++extern "C" {
++#include "libavfilter/avfilter.h"
++#include "libavutil/frame.h"
++}
++
++struct SwrContext;
++
++namespace ActiveAE
++{
++
++class CActiveAEFilter
++{
++public:
++  CActiveAEFilter();
++  virtual ~CActiveAEFilter();
++  void Init(AVSampleFormat fmt, int sampleRate, uint64_t channelLayout);
++  int ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_t **src_buffer, int src_samples, int src_bufsize);
++  bool SetTempo(float tempo);
++  bool NeedData();
++  bool IsEof();
++  bool IsActive();
++  int GetBufferedSamples();
++  
++protected:
++  bool CreateFilterGraph();
++  bool CreateAtempoFilter();
++  void CloseFilter();
++
++  AVSampleFormat m_sampleFormat;
++  int m_sampleRate;
++  uint64_t m_channelLayout;
++  AVFilterGraph* m_pFilterGraph;
++  AVFilterContext* m_pFilterCtxIn;
++  AVFilterContext* m_pFilterCtxOut;
++  AVFilterContext* m_pFilterCtxAtempo;
++  AVFrame* m_pOutFrame;
++  SwrContext* m_pConvertCtx;
++  AVFrame* m_pConvertFrame;
++  bool m_needConvert;
++  float m_tempo;
++  bool m_filterEof;
++  bool m_hasData;
++  bool m_needData;
++  int m_sampleOffset;
++  int m_bufferedSamples;
++};
++
++}
+\ No newline at end of file
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+index cc5837f..b7e8125 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+@@ -577,16 +577,19 @@ CActiveAEStreamBuffers::CActiveAEStreamBuffers(AEAudioFormat inputFormat, AEAudi
+ {
+   m_inputFormat = inputFormat;
+   m_resampleBuffers = new CActiveAEBufferPoolResample(inputFormat, outputFormat, quality);
++  m_atempoBuffers = new CActiveAEBufferPoolAtempo(outputFormat);
+ }
+ 
+ CActiveAEStreamBuffers::~CActiveAEStreamBuffers()
+ {
+   delete m_resampleBuffers;
++  delete m_atempoBuffers;
+ }
+ 
+ bool CActiveAEStreamBuffers::HasInputLevel(int level)
+ {
+-  if (m_inputSamples.size() > m_resampleBuffers->m_allSamples.size() * 100 / level)
++  if ((m_inputSamples.size() + m_resampleBuffers->m_inputSamples.size()) >
++      (m_resampleBuffers->m_allSamples.size() * level / 100))
+     return true;
+   else
+     return false;
+@@ -594,7 +597,13 @@ bool CActiveAEStreamBuffers::HasInputLevel(int level)
+ 
+ bool CActiveAEStreamBuffers::Create(unsigned int totaltime, bool remap, bool upmix, bool normalize, bool useDSP)
+ {
+-  return m_resampleBuffers->Create(totaltime, remap, upmix, normalize, useDSP);
++  if (!m_resampleBuffers->Create(totaltime, remap, upmix, normalize, useDSP))
++    return false;
++
++  if (!m_atempoBuffers->Create(totaltime))
++    return false;
++
++  return true;
+ }
+ 
+ void CActiveAEStreamBuffers::SetExtraData(int profile, enum AVMatrixEncoding matrix_encoding, enum AVAudioServiceType audio_service_type)
+@@ -621,6 +630,16 @@ bool CActiveAEStreamBuffers::ProcessBuffers()
+   {
+     buf = m_resampleBuffers->m_outputSamples.front();
+     m_resampleBuffers->m_outputSamples.pop_front();
++    m_atempoBuffers->m_inputSamples.push_back(buf);
++    busy = true;
++  }
++
++  busy |= m_atempoBuffers->ProcessBuffers();
++
++  while (!m_atempoBuffers->m_outputSamples.empty())
++  {
++    buf = m_atempoBuffers->m_outputSamples.front();
++    m_atempoBuffers->m_outputSamples.pop_front();
+     m_outputSamples.push_back(buf);
+     busy = true;
+   }
+@@ -635,12 +654,29 @@ void CActiveAEStreamBuffers::ConfigureResampler(bool normalizelevels, bool dspen
+ 
+ float CActiveAEStreamBuffers::GetDelay()
+ {
+-  return m_resampleBuffers->GetDelay();
++  float delay = 0;
++
++  for (auto &buf : m_inputSamples)
++  {
++    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
++  }
++
++  delay += m_resampleBuffers->GetDelay();
++  delay += m_atempoBuffers->GetDelay();
++
++  for (auto &buf : m_outputSamples)
++  {
++    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
++  }
++
++  return delay;
+ }
+ 
+ void CActiveAEStreamBuffers::Flush()
+ {
+   m_resampleBuffers->Flush();
++  m_atempoBuffers->Flush();
++
+   while (!m_inputSamples.empty())
+   {
+     m_inputSamples.front()->Return();
+@@ -656,12 +692,15 @@ void CActiveAEStreamBuffers::Flush()
+ void CActiveAEStreamBuffers::SetDrain(bool drain)
+ {
+   m_resampleBuffers->SetDrain(drain);
++  m_atempoBuffers->SetDrain(drain);
+ }
+ 
+ bool CActiveAEStreamBuffers::IsDrained()
+ {
+   if (m_resampleBuffers->m_inputSamples.empty() &&
+       m_resampleBuffers->m_outputSamples.empty() &&
++      m_atempoBuffers->m_inputSamples.empty() &&
++      m_atempoBuffers->m_outputSamples.empty() &&
+       m_inputSamples.empty() &&
+       m_outputSamples.empty())
+     return true;
+@@ -671,17 +710,29 @@ bool CActiveAEStreamBuffers::IsDrained()
+ 
+ void CActiveAEStreamBuffers::SetRR(double rr)
+ {
+-  m_resampleBuffers->SetRR(rr);
++  if (rr < 1.02 && rr > 0.98)
++  {
++    m_resampleBuffers->SetRR(rr);
++    m_atempoBuffers->SetTempo(1.0);
++  }
++  else
++  {
++    m_resampleBuffers->SetRR(1.0);
++    m_atempoBuffers->SetTempo(1.0/rr);
++  }
+ }
+ 
+ double CActiveAEStreamBuffers::GetRR()
+ {
+-  return m_resampleBuffers->GetRR();
++  double tempo = m_resampleBuffers->GetRR();
++  tempo /= m_atempoBuffers->GetTempo();
++  return tempo;
+ }
+ 
+ void CActiveAEStreamBuffers::FillBuffer()
+ {
+   m_resampleBuffers->FillBuffer();
++  m_atempoBuffers->FillBuffer();
+ }
+ 
+ bool CActiveAEStreamBuffers::DoesNormalize()
+@@ -706,6 +757,13 @@ CActiveAEBufferPool* CActiveAEStreamBuffers::GetResampleBuffers()
+   return ret;
+ }
+ 
++CActiveAEBufferPool* CActiveAEStreamBuffers::GetAtempoBuffers()
++{
++  CActiveAEBufferPool *ret = m_atempoBuffers;
++  m_atempoBuffers = nullptr;
++  return ret;
++}
++
+ bool CActiveAEStreamBuffers::HasWork()
+ {
+   if (!m_inputSamples.empty())
+@@ -716,6 +774,10 @@ bool CActiveAEStreamBuffers::HasWork()
+     return true;
+   if (!m_resampleBuffers->m_outputSamples.empty())
+     return true;
++  if (!m_atempoBuffers->m_inputSamples.empty())
++    return true;
++  if (!m_atempoBuffers->m_outputSamples.empty())
++    return true;
+ 
+   return false;
+ }
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+index 1340efd..51bcccd 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+@@ -111,12 +111,15 @@ class CActiveAEStreamBuffers
+   void SetDSPConfig(bool usedsp, bool bypassdsp);
+   bool HasWork();
+   CActiveAEBufferPool *GetResampleBuffers();
++  CActiveAEBufferPool *GetAtempoBuffers();
++  
+   AEAudioFormat m_inputFormat;
+   std::deque<CSampleBuffer*> m_outputSamples;
+   std::deque<CSampleBuffer*> m_inputSamples;
+ 
+ protected:
+   CActiveAEBufferPoolResample *m_resampleBuffers;
++  CActiveAEBufferPoolAtempo *m_atempoBuffers;
+ };
+ 
+ class CActiveAEStream : public IAEStream
+diff --git a/xbmc/cores/AudioEngine/Makefile.in b/xbmc/cores/AudioEngine/Makefile.in
+index 4167eec..fa65acc 100644
+--- a/xbmc/cores/AudioEngine/Makefile.in
++++ b/xbmc/cores/AudioEngine/Makefile.in
+@@ -34,6 +34,7 @@ SRCS += Engines/ActiveAE/ActiveAESound.cpp
+ SRCS += Engines/ActiveAE/ActiveAEResampleFFMPEG.cpp
+ SRCS += Engines/ActiveAE/ActiveAEResamplePi.cpp
+ SRCS += Engines/ActiveAE/ActiveAEBuffer.cpp
++SRCS += Engines/ActiveAE/ActiveAEFilter.cpp
+ 
+ ifeq (@USE_ANDROID@,1)
+ SRCS += Sinks/AESinkAUDIOTRACK.cpp
+
+From 047fc7d74c853b497789f8eb52a8816538540a65 Mon Sep 17 00:00:00 2001
+From: Rainer Hochecker <fernetmenta@online.de>
+Date: Sun, 24 Jul 2016 20:35:44 +0200
+Subject: [PATCH 4/4] VideoPlayer: improve rr related to clockspeed
+
+---
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp       | 11 +++++++----
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp |  6 ++++++
+ xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h   |  1 +
+ xbmc/cores/VideoPlayer/DVDClock.cpp                        |  4 +++-
+ xbmc/cores/VideoPlayer/VideoPlayer.cpp                     |  2 +-
+ 5 files changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index e77aecb..5196c62 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -2296,10 +2296,13 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+   double threshold = 100;
+   if (stream->m_resampleMode)
+   {
+-    if (stream->m_pClock && stream->m_pClock->GetClockSpeed() > 1.1)
+-      threshold *= 10;
+-    else
+-      threshold *= 2;
++    threshold *= 2;
++    if (stream->m_pClock)
++    {
++      double clockspeed = stream->m_pClock->GetClockSpeed();
++      if (clockspeed >= 1.05 || clockspeed <= 0.95)
++        threshold *= 5;
++    }
+   }
+ 
+   int timeout = (stream->m_syncState != CAESyncInfo::AESyncState::SYNC_INSYNC) ? 100 : (int)stream->m_errorInterval;
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+index b7e8125..430bbf6 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+@@ -70,6 +70,7 @@ CActiveAEStream::CActiveAEStream(AEAudioFormat *format, unsigned int streamid)
+   m_lastPts = 0;
+   m_lastPtsJump = 0;
+   m_errorInterval = 1000;
++  m_clockSpeed = 1.0;
+ }
+ 
+ CActiveAEStream::~CActiveAEStream()
+@@ -213,7 +214,12 @@ double CActiveAEStream::CalcResampleRatio(double error)
+ 
+   double clockspeed = 1.0;
+   if (m_pClock)
++  {
+     clockspeed = m_pClock->GetClockSpeed();
++    if (m_clockSpeed != clockspeed)
++      m_resampleIntegral = 0;
++    m_clockSpeed = clockspeed;
++  }
+ 
+   double ret = 1.0 / clockspeed + proportional + m_resampleIntegral;
+   //CLog::Log(LOGNOTICE,"----- error: %f, rr: %f, prop: %f, int: %f",
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+index 51bcccd..b44227a 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+@@ -227,6 +227,7 @@ class CActiveAEStream : public IAEStream
+   int m_profile;
+   int m_resampleMode;
+   double m_resampleIntegral;
++  double m_clockSpeed;
+   enum AVMatrixEncoding m_matrixEncoding;
+   enum AVAudioServiceType m_audioServiceType;
+   bool m_forceResampler;
+diff --git a/xbmc/cores/VideoPlayer/DVDClock.cpp b/xbmc/cores/VideoPlayer/DVDClock.cpp
+index bcf9cc7..c4193a8 100644
+--- a/xbmc/cores/VideoPlayer/DVDClock.cpp
++++ b/xbmc/cores/VideoPlayer/DVDClock.cpp
+@@ -297,6 +297,8 @@ double CDVDClock::SystemToPlaying(int64_t system)
+ 
+ double CDVDClock::GetClockSpeed()
+ {
++  CSingleLock lock(m_critSection);
++
+   double speed = (double)m_systemFrequency / m_systemUsed;
+-  return m_videoRefClock->GetSpeed() * speed;
++  return m_videoRefClock->GetSpeed() * speed + m_speedAdjust;
+ }
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index f8e3079..ca3e719 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -1941,7 +1941,7 @@ void CVideoPlayer::HandlePlaySpeed()
+         {
+           double adjust = -1.0; // a unique value
+           if (m_clock.GetSpeedAdjust() >= 0 && m_VideoPlayerAudio->GetLevel() < 5)
+-            adjust = -0.01;
++            adjust = -0.05;
+ 
+           if (m_clock.GetSpeedAdjust() < 0 && m_VideoPlayerAudio->GetLevel() > 10)
+             adjust = 0.0;
