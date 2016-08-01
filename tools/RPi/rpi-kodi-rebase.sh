@@ -4,7 +4,7 @@ TODO=$1
 
 # Drop commits not used
 DROP_COMMITS="
-THIS_IS_A_PLACEHOLDER, REPLACE WITH COMMIT DESCRIPTION ONCE THERE IS SOMETHING TO BE DROPPED!
+UNSTABLE\: This is a placeholder\. Commits after this point are considered experimental\.
 "
 
 IFS=$'\n'
