@@ -6,6 +6,8 @@ Subject: [PATCH] patch for kodi krypton from mk01
 kodi base: f3ca4eaf9a803f0ae195854f088341b84f9253c9
 kodi mk01:
   https://github.com/mk01/xbmc/tree/treeKrypton 0b3954d54c41c494e30143794ccfba0b690f926d
+  
++ small adaptions for kodi-17.0-alpha3-fc46cf2 (2 Aug 2016)
 ---
  Makefile.in                                        |    1 +
  .../resource.language.en_gb/resources/strings.po   |  154 +-
@@ -316,11 +318,10 @@ index 028aa8f..d4ee85e 100644
  
  #: system/settings/settings.xml
  msgctxt "#36220"
-@@ -19163,3 +19223,77 @@ msgstr ""
- msgctxt "#39003"
- msgid "Accelerate h264"
+@@ -19456,3 +19515,76 @@ msgstr ""
  msgstr ""
-+
+ 
+ 
 +#. Label of setting "System -> Video output -> Refresh resolutions"
 +#: system/settings/settings.xml
 +msgctxt "#40000"
@@ -652,7 +653,7 @@ index b8c90a5..52e60e3 100644
  <settings>
    <section id="player">
      <category id="videoplayer">
--      <group id="4">
+-      <group id="3">
 +      <group id="2">
 +        <setting id="videoplayer.adjustresolution">
 +          <default>true</default>
@@ -7734,22 +7735,13 @@ diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/A
 index 8c0cca3..8d3ba85 100644
 --- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
 +++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-@@ -2322,7 +2322,7 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
-   double threshold = 100;
-   if (stream->m_resampleMode)
-   {
--    if (stream->m_pClock && stream->m_pClock->GetClockSpeed() > 1.1)
-+    if (stream->m_pClock->GetClockSpeed() > 1.1)
-       threshold *= 10;
-     else
-       threshold *= 2;
 @@ -2334,8 +2334,7 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
    if (newerror && fabs(error) > threshold && stream->m_syncState == CAESyncInfo::AESyncState::SYNC_INSYNC)
    {
      stream->m_syncState = CAESyncInfo::AESyncState::SYNC_ADJUST;
--    stream->m_resampleBuffers->m_resampleRatio = 1.0;
+-    stream->m_processingBuffers->SetRR(1.0);
 -    stream->m_resampleIntegral = 0;
-+    stream->m_resampleBuffers->m_resampleRatio = stream->GetResampleRatio();
++    stream->m_processingBuffers->SetRR(stream->GetResampleRatio());
      stream->m_lastSyncError = error;
      CLog::Log(LOGDEBUG,"ActiveAE::SyncStream - average error %f above threshold of %f", error, threshold);
    }
@@ -7769,24 +7761,24 @@ index 8c0cca3..8d3ba85 100644
          stream->m_syncState = CAESyncInfo::AESyncState::SYNC_INSYNC;
          stream->m_syncError.Flush(1000);
 -        stream->m_resampleIntegral = 0;
--        stream->m_resampleBuffers->m_resampleRatio = 1.0;
+-        stream->m_processingBuffers->SetRR(1.0);
          CLog::Log(LOGDEBUG,"ActiveAE::SyncStream - average error %f below threshold of %f", error, 30.0);
        }
      }
 +    else
 +    {
 +      if (lerr && fabs(error) < lerr)
-+        stream->m_resampleBuffers->m_resampleRatio = (1.0 / stream->m_pClock->GetClockSpeed() + stream->GetResampleRatio()) / 2;
++        stream->m_processingBuffers->SetRR((1.0 / stream->m_pClock->GetClockSpeed() + stream->GetResampleRatio()) / 2);
 +      lerr = fabs(error);
 +    }
  
      return ret;
    }
 @@ -2474,6 +2479,7 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
-     if (stream->m_resampleBuffers)
+     if (stream->m_processingBuffers)
      {
-       stream->m_resampleBuffers->m_resampleRatio = stream->CalcResampleRatio(error);
-+      stream->SetResampleRatio(stream->m_resampleBuffers->m_resampleRatio);
+       stream->m_processingBuffers->SetRR(stream->CalcResampleRatio(error));
++      stream->SetResampleRatio(stream->m_processingBuffers->GetRR());
      }
    }
    else if (stream->m_resampleBuffers)
@@ -11576,8 +11568,8 @@ diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/core
 index aaf5359..9e0b81d 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
-@@ -814,32 +814,22 @@ void CRenderManager::FlipPage(volatile std::atomic_bool& bStop, double pts /* =
-     else
+@@ -808,26 +808,16 @@ void CRenderManager::FlipPage(volatile s
+   {
      {
        bool invert = false;
 -      if (interlacemethod == VS_INTERLACEMETHOD_RENDER_BLEND)
@@ -11613,13 +11605,7 @@ index aaf5359..9e0b81d 100644
  
        if (presentmethod != PRESENT_METHOD_SINGLE)
        {
-         /* default to odd field if we want to deinterlace and don't know better */
-         if (deinterlacemode == VS_DEINTERLACEMODE_FORCE && sync == FS_NONE)
--          sync = FS_TOP;
-+            sync = FS_TOP;
- 
-         /* invert present field */
-         if (invert)
+
 @@ -884,7 +874,7 @@ RESOLUTION CRenderManager::GetResolution()
      return res;
  
@@ -13028,7 +13014,7 @@ index 0df104f..496b047 100644
 +    CNetworkUpdater(void (*watcher)(void *caller));
 +    virtual ~CNetworkUpdater(void);
 +
-+    volatile bool *Stopping() { return &m_bStop; }
++    volatile std::atomic<bool> *Stopping() { return &m_bStop; }
 +    void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
 +
 +  protected:
@@ -14072,7 +14058,7 @@ index 5868845..1a6e684 100644
 +  int fds = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 +  struct pollfd m_fds = { fds, POLLIN, 0 };
 +  char msg[4096];
-+  volatile bool *stopping = ((CNetwork::CNetworkUpdater*)caller)->Stopping();
++  volatile std::atomic<bool> *stopping = ((CNetwork::CNetworkUpdater*)caller)->Stopping();
 +
 +  memset (&addr, 0, sizeof(struct sockaddr_nl));
 +  addr.nl_family = AF_NETLINK;
@@ -15728,17 +15714,16 @@ index af84e7a..a54a794 100644
    if (adapter->GetSettingInt("pause_or_stop_playback_on_deactivate") != LOCALISED_ID_NONE)
    {
      bool bShowingSlideshow = (g_windowManager.GetActiveWindow() == WINDOW_SLIDESHOW);
-@@ -1181,18 +1194,35 @@ void CPeripheralCecAdapter::CecSourceActivated(void *cbParam, const CEC::cec_log
+@@ -1183,7 +1183,7 @@ void CPeripheralCecAdapter::CecSourceAct
          pSlideShow->OnAction(CAction(ACTION_PAUSE));
        else
          // pause/resume player
 -        CApplicationMessenger::GetInstance().SendMsg(TMSG_MEDIA_PAUSE);
 +        CApplicationMessenger::GetInstance().SendMsg(TMSG_MEDIA_PAUSE, wait);
      }
--    else if (adapter->GetSettingInt("pause_or_stop_playback_on_deactivate") == LOCALISED_ID_STOP)
-+    else if (bPlayingAndDeactivated
-+      && adapter->GetSettingInt("pause_or_stop_playback_on_deactivate") == LOCALISED_ID_STOP)
-     {
+     else if (bPlayingAndDeactivated
+       && adapter->GetSettingInt("pause_or_stop_playback_on_deactivate") == LOCALISED_ID_STOP)
+@@ -1191,11 +1191,27 @@ void CPeripheralCecAdapter::CecSourceAct
        if (pSlideShow)
          pSlideShow->OnAction(CAction(ACTION_STOP));
        else
@@ -15767,6 +15752,7 @@ index af84e7a..a54a794 100644
  int CPeripheralCecAdapter::CecLogMessage(void *cbParam, const cec_log_message message)
  {
    CPeripheralCecAdapter *adapter = (CPeripheralCecAdapter *)cbParam;
+
 @@ -1219,8 +1249,7 @@ int CPeripheralCecAdapter::CecLogMessage(void *cbParam, const cec_log_message me
      break;
    }
@@ -18537,3 +18523,71 @@ index 4184db0..fe40f1b 100644
 -- 
 2.7.1
 
+From 707e1060d31717ab2318f49d2289b4b7968b12db Mon Sep 17 00:00:00 2001
+From: Peter Vicman <peter.vicman@gmail.com>
+Date: Tue, 2 Aug 2016 20:43:54 +0200
+Subject: [PATCH] small fixes for kodi-17.0-alpha3-fc46cf2
+
+---
+ .../VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp     | 10 ----------
+ .../cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h |  1 -
+ xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp        |  4 ++--
+ 3 files changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+index ffd807d..4873919 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+@@ -102,16 +102,6 @@ bool CRendererIMX::Supports(EINTERLACEMETHOD method)
+     return false;
+ }
+ 
+-bool CRendererIMX::Supports(EDEINTERLACEMODE mode)
+-{
+-  if(mode == VS_DEINTERLACEMODE_AUTO
+-  || mode == VS_DEINTERLACEMODE_FORCE
+-  || mode == VS_DEINTERLACEMODE_OFF)
+-    return true;
+-
+-  return false;
+-}
+-
+ bool CRendererIMX::Supports(ESCALINGMETHOD method)
+ {
+   return method == VS_SCALINGMETHOD_AUTO;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
+index 74f6888..ba9618d 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
+@@ -41,7 +41,6 @@ public:
+ 
+   // Feature support
+   virtual bool Supports(EINTERLACEMETHOD method);
+-  virtual bool Supports(EDEINTERLACEMODE mode);
+   virtual bool Supports(ESCALINGMETHOD method);
+   
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+index 1ec8575..e9e69cc 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+@@ -864,7 +864,7 @@ RESOLUTION CRenderManager::GetResolution()
+     return res;
+ 
+   if (CSettings::GetInstance().GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF)
+-    res = CResolutionUtils::ChooseBestResolution(m_fps, m_width, CONF_FLAGS_STEREO_MODE_MASK(m_flags));
++    res = CResolutionUtils::ChooseBestResolution(m_fps, m_width, m_height, CONF_FLAGS_STEREO_MODE_MASK(m_flags), CONF_FLAGS_INTERLACED_MODE_MASK(m_flags));
+ 
+   return res;
+ }
+@@ -1059,7 +1059,7 @@ void CRenderManager::UpdateResolution()
+     {
+       if (CSettings::GetInstance().GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF && m_fps > 0.0f)
+       {
+-        RESOLUTION res = CResolutionUtils::ChooseBestResolution(m_fps, m_width, CONF_FLAGS_STEREO_MODE_MASK(m_flags));
++        RESOLUTION res = CResolutionUtils::ChooseBestResolution(m_fps, m_width, m_height, CONF_FLAGS_STEREO_MODE_MASK(m_flags), CONF_FLAGS_INTERLACED_MODE_MASK(m_flags));
+         g_graphicsContext.SetVideoResolution(res);
+         UpdateDisplayLatency();
+ 
+-- 
+2.7.1
