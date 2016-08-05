@@ -44,7 +44,9 @@ make_target() {
 
   mkdir -p $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libbrcmEGL.so $SYSROOT_PREFIX/usr/lib
+    ln -s $SYSROOT_PREFIX/usr/lib/libbrcmEGL.so $SYSROOT_PREFIX/usr/lib/libEGL.so
     cp -PRv $FLOAT/opt/vc/lib/libbrcmGLESv2.so $SYSROOT_PREFIX/usr/lib
+    ln -s $SYSROOT_PREFIX/usr/lib/libbrcmGLESv2.so $SYSROOT_PREFIX/usr/lib/libGLESv2.so
     cp -PRv $FLOAT/opt/vc/lib/libbcm_host.so $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libcontainers.so $SYSROOT_PREFIX/usr/lib
     cp -PRv $FLOAT/opt/vc/lib/libopenmaxil.so $SYSROOT_PREFIX/usr/lib
