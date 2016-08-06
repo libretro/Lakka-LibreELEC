@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="emby"
-PKG_VERSION="3.0.5985"
-PKG_REV="101"
+PKG_VERSION="3.0.6030"
+PKG_REV="102"
 PKG_ARCH="arm x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
 PKG_URL="https://github.com/MediaBrowser/Emby/releases/download/$PKG_VERSION/Emby.Mono.zip"
-PKG_DEPENDS_TARGET="toolchain imagemagick"
+PKG_DEPENDS_TARGET="toolchain ffmpegx imagemagick"
 PKG_PRIORITY="optional"
 PKG_SECTION="service"
 PKG_SHORTDESC="Emby: a personal media server"
@@ -55,6 +55,13 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
   unzip -q $ROOT/$SOURCES/$PKG_NAME/$PKG_SOURCE_NAME -d $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
 
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -L $(get_build_dir ffmpegx)/.install_pkg/usr/local/bin/ffmpegx  \
+        $(get_build_dir ffmpegx)/.install_pkg/usr/local/bin/ffprobex \
+        $ADDON_BUILD/$PKG_ADDON_ID/bin/
+
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PR $(get_build_dir imagemagick)/.install_pkg/usr/lib/* $ADDON_BUILD/$PKG_ADDON_ID/lib/
+  cp -L $(get_build_dir imagemagick)/.install_pkg/usr/lib/libMagickCore-6.Q8.so.2 \
+        $(get_build_dir imagemagick)/.install_pkg/usr/lib/libMagickWand-6.Q8.so   \
+        $ADDON_BUILD/$PKG_ADDON_ID/lib/
 }
