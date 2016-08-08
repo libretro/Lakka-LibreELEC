@@ -18,9 +18,9 @@
 
 PKG_NAME="spotify-connect-web"
 PKG_VERSION="0.0.3-alpha"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="arm"
-PKG_ADDON_PROJECTS="RPi2"
+PKG_ADDON_PROJECTS="RPi2 WeTek_Core WeTek_Play"
 PKG_LICENSE="prop."
 PKG_SITE="https://github.com/Fornoth/spotify-connect-web"
 PKG_URL="https://github.com/Fornoth/spotify-connect-web/releases/download/$PKG_VERSION/${PKG_NAME}_$PKG_VERSION.tar.gz"

@@ -17,42 +17,110 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+. /etc/os-release
 . /etc/profile
 oe_setup_addon service.spotify-connect-web
 
+chmod +x "$ADDON_DIR/spotify-connect-web"
 mkdir -p "$ADDON_HOME"
+
+activate_card() {
+  if [ -e "/proc/asound/$1" ]
+  then
+    return
+  fi
+  if [ "$LIBREELEC_ARCH" == "RPi2.arm" -a "$1" == "ALSA" ]
+  then
+    dtparam audio=on
+    sleep 1
+  else
+    echo "Do not know how to activate card $1 on $LIBREELEC_ARCH"
+    exit
+  fi
+}
+
+if [ ! "$(cat /proc/asound/pcm 2> /dev/null)" ]
+then
+  if [ "$LIBREELEC_ARCH" == "RPi2.arm" ]
+  then
+    activate_card "ALSA"
+  else
+    echo "Do not how how to activate an audio interface on $LIBREELEC_ARCH"
+    ko="ko"
+  fi
+fi
 
 if [ ! -f "$ADDON_HOME/spotify_appkey.key" ]
 then
-  echo "Exiting: no key"
-  exit
+  echo "Key not found"
+  ko="ko"
+fi
+
+if [ ! "$scw_u" ]
+then
+  echo "Username not set"
+  ko="ko"
 fi
 
 if [ ! "$scw_p" ]
 then
-  echo "Exiting: no password"
-  exit
+  echo "Password not set"
+  ko="ko"
 fi
 
-if [ !  "$scw_u" ]
+if [ ! "$scw_o" ]
 then
-  echo "Exiting: no username"
+  echo "Playback device not set"
+  ko="ko"
+fi
+
+if [ "$ko" ]
+then
   exit
 fi
 
-amixer &> /dev/null || dtoverlay dtparam audio=on
-amixer cset numid=3 "$pcm_3"
+case "$scw_o" in
 
-[ "$scw_b" ] && scw_B="-b $scw_b"
-[ "$scw_m" ] && scw_M="-m $scw_m"
-[ "$scw_o" ] && scw_O="-o $scw_o"
+  *:CARD=*)
+    card="${scw_o##*:CARD=}"
+    activate_card "$card"
+    index="$(readlink /proc/asound/$card)"
+    index="${index##*card}"
+    ;;
 
-cd $ADDON_DIR
-chmod +x spotify-connect-web
-./spotify-connect-web $scw_B \
+  hw:*,*)
+    echo "The hw:d,s specification is unreliable, use device:CARD=card instead"
+    index="${scw_o##hw:}"
+    index="${index%%,*}"
+    card="card$index"
+    activate_card "$card"
+    ;;    
+
+  *)
+    echo "Unknown playback device specification $swc_o"
+    exit
+    ;;
+
+esac
+
+[ "$scw_m" ] && [ "$vol_0" ] && amixer -c "$index" set "$scw_m" "$vol_0%"
+
+if [ "$LIBREELEC_ARCH" == "RPi2.arm" -a \
+     "$(readlink /proc/asound/ALSA)" == "card$index" ]
+then
+  [ "$pcm_3" ] && amixer -c "$index" cset name="PCM Playback Route" "$pcm_3"
+fi
+
+[ "$scw_b" == "-" ] && scw_b=""
+[ "$scw_b" ] && scw_b="-b $scw_b"
+[ "$scw_m" ] && scw_m="-m $scw_m"
+
+cd "$ADDON_DIR"
+./spotify-connect-web $scw_b \
                       -k "$ADDON_HOME/spotify_appkey.key" \
-                      $scw_M \
+                      $scw_m \
                       -n "$HOSTNAME" \
-                      $scw_O \
+                      -o "$scw_o" \
                       -p "$scw_p" \
-                      -u "$scw_u"
+                      -u "$scw_u" \
+                      --mixer_device_index "$index"
