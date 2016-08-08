@@ -26,16 +26,15 @@ PKG_URL="${PKG_SITE}/packages/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libressl lzo zlib"
 PKG_PRIORITY="optional"
 PKG_SECTION="service/system"
-PKG_SHORTDESC="tinc Virtual Private Network Daemon"
-PKG_LONGDESC="tinc is a virtual private network (VPN) daemon that uses tunnelling and encryption to create a secure private network between hosts on the Internet. Because the VPN appears to the IP level network code as a normal network device, there is no need to adapt any existing software. This allows VPN sites to share information with each other over the Internet without exposing any information to others."
-
+PKG_SHORTDESC="tinc: a Virtual Private Network daemon"
+PKG_LONGDESC="tinc ($PKG_VERSION) is a Virtual Private Network (VPN) daemon that uses tunnelling and encryption to create a secure private network between hosts on the Internet. Because the VPN appears to the IP level network code as a normal network device, there is no need to adapt any existing software. This allows VPN sites to share information with each other over the Internet without exposing any information to others."
 PKG_AUTORECONF="yes"
 
 PKG_IS_ADDON="yes"
+PKG_ADDON_NAME="tinc"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_PROVIDES=""
 PKG_ADDON_REPOVERSION="8.0"
-PKG_MAINTAINER="Anton Voyl (awiouy at gmail dot com)"
+PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-curses   \
                            --disable-readline \
