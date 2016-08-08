@@ -612,6 +612,24 @@
     fi
   }
 
+  check_out_of_space() {
+    if [ "$(df /storage | awk '/[0-9]%/{print $4}')" -eq "0" ]; then
+      echo ""
+      echo "The $1 is corrupt, or there is not enough"
+      echo "free space on /storage to complete the upgrade!"
+      echo ""
+      echo "Please free up space on your /storage partition"
+      echo "by deleting unecessary files, then try again."
+      echo ""
+      return 0
+    else
+      echo ""
+      echo "The $1 is corrupt/invalid!"
+      echo ""
+      return 1
+    fi
+  }
+
   do_cleanup() {
     StartProgress spinner "Cleaning up... "
 
@@ -663,13 +681,29 @@
     echo ""
 
     if [ -f "$UPDATE_TAR" ] ; then
+      TARRESULT="0"
+
       echo "Found new .tar archive"
       StartProgress spinner "Extracting contents of archive... "
         mkdir -p $UPDATE_DIR/.tmp &>/dev/null
-        tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp &>/dev/null
+        tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp 1>/dev/null 2>/tmp/tarresult.txt || TARRESULT="1"
+
+      if [ "${TARRESULT}" -eq "0" ]; then
         mv $UPDATE_DIR/.tmp/*/target/* $UPDATE_DIR &>/dev/null
         sync
         StopProgress "done"
+      else
+        StopProgress "FAILED"
+
+        echo "Failed to extract contents of archive file!"
+        echo "tar result: '$(cat /tmp/tarresult.txt)'"
+
+        check_out_of_space "archive"
+
+        do_cleanup
+        StartProgress countdown "Normal startup in 30s... " 30 "NOW"
+        return 0
+      fi
     elif [ -f "$UPDATE_IMG_GZ" -o -f "$UPDATE_IMG" ] ; then
       mkdir -p $UPDATE_DIR/.tmp/mnt &>/dev/null
       IMG_FILE="$UPDATE_DIR/.tmp/update.img"
@@ -686,6 +720,9 @@
         if [ "${GZRESULT}" -eq "1" ]; then
           echo "Failed to decompress image file!"
           echo "gunzip result: '$(cat /tmp/gzresult.txt)'"
+
+          check_out_of_space "compressed image"
+
           do_cleanup
           StartProgress countdown "Normal startup in 30s... " 30 "NOW"
           return 0
@@ -760,7 +797,7 @@
             else
               StopProgress "FAILED"
               MD5_FAILED="1"
-	    fi
+            fi
 
           StartProgress spinner "Checking ${UPDATE_SYSTEM}.md5... "
             if md5sum -sc "$UPDATE_ROOT/${UPDATE_SYSTEM}.check.md5"; then
