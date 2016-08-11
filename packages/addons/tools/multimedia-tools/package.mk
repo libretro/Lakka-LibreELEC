@@ -18,7 +18,7 @@
 
 PKG_NAME="multimedia-tools"
 PKG_VERSION=""
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of multimedia tools and programs"
-PKG_LONGDESC="This bundle currently includes mediainfo, mesa-demos, mpg123, opencaster, squeezelite, tsdecrypt and tstools."
+PKG_LONGDESC="This bundle currently includes alsamixer, mediainfo, mesa-demos, mpg123, opencaster, squeezelite, tsdecrypt and tstools."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Multimedia Tools"
@@ -38,6 +38,7 @@ PKG_ADDON_REPOVERSION="8.0"
 PKG_AUTORECONF="no"
 
 PKG_DEPENDS_TARGET="toolchain \
+                    alsa-utils \
                     mediainfo \
                     mesa-demos \
                     mpg123 \
@@ -48,6 +49,9 @@ PKG_DEPENDS_TARGET="toolchain \
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    # alsamixer
+    cp -P $(get_build_dir alsa-utils)/.$TARGET_NAME/alsamixer/alsamixer $ADDON_BUILD/$PKG_ADDON_ID/bin/
+
     # mediainfo
     cp -P $(get_build_dir mediainfo)/Project/GNU/CLI/mediainfo $ADDON_BUILD/$PKG_ADDON_ID/bin
 
