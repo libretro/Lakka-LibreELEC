@@ -18,7 +18,7 @@
 
 PKG_NAME="sapphire"
 PKG_VERSION="6.6"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://libreelec.tv"
