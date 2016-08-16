@@ -1,6 +1,6 @@
 PKG_NAME="webgrabplus"
-PKG_VERSION="56.28pre-20160729"
-PKG_REV="101"
+PKG_VERSION="56.29pre-20160807"
+PKG_REV="102"
 PKG_ARCH="arm x86_64"
 PKG_LICENSE="prop."
 PKG_SITE="http://www.webgrabplus.com/"
