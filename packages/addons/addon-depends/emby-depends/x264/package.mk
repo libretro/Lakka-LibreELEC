@@ -16,25 +16,38 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="imagemagick"
-PKG_VERSION="6.9.5-4"
+PKG_NAME="x264"
+PKG_VERSION="snapshot-20160623-2245"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="http://www.imagemagick.org/script/license.php"
-PKG_SITE="http://www.imagemagick.org/"
-PKG_URL="http://www.imagemagick.org/download/releases/ImageMagick-$PKG_VERSION.tar.xz"
-PKG_SOURCE_DIR="ImageMagick-$PKG_VERSION"
-PKG_DEPENDS_TARGET="toolchain libX11"
+PKG_LICENSE="GPL"
+PKG_SITE="http://www.videolan.org/developers/x264.html"
+PKG_URL="ftp://ftp.videolan.org/pub/videolan/x264/snapshots/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="graphics"
-PKG_SHORTDESC="ImageMagick"
-PKG_LONGDESC="Software suite to create, edit, compose, or convert bitmap images"
+PKG_SECTION="multimedia"
+PKG_SHORTDESC="x264"
+PKG_LONGDESC="x264"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-                           --enable-shared \
-                           --with-quantum-depth=8 \
-                           --enable-hdri=no \
-                           --disable-openmp"
+pre_configure_target() {
+  cd $ROOT/$PKG_BUILD
+  rm -rf .$TARGET_NAME
+}
+
+configure_target() {
+  ./configure \
+    --prefix="/usr" \
+    --extra-cflags="$CFLAGS" \
+    --extra-ldflags="$LDFLAGS" \
+    --disable-cli \
+    --enable-static \
+    --enable-strip \
+    --disable-asm \
+    --enable-pic \
+    --host="$TARGET_NAME" \
+    --cross-prefix="$TARGET_PREFIX" \
+    --sysroot="$SYSROOT_PREFIX"
+}
