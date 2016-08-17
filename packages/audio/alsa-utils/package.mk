@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"
 PKG_URL="ftp://ftp.alsa-project.org/pub/utils/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain alsa-lib"
+PKG_DEPENDS_TARGET="toolchain alsa-lib netbsd-curses"
 PKG_PRIORITY="optional"
 PKG_SECTION="audio"
 PKG_SHORTDESC="alsa-utils: Advanced Linux Sound Architecture utilities"
@@ -35,7 +35,6 @@ PKG_AUTORECONF="yes"
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-xmlto \
-                           --disable-alsamixer \
                            --disable-alsaconf \
                            --disable-alsaloop \
                            --enable-alsatest \
@@ -53,7 +52,7 @@ post_makeinstall_target() {
 # so we avoid resetting our soundconfig
   rm -rf $INSTALL/usr/lib/udev/rules.d/90-alsa-restore.rules
 
-  for i in aconnect alsaucm amidi aplaymidi arecord arecordmidi aseqdump aseqnet iecset; do
+  for i in aconnect alsamixer alsaucm amidi aplaymidi arecord arecordmidi aseqdump aseqnet iecset; do
     rm -rf $INSTALL/usr/bin/$i
   done
 
