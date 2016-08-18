@@ -34,6 +34,11 @@ IS_MIRROR=yes
 VERBOSE=0
 WORKER_THREADS=32
 
+LOCKFILE=/tmp/distro_tool.lock
+WORKFILES_I=/tmp/distro_tool.in
+WORKFILES_O=/tmp/distro_tool.out
+WORKER_MAX=${WORKER_MAX:-$(grep "^processor[[:space:]]*:" /proc/cpuinfo | wc -l)}
+
 # Source in GIT_USERNAME and GIT_PASSWORD to avoid API limitations
 [ -f ~/.git.conf ] && source ~/.git.conf
 
@@ -489,10 +494,10 @@ class MyThread(threading.Thread):
           MyUtility.show(msgs, 1, "green", "Already downloaded", "%s (%s)" % (pkg_name, pkg_source_name))
         else:
           tStart = datetime.datetime.now()
-          if not IGNORE_ERRORS and \
-             not stopped.is_set() and \
+          if not stopped.is_set() and \
              not MyUtility.get_package(msgs, pkg_name, pkg_source_name, pkg_url):
-             stopped.set()
+             if not IGNORE_ERRORS:
+               stopped.set()
           tDelta_get_package = datetime.datetime.now() - tStart
 
         if CHECK_NEWER and not stopped.is_set():
@@ -528,7 +533,7 @@ def main():
   input_queue = Queue.Queue()
   output_queue = Queue.Queue()
 
-  for item in json.loads("".join(data)):
+  for item in sorted(json.loads("".join(data)), key=lambda k: k["PKG_NAME"]):
     input_queue.put(item)
 
   pcount = 0
@@ -672,8 +677,9 @@ get_libreelec_option() {
 
 generate_work() {
   local package_name="$1" revision="$2"
-  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SECTION PKG_SOURCE_NAME"
-  local packages pcount c=0
+  local packages pcount
+  local workfile_o
+  local tcount=0
 
   [ ${PROGRESS} == yes ] && echo -en "Acquiring packages...\r" >&2
 
@@ -685,18 +691,66 @@ generate_work() {
     exit 1
   fi
 
+  rm -f ${WORKFILES_I}.* ${WORKFILES_O}.*
+
+  # Split packages across workers
+  tcount=0
+  for package_name in ${packages}; do
+    tcount=$((tcount + 1))
+    [ ${tcount} -gt ${WORKER_MAX} ] && tcount=1
+    echo "$package_name" >>$(printf "%s.%02d" "${WORKFILES_I}" ${tcount})
+  done
+
+  # Generate workload using multiple threads
+  init_progress
+
+  tcount=0
+  while [ : ]; do
+    tcount=$((tcount + 1))
+    [ ${tcount} -gt ${WORKER_MAX} ] && break
+    generate_work_worker ${pcount} ${tcount} ${revision} &
+  done
+  wait
+
+  end_progress
+
+  # Combine workloads
+  echo "["
+  tcount=0
+  while [ : ]; do
+    tcount=$((tcount + 1))
+    [ ${tcount} -gt ${WORKER_MAX} ] && break
+    workfile_o=$(printf "%s.%02d" "${WORKFILES_O}" ${tcount})
+    if [ -s ${workfile_o} ]; then
+      [ ${tcount} -ne 1 ] && echo ","
+      # Strip comma from line of file - not valid if this is the last file
+      sed '$ s/  },/  }/' ${workfile_o}
+    fi
+  done
+  echo "]"
+
+  # Clean up
+  rm -f ${WORKFILES_I}.* ${WORKFILES_O}.*
+}
+
+generate_work_worker() {
+  local pcount=$1 worker="$2" revision="$3"
+  local workfile_i="$(printf "%s.%02d" "${WORKFILES_I}" ${worker})"
+  local workfile_o="$(printf "%s.%02d" "${WORKFILES_O}" ${worker})"
+  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SECTION PKG_SOURCE_NAME"
+  local package_name var comma PKG_URL PKG_SOURCE_NAME PKG_VERSION
+
+  [ -f "${workfile_i}" ] || return 0
+
   (
     # Override exit function so that packages calling exit don't terminate this sub-shell
     exit() {
       :
     }
 
-    init_progress
-
     cd $LIBREELEC_DIR
 
-    echo "["
-    for package_name in ${packages}; do
+    while read -r package_name; do
       [ ${PROGRESS} == yes ] && progress ${pcount}
 
       source config/options ${package_name} 2>/dev/null || true
@@ -707,16 +761,13 @@ generate_work() {
         PKG_VERSION="${revision}"
       fi
 
-      echo "  {"
+      echo "  {" >>${workfile_o}
       for var in ${wanted_vars}; do
-        [ "${var}" != "PKG_SOURCE_NAME" ] && echo "    \"${var}\": \"${!var}\"," || echo "    \"${var}\": \"${!var}\""
+        [ "${var}" != "PKG_SOURCE_NAME" ] && comma="," || comma=
+        echo "    \"${var}\": \"${!var}\"${comma}" >>${workfile_o}
       done
-      c=$((c+1))
-      [ ${c} -lt ${pcount} ] && echo "  }," || echo "  }"
-    done
-    echo "]"
-
-    end_progress
+      echo "  }," >>${workfile_o}
+    done < ${workfile_i}
   )
 }
 
@@ -756,15 +807,21 @@ get_packages() {
 }
 
 init_progress() {
-  PCOUNT=0
+  echo 0 > ${LOCKFILE}
 }
 
 progress() {
-  PCOUNT=$((PCOUNT + 1))
-  printf "Generating workload... %3d%%\r" $((PCOUNT * 100 / $1)) >&2
+  local count
+  (
+    flock -x 9
+    count=$(($(cat ${LOCKFILE}) + 1))
+    echo "${count}" >${LOCKFILE}
+    printf "Generating workload... %3d%% (%d of %d)\r" $((count * 100 / $1)) ${count} $1 >&2
+  ) 9< "${LOCKFILE}"
 }
 
 end_progress() {
+  rm -f ${LOCKFILE}
   printf "\033[K\r" >&2
 }
 
