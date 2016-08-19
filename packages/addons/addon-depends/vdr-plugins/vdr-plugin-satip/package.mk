@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vdr-plugin-satip"
-PKG_VERSION="7815821"
+PKG_VERSION="db0c18b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
