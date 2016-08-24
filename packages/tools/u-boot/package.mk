@@ -27,7 +27,7 @@ elif [ "$UBOOT_VERSION" = "hardkernel" ]; then
   PKG_VERSION="83bf8f0"
   PKG_SITE="https://github.com/hardkernel/u-boot"
   PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-none-elf:host"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
 else
   exit 0
 fi
@@ -67,10 +67,10 @@ make_target() {
 
   for UBOOT_TARGET in $UBOOT_CONFIG; do
     if [ "$PROJECT" = "Odroid_C2" ]; then
-      export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-none-elf/bin/:$PATH
-      make CROSS_COMPILE=aarch64-none-elf- ARCH=arm mrproper
-      make CROSS_COMPILE=aarch64-none-elf- ARCH=arm $UBOOT_TARGET
-      make CROSS_COMPILE=aarch64-none-elf- ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
+      export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
+      make CROSS_COMPILE=aarch64-elf- ARCH=arm mrproper
+      make CROSS_COMPILE=aarch64-elf- ARCH=arm $UBOOT_TARGET
+      make CROSS_COMPILE=aarch64-elf- ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
     else
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm mrproper
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm $UBOOT_TARGET

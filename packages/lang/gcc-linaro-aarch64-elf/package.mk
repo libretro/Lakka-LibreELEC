@@ -16,14 +16,14 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="gcc-linaro-aarch64-none-elf"
-PKG_VERSION="4.9-2014.11-x86_64"
+PKG_NAME="gcc-linaro-aarch64-elf"
+PKG_VERSION="4.9-2016.02"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
-PKG_URL="https://releases.linaro.org/14.11/components/toolchain/binaries/aarch64-none-elf/gcc-linaro-${PKG_VERSION}_aarch64-elf.tar.xz"
-PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}_aarch64-elf"
+PKG_URL="https://releases.linaro.org/components/toolchain/binaries/${PKG_VERSION}/aarch64-elf/gcc-linaro-${PKG_VERSION}-x86_64_aarch64-elf.tar.xz"
+PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_aarch64-elf"
 PKG_DEPENDS_HOST="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="lang"
@@ -38,6 +38,6 @@ make_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-none-elf/
-    cp -a * $ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-none-elf
+  mkdir -p $ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/
+    cp -a * $ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf
 }
