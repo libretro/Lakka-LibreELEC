@@ -129,8 +129,7 @@ makeinstall_target() {
   case $PROJECT in
     Odroid_C2)
       cp -PRv $PKG_DIR/scripts/update-c2.sh $INSTALL/usr/share/bootloader/update.sh
-      cp -PRv $ROOT/$PKG_BUILD/sd_fuse/bl1.bin.hardkernel $INSTALL/usr/share/bootloader/bl1
-      cp -PRv $ROOT/$PKG_BUILD/sd_fuse/u-boot.bin $INSTALL/usr/share/bootloader/u-boot
+      cp -PRv $ROOT/$PKG_BUILD/u-boot.bin $INSTALL/usr/share/bootloader/u-boot
       ;;
     imx6)
       cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
