@@ -44,6 +44,11 @@ fi
     fi
   done
 
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz ]; then
+  echo "*** updating boot logo ..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz $BOOT_ROOT
+fi
+
 echo "*** updating u-boot for Odroid on: $BOOT_DISK ..."
 
 dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=1 count=112
