@@ -18,14 +18,14 @@
 
 PKG_NAME="spotify-connect-web"
 PKG_VERSION="0.0.3-alpha"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="arm"
 PKG_ADDON_PROJECTS="RPi2 WeTek_Core WeTek_Play"
 PKG_LICENSE="prop."
 PKG_SITE="https://github.com/Fornoth/spotify-connect-web"
 PKG_URL="https://github.com/Fornoth/spotify-connect-web/releases/download/$PKG_VERSION/${PKG_NAME}_$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="spotify-connect-web"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain avahi"
 PKG_PRIORITY="optional"
 PKG_SECTION="service"
 PKG_SHORTDESC="Spotify Connect Web: play Spotify through LibreELEC"
@@ -47,7 +47,11 @@ makeinstall_target() {
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+  cp -P $(get_build_dir avahi)/avahi-utils/.libs/avahi-publish \
+        $ADDON_BUILD/$PKG_ADDON_ID/bin/
+
   cp -PR $PKG_BUILD/* $ADDON_BUILD/$PKG_ADDON_ID/
   rm $ADDON_BUILD/$PKG_ADDON_ID/libasound.so.2
 }
