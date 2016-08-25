@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="emby"
-PKG_VERSION="3.0.6030"
-PKG_REV="102"
-PKG_ARCH="arm x86_64"
+PKG_VERSION="3.0.6070"
+PKG_REV="103"
+PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
 PKG_URL="https://github.com/MediaBrowser/Emby/releases/download/$PKG_VERSION/Emby.Mono.zip"
@@ -51,7 +51,11 @@ makeinstall_target() {
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
-  unzip -q $ROOT/$SOURCES/$PKG_NAME/$PKG_SOURCE_NAME -d $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
+  unzip -q $ROOT/$SOURCES/$PKG_NAME/$PKG_SOURCE_NAME \
+        -d $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
+
+  sed -i 's/libsqlite3.so/libsqlite3.so.0/g' \
+      $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono/System.Data.SQLite.dll.config
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -L $(get_build_dir ffmpegx)/.install_pkg/usr/local/bin/ffmpegx  \

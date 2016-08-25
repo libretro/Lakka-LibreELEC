@@ -1,7 +1,7 @@
 PKG_NAME="webgrabplus"
 PKG_VERSION="56.29pre-20160807"
 PKG_REV="102"
-PKG_ARCH="arm x86_64"
+PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="http://www.webgrabplus.com/"
 PKG_URL="https://github.com/awiouy/webgrabplus/archive/$PKG_VERSION.tar.gz"
