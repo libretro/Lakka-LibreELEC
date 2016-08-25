@@ -44,11 +44,15 @@ fi
     fi
   done
 
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz ]; then
+  echo "*** updating boot logo ..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot-logo.bmp.gz $BOOT_ROOT
+fi
+
 echo "*** updating u-boot for Odroid on: $BOOT_DISK ..."
 
-dd if=$SYSTEM_ROOT/usr/share/bootloader/bl1 of=$BOOT_DISK conv=fsync bs=1 count=442
-dd if=$SYSTEM_ROOT/usr/share/bootloader/bl1 of=$BOOT_DISK conv=fsync bs=512 seek=1 skip=1
-dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=512 seek=97
+dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=1 count=112
+dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot of=$BOOT_DISK conv=fsync bs=512 skip=1 seek=1
 
 # monkey patch boot.ini for updated kernel
   sed -i '/setenv bootcmd "${kernel}; ${dtb}; ${bootseq}"/i \setenv timer   "fdt addr 0x1000000; fdt rm /timer"' /flash/boot.ini

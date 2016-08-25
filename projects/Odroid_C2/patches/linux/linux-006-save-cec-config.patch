@@ -1,0 +1,85 @@
+diff --git a/drivers/amlogic/cec/hdmi_ao_cec.c b/drivers/amlogic/cec/hdmi_ao_cec.c
+index 21ca8bb..9f4686f 100644
+--- a/drivers/amlogic/cec/hdmi_ao_cec.c
++++ b/drivers/amlogic/cec/hdmi_ao_cec.c
+@@ -225,14 +225,13 @@ unsigned int aocec_rd_reg(unsigned long addr)
+ {
+     unsigned int data32;
+     unsigned long flags;
+-    waiting_aocec_free();
+     spin_lock_irqsave(&cec_dev->cec_reg_lock, flags);
++    waiting_aocec_free();
+     data32 = 0;
+     data32 |= 0 << 16; /* [16]   cec_reg_wr */
+     data32 |= 0 << 8; /* [15:8]   cec_reg_wrdata */
+-    data32 |= addr << 0; /* [7:0]   cec_reg_addr */
++    data32 |= (addr & 0xff) << 0; /* [7:0]   cec_reg_addr */
+     writel(data32, cec_dev->cec_reg + AO_CEC_RW_REG);
+-
+     waiting_aocec_free();
+     data32 = ((readl(cec_dev->cec_reg + AO_CEC_RW_REG)) >> 24) & 0xff;
+     spin_unlock_irqrestore(&cec_dev->cec_reg_lock, flags);
+@@ -241,15 +240,16 @@ unsigned int aocec_rd_reg(unsigned long addr)
+ 
+ void aocec_wr_reg(unsigned long addr, unsigned long data)
+ {
+-    unsigned long data32;
++    unsigned int data32;
+     unsigned long flags;
+-    waiting_aocec_free();
+     spin_lock_irqsave(&cec_dev->cec_reg_lock, flags);
++    waiting_aocec_free();
+     data32 = 0;
+     data32 |= 1 << 16; /* [16]   cec_reg_wr */
+-    data32 |= data << 8; /* [15:8]   cec_reg_wrdata */
+-    data32 |= addr << 0; /* [7:0]   cec_reg_addr */
++    data32 |= (data & 0xff) << 8; /* [15:8]   cec_reg_wrdata */
++    data32 |= (addr & 0xff) << 0; /* [7:0]   cec_reg_addr */
+     writel(data32, cec_dev->cec_reg + AO_CEC_RW_REG);
++    waiting_aocec_free();
+     spin_unlock_irqrestore(&cec_dev->cec_reg_lock, flags);
+ } /* aocec_wr_only_reg */
+ 
+@@ -737,6 +737,8 @@ static void cec_pre_init(void)
+ {
+     ao_cec_init();
+ 
++    cec_config(cec_dev->tx_dev->cec_func_config, 1);
++
+     cec_arbit_bit_time_set(3, 0x118, 0);
+     cec_arbit_bit_time_set(5, 0x000, 0);
+     cec_arbit_bit_time_set(7, 0x2aa, 0);
+@@ -1452,8 +1454,6 @@ static int hdmitx_cec_open(struct inode *inode, struct file *file)
+     cec_dev->cec_info.open_count++;
+     if (cec_dev->cec_info.open_count) {
+         cec_dev->cec_info.hal_ctl = 1;
+-        /* enable all cec features */
+-        cec_config(0x2f, 1);
+     }
+     return 0;
+ }
+@@ -1463,8 +1463,6 @@ static int hdmitx_cec_release(struct inode *inode, struct file *file)
+     cec_dev->cec_info.open_count--;
+     if (!cec_dev->cec_info.open_count) {
+         cec_dev->cec_info.hal_ctl = 0;
+-        /* disable all cec features */
+-        cec_config(0x0, 1);
+     }
+     return 0;
+ }
+diff --git a/drivers/amlogic/hdmi/hdmi_tx_20/hdmi_tx_main.c b/drivers/amlogic/hdmi/hdmi_tx_20/hdmi_tx_main.c
+index 57105b6..0a7f914 100644
+--- a/drivers/amlogic/hdmi/hdmi_tx_20/hdmi_tx_main.c
++++ b/drivers/amlogic/hdmi/hdmi_tx_20/hdmi_tx_main.c
+@@ -2467,9 +2467,9 @@ static  int __init hdmitx_boot_para_setup(char *s)
+ 			init_flag |= INIT_FLAG_NOT_LOAD;
+ 		} else if (strncmp(token, "cec", 3) == 0) {
+ 			ret = kstrtoul(token+3, 16, &list);
+-			if ((list >= 0) && (list <= 0x2f))
++			if ((list >= 0) && (list <= 0xff))
+ 				hdmitx_device.cec_func_config = list;
+-			hdmi_print(INF, CEC "HDMI hdmi_cec_func_config:0x%x\n",
++			hdmi_print(IMP, CEC "HDMI hdmi_cec_func_config:0x%x\n",
+ 				   hdmitx_device.cec_func_config);
+ 		} else if (strcmp(token, "forcergb") == 0) {
+ 			hdmitx_output_rgb();
