@@ -61,6 +61,10 @@
 
   LIVE="no"
 
+  # Get a serial number if present (eg. RPi) otherwise use MAC address from eth0
+  MACHINE_UID="$(cat /proc/cpuinfo | awk '/^Serial/{s=$3; gsub ("^0*","",s); print s}')"
+  [ -z "$MACHINE_UID" ] && MACHINE_UID="$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d :)"
+
   # hide kernel log messages on console
   echo '1 4 1 7' > /proc/sys/kernel/printk
 
@@ -338,6 +342,10 @@
         error "mount_part" "Unknown filesystem $1"
         ;;
     esac
+
+    # Substitute unique identifier if available or remove placeholder
+    MOUNT_TARGET="${MOUNT_TARGET//@UID@/$MACHINE_UID}"
+
     $MOUNT_CMD "$MOUNT_TARGET" "$2" "$3" "$4"
   }
 
@@ -898,6 +906,8 @@
   if [ "${boot%%=*}" = "FILE" ]; then
     error "check arguments" "boot argument can't be FILE type..."
   fi
+
+  debug_msg "Unique identifier for this client: ${MACHINE_UID:-NOT AVAILABLE}"
 
   # main boot sequence
   for BOOT_STEP in \
