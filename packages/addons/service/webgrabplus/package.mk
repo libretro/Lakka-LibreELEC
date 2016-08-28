@@ -1,6 +1,6 @@
 PKG_NAME="webgrabplus"
-PKG_VERSION="56.29pre-20160807"
-PKG_REV="102"
+PKG_VERSION="56.29pre-20160807-mdb"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="http://www.webgrabplus.com/"
