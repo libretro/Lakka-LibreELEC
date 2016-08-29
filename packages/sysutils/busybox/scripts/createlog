@@ -27,7 +27,7 @@ RELEASE="`cat /etc/release`"
 GIT="`cat /etc/issue |grep git`"
 
 getlog_cmd() {
-  if which $1 >/dev/null; then
+  if command -v $1 >/dev/null; then
     echo "################################################################################" >> $BASEDIR/$LOGDIR/$LOGFILE
     echo "# ... output of $@" >> $BASEDIR/$LOGDIR/$LOGFILE
     echo "# LibreELEC release: $RELEASE" >> $BASEDIR/$LOGDIR/$LOGFILE
@@ -36,6 +36,38 @@ getlog_cmd() {
     $@ >> $BASEDIR/$LOGDIR/$LOGFILE 2>/dev/null
     echo "" >> $BASEDIR/$LOGDIR/$LOGFILE
   fi
+}
+
+get_governor_details() {
+  (
+    cat_all_files /sys/devices/system/cpu
+    cat_all_files /sys/devices/system/cpu/cpufreq
+    for cpun in /sys/devices/system/cpu/cpu[0-9]*; do
+      cat_all_files ${cpun}/cpufreq
+    done
+  )
+}
+
+cat_all_files() {
+  local adir=$1
+  local afile var
+
+  [ -d ${adir} ] || return 0
+
+  echo "${adir}"
+
+  cd ${adir}
+  for afile in $(find . -maxdepth 1 -print | sort); do
+    afile=${afile:2}
+    if [ -n "${afile}" ]; then
+      if [ -d ${afile} ]; then
+        var="<dir>"
+      else
+        var="$(cat ${afile} 2>/dev/null)"
+      fi
+      [ -n "${var}" ] && printf "    %-30s : %s\n" "${afile}" "${var}"
+    fi
+  done
 }
 
 rm -rf $BASEDIR/$LOGDIR
@@ -84,6 +116,7 @@ mkdir -p $BASEDIR/$LOGDIR
   getlog_cmd lsusb -vvv
   getlog_cmd lsusb -t
   getlog_cmd cat /proc/cpuinfo
+  getlog_cmd get_governor_details
   getlog_cmd cat /proc/meminfo
 
 # Audio.log
