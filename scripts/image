@@ -203,28 +203,6 @@ if [ -d "$PROJECT_DIR/$PROJECT/filesystem" ]; then
   done
 fi
 
-# copy vendor related files to filesystem
-if [ -d "$HOME/.libreelec/filesystem" ]; then
-  cp -PR $HOME/.libreelec/filesystem/* $INSTALL
-  # install project specific systemd services
-  for service in $HOME/.libreelec/filesystem/usr/lib/systemd/system/*.service ; do
-    if [ -f "$service" ] ; then
-      enable_service $(basename $service)
-    fi
-  done
-fi
-
-# copy vendor project related files to filesystem
-if [ -d "$HOME/.libreelec/projects/$PROJECT/filesystem" ]; then
-  cp -PR $HOME/.libreelec/projects/$PROJECT/filesystem/* $INSTALL
-  # install project specific systemd services
-  for service in $HOME/.libreelec/projects/$PROJECT/filesystem/usr/lib/systemd/system/*.service ; do
-    if [ -f "$service" ] ; then
-      enable_service $(basename $service)
-    fi
-  done
-fi
-
 # run depmod
 MODVER=$(basename $(ls -d $INSTALL/lib/modules/*))
 find $INSTALL/lib/modules/$MODVER/ -name *.ko | \
@@ -274,20 +252,12 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
 
   # create release dir
   mkdir -p $RELEASE_DIR
-    
+
   # remove n previous created release image
   rm -rf $TARGET_IMG/$IMAGE_NAME.img.gz
   if [ -n "$BOOTLOADER" ]; then
 
     BOOTLOADER_DIR=""
-    if [ -z "$BOOTLOADER_DIR" -a -d $HOME/.openelec/projects/$PROJECT/packages ]; then
-      BOOTLOADER_DIR=`find $HOME/.openelec/projects/$PROJECT/packages -type d -name $BOOTLOADER 2>/dev/null`
-    fi
-
-    if [ -z "$BOOTLOADER_DIR" -a -d $HOME/.openelec/packages ]; then
-      BOOTLOADER_DIR=`find $HOME/.openelec/packages -type d -name $BOOTLOADER 2>/dev/null`
-    fi
-
     if [ -z "$BOOTLOADER_DIR" -a -d $PROJECT_DIR/$PROJECT/packages ]; then
       BOOTLOADER_DIR=`find $PROJECT_DIR/$PROJECT/packages -type d -name $BOOTLOADER 2>/dev/null`
     fi
@@ -300,11 +270,7 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       cp -R $BOOTLOADER_DIR/files/* $RELEASE_DIR
     fi
 
-    if [ -f $HOME/.openelec/projects/$PROJECT/bootloader/release ]; then
-      . $HOME/.openelec/projects/$PROJECT/bootloader/release
-    elif [ -f $HOME/.openelec/bootloader/release ]; then
-      . $HOME/.openelec/bootloader/release
-    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/release ]; then
+    if [ -f $PROJECT_DIR/$PROJECT/bootloader/release ]; then
       . $PROJECT_DIR/$PROJECT/bootloader/release
     elif [ -f "$BOOTLOADER_DIR"/release ]; then
       . $BOOTLOADER_DIR/release
@@ -434,11 +400,11 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
     # create the auto-install package
     echo "Creating Amlogic ZIP auto-install package"
     pushd sign > /dev/null
-    echo --update_package=/sdcard/$IMAGE_NAME-update.zip > factory_update_param.aml        
+    echo --update_package=/sdcard/$IMAGE_NAME-update.zip > factory_update_param.aml
     if [ -f "$INSTALL_SRC_DIR/files/recovery.img" ]; then
       cp $INSTALL_SRC_DIR/files/recovery.img .
     fi
-        
+
     if [ -f $INSTALL_SRC_DIR/files/aml_autoscript ]; then
       cp $INSTALL_SRC_DIR/files/aml_autoscript .
     fi
@@ -449,10 +415,10 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
     fi
 
     zip -q $TARGET_IMG/$IMAGE_NAME.zip *
-    
+
     popd > /dev/null
     popd > /dev/null
-    
+
   elif [ "$1" = "noobs" ]; then
     RELEASE_DIR="$TARGET_IMG/${IMAGE_NAME}-$1"
 
