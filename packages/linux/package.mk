@@ -30,6 +30,10 @@ PKG_SECTION="linux"
 PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and modules"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 case "$LINUX" in
+  linux-odroidxu3)
+    PKG_VERSION="533ce55"
+    PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+    ;;
   hardkernel)
     PKG_VERSION="365fa20"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"

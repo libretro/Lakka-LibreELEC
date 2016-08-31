@@ -1,0 +1,97 @@
+From 1f73d0a7f776ce08c7ae8c006ab3837a222f990c Mon Sep 17 00:00:00 2001
+From: Hans-Kristian Arntzen <maister@archlinux.us>
+Date: Sun, 7 Aug 2016 14:52:13 +0200
+Subject: [PATCH] Improve stability of XMB ribbon over time.
+
+---
+ gfx/drivers/gl_shaders/pipeline_xmb_ribbon.glsl.frag.h        | 2 +-
+ gfx/drivers/gl_shaders/pipeline_xmb_ribbon_simple.glsl.frag.h | 2 +-
+ gfx/drivers/gl_shaders/shaders_common.h                       | 2 ++
+ menu/drivers_display/menu_display_d3d.cpp                     | 3 +++
+ menu/drivers_display/menu_display_gl.c                        | 4 ++++
+ menu/drivers_display/menu_display_vulkan.c                    | 3 +++
+ 6 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/gfx/drivers/gl_shaders/pipeline_xmb_ribbon.glsl.frag.h b/gfx/drivers/gl_shaders/pipeline_xmb_ribbon.glsl.frag.h
+index 9be4a46..f523383 100644
+--- a/gfx/drivers/gl_shaders/pipeline_xmb_ribbon.glsl.frag.h
++++ b/gfx/drivers/gl_shaders/pipeline_xmb_ribbon.glsl.frag.h
+@@ -1,6 +1,6 @@
+ #include "shaders_common.h"
+ 
+-static const char *stock_fragment_xmb = GLSL(
++static const char *stock_fragment_xmb = GLSL_HIGHP(
+    uniform float time;
+    varying vec3 fragVertexEc;
+    vec3 up = vec3(0, 0, 1);
+diff --git a/gfx/drivers/gl_shaders/pipeline_xmb_ribbon_simple.glsl.frag.h b/gfx/drivers/gl_shaders/pipeline_xmb_ribbon_simple.glsl.frag.h
+index ba7df06..9968805 100644
+--- a/gfx/drivers/gl_shaders/pipeline_xmb_ribbon_simple.glsl.frag.h
++++ b/gfx/drivers/gl_shaders/pipeline_xmb_ribbon_simple.glsl.frag.h
+@@ -1,6 +1,6 @@
+ #include "shaders_common.h"
+ 
+-static const char *stock_fragment_xmb_simple = GLSL(
++static const char *stock_fragment_xmb_simple = GLSL_HIGHP(
+    uniform float time;
+ 
+    void main()
+diff --git a/gfx/drivers/gl_shaders/shaders_common.h b/gfx/drivers/gl_shaders/shaders_common.h
+index ce09b6e..ca7f37e 100644
+--- a/gfx/drivers/gl_shaders/shaders_common.h
++++ b/gfx/drivers/gl_shaders/shaders_common.h
+@@ -5,9 +5,11 @@
+ #define CG(src)   "" #src
+ #define GLSL(src) "precision mediump float;\n" #src
+ #define GLSL_330(src)   "#version 330 es\nprecision mediump float;\n"   #src
++#define GLSL_HIGHP(src) "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n" #src
+ #else
+ #define CG(src)   "" #src
+ #define GLSL(src) "" #src
++#define GLSL_HIGHP(src) "" #src
+ #define GLSL_300(src)   "#version 300 es\n"   #src
+ #define GLSL_330(src)   "#version 330 core\n"   #src
+ #endif
+diff --git a/menu/drivers_display/menu_display_d3d.cpp b/menu/drivers_display/menu_display_d3d.cpp
+index efdd1b6..77d8d46 100644
+--- a/menu/drivers_display/menu_display_d3d.cpp
++++ b/menu/drivers_display/menu_display_d3d.cpp
+@@ -204,6 +204,9 @@ static void menu_display_d3d_draw_pipeline(void *data)
+          video_shader_driver_use(&shader_info);
+ 
+          t += 0.01;
++         /* Wrap to avoid unstable FP math */
++         if (t > 50.0)
++            t -= 50.0;
+ 
+          uniform_param.enabled           = true;
+          uniform_param.lookup.enable     = true;
+diff --git a/menu/drivers_display/menu_display_gl.c b/menu/drivers_display/menu_display_gl.c
+index cffc287..ba5058d 100644
+--- a/menu/drivers_display/menu_display_gl.c
++++ b/menu/drivers_display/menu_display_gl.c
+@@ -179,6 +179,10 @@ static void menu_display_gl_draw_pipeline(void *data)
+ 
+          t += 0.01;
+ 
++         /* Wrap to avoid unstable FP math */
++         if (t > 50.0)
++            t -= 50.0;
++
+          uniform_param.enabled           = true;
+          uniform_param.lookup.enable     = true;
+          uniform_param.lookup.add_prefix = true;
+diff --git a/menu/drivers_display/menu_display_vulkan.c b/menu/drivers_display/menu_display_vulkan.c
+index 04dfc8e..01822ac 100644
+--- a/menu/drivers_display/menu_display_vulkan.c
++++ b/menu/drivers_display/menu_display_vulkan.c
+@@ -112,6 +112,9 @@ static void menu_display_vk_draw_pipeline(void *data)
+    draw->pipeline.backend_data = &t;
+ 
+    t += 0.01;
++   /* Wrap to avoid unstable FP math */
++   if (t > 50.0)
++      t -= 50.0;
+ #endif
+ }
+ 
