@@ -126,7 +126,7 @@ if [ "$BOOTLOADER" = "syslinux" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
     cat << EOF > "$OE_TMP"/syslinux.cfg
-SAY Press <TAB> to edit options
+SAY Press <TAB> to edit options (installer, live, run)
 DEFAULT installer
 TIMEOUT 50
 PROMPT 1
@@ -138,6 +138,10 @@ LABEL installer
 LABEL live
   KERNEL /$KERNEL_NAME
   APPEND boot=UUID=$UUID_SYSTEM live quiet tty vga=current
+
+LABEL run
+  KERNEL /$KERNEL_NAME
+  APPEND boot=UUID=$UUID_SYSTEM disk=UUID=$UUID_STORAGE portable quiet
 EOF
 
   if [ "$PROJECT" = Virtual ]; then
@@ -277,14 +281,12 @@ fi # bootloader
   sync
 
 # add resize mark
-  if [ "$BOOTLOADER" != "syslinux" -o "$PROJECT" = Virtual ]; then
-    mkdir "$OE_TMP/part2.fs"
-    touch "$OE_TMP/part2.fs/.please_resize_me"
-    echo "image: populating filesystem on part2..."
-    populatefs -U -d "$OE_TMP/part2.fs" "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
-    sync
-    e2fsck -n "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
-  fi
+  mkdir "$OE_TMP/part2.fs"
+  touch "$OE_TMP/part2.fs/.please_resize_me"
+  echo "image: populating filesystem on part2..."
+  populatefs -U -d "$OE_TMP/part2.fs" "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
+  sync
+  e2fsck -n "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
 
 # merge part2 back to disk image
   echo "image: merging part2 back to image..."
