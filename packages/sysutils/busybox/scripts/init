@@ -167,7 +167,7 @@
 
   progress() {
     if test "$PROGRESS" = "yes"; then
-      echo "### $1 ###"
+      echo "### $1 ###" >&2
     fi
   }
 
@@ -186,7 +186,7 @@
   error() {
     # Display fatal error message
     # $1:action which caused error, $2:message
-    echo "*** Error in $BOOT_STEP: $1: $2 ***"
+    echo "*** Error in $BOOT_STEP: $1: $2 ***" >&2
     debug_shell
   }
 
@@ -347,6 +347,67 @@
     MOUNT_TARGET="${MOUNT_TARGET//@UID@/$MACHINE_UID}"
 
     $MOUNT_CMD "$MOUNT_TARGET" "$2" "$3" "$4"
+  }
+
+  # mount the specified SYSTEM file and output arch from /etc/os-release
+  get_project_arch() {
+    mount_part "$1" "/sysroot" "ro,loop"
+
+    if [ -f /sysroot/etc/os-release ]; then
+      . /sysroot/etc/os-release
+      echo "${LIBREELEC_ARCH:-${OPENELEC_ARCH}}"
+    fi
+
+    umount /sysroot
+  }
+
+  # If the project/arch of current matches the upgrade, then it is considered compatible.
+  # Otherwise, mount the upgrade SYSTEM partition and, if canupdate.sh is available,
+  # call the script to determine if the current upgrade file can be applied on to the
+  # current system - 0 means it is compatible, non-zero that it is not compatible.
+  is_compatible() {
+    local result=1
+
+    if [ "${2}" = "${3}" ]; then
+      result=0
+    else
+      mount_part "$1" "/sysroot" "ro,loop"
+
+      if [ -f /sysroot/usr/share/bootloader/canupdate.sh ]; then
+        sh /sysroot/usr/share/bootloader/canupdate.sh "${2}" "${3}" && result=0
+      fi
+
+      umount /sysroot
+    fi
+
+    return ${result}
+  }
+
+  # determine if the new SYSTEM file is compatible with the current SYSTEM file
+  check_is_compatible() {
+    local update_filename="${1}"
+    local old_system="${2}"
+    local new_system="${3}"
+    local old_project_arch="$(get_project_arch "${old_system}")"
+    local new_project_arch="$(get_project_arch "${new_system}")"
+
+    # If old or new project/arch isn't available then could be very old (pre-/etc/os-release) build - have to trust it
+    if [ -n "${old_project_arch}" -a -n "${new_project_arch}" ]; then
+      # If the old project/arch is not compatible with the new project/arch then abort...
+      if ! is_compatible "${new_system}" "${old_project_arch}" "${new_project_arch}"; then
+        echo ""
+        echo "ERROR: $(basename "${update_filename}") is not compatible with ${old_project_arch} hardware - update cancelled."
+        echo ""
+        echo "Current system: ${old_project_arch}"
+        echo "Update  system: ${new_project_arch}"
+        echo ""
+        echo "Create $UPDATE_ROOT/.nocompat to disable compatibility checks and risk a non-booting system."
+        echo ""
+        return 1
+      fi
+    fi
+
+    return 0
   }
 
   update_file() {
@@ -656,6 +717,7 @@
 
     rm -rf $UPDATE_ROOT/.tmp &>/dev/null
     rm -rf $UPDATE_ROOT/[0-9a-zA-Z]* &>/dev/null
+    rm -f  $UPDATE_ROOT/.nocheck $UPDATE_ROOT/.nocompat &>/dev/null
 
     sync
 
@@ -692,6 +754,7 @@
       TARRESULT="0"
 
       echo "Found new .tar archive"
+      UPDATE_FILENAME="$UPDATE_TAR"
       StartProgress spinner "Extracting contents of archive... "
         mkdir -p $UPDATE_DIR/.tmp &>/dev/null
         tar -xf "$UPDATE_TAR" -C $UPDATE_DIR/.tmp 1>/dev/null 2>/tmp/tarresult.txt || TARRESULT="1"
@@ -719,7 +782,7 @@
 
       if [ -f "$UPDATE_IMG_GZ" ]; then
         echo "Found new compressed image file"
-
+        UPDATE_FILENAME="$UPDATE_IMG_GZ"
         StartProgress spinner "Decompressing image file... "
           gunzip -d -c "$UPDATE_IMG_GZ" 1>$IMG_FILE 2>/tmp/gzresult.txt || GZRESULT="1"
           sync
@@ -737,6 +800,7 @@
         fi
       else
         echo "Found new image file"
+        UPDATE_FILENAME="$UPDATE_IMG"
         mv "$UPDATE_IMG" $IMG_FILE
       fi
 
@@ -777,6 +841,8 @@
       else
         UPDATE_KERNEL="@KERNEL_NAME@"
       fi
+    else
+      UPDATE_FILENAME="$UPDATE_DIR/$UPDATE_SYSTEM"
     fi
 
     sync
@@ -789,7 +855,7 @@
     fi
 
     # check md5 sums if .nocheck doesn't exist
-    if [ ! -f "$UPDATE_DIR/.nocheck" ]; then
+    if [ ! -f "$UPDATE_ROOT/.nocheck" ]; then
       if [ -f "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -a -f "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
         # *.md5 size-check
         if [ ! -s "$UPDATE_DIR/${UPDATE_KERNEL}.md5" -o ! -s "$UPDATE_DIR/${UPDATE_SYSTEM}.md5" ] ; then
@@ -828,6 +894,16 @@
       fi
     fi
 
+    # Verify that the new upgrade is compatible with the current system - this should avoid creating
+    # non-booting systems after (for example) an RPi tar is incorrectly applied to an RPi2 system.
+    if [ ! -f "$UPDATE_ROOT/.nocompat" ]; then
+      if ! check_is_compatible "$UPDATE_FILENAME" "/flash/$IMAGE_SYSTEM" "$UPDATE_DIR/$UPDATE_SYSTEM"; then
+        do_cleanup
+        StartProgress countdown "Normal startup in 60s... " 60 "NOW"
+        return 0
+      fi
+    fi
+
     # get sizes
     FLASH_FREE=$(df /flash/ | awk '/[0-9]%/{print $4}')
     FLASH_FREE=$(( $FLASH_FREE * 1024 ))
@@ -843,7 +919,7 @@
     NEW_KERNEL=$(stat -t "$UPDATE_DIR/$UPDATE_KERNEL" | awk '{print $2}')
     NEW_SYSTEM=$(stat -t "$UPDATE_DIR/$UPDATE_SYSTEM" | awk '{print $2}')
 
-    # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher then 5MB
+    # old KERNEL+SYSTEM+free space - new KERNEL+SYSTEM must be higher than 5MB
     # at least 5MB free after update
 
     TMP_SIZE=$(($OLD_KERNEL+$OLD_SYSTEM+$FLASH_FREE-$NEW_KERNEL-$NEW_SYSTEM))
