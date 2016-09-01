@@ -19,7 +19,7 @@
 PKG_NAME="xf86-video-intel"
 PKG_VERSION="b617f80"
 PKG_REV="1"
-PKG_ARCH="x86_64"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://intellinuxgraphics.org/"
 PKG_URL="https://cgit.freedesktop.org/xorg/driver/xf86-video-intel/snapshot/$PKG_VERSION.tar.xz"
