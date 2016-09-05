@@ -18,7 +18,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION=""
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of system tools and programs"
-PKG_LONGDESC="This bundle currently includes autossh, diffutils, dtach, efibootmgr, evtest, fdupes, file, getscancodes, hddtemp, hd-idle, hid_mapper, i2c-tools, jq, lm_sensors, lshw, mrxvt, mtpfs, p7zip, patch, pv, screen, strace, unrar and usb-modeswitch."
+PKG_LONGDESC="This bundle currently includes autossh, diffutils, dtach, efibootmgr, evtest, fdupes, file, getscancodes, hddtemp, hd-idle, hid_mapper, i2c-tools, inotify-tools, jq, lm_sensors, lshw, mc, mrxvt, mtpfs, p7zip, patch, pv, screen, strace, unrar and usb-modeswitch."
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="System Tools"
@@ -50,9 +50,11 @@ PKG_DEPENDS_TARGET="toolchain \
                     hd-idle \
                     hid_mapper \
                     i2c-tools \
+                    inotify-tools \
                     jq \
                     lm_sensors \
                     lshw \
+                    mc \
                     mrxvt \
                     mtpfs \
                     p7zip \
@@ -112,6 +114,10 @@ addon() {
     cp -P $(get_build_dir i2c-tools)/tools/i2cset $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir i2c-tools)/py-smbus/build/lib.linux-*/smbus.so $ADDON_BUILD/$PKG_ADDON_ID/lib
 
+    # inotify-tools
+    cp -P $(get_build_dir inotify-tools)/.$TARGET_NAME/src/inotifywait $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir inotify-tools)/.$TARGET_NAME/src/inotifywatch $ADDON_BUILD/$PKG_ADDON_ID/bin
+
     # jq
     cp -P $(get_build_dir jq)/.$TARGET_NAME/jq $ADDON_BUILD/$PKG_ADDON_ID/bin
 
@@ -120,6 +126,10 @@ addon() {
 
     # lshw
     cp -P $(get_build_dir lshw)/src/lshw $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # mc
+    cp -Pa $(get_build_dir mc)/.install_pkg/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
+    cp -Pa $(get_build_dir mc)/.install_pkg/storage/.kodi/addons/virtual.system-tools/* $ADDON_BUILD/$PKG_ADDON_ID
 
     # mrxvt
     cp -P $(get_build_dir mrxvt)/.$TARGET_NAME/src/mrxvt $ADDON_BUILD/$PKG_ADDON_ID/bin 2>/dev/null || :
