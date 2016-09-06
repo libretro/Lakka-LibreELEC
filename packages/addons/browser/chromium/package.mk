@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="50.0.2661.75"
-PKG_REV="103"
+PKG_VERSION="53.0.2785.92"
+PKG_REV="104"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
@@ -29,7 +29,7 @@ PKG_DEPENDS_TARGET="toolchain pciutils dbus libXcomposite libXcursor libXtst als
 PKG_PRIORITY="optional"
 PKG_SECTION="browser"
 PKG_SHORTDESC="Chromium Browser: the open-source web browser from Google"
-PKG_LONGDESC="Chromium Browser: the open-source web browser from Google"
+PKG_LONGDESC="Chromium Browser ($PKG_VERSION): the open-source web browser from Google"
 PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
@@ -45,6 +45,8 @@ pre_make_target() {
 
   # https://groups.google.com/a/chromium.org/d/topic/chromium-packagers/9JX1N2nf4PU/discussion
   touch chrome/test/data/webui/i18n_process_css_test.html
+
+  sed -i -e 's/@WIDEVINE_VERSION@/Pinkie Pie/' third_party/widevine/cdm/stub/widevine_cdm_version.h
 }
 
 make_target() {
