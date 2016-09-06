@@ -23,6 +23,7 @@ if [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
   PKG_SITE="http://imx.solid-run.com/wiki/index.php?title=Building_the_kernel_and_u-boot_for_the_CuBox-i_and_the_HummingBoard"
   # https://github.com/SolidRun/u-boot-imx6.git
   PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+  [ -n "$UBOOT_CONFIG_V2" ] && PKG_DEPENDS_TARGET="toolchain u-boot-v2"
 elif [ "$UBOOT_VERSION" = "hardkernel" ]; then
   PKG_VERSION="61f29bb"
   PKG_SITE="https://github.com/hardkernel/u-boot"
