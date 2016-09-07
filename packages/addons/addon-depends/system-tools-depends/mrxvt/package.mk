@@ -64,7 +64,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_setpgrp_void=no \
             --disable-use-fifo \
             --disable-greek \
             --disable-xim \
-            --disable-utempter"
+            --disable-utempter\
+            --with-term=xterm"
 
 makeinstall_target() {
   : # nop
