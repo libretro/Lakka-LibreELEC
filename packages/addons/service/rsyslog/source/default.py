@@ -20,6 +20,7 @@ import subprocess
 import xbmc
 import xbmcaddon
 
+ADDON = xbmcaddon.Addon()
 
 class Monitor(xbmc.Monitor):
 
@@ -32,4 +33,12 @@ class Monitor(xbmc.Monitor):
 
 
 if __name__ == "__main__":
+
+   if ADDON.getSetting('RSYSLOG_WIZARD') == 'true':
+      try:
+         ADDON.openSettings(id)
+         ADDON.setSetting('RSYSLOG_WIZARD', 'false')
+      except:
+         pass
+
    Monitor().waitForAbort()
