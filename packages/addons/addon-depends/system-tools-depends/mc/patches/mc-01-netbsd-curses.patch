@@ -1,0 +1,50 @@
+From 38d4c655d322837574e957b4a824f4a0d1bb3b86 Mon Sep 17 00:00:00 2001
+From: rofl0r <retnyg@gmx.net>
+Date: Mon, 18 Jul 2016 22:19:56 +0100
+Subject: [PATCH] Ticket #3665: fix compatibility with netbsd curses.
+
+The code that manipulates the ncurses backend into changing
+the key combination to generate SIGINT from CTRL-c to CTRL-g does
+so by accessing undocumented internal ncurses data structures.
+This breaks compilation with netbsd-curses[0], and could also break
+when the ncurses author decides to change internal structures in a
+future release.
+
+Fix it by using a portable approach that works everywhere using libc
+primitives instead.
+
+[0] https://github.com/sabotage-linux/netbsd-curses
+
+Signed-off-by: Andrew Borodin <aborodin@vmail.ru>
+---
+ lib/tty/tty-ncurses.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/lib/tty/tty-ncurses.c b/lib/tty/tty-ncurses.c
+index efee8ec..76a21d2 100644
+--- a/lib/tty/tty-ncurses.c
++++ b/lib/tty/tty-ncurses.c
+@@ -179,6 +179,7 @@ mc_tty_normalize_lines_char (const char *ch)
+ void
+ tty_init (gboolean mouse_enable, gboolean is_xterm)
+ {
++    struct termios mode;
+     initscr ();
+ 
+ #ifdef HAVE_ESCDELAY
+@@ -194,11 +195,12 @@ tty_init (gboolean mouse_enable, gboolean is_xterm)
+     ESCDELAY = 200;
+ #endif /* HAVE_ESCDELAY */
+ 
++    tcgetattr (STDIN_FILENO, &mode);
+     /* use Ctrl-g to generate SIGINT */
+-    cur_term->Nttyb.c_cc[VINTR] = CTRL ('g');   /* ^g */
++    mode.c_cc[VINTR] = CTRL ('g');      /* ^g */
+     /* disable SIGQUIT to allow use Ctrl-\ key */
+-    cur_term->Nttyb.c_cc[VQUIT] = NULL_VALUE;
+-    tcsetattr (cur_term->Filedes, TCSANOW, &cur_term->Nttyb);
++    mode.c_cc[VQUIT] = NULL_VALUE;
++    tcsetattr (STDIN_FILENO, TCSANOW, &mode);
+ 
+     tty_start_interrupt_key ();
+ 
