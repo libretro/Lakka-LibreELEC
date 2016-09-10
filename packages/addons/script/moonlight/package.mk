@@ -36,7 +36,6 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Moonlight"
 PKG_ADDON_TYPE="xbmc.service.pluginsource"
 PKG_ADDON_PROVIDES="executable"
-PKG_ADDON_REPOVERSION="8.0"
 
 make_target() {
   :

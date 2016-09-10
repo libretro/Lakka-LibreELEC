@@ -34,7 +34,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Adafruit Libraries"
 PKG_ADDON_TYPE="xbmc.python.module"
-PKG_ADDON_REPOVERSION="8.0"
 PKG_ADDON_REQUIRES="virtual.rpi-tools:8.0.102"
 
 addon() {

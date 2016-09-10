@@ -36,7 +36,6 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Music Player Daemon (MPD)"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_PROVIDES=""
-PKG_ADDON_REPOVERSION="8.0"
 
 pre_configure_target() {
   export LIBS="$LIBS -logg -lFLAC"

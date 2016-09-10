@@ -33,7 +33,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Syncthing"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_REPOVERSION="8.0"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 configure_target() {

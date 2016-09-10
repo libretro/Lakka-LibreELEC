@@ -33,7 +33,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Emby (beta)"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_REPOVERSION="8.0"
 PKG_ADDON_REQUIRES="tools.mono:0.0.0"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 

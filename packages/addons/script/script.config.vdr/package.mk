@@ -32,7 +32,6 @@ PKG_LONGDESC="script.config.vdr"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
 PKG_AUTORECONF="no"
-PKG_ADDON_REPOVERSION="8.0"
 
 make_target() {
   : # nothing to do here

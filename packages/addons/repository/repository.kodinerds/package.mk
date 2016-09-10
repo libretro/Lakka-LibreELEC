@@ -33,7 +33,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Kodinerds Repository"
 PKG_ADDON_TYPE="xbmc.addon.repository"
-PKG_ADDON_REPOVERSION="8.0"
 
 
 make_target() {

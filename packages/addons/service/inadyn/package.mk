@@ -33,7 +33,6 @@ PKG_AUTORECONF="yes"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Inadyn"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_REPOVERSION="8.0"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-openssl" # --sysconfdir is ineffective
