@@ -33,6 +33,11 @@ elif [ "$UBOOT_VERSION" = "odroidxu3" ]; then
   PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
   PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dtc:host hk-bootloader"
+elif [ "$UBOOT_VERSION" = "sunxi" ]; then
+  PKG_VERSION="af9f405"
+  PKG_SITE="https://github.com/linux-sunxi/u-boot-sunxi"
+  PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host"
 else
   exit 0
 fi

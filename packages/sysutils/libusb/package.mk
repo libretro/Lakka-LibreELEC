@@ -39,7 +39,19 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-shared \
             --enable-udev \
             --disable-examples-build"
 
+PKG_CONFIGURE_OPTS_HOST="--enable-shared \
+            --enable-static \
+            --disable-log \
+            --disable-debug-log \
+            --disable-udev \
+            --disable-examples-build"
+
 pre_configure_target () {
+  #libusb sometimes fails to build if building paralell
+  export MAKEFLAGS=-j1
+}
+
+pre_configure_host () {
   #libusb sometimes fails to build if building paralell
   export MAKEFLAGS=-j1
 }

@@ -34,6 +34,10 @@ case "$LINUX" in
     PKG_VERSION="533ce55"
     PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
+  linux-sun7i)
+    PKG_VERSION="6ce48b3"
+    PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+    ;;
   hardkernel)
     PKG_VERSION="365fa20"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
