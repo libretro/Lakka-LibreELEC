@@ -18,7 +18,8 @@
 
 PKG_NAME="moonlight"
 PKG_VERSION="c371ff8"
-PKG_REV="101"
+PKG_VERSION_NUMBER="2.2.1"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dead/moonlight-openelec-rpi2"
@@ -27,16 +28,15 @@ PKG_SOURCE_DIR="moonlight-openelec-rpi2-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain moonlight-embedded"
 PKG_PRIORITY="optional"
 PKG_SECTION="script"
-PKG_SHORTDESC="Moonlight-embedded Addon for LibreELEC"
-PKG_LONGDESC="Moonlight-embedded Addon for LibreELEC"
+PKG_SHORTDESC="Moonlight: implementation of NVIDIA's GameStream protocol"
+PKG_LONGDESC="Moonlight ($PKG_VERSION_NUMBER): allows you to stream your collection of games from your PC (with NVIDIA Gamestream) to your device and play them remotely"
 PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_REPOVERSION="8.0"
+PKG_ADDON_NAME="Moonlight"
 PKG_ADDON_TYPE="xbmc.service.pluginsource"
 PKG_ADDON_PROVIDES="executable"
-PKG_ADDON_NAME="Moonlight"
-PKG_MAINTAINER="dead (gustavobenn@hotmail.com)"
+PKG_ADDON_REPOVERSION="8.0"
 
 make_target() {
   :
