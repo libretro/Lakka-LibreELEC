@@ -35,7 +35,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Tvheadend 4.2"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_REPOVERSION="8.0"
 
 # transcoding only for generic
 if [ "$TARGET_ARCH" = x86_64 ]; then

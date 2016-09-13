@@ -33,7 +33,6 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="HDHomeRun"
 PKG_ADDON_TYPE="xbmc.python.script"
 PKG_AUTORECONF="no"
-PKG_ADDON_REPOVERSION="8.0"
 
 make_target() {
   : # nothing to do here
