@@ -43,7 +43,7 @@ else
 fi
 
 if [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
-  if [ "$PROJECT" = "Odroid_C2" ]; then
+  if [ "$TARGET_ARCH" = "aarch64" ]; then
     EXTRA_CMAKE_OPTS="$EXTRA_CMAKE_OPTS -DHAVE_AOCEC_API=1"
   else
     EXTRA_CMAKE_OPTS="$EXTRA_CMAKE_OPTS -DHAVE_AMLOGIC_API=1"
