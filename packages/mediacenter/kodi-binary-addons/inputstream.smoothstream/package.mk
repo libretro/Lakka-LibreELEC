@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="inputstream.smoothstream"
-PKG_VERSION="b63ecbb"
+PKG_VERSION="081c6c4"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/mapfau/inputstream.smoothstream/archive/$PKG_VERSION.tar.gz"
