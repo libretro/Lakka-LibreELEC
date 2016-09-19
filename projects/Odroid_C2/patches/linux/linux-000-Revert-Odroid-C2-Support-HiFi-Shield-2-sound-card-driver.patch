@@ -1,0 +1,1439 @@
+From 37a2854ffecfec548156a7fb8b2b43467f452abd Mon Sep 17 00:00:00 2001
+From: Jamie Coldhill <wrxtasy@amnet.net.au>
+Date: Mon, 19 Sep 2016 12:44:56 +0800
+Subject: [PATCH] Revert "odroid-c2:Support HiFi-Shield-2 sound card driver."
+
+This reverts commit 5bcf1b74aac7ec16eb5bc78f34c6b4ec3fbe7a9e.
+---
+ .../devicetree/bindings/sound/pcm512x.txt          |  52 --
+ arch/arm64/boot/dts/meson64_odroidc2.dts           |   8 -
+ arch/arm64/configs/odroidc2_defconfig              |   6 +-
+ sound/soc/aml/m8/Kconfig                           |   5 -
+ sound/soc/aml/m8/Makefile                          |   2 -
+ sound/soc/aml/m8/odroid_dac2.c                     | 217 --------
+ sound/soc/aml/m8/odroid_dac2.h                     |  31 --
+ sound/soc/codecs/Kconfig                           |  17 -
+ sound/soc/codecs/Makefile                          |   6 -
+ sound/soc/codecs/pcm512x-i2c.c                     |  81 ---
+ sound/soc/codecs/pcm512x-spi.c                     |  72 ---
+ sound/soc/codecs/pcm512x.c                         | 609 ---------------------
+ sound/soc/codecs/pcm512x.h                         | 171 ------
+ 13 files changed, 1 insertion(+), 1276 deletions(-)
+ delete mode 100644 Documentation/devicetree/bindings/sound/pcm512x.txt
+ delete mode 100644 sound/soc/aml/m8/odroid_dac2.c
+ delete mode 100644 sound/soc/aml/m8/odroid_dac2.h
+ delete mode 100644 sound/soc/codecs/pcm512x-i2c.c
+ delete mode 100644 sound/soc/codecs/pcm512x-spi.c
+ delete mode 100644 sound/soc/codecs/pcm512x.c
+ delete mode 100644 sound/soc/codecs/pcm512x.h
+
+diff --git a/Documentation/devicetree/bindings/sound/pcm512x.txt b/Documentation/devicetree/bindings/sound/pcm512x.txt
+deleted file mode 100644
+index 3aae3b4..0000000
+--- a/Documentation/devicetree/bindings/sound/pcm512x.txt
++++ /dev/null
+@@ -1,52 +0,0 @@
+-PCM512x audio CODECs
+-
+-These devices support both I2C and SPI (configured with pin strapping
+-on the board).
+-
+-Required properties:
+-
+-  - compatible : One of "ti,pcm5121", "ti,pcm5122", "ti,pcm5141" or
+-                 "ti,pcm5142"
+-
+-  - reg : the I2C address of the device for I2C, the chip select
+-          number for SPI.
+-
+-  - AVDD-supply, DVDD-supply, and CPVDD-supply : power supplies for the
+-    device, as covered in bindings/regulator/regulator.txt
+-
+-Optional properties:
+-
+-  - clocks : A clock specifier for the clock connected as SCLK.  If this
+-    is absent the device will be configured to clock from BCLK.  If pll-in
+-    and pll-out are specified in addition to a clock, the device is
+-    configured to accept clock input on a specified gpio pin.
+-
+-  - pll-in, pll-out : gpio pins used to connect the pll using <1>
+-    through <6>.  The device will be configured for clock input on the
+-    given pll-in pin and PLL output on the given pll-out pin.  An
+-    external connection from the pll-out pin to the SCLK pin is assumed.
+-
+-Examples:
+-
+-	pcm5122: pcm5122@4c {
+-		compatible = "ti,pcm5122";
+-		reg = <0x4c>;
+-
+-		AVDD-supply = <&reg_3v3_analog>;
+-		DVDD-supply = <&reg_1v8>;
+-		CPVDD-supply = <&reg_3v3>;
+-	};
+-
+-
+-	pcm5142: pcm5142@4c {
+-		compatible = "ti,pcm5142";
+-		reg = <0x4c>;
+-
+-		AVDD-supply = <&reg_3v3_analog>;
+-		DVDD-supply = <&reg_1v8>;
+-		CPVDD-supply = <&reg_3v3>;
+-
+-		clocks = <&sck>;
+-		pll-in = <3>;
+-		pll-out = <6>;
+-	};
+diff --git a/arch/arm64/boot/dts/meson64_odroidc2.dts b/arch/arm64/boot/dts/meson64_odroidc2.dts
+index 48310c9..5f64ee3 100755
+--- a/arch/arm64/boot/dts/meson64_odroidc2.dts
++++ b/arch/arm64/boot/dts/meson64_odroidc2.dts
+@@ -647,14 +647,6 @@
+ 			sound-dai = <&pcm5102_codec>;
+ 		};
+ 	};
+-
+-	odroid_dac2{
+-		compatible = "sound_card, odroid_dac2";
+-		aml,sound_card = "ODROID-DAC2";
+-		pinctrl-names = "odroid_i2s";
+-		pinctrl-0 = <&audio_pins>;
+-		status = "okay";
+-	};
+ 	/* END OF AUDIO board specific */
+ 
+ 	aml_sensor0: aml-sensor@0 {
+diff --git a/arch/arm64/configs/odroidc2_defconfig b/arch/arm64/configs/odroidc2_defconfig
+index c9ca9b4..079f956 100644
+--- a/arch/arm64/configs/odroidc2_defconfig
++++ b/arch/arm64/configs/odroidc2_defconfig
+@@ -1,6 +1,6 @@
+ #
+ # Automatically generated file; DO NOT EDIT.
+-# Linux/arm64 3.14.77 Kernel Configuration
++# Linux/arm64 3.14.65 Kernel Configuration
+ #
+ CONFIG_ARM64=y
+ CONFIG_ARM64_HAS_SG_CHAIN=y
+@@ -3285,13 +3285,9 @@ CONFIG_SND_AML_M8_SOC=y
+ # CONFIG_SND_AML_M8 is not set
+ CONFIG_SND_ODROID_HDMI=y
+ CONFIG_SND_ODROID_DAC=m
+-CONFIG_SND_ODROID_DAC2=m
+ # CONFIG_SND_AML_G9TV is not set
+ CONFIG_SND_SOC_I2C_AND_SPI=y
+ CONFIG_SND_SOC_PCM5102=m
+-CONFIG_SND_SOC_PCM512x=m
+-CONFIG_SND_SOC_PCM512x_I2C=m
+-# CONFIG_SND_SOC_PCM512x_SPI is not set
+ # CONFIG_SND_SIMPLE_CARD is not set
+ # CONFIG_SOUND_PRIME is not set
+ CONFIG_AC97_BUS=m
+diff --git a/sound/soc/aml/m8/Kconfig b/sound/soc/aml/m8/Kconfig
+index c1808a4..4adfb7d 100644
+--- a/sound/soc/aml/m8/Kconfig
++++ b/sound/soc/aml/m8/Kconfig
+@@ -20,11 +20,6 @@ menuconfig SND_ODROID_DAC
+ 	depends on SND_AML_M8_SOC
+ 	select SND_SOC_PCM5102
+ 
+-menuconfig SND_ODROID_DAC2
+-	tristate "ODROID HiFi-Shield2(pcm5242) Support"
+-	depends on SND_AML_M8_SOC
+-	select SND_SOC_PCM512x_I2C
+-
+ menuconfig SND_AML_G9TV
+ 	tristate "AML-SND-G9TV Board"
+ 	depends on SND_AML_M8_SOC && SWITCH
+diff --git a/sound/soc/aml/m8/Makefile b/sound/soc/aml/m8/Makefile
+index e7310ed..2ed8755 100644
+--- a/sound/soc/aml/m8/Makefile
++++ b/sound/soc/aml/m8/Makefile
+@@ -27,10 +27,8 @@ obj-$(CONFIG_SND_AML_M8) += snd-soc-aml-m8.o
+ #ODROID Machine support
+ snd-soc-odroid-hdmi-objs := odroid_hdmi.o
+ snd-soc-odroid-dac-objs := odroid_dac.o
+-snd-soc-odroid-dac2-objs := odroid_dac2.o
+ obj-$(CONFIG_SND_ODROID_HDMI) += snd-soc-odroid-hdmi.o
+ obj-$(CONFIG_SND_ODROID_DAC) += snd-soc-odroid-dac.o
+-obj-$(CONFIG_SND_ODROID_DAC2) += snd-soc-odroid-dac2.o
+ 
+ #AML G9TV Machine support
+ snd-soc-aml-g9tv-objs := aml_g9tv.o
+diff --git a/sound/soc/aml/m8/odroid_dac2.c b/sound/soc/aml/m8/odroid_dac2.c
+deleted file mode 100644
+index fb8c153..0000000
+--- a/sound/soc/aml/m8/odroid_dac2.c
++++ /dev/null
+@@ -1,217 +0,0 @@
+-/*
+- * sound/soc/aml/m8/aml_m8.c
+- *
+- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+-*/
+-
+-#include <linux/module.h>
+-#include <linux/moduleparam.h>
+-#include <linux/kernel.h>
+-#include <linux/slab.h>
+-#include <linux/clk.h>
+-#include <linux/timer.h>
+-#include <linux/workqueue.h>
+-#include <linux/interrupt.h>
+-#include <linux/platform_device.h>
+-#include <linux/i2c.h>
+-#include <linux/delay.h>
+-
+-#include <sound/core.h>
+-#include <sound/pcm.h>
+-#include <sound/pcm_params.h>
+-/* #include <sound/soc-dapm.h> */
+-#include <sound/jack.h>
+-#include <linux/switch.h>
+-/* #include <linux/amlogic/saradc.h> */
+-#include <linux/amlogic/iomap.h>
+-
+-/* #include "aml_i2s_dai.h" */
+-#include "aml_i2s.h"
+-#include "odroid_dac2.h"
+-#include "aml_audio_hw.h"
+-#include <linux/amlogic/sound/audin_regs.h>
+-#include <linux/of.h>
+-#include <linux/pinctrl/consumer.h>
+-#include <linux/amlogic/aml_gpio_consumer.h>
+-#include <linux/of_gpio.h>
+-#include <linux/io.h>
+-/* extern struct device *spdif_dev; */
+-
+-#define DRV_NAME "odroid_dac2"
+-
+-static int dac2_hw_params(struct snd_pcm_substream *substream,
+-	struct snd_pcm_hw_params *params)
+-{
+-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+-	int ret;
+-
+-	/* set codec DAI configuration */
+-	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S |
+-	SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS);
+-	if (ret < 0)
+-		return ret;
+-
+-	/* set cpu DAI configuration */
+-	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S |
+-	SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
+-	if (ret < 0)
+-		return ret;
+-
+-	/* set cpu DAI clock */
+-	ret = snd_soc_dai_set_sysclk(
+-			cpu_dai, 0, params_rate(params)*256, SND_SOC_CLOCK_OUT);
+-	if (ret < 0)
+-		return ret;
+-	return 0;
+-}
+-
+-static struct snd_soc_ops odroid_ops = {
+-	.hw_params = dac2_hw_params,
+-};
+-
+-static int dac2_set_bias_level(struct snd_soc_card *card,
+-	struct snd_soc_dapm_context *dapm, enum snd_soc_bias_level level)
+-{
+-	int ret = 0;
+-	struct dac2_private_data *p_dac2;
+-
+-	p_dac2 = snd_soc_card_get_drvdata(card);
+-	if (p_dac2->bias_level == (int)level)
+-		return 0;
+-
+-	p_dac2->bias_level = (int)level;
+-	return ret;
+-}
+-static struct snd_soc_dai_link dac2_dai_link[] = {
+-	{
+-		.name = "SND_PCM5242",
+-		.stream_name = "I2S",
+-		.cpu_dai_name = "I2S",
+-		.platform_name = "i2s_platform",
+-		.codec_name = "pcm512x.1-004c",
+-		.codec_dai_name = "pcm512x-hifi",
+-		.ops = &odroid_ops,
+-	},
+-};
+-
+-static struct snd_soc_card aml_snd_soc_card = {
+-	.driver_name = "SOC-Audio",
+-	.dai_link = &dac2_dai_link[0],
+-	.num_links = ARRAY_SIZE(dac2_dai_link),
+-	.set_bias_level = dac2_set_bias_level,
+-};
+-
+-static int dac2_probe(struct platform_device *pdev)
+-{
+-	struct snd_soc_card *card = &aml_snd_soc_card;
+-	struct dac2_private_data *p_dac2;
+-	int ret = 0;
+-
+-#ifdef CONFIG_OF
+-	p_dac2 = devm_kzalloc(&pdev->dev,
+-	sizeof(struct dac2_private_data), GFP_KERNEL);
+-	if (!p_dac2) {
+-		dev_err(&pdev->dev, "Can't allocate dac2_private_data\n");
+-		ret = -ENOMEM;
+-		goto err;
+-	}
+-
+-	card->dev = &pdev->dev;
+-	platform_set_drvdata(pdev, card);
+-	snd_soc_card_set_drvdata(card, p_dac2);
+-	if (!(pdev->dev.of_node)) {
+-		dev_err(&pdev->dev, "Must be instantiated using device tree\n");
+-		ret = -EINVAL;
+-		goto err;
+-	}
+-	ret = of_property_read_string(pdev->dev.of_node,
+-					"pinctrl-names",
+-					&p_dac2->pinctrl_name);
+-	p_dac2->pin_ctl =
+-		devm_pinctrl_get_select(&pdev->dev, p_dac2->pinctrl_name);
+-
+-	ret = snd_soc_of_parse_card_name(card, "aml,sound_card");
+-	if (ret)
+-		goto err;
+-
+-	ret = snd_soc_register_card(card);
+-	if (ret) {
+-		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
+-		ret);
+-		goto err;
+-	}
+-	return 0;
+-#endif
+-
+-err:
+-	return ret;
+-}
+-
+-static int dac2_remove(struct platform_device *pdev)
+-{
+-	struct snd_soc_card *card = platform_get_drvdata(pdev);
+-	struct dac2_private_data *p_dac2;
+-
+-	p_dac2 = snd_soc_card_get_drvdata(card);
+-	if (p_dac2->pin_ctl)
+-		devm_pinctrl_put(p_dac2->pin_ctl);
+-
+-	snd_soc_unregister_card(card);
+-	return 0;
+-}
+-
+-#ifdef CONFIG_USE_OF
+-static const struct of_device_id dac2_dt_match[] = {
+-	{ .compatible = "sound_card, odroid_dac2", },
+-	{},
+-};
+-#else
+-#define dac2_dt_match NULL
+-#endif
+-
+-static struct platform_driver dac2_driver = {
+-	.probe  = dac2_probe,
+-	.remove = dac2_remove,
+-	.driver = {
+-		.name = DRV_NAME,
+-		.owner = THIS_MODULE,
+-		.pm = &snd_soc_pm_ops,
+-		.of_match_table = dac2_dt_match,
+-	},
+-};
+-
+-static int __init dac2_init(void)
+-{
+-	return platform_driver_register(&dac2_driver);
+-}
+-
+-static void __exit dac2_exit(void)
+-{
+-	platform_driver_unregister(&dac2_driver);
+-}
+-
+-#ifdef CONFIG_DEFERRED_MODULE_INIT
+-deferred_module_init(dac2_init);
+-#else
+-module_init(dac2_init);
+-#endif
+-module_exit(dac2_exit);
+-
+-/* Module information */
+-MODULE_AUTHOR("Hardkernel, Inc.");
+-MODULE_DESCRIPTION("ODROID HiFi Shield-2 Asoc driver");
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS("platform:" DRV_NAME);
+diff --git a/sound/soc/aml/m8/odroid_dac2.h b/sound/soc/aml/m8/odroid_dac2.h
+deleted file mode 100644
+index d5b830d..0000000
+--- a/sound/soc/aml/m8/odroid_dac2.h
++++ /dev/null
+@@ -1,31 +0,0 @@
+-/*
+- * sound/soc/aml/m8/aml_m8.h
+- *
+- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+-*/
+-
+-#ifndef AML_M8_H
+-#define AML_M8_H
+-
+-#include <sound/soc.h>
+-#include <linux/gpio/consumer.h>
+-struct dac2_private_data {
+-	int bias_level;
+-	const char *pinctrl_name;
+-	struct pinctrl *pin_ctl;
+-	void *data;
+-};
+-
+-#endif
+-
+diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
+index c8b16fb..e9ab5e1 100644
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -135,8 +135,6 @@ config SND_SOC_ALL_CODECS
+ 	select SND_SOC_DUMMY_CODEC
+ 	select SND_SOC_PCM2BT
+ 	select SND_SOC_PCM5102
+-	select SND_SOC_PCM512x_I2C if I2C
+-	select SND_SOC_PCM512x_SPI if SPI_MASTER
+         help
+           Normally ASoC codec drivers are only built if a machine driver which
+           uses them is also built since they are only usable with a machine
+@@ -568,18 +566,3 @@ config SND_SOC_PCM2BT
+ 
+ config SND_SOC_PCM5102
+ 	tristate
+-
+-config SND_SOC_PCM512x
+-	tristate
+-
+-config SND_SOC_PCM512x_I2C
+-	tristate "Texas Instruments PCM512x CODECs - I2C"
+-	depends on I2C
+-	select SND_SOC_PCM512x
+-	select REGMAP_I2C
+-
+-config SND_SOC_PCM512x_SPI
+-	tristate "Texas Instruments PCM512x CODECs - SPI"
+-	depends on SPI_MASTER
+-	select SND_SOC_PCM512x
+-	select REGMAP_SPI
+diff --git a/sound/soc/codecs/Makefile b/sound/soc/codecs/Makefile
+index 8400601..9e024d9 100644
+--- a/sound/soc/codecs/Makefile
++++ b/sound/soc/codecs/Makefile
+@@ -127,9 +127,6 @@ snd-soc-wm-hubs-objs := wm_hubs.o
+ snd-soc-dummy_codec-objs := dummy_codec.o
+ snd-soc-pcm2bt-objs  := pcm2bt.o
+ snd-soc-pcm5102-objs := pcm5102.o
+-snd-soc-pcm512x-objs := pcm512x.o
+-snd-soc-pcm512x-i2c-objs := pcm512x-i2c.o
+-snd-soc-pcm512x-spi-objs := pcm512x-spi.o
+ 
+ # Amp
+ snd-soc-max9877-objs := max9877.o
+@@ -263,9 +260,6 @@ obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
+ obj-$(CONFIG_SND_SOC_DUMMY_CODEC)	+= snd-soc-dummy_codec.o
+ obj-$(CONFIG_SND_SOC_PCM2BT)	+= snd-soc-pcm2bt.o
+ obj-$(CONFIG_SND_SOC_PCM5102)   += snd-soc-pcm5102.o
+-obj-$(CONFIG_SND_SOC_PCM512x)	+= snd-soc-pcm512x.o
+-obj-$(CONFIG_SND_SOC_PCM512x_I2C)	+= snd-soc-pcm512x-i2c.o
+-obj-$(CONFIG_SND_SOC_PCM512x_SPI)	+= snd-soc-pcm512x-spi.o
+ 
+ # Amp
+ obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
+diff --git a/sound/soc/codecs/pcm512x-i2c.c b/sound/soc/codecs/pcm512x-i2c.c
+deleted file mode 100644
+index 970eb8b..0000000
+--- a/sound/soc/codecs/pcm512x-i2c.c
++++ /dev/null
+@@ -1,81 +0,0 @@
+-/*
+- * Driver for the PCM512x CODECs
+- *
+- * Author:	Mark Brown <broonie@linaro.org>
+- *		Copyright 2014 Linaro Ltd
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * version 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- */
+-
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/i2c.h>
+-
+-#include "pcm512x.h"
+-
+-static int pcm512x_i2c_probe(struct i2c_client *i2c,
+-			     const struct i2c_device_id *id)
+-{
+-	struct regmap *regmap;
+-	struct regmap_config config = pcm512x_regmap;
+-
+-	/* msb needs to be set to enable auto-increment of addresses */
+-	config.read_flag_mask = 0x80;
+-	config.write_flag_mask = 0x80;
+-
+-	regmap = devm_regmap_init_i2c(i2c, &config);
+-	if (IS_ERR(regmap))
+-		return PTR_ERR(regmap);
+-
+-	return pcm512x_probe(&i2c->dev, regmap);
+-}
+-
+-static int pcm512x_i2c_remove(struct i2c_client *i2c)
+-{
+-	pcm512x_remove(&i2c->dev);
+-	return 0;
+-}
+-
+-static const struct i2c_device_id pcm512x_i2c_id[] = {
+-	{ "pcm5121", },
+-	{ "pcm5122", },
+-	{ "pcm5141", },
+-	{ "pcm5142", },
+-	{ "pcm5242", },
+-	{ }
+-};
+-MODULE_DEVICE_TABLE(i2c, pcm512x_i2c_id);
+-
+-static const struct of_device_id pcm512x_of_match[] = {
+-	{ .compatible = "ti,pcm5121", },
+-	{ .compatible = "ti,pcm5122", },
+-	{ .compatible = "ti,pcm5141", },
+-	{ .compatible = "ti,pcm5142", },
+-	{ .compatible = "ti,pcm5242", },
+-	{ }
+-};
+-MODULE_DEVICE_TABLE(of, pcm512x_of_match);
+-
+-static struct i2c_driver pcm512x_i2c_driver = {
+-	.probe		= pcm512x_i2c_probe,
+-	.remove		= pcm512x_i2c_remove,
+-	.id_table	= pcm512x_i2c_id,
+-	.driver		= {
+-		.name	= "pcm512x",
+-		.of_match_table = pcm512x_of_match,
+-		.pm     = &pcm512x_pm_ops,
+-	},
+-};
+-
+-module_i2c_driver(pcm512x_i2c_driver);
+-
+-MODULE_DESCRIPTION("ASoC PCM512x codec driver - I2C");
+-MODULE_AUTHOR("Mark Brown <broonie@linaro.org>");
+-MODULE_LICENSE("GPL v2");
+diff --git a/sound/soc/codecs/pcm512x-spi.c b/sound/soc/codecs/pcm512x-spi.c
+deleted file mode 100644
+index 712ed65..0000000
+--- a/sound/soc/codecs/pcm512x-spi.c
++++ /dev/null
+@@ -1,72 +0,0 @@
+-/*
+- * Driver for the PCM512x CODECs
+- *
+- * Author:	Mark Brown <broonie@linaro.org>
+- *		Copyright 2014 Linaro Ltd
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * version 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- */
+-
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/spi/spi.h>
+-
+-#include "pcm512x.h"
+-
+-static int pcm512x_spi_probe(struct spi_device *spi)
+-{
+-	struct regmap *regmap;
+-	int ret;
+-
+-	regmap = devm_regmap_init_spi(spi, &pcm512x_regmap);
+-	if (IS_ERR(regmap)) {
+-		ret = PTR_ERR(regmap);
+-		return ret;
+-	}
+-
+-	return pcm512x_probe(&spi->dev, regmap);
+-}
+-
+-static int pcm512x_spi_remove(struct spi_device *spi)
+-{
+-	pcm512x_remove(&spi->dev);
+-	return 0;
+-}
+-
+-static const struct spi_device_id pcm512x_spi_id[] = {
+-	{ "pcm5121", },
+-	{ "pcm5122", },
+-	{ "pcm5141", },
+-	{ "pcm5142", },
+-	{ },
+-};
+-MODULE_DEVICE_TABLE(spi, pcm512x_spi_id);
+-
+-static const struct of_device_id pcm512x_of_match[] = {
+-	{ .compatible = "ti,pcm5121", },
+-	{ .compatible = "ti,pcm5122", },
+-	{ .compatible = "ti,pcm5141", },
+-	{ .compatible = "ti,pcm5142", },
+-	{ }
+-};
+-MODULE_DEVICE_TABLE(of, pcm512x_of_match);
+-
+-static struct spi_driver pcm512x_spi_driver = {
+-	.probe		= pcm512x_spi_probe,
+-	.remove		= pcm512x_spi_remove,
+-	.id_table	= pcm512x_spi_id,
+-	.driver = {
+-		.name	= "pcm512x",
+-		.of_match_table = pcm512x_of_match,
+-		.pm     = &pcm512x_pm_ops,
+-	},
+-};
+-
+-module_spi_driver(pcm512x_spi_driver);
+diff --git a/sound/soc/codecs/pcm512x.c b/sound/soc/codecs/pcm512x.c
+deleted file mode 100644
+index 88edd8e..0000000
+--- a/sound/soc/codecs/pcm512x.c
++++ /dev/null
+@@ -1,609 +0,0 @@
+-/*
+- * Driver for the PCM512x CODECs
+- *
+- * Author:	Mark Brown <broonie@linaro.org>
+- *		Copyright 2014 Linaro Ltd
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * version 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- */
+-
+-
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/clk.h>
+-#include <linux/pm_runtime.h>
+-#include <linux/regmap.h>
+-#include <linux/regulator/consumer.h>
+-#include <sound/soc.h>
+-#include <sound/soc-dapm.h>
+-#include <sound/tlv.h>
+-#include <sound/pcm.h>
+-#include <sound/pcm_params.h>
+-
+-#include "pcm512x.h"
+-
+-struct pcm512x_priv {
+-	struct regmap *regmap;
+-	struct clk *sclk;
+-};
+-
+-static const struct reg_default pcm512x_reg_defaults[] = {
+-	{ PCM512x_RESET,             0x00 },
+-	{ PCM512x_POWER,             0x00 },
+-	{ PCM512x_MUTE,              0x00 },
+-	{ PCM512x_DSP,               0x00 },
+-	{ PCM512x_PLL_REF,           0x00 },
+-	{ PCM512x_DAC_ROUTING,       0x11 },
+-	{ PCM512x_DSP_PROGRAM,       0x01 },
+-	{ PCM512x_CLKDET,            0x00 },
+-	{ PCM512x_AUTO_MUTE,         0x00 },
+-	{ PCM512x_ERROR_DETECT,      0x00 },
+-	{ PCM512x_DIGITAL_VOLUME_1,  0x00 },
+-	{ PCM512x_DIGITAL_VOLUME_2,  0x30 },
+-	{ PCM512x_DIGITAL_VOLUME_3,  0x30 },
+-	{ PCM512x_DIGITAL_MUTE_1,    0x22 },
+-	{ PCM512x_DIGITAL_MUTE_2,    0x00 },
+-	{ PCM512x_DIGITAL_MUTE_3,    0x07 },
+-	{ PCM512x_OUTPUT_AMPLITUDE,  0x00 },
+-	{ PCM512x_ANALOG_GAIN_CTRL,  0x00 },
+-	{ PCM512x_UNDERVOLTAGE_PROT, 0x00 },
+-	{ PCM512x_ANALOG_MUTE_CTRL,  0x00 },
+-	{ PCM512x_ANALOG_GAIN_BOOST, 0x00 },
+-	{ PCM512x_VCOM_CTRL_1,       0x00 },
+-	{ PCM512x_VCOM_CTRL_2,       0x01 },
+-};
+-
+-static bool pcm512x_readable(struct device *dev, unsigned int reg)
+-{
+-	switch (reg) {
+-	case PCM512x_RESET:
+-	case PCM512x_POWER:
+-	case PCM512x_MUTE:
+-	case PCM512x_PLL_EN:
+-	case PCM512x_SPI_MISO_FUNCTION:
+-	case PCM512x_DSP:
+-	case PCM512x_GPIO_EN:
+-	case PCM512x_BCLK_LRCLK_CFG:
+-	case PCM512x_DSP_GPIO_INPUT:
+-	case PCM512x_MASTER_MODE:
+-	case PCM512x_PLL_REF:
+-	case PCM512x_PLL_COEFF_0:
+-	case PCM512x_PLL_COEFF_1:
+-	case PCM512x_PLL_COEFF_2:
+-	case PCM512x_PLL_COEFF_3:
+-	case PCM512x_PLL_COEFF_4:
+-	case PCM512x_DSP_CLKDIV:
+-	case PCM512x_DAC_CLKDIV:
+-	case PCM512x_NCP_CLKDIV:
+-	case PCM512x_OSR_CLKDIV:
+-	case PCM512x_MASTER_CLKDIV_1:
+-	case PCM512x_MASTER_CLKDIV_2:
+-	case PCM512x_FS_SPEED_MODE:
+-	case PCM512x_IDAC_1:
+-	case PCM512x_IDAC_2:
+-	case PCM512x_ERROR_DETECT:
+-	case PCM512x_I2S_1:
+-	case PCM512x_I2S_2:
+-	case PCM512x_DAC_ROUTING:
+-	case PCM512x_DSP_PROGRAM:
+-	case PCM512x_CLKDET:
+-	case PCM512x_AUTO_MUTE:
+-	case PCM512x_DIGITAL_VOLUME_1:
+-	case PCM512x_DIGITAL_VOLUME_2:
+-	case PCM512x_DIGITAL_VOLUME_3:
+-	case PCM512x_DIGITAL_MUTE_1:
+-	case PCM512x_DIGITAL_MUTE_2:
+-	case PCM512x_DIGITAL_MUTE_3:
+-	case PCM512x_GPIO_OUTPUT_1:
+-	case PCM512x_GPIO_OUTPUT_2:
+-	case PCM512x_GPIO_OUTPUT_3:
+-	case PCM512x_GPIO_OUTPUT_4:
+-	case PCM512x_GPIO_OUTPUT_5:
+-	case PCM512x_GPIO_OUTPUT_6:
+-	case PCM512x_GPIO_CONTROL_1:
+-	case PCM512x_GPIO_CONTROL_2:
+-	case PCM512x_OVERFLOW:
+-	case PCM512x_RATE_DET_1:
+-	case PCM512x_RATE_DET_2:
+-	case PCM512x_RATE_DET_3:
+-	case PCM512x_RATE_DET_4:
+-	case PCM512x_ANALOG_MUTE_DET:
+-	case PCM512x_GPIN:
+-	case PCM512x_DIGITAL_MUTE_DET:
+-	case PCM512x_OUTPUT_AMPLITUDE:
+-	case PCM512x_ANALOG_GAIN_CTRL:
+-	case PCM512x_UNDERVOLTAGE_PROT:
+-	case PCM512x_ANALOG_MUTE_CTRL:
+-	case PCM512x_ANALOG_GAIN_BOOST:
+-	case PCM512x_VCOM_CTRL_1:
+-	case PCM512x_VCOM_CTRL_2:
+-	case PCM512x_CRAM_CTRL:
+-		return true;
+-	default:
+-		/* There are 256 raw register addresses */
+-		return reg < 0xff;
+-	}
+-}
+-
+-static bool pcm512x_volatile(struct device *dev, unsigned int reg)
+-{
+-	switch (reg) {
+-	case PCM512x_PLL_EN:
+-	case PCM512x_OVERFLOW:
+-	case PCM512x_RATE_DET_1:
+-	case PCM512x_RATE_DET_2:
+-	case PCM512x_RATE_DET_3:
+-	case PCM512x_RATE_DET_4:
+-	case PCM512x_ANALOG_MUTE_DET:
+-	case PCM512x_GPIN:
+-	case PCM512x_DIGITAL_MUTE_DET:
+-	case PCM512x_CRAM_CTRL:
+-		return true;
+-	default:
+-		/* There are 256 raw register addresses */
+-		return reg < 0xff;
+-	}
+-}
+-
+-static const DECLARE_TLV_DB_SCALE(digital_tlv, -10350, 50, 1);
+-static const DECLARE_TLV_DB_SCALE(analog_tlv, -600, 600, 0);
+-static const DECLARE_TLV_DB_SCALE(boost_tlv, 0, 80, 0);
+-
+-static const char * const pcm512x_dsp_program_texts[] = {
+-	"FIR interpolation with de-emphasis",
+-	"Low latency IIR with de-emphasis",
+-	"High attenuation with de-emphasis",
+-	"Fixed process flow",
+-	"Ringing-less low latency FIR",
+-};
+-
+-static const unsigned int pcm512x_dsp_program_values[] = {
+-	1,
+-	2,
+-	3,
+-	5,
+-	7,
+-};
+-
+-static SOC_VALUE_ENUM_SINGLE_DECL(pcm512x_dsp_program,
+-				  PCM512x_DSP_PROGRAM, 0, 0x1f,
+-				  pcm512x_dsp_program_texts,
+-				  pcm512x_dsp_program_values);
+-
+-static const char * const pcm512x_clk_missing_text[] = {
+-	"1s", "2s", "3s", "4s", "5s", "6s", "7s", "8s"
+-};
+-
+-static const struct soc_enum pcm512x_clk_missing =
+-	SOC_ENUM_SINGLE(PCM512x_CLKDET, 0,  8, pcm512x_clk_missing_text);
+-
+-static const char * const pcm512x_autom_text[] = {
+-	"21ms", "106ms", "213ms", "533ms", "1.07s", "2.13s", "5.33s", "10.66s"
+-};
+-
+-static const struct soc_enum pcm512x_autom_l =
+-	SOC_ENUM_SINGLE(PCM512x_AUTO_MUTE, PCM512x_ATML_SHIFT, 8,
+-			pcm512x_autom_text);
+-
+-static const struct soc_enum pcm512x_autom_r =
+-	SOC_ENUM_SINGLE(PCM512x_AUTO_MUTE, PCM512x_ATMR_SHIFT, 8,
+-			pcm512x_autom_text);
+-
+-static const char * const pcm512x_ramp_rate_text[] = {
+-	"1 sample/update", "2 samples/update", "4 samples/update",
+-	"Immediate"
+-};
+-
+-static const struct soc_enum pcm512x_vndf =
+-	SOC_ENUM_SINGLE(PCM512x_DIGITAL_MUTE_1, PCM512x_VNDF_SHIFT, 4,
+-			pcm512x_ramp_rate_text);
+-
+-static const struct soc_enum pcm512x_vnuf =
+-	SOC_ENUM_SINGLE(PCM512x_DIGITAL_MUTE_1, PCM512x_VNUF_SHIFT, 4,
+-			pcm512x_ramp_rate_text);
+-
+-static const struct soc_enum pcm512x_vedf =
+-	SOC_ENUM_SINGLE(PCM512x_DIGITAL_MUTE_2, PCM512x_VEDF_SHIFT, 4,
+-			pcm512x_ramp_rate_text);
+-
+-static const char * const pcm512x_ramp_step_text[] = {
+-	"4dB/step", "2dB/step", "1dB/step", "0.5dB/step"
+-};
+-
+-static const struct soc_enum pcm512x_vnds =
+-	SOC_ENUM_SINGLE(PCM512x_DIGITAL_MUTE_1, PCM512x_VNDS_SHIFT, 4,
+-			pcm512x_ramp_step_text);
+-
+-static const struct soc_enum pcm512x_vnus =
+-	SOC_ENUM_SINGLE(PCM512x_DIGITAL_MUTE_1, PCM512x_VNUS_SHIFT, 4,
+-			pcm512x_ramp_step_text);
+-
+-static const struct soc_enum pcm512x_veds =
+-	SOC_ENUM_SINGLE(PCM512x_DIGITAL_MUTE_2, PCM512x_VEDS_SHIFT, 4,
+-			pcm512x_ramp_step_text);
+-
+-static const struct snd_kcontrol_new pcm512x_controls[] = {
+-SOC_DOUBLE_R_TLV("Digital Playback Volume", PCM512x_DIGITAL_VOLUME_2,
+-		 PCM512x_DIGITAL_VOLUME_3, 0, 255, 1, digital_tlv),
+-SOC_DOUBLE_TLV("Analogue Playback Volume", PCM512x_ANALOG_GAIN_CTRL,
+-	       PCM512x_LAGN_SHIFT, PCM512x_RAGN_SHIFT, 1, 1, analog_tlv),
+-SOC_DOUBLE_TLV("Analogue Playback Boost Volume", PCM512x_ANALOG_GAIN_BOOST,
+-	       PCM512x_AGBL_SHIFT, PCM512x_AGBR_SHIFT, 1, 0, boost_tlv),
+-SOC_DOUBLE("Digital Playback Switch", PCM512x_MUTE, PCM512x_RQML_SHIFT,
+-	   PCM512x_RQMR_SHIFT, 1, 1),
+-
+-SOC_SINGLE("Deemphasis Switch", PCM512x_DSP, PCM512x_DEMP_SHIFT, 1, 1),
+-SOC_ENUM("DSP Program", pcm512x_dsp_program),
+-
+-SOC_ENUM("Clock Missing Period", pcm512x_clk_missing),
+-SOC_ENUM("Auto Mute Time Left", pcm512x_autom_l),
+-SOC_ENUM("Auto Mute Time Right", pcm512x_autom_r),
+-SOC_SINGLE("Auto Mute Mono Switch", PCM512x_DIGITAL_MUTE_3,
+-	   PCM512x_ACTL_SHIFT, 1, 0),
+-SOC_DOUBLE("Auto Mute Switch", PCM512x_DIGITAL_MUTE_3, PCM512x_AMLE_SHIFT,
+-	   PCM512x_AMLR_SHIFT, 1, 0),
+-
+-SOC_ENUM("Volume Ramp Down Rate", pcm512x_vndf),
+-SOC_ENUM("Volume Ramp Down Step", pcm512x_vnds),
+-SOC_ENUM("Volume Ramp Up Rate", pcm512x_vnuf),
+-SOC_ENUM("Volume Ramp Up Step", pcm512x_vnus),
+-SOC_ENUM("Volume Ramp Down Emergency Rate", pcm512x_vedf),
+-SOC_ENUM("Volume Ramp Down Emergency Step", pcm512x_veds),
+-};
+-
+-static const struct snd_soc_dapm_widget pcm512x_dapm_widgets[] = {
+-SND_SOC_DAPM_DAC("DACL", NULL, SND_SOC_NOPM, 0, 0),
+-SND_SOC_DAPM_DAC("DACR", NULL, SND_SOC_NOPM, 0, 0),
+-
+-SND_SOC_DAPM_OUTPUT("OUTL"),
+-SND_SOC_DAPM_OUTPUT("OUTR"),
+-};
+-
+-static const struct snd_soc_dapm_route pcm512x_dapm_routes[] = {
+-	{ "DACL", NULL, "Playback" },
+-	{ "DACR", NULL, "Playback" },
+-
+-	{ "OUTL", NULL, "DACL" },
+-	{ "OUTR", NULL, "DACR" },
+-};
+-
+-static int pcm512x_set_bias_level(struct snd_soc_codec *codec,
+-				  enum snd_soc_bias_level level)
+-{
+-	struct pcm512x_priv *pcm512x = dev_get_drvdata(codec->dev);
+-	int ret;
+-
+-	switch (level) {
+-	case SND_SOC_BIAS_ON:
+-	case SND_SOC_BIAS_PREPARE:
+-		break;
+-
+-	case SND_SOC_BIAS_STANDBY:
+-		ret = regmap_update_bits(pcm512x->regmap, PCM512x_POWER,
+-					 PCM512x_RQST, 0);
+-		if (ret != 0) {
+-			dev_err(codec->dev, "Failed to remove standby: %d\n",
+-				ret);
+-			return ret;
+-		}
+-		break;
+-
+-	case SND_SOC_BIAS_OFF:
+-		ret = regmap_update_bits(pcm512x->regmap, PCM512x_POWER,
+-					 PCM512x_RQST, PCM512x_RQST);
+-		if (ret != 0) {
+-			dev_err(codec->dev, "Failed to request standby: %d\n",
+-				ret);
+-			return ret;
+-		}
+-		break;
+-	}
+-
+-	codec->dapm.bias_level = level;
+-
+-	return 0;
+-}
+-
+-static int pcm512x_hw_params(struct snd_pcm_substream *substream,
+-				struct snd_pcm_hw_params *params,
+-				struct snd_soc_dai *dai)
+-{
+-	struct snd_soc_codec *codec = dai->codec;
+-	struct pcm512x_priv *pcm512x = dev_get_drvdata(codec->dev);
+-	struct regmap *regmap = pcm512x->regmap;
+-	u8 bck_div, length, fs_speed;
+-	int ret;
+-
+-	switch (params_format(params)) {
+-	case SNDRV_PCM_FORMAT_S16_LE:
+-		length = 0;
+-		break;
+-	case SNDRV_PCM_FORMAT_S20_3LE:
+-		length = 1;
+-		break;
+-	case SNDRV_PCM_FORMAT_S24_LE:
+-		length = 2;
+-		break;
+-	case SNDRV_PCM_FORMAT_S32_LE:
+-		length = 3;
+-		break;
+-	default:
+-		length = 0;
+-		break;
+-	}
+-
+-	switch (params_rate(params)) {
+-	case 8000:
+-	case 11025:
+-	case 12000:
+-	case 16000:
+-	case 22050:
+-	case 32000:
+-	case 44100:
+-	case 48000:
+-		bck_div = 255;
+-		fs_speed = 0;
+-		break;
+-	case 88200:
+-	case 96000:
+-		bck_div = 255;
+-		fs_speed = 1;
+-		break;
+-	case 192000:
+-		bck_div = 255;
+-		fs_speed = 2;
+-		break;
+-	case 352800:
+-	case 384000:
+-		bck_div = 127;
+-		fs_speed = 3;
+-		break;
+-	default:
+-		bck_div = 255;
+-		fs_speed = 0;
+-		break;
+-	}
+-
+-	ret = regmap_write(regmap, PCM512x_I2S_1, length);
+-	if (ret != 0) {
+-		dev_err(codec->dev, "Failed to I2S Data Format: %d\n", ret);
+-		goto err;
+-	}
+-
+-	ret = regmap_write(regmap, PCM512x_FS_SPEED_MODE, fs_speed);
+-	if (ret != 0) {
+-		dev_err(codec->dev, "Failed to BCK rate: %d\n", ret);
+-		goto err;
+-	}
+-
+-err:
+-	return ret;
+-}
+-
+-
+-static int pcm512x_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+-{
+-	return 0;
+-}
+-
+-static int pcm512x_set_sysclk(struct snd_soc_dai *dai,
+-				   int clk_id, unsigned int freq, int dir)
+-{
+-	return 0;
+-}
+-
+-static const struct snd_soc_dai_ops pcm512x_dai_ops = {
+-	.set_sysclk = pcm512x_set_sysclk,
+-	.hw_params = pcm512x_hw_params,
+-	.set_fmt = pcm512x_set_fmt,
+-};
+-
+-static struct snd_soc_dai_driver pcm512x_dai = {
+-	.name = "pcm512x-hifi",
+-	.playback = {
+-		.stream_name = "Playback",
+-		.channels_min = 2,
+-		.channels_max = 2,
+-		.rates = SNDRV_PCM_RATE_8000_384000,
+-		.formats = SNDRV_PCM_FMTBIT_S16_LE |
+-			   SNDRV_PCM_FMTBIT_S24_LE |
+-			   SNDRV_PCM_FMTBIT_S32_LE
+-	},
+-	.ops = &pcm512x_dai_ops,
+-};
+-
+-static struct snd_soc_codec_driver pcm512x_codec_driver = {
+-	.set_bias_level = pcm512x_set_bias_level,
+-	.idle_bias_off = true,
+-
+-	.controls = pcm512x_controls,
+-	.num_controls = ARRAY_SIZE(pcm512x_controls),
+-	.dapm_widgets = pcm512x_dapm_widgets,
+-	.num_dapm_widgets = ARRAY_SIZE(pcm512x_dapm_widgets),
+-	.dapm_routes = pcm512x_dapm_routes,
+-	.num_dapm_routes = ARRAY_SIZE(pcm512x_dapm_routes),
+-};
+-
+-static const struct regmap_range_cfg pcm512x_range = {
+-	.name = "Pages", .range_min = PCM512x_VIRT_BASE,
+-	.range_max = PCM512x_MAX_REGISTER,
+-	.selector_reg = PCM512x_PAGE,
+-	.selector_mask = 0xff,
+-	.window_start = 0, .window_len = 0x100,
+-};
+-
+-const struct regmap_config pcm512x_regmap = {
+-	.reg_bits = 8,
+-	.val_bits = 8,
+-
+-	.readable_reg = pcm512x_readable,
+-	.volatile_reg = pcm512x_volatile,
+-
+-	.ranges = &pcm512x_range,
+-	.num_ranges = 1,
+-
+-	.max_register = PCM512x_MAX_REGISTER,
+-	.reg_defaults = pcm512x_reg_defaults,
+-	.num_reg_defaults = ARRAY_SIZE(pcm512x_reg_defaults),
+-	.cache_type = REGCACHE_RBTREE,
+-};
+-EXPORT_SYMBOL_GPL(pcm512x_regmap);
+-
+-int pcm512x_probe(struct device *dev, struct regmap *regmap)
+-{
+-	struct pcm512x_priv *pcm512x;
+-	int ret;
+-
+-	pcm512x = devm_kzalloc(dev, sizeof(struct pcm512x_priv), GFP_KERNEL);
+-	if (!pcm512x)
+-		return -ENOMEM;
+-
+-	dev_set_drvdata(dev, pcm512x);
+-	pcm512x->regmap = regmap;
+-
+-	/* Reset the device, verifying I/O in the process for I2C */
+-	ret = regmap_write(regmap, PCM512x_RESET,
+-			   PCM512x_RSTM | PCM512x_RSTR);
+-	if (ret != 0) {
+-		dev_err(dev, "Failed to reset device: %d\n", ret);
+-		goto err;
+-	}
+-
+-	ret = regmap_write(regmap, PCM512x_RESET, 0);
+-	if (ret != 0) {
+-		dev_err(dev, "Failed to reset device: %d\n", ret);
+-		goto err;
+-	}
+-
+-	pcm512x->sclk = devm_clk_get(dev, NULL);
+-	if (IS_ERR(pcm512x->sclk)) {
+-		if (PTR_ERR(pcm512x->sclk) == -EPROBE_DEFER)
+-			return -EPROBE_DEFER;
+-
+-		dev_info(dev, "No SCLK, using BCLK: %ld\n",
+-			 PTR_ERR(pcm512x->sclk));
+-
+-		/* Disable reporting of missing SCLK as an error */
+-		regmap_update_bits(regmap, PCM512x_ERROR_DETECT,
+-				   PCM512x_IDCH, PCM512x_IDCH);
+-
+-		/* Internal PLL off, master clock switched to SCK */
+-		regmap_update_bits(regmap, PCM512x_PLL_EN,
+-				   PCM512x_PLCE, 0);
+-
+-	} else {
+-		ret = clk_prepare_enable(pcm512x->sclk);
+-		if (ret != 0) {
+-			dev_err(dev, "Failed to enable SCLK: %d\n", ret);
+-			return ret;
+-		}
+-	}
+-
+-	/* Default to standby mode */
+-	ret = regmap_update_bits(pcm512x->regmap, PCM512x_POWER,
+-				 PCM512x_RQST, PCM512x_RQST);
+-	if (ret != 0) {
+-		dev_err(dev, "Failed to request standby: %d\n",
+-			ret);
+-		goto err_clk;
+-	}
+-
+-	pm_runtime_set_active(dev);
+-	pm_runtime_enable(dev);
+-	pm_runtime_idle(dev);
+-
+-	ret = snd_soc_register_codec(dev, &pcm512x_codec_driver,
+-				    &pcm512x_dai, 1);
+-	if (ret != 0) {
+-		dev_err(dev, "Failed to register CODEC: %d\n", ret);
+-		goto err_pm;
+-	}
+-
+-	return 0;
+-
+-err_pm:
+-	pm_runtime_disable(dev);
+-err_clk:
+-	if (!IS_ERR(pcm512x->sclk))
+-		clk_disable_unprepare(pcm512x->sclk);
+-err:
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(pcm512x_probe);
+-
+-void pcm512x_remove(struct device *dev)
+-{
+-	struct pcm512x_priv *pcm512x = dev_get_drvdata(dev);
+-
+-	snd_soc_unregister_codec(dev);
+-	pm_runtime_disable(dev);
+-	if (!IS_ERR(pcm512x->sclk))
+-		clk_disable_unprepare(pcm512x->sclk);
+-}
+-EXPORT_SYMBOL_GPL(pcm512x_remove);
+-
+-#ifdef CONFIG_PM_RUNTIME
+-static int pcm512x_suspend(struct device *dev)
+-{
+-	struct pcm512x_priv *pcm512x = dev_get_drvdata(dev);
+-	int ret;
+-
+-	ret = regmap_update_bits(pcm512x->regmap, PCM512x_POWER,
+-				 PCM512x_RQPD, PCM512x_RQPD);
+-	if (ret != 0) {
+-		dev_err(dev, "Failed to request power down: %d\n", ret);
+-		return ret;
+-	}
+-
+-	if (!IS_ERR(pcm512x->sclk))
+-		clk_disable_unprepare(pcm512x->sclk);
+-
+-	return 0;
+-}
+-
+-static int pcm512x_resume(struct device *dev)
+-{
+-	struct pcm512x_priv *pcm512x = dev_get_drvdata(dev);
+-	int ret;
+-
+-	if (!IS_ERR(pcm512x->sclk)) {
+-		ret = clk_prepare_enable(pcm512x->sclk);
+-		if (ret != 0) {
+-			dev_err(dev, "Failed to enable SCLK: %d\n", ret);
+-			return ret;
+-		}
+-	}
+-
+-	regcache_cache_only(pcm512x->regmap, false);
+-	ret = regcache_sync(pcm512x->regmap);
+-	if (ret != 0) {
+-		dev_err(dev, "Failed to sync cache: %d\n", ret);
+-		return ret;
+-	}
+-
+-	ret = regmap_update_bits(pcm512x->regmap, PCM512x_POWER,
+-				 PCM512x_RQPD, 0);
+-	if (ret != 0) {
+-		dev_err(dev, "Failed to remove power down: %d\n", ret);
+-		return ret;
+-	}
+-
+-	return 0;
+-}
+-#endif
+-
+-const struct dev_pm_ops pcm512x_pm_ops = {
+-	SET_RUNTIME_PM_OPS(pcm512x_suspend, pcm512x_resume, NULL)
+-};
+-EXPORT_SYMBOL_GPL(pcm512x_pm_ops);
+-
+-MODULE_DESCRIPTION("ASoC PCM512x codec driver");
+-MODULE_AUTHOR("Mark Brown <broonie@linaro.org>");
+-MODULE_LICENSE("GPL v2");
+diff --git a/sound/soc/codecs/pcm512x.h b/sound/soc/codecs/pcm512x.h
+deleted file mode 100644
+index 6ee76aa..0000000
+--- a/sound/soc/codecs/pcm512x.h
++++ /dev/null
+@@ -1,171 +0,0 @@
+-/*
+- * Driver for the PCM512x CODECs
+- *
+- * Author:	Mark Brown <broonie@linaro.org>
+- *		Copyright 2014 Linaro Ltd
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License
+- * version 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- */
+-
+-#ifndef _SND_SOC_PCM512X
+-#define _SND_SOC_PCM512X
+-
+-#include <linux/pm.h>
+-#include <linux/regmap.h>
+-
+-#define PCM512x_VIRT_BASE 0x100
+-#define PCM512x_PAGE_LEN  0x100
+-#define PCM512x_PAGE_BASE(n)  (PCM512x_VIRT_BASE + (PCM512x_PAGE_LEN * n))
+-
+-#define PCM512x_PAGE              0
+-
+-#define PCM512x_RESET             (PCM512x_PAGE_BASE(0) +   1)
+-#define PCM512x_POWER             (PCM512x_PAGE_BASE(0) +   2)
+-#define PCM512x_MUTE              (PCM512x_PAGE_BASE(0) +   3)
+-#define PCM512x_PLL_EN            (PCM512x_PAGE_BASE(0) +   4)
+-#define PCM512x_SPI_MISO_FUNCTION (PCM512x_PAGE_BASE(0) +   6)
+-#define PCM512x_DSP               (PCM512x_PAGE_BASE(0) +   7)
+-#define PCM512x_GPIO_EN           (PCM512x_PAGE_BASE(0) +   8)
+-#define PCM512x_BCLK_LRCLK_CFG    (PCM512x_PAGE_BASE(0) +   9)
+-#define PCM512x_DSP_GPIO_INPUT    (PCM512x_PAGE_BASE(0) +  10)
+-#define PCM512x_MASTER_MODE       (PCM512x_PAGE_BASE(0) +  12)
+-#define PCM512x_PLL_REF           (PCM512x_PAGE_BASE(0) +  13)
+-#define PCM512x_PLL_COEFF_0       (PCM512x_PAGE_BASE(0) +  20)
+-#define PCM512x_PLL_COEFF_1       (PCM512x_PAGE_BASE(0) +  21)
+-#define PCM512x_PLL_COEFF_2       (PCM512x_PAGE_BASE(0) +  22)
+-#define PCM512x_PLL_COEFF_3       (PCM512x_PAGE_BASE(0) +  23)
+-#define PCM512x_PLL_COEFF_4       (PCM512x_PAGE_BASE(0) +  24)
+-#define PCM512x_DSP_CLKDIV        (PCM512x_PAGE_BASE(0) +  27)
+-#define PCM512x_DAC_CLKDIV        (PCM512x_PAGE_BASE(0) +  28)
+-#define PCM512x_NCP_CLKDIV        (PCM512x_PAGE_BASE(0) +  29)
+-#define PCM512x_OSR_CLKDIV        (PCM512x_PAGE_BASE(0) +  30)
+-#define PCM512x_MASTER_CLKDIV_1   (PCM512x_PAGE_BASE(0) +  32)
+-#define PCM512x_MASTER_CLKDIV_2   (PCM512x_PAGE_BASE(0) +  33)
+-#define PCM512x_FS_SPEED_MODE     (PCM512x_PAGE_BASE(0) +  34)
+-#define PCM512x_IDAC_1            (PCM512x_PAGE_BASE(0) +  35)
+-#define PCM512x_IDAC_2            (PCM512x_PAGE_BASE(0) +  36)
+-#define PCM512x_ERROR_DETECT      (PCM512x_PAGE_BASE(0) +  37)
+-#define PCM512x_I2S_1             (PCM512x_PAGE_BASE(0) +  40)
+-#define PCM512x_I2S_2             (PCM512x_PAGE_BASE(0) +  41)
+-#define PCM512x_DAC_ROUTING       (PCM512x_PAGE_BASE(0) +  42)
+-#define PCM512x_DSP_PROGRAM       (PCM512x_PAGE_BASE(0) +  43)
+-#define PCM512x_CLKDET            (PCM512x_PAGE_BASE(0) +  44)
+-#define PCM512x_AUTO_MUTE         (PCM512x_PAGE_BASE(0) +  59)
+-#define PCM512x_DIGITAL_VOLUME_1  (PCM512x_PAGE_BASE(0) +  60)
+-#define PCM512x_DIGITAL_VOLUME_2  (PCM512x_PAGE_BASE(0) +  61)
+-#define PCM512x_DIGITAL_VOLUME_3  (PCM512x_PAGE_BASE(0) +  62)
+-#define PCM512x_DIGITAL_MUTE_1    (PCM512x_PAGE_BASE(0) +  63)
+-#define PCM512x_DIGITAL_MUTE_2    (PCM512x_PAGE_BASE(0) +  64)
+-#define PCM512x_DIGITAL_MUTE_3    (PCM512x_PAGE_BASE(0) +  65)
+-#define PCM512x_GPIO_OUTPUT_1     (PCM512x_PAGE_BASE(0) +  80)
+-#define PCM512x_GPIO_OUTPUT_2     (PCM512x_PAGE_BASE(0) +  81)
+-#define PCM512x_GPIO_OUTPUT_3     (PCM512x_PAGE_BASE(0) +  82)
+-#define PCM512x_GPIO_OUTPUT_4     (PCM512x_PAGE_BASE(0) +  83)
+-#define PCM512x_GPIO_OUTPUT_5     (PCM512x_PAGE_BASE(0) +  84)
+-#define PCM512x_GPIO_OUTPUT_6     (PCM512x_PAGE_BASE(0) +  85)
+-#define PCM512x_GPIO_CONTROL_1    (PCM512x_PAGE_BASE(0) +  86)
+-#define PCM512x_GPIO_CONTROL_2    (PCM512x_PAGE_BASE(0) +  87)
+-#define PCM512x_OVERFLOW          (PCM512x_PAGE_BASE(0) +  90)
+-#define PCM512x_RATE_DET_1        (PCM512x_PAGE_BASE(0) +  91)
+-#define PCM512x_RATE_DET_2        (PCM512x_PAGE_BASE(0) +  92)
+-#define PCM512x_RATE_DET_3        (PCM512x_PAGE_BASE(0) +  93)
+-#define PCM512x_RATE_DET_4        (PCM512x_PAGE_BASE(0) +  94)
+-#define PCM512x_ANALOG_MUTE_DET   (PCM512x_PAGE_BASE(0) + 108)
+-#define PCM512x_GPIN              (PCM512x_PAGE_BASE(0) + 119)
+-#define PCM512x_DIGITAL_MUTE_DET  (PCM512x_PAGE_BASE(0) + 120)
+-
+-#define PCM512x_OUTPUT_AMPLITUDE  (PCM512x_PAGE_BASE(1) +   1)
+-#define PCM512x_ANALOG_GAIN_CTRL  (PCM512x_PAGE_BASE(1) +   2)
+-#define PCM512x_UNDERVOLTAGE_PROT (PCM512x_PAGE_BASE(1) +   5)
+-#define PCM512x_ANALOG_MUTE_CTRL  (PCM512x_PAGE_BASE(1) +   6)
+-#define PCM512x_ANALOG_GAIN_BOOST (PCM512x_PAGE_BASE(1) +   7)
+-#define PCM512x_VCOM_CTRL_1       (PCM512x_PAGE_BASE(1) +   8)
+-#define PCM512x_VCOM_CTRL_2       (PCM512x_PAGE_BASE(1) +   9)
+-
+-#define PCM512x_CRAM_CTRL         (PCM512x_PAGE_BASE(44) +  1)
+-
+-#define PCM512x_MAX_REGISTER      (PCM512x_PAGE_BASE(44) +  1)
+-
+-/* Page 0, Register 1 - reset */
+-#define PCM512x_RSTR (1 << 0)
+-#define PCM512x_RSTM (1 << 4)
+-
+-/* Page 0, Register 2 - power */
+-#define PCM512x_RQPD       (1 << 0)
+-#define PCM512x_RQPD_SHIFT 0
+-#define PCM512x_RQST       (1 << 4)
+-#define PCM512x_RQST_SHIFT 4
+-
+-/* Page 0, Register 3 - mute */
+-#define PCM512x_RQMR_SHIFT 0
+-#define PCM512x_RQML_SHIFT 4
+-
+-/* Page 0, Register 4 - PLL */
+-#define PCM512x_PLCE       (1 << 0)
+-#define PCM512x_RLCE_SHIFT 0
+-#define PCM512x_PLCK       (1 << 4)
+-#define PCM512x_PLCK_SHIFT 4
+-
+-/* Page 0, Register 7 - DSP */
+-#define PCM512x_SDSL       (1 << 0)
+-#define PCM512x_SDSL_SHIFT 0
+-#define PCM512x_DEMP       (1 << 4)
+-#define PCM512x_DEMP_SHIFT 4
+-
+-/* Page 0, Register 13 - PLL reference */
+-#define PCM512x_SREF (1 << 4)
+-
+-/* Page 0, Register 37 - Error detection */
+-#define PCM512x_IPLK (1 << 0)
+-#define PCM512x_DCAS (1 << 1)
+-#define PCM512x_IDCM (1 << 2)
+-#define PCM512x_IDCH (1 << 3)
+-#define PCM512x_IDSK (1 << 4)
+-#define PCM512x_IDBK (1 << 5)
+-#define PCM512x_IDFS (1 << 6)
+-
+-/* Page 0, Register 42 - DAC routing */
+-#define PCM512x_AUPR_SHIFT 0
+-#define PCM512x_AUPL_SHIFT 4
+-
+-/* Page 0, Register 59 - auto mute */
+-#define PCM512x_ATMR_SHIFT 0
+-#define PCM512x_ATML_SHIFT 4
+-
+-/* Page 0, Register 63 - ramp rates */
+-#define PCM512x_VNDF_SHIFT 6
+-#define PCM512x_VNDS_SHIFT 4
+-#define PCM512x_VNUF_SHIFT 2
+-#define PCM512x_VNUS_SHIFT 0
+-
+-/* Page 0, Register 64 - emergency ramp rates */
+-#define PCM512x_VEDF_SHIFT 6
+-#define PCM512x_VEDS_SHIFT 4
+-
+-/* Page 0, Register 65 - Digital mute enables */
+-#define PCM512x_ACTL_SHIFT 2
+-#define PCM512x_AMLE_SHIFT 1
+-#define PCM512x_AMLR_SHIFT 0
+-
+-/* Page 1, Register 2 - analog volume control */
+-#define PCM512x_RAGN_SHIFT 0
+-#define PCM512x_LAGN_SHIFT 4
+-
+-/* Page 1, Register 7 - analog boost control */
+-#define PCM512x_AGBR_SHIFT 0
+-#define PCM512x_AGBL_SHIFT 4
+-
+-extern const struct dev_pm_ops pcm512x_pm_ops;
+-extern const struct regmap_config pcm512x_regmap;
+-
+-int pcm512x_probe(struct device *dev, struct regmap *regmap);
+-void pcm512x_remove(struct device *dev);
+-
+-#endif
+-- 
+1.9.1
+
