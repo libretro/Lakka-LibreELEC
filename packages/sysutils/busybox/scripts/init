@@ -52,6 +52,7 @@
   MD5_FAILED="0"
   RUN_FSCK="yes"
   RUN_FSCK_DISKS=""
+  SYSLINUX_DEFAULT=""
 
   NBD_DEVS="0"
   FLASH_FREE_MIN="5"
@@ -125,6 +126,7 @@
         ;;
       installer)
         INIT_UNIT="--unit=installer.target"
+        SYSLINUX_DEFAULT="installer"
         ;;
       debugging)
         DEBUG=yes
@@ -144,6 +146,10 @@
         ;;
       live)
         LIVE=yes
+        SYSLINUX_DEFAULT="live"
+        ;;
+      portable)
+        SYSLINUX_DEFAULT="run"
         ;;
       overlay)
         OVERLAY=yes
@@ -680,6 +686,24 @@
     fi
   }
 
+  # Make last bootloader label (installer, live, run etc.) as the new default
+  update_syslinux() {
+    local crnt_default
+
+    if [ -n "$SYSLINUX_DEFAULT" -a -f /flash/syslinux.cfg ]; then
+      if grep -q "^LABEL $SYSLINUX_DEFAULT\$" /flash/syslinux.cfg; then
+        crnt_default="$(awk '/^DEFAULT/ {print $2}' /flash/syslinux.cfg)"
+        if [ ! "$crnt_default" = "$SYSLINUX_DEFAULT" ]; then
+          progress "Updating /flash/syslinux.cfg [$crnt_default -> $SYSLINUX_DEFAULT]"
+
+          mount -o remount,rw /flash
+          sed -i "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" /flash/syslinux.cfg
+          mount -o remount,ro /flash
+        fi
+      fi
+    fi
+  }
+
   check_out_of_space() {
     if [ "$(df /storage | awk '/[0-9]%/{print $4}')" -eq "0" ]; then
       echo ""
@@ -992,6 +1016,7 @@
       load_modules \
       check_disks \
       mount_flash \
+      update_syslinux \
       load_splash \
       mount_storage \
       check_update \
