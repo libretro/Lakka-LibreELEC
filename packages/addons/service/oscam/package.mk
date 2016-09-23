@@ -39,20 +39,15 @@ pre_unpack()  {
 export OSCAM_ADDON_VERSION="$PKG_VERSION_NUMBER"
 }
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-      -DCMAKE_INSTALL_PREFIX=/usr \
-      -DLIBUSBDIR=$SYSROOT_PREFIX/usr \
-      -DWITH_SSL=0 \
-      -DHAVE_LIBCRYPTO=0 \
-      -DHAVE_DVBAPI=1 -DWITH_STAPI=0 \
-      -DWEBIF=1 \
-      -DWITH_DEBUG=0 \
-      -DOPTIONAL_INCLUDE_DIR=$SYSROOT_PREFIX/usr/include \
-      -DSTATIC_LIBUSB=1 \
-      -DCLOCKFIX=0 \
-      ..
-}
+PKG_CMAKE_OPTS_TARGET="-DLIBUSBDIR=$SYSROOT_PREFIX/usr \
+                       -DWITH_SSL=0 \
+                       -DHAVE_LIBCRYPTO=0 \
+                       -DHAVE_DVBAPI=1 -DWITH_STAPI=0 \
+                       -DWEBIF=1 \
+                       -DWITH_DEBUG=0 \
+                       -DOPTIONAL_INCLUDE_DIR=$SYSROOT_PREFIX/usr/include \
+                       -DSTATIC_LIBUSB=1 \
+                       -DCLOCKFIX=0"
 
 makeinstall_target() {
   : # nop
