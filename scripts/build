@@ -125,6 +125,9 @@ if [ ! -f $STAMP ]; then
                            --disable-static \
                            --enable-shared"
 
+    TARGET_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+                       -DCMAKE_INSTALL_PREFIX=/usr"
+
   # configure HOST build defaults
     HOST_CONFIGURE_OPTS="--host=$HOST_NAME \
                          --build=$HOST_NAME \
@@ -137,11 +140,16 @@ if [ ! -f $STAMP ]; then
                          --disable-static \
                          --enable-shared"
 
+    HOST_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+                     -DCMAKE_INSTALL_PREFIX=$ROOT/$TOOLCHAIN"
+
   # configure INIT build defaults
     INIT_CONFIGURE_OPTS="$TARGET_CONFIGURE_OPTS"
+    INIT_CMAKE_OPTS="$TARGET_CMAKE_OPTS"
 
   # configure BOOTSTRAP build defaults
     BOOTSTRAP_CONFIGURE_OPTS="$HOST_CONFIGURE_OPTS"
+    BOOTSTRAP_CMAKE_OPTS="$HOST_CMAKE_OPTS"
 
   # include buildfile
     . $PKG_DIR/package.mk
@@ -240,6 +248,16 @@ if [ ! -f $STAMP ]; then
       fi
       if [ "$(type -t configure_$TARGET)" = "function" ]; then
         configure_$TARGET
+      elif [ -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" ]; then
+        if [ "$TARGET" = "target" ]; then
+          cmake $TARGET_CMAKE_OPTS $PKG_CMAKE_OPTS_TARGET $(dirname $PKG_CMAKE_SCRIPT)
+        elif [ "$TARGET" = "host" ]; then
+          cmake $HOST_CMAKE_OPTS $PKG_CMAKE_OPTS_HOST $(dirname $PKG_CMAKE_SCRIPT)
+        elif [ "$TARGET" = "init" ]; then
+          cmake $INIT_CMAKE_OPTS $PKG_CMAKE_OPTS_INIT $(dirname $PKG_CMAKE_SCRIPT)
+        elif [ "$TARGET" = "bootstrap" ]; then
+          cmake $BOOTSTRAP_CMAKE_OPTS $PKG_CMAKE_OPTS_BOOTSTRAP $(dirname $PKG_CMAKE_SCRIPT)
+        fi
       elif [ -f "$PKG_CONFIGURE_SCRIPT" ]; then
         if [ "$TARGET" = "target" ]; then
           $PKG_CONFIGURE_SCRIPT $TARGET_CONFIGURE_OPTS $PKG_CONFIGURE_OPTS_TARGET
