@@ -34,12 +34,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make CC=$TARGET_CC \
-       CPP=${TARGET_PREFIX}cpp \
-       RANLIB=$TARGET_RANLIB \
-       AR=$TARGET_AR \
-       STRIP=$TARGET_STRIP \
-       LOCAL_ZIP="$TARGET_CFLAGS" \
+  make CC=$CC CPP=$CPP RANLIB=$RANLIB AR=$AR STRIP=$STRIP LOCAL_ZIP="$CFLAGS" \
        -f unix/Makefile generic
 }
 
