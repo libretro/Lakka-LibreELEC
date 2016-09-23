@@ -30,6 +30,7 @@ PKG_SHORTDESC="freetype: TrueType font rendering library"
 PKG_LONGDESC="The FreeType engine is a free and portable TrueType font rendering engine. It has been developed to provide TT support to a great variety of platforms and environments."
 
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 PKG_AUTORECONF="no"
 
 # package specific configure options
