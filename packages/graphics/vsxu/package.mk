@@ -35,19 +35,14 @@ PKG_AUTORECONF="no"
 
 export LDFLAGS="$LDFLAGS -lX11"
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_LIBDIR=/usr/lib \
-        -DCMAKE_INSTALL_LIBDIR_NOARCH=/usr/lib \
-        -DCMAKE_INSTALL_PREFIX_TOOLCHAIN=$SYSROOT_PREFIX/usr \
-        -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-        -DBUILD_SHARED_LIBS=0 \
-	-DVSXU_STATIC=1 \
-	-DCMAKE_POSITION_INDEPENDENT_CODE=1 \
-	-DCMAKE_CXX_FLAGS="-I$SYSROOT_PREFIX/usr/include/freetype2" \
-        ..
-}
+PKG_CMAKE_OPTS_TARGET="-DCMAKE_INSTALL_LIBDIR=/usr/lib \
+                       -DCMAKE_INSTALL_LIBDIR_NOARCH=/usr/lib \
+                       -DCMAKE_INSTALL_PREFIX_TOOLCHAIN=$SYSROOT_PREFIX/usr \
+                       -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
+                       -DBUILD_SHARED_LIBS=0 \
+                       -DVSXU_STATIC=1 \
+                       -DCMAKE_POSITION_INDEPENDENT_CODE=1 \
+                       -DCMAKE_CXX_FLAGS=-I$SYSROOT_PREFIX/usr/include/freetype2"
 
 post_makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib/vsxu
