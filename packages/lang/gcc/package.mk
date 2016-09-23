@@ -98,8 +98,8 @@ post_make_host() {
   ln -sf libgcc_s.so.1 $TARGET_NAME/libgcc/libgcc_s.so
 
   if [ ! "$DEBUG" = yes ]; then
-    $TARGET_STRIP $TARGET_NAME/libgcc/libgcc_s.so*
-    $TARGET_STRIP $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.so*
+    ${TARGET_PREFIX}strip $TARGET_NAME/libgcc/libgcc_s.so*
+    ${TARGET_PREFIX}strip $TARGET_NAME/libstdc++-v3/src/.libs/libstdc++.so*
   fi
 }
 
@@ -108,29 +108,29 @@ post_makeinstall_host() {
 
   GCC_VERSION=`$ROOT/$TOOLCHAIN/bin/${TARGET_NAME}-gcc -dumpversion`
   DATE="0501`echo $GCC_VERSION | sed 's/\([0-9]\)/0\1/g' | sed 's/\.//g'`"
-  CROSS_CC=$TARGET_CC-$GCC_VERSION
-  CROSS_CXX=$TARGET_CXX-$GCC_VERSION
+  CROSS_CC=${TARGET_PREFIX}gcc-${GCC_VERSION}
+  CROSS_CXX=${TARGET_PREFIX}g++-${GCC_VERSION}
 
-  rm -f $TARGET_CC
+  rm -f ${TARGET_PREFIX}gcc
 
-cat > $TARGET_CC <<EOF
+cat > ${TARGET_PREFIX}gcc <<EOF
 #!/bin/sh
 $ROOT/$TOOLCHAIN/bin/ccache $CROSS_CC "\$@"
 EOF
 
-  chmod +x $TARGET_CC
+  chmod +x ${TARGET_PREFIX}gcc
 
   # To avoid cache trashing
   touch -c -t $DATE $CROSS_CC
 
-  [ ! -f "$CROSS_CXX" ] && mv $TARGET_CXX $CROSS_CXX
+  [ ! -f "$CROSS_CXX" ] && mv ${TARGET_PREFIX}g++ $CROSS_CXX
 
-cat > $TARGET_CXX <<EOF
+cat > ${TARGET_PREFIX}g++ <<EOF
 #!/bin/sh
 $ROOT/$TOOLCHAIN/bin/ccache $CROSS_CXX "\$@"
 EOF
 
-  chmod +x $TARGET_CXX
+  chmod +x ${TARGET_PREFIX}g++
 
   # To avoid cache trashing
   touch -c -t $DATE $CROSS_CXX
