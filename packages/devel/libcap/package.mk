@@ -48,7 +48,6 @@ make_host() {
        AR=$AR \
        RANLIB=$RANLIB \
        CFLAGS="$HOST_CFLAGS" \
-       BUILD_CC=$HOST_CC \
        BUILD_CFLAGS="$HOST_CFLAGS -I$ROOT/$PKG_BUILD/libcap/include" \
        PAM_CAP=no \
        lib=/lib \
