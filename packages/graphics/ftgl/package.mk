@@ -32,8 +32,4 @@ PKG_LONGDESC="ftgl:"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DOUTPUT_DIR=$SYSROOT_PREFIX/usr \
-        ..
-}
+PKG_CMAKE_OPTS_TARGET="-DOUTPUT_DIR=$SYSROOT_PREFIX/usr"
