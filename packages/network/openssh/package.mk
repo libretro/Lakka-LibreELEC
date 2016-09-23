@@ -50,7 +50,7 @@ PKG_CONFIGURE_OPTS_TARGET="--sysconfdir=/etc/ssh \
                            --without-pam"
 
 pre_configure_target() {
-  export LD="$TARGET_CC"
+  export LD="$CC"
   export LDFLAGS="$TARGET_CFLAGS $TARGET_LDFLAGS"
 }
 
