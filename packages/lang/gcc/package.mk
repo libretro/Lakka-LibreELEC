@@ -34,68 +34,48 @@ PKG_LONGDESC="This package contains the GNU Compiler Collection. It includes com
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-BOOTSTRAP_CONFIGURE_OPTS="--host=$HOST_NAME \
-                          --build=$HOST_NAME \
-                          --target=$TARGET_NAME \
-                          --prefix=$ROOT/$TOOLCHAIN \
-                          --with-sysroot=$SYSROOT_PREFIX \
-                          --with-gmp=$ROOT/$TOOLCHAIN \
-                          --with-mpfr=$ROOT/$TOOLCHAIN \
-                          --with-mpc=$ROOT/$TOOLCHAIN \
-                          --without-ppl \
-                          --without-cloog \
-                          --with-gnu-as \
-                          --with-gnu-ld \
-                          --enable-languages=c \
-                          --disable-__cxa_atexit \
-                          --disable-libada \
-                          --disable-libmudflap \
-                          --disable-libatomic \
-                          --disable-libitm \
-                          --disable-libsanitizer \
-                          --enable-gold \
-                          --enable-ld=default \
-                          --enable-plugin \
-                          --enable-lto \
-                          --disable-libquadmath \
-                          --disable-libssp \
-                          --disable-libgomp \
-                          --enable-cloog-backend=isl \
-                          --disable-shared \
-                          --disable-multilib \
-                          --disable-threads \
-                          --without-headers \
-                          --with-newlib \
-                          --disable-decimal-float \
-                          $GCC_OPTS \
-                          --disable-nls \
-                          --enable-checking=release \
-                          --with-default-libstdcxx-abi=gcc4-compatible"
+GCC_COMMON_CONFIGURE_OPTS="--target=$TARGET_NAME \
+                           --with-sysroot=$SYSROOT_PREFIX \
+                           --with-gmp=$ROOT/$TOOLCHAIN \
+                           --with-mpfr=$ROOT/$TOOLCHAIN \
+                           --with-mpc=$ROOT/$TOOLCHAIN \
+                           --with-gnu-as \
+                           --with-gnu-ld \
+                           --enable-plugin \
+                           --enable-lto \
+                           --enable-gold \
+                           --enable-ld=default \
+                           --disable-multilib \
+                           --disable-nls \
+                           --enable-checking=release \
+                           --with-default-libstdcxx-abi=gcc4-compatible \
+                           --without-ppl \
+                           --without-cloog \
+                           --disable-libada \
+                           --disable-libmudflap \
+                           --disable-libatomic \
+                           --disable-libitm \
+                           --disable-libquadmath \
+                           --disable-libgomp \
+                           --disable-libmpx"
 
-PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
-                         --with-sysroot=$SYSROOT_PREFIX \
-                         --with-gmp=$ROOT/$TOOLCHAIN \
-                         --with-mpfr=$ROOT/$TOOLCHAIN \
-                         --with-mpc=$ROOT/$TOOLCHAIN \
-                         --without-ppl \
-                         --without-cloog \
+PKG_CONFIGURE_OPTS_BOOTSTRAP="$GCC_COMMON_CONFIGURE_OPTS \
+                              --enable-languages=c \
+                              --disable-__cxa_atexit \
+                              --disable-libsanitizer \
+                              --disable-libssp \
+                              --enable-cloog-backend=isl \
+                              --disable-shared \
+                              --disable-threads \
+                              --without-headers \
+                              --with-newlib \
+                              --disable-decimal-float \
+                              $GCC_OPTS"
+
+PKG_CONFIGURE_OPTS_HOST="$GCC_COMMON_CONFIGURE_OPTS \
                          --enable-languages=c,c++ \
-                         --with-gnu-as \
-                         --with-gnu-ld \
                          --enable-__cxa_atexit \
-                         --disable-libada \
                          --enable-decimal-float \
-                         --disable-libmudflap \
-                         --disable-libssp \
-                         --disable-multilib \
-                         --disable-libatomic \
-                         --disable-libitm \
-                         --enable-gold \
-                         --enable-ld=default \
-                         --enable-plugin \
-                         --enable-lto \
-                         --disable-libquadmath \
-                         --disable-libgomp \
                          --enable-tls \
                          --enable-shared \
                          --disable-static \
@@ -105,21 +85,11 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --disable-libstdcxx-pch \
                          --enable-libstdcxx-time \
                          --enable-clocale=gnu \
-                         $GCC_OPTS \
-                         --disable-nls \
-                         --enable-checking=release \
-                         --with-default-libstdcxx-abi=gcc4-compatible"
+                         $GCC_OPTS"
 
 pre_configure_host() {
   export CXXFLAGS="$CXXFLAGS -std=gnu++98"
-}
-
-pre_configure_bootstrap() {
-  setup_toolchain host
-}
-
-makeinstall_bootstrap() {
-  make install
+  unset CPP
 }
 
 post_make_host() {
