@@ -31,7 +31,7 @@ PKG_SHORTDESC="LZO data compressor"
 PKG_LONGDESC="LZO is a data compression library which is suitable for data de-/compression in real-time. This means it favours speed over compression ratio."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_HOST="--disable-shared --enable-static"
-PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
+PKG_CMAKE_OPTS_HOST="-DENABLE_SHARED=OFF -DENABLE_STATIC=ON"
+PKG_CMAKE_OPTS_TARGET="-DENABLE_SHARED=OFF -DENABLE_STATIC=ON"
