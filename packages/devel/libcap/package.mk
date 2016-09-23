@@ -44,9 +44,9 @@ post_unpack() {
 
 make_host() {
   cd $ROOT/$PKG_BUILD/.$HOST_NAME
-  make CC=$HOST_CC \
-       AR=$HOST_AR \
-       RANLIB=$HOST_RANLIB \
+  make CC=$CC \
+       AR=$AR \
+       RANLIB=$RANLIB \
        CFLAGS="$HOST_CFLAGS" \
        BUILD_CC=$HOST_CC \
        BUILD_CFLAGS="$HOST_CFLAGS -I$ROOT/$PKG_BUILD/libcap/include" \
@@ -57,9 +57,9 @@ make_host() {
 
 make_target() {
   cd $ROOT/$PKG_BUILD/.$TARGET_NAME
-  make CC=$TARGET_CC \
-       AR=$TARGET_AR \
-       RANLIB=$TARGET_RANLIB \
+  make CC=$CC \
+       AR=$AR \
+       RANLIB=$RANLIB \
        CFLAGS="$TARGET_CFLAGS" \
        BUILD_CC=$HOST_CC \
        BUILD_CFLAGS="$HOST_CFLAGS -I$ROOT/$PKG_BUILD/libcap/include" \
