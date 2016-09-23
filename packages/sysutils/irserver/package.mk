@@ -39,7 +39,7 @@ elif [ "$TARGET_ARCH" = "arm" ]; then
 fi
 
 make_target() {
-  make CC=$TARGET_CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $IRSERVER_BIN
+  make CC=$CC CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $IRSERVER_BIN
   $STRIP $IRSERVER_BIN
 }
 
