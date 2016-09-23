@@ -34,11 +34,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-    make CC=$TARGET_CC \
-      RANLIB=$TARGET_RANLIB \
-      AR=$TARGET_AR \
-      STRIP=$TARGET_STRIP \
-      -f unix/Makefile generic LOCAL_UNZIP="$CFLAGS"
+    make CC=$CC RANLIB=$RANLIB AR=$AR STRIP=$STRIP \
+         -f unix/Makefile generic LOCAL_UNZIP="$CFLAGS"
 }
 
 makeinstall_target() {
