@@ -32,14 +32,7 @@ PKG_LONGDESC="The ssh library was designed to be used by programmers needing a w
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DWITH_STATIC_LIB=1 \
-        -DWITH_SERVER="OFF" \
-        -DWITH_GCRYPT="OFF" \
-        ..
-}
+PKG_CMAKE_OPTS_TARGET="-DWITH_STATIC_LIB=1 -DWITH_SERVER=OFF -DWITH_GCRYPT=OFF"
 
 makeinstall_target() {
 # install static library only
