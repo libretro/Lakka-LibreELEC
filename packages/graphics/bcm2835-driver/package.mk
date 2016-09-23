@@ -89,6 +89,7 @@ makeinstall_target() {
     ln -s dtoverlay $INSTALL/usr/bin/dtparam
     cp -PRv $FLOAT/opt/vc/bin/vcdbg $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/lib/libdebug_sym.so $INSTALL/usr/lib
+    cp -PRv $FLOAT/opt/vc/lib/libelftoolchain.so $INSTALL/usr/lib
     cp -PRv $FLOAT/opt/vc/bin/vcgencmd $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/bin/tvservice $INSTALL/usr/bin
     cp -PRv $FLOAT/opt/vc/bin/edidparser $INSTALL/usr/bin
