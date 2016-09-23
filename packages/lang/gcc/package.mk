@@ -79,7 +79,7 @@ PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME \
                          --with-mpc=$ROOT/$TOOLCHAIN \
                          --without-ppl \
                          --without-cloog \
-                         --enable-languages=${TOOLCHAIN_LANGUAGES} \
+                         --enable-languages=c,c++ \
                          --with-gnu-as \
                          --with-gnu-ld \
                          --enable-__cxa_atexit \
