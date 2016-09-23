@@ -28,13 +28,8 @@ PKG_LONGDESC="inputstream.mpd"
 
 PKG_IS_ADDON="yes"
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_MODULE_PATH=$SYSROOT_PREFIX/usr/lib/kodi \
-        -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-        ..
-}
+PKG_CMAKE_OPTS_TARGET="-DCMAKE_MODULE_PATH=$SYSROOT_PREFIX/usr/lib/kodi \
+                       -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr"
 
 post_makeinstall_target() {
   mkdir -p wv && cd wv
