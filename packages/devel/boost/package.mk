@@ -55,7 +55,7 @@ configure_target() {
                   --with-bjam=$ROOT/$TOOLCHAIN/bin/bjam \
                   --with-python=$ROOT/$TOOLCHAIN/bin/python \
 
-  echo "using gcc : `$TARGET_CC -v 2>&1  | tail -n 1 |awk '{print $3}'` : $TARGET_CC  : <compileflags>\"$CFLAGS\" <linkflags>\"$LDFLAGS\" ;" \
+  echo "using gcc : `$CC -v 2>&1  | tail -n 1 |awk '{print $3}'` : $CC  : <compileflags>\"$CFLAGS\" <linkflags>\"$LDFLAGS\" ;" \
     > tools/build/src/user-config.jam
 }
 
