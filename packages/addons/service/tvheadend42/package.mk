@@ -47,7 +47,7 @@ fi
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --arch=$TARGET_ARCH \
                            --cpu=$TARGET_CPU \
-                           --cc=$TARGET_CC \
+                           --cc=$CC \
                            --disable-avahi \
                            --enable-bundle \
                            --disable-dbus_1 \
@@ -87,7 +87,7 @@ pre_configure_target() {
 # transcoding link tvheadend with g++
 if [ "$TARGET_ARCH" = x86_64 ]; then
   pre_make_target() {
-    export CXX=$TARGET_CXX
+    export CXX=$CXX
   }
 fi
 
