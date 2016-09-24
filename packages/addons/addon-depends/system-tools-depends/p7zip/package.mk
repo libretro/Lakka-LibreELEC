@@ -32,7 +32,7 @@ PKG_LONGDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make TARGET_CXX=$TARGET_CXX TARGET_CC=$TARGET_CC 7z 7za
+  make TARGET_CXX=$CXX TARGET_CC=$CC 7z 7za
 }
 
 makeinstall_target() {
