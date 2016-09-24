@@ -23,7 +23,6 @@ PKG_ARCH="any"
 PKG_SITE="http://www.tcpdump.org/"
 PKG_URL="http://www.tcpdump.org/release/tcpdump-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libpcap"
-PKG_PRIORITY=optional
 PKG_SECTION="network/analyzer"
 PKG_SHORTDESC="powerful tool for network monitoring and data acquisition"
 PKG_LONGDESC="This program allows you to dump the traffic on a network. tcpdump is able to examine IPv4, ICMPv4, IPv6, ICMPv6, UDP, TCP, SNMP, AFS BGP, RIP, PIM, DVMRP, IGMP, SMB, OSPF, NFS and many other packet types."

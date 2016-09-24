@@ -25,7 +25,6 @@ PKG_SITE="http://libestr.adiscon.com/"
 PKG_URL="http://libestr.adiscon.com/files/download/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="rsyslog"
-PKG_PRIORITY="optional"
 PKG_SHORTDESC="libestr: some essentials for string handling (and a bit more)"
 PKG_LONGDESC="libestr: some essentials for string handling (and a bit more)"
 

@@ -26,7 +26,6 @@ PKG_URL="https://github.com/LibVNC/libvncserver/archive/LibVNCServer-$PKG_VERSIO
 PKG_SOURCE_DIR="libvncserver-LibVNCServer-$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain libjpeg-turbo libpng"
 PKG_SECTION="libs"
-PKG_PRIORITY="optional"
 PKG_SHORTDESC="LibVNCServer/LibVNCClient are cross-platform C libraries that allow you to easily implement VNC server or client functionality in your program."
 PKG_LONGDESC="LibVNCServer/LibVNCClient are cross-platform C libraries that allow you to easily implement VNC server or client functionality in your program."
 

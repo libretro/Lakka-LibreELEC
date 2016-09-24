@@ -25,7 +25,6 @@ PKG_SITE="http://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.gi
 PKG_URL="http://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git/snapshot/$PKG_VERSION.tar.xz"
 PKG_SOURCE_DIR="$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="x86-firmware: x86 related firmware"
 PKG_LONGDESC="x86-firmware: x86 related firmware"
