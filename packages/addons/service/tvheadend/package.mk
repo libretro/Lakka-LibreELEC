@@ -38,7 +38,7 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --arch=$TARGET_ARCH \
                            --cpu=$TARGET_CPU \
-                           --cc=$TARGET_CC \
+                           --cc=$CC \
                            --enable-hdhomerun_client \
                            --enable-hdhomerun_static \
                            --disable-avahi \
