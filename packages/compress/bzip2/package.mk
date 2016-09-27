@@ -57,7 +57,7 @@ pre_make_target() {
 }
 
 make_target() {
-  make -f Makefile-libbz2_so CC=$TARGET_CC CFLAGS="$CFLAGS -fPIC -DPIC"
+  make -f Makefile-libbz2_so CC=$CC CFLAGS="$CFLAGS -fPIC -DPIC"
 }
 
 post_make_target() {

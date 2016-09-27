@@ -29,6 +29,7 @@ PKG_SHORTDESC="libressl: a FREE version of the SSL/TLS protocol forked from Open
 PKG_LONGDESC="LibreSSL is a FREE version of the SSL/TLS protocol forked from OpenSSL"
 
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 PKG_AUTORECONF="yes"
 
 post_makeinstall_target() {

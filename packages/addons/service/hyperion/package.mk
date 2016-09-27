@@ -51,29 +51,26 @@ pre_build_target() {
   cp -a $(get_build_dir rpi_ws281x)/* $ROOT/$PKG_BUILD/dependencies/external/rpi_ws281x
 }
 
-configure_target() {
+pre_configure_target() {
   echo "" > ../cmake/FindGitVersion.cmake
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-        -DQT_QMAKE_EXECUTABLE=$ROOT/$TOOLCHAIN/bin/qmake \
-        -DHYPERION_VERSION_ID="$PKG_VERSION" \
-        $AMLOGIC_SUPPORT \
-        $DISPMANX_SUPPORT \
-        $FB_SUPPORT \
-        -DENABLE_OSX=0 \
-        -DUSE_SYSTEM_PROTO_LIBS=ON \
-        -DENABLE_SPIDEV=1 \
-        -DENABLE_TINKERFORGE=0 \
-        -DENABLE_V4L2=1 \
-        -DENABLE_WS2812BPWM=0 \
-        -DENABLE_WS281XPWM=1 \
-        $X11_SUPPORT \
-        -DENABLE_QT5=0 \
-        -DENABLE_TESTS=0 \
-        -Wno-dev \
-        ..
 }
+
+PKG_CMAKE_OPTS_TARGET="-DQT_QMAKE_EXECUTABLE=$ROOT/$TOOLCHAIN/bin/qmake \
+                       -DHYPERION_VERSION_ID="$PKG_VERSION" \
+                       $AMLOGIC_SUPPORT \
+                       $DISPMANX_SUPPORT \
+                       $FB_SUPPORT \
+                       -DENABLE_OSX=0 \
+                       -DUSE_SYSTEM_PROTO_LIBS=ON \
+                       -DENABLE_SPIDEV=1 \
+                       -DENABLE_TINKERFORGE=0 \
+                       -DENABLE_V4L2=1 \
+                       -DENABLE_WS2812BPWM=0 \
+                       -DENABLE_WS281XPWM=1 \
+                       $X11_SUPPORT \
+                       -DENABLE_QT5=0 \
+                       -DENABLE_TESTS=0 \
+                       -Wno-dev"
 
 makeinstall_target() {
   : # nothing to do here

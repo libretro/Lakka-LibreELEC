@@ -32,28 +32,24 @@ PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure desi
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-configure_host() {
-  cmake -DCMAKE_INSTALL_PREFIX=$ROOT/$TOOLCHAIN \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DLLVM_INCLUDE_TOOLS=ON \
-        -DLLVM_BUILD_TOOLS=OFF \
-        -DLLVM_BUILD_UTILS=OFF \
-        -DLLVM_BUILD_EXAMPLES=OFF \
-        -DLLVM_INCLUDE_EXAMPLES=OFF \
-        -DLLVM_BUILD_TESTS=OFF \
-        -DLLVM_INCLUDE_TESTS=OFF \
-        -DLLVM_INCLUDE_GO_TESTS=OFF \
-        -DLLVM_BUILD_DOCS=OFF \
-        -DLLVM_INCLUDE_DOCS=OFF \
-        -DLLVM_ENABLE_DOXYGEN=OFF \
-        -DLLVM_ENABLE_SPHINX=OFF \
-        -DLLVM_TARGETS_TO_BUILD="AMDGPU" \
-        -DLLVM_ENABLE_TERMINFO=OFF \
-        -DLLVM_ENABLE_ASSERTIONS=OFF \
-        -DLLVM_ENABLE_WERROR=OFF \
-        -DLLVM_ENABLE_ZLIB=OFF \
-        ..
-}
+PKG_CMAKE_OPTS_HOST="-DCMAKE_BUILD_TYPE=Release \
+                     -DLLVM_INCLUDE_TOOLS=ON \
+                     -DLLVM_BUILD_TOOLS=OFF \
+                     -DLLVM_BUILD_UTILS=OFF \
+                     -DLLVM_BUILD_EXAMPLES=OFF \
+                     -DLLVM_INCLUDE_EXAMPLES=OFF \
+                     -DLLVM_BUILD_TESTS=OFF \
+                     -DLLVM_INCLUDE_TESTS=OFF \
+                     -DLLVM_INCLUDE_GO_TESTS=OFF \
+                     -DLLVM_BUILD_DOCS=OFF \
+                     -DLLVM_INCLUDE_DOCS=OFF \
+                     -DLLVM_ENABLE_DOXYGEN=OFF \
+                     -DLLVM_ENABLE_SPHINX=OFF \
+                     -DLLVM_TARGETS_TO_BUILD="AMDGPU" \
+                     -DLLVM_ENABLE_TERMINFO=OFF \
+                     -DLLVM_ENABLE_ASSERTIONS=OFF \
+                     -DLLVM_ENABLE_WERROR=OFF \
+                     -DLLVM_ENABLE_ZLIB=OFF"
 
 make_host() {
   make llvm-config
@@ -63,35 +59,29 @@ makeinstall_host() {
   cp -a bin/llvm-config $SYSROOT_PREFIX/usr/bin/llvm-config-host
 }
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DLLVM_INCLUDE_TOOLS=OFF \
-        -DLLVM_BUILD_TOOLS=OFF \
-        -DLLVM_BUILD_UTILS=OFF \
-        -DLLVM_BUILD_EXAMPLES=OFF \
-        -DLLVM_INCLUDE_EXAMPLES=OFF \
-        -DLLVM_BUILD_TESTS=OFF \
-        -DLLVM_INCLUDE_TESTS=OFF \
-        -DLLVM_INCLUDE_GO_TESTS=OFF \
-        -DLLVM_BUILD_DOCS=OFF \
-        -DLLVM_INCLUDE_DOCS=OFF \
-        -DLLVM_ENABLE_DOXYGEN=OFF \
-        -DLLVM_ENABLE_SPHINX=OFF \
-        -DLLVM_TARGETS_TO_BUILD="AMDGPU" \
-        -DLLVM_ENABLE_TERMINFO=OFF \
-        -DLLVM_ENABLE_ASSERTIONS=OFF \
-        -DLLVM_ENABLE_WERROR=OFF \
-        -DLLVM_TARGET_ARCH="$TARGET_ARCH" \
-        -DLLVM_ENABLE_ZLIB=ON \
-        -DLLVM_BUILD_LLVM_DYLIB=OFF \
-        -DLLVM_LINK_LLVM_DYLIB=OFF \
-        ..
-}
+PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
+                       -DCMAKE_C_FLAGS="$CFLAGS" \
+                       -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+                       -DLLVM_INCLUDE_TOOLS=OFF \
+                       -DLLVM_BUILD_TOOLS=OFF \
+                       -DLLVM_BUILD_UTILS=OFF \
+                       -DLLVM_BUILD_EXAMPLES=OFF \
+                       -DLLVM_INCLUDE_EXAMPLES=OFF \
+                       -DLLVM_BUILD_TESTS=OFF \
+                       -DLLVM_INCLUDE_TESTS=OFF \
+                       -DLLVM_INCLUDE_GO_TESTS=OFF \
+                       -DLLVM_BUILD_DOCS=OFF \
+                       -DLLVM_INCLUDE_DOCS=OFF \
+                       -DLLVM_ENABLE_DOXYGEN=OFF \
+                       -DLLVM_ENABLE_SPHINX=OFF \
+                       -DLLVM_TARGETS_TO_BUILD="AMDGPU" \
+                       -DLLVM_ENABLE_TERMINFO=OFF \
+                       -DLLVM_ENABLE_ASSERTIONS=OFF \
+                       -DLLVM_ENABLE_WERROR=OFF \
+                       -DLLVM_TARGET_ARCH="$TARGET_ARCH" \
+                       -DLLVM_ENABLE_ZLIB=ON \
+                       -DLLVM_BUILD_LLVM_DYLIB=OFF \
+                       -DLLVM_LINK_LLVM_DYLIB=OFF"
 
 post_makeinstall_target() {
 
