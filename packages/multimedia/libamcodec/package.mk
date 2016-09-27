@@ -32,7 +32,6 @@ case $TARGET_ARCH in
     ;;
 esac
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libamcodec: Interface library for Amlogic media codecs"
 PKG_LONGDESC="libamplayer: Interface library for Amlogic media codecs"

@@ -24,7 +24,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.liblogging.org/"
 PKG_URL="http://download.rsyslog.com/liblogging/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain systemd"
-PKG_PRIORITY="optional"
 PKG_SHORTDESC="liblogging"
 PKG_LONGDESC="liblogging"
 
