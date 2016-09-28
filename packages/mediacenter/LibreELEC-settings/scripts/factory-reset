@@ -17,6 +17,17 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+. /usr/lib/libreelec/functions
+
+# Get NAME, which is DISTRONAME, ie. LibreELEC
+. /etc/os-release
+
+hidecursor
+
+label=
+target=
+uuid=
+
 get_target() {
   for arg in $(cat /proc/cmdline); do
     case $arg in
@@ -25,14 +36,14 @@ get_target() {
         case $disk in
           LABEL=*)
             label="${disk#*=}"
-            target=`blkid -L $label`
+            target="$(blkid -L $label)"
             ;;
           UUID=*)
             uuid="${disk#*=}"
-            target=`blkid -U $uuid`
+            target="$(blkid -U $uuid)"
             ;;
           /*)
-            target=$disk
+            target="$disk"
             ;;
         esac
         ;;
@@ -40,33 +51,49 @@ get_target() {
   done
 }
 
+show_reset_msg() {
+  echo "RESET IN PROGRESS"
+  echo ""
+  echo "Please do not reboot or turn off your ${NAME} device!"
+  echo ""
+}
+
 if [ -f /storage/.cache/reset_oe ] ; then
   # hard reset
   rm -f /storage/.cache/reset_oe
   get_target
   if [ ! -z $target ] ; then
-    echo "hard resetting..."
-    umount /storage
-    mke2fs -t ext4 -m 0 $target 2>&1 >/dev/null
-    if [ ! -z $label ] ; then
-      tune2fs -U random -L $label $target
-    fi
-    if [ ! -z $uuid ] ; then
-      tune2fs -U $uuid $target
-    fi
-    echo "done"
-    sleep 5
+    show_reset_msg
+
+    StartProgress spinner "Performing hard reset... "
+      umount /storage
+      mke2fs -t ext4 -m 0 $target &>/dev/null
+      if [ ! -z $label ] ; then
+        tune2fs -U random -L $label $target &>/dev/null
+      fi
+      if [ ! -z $uuid ] ; then
+        tune2fs -U $uuid $target &>/dev/null
+      fi
+      StopProgress "done!"
+
+    echo
+    StartProgress countdown "Rebooting in 5s... " 5 "NOW"
   fi
 elif [ -f /storage/.cache/reset_xbmc ] ; then
   # soft reset
   rm -f /storage/.cache/reset_xbmc
   get_target
   if [ ! -z $target ] ; then
-    echo "soft resetting..."
-    rm -rf /storage/.??* 2>&1 >/dev/null
-    echo "done"
-    sleep 5
+    show_reset_msg
+
+    StartProgress spinner "Performing soft reset... "
+      rm -rf /storage/.??* &>/dev/null
+      StopProgress "done!"
+
+    echo
+    StartProgress countdown "Rebooting in 5s... " 5 "NOW"
   fi
 fi
+
 sync
 reboot -f
