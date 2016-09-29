@@ -30,7 +30,7 @@ PKG_SHORTDESC="LibVNCServer/LibVNCClient are cross-platform C libraries that all
 PKG_LONGDESC="LibVNCServer/LibVNCClient are cross-platform C libraries that allow you to easily implement VNC server or client functionality in your program."
 
 PKG_IS_ADDON="no"
-
+PKG_USE_CMAKE="no"
 PKG_AUTORECONF="yes"
 
 PKG_MAINTAINER="Lukas Rusak (lrusak at irc.freenode.net)"
