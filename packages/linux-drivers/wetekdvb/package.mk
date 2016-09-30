@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="wetekdvb"
-PKG_VERSION="20160307"
+PKG_VERSION="20160930"
 PKG_REV="1"
-PKG_ARCH="arm"
+PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.wetek.com/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
@@ -38,7 +38,11 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
-    cp driver/*.ko $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
+  if [ $PROJECT = "WeTek_Play_2" ]; then
+    cp driver/wetekdvb_play2.ko $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME/wetekdvb.ko
+  else
+    cp driver/wetekdvb.ko $INSTALL/lib/modules/$(get_module_dir)/$PKG_NAME
+  fi
 
   mkdir -p $INSTALL/lib/firmware
     cp firmware/* $INSTALL/lib/firmware
