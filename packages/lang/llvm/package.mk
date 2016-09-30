@@ -62,7 +62,7 @@ makeinstall_host() {
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
                        -DCMAKE_C_FLAGS="$CFLAGS" \
                        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-                       -DLLVM_INCLUDE_TOOLS=OFF \
+                       -DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_BUILD_TOOLS=OFF \
                        -DLLVM_BUILD_UTILS=OFF \
                        -DLLVM_BUILD_EXAMPLES=OFF \
@@ -80,11 +80,11 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
                        -DLLVM_ENABLE_WERROR=OFF \
                        -DLLVM_TARGET_ARCH="$TARGET_ARCH" \
                        -DLLVM_ENABLE_ZLIB=ON \
-                       -DLLVM_BUILD_LLVM_DYLIB=OFF \
-                       -DLLVM_LINK_LLVM_DYLIB=OFF"
+                       -DLLVM_BUILD_LLVM_DYLIB=ON \
+                       -DLLVM_LINK_LLVM_DYLIB=ON"
 
 post_makeinstall_target() {
-
   rm -rf $INSTALL/usr/bin
-  rm -rf $INSTALL/usr/lib
+  rm -rf $INSTALL/usr/lib/LLVMHello.so
+  rm -rf $INSTALL/usr/lib/libLTO.so
 }
