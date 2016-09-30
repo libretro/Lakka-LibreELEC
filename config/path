@@ -74,49 +74,58 @@ SED="sed -i"
   PKG_IS_ADDON="no"
 
   if [ -n "$1" ]; then
-    _PKG_ROOT_NAME=$(echo $1 | cut -d: -f1)
+    _PKG_ROOT_NAME=${1%:*}
     _ALL_DIRS=""
     _FOUND=0
     PKG_DIR=""
 
-    # check project folder for a package if not found already
-    for DIR in $(find $ROOT/projects/$PROJECT/packages -type d -name $_PKG_ROOT_NAME 2>/dev/null); do
-      if [ -r "$DIR/package.mk" ]; then
+    # If the package caches are unset, then populate them
+    if [ -z "${_CACHE_PACKAGE_LOCAL+x}" -o -z "${_CACHE_PACKAGE_GLOBAL+x}" ]; then
+      _CACHE_PACKAGE_LOCAL=""
+      _CACHE_PACKAGE_GLOBAL=""
+
+      # cache project folder for a package
+      for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
+        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_LOCAL+="${DIR}\n"
+      done
+
+      # cache packages folder
+      for DIR in $(find $ROOT/$PACKAGES -type d 2>/dev/null); do
+        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_GLOBAL+="${DIR}\n"
+      done
+
+      export _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
+    fi
+
+    # Check for any available local package in preference to a global package
+    for DIR in $(echo -e "${_CACHE_PACKAGE_LOCAL}" | grep -E "^.*/${_PKG_ROOT_NAME}\$"); do
+      # found first, set $PKG_DIR
+      PKG_DIR="$DIR"
+      # keep track of dirs with package.mk for detecting multiple folders
+      _ALL_DIRS+="${DIR}\n"
+      _FOUND=$((_FOUND+1))
+    done
+
+    # If there's no local package available, use the global package
+    if [ $_FOUND -eq 0 ]; then
+      for DIR in $(echo -e "${_CACHE_PACKAGE_GLOBAL}" | grep -E "^.*/${_PKG_ROOT_NAME}\$"); do
         # found first, set $PKG_DIR
         PKG_DIR="$DIR"
         # keep track of dirs with package.mk for detecting multiple folders
-        _ALL_DIRS="${_ALL_DIRS}${DIR}\\n"
+        _ALL_DIRS+="${DIR}\n"
         _FOUND=$((_FOUND+1))
-        if [ $_FOUND -gt 1 ]; then
-          # _FOUND more ? fail
-          echo "Error - multiple package folders:"
-          echo -e "$_ALL_DIRS"
-          exit 1
-        fi
-      fi
-    done
-
-    # then check packages folder if not found already
-    if [ $_FOUND -eq 0 ]; then
-      for DIR in $(find $ROOT/$PACKAGES -type d -name $_PKG_ROOT_NAME 2>/dev/null); do
-        if [ -r "$DIR/package.mk" ]; then
-          # found first, set $PKG_DIR
-          PKG_DIR="$DIR"
-          # keep track of dirs with package.mk for detecting multiple folders
-          _ALL_DIRS="${_ALL_DIRS}${DIR}\\n"
-          _FOUND=$((_FOUND+1))
-          if [ $_FOUND -gt 1 ]; then
-            # found more ? fail
-            echo "Error - multiple package folders:"
-            echo -e "$_ALL_DIRS"
-            exit 1
-          fi
-        fi
       done
+    fi
+
+    # _FOUND multiple packages? fail
+    if [ $_FOUND -gt 1 ]; then
+      echo "Error - multiple package folders:"
+      echo -e "$_ALL_DIRS"
+      exit 1
     fi
   fi
 
-  if [ -r $PKG_DIR/package.mk ]; then
+  if [ -n "$PKG_DIR" -a -r $PKG_DIR/package.mk ]; then
     . $PKG_DIR/package.mk
   fi
 
