@@ -32,10 +32,6 @@ PKG_LONGDESC="LCDproc is a piece of software that displays real-time system info
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-if [ "$IRSERVER_SUPPORT" = yes ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET irserver"
-fi
-
 IFS=$','
 for i in $LCD_DRIVER; do
   case $i in
@@ -58,7 +54,6 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
 
   sed -e "s|^DriverPath=.*$|DriverPath=/usr/lib/lcdproc/|" \
-      -e "s|^Driver=.*$|Driver=irtrans|" \
       -e "s|^#Foreground=.*$|Foreground=no|" \
       -e "s|^#ServerScreen=.*$|ServerScreen=blank|" \
       -e "s|^#Backlight=.*$|Backlight=open|" \

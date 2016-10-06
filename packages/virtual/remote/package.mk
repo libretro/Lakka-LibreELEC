@@ -35,10 +35,6 @@ if [ "$ATVCLIENT_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET atvclient"
 fi
 
-if [ "$IRSERVER_SUPPORT" = "yes" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET irserver"
-fi
-
 if [ "$AMREMOTE_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET amremote"
 fi
