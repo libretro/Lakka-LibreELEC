@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="397f82c"
+PKG_VERSION="5f5ac15"
 PKG_REV="5"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -51,13 +51,13 @@ fi
 if [ "$OPENGLES" == "no" ]; then
   RETROARCH_GL="--enable-kms"
 elif [ "$OPENGLES" == "bcm2835-driver" ]; then
-  RETROARCH_GL="--enable-gles --disable-kms --disable-x11"
+  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11"
   CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                   -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
 elif [ "$OPENGLES" == "sunxi-mali" ] || [ "$OPENGLES" == "odroidc1-mali" ] || [ "$OPENGLES" == "odroidxu3-mali" ] || [ "$OPENGLES" == "opengl-meson" ] || [ "$OPENGLES" == "opengl-meson8" ]; then
-  RETROARCH_GL="--enable-gles --disable-kms --disable-x11 --enable-mali_fbdev"
+  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ]; then
-  RETROARCH_GL="--enable-gles --disable-kms --disable-x11 --enable-vivante_fbdev"
+  RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-vivante_fbdev"
   CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
 fi
 
@@ -147,6 +147,11 @@ makeinstall_target() {
   # Menu
   sed -i -e "s/# menu_core_enable = true/menu_core_enable = false/" $INSTALL/etc/retroarch.cfg
   sed -i -e "s/# thumbnails_directory =/thumbnails_directory = \/storage\/thumbnails/" $INSTALL/etc/retroarch.cfg
+  echo "menu_show_advanced_settings = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "menu_wallpaper_opacity = \"1.0\"" >> $INSTALL/etc/retroarch.cfg
+  echo "xmb_show_images = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "xmb_show_music = \"false\"" >> $INSTALL/etc/retroarch.cfg
+  echo "xmb_show_video = \"false\"" >> $INSTALL/etc/retroarch.cfg
 
   # Updater
   if [ "$ARCH" == "arm" ]; then

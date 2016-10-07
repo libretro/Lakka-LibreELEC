@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="scummvm"
-PKG_VERSION="ce31819"
+PKG_VERSION="b662fe1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -33,10 +33,6 @@ PKG_LONGDESC="ScummVM is a program which allows you to run certain classic graph
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-pre_configure_target() {
-  strip_gold
-}
 
 configure_target() {
   :

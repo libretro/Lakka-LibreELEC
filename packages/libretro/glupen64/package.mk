@@ -18,28 +18,45 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="core-info"
-PKG_VERSION="99cba5d"
+PKG_NAME="glupen64"
+PKG_VERSION="8c8e237"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-super"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/loganmc10/glupen64"
 PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Info files for libretro cores"
-PKG_LONGDESC="Super repo for other libretro projects. Fetches, builds and installs."
+PKG_SHORTDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
+PKG_LONGDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_configure_target() {
+  strip_gold
+  strip_lto
+}
+
 make_target() {
-  :
+  case $PROJECT in
+    RPi|Gamegirl)
+      make platform=rpi
+      ;;
+    RPi2)
+      make platform=rpi2
+      ;;
+    Generic)
+      make
+      ;;
+    *)
+      make platform=rpi2
+      ;;
+  esac
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp dist/info/*.info $INSTALL/usr/lib/libretro/
+  cp glupen64_libretro.so $INSTALL/usr/lib/libretro/
 }
-
