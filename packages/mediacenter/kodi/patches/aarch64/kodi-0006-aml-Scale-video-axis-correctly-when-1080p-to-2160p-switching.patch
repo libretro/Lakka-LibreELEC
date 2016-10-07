@@ -1,0 +1,81 @@
+From 211edfa19b20820772b33f6042992811037a21b3 Mon Sep 17 00:00:00 2001
+From: Jamie Coldhill <wrxtasy@amnet.net.au>
+Date: Thu, 6 Oct 2016 17:54:40 +0800
+Subject: [PATCH] [aml] Scale video axis correctly when 1080p to 2160p switching
+ Limit 4096x2160p (smpte24hz) resolution to 3840x2160p display width. 
+ Fixup 720p60hz fallback resolution 
+
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp | 20 +++++++++++++++-----
+ xbmc/utils/AMLUtils.cpp                             |  2 +-
+ xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp         |  2 +-
+ 3 files changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
+index f9b4138..dd7100a 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
+@@ -2172,12 +2172,8 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+ 
+   CRect gui, display;
+   gui = CRect(0, 0, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iWidth, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iHeight);
+-
+-#ifdef TARGET_ANDROID
+   display = m_display_rect;
+-#else
+-  display = gui;
+-#endif
++
+   if (gui != display)
+   {
+     float xscale = display.Width() / gui.Width();
+@@ -2191,6 +2187,20 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+     dst_rect.y1 *= yscale;
+     dst_rect.y2 *= yscale;
+   }
++  else if ((SrcRect.Width() != DestRect.Width()) && (SrcRect.Width() >= 3840))
++  {
++    float xscale = (3840 / DestRect.Width());
++    float yscale = xscale;
++    if (m_stereo_mode == RENDER_STEREO_MODE_SPLIT_VERTICAL)
++      xscale /= 2.0;
++    else if (m_stereo_mode == RENDER_STEREO_MODE_SPLIT_HORIZONTAL)
++      yscale /= 2.0;
++    dst_rect.x1  = 0;
++    dst_rect.y1  = (DestRect.y1 * yscale);
++    dst_rect.x2 *= xscale;
++    dst_rect.y2 *= yscale;
++  }
++
+ 
+   if (m_stereo_mode == RENDER_STEREO_MODE_MONO)
+   {
+diff --git a/xbmc/utils/AMLUtils.cpp b/xbmc/utils/AMLUtils.cpp
+index 80fb453..fd3b38d 100644
+--- a/xbmc/utils/AMLUtils.cpp
++++ b/xbmc/utils/AMLUtils.cpp
+@@ -465,7 +465,7 @@ bool aml_mode_to_resolution(const char *mode, RESOLUTION_INFO *res)
+   {
+     res->iWidth = 1920;
+     res->iHeight= 1080;
+-    res->iScreenWidth = 4096;
++    res->iScreenWidth = 3840;
+     res->iScreenHeight= 2160;
+     res->fRefreshRate = 24;
+     res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
+diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
+index 3cbb604..67f9984 100644
+--- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
++++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
+@@ -177,7 +177,7 @@ bool CEGLNativeTypeAmlogic::GetPreferredResolution(RESOLUTION_INFO *res) const
+   if (!GetNativeResolution(res))
+   {
+     // punt to 720p if we get nothing
+-    aml_mode_to_resolution("720p", res);
++    aml_mode_to_resolution("720p60hz", res);
+   }
+ 
+   return true;
+-- 
+1.9.1
+
