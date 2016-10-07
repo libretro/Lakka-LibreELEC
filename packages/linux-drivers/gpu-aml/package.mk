@@ -25,7 +25,6 @@ PKG_VERSION="r6p1-01rel0-2364187"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_PRIORITY="optional"
 PKG_SECTION="driver"
 PKG_SHORTDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 PKG_LONGDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
@@ -34,15 +33,12 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  cd mali
-  LDFLAGS="" make V=1 \
-    -C $(kernel_path) M=$ROOT/$PKG_BUILD/mali \
-    ARCH=$TARGET_KERNEL_ARCH \
-    CROSS_COMPILE=$TARGET_PREFIX \
+  LDFLAGS="" make -C $(kernel_path) M=$ROOT/$PKG_BUILD/mali \
     CONFIG_MALI400=m CONFIG_MALI450=m
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/lib/modules/$(get_module_dir)/mali
-  cp *.ko $INSTALL/lib/modules/$(get_module_dir)/mali
+  LDFLAGS="" make -C $(kernel_path) M=$ROOT/$PKG_BUILD/mali \
+    INSTALL_MOD_PATH=$INSTALL INSTALL_MOD_STRIP=1 DEPMOD=: \
+  modules_install
 }

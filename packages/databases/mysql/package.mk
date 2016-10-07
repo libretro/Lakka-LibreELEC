@@ -25,7 +25,6 @@ PKG_SITE="http://www.mysql.com"
 PKG_URL="http://ftp.gwdg.de/pub/misc/$PKG_NAME/Downloads/MySQL-5.7/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="zlib:host"
 PKG_DEPENDS_TARGET="toolchain zlib netbsd-curses libressl boost mysql:host"
-PKG_PRIORITY="optional"
 PKG_SECTION="database"
 PKG_SHORTDESC="mysql: A database server"
 PKG_LONGDESC="MySQL is a SQL (Structured Query Language) database server. SQL is the most popular database language in the world. MySQL is a client server implementation that consists of a server daemon mysqld and many different client programs/libraries."
@@ -43,23 +42,22 @@ post_unpack() {
   sed -i '/^IF(NOT BOOST_MINOR_VERSION.*$/,/^ENDIF()$/d' $ROOT/$PKG_BUILD/cmake/boost.cmake
 }
 
-configure_host() {
-  cmake -DCMAKE_PREFIX_PATH=$ROOT/$TOOLCHAIN/ \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DWITHOUT_SERVER=OFF \
-        -DWITH_EMBEDDED_SERVER=OFF \
-        -DWITH_INNOBASE_STORAGE_ENGINE=OFF \
-        -DWITH_PARTITION_STORAGE_ENGINE=OFF \
-        -DWITH_PERFSCHEMA_STORAGE_ENGINE=OFF \
-        -DWITH_EXTRA_CHARSETS=none \
-        -DWITH_EDITLINE=bundled \
-        -DWITH_LIBEVENT=bundled \
-        -DDOWNLOAD_BOOST=0 \
-        -DLOCAL_BOOST_DIR=$(get_build_dir boost) \
-        -DWITH_UNIT_TESTS=OFF \
-        -DWITH_ZLIB=bundled \
-        ..
-}
+PKG_CMAKE_OPTS_HOST="-DCMAKE_BUILD_TYPE=Release \
+                     -DSTACK_DIRECTION=-1 \
+                     -DHAVE_LLVM_LIBCPP_EXITCODE=0 \
+                     -DHAVE_FALLOC_PUNCH_HOLE_AND_KEEP_SIZE_EXITCODE=0 \
+                     -DWITHOUT_SERVER=OFF \
+                     -DWITH_EMBEDDED_SERVER=OFF \
+                     -DWITH_INNOBASE_STORAGE_ENGINE=OFF \
+                     -DWITH_PARTITION_STORAGE_ENGINE=OFF \
+                     -DWITH_PERFSCHEMA_STORAGE_ENGINE=OFF \
+                     -DWITH_EXTRA_CHARSETS=none \
+                     -DWITH_EDITLINE=bundled \
+                     -DWITH_LIBEVENT=bundled \
+                     -DDOWNLOAD_BOOST=0 \
+                     -DLOCAL_BOOST_DIR=$(get_build_dir boost) \
+                     -DWITH_UNIT_TESTS=OFF \
+                     -DWITH_ZLIB=bundled"
 
 make_host() {
   make comp_err
@@ -78,40 +76,32 @@ makeinstall_host() {
   cp -P scripts/comp_sql $ROOT/$TOOLCHAIN/bin
 }
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DINSTALL_INCLUDEDIR=include/mysql \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DFEATURE_SET=classic \
-        -DDISABLE_SHARED=ON \
-        -DENABLE_DTRACE=OFF \
-        -DWITH_EMBEDDED_SERVER=OFF \
-        -DWITH_INNOBASE_STORAGE_ENGINE=OFF \
-        -DWITH_PARTITION_STORAGE_ENGINE=OFF \
-        -DWITH_PERFSCHEMA_STORAGE_ENGINE=OFF \
-        -DWITH_EXTRA_CHARSETS=all \
-        -DWITH_UNIT_TESTS=OFF \
-        -DWITHOUT_SERVER=ON \
-        -DWITH_EDITLINE=bundled \
-        -DWITH_LIBEVENT=bundled \
-        -DWITH_ZLIB=system \
-        -DWITH_SSL=$SYSROOT_PREFIX/usr \
-        -DDOWNLOAD_BOOST=0 \
-        -DLOCAL_BOOST_DIR=$(get_build_dir boost) \
-        -DSTACK_DIRECTION=1 \
-        -DHAVE_LLVM_LIBCPP=1 \
-        -DCMAKE_C_FLAGS="-fPIC ${CFLAGS} -fno-strict-aliasing -DBIG_JOINS=1 -fomit-frame-pointer -fno-delete-null-pointer-checks" \
-        -DCMAKE_CXX_FLAGS="-fPIC ${CXXFLAGS} -fno-strict-aliasing -DBIG_JOINS=1 -felide-constructors -fno-delete-null-pointer-checks" \
-        ..
-}
+PKG_CMAKE_OPTS_TARGET="-DINSTALL_INCLUDEDIR=include/mysql \
+                       -DCMAKE_BUILD_TYPE=Release \
+                       -DFEATURE_SET=classic \
+                       -DDISABLE_SHARED=ON \
+                       -DENABLE_DTRACE=OFF \
+                       -DWITH_EMBEDDED_SERVER=OFF \
+                       -DWITH_INNOBASE_STORAGE_ENGINE=OFF \
+                       -DWITH_PARTITION_STORAGE_ENGINE=OFF \
+                       -DWITH_PERFSCHEMA_STORAGE_ENGINE=OFF \
+                       -DWITH_EXTRA_CHARSETS=all \
+                       -DWITH_UNIT_TESTS=OFF \
+                       -DWITHOUT_SERVER=ON \
+                       -DWITH_EDITLINE=bundled \
+                       -DWITH_LIBEVENT=bundled \
+                       -DWITH_ZLIB=system \
+                       -DWITH_SSL=$SYSROOT_PREFIX/usr \
+                       -DDOWNLOAD_BOOST=0 \
+                       -DLOCAL_BOOST_DIR=$(get_build_dir boost) \
+                       -DSTACK_DIRECTION=1 \
+                       -DHAVE_LLVM_LIBCPP=1"
 
 post_makeinstall_target() {
   sed -i "s|pkgincludedir=.*|pkgincludedir=\'$SYSROOT_PREFIX/usr/include/mysql\'|" scripts/mysql_config
   sed -i "s|pkglibdir=.*|pkglibdir=\'$SYSROOT_PREFIX/usr/lib/mysql\'|" scripts/mysql_config
   cp scripts/mysql_config $SYSROOT_PREFIX/usr/bin
   ln -sf $SYSROOT_PREFIX/usr/bin/mysql_config $ROOT/$TOOLCHAIN/bin/mysql_config
- 
+
   rm -rf $INSTALL
 }

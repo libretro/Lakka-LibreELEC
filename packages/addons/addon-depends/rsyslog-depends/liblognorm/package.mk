@@ -25,7 +25,6 @@ PKG_SITE="http://www.liblognorm.com/"
 PKG_URL="http://www.liblognorm.com/files/download/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="rsyslog"
-PKG_PRIORITY="optional"
 PKG_SHORTDESC="liblognorm"
 PKG_LONGDESC="liblognorm"
 

@@ -24,7 +24,6 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.intra2net.com/en/developer/libftdi/"
 PKG_URL="http://www.intra2net.com/en/developer/libftdi/download/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain libusb"
-PKG_PRIORITY="optional"
 PKG_SECTION="devel"
 PKG_SHORTDESC="libFTDI is an open source library to talk to FTDI chips"
 PKG_LONGDESC="libFTDI is an open source library to talk to FTDI chips"
@@ -32,16 +31,11 @@ PKG_LONGDESC="libFTDI is an open source library to talk to FTDI chips"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-configure_target() {
-  cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DSTATICLIBS=ON \
-        -DDOCUMENTATION=FALSE \
-        -DEXAMPLES=FALSE \
-        -DFTDIPP=FALSE \
-        -DPYTHON_BINDINGS=FALSE \
-        ..
-}
+PKG_CMAKE_OPTS_TARGET="-DSTATICLIBS=ON \
+                       -DDOCUMENTATION=FALSE \
+                       -DEXAMPLES=FALSE \
+                       -DFTDIPP=FALSE \
+                       -DPYTHON_BINDINGS=FALSE"
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -fPIC -DPIC"

@@ -26,7 +26,6 @@ PKG_SITE="http://www.iana.org/time-zones"
 # duplicate files are the same files
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SECTION="system"
 PKG_SHORTDESC="timezone-data"
 PKG_LONGDESC="timezone-data"

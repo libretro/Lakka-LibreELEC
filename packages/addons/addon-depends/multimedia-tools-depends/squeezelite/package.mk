@@ -25,7 +25,6 @@ PKG_SITE="https://github.com/ralph-irving/squeezelite"
 PKG_URL="https://github.com/ralph-irving/squeezelite/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain faad2 ffmpeg flac libmad libvorbis mpg123 soxr"
 PKG_SECTION="tools"
-PKG_PRIORITY="optional"
 PKG_SHORTDESC="squeezelite"
 PKG_LONGDESC="A client for the Logitech Media Server"
 

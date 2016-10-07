@@ -25,7 +25,6 @@ PKG_SITE="http://www.rsyslog.com/tag/libfastjson/"
 PKG_URL="http://download.rsyslog.com/libfastjson/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="rsyslog"
-PKG_PRIORITY="optional"
 PKG_SHORTDESC="libfastjson"
 PKG_LONGDESC="libfastjson"
 

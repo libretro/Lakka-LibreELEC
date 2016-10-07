@@ -17,14 +17,13 @@
 ################################################################################
 
 PKG_NAME="firmware-imx"
-PKG_VERSION="3.14.28-1.0.0"
+PKG_VERSION="5.4"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="firmware-imx: Freescale IMX firmware"
 PKG_LONGDESC="firmware-imx: Freescale IMX firmware such as for the VPU"

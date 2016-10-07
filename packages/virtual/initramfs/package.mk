@@ -24,7 +24,6 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.openelec.tv"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain libc:init busybox:init linux:init plymouth-lite:init util-linux:init e2fsprogs:init dosfstools:init"
-PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="initramfs: Metapackage for installing initramfs"
 PKG_LONGDESC="debug is a Metapackage for installing initramfs"
@@ -43,11 +42,12 @@ if [ "$INITRAMFS_PARTED_SUPPORT" = yes ]; then
 fi
 
 post_install() {
-  cd $ROOT/$BUILD/initramfs
+  ( cd $ROOT/$BUILD/initramfs
     if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
       ln -s /lib $ROOT/$BUILD/initramfs/lib64
     fi
     mkdir -p $ROOT/$BUILD/image/
-    find . | cpio -H newc -ov -R 0:0 > $ROOT/$BUILD/image/initramfs.cpio
-  cd -
+    fakeroot -- sh -c \
+      "mkdir -p dev; mknod -m 600 dev/console c 5 1; find . | cpio -H newc -ov -R 0:0 > $ROOT/$BUILD/image/initramfs.cpio"
+  )
 }

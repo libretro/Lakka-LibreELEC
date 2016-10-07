@@ -24,11 +24,11 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.nih.at/libzip/"
 PKG_URL="http://www.nih.at/libzip/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SHORTDESC="libzip"
 PKG_LONGDESC="libzip"
 
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"

@@ -17,14 +17,13 @@
 ################################################################################
 
 PKG_NAME="imx-vpu"
-PKG_VERSION="5.4.32"
+PKG_VERSION="5.4.33"
 PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain firmware-imx"
-PKG_PRIORITY="optional"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="imx-vpu: platform specific unit tests for mxc platform"
 PKG_LONGDESC="imx-vpu: platform specific unit tests for mxc platform"

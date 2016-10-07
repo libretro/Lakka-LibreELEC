@@ -24,7 +24,6 @@ PKG_LICENSE="OSS"
 PKG_SITE="https://libreelec.tv"
 PKG_URL="https://github.com/LibreELEC/script.config.vdr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET=""
-PKG_PRIORITY="optional"
 PKG_SECTION=""
 PKG_SHORTDESC="script.config.vdr"
 PKG_LONGDESC="script.config.vdr"
@@ -32,7 +31,6 @@ PKG_LONGDESC="script.config.vdr"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="dummy"
 PKG_AUTORECONF="no"
-PKG_ADDON_REPOVERSION="8.0"
 
 make_target() {
   : # nothing to do here

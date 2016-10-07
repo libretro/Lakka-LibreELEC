@@ -26,7 +26,6 @@ PKG_URL="http://www.tbsdtv.com/download/document/common/tbs-linux-drivers_v${PKG
 PKG_SOURCE_DIR="$PKG_NAME"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
-PKG_PRIORITY="optional"
 PKG_SECTION="driver"
 PKG_SHORTDESC="Linux TBS tuner drivers"
 PKG_LONGDESC="Linux TBS tuner drivers"

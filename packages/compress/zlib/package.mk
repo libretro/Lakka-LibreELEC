@@ -25,7 +25,6 @@ PKG_SITE="http://www.zlib.net"
 PKG_URL="http://zlib.net/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_DEPENDS_HOST=""
-PKG_PRIORITY="optional"
 PKG_SECTION="compress"
 PKG_SHORTDESC="zlib: A general purpose (ZIP) data compression library"
 PKG_LONGDESC="zlib is a general purpose data compression library. All the code is thread safe. The data format used by the zlib library is described by RFCs (Request for Comments) 1950 to 1952 in the files ftp://ds.internic.net/rfc/rfc1950.txt (zlib format), rfc1951.txt (deflate format) and rfc1952.txt (gzip format)."
@@ -33,37 +32,25 @@ PKG_LONGDESC="zlib is a general purpose data compression library. All the code i
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-TARGET_CONFIGURE_OPTS="--prefix=/usr"
-HOST_CONFIGURE_OPTS="--prefix=$ROOT/$TOOLCHAIN"
-
 post_configure_target() {
  ## configure minizip
  (
-  cd $ROOT/$PKG_BUILD/.$TARGET_NAME/contrib/minizip
+  cd $ROOT/$PKG_BUILD/contrib/minizip
   rm Makefile
   export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:../../"
   do_autoreconf
+  cp $ROOT/$PKG_BUILD/.$TARGET_NAME/zconf.h ./
   ./configure --host=$TARGET_NAME --build=$HOST_NAME $TARGET_CONFIGURE_OPTS --disable-shared --enable-static
  )
 }
 
-pre_build_target() {
-  mkdir -p $PKG_BUILD/.$TARGET_NAME
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
-}
-
-pre_build_host() {
-  mkdir -p $PKG_BUILD/.$HOST_NAME
-  cp -RP $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
-}
-
 post_make_target() {
  # make minizip
- make -C $ROOT/$PKG_BUILD/.$TARGET_NAME/contrib/minizip
+ make -C $ROOT/$PKG_BUILD/contrib/minizip
 }
 
 post_makeinstall_target() {
  # Install minizip
- make -C $ROOT/$PKG_BUILD/.$TARGET_NAME/contrib/minizip DESTDIR=$SYSROOT_PREFIX install
+ make -C $ROOT/$PKG_BUILD/contrib/minizip DESTDIR=$SYSROOT_PREFIX install
 }
 

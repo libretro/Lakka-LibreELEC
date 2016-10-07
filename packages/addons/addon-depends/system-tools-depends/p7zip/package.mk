@@ -25,14 +25,13 @@ PKG_SITE="http://p7zip.sourceforge.net/"
 PKG_URL="http://downloads.sourceforge.net/project/p7zip/p7zip/${PKG_VERSION}/p7zip_${PKG_VERSION}_src_all.tar.bz2"
 PKG_SOURCE_DIR="${PKG_NAME}_${PKG_VERSION}"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_LONGDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make TARGET_CXX=$TARGET_CXX TARGET_CC=$TARGET_CC 7z 7za
+  make TARGET_CXX=$CXX TARGET_CC=$CC 7z 7za
 }
 
 makeinstall_target() {

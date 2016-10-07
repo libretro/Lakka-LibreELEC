@@ -24,13 +24,12 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://secure.netroedge.com/~lm78/"
 PKG_URL="http://ftp.gwdg.de/pub/linux/misc/lm-sensors/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SECTION="tools"
 PKG_SHORTDESC="lm_sensors: Hardware monitoring via the SMBus"
 PKG_LONGDESC="lm_sensors is a package to get data from the SMB (System Management Bus - an i2c bus) on modern mainboards. It consists of kernel modules and users space tools to get stuff like cpu / mb temperature, voltages, fan speed..."
 
 # TODO: PKG_MAKE_OPTS_TARGET + ETCDIR=/storage/.kodi/addons/tools.lm_sensors/data if one wants sensor3.conf..
-PKG_MAKE_OPTS_TARGET="PREFIX=/usr CC=$TARGET_CC AR=$TARGET_AR"
+PKG_MAKE_OPTS_TARGET="PREFIX=/usr CC=$CC AR=$AR"
 PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
 
 pre_make_target() {

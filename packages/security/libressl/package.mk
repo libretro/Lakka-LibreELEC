@@ -17,19 +17,19 @@
 ################################################################################
 
 PKG_NAME="libressl"
-PKG_VERSION="2.3.5"
+PKG_VERSION="2.3.8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.libressl.org/"
 PKG_URL="http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_PRIORITY="optional"
 PKG_SECTION="security"
 PKG_SHORTDESC="libressl: a FREE version of the SSL/TLS protocol forked from OpenSSL"
 PKG_LONGDESC="LibreSSL is a FREE version of the SSL/TLS protocol forked from OpenSSL"
 
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 PKG_AUTORECONF="yes"
 
 post_makeinstall_target() {

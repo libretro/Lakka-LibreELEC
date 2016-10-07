@@ -18,13 +18,12 @@
 
 PKG_NAME="repository.kodinerds"
 PKG_VERSION="8.0"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodinerds.net"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain xmlstarlet"
-PKG_PRIORITY="optional"
+PKG_DEPENDS_TARGET="toolchain xmlstarlet:host"
 PKG_SECTION=""
 PKG_SHORTDESC="Kodinerds add-on repository"
 PKG_LONGDESC="Kodinerds add-on repository"
@@ -33,7 +32,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Kodinerds Repository"
 PKG_ADDON_TYPE="xbmc.addon.repository"
-PKG_ADDON_REPOVERSION="8.0"
 
 
 make_target() {
