@@ -1,0 +1,1880 @@
+https://github.com/OpenBricks/openbricks/tree/krypton-glibc
+https://github.com/OpenBricks/openbricks/tree/krypton-glibc/config/platforms/arm/imx6/machines/cuboxi/packages/linux/patches
+https://github.com/OpenBricks/openbricks/tree/32da31689ba04a94d1a08bfc04f69d6c1a3c848a/config/platforms/arm/imx6/machines/cuboxi/packages/linux/patches
+
+==============================================================
+file 0004-Dumb_adapter.patch
+==============================================================
+
+commit c466ada304c10af850daaef8b232e0e818bfb6d7
+Author: wolfgar <stephan.rafin@laposte.net>
+Date:   Sat Sep 13 02:08:32 2014 +0200
+
+    Remove embedded logics from the driver so that libcec is responsible for
+    all this work
+
+diff --git a/drivers/mxc/hdmi-cec/mxc_hdmi-cec.c b/drivers/mxc/hdmi-cec/mxc_hdmi-cec.c
+index c30237e..fb66c25 100644
+--- a/drivers/mxc/hdmi-cec/mxc_hdmi-cec.c
++++ b/drivers/mxc/hdmi-cec/mxc_hdmi-cec.c
+@@ -123,7 +123,7 @@ static irqreturn_t mxc_hdmi_cec_isr(int irq, void *data)
+ 
+ void mxc_hdmi_cec_handle(u16 cec_stat)
+ {
+-	u8 val = 0, i = 0;
++	u8 i = 0;
+ 	struct hdmi_cec_event *event = NULL;
+ 	/*The current transmission is successful (for initiator only).*/
+ 	if (!open_count)
+@@ -158,27 +158,14 @@ void mxc_hdmi_cec_handle(u16 cec_stat)
+ 	}
+ 	/*An error is detected on cec line (for initiator only). */
+ 	if (cec_stat & HDMI_IH_CEC_STAT0_ERROR_INIT) {
+-		mutex_lock(&hdmi_cec_data.lock);
+-		hdmi_cec_data.send_error++;
+-		if (hdmi_cec_data.send_error > 2) {
+-			pr_err("%s:Re-transmission is attempted more than 2 times!\n", __func__);
+-			hdmi_cec_data.send_error = 0;
+-			mutex_unlock(&hdmi_cec_data.lock);
+-			hdmi_cec_data.tx_answer = cec_stat;
+-			wake_up(&tx_cec_queue);
+-			return;
+-		}
+-		for (i = 0; i < hdmi_cec_data.msg_len; i++)
+-			hdmi_writeb(hdmi_cec_data.last_msg[i], HDMI_CEC_TX_DATA0+i);
+-		hdmi_writeb(hdmi_cec_data.msg_len, HDMI_CEC_TX_CNT);
+-		val = hdmi_readb(HDMI_CEC_CTRL);
+-		val |= 0x01;
+-		hdmi_writeb(val, HDMI_CEC_CTRL);
+-		mutex_unlock(&hdmi_cec_data.lock);
++		hdmi_cec_data.tx_answer = cec_stat;
++		wake_up(&tx_cec_queue);
++		return;
+ 	}
+ 	/*A frame is not acknowledged in a directly addressed message. Or a frame is negatively acknowledged in
+ 	a broadcast message (for initiator only).*/
+ 	if (cec_stat & HDMI_IH_CEC_STAT0_NACK) {
++		hdmi_cec_data.send_error++;
+ 		hdmi_cec_data.tx_answer = cec_stat;
+ 		wake_up(&tx_cec_queue);
+ 	}
+@@ -392,7 +379,7 @@ static long hdmi_cec_ioctl(struct file *filp, u_int cmd,
+ 		     u_long arg)
+ {
+ 	int ret = 0, status = 0;
+-	u8 val = 0, msg = 0;
++	u8 val = 0;
+ 	struct mxc_edid_cfg hdmi_edid_cfg;
+ 	pr_debug("function : %s\n", __func__);
+ 	if (!open_count)
+@@ -416,15 +403,6 @@ static long hdmi_cec_ioctl(struct file *filp, u_int cmd,
+ 			hdmi_writeb(0, HDMI_CEC_ADDR_L);
+ 		} else
+ 			ret = -EINVAL;
+-		/*Send Polling message with same source and destination address*/
+-		if (0 == ret && 15 != hdmi_cec_data.Logical_address) {
+-			msg = (hdmi_cec_data.Logical_address << 4)|hdmi_cec_data.Logical_address;
+-			hdmi_writeb(1, HDMI_CEC_TX_CNT);
+-			hdmi_writeb(msg, HDMI_CEC_TX_DATA0);
+-			val = hdmi_readb(HDMI_CEC_CTRL);
+-			val |= 0x01;
+-			hdmi_writeb(val, HDMI_CEC_CTRL);
+-		}
+ 		mutex_unlock(&hdmi_cec_data.lock);
+ 		break;
+ 	case HDMICEC_IOC_STARTDEVICE:
+
+==============================================================
+file 0005-assign-minor-to-vhci.patch
+==============================================================
+
+From 27b8b64082db6cdfda751e81e56c0f668053834b Mon Sep 17 00:00:00 2001
+From: Lucas De Marchi <lucas.demarchi@intel.com>
+Date: Tue, 18 Feb 2014 02:19:26 -0300
+Subject: [PATCH] Bluetooth: allocate static minor for vhci
+
+Commit bfacbb9 (Bluetooth: Use devname:vhci module alias for virtual HCI
+driver) added the module alias to hci_vhci module so it's possible to
+create the /dev/vhci node. However creating an alias without
+specifying the minor doesn't allow us to create the node ahead,
+triggerring module auto-load when it's first accessed.
+
+Starting with depmod from kmod 16 we started to warn if there's a
+devname alias without specifying the major and minor.
+
+Let's do the same done for uhid, kvm, fuse and others, specifying a
+fixed minor. In systems with systemd as the init the following will
+happen: on early boot systemd will call "kmod static-nodes" to read
+/lib/modules/$(uname -r)/modules.devname and then create the nodes. When
+first accessed these "dead" nodes will trigger the module loading.
+
+Signed-off-by: Lucas De Marchi <lucas.demarchi@intel.com>
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+---
+ Documentation/devices.txt    | 1 +
+ drivers/bluetooth/hci_vhci.c | 3 ++-
+ include/linux/miscdevice.h   | 1 +
+ 3 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devices.txt b/Documentation/devices.txt
+index 10378cc..04356f5 100644
+--- a/Documentation/devices.txt
++++ b/Documentation/devices.txt
+@@ -353,6 +353,7 @@ Your cooperation is appreciated.
+ 		133 = /dev/exttrp	External device trap
+ 		134 = /dev/apm_bios	Advanced Power Management BIOS
+ 		135 = /dev/rtc		Real Time Clock
++		137 = /dev/vhci		Bluetooth virtual HCI driver
+ 		139 = /dev/openprom	SPARC OpenBoot PROM
+ 		140 = /dev/relay8	Berkshire Products Octal relay card
+ 		141 = /dev/relay16	Berkshire Products ISO-16 relay card
+diff --git a/drivers/bluetooth/hci_vhci.c b/drivers/bluetooth/hci_vhci.c
+index 1ef6990..add1c6a 100644
+--- a/drivers/bluetooth/hci_vhci.c
++++ b/drivers/bluetooth/hci_vhci.c
+@@ -359,7 +359,7 @@ static const struct file_operations vhci_fops = {
+ static struct miscdevice vhci_miscdev= {
+ 	.name	= "vhci",
+ 	.fops	= &vhci_fops,
+-	.minor	= MISC_DYNAMIC_MINOR,
++	.minor	= VHCI_MINOR,
+ };
+ 
+ static int __init vhci_init(void)
+@@ -385,3 +385,4 @@ MODULE_DESCRIPTION("Bluetooth virtual HCI driver ver " VERSION);
+ MODULE_VERSION(VERSION);
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("devname:vhci");
++MODULE_ALIAS_MISCDEV(VHCI_MINOR);
+diff --git a/include/linux/miscdevice.h b/include/linux/miscdevice.h
+index 3737f72..7bb6148 100644
+--- a/include/linux/miscdevice.h
++++ b/include/linux/miscdevice.h
+@@ -23,6 +23,7 @@
+ #define TEMP_MINOR		131	/* Temperature Sensor */
+ #define RTC_MINOR		135
+ #define EFI_RTC_MINOR		136	/* EFI Time services */
++#define VHCI_MINOR		137
+ #define SUN_OPENPROM_MINOR	139
+ #define DMAPI_MINOR		140	/* DMAPI */
+ #define NVRAM_MINOR		144
+
+==============================================================
+file 1100-ARM-Avoid-crash-on-power-off-and-reduce-power-consum.patch
+==============================================================
+
+From 7a4bc357a0d2477c0dcdf2a1c471e57050dec041 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sat, 20 Sep 2014 14:05:50 +0200
+Subject: [PATCH] ARM: Avoid crash on power off and reduce power consumption
+ in 'halt' state.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ arch/arm/kernel/process.c |   19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/kernel/process.c b/arch/arm/kernel/process.c
+index 1bdd78b..70655b9 100644
+--- a/arch/arm/kernel/process.c
++++ b/arch/arm/kernel/process.c
+@@ -119,6 +119,17 @@ static void null_restart(enum reboot_mode reboot_mode, const char *cmd)
+ }
+ 
+ /*
++ *  Enter non-interruptable CPU halt state
++ */
++static void cpu_halt(void)
++{
++	local_irq_disable();
++	
++	while (1)
++		cpu_do_idle();
++}
++
++/*
+  * Function pointers to optional machine specific functions
+  */
+ void (*pm_power_off)(void);
+@@ -202,8 +213,7 @@ void machine_halt(void)
+ 	local_irq_disable();
+ 	smp_send_stop();
+ 
+-	local_irq_disable();
+-	while (1);
++	cpu_halt();
+ }
+ 
+ /*
+@@ -219,6 +229,8 @@ void machine_power_off(void)
+ 
+ 	if (pm_power_off)
+ 		pm_power_off();
++	
++	cpu_halt();
+ }
+ 
+ /*
+@@ -244,8 +256,7 @@ void machine_restart(char *cmd)
+ 
+ 	/* Whoops - the platform was unable to reboot. Tell the user! */
+ 	printk("Reboot failed -- System halted\n");
+-	local_irq_disable();
+-	while (1);
++	cpu_halt();
+ }
+ 
+ void __show_regs(struct pt_regs *regs)
+-- 
+1.7.9.5
+
+
+==============================================================
+file 1101-ARM-Disable-timer-events-before-entering-halt-state.patch
+==============================================================
+
+From ae0f301a11bb9d5e484d48238cf15082928a7241 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sun, 21 Sep 2014 13:53:21 +0200
+Subject: [PATCH] ARM: Disable timer events before entering `halt' state.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ arch/arm/kernel/process.c |    3 ++-
+ arch/arm/mach-imx/time.c  |   11 +++++++++++
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/kernel/process.c b/arch/arm/kernel/process.c
+index 70655b9..d1e4763 100644
+--- a/arch/arm/kernel/process.c
++++ b/arch/arm/kernel/process.c
+@@ -123,8 +123,9 @@ static void null_restart(enum reboot_mode reboot_mode, const char *cmd)
+  */
+ static void cpu_halt(void)
+ {
++	clockevents_suspend();
++
+ 	local_irq_disable();
+-	
+ 	while (1)
+ 		cpu_do_idle();
+ }
+diff --git a/arch/arm/mach-imx/time.c b/arch/arm/mach-imx/time.c
+index ae61dfd..75afcf9 100644
+--- a/arch/arm/mach-imx/time.c
++++ b/arch/arm/mach-imx/time.c
+@@ -232,6 +232,16 @@ static void mxc_set_mode(enum clock_event_mode mode,
+ 	}
+ }
+ 
++
++/*
++ * Shutdown timer
++ */
++static void mxc_suspend(struct clock_event_device *evt)
++{
++	mxc_set_mode(CLOCK_EVT_MODE_SHUTDOWN, evt);
++}
++
++
+ /*
+  * IRQ handler for the timer
+  */
+@@ -262,6 +272,7 @@ static struct clock_event_device clockevent_mxc = {
+ 	.name		= "mxc_timer1",
+ 	.features	= CLOCK_EVT_FEAT_ONESHOT,
+ 	.set_mode	= mxc_set_mode,
++	.suspend	= mxc_suspend,
+ 	.set_next_event	= mx1_2_set_next_event,
+ 	.rating		= 200,
+ };
+-- 
+1.7.9.5
+
+
+==============================================================
+file 1104-interlaced-fix.patch
+==============================================================
+
+From d6c338100ddd885a7acb1d0cf12da90fa7ac2b93 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Wed, 30 Dec 2015 11:01:32 +0100
+Subject: [PATCH] video: ipu_disp: Fix internal VSYNC clock for interlaced
+ modes
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/mxc/ipu3/ipu_disp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/mxc/ipu3/ipu_disp.c b/drivers/mxc/ipu3/ipu_disp.c
+index b5e21c5..96464b2 100644
+--- a/drivers/mxc/ipu3/ipu_disp.c
++++ b/drivers/mxc/ipu3/ipu_disp.c
+@@ -1189,7 +1189,7 @@ int32_t ipu_init_sync_panel(struct ipu_soc *ipu, int disp, uint32_t pixel_clk,
+ 			_ipu_di_sync_config(ipu,
+ 					disp, 		/* display */
+ 					DI_SYNC_COUNT_1, 		/* counter */
+-					v_total*2 - 1, 	/* run count */
++					v_total - 1, 	/* run count */
+ 					(3 - 1),	/* run_resolution, counter 1 can reference to counter 6,7,8 with run_resolution=2,3,4 */
+ 					1, 		/* offset */
+ 					(3 - 1), 	/* offset resolution, 3=counter 7 */
+-- 
+1.9.1
+
+
+==============================================================
+file 1110-video-mxc_hdmi-Use-common-function-to-insert-video-m.patch
+==============================================================
+
+From a86bd823319cf21eec118f238e2d3e97ede3690f Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Thu, 24 Dec 2015 08:13:24 +0100
+Subject: [PATCH] video: mxc_hdmi: Use common function to insert video modes
+
+To simplify further development we move the mode list entry
+creation into a single function.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_hdmi.c | 145 ++++++++++++++++++-------------------------
+ 1 file changed, 60 insertions(+), 85 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index 55c39e1..f71c1dd 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -1740,7 +1740,8 @@ static int mxc_edid_read_internal(struct mxc_hdmi *hdmi, unsigned char *edid,
+ 
+ static int mxc_hdmi_read_edid(struct mxc_hdmi *hdmi)
+ {
+-	int ret;
++	int ret, n;
++	struct fb_videomode *mode;
+ 	u8 edid_old[HDMI_EDID_LEN];
+ 	u8 clkdis;
+ 
+@@ -1774,19 +1775,36 @@ static int mxc_hdmi_read_edid(struct mxc_hdmi *hdmi)
+ 
+ 	}
+ 
+-	if (ret < 0)
++	if (ret < 0) {
++		dev_err(&hdmi->pdev->dev, "Failed to read EDID\n");
+ 		return HDMI_EDID_FAIL;
++	}
+ 
+ 	if (memcmp(edid_old, hdmi->edid, HDMI_EDID_LEN) == 0) {
+-		dev_info(&hdmi->pdev->dev, "same edid\n");
++		dev_info(&hdmi->pdev->dev, "Same EDID\n");
+ 		return HDMI_EDID_SAME;
+ 	}
+ 
+ 	if (hdmi->fbi->monspecs.modedb_len == 0) {
+-		dev_info(&hdmi->pdev->dev, "No modes read from edid\n");
++		dev_warn(&hdmi->pdev->dev, "No modes read from EDID\n");
+ 		return HDMI_EDID_NO_MODES;
+ 	}
+ 
++	/* TODO: Is this really neccessary? */
++	mode = hdmi->fbi->monspecs.modedb;
++	n = hdmi->fbi->monspecs.modedb_len;
++	while (n--) {
++		if ((mode->flag & FB_MODE_IS_STANDARD) &&
++		    !(mode->vmode & FB_VMODE_ASPECT_MASK)) {
++			if (mode->yres == (mode->xres * 3)/4)
++				mode->vmode |= FB_VMODE_ASPECT_4_3;
++			else
++				mode->vmode |= FB_VMODE_ASPECT_16_9;
++		}
++
++		mode++;
++	}
++
+ 	return HDMI_EDID_SUCCESS;
+ }
+ 
+@@ -1928,51 +1946,53 @@ static void mxc_hdmi_notify_fb(struct mxc_hdmi *hdmi, bool force_all)
+ 	dev_dbg(&hdmi->pdev->dev, "%s exit\n", __func__);
+ }
+ 
+-static void mxc_hdmi_edid_rebuild_modelist(struct mxc_hdmi *hdmi)
++static void mxc_hdmi_create_modelist(struct mxc_hdmi *hdmi, int from_edid)
+ {
+-	int i, vic;
+-	struct fb_videomode *mode;
++	struct fb_videomode mode;
++	int i, vic, mode_count = ARRAY_SIZE(mxc_cea_mode);
++	const struct fb_videomode *mode_data = mxc_cea_mode;
++
++	if (from_edid) {
++		mode_data = hdmi->fbi->monspecs.modedb;
++		mode_count = hdmi->fbi->monspecs.modedb_len;
++	}
+ 
+ 	dev_dbg(&hdmi->pdev->dev, "%s\n", __func__);
+ 
+ 	console_lock();
+ 
+ 	fb_destroy_modelist(&hdmi->fbi->modelist);
++
++	/* Always insert VGA mode */
+ 	fb_add_videomode(&vga_mode, &hdmi->fbi->modelist);
+ 
+-	for (i = 0; i < hdmi->fbi->monspecs.modedb_len; i++) {
+-		/*
+-		 * We might check here if mode is supported by HDMI.
+-		 * We do not currently support interlaced modes.
+-		 * And add CEA modes in the modelist.
+-		 */
+-		mode = &hdmi->fbi->monspecs.modedb[i];
+-
+-		vic = mxc_edid_mode_to_vic(mode);
+-		if (hdmi->edid_cfg.hdmi_cap &&
+-		    (vic == 0))
++	for (i = 0; i < mode_count; i++) {
++		vic = from_edid ? mxc_edid_mode_to_vic(&mode_data[i]) : i;
++
++		if (mode_data[i].xres == 0 ||
++		    (hdmi->edid_cfg.hdmi_cap && vic == 0))
+ 			continue;
+ 
+-		if (!(mode->vmode & FB_VMODE_ASPECT_MASK)) {
+-			if (mode->yres == (mode->xres * 3)/4)
+-				mode->vmode |= FB_VMODE_ASPECT_4_3;
+-			else
+-				mode->vmode |= FB_VMODE_ASPECT_16_9;
+-		}
++		mode = mode_data[i];
++
++		/* TODO: Discuss if we should always set default modes as standard */
++		if (!from_edid /*&& ignore_edid*/)
++			mode.flag |= FB_MODE_IS_STANDARD;
+ 
+-		if (fb_add_videomode(mode, &hdmi->fbi->modelist))
++		if (fb_add_videomode(&mode, &hdmi->fbi->modelist))
+ 			continue;
+ 
+ 		dev_dbg(&hdmi->pdev->dev, "Added mode: %d, vic: %d", i, vic);
+ 		dev_dbg(&hdmi->pdev->dev,
+-			"xres = %d, yres = %d, ratio = %s, freq = %d, vmode = %d, flag = %d\n",
+-			hdmi->fbi->monspecs.modedb[i].xres,
+-			hdmi->fbi->monspecs.modedb[i].yres,
+-			mode->vmode & FB_VMODE_ASPECT_4_3 ? "4/3" :
+-			    mode->vmode & FB_VMODE_ASPECT_16_9 ? "16/9" : "n/a",
+-			hdmi->fbi->monspecs.modedb[i].refresh,
+-			hdmi->fbi->monspecs.modedb[i].vmode,
+-			hdmi->fbi->monspecs.modedb[i].flag);
++			"xres = %d, yres = %d, scan = %c, ratio = %s, freq = %d, vmode = %d, flag = %d\n",
++			mode.xres,
++			mode.yres,
++			mode.vmode & FB_VMODE_INTERLACED ? 'i' : 'p',
++			mode.vmode & FB_VMODE_ASPECT_4_3 ? "4/3" :
++			    mode.vmode & FB_VMODE_ASPECT_16_9 ? "16/9" : "n/a",
++			mode.refresh,
++			mode.vmode,
++			mode.flag);
+ 	}
+ 
+ 	fb_new_modelist(hdmi->fbi);
+@@ -1986,36 +2006,6 @@ static void  mxc_hdmi_default_edid_cfg(struct mxc_hdmi *hdmi)
+ 	hdmi->edid_cfg.hdmi_cap = true;
+ }
+ 
+-static void  mxc_hdmi_default_modelist(struct mxc_hdmi *hdmi)
+-{
+-	u32 i;
+-	struct fb_videomode mode;
+-
+-	dev_dbg(&hdmi->pdev->dev, "%s\n", __func__);
+-
+-	/* If not EDID data read, set up default modelist  */
+-	dev_info(&hdmi->pdev->dev, "No modes read from edid\n");
+-	dev_info(&hdmi->pdev->dev, "create default modelist\n");
+-
+-	console_lock();
+-
+-	fb_destroy_modelist(&hdmi->fbi->modelist);
+-
+-	/*Add all no interlaced CEA mode to default modelist */
+-	for (i = 0; i < ARRAY_SIZE(mxc_cea_mode); i++) {
+-		mode = mxc_cea_mode[i];
+-		if (mode.xres != 0) {
+-			if (ignore_edid)
+-				mode.flag |= FB_MODE_IS_STANDARD;
+-			fb_add_videomode(&mode, &hdmi->fbi->modelist);
+-		}
+-	}
+-
+-	fb_new_modelist(hdmi->fbi);
+-
+-	console_unlock();
+-}
+-
+ static void mxc_hdmi_set_mode(struct mxc_hdmi *hdmi, int edid_status)
+ {
+ 	const struct fb_videomode *mode;
+@@ -2108,7 +2098,7 @@ static void mxc_hdmi_cable_connected(struct mxc_hdmi *hdmi)
+ 	/* HDMI Initialization Steps D, E, F */
+ 	switch (edid_status) {
+ 	case HDMI_EDID_SUCCESS:
+-		mxc_hdmi_edid_rebuild_modelist(hdmi);
++		mxc_hdmi_create_modelist(hdmi, true);
+ 		break;
+ 
+ 	/* Nothing to do if EDID same */
+@@ -2120,7 +2110,7 @@ static void mxc_hdmi_cable_connected(struct mxc_hdmi *hdmi)
+ 		/* No break here  */
+ 	case HDMI_EDID_NO_MODES:
+ 	default:
+-		mxc_hdmi_default_modelist(hdmi);
++		mxc_hdmi_create_modelist(hdmi, false);
+ 		break;
+ 	}
+ 
+@@ -2676,7 +2666,6 @@ static int mxc_hdmi_disp_init(struct mxc_dispdrv_handle *disp,
+ 			      struct mxc_dispdrv_setting *setting)
+ {
+ 	int ret = 0;
+-	u32 i;
+ 	const struct fb_videomode *mode;
+ 	struct fb_videomode m;
+ 	struct mxc_hdmi *hdmi = mxc_dispdrv_getdata(disp);
+@@ -2787,31 +2776,17 @@ static int mxc_hdmi_disp_init(struct mxc_dispdrv_handle *disp,
+ 
+ 	spin_lock_init(&hdmi->irq_lock);
+ 
+-	/* Set the default mode and modelist when disp init. */
++	/* Create default modelist */
++	mxc_hdmi_create_modelist(hdmi, false);
++
++	/* Set the default mode when disp init. */
+ 	fb_find_mode(&hdmi->fbi->var, hdmi->fbi,
+ 		     hdmi->dft_mode_str, NULL, 0, NULL,
+ 		     hdmi->default_bpp);
+-
+-	console_lock();
+-
+-	fb_destroy_modelist(&hdmi->fbi->modelist);
+-
+-	/*Add all no interlaced CEA mode to default modelist */
+-	for (i = 0; i < ARRAY_SIZE(mxc_cea_mode); i++) {
+-		mode = &mxc_cea_mode[i];
+-		if (mode->xres != 0) {
+-			struct fb_videomode m = *mode;
+-			m.flag |= FB_MODE_IS_STANDARD;
+-			fb_add_videomode(&m, &hdmi->fbi->modelist);
+-		}
+-	}
+-
+-	console_unlock();
+-
+-	/* Find a nearest mode in default modelist */
+ 	fb_var_to_videomode(&m, &hdmi->fbi->var);
+ 	hdmi->dft_mode_set = false;
+ 
++	/* Find a nearest mode in default modelist */
+ 	mode = fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
+ 	if (!mode) {
+ 		pr_err("%s: could not find mode in modelist\n", __func__);
+-- 
+1.9.1
+
+
+==============================================================
+file 1111-video-mxc_hdmi-Consider-modes-that-differ-only-in-as.patch
+==============================================================
+
+From 9b245791da35efed7d3745ca5ca35d6cc73b49de Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Thu, 24 Dec 2015 08:44:50 +0100
+Subject: [PATCH] video: mxc_hdmi: Consider modes that differ only in aspect
+ ratio as duplicate
+
+Certain CEA modes differ from each other only by the aspect ratio. If an EDID
+indicates support for both modes of such an otherwise identical pair, we create
+a mode list entry only for the first one. This is done because our sysfs cannot
+distinguish them.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_hdmi.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index f71c1dd..182ae2a 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -1949,7 +1949,7 @@ static void mxc_hdmi_notify_fb(struct mxc_hdmi *hdmi, bool force_all)
+ static void mxc_hdmi_create_modelist(struct mxc_hdmi *hdmi, int from_edid)
+ {
+ 	struct fb_videomode mode;
+-	int i, vic, mode_count = ARRAY_SIZE(mxc_cea_mode);
++	int i, j, skip, vic, mode_count = ARRAY_SIZE(mxc_cea_mode);
+ 	const struct fb_videomode *mode_data = mxc_cea_mode;
+ 
+ 	if (from_edid) {
+@@ -1975,6 +1975,19 @@ static void mxc_hdmi_create_modelist(struct mxc_hdmi *hdmi, int from_edid)
+ 
+ 		mode = mode_data[i];
+ 
++		/* for dual aspect ratio modes, insert the first one only */
++		if (mode.vmode & FB_VMODE_ASPECT_MASK) {
++			skip = 0;
++			for (j = i - 1; !skip && j >= 0; j--) {
++				skip = mode.xres == mode_data[j].xres &&
++				       mode.yres == mode_data[j].yres &&
++				       mode.refresh == mode_data[j].refresh &&
++				       (mode.vmode ^ FB_VMODE_ASPECT_MASK) == mode_data[j].vmode;
++			}
++			if (skip)
++				continue;
++		}
++
+ 		/* TODO: Discuss if we should always set default modes as standard */
+ 		if (!from_edid /*&& ignore_edid*/)
+ 			mode.flag |= FB_MODE_IS_STANDARD;
+-- 
+1.9.1
+
+
+==============================================================
+file 1112-video-mxc_hdmi-Insert-standard-VGA-mode-only-once.patch
+==============================================================
+
+From 2e980a57c261407795511d4794c8d22e78ecb9b2 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Mon, 4 Jan 2016 08:41:22 +0100
+Subject: [PATCH] video: mxc_hdmi: Insert standard VGA mode only once
+
+Skip standard VGA if found in EDID. We force this mode to be present
+by default and therefore should not add it a second time.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_hdmi.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index 182ae2a..ec4a438 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -95,7 +95,7 @@
+  * in HDMI Initialization Step B
+  */
+ static const struct fb_videomode vga_mode = {
+-	/* 640x480 @ 60 Hz, 31.5 kHz hsync */
++	/* 640x480 @ 59.94 Hz, 31.5 kHz hsync */
+ 	NULL, 60, 640, 480, 39721, 48, 16, 33, 10, 96, 2, 0,
+ 	FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3, FB_MODE_IS_VESA,
+ };
+@@ -1988,6 +1988,10 @@ static void mxc_hdmi_create_modelist(struct mxc_hdmi *hdmi, int from_edid)
+ 				continue;
+ 		}
+ 
++		/* Skip standard VGA (already present) */
++		if (vic == 1 && (mode.flag & FB_MODE_IS_VESA))
++			continue;
++
+ 		/* TODO: Discuss if we should always set default modes as standard */
+ 		if (!from_edid /*&& ignore_edid*/)
+ 			mode.flag |= FB_MODE_IS_STANDARD;
+-- 
+1.9.1
+
+
+==============================================================
+file 1113-video-mxc_hdmi-mxc_edid-Introduce-fractional-modes.patch
+==============================================================
+
+From 7df36826253b618c3d44d245b2f1e074112b91c3 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Thu, 24 Dec 2015 09:26:40 +0100
+Subject: [PATCH] video: mxc_hdmi/mxc_edid: Introduce fractional modes
+
+In order to support fractional refresh rates (23.976, 29.97, 59.94, 119.88Hz)
+we create 'synthetic' modes. These have the same timing as the corresponding
+non-fractional modes (i.e. 24, 30, 60 and 120Hz). However, the refresh rate
+is set to 23, 29, 59 and 119, respectively. In addition they have the mode
+bit FB_VMODE_FRACTIONAL set. This bit is taken in acount when calculating
+the real pixel clock.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_edid.c | 15 ++++++++++-----
+ drivers/video/mxc/mxc_hdmi.c | 25 +++++++++++++++++++++++--
+ 2 files changed, 33 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_edid.c b/drivers/video/mxc/mxc_edid.c
+index 1aaaa68..b3a6ee1 100644
+--- a/drivers/video/mxc/mxc_edid.c
++++ b/drivers/video/mxc/mxc_edid.c
+@@ -218,9 +218,9 @@ int mxc_edid_fb_mode_is_equal(bool use_aspect,
+ 	u32 mask;
+ 
+ 	if (use_aspect)
+-		mask = ~0;
++		mask = ~FB_VMODE_FRACTIONAL;
+ 	else
+-		mask = ~FB_VMODE_ASPECT_MASK;
++		mask = ~(FB_VMODE_FRACTIONAL | FB_VMODE_ASPECT_MASK);
+ 
+ 	return (mode1->xres         == mode2->xres &&
+ 		mode1->yres         == mode2->yres &&
+@@ -823,7 +823,12 @@ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *m
+ 	struct fb_videomode *cmode;
+ 	static struct fb_videomode *best;
+ 	static u32 diff, diff_refresh;
+-	u32 mask = relax ? FB_VMODE_MASK_SIMPLE | FB_VMODE_ASPECT_MASK : ~0;
++	u32 mask = relax ? ~FB_VMODE_ASPECT_MASK : ~0;
++	int refresh = mode->refresh;
++
++	if ((mode->flag & FB_MODE_IS_FROM_VAR) &&
++	    (mode->vmode & FB_VMODE_FRACTIONAL))
++		refresh--;
+ 
+ 	if (!relax) {
+ 		diff = -1;
+@@ -844,10 +849,10 @@ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *m
+ 			abs(cmode->yres - mode->yres);
+ 		if (diff > d) {
+ 			diff = d;
+-			diff_refresh = abs(cmode->refresh - mode->refresh);
++			diff_refresh = abs(cmode->refresh - refresh);
+ 			best = cmode;
+ 		} else if (diff == d) {
+-			d = abs(cmode->refresh - mode->refresh);
++			d = abs(cmode->refresh - refresh);
+ 			if (diff_refresh > d) {
+ 				diff_refresh = d;
+ 				best = cmode;
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index ec4a438..6156e16 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -1999,9 +1999,30 @@ static void mxc_hdmi_create_modelist(struct mxc_hdmi *hdmi, int from_edid)
+ 		if (fb_add_videomode(&mode, &hdmi->fbi->modelist))
+ 			continue;
+ 
+-		dev_dbg(&hdmi->pdev->dev, "Added mode: %d, vic: %d", i, vic);
+ 		dev_dbg(&hdmi->pdev->dev,
+-			"xres = %d, yres = %d, scan = %c, ratio = %s, freq = %d, vmode = %d, flag = %d\n",
++			"Mode: vic=%d, xres=%d, yres=%d, scan=%c, ratio=%s, freq=%d, vmode=%d, flag=%d\n",
++			vic,
++			mode.xres,
++			mode.yres,
++			mode.vmode & FB_VMODE_INTERLACED ? 'i' : 'p',
++			mode.vmode & FB_VMODE_ASPECT_4_3 ? "4/3" :
++			    mode.vmode & FB_VMODE_ASPECT_16_9 ? "16/9" : "n/a",
++			mode.refresh,
++			mode.vmode,
++			mode.flag);
++
++		/* check if fractional mode should be inserted */
++		if (vic == 0 || !(mode.refresh == 24 || (mode.refresh % 30) == 0))
++			continue;
++
++		mode.refresh--;
++		mode.vmode |= FB_VMODE_FRACTIONAL;
++		if (fb_add_videomode(&mode, &hdmi->fbi->modelist))
++			continue;
++
++		dev_dbg(&hdmi->pdev->dev,
++			"Mode: vic=%d, xres=%d, yres=%d, scan=%c, ratio=%s, freq=%d, vmode=%d, flag=%d\n",
++			vic,
+ 			mode.xres,
+ 			mode.yres,
+ 			mode.vmode & FB_VMODE_INTERLACED ? 'i' : 'p',
+-- 
+1.9.1
+
+
+==============================================================
+file 1114-video-mxc_edid-Adjust-pixel-timings.patch
+==============================================================
+
+From cec6f4f51f22cd0324f255cb99a85eaa7f3d0d78 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Thu, 24 Dec 2015 09:51:31 +0100
+Subject: [PATCH] video: mxc_edid: Adjust pixel timings
+
+Our approach for fractional mode support requires the pixel timings
+in the CEA mode table to describe the non-fractional modes. This
+patch sets this for the modes that were defined otherwise.
+Also it tweaks the rounding when calculating the real pixel clock
+from the pixel time specified in the table.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_edid.c | 19 ++++++++++++-------
+ include/video/mxc_edid.h     |  4 ++--
+ 2 files changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_edid.c b/drivers/video/mxc/mxc_edid.c
+index b3a6ee1..edfd6e8 100644
+--- a/drivers/video/mxc/mxc_edid.c
++++ b/drivers/video/mxc/mxc_edid.c
+@@ -38,20 +38,25 @@
+ #define DPRINTK(fmt, args...)
+ #endif
+ 
++/*
++ * Attention:	pixel times for the fractional mode entries must
++ *		specify the non-fractional frequency of that mode!
++ *		I.e. 60Hz instead of 59.94 and 24Hz instead of 23.98.
++ */
+ const struct fb_videomode mxc_cea_mode[64] = {
+ 	/* #1: 640x480p@59.94/60Hz 4:3 */
+ 	[1] = {
+-		NULL, 60, 640, 480, 39722, 48, 16, 33, 10, 96, 2, 0,
++		NULL, 60, 640, 480, 39682, 48, 16, 33, 10, 96, 2, 0,
+ 		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3, 0,
+ 	},
+ 	/* #2: 720x480p@59.94/60Hz 4:3 */
+ 	[2] = {
+-		NULL, 60, 720, 480, 37037, 60, 16, 30, 9, 62, 6, 0,
++		NULL, 60, 720, 480, 37000, 60, 16, 30, 9, 62, 6, 0,
+ 		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3, 0,
+ 	},
+ 	/* #3: 720x480p@59.94/60Hz 16:9 */
+ 	[3] = {
+-		NULL, 60, 720, 480, 37037, 60, 16, 30, 9, 62, 6, 0,
++		NULL, 60, 720, 480, 37000, 60, 16, 30, 9, 62, 6, 0,
+ 		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_16_9, 0,
+ 	},
+ 	/* #4: 1280x720p@59.94/60Hz 16:9 */
+@@ -68,22 +73,22 @@ const struct fb_videomode mxc_cea_mode[64] = {
+ 	},
+ 	/* #6: 720(1440)x480iH@59.94/60Hz 4:3 */
+ 	[6] = {
+-		NULL, 60, 1440, 480, 37037, 38, 114, 8, 31, 124, 6, 0,
++		NULL, 60, 1440, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_4_3, 0,
+ 	},
+ 	/* #7: 720(1440)x480iH@59.94/60Hz 16:9 */
+ 	[7] = {
+-		NULL, 60, 1440, 480, 37037, 38, 114, 8, 31, 124, 6, 0,
++		NULL, 60, 1440, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9, 0,
+ 	},
+ 	/* #8: 720(1440)x240pH@59.94/60Hz 4:3 */
+ 	[8] = {
+-		NULL, 60, 1440, 240, 37108, 114, 38, 15, 4, 124, 3, 0,
++		NULL, 60, 1440, 240, 37000, 114, 38, 15, 4, 124, 3, 0,
+ 		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3, 0,
+ 	},
+ 	/* #9: 720(1440)x240pH@59.94/60Hz 16:9 */
+ 	[9] = {
+-		NULL, 60, 1440, 240, 37108, 114, 38, 15, 4, 124, 3, 0,
++		NULL, 60, 1440, 240, 37000, 114, 38, 15, 4, 124, 3, 0,
+ 		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_16_9, 0,
+ 	},
+ 	/* #14: 1440x480p@59.94/60Hz 4:3 */
+diff --git a/include/video/mxc_edid.h b/include/video/mxc_edid.h
+index 561fe61..2feed16 100644
+--- a/include/video/mxc_edid.h
++++ b/include/video/mxc_edid.h
+@@ -100,8 +100,8 @@ struct mxc_edid_cfg {
+ };
+ 
+ static inline unsigned long mxcPICOS2KHZ(u32 pixclock, u32 vmode) {
+-	u32 x = (1000000000UL / (pixclock) * 1000 / ((vmode & FB_VMODE_FRACTIONAL) ? 1001 : 1000));
+-	return x + ((1000000000UL % x) > (x / 2) ? 1 : 0);
++	return ((((vmode & FB_VMODE_FRACTIONAL) ?
++			(999000999UL*4) : (1000000000UL*4)) / pixclock) + 1) >> 2;
+ }
+ 
+ int mxc_edid_var_to_vic(struct fb_var_screeninfo *var);
+-- 
+1.9.1
+
+
+==============================================================
+file 1115-video-mxc_ipuv3_fb-Adjust-IPU-pixelclock.patch
+==============================================================
+
+From 8b308a05dbfdbdffaf632857bc70a6005f95a6f5 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Tue, 29 Dec 2015 17:13:54 +0100
+Subject: [PATCH] video: mxc_ipuv3_fb: Adjust IPU pixelclock
+
+Use 'fractional' pixelclock calculation for IPU as well.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_ipuv3_fb.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_ipuv3_fb.c b/drivers/video/mxc/mxc_ipuv3_fb.c
+index 9a3764f..8856c32 100644
+--- a/drivers/video/mxc/mxc_ipuv3_fb.c
++++ b/drivers/video/mxc/mxc_ipuv3_fb.c
+@@ -49,6 +49,7 @@
+ #include <linux/string.h>
+ #include <linux/uaccess.h>
+ 
++#include <video/mxc_edid.h>
+ #include "mxc_dispdrv.h"
+ 
+ /*
+@@ -643,11 +644,11 @@ static int mxcfb_set_par(struct fb_info *fbi)
+ 		if (fbi->var.sync & FB_SYNC_CLK_IDLE_EN)
+ 			sig_cfg.clkidle_en = true;
+ 
+-		dev_dbg(fbi->device, "pixclock = %ul Hz\n",
+-			(u32) (PICOS2KHZ(fbi->var.pixclock) * 1000UL));
++		dev_dbg(fbi->device, "pixclock = %lu Hz\n",
++			mxcPICOS2KHZ(fbi->var.pixclock, fbi->var.vmode) * 1000UL);
+ 
+ 		if (ipu_init_sync_panel(mxc_fbi->ipu, mxc_fbi->ipu_di,
+-					(PICOS2KHZ(fbi->var.pixclock)) * 1000UL,
++					(mxcPICOS2KHZ(fbi->var.pixclock, fbi->var.vmode)) * 1000UL,
+ 					fbi->var.xres, fbi->var.yres,
+ 					out_pixel_fmt,
+ 					fbi->var.left_margin,
+-- 
+1.9.1
+
+
+==============================================================
+file 1116-video-mxc-hdmi-core-Allow-cts-n-lookup-frequencies-t.patch
+==============================================================
+
+From bb45ab9854fa0a594fe5deb694000ad4e45497bd Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Thu, 24 Dec 2015 10:01:00 +0100
+Subject: [PATCH] video: mxc-hdmi-core: Allow cts/n lookup frequencies to be
+ off by one
+
+Due to rounding errors it may happen that the calculated pixel clock does
+not exactly match the frequency listed in the lookup table. Modes known
+to show this problem are 29 and 30 (1440x576p-50). This patch relaxes the
+lookup so that a difference of 1kHz will be tolerated.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/mfd/mxc-hdmi-core.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/mfd/mxc-hdmi-core.c b/drivers/mfd/mxc-hdmi-core.c
+index 4fbd315..a7be3cd 100644
+--- a/drivers/mfd/mxc-hdmi-core.c
++++ b/drivers/mfd/mxc-hdmi-core.c
+@@ -441,8 +441,8 @@ static bool hdmi_compute_cts_n(unsigned int freq, unsigned long pixel_clk,
+ static void hdmi_lookup_cts_n(unsigned int freq, unsigned long pixel_clk,
+ 				   unsigned int *n, unsigned int *cts)
+ {
+-	unsigned int clk = pixel_clk / 1000;
+-	unsigned int frq = freq;
++	int clk = pixel_clk / 1000;
++	int frq = freq;
+ 	int i, j;
+ 
+ 	*n = 1;
+@@ -468,7 +468,7 @@ static void hdmi_lookup_cts_n(unsigned int freq, unsigned long pixel_clk,
+ 	}
+ 
+ 	for (i = 0; i < ARRAY_SIZE(mxc_hdmi_ctsn_tbl); i++) {
+-		if (mxc_hdmi_ctsn_tbl[i].pixclk == clk) {
++		if (abs(mxc_hdmi_ctsn_tbl[i].pixclk - clk) <= 1) {
+ 			for (j = 0; j < 3; j++) {
+ 				if (mxc_hdmi_ctsn_tbl[i].ctsn[j].freq == frq) {
+ 					*n *= mxc_hdmi_ctsn_tbl[i].ctsn[j].n;
+-- 
+1.9.1
+
+
+==============================================================
+file 1117-video-mxc_edid-Cleanup-and-remove-unused-function.patch
+==============================================================
+
+From f08f0fa19625721778ff8685908e81e589df543e Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Fri, 25 Dec 2015 09:06:46 +0100
+Subject: [PATCH] video: mxc_edid: Cleanup and remove unused function
+
+mxc_edid_var_to_vic() is exported but never used. Let's get rid of it. Also
+streamline mxc_edid_mode_to_vic() a bit and make mxc_edid_fb_mode_is_equal()
+static.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_edid.c | 27 +++------------------------
+ include/video/mxc_edid.h     |  1 -
+ 2 files changed, 3 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_edid.c b/drivers/video/mxc/mxc_edid.c
+index edfd6e8..ef8d261 100644
+--- a/drivers/video/mxc/mxc_edid.c
++++ b/drivers/video/mxc/mxc_edid.c
+@@ -216,7 +216,7 @@ EXPORT_SYMBOL(mxc_fb_mode_is_equal_res);
+  * pixclock, since for many CEA modes, 2 frequencies are supported
+  * e.g. 640x480 @ 60Hz or 59.94Hz
+  */
+-int mxc_edid_fb_mode_is_equal(bool use_aspect,
++static int mxc_edid_fb_mode_is_equal(bool use_aspect,
+ 			const struct fb_videomode *mode1,
+ 			const struct fb_videomode *mode2)
+ {
+@@ -741,24 +741,6 @@ static int mxc_edid_readsegblk(struct i2c_adapter *adp, unsigned short addr,
+ 	return ret;
+ }
+ 
+-int mxc_edid_var_to_vic(struct fb_var_screeninfo *var)
+-{
+-	int i;
+-	struct fb_videomode m;
+-
+-	for (i = 0; i < ARRAY_SIZE(mxc_cea_mode); i++) {
+-		fb_var_to_videomode(&m, var);
+-		if (mxc_edid_fb_mode_is_equal(false, &m, &mxc_cea_mode[i]))
+-			break;
+-	}
+-
+-	if (i == ARRAY_SIZE(mxc_cea_mode))
+-		return 0;
+-
+-	return i;
+-}
+-EXPORT_SYMBOL(mxc_edid_var_to_vic);
+-
+ int mxc_edid_mode_to_vic(const struct fb_videomode *mode)
+ {
+ 	int i;
+@@ -766,13 +748,10 @@ int mxc_edid_mode_to_vic(const struct fb_videomode *mode)
+ 
+ 	for (i = 0; i < ARRAY_SIZE(mxc_cea_mode); i++) {
+ 		if (mxc_edid_fb_mode_is_equal(use_aspect, mode, &mxc_cea_mode[i]))
+-			break;
++			return i;
+ 	}
+ 
+-	if (i == ARRAY_SIZE(mxc_cea_mode))
+-		return 0;
+-
+-	return i;
++	return 0;
+ }
+ EXPORT_SYMBOL(mxc_edid_mode_to_vic);
+ 
+diff --git a/include/video/mxc_edid.h b/include/video/mxc_edid.h
+index 2feed16..1e89fd2 100644
+--- a/include/video/mxc_edid.h
++++ b/include/video/mxc_edid.h
+@@ -104,7 +104,6 @@ static inline unsigned long mxcPICOS2KHZ(u32 pixclock, u32 vmode) {
+ 			(999000999UL*4) : (1000000000UL*4)) / pixclock) + 1) >> 2;
+ }
+ 
+-int mxc_edid_var_to_vic(struct fb_var_screeninfo *var);
+ int mxc_edid_mode_to_vic(const struct fb_videomode *mode);
+ int mxc_edid_read(struct i2c_adapter *adp, unsigned short addr,
+ 	unsigned char *edid, struct mxc_edid_cfg *cfg, struct fb_info *fbi);
+-- 
+1.9.1
+
+
+==============================================================
+file 1118-video-mxc_edid-Change-nearest-mode-search.patch
+==============================================================
+
+From 7b18488d08056d75da96615319d3a46df98ce0ae Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Fri, 25 Dec 2015 17:12:19 +0100
+Subject: [PATCH] video: mxc_edid: Change nearest mode search
+
+The mode match is now performed in up to four passes:
+1.) Include modes with exactly the same vmode
+2.) Include modes ignoring aspect ratio flags
+3.) Include modes with opposite scan but otherwise same vmode
+4.) Include modes with opposite scan ignoring aspect ratio flags
+
+The flag FB_VMODE_FRACTIONAL is always ignored.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_edid.c | 63 ++++++++++++++++++++++----------------------
+ drivers/video/mxc/mxc_hdmi.c |  4 +--
+ include/video/mxc_edid.h     |  2 +-
+ 3 files changed, 34 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_edid.c b/drivers/video/mxc/mxc_edid.c
+index ef8d261..87bd119 100644
+--- a/drivers/video/mxc/mxc_edid.c
++++ b/drivers/video/mxc/mxc_edid.c
+@@ -800,52 +800,51 @@ int mxc_edid_read(struct i2c_adapter *adp, unsigned short addr,
+ EXPORT_SYMBOL(mxc_edid_read);
+ 
+ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *mode,
+-						    struct list_head *head, bool relax)
++					  struct list_head *head)
+ {
+ 	struct list_head *pos;
+ 	struct fb_modelist *modelist;
+ 	struct fb_videomode *cmode;
+-	static struct fb_videomode *best;
+-	static u32 diff, diff_refresh;
+-	u32 mask = relax ? ~FB_VMODE_ASPECT_MASK : ~0;
+-	int refresh = mode->refresh;
++	struct fb_videomode *best = NULL;
++	u32 d, diff = ~0, diff_refresh = ~0;
++	int i, refresh = mode->refresh;
++	static const u32 masks[] = {
++		~(FB_VMODE_FRACTIONAL),
++		~(FB_VMODE_FRACTIONAL | FB_VMODE_ASPECT_MASK),
++		~(FB_VMODE_FRACTIONAL | FB_VMODE_INTERLACED),
++		~(FB_VMODE_FRACTIONAL | FB_VMODE_INTERLACED | FB_VMODE_ASPECT_MASK)
++	};
+ 
+ 	if ((mode->flag & FB_MODE_IS_FROM_VAR) &&
+ 	    (mode->vmode & FB_VMODE_FRACTIONAL))
+ 		refresh--;
+ 
+-	if (!relax) {
+-		diff = -1;
+-		diff_refresh = -1;
+-		best = NULL;
+-	}
++	for (i = 0; i < ARRAY_SIZE(masks); i++) {
++		list_for_each(pos, head) {
++			modelist = list_entry(pos, struct fb_modelist, list);
++			cmode = &modelist->mode;
++
++			if ((mode->vmode ^ cmode->vmode) & masks[i])
++					continue;
+ 
+-	list_for_each(pos, head) {
+-		u32 d;
+-
+-		modelist = list_entry(pos, struct fb_modelist, list);
+-		cmode = &modelist->mode;
+-
+-		if ((mode->vmode ^ cmode->vmode) & mask)
+-				continue;
+-
+-		d = abs(cmode->xres - mode->xres) +
+-			abs(cmode->yres - mode->yres);
+-		if (diff > d) {
+-			diff = d;
+-			diff_refresh = abs(cmode->refresh - refresh);
+-			best = cmode;
+-		} else if (diff == d) {
+-			d = abs(cmode->refresh - refresh);
+-			if (diff_refresh > d) {
+-				diff_refresh = d;
++			d = abs(cmode->xres - mode->xres) +
++				abs(cmode->yres - mode->yres);
++			if (diff > d) {
++				diff = d;
++				diff_refresh = abs(cmode->refresh - refresh);
+ 				best = cmode;
++			} else if (diff == d) {
++				d = abs(cmode->refresh - refresh);
++				if (diff_refresh > d) {
++					diff_refresh = d;
++					best = cmode;
++				}
+ 			}
+ 		}
+-	}
+ 
+-	if ((!relax && (diff_refresh || diff)) || !best)
+-		mxc_fb_find_nearest_mode(mode, head, true);
++		if (diff_refresh == 0 && diff == 0)
++			break;
++	}
+ 
+ 	return best;
+ }
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index 6156e16..6baf1b6 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -2072,7 +2072,7 @@ static void mxc_hdmi_set_mode(struct mxc_hdmi *hdmi, int edid_status)
+ 
+ 	fb_var_to_videomode(&m, &var);
+ 	dump_fb_videomode(&m);
+-	mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist, false);
++	mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
+ 
+ 	if (mode) {
+ 		hdmi->fbi->mode = (struct fb_videomode *)mode;
+@@ -2378,7 +2378,7 @@ static void mxc_hdmi_setup(struct mxc_hdmi *hdmi, unsigned long event)
+ 		else
+ 			memset(&hdmi->prev_virtual, 0, sizeof(hdmi->prev_virtual));
+ 		if (!list_empty(&hdmi->fbi->modelist)) {
+-			edid_mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist, false);
++			edid_mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
+ 			pr_debug("edid mode ");
+ 			/* update fbi mode */
+ 			hdmi->fbi->mode = (struct fb_videomode *)edid_mode;
+diff --git a/include/video/mxc_edid.h b/include/video/mxc_edid.h
+index 1e89fd2..01a487e 100644
+--- a/include/video/mxc_edid.h
++++ b/include/video/mxc_edid.h
+@@ -110,6 +110,6 @@ int mxc_edid_read(struct i2c_adapter *adp, unsigned short addr,
+ int mxc_edid_parse_ext_blk(unsigned char *edid, struct mxc_edid_cfg *cfg,
+ 	struct fb_monspecs *specs);
+ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *mode,
+-                                                    struct list_head *head, bool relax);
++						struct list_head *head);
+ int mxc_fb_mode_is_equal_res(const struct fb_videomode *mode1, const struct fb_videomode *mode2);
+ #endif
+-- 
+1.9.1
+
+
+==============================================================
+file 1119-video-mxc_hdmi-Improve-initial-mode-setup.patch
+==============================================================
+
+From 895b9c2629e2267a1b89ddfa8eedc9349a4fa397 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Tue, 5 Jan 2016 13:21:46 +0100
+Subject: [PATCH] video: mxc_hdmi: Improve initial mode setup
+
+Use mxc_fb_find_nearest_mode() for parsing the mode specified on kernel
+command line. This makes sure that the interlaced flag is honoured. Use
+standard VGA in case the command line argument cannot be parsed.
+
+Also adapt to the fact, that the fb_var_screeninfo returned fb_find_mode()
+has it's refresh rate doubled for interlaced modes.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_hdmi.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index 6baf1b6..620168a 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -2819,13 +2819,15 @@ static int mxc_hdmi_disp_init(struct mxc_dispdrv_handle *disp,
+ 
+ 	/* Set the default mode when disp init. */
+ 	fb_find_mode(&hdmi->fbi->var, hdmi->fbi,
+-		     hdmi->dft_mode_str, NULL, 0, NULL,
+-		     hdmi->default_bpp);
++		     hdmi->dft_mode_str, NULL, 0,
++		     &vga_mode, hdmi->default_bpp);
+ 	fb_var_to_videomode(&m, &hdmi->fbi->var);
++	if (m.vmode & FB_VMODE_INTERLACED)
++		m.refresh = (m.refresh / 2) - 2;
+ 	hdmi->dft_mode_set = false;
+ 
+ 	/* Find a nearest mode in default modelist */
+-	mode = fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
++	mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
+ 	if (!mode) {
+ 		pr_err("%s: could not find mode in modelist\n", __func__);
+ 		return -1;
+-- 
+1.9.1
+
+
+==============================================================
+file 1120-video-mxc_edid-mxc_hdmi-Remove-mxc_fb_mode_is_equal_.patch
+==============================================================
+
+From 28ff0ad3abf468a7927737a182599472f5a4e8d7 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sat, 26 Dec 2015 19:09:59 +0100
+Subject: [PATCH] video: mxc_edid/mxc_hdmi: Remove mxc_fb_mode_is_equal_res()
+
+Checking for equal resolutions doesn't require a dedicated function.
+Especially if this function doesn't quite do what the name suggests.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_edid.c | 13 -------------
+ drivers/video/mxc/mxc_hdmi.c | 18 ++++++++++--------
+ include/video/mxc_edid.h     |  1 -
+ 3 files changed, 10 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_edid.c b/drivers/video/mxc/mxc_edid.c
+index 87bd119..aa6d24f 100644
+--- a/drivers/video/mxc/mxc_edid.c
++++ b/drivers/video/mxc/mxc_edid.c
+@@ -197,19 +197,6 @@ const struct fb_videomode mxc_cea_mode[64] = {
+ 	},
+ };
+ 
+-#define FB_VMODE_MASK_SIMPLE (FB_VMODE_NONINTERLACED | FB_VMODE_INTERLACED | \
+-			      FB_VMODE_FRACTIONAL    | FB_VMODE_ASPECT_MASK)
+-
+-int mxc_fb_mode_is_equal_res(const struct fb_videomode *mode1,
+-			     const struct fb_videomode *mode2)
+-{
+-	return (mode1->xres         == mode2->xres &&
+-		mode1->yres         == mode2->yres &&
+-		mode1->refresh      == mode2->refresh &&
+-		(mode1->vmode & FB_VMODE_MASK_SIMPLE) ==
+-		(mode2->vmode & FB_VMODE_MASK_SIMPLE));
+-}
+-EXPORT_SYMBOL(mxc_fb_mode_is_equal_res);
+ 
+ /*
+  * We have a special version of fb_mode_is_equal that ignores
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index 620168a..170704d 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -2074,23 +2074,24 @@ static void mxc_hdmi_set_mode(struct mxc_hdmi *hdmi, int edid_status)
+ 	dump_fb_videomode(&m);
+ 	mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
+ 
+-	if (mode) {
+-		hdmi->fbi->mode = (struct fb_videomode *)mode;
+-		fb_videomode_to_var(&hdmi->fbi->var, mode);
+-	} else {
++	if (!mode) {
+ 		pr_err("%s: could not find mode in modelist\n", __func__);
+ 		return;
+ 	}
+ 
++	hdmi->fbi->mode = (struct fb_videomode *)mode;
++	fb_videomode_to_var(&hdmi->fbi->var, mode);
++
+ 	/* restore xBuffer if dimension match */
+-	if ((edid_status == HDMI_EDID_SAME && fb_mode_is_equal(&hdmi->previous_non_vga_mode, mode)) ||
+-	    (edid_status != HDMI_EDID_SAME && mxc_fb_mode_is_equal_res(&hdmi->previous_non_vga_mode, mode))) {
++	if (hdmi->previous_non_vga_mode.xres == mode->xres &&
++	    hdmi->previous_non_vga_mode.yres == mode->yres) {
+ 		dev_dbg(&hdmi->pdev->dev,
+-				"%s: Video mode %ssame as previous\n", __func__, edid_status == HDMI_EDID_SAME ? "+ EDID " : "");
++			"%s: Resolution %ssame as previous\n",
++			__func__, edid_status == HDMI_EDID_SAME ? "+ EDID " : "");
+ 		if (hdmi->prev_virtual.xres_virtual)
+ 			memcpy(&hdmi->fbi->var.xres_virtual, &hdmi->prev_virtual, sizeof(hdmi->prev_virtual));
+ 	} else {
+-		dev_dbg(&hdmi->pdev->dev, "%s: New video mode\n", __func__);
++		dev_dbg(&hdmi->pdev->dev, "%s: Resolution changed\n", __func__);
+ 		new_screen = true;
+ 	}
+ 
+@@ -2377,6 +2378,7 @@ static void mxc_hdmi_setup(struct mxc_hdmi *hdmi, unsigned long event)
+ 			memcpy(&hdmi->prev_virtual, &hdmi->fbi->var.xres_virtual, sizeof(hdmi->prev_virtual));
+ 		else
+ 			memset(&hdmi->prev_virtual, 0, sizeof(hdmi->prev_virtual));
++
+ 		if (!list_empty(&hdmi->fbi->modelist)) {
+ 			edid_mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
+ 			pr_debug("edid mode ");
+diff --git a/include/video/mxc_edid.h b/include/video/mxc_edid.h
+index 01a487e..f00d142 100644
+--- a/include/video/mxc_edid.h
++++ b/include/video/mxc_edid.h
+@@ -111,5 +111,4 @@ int mxc_edid_parse_ext_blk(unsigned char *edid, struct mxc_edid_cfg *cfg,
+ 	struct fb_monspecs *specs);
+ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *mode,
+ 						struct list_head *head);
+-int mxc_fb_mode_is_equal_res(const struct fb_videomode *mode1, const struct fb_videomode *mode2);
+ #endif
+-- 
+1.9.1
+
+
+==============================================================
+file 1121-video-mxc_hdmi-Simplify-aspect-ratio-setup-for-AVI-i.patch
+==============================================================
+
+From 8f6db7a2663ab2cfb50569b1ea74e02395703245 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sat, 26 Dec 2015 19:15:55 +0100
+Subject: [PATCH] video: mxc_hdmi: Simplify aspect ratio setup for AVI
+ infoframe
+
+Either use the aspect ratio flags already present in fb_videomode
+or calulate them from current resolution.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_hdmi.c | 18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index 170704d..e5d6bc5 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -1418,21 +1418,17 @@ static void hdmi_config_AVI(struct mxc_hdmi *hdmi)
+ 	u8 under_scan;
+ 	u8 act_ratio, coded_ratio, colorimetry, ext_colorimetry;
+ 	struct fb_videomode mode;
+-	const struct fb_videomode *edid_mode;
+-	bool aspect_16_9;
+ 
+ 	dev_dbg(&hdmi->pdev->dev, "set up AVI frame\n");
+ 
+ 	fb_var_to_videomode(&mode, &hdmi->fbi->var);
+-	/* Use mode from list extracted from EDID to get aspect ratio */
+-	if (!list_empty(&hdmi->fbi->modelist)) {
+-		edid_mode = fb_find_nearest_mode(&mode, &hdmi->fbi->modelist);
+-		if (edid_mode->vmode & FB_VMODE_ASPECT_16_9)
+-			aspect_16_9 = true;
++
++	if (!(mode.vmode & FB_VMODE_ASPECT_MASK)) {
++		if( mode.xres <= (mode.yres / 3) * 4)
++			mode.vmode |= FB_VMODE_ASPECT_4_3;
+ 		else
+-			aspect_16_9 = false;
+-	} else
+-		aspect_16_9 = false;
++			mode.vmode |= FB_VMODE_ASPECT_16_9;
++	}
+ 
+ 	/********************************************
+ 	 * AVI Data Byte 1
+@@ -1464,7 +1460,7 @@ static void hdmi_config_AVI(struct mxc_hdmi *hdmi)
+ 	 ********************************************/
+ 
+ 	/*  Set the Aspect Ratio */
+-	if (aspect_16_9) {
++	if (mode.vmode & FB_VMODE_ASPECT_16_9) {
+ 		act_ratio = HDMI_FC_AVICONF1_ACTIVE_ASPECT_RATIO_16_9;
+ 		coded_ratio = HDMI_FC_AVICONF1_CODED_ASPECT_RATIO_16_9;
+ 	} else {
+-- 
+1.9.1
+
+
+==============================================================
+file 1122-video-mxc_hdmi-Adjust-pixel-repetition-setup-for-AVI.patch
+==============================================================
+
+From 6468baf32d804c9d79a5260699a69bfb9f586d31 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sun, 27 Dec 2015 10:37:39 +0100
+Subject: [PATCH] video: mxc_hdmi: Adjust pixel repetition setup for AVI
+ infoframe
+
+Fix the pixel repetition field in AVI info frame. For VIC 14,15,29
+and 30 we set the factor to 1 so that the output width matches the
+frame buffer width (i.e. 1440). Also we fill in the correct value
+for modes that imply the usage of repetition factor 2.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_hdmi.c | 30 +++++++++++++++++++++---------
+ 1 file changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index e5d6bc5..42e7e06 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -2406,17 +2406,29 @@ static void mxc_hdmi_setup(struct mxc_hdmi *hdmi, unsigned long event)
+ 	else
+ 		hdmi->hdmi_data.colorimetry = eITU709;
+ 
+-	if ((hdmi->vic == 10) || (hdmi->vic == 11) ||
+-		(hdmi->vic == 12) || (hdmi->vic == 13) ||
+-		(hdmi->vic == 14) || (hdmi->vic == 15) ||
+-		(hdmi->vic == 25) || (hdmi->vic == 26) ||
+-		(hdmi->vic == 27) || (hdmi->vic == 28) ||
+-		(hdmi->vic == 29) || (hdmi->vic == 30) ||
+-		(hdmi->vic == 35) || (hdmi->vic == 36) ||
+-		(hdmi->vic == 37) || (hdmi->vic == 38))
++	if ((hdmi->vic >= 6 && hdmi->vic <= 9) ||
++		(hdmi->vic >= 21 && hdmi->vic <= 24) ||
++		(hdmi->vic >= 44 && hdmi->vic <= 45) ||
++		(hdmi->vic >= 50 && hdmi->vic <= 51) ||
++		(hdmi->vic >= 55 && hdmi->vic <= 56) ||
++		(hdmi->vic >= 58 && hdmi->vic <= 59) ) {
++		/* These formats require a pixel repetition factor of 2 */
+ 		hdmi->hdmi_data.video_mode.mPixelRepetitionOutput = 1;
+-	else
++	} else if ((hdmi->vic >= 14 && hdmi->vic <= 15) ||
++		(hdmi->vic >= 29 && hdmi->vic <= 30) ) {
++		/* These formats may be used with repetition factors 1 or 2 */
++		/* We use 1 to select picture a width of 1440 (vs. 720) */
++		hdmi->hdmi_data.video_mode.mPixelRepetitionOutput = 0;
++	} else if ((hdmi->vic >= 10 && hdmi->vic <= 13) ||
++		(hdmi->vic >= 25 && hdmi->vic <= 28) ||
++		(hdmi->vic >= 35 && hdmi->vic <= 38)) {
++		/* These formats may be used with multiple repetition factors */
++		/* The width for factor == 1 is 2880 (currently unsupported) */
++		hdmi->hdmi_data.video_mode.mPixelRepetitionOutput = 3;
++	} else {
++		/* No repetition (i.e. factor 1) */
+ 		hdmi->hdmi_data.video_mode.mPixelRepetitionOutput = 0;
++	}
+ 
+ 	hdmi->hdmi_data.video_mode.mPixelRepetitionInput = 0;
+ 
+-- 
+1.9.1
+
+
+==============================================================
+file 1123-video-mxc_hdmi-mxc_edid-Prepare-for-double-clock-mod.patch
+==============================================================
+
+From 604a8ed3318f9ce0cd952c7c222dc11bd38f0829 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Tue, 29 Dec 2015 09:57:04 +0100
+Subject: [PATCH] video: mxc_hdmi/mxc_edid: Prepare for double-clock modes
+
+Certain low resolution modes require double clocking in order meet
+the minimum speed requirements of the interface. This patch prepares
+support for those, but keeps them disabled.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_edid.c | 93 +++++++++++++++++++++++++++++++-------------
+ drivers/video/mxc/mxc_hdmi.c | 14 ++++---
+ include/video/mxc_edid.h     |  2 +
+ 3 files changed, 76 insertions(+), 33 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_edid.c b/drivers/video/mxc/mxc_edid.c
+index aa6d24f..3baac3c 100644
+--- a/drivers/video/mxc/mxc_edid.c
++++ b/drivers/video/mxc/mxc_edid.c
+@@ -73,23 +73,23 @@ const struct fb_videomode mxc_cea_mode[64] = {
+ 	},
+ 	/* #6: 720(1440)x480iH@59.94/60Hz 4:3 */
+ 	[6] = {
+-		NULL, 60, 1440, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
+-		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_4_3, 0,
++		NULL, 60, 720, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
++		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_4_3 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #7: 720(1440)x480iH@59.94/60Hz 16:9 */
+ 	[7] = {
+-		NULL, 60, 1440, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
+-		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9, 0,
++		NULL, 60, 720, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
++		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #8: 720(1440)x240pH@59.94/60Hz 4:3 */
+ 	[8] = {
+-		NULL, 60, 1440, 240, 37000, 114, 38, 15, 4, 124, 3, 0,
+-		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3, 0,
++		NULL, 60, 720, 240, 37000, 114, 38, 15, 4, 124, 3, 0,
++		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #9: 720(1440)x240pH@59.94/60Hz 16:9 */
+ 	[9] = {
+-		NULL, 60, 1440, 240, 37000, 114, 38, 15, 4, 124, 3, 0,
+-		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_16_9, 0,
++		NULL, 60, 720, 240, 37000, 114, 38, 15, 4, 124, 3, 0,
++		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_16_9 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #14: 1440x480p@59.94/60Hz 4:3 */
+ 	[14] = {
+@@ -131,30 +131,30 @@ const struct fb_videomode mxc_cea_mode[64] = {
+ 	},
+ 	/* #21: 720(1440)x576i@50Hz */
+ 	[21] = {
+-		NULL, 50, 1440, 576, 37037, 24, 138, 4, 39, 126, 6, 0,
+-		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_4_3, 0,
++		NULL, 50, 720, 576, 37037, 24, 138, 4, 39, 126, 6, 0,
++		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_4_3 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #22: 720(1440)x576i@50Hz */
+ 	[22] = {
+-		NULL, 50, 1440, 576, 37037, 24, 138, 4, 39, 126, 6, 0,
+-		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9, 0,
++		NULL, 50, 720, 576, 37037, 24, 138, 4, 39, 126, 6, 0,
++		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #23: 720(1440)x288pH@50Hz 4:3 */
+ 	[23] = {
+-		NULL, 50, 1440, 288, 37037, 138, 24, 19, 2, 126, 3, 0,
+-		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3, 0,
++		NULL, 50, 720, 288, 37037, 138, 24, 19, 2, 126, 3, 0,
++		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #24: 720(1440)x288pH@50Hz 16:9 */
+ 	[24] = {
+-		NULL, 50, 1440, 288, 37037, 138, 24, 19, 2, 126, 3, 0,
+-		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_16_9, 0,
++		NULL, 50, 720, 288, 37037, 138, 24, 19, 2, 126, 3, 0,
++		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_16_9 | FB_VMODE_DBLCLK, 0,
+ 	},
+-	/* #29: 720(1440)x576pH@50Hz 4:3 */
++	/* #29: 1440x576p@50Hz 4:3 */
+ 	[29] = {
+ 		NULL, 50, 1440, 576, 18518, 136, 24, 39, 5, 128, 5, 0,
+ 		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_4_3, 0,
+ 	},
+-	/* #30: 720(1440)x576pH@50Hz 16:9 */
++	/* #30: 1440x576p@50Hz 16:9 */
+ 	[30] = {
+ 		NULL, 50, 1440, 576, 18518, 136, 24, 39, 5, 128, 5, 0,
+ 		FB_VMODE_NONINTERLACED | FB_VMODE_ASPECT_16_9, 0,
+@@ -210,9 +210,9 @@ static int mxc_edid_fb_mode_is_equal(bool use_aspect,
+ 	u32 mask;
+ 
+ 	if (use_aspect)
+-		mask = ~FB_VMODE_FRACTIONAL;
++		mask = ~(FB_VMODE_FRACTIONAL | FB_VMODE_DBLCLK);
+ 	else
+-		mask = ~(FB_VMODE_FRACTIONAL | FB_VMODE_ASPECT_MASK);
++		mask = ~(FB_VMODE_FRACTIONAL | FB_VMODE_DBLCLK | FB_VMODE_ASPECT_MASK);
+ 
+ 	return (mode1->xres         == mode2->xres &&
+ 		mode1->yres         == mode2->yres &&
+@@ -796,16 +796,12 @@ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *m
+ 	u32 d, diff = ~0, diff_refresh = ~0;
+ 	int i, refresh = mode->refresh;
+ 	static const u32 masks[] = {
+-		~(FB_VMODE_FRACTIONAL),
+-		~(FB_VMODE_FRACTIONAL | FB_VMODE_ASPECT_MASK),
+-		~(FB_VMODE_FRACTIONAL | FB_VMODE_INTERLACED),
+-		~(FB_VMODE_FRACTIONAL | FB_VMODE_INTERLACED | FB_VMODE_ASPECT_MASK)
++		~(FB_VMODE_FRACTIONAL | FB_VMODE_DBLCLK),
++		~(FB_VMODE_FRACTIONAL | FB_VMODE_DBLCLK | FB_VMODE_ASPECT_MASK),
++		~(FB_VMODE_FRACTIONAL | FB_VMODE_DBLCLK | FB_VMODE_INTERLACED),
++		~(FB_VMODE_FRACTIONAL | FB_VMODE_DBLCLK | FB_VMODE_INTERLACED | FB_VMODE_ASPECT_MASK)
+ 	};
+ 
+-	if ((mode->flag & FB_MODE_IS_FROM_VAR) &&
+-	    (mode->vmode & FB_VMODE_FRACTIONAL))
+-		refresh--;
+-
+ 	for (i = 0; i < ARRAY_SIZE(masks); i++) {
+ 		list_for_each(pos, head) {
+ 			modelist = list_entry(pos, struct fb_modelist, list);
+@@ -837,3 +833,44 @@ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *m
+ }
+ EXPORT_SYMBOL(mxc_fb_find_nearest_mode);
+ 
++void mxc_fb_var_to_videomode(struct fb_videomode *mode, const struct fb_var_screeninfo *var)
++{
++	u32 pixclock, hfreq, htotal, vtotal;
++
++	mode->name = NULL;
++	mode->xres = var->xres;
++	mode->yres = var->yres;
++	mode->pixclock = var->pixclock;
++	mode->hsync_len = var->hsync_len;
++	mode->vsync_len = var->vsync_len;
++	mode->left_margin = var->left_margin;
++	mode->right_margin = var->right_margin;
++	mode->upper_margin = var->upper_margin;
++	mode->lower_margin = var->lower_margin;
++	mode->sync = var->sync;
++	mode->vmode = var->vmode & FB_VMODE_MASK;
++	mode->flag = FB_MODE_IS_FROM_VAR;
++	mode->refresh = 0;
++
++	if (!var->pixclock)
++		return;
++
++	/* Note: mxcPICOS2KHZ() is not used here by purpose */
++	pixclock = PICOS2KHZ(var->pixclock) * 1000;
++
++	htotal = var->xres + var->right_margin + var->hsync_len +
++		var->left_margin;
++	vtotal = var->yres + var->lower_margin + var->vsync_len +
++		var->upper_margin;
++
++	if (var->vmode & FB_VMODE_DBLCLK)
++		htotal += var->xres;
++	if (var->vmode & FB_VMODE_INTERLACED)
++		vtotal /= 2;
++	if (var->vmode & FB_VMODE_DOUBLE)
++		vtotal *= 2;
++
++	hfreq = pixclock/htotal;
++	mode->refresh = hfreq/vtotal - ((var->vmode & FB_VMODE_FRACTIONAL) ? 1 : 0);
++}
++EXPORT_SYMBOL(mxc_fb_var_to_videomode);
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index 42e7e06..0cd6474 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -1421,7 +1421,7 @@ static void hdmi_config_AVI(struct mxc_hdmi *hdmi)
+ 
+ 	dev_dbg(&hdmi->pdev->dev, "set up AVI frame\n");
+ 
+-	fb_var_to_videomode(&mode, &hdmi->fbi->var);
++	mxc_fb_var_to_videomode(&mode, &hdmi->fbi->var);
+ 
+ 	if (!(mode.vmode & FB_VMODE_ASPECT_MASK)) {
+ 		if( mode.xres <= (mode.yres / 3) * 4)
+@@ -1548,7 +1548,7 @@ static void hdmi_av_composer(struct mxc_hdmi *hdmi)
+ 
+ 	dev_dbg(&hdmi->pdev->dev, "%s\n", __func__);
+ 
+-	fb_var_to_videomode(&fb_mode, &fbi->var);
++	mxc_fb_var_to_videomode(&fb_mode, &fbi->var);
+ 
+ 	vmode->mHSyncPolarity = ((fb_mode.sync & FB_SYNC_HOR_HIGH_ACT) != 0);
+ 	vmode->mVSyncPolarity = ((fb_mode.sync & FB_SYNC_VERT_HIGH_ACT) != 0);
+@@ -1971,6 +1971,10 @@ static void mxc_hdmi_create_modelist(struct mxc_hdmi *hdmi, int from_edid)
+ 
+ 		mode = mode_data[i];
+ 
++		/* TODO: double clocking currently not implemented in IPU */
++		if (mode.vmode & FB_VMODE_DBLCLK)
++			continue;
++
+ 		/* for dual aspect ratio modes, insert the first one only */
+ 		if (mode.vmode & FB_VMODE_ASPECT_MASK) {
+ 			skip = 0;
+@@ -2066,7 +2070,7 @@ static void mxc_hdmi_set_mode(struct mxc_hdmi *hdmi, int edid_status)
+ 			fb_videomode_to_var(&var, mode);
+ 	}
+ 
+-	fb_var_to_videomode(&m, &var);
++	mxc_fb_var_to_videomode(&m, &var);
+ 	dump_fb_videomode(&m);
+ 	mode = mxc_fb_find_nearest_mode(&m, &hdmi->fbi->modelist);
+ 
+@@ -2358,7 +2362,7 @@ static void mxc_hdmi_setup(struct mxc_hdmi *hdmi, unsigned long event)
+ 
+ 	dev_dbg(&hdmi->pdev->dev, "%s\n", __func__);
+ 
+-	fb_var_to_videomode(&m, &hdmi->fbi->var);
++	mxc_fb_var_to_videomode(&m, &hdmi->fbi->var);
+ 	dump_fb_videomode(&m);
+ 
+ 	dev_dbg(&hdmi->pdev->dev, "%s - video mode changed\n", __func__);
+@@ -2831,7 +2835,7 @@ static int mxc_hdmi_disp_init(struct mxc_dispdrv_handle *disp,
+ 	fb_find_mode(&hdmi->fbi->var, hdmi->fbi,
+ 		     hdmi->dft_mode_str, NULL, 0,
+ 		     &vga_mode, hdmi->default_bpp);
+-	fb_var_to_videomode(&m, &hdmi->fbi->var);
++	mxc_fb_var_to_videomode(&m, &hdmi->fbi->var);
+ 	if (m.vmode & FB_VMODE_INTERLACED)
+ 		m.refresh = (m.refresh / 2) - 2;
+ 	hdmi->dft_mode_set = false;
+diff --git a/include/video/mxc_edid.h b/include/video/mxc_edid.h
+index f00d142..b1b4b8e 100644
+--- a/include/video/mxc_edid.h
++++ b/include/video/mxc_edid.h
+@@ -31,6 +31,7 @@
+ #define FB_VMODE_ASPECT_4_3	0x10
+ #define FB_VMODE_ASPECT_16_9	0x20
+ #define FB_VMODE_ASPECT_MASK	(FB_VMODE_ASPECT_4_3 | FB_VMODE_ASPECT_16_9)
++#define FB_VMODE_DBLCLK	0x40
+ 
+ enum cea_audio_coding_types {
+ 	AUDIO_CODING_TYPE_REF_STREAM_HEADER	=  0,
+@@ -111,4 +112,5 @@ int mxc_edid_parse_ext_blk(unsigned char *edid, struct mxc_edid_cfg *cfg,
+ 	struct fb_monspecs *specs);
+ const struct fb_videomode *mxc_fb_find_nearest_mode(const struct fb_videomode *mode,
+ 						struct list_head *head);
++void mxc_fb_var_to_videomode(struct fb_videomode *mode, const struct fb_var_screeninfo *var);
+ #endif
+-- 
+1.9.1
+
+
+==============================================================
+file 1124-video-mxc_edid-Unswap-margins-for-interlaced-modes.patch
+==============================================================
+
+From 078d552ed404599c968d13a560178fa874d748e4 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Wed, 30 Dec 2015 11:16:10 +0100
+Subject: [PATCH] video: mxc_edid: Unswap margins for interlaced modes
+
+The left/right and upper/lower margins for interlaced modes are swapped.
+
+Signed-off-by: Rudi <r.ihle@s-t.de>
+---
+ drivers/video/mxc/mxc_edid.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/video/mxc/mxc_edid.c b/drivers/video/mxc/mxc_edid.c
+index 3baac3c..e11fcd9 100644
+--- a/drivers/video/mxc/mxc_edid.c
++++ b/drivers/video/mxc/mxc_edid.c
+@@ -67,18 +67,18 @@ const struct fb_videomode mxc_cea_mode[64] = {
+ 	},
+ 	/* #5: 1920x1080i@59.94/60Hz 16:9 */
+ 	[5] = {
+-		NULL, 60, 1920, 1080, 13468, 88, 148, 4, 31, 44, 10,
++		NULL, 60, 1920, 1080, 13468, 148, 88, 31, 4, 44, 10,
+ 		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9, 0,
+ 	},
+ 	/* #6: 720(1440)x480iH@59.94/60Hz 4:3 */
+ 	[6] = {
+-		NULL, 60, 720, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
++		NULL, 60, 720, 480, 37000, 114, 38, 31, 8, 124, 6, 0,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_4_3 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #7: 720(1440)x480iH@59.94/60Hz 16:9 */
+ 	[7] = {
+-		NULL, 60, 720, 480, 37000, 38, 114, 8, 31, 124, 6, 0,
++		NULL, 60, 720, 480, 37000, 114, 38, 31, 8, 124, 6, 0,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #8: 720(1440)x240pH@59.94/60Hz 4:3 */
+@@ -125,18 +125,18 @@ const struct fb_videomode mxc_cea_mode[64] = {
+ 	},
+ 	/* #20: 1920x1080i@50Hz */
+ 	[20] = {
+-		NULL, 50, 1920, 1080, 13468, 528, 148, 4, 31, 44, 10,
++		NULL, 50, 1920, 1080, 13468, 148, 528, 31, 4, 44, 10,
+ 		FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9, 0,
+ 	},
+ 	/* #21: 720(1440)x576i@50Hz */
+ 	[21] = {
+-		NULL, 50, 720, 576, 37037, 24, 138, 4, 39, 126, 6, 0,
++		NULL, 50, 720, 576, 37037, 138, 24, 39, 4, 126, 6, 0,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_4_3 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #22: 720(1440)x576i@50Hz */
+ 	[22] = {
+-		NULL, 50, 720, 576, 37037, 24, 138, 4, 39, 126, 6, 0,
++		NULL, 50, 720, 576, 37037, 138, 24, 39, 4, 126, 6, 0,
+ 		FB_VMODE_INTERLACED | FB_VMODE_ASPECT_16_9 | FB_VMODE_DBLCLK, 0,
+ 	},
+ 	/* #23: 720(1440)x288pH@50Hz 4:3 */
+-- 
+1.9.1
+
+
+==============================================================
+file 1201-revert-edid-binary.patch
+==============================================================
+
+diff --git a/drivers/video/mxc/mxc_hdmi.c b/drivers/video/mxc/mxc_hdmi.c
+index dcda11b..210f6b4 100644
+--- a/drivers/video/mxc/mxc_hdmi.c
++++ b/drivers/video/mxc/mxc_hdmi.c
+@@ -310,12 +310,16 @@ static ssize_t mxc_hdmi_show_edid(struct device *dev,
+ 		struct device_attribute *attr, char *buf)
+ {
+ 	struct mxc_hdmi *hdmi = dev_get_drvdata(dev);
+-	int j;
++	int i, j, len = 0;
+ 
+-	for (j = 0; j < HDMI_EDID_LEN; j++)
+-		buf[j] = hdmi->edid[j];
++	for (j = 0; j < HDMI_EDID_LEN/16; j++) {
++		for (i = 0; i < 16; i++)
++			len += sprintf(buf+len, "0x%02X ",
++					hdmi->edid[j*16 + i]);
++		len += sprintf(buf+len, "\n");
++	}
+ 
+-	return HDMI_EDID_LEN;
++	return len;
+ }
+ 
+ static DEVICE_ATTR(edid, S_IRUGO, mxc_hdmi_show_edid, NULL);
+
+==============================================================
+file 501-LIRC-avoid-keypress-duplication.patch
+==============================================================
+
+diff --git a/drivers/media/rc/rc-main.c b/drivers/media/rc/rc-main.c
+index a74a931..705e2d6 100644
+--- a/drivers/media/rc/rc-main.c
++++ b/drivers/media/rc/rc-main.c
+@@ -31,7 +31,7 @@ extern void ledtrig_rc_activity(void);
+ #define IR_TAB_MAX_SIZE	8192
+ 
+ /* FIXME: IR_KEYPRESS_TIMEOUT should be protocol specific */
+-#define IR_KEYPRESS_TIMEOUT 250
++#define IR_KEYPRESS_TIMEOUT 550
+ 
+ /* Used to keep track of known keymaps */
+ static LIST_HEAD(rc_map_list);
+
