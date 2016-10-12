@@ -77,6 +77,7 @@ SED="sed -i"
     _PKG_ROOT_NAME=${1%:*}
     _ALL_DIRS=""
     _FOUND=0
+    _ANCHOR="@?+?@"
     PKG_DIR=""
 
     # If the package caches are unset, then populate them
@@ -86,19 +87,20 @@ SED="sed -i"
 
       # cache project folder for a package
       for DIR in $(find $ROOT/projects/$PROJECT/packages -type d 2>/dev/null); do
-        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_LOCAL+="${DIR}\n"
+        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_LOCAL+="${DIR}${_ANCHOR}\n"
       done
 
       # cache packages folder
       for DIR in $(find $ROOT/$PACKAGES -type d 2>/dev/null); do
-        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_GLOBAL+="${DIR}\n"
+        [ -r "$DIR/package.mk" ] && _CACHE_PACKAGE_GLOBAL+="${DIR}${_ANCHOR}\n"
       done
 
       export _CACHE_PACKAGE_LOCAL _CACHE_PACKAGE_GLOBAL
     fi
 
     # Check for any available local package in preference to a global package
-    for DIR in $(echo -e "${_CACHE_PACKAGE_LOCAL}" | grep -E "^.*/${_PKG_ROOT_NAME}\$"); do
+    for DIR in $(echo -e "${_CACHE_PACKAGE_LOCAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
+      DIR="${DIR%${_ANCHOR}}"
       # found first, set $PKG_DIR
       PKG_DIR="$DIR"
       # keep track of dirs with package.mk for detecting multiple folders
@@ -108,7 +110,8 @@ SED="sed -i"
 
     # If there's no local package available, use the global package
     if [ $_FOUND -eq 0 ]; then
-      for DIR in $(echo -e "${_CACHE_PACKAGE_GLOBAL}" | grep -E "^.*/${_PKG_ROOT_NAME}\$"); do
+      for DIR in $(echo -e "${_CACHE_PACKAGE_GLOBAL}" | grep -F "/${_PKG_ROOT_NAME}${_ANCHOR}"); do
+        DIR="${DIR%${_ANCHOR}}"
         # found first, set $PKG_DIR
         PKG_DIR="$DIR"
         # keep track of dirs with package.mk for detecting multiple folders
