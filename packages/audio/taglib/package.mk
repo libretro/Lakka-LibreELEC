@@ -31,8 +31,7 @@ PKG_LONGDESC="TagLib is a library for reading and editing the meta-data of sever
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
-                       -DBUILD_SHARED_LIBS=OFF \
+PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
                        -DWITH_MP4=ON \
                        -DWITH_ASF=ON"
 
