@@ -1,51 +1,3 @@
- drivers/media/dvb-core/Makefile                    |    2 +-
- drivers/media/dvb-core/dvb_ca_en50221.c            |  128 +-
- drivers/media/dvb-core/dvb_ca_en50221.h            |    7 +
- drivers/media/dvb-core/dvb_frontend.c              |   15 +
- drivers/media/dvb-core/dvb_frontend.h              |    4 +
- drivers/media/dvb-core/dvb_netstream.c             |  259 +
- drivers/media/dvb-core/dvb_netstream.h             |   93 +
- drivers/media/dvb-core/dvbdev.c                    |    3 +-
- drivers/media/dvb-core/dvbdev.h                    |    4 +
- drivers/media/dvb-frontends/Kconfig                |   41 +
- drivers/media/dvb-frontends/Makefile               |    5 +
- drivers/media/dvb-frontends/cxd2843.c              | 2063 ++++++++
- drivers/media/dvb-frontends/cxd2843.h              |   30 +
- drivers/media/dvb-frontends/mxl5xx.c               | 1738 +++++++
- drivers/media/dvb-frontends/mxl5xx.h               |   39 +
- drivers/media/dvb-frontends/mxl5xx_defs.h          |  818 ++++
- drivers/media/dvb-frontends/mxl5xx_regs.h          |  941 ++++
- drivers/media/dvb-frontends/stv0367dd.c            | 1874 +++++++
- drivers/media/dvb-frontends/stv0367dd.h            |   31 +
- drivers/media/dvb-frontends/stv0367dd_regs.h       | 3429 +++++++++++++
- drivers/media/dvb-frontends/stv0910.c              | 1526 ++++++
- drivers/media/dvb-frontends/stv0910.h              |   31 +
- drivers/media/dvb-frontends/stv0910_regs.h         | 3997 +++++++++++++++
- drivers/media/dvb-frontends/stv6111.c              |  684 +++
- drivers/media/dvb-frontends/stv6111.h              |   20 +
- drivers/media/pci/ddbridge/Kconfig                 |   29 +-
- drivers/media/pci/ddbridge/Makefile                |    4 +-
- drivers/media/pci/ddbridge/ddbridge-core.c         | 5105 +++++++++++++++-----
- drivers/media/pci/ddbridge/ddbridge-i2c.c          |  290 ++
- drivers/media/pci/ddbridge/ddbridge-i2c.h          |  116 +
- drivers/media/pci/ddbridge/ddbridge-mod.c          | 1118 +++++
- drivers/media/pci/ddbridge/ddbridge-ns.c           |  491 ++
- drivers/media/pci/ddbridge/ddbridge-regs.h         |  355 +-
- drivers/media/pci/ddbridge/ddbridge.c              |  541 +++
- drivers/media/pci/ddbridge/ddbridge.h              |  579 ++-
- drivers/media/pci/ddbridge/octonet.c               |  262 +
- .../media/platform/sti/c8sectpfe/c8sectpfe-dvb.c   |    1 +
- drivers/media/tuners/tda18212.c                    |    5 +
- drivers/media/tuners/tda18212.h                    |    7 +
- drivers/media/usb/dvb-usb-v2/anysee.c              |    2 +
- drivers/media/usb/em28xx/em28xx-dvb.c              |    1 +
- drivers/staging/media/cxd2099/cxd2099.c            |  234 +-
- drivers/staging/media/cxd2099/cxd2099.h            |    6 +-
- include/uapi/linux/dvb/frontend.h                  |    7 +-
- include/uapi/linux/dvb/mod.h                       |   22 +
- include/uapi/linux/dvb/ns.h                        |   69 +
- 46 files changed, 25615 insertions(+), 1411 deletions(-)
-
 diff --git a/drivers/media/dvb-core/Makefile b/drivers/media/dvb-core/Makefile
 index 8f22bcd..5ff851a 100644
 --- a/drivers/media/dvb-core/Makefile
@@ -59,10 +11,10 @@ index 8f22bcd..5ff851a 100644
  
  obj-$(CONFIG_DVB_CORE) += dvb-core.o
 diff --git a/drivers/media/dvb-core/dvb_ca_en50221.c b/drivers/media/dvb-core/dvb_ca_en50221.c
-index f82cd1f..4849156 100644
+index b5b5b19..2cb8415 100644
 --- a/drivers/media/dvb-core/dvb_ca_en50221.c
 +++ b/drivers/media/dvb-core/dvb_ca_en50221.c
-@@ -315,7 +315,7 @@ static int dvb_ca_en50221_link_init(struct dvb_ca_private *ca, int slot)
+@@ -344,7 +344,7 @@ static int dvb_ca_en50221_link_init(struct dvb_ca_private *ca, int slot)
  	/* read the buffer size from the CAM */
  	if ((ret = ca->pub->write_cam_control(ca->pub, slot, CTRLIF_COMMAND, IRQEN | CMDREG_SR)) != 0)
  		return ret;
@@ -71,7 +23,7 @@ index f82cd1f..4849156 100644
  		return ret;
  	if ((ret = dvb_ca_en50221_read_data(ca, slot, buf, 2)) != 2)
  		return -EIO;
-@@ -612,65 +612,78 @@ static int dvb_ca_en50221_read_data(struct dvb_ca_private *ca, int slot, u8 * eb
+@@ -641,65 +641,78 @@ static int dvb_ca_en50221_read_data(struct dvb_ca_private *ca, int slot, u8 * eb
  		}
  	}
  
@@ -200,7 +152,7 @@ index f82cd1f..4849156 100644
  	}
  
  	/* OK, add it to the receive buffer, or copy into external buffer if supplied */
-@@ -722,6 +735,9 @@ static int dvb_ca_en50221_write_data(struct dvb_ca_private *ca, int slot, u8 * b
+@@ -751,6 +764,9 @@ static int dvb_ca_en50221_write_data(struct dvb_ca_private *ca, int slot, u8 * b
  	if (bytes_write > ca->slot_info[slot].link_buf_size)
  		return -EINVAL;
  
@@ -210,7 +162,7 @@ index f82cd1f..4849156 100644
  	/* it is possible we are dealing with a single buffer implementation,
  	   thus if there is data available for read or if there is even a read
  	   already in progress, we do nothing but awake the kernel thread to
-@@ -1057,7 +1073,8 @@ static int dvb_ca_en50221_thread(void *data)
+@@ -1086,7 +1102,8 @@ static int dvb_ca_en50221_thread(void *data)
  
  					printk("dvb_ca adapter %d: Invalid PC card inserted :(\n",
  					       ca->dvbdev->adapter->num);
@@ -220,7 +172,7 @@ index f82cd1f..4849156 100644
  					dvb_ca_en50221_thread_update_delay(ca);
  					break;
  				}
-@@ -1087,7 +1104,10 @@ static int dvb_ca_en50221_thread(void *data)
+@@ -1116,7 +1133,10 @@ static int dvb_ca_en50221_thread(void *data)
  				if (time_after(jiffies, ca->slot_info[slot].timeout)) {
  					printk("dvb_ca adapter %d: DVB CAM did not respond :(\n",
  					       ca->dvbdev->adapter->num);
@@ -232,7 +184,7 @@ index f82cd1f..4849156 100644
  					dvb_ca_en50221_thread_update_delay(ca);
  					break;
  				}
-@@ -1113,7 +1133,7 @@ static int dvb_ca_en50221_thread(void *data)
+@@ -1142,7 +1162,7 @@ static int dvb_ca_en50221_thread(void *data)
  					}
  
  					printk("dvb_ca adapter %d: DVB CAM link initialisation failed :(\n", ca->dvbdev->adapter->num);
@@ -267,10 +219,10 @@ index 1e4bbbd..056d10c 100644
  	int (*slot_shutdown)(struct dvb_ca_en50221 *ca, int slot);
  	int (*slot_ts_enable)(struct dvb_ca_en50221 *ca, int slot);
 diff --git a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_frontend.c
-index c014261..6047f4f 100644
+index be99c8d..254f89d 100644
 --- a/drivers/media/dvb-core/dvb_frontend.c
 +++ b/drivers/media/dvb-core/dvb_frontend.c
-@@ -1019,6 +1019,7 @@ static struct dtv_cmds_h dtv_cmds[DTV_MAX_COMMAND + 1] = {
+@@ -1037,6 +1037,7 @@ static struct dtv_cmds_h dtv_cmds[DTV_MAX_COMMAND + 1] = {
  	_DTV_CMD(DTV_STREAM_ID, 1, 0),
  	_DTV_CMD(DTV_DVBT2_PLP_ID_LEGACY, 1, 0),
  	_DTV_CMD(DTV_LNA, 1, 0),
@@ -278,7 +230,7 @@ index c014261..6047f4f 100644
  
  	/* Get */
  	_DTV_CMD(DTV_DISEQC_SLAVE_REPLY, 0, 1),
-@@ -1449,6 +1450,14 @@ static int dtv_property_process_get(struct dvb_frontend *fe,
+@@ -1467,6 +1468,14 @@ static int dtv_property_process_get(struct dvb_frontend *fe,
  		tvp->u.data = c->lna;
  		break;
  
@@ -293,7 +245,7 @@ index c014261..6047f4f 100644
  	/* Fill quality measures */
  	case DTV_STAT_SIGNAL_STRENGTH:
  		tvp->u.st = c->strength;
-@@ -1884,6 +1893,12 @@ static int dtv_property_process_set(struct dvb_frontend *fe,
+@@ -1902,6 +1911,12 @@ static int dtv_property_process_set(struct dvb_frontend *fe,
  			c->lna = LNA_AUTO;
  		break;
  
@@ -307,10 +259,10 @@ index c014261..6047f4f 100644
  		return -EINVAL;
  	}
 diff --git a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_frontend.h
-index 9592573..c93aff5 100644
+index fb6e848..3efb21b 100644
 --- a/drivers/media/dvb-core/dvb_frontend.h
 +++ b/drivers/media/dvb-core/dvb_frontend.h
-@@ -471,6 +471,7 @@ struct dvb_frontend_ops {
+@@ -452,6 +452,7 @@ struct dvb_frontend_ops {
  	int (*i2c_gate_ctrl)(struct dvb_frontend* fe, int enable);
  	int (*ts_bus_ctrl)(struct dvb_frontend* fe, int acquire);
  	int (*set_lna)(struct dvb_frontend *);
@@ -318,7 +270,7 @@ index 9592573..c93aff5 100644
  
  	/*
  	 * These callbacks are for devices that implement their own
-@@ -483,6 +484,8 @@ struct dvb_frontend_ops {
+@@ -464,6 +465,8 @@ struct dvb_frontend_ops {
  
  	int (*set_property)(struct dvb_frontend* fe, struct dtv_property* tvp);
  	int (*get_property)(struct dvb_frontend* fe, struct dtv_property* tvp);
@@ -327,7 +279,7 @@ index 9592573..c93aff5 100644
  };
  
  #ifdef __DVB_CORE__
-@@ -632,6 +635,7 @@ struct dtv_frontend_properties {
+@@ -613,6 +616,7 @@ struct dtv_frontend_properties {
  	u8			atscmh_sccc_code_mode_d;
  
  	u32			lna;
@@ -712,7 +664,7 @@ index 75a3f4b..3f309b4 100644
  };
  
  #ifdef CONFIG_DVB_DYNAMIC_MINORS
-@@ -900,6 +900,7 @@ out:
+@@ -900,6 +900,7 @@ int dvb_usercopy(struct file *file,
  	kfree(mbuf);
  	return err;
  }
@@ -736,7 +688,7 @@ index 4aff7bd..ae4f4d1 100644
  #define DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr) \
  	static short adapter_nr[] = \
 diff --git a/drivers/media/dvb-frontends/Kconfig b/drivers/media/dvb-frontends/Kconfig
-index a82f77c..3692927 100644
+index c645aa8..f5ff222 100644
 --- a/drivers/media/dvb-frontends/Kconfig
 +++ b/drivers/media/dvb-frontends/Kconfig
 @@ -28,6 +28,14 @@ config DVB_STV090x
@@ -776,7 +728,7 @@ index a82f77c..3692927 100644
  config DVB_M88DS3103
  	tristate "Montage Technology M88DS3103"
  	depends on DVB_CORE && I2C && I2C_MUX
-@@ -81,6 +104,24 @@ config DVB_MN88473
+@@ -89,6 +112,24 @@ config DVB_MN88473
  	help
  	  Say Y when you want to support this frontend.
  
@@ -802,10 +754,10 @@ index a82f77c..3692927 100644
  	depends on DVB_CORE
  
 diff --git a/drivers/media/dvb-frontends/Makefile b/drivers/media/dvb-frontends/Makefile
-index eb7191f..1749be8 100644
+index e90165a..d3fed98 100644
 --- a/drivers/media/dvb-frontends/Makefile
 +++ b/drivers/media/dvb-frontends/Makefile
-@@ -110,6 +110,11 @@ obj-$(CONFIG_DVB_CXD2820R) += cxd2820r.o
+@@ -111,6 +111,11 @@ obj-$(CONFIG_DVB_CXD2820R) += cxd2820r.o
  obj-$(CONFIG_DVB_CXD2841ER) += cxd2841er.o
  obj-$(CONFIG_DVB_DRXK) += drxk.o
  obj-$(CONFIG_DVB_TDA18271C2DD) += tda18271c2dd.o
@@ -2924,10 +2876,10 @@ index 0000000..2467a6b
 +#endif /* _CXD2843_H_ */
 diff --git a/drivers/media/dvb-frontends/mxl5xx.c b/drivers/media/dvb-frontends/mxl5xx.c
 new file mode 100644
-index 0000000..29bebed
+index 0000000..4413fd2
 --- /dev/null
 +++ b/drivers/media/dvb-frontends/mxl5xx.c
-@@ -0,0 +1,1738 @@
+@@ -0,0 +1,1749 @@
 +/*
 + * Driver for the Maxlinear MX58x family of tuners/demods
 + *
@@ -3382,53 +3334,6 @@ index 0000000..29bebed
 +	return stat;
 +}
 +
-+static int get_stats(struct dvb_frontend *fe);
-+
-+static int read_status(struct dvb_frontend *fe, enum fe_status *status)
-+{
-+	struct mxl *state = fe->demodulator_priv;
-+
-+	int stat;
-+	u32 regData = 0;
-+
-+	mutex_lock(&state->base->status_lock);
-+	HYDRA_DEMOD_STATUS_LOCK(state, state->demod);
-+	stat = read_register(state, (HYDRA_DMD_LOCK_STATUS_ADDR_OFFSET +
-+				     HYDRA_DMD_STATUS_OFFSET(state->demod)),
-+			     &regData);
-+	HYDRA_DEMOD_STATUS_UNLOCK(state, state->demod);
-+	mutex_unlock(&state->base->status_lock);
-+
-+	*status = (regData == 1) ? 0x1f : 0;
-+	get_stats(fe);
-+	return stat;
-+}
-+
-+static int tune(struct dvb_frontend *fe, bool re_tune,
-+		unsigned int mode_flags,
-+		unsigned int *delay, enum fe_status *status)
-+{
-+	struct mxl *state = fe->demodulator_priv;
-+	int r = 0;
-+
-+	*delay = HZ / 2;
-+	if (re_tune) {
-+		r = set_parameters(fe);
-+		if (r)
-+			return r;
-+		state->tune_time = jiffies;
-+		return 0;
-+	}
-+	if (*status & FE_HAS_LOCK)
-+		return 0;
-+
-+	r = read_status(fe, status);
-+	if (r)
-+		return r;
-+
-+	return 0;
-+}
-+
 +static int enable_tuner(struct mxl *state, u32 tuner, u32 enable);
 +
 +static int sleep(struct dvb_frontend *fe)
@@ -3465,10 +3370,14 @@ index 0000000..29bebed
 +			     &regData);
 +	HYDRA_DEMOD_STATUS_UNLOCK(state, state->demod);
 +	mutex_unlock(&state->base->status_lock);
-+	*snr = (s16) (regData & 0xFFFF); /* 100x dB */
++
 +	p->cnr.len = 1;
 +	p->cnr.stat[0].scale = FE_SCALE_DECIBEL;
-+	p->cnr.stat[0].uvalue = 10 * (s64) *snr;
++	p->cnr.stat[0].svalue = (s16)regData * 10;
++
++	if (regData > 2000) regData = 2000;
++	*snr = (s16)(regData/10) * 328; /* 20dB = 100% */
++
 +	return stat;
 +}
 +
@@ -3476,52 +3385,64 @@ index 0000000..29bebed
 +{
 +	struct mxl *state = fe->demodulator_priv;
 +	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
-+	u32 reg[8], reg2[4];
++	u32 reg[8];
 +	int stat;
 +
-+	*ber = 0;
 +	mutex_lock(&state->base->status_lock);
 +	HYDRA_DEMOD_STATUS_LOCK(state, state->demod);
++	stat = read_register_block(state,
++				   (HYDRA_DMD_DVBS_1ST_CORR_RS_ERRORS_ADDR_OFFSET +
++				    HYDRA_DMD_STATUS_OFFSET(state->demod)),
++				   (4 * sizeof(u32)),
++				   (u8 *) &reg[0]);
++	HYDRA_DEMOD_STATUS_UNLOCK(state, state->demod);
++
++	switch (p->delivery_system) {
++	case SYS_DSS:
++	case SYS_DVBS:
++		p->pre_bit_error.len = 1;
++		p->pre_bit_error.stat[0].scale = FE_SCALE_COUNTER;
++		p->pre_bit_error.stat[0].uvalue = reg[2];
++		p->pre_bit_count.len = 1;
++		p->pre_bit_count.stat[0].scale = FE_SCALE_COUNTER;
++		p->pre_bit_count.stat[0].uvalue = reg[3];
++		break;
++	default:
++		break;
++	}
++
 +	stat = read_register_block(state,
 +				   (HYDRA_DMD_DVBS2_CRC_ERRORS_ADDR_OFFSET +
 +				    HYDRA_DMD_STATUS_OFFSET(state->demod)),
 +				   (7 * sizeof(u32)),
 +				   (u8 *) &reg[0]);
-+	stat = read_register_block(state,
-+				   (HYDRA_DMD_DVBS_1ST_CORR_RS_ERRORS_ADDR_OFFSET +
-+				    HYDRA_DMD_STATUS_OFFSET(state->demod)),
-+				   (4 * sizeof(u32)),
-+				   (u8 *) &reg2[0]);
-+	HYDRA_DEMOD_STATUS_UNLOCK(state, state->demod);
-+	mutex_unlock(&state->base->status_lock);
-+
 +
 +	switch (p->delivery_system) {
 +	case SYS_DSS:
-+		break;
 +	case SYS_DVBS:
-+		p->pre_bit_error.len = 1;
-+		p->pre_bit_error.stat[0].scale = FE_SCALE_COUNTER;
-+		p->pre_bit_error.stat[0].uvalue = reg[5];
-+		p->pre_bit_count.len = 1;
-+		p->pre_bit_count.stat[0].scale = FE_SCALE_COUNTER;
-+		p->pre_bit_count.stat[0].uvalue = reg[6] * 188 * 8;
++		p->post_bit_error.len = 1;
++		p->post_bit_error.stat[0].scale = FE_SCALE_COUNTER;
++		p->post_bit_error.stat[0].uvalue = reg[5];
++		p->post_bit_count.len = 1;
++		p->post_bit_count.stat[0].scale = FE_SCALE_COUNTER;
++		p->post_bit_count.stat[0].uvalue = reg[6];
 +		break;
 +	case SYS_DVBS2:
++		p->post_bit_error.len = 1;
++		p->post_bit_error.stat[0].scale = FE_SCALE_COUNTER;
++		p->post_bit_error.stat[0].uvalue = reg[1];
++		p->post_bit_count.len = 1;
++		p->post_bit_count.stat[0].scale = FE_SCALE_COUNTER;
++		p->post_bit_count.stat[0].uvalue = reg[2];
 +		break;
 +	default:
 +		break;
 +	}
-+	pr_debug("ber %08x %08x %08x %08x %08x %08x %08x\n",
-+		reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6]);
-+	pr_debug("ber2 %08x %08x %08x %08x\n",
-+		reg[0], reg[1], reg[2], reg[3]);
-+	/*
-+	 * pre_bit_error, pre_bit_count
-+	 * post_bit_error, post_bit_count;
-+	 * block_error block_count;
-+	 * reset_fec_counter(state);
-+	 */
++
++	*ber = p->post_bit_error.stat[0].uvalue;
++
++	mutex_unlock(&state->base->status_lock);
++
 +	return 0;
 +}
 +
@@ -3539,10 +3460,12 @@ index 0000000..29bebed
 +			     &regData);
 +	HYDRA_DEMOD_STATUS_UNLOCK(state, state->demod);
 +	mutex_unlock(&state->base->status_lock);
-+	*strength = (u16) (regData & 0xFFFF); /* 10x dBm */
++
 +	p->strength.len = 1;
 +	p->strength.stat[0].scale = FE_SCALE_DECIBEL;
-+	p->strength.stat[0].uvalue = 10 * (s64) (s16) (regData & 0xFFFF);
++	p->strength.stat[0].svalue = (s16)regData *10;
++
++	*strength = (100 + (s16)regData/100) * 656;
 +	return stat;
 +}
 +
@@ -3551,14 +3474,54 @@ index 0000000..29bebed
 +	return 0;
 +}
 +
-+static int get_stats(struct dvb_frontend *fe)
++static int read_status(struct dvb_frontend *fe, enum fe_status *status)
 +{
-+	u16 val;
-+	u32 val32;
++	struct mxl *state = fe->demodulator_priv;
 +
++	int stat;
++	u32 regData = 0;
++	u16 val;
++
++	mutex_lock(&state->base->status_lock);
++	HYDRA_DEMOD_STATUS_LOCK(state, state->demod);
++	stat = read_register(state, (HYDRA_DMD_LOCK_STATUS_ADDR_OFFSET +
++				     HYDRA_DMD_STATUS_OFFSET(state->demod)),
++			     &regData);
++	HYDRA_DEMOD_STATUS_UNLOCK(state, state->demod);
++	mutex_unlock(&state->base->status_lock);
++
++	*status = (regData == 1) ? 0x1f : 0;
 +	read_signal_strength(fe, &val);
-+	read_snr(fe, &val);
-+	read_ber(fe, &val32);
++	if (*status) {
++		read_snr(fe, &val);
++		read_ber(fe, &regData);
++	}
++
++	return 0;
++}
++
++static int tune(struct dvb_frontend *fe, bool re_tune,
++		unsigned int mode_flags,
++		unsigned int *delay, enum fe_status *status)
++{
++	struct mxl *state = fe->demodulator_priv;
++	int r = 0;
++
++	*delay = HZ / 2;
++	if (re_tune) {
++		r = set_parameters(fe);
++		if (r)
++			return r;
++		state->tune_time = jiffies;
++		return 0;
++	}
++	if (*status & FE_HAS_LOCK)
++		return 0;
++
++	r = read_status(fe, status);
++	if (r)
++		return r;
++
 +	return 0;
 +}
 +
@@ -18189,7 +18152,7 @@ index 7446c8b..28e89f0 100644
  ccflags-y += -Idrivers/media/dvb-core/
  ccflags-y += -Idrivers/media/dvb-frontends/
 diff --git a/drivers/media/pci/ddbridge/ddbridge-core.c b/drivers/media/pci/ddbridge/ddbridge-core.c
-index 6e995ef..82c1938 100644
+index 47def73..82c1938 100644
 --- a/drivers/media/pci/ddbridge/ddbridge-core.c
 +++ b/drivers/media/pci/ddbridge/ddbridge-core.c
 @@ -1,7 +1,10 @@
@@ -20069,7 +20032,7 @@ index 6e995ef..82c1938 100644
  {
  	int ret;
  
-@@ -759,1000 +1576,3010 @@ static int start_feed(struct dvb_demux_feed *dvbdmxfeed)
+@@ -759,999 +1576,3010 @@ static int start_feed(struct dvb_demux_feed *dvbdmxfeed)
  {
  	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
  	struct ddb_input *input = dvbdmx->priv;
@@ -23465,10 +23428,9 @@ index 6e995ef..82c1938 100644
 -	if (pci_enable_device(pdev) < 0)
 -		return -ENODEV;
 -
--	dev = vmalloc(sizeof(struct ddb));
+-	dev = vzalloc(sizeof(struct ddb));
 -	if (dev == NULL)
 -		return -ENOMEM;
--	memset(dev, 0, sizeof(struct ddb));
 -
 -	dev->pdev = pdev;
 -	pci_set_drvdata(pdev, dev);
@@ -27881,7 +27843,7 @@ index ae917c0..02d22eb 100644
  
  static struct cx24116_config anysee_cx24116_config = {
 diff --git a/drivers/media/usb/em28xx/em28xx-dvb.c b/drivers/media/usb/em28xx/em28xx-dvb.c
-index 1a5c012..335d16a 100644
+index 8cedef0..7bc7778 100644
 --- a/drivers/media/usb/em28xx/em28xx-dvb.c
 +++ b/drivers/media/usb/em28xx/em28xx-dvb.c
 @@ -376,6 +376,7 @@ static struct tda18271_config kworld_ub435q_v2_config = {
