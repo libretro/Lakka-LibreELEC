@@ -301,15 +301,34 @@ dashes="==========================="
     exit 1
   fi
 
-  if [ ! -f $PROJECT_DIR/$PROJECT/linux/linux.$TARGET_ARCH.conf ] &&
-     ! ls $PROJECT_DIR/$PROJECT/linux/*/linux.$TARGET_ARCH.conf &>/dev/null; then
+  if [ \( -z "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices" \) -o \( -n "$DEVICE" -a ! -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE" \) ]; then
+    check_device="$check_device\n $dashes$dashes$dashes"
+    check_device="$check_device\n ERROR: You need to specify a valid device for the $PROJECT project"
+    check_device="$check_device\n $dashes$dashes$dashes"
+    check_device="$check_device\n\n Valid devices for project: $PROJECT"
+
+    for device in $PROJECT_DIR/$PROJECT/devices/*; do
+      check_device="$check_device\n - $(basename $device)"
+    done
+    echo -e $check_device
+    exit 1
+  fi
+
+  if [ -d $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux ]; then
+    linux_config_dir="$PROJECT_DIR/$PROJECT/devices/$DEVICE/linux"
+  else
+    linux_config_dir="$PROJECT_DIR/$PROJECT/linux"
+  fi
+
+  if [ ! -f $linux_config_dir/linux.$TARGET_ARCH.conf ] &&
+     ! ls $linux_config_dir/*/linux.$TARGET_ARCH.conf &>/dev/null; then
     check_arch="$check_arch\n $dashes$dashes$dashes"
     check_arch="$check_arch\n ERROR: Architecture not found, use a valid Architecture"
     check_arch="$check_arch\n for your project or create a new config"
     check_arch="$check_arch\n $dashes$dashes$dashes"
     check_arch="$check_arch\n\n Valid Architectures for your project: $PROJECT"
 
-    for arch in $PROJECT_DIR/$PROJECT/linux/*.conf $PROJECT_DIR/$PROJECT/linux/*/linux.$TARGET_ARCH.conf; do
+    for arch in $linux_config_dir/*.conf $linux_config_dir/*/linux.$TARGET_ARCH.conf; do
       check_arch="$check_arch\n - $(basename $arch | cut -f2 -d".")"
     done
     echo -e $check_arch
