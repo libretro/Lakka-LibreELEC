@@ -48,21 +48,23 @@ PKG_CMAKE_OPTS_HOST="-DLLVM_INCLUDE_TOOLS=ON \
                      -DLLVM_ENABLE_TERMINFO=OFF \
                      -DLLVM_ENABLE_ASSERTIONS=OFF \
                      -DLLVM_ENABLE_WERROR=OFF \
-                     -DLLVM_ENABLE_ZLIB=OFF"
+                     -DLLVM_ENABLE_ZLIB=OFF \
+                     -DLLVM_OPTIMIZED_TABLEGEN=ON"
 
 make_host() {
-  make llvm-config
+  make llvm-config llvm-tblgen
 }
 
 makeinstall_host() {
   cp -a bin/llvm-config $SYSROOT_PREFIX/usr/bin/llvm-config-host
+  cp -a bin/llvm-tblgen $ROOT/$TOOLCHAIN/bin
 }
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_C_FLAGS="$CFLAGS" \
                        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
                        -DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_BUILD_TOOLS=OFF \
-                       -DLLVM_BUILD_UTILS=OFF \
+                       -DLLVM_BUILD_UTILS=ON \
                        -DLLVM_BUILD_EXAMPLES=OFF \
                        -DLLVM_INCLUDE_EXAMPLES=OFF \
                        -DLLVM_BUILD_TESTS=OFF \
@@ -79,7 +81,9 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_C_FLAGS="$CFLAGS" \
                        -DLLVM_TARGET_ARCH="$TARGET_ARCH" \
                        -DLLVM_ENABLE_ZLIB=ON \
                        -DLLVM_BUILD_LLVM_DYLIB=ON \
-                       -DLLVM_LINK_LLVM_DYLIB=ON"
+                       -DLLVM_LINK_LLVM_DYLIB=ON \
+                       -DLLVM_OPTIMIZED_TABLEGEN=ON \
+                       -DLLVM_TABLEGEN=$ROOT/$TOOLCHAIN/bin/llvm-tblgen"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
