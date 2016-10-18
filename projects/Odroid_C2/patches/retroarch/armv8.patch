@@ -1,0 +1,167 @@
+From f1b24f501d24eba69653208986ef04568f5ab3f3 Mon Sep 17 00:00:00 2001
+From: Henri Gomez <henri.gomez@sonarsource.com>
+Date: Tue, 18 Oct 2016 16:35:15 +0200
+Subject: [PATCH 1/4] handle ARMv8 (aarch64)
+
+---
+ frontend/drivers/platform_linux.c | 3 +++
+ frontend/frontend_driver.h        | 1 +
+ menu/menu_displaylist.c           | 3 +++
+ 3 files changed, 7 insertions(+)
+
+diff --git a/frontend/drivers/platform_linux.c b/frontend/drivers/platform_linux.c
+index e453461..10ca20b 100644
+--- a/frontend/drivers/platform_linux.c
++++ b/frontend/drivers/platform_linux.c
+@@ -1117,6 +1117,7 @@ static enum frontend_powerstate frontend_linux_get_powerstate(
+ #define LINUX_ARCH_PPC64      0x1028cf52U
+ #define LINUX_ARCH_MIPS       0x7c9aa25eU
+ #define LINUX_ARCH_TILE       0x7c9e7873U
++#define LINUX_ARCH_AARCH64    0x191bfc0eU
+ #define LINUX_ARCH_ARMV7B     0xf27015f4U
+ #define LINUX_ARCH_ARMV7L     0xf27015feU
+ #define LINUX_ARCH_ARMV6L     0xf27015ddU
+@@ -1138,6 +1139,8 @@ static enum frontend_architecture frontend_linux_get_architecture(void)
+ 
+    switch (buffer_hash)
+    {
++      case LINUX_ARCH_AARCH64:
++         return FRONTEND_ARCH_ARMV8;
+       case LINUX_ARCH_ARMV7L:
+       case LINUX_ARCH_ARMV7B:
+          return FRONTEND_ARCH_ARMV7;
+diff --git a/frontend/frontend_driver.h b/frontend/frontend_driver.h
+index 04e3d07..f1d53bf 100644
+--- a/frontend/frontend_driver.h
++++ b/frontend/frontend_driver.h
+@@ -50,6 +50,7 @@ enum frontend_architecture
+    FRONTEND_ARCH_PPC,
+    FRONTEND_ARCH_ARM,
+    FRONTEND_ARCH_ARMV7,
++   FRONTEND_ARCH_ARMV8,
+    FRONTEND_ARCH_MIPS,
+    FRONTEND_ARCH_TILE
+ };
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index 1eecd5d..a9b0037 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -558,6 +558,9 @@ static int menu_displaylist_parse_system_info(menu_displaylist_info_t *info)
+          case FRONTEND_ARCH_ARMV7:
+             strlcpy(cpu_arch_str, "ARMv7", sizeof(cpu_arch_str));
+             break;
++         case FRONTEND_ARCH_ARMV8:
++            strlcpy(cpu_arch_str, "ARMv8", sizeof(cpu_arch_str));
++            break;
+          case FRONTEND_ARCH_MIPS:
+             strlcpy(cpu_arch_str, "MIPS", sizeof(cpu_arch_str));
+             break;
+-- 
+2.7.4
+
+
+From eaed1c96beb1ac134585af8588148eec5d2ba223 Mon Sep 17 00:00:00 2001
+From: Henri Gomez <henri.gomez@sonarsource.com>
+Date: Tue, 18 Oct 2016 17:10:43 +0200
+Subject: [PATCH 2/4] ASIMD detection on ARMv8
+
+---
+ libretro-common/features/features_cpu.c | 10 ++++++++++
+ libretro-common/include/libretro.h      |  1 +
+ 2 files changed, 11 insertions(+)
+
+diff --git a/libretro-common/features/features_cpu.c b/libretro-common/features/features_cpu.c
+index 611f38f..1e9dcd0 100644
+--- a/libretro-common/features/features_cpu.c
++++ b/libretro-common/features/features_cpu.c
+@@ -704,6 +704,15 @@ uint64_t cpu_features_get(void)
+    if (check_arm_cpu_feature("vfpv4"))
+       cpu |= RETRO_SIMD_VFPV4;
+ 
++   if (check_arm_cpu_feature("asymd"))
++   {
++      cpu |= RETRO_SIMD_ASIMD;
++#ifdef __ARM_NEON__
++      cpu |= RETRO_SIMD_NEON;
++      arm_enable_runfast_mode();
++#endif
++   }
++
+ #if 0
+     check_arm_cpu_feature("swp");
+     check_arm_cpu_feature("half");
+@@ -748,6 +757,7 @@ uint64_t cpu_features_get(void)
+    if (cpu & RETRO_SIMD_VMX128) strlcat(buf, " VMX128", sizeof(buf));
+    if (cpu & RETRO_SIMD_VFPU)   strlcat(buf, " VFPU", sizeof(buf));
+    if (cpu & RETRO_SIMD_PS)     strlcat(buf, " PS", sizeof(buf));
++   if (cpu & RETRO_SIMD_ASIMD)  strlcat(buf, " ASIMD", sizeof(buf));
+ 
+    return cpu;
+ }
+diff --git a/libretro-common/include/libretro.h b/libretro-common/include/libretro.h
+index 2579e8b..d1f4674 100644
+--- a/libretro-common/include/libretro.h
++++ b/libretro-common/include/libretro.h
+@@ -1316,6 +1316,7 @@ struct retro_log_callback
+ #define RETRO_SIMD_POPCNT   (1 << 18)
+ #define RETRO_SIMD_MOVBE    (1 << 19)
+ #define RETRO_SIMD_CMOV     (1 << 20)
++#define RETRO_SIMD_ASIMD    (1 << 21)
+ 
+ typedef uint64_t retro_perf_tick_t;
+ typedef int64_t retro_time_t;
+-- 
+2.7.4
+
+
+From a2274d45be066e42db7988e7a3f3c268ee8d4756 Mon Sep 17 00:00:00 2001
+From: Henri Gomez <henri.gomez@gmail.com>
+Date: Tue, 18 Oct 2016 17:18:33 +0200
+Subject: [PATCH 3/4] fix asimd detection
+
+---
+ libretro-common/features/features_cpu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libretro-common/features/features_cpu.c b/libretro-common/features/features_cpu.c
+index 1e9dcd0..596e503 100644
+--- a/libretro-common/features/features_cpu.c
++++ b/libretro-common/features/features_cpu.c
+@@ -704,7 +704,7 @@ uint64_t cpu_features_get(void)
+    if (check_arm_cpu_feature("vfpv4"))
+       cpu |= RETRO_SIMD_VFPV4;
+ 
+-   if (check_arm_cpu_feature("asymd"))
++   if (check_arm_cpu_feature("asimd"))
+    {
+       cpu |= RETRO_SIMD_ASIMD;
+ #ifdef __ARM_NEON__
+-- 
+2.7.4
+
+
+From 4b6f93f6ebae933273d11435bc07ae8ae252e384 Mon Sep 17 00:00:00 2001
+From: Henri Gomez <henri.gomez@gmail.com>
+Date: Tue, 18 Oct 2016 17:39:02 +0200
+Subject: [PATCH 4/4] ASIMD also in retroarch.c
+
+---
+ retroarch.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/retroarch.c b/retroarch.c
+index 2c8effe..16167f9 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -1561,6 +1561,8 @@ int retroarch_get_capabilities(enum rarch_capabilities type,
+                strlcat(s, "VMX ", len);
+             if (cpu & RETRO_SIMD_VMX128)
+                strlcat(s, "VMX128 ", len);
++            if (cpu & RETRO_SIMD_ASIMD)
++               strlcat(s, "ASIMD ", len);
+          }
+          break;
+       case RARCH_CAPABILITIES_COMPILER:
+-- 
+2.7.4
+
