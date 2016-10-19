@@ -136,11 +136,15 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/lib/*.map
   rm -rf $INSTALL/var
 
-# remove locales and charmaps (except UTF-8 for installer)
+# remove locales and charmaps
   rm -rf $INSTALL/usr/share/i18n/charmaps
-  mkdir -p $INSTALL/usr/share/i18n/charmaps
-  cp -PR $ROOT/$PKG_BUILD/localedata/charmaps/UTF-8 $INSTALL/usr/share/i18n/charmaps
-  gzip $INSTALL/usr/share/i18n/charmaps/UTF-8
+
+# add UTF-8 charmap for Generic (charmap is needed for installer)
+  if [ "$PROJECT" = "Generic" ]; then
+    mkdir -p $INSTALL/usr/share/i18n/charmaps
+    cp -PR $ROOT/$PKG_BUILD/localedata/charmaps/UTF-8 $INSTALL/usr/share/i18n/charmaps
+    gzip $INSTALL/usr/share/i18n/charmaps/UTF-8
+  fi
 
   if [ ! "$GLIBC_LOCALES" = yes ]; then
     rm -rf $INSTALL/usr/share/i18n/locales
