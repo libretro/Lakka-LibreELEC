@@ -81,12 +81,6 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp $PKG_BUILD/.$TARGET_NAME/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
 
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
-    cp -P $PKG_BUILD/config/hyperion.config.json.example $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
-    sed -e "s,/usr/share/hyperion/effects,/storage/.kodi/addons/service.hyperion/effects,g" \
-        -e "s,/usr/share/hyperion/webconfig,/storage/.kodi/addons/service.hyperion/webconfig,g" \
-        -i $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
-
   cp -PR $PKG_BUILD/assets/webconfig $ADDON_BUILD/$PKG_ADDON_ID
   cp -PR $PKG_BUILD/effects $ADDON_BUILD/$PKG_ADDON_ID
 
