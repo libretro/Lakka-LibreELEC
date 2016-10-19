@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="hyperion"
-PKG_VERSION="85fcec3"
-PKG_REV="102"
+PKG_VERSION="355a324"
+PKG_REV="103"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/tvdzwan/hyperion"
-PKG_URL="https://github.com/tvdzwan/hyperion/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Python libusb qt protobuf rpi_ws281x"
+PKG_SITE="https://github.com/hyperion-project/hyperion"
+PKG_URL="https://github.com/hyperion-project/hyperion/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain Python libusb qtbase protobuf rpi_ws281x"
 PKG_SECTION="service"
 PKG_SHORTDESC="Hyperion: an AmbiLight controller"
 PKG_LONGDESC="Hyperion($PKG_VERSION) is an modern opensource AmbiLight implementation."
@@ -62,14 +62,14 @@ PKG_CMAKE_OPTS_TARGET="-DQT_QMAKE_EXECUTABLE=$ROOT/$TOOLCHAIN/bin/qmake \
                        $DISPMANX_SUPPORT \
                        $FB_SUPPORT \
                        -DENABLE_OSX=0 \
-                       -DUSE_SYSTEM_PROTO_LIBS=ON \
+                       -DUSE_SYSTEM_PROTO_LIBS=1 \
                        -DENABLE_SPIDEV=1 \
                        -DENABLE_TINKERFORGE=0 \
                        -DENABLE_V4L2=1 \
                        -DENABLE_WS2812BPWM=0 \
                        -DENABLE_WS281XPWM=1 \
                        $X11_SUPPORT \
-                       -DENABLE_QT5=0 \
+                       -DENABLE_QT5=1 \
                        -DENABLE_TESTS=0 \
                        -Wno-dev"
 
@@ -79,26 +79,16 @@ makeinstall_target() {
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/bin/hyperiond $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/bin/hyperion-remote $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/bin/hyperion-v4l2 $ADDON_BUILD/$PKG_ADDON_ID/bin
-
-  if [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
-    cp $PKG_BUILD/.$TARGET_NAME/bin/hyperion-aml $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp $PKG_BUILD/.$TARGET_NAME/bin/hyperion-framebuffer $ADDON_BUILD/$PKG_ADDON_ID/bin
-  elif [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
-    cp $PKG_BUILD/.$TARGET_NAME/bin/hyperion-dispmanx $ADDON_BUILD/$PKG_ADDON_ID/bin
-  elif [ "$DISPLAYSERVER" = "x11" ]; then
-    cp $PKG_BUILD/.$TARGET_NAME/bin/hyperion-x11 $ADDON_BUILD/$PKG_ADDON_ID/bin
-  fi
+    cp $PKG_BUILD/.$TARGET_NAME/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
     cp -P $PKG_BUILD/config/hyperion.config.json.example $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
-    sed -i -e "s,/opt/hyperion/effects,/storage/.kodi/addons/service.hyperion/effects,g" \
-      $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
+    sed -e "s,/usr/share/hyperion/effects,/storage/.kodi/addons/service.hyperion/effects,g" \
+        -e "s,/usr/share/hyperion/webconfig,/storage/.kodi/addons/service.hyperion/webconfig,g" \
+        -i $ADDON_BUILD/$PKG_ADDON_ID/config/hyperion.config.json.sample
 
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/effects
-    cp -PR $PKG_BUILD/effects/* $ADDON_BUILD/$PKG_ADDON_ID/effects
+  cp -PR $PKG_BUILD/assets/webconfig $ADDON_BUILD/$PKG_ADDON_ID
+  cp -PR $PKG_BUILD/effects $ADDON_BUILD/$PKG_ADDON_ID
 
   debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
