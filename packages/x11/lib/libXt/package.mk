@@ -29,7 +29,7 @@ PKG_SHORTDESC="libxt: X11 toolkit intrinsics library"
 PKG_LONGDESC="LibXt provides the X Toolkit Intrinsics, an abstract widget library upon which other toolkits are based. Xt is the basis for many toolkits, including the Athena widgets (Xaw), and LessTif."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \
