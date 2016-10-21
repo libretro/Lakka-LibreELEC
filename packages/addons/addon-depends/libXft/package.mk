@@ -29,6 +29,6 @@ PKG_SHORTDESC="libxft: X FreeType library"
 PKG_LONGDESC="X FreeType library"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
