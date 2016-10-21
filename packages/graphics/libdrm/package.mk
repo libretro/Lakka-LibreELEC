@@ -30,7 +30,7 @@ PKG_SHORTDESC="libdrm: Userspace interface to kernel DRM services"
 PKG_LONGDESC="The userspace interface library to kernel DRM services."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 get_graphicdrivers
 
