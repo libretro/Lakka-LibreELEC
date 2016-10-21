@@ -30,7 +30,7 @@ PKG_SHORTDESC="libopenmpt: renders mod music files as raw audio data, for playin
 PKG_LONGDESC="libopenmpt renders mod music files as raw audio data, for playing or conversion."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
 			   --disable-shared \
