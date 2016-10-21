@@ -29,4 +29,4 @@ PKG_SHORTDESC="fuse-exfat: aims to provide a full-featured exFAT file system imp
 PKG_LONGDESC="This project aims to provide a full-featured exFAT file system implementation for GNU/Linux other Unix-like systems as a FUSE module."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
