@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain fuse libmtp glib"
 PKG_SECTION="tools"
 PKG_SHORTDESC="MTPfs is a FUSE filesystem that supports reading and writing from any MTP device"
 PKG_LONGDESC="MTPfs is a FUSE filesystem that supports reading and writing from any MTP device"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-mad"
 
