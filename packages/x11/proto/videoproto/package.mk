@@ -29,7 +29,7 @@ PKG_SHORTDESC="videoproto: KB extension headers"
 PKG_LONGDESC="Video extension headers"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--without-xmlto"
