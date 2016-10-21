@@ -29,7 +29,7 @@ PKG_SHORTDESC="sbc: standalone SBC library"
 PKG_LONGDESC="standalone SBC library"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
          --disable-tools --disable-tester"
