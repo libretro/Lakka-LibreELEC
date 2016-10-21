@@ -30,4 +30,4 @@ PKG_SHORTDESC="Speex / OPUS audio codec"
 PKG_LONGDESC="Speex / OPUS audio codec"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
