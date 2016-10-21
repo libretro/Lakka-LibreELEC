@@ -24,8 +24,8 @@
 ################################################################################
 
 # set variables
-  OE_TMP=$(mktemp -d)
-  SAVE_ERROR="$OE_TMP/save_error"
+  LE_TMP=$(mktemp -d)
+  SAVE_ERROR="$LE_TMP/save_error"
 
   if [ -z "$SYSTEM_SIZE" -o -z "$SYSTEM_PART_START" ]; then
     echo "mkimage: SYSTEM_SIZE and SYSTEM_PART_START must be configured!"
@@ -40,7 +40,7 @@
 # functions
   cleanup() {
     echo "image: cleanup..."
-    rm -rf "$OE_TMP"
+    rm -rf "$LE_TMP"
     echo
     exit
   }
@@ -125,8 +125,8 @@ fi
 if [ "$BOOTLOADER" = "syslinux" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
-    cat << EOF > "$OE_TMP"/syslinux.cfg
-SAY Press <TAB> to edit options (installer, live, run)
+    cat << EOF > "$LE_TMP"/syslinux.cfg
+SAY Wait for installer to start or press <TAB> for more options (live, run)
 DEFAULT installer
 TIMEOUT 50
 PROMPT 1
@@ -145,7 +145,7 @@ LABEL run
 EOF
 
   if [ "$PROJECT" = Virtual ]; then
-    cat << EOF > "$OE_TMP"/syslinux.cfg
+    cat << EOF > "$LE_TMP"/syslinux.cfg
 DEFAULT virtual
 TIMEOUT 50
 PROMPT 0
@@ -156,7 +156,7 @@ LABEL virtual
 EOF
   fi
 
-    mcopy "$OE_TMP/syslinux.cfg" ::
+    mcopy "$LE_TMP/syslinux.cfg" ::
 
   # install extlinux
     echo "image: installing extlinux to part1..."
@@ -172,15 +172,15 @@ EOF
     mmd EFI EFI/BOOT
     mcopy $ROOT/$TOOLCHAIN/share/syslinux/bootx64.efi ::/EFI/BOOT
     mcopy $ROOT/$TOOLCHAIN/share/syslinux/ldlinux.e64 ::/EFI/BOOT
-    mcopy "$OE_TMP"/syslinux.cfg ::/EFI/BOOT
+    mcopy "$LE_TMP"/syslinux.cfg ::/EFI/BOOT
 elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
-    cat << EOF > "$OE_TMP"/cmdline.txt
+    cat << EOF > "$LE_TMP"/cmdline.txt
 boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 quiet $EXTRA_CMDLINE
 EOF
 
-    mcopy "$OE_TMP/cmdline.txt" ::
+    mcopy "$LE_TMP/cmdline.txt" ::
 
   # copy files
     echo "image: copying files to part1..."
@@ -271,35 +271,35 @@ fi # bootloader
   echo "image: extracting part2 from image..."
   STORAGE_PART_COUNT=$(( $STORAGE_PART_END - $STORAGE_PART_START + 1 ))
   sync
-  dd if="$DISK" of="$OE_TMP/part2.ext4" bs=512 skip="$STORAGE_PART_START" count="$STORAGE_PART_COUNT" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$DISK" of="$LE_TMP/part2.ext4" bs=512 skip="$STORAGE_PART_START" count="$STORAGE_PART_COUNT" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
 
 # create filesystem on part2
   echo "image: creating filesystem on part2..."
-  mke2fs -F -q -t ext4 -m 0 "$OE_TMP/part2.ext4"
-  tune2fs -U $UUID_STORAGE "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
-  e2fsck -n "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
+  mke2fs -F -q -t ext4 -m 0 "$LE_TMP/part2.ext4"
+  tune2fs -U $UUID_STORAGE "$LE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
+  e2fsck -n "$LE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
   sync
 
 # add resize mark
-  mkdir "$OE_TMP/part2.fs"
-  touch "$OE_TMP/part2.fs/.please_resize_me"
+  mkdir "$LE_TMP/part2.fs"
+  touch "$LE_TMP/part2.fs/.please_resize_me"
   echo "image: populating filesystem on part2..."
-  populatefs -U -d "$OE_TMP/part2.fs" "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
+  populatefs -U -d "$LE_TMP/part2.fs" "$LE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
   sync
-  e2fsck -n "$OE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
+  e2fsck -n "$LE_TMP/part2.ext4" >"$SAVE_ERROR" 2>&1 || show_error
 
 # merge part2 back to disk image
   echo "image: merging part2 back to image..."
-  dd if="$OE_TMP/part2.ext4" of="$DISK" bs=512 seek="$STORAGE_PART_START" conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$LE_TMP/part2.ext4" of="$DISK" bs=512 seek="$STORAGE_PART_START" conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
 
 
 # extract part1 from image to run fsck
   echo "image: extracting part1 from image..."
   SYSTEM_PART_COUNT=$(( $SYSTEM_PART_END - $SYSTEM_PART_START + 1 ))
   sync
-  dd if="$DISK" of="$OE_TMP/part1.fat" bs=512 skip="$SYSTEM_PART_START" count="$SYSTEM_PART_COUNT" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
+  dd if="$DISK" of="$LE_TMP/part1.fat" bs=512 skip="$SYSTEM_PART_START" count="$SYSTEM_PART_COUNT" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
   echo "image: checking filesystem on part1..."
-  fsck -n $OE_TMP/part1.fat >"$SAVE_ERROR" 2>&1 || show_error
+  fsck -n $LE_TMP/part1.fat >"$SAVE_ERROR" 2>&1 || show_error
 
 # create virtual images
   if [ "$PROJECT" = Virtual ]; then
