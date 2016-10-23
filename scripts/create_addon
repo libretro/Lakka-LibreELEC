@@ -66,13 +66,25 @@ pack_addon() {
     ADDONVER=$(xmlstarlet sel -t -v "/addon/@version" $ADDON_BUILD/$PKG_ADDON_ID/addon.xml)
   fi
 
-  if [ -f $PKG_DIR/source/default.py ]; then
+  if [ -d $PKG_DIR/source ]; then
     cp -R $PKG_DIR/source/* $ADDON_BUILD/$PKG_ADDON_ID
   fi
 
   if [ -f $PKG_DIR/icon/icon.png ]; then
-    cp $PKG_DIR/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID
+    mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/resources
+    cp $PKG_DIR/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID/resources
   fi
+
+  if [ -f $DISTRO_DIR/$DISTRO/addons/fanart.png ]; then
+   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/resources
+   cp $DISTRO_DIR/$DISTRO/addons/fanart.png $ADDON_BUILD/$PKG_ADDON_ID/resources
+  fi
+
+  for f in $PKG_DIR/source/resources/screenshot-*.{jpg,png}; do
+    if [ -f "$f" ]; then
+      PKG_ADDON_SCREENSHOT+="<screenshot>resources/$(basename $f)</screenshot>\n"
+    fi
+  done
 
   if [ -f $PKG_DIR/changelog.txt ]; then
     sed -e "/@PKG_ADDON_NEWS@/ \
@@ -102,6 +114,7 @@ pack_addon() {
        -e "s|@PKG_DISCLAIMER@|$PKG_DISCLAIMER|g" \
        -e "s|@PROVIDER_NAME@|$PROVIDER_NAME|g" \
        -e "s|@PKG_ADDON_PROVIDES@|$PKG_ADDON_PROVIDES|g" \
+       -e "s|@PKG_ADDON_SCREENSHOT@|$PKG_ADDON_SCREENSHOT|g" \
        -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
 
   if [ "$2" != "-test" ] ; then
@@ -120,9 +133,16 @@ pack_addon() {
     if [ -f $ADDON_BUILD/$PKG_ADDON_ID/changelog.txt ]; then
       cp $ADDON_BUILD/$PKG_ADDON_ID/changelog.txt $ADDON_INSTALL_DIR/changelog-$ADDONVER.txt
     fi
-    if [ -f $ADDON_BUILD/$PKG_ADDON_ID/icon.png ]; then
-      cp $ADDON_BUILD/$PKG_ADDON_ID/icon.png $ADDON_INSTALL_DIR/icon.png
+    if [ -f $ADDON_BUILD/$PKG_ADDON_ID/resources/icon.png ]; then
+      mkdir -p $ADDON_INSTALL_DIR/resources
+      cp $ADDON_BUILD/$PKG_ADDON_ID/resources/icon.png $ADDON_INSTALL_DIR/resources/icon.png
     fi
+    for f in $ADDON_BUILD/$PKG_ADDON_ID/resources/screenshot-*.{jpg,png}; do
+      if [ -f "$f" ]; then
+        mkdir -p $ADDON_INSTALL_DIR/resources
+        cp $f $ADDON_INSTALL_DIR/resources
+      fi
+    done
   fi
 }
 
