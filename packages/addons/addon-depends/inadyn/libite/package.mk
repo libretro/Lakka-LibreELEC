@@ -1,4 +1,3 @@
-#!/bin/sh
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2016 Team LibreELEC
@@ -17,26 +16,13 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-. /etc/profile
-oe_setup_addon service.system.inadyn
+PKG_NAME="libite"
+PKG_VERSION="1.8.2"
+PKG_LICENSE="MIT"
+PKG_SITE="https://github.com/troglobit/libite"
+PKG_URL="https://github.com/troglobit/libite/archive/v$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="That missing frog DNA you've been looking for"
+PKG_AUTORECONF="yes"
 
-if [ "$inadyn_S" == "inadyn.conf" ]; then
-    config="$ADDON_HOME/inadyn.conf"
-else
-    config="$ADDON_HOME/inadyn.temp"
-    if [ -z "$inadyn_a" -o -z "$inadyn_p" -o -z "$inadyn_u" ]; then
-        rm -fr "$config"
-    else
-        echo "\
-provider $inadyn_S {
-   ssl      = $inadyn_s
-   username = $inadyn_u
-   password = $inadyn_p
-   hostname = $inadyn_a
-}" > "$config"
-    fi
-fi
-
-if [ -f "$config" ]; then
-    inadyn -f "$config" -l info
-fi
+PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
