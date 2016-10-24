@@ -34,7 +34,9 @@ PKG_USE_CMAKE="no"
 PKG_AUTORECONF="no"
 
 post_makeinstall_target() {
-  # backwards comatibility
+  # backwards compatibility
   mkdir -p $INSTALL/etc/pki/tls
     ln -sf /etc/ssl/cert.pem $INSTALL/etc/pki/tls/cacert.pem
+  mkdir -p $INSTALL/etc/pki/tls/certs
+    ln -sf /etc/ssl/cert.pem $INSTALL/etc/pki/tls/certs/ca-bundle.crt
 }
