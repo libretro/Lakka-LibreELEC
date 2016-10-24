@@ -37,7 +37,6 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-utf8 \
 
 pre_configure_target() {
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
-  export LIBS="$LIBS -lz"
 }
 
 post_makeinstall_target() {
