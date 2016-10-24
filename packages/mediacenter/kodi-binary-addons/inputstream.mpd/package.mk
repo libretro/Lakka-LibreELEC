@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="inputstream.mpd"
-PKG_VERSION="c5ee8ac"
+PKG_VERSION="4c8013f"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/liberty-developer/inputstream.mpd/archive/$PKG_VERSION.tar.gz"
