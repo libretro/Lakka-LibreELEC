@@ -30,7 +30,6 @@ PKG_SITE="http://www.site.org"
 PKG_URL="http://www.site.org/$PKG_VERSION.tar.xz"  # for github see the other packages, prefer tar.xz over .gz
 # PKG_SOURCE_DIR="somename-${PKG_VERSION}*"        # if the folder inside the zip is different to the pkg name
 PKG_DEPENDS_TARGET="toolchain curl"                # dependencies that are needed that the addon builds
-PKG_PRIORITY="optional"
 PKG_SECTION="service"                              # service, tools, virtual, driver, driver.remote ...
 PKG_SHORTDESC="Addon name: sort description"       # Addon: is a program that does this and that
 PKG_LONGDESC="Addon name ($PKG_VERSION): detailed description"
