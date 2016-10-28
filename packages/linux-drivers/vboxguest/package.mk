@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vboxguest"
-PKG_VERSION="5.0.22"
+PKG_VERSION="5.1.8"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
