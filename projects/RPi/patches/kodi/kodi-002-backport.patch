@@ -1,0 +1,185 @@
+From 1fc5cd103a26697df63075953d6fd556f39c02bd Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Wed, 26 Oct 2016 23:21:43 +0100
+Subject: [PATCH] squash: Restructure the pll adjust code to avoid adjustment
+ when sync display is disabled
+
+---
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp      | 25 ++++++++--------------
+ .../Engines/ActiveAE/ActiveAEStream.cpp            | 17 ++++++++++++++-
+ .../AudioEngine/Engines/ActiveAE/ActiveAEStream.h  |  3 ++-
+ xbmc/linux/RBP.cpp                                 | 17 ++++++++++-----
+ xbmc/linux/RBP.h                                   |  5 +++--
+ 5 files changed, 42 insertions(+), 25 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index 497b443..68399ab 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -34,10 +34,6 @@ using namespace ActiveAE;
+ #include "windowing/WindowingFactory.h"
+ #include "utils/log.h"
+ 
+-#if defined(TARGET_RASPBERRY_PI)
+-#include "linux/RBP.h"
+-#endif
+-
+ #define MAX_CACHE_LEVEL 0.4   // total cache time of stream in seconds
+ #define MAX_WATER_LEVEL 0.2   // buffered time after stream stages in seconds
+ #define MAX_BUFFER_TIME 0.1   // max time of a buffer in seconds
+@@ -2457,21 +2453,18 @@ CSampleBuffer* CActiveAE::SyncStream(CActiveAEStream *stream)
+   if (!newerror || stream->m_syncState != CAESyncInfo::AESyncState::SYNC_INSYNC)
+     return ret;
+ 
+-  if (stream->m_pllAdjust > 0)  // pll adjust
+-  {
+-#if defined(TARGET_RASPBERRY_PI)
+-    double e = std::max(std::min(error / 50.0, 1.0), -1.0);
+-    double m_plladjust = 1.0 + e * stream->m_pllAdjust;
+-    double m_last_plladjust = g_RBP.AdjustHDMIClock(m_plladjust);
+-    CLog::Log(LOGDEBUG, "CDVDPlayerAudio::%s pll:%.5f (%.5f) error:%.6f e:%.6f a:%f", __FUNCTION__, m_plladjust, m_last_plladjust, error, e * stream->m_pllAdjust, stream->m_pllAdjust );
+-#endif
+-  }
+-  else if (stream->m_resampleMode)
++  if (stream->m_resampleMode)
+   {
+     if (stream->m_processingBuffers)
+     {
+-      stream->m_processingBuffers->SetRR(stream->CalcResampleRatio(error), m_settings.atempoThreshold);
+-      CLog::Log(LOGDEBUG, "CDVDPlayerAudio::%s rr:%.5f threshold:%.3f error:%.6f", __FUNCTION__, stream->m_processingBuffers->GetRR(), m_settings.atempoThreshold, error);
++      double pllAdjustRequest = 0.0, pllAdjustActual = 0.0, e = 0.0;
++      if (stream->m_pllAdjust > 0.0)
++      {
++        e = std::max(std::min(error / 50.0, 1.0), - 1.0);
++        pllAdjustRequest = 1.0 + e * stream->m_pllAdjust;
++      }
++      stream->m_processingBuffers->SetRR(stream->CalcResampleRatio(error), m_settings.atempoThreshold, pllAdjustRequest, stream->m_pllAdjust, pllAdjustActual);
++      CLog::Log(LOGDEBUG, "ActiveAE::%s pll:%.5f (act:%.5f lim:%.5f) rr:%.5f threshold:%.3f error:%.6f", __FUNCTION__, pllAdjustRequest, pllAdjustActual, stream->m_pllAdjust, stream->m_processingBuffers->GetRR(), m_settings.atempoThreshold, error );
+     }
+   }
+   else if (stream->m_processingBuffers)
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+index 394459a..6b009dc 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.cpp
+@@ -29,6 +29,10 @@
+ #include "ActiveAE.h"
+ #include "ActiveAEStream.h"
+ 
++#if defined(TARGET_RASPBERRY_PI)
++#include "linux/RBP.h"
++#endif
++
+ using namespace ActiveAE;
+ 
+ /* typecast AE to CActiveAE */
+@@ -71,6 +75,7 @@ CActiveAEStream::CActiveAEStream(AEAudioFormat *format, unsigned int streamid)
+   m_lastPtsJump = 0;
+   m_errorInterval = 1000;
+   m_clockSpeed = 1.0;
++  m_pllAdjust = 0.0f;
+ }
+ 
+ CActiveAEStream::~CActiveAEStream()
+@@ -715,8 +720,18 @@ bool CActiveAEStreamBuffers::IsDrained()
+     return false;
+ }
+ 
+-void CActiveAEStreamBuffers::SetRR(double rr, double atempoThreshold)
++void CActiveAEStreamBuffers::SetRR(double rr, double atempoThreshold, double pllAdjustRequest, double pllThreshold, double &pllAdjustActual)
+ {
++#if defined(TARGET_RASPBERRY_PI)
++  if (pllAdjustRequest > 0.0f)  // pll adjust
++  {
++    pllAdjustActual = g_RBP.AdjustHDMIClock(pllAdjustRequest);
++    rr = 1.0;
++  }
++  else
++    pllAdjustActual = g_RBP.AdjustHDMIClock(1.0);
++#endif
++
+   if (fabs(rr - 1.0) < atempoThreshold)
+   {
+     m_resampleBuffers->SetRR(rr);
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+index 927f93e..80ab096 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEStream.h
+@@ -103,7 +103,8 @@ class CActiveAEStreamBuffers
+   void Flush();
+   void SetDrain(bool drain);
+   bool IsDrained();
+-  void SetRR(double rr, double atempoThreshold);
++  void SetRR(double rr, double atempoThreshold, double pllAdjustRequest, double pllThreshold, double &pllAdjustActual);
++  void SetRR(double rr, double atempoThreshold) { double pllAdjustActual; SetRR(rr, atempoThreshold, 0.0, 0.0, pllAdjustActual); }
+   double GetRR();
+   void FillBuffer();
+   bool DoesNormalize();
+diff --git a/xbmc/linux/RBP.cpp b/xbmc/linux/RBP.cpp
+index 2efc281..5c0fbaf 100644
+--- a/xbmc/linux/RBP.cpp
++++ b/xbmc/linux/RBP.cpp
+@@ -49,7 +49,8 @@ CRBP::CRBP()
+   m_DllBcmHost      = new DllBcmHost();
+   m_OMX             = new COMXCore();
+   m_display = DISPMANX_NO_HANDLE;
+-  m_last_pll_adjust = 1.0;
++  m_requested_pll_adjust = -1.0;
++  m_actual_pll_adjust = -1.0;
+   m_p = NULL;
+   m_x = 0;
+   m_y = 0;
+@@ -166,7 +167,8 @@ void CRBP::CloseDisplay(DISPMANX_DISPLAY_HANDLE_T display)
+   assert(s == 0);
+   vc_dispmanx_display_close(m_display);
+   m_display = DISPMANX_NO_HANDLE;
+-  m_last_pll_adjust = 1.0;
++  m_requested_pll_adjust = -1.0;
++  m_actual_pll_adjust = -1.0;
+ }
+ 
+ void CRBP::GetDisplaySize(int &width, int &height)
+@@ -529,12 +531,17 @@ void CRBP::uninit_cursor()
+ double CRBP::AdjustHDMIClock(double adjust)
+ {
+   char response[80];
++
++  if (adjust == m_requested_pll_adjust)
++    return m_actual_pll_adjust;
++
++  m_requested_pll_adjust = adjust;
+   vc_gencmd(response, sizeof response, "hdmi_adjust_clock %f", adjust);
+   char *p = strchr(response, '=');
+   if (p)
+-    m_last_pll_adjust = atof(p+1);
+-  CLog::Log(LOGDEBUG, "CRBP::%s(%.4f) = %.4f", __func__, adjust, m_last_pll_adjust);
+-  return m_last_pll_adjust;
++    m_actual_pll_adjust = atof(p+1);
++  CLog::Log(LOGDEBUG, "CRBP::%s(%.5f) = %.5f", __func__, adjust, m_actual_pll_adjust);
++  return m_actual_pll_adjust;
+ }
+ 
+ #include "cores/VideoPlayer/DVDClock.h"
+diff --git a/xbmc/linux/RBP.h b/xbmc/linux/RBP.h
+index 92ed007..9c7f4b1 100644
+--- a/xbmc/linux/RBP.h
++++ b/xbmc/linux/RBP.h
+@@ -83,7 +83,7 @@ class CRBP
+   void VSyncCallback();
+   int GetMBox() { return m_mb; }
+   double AdjustHDMIClock(double adjust);
+-  double GetAdjustHDMIClock() { return m_last_pll_adjust; }
++  double GetAdjustHDMIClock() { return m_actual_pll_adjust; }
+ 
+   void SuspendVideoOutput();
+   void ResumeVideoOutput();
+@@ -112,7 +112,8 @@ class CRBP
+   int m_x;
+   int m_y;
+   bool m_enabled;
+-  double m_last_pll_adjust;
++  double m_requested_pll_adjust;
++  double m_actual_pll_adjust;
+   public:
+   void init_cursor();
+   void set_cursor(const void *pixels, int width, int height, int hotspot_x, int hotspot_y);
