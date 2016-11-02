@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain evtest"
 PKG_SECTION="service/system"
 PKG_SHORTDESC="Touchscreen access library with ts_uinput_touch daemon."
 PKG_LONGDESC="Touchscreen access library with ts_uinput_touch daemon."
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
 PKG_IS_ADDON="no"
 
