@@ -1,7 +1,6 @@
-diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/input/joystick/xpad.c
---- linux-3.15.6.orig/drivers/input/joystick/xpad.c	2014-08-01 20:37:09.039708016 -0700
-+++ linux-3.15.6/drivers/input/joystick/xpad.c	2014-08-01 19:44:20.521111000 -0700
-@@ -281,17 +281,21 @@
+--- a/drivers/input/joystick/xpad.c	2016-11-02 11:32:23.105562200 +0100
++++ b/drivers/input/joystick/xpad.c	2016-11-02 11:33:00.065676100 +0100
+@@ -281,17 +281,21 @@ struct usb_xpad {
  	struct urb *irq_out;		/* urb for interrupt out report */
  	unsigned char *odata;		/* output data */
  	dma_addr_t odata_dma;
@@ -24,7 +23,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  };
  
  /*
-@@ -435,6 +439,109 @@
+@@ -435,6 +439,109 @@ static void xpad360_process_packet(struc
  
  	input_sync(dev);
  }
@@ -134,7 +133,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  
  /*
   * xpad360w_process_packet
-@@ -456,11 +563,35 @@
+@@ -456,11 +563,35 @@ static void xpad360w_process_packet(stru
  	/* Presence change */
  	if (data[0] & 0x08) {
  		if (data[1] & 0x80) {
@@ -174,7 +173,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  
  	/* Valid pad data */
  	if (!(data[1] & 0x1))
-@@ -476,6 +607,8 @@
+@@ -476,6 +607,8 @@ static void xpad_irq_in(struct urb *urb)
  	int retval, status;
  
  	status = urb->status;
@@ -183,7 +182,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  
  	switch (status) {
  	case 0:
-@@ -584,8 +717,6 @@
+@@ -584,8 +717,6 @@ static int xpad_init_output(struct usb_i
  		goto fail1;
  	}
  
@@ -192,7 +191,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  	xpad->irq_out = usb_alloc_urb(0, GFP_KERNEL);
  	if (!xpad->irq_out) {
  		error = -ENOMEM;
-@@ -714,15 +845,38 @@
+@@ -714,15 +845,38 @@ struct xpad_led {
  
  static void xpad_send_led_command(struct usb_xpad *xpad, int command)
  {
@@ -239,7 +238,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  }
  
  static void xpad_led_set(struct led_classdev *led_cdev,
-@@ -741,8 +895,10 @@
+@@ -741,8 +895,10 @@ static int xpad_led_probe(struct usb_xpa
  	struct xpad_led *led;
  	struct led_classdev *led_cdev;
  	int error;
@@ -251,7 +250,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  		return 0;
  
  	xpad->led = led = kzalloc(sizeof(struct xpad_led), GFP_KERNEL);
-@@ -765,11 +921,6 @@
+@@ -765,11 +921,6 @@ static int xpad_led_probe(struct usb_xpa
  		return error;
  	}
  
@@ -263,7 +262,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  	return 0;
  }
  
-@@ -791,6 +942,7 @@
+@@ -791,6 +942,7 @@ static void xpad_led_disconnect(struct u
  static int xpad_open(struct input_dev *dev)
  {
  	struct usb_xpad *xpad = input_get_drvdata(dev);
@@ -271,26 +270,20 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  
  	/* URB was submitted in probe */
  	if (xpad->xtype == XTYPE_XBOX360W)
-@@ -839,23 +991,24 @@
- {
- 	struct usb_device *udev = interface_to_usbdev(intf);
- 	struct usb_xpad *xpad;
--	struct input_dev *input_dev;
- 	struct usb_endpoint_descriptor *ep_irq_in;
- 	int i, error;
-+	struct input_dev *input_dev;
-+	
+@@ -846,19 +998,20 @@ static int xpad_probe(struct usb_interfa
+ 	if (intf->cur_altsetting->desc.bNumEndpoints != 2)
+ 		return -ENODEV;
+ 
 +	if (!my_wq) {
 +		my_wq = create_workqueue("xpad_queue");
 +	}
- 
++
  	for (i = 0; xpad_device[i].idVendor; i++) {
  		if ((le16_to_cpu(udev->descriptor.idVendor) == xpad_device[i].idVendor) &&
  		    (le16_to_cpu(udev->descriptor.idProduct) == xpad_device[i].idProduct))
  			break;
  	}
--
-+	
+
  	xpad = kzalloc(sizeof(struct usb_xpad), GFP_KERNEL);
 -	input_dev = input_allocate_device();
 -	if (!xpad || !input_dev) {
@@ -303,7 +296,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  	xpad->idata = usb_alloc_coherent(udev, XPAD_PKT_LEN,
  					 GFP_KERNEL, &xpad->idata_dma);
  	if (!xpad->idata) {
-@@ -891,65 +1044,12 @@
+@@ -894,65 +1047,12 @@ static int xpad_probe(struct usb_interfa
  			xpad->mapping |= MAP_STICKS_TO_NULL;
  	}
  
@@ -371,7 +364,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  
  	error = xpad_led_probe(xpad);
  	if (error)
-@@ -963,10 +1063,6 @@
+@@ -966,10 +1066,6 @@ static int xpad_probe(struct usb_interfa
  	xpad->irq_in->transfer_dma = xpad->idata_dma;
  	xpad->irq_in->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
  
@@ -382,7 +375,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  	usb_set_intfdata(intf, xpad);
  
  	if (xpad->xtype == XTYPE_XBOX360W) {
-@@ -974,6 +1070,7 @@
+@@ -977,6 +1073,7 @@ static int xpad_probe(struct usb_interfa
  		 * Setup the message to set the LEDs on the
  		 * controller when it shows up
  		 */
@@ -390,7 +383,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  		xpad->bulk_out = usb_alloc_urb(0, GFP_KERNEL);
  		if (!xpad->bulk_out) {
  			error = -ENOMEM;
-@@ -1015,23 +1112,55 @@
+@@ -1028,23 +1125,55 @@ static int xpad_probe(struct usb_interfa
  		 */
  		xpad->irq_in->dev = xpad->udev;
  		error = usb_submit_urb(xpad->irq_in, GFP_KERNEL);
@@ -451,7 +444,7 @@ diff -Naur linux-3.15.6.orig/drivers/input/joystick/xpad.c linux-3.15.6/drivers/
  	kfree(xpad);
  	return error;
  
-@@ -1041,8 +1170,14 @@
+@@ -1054,8 +1183,14 @@ static void xpad_disconnect(struct usb_i
  {
  	struct usb_xpad *xpad = usb_get_intfdata (intf);
  
