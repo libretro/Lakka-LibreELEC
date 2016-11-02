@@ -67,10 +67,19 @@ if [ -n "$CUSTOM_GIT_HASH" ]; then
   GIT_HASH="$CUSTOM_GIT_HASH"
 fi
 
-TARGET_VERSION="$PROJECT.$TARGET_ARCH-$LIBREELEC_VERSION"
+if [ -z "$DEVICE" ]; then
+  TARGET_VERSION="$PROJECT.$TARGET_ARCH-$LIBREELEC_VERSION"
+else
+  TARGET_VERSION="$PROJECT.$DEVICE.$TARGET_ARCH-$LIBREELEC_VERSION"
+fi
 IMAGE_NAME="$DISTRONAME-$TARGET_VERSION"
+
 if [ "$DEVEL_VERSION" = "devel" ] ; then
-  IMAGE_NAME="$DISTRONAME-$PROJECT.$TARGET_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
+  if [ -z "$DEVICE" ]; then
+    IMAGE_NAME="$DISTRONAME-$PROJECT.$TARGET_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
+  else
+    IMAGE_NAME="$DISTRONAME-$PROJECT.$DEVICE.$TARGET_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
+  fi
 fi
 
 if [ "$PROJECT" == "imx6" -a -n "$SYSTEM" ]; then
@@ -204,6 +213,17 @@ if [ -d "$PROJECT_DIR/$PROJECT/filesystem" ]; then
   done
 fi
 
+# copy board related files to filesystem
+if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem" ]; then
+  cp -PR $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/* $INSTALL
+  # install device specific systemd services
+  for service in $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/usr/lib/systemd/system/*.service ; do
+    if [ -f "$service" ] ; then
+      enable_service $(basename $service)
+    fi
+  done
+fi
+
 # run depmod
 MODVER=$(basename $(ls -d $INSTALL/lib/modules/*))
 find $INSTALL/lib/modules/$MODVER/ -name *.ko | \
@@ -265,7 +285,9 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       cp -R $BOOTLOADER_DIR/files/* $RELEASE_DIR
     fi
 
-    if [ -f $PROJECT_DIR/$PROJECT/bootloader/release ]; then
+    if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release ]; then
+      . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release
+    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/release ]; then
       . $PROJECT_DIR/$PROJECT/bootloader/release
     elif [ -f "$BOOTLOADER_DIR"/release ]; then
       . $BOOTLOADER_DIR/release
