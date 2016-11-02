@@ -29,8 +29,26 @@ PKG_SHORTDESC="Adafruit Python DHT Library"
 PKG_LONGDESC="Python library to read the DHT series of humidity and temperature sensors on a Raspberry Pi or Beaglebone Black."
 PKG_AUTORECONF="no"
 
+case $PROJECT in
+  RPi)
+    RPI_VERSION="--force-pi"
+    ;;
+  RPi2)
+    RPI_VERSION="--force-pi2"
+    ;;
+esac
+
+pre_make_target() {
+  export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"
+  export LDSHARED="$CC -shared"
+
+  sed -e 's/from ez_setup import use_setuptools/\#from ez_setup import use_setuptools/' \
+      -e 's/use_setuptools()/\#use_setuptools()/' \
+      -i setup.py
+}
+
 make_target() {
-  : # nop
+  python setup.py build $RPI_VERSION --cross-compile
 }
 
 makeinstall_target() {
