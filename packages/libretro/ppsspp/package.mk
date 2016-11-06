@@ -33,6 +33,7 @@ PKG_LONGDESC="A fast and portable PSP emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="no"
 
 pre_configure_target() {
   strip_lto

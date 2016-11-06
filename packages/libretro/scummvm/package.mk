@@ -34,6 +34,11 @@ PKG_LONGDESC="ScummVM is a program which allows you to run certain classic graph
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_configure_target() {
+  strip_gold
+  strip_lto
+}
+
 configure_target() {
   :
 }
