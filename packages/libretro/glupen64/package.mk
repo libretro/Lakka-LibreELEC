@@ -50,8 +50,14 @@ make_target() {
     Generic)
       make
       ;;
+    OdroidC1)
+      make platform=odroid BOARD=ODROID-C1
+      ;;
+    OdroidXU3)
+      make platform=odroid BOARD=ODROID-XU3
+      ;;
     *)
-      make platform=rpi2
+      make platform=linux-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
       ;;
   esac
 }

@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-psx-hw"
-PKG_VERSION="ec5fa68"
+PKG_VERSION="73f52b3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
