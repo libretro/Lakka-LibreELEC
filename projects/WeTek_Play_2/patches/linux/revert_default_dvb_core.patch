@@ -1,7 +1,8 @@
-diff -Naur a/drivers/media/dvb-core/demux.h b/drivers/media/dvb-core/demux.h
---- a/drivers/media/dvb-core/demux.h	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/demux.h	2016-02-10 22:34:52.000000000 +0100
-@@ -83,46 +83,6 @@
+diff --git a/drivers/media/dvb-core/demux.h b/drivers/media/dvb-core/demux.h
+index db46a78..833191bc 100644
+--- a/drivers/media/dvb-core/demux.h
++++ b/drivers/media/dvb-core/demux.h
+@@ -83,46 +83,6 @@ enum dmx_success {
  #define TS_DEMUX        8   /* in case TS_PACKET is set, send the TS to
  			       the demux device, not to the dvr device */
  
@@ -48,7 +49,7 @@ diff -Naur a/drivers/media/dvb-core/demux.h b/drivers/media/dvb-core/demux.h
  struct dmx_ts_feed {
  	int is_filtering; /* Set to non-zero when filtering in progress */
  	struct dmx_demux *parent; /* Back-pointer */
-@@ -246,37 +206,35 @@
+@@ -246,37 +206,35 @@ struct dmx_demux {
  	u32 capabilities;            /* Bitfield of capability flags */
  	struct dmx_frontend* frontend;    /* Front-end connected to the demux */
  	void* priv;                  /* Pointer to private data of the API client */
@@ -108,10 +109,11 @@ diff -Naur a/drivers/media/dvb-core/demux.h b/drivers/media/dvb-core/demux.h
  			u64 *stc, unsigned int *base);
  };
  
-diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
---- a/drivers/media/dvb-core/dmxdev.c	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dmxdev.c	2016-08-21 23:26:15.000000000 +0200
-@@ -51,7 +51,6 @@
+diff --git a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
+index 8959f71..c0363f1 100644
+--- a/drivers/media/dvb-core/dmxdev.c
++++ b/drivers/media/dvb-core/dmxdev.c
+@@ -51,7 +51,6 @@ static int dvb_dmxdev_buffer_write(struct dvb_ringbuffer *buf,
  	free = dvb_ringbuffer_free(buf);
  	if (len > free) {
  		dprintk("dmxdev: buffer overflow\n");
@@ -119,20 +121,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  		return -EOVERFLOW;
  	}
  
-@@ -83,7 +82,11 @@
- 
- 		ret = wait_event_interruptible(src->queue,
- 					       !dvb_ringbuffer_empty(src) ||
--					       (src->error != 0));
-+					       (src->error != 0) ||
-+					       (src->do_wait != 1));
-+		if (src->do_wait != 1)
-+			ret = -EINTR;
-+
- 		if (ret < 0)
- 			break;
- 
-@@ -207,8 +210,6 @@
+@@ -207,8 +206,6 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
  	/* TODO */
  	dvbdev->users--;
  	if (dvbdev->users == 1 && dmxdev->exit == 1) {
@@ -141,7 +130,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  		mutex_unlock(&dmxdev->mutex);
  		wake_up(&dvbdev->wait_queue);
  	} else
-@@ -563,7 +564,7 @@
+@@ -563,7 +560,7 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
  {
  	struct timespec timeout = { 0 };
  	struct dmx_pes_filter_params *para = &filter->params.pes;
@@ -150,7 +139,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  	int ret;
  	int ts_type;
  	enum dmx_ts_pes ts_pes;
-@@ -788,7 +789,7 @@
+@@ -788,7 +785,7 @@ static int dvb_dmxdev_filter_free(struct dmxdev *dmxdev,
  	return 0;
  }
  
@@ -159,94 +148,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  {
  	int i;
  
-@@ -958,6 +959,23 @@
- 	return ret;
- }
- 
-+
-+static int dvb_demux_lock_filter(struct dmxdev_filter *dmxdevfilter)
-+{
-+       int ret;
-+
-+       dmxdevfilter->buffer.do_wait = 0;
-+
-+       if (waitqueue_active(&dmxdevfilter->buffer.queue))
-+               wake_up(&dmxdevfilter->buffer.queue);
-+
-+       ret = mutex_lock_interruptible(&dmxdevfilter->mutex);
-+
-+       dmxdevfilter->buffer.do_wait = 1;
-+
-+       return ret;
-+}
-+
- static int dvb_demux_do_ioctl(struct file *file,
- 			      unsigned int cmd, void *parg)
- {
-@@ -971,7 +989,7 @@
- 
- 	switch (cmd) {
- 	case DMX_START:
--		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
-+		if (dvb_demux_lock_filter(dmxdevfilter)) {
- 			mutex_unlock(&dmxdev->mutex);
- 			return -ERESTARTSYS;
- 		}
-@@ -983,7 +1001,7 @@
- 		break;
- 
- 	case DMX_STOP:
--		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
-+		if (dvb_demux_lock_filter(dmxdevfilter)) {
- 			mutex_unlock(&dmxdev->mutex);
- 			return -ERESTARTSYS;
- 		}
-@@ -992,7 +1010,7 @@
- 		break;
- 
- 	case DMX_SET_FILTER:
--		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
-+		if (dvb_demux_lock_filter(dmxdevfilter)) {
- 			mutex_unlock(&dmxdev->mutex);
- 			return -ERESTARTSYS;
- 		}
-@@ -1001,7 +1019,7 @@
- 		break;
- 
- 	case DMX_SET_PES_FILTER:
--		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
-+		if (dvb_demux_lock_filter(dmxdevfilter)) {
- 			mutex_unlock(&dmxdev->mutex);
- 			return -ERESTARTSYS;
- 		}
-@@ -1010,7 +1028,7 @@
- 		break;
- 
- 	case DMX_SET_BUFFER_SIZE:
--		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
-+		if (dvb_demux_lock_filter(dmxdevfilter)) {
- 			mutex_unlock(&dmxdev->mutex);
- 			return -ERESTARTSYS;
- 		}
-@@ -1054,7 +1072,7 @@
- 		break;
- 
- 	case DMX_ADD_PID:
--		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
-+		if (dvb_demux_lock_filter(dmxdevfilter)) {
- 			ret = -ERESTARTSYS;
- 			break;
- 		}
-@@ -1063,7 +1081,7 @@
- 		break;
- 
- 	case DMX_REMOVE_PID:
--		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
-+		if (dvb_demux_lock_filter(dmxdevfilter)) {
- 			ret = -ERESTARTSYS;
- 			break;
- 		}
-@@ -1121,8 +1139,6 @@
+@@ -1121,8 +1118,6 @@ static int dvb_demux_release(struct inode *inode, struct file *file)
  	mutex_lock(&dmxdev->mutex);
  	dmxdev->dvbdev->users--;
  	if(dmxdev->dvbdev->users==1 && dmxdev->exit==1) {
@@ -255,7 +157,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  		mutex_unlock(&dmxdev->mutex);
  		wake_up(&dmxdev->dvbdev->wait_queue);
  	} else
-@@ -1131,17 +1147,6 @@
+@@ -1131,17 +1126,6 @@ static int dvb_demux_release(struct inode *inode, struct file *file)
  	return ret;
  }
  
@@ -273,7 +175,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  static const struct file_operations dvb_demux_fops = {
  	.owner = THIS_MODULE,
  	.read = dvb_demux_read,
-@@ -1150,9 +1155,6 @@
+@@ -1150,9 +1134,6 @@ static const struct file_operations dvb_demux_fops = {
  	.release = dvb_demux_release,
  	.poll = dvb_demux_poll,
  	.llseek = default_llseek,
@@ -283,7 +185,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  };
  
  static struct dvb_device dvbdev_demux = {
-@@ -1214,18 +1216,6 @@
+@@ -1214,18 +1195,6 @@ static unsigned int dvb_dvr_poll(struct file *file, poll_table *wait)
  	return mask;
  }
  
@@ -302,7 +204,7 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  static const struct file_operations dvb_dvr_fops = {
  	.owner = THIS_MODULE,
  	.read = dvb_dvr_read,
-@@ -1235,9 +1225,6 @@
+@@ -1235,9 +1204,6 @@ static const struct file_operations dvb_dvr_fops = {
  	.release = dvb_dvr_release,
  	.poll = dvb_dvr_poll,
  	.llseek = default_llseek,
@@ -312,10 +214,11 @@ diff -Naur a/drivers/media/dvb-core/dmxdev.c b/drivers/media/dvb-core/dmxdev.c
  };
  
  static struct dvb_device dvbdev_dvr = {
-diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_demux.c
---- a/drivers/media/dvb-core/dvb_demux.c	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dvb_demux.c	2016-02-10 22:34:52.000000000 +0100
-@@ -435,7 +435,7 @@
+diff --git a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_demux.c
+index 3485655..6c7ff0c 100644
+--- a/drivers/media/dvb-core/dvb_demux.c
++++ b/drivers/media/dvb-core/dvb_demux.c
+@@ -435,7 +435,7 @@ static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf)
  		dprintk_tscheck("TEI detected. "
  				"PID=0x%x data1=0x%x\n",
  				pid, buf[1]);
@@ -324,7 +227,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_dem
  		 * module option dvb_demux_feed_err_pkts is set */
  		if (!dvb_demux_feed_err_pkts)
  			return;
-@@ -476,7 +476,9 @@
+@@ -476,7 +476,9 @@ static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf)
  void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
  			      size_t count)
  {
@@ -335,7 +238,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_dem
  
  	while (count--) {
  		if (buf[0] == 0x47)
-@@ -484,7 +486,7 @@
+@@ -484,7 +486,7 @@ void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
  		buf += 188;
  	}
  
@@ -344,7 +247,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_dem
  }
  
  EXPORT_SYMBOL(dvb_dmx_swfilter_packets);
-@@ -519,8 +521,9 @@
+@@ -519,8 +521,9 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
  {
  	int p = 0, i, j;
  	const u8 *q;
@@ -355,7 +258,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_dem
  
  	if (demux->tsbufp) { /* tsbuf[0] is now 0x47. */
  		i = demux->tsbufp;
-@@ -564,7 +567,7 @@
+@@ -564,7 +567,7 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
  	}
  
  bailout:
@@ -364,7 +267,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_dem
  }
  
  void dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf, size_t count)
-@@ -581,11 +584,13 @@
+@@ -581,11 +584,13 @@ EXPORT_SYMBOL(dvb_dmx_swfilter_204);
  
  void dvb_dmx_swfilter_raw(struct dvb_demux *demux, const u8 *buf, size_t count)
  {
@@ -380,7 +283,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_dem
  }
  EXPORT_SYMBOL(dvb_dmx_swfilter_raw);
  
-@@ -1027,8 +1032,13 @@
+@@ -1027,8 +1032,13 @@ static int dmx_section_feed_release_filter(struct dmx_section_feed *feed,
  		return -EINVAL;
  	}
  
@@ -395,68 +298,11 @@ diff -Naur a/drivers/media/dvb-core/dvb_demux.c b/drivers/media/dvb-core/dvb_dem
  
  	spin_lock_irq(&dvbdmx->lock);
  	f = dvbdmxfeed->filter;
-diff -Naur a/drivers/media/dvb-core/dvbdev.c b/drivers/media/dvb-core/dvbdev.c
---- a/drivers/media/dvb-core/dvbdev.c	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dvbdev.c	2016-02-10 22:34:52.000000000 +0100
-@@ -47,7 +47,7 @@
- 
- static const char * const dnames[] = {
- 	"video", "audio", "sec", "frontend", "demux", "dvr", "ca",
--	"net", "osd", "dsc"
-+	"net", "osd"
- };
- 
- #ifdef CONFIG_DVB_DYNAMIC_MINORS
-@@ -74,22 +74,15 @@
- 
- 	if (dvbdev && dvbdev->fops) {
- 		int err = 0;
--		const struct file_operations *old_fops;
-+		const struct file_operations *new_fops;
- 
--		file->private_data = dvbdev;
--		old_fops = file->f_op;
--		file->f_op = fops_get(dvbdev->fops);
--		if (file->f_op == NULL) {
--			file->f_op = old_fops;
-+		new_fops = fops_get(dvbdev->fops);
-+		if (!new_fops)
- 			goto fail;
--		}
-+		file->private_data = dvbdev;
-+		replace_fops(file, new_fops);
- 		if (file->f_op->open)
- 			err = file->f_op->open(inode,file);
--		if (err) {
--			fops_put(file->f_op);
--			file->f_op = fops_get(old_fops);
--		}
--		fops_put(old_fops);
- 		up_read(&minor_rwsem);
- 		mutex_unlock(&dvbdev_mutex);
- 		return err;
-diff -Naur a/drivers/media/dvb-core/dvbdev.h b/drivers/media/dvb-core/dvbdev.h
---- a/drivers/media/dvb-core/dvbdev.h	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dvbdev.h	2016-02-10 22:34:52.000000000 +0100
-@@ -47,7 +47,6 @@
- #define DVB_DEVICE_CA         6
- #define DVB_DEVICE_NET        7
- #define DVB_DEVICE_OSD        8
--#define DVB_DEVICE_DSC        9
- 
- #define DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr) \
- 	static short adapter_nr[] = \
-diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_frontend.c
---- a/drivers/media/dvb-core/dvb_frontend.c	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dvb_frontend.c	2016-08-21 23:27:05.000000000 +0200
-@@ -46,16 +46,12 @@
- #include "dvbdev.h"
- #include <linux/dvb/version.h>
- 
--static int dvb_frontend_debug = 1;
-+static int dvb_frontend_debug;
- static int dvb_shutdown_timeout;
- static int dvb_force_auto_inversion;
+diff --git a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_frontend.c
+index ec3d417..1f925e8 100644
+--- a/drivers/media/dvb-core/dvb_frontend.c
++++ b/drivers/media/dvb-core/dvb_frontend.c
+@@ -52,10 +52,6 @@ static int dvb_force_auto_inversion;
  static int dvb_override_tune_delay;
  static int dvb_powerdown_on_sleep = 1;
  static int dvb_mfe_wait_time = 5;
@@ -467,7 +313,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  module_param_named(frontend_debug, dvb_frontend_debug, int, 0644);
  MODULE_PARM_DESC(frontend_debug, "Turn on/off frontend core debugging (default:off).");
-@@ -69,19 +65,6 @@
+@@ -69,19 +65,6 @@ module_param(dvb_powerdown_on_sleep, int, 0644);
  MODULE_PARM_DESC(dvb_powerdown_on_sleep, "0: do not power down, 1: turn LNB voltage off on sleep (default)");
  module_param(dvb_mfe_wait_time, int, 0644);
  MODULE_PARM_DESC(dvb_mfe_wait_time, "Wait up to <mfe_wait_time> seconds on open() for multi-frontend to become available (default:5 seconds)");
@@ -487,7 +333,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  #define FESTATE_IDLE 1
  #define FESTATE_RETUNE 2
-@@ -118,21 +101,14 @@
+@@ -118,21 +101,14 @@ MODULE_PARM_DESC(dvb_dtv_debug, "vb_afc_debug");
  #define DVB_FE_DEVICE_REMOVED	2
  
  static DEFINE_MUTEX(frontend_mutex);
@@ -510,7 +356,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	struct list_head list_head;
  	wait_queue_head_t wait_queue;
  	struct task_struct *thread;
-@@ -146,12 +122,6 @@
+@@ -146,12 +122,6 @@ struct dvb_frontend_private {
  	int tone;
  	int voltage;
  
@@ -523,7 +369,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	/* swzigzag values */
  	unsigned int state;
  	unsigned int bending;
-@@ -166,7 +136,6 @@
+@@ -166,7 +136,6 @@ struct dvb_frontend_private {
  	int quality;
  	unsigned int check_wrapped;
  	enum dvbfe_search algo_status;
@@ -531,7 +377,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  };
  
  static void dvb_frontend_wakeup(struct dvb_frontend *fe);
-@@ -191,7 +160,6 @@
+@@ -191,7 +160,6 @@ enum dvbv3_emulation_type {
  	DVBV3_QAM,
  	DVBV3_OFDM,
  	DVBV3_ATSC,
@@ -539,7 +385,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  };
  
  static enum dvbv3_emulation_type dvbv3_type(u32 delivery_system)
-@@ -215,8 +183,6 @@
+@@ -215,8 +183,6 @@ static enum dvbv3_emulation_type dvbv3_type(u32 delivery_system)
  	case SYS_ATSCMH:
  	case SYS_DVBC_ANNEX_B:
  		return DVBV3_ATSC;
@@ -548,7 +394,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	case SYS_UNDEFINED:
  	case SYS_ISDBC:
  	case SYS_DVBH:
-@@ -241,13 +207,9 @@
+@@ -241,13 +207,9 @@ static void dvb_frontend_add_event(struct dvb_frontend *fe, fe_status_t status)
  
  	dev_dbg(fe->dvb->device, "%s:\n", __func__);
  
@@ -565,7 +411,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	mutex_lock(&events->mtx);
  
  	wp = (events->eventw + 1) % MAX_EVENT;
-@@ -259,6 +221,7 @@
+@@ -259,6 +221,7 @@ static void dvb_frontend_add_event(struct dvb_frontend *fe, fe_status_t status)
  	e = &events->events[events->eventw];
  	e->status = status;
  	e->parameters = fepriv->parameters_out;
@@ -573,7 +419,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	events->eventw = wp;
  
  	mutex_unlock(&events->mtx);
-@@ -290,7 +253,7 @@
+@@ -290,7 +253,7 @@ static int dvb_frontend_get_event(struct dvb_frontend *fe,
  		ret = wait_event_interruptible (events->wait_queue,
  						events->eventw != events->eventr);
  
@@ -582,7 +428,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  			return -ERESTARTSYS;
  
  		if (ret < 0)
-@@ -305,95 +268,6 @@
+@@ -305,95 +268,6 @@ static int dvb_frontend_get_event(struct dvb_frontend *fe,
  	return 0;
  }
  
@@ -678,7 +524,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  static void dvb_frontend_clear_events(struct dvb_frontend *fe)
  {
  	struct dvb_frontend_private *fepriv = fe->frontend_priv;
-@@ -460,7 +334,6 @@
+@@ -460,7 +334,6 @@ static int dvb_frontend_swzigzag_autotune(struct dvb_frontend *fe, int check_wra
  	int autoinversion;
  	int ready = 0;
  	int fe_set_err = 0;
@@ -686,7 +532,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	struct dvb_frontend_private *fepriv = fe->frontend_priv;
  	struct dtv_frontend_properties *c = &fe->dtv_property_cache, tmp;
  	int original_inversion = c->inversion;
-@@ -539,13 +412,8 @@
+@@ -539,13 +412,8 @@ static int dvb_frontend_swzigzag_autotune(struct dvb_frontend *fe, int check_wra
  	if (autoinversion)
  		c->inversion = fepriv->inversion;
  	tmp = *c;
@@ -701,7 +547,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	*c = tmp;
  	if (fe_set_err < 0) {
  		fepriv->state = FESTATE_ERROR;
-@@ -559,35 +427,12 @@
+@@ -559,35 +427,12 @@ static int dvb_frontend_swzigzag_autotune(struct dvb_frontend *fe, int check_wra
  	return 0;
  }
  
@@ -739,7 +585,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  	/* if we've got no parameters, just keep idling */
  	if (fepriv->state & FESTATE_IDLE) {
-@@ -619,16 +464,7 @@
+@@ -619,16 +464,7 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
  	} else {
  		if (fe->ops.read_status)
  			fe->ops.read_status(fe, &s);
@@ -757,7 +603,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  			dvb_frontend_add_event(fe, s);
  			fepriv->status = s;
  		}
-@@ -646,188 +482,7 @@
+@@ -646,188 +482,7 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
  		}
  		return;
  	}
@@ -913,7 +759,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
 -		}
 -
 -	}
--
+ 
 -
 -#endif
 -#if 1
@@ -941,12 +787,12 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
 -				return;
 -			}
 -		}
- 
+-
 -#endif
  	/* if we are tuned already, check we're still locked */
  	if (fepriv->state & FESTATE_TUNED) {
  		dvb_frontend_swzigzag_update_delay(fepriv, s & FE_HAS_LOCK);
-@@ -870,13 +525,8 @@
+@@ -870,13 +525,8 @@ static void dvb_frontend_swzigzag(struct dvb_frontend *fe)
  	}
  
  	/* fast zigzag. */
@@ -962,7 +808,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  		/* perform a tune */
  		retval = dvb_frontend_swzigzag_autotune(fe,
-@@ -949,11 +599,11 @@
+@@ -949,11 +599,11 @@ static int dvb_frontend_thread(void *data)
  {
  	struct dvb_frontend *fe = data;
  	struct dvb_frontend_private *fepriv = fe->frontend_priv;
@@ -976,7 +822,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  	dev_dbg(fe->dvb->device, "%s:\n", __func__);
  
-@@ -970,13 +620,15 @@
+@@ -970,13 +620,15 @@ static int dvb_frontend_thread(void *data)
  	while (1) {
  		up(&fepriv->sem);	    /* is locked when we enter the thread... */
  restart:
@@ -993,7 +839,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  			fepriv->exit = DVB_FE_NORMAL_EXIT;
  			break;
  		}
-@@ -1001,25 +653,18 @@
+@@ -1001,25 +653,18 @@ restart:
  			algo = fe->ops.get_frontend_algo(fe);
  			switch (algo) {
  			case DVBFE_ALGO_HW:
@@ -1025,7 +871,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  				if (s != fepriv->status && !(fepriv->tune_mode_flags & FE_TUNE_MODE_ONESHOT)) {
  					dev_dbg(fe->dvb->device, "%s: state changed, adding current state\n", __func__);
-@@ -1038,36 +683,26 @@
+@@ -1038,36 +683,26 @@ restart:
  					fepriv->state = FESTATE_TUNED;
  				}
  				/* Case where we are going to search for a carrier
@@ -1070,7 +916,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  				if (s != fepriv->status) {
  					dvb_frontend_add_event(fe, s); /* update event list */
  					fepriv->status = s;
-@@ -1109,6 +744,8 @@
+@@ -1109,6 +744,8 @@ restart:
  		fepriv->exit = DVB_FE_NO_EXIT;
  	mb();
  
@@ -1079,7 +925,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	dvb_frontend_wakeup(fe);
  	return 0;
  }
-@@ -1197,7 +834,7 @@
+@@ -1197,7 +834,7 @@ static int dvb_frontend_start(struct dvb_frontend *fe)
  
  	if (signal_pending(current))
  		return -EINTR;
@@ -1088,7 +934,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  		return -EINTR;
  
  	fepriv->state = FESTATE_IDLE;
-@@ -1339,128 +976,6 @@
+@@ -1339,128 +976,6 @@ static int dvb_frontend_clear_cache(struct dvb_frontend *fe)
  	return 0;
  }
  
@@ -1217,7 +1063,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  #define _DTV_CMD(n, s, b) \
  [n] = { \
  	.name = #n, \
-@@ -1632,7 +1147,6 @@
+@@ -1632,7 +1147,6 @@ static int dtv_property_cache_sync(struct dvb_frontend *fe,
  		c->transmission_mode = p->u.ofdm.transmission_mode;
  		c->guard_interval = p->u.ofdm.guard_interval;
  		c->hierarchy = p->u.ofdm.hierarchy_information;
@@ -1225,7 +1071,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  		break;
  	case DVBV3_ATSC:
  		dev_dbg(fe->dvb->device, "%s: Preparing ATSC req\n", __func__);
-@@ -1644,14 +1158,6 @@
+@@ -1644,14 +1158,6 @@ static int dtv_property_cache_sync(struct dvb_frontend *fe,
  		else
  			c->delivery_system = SYS_DVBC_ANNEX_B;
  		break;
@@ -1240,7 +1086,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	case DVBV3_UNKNOWN:
  		dev_err(fe->dvb->device,
  				"%s: doesn't know how to handle a DVBv3 call to delivery system %i\n",
-@@ -1672,7 +1178,7 @@
+@@ -1672,7 +1178,7 @@ static int dtv_property_legacy_params_sync(struct dvb_frontend *fe,
  
  	p->frequency = c->frequency;
  	p->inversion = c->inversion;
@@ -1249,7 +1095,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	switch (dvbv3_type(c->delivery_system)) {
  	case DVBV3_UNKNOWN:
  		dev_err(fe->dvb->device,
-@@ -1721,21 +1227,11 @@
+@@ -1721,21 +1227,11 @@ static int dtv_property_legacy_params_sync(struct dvb_frontend *fe,
  		p->u.ofdm.transmission_mode = c->transmission_mode;
  		p->u.ofdm.guard_interval = c->guard_interval;
  		p->u.ofdm.hierarchy_information = c->hierarchy;
@@ -1271,7 +1117,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	}
  	return 0;
  }
-@@ -2007,14 +1503,8 @@
+@@ -2007,14 +1503,8 @@ static bool is_dvbv3_delsys(u32 delsys)
  {
  	bool status;
  
@@ -1288,7 +1134,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  	return status;
  }
-@@ -2409,38 +1899,10 @@
+@@ -2409,38 +1899,10 @@ static int dvb_frontend_ioctl(struct file *file,
  	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
  	struct dvb_frontend_private *fepriv = fe->frontend_priv;
  	int err = -EOPNOTSUPP;
@@ -1329,7 +1175,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  	if (fepriv->exit != DVB_FE_NO_EXIT) {
  		up(&fepriv->sem);
-@@ -2454,14 +1916,6 @@
+@@ -2454,14 +1916,6 @@ static int dvb_frontend_ioctl(struct file *file,
  		return -EPERM;
  	}
  
@@ -1344,7 +1190,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	if ((cmd == FE_SET_PROPERTY) || (cmd == FE_GET_PROPERTY))
  		err = dvb_frontend_ioctl_properties(file, cmd, parg);
  	else {
-@@ -2469,12 +1923,7 @@
+@@ -2469,12 +1923,7 @@ static int dvb_frontend_ioctl(struct file *file,
  		err = dvb_frontend_ioctl_legacy(file, cmd, parg);
  	}
  
@@ -1358,7 +1204,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	return err;
  }
  
-@@ -2509,18 +1958,12 @@
+@@ -2509,18 +1958,12 @@ static int dvb_frontend_ioctl_properties(struct file *file,
  			err = -ENOMEM;
  			goto out;
  		}
@@ -1379,7 +1225,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  		for (i = 0; i < tvps->num; i++) {
  			err = dtv_property_process_set(fe, tvp + i, file);
  			if (err < 0)
-@@ -2548,18 +1991,12 @@
+@@ -2548,18 +1991,12 @@ static int dvb_frontend_ioctl_properties(struct file *file,
  			err = -ENOMEM;
  			goto out;
  		}
@@ -1400,7 +1246,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  		/*
  		 * Fills the cache out struct with the cache contents, plus
  		 * the data retrieved from get_frontend, if the frontend
-@@ -2576,18 +2013,11 @@
+@@ -2576,18 +2013,11 @@ static int dvb_frontend_ioctl_properties(struct file *file,
  				goto out;
  			(tvp + i)->result = err;
  		}
@@ -1420,7 +1266,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  	} else
  		err = -EOPNOTSUPP;
-@@ -2603,7 +2033,6 @@
+@@ -2603,7 +2033,6 @@ static int dtv_set_frontend(struct dvb_frontend *fe)
  	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
  	struct dvb_frontend_tune_settings fetunesettings;
  	u32 rolloff = 0;
@@ -1428,7 +1274,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  	if (dvb_frontend_check_parameters(fe) < 0)
  		return -EINVAL;
-@@ -2678,18 +2107,16 @@
+@@ -2678,18 +2107,16 @@ static int dtv_set_frontend(struct dvb_frontend *fe)
  		case SYS_DVBC_ANNEX_A:
  		case SYS_DVBC_ANNEX_C:
  			fepriv->min_delay = HZ / 20;
@@ -1451,7 +1297,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  			break;
  		default:
  			/*
-@@ -2709,18 +2136,10 @@
+@@ -2709,18 +2136,10 @@ static int dtv_set_frontend(struct dvb_frontend *fe)
  
  	/* Request the search algorithm to search */
  	fepriv->algo_status |= DVBFE_ALGO_SEARCH_AGAIN;
@@ -1474,7 +1320,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	fepriv->status = 0;
  
  	return 0;
-@@ -2906,10 +2325,7 @@
+@@ -2906,10 +2325,7 @@ static int dvb_frontend_ioctl_legacy(struct file *file,
  			int i;
  			u8 last = 1;
  			if (dvb_frontend_debug)
@@ -1486,7 +1332,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  			do_gettimeofday(&nexttime);
  			if (dvb_frontend_debug)
  				tv[0] = nexttime;
-@@ -2932,12 +2348,10 @@
+@@ -2932,12 +2348,10 @@ static int dvb_frontend_ioctl_legacy(struct file *file,
  					dvb_frontend_sleep_until(&nexttime, 8000);
  			}
  			if (dvb_frontend_debug) {
@@ -1501,7 +1347,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  			}
  			err = 0;
  			fepriv->state = FESTATE_DISEQC;
-@@ -2956,19 +2370,15 @@
+@@ -2956,19 +2370,15 @@ static int dvb_frontend_ioctl_legacy(struct file *file,
  		break;
  
  	case FE_SET_FRONTEND:
@@ -1522,7 +1368,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	case FE_GET_EVENT:
  		err = dvb_frontend_get_event (fe, parg, file->f_flags);
  		break;
-@@ -2981,164 +2391,6 @@
+@@ -2981,164 +2391,6 @@ static int dvb_frontend_ioctl_legacy(struct file *file,
  		fepriv->tune_mode_flags = (unsigned long) parg;
  		err = 0;
  		break;
@@ -1687,7 +1533,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	}
  
  	return err;
-@@ -3240,8 +2492,6 @@
+@@ -3240,8 +2492,6 @@ static int dvb_frontend_open(struct inode *inode, struct file *file)
  
  		/*  empty event queue */
  		fepriv->events.eventr = fepriv->events.eventw = 0;
@@ -1696,7 +1542,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	}
  
  	if (adapter->mfe_shared)
-@@ -3286,18 +2536,6 @@
+@@ -3286,18 +2536,6 @@ static int dvb_frontend_release(struct inode *inode, struct file *file)
  	return ret;
  }
  
@@ -1715,7 +1561,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  static const struct file_operations dvb_frontend_fops = {
  	.owner		= THIS_MODULE,
  	.unlocked_ioctl	= dvb_generic_ioctl,
-@@ -3305,10 +2543,6 @@
+@@ -3305,10 +2543,6 @@ static const struct file_operations dvb_frontend_fops = {
  	.open		= dvb_frontend_open,
  	.release	= dvb_frontend_release,
  	.llseek		= noop_llseek,
@@ -1726,7 +1572,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  };
  
  int dvb_frontend_suspend(struct dvb_frontend *fe)
-@@ -3349,31 +2583,6 @@
+@@ -3349,31 +2583,6 @@ int dvb_frontend_resume(struct dvb_frontend *fe)
  }
  EXPORT_SYMBOL(dvb_frontend_resume);
  
@@ -1758,7 +1604,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  int dvb_register_frontend(struct dvb_adapter* dvb,
  			  struct dvb_frontend* fe)
  {
-@@ -3386,7 +2595,6 @@
+@@ -3386,7 +2595,6 @@ int dvb_register_frontend(struct dvb_adapter* dvb,
  		.kernel_ioctl = dvb_frontend_ioctl
  	};
  
@@ -1766,7 +1612,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	dev_dbg(dvb->device, "%s:\n", __func__);
  
  	if (mutex_lock_interruptible(&frontend_mutex))
-@@ -3400,44 +2608,19 @@
+@@ -3400,44 +2608,19 @@ int dvb_register_frontend(struct dvb_adapter* dvb,
  	fepriv = fe->frontend_priv;
  
  	sema_init(&fepriv->sem, 1);
@@ -1814,7 +1660,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  	/*
  	 * Initialize the cache to the proper values according with the
  	 * first supported delivery system (ops->delsys[0])
-@@ -3466,8 +2649,6 @@
+@@ -3466,8 +2649,6 @@ int dvb_unregister_frontend(struct dvb_frontend* fe)
  
  	mutex_lock(&frontend_mutex);
  	dvb_unregister_device (fepriv->dvbdev);
@@ -1823,7 +1669,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
  
  	/* fe is invalid now */
  	kfree(fepriv);
-@@ -3513,17 +2694,3 @@
+@@ -3513,17 +2694,3 @@ void dvb_frontend_detach(struct dvb_frontend* fe)
  }
  #endif
  EXPORT_SYMBOL(dvb_frontend_detach);
@@ -1841,9 +1687,10 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.c b/drivers/media/dvb-core/dvb_
 -}
 -EXPORT_SYMBOL(dvb_frontend_retune);
 -
-diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_frontend.h
---- a/drivers/media/dvb-core/dvb_frontend.h	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dvb_frontend.h	2016-02-10 22:34:52.000000000 +0100
+diff --git a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_frontend.h
+index 70ea290..371b6ca 100644
+--- a/drivers/media/dvb-core/dvb_frontend.h
++++ b/drivers/media/dvb-core/dvb_frontend.h
 @@ -38,7 +38,6 @@
  #include <linux/mutex.h>
  #include <linux/slab.h>
@@ -1864,7 +1711,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  struct dvb_frontend_tune_settings {
  	int min_delay_ms;
  	int step_size;
-@@ -77,16 +71,8 @@
+@@ -77,16 +71,8 @@ struct dvb_tuner_info {
  struct analog_parameters {
  	unsigned int frequency;
  	unsigned int mode;
@@ -1881,7 +1728,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  };
  
  enum dvbfe_modcod {
-@@ -232,21 +218,14 @@
+@@ -232,21 +218,14 @@ struct dvb_tuner_ops {
  
  #define TUNER_STATUS_LOCKED 1
  #define TUNER_STATUS_STEREO 2
@@ -1904,7 +1751,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  
  	/*
  	 * These are provided separately from set_params in order to facilitate silicon
-@@ -254,12 +233,6 @@
+@@ -254,12 +233,6 @@ struct dvb_tuner_ops {
  	 */
  	int (*set_state)(struct dvb_frontend *fe, enum tuner_param param, struct tuner_state *state);
  	int (*get_state)(struct dvb_frontend *fe, enum tuner_param param, struct tuner_state *state);
@@ -1917,7 +1764,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  };
  
  struct analog_demod_info {
-@@ -272,12 +245,8 @@
+@@ -272,12 +245,8 @@ struct analog_demod_ops {
  
  	void (*set_params)(struct dvb_frontend *fe,
  			   struct analog_parameters *params);
@@ -1932,7 +1779,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  	void (*tuner_status)(struct dvb_frontend *fe);
  	void (*standby)(struct dvb_frontend *fe);
  	void (*release)(struct dvb_frontend *fe);
-@@ -285,42 +254,10 @@
+@@ -285,42 +254,10 @@ struct analog_demod_ops {
  
  	/** This is to allow setting tuner-specific configuration */
  	int (*set_config)(struct dvb_frontend *fe, void *priv_cfg);
@@ -1975,7 +1822,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  struct dvb_frontend_ops {
  
  	struct dvb_frontend_info info;
-@@ -330,13 +267,13 @@
+@@ -330,13 +267,13 @@ struct dvb_frontend_ops {
  	void (*release)(struct dvb_frontend* fe);
  	void (*release_sec)(struct dvb_frontend* fe);
  
@@ -1993,7 +1840,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  		    bool re_tune,
  		    unsigned int mode_flags,
  		    unsigned int *delay,
-@@ -346,23 +283,20 @@
+@@ -346,23 +283,20 @@ struct dvb_frontend_ops {
  
  	/* these two are only used for the swzigzag code */
  	int (*set_frontend)(struct dvb_frontend *fe);
@@ -2029,7 +1876,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  	int (*set_tone)(struct dvb_frontend* fe, fe_sec_tone_mode_t tone);
  	int (*set_voltage)(struct dvb_frontend* fe, fe_sec_voltage_t voltage);
  	int (*enable_high_lnb_voltage)(struct dvb_frontend* fe, long arg);
-@@ -375,23 +309,15 @@
+@@ -375,23 +309,15 @@ struct dvb_frontend_ops {
  	 * tuning algorithms, rather than a simple swzigzag
  	 */
  	enum dvbfe_search (*search)(struct dvb_frontend *fe);
@@ -2057,7 +1904,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  #define MAX_EVENT 8
  
  struct dvb_fe_events {
-@@ -402,17 +328,7 @@
+@@ -402,17 +328,7 @@ struct dvb_fe_events {
  	wait_queue_head_t	  wait_queue;
  	struct mutex		  mtx;
  };
@@ -2076,7 +1923,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  
  struct dtv_frontend_properties {
  
-@@ -428,7 +344,7 @@
+@@ -428,7 +344,7 @@ struct dtv_frontend_properties {
  	fe_code_rate_t		fec_inner;
  	fe_transmit_mode_t	transmission_mode;
  	u32			bandwidth_hz;	/* 0 = AUTO */
@@ -2085,7 +1932,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  	fe_hierarchy_t		hierarchy;
  	u32			symbol_rate;
  	fe_code_rate_t		code_rate_HP;
-@@ -437,8 +353,6 @@
+@@ -437,8 +353,6 @@ struct dtv_frontend_properties {
  	fe_pilot_t		pilot;
  	fe_rolloff_t		rolloff;
  
@@ -2094,7 +1941,7 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  	fe_delivery_system_t	delivery_system;
  
  	enum fe_interleaving	interleaving;
-@@ -460,11 +374,6 @@
+@@ -460,11 +374,6 @@ struct dtv_frontend_properties {
  	/* Multistream specifics */
  	u32			stream_id;
  
@@ -2106,31 +1953,64 @@ diff -Naur a/drivers/media/dvb-core/dvb_frontend.h b/drivers/media/dvb-core/dvb_
  	/* ATSC-MH specifics */
  	u8			atscmh_fic_ver;
  	u8			atscmh_parade_id;
-diff -Naur a/drivers/media/dvb-core/dvb_ringbuffer.c b/drivers/media/dvb-core/dvb_ringbuffer.c
---- a/drivers/media/dvb-core/dvb_ringbuffer.c	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dvb_ringbuffer.c	2016-02-10 22:34:52.000000000 +0100
-@@ -45,6 +45,7 @@
- 	rbuf->data=data;
- 	rbuf->size=len;
- 	rbuf->error=0;
-+	rbuf->do_wait=1;
+diff --git a/drivers/media/dvb-core/dvbdev.c b/drivers/media/dvb-core/dvbdev.c
+index dbffaa0..983db75 100644
+--- a/drivers/media/dvb-core/dvbdev.c
++++ b/drivers/media/dvb-core/dvbdev.c
+@@ -47,7 +47,7 @@ static DEFINE_MUTEX(dvbdev_register_lock);
  
- 	init_waitqueue_head(&rbuf->queue);
- 
-diff -Naur a/drivers/media/dvb-core/dvb_ringbuffer.h b/drivers/media/dvb-core/dvb_ringbuffer.h
---- a/drivers/media/dvb-core/dvb_ringbuffer.h	2016-08-11 16:37:23.000000000 +0200
-+++ b/drivers/media/dvb-core/dvb_ringbuffer.h	2016-02-10 22:34:52.000000000 +0100
-@@ -38,6 +38,7 @@
- 	int               error;
- 
- 	wait_queue_head_t queue;
-+	int               do_wait;
- 	spinlock_t        lock;
+ static const char * const dnames[] = {
+ 	"video", "audio", "sec", "frontend", "demux", "dvr", "ca",
+-	"net", "osd", "dsc"
++	"net", "osd"
  };
  
-diff -Naur a/include/uapi/linux/dvb/aml_demod.h b/include/uapi/linux/dvb/aml_demod.h
---- a/include/uapi/linux/dvb/aml_demod.h	2016-08-11 16:37:23.000000000 +0200
-+++ b/include/uapi/linux/dvb/aml_demod.h	1970-01-01 01:00:00.000000000 +0100
+ #ifdef CONFIG_DVB_DYNAMIC_MINORS
+@@ -74,22 +74,15 @@ static int dvb_device_open(struct inode *inode, struct file *file)
+ 
+ 	if (dvbdev && dvbdev->fops) {
+ 		int err = 0;
+-		const struct file_operations *old_fops;
++		const struct file_operations *new_fops;
+ 
+-		file->private_data = dvbdev;
+-		old_fops = file->f_op;
+-		file->f_op = fops_get(dvbdev->fops);
+-		if (file->f_op == NULL) {
+-			file->f_op = old_fops;
++		new_fops = fops_get(dvbdev->fops);
++		if (!new_fops)
+ 			goto fail;
+-		}
++		file->private_data = dvbdev;
++		replace_fops(file, new_fops);
+ 		if (file->f_op->open)
+ 			err = file->f_op->open(inode,file);
+-		if (err) {
+-			fops_put(file->f_op);
+-			file->f_op = fops_get(old_fops);
+-		}
+-		fops_put(old_fops);
+ 		up_read(&minor_rwsem);
+ 		mutex_unlock(&dvbdev_mutex);
+ 		return err;
+diff --git a/drivers/media/dvb-core/dvbdev.h b/drivers/media/dvb-core/dvbdev.h
+index d2bee9c..93a9470 100644
+--- a/drivers/media/dvb-core/dvbdev.h
++++ b/drivers/media/dvb-core/dvbdev.h
+@@ -47,7 +47,6 @@
+ #define DVB_DEVICE_CA         6
+ #define DVB_DEVICE_NET        7
+ #define DVB_DEVICE_OSD        8
+-#define DVB_DEVICE_DSC        9
+ 
+ #define DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr) \
+ 	static short adapter_nr[] = \
+diff --git a/include/uapi/linux/dvb/aml_demod.h b/include/uapi/linux/dvb/aml_demod.h
+deleted file mode 100644
+index 96990a5..0000000
+--- a/include/uapi/linux/dvb/aml_demod.h
++++ /dev/null
 @@ -1,214 +0,0 @@
 -#ifndef AML_DEMOD_H
 -#define AML_DEMOD_H
@@ -2346,9 +2226,10 @@ diff -Naur a/include/uapi/linux/dvb/aml_demod.h b/include/uapi/linux/dvb/aml_dem
 -int cap_adc_data(struct aml_cap_data *cap);
 -
 -#endif				/* AML_DEMOD_H */
-diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
---- a/include/uapi/linux/dvb/dmx.h	2016-08-11 16:37:23.000000000 +0200
-+++ b/include/uapi/linux/dvb/dmx.h	2016-02-10 22:35:00.000000000 +0100
+diff --git a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
+index 029400a..b4fb650 100644
+--- a/include/uapi/linux/dvb/dmx.h
++++ b/include/uapi/linux/dvb/dmx.h
 @@ -29,25 +29,30 @@
  #include <time.h>
  #endif
@@ -2376,13 +2257,6 @@ diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
 +			 /* logical DVR device).                 */
 +	DMX_OUT_TSDEMUX_TAP /* Like TS_TAP but retrieved from the DMX device */
 +} dmx_output_t;
-+
-+
-+typedef enum
-+{
-+	DMX_IN_FRONTEND, /* Input from a front-end device.  */
-+	DMX_IN_DVR       /* Input from the logical DVR device.  */
-+} dmx_input_t;
  
 -enum dmx_input_t {
 -	DMX_IN_FRONTEND,	/* Input from a front-end device.  */
@@ -2390,12 +2264,19 @@ diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
 -};
  
 -enum dmx_ts_pes {
++typedef enum
++{
++	DMX_IN_FRONTEND, /* Input from a front-end device.  */
++	DMX_IN_DVR       /* Input from the logical DVR device.  */
++} dmx_input_t;
++
++
 +typedef enum dmx_ts_pes
 +{
  	DMX_PES_AUDIO0,
  	DMX_PES_VIDEO0,
  	DMX_PES_TELETEXT0,
-@@ -73,7 +78,7 @@
+@@ -73,7 +78,7 @@ enum dmx_ts_pes {
  	DMX_PES_PCR3,
  
  	DMX_PES_OTHER
@@ -2404,7 +2285,7 @@ diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
  
  #define DMX_PES_AUDIO    DMX_PES_AUDIO0
  #define DMX_PES_VIDEO    DMX_PES_VIDEO0
-@@ -81,31 +86,35 @@
+@@ -81,31 +86,35 @@ enum dmx_ts_pes {
  #define DMX_PES_SUBTITLE DMX_PES_SUBTITLE0
  #define DMX_PES_PCR      DMX_PES_PCR0
  
@@ -2458,7 +2339,7 @@ diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
  };
  
  typedef struct dmx_caps {
-@@ -113,19 +122,16 @@
+@@ -113,19 +122,16 @@ typedef struct dmx_caps {
  	int num_decoders;
  } dmx_caps_t;
  
@@ -2482,7 +2363,7 @@ diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
  
  struct dmx_stc {
  	unsigned int num;	/* input : which STC? 0..N */
-@@ -133,6 +139,7 @@
+@@ -133,6 +139,7 @@ struct dmx_stc {
  	__u64 stc;		/* output: stc in 'base'*90 kHz units */
  };
  
@@ -2490,7 +2371,7 @@ diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
  #define DMX_START                _IO('o', 41)
  #define DMX_STOP                 _IO('o', 42)
  #define DMX_SET_FILTER           _IOW('o', 43, struct dmx_sct_filter_params)
-@@ -140,7 +147,7 @@
+@@ -140,7 +147,7 @@ struct dmx_stc {
  #define DMX_SET_BUFFER_SIZE      _IO('o', 45)
  #define DMX_GET_PES_PIDS         _IOR('o', 47, __u16[5])
  #define DMX_GET_CAPS             _IOR('o', 48, dmx_caps_t)
@@ -2499,9 +2380,10 @@ diff -Naur a/include/uapi/linux/dvb/dmx.h b/include/uapi/linux/dvb/dmx.h
  #define DMX_GET_STC              _IOWR('o', 50, struct dmx_stc)
  #define DMX_ADD_PID              _IOW('o', 51, __u16)
  #define DMX_REMOVE_PID           _IOW('o', 52, __u16)
-diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend.h
---- a/include/uapi/linux/dvb/frontend.h	2016-08-11 16:37:23.000000000 +0200
-+++ b/include/uapi/linux/dvb/frontend.h	2016-02-10 22:35:00.000000000 +0100
+diff --git a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend.h
+index 9f9e75b..c56d77c 100644
+--- a/include/uapi/linux/dvb/frontend.h
++++ b/include/uapi/linux/dvb/frontend.h
 @@ -27,115 +27,101 @@
  #define _DVBFRONTEND_H_
  
@@ -2525,7 +2407,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
 -	Layer_B,
 -	Layer_C,
 -};
--
+ 
 -enum fe_caps {
 -	FE_IS_STUPID = 0,
 -	FE_CAN_INVERSION_AUTO = 0x1,
@@ -2566,8 +2448,6 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
 -	FE_CAN_MUTE_TS = 0x80000000	/* frontend can stop */
 -					/*spurious TS data output */
 -};
- 
--#define FE_CAN_3_LAYER FE_CAN_MULTISTREAM
 +typedef enum fe_caps {
 +	FE_IS_STUPID			= 0,
 +	FE_CAN_INVERSION_AUTO		= 0x1,
@@ -2601,7 +2481,8 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
 +	FE_CAN_RECOVER			= 0x40000000, /* frontend can recover from a cable unplug automatically */
 +	FE_CAN_MUTE_TS			= 0x80000000  /* frontend can stop spurious TS data output */
 +} fe_caps_t;
-+
+ 
+-#define FE_CAN_3_LAYER FE_CAN_MULTISTREAM
  
  struct dvb_frontend_info {
 -	char name[128];
@@ -2677,7 +2558,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  /**
   * enum fe_status - enumerates the possible frontend status
   * @FE_HAS_SIGNAL:	found something above the noise level
-@@ -149,15 +135,14 @@
+@@ -149,15 +135,14 @@ typedef enum fe_sec_mini_cmd {
   */
  
  typedef enum fe_status {
@@ -2701,7 +2582,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  
  typedef enum fe_spectral_inversion {
  	INVERSION_OFF,
-@@ -165,6 +150,7 @@
+@@ -165,6 +150,7 @@ typedef enum fe_spectral_inversion {
  	INVERSION_AUTO
  } fe_spectral_inversion_t;
  
@@ -2709,7 +2590,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  typedef enum fe_code_rate {
  	FEC_NONE = 0,
  	FEC_1_2,
-@@ -181,6 +167,7 @@
+@@ -181,6 +167,7 @@ typedef enum fe_code_rate {
  	FEC_2_5,
  } fe_code_rate_t;
  
@@ -2717,7 +2598,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  typedef enum fe_modulation {
  	QPSK,
  	QAM_16,
-@@ -210,8 +197,8 @@
+@@ -210,8 +197,8 @@ typedef enum fe_transmit_mode {
  	TRANSMISSION_MODE_C3780,
  } fe_transmit_mode_t;
  
@@ -2728,7 +2609,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  	BANDWIDTH_8_MHZ,
  	BANDWIDTH_7_MHZ,
  	BANDWIDTH_6_MHZ,
-@@ -219,8 +206,8 @@
+@@ -219,8 +206,8 @@ enum fe_bandwidth {
  	BANDWIDTH_5_MHZ,
  	BANDWIDTH_10_MHZ,
  	BANDWIDTH_1_712_MHZ,
@@ -2739,7 +2620,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  
  typedef enum fe_guard_interval {
  	GUARD_INTERVAL_1_32,
-@@ -236,6 +223,7 @@
+@@ -236,6 +223,7 @@ typedef enum fe_guard_interval {
  	GUARD_INTERVAL_PN945,
  } fe_guard_interval_t;
  
@@ -2747,7 +2628,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  typedef enum fe_hierarchy {
  	HIERARCHY_NONE,
  	HIERARCHY_1,
-@@ -251,70 +239,42 @@
+@@ -251,70 +239,42 @@ enum fe_interleaving {
  	INTERLEAVING_720,
  };
  
@@ -2795,8 +2676,15 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
 -	enum fe_guard_interval guard_interval;
 -	enum fe_hierarchy hierarchy_information;
 -	enum fe_ofdm_mode ofdm_mode;
--};
--
++	fe_bandwidth_t      bandwidth;
++	fe_code_rate_t      code_rate_HP;  /* high priority stream code rate */
++	fe_code_rate_t      code_rate_LP;  /* low priority stream code rate */
++	fe_modulation_t     constellation; /* modulation type (see above) */
++	fe_transmit_mode_t  transmission_mode;
++	fe_guard_interval_t guard_interval;
++	fe_hierarchy_t      hierarchy_information;
+ };
+ 
 -#define ANALOG_FLAG_ENABLE_AFC                 0X00000001
 -#define  ANALOG_FLAG_MANUL_SCAN                0x00000011
 -struct dvb_analog_parameters {
@@ -2809,16 +2697,8 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
 -	unsigned int flag;
 -	unsigned int afc_range;
 -	unsigned int reserved;
-+	fe_bandwidth_t      bandwidth;
-+	fe_code_rate_t      code_rate_HP;  /* high priority stream code rate */
-+	fe_code_rate_t      code_rate_LP;  /* low priority stream code rate */
-+	fe_modulation_t     constellation; /* modulation type (see above) */
-+	fe_transmit_mode_t  transmission_mode;
-+	fe_guard_interval_t guard_interval;
-+	fe_hierarchy_t      hierarchy_information;
- };
+-};
  
-+
  struct dvb_frontend_parameters {
 -	/* (absolute) frequency in Hz for QAM/OFDM/ATSC */
 -	__u32 frequency;
@@ -2836,7 +2716,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  	} u;
  };
  
-@@ -322,7 +282,7 @@
+@@ -322,7 +282,7 @@ struct dvb_frontend_event {
  	fe_status_t status;
  	struct dvb_frontend_parameters parameters;
  };
@@ -2845,7 +2725,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  
  /* S2API Commands */
  #define DTV_UNDEFINED		0
-@@ -385,8 +345,6 @@
+@@ -385,8 +345,6 @@ struct dvb_frontend_event {
  
  #define DTV_ENUM_DELSYS		44
  
@@ -2854,7 +2734,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  /* ATSC-MH */
  #define DTV_ATSCMH_FIC_VER		45
  #define DTV_ATSCMH_PARADE_ID		46
-@@ -417,9 +375,7 @@
+@@ -417,9 +375,7 @@ struct dvb_frontend_event {
  #define DTV_STAT_ERROR_BLOCK_COUNT	68
  #define DTV_STAT_TOTAL_BLOCK_COUNT	69
  
@@ -2865,7 +2745,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  
  typedef enum fe_pilot {
  	PILOT_ON,
-@@ -428,7 +384,7 @@
+@@ -428,7 +384,7 @@ typedef enum fe_pilot {
  } fe_pilot_t;
  
  typedef enum fe_rolloff {
@@ -2874,7 +2754,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  	ROLLOFF_20,
  	ROLLOFF_25,
  	ROLLOFF_AUTO,
-@@ -452,59 +408,58 @@
+@@ -452,59 +408,58 @@ typedef enum fe_delivery_system {
  	SYS_CMMB,
  	SYS_DAB,
  	SYS_DVBT2,
@@ -2956,7 +2836,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  };
  
  /**
-@@ -558,13 +513,14 @@
+@@ -558,13 +513,14 @@ enum fecap_scale_params {
   *	u.st.len = 4;
   */
  struct dtv_stats {
@@ -2972,7 +2852,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  #define MAX_DTV_STATS   4
  
  struct dtv_fe_stats {
-@@ -584,7 +540,6 @@
+@@ -584,7 +540,6 @@ struct dtv_property {
  			__u32 reserved1[3];
  			void *reserved2;
  		} buffer;
@@ -2980,7 +2860,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  	} u;
  	int result;
  } __attribute__ ((packed));
-@@ -594,113 +549,12 @@
+@@ -594,113 +549,12 @@ struct dtv_property {
  
  struct dtv_properties {
  	__u32 num;
@@ -3095,7 +2975,7 @@ diff -Naur a/include/uapi/linux/dvb/frontend.h b/include/uapi/linux/dvb/frontend
  
  /**
   * When set, this flag will disable any zigzagging or other "normal" tuning
-@@ -711,38 +565,29 @@
+@@ -711,38 +565,29 @@ struct dvbsx_blindscanevent {
   */
  #define FE_TUNE_MODE_ONESHOT 0x01
  
