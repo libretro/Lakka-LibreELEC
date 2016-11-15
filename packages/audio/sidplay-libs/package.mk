@@ -37,4 +37,6 @@ pre_configure_target() {
   # fails to build in subdirs
   cd $ROOT/$PKG_BUILD
   rm -rf .$TARGET_NAME
+
+  export CXXFLAGS="$CXXFLAGS -Wno-narrowing"
 }
