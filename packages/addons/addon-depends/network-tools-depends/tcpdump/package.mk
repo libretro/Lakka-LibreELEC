@@ -26,7 +26,7 @@ PKG_DEPENDS_TARGET="toolchain libpcap"
 PKG_SECTION="network/analyzer"
 PKG_SHORTDESC="powerful tool for network monitoring and data acquisition"
 PKG_LONGDESC="This program allows you to dump the traffic on a network. tcpdump is able to examine IPv4, ICMPv4, IPv6, ICMPv6, UDP, TCP, SNMP, AFS BGP, RIP, PIM, DVMRP, IGMP, SMB, OSPF, NFS and many other packet types."
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-pcap=linux --with-crypto=no --disable-ipv6"
 

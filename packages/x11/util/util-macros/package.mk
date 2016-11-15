@@ -29,7 +29,7 @@ PKG_SHORTDESC="util-macros: X.org autoconf utilities"
 PKG_LONGDESC="X.org autoconf utilities such as M4 macros."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr

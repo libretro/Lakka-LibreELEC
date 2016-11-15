@@ -29,7 +29,7 @@ PKG_SHORTDESC="libXdamage: X11 damaged region extension library"
 PKG_LONGDESC="LibXdamage provides an X Window System client interface to the DAMAGE extension to the X protocol. The Damage extension provides for notification of when on-screen regions have been 'damaged' (altered)."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 

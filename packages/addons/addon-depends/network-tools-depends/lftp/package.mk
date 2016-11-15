@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain readline libressl zlib"
 PKG_SECTION="tools"
 PKG_SHORTDESC="ftp client"
 PKG_LONGDESC="LFTP is a sophisticated ftp/http client, and a file transfer program supporting a number of network protocols"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls --with-gnu-ld --without-gnutls --with-openssl"
 

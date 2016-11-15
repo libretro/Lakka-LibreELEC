@@ -29,7 +29,7 @@ PKG_SHORTDESC="nano: Pico editor clone with enhancements"
 PKG_LONGDESC="GNU nano (Nano's ANOther editor, or Not ANOther editor) is an enhanced clone of the Pico text editor."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-utf8 \
                            --disable-nls \

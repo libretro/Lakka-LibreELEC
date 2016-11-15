@@ -29,6 +29,6 @@ PKG_SHORTDESC="libxrandr: X Resize, Rotate and Reflection extension client libra
 PKG_LONGDESC="Xrandr is a simple library designed to interface the X Resize and Rotate Extension. This allows clients to change the size and rotation of the root window of a screen, along with the ability to reflect the screen about either axis."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-malloc0returnsnull"

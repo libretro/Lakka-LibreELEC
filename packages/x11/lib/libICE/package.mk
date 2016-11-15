@@ -29,7 +29,7 @@ PKG_SHORTDESC="libICE: X Inter-Client Exchange (ICE) protocol library"
 PKG_LONGDESC="X Inter-Client Exchange (ICE) protocol library."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --disable-shared \

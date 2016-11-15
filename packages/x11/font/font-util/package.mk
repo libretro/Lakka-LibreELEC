@@ -30,7 +30,7 @@ PKG_SHORTDESC="font-util: X.org font utilities"
 PKG_LONGDESC="X.org font utilities."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-mapdir=/usr/share/fonts/util"
 

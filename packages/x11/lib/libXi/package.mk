@@ -29,7 +29,7 @@ PKG_SHORTDESC="libxi: X11 Input extension library"
 PKG_LONGDESC="LibXi provides an X Window System client interface to the XINPUT extension to the X protocol."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --enable-malloc0returnsnull \

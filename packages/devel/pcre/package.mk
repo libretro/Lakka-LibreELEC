@@ -31,7 +31,7 @@ PKG_LONGDESC="The PCRE library is a set of functions that implement regular expr
 
 PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--prefix=$ROOT/$TOOLCHAIN \
              --enable-utf8 \

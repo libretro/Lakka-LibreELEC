@@ -29,7 +29,7 @@ PKG_SHORTDESC="libXau: X authorization file management libary"
 PKG_LONGDESC="X authorization file management libary"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-xthreads"
 
