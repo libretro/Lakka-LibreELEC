@@ -34,9 +34,9 @@ PKG_AUTORECONF="no"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC"
-  export CXXFLAGS="$CXXFLAGS -fPIC"
+  export CXXFLAGS="$CXXFLAGS -fPIC -Wno-narrowing"
   export LDFLAGS="$LDFLAGS -fPIC"
-  export LIBS="-L$SYSROOT_PREFIX/usr/lib/iconv"
+  export LIBS="-L$SYSROOT_PREFIX/usr/lib/iconv -lpcre -lpcrecpp"
 }
 
 make_target() {

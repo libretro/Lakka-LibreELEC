@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="glibc"
-PKG_VERSION="2.23"
+PKG_VERSION="2.24"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -99,19 +99,16 @@ pre_configure_target() {
   unset LD_LIBRARY_PATH
 
   # set some CFLAGS we need
-  export CFLAGS="$CFLAGS -g -fno-stack-protector -fgnu89-inline"
+  export CFLAGS="$CFLAGS -g -fno-stack-protector"
 
   export BUILD_CC=$HOST_CC
   export OBJDUMP_FOR_HOST=objdump
 
 cat >config.cache <<EOF
-ac_cv_header_cpuid_h=yes
 libc_cv_forced_unwind=yes
 libc_cv_c_cleanup=yes
-libc_cv_gnu89_inline=yes
 libc_cv_ssp=no
 libc_cv_ssp_strong=no
-libc_cv_ctors_header=yes
 libc_cv_slibdir=/lib
 EOF
 
