@@ -56,7 +56,7 @@ pre_configure_target() {
   echo "" > ../cmake/FindGitVersion.cmake
 }
 
-PKG_CMAKE_OPTS_TARGET="-DQT_QMAKE_EXECUTABLE=$ROOT/$TOOLCHAIN/bin/qmake \
+PKG_CMAKE_OPTS_TARGET="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
                        -DHYPERION_VERSION_ID="$PKG_VERSION" \
                        $AMLOGIC_SUPPORT \
                        $DISPMANX_SUPPORT \
