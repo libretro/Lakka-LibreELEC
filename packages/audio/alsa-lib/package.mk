@@ -29,7 +29,7 @@ PKG_SHORTDESC="alsa-lib: Advanced Linux Sound Architecture library"
 PKG_LONGDESC="ALSA (Advanced Linux Sound Architecture) is the next generation Linux Sound API. It provides much finer (->better) access to the sound hardware, has a unbeatable mixer API and supports stuff like multi channel hardware, digital outs and ins, uninterleaved sound data access, and an oss emulation layer (for the old applications). It is the prefered API for professional sound apps under Linux."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
 if [ "$DEBUG" = yes ]; then
   ALSA_DEBUG=--with-debug
