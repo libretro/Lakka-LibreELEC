@@ -29,7 +29,7 @@ PKG_SHORTDESC="libx11: The X11 library"
 PKG_LONGDESC="LibX11 is the main X11 library containing all the client-side code to access the X11 windowing system."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-secure-rpc \
                            --disable-loadable-i18n \
