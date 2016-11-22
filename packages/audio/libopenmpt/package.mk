@@ -40,7 +40,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --without-pulseaudio \
                            --without-portaudio \
                            --without-portaudiocpp \
-                           --without-sdl2 \
+                           --without-sdl \
                            --without-sdl2 \
                            --without-sndfile \
                            --without-flac"
