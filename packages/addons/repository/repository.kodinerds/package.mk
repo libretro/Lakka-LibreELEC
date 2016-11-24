@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="repository.kodinerds"
-PKG_VERSION="8.0"
-PKG_REV="101"
+PKG_VERSION="8.1"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodinerds.net"
