@@ -29,8 +29,12 @@ case $MESON_FAMILY in
     PKG_SHA256="21a8376668c84bf1b9e64a917fcfa1cf74689035fed8e4630833c9cde28d40c1"
     ;;
   gxbb)
-    PKG_VERSION="gxbb-r5p1-01rel0"
-    ;;
+    if [ "$TARGET_ARCH" = "arm" ]; then
+      PKG_VERSION="8-r5p1-01rel0-armhf"
+    else
+      PKG_VERSION="gxbb-r5p1-01rel0"
+    fi
+;;
 esac
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"

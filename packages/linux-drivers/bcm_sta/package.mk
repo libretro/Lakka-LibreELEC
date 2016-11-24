@@ -34,6 +34,7 @@ PKG_LONGDESC="These packages contain Broadcom's IEEE 802.11a/b/g/n hybrid LinuxÂ
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_IS_KERNEL_PKG="yes"
 
 make_target() {
   cd x86-64

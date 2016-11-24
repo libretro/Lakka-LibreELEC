@@ -31,6 +31,7 @@ PKG_LONGDESC="brcmap6xxx-aml: Linux drivers for AP6xxx WLAN chips used in some d
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_IS_KERNEL_PKG="yes"
 
 make_target() {
   cd bcmdhd_1_201_59_x

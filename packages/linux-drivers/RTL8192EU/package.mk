@@ -32,6 +32,7 @@ PKG_LONGDESC="Realtek RTL8192EU Linux 3.x driver"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_IS_KERNEL_PKG="yes"
 
 pre_make_target() {
   unset LDFLAGS

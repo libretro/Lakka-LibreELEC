@@ -31,6 +31,7 @@ PKG_LONGDESC="These package contains Wetek's DVB driver "
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_IS_KERNEL_PKG="yes"
 
 make_target() {
   : # nothing todo
