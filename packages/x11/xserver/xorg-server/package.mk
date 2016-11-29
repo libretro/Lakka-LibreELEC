@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.18.4"
+PKG_VERSION="1.19.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -118,6 +118,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-ipv6 \
                            --disable-local-transport \
                            --disable-secure-rpc \
+                           --enable-input-thread \
                            --enable-xtrans-send-fds \
                            --disable-docs \
                            --disable-devel-docs \
