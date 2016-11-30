@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="53.0.2785.92"
-PKG_REV="104"
+PKG_VERSION="55.0.2883.44"
+PKG_REV="105"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
@@ -37,21 +37,17 @@ PKG_ADDON_TYPE="xbmc.python.script"
 PKG_ADDON_PROVIDES="executable"
 
 pre_make_target() {
-  export MAKEFLAGS="-j4"
-
   strip_lto
-
-  # https://groups.google.com/a/chromium.org/d/topic/chromium-packagers/9JX1N2nf4PU/discussion
-  touch chrome/test/data/webui/i18n_process_css_test.html
 
   sed -i -e 's/@WIDEVINE_VERSION@/Pinkie Pie/' third_party/widevine/cdm/stub/widevine_cdm_version.h
 }
 
 make_target() {
-  # CFLAGS are passed through release_extra_cflags below
-  export -n CFLAGS CXXFLAGS
-
   export LDFLAGS="$LDFLAGS -ludev"
+  export LD=$CXX
+
+  # Use Python 2
+  find . -name '*.py' -exec sed -i -r "s|/usr/bin/python$|$ROOT/$TOOLCHAIN/bin/python|g" {} +
 
   # Google API keys (see http://www.chromium.org/developers/how-tos/api-keys)
   # Note: These are for OpenELEC use ONLY. For your own distribution, please
@@ -61,61 +57,66 @@ make_target() {
   _google_default_client_id=740889307901-4bkm4e0udppnp1lradko85qsbnmkfq3b.apps.googleusercontent.com
   _google_default_client_secret=9TJlhL661hvShQub4cWhANXa
 
-  local _chromium_conf=(
-    -Dgoogle_api_key=$_google_api_key
-    -Dgoogle_default_client_id=$_google_default_client_id
-    -Dgoogle_default_client_secret=$_google_default_client_secret
-    -Dtarget_arch=x64
-    -Dfastbuild=2
-    -Dwerror=
-    -Dclang=0
-    -Dpython_ver=2.7
-    -Dlinux_link_gsettings=0
-    -Dlinux_strip_binary=1
-    -Dlinux_use_bundled_binutils=0
-    -Dlinux_use_bundled_gold=0
-    -Dlinux_use_gold_flags=0
-    -Dicu_use_data_file_flag=1
-    -Dlogging_like_official_build=1
-    -Dtracing_like_official_build=1
-    -Dfieldtrial_testing_like_official_build=1
-    -Dremove_webcore_debug_symbols=1
-    -Drelease_extra_cflags="$CFLAGS"
-    -Dlibspeechd_h_prefix=speech-dispatcher/
-    -Dffmpeg_branding=Chrome
-    -Dproprietary_codecs=1
-    -Duse_system_bzip2=1
-    -Duse_system_flac=0
-    -Duse_system_ffmpeg=0
-    -Duse_system_harfbuzz=1
-    -Duse_system_icu=0
-    -Duse_system_libevent=0
-    -Duse_system_libjpeg=1
-    -Duse_system_libpng=1
-    -Duse_system_libvpx=0
-    -Duse_system_libxml=0
-    -Duse_system_snappy=0
-    -Duse_system_xdg_utils=0
-    -Duse_system_yasm=1
-    -Duse_system_zlib=0
-    -Duse_mojo=0
-    -Duse_gconf=0
-    -Duse_gnome_keyring=0
-    -Duse_pulseaudio=0
-    -Duse_kerberos=0
-    -Duse_cups=0
-    -Denable_hangout_services_extension=1
-    -Ddisable_fatal_linker_warnings=1
-    -Dsysroot=$SYSROOT_PREFIX
-    -Ddisable_glibc=1
-    -Denable_widevine=1
-    -Ddisable_nacl=1
-    -Ddisable_pnacl=1)
+  local _flags=(
+    'is_clang=false'
+    'clang_use_chrome_plugins=false'
+    'symbol_level=0'
+    'is_debug=false'
+    'fatal_linker_warnings=false'
+    'treat_warnings_as_errors=false'
+    'fieldtrial_testing_like_official_build=true'
+    'remove_webcore_debug_symbols=true'
+    'ffmpeg_branding="Chrome"'
+    'proprietary_codecs=true'
+    'link_pulseaudio=true'
+    'linux_use_bundled_binutils=false'
+    'use_allocator="none"'
+    'use_cups=false'
+    'use_gconf=false'
+    'use_gnome_keyring=false'
+    'use_gold=false'
+    'use_gtk3=false'
+    'use_kerberos=false'
+    'use_pulseaudio=false'
+    'use_sysroot=true'
+    "target_sysroot=\"${SYSROOT_PREFIX}\""
+    'enable_hangout_services_extension=true'
+    'enable_widevine=true'
+    'enable_nacl=false'
+    'enable_nacl_nonsfi=false'
+    "google_api_key=\"${_google_api_key}\""
+    "google_default_client_id=\"${_google_default_client_id}\""
+    "google_default_client_secret=\"${_google_default_client_secret}\""
+  )
 
-  ./build/linux/unbundle/replace_gyp_files.py "${_chromium_conf[@]}"
-  ./build/gyp_chromium --depth=. "${_chromium_conf[@]}"
+  # Possible replacements are listed in build/linux/unbundle/replace_gn_files.py
+  local _system_libs=(
+    harfbuzz-ng
+    libjpeg
+    libpng
+    libxslt
+    yasm
+  )
 
-  ninja -C out/Release chrome chrome_sandbox
+  # Remove bundled libraries for which we will use the system copies; this
+  # *should* do what the remove_bundled_libraries.py script does, with the
+  # added benefit of not having to list all the remaining libraries
+  local _lib
+  for _lib in ${_system_libs}; do
+    find -type f -path "*third_party/$_lib/*" \
+      \! -path "*third_party/$_lib/chromium/*" \
+      \! -path "*third_party/$_lib/google/*" \
+      \! -regex '.*\.\(gn\|gni\|isolate\|py\)' \
+      -delete
+  done
+
+  ./build/linux/unbundle/replace_gn_files.py --system-libraries "${_system_libs}"
+  ./third_party/libaddressinput/chromium/tools/update-strings.py
+
+  ./tools/gn/bootstrap/bootstrap.py --gn-gen-args "${_flags[*]}"
+  ./out/Release/gn gen out/Release --args="${_flags[*]}" --script-executable=$ROOT/$TOOLCHAIN/bin/python
+
+  ninja -C out/Release chrome chrome_sandbox widevinecdmadapter
 }
 
 makeinstall_target() {
@@ -128,9 +129,9 @@ addon() {
   cp -P  $PKG_BUILD/out/Release/chrome_sandbox $ADDON_BUILD/$PKG_ADDON_ID/bin/chrome-sandbox
   cp -P  $PKG_BUILD/out/Release/{*.pak,*.dat,*.bin,libwidevinecdmadapter.so} $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -PR $PKG_BUILD/out/Release/locales $ADDON_BUILD/$PKG_ADDON_ID/bin/
+  cp -PR $PKG_BUILD/out/Release/gen/content/content_resources.pak $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
-  $STRIP $ADDON_BUILD/$PKG_ADDON_ID/bin/chromium.bin
-  $STRIP $ADDON_BUILD/$PKG_ADDON_ID/bin/chrome-sandbox
+  debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   # config
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
@@ -151,7 +152,8 @@ addon() {
   cp -PL $(get_build_dir gtk+)/.install_pkg/usr/lib/libgtk-x11-2.0.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # harfbuzz
-  cp -PL $(get_build_dir harfbuzz)/.install_pkg/usr/lib/libharfbuzz.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir harfbuzz)/.install_pkg/usr/lib/libharfbuzz.so* $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir harfbuzz)/.install_pkg/usr/lib/libharfbuzz-icu.so* $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # gdk-pixbuf
   cp -PL $(get_build_dir gdk-pixbuf)/.install_pkg/usr/lib/libgdk_pixbuf-2.0.so.0 $ADDON_BUILD/$PKG_ADDON_ID/lib
