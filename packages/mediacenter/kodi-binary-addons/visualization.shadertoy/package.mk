@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.shadertoy"
-PKG_VERSION="86ced78"
+PKG_VERSION="e88fd6e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
