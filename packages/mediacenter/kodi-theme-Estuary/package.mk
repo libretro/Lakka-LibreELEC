@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="kodi-theme-Estuary"
-PKG_VERSION="17.0-beta5-e92818a"
+PKG_VERSION="17.0-beta6-654f1b7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -56,7 +56,4 @@ makeinstall_target() {
     for theme in themes/*; do
       cp $(basename $theme).xbt $INSTALL/usr/share/kodi/addons/skin.estuary/media
     done
-
-# Rebrand
-  sed -e "s,@DISTRONAME@,$DISTRONAME,g" -i $INSTALL/usr/share/kodi/addons/skin.estuary/1080i/Settings.xml
 }
