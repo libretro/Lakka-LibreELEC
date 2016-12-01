@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+#      Copyright (C) 2016 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,15 +16,15 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="inputstream.smoothstream"
-PKG_VERSION="081c6c4"
+PKG_NAME="inputstream.adaptive"
+PKG_VERSION="7f57246"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="https://github.com/peak3d/inputstream.smoothstream/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/peak3d/inputstream.adaptive/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
-PKG_SHORTDESC="inputstream.smoothstream"
-PKG_LONGDESC="inputstream.smoothstream"
+PKG_SHORTDESC="inputstream.adaptive"
+PKG_LONGDESC="inputstream.adaptive"
 
 PKG_IS_ADDON="yes"
 
