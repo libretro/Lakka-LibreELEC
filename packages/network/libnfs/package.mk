@@ -35,8 +35,5 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="--disable-examples --disable-tirpc"
 
 pre_configure_target() {
-# dont build parallel
-  MAKEFLAGS=-j1
-
-  export CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64 -I$ROOT/$PKG_BUILD/mount -I$ROOT/$PKG_BUILD/nfs"
+  export CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64"
 }
