@@ -133,7 +133,15 @@ if [ ! -f $STAMP ]; then
       CMAKE_BUILD_TYPE="MinSizeRel"
     fi
 
-    TARGET_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+    if [ "$PKG_USE_NINJA" = "no" ]; then
+      CMAKE_GENERATOR=""
+    else
+      CMAKE_GENERATOR="-GNinja \
+                       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+    fi
+
+    TARGET_CMAKE_OPTS="$CMAKE_GENERATOR \
+                       -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
                        -DCMAKE_INSTALL_PREFIX=/usr \
                        -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE"
 
@@ -149,9 +157,9 @@ if [ ! -f $STAMP ]; then
                          --disable-static \
                          --enable-shared"
 
-    HOST_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
-                     -DCMAKE_INSTALL_PREFIX=$TOOLCHAIN \
-                     -DCMAKE_BUILD_TYPE=Release"
+    HOST_CMAKE_OPTS="$CMAKE_GENERATOR \
+                     -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
+                     -DCMAKE_INSTALL_PREFIX=$TOOLCHAIN"
 
   # configure INIT build defaults
     INIT_CONFIGURE_OPTS="$TARGET_CONFIGURE_OPTS"
@@ -301,6 +309,20 @@ if [ ! -f $STAMP ]; then
       fi
       if [ "$(type -t make_$TARGET)" = "function" ]; then
         make_$TARGET
+      elif [ -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" -a ! "$PKG_USE_NINJA" = "no" ]; then
+        if [ "$TARGET" = "target" ]; then
+          echo "Executing (target): ninja $PKG_MAKE_OPTS_TARGET" | tr -s " "
+          ninja $PKG_MAKE_OPTS_TARGET
+        elif [ "$TARGET" = "host" ]; then
+          echo "Executing (host): ninja $PKG_MAKE_OPTS_HOST" | tr -s " "
+          ninja $PKG_MAKE_OPTS_HOST
+        elif [ "$TARGET" = "init" ]; then
+          echo "Executing (init): ninja $PKG_MAKE_OPTS_INIT" | tr -s " "
+          ninja $PKG_MAKE_OPTS_INIT
+        elif [ "$TARGET" = "bootstrap" ]; then
+          echo "Executing (bootstrap): ninja $PKG_MAKE_OPTS_BOOTSTRAP" | tr -s " "
+          ninja $PKG_MAKE_OPTS_BOOTSTRAP
+        fi
       else
         if [ "$TARGET" = "target" ]; then
           echo "Executing (target): make $PKG_MAKE_OPTS_TARGET" | tr -s " "
@@ -326,6 +348,17 @@ if [ ! -f $STAMP ]; then
       fi
       if [ "$(type -t makeinstall_$TARGET)" = "function" ]; then
         makeinstall_$TARGET
+      elif [ -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" -a ! "$PKG_USE_NINJA" = "no" ]; then
+        if [ "$TARGET" = "target" ]; then
+          DESTDIR=$SYSROOT_PREFIX ninja install $PKG_MAKEINSTALL_OPTS_TARGET
+          DESTDIR=$INSTALL ninja install $PKG_MAKEINSTALL_OPTS_TARGET
+        elif [ "$TARGET" = "host" ]; then
+          ninja install $PKG_MAKEINSTALL_OPTS_HOST
+        elif [ "$TARGET" = "init" ]; then
+          DESTDIR=$INSTALL ninja install $PKG_MAKEINSTALL_OPTS_INIT
+        elif [ "$TARGET" = "bootstrap" ]; then
+          ninja install $PKG_MAKEINSTALL_OPTS_BOOTSTRAP
+        fi
       else
         if [ "$TARGET" = "target" ]; then
           $MAKEINSTALL $PKG_MAKEINSTALL_OPTS_TARGET
