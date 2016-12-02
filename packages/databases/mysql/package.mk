@@ -63,9 +63,9 @@ if [ "$DEBUG" = yes -a "$TARGET_ARCH" = aarch64 ]; then
 fi
 
 make_host() {
-  make comp_err
-  make gen_lex_hash
-  make comp_sql
+  ninja comp_err
+  ninja gen_lex_hash
+  ninja comp_sql
 }
 
 post_make_host() {
