@@ -20,7 +20,7 @@ PKG_NAME="docker"
 PKG_VERSION="1.12.3"
 PKG_REV="109"
 PKG_ARCH="any"
-PKG_ADDON_PROJECTS="Generic RPi RPi2 imx6"
+PKG_ADDON_PROJECTS="Generic RPi RPi2 imx6 WeTek_Hub WeTek_Play_2 Odroid_C2"
 PKG_LICENSE="ASL"
 PKG_SITE="http://www.docker.com/"
 PKG_URL="https://github.com/docker/docker/archive/v${PKG_VERSION}.tar.gz"
@@ -56,6 +56,9 @@ configure_target() {
          export GOARM=7
          ;;
       esac
+      ;;
+    aarch64)
+      export GOARCH=arm64
       ;;
   esac
 
