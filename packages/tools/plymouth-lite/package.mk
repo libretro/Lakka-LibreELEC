@@ -42,8 +42,8 @@ pre_configure_init() {
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/bin
-    cp ply-image $INSTALL/bin
+  mkdir -p $INSTALL/usr/bin
+    cp ply-image $INSTALL/usr/bin
 
   mkdir -p $INSTALL/splash
     if [ -f $PROJECT_DIR/$PROJECT/splash/splash.conf ]; then
