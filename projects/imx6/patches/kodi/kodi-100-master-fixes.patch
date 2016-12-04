@@ -1,3 +1,5 @@
+disable standby
+
 --- a/xbmc/powermanagement/linux/LogindUPowerSyscall.cpp	2016-10-07 09:41:03.067310207 +0200
 +++ b/xbmc/powermanagement/linux/LogindUPowerSyscall.cpp	2016-10-07 09:41:27.658371366 +0200
 @@ -52,8 +52,8 @@ CLogindUPowerSyscall::CLogindUPowerSysca
@@ -25,90 +27,44 @@
  
  #endif
 
-From aa2b510f1ab61c8989fe41f23c2704facb962d50 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Sat, 28 Mar 2015 23:30:03 +0100
-Subject: [PATCH] Add CEC IMX adapter as known type and set no polling. - that
- eliminates extensive periodic /sys walkthrough
+From e0c980535b164d7c28555418e5ce2252dbada2dc Mon Sep 17 00:00:00 2001
+From: Peter Vicman <peter.vicman@gmail.com>
+Date: Thu, 10 Nov 2016 17:05:11 +0100
+Subject: [PATCH] fix freeze on lvds display connected to udoo quad
 
-Upstream-commit: f7ba60b4e94091a007fd656bc0084b600a12eb17
----
- xbmc/peripherals/PeripheralTypes.h                | 6 ++++++
- xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp | 4 ++++
- 2 files changed, 10 insertions(+)
-
-diff --git a/xbmc/peripherals/PeripheralTypes.h b/xbmc/peripherals/PeripheralTypes.h
-index 565de4b..e2f2805 100644
---- a/xbmc/peripherals/PeripheralTypes.h
-+++ b/xbmc/peripherals/PeripheralTypes.h
-@@ -40,11 +40,13 @@ namespace PERIPHERALS
-     PERIPHERAL_BUS_USB,
-     PERIPHERAL_BUS_PCI,
-     PERIPHERAL_BUS_RPI,
-+    PERIPHERAL_BUS_IMX,
-     PERIPHERAL_BUS_CEC,
-     PERIPHERAL_BUS_ADDON,
- #ifdef TARGET_ANDROID
-     PERIPHERAL_BUS_ANDROID,
- #endif
-+    //PERIPHERAL_BUS_CEC
-   };
- 
-   enum PeripheralFeature
-@@ -169,6 +171,8 @@ namespace PERIPHERALS
-         return "pci";
-       case PERIPHERAL_BUS_RPI:
-         return "rpi";
-+      case PERIPHERAL_BUS_IMX:
-+        return "imx";
-       case PERIPHERAL_BUS_CEC:
-         return "cec";
-       case PERIPHERAL_BUS_ADDON:
-@@ -193,6 +197,8 @@ namespace PERIPHERALS
-         return PERIPHERAL_BUS_PCI;
-       else if (strTypeLowerCase == "rpi")
-         return PERIPHERAL_BUS_RPI;
-+      else if (strTypeLowerCase == "imx")
-+        return PERIPHERAL_BUS_IMX;
-       else if (strTypeLowerCase == "cec")
-         return PERIPHERAL_BUS_CEC;
-       else if (strTypeLowerCase == "addon")
-diff --git a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
-index b04fe00..3dc3d0e 100644
---- a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
-+++ b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
-@@ -102,6 +102,10 @@ bool CPeripheralBusCEC::PerformDeviceScan(PeripheralScanResults &results)
-       /** the Pi's adapter cannot be removed, no need to rescan */
-       m_bNeedsPolling = false;
-       break;
-+    case ADAPTERTYPE_IMX:
-+      result.m_mappedBusType = PERIPHERAL_BUS_IMX;
-+      m_bNeedsPolling = false;
-+      break;
-     default:
-       break;
-     }
-
-From 07ae05827ef197fae42a6e849a816a38ffa3bf0d Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Sat, 8 Oct 2016 17:23:32 +0200
-Subject: [PATCH 20/20] [CodecIMX] fix a xvid-type media playback - starting
- with green screen
+revert 0ff257943e032e0f4b669a65e6449ab1e1699d74
+[IMXRenderer] skip rendering same frame 
 
 ---
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ .../cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp | 8 --------
+ 1 file changed, 8 deletions(-)
 
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index f692482..50ff805 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -974,7 +974,7 @@ void CIMXCodec::Process()
-         m_decInput.setquotasize(m_fps);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+index 8569c72..f21fa98 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+@@ -132,7 +132,6 @@ bool CRendererIMX::RenderHook(int index)
  
-         bool getFrame = m_decOpenParam.CodecFormat != VPU_V_AVC || !m_converter;
--        getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2;
-+        getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2 && m_decOpenParam.CodecFormat != VPU_V_XVID;
-         if (getFrame || m_decRet & VPU_DEC_RESOLUTION_CHANGED)
-         {
-           SetDrainMode((VpuDecInputType)IN_DECODER_SET);
+ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+ {
+-  static DWORD flagsPrev;
+ #if 0
+   static unsigned long long previous = 0;
+   unsigned long long current = XbmcThreads::SystemClockMillis();
+@@ -142,13 +141,6 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+   CDVDVideoCodecIMXBuffer *buffer = static_cast<CDVDVideoCodecIMXBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
+   if (buffer)
+   {
+-    if (buffer == m_bufHistory[0] && flagsPrev == flags)
+-    {
+-      g_IMX.WaitVsync();
+-      return true;
+-    }
+-
+-    flagsPrev = flags;
+     buffer->Lock();
+ 
+     SAFE_RELEASE(m_bufHistory[1]);
+-- 
+2.7.1
+

@@ -1,6 +1,6 @@
 https://github.com/OpenBricks/openbricks/tree/krypton-glibc
 https://github.com/OpenBricks/openbricks/tree/krypton-glibc/packages/multimedia/kodi/patches
-https://github.com/OpenBricks/openbricks/tree/32da31689ba04a94d1a08bfc04f69d6c1a3c848a/packages/multimedia/kodi/patches
+https://github.com/OpenBricks/openbricks/tree/731d2788a4f5924cdf80314709dc303a43b5c3f5/packages/multimedia/kodi/patches
 
 ==============================================================
 file 0010-IMX-add-Supports-ERENDERFEATURE.patch
@@ -3201,12 +3201,77 @@ index 2168e00..22b34d7 100644
 
 
 ==============================================================
-file 0050-Change-mediainfo-logging.patch
+file 0042-Honour-forced-aspect-ratio-hint.patch
 ==============================================================
 
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp	2016-10-02 11:49:42.415297936 +0200
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp	2016-10-02 11:50:57.875301018 +0200
-@@ -504,8 +504,6 @@
+From 8542fadfce7bfa1c7691403029a81682c389c8c2 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Mon, 3 Oct 2016 18:08:34 +0200
+Subject: [PATCH] Honour forced aspect ratio hint
+
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 6 +++++-
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h   | 1 +
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index 74f4ae4..155710a 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -544,6 +544,8 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
+ #endif
+ 
+   m_warnOnce = true;
++  m_forcedWidthHeightRatio = m_hints.forced_aspect ? (65536 * m_hints.aspect) : 0;
++
+   switch(m_hints.codec)
+   {
+   case AV_CODEC_ID_MPEG1VIDEO:
+@@ -1155,7 +1157,9 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+   pDvdVideoPicture->iWidth = pIMXBuffer->GetPictureWidth();
+   pDvdVideoPicture->iHeight = pIMXBuffer->GetPictureHeight();
+ 
+-  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * pIMXBuffer->GetWidthHeightRatio()) + 32767) >> 16;
++  int ratio = m_forcedWidthHeightRatio ? m_forcedWidthHeightRatio : pIMXBuffer->GetWidthHeightRatio();
++
++  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * ratio) + 32767) >> 16;
+   pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
+ 
+   pDvdVideoPicture->pts = pIMXBuffer->GetPts();
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+index 22b34d7..b91cdc2 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+@@ -386,6 +386,7 @@ protected:
+   int                          m_speed;
+   CCriticalSection             m_signalLock;
+   CCriticalSection             m_queuesLock;
++  int                          m_forcedWidthHeightRatio;
+ #ifdef DUMP_STREAM
+   FILE                        *m_dump;
+ #endif
+-- 
+1.9.1
+
+
+==============================================================
+file 0043-Cleanup-mediainfo-logging.patch
+==============================================================
+
+From 5a26b1e3d341dd2591f6315f9fc97b5677105bf8 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Mon, 3 Oct 2016 18:11:31 +0200
+Subject: [PATCH] Cleanup mediainfo logging
+
+---
+ .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 52 +++++++++++-----------
+ 1 file changed, 26 insertions(+), 26 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index 155710a..3dc63d5 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -504,8 +504,6 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
    }
  
    m_hints = hints;
@@ -3215,7 +3280,7 @@ file 0050-Change-mediainfo-logging.patch
  
    int param = 0;
    SetVPUParams(VPU_DEC_CONF_INPUTTYPE, &param);
-@@ -514,32 +512,31 @@
+@@ -514,32 +512,31 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
  #ifdef MEDIAINFO
    if (g_advancedSettings.CanLogComponent(LOGVIDEO))
    {
@@ -3271,7 +3336,7 @@ file 0050-Change-mediainfo-logging.patch
    }
  #endif
  
-@@ -624,6 +621,9 @@
+@@ -626,6 +623,9 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
      return false;
    }
  
@@ -3281,6 +3346,75 @@ file 0050-Change-mediainfo-logging.patch
    std::list<EINTERLACEMETHOD> deintMethods({ EINTERLACEMETHOD::VS_INTERLACEMETHOD_AUTO,
                                               EINTERLACEMETHOD::VS_INTERLACEMETHOD_RENDER_BOB });
  
+-- 
+1.9.1
+
+
+==============================================================
+file 0044-CodecIMX-fix-a-xvid-type-media-playback-starting-wit.patch
+==============================================================
+
+From 451b97280d92fe1eedd78a5f06ec8b5bad6ae28c Mon Sep 17 00:00:00 2001
+From: Matus Kral <matuskral@me.com>
+Date: Sat, 8 Oct 2016 17:23:32 +0200
+Subject: [PATCH] [CodecIMX] fix a xvid-type media playback - starting with
+ green screen
+
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index 3dc63d5..5e0abd5 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -977,7 +977,7 @@ void CIMXCodec::Process()
+         m_decInput.setquotasize(m_fps);
+ 
+         bool getFrame = m_decOpenParam.CodecFormat != VPU_V_AVC || !m_converter;
+-        getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2;
++        getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2 && m_decOpenParam.CodecFormat != VPU_V_XVID;
+         if (getFrame || m_decRet & VPU_DEC_RESOLUTION_CHANGED)
+         {
+           SetDrainMode((VpuDecInputType)IN_DECODER_SET);
+-- 
+1.9.1
+
+
+==============================================================
+file 0045-Partly-undo-d6f6155a060e0a5b94e3257f7c5d75fa1a8be321.patch
+==============================================================
+
+From 99f481ea2c64ada525e135957be4b50751ca3a09 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Thu, 13 Oct 2016 20:49:02 +0200
+Subject: [PATCH] Partly undo d6f6155a060e0a5b94e3257f7c5d75fa1a8be321
+
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index 5e0abd5..4fefc27 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -393,13 +393,6 @@ bool CIMXCodec::VpuAllocFrameBuffers()
+ #endif
+     vpuFrameBuffer.pbufVirtMvCol      = ptrVirt + ySize + uSize + vSize;
+ 
+-    if (i < 2)
+-    {
+-      memset(vpuFrameBuffer.pbufVirtY, 16, ySize);
+-      memset(vpuFrameBuffer.pbufVirtCb, 128, uSize + vSize);
+-      memset(vpuFrameBuffer.pbufVirtMvCol, 0, mvSize);
+-    }
+-
+     m_vpuFrameBuffers.push_back(vpuFrameBuffer);
+   }
+ 
+-- 
+1.9.1
+
 
 ==============================================================
 file 400-Boost-Center-Audio-Channel-on-Downmixing.patch
@@ -3366,43 +3500,6 @@ index e4ddf9e..34d0152 100644
  
    if (remapLayout)
    {
-
-==============================================================
-file 52-imx-enable-forced-aspect-ratio.patch
-==============================================================
-
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h	2016-08-15 21:22:26.222137237 +0200
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h	2016-08-15 21:22:26.246137238 +0200
-@@ -385,6 +385,7 @@
-   int                          m_speed;
-   CCriticalSection             m_signalLock;
-   CCriticalSection             m_queuesLock;
-+  int                          m_forcedWidthDivHeightRatio;
- #ifdef DUMP_STREAM
-   FILE                        *m_dump;
- #endif
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp	2016-08-15 21:27:17.166149119 +0200
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp	2016-08-15 21:27:17.190149120 +0200
-@@ -541,6 +541,8 @@
- #endif
- 
-   m_warnOnce = true;
-+  m_forcedWidthDivHeightRatio = m_hints.forced_aspect ? (65536 * m_hints.aspect) : 0;
-+
-   switch(m_hints.codec)
-   {
-   case AV_CODEC_ID_MPEG1VIDEO:
-@@ -1154,7 +1156,9 @@
-   pDvdVideoPicture->iWidth = pIMXBuffer->GetPictureWidth();
-   pDvdVideoPicture->iHeight = pIMXBuffer->GetPictureHeight();
- 
--  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * pIMXBuffer->GetWidthHeightRatio()) + 32767) >> 16;
-+  int ratio = m_forcedWidthDivHeightRatio ? m_forcedWidthDivHeightRatio : pIMXBuffer->GetWidthHeightRatio();
-+
-+  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * ratio) + 32767) >> 16;
-   pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
- 
-   pDvdVideoPicture->pts = pIMXBuffer->GetPts();
 
 ==============================================================
 file 53-imx-fix-edid-readout.patch
@@ -3515,7 +3612,7 @@ file 55-cec-power-button.diff
 
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp	2015-10-17 10:00:03.704969969 +0200
 +++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp	2015-10-17 10:00:03.724969970 +0200
-@@ -908,8 +908,14 @@
+@@ -935,8 +935,14 @@
    case CEC_USER_CONTROL_CODE_POWER:
    case CEC_USER_CONTROL_CODE_POWER_TOGGLE_FUNCTION:
    case CEC_USER_CONTROL_CODE_POWER_OFF_FUNCTION:
@@ -3527,7 +3624,7 @@ file 55-cec-power-button.diff
 +      cec_command command;
 +      command.opcode = CEC_OPCODE_STANDBY;
 +      command.initiator = CECDEVICE_TV;
-+      CecCommand(this, command);
++      CecCommand(this, &command);
 +    }
      break;
    case CEC_USER_CONTROL_CODE_VOLUME_UP:
@@ -3674,7 +3771,7 @@ file 65-fix-cec-dialog-text.diff
 
 --- a/addons/resource.language.en_gb/resources/strings.po	2016-08-06 13:03:04.169879835 +0200
 +++ b/addons/resource.language.en_gb/resources/strings.po	2016-08-06 13:03:04.197879836 +0200
-@@ -16235,7 +16235,7 @@
+@@ -16416,7 +16416,7 @@
  
  #: system/peripherals.xml
  msgctxt "#36026"
