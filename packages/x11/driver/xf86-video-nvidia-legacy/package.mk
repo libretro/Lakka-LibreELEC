@@ -67,8 +67,8 @@ makeinstall_target() {
   # rename to not conflicting with Mesa libGL.so
     cp -P libGL.so* $INSTALL/usr/lib/libGL_nvidia-legacy.so.1
 
-  mkdir -p $INSTALL/lib/modules/$(get_module_dir)/nvidia
-    ln -sf /var/lib/nvidia.ko $INSTALL/lib/modules/$(get_module_dir)/nvidia/nvidia.ko
+  mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/nvidia
+    ln -sf /var/lib/nvidia.ko $INSTALL/usr/lib/modules/$(get_module_dir)/nvidia/nvidia.ko
 
   mkdir -p $INSTALL/usr/lib/nvidia-legacy
     cp kernel/nvidia.ko $INSTALL/usr/lib/nvidia-legacy
