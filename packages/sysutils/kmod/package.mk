@@ -59,12 +59,12 @@ post_makeinstall_host() {
 
 post_makeinstall_target() {
 # make symlinks for compatibility
-  mkdir -p $INSTALL/sbin
-    ln -sf /usr/bin/kmod $INSTALL/sbin/lsmod
-    ln -sf /usr/bin/kmod $INSTALL/sbin/insmod
-    ln -sf /usr/bin/kmod $INSTALL/sbin/rmmod
-    ln -sf /usr/bin/kmod $INSTALL/sbin/modinfo
-    ln -sf /usr/bin/kmod $INSTALL/sbin/modprobe
+  mkdir -p $INSTALL/usr/sbin
+    ln -sf /usr/bin/kmod $INSTALL/usr/sbin/lsmod
+    ln -sf /usr/bin/kmod $INSTALL/usr/sbin/insmod
+    ln -sf /usr/bin/kmod $INSTALL/usr/sbin/rmmod
+    ln -sf /usr/bin/kmod $INSTALL/usr/sbin/modinfo
+    ln -sf /usr/bin/kmod $INSTALL/usr/sbin/modprobe
 
   mkdir -p $INSTALL/etc
     ln -sf /storage/.config/modprobe.d $INSTALL/etc/modprobe.d
