@@ -32,9 +32,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-systemd \
-                           --with-mount-prog=/bin/mount \
-                           --with-umount-prog=/bin/umount \
-                           --with-losetup-prog=/sbin/losetup \
+                           --with-mount-prog=/usr/bin/mount \
+                           --with-umount-prog=/usr/bin/umount \
+                           --with-losetup-prog=/usr/sbin/losetup \
                            --with-setfacl-prog=/usr/bin/setfacl"
 
 makeinstall_target() {
