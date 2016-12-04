@@ -44,8 +44,13 @@ fi
 post_install() {
   ( cd $ROOT/$BUILD/initramfs
     if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
-      ln -s /lib $ROOT/$BUILD/initramfs/lib64
+      ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib64
     fi
+
+    ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib
+    ln -sf /usr/bin $ROOT/$BUILD/initramfs/bin
+    ln -sf /usr/sbin $ROOT/$BUILD/initramfs/sbin
+
     mkdir -p $ROOT/$BUILD/image/
     fakeroot -- sh -c \
       "mkdir -p dev; mknod -m 600 dev/console c 5 1; find . | cpio -H newc -ov -R 0:0 > $ROOT/$BUILD/image/initramfs.cpio"
