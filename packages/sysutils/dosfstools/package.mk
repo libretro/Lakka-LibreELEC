@@ -50,10 +50,10 @@ make_host() {
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/sbin
-    cp fsck.fat $INSTALL/sbin
-    ln -sf fsck.fat $INSTALL/sbin/fsck.msdos
-    ln -sf fsck.fat $INSTALL/sbin/fsck.vfat
+  mkdir -p $INSTALL/usr/sbin
+    cp fsck.fat $INSTALL/usr/sbin
+    ln -sf fsck.fat $INSTALL/usr/sbin/fsck.msdos
+    ln -sf fsck.fat $INSTALL/usr/sbin/fsck.vfat
 }
 
 makeinstall_host() {
