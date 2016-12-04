@@ -30,11 +30,11 @@ PKG_LONGDESC="Keyutils is a set of utilities for managing the key retention faci
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-PKG_MAKE_OPTS_TARGET="NO_ARLIB=0 NO_SOLIB=1 LIBDIR=/lib USRLIBDIR=/usr/lib"
+PKG_MAKE_OPTS_TARGET="NO_ARLIB=0 NO_SOLIB=1 BINDIR=/usr/bin SBINDIR=/usr/sbin LIBDIR=/usr/lib USRLIBDIR=/usr/lib"
 PKG_MAKEINSTALL_OPTS_TARGET="$PKG_MAKE_OPTS_TARGET"
 
 post_makeinstall_target() {
-	rm -rf $INSTALL/usr
+	rm -rf $INSTALL/usr/share
 	rmdir $INSTALL/etc/request-key.d
 	ln -sf /storage/.config/request-key.d $INSTALL/etc/request-key.d
 }
