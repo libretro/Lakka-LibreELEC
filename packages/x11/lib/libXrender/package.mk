@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libXrender"
-PKG_VERSION="0.9.9"
+PKG_VERSION="0.9.10"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
