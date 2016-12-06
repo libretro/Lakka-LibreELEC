@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xproto"
-PKG_VERSION="7.0.29"
+PKG_VERSION="7.0.31"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
