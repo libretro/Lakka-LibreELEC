@@ -39,6 +39,6 @@ make_target() {
 
 makeinstall_target() {
   LDFLAGS="" make -C $(kernel_path) M=$ROOT/$PKG_BUILD/mali \
-    INSTALL_MOD_PATH=$INSTALL INSTALL_MOD_STRIP=1 DEPMOD=: \
+    INSTALL_MOD_PATH=$INSTALL/usr INSTALL_MOD_STRIP=1 DEPMOD=: \
   modules_install
 }

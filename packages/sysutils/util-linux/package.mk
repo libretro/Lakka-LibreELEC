@@ -82,13 +82,7 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static \
                          --enable-uuidgen \
                          --enable-libuuid"
 
-PKG_CONFIGURE_OPTS_INIT="--prefix=/ \
-                         --bindir=/bin \
-                         --sbindir=/sbin \
-                         --sysconfdir=/etc \
-                         --libexecdir=/lib \
-                         --localstatedir=/var \
-                         $UTILLINUX_CONFIG_DEFAULT \
+PKG_CONFIGURE_OPTS_INIT="$UTILLINUX_CONFIG_DEFAULT \
                          --enable-libblkid \
                          --enable-libmount \
                          --enable-fsck"

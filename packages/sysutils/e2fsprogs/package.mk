@@ -41,9 +41,6 @@ PKG_CONFIGURE_OPTS_HOST="--prefix=/usr \
                          --sbindir=/sbin"
 
 PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
-                           --prefix=/usr \
-                           --bindir=/bin \
-                           --sbindir=/sbin \
                            --enable-verbose-makecmds \
                            --enable-symlink-install \
                            --enable-symlink-build \
@@ -76,32 +73,32 @@ pre_make_host() {
 }
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/sbin/badblocks
-  rm -rf $INSTALL/sbin/blkid
-  rm -rf $INSTALL/sbin/dumpe2fs
-  rm -rf $INSTALL/sbin/e2freefrag
-  rm -rf $INSTALL/sbin/e2undo
-  rm -rf $INSTALL/sbin/e4defrag
-  rm -rf $INSTALL/sbin/filefrag
-  rm -rf $INSTALL/sbin/fsck
-  rm -rf $INSTALL/sbin/logsave
-  rm -rf $INSTALL/sbin/mklost+found
+  rm -rf $INSTALL/usr/sbin/badblocks
+  rm -rf $INSTALL/usr/sbin/blkid
+  rm -rf $INSTALL/usr/sbin/dumpe2fs
+  rm -rf $INSTALL/usr/sbin/e2freefrag
+  rm -rf $INSTALL/usr/sbin/e2undo
+  rm -rf $INSTALL/usr/sbin/e4defrag
+  rm -rf $INSTALL/usr/sbin/filefrag
+  rm -rf $INSTALL/usr/sbin/fsck
+  rm -rf $INSTALL/usr/sbin/logsave
+  rm -rf $INSTALL/usr/sbin/mklost+found
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/sbin
-    cp e2fsck/e2fsck $INSTALL/sbin
-    ln -sf e2fsck $INSTALL/sbin/fsck.ext2
-    ln -sf e2fsck $INSTALL/sbin/fsck.ext3
-    ln -sf e2fsck $INSTALL/sbin/fsck.ext4
-    ln -sf e2fsck $INSTALL/sbin/fsck.ext4dev
+  mkdir -p $INSTALL/usr/sbin
+    cp e2fsck/e2fsck $INSTALL/usr/sbin
+    ln -sf e2fsck $INSTALL/usr/sbin/fsck.ext2
+    ln -sf e2fsck $INSTALL/usr/sbin/fsck.ext3
+    ln -sf e2fsck $INSTALL/usr/sbin/fsck.ext4
+    ln -sf e2fsck $INSTALL/usr/sbin/fsck.ext4dev
 
   if [ $INITRAMFS_PARTED_SUPPORT = "yes" ]; then
-    cp misc/mke2fs $INSTALL/sbin
-    ln -sf mke2fs $INSTALL/sbin/mkfs.ext2
-    ln -sf mke2fs $INSTALL/sbin/mkfs.ext3
-    ln -sf mke2fs $INSTALL/sbin/mkfs.ext4
-    ln -sf mke2fs $INSTALL/sbin/mkfs.ext4dev
+    cp misc/mke2fs $INSTALL/usr/sbin
+    ln -sf mke2fs $INSTALL/usr/sbin/mkfs.ext2
+    ln -sf mke2fs $INSTALL/usr/sbin/mkfs.ext3
+    ln -sf mke2fs $INSTALL/usr/sbin/mkfs.ext4
+    ln -sf mke2fs $INSTALL/usr/sbin/mkfs.ext4dev
   fi
 }
 

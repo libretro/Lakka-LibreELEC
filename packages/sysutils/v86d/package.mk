@@ -38,3 +38,7 @@ pre_configure_init() {
   cd $ROOT/$PKG_BUILD
     rm -rf .$TARGET_NAME-init
 }
+
+makeinstall_init() {
+  DESTDIR=$INSTALL/usr make install
+}

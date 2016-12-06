@@ -52,7 +52,7 @@ make_target() {
 
 makeinstall_target() {
   for module in vboxguest vboxsf vboxvideo; do
-    mkdir -p $INSTALL/lib/modules/$(get_module_dir)/$module
-      cp -P $ROOT/$PKG_BUILD/vbox-kmod/$module.ko $INSTALL/lib/modules/$(get_module_dir)/$module
+    mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/$module
+      cp -P $ROOT/$PKG_BUILD/vbox-kmod/$module.ko $INSTALL/usr/lib/modules/$(get_module_dir)/$module
   done
 }
