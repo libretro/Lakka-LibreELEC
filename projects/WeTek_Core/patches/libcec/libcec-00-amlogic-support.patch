@@ -1,21 +1,21 @@
-From b11257f5821e2f0bde0833d54697aa8ef7085065 Mon Sep 17 00:00:00 2001
+From dabfc33004b94d2f06d20ad4f8a889dd5a94e796 Mon Sep 17 00:00:00 2001
 From: Gerald Dachs <gda@dachsweb.de>
-Date: Thu, 3 Mar 2016 09:38:44 +0100
-Subject: [PATCH] new adapter for amlogic devices
+Date: Tue, 6 Dec 2016 11:06:49 +0100
+Subject: [PATCH] Amlogic CEC adapter
 
 ---
  include/cectypes.h                                 |  15 +-
  src/libcec/CMakeLists.txt                          |   3 +
  src/libcec/adapter/AdapterFactory.cpp              |  24 +-
  src/libcec/adapter/Amlogic/AmlogicCEC.h            |  41 +++
- .../Amlogic/AmlogicCECAdapterCommunication.cpp     | 305 +++++++++++++++++++++
+ .../Amlogic/AmlogicCECAdapterCommunication.cpp     | 306 +++++++++++++++++++++
  .../Amlogic/AmlogicCECAdapterCommunication.h       | 105 +++++++
  .../adapter/Amlogic/AmlogicCECAdapterDetection.cpp |  50 ++++
  .../adapter/Amlogic/AmlogicCECAdapterDetection.h   |  46 ++++
  src/libcec/cmake/CheckPlatformSupport.cmake        |  13 +
  src/libcec/cmake/DisplayPlatformSupport.cmake      |   6 +
  src/libcec/env.h.in                                |   3 +
- 11 files changed, 609 insertions(+), 2 deletions(-)
+ 11 files changed, 610 insertions(+), 2 deletions(-)
  create mode 100644 src/libcec/adapter/Amlogic/AmlogicCEC.h
  create mode 100644 src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp
  create mode 100644 src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.h
@@ -70,7 +70,7 @@ index d3eefa3..125512b 100644
                  adapter/AOCEC/AOCECAdapterDetection.h
                  adapter/AOCEC/AOCECAdapterCommunication.h
 diff --git a/src/libcec/adapter/AdapterFactory.cpp b/src/libcec/adapter/AdapterFactory.cpp
-index 1e946e6..7c26214 100644
+index 1e946e6..a539394 100644
 --- a/src/libcec/adapter/AdapterFactory.cpp
 +++ b/src/libcec/adapter/AdapterFactory.cpp
 @@ -58,6 +58,11 @@
@@ -104,16 +104,20 @@ index 1e946e6..7c26214 100644
  
  #if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API) && !defined(HAVE_AOCEC_API)
  #error "libCEC doesn't have support for any type of adapter. please check your build system or configuration"
-@@ -177,7 +194,12 @@ IAdapterCommunication *CAdapterFactory::GetInstance(const char *strPort, uint16_
-   return new CUSBCECAdapterCommunication(m_lib->m_cec, strPort, iBaudRate);
+@@ -173,11 +190,16 @@ IAdapterCommunication *CAdapterFactory::GetInstance(const char *strPort, uint16_
+     return new CRPiCECAdapterCommunication(m_lib->m_cec);
  #endif
  
--#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API) && !defined(HAVE_EXYNOS_API)
 +#if defined(HAVE_AMLOGIC_API)
 +  if (!strcmp(strPort, CEC_AMLOGIC_VIRTUAL_COM))
 +    return new CAmlogicCECAdapterCommunication(m_lib->m_cec);
 +#endif
 +
+ #if defined(HAVE_P8_USB)
+   return new CUSBCECAdapterCommunication(m_lib->m_cec, strPort, iBaudRate);
+ #endif
+ 
+-#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API) && !defined(HAVE_EXYNOS_API)
 +#if !defined(HAVE_RPI_API) && !defined(HAVE_P8_USB) && !defined(HAVE_TDA995X_API) && !defined(HAVE_EXYNOS_API) && !defined(HAVE_AMLOGIC_API)
    return NULL;
  #endif
@@ -167,7 +171,7 @@ index 0000000..7b86982
 +#define CEC_MAX_FRAME_SIZE  16
 diff --git a/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp
 new file mode 100644
-index 0000000..5aeddda
+index 0000000..88d19db
 --- /dev/null
 +++ b/src/libcec/adapter/Amlogic/AmlogicCECAdapterCommunication.cpp
 @@ -0,0 +1,306 @@
@@ -757,6 +761,3 @@ index fe6c83d..09304e1 100644
  /* Define to 1 for DRM EDID parsing support */
  #cmakedefine HAVE_DRM_EDID_PARSER @HAVE_DRM_EDID_PARSER@
  
--- 
-2.7.4
-
