@@ -122,29 +122,52 @@ else
   PATCH_ARCH="$TARGET_ARCH"
 fi
 
+PATCH_DIRS_PKG=""
+PATCH_DIRS_PRJ=""
+if [ -n "$PKG_PATCH_DIRS" ]; then
+  for patch_dir in $PKG_PATCH_DIRS; do
+    [ -d $PKG_DIR/patches/$patch_dir ] && PATCH_DIRS_PKG="$PATCH_DIRS_PKG $PKG_DIR/patches/$patch_dir/*.patch"
+    [ -d $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$patch_dir ] && PATCH_DIRS_PRJ="$PATCH_DIRS_PRJ $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$patch_dir/*.patch"
+  done
+fi
+
 for i in $PKG_DIR/patches/$PKG_NAME-*.patch \
          $PKG_DIR/patches/$PATCH_ARCH/$PKG_NAME-*.patch \
+         $PATCH_DIRS_PKG \
          $PKG_DIR/patches/$PKG_VERSION/*.patch \
          $PKG_DIR/patches/$PKG_VERSION/$PATCH_ARCH/*.patch \
          $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/*.patch \
          $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PATCH_ARCH/*.patch \
+         $PATCH_DIRS_PRJ \
          $PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PKG_VERSION/*.patch \
          $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME/*.patch; do
 
-  if [ $(dirname $i) = "$PKG_DIR/patches" ]; then
+  thisdir="$(dirname "$i")"
+
+  if [ "$thisdir" = "$PKG_DIR/patches" ]; then
     PATCH_DESC="(common)"
-  elif [ $(dirname $i) = "$PKG_DIR/patches/$PATCH_ARCH" ]; then
+  elif [ "$thisdir" = "$PKG_DIR/patches/$PATCH_ARCH" ]; then
     PATCH_DESC="(common - $PATCH_ARCH)"
-  elif [ $(dirname $i) = "$PKG_DIR/patches/$PKG_VERSION/$PATCH_ARCH" ]; then
+  elif [ "$thisdir" = "$PKG_DIR/patches/$PKG_VERSION" ]; then
+    PATCH_DESC="(common - $PKG_VERSION)"
+  elif [ "$thisdir" = "$PKG_DIR/patches/$PKG_VERSION/$PATCH_ARCH" ]; then
     PATCH_DESC="($PKG_VERSION - $PATCH_ARCH)"
-  elif [ $(dirname $i) = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME" ]; then
+  elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME" ]; then
     PATCH_DESC="(project)"
-  elif [ $(dirname $i) = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PATCH_ARCH" ]; then
+  elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PATCH_ARCH" ]; then
     PATCH_DESC="(project - $PATCH_ARCH)"
-  elif [ $(dirname $i) = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PKG_VERSION" ]; then
+  elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/patches/$PKG_NAME/$PKG_VERSION" ]; then
     PATCH_DESC="(project - $PKG_VERSION)"
-  elif [ $(dirname $i) = "$PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME" ]; then
+  elif [ "$thisdir" = "$PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME" ]; then
     PATCH_DESC="(device)"
+  else
+    if [[ "$thisdir" =~ ^$PKG_DIR/.* ]]; then
+      PATCH_DESC="(common - $(basename "$thisdir"))"
+    elif [[ "$thisdir" =~ ^$PROJECT_DIR/.* ]]; then
+      PATCH_DESC="(project - $(basename "$thisdir"))"
+    else
+      PATCH_DESC="(unknown - $(basename "$thisdir"))"
+    fi
   fi
 
   if [ -f "$i" ]; then
