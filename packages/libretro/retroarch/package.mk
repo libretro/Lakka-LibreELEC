@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="8ecf3cc"
+PKG_VERSION="b3aef50"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -80,13 +80,7 @@ pre_configure_target() {
 }
 
 make_target() {
-  LAKKA_PROJECT="$PROJECT"
-  if [ "$PROJECT" == "imx6" -a -n "$SYSTEM" ]; then
-    LAKKA_PROJECT="$LAKKA_PROJECT.$SYSTEM"
-  fi
-  LAKKA_PROJECT="$LAKKA_PROJECT.$ARCH"
-  echo $LAKKA_PROJECT
-  make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0 LAKKA_PROJECT=\'\"$LAKKA_PROJECT\"\'
+  make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
   make -C gfx/video_filters compiler=$CC extra_flags="$CFLAGS"
   make -C audio/audio_filters compiler=$CC extra_flags="$CFLAGS"
 }
@@ -137,6 +131,9 @@ makeinstall_target() {
   if [ "$PROJECT" == "OdroidXU3" ]; then # workaround the 55fps bug
     sed -i -e "s/# audio_out_rate = 48000/audio_out_rate = 44100/" $INSTALL/etc/retroarch.cfg
   fi
+
+  # Saving
+  echo "savestate_thumbnail_enable = \"true\"" >> $INSTALL/etc/retroarch.cfg
   
   # Input
   sed -i -e "s/# input_driver = sdl/input_driver = udev/" $INSTALL/etc/retroarch.cfg
