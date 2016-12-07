@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="glupen64"
-PKG_VERSION="8c8e237"
+PKG_VERSION="dd195c8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -42,9 +42,13 @@ pre_configure_target() {
 make_target() {
   case $PROJECT in
     RPi|Gamegirl)
+      CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
+	              -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi
       ;;
     RPi2)
+      CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
+                      -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi2
       ;;
     Generic)
