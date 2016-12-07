@@ -41,8 +41,6 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
                            --disable-xpm \
                            --disable-xft \
                            --disable-fribidi \
-                           --disable-remember \
-                           --disable-regexp \
                            --disable-debug \
                            --disable-test \
                            --disable-nls \
@@ -60,9 +58,8 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/startfluxbox
 
   rm -rf $INSTALL/usr/share/fluxbox/styles
-  rm -rf $INSTALL/usr/share/fluxbox/init
-  rm -rf $INSTALL/usr/share/fluxbox/keys
 
+  cp $PKG_DIR/config/apps $INSTALL/usr/share/fluxbox/
   cp $PKG_DIR/config/init $INSTALL/usr/share/fluxbox/
   cp $PKG_DIR/config/keys $INSTALL/usr/share/fluxbox/
 }
