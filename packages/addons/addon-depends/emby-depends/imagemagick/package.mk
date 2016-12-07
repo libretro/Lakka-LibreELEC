@@ -37,3 +37,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-quantum-depth=8 \
                            --enable-hdri=no \
                            --disable-openmp"
+
+makeinstall_target() {
+  make install DESTDIR=$INSTALL
+}

@@ -102,6 +102,10 @@ configure_target() {
 
 }
 
+makeinstall_target() {
+  make install DESTDIR=$INSTALL
+}
+
 post_makeinstall_target() {
   for ff in $INSTALL/usr/local/bin/*; do mv $ff ${ff}x; done
   rm -fr $INSTALL/usr/local/include

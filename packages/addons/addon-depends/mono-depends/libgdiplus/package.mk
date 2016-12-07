@@ -35,3 +35,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-shared \
                            --with-libgif   \
                            --with-libjpeg  \
                            --with-libtiff"
+
+makeinstall_target() {
+  make install DESTDIR=$INSTALL
+}
