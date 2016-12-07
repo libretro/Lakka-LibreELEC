@@ -34,6 +34,14 @@ PKG_LONGDESC="libretro implementation of Mednafen PC-FX."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+make_target() {
+  if [ "$ARCH" == "i386" -o "$ARCH" == "x86_64" ]; then
+    make platform=unix CC=$CC CXX=$CXX AR=$AR
+  else
+    make platform=armv CC=$CC CXX=$CXX AR=$AR
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp mednafen_pcfx_libretro.so $INSTALL/usr/lib/libretro/
