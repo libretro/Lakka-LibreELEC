@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="chromium"
-PKG_VERSION="55.0.2883.44"
-PKG_REV="105"
+PKG_VERSION="55.0.2883.75"
+PKG_REV="106"
 PKG_ARCH="x86_64"
 PKG_LICENSE="Mixed"
 PKG_SITE="http://www.chromium.org/Home"
