@@ -46,11 +46,6 @@ pre_configure_target() {
     FFMPEG_RPI_HADE="--enable-mmal --enable-omx-rpi"
   fi
 
-# ffmpeg does not build with libx264 on aarch64
-  if [ "$TARGET_ARCH" != "aarch64" ]; then
-    FFMPEG_X264="--enable-libx264"
-  fi
-
   if [ "$TARGET_ARCH" == "arm" ]; then
     FFMPEG_ARM_AO="--enable-hardcoded-tables"
   fi
