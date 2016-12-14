@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="lcdd"
-PKG_VERSION="0.5.7-cvs20140217"
-PKG_REV="100"
+PKG_VERSION="1554506"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://lcdproc.org/"
-PKG_URL="$DISTRO_SRC/lcdproc-$PKG_VERSION.tar.xz"
-PKG_SOURCE_DIR="lcdproc-$PKG_VERSION"
+PKG_URL="https://github.com/lcdproc/lcdproc/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="lcdproc-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain freetype libftdi1 libhid libusb netbsd-curses serdisplib"
 PKG_SECTION="service"
 PKG_SHORTDESC="LCDproc: Software to display system information from your Linux/*BSD box on a LCD"
