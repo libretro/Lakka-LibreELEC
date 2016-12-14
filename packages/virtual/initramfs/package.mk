@@ -45,6 +45,8 @@ post_install() {
   ( cd $ROOT/$BUILD/initramfs
     if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
       ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib64
+      mkdir -p $ROOT/$BUILD/initramfs/usr
+      ln -sf /usr/lib $ROOT/$BUILD/initramfs/usr/lib64
     fi
 
     ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib
