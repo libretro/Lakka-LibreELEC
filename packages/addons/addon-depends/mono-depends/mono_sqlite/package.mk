@@ -30,3 +30,7 @@ unpack() {
   mkdir -p $PKG_BUILD
   cp -r $(get_build_dir sqlite)/* $PKG_BUILD/
 }
+
+makeinstall_target() {
+  make install DESTDIR=$INSTALL
+}

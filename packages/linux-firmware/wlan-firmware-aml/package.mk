@@ -36,13 +36,13 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/lib/firmware/brcm
+  mkdir -p $INSTALL/usr/lib/firmware/brcm
 
-  cp -PR bcm_ampak/config/AP6330/Wi-Fi/fw_bcm40183b2*.bin $INSTALL/lib/firmware/brcm
-  cp -P bcm_ampak/config/AP6330/Wi-Fi/nvram_ap6330.txt $INSTALL/lib/firmware/brcm
-  cp -P bcm_ampak/config/AP6330/BT/bcm40183b2.hcd $INSTALL/lib/firmware/brcm
+  cp -PR bcm_ampak/config/AP6330/Wi-Fi/fw_bcm40183b2*.bin $INSTALL/usr/lib/firmware/brcm
+  cp -P bcm_ampak/config/AP6330/Wi-Fi/nvram_ap6330.txt $INSTALL/usr/lib/firmware/brcm
+  cp -P bcm_ampak/config/AP6330/BT/bcm40183b2.hcd $INSTALL/usr/lib/firmware/brcm
 
-  cp -PR bcm_ampak/config/6335/fw_bcm4339a0_*.bin $INSTALL/lib/firmware/brcm
-  cp -P bcm_ampak/config/6335/nvram.txt $INSTALL/lib/firmware/brcm/nvram_ap6335.txt
-  cp -P bcm_ampak/config/6335/BT/bcm4335c0.hcd $INSTALL/lib/firmware/brcm
+  cp -PR bcm_ampak/config/6335/fw_bcm4339a0_*.bin $INSTALL/usr/lib/firmware/brcm
+  cp -P bcm_ampak/config/6335/nvram.txt $INSTALL/usr/lib/firmware/brcm/nvram_ap6335.txt
+  cp -P bcm_ampak/config/6335/BT/bcm4335c0.hcd $INSTALL/usr/lib/firmware/brcm
 }

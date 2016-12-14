@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libXfixes"
-PKG_VERSION="5.0.2"
+PKG_VERSION="5.0.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -29,7 +29,7 @@ PKG_SHORTDESC="libxfixes: X Fixes Library"
 PKG_LONGDESC="X Fixes Library"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 

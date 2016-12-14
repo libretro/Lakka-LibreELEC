@@ -32,6 +32,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="WPASUPPLICANT=/usr/bin/wpa_supplicant \
+                           --srcdir=.. \
                            --disable-gtk-doc \
                            --disable-debug \
                            --disable-hh2serial-gps \

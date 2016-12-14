@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="taglib"
-PKG_VERSION="1.9.1"
+PKG_VERSION="1.11"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
@@ -31,8 +31,7 @@ PKG_LONGDESC="TagLib is a library for reading and editing the meta-data of sever
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
-                       -DBUILD_SHARED_LIBS=OFF \
+PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \
                        -DWITH_MP4=ON \
                        -DWITH_ASF=ON"
 

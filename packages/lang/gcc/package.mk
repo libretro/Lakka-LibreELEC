@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gcc"
-PKG_VERSION="5.4.0"
+PKG_VERSION="6.2.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -158,6 +158,6 @@ make_init() {
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/lib
-    cp -P $ROOT/$PKG_BUILD/.$HOST_NAME/$TARGET_NAME/libgcc/libgcc_s.so* $INSTALL/lib
+  mkdir -p $INSTALL/usr/lib
+    cp -P $ROOT/$PKG_BUILD/.$HOST_NAME/$TARGET_NAME/libgcc/libgcc_s.so* $INSTALL/usr/lib
 }

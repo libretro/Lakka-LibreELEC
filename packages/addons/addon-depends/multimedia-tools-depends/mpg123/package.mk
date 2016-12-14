@@ -29,6 +29,6 @@ PKG_SHORTDESC="mpg123"
 PKG_LONGDESC="A fast MP3 Player"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"

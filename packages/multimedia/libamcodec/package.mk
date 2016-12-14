@@ -23,7 +23,7 @@ PKG_LICENSE="other"
 PKG_SITE="http://openlinux.amlogic.com"
 case $TARGET_ARCH in
   arm)
-    PKG_VERSION="45a1086"
+    PKG_VERSION="5e23a81"
     PKG_URL="https://github.com/codesnake/libamcodec/archive/$PKG_VERSION.tar.gz"
     ;;
   aarch64)
@@ -31,7 +31,7 @@ case $TARGET_ARCH in
     PKG_URL="http://amlinux.ru/source/$PKG_NAME-$PKG_VERSION.tar.gz"
     ;;
 esac
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain alsa-lib"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="libamcodec: Interface library for Amlogic media codecs"
 PKG_LONGDESC="libamplayer: Interface library for Amlogic media codecs"

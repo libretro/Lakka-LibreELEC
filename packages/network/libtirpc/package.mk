@@ -29,7 +29,7 @@ PKG_SHORTDESC="libtirpc: Transport Independent RPC Library"
 PKG_LONGDESC="Libtirpc is a port of Suns Transport-Independent RPC library to Linux. It's being developed by the Bull GNU/Linux NFSv4 project."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --disable-silent-rules \

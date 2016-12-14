@@ -1,52 +1,70 @@
-diff -aurNp a/xbmc/linux/imx/IMX.cpp b/xbmc/linux/imx/IMX.cpp
---- a/xbmc/linux/imx/IMX.cpp	2016-08-21 23:42:23.000000000 +0200
-+++ b/xbmc/linux/imx/IMX.cpp	2016-09-02 12:51:09.516633817 +0200
-@@ -198,11 +198,6 @@ bool CIMXFps::Recalc()
+disable standby
+
+--- a/xbmc/powermanagement/linux/LogindUPowerSyscall.cpp	2016-10-07 09:41:03.067310207 +0200
++++ b/xbmc/powermanagement/linux/LogindUPowerSyscall.cpp	2016-10-07 09:41:27.658371366 +0200
+@@ -52,8 +52,8 @@ CLogindUPowerSyscall::CLogindUPowerSysca
  
-   double frameNorm = CDVDCodecUtils::NormalizeFrameduration(frameDuration, &hasMatch);
+   m_canPowerdown = LogindCheckCapability("CanPowerOff");
+   m_canReboot    = LogindCheckCapability("CanReboot");
+-  m_canHibernate = LogindCheckCapability("CanHibernate");
+-  m_canSuspend   = LogindCheckCapability("CanSuspend");
++  m_canHibernate = false;
++  m_canSuspend   = false;
  
--  if (hasMatch && !patternLength)
--    m_patternLength = 1;
--  else
--    m_patternLength = patternLength;
--
-   if (!m_hasPattern && hasMatch)
-     m_frameDuration = frameNorm;
+   InhibitDelayLock();
  
-diff -aurNp a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
---- a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp	2016-08-21 23:42:23.000000000 +0200
-+++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp	2016-09-02 12:42:54.443140655 +0200
-@@ -29,6 +29,7 @@
- #include <sys/ioctl.h>
- #ifdef HAS_IMXVPU
- #include <linux/mxcfb.h>
-+#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h" 
+--- a/xbmc/powermanagement/linux/UPowerSyscall.cpp.orig	2016-10-07 10:01:18.236917326 +0200
++++ b/xbmc/powermanagement/linux/UPowerSyscall.cpp	2016-10-07 10:01:46.311845478 +0200
+@@ -262,8 +262,8 @@ bool CUPowerSyscall::PumpPowerEvents(IPo
+ 
+ void CUPowerSyscall::UpdateCapabilities()
+ {
+-  m_CanSuspend   = CDBusUtil::GetVariant("org.freedesktop.UPower", "/org/freedesktop/UPower", "org.freedesktop.UPower", "CanSuspend").asBoolean(false);
+-  m_CanHibernate = CDBusUtil::GetVariant("org.freedesktop.UPower", "/org/freedesktop/UPower", "org.freedesktop.UPower", "CanHibernate").asBoolean(false);
++  m_CanSuspend   = false;
++  m_CanHibernate = false; 
+ }
+ 
  #endif
- #include "utils/log.h"
- #include "utils/RegExp.h"
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h	2016-09-04 18:08:27.249816157 +0200
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h	2016-09-04 18:09:16.803892804 +0200
-@@ -55,9 +55,9 @@
- // priorities to those subsystems can result in a very different user
- // experience. With that setting enabled we can build some statistics,
- // as numbers are always better than "feelings"
--#define IMX_PROFILE_BUFFERS
-+//#define IMX_PROFILE_BUFFERS
+
+From e0c980535b164d7c28555418e5ce2252dbada2dc Mon Sep 17 00:00:00 2001
+From: Peter Vicman <peter.vicman@gmail.com>
+Date: Thu, 10 Nov 2016 17:05:11 +0100
+Subject: [PATCH] fix freeze on lvds display connected to udoo quad
+
+revert 0ff257943e032e0f4b669a65e6449ab1e1699d74
+[IMXRenderer] skip rendering same frame 
+
+---
+ .../cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+index 8569c72..f21fa98 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+@@ -132,7 +132,6 @@ bool CRendererIMX::RenderHook(int index)
  
--#define IMX_PROFILE
-+//#define IMX_PROFILE
- //#define TRACE_FRAMES
+ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+ {
+-  static DWORD flagsPrev;
+ #if 0
+   static unsigned long long previous = 0;
+   unsigned long long current = XbmcThreads::SystemClockMillis();
+@@ -142,13 +141,6 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+   CDVDVideoCodecIMXBuffer *buffer = static_cast<CDVDVideoCodecIMXBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
+   if (buffer)
+   {
+-    if (buffer == m_bufHistory[0] && flagsPrev == flags)
+-    {
+-      g_IMX.WaitVsync();
+-      return true;
+-    }
+-
+-    flagsPrev = flags;
+     buffer->Lock();
  
- #define RENDER_USE_G2D 0
-diff -aurNp a/system/peripherals.xml b/system/peripherals.xml
---- a/system/peripherals.xml	2016-09-07 16:50:55.725114234 +0200
-+++ b/system/peripherals.xml	2016-09-07 16:51:13.472432981 +0200
-@@ -16,7 +16,7 @@
-     <setting key="send_inactive_source" type="bool" value="1" label="36025" order="5" />
-     <setting key="cec_standby_screensaver" type="bool" value="0" label="36009" order="6" />
-     <setting key="cec_wake_screensaver" type="bool" value="1" label="36010" order="7" />
--    <setting key="standby_pc_on_tv_standby" type="enum" value="13011" label="36029" order="8" lvalues="36028|13005|13011" />
-+    <setting key="standby_pc_on_tv_standby" type="enum" value="36028" label="36029" order="8" lvalues="36028|13005|13011" />
-     <setting key="standby_tv_on_pc_standby" type="bool" value="1" label="36026" order="9" />
-     <setting key="use_tv_menu_language" type="bool" value="0" label="36018" order="10" />
-     <setting key="pause_playback_on_deactivate" type="bool" value="1" label="36033" configurable="0" />
+     SAFE_RELEASE(m_bufHistory[1]);
+-- 
+2.7.1
+

@@ -30,7 +30,7 @@ PKG_LONGDESC="libjpeg-turbo is a high-speed version of libjpeg for x86 and x86-6
 
 PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static \
                          --disable-shared \

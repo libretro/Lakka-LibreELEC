@@ -29,7 +29,7 @@ PKG_SECTION="tools"
 PKG_SHORTDESC="mc: visual file manager"
 PKG_LONGDESC="mc is a visual file manager, licensed under GNU General Public License and therefore qualifies as Free Software. It's a feature rich full-screen text mode application that allows you to copy, move and delete files and whole directory trees, search for files and run commands in the subshell. Internal viewer and editor are included"
 
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 PKG_IS_ADDON="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--sysconfdir=/storage/.kodi/addons/virtual.system-tools/etc \

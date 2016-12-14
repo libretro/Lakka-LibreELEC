@@ -18,16 +18,16 @@
 
 PKG_NAME="adafruit-libraries"
 PKG_VERSION=""
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="RPi RPi2"
 PKG_LICENSE="MIT"
 PKG_SITE=""
 PKG_URL=""
-PKG_DEPENDS_TARGET="Adafruit_Python_ADS1x15 Adafruit_Python_ADXL345 Adafruit_Python_BMP Adafruit_Python_CharLCD Adafruit_Python_DHT Adafruit_Python_GPIO Adafruit_Python_LED_Backpack Adafruit_Python_LSM303 Adafruit_Python_MCP3008 Adafruit_Python_MCP4725 Adafruit_Python_PCA9685 Adafruit_Python_PureIO Adafruit_Python_TCS34725 Adafruit_Python_VCNL40xx Adafruit_Python_WS2801"
+PKG_DEPENDS_TARGET="Adafruit_Python_ADS1x15 Adafruit_Python_ADXL345 Adafruit_Python_BMP Adafruit_Python_CharLCD Adafruit_Python_DHT Adafruit_Python_GPIO Adafruit_Python_LED_Backpack Adafruit_Python_LSM303 Adafruit_Python_MCP3008 Adafruit_Python_MCP4725 Adafruit_Python_PCA9685 Adafruit_Python_PureIO Adafruit_Python_SI1145 Adafruit_Python_TCS34725 Adafruit_Python_VCNL40xx Adafruit_Python_WS2801"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="A bundle of libraries from Adafruit"
-PKG_LONGDESC="This bundle currently includes Adafruit_ADS1x15, Adafruit_ADXL345, Adafruit_BMP, Adafruit_CharLCD, Adafruit_DHT, Adafruit_GPIO, Adafruit_LED_Backpack, Adafruit_LSM303, Adafruit_MCP3008, Adafruit_MCP4725, Adafruit_PCA9685, Adafruit_PureIO, Adafruit_TCS34725, Adafruit_VCNL40xx and Adafruit_WS2801 python modules"
+PKG_LONGDESC="This bundle currently includes Adafruit_ADS1x15, Adafruit_ADXL345, Adafruit_BMP, Adafruit_CharLCD, Adafruit_DHT, Adafruit_GPIO, Adafruit_LED_Backpack, Adafruit_LSM303, Adafruit_MCP3008, Adafruit_MCP4725, Adafruit_PCA9685, Adafruit_PureIO, Adafruit_SI1145 Adafruit_TCS34725, Adafruit_VCNL40xx and Adafruit_WS2801 python modules"
 PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
@@ -41,7 +41,7 @@ addon() {
     cp -PR $(get_build_dir Adafruit_Python_ADXL345)/Adafruit_ADXL345           $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_BMP)/Adafruit_BMP                   $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_CharLCD)/Adafruit_CharLCD           $ADDON_BUILD/$PKG_ADDON_ID/lib/
-    cp -PR $(get_build_dir Adafruit_Python_DHT)/Adafruit_DHT                   $ADDON_BUILD/$PKG_ADDON_ID/lib/
+    cp -PR $(get_build_dir Adafruit_Python_DHT)/build/lib.linux-*/Adafruit_DHT $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_GPIO)/Adafruit_GPIO                 $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_LED_Backpack)/Adafruit_LED_Backpack $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_LSM303)/Adafruit_LSM303             $ADDON_BUILD/$PKG_ADDON_ID/lib/
@@ -49,6 +49,7 @@ addon() {
     cp -PR $(get_build_dir Adafruit_Python_MCP4725)/Adafruit_MCP4725           $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_PCA9685)/Adafruit_PCA9685           $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_PureIO)/Adafruit_PureIO             $ADDON_BUILD/$PKG_ADDON_ID/lib/
+    cp -PR $(get_build_dir Adafruit_Python_SI1145)/SI1145                      $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_TCS34725)/Adafruit_TCS34725         $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_VCNL40xx)/Adafruit_VCNL40xx         $ADDON_BUILD/$PKG_ADDON_ID/lib/
     cp -PR $(get_build_dir Adafruit_Python_WS2801)/Adafruit_WS2801             $ADDON_BUILD/$PKG_ADDON_ID/lib/

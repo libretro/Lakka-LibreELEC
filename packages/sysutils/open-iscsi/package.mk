@@ -47,6 +47,6 @@ configure_init() {
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/sbin
-    cp -P $ROOT/$PKG_BUILD/usr/iscsistart $INSTALL/sbin
+  mkdir -p $INSTALL/usr/sbin
+    cp -P $ROOT/$PKG_BUILD/usr/iscsistart $INSTALL/usr/sbin
 }

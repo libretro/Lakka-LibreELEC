@@ -17,22 +17,30 @@
 ################################################################################
 
 PKG_NAME="libopenmpt"
-PKG_VERSION="0.2.5787-beta16"
+PKG_VERSION="0.2.7386-beta20.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://lib.openmpt.org/libopenmpt/"
 PKG_URL="http://lib.openmpt.org/files/libopenmpt/src/${PKG_NAME}-${PKG_VERSION}-autotools.tar.gz"
 PKG_SOURCE_DIR="${PKG_NAME}-${PKG_VERSION//-beta*/}-autotools"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain libogg libvorbis"
 PKG_SECTION="audio"
 PKG_SHORTDESC="libopenmpt: renders mod music files as raw audio data, for playing or conversion."
 PKG_LONGDESC="libopenmpt renders mod music files as raw audio data, for playing or conversion."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
-			   --disable-shared \
-			   --without-portaudio \
-			   --without-portaudiocpp"
+                           --disable-shared \
+                           --without-mpg123 \
+                           --with-vorbis \
+                           --with-vorbisfile \
+                           --without-pulseaudio \
+                           --without-portaudio \
+                           --without-portaudiocpp \
+                           --without-sdl \
+                           --without-sdl2 \
+                           --without-sndfile \
+                           --without-flac"

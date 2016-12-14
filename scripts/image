@@ -67,10 +67,19 @@ if [ -n "$CUSTOM_GIT_HASH" ]; then
   GIT_HASH="$CUSTOM_GIT_HASH"
 fi
 
-TARGET_VERSION="$PROJECT.$TARGET_ARCH-$LIBREELEC_VERSION"
+if [ -z "$DEVICE" ]; then
+  TARGET_VERSION="$PROJECT.$TARGET_ARCH-$LIBREELEC_VERSION"
+else
+  TARGET_VERSION="$PROJECT.$DEVICE.$TARGET_ARCH-$LIBREELEC_VERSION"
+fi
 IMAGE_NAME="$DISTRONAME-$TARGET_VERSION"
+
 if [ "$DEVEL_VERSION" = "devel" ] ; then
-  IMAGE_NAME="$DISTRONAME-$PROJECT.$TARGET_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
+  if [ -z "$DEVICE" ]; then
+    IMAGE_NAME="$DISTRONAME-$PROJECT.$TARGET_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
+  else
+    IMAGE_NAME="$DISTRONAME-$PROJECT.$DEVICE.$TARGET_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
+  fi
 fi
 
 if [ "$PROJECT" == "imx6" -a -n "$SYSTEM" ]; then
@@ -97,10 +106,7 @@ rm -rf $STAMPS_INSTALL
 mkdir -p $INSTALL
 
 # create baselayout
-mkdir -p $INSTALL/bin
 mkdir -p $INSTALL/etc
-mkdir -p $INSTALL/lib
-mkdir -p $INSTALL/sbin
 mkdir -p $INSTALL/dev
 mkdir -p $INSTALL/proc
 mkdir -p $INSTALL/run
@@ -111,10 +117,14 @@ mkdir -p $INSTALL/var
 mkdir -p $INSTALL/flash
 mkdir -p $INSTALL/storage
 ln -sf /var/media $INSTALL/media
+ln -sf /usr/lib $INSTALL/lib
+ln -sf /usr/bin $INSTALL/bin
+ln -sf /usr/sbin $INSTALL/sbin
 
 if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
-  ln -s /lib $INSTALL/lib64
-  ln -s lib $INSTALL/usr/lib64
+  ln -s /usr/lib $INSTALL/lib64
+  mkdir -p $INSTALL/usr
+  ln -s /usr/lib $INSTALL/usr/lib64
 fi
 
 echo "$TARGET_VERSION" > $INSTALL/etc/release
@@ -178,9 +188,6 @@ $SCRIPTS/install network
 # Remote support
 [ "$REMOTE_SUPPORT" = "yes" ] && $SCRIPTS/install remote
 
-# LCD support
-[ ! "$LCD_DRIVER" = "none" ] && $SCRIPTS/install lcdproc
-
 # Virtual image creation support
 [ "$PROJECT" = Virtual ] && $SCRIPTS/install virtual
 
@@ -207,18 +214,29 @@ if [ -d "$PROJECT_DIR/$PROJECT/filesystem" ]; then
   done
 fi
 
+# copy board related files to filesystem
+if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem" ]; then
+  cp -PR $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/* $INSTALL
+  # install device specific systemd services
+  for service in $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/usr/lib/systemd/system/*.service ; do
+    if [ -f "$service" ] ; then
+      enable_service $(basename $service)
+    fi
+  done
+fi
+
 # run depmod
-MODVER=$(basename $(ls -d $INSTALL/lib/modules/*))
-find $INSTALL/lib/modules/$MODVER/ -name *.ko | \
-  sed -e "s,$INSTALL/lib/modules/$MODVER/,," > $INSTALL/lib/modules/$MODVER/modules.order
-$ROOT/$TOOLCHAIN/bin/depmod -b $INSTALL $MODVER 2> /dev/null
+MODVER=$(basename $(ls -d $INSTALL/usr/lib/modules/*))
+find $INSTALL/usr/lib/modules/$MODVER/ -name *.ko | \
+  sed -e "s,$INSTALL/usr/lib/modules/$MODVER/,," > $INSTALL/usr/lib/modules/$MODVER/modules.order
+$ROOT/$TOOLCHAIN/bin/depmod -b $INSTALL/usr $MODVER 2> /dev/null
 
 # strip kernel modules
 if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm"  ]; then
   export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
   STRIP=aarch64-elf-strip
 fi
-for MOD in `find $INSTALL/lib/modules/ -type f -name *.ko`; do
+for MOD in `find $INSTALL/usr/lib/modules/ -type f -name *.ko`; do
   $STRIP --strip-debug $MOD
 done
 
@@ -227,13 +245,7 @@ mkdir -p $TARGET_IMG
 rm -rf $TARGET_IMG/$IMAGE_NAME.kernel
 
 # copy kernel to target dir
-if [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
-  echo "injecting DeviceTreeBlobs to kernel..."
-  perl $BUILD/linux-$(kernel_version)/scripts/mkknlimg $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET $TARGET_IMG/$IMAGE_NAME.kernel
-  echo "...done"
-else
-  cp -PR $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET $TARGET_IMG/$IMAGE_NAME.kernel
-fi
+cp -PR $BUILD/linux-$(kernel_version)/arch/$TARGET_KERNEL_ARCH/boot/$KERNEL_TARGET $TARGET_IMG/$IMAGE_NAME.kernel
 chmod 0644 $TARGET_IMG/$IMAGE_NAME.kernel
 
 # create squashfs file
@@ -278,7 +290,9 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       cp -R $BOOTLOADER_DIR/files/* $RELEASE_DIR
     fi
 
-    if [ -f $PROJECT_DIR/$PROJECT/bootloader/release ]; then
+    if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release ]; then
+      . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release
+    elif [ -f $PROJECT_DIR/$PROJECT/bootloader/release ]; then
       . $PROJECT_DIR/$PROJECT/bootloader/release
     elif [ -f "$BOOTLOADER_DIR"/release ]; then
       . $BOOTLOADER_DIR/release
@@ -410,6 +424,8 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
     echo "Creating Amlogic ZIP auto-install package"
     pushd sign > /dev/null
     echo --update_package=/sdcard/$IMAGE_NAME-update.zip > factory_update_param.aml
+    echo --wipe_data >> factory_update_param.aml
+    echo --wipe_cache >> factory_update_param.aml
     if [ -f "$INSTALL_SRC_DIR/files/recovery.img" ]; then
       cp $INSTALL_SRC_DIR/files/recovery.img .
     fi

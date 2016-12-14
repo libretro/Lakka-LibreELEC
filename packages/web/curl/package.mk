@@ -25,7 +25,7 @@
 #   there: http://forum.xbmc.org/showthread.php?tid=177557
 
 PKG_NAME="curl"
-PKG_VERSION="7.50.1"
+PKG_VERSION="7.51.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -38,7 +38,7 @@ PKG_LONGDESC="Curl is a client to get documents/files from or send documents to 
 
 PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            ac_cv_header_librtmp_rtmp_h=yes \

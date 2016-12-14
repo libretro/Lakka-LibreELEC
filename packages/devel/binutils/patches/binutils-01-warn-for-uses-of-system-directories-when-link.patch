@@ -1,0 +1,32 @@
+simplified patch based on
+http://git.yoctoproject.org/cgit.cgi/poky/plain/meta/recipes-devtools/binutils/binutils/0009-warn-for-uses-of-system-directories-when-cross-linki.patch
+just detect and skip system directories if used by mistake
+
+linker output in case of using /usr/lib path:
+/data/LibreELEC.tv/build.LibreELEC-Generic.x86_64-8.0-devel/toolchain/lib/gcc/x86_64-libreelec-linux-gnu/6.2.0/../../../../x86_64-libreelec-linux-gnu/bin/ld: warning: library search path "/usr/lib" is unsafe for cross-compilation, ignore it
+
+From 7ab8e318659eb5d9adc758c78d084a95560b93fd Mon Sep 17 00:00:00 2001
+From: Khem Raj <raj.khem@gmail.com>
+Date: Fri, 15 Jan 2016 06:31:09 +0000
+Subject: [PATCH 09/13] warn for uses of system directories when cross linking
+
+--- a/ld/ldfile.c	2015-11-13 09:27:42.000000000 +0100
++++ b/ld/ldfile.c	2016-11-15 19:09:31.658371254 +0100
+@@ -102,6 +102,17 @@ ldfile_add_library_path (const char *nam
+   if (!cmdline && config.only_cmd_line_lib_dirs)
+     return;
+ 
++  /* skip those directories when linking */
++  if ((!strncmp (name, "/lib", 4)) ||
++      (!strncmp (name, "/usr/lib", 8)) ||
++      (!strncmp (name, "/usr/local/lib", 14)) ||
++      (!strncmp (name, "/usr/X11R6/lib", 14)))
++  {
++    einfo (_("%P: warning: library search path \"%s\" is unsafe for "
++             "cross-compilation, ignore it\n"), name);
++    return;
++  }
++
+   new_dirs = (search_dirs_type *) xmalloc (sizeof (search_dirs_type));
+   new_dirs->next = NULL;
+   new_dirs->cmdline = cmdline;

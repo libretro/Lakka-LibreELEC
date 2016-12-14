@@ -29,7 +29,7 @@ PKG_SHORTDESC="sidplay-libs"
 PKG_LONGDESC="sidplay-libs"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
 
@@ -37,4 +37,6 @@ pre_configure_target() {
   # fails to build in subdirs
   cd $ROOT/$PKG_BUILD
   rm -rf .$TARGET_NAME
+
+  export CXXFLAGS="$CXXFLAGS -Wno-narrowing"
 }

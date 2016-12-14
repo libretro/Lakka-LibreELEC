@@ -29,7 +29,7 @@ PKG_SHORTDESC="xtrans: Abstract network code for X"
 PKG_LONGDESC="Abstract network code for X."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-xmlto"
 

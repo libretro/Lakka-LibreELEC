@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="GNU Diffutils"
 PKG_LONGDESC="GNU Diffutils is a package of several programs related to finding differences between files."
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
         --without-libsigsegv-prefix \

@@ -27,7 +27,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="devel"
 PKG_SHORTDESC="system interface for user-level packet capture"
 PKG_LONGDESC="libpcap (Packet CAPture) provides a portable framework for low-level network monitoring. Applications include network statistics collection, security monitoring, network debugging, etc."
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="LIBS=-lpthread \
                            ac_cv_header_libusb_1_0_libusb_h=no \

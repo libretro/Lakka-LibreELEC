@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="containerd"
-PKG_VERSION="0ac3cd1"
+PKG_VERSION="0366d7e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="APL"
@@ -47,6 +47,9 @@ pre_make_target() {
          export GOARM=7
          ;;
       esac
+      ;;
+    aarch64)
+      export GOARCH=arm64
       ;;
   esac
 

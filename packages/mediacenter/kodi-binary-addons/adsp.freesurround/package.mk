@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="adsp.freesurround"
-PKG_VERSION="34f5040"
+PKG_VERSION="61568b9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

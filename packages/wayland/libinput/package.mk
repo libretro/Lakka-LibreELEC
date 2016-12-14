@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libinput"
-PKG_VERSION="1.4.1"
+PKG_VERSION="1.5.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -29,7 +29,7 @@ PKG_SHORTDESC="libinput is a library to handle input devices in Wayland composit
 PKG_LONGDESC="libinput is a library to handle input devices in Wayland compositors and to provide a generic X.Org input driver."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=$SYSROOT_PREFIX \
                            --enable-shared \

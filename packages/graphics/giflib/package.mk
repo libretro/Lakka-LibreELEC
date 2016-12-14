@@ -30,7 +30,7 @@ PKG_SHORTDESC="giflib: giflib service library"
 PKG_LONGDESC="giflib: giflib service library"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--disable-shared --enable-static"
 PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=$SYSROOT_PREFIX"

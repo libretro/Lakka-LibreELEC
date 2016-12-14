@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vboxguest"
-PKG_VERSION="5.0.22"
+PKG_VERSION="5.1.8"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
@@ -52,7 +52,7 @@ make_target() {
 
 makeinstall_target() {
   for module in vboxguest vboxsf vboxvideo; do
-    mkdir -p $INSTALL/lib/modules/$(get_module_dir)/$module
-      cp -P $ROOT/$PKG_BUILD/vbox-kmod/$module.ko $INSTALL/lib/modules/$(get_module_dir)/$module
+    mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/$module
+      cp -P $ROOT/$PKG_BUILD/vbox-kmod/$module.ko $INSTALL/usr/lib/modules/$(get_module_dir)/$module
   done
 }

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libXrender"
-PKG_VERSION="0.9.9"
+PKG_VERSION="0.9.10"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -29,7 +29,7 @@ PKG_SHORTDESC="libxrender: X Rendering Extension client library"
 PKG_LONGDESC="The X Rendering Extension (Render) introduces digital image composition as the foundation of a new rendering model within the X Window System. Rendering geometric figures is accomplished by client-side tesselation into either triangles or trapezoids."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --enable-malloc0returnsnull"
 

@@ -31,4 +31,7 @@ PKG_LONGDESC="Shell utility to access/tune ioctl features of the Linux IDE drive
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS_TARGET="binprefix=/usr sbindir=/usr/bin"
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/sbin
+    cp -a $ROOT/$PKG_BUILD/hdparm $INSTALL/usr/sbin
+}

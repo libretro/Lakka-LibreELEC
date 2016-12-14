@@ -20,7 +20,7 @@ PKG_NAME="xf86-video-nvidia"
 # Remember to run "python packages/x11/driver/xf86-video-nvidia/scripts/make_nvidia_udev.py" and commit changes to
 # "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
 # Host may require installation of python-lxml and python-requests packages.
-PKG_VERSION="367.44"
+PKG_VERSION="375.20"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="nonfree"
@@ -71,10 +71,10 @@ makeinstall_target() {
   # rename to not conflicting with Mesa libGL.so
     cp -P libGL.so.$PKG_VERSION $INSTALL/usr/lib/libGL_nvidia.so.1
 
-  mkdir -p $INSTALL/lib/modules/$(get_module_dir)/nvidia
-    ln -sf /var/lib/nvidia.ko $INSTALL/lib/modules/$(get_module_dir)/nvidia/nvidia.ko
-    cp -P kernel/nvidia-uvm.ko $INSTALL/lib/modules/$(get_module_dir)/nvidia
-    cp -P kernel/nvidia-modeset.ko $INSTALL/lib/modules/$(get_module_dir)/nvidia
+  mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/nvidia
+    ln -sf /var/lib/nvidia.ko $INSTALL/usr/lib/modules/$(get_module_dir)/nvidia/nvidia.ko
+    cp -P kernel/nvidia-uvm.ko $INSTALL/usr/lib/modules/$(get_module_dir)/nvidia
+    cp -P kernel/nvidia-modeset.ko $INSTALL/usr/lib/modules/$(get_module_dir)/nvidia
 
   mkdir -p $INSTALL/usr/lib/nvidia
     cp -P kernel/nvidia.ko $INSTALL/usr/lib/nvidia

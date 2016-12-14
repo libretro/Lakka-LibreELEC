@@ -29,4 +29,4 @@ PKG_SHORTDESC="libpthread-stubs: A library providing weak aliases for pthread fu
 PKG_LONGDESC="This library provides weak aliases for pthread functions not provided in libc or otherwise available by default. Libraries like libxcb rely on pthread stubs to use pthreads optionally, becoming thread-safe when linked to libpthread, while avoiding any performance hit when running single-threaded."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"

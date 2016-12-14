@@ -36,3 +36,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared --with-libdvdcss --w
 pre_configure_target() {
   export CFLAGS="$CFLAGS -D_XBMC -DHAVE_DVDCSS_DVDCSS_H"
 }
+
+post_makeinstall_target() {
+  ln -sf dvdread.pc $SYSROOT_PREFIX/usr/lib/pkgconfig/libdvdread.pc
+}

@@ -83,14 +83,14 @@ setup_toolchain() {
         echo "SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)" >> $CMAKE_CONF
         echo "SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)" >> $CMAKE_CONF
       fi
-      export HOST_CC="$HOST_CC"
-      export HOST_CXX="$HOST_CXX"
-      export HOSTCC="$HOST_CC"
-      export HOSTCXX="$HOST_CXX"
-      export CC_FOR_BUILD="$HOST_CC"
-      export CXX_FOR_BUILD="$HOST_CXX"
-      export BUILD_CC="$HOST_CC"
-      export BUILD_CXX="$HOST_CXX"
+      export HOST_CC="$CC"
+      export HOST_CXX="$CXX"
+      export HOSTCC="$CC"
+      export HOSTCXX="$CXX"
+      export CC_FOR_BUILD="$CC"
+      export CXX_FOR_BUILD="$CXX"
+      export BUILD_CC="$CC"
+      export BUILD_CXX="$CXX"
       ;;
   esac
 }
@@ -117,7 +117,7 @@ kernel_version() {
 
 # get kernel module dir
 get_module_dir() {
-  basename $(ls -d $(get_build_dir linux)/.install_pkg/lib/modules/*)
+  basename $(ls -d $(get_build_dir linux)/.install_pkg/usr/lib/modules/*)
 }
 
 # get package's build dir
@@ -288,28 +288,47 @@ dashes="==========================="
 
 check_config() {
 dashes="==========================="
-  if [ ! -d $PROJECT_DIR/$PROJECT -a ! -d $HOME/.libreelec/projects/$PROJECT ]; then
+  if [ ! -d $PROJECT_DIR/$PROJECT ]; then
     check_project="$check_project\n $dashes$dashes$dashes"
     check_project="$check_project\n ERROR: Project not found, use a valid project or create a new config"
     check_project="$check_project\n $dashes$dashes$dashes"
     check_project="$check_project\n\n Valid projects:"
 
-    for projects in $PROJECT_DIR/* $HOME/.libreelec/projects/*; do
+    for projects in $PROJECT_DIR/*; do
       check_project="$check_project\n - $(basename $projects)"
     done
     echo -e $check_project
     exit 1
   fi
 
-  if [ ! -f $PROJECT_DIR/$PROJECT/linux/linux.$TARGET_ARCH.conf ] &&
-     ! ls $PROJECT_DIR/$PROJECT/linux/*/linux.$TARGET_ARCH.conf &>/dev/null; then
+  if [ \( -z "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices" \) -o \( -n "$DEVICE" -a ! -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE" \) ]; then
+    check_device="$check_device\n $dashes$dashes$dashes"
+    check_device="$check_device\n ERROR: You need to specify a valid device for the $PROJECT project"
+    check_device="$check_device\n $dashes$dashes$dashes"
+    check_device="$check_device\n\n Valid devices for project: $PROJECT"
+
+    for device in $PROJECT_DIR/$PROJECT/devices/*; do
+      check_device="$check_device\n - $(basename $device)"
+    done
+    echo -e $check_device
+    exit 1
+  fi
+
+  if [ -d $PROJECT_DIR/$PROJECT/devices/$DEVICE/linux ]; then
+    linux_config_dir="$PROJECT_DIR/$PROJECT/devices/$DEVICE/linux"
+  else
+    linux_config_dir="$PROJECT_DIR/$PROJECT/linux"
+  fi
+
+  if [ ! -f $linux_config_dir/linux.$TARGET_ARCH.conf ] &&
+     ! ls $linux_config_dir/*/linux.$TARGET_ARCH.conf &>/dev/null; then
     check_arch="$check_arch\n $dashes$dashes$dashes"
     check_arch="$check_arch\n ERROR: Architecture not found, use a valid Architecture"
     check_arch="$check_arch\n for your project or create a new config"
     check_arch="$check_arch\n $dashes$dashes$dashes"
     check_arch="$check_arch\n\n Valid Architectures for your project: $PROJECT"
 
-    for arch in $PROJECT_DIR/$PROJECT/linux/*.conf $PROJECT_DIR/$PROJECT/linux/*/linux.$TARGET_ARCH.conf; do
+    for arch in $linux_config_dir/*.conf $linux_config_dir/*/linux.$TARGET_ARCH.conf; do
       check_arch="$check_arch\n - $(basename $arch | cut -f2 -d".")"
     done
     echo -e $check_arch
@@ -335,7 +354,6 @@ show_config() {
   config_message="$config_message\n - FLOAT:\t\t\t\t $TARGET_FLOAT"
   config_message="$config_message\n - FPU:\t\t\t\t\t $TARGET_FPU"
   config_message="$config_message\n - SIMD support:\t\t\t $SIMD_SUPPORT"
-  config_message="$config_message\n - Optimizations:\t\t\t $OPTIMIZATIONS"
   config_message="$config_message\n - LTO (Link Time Optimization) support: $LTO_SUPPORT"
   config_message="$config_message\n - GOLD (Google Linker) Support:\t $GOLD_SUPPORT"
   config_message="$config_message\n - LLVM support:\t\t\t $LLVM_SUPPORT"
@@ -384,7 +402,6 @@ show_config() {
   config_message="$config_message\n - ALSA support:\t\t\t $ALSA_SUPPORT"
   config_message="$config_message\n - Pulseaudio support:\t\t\t $PULSEAUDIO_SUPPORT"
   config_message="$config_message\n - Bluetooth support:\t\t\t $BLUETOOTH_SUPPORT"
-  config_message="$config_message\n - LCD drivers:\t\t\t\t $LCD_DRIVER"
 
   for config_driver in $ADDITIONAL_DRIVERS; do
     config_message="$config_message\n - Include driver:\t\t\t $config_driver"
@@ -481,7 +498,7 @@ show_config() {
 # strip
 debug_strip() {
   if [ ! "$DEBUG" = yes ]; then
-    $STRIP `find $* -type f -executable 2>/dev/null` 2>/dev/null || :
+    find $* -type f -executable | xargs $STRIP 1>/dev/null || :
   fi
 }
 

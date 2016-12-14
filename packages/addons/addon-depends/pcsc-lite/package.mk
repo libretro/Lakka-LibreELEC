@@ -29,7 +29,7 @@ PKG_SHORTDESC="Middleware to access a smart card using SCard API (PC/SC)"
 PKG_LONGDESC="Middleware to access a smart card using SCard API (PC/SC)"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
             --enable-static \

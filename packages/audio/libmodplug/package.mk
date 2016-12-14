@@ -29,6 +29,6 @@ PKG_SHORTDESC="libmodplug: renders mod music files as raw audio data, for playin
 PKG_LONGDESC="libmodplug renders mod music files as raw audio data, for playing or conversion. libmodplug is based on the fast and high quality mod playing code written and released to the public domain by Olivier Lapicque. mod, .s3m, .it, .xm, and a number of lesser-known formats are supported. Optional features include high-quality resampling, bass expansion, surround and reverb."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"

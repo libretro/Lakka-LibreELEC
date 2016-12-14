@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.njoy"
-PKG_VERSION="b5d6565"
+PKG_VERSION="3a32276"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

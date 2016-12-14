@@ -29,7 +29,7 @@ PKG_SHORTDESC="libsndfile: A library for accessing various audio file formats"
 PKG_LONGDESC="libsndfile is a C library for reading and writing sound files such as AIFF, AU, WAV, and others through one standard interface. It can currently read/write 8, 16, 24 and 32-bit PCM files as well as 32 and 64-bit floating point WAV files and a number of compressed formats. It compiles and runs on *nix, MacOS, and Win32."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \

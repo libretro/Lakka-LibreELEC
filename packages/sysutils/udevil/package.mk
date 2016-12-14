@@ -29,12 +29,12 @@ PKG_SHORTDESC="udevil: Mounts and unmounts removable devices and networks withou
 PKG_LONGDESC="udevil Mounts and unmounts removable devices and networks without a password (set suid), shows device info, monitors device changes. Emulates mount's and udisks's command line usage and udisks v1's output. Includes the devmon automounting daemon."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-systemd \
-                           --with-mount-prog=/bin/mount \
-                           --with-umount-prog=/bin/umount \
-                           --with-losetup-prog=/sbin/losetup \
+                           --with-mount-prog=/usr/bin/mount \
+                           --with-umount-prog=/usr/bin/umount \
+                           --with-losetup-prog=/usr/sbin/losetup \
                            --with-setfacl-prog=/usr/bin/setfacl"
 
 makeinstall_target() {

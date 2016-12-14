@@ -254,7 +254,7 @@ def print_notification(json_data):
     try:
         if message is not '':
             length = int(__addon__.getSetting('notification_length')) * 1000
-            dialog.notification('Docker', message, '/storage/.kodi/addons/service.system.docker/icon.png', length)
+            dialog.notification('Docker', message, '/storage/.kodi/addons/service.system.docker/resources/icon.png', length)
             xbmc.log('## service.system.docker ## ' + unicode(message))
     except NameError as e:
         pass

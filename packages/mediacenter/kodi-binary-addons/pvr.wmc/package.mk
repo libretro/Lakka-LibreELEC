@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.wmc"
-PKG_VERSION="d9eac84"
+PKG_VERSION="bffb41d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

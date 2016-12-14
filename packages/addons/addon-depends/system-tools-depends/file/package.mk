@@ -28,7 +28,7 @@ PKG_DEPENDS_TARGET="toolchain zlib file:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="file: File type identification utility"
 PKG_LONGDESC="These are the sources to Darwin's file(1) utility and master magic(4) file, now maintained by Christos Zoulas. The file(1) utility is used to determine the types of various files."
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-fsect-man5 --enable-static --disable-shared"
 PKG_CONFIGURE_OPTS_TARGET="--enable-fsect-man5 --enable-static --disable-shared"

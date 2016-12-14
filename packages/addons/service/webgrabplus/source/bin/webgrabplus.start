@@ -1,54 +1,25 @@
 #!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016 Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
 
 . /etc/profile
 oe_setup_addon service.webgrabplus
 
-wgp_user () {
-  echo "User defined $1"
-  if [ -f "$2" ]
-  then
-    echo "Calling user defined $1 script $2"
-    sh "$2"
-  else
-    echo "Nothing to do"
-  fi
-}
+[ "$wgp_on_act" ] && on_act="--on-active=$wgp_on_act"
 
-mkdir -p "$ADDON_HOME"
-cd "$ADDON_HOME"
-
-for p in chans2correct.xml mdb rex siteini.pack WebGrab++.config.xml
-do
-  if [ ! -e "$p" ]
-  then
-    cp -r "$ADDON_DIR/config/$p" .
-  fi
-done
-
-sid="$(basename $(find $ADDON_DIR/config/siteini.pack -name SiteIni.Pack_*.txt))"
-sih="$(basename $(find siteini.pack -name SiteIni.Pack_*.txt))"
-if [ "$sid" \> "$sih" ]
-then
-  rm -rf siteini.pack
-  cp -r "$ADDON_DIR/config/siteini.pack" .
-fi
-
-wgp_user "pre-processing" "$ADDON_HOME/before.sh"
-
-mono $ADDON_DIR/WebGrab+Plus/WebGrab+Plus.exe
-
-if [ -f guide_mdb.xml ]
-then
-  cp guide_mdb.xml guide_wgp.xml
-  rm guide_mdb.xml
-fi
-
-cp guide_wgp.xml guide_xtc.xml
-mono $ADDON_DIR/WebGrab+Plus/xmltv_time_correct.exe guide_wgp.xml guide_xtc.xml < /dev/zero
-
-cp guide_xtc.xml guide.xml
-rm guide_xtc.xml
-
-mono $ADDON_DIR/WebGrab+Plus/WG2MP.exe guide.xml mediaportal.xml
-
-wgp_user "post-processing" "$ADDON_HOME/after.sh"
+systemd-run $on_act --on-calendar="$wgp_on_cal" --unit=webgrabplus /bin/sh $ADDON_DIR/bin/webgrabplus.run

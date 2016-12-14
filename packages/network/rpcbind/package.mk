@@ -29,7 +29,7 @@ PKG_SHORTDESC="rpcbind: a server that converts RPC program numbers into universa
 PKG_LONGDESC="The rpcbind utility is a server that converts RPC program numbers into universal addresses."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-warmstarts \
                            --disable-libwrap \

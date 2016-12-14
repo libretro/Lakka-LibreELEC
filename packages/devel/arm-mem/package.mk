@@ -44,18 +44,18 @@ make_init() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/lib
-    cp -P libarmmem.so $INSTALL/lib
+  mkdir -p $INSTALL/usr/lib
+    cp -P libarmmem.so $INSTALL/usr/lib
 
   mkdir -p $INSTALL/etc
-    echo "/lib/libarmmem.so" >> $INSTALL/etc/ld.so.preload
+    echo "/usr/lib/libarmmem.so" >> $INSTALL/etc/ld.so.preload
 }
 
 makeinstall_init() {
-  mkdir -p $INSTALL/lib
-    cp -P libarmmem.so $INSTALL/lib
+  mkdir -p $INSTALL/usr/lib
+    cp -P libarmmem.so $INSTALL/usr/lib
 
   mkdir -p $INSTALL/etc
-    echo "/lib/libarmmem.so" >> $INSTALL/etc/ld.so.preload
+    echo "/usr/lib/libarmmem.so" >> $INSTALL/etc/ld.so.preload
 }
 

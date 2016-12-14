@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="lftp"
-PKG_VERSION="4.6.5"
+PKG_VERSION="4.7.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -27,15 +27,14 @@ PKG_DEPENDS_TARGET="toolchain readline libressl zlib"
 PKG_SECTION="tools"
 PKG_SHORTDESC="ftp client"
 PKG_LONGDESC="LFTP is a sophisticated ftp/http client, and a file transfer program supporting a number of network protocols"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-nls --with-gnu-ld --without-gnutls --with-openssl"
+PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
+                           --without-gnutls \
+                           --with-openssl \
+                           --with-readline=$SYSROOT_PREFIX/usr \
+                           --with-zlib=$SYSROOT_PREFIX/usr"
 
 makeinstall_target() {
   : # nop
-}
-
-pre_configure_target() {
-  # fails to build with gcc 4.9 + lto
-  strip_lto
 }

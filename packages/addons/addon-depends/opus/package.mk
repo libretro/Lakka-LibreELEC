@@ -29,7 +29,7 @@ PKG_SHORTDESC="Codec designed for interactive speech and audio transmission over
 PKG_LONGDESC="Codec designed for interactive speech and audio transmission over the Internet"
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 if [ "$TARGET_ARCH" = "arm" ]; then
   FIXED_POINT="--enable-fixed-point"

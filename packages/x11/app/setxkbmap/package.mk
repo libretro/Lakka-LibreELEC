@@ -29,4 +29,4 @@ PKG_SHORTDESC="setxkbmap: Sets the keyboard using the X Keyboard Extension"
 PKG_LONGDESC="Setxkbmap sets the keyboard using the X Keyboard Extension."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"

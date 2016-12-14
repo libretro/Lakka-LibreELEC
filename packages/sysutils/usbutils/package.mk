@@ -29,7 +29,7 @@ PKG_SHORTDESC="usbutils: Linux USB Utilities"
 PKG_LONGDESC="This package contains various utilities for inspecting and setting of devices connected to the USB bus. Requires a kernel version including usbdevfs support - and this usbdevfs mounted to /proc/bus/usb."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/lsusb.py

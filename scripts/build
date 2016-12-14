@@ -20,8 +20,6 @@
 
 . config/options $1
 
-setup_toolchain target
-
 if [ -z "$1" ]; then
   echo "usage: $0 package_name[:<host|target|init|bootstrap>]"
   exit 1
@@ -56,6 +54,7 @@ STAMP=$STAMPS/$PACKAGE_NAME/build_$TARGET
 $SCRIPTS/unpack $PACKAGE_NAME
 
 STAMP_DEPENDS="$PKG_DIR $PKG_NEED_UNPACK $PROJECT_DIR/$PROJECT/patches/$PKG_NAME"
+[ -n "$DEVICE" ] && STAMP_DEPENDS="$STAMP_DEPENDS $PROJECT_DIR/$PROJECT/devices/$DEVICE/patches/$PKG_NAME"
 
 if [ -f $STAMP ] ; then
   . $STAMP
@@ -122,6 +121,7 @@ if [ ! -f $STAMP ]; then
                            --bindir=/usr/bin \
                            --sbindir=/usr/sbin \
                            --sysconfdir=/etc \
+                           --libdir=/usr/lib \
                            --libexecdir=/usr/lib \
                            --localstatedir=/var \
                            --disable-static \
@@ -130,7 +130,7 @@ if [ ! -f $STAMP ]; then
     if [ "$DEBUG" = "yes" ]; then
       CMAKE_BUILD_TYPE="Debug"
     else
-      CMAKE_BUILD_TYPE="Release"
+      CMAKE_BUILD_TYPE="MinSizeRel"
     fi
 
     TARGET_CMAKE_OPTS="-DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
@@ -214,8 +214,6 @@ if [ ! -f $STAMP ]; then
       fi
       if [ -z "$PKG_CMAKE_SCRIPT" ]; then
         PKG_CMAKE_SCRIPT="$ROOT/$PKG_BUILD/CMakeLists.txt"
-      else
-        PKG_CMAKE_SCRIPT="$ROOT/$PKG_BUILD/$PKG_CMAKE_SCRIPT"
       fi
 
       # include build template and build
@@ -327,31 +325,30 @@ if [ ! -f $STAMP ]; then
       fi
 
       if [ "$TARGET" = "target" -o "$TARGET" = "init" ]; then
-       if [ -d $INSTALL ] ; then
-         for i in $INSTALL $INSTALL/usr; do
-            rm -rf $i/include
-            rm -rf $i/lib/cmake
-            rm -rf $i/lib/pkgconfig
-            rm -rf $i/man
-            rm -rf $i/share/aclocal
-            rm -rf $i/share/bash-completion
-            rm -rf $i/share/doc
-            rm -rf $i/share/gtk-doc
-            rm -rf $i/share/info
-            rm -rf $i/share/locale
-            rm -rf $i/share/man
-            rm -rf $i/share/pkgconfig
-            find $i -name "*.la" -exec rm -f "{}" ";" 2>/dev/null || true
-            find $i -name "*.a" -exec rm -f "{}" ";" 2>/dev/null || true
-            find $i -name "*.so*T" -exec rm -f "{}" ";" 2>/dev/null || true
-            # patch backups nonsense
-            find $i -name "*.orig" -exec rm -f "{}" ";" 2>/dev/null || true
-            # kodi / addons nonsense
-            find $i -name "addon.xml.in" -exec rm -f "{}" ";" 2>/dev/null || true
-            find $i -name "Makefile.in" -exec rm -f "{}" ";" 2>/dev/null || true
-          done
-
-          find $INSTALL -type d -exec rmdir -p "{}" ";" 2>/dev/null || true
+        if [ -d $INSTALL ] ; then
+          rm -rf $INSTALL/{usr/,}include
+          rm -rf $INSTALL/{usr/,}lib/cmake
+          rm -rf $INSTALL/{usr/,}lib/pkgconfig
+          rm -rf $INSTALL/{usr/,}man
+          rm -rf $INSTALL/{usr/,}share/aclocal
+          rm -rf $INSTALL/{usr/,}share/bash-completion
+          rm -rf $INSTALL/{usr/,}share/doc
+          rm -rf $INSTALL/{usr/,}share/gtk-doc
+          rm -rf $INSTALL/{usr/,}share/info
+          rm -rf $INSTALL/{usr/,}share/locale
+          rm -rf $INSTALL/{usr/,}share/man
+          rm -rf $INSTALL/{usr/,}share/pkgconfig
+          rm -rf $INSTALL/{usr/,}share/zsh
+          rm -rf $INSTALL/{usr/,}var
+          find $INSTALL \( -name "*.orig" \
+                        -o -name "*.rej" \
+                        -o -name "*.a" \
+                        -o -name "*.la" \
+                        -o -name "*.o" \
+                        -o -name "*.in" \
+                        -o -name ".git*" \) \
+            -exec rm -f {} \; 2>/dev/null || :
+          find $INSTALL -type d -exec rmdir -p {} \; 2>/dev/null || :
 
           if [ ! "$DEBUG" = yes ]; then
             $STRIP `find $INSTALL \

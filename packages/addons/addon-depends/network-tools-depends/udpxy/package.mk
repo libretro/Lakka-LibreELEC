@@ -33,6 +33,7 @@ PKG_AUTORECONF="no"
 pre_configure_target() {
   # fails to build with gcc 4.9 + lto
   strip_lto
+  CFLAGS="$CFLAGS -Wno-error=unused-const-variable"
 }
 
 makeinstall_target() {

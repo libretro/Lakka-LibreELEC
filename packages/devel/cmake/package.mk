@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="cmake"
-PKG_VERSION="3.5.2"
+PKG_VERSION="3.6.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.cmake.org/"
-PKG_URL="http://www.cmake.org/files/v3.5/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="http://www.cmake.org/files/v3.6/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="ccache:host libressl:host"
 PKG_SECTION="toolchain/devel"
 PKG_SHORTDESC="cmake: A cross-platform, open-source make system"

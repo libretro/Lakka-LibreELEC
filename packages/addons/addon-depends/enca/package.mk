@@ -29,7 +29,7 @@ PKG_SHORTDESC="enca: detects the encoding of text files, on the basis of knowled
 PKG_LONGDESC="Enca detects the encoding of text files, on the basis of knowledge of their language. It can also convert them to other encodings, allowing you to recode files without knowing their current encoding. It supports most of Central and East European languages, and a few Unicode variants, independently on language."
 
 PKG_IS_ADDON="no"
-PKG_AUTORECONF="yes"
+PKG_AUTORECONF="no"
 
 PKG_MAKEINSTALL_OPTS_TARGET="-C lib"
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_file__dev_random=yes \

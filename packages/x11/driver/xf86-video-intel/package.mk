@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xf86-video-intel"
-PKG_VERSION="b617f80"
+PKG_VERSION="9ac7a33"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="OSS"
@@ -40,7 +40,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-backlight \
                            --enable-dri \
                            --disable-dri1 \
                            --enable-dri2 \
-                           --disable-dri3 \
+                           --enable-dri3 \
                            --enable-kms --enable-kms-only \
                            --disable-ums --disable-ums-only \
                            --enable-sna \
@@ -51,6 +51,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-backlight \
                            --disable-tear-free \
                            --disable-create2 \
                            --disable-async-swap \
+                           --with-default-dri=3 \
                            --with-xorg-module-dir=$XORG_PATH_MODULES"
 
 pre_configure_target() {
