@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.demo"
-PKG_VERSION="9ebc62c"
+PKG_VERSION="147fd97"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
