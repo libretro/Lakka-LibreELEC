@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.18.4"
+PKG_VERSION="1.19.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
 PKG_URL="http://xorg.freedesktop.org/archive/individual/xserver/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto dri3proto fixesproto damageproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto presentproto libpciaccess libX11 libXfont libXinerama libxshmfence libxkbfile libdrm libressl freetype pixman fontsproto systemd xorg-launch-helper"
+PKG_DEPENDS_TARGET="toolchain util-macros font-util fontsproto randrproto recordproto renderproto dri2proto dri3proto fixesproto damageproto videoproto inputproto xf86dgaproto xf86vidmodeproto xf86driproto xf86miscproto presentproto libpciaccess libX11 libXfont2 libXinerama libxshmfence libxkbfile libdrm libressl freetype pixman fontsproto systemd xorg-launch-helper"
 PKG_SECTION="x11/xserver"
 PKG_SHORTDESC="xorg-server: The Xorg X server"
 PKG_LONGDESC="Xorg is a full featured X server that was originally designed for UNIX and UNIX-like operating systems running on Intel x86 hardware."
@@ -118,6 +118,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-debug \
                            --disable-ipv6 \
                            --disable-local-transport \
                            --disable-secure-rpc \
+                           --enable-input-thread \
                            --enable-xtrans-send-fds \
                            --disable-docs \
                            --disable-devel-docs \

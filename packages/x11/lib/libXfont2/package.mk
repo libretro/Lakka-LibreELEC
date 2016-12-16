@@ -16,8 +16,8 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="libXfont"
-PKG_VERSION="1.5.2"
+PKG_NAME="libXfont2"
+PKG_VERSION="2.0.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
