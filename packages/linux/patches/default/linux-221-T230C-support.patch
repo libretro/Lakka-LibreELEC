@@ -1,9 +1,209 @@
 From: https://github.com/crazycat69/linux_media/
-From: CrazyCat <crazycat69@narod.ru>
 Date: Wed, 28 Sep 2016 01:29:23 +0300
 Subject: [PATCH] cxusb: Geniatech T230C support.
 
-index 0f6ace4..72a8e91 100644
+diff --git a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/si2168.c
+index 20b4a65..28f3bbe 100644
+--- a/drivers/media/dvb-frontends/si2168.c
++++ b/drivers/media/dvb-frontends/si2168.c
+@@ -674,6 +674,9 @@ static int si2168_probe(struct i2c_client *client,
+ 	case SI2168_CHIP_ID_B40:
+ 		dev->firmware_name = SI2168_B40_FIRMWARE;
+ 		break;
++	case SI2168_CHIP_ID_D60:
++		dev->firmware_name = SI2168_D60_FIRMWARE;
++		break;
+ 	default:
+ 		dev_dbg(&client->dev, "unknown chip version Si21%d-%c%c%c\n",
+ 			cmd.args[2], cmd.args[1], cmd.args[3], cmd.args[4]);
+@@ -761,3 +764,4 @@ static int si2168_remove(struct i2c_client *client)
+ MODULE_FIRMWARE(SI2168_A20_FIRMWARE);
+ MODULE_FIRMWARE(SI2168_A30_FIRMWARE);
+ MODULE_FIRMWARE(SI2168_B40_FIRMWARE);
++MODULE_FIRMWARE(SI2168_D60_FIRMWARE);
+diff --git a/drivers/media/dvb-frontends/si2168_priv.h b/drivers/media/dvb-frontends/si2168_priv.h
+index 7843ccb..4baa95b 100644
+--- a/drivers/media/dvb-frontends/si2168_priv.h
++++ b/drivers/media/dvb-frontends/si2168_priv.h
+@@ -25,6 +25,7 @@
+ #define SI2168_A20_FIRMWARE "dvb-demod-si2168-a20-01.fw"
+ #define SI2168_A30_FIRMWARE "dvb-demod-si2168-a30-01.fw"
+ #define SI2168_B40_FIRMWARE "dvb-demod-si2168-b40-01.fw"
++#define SI2168_D60_FIRMWARE "dvb-demod-si2168-d60-01.fw"
+ #define SI2168_B40_FIRMWARE_FALLBACK "dvb-demod-si2168-02.fw"
+ 
+ /* state struct */
+@@ -37,6 +38,7 @@ struct si2168_dev {
+ 	#define SI2168_CHIP_ID_A20 ('A' << 24 | 68 << 16 | '2' << 8 | '0' << 0)
+ 	#define SI2168_CHIP_ID_A30 ('A' << 24 | 68 << 16 | '3' << 8 | '0' << 0)
+ 	#define SI2168_CHIP_ID_B40 ('B' << 24 | 68 << 16 | '4' << 8 | '0' << 0)
++	#define SI2168_CHIP_ID_D60 ('D' << 24 | 68 << 16 | '6' << 8 | '0' << 0)
+ 	unsigned int chip_id;
+ 	unsigned int version;
+ 	const char *firmware_name;
+diff --git a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
+index 57b2508..69fd21e 100644
+--- a/drivers/media/tuners/si2157.c
++++ b/drivers/media/tuners/si2157.c
+@@ -1,5 +1,5 @@
+ /*
+- * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
++ * Silicon Labs Si2141/2146/2147/2148/2151/2157/2158 silicon tuner driver
+  *
+  * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
+  *
+@@ -84,7 +84,7 @@ static int si2157_init(struct dvb_frontend *fe)
+ 	struct si2157_cmd cmd;
+ 	const struct firmware *fw;
+ 	const char *fw_name;
+-	unsigned int uitmp, chip_id;
++	unsigned int uitmp, chip_id, count;
+ 
+ 	dev_dbg(&client->dev, "\n");
+ 
+@@ -102,14 +102,46 @@ static int si2157_init(struct dvb_frontend *fe)
+ 	if (uitmp == dev->if_frequency / 1000)
+ 		goto warm;
+ 
++	if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
++		count = 0;
++		do {
++			if (count > 10)
++				goto err;
++
++			/* reset */
++			memcpy(cmd.args, "\xc0\x05\x00\x00", 4);
++			cmd.wlen = 4;
++			cmd.rlen = 1;
++			ret = si2157_cmd_execute(client, &cmd);
++			if (ret)
++				goto err;
++
++			memcpy(cmd.args, "\xc0\x00\x0d\x0e\x00\x01\x01\x01\x01\x03", 10);
++			cmd.wlen = 10;
++			cmd.rlen = 1;
++			ret = si2157_cmd_execute(client, &cmd);
++			if (ret)
++				goto err;
++			count++;
++		} while (cmd.args[0] == 0xfe);
++		dev_info(&client->dev, "Si2141/2151 reset attempts %d\n", count);
++	}
++
+ 	/* power up */
+-	if (dev->chiptype == SI2157_CHIPTYPE_SI2146) {
++	switch (dev->chiptype) {
++	case SI2157_CHIPTYPE_SI2146:
+ 		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
+ 		cmd.wlen = 9;
+-	} else {
++		break;
++	case SI2157_CHIPTYPE_SI2141:
++		memcpy(cmd.args, "\xc0\x08\x01\x02\x00\x08\x01", 7);
++		cmd.wlen = 7;
++		break;
++	default:
+ 		memcpy(cmd.args, "\xc0\x00\x0c\x00\x00\x01\x01\x01\x01\x01\x01\x02\x00\x00\x01", 15);
+ 		cmd.wlen = 15;
+ 	}
++
+ 	cmd.rlen = 1;
+ 	ret = si2157_cmd_execute(client, &cmd);
+ 	if (ret)
+@@ -131,6 +163,8 @@ static int si2157_init(struct dvb_frontend *fe)
+ 	#define SI2157_A30 ('A' << 24 | 57 << 16 | '3' << 8 | '0' << 0)
+ 	#define SI2147_A30 ('A' << 24 | 47 << 16 | '3' << 8 | '0' << 0)
+ 	#define SI2146_A10 ('A' << 24 | 46 << 16 | '1' << 8 | '0' << 0)
++	#define SI2141_A10 ('A' << 24 | 41 << 16 | '1' << 8 | '0' << 0)
++	#define SI2151_A10 ('A' << 24 | 51 << 16 | '1' << 8 | '0' << 0)
+ 
+ 	switch (chip_id) {
+ 	case SI2158_A20:
+@@ -142,6 +176,10 @@ static int si2157_init(struct dvb_frontend *fe)
+ 	case SI2146_A10:
+ 		fw_name = NULL;
+ 		break;
++	case SI2141_A10:
++	case SI2151_A10:
++		fw_name = SI2141_A10_FIRMWARE;
++		break;
+ 	default:
+ 		dev_err(&client->dev, "unknown chip version Si21%d-%c%c%c\n",
+ 				cmd.args[2], cmd.args[1],
+@@ -214,6 +252,23 @@ static int si2157_init(struct dvb_frontend *fe)
+ 
+ 	dev_info(&client->dev, "firmware version: %c.%c.%d\n",
+ 			cmd.args[6], cmd.args[7], cmd.args[8]);
++
++	if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
++		/* set clock */
++		memcpy(cmd.args, "\xc0\x00\x0d", 3);
++		cmd.wlen = 3;
++		cmd.rlen = 1;
++		ret = si2157_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
++		/* setup PIN */
++		memcpy(cmd.args, "\x12\x80\x80\x85\x00\x81\x00", 7);
++		cmd.wlen = 7;
++		cmd.rlen = 7;
++		ret = si2157_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
++	}
+ warm:
+ 	/* init statistics in order signal app which are supported */
+ 	c->strength.len = 1;
+@@ -471,7 +526,8 @@ static int si2157_probe(struct i2c_client *client,
+ #endif
+ 
+ 	dev_info(&client->dev, "Silicon Labs %s successfully attached\n",
+-			dev->chiptype == SI2157_CHIPTYPE_SI2146 ?
++			dev->chiptype == SI2157_CHIPTYPE_SI2141 ?
++			"Si2141/2151" : dev->chiptype == SI2157_CHIPTYPE_SI2146 ?
+ 			"Si2146" : "Si2147/2148/2157/2158");
+ 
+ 	return 0;
+@@ -508,6 +564,8 @@ static int si2157_remove(struct i2c_client *client)
+ static const struct i2c_device_id si2157_id_table[] = {
+ 	{"si2157", SI2157_CHIPTYPE_SI2157},
+ 	{"si2146", SI2157_CHIPTYPE_SI2146},
++	{"si2141", SI2157_CHIPTYPE_SI2141},
++	{"si2151", SI2157_CHIPTYPE_SI2141},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(i2c, si2157_id_table);
+@@ -524,7 +582,8 @@ static int si2157_remove(struct i2c_client *client)
+ 
+ module_i2c_driver(si2157_driver);
+ 
+-MODULE_DESCRIPTION("Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver");
++MODULE_DESCRIPTION("Silicon Labs Si2141/2146/2147/2148/2151/2157/2158 silicon tuner driver");
+ MODULE_AUTHOR("Antti Palosaari <crope@iki.fi>");
+ MODULE_LICENSE("GPL");
+ MODULE_FIRMWARE(SI2158_A20_FIRMWARE);
++MODULE_FIRMWARE(SI2141_A10_FIRMWARE);
+diff --git a/drivers/media/tuners/si2157_priv.h b/drivers/media/tuners/si2157_priv.h
+index d6b2c7b..e6436f7 100644
+--- a/drivers/media/tuners/si2157_priv.h
++++ b/drivers/media/tuners/si2157_priv.h
+@@ -42,6 +42,7 @@ struct si2157_dev {
+ 
+ #define SI2157_CHIPTYPE_SI2157 0
+ #define SI2157_CHIPTYPE_SI2146 1
++#define SI2157_CHIPTYPE_SI2141 2
+ 
+ /* firmware command struct */
+ #define SI2157_ARGLEN      30
+@@ -52,5 +53,6 @@ struct si2157_cmd {
+ };
+ 
+ #define SI2158_A20_FIRMWARE "dvb-tuner-si2158-a20-01.fw"
++#define SI2141_A10_FIRMWARE "dvb-tuner-si2141-a10-01.fw"
+ 
+ #endif
+diff --git a/drivers/media/usb/dvb-usb/cxusb.c b/drivers/media/usb/dvb-usb/cxusb.c
+index 0f6ace4..4bf4c68 100644
 --- a/drivers/media/usb/dvb-usb/cxusb.c
 +++ b/drivers/media/usb/dvb-usb/cxusb.c
 @@ -369,6 +369,26 @@ static int cxusb_aver_streaming_ctrl(struct dvb_usb_adapter *adap, int onoff)
@@ -78,10 +278,21 @@ index 0f6ace4..72a8e91 100644
  static int cxusb_dee1601_demod_init(struct dvb_frontend* fe)
  {
  	static u8 clock_config []  = { CLOCK_CTL,  0x38, 0x28 };
-@@ -1371,6 +1429,88 @@ static int cxusb_mygica_t230_frontend_attach(struct dvb_usb_adapter *adap)
- 	st->i2c_client_demod = client_demod;
- 	st->i2c_client_tuner = client_tuner;
+@@ -1346,6 +1404,8 @@ static int cxusb_mygica_t230_frontend_attach(struct dvb_usb_adapter *adap)
+ 		return -ENODEV;
+ 	}
  
++	st->i2c_client_demod = client_demod;
++
+ 	/* attach tuner */
+ 	memset(&si2157_config, 0, sizeof(si2157_config));
+ 	si2157_config.fe = adap->fe_adap[0].fe;
+@@ -1368,9 +1428,90 @@ static int cxusb_mygica_t230_frontend_attach(struct dvb_usb_adapter *adap)
+ 		return -ENODEV;
+ 	}
+ 
++	st->i2c_client_tuner = client_tuner;
++
 +	/* hook fe: need to resync the slave fifo when signal locks. */
 +	mutex_init(&st->stream_mutex);
 +	st->last_lock = 0;
@@ -155,9 +366,9 @@ index 0f6ace4..72a8e91 100644
 +		return -ENODEV;
 +	}
 +
-+	st->i2c_client_demod = client_demod;
-+	st->i2c_client_tuner = client_tuner;
-+
+ 	st->i2c_client_demod = client_demod;
+ 	st->i2c_client_tuner = client_tuner;
+ 
 +	/* hook fe: need to resync the slave fifo when signal locks. */
 +	mutex_init(&st->stream_mutex);
 +	st->last_lock = 0;
@@ -167,7 +378,7 @@ index 0f6ace4..72a8e91 100644
  	return 0;
  }
  
-@@ -1456,6 +1596,7 @@ static struct dvb_usb_device_properties cxusb_aver_a868r_properties;
+@@ -1456,6 +1597,7 @@ static struct dvb_usb_device_properties cxusb_aver_a868r_properties;
  static struct dvb_usb_device_properties cxusb_d680_dmb_properties;
  static struct dvb_usb_device_properties cxusb_mygica_d689_properties;
  static struct dvb_usb_device_properties cxusb_mygica_t230_properties;
@@ -175,7 +386,7 @@ index 0f6ace4..72a8e91 100644
  
  static int cxusb_probe(struct usb_interface *intf,
  		       const struct usb_device_id *id)
-@@ -1488,6 +1629,8 @@ static int cxusb_probe(struct usb_interface *intf,
+@@ -1488,6 +1630,8 @@ static int cxusb_probe(struct usb_interface *intf,
  				     THIS_MODULE, NULL, adapter_nr) ||
  	    0 == dvb_usb_device_init(intf, &cxusb_mygica_t230_properties,
  				     THIS_MODULE, NULL, adapter_nr) ||
@@ -184,7 +395,7 @@ index 0f6ace4..72a8e91 100644
  	    0)
  		return 0;
  
-@@ -1539,6 +1682,7 @@ enum cxusb_table_index {
+@@ -1539,6 +1683,7 @@ enum cxusb_table_index {
  	CONEXANT_D680_DMB,
  	MYGICA_D689,
  	MYGICA_T230,
@@ -192,7 +403,7 @@ index 0f6ace4..72a8e91 100644
  	NR__cxusb_table_index
  };
  
-@@ -1606,6 +1750,9 @@ static struct usb_device_id cxusb_table[NR__cxusb_table_index + 1] = {
+@@ -1606,6 +1751,9 @@ static struct usb_device_id cxusb_table[NR__cxusb_table_index + 1] = {
  	[MYGICA_T230] = {
  		USB_DEVICE(USB_VID_CONEXANT, USB_PID_MYGICA_T230)
  	},
@@ -202,7 +413,7 @@ index 0f6ace4..72a8e91 100644
  	{}		/* Terminating entry */
  };
  MODULE_DEVICE_TABLE (usb, cxusb_table);
-@@ -2290,8 +2437,8 @@ static struct dvb_usb_device_properties cxusb_mygica_t230_properties = {
+@@ -2290,8 +2438,8 @@ static struct dvb_usb_device_properties cxusb_mygica_t230_properties = {
  
  	.rc.legacy = {
  		.rc_interval      = 100,
@@ -213,7 +424,7 @@ index 0f6ace4..72a8e91 100644
  		.rc_query         = cxusb_d680_dmb_rc_query,
  	},
  
-@@ -2305,6 +2452,59 @@ static struct dvb_usb_device_properties cxusb_mygica_t230_properties = {
+@@ -2305,6 +2453,59 @@ static struct dvb_usb_device_properties cxusb_mygica_t230_properties = {
  	}
  };
  
@@ -289,6 +500,3 @@ index 18acda1..66429d7 100644
  };
  
  #endif
--- 
-2.7.4
-
