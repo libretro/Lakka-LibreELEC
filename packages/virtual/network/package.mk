@@ -35,3 +35,6 @@ if [ "$BLUETOOTH_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bluez"
 fi
 
+if [ "$SAMBA_SERVER" = "yes" ] || [ "$SAMBA_SUPPORT" = "yes" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET samba"
+fi
