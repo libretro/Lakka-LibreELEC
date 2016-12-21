@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="enca"
-PKG_VERSION="1.16"
+PKG_VERSION="1.19"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
