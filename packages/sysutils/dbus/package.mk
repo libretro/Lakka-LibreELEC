@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="dbus"
-PKG_VERSION="1.11.2"
+PKG_VERSION="1.10.14"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
