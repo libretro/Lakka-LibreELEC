@@ -18,7 +18,7 @@
 ################################################################################
 
 PKG_NAME="openvpn"
-PKG_VERSION="2.3.12"
+PKG_VERSION="2.3.14"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

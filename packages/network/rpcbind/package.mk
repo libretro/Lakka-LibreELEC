@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="rpcbind"
-PKG_VERSION="0.2.3"
+PKG_VERSION="0.2.4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
