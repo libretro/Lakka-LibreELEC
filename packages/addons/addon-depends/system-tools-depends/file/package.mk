@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="file"
-PKG_VERSION="5.25"
+PKG_VERSION="5.29"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"

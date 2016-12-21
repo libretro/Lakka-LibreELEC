@@ -35,40 +35,44 @@ __path__  = os.path.join(__addon__.getAddonInfo('path'), 'bin') + '/'
 pauseXBMC = __addon__.getSetting("PAUSE_XBMC")
 
 # widevine and flash stuff
-__url__   = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb'
-__file__  = __url__.split('/')[-1]
-__tar__   = 'data.tar.xz'
-__tmp__   = '/tmp/widevine/'
-__lib__   = 'opt/google/chrome/libwidevinecdm.so'
-__flash__ = 'opt/google/chrome/PepperFlash/libpepflashplayer.so'
-
-def download():
+def install_flash():
+  __url__   = 'https://fpdownload.adobe.com/pub/flashplayer/pdc/24.0.0.186/flash_player_ppapi_linux.x86_64.tar.gz'
+  __file__  = __url__.split('/')[-1]
+  __tmp__   = '/tmp/pepperflash/'
+  __lib__ = 'libpepflashplayer.so'
   try:
     if not os.path.isdir(__tmp__):
       os.mkdir(__tmp__)
     if not os.path.exists(__tmp__ + __file__):
       oe.download_file(__url__, __tmp__ + __file__)
-  except Exception, e:
-    oe.notify('Chromium', 'Could not download file')
-
-def install_flash():
-  try:
-    download()
-    oe.notify('Chromium', 'Extracting libpepflashplayer.so')
-    if not os.path.isdir(__tmp__ + __tar__):
-      oe.execute('cd ' + __tmp__ + ' && ar -x ' + __file__)
-    oe.execute('tar xf ' + __tmp__ + __tar__ + ' -C ' + __tmp__ + ' ./' + __flash__)
+    if not os.path.exists(__tmp__ + __file__):
+      oe.notify('Chromium', 'Could not download file')
+    else:
+      oe.notify('Chromium', 'Extracting libpepflashplayer.so')
+    if not os.path.isdir(__tmp__ + __file__):
+      oe.execute('tar zxf ' + __tmp__ + __file__ + ' -C ' + __tmp__ + '')
     if not os.path.isdir(__path__ + 'PepperFlash'):
       os.mkdir(__path__ + 'PepperFlash')
-    oe.copy_file(__tmp__ + __flash__, __path__ + 'PepperFlash/' + __flash__.split('/')[-1])
+    oe.copy_file(__tmp__ + __lib__, __path__ + 'PepperFlash/' + __lib__)
     oe.notify('Chromium', 'Installation of libpepflashplayer.so succeeded')
   except Exception, e:
     oe.notify('Chromium', 'Installation of libpepflashplayer.so failed')
 
 def install_widevine():
+  __url__   = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb'
+  __file__  = __url__.split('/')[-1]
+  __tar__   = 'data.tar.xz'
+  __tmp__   = '/tmp/widevine/'
+  __lib__   = 'opt/google/chrome/libwidevinecdm.so'
   try:
-    download()
-    oe.notify('Chromium', 'Extracting libwidevinecdm.so')
+    if not os.path.isdir(__tmp__):
+      os.mkdir(__tmp__)
+    if not os.path.exists(__tmp__ + __file__):
+      oe.download_file(__url__, __tmp__ + __file__)
+    if not os.path.exists(__tmp__ + __file__):
+      oe.notify('Chromium', 'Could not download file')
+    else:
+      oe.notify('Chromium', 'Extracting libwidevinecdm.so')
     if not os.path.isdir(__tmp__ + __tar__):
       oe.execute('cd ' + __tmp__ + ' && ar -x ' + __file__)
     oe.execute('tar xf ' + __tmp__ + __tar__ + ' -C ' + __tmp__ + ' ./' + __lib__)
