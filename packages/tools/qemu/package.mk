@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="qemu"
-PKG_VERSION="2.5.1"
+PKG_VERSION="2.7.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
