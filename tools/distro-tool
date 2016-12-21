@@ -29,6 +29,8 @@ DRY_RUN=no
 IGNORE_ERRORS=no
 DOGIT=no
 CHECK_NEWER=yes
+CHECK_FILTER_TYPE=All
+CHECK_FILTER_CLASS=All
 PROGRESS=yes
 IS_MIRROR=yes
 VERBOSE=0
@@ -410,6 +412,9 @@ class MyUtility(object):
       if not package_url.startswith("https://github.com/"):
         return
 
+      if CHECK_FILTER_TYPE == "Ver":
+        return
+
       is_git_rev = True
 
       latestrev = MyUtility.get_latest_commit(msgs, package_url)
@@ -420,6 +425,8 @@ class MyUtility(object):
         return
 
       alt_versions.append(latestrev[0:len(package_ver)])
+    elif CHECK_FILTER_TYPE == "Rev":
+      return
 
     MyUtility.show(msgs, 2 if VERBOSE == 2 else 3, None, "Checking for newer", "%s, current version %s - checking %s" % (package_name, package_ver, ", ".join(alt_versions)))
 
@@ -428,7 +435,10 @@ class MyUtility(object):
     for newver in alt_versions:
       url = newurl.replace("@@VER@@", newver)
       if MyUtility.remote_file_exists(msgs, url):
-        MyUtility.show(msgs, 0, "yellow" if is_git_rev else "magenta", "New package available", "%s (%s => %s) %s" % (package_name, package_ver, newver, url))
+        if is_git_rev:
+          MyUtility.show(msgs, 0, "yellow", "New Rev Pkg available", "%s (%s => %s) %s" % (package_name, package_ver, newver, url))
+        else:
+          MyUtility.show(msgs, 0, "magenta","New Ver Pkg available", "%s (%s => %s) %s" % (package_name, package_ver, newver, url))
         break
 
   @staticmethod
@@ -469,6 +479,7 @@ class MyThread(threading.Thread):
         qItem = self.input_queue.get(block=False)
         self.input_queue.task_done()
 
+        pkg_is_addon = (qItem["PKG_IS_ADDON"] == "Yes")
         pkg_name = qItem["PKG_NAME"]
         pkg_version = qItem["PKG_VERSION"]
         pkg_url = qItem["PKG_URL"]
@@ -478,7 +489,7 @@ class MyThread(threading.Thread):
         msgs = []
 
         if pkg_version == "" or pkg_version == "0.0invalid" or pkg_url == "":
-          if pkg_section != "virtual":
+          if pkg_section != "virtual" and CHECK_FILTER_CLASS == "All" and CHECK_FILTER_TYPE == "All":
             MyUtility.show(msgs, 0, "cyan", "UNKNOWN VER OR URL", "%s (ver [%s], url [%s])" % (pkg_name, pkg_version, pkg_url))
             self.output_queue.put(msgs)
           continue
@@ -501,9 +512,12 @@ class MyThread(threading.Thread):
           tDelta_get_package = datetime.datetime.now() - tStart
 
         if CHECK_NEWER and not stopped.is_set():
-          tStart = datetime.datetime.now()
-          MyUtility.check_newer(msgs, pkg_name, pkg_url, pkg_version)
-          tDelta_check_newer = datetime.datetime.now() - tStart
+          if (CHECK_FILTER_CLASS == "All") or \
+             (CHECK_FILTER_CLASS == "Main" and pkg_is_addon == False) or \
+             (CHECK_FILTER_CLASS == "Addons" and pkg_is_addon == True):
+            tStart = datetime.datetime.now()
+            MyUtility.check_newer(msgs, pkg_name, pkg_url, pkg_version)
+            tDelta_check_newer = datetime.datetime.now() - tStart
 
         self.output_queue.put([{"stop": True, "name": threading.current_thread().name, "url": pkg_url}])
 
@@ -615,7 +629,9 @@ if __name__ == "__main__":
     WORKER_THREADS=int(args[9])
     GIT_USERNAME = args[10]
     GIT_PASSWORD = args[11]
-    VERBOSE = int(args[12])
+    CHECK_FILTER_CLASS = args[12]
+    CHECK_FILTER_TYPE = args[13]
+    VERBOSE = int(args[14])
     SCRATCH_DIR="%s/.tmp" % DOWNLOAD_DIR
 
     stopped = threading.Event()
@@ -635,27 +651,32 @@ help() {
   cat <<EOF
 Usage: $(basename $0) -d|--download <path> [-t|--target <path>] [-l|--libreelec <path>]
            [-m|--mirror] [-s|--source] [-a|-all] [-p|--package <package_name> [-r|--revision <revision>]]
-           [--git] [-n|--notnewer] [--dry-run] [--noprogress] [-T #|--threads #] [-U|--gituser] [-P|--gitpass]
+           [--git] [-n|--notnewer] [--check-main | --check-addons] [--check-ver | --check-rev] 
+           [--noprogress] [-T #|--threads #] [-U|--gituser] [-P|--gitpass] [--dry-run]
            [-v|--verbose] [-h|--help]
 
 Options:
-  -d, --download:   Directory path into which new package files will be downloaded - default is $HOME/download[1]
-  -t, --target:     Directory path for existing packages that are to be refreshed, default is /community/sources[2]
-  -l, --libreelec:  LibreELEC.tv repo, default is ${HOME}/LibreELEC.tv
-  -m, --mirror:     Target is mirror not source - mirror uses a hierarchical per-package folder structure
-  -s, --source:     Target is source not mirror - source uses a flattened file structure. Default is mirror
-  -a, --all:        Ignore download failures, continue processing all packages
-  -p, --package:    Package to process, otherwise process all packages
-  -r, --revision:   Version to use in place of PKG_VERSION, only applicable in conjunction with -p
-      --git:        Clone (if not available) or pull the LibreELEC.tv repository
-  -n, --notnewer    Don't check for newer packages ('X.Y.Z+1' 'X.Y+1.0' 'X+1.0.0')
-      --dry-run:    Don't actually download anything (will still git clone/pull if configured)
-      --noprogress: Do not show progress indicator
-  -T, --threads:    Number of worker threads, default is 32
-  -U, --gituser:    Git username (or source from ~/.git.conf) - avoids API limits
-  -P, --gitpass:    Git password (or source from ~/.git.conf) - avoids API limits
-  -v, --verbose:    Output more verbose sync information. Repeat for more detail
-  -h, --help:       This message
+  -d, --download:     Directory path into which new package files will be downloaded - default is $HOME/download[1]
+  -t, --target:       Directory path for existing packages that are to be refreshed, default is /community/sources[2]
+  -l, --libreelec:    LibreELEC.tv repo, default is ${HOME}/LibreELEC.tv
+  -m, --mirror:       Target is mirror not source - mirror uses a hierarchical per-package folder structure
+  -s, --source:       Target is source not mirror - source uses a flattened file structure. Default is mirror
+  -a, --all:          Ignore download failures, continue processing all packages
+  -p, --package:      Package to process, otherwise process all packages
+  -r, --revision:     Version to use in place of PKG_VERSION, only applicable in conjunction with -p
+      --git:          Clone (if not available) or pull the LibreELEC.tv repository
+  -n, --notnewer:     Don't check for newer packages ('X.Y.Z+1' 'X.Y+1.0' 'X+1.0.0')
+      --check-main:   Check newer for main packages, ignore add-on packages
+      --check-addons: Check newer for add-on packages, ignore main packages
+      --check-ver:    Check newer for version-based packages, ignore rev-based/github packages
+      --check-rev:    Check newer for rev-based/github packages, ignore version-based packages
+      --noprogress:   Do not show progress indicator
+  -T, --threads:      Number of worker threads, default is 32
+  -U, --gituser:      Git username (or source from ~/.git.conf) - avoids API limits
+  -P, --gitpass:      Git password (or source from ~/.git.conf) - avoids API limits
+      --dry-run:      Don't actually download anything (will still git clone/pull if configured)
+  -v, --verbose:      Output more verbose sync information. Repeat for more detail
+  -h, --help:         This message
 
   Note#1. The download directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
   Note#2. The target directory will have the LibreELEC version appended (eg. /devel) unless it is a mirror, in which case "/mirror" will be appended.
@@ -737,8 +758,8 @@ generate_work_worker() {
   local pcount=$1 worker="$2" revision="$3"
   local workfile_i="$(printf "%s.%02d" "${WORKFILES_I}" ${worker})"
   local workfile_o="$(printf "%s.%02d" "${WORKFILES_O}" ${worker})"
-  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SECTION PKG_SOURCE_NAME"
-  local package_name var comma PKG_URL PKG_SOURCE_NAME PKG_VERSION
+  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SECTION PKG_IS_ADDON PKG_SOURCE_NAME"
+  local package_name var comma PKG_URL PKG_SOURCE_NAME PKG_VERSION PKG_IS_ADDON
 
   [ -f "${workfile_i}" ] || return 0
 
@@ -760,6 +781,10 @@ generate_work_worker() {
         PKG_SOURCE_NAME="${PKG_SOURCE_NAME/${PKG_VERSION}/${revision}}"
         PKG_VERSION="${revision}"
       fi
+
+      PKG_IS_ADDON=No
+      [[ ${PKG_DIR/${LIBREELEC_DIR}/} =~ ^/packages/addons/.* ]] && PKG_IS_ADDON=Yes
+      [[ ${PKG_DIR/${LIBREELEC_DIR}/} =~ ^/packages/mediacenter/kodi-binary-addons/.* ]] && PKG_IS_ADDON=Yes
 
       echo "  {" >>${workfile_o}
       for var in ${wanted_vars}; do
@@ -830,7 +855,7 @@ exec_worker_prog() {
   python /tmp/distro-tool.py "${DOWNLOAD_DIR}" "${TARGET_DIR}" "${DISTRO_SOURCE}" "${DISTRO_MIRROR}" \
                              "${IS_MIRROR}" "${IGNORE_ERRORS}" "${DRY_RUN}" "${CHECK_NEWER}" \
                              "${PROGRESS}" "${WORKER_THREADS}" "${GIT_USERNAME}" "${GIT_PASSWORD}" \
-                             "${VERBOSE}"
+                             "${CHECK_FILTER_CLASS}" "${CHECK_FILTER_TYPE}" "${VERBOSE}"
   rm -f /tmp/distro-tool.py
 }
 
@@ -875,6 +900,18 @@ while [ : ]; do
       ;;
     -n|--notnewer)
       CHECK_NEWER=no
+      ;;
+    --check-ver)
+      CHECK_FILTER_TYPE=Ver
+      ;;
+    --check-rev)
+      CHECK_FILTER_TYPE=Rev
+      ;;
+    --check-addons)
+      CHECK_FILTER_CLASS=Addons
+      ;;
+    --check-main)
+      CHECK_FILTER_CLASS=Main
       ;;
     -T|--threads)
       shift
@@ -958,7 +995,7 @@ echo "Distro Source is: ${DISTRO_SOURCE}"
 echo "Distro Mirror is: ${DISTRO_MIRROR}"
 echo " Syncing against: ${TARGET_DIR}"
 echo "  Downloading to: ${DOWNLOAD_DIR}"
-echo "     Check Newer: ${CHECK_NEWER^}"
+echo "     Check Newer: ${CHECK_NEWER^}  Class/Type: ${CHECK_FILTER_CLASS} / ${CHECK_FILTER_TYPE}"
 echo "         Dry run: ${DRY_RUN^}"
 if [ ${VERBOSE} -gt 2 ]; then
   echo " Debugging level: ${VERBOSE} (${DEBUG_LOG})"
