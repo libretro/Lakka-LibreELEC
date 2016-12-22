@@ -18,18 +18,18 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="libretro-database"
-PKG_VERSION="b13a522"
+PKG_NAME="retroarch-overlays"
+PKG_VERSION="5954c95"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/libretro-database"
+PKG_SITE="https://github.com/libretro/common-overlays"
 PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Repository containing cheatcode files, content data files, etc."
-PKG_LONGDESC="Repository containing cheatcode files, content data files, etc."
+PKG_SHORTDESC="RetroArch overlays"
+PKG_LONGDESC="Collection of overlay files for use with libretro frontends, such as RetroArch."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -39,6 +39,6 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/libretro-database
-  cp -r * $INSTALL/usr/share/libretro-database
+  mkdir -p $INSTALL/usr/share/retroarch-overlays
+  cp -r * $INSTALL/usr/share/retroarch-overlays
 }
