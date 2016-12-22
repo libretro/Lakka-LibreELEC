@@ -32,7 +32,7 @@ case $MESON_FAMILY in
     if  [ "$TARGET_ARCH" = "arm"  ];then
       PKG_VERSION="gxbb-r6p1-01rel0-armhf"
     else
-      PKG_VERSION="gxbb-r5p1-01rel0"
+      PKG_VERSION="gxbb-r6p1-01rel0"
     fi
     ;;
 esac
