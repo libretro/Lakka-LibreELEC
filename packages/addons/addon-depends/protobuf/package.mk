@@ -39,6 +39,8 @@ PKG_CMAKE_OPTS_HOST="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=1 \
 
 PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_HOST"
 
+PKG_CONFIGURE_OPTS_TARGET="--with-protoc=$ROOT/$TOOLCHAIN/bin/protoc"
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
 
