@@ -31,10 +31,6 @@ import oe
 __author__      = 'lrusak'
 __addon__       = xbmcaddon.Addon()
 __path__        = __addon__.getAddonInfo('path')
-__service__     = __path__ + '/systemd/' + __addon__.getAddonInfo('id') + '.service'
-__servicename__ = __addon__.getAddonInfo('id') + '.service'
-__socket__      = __path__ + '/systemd/' + __addon__.getAddonInfo('id') + '.socket'
-__socketname__  = __addon__.getAddonInfo('id') + '.socket'
 
 sys.path.append(__path__ + '/lib')
 import dockermon
@@ -278,53 +274,10 @@ class Main(object):
 
         monitor = DockerMonitor(self)
 
-        if not Docker().is_active():
-            if not Docker().is_enabled():
-                Docker().enable()
-            Docker().start()
-
         while not monitor.abortRequested():
             if monitor.waitForAbort():
                 # we don't want to stop or disable docker while it's installed
                 pass
-
-class Docker(object):
-
-    def enable(self):
-        self.execute('systemctl enable ' + __service__)
-        self.execute('systemctl enable ' + __socket__)
-
-    def disable(self):
-        self.execute('systemctl disable ' + __servicename__)
-        self.execute('systemctl disable ' + __socketname__)
-
-    def is_enabled(self):
-        if self.execute('systemctl is-enabled ' + __servicename__, get_result=1).strip('\n') == 'enabled':
-            return True
-        else:
-            return False
-
-    def start(self):
-        self.execute('systemctl start ' + __servicename__)
-
-    def stop(self):
-        self.execute('systemctl stop ' + __servicename__)
-
-    def is_active(self):
-        if self.execute('systemctl is-active ' + __servicename__, get_result=1).strip('\n') == 'active':
-            return True
-        else:
-            return False
-
-    def execute(self, command_line, get_result=0):
-        result = oe.execute(command_line, get_result=get_result)
-        if get_result:
-            return result
-
-    def restart(self):
-        if self.is_active():
-            self.stop()
-            self.start()
 
 class DockerMonitor(xbmc.Monitor):
 
