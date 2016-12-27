@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="kodi-theme-Estuary"
-PKG_VERSION="17.0-beta7-eed32e7"
+PKG_VERSION="1.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain kodi"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="kodi-theme-Estuary: Kodi Mediacenter default theme"
@@ -32,28 +32,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  TexturePacker -input media/ \
-                -output Textures.xbt \
-                -dupecheck \
-                -use_none
-
-  for theme in themes/*; do
-    TexturePacker -input $theme \
-                -output $(basename $theme).xbt \
-                -dupecheck
-  done
+  :
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/kodi/addons/skin.estuary
-    cp -R */ $INSTALL/usr/share/kodi/addons/skin.estuary
-    cp *.txt $INSTALL/usr/share/kodi/addons/skin.estuary
-    cp *.xml $INSTALL/usr/share/kodi/addons/skin.estuary
-      rm -rf $INSTALL/usr/share/kodi/addons/skin.estuary/media
-
-  mkdir -p $INSTALL/usr/share/kodi/addons/skin.estuary/media
-    cp Textures.xbt $INSTALL/usr/share/kodi/addons/skin.estuary/media
-    for theme in themes/*; do
-      cp $(basename $theme).xbt $INSTALL/usr/share/kodi/addons/skin.estuary/media
-    done
+  mkdir -p $INSTALL/usr/share/kodi/addons/
+    cp -a $(get_build_dir kodi)/.$TARGET_NAME/addons/skin.estuary $INSTALL/usr/share/kodi/addons/
 }
