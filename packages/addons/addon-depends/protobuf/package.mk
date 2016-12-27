@@ -29,7 +29,7 @@ PKG_LONGDESC="protobuf: Protocol Buffers - Google's data interchange format"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_SCRIPT="cmake/CMakeLists.txt"
+PKG_CMAKE_SCRIPT="$ROOT/$PKG_BUILD/cmake/CMakeLists.txt"
 
 PKG_CMAKE_OPTS_HOST="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=1 \
                      -DBUILD_SHARED_LIBS=0 \
@@ -38,8 +38,6 @@ PKG_CMAKE_OPTS_HOST="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=1 \
                      -Dprotobuf_WITH_ZLIB=1"
 
 PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_HOST"
-
-PKG_CONFIGURE_OPTS_TARGET="--with-protoc=$ROOT/$TOOLCHAIN/bin/protoc"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
