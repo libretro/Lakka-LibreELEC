@@ -346,10 +346,7 @@ post_makeinstall_target() {
 }
 
 post_install() {
-  # link default.target to kodi.target
-  ln -sf kodi.target $INSTALL/usr/lib/systemd/system/default.target
-
-  # enable default services
+  enable_service kodi.target
   enable_service kodi-autostart.service
   enable_service kodi-cleanlogs.service
   enable_service kodi-halt.service
