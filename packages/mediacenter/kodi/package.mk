@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="kodi"
-PKG_VERSION="17.0-beta7-eed32e7"
+PKG_VERSION="eed32e7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/xbmc/xbmc/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="xbmc-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host xmlstarlet:host Python zlib systemd pciutils lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt yajl sqlite ffmpeg crossguid giflib libdvdnav libhdhomerun"
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="kodi: Kodi Mediacenter"
@@ -258,6 +259,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/icons
   rm -rf $INSTALL/usr/share/pixmaps
   rm -rf $INSTALL/usr/share/kodi/addons/skin.estouchy
+  rm -rf $INSTALL/usr/share/kodi/addons/skin.estuary
   rm -rf $INSTALL/usr/share/kodi/addons/service.xbmc.versioncheck
   rm -rf $INSTALL/usr/share/kodi/addons/visualization.vortex
   rm -rf $INSTALL/usr/share/xsessions
