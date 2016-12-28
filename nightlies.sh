@@ -26,8 +26,6 @@ DISTRO=Lakka PROJECT=OdroidXU3 ARCH=arm make image -j6
 DISTRO=Lakka PROJECT=WeTek_Play ARCH=arm make image -j6
 >&2 echo "WeTek_Core.arm"
 DISTRO=Lakka PROJECT=WeTek_Core ARCH=arm make image -j6
->&2 echo "Odroid_C2.arm"
-DISTRO=Lakka PROJECT=Odroid_C2 ARCH=arm make image -j6
 
 rm target/*.kernel
 rm target/*.system
