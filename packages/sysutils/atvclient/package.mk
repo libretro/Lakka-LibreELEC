@@ -17,12 +17,13 @@
 ################################################################################
 
 PKG_NAME="atvclient"
-PKG_VERSION="50faf80"
+PKG_VERSION="0263b0a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://github.com/Evinyatar/atvclient/wiki"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/Evinyatar/atvclient/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="atvclient-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain libusb-compat"
 PKG_SECTION="system/remote"
 PKG_SHORTDESC="atvclient: a background application for Linux that reads input from the AppleTV’s internal infra-red receiver"
