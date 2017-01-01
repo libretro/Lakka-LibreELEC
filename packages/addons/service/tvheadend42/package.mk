@@ -17,15 +17,15 @@
 ################################################################################
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="0736ebc"
-PKG_VERSION_NUMBER="4.1.2309"
-PKG_REV="107"
+PKG_VERSION="1f894a6"
+PKG_VERSION_NUMBER="4.1.2401"
+PKG_REV="108"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="tvheadend-${PKG_VERSION}*"
-PKG_DEPENDS_TARGET="toolchain curl libdvbcsa libiconv libressl Python:host yasm"
+PKG_DEPENDS_TARGET="toolchain curl dvb-tools libdvbcsa libiconv libressl Python:host yasm"
 PKG_SECTION="service"
 PKG_SHORTDESC="Tvheadend: a TV streaming server for Linux"
 PKG_LONGDESC="Tvheadend ($PKG_VERSION_NUMBER): is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV, SAT>IP, ATSC and ISDB-T"
@@ -51,7 +51,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --enable-bundle \
                            --disable-dbus_1 \
                            --enable-dvbcsa \
-                           --disable-dvben50221 \
+                           --enable-dvben50221 \
                            --enable-hdhomerun_client \
                            --enable-hdhomerun_static \
                            --enable-epoll \
@@ -66,7 +66,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --python=$ROOT/$TOOLCHAIN/bin/python"
 
 post_unpack() {
-  sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$PKG_ADDON_REPOVERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
+  sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$ADDON_VERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
 }
 
 pre_configure_target() {
