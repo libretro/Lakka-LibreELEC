@@ -27,23 +27,22 @@ disable standby
  
  #endif
 
-From e0c980535b164d7c28555418e5ce2252dbada2dc Mon Sep 17 00:00:00 2001
+From 584a94130a480ce7fe161614efe62bb491f3d7e7 Mon Sep 17 00:00:00 2001
 From: Peter Vicman <peter.vicman@gmail.com>
-Date: Thu, 10 Nov 2016 17:05:11 +0100
+Date: Fri, 30 Dec 2016 19:48:22 +0100
 Subject: [PATCH] fix freeze on lvds display connected to udoo quad
 
-revert 0ff257943e032e0f4b669a65e6449ab1e1699d74
-[IMXRenderer] skip rendering same frame 
-
+partialy revert 1a863f250a2ec203e962cde03b67d680ea2e9cfd
+[RendererIMX] skip rendering already rendered buffer
 ---
- .../cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp | 8 --------
+ xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp | 8 --------
  1 file changed, 8 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-index 8569c72..f21fa98 100644
+index b5c7095..ad0f58d 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-@@ -132,7 +132,6 @@ bool CRendererIMX::RenderHook(int index)
+@@ -129,7 +129,6 @@ bool CRendererIMX::RenderHook(int index)
  
  bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
  {
@@ -51,20 +50,20 @@ index 8569c72..f21fa98 100644
  #if 0
    static unsigned long long previous = 0;
    unsigned long long current = XbmcThreads::SystemClockMillis();
-@@ -142,13 +141,6 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
-   CDVDVideoCodecIMXBuffer *buffer = static_cast<CDVDVideoCodecIMXBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
-   if (buffer)
-   {
--    if (buffer == m_bufHistory[0] && flagsPrev == flags)
+@@ -144,13 +143,6 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+       buffer->Lock();
+       m_bufHistory.push_back(buffer);
+     }
+-    else if (!m_bufHistory.empty() && m_bufHistory.back() == buffer && flagsPrev == flags)
 -    {
 -      g_IMX.WaitVsync();
 -      return true;
 -    }
 -
 -    flagsPrev = flags;
-     buffer->Lock();
  
-     SAFE_RELEASE(m_bufHistory[1]);
+     int size = flags & RENDER_FLAG_FIELDMASK ? 2 : 1;
+     while (m_bufHistory.size() > size)
 -- 
 2.7.1
 
