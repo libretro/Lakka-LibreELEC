@@ -18,7 +18,7 @@
 
 PKG_NAME="docker"
 PKG_VERSION="1.12.5"
-PKG_REV="110"
+PKG_REV="111"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2 imx6 WeTek_Hub WeTek_Play_2 Odroid_C2"
 PKG_LICENSE="ASL"
