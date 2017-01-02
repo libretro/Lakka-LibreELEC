@@ -272,6 +272,38 @@ class Main(object):
 
     def __init__(self, *args, **kwargs):
 
+        #############################
+        # Temp cleanup for old method
+
+        restart_docker = False
+
+        if os.path.islink('/storage/.config/system.d/service.system.docker.socket'):
+            os.remove('/storage/.config/system.d/service.system.docker.socket')
+        if os.path.islink('/storage/.config/system.d/docker.socket'):
+            os.remove('/storage/.config/system.d/docker.socket')
+
+        if os.path.islink('/storage/.config/system.d/service.system.docker.service'):
+            if 'systemd' in os.readlink('/storage/.config/system.d/service.system.docker.service'):
+                os.remove('/storage/.config/system.d/service.system.docker.service')
+                restart_docker = True
+
+        if os.path.islink('/storage/.config/system.d/docker.service'):
+            if 'systemd' in os.readlink('/storage/.config/system.d/docker.service'):
+                os.remove('/storage/.config/system.d/docker.service')
+                restart_docker = True
+
+        if os.path.islink('/storage/.config/system.d/multi-user.target.wants/service.system.docker.service'):
+            if 'systemd' in os.readlink('/storage/.config/system.d/multi-user.target.wants/service.system.docker.service'):
+                os.remove('/storage/.config/system.d/multi-user.target.wants/service.system.docker.service')
+                restart_docker = True
+
+        if restart_docker:
+            oe.execute('systemctl enable  /storage/.kodi/addons/service.system.docker/system.d/service.system.docker.service')
+            oe.execute('systemctl restart /storage/.kodi/addons/service.system.docker/system.d/service.system.docker.service')
+
+        # end temp cleanup
+        #############################
+
         monitor = DockerMonitor(self)
 
         while not monitor.abortRequested():
