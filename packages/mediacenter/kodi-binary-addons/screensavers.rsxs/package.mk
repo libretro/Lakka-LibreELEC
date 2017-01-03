@@ -36,9 +36,6 @@ if [ "$OPENGL" = "no" ] ; then
   exit 0
 fi
 
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_MODULE_PATH=$SYSROOT_PREFIX/usr/lib/kodi \
-                       -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr"
-
 addon() {
   for _ADDON in $PKG_BUILD/.install_pkg/usr/share/kodi/addons/* ; do
     _ADDON_ID=$(basename $_ADDON)
