@@ -32,9 +32,7 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.pvrclient"
 
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_MODULE_PATH=$SYSROOT_PREFIX/usr/lib/kodi \
-                       -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-                       -DHDHOMERUN_LIBRARIES=$SYSROOT_PREFIX/usr/lib/libhdhomerun.so \
+PKG_CMAKE_OPTS_TARGET="-DHDHOMERUN_LIBRARIES=$SYSROOT_PREFIX/usr/lib/libhdhomerun.so \
                        -DHDHOMERUN_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include/hdhomerun"
 
 addon() {

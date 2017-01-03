@@ -32,9 +32,7 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.audioencoder"
 
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_MODULE_PATH=$SYSROOT_PREFIX/usr/lib/kodi \
-                       -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-                       -DOGG_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include \
+PKG_CMAKE_OPTS_TARGET="-DOGG_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include \
                        -DVORBIS_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include \
                        -DVORBISENC_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include"
 
