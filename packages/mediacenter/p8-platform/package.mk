@@ -32,10 +32,9 @@ PKG_LONGDESC="Platform support library used by libCEC and binary add-ons for Kod
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_INSTALL_LIBDIR=/usr/lib \
-                       -DCMAKE_INSTALL_LIBDIR_NOARCH=/usr/lib \
+PKG_CMAKE_OPTS_TARGET="-DCMAKE_INSTALL_LIBDIR:STRING=lib \
+                       -DCMAKE_INSTALL_LIBDIR_NOARCH:STRING=lib \
                        -DCMAKE_INSTALL_PREFIX_TOOLCHAIN=$SYSROOT_PREFIX/usr \
-                       -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
                        -DBUILD_SHARED_LIBS=0"
 
 post_makeinstall_target() {
