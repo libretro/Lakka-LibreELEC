@@ -43,9 +43,7 @@ elif [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau SDL2 ffmpeg libxcb"
 fi
 
-PKG_CMAKE_OPTS_TARGET="-DCMAKE_MODULE_PATH=$SYSROOT_PREFIX/usr/lib/kodi \
-                       -DCMAKE_PREFIX_PATH=$SYSROOT_PREFIX/usr \
-                       $FREESCALE_V4L_INCLUDE"
+PKG_CMAKE_OPTS_TARGET="$FREESCALE_V4L_INCLUDE"
 
 pre_build_target() {
   cp -a $(get_build_dir moonlight-common-c)/* $ROOT/$PKG_BUILD/third_party/moonlight-common-c
