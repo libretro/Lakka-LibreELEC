@@ -37,12 +37,12 @@ if [ "$OPENGL" = "no" ] ; then
 fi
 
 addon() {
-  for _ADDON in $PKG_BUILD/.install_pkg/usr/share/kodi/addons/* ; do
+  for _ADDON in $PKG_BUILD/.install_pkg/usr/share/$MEDIACENTER/addons/* ; do
     _ADDON_ID=$(basename $_ADDON)
 
     mkdir -p $ADDON_BUILD/$_ADDON_ID/
-    cp -PR $PKG_BUILD/.install_pkg/usr/share/kodi/addons/$_ADDON_ID/* $ADDON_BUILD/$_ADDON_ID/
-    cp -PL $PKG_BUILD/.install_pkg/usr/lib/kodi/addons/$_ADDON_ID/*.so $ADDON_BUILD/$_ADDON_ID/
+    cp -PR $PKG_BUILD/.install_pkg/usr/share/$MEDIACENTER/addons/$_ADDON_ID/* $ADDON_BUILD/$_ADDON_ID/
+    cp -PL $PKG_BUILD/.install_pkg/usr/lib/$MEDIACENTER/addons/$_ADDON_ID/*.so $ADDON_BUILD/$_ADDON_ID/
 
     MULTI_ADDONS="$MULTI_ADDONS $_ADDON_ID"
   done
