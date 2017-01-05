@@ -1,41 +1,98 @@
 #!/bin/sh
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016 Team LibreELEC
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-echo "getting sources..."
+# name of the package
+DVB_MKPKG_NAME="media_build"
+DVB_MKPKG_FOLDER="$(pwd)"
+
+# remove old files
+echo "removing old sources ..."
+rm -rf ${DVB_MKPKG_NAME}
+rm -rf ${DVB_MKPKG_NAME}-*
+
+################################################################################
+
+# media_build dl
+echo "getting media_build sources ..."
   if [ ! -d media_build.git ]; then
-    git clone git://linuxtv.org/media_build.git media_build.git
+    git clone --depth=1 https://bitbucket.org/CrazyCat/media_build.git ${DVB_MKPKG_NAME}/media_build
   fi
 
-  cd media_build.git
-    git pull
-    GIT_REV=`git log -n1 --format=%h`
-  cd ..
+echo "cleaning media_build sources ..."
+  rm -rf ${DVB_MKPKG_NAME}/media_build/.git
 
-echo "copying sources..."
-  rm -rf media_build-$GIT_REV
-  cp -R media_build.git media_build-$GIT_REV
+# media_tree dl
+echo "getting sources ..."
+  if [ ! -d linux_media.git ]; then
+    git clone --depth=1 https://github.com/crazycat69/linux_media.git -b latest ${DVB_MKPKG_NAME}/media_tree
+  fi
 
-echo "cleaning sources..."
-  rm -rf media_build-$GIT_REV/.git
+cd ${DVB_MKPKG_NAME}/media_tree
+  git pull
+  GIT_REV=`git log -n1 --pretty=format:"%ad" --date=short`
 
-echo "packing sources..."
-  tar cvJf media_build-$GIT_REV.tar.xz media_build-$GIT_REV
+cd $DVB_MKPKG_FOLDER/
 
-echo "remove temporary sourcedir..."
-  rm -rf media_build-$GIT_REV
+# final folder
+mkdir ${DVB_MKPKG_NAME}/media/
+
+################################################################################
+
+# modify the media_build buildscript
+cd ${DVB_MKPKG_NAME}/media_build/linux/
+
+# backup Makefile
+cp Makefile Makefile.org
+
+# workaround for crazycat media_build to create a proper named file
+sed -i -E "s/TODAY_TAR\ \:\=\ linux\-media\-LATEST\.tar/TODAY_TAR\ \:\=\ linux\-media.tar/g" Makefile
+
+# normal media build
+sed -i -E 's/TODAY_TAR\ \:\=\ linux\-media\-\$\{DATE\}\.tar/TODAY_TAR\ \:\=\ linux\-media.tar/g' Makefile
+
+# remove the creation of the archive
+sed -i -E 's/bzip2\ \$\(PWD\)\/\$\(TODAY_TAR\)/ /g' Makefile
+
+# collecting files from media_tree
+echo "collect source files ..."
+make todaytar DIR="../../media_tree/"
+
+# extract resulting tar into media folder
+tar xf linux-media.tar -C "../../media/"
+
+# cleanup
+rm linux-media.tar
+rm Makefile && mv Makefile.org Makefile
+
+cd $DVB_MKPKG_FOLDER 
+rm -rf ${DVB_MKPKG_NAME}/media_tree/ 
+rm -rf ${DVB_MKPKG_NAME}/media_build/.git/
+
+# rename buildfolder
+mv ${DVB_MKPKG_NAME}/ ${DVB_MKPKG_NAME}-$GIT_REV/
+
+################################################################################
+
+# pack sources
+echo "packing sources ..."
+tar cvJf ${DVB_MKPKG_NAME}-$GIT_REV.tar.xz ${DVB_MKPKG_NAME}-$GIT_REV
+
+echo "remove temporary sourcedir ..."
+rm -rf ${DVB_MKPKG_NAME}-$GIT_REV
+rm -rf ${DVB_MKPKG_NAME}
