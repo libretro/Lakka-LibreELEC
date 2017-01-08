@@ -17,13 +17,13 @@
 ################################################################################
 
 PKG_NAME="steamcontroller"
-PKG_VERSION="02f27c4"
-PKG_REV="100"
+PKG_VERSION="60499dc"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/ynsta/steamcontroller"
 PKG_URL="https://github.com/ynsta/steamcontroller/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Python distutilscross:host python-libusb1 enum34 linux"
+PKG_DEPENDS_TARGET="toolchain Python distutilscross:host python-libusb1 enum34 linux:host"
 PKG_SECTION="driver"
 PKG_SHORTDESC="A standalone userland driver for the steam controller to be used where steam client can't be installed."
 PKG_LONGDESC="A standalone userland driver for the steam controller to be used where steam client can't be installed."
