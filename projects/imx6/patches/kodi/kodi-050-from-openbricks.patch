@@ -1,6 +1,6 @@
 https://github.com/OpenBricks/openbricks/tree/krypton-glibc
 https://github.com/OpenBricks/openbricks/tree/krypton-glibc/packages/multimedia/kodi/patches
-https://github.com/OpenBricks/openbricks/tree/0e0d33112608f421f5bd8e60849a881f6a063d1e/packages/multimedia/kodi/patches
+https://github.com/OpenBricks/openbricks/tree//packages/multimedia/kodi/patches
 
 ==============================================================
 file 0034-IMXCODEC-Use-uint32_t-for-physical-addresses.patch
@@ -1316,6 +1316,68 @@ index 6b0e2ee..9436d4e 100644
  void CIMXContext::SetProcessInfo(CProcessInfo *m_pProcessInfo)
 -- 
 1.9.1
+
+
+==============================================================
+file 0045-IMXRender-Fix-deinterlace-broken-by-refactor-patch.patch
+==============================================================
+
+From 710564e27cc8fd7b83d0913ac72c311fa6fece3c Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sun, 8 Jan 2017 16:32:13 +0100
+Subject: [PATCH] IMXRender: Fix deinterlace broken by refactor patch
+
+---
+ .../VideoRenderers/HwDecRender/RendererIMX.cpp       | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+index 5167bd2..bd15091 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+@@ -140,7 +140,14 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+   CDVDVideoCodecIMXBuffer *buffer = static_cast<CDVDVideoCodecIMXBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
+   if (buffer)
+   {
+-    if (buffer == m_bufHistory[0] && flagsPrev == flags)
++    if (m_bufHistory[0] != buffer)
++    {
++      buffer->Lock();
++      SAFE_RELEASE(m_bufHistory[1]);
++      m_bufHistory[1] = m_bufHistory[0];
++      m_bufHistory[0] = buffer;
++    }
++    else if (flagsPrev == flags)
+     {
+       g_IMX.WaitVsync();
+       return true;
+@@ -148,15 +155,6 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+ 
+     flagsPrev = flags;
+ 
+-    buffer->Lock();
+-
+-    SAFE_RELEASE(m_bufHistory[1]);
+-    m_bufHistory[1] = m_bufHistory[0];
+-    m_bufHistory[0] = buffer;
+-
+-    if (!(flags & RENDER_FLAG_FIELDMASK))
+-      SAFE_RELEASE(m_bufHistory[1]);
+-
+     // this hack is needed to get the 2D mode of a 3D movie going
+     RENDER_STEREO_MODE stereo_mode = g_graphicsContext.GetStereoMode();
+     if (stereo_mode)
+@@ -204,7 +202,7 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+       }
+     }
+ 
+-    g_IMXContext.Blit(m_bufHistory[1], m_bufHistory[0], srcRect, dstRect, fieldFmt);
++    g_IMXContext.Blit(m_bufHistory[1], buffer, srcRect, dstRect, fieldFmt);
+   }
+ 
+ #if 0
+-- 
+2.7.4
 
 
 ==============================================================
