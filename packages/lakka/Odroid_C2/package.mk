@@ -18,7 +18,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="Odroidi_C2"
+PKG_NAME="Odroid_C2"
 PKG_VERSION=""
 PKG_REV="1"
 PKG_ARCH="any"
