@@ -18,7 +18,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="WeTek_Hub"
+PKG_NAME="WeTek_Play_2"
 PKG_VERSION=""
 PKG_REV="1"
 PKG_ARCH="any"
@@ -28,7 +28,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="retroarch atari800 hatari uzebox tyrquake scummvm dosbox mgba prosystem o2em 81 fuse-libretro gw-libretro beetle-sgx genesis-plus-gx lutro gpsp ppsspp 2048 beetle-vb beetle-wswan beetle-ngp pcsx_rearmed vecx snes9x2010 dinothawr prboom beetle-pce handy picodrive nxengine nestopia gambatte stella fbalpha glupen64 mupen64plus beetle-pcfx"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for WeTek_Hub"
+PKG_SHORTDESC="Lakka metapackage for WeTek_Play_2"
 PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
