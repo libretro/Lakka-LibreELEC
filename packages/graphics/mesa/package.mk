@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mesa"
-PKG_VERSION="13.0.2"
+PKG_VERSION="13.0.3"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
@@ -91,12 +91,9 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --disable-va \
                            --disable-opencl \
                            --enable-opencl-icd \
-                           --disable-xlib-glx \
-                           --disable-r600-llvm-compiler \
                            --disable-gallium-tests \
                            --enable-shared-glapi \
                            --enable-shader-cache \
-                           --enable-sysfs \
                            --enable-driglx-direct \
                            --enable-glx-tls \
                            $MESA_GALLIUM_LLVM \
