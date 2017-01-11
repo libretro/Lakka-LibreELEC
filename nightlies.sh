@@ -22,10 +22,14 @@ DISTRO=Lakka PROJECT=imx6 SYSTEM=udoo ARCH=arm make image -j6
 DISTRO=Lakka PROJECT=Odroid_C2 ARCH=arm make image -j6
 >&2 echo "OdroidXU3.arm"
 DISTRO=Lakka PROJECT=OdroidXU3 ARCH=arm make image -j6
->&2 echo "WeTek_Play.arm"
-DISTRO=Lakka PROJECT=WeTek_Play ARCH=arm make image -j6
 >&2 echo "WeTek_Core.arm"
 DISTRO=Lakka PROJECT=WeTek_Core ARCH=arm make image -j6
+>&2 echo "WeTek_Hub.arm"
+DISTRO=Lakka PROJECT=WeTek_Hub ARCH=arm make image -j6
+>&2 echo "WeTek_Play.arm"
+DISTRO=Lakka PROJECT=WeTek_Play ARCH=arm make image -j6
+>&2 echo "WeTek_Play_2.arm"
+DISTRO=Lakka PROJECT=WeTek_Play_2 ARCH=arm make image -j6
 
 rm target/*.kernel
 rm target/*.system
