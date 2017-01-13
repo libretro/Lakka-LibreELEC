@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="visualization.vsxu"
-PKG_VERSION="39e3f35"
+PKG_VERSION="caedcbc"
 PKG_REV="1"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
