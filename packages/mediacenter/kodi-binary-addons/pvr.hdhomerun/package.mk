@@ -32,9 +32,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.pvrclient"
 
-PKG_CMAKE_OPTS_TARGET="-DHDHOMERUN_LIBRARIES=$SYSROOT_PREFIX/usr/lib/libhdhomerun.so \
-                       -DHDHOMERUN_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include/hdhomerun"
-
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/
   cp -R $PKG_BUILD/.install_pkg/usr/share/$MEDIACENTER/addons/$PKG_NAME/* $ADDON_BUILD/$PKG_ADDON_ID/

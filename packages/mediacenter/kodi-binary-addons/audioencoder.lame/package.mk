@@ -32,8 +32,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_TYPE="xbmc.audioencoder"
 
-PKG_CMAKE_OPTS_TARGET="-DLAME_INCLUDE_DIRS=$SYSROOT_PREFIX/usr/include"
-
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/
   cp -R $PKG_BUILD/.install_pkg/usr/share/$MEDIACENTER/addons/$PKG_NAME/* $ADDON_BUILD/$PKG_ADDON_ID/
