@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - http://libreelec.tv
-#      Copyright (C) 2016 Christian Hewitt (chewitt@libreelec.tv)
+#      Copyright (C) 2016-2017 Christian Hewitt (chewitt@libreelec.tv)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 ################################################################################
 
 PKG_NAME="openvpn"
-PKG_VERSION="2.3.14"
+PKG_VERSION="2.4.0"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
