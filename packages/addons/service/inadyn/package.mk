@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-2017 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="inadyn"
-PKG_VERSION="2.0"
-PKG_REV="101"
+PKG_VERSION="2.1"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://troglobit.com/inadyn.html"
