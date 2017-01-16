@@ -18,23 +18,31 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="bnes"
-PKG_VERSION="5197b6c"
+PKG_NAME="mame2000"
+PKG_VERSION="6689199"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/libretro/bnes-libretro"
+PKG_LICENSE="MAME"
+PKG_SITE="https://github.com/libretro/mame2000-libretro.git"
 PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="libretro implementation of bNES/higan. (Nintendo Entertainment System)"
-PKG_LONGDESC="libretro implementation of bNES/higan. (Nintendo Entertainment System)"
+PKG_SHORTDESC="MAME - Multiple Arcade Machine Emulator"
+PKG_LONGDESC="MAME - Multiple Arcade Machine Emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+make_target() {
+  if [ "$ARCH" == "arm" ]; then
+    make ARM=1 USE_CYCLONE=1 USE_DRZ80=1
+  else
+    make
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp bnes_libretro.so $INSTALL/usr/lib/libretro/bnes_libretro.so
+  cp mame2000_libretro.so $INSTALL/usr/lib/libretro/
 }
