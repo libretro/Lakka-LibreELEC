@@ -30,6 +30,10 @@ DISTRO=Lakka PROJECT=WeTek_Hub ARCH=arm make image -j6
 DISTRO=Lakka PROJECT=WeTek_Play ARCH=arm make image -j6
 >&2 echo "WeTek_Play_2.arm"
 DISTRO=Lakka PROJECT=WeTek_Play_2 ARCH=arm make image -j6
+>&2 echo "Gamegirl.arm"
+DISTRO=Lakka PROJECT=Gamegirl ARCH=arm make image -j6
+>&2 echo "Virtual.x86_64"
+DISTRO=Lakka PROJECT=Virtual ARCH=x86_64 make image -j6
 
 rm target/*.kernel
 rm target/*.system
