@@ -18,7 +18,7 @@
 
 PKG_NAME="ffmpegx"
 PKG_VERSION="libreelec"
-PKG_REV="5"
+PKG_REV="6"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
@@ -44,6 +44,11 @@ pre_configure_target() {
     CFLAGS="-DRPI=1 -I$SYSROOT_PREFIX/usr/include/IL -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux $CFLAGS"
     FFMPEG_LIBS="-lbcm_host -ldl -lmmal -lmmal_core -lmmal_util -lvchiq_arm -lvcos -lvcsm"
     FFMPEG_RPI_HADE="--enable-mmal --enable-omx-rpi"
+  fi
+
+# ffmpeg does not build with libx264 on aarch64
+  if [ "$TARGET_ARCH" != "aarch64" ]; then
+    FFMPEG_X264="--enable-libx264"
   fi
 
   if [ "$TARGET_ARCH" == "arm" ]; then
