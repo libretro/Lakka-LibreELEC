@@ -35,6 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
+  strip_lto
   make ARCH="" CC="$CC" NATIVE_CC="$CC" LD="$CC" -j 1
 }
 
