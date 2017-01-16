@@ -32,6 +32,13 @@ PKG_LONGDESC="brcmap6xxx-aml: Linux drivers for AP6xxx WLAN chips used in some d
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ $TARGET_KERNEL_ARCH = "arm64" ] && [ $TARGET_ARCH == "arm"  ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host"
+  export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$PATH
+  TARGET_PREFIX=aarch64-elf-
+fi
+
+echo $(kernel_path)
 make_target() {
   cd bcmdhd_1_201_59_x
   LDFLAGS="" make V=1 \

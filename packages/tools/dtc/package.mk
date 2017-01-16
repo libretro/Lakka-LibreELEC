@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="dtc"
-PKG_VERSION="beef80b"
+PKG_VERSION="1.4.2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -1,2203 +1,15 @@
 https://github.com/OpenBricks/openbricks/tree/krypton-glibc
 https://github.com/OpenBricks/openbricks/tree/krypton-glibc/packages/multimedia/kodi/patches
-https://github.com/OpenBricks/openbricks/tree/731d2788a4f5924cdf80314709dc303a43b5c3f5/packages/multimedia/kodi/patches
+https://github.com/OpenBricks/openbricks/tree//packages/multimedia/kodi/patches
 
 ==============================================================
-file 0010-IMX-add-Supports-ERENDERFEATURE.patch
+file 0034-IMXCODEC-Use-uint32_t-for-physical-addresses.patch
 ==============================================================
 
-From 5d60b324b6297b0f3355000cd65c10015c18798a Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Thu, 25 Aug 2016 21:52:39 +0200
-Subject: [PATCH] [IMX] add Supports(ERENDERFEATURE)
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp  |  3 ++-
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h    |  2 ++
- .../VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp   | 12 ++++++++++++
- .../VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h     |  1 +
- 4 files changed, 17 insertions(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 4aae4c3..6b31ca5 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1709,6 +1709,7 @@ void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CIMXBuffer *source_p, CIMXBuffer
- bool CIMXContext::TileTask(IPUTaskPtr &ipu)
- {
-   int pad = ipu->task.input.height == 1080 && ipu->current->iHeight>ipu->task.input.height ? 16*ipu->current->iWidth : 0;
-+  m_zoomAllowed = true;
- 
-   if (ipu->current->iFormat != _4CC('T', 'N', 'V', 'F') && ipu->current->iFormat != _4CC('T', 'N', 'V', 'P'))
-   {
-@@ -1725,13 +1726,13 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
-   // Use band mode directly to FB, as no transformations needed (eg cropping)
-   if (m_fps >= 49 && m_fbWidth == 1920 && ipu->task.input.width == 1920 && !ipu->task.input.deinterlace.enable)
-   {
-+    m_zoomAllowed = false;
-     ipu->task.output.crop.pos.x = ipu->task.input.crop.pos.x = 0;
-     ipu->task.output.crop.pos.y = ipu->task.input.crop.pos.y = 0;
-     ipu->task.output.crop.h     = ipu->task.input.height     = ipu->task.input.crop.h = ipu->current->iHeight;
-     ipu->task.output.paddr     += m_fbLineLength * (m_fbHeight - ipu->task.input.crop.h)/2;
-     return true;
-   }
--
-   // rasterize from tile (frame)
-   struct ipu_task    vdoa;
- 
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index bde21ac..9b9f068 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -116,6 +116,7 @@ public:
-   void SetVideoPixelFormat(CProcessInfo *m_pProcessInfo);
- 
-   void SetBlitRects(const CRect &srcRect, const CRect &dstRect);
-+  bool IsZoomAllowed() const { return m_zoomAllowed; }
- 
-   // Blits a buffer to a particular page (-1 for auto page)
-   // source_p (previous buffer) is required for de-interlacing
-@@ -212,6 +213,7 @@ private:
-   CEvent                         m_waitFlip;
-   CProcessInfo                  *m_processInfo;
- 
-+  bool                           m_zoomAllowed;
-   CCriticalSection               m_pageSwapLock;
- public:
-   void                          *m_g2dHandle;
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-index 73fc323..01272ff 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-@@ -80,6 +80,18 @@ bool CRendererIMX::IsGuiLayer()
-   return false;
- }
- 
-+bool CRendererIMX::Supports(ERENDERFEATURE feature)
-+{
-+  if (!g_IMXContext.IsZoomAllowed())
-+    return false;
-+
-+  if (feature == RENDERFEATURE_PIXEL_RATIO ||
-+      feature == RENDERFEATURE_ZOOM)
-+    return true;
-+
-+  return false;
-+}
-+
- bool CRendererIMX::Supports(EINTERLACEMETHOD method)
- {
-   if(method == VS_INTERLACEMETHOD_AUTO)
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-index 440badb..e2582a6 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-@@ -44,6 +44,7 @@ public:
-   // Feature support
-   virtual bool Supports(EINTERLACEMETHOD method);
-   virtual bool Supports(ESCALINGMETHOD method);
-+  virtual bool Supports(ERENDERFEATURE feature);
- 
-   virtual bool WantsDoublePass() override;
- 
--- 
-1.9.1
-
-
-==============================================================
-file 0011-IMX-update-to-fps-detect.patch
-==============================================================
-
-From e2ac3ebc6bebd2dfdf4ad7d3bea5d5c629e85189 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Fri, 26 Aug 2016 00:56:03 +0200
-Subject: [PATCH] [IMX] update to fps detect
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 27 +++++---
- xbmc/linux/imx/IMX.cpp                             | 80 ++++++++++------------
- xbmc/linux/imx/IMX.h                               | 16 ++---
- 3 files changed, 62 insertions(+), 61 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 6b31ca5..bfb9a3f 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -744,21 +744,23 @@ int CIMXCodec::Decode(BYTE *pData, int iSize, double dts, double pts)
-   int ret = 0;
-   if (!g_IMXCodec->IsRunning())
-   {
--    if ((!m_decInput.full() || !ptrn.Recalc()) && m_decInput.size() < 40)
-+    if (!m_decInput.full())
-     {
--      if (m_decInput.full())
--        m_decInput.setquotasize(m_decInput.getquotasize()+1);
--
--      if (dts != DVD_NOPTS_VALUE)
--        ptrn.Add(dts);
--      else if (pts != DVD_NOPTS_VALUE)
-+      if (pts != DVD_NOPTS_VALUE)
-         ptrn.Add(pts);
-+      else if (dts != DVD_NOPTS_VALUE)
-+        ptrn.Add(dts);
- 
-       ret |= VC_BUFFER;
-     }
-     else
-     {
--      m_fps = DVD_TIME_BASE / ptrn.GetFrameDuration();
-+      double fd = ptrn.GetFrameDuration(true);
-+      if (!fd && m_hints.fpsscale)
-+        m_fps = (double)m_hints.fpsrate / m_hints.fpsscale;
-+      else if (fd)
-+        m_fps = DVD_TIME_BASE / fd;
-+
-       m_decOpenParam.nMapType = 1;
- 
-       ptrn.Flush();
-@@ -940,9 +942,12 @@ void CIMXCodec::Process()
-           m_decOpenParam.nMapType = 0;
-           Dispose();
-           VpuOpen();
--          m_fps /= 2;
-           continue;
-         }
-+
-+        if (m_initInfo.nInterlace && m_fps <= 30)
-+          m_fps *= 2;
-+
-         m_processInfo->SetVideoFps(m_fps);
- 
-         CLog::Log(LOGDEBUG, "%s - VPU Init Stream Info : %dx%d (interlaced : %d - Minframe : %d)"\
-@@ -1277,7 +1282,7 @@ bool CIMXContext::AdaptScreen(bool allocate)
-   m_fbVar.xoffset = 0;
-   m_fbVar.yoffset = 0;
- 
--  if (!allocate && (fbVar.bits_per_pixel == 16 || m_currentFieldFmt || (m_fbHeight >= 1080 && m_fps >= 49)))
-+  if (!allocate && (fbVar.bits_per_pixel == 16 || m_fps >= 49))
-   {
-     m_fbVar.nonstd = _4CC('Y', 'U', 'Y', 'V');
-     m_fbVar.bits_per_pixel = 16;
-@@ -1724,7 +1729,7 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
-   }
- 
-   // Use band mode directly to FB, as no transformations needed (eg cropping)
--  if (m_fps >= 49 && m_fbWidth == 1920 && ipu->task.input.width == 1920 && !ipu->task.input.deinterlace.enable)
-+  if (m_fps > 51 && m_fbWidth == 1920 && ipu->task.input.width == 1920 && !ipu->task.input.deinterlace.enable)
-   {
-     m_zoomAllowed = false;
-     ipu->task.output.crop.pos.x = ipu->task.input.crop.pos.x = 0;
-diff --git a/xbmc/linux/imx/IMX.cpp b/xbmc/linux/imx/IMX.cpp
-index e4284ac..ee4e60a 100644
---- a/xbmc/linux/imx/IMX.cpp
-+++ b/xbmc/linux/imx/IMX.cpp
-@@ -36,14 +36,10 @@
- #include "windowing/WindowingFactory.h"
- #include "utils/log.h"
- #include "guilib/GraphicContext.h"
--#include "utils/MathUtils.h"
--#include "DVDClock.h"
- #include "cores/VideoPlayer/DVDCodecs/DVDCodecUtils.h"
--
--#include <algorithm>
-+#include "utils/StringUtils.h"
- 
- #define  DCIC_DEVICE    "/dev/mxc_dcic0"
--#define  FB_DEVICE      "/dev/fb0"
- 
- CIMX::CIMX(void) : CThread("CIMX")
-   , m_change(true)
-@@ -162,7 +158,6 @@ void CIMX::OnResetDisplay()
-   m_change = true;
- }
- 
--
- bool CIMXFps::Recalc()
- {
-   double prev = DVD_NOPTS_VALUE;
-@@ -175,54 +170,57 @@ bool CIMXFps::Recalc()
-   m_hgraph.clear();
-   for (auto d : m_ts)
-   {
--    if (d != 0.0 && prev != DVD_NOPTS_VALUE)
--      m_hgraph[MathUtils::round_int(d - prev)]++;
-+    if (prev != DVD_NOPTS_VALUE)
-+    {
-+      frameDuration = CDVDCodecUtils::NormalizeFrameduration((d - prev), &hasMatch);
-+      if (fabs(frameDuration - rint(frameDuration)) < 0.01)
-+        frameDuration = rint(frameDuration);
-+
-+      m_hgraph[(unsigned long)(frameDuration * 100)]++;
-+    }
-     prev = d;
-   }
- 
--  unsigned int patternLength = 0;
-   for (auto it = m_hgraph.begin(); it != m_hgraph.end();)
-   {
--    if (it->second > 1)
-+    if (it->second > 2)
-     {
--      count += it->second;
--      frameDuration += it->first * it->second;
-+      double duration = CDVDCodecUtils::NormalizeFrameduration((double)it->first / 100, &hasMatch);
-+
-       ++it;
-     }
-     else
-+    {
-+      for (auto iti = m_hgraph.begin(); it != iti; iti++)
-+      {
-+        if (!iti->first)
-+          continue;
-+        int dv = it->first / iti->first;
-+        if (dv * iti->first == it->first)
-+        {
-+          m_hgraph[it->first] += dv;
-+          break;
-+        }
-+      }
-       m_hgraph.erase(it++);
-+    }
-   }
- 
--  if (count)
--    frameDuration /= count;
--
--  double frameNorm = CDVDCodecUtils::NormalizeFrameduration(frameDuration, &hasMatch);
--
--  if (hasMatch && !patternLength)
--    m_patternLength = 1;
--  else
--    m_patternLength = patternLength;
--
--  if (!m_hasPattern && hasMatch)
--    m_frameDuration = frameNorm;
--
--  if ((m_ts.size() == DIFFRINGSIZE && !m_hasPattern && hasMatch))
--    m_hasPattern = true;
--
--  if (m_hasPattern)
--    m_ptscorrection = (m_ts.size() - 1) * m_frameDuration + m_ts.front() - m_ts.back();
--
--  if (m_hasPattern && m_ts.size() == DIFFRINGSIZE && m_ptscorrection > m_frameDuration / 4)
-+  frameDuration = 0.0;
-+  for (auto h : m_hgraph)
-   {
--    m_hasPattern = false;
--    m_frameDuration = DVD_NOPTS_VALUE;
-+    count += h.second;
-+    frameDuration += h.first * h.second;
-   }
- 
--  return m_hgraph.size() <= 2;
--  bool ret = m_hgraph.size() <= 2;
--  if (!m_hasPattern && ret)
--    m_frameDuration = frameNorm;
--  return ret;
-+  if (count)
-+    frameDuration /= (100 * count);
-+
-+  frameDuration = CDVDCodecUtils::NormalizeFrameduration(frameDuration, &hasMatch);
-+
-+  if (hasMatch)
-+    m_frameDuration = frameDuration;
-+  return true;
- }
- 
- void CIMXFps::Add(double tm)
-@@ -235,8 +233,6 @@ void CIMXFps::Add(double tm)
- 
- void CIMXFps::Flush()
- {
-+  m_frameDuration = DVD_NOPTS_VALUE;
-   m_ts.clear();
--  m_frameDuration = 0.0;
--  m_ptscorrection = 0.0;
--  m_hasPattern = false;
- }
-diff --git a/xbmc/linux/imx/IMX.h b/xbmc/linux/imx/IMX.h
-index 1c5f15e..c0a13cd 100644
---- a/xbmc/linux/imx/IMX.h
-+++ b/xbmc/linux/imx/IMX.h
-@@ -24,6 +24,7 @@
- #include "threads/Thread.h"
- #include "guilib/DispResource.h"
- #include "utils/log.h"
-+#include "cores/VideoPlayer/DVDClock.h"
- 
- #include <mutex>
- #include <queue>
-@@ -32,9 +33,12 @@
- #include <atomic>
- #include <thread>
- #include <map>
-+#include <string>
- 
- #define DIFFRINGSIZE 60
- 
-+#define FB_DEVICE "/dev/fb0"
-+
- class CIMX;
- extern CIMX g_IMX;
- 
-@@ -189,19 +193,15 @@ protected:
- class CIMXFps
- {
-   public:
--    CIMXFps()       { Flush(); }
-+    CIMXFps()  { Flush(); }
-     void   Add(double pts);
-     void   Flush(); //flush the saved pattern and the ringbuffer
--
--    double GetFrameDuration() { return m_frameDuration;             }
--    bool   HasFullBuffer()    { return m_ts.size() == DIFFRINGSIZE; }
--
-+    double GetFrameDuration(bool raw = false) { return m_frameDuration; }
-     bool   Recalc();
- 
-   private:
-+    std::string          GetPatternStr();
-+    std::map<unsigned long,int>  m_hgraph;
-     std::deque<double>   m_ts;
--    std::map<double,int> m_hgraph;
-     double               m_frameDuration;
--    bool                 m_hasPattern;
--    double               m_ptscorrection;
- };
--- 
-1.9.1
-
-
-==============================================================
-file 0012-IMX-fix-compile-error.patch
-==============================================================
-
-From 0d8aced44f2e2a84abca210ced4c9ea7585ddfab Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Fri, 26 Aug 2016 07:41:39 +0200
-Subject: [PATCH] [IMX] fix compile error
-
----
- xbmc/windowing/egl/EGLNativeTypeIMX.cpp | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-index 62631f6..d8c0983 100644
---- a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-+++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-@@ -29,6 +29,7 @@
- #include <sys/ioctl.h>
- #ifdef HAS_IMXVPU
- #include <linux/mxcfb.h>
-+#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h"
- #endif
- #include "utils/log.h"
- #include "utils/RegExp.h"
--- 
-1.9.1
-
-
-==============================================================
-file 0013-IMX-put-destination-rect-parameter-into-Blit-call-re.patch
-==============================================================
-
-From feebd022dfdab5b1ede13eaad48c387a8bbd04c8 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Fri, 26 Aug 2016 07:53:08 +0200
-Subject: [PATCH] [IMX] put destination rect parameter into Blit() call,
- refactor IPUTask prep
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 32 +++++++++-------------
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h | 17 +++---------
- .../VideoRenderers/HwDecRender/RendererIMX.cpp     |  4 +--
- 3 files changed, 18 insertions(+), 35 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index bfb9a3f..09e07bb 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1240,8 +1240,6 @@ CIMXContext::CIMXContext()
-   m_pageCrops = new CRectInt[m_fbPages];
-   CLog::Log(LOGDEBUG, "iMX : Allocated %d render buffers\n", m_fbPages);
- 
--  SetBlitRects(CRectInt(), CRectInt());
--
-   g2dOpenDevices();
- }
- 
-@@ -1470,12 +1468,6 @@ bool CIMXContext::SetVSync(bool enable)
-   return true;
- }
- 
--void CIMXContext::SetBlitRects(const CRect &srcRect, const CRect &dstRect)
--{
--  m_srcRect = srcRect;
--  m_dstRect = dstRect;
--}
--
- inline
- void CIMXContext::SetFieldData(uint8_t fieldFmt, double fps)
- {
-@@ -1529,7 +1521,8 @@ int setIPUMotion(bool hasPrev, EINTERLACEMETHOD imethod)
-   return HIGH_MOTION;
- }
- 
--void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, uint8_t fieldFmt, int page)
-+void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &srcRect,
-+                       const CRect &dstRect, uint8_t fieldFmt, int page)
- {
-   if (page == RENDER_TASK_AUTOPAGE)
-     page = m_pg;
-@@ -1542,12 +1535,20 @@ void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, uint8_t fieldFm
-   ipu->page = page;
- 
-   SetFieldData(fieldFmt, source->m_fps);
--  PrepareTask(ipu, source_p, source);
-+  PrepareTask(ipu, srcRect, dstRect);
- 
- #ifdef IMX_PROFILE_BUFFERS
-   unsigned long long before = XbmcThreads::SystemClockMillis();
- #endif
--  DoTask(ipu);
-+  SetFieldData(fieldFmt, source->m_fps);
-+  PrepareTask(ipu, srcRect, dstRect);
-+
-+  if (!DoTask(ipu))
-+    return;
-+
-+  m_flip = ipu->page | checkIPUStrideOffset(&ipu->task.input.deinterlace) << 4;
-+  m_pingFlip.Set();
-+
- #ifdef IMX_PROFILE_BUFFERS
-   unsigned long long after = XbmcThreads::SystemClockMillis();
-   CLog::Log(LOGDEBUG, "+P 0x%x@%d  %d\n", ((CDVDVideoCodecIMXBuffer*)ipu->current)->GetIdx(), ipu->page, (int)(after-before));
-@@ -1640,15 +1641,8 @@ void CIMXContext::Clear(int page)
-   SetVideoPixelFormat(m_processInfo);
- }
- 
--void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CIMXBuffer *source_p, CIMXBuffer *source)
-+void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
- {
--  // Fill with zeros
--  ipu->Zero();
--  ipu->Assign(source_p, source);
--
--  CRect srcRect = m_srcRect;
--  CRect dstRect = m_dstRect;
--
-   CRectInt iSrcRect, iDstRect;
- 
-   float srcWidth = srcRect.Width();
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 9b9f068..5a9d634 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -115,13 +115,12 @@ public:
-   bool IsDoubleRate() const { return m_currentFieldFmt & IPU_DEINTERLACE_RATE_EN; }
-   void SetVideoPixelFormat(CProcessInfo *m_pProcessInfo);
- 
--  void SetBlitRects(const CRect &srcRect, const CRect &dstRect);
-   bool IsZoomAllowed() const { return m_zoomAllowed; }
- 
-   // Blits a buffer to a particular page (-1 for auto page)
-   // source_p (previous buffer) is required for de-interlacing
-   // modes LOW_MOTION and MED_MOTION.
--  void Blit(CIMXBuffer *source_p, CIMXBuffer *source,
-+  void Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &srcRect, const CRect &dstRect,
-             uint8_t fieldFmt = 0, int targetPage = RENDER_TASK_AUTOPAGE);
- 
-   // Shows a page vsynced
-@@ -145,15 +144,9 @@ public:
- private:
-   struct IPUTask
-   {
--    void Assign(CIMXBuffer *buffer_p, CIMXBuffer *buffer)
-+    IPUTask(CIMXBuffer *buffer_p, CIMXBuffer *buffer, int p = 0)
-+      : previous(buffer_p), current(buffer), page(p)
-     {
--      previous = buffer_p;
--      current = buffer;
--    }
--
--    void Zero()
--    {
--      current = previous = NULL;
-       memset(&task, 0, sizeof(task));
-     }
- 
-@@ -172,7 +165,7 @@ private:
- 
-   bool GetFBInfo(const std::string &fbdev, struct fb_var_screeninfo *fbVar);
- 
--  void PrepareTask(IPUTaskPtr &ipu, CIMXBuffer *source_p, CIMXBuffer *source);
-+  void PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect);
-   bool DoTask(IPUTaskPtr &ipu, CRect *dest = nullptr);
-   bool TileTask(IPUTaskPtr &ipu);
- 
-@@ -204,8 +197,6 @@ private:
-   int                            m_ipuHandle;
-   uint8_t                        m_currentFieldFmt;
-   bool                           m_vsync;
--  CRect                          m_srcRect;
--  CRect                          m_dstRect;
-   CRectInt                      *m_pageCrops;
-   bool                           m_bFbIsConfigured;
-   CEvent                         m_waitVSync;
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-index 01272ff..64d88f8 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-@@ -199,8 +199,6 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
-     }
- 
-     //CLog::Log(LOGDEBUG, "BLIT RECTS: source x1 %f x2 %f y1 %f y2 %f dest x1 %f x2 %f y1 %f y2 %f", srcRect.x1, srcRect.x2, srcRect.y1, srcRect.y2, dstRect.x1, dstRect.x2, dstRect.y1, dstRect.y2);
--    g_IMXContext.SetBlitRects(srcRect, dstRect);
--
-     uint8_t fieldFmt = flags & RENDER_FLAG_FIELDMASK;
- 
-     if (!g_graphicsContext.IsFullScreenVideo())
-@@ -220,7 +218,7 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
-     }
- 
-     CDVDVideoCodecIMXBuffer *buffer_p = m_bufHistory.front();
--    g_IMXContext.Blit(buffer_p == buffer ? nullptr : buffer_p, buffer, fieldFmt);
-+    g_IMXContext.Blit(buffer_p == buffer ? nullptr : buffer_p, buffer, srcRect, dstRect, fieldFmt);
-   }
- 
- #if 0
--- 
-1.9.1
-
-
-==============================================================
-file 0014-IMX-disable-profiling-logs-by-default.patch
-==============================================================
-
-From 78508bc853fbdd3d2067cb4b1ecb02c757c504ca Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Fri, 26 Aug 2016 07:59:17 +0200
-Subject: [PATCH] [IMX] disable profiling logs by default
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 5a9d634..eadceb2 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -55,9 +55,8 @@
- // priorities to those subsystems can result in a very different user
- // experience. With that setting enabled we can build some statistics,
- // as numbers are always better than "feelings"
--#define IMX_PROFILE_BUFFERS
--
--#define IMX_PROFILE
-+//#define IMX_PROFILE_BUFFERS
-+//#define IMX_PROFILE
- //#define TRACE_FRAMES
- 
- #define RENDER_USE_G2D 0
--- 
-1.9.1
-
-
-==============================================================
-file 0015-IMXCodec-refactor-g2dOpenDevices-g2dCloseDevices.patch
-==============================================================
-
-From d5c93e2ccd7dcfde674fc133b6720fa85a24b83c Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Tue, 30 Aug 2016 22:23:20 +0200
-Subject: [PATCH] [IMXCodec] refactor g2dOpenDevices/g2dCloseDevices
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 27 +++++++---------------
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h |  2 --
- 2 files changed, 8 insertions(+), 21 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 09e07bb..f371f9d 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1239,8 +1239,6 @@ CIMXContext::CIMXContext()
-   m_flip.resize(m_fbPages);
-   m_pageCrops = new CRectInt[m_fbPages];
-   CLog::Log(LOGDEBUG, "iMX : Allocated %d render buffers\n", m_fbPages);
--
--  g2dOpenDevices();
- }
- 
- CIMXContext::~CIMXContext()
-@@ -1248,7 +1246,6 @@ CIMXContext::~CIMXContext()
-   Stop(false);
-   Dispose();
-   CloseDevices();
--  g2dCloseDevices();
- }
- 
- bool CIMXContext::AdaptScreen(bool allocate)
-@@ -1412,22 +1409,6 @@ bool CIMXContext::OpenDevices()
-   return m_fbHandle > 0;
- }
- 
--void CIMXContext::g2dOpenDevices()
--{
--  // open g2d here to ensure all g2d fucntions are called from the same thread
--  if (!g2d_open(&m_g2dHandle))
--    return;
--
--  m_g2dHandle = NULL;
--  CLog::Log(LOGERROR, "%s - Error while trying open G2D\n", __FUNCTION__);
--}
--
--void CIMXContext::g2dCloseDevices()
--{
--  if (m_g2dHandle && !g2d_close(m_g2dHandle))
--    m_g2dHandle = NULL;
--}
--
- void CIMXContext::CloseDevices()
- {
-   CLog::Log(LOGINFO, "iMX : Closing devices\n");
-@@ -1860,6 +1841,12 @@ bool CIMXContext::CaptureDisplay(unsigned char *&buffer, int iWidth, int iHeight
-   else if (blend)
-     std::memcpy(m_bufferCapture->buf_vaddr, buffer, m_bufferCapture->buf_size);
- 
-+  if (g2d_open(&m_g2dHandle))
-+  {
-+    CLog::Log(LOGERROR, "%s : Error while trying open G2D\n", __FUNCTION__);
-+    return false;
-+  }
-+
-   if (m_bufferCapture && buffer)
-   {
-     struct g2d_surface src, dst;
-@@ -1912,6 +1899,8 @@ bool CIMXContext::CaptureDisplay(unsigned char *&buffer, int iWidth, int iHeight
-   if (m_bufferCapture && g2d_free(m_bufferCapture))
-     CLog::Log(LOGERROR, "iMX : Error while freeing capture buuffer\n");
- 
-+  if (m_g2dHandle && !g2d_close(m_g2dHandle))
-+    m_g2dHandle = NULL;
-   return true;
- }
- 
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index eadceb2..066adb9 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -102,8 +102,6 @@ public:
-   bool AdaptScreen(bool allocate = false);
-   bool TaskRestart();
-   void CloseDevices();
--  void g2dCloseDevices();
--  void g2dOpenDevices();
-   bool OpenDevices();
- 
-   bool Blank();
--- 
-1.9.1
-
-
-==============================================================
-file 0016-IMXRenderer-skip-rendering-same-frame.patch
-==============================================================
-
-From b4086e7c8fb8dc2aec408cac53917a620cb23d6e Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Tue, 30 Aug 2016 22:25:34 +0200
-Subject: [PATCH] [IMXRenderer] skip rendering same frame
-
----
- .../cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-index 64d88f8..4262970 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-@@ -150,6 +150,7 @@ bool CRendererIMX::RenderHook(int index)
- 
- bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
- {
-+  static DWORD flagsPrev;
- #if 0
-   static unsigned long long previous = 0;
-   unsigned long long current = XbmcThreads::SystemClockMillis();
-@@ -164,6 +165,14 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
-       buffer->Lock();
-       m_bufHistory.push_back(buffer);
-     }
-+    else if (!m_bufHistory.empty() && m_bufHistory.back() == buffer && flagsPrev == flags)
-+    {
-+      g_IMX.WaitVsync();
-+      return true;
-+    }
-+
-+    flagsPrev = flags;
-+
-     if (m_bufHistory.size() > 2)
-     {
-       m_bufHistory.front()->Release();
--- 
-1.9.1
-
-
-==============================================================
-file 0017-IMXCodec-simplify-the-render-pipeline.patch
-==============================================================
-
-From dbf5c69707b589308a168291030e25360398e783 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Thu, 1 Sep 2016 04:00:43 +0200
-Subject: [PATCH] [IMXCodec] simplify the render pipeline
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 22 +++++++++++++++-------
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h | 12 +++++++-----
- 2 files changed, 22 insertions(+), 12 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index f371f9d..c96b91b 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1228,6 +1228,7 @@ CIMXContext::CIMXContext()
-   , m_vsync(true)
-   , m_pageCrops(NULL)
-   , m_bFbIsConfigured(false)
-+  , m_processThread(this, "iMX BLK")
-   , m_g2dHandle(NULL)
-   , m_bufferCapture(NULL)
-   , m_deviceName("/dev/fb1")
-@@ -1235,8 +1236,6 @@ CIMXContext::CIMXContext()
-   m_waitVSync.Reset();
-   m_onStartup.Reset();
-   m_waitFlip.Reset();
--  m_flip.clear();
--  m_flip.resize(m_fbPages);
-   m_pageCrops = new CRectInt[m_fbPages];
-   CLog::Log(LOGDEBUG, "iMX : Allocated %d render buffers\n", m_fbPages);
- }
-@@ -1312,10 +1311,11 @@ bool CIMXContext::AdaptScreen(bool allocate)
- 
-   MemMap(&fb_fix);
- 
--  if (m_fbVar.bits_per_pixel == 16 || !RENDER_USE_G2D)
--    m_ipuHandle = open("/dev/mxc_ipu", O_RDWR, 0);
-+  m_ipuHandle = open("/dev/mxc_ipu", O_RDWR, 0);
- 
-   Unblank();
-+  if (!allocate)
-+    m_processThread.Create(false);
- 
-   return true;
- 
-@@ -1434,13 +1434,21 @@ bool CIMXContext::Blank()
-   return ioctl(m_fbHandle, FBIOBLANK, 1) == 0;
- }
- 
-+void CIMXContext::Run()
-+{
-+  unsigned long curBlank = FB_BLANK_NORMAL;
-+  while (curBlank &&
-+        !ioctl(open(FB_DEVICE, O_RDONLY, 0), MXCFB_GET_FB_BLANK, &curBlank))
-+    Sleep(10);
-+
-+  m_bFbIsConfigured = !curBlank;
-+}
-+
- bool CIMXContext::Unblank()
- {
-   if (!m_fbHandle) return false;
- 
--  int ret = ioctl(m_fbHandle, FBIOBLANK, FB_BLANK_UNBLANK);
--  m_bFbIsConfigured = true;
--  return ret == 0;
-+  return ioctl(m_fbHandle, FBIOBLANK, FB_BLANK_UNBLANK) == 0;
- }
- 
- bool CIMXContext::SetVSync(bool enable)
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 066adb9..a550adc 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -93,7 +93,7 @@ enum RENDER_TASK
- 
- // iMX context class that handles all iMX hardware
- // related stuff
--class CIMXContext : private CThread, IDispResource
-+class CIMXContext : private CThread, IDispResource, public IRunnable
- {
- public:
-   CIMXContext();
-@@ -175,14 +175,13 @@ private:
-   virtual void OnStartup();
-   virtual void OnExit();
-   virtual void Process();
-+  virtual void Run() override;
- 
- private:
--  lkFIFO<IPUTaskPtr>             m_input;
--  std::vector<bool>              m_flip;
-+  unsigned char                  m_flip;
- 
-   int                            m_fbHandle;
--  std::atomic<int>               m_fbCurrentPage;
--  int                            m_pg;
-+  int                            m_fbCurrentPage;
-   int                            m_fbWidth;
-   int                            m_fbHeight;
-   int                            m_fbLineLength;
-@@ -203,6 +202,9 @@ private:
- 
-   bool                           m_zoomAllowed;
-   CCriticalSection               m_pageSwapLock;
-+
-+  CThread                        m_processThread;
-+
- public:
-   void                          *m_g2dHandle;
-   struct g2d_buf                *m_bufferCapture;
--- 
-1.9.1
-
-
-==============================================================
-file 0018-IMXCodec-cleanups.patch
-==============================================================
-
-From b766982e4b521454ba3566576dda08ee45409b39 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Thu, 1 Sep 2016 04:09:49 +0200
-Subject: [PATCH] [IMXCodec] cleanups
-
----
- .../cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 14 +++++++-------
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h  |  3 ---
- 2 files changed, 7 insertions(+), 10 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index c96b91b..a33caa4 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -796,8 +796,8 @@ int CIMXCodec::Decode(BYTE *pData, int iSize, double dts, double pts)
-                        __FUNCTION__, iSize, recalcPts(dts), recalcPts(pts), (uint)pData, ret, m_decInput.size(), m_decOutput.size());
- #endif
- 
--  if (!ret || m_drainMode)
--    Sleep(3);
-+  if (!(ret & VC_PICTURE) || !ret || m_drainMode)
-+    Sleep(10);
- 
-   return ret;
- }
-@@ -958,7 +958,9 @@ void CIMXCodec::Process()
- 
-         m_decInput.setquotasize(m_initInfo.nMinFrameBufferCount*7);
- 
--        if (m_decOpenParam.CodecFormat != VPU_V_MPEG2 && !(m_decOpenParam.CodecFormat == VPU_V_AVC && m_converter))
-+        bool getFrame = m_decOpenParam.CodecFormat != VPU_V_AVC || !m_converter;
-+        getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2;
-+        if (getFrame || m_decRet & VPU_DEC_RESOLUTION_CHANGED)
-         {
-           SetDrainMode((VpuDecInputType)IN_DECODER_SET);
-           inData = dummy;
-@@ -1237,7 +1239,6 @@ CIMXContext::CIMXContext()
-   m_onStartup.Reset();
-   m_waitFlip.Reset();
-   m_pageCrops = new CRectInt[m_fbPages];
--  CLog::Log(LOGDEBUG, "iMX : Allocated %d render buffers\n", m_fbPages);
- }
- 
- CIMXContext::~CIMXContext()
-@@ -1310,6 +1311,7 @@ bool CIMXContext::AdaptScreen(bool allocate)
-   }
- 
-   MemMap(&fb_fix);
-+  CLog::Log(LOGVIDEO, "iMX : Allocated %d render buffers\n", m_fbPages);
- 
-   m_ipuHandle = open("/dev/mxc_ipu", O_RDWR, 0);
- 
-@@ -1356,8 +1358,6 @@ void CIMXContext::MemMap(struct fb_fix_screeninfo *fb_fix)
-     m_fbPageSize = m_fbLineLength * m_fbVar.yres_virtual / m_fbPages;
-     m_fbPhysAddr = fb_fix->smem_start;
-     m_fbVirtAddr = (uint8_t*)mmap(0, m_fbPhysSize, PROT_READ | PROT_WRITE, MAP_SHARED, m_fbHandle, 0);
--    m_fbCurrentPage = 0;
--    Clear();
-   }
- }
- 
-@@ -1594,7 +1594,7 @@ void CIMXContext::SetVideoPixelFormat(CProcessInfo *m_pProcessInfo)
-   if (m_processInfo && m_fbVar.bits_per_pixel == 16)
-     m_processInfo->SetVideoPixelFormat("YUV 4:2:2");
-   else if (m_processInfo)
--    m_processInfo->SetVideoPixelFormat("RGB 32");
-+    m_processInfo->SetVideoPixelFormat("RGBA8888");
- }
- 
- void CIMXContext::Clear(int page)
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index a550adc..483b120 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -59,8 +59,6 @@
- //#define IMX_PROFILE
- //#define TRACE_FRAMES
- 
--#define RENDER_USE_G2D 0
--
- // If uncommented a file "stream.dump" will be created in the current
- // directory whenever a new stream is started. This is only for debugging
- // and performance tests. This define must never be active in distributions.
-@@ -210,7 +208,6 @@ public:
-   struct g2d_buf                *m_bufferCapture;
- 
-   std::string                    m_deviceName;
--  int                            m_speed;
- 
-   double                         m_fps;
- };
--- 
-1.9.1
-
-
-==============================================================
-file 0019-IMXCodec-update-fix-stream-changes-of-same-parameter.patch
-==============================================================
-
-From 64a685da10fcf9de9608d7690297dcf0d3dd1af7 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Thu, 1 Sep 2016 04:41:17 +0200
-Subject: [PATCH] [IMXCodec] update/fix stream changes of same parameters (eg
- liveTV)
-
----
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp   | 18 +++++++-----------
- 1 file changed, 7 insertions(+), 11 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index a33caa4..181730d 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -431,7 +431,7 @@ CIMXCodec::CIMXCodec()
-   m_skipMode = VPU_DEC_SKIPNONE;
- 
-   m_decOutput.setquotasize(1);
--  m_decInput.setquotasize(25);
-+  m_decInput.setquotasize(60);
-   m_loaded.Reset();
- }
- 
-@@ -498,7 +498,6 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
-   {
-     StopThread(false);
-     ProcessSignals(SIGNAL_FLUSH);
--    m_dropped = 0;
-   }
- 
-   m_hints = hints;
-@@ -849,6 +848,9 @@ void CIMXCodec::Process()
-   m_pts.clear();
-   m_loaded.Set();
- 
-+  m_dropped = 0;
-+  m_lastPTS = DVD_NOPTS_VALUE;
-+
-   memset(&dummy, 0, sizeof(dummy));
-   AddExtraData(&dummy, (m_decOpenParam.CodecFormat == VPU_V_AVC && m_hints.extrasize));
-   inData = dummy;
-@@ -956,7 +958,7 @@ void CIMXCodec::Process()
-           m_initInfo.nAddressAlignment, m_initInfo.PicCropRect.nLeft, m_initInfo.PicCropRect.nTop,
-           m_initInfo.PicCropRect.nRight, m_initInfo.PicCropRect.nBottom, m_initInfo.nQ16ShiftWidthDivHeightRatio, m_fps);
- 
--        m_decInput.setquotasize(m_initInfo.nMinFrameBufferCount*7);
-+        m_decInput.setquotasize(m_fps);
- 
-         bool getFrame = m_decOpenParam.CodecFormat != VPU_V_AVC || !m_converter;
-         getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2;
-@@ -1110,13 +1112,7 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
-   previous = current;
- #endif
- 
--  if (m_dropRequest)
--  {
--    pDvdVideoPicture->iFlags = DVP_FLAG_DROPPED;
--    ++m_dropped;
--  }
--  else
--    pDvdVideoPicture->iFlags = pDvdVideoPicture->IMXBuffer->GetFlags();
-+  pDvdVideoPicture->iFlags = m_dropRequest ? DVP_FLAG_DROPPED : pDvdVideoPicture->IMXBuffer->GetFlags();
- 
-   if (m_initInfo.nInterlace)
-   {
-@@ -1149,7 +1145,7 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
- 
- void CIMXCodec::SetDropState(bool bDrop)
- {
--  m_dropRequest = bDrop ? m_decOutput.size() > m_decOutput.getquotasize() / 3 && !m_burst : false;
-+  m_dropRequest = bDrop;
- }
- 
- bool CIMXCodec::IsCurrentThread() const
--- 
-1.9.1
-
-
-==============================================================
-file 0020-IMXCodec-change-backbuffer-showpage-handling.patch
-==============================================================
-
-From 673999b3e038c920f885b32527766935789fbd31 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Sun, 4 Sep 2016 16:33:26 +0200
-Subject: [PATCH] [IMXCodec] change backbuffer/showpage handling
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 40 +++++++++++-----------
- 1 file changed, 20 insertions(+), 20 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 181730d..13d4072 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1354,6 +1354,7 @@ void CIMXContext::MemMap(struct fb_fix_screeninfo *fb_fix)
-     m_fbPageSize = m_fbLineLength * m_fbVar.yres_virtual / m_fbPages;
-     m_fbPhysAddr = fb_fix->smem_start;
-     m_fbVirtAddr = (uint8_t*)mmap(0, m_fbPhysSize, PROT_READ | PROT_WRITE, MAP_SHARED, m_fbHandle, 0);
-+    Clear();
-   }
- }
- 
-@@ -1433,6 +1434,8 @@ bool CIMXContext::Blank()
- void CIMXContext::Run()
- {
-   unsigned long curBlank = FB_BLANK_NORMAL;
-+
-+  CSingleLock lk(m_pageSwapLock);
-   while (curBlank &&
-         !ioctl(open(FB_DEVICE, O_RDONLY, 0), MXCFB_GET_FB_BLANK, &curBlank))
-     Sleep(10);
-@@ -1456,7 +1459,7 @@ bool CIMXContext::SetVSync(bool enable)
- inline
- void CIMXContext::SetFieldData(uint8_t fieldFmt, double fps)
- {
--  if (m_bStop || !IsRunning())
-+  if (m_bStop || !IsRunning() || !m_bFbIsConfigured)
-     return;
- 
-   bool dr = IsDoubleRate();
-@@ -1552,33 +1555,28 @@ void CIMXContext::WaitVSync()
- 
- bool CIMXContext::ShowPage()
- {
-+  {
-+    CSingleLock lk(m_pageSwapLock);
-+    if (!m_fbHandle || !m_bFbIsConfigured)
-+      return false;
-+  }
-+
-   m_waitFlip.Wait();
--  int page = m_fbCurrentPage.load();
- 
--  CSingleLock lk(m_pageSwapLock);
--  if (!m_fbHandle || !m_bFbIsConfigured) return false;
--  // Protect page swapping from screen capturing that does read the current
--  // front buffer. This is actually not done very frequently so the lock
--  // does not hurt.
--  bool ret = true;
-+  bool off = m_flip >> 4;
-+  m_fbCurrentPage = m_flip & 0xf;
- 
-   m_fbVar.activate = FB_ACTIVATE_VBL;
--  m_fbVar.yoffset = (m_fbVar.yres + 1) * page + !m_flip[page];
-+  m_fbVar.yoffset = (m_fbVar.yres + 1) * m_fbCurrentPage + !off;
-   if (ioctl(m_fbHandle, FBIOPAN_DISPLAY, &m_fbVar) < 0)
-   {
-     CLog::Log(LOGWARNING, "Panning failed: %s\n", strerror(errno));
--    ret = false;
-+    return false;
-   }
- 
-   m_waitVSync.Set();
- 
--  // Wait for flip
--  if (ret && m_vsync && ioctl(m_fbHandle, FBIO_WAITFORVSYNC, 0) < 0)
--  {
--    CLog::Log(LOGWARNING, "Vsync failed: %s\n", strerror(errno));
--    ret = false;
--  }
--  return ret;
-+  return true;
- }
- 
- void CIMXContext::SetVideoPixelFormat(CProcessInfo *m_pProcessInfo)
-@@ -1851,6 +1849,7 @@ bool CIMXContext::CaptureDisplay(unsigned char *&buffer, int iWidth, int iHeight
-     return false;
-   }
- 
-+  CSingleLock lk(m_pageSwapLock);
-   if (m_bufferCapture && buffer)
-   {
-     struct g2d_surface src, dst;
-@@ -1858,7 +1857,7 @@ bool CIMXContext::CaptureDisplay(unsigned char *&buffer, int iWidth, int iHeight
-     memset(&dst, 0, sizeof(dst));
- 
-     {
--      src.planes[0] = m_fbPhysAddr + m_fbCurrentPage.load() * m_fbPageSize;
-+      src.planes[0] = m_fbPhysAddr + m_fbCurrentPage * m_fbPageSize;
-       dst.planes[0] = m_bufferCapture->buf_paddr;
-       if (m_fbVar.bits_per_pixel == 16)
-       {
-@@ -1896,9 +1895,7 @@ bool CIMXContext::CaptureDisplay(unsigned char *&buffer, int iWidth, int iHeight
-     std::memcpy(buffer, m_bufferCapture->buf_vaddr, m_bufferCapture->buf_size);
-   }
-   else
--  {
-     CLog::Log(LOGERROR, "iMX : Error allocating capture buffer\n");
--  }
- 
-   if (m_bufferCapture && g2d_free(m_bufferCapture))
-     CLog::Log(LOGERROR, "iMX : Error while freeing capture buuffer\n");
-@@ -1943,5 +1940,8 @@ void CIMXContext::Stop(bool bWait /*= true*/)
- void CIMXContext::Process()
- {
-   while (!m_bStop)
-+  {
-     ShowPage();
-+    std::this_thread::yield();
-+  }
- }
--- 
-1.9.1
-
-
-==============================================================
-file 0021-IMXCodec-use-only-1-extra-buffer.patch
-==============================================================
-
-From 0b2ff9727391d0aad97c4f746722dd78c35d1beb Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Sun, 4 Sep 2016 21:53:10 +0200
-Subject: [PATCH] [IMXCodec] use only 1 extra buffer
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 13d4072..e66b110 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -71,7 +71,7 @@ std::list<VpuFrameBuffer*> m_recycleBuffers;
- const int CIMXContext::m_fbPages = 3;
- 
- // Experiments show that we need at least one more (+1) VPU buffer than the min value returned by the VPU
--const unsigned int CIMXCodec::m_extraVpuBuffers = 2 + CIMXContext::m_fbPages + RENDER_QUEUE_SIZE;
-+const unsigned int CIMXCodec::m_extraVpuBuffers = 1 + CIMXContext::m_fbPages + RENDER_QUEUE_SIZE;
- 
- CDVDVideoCodecIMX::~CDVDVideoCodecIMX()
- {
--- 
-1.9.1
-
-
-==============================================================
-file 0022-IMXCodec-delay-VPU-memory-reinit.patch
-==============================================================
-
-From 761856c6efc70f5e459195b1b5c6685f7b77a58c Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Sun, 4 Sep 2016 23:22:50 +0200
-Subject: [PATCH] [IMXCodec] delay VPU memory reinit
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 13 +++++++++----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h   |  1 +
- 2 files changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index e66b110..0c5bf68 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -422,6 +422,8 @@ CIMXCodec::CIMXCodec()
-   , m_fps(-1)
-   , m_burst(0)
- {
-+  m_nrOut.store(0);
-+
-   m_vpuHandle = 0;
-   m_converter = NULL;
- #ifdef DUMP_STREAM
-@@ -813,6 +815,7 @@ void CIMXCodec::RecycleFrameBuffers()
-     m_pts[m_recycleBuffers.front()] = DVD_NOPTS_VALUE;
-     VPU_DecOutFrameDisplayed(m_vpuHandle, m_recycleBuffers.front());
-     m_recycleBuffers.pop_front();
-+  --m_nrOut;
-   }
- }
- 
-@@ -925,12 +928,13 @@ void CIMXCodec::Process()
-       if (m_decRet & VPU_DEC_INIT_OK || m_decRet & VPU_DEC_RESOLUTION_CHANGED)
-       // VPU decoding init OK : We can retrieve stream info
-       {
--        m_decOutput.setquotasize(1);
--        if (m_decRet & VPU_DEC_RESOLUTION_CHANGED && m_decOutput.size())
-+        if (m_decRet & VPU_DEC_RESOLUTION_CHANGED)
-         {
--          unsigned int returning = m_decOutput.size() + RENDER_QUEUE_SIZE;
--          while (m_recycleBuffers.size() < returning && !m_bStop)
-+          while (m_nrOut > 3 && !m_bStop)
-+          {
-+            RecycleFrameBuffers();
-             std::this_thread::yield();
-+          }
-         }
- 
-         if (VPU_DecGetInitialInfo(m_vpuHandle, &m_initInfo) != VPU_DEC_RET_SUCCESS)
-@@ -980,6 +984,7 @@ void CIMXCodec::Process()
-         m_frameInfo.pExtInfo->nFrmWidth  = (((m_frameInfo.pExtInfo->nFrmWidth) + 15) & ~15);
-         m_frameInfo.pExtInfo->nFrmHeight = (((m_frameInfo.pExtInfo->nFrmHeight) + 15) & ~15);
- 
-+        ++m_nrOut;
-         CDVDVideoCodecIMXBuffer *buffer = new CDVDVideoCodecIMXBuffer(&m_frameInfo, m_fps, m_decOpenParam.nMapType);
- 
-         /* quick & dirty fix to get proper timestamping for VP8 codec */
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 483b120..d40482b 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -417,6 +417,7 @@ private:
-   bool                         IsCurrentThread() const;
- 
-   CCriticalSection             m_openLock;
-+  std::atomic<unsigned char>   m_nrOut;
- };
- 
- 
--- 
-1.9.1
-
-
-==============================================================
-file 0023-IMXCodec-simplify-Blit.patch
-==============================================================
-
-From 1b9e693c75206d14d8a71d3fadcb2f19583af5ee Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Sun, 4 Sep 2016 23:23:35 +0200
-Subject: [PATCH] [IMXCodec] simplify Blit()
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 22 +++++++---------------
- 1 file changed, 7 insertions(+), 15 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 0c5bf68..a4cde09 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1517,18 +1517,15 @@ int setIPUMotion(bool hasPrev, EINTERLACEMETHOD imethod)
- void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &srcRect,
-                        const CRect &dstRect, uint8_t fieldFmt, int page)
- {
-+  static unsigned char pg;
-+
-   if (page == RENDER_TASK_AUTOPAGE)
--    page = m_pg;
-+    page = pg;
-   else if (page < 0 && page >= m_fbPages)
-     return;
- 
--  m_pg = ++m_pg % m_fbPages;
--
--  IPUTaskPtr ipu(new IPUTask);
--  ipu->page = page;
--
--  SetFieldData(fieldFmt, source->m_fps);
--  PrepareTask(ipu, srcRect, dstRect);
-+  IPUTaskPtr ipu(new IPUTask(source_p, source, page));
-+  pg = ++pg % m_fbPages;
- 
- #ifdef IMX_PROFILE_BUFFERS
-   unsigned long long before = XbmcThreads::SystemClockMillis();
-@@ -1540,22 +1537,17 @@ void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &sr
-     return;
- 
-   m_flip = ipu->page | checkIPUStrideOffset(&ipu->task.input.deinterlace) << 4;
--  m_pingFlip.Set();
-+  m_waitFlip.Set();
- 
- #ifdef IMX_PROFILE_BUFFERS
-   unsigned long long after = XbmcThreads::SystemClockMillis();
-   CLog::Log(LOGDEBUG, "+P 0x%x@%d  %d\n", ((CDVDVideoCodecIMXBuffer*)ipu->current)->GetIdx(), ipu->page, (int)(after-before));
- #endif
--
--  m_fbCurrentPage.store(ipu->page);
--  m_waitFlip.Set();
--
--  m_flip[ipu->page] = checkIPUStrideOffset(&ipu->task.input.deinterlace);
- }
- 
- void CIMXContext::WaitVSync()
- {
--  m_waitVSync.WaitMSec(1000 / g_graphicsContext.GetFPS());
-+  m_waitVSync.WaitMSec(1300 / g_graphicsContext.GetFPS());
- }
- 
- bool CIMXContext::ShowPage()
--- 
-1.9.1
-
-
-==============================================================
-file 0024-IMXCodec-align-code-with-EINTERLACEMETHOD-refactorin.patch
-==============================================================
-
-From 2b55e487fe160692a190c86e90a8e927a5228c04 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Mon, 5 Sep 2016 00:44:58 +0200
-Subject: [PATCH] [IMXCodec] align code with EINTERLACEMETHOD refactoring
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 52 ++++++++++++++++------
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h |  5 ++-
- .../VideoRenderers/HwDecRender/RendererIMX.cpp     | 19 --------
- .../VideoRenderers/HwDecRender/RendererIMX.h       |  2 -
- 4 files changed, 42 insertions(+), 36 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index a4cde09..02e829b 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -33,6 +33,8 @@
- #include "linux/imx/IMX.h"
- #include "libavcodec/avcodec.h"
- 
-+#include "guilib/LocalizeStrings.h"
-+
- #include <cassert>
- #include <sys/stat.h>
- #include <sys/ioctl.h>
-@@ -439,7 +441,7 @@ CIMXCodec::CIMXCodec()
- 
- CIMXCodec::~CIMXCodec()
- {
--  g_IMXContext.SetVideoPixelFormat(nullptr);
-+  g_IMXContext.SetProcessInfo(nullptr);
-   StopThread(false);
-   ProcessSignals(SIGNAL_SIGNAL);
-   SetDrainMode(VPU_DEC_IN_DRAIN);
-@@ -623,11 +625,18 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
-     return false;
-   }
- 
-+  std::list<EINTERLACEMETHOD> deintMethods({ EINTERLACEMETHOD::VS_INTERLACEMETHOD_AUTO,
-+                                             EINTERLACEMETHOD::VS_INTERLACEMETHOD_RENDER_BOB });
-+
-+  for(int i = EINTERLACEMETHOD::VS_INTERLACEMETHOD_IMX_FASTMOTION; i <= EINTERLACEMETHOD::VS_INTERLACEMETHOD_IMX_ADVMOTION_HALF; ++i)
-+    deintMethods.push_back(static_cast<EINTERLACEMETHOD>(i));
-+
-   m_processInfo = m_pProcessInfo;
-   m_processInfo->SetVideoDecoderName(m_pFormatName, true);
-   m_processInfo->SetVideoDimensions(m_hints.width, m_hints.height);
--  m_processInfo->SetVideoDeintMethod("hardware");
--  g_IMXContext.SetVideoPixelFormat(m_processInfo);
-+  m_processInfo->SetVideoDeintMethod("none");
-+  m_processInfo->UpdateDeinterlacingMethods(deintMethods);
-+  g_IMXContext.SetProcessInfo(m_processInfo);
- 
-   return true;
- }
-@@ -1480,6 +1489,10 @@ void CIMXContext::SetFieldData(uint8_t fieldFmt, double fps)
-     return;
- 
-   m_fps = fps;
-+
-+  std::string strMotion;
-+  m_motion = SetIPUMotion(strMotion);
-+  m_processInfo->SetVideoDeintMethod(strMotion);
-   CLog::Log(LOGDEBUG, "iMX : Output parameters changed - deinterlace %s%s, fps: %.3f\n", !!fieldFmt ? "active" : "not active", IsDoubleRate() ? " DR" : "", m_fps);
- 
-   CSingleLock lk(m_pageSwapLock);
-@@ -1503,15 +1516,28 @@ bool checkIPUStrideOffset(struct ipu_deinterlace *d)
-   }
- }
- 
--inline
--int setIPUMotion(bool hasPrev, EINTERLACEMETHOD imethod)
-+ipu_motion_sel CIMXContext::SetIPUMotion(std::string &strImethod)
- {
--  if (hasPrev && imethod == VS_INTERLACEMETHOD_IMX_ADVMOTION)
-+  EINTERLACEMETHOD imethod = CMediaSettings::GetInstance().GetCurrentVideoSettings().m_InterlaceMethod;
-+  switch (imethod)
-+  {
-+  case VS_INTERLACEMETHOD_IMX_ADVMOTION:
-+    strImethod = g_localizeStrings.Get(16336);
-     return MED_MOTION;
--  else if (hasPrev && (imethod == VS_INTERLACEMETHOD_IMX_ADVMOTION_HALF || imethod == VS_INTERLACEMETHOD_AUTO))
-+
-+  case VS_INTERLACEMETHOD_IMX_ADVMOTION_HALF:
-+  case VS_INTERLACEMETHOD_AUTO:
-+    strImethod = g_localizeStrings.Get(16335);
-     return MED_MOTION;
- 
--  return HIGH_MOTION;
-+  case VS_INTERLACEMETHOD_IMX_FASTMOTION:
-+    strImethod = g_localizeStrings.Get(16334);
-+    return HIGH_MOTION;
-+
-+  default:
-+    strImethod = g_localizeStrings.Get(16021);
-+    return HIGH_MOTION;
-+  }
- }
- 
- void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &srcRect,
-@@ -1576,15 +1602,15 @@ bool CIMXContext::ShowPage()
-   return true;
- }
- 
--void CIMXContext::SetVideoPixelFormat(CProcessInfo *m_pProcessInfo)
-+void CIMXContext::SetProcessInfo(CProcessInfo *m_pProcessInfo)
- {
-   m_processInfo = m_pProcessInfo;
-   if (!m_processInfo)
-     return;
- 
--  if (m_processInfo && m_fbVar.bits_per_pixel == 16)
-+  if (m_fbVar.bits_per_pixel == 16)
-     m_processInfo->SetVideoPixelFormat("YUV 4:2:2");
--  else if (m_processInfo)
-+  else
-     m_processInfo->SetVideoPixelFormat("RGBA8888");
- }
- 
-@@ -1618,7 +1644,7 @@ void CIMXContext::Clear(int page)
-   else
-     CLog::Log(LOGERROR, "iMX Clear fb error : Unexpected format");
- 
--  SetVideoPixelFormat(m_processInfo);
-+  SetProcessInfo(m_processInfo);
- }
- 
- void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
-@@ -1680,7 +1706,7 @@ void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
-   if (m_currentFieldFmt)
-   {
-     ipu->task.input.deinterlace.enable = 1;
--    ipu->task.input.deinterlace.motion = setIPUMotion(ipu->previous, CMediaSettings::GetInstance().GetCurrentVideoSettings().m_InterlaceMethod);
-+    ipu->task.input.deinterlace.motion = m_motion;
-     ipu->task.input.deinterlace.field_fmt = m_currentFieldFmt;
-   }
- }
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index d40482b..6a4f638 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -108,10 +108,10 @@ public:
- 
-   // Blitter configuration
-   bool IsDoubleRate() const { return m_currentFieldFmt & IPU_DEINTERLACE_RATE_EN; }
--  void SetVideoPixelFormat(CProcessInfo *m_pProcessInfo);
--
-+  void SetProcessInfo(CProcessInfo *m_pProcessInfo);
-   bool IsZoomAllowed() const { return m_zoomAllowed; }
- 
-+  ipu_motion_sel SetIPUMotion(std::string &strImethod);
-   // Blits a buffer to a particular page (-1 for auto page)
-   // source_p (previous buffer) is required for de-interlacing
-   // modes LOW_MOTION and MED_MOTION.
-@@ -197,6 +197,7 @@ private:
-   CEvent                         m_onStartup;
-   CEvent                         m_waitFlip;
-   CProcessInfo                  *m_processInfo;
-+  ipu_motion_sel                 m_motion;
- 
-   bool                           m_zoomAllowed;
-   CCriticalSection               m_pageSwapLock;
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-index 4262970..aeef073 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-@@ -92,30 +92,11 @@ bool CRendererIMX::Supports(ERENDERFEATURE feature)
-   return false;
- }
- 
--bool CRendererIMX::Supports(EINTERLACEMETHOD method)
--{
--  if(method == VS_INTERLACEMETHOD_AUTO)
--    return true;
--
--  if(method == VS_INTERLACEMETHOD_IMX_ADVMOTION
--  || method == VS_INTERLACEMETHOD_IMX_ADVMOTION_HALF
--  || method == VS_INTERLACEMETHOD_IMX_FASTMOTION
--  || method == VS_INTERLACEMETHOD_RENDER_BOB)
--    return true;
--  else
--    return false;
--}
--
- bool CRendererIMX::Supports(ESCALINGMETHOD method)
- {
-   return method == VS_SCALINGMETHOD_AUTO;
- }
- 
--EINTERLACEMETHOD CRendererIMX::AutoInterlaceMethod()
--{
--  return VS_INTERLACEMETHOD_IMX_ADVMOTION_HALF;
--}
--
- bool CRendererIMX::WantsDoublePass()
- {
-   if (CMediaSettings::GetInstance().GetCurrentVideoSettings().m_InterlaceMethod ==
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-index e2582a6..fc71e89 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-@@ -42,13 +42,11 @@ public:
-   virtual bool IsGuiLayer();
- 
-   // Feature support
--  virtual bool Supports(EINTERLACEMETHOD method);
-   virtual bool Supports(ESCALINGMETHOD method);
-   virtual bool Supports(ERENDERFEATURE feature);
- 
-   virtual bool WantsDoublePass() override;
- 
--  virtual EINTERLACEMETHOD AutoInterlaceMethod();
-   virtual CRenderInfo GetRenderInfo();
- 
- protected:
--- 
-1.9.1
-
-
-==============================================================
-file 0025-IMXCodec-refactor-IsBlank-as-utility-CIMX-static-fun.patch
-==============================================================
-
-From dfe6f8f3a6f494d204d89ead77390a72257094cb Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Mon, 5 Sep 2016 04:57:23 +0200
-Subject: [PATCH] [IMXCodec] refactor IsBlank() as utility(CIMX) static func
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 7 ++-----
- xbmc/linux/imx/IMX.cpp                                      | 9 +++++++++
- xbmc/linux/imx/IMX.h                                        | 2 ++
- 3 files changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 02e829b..5d05b64 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1447,14 +1447,11 @@ bool CIMXContext::Blank()
- 
- void CIMXContext::Run()
- {
--  unsigned long curBlank = FB_BLANK_NORMAL;
--
-   CSingleLock lk(m_pageSwapLock);
--  while (curBlank &&
--        !ioctl(open(FB_DEVICE, O_RDONLY, 0), MXCFB_GET_FB_BLANK, &curBlank))
-+  while (CIMX::IsBlank())
-     Sleep(10);
- 
--  m_bFbIsConfigured = !curBlank;
-+  m_bFbIsConfigured = true;
- }
- 
- bool CIMXContext::Unblank()
-diff --git a/xbmc/linux/imx/IMX.cpp b/xbmc/linux/imx/IMX.cpp
-index ee4e60a..4087406 100644
---- a/xbmc/linux/imx/IMX.cpp
-+++ b/xbmc/linux/imx/IMX.cpp
-@@ -158,6 +158,15 @@ void CIMX::OnResetDisplay()
-   m_change = true;
- }
- 
-+bool CIMX::IsBlank()
-+{
-+  unsigned long curBlank;
-+  int fd = open(FB_DEVICE, O_RDONLY | O_NONBLOCK);
-+  bool ret = ioctl(fd, MXCFB_GET_FB_BLANK, &curBlank) || curBlank != FB_BLANK_UNBLANK;
-+  close(fd);
-+  return ret;
-+}
-+
- bool CIMXFps::Recalc()
- {
-   double prev = DVD_NOPTS_VALUE;
-diff --git a/xbmc/linux/imx/IMX.h b/xbmc/linux/imx/IMX.h
-index c0a13cd..8d13333 100644
---- a/xbmc/linux/imx/IMX.h
-+++ b/xbmc/linux/imx/IMX.h
-@@ -54,6 +54,8 @@ public:
-   int           WaitVsync();
-   virtual void  OnResetDisplay();
- 
-+  static bool   IsBlank();
-+
- private:
-   virtual void  Process();
-   bool          UpdateDCIC();
--- 
-1.9.1
-
-
-==============================================================
-file 0026-IMXCodec-check-for-req-ipu-previous-at-single-point-.patch
-==============================================================
-
-From 7ec6c3658f2c4f68a51235933126af02c653110b Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Mon, 5 Sep 2016 05:00:21 +0200
-Subject: [PATCH] [IMXCodec] check for req ipu(previous) at single point (of
- interlacing setup)
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 5d05b64..a083de5 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1700,7 +1700,7 @@ void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
-   ipu->task.output.crop.h     = iDstRect.Height();
- 
-   // Setup deinterlacing if enabled
--  if (m_currentFieldFmt)
-+  if (m_currentFieldFmt && ipu->previous)
-   {
-     ipu->task.input.deinterlace.enable = 1;
-     ipu->task.input.deinterlace.motion = m_motion;
-@@ -1715,7 +1715,7 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
- 
-   if (ipu->current->iFormat != _4CC('T', 'N', 'V', 'F') && ipu->current->iFormat != _4CC('T', 'N', 'V', 'P'))
-   {
--    if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION && ipu->previous)
-+    if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION)
-     {
-       ipu->task.input.paddr_n = ipu->task.input.paddr;
-       ipu->task.input.paddr   = ipu->previous->pPhysAddr + pad;
-@@ -1726,7 +1726,7 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
-   }
- 
-   // Use band mode directly to FB, as no transformations needed (eg cropping)
--  if (m_fps > 51 && m_fbWidth == 1920 && ipu->task.input.width == 1920 && !ipu->task.input.deinterlace.enable)
-+  if (m_fps >= 49 && m_fbWidth == 1920 && ipu->task.input.width == 1920 && !ipu->task.input.deinterlace.enable)
-   {
-     m_zoomAllowed = false;
-     ipu->task.output.crop.pos.x = ipu->task.input.crop.pos.x = 0;
-@@ -1773,7 +1773,7 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
- 
-   ipu->task.input.paddr   = vdoa.output.paddr + pad;
-   ipu->task.input.format  = vdoa.output.format;
--  if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION && ipu->previous)
-+  if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION)
-   {
-     ipu->task.input.paddr_n = ipu->task.input.paddr;
-     ipu->task.input.paddr   = ipu->previous->pPhysAddr + pad;
--- 
-1.9.1
-
-
-==============================================================
-file 0027-stop-resume-streams-on-OnLostDisplay-OnResetDisplay.patch
-==============================================================
-
-From ef590549752c0b7daccb12c28d34feb5e7ed2171 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Mon, 18 Jul 2016 23:34:51 +0200
-Subject: [PATCH] stop/resume streams on OnLostDisplay/OnResetDisplay
-
----
- xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-index 4f55b37..4aad146 100644
---- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-+++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
-@@ -2843,6 +2843,11 @@ AEAudioFormat CActiveAE::GetCurrentSinkFormat()
- void CActiveAE::OnLostDisplay()
- {
-   Message *reply;
-+  for(auto &&stream : m_streams)
-+    m_controlPort.SendOutMessageSync(CActiveAEControlProtocol::PAUSESTREAM,
-+                                                &reply, 1000,
-+                                                &stream, sizeof(CActiveAEStream*));
-+
-   if (m_controlPort.SendOutMessageSync(CActiveAEControlProtocol::DISPLAYLOST,
-                                                  &reply,
-                                                  5000))
-@@ -2862,7 +2867,12 @@ void CActiveAE::OnLostDisplay()
- 
- void CActiveAE::OnResetDisplay()
- {
--  m_controlPort.SendOutMessage(CActiveAEControlProtocol::DISPLAYRESET);
-+  Message *reply;
-+  m_controlPort.SendOutMessageSync(CActiveAEControlProtocol::DISPLAYRESET, &reply, 1000);
-+  for(auto &&stream : m_streams)
-+    m_controlPort.SendOutMessageSync(CActiveAEControlProtocol::RESUMESTREAM,
-+                                                &reply, 1000,
-+                                                &stream, sizeof(CActiveAEStream*));
- }
- 
- void CActiveAE::OnAppFocusChange(bool focus)
--- 
-1.9.1
-
-
-==============================================================
-file 0028-stuck-on-Quit-fix.patch
-==============================================================
-
-From 9229bf8355eb0ad5bea9c96988dd3c6f6e2451cc Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Mon, 5 Sep 2016 02:24:25 +0200
-Subject: [PATCH] stuck on Quit fix
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index a083de5..2fff95d 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1952,6 +1952,7 @@ void CIMXContext::Stop(bool bWait /*= true*/)
-     return;
- 
-   CThread::StopThread(false);
-+  m_waitFlip.Set();
-   Blank();
-   if (bWait && IsRunning())
-     CThread::StopThread(true);
--- 
-1.9.1
-
-
-==============================================================
-file 0029-Remove-asynchronous-stop-pause-as-its-timing-is-comp.patch
-==============================================================
-
-From 5bdb78a5fb6b01d0c41a4ecf62aa237350e2a460 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Mon, 5 Sep 2016 02:27:06 +0200
-Subject: [PATCH] Remove asynchronous stop/pause as its timing is completely
- not where needed
-
----
- xbmc/cores/VideoPlayer/VideoPlayer.cpp | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
-index 39b67da..7ba01a7 100644
---- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
-+++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
-@@ -5158,17 +5158,21 @@ void CVideoPlayer::UpdateClockSync(bool enabled)
- void CVideoPlayer::OnLostDisplay()
- {
-   CLog::Log(LOGNOTICE, "VideoPlayer: OnLostDisplay received");
-+  m_clock.Pause(true);
-+#ifndef HAS_IMXVPU
-   m_VideoPlayerAudio->SendMessage(new CDVDMsgBool(CDVDMsg::GENERAL_PAUSE, true), 1);
-   m_VideoPlayerVideo->SendMessage(new CDVDMsgBool(CDVDMsg::GENERAL_PAUSE, true), 1);
--  m_clock.Pause(true);
-+#endif
-   m_displayLost = true;
- }
- 
- void CVideoPlayer::OnResetDisplay()
- {
-   CLog::Log(LOGNOTICE, "VideoPlayer: OnResetDisplay received");
-+  m_clock.Pause(false);
-+#ifndef HAS_IMXVPU
-   m_VideoPlayerAudio->SendMessage(new CDVDMsgBool(CDVDMsg::GENERAL_PAUSE, false), 1);
-   m_VideoPlayerVideo->SendMessage(new CDVDMsgBool(CDVDMsg::GENERAL_PAUSE, false), 1);
--  m_clock.Pause(false);
-+#endif
-   m_displayLost = false;
- }
--- 
-1.9.1
-
-
-==============================================================
-file 0030-prevent-audio-init-during-egl-init-when-being-blanke.patch
-==============================================================
-
-From 021323daae52363a8c62bbded00c45ebff373208 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Mon, 5 Sep 2016 03:05:21 +0200
-Subject: [PATCH] prevent audio init during egl init (when being blanked)
-
----
- xbmc/windowing/egl/EGLNativeTypeIMX.cpp |  3 +++
- xbmc/windowing/egl/WinSystemEGL.cpp     | 33 ++++++++++++++++++---------------
- xbmc/windowing/egl/WinSystemEGL.h       |  4 ++++
- 3 files changed, 25 insertions(+), 15 deletions(-)
-
-diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-index d8c0983..4098f63 100644
---- a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-+++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-@@ -97,6 +97,7 @@ void CEGLNativeTypeIMX::Initialize()
-     }
-   }
- 
-+  g_Windowing.old();
-   ShowWindow(false);
- 
-   fd = open("/dev/fb0",O_RDWR);
-@@ -132,6 +133,8 @@ void CEGLNativeTypeIMX::Initialize()
-   m_sar = GetMonitorSAR();
-   g_IMXContext.create();
-   ShowWindow(true);
-+
-+  g_Windowing.ord();
- #endif
-   return;
- }
-diff --git a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemEGL.cpp
-index 852f337..e76737b 100644
---- a/xbmc/windowing/egl/WinSystemEGL.cpp
-+++ b/xbmc/windowing/egl/WinSystemEGL.cpp
-@@ -264,6 +264,21 @@ bool CWinSystemEGL::DestroyWindowSystem()
-   return true;
- }
- 
-+void CWinSystemEGL::old()
-+{
-+  CSingleLock lock(m_resourceSection);
-+  for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
-+    (*i)->OnLostDisplay();
-+}
-+
-+void CWinSystemEGL::ord()
-+{
-+  CSingleLock lock(m_resourceSection);
-+  // tell any shared resources
-+  for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
-+    (*i)->OnResetDisplay();
-+}
-+
- bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RESOLUTION_INFO& res, PHANDLE_EVENT_FUNC userFunction)
- {
-   RESOLUTION_INFO current_resolution;
-@@ -294,11 +309,7 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
-     m_dispResetTimer.Set(delay * 100);
-   }
- 
--  {
--    CSingleLock lock(m_resourceSection);
--    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
--      (*i)->OnLostDisplay();
--  }
-+  old();
- 
-   m_stereo_mode = stereo_mode;
-   m_bFullScreen   = fullScreen;
-@@ -315,12 +326,7 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
-   }
- 
-   if (!m_delayDispReset)
--  {
--    CSingleLock lock(m_resourceSection);
--    // tell any shared resources
--    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
--      (*i)->OnResetDisplay();
--  }
-+    ord(); 
- 
-   Show();
-   return true;
-@@ -457,10 +463,7 @@ void CWinSystemEGL::PresentRenderImpl(bool rendered)
-   if (m_delayDispReset && m_dispResetTimer.IsTimePast())
-   {
-     m_delayDispReset = false;
--    CSingleLock lock(m_resourceSection);
--    // tell any shared resources
--    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
--      (*i)->OnResetDisplay();
-+    ord();
-   }
-   if (!rendered)
-     return;
-diff --git a/xbmc/windowing/egl/WinSystemEGL.h b/xbmc/windowing/egl/WinSystemEGL.h
-index c24bb35..910b156 100644
---- a/xbmc/windowing/egl/WinSystemEGL.h
-+++ b/xbmc/windowing/egl/WinSystemEGL.h
-@@ -69,6 +69,10 @@ public:
- 
-   EGLDisplay    GetEGLDisplay();
-   EGLContext    GetEGLContext();
-+
-+  void          old();
-+  void          ord();
-+
- protected:
-   virtual void  PresentRenderImpl(bool rendered);
-   virtual void  SetVSyncImpl(bool enable);
--- 
-1.9.1
-
-
-==============================================================
-file 0031-IMXEGL-call-UNBLANK-FB-before-WinSystem-calls-OnRese.patch
-==============================================================
-
-From 7c7d9bf2cd57e4abdd923ead898c210590dfbcb9 Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Fri, 9 Sep 2016 19:04:09 +0200
-Subject: [PATCH] [IMXEGL] call UNBLANK FB before WinSystem calls
- OnResetDisplay
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 3 ++-
- xbmc/windowing/egl/EGLNativeTypeIMX.cpp                     | 2 ++
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 2fff95d..f692482 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1381,7 +1381,8 @@ void CIMXContext::OnLostDisplay()
- void CIMXContext::OnResetDisplay()
- {
-   CSingleLock lk(m_pageSwapLock);
--  m_bFbIsConfigured = false;
-+  if (m_bFbIsConfigured)
-+    return;
- 
-   CLog::Log(LOGDEBUG, "iMX : %s - going to change screen parameters\n", __FUNCTION__);
-   AdaptScreen();
-diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-index 4098f63..c6f856e 100644
---- a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-+++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-@@ -266,6 +266,8 @@ bool CEGLNativeTypeIMX::SetNativeResolution(const RESOLUTION_INFO &res)
-   CreateNativeDisplay();
-   CreateNativeWindow();
- 
-+  g_IMXContext.OnResetDisplay();
-+  ShowWindow(true);
-   CLog::Log(LOGDEBUG, "%s: %s",__FUNCTION__, res.strId.c_str());
- 
-   return true;
--- 
-1.9.1
-
-
-==============================================================
-file 0032-Revert-021323daae52363a8c62bbded00c45ebff373208.patch
-==============================================================
-
-From 77c6349f5b0316f1bcd9b8556499b8086b3f6d64 Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Sat, 24 Sep 2016 15:33:00 +0200
-Subject: [PATCH] Revert 021323daae52363a8c62bbded00c45ebff373208
-
----
- xbmc/windowing/egl/EGLNativeTypeIMX.cpp |  3 ---
- xbmc/windowing/egl/WinSystemEGL.cpp     | 33 +++++++++++++++------------------
- xbmc/windowing/egl/WinSystemEGL.h       |  4 ----
- 3 files changed, 15 insertions(+), 25 deletions(-)
-
-diff --git a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-index c6f856e..0948032 100644
---- a/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-+++ b/xbmc/windowing/egl/EGLNativeTypeIMX.cpp
-@@ -97,7 +97,6 @@ void CEGLNativeTypeIMX::Initialize()
-     }
-   }
- 
--  g_Windowing.old();
-   ShowWindow(false);
- 
-   fd = open("/dev/fb0",O_RDWR);
-@@ -133,8 +132,6 @@ void CEGLNativeTypeIMX::Initialize()
-   m_sar = GetMonitorSAR();
-   g_IMXContext.create();
-   ShowWindow(true);
--
--  g_Windowing.ord();
- #endif
-   return;
- }
-diff --git a/xbmc/windowing/egl/WinSystemEGL.cpp b/xbmc/windowing/egl/WinSystemEGL.cpp
-index e76737b..852f337 100644
---- a/xbmc/windowing/egl/WinSystemEGL.cpp
-+++ b/xbmc/windowing/egl/WinSystemEGL.cpp
-@@ -264,21 +264,6 @@ bool CWinSystemEGL::DestroyWindowSystem()
-   return true;
- }
- 
--void CWinSystemEGL::old()
--{
--  CSingleLock lock(m_resourceSection);
--  for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
--    (*i)->OnLostDisplay();
--}
--
--void CWinSystemEGL::ord()
--{
--  CSingleLock lock(m_resourceSection);
--  // tell any shared resources
--  for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
--    (*i)->OnResetDisplay();
--}
--
- bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RESOLUTION_INFO& res, PHANDLE_EVENT_FUNC userFunction)
- {
-   RESOLUTION_INFO current_resolution;
-@@ -309,7 +294,11 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
-     m_dispResetTimer.Set(delay * 100);
-   }
- 
--  old();
-+  {
-+    CSingleLock lock(m_resourceSection);
-+    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
-+      (*i)->OnLostDisplay();
-+  }
- 
-   m_stereo_mode = stereo_mode;
-   m_bFullScreen   = fullScreen;
-@@ -326,7 +315,12 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
-   }
- 
-   if (!m_delayDispReset)
--    ord(); 
-+  {
-+    CSingleLock lock(m_resourceSection);
-+    // tell any shared resources
-+    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
-+      (*i)->OnResetDisplay();
-+  }
- 
-   Show();
-   return true;
-@@ -463,7 +457,10 @@ void CWinSystemEGL::PresentRenderImpl(bool rendered)
-   if (m_delayDispReset && m_dispResetTimer.IsTimePast())
-   {
-     m_delayDispReset = false;
--    ord();
-+    CSingleLock lock(m_resourceSection);
-+    // tell any shared resources
-+    for (std::vector<IDispResource *>::iterator i = m_resources.begin(); i != m_resources.end(); ++i)
-+      (*i)->OnResetDisplay();
-   }
-   if (!rendered)
-     return;
-diff --git a/xbmc/windowing/egl/WinSystemEGL.h b/xbmc/windowing/egl/WinSystemEGL.h
-index 910b156..c24bb35 100644
---- a/xbmc/windowing/egl/WinSystemEGL.h
-+++ b/xbmc/windowing/egl/WinSystemEGL.h
-@@ -69,10 +69,6 @@ public:
- 
-   EGLDisplay    GetEGLDisplay();
-   EGLContext    GetEGLContext();
--
--  void          old();
--  void          ord();
--
- protected:
-   virtual void  PresentRenderImpl(bool rendered);
-   virtual void  SetVSyncImpl(bool enable);
--- 
-1.9.1
-
-
-==============================================================
-file 0033-Initialize-first-two-VPU-frame-buffers-DivX-logo-iss.patch
-==============================================================
-
-From d6f6155a060e0a5b94e3257f7c5d75fa1a8be321 Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Sat, 24 Sep 2016 15:33:46 +0200
-Subject: [PATCH] Initialize first two VPU frame buffers (DivX logo issue)
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 39 +++++++++++-----------
- 1 file changed, 19 insertions(+), 20 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index f692482..e3fa72e 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -371,37 +371,36 @@ bool CIMXCodec::VpuAllocFrameBuffers()
-       ptrVirt = (unsigned char*)Align(ptrVirt,nAlign);
-     }
- 
--    VpuFrameBuffer vpuFrameBuffer;
--    m_vpuFrameBuffers.push_back(vpuFrameBuffer);
-+    VpuFrameBuffer vpuFrameBuffer = {};
- 
-     // fill stride info
--    m_vpuFrameBuffers[i].nStrideY           = yStride;
--    m_vpuFrameBuffers[i].nStrideC           = uvStride;
-+    vpuFrameBuffer.nStrideY           = yStride;
-+    vpuFrameBuffer.nStrideC           = uvStride;
- 
-     // fill phy addr
--    m_vpuFrameBuffers[i].pbufY              = ptr;
--    m_vpuFrameBuffers[i].pbufCb             = ptr + ySize;
-+    vpuFrameBuffer.pbufY              = ptr;
-+    vpuFrameBuffer.pbufCb             = ptr + ySize;
- #ifdef IMX_INPUT_FORMAT_I420
--    m_vpuFrameBuffers[i].pbufCr             = ptr + ySize + uSize;
--#else
--    m_vpuFrameBuffers[i].pbufCr             = 0;
-+    vpuFrameBuffer.pbufCr             = ptr + ySize + uSize;
- #endif
--    m_vpuFrameBuffers[i].pbufMvCol          = ptr + ySize + uSize + vSize;
-+    vpuFrameBuffer.pbufMvCol          = ptr + ySize + uSize + vSize;
- 
-     // fill virt addr
--    m_vpuFrameBuffers[i].pbufVirtY          = ptrVirt;
--    m_vpuFrameBuffers[i].pbufVirtCb         = ptrVirt + ySize;
-+    vpuFrameBuffer.pbufVirtY          = ptrVirt;
-+    vpuFrameBuffer.pbufVirtCb         = ptrVirt + ySize;
- #ifdef IMX_INPUT_FORMAT_I420
--    m_vpuFrameBuffers[i].pbufVirtCr         = ptrVirt + ySize + uSize;
--#else
--    m_vpuFrameBuffers[i].pbufVirtCr         = 0;
-+    vpuFrameBuffer.pbufVirtCr         = ptrVirt + ySize + uSize;
- #endif
--    m_vpuFrameBuffers[i].pbufVirtMvCol      = ptrVirt + ySize + uSize + vSize;
-+    vpuFrameBuffer.pbufVirtMvCol      = ptrVirt + ySize + uSize + vSize;
- 
--    m_vpuFrameBuffers[i].pbufY_tilebot      = 0;
--    m_vpuFrameBuffers[i].pbufCb_tilebot     = 0;
--    m_vpuFrameBuffers[i].pbufVirtY_tilebot  = 0;
--    m_vpuFrameBuffers[i].pbufVirtCb_tilebot = 0;
-+    if (i < 2)
-+    {
-+      memset(vpuFrameBuffer.pbufVirtY, 16, ySize);
-+      memset(vpuFrameBuffer.pbufVirtCb, 128, uSize + vSize);
-+      memset(vpuFrameBuffer.pbufVirtMvCol, 0, mvSize);
-+    }
-+
-+    m_vpuFrameBuffers.push_back(vpuFrameBuffer);
-   }
- 
-   if (VPU_DEC_RET_SUCCESS != VPU_DecRegisterFrameBuffer(m_vpuHandle, &m_vpuFrameBuffers[0], m_vpuFrameBuffers.size()))
--- 
-1.9.1
-
-
-==============================================================
-file 0034-Use-uint32_t-for-physical-addresses.patch
-==============================================================
-
-From fc99366e9fb1d9f8c83875cdb604bf707d0cfd29 Mon Sep 17 00:00:00 2001
+From 2dc612adfcc74c6439e5df47aba2cf63573f93f1 Mon Sep 17 00:00:00 2001
 From: Rudi <r.ihle@s-t.de>
 Date: Sat, 24 Sep 2016 15:36:23 +0200
-Subject: [PATCH] Use uint32_t for physical addresses
+Subject: [PATCH] IMXCODEC: Use uint32_t for physical addresses
 
 ---
  xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 2 +-
@@ -2206,12 +18,12 @@ Subject: [PATCH] Use uint32_t for physical addresses
  3 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index e3fa72e..d55a6b7 100644
+index b1147d2..705b4a9 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1180,7 +1180,7 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
-   iWidth      = frameInfo->pExtInfo->nFrmWidth;
-   iHeight     = frameInfo->pExtInfo->nFrmHeight;
+@@ -1198,7 +1198,7 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
+   iHeight     = (((frameInfo->pExtInfo->nFrmHeight) + 15) & ~15);
+ 
    pVirtAddr   = m_frameBuffer->pbufVirtY;
 -  pPhysAddr   = (int)m_frameBuffer->pbufY;
 +  pPhysAddr   = (uint32_t)m_frameBuffer->pbufY;
@@ -2219,10 +31,10 @@ index e3fa72e..d55a6b7 100644
  #ifdef IMX_INPUT_FORMAT_I420
    iFormat     = _4CC('I', '4', '2', '0');
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 6a4f638..69a74fe 100644
+index 32e3a6c..fdac8ec 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -185,7 +185,7 @@ private:
+@@ -187,7 +187,7 @@ private:
    int                            m_fbLineLength;
    int                            m_fbPageSize;
    int                            m_fbPhysSize;
@@ -2232,10 +44,10 @@ index 6a4f638..69a74fe 100644
    struct fb_var_screeninfo       m_fbVar;
    int                            m_ipuHandle;
 diff --git a/xbmc/linux/imx/IMX.h b/xbmc/linux/imx/IMX.h
-index 8d13333..7363409 100644
+index a269af0..2bc6761 100644
 --- a/xbmc/linux/imx/IMX.h
 +++ b/xbmc/linux/imx/IMX.h
-@@ -183,7 +183,7 @@ public:
+@@ -182,7 +182,7 @@ public:
  public:
    uint32_t     iWidth;
    uint32_t     iHeight;
@@ -2249,23 +61,23 @@ index 8d13333..7363409 100644
 
 
 ==============================================================
-file 0035-Fix-page-counting-avoid-compiler-warning.patch
+file 0035-IMXCODEC-Fix-page-counting-avoid-compiler-warning.patch
 ==============================================================
 
-From 3c339bb9e574621d08c7d203582b3130211aff5a Mon Sep 17 00:00:00 2001
+From 527cc00d7b56f01277be9abce0de48a63f388dd7 Mon Sep 17 00:00:00 2001
 From: Rudi <r.ihle@s-t.de>
 Date: Sat, 24 Sep 2016 15:39:38 +0200
-Subject: [PATCH] Fix page counting, avoid compiler warning
+Subject: [PATCH] IMXCODEC: Fix page counting, avoid compiler warning
 
 ---
  xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index d55a6b7..1ea4922 100644
+index 705b4a9..9b7a9ea 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1540,15 +1540,15 @@ ipu_motion_sel CIMXContext::SetIPUMotion(std::string &strImethod)
+@@ -1562,15 +1562,15 @@ void CIMXContext::SetIPUMotion(EINTERLACEMETHOD imethod)
  void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &srcRect,
                         const CRect &dstRect, uint8_t fieldFmt, int page)
  {
@@ -2289,627 +101,354 @@ index d55a6b7..1ea4922 100644
 
 
 ==============================================================
-file 0036-Refactor-IPUTask-for-better-readability-and-performa.patch
+file 0036-IMXCODEC-Honour-forced-aspect-ratio-hint.patch
 ==============================================================
 
-From 3c7ee4e10ab3bab6fc3dd0ad8f375b9112d9093f Mon Sep 17 00:00:00 2001
+From eab2f97c91ec724f1c30af5b6d570d73e76689c8 Mon Sep 17 00:00:00 2001
 From: Rudi <r.ihle@s-t.de>
-Date: Sat, 24 Sep 2016 16:13:51 +0200
-Subject: [PATCH] Refactor IPUTask for better readability and performance
+Date: Mon, 3 Oct 2016 18:08:34 +0200
+Subject: [PATCH] IMXCODEC: Honour forced aspect ratio hint
 
 ---
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 144 ++++++++++-----------
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h |  26 ++--
- 2 files changed, 82 insertions(+), 88 deletions(-)
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 6 +++++-
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h   | 1 +
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 1ea4922..3535c09 100644
+index 9b7a9ea..ac2ad8d 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1547,24 +1547,24 @@ void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &sr
-   else if (page < 0 || page >= m_fbPages)
-     return;
- 
--  IPUTaskPtr ipu(new IPUTask(source_p, source, page));
-+  IPUTask task(source_p, source, page);
-   pg = (page + 1) % m_fbPages;
- 
- #ifdef IMX_PROFILE_BUFFERS
-   unsigned long long before = XbmcThreads::SystemClockMillis();
- #endif
-   SetFieldData(fieldFmt, source->m_fps);
--  PrepareTask(ipu, srcRect, dstRect);
-+  PrepareTask(task, srcRect, dstRect);
- 
--  if (!DoTask(ipu))
-+  if (!DoTask(task))
-     return;
- 
--  m_flip = ipu->page | checkIPUStrideOffset(&ipu->task.input.deinterlace) << 4;
-+  m_flip = task.targetPage | checkIPUStrideOffset(&task.input.deinterlace) << 4;
-   m_waitFlip.Set();
- 
- #ifdef IMX_PROFILE_BUFFERS
-   unsigned long long after = XbmcThreads::SystemClockMillis();
--  CLog::Log(LOGDEBUG, "+P 0x%x@%d  %d\n", ((CDVDVideoCodecIMXBuffer*)ipu->current)->GetIdx(), ipu->page, (int)(after-before));
-+  CLog::Log(LOGDEBUG, "+P 0x%x@%d  %d\n", ((CDVDVideoCodecIMXBuffer*)task.currBuf)->GetIdx(), task.targetPage, (int)(after-before));
- #endif
- }
- 
-@@ -1644,7 +1644,7 @@ void CIMXContext::Clear(int page)
-   SetProcessInfo(m_processInfo);
- }
- 
--void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
-+void CIMXContext::PrepareTask(IPUTask &task, CRect srcRect, CRect dstRect)
- {
-   CRectInt iSrcRect, iDstRect;
- 
-@@ -1689,78 +1689,78 @@ void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
-   iDstRect.x2 = Align2((int)dstRect.x2,8);
-   iDstRect.y2 = Align2((int)dstRect.y2,8);
- 
--  ipu->task.input.crop.pos.x  = iSrcRect.x1;
--  ipu->task.input.crop.pos.y  = iSrcRect.y1;
--  ipu->task.input.crop.w      = iSrcRect.Width();
--  ipu->task.input.crop.h      = iSrcRect.Height();
-+  task.input.crop.pos.x  = iSrcRect.x1;
-+  task.input.crop.pos.y  = iSrcRect.y1;
-+  task.input.crop.w      = iSrcRect.Width();
-+  task.input.crop.h      = iSrcRect.Height();
- 
--  ipu->task.output.crop.pos.x = iDstRect.x1;
--  ipu->task.output.crop.pos.y = iDstRect.y1;
--  ipu->task.output.crop.w     = iDstRect.Width();
--  ipu->task.output.crop.h     = iDstRect.Height();
-+  task.output.crop.pos.x = iDstRect.x1;
-+  task.output.crop.pos.y = iDstRect.y1;
-+  task.output.crop.w     = iDstRect.Width();
-+  task.output.crop.h     = iDstRect.Height();
- 
-   // Setup deinterlacing if enabled
--  if (m_currentFieldFmt && ipu->previous)
-+  if (m_currentFieldFmt && task.prevBuf)
-   {
--    ipu->task.input.deinterlace.enable = 1;
--    ipu->task.input.deinterlace.motion = m_motion;
--    ipu->task.input.deinterlace.field_fmt = m_currentFieldFmt;
-+    task.input.deinterlace.enable = 1;
-+    task.input.deinterlace.motion = m_motion;
-+    task.input.deinterlace.field_fmt = m_currentFieldFmt;
-   }
- }
- 
--bool CIMXContext::TileTask(IPUTaskPtr &ipu)
-+bool CIMXContext::TileTask(IPUTask &task)
- {
--  int pad = ipu->task.input.height == 1080 && ipu->current->iHeight>ipu->task.input.height ? 16*ipu->current->iWidth : 0;
-+  int pad = task.input.height == 1080 && task.currBuf->iHeight>task.input.height ? 16*task.currBuf->iWidth : 0;
-   m_zoomAllowed = true;
- 
--  if (ipu->current->iFormat != _4CC('T', 'N', 'V', 'F') && ipu->current->iFormat != _4CC('T', 'N', 'V', 'P'))
-+  if (task.currBuf->iFormat != _4CC('T', 'N', 'V', 'F') && task.currBuf->iFormat != _4CC('T', 'N', 'V', 'P'))
-   {
--    if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION)
-+    if (task.input.deinterlace.enable && task.input.deinterlace.motion != HIGH_MOTION)
-     {
--      ipu->task.input.paddr_n = ipu->task.input.paddr;
--      ipu->task.input.paddr   = ipu->previous->pPhysAddr + pad;
-+      task.input.paddr_n = task.input.paddr;
-+      task.input.paddr   = task.prevBuf->pPhysAddr + pad;
-     }
-     else
--      ipu->task.input.paddr  += pad;
-+      task.input.paddr  += pad;
-     return true;
-   }
- 
-   // Use band mode directly to FB, as no transformations needed (eg cropping)
--  if (m_fps >= 49 && m_fbWidth == 1920 && ipu->task.input.width == 1920 && !ipu->task.input.deinterlace.enable)
-+  if (m_fps >= 49 && m_fbWidth == 1920 && task.input.width == 1920 && !task.input.deinterlace.enable)
-   {
-     m_zoomAllowed = false;
--    ipu->task.output.crop.pos.x = ipu->task.input.crop.pos.x = 0;
--    ipu->task.output.crop.pos.y = ipu->task.input.crop.pos.y = 0;
--    ipu->task.output.crop.h     = ipu->task.input.height     = ipu->task.input.crop.h = ipu->current->iHeight;
--    ipu->task.output.paddr     += m_fbLineLength * (m_fbHeight - ipu->task.input.crop.h)/2;
-+    task.output.crop.pos.x = task.input.crop.pos.x = 0;
-+    task.output.crop.pos.y = task.input.crop.pos.y = 0;
-+    task.output.crop.h     = task.input.height     = task.input.crop.h = task.currBuf->iHeight;
-+    task.output.paddr     += m_fbLineLength * (m_fbHeight - task.input.crop.h)/2;
-     return true;
-   }
-   // rasterize from tile (frame)
-   struct ipu_task    vdoa;
- 
--  memset(&vdoa, 0, sizeof(ipu->task));
--  vdoa.input.width   = vdoa.output.width  = ipu->current->iWidth;
--  vdoa.input.height  = vdoa.output.height = ipu->current->iHeight;
--  vdoa.input.format  = ipu->current->iFormat;
-+  memset(&vdoa, 0, sizeof(vdoa));
-+  vdoa.input.width   = vdoa.output.width  = task.currBuf->iWidth;
-+  vdoa.input.height  = vdoa.output.height = task.currBuf->iHeight;
-+  vdoa.input.format  = task.currBuf->iFormat;
- 
-   // check for 3-field deinterlace (no HIGH_MOTION allowed) from tile field format
--  if (ipu->previous && ipu->current->iFormat == _4CC('T', 'N', 'V', 'F'))
-+  if (task.prevBuf && task.currBuf->iFormat == _4CC('T', 'N', 'V', 'F'))
-   {
--    memcpy(&vdoa.input.deinterlace, &ipu->task.input.deinterlace, sizeof(ipu->task.input.deinterlace));
--    memset(&ipu->task.input.deinterlace, 0, sizeof(ipu->task.input.deinterlace));
--    vdoa.input.paddr_n = ipu->current->pPhysAddr;
-+    memcpy(&vdoa.input.deinterlace, &task.input.deinterlace, sizeof(task.input.deinterlace));
-+    memset(&task.input.deinterlace, 0, sizeof(task.input.deinterlace));
-+    vdoa.input.paddr_n = task.currBuf->pPhysAddr;
-   }
- 
--  struct g2d_buf *conv = g2d_alloc(ipu->current->iWidth *ipu->current->iHeight * 3, 0);
-+  struct g2d_buf *conv = g2d_alloc(task.currBuf->iWidth * task.currBuf->iHeight * 3, 0);
-   if (!conv)
-   {
-     CLog::Log(LOGERROR, "iMX: can't allocate crop buffer");
-     return false;
-   }
- 
--  ((CDVDVideoCodecIMXBuffer*)ipu->current)->m_convBuffer = conv;
-+  ((CDVDVideoCodecIMXBuffer*)task.currBuf)->m_convBuffer = conv;
- 
--  vdoa.input.paddr   = vdoa.input.paddr_n ? ipu->previous->pPhysAddr : ipu->current->pPhysAddr;
-+  vdoa.input.paddr   = vdoa.input.paddr_n ? task.prevBuf->pPhysAddr : task.currBuf->pPhysAddr;
-   vdoa.output.format = m_fbVar.bits_per_pixel == 16 ? _4CC('Y', 'U', 'Y', 'V') : _4CC('N', 'V', '1', '2');
-   vdoa.output.paddr  = conv->buf_paddr;
- 
-@@ -1771,70 +1771,70 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
-     return false;
-   }
- 
--  ipu->task.input.paddr   = vdoa.output.paddr + pad;
--  ipu->task.input.format  = vdoa.output.format;
--  if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION)
-+  task.input.paddr   = vdoa.output.paddr + pad;
-+  task.input.format  = vdoa.output.format;
-+  if (task.input.deinterlace.enable && task.input.deinterlace.motion != HIGH_MOTION)
-   {
--    ipu->task.input.paddr_n = ipu->task.input.paddr;
--    ipu->task.input.paddr   = ipu->previous->pPhysAddr + pad;
-+    task.input.paddr_n = task.input.paddr;
-+    task.input.paddr   = task.prevBuf->pPhysAddr + pad;
-   }
--  ipu->current->iFormat   = vdoa.output.format;
--  ipu->current->pPhysAddr = vdoa.output.paddr;
-+  task.currBuf->iFormat   = vdoa.output.format;
-+  task.currBuf->pPhysAddr = vdoa.output.paddr;
- 
-   return true;
- }
- 
--bool CIMXContext::DoTask(IPUTaskPtr &ipu, CRect *dest)
-+bool CIMXContext::DoTask(IPUTask &task, CRect *dest)
- {
-   // Clear page if cropping changes
--  CRectInt dstRect(ipu->task.output.crop.pos.x, ipu->task.output.crop.pos.y,
--                   ipu->task.output.crop.pos.x + ipu->task.output.crop.w,
--                   ipu->task.output.crop.pos.y + ipu->task.output.crop.h);
-+  CRectInt dstRect(task.output.crop.pos.x, task.output.crop.pos.y,
-+                   task.output.crop.pos.x + task.output.crop.w,
-+                   task.output.crop.pos.y + task.output.crop.h);
- 
-   // Populate input block
--  ipu->task.input.width   = ipu->current->iWidth;
--  ipu->task.input.height  = std::min(ipu->current->iHeight, (unsigned int)1080);
--  ipu->task.input.format  = ipu->current->iFormat;
--  ipu->task.input.paddr   = ipu->current->pPhysAddr;
-+  task.input.width   = task.currBuf->iWidth;
-+  task.input.height  = std::min(task.currBuf->iHeight, (unsigned int)1080);
-+  task.input.format  = task.currBuf->iFormat;
-+  task.input.paddr   = task.currBuf->pPhysAddr;
- 
--  ipu->task.output.width  = m_fbWidth;
--  ipu->task.output.height = m_fbHeight;
--  ipu->task.output.format = m_fbVar.nonstd;
--  ipu->task.output.paddr  = m_fbPhysAddr + ipu->page*m_fbPageSize;
-+  task.output.width  = m_fbWidth;
-+  task.output.height = m_fbHeight;
-+  task.output.format = m_fbVar.nonstd;
-+  task.output.paddr  = m_fbPhysAddr + task.targetPage * m_fbPageSize;
- 
--  if (m_pageCrops[ipu->page] != dstRect)
-+  if (m_pageCrops[task.targetPage] != dstRect)
-   {
--    m_pageCrops[ipu->page] = dstRect;
--    Clear(ipu->page);
-+    m_pageCrops[task.targetPage] = dstRect;
-+    Clear(task.targetPage);
-   }
- 
--  if ((ipu->task.input.crop.w <= 0) || (ipu->task.input.crop.h <= 0)
--  ||  (ipu->task.output.crop.w <= 0) || (ipu->task.output.crop.h <= 0))
-+  if ((task.input.crop.w <= 0) || (task.input.crop.h <= 0)
-+  ||  (task.output.crop.w <= 0) || (task.output.crop.h <= 0))
-     return false;
- 
--  int ret = !TileTask(ipu);
-+  int ret = !TileTask(task);
-   if (!ret)
-   {
-     //We really use IPU only if we have to deinterlace (using VDIC)
-     ret = IPU_CHECK_ERR_INPUT_CROP;
-     while (ret > IPU_CHECK_ERR_MIN)
-     {
--        ret = ioctl(m_ipuHandle, IPU_CHECK_TASK, &ipu->task);
-+        ret = ioctl(m_ipuHandle, IPU_CHECK_TASK, &task);
-         switch (ret)
-         {
-         case IPU_CHECK_OK:
-             break;
-         case IPU_CHECK_ERR_SPLIT_INPUTW_OVER:
--            ipu->task.input.crop.w -= 8;
-+            task.input.crop.w -= 8;
-             break;
-         case IPU_CHECK_ERR_SPLIT_INPUTH_OVER:
--            ipu->task.input.crop.h -= 8;
-+            task.input.crop.h -= 8;
-             break;
-         case IPU_CHECK_ERR_SPLIT_OUTPUTW_OVER:
--            ipu->task.output.crop.w -= 8;
-+            task.output.crop.w -= 8;
-             break;
-         case IPU_CHECK_ERR_SPLIT_OUTPUTH_OVER:
--            ipu->task.output.crop.h -= 8;
-+            task.output.crop.h -= 8;
-             break;
-         // deinterlacing setup changing, m_ipuHandle is closed
-         case -1:
-@@ -1845,7 +1845,7 @@ bool CIMXContext::DoTask(IPUTaskPtr &ipu, CRect *dest)
-         }
-     }
- 
--    ret = ioctl(m_ipuHandle, IPU_QUEUE_TASK, &ipu->task);
-+    ret = ioctl(m_ipuHandle, IPU_QUEUE_TASK, &task);
-     if (ret < 0)
-       CLog::Log(LOGERROR, "IPU task failed: %s at #%d\n", strerror(errno), __LINE__);
-   }
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 69a74fe..88aa06f 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -137,32 +137,26 @@ public:
-   static const int  m_fbPages;
- 
- private:
--  struct IPUTask
-+  struct IPUTask : public ipu_task
-   {
--    IPUTask(CIMXBuffer *buffer_p, CIMXBuffer *buffer, int p = 0)
--      : previous(buffer_p), current(buffer), page(p)
-+    IPUTask(CIMXBuffer *buffer_p, CIMXBuffer *buffer, int page)
-+      : prevBuf(buffer_p), currBuf(buffer), targetPage(page)
-     {
--      memset(&task, 0, sizeof(task));
-+      memset(this, 0, sizeof(ipu_task));
-     }
- 
-     // Kept for reference
--    CIMXBuffer *previous;
--    CIMXBuffer *current;
-+    CIMXBuffer *prevBuf;
-+    CIMXBuffer *currBuf;
- 
--    // The actual task
--    struct ipu_task task;
--
--    unsigned int page;
--    int shift = true;
-+    int targetPage;
-   };
- 
--  typedef std::shared_ptr<struct IPUTask> IPUTaskPtr;
--
-   bool GetFBInfo(const std::string &fbdev, struct fb_var_screeninfo *fbVar);
- 
--  void PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect);
--  bool DoTask(IPUTaskPtr &ipu, CRect *dest = nullptr);
--  bool TileTask(IPUTaskPtr &ipu);
-+  void PrepareTask(IPUTask &task, CRect srcRect, CRect dstRect);
-+  bool DoTask(IPUTask &task, CRect *dest = nullptr);
-+  bool TileTask(IPUTask &task);
- 
-   void SetFieldData(uint8_t fieldFmt, double fps);
- 
--- 
-1.9.1
-
-
-==============================================================
-file 0037-Refactor-RendererIMX-for-better-readability-and-perf.patch
-==============================================================
-
-From 1ba2204a33647b1b81ebc69e7744857a07b1dc23 Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Sat, 24 Sep 2016 16:53:42 +0200
-Subject: [PATCH] Refactor RendererIMX for better readability and performance
-
----
- .../VideoRenderers/HwDecRender/RendererIMX.cpp     | 24 ++++++++--------------
- .../VideoRenderers/HwDecRender/RendererIMX.h       |  4 ++--
- 2 files changed, 11 insertions(+), 17 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-index aeef073..8569c72 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
-@@ -34,14 +34,15 @@
- 
- CRendererIMX::CRendererIMX()
- {
--  m_bufHistory.clear();
-+  m_bufHistory[0] = m_bufHistory[1] = nullptr;
-   g_IMXContext.Clear();
- }
- 
- CRendererIMX::~CRendererIMX()
- {
-   UnInit();
--  std::for_each(m_bufHistory.begin(), m_bufHistory.end(), Release);
-+  SAFE_RELEASE(m_bufHistory[1]);
-+  SAFE_RELEASE(m_bufHistory[0]);
-   g_IMXContext.Clear();
-   g_IMX.Deinitialize();
- }
-@@ -141,24 +142,18 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
-   CDVDVideoCodecIMXBuffer *buffer = static_cast<CDVDVideoCodecIMXBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
-   if (buffer)
-   {
--    if (!m_bufHistory.empty() && m_bufHistory.back() != buffer || m_bufHistory.empty())
--    {
--      buffer->Lock();
--      m_bufHistory.push_back(buffer);
--    }
--    else if (!m_bufHistory.empty() && m_bufHistory.back() == buffer && flagsPrev == flags)
-+    if (buffer == m_bufHistory[0] && flagsPrev == flags)
-     {
-       g_IMX.WaitVsync();
-       return true;
-     }
- 
-     flagsPrev = flags;
-+    buffer->Lock();
- 
--    if (m_bufHistory.size() > 2)
--    {
--      m_bufHistory.front()->Release();
--      m_bufHistory.pop_front();
--    }
-+    SAFE_RELEASE(m_bufHistory[1]);
-+    m_bufHistory[1] = m_bufHistory[0];
-+    m_bufHistory[0] = buffer;
- 
-     // this hack is needed to get the 2D mode of a 3D movie going
-     RENDER_STEREO_MODE stereo_mode = g_graphicsContext.GetStereoMode();
-@@ -207,8 +202,7 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
-       }
-     }
- 
--    CDVDVideoCodecIMXBuffer *buffer_p = m_bufHistory.front();
--    g_IMXContext.Blit(buffer_p == buffer ? nullptr : buffer_p, buffer, srcRect, dstRect, fieldFmt);
-+    g_IMXContext.Blit(m_bufHistory[1], m_bufHistory[0], srcRect, dstRect, fieldFmt);
-   }
- 
- #if 0
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-index fc71e89..830b556 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
-@@ -62,8 +62,8 @@ protected:
-   virtual int  GetImageHook(YV12Image *image, int source = AUTOSOURCE, bool readonly = false);
-   virtual bool RenderUpdateVideoHook(bool clear, DWORD flags = 0, DWORD alpha = 255);
- 
--  std::deque<CDVDVideoCodecIMXBuffer*> m_bufHistory;
--  static void Release(CDVDVideoCodecIMXBuffer *&t) { if (t) t->Release(); }
-+private:
-+  CDVDVideoCodecIMXBuffer *m_bufHistory[2];
- };
- 
- #endif
--- 
-1.9.1
-
-
-==============================================================
-file 0038-Cleanup-CDVDVideoCodecIMXBuffer.patch
-==============================================================
-
-From 31b9656b805995e8d03b4dc66cc6961423d23942 Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Sun, 2 Oct 2016 17:18:30 +0200
-Subject: [PATCH] Cleanup CDVDVideoCodecIMXBuffer
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 35 ++++++++++++----------
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h | 12 ++++----
- xbmc/linux/imx/IMX.h                               |  2 --
- 3 files changed, 26 insertions(+), 23 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 3535c09..a3d993b 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -1111,48 +1111,49 @@ void CIMXCodec::ExitError(const char *msg, ...)
- 
- bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
- {
--  pDvdVideoPicture->IMXBuffer = m_decOutput.pop();
--  assert(pDvdVideoPicture->IMXBuffer);
-+  CDVDVideoCodecIMXBuffer *pIMXBuffer = m_decOutput.pop();
-+  assert(pIMXBuffer);
- 
- #ifdef IMX_PROFILE
-   static unsigned int previous = 0;
-   unsigned int current;
- 
-   current = XbmcThreads::SystemClockMillis();
--  CLog::Log(LOGDEBUG, "+G 0x%x %f/%f tm:%03d : Interlaced 0x%x\n", pDvdVideoPicture->IMXBuffer->GetIdx(),
--                            recalcPts(pDvdVideoPicture->IMXBuffer->GetDts()), recalcPts(pDvdVideoPicture->IMXBuffer->GetPts()), current - previous,
--                            m_initInfo.nInterlace ? pDvdVideoPicture->IMXBuffer->GetFieldType() : 0);
-+  CLog::Log(LOGDEBUG, "+G 0x%x %f/%f tm:%03d : Interlaced 0x%x\n", pIMXBuffer->GetIdx(),
-+                            recalcPts(pIMXBuffer->GetDts()), recalcPts(pIMXBuffer->GetPts()), current - previous,
-+                            m_initInfo.nInterlace ? pIMXBuffer->GetFieldType() : 0);
-   previous = current;
+@@ -546,6 +546,8 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
  #endif
  
--  pDvdVideoPicture->iFlags = m_dropRequest ? DVP_FLAG_DROPPED : pDvdVideoPicture->IMXBuffer->GetFlags();
-+  pDvdVideoPicture->iFlags = m_dropRequest ? DVP_FLAG_DROPPED : pIMXBuffer->GetFlags();
- 
-   if (m_initInfo.nInterlace)
+   m_warnOnce = true;
++  m_forcedWidthHeightRatio = m_hints.forced_aspect ? (65536 * m_hints.aspect) : 0;
++
+   switch(m_hints.codec)
    {
--    if (pDvdVideoPicture->IMXBuffer->GetFieldType() == VPU_FIELD_NONE && m_warnOnce)
-+    if (pIMXBuffer->GetFieldType() == VPU_FIELD_NONE && m_warnOnce)
-     {
-       m_warnOnce = false;
-       CLog::Log(LOGWARNING, "Interlaced content reported by VPU, but full frames detected - Please turn off deinterlacing manually.");
-     }
--    else if (pDvdVideoPicture->IMXBuffer->GetFieldType() == VPU_FIELD_TB || pDvdVideoPicture->IMXBuffer->GetFieldType() == VPU_FIELD_TOP)
-+    else if (pIMXBuffer->GetFieldType() == VPU_FIELD_TB || pIMXBuffer->GetFieldType() == VPU_FIELD_TOP)
-       pDvdVideoPicture->iFlags |= DVP_FLAG_TOP_FIELD_FIRST;
+   case AV_CODEC_ID_MPEG1VIDEO:
+@@ -1160,7 +1162,9 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+   pDvdVideoPicture->iWidth = pDvdVideoPicture->IMXBuffer->m_pctWidth;
+   pDvdVideoPicture->iHeight = pDvdVideoPicture->IMXBuffer->m_pctHeight;
  
-     pDvdVideoPicture->iFlags |= DVP_FLAG_INTERLACED;
-   }
- 
-   pDvdVideoPicture->format = RENDER_FMT_IMXMAP;
--  pDvdVideoPicture->iWidth = pDvdVideoPicture->IMXBuffer->m_pctWidth;
--  pDvdVideoPicture->iHeight = pDvdVideoPicture->IMXBuffer->m_pctHeight;
-+  pDvdVideoPicture->iWidth = pIMXBuffer->GetPictureWidth();
-+  pDvdVideoPicture->iHeight = pIMXBuffer->GetPictureHeight();
- 
-   pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * m_frameInfo.pExtInfo->nQ16ShiftWidthDivHeightRatio) + 32767) >> 16;
+-  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * m_frameInfo.pExtInfo->nQ16ShiftWidthDivHeightRatio) + 32767) >> 16;
++  int ratio = m_forcedWidthHeightRatio ? m_forcedWidthHeightRatio : m_frameInfo.pExtInfo->nQ16ShiftWidthDivHeightRatio;
++
++  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * ratio) + 32767) >> 16;
    pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
  
--  pDvdVideoPicture->pts = pDvdVideoPicture->IMXBuffer->GetPts();
--  pDvdVideoPicture->dts = pDvdVideoPicture->IMXBuffer->GetDts();
-+  pDvdVideoPicture->pts = pIMXBuffer->GetPts();
-+  pDvdVideoPicture->dts = pIMXBuffer->GetDts();
- 
-   if (pDvdVideoPicture->iFlags & DVP_FLAG_DROPPED)
--    SAFE_RELEASE(pDvdVideoPicture->IMXBuffer);
-+    SAFE_RELEASE(pIMXBuffer);
- 
-+  pDvdVideoPicture->IMXBuffer = pIMXBuffer;
-   return true;
- }
- 
-@@ -1198,15 +1199,18 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
- 
- void CDVDVideoCodecIMXBuffer::Lock()
- {
--  long count = ++m_iRefs;
- #ifdef TRACE_FRAMES
-+  long count = ++m_iRefs;
-   CLog::Log(LOGDEBUG, "R+ 0x%x  -  ref : %ld  (VPU)\n", m_idx, count);
-+#else
-+  ++m_iRefs;
- #endif
- }
- 
- long CDVDVideoCodecIMXBuffer::Release()
- {
-   long count = --m_iRefs;
-+
- #ifdef TRACE_FRAMES
-   CLog::Log(LOGDEBUG, "R- 0x%x  -  ref : %ld  (VPU)\n", m_idx, count);
- #endif
-@@ -1215,6 +1219,7 @@ long CDVDVideoCodecIMXBuffer::Release()
-     return count;
- 
-   CIMXCodec::ReleaseFramebuffer(m_frameBuffer);
-+
-   if (m_convBuffer)
-     g2d_free(m_convBuffer);
- 
-@@ -1758,7 +1763,7 @@ bool CIMXContext::TileTask(IPUTask &task)
-     return false;
-   }
- 
--  ((CDVDVideoCodecIMXBuffer*)task.currBuf)->m_convBuffer = conv;
-+  ((CDVDVideoCodecIMXBuffer*)task.currBuf)->SetConvBuffer(conv);
- 
-   vdoa.input.paddr   = vdoa.input.paddr_n ? task.prevBuf->pPhysAddr : task.currBuf->pPhysAddr;
-   vdoa.output.format = m_fbVar.bits_per_pixel == 16 ? _4CC('Y', 'U', 'Y', 'V') : _4CC('N', 'V', '1', '2');
+   pDvdVideoPicture->pts = pDvdVideoPicture->IMXBuffer->GetPts();
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 88aa06f..5165e4a 100644
+index fdac8ec..3d26a50 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -237,8 +237,6 @@ public:
- // Base class of IMXVPU and IMXIPU buffer
- class CDVDVideoCodecIMXBuffer : public CIMXBuffer
- {
--friend class CIMXCodec;
--friend class CIMXContext;
- public:
-   CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int map);
-   virtual ~CDVDVideoCodecIMXBuffer();
-@@ -261,11 +259,15 @@ public:
+@@ -380,6 +380,7 @@ protected:
+   int                          m_codecControlFlags;
+   CCriticalSection             m_signalLock;
+   CCriticalSection             m_queuesLock;
++  int                          m_forcedWidthHeightRatio;
+ #ifdef DUMP_STREAM
+   FILE                        *m_dump;
  #endif
-   VpuFieldType          GetFieldType() const    { return m_fieldType; }
- 
--protected:
-+  unsigned int          GetPictureWidth()       { return m_pctWidth; }
-+  unsigned int          GetPictureHeight()      { return m_pctHeight; }
-+
-+  void                  SetConvBuffer(struct g2d_buf *b) { m_convBuffer = b; }
-+
-+private:
-   unsigned int             m_pctWidth;
-   unsigned int             m_pctHeight;
- 
--private:
-   double                   m_pts;
-   double                   m_dts;
-   VpuFieldType             m_fieldType;
-@@ -275,8 +277,6 @@ private:
-   unsigned char            m_idx;
-   static unsigned char     i;
- #endif
--
--public:
-   struct g2d_buf          *m_convBuffer;
- };
- 
-diff --git a/xbmc/linux/imx/IMX.h b/xbmc/linux/imx/IMX.h
-index 7363409..c548633 100644
---- a/xbmc/linux/imx/IMX.h
-+++ b/xbmc/linux/imx/IMX.h
-@@ -178,8 +178,6 @@ public:
-   virtual void Lock() = 0;
-   virtual long Release() = 0;
- 
--  int          GetFormat()  { return iFormat; }
--
- public:
-   uint32_t     iWidth;
-   uint32_t     iHeight;
 -- 
 1.9.1
 
 
 ==============================================================
-file 0039-Prevent-lkFIFO-from-returning-uninitialized-data.patch
+file 0037-IMXCODEC-Cleanup-mediainfo-logging.patch
 ==============================================================
 
-From 5dee77ae7dc1233ba2ff87ee25277a7643640a61 Mon Sep 17 00:00:00 2001
+From 2ca3bdccc4f4723297a51abb1dbe09b97d7115d0 Mon Sep 17 00:00:00 2001
 From: Rudi <r.ihle@s-t.de>
-Date: Sun, 2 Oct 2016 18:43:52 +0200
-Subject: [PATCH] Prevent lkFIFO from returning uninitialized data
+Date: Mon, 3 Oct 2016 18:11:31 +0200
+Subject: [PATCH] IMXCODEC: Cleanup mediainfo logging
 
 ---
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp    | 17 +++++++++++++----
- xbmc/linux/imx/IMX.h                                    | 16 ++++++++--------
- 2 files changed, 21 insertions(+), 12 deletions(-)
+ .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 52 +++++++++++-----------
+ 1 file changed, 26 insertions(+), 26 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index a3d993b..717b5ce 100644
+index ac2ad8d..810537f 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -872,7 +872,7 @@ void CIMXCodec::Process()
+@@ -506,8 +506,6 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
+   }
+ 
+   m_hints = hints;
+-  if (g_advancedSettings.CanLogComponent(LOGVIDEO))
+-    CLog::Log(LOGDEBUG, "Let's decode with iMX VPU\n");
+ 
+   int param = 0;
+   SetVPUParams(VPU_DEC_CONF_INPUTTYPE, &param);
+@@ -516,32 +514,31 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
+ #ifdef MEDIAINFO
+   if (g_advancedSettings.CanLogComponent(LOGVIDEO))
+   {
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: fpsrate %d / fpsscale %d\n", m_hints.fpsrate, m_hints.fpsscale);
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: CodecID %d \n", m_hints.codec);
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: StreamType %d \n", m_hints.type);
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Level %d \n", m_hints.level);
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Profile %d \n", m_hints.profile);
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: PTS_invalid %d \n", m_hints.ptsinvalid);
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Tag %d \n", m_hints.codec_tag);
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: %dx%d \n", m_hints.width,  m_hints.height);
+-  }
+-  { char str_tag[128]; av_get_codec_tag_string(str_tag, sizeof(str_tag), m_hints.codec_tag);
+-      CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Tag fourcc %s\n", str_tag);
+-  }
+-  if (m_hints.extrasize)
+-  {
+-    char buf[4096];
++    CLog::Log(LOGNOTICE, "MEDIAINFO: fpsrate %d / fpsscale %d\n", m_hints.fpsrate, m_hints.fpsscale);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: CodecID %d\n", m_hints.codec);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: StreamType %d\n", m_hints.type);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: Level %d\n", m_hints.level);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: Profile %d\n", m_hints.profile);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: PTS_invalid %d\n", m_hints.ptsinvalid);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: Tag %d\n", m_hints.codec_tag);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: %dx%d\n", m_hints.width,  m_hints.height);
+ 
+-    for (unsigned int i=0; i < m_hints.extrasize; i++)
+-      sprintf(buf+i*2, "%02x", ((uint8_t*)m_hints.extradata)[i]);
++    char str_tag[128];
++    av_get_codec_tag_string(str_tag, sizeof(str_tag), m_hints.codec_tag);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: Tag fourcc %s\n", str_tag);
+ 
+-    if (g_advancedSettings.CanLogComponent(LOGVIDEO))
+-      CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: %s extradata %d %s\n", *(char*)m_hints.extradata == 1 ? "AnnexB" : "avcC", m_hints.extrasize, buf);
+-  }
+-  if (g_advancedSettings.CanLogComponent(LOGVIDEO))
+-  {
+-    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: %d / %d \n", m_hints.width,  m_hints.height);
+-    CLog::Log(LOGDEBUG, "Decode: aspect %f - forced aspect %d\n", m_hints.aspect, m_hints.forced_aspect);
++    if (m_hints.extrasize)
++    {
++      char buf[4096];
++
++      for (unsigned int i=0; i < m_hints.extrasize; i++)
++        sprintf(buf+i*2, "%02x", ((uint8_t*)m_hints.extradata)[i]);
++
++      CLog::Log(LOGNOTICE, "MEDIAINFO: %s extradata %d %s\n", *(char*)m_hints.extradata == 1 ? "AnnexB" : "avcC", m_hints.extrasize, buf);
++    }
++
++    CLog::Log(LOGNOTICE, "MEDIAINFO: %d / %d\n", m_hints.width,  m_hints.height);
++    CLog::Log(LOGNOTICE, "MEDIAINFO: aspect %f - forced_aspect %d\n", m_hints.aspect, m_hints.forced_aspect);
+   }
+ #endif
+ 
+@@ -634,6 +631,9 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
+     return false;
+   }
+ 
++  if (g_advancedSettings.CanLogComponent(LOGVIDEO))
++    CLog::Log(LOGNOTICE, "Let's decode with iMX VPU\n");
++
+   std::list<EINTERLACEMETHOD> deintMethods({ EINTERLACEMETHOD::VS_INTERLACEMETHOD_AUTO,
+                                              EINTERLACEMETHOD::VS_INTERLACEMETHOD_RENDER_BOB });
+ 
+-- 
+1.9.1
+
+
+==============================================================
+file 0038-IMXCODEC-Remove-m_frameInfo-member-variable-from-CIM.patch
+==============================================================
+
+From 9a21a0256d49f2f9d44a08d077ef2dbc393161f6 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sun, 1 Jan 2017 11:15:09 +0100
+Subject: [PATCH] IMXCODEC: Remove m_frameInfo member variable from CIMXCodec
+ class
+
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 10 ++++++----
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h   |  2 +-
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index 810537f..ee7178a 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -855,6 +855,7 @@ void CIMXCodec::AddExtraData(VpuBufferNode *bn, bool force)
+ void CIMXCodec::Process()
+ {
+   VpuDecFrameLengthInfo         frameLengthInfo;
++  VpuDecOutFrameInfo            frameInfo;
+   VpuBufferNode                 inData;
+   VpuBufferNode                 dummy;
+   VpuDecRetCode                 ret;
+@@ -1002,16 +1003,16 @@ void CIMXCodec::Process()
+         if (!VPU_DecGetConsumedFrameInfo(m_vpuHandle, &frameLengthInfo) && frameLengthInfo.pFrame)
+           m_pts[frameLengthInfo.pFrame] = task->demux.pts;
+ 
+-      if (m_decRet & CLASS_PICTURE && getOutputFrame(&m_frameInfo))
++      if (m_decRet & CLASS_PICTURE && getOutputFrame(&frameInfo))
+       {
+         ++m_nrOut;
+-        CDVDVideoCodecIMXBuffer *buffer = new CDVDVideoCodecIMXBuffer(&m_frameInfo, m_fps, m_decOpenParam.nMapType);
++        CDVDVideoCodecIMXBuffer *buffer = new CDVDVideoCodecIMXBuffer(&frameInfo, m_fps, m_decOpenParam.nMapType);
+ 
+         /* quick & dirty fix to get proper timestamping for VP8 codec */
+         if (m_decOpenParam.CodecFormat == VPU_V_VP8)
+           buffer->SetPts(task->demux.pts);
+         else
+-          buffer->SetPts(m_pts[m_frameInfo.pDisplayFrameBuf]);
++          buffer->SetPts(m_pts[frameInfo.pDisplayFrameBuf]);
+ 
+         buffer->SetDts(task->demux.dts);
+ 
+@@ -1162,7 +1163,7 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+   pDvdVideoPicture->iWidth = pDvdVideoPicture->IMXBuffer->m_pctWidth;
+   pDvdVideoPicture->iHeight = pDvdVideoPicture->IMXBuffer->m_pctHeight;
+ 
+-  int ratio = m_forcedWidthHeightRatio ? m_forcedWidthHeightRatio : m_frameInfo.pExtInfo->nQ16ShiftWidthDivHeightRatio;
++  int ratio = m_forcedWidthHeightRatio ? m_forcedWidthHeightRatio : pDvdVideoPicture->IMXBuffer->m_widthHeightRatio;
+ 
+   pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * ratio) + 32767) >> 16;
+   pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
+@@ -1196,6 +1197,7 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
+ {
+   m_pctWidth  = frameInfo->pExtInfo->FrmCropRect.nRight - frameInfo->pExtInfo->FrmCropRect.nLeft;
+   m_pctHeight = frameInfo->pExtInfo->FrmCropRect.nBottom - frameInfo->pExtInfo->FrmCropRect.nTop;
++  m_widthHeightRatio = frameInfo->pExtInfo->nQ16ShiftWidthDivHeightRatio;
+ 
+   // Some codecs (VC1?) lie about their frame size (mod 16). Adjust...
+   iWidth      = (((frameInfo->pExtInfo->nFrmWidth) + 15) & ~15);
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+index 3d26a50..aeb1692 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+@@ -268,6 +268,7 @@ public:
+ protected:
+   unsigned int             m_pctWidth;
+   unsigned int             m_pctHeight;
++  int                      m_widthHeightRatio;
+ 
+ private:
+   double                   m_pts;
+@@ -374,7 +375,6 @@ protected:
+   std::unordered_map<VpuFrameBuffer*,double>
+                                m_pts;
+   double                       m_lastPTS;
+-  VpuDecOutFrameInfo           m_frameInfo;         // Store last VPU output frame info
+   CBitstreamConverter         *m_converter;         // H264 annex B converter
+   bool                         m_warnOnce;          // Track warning messages to only warn once
+   int                          m_codecControlFlags;
+-- 
+1.9.1
+
+
+==============================================================
+file 0039-IMXCODEC-Add-enum-VPU_MAPTYPE.patch
+==============================================================
+
+From 951095cdf14af35d0d2aefcd4122da1699075616 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sun, 1 Jan 2017 11:32:11 +0100
+Subject: [PATCH] IMXCODEC: Add enum VPU_MAPTYPE
+
+---
+ .../cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 14 +++++++-------
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h  |  9 ++++++++-
+ 2 files changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index ee7178a..3e77132 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -780,7 +780,7 @@ int CIMXCodec::Decode(BYTE *pData, int iSize, double dts, double pts)
+       else
+         m_fps = 60;
+ 
+-      m_decOpenParam.nMapType = 1;
++      m_decOpenParam.nMapType = MAPTYPE_TILED_FRAME;
+ 
+       ptrn.Flush();
+       g_IMXCodec->Create();
+@@ -968,9 +968,9 @@ void CIMXCodec::Process()
+         if (!VpuFreeBuffers(false) || !VpuAllocFrameBuffers())
+           ExitError("VPU error while registering frame buffers");
+ 
+-        if (m_initInfo.nInterlace && m_fps >= 49 && m_decOpenParam.nMapType == 1)
++        if (m_initInfo.nInterlace && m_fps >= 49 && m_decOpenParam.nMapType == MAPTYPE_TILED_FRAME)
+         {
+-          m_decOpenParam.nMapType = 0;
++          m_decOpenParam.nMapType = MAPTYPE_LINEAR_FRAME;
+           Dispose();
+           VpuOpen();
+           continue;
+@@ -1188,7 +1188,7 @@ bool CIMXCodec::IsCurrentThread() const
+ }
+ 
+ /*******************************************/
+-CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int map)
++CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int mapType)
+   : m_dts(DVD_NOPTS_VALUE)
+   , m_fieldType(frameInfo->eFieldType)
+   , m_frameBuffer(frameInfo->pDisplayFrameBuf)
+@@ -1209,9 +1209,9 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
+ #ifdef IMX_INPUT_FORMAT_I420
+   iFormat     = _4CC('I', '4', '2', '0');
+ #else
+-  iFormat     = map == 1 ? _4CC('T', 'N', 'V', 'P'):
+-                map == 0 ? _4CC('N', 'V', '1', '2'):
+-                           _4CC('T', 'N', 'V', 'F');
++  iFormat     = mapType == MAPTYPE_TILED_FRAME  ? _4CC('T', 'N', 'V', 'P'):
++                mapType == MAPTYPE_LINEAR_FRAME ? _4CC('N', 'V', '1', '2'):
++                                                  _4CC('T', 'N', 'V', 'F');
+ #endif
+   m_fps       = fps;
+ #if defined(IMX_PROFILE) || defined(IMX_PROFILE_BUFFERS) || defined(TRACE_FRAMES)
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+index aeb1692..22da54d 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+@@ -84,6 +84,13 @@ enum RENDER_TASK
+   RENDER_TASK_CAPTURE  = -2,
+ };
+ 
++enum VPU_MAPTYPE
++{
++  MAPTYPE_LINEAR_FRAME = 0,
++  MAPTYPE_TILED_FRAME  = 1,
++  MAPTYPE_TILED_FIELD  = 2,
++};
++
+ #define CLASS_PICTURE   (VPU_DEC_OUTPUT_DIS     | VPU_DEC_OUTPUT_MOSAIC_DIS)
+ #define CLASS_NOBUF     (VPU_DEC_OUTPUT_NODIS   | VPU_DEC_NO_ENOUGH_BUF | VPU_DEC_OUTPUT_REPEAT)
+ #define CLASS_FORCEBUF  (VPU_DEC_OUTPUT_EOS     | VPU_DEC_NO_ENOUGH_INBUF)
+@@ -244,7 +251,7 @@ class CDVDVideoCodecIMXBuffer : public CIMXBuffer
+ friend class CIMXCodec;
+ friend class CIMXContext;
+ public:
+-  CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int map);
++  CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int mapType);
+   virtual ~CDVDVideoCodecIMXBuffer();
+ 
+   // reference counting
+-- 
+1.9.1
+
+
+==============================================================
+file 0040-IMXCODEC-Prevent-lkFIFO-from-returning-uninitialized.patch
+==============================================================
+
+From c458ee2820562d7f7e6d015a6ff25c7ef126bb88 Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sun, 1 Jan 2017 11:47:08 +0100
+Subject: [PATCH] IMXCODEC: Prevent lkFIFO from returning uninitialized data
+
+---
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp     | 15 +++++++++++----
+ xbmc/linux/imx/IMX.h                                     | 16 ++++++++--------
+ 2 files changed, 19 insertions(+), 12 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index 3e77132..773c878 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -889,7 +889,7 @@ void CIMXCodec::Process()
    {
      RecycleFrameBuffers();
      SAFE_DELETE(task);
@@ -2918,7 +457,7 @@ index a3d993b..717b5ce 100644
        task = new VPUTask();
  
  #if defined(IMX_PROFILE) || defined(IMX_PROFILE_BUFFERS)
-@@ -1035,7 +1035,11 @@ void CIMXCodec::Process()
+@@ -1048,7 +1048,11 @@ void CIMXCodec::Process()
  
        if (m_decRet & VPU_DEC_NO_ENOUGH_BUF && m_decOutput.size())
        {
@@ -2931,15 +470,13 @@ index a3d993b..717b5ce 100644
          FlushVPU();
          continue;
        }
-@@ -1111,8 +1115,13 @@ void CIMXCodec::ExitError(const char *msg, ...)
+@@ -1124,8 +1128,11 @@ void CIMXCodec::ExitError(const char *msg, ...)
  
  bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
  {
--  CDVDVideoCodecIMXBuffer *pIMXBuffer = m_decOutput.pop();
--  assert(pIMXBuffer);
-+  CDVDVideoCodecIMXBuffer *pIMXBuffer;
-+
-+  if( !m_decOutput.pop(pIMXBuffer))
+-  pDvdVideoPicture->IMXBuffer = m_decOutput.pop();
+-  assert(pDvdVideoPicture->IMXBuffer);
++  if (!m_decOutput.pop(pDvdVideoPicture->IMXBuffer))
 +  {
 +    memset(pDvdVideoPicture, 0, sizeof(*pDvdVideoPicture));
 +    return false;
@@ -2948,10 +485,10 @@ index a3d993b..717b5ce 100644
  #ifdef IMX_PROFILE
    static unsigned int previous = 0;
 diff --git a/xbmc/linux/imx/IMX.h b/xbmc/linux/imx/IMX.h
-index c548633..24a380c 100644
+index 2bc6761..201c1e9 100644
 --- a/xbmc/linux/imx/IMX.h
 +++ b/xbmc/linux/imx/IMX.h
-@@ -80,23 +80,22 @@ public:
+@@ -79,23 +79,22 @@ public:
    lkFIFO() { m_size = queue.max_size(); queue.clear(); m_abort = false; }
  
  public:
@@ -2982,7 +519,7 @@ index c548633..24a380c 100644
    }
  
    bool push(const T& item)
-@@ -110,6 +109,7 @@ public:
+@@ -109,6 +108,7 @@ public:
        return false;
  
      queue.push_back(item);
@@ -2995,425 +532,852 @@ index c548633..24a380c 100644
 
 
 ==============================================================
-file 0040-Add-symbolic-constant-for-VPU-map-type.patch
+file 0041-IMXCODEC-Cleanup-IMXBuffer-classes.patch
 ==============================================================
 
-From f5d8542171f75399371c601a8bf2596fbc265bd5 Mon Sep 17 00:00:00 2001
+From abe53ea7362fe251b9cfc7e814dd78b7b06089b9 Mon Sep 17 00:00:00 2001
 From: Rudi <r.ihle@s-t.de>
-Date: Mon, 3 Oct 2016 09:12:15 +0200
-Subject: [PATCH] Add symbolic constant for VPU map type
+Date: Sun, 1 Jan 2017 17:23:23 +0100
+Subject: [PATCH] IMXCODEC: Cleanup IMXBuffer classes
 
 ---
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp      | 15 ++++++++-------
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h |  9 ++++++++-
- 2 files changed, 16 insertions(+), 8 deletions(-)
+ .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 38 +++++++++++++---------
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h | 13 ++++----
+ xbmc/linux/imx/IMX.h                               |  2 --
+ 3 files changed, 29 insertions(+), 24 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 717b5ce..0327e90 100644
+index 773c878..d498b45 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -770,7 +770,7 @@ int CIMXCodec::Decode(BYTE *pData, int iSize, double dts, double pts)
-       else if (fd)
-         m_fps = DVD_TIME_BASE / fd;
+@@ -1128,7 +1128,9 @@ void CIMXCodec::ExitError(const char *msg, ...)
  
--      m_decOpenParam.nMapType = 1;
-+      m_decOpenParam.nMapType = MAPTYPE_TILED_FRAME;
+ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+ {
+-  if (!m_decOutput.pop(pDvdVideoPicture->IMXBuffer))
++  CDVDVideoCodecIMXBuffer *pBuffer;
++
++  if (!m_decOutput.pop(pBuffer))
+   {
+     memset(pDvdVideoPicture, 0, sizeof(*pDvdVideoPicture));
+     return false;
+@@ -1139,9 +1141,9 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+   unsigned int current;
  
-       ptrn.Flush();
-       g_IMXCodec->Create();
-@@ -951,9 +951,10 @@ void CIMXCodec::Process()
-         if (!VpuFreeBuffers(false) || !VpuAllocFrameBuffers())
-           ExitError("VPU error while registering frame buffers");
+   current = XbmcThreads::SystemClockMillis();
+-  CLog::Log(LOGDEBUG, "+G 0x%x %f/%f tm:%03d : Interlaced 0x%x\n", pDvdVideoPicture->IMXBuffer->GetIdx(),
+-                            recalcPts(pDvdVideoPicture->IMXBuffer->GetDts()), recalcPts(pDvdVideoPicture->IMXBuffer->GetPts()), current - previous,
+-                            m_initInfo.nInterlace ? pDvdVideoPicture->IMXBuffer->GetFieldType() : 0);
++  CLog::Log(LOGDEBUG, "+G 0x%x %f/%f tm:%03d : Interlaced 0x%x\n", pBuffer->GetIdx(),
++                            recalcPts(pBuffer->GetDts()), recalcPts(pBuffer->GetPts()), current - previous,
++                            m_initInfo.nInterlace ? pBuffer->GetFieldType() : 0);
+   previous = current;
+ #endif
  
--        if (m_initInfo.nInterlace && m_fps >= 49 && !m_converter && m_decOpenParam.nMapType == 1)
-+        if (m_initInfo.nInterlace && m_fps >= 49 &&
-+            !m_converter && m_decOpenParam.nMapType == MAPTYPE_TILED_FRAME)
-         {
--          m_decOpenParam.nMapType = 0;
-+          m_decOpenParam.nMapType = MAPTYPE_LINEAR_FRAME;
-           Dispose();
-           VpuOpen();
-           continue;
-@@ -1177,7 +1178,7 @@ bool CIMXCodec::IsCurrentThread() const
+@@ -1151,35 +1153,37 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+     ++m_dropped;
+   }
+   else
+-    pDvdVideoPicture->iFlags = pDvdVideoPicture->IMXBuffer->GetFlags();
++    pDvdVideoPicture->iFlags = pBuffer->GetFlags();
+ 
+   if (m_initInfo.nInterlace)
+   {
+-    if (pDvdVideoPicture->IMXBuffer->GetFieldType() == VPU_FIELD_NONE && m_warnOnce)
++    if (pBuffer->GetFieldType() == VPU_FIELD_NONE && m_warnOnce)
+     {
+       m_warnOnce = false;
+       CLog::Log(LOGWARNING, "Interlaced content reported by VPU, but full frames detected - Please turn off deinterlacing manually.");
+     }
+-    else if (pDvdVideoPicture->IMXBuffer->GetFieldType() == VPU_FIELD_TB || pDvdVideoPicture->IMXBuffer->GetFieldType() == VPU_FIELD_TOP)
++    else if (pBuffer->GetFieldType() == VPU_FIELD_TB || pBuffer->GetFieldType() == VPU_FIELD_TOP)
+       pDvdVideoPicture->iFlags |= DVP_FLAG_TOP_FIELD_FIRST;
+ 
+     pDvdVideoPicture->iFlags |= DVP_FLAG_INTERLACED;
+   }
+ 
+   pDvdVideoPicture->format = RENDER_FMT_IMXMAP;
+-  pDvdVideoPicture->iWidth = pDvdVideoPicture->IMXBuffer->m_pctWidth;
+-  pDvdVideoPicture->iHeight = pDvdVideoPicture->IMXBuffer->m_pctHeight;
++  pDvdVideoPicture->iWidth = pBuffer->GetPictureWidth();
++  pDvdVideoPicture->iHeight = pBuffer->GetPictureHeight();
+ 
+-  int ratio = m_forcedWidthHeightRatio ? m_forcedWidthHeightRatio : pDvdVideoPicture->IMXBuffer->m_widthHeightRatio;
++  int ratio = m_forcedWidthHeightRatio ? m_forcedWidthHeightRatio : pBuffer->GetWidthHeightRatio();
+ 
+   pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * ratio) + 32767) >> 16;
+   pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
+ 
+-  pDvdVideoPicture->pts = pDvdVideoPicture->IMXBuffer->GetPts();
+-  pDvdVideoPicture->dts = pDvdVideoPicture->IMXBuffer->GetDts();
++  pDvdVideoPicture->pts = pBuffer->GetPts();
++  pDvdVideoPicture->dts = pBuffer->GetDts();
+ 
+   if (pDvdVideoPicture->iFlags & DVP_FLAG_DROPPED)
+-    SAFE_RELEASE(pDvdVideoPicture->IMXBuffer);
++    SAFE_RELEASE(pBuffer);
++
++  pDvdVideoPicture->IMXBuffer = pBuffer;
+ 
+   return true;
+ }
+@@ -1229,15 +1233,17 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
+ 
+ void CDVDVideoCodecIMXBuffer::Lock()
+ {
+-  long count = ++m_iRefs;
+ #ifdef TRACE_FRAMES
+-  CLog::Log(LOGDEBUG, "R+ 0x%x  -  ref : %ld  (VPU)\n", m_idx, count);
++  CLog::Log(LOGDEBUG, "R+ 0x%x  -  ref : %ld  (VPU)\n", m_idx, ++m_iRefs);
++#else
++  ++m_iRefs;
+ #endif
  }
  
- /*******************************************/
--CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int map)
-+CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int mapType)
-   : m_dts(DVD_NOPTS_VALUE)
-   , m_fieldType(frameInfo->eFieldType)
-   , m_frameBuffer(frameInfo->pDisplayFrameBuf)
-@@ -1195,9 +1196,9 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
- #ifdef IMX_INPUT_FORMAT_I420
-   iFormat     = _4CC('I', '4', '2', '0');
- #else
--  iFormat     = map == 1 ? _4CC('T', 'N', 'V', 'P'):
--                map == 0 ? _4CC('N', 'V', '1', '2'):
--                           _4CC('T', 'N', 'V', 'F');
-+  iFormat     = mapType == MAPTYPE_TILED_FRAME  ? _4CC('T', 'N', 'V', 'P'):
-+                mapType == MAPTYPE_LINEAR_FRAME ? _4CC('N', 'V', '1', '2'):
-+                                                  _4CC('T', 'N', 'V', 'F');
+ long CDVDVideoCodecIMXBuffer::Release()
+ {
+   long count = --m_iRefs;
++
+ #ifdef TRACE_FRAMES
+   CLog::Log(LOGDEBUG, "R- 0x%x  -  ref : %ld  (VPU)\n", m_idx, count);
  #endif
-   m_fps       = fps;
- #if defined(IMX_PROFILE) || defined(IMX_PROFILE_BUFFERS) || defined(TRACE_FRAMES)
+@@ -1803,7 +1809,7 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
+       return false;
+     }
+ 
+-    ((CDVDVideoCodecIMXBuffer*)ipu->current)->m_convBuffer = conv;
++    ((CDVDVideoCodecIMXBuffer*)ipu->current)->SetConvBuffer(conv);
+     vdoa.output.paddr = conv->buf_paddr;
+   }
+ 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 5165e4a..2168e00 100644
+index 22da54d..91f9b8c 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -84,6 +84,13 @@ enum RENDER_TASK
-   RENDER_TASK_CAPTURE  = -2,
- };
- 
-+enum VPU_MAPTYPE
-+{
-+  MAPTYPE_LINEAR_FRAME = 0,
-+  MAPTYPE_TILED_FRAME  = 1,
-+  MAPTYPE_TILED_FIELD  = 2,
-+};
-+
- #define CLASS_PICTURE   (VPU_DEC_OUTPUT_DIS     | VPU_DEC_OUTPUT_MOSAIC_DIS)
- #define CLASS_NOBUF     (VPU_DEC_OUTPUT_NODIS   | VPU_DEC_NO_ENOUGH_BUF | VPU_DEC_OUTPUT_REPEAT)
- #define CLASS_FORCEBUF  (VPU_DEC_OUTPUT_EOS     | VPU_DEC_NO_ENOUGH_INBUF)
-@@ -238,7 +245,7 @@ public:
+@@ -248,8 +248,6 @@ public:
+ // Base class of IMXVPU and IMXIPU buffer
  class CDVDVideoCodecIMXBuffer : public CIMXBuffer
  {
+-friend class CIMXCodec;
+-friend class CIMXContext;
  public:
--  CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int map);
-+  CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int mapType);
+   CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo, double fps, int mapType);
    virtual ~CDVDVideoCodecIMXBuffer();
+@@ -272,12 +270,16 @@ public:
+ #endif
+   VpuFieldType          GetFieldType() const    { return m_fieldType; }
  
-   // reference counting
--- 
-1.9.1
-
-
-==============================================================
-file 0041-Remove-m_frameInfo-member-variable-from-CIMXCodec-cl.patch
-==============================================================
-
-From bf74debf19cafddb572033b232bed0cc99541eea Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Mon, 3 Oct 2016 09:47:38 +0200
-Subject: [PATCH] Remove m_frameInfo member variable from CIMXCodec class
-
----
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 27 +++++++++++-----------
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h |  3 ++-
- 2 files changed, 16 insertions(+), 14 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 0327e90..74f4ae4 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -842,6 +842,7 @@ void CIMXCodec::AddExtraData(VpuBufferNode *bn, bool force)
- void CIMXCodec::Process()
- {
-   VpuDecFrameLengthInfo         frameLengthInfo;
-+  VpuDecOutFrameInfo            frameInfo;
-   VpuBufferNode                 inData;
-   VpuBufferNode                 dummy;
-   VpuDecRetCode                 ret;
-@@ -987,20 +988,20 @@ void CIMXCodec::Process()
-         if (!VPU_DecGetConsumedFrameInfo(m_vpuHandle, &frameLengthInfo) && frameLengthInfo.pFrame)
-           m_pts[frameLengthInfo.pFrame] = task->demux.pts;
- 
--      if (m_decRet & CLASS_PICTURE && getOutputFrame(&m_frameInfo))
-+      if (m_decRet & CLASS_PICTURE && getOutputFrame(&frameInfo))
-       {
-         // Some codecs (VC1?) lie about their frame size (mod 16). Adjust...
--        m_frameInfo.pExtInfo->nFrmWidth  = (((m_frameInfo.pExtInfo->nFrmWidth) + 15) & ~15);
--        m_frameInfo.pExtInfo->nFrmHeight = (((m_frameInfo.pExtInfo->nFrmHeight) + 15) & ~15);
-+        frameInfo.pExtInfo->nFrmWidth  = (((frameInfo.pExtInfo->nFrmWidth) + 15) & ~15);
-+        frameInfo.pExtInfo->nFrmHeight = (((frameInfo.pExtInfo->nFrmHeight) + 15) & ~15);
- 
-         ++m_nrOut;
--        CDVDVideoCodecIMXBuffer *buffer = new CDVDVideoCodecIMXBuffer(&m_frameInfo, m_fps, m_decOpenParam.nMapType);
-+        CDVDVideoCodecIMXBuffer *buffer = new CDVDVideoCodecIMXBuffer(&frameInfo, m_fps, m_decOpenParam.nMapType);
- 
-         /* quick & dirty fix to get proper timestamping for VP8 codec */
-         if (m_decOpenParam.CodecFormat == VPU_V_VP8)
-           buffer->SetPts(task->demux.pts);
-         else
--          buffer->SetPts(m_pts[m_frameInfo.pDisplayFrameBuf]);
-+          buffer->SetPts(m_pts[frameInfo.pDisplayFrameBuf]);
- 
-         buffer->SetDts(task->demux.dts);
- 
-@@ -1154,7 +1155,7 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
-   pDvdVideoPicture->iWidth = pIMXBuffer->GetPictureWidth();
-   pDvdVideoPicture->iHeight = pIMXBuffer->GetPictureHeight();
- 
--  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * m_frameInfo.pExtInfo->nQ16ShiftWidthDivHeightRatio) + 32767) >> 16;
-+  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * pIMXBuffer->GetWidthHeightRatio()) + 32767) >> 16;
-   pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
- 
-   pDvdVideoPicture->pts = pIMXBuffer->GetPts();
-@@ -1185,13 +1186,13 @@ CDVDVideoCodecIMXBuffer::CDVDVideoCodecIMXBuffer(VpuDecOutFrameInfo *frameInfo,
-   , m_iFlags(DVP_FLAG_DROPPED)
-   , m_convBuffer(nullptr)
- {
--
--  m_pctWidth  = frameInfo->pExtInfo->FrmCropRect.nRight - frameInfo->pExtInfo->FrmCropRect.nLeft;
--  m_pctHeight = frameInfo->pExtInfo->FrmCropRect.nBottom - frameInfo->pExtInfo->FrmCropRect.nTop;
--  iWidth      = frameInfo->pExtInfo->nFrmWidth;
--  iHeight     = frameInfo->pExtInfo->nFrmHeight;
--  pVirtAddr   = m_frameBuffer->pbufVirtY;
--  pPhysAddr   = (uint32_t)m_frameBuffer->pbufY;
-+  m_pctWidth         = frameInfo->pExtInfo->FrmCropRect.nRight - frameInfo->pExtInfo->FrmCropRect.nLeft;
-+  m_pctHeight        = frameInfo->pExtInfo->FrmCropRect.nBottom - frameInfo->pExtInfo->FrmCropRect.nTop;
-+  m_widthHeightRatio = frameInfo->pExtInfo->nQ16ShiftWidthDivHeightRatio;
-+  iWidth             = frameInfo->pExtInfo->nFrmWidth;
-+  iHeight            = frameInfo->pExtInfo->nFrmHeight;
-+  pVirtAddr          = m_frameBuffer->pbufVirtY;
-+  pPhysAddr          = (uint32_t)m_frameBuffer->pbufY;
- 
- #ifdef IMX_INPUT_FORMAT_I420
-   iFormat     = _4CC('I', '4', '2', '0');
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 2168e00..22b34d7 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -268,12 +268,14 @@ public:
- 
-   unsigned int          GetPictureWidth()       { return m_pctWidth; }
-   unsigned int          GetPictureHeight()      { return m_pctHeight; }
+-protected:
++  unsigned int          GetPictureWidth()       { return m_pctWidth; }
++  unsigned int          GetPictureHeight()      { return m_pctHeight; }
 +  int                   GetWidthHeightRatio()   { return m_widthHeightRatio; }
- 
-   void                  SetConvBuffer(struct g2d_buf *b) { m_convBuffer = b; }
- 
- private:
++
++  void                  SetConvBuffer(struct g2d_buf *b) { m_convBuffer = b; }
++
++private:
    unsigned int             m_pctWidth;
    unsigned int             m_pctHeight;
-+  int                      m_widthHeightRatio;
- 
+   int                      m_widthHeightRatio;
+-
+-private:
    double                   m_pts;
    double                   m_dts;
-@@ -378,7 +380,6 @@ protected:
-   std::unordered_map<VpuFrameBuffer*,double>
-                                m_pts;
-   double                       m_lastPTS;
--  VpuDecOutFrameInfo           m_frameInfo;         // Store last VPU output frame info
-   CBitstreamConverter         *m_converter;         // H264 annex B converter
-   bool                         m_warnOnce;          // Track warning messages to only warn once
-   int                          m_codecControlFlags;
+   VpuFieldType             m_fieldType;
+@@ -288,7 +290,6 @@ private:
+   static unsigned char     i;
+ #endif
+ 
+-public:
+   struct g2d_buf          *m_convBuffer;
+ };
+ 
+diff --git a/xbmc/linux/imx/IMX.h b/xbmc/linux/imx/IMX.h
+index 201c1e9..50c1cdb 100644
+--- a/xbmc/linux/imx/IMX.h
++++ b/xbmc/linux/imx/IMX.h
+@@ -177,8 +177,6 @@ public:
+   virtual void Lock() = 0;
+   virtual long Release() = 0;
+ 
+-  int          GetFormat()  { return iFormat; }
+-
+ public:
+   uint32_t     iWidth;
+   uint32_t     iHeight;
 -- 
 1.9.1
 
 
 ==============================================================
-file 0042-Honour-forced-aspect-ratio-hint.patch
+file 0042-IMXRender-Refactor-to-improve-readability-and-perfor.patch
 ==============================================================
 
-From 8542fadfce7bfa1c7691403029a81682c389c8c2 Mon Sep 17 00:00:00 2001
+From bc3d7cdaaeb4e6c532672f65d27509f312eff21e Mon Sep 17 00:00:00 2001
 From: Rudi <r.ihle@s-t.de>
-Date: Mon, 3 Oct 2016 18:08:34 +0200
-Subject: [PATCH] Honour forced aspect ratio hint
+Date: Sun, 1 Jan 2017 17:56:17 +0100
+Subject: [PATCH] IMXRender: Refactor to improve readability and performance
 
 ---
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 6 +++++-
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h   | 1 +
- 2 files changed, 6 insertions(+), 1 deletion(-)
+ .../VideoRenderers/HwDecRender/RendererIMX.cpp     | 29 ++++++++++------------
+ .../VideoRenderers/HwDecRender/RendererIMX.h       |  5 ++--
+ 2 files changed, 15 insertions(+), 19 deletions(-)
 
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 74f4ae4..155710a 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -544,6 +544,8 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
- #endif
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+index b5c7095..5167bd2 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+@@ -34,13 +34,14 @@
  
-   m_warnOnce = true;
-+  m_forcedWidthHeightRatio = m_hints.forced_aspect ? (65536 * m_hints.aspect) : 0;
-+
-   switch(m_hints.codec)
+ CRendererIMX::CRendererIMX()
+ {
+-  m_bufHistory.clear();
++  m_bufHistory[0] = m_bufHistory[1] = nullptr;
+ }
+ 
+ CRendererIMX::~CRendererIMX()
+ {
+   UnInit();
+-  std::for_each(m_bufHistory.begin(), m_bufHistory.end(), Release);
++  SAFE_RELEASE(m_bufHistory[1]);
++  SAFE_RELEASE(m_bufHistory[0]);
+   g_IMX.Deinitialize();
+ }
+ 
+@@ -139,12 +140,7 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+   CDVDVideoCodecIMXBuffer *buffer = static_cast<CDVDVideoCodecIMXBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
+   if (buffer)
    {
-   case AV_CODEC_ID_MPEG1VIDEO:
-@@ -1155,7 +1157,9 @@ bool CIMXCodec::GetPicture(DVDVideoPicture* pDvdVideoPicture)
-   pDvdVideoPicture->iWidth = pIMXBuffer->GetPictureWidth();
-   pDvdVideoPicture->iHeight = pIMXBuffer->GetPictureHeight();
+-    if (!m_bufHistory.empty() && m_bufHistory.back() != buffer || m_bufHistory.empty())
+-    {
+-      buffer->Lock();
+-      m_bufHistory.push_back(buffer);
+-    }
+-    else if (!m_bufHistory.empty() && m_bufHistory.back() == buffer && flagsPrev == flags)
++    if (buffer == m_bufHistory[0] && flagsPrev == flags)
+     {
+       g_IMX.WaitVsync();
+       return true;
+@@ -152,12 +148,14 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
  
--  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * pIMXBuffer->GetWidthHeightRatio()) + 32767) >> 16;
-+  int ratio = m_forcedWidthHeightRatio ? m_forcedWidthHeightRatio : pIMXBuffer->GetWidthHeightRatio();
+     flagsPrev = flags;
+ 
+-    int size = flags & RENDER_FLAG_FIELDMASK ? 2 : 1;
+-    while (m_bufHistory.size() > size)
+-    {
+-      m_bufHistory.front()->Release();
+-      m_bufHistory.pop_front();
+-    }
++    buffer->Lock();
 +
-+  pDvdVideoPicture->iDisplayWidth = ((pDvdVideoPicture->iWidth * ratio) + 32767) >> 16;
-   pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
++    SAFE_RELEASE(m_bufHistory[1]);
++    m_bufHistory[1] = m_bufHistory[0];
++    m_bufHistory[0] = buffer;
++
++    if (!(flags & RENDER_FLAG_FIELDMASK))
++      SAFE_RELEASE(m_bufHistory[1]);
  
-   pDvdVideoPicture->pts = pIMXBuffer->GetPts();
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-index 22b34d7..b91cdc2 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
-@@ -386,6 +386,7 @@ protected:
-   int                          m_speed;
-   CCriticalSection             m_signalLock;
-   CCriticalSection             m_queuesLock;
-+  int                          m_forcedWidthHeightRatio;
- #ifdef DUMP_STREAM
-   FILE                        *m_dump;
+     // this hack is needed to get the 2D mode of a 3D movie going
+     RENDER_STEREO_MODE stereo_mode = g_graphicsContext.GetStereoMode();
+@@ -206,8 +204,7 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+       }
+     }
+ 
+-    CDVDVideoCodecIMXBuffer *buffer_p = m_bufHistory.front();
+-    g_IMXContext.Blit(buffer_p == buffer ? nullptr : buffer_p, buffer, srcRect, dstRect, fieldFmt);
++    g_IMXContext.Blit(m_bufHistory[1], m_bufHistory[0], srcRect, dstRect, fieldFmt);
+   }
+ 
+ #if 0
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
+index fc71e89..1a1ee2c 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.h
+@@ -30,6 +30,8 @@
+ 
+ class CRendererIMX : public CLinuxRendererGLES
+ {
++  CDVDVideoCodecIMXBuffer *m_bufHistory[2];
++
+ public:
+   CRendererIMX();
+   virtual ~CRendererIMX();
+@@ -61,9 +63,6 @@ protected:
+   virtual bool RenderHook(int index);  
+   virtual int  GetImageHook(YV12Image *image, int source = AUTOSOURCE, bool readonly = false);
+   virtual bool RenderUpdateVideoHook(bool clear, DWORD flags = 0, DWORD alpha = 255);
+-
+-  std::deque<CDVDVideoCodecIMXBuffer*> m_bufHistory;
+-  static void Release(CDVDVideoCodecIMXBuffer *&t) { if (t) t->Release(); }
+ };
+ 
  #endif
 -- 
 1.9.1
 
 
 ==============================================================
-file 0043-Cleanup-mediainfo-logging.patch
+file 0043-IMXCODEC-Refactor-IPUTask-for-better-readability-and.patch
 ==============================================================
 
-From 5a26b1e3d341dd2591f6315f9fc97b5677105bf8 Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Mon, 3 Oct 2016 18:11:31 +0200
-Subject: [PATCH] Cleanup mediainfo logging
+From 4228f95268bf1c9b1f4dec483914ee32f2f0b621 Mon Sep 17 00:00:00 2001
+From: warped-rudi <r.ihle@s-t.de>
+Date: Mon, 2 Jan 2017 09:20:05 +0100
+Subject: [PATCH] IMXCODEC: Refactor IPUTask for better readability and
+ performance
 
 ---
- .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 52 +++++++++++-----------
- 1 file changed, 26 insertions(+), 26 deletions(-)
+ .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 168 ++++++++++-----------
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h |  28 ++--
+ 2 files changed, 95 insertions(+), 101 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 155710a..3dc63d5 100644
+index d498b45..6b0e2ee 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -504,8 +504,6 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
-   }
+@@ -1588,23 +1588,23 @@ void CIMXContext::Blit(CIMXBuffer *source_p, CIMXBuffer *source, const CRect &sr
+   else if (page < 0 || page >= m_fbPages)
+     return;
  
-   m_hints = hints;
--  if (g_advancedSettings.CanLogComponent(LOGVIDEO))
--    CLog::Log(LOGDEBUG, "Let's decode with iMX VPU\n");
+-  IPUTaskPtr ipu(new IPUTask(source_p, source, page));
++  IPUTask task(source_p, source, page);
+   pg = (page + 1) % m_fbPages;
  
-   int param = 0;
-   SetVPUParams(VPU_DEC_CONF_INPUTTYPE, &param);
-@@ -514,32 +512,31 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
- #ifdef MEDIAINFO
-   if (g_advancedSettings.CanLogComponent(LOGVIDEO))
-   {
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: fpsrate %d / fpsscale %d\n", m_hints.fpsrate, m_hints.fpsscale);
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: CodecID %d \n", m_hints.codec);
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: StreamType %d \n", m_hints.type);
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Level %d \n", m_hints.level);
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Profile %d \n", m_hints.profile);
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: PTS_invalid %d \n", m_hints.ptsinvalid);
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Tag %d \n", m_hints.codec_tag);
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: %dx%d \n", m_hints.width,  m_hints.height);
--  }
--  { char str_tag[128]; av_get_codec_tag_string(str_tag, sizeof(str_tag), m_hints.codec_tag);
--      CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: Tag fourcc %s\n", str_tag);
--  }
--  if (m_hints.extrasize)
--  {
--    char buf[4096];
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: fpsrate %d / fpsscale %d\n", m_hints.fpsrate, m_hints.fpsscale);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: CodecID %d\n", m_hints.codec);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: StreamType %d\n", m_hints.type);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: Level %d\n", m_hints.level);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: Profile %d\n", m_hints.profile);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: PTS_invalid %d\n", m_hints.ptsinvalid);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: Tag %d\n", m_hints.codec_tag);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: %dx%d\n", m_hints.width,  m_hints.height);
-+
-+    char str_tag[128];
-+    av_get_codec_tag_string(str_tag, sizeof(str_tag), m_hints.codec_tag);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: Tag fourcc %s\n", str_tag);
-+  
-+    if (m_hints.extrasize)
-+    {
-+      char buf[4096];
- 
--    for (unsigned int i=0; i < m_hints.extrasize; i++)
--      sprintf(buf+i*2, "%02x", ((uint8_t*)m_hints.extradata)[i]);
-+      for (unsigned int i=0; i < m_hints.extrasize; i++)
-+        sprintf(buf+i*2, "%02x", ((uint8_t*)m_hints.extradata)[i]);
- 
--    if (g_advancedSettings.CanLogComponent(LOGVIDEO))
--      CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: %s extradata %d %s\n", *(char*)m_hints.extradata == 1 ? "AnnexB" : "avcC", m_hints.extrasize, buf);
--  }
--  if (g_advancedSettings.CanLogComponent(LOGVIDEO))
--  {
--    CLog::Log(LOGDEBUG, "Decode: MEDIAINFO: %d / %d \n", m_hints.width,  m_hints.height);
--    CLog::Log(LOGDEBUG, "Decode: aspect %f - forced aspect %d\n", m_hints.aspect, m_hints.forced_aspect);
-+      CLog::Log(LOGNOTICE, "MEDIAINFO: %s extradata %d %s\n", *(char*)m_hints.extradata == 1 ? "AnnexB" : "avcC", m_hints.extrasize, buf);
-+    }
-+
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: %d / %d\n", m_hints.width,  m_hints.height);
-+    CLog::Log(LOGNOTICE, "MEDIAINFO: aspect %f - forced_aspect %d\n", m_hints.aspect, m_hints.forced_aspect);
-   }
+ #ifdef IMX_PROFILE_BUFFERS
+   unsigned long long before = XbmcThreads::SystemClockMillis();
  #endif
+   SetFieldData(fieldFmt, source->m_fps);
+-  PrepareTask(ipu, srcRect, dstRect);
++  PrepareTask(task, srcRect, dstRect);
  
-@@ -626,6 +623,9 @@ bool CIMXCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options, std::stri
+-  if (DoTask(ipu))
+-    m_fbCurrentPage = ipu->page | checkIPUStrideOffset(&ipu->task.input.deinterlace, IsDoubleRate()) << 4;
++  if (DoTask(task))
++    m_fbCurrentPage = task.targetPage | checkIPUStrideOffset(&task.input.deinterlace, IsDoubleRate()) << 4;
+ 
+   m_pingFlip.Set();
+ 
+ #ifdef IMX_PROFILE_BUFFERS
+   unsigned long long after = XbmcThreads::SystemClockMillis();
+-  CLog::Log(LOGDEBUG, "+P 0x%x@%d  %d\n", ((CDVDVideoCodecIMXBuffer*)ipu->current)->GetIdx(), ipu->page, (int)(after-before));
++  CLog::Log(LOGDEBUG, "+P 0x%x@%d  %d\n", ((CDVDVideoCodecIMXBuffer*)task.currBuf)->GetIdx(), task.targetPage, (int)(after-before));
+ #endif
+ }
+ 
+@@ -1676,7 +1676,7 @@ void CIMXContext::Clear(int page)
+   SetProcessInfo(m_processInfo);
+ }
+ 
+-void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
++void CIMXContext::PrepareTask(IPUTask &task, CRect srcRect, CRect dstRect)
+ {
+   CRectInt iSrcRect, iDstRect;
+ 
+@@ -1721,95 +1721,95 @@ void CIMXContext::PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect)
+   iDstRect.x2 = Align2((int)dstRect.x2,8);
+   iDstRect.y2 = Align2((int)dstRect.y2,8);
+ 
+-  ipu->task.input.crop.pos.x  = iSrcRect.x1;
+-  ipu->task.input.crop.pos.y  = iSrcRect.y1;
+-  ipu->task.input.crop.w      = iSrcRect.Width();
+-  ipu->task.input.crop.h      = iSrcRect.Height();
++  task.input.crop.pos.x  = iSrcRect.x1;
++  task.input.crop.pos.y  = iSrcRect.y1;
++  task.input.crop.w      = iSrcRect.Width();
++  task.input.crop.h      = iSrcRect.Height();
+ 
+-  ipu->task.output.crop.pos.x = iDstRect.x1;
+-  ipu->task.output.crop.pos.y = iDstRect.y1;
+-  ipu->task.output.crop.w     = iDstRect.Width();
+-  ipu->task.output.crop.h     = iDstRect.Height();
++  task.output.crop.pos.x = iDstRect.x1;
++  task.output.crop.pos.y = iDstRect.y1;
++  task.output.crop.w     = iDstRect.Width();
++  task.output.crop.h     = iDstRect.Height();
+ 
+   // Setup deinterlacing if enabled
+   if (m_currentFieldFmt)
+   {
+-    ipu->task.input.deinterlace.enable = 1;
+-    ipu->task.input.deinterlace.motion = ipu->previous ? m_motion : HIGH_MOTION;
+-    ipu->task.input.deinterlace.field_fmt = m_currentFieldFmt;
++    task.input.deinterlace.enable = 1;
++    task.input.deinterlace.motion = task.prevBuf ? m_motion : HIGH_MOTION;
++    task.input.deinterlace.field_fmt = m_currentFieldFmt;
+   }
+ }
+ 
+-bool CIMXContext::TileTask(IPUTaskPtr &ipu)
++bool CIMXContext::TileTask(IPUTask &task)
+ {
+   m_zoomAllowed = true;
+ 
+   // on double rate deinterlacing this is reusing previous already rasterised frame
+-  if (ipu->current->iFormat != _4CC('T', 'N', 'V', 'F') && ipu->current->iFormat != _4CC('T', 'N', 'V', 'P'))
++  if (task.currBuf->iFormat != _4CC('T', 'N', 'V', 'F') && task.currBuf->iFormat != _4CC('T', 'N', 'V', 'P'))
+   {
+-    if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION)
++    if (task.input.deinterlace.enable && task.input.deinterlace.motion != HIGH_MOTION)
+     {
+-      ipu->task.input.paddr_n = ipu->task.input.paddr;
+-      ipu->task.input.paddr   = ipu->previous->pPhysAddr;
++      task.input.paddr_n = task.input.paddr;
++      task.input.paddr   = task.prevBuf->pPhysAddr;
+     }
+     return true;
+   }
+ 
+   // Use band mode directly to FB, as no transformations needed (eg cropping)
+-  if (m_fps >= 49 && m_fbWidth == 1920 && ipu->task.input.width == 1920 && !ipu->task.input.deinterlace.enable)
++  if (m_fps >= 49 && m_fbWidth == 1920 && task.input.width == 1920 && !task.input.deinterlace.enable)
+   {
+     m_zoomAllowed = false;
+-    ipu->task.output.crop.pos.x = ipu->task.input.crop.pos.x = 0;
+-    ipu->task.output.crop.pos.y = ipu->task.input.crop.pos.y = 0;
+-    ipu->task.output.crop.h     = ipu->task.input.height     = ipu->task.input.crop.h = ipu->current->iHeight;
+-    ipu->task.output.crop.w     = ipu->task.input.width      = ipu->task.input.crop.w = ipu->current->iWidth;
+-    if (ipu->task.input.crop.h < m_fbHeight)
+-      ipu->task.output.paddr     += m_fbLineLength * (m_fbHeight - ipu->task.input.crop.h)/2;
++    task.output.crop.pos.x = task.input.crop.pos.x = 0;
++    task.output.crop.pos.y = task.input.crop.pos.y = 0;
++    task.output.crop.h     = task.input.height     = task.input.crop.h = task.currBuf->iHeight;
++    task.output.crop.w     = task.input.width      = task.input.crop.w = task.currBuf->iWidth;
++    if (task.input.crop.h < m_fbHeight)
++      task.output.paddr     += m_fbLineLength * (m_fbHeight - task.input.crop.h)/2;
+     return true;
+   }
+ 
+   // check for 3-field deinterlace (no HIGH_MOTION allowed) from tile field format
+-  if (ipu->previous && ipu->current->iFormat == _4CC('T', 'N', 'V', 'F'))
++  if (task.prevBuf && task.currBuf->iFormat == _4CC('T', 'N', 'V', 'F'))
+   {
+-    ipu->task.input.paddr     = ipu->previous->pPhysAddr;
+-    ipu->task.input.paddr_n   = ipu->current->pPhysAddr;
+-    ipu->task.input.deinterlace.field_fmt = IPU_DEINTERLACE_FIELD_TOP;
+-    ipu->task.input.deinterlace.enable = true;
++    task.input.paddr     = task.prevBuf->pPhysAddr;
++    task.input.paddr_n   = task.currBuf->pPhysAddr;
++    task.input.deinterlace.field_fmt = IPU_DEINTERLACE_FIELD_TOP;
++    task.input.deinterlace.enable = true;
+ 
+-    ipu->task.output.crop.pos.x = ipu->task.input.crop.pos.x = 0;
+-    ipu->task.output.crop.pos.y = ipu->task.input.crop.pos.y = 0;
+-    ipu->task.output.crop.h     = ipu->task.input.height     = ipu->task.input.crop.h = ipu->current->iHeight;
+-    ipu->task.output.crop.w     = ipu->task.input.width      = ipu->task.input.crop.w = ipu->current->iWidth;
++    task.output.crop.pos.x = task.input.crop.pos.x = 0;
++    task.output.crop.pos.y = task.input.crop.pos.y = 0;
++    task.output.crop.h     = task.input.height     = task.input.crop.h = task.currBuf->iHeight;
++    task.output.crop.w     = task.input.width      = task.input.crop.w = task.currBuf->iWidth;
+ 
+-    return CheckTask(ipu) == 0;
++    return CheckTask(task) == 0;
+   }
+ 
+   // rasterize from tile (frame)
+   struct ipu_task    vdoa;
+ 
+-  memset(&vdoa, 0, sizeof(ipu->task));
+-  vdoa.input.width   = vdoa.output.width  = ipu->current->iWidth;
+-  vdoa.input.height  = vdoa.output.height = ipu->current->iHeight;
+-  vdoa.input.format  = ipu->current->iFormat;
++  memset(&vdoa, 0, sizeof(vdoa));
++  vdoa.input.width   = vdoa.output.width  = task.currBuf->iWidth;
++  vdoa.input.height  = vdoa.output.height = task.currBuf->iHeight;
++  vdoa.input.format  = task.currBuf->iFormat;
+ 
+-  vdoa.input.paddr   = vdoa.input.paddr_n ? ipu->previous->pPhysAddr : ipu->current->pPhysAddr;
+-  vdoa.output.format = ipu->task.input.format = m_fbVar.bits_per_pixel == 16 ? _4CC('Y', 'U', 'Y', 'V') : _4CC('N', 'V', '1', '2');
++  vdoa.input.paddr   = vdoa.input.paddr_n ? task.prevBuf->pPhysAddr : task.currBuf->pPhysAddr;
++  vdoa.output.format = task.input.format = m_fbVar.bits_per_pixel == 16 ? _4CC('Y', 'U', 'Y', 'V') : _4CC('N', 'V', '1', '2');
+ 
+-  int check = CheckTask(ipu);
++  int check = CheckTask(task);
+   if (check == IPU_CHECK_ERR_PROC_NO_NEED)
+   {
+-    vdoa.output.paddr = ipu->task.output.paddr;
++    vdoa.output.paddr = task.output.paddr;
+   }
+   else
+   {
+-    struct g2d_buf *conv = g2d_alloc(ipu->current->iWidth *ipu->current->iHeight * 3, 0);
++    struct g2d_buf *conv = g2d_alloc(task.currBuf->iWidth *task.currBuf->iHeight * 3, 0);
+     if (!conv)
+     {
+       CLog::Log(LOGERROR, "iMX: can't allocate crop buffer");
+       return false;
+     }
+ 
+-    ((CDVDVideoCodecIMXBuffer*)ipu->current)->SetConvBuffer(conv);
++    ((CDVDVideoCodecIMXBuffer*)task.currBuf)->SetConvBuffer(conv);
+     vdoa.output.paddr = conv->buf_paddr;
+   }
+ 
+@@ -1820,50 +1820,50 @@ bool CIMXContext::TileTask(IPUTaskPtr &ipu)
      return false;
    }
  
-+  if (g_advancedSettings.CanLogComponent(LOGVIDEO))
-+    CLog::Log(LOGNOTICE, "Let's decode with iMX VPU\n");
-+
-   std::list<EINTERLACEMETHOD> deintMethods({ EINTERLACEMETHOD::VS_INTERLACEMETHOD_AUTO,
-                                              EINTERLACEMETHOD::VS_INTERLACEMETHOD_RENDER_BOB });
+-  ipu->task.input.paddr   = vdoa.output.paddr;
++  task.input.paddr   = vdoa.output.paddr;
  
--- 
-1.9.1
-
-
-==============================================================
-file 0044-CodecIMX-fix-a-xvid-type-media-playback-starting-wit.patch
-==============================================================
-
-From 451b97280d92fe1eedd78a5f06ec8b5bad6ae28c Mon Sep 17 00:00:00 2001
-From: Matus Kral <matuskral@me.com>
-Date: Sat, 8 Oct 2016 17:23:32 +0200
-Subject: [PATCH] [CodecIMX] fix a xvid-type media playback - starting with
- green screen
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 3dc63d5..5e0abd5 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -977,7 +977,7 @@ void CIMXCodec::Process()
-         m_decInput.setquotasize(m_fps);
+-  if (ipu->current->iFormat == _4CC('T', 'N', 'V', 'F'))
++  if (task.currBuf->iFormat == _4CC('T', 'N', 'V', 'F'))
+     return true;
  
-         bool getFrame = m_decOpenParam.CodecFormat != VPU_V_AVC || !m_converter;
--        getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2;
-+        getFrame     &= m_decOpenParam.CodecFormat != VPU_V_MPEG2 && m_decOpenParam.CodecFormat != VPU_V_XVID;
-         if (getFrame || m_decRet & VPU_DEC_RESOLUTION_CHANGED)
-         {
-           SetDrainMode((VpuDecInputType)IN_DECODER_SET);
--- 
-1.9.1
-
-
-==============================================================
-file 0045-Partly-undo-d6f6155a060e0a5b94e3257f7c5d75fa1a8be321.patch
-==============================================================
-
-From 99f481ea2c64ada525e135957be4b50751ca3a09 Mon Sep 17 00:00:00 2001
-From: Rudi <r.ihle@s-t.de>
-Date: Thu, 13 Oct 2016 20:49:02 +0200
-Subject: [PATCH] Partly undo d6f6155a060e0a5b94e3257f7c5d75fa1a8be321
-
----
- xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp | 7 -------
- 1 file changed, 7 deletions(-)
-
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-index 5e0abd5..4fefc27 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
-@@ -393,13 +393,6 @@ bool CIMXCodec::VpuAllocFrameBuffers()
- #endif
-     vpuFrameBuffer.pbufVirtMvCol      = ptrVirt + ySize + uSize + vSize;
+   // output of VDOA task was sent directly to FB. no more processing needed.
+   if (check == IPU_CHECK_ERR_PROC_NO_NEED)
+     return true;
  
--    if (i < 2)
--    {
--      memset(vpuFrameBuffer.pbufVirtY, 16, ySize);
--      memset(vpuFrameBuffer.pbufVirtCb, 128, uSize + vSize);
--      memset(vpuFrameBuffer.pbufVirtMvCol, 0, mvSize);
--    }
--
-     m_vpuFrameBuffers.push_back(vpuFrameBuffer);
+-  if (ipu->task.input.deinterlace.enable && ipu->task.input.deinterlace.motion != HIGH_MOTION)
++  if (task.input.deinterlace.enable && task.input.deinterlace.motion != HIGH_MOTION)
+   {
+-    ipu->task.input.paddr_n = ipu->task.input.paddr;
+-    ipu->task.input.paddr   = ipu->previous->pPhysAddr;
++    task.input.paddr_n = task.input.paddr;
++    task.input.paddr   = task.prevBuf->pPhysAddr;
+   }
+-  ipu->current->iFormat   = vdoa.output.format;
+-  ipu->current->pPhysAddr = vdoa.output.paddr;
++  task.currBuf->iFormat   = vdoa.output.format;
++  task.currBuf->pPhysAddr = vdoa.output.paddr;
+ 
+   return true;
+ }
+ 
+-int CIMXContext::CheckTask(IPUTaskPtr &ipu)
++int CIMXContext::CheckTask(IPUTask &task)
+ {
+   //We really use IPU only if we have to deinterlace (using VDIC)
+   int ret = IPU_CHECK_ERR_INPUT_CROP;
+   while (ret > IPU_CHECK_ERR_MIN)
+   {
+-    ret = ioctl(m_ipuHandle, IPU_CHECK_TASK, &ipu->task);
++    ret = ioctl(m_ipuHandle, IPU_CHECK_TASK, &task);
+     switch (ret)
+     {
+       case IPU_CHECK_OK:
+         break;
+       case IPU_CHECK_ERR_SPLIT_INPUTW_OVER:
+-        ipu->task.input.crop.w -= 8;
++        task.input.crop.w -= 8;
+         break;
+       case IPU_CHECK_ERR_SPLIT_INPUTH_OVER:
+-        ipu->task.input.crop.h -= 8;
++        task.input.crop.h -= 8;
+         break;
+       case IPU_CHECK_ERR_SPLIT_OUTPUTW_OVER:
+-        ipu->task.output.width -= 8;
+-        ipu->task.output.crop.w = ipu->task.output.width;
++        task.output.width -= 8;
++        task.output.crop.w = task.output.width;
+         break;
+       case IPU_CHECK_ERR_SPLIT_OUTPUTH_OVER:
+-        ipu->task.output.height -= 8;
+-        ipu->task.output.crop.h = ipu->task.output.height;
++        task.output.height -= 8;
++        task.output.crop.h = task.output.height;
+         break;
+       // deinterlacing setup changing, m_ipuHandle is closed
+       case -1:
+@@ -1879,41 +1879,41 @@ int CIMXContext::CheckTask(IPUTaskPtr &ipu)
+   return 0;
+ }
+ 
+-bool CIMXContext::DoTask(IPUTaskPtr &ipu, CRect *dest)
++bool CIMXContext::DoTask(IPUTask &task, CRect *dest)
+ {
+   // Clear page if cropping changes
+-  CRectInt dstRect(ipu->task.output.crop.pos.x, ipu->task.output.crop.pos.y,
+-                   ipu->task.output.crop.pos.x + ipu->task.output.crop.w,
+-                   ipu->task.output.crop.pos.y + ipu->task.output.crop.h);
++  CRectInt dstRect(task.output.crop.pos.x, task.output.crop.pos.y,
++                   task.output.crop.pos.x + task.output.crop.w,
++                   task.output.crop.pos.y + task.output.crop.h);
+ 
+   // Populate input block
+-  ipu->task.input.width   = ipu->current->iWidth;
+-  ipu->task.input.height  = ipu->current->iHeight;
+-  ipu->task.input.format  = ipu->current->iFormat;
+-  ipu->task.input.paddr   = ipu->current->pPhysAddr;
++  task.input.width   = task.currBuf->iWidth;
++  task.input.height  = task.currBuf->iHeight;
++  task.input.format  = task.currBuf->iFormat;
++  task.input.paddr   = task.currBuf->pPhysAddr;
+ 
+-  ipu->task.output.width  = m_fbWidth;
+-  ipu->task.output.height = m_fbHeight;
+-  ipu->task.output.format = m_fbVar.nonstd;
+-  ipu->task.output.paddr  = m_fbPhysAddr + ipu->page*m_fbPageSize;
++  task.output.width  = m_fbWidth;
++  task.output.height = m_fbHeight;
++  task.output.format = m_fbVar.nonstd;
++  task.output.paddr  = m_fbPhysAddr + task.targetPage*m_fbPageSize;
+ 
+-  if (m_pageCrops[ipu->page] != dstRect)
++  if (m_pageCrops[task.targetPage] != dstRect)
+   {
+-    m_pageCrops[ipu->page] = dstRect;
+-    Clear(ipu->page);
++    m_pageCrops[task.targetPage] = dstRect;
++    Clear(task.targetPage);
    }
  
+-  if ((ipu->task.input.crop.w <= 0) || (ipu->task.input.crop.h <= 0)
+-  ||  (ipu->task.output.crop.w <= 0) || (ipu->task.output.crop.h <= 0))
++  if ((task.input.crop.w <= 0) || (task.input.crop.h <= 0)
++  ||  (task.output.crop.w <= 0) || (task.output.crop.h <= 0))
+     return false;
+ 
+-  if (!TileTask(ipu))
++  if (!TileTask(task))
+     return false;
+ 
+-  if (CheckTask(ipu) == IPU_CHECK_ERR_PROC_NO_NEED)
++  if (CheckTask(task) == IPU_CHECK_ERR_PROC_NO_NEED)
+     return true;
+ 
+-  int ret = ioctl(m_ipuHandle, IPU_QUEUE_TASK, &ipu->task);
++  int ret = ioctl(m_ipuHandle, IPU_QUEUE_TASK, &task);
+   if (ret < 0)
+     CLog::Log(LOGERROR, "IPU task failed: %s at #%d (ret %d)\n", strerror(errno), __LINE__, ret);
+ 
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+index 91f9b8c..5b56293 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.h
+@@ -149,33 +149,27 @@ public:
+   static const int  m_fbPages;
+ 
+ private:
+-  struct IPUTask
++  struct IPUTask : public ipu_task
+   {
+-    IPUTask(CIMXBuffer *buffer_p, CIMXBuffer *buffer, int p = 0)
+-      : previous(buffer_p), current(buffer), page(p)
++    IPUTask(CIMXBuffer *buffer_p, CIMXBuffer *buffer, int page)
++      : prevBuf(buffer_p), currBuf(buffer), targetPage(page)
+     {
+-      memset(&task, 0, sizeof(task));
++      memset(this, 0, sizeof(ipu_task));
+     }
+ 
+     // Kept for reference
+-    CIMXBuffer *previous;
+-    CIMXBuffer *current;
++    CIMXBuffer *prevBuf;
++    CIMXBuffer *currBuf;
+ 
+-    // The actual task
+-    struct ipu_task task;
+-
+-    unsigned int page;
+-    int shift = true;
++    unsigned int targetPage;
+   };
+ 
+-  typedef std::shared_ptr<struct IPUTask> IPUTaskPtr;
+-
+   bool GetFBInfo(const std::string &fbdev, struct fb_var_screeninfo *fbVar);
+ 
+-  void PrepareTask(IPUTaskPtr &ipu, CRect srcRect, CRect dstRect);
+-  bool DoTask(IPUTaskPtr &ipu, CRect *dest = nullptr);
+-  bool TileTask(IPUTaskPtr &ipu);
+-  int  CheckTask(IPUTaskPtr &ipu);
++  void PrepareTask(IPUTask &task, CRect srcRect, CRect dstRect);
++  bool DoTask(IPUTask &task, CRect *dest = nullptr);
++  bool TileTask(IPUTask &task);
++  int  CheckTask(IPUTask &task);
+ 
+   void SetFieldData(uint8_t fieldFmt, double fps);
+ 
 -- 
 1.9.1
+
+
+==============================================================
+file 0044-IMXCODEC-Fix-hang-on-exit-and-invalid-file-descripto.patch
+==============================================================
+
+From 89ab2c4de60034d81df3c91a19f7e0e7522d1b5e Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Mon, 2 Jan 2017 22:23:24 +0100
+Subject: [PATCH] IMXCODEC: Fix hang on exit and invalid file descriptor
+ handling
+
+---
+ .../DVDCodecs/Video/DVDVideoCodecIMX.cpp           | 28 +++++++++++++---------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+index 6b0e2ee..9436d4e 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecIMX.cpp
+@@ -1268,11 +1268,11 @@ CDVDVideoCodecIMXBuffer::~CDVDVideoCodecIMXBuffer()
+ 
+ CIMXContext::CIMXContext()
+   : CThread("iMX IPU")
+-  , m_fbHandle(0)
++  , m_fbHandle(-1)
+   , m_fbCurrentPage(0)
+   , m_fbPhysAddr(0)
+   , m_fbVirtAddr(NULL)
+-  , m_ipuHandle(0)
++  , m_ipuHandle(-1)
+   , m_vsync(true)
+   , m_pageCrops(NULL)
+   , m_bFbIsConfigured(false)
+@@ -1281,13 +1281,17 @@ CIMXContext::CIMXContext()
+   , m_deviceName("/dev/fb1")
+ {
+   m_pageCrops = new CRectInt[m_fbPages];
++  m_processInfo = 0;
+   OpenDevices();
+ }
+ 
+ CIMXContext::~CIMXContext()
+ {
+-  Stop(false);
++  Stop();
+   Dispose();
++
++  m_processInfo = 0;
++  Clear(-1);
+   CloseDevices();
+ }
+ 
+@@ -1439,7 +1443,7 @@ bool CIMXContext::OpenDevices()
+   m_fbHandle = open(m_deviceName.c_str(), O_RDWR, 0);
+   OpenIPU();
+ 
+-  bool opened = m_fbHandle > 0 && m_ipuHandle > 0;
++  bool opened = m_fbHandle != -1 && m_ipuHandle != -1;
+   if (!opened)
+     CLog::Log(LOGWARNING, "iMX : Failed to open framebuffer: %s\n", m_deviceName.c_str());
+ 
+@@ -1448,10 +1452,10 @@ bool CIMXContext::OpenDevices()
+ 
+ void CIMXContext::CloseIPU()
+ {
+-  if (m_ipuHandle)
++  if (m_ipuHandle != -1)
+   {
+     close(m_ipuHandle);
+-    m_ipuHandle = 0;
++    m_ipuHandle = -1;
+   }
+ }
+ 
+@@ -1459,10 +1463,10 @@ void CIMXContext::CloseDevices()
+ {
+   CLog::Log(LOGINFO, "iMX : Closing devices\n");
+ 
+-  if (m_fbHandle)
++  if (m_fbHandle != -1)
+   {
+     close(m_fbHandle);
+-    m_fbHandle = 0;
++    m_fbHandle = -1;
+   }
+ 
+   CloseIPU();
+@@ -1470,7 +1474,7 @@ void CIMXContext::CloseDevices()
+ 
+ bool CIMXContext::Blank()
+ {
+-  if (!m_fbHandle) return false;
++  if (m_fbHandle == -1) return false;
+ 
+   m_bFbIsConfigured = false;
+   return ioctl(m_fbHandle, FBIOBLANK, 1) == 0;
+@@ -1478,7 +1482,7 @@ bool CIMXContext::Blank()
+ 
+ bool CIMXContext::Unblank()
+ {
+-  if (!m_fbHandle) return false;
++  if (m_fbHandle == -1) return false;
+ 
+   int ret = ioctl(m_fbHandle, FBIOBLANK, FB_BLANK_UNBLANK);
+   m_bFbIsConfigured = true;
+@@ -1620,7 +1624,7 @@ bool CIMXContext::ShowPage()
+ 
+   {
+     CSingleLock lk(m_pageSwapLock);
+-    if (!m_bFbIsConfigured)
++    if (!m_bFbIsConfigured || m_fbHandle == -1 )
+       return false;
+   }
+ 
+@@ -1632,6 +1636,8 @@ bool CIMXContext::ShowPage()
+ 
+   if (ioctl(m_fbHandle, MXCFB_WAIT_FOR_VSYNC, nullptr) < 0 && !CIMX::IsBlank())
+     CLog::Log(LOGWARNING, "Vsync failed: %s\n", strerror(errno));
++
++  return true;
+ }
+ 
+ void CIMXContext::SetProcessInfo(CProcessInfo *m_pProcessInfo)
+-- 
+1.9.1
+
+
+==============================================================
+file 0045-IMXRender-Fix-deinterlace-broken-by-refactor-patch.patch
+==============================================================
+
+From 710564e27cc8fd7b83d0913ac72c311fa6fece3c Mon Sep 17 00:00:00 2001
+From: Rudi <r.ihle@s-t.de>
+Date: Sun, 8 Jan 2017 16:32:13 +0100
+Subject: [PATCH] IMXRender: Fix deinterlace broken by refactor patch
+
+---
+ .../VideoRenderers/HwDecRender/RendererIMX.cpp       | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+index 5167bd2..bd15091 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererIMX.cpp
+@@ -140,7 +140,14 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+   CDVDVideoCodecIMXBuffer *buffer = static_cast<CDVDVideoCodecIMXBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
+   if (buffer)
+   {
+-    if (buffer == m_bufHistory[0] && flagsPrev == flags)
++    if (m_bufHistory[0] != buffer)
++    {
++      buffer->Lock();
++      SAFE_RELEASE(m_bufHistory[1]);
++      m_bufHistory[1] = m_bufHistory[0];
++      m_bufHistory[0] = buffer;
++    }
++    else if (flagsPrev == flags)
+     {
+       g_IMX.WaitVsync();
+       return true;
+@@ -148,15 +155,6 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+ 
+     flagsPrev = flags;
+ 
+-    buffer->Lock();
+-
+-    SAFE_RELEASE(m_bufHistory[1]);
+-    m_bufHistory[1] = m_bufHistory[0];
+-    m_bufHistory[0] = buffer;
+-
+-    if (!(flags & RENDER_FLAG_FIELDMASK))
+-      SAFE_RELEASE(m_bufHistory[1]);
+-
+     // this hack is needed to get the 2D mode of a 3D movie going
+     RENDER_STEREO_MODE stereo_mode = g_graphicsContext.GetStereoMode();
+     if (stereo_mode)
+@@ -204,7 +202,7 @@ bool CRendererIMX::RenderUpdateVideoHook(bool clear, DWORD flags, DWORD alpha)
+       }
+     }
+ 
+-    g_IMXContext.Blit(m_bufHistory[1], m_bufHistory[0], srcRect, dstRect, fieldFmt);
++    g_IMXContext.Blit(m_bufHistory[1], buffer, srcRect, dstRect, fieldFmt);
+   }
+ 
+ #if 0
+-- 
+2.7.4
 
 
 ==============================================================

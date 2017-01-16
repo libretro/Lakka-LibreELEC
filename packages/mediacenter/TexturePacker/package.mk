@@ -24,18 +24,17 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL=""
 PKG_DEPENDS_HOST="lzo:host libpng:host libjpeg-turbo:host giflib:host"
-PKG_NEED_UNPACK="$ROOT/packages/mediacenter/kodi/package.mk"
-PKG_PRIORITY="optional"
-PKG_SECTION="multimedia"
+PKG_NEED_UNPACK="$ROOT/packages/mediacenter/$MEDIACENTER/package.mk"
+PKG_SECTION="mediacenter"
 PKG_SHORTDESC="kodi-platform:"
 PKG_LONGDESC="kodi-platform:"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_SCRIPT="$(get_build_dir kodi)/tools/depends/native/TexturePacker/CMakeLists.txt"
+PKG_CMAKE_SCRIPT="$(get_build_dir $MEDIACENTER)/tools/depends/native/TexturePacker/CMakeLists.txt"
 
-PKG_CMAKE_OPTS_HOST="-DCORE_SOURCE_DIR=$(get_build_dir kodi) \
+PKG_CMAKE_OPTS_HOST="-DCORE_SOURCE_DIR=$(get_build_dir $MEDIACENTER) \
                      -Wno-dev"
 
 pre_build_host() {
@@ -43,12 +42,10 @@ pre_build_host() {
 }
 
 pre_configure_host() {
-  export CXXFLAGS="$CXXFLAGS -std=c++11 -DTARGET_POSIX -DTARGET_LINUX -D_LINUX -I$(get_build_dir kodi)/xbmc/linux"
+  export CXXFLAGS="$CXXFLAGS -std=c++11 -DTARGET_POSIX -DTARGET_LINUX -D_LINUX -I$(get_build_dir $MEDIACENTER)/xbmc/linux"
 }
 
 makeinstall_host() {
   mkdir -p $ROOT/$TOOLCHAIN/bin
     cp TexturePacker $ROOT/$TOOLCHAIN/bin
-  :
 }
-

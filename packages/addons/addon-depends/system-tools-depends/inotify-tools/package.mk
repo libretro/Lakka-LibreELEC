@@ -33,6 +33,10 @@ PKG_IS_ADDON="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared"
 
+pre_configure_target() {
+  CFLAGS="$CFLAGS -Wno-error=misleading-indentation"
+}
+
 makeinstall_target() {
   : nothing to do
 }
