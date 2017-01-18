@@ -18,7 +18,6 @@
 
 PKG_NAME="libsamplerate"
 PKG_VERSION="0.1.8"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.mega-nerd.com/SRC/"

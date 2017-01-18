@@ -18,7 +18,6 @@
 
 PKG_NAME="libhid"
 PKG_VERSION="0.2.16"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libhid.alioth.debian.org/"

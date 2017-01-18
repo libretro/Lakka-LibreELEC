@@ -18,7 +18,6 @@
 
 PKG_NAME="mpg123"
 PKG_VERSION="1.23.6"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2"
 PKG_SITE="http://www.mpg123.org/"

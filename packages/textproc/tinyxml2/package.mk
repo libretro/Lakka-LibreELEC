@@ -18,7 +18,6 @@
 
 PKG_NAME="tinyxml2"
 PKG_VERSION="1.0.12"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="zlib"
 PKG_SITE="http://www.grinninglizard.com/tinyxml2/index.html"

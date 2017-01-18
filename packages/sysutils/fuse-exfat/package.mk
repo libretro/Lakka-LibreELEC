@@ -18,7 +18,6 @@
 
 PKG_NAME="fuse-exfat"
 PKG_VERSION="1.2.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/relan/exfat"

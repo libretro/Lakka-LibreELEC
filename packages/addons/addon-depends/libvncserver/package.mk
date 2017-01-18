@@ -18,7 +18,6 @@
 
 PKG_NAME="libvncserver"
 PKG_VERSION="0.9.10"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libvnc.github.io/"

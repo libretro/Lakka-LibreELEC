@@ -18,7 +18,6 @@
 
 PKG_NAME="pygobject"
 PKG_VERSION="2.28.6"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.pygtk.org/"

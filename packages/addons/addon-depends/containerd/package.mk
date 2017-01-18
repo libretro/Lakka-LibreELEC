@@ -18,7 +18,6 @@
 
 PKG_NAME="containerd"
 PKG_VERSION="0366d7e"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.tools/"

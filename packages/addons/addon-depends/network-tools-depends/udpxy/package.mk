@@ -18,7 +18,6 @@
 
 PKG_NAME="udpxy"
 PKG_VERSION="1.0.23-0"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.udpxy.com/download-en.html"

@@ -20,7 +20,6 @@
 
 PKG_NAME="atk"
 PKG_VERSION="2.20.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://library.gnome.org/devel/atk/"

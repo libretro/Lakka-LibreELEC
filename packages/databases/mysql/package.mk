@@ -18,7 +18,6 @@
 
 PKG_NAME="mysql"
 PKG_VERSION="5.7.17"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mysql.com"

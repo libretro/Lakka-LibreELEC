@@ -18,7 +18,6 @@
 
 PKG_NAME="sqlite"
 PKG_VERSION="autoconf-3150200"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="PublicDomain"
 PKG_SITE="https://www.sqlite.org/"

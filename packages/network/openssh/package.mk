@@ -18,7 +18,6 @@
 
 PKG_NAME="openssh"
 PKG_VERSION="7.3p1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.openssh.com/"

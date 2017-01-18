@@ -18,7 +18,6 @@
 
 PKG_NAME="jasper"
 PKG_VERSION="1.900.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OpenSource"
 PKG_SITE="http://www.ece.uvic.ca/~mdadams/jasper/"

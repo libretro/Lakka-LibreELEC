@@ -18,7 +18,6 @@
 
 PKG_NAME="libirman"
 PKG_VERSION="0.5.2"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sourceforge.net/projects/lirc"

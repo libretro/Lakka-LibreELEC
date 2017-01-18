@@ -18,7 +18,6 @@
 
 PKG_NAME="libXScrnSaver"
 PKG_VERSION="1.2.2"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://xorg.freedesktop.org/"

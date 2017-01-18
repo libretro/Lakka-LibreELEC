@@ -18,7 +18,6 @@
 
 PKG_NAME="picamera"
 PKG_VERSION="1.10"
-PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/waveform80/picamera"

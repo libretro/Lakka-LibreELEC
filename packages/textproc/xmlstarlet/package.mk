@@ -18,7 +18,6 @@
 
 PKG_NAME="xmlstarlet"
 PKG_VERSION="1.6.1"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://xmlstar.sourceforge.net"

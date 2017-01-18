@@ -18,7 +18,6 @@
 
 PKG_NAME="enet"
 PKG_VERSION="1.3.13"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE=""
 PKG_SITE=""

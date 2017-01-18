@@ -18,7 +18,6 @@
 
 PKG_NAME="jq"
 PKG_VERSION="1.5"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://stedolan.github.io/jq/"

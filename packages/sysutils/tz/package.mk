@@ -18,7 +18,6 @@
 
 PKG_NAME="tz"
 PKG_VERSION="2016i"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Public Domain"
 PKG_SITE="http://www.iana.org/time-zones"

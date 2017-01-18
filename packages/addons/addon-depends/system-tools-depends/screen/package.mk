@@ -18,7 +18,6 @@
 
 PKG_NAME="screen"
 PKG_VERSION="4.3.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/screen/"

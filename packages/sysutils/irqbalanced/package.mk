@@ -18,7 +18,6 @@
 
 PKG_NAME="irqbalanced"
 PKG_VERSION="7f31046"
-PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"

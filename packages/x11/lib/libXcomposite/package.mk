@@ -18,7 +18,6 @@
 
 PKG_NAME="libXcomposite"
 PKG_VERSION="0.4.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
