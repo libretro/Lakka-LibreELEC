@@ -18,7 +18,6 @@
 
 PKG_NAME="enum34"
 PKG_VERSION="1.1.6"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://bitbucket.org/stoneleaf/enum34"

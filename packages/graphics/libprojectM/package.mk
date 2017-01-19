@@ -18,7 +18,6 @@
 
 PKG_NAME="libprojectM"
 PKG_VERSION="2.0.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://projectm.sourceforge.net/"

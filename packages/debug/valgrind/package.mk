@@ -18,7 +18,6 @@
 
 PKG_NAME="valgrind"
 PKG_VERSION="3.12.0"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://valgrind.org/"

@@ -18,7 +18,6 @@
 
 PKG_NAME="enca"
 PKG_VERSION="1.19"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freshmeat.net/projects/enca/"

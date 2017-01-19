@@ -18,7 +18,6 @@
 
 PKG_NAME="flex"
 PKG_VERSION="2.5.39"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://flex.sourceforge.net/"

@@ -18,7 +18,6 @@
 
 PKG_NAME="samba"
 PKG_VERSION="3.6.25"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.samba.org"

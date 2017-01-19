@@ -18,7 +18,6 @@
 
 PKG_NAME="lockdev"
 PKG_VERSION="16b8996"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://alioth.debian.org/scm/?group_id=100443"

@@ -18,7 +18,6 @@
 
 PKG_NAME="bison"
 PKG_VERSION="3.0.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/bison/"

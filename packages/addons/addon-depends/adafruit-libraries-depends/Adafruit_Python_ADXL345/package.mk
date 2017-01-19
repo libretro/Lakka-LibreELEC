@@ -18,7 +18,6 @@
 
 PKG_NAME="Adafruit_Python_ADXL345"
 PKG_VERSION="b153663"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

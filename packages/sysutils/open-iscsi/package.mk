@@ -19,7 +19,6 @@
 
 PKG_NAME="open-iscsi"
 PKG_VERSION="bf39941"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/mikechristie/open-iscsi"

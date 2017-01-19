@@ -18,7 +18,6 @@
 
 PKG_NAME="mtpfs"
 PKG_VERSION="1.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.adebenham.com/mtpfs/"

@@ -18,7 +18,6 @@
 
 PKG_NAME="RTL8188EU"
 PKG_VERSION="ced2b64"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 # realtek: PKG_SITE="http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PFid=48&Level=5&Conn=4&ProdID=274&DownTypeID=3&GetDown=false&Downloads=true"

@@ -18,7 +18,6 @@
 
 PKG_NAME="ntfs-3g_ntfsprogs"
 PKG_VERSION="2016.2.22"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.ntfs-3g.org/"

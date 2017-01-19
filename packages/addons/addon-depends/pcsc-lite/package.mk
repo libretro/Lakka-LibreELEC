@@ -18,7 +18,6 @@
 
 PKG_NAME="pcsc-lite"
 PKG_VERSION="1.8.16"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pcsclite.alioth.debian.org/pcsclite.html"

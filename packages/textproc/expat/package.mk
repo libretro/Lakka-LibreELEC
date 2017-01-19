@@ -18,7 +18,6 @@
 
 PKG_NAME="expat"
 PKG_VERSION="2.2.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://expat.sourceforge.net/"

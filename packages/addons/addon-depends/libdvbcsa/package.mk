@@ -18,7 +18,6 @@
 
 PKG_NAME="libdvbcsa"
 PKG_VERSION="4ce8be8"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.videolan.org/developers/libdvbcsa.html"

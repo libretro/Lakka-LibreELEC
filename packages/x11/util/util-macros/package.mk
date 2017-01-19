@@ -18,7 +18,6 @@
 
 PKG_NAME="util-macros"
 PKG_VERSION="1.19.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

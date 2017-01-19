@@ -18,7 +18,6 @@
 
 PKG_NAME="libXfont2"
 PKG_VERSION="2.0.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

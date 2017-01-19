@@ -18,7 +18,6 @@
 
 PKG_NAME="iperf"
 PKG_VERSION="3.1.2"
-PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://iperf.fr/"

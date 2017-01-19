@@ -18,7 +18,6 @@
 
 PKG_NAME="dosfstools"
 PKG_VERSION="3.0.28"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/dosfstools/dosfstools"

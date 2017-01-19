@@ -18,7 +18,6 @@
 
 PKG_NAME="dbus-glib"
 PKG_VERSION="0.108"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://freedesktop.org/wiki/Software/dbus"

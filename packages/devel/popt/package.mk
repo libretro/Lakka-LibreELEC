@@ -18,7 +18,6 @@
 
 PKG_NAME="popt"
 PKG_VERSION="1.16"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://rpm5.org/files/popt/"

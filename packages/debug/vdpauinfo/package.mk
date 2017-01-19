@@ -18,7 +18,6 @@
 
 PKG_NAME="vdpauinfo"
 PKG_VERSION="1.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/VDPAU"

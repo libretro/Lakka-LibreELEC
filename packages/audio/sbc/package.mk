@@ -18,7 +18,6 @@
 
 PKG_NAME="sbc"
 PKG_VERSION="1.3"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.bluez.org/"

@@ -18,7 +18,6 @@
 
 PKG_NAME="pkg-config"
 PKG_VERSION="0.29.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/software/pkgconfig/"

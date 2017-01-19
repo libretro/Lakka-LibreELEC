@@ -18,7 +18,6 @@
 
 PKG_NAME="procps-ng"
 PKG_VERSION="3.3.12"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://gitlab.com/procps-ng/procps"

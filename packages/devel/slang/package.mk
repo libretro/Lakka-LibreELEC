@@ -18,7 +18,6 @@
 
 PKG_NAME="slang"
 PKG_VERSION="2.1.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://s-lang.org/"

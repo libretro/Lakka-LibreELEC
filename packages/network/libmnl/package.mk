@@ -18,7 +18,6 @@
 
 PKG_NAME="libmnl"
 PKG_VERSION="1.0.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://netfilter.org/projects/libmnl"

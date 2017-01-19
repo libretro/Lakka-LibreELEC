@@ -18,7 +18,6 @@
 
 PKG_NAME="plymouth-lite"
 PKG_VERSION="0.6.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.meego.com"

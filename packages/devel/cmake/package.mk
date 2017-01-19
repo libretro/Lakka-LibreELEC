@@ -18,7 +18,6 @@
 
 PKG_NAME="cmake"
 PKG_VERSION="3.6.3"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.cmake.org/"

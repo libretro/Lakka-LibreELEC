@@ -18,7 +18,6 @@
 
 PKG_NAME="llvm"
 PKG_VERSION="3.9.0"
-PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://llvm.org/"

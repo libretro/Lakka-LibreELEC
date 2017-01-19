@@ -18,7 +18,6 @@
 
 PKG_NAME="lftp"
 PKG_VERSION="4.7.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://lftp.yar.ru/"

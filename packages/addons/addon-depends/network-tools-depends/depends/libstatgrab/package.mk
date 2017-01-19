@@ -18,7 +18,6 @@
 
 PKG_NAME="libstatgrab"
 PKG_VERSION="0.91"
-PKG_REV="1"
 PKG_SITE="http://www.i-scream.org/libstatgrab/"
 PKG_URL="http://ftp.i-scream.org/pub/i-scream/libstatgrab/libstatgrab-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"

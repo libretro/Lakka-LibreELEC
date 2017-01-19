@@ -18,7 +18,6 @@
 
 PKG_NAME="libzip"
 PKG_VERSION="0.11.2"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.nih.at/libzip/"

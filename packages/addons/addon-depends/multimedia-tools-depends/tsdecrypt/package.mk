@@ -20,7 +20,6 @@
 
 PKG_NAME="tsdecrypt"
 PKG_VERSION="10.0"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://georgi.unixsol.org/programs/tsdecrypt"

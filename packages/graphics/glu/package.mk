@@ -18,7 +18,6 @@
 
 PKG_NAME="glu"
 PKG_VERSION="9.0.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://cgit.freedesktop.org/mesa/glu/"
