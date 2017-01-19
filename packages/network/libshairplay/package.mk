@@ -18,7 +18,6 @@
 
 PKG_NAME="libshairplay"
 PKG_VERSION="ce80e00"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/juhovh/shairplay"

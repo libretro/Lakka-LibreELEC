@@ -18,7 +18,6 @@
 
 PKG_NAME="liberation-fonts-ttf"
 PKG_VERSION="2.00.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OFL1_1"
 PKG_SITE="https://www.redhat.com/promo/fonts/"

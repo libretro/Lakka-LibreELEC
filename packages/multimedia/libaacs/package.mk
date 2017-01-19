@@ -18,7 +18,6 @@
 
 PKG_NAME="libaacs"
 PKG_VERSION="9da2b68"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org/developers/libaacs.html"

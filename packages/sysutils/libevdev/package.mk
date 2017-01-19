@@ -18,7 +18,6 @@
 
 PKG_NAME="libevdev"
 PKG_VERSION="1.5.5"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/libevdev/"

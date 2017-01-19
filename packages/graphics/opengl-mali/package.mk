@@ -18,7 +18,6 @@
 
 PKG_NAME="opengl-mali"
 PKG_VERSION="20130520"
-PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.arm.com/products/multimedia/mali-graphics-hardware/mali-400-mp.php"

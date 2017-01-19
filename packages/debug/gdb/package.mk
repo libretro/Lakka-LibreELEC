@@ -18,7 +18,6 @@
 
 PKG_NAME="gdb"
 PKG_VERSION="7.11.1"
-PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/gdb/"

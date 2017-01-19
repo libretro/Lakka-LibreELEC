@@ -18,7 +18,6 @@
 
 PKG_NAME="wetekdvb"
 PKG_VERSION="20161127"
-PKG_REV="1"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.wetek.com/"

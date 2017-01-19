@@ -18,7 +18,6 @@
 
 PKG_NAME="kodi-platform"
 PKG_VERSION="c8188d8"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"

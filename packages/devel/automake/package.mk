@@ -18,7 +18,6 @@
 
 PKG_NAME="automake"
 PKG_VERSION="1.15"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sources.redhat.com/automake/"

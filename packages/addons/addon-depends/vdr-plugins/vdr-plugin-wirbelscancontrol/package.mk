@@ -18,7 +18,6 @@
 
 PKG_NAME="vdr-plugin-wirbelscancontrol"
 PKG_VERSION="0.0.2"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wirbel.htpc-forum.de/wirbelscancontrol/index2.html"

@@ -18,7 +18,6 @@
 
 PKG_NAME="wireless-regdb"
 PKG_VERSION="2016.06.10"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wireless.kernel.org/en/developers/Regulatory"

@@ -18,7 +18,6 @@
 
 PKG_NAME="Adafruit_Python_BMP"
 PKG_VERSION="ad6521d"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

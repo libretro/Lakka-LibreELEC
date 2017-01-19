@@ -18,7 +18,6 @@
 
 PKG_NAME="iana-etc"
 PKG_VERSION="2.30"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.linuxfromscratch.org/lfs/view/development/chapter06/iana-etc.html"

@@ -18,7 +18,6 @@
 
 PKG_NAME="swig"
 PKG_VERSION="3.0.10"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.swig.org"

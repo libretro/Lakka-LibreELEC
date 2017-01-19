@@ -18,7 +18,6 @@
 
 PKG_NAME="libssh"
 PKG_VERSION="0.7.3"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OpenSource"
 PKG_SITE="http://www.libssh.org/"

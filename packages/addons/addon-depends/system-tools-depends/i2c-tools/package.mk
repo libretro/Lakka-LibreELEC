@@ -18,7 +18,6 @@
 
 PKG_NAME="i2c-tools"
 PKG_VERSION="3.1.2"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lm-sensors.org/wiki/I2CTools"

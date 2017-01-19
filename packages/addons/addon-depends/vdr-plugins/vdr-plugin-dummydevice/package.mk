@@ -18,7 +18,6 @@
 
 PKG_NAME="vdr-plugin-dummydevice"
 PKG_VERSION="2.0.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.vdr-wiki.de/wiki/index.php/Dummydevice-plugin"

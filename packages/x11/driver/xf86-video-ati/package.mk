@@ -18,7 +18,6 @@
 
 PKG_NAME="xf86-video-ati"
 PKG_VERSION="7.8.0"
-PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"

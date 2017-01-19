@@ -18,7 +18,6 @@
 
 PKG_NAME="espeak"
 PKG_VERSION="1.48.04-source"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://espeak.sourceforge.net/"

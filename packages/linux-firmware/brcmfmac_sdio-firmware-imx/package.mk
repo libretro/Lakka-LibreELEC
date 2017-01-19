@@ -18,7 +18,6 @@
 
 PKG_NAME="brcmfmac_sdio-firmware-imx"
 PKG_VERSION="0.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/LibreELEC/LibreELEC.tv"

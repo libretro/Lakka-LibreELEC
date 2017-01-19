@@ -18,7 +18,6 @@
 
 PKG_NAME="liblogging"
 PKG_VERSION="1.0.5"
-PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.liblogging.org/"

@@ -20,7 +20,6 @@
 
 PKG_NAME="v4l-utils"
 PKG_VERSION="1.8.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"
