@@ -18,7 +18,6 @@
 
 PKG_NAME="tcpdump"
 PKG_VERSION="4.7.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_SITE="http://www.tcpdump.org/"
 PKG_URL="http://www.tcpdump.org/release/tcpdump-${PKG_VERSION}.tar.gz"

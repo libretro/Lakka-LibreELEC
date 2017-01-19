@@ -22,7 +22,6 @@
 
 PKG_NAME="fakeroot"
 PKG_VERSION="1.20.2"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL3"
 PKG_SITE="http://fakeroot.alioth.debian.org/"

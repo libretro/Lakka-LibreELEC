@@ -17,7 +17,6 @@
 ################################################################################
 
 PKG_NAME="gpu-aml"
-PKG_REV="1"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://openlinux.amlogic.com:8000/download/ARM/gpu/"

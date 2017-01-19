@@ -18,7 +18,6 @@
 
 PKG_NAME="opencaster"
 PKG_VERSION="3.2.2"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.avalpa.com/the-key-values/15-free-software/33-opencaster"

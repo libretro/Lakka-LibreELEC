@@ -18,7 +18,6 @@
 
 PKG_NAME="renderproto"
 PKG_VERSION="0.11.1"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"

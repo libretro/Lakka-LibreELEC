@@ -19,7 +19,6 @@
 
 PKG_NAME="open-vm-tools"
 PKG_VERSION="stable-10.0.7"
-PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://open-vm-tools.sourceforge.net"

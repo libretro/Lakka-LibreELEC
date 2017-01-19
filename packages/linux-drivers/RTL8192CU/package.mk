@@ -18,7 +18,6 @@
 
 PKG_NAME="RTL8192CU"
 PKG_VERSION="v4.0.2_9000.20130911"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PFid=48&Level=5&Conn=4&ProdID=274&DownTypeID=3&GetDown=false&Downloads=true"

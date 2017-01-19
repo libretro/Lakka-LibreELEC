@@ -18,7 +18,6 @@
 
 PKG_NAME="Adafruit_Python_TCS34725"
 PKG_VERSION="4ff05a3"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

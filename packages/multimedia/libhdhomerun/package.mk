@@ -18,7 +18,6 @@
 
 PKG_NAME="libhdhomerun"
 PKG_VERSION="20150826"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.silicondust.com/products/hdhomerun/dvbt/"

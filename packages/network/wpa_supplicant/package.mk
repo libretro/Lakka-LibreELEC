@@ -18,7 +18,6 @@
 
 PKG_NAME="wpa_supplicant"
 PKG_VERSION="2.5"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://hostap.epitest.fi/wpa_supplicant/"

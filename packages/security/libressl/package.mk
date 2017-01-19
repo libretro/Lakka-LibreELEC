@@ -18,7 +18,6 @@
 
 PKG_NAME="libressl"
 PKG_VERSION="2.4.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.libressl.org/"

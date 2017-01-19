@@ -18,7 +18,6 @@
 
 PKG_NAME="glibc"
 PKG_VERSION="2.24"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/libc/"

@@ -18,7 +18,6 @@
 
 PKG_NAME="pv"
 PKG_VERSION="1.6.0"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GNU"
 PKG_SITE="http://www.ivarch.com/programs/pv.shtml"

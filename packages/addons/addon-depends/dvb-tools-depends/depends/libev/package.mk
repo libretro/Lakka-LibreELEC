@@ -18,7 +18,6 @@
 
 PKG_NAME="libev"
 PKG_VERSION="4.22"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://software.schmorp.de/pkg/libev.html"

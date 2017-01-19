@@ -18,7 +18,6 @@
 
 PKG_NAME="kbproto"
 PKG_VERSION="1.0.7"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"

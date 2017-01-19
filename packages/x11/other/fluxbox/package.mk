@@ -19,7 +19,6 @@
 PKG_NAME="fluxbox"
 # dont bump or go back to ratpoison then f*** all 3rdparty stuff.
 PKG_VERSION="1.3.7"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://fluxbox.org/"

@@ -18,7 +18,6 @@
 
 PKG_NAME="libdnet"
 PKG_VERSION="1.12"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://code.google.com/p/libdnet/"

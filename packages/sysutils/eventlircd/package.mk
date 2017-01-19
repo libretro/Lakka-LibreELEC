@@ -18,7 +18,6 @@
 
 PKG_NAME="eventlircd"
 PKG_VERSION="7faaf9d"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/OpenELEC/eventlircd"

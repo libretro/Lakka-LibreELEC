@@ -18,7 +18,6 @@
 
 PKG_NAME="libmodplug"
 PKG_VERSION="0.8.8.5"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://modplug-xmms.sourceforge.net/"
