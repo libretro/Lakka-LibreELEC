@@ -18,7 +18,6 @@
 
 PKG_NAME="xkeyboard-config"
 PKG_VERSION="2.19"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

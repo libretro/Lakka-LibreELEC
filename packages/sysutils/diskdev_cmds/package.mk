@@ -18,7 +18,6 @@
 
 PKG_NAME="diskdev_cmds"
 PKG_VERSION="332.14"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="APSL"
 PKG_SITE="http://src.gnu-darwin.org/DarwinSourceArchive/expanded/diskdev_cmds/"

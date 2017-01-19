@@ -18,7 +18,6 @@
 
 PKG_NAME="Adafruit_Python_DHT"
 PKG_VERSION="310c59b"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

@@ -18,7 +18,6 @@
 
 PKG_NAME="inotify-tools"
 PKG_VERSION="1df9af4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://wiki.github.com/rvoicilas/inotify-tools/"

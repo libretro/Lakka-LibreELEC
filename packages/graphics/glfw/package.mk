@@ -18,7 +18,6 @@
 
 PKG_NAME="glfw"
 PKG_VERSION="2.7.9"
-PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="BSD"
 PKG_SITE="http://glfw.org"

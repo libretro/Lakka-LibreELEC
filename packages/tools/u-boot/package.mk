@@ -47,7 +47,6 @@ elif [ "$UBOOT_VERSION" = "sunxi" ]; then
 else
   exit 0
 fi
-PKG_REV="1"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SECTION="tools"

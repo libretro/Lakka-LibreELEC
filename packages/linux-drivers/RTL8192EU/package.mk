@@ -18,7 +18,6 @@
 
 PKG_NAME="RTL8192EU"
 PKG_VERSION="0c80da7"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/Mange/rtl8192eu-linux-driver"

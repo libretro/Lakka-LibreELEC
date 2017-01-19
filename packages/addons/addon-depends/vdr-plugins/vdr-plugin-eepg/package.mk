@@ -18,7 +18,6 @@
 
 PKG_NAME="vdr-plugin-eepg"
 PKG_VERSION="9cd9a75"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://projects.vdr-developer.org/projects/plg-eepg"

@@ -18,7 +18,6 @@
 
 PKG_NAME="bluez"
 PKG_VERSION="5.43"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.bluez.org/"

@@ -18,7 +18,6 @@
 
 PKG_NAME="zip"
 PKG_VERSION="30"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Info-ZIP"
 PKG_SITE="http://www.info-zip.org/pub/infozip/"

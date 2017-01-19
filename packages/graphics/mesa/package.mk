@@ -18,7 +18,6 @@
 
 PKG_NAME="mesa"
 PKG_VERSION="13.0.3"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"

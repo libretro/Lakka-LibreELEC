@@ -18,7 +18,6 @@
 
 PKG_NAME="lirc"
 PKG_VERSION="0.9.4c"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lirc.org"

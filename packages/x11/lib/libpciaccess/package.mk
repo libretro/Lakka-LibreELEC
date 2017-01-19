@@ -18,7 +18,6 @@
 
 PKG_NAME="libpciaccess"
 PKG_VERSION="0.13.4"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://freedesktop.org"

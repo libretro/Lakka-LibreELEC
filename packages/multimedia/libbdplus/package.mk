@@ -18,7 +18,6 @@
 
 PKG_NAME="libbdplus"
 PKG_VERSION="0.1.2"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.videolan.org/developers/libbdplus.html"

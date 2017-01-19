@@ -18,7 +18,6 @@
 
 PKG_NAME="systemd"
 PKG_VERSION="232"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"

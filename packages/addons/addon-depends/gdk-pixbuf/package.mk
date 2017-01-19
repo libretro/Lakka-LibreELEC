@@ -20,7 +20,6 @@
 
 PKG_NAME="gdk-pixbuf"
 PKG_VERSION="2.34.0"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.gtk.org/"

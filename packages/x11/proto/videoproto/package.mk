@@ -18,7 +18,6 @@
 
 PKG_NAME="videoproto"
 PKG_VERSION="2.3.3"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"

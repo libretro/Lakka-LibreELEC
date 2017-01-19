@@ -18,7 +18,6 @@
 
 PKG_NAME="imx-gpu-viv"
 PKG_VERSION="5.0.11.p4.5-hfp"
-PKG_REV="1"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.freescale.com"

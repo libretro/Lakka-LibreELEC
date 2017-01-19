@@ -18,7 +18,6 @@
 
 PKG_NAME="bash"
 PKG_VERSION="4.3.46"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/bash/bash.html"

@@ -18,7 +18,6 @@
 
 PKG_NAME="evtest"
 PKG_VERSION="1.33"
-PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://cgit.freedesktop.org/evtest/"
