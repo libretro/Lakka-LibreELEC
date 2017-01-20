@@ -36,6 +36,7 @@ pre_make_target() {
   export LD=$CXX
   strip_lto
 }
+
 make_target() {
   case $PROJECT in
     RPi)
@@ -51,7 +52,7 @@ make_target() {
       make platform=armv7-neon-hardfloat-cortex-a9
       ;;
     Odroid_C2|WeTek_Hub|WeTek_Play_2)
-      make platform=aarch64
+      make platform=armv-neon-hardfloat
       ;;
     Generic)
       make
