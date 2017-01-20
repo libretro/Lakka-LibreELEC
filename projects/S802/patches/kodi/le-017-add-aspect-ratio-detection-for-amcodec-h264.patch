@@ -1,0 +1,586 @@
+From d84f479f372fa7e761ad99e0a22492cae5477f0b Mon Sep 17 00:00:00 2001
+From: Tarvi Pillessaar <tarvip@gmail.com>
+Date: Sat, 27 Aug 2016 06:20:23 +0000
+Subject: [PATCH 1/4] Add aspect ratio detection for amcodec h264
+
+It is using same approach as amcodec is using for MPEG2 streams.
+Skipped frame rate calculation at the moment, although necessary values are available for that.
+
+Also I noticed that there is already a function for SPS parsing,
+maybe it is worth to improve that function and have only one function.
+---
+ .../DVDCodecs/Video/DVDVideoCodecAmlogic.cpp       |  32 ++
+ .../DVDCodecs/Video/DVDVideoCodecAmlogic.h         |   3 +
+ xbmc/utils/BitstreamConverter.cpp                  | 322 +++++++++++++++++++++
+ xbmc/utils/BitstreamConverter.h                    |   9 +
+ 4 files changed, 366 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+index 5939f38..697b300 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+@@ -49,6 +49,7 @@ CDVDVideoCodecAmlogic::CDVDVideoCodecAmlogic(CProcessInfo &processInfo) : CDVDVi
+   m_framerate(0.0),
+   m_video_rate(0),
+   m_mpeg2_sequence(NULL),
++  m_h264_sequence(NULL),
+   m_bitparser(NULL),
+   m_bitstream(NULL),
+   m_opened(false),
+@@ -118,6 +119,12 @@ bool CDVDVideoCodecAmlogic::Open(CDVDStreamInfo &hints, CDVDCodecOptions &option
+         // 4K is supported only on Amlogic S802/S812 chip
+         return false;
+       }
++      m_h264_sequence_pts = 0;
++      m_h264_sequence = new h264_sequence;
++      m_h264_sequence->width  = m_hints.width;
++      m_h264_sequence->height = m_hints.height;
++      m_h264_sequence->ratio  = m_hints.aspect;
++
+       m_pFormatName = "am-h264";
+       // convert h264-avcC to h264-annex-b as h264-avcC
+       // under streamers can have issues when seeking.
+@@ -255,6 +262,8 @@ void CDVDVideoCodecAmlogic::Dispose(void)
+     m_videobuffer.iFlags = 0;
+   if (m_mpeg2_sequence)
+     delete m_mpeg2_sequence, m_mpeg2_sequence = NULL;
++  if (m_h264_sequence)
++    delete m_h264_sequence, m_h264_sequence = NULL;
+ 
+   if (m_bitstream)
+     delete m_bitstream, m_bitstream = NULL;
+@@ -307,6 +316,7 @@ void CDVDVideoCodecAmlogic::Reset(void)
+ 
+   m_Codec->Reset();
+   m_mpeg2_sequence_pts = 0;
++  m_h264_sequence_pts = 0;
+ }
+ 
+ bool CDVDVideoCodecAmlogic::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+@@ -328,6 +338,10 @@ bool CDVDVideoCodecAmlogic::GetPicture(DVDVideoPicture* pDvdVideoPicture)
+   if (m_mpeg2_sequence && pDvdVideoPicture->pts >= m_mpeg2_sequence_pts)
+     m_aspect_ratio = m_mpeg2_sequence->ratio;
+ 
++  // check for h264 aspect ratio changes
++  if (m_h264_sequence && pDvdVideoPicture->pts >= m_h264_sequence_pts)
++    m_aspect_ratio = m_h264_sequence->ratio;
++
+   pDvdVideoPicture->iDisplayWidth  = pDvdVideoPicture->iWidth;
+   pDvdVideoPicture->iDisplayHeight = pDvdVideoPicture->iHeight;
+   if (m_aspect_ratio > 1.0 && !m_hints.forced_aspect)
+@@ -513,6 +527,24 @@ void CDVDVideoCodecAmlogic::FrameRateTracking(uint8_t *pData, int iSize, double
+     return;
+   }
+ 
++  // h264 aspect ratio handling
++  if (m_h264_sequence)
++  {
++    // probe demux for SPS NAL and decode aspect ratio
++    if (CBitstreamConverter::h264_sequence_header(pData, iSize, m_h264_sequence))
++    {
++      m_h264_sequence_pts = pts;
++      if (m_h264_sequence_pts == DVD_NOPTS_VALUE)
++          m_h264_sequence_pts = dts;
++
++      CLog::Log(LOGDEBUG, "%s: detected h264 aspect ratio(%f)",
++        __MODULE_NAME__, m_h264_sequence->ratio);
++      m_hints.width    = m_h264_sequence->width;
++      m_hints.height   = m_h264_sequence->height;
++      m_hints.aspect   = m_h264_sequence->ratio;
++    }
++  }
++
+   // everything else
+   FrameQueuePush(dts, pts);
+ 
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.h
+index 2c44241..602ee6b 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.h
+@@ -28,6 +28,7 @@
+ class CAMLCodec;
+ struct frame_queue;
+ struct mpeg2_sequence;
++struct h264_sequence;
+ class CBitstreamParser;
+ class CBitstreamConverter;
+ 
+@@ -97,6 +98,8 @@ protected:
+   float           m_aspect_ratio;
+   mpeg2_sequence *m_mpeg2_sequence;
+   double          m_mpeg2_sequence_pts;
++  h264_sequence  *m_h264_sequence;
++  double          m_h264_sequence_pts;
+   bool            m_drop;
+ 
+   CBitstreamParser *m_bitparser;
+diff --git a/xbmc/utils/BitstreamConverter.cpp b/xbmc/utils/BitstreamConverter.cpp
+index d0a4c20..306ac22 100644
+--- a/xbmc/utils/BitstreamConverter.cpp
++++ b/xbmc/utils/BitstreamConverter.cpp
+@@ -156,6 +156,18 @@ static int nal_bs_read_ue(nal_bitstream *bs)
+   return ((1 << i) - 1 + nal_bs_read(bs, i));
+ }
+ 
++// read signed Exp-Golomb code
++static int nal_bs_read_se(nal_bitstream *bs)
++{
++  int i = 0;
++
++  i = nal_bs_read_ue (bs);
++  /* (-1)^(i+1) Ceil (i / 2) */
++  i = (i + 1) / 2 * (i & 1 ? 1 : -1);
++
++  return i;
++}
++
+ static const uint8_t* avc_find_startcode_internal(const uint8_t *p, const uint8_t *end)
+ {
+   const uint8_t *a = p + 4 - ((intptr_t)p & 3);
+@@ -1371,6 +1383,316 @@ bool CBitstreamConverter::mpeg2_sequence_header(const uint8_t *data, const uint3
+   return changed;
+ }
+ 
++bool CBitstreamConverter::h264_sequence_header(const uint8_t *data, const uint32_t size, h264_sequence *sequence)
++{
++    // parse nal units until SPS is found
++    // and return the width, height and aspect ratio if changed.
++    bool changed = false;
++
++    if (!data)
++        return changed;
++
++    const uint8_t *p = data;
++    const uint8_t *end = p + size;
++    const uint8_t *nal_start, *nal_end;
++
++    int profile_idc;
++    int chroma_format_idc = 1;
++    uint8_t pic_order_cnt_type;
++    uint8_t aspect_ratio_idc = 0;
++    uint8_t separate_colour_plane_flag = 0;
++    int8_t frame_mbs_only_flag = -1;
++    unsigned int pic_width, pic_width_cropped;
++    unsigned int pic_height, pic_height_cropped;
++    unsigned int frame_crop_right_offset = 0;
++    unsigned int frame_crop_bottom_offset = 0;
++    unsigned int sar_width = 0;
++    unsigned int sar_height = 0;
++    uint32_t unitsInTick = 0;
++    uint32_t timeScale = 0;
++
++    int lastScale;
++    int nextScale;
++    int deltaScale;
++
++    nal_start = avc_find_startcode(p, end);
++
++    while (nal_start < end)
++    {
++        while (!*(nal_start++));
++
++        nal_end = avc_find_startcode(nal_start, end);
++
++        if ((*nal_start & 0x1f) == 7) // SPS
++        {
++            nal_bitstream bs;
++            nal_bs_init(&bs, nal_start, end - nal_start);
++
++            nal_bs_read(&bs, 8); // NAL unit type
++
++            profile_idc = nal_bs_read(&bs, 8);  // profile_idc
++
++            nal_bs_read(&bs, 1);  // constraint_set0_flag
++            nal_bs_read(&bs, 1);  // constraint_set1_flag
++            nal_bs_read(&bs, 1);  // constraint_set2_flag
++            nal_bs_read(&bs, 1);  // constraint_set3_flag
++            nal_bs_read(&bs, 4);  // reserved
++            nal_bs_read(&bs, 8);  // level_idc
++            nal_bs_read_ue(&bs);  // sps_id
++
++            if (profile_idc == 100 || profile_idc == 110 || profile_idc == 122 ||
++                profile_idc == 244 || profile_idc == 44  || profile_idc == 83  ||
++                profile_idc == 86  || profile_idc == 118 || profile_idc == 128 )
++            {
++
++                chroma_format_idc = nal_bs_read_ue(&bs); // chroma_format_idc
++                // high_profile
++                if (chroma_format_idc == 3)
++                {
++                    separate_colour_plane_flag = nal_bs_read(&bs, 1); // separate_colour_plane_flag
++                }
++
++                nal_bs_read_ue(&bs); // bit_depth_luma_minus8
++                nal_bs_read_ue(&bs); // bit_depth_chroma_minus8
++                nal_bs_read(&bs, 1); // qpprime_y_zero_transform_bypass_flag
++
++                if (nal_bs_read (&bs, 1)) // seq_scaling_matrix_present_flag
++                {
++
++                    for (int idx = 0; idx < ((chroma_format_idc != 3) ? 8 : 12); ++idx)
++                    {
++                        if (nal_bs_read(&bs, 1)) // scaling list present
++                        {
++                            lastScale = nextScale = 8;
++                            int sl_n = ((idx < 6) ? 16 : 64);
++
++                            for(int sl_i = 0; sl_i < sl_n; ++sl_i)
++                            {
++                                if (nextScale != 0)
++                                {
++                                    deltaScale = nal_bs_read_se(&bs);
++                                    nextScale = (lastScale + deltaScale + 256) % 256;
++
++                                }
++                                lastScale = (nextScale == 0) ? lastScale : nextScale;
++                            }
++                        }
++                    }
++                }
++            }
++
++            nal_bs_read_ue(&bs); // log2_max_frame_num_minus4
++
++            pic_order_cnt_type = nal_bs_read_ue(&bs); // pic_order_cnt_type
++
++            if (pic_order_cnt_type == 0)
++                nal_bs_read_ue(&bs); //  log2_max_pic_order_cnt_lsb_minus4
++            else if (pic_order_cnt_type == 1)
++            {
++                nal_bs_read(&bs, 1); // delta_pic_order_always_zero_flag
++                nal_bs_read_se(&bs); // offset_for_non_ref_pic
++                nal_bs_read_se(&bs); // offset_for_top_to_bottom_field
++
++                unsigned int tmp, idx;
++                tmp =  nal_bs_read_ue(&bs);
++                for (idx = 0; idx < tmp; ++idx)
++                    nal_bs_read_se(&bs); // offset_for_ref_frame[i]
++            }
++
++            nal_bs_read_ue(&bs); // num_ref_frames
++            nal_bs_read(&bs, 1); // gaps_in_frame_num_allowed_flag
++
++            pic_width = (nal_bs_read_ue(&bs) + 1) * 16 ; // pic_width
++            pic_height = (nal_bs_read_ue(&bs) + 1) * 16; // pic_height
++
++            frame_mbs_only_flag = nal_bs_read(&bs, 1); // frame_mbs_only_flag
++            if (!frame_mbs_only_flag)
++            {
++                pic_height *= 2;
++                nal_bs_read(&bs, 1); // mb_adaptive_frame_field_flag
++            }
++
++            nal_bs_read(&bs, 1); // direct_8x8_inference_flag
++
++            if (nal_bs_read(&bs, 1)) // frame_cropping_flag
++            {
++                nal_bs_read_ue(&bs); // frame_crop_left_offset
++                frame_crop_right_offset = nal_bs_read_ue(&bs); // frame_crop_right_offset
++                nal_bs_read_ue(&bs); // frame_crop_top_offset
++                frame_crop_bottom_offset = nal_bs_read_ue(&bs); // frame_crop_bottom_offset
++            }
++
++            if (nal_bs_read(&bs, 1)) // vui_parameters_present_flag
++            {
++                if (nal_bs_read(&bs, 1)) //aspect_ratio_info_present_flag
++                {
++                    aspect_ratio_idc = nal_bs_read(&bs, 8); // aspect_ratio_idc
++
++                    if (aspect_ratio_idc == 255) // EXTENDED_SAR
++                    {
++                        sar_width  = nal_bs_read(&bs, 16);
++                        sar_height = nal_bs_read(&bs, 16);
++
++                    }
++                }
++
++                if (nal_bs_read(&bs, 1)) //overscan_info_present_flag
++                    nal_bs_read(&bs, 1); //overscan_appropriate_flag
++
++                if (nal_bs_read(&bs, 1))  //video_signal_type_present_flag
++                {
++                    nal_bs_read(&bs, 3); //video_format
++                    nal_bs_read(&bs, 1); //video_full_range_flag
++                    if (nal_bs_read(&bs, 1)) // colour_description_present_flag
++                    {
++                        nal_bs_read(&bs, 8); // colour_primaries
++                        nal_bs_read(&bs, 8); // transfer_characteristics
++                        nal_bs_read(&bs, 8); // matrix_coefficients
++                    }
++                }
++
++                if (nal_bs_read(&bs, 1)) //chroma_loc_info_present_flag
++                {
++                    nal_bs_read_ue(&bs); //chroma_sample_loc_type_top_field ue(v)
++                    nal_bs_read_ue(&bs); //chroma_sample_loc_type_bottom_field ue(v)
++                }
++
++                if (nal_bs_read(&bs, 1)) //timing_info_present_flag
++                {
++                    unitsInTick = nal_bs_read(&bs, 32); //num_units_in_tick
++                    timeScale = nal_bs_read(&bs, 32); //time_scale
++                    nal_bs_read(&bs, 1); // fixed rate
++                }
++            }
++
++            unsigned int ChromaArrayType, crop;
++            ChromaArrayType = separate_colour_plane_flag ? 0 : chroma_format_idc;
++
++            // cropped width
++            unsigned int CropUnitX, SubWidthC;
++            CropUnitX = 1;
++            SubWidthC = chroma_format_idc == 3 ? 1 : 2;
++            if (ChromaArrayType != 0)
++                CropUnitX = SubWidthC;
++            crop = CropUnitX * frame_crop_right_offset;
++            pic_width_cropped = pic_width - crop;
++
++            if (pic_width_cropped != sequence->width)
++            {
++                changed = true;
++                sequence->width = pic_width_cropped;
++            }
++
++            // cropped height
++            unsigned int CropUnitY, SubHeightC;
++            CropUnitY = 2 - frame_mbs_only_flag;
++            SubHeightC = chroma_format_idc <= 1 ? 2 : 1;
++            if (ChromaArrayType != 0)
++                CropUnitY *= SubHeightC;
++            crop = CropUnitY * frame_crop_bottom_offset;
++            pic_height_cropped = pic_height - crop;
++
++            if (pic_height_cropped != sequence->height)
++            {
++                changed = true;
++                sequence->height = pic_height_cropped;
++            }
++
++            // aspect ratio
++            float ratio = sequence->ratio;
++            if (pic_height_cropped)
++                ratio = pic_width_cropped / (double) pic_height_cropped;
++            switch (aspect_ratio_idc)
++            {
++                case 0:
++                    // Unspecified
++                    break;
++                case 1:
++                    // 1:1
++                    break;
++                case 2:
++                    // 12:11
++                    ratio *= 1.0909090909090908;
++                    break;
++                case 3:
++                    // 10:11
++                    ratio *= 0.90909090909090906;
++                    break;
++                case 4:
++                    // 16:11
++                    ratio *= 1.4545454545454546;
++                    break;
++                case 5:
++                    // 40:33
++                    ratio *= 1.2121212121212122;
++                    break;
++                case 6:
++                    // 24:11
++                    ratio *= 2.1818181818181817;
++                    break;
++                case 7:
++                    // 20:11
++                    ratio *= 1.8181818181818181;
++                    break;
++                case 8:
++                    // 32:11
++                    ratio *= 2.9090909090909092;
++                    break;
++                case 9:
++                    // 80:33
++                    ratio *= 2.4242424242424243;
++                    break;
++                case 10:
++                    // 18:11
++                    ratio *= 1.6363636363636365;
++                    break;
++                case 11:
++                    // 15:11
++                    ratio *= 1.3636363636363635;
++                    break;
++                case 12:
++                    // 64:33
++                    ratio *= 1.9393939393939394;
++                    break;
++                case 13:
++                    // 160:99
++                    ratio *= 1.6161616161616161;
++                    break;
++                case 14:
++                    // 4:3
++                    ratio *= 1.3333333333333333;
++                    break;
++                case 15:
++                    // 3:2
++                    ratio *= 1.5;
++                    break;
++                case 16:
++                    // 2:1
++                    ratio *= 2.0;
++                    break;
++                case 255:
++                    // EXTENDED_SAR
++                    if (sar_height)
++                        ratio *= sar_width / (double)sar_height;
++                    else
++                        ratio = 0.0;
++                    break;
++            } // switch
++            if (aspect_ratio_idc != sequence->ratio_info)
++            {
++                changed = true;
++                sequence->ratio = ratio;
++                sequence->ratio_info = aspect_ratio_idc;
++            }
++
++            break;
++        } // SPS
++        nal_start = nal_end;
++    }
++
++    return changed;
++}
++
+ void CBitstreamConverter::parseh264_sps(const uint8_t *sps, const uint32_t sps_size, bool *interlaced, int32_t *max_ref_frames)
+ {
+   nal_bitstream bs;
+diff --git a/xbmc/utils/BitstreamConverter.h b/xbmc/utils/BitstreamConverter.h
+index 9045ef9..e10f176 100644
+--- a/xbmc/utils/BitstreamConverter.h
++++ b/xbmc/utils/BitstreamConverter.h
+@@ -95,6 +95,14 @@ typedef struct mpeg2_sequence
+   uint32_t  ratio_info;
+ } mpeg2_sequence;
+ 
++typedef struct h264_sequence
++{
++  uint32_t  width;
++  uint32_t  height;
++  float     ratio;
++  uint32_t  ratio_info;
++} h264_sequence;
++
+ typedef struct
+ {
+   int profile_idc;
+@@ -170,6 +178,7 @@ public:
+ 
+   static void       parseh264_sps(const uint8_t *sps, const uint32_t sps_size, bool *interlaced, int32_t *max_ref_frames);
+   static bool       mpeg2_sequence_header(const uint8_t *data, const uint32_t size, mpeg2_sequence *sequence);
++  static bool       h264_sequence_header(const uint8_t *data, const uint32_t size, h264_sequence *sequence);
+ 
+ protected:
+   static const int  avc_parse_nal_units(AVIOContext *pb, const uint8_t *buf_in, int size);
+-- 
+1.8.3.1
+
+
+From be273532ac5d5e1e8ed24b96376418fb2805d494 Mon Sep 17 00:00:00 2001
+From: Tarvi Pillessaar <tarvip@gmail.com>
+Date: Sun, 28 Aug 2016 13:11:49 +0000
+Subject: [PATCH 2/4] If we have h264 SD content assume it is widescreen
+
+Most of h264 SD broadcasts are widescreen.
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+index 697b300..7c570b0 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+@@ -140,6 +140,12 @@ bool CDVDVideoCodecAmlogic::Open(CDVDStreamInfo &hints, CDVDCodecOptions &option
+       }
+       //m_bitparser = new CBitstreamParser();
+       //m_bitparser->Open();
++
++      // if we have SD PAL content assume it is widescreen
++      // correct aspect ratio will be detected later anyway
++      if (m_hints.width == 720 && m_hints.height == 576 && m_hints.aspect == 0.0f)
++          m_hints.aspect = 1.8181818181818181;
++
+       break;
+     case AV_CODEC_ID_MPEG4:
+     case AV_CODEC_ID_MSMPEG4V2:
+-- 
+1.8.3.1
+
+
+From 3359fcba16394e1e9f66fc2fa254f63cb5109a9b Mon Sep 17 00:00:00 2001
+From: Christian Brunner <chb@muc.de>
+Date: Fri, 16 Sep 2016 18:53:25 +0200
+Subject: [PATCH 3/4] assume widescreen for "HD Lite" channels
+
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+index 7c570b0..4eff160 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+@@ -146,6 +146,11 @@ bool CDVDVideoCodecAmlogic::Open(CDVDStreamInfo &hints, CDVDCodecOptions &option
+       if (m_hints.width == 720 && m_hints.height == 576 && m_hints.aspect == 0.0f)
+           m_hints.aspect = 1.8181818181818181;
+ 
++      // assume widescreen for "HD Lite" channels
++      // correct aspect ratio will be detected later anyway
++      if ((m_hints.width == 1440 || m_hints.width ==1280) && m_hints.height == 1080 && m_hints.aspect == 0.0f)
++          m_hints.aspect = 1.7777777777777778;
++
+       break;
+     case AV_CODEC_ID_MPEG4:
+     case AV_CODEC_ID_MSMPEG4V2:
+-- 
+1.8.3.1
+
+
+From bce8c349de582afa88a153e65469e478c20ae454 Mon Sep 17 00:00:00 2001
+From: kszaq <kszaquitto@gmail.com>
+Date: Wed, 28 Sep 2016 20:32:00 +0200
+Subject: [PATCH 4/4] DVDVideoCodecAmlogic: Use aspect ratio tracking only for
+ videos without embedded aspect ratio information
+
+This should lower CPU usage for all videos with aspect ratio hint.
+---
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp   | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+index 4eff160..271e6d4 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.cpp
+@@ -119,11 +119,15 @@ bool CDVDVideoCodecAmlogic::Open(CDVDStreamInfo &hints, CDVDCodecOptions &option
+         // 4K is supported only on Amlogic S802/S812 chip
+         return false;
+       }
+-      m_h264_sequence_pts = 0;
+-      m_h264_sequence = new h264_sequence;
+-      m_h264_sequence->width  = m_hints.width;
+-      m_h264_sequence->height = m_hints.height;
+-      m_h264_sequence->ratio  = m_hints.aspect;
++
++      if (m_hints.aspect == 0.0f)
++      {
++        m_h264_sequence_pts = 0;
++        m_h264_sequence = new h264_sequence;
++        m_h264_sequence->width  = m_hints.width;
++        m_h264_sequence->height = m_hints.height;
++        m_h264_sequence->ratio  = m_hints.aspect;
++      }
+ 
+       m_pFormatName = "am-h264";
+       // convert h264-avcC to h264-annex-b as h264-avcC
+-- 
+1.8.3.1
+
