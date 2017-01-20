@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="go"
-PKG_VERSION="1.6.3"
+PKG_VERSION="1.7.4"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://golang.org"
@@ -50,6 +50,11 @@ configure_host() {
 make_host() {
   cd $ROOT/$PKG_BUILD/src
   bash make.bash --no-banner
+}
+
+pre_makeinstall_host() {
+  # need to cleanup old golang version when updating to a new version
+  rm -rf $ROOT/$TOOLCHAIN/lib/golang
 }
 
 makeinstall_host() {
