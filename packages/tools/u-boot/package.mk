@@ -43,7 +43,7 @@ elif [ "$UBOOT_VERSION" = "sunxi" ]; then
   PKG_VERSION="af9f405"
   PKG_SITE="https://github.com/linux-sunxi/u-boot-sunxi"
   PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host linaro-arm-toolchain:host"
 else
   exit 0
 fi
@@ -69,7 +69,7 @@ pre_configure_target() {
 
   unset LDFLAGS
 
-  if [ "$UBOOT_VERSION" = "odroidc" ]; then
+  if [ "$UBOOT_VERSION" = "odroidc" -o "$UBOOT_VERSION" = "sunxi" ]; then
     unset LDFLAGS CFLAGS CPPFLAGS
   fi
 
@@ -94,7 +94,7 @@ make_target() {
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_TARGET
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
-    elif [ "$PROJECT" = "OdroidC1" ]; then
+    elif [ "$PROJECT" = "OdroidC1" -o "$PROJECT" = "a20" ]; then
       make CROSS_COMPILE="arm-none-eabi-" ARCH=arm mrproper
       make CROSS_COMPILE="arm-none-eabi-" ARCH=arm $UBOOT_TARGET
       make CROSS_COMPILE="arm-none-eabi-" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
