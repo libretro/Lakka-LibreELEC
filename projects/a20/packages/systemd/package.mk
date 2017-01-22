@@ -106,7 +106,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-dbussystemservicedir=/usr/share/dbus-1/system-services \
                            --with-dbusinterfacedir=/usr/share/dbus-1/interfaces \
                            --with-rootprefix=/usr \
-                           --with-rootlibdir=/lib"
+                           --with-rootlibdir=/usr/lib"
 
 post_makeinstall_target() {
   # remove unneeded stuff
