@@ -14,6 +14,8 @@ DISTRO=Lakka PROJECT=RPi2 ARCH=arm make noobs -j9
 DISTRO=Lakka PROJECT=imx6 SYSTEM=cuboxi ARCH=arm make image -j9
 >&2 echo "imx6.udoo.arm"
 DISTRO=Lakka PROJECT=imx6 SYSTEM=udoo ARCH=arm make image -j9
+>&2 echo "OdroidC1.arm"
+DISTRO=Lakka PROJECT=OdroidC1 ARCH=arm make image -j9
 >&2 echo "Odroid_C2.arm"
 DISTRO=Lakka PROJECT=Odroid_C2 ARCH=arm make image -j9
 >&2 echo "OdroidXU3.arm"

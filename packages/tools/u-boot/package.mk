@@ -34,6 +34,11 @@ elif [ "$UBOOT_VERSION" = "odroidxu3" ]; then
   PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
   PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dtc:host hk-bootloader"
+elif [ "$UBOOT_VERSION" = "odroidc" ]; then
+  PKG_VERSION="86125f8"
+  PKG_SITE="http://odroid.com/dokuwiki/doku.php?id=en:c1_building_u-boot"
+  PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET linaro-arm-toolchain:host"
 elif [ "$UBOOT_VERSION" = "sunxi" ]; then
   PKG_VERSION="af9f405"
   PKG_SITE="https://github.com/linux-sunxi/u-boot-sunxi"
@@ -64,11 +69,15 @@ pre_configure_target() {
 
   unset LDFLAGS
 
+  if [ "$UBOOT_VERSION" = "odroidc" ]; then
+    unset LDFLAGS CFLAGS CPPFLAGS
+  fi
+
 # dont build in parallel because of problems
   MAKEFLAGS=-j1
 
 # copy compiler-gcc5.h to compiler-gcc6. for fake building
-  cp include/linux/compiler-gcc5.h include/linux/compiler-gcc6.h
+  cp include/linux/compiler-gcc5.h include/linux/compiler-gcc6.h 2>/dev/null || :
 
 }
 
@@ -85,6 +94,10 @@ make_target() {
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_TARGET
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
+    elif [ "$PROJECT" = "OdroidC1" ]; then
+      make CROSS_COMPILE="arm-none-eabi-" ARCH=arm mrproper
+      make CROSS_COMPILE="arm-none-eabi-" ARCH=arm $UBOOT_TARGET
+      make CROSS_COMPILE="arm-none-eabi-" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
     else
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm mrproper
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm $UBOOT_TARGET
