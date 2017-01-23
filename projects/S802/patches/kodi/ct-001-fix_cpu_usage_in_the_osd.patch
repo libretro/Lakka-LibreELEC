@@ -1,0 +1,58 @@
+From d11475cf2fcef8060261ad38b3aaef74615a26f0 Mon Sep 17 00:00:00 2001
+From: Alan Marchesan <justcavalli@gmail.com>
+Date: Wed, 25 Nov 2015 08:30:51 +0100
+Subject: [PATCH] [android;aml] Fix cpu usage in the OSD (reset stats if the
+ core has gone offline or it won't show 0% but will stay stuck with the last
+ value).
+
+---
+ xbmc/utils/CPUInfo.cpp | 34 +++++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/utils/CPUInfo.cpp b/xbmc/utils/CPUInfo.cpp
+index f1d07dd..79ec935 100644
+--- a/xbmc/utils/CPUInfo.cpp
++++ b/xbmc/utils/CPUInfo.cpp
+@@ -99,6 +99,11 @@
+ 
+ #include "utils/StringUtils.h"
+ 
++#if defined(HAS_LIBAMCODEC)
++#include "utils/AMLUtils.h"
++#include "utils/SysfsUtils.h"
++#endif
++
+ // In milliseconds
+ #define MINIMUM_TIME_BETWEEN_READS 500
+ 
+@@ -783,6 +791,30 @@ bool CCPUInfo::readProcStat(unsigned long long& user, unsigned long long& nice,
+   if (!fgets(buf, sizeof(buf), m_fProcStat))
+     return false;
+ 
++#if defined(HAS_LIBAMCODEC)
++  // If the CPU is not online, then reset its stats or it won't show 0 in the OSD (required on Amlogic Meson8)
++  if (aml_present())
++  {
++    int i, isOnline;
++    char onlinePath[128];
++    for (i = 0; i < m_cpuCount; i++)
++    {
++      sprintf(onlinePath, "/sys/devices/system/cpu/cpu%d/online", i);
++      SysfsUtils::GetInt(onlinePath, isOnline);
++      if (isOnline == 0)
++      {
++        std::map<int, CoreInfo>::iterator iterReset = m_cores.find(i);
++        iterReset->second.m_user = 0;
++        iterReset->second.m_nice = 0;
++        iterReset->second.m_system = 0;
++        iterReset->second.m_idle = 0;
++        iterReset->second.m_io = 0;
++        iterReset->second.m_fPct = 0.0f;
++      }
++    }
++  }
++#endif
++
+   int num = sscanf(buf, "cpu %llu %llu %llu %llu %llu %*s\n", &user, &nice, &system, &idle, &io);
+   if (num < 5)
+     io = 0;
