@@ -16,5 +16,25 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-d    /run/libreelec       0755 root root - -
-d    /run/libreelec/debug 0755 root root - -
+PKG_NAME="sunxi-missing-headers"
+PKG_VERSION="0"
+PKG_REV="1"
+PKG_ARCH="any"
+PKG_LICENSE="GPL"
+PKG_SITE=""
+PKG_URL=""
+PKG_DEPENDS_TARGET=""
+PKG_SECTION="system"
+PKG_SHORTDESC="btrfs header missing from old kernels"
+PKG_LONGDESC="btrfs header missing from old kernels but necessary for systemd"
+
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
+
+make_target() {
+  : # nothing to do
+}
+
+makeinstall_target() {
+  cp -PR *.h $SYSROOT_PREFIX/usr/include/linux/
+}

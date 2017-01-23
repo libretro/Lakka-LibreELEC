@@ -40,6 +40,7 @@ case "$LINUX" in
   linux-sun7i)
     PKG_VERSION="6ce48b3"
     PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-missing-headers"
     ;;
   hardkernel)
     PKG_VERSION="3b08361"
