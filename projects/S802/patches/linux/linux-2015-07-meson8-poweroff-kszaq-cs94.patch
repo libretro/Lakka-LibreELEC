@@ -1,0 +1,139 @@
+diff --git a/arch/arm/mach-meson8/include/mach/pm.h b/arch/arm/mach-meson8/include/mach/pm.h
+index a409586..bd14dd8 100755
+--- a/arch/arm/mach-meson8/include/mach/pm.h
++++ b/arch/arm/mach-meson8/include/mach/pm.h
+@@ -29,4 +29,5 @@ extern void early_clk_switch(int flag);
+ #ifdef CONFIG_MESON_SUSPEND
+ extern int meson_power_suspend(void);
+ #endif /*CONFIG_MESON_SUSPEND*/
++void meson_pm_poweroff(void);
+ #endif
+diff --git a/arch/arm/mach-meson8/pm.c b/arch/arm/mach-meson8/pm.c
+index 5b42539..0d48810 100755
+--- a/arch/arm/mach-meson8/pm.c
++++ b/arch/arm/mach-meson8/pm.c
+@@ -1,4 +1,4 @@
+-/*
++ /*
+  * Meson Power Management Routines
+  *
+  * Copyright (C) 2010 Amlogic, Inc. http://www.amlogic.com/
+@@ -21,6 +21,8 @@
+ #include <asm/delay.h>
+ #include <asm/uaccess.h>
+ 
++#include <linux/gpio.h>
++
+ #include <mach/pm.h>
+ #include <mach/am_regs.h>
+ #include <plat/sram.h>
+@@ -35,6 +37,7 @@
+ #include <mach/meson-secure.h>
+ #endif
+ 
++#include <linux/amlogic/aml_gpio_consumer.h>
+ #ifdef CONFIG_SUSPEND_WATCHDOG
+ #include <mach/watchdog.h>
+ #endif /* CONFIG_SUSPEND_WATCHDOG */
+@@ -47,6 +50,7 @@ static struct early_suspend early_suspend;
+ static int early_suspend_flag = 0;
+ #endif
+ 
++static int poweroff_state = 0;
+ #define ON  1
+ #define OFF 0
+ 
+@@ -214,8 +218,16 @@ void analog_switch(int flag)
+ #ifdef CONFIG_HAS_EARLYSUSPEND
+ static void meson_system_early_suspend(struct early_suspend *h)
+ {
++	int ret;
+ 	if (!early_suspend_flag) {
+-	printk(KERN_INFO "%s\n",__func__);
++	printk(KERN_INFO "2%s\n",__func__);
++
++	ret = amlogic_gpio_request_one(GPIO_TEST_N,0,"aml-sysled"); //for power LED
++	if(ret){
++		printk("---%s----can not set output pin \n",__func__);
++		amlogic_gpio_free(GPIO_TEST_N,"aml-sysled");
++	}
++
+ 	if (pdata->set_exgpio_early_suspend) {
+ 		pdata->set_exgpio_early_suspend(OFF);
+ 	}
+@@ -227,11 +239,13 @@ static void meson_system_early_suspend(struct early_suspend *h)
+ 
+ static void meson_system_late_resume(struct early_suspend *h)
+ {
++	int ret;
+ 	if (early_suspend_flag) {
+ 		//early_power_gate_switch(ON);
+ 		//early_clk_switch(ON);
+ 		early_suspend_flag = 0;
+-		printk(KERN_INFO "%s\n",__func__);
++		printk(KERN_INFO "1%s\n",__func__);
++		amlogic_set_value(GPIO_TEST_N,0,"aml-sysled");
+ 	}
+ }
+ #endif
+@@ -312,6 +327,16 @@ static void meson_pm_suspend(void)
+ 	//analog_switch(ON);
+ }
+ 
++void meson_pm_poweroff(void)
++{
++	amlogic_set_value(GPIO_TEST_N,1,"aml-sysled");
++	//close_hdmi();
++	aml_write_reg32(P_AO_RTI_STATUS_REG1, 0);
++
++	poweroff_state=1;
++	meson_pm_suspend();
++}
++
+ static int meson_pm_prepare(void)
+ {
+ 	  printk(KERN_INFO "enter meson_pm_prepare!\n");
+@@ -371,6 +396,7 @@ static struct meson_pm_config aml_pm_pdata = {
+ 
+ static int __init meson_pm_probe(struct platform_device *pdev)
+ {
++	int ret;
+ 	printk(KERN_INFO "enter meson_pm_probe!\n");
+ #ifdef CONFIG_HAS_EARLYSUSPEND
+ 	early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+@@ -378,6 +404,14 @@ static int __init meson_pm_probe(struct platform_device *pdev)
+ 	early_suspend.resume = meson_system_late_resume;
+ 	register_early_suspend(&early_suspend);
+ #endif
++	ret = amlogic_gpio_request_one(GPIO_TEST_N,GPIOF_OUT_INIT_LOW,"aml-sysled"); //for power LED
++	if(ret){
++		printk("---%s----can not set output pin \n",__func__);
++		amlogic_gpio_free(GPIO_TEST_N,"aml-sysled");
++		}else{
++		printk("---%s----set output pin success\n",__func__);
++	}
++
+ 	pdev->dev.platform_data=&aml_pm_pdata;
+ 	pdata = pdev->dev.platform_data;
+ 	if (!pdata) {
+--- linux-amlogic-3.10-0b9823d/arch/arm/plat-meson/power.c	2015-12-20 10:14:18.616692848 +1100
++++ linux-amlogic-3.10-0b9823d/arch/arm/plat-meson/power.c.new	2015-12-20 10:23:22.360712492 +1100
+@@ -25,6 +25,7 @@
+ #include <asm/proc-fns.h>
+ #include <mach/system.h>
+ #include <linux/slab.h>
++#include "../mach-meson8/include/mach/pm.h"
+ /*
+  * These are system power hooks to implement power down policy
+  * pls add rule and policy notes
+--- linux-amlogic-3.10-0b9823d/arch/arm/plat-meson/power.c	2015-12-23 12:13:43.880887733 +1100
++++ linux-amlogic-3.10-0b9823d/arch/arm/plat-meson/power.c.new	2015-12-23 12:11:29.880884438 +1100
+@@ -80,7 +80,8 @@
+ 	if(reboot_flag)
+                 meson_common_restart('h',"uboot_suspend");
+ 	else
+-		meson_common_restart('h',"charging_reboot");
++//		meson_common_restart('h',"charging_reboot");
++                meson_pm_poweroff();
+ }
+
