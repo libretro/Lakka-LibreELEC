@@ -1,0 +1,108 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016 kszaq (kszaquitto (at) gmail.com)
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+IMAGE_KERNEL="/flash/kernel.img"
+IMAGE_SYSTEM="/flash/SYSTEM"
+REMOTE_CONF="/tmp/remote.conf"
+
+install_to_nand() {
+  if [ -f $IMAGE_KERNEL -a -f $IMAGE_SYSTEM ] ; then
+    if grep -q /dev/system /proc/mounts ; then
+      echo "Unmounting SYSTEM partiton."
+      umount -f /dev/system
+    fi
+    mkdir -p /tmp/system
+
+    mount -o rw,remount /flash
+
+    if [ ! -f "/tmp/remote.conf" ] ; then
+      echo -n "Backing up remote.conf..."
+      mount -o ro /dev/system /tmp/system
+      if [ -f /tmp/system/remote.conf ]; then
+        cp /tmp/system/remote.conf /tmp/remote.conf
+      elif [ -f /tmp/system/etc/remote.conf ]; then
+        cp -PR /tmp/system/etc/remote.conf /tmp/remote.conf
+      fi
+      umount /tmp/system
+      echo "done."
+    fi
+
+    echo -n "Writing kernel image..."
+    dd if="$IMAGE_KERNEL" of="/dev/boot" bs=64K status=none && sync
+    echo "done."
+
+    echo -n "Formatting SYSTEM partition..."
+    mke2fs -F -q -t ext4 -m 0 /dev/system > /dev/null
+    e2fsck -n /dev/system &> /dev/null
+    echo "done."
+
+    echo -n "Copying SYSTEM files..."
+    mount -o rw /dev/system /tmp/system
+    cp $IMAGE_SYSTEM /tmp/system && sync
+    umount /tmp/system
+    echo "done."
+
+    echo -n "Formatting DATA partition..."
+    mke2fs -F -q -t ext4 -m 0 /dev/data > /dev/null
+    e2fsck -n /dev/data &> /dev/null
+    echo "done."
+
+    if [ -f "/tmp/remote.conf" ] ; then
+      echo -n "Restoring remote.conf..."
+      mount -o rw /dev/system /tmp/system
+      cp /tmp/remote.conf /tmp/system/remote.conf
+      umount /tmp/system
+      echo "done."
+    fi
+
+    read -p "Do you want to copy your user data to internal data partition? [Y/n] " choice
+    case "$choice" in
+      [nN]*)
+        ;;
+      *)
+        echo -n "Stopping Kodi..."
+        systemctl stop kodi
+        echo "done."
+        echo "Copying user data..."
+        mkdir -p /tmp/data
+        mount -o rw /dev/data /tmp/data
+        cp -av /storage/. /tmp/data/
+        echo -n "Restarting Kodi..."
+        systemctl start kodi
+        echo "done."
+        ;;
+    esac
+
+    echo "All done! You can now continue using your LE system or type \"rebootfromnand\" to reboot from internal memory."
+
+  else
+    echo "No LE image found on /flash! Exiting..."
+  fi
+}
+
+echo "This script will erase BOOT, SYSTEM, and DATA on your device"
+echo "and install LE that you booted from SD card/USB drive."
+echo ""
+echo "The script does not have any safeguards!"
+echo ""
+read -p "Type \"yes\" if you know what you are doing or anything else to exit: " choice
+case "$choice" in
+  yes) install_to_nand ;;
+esac
