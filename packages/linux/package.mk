@@ -46,6 +46,10 @@ case "$LINUX" in
     PKG_VERSION="3b08361"
     PKG_URL="https://github.com/hardkernel/linux/archive/$PKG_VERSION.tar.gz"
     ;;
+  custom)
+    PKG_VERSION="$KERNEL_VERSION"
+    PKG_URL="$KERNEL_URL"
+    ;;
   amlogic-3.10)
     PKG_VERSION="1261cae"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
