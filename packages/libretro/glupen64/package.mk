@@ -25,7 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/loganmc10/glupen64"
 PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain nasm:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
@@ -50,6 +50,10 @@ make_target() {
       CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
       make platform=rpi2
+      ;;
+    imx6)
+      CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
+      make platform=linux FORCE_GLES=1 GLES=1 GLSL_OPT=1 WITH_DYNAREC=arm HAVE_NEON=1
       ;;
     Generic)
       make

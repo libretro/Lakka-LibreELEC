@@ -30,12 +30,17 @@ PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 case "$LINUX" in
   linux-odroidxu3)
-    PKG_VERSION="533ce55"
+    PKG_VERSION="e337a20"
+    PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+    ;;
+  linux-odroidc-3.10.y)
+    PKG_VERSION="6ac660c"
     PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   linux-sun7i)
     PKG_VERSION="6ce48b3"
     PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-missing-headers"
     ;;
   hardkernel)
     PKG_VERSION="3b08361"

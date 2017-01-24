@@ -125,7 +125,7 @@ fi
 if [ "$BOOTLOADER" = "syslinux" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
-    cat << EOF > "$OE_TMP"/syslinux.cfg
+    cat << EOF > "$LE_TMP"/syslinux.cfg
 UI vesamenu.c32
 PROMPT 0
 MENU TITLE Boot Menu
@@ -206,7 +206,7 @@ EOF
     mcopy $ROOT/$TOOLCHAIN/share/syslinux/ldlinux.e64 ::/EFI/BOOT
     mcopy $ROOT/$TOOLCHAIN/share/syslinux/bootia32.efi ::/EFI/BOOT 
     mcopy $ROOT/$TOOLCHAIN/share/syslinux/ldlinux.e32 ::/EFI/BOOT
-    mcopy "$OE_TMP"/syslinux.cfg ::/EFI/BOOT
+    mcopy "$LE_TMP"/syslinux.cfg ::/EFI/BOOT
 elif [ "$BOOTLOADER" = "bcm2835-bootloader" ]; then
   # create bootloader configuration
     echo "image: creating bootloader configuration..."
@@ -268,11 +268,19 @@ elif [ "$BOOTLOADER" = "u-boot" ]; then
     elif [ -f "$RELEASE_DIR/3rdparty/bootloader/u-boot-fuse" ]; then
      # allow custom dd script for vendor specific fusing
       . $RELEASE_DIR/3rdparty/bootloader/u-boot-fuse
+    elif [ -n "$UBOOT_SYSTEM" -a -f "$RELEASE_DIR/3rdparty/bootloader/uboot-sunxi-$UBOOT_SYSTEM.bin" ]; then
+      dd if="$RELEASE_DIR/3rdparty/bootloader/uboot-sunxi-$UBOOT_SYSTEM.bin" of="$DISK" bs=1k seek=8 conv=fsync,notrunc
+    elif [ -e "$RELEASE_DIR/3rdparty/bootloader/u-boot-sunxi-with-spl.bin" ]; then
+      dd if=$RELEASE_DIR/3rdparty/bootloader/u-boot-sunxi-with-spl.bin of="$DISK" bs=1024 seek=8 conv=fsync,notrunc
     elif [ -d "$RELEASE_DIR/3rdparty/bootloader/tzsw" ]; then
       dd if="$RELEASE_DIR/3rdparty/bootloader/bl1" of="$DISK" bs=512 seek=1 conv=notrunc
       dd if="$RELEASE_DIR/3rdparty/bootloader/bl2" of="$DISK" bs=512 seek=31 conv=notrunc
       dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot" of="$DISK" bs=512 seek=63 conv=notrunc
       dd if="$RELEASE_DIR/3rdparty/bootloader/tzsw" of="$DISK" bs=512 seek=719 conv=notrunc
+    elif [ -e "$RELEASE_DIR/3rdparty/bootloader/bl1.bin.hardkernel" ]; then
+      dd if="$RELEASE_DIR/3rdparty/bootloader/bl1.bin.hardkernel" of="$DISK" bs=1 count=442 conv=notrunc
+      dd if="$RELEASE_DIR/3rdparty/bootloader/bl1.bin.hardkernel" of="$DISK" bs=512 skip=1 seek=1 conv=notrunc
+      dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot.bin" of=$DISK bs=512 seek=64 conv=notrunc
     elif [ -f "$RELEASE_DIR/3rdparty/bootloader/u-boot" ]; then
       dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot" of="$DISK" conv=fsync,notrunc bs=1 count=112 >"$SAVE_ERROR" 2>&1 || show_error
       dd if="$RELEASE_DIR/3rdparty/bootloader/u-boot" of="$DISK" conv=fsync,notrunc bs=512 skip=1 seek=1 >"$SAVE_ERROR" 2>&1 || show_error
@@ -303,6 +311,10 @@ elif [ "$BOOTLOADER" = "u-boot" ]; then
     # copy Amlogic device tree image
     if [ -f "$RELEASE_DIR/3rdparty/bootloader/dtb.img" ]; then
       mcopy $RELEASE_DIR/3rdparty/bootloader/dtb.img ::
+    fi
+
+    if [ -f "$RELEASE_DIR/3rdparty/bootloader/cubieboard2.bin" ]; then
+      mcopy -o $RELEASE_DIR/3rdparty/bootloader/* ::
     fi
 fi # bootloader
 
