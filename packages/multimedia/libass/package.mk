@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libass"
-PKG_VERSION="0.13.4"
+PKG_VERSION="0.13.5"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/libass/libass"
