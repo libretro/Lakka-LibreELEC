@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bnes"
-PKG_VERSION="ba52a82"
+PKG_VERSION="5197b6c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -36,5 +36,5 @@ PKG_AUTORECONF="no"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretro.so $INSTALL/usr/lib/libretro/bnes_libretro.so
+  cp bnes_libretro.so $INSTALL/usr/lib/libretro/bnes_libretro.so
 }

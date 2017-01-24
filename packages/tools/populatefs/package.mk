@@ -17,12 +17,11 @@
 ################################################################################
 
 PKG_NAME="populatefs"
-PKG_VERSION="95cc98b"
-PKG_REV="1"
+PKG_VERSION="1.0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/oskarirauta/populatefs"
-PKG_URL="https://github.com/oskarirauta/populatefs/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/lipnitsk/populatefs"
+PKG_URL="https://github.com/lipnitsk/$PKG_NAME/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="e2fsprogs:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="populatefs: Tool for replacing genext2fs when creating ext4 images"

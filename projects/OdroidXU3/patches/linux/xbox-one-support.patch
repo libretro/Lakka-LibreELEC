@@ -1,5 +1,6 @@
---- linux-odroidxu3.git/drivers/input/joystick/xpad.c	2016-08-03 16:17:34.235525768 +0200
-+++ linux-odroidxu3.patch/drivers/input/joystick/xpad.c	2016-08-03 18:47:35.920762408 +0200
+diff -Naur linux-odroidxu3.git/drivers/input/joystick/xpad.c linux-odroidxu3.patch/drivers/input/joystick/xpad.c
+--- linux-odroidxu3.git/drivers/input/joystick/xpad.c	2016-12-28 20:32:49.016113805 +0100
++++ linux-odroidxu3.patch/drivers/input/joystick/xpad.c	2016-12-28 22:13:54.662925775 +0100
 @@ -31,12 +31,14 @@
   *  - the iForce driver    drivers/char/joystick/iforce.c
   *  - the skeleton-driver  drivers/usb/usb-skeleton.c
@@ -518,14 +519,14 @@
 +			packet = pkt;
 +			break;
 +		}
-+	}
+ 	}
 +
 +	if (packet) {
 +		memcpy(xpad->odata, packet->data, packet->len);
 +		xpad->irq_out->transfer_buffer_length = packet->len;
 +		packet->pending = false;
 +		return true;
- 	}
++	}
 +
 +	return false;
 +}
@@ -1142,7 +1143,7 @@
  		break;
  	case ABS_HAT0X:
  	case ABS_HAT0Y:	/* the d-pad (only if dpad is mapped to axes */
-@@ -837,80 +1312,41 @@
+@@ -837,83 +1312,41 @@
  	}
  }
  
@@ -1164,6 +1165,9 @@
 -	struct usb_endpoint_descriptor *ep_irq_in;
  	int i, error;
  
+-	if (intf->cur_altsetting->desc.bNumEndpoints != 2)
+-		return -ENODEV;
+-
 -	for (i = 0; xpad_device[i].idVendor; i++) {
 -		if ((le16_to_cpu(udev->descriptor.idVendor) == xpad_device[i].idVendor) &&
 -		    (le16_to_cpu(udev->descriptor.idProduct) == xpad_device[i].idProduct))
@@ -1244,7 +1248,7 @@
  		/* set up axes */
  		for (i = 0; xpad_abs[i] >= 0; i++)
  			xpad_set_up_abs(input_dev, xpad_abs[i]);
-@@ -921,7 +1357,8 @@
+@@ -924,7 +1357,8 @@
  		__set_bit(xpad_common_btn[i], input_dev->keybit);
  
  	/* set up model-specific ones */
@@ -1254,7 +1258,7 @@
  		for (i = 0; xpad360_btn[i] >= 0; i++)
  			__set_bit(xpad360_btn[i], input_dev->keybit);
  	} else {
-@@ -932,9 +1369,18 @@
+@@ -935,9 +1369,18 @@
  	if (xpad->mapping & MAP_DPAD_TO_BUTTONS) {
  		for (i = 0; xpad_btn_pad[i] >= 0; i++)
  			__set_bit(xpad_btn_pad[i], input_dev->keybit);
@@ -1275,7 +1279,7 @@
  	}
  
  	if (xpad->mapping & MAP_TRIGGERS_TO_BUTTONS) {
-@@ -945,79 +1391,117 @@
+@@ -948,79 +1391,117 @@
  			xpad_set_up_abs(input_dev, xpad_abs_triggers[i]);
  	}
  
@@ -1376,6 +1380,13 @@
 -		}
 +	usb_make_path(udev, xpad->phys, sizeof(xpad->phys));
 +	strlcat(xpad->phys, "/input0", sizeof(xpad->phys));
++
++	xpad->idata = usb_alloc_coherent(udev, XPAD_PKT_LEN,
++					 GFP_KERNEL, &xpad->idata_dma);
++	if (!xpad->idata) {
++		error = -ENOMEM;
++		goto err_free_mem;
++	}
  
 -		ep_irq_in = &intf->cur_altsetting->endpoint[1].desc;
 -		if (usb_endpoint_is_bulk_out(ep_irq_in)) {
@@ -1384,13 +1395,6 @@
 -							  ep_irq_in->bEndpointAddress),
 -					  xpad->bdata, XPAD_PKT_LEN,
 -					  xpad_bulk_out, xpad);
-+	xpad->idata = usb_alloc_coherent(udev, XPAD_PKT_LEN,
-+					 GFP_KERNEL, &xpad->idata_dma);
-+	if (!xpad->idata) {
-+		error = -ENOMEM;
-+		goto err_free_mem;
-+	}
-+
 +	xpad->irq_in = usb_alloc_urb(0, GFP_KERNEL);
 +	if (!xpad->irq_in) {
 +		error = -ENOMEM;
@@ -1448,7 +1452,7 @@
  		/*
  		 * Submit the int URB immediately rather than waiting for open
  		 * because we get status messages from the device whether
-@@ -1025,58 +1509,110 @@
+@@ -1028,58 +1509,110 @@
  		 * exactly the message that a controller has arrived that
  		 * we're waiting for.
  		 */
