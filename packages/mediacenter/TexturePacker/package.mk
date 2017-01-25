@@ -33,8 +33,7 @@ PKG_AUTORECONF="no"
 
 PKG_CMAKE_SCRIPT="$(get_build_dir $MEDIACENTER)/tools/depends/native/TexturePacker/CMakeLists.txt"
 
-PKG_CMAKE_OPTS_HOST="-DCORE_SOURCE_DIR=$(get_build_dir $MEDIACENTER) \
-                     -Wno-dev"
+PKG_CMAKE_OPTS_HOST="-Wno-dev"
 
 pre_build_host() {
   $SCRIPTS/clean $PKG_NAME
