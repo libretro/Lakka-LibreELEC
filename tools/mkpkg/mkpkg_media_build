@@ -1,7 +1,7 @@
 #!/bin/sh
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-2017 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,82 +17,76 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+# set media_build version you want to use
+if [ -z "$1" ]; then
+  MEDIA_BUILD_HASH="master"
+else
+  MEDIA_BUILD_HASH="$1"
+fi
+
 # name of the package
-DVB_MKPKG_NAME="media_build"
 DVB_MKPKG_FOLDER="$(pwd)"
 
 # remove old files
 echo "removing old sources ..."
-rm -rf ${DVB_MKPKG_NAME}
-rm -rf ${DVB_MKPKG_NAME}-*
+rm -rf media_build*/
+rm -rf media_tree/
 
 ################################################################################
 
 # media_build dl
 echo "getting media_build sources ..."
-  if [ ! -d media_build.git ]; then
-    git clone --depth=1 https://bitbucket.org/CrazyCat/media_build.git ${DVB_MKPKG_NAME}/media_build
-  fi
 
-echo "cleaning media_build sources ..."
-  rm -rf ${DVB_MKPKG_NAME}/media_build/.git
+if [ ! -d media_build.git ]; then
+  git clone https://bitbucket.org/CrazyCat/media_build.git media_build/
+fi
+
+#get log
+cd media_build/
+  git pull
+  git checkout $MEDIA_BUILD_HASH
+  GIT_LOG_MEDIA_BUILD=`git log --pretty=oneline -n1`
+
+cd $DVB_MKPKG_FOLDER/
 
 # media_tree dl
 echo "getting sources ..."
   if [ ! -d linux_media.git ]; then
-    git clone --depth=1 https://github.com/crazycat69/linux_media.git -b latest ${DVB_MKPKG_NAME}/media_tree
+    git clone --depth=1 https://github.com/crazycat69/linux_media.git -b latest media_tree
   fi
 
-cd ${DVB_MKPKG_NAME}/media_tree
+#get log
+cd media_tree/
   git pull
+  GIT_LOG_MEDIA_TREE=`git log --pretty=oneline -n1`
   GIT_REV=`git log -n1 --pretty=format:"%ad" --date=short`
 
 cd $DVB_MKPKG_FOLDER/
 
-# final folder
-mkdir ${DVB_MKPKG_NAME}/media/
-
 ################################################################################
 
-# modify the media_build buildscript
-cd ${DVB_MKPKG_NAME}/media_build/linux/
-
-# backup Makefile
-cp Makefile Makefile.org
-
-# workaround for crazycat media_build to create a proper named file
-sed -i -E "s/TODAY_TAR\ \:\=\ linux\-media\-LATEST\.tar/TODAY_TAR\ \:\=\ linux\-media.tar/g" Makefile
-
-# normal media build
-sed -i -E 's/TODAY_TAR\ \:\=\ linux\-media\-\$\{DATE\}\.tar/TODAY_TAR\ \:\=\ linux\-media.tar/g' Makefile
-
-# remove the creation of the archive
-sed -i -E 's/bzip2\ \$\(PWD\)\/\$\(TODAY_TAR\)/ /g' Makefile
-
 # collecting files from media_tree
-echo "collect source files ..."
-make todaytar DIR="../../media_tree/"
+echo "create media_tree tar"
+cd media_build/linux
+make tar DIR="$DVB_MKPKG_FOLDER/media_tree/"
 
-# extract resulting tar into media folder
-tar xf linux-media.tar -C "../../media/"
+cd $DVB_MKPKG_FOLDER
 
 # cleanup
-rm linux-media.tar
-rm Makefile && mv Makefile.org Makefile
+rm -rf media_tree/
+rm -rf media_build/.git/
 
-cd $DVB_MKPKG_FOLDER 
-rm -rf ${DVB_MKPKG_NAME}/media_tree/ 
-rm -rf ${DVB_MKPKG_NAME}/media_build/.git/
+# log used versions into LE_versions
+echo "package include: \n\nmedia_build:\n$GIT_LOG_MEDIA_BUILD \n\nmedia_tree:\n$GIT_LOG_MEDIA_TREE \n" > media_build/LE_versions
 
 # rename buildfolder
-mv ${DVB_MKPKG_NAME}/ ${DVB_MKPKG_NAME}-$GIT_REV/
+mv media_build/ media_build-$GIT_REV/
 
 ################################################################################
 
 # pack sources
 echo "packing sources ..."
-tar cvJf ${DVB_MKPKG_NAME}-$GIT_REV.tar.xz ${DVB_MKPKG_NAME}-$GIT_REV
+tar cvJf media_build-$GIT_REV.tar.xz media_build-$GIT_REV
 
 echo "remove temporary sourcedir ..."
-rm -rf ${DVB_MKPKG_NAME}-$GIT_REV
-rm -rf ${DVB_MKPKG_NAME}
+rm -rf media_build-$GIT_REV
