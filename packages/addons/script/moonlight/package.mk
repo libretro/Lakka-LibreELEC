@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-2017 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 PKG_NAME="moonlight"
 PKG_VERSION="391de3f"
 PKG_VERSION_NUMBER="2.2.2"
-PKG_REV="104"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dead/script.moonlight"
@@ -36,6 +36,12 @@ PKG_ADDON_NAME="Moonlight"
 PKG_ADDON_TYPE="xbmc.service.pluginsource"
 PKG_ADDON_PROVIDES="executable"
 
+post_unpack() {
+  # don't use the files from the script
+  rm $ROOT/$PKG_BUILD/script.moonlight/icon.png
+  rm $ROOT/$PKG_BUILD/script.moonlight/changelog.txt
+}
+
 make_target() {
   :
 }
@@ -47,6 +53,9 @@ makeinstall_target() {
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
     cp -PR $ROOT/$PKG_BUILD/script.moonlight/* $ADDON_BUILD/$PKG_ADDON_ID
+
+    # use our own changelog.txt
+    cp $PKG_DIR/changelog.txt $ADDON_BUILD/$PKG_ADDON_ID
 
     # let's use our addon.xml instead
     rm $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
