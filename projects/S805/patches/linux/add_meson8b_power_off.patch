@@ -1,0 +1,98 @@
+diff --git a/arch/arm/mach-meson8b/include/mach/pm.h b/arch/arm/mach-meson8b/include/mach/pm.h
+index a409586..bd14dd8 100644
+--- a/arch/arm/mach-meson8b/include/mach/pm.h
++++ b/arch/arm/mach-meson8b/include/mach/pm.h
+@@ -29,4 +29,5 @@ extern void early_clk_switch(int flag);
+ #ifdef CONFIG_MESON_SUSPEND
+ extern int meson_power_suspend(void);
+ #endif /*CONFIG_MESON_SUSPEND*/
++void meson_pm_poweroff(void);
+ #endif
+diff --git a/arch/arm/mach-meson8b/pm.c b/arch/arm/mach-meson8b/pm.c
+index 01026b7..8da4d05 100755
+--- a/arch/arm/mach-meson8b/pm.c
++++ b/arch/arm/mach-meson8b/pm.c
+@@ -36,10 +36,8 @@
+ #include <mach/meson-secure.h>
+ #endif
+ 
+-#ifdef CONFIG_SUSPEND_WATCHDOG
++#include <mach/register.h>
+ #include <mach/watchdog.h>
+-#endif /* CONFIG_SUSPEND_WATCHDOG */
+-
+ #include <mach/mod_gate.h>
+ 
+ #ifdef CONFIG_HAS_EARLYSUSPEND
+@@ -58,6 +56,7 @@ static int early_suspend_flag = 0;
+ 
+ static unsigned int  cec_config = 0;       // 4 bytes: use to control cec switch on/off,distinguish between Mbox and Tablet. bit[0]:1:Mbox; 0:Tablet
+ static struct meson_pm_config *pdata;
++static bool power_off_flag = 0;
+ 
+ #define CLK(addr)  \
+ { \
+@@ -413,6 +412,13 @@ static void meson_pm_suspend(void)
+ 	aml_clr_reg32_mask(P_HHI_SYS_CPU_CLK_CNTL, 1 << 7);
+ 	aml_clr_reg32_mask(P_HHI_SYS_PLL_CNTL, 1 << 30);//disable sys pll
+ 
++	if (!power_off_flag)
++		// Prevent Beelink MXQ from powering down
++		aml_write_reg32(P_AO_RTI_STATUS_REG1, 0x01010101);
++	else
++		//
++		aml_write_reg32(P_AO_RTI_STATUS_REG2, 0x87654321);
++
+ #ifdef CONFIG_AML_GPIO_KEY
+ 	if(det_pwr_key())//get pwr key and wakeup im
+ 	{
+@@ -438,6 +444,12 @@ static void meson_pm_suspend(void)
+ #endif
+ #endif
+ 	}
++	if (power_off_flag)
++	{
++		// reboot if woke up after "power off"
++		aml_clr_reg32_mask(P_WATCHDOG_TC,(1 << WATCHDOG_ENABLE_BIT));
++		aml_write_reg32(P_WATCHDOG_TC,(1<<22) | (3<<24));
++	}
+ 	aml_set_reg32_mask(P_HHI_SYS_PLL_CNTL, (1 << 30)); //enable sys pll
+ 	printk(KERN_INFO "... wake up\n");
+ #if 1
+@@ -470,6 +482,12 @@ static void meson_pm_suspend(void)
+ #endif
+ }
+ 
++void meson_pm_poweroff(void)
++{
++	power_off_flag = 1;
++	meson_pm_suspend();
++}
++
+ static int meson_pm_prepare(void)
+ {
+ 	  printk(KERN_INFO "enter meson_pm_prepare!\n");
+diff --git a/arch/arm/plat-meson/power.c b/arch/arm/plat-meson/power.c
+index 80d03fe..5aa1268 100644
+--- a/arch/arm/plat-meson/power.c
++++ b/arch/arm/plat-meson/power.c
+@@ -25,6 +25,7 @@
+ #include <asm/proc-fns.h>
+ #include <mach/system.h>
+ #include <linux/slab.h>
++#include <../mach-meson8b/include/mach/pm.h>
+ /*
+  * These are system power hooks to implement power down policy
+  * pls add rule and policy notes
+@@ -76,10 +77,7 @@ void meson_power_off_prepare(void)
+ void meson_power_off(void)
+ {
+ 	printk("meson power off \n");
+-	if(reboot_flag)
+-		meson_common_restart('h',"uboot_suspend");
+-	else
+-		meson_common_restart('h',"charging_reboot");
++	meson_pm_poweroff();
+ }
+ 
+ void meson_power_idle(void)
