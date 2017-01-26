@@ -1,0 +1,76 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016 Mateusz Krzak (kszaquitto@gmail.com)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+SOURCEREMOTECONF=""
+TMPREMOTECONF="/tmp/remote.conf"
+REMOTECONFPRESENT="yes"
+REMAP="no"
+
+if [ -f /storage/.config/remote.conf ]; then
+  SOURCEREMOTECONF="/storage/.config/remote.conf"
+  REMAP="yes"
+elif [ -f /flash/remote.conf ]; then
+  SOURCEREMOTECONF="/flash/remote.conf"
+  REMAP="yes"
+elif [ -f /etc/amremote/remote.conf ]; then
+  SOURCEREMOTECONF="/etc/amremote/remote.conf"
+elif ! grep -q /dev/system /proc/mounts ; then
+  mount -o rw,remount /flash
+  mkdir -p /tmp/system
+  mount -o ro /dev/system /tmp/system
+  if [ -f /tmp/system/etc/remote.conf ] ; then
+    cp /tmp/system/etc/remote.conf /flash/remote.conf
+    SOURCEREMOTECONF="/flash/remote.conf"
+  elif [ -f /tmp/system/remote.conf ] ; then
+    cp /tmp/system/remote.conf /flash/remote.conf
+    SOURCEREMOTECONF="/flash/remote.conf"
+  fi
+  umount /tmp/system
+  REMAP="yes"
+else
+  REMOTECONFPRESENT="no"
+fi
+
+if [ "$REMOTECONFPRESENT" = "yes" ]; then
+  cp "$SOURCEREMOTECONF" "$TMPREMOTECONF"
+  if [ "$REMAP" = "yes" ]; then
+    sed -i 's/ 15[^0-9]*$/ 1/
+            s/ 63[^0-9]*$/ 90/
+            s/ 97[^0-9]*$/ 28/
+            s/ 102[^0-9]*$/ 172/
+            s/ 125[^0-9]*$/ 46/
+            s/ 142[^0-9]*$/ 116/
+            s/ 143[^0-9]*$/ 116/
+            s/ 158[^0-9]*$/ 1/
+            s/ 183[^0-9]*$/ 59/
+            s/ 184[^0-9]*$/ 399/
+            s/ 185[^0-9]*$/ 400/
+            s/ 186[^0-9]*$/ 60/
+            s/ 232[^0-9]*$/ 38/
+            s/ 240[^0-9]*$/ 164/
+            s/ 241[^0-9]*$/ 163/
+            s/ 242[^0-9]*$/ 165/
+            s/ 244[^0-9]*$/ 208/
+            s/ 245[^0-9]*$/ 168/
+            s/ 264[^0-9]*$/ 63/
+            s/ 704[^0-9]*$/ 116/' "$TMPREMOTECONF"
+  fi
+  /usr/bin/remotecfg "$TMPREMOTECONF"
+fi

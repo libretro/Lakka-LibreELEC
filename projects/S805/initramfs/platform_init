@@ -1,0 +1,87 @@
+#!/bin/sh
+
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2014 Alex Deryskyba (alex@codesnake.com)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+hdmimode=720p
+
+# Parse command line arguments
+for arg in $(cat /proc/cmdline); do
+  case $arg in
+    hdmitx=*)
+      hdmitx="${arg#*=}"
+      ;;
+    hdmimode=*)
+      hdmimode="${arg#*=}"
+      ;;
+    bootfromsd*)
+      bootfromsd=1
+      ;;
+    bootfromusb*)
+      bootfromusb=1
+      ;;
+  esac
+done
+
+echo "$hdmimode" > /sys/class/display/mode
+
+# Force enable CEC if configuration parameter not present or empty
+if [ -z "$hdmitx" ]; then
+  echo 0xf > /sys/class/amhdmitx/amhdmitx0/cec_config
+fi
+
+# Enable framebuffer device
+echo 0 > /sys/class/graphics/fb0/blank
+
+# Blank fb1 to prevent static noise
+echo 1 > /sys/class/graphics/fb1/blank
+
+# Disable framebuffer scaling
+echo 0 > /sys/class/graphics/fb0/free_scale
+echo 0 > /sys/class/graphics/fb1/free_scale
+
+# Set framebuffer geometry to match the resolution
+case "$hdmimode" in
+  720*)
+    fbset -fb /dev/fb0 -g 1280 720 1920 2160 32
+    ;;
+  1080*)
+    fbset -fb /dev/fb0 -g 1920 1080 1920 2160 32
+    ;;
+esac
+
+# Include deinterlacer into default VFM map
+echo rm default > /sys/class/vfm/map
+echo add default decoder ppmgr deinterlace amvideo > /sys/class/vfm/map
+
+cmdline=$(cat /proc/cmdline)
+
+# Add information where to run OpenELEC from
+if [ -n "$bootfromsd" ]; then
+  cmdline="$cmdline BOOT_IMAGE=kernel.img boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2"
+elif [ -n "$bootfromusb" ]; then
+  cmdline="$cmdline BOOT_IMAGE=kernel.img boot=LABEL=LIBREELEC disk=LABEL=LIBREELEC_DISK"
+else
+  cmdline="$cmdline BOOT_IMAGE=/dev/boot boot=/dev/system disk=/dev/data"
+fi
+
+echo "$cmdline" > /proc/cmdline
+
+for part in /sys/block/*/queue/add_random; do
+  echo 0 > "$part"
+done
