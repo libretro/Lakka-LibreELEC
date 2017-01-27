@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libmicrohttpd"
-PKG_VERSION="0.9.51"
+PKG_VERSION="0.9.52"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="http://www.gnu.org/software/libmicrohttpd/"
