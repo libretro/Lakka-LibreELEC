@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="mpd"
-PKG_VERSION="0.19.15"
-PKG_REV="101"
+PKG_VERSION="0.20.3"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
@@ -34,7 +34,6 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Music Player Daemon (MPD)"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_ADDON_PROVIDES=""
 
 pre_configure_target() {
   export LIBS="$LIBS -logg -lFLAC"
