@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://LibreELEC.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-2017 Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="oscam"
-PKG_VERSION="c677c6e"
-PKG_VERSION_NUMBER="11233"
-PKG_REV="102"
+PKG_VERSION="d6fe72c"
+PKG_VERSION_NUMBER="11350"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.streamboard.tv/oscam/wiki"
@@ -28,15 +28,11 @@ PKG_DEPENDS_TARGET="toolchain pcsc-lite"
 PKG_SECTION="service.softcam"
 PKG_SHORTDESC="OSCam: an Open Source Conditional Access Modul"
 PKG_LONGDESC="OSCam($PKG_VERSION_NUMBER) is a software to be used to decrypt digital television channels, as an alternative for a conditional access module."
+PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="OSCam"
 PKG_ADDON_TYPE="xbmc.service"
-PKG_AUTORECONF="no"
-
-pre_unpack()  {
-export OSCAM_ADDON_VERSION="$PKG_VERSION_NUMBER"
-}
 
 PKG_CMAKE_OPTS_TARGET="-DLIBUSBDIR=$SYSROOT_PREFIX/usr \
                        -DWITH_SSL=0 \
@@ -47,6 +43,10 @@ PKG_CMAKE_OPTS_TARGET="-DLIBUSBDIR=$SYSROOT_PREFIX/usr \
                        -DOPTIONAL_INCLUDE_DIR=$SYSROOT_PREFIX/usr/include \
                        -DSTATIC_LIBUSB=1 \
                        -DCLOCKFIX=0"
+
+pre_configure_target() {
+  export OSCAM_ADDON_VERSION="$PKG_VERSION_NUMBER"
+}
 
 makeinstall_target() {
   : # nop
