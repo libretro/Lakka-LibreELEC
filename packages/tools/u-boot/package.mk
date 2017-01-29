@@ -19,10 +19,12 @@
 PKG_NAME="u-boot"
 PKG_DEPENDS_TARGET="toolchain"
 if [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
-  PKG_VERSION="imx6-408544d"
-  PKG_SITE="http://imx.solid-run.com/wiki/index.php?title=Building_the_kernel_and_u-boot_for_the_CuBox-i_and_the_HummingBoard"
-  # https://github.com/SolidRun/u-boot-imx6.git
-  PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+  PKG_COMMIT="c8d1200"
+  PKG_VERSION="imx6-$PKG_COMMIT"
+  PKG_SITE="http://solid-run.com/wiki/doku.php?id=products:imx6:software:development:u-boot"
+  PKG_URL="https://github.com/SolidRun/u-boot-imx6/archive/$PKG_COMMIT.tar.gz"
+  PKG_SOURCE_NAME="$PKG_NAME-sr-$PKG_VERSION.tar.gz"
+  PKG_SOURCE_DIR="$PKG_NAME-imx6-${PKG_COMMIT}*"
   [ -n "$UBOOT_CONFIG_V2" ] && PKG_DEPENDS_TARGET="toolchain u-boot-v2"
 elif [ "$UBOOT_VERSION" = "hardkernel" ]; then
   PKG_VERSION="6e4e886"
@@ -58,7 +60,6 @@ pre_configure_target() {
 
 # copy compiler-gcc5.h to compiler-gcc6. for fake building
   cp include/linux/compiler-gcc5.h include/linux/compiler-gcc6.h
-
 }
 
 make_target() {
