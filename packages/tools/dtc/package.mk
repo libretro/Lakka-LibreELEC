@@ -35,3 +35,8 @@ makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp -P $ROOT/$PKG_BUILD/dtc $INSTALL/usr/bin
 }
+
+makeinstall_host() {
+  mkdir -p $INSTALL/usr/bin
+    cp -P $ROOT/$PKG_BUILD/dtc $INSTALL/usr/bin
+}
