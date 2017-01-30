@@ -37,7 +37,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-alsaloop \
                            --enable-alsatest \
                            --disable-bat \
-                           --disable-nls"
+                           --disable-nls \
+                           --disable-rst2man"
 
 
 post_makeinstall_target() {
