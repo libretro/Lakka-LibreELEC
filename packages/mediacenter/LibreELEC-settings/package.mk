@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="LibreELEC-settings"
-PKG_VERSION="ea5227a"
+PKG_VERSION="042c6c2"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="https://libreelec.tv"
