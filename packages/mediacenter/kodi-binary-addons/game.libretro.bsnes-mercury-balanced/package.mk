@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.bsnes-mercury-balanced"
-PKG_VERSION="4aa86c4"
+PKG_VERSION="280ee53"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.o2em"
-PKG_VERSION="32a8983"
+PKG_VERSION="ffea146"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

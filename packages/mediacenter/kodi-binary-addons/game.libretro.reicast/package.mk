@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.reicast"
-PKG_VERSION="ce16df3"
+PKG_VERSION="da50bf4"
 PKG_REV="100"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"

@@ -17,7 +17,7 @@
 ################################################################################
 exit 0
 PKG_NAME="game.libretro.fuse"
-PKG_VERSION="c7b0d5c"
+PKG_VERSION=""
 PKG_REV="3"
 PKG_ARCH="arm x86_64"
 PKG_LICENSE="GPL"

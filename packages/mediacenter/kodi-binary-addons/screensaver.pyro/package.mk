@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="screensaver.pyro"
-PKG_VERSION="4810d75"
+PKG_VERSION="379e102"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

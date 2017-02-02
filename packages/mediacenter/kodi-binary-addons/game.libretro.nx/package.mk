@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.nx"
-PKG_VERSION="f7e94d4"
+PKG_VERSION="de82a7a"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
