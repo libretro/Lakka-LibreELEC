@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.dinothawr"
-PKG_VERSION="ff4195f"
+PKG_VERSION="cb07699"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

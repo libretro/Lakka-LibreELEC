@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.beetle-lynx"
-PKG_VERSION="f2e5c8c"
+PKG_VERSION="3f51d9f"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

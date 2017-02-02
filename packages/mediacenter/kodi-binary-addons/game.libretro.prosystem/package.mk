@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.prosystem"
-PKG_VERSION="7366291"
+PKG_VERSION="6247d9a"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

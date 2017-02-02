@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.bnes"
-PKG_VERSION="3675df1"
+PKG_VERSION="4538b85"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

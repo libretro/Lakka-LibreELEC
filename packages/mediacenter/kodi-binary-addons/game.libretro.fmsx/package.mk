@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.fmsx"
-PKG_VERSION="749da98"
+PKG_VERSION="15771e9"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.virtualjaguar"
-PKG_VERSION="e3255b5"
+PKG_VERSION="6429448"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

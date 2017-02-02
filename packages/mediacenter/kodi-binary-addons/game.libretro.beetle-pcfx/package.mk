@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.beetle-pcfx"
-PKG_VERSION="98ec2d4"
+PKG_VERSION="0224b9d"
 PKG_REV="100"
 PKG_ARCH="arm x86_64"
 PKG_LICENSE="GPL"
