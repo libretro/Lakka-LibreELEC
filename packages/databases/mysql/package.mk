@@ -58,6 +58,12 @@ PKG_CMAKE_OPTS_HOST="-DCMAKE_BUILD_TYPE=Release \
                      -DWITH_UNIT_TESTS=OFF \
                      -DWITH_ZLIB=bundled"
 
+if [ "$DEBUG" = yes -a "$TARGET_ARCH" = aarch64 ]; then
+  pre_configure_target() {
+    strip_lto
+  }
+fi
+
 make_host() {
   make comp_err
   make gen_lex_hash
