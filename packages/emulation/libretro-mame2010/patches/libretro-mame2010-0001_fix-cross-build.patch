@@ -1,0 +1,86 @@
+diff -Naur a/Makefile b/Makefile
+--- a/Makefile	2016-01-14 22:42:59.000000000 +0100
++++ b/Makefile	2016-01-18 11:50:36.918881873 +0100
+@@ -60,7 +60,7 @@
+ CPPONLYFLAGS =
+ # LDFLAGS are used generally; LDFLAGSEMULATOR are additional
+ # flags only used when linking the core emulator
+-LDFLAGS =
++LDFLAGS ?=
+ LDFLAGSEMULATOR =
+ 
+ # uncomment next line to build expat as part of MAME build
+@@ -90,24 +90,22 @@
+ 	CCOMFLAGS  += -DHAVE_GL
+ endif
+ 
+-UNAME=$(shell uname -m)
+-
+-ifeq ($(firstword $(filter x86_64,$(UNAME))),x86_64)
++ifeq ($(firstword $(filter x86_64,$(ARCH))),x86_64)
+ PTR64 = 1
+ endif
+-ifeq ($(firstword $(filter amd64,$(UNAME))),amd64)
++ifeq ($(firstword $(filter amd64,$(ARCH))),amd64)
+ PTR64 = 1
+ endif
+-ifeq ($(firstword $(filter ppc64,$(UNAME))),ppc64)
++ifeq ($(firstword $(filter ppc64,$(ARCH))),ppc64)
+ PTR64 = 1
+ endif
+ ifneq (,$(findstring mingw64-w64,$(PATH)))
+ PTR64=1
+ endif
+-ifneq (,$(findstring Power,$(UNAME)))
++ifneq (,$(findstring Power,$(ARCH)))
+ BIGENDIAN=1
+ endif
+-ifneq (,$(findstring ppc,$(UNAME)))
++ifneq (,$(findstring ppc,$(ARCH)))
+ BIGENDIAN=1
+ endif
+ 
+@@ -124,14 +122,10 @@
+    LIBS += -lGL
+ endif
+ LDFLAGS += $(SHARED)
+-   NATIVELD = g++
+-   NATIVELDFLAGS = -Wl,--warn-common -lstdc++
+-   NATIVECC = g++
+-   NATIVECFLAGS = -std=gnu99
+-   CC_AS = gcc 
+-   CC = g++
+-   AR = @ar
+-   LD = g++ 
++   CC_AS ?= $(CC)
++   CC ?= g++
++   AR ?= @ar
++   LD ?= g++ 
+    CCOMFLAGS += $(PLATCFLAGS) -ffast-math  
+    LIBS += -lstdc++ -lpthread 
+ 
+@@ -284,10 +278,13 @@
+ 
+ # ARM
+ else ifneq (,$(findstring armv,$(platform)))
++   ARM_ENABLED = 1
++   EXTRA_RULES = 1
+    TARGETLIB := $(TARGET_NAME)_libretro.so
+-   SHARED := -shared -Wl,--no-undefined
++   SHARED := -shared -Wl,--version-script=src/osd/retro/link.T
++   LDFLAGS += $(SHARED)
+    fpic = -fPIC
+-   CC = g++
++   CC ?= g++
+ ifneq (,$(findstring cortexa8,$(platform)))
+    CFLAGS += -marm -mcpu=cortex-a8
+    ASFLAGS += -mcpu=cortex-a8
+@@ -505,7 +502,7 @@
+ 
+ # CFLAGS is defined based on C or C++ targets
+ # (remember, expansion only happens when used, so doing it here is ok)
+-CFLAGS = $(CCOMFLAGS) $(CPPONLYFLAGS)
++CFLAGS += $(CCOMFLAGS) $(CPPONLYFLAGS)
+ 
+ # we compile C-only to C89 standard with GNU extensions
+ # we compile C++ code to C++98 standard with GNU extensions
