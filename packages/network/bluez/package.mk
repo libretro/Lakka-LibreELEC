@@ -72,6 +72,12 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/bluemoon
   rm -rf $INSTALL/usr/bin/ciptool
   rm -rf $INSTALL/usr/share/dbus-1
+
+  mkdir -p $INSTALL/etc/bluetooth
+    cp src/main.conf $INSTALL/etc/bluetooth
+    sed -i $INSTALL/etc/bluetooth/main.conf \
+        -e "s|^#\[Policy\]|\[Policy\]|g" \
+        -e "s|^#AutoEnable.*|AutoEnable=true|g"
 }
 
 post_install() {
