@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="scummvm"
-PKG_VERSION="83c3b2f"
+PKG_VERSION="011f40a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/scummvm"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/scummvm/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -35,7 +35,6 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_configure_target() {
-  strip_gold
   strip_lto
 }
 
@@ -44,12 +43,14 @@ configure_target() {
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD
-  CXXFLAGS="$CXXFLAGS -DHAVE_POSIX_MEMALIGN=1"
-  make -C backends/platform/libretro/build/
+  export CXXFLAGS="$CXXFLAGS -DHAVE_POSIX_MEMALIGN=1"
+  export LDFLAGS="$LDFLAGS"
+  export ar="$AR cru"
+  cd ../backends/platform/libretro/build/
+  make HAVE_MT32EMU=1
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp backends/platform/libretro/build/scummvm_libretro.so $INSTALL/usr/lib/libretro/
+  cp scummvm_libretro.so $INSTALL/usr/lib/libretro/
 }

@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="fbalpha"
-PKG_VERSION="1a49ca7"
+PKG_VERSION="c4c9fb5"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/fbalpha"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/fbalpha/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -36,9 +36,9 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    make -f makefile.libretro profile=performance
+    make -f makefile.libretro CC=$CC CXX=$CXX profile=performance
   else
-    make -f makefile.libretro profile=accuracy
+    make -f makefile.libretro CC=$CC CXX=$CXX profile=accuracy
   fi
 }
 
