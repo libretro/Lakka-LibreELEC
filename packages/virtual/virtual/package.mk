@@ -29,3 +29,11 @@ PKG_LONGDESC="virtual is a Meta package to install Virtual project extra depende
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+get_graphicdrivers
+
+for drv in $GRAPHIC_DRIVERS; do
+  if [ "$drv" = "vmware" ]; then
+    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET open-vm-tools"
+  fi
+done
