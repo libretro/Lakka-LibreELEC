@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="mgba"
-PKG_VERSION="608b8e7"
+PKG_VERSION="998dc43"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/libretro/mgba"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/mgba/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,7 @@ PKG_LONGDESC="mGBA is a new emulator for running Game Boy Advance games. It aims
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
 
 make_target() {
   cd $ROOT/$PKG_BUILD

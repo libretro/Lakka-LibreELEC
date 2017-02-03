@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="gpsp"
-PKG_VERSION="4b00c74"
+PKG_VERSION="c31b3e8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gpsp"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/gpsp/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -36,10 +36,9 @@ PKG_AUTORECONF="no"
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    sed -i -e "s/CC = gcc//" Makefile
-    make platform=armv
+    make CC=$CC platform=armv
   else
-    make
+    make CC=$CC
   fi  
 }
 

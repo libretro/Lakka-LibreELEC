@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="vba-next"
-PKG_VERSION="0b7b177"
+PKG_VERSION="e773475"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/vba-next"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/vba-next/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

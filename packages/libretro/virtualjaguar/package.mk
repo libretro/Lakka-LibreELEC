@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="virtualjaguar"
-PKG_VERSION="8be4390"
+PKG_VERSION="7697f9d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/virtualjaguar-libretro"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/virtualjaguar-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,10 @@ PKG_LONGDESC="Port of Virtual Jaguar to Libretro"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $BUILD/virtualjaguar-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
