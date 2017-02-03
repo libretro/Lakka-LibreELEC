@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="glupen64"
-PKG_VERSION="dd195c8"
+PKG_VERSION="7b7cb25"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/loganmc10/glupen64"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/GLupeN64/GLupeN64"
+PKG_URL="https://github.com/GLupeN64/GLupeN64/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain nasm:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -34,8 +34,11 @@ PKG_LONGDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+post_unpack() {
+  mv $BUILD/GLupeN64-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
+
 pre_configure_target() {
-  strip_gold
   strip_lto
 }
 
