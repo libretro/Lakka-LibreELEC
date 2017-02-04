@@ -49,6 +49,10 @@ post_install() {
       ln -sf /usr/lib $ROOT/$BUILD/initramfs/usr/lib64
     fi
 
+    for MOD in `find ./usr/lib/modules/ -type f -name *.ko`; do
+      $STRIP --strip-debug $MOD
+    done
+
     ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib
     ln -sf /usr/bin $ROOT/$BUILD/initramfs/bin
     ln -sf /usr/sbin $ROOT/$BUILD/initramfs/sbin
