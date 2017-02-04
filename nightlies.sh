@@ -12,6 +12,8 @@ DISTRO=Lakka PROJECT=RPi ARCH=arm make noobs -j8
 DISTRO=Lakka PROJECT=RPi2 ARCH=arm make noobs -j8
 >&2 echo "a20.arm"
 DISTRO=Lakka PROJECT=a20 ARCH=arm make image -j8
+>&2 echo "a10.arm"
+DISTRO=Lakka PROJECT=a10 ARCH=arm make image -j8
 >&2 echo "imx6.cuboxi.arm"
 DISTRO=Lakka PROJECT=imx6 SYSTEM=cuboxi ARCH=arm make image -j8
 >&2 echo "imx6.udoo.arm"
