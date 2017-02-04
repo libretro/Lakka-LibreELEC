@@ -94,7 +94,7 @@ make_target() {
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_TARGET
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
-    elif [ "$PROJECT" = "OdroidC1" -o "$PROJECT" = "a20" ]; then
+    elif [ "$PROJECT" = "OdroidC1" -o "$PROJECT" = "a20" -o "$PROJECT" = "a10" ]; then
       make CROSS_COMPILE="arm-none-eabi-" ARCH=arm mrproper
       make CROSS_COMPILE="arm-none-eabi-" ARCH=arm $UBOOT_TARGET
       make CROSS_COMPILE="arm-none-eabi-" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
