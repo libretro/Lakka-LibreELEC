@@ -20,23 +20,19 @@
 #
 # exit 1 = unsupported GPU
 # exit 2 = dual boot system
-# exit 3 = no backup file, therefore no restore
+# exit 3 = no backup for syslinux.cfg or extlinux.conf
 # exit 4 = extlinux.conf and syslinux.cfg are available
 # exit 5 = changes are already made either to extlinux.conf or syslinux.cfg
 # exit 6 = xorg.conf already exists in /storage/.config
-# exit 7 = no xorg.conf in /storage/.config
-# exit 8 = more than a single device detected
+# exit 7 = more than a single device detected
 
 # Help message and usage explanation
 help() {
-  clear
   echo "This script generates a custom EDID depending on your GPU"
   echo ""
   echo "To check which GPU you are using, use: getedid gpu"
   echo ""
-  echo "To create a custon EDID, just use this script like: getedid create"
-  echo ""
-  echo "If you have already used this script and wish to restore original behaviour, use: getedid default"
+  echo "To create a custom EDID, just use this script like: getedid create"
   echo ""
   echo "If you don't want to use the created EDID file anymore use: getedid delete"
   echo ""
@@ -152,32 +148,6 @@ check_content() {
 }
 
 
-# restore the backup done by the script and depending on the GPU
-restore() {
-  if [ "$gpu" = "intel" ]; then
-    check_file
-    if [ -f "$file".old ]; then
-      mount_rw
-      cp "$file".old "$file"  # cp because of keeping the backup...just in case
-      sys_reboot
-    else
-      echo "You have not created a custom EDID yet, or you did not use this script for this task."
-      echo "Therefore we can't ensure the script is working properly."
-      echo "Exiting"
-      exit 3
-    fi
-  elif [ "$gpu" = "nvidia" ]; then
-    if [ -f /storage/.config/xorg.conf ]; then
-      mv /storage/.config/xorg.conf /storage/.config/xorg.le.backup
-      systemctl restart xorg.service
-    else
-      echo "You don't have a xorg.conf in your .config folder. Everything is already at default. Exiting"
-      exit 7
-    fi
-  fi
-}
-
-
 intel() {
   #check which output is connnected:
   counter=0
@@ -189,7 +159,7 @@ intel() {
         hdmi="$(echo "$i" | cut -d / -f 5 | sed 's/card[0-9]-//g')"
       else
         echo "More than a single device connected. Probably enable \"Disable all other monitors\" at Kodi settings. Aborting!"
-        exit 8
+        exit 7
       fi
     fi
   done
@@ -238,7 +208,7 @@ nvidia() {
   monitors="$(grep -i -w "connected" /var/log/Xorg.0.log | grep -i -o "dfp-[0-9]" | sort -u | wc -l)"
   if [ "$monitors" -gt "1" ]; then
     echo "You have more than a single monitor connected. The script doesn't support a multi-monitor setup. Aborting!"
-    exit 8
+    exit 7
   fi
 
 
@@ -272,10 +242,6 @@ case "$1" in
     check_gpu
     run
     ;;
-  'default')
-    check_gpu
-    restore
-    ;;
   'gpu')
     check_gpu
     echo "$gpu"
@@ -288,6 +254,6 @@ case "$1" in
     help
     ;;
   *)
-    echo "Usage $0 { create | default | gpu | delete | help }"
+    echo "Usage $0 { create | gpu | delete | help }"
     ;;
 esac
