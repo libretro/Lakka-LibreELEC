@@ -45,4 +45,5 @@ make_target() {
 
 makeinstall_target() {
   cp -v wiringPi/libwiringPi.a* $INSTALL/usr/lib/
+  cp -v wiringPi/libwiringPi.a* $SYSROOT_PREFIX/usr/lib/
 }
