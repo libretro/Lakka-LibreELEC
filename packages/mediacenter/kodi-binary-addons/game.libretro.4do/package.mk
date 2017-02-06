@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.4do"
-PKG_VERSION="da1924b"
+PKG_VERSION="38e0fe5"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
