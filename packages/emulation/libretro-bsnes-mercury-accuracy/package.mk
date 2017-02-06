@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libretro-bsnes-mercury-accuracy"
-PKG_VERSION="425015a"
+PKG_VERSION="9061b90"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/bsnes-mercury"
@@ -29,18 +29,19 @@ PKG_SHORTDESC="game.libretro.beetle-bsnes-accuracy: Beetle bSNES for Kodi"
 PKG_LONGDESC="game.libretro.beetle-bsnes-accuracy: Beetle bSNES for Kodi"
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="bsnes_mercury_accuracy_libretro.so"
 PKG_LIBPATH="out/$PKG_LIBNAME"
-PKG_LIBVAR="BSNES_MERCURY_LIB"
+PKG_LIBVAR="BSNES-MERCURY-ACCURACY_LIB"
 
 make_target() {
   make profile=accuracy
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-  cp $PKG_LIBPATH $INSTALL/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $INSTALL/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/$PKG_NAME-config.cmake
+  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
+  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
+  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
 
