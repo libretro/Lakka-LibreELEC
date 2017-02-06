@@ -39,14 +39,10 @@ post_unpack() {
 }
 
 make_target() {
-  if [ "$ARCH" == "arm" ]; then
-    make HAVE_OPENGL=0
-  else
-    make HAVE_OPENGL=1
-  fi
+  make HAVE_OPENGL=1
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp mednafen_psx_libretro.so $INSTALL/usr/lib/libretro/
+  cp *.so $INSTALL/usr/lib/libretro/
 }
