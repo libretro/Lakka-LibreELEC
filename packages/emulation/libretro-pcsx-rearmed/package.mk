@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libretro-pcsx-rearmed"
-PKG_VERSION="1aa232f"
+PKG_VERSION="731139f"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
@@ -29,10 +29,11 @@ PKG_SHORTDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
 PKG_LONGDESC="game.libretro.pcsx-rearmed: PCSX Rearmed for Kodi"
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="pcsx_rearmed_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
-PKG_LIBVAR="PCSX_REARMED_LIB"
+PKG_LIBVAR="PCSX-REARMED_LIB"
 
 configure_target() {
   :
@@ -63,8 +64,8 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-  cp $PKG_LIBPATH $INSTALL/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $INSTALL/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/$PKG_NAME-config.cmake
+  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
+  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
+  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
 
