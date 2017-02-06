@@ -18,7 +18,7 @@
 
 
 PKG_NAME="libretro-picodrive"
-PKG_VERSION="0d87bd6"
+PKG_VERSION="d6be4fa"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/picodrive"
@@ -31,6 +31,7 @@ PKG_SHORTDESC="Fast MegaDrive/MegaCD/32X emulator"
 PKG_LONGDESC="Fast MegaDrive/MegaCD/32X emulator"
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="picodrive_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
@@ -75,8 +76,8 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-  cp $PKG_LIBPATH $INSTALL/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $INSTALL/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/$PKG_NAME-config.cmake
+  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
+  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
+  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
 
