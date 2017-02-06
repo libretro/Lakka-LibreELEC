@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.craft"
-PKG_VERSION="dfc9b44"
+PKG_VERSION="5a215a7"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
