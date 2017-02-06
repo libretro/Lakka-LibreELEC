@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libretro-mame2003"
-PKG_VERSION="57f6dae"
+PKG_VERSION="69163cc"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2003-libretro"
@@ -29,6 +29,7 @@ PKG_SHORTDESC="Late 2003 version of MAME (0.78) for libretro"
 PKG_LONGDESC="Late 2003 version of MAME (0.78) for libretro"
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mame2003_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
@@ -39,8 +40,8 @@ configure_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-  cp $PKG_LIBPATH $INSTALL/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $INSTALL/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/$PKG_NAME-config.cmake
+  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
+  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
+  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
 

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.mgba"
-PKG_VERSION="7be6f87"
+PKG_VERSION="ae3644d"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

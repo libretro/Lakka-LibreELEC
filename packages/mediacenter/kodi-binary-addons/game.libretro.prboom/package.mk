@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.prboom"
-PKG_VERSION="2811875"
+PKG_VERSION="c79ad2c"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

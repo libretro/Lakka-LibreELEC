@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libretro-nestopia"
-PKG_VERSION="70f4705"
+PKG_VERSION="ebd462b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"
@@ -29,18 +29,24 @@ PKG_SHORTDESC="game.libretro.nestopia: Nestopia for Kodi"
 PKG_LONGDESC="game.libretro.nestopia: Nestopia for Kodi"
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="nestopia_libretro.so"
 PKG_LIBPATH="libretro/$PKG_LIBNAME"
 PKG_LIBVAR="NESTOPIA_LIB"
+
+post_unpack() {
+  rm $ROOT/$PKG_BUILD/CMakeLists.txt
+  rm $ROOT/$PKG_BUILD/configure.ac
+}
 
 make_target() {
   make -C libretro
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-  cp $PKG_LIBPATH $INSTALL/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $INSTALL/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/$PKG_NAME-config.cmake
+  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
+  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
+  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
 

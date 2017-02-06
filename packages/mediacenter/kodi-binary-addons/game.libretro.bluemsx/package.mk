@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.bluemsx"
-PKG_VERSION="96623e2"
+PKG_VERSION="8c3ea6b"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

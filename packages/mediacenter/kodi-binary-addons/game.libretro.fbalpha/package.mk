@@ -16,17 +16,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="game.libretro.fba"
-PKG_VERSION="abc48ac"
+PKG_NAME="game.libretro.fbalpha"
+PKG_VERSION="7dd0903"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/kodi-game/game.libretro.fba"
-PKG_URL="https://github.com/kodi-game/game.libretro.fba/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-fba"
+PKG_SITE="https://github.com/kodi-game/game.libretro.fbalpha"
+PKG_URL="https://github.com/kodi-game/game.libretro.fbalpha/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-fbalpha"
 PKG_SECTION=""
-PKG_SHORTDESC="game.libretro.fba: fba for Kodi"
-PKG_LONGDESC="game.libretro.fba: fba for Kodi"
+PKG_SHORTDESC="game.libretro.fbalpha: fba for Kodi"
+PKG_LONGDESC="game.libretro.fbalpha: fba for Kodi"
 PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"

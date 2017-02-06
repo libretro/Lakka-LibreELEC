@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.picodrive"
-PKG_VERSION="4936b6c"
+PKG_VERSION="2ac3c73"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

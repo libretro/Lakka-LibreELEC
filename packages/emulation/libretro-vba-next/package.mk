@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libretro-vba-next"
-PKG_VERSION="7623670"
+PKG_VERSION="e773475"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vba-next"
@@ -29,18 +29,19 @@ PKG_SHORTDESC="game.libretro.vba-next: VBA-Next for Kodi"
 PKG_LONGDESC="game.libretro.vba-next: VBA-Next for Kodi"
 PKG_AUTORECONF="no"
 PKG_IS_ADDON="no"
+PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="vba_next_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
-PKG_LIBVAR="VBA_NEXT_LIB"
+PKG_LIBVAR="VBA-NEXT_LIB"
 
 make_target() {
   make -f Makefile.libretro
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
-  cp $PKG_LIBPATH $INSTALL/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $INSTALL/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/$PKG_NAME-config.cmake
+  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
+  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
+  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
 }
 

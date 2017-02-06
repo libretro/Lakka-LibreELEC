@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.tgbdual"
-PKG_VERSION="14f7347"
+PKG_VERSION="1e536de"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

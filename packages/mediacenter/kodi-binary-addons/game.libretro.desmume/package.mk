@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro.desmume"
-PKG_VERSION="a26693c"
+PKG_VERSION="e627685"
 PKG_REV="100"
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
