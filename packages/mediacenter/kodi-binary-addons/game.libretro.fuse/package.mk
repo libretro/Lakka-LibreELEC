@@ -15,10 +15,10 @@
 #  You should have received a copy of the GNU General Public License
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
-exit 0
+
 PKG_NAME="game.libretro.fuse"
-PKG_VERSION=""
-PKG_REV="3"
+PKG_VERSION="a4e9a39"
+PKG_REV="100"
 PKG_ARCH="arm x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.fuse"
