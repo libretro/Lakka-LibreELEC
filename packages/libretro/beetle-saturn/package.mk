@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="beetle-saturn"
-PKG_VERSION="a2d77c3"
+PKG_VERSION="bb5d0c1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/mednafen-libretro"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/libretro/beetle-saturn-libretro"
+PKG_URL="https://github.com/libretro/beetle-saturn-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,10 @@ PKG_LONGDESC="Standalone port of Mednafen Saturn to libretro."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $BUILD/beetle-saturn-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
