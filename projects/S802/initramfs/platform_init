@@ -1,24 +1,4 @@
-#!/bin/sh
-
-################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
-#
-#  OpenELEC is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  OpenELEC is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
-################################################################################
-
-hdmimode=720p
+hdmimode="1080p50hz"
 
 # Parse command line arguments
 for arg in $(cat /proc/cmdline); do
@@ -26,14 +6,8 @@ for arg in $(cat /proc/cmdline); do
     hdmimode=*)
       hdmimode=${arg#*=}
       ;;
-    scaling_governor=*)
-      scaling_governor=${arg#*=}
-      ;;
-    scaling_min_freq=*)
-      scaling_min_freq=${arg#*=}
-      ;;
-    scaling_max_freq=*)
-      scaling_max_freq=${arg#*=}
+    bootfrom*)
+      bootfromext=1
       ;;
     BOOT_IMAGE=*)
       BOOT_IMAGE=${arg#*=}
@@ -50,16 +24,15 @@ done
 # Add information where to run LibreELEC from
 if [ -z "$BOOT_IMAGE" -o -z "$boot" -o -z "$disk" ]; then
   cmdline=$(cat /proc/cmdline)
-  cmdline="$cmdline BOOT_IMAGE=/dev/boot boot=/dev/system disk=/dev/data"
+  if [ -n "$bootfromext" ]; then
+    cmdline="$cmdline BOOT_IMAGE=kernel.img boot=LABEL=LIBREELEC disk=LABEL=LIBREELEC_DISK"
+  else
+    cmdline="$cmdline BOOT_IMAGE=/dev/boot boot=/dev/system disk=/dev/data"
+  fi
   echo "$cmdline" > /proc/cmdline
 fi
 
 echo "$hdmimode" > /sys/class/display/mode
-
-# Force enable CEC if configuration parameter not present or empty
-if [ -z "$hdmitx" ]; then
-  echo 0xf > /sys/class/amhdmitx/amhdmitx0/cec_config
-fi
 
 # Enable framebuffer device
 echo 0 > /sys/class/graphics/fb0/blank
@@ -69,7 +42,6 @@ echo 1 > /sys/class/graphics/fb1/blank
 
 # Disable framebuffer scaling
 echo 0 > /sys/class/graphics/fb0/free_scale
-echo 0 > /sys/class/graphics/fb1/free_scale
 
 # set initial video state
 echo 1 > /sys/class/video/disable_video
@@ -140,16 +112,16 @@ fbset -fb /dev/fb0 -g $xRes $yRes $vXRes $vYRes $bpp;
 echo rm default > /sys/class/vfm/map
 echo add default decoder ppmgr deinterlace amvideo > /sys/class/vfm/map
 
-# Boot with performance governor, then switch to the governor specified in the kernel command line
-# Assume SMP uses shared cpufreq policy for all CPUs
-cpufreq="/sys/devices/system/cpu/cpu0/cpufreq"
-if [ -n "$scaling_governor" ]; then
-  echo "$scaling_governor" > "$cpufreq/scaling_governor"
-fi
-if [ -n "$scaling_min_freq" ]; then
-  echo "$scaling_min_freq" > "$cpufreq/scaling_min_freq"
-fi
-if [ -n "$scaling_max_freq" ]; then
-  echo "$scaling_max_freq" > "$cpufreq/scaling_max_freq"
-  echo "$scaling_max_freq" > "$cpufreq/scaling_dflt_freq"
-fi
+for part in /sys/block/*/queue/add_random; do
+  echo 0 > "$part"
+done
+
+# set smp_affinity
+#            Binary       Hex
+#    CPU 0    0001         1
+#    CPU 1    0010         2
+#    CPU 2    0100         4
+#    CPU 3    1000         8
+echo 4 > /proc/irq/40/smp_affinity  # eth0
+echo 2 > /proc/irq/64/smp_affinity  # esparser
+echo 2 > /proc/irq/78/smp_affinity  # deinterlace
