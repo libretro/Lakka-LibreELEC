@@ -47,51 +47,32 @@ resolve_hash() {
   fi
 }
 
-# addons
-for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git retroplayer" ; do
+if [ -z "$1" ]; then
+  echo "Usage: $0 <emulator-name>"
+  exit 0
+else
+  addontxt="binary-addons https://github.com/lrusak/repo-binary-addons.git retroplayer"
   ADDONS=$(echo $addontxt | awk '{print $1}')
   ADDONREPO=$(echo $addontxt | awk '{print $2}')
   GIT_HASH=$(echo $addontxt | awk '{print $3}')
   git_clone $ADDONREPO retroplayer $ADDONS.git $GIT_HASH
 
-  if [ -z "$1" ]; then
-    for addon in $ADDONS.git/*.*/ ; do
-      if [ -n "$(echo $addon | grep game.)" -o -n "$(echo $addon | grep peripheral.)" ]; then
-        ADDON=$(basename $addon)
-        REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
-        GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
+  addon="$ADDONS.git/$1"
+  if [ -n "$(echo $addon | grep game.)" -o -n "$(echo $addon | grep peripheral.)" ]; then
+    ADDON=$(basename $addon)
+    REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
+    GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
 
-        if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
-          continue
-        fi
+    if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
+      continue
+    fi
 
-        git_clone $REPO master $ADDON.git $GIT_HASH
+    git_clone $REPO master $ADDON.git $GIT_HASH
 
-        if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
-          # update package.mk
-          RESOLVED_HASH=$(resolve_hash $ADDON.git $GIT_HASH)
-          sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
-        fi
-      fi
-    done
-  else
-    addon="$ADDONS.git/$1"
-    if [ -n "$(echo $addon | grep game.)" -o -n "$(echo $addon | grep peripheral.)" ]; then
-      ADDON=$(basename $addon)
-      REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
-      GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
-
-      if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
-        continue
-      fi
-
-      git_clone $REPO master $ADDON.git $GIT_HASH
-
-      if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
-        # update package.mk
-        RESOLVED_HASH=$(resolve_hash $ADDON.git $GIT_HASH)
-        sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
-      fi
+    if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
+      # update package.mk
+      RESOLVED_HASH=$(resolve_hash $ADDON.git $GIT_HASH)
+      sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
     fi
   fi
-done
+fi
