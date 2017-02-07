@@ -1,0 +1,128 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016 Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+git_clone() {
+  # git_clone https://repo.url branch ./target_dir [githash]
+  echo "[mkpkg] Checking out $1 ..."
+  if [ ! -d "$3" ]; then
+    git clone --recursive "$1" -b $2 "$3"
+  else
+    if [ -d "$3" ] ; then
+      cd "$3"
+      git checkout $2 >/dev/null 2>/dev/null
+      git pull
+      cd ..
+    fi
+  fi
+  if [ ! -z "$4" ] ; then
+    cd "$3"
+    git fetch >/dev/null 2>/dev/null
+    git branch -D $4 >/dev/null 2>/dev/null
+    git checkout $4 >/dev/null 2>/dev/null
+    git checkout -b ref-$4 >/dev/null 2>/dev/null
+    cd ..
+  fi
+}
+
+resolve_hash() {
+  if [ -d "$1" ] ; then
+    cd "$1"
+    git rev-parse --short $2 2>/dev/null
+  fi
+}
+
+# addons
+for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git retroplayer" ; do
+  ADDONS=$(echo $addontxt | awk '{print $1}')
+  ADDONREPO=$(echo $addontxt | awk '{print $2}')
+  GIT_HASH=$(echo $addontxt | awk '{print $3}')
+  git_clone $ADDONREPO retroplayer $ADDONS.git $GIT_HASH
+
+  if [ -z "$1" ]; then
+    for addon in $ADDONS.git/*.*/ ; do
+      if [ -n "$(echo $addon | grep game.)" -o -n "$(echo $addon | grep peripheral.)" ]; then
+        ADDON=$(basename $addon)
+        REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
+        GIT_HASH=$(cat $addon/$ADDON.txt | awk '{print $3}')
+        EMULATOR="libretro-${ADDON##*.}"
+        BUMP_REV=""
+        OLD_HASH=""
+        RESOLVED_HASH=""
+
+        if ! grep -q all $addon/platforms.txt && ! grep -q linux $addon/platforms.txt && ! grep -q ! $addon/platforms.txt; then
+          continue
+        fi
+
+        #########################
+        # binary add-on section #
+        #########################
+
+        if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ]; then
+
+          . ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+          OLD_HASH=$PKG_VERSION
+          git_clone $REPO master $ADDON.git $GIT_HASH
+
+          RESOLVED_HASH=$(resolve_hash $ADDON.git $GIT_HASH)
+          if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
+            sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+            BUMP_REV=true
+
+            echo "OLD_HASH: $OLD_HASH"
+            echo "NEW_HASH: $RESOLVED_HASH"
+            echo ""
+
+          fi
+        fi
+
+        #########################
+        # emulation section     #
+        #########################
+
+        if [ -f ../../packages/emulation/$EMULATOR/package.mk ]; then
+
+          . ../../packages/emulation/$EMULATOR/package.mk
+          OLD_HASH=$PKG_VERSION
+          git_clone $PKG_SITE master $EMULATOR.git
+
+          RESOLVED_HASH=$(resolve_hash $EMULATOR.git master)
+          if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
+            sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/emulation/$EMULATOR/package.mk
+            BUMP_REV=true
+
+            echo "OLD_HASH: $OLD_HASH"
+            echo "NEW_HASH: $RESOLVED_HASH"
+            echo ""
+
+          fi
+        fi
+
+        if [ "$BUMP_REV" = "true" ]; then
+
+          . ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+          sed -e "s|PKG_REV=.*|PKG_REV=\"$((PKG_REV+1))\"|" -i ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+
+          echo "BUMPING PKG_REV FROM: $PKG_REV TO: $((PKG_REV+1))"
+          echo ""
+
+        fi
+      fi
+    done
+  fi
+done
