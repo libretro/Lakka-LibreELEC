@@ -16,7 +16,7 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 PKG_NAME="u-boot-v2"
-PKG_VERSION="2016.03"
+PKG_VERSION="2017.01"
 PKG_SITE=""
 PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
 PKG_SOURCE_DIR="u-boot-$PKG_VERSION"
