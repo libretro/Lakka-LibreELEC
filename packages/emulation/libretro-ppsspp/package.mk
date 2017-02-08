@@ -57,7 +57,7 @@ make_target() {
     imx6)
       make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
       ;;
-    WeTek_Play)
+    WeTek_Play|WeTek_Core)
       make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
       ;;
     Generic)
