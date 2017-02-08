@@ -41,7 +41,7 @@ configure_target() {
 
 make_target() {
   case $PROJECT in
-    RPi|RPi2|imx6|WeTek_Play)
+    RPi|RPi2|imx6|WeTek_Play|WeTek_Core)
       make ARM=1
       ;;
     Generic|Odroid_C2|WeTek_Hub|WeTek_Play_2)
