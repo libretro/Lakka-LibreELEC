@@ -46,7 +46,7 @@ make_target() {
     imx6)
       make platform=armv7-cortexa9-neon-hardfloat
       ;;
-    WeTek_Play)
+    WeTek_Play|WeTek_Core)
       make platform=armv7-cortexa9-neon-hardfloat
       ;;
     Odroid_C2|WeTek_Hub|WeTek_Play_2)
