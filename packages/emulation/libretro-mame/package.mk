@@ -55,7 +55,7 @@ make_target() {
     imx6)
       make platform=armv7-neon-hardfloat-cortex-a9
       ;;
-    WeTek_Play)
+    WeTek_Play|WeTek_Core)
       make platform=armv7-neon-hardfloat-cortex-a9
       ;;
     Generic)
