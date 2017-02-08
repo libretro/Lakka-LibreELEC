@@ -46,7 +46,7 @@ make_target() {
     imx6)
       make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a9
       ;;
-    WeTek_Play)
+    WeTek_Play|WeTek_Core)
       make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a9
       ;;
     Generic)
