@@ -1,0 +1,299 @@
+---
+ drivers/net/ethernet/allwinner/gmac/Kconfig      |  7 +++
+ drivers/net/ethernet/allwinner/gmac/gmac_core.c  | 74 +++++++++++++++++++++++-
+ drivers/net/ethernet/allwinner/gmac/gmac_plat.c  | 68 +++++++++++++++++++++-
+ drivers/net/ethernet/allwinner/gmac/sunxi_gmac.h | 10 ++++
+ 4 files changed, 156 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/allwinner/gmac/Kconfig b/drivers/net/ethernet/allwinner/gmac/Kconfig
+index c225f84..647a214 100644
+--- a/drivers/net/ethernet/allwinner/gmac/Kconfig
++++ b/drivers/net/ethernet/allwinner/gmac/Kconfig
+@@ -28,6 +28,13 @@ config GMAC_CLK_SYS
+ 	 It select the clock controler is system or the driver itself.
+ 	 If you want to use the system interface, select it. If not, the
+ 	 driver will control the clock by ioremap.
++	 
++config GMAC_FOR_BANANAPI
++	bool "modified gmac driver for Bananapi"
++	depends on SUNXI_GMAC
++	---help---
++	 If you want to compile the firmware for Bananapi, you should select it.
++	 The driver will be modified to be suit for the Bananapi' gmac.
+ 
+ choice
+ 	prompt "Select the DMA TX/RX descriptor operating modes"
+diff --git a/drivers/net/ethernet/allwinner/gmac/gmac_core.c b/drivers/net/ethernet/allwinner/gmac/gmac_core.c
+index 44619cf..7c0980a 100644
+--- a/drivers/net/ethernet/allwinner/gmac/gmac_core.c
++++ b/drivers/net/ethernet/allwinner/gmac/gmac_core.c
+@@ -50,6 +50,10 @@
+ #include "gmac_desc.h"
+ #include "gmac_ethtool.h"
+ 
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++#include <plat/platform.h>
++#endif
++
+ #undef GMAC_DEBUG
+ #ifdef GMAC_DEBUG
+ #define DBG(nlevel, klevel, fmt, args...) \
+@@ -217,6 +221,9 @@ static void gmac_clk_ctl(struct gmac_priv *priv, unsigned int flag)
+ 			|| phy_interface == PHY_INTERFACE_MODE_GMII)
+ 		priv_clk_reg |= 0x00000002;
+ 
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++	priv_clk_reg |= (0x00000003<<10);   
++#endif
+ 	writel(priv_clk_reg, priv->gmac_clk_reg + GMAC_CLK_REG);
+ }
+ 
+@@ -778,6 +785,28 @@ static void gmac_check_ether_addr(struct gmac_priv *priv)
+ 	/* verify if the MAC address is valid, in case of failures it
+ 	 * generates a random MAC address */
+ 	if (!is_valid_ether_addr(priv->ndev->dev_addr)) {
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++		gmac_get_umac_addr((void __iomem *)
++					     priv->ndev->base_addr,
++					     priv->ndev->dev_addr, 0);
++		if  (!is_valid_ether_addr(priv->ndev->dev_addr)) {
++		    unsigned int reg_val;
++            reg_val = readl(SW_VA_SID_IO_BASE);
++            pr_info("gmac: use mac address from chipid\n");
++            priv->ndev->dev_addr[0] = 0x02; /* Non OUI / registered MAC address */
++            priv->ndev->dev_addr[1] = (reg_val >>  0) & 0xff;
++            reg_val = readl(SW_VA_SID_IO_BASE + 0x0c);
++            priv->ndev->dev_addr[2] = (reg_val >> 24) & 0xff;
++            priv->ndev->dev_addr[3] = (reg_val >> 16) & 0xff;
++            priv->ndev->dev_addr[4] = (reg_val >>  8) & 0xff;
++            priv->ndev->dev_addr[5] = (reg_val >>  0) & 0xff;
++
++            if  (!is_valid_ether_addr(priv->ndev->dev_addr)) {
++                random_ether_addr(priv->ndev->dev_addr);
++                pr_info("gmac: use random mac address\n");
++            }
++        }
++#else
+ 		if  (!is_valid_ether_addr(priv->ndev->dev_addr)) {
+ 			for (i=0; i<6; i++,p++)
+ 				priv->ndev->dev_addr[i] = simple_strtoul(p, &p, 16);
+@@ -785,11 +814,40 @@ static void gmac_check_ether_addr(struct gmac_priv *priv)
+ 
+ 		if  (!is_valid_ether_addr(priv->ndev->dev_addr))
+ 			random_ether_addr(priv->ndev->dev_addr);
++#endif
+ 	}
+ 	printk(KERN_WARNING "%s: device MAC address %pM\n", priv->ndev->name,
+ 						   priv->ndev->dev_addr);
+ }
+ 
++#ifdef GMAC_PHY_POWER
++void gmac_phy_power_en(struct gmac_priv *priv)
++{
++    if(!priv) return;
++
++    if (priv->gpio_power_hd){
++	    printk("GMAC gpio_power_hd:gpio_direction_output\n");
++		gpio_set_one_pin_io_status(priv->gpio_power_hd, 1, "gmac_phy_power_en");//set the gpio to output
++		gpio_write_one_pin_value(priv->gpio_power_hd, 1, "gmac_phy_power_en");
++	    mdelay(200);
++    }
++
++    return;
++}
++
++void gmac_phy_power_disable(struct gmac_priv *priv)
++{
++    if(!priv) return;
++
++    if (priv->gpio_power_hd){
++        gpio_write_one_pin_value(priv->gpio_power_hd, 0, "gmac_phy_power_en");
++    }
++
++    return;
++
++}
++#endif
++
+ /**
+  *  gmac_open - open entry point of the driver
+  *  @dev : pointer to the device structure.
+@@ -804,9 +862,14 @@ static int gmac_open(struct net_device *ndev)
+ 	struct gmac_priv *priv = netdev_priv(ndev);
+ 	int ret;
+ 
+-	gmac_clk_ctl(priv, 1);
+-	//gmac_check_ether_addr(priv);
++#ifdef GMAC_PHY_POWER
++    gmac_phy_power_en(priv);
++#endif
+ 
++	gmac_clk_ctl(priv, 1);
++#ifdef GMAC_PHY_POWER
++	gmac_check_ether_addr(priv);
++#endif
+ 	/* MDIO bus Registration */
+ 	ret = gmac_mdio_register(ndev);
+ 	if (ret < 0) {
+@@ -944,6 +1007,10 @@ static int gmac_release(struct net_device *ndev)
+ 	gmac_mdio_unregister(ndev);
+ 	gmac_clk_ctl(priv, 0);
+ 
++#ifdef GMAC_PHY_POWER
++    gmac_phy_power_disable(priv);
++#endif
++
+ 	return 0;
+ }
+ 
+@@ -1722,6 +1789,9 @@ static int __init gmac_init(void)
+ 
+ static void __exit gmac_remove(void)
+ {
++#ifdef CONFIG_GMAC_SCRIPT_SYS
++	script_parser_fetch("gmac_para", "gmac_used", &gmac_used, 1);
++#endif
+ 	if (gmac_used != 1) {
+ 		pr_info("gmac is disabled\n");
+ 		return;
+diff --git a/drivers/net/ethernet/allwinner/gmac/gmac_plat.c b/drivers/net/ethernet/allwinner/gmac/gmac_plat.c
+index 83b35ed..be33e87 100644
+--- a/drivers/net/ethernet/allwinner/gmac/gmac_plat.c
++++ b/drivers/net/ethernet/allwinner/gmac/gmac_plat.c
+@@ -34,6 +34,9 @@
+ #include <mach/gpio.h>
+ #include <mach/irqs.h>
+ #include <mach/clock.h>
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++#include <mach/includes.h>
++#endif
+ 
+ #include "sunxi_gmac.h"
+ 
+@@ -43,11 +46,64 @@ static int gmac_system_init(struct gmac_priv *priv)
+ 	int ret = 0;
+ 
+ #ifndef CONFIG_GMAC_SCRIPT_SYS
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++	int reg_value;
++	/* configure system io */
++	if(priv->gpiobase){
++		writel(0x22222222, priv->gpiobase + PA_CFG0);
++
++		writel(0x22222222, priv->gpiobase + PA_CFG1);
++
++		writel(0x00000022, priv->gpiobase + PA_CFG2);
++#else
+ 	if(priv->gpiobase){
+ 		writel(0x55555555, priv->gpiobase + PA_CFG0);
+ 		writel(0x50555505, priv->gpiobase + PA_CFG1);
+ 		writel(0x00000005, priv->gpiobase + PA_CFG2);
+ 	}
++#endif
++#else
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++	int i = 0;
++	int gpio_tmp;
++
++        priv->gpio_cnt = script_parser_mainkey_get_gpio_count("gmac_para");
++	priv->gpio_hd = kmalloc(sizeof(user_gpio_set_t)*priv->gpio_cnt, GFP_KERNEL);
++        printk("gmac_para gpio count is %d\n", priv->gpio_cnt);
++	script_parser_mainkey_get_gpio_cfg("gmac_para", priv->gpio_hd, priv->gpio_cnt);
++	for (i = 0; i < priv->gpio_cnt; i++){
++	    gpio_tmp = gpio_request_ex("gmac_para", priv->gpio_hd[i].gpio_name);
++	    if (gpio_tmp){
++                gpio_set_one_pin_status(gpio_tmp, &priv->gpio_hd[i], priv->gpio_hd[i].gpio_name, 1);
++	    }else{
++	        printk("gpio_set_one_pin_status error\n");
++	    }
++	}
++#ifdef GMAC_PHY_POWER
++    priv->gpio_power_hd= gpio_request_ex("gmac_phy_power", "gmac_phy_power_en");
++#endif
++gpio_err:
++	if(unlikely(ret)){
++	    gpio_free(priv->gpio_hd);
++		priv->gpio_hd = NULL;
++		priv->gpio_cnt = 0;
++	}
++#ifdef SUN7i_GMAC_FPGA
++	reg_value = readl(IO_ADDRESS(GPIO_BASE + 0x108));
++	reg_value |= 0x1<<20;
++	writel(reg_value, IO_ADDRESS(GPIO_BASE + 0x108));
++
++	reg_value = readl(IO_ADDRESS(GPIO_BASE + 0x10c));
++	reg_value &= ~(0x1<<29);
++	writel(reg_value, IO_ADDRESS(GPIO_BASE + 0x10c));
++
++	mdelay(200);
++
++	reg_value = readl(IO_ADDRESS(GPIO_BASE + 0x10c));
++	reg_value |= 0x1<<29;
++	writel(reg_value, IO_ADDRESS(GPIO_BASE + 0x10c));
++#endif
++
+ #else
+ 	priv->gpio_handle = gpio_request_ex("gmac_para", NULL);
+ 	if(!priv->gpio_handle) {
+@@ -55,6 +111,7 @@ static int gmac_system_init(struct gmac_priv *priv)
+ 		ret = -1;
+ 	}
+ #endif
++#endif
+ 	return ret;
+ }
+ 
+@@ -177,7 +234,16 @@ static void gmac_sys_release(struct platform_device *pdev)
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 	release_mem_region(res->start, resource_size(res));
+ #else
+-	gpio_release(priv->gpio_handle, 0);
++	#ifdef CONFIG_GMAC_FOR_BANANAPI
++		int i;
++		if (priv->gpio_hd){
++			gpio_free(priv->gpio_hd);
++			priv->gpio_hd = NULL;
++			priv->gpio_cnt = 0;
++		}
++	#else
++		gpio_release(priv->gpio_handle, 0);
++	#endif
+ #endif
+ 
+ 	iounmap(priv->gmac_clk_reg);
+diff --git a/drivers/net/ethernet/allwinner/gmac/sunxi_gmac.h b/drivers/net/ethernet/allwinner/gmac/sunxi_gmac.h
+index 98b1838..0e50b66 100644
+--- a/drivers/net/ethernet/allwinner/gmac/sunxi_gmac.h
++++ b/drivers/net/ethernet/allwinner/gmac/sunxi_gmac.h
+@@ -33,6 +33,9 @@
+ #include "gmac_base.h"
+ 
+ #define GMAC_RESOURCE_NAME	"sunxi_gmac"
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++	#define GMAC_PHY_POWER
++#endif
+ 
+ enum rx_frame_status { /* IPC status */
+ 	good_frame = 0,
+@@ -132,7 +135,11 @@ struct gmac_priv {
+ 	void __iomem *gpiobase;
+ #else
+ 	int gpio_cnt;
++#ifdef CONFIG_GMAC_FOR_BANANAPI
++	user_gpio_set_t *gpio_hd;
++#else
+ 	unsigned int gpio_handle;
++#endif
+ 
+ #endif
+ #ifndef CONFIG_GMAC_CLK_SYS
+@@ -163,6 +170,9 @@ struct gmac_priv {
+ 	spinlock_t lock;
+ 	spinlock_t tx_lock;
+ 	struct gmac_plat_data *plat;
++#ifdef GMAC_PHY_POWER
++	u32 gpio_power_hd;
++#endif
+ 	//struct dma_features dma_cap;
+ };
+ 
