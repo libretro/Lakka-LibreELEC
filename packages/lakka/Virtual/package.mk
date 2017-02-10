@@ -25,7 +25,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lakkatv/Lakka"
 PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch mgba o2em puae snes9x picodrive 81 yabause hatari dosbox mame2003 gw-libretro fuse-libretro bluemsx beetle-supergrafx lutro 4do prosystem bsnes-mercury tyrquake 2048 virtualjaguar ppsspp beetle-vb beetle-wswan desmume beetle-ngp beetle-pcfx beetle-psx mupen64plus vecx snes9x2010 dinothawr prboom beetle-pce fbalpha handy genesis-plus-gx nxengine nestopia gambatte stella vbam bluemsx"
+PKG_DEPENDS_TARGET="retroarch uzebox mgba o2em puae snes9x picodrive 81 yabause hatari dosbox mame2003 gw-libretro fuse-libretro bluemsx beetle-supergrafx lutro 4do prosystem bsnes-mercury tyrquake 2048 virtualjaguar ppsspp beetle-vb beetle-wswan desmume beetle-ngp beetle-pcfx beetle-psx mupen64plus vecx snes9x2010 dinothawr prboom beetle-pce fbalpha handy genesis-plus-gx nxengine nestopia gambatte stella vbam bluemsx"
 if [ "$ARCH" == "x86_64" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET reicast beetle-saturn"
 fi
