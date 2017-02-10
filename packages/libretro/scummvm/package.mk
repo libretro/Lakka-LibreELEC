@@ -44,10 +44,8 @@ configure_target() {
 
 make_target() {
   export CXXFLAGS="$CXXFLAGS -DHAVE_POSIX_MEMALIGN=1"
-  export LDFLAGS="$LDFLAGS"
-  export ar="$AR cru"
   cd ../backends/platform/libretro/build/
-  make HAVE_MT32EMU=1
+  make
 }
 
 makeinstall_target() {
