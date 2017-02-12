@@ -181,7 +181,7 @@ pre_make_target() {
   if [ "$TARGET_ARCH" = "x86_64" ]; then
     # copy some extra firmware to linux tree
     mkdir -p $ROOT/$PKG_BUILD/external-firmware
-      cp -a $(get_build_dir x86-firmware)/{amdgpu,amd-ucode,i915,radeon,rtl_nic} $ROOT/$PKG_BUILD/external-firmware
+      cp -a $(get_build_dir x86-firmware)/{amdgpu,amd-ucode,i915,nvidia,radeon,rtl_nic} $ROOT/$PKG_BUILD/external-firmware
 
     mkdir -p $ROOT/$PKG_BUILD/external-firmware/intel-ucode
       cp -a $(get_build_dir intel-ucode)/microcode.bin $ROOT/$PKG_BUILD/external-firmware/intel-ucode
