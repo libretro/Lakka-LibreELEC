@@ -22,7 +22,8 @@ PKG_VERSION="0.1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/kszaq/LibreELEC.tv"
+PKG_SITE="https://github.com/LibreELEC/LibreELEC.tv"
+PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="firmware"
@@ -31,11 +32,7 @@ PKG_SHORTDESC="brcmfmac_sdio-firmware-aml: firmware for brcm bluetooth chips use
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  : # nop
-}
-
-makeinstall_target() {
+post_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/firmware/brcm
 
   cp -P $PKG_DIR/firmware/*.hcd $INSTALL/usr/lib/firmware/brcm
