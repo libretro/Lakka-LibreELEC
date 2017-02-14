@@ -32,7 +32,6 @@ elif [ "$UBOOT_VERSION" = "hardkernel" ]; then
 elif [ "$UBOOT_VERSION" = "odroidxu3" ]; then
   PKG_VERSION="2015.10"
   PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
-  PKG_VERSION="2015.10"
   PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET dtc:host hk-bootloader"
 elif [ "$UBOOT_VERSION" = "odroidc" ]; then
