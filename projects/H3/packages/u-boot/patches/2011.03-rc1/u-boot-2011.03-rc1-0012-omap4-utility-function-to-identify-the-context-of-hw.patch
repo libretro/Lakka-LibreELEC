@@ -1,0 +1,100 @@
+From 4ddea7506c79c6309e65baf0484650b816f6e3c9 Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Sun, 20 Feb 2011 16:15:42 +0530
+Subject: [PATCH 12/22] omap4: utility function to identify the context of hw init
+
+The basic hardware init of OMAP4(s_init()) can happen in 4
+different contexts:
+ 1. SPL running from SRAM
+ 2. U-Boot running from FLASH
+ 3. Non-XIP U-Boot loaded to SDRAM by SPL
+ 4. Non-XIP U-Boot loaded to SDRAM by ROM code using the
+    Configuration Header feature
+
+What level of hw initialization gets done depends on this
+context. Add a utility function to find this context.
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ arch/arm/include/asm/arch-omap4/sys_proto.h |   47 +++++++++++++++++++++++++++
+ arch/arm/include/asm/omap_common.h          |    6 +++
+ 2 files changed, 53 insertions(+), 0 deletions(-)
+
+diff --git a/arch/arm/include/asm/arch-omap4/sys_proto.h b/arch/arm/include/asm/arch-omap4/sys_proto.h
+index ce86b36..19da2e1 100644
+--- a/arch/arm/include/asm/arch-omap4/sys_proto.h
++++ b/arch/arm/include/asm/arch-omap4/sys_proto.h
+@@ -38,6 +38,53 @@ void sr32(void *, u32, u32, u32);
+ u32 wait_on_value(u32, u32, void *, u32);
+ void sdelay(unsigned long);
+ 
++static inline u32 running_from_sdram(void)
++{
++	u32 pc;
++	asm volatile ("mov %0, pc" : "=r" (pc));
++	return ((pc >= OMAP44XX_DRAM_ADDR_SPACE_START) &&
++	    (pc < OMAP44XX_DRAM_ADDR_SPACE_END));
++}
++
++static inline u8 uboot_loaded_by_spl(void)
++{
++	/*
++	 * Configuration Header is not supported yet, so u-boot init running
++	 * from SDRAM implies that it was loaded by SPL. When this situation
++	 * changes one of these approaches could be taken:
++	 * i.  Pass a magic from SPL to U-Boot and U-Boot save it at a known
++	 *     location.
++	 * ii. Check the OPP. CH can support only 50% OPP while SPL initializes
++	 *     the DPLLs at 100% OPP.
++	 */
++	return running_from_sdram();
++}
++/*
++ * The basic hardware init of OMAP(s_init()) can happen in 4
++ * different contexts:
++ *  1. SPL running from SRAM
++ *  2. U-Boot running from FLASH
++ *  3. Non-XIP U-Boot loaded to SDRAM by SPL
++ *  4. Non-XIP U-Boot loaded to SDRAM by ROM code using the
++ *     Configuration Header feature
++ *
++ * This function finds this context.
++ * Defining as inline may help in compiling out unused functions in SPL
++ */
++static inline u32 omap4_hw_init_context(void)
++{
++#ifdef CONFIG_PRELOADER
++	return OMAP_INIT_CONTEXT_SPL;
++#else
++	if (uboot_loaded_by_spl())
++		return OMAP_INIT_CONTEXT_UBOOT_LOADED_BY_SPL;
++	else if (running_from_sdram())
++		return OMAP_INIT_CONTEXT_UBOOT_LOADED_BY_CH;
++	else
++		return OMAP_INIT_CONTEXT_XIP_UBOOT;
++#endif
++}
++
+ extern const struct omap_sysinfo sysinfo;
+ 
+ #endif
+diff --git a/arch/arm/include/asm/omap_common.h b/arch/arm/include/asm/omap_common.h
+index 95116f4..50247af 100644
+--- a/arch/arm/include/asm/omap_common.h
++++ b/arch/arm/include/asm/omap_common.h
+@@ -65,6 +65,12 @@
+ /* Magic number passed from SPL to U-Boot */
+ #define OMAP_SPL_TO_UBOOT_MAGIC_NUMBER	0xDEADBEEF
+ 
++/* HW Init Context */
++#define OMAP_INIT_CONTEXT_SPL			0
++#define OMAP_INIT_CONTEXT_XIP_UBOOT		1
++#define OMAP_INIT_CONTEXT_UBOOT_LOADED_BY_SPL	2
++#define OMAP_INIT_CONTEXT_UBOOT_LOADED_BY_CH	3
++
+ u32 omap_boot_device(void);
+ u32 omap_boot_mode(void);
+ void preloader_console_init(void);
+-- 
+1.7.2.3
+

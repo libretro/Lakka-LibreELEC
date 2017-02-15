@@ -1,0 +1,72 @@
+From 230ff2d889e392b64ce3bc86541bb4591aeabad2 Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Thu, 17 Feb 2011 03:16:38 +0530
+Subject: [PATCH 06/22] arm: new labels in the linker script file
+
+_bss_start_ofs is used in start.S to indicate end of copied
+image. This may not be correct when we have a discontiguous
+memory map. For instance, .bss may be placed in SDRAM for
+some SPLS while rest of the image is placed in SRAM.
+
+Define a new label in linker script to indicate the end of the
+image copied during relocation and use it appropriately in
+start.S.
+
+Also, add a new label to indicate the end of flash image.
+This will be useful in identifying the size of flash image
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ arch/arm/cpu/armv7/start.S    |    6 +++++-
+ arch/arm/cpu/armv7/u-boot.lds |    4 ++++
+ 2 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/arch/arm/cpu/armv7/start.S b/arch/arm/cpu/armv7/start.S
+index 3618190..8215d26 100644
+--- a/arch/arm/cpu/armv7/start.S
++++ b/arch/arm/cpu/armv7/start.S
+@@ -77,6 +77,10 @@ _TEXT_BASE:
+ _bss_start_ofs:
+ 	.word __bss_start - _start
+ 
++.global	_image_copy_end_ofs
++_image_copy_end_ofs:
++	.word 	__image_copy_end - _start
++
+ .globl _bss_end_ofs
+ _bss_end_ofs:
+ 	.word _end - _start
+@@ -172,7 +176,7 @@ stack_setup:
+ 	beq	clear_bss		/* skip relocation */
+ #endif
+ 	mov	r1, r6			/* r1 <- scratch for copy_loop */
+-	ldr	r3, _bss_start_ofs
++	ldr	r3, _image_copy_end_ofs
+ 	add	r2, r0, r3		/* r2 <- source end address	    */
+ 
+ copy_loop:
+diff --git a/arch/arm/cpu/armv7/u-boot.lds b/arch/arm/cpu/armv7/u-boot.lds
+index 5725c30..c3ad587 100644
+--- a/arch/arm/cpu/armv7/u-boot.lds
++++ b/arch/arm/cpu/armv7/u-boot.lds
+@@ -55,6 +55,8 @@ SECTIONS
+ 
+ 	. = ALIGN(4);
+ 
++	__image_copy_end = .;
++
+ 	.rel.dyn : {
+ 		__rel_dyn_start = .;
+ 		*(.rel*)
+@@ -66,6 +68,8 @@ SECTIONS
+ 		*(.dynsym)
+ 	}
+ 
++	__flash_image_end = .;
++
+ 	.bss __rel_dyn_start (OVERLAY) : {
+ 		__bss_start = .;
+ 		*(.bss)
+-- 
+1.7.2.3
+

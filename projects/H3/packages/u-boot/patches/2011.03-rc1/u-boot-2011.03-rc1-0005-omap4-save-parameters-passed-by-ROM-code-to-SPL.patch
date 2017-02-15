@@ -1,0 +1,151 @@
+From de5b300f43e95b8b73252147a3ea492a8647d27d Mon Sep 17 00:00:00 2001
+From: Aneesh V <aneesh@ti.com>
+Date: Sun, 27 Feb 2011 19:25:16 +0530
+Subject: [PATCH 05/22] omap4: save parameters passed by ROM code to SPL
+
+Save boot device information passed by OMAP4 rom code
+
+ROM code in OMAP4 passes information such as the media from
+which it picked up the first boot image(SPL in our case),
+the mode(raw mode/FAT mode) etc.
+
+Save this information in SPL so that we can use the same media
+and mode to bootload u-boot.
+
+Signed-off-by: Aneesh V <aneesh@ti.com>
+---
+ arch/arm/cpu/armv7/omap4/board.c            |   14 ++++++++++++
+ arch/arm/cpu/armv7/omap4/lowlevel_init.S    |   31 +++++++++++++++++++++++++++
+ arch/arm/include/asm/arch-omap4/omap4.h     |    8 +++++++
+ arch/arm/include/asm/arch-omap4/sys_proto.h |    1 +
+ arch/arm/include/asm/omap_common.h          |   20 +++++++++++++++++
+ 5 files changed, 74 insertions(+), 0 deletions(-)
+
+diff --git a/arch/arm/cpu/armv7/omap4/board.c b/arch/arm/cpu/armv7/omap4/board.c
+index 7583a0d..a5d585b 100644
+--- a/arch/arm/cpu/armv7/omap4/board.c
++++ b/arch/arm/cpu/armv7/omap4/board.c
+@@ -35,6 +35,20 @@
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
++#ifdef CONFIG_PRELOADER
++u32 omap4_boot_device = BOOT_DEVICE_MMC1;
++u32 omap4_boot_mode = MMCSD_MODE_FAT;
++u32 omap_boot_device(void)
++{
++	return omap4_boot_device;
++}
++
++u32 omap_boot_mode(void)
++{
++	return omap4_boot_mode;
++}
++#endif
++
+ /*
+  * Routine: s_init
+  * Description: Does early system init of muxing and clocks.
+diff --git a/arch/arm/cpu/armv7/omap4/lowlevel_init.S b/arch/arm/cpu/armv7/omap4/lowlevel_init.S
+index 026dfa4..250c73d 100644
+--- a/arch/arm/cpu/armv7/omap4/lowlevel_init.S
++++ b/arch/arm/cpu/armv7/omap4/lowlevel_init.S
+@@ -27,6 +27,37 @@
+  */
+ 
+ #include <asm/arch/omap4.h>
++#ifdef CONFIG_PRELOADER
++.global save_boot_params
++save_boot_params:
++	/*
++	 * See if the rom code passed pointer is valid:
++	 * It is not valid if it is not in non-secure SRAM
++	 * This may happen if you are booting with the help of
++	 * debugger
++	 */
++	ldr     r2, =NON_SECURE_SRAM_START
++	cmp	r2, r0
++	bgt	1f
++	ldr	r2, =NON_SECURE_SRAM_END
++	cmp	r2, r0
++	blt	1f
++
++	/* Store the boot device in omap4_boot_device */
++	ldr     r2, [r0, #BOOT_DEVICE_OFFSET]	@ r1 <- value of boot device
++	and	r2, #BOOT_DEVICE_MASK
++	ldr	r3, =omap4_boot_device
++	str     r2, [r3]			@ omap4_boot_device <- r1
++
++	/* Store the boot mode (raw/FAT) in omap4_boot_mode */
++	ldr	r2, [r0, #DEV_DESC_PTR_OFFSET]	@ get the device descriptor ptr
++	ldr	r2, [r2, #DEV_DATA_PTR_OFFSET]	@ get the pDeviceData ptr
++	ldr	r2, [r2, #BOOT_MODE_OFFSET]	@ get the boot mode
++	ldr	r3, =omap4_boot_mode
++	str	r2, [r3]
++1:
++	bx	lr
++#endif
+ 
+ .globl lowlevel_init
+ lowlevel_init:
+diff --git a/arch/arm/include/asm/arch-omap4/omap4.h b/arch/arm/include/asm/arch-omap4/omap4.h
+index 1f88732..740ca9d 100644
+--- a/arch/arm/include/asm/arch-omap4/omap4.h
++++ b/arch/arm/include/asm/arch-omap4/omap4.h
+@@ -133,4 +133,12 @@ struct s32ktimer {
+ #define OMAP4430_ES2_1	3
+ #define OMAP4430_ES2_2	4
+ 
++/* ROM code defines */
++/* Boot device */
++#define BOOT_DEVICE_MASK	0xFF
++#define BOOT_DEVICE_OFFSET	0x8
++#define DEV_DESC_PTR_OFFSET	0x4
++#define DEV_DATA_PTR_OFFSET	0x18
++#define BOOT_MODE_OFFSET	0x8
++
+ #endif
+diff --git a/arch/arm/include/asm/arch-omap4/sys_proto.h b/arch/arm/include/asm/arch-omap4/sys_proto.h
+index 4813e9e..ce86b36 100644
+--- a/arch/arm/include/asm/arch-omap4/sys_proto.h
++++ b/arch/arm/include/asm/arch-omap4/sys_proto.h
+@@ -23,6 +23,7 @@
+ 
+ #include <asm/arch/omap4.h>
+ #include <asm/io.h>
++#include <asm/omap_common.h>
+ 
+ struct omap_sysinfo {
+ 	char *board_string;
+diff --git a/arch/arm/include/asm/omap_common.h b/arch/arm/include/asm/omap_common.h
+index 03db2f5..06c511c 100644
+--- a/arch/arm/include/asm/omap_common.h
++++ b/arch/arm/include/asm/omap_common.h
+@@ -48,4 +48,24 @@
+ 		       (addr));\
+ 	} while (0);
+ 
++/* Boot device */
++#define BOOT_DEVICE_NONE	0
++#define BOOT_DEVICE_XIP		1
++#define BOOT_DEVICE_XIPWAIT	2
++#define BOOT_DEVICE_NAND	3
++#define BOOT_DEVICE_ONE_NAND	4
++#define BOOT_DEVICE_MMC1	5
++#define BOOT_DEVICE_MMC2	6
++
++/* Boot type */
++#define	MMCSD_MODE_UNDEFINED	0
++#define MMCSD_MODE_RAW		1
++#define MMCSD_MODE_FAT		2
++
++/* Magic number passed from SPL to U-Boot */
++#define OMAP_SPL_TO_UBOOT_MAGIC_NUMBER	0xDEADBEEF
++
++u32 omap_boot_device(void);
++u32 omap_boot_mode(void);
++
+ #endif /* _OMAP_COMMON_H_ */
+-- 
+1.7.2.3
+

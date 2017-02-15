@@ -1,0 +1,472 @@
+Patch for generation of OrangePI 2 kernel with gcc-5.2.1
+
+--- linux-3.4/arch/arm/kernel/arch_timer.c.orig	2015-01-27 03:29:26.000000000 +0100
++++ linux-3.4/arch/arm/kernel/arch_timer.c	2015-06-26 18:54:05.176567992 +0200
+@@ -139,7 +139,7 @@
+ #define smp_timer_broadcast	NULL
+ #endif
+ 
+-static int __cpuinit arch_timer_setup(struct clock_event_device *clk)
++static int arch_timer_setup(struct clock_event_device *clk)
+ {
+ 	/* Be safe... */
+ 	arch_timer_disable();
+@@ -255,7 +255,7 @@
+ 	.flags	= CLOCK_SOURCE_IS_CONTINUOUS,
+ };
+ 
+-static void __cpuinit arch_timer_stop(struct clock_event_device *clk)
++static void arch_timer_stop(struct clock_event_device *clk)
+ {
+ 	pr_debug("arch_timer_teardown disable IRQ%d cpu #%d\n",
+ 		 clk->irq, smp_processor_id());
+--- linux-3.4/arch/arm/kernel/perf_event.c.orig	2015-01-27 03:29:26.000000000 +0100
++++ linux-3.4/arch/arm/kernel/perf_event.c	2015-06-26 19:35:39.447062200 +0200
+@@ -702,8 +702,8 @@
+ 
+     return ret;
+ }
+-static void __init cpu_pmu_init(struct arm_pmu *armpmu);
+-static int __devinit armpmu_device_probe(struct platform_device *pdev)
++static void cpu_pmu_init(struct arm_pmu *armpmu);
++static int armpmu_device_probe(struct platform_device *pdev)
+ {
+     struct arm_pmu *pmu;
+     int cpu;
+@@ -750,7 +750,7 @@
+  * UNKNOWN at reset, the PMU must be explicitly reset to avoid reading
+  * junk values out of them.
+  */
+-static int __cpuinit pmu_cpu_notify(struct notifier_block *b,
++static int pmu_cpu_notify(struct notifier_block *b,
+ 					unsigned long action, void *hcpu)
+ {
+     struct arm_pmu *pmu = per_cpu(cpu_pmu, (long)hcpu);
+@@ -816,7 +816,7 @@
+ 	return &__get_cpu_var(cpu_hw_events);
+ }
+ 
+-static void __init cpu_pmu_init(struct arm_pmu *armpmu)
++static void cpu_pmu_init(struct arm_pmu *armpmu)
+ {
+ 	int cpu;
+ 	for_each_cpu_mask(cpu, armpmu->valid_cpus) {
+--- linux-3.4/arch/arm/kernel/perf_event_v7.c.orig	2015-01-27 03:29:26.000000000 +0100
++++ linux-3.4/arch/arm/kernel/perf_event_v7.c	2015-06-26 19:54:46.937289560 +0200
+@@ -1274,7 +1274,7 @@
+        cpu_pmu->max_period     = (1LLU << 32) - 1;
+  };
+ 
+-static u32 __init armv7_read_num_pmnc_events(void)
++static u32 armv7_read_num_pmnc_events(void)
+ {
+ 	u32 nb_cnt;
+ 
+@@ -1285,7 +1285,7 @@
+ 	return nb_cnt + 1;
+ }
+ 
+-static int __devinit armv7_a8_pmu_init(struct arm_pmu *cpu_pmu)
++static int armv7_a8_pmu_init(struct arm_pmu *cpu_pmu)
+ {
+        armv7pmu_init(cpu_pmu);
+        cpu_pmu->id             = ARM_PERF_PMU_ID_CA8;
+@@ -1295,7 +1295,7 @@
+        return 0;
+ }
+ 
+-static int __devinit armv7_a9_pmu_init(struct arm_pmu *cpu_pmu)
++static int armv7_a9_pmu_init(struct arm_pmu *cpu_pmu)
+ {
+        armv7pmu_init(cpu_pmu);
+        cpu_pmu->id             = ARM_PERF_PMU_ID_CA9;
+@@ -1305,7 +1305,7 @@
+        return 0;
+ }
+ 
+-static int __devinit armv7_a5_pmu_init(struct arm_pmu *cpu_pmu)
++static int armv7_a5_pmu_init(struct arm_pmu *cpu_pmu)
+ {
+        armv7pmu_init(cpu_pmu);
+        cpu_pmu->id             = ARM_PERF_PMU_ID_CA5;
+@@ -1315,7 +1315,7 @@
+        return 0;
+ }
+ 
+-static int __devinit armv7_a15_pmu_init(struct arm_pmu *cpu_pmu)
++static int armv7_a15_pmu_init(struct arm_pmu *cpu_pmu)
+ {
+        armv7pmu_init(cpu_pmu);
+        cpu_pmu->id             = ARM_PERF_PMU_ID_CA15;
+@@ -1326,7 +1326,7 @@
+        return 0;
+  }
+ 
+-static int __devinit armv7_a7_pmu_init(struct arm_pmu *cpu_pmu)
++static int armv7_a7_pmu_init(struct arm_pmu *cpu_pmu)
+ {
+        armv7pmu_init(cpu_pmu);
+        cpu_pmu->id             = ARM_PERF_PMU_ID_CA7;
+--- linux-3.4/arch/arm/mach-sunxi/include/mach/sunxi-chip.h.orig	2015-01-27 03:29:26.000000000 +0100
++++ linux-3.4/arch/arm/mach-sunxi/include/mach/sunxi-chip.h	2015-06-27 09:09:18.220622500 +0200
+@@ -64,6 +64,6 @@
+ 
+ /* sunxi platform init functions */
+ void __init sunxi_soc_ver_init(void);
+-void __init sunxi_chip_id_init(void);
++void sunxi_chip_id_init(void);
+ 
+ #endif  /* __SUNXI_MACH_SUNXI_CHIP_H */
+--- linux-3.4/arch/arm/mach-sunxi/sunxi-chip.c.orig	2015-01-27 03:29:26.000000000 +0100
++++ linux-3.4/arch/arm/mach-sunxi/sunxi-chip.c	2015-06-27 09:02:11.710537992 +0200
+@@ -251,7 +251,7 @@
+ 	pr_debug("Init chip version:%x\n", sunxi_soc_ver);
+ }
+ 
+-void __init sunxi_chip_id_init(void)
++void sunxi_chip_id_init(void)
+ {
+ 	/* PMU chip id init */
+ #if (defined CONFIG_SUNXI_ARISC) && (defined CONFIG_AW_AXP)
+--- linux-3.4/arch/arm/mach-sunxi/sunxi-platsmp.c.orig	2015-01-27 03:29:26.000000000 +0100
++++ linux-3.4/arch/arm/mach-sunxi/sunxi-platsmp.c	2015-07-07 19:21:41.532586216 +0200
+@@ -65,7 +65,7 @@
+ }
+ #endif
+ 
+-void sunxi_set_cpus_boot_entry(int cpu, void *entry)
++void __cpuinit sunxi_set_cpus_boot_entry(int cpu, void *entry)
+ {
+ 	if(cpu < NR_CPUS) {
+ 		cpus_boot_entry[cpu] = (void *)(virt_to_phys(entry));
+@@ -78,7 +78,7 @@
+ /*
+  * Setup the set of possible CPUs (via set_cpu_possible)
+  */
+-void sunxi_smp_init_cpus(void)
++void __init sunxi_smp_init_cpus(void)
+ {
+ 	unsigned int i, ncores;
+ 
+@@ -124,7 +124,7 @@
+ #endif
+ }
+ 
+-static void sunxi_smp_prepare_cpus(unsigned int max_cpus)
++static __cpuinit void sunxi_smp_prepare_cpus(unsigned int max_cpus)
+ {
+ 	pr_info("[%s] enter\n", __func__);
+ 	sunxi_set_secondary_entry((void *)(virt_to_phys(sunxi_secondary_startup)));
+@@ -133,7 +133,7 @@
+ /*
+  * Perform platform specific initialisation of the specified CPU.
+  */
+-void sunxi_smp_secondary_init(unsigned int cpu)
++void __cpuinit sunxi_smp_secondary_init(unsigned int cpu)
+ {
+ 	/*
+ 	 * if any interrupts are already enabled for the primary
+@@ -153,7 +153,7 @@
+  * Boot a secondary CPU, and assign it the specified idle task.
+  * This also gives us the initial stack to use for this CPU.
+  */
+-int  sunxi_smp_boot_secondary(unsigned int cpu, struct task_struct *idle)
++int __cpuinit sunxi_smp_boot_secondary(unsigned int cpu, struct task_struct *idle)
+ {
+ 	pr_debug("[%s] enter\n", __func__);
+ 	spin_lock(&boot_lock);
+--- linux-3.4/drivers/arisc/arisc.c.orig	2015-01-27 03:29:27.000000000 +0100
++++ linux-3.4/drivers/arisc/arisc.c	2015-07-27 09:40:51.705349089 +0200
+@@ -21,6 +21,7 @@
+  */
+ 
+ #include "arisc_i.h"
++#include <linux/init.h>
+ #include <mach/sunxi-chip.h>
+ #include <asm/firmware.h>
+ #include <linux/dma-mapping.h>
+--- linux-3.4/drivers/bluetooth/rtl_bluesleep.c.orig	2015-01-27 03:29:27.000000000 +0100
++++ linux-3.4/drivers/bluetooth/rtl_bluesleep.c	2015-06-27 15:30:08.375149968 +0200
+@@ -33,6 +33,7 @@
+ #include <linux/module.h>       /* kernel module definitions */
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
++#include <linux/proc_fs.h>
+ #include <linux/platform_device.h>
+ #include <linux/serial_core.h>
+ 
+--- linux-3.4/drivers/crypto/sunxi/sunxi_ss.c.orig	2015-01-27 03:29:27.000000000 +0100
++++ linux-3.4/drivers/crypto/sunxi/sunxi_ss.c	2015-06-28 09:10:37.172824872 +0200
+@@ -720,7 +720,7 @@
+ };
+ 
+ /* Requeset the resource: IRQ, mem */
+-static int __devinit sunxi_ss_res_request(struct platform_device *pdev)
++static int sunxi_ss_res_request(struct platform_device *pdev)
+ {
+ 	int irq = 0;
+ 	int ret = 0;
+@@ -784,7 +784,7 @@
+ }
+ 
+ /* Release the resource: IRQ, mem */
+-static int __devexit sunxi_ss_res_release(sunxi_ss_t *sss)
++static int sunxi_ss_res_release(sunxi_ss_t *sss)
+ {
+ #ifdef SS_IDMA_ENABLE
+ 	int i;
+@@ -977,7 +977,7 @@
+ 	device_remove_file(&_pdev->dev, &sunxi_ss_status_attr);
+ }
+ 
+-static int __devinit sunxi_ss_probe(struct platform_device *pdev)
++static int sunxi_ss_probe(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+ 	sunxi_ss_t *sss = NULL;
+@@ -1038,7 +1038,7 @@
+ 	return ret;
+ }
+ 
+-static int __devexit sunxi_ss_remove(struct platform_device *pdev)
++static int sunxi_ss_remove(struct platform_device *pdev)
+ {
+ 	sunxi_ss_t *sss = platform_get_drvdata(pdev);
+ 
+--- linux-3.4/drivers/crypto/sunxi/v3/sunxi_ss_proc.c.orig	2015-01-27 03:29:27.000000000 +0100
++++ linux-3.4/drivers/crypto/sunxi/v3/sunxi_ss_proc.c	2015-06-27 15:34:03.295196514 +0200
+@@ -12,7 +12,7 @@
+ 
+ #include <linux/spinlock.h>
+ #include <linux/platform_device.h>
+-#include <asm/highmem.h>
++#include <linux/highmem.h>
+ #include <crypto/internal/hash.h>
+ #include <crypto/internal/rng.h>
+ #include <crypto/des.h>
+--- linux-3.4/drivers/hwmon/hwmon.c.orig	2015-01-27 03:29:27.000000000 +0100
++++ linux-3.4/drivers/hwmon/hwmon.c	2015-07-07 11:39:39.081561215 +0200
+@@ -104,7 +104,7 @@
+ }
+ EXPORT_SYMBOL_GPL(hwmon_device_unregister);
+ 
+-static void __init hwmon_pci_quirks(void)
++static void hwmon_pci_quirks(void)
+ {
+ #if defined CONFIG_X86 && defined CONFIG_PCI
+ 	struct pci_dev *sb;
+--- linux-3.4/drivers/media/video/sunxi-tsc/tscdrv.c.orig	2015-01-27 03:29:28.000000000 +0100
++++ linux-3.4/drivers/media/video/sunxi-tsc/tscdrv.c	2015-06-29 10:36:50.085484413 +0200
+@@ -595,7 +595,7 @@
+     return ret;
+ }
+ 
+-static void __exit tscdev_exit(void)
++static void tscdev_exit(void)
+ {
+     dev_t dev;
+ 
+@@ -642,13 +642,13 @@
+ 
+ #endif
+ 
+-static int __devexit sunxi_tsc_remove(struct platform_device *pdev)
++static int sunxi_tsc_remove(struct platform_device *pdev)
+ {
+ 	tscdev_exit();
+ 	return 0;
+ }
+ 
+-static int __devinit sunxi_tsc_probe(struct platform_device *pdev)
++static int sunxi_tsc_probe(struct platform_device *pdev)
+ {
+ 		tscdev_init();
+ 		return 0;
+--- linux-3.4/drivers/rtc/rtc-sunxi.c.orig	2015-01-27 03:29:28.000000000 +0100
++++ linux-3.4/drivers/rtc/rtc-sunxi.c	2015-06-26 19:41:20.777129830 +0200
+@@ -474,7 +474,7 @@
+ 	return 0;
+ }
+ 
+-static int __init sunxi_rtc_probe(struct platform_device *pdev)
++static int sunxi_rtc_probe(struct platform_device *pdev)
+ {
+ 	struct rtc_device *rtc;
+ 	int ret;
+--- linux-3.4/drivers/video/sunxi/disp2/hdmi/dev_hdmi.c.orig	2015-01-27 03:29:32.000000000 +0100
++++ linux-3.4/drivers/video/sunxi/disp2/hdmi/dev_hdmi.c	2015-06-26 19:06:59.276721370 +0200
+@@ -148,7 +148,7 @@
+ 
+ static DEVICE_ATTR(edid, S_IRUGO|S_IWUSR|S_IWGRP,hdmi_edid_show, hdmi_edid_store);
+ 
+-static int __init hdmi_probe(struct platform_device *pdev)
++static int hdmi_probe(struct platform_device *pdev)
+ {
+ 	__inf("hdmi_probe call\n");
+ 	memset(&ghdmi, 0, sizeof(hdmi_info_t));
+--- linux-3.4/drivers/video/sunxi/disp2/tv/dev_tv.c.orig	2015-01-27 03:29:32.000000000 +0100
++++ linux-3.4/drivers/video/sunxi/disp2/tv/dev_tv.c	2015-06-28 08:47:02.362544545 +0200
+@@ -30,7 +30,7 @@
+ 
+ 
+ 
+-static int __init tv_probe(struct platform_device *pdev)
++static int tv_probe(struct platform_device *pdev)
+ {
+ 	int ret;
+ 	memset(&g_tv_info, 0, sizeof(struct tv_info_t));
+--- linux-3.4/sound/soc/sunxi/audiocodec/sun8iw7_sndcodec.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/audiocodec/sun8iw7_sndcodec.c	2015-06-28 08:48:43.242564533 +0200
+@@ -1702,7 +1702,7 @@
+ 	.attrs  = audio_debug_attrs,
+ };
+ 
+-static int __init sndpcm_codec_probe(struct platform_device *pdev)
++static int sndpcm_codec_probe(struct platform_device *pdev)
+ {
+ 	int err = -1;
+ 	int req_status;
+@@ -1776,7 +1776,7 @@
+ 	return 0;
+ }
+ 
+-static int __exit sndpcm_codec_remove(struct platform_device *pdev)
++static int sndpcm_codec_remove(struct platform_device *pdev)
+ {
+ 	if ((NULL == codec_moduleclk)||(IS_ERR(codec_moduleclk))) {
+ 		pr_err("codec_moduleclk handle is invaled, just return\n");
+--- linux-3.4/sound/soc/sunxi/audiocodec/sunxi_codecdma.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/audiocodec/sunxi_codecdma.c	2015-06-28 08:50:52.902590224 +0200
+@@ -314,12 +314,12 @@
+ 	.pcm_free	= sunxi_pcm_free_dma_buffers,
+ };
+ 
+-static int __init sunxi_codec_pcm_probe(struct platform_device *pdev)
++static int sunxi_codec_pcm_probe(struct platform_device *pdev)
+ {
+ 	return snd_soc_register_platform(&pdev->dev, &sunxi_soc_platform);
+ }
+ 
+-static int __exit sunxi_codec_pcm_remove(struct platform_device *pdev)
++static int sunxi_codec_pcm_remove(struct platform_device *pdev)
+ {
+ 	snd_soc_unregister_platform(&pdev->dev);
+ 	return 0;
+--- linux-3.4/sound/soc/sunxi/audiocodec/sunxi_codec.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/audiocodec/sunxi_codec.c	2015-06-28 09:11:30.582835454 +0200
+@@ -491,7 +491,7 @@
+ 	#endif
+ };
+ 
+-static int __init sunxi_pcm_dev_probe(struct platform_device *pdev)
++static int sunxi_pcm_dev_probe(struct platform_device *pdev)
+ {
+ 	int err = -1;
+ 
+@@ -509,7 +509,7 @@
+ 	return 0;
+ }
+ 
+-static int __exit sunxi_pcm_dev_remove(struct platform_device *pdev)
++static int sunxi_pcm_dev_remove(struct platform_device *pdev)
+ {
+ 	snd_soc_unregister_dai(&pdev->dev);
+ 	platform_set_drvdata(pdev, NULL);
+--- linux-3.4/sound/soc/sunxi/audiocodec/sunxi_sndcodec.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/audiocodec/sunxi_sndcodec.c	2015-06-28 08:49:33.382574468 +0200
+@@ -94,7 +94,7 @@
+ 	.num_links 	= 1,
+ };
+ 
+-static int __devinit sunxi_sndpcm_dev_probe(struct platform_device *pdev)
++static int sunxi_sndpcm_dev_probe(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+ 	struct snd_soc_card *card = &snd_soc_sunxi_sndpcm;
+@@ -108,7 +108,7 @@
+ 	return ret;
+ }
+ 
+-static int __exit sunxi_sndpcm_dev_remove(struct platform_device *pdev)
++static int sunxi_sndpcm_dev_remove(struct platform_device *pdev)
+ {
+ 	struct snd_soc_card *card = platform_get_drvdata(pdev);
+ 
+--- linux-3.4/sound/soc/sunxi/audiohub/sun8iw7-hubaudio.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/audiohub/sun8iw7-hubaudio.c	2015-07-07 20:09:51.702920942 +0200
+@@ -359,7 +359,7 @@
+ 	}
+ };
+ 
+-static int __init sunxi_audiohub_dev_probe(struct platform_device *pdev)
++static int sunxi_audiohub_dev_probe(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+ 
+--- linux-3.4/sound/soc/sunxi/hdmiaudio/sndhdmi.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/hdmiaudio/sndhdmi.c	2015-06-28 08:52:22.452607967 +0200
+@@ -332,7 +332,7 @@
+ 	.resume 	= sunxi_sndhdmi_resume,
+ };
+ 
+-static int __init sndhdmi_codec_probe(struct platform_device *pdev)
++static int sndhdmi_codec_probe(struct platform_device *pdev)
+ {	
+ 	if (!pdev) {
+ 		pr_err("error:%s,line:%d\n", __func__, __LINE__);
+@@ -344,7 +344,7 @@
+ 	return snd_soc_register_codec(&pdev->dev, &soc_codec_dev_sndhdmi, &sndhdmi_dai, 1);	
+ }
+ 
+-static int __exit sndhdmi_codec_remove(struct platform_device *pdev)
++static int sndhdmi_codec_remove(struct platform_device *pdev)
+ {
+ 	if (!pdev) {
+ 		pr_err("error:%s,line:%d\n", __func__, __LINE__);
+--- linux-3.4/sound/soc/sunxi/hdmiaudio/sunxi-hdmipcm.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/hdmiaudio/sunxi-hdmipcm.c	2015-06-28 08:54:08.212628922 +0200
+@@ -473,12 +473,12 @@
+ 		.pcm_free	= sunxi_pcm_free_dma_buffers,
+ };
+ 
+-static int __init sunxi_hdmiaudio_pcm_probe(struct platform_device *pdev)
++static int sunxi_hdmiaudio_pcm_probe(struct platform_device *pdev)
+ {
+ 	return snd_soc_register_platform(&pdev->dev, &sunxi_soc_platform_hdmiaudio);
+ }
+ 
+-static int __exit sunxi_hdmiaudio_pcm_remove(struct platform_device *pdev)
++static int sunxi_hdmiaudio_pcm_remove(struct platform_device *pdev)
+ {
+ 	snd_soc_unregister_platform(&pdev->dev);
+ 	return 0;
+--- linux-3.4/sound/soc/sunxi/hdmiaudio/sunxi-hdmitdm.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/hdmiaudio/sunxi-hdmitdm.c	2015-06-28 08:55:39.702647050 +0200
+@@ -711,7 +711,7 @@
+ };
+ 
+ static struct pinctrl *daudio_pinctrl;
+-static int __init sunxi_daudio_dev_probe(struct platform_device *pdev)
++static int sunxi_daudio_dev_probe(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+ 	int reg_val = 0;
+@@ -758,7 +758,7 @@
+ 	return 0;
+ }
+ 
+-static int __exit sunxi_daudio_dev_remove(struct platform_device *pdev)
++static int sunxi_daudio_dev_remove(struct platform_device *pdev)
+ {
+ 	if (daudio_used) {
+ 		daudio_used = 0;
+--- linux-3.4/sound/soc/sunxi/hdmiaudio/sunxi-sndhdmi.c.orig	2015-01-27 03:29:38.000000000 +0100
++++ linux-3.4/sound/soc/sunxi/hdmiaudio/sunxi-sndhdmi.c	2015-06-27 16:18:09.035720734 +0200
+@@ -29,6 +29,7 @@
+ #include "sunxi-hdmitdm.h"
+ #endif
+ int hdmi_format = 1;
++EXPORT_SYMBOL_GPL(hdmi_format);
+ #if defined (CONFIG_ARCH_SUN9I) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW6)
+ /*i2s1 as master, hdmi as slave*/
+ static int i2s1_master 		= 4;

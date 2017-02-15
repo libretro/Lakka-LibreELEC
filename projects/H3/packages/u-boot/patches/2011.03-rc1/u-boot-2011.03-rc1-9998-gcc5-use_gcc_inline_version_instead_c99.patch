@@ -1,0 +1,56 @@
+[RFC 08/10] inline: use the gcc inline version instead of	the c99 one.
+
+Jeroen Hofstee jeroen at myspectrum.nl 
+Sat May 31 22:32:22 CEST 2014
+Previous message: [U-Boot] [RFC 07/10] ARM: make gd a function a function for clang
+Messages sorted by: [ date ] [ thread ] [ subject ] [ author ]
+---
+This fixes errors like:
+
+make[1]: Entering directory `/home/jeroen/software/u-boot/arch/arm/cpu/armv7/omap-common'
+arm-linux-gnueabi-ld.bfd  -r -o libomap-common.o  reset.o timer.o utils.o
+timer.o: In function `get_tbclk':
+/home/jeroen/software/u-boot/include/asm/io.h:81: multiple definition of `__raw_writesb'
+reset.o:/home/jeroen/software/u-boot/include/asm/io.h:81: first defined here
+timer.o: In function `__udelay':
+/home/jeroen/software/u-boot/include/asm/io.h:88: multiple definition of `__raw_writesw'
+reset.o:/home/jeroen/software/u-boot/include/asm/io.h:88: first defined here
+timer.o: In function `get_ticks':
+/home/jeroen/software/u-boot/include/asm/io.h:95: multiple definition of `__raw_writesl'
+reset.o:/home/jeroen/software/u-boot/include/asm/io.h:95: first defined here
+timer.o: In function `__raw_readsb':
+/home/jeroen/software/u-boot/include/asm/io.h:102: multiple definition of `__raw_readsb'
+reset.o:/home/jeroen/software/u-boot/include/asm/io.h:102: first defined here
+timer.o: In function `__raw_readsw':
+/home/jeroen/software/u-boot/include/asm/io.h:109: multiple definition of `__raw_readsw'
+reset.o:/home/jeroen/software/u-boot/include/asm/io.h:109: first defined here
+timer.o: In function `__raw_readsl':
+/home/jeroen/software/u-boot/include/asm/io.h:116: multiple definition of `__raw_readsl'
+reset.o:/home/jeroen/software/u-boot/include/asm/io.h:116: first defined here
+make[1]: *** [libomap-common.o] Error 1
+make[1]: Leaving directory `/home/jeroen/software/u-boot/arch/arm/cpu/armv7/omap-common'
+make: *** [arch/arm/cpu/armv7/omap-common/libomap-common.o] Error 2
+---
+ include/linux/compiler-gcc.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+index 9896e54..99c6dcc 100644
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -44,9 +44,10 @@
+  */
+ #if !defined(CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING) || \
+     !defined(CONFIG_OPTIMIZE_INLINING) || (__GNUC__ < 4)
+-# define inline		inline		__attribute__((always_inline))
+-# define __inline__	__inline__	__attribute__((always_inline))
+-# define __inline	__inline	__attribute__((always_inline))
++/* XXX: check __GNUC_STDC_INLINE__, fix line length */
++# define inline		inline		__attribute__((always_inline)) __attribute__((__gnu_inline__))
++# define __inline__	__inline__	__attribute__((always_inline)) __attribute__((__gnu_inline__))
++# define __inline	__inline	__attribute__((always_inline)) __attribute__((__gnu_inline__))
+ #endif
+ 
+ #define __deprecated			__attribute__((deprecated))
+-- 
+1.8.3.2

@@ -1,0 +1,66 @@
+From 5638e9aebfcd50ccb02043f4b558160c0e12d40b Mon Sep 17 00:00:00 2001
+From: Diogo Ferreira <diogo@underdev.org>
+Date: Wed, 23 Nov 2016 14:46:50 +0000
+Subject: [PATCH] bfq-sched: Forcefully lookup entities when the cache is
+ inconsistent
+
+bfq maintains a 'next-in-service' cache to prevent expensive lookups in
+the hot path. However, the cache sometimes becomes inconsistent and
+triggers a BUG:
+
+[44042.622839] -(3)[154:mmcqd/0]BUG: failure at ../../../../../../kernel/cyanogen/mt6735/block/bfq-sched.c:72/bfq_check_next_in_service()!
+[44042.622858] -(3)[154:mmcqd/0]Unable to handle kernel paging request at virtual address 0000dead
+[44042.622866] -(3)[154:mmcqd/0]pgd = ffffffc001361000
+[44042.622872] [0000dead] *pgd=000000007d816003, *pud=000000007d816003, *pmd=000000007d817003, *pte=0000000000000000
+[44042.622890] -(3)[154:mmcqd/0]Internal error: Oops: 96000045 [#1] PREEMPT SMP
+[44042.622907] -(3)[154:mmcqd/0]CPU: 3 PID: 154 Comm: mmcqd/0 Tainted:
+[44042.622915] -(3)[154:mmcqd/0]Hardware name: MT6735 (DT)
+[44042.622922] -(3)[154:mmcqd/0]task: ffffffc0378a6000 ti: ffffffc0378c4000
+[44042.622936] -(3)[154:mmcqd/0]PC is at bfq_dispatch_requests+0x6c4/0x9bc
+[44042.622944] -(3)[154:mmcqd/0]LR is at bfq_dispatch_requests+0x6bc/0x9bc
+[44042.622952] -(3)[154:mmcqd/0]pc : [<ffffffc000306a68>] lr : [<ffffffc000306a60>] pstate: 800001c5
+[44042.622958] -(3)[154:mmcqd/0]sp : ffffffc0378c7d30
+[44042.622962] x29: ffffffc0378c7d30 x28: 0000000000000000
+[44042.622972] x27: 0000000000000000 x26: ffffffc006c58810
+[44042.622981] x25: ffffffc037f89820 x24: ffffffc000f14000
+[44042.622990] x23: ffffffc036adb088 x22: ffffffc0369b2800
+[44042.623000] x21: ffffffc036adb098 x20: ffffffc01d6a3b60
+[44042.623009] x19: ffffffc036adb0c8 x18: 0000007f8cfa1500
+[44042.623018] x17: 0000007f8db44f40 x16: ffffffc00012d0c0
+[44042.623027] x15: 0000007f8dde04d8 x14: 676f6e6179632f6c
+[44042.623037] x13: 656e72656b2f2e2e x12: 2f2e2e2f2e2e2f2e
+[44042.623046] x11: 2e2f2e2e2f2e2e20 x10: 7461206572756c69
+[44042.623055] x9 : 6166203a4755425d x8 : 00000000001f0cc5
+[44042.623064] x7 : ffffffc000f3d5a0 x6 : 000000000000008b
+[44042.623073] x5 : 0000000000000000 x4 : 0000000000000004
+[44042.623082] x3 : 0000000000000002 x2 : 0000000000000001
+[44042.623091] x1 : 0000000000000aee x0 : 000000000000dead
+
+This patch makes the lookup resilient to cache inconsistencies by doing
+the expensive recomputation in cases where the bug would otherwise be
+triggered.
+
+Ticket: PORRDIGE-527
+
+Change-Id: I5dd701960057983a42d3d3bd57521e8d17c03d7f
+---
+ block/bfq-sched.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/block/bfq-sched.c b/block/bfq-sched.c
+index d0890c6..c3828a4 100644
+--- a/block/bfq-sched.c
++++ b/block/bfq-sched.c
+@@ -1046,6 +1046,9 @@ static struct bfq_entity *bfq_lookup_next_entity(struct bfq_sched_data *sd,
+ 		entity = __bfq_lookup_next_entity(st + i, false);
+ 		if (entity != NULL) {
+ 			if (extract) {
++				if (sd->next_in_service != entity) {
++					entity = __bfq_lookup_next_entity(st + i, true);
++				}
+ 				bfq_check_next_in_service(sd, entity);
+ 				bfq_active_extract(st + i, entity);
+ 				sd->in_service_entity = entity;
+-- 
+2.7.4
+

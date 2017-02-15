@@ -1,0 +1,785 @@
+diff -Nur linux-igor/drivers/usb/gadget/uvc_v4l2.c tinaos/drivers/usb/gadget/uvc_v4l2.c
+--- linux-igor/drivers/usb/gadget/uvc_v4l2.c	2016-10-11 16:01:24.043603681 +0200
++++ tinaos/drivers/usb/gadget/uvc_v4l2.c	2016-10-11 12:23:23.970089995 +0200
+@@ -137,19 +137,26 @@
+ 	handle->device = &uvc->video;
+ 	file->private_data = &handle->vfh;
+ 
++#ifndef CONFIG_USB_SUNXI_G_WEBCAM
+ 	uvc_function_connect(uvc);
++#endif
++
+ 	return 0;
+ }
+ 
+ static int
+ uvc_v4l2_release(struct file *file)
+ {
++#ifndef CONFIG_USB_SUNXI_G_WEBCAM
+ 	struct video_device *vdev = video_devdata(file);
+ 	struct uvc_device *uvc = video_get_drvdata(vdev);
++#endif
+ 	struct uvc_file_handle *handle = to_uvc_file_handle(file->private_data);
+ 	struct uvc_video *video = handle->device;
+ 
++#ifndef CONFIG_USB_SUNXI_G_WEBCAM
+ 	uvc_function_disconnect(uvc);
++#endif
+ 
+ 	uvc_video_enable(video, 0);
+ 	mutex_lock(&video->queue.mutex);
+diff -Nur linux-igor/drivers/usb/host/ehci_sunxi.c tinaos/drivers/usb/host/ehci_sunxi.c
+--- linux-igor/drivers/usb/host/ehci_sunxi.c	2016-10-11 16:01:24.046937014 +0200
++++ tinaos/drivers/usb/host/ehci_sunxi.c	2016-10-11 12:23:23.973423329 +0200
+@@ -423,7 +423,7 @@
+ {
+ 
+ 	sunxi_ehci->set_usbc_regulator(sunxi_ehci, 1);
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN9IW1)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN9IW1)	
+ 	sunxi_ehci->hci_phy_ctrl(sunxi_ehci, 1);
+ #endif
+ 	open_ehci_clock(sunxi_ehci);
+@@ -438,7 +438,7 @@
+ 	sunxi_ehci_port_configure(sunxi_ehci, 0);
+ 	sunxi_ehci->usb_passby(sunxi_ehci, 0);
+ 	close_ehci_clock(sunxi_ehci);
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN9IW1)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN9IW1)	
+ 	sunxi_ehci->hci_phy_ctrl(sunxi_ehci, 0);
+ #endif
+ 	sunxi_ehci->set_usbc_regulator(sunxi_ehci, 0);
+diff -Nur linux-igor/drivers/usb/host/ohci-hcd.c tinaos/drivers/usb/host/ohci-hcd.c
+--- linux-igor/drivers/usb/host/ohci-hcd.c	2016-10-11 16:01:24.050270348 +0200
++++ tinaos/drivers/usb/host/ohci-hcd.c	2016-10-11 12:23:23.980089996 +0200
+@@ -924,8 +924,8 @@
+ 	if (quirk_nec(ohci))
+ 		flush_work_sync(&ohci->nec_work);
+ 
+-	ohci_usb_reset (ohci);
+ 	ohci_writel (ohci, OHCI_INTR_MIE, &ohci->regs->intrdisable);
++	ohci_usb_reset (ohci);
+ 	free_irq(hcd->irq, hcd);
+ 	hcd->irq = 0;
+ 
+diff -Nur linux-igor/drivers/usb/host/sunxi_hci.c tinaos/drivers/usb/host/sunxi_hci.c
+--- linux-igor/drivers/usb/host/sunxi_hci.c	2016-10-11 16:01:24.053603680 +0200
++++ tinaos/drivers/usb/host/sunxi_hci.c	2016-10-11 12:23:23.983423329 +0200
+@@ -531,16 +531,22 @@
+ static s32 request_usb_regulator_io(struct sunxi_hci_hcd *sunxi_hci)
+ {
+ 	if(sunxi_hci->regulator_io != NULL){
+-		sunxi_hci->regulator_io_hdle= regulator_get(NULL, sunxi_hci->regulator_io);
++		sunxi_hci->regulator_io_hdle = regulator_get(NULL, sunxi_hci->regulator_io);
+ 		if(IS_ERR(sunxi_hci->regulator_io_hdle)) {
+ 			DMSG_PANIC("ERR: some error happen, %s,regulator_io_hdle fail to get regulator!", sunxi_hci->hci_name);
++			sunxi_hci->regulator_io_hdle = NULL;
+ 			return 0;
+ 		}
++	}
+ 
+-		if(regulator_set_voltage(sunxi_hci->regulator_io_hdle , sunxi_hci->regulator_value, sunxi_hci->regulator_value) < 0 ){
+-			DMSG_PANIC("ERR: regulator_set_voltage: %s fail\n",sunxi_hci->hci_name);
+-			regulator_put(sunxi_hci->regulator_io_hdle);
+-			return 0;
++	if(sunxi_hci->hsic_flag){
++		if(sunxi_hci->hsic_regulator_io != NULL){
++			sunxi_hci->hsic_regulator_io_hdle = regulator_get(NULL, sunxi_hci->hsic_regulator_io);
++			if(IS_ERR(sunxi_hci->hsic_regulator_io_hdle)) {
++				DMSG_PANIC("ERR: some error happen, %s, hsic_regulator_io_hdle fail to get regulator!", sunxi_hci->hci_name);
++				sunxi_hci->hsic_regulator_io_hdle = NULL;
++				return 0;
++			}
+ 		}
+ 	}
+ 
+@@ -552,6 +558,13 @@
+ 	if(sunxi_hci->regulator_io != NULL){
+ 		regulator_put(sunxi_hci->regulator_io_hdle);
+ 	}
++
++	if(sunxi_hci->hsic_flag){
++		if(sunxi_hci->hsic_regulator_io != NULL){
++			regulator_put(sunxi_hci->hsic_regulator_io_hdle);
++		}
++	}
++
+ 	return 0;
+ }
+ 
+@@ -614,6 +627,9 @@
+ 		sunxi_hci->not_suspend = 0;
+ 	}
+ 
++	sunxi_hci->hsic_flag = 0;
++
++#if defined (CONFIG_ARCH_SUN8IW3) || defined (CONFIG_ARCH_SUN8IW5) || defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ 	type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_hsic_used", &item_temp);
+ 	if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
+ 		sunxi_hci->hsic_flag = item_temp.val;
+@@ -623,7 +639,21 @@
+ 	}
+ 
+ 	if(sunxi_hci->hsic_flag){
+-		/* usb hisc ctrl */
++		/* get HSIC regulator io information */
++		type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_hsic_regulator_io", &item_temp);
++		if (type == SCIRPT_ITEM_VALUE_TYPE_STR) {
++			if (!strcmp(item_temp.str, "nocare")) {
++				DMSG_INFO("get usb_regulator is nocare\n");
++				sunxi_hci->hsic_regulator_io = NULL;
++			}else{
++				sunxi_hci->hsic_regulator_io = item_temp.str;
++			}
++		}else {
++			DMSG_INFO("get usb_hsic_regulator is failed\n");
++			sunxi_hci->regulator_io = NULL;
++		}
++
++		/* Marvell 4G HSIC ctrl*/
+ 		type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_hsic_ctrl", &item_temp);
+ 		if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
+ 			sunxi_hci->hsic_ctrl_flag = item_temp.val;
+@@ -639,10 +669,43 @@
+ 		}else{
+ 			sunxi_hci->usb_host_hsic_rdy_valid = 0;
+ 		}
++
++		/* SMSC usb3503 HSIC HUB ctrl */
++		type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_hsic_usb3503_flag", &item_temp);
++		if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
++			sunxi_hci->usb_hsic_usb3503_flag = item_temp.val;
++		}else{
++			DMSG_INFO("get usb_restrict_flag failed\n");
++			sunxi_hci->usb_hsic_usb3503_flag = 0;
++		}
++
++		type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_hsic_hub_connect_gpio", &sunxi_hci->usb_hsic_hub_connect);
++		if(type == SCIRPT_ITEM_VALUE_TYPE_PIO){
++			sunxi_hci->usb_hsic_hub_connect_valid = 1;
++		}else{
++			sunxi_hci->usb_hsic_hub_connect_valid = 0;
++		}
++
++		type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_hsic_int_n_gpio", &sunxi_hci->usb_hsic_int_n);
++		if(type == SCIRPT_ITEM_VALUE_TYPE_PIO){
++			sunxi_hci->usb_hsic_int_n_valid = 1;
++		}else{
++			sunxi_hci->usb_hsic_int_n_valid = 0;
++		}
++
++		type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_hsic_reset_n_gpio", &sunxi_hci->usb_hsic_reset_n);
++		if(type == SCIRPT_ITEM_VALUE_TYPE_PIO){
++			sunxi_hci->usb_hsic_reset_n_valid = 1;
++		}else{
++			sunxi_hci->usb_hsic_reset_n_valid = 0;
++		}
++
+ 	}else{
+ 		sunxi_hci->hsic_ctrl_flag = 0;
+ 		sunxi_hci->usb_host_hsic_rdy_valid = 0;
++		sunxi_hci->usb_hsic_usb3503_flag = 0;
+ 	}
++#endif
+ 
+ 	/* get regulator io information */
+ 	type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_regulator_io", &item_temp);
+@@ -652,14 +715,6 @@
+ 			sunxi_hci->regulator_io = NULL;
+ 		}else{
+ 			sunxi_hci->regulator_io = item_temp.str;
+-
+-			type = script_get_item(usbc_name[sunxi_hci->usbc_no], "usb_regulator_vol", &item_temp);
+-			if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
+-				sunxi_hci->regulator_value = item_temp.val;
+-			}else{
+-				DMSG_INFO("get usb_voltage is failed\n");
+-				sunxi_hci->regulator_value = 0;
+-			}
+ 		}
+ 	}else {
+ 		DMSG_INFO("get usb_regulator is failed\n");
+@@ -1715,13 +1770,54 @@
+ 		}
+ 	}
+ 
+-	if(sunxi_hci->usb_host_hsic_rdy_valid){
+-		ret = gpio_request(sunxi_hci->usb_host_hsic_rdy.gpio.gpio, NULL);
+-		if(ret != 0){
+-			DMSG_PANIC("ERR: gpio_request failed\n");
+-			sunxi_hci->usb_host_hsic_rdy_valid = 0;
+-		}else{
+-			gpio_direction_output(sunxi_hci->usb_host_hsic_rdy.gpio.gpio, 0);
++	if(sunxi_hci->hsic_flag){
++		/* Marvell 4G HSIC ctrl*/
++		if(sunxi_hci->usb_host_hsic_rdy_valid){
++			ret = gpio_request(sunxi_hci->usb_host_hsic_rdy.gpio.gpio, NULL);
++			if(ret != 0){
++				DMSG_PANIC("ERR: gpio_request failed\n");
++				sunxi_hci->usb_host_hsic_rdy_valid = 0;
++			}else{
++				gpio_direction_output(sunxi_hci->usb_host_hsic_rdy.gpio.gpio, 0);
++			}
++		}
++
++		/* SMSC usb3503 HSIC HUB ctrl */
++		if(sunxi_hci->usb_hsic_usb3503_flag){
++			if(sunxi_hci->usb_hsic_hub_connect_valid){
++				ret = gpio_request(sunxi_hci->usb_hsic_hub_connect.gpio.gpio, NULL);
++				if(ret != 0){
++					DMSG_PANIC("ERR: gpio_request failed\n");
++					sunxi_hci->usb_hsic_hub_connect_valid = 0;
++				}else{
++					gpio_direction_output(sunxi_hci->usb_hsic_hub_connect.gpio.gpio, 1);
++				}
++			}
++
++			if(sunxi_hci->usb_hsic_int_n_valid){
++				ret = gpio_request(sunxi_hci->usb_hsic_int_n.gpio.gpio, NULL);
++				if(ret != 0){
++					DMSG_PANIC("ERR: gpio_request failed\n");
++					sunxi_hci->usb_hsic_int_n_valid = 0;
++				}else{
++					gpio_direction_output(sunxi_hci->usb_hsic_int_n.gpio.gpio, 1);
++				}
++			}
++
++			msleep(10);
++
++			if(sunxi_hci->usb_hsic_reset_n_valid){
++				ret = gpio_request(sunxi_hci->usb_hsic_reset_n.gpio.gpio, NULL);
++				if(ret != 0){
++					DMSG_PANIC("ERR: gpio_request failed\n");
++					sunxi_hci->usb_hsic_reset_n_valid = 0;
++				}else{
++					gpio_direction_output(sunxi_hci->usb_hsic_reset_n.gpio.gpio, 1);
++				}
++			}
++
++			/* usb3503 device goto hub connect statua is need 100ms after reset */
++			msleep(100);
+ 		}
+ 	}
+ 	return 0;
+@@ -1743,25 +1839,44 @@
+ 		gpio_free(sunxi_hci->usb_host_hsic_rdy.gpio.gpio);
+ 		sunxi_hci->drv_vbus_gpio_valid = 0;
+ 	}
++
++	if(sunxi_hci->hsic_flag){
++		/* Marvell 4G HSIC ctrl*/
++		if(sunxi_hci->usb_host_hsic_rdy_valid){
++			gpio_free(sunxi_hci->usb_host_hsic_rdy.gpio.gpio);
++			sunxi_hci->usb_host_hsic_rdy_valid = 0;
++		}
++
++		/* SMSC usb3503 HSIC HUB ctrl */
++		if(sunxi_hci->usb_hsic_usb3503_flag){
++			if(sunxi_hci->usb_hsic_hub_connect_valid){
++				gpio_free(sunxi_hci->usb_hsic_hub_connect.gpio.gpio);
++				sunxi_hci->usb_hsic_hub_connect_valid = 0;
++			}
++
++			if(sunxi_hci->usb_hsic_int_n_valid){
++				gpio_free(sunxi_hci->usb_hsic_int_n.gpio.gpio);
++				sunxi_hci->usb_hsic_int_n_valid = 0;
++			}
++
++			if(sunxi_hci->usb_hsic_reset_n_valid){
++				gpio_free(sunxi_hci->usb_hsic_reset_n.gpio.gpio);
++				sunxi_hci->usb_hsic_reset_n_valid = 0;
++			}
++		}
++	}
++
+ 	return;
+ }
+ 
+ static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
+ {
+-	//u32 on_off = 0;
+ 
+ 	DMSG_INFO("[%s]: Set USB Power %s\n", sunxi_hci->hci_name, (is_on ? "ON" : "OFF"));
+ 
+ 	/* set power flag */
+ 	sunxi_hci->power_flag = is_on;
+ 
+-	/* set power */
+-	//if(sunxi_hci->drv_vbus_gpio_set.gpio.data == 0){
+-	//	on_off = is_on ? 1 : 0;
+-	//}else{
+-	//	on_off = is_on ? 0 : 1;
+-	//}
+-
+ //no care of usb0 vbus when otg connect pc setup system without battery and to return
+ #ifdef CONFIG_USB_SUNXI_USB_MANAGER
+ #if defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW7)
+@@ -1815,6 +1930,19 @@
+ 		}
+ 	}
+ 
++	if(sunxi_hci->hsic_flag){
++		if((sunxi_hci->hsic_regulator_io != NULL) && (sunxi_hci->hsic_regulator_io_hdle != NULL)){
++			if(is_on){
++				if(regulator_enable(sunxi_hci->hsic_regulator_io_hdle) < 0){
++					DMSG_INFO("%s: hsic_regulator_enable fail\n", sunxi_hci->hci_name);
++				}
++			}else{
++				if(regulator_disable(sunxi_hci->hsic_regulator_io_hdle) < 0){
++					DMSG_INFO("%s: hsic_regulator_disable fail\n", sunxi_hci->hci_name);
++				}
++			}
++		}
++	}
+ 	return;
+ }
+ 
+@@ -2006,6 +2134,11 @@
+ #endif
+ 
+ #ifdef CONFIG_ARCH_SUN8IW8
++int sunxi_usb_enable_ehci(__u32 usbc_no);
++int sunxi_usb_disable_ehci(__u32 usbc_no);
++int sunxi_usb_enable_ohci(__u32 usbc_no);
++int sunxi_usb_disable_ohci(__u32 usbc_no);
++
+ static void sunxi_usbc_work(struct work_struct *data)
+ {
+ 	struct sunxi_hci_hcd *sunxi_hci  = NULL;
+@@ -2015,7 +2148,12 @@
+ 	printk("sunxi_usbc_work, usbc:%d\n", sunxi_hci->usbc_no);
+ 
+ 	__sunxi_set_vbus(sunxi_hci, 0);
++	sunxi_usb_disable_ehci(HCI0_USBC_NO);
++	sunxi_usb_disable_ohci(HCI0_USBC_NO);
+ 	msleep(100);
++
++	sunxi_usb_enable_ehci(HCI0_USBC_NO);
++	sunxi_usb_enable_ohci(HCI0_USBC_NO);
+ 	__sunxi_set_vbus(sunxi_hci, 1);
+ 
+ 	printk("end sunxi_usbc_work\n");
+diff -Nur linux-igor/drivers/usb/host/sunxi_hci.h tinaos/drivers/usb/host/sunxi_hci.h
+--- linux-igor/drivers/usb/host/sunxi_hci.h	2016-10-11 16:01:24.053603680 +0200
++++ tinaos/drivers/usb/host/sunxi_hci.h	2016-10-11 12:23:23.983423329 +0200
+@@ -197,13 +197,11 @@
+ 
+ 	script_item_u drv_vbus_gpio_set;
+ 	script_item_u restrict_gpio_set;
+-	script_item_u usb_host_hsic_rdy;
+ 
+ 	char* regulator_io;
+-	int   regulator_value;
++
+ 	struct regulator* regulator_io_hdle;
+ 	u32 drv_vbus_gpio_valid;
+-	u32 usb_host_hsic_rdy_valid;
+ 	u32 usb_restrict_valid;
+ 	__u8 power_flag;                        /* flag. power on or not */
+ 
+@@ -213,10 +211,30 @@
+ 	__u8 usb_restrict_flag;
+ 	__u8 usbc_type;                         /* usb controller type  */
+ 	__u8 not_suspend;                       /* flag. not suspend */
++
++	/* HSIC device susport */
+ 	__u8 hsic_flag;                         /* flag. hsic usbed */
++	char* hsic_regulator_io;
++	struct regulator* hsic_regulator_io_hdle;
++
++	/* Marvell 4G HSIC ctrl */
++	script_item_u usb_host_hsic_rdy;
++	u32 usb_host_hsic_rdy_valid;
+ 	__u8 hsic_ctrl_flag;                    /* flag. hsic ctrl */
+ 	__u8 hsic_enable_flag;                  /* flag. hsic enable */
+ 
++	/* SMSC usb3503 HSIC HUB ctrl */
++	__u8 usb_hsic_usb3503_flag;
++
++	script_item_u usb_hsic_hub_connect;
++	u32 usb_hsic_hub_connect_valid;
++
++	script_item_u usb_hsic_int_n;
++	u32 usb_hsic_int_n_valid;
++
++	script_item_u usb_hsic_reset_n;
++	u32 usb_hsic_reset_n_valid;
++
+ 	int (* open_clock)(struct sunxi_hci_hcd *sunxi_hci, u32 ohci);
+ 	int (* close_clock)(struct sunxi_hci_hcd *sunxi_hci, u32 ohci);
+ 	void (* set_power)(struct sunxi_hci_hcd *sunxi_hci, int is_on);
+diff -Nur linux-igor/drivers/usb/sunxi_usb/hcd/hcd0/sunxi_hcd0.c tinaos/drivers/usb/sunxi_usb/hcd/hcd0/sunxi_hcd0.c
+--- linux-igor/drivers/usb/sunxi_usb/hcd/hcd0/sunxi_hcd0.c	2016-10-11 16:01:24.080270348 +0200
++++ tinaos/drivers/usb/sunxi_usb/hcd/hcd0/sunxi_hcd0.c	2016-10-11 12:23:24.013423330 +0200
+@@ -47,7 +47,7 @@
+ 
+ static struct scene_lock  otg_standby_lock;
+ 
+-#ifdef CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ extern struct completion hcd_complete_notify;
+ #endif
+ 
+@@ -241,29 +241,6 @@
+ 			return 0;
+ 		}
+ 
+-		if(regulator_set_voltage(sunxi_hcd_io->regulator_io_hdle , sunxi_hcd_io->regulator_io_vol, sunxi_hcd_io->regulator_io_vol) < 0 ){
+-			DMSG_PANIC("ERR:usb0 regulator set io voltage:fail\n");
+-			regulator_put(sunxi_hcd_io->regulator_io_hdle);
+-			return 0;
+-		}
+-	}
+-
+-	if(sunxi_hcd_io->regulator_id_vbus != NULL){
+-		sunxi_hcd_io->regulator_id_vbus_hdle= regulator_get(NULL, sunxi_hcd_io->regulator_id_vbus);
+-		if(IS_ERR(sunxi_hcd_io->regulator_id_vbus_hdle)) {
+-			DMSG_PANIC("ERR: some error happen, usb0 regulator_id_vbus_hdle fail to get regulator!");
+-			return 0;
+-		}
+-
+-		if(regulator_set_voltage(sunxi_hcd_io->regulator_id_vbus_hdle , sunxi_hcd_io->regulator_id_vbus_vol, sunxi_hcd_io->regulator_id_vbus_vol) < 0 ){
+-			DMSG_PANIC("ERR:usb0 regulator set id vbus voltage:fail\n");
+-			regulator_put(sunxi_hcd_io->regulator_id_vbus_hdle);
+-			return 0;
+-		}
+-
+-		if(regulator_enable(sunxi_hcd_io->regulator_id_vbus_hdle) < 0){
+-			DMSG_INFO_HCD0("ERR: usb0 id vbus regulator_enable fail\n");
+-		}
+ 	}
+ 
+ 	return 0;
+@@ -275,10 +252,7 @@
+ 		regulator_put(sunxi_hcd_io->regulator_io_hdle);
+ 		sunxi_hcd_io->regulator_io_hdle = NULL;
+ 	}
+-	if(sunxi_hcd_io->regulator_id_vbus != NULL){
+-		regulator_put(sunxi_hcd_io->regulator_id_vbus_hdle);
+-		sunxi_hcd_io->regulator_id_vbus_hdle = NULL;
+-	}
++
+ 	return 0;
+ }
+ 
+@@ -349,7 +323,7 @@
+ 			sunxi_hcd_io->ahb_otg, sunxi_hcd_io->mod_usbotg, sunxi_hcd_io->mod_usbphy, sunxi_hcd_io->clk_is_open);
+ 	}
+ 
+-#ifdef  CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6)
+ 	USBC_PHY_Set_Ctl(sunxi_hcd_io->usb_vbase, USBC_PHY_CTL_VBUSVLDEXT);
+ 	USBC_PHY_Clear_Ctl(sunxi_hcd_io->usb_vbase, USBC_PHY_CTL_SIDDQ);
+ #else
+@@ -389,8 +363,8 @@
+ 		(u32)USBC_Readl(sunxi_hcd_io->clock_vbase + 0x2c0));
+ 	*/
+ 
+-#ifdef  CONFIG_ARCH_SUN8IW6
+-		USBC_PHY_Set_Ctl(sunxi_hcd_io->usb_vbase, USBC_PHY_CTL_SIDDQ);
++#if defined (CONFIG_ARCH_SUN8IW6)
++	USBC_PHY_Set_Ctl(sunxi_hcd_io->usb_vbase, USBC_PHY_CTL_SIDDQ);
+ #endif
+ 
+ 	return 0;
+@@ -421,6 +395,7 @@
+ 		sunxi_hcd_io->drv_vbus_valid = 0;
+ 	}
+ 
++
+ 	if (sunxi_hcd_io->drv_vbus_valid) {
+ 		ret = gpio_request(sunxi_hcd_io->drv_vbus_gpio_set.gpio.gpio, "otg_drv_vbus");
+ 		if (ret != 0) {
+@@ -443,42 +418,12 @@
+ 			sunxi_hcd_io->regulator_io = NULL;
+ 		}else{
+ 			sunxi_hcd_io->regulator_io = item_temp.str;
+-
+-			type = script_get_item(SET_USB0, KEY_USB_REGULATOR_IO_VOL, &item_temp);
+-			if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
+-				sunxi_hcd_io->regulator_io_vol = item_temp.val;
+-			}else{
+-				DMSG_INFO_HCD0("get usb io voltage is failed\n");
+-				sunxi_hcd_io->regulator_io_vol = 0;
+-			}
+ 		}
+ 	}else {
+ 		DMSG_INFO_HCD0("usb_regulator io is not exist\n");
+ 		sunxi_hcd_io->regulator_io = NULL;
+ 	}
+ 
+-	/* get regulator information */
+-	type = script_get_item(SET_USB0, KEY_USB_REGULATOR_ID_VBUS, &item_temp);
+-	if (type == SCIRPT_ITEM_VALUE_TYPE_STR) {
+-		if (!strcmp(item_temp.str, "nocare")) {
+-			DMSG_INFO_HCD0("get usb_regulator id vbus is nocare\n");
+-			sunxi_hcd_io->regulator_id_vbus = NULL;
+-		}else{
+-			sunxi_hcd_io->regulator_id_vbus = item_temp.str;
+-
+-			type = script_get_item(SET_USB0, KEY_USB_REGULATOR_ID_VBUS_VOL, &item_temp);
+-			if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
+-				sunxi_hcd_io->regulator_id_vbus_vol = item_temp.val;
+-			}else{
+-				DMSG_INFO_HCD0("get usb id voltage is failed\n");
+-				sunxi_hcd_io->regulator_id_vbus_vol = 0;
+-			}
+-		}
+-	}else {
+-		DMSG_INFO_HCD0("usb_regulator id vbus io is not exist\n");
+-		sunxi_hcd_io->regulator_id_vbus = NULL;
+-	}
+-
+ 	type = script_get_item(SET_USB0, KEY_USB_USB_NOT_SUSPEND, &item_temp);
+ 	if (type == SCIRPT_ITEM_VALUE_TYPE_INT) {
+ 		sunxi_hcd_io->no_suspend = item_temp.val;
+@@ -630,23 +575,13 @@
+ }
+ static void sunxi_hcd_board_set_vbus(struct sunxi_hcd *sunxi_hcd, int is_on)
+ {
+-#ifndef  SUNXI_USB_FPGA
+-	u32 on_off = 0;
+-#endif
+ 
+ 	DMSG_INFO_HCD0("[%s]: Set USB Power %s\n", sunxi_hcd->driver_name, (is_on ? "ON" : "OFF"));
+ 
+ #ifndef  SUNXI_USB_FPGA
+-	/* set power */
+-	if (sunxi_hcd->sunxi_hcd_io->drv_vbus_gpio_set.gpio.data == 0) {
+-		on_off = is_on ? 1 : 0;
+-	} else {
+-		on_off = is_on ? 0 : 1;
+-	}
+-
+ 	/* set gpio data */
+ 	if (sunxi_hcd->sunxi_hcd_io->drv_vbus_valid) {
+-		__gpio_set_value(sunxi_hcd->sunxi_hcd_io->drv_vbus_gpio_set.gpio.gpio, on_off);
++		__gpio_set_value(sunxi_hcd->sunxi_hcd_io->drv_vbus_gpio_set.gpio.gpio, is_on);
+ 	}
+ #endif
+ 
+@@ -1700,7 +1635,7 @@
+ 		goto end;
+ 	}
+ 
+-#ifdef CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ {
+ 	struct sunxi_hcd_platform_data *pdata = pdev->dev.platform_data;
+ 	if(pdata->config->port_info->port_type == USB_PORT_TYPE_HOST){
+@@ -1743,7 +1678,8 @@
+  * bridge to a platform device; this driver then suffices.
+  *
+  */
+-#ifndef CONFIG_ARCH_SUN8IW6
++
++#if !defined (CONFIG_ARCH_SUN8IW6) && !defined (CONFIG_ARCH_SUN8IW9)
+ static int sunxi_hcd_probe_host_only(struct platform_device *pdev)
+ {
+ 	struct device   *dev    = &pdev->dev;
+@@ -1819,7 +1755,7 @@
+ static int __init sunxi_hcd_probe(struct platform_device *pdev)
+ {
+ #ifdef  CONFIG_USB_SUNXI_USB0_OTG
+-#ifdef CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ 	return sunxi_hcd_probe_otg(pdev);
+ #else
+ 
+@@ -1846,7 +1782,7 @@
+ static int __exit sunxi_hcd_remove(struct platform_device *pdev)
+ {
+ #ifdef  CONFIG_USB_SUNXI_USB0_OTG
+-#ifdef CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ 	return sunxi_hcd_remove_otg(pdev);
+ #else
+ 	struct sunxi_hcd_platform_data	*pdata = pdev->dev.platform_data;
+diff -Nur linux-igor/drivers/usb/sunxi_usb/include/sunxi_usb_board.h tinaos/drivers/usb/sunxi_usb/include/sunxi_usb_board.h
+--- linux-igor/drivers/usb/sunxi_usb/include/sunxi_usb_board.h	2016-10-11 16:01:24.083603681 +0200
++++ tinaos/drivers/usb/sunxi_usb/include/sunxi_usb_board.h	2016-10-11 12:23:24.013423330 +0200
+@@ -35,8 +35,6 @@
+ #define  KEY_USB_RESTRICT_GPIO			"usb_restrict_gpio"
+ #define  KEY_USB_REGULATOR_IO			"usb_regulator_io"
+ #define  KEY_USB_REGULATOR_IO_VOL		"usb_regulator_vol"
+-#define  KEY_USB_REGULATOR_ID_VBUS		"usb_regulator_id_vbus"
+-#define  KEY_USB_REGULATOR_ID_VBUS_VOL		"usb_regulator_id_vbus_vol"
+ 
+ #define  KEY_USB_HOST_INIT_STATE    		"usb_host_init_state"
+ #define  KEY_USB_USB_RESTRICT_FLAG  		"usb_restric_flag"
+diff -Nur linux-igor/drivers/usb/sunxi_usb/manager/usbc0_platform.c tinaos/drivers/usb/sunxi_usb/manager/usbc0_platform.c
+--- linux-igor/drivers/usb/sunxi_usb/manager/usbc0_platform.c	2016-10-11 16:01:24.083603681 +0200
++++ tinaos/drivers/usb/sunxi_usb/manager/usbc0_platform.c	2016-10-11 12:23:24.013423330 +0200
+@@ -274,7 +274,7 @@
+ {
+ 	/* device */
+ #ifndef CONFIG_ARCH_SUN9IW1
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW9) 
+ 	sunxi_udc_cfg.port_info = port_info;
+ 	sunxi_udc_cfg.usbc_base = (unsigned int __force)SUNXI_USB_OTG_VBASE;
+ 
+diff -Nur linux-igor/drivers/usb/sunxi_usb/manager/usb_manager.c tinaos/drivers/usb/sunxi_usb/manager/usb_manager.c
+--- linux-igor/drivers/usb/sunxi_usb/manager/usb_manager.c	2016-10-11 16:01:24.083603681 +0200
++++ tinaos/drivers/usb/sunxi_usb/manager/usb_manager.c	2016-10-11 12:23:24.013423330 +0200
+@@ -50,7 +50,7 @@
+ __u32 thread_device_run_flag = 0;
+ __u32 thread_host_run_flag = 0;
+ 
+-#ifdef CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ struct completion hcd_complete_notify;
+ struct completion udc_complete_notify;
+ #endif
+@@ -225,7 +225,7 @@
+ 	while(thread_device_run_flag) {
+ 
+ 		msleep(1000);  /* 1s */
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW9)
+ 		wait_for_completion(&udc_complete_notify);
+ #endif
+ 		hw_rmmod_usb_host();
+@@ -251,7 +251,7 @@
+ 	while(thread_host_run_flag) {
+ 
+ 		msleep(1000);  /* 1s */
+-#ifdef CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ 		wait_for_completion(&hcd_complete_notify);
+ #endif
+ 		hw_rmmod_usb_host();
+@@ -677,7 +677,7 @@
+ 
+ 	if (g_usb_cfg.port[0].port_type == USB_PORT_TYPE_DEVICE) {
+ 
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW9)
+ 		init_completion(&udc_complete_notify);
+ #endif
+ 		thread_device_run_flag = 1;
+@@ -697,7 +697,7 @@
+ 		}
+ #else
+ 
+-#ifdef CONFIG_ARCH_SUN8IW6
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW9)
+ 		init_completion(&hcd_complete_notify);
+ #endif
+ 		thread_host_run_flag = 1;
+diff -Nur linux-igor/drivers/usb/sunxi_usb/udc/sunxi_udc.c tinaos/drivers/usb/sunxi_usb/udc/sunxi_udc.c
+--- linux-igor/drivers/usb/sunxi_usb/udc/sunxi_udc.c	2016-10-11 16:01:24.083603681 +0200
++++ tinaos/drivers/usb/sunxi_usb/udc/sunxi_udc.c	2016-10-11 12:23:24.016756663 +0200
+@@ -63,7 +63,7 @@
+ static struct platform_device *g_udc_pdev = NULL;
+ #endif
+ 
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW9)
+ extern struct completion udc_complete_notify;
+ #endif
+ 
+@@ -3015,7 +3015,7 @@
+ 	device_create_file(&pdev->dev, &dev_attr_msc_read_debug);
+ 	device_create_file(&pdev->dev, &dev_attr_msc_write_debug);
+ 
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW9)
+ {
+ 	struct sunxi_udc_mach_info *udc_cfg = pdev->dev.platform_data;
+ 	if(udc_cfg->port_info->port_type == USB_PORT_TYPE_DEVICE){
+@@ -3042,7 +3042,7 @@
+ 
+ 	return 0;
+ }
+-#if !defined (CONFIG_ARCH_SUN8IW6) && !defined (CONFIG_ARCH_SUN8IW7) && !defined (CONFIG_ARCH_SUN8IW8)
++#if !defined (CONFIG_ARCH_SUN8IW6) && !defined (CONFIG_ARCH_SUN8IW7) && !defined (CONFIG_ARCH_SUN8IW8)  && !defined (CONFIG_ARCH_SUN8IW9)
+ static int sunxi_udc_probe_device_only(struct platform_device *pdev)
+ {
+ 	struct sunxi_udc *udc	= &sunxi_udc;
+@@ -3128,10 +3128,10 @@
+ 	return 0;
+ }
+ #endif
+-static int __init sunxi_udc_probe(struct platform_device *pdev)
++static int __devinit sunxi_udc_probe(struct platform_device *pdev)
+ {
+ #ifdef  CONFIG_USB_SUNXI_USB0_OTG
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW9)
+ 	return sunxi_udc_probe_otg(pdev);
+ #else
+ 	struct sunxi_udc_mach_info *udc_cfg = pdev->dev.platform_data;
+@@ -3155,10 +3155,10 @@
+ #endif
+ }
+ 
+-static int __exit sunxi_udc_remove(struct platform_device *pdev)
++static int __devexit sunxi_udc_remove(struct platform_device *pdev)
+ {
+ #ifdef  CONFIG_USB_SUNXI_USB0_OTG
+-#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8)
++#if defined (CONFIG_ARCH_SUN8IW6) || defined (CONFIG_ARCH_SUN8IW7) || defined (CONFIG_ARCH_SUN8IW8) || defined (CONFIG_ARCH_SUN8IW9)
+ 	return sunxi_udc_remove_otg(pdev);
+ #else
+ 
+diff -Nur linux-igor/drivers/usb/sunxi_usb/usb3/ep0.c tinaos/drivers/usb/sunxi_usb/usb3/ep0.c
+--- linux-igor/drivers/usb/sunxi_usb/usb3/ep0.c	2016-10-11 16:01:24.083603681 +0200
++++ tinaos/drivers/usb/sunxi_usb/usb3/ep0.c	2016-10-11 12:23:24.016756663 +0200
+@@ -545,12 +545,18 @@
+ 
+ 		sunxi_ep0_stall_and_restart(otgc);
+ 	} else {
+-		/*
+-		 * handle the case where we have to send a zero packet. This
+-		 * seems to be case when req.length > maxpacket. Could it be?
+-		 */
+-		if (r)
+-			sunxi_gadget_giveback(ep0, r, 0);
++
++		sunxi_gadget_giveback(ep0, r, 0);
++
++		if (IS_ALIGNED(ur->length, ep0->endpoint.maxpacket) &&
++			ur->length && ur->zero) {
++			int ret;
++			otgc->ep0_next_event = SUNXI_EP0_COMPLETE;
++			ret = sunxi_ep0_start_trans(otgc, epnum,
++				otgc->ctrl_req_addr, 0,
++				SUNXI_TRBCTL_CONTROL_DATA);
++				WARN_ON(ret < 0);
++		}
+ 	}
+ }
+ 
+@@ -645,6 +651,9 @@
+ 				SUNXI_TRBCTL_CONTROL_DATA);
+ 	} else if ((req->request.length % dep->endpoint.maxpacket)
+ 			&& (event->endpoint_number == 0)) {
++		u32	transfer_size;
++		u32	maxpacket;
++
+ 		ret = usb_gadget_map_request(&otgc->gadget, &req->request,
+ 				event->endpoint_number);
+ 		if (ret) {
+@@ -652,9 +661,11 @@
+ 			return;
+ 		}
+ 
+-		WARN_ON(req->request.length > dep->endpoint.maxpacket);
++		WARN_ON(req->request.length > 512);
+ 
+ 		otgc->ep0_bounced = true;
++		maxpacket = dep->endpoint.maxpacket;
++		transfer_size = roundup(req->request.length, maxpacket);
+ 
+ 		/*
+ 		 * REVISIT in case request length is bigger than EP0
+@@ -662,7 +673,7 @@
+ 		 * the transfer.
+ 		 */
+ 		ret = sunxi_ep0_start_trans(otgc, event->endpoint_number,
+-				otgc->ep0_bounce_addr, dep->endpoint.maxpacket,
++				otgc->ep0_bounce_addr, transfer_size,
+ 				SUNXI_TRBCTL_CONTROL_DATA);
+ 	} else {
+ 		ret = usb_gadget_map_request(&otgc->gadget, &req->request,

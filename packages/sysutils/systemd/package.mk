@@ -24,7 +24,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd/archive/v$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux"
-if [ "$LINUX" == "linux-sun7i" ]; then
+if [ "$LINUX" == "linux-sun7i" -o "$LINUX" == "linux-sun8i" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-missing-headers"
 fi
 PKG_SECTION="system"
