@@ -18,7 +18,7 @@
 
 PKG_NAME="docker"
 PKG_VERSION="1.13.1"
-PKG_REV="113"
+PKG_REV="114"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2 imx6 WeTek_Hub WeTek_Play_2 Odroid_C2"
 PKG_LICENSE="ASL"
@@ -39,7 +39,8 @@ configure_target() {
                            autogen \
                            exclude_graphdriver_devicemapper \
                            exclude_graphdriver_aufs \
-                           exclude_graphdriver_btrfs"
+                           exclude_graphdriver_btrfs \
+                           journald"
 
   case $TARGET_ARCH in
     x86_64)
