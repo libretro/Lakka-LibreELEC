@@ -148,8 +148,8 @@ configure_init() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp -R $ROOT/$PKG_BUILD/.install_host/bin/* $ROOT/$TOOLCHAIN/bin
+  mkdir -p $TOOLCHAIN/bin
+    cp -R $ROOT/$PKG_BUILD/.install_host/bin/* $TOOLCHAIN/bin
 }
 
 makeinstall_target() {
@@ -199,7 +199,7 @@ makeinstall_target() {
 }
 
 post_install() {
-  ROOT_PWD="`$ROOT/$TOOLCHAIN/bin/cryptpw -m sha512 $ROOT_PASSWORD`"
+  ROOT_PWD="`$TOOLCHAIN/bin/cryptpw -m sha512 $ROOT_PASSWORD`"
 
   echo "chmod 4755 $INSTALL/usr/bin/busybox" >> $FAKEROOT_SCRIPT
   echo "chmod 000 $INSTALL/etc/shadow" >> $FAKEROOT_SCRIPT

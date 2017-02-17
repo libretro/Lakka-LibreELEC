@@ -53,5 +53,5 @@ post_makeinstall_target() {
     mkdir -p $SYSROOT_PREFIX/usr/include/MediaInfo/$i/
     cp -aP ../../../Source/MediaInfo/$i/*.h $SYSROOT_PREFIX/usr/include/MediaInfo/$i/
   done
-  cp -P libmediainfo-config $ROOT/$TOOLCHAIN/bin
+  cp -P libmediainfo-config $TOOLCHAIN/bin
 }

@@ -37,8 +37,8 @@ if [ "$TARGET_ARCH" = "x86_64" ] ; then
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--with-pthreads $TARGET_USE_64"
-PKG_MAKE_OPTS_TARGET="NSINSTALL=$ROOT/$TOOLCHAIN/bin/nsinstall"
-PKG_MAKEINSTALL_OPTS_TARGET="NSINSTALL=$ROOT/$TOOLCHAIN/bin/nsinstall"
+PKG_MAKE_OPTS_TARGET="NSINSTALL=$TOOLCHAIN/bin/nsinstall"
+PKG_MAKEINSTALL_OPTS_TARGET="NSINSTALL=$TOOLCHAIN/bin/nsinstall"
 
 configure_target() {
   cd $(get_build_dir nss)/nspr

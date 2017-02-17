@@ -40,7 +40,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  cp intel-microcode2ucode $ROOT/$TOOLCHAIN/bin/
+  cp intel-microcode2ucode $TOOLCHAIN/bin/
 }
 
 make_target() {

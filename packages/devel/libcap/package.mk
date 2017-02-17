@@ -66,14 +66,14 @@ make_target() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/lib
-    cp libcap/libcap.a $ROOT/$TOOLCHAIN/lib
+  mkdir -p $TOOLCHAIN/lib
+    cp libcap/libcap.a $TOOLCHAIN/lib
 
-  mkdir -p $ROOT/$TOOLCHAIN/lib/pkgconfig
-    cp libcap/libcap.pc $ROOT/$TOOLCHAIN/lib/pkgconfig
+  mkdir -p $TOOLCHAIN/lib/pkgconfig
+    cp libcap/libcap.pc $TOOLCHAIN/lib/pkgconfig
 
-  mkdir -p $ROOT/$TOOLCHAIN/include/sys
-    cp libcap/include/sys/capability.h $ROOT/$TOOLCHAIN/include/sys
+  mkdir -p $TOOLCHAIN/include/sys
+    cp libcap/include/sys/capability.h $TOOLCHAIN/include/sys
 }
 
 makeinstall_target() {

@@ -29,6 +29,6 @@ make_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/configtools
-  cp config.* $ROOT/$TOOLCHAIN/configtools
+  mkdir -p $TOOLCHAIN/configtools
+  cp config.* $TOOLCHAIN/configtools
 }

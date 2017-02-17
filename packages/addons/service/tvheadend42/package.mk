@@ -64,7 +64,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --enable-trace \
                            --nowerror \
                            --disable-bintray_cache \
-                           --python=$ROOT/$TOOLCHAIN/bin/python"
+                           --python=$TOOLCHAIN/bin/python"
 
 post_unpack() {
   sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$ADDON_VERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
@@ -78,7 +78,7 @@ pre_configure_target() {
 
 # transcoding
   if [ "$TARGET_ARCH" = x86_64 ]; then
-    export AS=$ROOT/$TOOLCHAIN/bin/yasm
+    export AS=$TOOLCHAIN/bin/yasm
   fi
 
   export CROSS_COMPILE=$TARGET_PREFIX

@@ -56,7 +56,7 @@ makeinstall_init() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/sbin
-    cp mkfs.fat $ROOT/$TOOLCHAIN/sbin
-    ln -sf mkfs.fat $ROOT/$TOOLCHAIN/sbin/mkfs.vfat
+  mkdir -p $TOOLCHAIN/sbin
+    cp mkfs.fat $TOOLCHAIN/sbin
+    ln -sf mkfs.fat $TOOLCHAIN/sbin/mkfs.vfat
 }

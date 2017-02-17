@@ -56,7 +56,7 @@ make_host() {
 
 makeinstall_host() {
   cp -a bin/llvm-config $SYSROOT_PREFIX/usr/bin/llvm-config-host
-  cp -a bin/llvm-tblgen $ROOT/$TOOLCHAIN/bin
+  cp -a bin/llvm-tblgen $TOOLCHAIN/bin
 }
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=MinSizeRel \
@@ -83,7 +83,7 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=MinSizeRel \
                        -DLLVM_BUILD_LLVM_DYLIB=ON \
                        -DLLVM_LINK_LLVM_DYLIB=ON \
                        -DLLVM_OPTIMIZED_TABLEGEN=ON \
-                       -DLLVM_TABLEGEN=$ROOT/$TOOLCHAIN/bin/llvm-tblgen"
+                       -DLLVM_TABLEGEN=$TOOLCHAIN/bin/llvm-tblgen"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin

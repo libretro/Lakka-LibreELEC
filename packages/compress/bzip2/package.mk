@@ -42,7 +42,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  make install PREFIX=$ROOT/$TOOLCHAIN
+  make install PREFIX=$TOOLCHAIN
 }
 
 pre_build_target() {

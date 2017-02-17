@@ -128,7 +128,7 @@ configure_target() {
               --disable-doc \
               $FFMPEG_DEBUG \
               --enable-pic \
-              --pkg-config="$ROOT/$TOOLCHAIN/bin/pkg-config" \
+              --pkg-config="$TOOLCHAIN/bin/pkg-config" \
               --enable-optimizations \
               --disable-extra-warnings \
               --disable-ffprobe \

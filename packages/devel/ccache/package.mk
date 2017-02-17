@@ -38,20 +38,20 @@ PKG_CONFIGURE_OPTS_HOST="--with-bundled-zlib"
 post_makeinstall_host() {
 # setup ccache
   if [ -z "$CCACHE_DISABLE" ]; then
-    $ROOT/$TOOLCHAIN/bin/ccache --max-size=$CCACHE_CACHE_SIZE
+    $TOOLCHAIN/bin/ccache --max-size=$CCACHE_CACHE_SIZE
   fi
 
-  cat > $ROOT/$TOOLCHAIN/bin/host-gcc <<EOF
+  cat > $TOOLCHAIN/bin/host-gcc <<EOF
 #!/bin/sh
-$ROOT/$TOOLCHAIN/bin/ccache $CC "\$@"
+$TOOLCHAIN/bin/ccache $CC "\$@"
 EOF
 
-  chmod +x $ROOT/$TOOLCHAIN/bin/host-gcc
+  chmod +x $TOOLCHAIN/bin/host-gcc
 
-  cat > $ROOT/$TOOLCHAIN/bin/host-g++ <<EOF
+  cat > $TOOLCHAIN/bin/host-g++ <<EOF
 #!/bin/sh
-$ROOT/$TOOLCHAIN/bin/ccache $CXX "\$@"
+$TOOLCHAIN/bin/ccache $CXX "\$@"
 EOF
 
-  chmod +x $ROOT/$TOOLCHAIN/bin/host-g++
+  chmod +x $TOOLCHAIN/bin/host-g++
 }
