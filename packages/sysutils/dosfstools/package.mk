@@ -44,7 +44,7 @@ pre_build_host() {
 }
 
 make_host() {
-  cd $ROOT/$PKG_BUILD/.$HOST_NAME
+  cd $PKG_BUILD/.$HOST_NAME
   make PREFIX=/usr
 }
 

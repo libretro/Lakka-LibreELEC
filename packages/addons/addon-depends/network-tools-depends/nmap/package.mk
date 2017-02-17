@@ -38,7 +38,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
 
 pre_configure_target() {
 # nmap fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
     rm -rf .$TARGET_NAME
 
   export CPPFLAGS="$CPPFLAGS -Iliblua"

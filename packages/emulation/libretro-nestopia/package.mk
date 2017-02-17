@@ -36,8 +36,8 @@ PKG_LIBPATH="libretro/$PKG_LIBNAME"
 PKG_LIBVAR="NESTOPIA_LIB"
 
 post_unpack() {
-  rm $ROOT/$PKG_BUILD/CMakeLists.txt
-  rm $ROOT/$PKG_BUILD/configure.ac
+  rm $PKG_BUILD/CMakeLists.txt
+  rm $PKG_BUILD/configure.ac
 }
 
 make_target() {

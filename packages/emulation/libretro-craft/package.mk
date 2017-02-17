@@ -38,7 +38,7 @@ PKG_LIBVAR="CRAFT_LIB"
 
 pre_configure_target() {
   # fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 }
 

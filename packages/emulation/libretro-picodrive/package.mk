@@ -38,12 +38,12 @@ PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="PICODRIVE_LIB"
 
 pre_build_host() {
-  cp -a $(get_build_dir cyclone68000)/* $ROOT/$PKG_BUILD/cpu/cyclone/
+  cp -a $(get_build_dir cyclone68000)/* $PKG_BUILD/cpu/cyclone/
 }
 
 pre_configure_host() {
   # fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   rm -rf .$HOST_NAME
 }
 
@@ -63,7 +63,7 @@ makeinstall_host() {
 
 pre_configure_target() {
   # fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 }
 

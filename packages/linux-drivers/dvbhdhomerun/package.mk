@@ -55,7 +55,7 @@ pre_configure_target() {
 }
 
 makeinstall_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
     mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/hdhomerun
       cp kernel/*.ko $INSTALL/usr/lib/modules/$(get_module_dir)/hdhomerun/
 
