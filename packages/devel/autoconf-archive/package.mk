@@ -30,7 +30,7 @@ PKG_LONGDESC="autoconf-archive is an package of m4 macros"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME --prefix=$ROOT/$TOOLCHAIN"
+PKG_CONFIGURE_OPTS_HOST="--target=$TARGET_NAME --prefix=$TOOLCHAIN"
 
 makeinstall_host() {
 # make install

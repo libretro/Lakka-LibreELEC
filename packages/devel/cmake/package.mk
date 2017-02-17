@@ -31,7 +31,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_host() {
-  ../configure --prefix=$ROOT/$TOOLCHAIN \
+  ../configure --prefix=$TOOLCHAIN \
                --no-qt-gui --no-system-libs \
                -- \
                -DCMAKE_C_FLAGS="-O2 -Wall -pipe -Wno-format-security" \

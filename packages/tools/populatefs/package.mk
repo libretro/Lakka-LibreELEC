@@ -36,6 +36,6 @@ make_host() {
 makeinstall_host() {
   $STRIP src/populatefs
 
-  mkdir -p $ROOT/$TOOLCHAIN/sbin
-  cp src/populatefs $ROOT/$TOOLCHAIN/sbin
+  mkdir -p $TOOLCHAIN/sbin
+  cp src/populatefs $TOOLCHAIN/sbin
 }

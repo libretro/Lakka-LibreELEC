@@ -38,5 +38,5 @@ make_host() {
 }
 
 makeinstall_host() {
-  cp ninja $ROOT/$TOOLCHAIN/bin/
+  cp ninja $TOOLCHAIN/bin/
 }

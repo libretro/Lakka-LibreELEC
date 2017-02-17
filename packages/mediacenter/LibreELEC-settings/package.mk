@@ -48,10 +48,10 @@ post_makeinstall_target() {
 #      rm -f resources/lib/modules/bluetooth.py
 #    fi
 
-  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.libreelec.settings/resources/lib/ -f
+  python -Wi -t -B $TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.libreelec.settings/resources/lib/ -f
   rm -rf `find $INSTALL/usr/share/kodi/addons/service.libreelec.settings/resources/lib/ -name "*.py"`
 
-  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.libreelec.settings/oe.py -f
+  python -Wi -t -B $TOOLCHAIN/lib/python2.7/compileall.py $INSTALL/usr/share/kodi/addons/service.libreelec.settings/oe.py -f
   rm -rf $INSTALL/usr/share/kodi/addons/service.libreelec.settings/oe.py
 }
 

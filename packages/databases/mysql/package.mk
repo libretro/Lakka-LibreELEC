@@ -69,9 +69,9 @@ post_make_host() {
 }
 
 makeinstall_host() {
-  cp -P extra/comp_err $ROOT/$TOOLCHAIN/bin
-  cp -P sql/gen_lex_hash $ROOT/$TOOLCHAIN/bin
-  cp -P scripts/comp_sql $ROOT/$TOOLCHAIN/bin
+  cp -P extra/comp_err $TOOLCHAIN/bin
+  cp -P sql/gen_lex_hash $TOOLCHAIN/bin
+  cp -P scripts/comp_sql $TOOLCHAIN/bin
 }
 
 PKG_CMAKE_OPTS_TARGET="-DINSTALL_INCLUDEDIR=include/mysql \
