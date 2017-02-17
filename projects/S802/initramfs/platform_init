@@ -46,67 +46,25 @@ echo 0 > /sys/class/graphics/fb0/free_scale
 # set initial video state
 echo 1 > /sys/class/video/disable_video
 
-# Set default resolution parameters
-bpp=32;
-xRes=1280;
-yRes=720;
+# Set framebuffer geometry to 1920x1080
+fbset -fb /dev/fb0 -g 1920 1080 1920 2160 32
+fbset -fb /dev/fb1 -g 32 32 32 32 32
 
-# Get max supported display resolution by hdmi device
-maxRes=$(tail -n1 /sys/class/amhdmitx/amhdmitx0/disp_cap | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//');
-if [ -z "$maxRes" ]; then
-  maxRes="$hdmimode";
+# Enable scaling for all resolutions except of 1920x1080
+case $hdmimode in
+  480*)             width=719  height=479  ;;
+  576*)             width=719  height=575  ;;
+  720p*)            width=1279 height=719  ;;
+  4k*|smpte*|2160*) width=3839 height=2159 ;;
+esac
+
+if [ -n $width -a -n $height ]; then
+  echo 0 0 1919 1079 > /sys/class/graphics/fb0/free_scale_axis
+  echo 0 0 $width $height > /sys/class/graphics/fb0/window_axis
+  echo 1920 > /sys/class/graphics/fb0/scale_width
+  echo 1080 > /sys/class/graphics/fb0/scale_height
+  echo 0x10001 > /sys/class/graphics/fb0/free_scale
 fi
-case "$maxRes" in
-  480*)
-    xRes=720; yRes=480;
-    ;;
-  576*)
-    xRes=720; yRes=576;
-    ;;
-  1080*)
-    xRes=1920; yRes=1080;
-    ;;
-  4k2k*hz|2160p*)
-    xRes=3840; yRes=2160;
-    ;;
-  4k2ksmpte|smpte24hz)
-    xRes=4096; yRes=2160;
-    ;;
-esac
-vXRes=$xRes;
-vYRes=$(( $yRes * 2 ));
-
-# Set boot resolution by hdmimode param
-case "$hdmimode" in
-  480*)
-    if [ "$vXRes" -ge 720 -a "$vYRes" -ge 960 ]; then
-      xRes=720; yRes=480;
-    fi
-    ;;
-  576*)
-    if [ "$vXRes" -ge 720 -a "$vYRes" -ge 1152 ]; then
-      xRes=720; yRes=576;
-    fi
-    ;;
-  720*)
-    if [ "$vXRes" -ge 1280 -a "$vYRes" -ge 1440 ]; then
-      xRes=1280; yRes=720;
-    fi
-    ;;
-  1080*)
-    if [ "$vXRes" -ge 1920 -a "$vYRes" -ge 2160 ]; then
-      xRes=1920; yRes=1080;
-    fi
-    ;;
-  4k2k*hz|2160p*)
-    if [ "$vXRes" -ge 3840 -a "$vYRes" -ge 4320 ]; then
-      xRes=3840; yRes=2160;
-    fi
-    ;;
-esac
-
-# Set framebuffer geometry to match the resolution
-fbset -fb /dev/fb0 -g $xRes $yRes $vXRes $vYRes $bpp;
 
 # Include deinterlacer into default VFM map
 echo rm default > /sys/class/vfm/map

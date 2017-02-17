@@ -27,10 +27,10 @@ for arg in $(cat /proc/cmdline); do
       boot="${arg#*=}"
       case $boot in
         /dev/mmc*)
-          $SYSTEM_ROOT/usr/sbin/fatlabel $boot "LIBREELEC"
+          $SYSTEM_ROOT/usr/sbin/fatlabel $boot "LAKKA"
           ;;
         LABEL=*)
-          $SYSTEM_ROOT/usr/sbin/fatlabel $($SYSTEM_ROOT/sbin/findfs $boot) "LIBREELEC"
+          $SYSTEM_ROOT/usr/sbin/fatlabel $($SYSTEM_ROOT/sbin/findfs $boot) "LAKKA"
           ;;
       esac
       ;;
@@ -38,10 +38,10 @@ for arg in $(cat /proc/cmdline); do
       disk="${arg#*=}"
       case $disk in
         /dev/mmc*)
-          $SYSTEM_ROOT/sbin/e2label $disk "LIBREELEC_DISK"
+          $SYSTEM_ROOT/sbin/e2label $disk "LAKKA_DISK"
           ;;
         LABEL=*)
-          $SYSTEM_ROOT/sbin/e2label $($SYSTEM_ROOT/sbin/findfs $disk) "LIBREELEC_DISK"
+          $SYSTEM_ROOT/sbin/e2label $($SYSTEM_ROOT/sbin/findfs $disk) "LAKKA_DISK"
           ;;
       esac
       ;;
