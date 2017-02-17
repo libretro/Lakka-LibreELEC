@@ -61,7 +61,7 @@ make_host() {
   make CC=$CC \
        AR=$AR \
        RANLIB=$RANLIB \
-       CFLAGS="-I$TOOLCHAIN/include -I$ROOT/$PKG_BUILD/libinstaller -I$ROOT/$PKG_BUILD/libfat -I$ROOT/$PKG_BUILD/bios -I$ROOT/$PKG_BUILD/utils -fomit-frame-pointer -D_FILE_OFFSET_BITS=64" \
+       CFLAGS="-I$TOOLCHAIN/include -I$PKG_BUILD/libinstaller -I$PKG_BUILD/libfat -I$PKG_BUILD/bios -I$PKG_BUILD/utils -fomit-frame-pointer -D_FILE_OFFSET_BITS=64" \
        LDFLAGS="-L$TOOLCHAIN/lib" \
        installer
 }

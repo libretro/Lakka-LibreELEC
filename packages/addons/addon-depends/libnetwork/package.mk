@@ -59,7 +59,7 @@ pre_make_target() {
   export CGO_CFLAGS=$CFLAGS
   export LDFLAGS="-extld $CC"
   export GOLANG=$TOOLCHAIN/lib/golang/bin/go
-  export GOPATH=$ROOT/$PKG_BUILD.gopath
+  export GOPATH=$PKG_BUILD.gopath
   export GOROOT=$TOOLCHAIN/lib/golang
   export PATH=$PATH:$GOROOT/bin
 }

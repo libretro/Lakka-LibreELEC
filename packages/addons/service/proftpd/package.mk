@@ -57,8 +57,8 @@ pre_build_target() {
 }
 
 pre_configure_target() {
-  export CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -I$SYSROOT_PREFIX/usr/include/ncurses -I$ROOT/$PKG_BUILD/.$TARGET_NAME/include/"
-  export LDFLAGS="$LDFLAGS -L$ROOT/$PKG_BUILD/.$TARGET_NAME/lib"
+  export CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -I$SYSROOT_PREFIX/usr/include/ncurses -I$PKG_BUILD/.$TARGET_NAME/include/"
+  export LDFLAGS="$LDFLAGS -L$PKG_BUILD/.$TARGET_NAME/lib"
 }
 
 makeinstall_target() {

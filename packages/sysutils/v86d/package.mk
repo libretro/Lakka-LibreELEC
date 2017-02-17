@@ -34,7 +34,7 @@ INIT_CONFIGURE_OPTS="--with-x86emu"
 
 pre_configure_init() {
 # v86d fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
     rm -rf .$TARGET_NAME-init
 }
 

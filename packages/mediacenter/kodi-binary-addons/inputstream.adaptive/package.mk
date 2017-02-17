@@ -33,10 +33,10 @@ post_makeinstall_target() {
     cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DDECRYPTERPATH=special://home/cdm \
-        $ROOT/$PKG_BUILD/wvdecrypter
+        $PKG_BUILD/wvdecrypter
     make
 
-  cp -P $ROOT/$PKG_BUILD/.$TARGET_NAME/wv/libssd_wv.so $INSTALL/usr/lib
+  cp -P $PKG_BUILD/.$TARGET_NAME/wv/libssd_wv.so $INSTALL/usr/lib
 }
 
 addon() {

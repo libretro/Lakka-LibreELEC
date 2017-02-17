@@ -33,33 +33,33 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 post_unpack() {
-  mkdir -p $ROOT/$PKG_BUILD/.$HOST_NAME
-  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$HOST_NAME
-  mkdir -p $ROOT/$PKG_BUILD/.$TARGET_NAME 
-  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$TARGET_NAME
+  mkdir -p $PKG_BUILD/.$HOST_NAME
+  cp -r $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
+  mkdir -p $PKG_BUILD/.$TARGET_NAME 
+  cp -r $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
 }
 
 
 make_host() {
-  cd $ROOT/$PKG_BUILD/.$HOST_NAME
+  cd $PKG_BUILD/.$HOST_NAME
   make CC=$CC \
        AR=$AR \
        RANLIB=$RANLIB \
        CFLAGS="$HOST_CFLAGS" \
-       BUILD_CFLAGS="$HOST_CFLAGS -I$ROOT/$PKG_BUILD/libcap/include" \
+       BUILD_CFLAGS="$HOST_CFLAGS -I$PKG_BUILD/libcap/include" \
        PAM_CAP=no \
        lib=/lib \
        -C libcap libcap.pc libcap.a
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD/.$TARGET_NAME
+  cd $PKG_BUILD/.$TARGET_NAME
   make CC=$CC \
        AR=$AR \
        RANLIB=$RANLIB \
        CFLAGS="$TARGET_CFLAGS" \
        BUILD_CC=$HOST_CC \
-       BUILD_CFLAGS="$HOST_CFLAGS -I$ROOT/$PKG_BUILD/libcap/include" \
+       BUILD_CFLAGS="$HOST_CFLAGS -I$PKG_BUILD/libcap/include" \
        PAM_CAP=no \
        lib=/lib \
        -C libcap libcap.pc libcap.a

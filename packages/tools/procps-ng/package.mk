@@ -36,5 +36,5 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
-    cp -P $ROOT/$PKG_BUILD/.$TARGET_NAME/top/top $INSTALL/usr/bin
+    cp -P $PKG_BUILD/.$TARGET_NAME/top/top $INSTALL/usr/bin
 }

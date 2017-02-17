@@ -31,8 +31,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 unpack() {
-  mkdir -p $ROOT/$PKG_BUILD
-  tar xf $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tgz -C $ROOT/$PKG_BUILD
+  mkdir -p $PKG_BUILD
+  tar xf $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tgz -C $PKG_BUILD
 }
 
 make_host() {

@@ -32,11 +32,11 @@ PKG_AUTORECONF="no"
 
 
 pre_configure_target() {
- cd $ROOT/$PKG_BUILD
+ cd $PKG_BUILD
  rm -rf .$TARGET_NAME
 }
 
 pre_configure_host() {
- cd $ROOT/$PKG_BUILD
+ cd $PKG_BUILD
  rm -rf .$HOST_NAME
 }

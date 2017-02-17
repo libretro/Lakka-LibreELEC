@@ -40,7 +40,7 @@ fi
 make_target() {
   cd bcmdhd_1_201_59_x
   LDFLAGS="" make V=1 \
-    -C $(kernel_path) M=$ROOT/$PKG_BUILD/bcmdhd_1_201_59_x \
+    -C $(kernel_path) M=$PKG_BUILD/bcmdhd_1_201_59_x \
     ARCH=$TARGET_KERNEL_ARCH \
     CROSS_COMPILE=$TARGET_PREFIX
 }

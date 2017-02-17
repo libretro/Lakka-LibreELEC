@@ -35,12 +35,12 @@ MAKEFLAGS=-j1
 
 pre_configure_target() {
  # slang fails to build in subdirs
- cd $ROOT/$PKG_BUILD
+ cd $PKG_BUILD
  rm -rf .$TARGET_NAME
 }
 
 pre_configure_host() {
  # slang fails to build in subdirs
- cd $ROOT/$PKG_BUILD
+ cd $PKG_BUILD
  rm -rf .$HOST_NAME
 }

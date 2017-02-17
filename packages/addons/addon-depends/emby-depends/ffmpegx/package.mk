@@ -25,7 +25,7 @@ PKG_DEPENDS_TARGET="toolchain ffmpeg lame x264"
 PKG_LONGDESC="FFmpeg built static with additional features"
 
 pre_configure_target() {
-  cd "$ROOT/$PKG_BUILD"
+  cd "$PKG_BUILD"
   rm -rf ".$TARGET_NAME"
   cp -PR $(get_build_dir ffmpeg)/* .
   make clean

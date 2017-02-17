@@ -82,7 +82,7 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
 fi
 
 pre_configure_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 
 # ffmpeg fails building for x86_64 with LTO support

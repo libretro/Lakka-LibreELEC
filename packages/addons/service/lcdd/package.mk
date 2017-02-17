@@ -49,7 +49,7 @@ pre_make_target() {
 }
 
 addon() {
-  drivers="none|$(cat $ROOT/$PKG_BUILD/.$TARGET_NAME/config.log | sed -n "s|^DRIVERS=' \(.*\)'|\1|p" | sed "s|.so||g" | tr ' ' '|')"
+  drivers="none|$(cat $PKG_BUILD/.$TARGET_NAME/config.log | sed -n "s|^DRIVERS=' \(.*\)'|\1|p" | sed "s|.so||g" | tr ' ' '|')"
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/config
 

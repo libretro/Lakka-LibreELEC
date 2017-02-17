@@ -42,17 +42,17 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
             --without-libintl-prefix"
 
 post_patch() {
-  mkdir -p $ROOT/$PKG_BUILD/build-aux/
-    touch $ROOT/$PKG_BUILD/build-aux/config.rpath
-    touch $ROOT/$PKG_BUILD/libdvbv5-po/Makefile.in.in
-    touch $ROOT/$PKG_BUILD/v4l-utils-po/Makefile.in.in
+  mkdir -p $PKG_BUILD/build-aux/
+    touch $PKG_BUILD/build-aux/config.rpath
+    touch $PKG_BUILD/libdvbv5-po/Makefile.in.in
+    touch $PKG_BUILD/v4l-utils-po/Makefile.in.in
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD/.$TARGET_NAME/lib/libdvbv5
+  cd $PKG_BUILD/.$TARGET_NAME/lib/libdvbv5
   make CFLAGS="$TARGET_CFLAGS"
 
-  cd $ROOT/$PKG_BUILD/.$TARGET_NAME/utils/dvb
+  cd $PKG_BUILD/.$TARGET_NAME/utils/dvb
   make CFLAGS="$TARGET_CFLAGS"
 }
 

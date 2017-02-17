@@ -38,8 +38,8 @@ PKG_ADDON_PROVIDES="executable"
 
 post_unpack() {
   # don't use the files from the script
-  rm $ROOT/$PKG_BUILD/script.moonlight/icon.png
-  rm $ROOT/$PKG_BUILD/script.moonlight/changelog.txt
+  rm $PKG_BUILD/script.moonlight/icon.png
+  rm $PKG_BUILD/script.moonlight/changelog.txt
 }
 
 make_target() {
@@ -52,7 +52,7 @@ makeinstall_target() {
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-    cp -PR $ROOT/$PKG_BUILD/script.moonlight/* $ADDON_BUILD/$PKG_ADDON_ID
+    cp -PR $PKG_BUILD/script.moonlight/* $ADDON_BUILD/$PKG_ADDON_ID
 
     # use our own changelog.txt
     cp $PKG_DIR/changelog.txt $ADDON_BUILD/$PKG_ADDON_ID

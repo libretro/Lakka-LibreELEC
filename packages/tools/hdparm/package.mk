@@ -32,5 +32,5 @@ PKG_AUTORECONF="no"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/sbin
-    cp -a $ROOT/$PKG_BUILD/hdparm $INSTALL/usr/sbin
+    cp -a $PKG_BUILD/hdparm $INSTALL/usr/sbin
 }
