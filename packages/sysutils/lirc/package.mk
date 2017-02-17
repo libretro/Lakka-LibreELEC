@@ -40,7 +40,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_forkpty=no \
 pre_configure_target() {
   # patch lirc-make-devinput to use target kernel include
   sed -e "s|/usr/include/linux/|${SYSROOT_PREFIX}/usr/include/linux/|g" \
-      -i ${ROOT}/${PKG_BUILD}/tools/lirc-make-devinput
+      -i $PKG_BUILD/tools/lirc-make-devinput
 }
 
 post_makeinstall_target() {
