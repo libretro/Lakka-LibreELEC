@@ -44,6 +44,6 @@ pre_configure_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp TexturePacker $ROOT/$TOOLCHAIN/bin
+  mkdir -p $TOOLCHAIN/bin
+    cp TexturePacker $TOOLCHAIN/bin
 }

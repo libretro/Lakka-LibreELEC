@@ -116,6 +116,6 @@ makeinstall_host() {
   # Ensure installed files are writeable and not read-only, otherwise future package bumps will fail to overwrite toolchain
   chmod -R +w $(pwd)/.install/usr/*
 
-  cp -Pa $(pwd)/.install/usr/* $ROOT/$TOOLCHAIN
+  cp -Pa $(pwd)/.install/usr/* $TOOLCHAIN
 }
 

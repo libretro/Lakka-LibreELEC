@@ -53,7 +53,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-tools \
                            --without-zlib"
 
 post_makeinstall_host() {
-  ln -sf kmod $ROOT/$TOOLCHAIN/bin/depmod
+  ln -sf kmod $TOOLCHAIN/bin/depmod
 }
 
 post_makeinstall_target() {

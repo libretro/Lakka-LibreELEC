@@ -39,6 +39,6 @@ pre_build_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp JsonSchemaBuilder $ROOT/$TOOLCHAIN/bin
+  mkdir -p $TOOLCHAIN/bin
+    cp JsonSchemaBuilder $TOOLCHAIN/bin
 }

@@ -66,9 +66,9 @@ configure_target() {
   export CGO_NO_EMULATION=1
   export CGO_CFLAGS=$CFLAGS
   export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $CC -X main.Version=v$PKG_VERSION"
-  export GOLANG=$ROOT/$TOOLCHAIN/lib/golang/bin/go
+  export GOLANG=$TOOLCHAIN/lib/golang/bin/go
   export GOPATH=$ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing:$ROOT/$PKG_BUILD/vendor:$ROOT/$PKG_BUILD/Godeps/_workspace
-  export GOROOT=$ROOT/$TOOLCHAIN/lib/golang
+  export GOROOT=$TOOLCHAIN/lib/golang
   export PATH=$PATH:$GOROOT/bin
 }
 

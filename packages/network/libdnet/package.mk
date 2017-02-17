@@ -41,6 +41,6 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp dnet-config $ROOT/$TOOLCHAIN/bin/
+  mkdir -p $TOOLCHAIN/bin
+    cp dnet-config $TOOLCHAIN/bin/
 }
