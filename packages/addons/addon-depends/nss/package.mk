@@ -34,7 +34,7 @@ PKG_AUTORECONF="no"
 MAKEFLAGS=-j1
 
 make_host() {
-  cd $ROOT/$PKG_BUILD/nss
+  cd $PKG_BUILD/nss
 
   [ "$TARGET_ARCH" = "x86_64" ] && export USE_64=1
 
@@ -42,15 +42,15 @@ make_host() {
 }
 
 makeinstall_host() {
-  cp $ROOT/$PKG_BUILD/nss/coreconf/nsinstall/*/nsinstall $TOOLCHAIN/bin
+  cp $PKG_BUILD/nss/coreconf/nsinstall/*/nsinstall $TOOLCHAIN/bin
 }
 
 post_makeinstall_host() {
-  rm -rf $ROOT/$PKG_BUILD/nss/coreconf/nsinstall/Linux*
+  rm -rf $PKG_BUILD/nss/coreconf/nsinstall/Linux*
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD/nss
+  cd $PKG_BUILD/nss
 
   [ "$TARGET_ARCH" = "x86_64" ] && TARGET_USE_64="USE_64=1"
 
@@ -66,7 +66,7 @@ make_target() {
 }
 
 makeinstall_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   $STRIP dist/Linux*/lib/*.so
   cp -L dist/Linux*/lib/*.so $SYSROOT_PREFIX/usr/lib
   cp -L dist/Linux*/lib/libcrmf.a $SYSROOT_PREFIX/usr/lib

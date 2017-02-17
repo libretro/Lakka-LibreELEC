@@ -25,7 +25,7 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="x264"
 
 pre_configure_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 }
 

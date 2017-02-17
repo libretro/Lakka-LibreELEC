@@ -35,7 +35,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_realloc_0_nonnull=yes \
                            --without-gmp --without-mpir"
 
 pre_configure_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 
   export PYTHONXCPREFIX="$SYSROOT_PREFIX/usr"

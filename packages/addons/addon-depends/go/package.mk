@@ -48,7 +48,7 @@ configure_host() {
 }
 
 make_host() {
-  cd $ROOT/$PKG_BUILD/src
+  cd $PKG_BUILD/src
   bash make.bash --no-banner
 }
 
@@ -59,5 +59,5 @@ pre_makeinstall_host() {
 
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/lib/golang
-  cp -av $ROOT/$PKG_BUILD/* $TOOLCHAIN/lib/golang/
+  cp -av $PKG_BUILD/* $TOOLCHAIN/lib/golang/
 }
