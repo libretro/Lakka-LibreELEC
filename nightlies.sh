@@ -39,15 +39,15 @@ DISTRO=Lakka PROJECT=Gamegirl ARCH=arm make image -j8
 >&2 echo "Virtual.x86_64"
 DISTRO=Lakka PROJECT=Virtual ARCH=x86_64 make image -j8
 >&2 echo "S802.arm"
-DISTRO=Lakka PROJECT=S802 DEVICE=S82 ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S802 DEVICE=M8 ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S802 DEVICE=T8 ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S802 DEVICE=MXIII-1G ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=S802 DEVICE=S82 ARCH=arm make amlpkg -j8
+DISTRO=Lakka PROJECT=S802 DEVICE=M8 ARCH=arm make amlpkg -j8
+DISTRO=Lakka PROJECT=S802 DEVICE=T8 ARCH=arm make amlpkg -j8
+DISTRO=Lakka PROJECT=S802 DEVICE=MXIII-1G ARCH=arm make amlpkg -j8
 >&2 echo "S805.arm"
-DISTRO=Lakka PROJECT=S805 DEVICE=HD18Q ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S805 DEVICE=M201C ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S805 DEVICE=MK808B-Plus ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S805 DEVICE=MXQ ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=S805 DEVICE=HD18Q ARCH=arm make amlpkg -j8
+DISTRO=Lakka PROJECT=S805 DEVICE=M201C ARCH=arm make amlpkg -j8
+DISTRO=Lakka PROJECT=S805 DEVICE=MK808B-Plus ARCH=arm make amlpkg -j8
+DISTRO=Lakka PROJECT=S805 DEVICE=MXQ ARCH=arm make amlpkg -j8
 >&2 echo "H3.op2.arm"
 DISTRO=Lakka PROJECT=H3 SYSTEM=opi2 ARCH=arm make image -j8
 >&2 echo "H3.opipc.arm"
