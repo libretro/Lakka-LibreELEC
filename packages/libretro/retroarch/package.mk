@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="b3aef50"
+PKG_VERSION="6abcaff"
 PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/RetroArch/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig common-shaders lakka-update libretro-database ffmpeg libass libvdpau"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,10 @@ PKG_LONGDESC="RetroArch is the reference frontend for the libretro API. Popular 
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $BUILD/RetroArch-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 if [ "$OPENGLES_SUPPORT" = yes ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $OPENGLES"
@@ -68,8 +72,13 @@ fi
 TARGET_CONFIGURE_OPTS=""
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
-                           $RETROARCH_GL \
-                           $RETROARCH_NEON \
+                           --disable-xvideo \
+                           --disable-al \
+                           --disable-oss \
+                           --enable-opengles \
+                           --disable-kms \
+                           --enable-mali_fbdev \
+                           --enable-neon \
                            --enable-fbo \
                            --enable-zlib \
                            --enable-freetype"
@@ -82,7 +91,7 @@ pre_configure_target() {
 make_target() {
   make V=1 HAVE_LAKKA=1 HAVE_ZARCH=0
   make -C gfx/video_filters compiler=$CC extra_flags="$CFLAGS"
-  make -C audio/audio_filters compiler=$CC extra_flags="$CFLAGS"
+  make -C libretro-common/audio/dsp_filters compiler=$CC extra_flags="$CFLAGS"
 }
 
 makeinstall_target() {
@@ -94,8 +103,8 @@ makeinstall_target() {
     cp $ROOT/$PKG_BUILD/gfx/video_filters/*.so $INSTALL/usr/share/video_filters
     cp $ROOT/$PKG_BUILD/gfx/video_filters/*.filt $INSTALL/usr/share/video_filters
   mkdir -p $INSTALL/usr/share/audio_filters
-    cp $ROOT/$PKG_BUILD/audio/audio_filters/*.so $INSTALL/usr/share/audio_filters
-    cp $ROOT/$PKG_BUILD/audio/audio_filters/*.dsp $INSTALL/usr/share/audio_filters
+    cp $ROOT/$PKG_BUILD/libretro-common/audio/dsp_filters/*.so $INSTALL/usr/share/audio_filters
+    cp $ROOT/$PKG_BUILD/libretro-common/audio/dsp_filters/*.dsp $INSTALL/usr/share/audio_filters
   
   # General configuration
   sed -i -e "s/# libretro_directory =/libretro_directory = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
@@ -188,6 +197,7 @@ post_install() {
   enable_service tmp-joypads.mount
   enable_service tmp-database.mount
   enable_service tmp-assets.mount
+  enable_service tmp-shaders.mount
 }
 
 post_makeinstall_target() {
