@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="6abcaff"
+PKG_VERSION="36f550"
 PKG_REV="3"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -72,13 +72,8 @@ fi
 TARGET_CONFIGURE_OPTS=""
 PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
                            --disable-sdl \
-                           --disable-xvideo \
-                           --disable-al \
-                           --disable-oss \
-                           --enable-opengles \
-                           --disable-kms \
-                           --enable-mali_fbdev \
-                           --enable-neon \
+                           $RETROARCH_GL \
+                           $RETROARCH_NEON \
                            --enable-fbo \
                            --enable-zlib \
                            --enable-freetype"
