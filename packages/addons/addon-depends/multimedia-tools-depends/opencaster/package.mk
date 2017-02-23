@@ -29,5 +29,5 @@ PKG_LONGDESC="OpenCaster is a free and open source MPEG2 transport stream data g
 PKG_AUTORECONF="no"
 
 pre_makeinstall_target() {
-  mkdir -p $ROOT/$PKG_BUILD/.install_pkg
+  mkdir -p $PKG_BUILD/.install_pkg
 }

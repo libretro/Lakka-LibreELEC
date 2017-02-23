@@ -44,7 +44,7 @@ configure_target() {
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   CXXFLAGS="$CXXFLAGS -DHAVE_POSIX_MEMALIGN=1"
   export AR="$AR cru"
   make -C backends/platform/libretro/build/

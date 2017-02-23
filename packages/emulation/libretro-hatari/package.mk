@@ -40,7 +40,7 @@ configure_target(){
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   make -f Makefile.libretro
 }
 

@@ -36,13 +36,13 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-nls \
 
 pre_configure_target() {
  # newt fails to build in subdirs
- cd $ROOT/$PKG_BUILD
+ cd $PKG_BUILD
  rm -rf .$TARGET_NAME
 }
 
 pre_configure_host() {
  # newt fails to build in subdirs
- cd $ROOT/$PKG_BUILD
+ cd $PKG_BUILD
  rm -rf .$HOST_NAME
 }
 

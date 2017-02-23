@@ -32,5 +32,5 @@ PKG_AUTORECONF="no"
 
 makeinstall_host() {
   mkdir -p $SYSROOT_PREFIX/usr/include
-  cp mkbootimg $ROOT/$TOOLCHAIN/bin/
+  cp mkbootimg $TOOLCHAIN/bin/
 }

@@ -35,5 +35,5 @@ pre_configure_target() {
 }
 
 pre_build_target() {
-  cp $PKG_DIR/config/CMakeLists.txt $ROOT/$PKG_BUILD
+  cp $PKG_DIR/config/CMakeLists.txt $PKG_BUILD
 }

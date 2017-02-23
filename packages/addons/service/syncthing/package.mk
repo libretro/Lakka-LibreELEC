@@ -37,9 +37,9 @@ PKG_MAINTAINER="Anton Voyl (awiouy)"
 configure_target() {
   go run build.go assets
 
-  mkdir -p $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing
-  ln -fs $ROOT/$PKG_BUILD $ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing
-  ln -fs $ROOT/$PKG_BUILD/vendor $ROOT/$PKG_BUILD/vendor/src
+  mkdir -p $PKG_BUILD $PKG_BUILD/src/github.com/syncthing
+  ln -fs $PKG_BUILD $PKG_BUILD/src/github.com/syncthing/syncthing
+  ln -fs $PKG_BUILD/vendor $PKG_BUILD/vendor/src
 
   case $TARGET_ARCH in
     x86_64)
@@ -66,14 +66,14 @@ configure_target() {
   export CGO_NO_EMULATION=1
   export CGO_CFLAGS=$CFLAGS
   export LDFLAGS="-w -linkmode external -extldflags -Wl,--unresolved-symbols=ignore-in-shared-libs -extld $CC -X main.Version=v$PKG_VERSION"
-  export GOLANG=$ROOT/$TOOLCHAIN/lib/golang/bin/go
-  export GOPATH=$ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing:$ROOT/$PKG_BUILD/vendor:$ROOT/$PKG_BUILD/Godeps/_workspace
-  export GOROOT=$ROOT/$TOOLCHAIN/lib/golang
+  export GOLANG=$TOOLCHAIN/lib/golang/bin/go
+  export GOPATH=$PKG_BUILD/src/github.com/syncthing/syncthing:$PKG_BUILD/vendor:$PKG_BUILD/Godeps/_workspace
+  export GOROOT=$TOOLCHAIN/lib/golang
   export PATH=$PATH:$GOROOT/bin
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD/src/github.com/syncthing/syncthing
+  cd $PKG_BUILD/src/github.com/syncthing/syncthing
   mkdir -p bin
   $GOLANG build -v -o bin/syncthing -a -ldflags "$LDFLAGS" ./cmd/syncthing
 }
@@ -84,5 +84,5 @@ makeinstall_target() {
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
-  cp -P $ROOT/$PKG_BUILD/bin/syncthing $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -P $PKG_BUILD/bin/syncthing $ADDON_BUILD/$PKG_ADDON_ID/bin
 }

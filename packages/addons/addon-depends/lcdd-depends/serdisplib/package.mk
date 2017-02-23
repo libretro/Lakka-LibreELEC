@@ -38,7 +38,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=$SYSROOT_PREFIX/usr \
 
 pre_configure_target() {
   # serdisplib fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
     rmdir .$TARGET_NAME
 
   # use libusb-config from sysroot

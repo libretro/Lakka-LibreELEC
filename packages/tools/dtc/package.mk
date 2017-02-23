@@ -33,10 +33,10 @@ PKG_MAKE_OPTS_TARGET="dtc"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
-    cp -P $ROOT/$PKG_BUILD/dtc $INSTALL/usr/bin
+    cp -P $PKG_BUILD/dtc $INSTALL/usr/bin
 }
 
 makeinstall_host() {
   mkdir -p $INSTALL/usr/bin
-    cp -P $ROOT/$PKG_BUILD/dtc $INSTALL/usr/bin
+    cp -P $PKG_BUILD/dtc $INSTALL/usr/bin
 }

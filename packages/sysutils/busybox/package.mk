@@ -82,17 +82,17 @@ pre_build_init() {
 }
 
 configure_host() {
-  cd $ROOT/$PKG_BUILD/.$HOST_NAME
+  cd $PKG_BUILD/.$HOST_NAME
     cp $PKG_DIR/config/busybox-host.conf .config
 
     # set install dir
-    sed -i -e "s|^CONFIG_PREFIX=.*$|CONFIG_PREFIX=\"$ROOT/$PKG_BUILD/.install_host\"|" .config
+    sed -i -e "s|^CONFIG_PREFIX=.*$|CONFIG_PREFIX=\"$PKG_BUILD/.install_host\"|" .config
 
     make oldconfig
 }
 
 configure_target() {
-  cd $ROOT/$PKG_BUILD/.$TARGET_NAME
+  cd $PKG_BUILD/.$TARGET_NAME
     cp $BUSYBOX_CFG_FILE_TARGET .config
 
     # set install dir
@@ -129,7 +129,7 @@ configure_target() {
 }
 
 configure_init() {
-  cd $ROOT/$PKG_BUILD/.$TARGET_NAME-init
+  cd $PKG_BUILD/.$TARGET_NAME-init
     cp $BUSYBOX_CFG_FILE_INIT .config
 
     # set install dir
@@ -148,8 +148,8 @@ configure_init() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp -R $ROOT/$PKG_BUILD/.install_host/bin/* $ROOT/$TOOLCHAIN/bin
+  mkdir -p $TOOLCHAIN/bin
+    cp -R $PKG_BUILD/.install_host/bin/* $TOOLCHAIN/bin
 }
 
 makeinstall_target() {
@@ -199,7 +199,7 @@ makeinstall_target() {
 }
 
 post_install() {
-  ROOT_PWD="`$ROOT/$TOOLCHAIN/bin/cryptpw -m sha512 $ROOT_PASSWORD`"
+  ROOT_PWD="`$TOOLCHAIN/bin/cryptpw -m sha512 $ROOT_PASSWORD`"
 
   echo "chmod 4755 $INSTALL/usr/bin/busybox" >> $FAKEROOT_SCRIPT
   echo "chmod 000 $INSTALL/etc/shadow" >> $FAKEROOT_SCRIPT

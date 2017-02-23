@@ -34,8 +34,8 @@ PKG_ADDON_TYPE="xbmc.service"
 PKG_AUTORECONF="no"
 
 make_target() {
-  mkdir -p $ROOT/$PKG_BUILD
-  cd $ROOT/$PKG_BUILD
+  mkdir -p $PKG_BUILD
+  cd $PKG_BUILD
 
   case $TARGET_ARCH in
     x86_64)

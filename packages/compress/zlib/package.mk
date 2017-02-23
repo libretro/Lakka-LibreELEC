@@ -34,22 +34,22 @@ PKG_AUTORECONF="no"
 post_configure_target() {
  ## configure minizip
  (
-  cd $ROOT/$PKG_BUILD/contrib/minizip
+  cd $PKG_BUILD/contrib/minizip
   rm Makefile
   export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:../../"
   do_autoreconf
-  cp $ROOT/$PKG_BUILD/.$TARGET_NAME/zconf.h ./
+  cp $PKG_BUILD/.$TARGET_NAME/zconf.h ./
   ./configure --host=$TARGET_NAME --build=$HOST_NAME $TARGET_CONFIGURE_OPTS --disable-shared --enable-static
  )
 }
 
 post_make_target() {
  # make minizip
- make -C $ROOT/$PKG_BUILD/contrib/minizip
+ make -C $PKG_BUILD/contrib/minizip
 }
 
 post_makeinstall_target() {
  # Install minizip
- make -C $ROOT/$PKG_BUILD/contrib/minizip DESTDIR=$SYSROOT_PREFIX install
+ make -C $PKG_BUILD/contrib/minizip DESTDIR=$SYSROOT_PREFIX install
 }
 

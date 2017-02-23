@@ -40,7 +40,7 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared"
 
 pre_configure_host() {
   export CFLAGS="$CFLAGS -fPIC -DPIC"
-  export CPPFLAGS="$CPPFLAGS -I$ROOT/$TOOLCHAIN/include"
+  export CPPFLAGS="$CPPFLAGS -I$TOOLCHAIN/include"
 }
 
 pre_configure_target() {
