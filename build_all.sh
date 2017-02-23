@@ -48,6 +48,8 @@ DISTRO=Lakka PROJECT=S805 DEVICE=HD18Q ARCH=arm make amlpkg -j8
 DISTRO=Lakka PROJECT=S805 DEVICE=M201C ARCH=arm make amlpkg -j8
 DISTRO=Lakka PROJECT=S805 DEVICE=MK808B-Plus ARCH=arm make amlpkg -j8
 DISTRO=Lakka PROJECT=S805 DEVICE=MXQ ARCH=arm make amlpkg -j8
+>&2 echo "S905.arm"
+DISTRO=Lakka PROJECT=S905 ARCH=arm make image -j8
 >&2 echo "H3.op2.arm"
 DISTRO=Lakka PROJECT=H3 SYSTEM=opi2 ARCH=arm make image -j8
 >&2 echo "H3.opipc.arm"
