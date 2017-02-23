@@ -34,10 +34,6 @@ PKG_CMAKE_SCRIPT="$(get_build_dir $MEDIACENTER)/tools/depends/native/JsonSchemaB
 
 PKG_CMAKE_OPTS_HOST="-Wno-dev"
 
-pre_build_host() {
-  $SCRIPTS/clean $PKG_NAME
-}
-
 makeinstall_host() {
   mkdir -p $TOOLCHAIN/bin
     cp JsonSchemaBuilder $TOOLCHAIN/bin
