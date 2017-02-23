@@ -1,0 +1,282 @@
+diff --git a/kernel/common/inc/nv-linux.h b/kernel/common/inc/nv-linux.h
+index e512ae2..8f58e63 100644
+--- a/kernel/common/inc/nv-linux.h
++++ b/kernel/common/inc/nv-linux.h
+@@ -294,7 +294,8 @@ NV_STATUS nvos_forward_error_to_cray(struct pci_dev *, NvU32,
+ 
+ extern int nv_pat_mode;
+ 
+-#if defined(CONFIG_HOTPLUG_CPU)
++//#if defined(CONFIG_HOTPLUG_CPU)
++#if 0
+ #define NV_ENABLE_HOTPLUG_CPU
+ #include <linux/cpu.h>              /* CPU hotplug support              */
+ #include <linux/notifier.h>         /* struct notifier_block, etc       */
+diff --git a/kernel/nvidia-drm/nvidia-drm-fence.c b/kernel/nvidia-drm/nvidia-drm-fence.c
+index 5e98c5f..ec5eadc 100644
+--- a/kernel/nvidia-drm/nvidia-drm-fence.c
++++ b/kernel/nvidia-drm/nvidia-drm-fence.c
+@@ -31,7 +31,7 @@
+ 
+ #if defined(NV_DRM_DRIVER_HAS_GEM_PRIME_RES_OBJ)
+ struct nv_fence {
+-    struct fence base;
++    struct dma_fence base;
+     spinlock_t lock;
+ 
+     struct nvidia_drm_device *nv_dev;
+@@ -51,7 +51,7 @@ nv_fence_ready_to_signal(struct nv_fence *nv_fence)
+ 
+ static const char *nvidia_drm_gem_prime_fence_op_get_driver_name
+ (
+-    struct fence *fence
++    struct dma_fence *fence
+ )
+ {
+     return "NVIDIA";
+@@ -59,7 +59,7 @@ static const char *nvidia_drm_gem_prime_fence_op_get_driver_name
+ 
+ static const char *nvidia_drm_gem_prime_fence_op_get_timeline_name
+ (
+-    struct fence *fence
++    struct dma_fence *fence
+ )
+ {
+     return "nvidia.prime";
+@@ -67,7 +67,7 @@ static const char *nvidia_drm_gem_prime_fence_op_get_timeline_name
+ 
+ static bool nvidia_drm_gem_prime_fence_op_signaled
+ (
+-    struct fence *fence
++    struct dma_fence *fence
+ )
+ {
+     struct nv_fence *nv_fence = container_of(fence, struct nv_fence, base);
+@@ -99,7 +99,7 @@ unlock_struct_mutex:
+ 
+ static bool nvidia_drm_gem_prime_fence_op_enable_signaling
+ (
+-    struct fence *fence
++    struct dma_fence *fence
+ )
+ {
+     bool ret = true;
+@@ -107,7 +107,7 @@ static bool nvidia_drm_gem_prime_fence_op_enable_signaling
+     struct nvidia_drm_gem_object *nv_gem = nv_fence->nv_gem;
+     struct nvidia_drm_device *nv_dev = nv_fence->nv_dev;
+ 
+-    if (fence_is_signaled(fence))
++    if (dma_fence_is_signaled(fence))
+     {
+         return false;
+     }
+@@ -136,7 +136,7 @@ static bool nvidia_drm_gem_prime_fence_op_enable_signaling
+     }
+ 
+     nv_gem->fenceContext.softFence = fence;
+-    fence_get(fence);
++    dma_fence_get(fence);
+ 
+ unlock_struct_mutex:
+     mutex_unlock(&nv_dev->dev->struct_mutex);
+@@ -146,7 +146,7 @@ unlock_struct_mutex:
+ 
+ static void nvidia_drm_gem_prime_fence_op_release
+ (
+-    struct fence *fence
++    struct dma_fence *fence
+ )
+ {
+     struct nv_fence *nv_fence = container_of(fence, struct nv_fence, base);
+@@ -155,7 +155,7 @@ static void nvidia_drm_gem_prime_fence_op_release
+ 
+ static signed long nvidia_drm_gem_prime_fence_op_wait
+ (
+-    struct fence *fence,
++    struct dma_fence *fence,
+     bool intr,
+     signed long timeout
+ )
+@@ -170,12 +170,12 @@ static signed long nvidia_drm_gem_prime_fence_op_wait
+      * that it should never get hit during normal operation, but not so long
+      * that the system becomes unresponsive.
+      */
+-    return fence_default_wait(fence, intr,
++    return dma_fence_default_wait(fence, intr,
+                               (timeout == MAX_SCHEDULE_TIMEOUT) ?
+                                   msecs_to_jiffies(96) : timeout);
+ }
+ 
+-static const struct fence_ops nvidia_drm_gem_prime_fence_ops = {
++static const struct dma_fence_ops nvidia_drm_gem_prime_fence_ops = {
+     .get_driver_name = nvidia_drm_gem_prime_fence_op_get_driver_name,
+     .get_timeline_name = nvidia_drm_gem_prime_fence_op_get_timeline_name,
+     .signaled = nvidia_drm_gem_prime_fence_op_signaled,
+@@ -285,7 +285,7 @@ static void nvidia_drm_gem_prime_fence_signal
+     bool force
+ )
+ {
+-    struct fence *fence = nv_gem->fenceContext.softFence;
++    struct dma_fence *fence = nv_gem->fenceContext.softFence;
+ 
+     WARN_ON(!mutex_is_locked(&nv_dev->dev->struct_mutex));
+ 
+@@ -301,10 +301,10 @@ static void nvidia_drm_gem_prime_fence_signal
+ 
+         if (force || nv_fence_ready_to_signal(nv_fence))
+         {
+-            fence_signal(&nv_fence->base);
++            dma_fence_signal(&nv_fence->base);
+ 
+             nv_gem->fenceContext.softFence = NULL;
+-            fence_put(&nv_fence->base);
++            dma_fence_put(&nv_fence->base);
+ 
+             nvKms->disableChannelEvent(nv_dev->pDevice,
+                                        nv_gem->fenceContext.cb);
+@@ -320,7 +320,7 @@ static void nvidia_drm_gem_prime_fence_signal
+ 
+         nv_fence = container_of(fence, struct nv_fence, base);
+ 
+-        fence_signal(&nv_fence->base);
++        dma_fence_signal(&nv_fence->base);
+     }
+ }
+ 
+@@ -513,7 +513,7 @@ int nvidia_drm_gem_prime_fence_init
+      * fence_context_alloc() cannot fail, so we do not need to check a return
+      * value.
+      */
+-    nv_gem->fenceContext.context = fence_context_alloc(1);
++    nv_gem->fenceContext.context = dma_fence_context_alloc(1);
+ 
+     ret = nvidia_drm_gem_prime_fence_import_semaphore(
+               nv_dev, nv_gem, p->index,
+@@ -670,7 +670,7 @@ int nvidia_drm_gem_prime_fence_attach
+     nv_fence->nv_gem = nv_gem;
+ 
+     spin_lock_init(&nv_fence->lock);
+-    fence_init(&nv_fence->base, &nvidia_drm_gem_prime_fence_ops,
++    dma_fence_init(&nv_fence->base, &nvidia_drm_gem_prime_fence_ops,
+                &nv_fence->lock, nv_gem->fenceContext.context,
+                p->sem_thresh);
+ 
+@@ -680,7 +680,7 @@ int nvidia_drm_gem_prime_fence_attach
+ 
+     reservation_object_add_excl_fence(&nv_gem->fenceContext.resv,
+                                       &nv_fence->base);
+-    fence_put(&nv_fence->base); /* Reservation object has reference */
++    dma_fence_put(&nv_fence->base); /* Reservation object has reference */
+ 
+     ret = 0;
+ 
+diff --git a/kernel/nvidia-drm/nvidia-drm-gem.h b/kernel/nvidia-drm/nvidia-drm-gem.h
+index 4ff45e8..a2e518a 100644
+--- a/kernel/nvidia-drm/nvidia-drm-gem.h
++++ b/kernel/nvidia-drm/nvidia-drm-gem.h
+@@ -98,7 +98,7 @@ struct nvidia_drm_gem_object
+         /* Software signaling structures */
+         struct NvKmsKapiChannelEvent *cb;
+         struct nvidia_drm_gem_prime_soft_fence_event_args *cbArgs;
+-        struct fence *softFence; /* Fence for software signaling */
++        struct dma_fence *softFence; /* Fence for software signaling */
+     } fenceContext;
+ #endif
+ };
+diff --git a/kernel/nvidia-drm/nvidia-drm-priv.h b/kernel/nvidia-drm/nvidia-drm-priv.h
+index 1e9b9f9..e3dbe73 100644
+--- a/kernel/nvidia-drm/nvidia-drm-priv.h
++++ b/kernel/nvidia-drm/nvidia-drm-priv.h
+@@ -34,7 +34,7 @@
+ #endif
+ 
+ #if defined(NV_DRM_DRIVER_HAS_GEM_PRIME_RES_OBJ)
+-#include <linux/fence.h>
++#include <linux/dma-fence.h>
+ #include <linux/reservation.h>
+ #endif
+ 
+diff --git a/kernel/nvidia-uvm/uvm8_test.c b/kernel/nvidia-uvm/uvm8_test.c
+index 0e99917..abc8dcc 100644
+--- a/kernel/nvidia-uvm/uvm8_test.c
++++ b/kernel/nvidia-uvm/uvm8_test.c
+@@ -103,7 +103,7 @@ static NV_STATUS uvm8_test_nv_kthread_q(
+     return NV_ERR_INVALID_STATE;
+ }
+ 
+-static NV_STATUS uvm8_test_get_kernel_virtual_address(
++static NV_STATUS uvm8_test_get_kernel_address(
+         UVM_TEST_GET_KERNEL_VIRTUAL_ADDRESS_PARAMS *params,
+         struct file *filp)
+ {
+@@ -173,7 +173,7 @@ long uvm8_test_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+         UVM_ROUTE_CMD_STACK(UVM_TEST_RANGE_GROUP_RANGE_COUNT,       uvm8_test_range_group_range_count);
+         UVM_ROUTE_CMD_STACK(UVM_TEST_GET_PREFETCH_FAULTS_REENABLE_LAPSE, uvm8_test_get_prefetch_faults_reenable_lapse);
+         UVM_ROUTE_CMD_STACK(UVM_TEST_SET_PREFETCH_FAULTS_REENABLE_LAPSE, uvm8_test_set_prefetch_faults_reenable_lapse);
+-        UVM_ROUTE_CMD_STACK(UVM_TEST_GET_KERNEL_VIRTUAL_ADDRESS,    uvm8_test_get_kernel_virtual_address);
++        UVM_ROUTE_CMD_STACK(UVM_TEST_GET_KERNEL_VIRTUAL_ADDRESS,    uvm8_test_get_kernel_address);
+         UVM_ROUTE_CMD_STACK(UVM_TEST_PMA_ALLOC_FREE,                uvm8_test_pma_alloc_free);
+         UVM_ROUTE_CMD_STACK(UVM_TEST_PMM_ALLOC_FREE_ROOT,           uvm8_test_pmm_alloc_free_root);
+         UVM_ROUTE_CMD_STACK(UVM_TEST_PMM_INJECT_PMA_EVICT_ERROR,    uvm8_test_pmm_inject_pma_evict_error);
+diff --git a/kernel/nvidia/nv-p2p.c b/kernel/nvidia/nv-p2p.c
+index ed2e180..9aec502 100644
+--- a/kernel/nvidia/nv-p2p.c
++++ b/kernel/nvidia/nv-p2p.c
+@@ -146,7 +146,7 @@ EXPORT_SYMBOL(nvidia_p2p_destroy_mapping);
+ int nvidia_p2p_get_pages(
+     uint64_t p2p_token,
+     uint32_t va_space,
+-    uint64_t virtual_address,
++    uint64_t address,
+     uint64_t length,
+     struct nvidia_p2p_page_table **page_table,
+     void (*free_callback)(void * data),
+@@ -211,7 +211,7 @@ int nvidia_p2p_get_pages(
+     }
+ 
+     status = rm_p2p_get_pages(sp, p2p_token, va_space,
+-            virtual_address, length, physical_addresses, wreqmb_h,
++            address, length, physical_addresses, wreqmb_h,
+             rreqmb_h, &entries, &gpu_uuid, *page_table,
+             free_callback, data);
+     if (status != NV_OK)
+@@ -286,7 +286,7 @@ failed:
+ 
+     if (bGetPages)
+     {
+-        rm_p2p_put_pages(sp, p2p_token, va_space, virtual_address,
++        rm_p2p_put_pages(sp, p2p_token, va_space, address,
+                 gpu_uuid, *page_table);
+     }
+ 
+@@ -329,7 +329,7 @@ EXPORT_SYMBOL(nvidia_p2p_free_page_table);
+ int nvidia_p2p_put_pages(
+     uint64_t p2p_token,
+     uint32_t va_space,
+-    uint64_t virtual_address,
++    uint64_t address,
+     struct nvidia_p2p_page_table *page_table
+ )
+ {
+@@ -343,7 +343,7 @@ int nvidia_p2p_put_pages(
+         return rc;
+     }
+ 
+-    status = rm_p2p_put_pages(sp, p2p_token, va_space, virtual_address,
++    status = rm_p2p_put_pages(sp, p2p_token, va_space, address,
+             page_table->gpu_uuid, page_table);
+     if (status == NV_OK)
+         nvidia_p2p_free_page_table(page_table);
+diff --git a/kernel/nvidia/nv-pat.c b/kernel/nvidia/nv-pat.c
+index df78020..78e8a69 100644
+--- a/kernel/nvidia/nv-pat.c
++++ b/kernel/nvidia/nv-pat.c
+@@ -217,7 +217,7 @@ nvidia_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu
+             else
+                 NV_SMP_CALL_FUNCTION(nv_setup_pat_entries, hcpu, 1);
+             break;
+-        case CPU_DOWN_PREPARE:
++        case CPU_DOWN_PREPARE_FROZEN:
+             if (cpu == (NvUPtr)hcpu)
+                 nv_restore_pat_entries(NULL);
+             else
