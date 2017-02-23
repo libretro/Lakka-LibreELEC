@@ -38,7 +38,6 @@ if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
   TARGET_PREFIX=aarch64-elf-
 fi
 
-echo $(kernel_path)
 make_target() {
   LDFLAGS="" make -C $(kernel_path) M=$ROOT/$PKG_BUILD/mali \
     CONFIG_MALI400=m CONFIG_MALI450=m

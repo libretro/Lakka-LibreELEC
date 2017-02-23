@@ -38,7 +38,6 @@ if [ $TARGET_KERNEL_ARCH = "arm64" ] && [ $TARGET_ARCH == "arm"  ]; then
   TARGET_PREFIX=aarch64-elf-
 fi
 
-echo $(kernel_path)
 make_target() {
   cd bcmdhd_1_201_59_x
   LDFLAGS="" make V=1 \
