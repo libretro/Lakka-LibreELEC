@@ -53,6 +53,8 @@ case "$LINUX" in
   custom)
     PKG_VERSION="$KERNEL_VERSION"
     PKG_URL="$KERNEL_URL"
+    PKG_SOURCE_DIR="$KERNEL_SOURCE_DIR"
+    PKG_PATCH_DIRS="$KERNEL_PATCH_DIRS"
     ;;
   amlogic-3.10)
     PKG_VERSION="1261cae"

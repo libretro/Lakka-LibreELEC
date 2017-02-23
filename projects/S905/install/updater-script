@@ -1,0 +1,36 @@
+show_progress(0.800000, 30);
+
+set_bootloader_env("upgrade_step", "3");
+
+ui_print("Backing up device tree and remote.conf");
+package_extract_file("backuptool.sh", "/tmp/backuptool.sh");
+set_metadata("/tmp/backuptool.sh", "mode", 0755);
+run_program("/tmp/backuptool.sh", "backup");
+
+ui_print("Writing device tree from ledtb.img");
+write_dtb_image("/sdcard/ledtb.img");
+
+# Format data partition
+ui_print("Wiping data");
+format("ext4", "EMMC", "/dev/block/data", "0", "/data");
+
+ui_print("Writing kernel image");
+write_raw_image(package_extract_file("KERNEL"), "boot");
+
+ui_print("Wiping System");
+format("ext4", "EMMC", "/dev/block/system", "0", "/system");
+mount("ext4", "EMMC", "/dev/block/system", "/system");
+ui_print("Writing system files");
+package_extract_dir("system", "/system");
+unmount("/system");
+
+show_progress(0.100000, 3);
+
+ui_print("Restoring remote.conf and copying device tree backup");
+run_program("/tmp/backuptool.sh", "restore");
+
+set_bootloader_env("upgrade_step", "2");
+set_bootloader_env("force_auto_update", "false");
+show_progress(0.100000, 0);
+
+ui_print("LibreELEC Installed Successfully");
