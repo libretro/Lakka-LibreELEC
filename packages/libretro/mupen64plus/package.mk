@@ -19,17 +19,17 @@
 ################################################################################
 
 PKG_NAME="mupen64plus"
-PKG_VERSION="595fe1e"
+PKG_VERSION="938277a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro"
 PKG_URL="https://github.com/libretro/mupen64plus-libretro/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain nasm:host"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
-PKG_SHORTDESC="Libretro GL only. Libretro port of Mupen64 Plus."
-PKG_LONGDESC="Libretro GL only. Libretro port of Mupen64 Plus."
+PKG_SHORTDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
+PKG_LONGDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
@@ -43,23 +43,38 @@ pre_configure_target() {
 }
 
 make_target() {
-  DYNAREC=$ARCH
-
-  if [ "$ARCH" == "i386" ]; then
-    DYNAREC=x86
-  fi
-
-  if [ "$PROJECT" == "RPi" ]; then
-    make platform=rpi
-  elif [[ "$TARGET_FPU" =~ "neon" ]]; then
-    CFLAGS="$CFLAGS -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
-    make platform=armv-gles-neon
-  else
-    make WITH_DYNAREC=$DYNAREC
-  fi
+  case $PROJECT in
+    RPi|Gamegirl)
+      CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
+	              -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+      make platform=rpi
+      ;;
+    RPi2)
+      CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads \
+                      -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
+      make platform=rpi2
+      ;;
+    imx6)
+      CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
+      CPPFLAGS="$CPPFLAGS -DLINUX -DEGL_API_FB"
+      make platform=linux FORCE_GLES=1 GLES=1 GLSL_OPT=1 WITH_DYNAREC=arm HAVE_NEON=1
+      ;;
+    Generic)
+      make
+      ;;
+    OdroidC1)
+      make platform=odroid BOARD=ODROID-C1
+      ;;
+    OdroidXU3)
+      make platform=odroid BOARD=ODROID-XU3
+      ;;
+    *)
+      make platform=linux-gles GLES=1 FORCE_GLES=1 HAVE_NEON=1 WITH_DYNAREC=arm
+      ;;
+  esac
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp mupen64plus_libretro.so $INSTALL/usr/lib/libretro/mupen64plus_libretro.so
+  cp mupen64plus_libretro.so $INSTALL/usr/lib/libretro/
 }

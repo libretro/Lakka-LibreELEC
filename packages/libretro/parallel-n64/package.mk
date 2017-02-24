@@ -18,19 +18,44 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="S802"
-PKG_VERSION=""
+PKG_NAME="parallel-n64"
+PKG_VERSION="22a68c6"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch desmume parallel-n64 beetle-pcfx virtualjaguar 4do uzebox tyrquake scummvm dosbox mgba prosystem o2em 81 fuse-libretro gw-libretro beetle-supergrafx genesis-plus-gx mupen64plus lutro gpsp ppsspp 2048 beetle-vb beetle-wswan beetle-ngp pcsx_rearmed vecx snes9x2010 dinothawr prboom beetle-pce handy picodrive nxengine nestopia gambatte stella fbalpha mame2003 bnes bluemsx"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/libretro/parallel-n64"
+PKG_URL="https://github.com/libretro/parallel-n64/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for S802"
-PKG_LONGDESC=""
+PKG_SECTION="libretro"
+PKG_SHORTDESC="Optimized/rewritten Nintendo 64 emulator made specifically for Libretro. Originally based on Mupen64 Plus."
+PKG_LONGDESC="Optimized/rewritten Nintendo 64 emulator made specifically for Libretro. Originally based on Mupen64 Plus."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_configure_target() {
+  strip_lto
+}
+
+make_target() {
+  DYNAREC=$ARCH
+
+  if [ "$ARCH" == "i386" ]; then
+    DYNAREC=x86
+  fi
+
+  if [ "$PROJECT" == "RPi" ]; then
+    make platform=rpi
+  elif [[ "$TARGET_FPU" =~ "neon" ]]; then
+    CFLAGS="$CFLAGS -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
+    make platform=armv-gles-neon
+  else
+    make WITH_DYNAREC=$DYNAREC
+  fi
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp parallel_n64_libretro.so $INSTALL/usr/lib/libretro/
+}
