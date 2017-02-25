@@ -35,6 +35,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
+post_unpack() {
+  mv $BUILD/vbam-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
+
 make_target() {
   make -C ../src/libretro -f Makefile
 }
