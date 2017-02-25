@@ -34,6 +34,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 if [ "$BOOTLOADER" = "bcm2835-bootloader" ] \
+  || [ "$PROJECT" = "H3" ] \
   || [ "$PROJECT" = "S802" ] \
   || [ "$PROJECT" = "S805" ] \
   || [ "$PROJECT" = "S812" ] \
