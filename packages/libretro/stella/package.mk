@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="stella"
-PKG_VERSION="5d14182"
+PKG_VERSION="cdbc9cc"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/stella-libretro.git"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/stella-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,10 @@ PKG_LONGDESC="Stella is a multi-platform Atari 2600 VCS emulator released under 
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $BUILD/stella-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
