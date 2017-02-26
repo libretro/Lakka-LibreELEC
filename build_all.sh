@@ -60,14 +60,10 @@ DISTRO=Lakka PROJECT=H3 SYSTEM=opiplus ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=H3 SYSTEM=opione ARCH=arm make image -j8
 >&2 echo "H3.opilite.arm"
 DISTRO=Lakka PROJECT=H3 SYSTEM=opilite ARCH=arm make image -j8
->&2 echo "H3.bpim2p.arm"
-DISTRO=Lakka PROJECT=H3 SYSTEM=bpim2p ARCH=arm make image -j8
 >&2 echo "H3.opiplus2e.arm"
 DISTRO=Lakka PROJECT=H3 SYSTEM=opiplus2e ARCH=arm make image -j8
->&2 echo "H3.opipcplus.arm"
-DISTRO=Lakka PROJECT=H3 SYSTEM=opipcplus ARCH=arm make image -j8
->&2 echo "H3.bpim3.arm"
-DISTRO=Lakka PROJECT=H3 SYSTEM=bpim3 ARCH=arm make image -j8
+>&2 echo "H3.bpim2p.arm"
+DISTRO=Lakka PROJECT=H3 SYSTEM=bpim2p ARCH=arm make image -j8
 >&2 echo "H3.bx2.arm"
 DISTRO=Lakka PROJECT=H3 SYSTEM=bx2 ARCH=arm make image -j8
 

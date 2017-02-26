@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="bsnes-mercury"
-PKG_VERSION="059235c"
+PKG_VERSION="6bcc0b1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bsnes-mercury"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/bsnes-mercury/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,7 @@ PKG_LONGDESC="Fork of bsnes with HLE DSP emulation restored."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
 
 make_target() {
   make compiler=$CXX ui='target-libretro' profile='balanced' 
