@@ -1,7 +1,15 @@
-From b6c2cac5f8ddc368f455dcccfec397898c77bca4 Mon Sep 17 00:00:00 2001
+From patchwork Sat Jan  7 01:21:03 2017
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+Subject: [V2,1/7] drm/i915: setup bridge for HDMI LPE audio driver
 From: Jerome Anand <jerome.anand@intel.com>
-Date: Mon, 12 Dec 2016 23:40:37 +0530
-Subject: [PATCH 1/7] drm/i915: setup bridge for HDMI LPE audio driver
+X-Patchwork-Id: 131670
+Message-Id: <20170107012109.25744-2-jerome.anand@intel.com>
+To: intel-gfx@lists.freedesktop.org,
+	alsa-devel@alsa-project.org
+Cc: tiwai@suse.de, broonie@kernel.org, rakesh.a.ughreja@intel.com
+Date: Sat,  7 Jan 2017 06:51:03 +0530
 
 Enable support for HDMI LPE audio mode on Baytrail and
 Cherrytrail when HDaudio controller is not detected
@@ -17,22 +25,43 @@ LPE audio device and creates a new sound card.
 Signed-off-by: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
 Signed-off-by: Jerome Anand <jerome.anand@intel.com>
 ---
+ Documentation/gpu/i915.rst             |   9 +
  drivers/gpu/drm/i915/Makefile          |   3 +
  drivers/gpu/drm/i915/i915_drv.c        |   8 +-
  drivers/gpu/drm/i915/i915_drv.h        |  15 ++
- drivers/gpu/drm/i915/i915_irq.c        |  27 +++
+ drivers/gpu/drm/i915/i915_irq.c        |  16 ++
  drivers/gpu/drm/i915/i915_reg.h        |   3 +
- drivers/gpu/drm/i915/intel_lpe_audio.c | 363 +++++++++++++++++++++++++++++++++
- include/drm/intel_lpe_audio.h          |  45 ++++
- 7 files changed, 462 insertions(+), 2 deletions(-)
+ drivers/gpu/drm/i915/intel_lpe_audio.c | 355 +++++++++++++++++++++++++++++++++
+ include/drm/intel_lpe_audio.h          |  45 +++++
+ 8 files changed, 452 insertions(+), 2 deletions(-)
  create mode 100644 drivers/gpu/drm/i915/intel_lpe_audio.c
  create mode 100644 include/drm/intel_lpe_audio.h
 
+diff --git a/Documentation/gpu/i915.rst b/Documentation/gpu/i915.rst
+index 104296d..bd9b767 100644
+--- a/Documentation/gpu/i915.rst
++++ b/Documentation/gpu/i915.rst
+@@ -225,6 +225,15 @@ Display PLLs
+ .. kernel-doc:: drivers/gpu/drm/i915/intel_dpll_mgr.h
+    :internal:
+ 
++intel hdmi lpe audio support
++----------------------------
++
++.. kernel-doc:: drivers/gpu/drm/i915/intel_lpe_audio.c
++   :doc:  LPE Audio integration for HDMI or DP playback
++
++.. kernel-doc:: drivers/gpu/drm/i915/intel_lpe_audio.c
++   :internal:
++
+ Memory Management and Command Submission
+ ========================================
+ 
 diff --git a/drivers/gpu/drm/i915/Makefile b/drivers/gpu/drm/i915/Makefile
-index a998c2b..31a03caf 100644
+index 5196509..2bca239 100644
 --- a/drivers/gpu/drm/i915/Makefile
 +++ b/drivers/gpu/drm/i915/Makefile
-@@ -115,6 +115,9 @@ i915-y += intel_gvt.o
+@@ -127,6 +127,9 @@ i915-y += intel_gvt.o
  include $(src)/gvt/Makefile
  endif
  
@@ -43,10 +72,10 @@ index a998c2b..31a03caf 100644
  
  CFLAGS_i915_trace_points.o := -I$(src)
 diff --git a/drivers/gpu/drm/i915/i915_drv.c b/drivers/gpu/drm/i915/i915_drv.c
-index 18dfdd5..f15e7f6 100644
+index 4d22b4b..70d728b 100644
 --- a/drivers/gpu/drm/i915/i915_drv.c
 +++ b/drivers/gpu/drm/i915/i915_drv.c
-@@ -1134,7 +1134,8 @@ static void i915_driver_register(struct drm_i915_private *dev_priv)
+@@ -1131,7 +1131,8 @@ static void i915_driver_register(struct drm_i915_private *dev_priv)
  	if (IS_GEN5(dev_priv))
  		intel_gpu_ips_init(dev_priv);
  
@@ -56,7 +85,7 @@ index 18dfdd5..f15e7f6 100644
  
  	/*
  	 * Some ports require correctly set-up hpd registers for detection to
-@@ -1152,7 +1153,10 @@ static void i915_driver_register(struct drm_i915_private *dev_priv)
+@@ -1149,7 +1150,10 @@ static void i915_driver_register(struct drm_i915_private *dev_priv)
   */
  static void i915_driver_unregister(struct drm_i915_private *dev_priv)
  {
@@ -69,12 +98,12 @@ index 18dfdd5..f15e7f6 100644
  	intel_gpu_ips_teardown();
  	acpi_video_unregister();
 diff --git a/drivers/gpu/drm/i915/i915_drv.h b/drivers/gpu/drm/i915/i915_drv.h
-index 685e9e06..0970d6a 100644
+index 7b43662..2f8165e 100644
 --- a/drivers/gpu/drm/i915/i915_drv.h
 +++ b/drivers/gpu/drm/i915/i915_drv.h
-@@ -2081,6 +2081,12 @@ struct drm_i915_private {
- 
- 	struct intel_encoder *dig_port_map[I915_MAX_PORTS];
+@@ -2460,6 +2460,12 @@ struct drm_i915_private {
+ 	/* Used to save the pipe-to-encoder mapping for audio */
+ 	struct intel_encoder *av_enc_map[I915_MAX_PIPES];
  
 +	/* necessary resource sharing with HDMI LPE audio driver. */
 +	struct {
@@ -85,16 +114,16 @@ index 685e9e06..0970d6a 100644
  	/*
  	 * NOTE: This is the dri1/ums dungeon, don't add stuff here. Your patch
  	 * will be rejected. Instead look for a better place.
-@@ -2819,6 +2825,8 @@ struct drm_i915_cmd_table {
+@@ -2859,6 +2865,8 @@ intel_info(const struct drm_i915_private *dev_priv)
  
- #define HAS_POOLED_EU(dev)	(INTEL_INFO(dev)->has_pooled_eu)
+ #define HAS_POOLED_EU(dev_priv)	((dev_priv)->info.has_pooled_eu)
  
 +#define HAS_LPE_AUDIO(dev_priv) ((dev_priv)->lpe_audio.platdev != NULL)
 +
  #define INTEL_PCH_DEVICE_ID_MASK		0xff00
  #define INTEL_PCH_IBX_DEVICE_ID_TYPE		0x3b00
  #define INTEL_PCH_CPT_DEVICE_ID_TYPE		0x1c00
-@@ -3569,6 +3577,13 @@ extern int i915_restore_state(struct drm_device *dev);
+@@ -3620,6 +3628,13 @@ extern int i915_restore_state(struct drm_i915_private *dev_priv);
  void i915_setup_sysfs(struct drm_i915_private *dev_priv);
  void i915_teardown_sysfs(struct drm_i915_private *dev_priv);
  
@@ -106,44 +135,36 @@ index 685e9e06..0970d6a 100644
 +bool intel_lpe_audio_detect(struct drm_i915_private *dev_priv);
 +
  /* intel_i2c.c */
- extern int intel_setup_gmbus(struct drm_device *dev);
- extern void intel_teardown_gmbus(struct drm_device *dev);
+ extern int intel_setup_gmbus(struct drm_i915_private *dev_priv);
+ extern void intel_teardown_gmbus(struct drm_i915_private *dev_priv);
 diff --git a/drivers/gpu/drm/i915/i915_irq.c b/drivers/gpu/drm/i915/i915_irq.c
-index 3fc286c..1af76e5 100644
+index a0e70f5..d9393d6a 100644
 --- a/drivers/gpu/drm/i915/i915_irq.c
 +++ b/drivers/gpu/drm/i915/i915_irq.c
-@@ -1797,6 +1797,14 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
+@@ -1893,6 +1893,10 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
+ 		 * signalled in iir */
  		valleyview_pipestat_irq_ack(dev_priv, iir, pipe_stats);
  
- 		/*
-+		 * LPE audio interrupts are only enabled on Baytrail and
-+		 * CherryView platforms without HDaudio
-+		 */
 +		if (iir & (I915_LPE_PIPE_A_INTERRUPT |
 +			   I915_LPE_PIPE_B_INTERRUPT))
 +			intel_lpe_audio_irq_handler(dev_priv);
 +
-+		/*
+ 		/*
  		 * VLV_IIR is single buffered, and reflects the level
  		 * from PIPESTAT/PORT_HOTPLUG_STAT, hence clear it last.
- 		 */
-@@ -1877,6 +1885,15 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
+@@ -1973,6 +1977,11 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
+ 		 * signalled in iir */
  		valleyview_pipestat_irq_ack(dev_priv, iir, pipe_stats);
  
- 		/*
-+		 * LPE audio interrupts are only enabled on Baytrail and
-+		 * CherryView platforms without HDaudio
-+		 */
 +		if (iir & (I915_LPE_PIPE_A_INTERRUPT |
 +			   I915_LPE_PIPE_B_INTERRUPT |
 +			   I915_LPE_PIPE_C_INTERRUPT))
 +			intel_lpe_audio_irq_handler(dev_priv);
 +
-+		/*
+ 		/*
  		 * VLV_IIR is single buffered, and reflects the level
  		 * from PIPESTAT/PORT_HOTPLUG_STAT, hence clear it last.
- 		 */
-@@ -3263,6 +3280,7 @@ static void vlv_display_irq_postinstall(struct drm_i915_private *dev_priv)
+@@ -2914,6 +2923,7 @@ static void vlv_display_irq_postinstall(struct drm_i915_private *dev_priv)
  	u32 pipestat_mask;
  	u32 enable_mask;
  	enum pipe pipe;
@@ -151,13 +172,10 @@ index 3fc286c..1af76e5 100644
  
  	pipestat_mask = PLANE_FLIP_DONE_INT_STATUS_VLV |
  			PIPE_CRC_DONE_INTERRUPT_STATUS;
-@@ -3279,6 +3297,15 @@ static void vlv_display_irq_postinstall(struct drm_i915_private *dev_priv)
+@@ -2930,6 +2940,12 @@ static void vlv_display_irq_postinstall(struct drm_i915_private *dev_priv)
  
  	WARN_ON(dev_priv->irq_mask != ~0);
  
-+	/* add interrupt masks unconditially here, the actual unmask
-+	 * will take place only if the LPE_AUDIO mode is detected
-+	 */
 +	val = (I915_LPE_PIPE_A_INTERRUPT |
 +		I915_LPE_PIPE_B_INTERRUPT |
 +		I915_LPE_PIPE_C_INTERRUPT);
@@ -168,10 +186,10 @@ index 3fc286c..1af76e5 100644
  
  	GEN5_IRQ_INIT(VLV_, dev_priv->irq_mask, enable_mask);
 diff --git a/drivers/gpu/drm/i915/i915_reg.h b/drivers/gpu/drm/i915/i915_reg.h
-index 70d9616..570d293 100644
+index 00970aa..643bc6e 100644
 --- a/drivers/gpu/drm/i915/i915_reg.h
 +++ b/drivers/gpu/drm/i915/i915_reg.h
-@@ -2133,6 +2133,9 @@ enum skl_disp_power_wells {
+@@ -2428,6 +2428,9 @@ enum skl_disp_power_wells {
  #define I915_ASLE_INTERRUPT				(1<<0)
  #define I915_BSD_USER_INTERRUPT				(1<<25)
  
@@ -183,10 +201,10 @@ index 70d9616..570d293 100644
  #define GEN7_FF_THREAD_MODE		_MMIO(0x20a0)
 diff --git a/drivers/gpu/drm/i915/intel_lpe_audio.c b/drivers/gpu/drm/i915/intel_lpe_audio.c
 new file mode 100644
-index 0000000..e12e5f7
+index 0000000..05f5e4e
 --- /dev/null
 +++ b/drivers/gpu/drm/i915/intel_lpe_audio.c
-@@ -0,0 +1,363 @@
+@@ -0,0 +1,355 @@
 +/*
 + * Copyright © 2016 Intel Corporation
 + *
@@ -257,7 +275,7 @@ index 0000000..e12e5f7
 +#include <linux/delay.h>
 +#include <drm/intel_lpe_audio.h>
 +
-+static struct platform_device*
++static struct platform_device *
 +lpe_audio_platdev_create(struct drm_i915_private *dev_priv)
 +{
 +	struct drm_device *dev = &dev_priv->drm;
@@ -347,10 +365,6 @@ index 0000000..e12e5f7
 +
 +	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 +
-+	/*
-+	 * VLV_IER is already set in the vlv_display_postinstall(),
-+	 * we only change VLV_IIR and VLV_IMR
-+	 */
 +	dev_priv->irq_mask &= ~val;
 +	I915_WRITE(VLV_IIR, val);
 +	I915_WRITE(VLV_IIR, val);
@@ -369,10 +383,6 @@ index 0000000..e12e5f7
 +
 +	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 +
-+	/*
-+	 * VLV_IER is already set in the vlv_display_postinstall(),
-+	 * we only change VLV_IIR and VLV_IMR
-+	 */
 +	dev_priv->irq_mask |= val;
 +	I915_WRITE(VLV_IMR, dev_priv->irq_mask);
 +	I915_WRITE(VLV_IIR, val);
@@ -411,6 +421,9 @@ index 0000000..e12e5f7
 +void intel_lpe_audio_irq_handler(struct drm_i915_private *dev_priv)
 +{
 +	int ret;
++
++	if (!HAS_LPE_AUDIO(dev_priv))
++		return;
 +
 +	ret = generic_handle_irq(dev_priv->lpe_audio.irq);
 +	if (ret)
@@ -537,9 +550,6 @@ index 0000000..e12e5f7
 +
 +	desc = irq_to_desc(dev_priv->lpe_audio.irq);
 +
-+	/**
-+	 * mask LPE audio irq before destroying
-+	 */
 +	lpe_audio_irq_mask(&desc->irq_data);
 +
 +	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
@@ -602,10 +612,18 @@ index 0000000..a64c449
 +
 +#endif /* _I915_LPE_AUDIO_H_ */
 
-From 026d0fa9c02c44917e07aaac6542ff79313bea25 Mon Sep 17 00:00:00 2001
+From patchwork Sat Jan  7 01:21:04 2017
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V2,2/7] drm/i915: Add support for audio driver notifications
 From: Jerome Anand <jerome.anand@intel.com>
-Date: Mon, 12 Dec 2016 23:40:38 +0530
-Subject: [PATCH 2/7] drm/i915: Add support for audio driver notifications
+X-Patchwork-Id: 131671
+Message-Id: <20170107012109.25744-3-jerome.anand@intel.com>
+To: intel-gfx@lists.freedesktop.org,
+	alsa-devel@alsa-project.org
+Cc: tiwai@suse.de, broonie@kernel.org, rakesh.a.ughreja@intel.com
+Date: Sat,  7 Jan 2017 06:51:04 +0530
 
 Notifiations like mode change, hot plug and edid to
 the audio driver are added. This is inturn used by the
@@ -625,10 +643,10 @@ Signed-off-by: Jerome Anand <jerome.anand@intel.com>
  5 files changed, 59 insertions(+)
 
 diff --git a/drivers/gpu/drm/i915/i915_drv.h b/drivers/gpu/drm/i915/i915_drv.h
-index 0970d6a..c7c6c3a 100644
+index 2f8165e..263bc48 100644
 --- a/drivers/gpu/drm/i915/i915_drv.h
 +++ b/drivers/gpu/drm/i915/i915_drv.h
-@@ -3583,6 +3583,9 @@ int  intel_lpe_audio_setup(struct drm_i915_private *dev_priv);
+@@ -3634,6 +3634,9 @@ int  intel_lpe_audio_setup(struct drm_i915_private *dev_priv);
  void intel_lpe_audio_teardown(struct drm_i915_private *dev_priv);
  void intel_lpe_audio_irq_handler(struct drm_i915_private *dev_priv);
  bool intel_lpe_audio_detect(struct drm_i915_private *dev_priv);
@@ -637,9 +655,9 @@ index 0970d6a..c7c6c3a 100644
 +			bool connected);
  
  /* intel_i2c.c */
- extern int intel_setup_gmbus(struct drm_device *dev);
+ extern int intel_setup_gmbus(struct drm_i915_private *dev_priv);
 diff --git a/drivers/gpu/drm/i915/intel_audio.c b/drivers/gpu/drm/i915/intel_audio.c
-index 6c70a5b..bb2817a 100644
+index 16c2027..aeb37c2 100644
 --- a/drivers/gpu/drm/i915/intel_audio.c
 +++ b/drivers/gpu/drm/i915/intel_audio.c
 @@ -24,6 +24,7 @@
@@ -650,29 +668,29 @@ index 6c70a5b..bb2817a 100644
  #include "intel_drv.h"
  
  #include <drm/drmP.h>
-@@ -525,6 +526,10 @@ void intel_audio_codec_enable(struct intel_encoder *intel_encoder)
- 
+@@ -630,6 +631,10 @@ void intel_audio_codec_enable(struct intel_encoder *intel_encoder,
  	if (acomp && acomp->audio_ops && acomp->audio_ops->pin_eld_notify)
- 		acomp->audio_ops->pin_eld_notify(acomp->audio_ops->audio_ptr, (int) port);
+ 		acomp->audio_ops->pin_eld_notify(acomp->audio_ops->audio_ptr,
+ 						 (int) port, (int) pipe);
 +
 +	if (HAS_LPE_AUDIO(dev_priv))
 +		intel_lpe_audio_notify(dev_priv, connector->eld, port,
-+				       crtc->config->port_clock, true);
++			crtc_state->port_clock, true);
  }
  
  /**
-@@ -553,6 +558,9 @@ void intel_audio_codec_disable(struct intel_encoder *intel_encoder)
- 
+@@ -663,6 +668,9 @@ void intel_audio_codec_disable(struct intel_encoder *intel_encoder)
  	if (acomp && acomp->audio_ops && acomp->audio_ops->pin_eld_notify)
- 		acomp->audio_ops->pin_eld_notify(acomp->audio_ops->audio_ptr, (int) port);
+ 		acomp->audio_ops->pin_eld_notify(acomp->audio_ops->audio_ptr,
+ 						 (int) port, (int) pipe);
 +
 +	if (HAS_LPE_AUDIO(dev_priv))
-+		intel_lpe_audio_notify(dev_priv, NULL, port, 0, true);
++		intel_lpe_audio_notify(dev_priv, NULL, port, 0, false);
  }
  
  /**
 diff --git a/drivers/gpu/drm/i915/intel_hdmi.c b/drivers/gpu/drm/i915/intel_hdmi.c
-index 13c30617..188e935 100644
+index 0bcfead..377584e1 100644
 --- a/drivers/gpu/drm/i915/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/intel_hdmi.c
 @@ -36,6 +36,7 @@
@@ -684,10 +702,10 @@ index 13c30617..188e935 100644
  
  static struct drm_device *intel_hdmi_to_dev(struct intel_hdmi *intel_hdmi)
 diff --git a/drivers/gpu/drm/i915/intel_lpe_audio.c b/drivers/gpu/drm/i915/intel_lpe_audio.c
-index e12e5f7..a141a9c 100644
+index 05f5e4e..2a3c1e8 100644
 --- a/drivers/gpu/drm/i915/intel_lpe_audio.c
 +++ b/drivers/gpu/drm/i915/intel_lpe_audio.c
-@@ -361,3 +361,49 @@ void intel_lpe_audio_teardown(struct drm_i915_private *dev_priv)
+@@ -353,3 +353,49 @@ void intel_lpe_audio_teardown(struct drm_i915_private *dev_priv)
  
  	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
  }
@@ -709,33 +727,33 @@ index e12e5f7..a141a9c 100644
 +			bool connected)
 +{
 +	unsigned long irq_flags;
++	struct intel_hdmi_lpe_audio_pdata *pdata = NULL;
 +
-+	if (HAS_LPE_AUDIO(dev_priv)) {
-+		struct intel_hdmi_lpe_audio_pdata *pdata = dev_get_platdata(
-+			&(dev_priv->lpe_audio.platdev->dev));
++	if (!HAS_LPE_AUDIO(dev_priv))
++		return;
 +
-+		spin_lock_irqsave(&pdata->lpe_audio_slock,
-+			irq_flags);
++	pdata = dev_get_platdata(
++		&(dev_priv->lpe_audio.platdev->dev));
 +
-+		if (eld != NULL) {
-+			memcpy(pdata->eld.eld_data, eld,
-+				HDMI_MAX_ELD_BYTES);
-+			pdata->eld.port_id = port;
++	spin_lock_irqsave(&pdata->lpe_audio_slock, irq_flags);
 +
-+			if (tmds_clk_speed)
-+				pdata->tmds_clock_speed =
-+					tmds_clk_speed;
-+		}
-+		pdata->hdmi_connected = connected;
-+		if (pdata->notify_audio_lpe)
-+			pdata->notify_audio_lpe(
-+				(eld != NULL) ? &pdata->eld : NULL);
-+		else
-+			pdata->notify_pending = true;
++	if (eld != NULL) {
++		memcpy(pdata->eld.eld_data, eld,
++			HDMI_MAX_ELD_BYTES);
++		pdata->eld.port_id = port;
 +
-+		spin_unlock_irqrestore(&pdata->lpe_audio_slock,
-+			irq_flags);
++		if (tmds_clk_speed)
++			pdata->tmds_clock_speed = tmds_clk_speed;
 +	}
++	pdata->hdmi_connected = connected;
++	if (pdata->notify_audio_lpe)
++		pdata->notify_audio_lpe(
++			(eld != NULL) ? &pdata->eld : NULL);
++	else
++		pdata->notify_pending = true;
++
++	spin_unlock_irqrestore(&pdata->lpe_audio_slock,
++			irq_flags);
 +}
 diff --git a/include/drm/intel_lpe_audio.h b/include/drm/intel_lpe_audio.h
 index a64c449..952de05 100644
@@ -750,10 +768,18 @@ index a64c449..952de05 100644
  #define HDMI_MAX_ELD_BYTES	128
  
 
-From 583eb2ed11912125c7a63147a7e861c615dcb134 Mon Sep 17 00:00:00 2001
+From patchwork Sat Jan  7 01:21:05 2017
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V2,3/7] ALSA: add shell for Intel HDMI LPE audio driver
 From: Jerome Anand <jerome.anand@intel.com>
-Date: Mon, 12 Dec 2016 23:40:39 +0530
-Subject: [PATCH 3/7] ALSA: add shell for Intel HDMI LPE audio driver
+X-Patchwork-Id: 131672
+Message-Id: <20170107012109.25744-4-jerome.anand@intel.com>
+To: intel-gfx@lists.freedesktop.org,
+	alsa-devel@alsa-project.org
+Cc: tiwai@suse.de, broonie@kernel.org, rakesh.a.ughreja@intel.com
+Date: Sat,  7 Jan 2017 06:51:05 +0530
 
 On Baytrail and Cherrytrail, HDaudio may be fused out or disabled
 by the BIOS. This driver enables an alternate path to the i915
@@ -775,10 +801,10 @@ Signed-off-by: Jerome Anand <jerome.anand@intel.com>
  sound/Kconfig                    |   2 +
  sound/Makefile                   |   2 +-
  sound/x86/Kconfig                |  16 +
- sound/x86/Makefile               |   8 +
- sound/x86/intel_hdmi_lpe_audio.c | 622 +++++++++++++++++++++++++++++++++++
- sound/x86/intel_hdmi_lpe_audio.h | 692 +++++++++++++++++++++++++++++++++++++++
- 6 files changed, 1341 insertions(+), 1 deletion(-)
+ sound/x86/Makefile               |   6 +
+ sound/x86/intel_hdmi_lpe_audio.c | 623 +++++++++++++++++++++++++++++++++++
+ sound/x86/intel_hdmi_lpe_audio.h | 685 +++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 1333 insertions(+), 1 deletion(-)
  create mode 100644 sound/x86/Kconfig
  create mode 100644 sound/x86/Makefile
  create mode 100644 sound/x86/intel_hdmi_lpe_audio.c
@@ -812,7 +838,7 @@ index c41bdf5..6de45d2 100644
  # This one must be compilable even if sound is configured out
 diff --git a/sound/x86/Kconfig b/sound/x86/Kconfig
 new file mode 100644
-index 0000000..182adf3
+index 0000000..e9297d0
 --- /dev/null
 +++ b/sound/x86/Kconfig
 @@ -0,0 +1,16 @@
@@ -827,31 +853,29 @@ index 0000000..182adf3
 +config HDMI_LPE_AUDIO
 +	tristate "HDMI audio without HDaudio on Intel Atom platforms"
 +	depends on DRM_I915
-+        default n
-+        help
-+          Choose this option to support HDMI LPE Audio mode
++	default n
++	help
++	 Choose this option to support HDMI LPE Audio mode
 +
 +endif	# SND_X86
 diff --git a/sound/x86/Makefile b/sound/x86/Makefile
 new file mode 100644
-index 0000000..78b2ae1
+index 0000000..baa6333
 --- /dev/null
 +++ b/sound/x86/Makefile
-@@ -0,0 +1,8 @@
-+DRIVER_NAME := hdmi_lpe_audio
-+
+@@ -0,0 +1,6 @@
 +ccflags-y += -Idrivers/gpu/drm/i915
 +
-+$(DRIVER_NAME)-objs += \
++snd-hdmi-lpe-audio-objs += \
 +	intel_hdmi_lpe_audio.o
 +
-+obj-$(CONFIG_HDMI_LPE_AUDIO) += $(DRIVER_NAME).o
++obj-$(CONFIG_HDMI_LPE_AUDIO) += snd-hdmi-lpe-audio.o
 diff --git a/sound/x86/intel_hdmi_lpe_audio.c b/sound/x86/intel_hdmi_lpe_audio.c
 new file mode 100644
-index 0000000..f31ab72
+index 0000000..61347ab
 --- /dev/null
 +++ b/sound/x86/intel_hdmi_lpe_audio.c
-@@ -0,0 +1,622 @@
+@@ -0,0 +1,623 @@
 +/*
 + *  intel_hdmi_lpe_audio.c - Intel HDMI LPE audio driver for Atom platforms
 + *
@@ -892,9 +916,9 @@ index 0000000..f31ab72
 +#include "intel_hdmi_lpe_audio.h"
 +
 +/* globals*/
-+struct platform_device *gpdev;
-+int _hdmi_state;
-+union otm_hdmi_eld_t hdmi_eld;
++struct platform_device *hlpe_pdev;
++int hlpe_state;
++union otm_hdmi_eld_t hlpe_eld;
 +
 +struct hdmi_lpe_audio_ctx {
 +	int irq;
@@ -910,29 +934,30 @@ index 0000000..f31ab72
 +
 +static inline void hdmi_set_eld(void *eld)
 +{
-+	int size = (sizeof(hdmi_eld)) > HDMI_MAX_ELD_BYTES ?
-+				HDMI_MAX_ELD_BYTES :
-+				(sizeof(hdmi_eld));
++	int size;
 +
-+	memcpy((void *)&hdmi_eld, eld, size);
++	BUILD_BUG_ON(sizeof(hlpe_eld) > HDMI_MAX_ELD_BYTES);
++
++	size = sizeof(hlpe_eld);
++	memcpy((void *)&hlpe_eld, eld, size);
 +}
 +
 +static inline int hdmi_get_eld(void *eld)
 +{
-+	memcpy(eld, (void *)&hdmi_eld, sizeof(hdmi_eld));
++	memcpy(eld, (void *)&hlpe_eld, sizeof(hlpe_eld));
 +
 +	{
 +		int i;
-+		uint8_t *eld_data = (uint8_t *)&hdmi_eld;
++		uint8_t *eld_data = (uint8_t *)&hlpe_eld;
 +
 +		pr_debug("hdmi_get_eld:\n{{");
 +
-+		for (i = 0; i < sizeof(hdmi_eld); i++)
++		for (i = 0; i < sizeof(hlpe_eld); i++)
 +			pr_debug("0x%x, ", eld_data[i]);
 +
 +		pr_debug("}}\n");
 +	}
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +
@@ -940,7 +965,7 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +	return ctx;
 +}
 +
@@ -955,9 +980,9 @@ index 0000000..f31ab72
 +
 +	pr_debug("%s: Enter",  __func__);
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
-+	if (_hdmi_state == hdmi_connector_status_disconnected) {
++	if (hlpe_state == hdmi_connector_status_disconnected) {
 +		/* HDMI is not connected, assuming audio device is idle. */
 +		return false;
 +	}
@@ -981,17 +1006,17 @@ index 0000000..f31ab72
 +	struct hdmi_audio_event hdmi_audio_event;
 +	int ret = 0;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
-+	if (_hdmi_state == hdmi_connector_status_disconnected) {
++	if (hlpe_state == hdmi_connector_status_disconnected) {
 +		/* HDMI is not connected, assuming audio device
 +		 * is suspended already.
 +		 */
 +		return true;
 +	}
 +
-+	pr_debug("%s: _hdmi_state %d",  __func__,
-+			_hdmi_state);
++	pr_debug("%s: hlpe_state %d",  __func__,
++			hlpe_state);
 +
 +	if (ctx->had_interface) {
 +		hdmi_audio_event.type = 0;
@@ -1006,16 +1031,16 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
-+	if (_hdmi_state == hdmi_connector_status_disconnected) {
++	if (hlpe_state == hdmi_connector_status_disconnected) {
 +		/* HDMI is not connected, there is no need
 +		 * to resume audio device.
 +		 */
 +		return;
 +	}
 +
-+	pr_debug("%s: _hdmi_state %d",  __func__, _hdmi_state);
++	pr_debug("%s: hlpe_state %d",  __func__, hlpe_state);
 +
 +	if (ctx->had_interface)
 +		ctx->had_interface->resume(ctx->had_pvt_data);
@@ -1027,7 +1052,7 @@ index 0000000..f31ab72
 +
 +	pr_debug("%s: Enter\n", __func__);
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
 +	if (ctx->had_event_callbacks)
 +		(*ctx->had_event_callbacks)(event,
@@ -1043,13 +1068,13 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
 +	pr_debug("%s: reg[0x%x] = 0x%x\n", __func__, reg, val);
 +
 +	iowrite32(val, (ctx->mmio_start+reg));
 +
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +/**
@@ -1061,10 +1086,10 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +	*val = ioread32(ctx->mmio_start+reg);
 +	pr_debug("%s: reg[0x%x] = 0x%x\n", __func__, reg, *val);
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +/**
@@ -1077,7 +1102,7 @@ index 0000000..f31ab72
 +	struct hdmi_lpe_audio_ctx *ctx;
 +	uint32_t val_tmp = 0;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
 +	val_tmp = (val & mask) |
 +			((ioread32(ctx->mmio_start + reg)) & ~mask);
@@ -1085,7 +1110,7 @@ index 0000000..f31ab72
 +	iowrite32(val_tmp, (ctx->mmio_start+reg));
 +	pr_debug("%s: reg[0x%x] = 0x%x\n", __func__, reg, val_tmp);
 +
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +/**
@@ -1097,7 +1122,7 @@ index 0000000..f31ab72
 +			void *capabilities)
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
-+	int ret = HAD_SUCCESS;
++	int ret = 0;
 +
 +	ctx = get_hdmi_context();
 +
@@ -1130,12 +1155,12 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +	*reg_base = (uint32_t *)(ctx->mmio_start);
 +	*config_offset = ctx->had_config_offset;
 +	pr_debug("%s: reg_base = 0x%p, cfg_off = 0x%x\n", __func__,
 +			*reg_base, *config_offset);
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +/**
@@ -1148,7 +1173,7 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
 +	pr_debug("%s: cap_id = 0x%x\n", __func__, set_element);
 +
@@ -1172,7 +1197,7 @@ index 0000000..f31ab72
 +		break;
 +	}
 +
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +static struct  hdmi_audio_registers_ops hdmi_audio_reg_ops = {
@@ -1194,7 +1219,7 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
 +	pr_debug("%s: called\n",  __func__);
 +
@@ -1213,7 +1238,7 @@ index 0000000..f31ab72
 +
 +	ctx->had_event_callbacks = audio_callbacks;
 +
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +void _had_wq(struct work_struct *work)
@@ -1226,7 +1251,7 @@ index 0000000..f31ab72
 +{
 +	struct hdmi_lpe_audio_ctx *ctx;
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
 +	pr_debug("%s: called\n", __func__);
 +
@@ -1240,7 +1265,7 @@ index 0000000..f31ab72
 +	pr_debug("%s: Scheduling HDMI audio work queue\n", __func__);
 +	schedule_work(&ctx->hdmi_audio_wq);
 +
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +static irqreturn_t display_pipe_interrupt_handler(int irq, void *dev_id)
@@ -1251,7 +1276,7 @@ index 0000000..f31ab72
 +
 +	pr_debug("%s: Enter\n", __func__);
 +
-+	ctx = platform_get_drvdata(gpdev);
++	ctx = platform_get_drvdata(hlpe_pdev);
 +
 +	audio_reg = ctx->had_config_offset + AUD_HDMI_STATUS_v2;
 +	hdmi_audio_read(audio_reg, &audio_stat);
@@ -1274,7 +1299,7 @@ index 0000000..f31ab72
 +static void notify_audio_lpe(void *audio_ptr)
 +{
 +	struct hdmi_lpe_audio_ctx *ctx = get_hdmi_context();
-+	struct intel_hdmi_lpe_audio_pdata *pdata = gpdev->dev.platform_data;
++	struct intel_hdmi_lpe_audio_pdata *pdata = hlpe_pdev->dev.platform_data;
 +	struct intel_hdmi_lpe_audio_eld *eld = audio_ptr;
 +
 +	if (pdata->hdmi_connected != true) {
@@ -1282,9 +1307,9 @@ index 0000000..f31ab72
 +		pr_debug("%s: Event: HAD_NOTIFY_HOT_UNPLUG\n",
 +			__func__);
 +
-+		if (_hdmi_state == hdmi_connector_status_connected) {
++		if (hlpe_state == hdmi_connector_status_connected) {
 +
-+			_hdmi_state =
++			hlpe_state =
 +				hdmi_connector_status_disconnected;
 +
 +			mid_hdmi_audio_signal_event(
@@ -1298,7 +1323,7 @@ index 0000000..f31ab72
 +
 +		mid_hdmi_audio_signal_event(HAD_EVENT_HOT_PLUG);
 +
-+		_hdmi_state = hdmi_connector_status_connected;
++		hlpe_state = hdmi_connector_status_connected;
 +
 +		pr_debug("%s: HAD_NOTIFY_ELD : port = %d, tmds = %d\n",
 +			__func__, eld->port_id,
@@ -1328,7 +1353,7 @@ index 0000000..f31ab72
 +	void __iomem *mmio_start;
 +	int ret = 0;
 +	unsigned long flag_irq;
-+	const struct pci_device_id cherryview_ids[] = {
++	static const struct pci_device_id cherryview_ids[] = {
 +		{PCI_DEVICE(0x8086, 0x22b0)},
 +		{PCI_DEVICE(0x8086, 0x22b1)},
 +		{PCI_DEVICE(0x8086, 0x22b2)},
@@ -1339,8 +1364,8 @@ index 0000000..f31ab72
 +	pr_debug("Enter %s\n", __func__);
 +
 +	/*TBD:remove globals*/
-+	gpdev = pdev;
-+	_hdmi_state = hdmi_connector_status_disconnected;
++	hlpe_pdev = pdev;
++	hlpe_state = hdmi_connector_status_disconnected;
 +
 +	/* get resources */
 +	irq = platform_get_irq(pdev, 0);
@@ -1368,7 +1393,7 @@ index 0000000..f31ab72
 +
 +	/* setup interrupt handler */
 +	ret = request_irq(irq, display_pipe_interrupt_handler,
-+			0, /* FIXME: is IRQF_SHARED needed ? */
++			0,
 +			pdev->name,
 +			NULL);
 +	if (ret < 0) {
@@ -1443,7 +1468,7 @@ index 0000000..f31ab72
 +	iounmap(ctx->mmio_start);
 +	free_irq(ctx->irq, NULL);
 +	kfree(ctx);
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +static int hdmi_lpe_audio_suspend(struct platform_device *pt_dev,
@@ -1451,14 +1476,14 @@ index 0000000..f31ab72
 +{
 +	pr_debug("Enter %s\n", __func__);
 +	mid_hdmi_audio_suspend(NULL);
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +static int hdmi_lpe_audio_resume(struct platform_device *pt_dev)
 +{
 +	pr_debug("Enter %s\n", __func__);
 +	mid_hdmi_audio_resume(NULL);
-+	return HAD_SUCCESS;
++	return 0;
 +}
 +
 +static struct platform_driver hdmi_lpe_audio_driver = {
@@ -1476,10 +1501,10 @@ index 0000000..f31ab72
 +MODULE_ALIAS("platform:hdmi_lpe_audio");
 diff --git a/sound/x86/intel_hdmi_lpe_audio.h b/sound/x86/intel_hdmi_lpe_audio.h
 new file mode 100644
-index 0000000..d4b94f0a
+index 0000000..8d92931
 --- /dev/null
 +++ b/sound/x86/intel_hdmi_lpe_audio.h
-@@ -0,0 +1,692 @@
+@@ -0,0 +1,685 @@
 +/*
 + *   intel_hdmi_lpe_audio.h - Intel HDMI LPE audio driver
 + *
@@ -1514,15 +1539,10 @@ index 0000000..d4b94f0a
 +#include <sound/pcm.h>
 +
 +#define HMDI_LPE_AUDIO_DRIVER_NAME		"intel-hdmi-lpe-audio"
-+#define HAD_DRIVER_VERSION	"0.01.003"
 +#define HAD_MAX_DEVICES		1
 +#define HAD_MIN_CHANNEL		2
 +#define HAD_MAX_CHANNEL		8
 +#define HAD_NUM_OF_RING_BUFS	4
-+
-+/* HDMI Audio LPE Error Codes */
-+#define HAD_SUCCESS		0
-+#define HAD_FAIL		1
 +
 +/* Assume 192KHz, 8channel, 25msec period */
 +#define HAD_MAX_BUFFER		(600*1024)
@@ -1568,15 +1588,14 @@ index 0000000..d4b94f0a
 +#define OTM_HDMI_ELD_SIZE 128
 +
 +union otm_hdmi_eld_t {
-+	uint8_t eld_data[OTM_HDMI_ELD_SIZE];
-+	#pragma pack(1)
++	unsigned char eld_data[OTM_HDMI_ELD_SIZE];
 +	struct {
 +		/* Byte[0] = ELD Version Number */
 +		union {
-+			uint8_t   byte0;
++			unsigned char   byte0;
 +			struct {
-+				uint8_t reserved:3; /* Reserf */
-+				uint8_t eld_ver:5; /* ELD Version Number */
++				unsigned char reserved:3; /* Reserf */
++				unsigned char eld_ver:5; /* ELD Version Number */
 +				/* 00000b - reserved
 +				 * 00001b - first rev, obsoleted
 +				 * 00010b - version 2, supporting CEA version
@@ -1589,10 +1608,10 @@ index 0000000..d4b94f0a
 +
 +		/* Byte[1] = Vendor Version Field */
 +		union {
-+			uint8_t vendor_version;
++			unsigned char vendor_version;
 +			struct {
-+				uint8_t reserved1:3;
-+				uint8_t veld_ver:5; /* Version number of the ELD
++				unsigned char reserved1:3;
++				unsigned char veld_ver:5; /* Version number of the ELD
 +						     * extension. This value is
 +						     * provisioned and unique to
 +						     * each vendor.
@@ -1601,79 +1620,79 @@ index 0000000..d4b94f0a
 +		};
 +
 +		/* Byte[2] = Baseline Length field */
-+		uint8_t baseline_eld_length; /* Length of the Baseline structure
++		unsigned char baseline_eld_length; /* Length of the Baseline structure
 +					      *	divided by Four.
 +					      */
 +
 +		/* Byte [3] = Reserved for future use */
-+		uint8_t byte3;
++		unsigned char byte3;
 +
 +		/* Starting of the BaseLine EELD structure
 +		 * Byte[4] = Monitor Name Length
 +		 */
 +		union {
-+			uint8_t byte4;
++			unsigned char byte4;
 +			struct {
-+				uint8_t mnl:5;
-+				uint8_t cea_edid_rev_id:3;
++				unsigned char mnl:5;
++				unsigned char cea_edid_rev_id:3;
 +			};
 +		};
 +
 +		/* Byte[5] = Capabilities */
 +		union {
-+			uint8_t capabilities;
++			unsigned char capabilities;
 +			struct {
-+				uint8_t hdcp:1; /* HDCP support */
-+				uint8_t ai_support:1;   /* AI support */
-+				uint8_t connection_type:2; /* Connection type
++				unsigned char hdcp:1; /* HDCP support */
++				unsigned char ai_support:1;   /* AI support */
++				unsigned char connection_type:2; /* Connection type
 +							    * 00 - HDMI
 +							    * 01 - DP
 +							    * 10 -11  Reserved
 +							    * for future
 +							    * connection types
 +							    */
-+				uint8_t sadc:4; /* Indicates number of 3 bytes
++				unsigned char sadc:4; /* Indicates number of 3 bytes
 +						 * Short Audio Descriptors.
 +						 */
 +			};
 +		};
 +
 +		/* Byte[6] = Audio Synch Delay */
-+		uint8_t audio_synch_delay; /* Amount of time reported by the
++		unsigned char audio_synch_delay; /* Amount of time reported by the
 +					    * sink that the video trails audio
 +					    * in milliseconds.
 +					    */
 +
 +		/* Byte[7] = Speaker Allocation Block */
 +		union {
-+			uint8_t speaker_allocation_block;
++			unsigned char speaker_allocation_block;
 +			struct {
-+				uint8_t flr:1; /*Front Left and Right channels*/
-+				uint8_t lfe:1; /*Low Frequency Effect channel*/
-+				uint8_t fc:1;  /*Center transmission channel*/
-+				uint8_t rlr:1; /*Rear Left and Right channels*/
-+				uint8_t rc:1; /*Rear Center channel*/
-+				uint8_t flrc:1; /*Front left and Right of Center
++				unsigned char flr:1; /*Front Left and Right channels*/
++				unsigned char lfe:1; /*Low Frequency Effect channel*/
++				unsigned char fc:1;  /*Center transmission channel*/
++				unsigned char rlr:1; /*Rear Left and Right channels*/
++				unsigned char rc:1; /*Rear Center channel*/
++				unsigned char flrc:1; /*Front left and Right of Center
 +						 *transmission channels
 +						 */
-+				uint8_t rlrc:1; /*Rear left and Right of Center
++				unsigned char rlrc:1; /*Rear left and Right of Center
 +						 *transmission channels
 +						 */
-+				uint8_t reserved3:1; /* Reserved */
++				unsigned char reserved3:1; /* Reserved */
 +			};
 +		};
 +
 +		/* Byte[8 - 15] - 8 Byte port identification value */
-+		uint8_t port_id_value[8];
++		unsigned char port_id_value[8];
 +
 +		/* Byte[16 - 17] - 2 Byte Manufacturer ID */
-+		uint8_t manufacturer_id[2];
++		unsigned char manufacturer_id[2];
 +
 +		/* Byte[18 - 19] - 2 Byte Product ID */
-+		uint8_t product_id[2];
++		unsigned char product_id[2];
 +
 +		/* Byte [20-83] - 64 Bytes of BaseLine Data */
-+		uint8_t mn_sand_sads[64]; /* This will include
++		unsigned char mn_sand_sads[64]; /* This will include
 +					   * - ASCII string of Monitor name
 +					   * - List of 3 byte SADs
 +					   * - Zero padding
@@ -1682,8 +1701,7 @@ index 0000000..d4b94f0a
 +		/* Vendor ELD Block should continue here!
 +		 * No Vendor ELD block defined as of now.
 +		 */
-+	};
-+	#pragma pack()
++	} __packed;
 +};
 +
 +/**
@@ -2173,10 +2191,18 @@ index 0000000..d4b94f0a
 +
 +#endif
 
-From ab09831890c2b114beb548e8a6de8e23534e5d62 Mon Sep 17 00:00:00 2001
+From patchwork Sat Jan  7 01:21:06 2017
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V2,4/7] ALSA: x86: hdmi: Add audio support for BYT and CHT
 From: Jerome Anand <jerome.anand@intel.com>
-Date: Mon, 12 Dec 2016 23:40:40 +0530
-Subject: [PATCH 4/7] ALSA: x86: hdmi: Add audio support for BYT and CHT
+X-Patchwork-Id: 131675
+Message-Id: <20170107012109.25744-5-jerome.anand@intel.com>
+To: intel-gfx@lists.freedesktop.org,
+	alsa-devel@alsa-project.org
+Cc: tiwai@suse.de, broonie@kernel.org, rakesh.a.ughreja@intel.com
+Date: Sat,  7 Jan 2017 06:51:06 +0530
 
 Hdmi audio driver based on the child platform device
 created by gfx driver is implemented.
@@ -2192,34 +2218,34 @@ Signed-off-by: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
 Signed-off-by: Jerome Anand <jerome.anand@intel.com>
 ---
  sound/x86/Makefile               |    2 +
- sound/x86/intel_hdmi_audio.c     | 1907 ++++++++++++++++++++++++++++++++++++++
+ sound/x86/intel_hdmi_audio.c     | 1903 ++++++++++++++++++++++++++++++++++++++
  sound/x86/intel_hdmi_audio.h     |  201 ++++
  sound/x86/intel_hdmi_audio_if.c  |  551 +++++++++++
  sound/x86/intel_hdmi_lpe_audio.c |   16 +-
- 5 files changed, 2671 insertions(+), 6 deletions(-)
+ 5 files changed, 2667 insertions(+), 6 deletions(-)
  create mode 100644 sound/x86/intel_hdmi_audio.c
  create mode 100644 sound/x86/intel_hdmi_audio.h
  create mode 100644 sound/x86/intel_hdmi_audio_if.c
 
 diff --git a/sound/x86/Makefile b/sound/x86/Makefile
-index 78b2ae1..bc074d0 100644
+index baa6333..e405280 100644
 --- a/sound/x86/Makefile
 +++ b/sound/x86/Makefile
-@@ -3,6 +3,8 @@ DRIVER_NAME := hdmi_lpe_audio
+@@ -1,6 +1,8 @@
  ccflags-y += -Idrivers/gpu/drm/i915
  
- $(DRIVER_NAME)-objs += \
+ snd-hdmi-lpe-audio-objs += \
 +	intel_hdmi_audio.o \
 +	intel_hdmi_audio_if.o \
  	intel_hdmi_lpe_audio.o
  
- obj-$(CONFIG_HDMI_LPE_AUDIO) += $(DRIVER_NAME).o
+ obj-$(CONFIG_HDMI_LPE_AUDIO) += snd-hdmi-lpe-audio.o
 diff --git a/sound/x86/intel_hdmi_audio.c b/sound/x86/intel_hdmi_audio.c
 new file mode 100644
-index 0000000..461b7d7
+index 0000000..d7b57658
 --- /dev/null
 +++ b/sound/x86/intel_hdmi_audio.c
-@@ -0,0 +1,1907 @@
+@@ -0,0 +1,1903 @@
 +/*
 + *   intel_hdmi_audio.c - Intel HDMI audio driver
 + *
@@ -2266,11 +2292,11 @@ index 0000000..461b7d7
 +static char *hdmi_card_id = SNDRV_DEFAULT_STR1;
 +static struct snd_intelhad *had_data;
 +
-+module_param(hdmi_card_index, int, 0444);
-+MODULE_PARM_DESC(hdmi_card_index,
++module_param_named(index, hdmi_card_index, int, 0444);
++MODULE_PARM_DESC(index,
 +		"Index value for INTEL Intel HDMI Audio controller.");
-+module_param(hdmi_card_id, charp, 0444);
-+MODULE_PARM_DESC(hdmi_card_id,
++module_param_named(id, hdmi_card_id, charp, 0444);
++MODULE_PARM_DESC(id,
 +		"ID string for INTEL Intel HDMI Audio controller.");
 +
 +/*
@@ -3567,9 +3593,7 @@ index 0000000..461b7d7
 +		}
 +		stream->stream_status = STREAM_RUNNING;
 +
-+		spin_lock_irqsave(&intelhaddata->had_spinlock, flag_irq);
 +		had_stream->stream_type = HAD_RUNNING_STREAM;
-+		spin_unlock_irqrestore(&intelhaddata->had_spinlock, flag_irq);
 +
 +		/* Enable Audio */
 +		/*
@@ -3639,7 +3663,6 @@ index 0000000..461b7d7
 +
 +	if (had_get_hwstate(intelhaddata)) {
 +		pr_err("%s: HDMI cable plugged-out\n", __func__);
-+		snd_pcm_stop(substream, SNDRV_PCM_STATE_DISCONNECTED);
 +		retval = -ENODEV;
 +		goto prep_end;
 +	}
@@ -4126,7 +4149,6 @@ index 0000000..461b7d7
 +MODULE_DESCRIPTION("Intel HDMI Audio driver");
 +MODULE_LICENSE("GPL v2");
 +MODULE_SUPPORTED_DEVICE("{Intel,Intel_HAD}");
-+MODULE_VERSION(HAD_DRIVER_VERSION);
 diff --git a/sound/x86/intel_hdmi_audio.h b/sound/x86/intel_hdmi_audio.h
 new file mode 100644
 index 0000000..1ef25b6
@@ -4892,7 +4914,7 @@ index 0000000..c650ba4
 +	return retval;
 +}
 diff --git a/sound/x86/intel_hdmi_lpe_audio.c b/sound/x86/intel_hdmi_lpe_audio.c
-index f31ab72..16194c6 100644
+index 61347ab..bee1bb4 100644
 --- a/sound/x86/intel_hdmi_lpe_audio.c
 +++ b/sound/x86/intel_hdmi_lpe_audio.c
 @@ -36,6 +36,7 @@
@@ -4902,8 +4924,8 @@ index f31ab72..16194c6 100644
 +#include "intel_hdmi_audio.h"
  
  /* globals*/
- struct platform_device *gpdev;
-@@ -461,9 +462,9 @@ static void notify_audio_lpe(void *audio_ptr)
+ struct platform_device *hlpe_pdev;
+@@ -462,9 +463,9 @@ static void notify_audio_lpe(void *audio_ptr)
  /**
   * hdmi_lpe_audio_probe - start bridge with i915
   *
@@ -4916,7 +4938,7 @@ index f31ab72..16194c6 100644
   */
  static int hdmi_lpe_audio_probe(struct platform_device *pdev)
  {
-@@ -505,8 +506,8 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
+@@ -506,8 +507,8 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
  		(unsigned int)res_mmio->start, (unsigned int)res_mmio->end);
  
  	mmio_start = ioremap_nocache(res_mmio->start,
@@ -4927,7 +4949,7 @@ index f31ab72..16194c6 100644
  	if (!mmio_start) {
  		pr_err("Could not get ioremap\n");
  		return -EACCES;
-@@ -556,11 +557,12 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
+@@ -557,11 +558,12 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
  
  	platform_set_drvdata(pdev, ctx);
  
@@ -4941,7 +4963,7 @@ index f31ab72..16194c6 100644
  	if (pdata->notify_pending) {
  
  		pr_debug("%s: handle pending notification\n", __func__);
-@@ -584,6 +586,8 @@ static int hdmi_lpe_audio_remove(struct platform_device *pdev)
+@@ -585,6 +587,8 @@ static int hdmi_lpe_audio_remove(struct platform_device *pdev)
  
  	pr_debug("Enter %s\n", __func__);
  
@@ -4951,10 +4973,18 @@ index f31ab72..16194c6 100644
  	ctx = platform_get_drvdata(pdev);
  	iounmap(ctx->mmio_start);
 
-From c87ce8ee9ca9f95c04ce71301a3cdff449613623 Mon Sep 17 00:00:00 2001
+From patchwork Sat Jan  7 01:21:07 2017
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V2,5/7] ALSA: x86: hdmi: Improve position reporting
 From: Jerome Anand <jerome.anand@intel.com>
-Date: Mon, 12 Dec 2016 23:40:41 +0530
-Subject: [PATCH 5/7] ALSA: x86: hdmi: Improve position reporting
+X-Patchwork-Id: 131673
+Message-Id: <20170107012109.25744-6-jerome.anand@intel.com>
+To: intel-gfx@lists.freedesktop.org,
+	alsa-devel@alsa-project.org
+Cc: tiwai@suse.de, broonie@kernel.org, rakesh.a.ughreja@intel.com
+Date: Sat,  7 Jan 2017 06:51:07 +0530
 
 Use a hw register to calculate sub-period position reports.
 This makes PulseAudio happier.
@@ -4967,10 +4997,10 @@ Signed-off-by: Jerome Anand <jerome.anand@intel.com>
  1 file changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/sound/x86/intel_hdmi_audio.c b/sound/x86/intel_hdmi_audio.c
-index 461b7d7..d9ce750 100644
+index d7b57658..d2036bc 100644
 --- a/sound/x86/intel_hdmi_audio.c
 +++ b/sound/x86/intel_hdmi_audio.c
-@@ -1492,6 +1492,8 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
+@@ -1489,6 +1489,8 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
  {
  	struct snd_intelhad *intelhaddata;
  	u32 bytes_rendered = 0;
@@ -4979,7 +5009,7 @@ index 461b7d7..d9ce750 100644
  
  	/* pr_debug("snd_intelhad_pcm_pointer called\n"); */
  
-@@ -1502,6 +1504,14 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
+@@ -1499,6 +1501,14 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
  		return SNDRV_PCM_POS_XRUN;
  	}
  
@@ -4994,7 +5024,7 @@ index 461b7d7..d9ce750 100644
  	if (intelhaddata->stream_info.buffer_rendered)
  		div_u64_rem(intelhaddata->stream_info.buffer_rendered,
  			intelhaddata->stream_info.ring_buf_size,
-@@ -1509,7 +1519,7 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
+@@ -1506,7 +1516,7 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
  
  	intelhaddata->stream_info.buffer_ptr = bytes_to_frames(
  						substream->runtime,
@@ -5004,10 +5034,18 @@ index 461b7d7..d9ce750 100644
  }
  
 
-From a23162c1f0c53395a827e2e092cd06065f5e5593 Mon Sep 17 00:00:00 2001
+From patchwork Sat Jan  7 01:21:08 2017
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V2,6/7] ALSA: x86: hdmi: Fixup some monitor
 From: Jerome Anand <jerome.anand@intel.com>
-Date: Mon, 12 Dec 2016 23:40:42 +0530
-Subject: [PATCH 6/7] ALSA: x86: hdmi: Fixup some monitor
+X-Patchwork-Id: 131674
+Message-Id: <20170107012109.25744-7-jerome.anand@intel.com>
+To: intel-gfx@lists.freedesktop.org,
+	alsa-devel@alsa-project.org
+Cc: tiwai@suse.de, broonie@kernel.org, rakesh.a.ughreja@intel.com
+Date: Sat,  7 Jan 2017 06:51:08 +0530
 
 This change was given to Canonical apparently to fix an issue with
 on some monitor brand. It's not clear what this patch does but it doesn't
@@ -5021,7 +5059,7 @@ Signed-off-by: Jerome Anand <jerome.anand@intel.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/sound/x86/intel_hdmi_audio.c b/sound/x86/intel_hdmi_audio.c
-index d9ce750..9249521 100644
+index d2036bc..91efbeb 100644
 --- a/sound/x86/intel_hdmi_audio.c
 +++ b/sound/x86/intel_hdmi_audio.c
 @@ -337,6 +337,7 @@ static void snd_intelhad_reset_audio_v2(u8 reset)
@@ -5057,11 +5095,20 @@ index d9ce750..9249521 100644
  	return 0;
  }
 
-From b499980493120fe978ddccdf0f48d0a3e2af279f Mon Sep 17 00:00:00 2001
+From patchwork Sat Jan  7 01:21:09 2017
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [V2,
+ 7/7] ALSA: x86: hdmi: continue playback even when display resolution
+ changes
 From: Jerome Anand <jerome.anand@intel.com>
-Date: Mon, 12 Dec 2016 23:40:43 +0530
-Subject: [PATCH 7/7] ALSA: x86: hdmi: continue playback even when display
- resolution changes
+X-Patchwork-Id: 131676
+Message-Id: <20170107012109.25744-8-jerome.anand@intel.com>
+To: intel-gfx@lists.freedesktop.org,
+	alsa-devel@alsa-project.org
+Cc: tiwai@suse.de, broonie@kernel.org, rakesh.a.ughreja@intel.com
+Date: Sat,  7 Jan 2017 06:51:09 +0530
 
 When the display resolution changes, the drm disables the
 display pipes due to which audio rendering stops. At this
@@ -5076,7 +5123,7 @@ Signed-off-by: Jerome Anand <jerome.anand@intel.com>
  1 file changed, 18 insertions(+), 3 deletions(-)
 
 diff --git a/sound/x86/intel_hdmi_audio.c b/sound/x86/intel_hdmi_audio.c
-index 9249521..d6fd638 100644
+index 91efbeb..f4042f8 100644
 --- a/sound/x86/intel_hdmi_audio.c
 +++ b/sound/x86/intel_hdmi_audio.c
 @@ -43,6 +43,7 @@ static DEFINE_MUTEX(had_mutex);
@@ -5085,8 +5132,8 @@ index 9249521..d6fd638 100644
  static struct snd_intelhad *had_data;
 +static int underrun_count;
  
- module_param(hdmi_card_index, int, 0444);
- MODULE_PARM_DESC(hdmi_card_index,
+ module_param_named(index, hdmi_card_index, int, 0444);
+ MODULE_PARM_DESC(index,
 @@ -1114,6 +1115,7 @@ static int snd_intelhad_open(struct snd_pcm_substream *substream)
  	intelhaddata = snd_pcm_substream_chip(substream);
  	had_stream = intelhaddata->private_data;
@@ -5095,7 +5142,7 @@ index 9249521..d6fd638 100644
  
  	pm_runtime_get(intelhaddata->dev);
  
-@@ -1506,10 +1508,23 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
+@@ -1503,10 +1505,23 @@ static snd_pcm_uframes_t snd_intelhad_pcm_pointer(
  
  	buf_id = intelhaddata->curr_buf % 4;
  	had_read_register(AUD_BUF_A_LENGTH + (buf_id * HAD_REG_WIDTH), &t);
