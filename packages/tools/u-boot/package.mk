@@ -40,12 +40,12 @@ elif [ "$UBOOT_VERSION" = "odroidc" ]; then
   PKG_VERSION="86125f8"
   PKG_SITE="http://odroid.com/dokuwiki/doku.php?id=en:c1_building_u-boot"
   PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET linaro-arm-toolchain:host"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-arm-eabi:host"
 elif [ "$UBOOT_VERSION" = "sunxi" ]; then
   PKG_VERSION="af9f405"
   PKG_SITE="https://github.com/linux-sunxi/u-boot-sunxi"
   PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host linaro-arm-toolchain:host"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host gcc-linaro-arm-eabi:host"
 else
   exit 0
 fi
@@ -70,10 +70,6 @@ pre_configure_target() {
 
   unset LDFLAGS
 
-  if [ "$UBOOT_VERSION" = "odroidc" -o "$UBOOT_VERSION" = "sunxi" ]; then
-    unset LDFLAGS CFLAGS CPPFLAGS
-  fi
-
 # dont build in parallel because of problems
   MAKEFLAGS=-j1
 
@@ -95,9 +91,10 @@ make_target() {
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_TARGET
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
     elif [ "$PROJECT" = "OdroidC1" -o "$PROJECT" = "a20" -o "$PROJECT" = "a10" -o "$PROJECT" = "Bananapi" ]; then
-      make CROSS_COMPILE="arm-none-eabi-" ARCH=arm mrproper
-      make CROSS_COMPILE="arm-none-eabi-" ARCH=arm $UBOOT_TARGET
-      make CROSS_COMPILE="arm-none-eabi-" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
+      export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
+      make CROSS_COMPILE="arm-eabi-" ARCH=arm mrproper
+      make CROSS_COMPILE="arm-eabi-" ARCH=arm $UBOOT_TARGET
+      make CROSS_COMPILE="arm-eabi-" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
     else
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm mrproper
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm $UBOOT_TARGET
