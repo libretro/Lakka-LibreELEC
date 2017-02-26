@@ -30,6 +30,16 @@ fi
 if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
   mkdir -p $SOURCES/$1
 
+  PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
+  PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$PKG_SOURCE_NAME"
+  [ "$VERBOSE" != "yes" ] && WGET_OPT=-q
+  WGET_CMD="wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c $WGET_OPT -O $SOURCES/$1/$PKG_SOURCE_NAME"
+
+  STAMP="$PACKAGE.url"
+
+  # Nothing to be downloaded, exit now...
+  [ -f $SOURCES/$1/$PKG_SOURCE_NAME -a "$(cat $STAMP 2>/dev/null)" == "$PKG_URL" ] && exit 0
+
   # Avoid concurrent downloads of the same package
   _isblocked=N
   exec 99<$SOURCES/$1
@@ -38,40 +48,25 @@ if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
     sleep 1
   done
 
-  PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
-  PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$PKG_SOURCE_NAME"
-  [ "$VERBOSE" != "yes" ] && WGET_OPT=-q
-  WGET_CMD="wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c $WGET_OPT -O $SOURCES/$1/$PKG_SOURCE_NAME"
-
-  NBWGET="1"
-
-  STAMP="$PACKAGE.url"
-  MD5SUM="$PACKAGE.md5"
-
-  DL="yes"
-  if [ -f "$STAMP" ]; then
-    [ "`cat $STAMP`" == "$PKG_URL" ] && DL="no"
-  fi
-
-  if [ "$DL" == "yes" ]; then
-    rm -f $STAMP
+  if ! [ -f $SOURCES/$1/$PKG_SOURCE_NAME -a "$(cat $STAMP 2>/dev/null)" == "$PKG_URL" ]; then
+    rm -f $SOURCES/$1/$PKG_SOURCE_NAME $STAMP
 
     printf "%${BUILD_INDENT}c ${boldcyan}GET${endcolor}      $1\n" ' '>&$SILENT_OUT
     export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
 
-    until [ -f "$STAMP" ] || $WGET_CMD $PKG_URL || $WGET_CMD $PACKAGE_MIRROR; do
-      NBWGET=$(($NBWGET+1))
-      if [ "$NBWGET" -gt "10" ]; then
+    # unset LD_LIBRARY_PATH to stop wget from using toolchain/lib and loading libssl.so/libcrypto.so instead of host libraries
+    unset LD_LIBRARY_PATH
+
+    NBWGET=1
+    until $WGET_CMD "$PKG_URL" || $WGET_CMD "$PACKAGE_MIRROR"; do
+      NBWGET=$((NBWGET + 1))
+      if [ $NBWGET -gt 10 ]; then
         echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
         exit 1
       fi
     done
 
-    echo $PKG_URL > $STAMP
-    md5sum -t $PACKAGE > $MD5SUM
-
-    rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
-    rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
+    echo "$PKG_URL" > $STAMP
   fi
 fi
 
