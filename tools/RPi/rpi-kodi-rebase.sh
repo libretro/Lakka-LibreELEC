@@ -5,6 +5,7 @@ TODO=$1
 # Drop commits not used
 DROP_COMMITS="
 UNSTABLE\: This is a placeholder\. Commits after this point are considered experimental\.
+ADSP: Hack - disable
 "
 
 IFS=$'\n'
