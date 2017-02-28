@@ -17,6 +17,7 @@ DROP_COMMITS="
 Added Device IDs for August DVB-T 205
 net\: Add non-mainline source for rtl8192cu wlan
 net\: Fix rtl8192cu build errors on other platforms
+ARM64\: Fix build break for RTL8187\/RTL8192CU wifi
 "
 
 IFS=$'\n'
