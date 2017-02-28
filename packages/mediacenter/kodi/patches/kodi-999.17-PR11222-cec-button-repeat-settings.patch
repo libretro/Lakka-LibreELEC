@@ -1,0 +1,134 @@
+From 8a39c3a53fc6fe49a42f91f27d83eb44e6fbcc32 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 19 Dec 2016 14:21:40 +0000
+Subject: [PATCH 1/3] [cec] Drop CEC_DOUBLE_TAP_TIMEOUT_MS_OLD code
+
+Kodi won't even build with libcec 3, so supporting a libcec 2.2 setting is of no value
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 5b5b38d..2d4b06c 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1392,13 +1392,8 @@ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+   m_configuration.bPowerOffOnStandby = iStandbyAction == LOCALISED_ID_SUSPEND ? 1 : 0;
+   m_bShutdownOnStandby = iStandbyAction == LOCALISED_ID_POWEROFF;
+ 
+-#if defined(CEC_DOUBLE_TAP_TIMEOUT_MS_OLD)
+-  // double tap prevention timeout in ms. libCEC uses 50ms units for this in 2.2.0, so divide by 50
+-  m_configuration.iDoubleTapTimeout50Ms = GetSettingInt("double_tap_timeout_ms") / 50;
+-#else
+-  // backwards compatibility. will be removed once the next major release of libCEC is out
++  // double tap prevention timeout in ms
+   m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms");
+-#endif
+ 
+   if (GetSettingBool("pause_playback_on_deactivate"))
+   {
+
+From b79f99511bcf81fb07d90ba9c3aa378c88d7cc03 Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 19 Dec 2016 14:21:40 +0000
+Subject: [PATCH 2/3] [cec] Add settings for configuring button repeats
+
+---
+ addons/resource.language.en_gb/resources/strings.po | 15 +++++++++++++++
+ system/peripherals.xml                              |  4 +++-
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp   | 11 +++++++++++
+ 3 files changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 699eae7..34bc0d8 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -20426,3 +20426,18 @@ msgstr ""
+ msgctxt "#39016"
+ msgid "Resume audiobook"
+ msgstr ""
++
++#: system/peripherals.xml
++msgctxt "#38050"
++msgid "Remote button press delay before repeating (ms)"
++msgstr ""
++
++#: system/peripherals.xml
++msgctxt "#38051"
++msgid "Remote button press repeat rate (ms)"
++msgstr ""
++
++#: system/peripherals.xml
++msgctxt "#38052"
++msgid "Remote button press release time (ms)"
++msgstr ""
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index d5704b2..02b1a9e 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -31,7 +31,9 @@
+     <setting key="device_type" type="int" value="1" configurable="0" />
+     <setting key="wake_devices_advanced" type="string" value="" configurable="0" />
+     <setting key="standby_devices_advanced" type="string" value="" configurable="0" />
+-    <setting key="double_tap_timeout_ms" type="int" min="0" value="300" configurable="0" />
++    <setting key="double_tap_timeout_ms" type="int" min="50" max="1000" step="50" value="300" label="38050" order="16" />
++    <setting key="button_repeat_rate_ms" type="int" min="0" max="250" step="10" value="0" label="38051" order="17" />
++    <setting key="button_release_delay_ms" type="int" min="0" max="500" step="50" value="0" label="38052" order="18" />
+   </peripheral>
+ 
+   <peripheral vendor_product="2548:1001,2548:1002" bus="usb" name="Pulse-Eight CEC Adapter" mapTo="cec">
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 2d4b06c..cb175d3 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1297,6 +1297,15 @@ void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configu
+   m_configuration.bActivateSource = config.bActivateSource;
+   bChanged |= SetSetting("activate_source", m_configuration.bActivateSource == 1);
+ 
++  m_configuration.iDoubleTapTimeoutMs = config.iDoubleTapTimeoutMs;
++  bChanged |= SetSetting("double_tap_timeout_ms", (int)m_configuration.iDoubleTapTimeoutMs);
++
++  m_configuration.iButtonRepeatRateMs = config.iButtonRepeatRateMs;
++  bChanged |= SetSetting("button_repeat_rate_ms", (int)m_configuration.iButtonRepeatRateMs);
++
++  m_configuration.iButtonReleaseDelayMs = config.iButtonReleaseDelayMs;
++  bChanged |= SetSetting("button_release_delay_ms", (int)m_configuration.iButtonReleaseDelayMs);
++
+   m_configuration.bPowerOffOnStandby = config.bPowerOffOnStandby;
+ 
+   m_configuration.iFirmwareVersion = config.iFirmwareVersion;
+@@ -1394,6 +1403,8 @@ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+ 
+   // double tap prevention timeout in ms
+   m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms");
++  m_configuration.iButtonRepeatRateMs = GetSettingInt("button_repeat_rate_ms");
++  m_configuration.iButtonReleaseDelayMs = GetSettingInt("button_release_delay_ms");
+ 
+   if (GetSettingBool("pause_playback_on_deactivate"))
+   {
+
+From 5f19f6a2c06075e4d75b66772e304cd5f50523eb Mon Sep 17 00:00:00 2001
+From: popcornmix <popcornmix@gmail.com>
+Date: Mon, 19 Dec 2016 14:21:40 +0000
+Subject: [PATCH 3/3] [cec] Don't discard buttons when repeat mode is enabled
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index cb175d3..9b2943f 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -804,7 +804,10 @@ void CPeripheralCecAdapter::PushCecKeypress(const CecButtonPress &key)
+   CLog::Log(LOGDEBUG, "%s - received key %2x duration %d", __FUNCTION__, key.iButton, key.iDuration);
+ 
+   CSingleLock lock(m_critSection);
+-  if (key.iDuration > 0)
++  // avoid the queue getting too long
++  if (m_configuration.iButtonRepeatRateMs && m_buttonQueue.size() > 5)
++    return;
++  if (m_configuration.iButtonRepeatRateMs == 0 && key.iDuration > 0)
+   {
+     if (m_currentButton.iButton == key.iButton && m_currentButton.iDuration == 0)
+     {
