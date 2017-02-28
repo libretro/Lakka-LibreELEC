@@ -53,6 +53,9 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-udev \
                            --with-kernel-source=$(kernel_path) \
                            --disable-libkms \
                            $DRM_CONFIG \
+                           --disable-nouveau \
+                           --disable-freedreno \
+                           --disable-vc4 \
                            --disable-install-test-programs \
                            --disable-cairo-tests \
                            --disable-manpages \
