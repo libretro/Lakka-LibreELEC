@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="emby"
-PKG_VERSION="3.0.8500"
-PKG_REV="110"
+PKG_VERSION="3.2.5"
+PKG_REV="111"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
@@ -52,7 +52,7 @@ addon() {
         -d $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
 
   sed -i 's/libsqlite3.so/libsqlite3.so.0/g' \
-      $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono/System.Data.SQLite.dll.config
+      $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono/SQLitePCLRaw.provider.sqlite3.dll.config
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin
   cp -L $(get_build_dir ffmpegx)/.install_pkg/usr/local/bin/ffmpegx  \
@@ -60,7 +60,7 @@ addon() {
         $ADDON_BUILD/$PKG_ADDON_ID/bin/
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -L $(get_build_dir imagemagick)/.install_pkg/usr/lib/libMagickCore-6.Q8.so.2 \
-        $(get_build_dir imagemagick)/.install_pkg/usr/lib/libMagickWand-6.Q8.so   \
+  cp -L $(get_build_dir imagemagick)/.install_pkg/usr/lib/libMagickCore-7.Q8.so.2 \
+        $(get_build_dir imagemagick)/.install_pkg/usr/lib/libMagickWand-7.Q8.so   \
         $ADDON_BUILD/$PKG_ADDON_ID/lib/
 }
