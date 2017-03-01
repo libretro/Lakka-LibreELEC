@@ -18,7 +18,7 @@
 
 PKG_NAME="emby"
 PKG_VERSION="3.2.5"
-PKG_REV="111"
+PKG_REV="112"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
@@ -50,6 +50,9 @@ addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
   unzip -q $ROOT/$SOURCES/$PKG_NAME/$PKG_SOURCE_NAME \
         -d $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono
+
+  sed -i 's/libMagickWand-6./libMagickWand-7./g' \
+      $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono/ImageMagickSharp.dll.config
 
   sed -i 's/libsqlite3.so/libsqlite3.so.0/g' \
       $ADDON_BUILD/$PKG_ADDON_ID/Emby.Mono/SQLitePCLRaw.provider.sqlite3.dll.config
