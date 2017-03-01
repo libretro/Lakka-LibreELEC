@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="snes9x"
-PKG_VERSION="4ca6b68"
+PKG_VERSION="1ad7321"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/snes9x"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/snes9x/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -35,7 +35,10 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -C libretro
+  if [ "$ARCH" == "arm" ]; then
+    CXXFLAGS="$CXXFLAGS -DARM"
+  fi
+  make -C libretro GIT_VERSION="\" $PKG_VERSION\""
 }
 
 makeinstall_target() {
