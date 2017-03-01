@@ -18,7 +18,7 @@
 
 PKG_NAME="ffmpegx"
 PKG_VERSION="libreelec"
-PKG_REV="6"
+PKG_REV="7"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
