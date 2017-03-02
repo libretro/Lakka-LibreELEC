@@ -5,6 +5,8 @@ TODO=$1
 # Drop commits not used
 DROP_COMMITS="
 UNSTABLE\: This is a placeholder\. Commits after this point are considered experimental\.
+MANUALLY REMOVE - \[cec\] Add settings for configuring button repeats
+MANUALLY REMOVE - \[cec\] Don't discard buttons when repeat mode is enabled
 ADSP: Hack - disable
 "
 
