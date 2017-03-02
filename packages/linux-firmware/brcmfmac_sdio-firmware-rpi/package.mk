@@ -38,6 +38,12 @@ makeinstall_target() {
   DESTDIR=$INSTALL/usr ./install
 }
 
+post_makeinstall_target() {
+  # Install rpi btuart script to bring up Bluetooth
+  mkdir -p $INSTALL/usr/bin
+    cp -P $PKG_DIR/scripts/rpi-btuart $INSTALL/usr/bin
+}
+
 post_install() {
   enable_service brcmfmac_sdio-firmware.service
 }
