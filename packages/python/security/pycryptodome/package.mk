@@ -48,6 +48,9 @@ makeinstall_target() {
   # Remove SelfTest bloat
   find $INSTALL -type d -name SelfTest -exec rm -fr "{}" \; 2>/dev/null || true
   find $INSTALL -name SOURCES.txt -exec sed -i "/\/SelfTest\//d;" "{}" \;
+
+  # Create Cryptodome as an alternative namespace to Crypto (Kodi addons may use either)
+  ln -sf /usr/lib/python2.7/site-packages/Crypto $INSTALL/usr/lib/python2.7/site-packages/Cryptodome
 }
 
 post_makeinstall_target() {
