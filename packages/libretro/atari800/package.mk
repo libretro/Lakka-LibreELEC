@@ -38,6 +38,10 @@ post_unpack() {
   mv $BUILD/libretro-atari800-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
 }
 
+pre_configure_target() {
+  strip_lto
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp atari800_libretro.so $INSTALL/usr/lib/libretro/
