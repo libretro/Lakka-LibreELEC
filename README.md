@@ -1,19 +1,19 @@
-# LibreELEC
+# Lakka - The DIY retro emulation console
 
-LibreELEC is a 'Just enough OS' Linux distribution for running the award-winning [Kodi](http://kodi.tv) software on popular mediacentre hardware. LibreELEC is a conservative fork of the popular [OpenELEC](http://openelec.tv) project with a stronger focus on pre-release testing and post-release change management. Further information on the project can be found on the [LibreELEC website](https://libreelec.tv).
+Lakka is a lightweight Linux distribution that transforms a small computer into a full blown emulation console.
 
-**Issues & Support**
+* **Powerful** - Built on top of the famous RetroArch emulator, Lakka is able to emulate a large range of hardware and has some useful features such as Braid-like rewinding, joypad hotplug and video streaming.
+* **User friendly** - Lakka is easy to setup and use. Once installed to your SD card, you just have to put your rom on the card, plug your joypad and enjoy your favorite old games.
+* **Low cost** - The hardware required to run Lakka cost only $35. We also support PS3 and XBox360 controllers so you don't have to buy new ones. The power can be supplied by any micro USB adapter like the one of your smartphone.
+* **Open source** - Our code is free as in freedom and hosted on Github. We accept external contributions, and we do our best to integrate our own patches into upstream projects.
 
-Please report issues via the [LibreELEC forum: Bug Reports](http://forum.libreelec.tv/forum-35.html). Please ask support questions in the [LibreELEC forum: Help & Support](http://forum.libreelec.tv/forum-3.html) or ask a member of project staff in the #libreelec IRC channel on Freenode.
+## Installation instructions
 
-**Donations**
+Please refer to our website http://www.lakka.tv/get on how to setup Lakka.
 
-Contributions towards current project funding goals can be sent via PayPal to donations@libreelec.tv
+## Support
 
-**License**
-
-LibreELEC original code is released under [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html).
-
-**Copyright**
-
-As LibreELEC includes code from many upstream projects it includes many copyright owners. LibreELEC makes NO claim of copyright on any upstream code. However all original LibreELEC authored code is copyright LibreELEC.tv. For a complete copyright list please checkout the source code to examine license headers. Unless expressly stated otherwise all code submitted to the LibreELEC project (in any form) is licensed under [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) and copyright is donated to LibreELEC.tv. This approach allows the project to stay manageable in the long term by giving us freedom to maintain the code as part of the whole without the management overhead of preserving contact with every submitter, e.g. GPLv3. You are absolutely free to retain copyright. To retain copyright simply add a copyright header to each submitted code page. If you submit code that is not your own work it is your responsibility to place a header stating the copyright.
+* [FAQ](https://github.com/lakkatv/Lakka/wiki/FAQ)
+* #lakkatv on irc.freenode.org
+* [Forums](https://forums.libretro.com/c/libretro/lakka-tv-general)
+* contact@lakka.tv
