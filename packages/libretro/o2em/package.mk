@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="o2em"
-PKG_VERSION="c54042e"
+PKG_VERSION="1d62d4e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Artistic License"
 PKG_SITE="https://github.com/libretro/libretro-o2em.git"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/libretro-o2em/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,10 @@ PKG_LONGDESC="Port of O2EM to the libretro API, an Odyssey 2 / VideoPac emulator
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $BUILD/libretro-o2em-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro

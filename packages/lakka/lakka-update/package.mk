@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="lakka-update"
-PKG_VERSION="cfbe9db"
+PKG_VERSION="9a4abe7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lakkatv/lakka-update"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/lakkatv/lakka-update/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="lakka"
