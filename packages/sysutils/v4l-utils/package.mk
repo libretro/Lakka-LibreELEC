@@ -45,4 +45,12 @@ post_makeinstall_target() {
 
   mkdir -p $INSTALL/usr/config
     cp -PR $PKG_DIR/config/* $INSTALL/usr/config
+
+  (
+    echo "# table libreelec_multi, type: RC6 NEC"
+    for f in rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i ; do
+      echo "# $f"
+      grep -v "^#" $INSTALL/usr/lib/udev/rc_keymaps/$f
+    done
+  ) > $INSTALL/usr/lib/udev/rc_keymaps/libreelec_multi
 }
