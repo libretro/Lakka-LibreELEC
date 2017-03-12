@@ -1,0 +1,198 @@
+diff --git a/src/modules/bluetooth/module-bluez5-device.c b/src/modules/bluetooth/module-bluez5-device.c
+index 84e6d55..b96a80d 100644
+--- a/src/modules/bluetooth/module-bluez5-device.c
++++ b/src/modules/bluetooth/module-bluez5-device.c
+@@ -649,6 +649,29 @@ static int a2dp_process_push(struct userdata *u) {
+     return ret;
+ }
+ 
++static void update_buffer_size(struct userdata *u) {
++    int old_bufsize, new_bufsize;
++    socklen_t len = sizeof(int);
++    int rc;
++    
++    rc = getsockopt(u->stream_fd, SOL_SOCKET, SO_SNDBUF, &old_bufsize, &len);
++    if (rc == -1) {
++        pa_log_warn("Changing bluetooth buffer size: Failed to getsockopt(SO_SNDBUF): %s", pa_cstrerror(errno));
++    } else {
++        bool ok = false;
++        for (int n = 2; !ok && n < 16; ++n) {
++            new_bufsize = n * u->write_link_mtu;
++            rc = setsockopt(u->stream_fd, SOL_SOCKET, SO_SNDBUF, &new_bufsize, len);
++            if (rc == -1) {
++                pa_log_warn("Changing bluetooth buffer size: Failed to change from %d to %d: %s", old_bufsize, new_bufsize, pa_cstrerror(errno));
++            } else {
++                ok = true;
++                pa_log_info("Changing bluetooth buffer size: Changed from %d to %d", old_bufsize, new_bufsize);
++            }
++        }
++    }
++}
++
+ /* Run from I/O thread */
+ static void a2dp_set_bitpool(struct userdata *u, uint8_t bitpool) {
+     struct sbc_info *sbc_info;
+@@ -683,6 +706,8 @@ static void a2dp_set_bitpool(struct userdata *u, uint8_t bitpool) {
+     pa_sink_set_max_request_within_thread(u->sink, u->write_block_size);
+     pa_sink_set_fixed_latency_within_thread(u->sink,
+             FIXED_LATENCY_PLAYBACK_A2DP + pa_bytes_to_usec(u->write_block_size, &u->sample_spec));
++    
++    update_buffer_size(u);
+ }
+ 
+ /* Run from I/O thread */
+@@ -814,6 +839,8 @@ static void setup_stream(struct userdata *u) {
+ 
+     if (u->profile == PA_BLUETOOTH_PROFILE_A2DP_SINK)
+         a2dp_set_bitpool(u, u->sbc_info.max_bitpool);
++    
++    update_buffer_size(u);
+ 
+     u->rtpoll_item = pa_rtpoll_item_new(u->rtpoll, PA_RTPOLL_NEVER, 1);
+     pollfd = pa_rtpoll_item_get_pollfd(u->rtpoll_item, NULL);
+@@ -1327,6 +1354,7 @@ static void thread_func(void *userdata) {
+     unsigned do_write = 0;
+     unsigned pending_read_bytes = 0;
+     bool writable = false;
++    pa_usec_t ts_last_frame;
+ 
+     pa_assert(u);
+     pa_assert(u->transport);
+@@ -1341,11 +1369,16 @@ static void thread_func(void *userdata) {
+     /* Setup the stream only if the transport was already acquired */
+     if (u->transport_acquired)
+         setup_stream(u);
++    u->started_at = pa_rtclock_now();
+ 
++    ts_last_frame = u->started_at;
++    
+     for (;;) {
+         struct pollfd *pollfd;
+         int ret;
+         bool disable_timer = true;
++        pa_usec_t ts_now = pa_rtclock_now();
++        pa_usec_t ts_next_frame = ts_last_frame + pa_bytes_to_usec(u->write_block_size, &u->sample_spec);
+ 
+         pollfd = u->rtpoll_item ? pa_rtpoll_item_get_pollfd(u->rtpoll_item, NULL) : NULL;
+ 
+@@ -1404,86 +1437,57 @@ static void thread_func(void *userdata) {
+                 if (pollfd->revents & POLLOUT)
+                     writable = true;
+ 
+-                if ((!u->source || !PA_SOURCE_IS_LINKED(u->source->thread_info.state)) && do_write <= 0 && writable) {
+-                    pa_usec_t time_passed;
+-                    pa_usec_t audio_sent;
++                if ((!u->source || !PA_SOURCE_IS_LINKED(u->source->thread_info.state))) {
+ 
+-                    /* Hmm, there is no input stream we could synchronize
+-                     * to. So let's do things by time */
++                    if (ts_now >= ts_next_frame) {
+ 
+-                    time_passed = pa_rtclock_now() - u->started_at;
+-                    audio_sent = pa_bytes_to_usec(u->write_index, &u->sample_spec);
++                        if (writable) {
++                            int n_written;
++
++                            if (u->profile == PA_BLUETOOTH_PROFILE_A2DP_SINK) {
++                                if ((n_written = a2dp_process_render(u)) < 0)
++                                    goto fail;
++                            } else {
++                                if ((n_written = sco_process_render(u)) < 0)
++                                    goto fail;
++                            }
+ 
+-                    if (audio_sent <= time_passed) {
+-                        pa_usec_t audio_to_send = time_passed - audio_sent;
++                            if (n_written == 0)
++                                pa_log("Broken kernel: we got EAGAIN on write() after POLLOUT!");
+ 
+-                        /* Never try to catch up for more than 100ms */
+-                        if (u->write_index > 0 && audio_to_send > MAX_PLAYBACK_CATCH_UP_USEC) {
++                            do_write -= n_written;
++                            writable = false;
++                        } else {
+                             pa_usec_t skip_usec;
+                             uint64_t skip_bytes;
++                            pa_memchunk tmp;
+ 
+-                            skip_usec = audio_to_send - MAX_PLAYBACK_CATCH_UP_USEC;
++                            skip_usec = ts_now - ts_last_frame;
+                             skip_bytes = pa_usec_to_bytes(skip_usec, &u->sample_spec);
+ 
+-                            if (skip_bytes > 0) {
+-                                pa_memchunk tmp;
++                            pa_log_warn("Skipping %llu us (= %llu bytes) in audio stream",
++                                        (unsigned long long) skip_usec,
++                                        (unsigned long long) skip_bytes);
+ 
+-                                pa_log_warn("Skipping %llu us (= %llu bytes) in audio stream",
+-                                            (unsigned long long) skip_usec,
+-                                            (unsigned long long) skip_bytes);
++                            pa_sink_render_full(u->sink, skip_bytes, &tmp);
++                            pa_memblock_unref(tmp.memblock);
++                            u->write_index += skip_bytes;
+ 
+-                                pa_sink_render_full(u->sink, skip_bytes, &tmp);
+-                                pa_memblock_unref(tmp.memblock);
+-                                u->write_index += skip_bytes;
+-
+-                                if (u->profile == PA_BLUETOOTH_PROFILE_A2DP_SINK)
+-                                    a2dp_reduce_bitpool(u);
+-                            }
++                            if (u->profile == PA_BLUETOOTH_PROFILE_A2DP_SINK)
++                                a2dp_reduce_bitpool(u);
+                         }
+-
+-                        do_write = 1;
++                        ts_last_frame = ts_now;
++                        // TODO: ts_last_frame might be slightly inaccurate; it should depend on ts_next_frame
+                         pending_read_bytes = 0;
+                     }
+-                }
+-
+-                if (writable && do_write > 0) {
+-                    int n_written;
+ 
+-                    if (u->write_index <= 0)
+-                        u->started_at = pa_rtclock_now();
++                    {
++                        pa_usec_t ts_now2 = pa_rtclock_now();
++                        pa_usec_t sleep_for = ts_now2 > ts_next_frame ? 0 : ts_next_frame - ts_now2;
+ 
+-                    if (u->profile == PA_BLUETOOTH_PROFILE_A2DP_SINK) {
+-                        if ((n_written = a2dp_process_render(u)) < 0)
+-                            goto fail;
+-                    } else {
+-                        if ((n_written = sco_process_render(u)) < 0)
+-                            goto fail;
++                        pa_rtpoll_set_timer_relative(u->rtpoll, sleep_for);
++                        disable_timer = false;
+                     }
+-
+-                    if (n_written == 0)
+-                        pa_log("Broken kernel: we got EAGAIN on write() after POLLOUT!");
+-
+-                    do_write -= n_written;
+-                    writable = false;
+-                }
+-
+-                if ((!u->source || !PA_SOURCE_IS_LINKED(u->source->thread_info.state)) && do_write <= 0) {
+-                    pa_usec_t sleep_for;
+-                    pa_usec_t time_passed, next_write_at;
+-
+-                    if (writable) {
+-                        /* Hmm, there is no input stream we could synchronize
+-                         * to. So let's estimate when we need to wake up the latest */
+-                        time_passed = pa_rtclock_now() - u->started_at;
+-                        next_write_at = pa_bytes_to_usec(u->write_index, &u->sample_spec);
+-                        sleep_for = time_passed < next_write_at ? next_write_at - time_passed : 0;
+-                        /* pa_log("Sleeping for %lu; time passed %lu, next write at %lu", (unsigned long) sleep_for, (unsigned long) time_passed, (unsigned long)next_write_at); */
+-                    } else
+-                        /* drop stream every 500 ms */
+-                        sleep_for = PA_USEC_PER_MSEC * 500;
+-
+-                    pa_rtpoll_set_timer_relative(u->rtpoll, sleep_for);
+-                    disable_timer = false;
+                 }
+             }
+         }
