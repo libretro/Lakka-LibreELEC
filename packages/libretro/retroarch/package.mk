@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="retroarch"
-PKG_VERSION="51581e1"
+PKG_VERSION="0b05fdf"
 PKG_REV="4"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="https://github.com/libretro/RetroArch/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig common-shaders lakka-update libretro-database ffmpeg libass libvdpau"
+PKG_DEPENDS_TARGET="toolchain alsa-lib freetype zlib retroarch-assets retroarch-overlays core-info retroarch-joypad-autoconfig common-shaders lakka-update libretro-database ffmpeg libass libvdpau libxkbfile xkeyboard-config libxkbcommon"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Reference frontend for the libretro API."
