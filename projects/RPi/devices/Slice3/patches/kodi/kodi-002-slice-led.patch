@@ -1,0 +1,677 @@
+--- a/xbmc/windows/GUIWindowHome.cpp	2016-09-17 16:35:22.000000000 +0100
++++ b/xbmc/windows/GUIWindowHome.cpp	2016-10-01 19:22:20.908566550 +0100
+@@ -30,9 +30,245 @@
+ #include "guilib/GUIWindowManager.h"
+ #include "Application.h"
+ #include "utils/StringUtils.h"
++extern "C"
++{
++  #include "readpng.h"
++}
+ 
+ using namespace ANNOUNCEMENT;
+ 
++int g_pattern = 0;
++int g_halt = 0;
++int g_pattern_playing = 0;
++int g_speed = 30000;
++int g_repeat = 0;
++ 
++enum pattern_e {
++  PAT_PLAY, PAT_PAUSE, PAT_STOP, PAT_SLEEP, PAT_WAKE, PAT_FFWD, PAT_REW, PAT_SKIPF, PAT_SKIPR, PAT_STARTUP, PAT_QUIT, PAT_NONE
++};
++#define NUM_PATTERNS 11
++const char *patterns[NUM_PATTERNS] = {
++  "play" ,  "pause",   "stop",   "sleep",   "wake",   "ffwd",   "rew",   "skipf",   "skipr",   "startup", "quit"
++};
++
++void on_speed_changed(const char *message, const CVariant &data)
++{
++  int speed = data["player"]["speed"].asInteger();
++
++  CLog::Log(LOGDEBUG, "speed changed %d", speed);
++
++  switch(abs(speed))
++  {
++    case 1:  g_speed = 60000; break;
++    case 2:  g_speed = 40000; break;
++    case 4:  g_speed = 35000; break;
++    case 8:  g_speed = 30000; break;
++    case 16: g_speed = 25000; break;
++    case 32: g_speed = 15000; break;
++  }
++
++  if(speed > 0)
++    g_pattern = PAT_FFWD;
++  else
++    g_pattern = PAT_REW;
++
++  if(speed != 1)
++    g_repeat = 1;
++  else 
++  {
++    g_repeat = 0;
++    g_pattern = PAT_NONE;
++  }
++}
++
++void on_seek(const char *message, const CVariant &data)
++{
++  int seek_time = data["player"]["seekoffset"]["seconds"].asInteger() + 
++                  data["player"]["seekoffset"]["minutes"].asInteger() * 60;
++    
++  CLog::Log(LOGDEBUG, "Seek offset = %d", seek_time);
++  if(seek_time > 0)
++  {
++    g_pattern = PAT_SKIPF;
++  }
++  else
++  {
++    g_pattern = PAT_SKIPR;
++  }
++
++  g_repeat = 0;
++}
++
++enum action_e {
++  ACTION_DO, ACTION_REPEAT, ACTION_FN
++ };
++ 
++enum led_state_e {
++  LED_STATE_INVALID = 0,
++  LED_STATE_IDLE,
++  LED_STATE_PLAYING,
++  LED_STATE_PAUSED,
++  LED_STATE_SLEEP
++};
++
++struct led_action_s {
++  const char * event_name;
++  enum action_e action;
++  enum pattern_e action_data;
++  void (*action_fn)(const char *, const CVariant &);
++  led_state_e action_state;
++} led_actions[] = {
++    { "OnPlay",                   ACTION_DO, PAT_PLAY,  NULL, LED_STATE_PLAYING },
++    { "OnPause",                  ACTION_DO, PAT_PAUSE, NULL, LED_STATE_PAUSED },
++    { "OnStop",                   ACTION_DO, PAT_STOP,  NULL, LED_STATE_IDLE },
++    { "OnSpeedChanged",           ACTION_FN, PAT_NONE,  on_speed_changed, LED_STATE_INVALID },
++    { "OnSeek",                   ACTION_FN, PAT_NONE,  on_seek, LED_STATE_INVALID },
++    { "OnScreensaverActivated",   ACTION_DO, PAT_SLEEP, NULL, LED_STATE_SLEEP },
++    { "OnScreensaverDeactivated", ACTION_DO, PAT_WAKE,  NULL, LED_STATE_IDLE },
++    { "OnQuit",                   ACTION_REPEAT, PAT_QUIT,  NULL, LED_STATE_IDLE },
++};
++
++int zeroes[25] = { 0,};
++
++class CLedPattern : public IRunnable 
++{
++  int m_going;
++  CEvent *m_ev;
++  struct pattern {
++    unsigned long w;
++    unsigned long h;
++    unsigned long rowbytes;
++    unsigned char * img;
++  } m_pattern[NUM_PATTERNS];
++
++  void open_patterns()
++  {
++    unsigned int i;
++    for(i = 0; i < sizeof(patterns)/sizeof(patterns[0]); i++)
++    {
++      FILE * fp;
++      char filename[256];
++      int channels;
++
++      m_pattern[i].img = NULL;
++      sprintf(filename, "/storage/.kodi/media/ledpatterns/%s.png", patterns[i]);
++      fp = fopen(filename , "rb");
++      if(fp == NULL)
++      {
++        sprintf(filename, "/usr/share/kodi/media/ledpatterns/%s.png", patterns[i]);
++        fp = fopen(filename, "rb");
++        if(fp == NULL)
++        {
++          CLog::Log(LOGDEBUG, "Unable to open file %s", filename);
++          goto drop_out;
++        }
++      }
++
++      if(readpng_init(fp, &m_pattern[i].w, &m_pattern[i].h) != 0)
++      {
++        CLog::Log(LOGERROR, "Unable to parse png files %s", filename);
++        goto drop_out;
++      }
++
++      m_pattern[i].img = readpng_get_image(1.0, &channels, &m_pattern[i].rowbytes);
++      if(m_pattern[i].img == NULL || channels != 4)
++      {
++        CLog::Log(LOGERROR, "Invalid png %s, width = %lu, height = %lu, channels = %d, rowbytes = %lu", 
++          filename, m_pattern[i].w, m_pattern[i].h, channels, m_pattern[i].rowbytes);
++        goto drop_out;
++      }
++
++      CLog::Log(LOGDEBUG, "Opened %s: (%lu x %lu)", filename, m_pattern[i].w, m_pattern[i].h);
++      
++drop_out:
++      if(fp)
++        fclose(fp);
++
++    }
++  }
++
++  void play_pattern(int pat)
++  {
++    int fd = open("/dev/ws2812", O_WRONLY, 0);
++    if(fd < 0)
++    {
++      CLog::Log(LOGERROR, "Unable to open /dev/ws2812");
++    }
++    else
++    {
++      if(pat < PAT_NONE && m_pattern[pat].img != NULL)
++      {
++        CLog::Log(LOGDEBUG, "playing pattern");
++        g_pattern_playing = 1;
++        do
++        {
++          unsigned char * p_line = m_pattern[pat].img;
++          unsigned int i;
++
++          for(i = 0; i < m_pattern[pat].h; i++)
++          { 
++            write(fd, p_line, m_pattern[pat].w * 4);
++            if(m_pattern[pat].w == 26)
++            {
++              int *p = (int *) (p_line + (25 * 4));
++              usleep(*p); 
++            }
++            else
++            {
++              usleep(g_speed);
++            }
++            p_line += m_pattern[pat].rowbytes;
++            // If we get the g_halt signal then stop repeating
++            // the pattern
++            if(g_halt)
++            {
++              g_halt = 0;
++              g_repeat = 0;
++              break;
++            }
++          }
++          p_line += m_pattern[pat].rowbytes;
++        }
++        while(g_repeat);
++        g_pattern_playing = 0;
++
++        if(pat != PAT_QUIT)
++          write(fd, zeroes, sizeof(zeroes)); 
++      }
++      else
++      {
++        CLog::Log(LOGDEBUG, "No img for LED pattern %d", pat);
++      }
++      close(fd);
++    }
++  }
++
++public:
++  CLedPattern(CEvent *ev)
++  {
++    CLog::Log(LOGDEBUG, "Initialising CLedPattern");
++    open_patterns();
++    m_ev = ev;
++ }
++
++  void Run()
++  {
++    m_going = 1;
++    while(m_going)
++    {
++      m_ev->Wait();
++      CLog::Log(LOGDEBUG, "Led Pattern %d triggered", g_pattern);
++      play_pattern(g_pattern);
++    }
++  }
++
++  void Stop()
++  {
++    m_going = 0;
++    m_ev->Set();
++  }
++};
++
+ CGUIWindowHome::CGUIWindowHome(void) : CGUIWindow(WINDOW_HOME, "Home.xml"), 
+                                        m_recentlyAddedRunning(false),
+                                        m_cumulativeUpdateFlag(0)
+@@ -40,6 +276,14 @@ CGUIWindowHome::CGUIWindowHome(void) : C
+   m_updateRA = (Audio | Video | Totals);
+   m_loadType = KEEP_IN_MEMORY;
+   
++  m_ledevent = new CEvent();
++  m_ledthread = new CThread(new CLedPattern(m_ledevent), "LedThread");
++  m_ledthread->Create();
++  g_pattern = PAT_STARTUP;
++  g_speed = 30000;
++  g_repeat = 0;
++  m_ledevent->Set();
++
+   CAnnouncementManager::GetInstance().AddAnnouncer(this);
+ }
+ 
+@@ -75,10 +319,49 @@ void CGUIWindowHome::OnInitWindow()
+ 
+ void CGUIWindowHome::Announce(AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data)
+ {
++  unsigned int i;
+   int ra_flag = 0;
+ 
+   CLog::Log(LOGDEBUG, "GOT ANNOUNCEMENT, type: %i, from %s, message %s",(int)flag, sender, message);
+ 
++  for(i = 0; i < sizeof(led_actions)/sizeof(led_actions[0]); i++)
++  {
++    if(strcmp(message, led_actions[i].event_name) == 0)
++    {
++      switch(led_actions[i].action) { 
++        case ACTION_DO:
++        case ACTION_REPEAT:
++        {
++          g_halt = 1;
++          while(g_pattern_playing) 
++            usleep(10);
++          g_halt = 0;
++          g_repeat = (led_actions[i].action == ACTION_DO) ? 0 : 1;
++          g_speed = 30000;
++          g_pattern = (int) led_actions[i].action_data;
++          m_ledevent->Set();
++          break;
++        }
++        case ACTION_FN:
++        {
++          g_halt = 1;
++          while(g_pattern_playing) 
++            usleep(10);
++          g_halt = 0;
++          g_repeat = 0;
++          g_speed = 30000;
++          led_actions[i].action_fn(message, data);
++          m_ledevent->Set();
++          break;
++        }
++        default:
++        {   
++          CLog::Log(LOGERROR, "Failed to execute LED action %d for event %s\n", i, led_actions[i].event_name);
++        }
++      }
++    }
++  }
++
+   // we are only interested in library changes
+   if ((flag & (VideoLibrary | AudioLibrary)) == 0)
+     return;
+--- a/xbmc/windows/GUIWindowHome.h	2016-09-17 16:35:22.000000000 +0100
++++ b/xbmc/windows/GUIWindowHome.h	2016-10-01 19:34:18.585113811 +0100
+@@ -23,6 +23,8 @@
+ #include "guilib/GUIWindow.h"
+ #include "interfaces/IAnnouncer.h"
+ #include "utils/Job.h"
++#include "threads/Thread.h"
++#include "threads/Event.h"
+ 
+ class CVariant;
+ 
+@@ -47,4 +49,7 @@
+ 
+   bool m_recentlyAddedRunning;
+   int m_cumulativeUpdateFlag;
++
++  CThread *m_ledthread;
++  CEvent  *m_ledevent;
+ };
+--- a/xbmc/windows/readpng.c	1970-01-01 00:00:00.000000000 +0000
++++ b/xbmc/windows/readpng.c	2016-01-08 06:49:51.049652775 +0000
+@@ -0,0 +1,274 @@
++/*---------------------------------------------------------------------------
++
++   rpng - simple PNG display program                              readpng.c
++
++  ---------------------------------------------------------------------------
++
++      Copyright (c) 1998-2000 Greg Roelofs.  All rights reserved.
++
++      This software is provided "as is," without warranty of any kind,
++      express or implied.  In no event shall the author or contributors
++      be held liable for any damages arising in any way from the use of
++      this software.
++
++      Permission is granted to anyone to use this software for any purpose,
++      including commercial applications, and to alter it and redistribute
++      it freely, subject to the following restrictions:
++
++      1. Redistributions of source code must retain the above copyright
++         notice, disclaimer, and this list of conditions.
++      2. Redistributions in binary form must reproduce the above copyright
++         notice, disclaimer, and this list of conditions in the documenta-
++         tion and/or other materials provided with the distribution.
++      3. All advertising materials mentioning features or use of this
++         software must display the following acknowledgment:
++
++            This product includes software developed by Greg Roelofs
++            and contributors for the book, "PNG: The Definitive Guide,"
++            published by O'Reilly and Associates.
++
++  ---------------------------------------------------------------------------*/
++
++#include <stdio.h>
++#include <stdlib.h>
++
++#include "png.h"        /* libpng header; includes zlib.h */
++#include "readpng.h"    /* typedefs, common macros, public prototypes */
++
++
++static png_structp png_ptr = NULL;
++static png_infop info_ptr = NULL;
++
++png_uint_32  width, height;
++int  bit_depth, color_type;
++uch  *image_data = NULL;
++
++
++void readpng_version_info(void)
++{
++    fprintf(stderr, "   Compiled with libpng %s; using libpng %s.\n",
++      PNG_LIBPNG_VER_STRING, png_libpng_ver);
++}
++
++
++/* return value = 0 for success, 1 for bad sig, 2 for bad IHDR, 4 for no mem */
++
++int readpng_init(FILE *infile, ulg *pWidth, ulg *pHeight)
++{
++    uch sig[8];
++
++
++    /* first do a quick check that the file really is a PNG image; could
++     * have used slightly more general png_sig_cmp() function instead */
++
++    fread(sig, 1, 8, infile);
++    if(png_sig_cmp(sig, 0, 8))
++        return 1;   /* bad signature */
++
++
++    /* could pass pointers to user-defined error handlers instead of NULLs: */
++
++    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
++    if (!png_ptr)
++        return 4;   /* out of memory */
++
++    info_ptr = png_create_info_struct(png_ptr);
++    if (!info_ptr) {
++        png_destroy_read_struct(&png_ptr, NULL, NULL);
++        return 4;   /* out of memory */
++    }
++
++
++    /* we could create a second info struct here (end_info), but it's only
++     * useful if we want to keep pre- and post-IDAT chunk info separated
++     * (mainly for PNG-aware image editors and converters) */
++
++
++    /* setjmp() must be called in every function that calls a PNG-reading
++     * libpng function */
++
++    if (setjmp(png_jmpbuf(png_ptr))) {
++        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++        return 2;
++    }
++
++
++    png_init_io(png_ptr, infile);
++    png_set_sig_bytes(png_ptr, 8);  /* we already read the 8 signature bytes */
++
++    png_read_info(png_ptr, info_ptr);  /* read all PNG info up to image data */
++
++
++    /* alternatively, could make separate calls to png_get_image_width(),
++     * etc., but want bit_depth and color_type for later [don't care about
++     * compression_type and filter_type => NULLs] */
++
++    png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type,
++      NULL, NULL, NULL);
++    *pWidth = width;
++    *pHeight = height;
++
++
++    /* OK, that's all we need for now; return happy */
++
++    return 0;
++}
++
++
++
++
++/* returns 0 if succeeds, 1 if fails due to no bKGD chunk, 2 if libpng error;
++ * scales values to 8-bit if necessary */
++
++int readpng_get_bgcolor(uch *red, uch *green, uch *blue)
++{
++    png_color_16p pBackground;
++
++
++    /* setjmp() must be called in every function that calls a PNG-reading
++     * libpng function */
++
++    if (setjmp(png_jmpbuf(png_ptr))) {
++        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++        return 2;
++    }
++
++
++    if (!png_get_valid(png_ptr, info_ptr, PNG_INFO_bKGD))
++        return 1;
++
++    /* it is not obvious from the libpng documentation, but this function
++     * takes a pointer to a pointer, and it always returns valid red, green
++     * and blue values, regardless of color_type: */
++
++    png_get_bKGD(png_ptr, info_ptr, &pBackground);
++
++
++    /* however, it always returns the raw bKGD data, regardless of any
++     * bit-depth transformations, so check depth and adjust if necessary */
++
++    if (bit_depth == 16) {
++        *red   = pBackground->red   >> 8;
++        *green = pBackground->green >> 8;
++        *blue  = pBackground->blue  >> 8;
++    } else if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) {
++        if (bit_depth == 1)
++            *red = *green = *blue = pBackground->gray? 255 : 0;
++        else if (bit_depth == 2)
++            *red = *green = *blue = (255/3) * pBackground->gray;
++        else /* bit_depth == 4 */
++            *red = *green = *blue = (255/15) * pBackground->gray;
++    } else {
++        *red   = (uch)pBackground->red;
++        *green = (uch)pBackground->green;
++        *blue  = (uch)pBackground->blue;
++    }
++
++    return 0;
++}
++
++
++
++
++/* display_exponent == LUT_exponent * CRT_exponent */
++
++uch *readpng_get_image(double display_exponent, int *pChannels, ulg *pRowbytes)
++{
++    double  gamma;
++    png_uint_32  i, rowbytes;
++    png_bytepp  row_pointers = NULL;
++
++
++    /* setjmp() must be called in every function that calls a PNG-reading
++     * libpng function */
++
++    if (setjmp(png_jmpbuf(png_ptr))) {
++        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++        return NULL;
++    }
++
++
++    /* expand palette images to RGB, low-bit-depth grayscale images to 8 bits,
++     * transparency chunks to full alpha channel; strip 16-bit-per-sample
++     * images to 8 bits per sample; and convert grayscale to RGB[A] */
++
++    if (color_type == PNG_COLOR_TYPE_PALETTE)
++        png_set_expand(png_ptr);
++    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
++        png_set_expand(png_ptr);
++    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
++        png_set_expand(png_ptr);
++    if (bit_depth == 16)
++        png_set_strip_16(png_ptr);
++    if (color_type == PNG_COLOR_TYPE_GRAY ||
++        color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
++        png_set_gray_to_rgb(png_ptr);
++
++
++    /* unlike the example in the libpng documentation, we have *no* idea where
++     * this file may have come from--so if it doesn't have a file gamma, don't
++     * do any correction ("do no harm") */
++
++    if (png_get_gAMA(png_ptr, info_ptr, &gamma))
++        png_set_gamma(png_ptr, display_exponent, gamma);
++
++
++    /* all transformations have been registered; now update info_ptr data,
++     * get rowbytes and channels, and allocate image memory */
++
++    png_read_update_info(png_ptr, info_ptr);
++
++    *pRowbytes = rowbytes = png_get_rowbytes(png_ptr, info_ptr);
++    *pChannels = (int)png_get_channels(png_ptr, info_ptr);
++
++    if ((image_data = (uch *)malloc(rowbytes*height)) == NULL) {
++        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++        return NULL;
++    }
++    if ((row_pointers = (png_bytepp)malloc(height*sizeof(png_bytep))) == NULL) {
++        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++        free(image_data);
++        image_data = NULL;
++        return NULL;
++    }
++
++    Trace((stderr, "readpng_get_image:  rowbytes = %ld, height = %ld\n", rowbytes, height));
++
++
++    /* set the individual row_pointers to point at the correct offsets */
++
++    for (i = 0;  i < height;  ++i)
++        row_pointers[i] = image_data + i*rowbytes;
++
++
++    /* now we can go ahead and just read the whole image */
++
++    png_read_image(png_ptr, row_pointers);
++
++
++    /* and we're done!  (png_read_end() can be omitted if no processing of
++     * post-IDAT text/time/etc. is desired) */
++
++    free(row_pointers);
++    row_pointers = NULL;
++
++    png_read_end(png_ptr, NULL);
++
++    return image_data;
++}
++
++
++void readpng_cleanup(int free_image_data)
++{
++    if (free_image_data && image_data) {
++        free(image_data);
++        image_data = NULL;
++    }
++
++    if (png_ptr && info_ptr) {
++        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++        png_ptr = NULL;
++        info_ptr = NULL;
++    }
++}
++
+--- a/xbmc/windows/readpng.h	1970-01-01 00:00:00.000000000 +0000
++++ b/xbmc/windows/readpng.h	2016-01-08 06:49:51.049652775 +0000
+@@ -0,0 +1,65 @@
++/*---------------------------------------------------------------------------
++
++   rpng - simple PNG display program                              readpng.h
++
++  ---------------------------------------------------------------------------
++
++      Copyright (c) 1998-2000 Greg Roelofs.  All rights reserved.
++
++      This software is provided "as is," without warranty of any kind,
++      express or implied.  In no event shall the author or contributors
++      be held liable for any damages arising in any way from the use of
++      this software.
++
++      Permission is granted to anyone to use this software for any purpose,
++      including commercial applications, and to alter it and redistribute
++      it freely, subject to the following restrictions:
++
++      1. Redistributions of source code must retain the above copyright
++         notice, disclaimer, and this list of conditions.
++      2. Redistributions in binary form must reproduce the above copyright
++         notice, disclaimer, and this list of conditions in the documenta-
++         tion and/or other materials provided with the distribution.
++      3. All advertising materials mentioning features or use of this
++         software must display the following acknowledgment:
++
++            This product includes software developed by Greg Roelofs
++            and contributors for the book, "PNG: The Definitive Guide,"
++            published by O'Reilly and Associates.
++
++  ---------------------------------------------------------------------------*/
++
++#ifndef TRUE
++#  define TRUE 1
++#  define FALSE 0
++#endif
++
++#ifndef MAX
++#  define MAX(a,b)  ((a) > (b)? (a) : (b))
++#  define MIN(a,b)  ((a) < (b)? (a) : (b))
++#endif
++
++#ifdef DEBUG
++#  define Trace(x)  {fprintf x ; fflush(stderr); fflush(stdout);}
++#else
++#  define Trace(x)  ;
++#endif
++
++typedef unsigned char   uch;
++typedef unsigned short  ush;
++typedef unsigned long   ulg;
++
++
++/* prototypes for public functions in readpng.c */
++
++void readpng_version_info(void);
++
++int readpng_init(FILE *infile, ulg *pWidth, ulg *pHeight);
++
++int readpng_get_bgcolor(uch *bg_red, uch *bg_green, uch *bg_blue);
++
++uch *readpng_get_image(double display_exponent, int *pChannels,
++                       ulg *pRowbytes);
++
++void readpng_cleanup(int free_image_data);
++
