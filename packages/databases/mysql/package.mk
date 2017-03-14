@@ -23,7 +23,7 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mysql.com"
 PKG_URL="http://ftp.gwdg.de/pub/misc/$PKG_NAME/Downloads/MySQL-5.7/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="zlib:host"
-PKG_DEPENDS_TARGET="toolchain zlib netbsd-curses libressl boost mysql:host"
+PKG_DEPENDS_TARGET="toolchain zlib netbsd-curses openssl boost mysql:host"
 PKG_SECTION="database"
 PKG_SHORTDESC="mysql: A database server"
 PKG_LONGDESC="MySQL is a SQL (Structured Query Language) database server. SQL is the most popular database language in the world. MySQL is a client server implementation that consists of a server daemon mysqld and many different client programs/libraries."
@@ -32,13 +32,12 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 post_unpack() {
-  sed -i 's|OPENSSL_MAJOR_VERSION STREQUAL "1"|OPENSSL_MAJOR_VERSION STREQUAL "2"|' $ROOT/$PKG_BUILD/cmake/ssl.cmake
-  sed -i 's|GET_TARGET_PROPERTY(LIBMYSQL_OS_OUTPUT_NAME libmysql OUTPUT_NAME)|SET(LIBMYSQL_OS_OUTPUT_NAME "mysqlclient")|' $ROOT/$PKG_BUILD/scripts/CMakeLists.txt
-  sed -i "s|COMMAND comp_err|COMMAND $ROOT/$TOOLCHAIN/bin/comp_err|" $ROOT/$PKG_BUILD/extra/CMakeLists.txt
-  sed -i "s|COMMAND comp_sql|COMMAND $ROOT/$TOOLCHAIN/bin/comp_sql|" $ROOT/$PKG_BUILD/scripts/CMakeLists.txt
-  sed -i "s|COMMAND gen_lex_hash|COMMAND $ROOT/$TOOLCHAIN/bin/gen_lex_hash|" $ROOT/$PKG_BUILD/sql/CMakeLists.txt
+  sed -i 's|GET_TARGET_PROPERTY(LIBMYSQL_OS_OUTPUT_NAME libmysql OUTPUT_NAME)|SET(LIBMYSQL_OS_OUTPUT_NAME "mysqlclient")|' $PKG_BUILD/scripts/CMakeLists.txt
+  sed -i "s|COMMAND comp_err|COMMAND $TOOLCHAIN/bin/comp_err|" $PKG_BUILD/extra/CMakeLists.txt
+  sed -i "s|COMMAND comp_sql|COMMAND $TOOLCHAIN/bin/comp_sql|" $PKG_BUILD/scripts/CMakeLists.txt
+  sed -i "s|COMMAND gen_lex_hash|COMMAND $TOOLCHAIN/bin/gen_lex_hash|" $PKG_BUILD/sql/CMakeLists.txt
 
-  sed -i '/^IF(NOT BOOST_MINOR_VERSION.*$/,/^ENDIF()$/d' $ROOT/$PKG_BUILD/cmake/boost.cmake
+  sed -i '/^IF(NOT BOOST_MINOR_VERSION.*$/,/^ENDIF()$/d' $PKG_BUILD/cmake/boost.cmake
 }
 
 PKG_CMAKE_OPTS_HOST="-DCMAKE_BUILD_TYPE=Release \
@@ -100,7 +99,7 @@ post_makeinstall_target() {
   sed -i "s|pkgincludedir=.*|pkgincludedir=\'$SYSROOT_PREFIX/usr/include/mysql\'|" scripts/mysql_config
   sed -i "s|pkglibdir=.*|pkglibdir=\'$SYSROOT_PREFIX/usr/lib/mysql\'|" scripts/mysql_config
   cp scripts/mysql_config $SYSROOT_PREFIX/usr/bin
-  ln -sf $SYSROOT_PREFIX/usr/bin/mysql_config $ROOT/$TOOLCHAIN/bin/mysql_config
+  ln -sf $SYSROOT_PREFIX/usr/bin/mysql_config $TOOLCHAIN/bin/mysql_config
 
   rm -rf $INSTALL
 }
