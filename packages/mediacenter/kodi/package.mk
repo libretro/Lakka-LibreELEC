@@ -186,6 +186,10 @@ else
   KODI_ARCH="-DWITH_ARCH=$TARGET_ARCH"
 fi
 
+if [ "$DEVICE" = "Slice" -o "$DEVICE" = "Slice3" ]; then
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET led_tools"
+fi
+
 if [ ! "$KODIPLAYER_DRIVER" = default ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $KODIPLAYER_DRIVER"
   if [ "$KODIPLAYER_DRIVER" = bcm2835-driver ]; then

@@ -139,6 +139,10 @@ post_patch() {
       sed -i -e "s|CONFIG_MXC_HDMI_CEC_SR=y||" $PKG_BUILD/.config
     fi
   fi
+
+  # install extra dts files
+  cp -v projects/$PROJECT/devices/$DEVICE/config/*-overlay.dts $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/ || :
+  cp -v projects/$PROJECT/devices/$DEVICE/config/dt-blob.dts $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/ || :
 }
 
 makeinstall_host() {
