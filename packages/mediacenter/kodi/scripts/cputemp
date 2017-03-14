@@ -24,51 +24,52 @@
 TEMP=0
 
 if [ $(basename "$0") = "gputemp" -o "$1" = "gpu" ]; then
-  if which lspci >/dev/null; then
-    if lspci -n | grep 0300 | grep -q 10de; then
-      [ -x /usr/bin/nvidia-smi ] && TEMP=`/usr/bin/nvidia-smi -q -x | grep '<gpu_temp>' | awk '{ print $1 }' | sed 's,<gpu_temp>,,g'`
-    fi
+
+  if [ -x /usr/bin/nvidia-smi ]; then
+    TEMP="$(/usr/bin/nvidia-smi -q -x | grep '<gpu_temp>' | awk '{ print $1 }' | sed 's,<gpu_temp>,,g')"
+  fi
+
+  if [ "$TEMP" = "0" ]; then
+    for hwmon in /sys/class/hwmon/*; do
+      if [ -f "${hwmon}/name" ]; then
+        case $(cat ${hwmon}/name) in
+          nouveau|radeon)
+            [[ -f "${hwmon}/temp1_input" ]] && TEMP="$(cat ${hwmon}/temp1_input)" && break
+            [[ -f "${hwmon}/temp2_input" ]] && TEMP="$(cat ${hwmon}/temp2_input)" && break
+            ;;
+          coretemp)
+            [[ -f "${hwmon}/temp1_input" ]] && TEMP="$(cat ${hwmon}/temp1_input)" && break
+            [[ -f "${hwmon}/temp2_input" ]] && TEMP="$(cat ${hwmon}/temp2_input)" && break
+            ;;
+        esac
+      fi
+    done
+
+    TEMP="$(( $TEMP / 1000 ))"
+
   fi
 fi
 
 if [ "$1" = "cpu" -o "$TEMP" = "0" ]; then
 
-  # used with coretemp
-  for hwmon in hwmon0 hwmon1; do
-    for temp in temp1 temp2; do
-      if [ "$TEMP" = "0" -a -f /sys/class/hwmon/${hwmon}/${temp}_input ]; then
-        if [ -f /sys/class/hwmon/${hwmon}/name ]; then
-          if [ ! "$(cat /sys/class/hwmon/${hwmon}/name)" = acpitz ]; then
-            TEMP=$(cat /sys/class/hwmon/${hwmon}/${temp}_input)
-          fi
-        fi
-      fi
-    done
+  for hwmon in /sys/class/hwmon/*; do
+    if [ -f "${hwmon}/name" ]; then
+      case $(cat ${hwmon}/name) in
+        coretemp|k10temp)
+          [[ -f "${hwmon}/temp1_input" ]] && TEMP="$(cat ${hwmon}/temp1_input)" && break
+          [[ -f "${hwmon}/temp2_input" ]] && TEMP="$(cat ${hwmon}/temp2_input)" && break
+          ;;
+      esac
+    fi
   done
 
-  # used on AMD systems
   if [ "$TEMP" = "0" -a -f /sys/class/hwmon/hwmon0/device/temp1_input ]; then
-    TEMP=`cat /sys/class/hwmon/hwmon0/device/temp1_input`
+    TEMP="$(cat /sys/class/hwmon/hwmon0/device/temp1_input)"
   fi
 
-  # used on ION systems
-  if [ "$TEMP" = "0" -a -f /sys/class/hwmon/hwmon0/device/temp2_input ]; then
-    TEMP=`cat /sys/class/hwmon/hwmon0/device/temp2_input`
-  fi
-
-  # used on some intel systems
-  if [ "$TEMP" = "0" -a -f /sys/bus/acpi/devices/LNXTHERM\:00/thermal_zone/temp ]; then
-    TEMP=`cat /sys/bus/acpi/devices/LNXTHERM\:00/thermal_zone/temp`
-  fi
-
-  # used on some intel systems
-  if [ "$TEMP" = "0" -a -f /sys/devices/virtual/thermal/thermal_zone0/temp ]; then
-    TEMP=`cat /sys/devices/virtual/thermal/thermal_zone0/temp`
-  fi
-
-  # used on RaspberryPi
+  # used on RaspberryPi and amlogic
   if [ "$TEMP" = "0" -a -f /sys/class/thermal/thermal_zone0/temp ]; then
-    TEMP=`cat /sys/class/thermal/thermal_zone0/temp`
+    TEMP="$(cat /sys/class/thermal/thermal_zone0/temp)"
   fi
 
   TEMP="$(( $TEMP / 1000 ))"
