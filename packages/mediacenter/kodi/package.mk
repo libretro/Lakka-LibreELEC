@@ -292,39 +292,27 @@ post_makeinstall_target() {
     $SED "s|@ADDON_URL@|http://lrusak.libreelec.tv/addons/$ADDON_PATH|g" $INSTALL/usr/share/kodi/addons/repository.retroplayer.libreelec.tv/addon.xml
 
   mkdir -p $INSTALL/usr/share/kodi/config
-    cp $PKG_DIR/config/guisettings.xml $INSTALL/usr/share/kodi/config
-    cp $PKG_DIR/config/sources.xml $INSTALL/usr/share/kodi/config
-
-# install project specific configs
-    if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/guisettings.xml ]; then
-      cp -R $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/guisettings.xml $INSTALL/usr/share/kodi/config
-    elif [ -f $PROJECT_DIR/$PROJECT/kodi/guisettings.xml ]; then
-      cp -R $PROJECT_DIR/$PROJECT/kodi/guisettings.xml $INSTALL/usr/share/kodi/config
-    fi
-
-    if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/sources.xml ]; then
-      cp -R $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/sources.xml $INSTALL/usr/share/kodi/config
-    elif [ -f $PROJECT_DIR/$PROJECT/kodi/sources.xml ]; then
-      cp -R $PROJECT_DIR/$PROJECT/kodi/sources.xml $INSTALL/usr/share/kodi/config
-    fi
-
-  mkdir -p $INSTALL/usr/share/kodi/system/
-    if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/advancedsettings.xml ]; then
-      cp $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/advancedsettings.xml $INSTALL/usr/share/kodi/system/
-    elif [ -f $PROJECT_DIR/$PROJECT/kodi/advancedsettings.xml ]; then
-      cp $PROJECT_DIR/$PROJECT/kodi/advancedsettings.xml $INSTALL/usr/share/kodi/system/
-    else
-      cp $PKG_DIR/config/advancedsettings.xml $INSTALL/usr/share/kodi/system/
-    fi
-
   mkdir -p $INSTALL/usr/share/kodi/system/settings
-    if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/appliance.xml ]; then
-      cp $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/appliance.xml $INSTALL/usr/share/kodi/system/settings
-    elif [ -f $PROJECT_DIR/$PROJECT/kodi/appliance.xml ]; then
-      cp $PROJECT_DIR/$PROJECT/kodi/appliance.xml $INSTALL/usr/share/kodi/system/settings
-    else
-      cp $PKG_DIR/config/appliance.xml $INSTALL/usr/share/kodi/system/settings
-    fi
+
+  $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/guisettings.xml \
+                                $PROJECT_DIR/$PROJECT/kodi/guisettings.xml
+                                $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/guisettings.xml \
+                                > $INSTALL/usr/share/kodi/config/guisettings.xml
+
+  $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/sources.xml \
+                                $PROJECT_DIR/$PROJECT/kodi/sources.xml
+                                $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/sources.xml \
+                                > $INSTALL/usr/share/kodi/config/sources.xml
+
+  $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/advancedsettings.xml \
+                                $PROJECT_DIR/$PROJECT/kodi/advancedsettings.xml
+                                $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/advancedsettings.xml \
+                                > $INSTALL/usr/share/kodi/system/advancedsettings.xml
+
+  $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/appliance.xml \
+                                $PROJECT_DIR/$PROJECT/kodi/appliance.xml
+                                $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/appliance.xml \
+                                > $INSTALL/usr/share/kodi/system/settings/appliance.xml
 
   # update addon manifest
   ADDON_MANIFEST=$INSTALL/usr/share/kodi/system/addon-manifest.xml
