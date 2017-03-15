@@ -2,15 +2,25 @@
 
 # taken from http://stackoverflow.com/a/14879370 with minor modifications
 
+from __future__ import print_function
 import os
 import sys
 import xml.dom.minidom
 from xml.etree import ElementTree as et
 
+def printerr(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 class XMLCombiner(object):
     def __init__(self, filenames):
-        assert len(filenames) > 0, 'No filenames!'
-        self.roots = [et.parse(f).getroot() for f in filenames]
+        if len(filenames) == 0:
+          raise Exception('No filenames!')
+
+        try:
+          self.roots = [et.parse(f).getroot() for f in filenames]
+        except xml.etree.ElementTree.ParseError:
+          printerr("ERROR: Unable to parse XML file %s" % f)
+          raise
 
     def prettyPrint(self, etree_xml):
         minidom = xml.dom.minidom.parseString(et.tostring(etree_xml))
@@ -38,14 +48,8 @@ class XMLCombiner(object):
                     one.append(el)
 
 if __name__ == '__main__':
-    try:
-        r = XMLCombiner([sys.argv[1], sys.argv[2], sys.argv[3]]).combine()
-    except IOError:
-        try:
-            r = XMLCombiner([sys.argv[1], sys.argv[2]]).combine()
-        except IOError:
-            try:
-                r = XMLCombiner([sys.argv[1], sys.argv[3]]).combine()
-            except IOError:
-                r = XMLCombiner([sys.argv[1]]).combine()
+    xmlfiles = [file for file in sys.argv[1:] if os.path.exists(file)]
+
+    r = XMLCombiner(xmlfiles).combine()
+
     print(r)
