@@ -82,13 +82,11 @@ else
 fi
 
 GIT_SEQUENCE_EDITOR=${BIN}/rpi-kodi-rebase.sh git rebase -i ${BASEREV}
-git format-patch --no-signature --stdout ${BASEREV} -- addons/${SKIN1} | sed -E 's#addons/skin\.[^/]*/##g' >/tmp/skin.patch
-git format-patch --no-signature --stdout ${BASEREV} -- . ":!addons/${SKIN1}" >/tmp/kodi.patch
+git format-patch --no-signature --stdout ${BASEREV} >/tmp/kodi.patch
 
 cd .. && rm -fr raspberrypi-kodi
 
 echo
-echo "New skin patch: /tmp/skin.patch"
 echo "New kodi patch: /tmp/kodi.patch"
 
 echo
@@ -102,19 +100,9 @@ echo "git checkout -b somebranch"
 BRANCH="${BRANCH//_/-}"
 
 echo
-if [ -s /tmp/skin.patch ]; then
-  echo "cp /tmp/skin.patch projects/RPi/patches/${SKIN2}/${SKIN2}-001-backport.patch"
-  echo "cp /tmp/skin.patch projects/RPi2/patches/${SKIN2}/${SKIN2}-001-backport.patch"
-  echo "git commit -am \"RPi/RPi2: Update ${SKIN2} support patches\""
-else
-  echo "NO SKIN PATCH REQUIRED"
-fi
-
-echo
 if [ -s /tmp/kodi.patch ]; then
   echo "cp /tmp/kodi.patch projects/RPi/patches/kodi/kodi-001-backport.patch"
-  echo "cp /tmp/kodi.patch projects/RPi2/patches/kodi/kodi-001-backport.patch"
-  echo "git commit -am \"RPi/RPi2: Update kodi support patches\""
+  echo "git commit -am \"RPi: Update kodi support patch\""
 else
   echo "NO KODI PATCH REQUIRED"
 fi

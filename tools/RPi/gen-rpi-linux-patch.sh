@@ -111,10 +111,8 @@ echo "git checkout -b somebranch"
 
 echo
 echo "cp /tmp/linux-01-RPi_support.patch projects/RPi/patches/linux/linux-01-RPi_support.patch"
-echo
-echo "cp /tmp/linux-01-RPi_support.patch projects/RPi2/patches/linux/linux-01-RPi_support.patch"
 
 echo
-echo "git commit -am \"RPi/RPi2: update linux support patches for linux ${KERNEL:-${BRANCH}}\""
+echo "git commit -am \"RPi: update linux support patch for linux ${KERNEL:-${BRANCH}}\""
 
 echo
