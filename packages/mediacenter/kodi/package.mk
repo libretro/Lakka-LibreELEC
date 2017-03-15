@@ -298,22 +298,22 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/share/kodi/system/settings
 
   $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/guisettings.xml \
-                                $PROJECT_DIR/$PROJECT/kodi/guisettings.xml
+                                $PROJECT_DIR/$PROJECT/kodi/guisettings.xml \
                                 $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/guisettings.xml \
                                 > $INSTALL/usr/share/kodi/config/guisettings.xml
 
   $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/sources.xml \
-                                $PROJECT_DIR/$PROJECT/kodi/sources.xml
+                                $PROJECT_DIR/$PROJECT/kodi/sources.xml \
                                 $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/sources.xml \
                                 > $INSTALL/usr/share/kodi/config/sources.xml
 
   $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/advancedsettings.xml \
-                                $PROJECT_DIR/$PROJECT/kodi/advancedsettings.xml
+                                $PROJECT_DIR/$PROJECT/kodi/advancedsettings.xml \
                                 $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/advancedsettings.xml \
                                 > $INSTALL/usr/share/kodi/system/advancedsettings.xml
 
   $PKG_DIR/scripts/xml_merge.py $PKG_DIR/config/appliance.xml \
-                                $PROJECT_DIR/$PROJECT/kodi/appliance.xml
+                                $PROJECT_DIR/$PROJECT/kodi/appliance.xml \
                                 $PROJECT_DIR/$PROJECT/devices/$DEVICE/kodi/appliance.xml \
                                 > $INSTALL/usr/share/kodi/system/settings/appliance.xml
 
