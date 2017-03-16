@@ -40,10 +40,9 @@ if [ $TARGET_KERNEL_ARCH = "arm64" ] && [ $TARGET_ARCH == "arm"  ]; then
   TARGET_PREFIX=aarch64-elf-
 fi
 
-echo $(kernel_path)
 make_target() {
-  ARCH=$TARGET_KERNEL_ARCH CROSS_COMPILE=$TARGET_PREFIX \
-    LDFLAGS="" CFLAGS="" CONFIG_CLD_HL_SDIO_CORE=y KERNEL_SRC=$(kernel_path) make
+  KERNEL_SRC="$(kernel_path)" ARCH=$TARGET_KERNEL_ARCH CROSS_COMPILE=$TARGET_PREFIX \
+    LDFLAGS="" CFLAGS="" CONFIG_CLD_HL_SDIO_CORE=y make
 }
 
 makeinstall_target() {
