@@ -50,7 +50,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-dependency-tracking \
                            --disable-obex \
                            --enable-client \
                            --enable-systemd \
-                           --enable-tools \
+                           --enable-tools --enable-deprecated \
                            --enable-datafiles \
                            --disable-experimental \
                            --enable-sixaxis \
