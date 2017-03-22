@@ -18,27 +18,23 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="retroarch-joypad-autoconfig"
-PKG_VERSION="67b6710"
+PKG_NAME="wii-u-gc-adapter"
+PKG_VERSION="1030fee"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/retroarch-joypad-autoconfig"
-PKG_URL="https://github.com/libretro/retroarch-joypad-autoconfig/archive/$PKG_VERSION.tar.gz"
+PKG_LICENSE="Non-commercial"
+PKG_SITE="https://github.com/ToadKing/wii-u-gc-adapter"
+PKG_URL="https://github.com/ToadKing/wii-u-gc-adapter/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="libretro"
-PKG_SHORTDESC="RetroArch joypad autoconfig files"
-PKG_LONGDESC="RetroArch joypad autoconfig files"
+PKG_SECTION=""
+PKG_SHORTDESC="Tool for using the Wii U GameCube Adapter on Linux"
+PKG_LONGDESC="Tool for using the Wii U GameCube Adapter on Linux"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  :
-}
-
 makeinstall_target() {
-  mkdir -p $INSTALL/etc/retroarch-joypad-autoconfig
-  cp -r * $INSTALL/etc/retroarch-joypad-autoconfig
+  mkdir -p $INSTALL/usr/bin
+  cp wii-u-gc-adapter $INSTALL/usr/bin/
 }
