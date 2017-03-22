@@ -4,7 +4,7 @@
 #                  Copyright (C) 2017
 ################################################################################
 
-hdmimode="1080p50hz"
+hdmimode=720p
 
 # Parse command line arguments
 for arg in $(cat /proc/cmdline); do
@@ -12,8 +12,8 @@ for arg in $(cat /proc/cmdline); do
     hdmimode=*)
       hdmimode=${arg#*=}
       ;;
-    bootfrom*)
-      bootfromext=1
+    bootfromsd*)
+      bootfromsd=1
       ;;
     BOOT_IMAGE=*)
       BOOT_IMAGE=${arg#*=}
@@ -48,70 +48,18 @@ echo 1 > /sys/class/graphics/fb1/blank
 
 # Disable framebuffer scaling
 echo 0 > /sys/class/graphics/fb0/free_scale
+echo 0 > /sys/class/graphics/fb1/free_scale
 
-# set initial video state
-echo 1 > /sys/class/video/disable_video
-
-# Set default resolution parameters
-bpp=32;
-xRes=1280;
-yRes=720;
-
-# Get max supported display resolution by hdmi device
-maxRes=$(tail -n1 /sys/class/amhdmitx/amhdmitx0/disp_cap | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//');
-[ -z "$maxRes" ] && maxRes="$hdmimode";
-
-case "$maxRes" in
-  480*)
-    xRes=720; yRes=480;
-    ;;
-  576*)
-    xRes=720; yRes=576;
-    ;;
-  1080*)
-    xRes=1920; yRes=1080;
-    ;;
-  4k2k*hz|2160p*)
-    xRes=3840; yRes=2160;
-    ;;
-  4k2ksmpte|smpte24hz)
-    xRes=4096; yRes=2160;
-    ;;
-esac
-vXRes=$xRes;
-vYRes=$(( $yRes * 2 ));
-
-# Set boot resolution by hdmimode param
+# Set framebuffer geometry to 1920x1080
 case "$hdmimode" in
-  480*)
-    if [ "$vXRes" -ge 720 -a "$vYRes" -ge 960 ]; then
-      xRes=720; yRes=480;
-    fi
-    ;;
-  576*)
-    if [ "$vXRes" -ge 720 -a "$vYRes" -ge 1152 ]; then
-      xRes=720; yRes=576;
-    fi
-    ;;
   720*)
-    if [ "$vXRes" -ge 1280 -a "$vYRes" -ge 1440 ]; then
-      xRes=1280; yRes=720;
-    fi
+    fbset -fb /dev/fb0 -g 1280 720 1920 2160 32
     ;;
   1080*)
-    if [ "$vXRes" -ge 1920 -a "$vYRes" -ge 2160 ]; then
-      xRes=1920; yRes=1080;
-    fi
+    fbset -fb /dev/fb0 -g 1920 1080 1920 2160 32
     ;;
-  4k2k*hz|2160p*)
-    if [ "$vXRes" -ge 3840 -a "$vYRes" -ge 4320 ]; then
-      xRes=3840; yRes=2160;
-    fi
-    ;;
-esac
-
-# Set framebuffer geometry to match the resolution
-fbset -fb /dev/fb0 -g $xRes $yRes $vXRes $vYRes $bpp;
+  esac
+fbset -fb /dev/fb1 -g 32 32 32 32 32
 
 for part in /sys/block/*/queue/add_random; do
   echo 0 > "$part"
