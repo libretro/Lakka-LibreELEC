@@ -38,7 +38,7 @@ make_target() {
   if [ "$ARCH" == "arm" ]; then
     CXXFLAGS="$CXXFLAGS -DARM"
   fi
-  make -C libretro GIT_VERSION="\" $PKG_VERSION\""
+  make -C libretro
 }
 
 makeinstall_target() {

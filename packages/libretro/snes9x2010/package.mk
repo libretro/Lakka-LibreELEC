@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  make -f Makefile.libretro GIT_VERSION="\" $PKG_VERSION\""
+  make -f Makefile.libretro
 }
 
 makeinstall_target() {
