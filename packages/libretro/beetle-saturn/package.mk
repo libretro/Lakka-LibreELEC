@@ -21,7 +21,7 @@
 PKG_NAME="beetle-saturn"
 PKG_VERSION="bb5d0c1"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-saturn-libretro"
 PKG_URL="https://github.com/libretro/beetle-saturn-libretro/archive/$PKG_VERSION.tar.gz"
