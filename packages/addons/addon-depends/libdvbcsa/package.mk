@@ -36,9 +36,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static --with-sysroot=$SYSR
 if echo "$TARGET_FPU" | grep -q '^neon'; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-neon"
 elif [ "$TARGET_ARCH" = aarch64 ]; then
-  # change this to --enable-neon when AArch64 NEON performance is improved
-  # check performance with test/benchbitslice
-  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-uint64"
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-neon"
 elif [ "$TARGET_ARCH" = x86_64  ]; then
   if echo "$PROJECT_CFLAGS" | grep -q '\-mssse3'; then
     PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-ssse3"
