@@ -1,7 +1,7 @@
 ### Questions about LibreELEC?
 
 To get your questions answered, please ask in the LibreELEC [Forum], on IRC: 
-\#libreelec on freenode.net, or [webchat]. 
+\#libreelec on freenode.net. 
 
 Do not open an issue.
 
@@ -104,8 +104,7 @@ Please follow this process; it's the best way to get your work included in the p
 - [Open a Pull Request](https://help.github.com/articles/using-pull-requests) with a
     clear title and description.
 
-[Forum]: http://libreelec.tv/forum
+[Forum]: https://forum.libreelec.tv/
 [issue]: https://github.com/LibreELEC/LibreELEC.tv/issues
-[webchat]: http://libreelec.tv/support/chat
-[logfiles]: http://wiki.libreelec.tv/index.php?title=LibreELEC_FAQ#Support_Logs
+[logfiles]: https://wiki.libreelec.tv/index.php?title=LibreELEC_FAQ#Support_Logs
 [similar issue]: https://github.com/LibreELEC/LibreELEC.tv/search?&ref=cmdform&type=Issues

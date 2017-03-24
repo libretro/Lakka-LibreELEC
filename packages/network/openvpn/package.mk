@@ -1,5 +1,5 @@
 ################################################################################
-#      This file is part of LibreELEC - http://libreelec.tv
+#      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2016-2017 Christian Hewitt (chewitt@libreelec.tv)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
