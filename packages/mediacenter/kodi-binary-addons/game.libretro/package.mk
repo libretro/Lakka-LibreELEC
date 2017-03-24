@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="game.libretro"
-PKG_VERSION="41dec38"
+PKG_VERSION="3fb8c89"
 PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

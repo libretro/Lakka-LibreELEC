@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="pvr.filmon"
-PKG_VERSION="315e503"
+PKG_VERSION="e026519"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
