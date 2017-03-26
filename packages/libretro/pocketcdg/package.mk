@@ -18,19 +18,31 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="RPi2"
-PKG_VERSION=""
+PKG_NAME="pocketcdg"
+PKG_VERSION="21fd39d"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch pocketcdg xrick vice desmume uzebox tyrquake scummvm dosbox mgba prosystem o2em ppsspp 81 fuse-libretro gw-libretro beetle-wswan beetle-supergrafx beetle-ngp lutro snes9x2010 genesis-plus-gx pcsx_rearmed mupen64plus parallel-n64 gpsp 2048 vecx dinothawr prboom beetle-pce handy picodrive snes9x2002 nxengine nestopia gambatte stella fbalpha mame2003 wiringPi bluemsx mrboom puae atari800 cap32 wii-u-gc-adapter"
+PKG_LICENSE="MIT"
+PKG_SITE="https://github.com/libretro/libretro-pocketcdg"
+PKG_URL="https://github.com/libretro/libretro-pocketcdg/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for RPi 2"
-PKG_LONGDESC=""
+PKG_SECTION="libretro"
+PKG_SHORTDESC="Karaoke player"
+PKG_LONGDESC="Karaoke player"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+post_unpack() {
+  mv $BUILD/libretro-pocketcdg-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
+
+make_target() {
+  make CC=$CC
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp pocketcdg_libretro.so $INSTALL/usr/lib/libretro/
+}
