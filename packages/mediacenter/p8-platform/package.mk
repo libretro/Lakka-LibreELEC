@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="p8-platform"
-PKG_VERSION="38343e0"
+PKG_VERSION="81c38cd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
