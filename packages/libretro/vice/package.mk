@@ -42,10 +42,11 @@ make_target() {
   if [ "$ARCH" == "arm" ]; then
     CFLAGS="$CFLAGS -DARM -DALIGN_DWORD -mstructure-size-boundary=32 -mthumb-interwork -falign-functions=16 -marm"
   fi
-  make -f Makefile.libretro
+  make -f Makefile.libretro EMUTYPE=x64
+  make -f Makefile.libretro EMUTYPE=x128
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp vice_x64_libretro.so $INSTALL/usr/lib/libretro/
+  cp vice_*_libretro.so $INSTALL/usr/lib/libretro/
 }
