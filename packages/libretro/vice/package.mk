@@ -18,19 +18,34 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="RPi2"
-PKG_VERSION=""
+PKG_NAME="vice"
+PKG_VERSION="054da71"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch vice desmume uzebox tyrquake scummvm dosbox mgba prosystem o2em ppsspp 81 fuse-libretro gw-libretro beetle-wswan beetle-supergrafx beetle-ngp lutro snes9x2010 genesis-plus-gx pcsx_rearmed mupen64plus parallel-n64 gpsp 2048 vecx dinothawr prboom beetle-pce handy picodrive snes9x2002 nxengine nestopia gambatte stella fbalpha mame2003 wiringPi bluemsx mrboom puae atari800 cap32 wii-u-gc-adapter"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/libretro/vice-libretro"
+PKG_URL="https://github.com/libretro/vice-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for RPi 2"
-PKG_LONGDESC=""
+PKG_SECTION="libretro"
+PKG_SHORTDESC="Versatile Commodore 8-bit Emulator version 3.0"
+PKG_LONGDESC="Versatile Commodore 8-bit Emulator version 3.0"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+post_unpack() {
+  mv $BUILD/vice-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
+
+make_target() {
+  if [ "$ARCH" == "arm" ]; then
+    CFLAGS="$CFLAGS -DARM -DALIGN_DWORD -mstructure-size-boundary=32 -mthumb-interwork -falign-functions=16 -marm"
+  fi
+  make -f Makefile.libretro
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp vice_x64_libretro.so $INSTALL/usr/lib/libretro/
+}
