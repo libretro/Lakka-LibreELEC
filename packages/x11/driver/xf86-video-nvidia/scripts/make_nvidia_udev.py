@@ -23,10 +23,9 @@ tree = html.fromstring(page.content)
 # NVIDIA Quadro GPUs = 2
 # NVIDIA NVS GPUs = 3
 # NVIDIA Tesla GPUs = 4
-# NVIDIA GRID GPUs = 5
 
 ids = []
-for table in range(1, 6):
+for table in range(1, 5):
   ids = ids + tree.xpath('//html/body/div[@class="appendix"]/div[@class="informaltable"][' + str(table) + ']/table/tbody/tr[starts-with(@id, "devid")]/td[2]//text()')
 
 # If three IDs are listed, the first is the PCI Device ID, the second is the PCI Subsystem Vendor ID, and the third is the PCI Subsystem Device ID.
