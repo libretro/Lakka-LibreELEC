@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="snes9x2002"
-PKG_VERSION="fd7b58a"
+PKG_VERSION="04c179c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
-PKG_SITE="https://github.com/ToadKing/pocketsnes-libretro"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/libretro/snes9x2002"
+PKG_URL="https://github.com/libretro/snes9x2002/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

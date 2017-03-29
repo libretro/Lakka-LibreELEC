@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="snes9x2005"
-PKG_VERSION="76b73ff"
+PKG_VERSION="dc596c8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
-PKG_SITE="https://github.com/libretro/CATSFC-libretro"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/libretro/snes9x2005"
+PKG_URL="https://github.com/libretro/snes9x2005/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,10 +33,6 @@ PKG_LONGDESC="Snes9x 2005. Port of SNES9x 1.43 for libretro (was previously call
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-make_target() {
-  make USE_BLARGG_APU=0 HAVE_GRIFFIN=1
-}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
