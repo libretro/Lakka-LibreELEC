@@ -37,7 +37,7 @@ PKG_AUTORECONF="no"
 pre_configure_target() {
   strip_lto
   if [ "$ARCH" == "arm" ]; then
-    CFLAGS="$CFLAGS -DARM"
+    CFLAGS="$CFLAGS -DARM -marm"
   fi
 }
 
