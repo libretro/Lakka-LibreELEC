@@ -33,7 +33,7 @@ PKG_LONGDESC="mGBA is a new emulator for running Game Boy Advance games. It aims
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
+PKG_USE_CMAKE="no"
 
 make_target() {
   cd $ROOT/$PKG_BUILD
