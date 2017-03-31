@@ -18,19 +18,27 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="Generic"
-PKG_VERSION=""
+PKG_NAME="beetle-bsnes"
+PKG_VERSION="8560c52"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch $LIBRETRO_CORES beetle-bsnes beetle-psx bsnes-mercury reicast wii-u-gc-adapter"
+PKG_LICENSE="GPLv2"
+PKG_SITE="https://github.com/libretro/beetle-bsnes-libretro"
+PKG_URL="https://github.com/libretro/beetle-bsnes-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for Generic"
-PKG_LONGDESC=""
+PKG_SECTION="libretro"
+PKG_SHORTDESC="Standalone port of Mednafen bSNES to libretro, itself a fork of bsnes 0.59."
+PKG_LONGDESC="Standalone port of Mednafen bSNES to libretro, itself a fork of bsnes 0.59."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+post_unpack() {
+  mv $BUILD/beetle-bsnes-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp mednafen_snes_libretro.so $INSTALL/usr/lib/libretro/
+}
