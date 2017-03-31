@@ -18,19 +18,27 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="Generic"
-PKG_VERSION=""
+PKG_NAME="bsnes"
+PKG_VERSION="a9204c5"
 PKG_REV="1"
 PKG_ARCH="any"
-PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/lakkatv/Lakka"
-PKG_URL=""
-PKG_DEPENDS_TARGET="retroarch $LIBRETRO_CORES beetle-bsnes bsnes beetle-psx bsnes-mercury reicast wii-u-gc-adapter"
+PKG_LICENSE="GPLv3"
+PKG_SITE="https://github.com/libretro/bsnes-libretro"
+PKG_URL="https://github.com/libretro/bsnes-libretro/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for Generic"
-PKG_LONGDESC=""
+PKG_SECTION="libretro"
+PKG_SHORTDESC="Libretro fork of bsnes. As close to upstream as possible."
+PKG_LONGDESC="Libretro fork of bsnes. As close to upstream as possible."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+post_unpack() {
+  mv $BUILD/bsnes-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
+
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/lib/libretro
+  cp out/bsnes_accuracy_libretro.so $INSTALL/usr/lib/libretro/
+}
