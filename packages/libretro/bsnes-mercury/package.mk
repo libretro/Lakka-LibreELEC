@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bsnes-mercury"
-PKG_VERSION="6bcc0b1"
+PKG_VERSION="ea45a07"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
