@@ -18,12 +18,12 @@
 
 PKG_NAME="net-snmp"
 PKG_VERSION="5.7.3"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.net-snmp.org"
 PKG_URL="http://sourceforge.net/projects/net-snmp/files/$PKG_NAME/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain libnl"
 PKG_SECTION="service"
 PKG_SHORTDESC="Simple Network Management Protocol utilities."
 PKG_LONGDESC="Simple Network Management Protocol (SNMP) is a widely used protocol for monitoring the health and welfare of network equipment."
@@ -39,26 +39,37 @@ PKG_CONFIGURE_OPTS_TARGET="--with-defaults \
         --disable-debugging \
         --disable-deprecated \
         --disable-snmptrapd-subagent \
-        --disable-perl-cc-checks \
-        --with-perl-modules=no \
-        --enable-mini-agent \
+        --disable-scripts \
         --enable-static=no \
         --enable-shared=yes \
-        --with-logfile=/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID}/ \
-        --with-persistent-directory=/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID}/ \
-        --disable-embedded-perl"
+        --enable-mini-agent \
+        --with-nl \
+        --with-logfile=/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID} \
+        --with-persistent-directory=/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID} \
+        --sysconfdir=/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID} \
+        --prefix=/storage/.kodi/addons/${PKG_ADDON_ID} \
+        --exec-prefix=/storage/.kodi/addons/${PKG_ADDON_ID} \
+        --datarootdir=/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID}/share \
+        --bindir=/storage/.kodi/addons/${PKG_ADDON_ID}/bin \
+        --sbindir=/storage/.kodi/addons/${PKG_ADDON_ID}/bin \
+        --libdir=/storage/.kodi/addons/${PKG_ADDON_ID}/lib \
+        --disable-embedded-perl \
+        --with-sysroot=$SYSROOT_PREFIX"
 
 make_target() {
   make
 }
 
 makeinstall_target() {
-  make install INSTALL_PREFIX=$PKG_BUILD/.$TARGET_NAME
+  make install INSTALL_PREFIX=$ROOT/$PKG_BUILD/.$TARGET_NAME
 }
 
 addon() {
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
-  cp -r $PKG_BUILD/.$TARGET_NAME/usr/bin $PKG_BUILD/.$TARGET_NAME/usr/lib $PKG_BUILD/.$TARGET_NAME/usr/share $ADDON_BUILD/$PKG_ADDON_ID/
-  cp $PKG_BUILD/.$TARGET_NAME/usr/sbin/snmpd $ADDON_BUILD/$PKG_ADDON_ID/bin/snmpd
+  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -r $PKG_BUILD/.$TARGET_NAME/storage/.kodi/addons/${PKG_ADDON_ID}/bin $PKG_BUILD/.$TARGET_NAME/storage/.kodi/userdata/addon_data/${PKG_ADDON_ID}/share $ADDON_BUILD/$PKG_ADDON_ID/
+  #Do not copy symlinks
+  find $PKG_BUILD/.$TARGET_NAME/storage/.kodi/addons/${PKG_ADDON_ID}/lib/ -type f -name '*.so.*' -exec cp '{}' $ADDON_BUILD/$PKG_ADDON_ID/lib/ \;
+  #remove all but major version from so file
+  for f in $ADDON_BUILD/$PKG_ADDON_ID/lib/*.so.* ; do mv "$f" "${f%.*.*}" ; done
 }
 
