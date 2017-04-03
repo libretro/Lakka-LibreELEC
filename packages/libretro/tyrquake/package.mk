@@ -34,6 +34,12 @@ PKG_LONGDESC="Libretro port of Tyrquake (Quake 1 engine)"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+pre_configure_target() {
+  if [ "$ARCH" == "arm" ]; then
+    CFLAGS="$CFLAGS -DARM -marm"
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp tyrquake_libretro.so $INSTALL/usr/lib/libretro/
