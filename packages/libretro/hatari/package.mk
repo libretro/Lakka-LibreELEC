@@ -39,6 +39,9 @@ configure_target() {
 }
 
 make_target() {
+  if [ "$ARCH" == "arm" ]; then
+    CFLAGS="$CFLAGS -DARM -marm"
+  fi
   sed -i -e "s/   CC = gcc//" ../Makefile.libretro
   make -C .. -f Makefile.libretro
 }
