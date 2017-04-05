@@ -1,0 +1,104 @@
+* HDMI kernel panics (or at best, audio issues). Usually the user just reports a black screen when booting. 
+https://github.com/osmc/vero-linux/commit/aa30301610e7cc363390fa1614ae36bcd759f258
+
+* Random freezes in Kodi after some time.
+https://github.com/osmc/vero-linux/commit/ddf2e9f60ceb9dc8f287d8ee7c31ccd9419701fa
+https://github.com/osmc/vero-linux/commit/a1cb4557060bb94f0453922bf8e31aba9ab29826
+
+
+From 8bbbf9004aa0989df680d4ce8e13c013143b41d6 Mon Sep 17 00:00:00 2001
+From: Peter Vicman <peter.vicman@gmail.com>
+Date: Sun, 12 Mar 2017 15:12:54 +0100
+Subject: [PATCH] linux kernel fixes from vero
+
+---
+ drivers/mfd/mxc-hdmi-core.c                        | 24 +++++++---------------
+ .../mxc/gpu-viv/hal/kernel/gc_hal_kernel_event.c   |  5 -----
+ .../mxc/gpu-viv/hal/kernel/inc/gc_hal_options.h    |  2 +-
+ 3 files changed, 8 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/mfd/mxc-hdmi-core.c b/drivers/mfd/mxc-hdmi-core.c
+index 8376e8e..43a7fb4 100644
+--- a/drivers/mfd/mxc-hdmi-core.c
++++ b/drivers/mfd/mxc-hdmi-core.c
+@@ -434,7 +434,7 @@ static const struct mxc_hdmi_ctsn mxc_hdmi_ctsn_tbl[] = {
+ 	{148500, { { 32000, 4096, 148500 }, { 44100,  6272, 165000 }, { 48000,  6144, 148500 } } }, /* 148.50       MHz */
+ };
+ 
+-static bool hdmi_compute_cts_n(unsigned int freq, unsigned long pixel_clk,
++static void hdmi_compute_cts_n(unsigned int freq, unsigned long pixel_clk,
+ 				   unsigned int *N, unsigned int *CTS)
+ {
+ 	int n, cts;
+@@ -460,17 +460,13 @@ static bool hdmi_compute_cts_n(unsigned int freq, unsigned long pixel_clk,
+ 	cts *= mul;
+ 
+ 	/* Check that we are in spec (not always possible) */
+-	if (n < (128*freq/1500)) {
+-		pr_warn("%s: calculated ACR N value is too small. Audio might not work correctly.\n", __func__);
+-		return false;
+-	} else if (n > (128*freq/300)) {
+-		pr_warn("%s: calculated ACR N value is too large. Audio might not work correctly.\n", __func__);
+-		return false;
+-	}
++	if (n < (128*freq/1500))
++		pr_warn("%s: calculated ACR N value is too small. You may experience audio problems.\n", __func__);
++	if (n > (128*freq/300))
++		pr_warn("%s: calculated ACR N value is too large. You may experience audio problems.\n", __func__);
+ 
+ 	*N = n;
+ 	*CTS = cts;
+-	return true;
+ }
+ 
+ static void hdmi_lookup_cts_n(unsigned int freq, unsigned long pixel_clk,
+@@ -521,15 +517,9 @@ static void hdmi_set_clk_regenerator(void)
+ 
+ 	hdmi_lookup_cts_n(sample_rate, pixel_clk_rate, &clk_n, &clk_cts);
+ 
+-	if (clk_cts == 0 && hdmi_compute_cts_n(sample_rate, pixel_clk_rate, &clk_n, &clk_cts))
++	if (clk_cts == 0) {
+ 		pr_debug("%s: pixel clock not supported - using fallback calculation.\n", __func__);
+-	else if (clk_cts == 0) {
+-		pr_err("%s: cts/n fallback calculation out of safe values, disabling hdmi audio\n", __func__);
+-
+-		mxc_hdmi_abort_stream();
+-		if (!hdmi_audio_stream_playback)
+-			hdmi_abort_state = 1;
+-		return;
++		hdmi_compute_cts_n(sample_rate, pixel_clk_rate, &clk_n, &clk_cts);
+ 	}
+ 
+ 	if (hdmi_ratio != 100)
+diff --git a/drivers/mxc/gpu-viv/hal/kernel/gc_hal_kernel_event.c b/drivers/mxc/gpu-viv/hal/kernel/gc_hal_kernel_event.c
+index 525c21f..fb4f2eb 100644
+--- a/drivers/mxc/gpu-viv/hal/kernel/gc_hal_kernel_event.c
++++ b/drivers/mxc/gpu-viv/hal/kernel/gc_hal_kernel_event.c
+@@ -2501,11 +2501,6 @@ gckEVENT_Notify(
+                        "Handled interrupt 0x%x", mask);
+     }
+ 
+-    if (IDs == 0)
+-    {
+-        gcmkONERROR(_TryToIdleGPU(Event));
+-    }
+-
+     /* We are out the notify loop. */
+     Event->inNotify = gcvFALSE;
+ 
+diff --git a/drivers/mxc/gpu-viv/hal/kernel/inc/gc_hal_options.h b/drivers/mxc/gpu-viv/hal/kernel/inc/gc_hal_options.h
+index d1f76ed..9fd844d 100644
+--- a/drivers/mxc/gpu-viv/hal/kernel/inc/gc_hal_options.h
++++ b/drivers/mxc/gpu-viv/hal/kernel/inc/gc_hal_options.h
+@@ -694,7 +694,7 @@
+         This define enables the recovery code.
+ */
+ #ifndef gcdENABLE_RECOVERY
+-#   define gcdENABLE_RECOVERY                   0
++#   define gcdENABLE_RECOVERY                   1
+ #endif
+ 
+ /*
+-- 
+2.7.4
+
