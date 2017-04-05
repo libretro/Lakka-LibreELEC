@@ -1,20 +1,19 @@
-From 211edfa19b20820772b33f6042992811037a21b3 Mon Sep 17 00:00:00 2001
+From c5ace4b3e353142177352a910a56ec1c9508aa40 Mon Sep 17 00:00:00 2001
 From: Jamie Coldhill <wrxtasy@amnet.net.au>
 Date: Thu, 6 Oct 2016 17:54:40 +0800
-Subject: [PATCH] [aml] Scale video axis correctly when 1080p to 2160p switching
- Fixup 720p60hz fallback resolution 
+Subject: [PATCH] Scale video axis correctly when 1080p to 2160p switching
 
+Amended to fix 720p -> 1080p switching
 ---
- xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp | 10 +++++++++-
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp | 14 +++++++++++---
  xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.h   |  1 +
- xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp         |  2 +-
- 3 files changed, 11 insertions(+), 2 deletions(-)
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
-index f9b4138..2a3b413 100644
+index c38c223..bb8161e 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/AMLCodec.cpp
-@@ -2163,6 +2163,13 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+@@ -2164,6 +2164,13 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
      update = true;
    }
  
@@ -28,13 +27,20 @@ index f9b4138..2a3b413 100644
    if (!update)
    {
      // mainvideo 'should' be showing already if we get here, make sure.
-@@ -2176,7 +2183,8 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+@@ -2172,12 +2179,13 @@ void CAMLCodec::SetVideoRect(const CRect &SrcRect, const CRect &DestRect)
+   }
+ 
+   CRect gui, display;
+-  gui = CRect(0, 0, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iWidth, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iHeight);
+-
  #ifdef TARGET_ANDROID
    display = m_display_rect;
++  gui = CRect(0, 0, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iWidth, CDisplaySettings::GetInstance().GetCurrentResolutionInfo().iHeight);
  #else
 -  display = gui;
 +  const RESOLUTION_INFO& video_res_info = CDisplaySettings::GetInstance().GetResolutionInfo(video_res);
 +  display = m_display_rect = CRect(0, 0, video_res_info.iScreenWidth, video_res_info.iScreenHeight);
++  gui = CRect(0, 0, video_res_info.iWidth, video_res_info.iHeight);
  #endif
    if (gui != display)
    {
@@ -50,16 +56,6 @@ index 0eb5c3e..ede815d 100644
  
    PosixFilePtr     m_amlVideoFile;
    std::string      m_defaultVfmMap;
-diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
-index 88cd385..6d63571 100644
---- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
-+++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
-@@ -173,7 +173,7 @@ bool CEGLNativeTypeAmlogic::GetPreferredResolution(RESOLUTION_INFO *res) const
-   if (!GetNativeResolution(res))
-   {
-     // punt to 720p if we get nothing
--    aml_mode_to_resolution("720p", res);
-+    aml_mode_to_resolution("720p60hz", res);
-   }
- 
-   return true;
+-- 
+1.8.3.1
+
