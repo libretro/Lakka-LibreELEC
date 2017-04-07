@@ -55,7 +55,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/etc
 
   mkdir -p $INSTALL/etc/lirc
-    cp $PKG_DIR/config/lircd.conf.* $INSTALL/etc/lirc
+    cp -r $PKG_DIR/config/* $INSTALL/etc/lirc
 
   mkdir -p $INSTALL/usr/lib/libreelec
     cp $PKG_DIR/scripts/lircd_helper $INSTALL/usr/lib/libreelec
