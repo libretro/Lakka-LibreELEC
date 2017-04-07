@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="lirc"
-PKG_VERSION="0.9.4c"
+PKG_VERSION="0.9.4d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lirc.org"
@@ -33,14 +33,19 @@ PKG_AUTORECONF="yes"
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_forkpty=no \
                            ac_cv_lib_util_forkpty=no \
                            ac_cv_prog_HAVE_PYTHON3=no \
+                           --enable-devinput \
                            --localstatedir=/ \
                            --with-gnu-ld \
                            --without-x"
 
 pre_configure_target() {
-  # patch lirc-make-devinput to use target kernel include
-  sed -e "s|/usr/include/linux/|${SYSROOT_PREFIX}/usr/include/linux/|g" \
-      -i $PKG_BUILD/tools/lirc-make-devinput
+  export HAVE_WORKING_POLL=yes
+  export HAVE_UINPUT=yes
+  if [ -e ${SYSROOT_PREFIX}/usr/include/linux/input-event-codes.h ] ; then
+    export DEVINPUT_HEADER=${SYSROOT_PREFIX}/usr/include/linux/input-event-codes.h
+  else
+    export DEVINPUT_HEADER=${SYSROOT_PREFIX}/usr/include/linux/input.h
+  fi
 }
 
 post_makeinstall_target() {
