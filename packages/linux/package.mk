@@ -141,8 +141,20 @@ post_patch() {
   fi
 
   # install extra dts files
-  cp -v projects/$PROJECT/devices/$DEVICE/config/*-overlay.dts $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/overlays/ || :
-  cp -v projects/$PROJECT/devices/$DEVICE/config/dt-blob.dts $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/ || :
+  for f in $PROJECT_DIR/$PROJECT/config/*-overlay.dts; do
+    [ -f "$f" ] && cp -v $f $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/overlays
+  done
+  if [ -f $PROJECT_DIR/$PROJECT/config/dt-blob.dts ]; then
+    cp -v $PROJECT_DIR/$PROJECT/config/dt-blob.dts $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts
+  fi
+  if [ -n "$DEVICE" ]; then
+    for f in $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/*-overlay.dts; do
+      [ -f "$f" ] && cp -v $f $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts/overlays
+    done
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/dt-blob.dts ]; then
+      cp -v $PROJECT_DIR/$PROJECT/devices/$DEVICE/config/dt-blob.dts $PKG_BUILD/arch/$TARGET_KERNEL_ARCH/boot/dts
+    fi
+  fi
 }
 
 makeinstall_host() {
