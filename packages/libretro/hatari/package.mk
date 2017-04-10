@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="hatari"
-PKG_VERSION="e99678b"
+PKG_VERSION="302c7bf"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -33,6 +33,7 @@ PKG_LONGDESC="New rebasing of Hatari based on Mercurial upstream. Tries to be a 
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="no"
 
 configure_target() {
   :
@@ -42,7 +43,6 @@ make_target() {
   if [ "$ARCH" == "arm" ]; then
     CFLAGS="$CFLAGS -DARM -marm"
   fi
-  sed -i -e "s/   CC = gcc//" ../Makefile.libretro
   make -C .. -f Makefile.libretro
 }
 
