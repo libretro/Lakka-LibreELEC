@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="puae"
-PKG_VERSION="7cbc230"
+PKG_VERSION="03fe971"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-uae"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/libretro-uae/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,10 @@ PKG_LONGDESC="WIP libretro port of UAE (P-UAE and libco) Expect bugs"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() { 
+  mv $BUILD/libretro-uae-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION 
+}
 
 pre_configure_target() {
   strip_lto
