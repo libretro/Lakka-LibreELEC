@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="dinothawr"
-PKG_VERSION="5b42ce8"
+PKG_VERSION="a0d65ee"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
 PKG_SITE="https://github.com/libretro/Dinothawr"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/Dinothawr/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -33,6 +33,10 @@ PKG_LONGDESC="Dinothawr is a block pushing puzzle game on slippery surfaces. Our
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $BUILD/Dinothawr-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 pre_configure_target() {
   strip_gold
