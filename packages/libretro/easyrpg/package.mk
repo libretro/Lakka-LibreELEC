@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="easyrpg"
-PKG_VERSION="7ef70bb"
+PKG_VERSION="89e9385"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -45,5 +45,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp easyrpg_libretro.so $INSTALL/usr/lib/libretro/
+  cp ../builds/libretro/easyrpg_libretro.so $INSTALL/usr/lib/libretro/
 }
