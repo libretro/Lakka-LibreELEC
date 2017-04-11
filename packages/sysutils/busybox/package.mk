@@ -175,9 +175,6 @@ makeinstall_target() {
     cp $PKG_DIR/config/httpd.conf $INSTALL/etc
     cp $PKG_DIR/config/suspend-modules.conf $INSTALL/etc
 
-  mkdir -p $INSTALL/usr/config/sysctl.d
-    cp $PKG_DIR/config/transmission.conf $INSTALL/usr/config/sysctl.d
-
   # /etc/fstab is needed by...
     touch $INSTALL/etc/fstab
 
