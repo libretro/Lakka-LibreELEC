@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mesa"
-PKG_VERSION="17.0.2"
+PKG_VERSION="17.0.3"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
@@ -92,7 +92,6 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
                            --enable-opencl-icd \
                            --disable-gallium-tests \
                            --enable-shared-glapi \
-                           --enable-shader-cache \
                            --enable-driglx-direct \
                            --enable-glx-tls \
                            $MESA_GALLIUM_LLVM \
