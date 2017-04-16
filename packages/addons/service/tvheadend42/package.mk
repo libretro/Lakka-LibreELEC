@@ -37,7 +37,7 @@ PKG_ADDON_TYPE="xbmc.service"
 
 # transcoding only for generic
 if [ "$TARGET_ARCH" = x86_64 ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libva-intel-driver"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET intel-vaapi-driver"
   TVH_TRANSCODING="--enable-ffmpeg_static --enable-libav --enable-libfdkaac --disable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --disable-qsv"
 else
   TVH_TRANSCODING="--disable-ffmpeg_static --disable-libav"
