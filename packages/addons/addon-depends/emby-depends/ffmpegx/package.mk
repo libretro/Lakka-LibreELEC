@@ -55,6 +55,7 @@ configure_target() {
     \
     `#Licensing options` \
     --enable-gpl \
+    --enable-nonfree \
     \
     `#Documentation options` \
     --disable-doc \
