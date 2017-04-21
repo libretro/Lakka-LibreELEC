@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,22 +16,19 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="w_scan"
-PKG_VERSION="20170107"
+PKG_NAME="mumudvb"
+PKG_VERSION="fa9ff6e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://wirbel.htpc-forum.de/w_scan/index2.html"
-PKG_URL="http://wirbel.htpc-forum.de/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_SITE="http://mumudvb.net/"
+PKG_URL="https://github.com/braice/MuMuDVB/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="MuMuDVB-${PKG_VERSION}*"
+PKG_DEPENDS_TARGET="toolchain libdvbcsa"
 PKG_SECTION="tools"
-PKG_SHORTDESC="DVBlast is a small channel scan tool to create an channel.conf for VDR"
-PKG_LONGDESC="DVBlast is a small channel scan tool to create an channel.conf for VDR"
+PKG_SHORTDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
+PKG_LONGDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
 PKG_AUTORECONF="yes"
 
-# aml 3.14 is meh
-pre_configure_target() {
-if [ "$TARGET_ARCH" = "aarch64" ]; then
-  sed -i 's/DVB_HEADER=0/DVB_HEADER=1/g' $PKG_BUILD/configure*
-  sed -i 's/HAS_DVB_API5=0/HAS_DVB_API5=1/g' $PKG_BUILD/configure*
-fi
+makeinstall_target() {
+  :
 }
