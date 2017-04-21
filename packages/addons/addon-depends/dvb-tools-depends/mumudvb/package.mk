@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-present Team LibreELEC
+#      Copyright (C) 2017-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,18 +16,19 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="bitstream"
-PKG_VERSION="1.2"
+PKG_NAME="mumudvb"
+PKG_VERSION="fa9ff6e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.videolan.org"
-PKG_URL="http://download.videolan.org/pub/videolan/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="biTStream is a set of C headers allowing a simpler access to binary structures such as specified by MPEG, DVB, IETF, etc."
-PKG_LONGDESC="biTStream is a set of C headers allowing a simpler access to binary structures such as specified by MPEG, DVB, IETF, etc."
+PKG_SITE="http://mumudvb.net/"
+PKG_URL="https://github.com/braice/MuMuDVB/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="MuMuDVB-${PKG_VERSION}*"
+PKG_DEPENDS_TARGET="toolchain libdvbcsa"
+PKG_SECTION="tools"
+PKG_SHORTDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
+PKG_LONGDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
+PKG_AUTORECONF="yes"
 
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
-
-PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr"
+makeinstall_target() {
+  :
+}

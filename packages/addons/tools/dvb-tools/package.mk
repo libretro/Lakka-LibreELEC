@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 PKG_NAME="dvb-tools"
 PKG_VERSION=""
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
@@ -26,7 +26,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="DVB-Tools: is a bundle of dvb tools and programs"
-PKG_LONGDESC="This bundle currently includes dvb-apps, dvb-fe-tool, dvblast and w_scan."
+PKG_LONGDESC="This bundle currently includes dvb-apps, dvb-fe-tool, dvblast, mumudvb and w_scan."
 PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
@@ -37,6 +37,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     dvb-apps \
                     dvb-fe-tool \
                     dvblast \
+                    mumudvb \
                     w_scan"
 
 addon() {
@@ -59,6 +60,9 @@ addon() {
 
     # dvblast
     cp -P $(get_build_dir dvblast)/dvblast $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # mumudvb
+    cp -P $(get_build_dir mumudvb)/.$TARGET_NAME/src/mumudvb $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # w_scan
     cp -P $(get_build_dir w_scan)/.$TARGET_NAME/w_scan $ADDON_BUILD/$PKG_ADDON_ID/bin
