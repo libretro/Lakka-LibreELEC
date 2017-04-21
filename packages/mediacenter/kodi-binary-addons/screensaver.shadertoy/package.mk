@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="screensaver.shadertoy"
-PKG_VERSION="eb31b44"
+PKG_VERSION="f576d4b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
