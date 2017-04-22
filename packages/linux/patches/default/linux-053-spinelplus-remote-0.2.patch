@@ -1,7 +1,37 @@
-diff -Naur linux-3.19/drivers/hid/hid-core.c linux-3.19.patch/drivers/hid/hid-core.c
---- linux-3.19/drivers/hid/hid-core.c	2015-02-09 03:54:22.000000000 +0100
-+++ linux-3.19.patch/drivers/hid/hid-core.c	2015-02-11 00:06:14.966131308 +0100
-@@ -1886,6 +1886,10 @@
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index cd4599c..86b22f7 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -768,6 +768,12 @@ config HID_STEELSERIES
+ 	---help---
+ 	Support for Steelseries SRW-S1 steering wheel
+ 
++config HID_SPINELPLUS
++	tristate "Spinel Plus remote control"
++	depends on USB_HID
++	---help---
++	  Say Y here if you have a Spinel Plus (0471:206c/20cc/0613/2168) remote
++
+ config HID_SUNPLUS
+ 	tristate "Sunplus wireless desktop"
+ 	depends on HID
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index 86b2b57..89dbf38 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -88,6 +88,7 @@ obj-$(CONFIG_HID_SAMSUNG)	+= hid-samsung.o
+ obj-$(CONFIG_HID_SMARTJOYPLUS)	+= hid-sjoy.o
+ obj-$(CONFIG_HID_SONY)		+= hid-sony.o
+ obj-$(CONFIG_HID_SPEEDLINK)	+= hid-speedlink.o
++obj-$(CONFIG_HID_SPINELPLUS)	+= hid-spinelplus.o
+ obj-$(CONFIG_HID_STEELSERIES)	+= hid-steelseries.o
+ obj-$(CONFIG_HID_SUNPLUS)	+= hid-sunplus.o
+ obj-$(CONFIG_HID_GREENASIA)	+= hid-gaff.o
+diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+index 2b89c70..c83cfdc 100644
+--- a/drivers/hid/hid-core.c
++++ b/drivers/hid/hid-core.c
+@@ -2014,6 +2014,10 @@ static const struct hid_device_id hid_have_special_driver[] = {
  	{ HID_USB_DEVICE(USB_VENDOR_ID_ORTEK, USB_DEVICE_ID_ORTEK_WKB2000) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_PENMOUNT, USB_DEVICE_ID_PENMOUNT_6000) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_PETALYNX, USB_DEVICE_ID_PETALYNX_MAXTER_REMOTE) },
@@ -11,25 +41,28 @@ diff -Naur linux-3.19/drivers/hid/hid-core.c linux-3.19.patch/drivers/hid/hid-co
 +	{ HID_USB_DEVICE(USB_VENDOR_ID_PHILIPS, USB_DEVICE_ID_PHILIPS_SPINEL_PLUS_4) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_PLANTRONICS, HID_ANY_ID) },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_PRIMAX, USB_DEVICE_ID_PRIMAX_KEYBOARD) },
- #if IS_ENABLED(CONFIG_HID_ROCCAT)
-diff -Naur linux-3.19/drivers/hid/hid-ids.h linux-3.19.patch/drivers/hid/hid-ids.h
---- linux-3.19/drivers/hid/hid-ids.h	2015-02-09 03:54:22.000000000 +0100
-+++ linux-3.19.patch/drivers/hid/hid-ids.h	2015-02-11 00:04:45.885977057 +0100
-@@ -743,6 +743,10 @@
-
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_RISO_KAGAKU, USB_DEVICE_ID_RI_KA_WEBMAIL) },
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 9845189..e016cd1 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -813,6 +813,10 @@
+ 
  #define USB_VENDOR_ID_PHILIPS		0x0471
  #define USB_DEVICE_ID_PHILIPS_IEEE802154_DONGLE 0x0617
 +#define USB_DEVICE_ID_PHILIPS_SPINEL_PLUS_1	0x206c
 +#define USB_DEVICE_ID_PHILIPS_SPINEL_PLUS_2	0x20cc
 +#define USB_DEVICE_ID_PHILIPS_SPINEL_PLUS_3	0x0613
 +#define USB_DEVICE_ID_PHILIPS_SPINEL_PLUS_4	0x2168
-
+ 
  #define USB_VENDOR_ID_PI_ENGINEERING	0x05f3
  #define USB_DEVICE_ID_PI_ENGINEERING_VEC_USB_FOOTPEDAL	0xff
-diff -Naur linux-3.19/drivers/hid/hid-spinelplus.c linux-3.19.patch/drivers/hid/hid-spinelplus.c
---- linux-3.19/drivers/hid/hid-spinelplus.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.19.patch/drivers/hid/hid-spinelplus.c	2015-02-11 00:04:45.886977059 +0100
-@@ -0,0 +1,104 @@
+diff --git a/drivers/hid/hid-spinelplus.c b/drivers/hid/hid-spinelplus.c
+new file mode 100644
+index 0000000..381c7b3
+--- /dev/null
++++ b/drivers/hid/hid-spinelplus.c
+@@ -0,0 +1,95 @@
 +/*
 + *  HID driver for "PHILIPS MCE USB IR Receiver- Spinel plus" remotes
 + *
@@ -122,43 +155,6 @@ diff -Naur linux-3.19/drivers/hid/hid-spinelplus.c linux-3.19.patch/drivers/hid/
 +	.probe = 		spinelplus_probe,
 +};
 +
-+static int __init spinelplus_init(void)
-+{
-+	return hid_register_driver(&spinelplus_driver);
-+}
++module_hid_driver(spinelplus_driver);
 +
-+static void __exit spinelplus_exit(void)
-+{
-+	hid_unregister_driver(&spinelplus_driver);
-+}
-+
-+module_init(spinelplus_init);
-+module_exit(spinelplus_exit);
 +MODULE_LICENSE("GPL");
-diff -Naur linux-3.19/drivers/hid/Kconfig linux-3.19.patch/drivers/hid/Kconfig
---- linux-3.19/drivers/hid/Kconfig	2015-02-09 03:54:22.000000000 +0100
-+++ linux-3.19.patch/drivers/hid/Kconfig	2015-02-11 00:04:45.886977059 +0100
-@@ -702,6 +702,12 @@
- 	---help---
- 	Support for Steelseries SRW-S1 steering wheel
-
-+config HID_SPINELPLUS
-+	tristate "Spinel Plus remote control"
-+	depends on USB_HID
-+	---help---
-+	  Say Y here if you have a Spinel Plus (0471:206c/20cc/0613/2168) remote
-+
- config HID_SUNPLUS
- 	tristate "Sunplus wireless desktop"
- 	depends on HID
-diff -Naur linux-3.19/drivers/hid/Makefile linux-3.19.patch/drivers/hid/Makefile
---- linux-3.19/drivers/hid/Makefile	2015-02-09 03:54:22.000000000 +0100
-+++ linux-3.19.patch/drivers/hid/Makefile	2015-02-11 00:04:45.886977059 +0100
-@@ -107,6 +107,7 @@
- obj-$(CONFIG_HID_SMARTJOYPLUS)	+= hid-sjoy.o
- obj-$(CONFIG_HID_SONY)		+= hid-sony.o
- obj-$(CONFIG_HID_SPEEDLINK)	+= hid-speedlink.o
-+obj-$(CONFIG_HID_SPINELPLUS)	+= hid-spinelplus.o
- obj-$(CONFIG_HID_STEELSERIES)	+= hid-steelseries.o
- obj-$(CONFIG_HID_SUNPLUS)	+= hid-sunplus.o
- obj-$(CONFIG_HID_GREENASIA)	+= hid-gaff.o
