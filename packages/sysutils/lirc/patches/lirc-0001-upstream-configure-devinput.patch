@@ -1,0 +1,135 @@
+From 110aca982ca1a7d43e88a4b0c3da27c7519de860 Mon Sep 17 00:00:00 2001
+From: Alec Leamas <leamas.alec@gmail.com>
+Date: Wed, 8 Feb 2017 04:49:32 +0100
+Subject: [PATCH] build: Configure devinput (#264)
+
+---
+ Makefile.am                         |  3 ++-
+ configure.ac                        | 40 +++++++++++++++++++++++++++++++++++++
+ doc/man-source/lirc-make-devinput.1 |  7 +++++--
+ lib/Makefile.am                     |  2 +-
+ 4 files changed, 48 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 868ad7f..c01b050 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -53,6 +53,7 @@ headerdir               = $(includedir)/lirc
+ nobase_header_HEADERS   = include/media/lirc.h
+ header_HEADERS          = paths.h config.h drivers/irpipe/irpipe.h
+ 
++
+ install-data-hook:
+ 	$(SED) -i -e '/^plugindir/s|/usr/lib|$(libdir)|' \
+ 	    $(DESTDIR)$(lirc_confdir)/lirc_options.conf
+@@ -96,6 +97,6 @@ devinput.lircd.conf:
+ 	echo "# Rename to devinput.lircd.dist if not using devinput driver" > $@
+ 	echo "# Re-generate for current kernel using lirc-make-devinput" >> $@
+ 	echo '#' >> $@
+-	$(srcdir)/tools/lirc-make-devinput >> $@
++	$(srcdir)/tools/lirc-make-devinput $(DEVINPUT_HEADER) >> $@
+ 
+ .phony:
+diff --git a/configure.ac b/configure.ac
+index 5c83085..ddf93aa 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -300,6 +300,33 @@ if test "$have_alsa" = "yes"; then
+ else
+   AM_CONDITIONAL([BUILD_ALSA_SB_RC],[false])
+ fi
++AC_MSG_CHECKING(for devinput)
++AC_RUN_IFELSE([AC_LANG_PROGRAM([[
++  #include <unistd.h>
++]],[[
++  int r = access("/dev/input", R_OK);
++  return r == 0 ? r : 1;
++]])],[
++  have_devinput="yes"
++  AC_MSG_RESULT(yes)
++],[
++  AC_MSG_RESULT(no)
++  have_devinput="no"
++],[
++  test -z "$DEVINPUT_HEADER" -a x$enable_devinput = x$yes && AC_MSG_ERROR([
++    Define DEVINPUT_HEADER when cross-compiling
++  ])
++  test -n "$DEVINPUT_HEADER" -a ! -e "$DEVINPUT_HEADER" && AC_MSG_ERROR([
++    Cannot access $DEVINPUT_HEADER, giving up
++  ])
++  if test -n "$DEVINPUT_HEADER" ; then
++    have_devinput="yes"
++  else
++    have_devinput="no"
++  fi
++  AC_MSG_RESULT(yes)
++])
++
+ 
+ dnl see https://daniel.haxx.se/blog/2016/10/11/poll-on-mac-10-12-is-broken/
+ AC_MSG_CHECKING(for working poll(2))
+@@ -470,6 +497,18 @@ AC_ARG_ENABLE([python3_fix],
+   [enable_python3_fix="no"])
+ AM_CONDITIONAL(NEED_PYTHON3, [test "x$enable_python3_fix" = "xyes"])
+ 
++AC_ARG_ENABLE(devinput,
++  [  --enable-devinput         Use /dev/input devices (default=guessed)],
++  [ enable_devinput="${enableval}" ],
++  [ enable_devinput="${have_devinput}"]
++)
++AM_CONDITIONAL([HAVE_DEVINPUT], [test x$enable_devinput = xyes])
++
++AC_ARG_VAR(DEVINPUT_HEADER,[
++  Override default value .../linux/input.h or linux/input-event-codes.h
++  e. g., when cross-compiling.
++])
++
+ AC_ARG_VAR(HAVE_WORKING_POLL,[
+ 	   On cross-compile: Target has a working poll(2) implementation])
+ 
+@@ -557,6 +596,7 @@ AC_REPORT_CONDITIONAL([NEED_PYTHON3])
+ AC_REPORT_CONDITIONAL([SYSTEMD_INSTALL])
+ AC_REPORT_CONDITIONAL([DEVEL])
+ AC_REPORT_CONDITIONAL([HAVE_UINPUT])
++AC_REPORT_CONDITIONAL([HAVE_DEVINPUT])
+ AC_REPORT_CONDITIONAL([DARWIN])
+ AC_REPORT_CONDITIONAL([LINUX_KERNEL])
+ 
+diff --git a/doc/man-source/lirc-make-devinput.1 b/doc/man-source/lirc-make-devinput.1
+index a952b30..7d0ee0c 100644
+--- a/doc/man-source/lirc-make-devinput.1
++++ b/doc/man-source/lirc-make-devinput.1
+@@ -1,4 +1,4 @@
+-.TH LIRC_MAKE_DEVINPUT "1" "Last change: Oct 2015" "lirc-make-devinput @version@" "User Commands"
++.TH LIRC_MAKE_DEVINPUT "1" "Last change: Feb 2017" "lirc-make-devinput @version@" "User Commands"
+ .SH NAME
+ lirc-make-devinput - create a devinput.lircd.conf for the local site.
+ .SH SYNOPSIS
+@@ -14,8 +14,11 @@ matches the local system (i. e., the local kernel). It normally requires
+ that the kernel-headers package is installed.
+ .SH FILES
+ .TP
+-/usr/include/linux/input.h
++/usr/include/linux/input-event-codes.h
+ Default system header file
++.TP
++/usr/include/linux/input.h
++Alternative file used on older kernels.
+ 
+ .SH "SEE ALSO"
+ .P
+diff --git a/lib/Makefile.am b/lib/Makefile.am
+index 48f539e..09ad559 100644
+--- a/lib/Makefile.am
++++ b/lib/Makefile.am
+@@ -108,7 +108,7 @@ if LINUX_KERNEL
+ lirc/input_map.inc:
+ 	ln -s . lirc || :
+ 	$(top_srcdir)/tools/lirc-make-devinput -i > input_map.inc
+-	$(top_srcdir)/tools/lirc-make-devinput -i > $@
++	$(top_srcdir)/tools/lirc-make-devinput -i $(DEVINPUT_HEADER) > $@
+ else
+ lirc/input_map.inc:
+ 	touch $@
+-- 
+2.9.3

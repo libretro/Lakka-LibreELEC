@@ -1,0 +1,50 @@
+From ce4a46f6e7021e54f3679bfc8ea02c6f213f6d96 Mon Sep 17 00:00:00 2001
+From: Matthias Reichl <hias@horus.com>
+Date: Fri, 7 Apr 2017 13:47:34 +0200
+Subject: [PATCH] backport Handle systemd new pkg-config filename (#274)
+
+---
+ configure.ac      | 2 ++
+ daemons/lircd.cpp | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/configure.ac b/configure.ac
+index 5c83085..865784d 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -408,6 +408,7 @@ AC_CHECK_HEADERS(linux/i2c-dev.h,[
+ 
+ 
+ PKG_CHECK_MODULES([SYSTEMD],[libsystemd-daemon],,[true])
++test -n "$SYSTEMD_LIBS" || PKG_CHECK_MODULES([SYSTEMD],[libsystemd],,[true])
+ if test -n "$SYSTEMD_LIBS"; then
+     CFLAGS="$CFLAGS $SYSTEMD_CFLAGS"
+     AC_DEFINE(HAVE_SYSTEMD)
+@@ -559,6 +560,7 @@ AC_REPORT_CONDITIONAL([DEVEL])
+ AC_REPORT_CONDITIONAL([HAVE_UINPUT])
+ AC_REPORT_CONDITIONAL([DARWIN])
+ AC_REPORT_CONDITIONAL([LINUX_KERNEL])
++AC_REPORT_CONDITIONAL([HAVE_SYSTEMD])
+ 
+ echo
+ 
+diff --git a/daemons/lircd.cpp b/daemons/lircd.cpp
+index fd1eab5..0dffc4a 100644
+--- a/daemons/lircd.cpp
++++ b/daemons/lircd.cpp
+@@ -1035,10 +1035,12 @@ void start_server(mode_t permission, int nodaemon, loglevel_t loglevel)
+ 		fprintf(stderr, "Too many file descriptors received.\n");
+ 		goto start_server_failed0;
+ 	} else if (n == 1) {
++	        log_notice("Using systemd fd");
+ 		sockfd = SD_LISTEN_FDS_START + 0;
+ 	}
+ #endif
+ 	if (sockfd == -1) {
++	        log_debug("No systemd fd found");
+ 		sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+ 		if (sockfd == -1) {
+ 			perror("Could not create socket");
+-- 
+2.1.4
+
