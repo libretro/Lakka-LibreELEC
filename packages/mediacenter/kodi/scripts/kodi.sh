@@ -93,6 +93,11 @@ fi
 # clean up any stale cores. just in case
 rm -f /storage/.cache/cores/*
 
+# clean zero-byte database files that prevent migration/startup
+for file in /storage/.kodi/userdata/Database/*.db; do
+  [ -s $file ] || rm -f $file
+done
+
 /usr/lib/kodi/kodi.bin $SAVED_ARGS
 RET=$?
 
