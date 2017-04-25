@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="rapidjson"
-PKG_VERSION="1.0.2"
+PKG_VERSION="1.1.0"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/miloyip/rapidjson"
@@ -30,8 +30,10 @@ PKG_LONGDESC="A fast JSON parser/generator for C++ with both SAX/DOM style API"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DRAPIDJSON_HAS_STDSTRING=ON \
-                       -DRAPIDJSON_BUILD_DOC=OFF \
+PKG_CMAKE_OPTS_TARGET="-DRAPIDJSON_BUILD_DOC=OFF \
                        -DRAPIDJSON_BUILD_EXAMPLES=OFF
                        -DRAPIDJSON_BUILD_TESTS=OFF \
-                       -DRAPIDJSON_BUILD_THIRDPARTY_GTEST=OFF"
+                       -DRAPIDJSON_BUILD_THIRDPARTY_GTEST=OFF \
+                       -DRAPIDJSON_BUILD_ASAN=OFF \
+                       -DRAPIDJSON_BUILD_UBSAN=OFF \
+                       -DRAPIDJSON_HAS_STDSTRING=ON"
