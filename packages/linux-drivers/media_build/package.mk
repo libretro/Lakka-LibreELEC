@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="media_build"
-PKG_VERSION="2017-01-22"
+PKG_VERSION="2017-01-22-rpi"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/crazycat69/linux_media"
