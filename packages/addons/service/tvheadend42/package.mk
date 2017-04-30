@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://LibreELEC.tv
-#      Copyright (C) 2016-2017 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,15 +17,15 @@
 ################################################################################
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="e5f5a42"
-PKG_VERSION_NUMBER="4.1.2415"
-PKG_REV="109"
+PKG_VERSION="76dbc3e"
+PKG_VERSION_NUMBER="4.2.2-32"
+PKG_REV="111"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="tvheadend-${PKG_VERSION}*"
-PKG_DEPENDS_TARGET="toolchain curl dvb-tools libdvbcsa libiconv libressl Python:host yasm"
+PKG_DEPENDS_TARGET="toolchain curl dvb-tools libdvbcsa libiconv libressl pngquant:host Python:host yasm"
 PKG_SECTION="service"
 PKG_SHORTDESC="Tvheadend: a TV streaming server for Linux"
 PKG_LONGDESC="Tvheadend ($PKG_VERSION_NUMBER): is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV, SAT>IP, ATSC and ISDB-T"
@@ -56,6 +56,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --enable-hdhomerun_static \
                            --enable-epoll \
                            --enable-inotify \
+                           --enable-pngquant \
                            --disable-nvenc \
                            --disable-uriparser \
                            $TVH_TRANSCODING \
@@ -67,6 +68,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
 
 post_unpack() {
   sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$ADDON_VERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
+  sed -e 's|'/usr/bin/pngquant'|'$ROOT/$TOOLCHAIN/bin/pngquant'|g' -i $PKG_BUILD/support/mkbundle
 }
 
 pre_configure_target() {
@@ -92,6 +94,7 @@ fi
 
 post_make_target() {
   $CC -O -fbuiltin -fomit-frame-pointer -fPIC -shared -o capmt_ca.so src/extra/capmt_ca.c -ldl
+  $STRIP $ROOT/$PKG_BUILD/build.linux/tvheadend
 }
 
 makeinstall_target() {
