@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="pvr.mythtv"
-PKG_VERSION="08d609b"
+PKG_VERSION="c4259bf"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.kodi.tv"
-PKG_URL="https://github.com/kodi-pvr/pvr.mythtv/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/janbar/pvr.mythtv"
+PKG_URL="https://github.com/janbar/pvr.mythtv/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="pvr.mythtv"
