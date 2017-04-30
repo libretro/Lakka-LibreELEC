@@ -34,15 +34,6 @@ PKG_LONGDESC="This is yet another Megadrive / Genesis / Sega CD / Mega CD / 32X 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-post_unpack() {
-  rm -rf $BUILD/$PKG_NAME-$PKG_VERSION/
-  git clone https://github.com/libretro/picodrive.git $BUILD/$PKG_NAME-$PKG_VERSION/
-  cd $BUILD/$PKG_NAME-$PKG_VERSION/
-  git checkout $PKG_VERSION
-  git submodule update --init
-  cd $ROOT
-}
-
 pre_configure_target() {
   strip_gold
 }
