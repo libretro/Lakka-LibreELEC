@@ -2,7 +2,7 @@
 
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-2017 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -89,14 +89,26 @@ if [ "$WORKAROUND_SLEEP" == "true" ]; then
   sleep $WORKAROUND_SLEEP_TIME
 fi
 
-# support FritzBox Sat>IP Server detection workaround
+# support FritzBox Sat>IP Server detection workaround for AVM-Repeater and AVM-6490
 if [ "$AVM_SATIP_SERVER" == "true" ]; then
-  AVM_SATIP=""
-  for i in $(seq 1 $AVM_SATIP_SERVER_NUM); do
-    ref_ip=AVM_IP_${i}
-    eval "AVM_IP=\${$ref_ip}"
-    AVM_SATIP="$AVM_SATIP --satip_xml http://${AVM_IP}:${AVM_PORT}/satipdesc.xml"
-  done
+  if [ "$AVM_DEVICE" == "AVM_Repeater" ]; then
+    AVM_SATIP="--satip_xml http://${AVM_ROUTER_IP}:49000/satipdesc.xml"
+  fi
+  if [ "$AVM_DEVICE" == "AVM_6490" ]; then
+    AVM_SATIP="--satip_xml http://${AVM_ROUTER_FAKE_IP}:49000/satipdesc.xml"
+    AVM_NUM="4"
+  fi
+
+  # add virtual ip as workaround for AVM limitation of one stream per ip
+  # AVM-Repeater (2 tuners)
+  ip address add ${AVM_IP1}/24 dev $AVM_ETH
+  ip address add ${AVM_IP2}/24 dev $AVM_ETH
+
+  # AVM-6490 (4 tuners)
+  if [ "$AVM_NUM" = "4" ]; then
+    ip address add ${AVM_IP3}/24 dev $AVM_ETH
+    ip address add ${AVM_IP4}/24 dev $AVM_ETH
+  fi
 fi
 
 # custom startup parameters
