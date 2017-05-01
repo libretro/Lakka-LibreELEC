@@ -185,12 +185,6 @@ pre_make_target() {
 
   # regdb
   cp $(get_build_dir wireless-regdb)/db.txt $PKG_BUILD/net/wireless/db.txt
-
-  if [ "$BOOTLOADER" = "u-boot" ]; then
-    ( cd $ROOT
-      $SCRIPTS/build u-boot
-    )
-  fi
 }
 
 make_target() {
@@ -222,8 +216,10 @@ make_target() {
 makeinstall_target() {
   if [ "$BOOTLOADER" = "u-boot" ]; then
     mkdir -p $INSTALL/usr/share/bootloader
-    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb; do
-      cp $dtb $INSTALL/usr/share/bootloader 2>/dev/null || :
+    for dtb in arch/$TARGET_KERNEL_ARCH/boot/dts/*.dtb arch/$TARGET_KERNEL_ARCH/boot/dts/*/*.dtb; do
+      if [ -f $dtb ]; then
+        cp -v $dtb $INSTALL/usr/share/bootloader
+      fi
     done
     if [ -d arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic -a -f "arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/$KERNEL_UBOOT_EXTRA_TARGET" ]; then
       cp "arch/$TARGET_KERNEL_ARCH/boot/dts/amlogic/$KERNEL_UBOOT_EXTRA_TARGET" $INSTALL/usr/share/bootloader/dtb.img 2>/dev/null || :

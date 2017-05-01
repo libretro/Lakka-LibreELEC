@@ -75,8 +75,8 @@ if [ "$DEVEL_VERSION" = "devel" ] ; then
   IMAGE_NAME="$DISTRONAME-$LIBREELEC_ARCH-$OS_VERSION-$LIBREELEC_VERSION"
 fi
 
-if [ "$PROJECT" == "imx6" -a -n "$SYSTEM" ]; then
-  IMAGE_NAME="$IMAGE_NAME-$SYSTEM"
+if [ -n "$UBOOT_SYSTEM" ]; then
+  IMAGE_NAME="$IMAGE_NAME-$UBOOT_SYSTEM"
 fi
 
 if [ -n "$CUSTOM_IMAGE_NAME" ]; then
@@ -267,29 +267,15 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
 
   # remove n previous created release image
   rm -rf $TARGET_IMG/$IMAGE_NAME.img.gz
-  if [ -n "$BOOTLOADER" ]; then
 
-    BOOTLOADER_DIR="$(get_pkg_directory "$BOOTLOADER")"
-
-    if [ -d $BOOTLOADER_DIR/files ]; then
-      cp -R $BOOTLOADER_DIR/files/* $RELEASE_DIR
-    fi
-
-    if [ -n "$DEVICE" -a -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release ]; then
+  if [ "$BOOTLOADER" = "u-boot" ]; then
+    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release ]; then
+      echo "Running $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release"
       . $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/release
     elif [ -f $PROJECT_DIR/$PROJECT/bootloader/release ]; then
+      echo "Running $PROJECT_DIR/$PROJECT/bootloader/release"
       . $PROJECT_DIR/$PROJECT/bootloader/release
-    elif [ -f $BOOTLOADER_DIR/release ]; then
-      . $BOOTLOADER_DIR/release
     fi
-  fi
-
-  # MfgTool2 for TBS Matrix support (add it to .tar)
-  # only for matrix system or all? (one tar for all updates?)
-  if [ "$PROJECT" == "imx6" -a "$SYSTEM" == "matrix" ]; then
-    $SCRIPTS/unpack imx6-mfgtool2-tbs-matrix
-     mkdir -p $RELEASE_DIR/MfgTool2-TBS-Matrix
-     cp -PR $BUILD/imx6-mfgtool2-tbs-matrix-*/* $RELEASE_DIR/MfgTool2-TBS-Matrix
   fi
 
   cp $ROOT/README* $RELEASE_DIR
@@ -329,19 +315,11 @@ if [ "$1" = "release" -o "$1" = "mkimage" -o "$1" = "amlpkg" -o "$1" = "noobs" ]
       KERNEL_NAME="KERNEL"
     fi
 
-    UBOOT_SYSTEM=""
-    if [ "$PROJECT" == "imx6" ]; then
-      if [ -n "$SYSTEM" ]; then
-        UBOOT_SYSTEM="$SYSTEM"
-      else
-        UBOOT_SYSTEM="cuboxi"
-      fi
-    fi
-
     # variables used in image script must be passed
     env \
       PATH="$PATH:/sbin" \
       ROOT="$ROOT" \
+      SCRIPTS="$SCRIPTS" \
       TOOLCHAIN="$TOOLCHAIN" \
       PROJECT_DIR="$PROJECT_DIR" \
       PROJECT="$PROJECT" \
