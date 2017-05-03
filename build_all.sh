@@ -36,8 +36,6 @@ DISTRO=Lakka PROJECT=WeTek_Play ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=WeTek_Play_2 ARCH=arm make image -j8
 >&2 echo "Gamegirl.arm"
 DISTRO=Lakka PROJECT=Gamegirl ARCH=arm make image -j8
->&2 echo "Virtual.x86_64"
-DISTRO=Lakka PROJECT=Virtual ARCH=x86_64 make image -j8
 >&2 echo "S802.arm"
 DISTRO=Lakka PROJECT=S802 SYSTEM=S82 ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=S802 SYSTEM=M8 ARCH=arm make image -j8
@@ -78,6 +76,7 @@ done
 
 for f in target/*; do
   dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-\(.*\)-devel-\(.*\)/\1/'`
+  #dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-2.0\(.*\)/\1/'`
   mkdir -p target/$dir
   mv $f target/$dir/
 done
