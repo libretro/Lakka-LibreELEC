@@ -34,13 +34,6 @@ PKG_LONGDESC="Obscure nintendo handheld emulator (functional,no color files or s
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-#make_target() {
-#  if [ "$ARCH" == "arm" ]; then
-#    CXXFLAGS="$CXXFLAGS -DARM"
-#  fi
-#  make -C libretro
-#}
-
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp pokemini_libretro.so $INSTALL/usr/lib/libretro/
