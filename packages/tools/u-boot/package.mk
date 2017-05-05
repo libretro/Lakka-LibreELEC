@@ -19,7 +19,7 @@
 PKG_NAME="u-boot"
 PKG_DEPENDS_TARGET="toolchain"
 if [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
-  PKG_COMMIT="c8d1200"
+  PKG_COMMIT="ad02f49"
   PKG_VERSION="imx6-$PKG_COMMIT"
   PKG_SITE="http://solid-run.com/wiki/doku.php?id=products:imx6:software:development:u-boot"
   PKG_URL="https://github.com/SolidRun/u-boot-imx6/archive/$PKG_COMMIT.tar.gz"
