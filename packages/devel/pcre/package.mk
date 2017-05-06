@@ -34,6 +34,7 @@ PKG_USE_CMAKE="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN \
+             --enable-static \
              --enable-utf8 \
              --enable-unicode-properties \
              --with-gnu-ld"
