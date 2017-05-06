@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="elfutils"
-PKG_VERSION="0.167"
+PKG_VERSION="0.168"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://sourceware.org/elfutils/"
