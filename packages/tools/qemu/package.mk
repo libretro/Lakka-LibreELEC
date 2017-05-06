@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="qemu"
-PKG_VERSION="2.7.0"
+PKG_VERSION="2.8.1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wiki.qemu.org"
