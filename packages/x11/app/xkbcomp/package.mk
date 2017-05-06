@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xkbcomp"
-PKG_VERSION="1.3.1"
+PKG_VERSION="1.4.0"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
