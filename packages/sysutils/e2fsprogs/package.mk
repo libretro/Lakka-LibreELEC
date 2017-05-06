@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="e2fsprogs"
-PKG_VERSION="1.43.3"
+PKG_VERSION="1.43.4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://e2fsprogs.sourceforge.net/"
@@ -35,9 +35,9 @@ if [ "$HFSTOOLS" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET diskdev_cmds"
 fi
 
-PKG_CONFIGURE_OPTS_HOST="--prefix=/usr \
-                         --bindir=/bin \
-                         --sbindir=/sbin"
+PKG_CONFIGURE_OPTS_HOST="--prefix=$TOOLCHAIN/ \
+                         --bindir=$TOOLCHAIN/bin \
+                         --sbindir=$TOOLCHAIN/sbin"
 
 PKG_CONFIGURE_OPTS_TARGET="BUILD_CC=$HOST_CC \
                            --enable-verbose-makecmds \
@@ -72,6 +72,8 @@ pre_make_host() {
 }
 
 post_makeinstall_target() {
+  make -C lib/et DESTDIR=$SYSROOT_PREFIX install
+
   rm -rf $INSTALL/usr/sbin/badblocks
   rm -rf $INSTALL/usr/sbin/blkid
   rm -rf $INSTALL/usr/sbin/dumpe2fs
@@ -107,15 +109,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  make -C lib/et DESTDIR=$(pwd)/.install install
-  make -C lib/ext2fs DESTDIR=$(pwd)/.install install
-
-  rm -fr $(pwd)/.install/bin
-  rm -fr $(pwd)/.install/usr/share
-
-  # Ensure installed files are writeable and not read-only, otherwise future package bumps will fail to overwrite toolchain
-  chmod -R +w $(pwd)/.install/usr/*
-
-  cp -Pa $(pwd)/.install/usr/* $TOOLCHAIN
+  make -C lib/et install
+  make -C lib/ext2fs install
 }
 
