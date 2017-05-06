@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libusb"
-PKG_VERSION="1.0.20"
+PKG_VERSION="1.0.21"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="http://libusb.info/"
