@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="gmp"
-PKG_VERSION="6.1.1"
+PKG_VERSION="6.1.2"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv3+"
 PKG_SITE="http://gmplib.org/"
