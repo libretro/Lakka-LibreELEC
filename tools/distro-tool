@@ -46,7 +46,7 @@ WORKER_MAX=${WORKER_MAX:-$(grep "^processor[[:space:]]*:" /proc/cpuinfo | wc -l)
 
 PYTHON_PROG='
 from __future__ import print_function
-import sys, os, json, codecs, re, threading, subprocess, glob, datetime, shutil
+import sys, os, json, codecs, re, threading, subprocess, glob, datetime, shutil, hashlib
 
 if sys.version_info >= (3, 0):
   import queue as Queue
@@ -125,7 +125,7 @@ class MyUtility(object):
   @staticmethod
   def readfile(filename):
     inputfile = codecs.open(filename, "rb", encoding="utf-8")
-    data= inputfile.read()
+    data = inputfile.read()
     inputfile.close()
     return data
 
@@ -320,6 +320,31 @@ class MyUtility(object):
 
     return result
 
+  # Calculate hash for chunked data
+  @staticmethod
+  def hash_bytestr_iter(bytesiter, hasher, ashexstr=True):
+    for block in bytesiter:
+      hasher.update(block)
+    return (hasher.hexdigest() if ashexstr else hasher.digest())
+
+  # Read file in blocks/chunks to be memory efficient
+  @staticmethod
+  def file_as_blockiter(afile, blocksize=65536):
+    with afile:
+      block = afile.read(blocksize)
+      while len(block) > 0:
+        yield block
+        block = afile.read(blocksize)
+
+  # Calculate sha256 hash for a file
+  @staticmethod
+  def calculate_sha256(fname):
+    try:
+      return MyUtility.hash_bytestr_iter(MyUtility.file_as_blockiter(open(fname, "rb")), hashlib.sha256())
+    except:
+      raise
+      return ""
+
   # Use wget with same parameters as scripts/get is using
   @staticmethod
   def download_file(msgs, filename_data, filename_log, url):
@@ -336,7 +361,7 @@ class MyUtility(object):
     return False
 
   @staticmethod
-  def get_package(msgs, package_name, package_source, package_url):
+  def get_package(msgs, package_name, package_source, package_url, package_sha):
     onsource = False
     onmirror = False
 
@@ -384,6 +409,14 @@ class MyUtility(object):
       if os.path.exists(tmpfile_log):
         MyUtility.logmsg(msgs, 0, MyUtility.readfile(tmpfile_log))
     else:
+      if package_sha:
+        calc_sha = MyUtility.calculate_sha256(tmpfile_data)
+        if calc_sha != package_sha:
+          result = False
+          MyUtility.show(msgs, 0, "red", "DOWNLOAD FAILED!!", "%s (%s)" % (package_name, package_url))
+          MyUtility.logmsg(msgs, 0, "Checksum mismatch - got [%s], wanted [%s]" % (calc_sha, package_sha))
+
+    if result == True:
       MyUtility.show(msgs, 0, "green", "Successful Download", "%s (%s)" % (package_name, package_source))
       if IS_MIRROR:
         if not os.path.exists("%s/%s" % (DOWNLOAD_DIR, package_name)):
@@ -483,6 +516,7 @@ class MyThread(threading.Thread):
         pkg_name = qItem["PKG_NAME"]
         pkg_version = qItem["PKG_VERSION"]
         pkg_url = qItem["PKG_URL"]
+        pkg_sha = qItem["PKG_SHA256"]
         pkg_section = qItem["PKG_SECTION"]
         pkg_source_name = qItem["PKG_SOURCE_NAME"]
 
@@ -499,14 +533,14 @@ class MyThread(threading.Thread):
 
         self.output_queue.put([{"start": True, "name": threading.current_thread().name, "data": {"url": pkg_url, "tstamp": datetime.datetime.now()}}])
 
-        MyUtility.logmsg(msgs, 3, ">>>>>>>>>>>>>>>>> %s, %s, %s" % (pkg_name, pkg_version, pkg_url))
+        MyUtility.logmsg(msgs, 3, ">>>>>>>>>>>>>>>>> %s, %s, %s, wanted sha256 %s" % (pkg_name, pkg_version, pkg_url, pkg_sha))
 
         if MyUtility.have_package(pkg_name, pkg_source_name):
           MyUtility.show(msgs, 1, "green", "Already downloaded", "%s (%s)" % (pkg_name, pkg_source_name))
         else:
           tStart = datetime.datetime.now()
           if not stopped.is_set() and \
-             not MyUtility.get_package(msgs, pkg_name, pkg_source_name, pkg_url):
+             not MyUtility.get_package(msgs, pkg_name, pkg_source_name, pkg_url, pkg_sha):
              if not IGNORE_ERRORS:
                stopped.set()
           tDelta_get_package = datetime.datetime.now() - tStart
@@ -758,7 +792,7 @@ generate_work_worker() {
   local pcount=$1 worker="$2" revision="$3"
   local workfile_i="$(printf "%s.%02d" "${WORKFILES_I}" ${worker})"
   local workfile_o="$(printf "%s.%02d" "${WORKFILES_O}" ${worker})"
-  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SECTION PKG_IS_ADDON PKG_SOURCE_NAME"
+  local wanted_vars="PKG_NAME PKG_VERSION PKG_URL PKG_SHA256 PKG_SECTION PKG_IS_ADDON PKG_SOURCE_NAME"
   local package_name var comma PKG_URL PKG_SOURCE_NAME PKG_VERSION PKG_IS_ADDON
 
   [ -f "${workfile_i}" ] || return 0
