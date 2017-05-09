@@ -35,7 +35,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_target() {
-  :
+  strip_gold
 }
 
 make_target() {
