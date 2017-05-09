@@ -18,16 +18,16 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="shaders_glsl"
-PKG_VERSION="20170503"
+PKG_NAME="glsl-shaders"
+PKG_VERSION="88b3f33"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/libretro/common-shaders"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/libretro/glsl-shaders"
+PKG_URL="https://github.com/libretro/glsl-shaders/archive/master.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
-PKG_SECTION=""
+PKG_SECTION="libretro"
 PKG_SHORTDESC="Common GSLS shaders for RetroArch"
 PKG_LONGDESC="Common GSLS shaders for RetroArch"
 
@@ -41,5 +41,4 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/common-shaders
   cp -r * $INSTALL/usr/share/common-shaders
-  ls -la $INSTALL/usr/share/common-shaders
 }
