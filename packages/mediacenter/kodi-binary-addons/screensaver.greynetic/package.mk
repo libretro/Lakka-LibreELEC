@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="screensaver.greynetic"
-PKG_VERSION="2c103d0"
+PKG_VERSION="e4dc6eb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

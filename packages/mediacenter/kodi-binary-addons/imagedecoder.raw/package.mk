@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="imagedecoder.raw"
-PKG_VERSION="e7e2c2d"
+PKG_VERSION="37ef22e"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
