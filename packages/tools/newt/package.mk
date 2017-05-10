@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="newt"
-PKG_VERSION="0.52.19"
+PKG_VERSION="0.52.20"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://pagure.io/newt"

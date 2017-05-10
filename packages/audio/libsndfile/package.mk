@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libsndfile"
-PKG_VERSION="1.0.27"
+PKG_VERSION="1.0.28"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mega-nerd.com/libsndfile/"
@@ -29,6 +29,7 @@ PKG_LONGDESC="libsndfile is a C library for reading and writing sound files such
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="no"
 
 # package specific configure options
 PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \

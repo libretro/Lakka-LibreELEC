@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="lzo"
-PKG_VERSION="2.09"
+PKG_VERSION="2.10"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.oberhumer.com/opensource/lzo"
@@ -33,3 +33,7 @@ PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_HOST="-DENABLE_SHARED=OFF -DENABLE_STATIC=ON"
 PKG_CMAKE_OPTS_TARGET="-DENABLE_SHARED=OFF -DENABLE_STATIC=ON"
+
+post_makeinstall_target() {
+  rm -rf $INSTALL/usr/libexec
+}

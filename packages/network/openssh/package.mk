@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="openssh"
-PKG_VERSION="7.4p1"
+PKG_VERSION="7.5p1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.openssh.com/"
@@ -41,6 +41,7 @@ PKG_CONFIGURE_OPTS_TARGET="--sysconfdir=/etc/ssh \
                            --disable-wtmpx \
                            --without-rpath \
                            --with-ssl-engine \
+                           --with-privsep-user=nobody \
                            --disable-pututline \
                            --disable-pututxline \
                            --disable-etc-default-login \
@@ -64,7 +65,6 @@ post_makeinstall_target() {
 
   sed -e "s|^#PermitRootLogin.*|PermitRootLogin yes|g" \
       -e "s|^#StrictModes.*|StrictModes no|g" \
-      -e "s|^#UsePrivilegeSeparation.*|UsePrivilegeSeparation no|g" \
       -i $INSTALL/etc/ssh/sshd_config
 
   echo "PubkeyAcceptedKeyTypes +ssh-dss" >> $INSTALL/etc/ssh/sshd_config

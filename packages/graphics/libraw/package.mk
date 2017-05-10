@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libraw"
-PKG_VERSION="0.18.1"
+PKG_VERSION="0.18.2"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.libraw.org/"

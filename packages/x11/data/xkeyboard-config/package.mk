@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="xkeyboard-config"
-PKG_VERSION="2.19"
+PKG_VERSION="2.20"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

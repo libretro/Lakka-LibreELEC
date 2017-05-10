@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="ccache"
-PKG_VERSION="3.3.3"
+PKG_VERSION="3.3.4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://ccache.samba.org/"

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="m4"
-PKG_VERSION="1.4.17"
+PKG_VERSION="1.4.18"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/m4/"
