@@ -18,7 +18,7 @@
 
 PKG_NAME="screensaver.biogenesis"
 PKG_VERSION="8d1ef04"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/notspiff/screensaver.biogenesis"

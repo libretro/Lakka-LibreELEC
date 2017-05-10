@@ -18,7 +18,7 @@
 
 PKG_NAME="visualization.pictureit"
 PKG_VERSION="66f88ff"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"

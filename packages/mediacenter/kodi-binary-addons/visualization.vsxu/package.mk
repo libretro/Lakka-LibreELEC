@@ -18,7 +18,7 @@
 
 PKG_NAME="visualization.vsxu"
 PKG_VERSION="caedcbc"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="i386 x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/notspiff/visualization.vsxu"

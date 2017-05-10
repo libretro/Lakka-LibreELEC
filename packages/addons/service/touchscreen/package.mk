@@ -18,7 +18,7 @@
 
 PKG_NAME="touchscreen"
 PKG_VERSION="1.0"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2 imx6"
 PKG_LICENSE="GPL"

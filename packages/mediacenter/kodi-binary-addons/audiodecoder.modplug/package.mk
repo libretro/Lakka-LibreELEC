@@ -18,7 +18,7 @@
 
 PKG_NAME="audiodecoder.modplug"
 PKG_VERSION="950682e"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"

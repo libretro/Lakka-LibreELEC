@@ -18,7 +18,7 @@
 
 PKG_NAME="audiodecoder.2sf"
 PKG_VERSION="c9de26d"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/notspiff/audiodecoder.2sf"

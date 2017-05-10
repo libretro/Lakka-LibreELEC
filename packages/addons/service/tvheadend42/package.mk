@@ -19,7 +19,7 @@
 PKG_NAME="tvheadend42"
 PKG_VERSION="4d4bf14"
 PKG_VERSION_NUMBER="4.2.1.7"
-PKG_REV="110"
+PKG_REV="111"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"

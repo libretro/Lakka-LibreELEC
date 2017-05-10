@@ -18,7 +18,7 @@
 
 PKG_NAME="steamcontroller"
 PKG_VERSION="60499dc"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/ynsta/steamcontroller"

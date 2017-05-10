@@ -18,7 +18,7 @@
 
 PKG_NAME="tinc"
 PKG_VERSION="1.1pre14"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="http://www.tinc-vpn.org/"

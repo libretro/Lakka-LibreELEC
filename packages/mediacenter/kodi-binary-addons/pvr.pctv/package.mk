@@ -18,7 +18,7 @@
 
 PKG_NAME="pvr.pctv"
 PKG_VERSION="eab5f85"
-PKG_REV="1"
+PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"

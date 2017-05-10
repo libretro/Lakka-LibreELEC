@@ -20,7 +20,7 @@
 
 PKG_NAME="mpd"
 PKG_VERSION="0.20.3"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.musicpd.org"
