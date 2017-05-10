@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="connman"
-PKG_VERSION="1.33"
+PKG_VERSION="1.34"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.connman.net"
