@@ -1,0 +1,89 @@
+diff -Naur a/kernel/nv-drm.c b/kernel/nv-drm.c
+--- a/kernel/nv-drm.c	2017-03-31 03:42:21.000000000 +0200
++++ b/kernel/nv-drm.c	2017-04-06 23:53:14.273356795 +0200
+@@ -48,7 +48,7 @@
+     return -ENODEV;
+ }
+
+-static int nv_drm_unload(
++static void nv_drm_unload(
+     struct drm_device *dev
+ )
+ {
+@@ -60,7 +60,7 @@
+         {
+             BUG_ON(nvl->drm != dev);
+             nvl->drm = NULL;
+-            return 0;
++            return;
+         }
+     }
+
+@@ -64,7 +64,7 @@
+         }
+     }
+
+-    return -ENODEV;
++    return;
+ }
+
+ static void nv_gem_free(
+diff -Naur a/kernel/uvm/nvidia_uvm_linux.h b/kernel/uvm/nvidia_uvm_linux.h
+--- a/kernel/uvm/nvidia_uvm_linux.h  2017-03-31 03:42:21.000000000 +0200
++++ b/kernel/uvm/nvidia_uvm_linux.h  2017-04-06 23:53:14.273356795 +0200
+@@ -124,6 +124,7 @@
+ #include <linux/delay.h>            /* mdelay, udelay                   */
+
+ #include <linux/sched.h>            /* suser(), capable() replacement   */
++#include <linux/sched/signal.h>
+ #include <linux/moduleparam.h>      /* module_param()                   */
+ #if !defined(NV_VMWARE)
+ #include <asm/tlbflush.h>           /* flush_tlb(), flush_tlb_all()     */
+@@ -362,17 +363,6 @@
+     void address_space_init_once(struct address_space *mapping);
+ #endif
+
+-#if !defined(NV_FATAL_SIGNAL_PENDING_PRESENT)
+-    static inline int __fatal_signal_pending(struct task_struct *p)
+-    {
+-        return unlikely(sigismember(&p->pending.signal, SIGKILL));
+-    }
+-
+-    static inline int fatal_signal_pending(struct task_struct *p)
+-    {
+-        return signal_pending(p) && __fatal_signal_pending(p);
+-    }
+-#endif
+
+ //
+ // Before the current->cred structure was introduced, current->euid,
+diff -Naur a/kernel/uvm/nvidia_uvm_lite.c b/kernel/uvm/nvidia_uvm_lite.c
+--- a/kernel/uvm/nvidia_uvm_lite.c  2017-03-31 03:42:21.000000000 +0200
++++ b/kernel/uvm/nvidia_uvm_lite.c  2017-04-06 23:53:14.273356795 +0200
+@@ -818,7 +818,7 @@
+ }
+
+ #if defined(NV_VM_OPERATIONS_STRUCT_HAS_FAULT)
+-int _fault(struct vm_area_struct *vma, struct vm_fault *vmf)
++int _fault(struct vm_fault *vmf)
+ {
+     unsigned long vaddr = (unsigned long)vmf->virtual_address;
+     struct page *page = NULL;
+@@ -828,7 +828,7 @@
+     struct page *page = NULL;
+     int retval;
+
+-    retval = _fault_common(vma, vaddr, &page, vmf->flags);
++    retval = _fault_common(NULL, vaddr, &page, vmf->flags);
+
+     vmf->page = page;
+
+@@ -866,7 +866,7 @@
+ // it's dealing with anonymous mapping (see handle_pte_fault).
+ //
+ #if defined(NV_VM_OPERATIONS_STRUCT_HAS_FAULT)
+-int _sigbus_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
++int _sigbus_fault(struct vm_fault *vmf)
+ {
+     vmf->page = NULL;
+     return VM_FAULT_SIGBUS;
