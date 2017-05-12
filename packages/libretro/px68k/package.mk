@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="px68k"
-PKG_VERSION="a80a504"
+PKG_VERSION="982ac1a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Unknown"
@@ -36,10 +36,6 @@ PKG_AUTORECONF="no"
 
 post_unpack() {
   mv $BUILD/px68k-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
-
-make_target() {
-  make -f Makefile.libretro
 }
 
 makeinstall_target() {
