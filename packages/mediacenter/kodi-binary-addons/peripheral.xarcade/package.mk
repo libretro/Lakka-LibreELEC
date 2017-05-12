@@ -18,7 +18,7 @@
 
 PKG_NAME="peripheral.xarcade"
 PKG_VERSION="f1875ba"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/peripheral.xarcade"

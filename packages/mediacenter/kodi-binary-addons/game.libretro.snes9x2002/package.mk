@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.snes9x2002"
 PKG_VERSION="f648a9b"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.snes9x2002"

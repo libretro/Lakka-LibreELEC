@@ -18,7 +18,7 @@
 
 PKG_NAME="btrfs-progs"
 PKG_VERSION="4.8.4"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://btrfs.wiki.kernel.org/index.php/Main_Page"

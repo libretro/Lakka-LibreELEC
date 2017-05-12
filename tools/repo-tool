@@ -112,7 +112,8 @@ build() {
 }
 
 update_revision() {
-  for package in $(find packages/addons -iname package.mk) ; do
+  for package in $(find $1 -iname package.mk) ; do
+    [[ "$2" == "Y" && $package =~ .*/game.libretro.* ]] && continue
     (
     . $package
     if [ "$PKG_IS_ADDON" = "yes" ] ; then
@@ -139,18 +140,24 @@ update_repo_version() {
 usage() {
   echo "  usage: $0 -u                                                  to upload"
   echo "         $0 -b   binary|retroplayer|official|all [project-name] to build [for a single project]"
-  echo "         $0 -ru                                                 to update PKG_REV"
+  echo "         $0 -ru  binary|retroplayer|official|all                to update PKG_REV"
   echo "         $0 -rv                                                 to update PKG_ADDON_REPOVERSION"
   echo "         $0 -xml                                                to update the addons.xml"
 }
 
-if [ "$1" = "-b" -a -z "$2" ]; then
-  usage
-  exit 0
-elif [ "$1" = "-b" -a -n "$2" ]; then
+if [ "$1" = "-b" -o "$1" = "-ru" ]; then
+  if [ -z "$2" ]; then
+    usage
+    exit 0
+  fi
+fi
+
+if [ "$1" = "-b" -o "$1" = "-ru" ]; then
+  exclude_games=N
   case $2 in
     binary)
       repo="packages/mediacenter/kodi-binary-addons"
+      exclude_games=Y
       ;;
     retroplayer)
       repo="packages/mediacenter/kodi-binary-addons/game.libretro.*"
@@ -167,11 +174,9 @@ elif [ "$1" = "-b" -a -n "$2" ]; then
       ;;
   esac
 
-  project="$(ls -1 projects)"
-  if [ -n "$3" ]; then
-    project="$3"
+  if [ "$1" = "-b" ]; then
+    [ -n "$3" ] && project="$3" || project="$(ls -1 projects)"
   fi
-
 fi
 
 case $1 in
@@ -182,7 +187,7 @@ case $1 in
     upload
     ;;
   -ru)
-    update_revision
+    update_revision "$repo" "$exclude_games"
     ;;
   -rv)
      update_repo_version

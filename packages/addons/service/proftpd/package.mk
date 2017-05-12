@@ -20,7 +20,7 @@
 
 PKG_NAME="proftpd"
 PKG_VERSION="1.3.5b"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.proftpd.org/"

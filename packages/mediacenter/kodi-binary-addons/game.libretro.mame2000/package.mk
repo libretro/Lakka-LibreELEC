@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.mame2000"
 PKG_VERSION="7e63b8e"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.mame2000"

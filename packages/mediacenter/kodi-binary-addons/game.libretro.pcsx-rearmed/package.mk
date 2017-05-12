@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.pcsx-rearmed"
 PKG_VERSION="54fccff"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 # RPi doesn't support neon
 PKG_ADDON_PROJECTS="Generic imx6 Odroid_C2 RPi2 Virtual WeTek_Core WeTek_Hub WeTek_Play WeTek_Play_2"

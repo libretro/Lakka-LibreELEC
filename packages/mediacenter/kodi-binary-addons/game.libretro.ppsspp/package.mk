@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.ppsspp"
 PKG_VERSION="4134990"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.ppsspp"

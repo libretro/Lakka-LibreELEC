@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.beetle-pcfx"
 PKG_VERSION="e66ceb5"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="arm x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-pcfx"

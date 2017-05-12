@@ -18,7 +18,7 @@
 
 PKG_NAME="dvb-tools"
 PKG_VERSION=""
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
