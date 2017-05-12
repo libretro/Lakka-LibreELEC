@@ -1,0 +1,55 @@
+From a868ebd7d7e9ee8dc97b41ac89e5fa8d8cfc65d7 Mon Sep 17 00:00:00 2001
+From: Peter Vicman <peter.vicman@gmail.com>
+Date: Wed, 9 May 2017 20:18:07 +0200
+Subject: [PATCH] limit eth speed 100mbits
+
+default ethernet speed is set to 100mbits which works reliable
+
+to enable gigabit speed module parameter via kernel command line
+must be set in form fec.disable_giga=0
+
+based on https://github.com/boundarydevices/linux-imx6/commit/aef0deef3c95aa0daf4fa5d082cca4ed2057c65f
+ 
+---
+ drivers/net/ethernet/freescale/fec_main.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 716fcb1..af01828 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -142,6 +142,10 @@ static unsigned char macaddr[ETH_ALEN];
+ module_param_array(macaddr, byte, NULL, 0);
+ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ 
++static int disable_giga = 1;
++module_param(disable_giga, int, 0644);
++MODULE_PARM_DESC(disable_giga, "disable gigabit speeds");
++
+ #if defined(CONFIG_M5272)
+ /*
+  * Some hardware gets it MAC address out of local flash memory.
+@@ -1973,15 +1977,18 @@ static int fec_enet_mii_probe(struct net
+ 	}
+ 
+ 	/* mask with MAC supported features */
+-	if (fep->quirks & FEC_QUIRK_HAS_GBIT) {
++	if (!disable_giga && (fep->quirks & FEC_QUIRK_HAS_GBIT)) {
++		netdev_info(ndev, "set 1000mbps\n");
+ 		phy_dev->supported &= PHY_GBIT_FEATURES;
+ 		phy_dev->supported &= ~SUPPORTED_1000baseT_Half;
+ #if !defined(CONFIG_M5272)
+ 		phy_dev->supported |= SUPPORTED_Pause;
+ #endif
+ 	}
+-	else
++	else {
++		netdev_info(ndev, "set 100mbps\n");
+ 		phy_dev->supported &= PHY_BASIC_FEATURES;
++	}
+ 
+ 	phy_dev->advertising = phy_dev->supported;
+ 
+-- 
+2.7.4
+
