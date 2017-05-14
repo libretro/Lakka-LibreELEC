@@ -21,7 +21,7 @@
 PKG_NAME="openlara"
 PKG_VERSION="229cf9d"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="i386 x86_64"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/libretro/openlara"
 PKG_URL="https://github.com/libretro/openlara/archive/$PKG_VERSION.tar.gz"
