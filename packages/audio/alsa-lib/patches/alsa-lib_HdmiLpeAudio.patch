@@ -1,0 +1,122 @@
+From 53dc36f1f465e2a1f9ed37906a7f16a438f941e4 Mon Sep 17 00:00:00 2001
+From: Takashi Iwai <tiwai@suse.de>
+Date: Tue, 7 Feb 2017 14:25:17 +0100
+Subject: [PATCH] conf: Add card config for Intel HDMI/DP LPE audio
+
+It's a playback-only device with a single PCM dedicated for HDMI/DP
+output.  The dmix is working with the latest driver code, so enable it
+for default, while providing the hdmi PCM dev for the accesses with
+AES bits.
+
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+ src/conf/cards/HdmiLpeAudio.conf | 85 ++++++++++++++++++++++++++++++++++++++++
+ src/conf/cards/Makefile.am       |  1 +
+ 2 files changed, 86 insertions(+)
+ create mode 100644 src/conf/cards/HdmiLpeAudio.conf
+
+diff --git a/src/conf/cards/HdmiLpeAudio.conf b/src/conf/cards/HdmiLpeAudio.conf
+new file mode 100644
+index 0000000..f5836c0
+--- /dev/null
++++ b/src/conf/cards/HdmiLpeAudio.conf
+@@ -0,0 +1,85 @@
++#
++# Configuration for the Intel HDMI/DP LPE audio
++#
++
++<confdir:pcm/front.conf>
++
++HdmiLpeAudio.pcm.front.0 {
++	@args [ CARD ]
++	@args.CARD {
++		type string
++	}
++	type softvol
++	slave.pcm {
++		type hw
++		card $CARD
++	}
++	control {
++		name "PCM Playback Volume"
++		card $CARD
++	}
++}
++
++# default with dmix+softvol
++HdmiLpeAudio.pcm.default {
++	@args [ CARD ]
++	@args.CARD {
++		type string
++	}
++	type plug
++	slave.pcm {
++		type softvol
++		slave.pcm {
++			@func concat
++			strings [ "dmix:" $CARD ]
++		}
++		control {
++			name "PCM Playback Volume"
++			card $CARD
++		}
++	}
++}
++
++<confdir:pcm/surround40.conf>
++<confdir:pcm/surround21.conf>
++<confdir:pcm/surround41.conf>
++<confdir:pcm/surround50.conf>
++<confdir:pcm/surround51.conf>
++
++<confdir:pcm/hdmi.conf>
++
++HdmiLpeAudio.pcm.hdmi.0 {
++	@args [ CARD AES0 AES1 AES2 AES3 ]
++	@args.CARD {
++		type string
++	}
++	@args.AES0 {
++		type integer
++	}
++	@args.AES1 {
++		type integer
++	}
++	@args.AES2 {
++		type integer
++	}
++	@args.AES3 {
++		type integer
++	}
++	type hooks
++	slave.pcm {
++		type hw
++		card $CARD
++	}
++	hooks.0 {
++		type ctl_elems
++		hook_args [
++			{
++				interface PCM
++				name "IEC958 Playback Default"
++				lock true
++				preserve true
++				value [ $AES0 $AES1 $AES2 $AES3 ]
++			}
++		]
++	}
++}
+diff --git a/src/conf/cards/Makefile.am b/src/conf/cards/Makefile.am
+index 60b5309..e8b530e 100644
+--- a/src/conf/cards/Makefile.am
++++ b/src/conf/cards/Makefile.am
+@@ -30,6 +30,7 @@ cfg_files = aliases.conf \
+ 	FireWave.conf \
+ 	GUS.conf \
+ 	HDA-Intel.conf \
++	HdmiLpeAudio.conf \
+ 	ICE1712.conf \
+ 	ICE1724.conf \
+ 	ICH.conf \
+-- 
+1.7.11.7
