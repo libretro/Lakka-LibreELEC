@@ -22,7 +22,6 @@ PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://01.org/linuxmedia"
 PKG_URL="https://github.com/01org/libva/releases/download/$PKG_VERSION/$PKG_NAME-$PKG_VERSION.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm mesa glu"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="Libva is an implementation for VA-API (VIdeo Acceleration API)."
 PKG_LONGDESC="Libva is an open source software library and API specification to provide access to hardware accelerated video decoding/encoding and video processing."
@@ -30,12 +29,19 @@ PKG_LONGDESC="Libva is an open source software library and API specification to 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
+if [ "$DISPLAYSERVER" = "x11" ]; then
+  PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm mesa glu"
+  DISPLAYSERVER_LIBVA="--enable-x11 --enable-glx"
+else
+  PKG_DEPENDS_TARGET="toolchain libdrm"
+  DISPLAYSERVER_LIBVA="--disable-x11 --disable-glx"
+fi
+
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --disable-docs \
                            --enable-drm \
-                           --enable-x11 \
-                           --enable-glx \
                            --enable-egl \
+                           $DISPLAYSERVER_LIBVA \
                            --disable-wayland \
                            --disable-dummy-driver \
                            --with-drivers-path=/usr/lib/va"
