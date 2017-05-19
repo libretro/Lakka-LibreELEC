@@ -43,5 +43,4 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --enable-egl \
                            $DISPLAYSERVER_LIBVA \
                            --disable-wayland \
-                           --disable-dummy-driver \
-                           --with-drivers-path=/usr/lib/va"
+                           --disable-dummy-driver"
