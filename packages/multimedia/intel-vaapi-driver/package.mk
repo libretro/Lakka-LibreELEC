@@ -37,7 +37,6 @@ else
 fi
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
-                           --with-drivers-path=/usr/lib/va \
                            --enable-drm \
                            --disable-wayland \
                            $DISPLAYSERVER_LIBVA"
