@@ -43,7 +43,7 @@ if [ "$OPENGLES_SUPPORT" = yes ]; then
 fi
 
 pre_configure_target() {
-  if [ "$KODIPLAYER_DRIVER" = bcm2835-firmware ]; then
+  if [ "$KODIPLAYER_DRIVER" = bcm2835-driver ]; then
     BCM2835_INCLUDES="-I$SYSROOT_PREFIX/usr/include/interface/vcos/pthreads/ \
                       -I$SYSROOT_PREFIX/usr/include/interface/vmcs_host/linux"
     export CFLAGS="$CFLAGS $BCM2835_INCLUDES"
