@@ -18,7 +18,7 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="S802"
+PKG_NAME="S8X2"
 PKG_VERSION=""
 PKG_REV="1"
 PKG_ARCH="any"
@@ -28,7 +28,7 @@ PKG_URL=""
 PKG_DEPENDS_TARGET="retroarch $LIBRETRO_CORES"
 PKG_PRIORITY="optional"
 PKG_SECTION="virtual"
-PKG_SHORTDESC="Lakka metapackage for S802"
+PKG_SHORTDESC="Lakka metapackage for S8X2"
 PKG_LONGDESC=""
 
 PKG_IS_ADDON="no"
