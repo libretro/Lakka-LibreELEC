@@ -1,0 +1,45 @@
+From fe8e608491e9fef6d8425daa83057ecf91c312fa Mon Sep 17 00:00:00 2001
+From: Peter Vicman <peter.vicman@gmail.com>
+Date: Tue, 14 May 2017 17:48:58 +0200
+Subject: [PATCH] set SIGTERM signal handler
+
+seems imx-gpu-viv-5.0.11.p7.4-hfp overwrites signal handler
+thats why we set it again after GUI is already created
+---
+ xbmc/platform/xbmc.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/xbmc/platform/xbmc.cpp b/xbmc/platform/xbmc.cpp
+index 34e5ea6..e280021 100644
+--- a/xbmc/platform/xbmc.cpp
++++ b/xbmc/platform/xbmc.cpp
+@@ -32,6 +32,13 @@
+ 
+ #include "platform/MessagePrinter.h"
+ 
++#ifdef TARGET_POSIX
++#include <sys/resource.h>
++#include <signal.h>
++#include "utils/log.h"
++
++extern void xbmc_term_handler(int signum);
++#endif
+ 
+ extern "C" int XBMC_Run(bool renderGUI, CFileItemList &playlist)
+ {
+@@ -84,6 +91,12 @@ extern "C" int XBMC_Run(bool renderGUI, CFileItemList &playlist)
+   }
+ #endif
+ 
++  // SIGTERM handler after loading vivante libraries which ovewrites our one
++  struct sigaction action;
++  memset(&action, 0, sizeof(struct sigaction));
++  action.sa_handler = xbmc_term_handler;
++  sigaction(SIGTERM, &action, NULL);
++  
+   try
+   {
+     status = g_application.Run(playlist);
+-- 
+2.7.4
+
