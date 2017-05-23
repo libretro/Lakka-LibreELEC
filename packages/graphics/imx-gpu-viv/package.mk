@@ -62,7 +62,7 @@ makeinstall_target() {
              g2d/usr/lib/libg2d*.so*"
 
   # missing in 5.0.11.p7.4-hfp
-  if [ "$LINUX" = "imx6-3.14-sr" ]; then
+  if [ "$PKG_VERSION" = "5.0.11.p4.5-hfp" ]; then
     LIBS_COPY="$LIBS_COPY \
                gpu-core/usr/lib/libGAL_egl.fb.so \
                gpu-core/usr/lib/libGAL_egl.so*"
