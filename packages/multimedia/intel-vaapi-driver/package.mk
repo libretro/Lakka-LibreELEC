@@ -30,4 +30,13 @@ PKG_LONGDESC="intel-vaapi-driver: VA-API user mode driver for Intel GEN Graphics
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules"
+if [ "$DISPLAYSERVER" = "x11" ]; then
+  DISPLAYSERVER_LIBVA="--enable-x11"
+else
+  DISPLAYSERVER_LIBVA="--disable-x11"
+fi
+
+PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
+                           --enable-drm \
+                           --disable-wayland \
+                           $DISPLAYSERVER_LIBVA"
