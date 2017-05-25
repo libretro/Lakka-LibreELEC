@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,18 +17,12 @@
 ################################################################################
 
 PKG_NAME="x264"
-PKG_VERSION="snapshot-20170327-2245-stable"
-PKG_ARCH="any"
+PKG_VERSION="snapshot-20170524-2245-stable"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org/developers/x264.html"
 PKG_URL="ftp://ftp.videolan.org/pub/videolan/x264/snapshots/$PKG_NAME-$PKG_VERSION.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="x264"
 PKG_LONGDESC="x264"
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
 
 pre_configure_target() {
   cd $ROOT/$PKG_BUILD
