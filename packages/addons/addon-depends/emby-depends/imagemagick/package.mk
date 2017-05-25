@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,19 +17,13 @@
 ################################################################################
 
 PKG_NAME="imagemagick"
-PKG_VERSION="7.0.5-0"
-PKG_ARCH="any"
+PKG_VERSION="7.0.5-7"
 PKG_LICENSE="http://www.imagemagick.org/script/license.php"
 PKG_SITE="http://www.imagemagick.org/"
 PKG_URL="http://www.imagemagick.org/download/releases/ImageMagick-$PKG_VERSION.tar.xz"
 PKG_SOURCE_DIR="ImageMagick-$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain libX11"
-PKG_SECTION="graphics"
-PKG_SHORTDESC="ImageMagick"
 PKG_LONGDESC="Software suite to create, edit, compose, or convert bitmap images"
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --enable-shared \
