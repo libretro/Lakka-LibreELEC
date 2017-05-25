@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,17 +18,11 @@
 
 PKG_NAME="ffmpegx"
 PKG_VERSION="libreelec"
-PKG_REV="8"
-PKG_ARCH="any"
+PKG_REV="9"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_DEPENDS_TARGET="toolchain ffmpeg lame x264"
-PKG_SECTION="multimedia"
-PKG_SHORTDESC="FFmpeg+"
 PKG_LONGDESC="FFmpeg built static with additional features"
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
 
 pre_configure_target() {
   cd "$ROOT/$PKG_BUILD"
