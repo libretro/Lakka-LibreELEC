@@ -18,13 +18,13 @@
 #  http://www.gnu.org/copyleft/gpl.html
 ################################################################################
 
-PKG_NAME="uzem"
-PKG_VERSION="72e9258"
+PKG_NAME="uzebox"
+PKG_VERSION="3c1988c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/libretro/libretro-uzem"
-PKG_URL="https://github.com/libretro/libretro-uzem/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/t-paul/uzebox"
+PKG_URL="https://github.com/t-paul/uzebox/archive/$PKG_VERSION.tar.gz"
 PKG_PATCH_DIRS="libretro"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
@@ -35,15 +35,11 @@ PKG_LONGDESC="A retro-minimalist game console engine for the ATMega644"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-post_unpack() {
-  mv $BUILD/libretro-uzem-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
-}
-
 make_target() {
-  make -f Makefile.libretro
+  make -C tools/uzem CPPFLAGS="$CFLAGS -I. $LDFLAGS -DNOGDB=1" CC="$CXX" LIBRETRO_BUILD=1
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp uzem_libretro.so $INSTALL/usr/lib/libretro/
+  cp tools/uzem/uzem_libretro.so $INSTALL/usr/lib/libretro/
 }
