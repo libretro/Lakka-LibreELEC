@@ -1,0 +1,105 @@
+#!/bin/sh -
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+IPTABLES4="/usr/sbin/iptables"
+IPTABLES6="/usr/sbin/ip6tables"
+IPTABLES_CMDS="$IPTABLES4 $IPTABLES6"
+PUBLIC_RULES="/etc/iptables/public.v"
+HOME_RULES="/etc/iptables/home.v"
+CUSTOM_RULES="/storage/.config/iptables/rules.v"
+
+check_docker() {
+    if [ "`/usr/bin/systemctl is-active docker.service`" == "active" ]; then
+	/usr/bin/systemctl restart docker
+    fi
+}
+
+check_tether() {
+    if [ -n "`/usr/bin/connmanctl technologies|grep 'Tethering = True'`" ]; then
+	/usr/bin/connmanctl tether wifi off
+	sleep 1
+	/usr/bin/connmanctl tether wifi on
+    fi
+}
+
+flush() {
+  for cmd in $IPTABLES_CMDS; do
+    $cmd -F
+    $cmd -X
+    $cmd -t nat -F
+    $cmd -t nat -X
+    $cmd -t mangle -F
+    $cmd -t mangle -X
+    $cmd -P INPUT ACCEPT
+    $cmd -P FORWARD ACCEPT
+    $cmd -P OUTPUT ACCEPT
+  done
+  check_docker
+  check_tether
+}
+
+enable() {
+  for cmd in $IPTABLES_CMDS; do
+    case "$cmd" in
+      *6*) 
+         rules="$RULES6"
+	 ipv="6"
+	 ;;
+        *) 
+         rules="$RULES4"
+	 ipv="4"
+	 ;;
+    esac
+    if [ -e "$rules" ]; then
+      "$cmd-restore" "$rules" 
+    fi
+  done
+  check_docker
+  check_tether
+}
+
+if [ "$1" = "enable" ]; then
+  case "${RULES}" in
+    "none") 
+       flush
+       ;;
+    "public") 
+       RULES4="${PUBLIC_RULES}4"
+       RULES6="${PUBLIC_RULES}6"
+       ;;
+    "home") 
+       RULES4="${HOME_RULES}4"
+       RULES6="${HOME_RULES}6"
+       ;;
+    "custom") 
+       RULES4="${CUSTOM_RULES}4"
+       RULES6="${CUSTOM_RULES}6"
+       ;;
+    *) 
+       exit 1
+       ;;
+  esac
+  enable
+elif [ "$1" = "disable" ]; then
+  flush
+else
+  exit 1
+fi
+
+exit 0
