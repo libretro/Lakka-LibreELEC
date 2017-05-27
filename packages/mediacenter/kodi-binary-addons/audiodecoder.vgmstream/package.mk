@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.vgmstream"
-PKG_VERSION="de21bab"
+PKG_VERSION="7397172"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="peripheral.steamcontroller"
-PKG_VERSION="ef527cd"
+PKG_VERSION="6842e35"
 PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

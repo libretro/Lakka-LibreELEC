@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.gsf"
-PKG_VERSION="acf4998"
+PKG_VERSION="d56eafc"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
