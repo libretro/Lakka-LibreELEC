@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mesa"
-PKG_VERSION="17.0.5"
+PKG_VERSION="17.1.1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
@@ -115,7 +115,7 @@ PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \
 
 pre_configure_target() {
   if [ "$DISPLAYSERVER" = "x11" ]; then
-    export LIBS="-lxcb-dri3 -lxcb-present -lxcb-sync -lxshmfence -lz"
+    export LIBS="-lxcb-dri3 -lxcb-dri2 -lxcb-xfixes -lxcb-present -lxcb-sync -lxshmfence -lz"
   fi
 }
 
