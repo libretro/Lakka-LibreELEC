@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.timidity"
-PKG_VERSION="8bd7092"
+PKG_VERSION="f32c21c"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

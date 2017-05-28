@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.openmpt"
-PKG_VERSION="fbcbfda"
+PKG_VERSION="d90a976"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

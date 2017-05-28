@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="audiodecoder.dumb"
-PKG_VERSION="54fba3d"
+PKG_VERSION="fbe7090"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
