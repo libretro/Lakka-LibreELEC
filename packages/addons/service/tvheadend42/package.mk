@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="tvheadend42"
-PKG_VERSION="4d4bf14"
-PKG_VERSION_NUMBER="4.2.1.7"
+PKG_VERSION="76dbc3e"
+PKG_VERSION_NUMBER="4.2.2-32"
 PKG_REV="111"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -79,6 +79,7 @@ pre_configure_target() {
 # transcoding
   if [ "$TARGET_ARCH" = x86_64 ]; then
     export AS=$TOOLCHAIN/bin/yasm
+    export LDFLAGS="$LDFLAGS -lX11 -lm -lvdpau -lva -lva-drm -lva-x11"
   fi
 
   export CROSS_COMPILE=$TARGET_PREFIX
