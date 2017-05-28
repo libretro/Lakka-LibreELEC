@@ -36,10 +36,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  CC=arm-linux-gnueabihf-gcc ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- KDIR=$(kernel_path) USING_UMP=0 make
+  CC=arm-linux-gnueabihf-gcc ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- KDIR="$(pwd)/../linux-a54de00" USING_UMP=0 make
 }
 
 pre_makeinstall_target() {
   mkdir -p $INSTALL/usr/lib
 }
-
