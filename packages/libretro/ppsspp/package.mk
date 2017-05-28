@@ -41,7 +41,7 @@ pre_configure_target() {
 
 make_target() {
   cd $ROOT/$PKG_BUILD/libretro
-  if [ "$OPENGLES" == "gpu-viv-bin-mx6q" ]; then
+  if [ "$OPENGLES" == "gpu-viv-bin-mx6q" -o "$OPENGLES" == "imx-gpu-viv" ]; then
     CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
     CXXFLAGS="$CXXFLAGS -DLINUX -DEGL_API_FB"
   fi
