@@ -80,6 +80,7 @@ pre_configure_target() {
   if [ "$TARGET_ARCH" = x86_64 ]; then
     export AS=$TOOLCHAIN/bin/yasm
     export LDFLAGS="$LDFLAGS -lX11 -lm -lvdpau -lva -lva-drm -lva-x11"
+    export ARCH=$TARGET_ARCH
   fi
 
   export CROSS_COMPILE=$TARGET_PREFIX
