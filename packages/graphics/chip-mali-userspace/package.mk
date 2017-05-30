@@ -38,26 +38,26 @@ make_target() {
   :
 }
 
-make_target() {
-  mkdir -p $SYSROOT_PREFIX/etc/udev/rules.d
-    cp -PR etc/udev/rules.d/* $SYSROOT_PREFIX/etc/udev/rules.d
-  mkdir -p $SYSROOT_PREFIX/usr/include/EGL
-  mkdir -p $SYSROOT_PREFIX/usr/include/GLES
-  mkdir -p $SYSROOT_PREFIX/usr/include/GLES2
-  mkdir -p $SYSROOT_PREFIX/usr/include/KHR
-    cp -PR usr/include/* $SYSROOT_PREFIX/usr/include
-  mkdir -p $SYSROOT_PREFIX/usr/lib/arm-linux-gnueabihf/pkgconfig
-    cp -PR usr/lib/arm-linux-gnueabihf/* $SYSROOT_PREFIX/usr/lib/arm-linux-gnueabihf
-}
-
 makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/etc/udev/rules.d
     cp -PR etc/udev/rules.d/* $SYSROOT_PREFIX/etc/udev/rules.d
-  mkdir -p $SYSROOT_PREFIX/usr/include/EGL
-  mkdir -p $SYSROOT_PREFIX/usr/include/GLES
-  mkdir -p $SYSROOT_PREFIX/usr/include/GLES2
-  mkdir -p $SYSROOT_PREFIX/usr/include/KHR
     cp -PR usr/include/* $SYSROOT_PREFIX/usr/include
-  mkdir -p $SYSROOT_PREFIX/usr/lib/arm-linux-gnueabihf/pkgconfig
-    cp -PR usr/lib/arm-linux-gnueabihf/* $SYSROOT_PREFIX/usr/lib/arm-linux-gnueabihf
+    cp -PR usr/lib/arm-linux-gnueabihf/* $SYSROOT_PREFIX/usr/lib/
+    cd $SYSROOT_PREFIX/usr/lib/
+    ln -sf libMali.so libEGL.so
+    ln -sf libMali.so libEGL.so.1
+    ln -sf libMali.so libEGL.so.1.4
+    ln -sf libMali.so libGLESv2.so
+    ln -sf libMali.so libGLESv2.so.2
+    ln -sf libMali.so libGLESv2.so.2.0
+    ln -sf libMali.so libGLESv1_CM.so
+    ln -sf libMali.so libGLESv1_CM.so.1
+    ln -sf libMali.so libGLESv1_CM.so.1.1
+
+  mkdir -p $INSTALL/etc/udev/rules.d
+    cp -PR $SYSROOT_PREFIX/etc/udev/rules.d/* $INSTALL/etc/udev/rules.d
+  mkdir -p $INSTALL/usr/include
+    cp -PR $SYSROOT_PREFIX/usr/include/* $INSTALL/usr/include
+  mkdir -p $INSTALL/usr/lib/ 
+    cp -PR $SYSROOT_PREFIX/usr/lib/* $INSTALL/usr/lib/
 }
