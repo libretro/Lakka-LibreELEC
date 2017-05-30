@@ -20,15 +20,13 @@
 
 PKG_NAME="chip-mali"
 PKG_VERSION="caf36b6"
-PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/NextThingCo/chip-mali"
 PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_BUILD_DEPENDS_TARGET="toolchain"
-PKG_DEPENDS_TARGET=""
-PKG_PRIORITY="optional"
-PKG_SECTION="graphics"
+PKG_DEPENDS_TARGET="toolchain linux"
+PKG_NEED_UNPACK="$LINUX_DEPENDS"
+PKG_SECTION="driver"
 PKG_SHORTDESC="CHIP Mali-400 support libraries."
 PKG_LONGDESC="CHIP Mali-400 support libraries."
 
@@ -36,9 +34,12 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
-  CC=arm-linux-gnueabihf-gcc ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- KDIR="$(pwd)/../linux-a54de00" USING_UMP=0 make
+  LDFLAGS="" make -C $(kernel_path) M=$ROOT/$PKG_BUILD \
+    CONFIG_MALI400=m USING_UMP=0
 }
 
-pre_makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib
+makeinstall_target() {
+  LDFLAGS="" make -C $(kernel_path) M=$ROOT/$PKG_BUILD \
+    INSTALL_MOD_PATH=$INSTALL/usr INSTALL_MOD_STRIP=1 DEPMOD=: \
+  modules_install
 }
