@@ -36,13 +36,13 @@ DISTRO=Lakka PROJECT=WeTek_Play ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=WeTek_Play_2 ARCH=arm make image -j8
 >&2 echo "Gamegirl.arm"
 DISTRO=Lakka PROJECT=Gamegirl ARCH=arm make image -j8
->&2 echo "Virtual.x86_64"
-DISTRO=Lakka PROJECT=Virtual ARCH=x86_64 make image -j8
->&2 echo "S802.arm"
-DISTRO=Lakka PROJECT=S802 SYSTEM=S82 ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S802 SYSTEM=M8 ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S802 SYSTEM=T8 ARCH=arm make image -j8
-DISTRO=Lakka PROJECT=S802 SYSTEM=MXIII-1G ARCH=arm make image -j8
+>&2 echo "S8X2.arm"
+DISTRO=Lakka PROJECT=S8X2 SYSTEM=S82 ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=S8X2 SYSTEM=M8 ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=S8X2 SYSTEM=T8 ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=S8X2 SYSTEM=MXIII-1G ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=S8X2 SYSTEM=MXIII-PLUS ARCH=arm make image -j8
+DISTRO=Lakka PROJECT=S8X2 SYSTEM=X8H-PLUS ARCH=arm make image -j8
 >&2 echo "S805.arm"
 DISTRO=Lakka PROJECT=S805 SYSTEM=MXQ ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=S805 SYSTEM=HD18Q ARCH=arm make image -j8
@@ -78,6 +78,7 @@ done
 
 for f in target/*; do
   dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-\(.*\)-devel-\(.*\)/\1/'`
+  #dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-2.0\(.*\)/\1/'`
   mkdir -p target/$dir
   mv $f target/$dir/
 done

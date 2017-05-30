@@ -24,7 +24,7 @@ PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/lakkatv/gamegirl-screen"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/lakkatv/gamegirl-screen/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain wiringPi"
 PKG_DEPENDS_INIT="toolchain wiringPi"
 PKG_PRIORITY="optional"
@@ -44,16 +44,3 @@ makeinstall_init() {
   cp enable_rgb565 $INSTALL/usr/bin/
   chmod +x $INSTALL/usr/bin/enable_rgb565
 }
-
-make_target() {
-  make enable_rgb565 LDLIBS="$LDLIBS $SYSROOT_PREFIX/usr/lib/libwiringPi.a -lpthread -lrt -lm"
-}
- 
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin/
-  cp enable_rgb565 $INSTALL/usr/bin/
-}
-
-#post_install() {
-#  enable_service gamegirl-screen.service
-#}

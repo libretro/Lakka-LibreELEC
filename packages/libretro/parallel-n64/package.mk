@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="parallel-n64"
-PKG_VERSION="a9101ca"
+PKG_VERSION="c896221"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -51,7 +51,7 @@ make_target() {
     CFLAGS="$CFLAGS -DGL_BGRA_EXT=0x80E1" # Fix build for platforms where GL_BGRA_EXT is not defined
     make platform=armv-gles-neon
   else
-    make WITH_DYNAREC=$DYNAREC
+    make WITH_DYNAREC=$DYNAREC HAVE_PARALLEL=0
   fi
 }
 

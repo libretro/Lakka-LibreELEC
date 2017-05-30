@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ################################################################################
 #      This file is part of OpenELEC - http://www.openelec.tv
 #      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
@@ -22,13 +22,20 @@ if [ -z "$1" ]; then
   exit 0
 fi
 
-KODI_DIR="kodi-$1.git"
+KODI_BRANCH="$1"
+KODI_DIR="kodi-${KODI_BRANCH}.git"
 
 git_clone() {
   # git_clone https://repo.url branch ./target_dir [githash]
   echo "[mkpkg] Checking out $1 ..."
   if [ ! -d "$3" ]; then
-    git clone "$1" -b $2 "$3"
+    git clone "$1" "$3"
+    # Try to switch to specified branch if it exist, if not then use default branch
+    if [ -n "$2" ]; then
+      cd "$3"
+      git checkout $2 >/dev/null 2>/dev/null
+      cd ..
+    fi
   else
     if [ -d "$3" ] ; then
       cd "$3"
@@ -37,6 +44,7 @@ git_clone() {
       cd ..
     fi
   fi
+
   if [ ! -z "$4" ] ; then
     cd "$3"
     git fetch >/dev/null 2>/dev/null
@@ -126,7 +134,7 @@ for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.t
   ADDONS=$(cat $addontxt | awk '{print $1}')
   ADDONREPO=$(cat $addontxt | awk '{print $2}')
   GIT_HASH=$(cat $addontxt | awk '{print $3}')
-  git_clone $ADDONREPO master $ADDONS.git $GIT_HASH
+  git_clone $ADDONREPO ${KODI_BRANCH} $ADDONS.git $GIT_HASH
   for addon in $ADDONS.git/*.*/ ; do
     ADDON=$(basename $addon)
     REPO=$(cat $addon/$ADDON.txt | awk '{print $2}')
@@ -144,7 +152,7 @@ for addontxt in $KODI_DIR/project/cmake/addons/bootstrap/repositories/*-addons.t
     fi
 
     if [ -f ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ] ; then
-      git_clone $REPO master $PKG_NAME.git $GIT_HASH
+      git_clone $REPO ${KODI_BRANCH} $PKG_NAME.git $GIT_HASH
 
       # update package.mk
       RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
@@ -170,7 +178,7 @@ for ADDON in $(ls -1 ../../packages/mediacenter/kodi-binary-addons); do
   # Obtain git url - ignore if not a suitable repo
   REPO="$(geturl "${ADDON}")" || continue
 
-  git_clone $REPO master $ADDON.git HEAD
+  git_clone $REPO ${KODI_BRANCH} $ADDON.git HEAD
 
   # update package.mk for stale github.com packages
   RESOLVED_HASH=$(resolve_hash ${ADDON}.git HEAD) || continue

@@ -17,7 +17,14 @@
 ################################################################################
 
 PKG_NAME="wetekdvb"
-PKG_VERSION="20170404"
+case "$PROJECT" in
+  WeTek_Play)
+    PKG_VERSION="20170116"
+    ;;
+  *)
+    PKG_VERSION="20170404"
+    ;;
+esac
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.wetek.com/"

@@ -17,7 +17,13 @@
 ################################################################################
 
 PKG_NAME="imx-gpu-viv"
-PKG_VERSION="5.0.11.p4.5-hfp"
+if [ "$LINUX" = "imx6-3.14-sr" ]; then
+  PKG_VERSION="5.0.11.p4.5-hfp"
+elif [ "$LINUX" = "imx6-4.4-xbian" ]; then
+  PKG_VERSION="5.0.11.p7.4-hfp"
+else
+  exit 0
+fi
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.freescale.com"
@@ -49,13 +55,18 @@ makeinstall_target() {
              gpu-core/usr/lib/libGLSLC.so* \
              gpu-core/usr/lib/libGAL-fb.so \
              gpu-core/usr/lib/libGAL.so* \
-             gpu-core/usr/lib/libGAL_egl.fb.so \
-             gpu-core/usr/lib/libGAL_egl.so* \
              gpu-core/usr/lib/libVIVANTE-fb.so \
              gpu-core/usr/lib/libVIVANTE.so* \
              gpu-core/usr/lib/libOpenCL.so \
              gpu-core/usr/lib/libVSC.so \
              g2d/usr/lib/libg2d*.so*"
+
+  # missing in 5.0.11.p7.4-hfp
+  if [ "$PKG_VERSION" = "5.0.11.p4.5-hfp" ]; then
+    LIBS_COPY="$LIBS_COPY \
+               gpu-core/usr/lib/libGAL_egl.fb.so \
+               gpu-core/usr/lib/libGAL_egl.so*"
+  fi
 
   mkdir -p $SYSROOT_PREFIX/usr/lib
   cp -PRv $LIBS_COPY $SYSROOT_PREFIX/usr/lib
