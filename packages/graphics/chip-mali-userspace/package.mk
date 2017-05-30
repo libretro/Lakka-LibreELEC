@@ -40,24 +40,34 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/etc/udev/rules.d
-    cp -PR etc/udev/rules.d/* $SYSROOT_PREFIX/etc/udev/rules.d
+    #cp -PR etc/udev/rules.d/* $SYSROOT_PREFIX/etc/udev/rules.d
     cp -PR usr/include/* $SYSROOT_PREFIX/usr/include
-    cp -PR usr/lib/arm-linux-gnueabihf/* $SYSROOT_PREFIX/usr/lib/
-    cd $SYSROOT_PREFIX/usr/lib/
-    ln -sf libMali.so libEGL.so
-    ln -sf libMali.so libEGL.so.1
-    ln -sf libMali.so libEGL.so.1.4
-    ln -sf libMali.so libGLESv2.so
-    ln -sf libMali.so libGLESv2.so.2
-    ln -sf libMali.so libGLESv2.so.2.0
-    ln -sf libMali.so libGLESv1_CM.so
-    ln -sf libMali.so libGLESv1_CM.so.1
-    ln -sf libMali.so libGLESv1_CM.so.1.1
+    cp -PR usr/lib/arm-linux-gnueabihf/* $SYSROOT_PREFIX/usr/lib
+
+    ln -sf $SYSROOT_PREFIX/usr/lib/libMali.so $SYSROOT_PREFIX/usr/lib/libEGL.so
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/usr/lib/libEGL.so.1
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/libEGL.so.1.4
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/libGLESv2.so
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/libGLESv2.so.2
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/libGLESv2.so.2.0
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/libGLESv1_CM.so
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/libGLESv1_CM.so.1
+    ln -sf $SYSROOT_PREFIX/libMali.so $SYSROOT_PREFIX/libGLESv1_CM.so.1.1
 
   mkdir -p $INSTALL/etc/udev/rules.d
-    cp -PR $SYSROOT_PREFIX/etc/udev/rules.d/* $INSTALL/etc/udev/rules.d
   mkdir -p $INSTALL/usr/include
-    cp -PR $SYSROOT_PREFIX/usr/include/* $INSTALL/usr/include
-  mkdir -p $INSTALL/usr/lib/ 
-    cp -PR $SYSROOT_PREFIX/usr/lib/* $INSTALL/usr/lib/
+  mkdir -p $INSTALL/usr/lib
+    #cp -PR etc/udev/rules.d/* $INSTALL/etc/udev/rules.d
+    cp -PR usr/include/* $INSTALL/usr/include
+    cp -PR usr/lib/arm-linux-gnueabihf/* $INSTALL/usr/lib
+
+    ln -sf $INSTALL/usr/lib/libMali.so $INSTALL/usr/lib/libEGL.so
+    ln -sf $INSTALL/libMali.so $INSTALL/usr/lib/libEGL.so.1
+    ln -sf $INSTALL/libMali.so $INSTALL/libEGL.so.1.4
+    ln -sf $INSTALL/libMali.so $INSTALL/libGLESv2.so
+    ln -sf $INSTALL/libMali.so $INSTALL/libGLESv2.so.2
+    ln -sf $INSTALL/libMali.so $INSTALL/libGLESv2.so.2.0
+    ln -sf $INSTALL/libMali.so $INSTALL/libGLESv1_CM.so
+    ln -sf $INSTALL/libMali.so $INSTALL/libGLESv1_CM.so.1
+    ln -sf $INSTALL/libMali.so $INSTALL/libGLESv1_CM.so.1.1
 }
