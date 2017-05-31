@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="locale"
-PKG_REV="100"
+PKG_REV="101"
 PKG_ARCH="any"
 PKG_DEPENDS_TARGET="toolchain glibc"
 PKG_SECTION="service"
