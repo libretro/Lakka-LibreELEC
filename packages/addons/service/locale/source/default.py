@@ -65,7 +65,7 @@ class Monitor(xbmc.Monitor):
 
       current = os.environ.get('LANG', '')
       if lang != current:
-         if xbmcgui.Dialog().yesno('Locale', strings(30003).format(current, lang)
+         if xbmcgui.Dialog().yesno('Locale', strings(30003).format(lang)
                                   ) == True:
             xbmc.restart()
 
