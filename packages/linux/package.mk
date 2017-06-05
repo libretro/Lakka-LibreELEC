@@ -37,7 +37,7 @@ case "$LINUX" in
     PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   linux-sun7i)
-    PKG_VERSION="6ce48b3"
+    PKG_VERSION="d47d367"
     PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
     ;;
   linux-sun8i)
