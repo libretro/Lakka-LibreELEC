@@ -21,7 +21,7 @@ PKG_VERSION="5.4"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://www.nxp.com/lgfiles/NMG/MAD/YOCTO/${PKG_NAME}-${PKG_VERSION}.bin"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="firmware-imx: Freescale IMX firmware"
@@ -29,6 +29,12 @@ PKG_LONGDESC="firmware-imx: Freescale IMX firmware such as for the VPU"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+unpack() {
+  mkdir -p $BUILD
+    cd $BUILD
+    sh $ROOT/$SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.bin --auto-accept
+}
 
 make_target() {
   : # nothing todo here
