@@ -44,9 +44,6 @@ make_target() {
   unset LDFLAGS
 
   cd kernel
-    # Don't build nvidia-drm with kernel 4.11.0 due to incompatible license
-    export NV_EXCLUDE_KERNEL_MODULES=nvidia-drm
-
     make module CC=$CC SYSSRC=$(kernel_path) SYSOUT=$(kernel_path)
     $STRIP --strip-debug nvidia.ko
   cd ..
