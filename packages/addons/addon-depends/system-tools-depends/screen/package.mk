@@ -29,6 +29,7 @@ PKG_LONGDESC="screen is a terminal multiplexor that runs several separate screen
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_utempter_h=no \
+                           --enable-colors256 \
                            --disable-pam \
                            --disable-use-locale \
                            --disable-telnet \
