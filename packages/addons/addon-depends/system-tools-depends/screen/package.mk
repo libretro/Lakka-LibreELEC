@@ -35,6 +35,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_utempter_h=no \
                            --disable-socket-dir"
 
 pre_configure_target() {
+  CFLAGS="$CFLAGS -DTERMINFO"
   export LDFLAGS=`echo $LDFLAGS | sed -e "s|-Wl,--as-needed||"`
 
 # screen fails to build in subdirs
