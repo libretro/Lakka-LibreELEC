@@ -38,6 +38,10 @@ post_unpack() {
   mv $BUILD/4do-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
 }
 
+make_target() {
+  make CC=$CC LD=$LD AR=$AR
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp 4do_libretro.so $INSTALL/usr/lib/libretro/
