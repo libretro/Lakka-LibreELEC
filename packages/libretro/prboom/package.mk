@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="prboom"
-PKG_VERSION="e09831c"
+PKG_VERSION="4c690eb"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -33,11 +33,6 @@ PKG_LONGDESC="libretro implementation of Doom"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
-#unpack() {
-#  tar -zxf $SOURCES/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz -C $BUILD
-#  mv $BUILD/libretro-prboom* $BUILD/$PKG_NAME-$PKG_VERSION
-#}
 
 post_unpack() {
   mv $BUILD/libretro-prboom-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
