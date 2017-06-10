@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="bsnes-mercury"
-PKG_VERSION="1279e0a"
+PKG_VERSION="e89c9a2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
@@ -33,7 +33,6 @@ PKG_LONGDESC="Fork of bsnes with HLE DSP emulation restored."
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
-
 
 make_target() {
   make compiler=$CXX ui='target-libretro' profile='balanced' 
