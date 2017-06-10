@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="Adafruit_Python_VCNL40xx"
-PKG_VERSION="e54bff9"
-PKG_SHA256="3f74c58f898f67bb7d9374ef42f6b545e79f5c3c31f2a68352f23f43bf8e1965"
+PKG_VERSION="3c59be5"
+PKG_SHA256="7190f880de0cd32852a3cc4c2b627aca1b2c336d33fd7ba5731f73884a1b102d"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

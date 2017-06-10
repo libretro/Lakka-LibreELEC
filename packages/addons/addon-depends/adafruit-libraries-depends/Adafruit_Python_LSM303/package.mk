@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="Adafruit_Python_LSM303"
-PKG_VERSION="03b344d"
-PKG_SHA256="b00d7ad66eb6430169142506b363289bc3fdf5dc7c7d4c61bef3aad4f5b58105"
+PKG_VERSION="81bcc12"
+PKG_SHA256="f0970c2d7b9e67f7aafc0d5a076065b8cdf617479d696d7e38da8919ee0b69f6"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

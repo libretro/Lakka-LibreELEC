@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="Adafruit_Python_BMP"
-PKG_VERSION="ad6521d"
-PKG_SHA256="5dc54964630f4154061152f72e3468ce9c37ca388db6629db0a84c77e64da824"
+PKG_VERSION="4e89e32"
+PKG_SHA256="3577cf738f7da2373efc86b638b5e6a6227f93c661dac72db95a54dfda2d7069"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
