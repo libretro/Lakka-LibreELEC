@@ -113,6 +113,6 @@ makeinstall_host() {
   rm -fr $(pwd)/.install/bin
   rm -fr $(pwd)/.install/usr/share
 
-  cp -Pa $(pwd)/.install/usr/* $ROOT/$TOOLCHAIN
+  cp -fPa $(pwd)/.install/usr/* $ROOT/$TOOLCHAIN
 }
 
