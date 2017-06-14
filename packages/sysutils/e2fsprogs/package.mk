@@ -72,7 +72,7 @@ pre_make_host() {
 }
 
 post_makeinstall_target() {
-  make -C lib/et DESTDIR=$SYSROOT_PREFIX install
+  make -C lib/et LIBMODE=644 DESTDIR=$SYSROOT_PREFIX install
 
   rm -rf $INSTALL/usr/sbin/badblocks
   rm -rf $INSTALL/usr/sbin/blkid
@@ -109,7 +109,7 @@ make_host() {
 }
 
 makeinstall_host() {
-  make -C lib/et install
-  make -C lib/ext2fs install
+  make -C lib/et LIBMODE=644 install
+  make -C lib/ext2fs LIBMODE=644 install
 }
 
