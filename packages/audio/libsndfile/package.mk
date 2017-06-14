@@ -40,7 +40,8 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --disable-experimental \
                            --disable-test-coverage \
                            --enable-largefile \
-                           --with-gnu-ld"
+                           --with-gnu-ld \
+                           --with-pic"
 
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
