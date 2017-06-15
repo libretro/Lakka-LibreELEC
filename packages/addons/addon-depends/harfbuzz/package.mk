@@ -19,8 +19,8 @@
 ################################################################################
 
 PKG_NAME="harfbuzz"
-PKG_VERSION="1.3.3"
-PKG_SHA256="2620987115a4122b47321610dccbcc18f7f121115fd7b88dc8a695c8b66cb3c9"
+PKG_VERSION="1.4.5"
+PKG_SHA256="d0e05438165884f21658154c709075feaf98c93ee5c694b951533ac425a9a711"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/HarfBuzz"
