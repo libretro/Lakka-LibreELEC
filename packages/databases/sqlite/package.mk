@@ -61,6 +61,9 @@ PKG_AUTORECONF="no"
 # mmap_size pragma.
   CFLAGS="$CFLAGS -DSQLITE_TEMP_STORE=3 -DSQLITE_DEFAULT_MMAP_SIZE=268435456"
 
+# libsqlite3.a(sqlite3.o): requires dynamic R_X86_64_PC32 reloc against 'sqlite3_stricmp' which may overflow at runtime
+  CFLAGS="$CFLAGS -fPIC"
+
 pre_make_target() {
   # dont build parallel
   MAKEFLAGS=-j1
