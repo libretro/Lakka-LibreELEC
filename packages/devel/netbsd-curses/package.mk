@@ -26,6 +26,10 @@ PKG_SECTION="devel"
 PKG_SHORTDESC="netbsd-libcurses portable edition"
 PKG_LONGDESC="netbsd-libcurses portable edition"
 
+pre_make_target() {
+  CFLAGS="$CFLAGS -fPIC"
+}
+
 make_target() {
   make HOSTCC="$HOST_CC" PREFIX=/usr all-static
 }
