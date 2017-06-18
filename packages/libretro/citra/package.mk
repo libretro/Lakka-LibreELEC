@@ -21,7 +21,7 @@
 PKG_NAME="citra"
 PKG_VERSION="ae8cfe6"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2+"
 PKG_SITE="https://github.com/libretro/citra"
 PKG_URL="https://github.com/libretro/citra/archive/$PKG_VERSION.tar.gz"
