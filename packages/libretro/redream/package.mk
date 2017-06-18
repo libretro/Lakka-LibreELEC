@@ -21,7 +21,7 @@
 PKG_NAME="redream"
 PKG_VERSION="9214e45"
 PKG_REV="1"
-PKG_ARCH="any"
+PKG_ARCH="x86_64"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/redream"
 PKG_URL="https://github.com/libretro/redream/archive/$PKG_VERSION.tar.gz"
@@ -33,6 +33,7 @@ PKG_LONGDESC="Work In Progress SEGA Dreamcast emulator"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="no"
 
 make_target() {
   make -C .. -f Makefile.libretro
