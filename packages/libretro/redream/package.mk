@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="redream"
-PKG_VERSION="853aeec"
+PKG_VERSION="9214e45"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -34,9 +34,11 @@ PKG_LONGDESC="Work In Progress SEGA Dreamcast emulator"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_LIBRETRO=1"
+make_target() {
+  make -C .. -f Makefile.libretro
+}
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp redream_libretro.so $INSTALL/usr/lib/libretro/
+  cp ../redream_libretro.so $INSTALL/usr/lib/libretro/
 }
