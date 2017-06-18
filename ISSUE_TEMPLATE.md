@@ -1,6 +1,6 @@
 This issue tracker is NOT for help or support. Please use the Lakka forum (https://forums.libretro.com/c/libretro/lakka-tv-general) or IRC @ #lakka on freenode.net for those kinds of posts.
 
-BEFORE you report a bug make sure you have tried the latest nightly version of Lakka at http://sources.lakka.tv/nightly/. Your bug might be already fixed.
+BEFORE you report a bug make sure you have tried the latest nightly version of Lakka at http://le.builds.lakka.tv/. Your bug might be already fixed.
 
 If you are sure that it's a bug in Lakka, please answer the following questions:
 - Which version of Lakka are you using?
