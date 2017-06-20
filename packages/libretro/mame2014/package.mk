@@ -17,18 +17,22 @@
 ################################################################################
 
 PKG_NAME="mame2014"
-PKG_VERSION="7dc561f"
+PKG_VERSION="87b2f8c"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2014-libretro"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/mame2014-libretro/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Late 2014 version of MAME (0.159-ish) for libretro and MAME 0.159 romsets"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+post_unpack() {
+  mv $BUILD/mame2014-libretro-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 pre_make_target() {
   export REALCC=$CC
@@ -56,6 +60,9 @@ make_target() {
       ;;
     Generic)
       make
+      ;;
+    *)
+      make platform=armv
       ;;
   esac
 }
