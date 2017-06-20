@@ -39,14 +39,12 @@ post_unpack() {
 }
 
 make_target() {
-  strip_lto
-
   if [ "$ARCH" == "arm" ]; then
-    make CC="$CC" NATIVE_CC="$CC" LD="$CC" PTR64=0 ARM_ENABLED=1
+    make CC="$CC" LD="$CC" PLATCFLAGS="$CFLAGS" PTR64=0 ARM_ENABLED=1 LCPU=arm
   elif [ "$ARCH" == "i386" ]; then
-    make CC="$CC" NATIVE_CC="$CC" LD="$CC" PTR64=0 ARM_ENABLED=0 LCPU=x86
+    make CC="$CC" LD="$CC" PLATCFLAGS="$CFLAGS" PTR64=0 ARM_ENABLED=0 LCPU=x86
   elif [ "$ARCH" == "x86_64" ]; then
-    make CC="$CC" NATIVE_CC="$CC" LD="$CC" PTR64=1 ARM_ENABLED=0 LCPU=x86_64
+    make CC="$CC" LD="$CC" PLATCFLAGS="$CFLAGS" PTR64=1 ARM_ENABLED=0 LCPU=x86_64
   fi
 }
 
