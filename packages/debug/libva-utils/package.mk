@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libva-utils"
-PKG_VERSION="1.8.1"
+PKG_VERSION="1.8.2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/01org/libva-utils"

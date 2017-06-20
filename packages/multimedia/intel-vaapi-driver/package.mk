@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="intel-vaapi-driver"
-PKG_VERSION="1.8.1"
+PKG_VERSION="1.8.2"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://01.org/linuxmedia"
