@@ -32,12 +32,12 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 post_unpack() {
-  tar xjf $ROOT/$PKG_BUILD/linux-tbs-drivers.tar.bz2 -C $ROOT/$PKG_BUILD
-  chmod -R u+rwX $ROOT/$PKG_BUILD/linux-tbs-drivers/*
+  tar xjf $PKG_BUILD/linux-tbs-drivers.tar.bz2 -C $PKG_BUILD
+  chmod -R u+rwX $PKG_BUILD/linux-tbs-drivers/*
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD/linux-tbs-drivers
+  cd $PKG_BUILD/linux-tbs-drivers
   ./v4l/tbs-x86_64.sh
   LDFLAGS="" make DIR=$(kernel_path) prepare
   LDFLAGS="" make DIR=$(kernel_path)
@@ -45,7 +45,7 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/updates/tbs
-  find $ROOT/$PKG_BUILD/linux-tbs-drivers/ -name \*.ko -exec cp {} $INSTALL/usr/lib/modules/$(get_module_dir)/updates/tbs \;
+  find $PKG_BUILD/linux-tbs-drivers/ -name \*.ko -exec cp {} $INSTALL/usr/lib/modules/$(get_module_dir)/updates/tbs \;
   mkdir -p $INSTALL/lib/firmware/
-  cp $ROOT/$PKG_BUILD/*.fw $INSTALL/lib/firmware/
+  cp $PKG_BUILD/*.fw $INSTALL/lib/firmware/
 }

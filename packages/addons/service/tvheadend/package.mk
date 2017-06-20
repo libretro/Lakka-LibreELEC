@@ -49,7 +49,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
                            --enable-bundle \
                            --enable-dvbcsa \
                            --disable-dbus_1 \
-                           --python=$ROOT/$TOOLCHAIN/bin/python"
+                           --python=$TOOLCHAIN/bin/python"
 
 post_unpack() {
   sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$PKG_ADDON_REPOVERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
@@ -57,7 +57,7 @@ post_unpack() {
 
 pre_configure_target() {
 # fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   rm -rf .$TARGET_NAME
 
   export CROSS_COMPILE=$TARGET_PREFIX

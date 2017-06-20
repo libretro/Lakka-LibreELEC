@@ -68,7 +68,7 @@ PKG_CONFIGURE_OPTS_TARGET="--prefix=/usr \
 
 post_unpack() {
   sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$ADDON_VERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
-  sed -e 's|'/usr/bin/pngquant'|'$ROOT/$TOOLCHAIN/bin/pngquant'|g' -i $PKG_BUILD/support/mkbundle
+  sed -e 's|'/usr/bin/pngquant'|'$TOOLCHAIN/bin/pngquant'|g' -i $PKG_BUILD/support/mkbundle
 }
 
 pre_configure_target() {
@@ -94,7 +94,7 @@ fi
 
 post_make_target() {
   $CC -O -fbuiltin -fomit-frame-pointer -fPIC -shared -o capmt_ca.so src/extra/capmt_ca.c -ldl
-  $STRIP $ROOT/$PKG_BUILD/build.linux/tvheadend
+  $STRIP $PKG_BUILD/build.linux/tvheadend
 }
 
 makeinstall_target() {
