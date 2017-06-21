@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch-assets"
-PKG_VERSION="81d5e3e"
+PKG_VERSION="3dc9395"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -33,6 +33,10 @@ PKG_LONGDESC="RetroArch assets. Background and icon themes for the menu drivers.
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+
+configure_target() {
+  cd $ROOT/$PKG_BUILD
+}
 
 make_target() {
   :
