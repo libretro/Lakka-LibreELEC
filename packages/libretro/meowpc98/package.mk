@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="meowpc98"
-PKG_VERSION="a8f9d19"
+PKG_VERSION="9c690cc"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Unknown"
@@ -44,5 +44,5 @@ make_target() {
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp libretro/neko2p_libretro.so $INSTALL/usr/lib/libretro/
+  cp libretro/nekop2_libretro.so $INSTALL/usr/lib/libretro/
 }
