@@ -16,7 +16,7 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="x86-firmware"
+PKG_NAME="kernel-firmware"
 PKG_VERSION="b141345"
 PKG_ARCH="any"
 PKG_LICENSE="other"
@@ -25,8 +25,8 @@ PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware
 PKG_SOURCE_DIR="$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="linux-firmware"
-PKG_SHORTDESC="x86-firmware: x86 related firmware"
-PKG_LONGDESC="x86-firmware: x86 related firmware"
+PKG_SHORTDESC="kernel-firmware: kernel related firmware"
+PKG_LONGDESC="kernel-firmware: kernel related firmware"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
