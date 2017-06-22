@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="x86-firmware"
-PKG_VERSION="c4c07a8"
-PKG_ARCH="x86_64"
+PKG_VERSION="b141345"
+PKG_ARCH="any"
 PKG_LICENSE="other"
 PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/"
 PKG_URL="https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/snapshot/$PKG_VERSION.tar.gz"
@@ -39,6 +39,32 @@ make_target() {
   :
 }
 
+# Install additional miscellaneous drivers
 makeinstall_target() {
-  :
+  FW_TARGET_DIR=$INSTALL/usr/lib/firmware
+
+  FW_LISTS="${PKG_DIR}/firmwares/any.dat ${PKG_DIR}/firmwares/${TARGET_ARCH}.dat"
+  FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/${PKG_NAME}/firmwares/any.dat"
+  [ -n "${DEVICE}" ] && FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/${PKG_NAME}/firmwares/any.dat"
+
+  for fwlist in ${FW_LISTS}; do
+    [ -f ${fwlist} ] || continue
+    while read -r fwline; do
+      [ -z "${fwline}" ] && continue
+      [[ ${fwline} =~ ^#.* ]] && continue
+      [[ ${fwline} =~ ^[[:space:]] ]] && continue
+
+      for fwfile in $(cd ${PKG_BUILD} && eval "find ${fwline}"); do
+        [ -d ${PKG_BUILD}/${fwfile} ] && continue
+
+        if [ -f ${PKG_BUILD}/${fwfile} ]; then
+          mkdir -p $(dirname ${FW_TARGET_DIR}/${fwfile})
+            cp -Lv ${PKG_BUILD}/${fwfile} ${FW_TARGET_DIR}/${fwfile}
+        else
+          echo "ERROR: Firmware file ${fwfile} does not exist - aborting"
+          exit 1
+        fi
+      done
+    done < ${fwlist}
+  done
 }
