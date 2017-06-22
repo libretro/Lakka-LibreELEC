@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="misc-firmware"
-PKG_VERSION="0ed3d22"
+PKG_VERSION="9dd2a25"
 PKG_ARCH="any"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/LibreELEC/misc-firmware"
