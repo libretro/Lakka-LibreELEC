@@ -47,6 +47,6 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
                          --disable-heimdal-documentation"
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
-    cp -PR lib/asn1/asn1_compile $ROOT/$TOOLCHAIN/bin
+  mkdir -p $TOOLCHAIN/bin
+    cp -PR lib/asn1/asn1_compile $TOOLCHAIN/bin
 }
