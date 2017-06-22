@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="citra"
-PKG_VERSION="09e305d"
+PKG_VERSION="3f741ce"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2+"
@@ -34,7 +34,15 @@ PKG_LONGDESC="A Nintendo 3DS Emulator"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DENABLE_LIBRETRO=1 -DENABLE_SDL2=0 -DENABLE_QT=0 -DCMAKE_BUILD_TYPE=\"Release\" --target citra_libretro -DBOOST_ROOT=$(get_build_dir boost) -DTHREADS_PTHREAD_ARG=OFF -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_C_FLAGS=-fPIC -DCMAKE_NO_SYSTEM_FROM_IMPORTED=1"
+PKG_CMAKE_OPTS_TARGET="-DENABLE_LIBRETRO=1 \
+                       -DENABLE_SDL2=0 \
+                       -DENABLE_QT=0 \
+                       -DCMAKE_BUILD_TYPE=\"Release\" \
+                       -DBOOST_ROOT=$(get_build_dir boost) \
+                       -DTHREADS_PTHREAD_ARG=OFF \
+                       -DCMAKE_NO_SYSTEM_FROM_IMPORTED=1 \
+                       -DCMAKE_VERBOSE_MAKEFILE=1 \
+                       --target citra_libretro"
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
