@@ -61,6 +61,6 @@ addon() {
     fi
     cp $(get_build_dir linux)/usr/include/linux/input.h $ADDON_BUILD/$PKG_ADDON_ID/include/linux/
 
-  python -Wi -t -B $ROOT/$TOOLCHAIN/lib/python2.7/compileall.py $ADDON_BUILD/$PKG_ADDON_ID/lib/ -f 1>/dev/null
+  python -Wi -t -B $TOOLCHAIN/lib/python2.7/compileall.py $ADDON_BUILD/$PKG_ADDON_ID/lib/ -f 1>/dev/null
   find $ADDON_BUILD/$PKG_ADDON_ID/lib/ -name '*.py' -exec rm {} \;
 }

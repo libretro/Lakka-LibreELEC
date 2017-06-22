@@ -34,12 +34,12 @@ PKG_AUTORECONF="no"
 PKG_CONFIGURE_OPTS_HOST="  ac_cv_func_malloc_0_nonnull=yes \
                            ac_cv_func_realloc_0_nonnull=yes \
                            --enable-static-libs \
-                           LIBXML_CONFIG=$ROOT/$TOOLCHAIN/bin/xml2-config \
-                           LIBXSLT_CONFIG=$ROOT/$TOOLCHAIN/bin/xslt-config \
-                           --with-libxml-include-prefix=$ROOT/$TOOLCHAIN/include/libxml2 \
-                           --with-libxml-libs-prefix=$ROOT/$TOOLCHAIN/lib \
-                           --with-libxslt-include-prefix=$ROOT/$TOOLCHAIN/include \
-                           --with-libxslt-libs-prefix=$ROOT/$TOOLCHAIN/lib"
+                           LIBXML_CONFIG=$TOOLCHAIN/bin/xml2-config \
+                           LIBXSLT_CONFIG=$TOOLCHAIN/bin/xslt-config \
+                           --with-libxml-include-prefix=$TOOLCHAIN/include/libxml2 \
+                           --with-libxml-libs-prefix=$TOOLCHAIN/lib \
+                           --with-libxslt-include-prefix=$TOOLCHAIN/include \
+                           --with-libxslt-libs-prefix=$TOOLCHAIN/lib"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            ac_cv_func_realloc_0_nonnull=yes \
@@ -52,7 +52,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-libxslt-libs-prefix=$SYSROOT_PREFIX/usr/lib"
 
 post_makeinstall_host() {
-  ln -sf xml $ROOT/$TOOLCHAIN/bin/xmlstarlet
+  ln -sf xml $TOOLCHAIN/bin/xmlstarlet
 }
 
 post_makeinstall_target() {

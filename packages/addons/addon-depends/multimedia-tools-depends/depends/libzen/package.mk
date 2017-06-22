@@ -50,5 +50,5 @@ post_makeinstall_target() {
     mkdir -p $SYSROOT_PREFIX/usr/include/ZenLib/$i/
     cp -aP ../../../Source/ZenLib/$i/*.h $SYSROOT_PREFIX/usr/include/ZenLib/$i/
   done
-  cp -P libzen-config $ROOT/$TOOLCHAIN/bin
+  cp -P libzen-config $TOOLCHAIN/bin
 }

@@ -84,9 +84,9 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/bootloader
 
-  cp $ROOT/$PKG_BUILD/u-boot-*.imx $INSTALL/usr/share/bootloader 2>/dev/null || : #
-  cp $ROOT/$PKG_BUILD/u-boot-*.img $INSTALL/usr/share/bootloader 2>/dev/null || : #
-  cp $ROOT/$PKG_BUILD/SPL-* $INSTALL/usr/share/bootloader 2>/dev/null || : #
+  cp $PKG_BUILD/u-boot-*.imx $INSTALL/usr/share/bootloader 2>/dev/null || : #
+  cp $PKG_BUILD/u-boot-*.img $INSTALL/usr/share/bootloader 2>/dev/null || : #
+  cp $PKG_BUILD/SPL-* $INSTALL/usr/share/bootloader 2>/dev/null || : #
 }
 
 pre_install() {

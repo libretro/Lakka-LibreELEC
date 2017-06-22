@@ -31,7 +31,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="EMACS=no \
-                         ac_cv_path_M4=$ROOT/$TOOLCHAIN/bin/m4 \
+                         ac_cv_path_M4=$TOOLCHAIN/bin/m4 \
                          ac_cv_prog_gnu_m4_gnu=no \
                          --target=$TARGET_NAME"
 

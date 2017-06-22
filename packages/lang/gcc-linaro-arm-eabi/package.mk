@@ -36,6 +36,6 @@ make_host() {
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/lib/gcc-linaro-arm-eabi/
-    cp -a * $ROOT/$TOOLCHAIN/lib/gcc-linaro-arm-eabi
+  mkdir -p $TOOLCHAIN/lib/gcc-linaro-arm-eabi/
+    cp -a * $TOOLCHAIN/lib/gcc-linaro-arm-eabi
 }

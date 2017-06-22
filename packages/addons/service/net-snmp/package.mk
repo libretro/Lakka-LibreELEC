@@ -61,7 +61,7 @@ make_target() {
 }
 
 makeinstall_target() {
-  make install INSTALL_PREFIX=$ROOT/$PKG_BUILD/.$TARGET_NAME
+  make install INSTALL_PREFIX=$PKG_BUILD/.$TARGET_NAME
 }
 
 addon() {

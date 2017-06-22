@@ -42,22 +42,22 @@ PKG_AUTORECONF="no"
 
 configure_host() {
   export GOOS=linux
-  export GOROOT_FINAL=$ROOT/$TOOLCHAIN/lib/golang
+  export GOROOT_FINAL=$TOOLCHAIN/lib/golang
   export GOROOT_BOOTSTRAP=/usr/lib/golang
   export GOARCH=amd64
 }
 
 make_host() {
-  cd $ROOT/$PKG_BUILD/src
+  cd $PKG_BUILD/src
   bash make.bash --no-banner
 }
 
 pre_makeinstall_host() {
   # need to cleanup old golang version when updating to a new version
-  rm -rf $ROOT/$TOOLCHAIN/lib/golang
+  rm -rf $TOOLCHAIN/lib/golang
 }
 
 makeinstall_host() {
-  mkdir -p $ROOT/$TOOLCHAIN/lib/golang
-  cp -av $ROOT/$PKG_BUILD/* $ROOT/$TOOLCHAIN/lib/golang/
+  mkdir -p $TOOLCHAIN/lib/golang
+  cp -av $PKG_BUILD/* $TOOLCHAIN/lib/golang/
 }

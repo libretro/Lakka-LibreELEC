@@ -87,7 +87,7 @@ makeinstall_host() {
 }
 
 pre_configure_target() {
-  export PYTHON_FOR_BUILD=$ROOT/$TOOLCHAIN/bin/python
+  export PYTHON_FOR_BUILD=$TOOLCHAIN/bin/python
 }
 
 make_target() {
@@ -125,7 +125,7 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/python*-config
 
   cd $INSTALL/usr/lib/python2.7
-  python -Wi -t -B $ROOT/$PKG_BUILD/Lib/compileall.py -d /usr/lib/python2.7 -f .
+  python -Wi -t -B $PKG_BUILD/Lib/compileall.py -d /usr/lib/python2.7 -f .
   find $INSTALL/usr/lib/python2.7 -name "*.py" -exec rm -f {} \; &>/dev/null
 
   # strip

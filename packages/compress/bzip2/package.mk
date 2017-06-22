@@ -32,26 +32,26 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_build_host() {
-  mkdir -p $ROOT/$PKG_BUILD/.$HOST_NAME
-  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$HOST_NAME
+  mkdir -p $PKG_BUILD/.$HOST_NAME
+  cp -r $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
 }
 
 make_host() {
-  cd $ROOT/$PKG_BUILD/.$HOST_NAME
+  cd $PKG_BUILD/.$HOST_NAME
   make -f Makefile-libbz2_so CC=$HOST_CC CFLAGS="$CFLAGS -fPIC -DPIC"
 }
 
 makeinstall_host() {
-  make install PREFIX=$ROOT/$TOOLCHAIN
+  make install PREFIX=$TOOLCHAIN
 }
 
 pre_build_target() {
-  mkdir -p $ROOT/$PKG_BUILD/.$TARGET_NAME
-  cp -r $ROOT/$PKG_BUILD/* $ROOT/$PKG_BUILD/.$TARGET_NAME
+  mkdir -p $PKG_BUILD/.$TARGET_NAME
+  cp -r $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
 }
 
 pre_make_target() {
-  cd $ROOT/$PKG_BUILD/.$TARGET_NAME
+  cd $PKG_BUILD/.$TARGET_NAME
   sed -e "s,ln -s (lib.*),ln -snf \$$1; ln -snf libbz2.so.$PKG_VERSION libbz2.so,g" -i Makefile-libbz2_so
 }
 

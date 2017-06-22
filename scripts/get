@@ -1,24 +1,33 @@
 #!/bin/bash
 
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 . config/options $1
+
+_get_file_already_downloaded() {
+  if [ -f $PACKAGE ]; then
+    if [ "$(cat $STAMP_URL 2>/dev/null)" == "${PKG_URL}" ]; then
+      [ -z "${PKG_SHA256}" -o "$(cat $STAMP_SHA 2>/dev/null)" == "${PKG_SHA256}" ] && return 0
+    fi
+  fi
+  return 1
+}
 
 if [ -z "$1" ]; then
   for i in `find packages/ -type f -name package.mk`; do
@@ -27,52 +36,62 @@ if [ -z "$1" ]; then
   done
 fi
 
-if [ -n "$PKG_URL" -a -n "$PKG_SOURCE_NAME" ]; then
-  mkdir -p $SOURCES/$1
+[ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ] && exit 0
 
-  # Avoid concurrent downloads of the same package
-  _isblocked=N
-  exec 99<$SOURCES/$1
-  while ! flock --nonblock --exclusive 99; do
-    [ ${_isblocked} == N ] && { echo "Project ${PROJECT} waiting to avoid concurrent download of ${1}..."; _isblocked=Y; }
-    sleep 1
-  done
+mkdir -p $SOURCES/$1
 
-  PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
-  PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$PKG_SOURCE_NAME"
-  [ "$VERBOSE" != "yes" ] && WGET_OPT=-q
-  WGET_CMD="wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c $WGET_OPT -O $SOURCES/$1/$PKG_SOURCE_NAME"
+PACKAGE="$SOURCES/$1/$PKG_SOURCE_NAME"
+PACKAGE_MIRROR="$DISTRO_MIRROR/$PKG_NAME/$PKG_SOURCE_NAME"
+[ "$VERBOSE" != "yes" ] && WGET_OPT=-q
+WGET_CMD="wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c $WGET_OPT -O $PACKAGE"
 
-  NBWGET="1"
+STAMP_URL="$PACKAGE.url"
+STAMP_SHA="$PACKAGE.sha256"
 
-  STAMP="$PACKAGE.url"
-  MD5SUM="$PACKAGE.md5"
+# Latest file already present, exit now...
+_get_file_already_downloaded $1 && exit 0
 
-  DL="yes"
-  if [ -f "$STAMP" ]; then
-    [ "`cat $STAMP`" == "$PKG_URL" ] && DL="no"
+# Avoid concurrent downloads of the same package
+_isblocked=N
+exec 99<$SOURCES/$1
+while ! flock --nonblock --exclusive 99; do
+  [ ${_isblocked} == N ] && { echo "Project/Device ${DEVICE:-${PROJECT}} waiting, to avoid concurrent download of ${1}..."; _isblocked=Y; }
+  sleep 1
+done
+
+# Check again in case of concurrent access - if nothing needs to be downloaded, exit now...
+_get_file_already_downloaded $1 && exit 0
+
+# At this point, we need to download something...
+printf "%${BUILD_INDENT}c ${boldcyan}GET${endcolor}      $1\n" ' '>&$SILENT_OUT
+export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
+
+# unset LD_LIBRARY_PATH to stop wget from using toolchain/lib and loading libssl.so/libcrypto.so instead of host libraries
+unset LD_LIBRARY_PATH
+
+rm -f $STAMP_URL $STAMP_SHA
+
+NBWGET=10
+while [ $NBWGET -gt 0 ]; do
+  rm -f $PACKAGE
+
+  if $WGET_CMD "$PKG_URL" || $WGET_CMD "$PACKAGE_MIRROR"; then
+    CALC_SHA256="$(sha256sum $PACKAGE | cut -d" " -f1)"
+
+    [ -z "${PKG_SHA256}" -o "${PKG_SHA256}" == "${CALC_SHA256}" ] && break
+
+    printf "${boldred}WARNING${endcolor} Incorrect checksum calculated on downloaded file: got ${CALC_SHA256}, wanted ${PKG_SHA256}\n\n"
   fi
+  NBWGET=$((NBWGET - 1))
+done
 
-  if [ "$DL" == "yes" ]; then
-    rm -f $STAMP
-
-    printf "%${BUILD_INDENT}c ${boldcyan}GET${endcolor}      $1\n" ' '>&$SILENT_OUT
-    export BUILD_INDENT=$((${BUILD_INDENT:-1}+$BUILD_INDENT_SIZE))
-
-    until [ -f "$STAMP" ] || $WGET_CMD $PKG_URL || $WGET_CMD $PACKAGE_MIRROR; do
-      NBWGET=$(($NBWGET+1))
-      if [ "$NBWGET" -gt "10" ]; then
-        echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
-        exit 1
-      fi
-    done
-
-    echo $PKG_URL > $STAMP
-    md5sum -t $PACKAGE > $MD5SUM
-
-    rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/unpack
-    rm -f $BUILD_BASE*/$STAMPS_NOARCH/$1/build
-  fi
+if [ $NBWGET -eq 0 ]; then
+  echo -e "\nCant't get $1 sources : $PKG_URL\n Try later !!"
+  exit 1
+else
+  printf "${boldgreen}INFO${endcolor} Calculated checksum is: ${CALC_SHA256}\n\n"
+  echo "${PKG_URL}" > $STAMP_URL
+  echo "${CALC_SHA256}" > $STAMP_SHA
 fi
 
 exit 0

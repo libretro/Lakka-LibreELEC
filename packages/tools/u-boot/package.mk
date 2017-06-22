@@ -71,7 +71,7 @@ make_target() {
 
   for UBOOT_TARGET in $UBOOT_CONFIG; do
     if [ "$PROJECT" = "Odroid_C2" ]; then
-      export PATH=$ROOT/$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$ROOT/$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
+      export PATH=$TOOLCHAIN/lib/gcc-linaro-aarch64-elf/bin/:$TOOLCHAIN/lib/gcc-linaro-arm-eabi/bin/:$PATH
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make mrproper
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make $UBOOT_TARGET
       CROSS_COMPILE=aarch64-elf- ARCH=arm CFLAGS="" LDFLAGS="" make HOSTCC="$HOST_CC" HOSTSTRIP="true"
@@ -101,11 +101,11 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
+  mkdir -p $TOOLCHAIN/bin
     if [ -f build/tools/mkimage ]; then
-      cp build/tools/mkimage $ROOT/$TOOLCHAIN/bin
+      cp build/tools/mkimage $TOOLCHAIN/bin
     else
-      cp tools/mkimage $ROOT/$TOOLCHAIN/bin
+      cp tools/mkimage $TOOLCHAIN/bin
     fi
 
   BOOT_CFG="$PROJECT_DIR/$PROJECT/bootloader/boot.cfg"
@@ -122,18 +122,18 @@ makeinstall_target() {
 
   mkdir -p $INSTALL/usr/share/bootloader
 
-  cp $ROOT/$PKG_BUILD/u-boot*.imx $INSTALL/usr/share/bootloader 2>/dev/null || :
-  cp $ROOT/$PKG_BUILD/u-boot*.img $INSTALL/usr/share/bootloader 2>/dev/null || :
-  cp $ROOT/$PKG_BUILD/SPL* $INSTALL/usr/share/bootloader 2>/dev/null || :
+  cp $PKG_BUILD/u-boot*.imx $INSTALL/usr/share/bootloader 2>/dev/null || :
+  cp $PKG_BUILD/u-boot*.img $INSTALL/usr/share/bootloader 2>/dev/null || :
+  cp $PKG_BUILD/SPL* $INSTALL/usr/share/bootloader 2>/dev/null || :
 
-  cp $ROOT/$PKG_BUILD/$UBOOT_CONFIGFILE $INSTALL/usr/share/bootloader 2>/dev/null || :
+  cp $PKG_BUILD/$UBOOT_CONFIGFILE $INSTALL/usr/share/bootloader 2>/dev/null || :
 
   cp -PR $PROJECT_DIR/$PROJECT/bootloader/uEnv*.txt $INSTALL/usr/share/bootloader 2>/dev/null || :
 
   case $PROJECT in
     Odroid_C2)
       cp -PRv $PKG_DIR/scripts/update-c2.sh $INSTALL/usr/share/bootloader/update.sh
-      cp -PRv $ROOT/$PKG_BUILD/u-boot.bin $INSTALL/usr/share/bootloader/u-boot
+      cp -PRv $PKG_BUILD/u-boot.bin $INSTALL/usr/share/bootloader/u-boot
       if [ -f $PROJECT_DIR/$PROJECT/splash/boot-logo.bmp.gz ]; then
         cp -PRv $PROJECT_DIR/$PROJECT/splash/boot-logo.bmp.gz $INSTALL/usr/share/bootloader
       elif [ -f $DISTRO_DIR/$DISTRO/splash/boot-logo.bmp.gz ]; then

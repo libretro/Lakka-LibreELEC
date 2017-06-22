@@ -34,5 +34,5 @@ PKG_CONFIGURE_OPTS_TARGET="--with-xorg-module-dir=$XORG_PATH_MODULES"
 
 post_makeinstall_target() {
   mkdir -p $INSTALL/usr/share/X11/xorg.conf.d
-    cp $ROOT/$PKG_BUILD/conf/*-libinput.conf $INSTALL/usr/share/X11/xorg.conf.d
+    cp $PKG_BUILD/conf/*-libinput.conf $INSTALL/usr/share/X11/xorg.conf.d
 }
