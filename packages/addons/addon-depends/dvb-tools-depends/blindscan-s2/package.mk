@@ -16,18 +16,17 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="mumudvb"
-PKG_VERSION="b3c9ae7"
+PKG_NAME="blindscan-s2"
+PKG_VERSION="94cb626"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://mumudvb.net/"
-PKG_URL="https://github.com/braice/MuMuDVB/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="MuMuDVB-${PKG_VERSION}*"
-PKG_DEPENDS_TARGET="toolchain libdvbcsa"
+PKG_SITE="https://bitbucket.org/majortom/blindscan-s2"
+PKG_URL="https://github.com/persianpros/blindscan-s2/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
-PKG_SHORTDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
-PKG_LONGDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
-PKG_AUTORECONF="yes"
+PKG_SHORTDESC="blindscan-s2 is a program to blindscan digital satellite signals"
+PKG_LONGDESC="blindscan-s2 is a program to blindscan digital satellite signals"
+PKG_AUTORECONF="no"
 
 makeinstall_target() {
   :
