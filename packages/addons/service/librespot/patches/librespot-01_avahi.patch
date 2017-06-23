@@ -1,0 +1,222 @@
+From a825f84d9d00b196232fcccc5b5e441654c4e5a0 Mon Sep 17 00:00:00 2001
+From: shanemeagher <shanemeagher@outlook.com>
+Date: Fri, 9 Jun 2017 22:43:54 +0800
+Subject: [PATCH] Build librespot with avahi support for Discovery
+
+rust-mdns is still the default and can be specified explicitly with --with-rust-mdns switch.
+Added --with-avahi switch to build librespot to use avahi for discovery using dns-sd package.
+---
+ Cargo.lock                      | 10 ++++++++++
+ Cargo.toml                      |  7 +++++--
+ contrib/Dockerfile              |  3 +++
+ contrib/docker-build-avahi.sh   | 24 ++++++++++++++++++++++++
+ src/authentication/discovery.rs | 27 ++++++++++++++++++++++++++-
+ src/lib.rs                      |  6 +++++-
+ 6 files changed, 73 insertions(+), 4 deletions(-)
+ create mode 100755 contrib/docker-build-avahi.sh
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 30fafca..eff0925 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -6,6 +6,7 @@ dependencies = [
+  "base64 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+  "bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+  "byteorder 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
++ "dns-sd 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+  "env_logger 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+  "error-chain 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+  "futures 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
+@@ -144,6 +145,15 @@ dependencies = [
+ ]
+ 
+ [[package]]
++name = "dns-sd"
++version = "0.1.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++dependencies = [
++ "libc 0.2.22 (registry+https://github.com/rust-lang/crates.io-index)",
++ "pkg-config 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
++]
++
++[[package]]
+ name = "dtoa"
+ version = "0.4.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+diff --git a/Cargo.toml b/Cargo.toml
+index 5d64719..c543e92 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -52,7 +52,8 @@ alsa            = { git = "https://github.com/plietar/rust-alsa", optional = tru
+ portaudio-rs    = { version = "0.3.0", optional = true }
+ libpulse-sys    = { git = "https://github.com/astro/libpulse-sys", optional = true }
+ 
+-mdns            = { git = "https://github.com/plietar/rust-mdns" }
++mdns            = { git = "https://github.com/plietar/rust-mdns", optional = true }
++dns-sd          = { version  = "~0.1.3", optional = true }
+ 
+ error-chain = { version = "0.9.0", default_features = false }
+ futures = "0.1.8"
+@@ -71,8 +72,10 @@ portaudio-backend = ["portaudio-rs"]
+ pulseaudio-backend = ["libpulse-sys"]
+ 
+ with-tremor = ["tremor"]
++with-rust-mdns = ["mdns"]
++with-avahi = ["dns-sd"]
+ 
+-default = ["portaudio-backend"]
++default = ["portaudio-backend","with-rust-mdns"]
+ 
+ [package.metadata.deb]
+ maintainer = "nobody"
+diff --git a/contrib/Dockerfile b/contrib/Dockerfile
+index 68a39b7..f6aec14 100644
+--- a/contrib/Dockerfile
++++ b/contrib/Dockerfile
+@@ -4,6 +4,8 @@
+ #
+ # The resulting image can be used to build librespot for linux x86_64, armhf and armel.
+ # $ docker run -v /tmp/librespot-build:/build librespot-cross
++# To build librespot with avahi support
++# $ docker run -v /tmp/librespot-build:/build librespot-cross /src/contrib/docker-build-avahi.sh
+ #
+ # The compiled binaries will be located in /tmp/librespot-build
+ #
+@@ -23,6 +25,7 @@ RUN apt-get update
+ 
+ RUN apt-get install -y curl git build-essential crossbuild-essential-arm64 crossbuild-essential-armel crossbuild-essential-armhf crossbuild-essential-mipsel
+ RUN apt-get install -y libasound2-dev libasound2-dev:arm64 libasound2-dev:armel libasound2-dev:armhf libasound2-dev:mipsel
++RUN apt-get install -y libavahi-compat-libdnssd-dev libavahi-compat-libdnssd-dev:arm64 libavahi-compat-libdnssd-dev:armel libavahi-compat-libdnssd-dev:armhf libavahi-compat-libdnssd-dev:mipsel
+ 
+ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ ENV PATH="/root/.cargo/bin/:${PATH}"
+diff --git a/contrib/docker-build-avahi.sh b/contrib/docker-build-avahi.sh
+new file mode 100755
+index 0000000..c25b248
+--- /dev/null
++++ b/contrib/docker-build-avahi.sh
+@@ -0,0 +1,24 @@
++#!/usr/bin/env bash
++set -eux
++
++cargo build --release --no-default-features --features "alsa-backend with-avahi"
++cp /usr/lib/x86_64-linux-gnu/libdns_sd.so.1 /build/release
++
++export PKG_CONFIG_ALLOW_CROSS=0
++
++export PKG_CONFIG_PATH=/usr/lib/aarch64-unknown-linux-gnu/pkgconfig
++cargo build --release --target aarch64-unknown-linux-gnu --no-default-features --features "alsa-backend with-avahi"
++cp /usr/lib/aarch64-linux-gnu/libdns_sd.so.1 /build/aarch64-unknown-linux-gnu/release
++
++export PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabi/pkgconfig
++cargo build --release --target arm-unknown-linux-gnueabi --no-default-features --features "alsa-backend with-avahi"
++cp /usr/lib/arm-linux-gnueabi/libdns_sd.so.1 /build/arm-unknown-linux-gnueabi/release
++
++export PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig
++cargo build --release --target arm-unknown-linux-gnueabihf --no-default-features --features "alsa-backend with-avahi"
++cp /usr/lib/arm-linux-gnueabihf/libdns_sd.so.1 /build/arm-unknown-linux-gnueabihf/release
++
++export PKG_CONFIG_PATH=/usr/lib/mipsel-linux-gnu/pkgconfig
++cargo build --release --target mipsel-unknown-linux-gnu --no-default-features --features "alsa-backend with-avahi"
++cp /usr/libmipsel-linux-gnu/libdns_sd.so.1 /build/mipsel-unknown-linux-gnu/release
++
+diff --git a/src/authentication/discovery.rs b/src/authentication/discovery.rs
+index 8c5b005..d385294 100644
+--- a/src/authentication/discovery.rs
++++ b/src/authentication/discovery.rs
+@@ -7,7 +7,6 @@ use futures::sync::mpsc;
+ use futures::{Future, Stream, BoxFuture, Poll, Async};
+ use hyper::server::{Service, NewService, Request, Response, Http};
+ use hyper::{self, Get, Post, StatusCode};
+-use mdns;
+ use num_bigint::BigUint;
+ use rand;
+ use std::collections::BTreeMap;
+@@ -20,6 +19,12 @@ use url;
+ use authentication::Credentials;
+ use util;
+ 
++#[cfg(feature = "with-rust-mdns")]
++use mdns;
++
++#[cfg(feature = "with-avahi")]
++use dns_sd::DNSService;
++
+ #[derive(Clone)]
+ struct Discovery(Arc<DiscoveryInner>);
+ struct DiscoveryInner {
+@@ -202,7 +207,10 @@ impl NewService for Discovery {
+ 
+ pub struct DiscoveryStream {
+     credentials: mpsc::UnboundedReceiver<Credentials>,
++    #[cfg(feature = "with-rust-mdns")]
+     _svc: mdns::Service,
++    #[cfg(feature = "with-avahi")]
++    _svc: DNSService,
+     task: Box<Future<Item=(), Error=io::Error>>,
+ }
+ 
+@@ -212,8 +220,13 @@ pub fn discovery(handle: &Handle, device_name: String, device_id: String)
+     let (discovery, creds_rx) = Discovery::new(device_name.clone(), device_id);
+ 
+     let listener = TcpListener::bind(&"0.0.0.0:0".parse().unwrap(), handle)?;
++
++    #[cfg(feature = "with-rust-mdns")]
+     let addr = listener.local_addr()?;
+ 
++    #[cfg(feature = "with-avahi")]
++    let port = listener.local_addr().unwrap().port();
++
+     let http = Http::new();
+     let handle_ = handle.clone();
+     let task = Box::new(listener.incoming().for_each(move |(socket, addr)| {
+@@ -221,13 +234,25 @@ pub fn discovery(handle: &Handle, device_name: String, device_id: String)
+         Ok(())
+     }));
+ 
++    #[cfg(feature = "with-rust-mdns")]
+     let responder = mdns::Responder::spawn(&handle)?;
++    
++    #[cfg(feature = "with-rust-mdns")]
+     let svc = responder.register(
+         "_spotify-connect._tcp".to_owned(),
+         device_name,
+         addr.port(),
+         &["VERSION=1.0", "CPath=/"]);
+ 
++    #[cfg(feature = "with-avahi")]
++    let svc = DNSService::register(Some(&*device_name),
++                                   "_spotify-connect._tcp",
++                                   None,
++                                   None,
++                                   port,
++                                   &["VERSION=1.0", "CPath=/"])
++                      .unwrap();
++
+     Ok(DiscoveryStream {
+         credentials: creds_rx,
+         _svc: svc,
+diff --git a/src/lib.rs b/src/lib.rs
+index 2a50249..b1b77ef 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -19,7 +19,6 @@ extern crate crypto;
+ extern crate getopts;
+ extern crate hyper;
+ extern crate linear_map;
+-extern crate mdns;
+ extern crate num_bigint;
+ extern crate num_integer;
+ extern crate num_traits;
+@@ -50,6 +49,11 @@ extern crate portaudio_rs;
+ #[cfg(feature = "libpulse-sys")]
+ extern crate libpulse_sys;
+ 
++#[cfg(feature = "with-rust-mdns")]
++extern crate mdns;
++
++#[cfg(feature = "with-avahi")]
++extern crate dns_sd;
+ 
+ #[macro_use] mod component;
+ pub mod album_cover;
