@@ -19,13 +19,13 @@
 ################################################################################
 
 PKG_NAME="dvb-fe-tool"
-PKG_VERSION="1388a04"
+PKG_VERSION="326060c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"
 PKG_URL="https://git.linuxtv.org/cgit.cgi/v4l-utils.git/snapshot/$PKG_VERSION.tar.xz"
 PKG_SOURCE_DIR="$PKG_VERSION*"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_DEPENDS_TARGET="toolchain systemd"
 PKG_SECTION="tools"
 PKG_SHORTDESC="dvb-fe-tool: Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
