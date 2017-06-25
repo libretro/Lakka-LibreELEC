@@ -16,24 +16,8 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-import alsaaudio as alsa
-import xbmcaddon
-import xbmcgui
+from default import addon as addon
+
 
 if __name__ == '__main__':
-
-  addon   = xbmcaddon.Addon('service.librespot')
-  dialog  = xbmcgui.Dialog()
-  strings = addon.getLocalizedString
-
-  while True:
-    pcms = alsa.pcms()[1:]
-    if len(pcms) == 0:
-      dialog.ok(strings(30211), strings(30212)) 
-      break
-    pcmx = dialog.select(strings(30113), pcms)
-    if pcmx == -1:
-      break
-    pcm = pcms[pcmx]
-    addon.setSetting('ls_o', pcm)
-    break
+   addon()
