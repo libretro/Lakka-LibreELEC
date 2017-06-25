@@ -16,20 +16,91 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
+import alsaaudio as alsa
+import os
 import subprocess
+import sys
 import xbmc
 import xbmcaddon
+import xbmcgui
+
+
+ICON     = xbmcaddon.Addon().getAddonInfo('icon')
+ID       = xbmcaddon.Addon().getAddonInfo('id')
+NAME     = xbmcaddon.Addon().getAddonInfo('name')
+PROFILE  = xbmcaddon.Addon().getAddonInfo('profile')
+STRINGS  = xbmcaddon.Addon().getLocalizedString
+
+ITEM     = os.path.join(PROFILE, 'librespot.sdp')
+LISTITEM = xbmcgui.ListItem(NAME)
+LISTITEM.setArt({'thumb': ICON})
+
+
+def addon():
+   if len(sys.argv) == 1:
+      Player().play()
+   elif sys.argv[1] == 'wizard':
+      dialog  = xbmcgui.Dialog()
+      while True:
+         pcms = alsa.pcms()[1:]
+         if len(pcms) == 0:
+            dialog.ok(NAME, STRINGS(30210))
+            break
+         pcmx = dialog.select(STRINGS(30112), pcms)
+         if pcmx == -1:
+            break
+         pcm = pcms[pcmx]
+         xbmcaddon.Addon().setSetting('ls_o', pcm)
+         break
+
+
+def systemctl(command):
+   subprocess.call(['systemctl', command, ID])
 
 
 class Monitor(xbmc.Monitor):
 
    def __init__(self, *args, **kwargs):
-      xbmc.Monitor.__init__(self)
-      self.id = xbmcaddon.Addon().getAddonInfo('id')
+      super(Monitor, self).__init__(self)
+      self.player = Player()
 
    def onSettingsChanged(self):
-      subprocess.call(['systemctl', 'restart', self.id])
+      self.player.stop()
 
+
+class Player(xbmc.Player):
+
+   def __init__(self, *args, **kwargs):
+      super(Player, self).__init__(self)
+      if self.isPlaying():
+         self.onPlayBackStarted()
+
+   def onPlayBackEnded(self):
+      if not self.islibrespot:
+         xbmc.sleep(5000)
+         if not self.isPlaying():
+            systemctl('start')
+
+   def onPlayBackStarted(self):
+      if self.getPlayingFile() == ITEM:
+         self.islibrespot = True
+      else:
+         self.islibrespot = False
+         systemctl('stop')
+
+   def onPlayBackStopped(self):
+      systemctl('restart')
+
+   def play(self):
+      if not self.isPlaying():
+         super(Player, self).play(ITEM, LISTITEM)
+
+   def stop(self):
+      if self.isPlaying():
+         if self.getPlayingFile() == ITEM:
+            super(Player, self).stop()
+      else:
+         systemctl('restart')
 
 if __name__ == '__main__':
    Monitor().waitForAbort()
