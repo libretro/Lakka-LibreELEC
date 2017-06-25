@@ -16,17 +16,16 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="mumudvb"
-PKG_VERSION="b3c9ae7"
+PKG_NAME="dvbsnoop"
+PKG_VERSION="c1ec72f"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://mumudvb.net/"
-PKG_URL="https://github.com/braice/MuMuDVB/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="MuMuDVB-${PKG_VERSION}*"
-PKG_DEPENDS_TARGET="toolchain libdvbcsa"
+PKG_SITE="http://dvbsnoop.sourceforge.net/"
+PKG_URL="https://github.com/persianpros/dvbsnoop/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
-PKG_SHORTDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
-PKG_LONGDESC="MuMuDVB (Multi Multicast DVB) is a program that streams from DVB on a network using multicasting or unicast"
+PKG_SHORTDESC="dvbsnoop is a DVB/MPEG stream analyzer program"
+PKG_LONGDESC="dvbsnoop is a DVB/MPEG stream analyzer program"
 PKG_AUTORECONF="yes"
 
 makeinstall_target() {
