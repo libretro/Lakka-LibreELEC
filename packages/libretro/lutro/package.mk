@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="lutro"
-PKG_VERSION="687a19c"
+PKG_VERSION="d11a593"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-lutro"
-PKG_URL="$LAKKA_MIRROR/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="https://github.com/libretro/libretro-lutro/archive/master.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
