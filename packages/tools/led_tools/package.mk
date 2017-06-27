@@ -40,7 +40,4 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
     cp led_png $INSTALL/usr/bin
-
-  mkdir -p $INSTALL/usr/share/kodi/
-    cp -r $PKG_DIR/media $INSTALL/usr/share/kodi/
 }
