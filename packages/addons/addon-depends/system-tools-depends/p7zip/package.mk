@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="p7zip"
-PKG_VERSION="15.14"
+PKG_VERSION="16.02"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://p7zip.sourceforge.net/"
