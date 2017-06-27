@@ -18,7 +18,7 @@
 
 PKG_NAME="system-tools"
 PKG_VERSION=""
-PKG_REV="106"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
