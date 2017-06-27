@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="unrar"
-PKG_VERSION="5.3.11"
+PKG_VERSION="5.4.5"
 PKG_ARCH="any"
 PKG_LICENSE="free"
 PKG_SITE="http://www.rarlab.com"
