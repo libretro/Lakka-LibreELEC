@@ -36,6 +36,10 @@ PKG_CONFIGURE_OPTS_TARGET="bash_cv_wcwidth_broken=no \
                            --with-curses \
                            --without-purify"
 
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fPIC"
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/share/readline
 }

@@ -43,7 +43,7 @@ make_target() {
        SHARED=no \
        CRYPTO="OPENSSL" \
        OPT="" \
-       XCFLAGS="$CFLAGS" \
+       XCFLAGS="$CFLAGS -fPIC" \
        XLDFLAGS="$LDFLAGS" \
        XLIBS="-lm"
 }
@@ -60,7 +60,7 @@ makeinstall_target() {
        SHARED=no \
        CRYPTO="OPENSSL" \
        OPT="" \
-       XCFLAGS="$CFLAGS" \
+       XCFLAGS="$CFLAGS -fPIC" \
        XLDFLAGS="$LDFLAGS" \
        XLIBS="-lm" \
        install
@@ -76,7 +76,7 @@ makeinstall_target() {
        SHARED=no \
        CRYPTO="OPENSSL" \
        OPT="" \
-       XCFLAGS="$CFLAGS" \
+       XCFLAGS="$CFLAGS -FPIC" \
        XLDFLAGS="$LDFLAGS" \
        XLIBS="-lm" \
        install
