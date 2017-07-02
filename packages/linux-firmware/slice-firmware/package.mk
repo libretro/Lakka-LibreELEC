@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,27 +16,29 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="dtc"
-PKG_VERSION="1.4.4"
-PKG_ARCH="any"
+PKG_NAME="slice-firmware"
+PKG_VERSION="0f463cc"
+PKG_ARCH="arm"
 PKG_LICENSE="GPL"
-PKG_SITE="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/"
-PKG_URL="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="$PKG_VERSION"
-PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
-PKG_SHORTDESC="The Device Tree Compiler"
-PKG_LONGDESC="The Device Tree Compiler"
+PKG_SITE="https://github.com/FiveNinjas/slice-firmware"
+PKG_URL="https://github.com/libreelec/slice-firmware/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain dtc:host"
+PKG_SECTION="linux-firmware"
+PKG_SHORTDESC="BCM270x firmware related stuff for Slice"
+PKG_LONGDESC="BCM270x firmware related stuff for Slice"
+
+PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS_TARGET="dtc"
-
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-    cp -P $PKG_BUILD/dtc $INSTALL/usr/bin
+make_target() {
+  if [ "$DEVICE" = "Slice3" ]; then
+    dtc -O dtb -I dts -o dt-blob.bin slice3-dt-blob.dts
+  elif [ "$DEVICE" = "Slice" ]; then
+    dtc -O dtb -I dts -o dt-blob.bin slice-dt-blob.dts
+  fi
 }
 
-makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
-    cp -P $PKG_BUILD/dtc $TOOLCHAIN/bin
+makeinstall_target() {
+  mkdir -p $INSTALL/usr/share/bootloader/
+    cp -a dt-blob.bin $INSTALL/usr/share/bootloader/
 }

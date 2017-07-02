@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -16,27 +16,31 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="dtc"
-PKG_VERSION="1.4.4"
+PKG_NAME="slice"
+PKG_VERSION="0"
+PKG_REV="100"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/"
-PKG_URL="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="$PKG_VERSION"
+PKG_SITE=""
+PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain"
-PKG_SECTION="tools"
-PKG_SHORTDESC="The Device Tree Compiler"
-PKG_LONGDESC="The Device Tree Compiler"
+PKG_SECTION="service"
+PKG_SHORTDESC="Provides the ability to change the led lights on the Slice box via Kodi actions"
+PKG_LONGDESC="Provides the ability to change the led lights on the Slice box via Kodi actions"
 PKG_AUTORECONF="no"
 
-PKG_MAKE_OPTS_TARGET="dtc"
+PKG_IS_ADDON="yes"
+PKG_ADDON_NAME="Slice"
+PKG_ADDON_TYPE="xbmc.service"
 
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin
-    cp -P $PKG_BUILD/dtc $INSTALL/usr/bin
+make_target() {
+  :
 }
 
-makeinstall_host() {
-  mkdir -p $TOOLCHAIN/bin
-    cp -P $PKG_BUILD/dtc $TOOLCHAIN/bin
+makeinstall_target() {
+  :
+}
+
+addon() {
+  :
 }
