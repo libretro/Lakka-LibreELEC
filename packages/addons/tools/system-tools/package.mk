@@ -48,6 +48,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     hddtemp \
                     hd-idle \
                     hid_mapper \
+                    htop \
                     i2c-tools \
                     inotify-tools \
                     jq \
@@ -110,6 +111,9 @@ addon() {
 
     # hid_mapper
     cp -P $(get_build_dir hid_mapper)/hid_mapper $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # htop
+    cp -P $(get_build_dir htop)/.install_pkg/usr/bin/htop $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # i2c-tools
     cp -P $(get_build_dir i2c-tools)/tools/i2cdetect $ADDON_BUILD/$PKG_ADDON_ID/bin
