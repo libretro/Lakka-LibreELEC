@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="lshw"
-PKG_VERSION="B.02.17"
+PKG_VERSION="B.02.18"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://ezix.org/project/wiki/HardwareLiSter"
