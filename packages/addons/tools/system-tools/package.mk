@@ -62,7 +62,8 @@ PKG_DEPENDS_TARGET="toolchain \
                     screen \
                     strace \
                     unrar \
-                    usb-modeswitch"
+                    usb-modeswitch \
+                    vim"
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/
@@ -162,6 +163,9 @@ addon() {
 
     # usb-modeswitch
     cp -P $(get_build_dir usb-modeswitch)/usb_modeswitch $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # vim
+    cp -P $(get_build_dir vim)/.install_pkg/usr/bin/vim $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
