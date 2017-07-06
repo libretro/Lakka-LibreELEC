@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="hddtemp"
-PKG_VERSION="0.3-beta15"
+PKG_VERSION="e16aed6"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.guzu.net/linux/hddtemp.php"
-PKG_URL="http://download.savannah.gnu.org/releases/hddtemp/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_URL="https://github.com/guzu/hddtemp/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="debug/tools"
 PKG_SHORTDESC="hddtemp: tool that reports hard drive temperature"
@@ -29,6 +29,11 @@ PKG_LONGDESC="hddtemp is a small utility (daemonizable) that gives you the tempe
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-db-path=/storage/.kodi/addons/virtual.system-tools/data/hddtemp.db"
+
+post_unpack() {
+  cd $PKG_BUILD
+  wget -O hddtemp.db http://www.guzu.net/linux/hddtemp.db
+}
 
 makeinstall_target() {
   : # nop
