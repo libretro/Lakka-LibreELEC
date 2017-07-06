@@ -17,6 +17,7 @@
 ################################################################################
 
 import dbus
+import dbus.mainloop.glib
 import gobject
 import json
 import threading
@@ -107,6 +108,7 @@ class BluetoothAudioClient(object):
 
   def _setup_bus(self):
 
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     self._bus = dbus.SystemBus()
 
   def _setup_signals(self):
