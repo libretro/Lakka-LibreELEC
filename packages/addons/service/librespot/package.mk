@@ -18,20 +18,21 @@
 ################################################################################
 
 PKG_NAME="librespot"
-PKG_VERSION="2259188"
-PKG_REV="100"
+PKG_VERSION="67deb07"
+PKG_REV="101"
 PKG_ARCH="any"
-PKG_LICENSE="prop."
+PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/plietar/$PKG_NAME/"
 PKG_URL="https://github.com/plietar/$PKG_NAME/archive/$PKG_VERSION.zip"
-PKG_DEPENDS_TARGET="toolchain avahi libvorbis pyalsaaudio rust"
+PKG_DEPENDS_TARGET="toolchain avahi ffmpegx libvorbis pyalsaaudio rust"
 PKG_SECTION="service"
-PKG_LONGDESC="Librespot ($PKG_VERSION) plays Spotify through LibreELEC using the opensource librespot library using a Spotify app as a remote."
+PKG_SHORTDESC="Librespot: play Spotify through LibreELEC using a Spotify app as a remote"
+PKG_LONGDESC="Librespot ($PKG_VERSION) plays Spotify through LibreELEC using the open source librespot library using a Spotify app as a remote."
 PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Librespot"
-PKG_ADDON_TYPE="xbmc.service"
+PKG_ADDON_TYPE="xbmc.service.library"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
 
 configure_target() {
@@ -43,6 +44,8 @@ configure_target() {
 make_target() {
   cd src
   $CARGO_BUILD --no-default-features --features "alsa-backend with-avahi"
+  cd "$PKG_BUILD/.$TARGET_NAME"/*/release
+  $STRIP librespot
 }
 
 makeinstall_target() {
@@ -50,15 +53,16 @@ makeinstall_target() {
 }
 
 addon() {
+  mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID"
+  cp "$(get_build_dir pyalsaaudio)/.install_pkg/usr/lib/python2.7/site-packages/alsaaudio.so" \
+     "$ADDON_BUILD/$PKG_ADDON_ID"
+
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/bin"
   cp "$PKG_BUILD/.$TARGET_NAME"/*/release/librespot  \
+     "$(get_build_dir ffmpegx)/.install_pkg/usr/local/bin/ffmpegx" \
      "$ADDON_BUILD/$PKG_ADDON_ID/bin"
 
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/lib"
   cp "$(get_build_dir avahi)/avahi-compat-libdns_sd/.libs/libdns_sd.so.1" \
      "$ADDON_BUILD/$PKG_ADDON_ID/lib"
-
-  mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/wizard"
-  cp "$(get_build_dir pyalsaaudio)/.install_pkg/usr/lib/python2.7/site-packages/alsaaudio.so" \
-     "$ADDON_BUILD/$PKG_ADDON_ID/wizard/"
 }
