@@ -38,6 +38,7 @@ PKG_AUTORECONF="no"
 PKG_DEPENDS_TARGET="toolchain \
                     autossh \
                     diffutils \
+                    dstat \
                     dtach \
                     efibootmgr \
                     evtest \
@@ -77,6 +78,9 @@ addon() {
     cp -P $(get_build_dir diffutils)/.$TARGET_NAME/src/diff $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir diffutils)/.$TARGET_NAME/src/diff3 $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir diffutils)/.$TARGET_NAME/src/sdiff $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # dstat
+    cp -P $(get_build_dir dstat)/dstat $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # dtach
     cp -P $(get_build_dir dtach)/.$TARGET_NAME/dtach $ADDON_BUILD/$PKG_ADDON_ID/bin
