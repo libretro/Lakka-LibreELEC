@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="fdupes"
-PKG_VERSION="1.51"
+PKG_VERSION="1.6.1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://premium.caribe.net/~adrian2/fdupes.html"
-PKG_URL="https://fdupes.googlecode.com/files/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/adrianlopezroche/fdupes/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="FDUPES is a program for identifying or deleting duplicate files residing within specified directories"
