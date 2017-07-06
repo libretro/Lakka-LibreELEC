@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="netbsd-curses"
-PKG_VERSION="47b256a"
+PKG_VERSION="4c156be"
 PKG_ARCH="any"
 PKG_SITE="https://github.com/sabotage-linux/netbsd-curses"
 PKG_URL="https://github.com/sabotage-linux/netbsd-curses/archive/$PKG_VERSION.tar.gz"
@@ -27,7 +27,7 @@ PKG_SHORTDESC="netbsd-libcurses portable edition"
 PKG_LONGDESC="netbsd-libcurses portable edition"
 
 pre_make_target() {
-  CFLAGS="$CFLAGS -fPIC"
+  CFLAGS="$CFLAGS -fPIC -I${PKG_BUILD}/libcurses"
 }
 
 make_target() {
