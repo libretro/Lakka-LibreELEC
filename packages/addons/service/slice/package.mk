@@ -31,6 +31,7 @@ PKG_AUTORECONF="no"
 
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Slice"
+PKG_ADDON_PROJECTS="RPi"
 PKG_ADDON_TYPE="xbmc.service"
 
 make_target() {
