@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libiconv"
-PKG_VERSION="1.14"
+PKG_VERSION="1.15"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://savannah.gnu.org/projects/libiconv/"
