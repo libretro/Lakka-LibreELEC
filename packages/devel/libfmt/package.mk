@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libfmt"
-PKG_VERSION="3.0.1"
+PKG_VERSION="3.0.2"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/fmtlib/fmt"
