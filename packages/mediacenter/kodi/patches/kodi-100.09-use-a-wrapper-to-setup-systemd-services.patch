@@ -1,14 +1,18 @@
-commit 07c96988b65becae0141d71d40481bcf916bee68
-Author: Stefan Saraev <stefan@saraev.ca>
-Date:   Sun Dec 18 11:30:39 2016 -0800
+From 0f1be94283a3d1a3286430bbc0e326dc7b4cc6b8 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Fri, 30 Jun 2017 14:19:59 +0100
+Subject: [PATCH] use a wrapper to setup systemd services
 
-    use a wrapper to setup systemd services
+---
+ xbmc/addons/Addon.cpp | 33 +++++++++++++++++++++++++++++++++
+ xbmc/addons/Addon.h   |  2 ++
+ 2 files changed, 35 insertions(+)
 
 diff --git a/xbmc/addons/Addon.cpp b/xbmc/addons/Addon.cpp
-index 8f62079..a54682a 100644
+index 8bf4664..caed7c4 100644
 --- a/xbmc/addons/Addon.cpp
 +++ b/xbmc/addons/Addon.cpp
-@@ -348,6 +348,13 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
+@@ -392,6 +392,13 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
    return AddonVersion("0.0.0");
  }
  
@@ -22,8 +26,8 @@ index 8f62079..a54682a 100644
  void OnEnabled(const std::string& id)
  {
    // If the addon is a special, call enabled handler
-@@ -356,6 +363,11 @@ void OnEnabled(const std::string& id)
-       CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_ADSPDLL))
+@@ -399,6 +406,11 @@ void OnEnabled(const std::string& id)
+   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_PVRDLL))
      return addon->OnEnabled();
  
 +  // OE: systemctl enable & start on addon enable
@@ -31,26 +35,26 @@ index 8f62079..a54682a 100644
 +    CallOEWrapper(addon->ID(), false);
 +  // OE
 +
-   if (CAddonMgr::GetInstance().ServicesHasStarted())
-   {
-     if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE))
-@@ -379,6 +391,11 @@ void OnDisabled(const std::string& id)
-     if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE, false))
-       std::static_pointer_cast<CService>(addon)->Stop();
-   }
+   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_REPOSITORY))
+     CRepositoryUpdater::GetInstance().ScheduleUpdate(); //notify updater there is a new addon
+ }
+@@ -407,6 +419,12 @@ void OnDisabled(const std::string& id)
+ {
+ 
+   AddonPtr addon;
 +
 +  // OE: systemctl stop & disable on addon disable
 +  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE, false))
 +    CallOEWrapper(addon->ID(), true);
 +  // OE
++
+   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_PVRDLL, false))
+     return addon->OnDisabled();
  }
- 
- void OnPreInstall(const AddonPtr& addon)
-@@ -401,6 +418,15 @@ void OnPreInstall(const AddonPtr& addon)
- void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+@@ -422,6 +440,14 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
  {
    AddonPtr localAddon;
-+
+ 
 +  // OE: systemctl stop & disable / enable & start on addon upgrade
 +  if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
 +  {
@@ -59,31 +63,36 @@ index 8f62079..a54682a 100644
 +  }
 +  // OE
 +
-   if (CAddonMgr::GetInstance().ServicesHasStarted())
-   {
-     if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
-@@ -439,6 +465,11 @@ void OnPreUnInstall(const AddonPtr& addon)
- {
-   AddonPtr localAddon;
+   if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_REPOSITORY))
+     CRepositoryUpdater::GetInstance().ScheduleUpdate(); //notify updater there is a new addon or version
  
+@@ -430,6 +456,13 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+ 
+ void OnPreUnInstall(const AddonPtr& addon)
+ {
++  AddonPtr localAddon;
++
 +  // OE: systemctl stop & disable on addon uninstall
 +  if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
 +    CallOEWrapper(addon->ID(), true);
 +  // OE
 +
-   if (CAddonMgr::GetInstance().ServicesHasStarted())
-   {
-     if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
+   addon->OnPreUnInstall();
+ }
+ 
 diff --git a/xbmc/addons/Addon.h b/xbmc/addons/Addon.h
-index 515afe1..36287d6 100644
+index 35203a2..8e4b95e 100644
 --- a/xbmc/addons/Addon.h
 +++ b/xbmc/addons/Addon.h
-@@ -121,6 +121,8 @@ public:
-   const InfoMap& ExtraInfo() const override { return m_props.extrainfo; }
-   const ADDONDEPS& GetDeps() const override { return m_props.dependencies; }
+@@ -84,6 +84,8 @@ public:
+   const InfoMap& ExtraInfo() const override { return m_addonInfo.ExtraInfo(); }
+   const ADDONDEPS& GetDeps() const override { return m_addonInfo.GetDeps(); }
  
 +  void CallOEWrapper(const std::string& ID, bool disable);
 +
-   /*! \brief Check whether the this addon can be configured or not
-    \return true if the addon has settings, false otherwise
-    \sa LoadSettings, LoadUserSettings, SaveSettings, HasUserSettings, GetSetting, UpdateSetting
+   std::string FanArt() const override
+   {
+     auto it = m_addonInfo.Art().find("fanart");
+-- 
+2.7.4
+
