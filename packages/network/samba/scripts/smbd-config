@@ -1,0 +1,59 @@
+#!/bin/sh
+################################################################################
+#      This file is part of OpenELEC - http://www.openelec.tv
+#      Copyright (C) 2009-2017 Stephan Raue (stephan@openelec.tv)
+#
+#  OpenELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  OpenELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+SMB_CONF="/run/samba/smb.conf"
+
+if [ ! -f /storage/.cache/services/samba.conf ]; then
+  cp /usr/share/services/samba.conf /storage/.cache/services
+fi
+
+. /storage/.cache/services/samba.conf
+
+# handle external drives
+if [ "$SAMBA_AUTOSHARE" == "true" ] ; then
+  for dir in /media/* ; do
+    if [ -d "$dir" ] ; then
+      name=$(basename "$dir")
+      echo -e "[$name]\n  path = $dir\n  available = yes\n  browsable = yes\n  public = yes\n  writable = yes\n" >> $SMB_CONF
+    fi
+  done
+fi
+
+# only letters & numbers permitted for username & password
+  SAMBA_USERNAME=`echo $SAMBA_USERNAME | sed "s/[^a-zA-Z0-9]//g;"`
+  SAMBA_PASSWORD=`echo $SAMBA_PASSWORD | sed "s/[^a-zA-Z0-9]//g;"`
+
+if [ "$SAMBA_SECURE" == "true" -a ! "$SAMBA_USERNAME" == "" -a ! "$SAMBA_PASSWORD" == "" ] ; then
+  # username map: first line makes sure plain root does not work all the time
+  # processing continues, so if user chooses root as username, second line overrides the first
+  # this is done always in case user uses passwords in userconf.
+  # many thanks to viljoviitanen for this
+  echo -e "$SAMBA_PASSWORD\n$SAMBA_PASSWORD" | smbpasswd -s -a root >/dev/null 2>&1
+  echo -e "nobody = root\nroot = $SAMBA_USERNAME" > /run/samba/samba.map
+
+  sed -e 's|^.[ \t]*.public.=.*|  public = no |' \
+      -e 's|^.[ \t]*.username map.=.*||' \
+      -e 's|^.[ \t]*.security.=.*|  security = user\n  username map = /run/samba/samba.map|' \
+      -i $SMB_CONF
+else
+  sed -e 's|^.[ \t]*.public.=.*|  public = yes |' \
+      -e 's|^.[ \t]*.username map.=.*||' \
+      -e 's|^.[ \t]*.security.=.*|  security = user|' \
+      -i $SMB_CONF
+fi
