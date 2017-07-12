@@ -28,7 +28,7 @@ PKG_SHORTDESC="Emby: a personal media server"
 PKG_LONGDESC="Emby ($PKG_VERSION) brings your home videos, music, and photos together, automatically converting and streaming your media on-the-fly to any device"
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Emby (beta)"
+PKG_ADDON_NAME="Emby"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_REQUIRES="tools.mono:0.0.0"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
