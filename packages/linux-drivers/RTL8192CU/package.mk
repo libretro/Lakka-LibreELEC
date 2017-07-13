@@ -17,11 +17,12 @@
 ################################################################################
 
 PKG_NAME="RTL8192CU"
-PKG_VERSION="v4.0.2_9000.20130911"
+PKG_VERSION="76b54cd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://www.realtek.com.tw/downloads/downloadsView.aspx?Langid=1&PFid=48&Level=5&Conn=4&ProdID=274&DownTypeID=3&GetDown=false&Downloads=true"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_SITE="https://github.com/pvaret/rtl8192cu-fixes"
+PKG_URL="$PKG_SITE/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="rtl8192cu-fixes-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
