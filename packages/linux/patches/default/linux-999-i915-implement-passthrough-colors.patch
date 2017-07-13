@@ -1,20 +1,20 @@
 diff --git a/drivers/gpu/drm/i915/i915_drv.h b/drivers/gpu/drm/i915/i915_drv.h
-index f68c789..a6b6dfe 100644
+index 0a4b42d..b3aa01e 100644
 --- a/drivers/gpu/drm/i915/i915_drv.h
 +++ b/drivers/gpu/drm/i915/i915_drv.h
-@@ -3948,6 +3948,7 @@ __raw_write(64, q)
+@@ -3896,6 +3896,7 @@ __raw_write(64, q)
  #define INTEL_BROADCAST_RGB_AUTO 0
  #define INTEL_BROADCAST_RGB_FULL 1
  #define INTEL_BROADCAST_RGB_LIMITED 2
 +#define INTEL_BROADCAST_RGB_VIDEO 3
  
- static inline i915_reg_t i915_vgacntrl_reg(struct drm_device *dev)
+ static inline i915_reg_t i915_vgacntrl_reg(struct drm_i915_private *dev_priv)
  {
 diff --git a/drivers/gpu/drm/i915/intel_drv.h b/drivers/gpu/drm/i915/intel_drv.h
-index ff399b9..f2ac0ff 100644
+index 344f238..1143551 100644
 --- a/drivers/gpu/drm/i915/intel_drv.h
 +++ b/drivers/gpu/drm/i915/intel_drv.h
-@@ -522,6 +522,13 @@ struct intel_crtc_state {
+@@ -563,6 +563,13 @@ struct intel_crtc_state {
  	 */
  	bool limited_color_range;
  
@@ -28,7 +28,7 @@ index ff399b9..f2ac0ff 100644
  	/* Bitmask of encoder types (enum intel_output_type)
  	 * driven by the pipe.
  	 */
-@@ -805,6 +812,7 @@ struct intel_hdmi {
+@@ -840,6 +847,7 @@ struct intel_hdmi {
  	} dp_dual_mode;
  	bool limited_color_range;
  	bool color_range_auto;
@@ -37,20 +37,19 @@ index ff399b9..f2ac0ff 100644
  	bool has_audio;
  	enum hdmi_force_audio force_audio;
 diff --git a/drivers/gpu/drm/i915/intel_hdmi.c b/drivers/gpu/drm/i915/intel_hdmi.c
-index 4df9f38..8b64508 100644
+index ebae2bd..ed925e5 100644
 --- a/drivers/gpu/drm/i915/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/intel_hdmi.c
-@@ -462,7 +462,8 @@ static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder,
+@@ -469,7 +469,7 @@ static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder,
  	}
  
- 	if (intel_hdmi->rgb_quant_range_selectable) {
--		if (intel_crtc->config->limited_color_range)
-+		if (intel_crtc->config->limited_color_range ||
-+		    intel_crtc->config->video_color_range)
- 			frame.avi.quantization_range =
- 				HDMI_QUANTIZATION_RANGE_LIMITED;
- 		else
-@@ -1308,6 +1309,8 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
+ 	drm_hdmi_avi_infoframe_quant_range(&frame.avi, adjusted_mode,
+-					   crtc_state->limited_color_range ?
++					   (crtc_state->limited_color_range || crtc_state->video_color_range) ?
+ 					   HDMI_QUANTIZATION_RANGE_LIMITED :
+ 					   HDMI_QUANTIZATION_RANGE_FULL,
+ 					   intel_hdmi->rgb_quant_range_selectable);
+@@ -1336,6 +1336,8 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
  		pipe_config->limited_color_range =
  			intel_hdmi->limited_color_range;
  	}
@@ -59,7 +58,7 @@ index 4df9f38..8b64508 100644
  
  	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK) {
  		pipe_config->pixel_multiplier = 2;
-@@ -1588,25 +1591,35 @@ intel_hdmi_set_property(struct drm_connector *connector,
+@@ -1593,25 +1595,35 @@ intel_hdmi_set_property(struct drm_connector *connector,
  	if (property == dev_priv->broadcast_rgb_property) {
  		bool old_auto = intel_hdmi->color_range_auto;
  		bool old_range = intel_hdmi->limited_color_range;
@@ -97,10 +96,10 @@ index 4df9f38..8b64508 100644
  
  		goto done;
 diff --git a/drivers/gpu/drm/i915/intel_modes.c b/drivers/gpu/drm/i915/intel_modes.c
-index f2584d0..5a6f853 100644
+index 951e834..d817558 100644
 --- a/drivers/gpu/drm/i915/intel_modes.c
 +++ b/drivers/gpu/drm/i915/intel_modes.c
-@@ -103,6 +103,7 @@ static const struct drm_prop_enum_list broadcast_rgb_names[] = {
+@@ -102,6 +102,7 @@ static const struct drm_prop_enum_list broadcast_rgb_names[] = {
  	{ INTEL_BROADCAST_RGB_AUTO, "Automatic" },
  	{ INTEL_BROADCAST_RGB_FULL, "Full" },
  	{ INTEL_BROADCAST_RGB_LIMITED, "Limited 16:235" },
