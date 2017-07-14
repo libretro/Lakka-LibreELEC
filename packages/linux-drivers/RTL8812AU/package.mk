@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="RTL8812AU"
-PKG_VERSION="4.3.20"
+PKG_VERSION="b54ec67"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/Grawp/rtl8812au_rtl8821au"
-PKG_URL="https://github.com/Grawp/rtl8812au_rtl8821au/archive/$PKG_VERSION.tar.gz"
-PKG_SOURCE_DIR="rtl8812au_rtl8821au-$PKG_VERSION"
+PKG_SITE="https://github.com/paspro/rtl8812au"
+PKG_URL="https://github.com/paspro/rtl8812au/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="rtl8812au-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
