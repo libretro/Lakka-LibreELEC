@@ -1,0 +1,269 @@
+From e5cf2bd5f2236379e0c2f55453b1c09470976da7 Mon Sep 17 00:00:00 2001
+From: CrazyCat <crazycat69@narod.ru>
+Date: Wed, 5 Jul 2017 00:38:23 +0300
+Subject: [PATCH 1/2] dw2102: Terratec Cinergy S2 PCIe Dual support.
+
+---
+ drivers/media/usb/dvb-usb/dw2102.c | 67 ++++++++++++++++++++++++++++++++++----
+ 1 file changed, 60 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/media/usb/dvb-usb/dw2102.c b/drivers/media/usb/dvb-usb/dw2102.c
+index aee9182..e06f60e 100644
+--- a/drivers/media/usb/dvb-usb/dw2102.c
++++ b/drivers/media/usb/dvb-usb/dw2102.c
+@@ -1761,13 +1761,14 @@ enum dw2102_table_entry {
+ 	TEVII_S632,
+ 	TERRATEC_CINERGY_S2_R2,
+ 	TERRATEC_CINERGY_S2_R3,
+-	TERRATEC_CINERGY_S2_R4,
+ 	GOTVIEW_SAT_HD,
+ 	GENIATECH_T220,
+ 	GENIATECH_T220A,
+ 	TECHNOTREND_S2_4600,
+ 	TEVII_S482_1,
+ 	TEVII_S482_2,
++	TERRATEC_DUAL_1,
++	TERRATEC_DUAL_2,
+ 	TEVII_S662
+ };
+ 
+@@ -1791,7 +1792,6 @@ static struct usb_device_id dw2102_table[] = {
+ 	[TEVII_S632] = {USB_DEVICE(0x9022, USB_PID_TEVII_S632)},
+ 	[TERRATEC_CINERGY_S2_R2] = {USB_DEVICE(USB_VID_TERRATEC, USB_PID_TERRATEC_CINERGY_S2_R2)},
+ 	[TERRATEC_CINERGY_S2_R3] = {USB_DEVICE(USB_VID_TERRATEC, USB_PID_TERRATEC_CINERGY_S2_R3)},
+-	[TERRATEC_CINERGY_S2_R4] = {USB_DEVICE(USB_VID_TERRATEC, USB_PID_TERRATEC_CINERGY_S2_R4)},
+ 	[GOTVIEW_SAT_HD] = {USB_DEVICE(0x1FE1, USB_PID_GOTVIEW_SAT_HD)},
+ 	[GENIATECH_T220] = {USB_DEVICE(0x1f4d, 0xD220)},
+ 	[GENIATECH_T220A] = {USB_DEVICE(0x0572, 0xC686)},
+@@ -1799,6 +1799,8 @@ static struct usb_device_id dw2102_table[] = {
+ 		USB_PID_TECHNOTREND_CONNECT_S2_4600)},
+ 	[TEVII_S482_1] = {USB_DEVICE(0x9022, 0xd483)},
+ 	[TEVII_S482_2] = {USB_DEVICE(0x9022, 0xd484)},
++	[TERRATEC_DUAL_1] = {USB_DEVICE(0x153B,0x1181)},
++	[TERRATEC_DUAL_2] = {USB_DEVICE(0x153B,0x1182)},
+ 	[TEVII_S662] = {USB_DEVICE(0x9022, USB_PID_TEVII_S662)},
+ 	{ }
+ };
+@@ -2208,7 +2210,7 @@ static struct dvb_usb_device_properties su3000_properties = {
+ 		}},
+ 		}
+ 	},
+-	.num_device_descs = 7,
++	.num_device_descs = 6,
+ 	.devices = {
+ 		{ "SU3000HD DVB-S USB2.0",
+ 			{ &dw2102_table[GENIATECH_SU3000], NULL },
+@@ -2234,10 +2236,6 @@ static struct dvb_usb_device_properties su3000_properties = {
+ 			{ &dw2102_table[TERRATEC_CINERGY_S2_R3], NULL },
+ 			{ NULL },
+ 		},
+-		{ "Terratec Cinergy S2 USB HD Rev.4",
+-			{ &dw2102_table[TERRATEC_CINERGY_S2_R4], NULL },
+-			{ NULL },
+-		},
+ 	}
+ };
+ 
+@@ -2445,6 +2443,59 @@ static struct dvb_usb_device_properties tevii_properties = {
+ 	}
+ };
+ 
++static struct dvb_usb_device_properties terratec_properties = {
++	.caps = DVB_USB_IS_AN_I2C_ADAPTER,
++	.usb_ctrl = DEVICE_SPECIFIC,
++	.size_of_priv = sizeof(struct dw2102_state),
++	.power_ctrl = su3000_power_ctrl,
++	.num_adapters = 1,
++	.identify_state	= su3000_identify_state,
++	.i2c_algo = &su3000_i2c_algo,
++
++	.rc.core = {
++		.rc_interval = 250,
++		.rc_codes = RC_MAP_TERRATEC_CINERGY_S2_DUAL,
++		.module_name = "dw2102",
++		.allowed_protos   = RC_BIT_NEC,
++		.rc_query = su3000_rc_query,
++	},
++
++	.read_mac_address = su3000_read_mac_address,
++
++	.generic_bulk_ctrl_endpoint = 0x01,
++
++	.adapter = {
++		{
++		.num_frontends = 1,
++		.fe = {{
++			.streaming_ctrl   = su3000_streaming_ctrl,
++			.frontend_attach  = su3000_frontend_attach,
++			.stream = {
++				.type = USB_BULK,
++				.count = 8,
++				.endpoint = 0x82,
++				.u = {
++					.bulk = {
++						.buffersize = 4096,
++					}
++				}
++			}
++		} },
++		}
++	},
++	.num_device_descs = 2,
++	.devices = {
++		{ "Terratec Cinergy S2 Dual (tuner 1)",
++			{ &dw2102_table[TERRATEC_DUAL_1], NULL },
++			{ NULL },
++		},
++		{ "Terratec Cinergy S2 Dual (tuner 2)",
++			{ &dw2102_table[TERRATEC_DUAL_2], NULL },
++			{ NULL },
++		},
++	}
++};
++
+ static int dw2102_probe(struct usb_interface *intf,
+ 		const struct usb_device_id *id)
+ {
+@@ -2525,6 +2576,8 @@ static int dw2102_probe(struct usb_interface *intf,
+ 	    0 == dvb_usb_device_init(intf, &tt_s2_4600_properties,
+ 			 THIS_MODULE, NULL, adapter_nr) ||
+ 	    0 == dvb_usb_device_init(intf, &tevii_properties,
++			 THIS_MODULE, NULL, adapter_nr) ||
++	    0 == dvb_usb_device_init(intf, &terratec_properties,
+ 			 THIS_MODULE, NULL, adapter_nr))
+ 		return 0;
+ 
+-- 
+2.7.4
+
+
+From 2a826fa54da3804813d86e8af56e446456352496 Mon Sep 17 00:00:00 2001
+From: CrazyCat <crazycat69@narod.ru>
+Date: Wed, 5 Jul 2017 00:38:58 +0300
+Subject: [PATCH 2/2] Added RC keymap for Terratec Cinergy S2 PCIe Dual.
+
+---
+ drivers/media/rc/keymaps/Makefile                  |  1 +
+ .../media/rc/keymaps/rc-terratec-cinergy-s2-dual.c | 85 ++++++++++++++++++++++
+ include/media/rc-map.h                             |  1 +
+ 3 files changed, 87 insertions(+)
+ create mode 100644 drivers/media/rc/keymaps/rc-terratec-cinergy-s2-dual.c
+
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index 2945f99..13f368b 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -96,6 +96,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-terratec-cinergy-xs.o \
+ 			rc-terratec-slim.o \
+ 			rc-terratec-slim-2.o \
++			rc-terratec-cinergy-s2-dual.o \
+ 			rc-tevii-nec.o \
+ 			rc-tivo.o \
+ 			rc-total-media-in-hand.o \
+diff --git a/drivers/media/rc/keymaps/rc-terratec-cinergy-s2-dual.c b/drivers/media/rc/keymaps/rc-terratec-cinergy-s2-dual.c
+new file mode 100644
+index 0000000..f8dbcfa
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-terratec-cinergy-s2-dual.c
+@@ -0,0 +1,85 @@
++/* keytable for Terratec Cinergy S2 Dual Remote Controller
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++
++static struct rc_map_table terratec_cinergy_s2_dual[] = {
++	{ 0xf841, KEY_MENU },
++	{ 0xf801, KEY_POWER },
++	{ 0xf842, KEY_OPEN },
++	{ 0x0002, KEY_1 },
++	{ 0x0003, KEY_2 },
++	{ 0x0004, KEY_3 },
++	{ 0xf843, KEY_SUBTITLE },
++	{ 0x0005, KEY_4 },
++	{ 0x0006, KEY_5 },
++	{ 0x0007, KEY_6 },
++	{ 0xf844, KEY_TEXT },
++	{ 0x0008, KEY_7 },
++	{ 0x0009, KEY_8 },
++	{ 0x000A, KEY_9 },
++	{ 0xf845, KEY_DELETE },
++	{ 0xf80b, KEY_SWITCHVIDEOMODE },
++	{ 0xf80c, KEY_0 },
++	{ 0xf80d, KEY_AB },
++	{ 0xf846, KEY_TUNER },
++	{ 0xf847, KEY_DVD },
++	{ 0xf849, KEY_PVR },
++	{ 0xf84a, KEY_AUDIO },
++	{ 0xf84b, KEY_TIME },
++	{ 0xf810, KEY_UP },
++	{ 0xf811, KEY_LEFT },
++	{ 0xf812, KEY_OK },
++	{ 0xf813, KEY_RIGHT },
++	{ 0xf814, KEY_DOWN },
++	{ 0xf80f, KEY_EPG },
++	{ 0xf816, KEY_INFO },
++	{ 0xf84d, KEY_BACK },
++	{ 0xf81c, KEY_VOLUMEUP },
++	{ 0xf84c, KEY_PLAY },
++	{ 0xf81b, KEY_CHANNELUP },
++	{ 0xf81e, KEY_VOLUMEDOWN },
++	{ 0xf81d, KEY_MUTE },
++	{ 0xf81f, KEY_CHANNELDOWN },
++	{ 0xf817, KEY_RED },
++	{ 0xf818, KEY_GREEN },
++	{ 0xf819, KEY_YELLOW },
++	{ 0xf81A, KEY_BLUE },
++	{ 0xf858, KEY_RECORD },
++	{ 0xf848, KEY_STOP },
++	{ 0xf840, KEY_PAUSE },
++	{ 0xf85a, KEY_LAST },
++	{ 0xf861, KEY_REWIND },
++	{ 0xf954, KEY_FASTFORWARD },
++	{ 0xf85c, KEY_NEXT },
++};
++
++static struct rc_map_list terratec_cinergy_s2_dual_map = {
++	.map = {
++		.scan    = terratec_cinergy_s2_dual,
++		.size    = ARRAY_SIZE(terratec_cinergy_s2_dual),
++		.rc_type = RC_TYPE_UNKNOWN,	/* Legacy IR type */
++		.name    = RC_MAP_TERRATEC_CINERGY_S2_DUAL,
++	}
++};
++
++static int __init init_rc_map_terratec_cinergy_s2_dual(void)
++{
++	return rc_map_register(&terratec_cinergy_s2_dual_map);
++}
++
++static void __exit exit_rc_map_terratec_cinergy_s2_dual(void)
++{
++	rc_map_unregister(&terratec_cinergy_s2_dual_map);
++}
++
++module_init(init_rc_map_terratec_cinergy_s2_dual);
++module_exit(exit_rc_map_terratec_cinergy_s2_dual);
++
++MODULE_LICENSE("GPL");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index 1a815a5..dcb98ef 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -299,6 +299,7 @@ struct rc_map *rc_map_get(const char *name);
+ #define RC_MAP_TERRATEC_CINERGY_XS       "rc-terratec-cinergy-xs"
+ #define RC_MAP_TERRATEC_SLIM             "rc-terratec-slim"
+ #define RC_MAP_TERRATEC_SLIM_2           "rc-terratec-slim-2"
++#define RC_MAP_TERRATEC_CINERGY_S2_DUAL  "rc-terratec-cinergy-s2-dual"
+ #define RC_MAP_TEVII_NEC                 "rc-tevii-nec"
+ #define RC_MAP_TIVO                      "rc-tivo"
+ #define RC_MAP_TOTAL_MEDIA_IN_HAND       "rc-total-media-in-hand"
+-- 
+2.7.4
+
