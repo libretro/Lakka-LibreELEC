@@ -1,18 +1,63 @@
-diff -Naur linux-3.19.orig/drivers/hid/hid-core.c linux-3.19/drivers/hid/hid-core.c
---- linux-3.19.orig/drivers/hid/hid-core.c	2015-02-20 14:01:17.080322846 -0800
-+++ linux-3.19/drivers/hid/hid-core.c	2015-02-20 14:03:30.375519421 -0800
-@@ -1884,6 +1884,7 @@
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_NTRIG, USB_DEVICE_ID_NTRIG_TOUCH_SCREEN_18) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_ORTEK, USB_DEVICE_ID_ORTEK_PKB1700) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_ORTEK, USB_DEVICE_ID_ORTEK_WKB2000) },
+From 6824d53bd503580226fbea3d9d78b32cab56ae42 Mon Sep 17 00:00:00 2001
+From: MilhouseVH <milhouseVH.github@nmacleod.com>
+Date: Mon, 19 Jun 2017 19:51:27 +0100
+Subject: [PATCH] OUYA controller support
+
+---
+ drivers/hid/Kconfig    |   6 ++
+ drivers/hid/Makefile   |   1 +
+ drivers/hid/hid-core.c |   1 +
+ drivers/hid/hid-ids.h  |   3 +
+ drivers/hid/hid-ouya.c | 260 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 271 insertions(+)
+ create mode 100644 drivers/hid/hid-ouya.c
+
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 687705c..84500fd 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -625,6 +625,12 @@ config HID_ORTEK
+ 	   - Ortek WKB-2000
+ 	   - Skycable wireless presenter
+ 
++config HID_OUYA
++	tristate "OUYA Game Controller"
++	depends on USB_HID
++	---help---
++	Support for OUYA Game Controller.
++
+ config HID_PANTHERLORD
+ 	tristate "Pantherlord/GreenAsia game controller"
+ 	depends on HID
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index fef027b..4e22940 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -66,6 +66,7 @@ obj-$(CONFIG_HID_MULTITOUCH)	+= hid-multitouch.o
+ obj-$(CONFIG_HID_NTI)			+= hid-nti.o
+ obj-$(CONFIG_HID_NTRIG)		+= hid-ntrig.o
+ obj-$(CONFIG_HID_ORTEK)		+= hid-ortek.o
++obj-$(CONFIG_HID_OUYA)		+= hid-ouya.o
+ obj-$(CONFIG_HID_PRODIKEYS)	+= hid-prodikeys.o
+ obj-$(CONFIG_HID_PANTHERLORD)	+= hid-pl.o
+ obj-$(CONFIG_HID_PENMOUNT)	+= hid-penmount.o
+diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+index 6e04069..32bcb50 100644
+--- a/drivers/hid/hid-core.c
++++ b/drivers/hid/hid-core.c
+@@ -2290,6 +2290,7 @@ static const struct hid_device_id hid_have_special_driver[] = {
+ #if IS_ENABLED(CONFIG_HID_ZYDACRON)
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ZYDACRON, USB_DEVICE_ID_ZYDACRON_REMOTE_CONTROL) },
+ #endif
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_OUYA, USB_DEVICE_ID_OUYA_CONTROLLER) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_PENMOUNT, USB_DEVICE_ID_PENMOUNT_6000) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_PETALYNX, USB_DEVICE_ID_PETALYNX_MAXTER_REMOTE) },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_PHILIPS, USB_DEVICE_ID_PHILIPS_SPINEL_PLUS_1) },
-diff -Naur linux-3.19.orig/drivers/hid/hid-ids.h linux-3.19/drivers/hid/hid-ids.h
---- linux-3.19.orig/drivers/hid/hid-ids.h	2015-02-20 14:01:17.080322846 -0800
-+++ linux-3.19/drivers/hid/hid-ids.h	2015-02-20 14:03:30.382519482 -0800
-@@ -721,6 +721,9 @@
+ 	{ }
+ };
+ 
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 8ca1e8c..f3cd724 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -813,6 +813,9 @@
  #define USB_DEVICE_ID_ORTEK_PKB1700	0x1700
  #define USB_DEVICE_ID_ORTEK_WKB2000	0x2000
  
@@ -22,9 +67,11 @@ diff -Naur linux-3.19.orig/drivers/hid/hid-ids.h linux-3.19/drivers/hid/hid-ids.
  #define USB_VENDOR_ID_PLANTRONICS	0x047f
  
  #define USB_VENDOR_ID_PANASONIC		0x04da
-diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouya.c
---- linux-3.19.orig/drivers/hid/hid-ouya.c	1969-12-31 16:00:00.000000000 -0800
-+++ linux-3.19/drivers/hid/hid-ouya.c	2015-02-20 14:03:30.371519386 -0800
+diff --git a/drivers/hid/hid-ouya.c b/drivers/hid/hid-ouya.c
+new file mode 100644
+index 0000000..7792c23
+--- /dev/null
++++ b/drivers/hid/hid-ouya.c
 @@ -0,0 +1,260 @@
 +/*
 + *  HID driver for OUYA Game Controller(s)
@@ -286,30 +333,6 @@ diff -Naur linux-3.19.orig/drivers/hid/hid-ouya.c linux-3.19/drivers/hid/hid-ouy
 +
 +module_init(ouya_init);
 +module_exit(ouya_exit);
-diff -Naur linux-3.19.orig/drivers/hid/Kconfig linux-3.19/drivers/hid/Kconfig
---- linux-3.19.orig/drivers/hid/Kconfig	2015-02-20 14:01:17.081322855 -0800
-+++ linux-3.19/drivers/hid/Kconfig	2015-02-20 14:03:30.381519473 -0800
-@@ -528,6 +528,12 @@
- 	   - Ortek WKB-2000
- 	   - Skycable wireless presenter
- 
-+config HID_OUYA
-+	tristate "OUYA Game Controller"
-+	depends on USB_HID
-+	---help---
-+	Support for OUYA Game Controller.
-+
- config HID_PANTHERLORD
- 	tristate "Pantherlord/GreenAsia game controller"
- 	depends on HID
-diff -Naur linux-3.19.orig/drivers/hid/Makefile linux-3.19/drivers/hid/Makefile
---- linux-3.19.orig/drivers/hid/Makefile	2015-02-20 14:01:17.081322855 -0800
-+++ linux-3.19/drivers/hid/Makefile	2015-02-20 14:03:30.382519482 -0800
-@@ -70,6 +70,7 @@
- obj-$(CONFIG_HID_MULTITOUCH)	+= hid-multitouch.o
- obj-$(CONFIG_HID_NTRIG)		+= hid-ntrig.o
- obj-$(CONFIG_HID_ORTEK)		+= hid-ortek.o
-+obj-$(CONFIG_HID_OUYA)		+= hid-ouya.o
- obj-$(CONFIG_HID_PRODIKEYS)	+= hid-prodikeys.o
- obj-$(CONFIG_HID_PANTHERLORD)	+= hid-pl.o
- obj-$(CONFIG_HID_PENMOUNT)	+= hid-penmount.o
+-- 
+2.7.4
+
