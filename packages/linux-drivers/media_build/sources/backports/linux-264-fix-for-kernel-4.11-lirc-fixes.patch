@@ -1,0 +1,125 @@
+From 959112523138c3bf5bec5f9fbe7d8abdc47b64a8 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Tue, 16 May 2017 04:56:14 -0300
+Subject: [PATCH 1/3] sir_ir: infinite loop in interrupt handler
+
+Since this driver does no detection of hardware, it might be used with
+a non-sir port. Escape out if we are spinning.
+
+---
+ drivers/media/rc/sir_ir.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/media/rc/sir_ir.c b/drivers/media/rc/sir_ir.c
+index e12ec50..90a5f8f 100644
+--- a/drivers/media/rc/sir_ir.c
++++ b/drivers/media/rc/sir_ir.c
+@@ -183,9 +183,15 @@ static irqreturn_t sir_interrupt(int irq, void *dev_id)
+ 	static unsigned long delt;
+ 	unsigned long deltintr;
+ 	unsigned long flags;
++	int counter = 0;
+ 	int iir, lsr;
+ 
+ 	while ((iir = inb(io + UART_IIR) & UART_IIR_ID)) {
++		if (++counter > 256) {
++			dev_err(&sir_ir_dev->dev, "Trapped in interrupt");
++			break;
++		}
++
+ 		switch (iir & UART_IIR_ID) { /* FIXME toto treba preriedit */
+ 		case UART_IIR_MSI:
+ 			(void)inb(io + UART_MSR);
+-- 
+2.7.4
+
+
+From d94fc69844e6a29c6784fd3919d0b7f70d101f38 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Wed, 24 May 2017 06:24:51 -0300
+Subject: [PATCH 2/3] rc-core: race condition during ir_raw_event_register()
+
+A rc device can call ir_raw_event_handle() after rc_allocate_device(),
+but before rc_register_device() has completed. This is racey because
+rcdev->raw is set before rcdev->raw->thread has a valid value.
+
+---
+ drivers/media/rc/rc-ir-raw.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/rc/rc-ir-raw.c b/drivers/media/rc/rc-ir-raw.c
+index 90f66dc..a2fc1a1 100644
+--- a/drivers/media/rc/rc-ir-raw.c
++++ b/drivers/media/rc/rc-ir-raw.c
+@@ -211,7 +211,7 @@ EXPORT_SYMBOL_GPL(ir_raw_event_set_idle);
+  */
+ void ir_raw_event_handle(struct rc_dev *dev)
+ {
+-	if (!dev->raw)
++	if (!dev->raw || !dev->raw->thread)
+ 		return;
+ 
+ 	wake_up_process(dev->raw->thread);
+@@ -490,6 +490,7 @@ int ir_raw_event_register(struct rc_dev *dev)
+ {
+ 	int rc;
+ 	struct ir_raw_handler *handler;
++	struct task_struct *thread;
+ 
+ 	if (!dev)
+ 		return -EINVAL;
+@@ -507,13 +508,15 @@ int ir_raw_event_register(struct rc_dev *dev)
+ 	 * because the event is coming from userspace
+ 	 */
+ 	if (dev->driver_type != RC_DRIVER_IR_RAW_TX) {
+-		dev->raw->thread = kthread_run(ir_raw_event_thread, dev->raw,
+-					       "rc%u", dev->minor);
++		thread = kthread_run(ir_raw_event_thread, dev->raw, "rc%u",
++				     dev->minor);
+ 
+-		if (IS_ERR(dev->raw->thread)) {
+-			rc = PTR_ERR(dev->raw->thread);
++		if (IS_ERR(thread)) {
++			rc = PTR_ERR(thread);
+ 			goto out;
+ 		}
++
++		dev->raw->thread = thread;
+ 	}
+ 
+ 	mutex_lock(&ir_raw_handler_lock);
+-- 
+2.7.4
+
+
+From 4f1ed809ea2e402e6efe5f689412972d23fec201 Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Tue, 11 Jul 2017 10:47:37 +0100
+Subject: [PATCH 3/3] lirc: LIRC_GET_REC_RESOLUTION should return microseconds
+
+Since commit e8f4818895b3 ("[media] lirc: advertise
+LIRC_CAN_GET_REC_RESOLUTION and improve") lircd uses the ioctl
+LIRC_GET_REC_RESOLUTION to determine the shortest pulse or space that
+the hardware can detect. This breaks decoding in lirc because lircd
+expects the answer in microseconds, but nanoseconds is returned.
+
+---
+ drivers/media/rc/ir-lirc-codec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/rc/ir-lirc-codec.c b/drivers/media/rc/ir-lirc-codec.c
+index de85f1d..c01b655 100644
+--- a/drivers/media/rc/ir-lirc-codec.c
++++ b/drivers/media/rc/ir-lirc-codec.c
+@@ -266,7 +266,7 @@ static long ir_lirc_ioctl(struct file *filep, unsigned int cmd,
+ 		if (!dev->rx_resolution)
+ 			return -ENOTTY;
+ 
+-		val = dev->rx_resolution;
++		val = dev->rx_resolution / 1000;
+ 		break;
+ 
+ 	case LIRC_SET_WIDEBAND_RECEIVER:
+-- 
+2.7.4
+
