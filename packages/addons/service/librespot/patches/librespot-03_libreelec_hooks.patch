@@ -1,0 +1,79 @@
+diff -Naur librespot/src/player.rs librespot-hooks/src/player.rs
+--- librespot/src/player.rs	2017-07-09 20:01:31.000000000 +0200
++++ librespot-hooks/src/player.rs	2017-07-17 09:13:26.300852918 +0200
+@@ -212,7 +212,7 @@
+             Some(Err(e)) => panic!("Vorbis error {:?}", e),
+             None => {
+                 self.sink.stop().unwrap();
+-                self.run_onstop();
++                info!("onstop 1");
+ 
+                 let old_state = mem::replace(&mut self.state, PlayerState::Stopped);
+                 old_state.signal_end_of_track();
+@@ -224,6 +224,8 @@
+         debug!("command={:?}", cmd);
+         match cmd {
+             PlayerCommand::Load(track_id, play, position, end_of_track) => {
++                self.run_onstart();
++
+                 if self.state.is_playing() {
+                     self.sink.stop().unwrap();
+                 }
+@@ -232,7 +234,7 @@
+                     Some(decoder) => {
+                         if play {
+                             if !self.state.is_playing() {
+-                                self.run_onstart();
++                                info!("onstart 1");
+                             }
+                             self.sink.start().unwrap();
+ 
+@@ -242,7 +244,7 @@
+                             };
+                         } else {
+                             if self.state.is_playing() {
+-                                self.run_onstop();
++                                info!("onstop 2");
+                             }
+ 
+                             self.state = PlayerState::Paused {
+@@ -255,7 +257,7 @@
+                     None => {
+                         end_of_track.complete(());
+                         if self.state.is_playing() {
+-                            self.run_onstop();
++                            info!("onstart 3");
+                         }
+                     }
+                 }
+@@ -276,7 +278,7 @@
+                 if let PlayerState::Paused { .. } = self.state {
+                     self.state.paused_to_playing();
+ 
+-                    self.run_onstart();
++                    info!("onstart 2");
+                     self.sink.start().unwrap();
+                 } else {
+                     warn!("Player::play called from invalid state");
+@@ -288,17 +290,19 @@
+                     self.state.playing_to_paused();
+ 
+                     self.sink.stop().unwrap();
+-                    self.run_onstop();
++                    info!("onstop 4");
+                 } else {
+                     warn!("Player::pause called from invalid state");
+                 }
+             }
+ 
+             PlayerCommand::Stop => {
++                self.run_onstop();
++
+                 match self.state {
+                     PlayerState::Playing { .. } => {
+                         self.sink.stop().unwrap();
+-                        self.run_onstop();
++                        info!("onstop 5");
+                         self.state = PlayerState::Stopped;
+                     }
+                     PlayerState::Paused { .. } => {
