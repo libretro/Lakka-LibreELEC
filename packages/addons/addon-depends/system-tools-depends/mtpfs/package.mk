@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,16 +17,16 @@
 ################################################################################
 
 PKG_NAME="mtpfs"
-PKG_VERSION="1.1"
+PKG_VERSION="fd3864d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.adebenham.com/mtpfs/"
-PKG_URL="http://www.adebenham.com/files/mtp/$PKG_NAME-$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/cjd/mtpfs/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain fuse libmtp glib"
 PKG_SECTION="tools"
 PKG_SHORTDESC="MTPfs is a FUSE filesystem that supports reading and writing from any MTP device"
 PKG_LONGDESC="MTPfs is a FUSE filesystem that supports reading and writing from any MTP device"
-PKG_AUTORECONF="no"
+PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-mad"
 

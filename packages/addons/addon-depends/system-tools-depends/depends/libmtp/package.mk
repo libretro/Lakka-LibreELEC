@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libmtp"
-PKG_VERSION="1.1.11"
+PKG_VERSION="1.1.13"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libmtp.sourceforge.net/"

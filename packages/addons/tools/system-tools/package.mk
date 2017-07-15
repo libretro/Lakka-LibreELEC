@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ PKG_AUTORECONF="no"
 PKG_DEPENDS_TARGET="toolchain \
                     autossh \
                     diffutils \
+                    dstat \
                     dtach \
                     efibootmgr \
                     evtest \
@@ -47,6 +48,7 @@ PKG_DEPENDS_TARGET="toolchain \
                     hddtemp \
                     hd-idle \
                     hid_mapper \
+                    htop \
                     i2c-tools \
                     inotify-tools \
                     jq \
@@ -62,7 +64,8 @@ PKG_DEPENDS_TARGET="toolchain \
                     screen \
                     strace \
                     unrar \
-                    usb-modeswitch"
+                    usb-modeswitch \
+                    vim"
 
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib/
@@ -76,6 +79,9 @@ addon() {
     cp -P $(get_build_dir diffutils)/.$TARGET_NAME/src/diff $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir diffutils)/.$TARGET_NAME/src/diff3 $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir diffutils)/.$TARGET_NAME/src/sdiff $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # dstat
+    cp -P $(get_build_dir dstat)/dstat $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # dtach
     cp -P $(get_build_dir dtach)/.$TARGET_NAME/dtach $ADDON_BUILD/$PKG_ADDON_ID/bin
@@ -98,13 +104,16 @@ addon() {
 
     # hddtemp
     cp -P $(get_build_dir hddtemp)/.$TARGET_NAME/src/hddtemp $ADDON_BUILD/$PKG_ADDON_ID/bin
-    cp -P $(get_build_dir hddtemp)/debian/hddtemp.db $ADDON_BUILD/$PKG_ADDON_ID/data
+    cp -P $(get_build_dir hddtemp)/hddtemp.db $ADDON_BUILD/$PKG_ADDON_ID/data
 
     # hd-idle
     cp -P $(get_build_dir hd-idle)/hd-idle $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # hid_mapper
     cp -P $(get_build_dir hid_mapper)/hid_mapper $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # htop
+    cp -P $(get_build_dir htop)/.install_pkg/usr/bin/htop $ADDON_BUILD/$PKG_ADDON_ID/bin
 
     # i2c-tools
     cp -P $(get_build_dir i2c-tools)/tools/i2cdetect $ADDON_BUILD/$PKG_ADDON_ID/bin
@@ -162,6 +171,9 @@ addon() {
 
     # usb-modeswitch
     cp -P $(get_build_dir usb-modeswitch)/usb_modeswitch $ADDON_BUILD/$PKG_ADDON_ID/bin
+
+    # vim
+    cp -P $(get_build_dir vim)/.install_pkg/usr/bin/vim $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 }

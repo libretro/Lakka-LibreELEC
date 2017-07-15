@@ -16,18 +16,26 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="fdupes"
-PKG_VERSION="1.6.1"
+PKG_NAME="dstat"
+PKG_VERSION="77e9347"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://premium.caribe.net/~adrian2/fdupes.html"
-PKG_URL="https://github.com/adrianlopezroche/fdupes/archive/v${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
+PKG_SITE="http://dag.wiee.rs/home-made/dstat"
+PKG_URL="https://github.com/dagwieers/dstat/archive/$PKG_VERSION.tar.gz"
+PKG_DEPENDS_TARGET="toolchain Python"
 PKG_SECTION="tools"
-PKG_SHORTDESC="FDUPES is a program for identifying or deleting duplicate files residing within specified directories"
-PKG_LONGDESC="FDUPES is a program for identifying or deleting duplicate files residing within specified directories"
+PKG_SHORTDESC="Versatile resource statistics tool"
+PKG_LONGDESC="Versatile resource statistics tool"
 PKG_AUTORECONF="no"
 
+post_unpack() {
+rm $PKG_BUILD/Makefile
+}
+
+make_target() {
+  : # nothing to do
+}
+
 makeinstall_target() {
-  : # nop
+  : # nothing to do
 }

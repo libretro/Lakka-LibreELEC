@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - http://www.libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="strace"
-PKG_VERSION="4.11"
+PKG_VERSION="4.17"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://sourceforge.net/projects/strace/"
