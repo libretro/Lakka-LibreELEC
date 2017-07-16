@@ -46,6 +46,10 @@ post_makeinstall_target() {
   mkdir -p $INSTALL/usr/config
     cp -PR $PKG_DIR/config/* $INSTALL/usr/config
 
+  rm -rf $INSTALL/usr/lib/udev/rules.d
+    mkdir -p $INSTALL/usr/lib/udev/rules.d
+    cp -PR $PKG_DIR/udev.d/*.rules $INSTALL/usr/lib/udev/rules.d
+
   (
     echo "# table libreelec_multi, type: RC6 NEC"
     for f in rc6_mce xbox_360 zotac_ad10 hp_mce xbox_one cubox_i ; do
