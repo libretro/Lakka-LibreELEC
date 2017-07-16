@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="intel_nuc_led"
-PKG_VERSION="fedb38e"
+PKG_VERSION="637c07a"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/milesp20/intel_nuc_led/"

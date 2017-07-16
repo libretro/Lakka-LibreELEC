@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="RTL8192CU"
-PKG_VERSION="76b54cd"
+PKG_VERSION="8757801"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/pvaret/rtl8192cu-fixes"
