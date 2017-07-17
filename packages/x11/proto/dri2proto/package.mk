@@ -18,6 +18,7 @@
 
 PKG_NAME="dri2proto"
 PKG_VERSION="2.8"
+PKG_SHA256="f9b55476def44fc7c459b2537d17dbc731e36ed5d416af7ca0b1e2e676f8aa04"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

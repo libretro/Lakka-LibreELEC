@@ -18,6 +18,7 @@
 
 PKG_NAME="hddtemp"
 PKG_VERSION="e16aed6"
+PKG_SHA256="5d5af74ba7449b6e56a8f872a0e10d654a512ed65d62beaef1575b0c1826d9f3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.guzu.net/linux/hddtemp.php"

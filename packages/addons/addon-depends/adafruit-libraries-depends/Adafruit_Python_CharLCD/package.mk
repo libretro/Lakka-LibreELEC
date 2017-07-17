@@ -18,6 +18,7 @@
 
 PKG_NAME="Adafruit_Python_CharLCD"
 PKG_VERSION="e5952eb"
+PKG_SHA256="6faeebde822851f70546a90ca2ed5dee4d6fa21eed152de761f5a4352678c2a2"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

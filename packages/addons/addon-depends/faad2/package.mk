@@ -18,6 +18,7 @@
 
 PKG_NAME="faad2"
 PKG_VERSION="2.7"
+PKG_SHA256="ee26ed1e177c0cd8fa8458a481b14a0b24ca0b51468c8b4c8b676fd3ceccd330"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.audiocoding.com/"

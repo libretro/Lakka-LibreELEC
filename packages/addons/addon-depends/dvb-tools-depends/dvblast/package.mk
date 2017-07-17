@@ -20,6 +20,7 @@
 
 PKG_NAME="dvblast"
 PKG_VERSION="3.1"
+PKG_SHA256="3159e8666a3b1822aeccd01684bdcad712a0da88d758bef6b7e2c396f27fd3e0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.videolan.org"

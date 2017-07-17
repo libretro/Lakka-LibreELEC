@@ -18,6 +18,7 @@
 
 PKG_NAME="libretro-mame2010"
 PKG_VERSION="3a9d2ff"
+PKG_SHA256="5c3e4d830160bdd10160c1cfbce436c08c9340ff5de5e6eb6be97dff8c04caca"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2010-libretro"

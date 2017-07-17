@@ -18,6 +18,7 @@
 
 PKG_NAME="hd-idle"
 PKG_VERSION="1.05"
+PKG_SHA256="4efefe79d145b50e055582730d9d685e485da3df3dad90fef030036d52aa3a0c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://hd-idle.sourceforge.net/"

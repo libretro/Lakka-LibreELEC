@@ -18,6 +18,7 @@
 
 PKG_NAME="yasm"
 PKG_VERSION="1.3.0"
+PKG_SHA256="3dce6601b495f5b3d45b59f7d2492a340ee7e84b5beca17e48f862502bd5603f"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.tortall.net/projects/yasm/"

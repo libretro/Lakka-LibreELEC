@@ -18,6 +18,7 @@
 
 PKG_NAME="libretro-bnes"
 PKG_VERSION="5197b6c"
+PKG_SHA256="d6888184e4df8bee18317a655d401d132287ccbd2bb3c7d8d94eb26d6bd19f6b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/bnes-libretro"

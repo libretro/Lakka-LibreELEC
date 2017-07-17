@@ -18,6 +18,7 @@
 
 PKG_NAME="libretro-prosystem"
 PKG_VERSION="1cf5472"
+PKG_SHA256="85fdbc85e952bb3d1cd83d15458ea5db0af637ea76c4f4864d5b032cb934582e"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/prosystem-libretro"

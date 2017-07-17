@@ -18,6 +18,7 @@
 
 PKG_NAME="libretro-vba-next"
 PKG_VERSION="e773475"
+PKG_SHA256="7078d8db05264d9d2ef7333bdd8d1849bec6155cdb8975181da0180feb166da3"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vba-next"

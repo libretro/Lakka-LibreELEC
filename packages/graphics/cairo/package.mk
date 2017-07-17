@@ -18,6 +18,7 @@
 
 PKG_NAME="cairo"
 PKG_VERSION="1.14.6"
+PKG_SHA256="613cb38447b76a93ff7235e17acd55a78b52ea84a9df128c3f2257f8eaa7b252"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://cairographics.org/"

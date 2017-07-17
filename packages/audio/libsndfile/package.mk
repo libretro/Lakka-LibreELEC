@@ -18,6 +18,7 @@
 
 PKG_NAME="libsndfile"
 PKG_VERSION="1.0.28"
+PKG_SHA256="1ff33929f042fa333aed1e8923aa628c3ee9e1eb85512686c55092d1e5a9dfa9"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mega-nerd.com/libsndfile/"

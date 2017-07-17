@@ -18,6 +18,7 @@
 
 PKG_NAME="libva-vdpau-driver"
 PKG_VERSION="0.7.4"
+PKG_SHA256="155c1982f0ac3f5435ba20b221bcaa11be212c37db548cd1f2a030ffa17e9bb9"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://freedesktop.org/wiki/Software/vaapi"

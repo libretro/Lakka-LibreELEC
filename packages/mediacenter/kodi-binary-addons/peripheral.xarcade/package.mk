@@ -18,6 +18,7 @@
 
 PKG_NAME="peripheral.xarcade"
 PKG_VERSION="f1875ba"
+PKG_SHA256="cd503e7f1413214693c28b59f19f3fffe0a54cff5c29d43b2eca9bb31c10edeb"
 PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

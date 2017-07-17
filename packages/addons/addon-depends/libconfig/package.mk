@@ -18,6 +18,7 @@
 
 PKG_NAME="libconfig"
 PKG_VERSION="1.5"
+PKG_SHA256="cae5c02361d8a9b2bb26946c64f089d2e5e599972f386203fbc48975c0d885c8"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://hyperrealm.com/libconfig/libconfig.html"

@@ -18,6 +18,7 @@
 
 PKG_NAME="wireless-regdb"
 PKG_VERSION="2016.06.10"
+PKG_SHA256="cfedf1c3521b3c8f32602f25ed796e96e687c3441a00e7c050fedf7fd4f1b8b7"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wireless.kernel.org/en/developers/Regulatory"

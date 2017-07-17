@@ -18,6 +18,7 @@
 
 PKG_NAME="kmod"
 PKG_VERSION="24"
+PKG_SHA256="610b8d1df172acc39a4fdf1eaa47a57b04873c82f32152e7a62e29b6ff9cb397"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://git.profusion.mobi/cgit.cgi/kmod.git/"

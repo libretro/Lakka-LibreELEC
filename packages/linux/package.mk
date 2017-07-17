@@ -30,18 +30,21 @@ PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
 case "$LINUX" in
   amlogic-3.10)
     PKG_VERSION="544ea88"
+    PKG_SHA256="628794ddb434b094fc1bde4f149a1d3ffe8b7f63a82908a4599248228edd1c2e"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
     PKG_PATCH_DIRS="amlogic-3.10"
     ;;
   amlogic-3.14)
     PKG_VERSION="f6f2e4c"
+    PKG_SHA256="90a7351331de69c603e24204d87c72e2864e521e1b17f065f99eb3fe93221abc"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
     PKG_PATCH_DIRS="amlogic-3.14"
     ;;
   imx6-3.14-sr)
     PKG_VERSION="3.14-sr"
+    PKG_SHA256="640574855da197e0b0cf15623fa4bd6dd2f5aa98d476b5a61095c8975ae95a55"
     PKG_COMMIT="2fb11e2"
     PKG_SITE="http://solid-run.com/wiki/doku.php?id=products:imx6:software:development:kernel"
     PKG_URL="https://github.com/SolidRun/linux-fslc/archive/$PKG_COMMIT.tar.gz"
@@ -51,6 +54,7 @@ case "$LINUX" in
     ;;
   imx6-4.4-xbian)
     PKG_VERSION="4.4-xbian"
+    PKG_SHA256="35ff77f3ef8fd5a325370e484c9d2a56f46ced8f5b1e353197b481f4e6844062"
     PKG_COMMIT="3bde863"
     PKG_SITE="https://github.com/xbianonpi/xbian-sources-kernel/tree/imx6-4.4.y"
     PKG_URL="https://github.com/xbianonpi/xbian-sources-kernel/archive/$PKG_COMMIT.tar.gz"
@@ -60,6 +64,7 @@ case "$LINUX" in
     ;;
   *)
     PKG_VERSION="4.12"
+    PKG_SHA256="a45c3becd4d08ce411c14628a949d08e2433d8cdeca92036c7013980e93858ab"
     PKG_URL="http://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;

@@ -18,6 +18,7 @@
 
 PKG_NAME="util-linux"
 PKG_VERSION="2.29.2"
+PKG_SHA256="accea4d678209f97f634f40a93b7e9fcad5915d1f4749f6c47bee6bf110fe8e3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_URL="http://www.kernel.org/pub/linux/utils/util-linux/v2.29/$PKG_NAME-$PKG_VERSION.tar.xz"

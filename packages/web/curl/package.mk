@@ -26,6 +26,7 @@
 
 PKG_NAME="curl"
 PKG_VERSION="7.54.0"
+PKG_SHA256="f50ebaf43c507fa7cc32be4b8108fa8bbd0f5022e90794388f3c7694a302ff06"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://curl.haxx.se"

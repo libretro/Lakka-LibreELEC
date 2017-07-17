@@ -18,6 +18,7 @@
 
 PKG_NAME="inputstream.adaptive"
 PKG_VERSION="db9b6a1"
+PKG_SHA256="49035c28becc1029181b5e529c1afae3c3f5fd0fb4dd8c62c4caedc2735c3e08"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/liberty-developer/inputstream.adaptive/archive/$PKG_VERSION.tar.gz"

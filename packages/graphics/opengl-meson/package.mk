@@ -26,6 +26,7 @@ case $MESON_FAMILY in
     ;;
   6)
     PKG_VERSION="6-r5p1-01rel0-armhf"
+    PKG_SHA256="21a8376668c84bf1b9e64a917fcfa1cf74689035fed8e4630833c9cde28d40c1"
     ;;
   gxbb)
     PKG_VERSION="gxbb-r5p1-01rel0"

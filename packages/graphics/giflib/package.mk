@@ -18,6 +18,7 @@
 
 PKG_NAME="giflib"
 PKG_VERSION="5.1.4"
+PKG_SHA256="df27ec3ff24671f80b29e6ab1c4971059c14ac3db95406884fc26574631ba8d5"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://giflib.sourceforge.net/"

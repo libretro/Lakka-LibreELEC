@@ -18,6 +18,7 @@
 
 PKG_NAME="rtmpdump"
 PKG_VERSION="fa8646d"
+PKG_SHA256="dba4d4d2e1c7de6884b01d98194b83cab6784669089fa3c919152087a3a38fd2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://rtmpdump.mplayerhq.hu/"

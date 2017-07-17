@@ -18,6 +18,7 @@
 
 PKG_NAME="libXrandr"
 PKG_VERSION="1.5.1"
+PKG_SHA256="1ff9e7fa0e4adea912b16a5f0cfa7c1d35b0dcda0e216831f7715c8a3abcf51a"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

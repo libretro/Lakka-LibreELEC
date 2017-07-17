@@ -18,6 +18,7 @@
 
 PKG_NAME="speex"
 PKG_VERSION="1.2rc2"
+PKG_SHA256="caa27c7247ff15c8521c2ae0ea21987c9e9710a8f2d3448e8b79da9806bce891"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://downloads.us.xiph.org/releases/speex"

@@ -18,6 +18,7 @@
 
 PKG_NAME="asplib"
 PKG_VERSION="da66f51"
+PKG_SHA256="ca6588f4e7ca78a0b559f1e2b8013a8b6fbad849868ee4c2e78fdaf1bac0b235"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/AchimTuran/asplib"

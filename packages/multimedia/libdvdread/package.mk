@@ -18,6 +18,7 @@
 
 PKG_NAME="libdvdread"
 PKG_VERSION="17d99db"
+PKG_SHA256="e7179b2054163652596a56301c9f025515cb08c6d6310b42b897c3ad11c0199b"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/xbmc/libdvdread"

@@ -18,6 +18,7 @@
 
 PKG_NAME="Pillow"
 PKG_VERSION="3.2.0"
+PKG_SHA256="64b0a057210c480aea99406c9391180cd866fc0fd8f0b53367e3af21b195784a"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.pythonware.com/products/pil/"

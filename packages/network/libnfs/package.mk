@@ -18,6 +18,7 @@
 
 PKG_NAME="libnfs"
 PKG_VERSION="2.0.0"
+PKG_SHA256="7ea6cd8fa6c461d01091e584d424d28e137d23ff4b65b95d01a3fd0ef95d120e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/sahlberg/libnfs"

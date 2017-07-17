@@ -18,6 +18,7 @@
 
 PKG_NAME="libxkbcommon"
 PKG_VERSION="0.6.1"
+PKG_SHA256="5b0887b080b42169096a61106661f8d35bae783f8b6c58f97ebcd3af83ea8760"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://xkbcommon.org"

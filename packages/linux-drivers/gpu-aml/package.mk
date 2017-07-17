@@ -22,6 +22,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="http://openlinux.amlogic.com:8000/download/ARM/gpu/"
 # r5p1
 PKG_VERSION="9b0fbbc"
+PKG_SHA256="c3ab81190da9e7ae8cf9e27fb5cb314aeae755967a7b6ae724825bd552bb47cb"
 PKG_URL="https://github.com/openwetek/gpu-aml/archive/$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="gpu-aml-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain linux"

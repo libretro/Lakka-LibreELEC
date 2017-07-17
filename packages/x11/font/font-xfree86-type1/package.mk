@@ -18,6 +18,7 @@
 
 PKG_NAME="font-xfree86-type1"
 PKG_VERSION="1.0.4"
+PKG_SHA256="caebf42aec7be7f3bd40e0f232d6f34881b853dc84acfcdf7458358701fbe34a"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

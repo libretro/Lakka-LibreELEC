@@ -18,6 +18,7 @@
 
 PKG_NAME="screen"
 PKG_VERSION="4.5.1"
+PKG_SHA256="97db2114dd963b016cd4ded34831955dcbe3251e5eee45ac2606e67e9f097b2d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/screen/"

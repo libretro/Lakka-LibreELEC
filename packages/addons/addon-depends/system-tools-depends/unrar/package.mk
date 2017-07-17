@@ -18,6 +18,7 @@
 
 PKG_NAME="unrar"
 PKG_VERSION="5.5.5"
+PKG_SHA256="a4553839cb2f025d0d9c5633816a83a723e3938209f17620c8c15da06ed061ef"
 PKG_ARCH="any"
 PKG_LICENSE="free"
 PKG_SITE="http://www.rarlab.com"

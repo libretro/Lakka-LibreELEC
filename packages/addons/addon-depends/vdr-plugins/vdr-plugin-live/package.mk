@@ -18,6 +18,7 @@
 
 PKG_NAME="vdr-plugin-live"
 PKG_VERSION="0.3.0"
+PKG_SHA256="c200042e51393c247be97e7f4667a1f3f06319d5c8e538adca32fdfac8d178da"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://live.vdr-developer.org/en/index.php"

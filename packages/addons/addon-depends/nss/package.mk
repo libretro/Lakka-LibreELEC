@@ -20,6 +20,7 @@
 
 PKG_NAME="nss"
 PKG_VERSION="3.27.1"
+PKG_SHA256="a3368812d7a9714115e76eae8b3f4b062d8407834d374691f4a297a0e54a737a"
 PKG_ARCH="any"
 PKG_LICENSE="Mozilla Public License"
 PKG_SITE="http://ftp.mozilla.org/"

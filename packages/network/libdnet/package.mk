@@ -18,6 +18,7 @@
 
 PKG_NAME="libdnet"
 PKG_VERSION="1.12"
+PKG_SHA256="83b33039787cf99990e977cef7f18a5d5e7aaffc4505548a83d31bd3515eb026"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://code.google.com/p/libdnet/"

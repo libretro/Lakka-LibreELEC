@@ -20,6 +20,7 @@
 
 PKG_NAME="v4l-utils"
 PKG_VERSION="1.12.3"
+PKG_SHA256="5a47dd6f0e7dfe902d94605c01d385a4a4e87583ff5856d6f181900ea81cf46e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://linuxtv.org/"

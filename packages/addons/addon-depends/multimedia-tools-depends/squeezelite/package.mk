@@ -18,6 +18,7 @@
 
 PKG_NAME="squeezelite"
 PKG_VERSION="a3d95ec"
+PKG_SHA256="d5af85ed5673205ce5011898179e355fd387adc77327c45080551ffa9dbf3cf1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/ralph-irving/squeezelite"

@@ -18,6 +18,7 @@
 
 PKG_NAME="iftop"
 PKG_VERSION="1.0pre4"
+PKG_SHA256="f733eeea371a7577f8fe353d86dd88d16f5b2a2e702bd96f5ffb2c197d9b4f97"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://htop.sourceforge.net/"

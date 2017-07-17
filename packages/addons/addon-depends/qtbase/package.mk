@@ -18,6 +18,7 @@
 
 PKG_NAME="qtbase"
 PKG_VERSION="5.6.2"
+PKG_SHA256="2f6eae93c5d982fe0a387a01aeb3435571433e23e9d9d9246741faf51f1ee787"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://qt-project.org"

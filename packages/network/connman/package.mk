@@ -18,6 +18,7 @@
 
 PKG_NAME="connman"
 PKG_VERSION="1.34"
+PKG_SHA256="a9a0808c729c1f348fc36d8cecb52d19b72bc34cb411c502608cb0e0190fc71e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.connman.net"

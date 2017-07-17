@@ -18,6 +18,7 @@
 
 PKG_NAME="imagemagick"
 PKG_VERSION="7.0.5-0"
+PKG_SHA256="f2c0e316069df630e42f63a635068ed943fb3d371627ec9989c3b460b69e2758"
 PKG_ARCH="any"
 PKG_LICENSE="http://www.imagemagick.org/script/license.php"
 PKG_SITE="http://www.imagemagick.org/"

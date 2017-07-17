@@ -18,6 +18,7 @@
 
 PKG_NAME="libite"
 PKG_VERSION="1.8.3"
+PKG_SHA256="82edaa445094a4a94da36b843ff580bc0223e24723d0c69fbed24e74af3aeae8"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/troglobit/libite"
 PKG_URL="https://github.com/troglobit/libite/archive/v$PKG_VERSION.tar.gz"

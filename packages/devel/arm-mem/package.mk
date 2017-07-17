@@ -18,6 +18,7 @@
 
 PKG_NAME="arm-mem"
 PKG_VERSION="3aee5f4"
+PKG_SHA256="c7ac6fea60c01d34e71b24065b65ad6fbef42b9b702a226a22fe4a0caff33382"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/bavison/arm-mem"

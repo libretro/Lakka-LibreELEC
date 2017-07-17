@@ -20,6 +20,7 @@
 
 PKG_NAME="pango"
 PKG_VERSION="1.40.3"
+PKG_SHA256="abba8b5ce728520c3a0f1535eab19eac3c14aeef7faa5aded90017ceac2711d3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.pango.org/"

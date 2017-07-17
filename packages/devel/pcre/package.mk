@@ -18,6 +18,7 @@
 
 PKG_NAME="pcre"
 PKG_VERSION="8.40"
+PKG_SHA256="00e27a29ead4267e3de8111fcaa59b132d0533cdfdbdddf4b0604279acbcf4f4"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.pcre.org/"

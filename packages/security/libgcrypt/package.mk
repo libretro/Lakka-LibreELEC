@@ -18,6 +18,7 @@
 
 PKG_NAME="libgcrypt"
 PKG_VERSION="1.7.6"
+PKG_SHA256="626aafee84af9d2ce253d2c143dc1c0902dda045780cc241f39970fc60be05bc"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://www.gnupg.org/"

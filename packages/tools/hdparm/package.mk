@@ -18,6 +18,7 @@
 
 PKG_NAME="hdparm"
 PKG_VERSION="9.52"
+PKG_SHA256="c3429cd423e271fa565bf584598fd751dd2e773bb7199a592b06b5a61cec4fb6"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://sourceforge.net/projects/hdparm/"

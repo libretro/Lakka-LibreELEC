@@ -18,6 +18,7 @@
 
 PKG_NAME="mkbootimg"
 PKG_VERSION="6668fc2"
+PKG_SHA256="d84870e055414d638a3e7eb4b7a3ebf415899841218f24cb3647d06ecf6ddb17"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://android.googlesource.com/platform/system/core/+/master/mkbootimg/"

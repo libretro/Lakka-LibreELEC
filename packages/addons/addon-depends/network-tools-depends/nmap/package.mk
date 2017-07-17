@@ -18,6 +18,7 @@
 
 PKG_NAME="nmap"
 PKG_VERSION="7.11"
+PKG_SHA256="dfc95db3a8ee4c56650dbaa5a1a1e989b2963de8faea2531c21e6fd6e0bccc2a"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://nmap.org/"

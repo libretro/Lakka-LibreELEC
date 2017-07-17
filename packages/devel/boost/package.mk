@@ -18,6 +18,7 @@
 
 PKG_NAME="boost"
 PKG_VERSION="1_61_0"
+PKG_SHA256="a547bd06c2fd9a71ba1d169d9cf0339da7ebf4753849a8f7d6fdb8feee99b640"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.boost.org/"

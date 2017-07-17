@@ -18,6 +18,7 @@
 
 PKG_NAME="dtc"
 PKG_VERSION="1.4.4"
+PKG_SHA256="2d1226634d71655466ebbd090d2873068c4918fbd5c433b91ead8ad08b9a5843"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/"

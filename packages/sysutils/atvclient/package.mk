@@ -18,6 +18,7 @@
 
 PKG_NAME="atvclient"
 PKG_VERSION="0263b0a"
+PKG_SHA256="9f741cf36655736ef578eaaca615fd9ce10e290f956cebcff3316d77152f0761"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://github.com/Evinyatar/atvclient/wiki"

@@ -18,6 +18,7 @@
 
 PKG_NAME="xextproto"
 PKG_VERSION="7.3.0"
+PKG_SHA256="f3f4b23ac8db9c3a9e0d8edb591713f3d70ef9c3b175970dd8823dfc92aa5bb0"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"

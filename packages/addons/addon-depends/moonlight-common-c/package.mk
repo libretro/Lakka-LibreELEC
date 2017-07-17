@@ -18,6 +18,7 @@
 
 PKG_NAME="moonlight-common-c"
 PKG_VERSION="1d058cb"
+PKG_SHA256="d5cdeeb84b99ae73b8799b471e6a9c48859a2c4ecba059b9f38303c543494236"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/irtimmer/moonlight-common-c"

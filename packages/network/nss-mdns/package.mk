@@ -18,6 +18,7 @@
 
 PKG_NAME="nss-mdns"
 PKG_VERSION="0.10"
+PKG_SHA256="1e683c2e7c3921814706d62fbbd3e9cbf493a75fa00255e0e715508d8134fa6d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://0pointer.de/lennart/projects/nss-mdns/"

@@ -19,6 +19,7 @@
 
 PKG_NAME="vdr"
 PKG_VERSION="2.2.0"
+PKG_SHA256="7c259e1ed1f39d93d23df1d5d0f85dd2a1fa9ec1dadff79e5833e2ff3ebf6c4e"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvdr.de"

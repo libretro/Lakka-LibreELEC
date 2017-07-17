@@ -18,6 +18,7 @@
 
 PKG_NAME="libtool"
 PKG_VERSION="2.4.6"
+PKG_SHA256="e3bd4d5d3d025a36c21dd6af7ea818a2afcd4dfc1ea5a17b39d7854bcd0c06e3"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/libtool/"

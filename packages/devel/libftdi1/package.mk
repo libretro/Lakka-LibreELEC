@@ -18,6 +18,7 @@
 
 PKG_NAME="libftdi1"
 PKG_VERSION="1.3"
+PKG_SHA256="9a8c95c94bfbcf36584a0a58a6e2003d9b133213d9202b76aec76302ffaa81f4"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.intra2net.com/en/developer/libftdi/"

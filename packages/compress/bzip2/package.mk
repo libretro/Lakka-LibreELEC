@@ -18,6 +18,7 @@
 
 PKG_NAME="bzip2"
 PKG_VERSION="1.0.6"
+PKG_SHA256="a2848f34fcd5d6cf47def00461fcb528a0484d8edef8208d6d2e2909dc61d9cd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.bzip.org"
