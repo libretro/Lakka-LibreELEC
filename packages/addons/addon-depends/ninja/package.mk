@@ -18,6 +18,7 @@
 
 PKG_NAME="ninja"
 PKG_VERSION="1.6.0"
+PKG_SHA256="b43e88fb068fe4d92a3dfd9eb4d19755dae5c33415db2e9b7b61b4659009cde7"
 PKG_ARCH="any"
 PKG_LICENSE="Apache"
 PKG_SITE="http://martine.github.io/ninja/"

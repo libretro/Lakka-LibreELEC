@@ -18,6 +18,7 @@
 
 PKG_NAME="cyclone68000"
 PKG_VERSION="355815e"
+PKG_SHA256="b495b2466f811e0ad8f3c20a710172ee3d34d27b7ecd9285c488f286b672ea3b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/notaz/cyclone68000"

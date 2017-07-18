@@ -18,6 +18,7 @@
 
 PKG_NAME="xf86-input-libinput"
 PKG_VERSION="0.25.1"
+PKG_SHA256="489f7d591c9ef08463d4966e61f7c6ea433f5fcbb9f5370fb621da639a84c7e0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/libinput/"

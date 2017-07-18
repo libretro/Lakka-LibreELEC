@@ -18,6 +18,7 @@
 
 PKG_NAME="autoconf"
 PKG_VERSION="2.69"
+PKG_SHA256="64ebcec9f8ac5b2487125a86a7760d2591ac9e1d3dbd59489633f9de62a57684"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://sources.redhat.com/autoconf/"

@@ -18,6 +18,7 @@
 
 PKG_NAME="game.libretro.4do"
 PKG_VERSION="38e0fe5"
+PKG_SHA256="4c21bc256be24bb4ec5f1cf5b8ec594294093dfb6192ddf30304fb82c8fdbafd"
 PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

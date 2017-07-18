@@ -18,6 +18,7 @@
 
 PKG_NAME="setuptools"
 PKG_VERSION="32.1.2"
+PKG_SHA256="7589316802e7716e5250cd0a188bb4b77ea9338aa275dc01500732ee25140c3b"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="https://pypi.python.org/pypi/setuptools"

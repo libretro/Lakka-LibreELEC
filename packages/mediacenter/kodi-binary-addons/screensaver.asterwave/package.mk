@@ -18,6 +18,7 @@
 
 PKG_NAME="screensaver.asterwave"
 PKG_VERSION="4326ddc"
+PKG_SHA256="f29d6dd707ef5cd69abcec14af71a2e9623caf207fd12a0e9e0e0379fc3bf798"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

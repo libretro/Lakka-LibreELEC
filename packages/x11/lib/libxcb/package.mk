@@ -18,6 +18,7 @@
 
 PKG_NAME="libxcb"
 PKG_VERSION="1.12"
+PKG_SHA256="4adfb1b7c67e99bc9c2ccb110b2f175686576d2f792c8a71b9c8b19014057b5b"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://xcb.freedesktop.org"

@@ -18,6 +18,7 @@
 
 PKG_NAME="irssi"
 PKG_VERSION="0.8.19"
+PKG_SHA256="fe4f4b778698de8e1c319b9cd9b9ed5534f0ece7ac2bfa0af351a3157c6ec85b"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.irssi.org/"

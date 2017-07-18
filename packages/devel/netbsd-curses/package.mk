@@ -18,6 +18,7 @@
 
 PKG_NAME="netbsd-curses"
 PKG_VERSION="4c156be"
+PKG_SHA256="3605719ae3035e7e246d8375fb1ad0faed8d3a42e80b991e046345730aad9df8"
 PKG_ARCH="any"
 PKG_SITE="https://github.com/sabotage-linux/netbsd-curses"
 PKG_URL="https://github.com/sabotage-linux/netbsd-curses/archive/$PKG_VERSION.tar.gz"

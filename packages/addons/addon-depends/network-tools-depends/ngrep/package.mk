@@ -18,6 +18,7 @@
 
 PKG_NAME="ngrep"
 PKG_VERSION="1.45"
+PKG_SHA256="aea6dd337da8781847c75b3b5b876e4de9c58520e0d77310679a979fc6402fa7"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://ngrep.sourceforge.net/"

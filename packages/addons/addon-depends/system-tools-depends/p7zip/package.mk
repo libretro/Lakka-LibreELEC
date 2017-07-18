@@ -18,6 +18,7 @@
 
 PKG_NAME="p7zip"
 PKG_VERSION="16.02"
+PKG_SHA256="5eb20ac0e2944f6cb9c2d51dd6c4518941c185347d4089ea89087ffdd6e2341f"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://p7zip.sourceforge.net/"

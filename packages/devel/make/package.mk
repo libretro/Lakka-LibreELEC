@@ -18,6 +18,7 @@
 
 PKG_NAME="make"
 PKG_VERSION="4.2.1"
+PKG_SHA256="d6e262bf3601b42d2b1e4ef8310029e1dcf20083c5446b4b7aa67081fdffc589"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/make/"

@@ -18,6 +18,7 @@
 
 PKG_NAME="fuse"
 PKG_VERSION="2.9.7"
+PKG_SHA256="832432d1ad4f833c20e13b57cf40ce5277a9d33e483205fc63c78111b3358874"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libfuse/libfuse/"

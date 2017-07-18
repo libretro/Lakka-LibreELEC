@@ -18,6 +18,7 @@
 
 PKG_NAME="icu"
 PKG_VERSION="57.1"
+PKG_SHA256="ff8c67cb65949b1e7808f2359f2b80f722697048e90e7cfc382ec1fe229e9581"
 PKG_ARCH="any"
 PKG_LICENSE="Custom"
 PKG_SITE="http://www.icu-project.org"

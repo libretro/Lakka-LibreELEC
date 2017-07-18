@@ -21,6 +21,7 @@ PKG_DEPENDS_TARGET="toolchain"
 if [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
   PKG_COMMIT="ad02f49"
   PKG_VERSION="imx6-$PKG_COMMIT"
+  PKG_SHA256="bee9c8f4d21230a53605ed0df2ee79a9d2a18a49870d235ec0993a26a37ba0fd"
   PKG_SITE="http://solid-run.com/wiki/doku.php?id=products:imx6:software:development:u-boot"
   PKG_URL="https://github.com/SolidRun/u-boot-imx6/archive/$PKG_COMMIT.tar.gz"
   PKG_SOURCE_NAME="$PKG_NAME-sr-$PKG_VERSION.tar.gz"
@@ -28,6 +29,7 @@ if [ "$UBOOT_VERSION" = "imx6-cuboxi" ]; then
   [ -n "$UBOOT_CONFIG_V2" ] && PKG_DEPENDS_TARGET="toolchain u-boot-v2"
 elif [ "$UBOOT_VERSION" = "hardkernel" ]; then
   PKG_VERSION="6e4e886"
+  PKG_SHA256="f257b289bf108b40526d80b608bbac93854a52bfe9782c6bb91382adcca240c9"
   PKG_SITE="https://github.com/hardkernel/u-boot"
   PKG_URL="https://github.com/hardkernel/u-boot/archive/$PKG_VERSION.tar.gz"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET gcc-linaro-aarch64-elf:host gcc-linaro-arm-eabi:host"

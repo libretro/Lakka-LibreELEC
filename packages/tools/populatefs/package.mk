@@ -18,6 +18,7 @@
 
 PKG_NAME="populatefs"
 PKG_VERSION="1.0"
+PKG_SHA256="e5845404188b5da3afb11229ecb38646cc1562b61400035774dbc237c3b706d2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/lipnitsk/populatefs"

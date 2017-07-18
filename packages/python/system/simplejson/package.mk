@@ -18,6 +18,7 @@
 
 PKG_NAME="simplejson"
 PKG_VERSION="3.10.0"
+PKG_SHA256="953be622e88323c6f43fad61ffd05bebe73b9fd9863a46d68b052d2aa7d71ce2"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://pypi.python.org/pypi/simplejson"

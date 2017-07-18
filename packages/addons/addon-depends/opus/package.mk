@@ -18,6 +18,7 @@
 
 PKG_NAME="opus"
 PKG_VERSION="1.1.2"
+PKG_SHA256="0e290078e31211baa7b5886bcc8ab6bc048b9fc83882532da4a1a45e58e907fd"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.opus-codec.org"

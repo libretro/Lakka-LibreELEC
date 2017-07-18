@@ -19,6 +19,7 @@
 
 PKG_NAME="mc"
 PKG_VERSION="4.8.19"
+PKG_SHA256="eb9e56bbb5b2893601d100d0e0293983049b302c5ab61bfb544ad0ee2cc1f2df"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.midnight-commander.org"

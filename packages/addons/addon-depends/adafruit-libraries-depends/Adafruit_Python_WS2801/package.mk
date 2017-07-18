@@ -18,6 +18,7 @@
 
 PKG_NAME="Adafruit_Python_WS2801"
 PKG_VERSION="699426a"
+PKG_SHA256="3e3b2d36ee848f384c9fe1952b580374f988f9f1b1f95cf6b3cdd6ed9898d910"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

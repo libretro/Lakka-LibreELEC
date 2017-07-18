@@ -18,6 +18,7 @@
 
 PKG_NAME="go"
 PKG_VERSION="1.7.5"
+PKG_SHA256="7af80c99d9e8a52e53d6a617a20332a8602b1a4eca9cbf3d829e1d43e688f6ba"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://golang.org"

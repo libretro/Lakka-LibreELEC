@@ -18,6 +18,7 @@
 
 PKG_NAME="fribidi"
 PKG_VERSION="0.19.7"
+PKG_SHA256="08222a6212bbc2276a2d55c3bf370109ae4a35b689acbc66571ad2a670595a8e"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://fribidi.freedesktop.org/"

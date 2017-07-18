@@ -18,6 +18,7 @@
 
 PKG_NAME="libopenmpt"
 PKG_VERSION="0.2.7386-beta20.3"
+PKG_SHA256="a6a7e6da1ae66e1cf46985ee92c182e50652d71b96135e9fa6048e132d844753"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="http://lib.openmpt.org/libopenmpt/"

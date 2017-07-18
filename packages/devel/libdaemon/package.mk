@@ -18,6 +18,7 @@
 
 PKG_NAME="libdaemon"
 PKG_VERSION="0.14"
+PKG_SHA256="fd23eb5f6f986dcc7e708307355ba3289abe03cc381fc47a80bca4a50aa6b834"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://0pointer.de/lennart/projects/libdaemon/"

@@ -18,6 +18,7 @@
 
 PKG_NAME="xorg-launch-helper"
 PKG_VERSION="4"
+PKG_SHA256="a7f8809a1810212506893ac5c62d8d17fee7a980fb10d59d1bef36f694767be5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL-2"
 PKG_SITE="https://github.com/sofar/xorg-launch-helper"

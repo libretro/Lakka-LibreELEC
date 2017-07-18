@@ -18,6 +18,7 @@
 
 PKG_NAME="game.libretro.beetle-ngp"
 PKG_VERSION="a2c2c7c"
+PKG_SHA256="245c7b707eaa815a8637037eba10ba2cc1e12fbe4e2eb6d5852500c0c2a9d9a5"
 PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

@@ -18,6 +18,7 @@
 
 PKG_NAME="freetype"
 PKG_VERSION="2.6.5"
+PKG_SHA256="e20a6e1400798fd5e3d831dd821b61c35b1f9a6465d6b18a53a9df4cf441acf0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freetype.org"

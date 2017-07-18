@@ -18,6 +18,7 @@
 
 PKG_NAME="gpu-viv-g2d"
 PKG_VERSION="3.10.17-1.0.2"
+PKG_SHA256="ef1c2426b515f3992a3efba4f879baebcc61597e0ce7b68b6d78998d0801715a"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.freescale.com"

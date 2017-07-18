@@ -18,6 +18,7 @@
 
 PKG_NAME="alsa-utils"
 PKG_VERSION="1.1.4"
+PKG_SHA256="a7831044de92c5bf33bf3365a3f36e49397f4191e934df460ae1ca15138c9d9d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.alsa-project.org/"

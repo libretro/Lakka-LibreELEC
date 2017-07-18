@@ -18,6 +18,7 @@
 
 PKG_NAME="iw"
 PKG_VERSION="4.3"
+PKG_SHA256="a6add81a51667649d8d7cfba783ab6a0f82e250a663a4065b13babdff3f6b220"
 PKG_ARCH="any"
 PKG_LICENSE="PUBLIC_DOMAIN"
 PKG_SITE="http://wireless.kernel.org/en/users/Documentation/iw"

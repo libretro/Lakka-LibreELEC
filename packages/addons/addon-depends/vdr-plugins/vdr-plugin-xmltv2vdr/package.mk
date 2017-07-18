@@ -18,6 +18,7 @@
 
 PKG_NAME="vdr-plugin-xmltv2vdr"
 PKG_VERSION="b48e0bec"
+PKG_SHA256="280d6cf45e6727711b43eefffd5f04bac53f456e2e6e6b519990dd7fff03611d"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://projects.vdr-developer.org/projects/plg-xmltv2vdr"

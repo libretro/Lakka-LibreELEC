@@ -18,6 +18,7 @@
 
 PKG_NAME="LibreELEC-settings"
 PKG_VERSION="a40fb4f"
+PKG_SHA256="18aab9ae524443de9992cc6d293c7023a453c3f68bc0e7f29db3dcfd77c41dc6"
 PKG_ARCH="any"
 PKG_LICENSE="prop."
 PKG_SITE="https://libreelec.tv"

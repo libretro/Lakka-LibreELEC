@@ -18,6 +18,7 @@
 
 PKG_NAME="amremote"
 PKG_VERSION="6431040"
+PKG_SHA256="5859680b0951ed3d2265999b7ad5309060587815df4dd1c48c6fa9aae039d5c5"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="other"
 PKG_SITE="http://www.amlogic.com"

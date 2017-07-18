@@ -18,6 +18,7 @@
 
 PKG_NAME="libXfixes"
 PKG_VERSION="5.0.3"
+PKG_SHA256="de1cd33aff226e08cefd0e6759341c2c8e8c9faf8ce9ac6ec38d43e287b22ad6"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

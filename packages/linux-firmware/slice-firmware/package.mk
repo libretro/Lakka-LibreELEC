@@ -18,6 +18,7 @@
 
 PKG_NAME="slice-firmware"
 PKG_VERSION="0f463cc"
+PKG_SHA256="27e8bac75d5639ca75d683bb2c9b10398c5d7f54f2cf3337ede6abf98e42f751"
 PKG_ARCH="arm"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/FiveNinjas/slice-firmware"

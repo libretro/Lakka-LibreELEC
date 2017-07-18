@@ -18,6 +18,7 @@
 
 PKG_NAME="glibc"
 PKG_VERSION="2.25"
+PKG_SHA256="067bd9bb3390e79aa45911537d13c3721f1d9d3769931a30c2681bfee66f23a0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/libc/"

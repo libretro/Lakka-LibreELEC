@@ -18,6 +18,7 @@
 
 PKG_NAME="Adafruit_Python_PureIO"
 PKG_VERSION="a29d95a"
+PKG_SHA256="f18aee7f95bf57d1dfa19cb2915697e40e6be88b5b988632785be9d0bbb16850"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"

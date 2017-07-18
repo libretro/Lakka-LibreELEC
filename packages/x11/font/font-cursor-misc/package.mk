@@ -18,6 +18,7 @@
 
 PKG_NAME="font-cursor-misc"
 PKG_VERSION="1.0.3"
+PKG_SHA256="17363eb35eece2e08144da5f060c70103b59d0972b4f4d77fd84c9a7a2dba635"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

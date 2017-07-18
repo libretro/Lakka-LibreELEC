@@ -18,6 +18,7 @@
 
 PKG_NAME="liblognorm"
 PKG_VERSION="2.0.1"
+PKG_SHA256="6a7fda0da2791a87c808fbfde1af20e6463e3ff73496aae7756e3440f3bc5b75"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.liblognorm.com/"

@@ -18,6 +18,7 @@
 
 PKG_NAME="w_scan"
 PKG_VERSION="20170107"
+PKG_SHA256="38e0f38a7bf06cff6d6ea01652ad4ee60da2cb0e937360468f936da785b46ffe"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://wirbel.htpc-forum.de/w_scan/index2.html"

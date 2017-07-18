@@ -18,6 +18,7 @@
 
 PKG_NAME="tune-s2"
 PKG_VERSION="60cc4aa"
+PKG_SHA256="e39069a0f2f0930809647052fe1f8c9a13f05af537013b03a99f09ceb9bfb997"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://bitbucket.org/updatelee/tune-s2"

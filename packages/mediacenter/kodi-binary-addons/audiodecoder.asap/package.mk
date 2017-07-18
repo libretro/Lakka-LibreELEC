@@ -18,6 +18,7 @@
 
 PKG_NAME="audiodecoder.asap"
 PKG_VERSION="e56a821"
+PKG_SHA256="062fbacb3bc836f943cc8b4ad3542fbdf7c05ec445860ac8b785cfb70e86c2e5"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

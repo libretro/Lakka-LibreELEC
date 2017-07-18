@@ -18,6 +18,7 @@
 
 PKG_NAME="taglib"
 PKG_VERSION="1.11.1"
+PKG_SHA256="b6d1a5a610aae6ff39d93de5efd0fdc787aa9e9dc1e7026fa4c961b26563526b"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://taglib.github.com/"

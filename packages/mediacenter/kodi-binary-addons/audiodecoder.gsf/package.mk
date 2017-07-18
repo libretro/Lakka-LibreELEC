@@ -18,6 +18,7 @@
 
 PKG_NAME="audiodecoder.gsf"
 PKG_VERSION="6af240a"
+PKG_SHA256="1b0dbb73c7c071d892798d9ece2980bbe4eddf90d9f0fb99ff646aa55fac6061"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

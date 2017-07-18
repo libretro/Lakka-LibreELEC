@@ -18,6 +18,7 @@
 
 PKG_NAME="fontcacheproto"
 PKG_VERSION="0.1.3"
+PKG_SHA256="1dcaa659d416272ff68e567d1910ccc1e369768f13b983cffcccd6c563dbe3cb"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

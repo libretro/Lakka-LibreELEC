@@ -20,6 +20,7 @@
 
 PKG_NAME="gtk+"
 PKG_VERSION="2.24.30"
+PKG_SHA256="0d15cec3b6d55c60eac205b1f3ba81a1ed4eadd9d0f8e7c508bc7065d0c4ca50"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.gtk.org/"

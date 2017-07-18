@@ -18,6 +18,7 @@
 
 PKG_NAME="game.libretro.pcsx-rearmed"
 PKG_VERSION="54fccff"
+PKG_SHA256="013007f2385d4d33cd42ea28ea48614ccd336d671e9965ae2ccc271d2cdb166d"
 PKG_REV="101"
 PKG_ARCH="any"
 # RPi doesn't support neon

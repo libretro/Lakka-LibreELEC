@@ -18,6 +18,7 @@
 
 PKG_NAME="libretro-mame2003"
 PKG_VERSION="69163cc"
+PKG_SHA256="5c505590857319cfb7043883afa1965067bfa8387829ff6cbe462927f1262303"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2003-libretro"

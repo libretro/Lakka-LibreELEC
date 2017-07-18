@@ -18,6 +18,7 @@
 
 PKG_NAME="unclutter"
 PKG_VERSION="1.09"
+PKG_SHA256="3a53575fe2a75a34bc9a2b0ad92ee0f8a7dbedc05d8783f191c500060a40a9bd"
 PKG_ARCH="any"
 PKG_LICENSE="Public Domain"
 PKG_SITE="https://sourceforge.net/projects/unclutter/"

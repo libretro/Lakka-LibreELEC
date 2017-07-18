@@ -18,6 +18,7 @@
 
 PKG_NAME="lshw"
 PKG_VERSION="B.02.18"
+PKG_SHA256="ae22ef11c934364be4fd2a0a1a7aadf4495a0251ec6979da280d342a89ca3c2f"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://ezix.org/project/wiki/HardwareLiSter"

@@ -18,6 +18,7 @@
 
 PKG_NAME="xineramaproto"
 PKG_VERSION="1.2.1"
+PKG_SHA256="977574bb3dc192ecd9c55f59f991ec1dff340be3e31392c95deff423da52485b"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

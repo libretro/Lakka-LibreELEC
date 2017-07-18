@@ -19,6 +19,7 @@
 
 PKG_NAME="openvpn"
 PKG_VERSION="2.4.1"
+PKG_SHA256="fde9e22c6df7a335d2d58c6a4d5967be76df173c766a5c51ece57fd044c76ee5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://openvpn.net"

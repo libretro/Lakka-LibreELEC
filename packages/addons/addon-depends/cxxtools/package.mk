@@ -18,6 +18,7 @@
 
 PKG_NAME="cxxtools"
 PKG_VERSION="2.2.1"
+PKG_SHA256="8cebb6d6cda7c93cc4f7c0d552a68d50dd5530b699cf87916bb3b708fdc4e342"
 PKG_ARCH="any"
 PKG_LICENSE="GPL-2"
 PKG_SITE="http://www.tntnet.org/cxxtools.html"

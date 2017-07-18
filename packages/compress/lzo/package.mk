@@ -18,6 +18,7 @@
 
 PKG_NAME="lzo"
 PKG_VERSION="2.10"
+PKG_SHA256="c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.oberhumer.com/opensource/lzo"

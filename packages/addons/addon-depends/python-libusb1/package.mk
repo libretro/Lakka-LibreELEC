@@ -18,6 +18,7 @@
 
 PKG_NAME="python-libusb1"
 PKG_VERSION="1.5.3"
+PKG_SHA256="53dae5424dea79cc5ae35aa53f5dcb38941e4c1f7a991a44a6bd3e7a81432532"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://github.com/vpelletier/python-libusb1"

@@ -18,6 +18,7 @@
 
 PKG_NAME="game.libretro.tgbdual"
 PKG_VERSION="1e536de"
+PKG_SHA256="a5adbee26f06a6db180bb940d1d6869a0bffb958cef53e896c8c0c20bd5ffbc1"
 PKG_REV="101"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

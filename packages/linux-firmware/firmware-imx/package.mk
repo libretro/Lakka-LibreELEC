@@ -18,6 +18,7 @@
 
 PKG_NAME="firmware-imx"
 PKG_VERSION="5.4"
+PKG_SHA256="c5bd4bff48cce9715a5d6d2c190ff3cd2262c7196f7facb9b0eda231c92cc223"
 PKG_ARCH="arm"
 PKG_LICENSE="other"
 PKG_SITE="http://www.freescale.com"

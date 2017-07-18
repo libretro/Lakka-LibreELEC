@@ -18,6 +18,7 @@
 
 PKG_NAME="libvdpau"
 PKG_VERSION="1.1.1"
+PKG_SHA256="5fe093302432ef05086ca2ee429c789b7bf843e166d482d166e56859b08bef55"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://wiki.freedesktop.org/www/Software/VDPAU/"

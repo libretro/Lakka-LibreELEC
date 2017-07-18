@@ -18,6 +18,7 @@
 
 PKG_NAME="xf86-input-synaptics"
 PKG_VERSION="1.9.0"
+PKG_SHA256="afba3289d7a40217a19d90db98ce181772f9ca6d77e1898727b0afcf02073b5a"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://lists.freedesktop.org/mailman/listinfo/xorg"

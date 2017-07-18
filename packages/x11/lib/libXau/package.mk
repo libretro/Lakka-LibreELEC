@@ -18,6 +18,7 @@
 
 PKG_NAME="libXau"
 PKG_VERSION="1.0.8"
+PKG_SHA256="fdd477320aeb5cdd67272838722d6b7d544887dfe7de46e1e7cc0c27c2bea4f2"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

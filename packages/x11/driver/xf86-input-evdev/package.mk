@@ -18,6 +18,7 @@
 
 PKG_NAME="xf86-input-evdev"
 PKG_VERSION="2.10.5"
+PKG_SHA256="9edaa6205baf6d2922cc4db3d8e54a7e7773b5f733b0ae90f6be7725f983b70d"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

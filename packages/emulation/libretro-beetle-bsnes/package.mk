@@ -18,6 +18,7 @@
 
 PKG_NAME="libretro-beetle-bsnes"
 PKG_VERSION="74d78da"
+PKG_SHA256="48b00427ecc9c1f592a5cf9bf452f3c56a34fb03e67271cd51214d50ae986f5e"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-bsnes-libretro"

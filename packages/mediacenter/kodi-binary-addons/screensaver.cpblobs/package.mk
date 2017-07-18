@@ -18,6 +18,7 @@
 
 PKG_NAME="screensaver.cpblobs"
 PKG_VERSION="6acb909"
+PKG_SHA256="9d238824d5cb2dccd76ef40bac2b4ec3f38e815d4167c8d86f78501c52ca7b28"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

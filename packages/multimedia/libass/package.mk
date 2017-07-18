@@ -18,6 +18,7 @@
 
 PKG_NAME="libass"
 PKG_VERSION="0.13.6"
+PKG_SHA256="f8a874d104e3e72e2cc057e5a1710c650b10367486845a26e5ff28ed7a912c2d"
 PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/libass/libass"

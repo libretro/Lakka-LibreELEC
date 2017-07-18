@@ -18,6 +18,7 @@
 
 PKG_NAME="libretro-cap32"
 PKG_VERSION="04bffe8"
+PKG_SHA256="525853a110ade3abd800c6f9fbae528b0355142c70ee591bff6e45c8b0ae7362"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/libretro-cap32"

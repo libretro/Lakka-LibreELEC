@@ -18,6 +18,7 @@
 
 PKG_NAME="pkg-config"
 PKG_VERSION="0.29.2"
+PKG_SHA256="6fc69c01688c9458a57eb9a1664c9aba372ccda420a02bf4429fe610e7e7d591"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/software/pkgconfig/"

@@ -18,6 +18,7 @@
 
 PKG_NAME="libpthread-stubs"
 PKG_VERSION="0.4"
+PKG_SHA256="50d5686b79019ccea08bcbd7b02fe5a40634abcfd4146b6e75c6420cc170e9d9"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://xcb.freedesktop.org/"

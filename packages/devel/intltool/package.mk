@@ -18,6 +18,7 @@
 
 PKG_NAME="intltool"
 PKG_VERSION="0.51.0"
+PKG_SHA256="67c74d94196b153b774ab9f89b2fa6c6ba79352407037c8c14d5aeb334e959cd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnome.org"

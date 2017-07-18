@@ -18,6 +18,7 @@
 
 PKG_NAME="docker"
 PKG_VERSION="1.13.1"
+PKG_SHA256="0d24e814f7adf19dc281b29fef69d0dfec7994966de9aaed7d4207d3034b9ee0"
 PKG_REV="115"
 PKG_ARCH="any"
 PKG_ADDON_PROJECTS="Generic RPi RPi2 imx6 WeTek_Hub WeTek_Play_2 Odroid_C2"

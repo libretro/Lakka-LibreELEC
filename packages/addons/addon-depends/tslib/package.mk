@@ -18,6 +18,7 @@
 
 PKG_NAME="tslib"
 PKG_VERSION="1.1"
+PKG_SHA256="fe35e5f710ea933b118f710e2ce4403ac076fe69926b570333867d4de082a51c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kergoth/tslib"

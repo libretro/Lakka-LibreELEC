@@ -18,6 +18,7 @@
 
 PKG_NAME="keyutils"
 PKG_VERSION="1.5.10"
+PKG_SHA256="115c3deae7f181778fd0e0ffaa2dad1bf1fe2f5677cf2e0e348cdb7a1c93afb6"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://people.redhat.com/~dhowells/keyutils/"

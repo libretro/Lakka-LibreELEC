@@ -18,6 +18,7 @@
 
 PKG_NAME="expat"
 PKG_VERSION="2.2.0"
+PKG_SHA256="d9e50ff2d19b3538bd2127902a89987474e1a4db8e43a66a4d1a712ab9a504ff"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://expat.sourceforge.net/"

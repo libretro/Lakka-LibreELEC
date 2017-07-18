@@ -18,6 +18,7 @@
 
 PKG_NAME="xz"
 PKG_VERSION="5.2.3"
+PKG_SHA256="fd9ca16de1052aac899ad3495ad20dfa906c27b4a5070102a2ec35ca3a4740c1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://tukaani.org/xz/"

@@ -17,6 +17,7 @@
 ################################################################################
 PKG_NAME="u-boot-v2"
 PKG_VERSION="2017.01"
+PKG_SHA256="6c425175f93a4bcf2ec9faf5658ef279633dbd7856a293d95bd1ff516528ecf2"
 PKG_SITE=""
 PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
 PKG_SOURCE_DIR="u-boot-$PKG_VERSION"

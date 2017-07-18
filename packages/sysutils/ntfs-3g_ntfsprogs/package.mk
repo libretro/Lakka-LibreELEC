@@ -18,6 +18,7 @@
 
 PKG_NAME="ntfs-3g_ntfsprogs"
 PKG_VERSION="2017.3.23"
+PKG_SHA256="3e5a021d7b761261836dcb305370af299793eedbded731df3d6943802e1262d5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.ntfs-3g.org/"

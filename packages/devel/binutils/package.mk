@@ -18,6 +18,7 @@
 
 PKG_NAME="binutils"
 PKG_VERSION="2.28"
+PKG_SHA256="cd717966fc761d840d451dbd58d44e1e5b92949d2073d75b73fccb476d772fcf"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/binutils/"

@@ -18,6 +18,7 @@
 
 PKG_NAME="libXxf86vm"
 PKG_VERSION="1.1.4"
+PKG_SHA256="afee27f93c5f31c0ad582852c0fb36d50e4de7cd585fcf655e278a633d85cd57"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

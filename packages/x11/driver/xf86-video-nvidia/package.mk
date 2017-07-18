@@ -21,6 +21,7 @@ PKG_NAME="xf86-video-nvidia"
 # "packages/x11/driver/xf86-video-nvidia/udev.d/96-nvidia.rules" whenever bumping version.
 # Host may require installation of python-lxml and python-requests packages.
 PKG_VERSION="375.66"
+PKG_SHA256="26f3133dd053835c35fb27b04fccd3a3bb4f18bbbacb5e4bf89c40d142cab397"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.nvidia.com/"

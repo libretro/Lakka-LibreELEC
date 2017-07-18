@@ -18,6 +18,7 @@
 
 PKG_NAME="parted"
 PKG_VERSION="3.2"
+PKG_SHA256="858b589c22297cacdf437f3baff6f04b333087521ab274f7ab677cb8c6bb78e4"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/parted/"

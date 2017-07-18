@@ -18,6 +18,7 @@
 
 PKG_NAME="vdr-plugin-satip"
 PKG_VERSION="ed99cfb"
+PKG_SHA256="279a31fb7550280afdb7508e463dbc750751aa03213aeeb6a27e96869ec68337"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.saunalahti.fi/~rahrenbe/vdr/satip/"

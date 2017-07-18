@@ -18,6 +18,7 @@
 
 PKG_NAME="libmicrohttpd"
 PKG_VERSION="0.9.55"
+PKG_SHA256="0c1cab8dc9f2588bd3076a28f77a7f8de9560cbf2d80e53f9a8696ada80ed0f8"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1"
 PKG_SITE="http://www.gnu.org/software/libmicrohttpd/"

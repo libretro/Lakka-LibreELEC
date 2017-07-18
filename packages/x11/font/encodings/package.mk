@@ -18,6 +18,7 @@
 
 PKG_NAME="encodings"
 PKG_VERSION="1.0.4"
+PKG_SHA256="ced6312988a45d23812c2ac708b4595f63fd7a49c4dcd9f66bdcd50d1057d539"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

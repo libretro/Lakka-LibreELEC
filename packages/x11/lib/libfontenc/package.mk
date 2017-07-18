@@ -18,6 +18,7 @@
 
 PKG_NAME="libfontenc"
 PKG_VERSION="1.1.3"
+PKG_SHA256="70588930e6fc9542ff38e0884778fbc6e6febf21adbab92fd8f524fe60aefd21"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"

@@ -18,6 +18,7 @@
 
 PKG_NAME="squashfs"
 PKG_VERSION="4.3"
+PKG_SHA256="0d605512437b1eb800b4736791559295ee5f60177e102e4d4ccd0ee241a5f3f6"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://squashfs.sourceforge.net/"

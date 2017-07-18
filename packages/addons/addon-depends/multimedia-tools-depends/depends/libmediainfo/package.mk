@@ -18,6 +18,7 @@
 
 PKG_NAME="libmediainfo"
 PKG_VERSION="0.7.83"
+PKG_SHA256="27e2ae08349e0546f46f2af83cc0830c4b2e9a13fa3ff385566bb3b3c15e3df9"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://mediaarea.net/en/MediaInfo/Download/Source"

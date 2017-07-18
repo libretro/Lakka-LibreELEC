@@ -18,6 +18,7 @@
 
 PKG_NAME="libplist"
 PKG_VERSION="1.12"
+PKG_SHA256="0effdedcb3de128c4930d8c03a3854c74c426c16728b8ab5f0a5b6bdc0b644be"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://matt.colyer.name/projects/iphone-linux/"

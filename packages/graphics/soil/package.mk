@@ -18,6 +18,7 @@
 
 PKG_NAME="soil"
 PKG_VERSION="1.16"
+PKG_SHA256="5f2d8a8c78e81d29df07f0f97c34fa2f75187bcadfdc7222cbd026859acaff2f"
 PKG_ARCH="any"
 PKG_LICENSE="CCPL"
 PKG_SITE="http://www.lonesock.net/soil.html"

@@ -18,6 +18,7 @@
 
 PKG_NAME="intel-ucode"
 PKG_VERSION="20170511"
+PKG_SHA256="2f77fd2d87403b754d01a66c78a36a8b8ffc16dc3c50fb7aa2c4cd4da7f681a3"
 PKG_ARCH="x86_64"
 PKG_LICENSE="other"
 PKG_SITE="https://downloadcenter.intel.com/search?keyword=linux+microcode"

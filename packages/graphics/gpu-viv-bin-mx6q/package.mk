@@ -18,6 +18,7 @@
 
 PKG_NAME="gpu-viv-bin-mx6q"
 PKG_VERSION="3.10.17-1.0.2-hfp"
+PKG_SHA256="fcf5cc1c2507d77b6ecaef6defd63fbd604be5a765f86922530cb423a595a592"
 PKG_ARCH="arm"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.freescale.com"

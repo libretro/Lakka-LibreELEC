@@ -18,6 +18,7 @@
 
 PKG_NAME="libpcap"
 PKG_VERSION="1.7.4"
+PKG_SHA256="7ad3112187e88328b85e46dce7a9b949632af18ee74d97ffc3f2b41fe7f448b0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tcpdump.org/"
