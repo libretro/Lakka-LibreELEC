@@ -104,6 +104,4 @@ addon() {
     ln -s iwmulticall $ADDON_BUILD/$PKG_ADDON_ID/bin/iwlist
     ln -s iwmulticall $ADDON_BUILD/$PKG_ADDON_ID/bin/iwspy
     ln -s iwmulticall $ADDON_BUILD/$PKG_ADDON_ID/bin/iwpriv
-
-  debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
