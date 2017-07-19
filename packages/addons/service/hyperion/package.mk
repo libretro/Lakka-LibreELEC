@@ -84,6 +84,4 @@ addon() {
 
   cp -PR $PKG_BUILD/assets/webconfig $ADDON_BUILD/$PKG_ADDON_ID
   cp -PR $PKG_BUILD/effects $ADDON_BUILD/$PKG_ADDON_ID
-
-  debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 }

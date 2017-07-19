@@ -83,6 +83,4 @@ addon() {
 
     # w_scan
     cp -P $(get_build_dir w_scan)/.$TARGET_NAME/w_scan $ADDON_BUILD/$PKG_ADDON_ID/bin
-
-  debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 }

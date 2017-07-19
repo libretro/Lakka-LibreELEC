@@ -72,6 +72,4 @@ addon() {
 
     # tstools
     cp -P $(get_build_dir tstools)/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin/
-
-  debug_strip $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
