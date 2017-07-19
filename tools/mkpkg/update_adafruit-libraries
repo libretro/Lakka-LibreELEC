@@ -1,0 +1,110 @@
+#!/bin/bash -e
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+# set defaults
+GIT_USERNAME=""
+GIT_PASSWORD=""
+
+# Source in GIT_USERNAME and GIT_PASSWORD to avoid API limitations
+[ -f ~/.git.conf ] && source ~/.git.conf
+
+# set http login for curl
+CURL_LOGIN=""
+if [ ! -z "$GIT_USERNAME" -a ! -z "$GIT_PASSWORD" ]; then
+  CURL_LOGIN="--user $GIT_USERNAME:$GIT_PASSWORD"
+fi
+
+# get the realpath to LE Root
+ROOT=$(realpath $(dirname $(realpath $0))/../../)
+cd "$ROOT"
+
+# make tmp dir
+mkdir -p $ROOT/mkpkg-temp/adafruit
+
+# load adafruit-libraries settings
+. config/options adafruit-libraries
+
+# iterate over all depend packages and try update
+ADAFRUIT_PACKAGES=$PKG_DEPENDS_TARGET
+CHANGED=""
+for PKG in $ADAFRUIT_PACKAGES; do
+  echo -n "check: $PKG... "
+  . config/options $PKG
+  
+  # filter out, all non github packages
+  if [[ $PKG_URL != https://github.com/* ]]; then
+    echo "ignore, not on github"
+    continue
+  fi
+  
+  # get new hash from master branch
+  URL=$(sed "s|\(www\.\)*github.com/|api.github.com/repos/|;s|/archive/.*|/commits/master|" <<< $PKG_URL)
+  GIT_HASH=$(curl --silent --header "Accept: application/vnd.github.v3.sha" $CURL_LOGIN $URL)
+  
+  # check rate limit
+  if [[ "$GIT_HASH" == *rate\ limit* ]]; then
+    echo "abort, rate limit of api reached. try later or use your github account"
+    exit 1
+  fi
+  
+  # compare hash
+  GIT_HASH=${GIT_HASH:0:7}
+  if [ $PKG_VERSION == $GIT_HASH ]; then
+    echo "unchanged"
+    continue
+  fi
+
+  # replace old with new hash
+  sed "s|^PKG_VERSION=.*$|PKG_VERSION=\"${GIT_HASH}\"|" -i ${PKG_DIR}/package.mk
+  echo -n "updated to $GIT_HASH "
+  
+  CHANGED="${CHANGED}#$PKG_SHORTDESC"
+
+  # get new package
+  . config/options $PKG
+  TMP_FILE=$ROOT/mkpkg-temp/adafruit/pkg
+  wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c -q -O $TMP_FILE $PKG_URL
+  
+  # calc new sha256 and replace the old
+  NEW_SHA256="$(sha256sum $TMP_FILE | cut -d" " -f1)"
+  sed "s|^PKG_SHA256=.*$|PKG_SHA256=\"${NEW_SHA256}\"|" -i ${PKG_DIR}/package.mk
+  echo "(sha: ${NEW_SHA256})"
+  
+  # remove tmp download
+  rm -f $TMP_FILE
+done
+
+# prepare revision and changelog
+. config/options adafruit-libraries
+if [ ! -z "$CHANGED" ]; then
+  # revision
+  REV=$(( $PKG_REV + 1 ))
+  echo "increase revision $PKG_REV -> $REV"
+  sed "s|^PKG_REV=.*$|PKG_REV=\"${REV}\"|" -i ${PKG_DIR}/package.mk
+  
+  # changelog
+  echo -en "${REV}\n  updated libraries:" > ${PKG_DIR}/changelog.txt.new
+  sed "s|#|\n  - |g" <<< ${CHANGED} >> ${PKG_DIR}/changelog.txt.new
+  echo "" >> ${PKG_DIR}/changelog.txt.new
+  cat ${PKG_DIR}/changelog.txt >> ${PKG_DIR}/changelog.txt.new
+  mv ${PKG_DIR}/changelog.txt.new ${PKG_DIR}/changelog.txt
+fi  
+
+# cleanup temp
+rm -rf $ROOT/mkpkg-temp/adafruit

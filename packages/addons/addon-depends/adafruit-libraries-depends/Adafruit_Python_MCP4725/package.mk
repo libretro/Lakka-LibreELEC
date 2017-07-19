@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="Adafruit_Python_MCP4725"
-PKG_VERSION="5b5fc87"
-PKG_SHA256="7795544489878ef613aff94656cafb5e2d2347bd6a38580d89ffc92bb1fcfea1"
+PKG_VERSION="8a30e5e"
+PKG_SHA256="83b1e7ff1b2d7c1794b2aedf7d824bd9099bc4068b56ddb83531959ab73602d1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/adafruit/${PKG_NAME}"
