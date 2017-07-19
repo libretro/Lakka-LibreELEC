@@ -24,21 +24,20 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 
+PORT = '6666'
+SINK = 'librespot_sink'
 
-ICON     = xbmcaddon.Addon().getAddonInfo('icon')
-ID       = xbmcaddon.Addon().getAddonInfo('id')
 NAME     = xbmcaddon.Addon().getAddonInfo('name')
-PROFILE  = xbmcaddon.Addon().getAddonInfo('profile')
 STRINGS  = xbmcaddon.Addon().getLocalizedString
-
-ITEM     = os.path.join(PROFILE, 'librespot.sdp')
-LISTITEM = xbmcgui.ListItem(NAME)
-LISTITEM.setArt({'thumb': ICON})
 
 
 def addon():
    if len(sys.argv) == 1:
+      pass
+   elif sys.argv[1] == 'start':
       Player().play()
+   elif sys.argv[1] == 'stop':
+      Player().stop()
    elif sys.argv[1] == 'wizard':
       dialog  = xbmcgui.Dialog()
       while True:
@@ -54,10 +53,6 @@ def addon():
          break
 
 
-def systemctl(command):
-   subprocess.call(['systemctl', command, ID])
-
-
 class Monitor(xbmc.Monitor):
 
    def __init__(self, *args, **kwargs):
@@ -70,37 +65,69 @@ class Monitor(xbmc.Monitor):
 
 class Player(xbmc.Player):
 
+   ITEM = 'rtp://127.0.0.1:{port}'.format(port=PORT)
+   LISTITEM = xbmcgui.ListItem(NAME)
+   LISTITEM.setArt({'thumb': xbmcaddon.Addon().getAddonInfo('icon')})
+
    def __init__(self, *args, **kwargs):
       super(Player, self).__init__(self)
+      self.service = Service()
+      self.sink = Sink()
       if self.isPlaying():
          self.onPlayBackStarted()
 
    def onPlayBackEnded(self):
-      if not self.islibrespot:
-         xbmc.sleep(5000)
-         if not self.isPlaying():
-            systemctl('start')
+      xbmc.sleep(1000)
+      if not self.isPlaying():
+         self.service.restart()
 
    def onPlayBackStarted(self):
-      if self.getPlayingFile() == ITEM:
-         self.islibrespot = True
-      else:
-         self.islibrespot = False
-         systemctl('stop')
+      if self.getPlayingFile() != self.ITEM:
+         self.sink.suspend()
+         self.service.stop()
 
    def onPlayBackStopped(self):
-      systemctl('restart')
+      self.service.restart()
 
    def play(self):
       if not self.isPlaying():
-         super(Player, self).play(ITEM, LISTITEM)
+         self.sink.unsuspend()
+         super(Player, self).play(self.ITEM, self.LISTITEM)
 
    def stop(self):
-      if self.isPlaying():
-         if self.getPlayingFile() == ITEM:
-            super(Player, self).stop()
+      self.sink.suspend()
+      if self.isPlaying() and self.getPlayingFile() == self.ITEM:
+         super(Player, self).stop()
       else:
-         systemctl('restart')
+         self.service.restart()
+
+
+class Service():
+
+   def __init__(self):
+      self.id = xbmcaddon.Addon().getAddonInfo('id')
+
+   def restart(self):
+      self.systemctl('restart')
+
+   def start(self):
+      self.systemctl('start')
+
+   def stop(self):
+      self.systemctl('stop')
+
+   def systemctl(self, command):
+      subprocess.call(['systemctl', command, self.id])
+
+
+class Sink():
+
+   def suspend(self):
+      subprocess.call(['pactl', 'suspend-sink', SINK, '1'])
+
+   def unsuspend(self):
+      subprocess.call(['pactl', 'suspend-sink', SINK, '0'])
+
 
 if __name__ == '__main__':
    Monitor().waitForAbort()
