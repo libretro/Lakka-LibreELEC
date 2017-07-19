@@ -36,17 +36,9 @@ unpack() {
 }
 
 make_host() {
-  $CC $CFLAGS -o intel-microcode2ucode intel-microcode2ucode.c
+  :
 }
 
 makeinstall_host() {
-  cp intel-microcode2ucode $TOOLCHAIN/bin/
-}
-
-make_target() {
-  intel-microcode2ucode ./microcode.dat
-}
-
-makeinstall_target() {
   :
 }
