@@ -34,11 +34,10 @@ PKG_LONGDESC="RetroArch joypad autoconfig files"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  :
+configure_target() {
+  cd $ROOT/$PKG_BUILD
 }
 
-makeinstall_target() {
-  mkdir -p $INSTALL/etc/retroarch-joypad-autoconfig
-  cp -r * $INSTALL/etc/retroarch-joypad-autoconfig
+pre_makeinstall_target() {
+  export DESTDIR="$INSTALL/etc/retroarch-joypad-autoconfig"
 }

@@ -38,11 +38,6 @@ configure_target() {
   cd $ROOT/$PKG_BUILD
 }
 
-make_target() {
-  :
-}
-
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/retroarch-assets
-  cp -r * $INSTALL/usr/share/retroarch-assets
+pre_makeinstall_target() {
+  export DESTDIR="$INSTALL/usr/share/retroarch-assets"
 }

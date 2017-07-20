@@ -34,11 +34,10 @@ PKG_LONGDESC="Repository containing cheatcode files, content data files, etc."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  :
+configure_target() {
+  cd $ROOT/$PKG_BUILD
 }
 
-makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/libretro-database
-  cp -r * $INSTALL/usr/share/libretro-database
+pre_makeinstall_target() {
+  export DESTDIR="$INSTALL/usr/share/libretro-database"
 }
