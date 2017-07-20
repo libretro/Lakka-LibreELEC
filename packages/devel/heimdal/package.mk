@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="heimdal"
-PKG_VERSION="7.1.0"
+PKG_VERSION="7.4.0"
 PKG_ARCH="any"
 PKG_LICENSE="BSD-3c"
 PKG_SITE="http://www.h5l.org/"
@@ -44,6 +44,7 @@ PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared \
                          --without-libedit \
                          --without-hesiod \
                          --without-x \
+                         --with-db-type-preference= \
                          --disable-heimdal-documentation"
 
 makeinstall_host() {
