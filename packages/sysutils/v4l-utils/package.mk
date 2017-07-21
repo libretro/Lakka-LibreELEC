@@ -33,10 +33,15 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg"
-PKG_MAKEINSTALL_OPTS_TARGET="PREFIX=/usr -C utils/keytable"
 
 make_target() {
     make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
+    make -C utils/ir-ctl CFLAGS="$TARGET_CFLAGS"
+}
+
+makeinstall_target() {
+   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/keytable
+   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/ir-ctl
 }
 
 post_makeinstall_target() {
