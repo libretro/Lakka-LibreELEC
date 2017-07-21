@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="libretro-database"
-PKG_VERSION="4c3af88"
+PKG_VERSION="1ee2aae"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -38,6 +38,6 @@ configure_target() {
   cd $ROOT/$PKG_BUILD
 }
 
-pre_makeinstall_target() {
-  export DESTDIR="$INSTALL/usr/share/libretro-database"
+makeinstall_target() {
+  make install INSTALLDIR="$INSTALL/usr/share/libretro-database"
 }
