@@ -144,6 +144,11 @@ post_makeinstall_target() {
   # remove Network adaper renaming rule, this is confusing
   rm -rf $INSTALL/usr/lib/udev/rules.d/80-net-setup-link.rules
 
+  # remove the uaccess rules as we don't build systemd with ACL (see https://github.com/systemd/systemd/issues/4107)
+  rm -rf $INSTALL/usr/lib/udev/rules.d/70-uaccess.rules
+  rm -rf $INSTALL/usr/lib/udev/rules.d/71-seat.rules
+  rm -rf $INSTALL/usr/lib/udev/rules.d/73-seat-late.rules
+
   # remove debug-shell.service, we install our own
   rm -rf $INSTALL/usr/lib/systemd/system/debug-shell.service
 
