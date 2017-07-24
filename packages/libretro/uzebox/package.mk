@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="uzebox"
-PKG_VERSION="3c1988c"
+PKG_VERSION="e5faef9"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"

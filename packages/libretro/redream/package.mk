@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="redream"
-PKG_VERSION="db18785"
+PKG_VERSION="fd4fc21"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/libretro/redream"
-PKG_URL="https://github.com/libretro/redream/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/inolen/redream"
+PKG_URL="https://github.com/inolen/redream/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

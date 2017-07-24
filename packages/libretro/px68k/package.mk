@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="px68k"
-PKG_VERSION="fd32d97"
+PKG_VERSION="0930872"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Unknown"
