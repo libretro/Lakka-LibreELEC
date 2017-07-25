@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="parallel-n64"
-PKG_VERSION="56ccaf0"
+PKG_VERSION="59befa2"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
