@@ -84,12 +84,11 @@ init_alsa() {
 . /etc/profile
 oe_setup_addon service.librespot
 
-LS_PORT="6666"
-LS_SINK="librespot_sink"
-
-LIBRESPOT="librespot --cache \"$ADDON_HOME/cache\"
+LIBRESPOT="librespot --cache \"$ADDON_HOME/cache\" \
                      --disable-audio-cache \
-                     --name \"Librespot@$HOSTNAME\""
+                     --name \"Librespot@$HOSTNAME\" \
+                     --onstart librespot.onstart \
+                     --onstop librespot.onstop"
 
 if [ -n "$ls_b" -a "$ls_b" != "-" ]; then
   LIBRESPOT="$LIBRESPOT --bitrate $ls_b"
@@ -102,23 +101,23 @@ if [ -n "$ls_p" -a -n "$ls_u" ]; then
 fi
 
 if [ "$ls_O" == "Kodi" ]; then
-  if [ -z "$(pactl list short modules | grep sink_name=$LS_SINK)" ]; then
-    pactl load-module module-null-sink sink_name="$LS_SINK" > /dev/null
-  fi
-  pactl suspend-sink "$LS_SINK" 1
-  if [ -z "$(pactl list short modules | grep source=$LS_SINK.monitor)" ]; then
-    pactl load-module module-rtp-send source="$LS_SINK.monitor" \
-      destination_ip=127.0.0.1 port="$LS_PORT" source_ip=127.0.0.1 > /dev/null
-  fi
-  LIBRESPOT="$LIBRESPOT \
-    --backend pulseaudio \
-    --onstart=\"kodi-send --action=RunAddon(service.librespot,start)\" \
-    --onstop=\"kodi-send --action=RunAddon(service.librespot,stop)\""
+  LIBRESPOT="$LIBRESPOT --backend pulseaudio"
 else
   init_alsa
   if [ -n "$ls_o" ]; then
     LIBRESPOT="$LIBRESPOT --device \"$ls_o\""
   fi
 fi
+
+if [ -z "$(pactl list short modules | grep sink_name=$LS_SINK)" ]; then
+  pactl load-module module-null-sink sink_name="$LS_SINK" > /dev/null
+fi
+pactl suspend-sink "$LS_SINK" 1
+if [ -z "$(pactl list short modules | grep source=$LS_SINK.monitor)" ]; then
+  pactl load-module module-rtp-send source="$LS_SINK.monitor" \
+    destination_ip=127.0.0.1 port="$LS_PORT" source_ip=127.0.0.1 > /dev/null
+fi
+
+export LS_FIFO="$ADDON_DIR/rc"
 
 eval $LIBRESPOT
