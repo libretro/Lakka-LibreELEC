@@ -36,10 +36,11 @@ PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
 make_target() {
-  make -C .. -f Makefile.libretro
+  cd $ROOT/$PKG_BUILD
+  make -f deps/libretro/Makefile
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp ../redream_libretro.so $INSTALL/usr/lib/libretro/
+  cp redream_libretro.so $INSTALL/usr/lib/libretro/
 }
