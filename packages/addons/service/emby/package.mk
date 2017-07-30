@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="emby"
-PKG_VERSION="3.2.17.0"
-PKG_SHA256="ba525a49f67e46310c59b51063118bbf83732c9411f8250c891ae36c9821851f"
-PKG_REV="114"
+PKG_VERSION="3.2.26.0"
+PKG_SHA256="b945b34ef2b2cdb2cc08dff014b84de2ae190b3ed7f7eb4942ce94078831a011"
+PKG_REV="115"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
 PKG_URL="https://github.com/MediaBrowser/Emby/releases/download/$PKG_VERSION/Emby.Mono.zip"
