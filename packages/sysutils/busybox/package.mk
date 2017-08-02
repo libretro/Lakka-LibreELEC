@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="busybox"
-PKG_VERSION="1.26.2"
-PKG_SHA256="da3e44913fc1a9c9b7c5337ea5292da518683cbff32be630777f565d6036af16"
+PKG_VERSION="1.27.1"
+PKG_SHA256="c890ac53fb218eb4c6ad9ed3207a896783b142e6d306f292b8d9bec82af5f936"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
