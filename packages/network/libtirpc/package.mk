@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libtirpc"
-PKG_VERSION="1.0.1"
-PKG_SHA256="5156974f31be7ccbc8ab1de37c4739af6d9d42c87b1d5caf4835dda75fcbb89e"
+PKG_VERSION="1.0.2"
+PKG_SHA256="723c5ce92706cbb601a8db09110df1b4b69391643158f20ff587e20e7c5f90f5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://sourceforge.net/projects/libtirpc/"
