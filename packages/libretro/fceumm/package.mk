@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fceumm"
-PKG_VERSION="fe14a77"
+PKG_VERSION="fdf6993"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
