@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libbluray"
-PKG_VERSION="0.9.3"
-PKG_SHA256="a6366614ec45484b51fe94fcd1975b3b8716f90f038a33b24d59978de3863ce0"
+PKG_VERSION="1.0.1"
+PKG_SHA256="0f9f9a1db2f48cafc70ed2596ff3594b597e2027408f5f2be6191c245d67853a"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.videolan.org/developers/libbluray.html"
@@ -43,8 +43,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-werror \
                            --disable-extra-warnings \
                            --disable-optimizations \
                            --disable-examples \
-                           --disable-bdjava \
-                           --enable-udf \
+                           --disable-bdjava-jar \
                            --disable-doxygen-doc \
                            --disable-doxygen-dot \
                            --disable-doxygen-man \
