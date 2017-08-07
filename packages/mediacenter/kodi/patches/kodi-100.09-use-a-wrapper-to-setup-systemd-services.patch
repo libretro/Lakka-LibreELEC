@@ -1,18 +1,18 @@
-From faebee708dc7c24d177fa6b8874b3f1374a08e25 Mon Sep 17 00:00:00 2001
+From 4abf9ef52d9f5cf625e196935683eb35f150e7e9 Mon Sep 17 00:00:00 2001
 From: MilhouseVH <milhouseVH.github@nmacleod.com>
-Date: Wed, 5 Jul 2017 15:58:57 +0100
+Date: Tue, 11 Jul 2017 17:46:48 +0100
 Subject: [PATCH] use a wrapper to setup systemd services
 
 ---
- xbmc/addons/Addon.cpp | 35 +++++++++++++++++++++++++++++++++++
+ xbmc/addons/Addon.cpp | 38 ++++++++++++++++++++++++++++++++++++++
  xbmc/addons/Addon.h   |  2 ++
- 2 files changed, 37 insertions(+)
+ 2 files changed, 40 insertions(+)
 
 diff --git a/xbmc/addons/Addon.cpp b/xbmc/addons/Addon.cpp
-index 639ee5c..7f205a7 100644
+index 45f42ad..5870328 100644
 --- a/xbmc/addons/Addon.cpp
 +++ b/xbmc/addons/Addon.cpp
-@@ -396,18 +396,36 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
+@@ -397,13 +397,34 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
    return AddonVersion("0.0.0");
  }
  
@@ -23,33 +23,31 @@ index 639ee5c..7f205a7 100644
 +  system(cmd);
 +}
 +
- void OnEnabled(const std::string& id)
+ void OnEnabled(const AddonPtr& addon)
  {
-   // If the addon is a special, call enabled handler
-   AddonPtr addon;
-   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_PVRDLL))
-     return addon->OnEnabled();
++  AddonPtr localAddon;
 +
 +  // OE: systemctl enable & start on addon enable
-+  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE))
++  if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
 +    CallOEWrapper(addon->ID(), false);
 +  // OE
++
+   addon->OnEnabled();
  }
  
- void OnDisabled(const std::string& id)
+ void OnDisabled(const AddonPtr& addon)
  {
- 
-   AddonPtr addon;
++  AddonPtr localAddon;
 +
 +  // OE: systemctl stop & disable on addon disable
-+  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE, false))
++  if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE, false))
 +    CallOEWrapper(addon->ID(), true);
 +  // OE
 +
-   if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_PVRDLL, false))
-     return addon->OnDisabled();
+   addon->OnDisabled();
  }
-@@ -443,11 +461,28 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+ 
+@@ -438,11 +459,28 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
    }
    // OE
  
@@ -79,10 +77,10 @@ index 639ee5c..7f205a7 100644
  }
  
 diff --git a/xbmc/addons/Addon.h b/xbmc/addons/Addon.h
-index 35203a2..8e4b95e 100644
+index 95f3f23..5f2223c 100644
 --- a/xbmc/addons/Addon.h
 +++ b/xbmc/addons/Addon.h
-@@ -84,6 +84,8 @@ public:
+@@ -77,6 +77,8 @@ public:
    const InfoMap& ExtraInfo() const override { return m_addonInfo.ExtraInfo(); }
    const ADDONDEPS& GetDeps() const override { return m_addonInfo.GetDeps(); }
  
