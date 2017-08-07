@@ -47,6 +47,29 @@ resolve_hash() {
   fi
 }
 
+get_pkg_var() {
+  local pkg_name="$1" pkg_var="$2"
+  cd ../..
+  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name}
+  echo "${!pkg_var}"
+}
+
+update_pkg() {
+  local pkg_path="$1" pkg_name="$2" pkg_version="$3"
+  local old_version pkg_url new_sha256
+
+  old_version=$(get_pkg_var "${pkg_name}" PKG_VERSION)
+
+  if [ "${old_version}" != "${pkg_version}" ]; then
+    [ -n "$pkg_version}" ] && sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"${pkg_version}\"|g" -i ${pkg_path}
+
+    pkg_url=$(get_pkg_var "${pkg_name}" PKG_URL)
+
+    new_sha256="$(wget -q ${pkg_url} -O- | sha256sum | awk '{print $1}')" || exit 1
+    sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i ${pkg_path}
+  fi
+}
+
 # addons
 for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git retroplayer" ; do
   ADDONS=$(echo $addontxt | awk '{print $1}')
@@ -81,7 +104,8 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
 
           RESOLVED_HASH=$(resolve_hash $ADDON.git $GIT_HASH)
           if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
-            sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+            update_pkg ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
+
             BUMP_REV=true
 
             echo "OLD_HASH: $OLD_HASH"
@@ -103,7 +127,7 @@ for addontxt in "binary-addons https://github.com/lrusak/repo-binary-addons.git 
 
           RESOLVED_HASH=$(resolve_hash $EMULATOR.git master)
           if [ "$OLD_HASH" != "$RESOLVED_HASH" ]; then
-            sed -i "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" ../../packages/emulation/$EMULATOR/package.mk
+            update_pkg ../../packages/emulation/$EMULATOR/package.mk ${EMULATOR} ${RESOLVED_HASH}
             BUMP_REV=true
 
             echo "OLD_HASH: $OLD_HASH"
