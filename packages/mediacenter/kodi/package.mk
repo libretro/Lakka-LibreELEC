@@ -159,6 +159,12 @@ else
   KODI_SSH="-DENABLE_SSH=OFF"
 fi
 
+if echo "$TARGET_FPU" | grep -q '^neon' || [[ "$TARGET_ARCH" = "aarch64" ]]; then
+  KODI_NEON="-DENABLE_NEON=ON"
+else
+  KODI_NEON="-DENABLE_NEON=OFF"
+fi
+
 if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   KODI_VDPAU="-DENABLE_VDPAU=ON"
@@ -225,7 +231,7 @@ PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$TOOLCHAIN \
                        -DENABLE_LDGOLD=ON \
                        -DENABLE_DEBUGFISSION=OFF \
                        $KODI_ARCH \
-                       $KODI_OPENMAX \
+                       $KODI_NEON \
                        $KODI_VDPAU \
                        $KODI_VAAPI \
                        $KODI_CEC \
