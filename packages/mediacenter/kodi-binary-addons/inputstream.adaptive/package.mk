@@ -17,11 +17,11 @@
 ################################################################################
 
 PKG_NAME="inputstream.adaptive"
-PKG_VERSION="db9b6a1"
-PKG_SHA256="49035c28becc1029181b5e529c1afae3c3f5fd0fb4dd8c62c4caedc2735c3e08"
+PKG_VERSION="2fa1360"
+PKG_SHA256="0f1de356d4d56dd1a85b5e42487c3150bca1a91e01dce3a966cc04f0d52b4337"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
-PKG_URL="https://github.com/liberty-developer/inputstream.adaptive/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/peak3d/inputstream.adaptive/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain kodi-platform"
 PKG_SECTION=""
 PKG_SHORTDESC="inputstream.adaptive"
