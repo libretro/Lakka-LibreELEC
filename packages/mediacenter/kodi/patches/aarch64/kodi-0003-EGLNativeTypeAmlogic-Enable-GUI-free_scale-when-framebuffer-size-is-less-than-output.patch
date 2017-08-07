@@ -1,4 +1,4 @@
-From a348ef744e260f76e1e4e1299f9181ae40352eb5 Mon Sep 17 00:00:00 2001
+From 9be904d691012c452d58fbaa4817de9c5d84ee87 Mon Sep 17 00:00:00 2001
 From: kszaq <kszaquitto@gmail.com>
 Date: Mon, 22 Aug 2016 06:55:00 +0200
 Subject: [PATCH] EGLNativeTypeAmlogic: Enable GUI free_scale when framebuffer
@@ -8,40 +8,24 @@ For 4K output Kodi renders GUI at 1080p and this results in GUI covering only 1/
 This patch enables hardware upscaling if output resolution is greater than rendered GUI
 resolution.
 ---
- xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp | 33 ++++++++++++++++++++++++++---
+ xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp | 25 +++++++++++++++++++++++++
  xbmc/windowing/egl/EGLNativeTypeAmlogic.h   |  2 ++
- 2 files changed, 32 insertions(+), 3 deletions(-)
+ 2 files changed, 27 insertions(+)
 
 diff --git a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
-index 88cd385..3cbb604 100644
+index 711d892..421a2af 100644
 --- a/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
 +++ b/xbmc/windowing/egl/EGLNativeTypeAmlogic.cpp
-@@ -133,6 +133,8 @@ bool CEGLNativeTypeAmlogic::GetNativeResolution(RESOLUTION_INFO *res) const
+@@ -151,6 +151,8 @@ bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
+   if (res.strId != mode)
+     result = SetDisplayResolution(res.strId.c_str());
  
- bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
- {
-+  bool result = false;
-+
- #if defined(_FBDEV_WINDOW_H_)
-   if (m_nativeWindow)
-   {
-@@ -144,10 +146,12 @@ bool CEGLNativeTypeAmlogic::SetNativeResolution(const RESOLUTION_INFO &res)
-   // Don't set the same mode as current
-   std::string mode;
-   SysfsUtils::GetString("/sys/class/display/mode", mode);
--  if (res.strId == mode)
--    return false;
-+  if (res.strId != mode)
-+    result = SetDisplayResolution(res.strId.c_str());
-+
 +  DealWithScale(res);
- 
--  return SetDisplayResolution(res.strId.c_str());
-+  return result;
- }
- 
- bool CEGLNativeTypeAmlogic::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
-@@ -220,6 +224,29 @@ void CEGLNativeTypeAmlogic::SetupVideoScaling(const char *mode)
++
+   RENDER_STEREO_MODE stereo_mode = g_graphicsContext.GetStereoMode();
+   aml_handle_display_stereo_mode(stereo_mode);
+   
+@@ -233,6 +235,29 @@ void CEGLNativeTypeAmlogic::SetupVideoScaling(const char *mode)
    SysfsUtils::SetInt("/sys/class/graphics/fb0/blank", 0);
  }
  
