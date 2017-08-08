@@ -96,6 +96,29 @@ validate_pkg_url() {
   [ "${url1}" = "${url2}" ] && return 0 || return 1
 }
 
+get_pkg_var() {
+  local pkg_name="$1" pkg_var="$2"
+  cd ../..
+  PROJECT=Generic ARCH=x86_64 source config/options ${pkg_name}
+  echo "${!pkg_var}"
+}
+
+update_pkg() {
+  local pkg_path="$1" pkg_name="$2" pkg_version="$3"
+  local old_version pkg_url new_sha256
+
+  old_version=$(get_pkg_var "${pkg_name}" PKG_VERSION)
+
+  if [ "${old_version}" != "${pkg_version}" ]; then
+    [ -n "$pkg_version}" ] && sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"${pkg_version}\"|g" -i ${pkg_path}
+
+    pkg_url=$(get_pkg_var "${pkg_name}" PKG_URL)
+
+    new_sha256="$(wget -q ${pkg_url} -O- | sha256sum | awk '{print $1}')" || exit 1
+    sed -e "s|PKG_SHA256=.*|PKG_SHA256=\"${new_sha256}\"|g" -i ${pkg_path}
+  fi
+}
+
 if [ ! -d ${KODI_DIR} ] ; then
   git_clone https://github.com/xbmc/xbmc ${KODI_BRANCH} ${KODI_DIR}
 fi
@@ -123,10 +146,7 @@ git_clone $REPO master $PKG_NAME.git $GIT_HASH
 if [ -f ../../packages/mediacenter/kodi-platform/package.mk ] ; then
   # update package.mk
   RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
-  echo "Resolving hash for ${PKG_NAME}: ${GIT_HASH} => ${RESOLVED_HASH}"
-  sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" \
-      -e "s|PKG_GIT_URL=.*|PKG_GIT_URL=\"$REPO\"|g" \
-      -i ../../packages/mediacenter/kodi-platform/package.mk
+  update_pkg ../../packages/mediacenter/kodi-platform/package.mk ${PKG_NAME} ${RESOLVED_HASH}
 fi
 rm -rf $PKG_NAME.git
 
@@ -161,9 +181,7 @@ for addontxt in $KODI_DIR/cmake/addons/bootstrap/repositories/*-addons.txt ; do
       # update package.mk
       RESOLVED_HASH=$(resolve_hash $PKG_NAME.git $GIT_HASH)
       echo "Resolving hash for ${PKG_NAME}: ${GIT_HASH} => ${RESOLVED_HASH}"
-      sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" \
-          -e "s|PKG_GIT_URL=.*|PKG_GIT_URL=\"$REPO\"|g" \
-          -i ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+      update_pkg ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${PKG_NAME} ${RESOLVED_HASH}
 
       rm -rf $PKG_NAME.git
     else
@@ -193,9 +211,7 @@ for ADDON in $(ls -1 ../../packages/mediacenter/kodi-binary-addons); do
   # update package.mk for stale github.com packages
   RESOLVED_HASH=$(resolve_hash ${ADDON}.git HEAD) || continue
   echo "Resolving hash for ${ADDON}: HEAD => ${RESOLVED_HASH}"
-
-  sed -e "s|PKG_VERSION=.*|PKG_VERSION=\"$RESOLVED_HASH\"|g" \
-    -i ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk
+  update_pkg ../../packages/mediacenter/kodi-binary-addons/$ADDON/package.mk ${ADDON} ${RESOLVED_HASH}
 
   rm -rf $ADDON.git
 done

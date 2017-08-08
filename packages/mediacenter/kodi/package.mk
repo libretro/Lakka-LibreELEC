@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="kodi"
-PKG_VERSION="734cda1"
-PKG_SHA256="5224dd437fdd110472fd0612844633642a6959e931f461cd61f1a1bbbb8f6cc4"
+PKG_VERSION="a8fe8e3"
+PKG_SHA256="de78083caa9afe295cbeab9596b3266385f1cd568fa1b085a9f2ddf696d941a5"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
@@ -159,6 +159,12 @@ else
   KODI_SSH="-DENABLE_SSH=OFF"
 fi
 
+if echo "$TARGET_FPU" | grep -q '^neon' || [[ "$TARGET_ARCH" = "aarch64" ]]; then
+  KODI_NEON="-DENABLE_NEON=ON"
+else
+  KODI_NEON="-DENABLE_NEON=OFF"
+fi
+
 if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libvdpau"
   KODI_VDPAU="-DENABLE_VDPAU=ON"
@@ -186,7 +192,7 @@ fi
 if [ ! "$KODIPLAYER_DRIVER" = default ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET $KODIPLAYER_DRIVER"
   if [ "$KODIPLAYER_DRIVER" = bcm2835-driver ]; then
-    KODI_PLAYER="-DCORE_SYSTEM_NAME=rbpi"
+    KODI_PLAYER="-DCORE_PLATFORM_NAME=rbpi"
   elif [ "$KODIPLAYER_DRIVER" = mesa ]; then
     KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm"
     CFLAGS="$CFLAGS -DMESA_EGL_NO_X11_HEADERS"
@@ -225,7 +231,7 @@ PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=$TOOLCHAIN \
                        -DENABLE_LDGOLD=ON \
                        -DENABLE_DEBUGFISSION=OFF \
                        $KODI_ARCH \
-                       $KODI_OPENMAX \
+                       $KODI_NEON \
                        $KODI_VDPAU \
                        $KODI_VAAPI \
                        $KODI_CEC \
