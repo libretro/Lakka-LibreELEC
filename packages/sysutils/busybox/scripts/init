@@ -192,8 +192,11 @@
   error() {
     # Display fatal error message
     # $1:action which caused error, $2:message
+    # Send debug_shell output to stderr, in case caller is redirecting/consuming stdout
+    # Return exitcode=1 so that called may detect when an error has occurred
     echo "*** Error in $BOOT_STEP: $1: $2 ***" >&2
-    debug_shell
+    debug_shell >&2
+    return 1
   }
 
   break_after() {
@@ -221,7 +224,8 @@
 
       usleep 1000000
     done
-    [ "$ERR_ENV" -ne "0" ] && error "mount_common" "Could not mount $1"
+    [ "$ERR_ENV" -eq "0" ] && return 0
+    error "mount_common" "Could not mount $1"
   }
 
   get_iscsistart_options() {
@@ -356,7 +360,7 @@
 
   # mount the specified SYSTEM file and output arch from /etc/os-release
   get_project_arch() {
-    mount_part "$1" "/sysroot" "ro,loop"
+    mount_part "$1" "/sysroot" "ro,loop" || return
 
     if [ -f /sysroot/etc/os-release ]; then
       . /sysroot/etc/os-release
@@ -393,8 +397,10 @@
     local update_filename="${1}"
     local old_system="${2}"
     local new_system="${3}"
-    local old_project_arch="$(get_project_arch "${old_system}")"
-    local new_project_arch="$(get_project_arch "${new_system}")"
+    local old_project_arch new_project_arch
+
+    old_project_arch="$(get_project_arch "${old_system}")" || return
+    new_project_arch="$(get_project_arch "${new_system}")" || return
 
     # If old or new project/arch isn't available then could be very old (pre-/etc/os-release) build - have to trust it
     if [ -n "${old_project_arch}" -a -n "${new_project_arch}" ]; then
