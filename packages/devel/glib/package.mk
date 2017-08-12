@@ -18,12 +18,12 @@
 ################################################################################
 
 PKG_NAME="glib"
-PKG_VERSION="2.52.3"
-PKG_SHA256="25ee7635a7c0fcd4ec91cbc3ae07c7f8f5ce621d8183511f414ded09e7e4e128"
+PKG_VERSION="2.53.5"
+PKG_SHA256="991421f41a4ed4cc1637e5f9db0d03fd236d2cbd19f3c5b097a343bec5126602"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
-PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/2.52/$PKG_NAME-$PKG_VERSION.tar.xz"
+PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/${PKG_VERSION%.*}/$PKG_NAME-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib libffi Python:host util-linux"
 PKG_DEPENDS_HOST="libffi:host pcre:host"
 PKG_SECTION="devel"
@@ -37,11 +37,7 @@ PKG_CONFIGURE_OPTS_HOST="PCRE_LIBS=-l:libpcre.a \
                          --enable-static \
                          --disable-shared \
                          --disable-libmount"
-PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
-                           ac_cv_func_posix_getpwuid_r=yes \
-                           ac_cv_func_posix_getgrgid_r=yes \
-                           ac_cv_func_printf_unix98=yes \
-                           ac_cv_func_snprintf_c99=yes \
+PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_snprintf_c99=yes \
                            ac_cv_func_vsnprintf_c99=yes \
                            glib_cv_stack_grows=no \
                            glib_cv_uscore=no \
@@ -51,6 +47,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_mmap_fixed_mapped=yes \
                            --enable-xattr \
                            --disable-libelf \
                            --disable-gtk-doc \
+                           --disable-gtk-doc-html \
                            --disable-man \
                            --disable-dtrace \
                            --disable-systemtap \
