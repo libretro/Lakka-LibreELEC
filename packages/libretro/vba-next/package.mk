@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="vba-next"
-PKG_VERSION="23e7f0d"
+PKG_VERSION="11f07c7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
