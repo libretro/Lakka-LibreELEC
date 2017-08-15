@@ -1,6 +1,6 @@
 ################################################################################
-#      This file is part of LibreELEC - https://LibreELEC.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodinerds.net"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain xmlstarlet:host"
+PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION=""
 PKG_SHORTDESC="Kodinerds add-on repository"
 PKG_LONGDESC="Kodinerds add-on repository"
