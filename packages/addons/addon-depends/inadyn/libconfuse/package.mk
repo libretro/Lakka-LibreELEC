@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libconfuse"
-PKG_VERSION="3.0"
-PKG_SHA256="0c5970868aca9cb6faa31310340efb2b380eef77759fc1d33c8e37fd108e3935"
+PKG_VERSION="3.2"
+PKG_SHA256="02593cb4fc83854d8d404b77825acfeeff2832e641bd0d9feb4c05a39163279b"
 PKG_LICENSE="https://github.com/martinh/libconfuse/blob/master/LICENSE"
 PKG_SITE="https://github.com/martinh/libconfuse"
 PKG_URL="https://github.com/martinh/libconfuse/archive/v$PKG_VERSION.tar.gz"
