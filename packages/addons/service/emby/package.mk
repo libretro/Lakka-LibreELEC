@@ -17,18 +17,18 @@
 ################################################################################
 
 PKG_NAME="emby"
-PKG_VERSION="3.2.26.0"
-PKG_REV="115"
+PKG_VERSION="3.2.27.0"
+PKG_REV="116"
 PKG_LICENSE="OSS"
 PKG_SITE="http://emby.media"
 PKG_URL="https://github.com/MediaBrowser/Emby/releases/download/$PKG_VERSION/Emby.Mono.zip"
 PKG_DEPENDS_TARGET="toolchain ffmpegx imagemagick"
 PKG_SECTION="service"
 PKG_SHORTDESC="Emby: a personal media server"
-PKG_LONGDESC="Emby ($PKG_VERSION) brings your home videos, music, and photos together, automatically converting and streaming your media on-the-fly to any device"
+PKG_LONGDESC="Emby Server ($PKG_VERSION) brings your home videos, music, and photos together, automatically converting and streaming your media on-the-fly to any device"
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Emby"
+PKG_ADDON_NAME="Emby Server"
 PKG_ADDON_TYPE="xbmc.service"
 PKG_ADDON_REQUIRES="tools.mono:0.0.0"
 PKG_MAINTAINER="Anton Voyl (awiouy)"
