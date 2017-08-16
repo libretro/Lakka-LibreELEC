@@ -107,6 +107,10 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
                            --with-rootprefix=/usr \
                            --with-rootlibdir=/usr/lib"
 
+if [ ! "$LTO_SUPPORT" = yes ]; then
+  PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --disable-lto"
+fi
+
 pre_build_target() {
 # broken autoreconf
   ( cd $PKG_BUILD
