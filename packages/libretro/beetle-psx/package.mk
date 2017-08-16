@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-psx"
-PKG_VERSION="8c07531"
+PKG_VERSION="3a4ca82"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
