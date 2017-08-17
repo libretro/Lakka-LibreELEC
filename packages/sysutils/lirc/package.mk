@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="lirc"
-PKG_VERSION="0.9.4d"
-PKG_SHA256="c68f18c35b489b865c0a741d119b136e8702191538cd3551b977a7af6c4e41ab"
+PKG_VERSION="0.10.0"
+PKG_SHA256="e57c2de8b1b91325d23f1c14fc553ec7912b0add7891e653d048300d38c3f553"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.lirc.org"
@@ -31,10 +31,7 @@ PKG_LONGDESC="LIRC is a package that allows you to decode and send infra-red sig
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_forkpty=no \
-                           ac_cv_lib_util_forkpty=no \
-                           ac_cv_prog_HAVE_PYTHON3=no \
-                           --enable-devinput \
+PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \
                            --localstatedir=/ \
                            --with-gnu-ld \
                            --without-x"
@@ -42,6 +39,7 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_forkpty=no \
 pre_configure_target() {
   export HAVE_WORKING_POLL=yes
   export HAVE_UINPUT=yes
+  export PYTHON=:
   if [ -e ${SYSROOT_PREFIX}/usr/include/linux/input-event-codes.h ] ; then
     export DEVINPUT_HEADER=${SYSROOT_PREFIX}/usr/include/linux/input-event-codes.h
   else
