@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain dbus glib readline systemd"
 PKG_SECTION="network"
 PKG_SHORTDESC="bluez: Bluetooth Tools and System Daemons for Linux."
 PKG_LONGDESC="Bluetooth Tools and System Daemons for Linux."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$DEBUG" = "yes" ]; then
@@ -64,7 +62,7 @@ pre_configure_target() {
   cd $PKG_BUILD
     rm -rf .$TARGET_NAME
 
-  export LIBS="-ltermcap"
+  export LIBS="-lncurses"
 }
 
 post_makeinstall_target() {

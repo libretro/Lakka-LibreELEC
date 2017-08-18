@@ -46,7 +46,6 @@ PKG_CONFIGURE_OPTS_TARGET="--without-ada \
                            --without-dbmalloc \
                            --without-dmalloc \
                            --disable-rpath \
-                           --disable-overwrite \
                            --disable-database \
                            --with-fallbacks=linux,screen,xterm,xterm-color \
                            --disable-big-core \

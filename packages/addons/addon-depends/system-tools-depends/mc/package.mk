@@ -24,7 +24,7 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.midnight-commander.org"
 PKG_URL="http://ftp.midnight-commander.org/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain libtool:host gettext:host glib pcre netbsd-curses"
+PKG_DEPENDS_TARGET="toolchain libtool:host gettext:host glib pcre ncurses"
 PKG_SECTION="tools"
 PKG_SHORTDESC="mc: visual file manager"
 PKG_LONGDESC="mc is a visual file manager, licensed under GNU General Public License and therefore qualifies as Free Software. It's a feature rich full-screen text mode application that allows you to copy, move and delete files and whole directory trees, search for files and run commands in the subshell. Internal viewer and editor are included"
@@ -48,11 +48,6 @@ PKG_CONFIGURE_OPTS_TARGET="--sysconfdir=/storage/.kodi/addons/virtual.system-too
             --with-internal-edit \
             --without-diff-viewer \
             --with-subshell"
-
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -I$SYSROOT_PREFIX/usr/include/ncurses"
-  export LDFLAGS="$(echo $LDFLAGS | sed -e "s|-Wl,--as-needed||") -ltermcap"
-}
 
 post_makeinstall_target() {
   rm -rf $INSTALL/storage/.kodi/addons/virtual.system-tools/data/locale

@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -24,12 +24,10 @@ PKG_LICENSE="LGPL"
 PKG_SITE="http://www.mysql.com"
 PKG_URL="http://ftp.gwdg.de/pub/misc/$PKG_NAME/Downloads/MySQL-5.7/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_HOST="toolchain zlib:host"
-PKG_DEPENDS_TARGET="toolchain zlib netbsd-curses openssl boost mysql:host"
+PKG_DEPENDS_TARGET="toolchain zlib ncurses openssl boost mysql:host"
 PKG_SECTION="database"
 PKG_SHORTDESC="mysql: A database server"
 PKG_LONGDESC="MySQL is a SQL (Structured Query Language) database server. SQL is the most popular database language in the world. MySQL is a client server implementation that consists of a server daemon mysqld and many different client programs/libraries."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 post_unpack() {

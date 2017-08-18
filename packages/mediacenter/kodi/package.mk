@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python z
 PKG_SECTION="mediacenter"
 PKG_SHORTDESC="kodi: Kodi Mediacenter"
 PKG_LONGDESC="Kodi Media Center (which was formerly named Xbox Media Center or XBMC) is a free and open source cross-platform media player and home entertainment system software with a 10-foot user interface designed for the living-room TV. Its graphical user interface allows the user to easily manage video, photos, podcasts, and music from a computer, optical disk, local network, and the internet using a remote control."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 get_graphicdrivers
@@ -254,7 +252,7 @@ pre_configure_target() {
 # kodi should never be built with lto
   strip_lto
 
-  export LIBS="$LIBS -lz -lterminfo"
+  export LIBS="$LIBS -lncurses"
 }
 
 post_makeinstall_target() {
