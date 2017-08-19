@@ -29,6 +29,8 @@ PKG_SHORTDESC="MPEG2 transport stream data generator and packet manipulator"
 PKG_LONGDESC="OpenCaster is a free and open source MPEG2 transport stream data generator and packet manipulator"
 PKG_AUTORECONF="no"
 
+PKG_MAKE_OPTS_TARGET="CC=$CC"
+
 pre_makeinstall_target() {
   mkdir -p $PKG_BUILD/.install_pkg
 }
