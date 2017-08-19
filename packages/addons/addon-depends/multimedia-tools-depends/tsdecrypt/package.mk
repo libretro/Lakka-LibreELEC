@@ -31,6 +31,14 @@ PKG_SHORTDESC="tsdecrypt"
 PKG_LONGDESC="tsdecrypt reads incoming mpeg transport stream over UDP/RTP and then decrypts it using libdvbcsa/ffdecsa and keys obtained from OSCAM or similar cam server"
 PKG_AUTORECONF="no"
 
+make_target() {
+  make CC=$CC LINK="$LD -o"
+}
+
+post_make_target() {
+  make strip STRIP=$STRIP
+}
+
 makeinstall_target() {
   : # nop
 }
