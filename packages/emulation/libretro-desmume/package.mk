@@ -39,19 +39,19 @@ PKG_LIBVAR="DESMUME_LIB"
 make_target() {
   case $PROJECT in
     RPi)
-      make -f Makefile.libretro platform=armv6-hardfloat-arm1176jzf-s
+      make -f Makefile.libretro CC=$CC platform=armv6-hardfloat-arm1176jzf-s
       ;;
     RPi2)
-      make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a7
+      make -f Makefile.libretro CC=$CC platform=armv7-neon-hardfloat-cortex-a7
       ;;
     imx6)
-      make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a9
+      make -f Makefile.libretro CC=$CC platform=armv7-neon-hardfloat-cortex-a9
       ;;
     WeTek_Play|WeTek_Core)
-      make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a9
+      make -f Makefile.libretro CC=$CC platform=armv7-neon-hardfloat-cortex-a9
       ;;
     Generic)
-      make -f Makefile.libretro
+      make -f Makefile.libretro CC=$CC
       ;;
   esac
 }
