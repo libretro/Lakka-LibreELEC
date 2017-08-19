@@ -30,6 +30,8 @@ PKG_SHORTDESC="Shows the scancode of the pressed or released key"
 PKG_LONGDESC="Shows the scancode of the pressed or released key"
 PKG_AUTORECONF="no"
 
+PKG_MAKE_OPTS_TARGET="CC=$CC"
+
 makeinstall_target() {
   : # nop
 }
