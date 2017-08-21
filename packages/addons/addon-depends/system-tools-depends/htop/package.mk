@@ -1,5 +1,5 @@
 ################################################################################
-#      This file is part of LibreELEC - https://LibreELEC.tv
+#      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
@@ -23,11 +23,10 @@ PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://hisham.hm/htop"
 PKG_URL="https://github.com/hishamhm/htop/archive/$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain netbsd-curses"
+PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="tools"
 PKG_SHORTDESC="An interactive process viewer for Unix"
 PKG_AUTORECONF="yes"
 
-pre_configure_target() {
-  export CFLAGS="$CFLAGS -fno-strict-aliasing -lncurses -lterminfo"
-}
+PKG_CONFIGURE_OPTS_TARGET="--disable-unicode \
+                           HTOP_NCURSES_CONFIG_SCRIPT=ncurses-config"

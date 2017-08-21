@@ -17,25 +17,22 @@
 ################################################################################
 
 PKG_NAME="readline"
-PKG_VERSION="6.3"
-PKG_SHA256="56ba6071b9462f980c5a72ab0023893b65ba6debb4eeb475d7a563dc65cafd43"
+PKG_VERSION="7.0"
+PKG_SHA256="750d437185286f40a369e1e4f4764eda932b9459b5ec9a731628393dd3d32334"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://www.gnu.org/software/readline/"
 PKG_URL="http://ftpmirror.gnu.org/readline/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain netbsd-curses"
+PKG_DEPENDS_TARGET="toolchain ncurses"
 PKG_SECTION="devel"
 PKG_SHORTDESC="readline: The GNU Readline library provides a set of functions for use by applications that allow users to edit command lines as they are typed in."
 PKG_LONGDESC="The GNU Readline library provides a set of functions for use by applications that allow users to edit command lines as they are typed in."
-PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="bash_cv_wcwidth_broken=no \
                            --disable-shared \
                            --enable-static \
-                           --with-curses \
-                           --without-purify"
+                           --with-curses"
 
 pre_configure_target() {
   CFLAGS="$CFLAGS -fPIC"
