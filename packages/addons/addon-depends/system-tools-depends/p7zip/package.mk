@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,8 +30,17 @@ PKG_SHORTDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_LONGDESC="p7zip is a port of 7za.exe for POSIX systems like Unix"
 PKG_AUTORECONF="no"
 
+make_host() {
+  make CXX=$CXX CC=$CC 7za
+}
+
 make_target() {
-  make TARGET_CXX=$CXX TARGET_CC=$CC 7z 7za
+  make CXX=$CXX CC=$CC 7z 7za
+}
+
+makeinstall_host() {
+  mkdir -p $TOOLCHAIN/bin
+    cp bin/7za $TOOLCHAIN/bin
 }
 
 makeinstall_target() {
