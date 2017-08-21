@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="dispmanx_vnc"
-PKG_VERSION="78e6673"
-PKG_REV="102"
+PKG_VERSION="77b33a6"
+PKG_REV="103"
 PKG_ARCH="arm"
 PKG_ADDON_PROJECTS="RPi RPi2"
 PKG_LICENSE="OSS"
