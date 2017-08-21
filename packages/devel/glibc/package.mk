@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="glibc"
-PKG_VERSION="2.25"
-PKG_SHA256="067bd9bb3390e79aa45911537d13c3721f1d9d3769931a30c2681bfee66f23a0"
+PKG_VERSION="2.26"
+PKG_SHA256="e54e0a934cd2bc94429be79da5e9385898d2306b9eaf3c92d5a77af96190f6bd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.gnu.org/software/libc/"
@@ -50,6 +50,7 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --without-cvs \
                            --without-gd \
                            --enable-obsolete-rpc \
+                           --enable-obsolete-nsl \
                            --disable-build-nscd \
                            --disable-nscd \
                            --enable-lock-elision \

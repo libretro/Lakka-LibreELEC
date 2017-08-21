@@ -17,12 +17,12 @@
 ################################################################################
 
 PKG_NAME="udpxy"
-PKG_VERSION="1.0.23-0"
-PKG_SHA256="b5b3523f20c82b0249acced317daa65ec1791ceed4e5f8f582ecf79067f41a18"
+PKG_VERSION="1.0.23-9"
+PKG_SHA256="6ce33b1d14a1aeab4bd2566aca112e41943df4d002a7678d9a715108e6b714bd"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.udpxy.com/download-en.html"
-PKG_URL="$SOURCEFORGE_SRC/project/udpxy/udpxy/Chipmunk-1.0/${PKG_NAME}.${PKG_VERSION}-prod.tar.gz"
+PKG_URL="http://www.udpxy.com/download/1_23/${PKG_NAME}.${PKG_VERSION}-prod.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="udpxy is a UDP-to-HTTP multicast traffic relay daemon"
