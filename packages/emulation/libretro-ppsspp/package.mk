@@ -50,19 +50,19 @@ pre_make_target() {
 make_target() {
   case $PROJECT in
     RPi)
-      make -C libretro platform=armv6-gles-hardfloat-arm1176jzf-s
+      make -C libretro CC=$CC CXX=$CXX platform=armv6-gles-hardfloat-arm1176jzf-s
       ;;
     RPi2)
-      make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a7
+      make -C libretro CC=$CC CXX=$CXX platform=armv7-neon-gles-hardfloat-cortex-a7
       ;;
     imx6)
-      make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
+      make -C libretro CC=$CC CXX=$CXX platform=armv7-neon-gles-hardfloat-cortex-a9
       ;;
     WeTek_Play|WeTek_Core)
-      make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
+      make -C libretro CC=$CC CXX=$CXX platform=armv7-neon-gles-hardfloat-cortex-a9
       ;;
     Generic)
-      make -C libretro
+      make -C libretro CC=$CC CXX=$CXX
       ;;
   esac
 }
