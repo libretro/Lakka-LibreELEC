@@ -61,10 +61,12 @@ class PNGPatternPlayer(threading.Thread):
 
   def clearPattern(self):
     with open('/dev/ws2812', 'wb') as f:
-      f.write(bytearray(25))
+      'write null multiple times as the LEDs can get locked up with fast operations'
+      for n in range(5):
+        f.write(bytearray(25))
 
   def playPattern(self, file, delay):
-    xbmc.log('playing pattern: %s' % file, xbmc.LOGNOTICE)
+    xbmc.log('playing pattern: %s' % file, xbmc.LOGDEBUG)
 
     'get pixel data from a cache if available, otherwise load and calculate'
     if file not in self.memo:
@@ -108,7 +110,7 @@ class PNGPatternPlayer(threading.Thread):
     else:
       self.patterns.put((file, repeat, delay, False))
 
-  def stop(wait=None):
+  def stop(self, wait=None):
     self.play(None, wait=wait)
 
   def run(self):
@@ -138,16 +140,24 @@ class SlicePlayer(xbmc.Player):
     xbmc.Player.__init__(self)
 
     'maps kodi player speed to delay in seconds'
-    self.speed_map = { 1: 0.060,
-                       2: 0.040,
-                       4: 0.035,
-                       8: 0.030,
-                      16: 0.025,
-                      32: 0.015,
+    self.speed_map = {-32: 0.015,
+                      -16: 0.025,
+                       -8: 0.030,
+                       -4: 0.035,
+                       -2: 0.040,
+                       -1: 0.060,
+                        0: 0.000,
+                        1: 0.060,
+                        2: 0.040,
+                        4: 0.035,
+                        8: 0.030,
+                       16: 0.025,
+                       32: 0.015,
                       }
 
     self.speed = 1
     patterns.play('startup', False, 0.02)
+    xbmc.log('service.slice add-on started', xbmc.LOGNOTICE)
 
   def onPlayBackEnded(self):
     'Will be called when Kodi stops playing a file'
@@ -169,8 +179,8 @@ class SlicePlayer(xbmc.Player):
 
     # todo: not working
 
-    xbmc.log('time offset: %d' % iTime, xbmc.LOGNOTICE)
-    xbmc.log('seek offset: %d' % seekOffset, xbmc.LOGNOTICE)
+    xbmc.log('time offset: %d' % iTime, xbmc.LOGDEBUG)
+    xbmc.log('seek offset: %d' % seekOffset, xbmc.LOGDEBUG)
 
     if seekOffset > 0:
       patterns.play('skipf')
@@ -184,15 +194,17 @@ class SlicePlayer(xbmc.Player):
   def onPlayBackSpeedChanged(self, speed):
     'Will be called when players speed changes. (eg. user FF/RW)'
 
-    xbmc.log('seek speed: %d' % speed, xbmc.LOGNOTICE)
+    xbmc.log('seek speed: %d' % speed, xbmc.LOGDEBUG)
 
     self.speed = speed
 
     if self.speed != 1:
-      patterns.play('ffwd' if self.speed > 0 else 'rew', True, self.speed_map[self.speed])
+      if self.speed < 0:
+        patterns.play('rew', True, self.speed_map[self.speed])
+      elif self.speed > 0:
+        patterns.play('ffwd', True, self.speed_map[self.speed])
     else:
       patterns.stop()
-      #OR: patterns.play('play') ???
 
   def onPlayBackStarted(self):
     'Will be called when Kodi starts playing a file'
