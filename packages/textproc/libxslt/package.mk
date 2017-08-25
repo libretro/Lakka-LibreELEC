@@ -31,6 +31,7 @@ PKG_LONGDESC="libxslt"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="  ac_cv_header_ansidecl_h=no \
+                           ac_cv_header_xlocale_h=no \
                            --enable-static \
                            --disable-shared \
                            --without-python \
@@ -38,6 +39,7 @@ PKG_CONFIGURE_OPTS_HOST="  ac_cv_header_ansidecl_h=no \
                            --without-crypto"
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_header_ansidecl_h=no \
+                           ac_cv_header_xlocale_h=no \
                            --enable-static \
                            --disable-shared \
                            --without-python \
