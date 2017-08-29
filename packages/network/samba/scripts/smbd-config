@@ -35,6 +35,21 @@ if [ "$SAMBA_AUTOSHARE" == "true" ] ; then
   done
 fi
 
+ADD_CONFIG=
+
+# If workgroup is not set, don't set it - who knows, user may know better.
+if [ -n "$SAMBA_WORKGROUP" ]; then
+  # Remove any existing workgroup setting
+  sed -E '/^[[:space:]]*workgroup[[:space:]]*=/d' -i $SMB_CONF
+  ADD_CONFIG="${ADD_CONFIG}  workgroup = ${SAMBA_WORKGROUP:-WORKGROUP}\n"
+fi
+
+ADD_CONFIG="${ADD_CONFIG}  server min protocol = ${SAMBA_MINPROTOCOL/SMB1/NT1}\n"
+ADD_CONFIG="${ADD_CONFIG}  server max protocol = ${SAMBA_MAXPROTOCOL/SMB1/NT1}\n"
+
+# Add extra config after [global], escaping spaces so that all are retained by sed
+sed -e "/\[global\]/ a ${ADD_CONFIG// /\\ }" -i $SMB_CONF
+
 # only letters & numbers permitted for username & password
   SAMBA_USERNAME=`echo $SAMBA_USERNAME | sed "s/[^a-zA-Z0-9]//g;"`
   SAMBA_PASSWORD=`echo $SAMBA_PASSWORD | sed "s/[^a-zA-Z0-9]//g;"`
