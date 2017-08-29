@@ -65,7 +65,7 @@ case "$LINUX" in
   *)
     PKG_VERSION="4.12.9"
     PKG_SHA256="690439175c9dfbb90159bdc4b24cf10011675392264764f2031eb19ce0a1649c"
-    PKG_URL="http://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
+    PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
 esac
