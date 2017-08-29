@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="dispmanx_vnc"
-PKG_VERSION="78e6673"
-PKG_SHA256="e8db919d02fa9ff4ecf16d5831e3809bfc2bfa40c0a714c17fb07d7922e7bf8a"
+PKG_VERSION="77b33a6"
+PKG_SHA256="69ca5b7bd18709cb8df1054d1656c0be30fbdae6ccfefaffe70e313df4e31b4f"
 PKG_REV="103"
 PKG_ARCH="arm"
 PKG_ADDON_PROJECTS="RPi RPi2"

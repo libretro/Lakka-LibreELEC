@@ -17,14 +17,14 @@
 ################################################################################
 
 PKG_NAME="libvncserver"
-PKG_VERSION="0.9.10"
-PKG_SHA256="ed10819a5bfbf269969f97f075939cc38273cc1b6d28bccfb0999fba489411f7"
+PKG_VERSION="0.9.11"
+PKG_SHA256="193d630372722a532136fd25c5326b2ca1a636cbb8bf9bb115ef869c804d2894"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libvnc.github.io/"
 PKG_URL="https://github.com/LibVNC/libvncserver/archive/LibVNCServer-$PKG_VERSION.tar.gz"
 PKG_SOURCE_DIR="libvncserver-LibVNCServer-$PKG_VERSION"
-PKG_DEPENDS_TARGET="toolchain libjpeg-turbo libpng"
+PKG_DEPENDS_TARGET="toolchain libjpeg-turbo libpng openssl"
 PKG_SECTION="libs"
 PKG_SHORTDESC="LibVNCServer/LibVNCClient are cross-platform C libraries that allow you to easily implement VNC server or client functionality in your program."
 PKG_LONGDESC="LibVNCServer/LibVNCClient are cross-platform C libraries that allow you to easily implement VNC server or client functionality in your program."
