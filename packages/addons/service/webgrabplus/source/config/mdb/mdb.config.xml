@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Configuration file for the MDB (Movie Data Base) postprocessor of WebGrab+Plus
+by Jan van Straaten, December 2011
+WebGrab+Plus Version V1.1.0
+-->
+<!--  Introduction:
+This MDB postprocessor of WebGrab+Plus, which is available from Version 1.1.0 onwards, automatically adds MDB (eg IMDb) data to the xmltv file created by the basic WebGrab+Plus EPG frontend grabber. 
+To activate/de-activate this postprocess, use the <postprocess> setting in WebGrab++.config.xml
+
+This postprocessor performs the following steps:
+1. Select ('candidate' shows from the xmltv input file)
+      see <selectmovie> and <selectserie> settings.
+2. Match (the selected show 'candidates' with shows in the online MDB (e.g. IMDb.com))
+      see <matchmovie> and <matchserie> setting.
+3. Grab (the MDB data) by default the following data is grabbed :
+      (original show-) title, starrating, plot, description, commentsummaries and reviews
+4. Merge (the grabbed MDB data with the epg data from existing xmltv file)
+      see allocation and presentation. 
+      
+The resulting xmltv output file (see xmltv file , <filename>) must be different from the xmltv input file . (changing that would disturb the incremental nature of the epg grabbing) 
+
+Matching the selected shows is done in two steps:
+2.1 Primary search in a general search site like BING, ASK or YAHOO
+      this results in a number of possible show-id's for the next step:
+2.2 Verify the results of the primary search in a MDB site like IMDb
+      each of the show-id's from step 2.1 is examed for a match with the <matchmovie> and <matchserie> setting.
+      
+Similar to the function of the siteini's in the epg grabbing all site dependent settings are stored in mdbini files.      
+	  see mdbini files.
+The Match and Grab results can be saved in a mdb data file. This speeds up the process.
+    see local MDB data file.
+    
+This file (mdb.config.xml), the mdbini files (e.g imdb.com.ask.ini) and the mdbdata file (mdb.xml) are stored in the MDB postprocess home folder C:\ProgramData\ServerCare\WebGrab\MDB
+-->
+<settings>
+  <!--mdbini files: 
+mdb site(s) to use, must correspond with an ini file, e.g. if imdb.es there must be an imdb.es.ini.
+If a second site is entered here, it will be used as a 'second chance' if the first doesn't find a match for a certain show.
+examples :
+<site>imdb.com/site>-->
+  <site>imdb.com.ask, imdb.com.imdb</site>
+  
+  <!--xmltv file : The xmltv target file in which the mdb data will be merged with the grabbed EPG.
+Because of the incremental nature of the grabbing process this file must be different (name and/or path) from the target file of the grabbing as specified in WebGrab++.Config.xml <filename> !! 
+If omitted here or if by mistake the same file is specified , the file path will be changed to  C:\ProgramData\ServerCare\WebGrab\mdb\ -->
+  <filename>guide.xml</filename>
+  
+  <!--local MDB data file
+The file that stores the mdb data locally with the intention to re-use already grabbed data which will speed up the grabbing of the mdb data.
+If not specified no MDB data file will be used.
+- update ; determines how the local MDB database file is updated
+      update=""  , left blank , will not be updated 
+      update="i" , incremental, only the selected shows will be saved in the local MDB data file
+      update="f" , all shows will be kept and new shows added. This is the prefered update mode.
+      (Over time this MDB data file could grow to an unpractical size with update="f". Unpractical if the time to match a selected show in this file exceeds the time to do the same online).   -->
+  <ldbfilename update="f">mdb.xml</ldbfilename>
+  
+  <!--Selection :
+  selectmovie and/or selectserie: the imdb postprocessor selects shows from the xmltv file for which imdb data will be attempted to optain based on these two selection settings.
+- duration="45" ; minumum duration is 45 minutes
+- contains="film,thriller,movie" ; the epg data must contain at least these words or any other. This also allows to select single shows! Other example: contains="Kill the Irishman", will select shows that contains this sentence.
+- musthave="title" ; obviously the epg show must have a title, if omitted the value is title, other additional musthave xmltv elements can be entered here.
+- optional="productiondate,actor,director" ; specifies which xmltv elements will be added to the selection if available.
+- minimum="2" ; specifies how many of the musthave + optional elements must be available for a show to be selected
+- addif="subtitle,titleoriginal" ; additional xmltv elements if available on top of the minimum, not yet implemented!-->
+  <selectmovie duration="55" minumum="3" musthave="title" contains=" " optional="productiondate,actor,director"/>
+  <selectserie duration="25" minumum="3" musthave="title" contains="serie,soap,thriller,comedy,drama" optional="productiondate,actor,director"/>
+  
+  <!--match , compare the epg and mdb values
+- mustmatch ; default title , only possibly added by subtitle
+- optional ; other elements that can be added to compare are: productiondate,actor,director
+- minimum ; how many of the above needs to match-->
+  <matchmovie mustmatch="title" optional="productiondate,actor,director" minimum="2"/>
+  <matchserie mustmatch="title" optional="productiondate,actor,director" minimum="2"/>
+  
+  <!--Allocation and presentation of mdb elements in the xmltv target file
+This MDB-postprocessor makes use of the REX-postprocessor to allocate the mdb elements in the xmltv target. Please read the detailed explanation in rex.config.xml for information about the background of the specification syntax. -->
+<![CDATA[
+Here only the summary of it:
+1. Syntax
+  - the content of the xmltv-target elements can be specified by means of a mixture of text and element-values.
+  - the element-values must be entered by their element-name enclosed by ''
+  - multiple value elements (like actor) will be converted to single value elements if the xmltv-target element is a single value element, like <desc>. The individual values will be listed with a (standard WG++ internal element separator) | as separator unless another separator is specified as follows:
+'element-name(separator-string)' e.g. 'actor(, )'
+  - text and element-names can be linked together by enclosing them by {}. This will ensure that, when the element in it is empty, everything between the {} is ignored. E.g. {\nProduced in : ('productiondate')} 
+  - the text in the xmltv-target elements may contain the following simple formatting :
+      - \n or \r to force a newline
+      - \t to add a tab  
+2. The allowed xmltv-target elements (the ones in the target file specified above) are :
+  <title> (= special case : if the first mdb-title, which is the original showtitle, differs from the xmltv title it can be added to xmltv as extra 'original' title.)
+  <sub-title>
+  <desc>
+  <date> = the xmltv element name containing the productiondate
+  <star-rating>
+  <review> (=optional new xmltv element)
+  <director> e.g to add /substitute the (additional?) mdb-director
+  <actor> e.g to add /substitute the (additional?) mdb-actor          
+  - IMPORTANT! : any of the above listed xmltv-target elements that is specified in this allocation specification, replaces the existing xmltv element and its content!  
+3. Supported element-names (from the existing xmltv listing, name definitions as in Appendix D) :
+  - 'title' 'description' 'starrating' 'subtitle' 'productiondate' 'category' 'director' 'actor' 'presenter' 'writer' 'composer' 'producer' 'rating' 'episode' 'review'  'subtitles' 'premiere' previously-shown' 'aspect' 'quality'  
+4. Supported MDB element-names
+  - 'mdb-title' :
+   If 'mdb-title' is used in the xmltv-target element <title>, it will only be added if different from the existing xmltv title (see 2. above)
+   If used in any of the other supported xmltv-target elements, there is no such restriction and it will be listed in any case.
+  - 'mdb-starrating' 'mdb-description' 'mdb-plot' 'mdb-commentsummary' 
+5. Attributes (might need completion)  
+  - for each of the xmltv-elements the following attribute can be specified
+          (if not specified the existing one, if present in the xmltv, will be used) :
+      - lang   for <title> and <desc> , default : no attribute
+      - system   for <star-rating> , default : no attribute
+      - type  for <review> , default: type="text"   ]]>
+  
+  <!--mdb-starrating correction:
+allows to convert the mdb-starrating into a value that suits a media-center starrating display. E.g. , the majority of the IMDb starrating values are between 4 (bad) and 8 (good) in a scale of 10. In a 5 star display system , like the one in MCE, there is too little difference between these values.  
+The following settings, first subtracts 4 from the grabbed mdb-starrating and multiplies the result by 1.2 with a maximum of 5 . That will convert the values above, in 0 (was 4) and 5 (was 8) 
+   Default values: subtract="0" multiply="1" and max="10"-->
+  <mdb-starrating subtract="4" multiply="1.2" max="5" />
+  
+  <!--The next two lines add mdb-title (if different) as an extra <title> element before the existing one:  -->
+  <title lang="xx">'mdb-title'</title>
+  <title>'title'</title>
+  
+  <!--The following line replaces the existing <desc> by this one, composed as follows:
+  The value of the first mdb-title, then ... [plot: , then the value of mdb-plot, then ] , then on a newline the existing description, then on a newline the text [imdb descriptin: , followed by the value of the mdb-description-->
+  <desc>{'mdb-title'...}{[plot: 'mdb-plot']\n}'description'{\n[imdb description: 'mdb-description']}</desc>
+  
+  <!--The next two lines replace the existing star-rating element(s) (if any) with the two specified here.  First is the existing followed by the mdb-starrating -->
+  <star-rating>'starrating'</star-rating>
+  <star-rating system="imdb">'mdb-starrating'</star-rating>
+  
+  <!--It is also possible to add the two starrating values into one <star-rating> element:
+  <star-rating system="mixed">From Site : 'starrating'\t\tFrom IMDb : 'mdb-starrating'</star-rating>  -->
+  
+  <!--The next example shows that it is possible to create multiple elements, it splits the review data in two <review> elements-->
+  <review>{Viewers comments : 'mdb-commentsummary( ... )'}</review>
+  <review type="text">{IMDb review: 'mdb-review'}</review>
+  
+  <!--channels, a way to exclude channels that don’t need mdb processing.
+  As default, all channels in the WebGrab++.config.xml will be used to select shows.
+  Channels in the following list are excluded if update="" (left blank), any other value will keep the channel included.
+  This list has the same format as the channel-list in WebGrab++.config and the channel files in the siteini.pack. -->
+  <channel update="" site="disney.nl" site_id="DisneyChannel" xmltv_id="Disney Channel">Disney Channel</channel>
+  <channel update="" site="tvgids.upc.nl" site_id="7K" xmltv_id="RTL 4">RTL 4</channel>
+  
+</settings>
