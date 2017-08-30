@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="retroarch-assets"
-PKG_VERSION="178e822"
+PKG_VERSION="4c51079"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

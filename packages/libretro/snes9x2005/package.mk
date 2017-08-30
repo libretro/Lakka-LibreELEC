@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="snes9x2005"
-PKG_VERSION="b94a804"
+PKG_VERSION="12b1ae1"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
