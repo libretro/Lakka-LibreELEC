@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pvr.mediaportal.tvserver"
-PKG_VERSION="d7a9acd"
-PKG_SHA256="58cc7c7cda6130791ed017df3f9b8b4410ce3dae06394810bb0f44860eb51cdb"
+PKG_VERSION="c86ab35"
+PKG_SHA256="26262b9e76ee1a67404dbc4f86e5b4bb02959967cca7b92d79ddeddbd905dfcc"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
