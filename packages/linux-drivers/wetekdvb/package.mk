@@ -43,11 +43,11 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/$PKG_NAME
+  mkdir -p $INSTALL/$(get_full_module_dir)/$PKG_NAME
   if [ $PROJECT = "WeTek_Play_2" ]; then
-    cp driver/wetekdvb_play2.ko $INSTALL/usr/lib/modules/$(get_module_dir)/$PKG_NAME/wetekdvb.ko
+    cp driver/wetekdvb_play2.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME/wetekdvb.ko
   else
-    cp driver/wetekdvb.ko $INSTALL/usr/lib/modules/$(get_module_dir)/$PKG_NAME
+    cp driver/wetekdvb.ko $INSTALL/$(get_full_module_dir)/$PKG_NAME
   fi
 
   mkdir -p $INSTALL/usr/lib/firmware
