@@ -30,7 +30,7 @@ PKG_LONGDESC="inputstream.adaptive"
 PKG_IS_ADDON="yes"
 
 addon() {
-  install_binary_addon $PKG_NAME $PKG_ADDON_ID
+  install_binary_addon $PKG_ADDON_ID
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
   cp -P $PKG_BUILD/.$TARGET_NAME/wvdecrypter/libssd_wv.so $ADDON_BUILD/$PKG_ADDON_ID
