@@ -271,8 +271,8 @@ post_makeinstall_target() {
     cp $PKG_DIR/scripts/kodi-config $INSTALL/usr/lib/kodi
     cp $PKG_DIR/scripts/kodi.sh $INSTALL/usr/lib/kodi
 
-  mkdir -p $INSTALL/usr/lib/libreelec
-    cp $PKG_DIR/scripts/systemd-addon-wrapper $INSTALL/usr/lib/libreelec
+  mkdir -p $INSTALL/usr/sbin
+    cp $PKG_DIR/scripts/service-addon-wrapper $INSTALL/usr/sbin
 
   mkdir -p $INSTALL/usr/bin
     cp $PKG_DIR/scripts/cputemp $INSTALL/usr/bin
