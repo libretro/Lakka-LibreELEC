@@ -42,7 +42,7 @@ make_target() {
 
 # Install additional miscellaneous drivers
 makeinstall_target() {
-  FW_TARGET_DIR=$INSTALL/usr/lib/firmware
+  FW_TARGET_DIR=$INSTALL/$(get_full_firmware_dir)
 
   FW_LISTS="${PKG_DIR}/firmwares/any.dat ${PKG_DIR}/firmwares/${TARGET_ARCH}.dat"
   FW_LISTS+=" ${PROJECT_DIR}/${PROJECT}/${PKG_NAME}/firmwares/any.dat"
