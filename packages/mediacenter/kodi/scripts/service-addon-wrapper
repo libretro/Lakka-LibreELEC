@@ -64,3 +64,48 @@ if [ -f "${SERVICE_FILE}" ] ; then
       ;;
   esac
 fi
+
+if [ ! -d /storage/.cache/kernel-overlays ] ; then
+  mkdir -p /storage/.cache/kernel-overlays
+fi
+
+# kernel-overlay addons built into the image have their
+# files installed in the default /usr/lib/kernel-overlays
+# location, not inside the kodi addon dir
+
+case "${ADDON_PATH}" in
+  /usr/share/kodi/addons/*)
+    OVERLAY_PATH="/usr/lib/kernel-overlays/${ADDON_ID}"
+    ;;
+  *)
+    OVERLAY_PATH="${ADDON_PATH}/kernel-overlay"
+    ;;
+esac
+
+create_overlay_conf() {
+  rm -f "${OVERLAY_CONF}"
+  echo "${OVERLAY_PATH}" > "${OVERLAY_CONF}"
+}
+
+if [ -d "${OVERLAY_PATH}" ] ; then
+  OVERLAY_CONF="/storage/.cache/kernel-overlays/50-${ADDON_ID}.conf"
+
+  case "${CONTEXT}" in
+    enable | post-install )
+      create_overlay_conf
+      ;;
+    disable | pre-uninstall )
+      rm -f "${OVERLAY_CONF}"
+      ;;
+    update )
+      if [ -e "${OVERLAY_CONF}" ] ; then
+        create_overlay_conf
+      fi
+      ;;
+    *)
+      echo "$0: unknown overlay context $CONTEXT"
+      exit 1
+      ;;
+  esac
+
+fi
