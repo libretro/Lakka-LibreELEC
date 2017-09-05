@@ -66,6 +66,7 @@ post_makeinstall_target() {
     ln -sf /usr/bin/kmod $INSTALL/usr/sbin/rmmod
     ln -sf /usr/bin/kmod $INSTALL/usr/sbin/modinfo
     ln -sf /usr/bin/kmod $INSTALL/usr/sbin/modprobe
+    ln -sf /usr/bin/kmod $INSTALL/usr/sbin/depmod
 
   mkdir -p $INSTALL/etc
     ln -sf /storage/.config/modprobe.d $INSTALL/etc/modprobe.d
