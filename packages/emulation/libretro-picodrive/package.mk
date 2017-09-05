@@ -18,8 +18,8 @@
 
 
 PKG_NAME="libretro-picodrive"
-PKG_VERSION="d6be4fa"
-PKG_SHA256="ed57ec91534cbcba63ece9b6e037f974f2c01eda4d7c4d5e1eabc2d2766b2e61"
+PKG_VERSION="cbc93b6"
+PKG_SHA256="40d1022ea0ff1afd763212a9526da618c0f65f6c9b50a417e2c41280f1eb0e55"
 PKG_ARCH="any"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/picodrive"

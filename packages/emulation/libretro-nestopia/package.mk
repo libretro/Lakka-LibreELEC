@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-nestopia"
-PKG_VERSION="ebd462b"
-PKG_SHA256="983b3661780aee0fffa9571f9a09cc30671a1312996c2341d745110a30b4ccdb"
+PKG_VERSION="c4c7de4"
+PKG_SHA256="11e469cd96be7f4f5ea52dc9fc159f48d1ece11471c7426b0f2dce5d725f5574"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"

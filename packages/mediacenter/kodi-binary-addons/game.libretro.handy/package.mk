@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.handy"
-PKG_VERSION="bf3d91c"
-PKG_SHA256="7ad5a5080987a7f74ad6d1dd3a861a59a423a2df0f1c076fb717246f6116de7f"
-PKG_REV="101"
+PKG_VERSION="e39e728"
+PKG_SHA256="bbc1f2211e2089a5bb651671a6778a6c18dc014d556803314a2755eda56cbb06"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.handy"

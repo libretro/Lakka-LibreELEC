@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-scummvm"
-PKG_VERSION="011f40a"
-PKG_SHA256="d1c62935dc2808f8112cd7bfef4a27a6ddfa196366377a494e0c5e6bdf080998"
+PKG_VERSION="0013c98"
+PKG_SHA256="ed10134d42e9029561322b30e95d68d2ec2f1868ce9a1fa4047371841cb80ef5"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/scummvm"

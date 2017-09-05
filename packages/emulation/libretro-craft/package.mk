@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-craft"
-PKG_VERSION="4a11641"
-PKG_SHA256="918384a177bbb6caad1e275da09bcbf1d17c029dbeba002189aa3af95ca17980"
+PKG_VERSION="a662b3b"
+PKG_SHA256="b4511fcb5061c0914a9447065701a61687bc5e2a852b4bf0b9636bbb1e8f33b8"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Craft"
@@ -46,10 +46,14 @@ pre_configure_target() {
 make_target() {
   case $PROJECT in
     RPi)
-      make -f Makefile.libretro platform=rpi
-      ;;
-    RPi2)
-      make -f Makefile.libretro platform=rpi2
+      case $DEVICE in
+        RPi)
+          make -f Makefile.libretro platform=rpi
+          ;;
+        RPi2)
+          make -f Makefile.libretro platform=rpi2
+          ;;
+      esac
       ;;
     imx6)
       make -f Makefile.libretro platform=imx6
