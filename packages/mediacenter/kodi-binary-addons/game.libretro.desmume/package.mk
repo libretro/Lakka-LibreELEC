@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.desmume"
-PKG_VERSION="e627685"
-PKG_SHA256="1d157022187a3b7bac5309be7b77c237e7b8806b702c7b5424402f3886ef5d39"
-PKG_REV="101"
+PKG_VERSION="ce04e41"
+PKG_SHA256="5fd05fe64c23f46a0682bad8892d69ae4d322ab2df15483e99f768b3e672a6e4"
+PKG_REV="102"
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.desmume"

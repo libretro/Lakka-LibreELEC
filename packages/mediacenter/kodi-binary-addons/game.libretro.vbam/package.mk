@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.vbam"
-PKG_VERSION="53f0e6a"
-PKG_SHA256="0ab51cf7b64b7474706d8f448389e5bb01659e27aced45d3745ea288a9852063"
-PKG_REV="101"
+PKG_VERSION="54490e2"
+PKG_SHA256="5585245a377bc8e8a944fb473aa85a2a7ef216a1dc1e1daf2e22598efd5396fa"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.vbam"

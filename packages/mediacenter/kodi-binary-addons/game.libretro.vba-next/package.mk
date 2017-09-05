@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.vba-next"
-PKG_VERSION="b426bff"
-PKG_SHA256="f6e64eb063cc5faaaa508415f6482fcb005b952c87051a4cc373aa0b74e3c632"
-PKG_REV="101"
+PKG_VERSION="b075650"
+PKG_SHA256="2ac50f8c2143e44ef0e55a440e3dd05d72cc438713b6ce37ddc7850a1055cd90"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.vba-next"
