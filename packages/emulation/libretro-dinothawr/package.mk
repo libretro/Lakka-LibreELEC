@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-dinothawr"
-PKG_VERSION="02821dd"
-PKG_SHA256="c76bff34c6444197ad478053ed53ec751e29dbf19e2d17063c203023c10ca200"
+PKG_VERSION="a2abe12"
+PKG_SHA256="1154df10e5878980ba894645a00be9ee56368c132b29377d0ff16376702e3bf1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/Dinothawr"
@@ -36,8 +36,10 @@ PKG_LIBNAME="dinothawr_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="DINOTHAWR_LIB"
 
-make_target() {
-  make
+pre_make_target() {
+  if echo "$TARGET_FPU" | grep -q '^neon'; then
+    export HAVE_NEON=1
+  fi
 }
 
 makeinstall_target() {

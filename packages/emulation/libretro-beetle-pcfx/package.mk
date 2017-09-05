@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-beetle-pcfx"
-PKG_VERSION="f53c58a"
-PKG_SHA256="05b727c392069159072896005199d0dbcb0f8254c2a1f702d4294b4b35e97665"
+PKG_VERSION="5b06ad5"
+PKG_SHA256="8187283db4500eac6e2d987380ed8a5160fe07c527ef2700d3809b934812efc2"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-pcfx-libretro"
@@ -39,22 +39,26 @@ PKG_LIBVAR="BEETLE-PCFX_LIB"
 make_target() {
   case $PROJECT in
     RPi)
-      make CC=$CC CXX=$CXX platform=armv6-hardfloat
-      ;;
-    RPi2)
-      make CC=$CC CXX=$CXX platform=armv7-neon-hardfloat
+      case $DEVICE in
+        RPi)
+          make platform=armv6-hardfloat
+          ;;
+        RPi2)
+          make platform=armv7-neon-hardfloat
+          ;;
+      esac
       ;;
     imx6)
-      make CC=$CC CXX=$CXX platform=armv7-cortexa9-neon-hardfloat
+      make platform=armv7-cortexa9-neon-hardfloat
       ;;
     WeTek_Play|WeTek_Core)
-      make CC=$CC CXX=$CXX platform=armv7-cortexa9-neon-hardfloat
+      make platform=armv7-cortexa9-neon-hardfloat
       ;;
     Odroid_C2|WeTek_Hub|WeTek_Play_2)
-      make CC=$CC CXX=$CXX platform=aarch64
+      make platform=aarch64
       ;;
     Generic)
-      make CC=$CC CXX=$CXX
+      make
       ;;
   esac
 }

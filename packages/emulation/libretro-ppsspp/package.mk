@@ -18,7 +18,7 @@
 
 PKG_NAME="libretro-ppsspp"
 PKG_VERSION="5f7bcf7"
-PKG_SHA256="09e61300c05705b1f98e1b575e44d366e5a243cc3be97b3a09ad420581459f87"
+PKG_SHA256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/libretro-ppsspp"
@@ -50,19 +50,23 @@ pre_make_target() {
 make_target() {
   case $PROJECT in
     RPi)
-      make -C libretro CC=$CC CXX=$CXX platform=armv6-gles-hardfloat-arm1176jzf-s
-      ;;
-    RPi2)
-      make -C libretro CC=$CC CXX=$CXX platform=armv7-neon-gles-hardfloat-cortex-a7
+      case $DEVICE in
+        RPi)
+          make -C libretro platform=armv6-gles-hardfloat-arm1176jzf-s
+          ;;
+        RPi2)
+          make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a7
+          ;;
+      esac
       ;;
     imx6)
-      make -C libretro CC=$CC CXX=$CXX platform=armv7-neon-gles-hardfloat-cortex-a9
+      make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
       ;;
     WeTek_Play|WeTek_Core)
-      make -C libretro CC=$CC CXX=$CXX platform=armv7-neon-gles-hardfloat-cortex-a9
+      make -C libretro platform=armv7-neon-gles-hardfloat-cortex-a9
       ;;
     Generic)
-      make -C libretro CC=$CC CXX=$CXX
+      make -C libretro
       ;;
   esac
 }

@@ -46,10 +46,14 @@ pre_make_target() {
 make_target() {
   case $PROJECT in
     RPi)
-      make platform=armv6-hardfloat-arm1176jzf-s
-      ;;
-    RPi2)
-      make platform=armv7-neon-hardfloat-cortex-a7
+      case $DEVICE in
+        RPi)
+          make platform=armv6-hardfloat-arm1176jzf-s
+          ;;
+        RPi2)
+          make platform=armv7-neon-hardfloat-cortex-a7
+          ;;
+      esac
       ;;
     imx6)
       make platform=armv7-neon-hardfloat-cortex-a9

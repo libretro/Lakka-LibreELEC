@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-mrboom"
-PKG_VERSION="3008bec"
-PKG_SHA256="45140f943a70bbb9813ba2a35116ddfbc06702450ea14ef0b36f9f6059bdcdf9"
+PKG_VERSION="2b4595f"
+PKG_SHA256="26606453e2363f68c98573ba09405db6e7cc78b166848a2971b4c60b351add56"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/mrboom-libretro"

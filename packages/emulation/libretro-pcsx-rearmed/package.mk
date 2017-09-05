@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-pcsx-rearmed"
-PKG_VERSION="731139f"
-PKG_SHA256="fcb0ed735534e13429ac7c7fb2d76e32c416a3e943d81c9ce05c5d3ad2082272"
+PKG_VERSION="358a876"
+PKG_SHA256="f939b644db95cbe58c66994e95676f79dc700f6a46e30afca7a3b8036d3ac07d"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
@@ -44,10 +44,14 @@ make_target() {
   cd $PKG_BUILD
   case $PROJECT in
     RPi)
-      make -f Makefile.libretro platform=armv6-hardfloat-arm1176jzf-s
-      ;;
-    RPi2)
-      make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a7
+      case $DEVICE in
+        RPi)
+          make -f Makefile.libretro platform=armv6-hardfloat-arm1176jzf-s
+          ;;
+        RPi2)
+          make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a7
+          ;;
+      esac
       ;;
     imx6)
       make -f Makefile.libretro platform=armv7-neon-hardfloat-cortex-a9

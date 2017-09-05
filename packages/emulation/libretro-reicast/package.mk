@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-reicast"
-PKG_VERSION="3601150"
-PKG_SHA256="e266d9950dc133cbf3077e5d6ddb50b6d35a4ba32fd81757f9cc5cc3795fe465"
+PKG_VERSION="3ea9f94"
+PKG_SHA256="b61648a561c5a7e3ec1be8ca9a38ff98b76ce58020684b95df17ec4cea770f16"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/reicast-emulator"
@@ -39,10 +39,14 @@ PKG_LIBVAR="REICAST_LIB"
 make_target() {
   case $PROJECT in
     RPi)
-      make platform=armv6-hardfloat-arm1176jzf-s
-      ;;
-    RPi2)
-      make platform=rpi2
+      case $DEVICE in
+        RPi)
+          make platform=armv6-hardfloat-arm1176jzf-s
+          ;;
+        RPi2)
+          make platform=rpi2
+          ;;
+      esac
       ;;
     imx6)
       make platform=armv7-neon-hardfloat-cortex-a9

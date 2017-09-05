@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-mame"
-PKG_VERSION="769dd8d"
-PKG_SHA256="4d6c2fa63fb6f57bb484f487f3d149520099b66905dea5ceb0005d6089812bb0"
+PKG_VERSION="a449150"
+PKG_SHA256="48a0d75fc0f19eb86c25687bf1300fe7c5534a1371e7282c54070365f28f4c44"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame"
@@ -39,30 +39,10 @@ PKG_LIBVAR="MAME_LIB"
 pre_make_target() {
   strip_lto
   strip_gold
-
-  export OVERRIDE_CC="$CC"
-  export OVERRIDE_CXX="$CXX"
-  export OVERRIDE_LD="$CXX"
 }
 
 make_target() {
-  case $PROJECT in
-    RPi)
-      make platform=armv6-hardfloat-arm1176jzf-s
-      ;;
-    RPi2)
-      make platform=armv7-neon-hardfloat-cortex-a7
-      ;;
-    imx6)
-      make platform=armv7-neon-hardfloat-cortex-a9
-      ;;
-    WeTek_Play|WeTek_Core)
-      make platform=armv7-neon-hardfloat-cortex-a9
-      ;;
-    Generic)
-      make -f Makefile.libretro
-      ;;
-  esac
+  make -f Makefile.libretro
 }
 
 makeinstall_target() {
