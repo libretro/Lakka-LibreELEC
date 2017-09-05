@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pulseaudio"
-PKG_VERSION="10.0"
-PKG_SHA256="a3186824de9f0d2095ded5d0d0db0405dc73133983c2fbb37291547e37462f57"
+PKG_VERSION="11.0"
+PKG_SHA256="072305d4018fc5e75bb1b45ee6b938fa52fc9fd27493bf327415ef89ed14c969"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://pulseaudio.org/"
