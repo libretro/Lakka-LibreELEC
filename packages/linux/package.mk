@@ -194,9 +194,9 @@ pre_make_target() {
 
 make_target() {
   LDFLAGS="" make modules
-  LDFLAGS="" make INSTALL_MOD_PATH=$INSTALL/usr DEPMOD="$TOOLCHAIN/bin/depmod" modules_install
-  rm -f $INSTALL/usr/lib/modules/*/build
-  rm -f $INSTALL/usr/lib/modules/*/source
+  LDFLAGS="" make INSTALL_MOD_PATH=$INSTALL/$(get_kernel_overlay_dir) DEPMOD="$TOOLCHAIN/bin/depmod" modules_install
+  rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/build
+  rm -f $INSTALL/$(get_kernel_overlay_dir)/lib/modules/*/source
 
   ( cd $ROOT
     rm -rf $BUILD/initramfs
