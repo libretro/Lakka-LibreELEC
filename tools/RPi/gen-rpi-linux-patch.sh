@@ -83,6 +83,7 @@ elif [ -z "${KERNEL}" ]; then
   BASEREV="linux-stable/linux-${BRANCH}.y"
 else
   BASEREV="$(git log --grep "Linux ${KERNEL}" --pretty=oneline | head -1)"
+  [ -z "${BASEREV}" ] && BASEREV="$(git log --grep "Linux v${KERNEL}" --pretty=oneline | head -1)"
   [ -z "${BASEREV}" ] && { echo "Unable to determine base revision for BRANCH=${BRANCH}, KERNEL=${KERNEL}"; exit 1; }
 
   echo
