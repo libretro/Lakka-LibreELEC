@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="pvr.demo"
-PKG_VERSION="9d0aa8f"
-PKG_SHA256="e70dc21ba429ef75c8cefc3cb4e80f9a95b3301738fdb6b3a1006ddc91dbfd0a"
+PKG_VERSION="122dedd"
+PKG_SHA256="6422a64924ae219dc6c12e1c12d04247aea92c9143d784a8535c75e0990e3934"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
