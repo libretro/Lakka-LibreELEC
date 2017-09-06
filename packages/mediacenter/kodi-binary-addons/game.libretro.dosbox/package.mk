@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="game.libretro.dosbox"
-PKG_VERSION="a07a9bd"
-PKG_SHA256="61ac5597f54e591c8c47c5a5ed563a6a1c0dc06d8374a92252f00b349fe728cf"
-PKG_REV="102"
+PKG_VERSION="d76ee2e"
+PKG_SHA256="f73d9c71a4748ed74b1b75e4ecc13d7584c201fa12671c4000c762b57aa034af"
+PKG_REV="103"
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.dosbox"

@@ -19,7 +19,7 @@
 PKG_NAME="game.libretro.beetle-lynx"
 PKG_VERSION="99614ad"
 PKG_SHA256="a8f07143010298d2e54beb43f3fb9ee7ee04ec53eeabdc7ffc8650d3eee0bb83"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-lynx"

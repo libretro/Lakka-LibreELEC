@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-beetle-saturn"
-PKG_VERSION="8d70f01"
-PKG_SHA256="8ce3b2aa6bdbc51bc2f9b73f8e9c0fbf1327a45fc584d598605e7f377a1f6098"
+PKG_VERSION="51692b9"
+PKG_SHA256="d13ac53335b3e66b3fa7604810cd9c8ebffcd88734bbd291f6e7cfa4fc0f1e77"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/beetle-saturn-libretro"

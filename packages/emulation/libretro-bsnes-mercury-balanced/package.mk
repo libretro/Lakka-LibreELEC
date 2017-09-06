@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-bsnes-mercury-balanced"
-PKG_VERSION="b68bd0a"
-PKG_SHA256="3c3b6fc42a20eab835049218ab5fd3b35f841a2236f7549ac78a92e58d8bd52a"
+PKG_VERSION="f8baefe"
+PKG_SHA256="3d3cd2aff63048147f2aa9f0d3d86a8531521ec7f393d269ab45a9bfef5cb27b"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/bsnes-mercury"

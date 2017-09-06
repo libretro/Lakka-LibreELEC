@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-genplus"
-PKG_VERSION="9c10f4f"
-PKG_SHA256="6ca92f6616ec40c09b34475a84544ef1367fb28a62faf86827551ca0b19c37ad"
+PKG_VERSION="b3219b2"
+PKG_SHA256="b7bbbfd17a992da0aa2a8e024b64a1bf3a9dd0f3c1e0c237dd9d443a500c57c6"
 PKG_ARCH="any"
 PKG_LICENSE="Modified BSD / LGPLv2.1"
 PKG_SITE="https://github.com/libretro/Genesis-Plus-GX"

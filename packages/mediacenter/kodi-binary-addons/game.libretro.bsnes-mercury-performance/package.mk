@@ -19,7 +19,7 @@
 PKG_NAME="game.libretro.bsnes-mercury-performance"
 PKG_VERSION="2561eae"
 PKG_SHA256="c4d016855b6f2085025bb8eaea07c44d1396d07d4745fa8369b0d0238921684d"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.bsnes-mercury-performance"

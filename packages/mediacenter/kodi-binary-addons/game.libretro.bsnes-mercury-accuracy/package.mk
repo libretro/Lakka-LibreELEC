@@ -19,7 +19,7 @@
 PKG_NAME="game.libretro.bsnes-mercury-accuracy"
 PKG_VERSION="201fd5e"
 PKG_SHA256="3b2db2cb55b7e0d4c578a0407ea16542b1974172d4d48436484891c1aa0ec1f6"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.bsnes-mercury-accuracy"

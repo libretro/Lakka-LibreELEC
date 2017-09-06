@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="libretro-vbam"
-PKG_VERSION="84072be"
-PKG_SHA256="f50b47945799c1de3c6624b077f54e78e8ac374c57538a94b071736ef1b78d19"
+PKG_VERSION="aafd009"
+PKG_SHA256="45d7b0805fa38d3c5420187e0fce5d19f3ae038d51a222a87c285610ad76c80a"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/vbam-libretro"

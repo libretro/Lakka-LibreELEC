@@ -19,7 +19,7 @@
 PKG_NAME="game.libretro.beetle-wswan"
 PKG_VERSION="5c95514"
 PKG_SHA256="a2160790707bb7c5f98821bf392300c4762791ac18ac63ae4ce5ec00e910c9a7"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-wswan"
