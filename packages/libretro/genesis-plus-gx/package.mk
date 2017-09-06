@@ -39,6 +39,9 @@ post_unpack() {
 }
 
 make_target() {
+  if [ "$ARCH" == "arm" ]; then
+    CFLAGS="$CFLAGS -DALIGN_LONG"
+  fi
   make -f Makefile.libretro
 }
 

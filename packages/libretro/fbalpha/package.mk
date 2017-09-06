@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="fbalpha"
-PKG_VERSION="a5bce87"
+PKG_VERSION="3d4ec7b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="Non-commercial"
