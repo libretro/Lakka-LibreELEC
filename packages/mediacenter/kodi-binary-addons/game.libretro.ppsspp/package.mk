@@ -19,7 +19,8 @@
 PKG_NAME="game.libretro.ppsspp"
 PKG_VERSION="4134990"
 PKG_SHA256="4d7278f066f0bb414559f2b40cb55fcd71a3f7e3a1ef22afd6745375c09a99a3"
-PKG_REV="101"
+PKG_REV="102"
+# no openGL suport in retroplayer yet
 PKG_ARCH="none"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.ppsspp"

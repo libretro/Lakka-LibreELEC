@@ -19,7 +19,7 @@
 PKG_NAME="game.libretro.beetle-gba"
 PKG_VERSION="0450c73"
 PKG_SHA256="013b017ff0229b274a14dc8125935be09bde3a721c516df99c7669ff102b4c87"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-gba"

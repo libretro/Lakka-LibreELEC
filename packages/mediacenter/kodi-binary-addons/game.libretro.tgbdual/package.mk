@@ -19,7 +19,7 @@
 PKG_NAME="game.libretro.tgbdual"
 PKG_VERSION="7df1df4"
 PKG_SHA256="fb4017e346b927ac4d42f3c90f8f1d521aeb5bed4064a53ee3493847189aef54"
-PKG_REV="102"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.tgbdual"
