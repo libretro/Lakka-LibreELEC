@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="libretro-ppsspp"
-PKG_VERSION="5f7bcf7"
+PKG_VERSION="9145287"
 PKG_SHA256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

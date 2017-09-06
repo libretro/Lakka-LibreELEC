@@ -17,9 +17,9 @@
 ################################################################################
 
 PKG_NAME="libretro-pcsx-rearmed"
-PKG_VERSION="358a876"
-PKG_SHA256="f939b644db95cbe58c66994e95676f79dc700f6a46e30afca7a3b8036d3ac07d"
-PKG_ARCH="any"
+PKG_VERSION="09d454e"
+PKG_SHA256="1fb2a82fc7c4e455ac9e9786d9e263dd4ef2a877783d8c1503c8f12b730330c5"
+PKG_ARCH="arm"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="https://github.com/libretro/pcsx_rearmed/archive/$PKG_VERSION.tar.gz"
@@ -38,6 +38,10 @@ PKG_LIBVAR="PCSX-REARMED_LIB"
 
 configure_target() {
   :
+}
+
+pre_make_target() {
+  strip_gold
 }
 
 make_target() {
