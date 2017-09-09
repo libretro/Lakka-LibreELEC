@@ -21,8 +21,27 @@ SMB_USERCONF="/storage/.config/samba.conf"
 SMB_DEFCONF="/etc/samba/smb.conf"
 SMB_CONF="/run/samba/smb.conf"
 
-mkdir -p /run/samba
-  if [ -f $SMB_USERCONF ]; then
+SMB_USERCONF_IS_VALID=no
+SMB_CONFIG_VERSION=4
+
+# If user config is based on legacy OpenELEC, or old version (or no version)
+# then don't use it, and log a warning.
+if [ -f $SMB_USERCONF ]; then
+  SMB_IS_LEGACY="$(awk 'NR <= 2 && /This file is part of OpenELEC/{ print }' $SMB_USERCONF)"
+  SMB_THIS_VER="$(awk '/^# samba.conf v[0-9\.]*/{ print substr($3,2); exit }' $SMB_USERCONF)"
+  if [ -n "${SMB_IS_LEGACY}" ]; then
+    echo "WARNING: Ignoring user config $SMB_USERCONF due to incompatibility [Old style OpenELEC]"
+  elif [ -z "${SMB_THIS_VER}" ]; then
+    echo "WARNING: Ignoring user config $SMB_USERCONF due to incompatibility [version is unknown or invalid]"
+  elif [ ${SMB_THIS_VER} !=  ${SMB_CONFIG_VERSION} ]; then
+    echo "WARNING: Ignoring user config $SMB_USERCONF due to incompatibility [version ${SMB_THIS_VER} is not the required version $SMB_CONFIG_VERSION]"
+  else
+    SMB_USERCONF_IS_VALID=yes
+  fi
+fi
+
+mkdir -p $(dirname $SMB_CONF)
+  if [ $SMB_USERCONF_IS_VALID = yes ]; then
     cp $SMB_USERCONF $SMB_CONF
   else
     cp $SMB_DEFCONF $SMB_CONF
