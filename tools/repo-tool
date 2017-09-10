@@ -62,23 +62,17 @@ update_addons_xml() {
     cd $localdir
 
     md5sum addons.xml > addons.xml.md5
+    gzip -9 -c addons.xml > addons.xml.gz
+    md5sum addons.xml.gz > addons.xml.gz.md5
     cd $pwd
   done
   rm -rf .addons
 }
 
 touch_addons_xml() {
-  for PROJECT in $(ls -1 projects); do
-    for archfile in projects/$PROJECT/linux/linux.*.conf ; do
-      ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
-      if [ ! -d target/addons/$ADDON_VERSION/$PROJECT/$ARCH ]; then
-        break
-      fi
-      if [ ! -f target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml ]; then
-        touch target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml
-      fi
-    done
-  done
+  if [ -d target/addons/$ADDON_VERSION/${DEVICE:-$PROJECT}/$ARCH ]; then
+    touch target/addons/$ADDON_VERSION/${DEVICE:-$PROJECT}/$ARCH/addons.xml
+  fi
 }
 
 upload() {
@@ -95,19 +89,14 @@ upload() {
 }
 
 build() {
-  for PROJECT in $2; do
-    for archfile in projects/$PROJECT/linux/linux.*.conf ; do
-      ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
-      for package in $(find $1 -iname package.mk) ; do
-        (
-        . $package
-        if [ "$PKG_IS_ADDON" = "yes" ] ; then
-          ADDON=$PKG_NAME
-          PROJECT=$PROJECT ARCH=$ARCH ./scripts/create_addon $ADDON
-        fi
-        )
-      done
-    done
+  for package in $(find $1 -iname package.mk) ; do
+    (
+    . $package
+    if [ "$PKG_IS_ADDON" = "yes" ] ; then
+      ADDON=$PKG_NAME
+      PROJECT=$PROJECT DEVICE=$DEVICE ARCH=$ARCH ./scripts/create_addon $ADDON
+    fi
+    )
   done
 }
 
@@ -137,11 +126,11 @@ update_repo_version() {
 }
 
 usage() {
-  echo "  usage: $0 -u                                      to upload"
-  echo "         $0 -b   binary|official|all [project-name] to build [for a single project]"
-  echo "         $0 -ru                                     to update PKG_REV"
-  echo "         $0 -rv                                     to update PKG_ADDON_REPOVERSION"
-  echo "         $0 -xml                                    to update the addons.xml"
+  echo "  usage: $0 -u                          to upload"
+  echo "         $0 -b   binary|official|all    to build"
+  echo "         $0 -ru                         to update PKG_REV"
+  echo "         $0 -rv                         to update PKG_ADDON_REPOVERSION"
+  echo "         $0 -xml                        to update the addons.xml"
 }
 
 if [ "$1" = "-b" -a -z "$2" ]; then
@@ -159,21 +148,20 @@ elif [ "$1" = "-b" -a -n "$2" ]; then
       repo="packages/addons packages/mediacenter/kodi-binary-addons"
       ;;
     *)
-      usage
-      exit 0
+      if [ -d "packages/addons/$2" ]; then
+        repo="packages/addons/$2"
+      else
+        usage
+        exit 0
+      fi
       ;;
   esac
-
-  project="$(ls -1 projects)"
-  if [ -n "$3" ]; then
-    project="$3"
-  fi
 
 fi
 
 case $1 in
   -b)
-    build "$repo" "$project"
+    build "$repo"
     ;;
   -u)
     upload
