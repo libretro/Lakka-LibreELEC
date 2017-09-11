@@ -38,12 +38,12 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
   export X11_INCLUDES=
   MESA_DRI="--enable-dri --enable-dri3"
   MESA_GLX="--enable-glx --enable-driglx-direct --enable-glx-tls"
-  MESA_EGL_PLATFORMS="--with-egl-platforms=x11,drm"
+  MESA_EGL_PLATFORMS="--with-platforms=x11,drm"
 else
   PKG_DEPENDS_TARGET="toolchain Python:host expat libdrm"
   MESA_DRI="--enable-dri --disable-dri3"
   MESA_GLX="--disable-glx --disable-driglx-direct --disable-glx-tls"
-  MESA_EGL_PLATFORMS="--with-egl-platforms=drm"
+  MESA_EGL_PLATFORMS="--with-platforms=drm"
 fi
 
 # configure GPU drivers and dependencies:
@@ -52,9 +52,9 @@ fi
 if [ "$LLVM_SUPPORT" = "yes" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET elfutils llvm"
   export LLVM_CONFIG="$SYSROOT_PREFIX/usr/bin/llvm-config-host"
-  MESA_GALLIUM_LLVM="--enable-gallium-llvm --enable-llvm-shared-libs"
+  MESA_GALLIUM_LLVM="--enable-llvm --enable-llvm-shared-libs"
 else
-  MESA_GALLIUM_LLVM="--disable-gallium-llvm"
+  MESA_GALLIUM_LLVM="--disable-llvm"
 fi
 
 if [ "$VDPAU_SUPPORT" = "yes" -a "$DISPLAYSERVER" = "x11" ]; then
