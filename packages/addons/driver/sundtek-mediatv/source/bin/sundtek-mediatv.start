@@ -136,7 +136,7 @@ if [ -z "$(pidof mediasrv)" ]; then
 
   if [ "$USE_NET_TUNERS" = "true" -a -n "$DEVICE1_IP" ]; then
     # delete all network tuner entries
-    awk '/^\[NETWORK\]/{flag=1; next} /^device=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-net
+    awk '/^\[NETWORK\]/{flag=1; next} /^[^\[]|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-net
     mv ${SUNDTEK_CONF_TMP}-net $SUNDTEK_CONF_TMP
     echo "" >>$SUNDTEK_CONF_TMP
     # remove empty lines at the end of file
@@ -168,7 +168,7 @@ if [ -z "$(pidof mediasrv)" ]; then
     fi
   else
     # delete all network tuner entries
-    awk '/^\[NETWORK\]/{flag=1; next} /^device=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-net
+    awk '/^\[NETWORK\]/{flag=1; next} /^[^\[]|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-net
     mv ${SUNDTEK_CONF_TMP}-net $SUNDTEK_CONF_TMP
     echo "" >>$SUNDTEK_CONF_TMP
     # remove empty lines at the end of file
@@ -197,25 +197,25 @@ if [ -z "$(pidof mediasrv)" ]; then
       [ ! -f $KEYMAP ] && KEYMAP=""
 
       # remove setttings for this tuner
-      awk -v val="[$SERIAL]" '$0 == val {flag=1; next} /^ir_protocol=|^rcmap=|^initial_dvb_mode=|^#|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-types
+      awk -v val="[$SERIAL]" '$0 == val {flag=1; next} /^[^\[]|^$/{if (flag==1) next} /.*/{flag=0; print}' $SUNDTEK_CONF_TMP >${SUNDTEK_CONF_TMP}-types
       mv ${SUNDTEK_CONF_TMP}-types $SUNDTEK_CONF_TMP
       echo "" >>$SUNDTEK_CONF_TMP
       # remove empty lines at the end of file
       sed -i -e ':a' -e '/^\n*$/{$d;N;};/\n$/ba' $SUNDTEK_CONF_TMP
 
-      ADDNEW=true
-      if [ -n "$DVBMODE" ]; then
-        [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
-        echo "initial_dvb_mode=$DVBMODE" >>$SUNDTEK_CONF_TMP
+      echo "" >>$SUNDTEK_CONF_TMP
+      echo "[$SERIAL]" >>$SUNDTEK_CONF_TMP
+
+      [ -n "$DVBMODE" ] && echo "initial_dvb_mode=$DVBMODE" >>$SUNDTEK_CONF_TMP
+
+      if [ "$ENABLE_IR_RECEIVER" = "true" ]; then
+        echo "ir_disabled=0" >>$SUNDTEK_CONF_TMP
+      else
+        echo "ir_disabled=1" >>$SUNDTEK_CONF_TMP
       fi
-      if [ -n "$IRPROT" ]; then
-        [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
-        echo "ir_protocol=$IRPROT" >>$SUNDTEK_CONF_TMP
-      fi
-      if [ -n "$KEYMAP" ]; then
-        [ $ADDNEW = true ] && ADDNEW=false && echo -e "\n[$SERIAL]" >>$SUNDTEK_CONF_TMP
-        echo "rcmap=$KEYMAP" >>$SUNDTEK_CONF_TMP
-      fi
+
+      [ -n "$IRPROT" ] && echo "ir_protocol=$IRPROT" >>$SUNDTEK_CONF_TMP
+      [ -n "$KEYMAP" ] && echo "rcmap=$KEYMAP" >>$SUNDTEK_CONF_TMP
 
       echo "" >>$SUNDTEK_CONF_TMP
     done
