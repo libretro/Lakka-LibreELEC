@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="ppsspp"
-PKG_VERSION="2a9312f"
+PKG_VERSION="37689d4"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
@@ -41,6 +41,7 @@ pre_configure_target() {
 
 make_target() {
   cd $ROOT/$PKG_BUILD/libretro
+  CFLAGS="$CFLAGS -DGLEW_NO_GLU"
   if [ "$OPENGLES" == "gpu-viv-bin-mx6q" -o "$OPENGLES" == "imx-gpu-viv" ]; then
     CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
     CXXFLAGS="$CXXFLAGS -DLINUX -DEGL_API_FB"
