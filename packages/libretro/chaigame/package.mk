@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="chaigame"
-PKG_VERSION="982aff1"
+PKG_VERSION="b8770ff"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
