@@ -18,7 +18,7 @@
 
 PKG_NAME="bluetooth-audio"
 PKG_VERSION="0"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
