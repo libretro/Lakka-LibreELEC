@@ -18,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="librespot"
-PKG_VERSION="910974e"
-PKG_REV="106"
+PKG_VERSION="ddfc28f"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/plietar/$PKG_NAME/"
@@ -43,7 +43,7 @@ configure_target() {
 
 make_target() {
   cd src
-  $CARGO_BUILD --no-default-features --features "alsa-backend pulseaudio-backend with-avahi"
+  $CARGO_BUILD --no-default-features --features "alsa-backend pulseaudio-backend"
   cd "$PKG_BUILD/.$TARGET_NAME"/*/release
   $STRIP librespot
 }

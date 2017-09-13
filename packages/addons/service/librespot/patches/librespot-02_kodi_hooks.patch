@@ -1,25 +1,35 @@
-diff -Naur librespot/src/player.rs librespot-hooks/src/player.rs
---- librespot/src/player.rs	2017-07-09 20:01:31.000000000 +0200
-+++ librespot-hooks/src/player.rs	2017-07-22 13:46:06.741727001 +0200
-@@ -2,6 +2,7 @@
+From a20f55c268bf44d6923be4cad6c6fdfecfc5dd8a Mon Sep 17 00:00:00 2001
+From: awiouy <awiouy@gmail.com>
+Date: Tue, 12 Sep 2017 09:37:53 +0200
+Subject: [PATCH] kodi hooks
+
+---
+ src/player.rs | 25 +++++++++++++++++--------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
+
+diff --git a/src/player.rs b/src/player.rs
+index 29380e3..44b9a24 100644
+--- a/src/player.rs
++++ b/src/player.rs
+@@ -1,6 +1,7 @@
+ use futures::sync::oneshot;
  use futures::{future, Future};
  use std::borrow::Cow;
- use std::io::{Read, Seek};
 +use std::env;
  use std::mem;
  use std::sync::mpsc::{RecvError, TryRecvError};
  use std::thread;
-@@ -11,7 +12,7 @@
+@@ -13,7 +14,7 @@ use core::util::{self, SpotifyId, Subfile};
  use audio_backend::Sink;
- use audio_decrypt::AudioDecrypt;
- use audio_file::AudioFile;
--use metadata::{FileFormat, Track};
-+use metadata::{Artist, FileFormat, Track};
- use session::{Bitrate, Session};
+ use audio::{AudioFile, AudioDecrypt};
+ use audio::{VorbisDecoder, VorbisPacket};
+-use metadata::{FileFormat, Track, Metadata};
++use metadata::{Artist, FileFormat, Track, Metadata};
  use mixer::AudioFilter;
- use util::{self, SpotifyId, Subfile};
-@@ -212,7 +213,7 @@
-             Some(Err(e)) => panic!("Vorbis error {:?}", e),
+ 
+ #[derive(Clone)]
+@@ -215,7 +216,7 @@ impl PlayerInternal {
+ 
              None => {
                  self.sink.stop().unwrap();
 -                self.run_onstop();
@@ -27,12 +37,12 @@ diff -Naur librespot/src/player.rs librespot-hooks/src/player.rs
  
                  let old_state = mem::replace(&mut self.state, PlayerState::Stopped);
                  old_state.signal_end_of_track();
-@@ -224,6 +225,12 @@
+@@ -227,6 +228,12 @@ impl PlayerInternal {
          debug!("command={:?}", cmd);
          match cmd {
              PlayerCommand::Load(track_id, play, position, end_of_track) => {
-+                let track = self.session.metadata().get::<Track>(track_id).wait().unwrap();
-+                let artist = self.session.metadata().get::<Artist>(track.artists[0]).wait().unwrap();
++                let track = Track::get(&self.session, track_id).wait().unwrap();
++                let artist = Artist::get(&self.session, track.artists[0]).wait().unwrap();
 +                env::set_var("LS_ARTIST", artist.name);
 +                env::set_var("LS_TITLE", track.name);
 +                self.run_onstart();
@@ -40,7 +50,7 @@ diff -Naur librespot/src/player.rs librespot-hooks/src/player.rs
                  if self.state.is_playing() {
                      self.sink.stop().unwrap();
                  }
-@@ -232,7 +239,7 @@
+@@ -235,7 +242,7 @@ impl PlayerInternal {
                      Some(decoder) => {
                          if play {
                              if !self.state.is_playing() {
@@ -49,7 +59,7 @@ diff -Naur librespot/src/player.rs librespot-hooks/src/player.rs
                              }
                              self.sink.start().unwrap();
  
-@@ -242,7 +249,7 @@
+@@ -245,7 +252,7 @@ impl PlayerInternal {
                              };
                          } else {
                              if self.state.is_playing() {
@@ -58,16 +68,16 @@ diff -Naur librespot/src/player.rs librespot-hooks/src/player.rs
                              }
  
                              self.state = PlayerState::Paused {
-@@ -255,7 +262,7 @@
+@@ -258,7 +265,7 @@ impl PlayerInternal {
                      None => {
                          end_of_track.complete(());
                          if self.state.is_playing() {
 -                            self.run_onstop();
-+                            info!("onstart 3");
++                            info!("onstop 3");
                          }
                      }
                  }
-@@ -276,7 +283,7 @@
+@@ -279,7 +286,7 @@ impl PlayerInternal {
                  if let PlayerState::Paused { .. } = self.state {
                      self.state.paused_to_playing();
  
@@ -76,7 +86,7 @@ diff -Naur librespot/src/player.rs librespot-hooks/src/player.rs
                      self.sink.start().unwrap();
                  } else {
                      warn!("Player::play called from invalid state");
-@@ -288,17 +295,19 @@
+@@ -291,17 +298,19 @@ impl PlayerInternal {
                      self.state.playing_to_paused();
  
                      self.sink.stop().unwrap();
