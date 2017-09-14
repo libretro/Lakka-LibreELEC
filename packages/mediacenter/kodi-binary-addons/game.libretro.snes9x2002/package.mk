@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.snes9x2002"
 PKG_VERSION="6005e74"
-PKG_SHA256="888e958a064516bf64fed0f56f2e7ea8631af2436c3c284b10f83d8d2143bcdc"
+PKG_SHA256="951792197de9848e103d1ab1e3992e83ca5bddecc0105557f762d290d9ec0b8e"
 PKG_REV="102"
 # neon optimizations make it only useful for arm
 PKG_ARCH="arm"

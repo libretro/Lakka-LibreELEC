@@ -18,7 +18,7 @@
 
 PKG_NAME="wlan-firmware-aml"
 PKG_VERSION="5f5fae7"
-PKG_SHA256="a50e19c812d8064790a307a59ce23fd139ed4b21152c669e56367f1367be7008"
+PKG_SHA256="a926edbd87b028afcf8048c776859fa2bf0dca006df6a0f6867ce3915bd21494"
 PKG_ARCH="any"
 PKG_LICENSE="Free-to-use"
 PKG_SITE="http://openlinux.amlogic.com:8000/download/ARM/wifi/"

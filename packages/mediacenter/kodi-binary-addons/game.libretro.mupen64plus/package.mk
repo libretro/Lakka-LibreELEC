@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.mupen64plus"
 PKG_VERSION="02f2216"
-PKG_SHA256="3543c77d12b6b62c9ff57481d8e81e2d61ab12443dbe9786d8c1f4f89480633f"
+PKG_SHA256="1e7b3c0791fbbc9a289d22f19a45424bc78f6871aae2457d483c806883ca5210"
 PKG_REV="103"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"
