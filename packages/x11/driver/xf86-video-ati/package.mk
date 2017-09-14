@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="xf86-video-ati"
-PKG_VERSION="7.9.0"
-PKG_SHA256="3cad872e6330afb1707da11e4e959e6887ebe5bcd81854b4d2e496c52c059875"
+PKG_VERSION="7.10.0"
+PKG_SHA256="ee51d642e3105cb5424f02622dc2966b87b42d498bb34104a70fcf6d4a8f4e79"
 PKG_ARCH="x86_64"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.x.org/"
