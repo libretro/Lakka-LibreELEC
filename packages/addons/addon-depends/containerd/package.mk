@@ -18,7 +18,7 @@
 
 PKG_NAME="containerd"
 PKG_VERSION="aa8187d"
-PKG_SHA256="77ea44af1531d46b22f0444eb506590d1b7e5a9fe891cc6f8e36db5c2aef2d80"
+PKG_SHA256="717dc364050f9ad72dcacf02f6fdb062c93ca5fe04f8636ac70ba715e52d3340"
 PKG_ARCH="any"
 PKG_LICENSE="APL"
 PKG_SITE="https://containerd.tools/"

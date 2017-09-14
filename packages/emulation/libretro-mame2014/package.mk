@@ -18,7 +18,7 @@
 
 PKG_NAME="libretro-mame2014"
 PKG_VERSION="49f55c1"
-PKG_SHA256="3d030d4c75ab9fefb4b63b2f0afd3b04babda1c6c58f52ce0aa2535db466405c"
+PKG_SHA256="c1f018dbbf8dcc43df66e4ad10431812981db1e3a794485c41799b2a43f8d834"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mame2014-libretro"

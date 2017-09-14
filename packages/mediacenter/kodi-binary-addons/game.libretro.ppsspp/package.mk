@@ -18,7 +18,7 @@
 
 PKG_NAME="game.libretro.ppsspp"
 PKG_VERSION="4134990"
-PKG_SHA256="4d7278f066f0bb414559f2b40cb55fcd71a3f7e3a1ef22afd6745375c09a99a3"
+PKG_SHA256="9f1e1491ea75405ada792482d2497eeba4ee17619a12ace49cebc2aceb5f9dcc"
 PKG_REV="102"
 # no openGL suport in retroplayer yet
 PKG_ARCH="none"

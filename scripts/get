@@ -73,15 +73,16 @@ rm -f $STAMP_URL $STAMP_SHA
 
 NBWGET=10
 while [ $NBWGET -gt 0 ]; do
-  rm -f $PACKAGE
+  for url in "$PKG_URL" "$PACKAGE_MIRROR"; do
+    rm -f $PACKAGE
+    if $WGET_CMD "$url"; then
+      CALC_SHA256="$(sha256sum $PACKAGE | cut -d" " -f1)"
 
-  if $WGET_CMD "$PKG_URL" || $WGET_CMD "$PACKAGE_MIRROR"; then
-    CALC_SHA256="$(sha256sum $PACKAGE | cut -d" " -f1)"
+      [ -z "${PKG_SHA256}" -o "${PKG_SHA256}" == "${CALC_SHA256}" ] && break 2
 
-    [ -z "${PKG_SHA256}" -o "${PKG_SHA256}" == "${CALC_SHA256}" ] && break
-
-    printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "WARNING") Incorrect checksum calculated on downloaded file: got ${CALC_SHA256}, wanted ${PKG_SHA256}\n\n" ' '>&$SILENT_OUT
-  fi
+      printf "%${BUILD_INDENT}c $(print_color CLR_WARNING "WARNING") Incorrect checksum calculated on downloaded file: got ${CALC_SHA256}, wanted ${PKG_SHA256}\n\n" ' '>&$SILENT_OUT
+    fi
+  done
   NBWGET=$((NBWGET - 1))
 done
 

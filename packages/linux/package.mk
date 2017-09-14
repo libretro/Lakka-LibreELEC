@@ -44,7 +44,7 @@ case "$LINUX" in
     ;;
   imx6-3.14-sr)
     PKG_VERSION="3.14-sr"
-    PKG_SHA256="640574855da197e0b0cf15623fa4bd6dd2f5aa98d476b5a61095c8975ae95a55"
+    PKG_SHA256="04ce73fe6434bb31197e94a9c51e3c44aba7f5226450ff4cec21bc5c985f986d"
     PKG_COMMIT="2fb11e2"
     PKG_SITE="http://solid-run.com/wiki/doku.php?id=products:imx6:software:development:kernel"
     PKG_URL="https://github.com/SolidRun/linux-fslc/archive/$PKG_COMMIT.tar.gz"
