@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="tgbdual"
-PKG_VERSION="df69141"
+PKG_VERSION="541be1b"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
