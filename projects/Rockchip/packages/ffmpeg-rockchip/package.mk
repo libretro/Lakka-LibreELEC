@@ -16,14 +16,13 @@
 #  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="ffmpeg"
-# Current branch is: release/3.1-xbmc
-PKG_VERSION="f58e5b9"
+PKG_NAME="ffmpeg-rockchip"
+PKG_VERSION="rockchip-new"
 PKG_ARCH="any"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
-PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
-PKG_SOURCE_DIR="FFmpeg-${PKG_VERSION}*"
+PKG_URL="https://github.com/LongChair/FFmpeg/archive/${PKG_VERSION}.tar.gz"
+PKG_SOURCE_DIR="FFmpeg-$PKG_VERSION*"
 PKG_DEPENDS_TARGET="toolchain yasm:host zlib bzip2 openssl speex"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
@@ -50,8 +49,8 @@ else
 fi
 
 if [ "$PROJECT" = "Rockchip" ]; then
-  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp"
-  FFMPEG_RKMPP="--enable-rkmpp"
+  PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm rkmpp"
+  FFMPEG_RKMPP="--enable-libdrm --enable-rkmpp"
 else
   FFMPEG_RKMPP="--disable-rkmpp"
 fi
@@ -84,6 +83,11 @@ fi
 if [ "$DISPLAYSERVER" = "x11" ]; then
   FFMPEG_X11GRAB="--enable-indev=x11grab_xcb"
 fi
+
+unpack() {
+  rm -rf $BUILD/$PKG_NAME-$PKG_VERSION
+  git clone --depth 1 --branch $PKG_VERSION https://github.com/LongChair/FFmpeg.git $BUILD/$PKG_NAME-$PKG_VERSION
+}
 
 pre_configure_target() {
   cd $PKG_BUILD
@@ -119,7 +123,6 @@ configure_target() {
               --host-cc="$HOST_CC" \
               --host-cflags="$HOST_CFLAGS" \
               --host-ldflags="$HOST_LDFLAGS" \
-              --host-libs="-lm" \
               --extra-cflags="$CFLAGS" \
               --extra-ldflags="$LDFLAGS" \
               --extra-libs="$FFMPEG_LIBS" \
@@ -164,7 +167,6 @@ configure_target() {
               --disable-dxva2 \
               --enable-runtime-cpudetect \
               $FFMPEG_TABLES \
-              --disable-memalign-hack \
               --disable-encoders \
               --enable-encoder=ac3 \
               --enable-encoder=aac \
@@ -193,14 +195,12 @@ configure_target() {
               --disable-libopencore-amrwb \
               --disable-libopencv \
               --disable-libdc1394 \
-              --disable-libfaac \
               --disable-libfreetype \
               --disable-libgsm \
               --disable-libmp3lame \
-              --disable-libnut \
               --disable-libopenjpeg \
               --disable-librtmp \
-              --disable-libschroedinger \
+              --enable-libspeex \
               --disable-libtheora \
               --disable-libvo-amrwbenc \
               --disable-libvorbis \

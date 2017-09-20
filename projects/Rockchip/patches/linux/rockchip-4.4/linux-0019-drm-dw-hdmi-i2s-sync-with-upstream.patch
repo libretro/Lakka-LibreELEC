@@ -1,0 +1,78 @@
+From b6431cd5e7f5525e3091f6d1bc8af5b9432524ed Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Mon, 7 Aug 2017 22:24:15 +0200
+Subject: [PATCH 19/33] drm: dw-hdmi-i2s: sync with upstream
+
+---
+ drivers/gpu/drm/bridge/dw-hdmi-audio.h     |  1 -
+ drivers/gpu/drm/bridge/dw-hdmi-i2s-audio.c | 20 +++++++++++++-------
+ 2 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/dw-hdmi-audio.h b/drivers/gpu/drm/bridge/dw-hdmi-audio.h
+index d3194b4e186b..b9e839f4151a 100644
+--- a/drivers/gpu/drm/bridge/dw-hdmi-audio.h
++++ b/drivers/gpu/drm/bridge/dw-hdmi-audio.h
+@@ -13,7 +13,6 @@ struct dw_hdmi_audio_data {
+ 
+ struct dw_hdmi_i2s_audio_data {
+ 	struct dw_hdmi *hdmi;
+-	struct platform_device *pdev;
+ 
+ 	void (*write)(struct dw_hdmi *hdmi, u8 val, int offset);
+ 	u8 (*read)(struct dw_hdmi *hdmi, int offset);
+diff --git a/drivers/gpu/drm/bridge/dw-hdmi-i2s-audio.c b/drivers/gpu/drm/bridge/dw-hdmi-i2s-audio.c
+index f1f62d8c1d16..5ff993a35ab6 100644
+--- a/drivers/gpu/drm/bridge/dw-hdmi-i2s-audio.c
++++ b/drivers/gpu/drm/bridge/dw-hdmi-i2s-audio.c
+@@ -16,7 +16,8 @@
+ 
+ #define DRIVER_NAME "dw-hdmi-i2s-audio"
+ 
+-static inline void hdmi_write(struct dw_hdmi_i2s_audio_data *audio, u8 val, int offset)
++static inline void hdmi_write(struct dw_hdmi_i2s_audio_data *audio,
++			      u8 val, int offset)
+ {
+ 	struct dw_hdmi *hdmi = audio->hdmi;
+ 
+@@ -220,6 +221,7 @@ static int snd_dw_hdmi_probe(struct platform_device *pdev)
+ 	struct dw_hdmi_i2s_audio_data *audio = pdev->dev.platform_data;
+ 	struct platform_device_info pdevinfo;
+ 	struct hdmi_codec_pdata pdata;
++	struct platform_device *platform;
+ 
+ 	pdata.ops		= &dw_hdmi_i2s_ops;
+ 	pdata.i2s		= 1;
+@@ -234,23 +236,27 @@ static int snd_dw_hdmi_probe(struct platform_device *pdev)
+ 	pdevinfo.size_data	= sizeof(pdata);
+ 	pdevinfo.dma_mask	= DMA_BIT_MASK(32);
+ 
+-	audio->pdev = platform_device_register_full(&pdevinfo);
+-	return IS_ERR_OR_NULL(audio->pdev);
++	platform = platform_device_register_full(&pdevinfo);
++	if (IS_ERR(platform))
++		return PTR_ERR(platform);
++
++	dev_set_drvdata(&pdev->dev, platform);
++
++	return 0;
+ }
+ 
+ static int snd_dw_hdmi_remove(struct platform_device *pdev)
+ {
+-	struct dw_hdmi_i2s_audio_data *audio = pdev->dev.platform_data;
++	struct platform_device *platform = dev_get_drvdata(&pdev->dev);
+ 
+-	if (!IS_ERR_OR_NULL(audio->pdev))
+-		platform_device_unregister(audio->pdev);
++	platform_device_unregister(platform);
+ 
+ 	return 0;
+ }
+ 
+ static struct platform_driver snd_dw_hdmi_driver = {
+ 	.probe	= snd_dw_hdmi_probe,
+-	.remove = snd_dw_hdmi_remove,
++	.remove	= snd_dw_hdmi_remove,
+ 	.driver	= {
+ 		.name = DRIVER_NAME,
+ 		.owner = THIS_MODULE,

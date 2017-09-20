@@ -1,0 +1,86 @@
+From 0aa70dc800362e0d296a936b784da19494f9f6b3 Mon Sep 17 00:00:00 2001
+From: Romain Perier <romain.perier@collabora.com>
+Date: Thu, 20 Apr 2017 14:34:34 +0530
+Subject: [PATCH 18/33] UPSTREAM: drm: dw-hdmi: gate audio clock from the I2S
+ enablement callbacks
+
+Currently, the audio sampler clock is enabled from dw_hdmi_setup() at
+step E. and is kept enabled for later use. This clock should be enabled
+and disabled along with the actual audio stream and not always on (that
+is bad for PM). Furthermore, as described by the datasheet, the I2S
+variant needs to gate/ungate the clock when the stream is
+enabled/disabled.
+
+This commit adds a parameter to hdmi_audio_enable_clk() that controls
+when the audio sample clock must be enabled or disabled. Then, it adds
+the call to this function from dw_hdmi_i2s_audio_enable() and
+dw_hdmi_i2s_audio_disable().
+
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Link: http://patchwork.freedesktop.org/patch/msgid/20170414083113.4255-3-romain.perier@collabora.com
+Signed-off-by: Archit Taneja <architt@codeaurora.org>
+(cherry picked from commit 57fbc05585a9c841c910677228f1e3f8a3a62801)
+---
+ drivers/gpu/drm/bridge/dw-hdmi.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
+index 3bafd304dac8..f4231683a309 100644
+--- a/drivers/gpu/drm/bridge/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/dw-hdmi.c
+@@ -790,6 +790,12 @@ void dw_hdmi_set_sample_rate(struct dw_hdmi *hdmi, unsigned int rate)
+ }
+ EXPORT_SYMBOL_GPL(dw_hdmi_set_sample_rate);
+ 
++static void hdmi_enable_audio_clk(struct dw_hdmi *hdmi, bool enable)
++{
++	hdmi_modb(hdmi, enable ? 0 : HDMI_MC_CLKDIS_AUDCLK_DISABLE,
++		  HDMI_MC_CLKDIS_AUDCLK_DISABLE, HDMI_MC_CLKDIS);
++}
++
+ static void dw_hdmi_ahb_audio_enable(struct dw_hdmi *hdmi)
+ {
+ 	hdmi_set_cts_n(hdmi, hdmi->audio_cts, hdmi->audio_n);
+@@ -803,6 +809,12 @@ static void dw_hdmi_ahb_audio_disable(struct dw_hdmi *hdmi)
+ static void dw_hdmi_i2s_audio_enable(struct dw_hdmi *hdmi)
+ {
+ 	hdmi_set_cts_n(hdmi, hdmi->audio_cts, hdmi->audio_n);
++	hdmi_enable_audio_clk(hdmi, true);
++}
++
++static void dw_hdmi_i2s_audio_disable(struct dw_hdmi *hdmi)
++{
++	hdmi_enable_audio_clk(hdmi, false);
+ }
+ 
+ void dw_hdmi_audio_enable(struct dw_hdmi *hdmi)
+@@ -1953,11 +1965,6 @@ static void dw_hdmi_enable_video_path(struct dw_hdmi *hdmi)
+ 			    HDMI_MC_FLOWCTRL);
+ }
+ 
+-static void hdmi_enable_audio_clk(struct dw_hdmi *hdmi)
+-{
+-	hdmi_modb(hdmi, 0, HDMI_MC_CLKDIS_AUDCLK_DISABLE, HDMI_MC_CLKDIS);
+-}
+-
+ /* Workaround to clear the overflow condition */
+ static void dw_hdmi_clear_overflow(struct dw_hdmi *hdmi)
+ {
+@@ -2094,7 +2101,7 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
+ 
+ 		/* HDMI Initialization Step E - Configure audio */
+ 		hdmi_clk_regenerator_update_pixel_clock(hdmi);
+-		hdmi_enable_audio_clk(hdmi);
++		hdmi_enable_audio_clk(hdmi, true);
+ 	}
+ 
+ 	/* not for DVI mode */
+@@ -3034,6 +3041,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
+ 		audio.read	= hdmi_readb;
+ 		audio.mod	= hdmi_modb;
+ 		hdmi->enable_audio = dw_hdmi_i2s_audio_enable;
++		hdmi->disable_audio = dw_hdmi_i2s_audio_disable;
+ 
+ 		pdevinfo.name = "dw-hdmi-i2s-audio";
+ 		pdevinfo.data = &audio;

@@ -1,0 +1,255 @@
+From 2891a4ec0217fdb7d48bc8b364e33054977d53ef Mon Sep 17 00:00:00 2001
+From: Kamil Trzcinski <ayufan@ayufan.eu>
+Date: Tue, 4 Jul 2017 00:13:13 +0200
+Subject: [PATCH] Use MTD for vendor storage
+
+---
+ drivers/soc/rockchip/sdmmc_vendor_storage.c | 128 +++++++++++++++++++---------
+ 1 file changed, 87 insertions(+), 41 deletions(-)
+
+diff --git a/drivers/soc/rockchip/sdmmc_vendor_storage.c b/drivers/soc/rockchip/sdmmc_vendor_storage.c
+index 77e52c3cdcda..446fb00db898 100644
+--- a/drivers/soc/rockchip/sdmmc_vendor_storage.c
++++ b/drivers/soc/rockchip/sdmmc_vendor_storage.c
+@@ -11,6 +11,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/fs.h>
+ #include <linux/file.h>
++#include <linux/mtd/mtd.h>
+ #include <linux/mm.h>
+ #include <linux/list.h>
+ #include <linux/debugfs.h>
+@@ -27,10 +28,9 @@
+ #define EMMC_IDB_PART_OFFSET		64
+ #define EMMC_SYS_PART_OFFSET		8064
+ #define EMMC_BOOT_PART_SIZE		1024
+-#define EMMC_VENDOR_PART_START		(1024 * 7)
+-#define EMMC_VENDOR_PART_SIZE		128
+-#define EMMC_VENDOR_PART_NUM		4
+-#define EMMC_VENDOR_TAG			0x524B5644
++#define MTD_VENDOR_PART_SIZE		128
++#define MTD_VENDOR_PART_NUM		4
++#define MTD_VENDOR_TAG			0x524B5644
+ 
+ struct rk_sys_req {
+ 	u32	tag;
+@@ -60,7 +60,7 @@ struct vendor_info {
+ 	u16	free_offset;
+ 	u16	free_size;
+ 	struct	vendor_item item[126]; /* 126 * 8*/
+-	u8	data[EMMC_VENDOR_PART_SIZE * 512 - 1024 - 8];
++	u8	data[MTD_VENDOR_PART_SIZE * 512 - 1024 - 8];
+ 	u32	hash;
+ 	u32	version2;
+ };
+@@ -82,20 +82,73 @@ static struct vendor_info *g_vendor;
+ extern int rk_emmc_transfer(u8 *buffer, unsigned addr, unsigned blksz,
+ 			    int write);
+ 
+-static int emmc_vendor_ops(u8 *buffer, u32 addr, u32 n_sec, int write)
++static void mtd_vendor_erase_callback(struct erase_info *done)
+ {
+-	u32 i, ret;
++	wait_queue_head_t *wait_q = (wait_queue_head_t *)done->priv;
++	wake_up(wait_q);
++}
++
++static int mtd_vendor_erase(struct mtd_info *mtd, u32 addr, u32 n_sec)
++{
++	int ret;
++	struct erase_info erase;
++	wait_queue_head_t waitq;
++
++	DECLARE_WAITQUEUE(wait, current);
++	init_waitqueue_head(&waitq);
++
++	erase.addr = addr;
++	erase.len = n_sec;
++	erase.mtd = mtd;
++	erase.callback = mtd_vendor_erase_callback;
++	erase.priv = (u_long)&waitq;
++
++	set_current_state(TASK_INTERRUPTIBLE);
++	add_wait_queue(&waitq, &wait);
++
++	ret = mtd_erase(mtd, &erase);
++	if (ret) {
++		set_current_state(TASK_RUNNING);
++		remove_wait_queue(&waitq, &wait);
++		printk (KERN_WARNING "mtd_vendor_ops: erase of region [0x%llx, 0x%llx] "
++					"on \"%s\" failed\n",
++			erase.addr, erase.len, mtd->name);
++		return ret;
++	}
+ 
+-	for (i = 0; i < n_sec; i++)
+-		ret = rk_emmc_transfer(buffer + i * 512, addr + i, 512, write);
++	schedule();  /* Wait for erase to finish. */
++	remove_wait_queue(&waitq, &wait);
++	return 0;
++}
++
++static int mtd_vendor_ops(u8 *buffer, u32 addr, u32 n_sec, int write)
++{
++	struct mtd_info *mtd;
++	size_t retlen;
++	u32 ret = -1;
+ 
++	mtd = get_mtd_device_nm("vendor");
++	if (mtd == NULL)
++		return -1;
++
++	if (write) {
++		if (mtd_vendor_erase(mtd, addr * 512, n_sec * 512) == 0 &&
++			mtd_write(mtd, addr * 512, n_sec * 512, &retlen, buffer) == 0) {
++			ret = (retlen != n_sec * 512);
++		}
++	} else {
++		if (mtd_read(mtd, addr * 512, n_sec * 512, &retlen, buffer) == 0) {
++			ret = (retlen != n_sec * 512);
++		}
++	}
++
++	put_mtd_device(mtd);
+ 	return ret;
+ }
+ 
+-static int emmc_vendor_storage_init(void)
++static int mtd_vendor_storage_init(void)
+ {
+ 	u32 i, max_ver, max_index;
+-	u8 *p_buf;
+ 
+ 	g_vendor = kmalloc(sizeof(*g_vendor), GFP_KERNEL | GFP_DMA);
+ 	if (!g_vendor)
+@@ -103,20 +156,13 @@ static int emmc_vendor_storage_init(void)
+ 
+ 	max_ver = 0;
+ 	max_index = 0;
+-	for (i = 0; i < EMMC_VENDOR_PART_NUM; i++) {
+-		/* read first 512 bytes */
+-		p_buf = (u8 *)g_vendor;
+-		if (rk_emmc_transfer(p_buf, EMMC_VENDOR_PART_START +
+-				 EMMC_VENDOR_PART_SIZE * i, 512, 0))
+-			goto error_exit;
+-		/* read last 512 bytes */
+-		p_buf += (EMMC_VENDOR_PART_SIZE - 1) * 512;
+-		if (rk_emmc_transfer(p_buf, EMMC_VENDOR_PART_START +
+-				 EMMC_VENDOR_PART_SIZE * (i + 1) - 1,
+-				 512, 0))
++	for (i = 0; i < MTD_VENDOR_PART_NUM; i++) {
++		if (mtd_vendor_ops((u8 *)g_vendor,
++			MTD_VENDOR_PART_SIZE * i,
++			MTD_VENDOR_PART_SIZE, 0))
+ 			goto error_exit;
+ 
+-		if (g_vendor->tag == EMMC_VENDOR_TAG &&
++		if (g_vendor->tag == MTD_VENDOR_TAG &&
+ 		    g_vendor->version2 == g_vendor->version) {
+ 			if (max_ver < g_vendor->version) {
+ 				max_index = i;
+@@ -125,14 +171,14 @@ static int emmc_vendor_storage_init(void)
+ 		}
+ 	}
+ 	if (max_ver) {
+-		if (emmc_vendor_ops((u8 *)g_vendor, EMMC_VENDOR_PART_START +
+-				EMMC_VENDOR_PART_SIZE * max_index,
+-				EMMC_VENDOR_PART_SIZE, 0))
++		if (mtd_vendor_ops((u8 *)g_vendor,
++				MTD_VENDOR_PART_SIZE * max_index,
++				MTD_VENDOR_PART_SIZE, 0))
+ 			goto error_exit;
+ 	} else {
+ 		memset((void *)g_vendor, 0, sizeof(*g_vendor));
+ 		g_vendor->version = 1;
+-		g_vendor->tag = EMMC_VENDOR_TAG;
++		g_vendor->tag = MTD_VENDOR_TAG;
+ 		g_vendor->version2 = g_vendor->version;
+ 		g_vendor->free_offset = 0;
+ 		g_vendor->free_size = sizeof(g_vendor->data);
+@@ -144,7 +190,7 @@ error_exit:
+ 	return -1;
+ }
+ 
+-static int emmc_vendor_read(u32 id, void *pbuf, u32 size)
++static int mtd_vendor_read(u32 id, void *pbuf, u32 size)
+ {
+ 	u32 i;
+ 
+@@ -164,7 +210,7 @@ static int emmc_vendor_read(u32 id, void *pbuf, u32 size)
+ 	return (-1);
+ }
+ 
+-static int emmc_vendor_write(u32 id, void *pbuf, u32 size)
++static int mtd_vendor_write(u32 id, void *pbuf, u32 size)
+ {
+ 	u32 i, j, next_index, align_size, alloc_size, item_num;
+ 	u32 offset, next_size;
+@@ -217,11 +263,11 @@ static int emmc_vendor_write(u32 id, void *pbuf, u32 size)
+ 			g_vendor->version++;
+ 			g_vendor->version2 = g_vendor->version;
+ 			g_vendor->next_index++;
+-			if (g_vendor->next_index >= EMMC_VENDOR_PART_NUM)
++			if (g_vendor->next_index >= MTD_VENDOR_PART_NUM)
+ 				g_vendor->next_index = 0;
+-			emmc_vendor_ops((u8 *)g_vendor, EMMC_VENDOR_PART_START +
+-					EMMC_VENDOR_PART_SIZE * next_index,
+-					EMMC_VENDOR_PART_SIZE, 1);
++			mtd_vendor_ops((u8 *)g_vendor,
++					MTD_VENDOR_PART_SIZE * next_index,
++					MTD_VENDOR_PART_SIZE, 1);
+ 			return 0;
+ 		}
+ 	}
+@@ -238,11 +284,11 @@ static int emmc_vendor_write(u32 id, void *pbuf, u32 size)
+ 		g_vendor->version++;
+ 		g_vendor->version2 = g_vendor->version;
+ 		g_vendor->next_index++;
+-		if (g_vendor->next_index >= EMMC_VENDOR_PART_NUM)
++		if (g_vendor->next_index >= MTD_VENDOR_PART_NUM)
+ 			g_vendor->next_index = 0;
+-		emmc_vendor_ops((u8 *)g_vendor, EMMC_VENDOR_PART_START +
+-				EMMC_VENDOR_PART_SIZE * next_index,
+-				EMMC_VENDOR_PART_SIZE, 1);
++		mtd_vendor_ops((u8 *)g_vendor,
++				MTD_VENDOR_PART_SIZE * next_index,
++				MTD_VENDOR_PART_SIZE, 1);
+ 		return 0;
+ 	}
+ 	return(-1);
+@@ -431,7 +477,7 @@ static long vendor_storage_ioctl(struct file *file, unsigned int cmd,
+ 			break;
+ 		}
+ 		if (v_req->tag == VENDOR_REQ_TAG) {
+-			size = emmc_vendor_read(v_req->id, v_req->data,
++			size = mtd_vendor_read(v_req->id, v_req->data,
+ 						v_req->len);
+ 			if (size != -1) {
+ 				v_req->len = size;
+@@ -455,7 +501,7 @@ static long vendor_storage_ioctl(struct file *file, unsigned int cmd,
+ 				ret = -EFAULT;
+ 				break;
+ 			}
+-			ret = emmc_vendor_write(v_req->id,
++			ret = mtd_vendor_write(v_req->id,
+ 						v_req->data,
+ 						v_req->len);
+ 		}
+@@ -595,7 +641,7 @@ static int vendor_init_thread(void *arg)
+ 	int ret, try_count = 5;
+ 
+ 	do {
+-		ret = emmc_vendor_storage_init();
++		ret = mtd_vendor_storage_init();
+ 		if (!ret) {
+ 			break;
+ 		}
+@@ -605,7 +651,7 @@ static int vendor_init_thread(void *arg)
+ 
+ 	if (!ret) {
+ 		ret = misc_register(&vender_storage_dev);
+-		rk_vendor_register(emmc_vendor_read, emmc_vendor_write);
++		rk_vendor_register(mtd_vendor_read, mtd_vendor_write);
+ 	}
+ 	pr_info("vendor storage:20160801 ret = %d\n", ret);
+ 	return ret;

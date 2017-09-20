@@ -1,0 +1,80 @@
+From 62cb3ab72b8e4ea15693448c33b25b082997502e Mon Sep 17 00:00:00 2001
+From: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Date: Tue, 3 Jan 2017 16:52:51 +0100
+Subject: [PATCH 14/33] UPSTREAM: ASoC: core: add optional pcm_new callback for
+ DAI driver
+
+During probe, DAIs can need to perform some actions that requests
+the knowledge of the pcm runtime handle.
+The callback is called during DAIs linking, after PCM device creation.
+For instance this can be used to add relationship between a DAI pcm
+control and the pcm device.
+
+Signed-off-by: Arnaud Pouliquen <arnaud.pouliquen@st.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+(cherry picked from commit 25f7b701c20db3e9ae09e28dd652949bd977e5cd)
+---
+ include/sound/soc-dai.h |  3 +++
+ sound/soc/soc-core.c    | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+)
+
+diff --git a/include/sound/soc-dai.h b/include/sound/soc-dai.h
+index 212eaaf172ed..345e4f8ee93f 100644
+--- a/include/sound/soc-dai.h
++++ b/include/sound/soc-dai.h
+@@ -230,6 +230,9 @@ struct snd_soc_dai_driver {
+ 	int (*resume)(struct snd_soc_dai *dai);
+ 	/* compress dai */
+ 	int (*compress_new)(struct snd_soc_pcm_runtime *rtd, int num);
++	/* Optional Callback used at pcm creation*/
++	int (*pcm_new)(struct snd_soc_pcm_runtime *rtd,
++		       struct snd_soc_dai *dai);
+ 	/* DAI is also used for the control bus */
+ 	bool bus_control;
+ 
+diff --git a/sound/soc/soc-core.c b/sound/soc/soc-core.c
+index 49263f3a50b0..c583022d7910 100644
+--- a/sound/soc/soc-core.c
++++ b/sound/soc/soc-core.c
+@@ -1277,6 +1277,27 @@ static int soc_probe_dai(struct snd_soc_dai *dai, int order)
+ 	return 0;
+ }
+ 
++static int soc_link_dai_pcm_new(struct snd_soc_dai **dais, int num_dais,
++				struct snd_soc_pcm_runtime *rtd)
++{
++	int i, ret = 0;
++
++	for (i = 0; i < num_dais; ++i) {
++		struct snd_soc_dai_driver *drv = dais[i]->driver;
++
++		if (!rtd->dai_link->no_pcm && drv->pcm_new)
++			ret = drv->pcm_new(rtd, dais[i]);
++		if (ret < 0) {
++			dev_err(dais[i]->dev,
++				"ASoC: Failed to bind %s with pcm device\n",
++				dais[i]->name);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++
+ static int soc_link_dai_widgets(struct snd_soc_card *card,
+ 				struct snd_soc_dai_link *dai_link,
+ 				struct snd_soc_pcm_runtime *rtd)
+@@ -1388,6 +1409,13 @@ static int soc_probe_link_dais(struct snd_soc_card *card, int num, int order)
+ 				       dai_link->stream_name, ret);
+ 				return ret;
+ 			}
++			ret = soc_link_dai_pcm_new(&cpu_dai, 1, rtd);
++			if (ret < 0)
++				return ret;
++			ret = soc_link_dai_pcm_new(rtd->codec_dais,
++						   rtd->num_codecs, rtd);
++			if (ret < 0)
++				return ret;
+ 		} else {
+ 			INIT_DELAYED_WORK(&rtd->delayed_work,
+ 						codec2codec_close_delayed_work);

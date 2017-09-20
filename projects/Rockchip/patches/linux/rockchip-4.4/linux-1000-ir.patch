@@ -1,0 +1,304 @@
+From a92757dd65d6177b310403e5ee3a72b42a517256 Mon Sep 17 00:00:00 2001
+From: Eric Nelson <eric@nelint.com>
+Date: Sat, 3 Oct 2015 08:18:50 -0700
+Subject: [PATCH 1/5] UPSTREAM: [media] rc-core: define a default timeout for
+ drivers
+
+A default timeout value of 125 ms should work for all decoders.
+
+Declare a constant to help standardize its' use.
+
+Signed-off-by: Eric Nelson <eric@nelint.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@osg.samsung.com>
+(cherry picked from commit c8e1bbc52d259a07a81b0f845191ee901ff44e01)
+---
+ include/media/rc-core.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/media/rc-core.h b/include/media/rc-core.h
+index ec921f6538c7..f6494709e230 100644
+--- a/include/media/rc-core.h
++++ b/include/media/rc-core.h
+@@ -239,6 +239,7 @@ static inline void init_ir_raw_event(struct ir_raw_event *ev)
+ 	memset(ev, 0, sizeof(*ev));
+ }
+ 
++#define IR_DEFAULT_TIMEOUT	MS_TO_NS(125)
+ #define IR_MAX_DURATION         500000000	/* 500 ms */
+ #define US_TO_NS(usec)		((usec) * 1000)
+ #define MS_TO_US(msec)		((msec) * 1000)
+
+From aa3c117c087a7ea9ce75be28a24c61ad8735e3a8 Mon Sep 17 00:00:00 2001
+From: Eric Nelson <eric@nelint.com>
+Date: Wed, 23 Sep 2015 11:07:08 -0300
+Subject: [PATCH 2/5] UPSTREAM: [media] rc: gpio-ir-recv: add timeout on idle
+
+Many decoders require a trailing space (period without IR illumination)
+to be delivered before completing a decode.
+
+Since the gpio-ir-recv driver only delivers events on gpio transitions,
+a single IR symbol (caused by a quick touch on an IR remote) will not
+be properly decoded without the use of a timer to flush the tail end
+state of the IR receiver.
+
+This patch initializes and uses a timer and the timeout field of rcdev
+to complete the stream and allow decode.
+
+The timeout can be overridden through the use of the LIRC_SET_REC_TIMEOUT
+ioctl.
+
+Signed-off-by: Eric Nelson <eric@nelint.com>
+Acked-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@osg.samsung.com>
+(cherry picked from commit 3fb136f3392dfb2530fd490718b0652f1001b36b)
+---
+ drivers/media/rc/gpio-ir-recv.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/media/rc/gpio-ir-recv.c b/drivers/media/rc/gpio-ir-recv.c
+index 7dbc9ca6d885..f62e3f1f9d9d 100644
+--- a/drivers/media/rc/gpio-ir-recv.c
++++ b/drivers/media/rc/gpio-ir-recv.c
+@@ -30,6 +30,7 @@ struct gpio_rc_dev {
+ 	struct rc_dev *rcdev;
+ 	int gpio_nr;
+ 	bool active_low;
++	struct timer_list flush_timer;
+ };
+ 
+ #ifdef CONFIG_OF
+@@ -93,12 +94,26 @@ static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
+ 	if (rc < 0)
+ 		goto err_get_value;
+ 
++	mod_timer(&gpio_dev->flush_timer,
++		  jiffies + nsecs_to_jiffies(gpio_dev->rcdev->timeout));
++
+ 	ir_raw_event_handle(gpio_dev->rcdev);
+ 
+ err_get_value:
+ 	return IRQ_HANDLED;
+ }
+ 
++static void flush_timer(unsigned long arg)
++{
++	struct gpio_rc_dev *gpio_dev = (struct gpio_rc_dev *)arg;
++	DEFINE_IR_RAW_EVENT(ev);
++
++	ev.timeout = true;
++	ev.duration = gpio_dev->rcdev->timeout;
++	ir_raw_event_store(gpio_dev->rcdev, &ev);
++	ir_raw_event_handle(gpio_dev->rcdev);
++}
++
+ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ {
+ 	struct gpio_rc_dev *gpio_dev;
+@@ -144,6 +159,9 @@ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ 	rcdev->input_id.version = 0x0100;
+ 	rcdev->dev.parent = &pdev->dev;
+ 	rcdev->driver_name = GPIO_IR_DRIVER_NAME;
++	rcdev->min_timeout = 0;
++	rcdev->timeout = IR_DEFAULT_TIMEOUT;
++	rcdev->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
+ 	if (pdata->allowed_protos)
+ 		rcdev->allowed_protocols = pdata->allowed_protos;
+ 	else
+@@ -154,6 +172,9 @@ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ 	gpio_dev->gpio_nr = pdata->gpio_nr;
+ 	gpio_dev->active_low = pdata->active_low;
+ 
++	setup_timer(&gpio_dev->flush_timer, flush_timer,
++		    (unsigned long)gpio_dev);
++
+ 	rc = gpio_request(pdata->gpio_nr, "gpio-ir-recv");
+ 	if (rc < 0)
+ 		goto err_gpio_request;
+@@ -196,6 +217,7 @@ static int gpio_ir_recv_remove(struct platform_device *pdev)
+ 	struct gpio_rc_dev *gpio_dev = platform_get_drvdata(pdev);
+ 
+ 	free_irq(gpio_to_irq(gpio_dev->gpio_nr), gpio_dev);
++	del_timer_sync(&gpio_dev->flush_timer);
+ 	rc_unregister_device(gpio_dev->rcdev);
+ 	gpio_free(gpio_dev->gpio_nr);
+ 	kfree(gpio_dev);
+
+From 7fab22bc9d0e8d7607cb94affb1e85ed4ac8c76f Mon Sep 17 00:00:00 2001
+From: Sean Young <sean@mess.org>
+Date: Thu, 26 Jan 2017 14:37:33 -0200
+Subject: [PATCH 3/5] UPSTREAM: [media] gpio-ir: do not allow a timeout of 0
+
+According to the documentation, a timeout of 0 turns off timeouts,
+which is not the case.
+
+Signed-off-by: Sean Young <sean@mess.org>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+(cherry picked from commit ee5310e66eab685fb42b3b585b00a92b67fb59d7)
+---
+ drivers/media/rc/gpio-ir-recv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/rc/gpio-ir-recv.c b/drivers/media/rc/gpio-ir-recv.c
+index f62e3f1f9d9d..56cf716d0cd4 100644
+--- a/drivers/media/rc/gpio-ir-recv.c
++++ b/drivers/media/rc/gpio-ir-recv.c
+@@ -159,7 +159,7 @@ static int gpio_ir_recv_probe(struct platform_device *pdev)
+ 	rcdev->input_id.version = 0x0100;
+ 	rcdev->dev.parent = &pdev->dev;
+ 	rcdev->driver_name = GPIO_IR_DRIVER_NAME;
+-	rcdev->min_timeout = 0;
++	rcdev->min_timeout = 1;
+ 	rcdev->timeout = IR_DEFAULT_TIMEOUT;
+ 	rcdev->max_timeout = 10 * IR_DEFAULT_TIMEOUT;
+ 	if (pdata->allowed_protos)
+
+From 43e22f539d76fb8f8aedc1306929e6715798aabe Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sun, 13 Aug 2017 10:24:34 +0200
+Subject: [PATCH 4/5] [media] rc/keymaps: add keytable for Pine64 Remote
+ Control
+
+---
+ drivers/media/rc/keymaps/Makefile    |  1 +
+ drivers/media/rc/keymaps/rc-pine64.c | 65 ++++++++++++++++++++++++++++++++++++
+ include/media/rc-map.h               |  1 +
+ 3 files changed, 67 insertions(+)
+ create mode 100644 drivers/media/rc/keymaps/rc-pine64.c
+
+diff --git a/drivers/media/rc/keymaps/Makefile b/drivers/media/rc/keymaps/Makefile
+index fbbd3bbcd252..8816520600f7 100644
+--- a/drivers/media/rc/keymaps/Makefile
++++ b/drivers/media/rc/keymaps/Makefile
+@@ -66,6 +66,7 @@ obj-$(CONFIG_RC_MAP) += rc-adstech-dvb-t-pci.o \
+ 			rc-norwood.o \
+ 			rc-npgtech.o \
+ 			rc-pctv-sedna.o \
++			rc-pine64.o \
+ 			rc-pinnacle-color.o \
+ 			rc-pinnacle-grey.o \
+ 			rc-pinnacle-pctv-hd.o \
+diff --git a/drivers/media/rc/keymaps/rc-pine64.c b/drivers/media/rc/keymaps/rc-pine64.c
+new file mode 100644
+index 000000000000..46066bd1c998
+--- /dev/null
++++ b/drivers/media/rc/keymaps/rc-pine64.c
+@@ -0,0 +1,65 @@
++/* Keytable for Pine64 Remote Control
++ *
++ * Copyright (c) 2017 PINE64
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <media/rc-map.h>
++#include <linux/module.h>
++
++static struct rc_map_table pine64[] = {
++	{ 0x404000, KEY_0 },
++	{ 0x404001, KEY_1 },
++	{ 0x404002, KEY_2 },
++	{ 0x404003, KEY_3 },
++	{ 0x404004, KEY_4 },
++	{ 0x404005, KEY_5 },
++	{ 0x404006, KEY_6 },
++	{ 0x404007, KEY_7 },
++	{ 0x404008, KEY_8 },
++	{ 0x404009, KEY_9 },
++	{ 0x40400a, KEY_MUTE },
++	{ 0x40400b, KEY_UP },
++	{ 0x40400c, KEY_BACKSPACE },
++	{ 0x40400d, KEY_OK },
++	{ 0x40400e, KEY_DOWN },
++	{ 0x404010, KEY_LEFT },
++	{ 0x404011, KEY_RIGHT },
++	{ 0x404017, KEY_VOLUMEDOWN },
++	{ 0x404018, KEY_VOLUMEUP },
++	{ 0x40401a, KEY_HOME },
++	{ 0x40401d, KEY_MENU },
++	{ 0x40401f, KEY_SEARCH },
++	{ 0x404045, KEY_BACK },
++	{ 0x404047, KEY_INFO },
++	{ 0x40404d, KEY_POWER },
++};
++
++static struct rc_map_list pine64_map = {
++	.map = {
++		.scan    = pine64,
++		.size    = ARRAY_SIZE(pine64),
++		.rc_type = RC_TYPE_NEC,
++		.name    = RC_MAP_PINE64,
++	}
++};
++
++static int __init init_rc_map_pine64(void)
++{
++	return rc_map_register(&pine64_map);
++}
++
++static void __exit exit_rc_map_pine64(void)
++{
++	rc_map_unregister(&pine64_map);
++}
++
++module_init(init_rc_map_pine64)
++module_exit(exit_rc_map_pine64)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("PINE64");
+diff --git a/include/media/rc-map.h b/include/media/rc-map.h
+index 7c4bbc4dfab4..3a34a9631dd1 100644
+--- a/include/media/rc-map.h
++++ b/include/media/rc-map.h
+@@ -173,6 +173,7 @@ void rc_map_init(void);
+ #define RC_MAP_NORWOOD                   "rc-norwood"
+ #define RC_MAP_NPGTECH                   "rc-npgtech"
+ #define RC_MAP_PCTV_SEDNA                "rc-pctv-sedna"
++#define RC_MAP_PINE64                    "rc-pine64"
+ #define RC_MAP_PINNACLE_COLOR            "rc-pinnacle-color"
+ #define RC_MAP_PINNACLE_GREY             "rc-pinnacle-grey"
+ #define RC_MAP_PINNACLE_PCTV_HD          "rc-pinnacle-pctv-hd"
+
+From f8dba0376f61ea721a4bbd0c4ad4235a0fc3d59c Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sun, 13 Aug 2017 10:24:35 +0200
+Subject: [PATCH 5/5] arm64: dts: rockchip: rk3328-rock64: add ir-receiver
+
+---
+ arch/arm64/boot/dts/rockchip/rk3328-rock64.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+index 5745324ff287..b143712c30a5 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-rock64.dts
+@@ -70,6 +70,14 @@
+ 		#clock-cells = <0>;
+ 	};
+ 
++	ir: ir-receiver {
++		compatible = "gpio-ir-receiver";
++		gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
++		linux,rc-map-name = "rc-pine64";
++		pinctrl-names = "default";
++		pinctrl-0 = <&ir_int>;
++	};
++
+ 	gpio-leds {
+ 		compatible = "gpio-leds";
+ 
+@@ -452,6 +460,12 @@
+ 			<2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>;	/* gpio2_a6 */
+ 		};
+ 	};
++
++	ir {
++		ir_int: ir-int {
++			rockchip,pins = <2 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
+ };
+ 
+ &rkvdec {

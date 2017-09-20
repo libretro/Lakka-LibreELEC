@@ -1,0 +1,46 @@
+From f052d9fb871e7bc2084858b546f733214398b08b Mon Sep 17 00:00:00 2001
+From: Sugar Zhang <sugar.zhang@rock-chips.com>
+Date: Wed, 7 Sep 2016 14:30:21 +0800
+Subject: [PATCH 12/33] UPSTREAM: ASoC: rockchip: spdif: restore register
+ during runtime_suspend/resume cycle
+
+when step into runtime_suspend, spdif pd will be disabled and loss state.
+so need to restore register when runtime_resume.
+
+Signed-off-by: Sugar Zhang <sugar.zhang@rock-chips.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+(cherry picked from commit 3628c6987fb45d719cd963805bbba9f15017290e)
+---
+ sound/soc/rockchip/rockchip_spdif.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/rockchip/rockchip_spdif.c b/sound/soc/rockchip/rockchip_spdif.c
+index feaba2ad6022..cac85a5538d5 100644
+--- a/sound/soc/rockchip/rockchip_spdif.c
++++ b/sound/soc/rockchip/rockchip_spdif.c
+@@ -69,6 +69,7 @@ static int rk_spdif_runtime_suspend(struct device *dev)
+ {
+ 	struct rk_spdif_dev *spdif = dev_get_drvdata(dev);
+ 
++	regcache_cache_only(spdif->regmap, true);
+ 	clk_disable_unprepare(spdif->mclk);
+ 	clk_disable_unprepare(spdif->hclk);
+ 
+@@ -92,7 +93,16 @@ static int rk_spdif_runtime_resume(struct device *dev)
+ 		return ret;
+ 	}
+ 
+-	return 0;
++	regcache_cache_only(spdif->regmap, false);
++	regcache_mark_dirty(spdif->regmap);
++
++	ret = regcache_sync(spdif->regmap);
++	if (ret) {
++		clk_disable_unprepare(spdif->mclk);
++		clk_disable_unprepare(spdif->hclk);
++	}
++
++	return ret;
+ }
+ 
+ static int rk_spdif_hw_params(struct snd_pcm_substream *substream,

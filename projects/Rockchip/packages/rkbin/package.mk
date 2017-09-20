@@ -1,0 +1,39 @@
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017 Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+PKG_NAME="rkbin"
+PKG_VERSION="c1b1689"
+PKG_ARCH="arm aarch64"
+PKG_LICENSE="nonfree"
+PKG_SITE="https://github.com/rockchip-linux/rkbin"
+PKG_URL="https://github.com/rockchip-linux/rkbin/archive/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="rkbin-$PKG_VERSION*"
+PKG_SECTION="firmware"
+PKG_SHORTDESC="rkbin: Rockchip Firmware and Tool Binaries"
+PKG_LONGDESC="rkbin: Rockchip Firmware and Tool Binaries"
+
+PKG_IS_ADDON="no"
+PKG_AUTORECONF="no"
+
+make_target() {
+  : # nothing
+}
+
+makeinstall_target() {
+  : # nothing
+}

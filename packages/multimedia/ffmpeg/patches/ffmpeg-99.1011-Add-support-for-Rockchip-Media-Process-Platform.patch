@@ -1,0 +1,1277 @@
+From 1226e83e9addc4eb0665e5b41df1fff8ce3ed5dc Mon Sep 17 00:00:00 2001
+From: LongChair <LongChair@hotmail.com>
+Date: Wed, 26 Apr 2017 11:51:27 +0200
+Subject: [PATCH 1/4] Add support for Rockchip Media Process Platform
+
+This adds hardware decoding for h264 / HEVC / VP8 using MPP Rockchip API.
+Will return frames holding a av_drmprime struct that allows drm / dmabuf usage.
+---
+ configure              |  12 ++
+ libavcodec/Makefile    |   4 +
+ libavcodec/allcodecs.c |   6 +
+ libavcodec/drmprime.h  |  17 ++
+ libavcodec/rkmppdec.c  | 493 +++++++++++++++++++++++++++++++++++++++++++++++++
+ libavutil/pixdesc.c    |   4 +
+ libavutil/pixfmt.h     |   5 +
+ 7 files changed, 541 insertions(+)
+ create mode 100644 libavcodec/drmprime.h
+ create mode 100644 libavcodec/rkmppdec.c
+
+diff --git a/configure b/configure
+index 5eb11e4421..76555ec88c 100755
+--- a/configure
++++ b/configure
+@@ -309,6 +309,7 @@ External library support:
+   --enable-nvenc           enable Nvidia video encoding code [no]
+   --enable-omx             enable OpenMAX IL code [no]
+   --enable-omx-rpi         enable OpenMAX IL code for Raspberry Pi [no]
++  --enable-rkmpp           enable Rockchip Media Process Platform code [no]
+   --disable-vaapi          disable Video Acceleration API (mainly Unix/Intel) code [autodetect]
+   --disable-vda            disable Apple Video Decode Acceleration code [autodetect]
+   --disable-vdpau          disable Nvidia Video Decode and Presentation API for Unix code [autodetect]
+@@ -1564,6 +1565,7 @@ HWACCEL_LIBRARY_LIST="
+     mmal
+     nvenc
+     omx
++    rkmpp
+     vaapi
+     vda
+     vdpau
+@@ -2562,6 +2564,7 @@ h264_mmal_decoder_select="mmal"
+ h264_mmal_hwaccel_deps="mmal"
+ h264_omx_encoder_deps="omx"
+ h264_qsv_hwaccel_deps="libmfx"
++h264_rkmpp_hwaccel_deps="rkmpp"
+ h264_vaapi_hwaccel_deps="vaapi"
+ h264_vaapi_hwaccel_select="h264_decoder"
+ h264_vda_decoder_deps="vda"
+@@ -2582,6 +2585,7 @@ hevc_d3d11va_hwaccel_select="hevc_decoder"
+ hevc_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_HEVC"
+ hevc_dxva2_hwaccel_select="hevc_decoder"
+ hevc_qsv_hwaccel_deps="libmfx"
++hevc_rkmpp_hwaccel_deps="rkmpp"
+ hevc_vaapi_hwaccel_deps="vaapi VAPictureParameterBufferHEVC"
+ hevc_vaapi_hwaccel_select="hevc_decoder"
+ hevc_vdpau_hwaccel_deps="vdpau VdpPictureInfoHEVC"
+@@ -2649,6 +2653,7 @@ vc1_vdpau_hwaccel_deps="vdpau"
+ vc1_vdpau_hwaccel_select="vc1_decoder"
+ vp8_cuvid_hwaccel_deps="cuda cuvid CUVIDVP9PICPARAMS"
+ vp9_cuvid_hwaccel_deps="cuda cuvid CUVIDVP9PICPARAMS"
++vp8_rkmpp_hwaccel_deps="rkmpp"
+ vp9_d3d11va_hwaccel_deps="d3d11va DXVA_PicParams_VP9"
+ vp9_d3d11va_hwaccel_select="vp9_decoder"
+ vp9_dxva2_hwaccel_deps="dxva2 DXVA_PicParams_VP9"
+@@ -2680,6 +2685,8 @@ h264_qsv_decoder_deps="libmfx"
+ h264_qsv_decoder_select="h264_mp4toannexb_bsf h264_parser qsvdec h264_qsv_hwaccel"
+ h264_qsv_encoder_deps="libmfx"
+ h264_qsv_encoder_select="qsvenc"
++h264_rkmpp_decoder_deps="rkmpp"
++h264_rkmpp_decoder_select="h264_mp4toannexb_bsf rkmpp h264_rkmpp_hwaccel"
+ h264_vaapi_encoder_deps="VAEncPictureParameterBufferH264"
+ h264_vaapi_encoder_select="vaapi_encode golomb"
+ 
+@@ -2690,6 +2697,8 @@ hevc_qsv_decoder_deps="libmfx"
+ hevc_qsv_decoder_select="hevc_mp4toannexb_bsf hevc_parser qsvdec hevc_qsv_hwaccel"
+ hevc_qsv_encoder_deps="libmfx"
+ hevc_qsv_encoder_select="qsvenc"
++hevc_rkmpp_decoder_deps="rkmpp"
++hevc_rkmpp_decoder_select="hevc_mp4toannexb_bsf rkmpp hevc_rkmpp_hwaccel"
+ hevc_vaapi_encoder_deps="VAEncPictureParameterBufferHEVC"
+ hevc_vaapi_encoder_select="vaapi_encode golomb"
+ mpeg2_qsv_decoder_deps="libmfx"
+@@ -2703,6 +2712,8 @@ vc1_cuvid_decoder_deps="cuda cuvid CUVIDVC1PICPARAMS"
+ vc1_cuvid_decoder_select="vc1_cuvid_hwaccel"
+ vp8_cuvid_decoder_deps="cuda cuvid CUVIDVP9PICPARAMS"
+ vp8_cuvid_decoder_select="vp8_cuvid_hwaccel"
++vp8_rkmpp_decoder_deps="rkmpp"
++vp8_rkmpp_decoder_select="rkmpp vp8_rkmpp_hwaccel"
+ vp9_cuvid_decoder_deps="cuda cuvid CUVIDVP9PICPARAMS"
+ vp9_cuvid_decoder_select="vp9_cuvid_hwaccel"
+ 
+@@ -5760,6 +5771,7 @@ enabled mmal              && { check_lib interface/mmal/mmal.h mmal_port_connect
+                                die "ERROR: mmal not found"; }
+ enabled mmal && check_func_headers interface/mmal/mmal.h "MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS"
+ 
++enabled rkmpp             && { check_lib rockchip/rk_mpi.h mpp_create "-lrockchip_mpp" || die "ERROR : Rockchip MPP was not found."; }
+ enabled netcdf            && require_pkg_config netcdf netcdf.h nc_inq_libvers
+ enabled nvenc             && { check_header nvEncodeAPI.h || die "ERROR: nvEncodeAPI.h not found."; } &&
+                              { check_cpp_condition nvEncodeAPI.h "NVENCAPI_MAJOR_VERSION >= 6" ||
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index bb28aea1e2..d09425c00d 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -18,6 +18,7 @@ HEADERS = avcodec.h                                                     \
+           videotoolbox.h                                                \
+           vorbis_parser.h                                               \
+           xvmc.h                                                        \
++          drmprime.h                                                    \
+ 
+ OBJS = allcodecs.o                                                      \
+        audioconvert.o                                                   \
+@@ -322,6 +323,7 @@ OBJS-$(CONFIG_H264_VDA_DECODER)        += vda_h264_dec.o
+ OBJS-$(CONFIG_H264_OMX_ENCODER)        += omx.o
+ OBJS-$(CONFIG_H264_QSV_DECODER)        += qsvdec_h2645.o
+ OBJS-$(CONFIG_H264_QSV_ENCODER)        += qsvenc_h264.o
++OBJS-$(CONFIG_H264_RKMPP_DECODER)      += rkmppdec.o
+ OBJS-$(CONFIG_H264_VAAPI_ENCODER)      += vaapi_encode_h264.o vaapi_encode_h26x.o
+ OBJS-$(CONFIG_H264_VIDEOTOOLBOX_ENCODER) += videotoolboxenc.o
+ OBJS-$(CONFIG_HAP_DECODER)             += hapdec.o hap.o
+@@ -334,6 +336,7 @@ OBJS-$(CONFIG_HEVC_NVENC_ENCODER)      += nvenc_hevc.o
+ OBJS-$(CONFIG_NVENC_HEVC_ENCODER)      += nvenc_hevc.o
+ OBJS-$(CONFIG_HEVC_QSV_DECODER)        += qsvdec_h2645.o
+ OBJS-$(CONFIG_HEVC_QSV_ENCODER)        += qsvenc_hevc.o hevc_ps_enc.o h2645_parse.o
++OBJS-$(CONFIG_HEVC_RKMPP_DECODER)      += rkmppdec.o
+ OBJS-$(CONFIG_HEVC_VAAPI_ENCODER)      += vaapi_encode_h265.o vaapi_encode_h26x.o
+ OBJS-$(CONFIG_HNM4_VIDEO_DECODER)      += hnm4video.o
+ OBJS-$(CONFIG_HQ_HQA_DECODER)          += hq_hqa.o hq_hqadata.o hq_hqadsp.o \
+@@ -589,6 +592,7 @@ OBJS-$(CONFIG_VP6_DECODER)             += vp6.o vp56.o vp56data.o \
+ OBJS-$(CONFIG_VP7_DECODER)             += vp8.o vp56rac.o
+ OBJS-$(CONFIG_VP8_DECODER)             += vp8.o vp56rac.o
+ OBJS-$(CONFIG_VP8_CUVID_DECODER)       += cuvid.o
++OBJS-$(CONFIG_VP8_RKMPP_DECODER)       += rkmppdec.o
+ OBJS-$(CONFIG_VP9_DECODER)             += vp9.o vp9dsp.o vp56rac.o vp9dsp_8bpp.o \
+                                           vp9dsp_10bpp.o vp9dsp_12bpp.o
+ OBJS-$(CONFIG_VP9_CUVID_DECODER)       += cuvid.o
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index 54efaad344..a3afa3e289 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -74,6 +74,7 @@ void avcodec_register_all(void)
+     REGISTER_HWACCEL(H264_DXVA2,        h264_dxva2);
+     REGISTER_HWACCEL(H264_MMAL,         h264_mmal);
+     REGISTER_HWACCEL(H264_QSV,          h264_qsv);
++    REGISTER_HWACCEL(H264_RKMPP,        h264_rkmpp);
+     REGISTER_HWACCEL(H264_VAAPI,        h264_vaapi);
+     REGISTER_HWACCEL(H264_VDA,          h264_vda);
+     REGISTER_HWACCEL(H264_VDA_OLD,      h264_vda_old);
+@@ -83,6 +84,7 @@ void avcodec_register_all(void)
+     REGISTER_HWACCEL(HEVC_D3D11VA,      hevc_d3d11va);
+     REGISTER_HWACCEL(HEVC_DXVA2,        hevc_dxva2);
+     REGISTER_HWACCEL(HEVC_QSV,          hevc_qsv);
++    REGISTER_HWACCEL(HEVC_RKMPP,        hevc_rkmpp);
+     REGISTER_HWACCEL(HEVC_VAAPI,        hevc_vaapi);
+     REGISTER_HWACCEL(HEVC_VDPAU,        hevc_vdpau);
+     REGISTER_HWACCEL(MPEG1_XVMC,        mpeg1_xvmc);
+@@ -108,6 +110,7 @@ void avcodec_register_all(void)
+     REGISTER_HWACCEL(VC1_MMAL,          vc1_mmal);
+     REGISTER_HWACCEL(VC1_QSV,           vc1_qsv);
+     REGISTER_HWACCEL(VP8_CUVID,         vp8_cuvid);
++    REGISTER_HWACCEL(VP8_RKMPP,         vp8_rkmpp);
+     REGISTER_HWACCEL(VP9_CUVID,         vp9_cuvid);
+     REGISTER_HWACCEL(VP9_D3D11VA,       vp9_d3d11va);
+     REGISTER_HWACCEL(VP9_DXVA2,         vp9_dxva2);
+@@ -197,6 +200,7 @@ void avcodec_register_all(void)
+     REGISTER_DECODER(H264_MEDIACODEC,   h264_mediacodec);
+     REGISTER_DECODER(H264_MMAL,         h264_mmal);
+     REGISTER_DECODER(H264_QSV,          h264_qsv);
++    REGISTER_DECODER(H264_RKMPP,        h264_rkmpp);
+     REGISTER_DECODER(H264_VDA,          h264_vda);
+ #if FF_API_VDPAU
+     REGISTER_DECODER(H264_VDPAU,        h264_vdpau);
+@@ -204,6 +208,7 @@ void avcodec_register_all(void)
+     REGISTER_ENCDEC (HAP,               hap);
+     REGISTER_DECODER(HEVC,              hevc);
+     REGISTER_DECODER(HEVC_QSV,          hevc_qsv);
++    REGISTER_DECODER(HEVC_RKMPP,        hevc_rkmpp);
+     REGISTER_DECODER(HNM4_VIDEO,        hnm4_video);
+     REGISTER_DECODER(HQ_HQA,            hq_hqa);
+     REGISTER_DECODER(HQX,               hqx);
+@@ -350,6 +355,7 @@ void avcodec_register_all(void)
+     REGISTER_DECODER(VP6F,              vp6f);
+     REGISTER_DECODER(VP7,               vp7);
+     REGISTER_DECODER(VP8,               vp8);
++    REGISTER_DECODER(VP8_RKMPP,         vp8_rkmpp);
+     REGISTER_DECODER(VP9,               vp9);
+     REGISTER_DECODER(VQA,               vqa);
+     REGISTER_DECODER(WEBP,              webp);
+diff --git a/libavcodec/drmprime.h b/libavcodec/drmprime.h
+new file mode 100644
+index 0000000000..4186e7aeea
+--- /dev/null
++++ b/libavcodec/drmprime.h
+@@ -0,0 +1,17 @@
++#ifndef AVCODEC_DRMPRIME_H
++#define AVCODEC_DRMPRIME_H
++
++#include <stdint.h>
++
++#define AV_DRMPRIME_NUM_PLANES	4	// maximum number of planes
++
++typedef struct av_drmprime {
++
++    int strides[AV_DRMPRIME_NUM_PLANES]; // stride in byte of the according plane
++    int offsets[AV_DRMPRIME_NUM_PLANES]; // offset from start in byte of the according plane
++    int fds[AV_DRMPRIME_NUM_PLANES];     // file descriptor for the plane, (0) if unused.
++    uint32_t format;                        // FOURC_CC drm format for the image
++
++} av_drmprime;
++
++#endif // AVCODEC_DRMPRIME_H
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+new file mode 100644
+index 0000000000..014c8f7fb6
+--- /dev/null
++++ b/libavcodec/rkmppdec.c
+@@ -0,0 +1,493 @@
++#include <libdrm/drm_fourcc.h>
++#include <pthread.h>
++#include <rockchip/mpp_buffer.h>
++#include <rockchip/rk_mpi.h>
++#include <time.h>
++#include <unistd.h>
++
++#include "avcodec.h"
++#include "decode.h"
++#include "drmprime.h"
++#include "internal.h"
++#include "libavutil/buffer.h"
++#include "libavutil/common.h"
++#include "libavutil/frame.h"
++#include "libavutil/imgutils.h"
++#include "libavutil/log.h"
++
++#define RECEIVE_FRAME_TIMEOUT   100
++#define FRAMEGROUP_MAX_FRAMES   16
++
++typedef struct {
++    MppCtx ctx;
++    MppApi *mpi;
++    MppBufferGroup frame_group;
++
++    char first_packet;
++    char eos_reached;
++} RKMPPDecoder;
++
++typedef struct {
++    AVClass *av_class;
++    AVBufferRef *decoder_ref;
++} RKMPPDecodeContext;
++
++typedef struct {
++    MppFrame frame;
++    AVBufferRef *decoder_ref;
++} RKMPPFrameContext;
++
++static MppCodingType ffrkmpp_get_codingtype(AVCodecContext *avctx)
++{
++    switch (avctx->codec_id) {
++    case AV_CODEC_ID_H264:  return MPP_VIDEO_CodingAVC;
++    case AV_CODEC_ID_HEVC:  return MPP_VIDEO_CodingHEVC;
++    case AV_CODEC_ID_VP8:   return MPP_VIDEO_CodingVP8;
++    default:                return MPP_VIDEO_CodingUnused;
++    }
++}
++
++static int ffrkmpp_get_frameformat(MppFrameFormat mppformat)
++{
++    switch (mppformat) {
++    case MPP_FMT_YUV420SP:          return DRM_FORMAT_NV12;
++    case MPP_FMT_YUV420SP_10BIT:    return DRM_FORMAT_NV12_10;
++    default:                        return 0;
++    }
++}
++
++static int ffrkmpp_write_data(AVCodecContext *avctx, uint8_t *buffer, int size, int64_t pts)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
++    MPP_RET ret = MPP_NOK;
++    MppPacket packet;
++
++    // create the MPP packet
++    ret = mpp_packet_init(&packet, buffer, size);
++    if (ret != MPP_OK) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to init MPP packet (code = %d)\n", ret);
++        return AVERROR_UNKNOWN;
++    }
++
++    mpp_packet_set_pts(packet, pts);
++
++    if (!buffer)
++        mpp_packet_set_eos(packet);
++
++    ret = decoder->mpi->decode_put_packet(decoder->ctx, packet);
++    if (ret != MPP_OK) {
++        if (ret == MPP_ERR_BUFFER_FULL)
++            ret = AVERROR(EAGAIN);
++        else
++            ret = AVERROR_UNKNOWN;
++    }
++    else
++        av_log(avctx, AV_LOG_DEBUG, "Wrote %d bytes to decoder\n", size);
++
++    mpp_packet_deinit(&packet);
++
++    return ret;
++}
++
++static int ffrkmpp_close_decoder(AVCodecContext *avctx)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    av_buffer_unref(&rk_context->decoder_ref);
++    return 0;
++}
++
++static void ffrkmpp_release_decoder(void *opaque, uint8_t *data)
++{
++    RKMPPDecoder *decoder = (RKMPPDecoder *)data;
++
++    decoder->mpi->reset(decoder->ctx);
++    mpp_destroy(decoder->ctx);
++    decoder->ctx = NULL;
++
++    if (decoder->frame_group) {
++        mpp_buffer_group_put(decoder->frame_group);
++        decoder->frame_group = NULL;
++    }
++
++    av_free(decoder);
++}
++
++static int ffrkmpp_init_decoder(AVCodecContext *avctx)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    RKMPPDecoder *decoder = NULL;
++    MppCodingType codectype = MPP_VIDEO_CodingUnused;
++    MPP_RET ret = MPP_NOK;
++    RK_S64 paramS64;
++    RK_S32 paramS32;
++
++    if ((ret = ff_get_format(avctx, avctx->codec->pix_fmts)) < 0)
++        return ret;
++
++    avctx->pix_fmt = ret;
++
++    // create a decoder and a ref to it
++    decoder = av_mallocz(sizeof(RKMPPDecoder));
++    if (!decoder) {
++        ret = AVERROR(ENOMEM);
++        goto fail;
++    }
++
++    rk_context->decoder_ref = av_buffer_create((uint8_t *)decoder, sizeof(*decoder), ffrkmpp_release_decoder,
++                                               NULL, AV_BUFFER_FLAG_READONLY);
++    if (!rk_context->decoder_ref) {
++        av_free(decoder);
++        ret = AVERROR(ENOMEM);
++        goto fail;
++    }
++
++    av_log(avctx, AV_LOG_DEBUG, "Initializing RKMPP decoder.\n");
++
++    codectype = ffrkmpp_get_codingtype(avctx);
++    if (codectype == MPP_VIDEO_CodingUnused) {
++        av_log(avctx, AV_LOG_ERROR, "Unknown codec type (%d).\n", avctx->codec_id);
++        ret = AVERROR_UNKNOWN;
++        goto fail;
++    }
++
++    // Create the MPP context
++    ret = mpp_create(&decoder->ctx, &decoder->mpi);
++    if (ret != MPP_OK) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to create MPP context (code = %d).\n", ret);
++        ret = AVERROR_UNKNOWN;
++        goto fail;
++    }
++
++    // initialize mpp
++    ret = mpp_init(decoder->ctx, MPP_CTX_DEC, codectype);
++    if (ret != MPP_OK) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to initialize MPP context (code = %d).\n", ret);
++        ret = AVERROR_UNKNOWN;
++        goto fail;
++    }
++
++    // make decode calls blocking with a timeout
++    paramS32 = MPP_POLL_BLOCK;
++    ret = decoder->mpi->control(decoder->ctx, MPP_SET_OUTPUT_BLOCK, &paramS32);
++    if (ret != MPP_OK) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to set blocking mode on MPI (code = %d).\n", ret);
++        ret = AVERROR_UNKNOWN;
++        goto fail;
++    }
++
++    paramS64 = RECEIVE_FRAME_TIMEOUT;
++    ret = decoder->mpi->control(decoder->ctx, MPP_SET_OUTPUT_BLOCK_TIMEOUT, &paramS64);
++    if (ret != MPP_OK) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to set block timeout on MPI (code = %d).\n", ret);
++        ret = AVERROR_UNKNOWN;
++        goto fail;
++    }
++
++    ret = mpp_buffer_group_get_internal(&decoder->frame_group, MPP_BUFFER_TYPE_ION);
++    if (ret) {
++       av_log(avctx, AV_LOG_ERROR, "Failed to retrieve buffer group (code = %d)\n", ret);
++       ret = AVERROR_UNKNOWN;
++       goto fail;
++    }
++
++    ret = decoder->mpi->control(decoder->ctx, MPP_DEC_SET_EXT_BUF_GROUP, decoder->frame_group);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to assign buffer group (code = %d)\n", ret);
++        ret = AVERROR_UNKNOWN;
++        goto fail;
++    }
++
++    ret = mpp_buffer_group_limit_config(decoder->frame_group, 0, FRAMEGROUP_MAX_FRAMES);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to set buffer group limit (code = %d)\n", ret);
++        ret = AVERROR_UNKNOWN;
++        goto fail;
++    }
++
++    decoder->first_packet = 1;
++
++    av_log(avctx, AV_LOG_DEBUG, "RKMPP decoder initialized successfully.\n");
++    return 0;
++
++fail:
++    av_log(avctx, AV_LOG_ERROR, "Failed to initialize RKMPP decoder.\n");
++    ffrkmpp_close_decoder(avctx);
++    return ret;
++}
++
++static int ffrkmpp_send_packet(AVCodecContext *avctx, const AVPacket *avpkt)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
++    MPP_RET ret = MPP_NOK;
++
++    // ignore empty packets until first packet or packets after end of stream
++    if (avpkt->size == 0 && decoder->first_packet || decoder->eos_reached) {
++        return 0;
++    }
++
++    // handle EOF
++    if (avpkt->size == 0) {
++        decoder->eos_reached = 1;
++        ret = ffrkmpp_write_data(avctx, NULL, 0, 0);
++        if (ret)
++            av_log(avctx, AV_LOG_ERROR, "Failed to send EOS to decoder (code = %d)\n", ret);
++        return ret;
++    }
++
++    // on first packet, send extradata
++    if (decoder->first_packet) {
++        if (avctx->extradata_size) {
++            ret = ffrkmpp_write_data(avctx, avctx->extradata,
++                                            avctx->extradata_size,
++                                            avpkt->pts);
++            if (ret) {
++                av_log(avctx, AV_LOG_ERROR, "Failed to write extradata to decoder (code = %d)\n", ret);
++                return ret;
++            }
++        }
++        decoder->first_packet = 0;
++    }
++
++    // now send packet
++    ret = ffrkmpp_write_data(avctx, avpkt->data, avpkt->size, avpkt->pts);
++    if (ret)
++        av_log(avctx, AV_LOG_ERROR, "Failed to write data to decoder (code = %d)\n", ret);
++
++    return ret;
++}
++
++static void ffrkmpp_release_frame(void *opaque, uint8_t *data)
++{
++    av_drmprime *primedata = (av_drmprime *)data;
++    AVBufferRef *framecontextref = (AVBufferRef *)opaque;
++    RKMPPFrameContext *framecontext = (RKMPPFrameContext *)framecontextref->data;
++
++    mpp_frame_deinit(&framecontext->frame);
++    av_buffer_unref(&framecontext->decoder_ref);
++    av_buffer_unref(&framecontextref);
++
++    av_free(primedata);
++}
++
++static int ffrkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
++    RKMPPFrameContext *framecontext = NULL;
++    AVBufferRef *framecontextref = NULL;
++    MPP_RET ret = MPP_NOK;
++    MppFrame mppframe = NULL;
++    MppBuffer buffer = NULL;
++    av_drmprime *primedata = NULL;
++    int retrycount = 0;
++
++    // on start of decoding, MPP can return -1, which is supposed to be expected
++    // this is due to some internal MPP init which is not completed, that will
++    // only happen in the first few frames queries, but should not be interpreted
++    // as an error, Therefore we need to retry a couple times when we get -1
++    // in order to let it time to complete it's init, then we sleep a bit between retries.
++retry_get_frame:
++    ret = decoder->mpi->decode_get_frame(decoder->ctx, &mppframe);
++    if (ret != MPP_OK && ret != MPP_ERR_TIMEOUT) {
++        if (retrycount < 5) {
++            usleep(10000);
++            retrycount++;
++            goto retry_get_frame;
++        } else {
++            av_log(avctx, AV_LOG_ERROR, "Failed to get a frame from MPP (code = %d)\n", ret);
++            goto fail;
++        }
++    }
++
++    // Check wether we have an info frame or not
++    if (mppframe) {
++        if (mpp_frame_get_info_change(mppframe)) {
++            av_log(avctx, AV_LOG_INFO, "Decoder noticed an info change (%dx%d), format=%d\n",
++                                        (int)mpp_frame_get_width(mppframe), (int)mpp_frame_get_height(mppframe),
++                                        (int)mpp_frame_get_fmt(mppframe));
++
++            avctx->width = mpp_frame_get_width(mppframe);
++            avctx->height = mpp_frame_get_height(mppframe);
++
++            decoder->mpi->control(decoder->ctx, MPP_DEC_SET_INFO_CHANGE_READY, NULL);
++            mpp_frame_deinit(&mppframe);
++
++            // here decoder is fully initialized, we need to feed it again with data
++            return AVERROR(EAGAIN);
++        } else {
++            av_log(avctx, AV_LOG_DEBUG, "Received a frame.\n");
++        }
++    }
++
++    // here we should have a valid frame
++    if (mppframe) {
++
++        if (mpp_frame_get_discard(mppframe) || mpp_frame_get_errinfo(mppframe)) {
++            ret = AVERROR(EAGAIN);
++            goto fail;
++        }
++
++        // setup general frame fields
++        frame->format   = AV_PIX_FMT_RKMPP;
++        frame->width    = mpp_frame_get_width(mppframe);
++        frame->height   = mpp_frame_get_height(mppframe);
++        frame->pts      = mpp_frame_get_pts(mppframe);
++
++        // now setup the frame buffer info
++        buffer = mpp_frame_get_buffer(mppframe);
++        if (buffer) {
++            primedata = av_mallocz(sizeof(av_drmprime));
++            if (!primedata) {
++                ret = AVERROR(ENOMEM);
++                goto fail;
++            }
++
++            primedata->strides[0]   = mpp_frame_get_hor_stride(mppframe);
++            primedata->strides[1]   = primedata->strides[0];
++            primedata->offsets[0]   = 0;
++            primedata->offsets[1]   = primedata->strides[0] * mpp_frame_get_ver_stride(mppframe);
++            primedata->fds[0]       = mpp_buffer_get_fd(buffer);
++            primedata->format       = ffrkmpp_get_frameformat(mpp_frame_get_fmt(mppframe));
++
++
++            // we also allocate a struct in buf[0] that will allow to hold additionnal information
++            // for releasing properly MPP frames and decoder
++            framecontextref = av_buffer_allocz(sizeof(*framecontext));
++            if (!framecontextref) {
++                ret = AVERROR(ENOMEM);
++                goto fail;
++            }
++
++            // MPP decoder needs to be closed only when all frames have been released.
++            framecontext = (RKMPPFrameContext *)framecontextref->data;
++            framecontext->decoder_ref = av_buffer_ref(rk_context->decoder_ref);
++            framecontext->frame = mppframe;
++
++            frame->data[3]  = (uint8_t *)primedata;
++            frame->buf[0]   = av_buffer_create((uint8_t *)primedata, sizeof(*primedata), ffrkmpp_release_frame,
++                                               framecontextref, AV_BUFFER_FLAG_READONLY);
++
++            if (!frame->buf[0]) {
++                ret = AVERROR(ENOMEM);
++                goto fail;
++            }
++
++            return 0;
++        } else {
++            av_log(avctx, AV_LOG_ERROR, "Failed to retrieve the frame buffer, frame is dropped (code = %d)\n", ret);
++            mpp_frame_deinit(&mppframe);
++        }
++    } else {
++        if (decoder->eos_reached)
++            return AVERROR_EOF;
++    }
++
++    return AVERROR(EAGAIN);
++
++fail:
++    if (mppframe)
++        mpp_frame_deinit(&mppframe);
++
++    if (framecontext)
++        av_buffer_unref(&framecontext->decoder_ref);
++
++    if (framecontextref)
++        av_buffer_unref(&framecontextref);
++
++    if (primedata)
++        av_free(primedata);
++
++    return ret;
++}
++
++static int ffrkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
++    MPP_RET ret = MPP_NOK;
++    AVPacket pkt = {0};
++    RK_S32 freeslots;
++
++    // we get the available slots in decoder
++    ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_FREE_PACKET_SLOT_COUNT, &freeslots);
++    if (ret != MPP_OK) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to get decoder free slots (code = %d).\n", ret);
++        return ret;
++    }
++
++    if (freeslots > 0 && !decoder->eos_reached)
++    {
++        ret = ff_decode_get_packet(avctx, &pkt);
++        if (ret < 0 && ret != AVERROR_EOF) {
++            return ret;
++        }
++
++        ret = ffrkmpp_send_packet(avctx, &pkt);
++        av_packet_unref(&pkt);
++
++        if (ret < 0) {
++            av_log(avctx, AV_LOG_ERROR, "Failed to send packet to decoder (code = %d)\n", ret);
++            return ret;
++        }
++    }
++
++    // make sure we keep decoder full
++    if (freeslots > 1 && !decoder->eos_reached)
++        return AVERROR(EAGAIN);
++
++    return ffrkmpp_retrieve_frame(avctx, frame);
++}
++
++static void ffrkmpp_flush(AVCodecContext *avctx)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
++    MPP_RET ret = MPP_NOK;
++
++    ret = decoder->mpi->reset(decoder->ctx);
++    if (ret == MPP_OK)
++        decoder->first_packet = 1;
++    else
++        av_log(avctx, AV_LOG_ERROR, "Failed to reset MPI (code = %d)\n", ret);
++}
++
++#define FFRKMPP_DEC_HWACCEL(NAME, ID) \
++  AVHWAccel ff_##NAME##_rkmpp_hwaccel = { \
++      .name     = #NAME "_rkmpp", \
++      .type     = AVMEDIA_TYPE_VIDEO,\
++      .id       = ID, \
++      .pix_fmt  = AV_PIX_FMT_RKMPP,\
++  };
++
++#define FFRKMPP_DEC_CLASS(NAME) \
++    static const AVClass ffrkmpp_##NAME##_dec_class = { \
++        .class_name = "rkmpp_" #NAME "_dec", \
++        .version    = LIBAVUTIL_VERSION_INT, \
++    };
++
++#define FFRKMPP_DEC(NAME, ID, BSFS) \
++    FFRKMPP_DEC_CLASS(NAME) \
++    FFRKMPP_DEC_HWACCEL(NAME, ID) \
++    AVCodec ff_##NAME##_rkmpp_decoder = { \
++        .name           = #NAME "_rkmpp", \
++        .long_name      = NULL_IF_CONFIG_SMALL(#NAME " (rkmpp)"), \
++        .type           = AVMEDIA_TYPE_VIDEO, \
++        .id             = ID, \
++        .priv_data_size = sizeof(RKMPPDecodeContext), \
++        .init           = ffrkmpp_init_decoder, \
++        .close          = ffrkmpp_close_decoder, \
++        .receive_frame  = ffrkmpp_receive_frame, \
++        .flush          = ffrkmpp_flush, \
++        .priv_class     = &ffrkmpp_##NAME##_dec_class, \
++        .capabilities   = AV_CODEC_CAP_DELAY, \
++        .caps_internal  = FF_CODEC_CAP_SETS_PKT_DTS, \
++        .pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_RKMPP, \
++                                                         AV_PIX_FMT_NONE}, \
++        .bsfs           = #BSFS, \
++    };
++
++FFRKMPP_DEC(h264, AV_CODEC_ID_H264, h264_mp4toannexb)
++FFRKMPP_DEC(hevc, AV_CODEC_ID_HEVC, hevc_mp4toannexb)
++FFRKMPP_DEC(vp8,  AV_CODEC_ID_VP8,  )
+diff --git a/libavutil/pixdesc.c b/libavutil/pixdesc.c
+index 0dffa4dbdb..c96770f34d 100644
+--- a/libavutil/pixdesc.c
++++ b/libavutil/pixdesc.c
+@@ -1982,6 +1982,10 @@ static const AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = {
+         .name = "cuda",
+         .flags = AV_PIX_FMT_FLAG_HWACCEL,
+     },
++    [AV_PIX_FMT_RKMPP] = {
++        .name = "rkmpp",
++        .flags = AV_PIX_FMT_FLAG_HWACCEL,
++    },
+     [AV_PIX_FMT_AYUV64LE] = {
+         .name = "ayuv64le",
+         .nb_components = 4,
+diff --git a/libavutil/pixfmt.h b/libavutil/pixfmt.h
+index 0ed01c4844..bca166f215 100644
+--- a/libavutil/pixfmt.h
++++ b/libavutil/pixfmt.h
+@@ -247,6 +247,11 @@ enum AVPixelFormat {
+      */
+     AV_PIX_FMT_CUDA,
+ 
++      /**
++     * HW acceleration though RockChip Media Process Platform
++     */
++    AV_PIX_FMT_RKMPP,
++
+     AV_PIX_FMT_0RGB=0x123+4,///< packed RGB 8:8:8, 32bpp, XRGBXRGB...   X=unused/undefined
+     AV_PIX_FMT_RGB0,        ///< packed RGB 8:8:8, 32bpp, RGBXRGBX...   X=unused/undefined
+     AV_PIX_FMT_0BGR,        ///< packed BGR 8:8:8, 32bpp, XBGRXBGR...   X=unused/undefined
+
+From 8386cff939cc8d08a72827af0475cf8a0d8f47c9 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sun, 4 Jun 2017 10:05:39 +0200
+Subject: [PATCH 2/4] rkmppdec: whitespace
+
+---
+ libavcodec/drmprime.h | 8 ++++----
+ libavcodec/rkmppdec.c | 1 -
+ libavutil/pixfmt.h    | 4 ++--
+ 3 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/libavcodec/drmprime.h b/libavcodec/drmprime.h
+index 4186e7aeea..44816db56a 100644
+--- a/libavcodec/drmprime.h
++++ b/libavcodec/drmprime.h
+@@ -3,13 +3,13 @@
+ 
+ #include <stdint.h>
+ 
+-#define AV_DRMPRIME_NUM_PLANES	4	// maximum number of planes
++#define AV_DRMPRIME_NUM_PLANES  4   // maximum number of planes
+ 
+ typedef struct av_drmprime {
+ 
+-    int strides[AV_DRMPRIME_NUM_PLANES]; // stride in byte of the according plane
+-    int offsets[AV_DRMPRIME_NUM_PLANES]; // offset from start in byte of the according plane
+-    int fds[AV_DRMPRIME_NUM_PLANES];     // file descriptor for the plane, (0) if unused.
++    int strides[AV_DRMPRIME_NUM_PLANES];    // stride in byte of the according plane
++    int offsets[AV_DRMPRIME_NUM_PLANES];    // offset from start in byte of the according plane
++    int fds[AV_DRMPRIME_NUM_PLANES];        // file descriptor for the plane, (0) if unused.
+     uint32_t format;                        // FOURC_CC drm format for the image
+ 
+ } av_drmprime;
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index 014c8f7fb6..707e079b0a 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -351,7 +351,6 @@ retry_get_frame:
+             primedata->fds[0]       = mpp_buffer_get_fd(buffer);
+             primedata->format       = ffrkmpp_get_frameformat(mpp_frame_get_fmt(mppframe));
+ 
+-
+             // we also allocate a struct in buf[0] that will allow to hold additionnal information
+             // for releasing properly MPP frames and decoder
+             framecontextref = av_buffer_allocz(sizeof(*framecontext));
+diff --git a/libavutil/pixfmt.h b/libavutil/pixfmt.h
+index bca166f215..a8f67af9da 100644
+--- a/libavutil/pixfmt.h
++++ b/libavutil/pixfmt.h
+@@ -247,8 +247,8 @@ enum AVPixelFormat {
+      */
+     AV_PIX_FMT_CUDA,
+ 
+-      /**
+-     * HW acceleration though RockChip Media Process Platform
++    /**
++     * HW acceleration though Rockchip Media Process Platform, data[3] contains a av_drmprime pointer
+      */
+     AV_PIX_FMT_RKMPP,
+ 
+
+From f44bca55bf2db40f69cbdcda13950eb602bc9c79 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Tue, 6 Jun 2017 12:15:20 +0200
+Subject: [PATCH 3/4] rkmppdec: more logging and small cleanup
+
+---
+ libavcodec/rkmppdec.c | 101 +++++++++++++++++++++++++++-----------------------
+ 1 file changed, 55 insertions(+), 46 deletions(-)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index 707e079b0a..1cfa758bef 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -1,4 +1,4 @@
+-#include <libdrm/drm_fourcc.h>
++#include <drm/drm_fourcc.h>
+ #include <pthread.h>
+ #include <rockchip/mpp_buffer.h>
+ #include <rockchip/rk_mpi.h>
+@@ -23,6 +23,7 @@ typedef struct {
+     MppApi *mpi;
+     MppBufferGroup frame_group;
+ 
++    char first_frame;
+     char first_packet;
+     char eos_reached;
+ } RKMPPDecoder;
+@@ -51,7 +52,9 @@ static int ffrkmpp_get_frameformat(MppFrameFormat mppformat)
+ {
+     switch (mppformat) {
+     case MPP_FMT_YUV420SP:          return DRM_FORMAT_NV12;
++#ifdef DRM_FORMAT_NV12_10
+     case MPP_FMT_YUV420SP_10BIT:    return DRM_FORMAT_NV12_10;
++#endif
+     default:                        return 0;
+     }
+ }
+@@ -77,9 +80,10 @@ static int ffrkmpp_write_data(AVCodecContext *avctx, uint8_t *buffer, int size,
+ 
+     ret = decoder->mpi->decode_put_packet(decoder->ctx, packet);
+     if (ret != MPP_OK) {
+-        if (ret == MPP_ERR_BUFFER_FULL)
++        if (ret == MPP_ERR_BUFFER_FULL) {
++            av_log(avctx, AV_LOG_DEBUG, "Buffer full writing %d bytes to decoder\n", size);
+             ret = AVERROR(EAGAIN);
+-        else
++        } else
+             ret = AVERROR_UNKNOWN;
+     }
+     else
+@@ -222,13 +226,9 @@ static int ffrkmpp_send_packet(AVCodecContext *avctx, const AVPacket *avpkt)
+     RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
+     MPP_RET ret = MPP_NOK;
+ 
+-    // ignore empty packets until first packet or packets after end of stream
+-    if (avpkt->size == 0 && decoder->first_packet || decoder->eos_reached) {
+-        return 0;
+-    }
+-
+     // handle EOF
+-    if (avpkt->size == 0) {
++    if (!avpkt->size) {
++        av_log(avctx, AV_LOG_DEBUG, "End of stream.\n");
+         decoder->eos_reached = 1;
+         ret = ffrkmpp_write_data(avctx, NULL, 0, 0);
+         if (ret)
+@@ -292,6 +292,7 @@ retry_get_frame:
+     ret = decoder->mpi->decode_get_frame(decoder->ctx, &mppframe);
+     if (ret != MPP_OK && ret != MPP_ERR_TIMEOUT) {
+         if (retrycount < 5) {
++            av_log(avctx, AV_LOG_DEBUG, "Failed to get a frame, retrying (code = %d, retrycount = %d)\n", ret, retrycount);
+             usleep(10000);
+             retrycount++;
+             goto retry_get_frame;
+@@ -301,8 +302,8 @@ retry_get_frame:
+         }
+     }
+ 
+-    // Check wether we have an info frame or not
+     if (mppframe) {
++        // Check wether we have a special frame or not
+         if (mpp_frame_get_info_change(mppframe)) {
+             av_log(avctx, AV_LOG_INFO, "Decoder noticed an info change (%dx%d), format=%d\n",
+                                         (int)mpp_frame_get_width(mppframe), (int)mpp_frame_get_height(mppframe),
+@@ -312,23 +313,25 @@ retry_get_frame:
+             avctx->height = mpp_frame_get_height(mppframe);
+ 
+             decoder->mpi->control(decoder->ctx, MPP_DEC_SET_INFO_CHANGE_READY, NULL);
+-            mpp_frame_deinit(&mppframe);
++            decoder->first_frame = 1;
+ 
+             // here decoder is fully initialized, we need to feed it again with data
+-            return AVERROR(EAGAIN);
+-        } else {
+-            av_log(avctx, AV_LOG_DEBUG, "Received a frame.\n");
+-        }
+-    }
+-
+-    // here we should have a valid frame
+-    if (mppframe) {
+-
+-        if (mpp_frame_get_discard(mppframe) || mpp_frame_get_errinfo(mppframe)) {
++            ret = AVERROR(EAGAIN);
++            goto fail;
++        } else if (mpp_frame_get_eos(mppframe)) {
++            av_log(avctx, AV_LOG_DEBUG, "Received a EOS frame.\n");
++            decoder->eos_reached = 1;
++            ret = AVERROR_EOF;
++            goto fail;
++        } else if (mpp_frame_get_discard(mppframe) || mpp_frame_get_errinfo(mppframe)) {
++            av_log(avctx, AV_LOG_DEBUG, "Received a discard/errinfo frame.\n");
+             ret = AVERROR(EAGAIN);
+             goto fail;
+         }
+ 
++        // here we should have a valid frame
++        av_log(avctx, AV_LOG_DEBUG, "Received a frame.\n");
++
+         // setup general frame fields
+         frame->format   = AV_PIX_FMT_RKMPP;
+         frame->width    = mpp_frame_get_width(mppframe);
+@@ -373,14 +376,16 @@ retry_get_frame:
+                 goto fail;
+             }
+ 
++            decoder->first_frame = 0;
+             return 0;
+         } else {
+             av_log(avctx, AV_LOG_ERROR, "Failed to retrieve the frame buffer, frame is dropped (code = %d)\n", ret);
+             mpp_frame_deinit(&mppframe);
+         }
+-    } else {
+-        if (decoder->eos_reached)
+-            return AVERROR_EOF;
++    } else if (decoder->eos_reached) {
++        return AVERROR_EOF;
++    } else if (ret == MPP_ERR_TIMEOUT) {
++        av_log(avctx, AV_LOG_DEBUG, "Timeout when trying to get a frame from MPP\n");
+     }
+ 
+     return AVERROR(EAGAIN);
+@@ -409,32 +414,33 @@ static int ffrkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+     AVPacket pkt = {0};
+     RK_S32 freeslots;
+ 
+-    // we get the available slots in decoder
+-    ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_FREE_PACKET_SLOT_COUNT, &freeslots);
+-    if (ret != MPP_OK) {
+-        av_log(avctx, AV_LOG_ERROR, "Failed to get decoder free slots (code = %d).\n", ret);
+-        return ret;
+-    }
+-
+-    if (freeslots > 0 && !decoder->eos_reached)
+-    {
+-        ret = ff_decode_get_packet(avctx, &pkt);
+-        if (ret < 0 && ret != AVERROR_EOF) {
++    if (!decoder->eos_reached) {
++        // we get the available slots in decoder
++        ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_FREE_PACKET_SLOT_COUNT, &freeslots);
++        if (ret != MPP_OK) {
++            av_log(avctx, AV_LOG_ERROR, "Failed to get decoder free slots (code = %d).\n", ret);
+             return ret;
+         }
+ 
+-        ret = ffrkmpp_send_packet(avctx, &pkt);
+-        av_packet_unref(&pkt);
++        if (freeslots > 0) {
++            ret = ff_decode_get_packet(avctx, &pkt);
++            if (ret < 0 && ret != AVERROR_EOF) {
++                return ret;
++            }
+ 
+-        if (ret < 0) {
+-            av_log(avctx, AV_LOG_ERROR, "Failed to send packet to decoder (code = %d)\n", ret);
+-            return ret;
++            ret = ffrkmpp_send_packet(avctx, &pkt);
++            av_packet_unref(&pkt);
++
++            if (ret < 0) {
++                av_log(avctx, AV_LOG_ERROR, "Failed to send packet to decoder (code = %d)\n", ret);
++                return ret;
++            }
+         }
+-    }
+ 
+-    // make sure we keep decoder full
+-    if (freeslots > 1 && !decoder->eos_reached)
+-        return AVERROR(EAGAIN);
++        // make sure we keep decoder full
++        if (freeslots > 1 && decoder->first_frame)
++            return AVERROR(EAGAIN);
++    }
+ 
+     return ffrkmpp_retrieve_frame(avctx, frame);
+ }
+@@ -445,10 +451,13 @@ static void ffrkmpp_flush(AVCodecContext *avctx)
+     RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
+     MPP_RET ret = MPP_NOK;
+ 
++    av_log(avctx, AV_LOG_DEBUG, "Flush.\n");
++
+     ret = decoder->mpi->reset(decoder->ctx);
+-    if (ret == MPP_OK)
++    if (ret == MPP_OK) {
++        decoder->first_frame = 1;
+         decoder->first_packet = 1;
+-    else
++    } else
+         av_log(avctx, AV_LOG_ERROR, "Failed to reset MPI (code = %d)\n", ret);
+ }
+ 
+
+From fd898415a17d3bf31832639e8044f6486a558905 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Fri, 26 May 2017 13:27:33 +0200
+Subject: [PATCH 4/4] rkmppdec: restore bsfs and decode support
+
+---
+ libavcodec/rkmppdec.c | 151 +++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 111 insertions(+), 40 deletions(-)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index 1cfa758bef..302cbc575b 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -6,7 +6,6 @@
+ #include <unistd.h>
+ 
+ #include "avcodec.h"
+-#include "decode.h"
+ #include "drmprime.h"
+ #include "internal.h"
+ #include "libavutil/buffer.h"
+@@ -31,6 +30,7 @@ typedef struct {
+ typedef struct {
+     AVClass *av_class;
+     AVBufferRef *decoder_ref;
++    AVBSFContext *bsf;
+ } RKMPPDecodeContext;
+ 
+ typedef struct {
+@@ -59,6 +59,40 @@ static int ffrkmpp_get_frameformat(MppFrameFormat mppformat)
+     }
+ }
+ 
++static int ffrkmpp_init_bitstream(AVCodecContext *avctx)
++{
++    RKMPPDecodeContext *rk_context = avctx->priv_data;
++    int ret = 0;
++
++    if (!rk_context->bsf) {
++        const AVBitStreamFilter *bsf = NULL;
++        if (avctx->codec_id == AV_CODEC_ID_H264)
++            bsf = av_bsf_get_by_name("h264_mp4toannexb");
++        else if (avctx->codec_id == AV_CODEC_ID_HEVC)
++            bsf = av_bsf_get_by_name("hevc_mp4toannexb");
++        else {
++            av_log(avctx, AV_LOG_DEBUG, "Not using any bitstream filter\n");
++            return 0;
++        }
++
++        if (!bsf)
++            return AVERROR_BSF_NOT_FOUND;
++
++        av_log(avctx, AV_LOG_DEBUG, "Using bitstream filter %s\n", bsf->name);
++
++        if ((ret = av_bsf_alloc(bsf, &rk_context->bsf)))
++            return ret;
++
++        if (((ret = avcodec_parameters_from_context(rk_context->bsf->par_in, avctx)) < 0) ||
++            ((ret = av_bsf_init(rk_context->bsf)) < 0)) {
++            av_bsf_free(&rk_context->bsf);
++            return ret;
++        }
++    }
++
++    return 0;
++}
++
+ static int ffrkmpp_write_data(AVCodecContext *avctx, uint8_t *buffer, int size, int64_t pts)
+ {
+     RKMPPDecodeContext *rk_context = avctx->priv_data;
+@@ -98,6 +132,7 @@ static int ffrkmpp_close_decoder(AVCodecContext *avctx)
+ {
+     RKMPPDecodeContext *rk_context = avctx->priv_data;
+     av_buffer_unref(&rk_context->decoder_ref);
++    av_bsf_free(&rk_context->bsf);
+     return 0;
+ }
+ 
+@@ -209,6 +244,13 @@ static int ffrkmpp_init_decoder(AVCodecContext *avctx)
+         goto fail;
+     }
+ 
++    // eventually create a bistream filter for formats that require it
++    ret = ffrkmpp_init_bitstream(avctx);
++    if (ret) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to initialize bitstream (code = %d)\n", ret);
++        goto fail;
++    }
++
+     decoder->first_packet = 1;
+ 
+     av_log(avctx, AV_LOG_DEBUG, "RKMPP decoder initialized successfully.\n");
+@@ -224,10 +266,18 @@ static int ffrkmpp_send_packet(AVCodecContext *avctx, const AVPacket *avpkt)
+ {
+     RKMPPDecodeContext *rk_context = avctx->priv_data;
+     RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
+-    MPP_RET ret = MPP_NOK;
++    MPP_RET ret = MPP_OK;
++    AVPacket filter_pkt = {0};
++    AVPacket filtered_pkt = {0};
++
++    if (decoder->eos_reached)
++        return AVERROR_EOF;
+ 
+     // handle EOF
+     if (!avpkt->size) {
++        // ignore empty packets until first packet
++        if (decoder->first_packet)
++            return 0;
+         av_log(avctx, AV_LOG_DEBUG, "End of stream.\n");
+         decoder->eos_reached = 1;
+         ret = ffrkmpp_write_data(avctx, NULL, 0, 0);
+@@ -236,16 +286,35 @@ static int ffrkmpp_send_packet(AVCodecContext *avctx, const AVPacket *avpkt)
+         return ret;
+     }
+ 
++    // first we bitstream the packet if it's required
++    if (rk_context->bsf) {
++        if ((ret = av_packet_ref(&filter_pkt, avpkt)))
++            return ret;
++
++        if ((ret = av_bsf_send_packet(rk_context->bsf, &filter_pkt))) {
++            av_packet_unref(&filter_pkt);
++            return ret;
++        }
++
++        if ((ret = av_bsf_receive_packet(rk_context->bsf, &filtered_pkt)))
++            return ret;
++
++        avpkt = &filtered_pkt;
++    }
++
+     // on first packet, send extradata
+     if (decoder->first_packet) {
+-        if (avctx->extradata_size) {
++        if (rk_context->bsf && rk_context->bsf->par_out->extradata_size)
++            ret = ffrkmpp_write_data(avctx, rk_context->bsf->par_out->extradata,
++                                            rk_context->bsf->par_out->extradata_size,
++                                            avpkt->pts);
++        else if (!rk_context->bsf && avctx->extradata_size)
+             ret = ffrkmpp_write_data(avctx, avctx->extradata,
+                                             avctx->extradata_size,
+                                             avpkt->pts);
+-            if (ret) {
+-                av_log(avctx, AV_LOG_ERROR, "Failed to write extradata to decoder (code = %d)\n", ret);
+-                return ret;
+-            }
++        if (ret) {
++            av_log(avctx, AV_LOG_ERROR, "Failed to write extradata to decoder (code = %d)\n", ret);
++            goto fail;
+         }
+         decoder->first_packet = 0;
+     }
+@@ -255,6 +324,10 @@ static int ffrkmpp_send_packet(AVCodecContext *avctx, const AVPacket *avpkt)
+     if (ret)
+         av_log(avctx, AV_LOG_ERROR, "Failed to write data to decoder (code = %d)\n", ret);
+ 
++fail:
++    if (rk_context->bsf)
++        av_packet_unref(&filtered_pkt);
++
+     return ret;
+ }
+ 
+@@ -406,43 +479,42 @@ fail:
+     return ret;
+ }
+ 
+-static int ffrkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
++static int ffrkmpp_decode(AVCodecContext *avctx, void *frame, int *got_frame, AVPacket *avpkt)
+ {
+-    RKMPPDecodeContext *rk_context = avctx->priv_data;
+-    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
+-    MPP_RET ret = MPP_NOK;
+-    AVPacket pkt = {0};
+-    RK_S32 freeslots;
+-
+-    if (!decoder->eos_reached) {
+-        // we get the available slots in decoder
+-        ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_FREE_PACKET_SLOT_COUNT, &freeslots);
+-        if (ret != MPP_OK) {
+-            av_log(avctx, AV_LOG_ERROR, "Failed to get decoder free slots (code = %d).\n", ret);
+-            return ret;
+-        }
+-
+-        if (freeslots > 0) {
+-            ret = ff_decode_get_packet(avctx, &pkt);
+-            if (ret < 0 && ret != AVERROR_EOF) {
+-                return ret;
+-            }
++    int buffer_full = 0;
++    int retries = 0;
++    int ret;
+ 
+-            ret = ffrkmpp_send_packet(avctx, &pkt);
+-            av_packet_unref(&pkt);
++    *got_frame = 0;
+ 
+-            if (ret < 0) {
++    do {
++        if (avpkt) {
++            ret = ffrkmpp_send_packet(avctx, avpkt);
++            if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+                 av_log(avctx, AV_LOG_ERROR, "Failed to send packet to decoder (code = %d)\n", ret);
+                 return ret;
+             }
++            buffer_full = ret == AVERROR(EAGAIN);
+         }
+ 
+-        // make sure we keep decoder full
+-        if (freeslots > 1 && decoder->first_frame)
+-            return AVERROR(EAGAIN);
++        if (!*got_frame) {
++            ret = ffrkmpp_retrieve_frame(avctx, frame);
++            if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
++                av_log(avctx, AV_LOG_ERROR, "Failed to retrieve frame (code = %d)\n", ret);
++                return ret;
++            }
++            if (ret >= 0)
++                *got_frame = 1;
++        }
+     }
++    while (buffer_full && retries++ < 5);
++
++    if (buffer_full)
++        av_log(avctx, AV_LOG_INFO, "Failed to send packet to decoder (buffer_full = %d, got_frame = %d)\n", buffer_full, *got_frame);
++    else if (!*got_frame)
++        av_log(avctx, AV_LOG_INFO, "Failed to retrieve frame from decoder (buffer_full = %d, got_frame = %d)\n", buffer_full, *got_frame);
+ 
+-    return ffrkmpp_retrieve_frame(avctx, frame);
++    return !buffer_full && avpkt ? avpkt->size : 0;
+ }
+ 
+ static void ffrkmpp_flush(AVCodecContext *avctx)
+@@ -475,7 +547,7 @@ static void ffrkmpp_flush(AVCodecContext *avctx)
+         .version    = LIBAVUTIL_VERSION_INT, \
+     };
+ 
+-#define FFRKMPP_DEC(NAME, ID, BSFS) \
++#define FFRKMPP_DEC(NAME, ID) \
+     FFRKMPP_DEC_CLASS(NAME) \
+     FFRKMPP_DEC_HWACCEL(NAME, ID) \
+     AVCodec ff_##NAME##_rkmpp_decoder = { \
+@@ -486,16 +558,15 @@ static void ffrkmpp_flush(AVCodecContext *avctx)
+         .priv_data_size = sizeof(RKMPPDecodeContext), \
+         .init           = ffrkmpp_init_decoder, \
+         .close          = ffrkmpp_close_decoder, \
+-        .receive_frame  = ffrkmpp_receive_frame, \
++        .decode         = ffrkmpp_decode, \
+         .flush          = ffrkmpp_flush, \
+         .priv_class     = &ffrkmpp_##NAME##_dec_class, \
+         .capabilities   = AV_CODEC_CAP_DELAY, \
+         .caps_internal  = FF_CODEC_CAP_SETS_PKT_DTS, \
+         .pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_RKMPP, \
+                                                          AV_PIX_FMT_NONE}, \
+-        .bsfs           = #BSFS, \
+     };
+ 
+-FFRKMPP_DEC(h264, AV_CODEC_ID_H264, h264_mp4toannexb)
+-FFRKMPP_DEC(hevc, AV_CODEC_ID_HEVC, hevc_mp4toannexb)
+-FFRKMPP_DEC(vp8,  AV_CODEC_ID_VP8,  )
++FFRKMPP_DEC(h264, AV_CODEC_ID_H264)
++FFRKMPP_DEC(hevc, AV_CODEC_ID_HEVC)
++FFRKMPP_DEC(vp8,  AV_CODEC_ID_VP8)

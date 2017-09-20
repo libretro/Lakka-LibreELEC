@@ -1,0 +1,46 @@
+From 3c62ca0eb689e1cddc157248a900400b58464275 Mon Sep 17 00:00:00 2001
+From: LongChair <LongChair@hotmail.com>
+Date: Mon, 24 Apr 2017 09:48:54 +0200
+Subject: [PATCH 28/33] drm : allow framebuffer and videomodes not to have same
+ size
+
+DRM legacy doesn't allow that, will be only available with drm atomic.
+Although, when running 4K modes, it's preferable to get a 1080p frambuffer that can be handlded properly by GPU and then use VOP to upscale that to 4K.
+---
+ drivers/gpu/drm/drm_atomic_helper.c | 8 ++++----
+ drivers/gpu/drm/drm_crtc.c          | 2 ++
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_atomic_helper.c b/drivers/gpu/drm/drm_atomic_helper.c
+index c486b977474b..7209ae4ca1cc 100644
+--- a/drivers/gpu/drm/drm_atomic_helper.c
++++ b/drivers/gpu/drm/drm_atomic_helper.c
+@@ -1833,11 +1833,11 @@ int __drm_atomic_helper_set_config(struct drm_mode_set *set,
+ 	primary_state->src_x = set->x << 16;
+ 	primary_state->src_y = set->y << 16;
+ 	if (primary_state->rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270))) {
+-		primary_state->src_h = hdisplay << 16;
+-		primary_state->src_w = vdisplay << 16;
++		primary_state->src_h = set->fb->width << 16;
++		primary_state->src_w = set->fb->height << 16;
+ 	} else {
+-		primary_state->src_h = vdisplay << 16;
+-		primary_state->src_w = hdisplay << 16;
++		primary_state->src_h = set->fb->height << 16;
++		primary_state->src_w = set->fb->width << 16;
+ 	}
+ 
+ commit:
+diff --git a/drivers/gpu/drm/drm_crtc.c b/drivers/gpu/drm/drm_crtc.c
+index 93388659ee7d..ff11c220ebf1 100644
+--- a/drivers/gpu/drm/drm_crtc.c
++++ b/drivers/gpu/drm/drm_crtc.c
+@@ -2913,6 +2913,8 @@ int drm_crtc_check_viewport(const struct drm_crtc *crtc,
+ 
+ {
+ 	int hdisplay, vdisplay;
++	pr_info("%s: skip check\n", __func__);
++	return 0;
+ 
+ 	drm_crtc_get_hv_timing(mode, &hdisplay, &vdisplay);
+ 

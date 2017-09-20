@@ -1,0 +1,40 @@
+################################################################################
+#      This file is part of LibreELEC - https://LibreELEC.tv
+#      Copyright (C) 2017 Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+# installing bootloader
+if [ -f "$RELEASE_DIR/3rdparty/bootloader/idbloader.img" ]; then
+  echo "image: burn idbloader.img..."
+  dd if="$RELEASE_DIR/3rdparty/bootloader/idbloader.img" of="$DISK" bs=512 seek=64 conv=fsync,notrunc >"$SAVE_ERROR" 2>&1 || show_error
+fi
+
+CMDLINE="textmode ssh"
+if [ "$MEDIACENTER" = "kodi" -o "$MEDIACENTER" = "openpht" -o "$MEDIACENTER" = "plexmediaplayer" ]; then
+  CMDLINE="quiet ssh"
+fi
+
+# create extlinux.conf
+cat << EOF > "$LE_TMP/extlinux.conf"
+label $DISTRO
+    kernel /$KERNEL_NAME
+    fdt /rk3288-miniarm.dtb
+    append earlyprintk boot=/dev/mmcblk0p1 disk=/dev/mmcblk0p2 $CMDLINE
+EOF
+
+# copy extlinux.conf to part1
+  mmd extlinux
+    mcopy "$LE_TMP/extlinux.conf" ::/extlinux

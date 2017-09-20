@@ -1,0 +1,40 @@
+From fce9832b134618af1e3b7eb9f3d6ccf466bd300b Mon Sep 17 00:00:00 2001
+From: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+Date: Thu, 15 Jun 2017 07:53:11 +0200
+Subject: [PATCH 16/33] UPSTREAM: ASoC: rockchip: Fix an error handling in
+ 'rockchip_i2s_probe'
+
+If this memory allocation fail, we must disable what has been enabled.
+Do not return immediately but go thrue the error handling path instead.
+
+Also use 'devm_kmemdup' instead of 'devm_kzalloc+memcpy' to simplify code.
+
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+(cherry picked from commit c3a3d3c41b74b05267bab6173f2a8224a1443ba6)
+---
+ sound/soc/rockchip/rockchip_i2s.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/sound/soc/rockchip/rockchip_i2s.c b/sound/soc/rockchip/rockchip_i2s.c
+index 2c7e5ccca2dc..ba32a2ef87b3 100644
+--- a/sound/soc/rockchip/rockchip_i2s.c
++++ b/sound/soc/rockchip/rockchip_i2s.c
+@@ -644,12 +644,13 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
+ 			goto err_pm_disable;
+ 	}
+ 
+-	soc_dai = devm_kzalloc(&pdev->dev,
++	soc_dai = devm_kmemdup(&pdev->dev, &rockchip_i2s_dai,
+ 			       sizeof(*soc_dai), GFP_KERNEL);
+-	if (!soc_dai)
+-		return -ENOMEM;
++	if (!soc_dai) {
++		ret = -ENOMEM;
++		goto err_pm_disable;
++	}
+ 
+-	memcpy(soc_dai, &rockchip_i2s_dai, sizeof(*soc_dai));
+ 	if (!of_property_read_u32(node, "rockchip,playback-channels", &val)) {
+ 		if (val >= 2 && val <= 8)
+ 			soc_dai->playback.channels_max = val;
