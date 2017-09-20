@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="xf86-video-nvidia-legacy"
-PKG_VERSION="340.102"
-PKG_SHA256="6a36bd9a0033769ecd11ce2aa60aeb41b50b20616c43fd19c55e027c451f585e"
+PKG_VERSION="340.104"
+PKG_SHA256="ed112523ae424aea46904d2dcfc769b0263cf552f5bfec0e30601f6f0f95eada"
 PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.nvidia.com/"
