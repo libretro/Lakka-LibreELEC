@@ -69,15 +69,29 @@ update_addons_xml() {
 
 touch_addons_xml() {
   for PROJECT in $(ls -1 projects); do
-    for archfile in projects/$PROJECT/linux/linux.*.conf ; do
-      ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
-      if [ ! -d target/addons/$ADDON_VERSION/$PROJECT/$ARCH ]; then
-        break
-      fi
-      if [ ! -f target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml ]; then
-        touch target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml
-      fi
-    done
+    if [ -p "$projects/$PROJECT/devices" ]; then
+      for DEVICE in $(ls -1 projects/$PROJECT/devices); do
+        for archfile in projects/$PROJECT/devices/$DEVICE/linux/linux.*.conf; do
+          ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
+          if [ ! -d target/addons/$ADDON_VERSION/$DEVICE/$ARCH ]; then
+            break
+          fi
+          if [ ! -f target/addons/$ADDON_VERSION/$DEVICE/$ARCH/addons.xml ]; then
+            touch target/addons/$ADDON_VERSION/$DEVICE/$ARCH/addons.xml
+          fi
+        done
+      done
+    else
+      for archfile in projects/$PROJECT/linux/linux.*.conf; do
+        ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
+        if [ ! -d target/addons/$ADDON_VERSION/$PROJECT/$ARCH ]; then
+          break
+        fi
+        if [ ! -f target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml ]; then
+          touch target/addons/$ADDON_VERSION/$PROJECT/$ARCH/addons.xml
+        fi
+      done
+    fi
   done
 }
 
@@ -95,18 +109,27 @@ upload() {
 }
 
 build() {
+  [ -n "$3" ] && DEVICE="$3" || DEVICE=""
+
   for PROJECT in $2; do
-    for archfile in projects/$PROJECT/linux/linux.*.conf ; do
-      ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
-      for package in $(find $1 -iname package.mk) ; do
-        (
-        . $package
-        if [ "$PKG_IS_ADDON" = "yes" ] ; then
-          ADDON=$PKG_NAME
-          PROJECT=$PROJECT ARCH=$ARCH ./scripts/create_addon $ADDON
-        fi
-        )
+    if [ -n "$DEVICE" ]; then
+      for archfile in projects/$PROJECT/devices/$DEVICE/linux/linux.*.conf; do
+        ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
       done
+    else
+      for archfile in projects/$PROJECT/linux/linux.*.conf; do
+        ARCH=`echo $archfile | sed -n '$s/\.conf//;$s/.*\.//p'`
+      done
+    fi
+
+    for package in $(find $1 -iname package.mk) ; do
+      (
+      . $package
+      if [ "$PKG_IS_ADDON" = "yes" ] ; then
+        ADDON=$PKG_NAME
+        PROJECT=$PROJECT DEVICE=$DEVICE ARCH=$ARCH ./scripts/create_addon $ADDON
+      fi
+      )
     done
   done
 }
@@ -176,12 +199,19 @@ if [ "$1" = "-b" -o "$1" = "-ru" ]; then
 
   if [ "$1" = "-b" ]; then
     [ -n "$3" ] && project="$3" || project="$(ls -1 projects)"
+    if [ "$3" == "RPi" ]; then
+      project="RPi"
+      device="RPi"
+    elif [ "$3" == "RPi2" ]; then
+      project="RPi"
+      device="RPi2"
+    fi
   fi
 fi
 
 case $1 in
   -b)
-    build "$repo" "$project"
+    build "$repo" "$project" "$device"
     ;;
   -u)
     upload
