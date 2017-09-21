@@ -1,0 +1,182 @@
+From 7057b4af0c5921393d7a5c79b798cb923a895e67 Mon Sep 17 00:00:00 2001
+From: HDKiller <hdkiller@gmail.com>
+Date: Sat, 16 Sep 2017 19:29:42 +0200
+Subject: [PATCH 1/3] make parameteres compatible with moonlight 2.4.3
+
+---
+ script.moonlight/bin/moonlight.sh | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/script.moonlight/bin/moonlight.sh b/script.moonlight/bin/moonlight.sh
+index 967c6e0..e389041 100644
+--- a/script.moonlight/bin/moonlight.sh
++++ b/script.moonlight/bin/moonlight.sh
+@@ -4,6 +4,14 @@
+ 
+ oe_setup_addon script.moonlight
+ 
++# copy gamecontrollerdb.txt to folder
++MOONLIGHT_CONF_DIR="/storage/.config/moonlight"
++
++if [ ! -f "$MOONLIGHT_CONF_DIR/gamecontrollerdb.txt" ]; then
++  mkdir -p $MOONLIGHT_CONF_DIR
++  cp $ADDON_DIR/etc/gamecontrollerdb.txt $MOONLIGHT_CONF_DIR
++fi
++
+ while [ 1 ]; do
+ 	if [ -f $ADDON_DIR/start_moonlight.tmp ]; then
+ 
+@@ -30,13 +38,9 @@ while [ 1 ]; do
+ 		fi
+ 
+ 		if [ "$MOON_FRAMERATE" = "60" ]; then
+-			MOONLIGHT_ARG="$MOONLIGHT_ARG -60fps"
++			MOONLIGHT_ARG="$MOONLIGHT_ARG -fps 60"
+ 		else
+-			MOONLIGHT_ARG="$MOONLIGHT_ARG -30fps"
+-		fi
+-
+-		if [ "$MOON_FORCEHW" = "true" ]; then
+-			MOONLIGHT_ARG="$MOONLIGHT_ARG -forcehw"
++			MOONLIGHT_ARG="$MOONLIGHT_ARG -fps 30"
+ 		fi
+ 
+ 		if [ "$MOON_SURROUND" = "true" ]; then
+@@ -59,10 +63,6 @@ while [ 1 ]; do
+ 			MOONLIGHT_ARG="$MOONLIGHT_ARG -audio $MOON_AUDIO"
+ 		fi
+ 
+-		if [ "$MOON_MAPPING" != "" ]; then
+-			MOONLIGHT_ARG="$MOONLIGHT_ARG -mapping \"${ADDON_DIR}/share/moonlight/mappings/${MOON_MAPPING}.conf\""
+-		fi
+-
+ 		if [ "$MOONLIGHT_APP" != "" ]; then
+ 			MOONLIGHT_ARG="$MOONLIGHT_ARG -app \"${MOONLIGHT_APP}\""
+ 		fi
+@@ -78,7 +78,7 @@ while [ 1 ]; do
+ 		fi
+ 
+ 		modprobe snd_bcm2835 || :
+-		echo $MOONLIGHT_ARG >> $ADDON_LOG_FILE
++		echo "${MOONLIGHT_ARG}" >> ${ADDON_LOG_FILE}
+ 		/bin/sh -c "${ADDON_DIR}/bin/moonlight ${MOONLIGHT_ARG} > ${ADDON_LOG_FILE} 2>&1"
+ 		rmmod snd_bcm2835 || :
+ 		systemctl start kodi
+
+From c93f573cd46305fc630109faf8be8c5032e9c847 Mon Sep 17 00:00:00 2001
+From: HDKiller <hdkiller@gmail.com>
+Date: Sun, 17 Sep 2017 07:29:25 +0200
+Subject: [PATCH 2/3] add new parameter (-4k) and remove obsolete ones
+ (-mapping) since controller config now comes from gamecontrollerdb
+
+---
+ script.moonlight/bin/moonlight.sh       | 2 ++
+ script.moonlight/resources/settings.xml | 5 ++---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/script.moonlight/bin/moonlight.sh b/script.moonlight/bin/moonlight.sh
+index e389041..69a5aff 100644
+--- a/script.moonlight/bin/moonlight.sh
++++ b/script.moonlight/bin/moonlight.sh
+@@ -33,6 +33,8 @@ while [ 1 ]; do
+ 			MOONLIGHT_ARG="$MOONLIGHT_ARG -720"
+ 		elif [ "$MOON_RESOLUTION" = "1080p" ]; then
+ 			MOONLIGHT_ARG="$MOONLIGHT_ARG -1080"
++		elif [ "$MOON_RESOLUTION" = "4k" ]; then
++			MOONLIGHT_ARG="$MOONLIGHT_ARG -4k"
+ 		else
+ 			MOONLIGHT_ARG="$MOONLIGHT_ARG -width $MOON_WIDTH_RESOLUTION -height $MOON_HEIGHT_RESOLUTION"
+ 		fi
+diff --git a/script.moonlight/resources/settings.xml b/script.moonlight/resources/settings.xml
+index d035ecd..723d57e 100644
+--- a/script.moonlight/resources/settings.xml
++++ b/script.moonlight/resources/settings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8" standalone="yes"?>
+ <settings>
+ 	<setting id="MOON_SERVER_IP" type="ipaddress" label="Server IP" default="0.0.0.0"/>
+-	<setting id="MOON_RESOLUTION" type="labelenum" label="Resolution" values="Custom|720p|1080p" default="720p" />
++	<setting id="MOON_RESOLUTION" type="labelenum" label="Resolution" values="Custom|720p|1080p|4k" default="720p" />
+ 	<setting id="MOON_WIDTH_RESOLUTION" type="text" label="Width" visible="eq(-1,0)" default="1366" />
+ 	<setting id="MOON_HEIGHT_RESOLUTION" type="text" label="Height" visible="eq(-2,0)" default="768" />
+ 	<setting id="MOON_FRAMERATE" type="select" values="30|60" label="FPS" default="30" />
+@@ -13,6 +13,5 @@
+ 	<setting id="MOON_LOCALAUDIO" type="bool" label="Play audio locally" default="false"/>
+ 	<setting id="MOON_SURROUND" type="bool" label="Stream 5.1 surround sound (requires GFE 2.7)" default="false"/>
+ 	<setting id="MOON_FORCEHW" type="bool" label="Force hardware acceleration" default="true"/>
+-	<setting id="MOON_MAPPING" type="select" label="Control Mapping" values="default|dualshock3|dualshock3alt|dualshock4|rumblepad2|xbox360" default="dualshock4" />
+ 	<setting id="MOON_AUDIO" type="text" label="Audio Device" default="sysdefault" />
+-</settings>
+\ No newline at end of file
++</settings>
+
+From f9bb350c1b99e088e16bf67ef547bfadb6dbd1fc Mon Sep 17 00:00:00 2001
+From: Stefan Saraev <stefan@saraev.ca>
+Date: Sun, 17 Sep 2017 11:37:41 +0200
+Subject: [PATCH 3/3] Update moonlight embedded wrapper to 2.4.3
+
+---
+ script.moonlight/addon.xml        |  4 ++--
+ script.moonlight/lib/moonlight.py | 15 +++++++++++++--
+ 2 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/script.moonlight/addon.xml b/script.moonlight/addon.xml
+index 9d53246..d18a813 100644
+--- a/script.moonlight/addon.xml
++++ b/script.moonlight/addon.xml
+@@ -1,5 +1,5 @@
+ ﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+-<addon id="script.moonlight" name="Moonlight" version="1.0.11" provider-name="dead">
++<addon id="script.moonlight" name="Moonlight" version="1.1.1" provider-name="dead">
+     <requires>
+         <import addon="xbmc.python" version="2.14.0"/>
+     </requires>
+@@ -16,4 +16,4 @@
+         <language></language>
+         <email>gustavobenn@hotmail.com</email>
+     </extension>
+-</addon>
+\ No newline at end of file
++</addon>
+diff --git a/script.moonlight/lib/moonlight.py b/script.moonlight/lib/moonlight.py
+index 7edae39..87065fc 100644
+--- a/script.moonlight/lib/moonlight.py
++++ b/script.moonlight/lib/moonlight.py
+@@ -10,6 +10,14 @@
+ GS_IO_ERROR = -5
+ GS_NOT_SUPPORTED_4K = -6
+ 
++class DISPLAY_MODE(ctypes.Structure):
++    pass
++
++DISPLAY_MODE._fields_ = [("height", ctypes.c_int),
++                         ("width", ctypes.c_int),
++                         ("refresh", ctypes.c_int),
++                         ("next", ctypes.POINTER(DISPLAY_MODE))]
++
+ class SERVER_INFORMATION(ctypes.Structure):
+     _fields_ = [("address", ctypes.c_char_p),
+                 ("serverInfoAppVersion", ctypes.c_char_p),
+@@ -20,8 +28,11 @@ class SERVER_DATA(ctypes.Structure):
+                 ("gpuType", ctypes.c_char_p),
+                 ("paired", ctypes.c_bool),
+                 ("supports4K", ctypes.c_bool),
++                ("unsupported", ctypes.c_bool),
+                 ("currentGame", ctypes.c_int),
+                 ("serverMajorVersion", ctypes.c_int),
++                ("gsVersion", ctypes.c_char_p),
++                ("modes", DISPLAY_MODE),
+                 ("serverInfo", SERVER_INFORMATION)]
+                 
+ class APP_LIST(ctypes.Structure):
+@@ -37,8 +48,8 @@ class _HTTP_DATA(ctypes.Structure):
+ 
+ class LibGameStream:
+     def __init__(self, libpath = ""):
+-        self.commonlib = ctypes.cdll.LoadLibrary(os.path.join(libpath, "libmoonlight-common.so.0"))
+-        self.gslib = ctypes.cdll.LoadLibrary(os.path.join(libpath, "libgamestream.so.0"))
++        self.commonlib = ctypes.cdll.LoadLibrary(os.path.join(libpath, "libmoonlight-common.so.2"))
++        self.gslib = ctypes.cdll.LoadLibrary(os.path.join(libpath, "libgamestream.so.2"))
+         self.connected = False
+         self.address = ""
+         self.key_dir = ""

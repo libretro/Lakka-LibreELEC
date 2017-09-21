@@ -20,16 +20,16 @@
 
 . config/options $1
 
-if [ -z "$3" ]; then
-  echo "usage: $0 package_name file_pattern target_dir"
+if [ -z "$2" ]; then
+  echo "usage: $0 package_name target_dir"
   exit 1
 fi
 
 [ -z "$PKG_URL" -o -z "$PKG_SOURCE_NAME" ] && exit 1
-[ ! -d "$SOURCES/$1" -o ! -d "$3" ] && exit 1
+[ ! -d "$SOURCES/$1" -o ! -d "$2" ] && exit 1
 
-case $PKG_SOURCE_NAME in
-  $2)
+for pattern in .tar.gz .tar.xz .tar.bz2 .tgz .txz .tbz .7z .zip; do
+  if [[ $PKG_SOURCE_NAME =~ ${pattern//./\\.}$ ]]; then
     f="$SOURCES/$1/$PKG_SOURCE_NAME"
     if [ ! -f $f ]; then
       echo "error: File $PKG_SOURCE_NAME doesn't exist in package $1 sources directory"
@@ -38,36 +38,37 @@ case $PKG_SOURCE_NAME in
     fi
     case $PKG_SOURCE_NAME in
       *.tar)
-        tar xf $f -C $3
+        tar xf $f -C $2
         ;;
       *.tar.bz2 | *.tbz)
-        tar xjf $f -C $3
+        tar xjf $f -C $2
         ;;
       *.tar.gz | *.tgz)
-        tar xzf $f -C $3
+        tar xzf $f -C $2
         ;;
       *.tar.xz | *.txz)
-        tar xJf $f -C $3
+        tar xJf $f -C $2
         ;;
       *.7z)
-        mkdir -p $3/$1
-        7z x -o$3/$1 $f
+        mkdir -p $2/$1
+        7z x -o$2/$1 $f
         ;;
       *.zip)
-        unzip -q $f -d $3
+        unzip -q $f -d $2
         ;;
       *.diff | *.patch)
-        cat $f | patch -d $3 -p1
+        cat $f | patch -d $2 -p1
         ;;
       *.diff.bz2 | *.patch.bz2 | patch-*.bz2)
-        bzcat $f | patch -d $3 -p1
+        bzcat $f | patch -d $2 -p1
         ;;
       *.diff.gz | *.patch.gz | patch-*.gz)
-        zcat $f | patch -d $3 -p1
+        zcat $f | patch -d $2 -p1
         ;;
       *)
-        cp -pPR $f $3
+        cp -pPR $f $2
         ;;
     esac
-    ;;
-esac
+    break
+  fi
+done

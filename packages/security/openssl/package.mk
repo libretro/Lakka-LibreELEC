@@ -55,8 +55,6 @@ PKG_CONFIGURE_OPTS_SHARED="--openssldir=/etc/ssl \
                            no-zlib-dynamic \
                            no-static-engine"
 
-MAKEFLAGS="-j1"
-
 pre_configure_host() {
   mkdir -p $PKG_BUILD/.$HOST_NAME
   cp -a $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME/

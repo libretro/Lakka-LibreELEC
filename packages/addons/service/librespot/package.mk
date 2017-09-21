@@ -18,13 +18,22 @@
 ################################################################################
 
 PKG_NAME="librespot"
+<<<<<<< HEAD
 PKG_VERSION="aa86ebf"
 PKG_REV="103"
+=======
+PKG_VERSION="ddfc28f"
+PKG_REV="107"
+>>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/plietar/$PKG_NAME/"
 PKG_URL="https://github.com/plietar/$PKG_NAME/archive/$PKG_VERSION.zip"
+<<<<<<< HEAD
 PKG_DEPENDS_TARGET="toolchain avahi ffmpegx libvorbis pyalsaaudio rust"
+=======
+PKG_DEPENDS_TARGET="toolchain avahi libvorbis pulseaudio pyalsaaudio rust"
+>>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
 PKG_SECTION="service"
 PKG_SHORTDESC="Librespot: play Spotify through LibreELEC using a Spotify app as a remote"
 PKG_LONGDESC="Librespot ($PKG_VERSION) plays Spotify through LibreELEC using the open source librespot library using a Spotify app as a remote."
@@ -43,7 +52,11 @@ configure_target() {
 
 make_target() {
   cd src
+<<<<<<< HEAD
   $CARGO_BUILD --no-default-features --features "alsa-backend with-avahi"
+=======
+  $CARGO_BUILD --no-default-features --features "alsa-backend pulseaudio-backend"
+>>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
   cd "$PKG_BUILD/.$TARGET_NAME"/*/release
   $STRIP librespot
 }
@@ -59,7 +72,10 @@ addon() {
 
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/bin"
   cp "$PKG_BUILD/.$TARGET_NAME"/*/release/librespot  \
+<<<<<<< HEAD
      "$(get_build_dir ffmpegx)/.install_pkg/usr/local/bin/ffmpegx" \
+=======
+>>>>>>> 6ecb5bc094f11d18cb0b884bcf486a15b9a676d5
      "$ADDON_BUILD/$PKG_ADDON_ID/bin"
 
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/lib"

@@ -1,0 +1,110 @@
+From a20f55c268bf44d6923be4cad6c6fdfecfc5dd8a Mon Sep 17 00:00:00 2001
+From: awiouy <awiouy@gmail.com>
+Date: Tue, 12 Sep 2017 09:37:53 +0200
+Subject: [PATCH] kodi hooks
+
+---
+ src/player.rs | 25 +++++++++++++++++--------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
+
+diff --git a/src/player.rs b/src/player.rs
+index 29380e3..44b9a24 100644
+--- a/src/player.rs
++++ b/src/player.rs
+@@ -1,6 +1,7 @@
+ use futures::sync::oneshot;
+ use futures::{future, Future};
+ use std::borrow::Cow;
++use std::env;
+ use std::mem;
+ use std::sync::mpsc::{RecvError, TryRecvError};
+ use std::thread;
+@@ -13,7 +14,7 @@ use core::util::{self, SpotifyId, Subfile};
+ use audio_backend::Sink;
+ use audio::{AudioFile, AudioDecrypt};
+ use audio::{VorbisDecoder, VorbisPacket};
+-use metadata::{FileFormat, Track, Metadata};
++use metadata::{Artist, FileFormat, Track, Metadata};
+ use mixer::AudioFilter;
+ 
+ #[derive(Clone)]
+@@ -215,7 +216,7 @@ impl PlayerInternal {
+ 
+             None => {
+                 self.sink.stop().unwrap();
+-                self.run_onstop();
++                info!("onstop 1");
+ 
+                 let old_state = mem::replace(&mut self.state, PlayerState::Stopped);
+                 old_state.signal_end_of_track();
+@@ -227,6 +228,12 @@ impl PlayerInternal {
+         debug!("command={:?}", cmd);
+         match cmd {
+             PlayerCommand::Load(track_id, play, position, end_of_track) => {
++                let track = Track::get(&self.session, track_id).wait().unwrap();
++                let artist = Artist::get(&self.session, track.artists[0]).wait().unwrap();
++                env::set_var("LS_ARTIST", artist.name);
++                env::set_var("LS_TITLE", track.name);
++                self.run_onstart();
++
+                 if self.state.is_playing() {
+                     self.sink.stop().unwrap();
+                 }
+@@ -235,7 +242,7 @@ impl PlayerInternal {
+                     Some(decoder) => {
+                         if play {
+                             if !self.state.is_playing() {
+-                                self.run_onstart();
++                                info!("onstart 1");
+                             }
+                             self.sink.start().unwrap();
+ 
+@@ -245,7 +252,7 @@ impl PlayerInternal {
+                             };
+                         } else {
+                             if self.state.is_playing() {
+-                                self.run_onstop();
++                                info!("onstop 2");
+                             }
+ 
+                             self.state = PlayerState::Paused {
+@@ -258,7 +265,7 @@ impl PlayerInternal {
+                     None => {
+                         end_of_track.complete(());
+                         if self.state.is_playing() {
+-                            self.run_onstop();
++                            info!("onstop 3");
+                         }
+                     }
+                 }
+@@ -279,7 +286,7 @@ impl PlayerInternal {
+                 if let PlayerState::Paused { .. } = self.state {
+                     self.state.paused_to_playing();
+ 
+-                    self.run_onstart();
++                    info!("onstart 2");
+                     self.sink.start().unwrap();
+                 } else {
+                     warn!("Player::play called from invalid state");
+@@ -291,17 +298,19 @@ impl PlayerInternal {
+                     self.state.playing_to_paused();
+ 
+                     self.sink.stop().unwrap();
+-                    self.run_onstop();
++                    info!("onstop 4");
+                 } else {
+                     warn!("Player::pause called from invalid state");
+                 }
+             }
+ 
+             PlayerCommand::Stop => {
++                self.run_onstop();
++
+                 match self.state {
+                     PlayerState::Playing { .. } => {
+                         self.sink.stop().unwrap();
+-                        self.run_onstop();
++                        info!("onstop 5");
+                         self.state = PlayerState::Stopped;
+                     }
+                     PlayerState::Paused { .. } => {

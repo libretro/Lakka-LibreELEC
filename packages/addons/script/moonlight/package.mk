@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016-2017 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 PKG_NAME="moonlight"
 PKG_VERSION="391de3f"
 PKG_VERSION_NUMBER="2.2.2"
-PKG_REV="105"
+PKG_REV="107"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dead/script.moonlight"
@@ -64,8 +64,8 @@ addon() {
     cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/moonlight $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-    cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libgamestream.so* $ADDON_BUILD/$PKG_ADDON_ID/lib
-    cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libmoonlight-common.so* $ADDON_BUILD/$PKG_ADDON_ID/lib
+    cp $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libgamestream.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
+    cp $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libgamestream/libmoonlight-common.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
     if [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
       cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libmoonlight-pi.so $ADDON_BUILD/$PKG_ADDON_ID/lib
@@ -75,11 +75,9 @@ addon() {
       cp -P $(get_build_dir moonlight-embedded)/.$TARGET_NAME/libmoonlight-aml.so $ADDON_BUILD/$PKG_ADDON_ID/lib
     fi
 
-    cp -P $(get_build_dir libevdev)/.install_pkg/usr/lib/libevdev.so* $ADDON_BUILD/$PKG_ADDON_ID/lib
+    cp $(get_build_dir libevdev)/.install_pkg/usr/lib/libevdev.so.2 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/etc
     cp -P $(get_build_dir moonlight-embedded)/moonlight.conf $ADDON_BUILD/$PKG_ADDON_ID/etc
-
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/share/moonlight
-    cp -PR $(get_build_dir moonlight-embedded)/mappings $ADDON_BUILD/$PKG_ADDON_ID/share/moonlight
+    cp -P $(get_build_dir moonlight-embedded)/gamecontrollerdb.txt $ADDON_BUILD/$PKG_ADDON_ID/etc
 }
