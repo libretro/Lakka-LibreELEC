@@ -1,0 +1,108 @@
+From 25593b25aa2b50b8019474f8b57c788c841faa72 Mon Sep 17 00:00:00 2001
+From: Alex Deryskyba <alex@codesnake.com>
+Date: Thu, 4 May 2017 12:49:09 +0200
+Subject: [PATCH] aml: fix bookmark thumbnails creation when playing a video
+ with amcodec
+
+---
+ .../VideoRenderers/HwDecRender/RendererAML.cpp     |  2 +
+ xbmc/utils/ScreenshotAML.cpp                       | 43 ++++++++++++----------
+ 2 files changed, 25 insertions(+), 20 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererAML.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererAML.cpp
+index 292f07b9b632..4b6e04f0ec55 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererAML.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererAML.cpp
+@@ -25,6 +25,7 @@
+ #include "cores/VideoPlayer/DVDCodecs/Video/AMLCodec.h"
+ #include "utils/log.h"
+ #include "utils/SysfsUtils.h"
++#include "utils/ScreenshotAML.h"
+ #include "settings/MediaSettings.h"
+ #include "windowing/WindowingFactory.h"
+ #include "cores/VideoPlayer/VideoRenderers/RenderCapture.h"
+@@ -77,6 +78,7 @@ bool CRendererAML::RenderCapture(CRenderCapture* capture)
+ {
+   capture->BeginRender();
+   capture->EndRender();
++  CScreenshotAML::CaptureVideoFrame((unsigned char *)capture->GetRenderBuffer(), capture->GetWidth(), capture->GetHeight());
+   return true;
+ }
+ 
+diff --git a/xbmc/utils/ScreenshotAML.cpp b/xbmc/utils/ScreenshotAML.cpp
+index 3e73437d77c0..e0d1d22f15af 100644
+--- a/xbmc/utils/ScreenshotAML.cpp
++++ b/xbmc/utils/ScreenshotAML.cpp
+@@ -43,7 +43,8 @@ void CScreenshotAML::CaptureVideoFrame(unsigned char *buffer, int iWidth, int iH
+   int captureFd = open(CAPTURE_DEVICEPATH, O_RDWR, 0);
+   if (captureFd >= 0)
+   {
+-    int buffSize = iWidth * iHeight * 3;
++    int stride = ((iWidth + 31) & ~31) * 3;
++    int buffSize = stride * iHeight;
+     int readSize = 0;
+     // videobuffer should be rgb according to docu - but it is bgr ...
+     unsigned char *videoBuffer = new unsigned char[buffSize];
+@@ -51,7 +52,7 @@ void CScreenshotAML::CaptureVideoFrame(unsigned char *buffer, int iWidth, int iH
+     if (videoBuffer != NULL)
+     {
+       // configure destination
+-      ioctl(captureFd, AMVIDEOCAP_IOW_SET_WANTFRAME_WIDTH, iWidth);
++      ioctl(captureFd, AMVIDEOCAP_IOW_SET_WANTFRAME_WIDTH, stride / 3);
+       ioctl(captureFd, AMVIDEOCAP_IOW_SET_WANTFRAME_HEIGHT, iHeight);
+       readSize = pread(captureFd, videoBuffer, buffSize, 0);
+     }
+@@ -60,33 +61,35 @@ void CScreenshotAML::CaptureVideoFrame(unsigned char *buffer, int iWidth, int iH
+ 
+     if (readSize == buffSize)
+     {
+-      unsigned char *videoPtr = videoBuffer;
+-
+       if (!bBlendToBuffer)
+       {
+         memset(buffer, 0xff, buffSize);
+       }
+ 
+-      for (int processedBytes = 0; processedBytes < buffSize; processedBytes += 3, buffer+=4)
++      for (int y = 0; y < iHeight; ++y)
+       {
+-        float alpha = buffer[3] / (float)255;
++        unsigned char *videoPtr = videoBuffer + y * stride;
+ 
+-        if (bBlendToBuffer)
+-        {
+-          //B
+-          buffer[0] = alpha * (float)buffer[0] + (1 - alpha) * (float)videoPtr[0];
+-          //G
+-          buffer[1] = alpha * (float)buffer[1] + (1 - alpha) * (float)videoPtr[1];
+-          //R
+-          buffer[2] = alpha * (float)buffer[2] + (1 - alpha) * (float)videoPtr[2];
+-          //A
+-          buffer[3] = 0xff;// we are solid now
+-        }
+-        else
++        for (int x = 0; x < iWidth; ++x, buffer += 4, videoPtr += 3)
+         {
+-          memcpy(buffer, videoPtr, 3);
++          float alpha = buffer[3] / (float)255;
++
++          if (bBlendToBuffer)
++          {
++            //B
++            buffer[0] = alpha * (float)buffer[0] + (1 - alpha) * (float)videoPtr[0];
++            //G
++            buffer[1] = alpha * (float)buffer[1] + (1 - alpha) * (float)videoPtr[1];
++            //R
++            buffer[2] = alpha * (float)buffer[2] + (1 - alpha) * (float)videoPtr[2];
++            //A
++            buffer[3] = 0xff;// we are solid now
++          }
++          else
++          {
++            memcpy(buffer, videoPtr, 3);
++          }
+         }
+-        videoPtr += 3;
+       }
+     }
+     delete [] videoBuffer;
