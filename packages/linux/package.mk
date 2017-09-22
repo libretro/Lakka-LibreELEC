@@ -36,8 +36,8 @@ case "$LINUX" in
     PKG_PATCH_DIRS="amlogic-3.10"
     ;;
   amlogic-3.14)
-    PKG_VERSION="f6f2e4c"
-    PKG_SHA256="545f7c32b7aa66eec59e930c44d3121abe7a4667c1d3bd3b7cab30370f9f6d6e"
+    PKG_VERSION="c8c32b4"
+    PKG_SHA256="e1c2b0212544f551dfdcf3c31d5f4180560400ef7a0a5a58e734c1dcafd02c1c"
     PKG_URL="https://github.com/LibreELEC/linux-amlogic/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_DIR="$PKG_NAME-amlogic-$PKG_VERSION*"
     PKG_PATCH_DIRS="amlogic-3.14"
