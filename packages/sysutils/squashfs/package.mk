@@ -1,30 +1,30 @@
 ################################################################################
-#      This file is part of OpenELEC - http://www.openelec.tv
-#      Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
 #
-#  OpenELEC is free software: you can redistribute it and/or modify
+#  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 2 of the License, or
 #  (at your option) any later version.
 #
-#  OpenELEC is distributed in the hope that it will be useful,
+#  LibreELEC is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with OpenELEC.  If not, see <http://www.gnu.org/licenses/>.
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
 PKG_NAME="squashfs"
-PKG_VERSION="4.3"
-PKG_SHA256="0d605512437b1eb800b4736791559295ee5f60177e102e4d4ccd0ee241a5f3f6"
+PKG_VERSION="1a6ffc7"
+PKG_SHA256="2a641ae2f3ae772b9b34dce955a77cfa0717eda57efb3df3a4a5222607c24b2c"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="http://squashfs.sourceforge.net/"
-PKG_URL="$SOURCEFORGE_SRC/squashfs/squashfs/${PKG_NAME}${PKG_VERSION}/${PKG_NAME}${PKG_VERSION}.tar.gz"
-PKG_SOURCE_DIR="${PKG_NAME}${PKG_VERSION}"
-PKG_DEPENDS_HOST="ccache:host zlib:host lzo:host xz:host"
+PKG_SITE="https://git.kernel.org/pub/scm/fs/squashfs/squashfs-tools.git"
+PKG_URL="https://git.kernel.org/pub/scm/fs/squashfs/squashfs-tools.git/snapshot/$PKG_VERSION.tar.gz"
+PKG_SOURCE_DIR="$PKG_VERSION"
+PKG_DEPENDS_HOST="ccache:host zlib:host lzo:host xz:host zstd:host"
 PKG_SECTION="sysutils"
 PKG_SHORTDESC="squashfs-tools: A compressed read-only filesystem for Linux"
 PKG_LONGDESC="Squashfs is intended to be a general read-only filesystem, for archival use (i.e. in cases where a .tar.gz file may be used), and in constrained block device/memory systems (e.g. embedded systems) where low overhead is needed. The filesystem is currently stable and has been tested on PowerPC, i386, SPARC and ARM architectures."
@@ -34,7 +34,7 @@ PKG_AUTORECONF="no"
 
 make_host() {
   make -C squashfs-tools mksquashfs \
-       XZ_SUPPORT=1 LZO_SUPPORT=1 \
+       XZ_SUPPORT=1 LZO_SUPPORT=1 ZSTD_SUPPORT=1 \
        XATTR_SUPPORT=0 XATTR_DEFAULT=0 \
        INCLUDEDIR="-I. -I$TOOLCHAIN/include"
 }
