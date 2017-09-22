@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="fsuae"
-PKG_VERSION="18c9817"
+PKG_VERSION="7990f7a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

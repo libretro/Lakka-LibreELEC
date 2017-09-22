@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="glsl-shaders"
-PKG_VERSION="c610f1c"
+PKG_VERSION="e656faa"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
@@ -34,11 +34,10 @@ PKG_LONGDESC="Common GSLS shaders for RetroArch"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-make_target() {
-  :
+configure_target() {
+  cd $ROOT/$PKG_BUILD
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/share/common-shaders
-  cp -r * $INSTALL/usr/share/common-shaders
+  make install INSTALLDIR="$INSTALL/usr/share/common-shaders"
 }

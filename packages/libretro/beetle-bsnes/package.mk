@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="beetle-bsnes"
-PKG_VERSION="8560c52"
+PKG_VERSION="6be3682"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"

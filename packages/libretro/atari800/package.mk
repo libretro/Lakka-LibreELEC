@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="atari800"
-PKG_VERSION="b943747"
+PKG_VERSION="2445afd"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://github.com/r-type/libretro-atari800"
-PKG_URL="https://github.com/r-type/libretro-atari800/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/libretro/libretro-atari800"
+PKG_URL="https://github.com/libretro/libretro-atari800/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"

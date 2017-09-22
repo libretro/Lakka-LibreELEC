@@ -19,12 +19,12 @@
 ################################################################################
 
 PKG_NAME="redream"
-PKG_VERSION="db18785"
+PKG_VERSION="5feae48"
 PKG_REV="1"
 PKG_ARCH="x86_64"
 PKG_LICENSE="MIT"
-PKG_SITE="https://github.com/libretro/redream"
-PKG_URL="https://github.com/libretro/redream/archive/$PKG_VERSION.tar.gz"
+PKG_SITE="https://github.com/inolen/redream"
+PKG_URL="https://github.com/inolen/redream/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
@@ -36,10 +36,11 @@ PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
 make_target() {
-  make -C .. -f Makefile.libretro
+  cd $ROOT/$PKG_BUILD
+  make -f deps/libretro/Makefile
 }
 
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
-  cp ../redream_libretro.so $INSTALL/usr/lib/libretro/
+  cp redream_libretro.so $INSTALL/usr/lib/libretro/
 }

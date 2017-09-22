@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="4do"
-PKG_VERSION="f1d2b31"
+PKG_VERSION="d2c9192"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="LGPL with additional notes"
@@ -39,7 +39,7 @@ post_unpack() {
 }
 
 make_target() {
-  make CC=$CC LD=$LD AR=$AR
+  make CC=$CC CXX=$CXX AR=$AR
 }
 
 makeinstall_target() {
