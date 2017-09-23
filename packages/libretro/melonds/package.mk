@@ -36,7 +36,7 @@ PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
 
 configure_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
 }
 
 makeinstall_target() {

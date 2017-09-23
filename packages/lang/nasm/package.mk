@@ -34,6 +34,6 @@ PKG_AUTORECONF="no"
 
 pre_configure_host() {
 # nasm fails to build in subdirs
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
     rm -rf .$HOST_NAME
 }

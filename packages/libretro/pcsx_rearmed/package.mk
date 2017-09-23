@@ -39,7 +39,7 @@ configure_target() {
 }
 
 make_target() {
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
   if [[ "$TARGET_FPU" =~ "neon" ]]; then
     make -f Makefile.libretro HAVE_NEON=1 USE_DYNAREC=1 BUILTIN_GPU=neon
   elif [ "$ARCH" == "arm" ]; then

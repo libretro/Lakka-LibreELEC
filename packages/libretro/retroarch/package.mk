@@ -80,7 +80,7 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
 
 pre_configure_target() {
   strip_lto # workaround for https://github.com/libretro/RetroArch/issues/1078
-  cd $ROOT/$PKG_BUILD
+  cd $PKG_BUILD
 }
 
 make_target() {
@@ -92,14 +92,14 @@ make_target() {
 makeinstall_target() {
   mkdir -p $INSTALL/usr/bin
   mkdir -p $INSTALL/etc
-    cp $ROOT/$PKG_BUILD/retroarch $INSTALL/usr/bin
-    cp $ROOT/$PKG_BUILD/retroarch.cfg $INSTALL/etc
+    cp $PKG_BUILD/retroarch $INSTALL/usr/bin
+    cp $PKG_BUILD/retroarch.cfg $INSTALL/etc
   mkdir -p $INSTALL/usr/share/video_filters
-    cp $ROOT/$PKG_BUILD/gfx/video_filters/*.so $INSTALL/usr/share/video_filters
-    cp $ROOT/$PKG_BUILD/gfx/video_filters/*.filt $INSTALL/usr/share/video_filters
+    cp $PKG_BUILD/gfx/video_filters/*.so $INSTALL/usr/share/video_filters
+    cp $PKG_BUILD/gfx/video_filters/*.filt $INSTALL/usr/share/video_filters
   mkdir -p $INSTALL/usr/share/audio_filters
-    cp $ROOT/$PKG_BUILD/libretro-common/audio/dsp_filters/*.so $INSTALL/usr/share/audio_filters
-    cp $ROOT/$PKG_BUILD/libretro-common/audio/dsp_filters/*.dsp $INSTALL/usr/share/audio_filters
+    cp $PKG_BUILD/libretro-common/audio/dsp_filters/*.so $INSTALL/usr/share/audio_filters
+    cp $PKG_BUILD/libretro-common/audio/dsp_filters/*.dsp $INSTALL/usr/share/audio_filters
   
   # General configuration
   sed -i -e "s/# libretro_directory =/libretro_directory = \"\/tmp\/cores\"/" $INSTALL/etc/retroarch.cfg
