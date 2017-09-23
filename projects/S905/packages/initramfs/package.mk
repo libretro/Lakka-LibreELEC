@@ -42,11 +42,11 @@ if [ "$INITRAMFS_PARTED_SUPPORT" = yes ]; then
 fi
 
 post_install() {
-  ( cd $ROOT/$BUILD/initramfs
+  ( cd $BUILD/initramfs
     if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
-      ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib64
-      mkdir -p $ROOT/$BUILD/initramfs/usr
-      ln -sf /usr/lib $ROOT/$BUILD/initramfs/usr/lib64
+      ln -sf /usr/lib $BUILD/initramfs/lib64
+      mkdir -p $BUILD/initramfs/usr
+      ln -sf /usr/lib $BUILD/initramfs/usr/lib64
     fi
 
   if [ $TARGET_KERNEL_ARCH = "arm64" ] && [ $TARGET_ARCH == "arm"  ]; then
@@ -59,12 +59,12 @@ post_install() {
       $STRIP --strip-debug $MOD
     done
 
-    ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib
-    ln -sf /usr/bin $ROOT/$BUILD/initramfs/bin
-    ln -sf /usr/sbin $ROOT/$BUILD/initramfs/sbin
+    ln -sf /usr/lib $BUILD/initramfs/lib
+    ln -sf /usr/bin $BUILD/initramfs/bin
+    ln -sf /usr/sbin $BUILD/initramfs/sbin
 
-    mkdir -p $ROOT/$BUILD/image/
+    mkdir -p $BUILD/image/
     fakeroot -- sh -c \
-      "mkdir -p dev; mknod -m 600 dev/console c 5 1; find . | cpio -H newc -ov -R 0:0 | lzop --best > $ROOT/$BUILD/image/initramfs.cpio"
+      "mkdir -p dev; mknod -m 600 dev/console c 5 1; find . | cpio -H newc -ov -R 0:0 | lzop --best > $BUILD/image/initramfs.cpio"
   )
 }
