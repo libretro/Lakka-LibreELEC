@@ -42,19 +42,27 @@ if [ "$INITRAMFS_PARTED_SUPPORT" = yes ]; then
 fi
 
 post_install() {
-  ( cd $ROOT/$BUILD/initramfs
+  ( cd $BUILD/initramfs
     if [ "$TARGET_ARCH" = "x86_64" -o "$TARGET_ARCH" = "powerpc64" ]; then
-      ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib64
-      mkdir -p $ROOT/$BUILD/initramfs/usr
-      ln -sf /usr/lib $ROOT/$BUILD/initramfs/usr/lib64
+      ln -sf /usr/lib $BUILD/initramfs/lib64
+      mkdir -p $BUILD/initramfs/usr
+      ln -sf /usr/lib $BUILD/initramfs/usr/lib64
     fi
 
-    ln -sf /usr/lib $ROOT/$BUILD/initramfs/lib
-    ln -sf /usr/bin $ROOT/$BUILD/initramfs/bin
-    ln -sf /usr/sbin $ROOT/$BUILD/initramfs/sbin
+    for MOD in `find ./usr/lib/modules/ -type f -name *.ko`; do
+      $STRIP --strip-debug $MOD
+    done
 
-    mkdir -p $ROOT/$BUILD/image/
+    ln -sf /usr/lib $BUILD/initramfs/lib
+    ln -sf /usr/bin $BUILD/initramfs/bin
+    ln -sf /usr/sbin $BUILD/initramfs/sbin
+
+    rm $BUILD/initramfs/splash/splash-768.png
+    rm $BUILD/initramfs/splash/splash-1200.png
+    rm $BUILD/initramfs/splash/splash-2160.png
+
+    mkdir -p $BUILD/image/
     fakeroot -- sh -c \
-      "mkdir -p dev; mknod -m 600 dev/console c 5 1; find . | cpio -H newc -ov -R 0:0 | gzip -n -9 -f > $ROOT/$BUILD/image/initramfs.cpio"
+      "mkdir -p dev; mknod -m 600 dev/console c 5 1; find . | cpio -H newc -ov -R 0:0 | gzip -n -9 -f > $BUILD/image/initramfs.cpio"
   )
 }
