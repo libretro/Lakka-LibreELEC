@@ -16,5 +16,5 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 makeinstall_host() {
-  find . -maxdepth 1 -type f -executable |while read file; do cp -vL $file $ROOT/$TOOLCHAIN/bin; done
+  find . -maxdepth 1 -type f -executable |while read file; do cp -vL $file $TOOLCHAIN/bin; done
 }
