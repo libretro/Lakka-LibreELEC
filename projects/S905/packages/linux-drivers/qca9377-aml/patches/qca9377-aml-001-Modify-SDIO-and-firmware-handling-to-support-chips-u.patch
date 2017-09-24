@@ -1,4 +1,4 @@
-From c8397ff996ce313406edd121f42ac944aca93dca Mon Sep 17 00:00:00 2001
+From 7d4ee23fb20cc5e17d8d79db20a0d6704ac3df6c Mon Sep 17 00:00:00 2001
 From: kszaq <kszaquitto@gmail.com>
 Date: Tue, 10 Jan 2017 22:43:12 +0100
 Subject: [PATCH] Modify SDIO and firmware handling to support chips used in
@@ -10,9 +10,8 @@ Subject: [PATCH] Modify SDIO and firmware handling to support chips used in
  CORE/SERVICES/BMI/ol_fw.c                          |   8 +-
  CORE/SERVICES/HIF/sdio/linux/if_ath_sdio.c         |   6 -
  .../sdio/linux/native_sdio/include/hif_internal.h  |   2 +-
- CORE/SERVICES/HIF/sdio/linux/native_sdio/src/hif.c |  94 ++++-------
- Kbuild                                             |   1 -
- 7 files changed, 219 insertions(+), 82 deletions(-)
+ CORE/SERVICES/HIF/sdio/linux/native_sdio/src/hif.c |  62 +++----
+ 6 files changed, 209 insertions(+), 59 deletions(-)
 
 diff --git a/CORE/HDD/src/wlan_hdd_cfg.c b/CORE/HDD/src/wlan_hdd_cfg.c
 index af7f399..5eedfcb 100644
@@ -56,7 +55,7 @@ index af7f399..5eedfcb 100644
        vos_status = VOS_STATUS_E_FAILURE;
        return vos_status;
 diff --git a/CORE/HDD/src/wlan_hdd_main.c b/CORE/HDD/src/wlan_hdd_main.c
-index 9a642cc..1ce6b81 100644
+index 1919627..3bcc6b0 100644
 --- a/CORE/HDD/src/wlan_hdd_main.c
 +++ b/CORE/HDD/src/wlan_hdd_main.c
 @@ -239,6 +239,163 @@ static VOS_STATUS hdd_parse_ese_beacon_req(tANI_U8 *pValue,
@@ -241,7 +240,7 @@ index 9a642cc..1ce6b81 100644
  
     if(status || !pHddCtx->fw || !pHddCtx->fw->data) {
        hddLog(VOS_TRACE_LEVEL_FATAL,"%s: CFG download failed",__func__);
-@@ -12862,15 +13019,34 @@ static int hdd_driver_init( void)
+@@ -12860,15 +13017,34 @@ static int hdd_driver_init( void)
    \return - 0 for success, non zero for failure
  
    --------------------------------------------------------------------------*/
@@ -317,7 +316,7 @@ index 66d741e..6e0e8d8 100644
  				printk("%s: Failed to get %s\n",
  					__func__, filename);
 diff --git a/CORE/SERVICES/HIF/sdio/linux/if_ath_sdio.c b/CORE/SERVICES/HIF/sdio/linux/if_ath_sdio.c
-index 851b822..fb098a5 100644
+index c99020e..6bafed8 100644
 --- a/CORE/SERVICES/HIF/sdio/linux/if_ath_sdio.c
 +++ b/CORE/SERVICES/HIF/sdio/linux/if_ath_sdio.c
 @@ -234,12 +234,6 @@ ath_hif_sdio_remove(void *context, void *hif_handle)
@@ -347,7 +346,7 @@ index 382e38c..234bc09 100644
  #define CMD53_INCR_ADDRESS  2
  
 diff --git a/CORE/SERVICES/HIF/sdio/linux/native_sdio/src/hif.c b/CORE/SERVICES/HIF/sdio/linux/native_sdio/src/hif.c
-index f2c1d17..3ba95ed 100644
+index d45ebd9..9fb1057 100644
 --- a/CORE/SERVICES/HIF/sdio/linux/native_sdio/src/hif.c
 +++ b/CORE/SERVICES/HIF/sdio/linux/native_sdio/src/hif.c
 @@ -64,7 +64,8 @@
@@ -458,7 +457,7 @@ index f2c1d17..3ba95ed 100644
                  if (err) {
                      AR_DEBUG_PRINTF(ATH_DEBUG_ERR, ("ReinitSDIO: CMD5 failed : %d \n",err));
                      break;
-@@ -828,16 +813,14 @@ A_STATUS ReinitSDIO(HIF_DEVICE *device)
+@@ -828,7 +813,7 @@ A_STATUS ReinitSDIO(HIF_DEVICE *device)
                  break;
              }
          }
@@ -467,47 +466,7 @@ index f2c1d17..3ba95ed 100644
          /* Enable high speed */
          if (card->host->caps & MMC_CAP_SD_HIGHSPEED) {
              AR_DEBUG_PRINTF(ATH_DEBUG_TRACE, ("ReinitSDIO: Set high speed mode\n"));
-             err = Func0_CMD52ReadByte(card, SDIO_CCCR_SPEED, &cmd52_resp);
-             if (err) {
-                 AR_DEBUG_PRINTF(ATH_DEBUG_ERR, ("ReinitSDIO: CMD52 read to CCCR speed register failed  : %d \n",err));
--#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0))
--                card->state &= ~MMC_STATE_HIGHSPEED;
--#endif
-+     //           card->state &= ~MMC_CAP_SD_HIGHSPEED;
-                 /* no need to break */
-             } else {
-                 err = Func0_CMD52WriteByte(card, SDIO_CCCR_SPEED, (cmd52_resp | SDIO_SPEED_EHS));
-@@ -845,24 +828,18 @@ A_STATUS ReinitSDIO(HIF_DEVICE *device)
-                     AR_DEBUG_PRINTF(ATH_DEBUG_ERR, ("ReinitSDIO: CMD52 write to CCCR speed register failed  : %d \n",err));
-                     break;
-                 }
--#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0))
--                mmc_card_set_highspeed(card);
--#endif
-+ //               mmc_card_set_highspeed(card);
-                 host->ios.timing = MMC_TIMING_SD_HS;
-                 host->ops->set_ios(host, &host->ios);
-             }
-         }
- 
-         /* Set clock */
--#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0))
--        if (mmc_card_highspeed(card)) {
--#else
--        if (mmc_card_hs(card)) {
--#endif
--            clock = 50000000;
--        } else {
-+ //       if (mmc_card_highspeed(card)) {
-+ //           clock = 50000000;
-+ //       } else {
-             clock = card->cis.max_dtr;
--        }
-+//        }
- 
-         if (clock > host->f_max) {
-             clock = host->f_max;
-@@ -891,7 +868,7 @@ A_STATUS ReinitSDIO(HIF_DEVICE *device)
+@@ -891,7 +876,7 @@ A_STATUS ReinitSDIO(HIF_DEVICE *device)
  
      sdio_release_host(func);
      AR_DEBUG_PRINTF(ATH_DEBUG_TRACE, ("AR6000: -ReinitSDIO \n"));
@@ -516,7 +475,7 @@ index f2c1d17..3ba95ed 100644
      return (err) ? A_ERROR : A_OK;
  }
  
-@@ -1320,6 +1297,7 @@ static int hifDeviceInserted(struct sdio_func *func, const struct sdio_device_id
+@@ -1320,6 +1305,7 @@ static int hifDeviceInserted(struct sdio_func *func, const struct sdio_device_id
  /*
  TODO: MMC SDIO3.0 Setting should also be modified in ReInit() function when Power Manage work.
  */
@@ -524,27 +483,7 @@ index f2c1d17..3ba95ed 100644
          {
              A_UINT32 clock, clock_set = 12500000;
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
-@@ -1438,15 +1416,11 @@ TODO: MMC SDIO3.0 Setting should also be modified in ReInit() function when Powe
-             if (mmcclock > 0){
-                 clock_set = mmcclock;
-             }
--#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0))
--            if (mmc_card_highspeed(func->card)){
--#else
--            if (mmc_card_hs(func->card)) {
--#endif
--                clock = 50000000;
--            } else {
-+ //           if (mmc_card_highspeed(func->card)){
-+ //               clock = 50000000;
-+//            } else {
-                 clock = func->card->cis.max_dtr;
--            }
-+ //           }
-             if (clock > device->host->f_max){
-                 clock = device->host->f_max;
-             }
-@@ -1578,7 +1552,7 @@ TODO: MMC SDIO3.0 Setting should also be modified in ReInit() function when Powe
+@@ -1578,7 +1564,7 @@ TODO: MMC SDIO3.0 Setting should also be modified in ReInit() function when Powe
  
              sdio_release_host(func);
          }
@@ -553,7 +492,7 @@ index f2c1d17..3ba95ed 100644
          spin_lock_init(&device->lock);
  
          spin_lock_init(&device->asynclock);
-@@ -2070,12 +2044,10 @@ static int hifDeviceSuspend(struct device *dev)
+@@ -2070,12 +2056,10 @@ static int hifDeviceSuspend(struct device *dev)
                      return -1;
                  }
              } else {
@@ -569,7 +508,7 @@ index f2c1d17..3ba95ed 100644
              if (pm_flag & MMC_PM_WAKE_SDIO_IRQ){
                  AR_DEBUG_PRINTF(ATH_DEBUG_INFO, ("hifDeviceSuspend: wow enter\n"));
                  config = HIF_DEVICE_POWER_DOWN;
-@@ -2295,9 +2267,7 @@ static HIF_DEVICE *
+@@ -2295,9 +2279,7 @@ static HIF_DEVICE *
  addHifDevice(struct sdio_func *func)
  {
      HIF_DEVICE *hifdevice = NULL;
@@ -579,7 +518,7 @@ index f2c1d17..3ba95ed 100644
      ENTER();
      AR_DEBUG_ASSERT(func != NULL);
      hifdevice = (HIF_DEVICE *)A_MALLOC(sizeof(HIF_DEVICE));
-@@ -2310,13 +2280,9 @@ addHifDevice(struct sdio_func *func)
+@@ -2310,13 +2292,9 @@ addHifDevice(struct sdio_func *func)
      hifdevice->func = func;
      hifdevice->powerConfig = HIF_DEVICE_POWER_UP;
      hifdevice->DeviceState = HIF_DEVICE_STATE_ON;
@@ -594,18 +533,5 @@ index f2c1d17..3ba95ed 100644
      return hifdevice;
  }
  
-diff --git a/Kbuild b/Kbuild
-index c696869..82b4439 100644
---- a/Kbuild
-+++ b/Kbuild
-@@ -1068,7 +1068,6 @@ CDEFINES :=	-DANI_LITTLE_BYTE_ENDIAN \
- 		-DWLAN_WAKEUP_EVENTS \
- 		-DFEATURE_WLAN_RA_FILTERING\
- 	        -DWLAN_KD_READY_NOTIFIER \
--		-DWLAN_NL80211_TESTMODE \
- 		-DFEATURE_WLAN_BATCH_SCAN \
- 		-DFEATURE_WLAN_LPHB \
- 		-DFEATURE_WLAN_PAL_TIMER_DISABLE \
 -- 
-1.8.3.1
-
+2.7.4
