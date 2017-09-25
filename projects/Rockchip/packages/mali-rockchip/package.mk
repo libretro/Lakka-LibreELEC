@@ -57,7 +57,7 @@ make_target() {
 }
 
 makeinstall_target() {
-  cd /root/Lakka-LibreELEC/$PKG_BUILD
+  cd $PKG_BUILD
 
   mkdir -p $SYSROOT_PREFIX/usr/include
     cp -PRv include/EGL $SYSROOT_PREFIX/usr/include

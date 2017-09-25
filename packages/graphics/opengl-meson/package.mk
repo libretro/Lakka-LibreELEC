@@ -67,6 +67,9 @@ makeinstall_target() {
     ln -sf libGLESv2.so.2.0 $SYSROOT_PREFIX/usr/lib/libGLESv2.so.2
     ln -sf libGLESv2.so.2 $SYSROOT_PREFIX/usr/lib/libGLESv2.so
 
+  mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
+    cp -PRv $PKG_DIR/pkgconfig/*.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
+
   mkdir -p $INSTALL/usr/lib
     cp -PR usr/lib/libMali.so $INSTALL/usr/lib
 
