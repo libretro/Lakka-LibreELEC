@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="audioencoder.flac"
-PKG_VERSION="1d540c6"
-PKG_SHA256="eb8eba562012a1048129f679ef0bd240a776fbca73b843084723af895212b0fe"
+PKG_VERSION="ed75200"
+PKG_SHA256="25f4449024fcaba0ccf519e565ae679e701dafb36035a56afd2197f6121c9bba"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
