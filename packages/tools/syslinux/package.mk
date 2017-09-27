@@ -73,15 +73,15 @@ makeinstall_host() {
     cp bios/mtools/syslinux $TOOLCHAIN/bin/syslinux.mtools
 
   mkdir -p $TOOLCHAIN/share/syslinux
-    cp bios/com32/menu/vesamenu.c32 $ROOT/$TOOLCHAIN/share/syslinux
-    cp bios/com32/lib/libcom32.c32 $ROOT/$TOOLCHAIN/share/syslinux
-    cp bios/com32/libutil/libutil.c32 $ROOT/$TOOLCHAIN/share/syslinux
-    cp bios/mbr/mbr.bin $ROOT/$TOOLCHAIN/share/syslinux
-    cp bios/mbr/gptmbr.bin $ROOT/$TOOLCHAIN/share/syslinux
-    cp efi64/efi/syslinux.efi $ROOT/$TOOLCHAIN/share/syslinux/bootx64.efi
-    cp efi64/com32/elflink/ldlinux/ldlinux.e64  $ROOT/$TOOLCHAIN/share/syslinux
-    cp efi32/efi/syslinux.efi $ROOT/$TOOLCHAIN/share/syslinux/bootia32.efi
-    cp efi32/com32/elflink/ldlinux/ldlinux.e32 $ROOT/$TOOLCHAIN/share/syslinux
+    cp bios/com32/menu/vesamenu.c32 $TOOLCHAIN/share/syslinux
+    cp bios/com32/lib/libcom32.c32 $TOOLCHAIN/share/syslinux
+    cp bios/com32/libutil/libutil.c32 $TOOLCHAIN/share/syslinux
+    cp bios/mbr/mbr.bin $TOOLCHAIN/share/syslinux
+    cp bios/mbr/gptmbr.bin $TOOLCHAIN/share/syslinux
+    cp efi64/efi/syslinux.efi $TOOLCHAIN/share/syslinux/bootx64.efi
+    cp efi64/com32/elflink/ldlinux/ldlinux.e64 $TOOLCHAIN/share/syslinux
+    cp efi32/efi/syslinux.efi $TOOLCHAIN/share/syslinux/bootia32.efi
+    cp efi32/com32/elflink/ldlinux/ldlinux.e32 $TOOLCHAIN/share/syslinux
 }
 
 makeinstall_target() {
