@@ -91,7 +91,7 @@ if command_exists gdb; then
 fi
 
 # clean up any stale cores. just in case
-rm -f /storage/.cache/cores/*
+find /storage/.cache/cores -type f -delete
 
 # clean zero-byte database files that prevent migration/startup
 for file in /storage/.kodi/userdata/Database/*.db; do
