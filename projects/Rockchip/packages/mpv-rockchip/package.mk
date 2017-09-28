@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="mpv-rockchip"
-PKG_VERSION="rockchip-new"
+PKG_VERSION="rockchip"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://mpv.io/"
@@ -52,15 +52,10 @@ unpack() {
   git clone --depth 1 --branch $PKG_VERSION https://github.com/LongChair/mpv.git $BUILD/$PKG_NAME-$PKG_VERSION
 }
 
-post_unpack() {
-  mkdir -p $PKG_BUILD/extraheaders
-    cp -r $PKG_DIR/GL/ $PKG_BUILD/extraheaders
-}
-
 configure_target() {
   cd $PKG_BUILD
     ./bootstrap.py
-    CFLAGS="-D__GBM__ -I$PKG_BUILD/extraheaders" ./waf configure $PKG_CONFIGURE_OPTS_TARGET
+    ./waf configure $PKG_CONFIGURE_OPTS_TARGET
 }
 
 make_target() {

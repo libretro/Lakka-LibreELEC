@@ -1,7 +1,7 @@
-From d640cb497679e8a5981e02f630b96d151ac83add Mon Sep 17 00:00:00 2001
+From 532cdc2e0094481ec1dddcbfad11637015963797 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
-Date: Tue, 15 Aug 2017 18:43:47 +0200
-Subject: [PATCH 1/8] BACKPORT: HDMI CEC support from v4.13-rc5
+Date: Mon, 4 Sep 2017 22:34:19 +0200
+Subject: [PATCH 01/10] BACKPORT: HDMI CEC support from v4.13
 
 Skipped changes:
 857313e51006ff51524579bcd8808b70f9a80812 "media: utilize new cdev_device_add helper function"
@@ -37,14 +37,16 @@ Skipped changes:
  drivers/media/rc/keymaps/Makefile                  |    1 +
  drivers/media/rc/keymaps/rc-cec.c                  |  182 ++
  drivers/media/rc/rc-main.c                         |    1 +
+ fs/compat_ioctl.c                                  |   12 +
  include/media/cec-notifier.h                       |  136 ++
  include/media/cec.h                                |  383 ++++
  include/media/rc-map.h                             |    5 +-
+ include/uapi/linux/Kbuild                          |    2 +
  include/uapi/linux/cec-funcs.h                     | 1969 ++++++++++++++++++++
  include/uapi/linux/cec.h                           | 1068 +++++++++++
  include/uapi/linux/input-event-codes.h             |   31 +
  include/uapi/linux/input.h                         |    1 +
- 37 files changed, 9299 insertions(+), 1 deletion(-)
+ 39 files changed, 9313 insertions(+), 1 deletion(-)
  create mode 100644 Documentation/devicetree/bindings/media/cec.txt
  create mode 100644 Documentation/media/kapi/cec-core.rst
  create mode 100644 Documentation/media/uapi/cec/cec-api.rst
@@ -2283,7 +2285,7 @@ index 000000000000..267044f7ac30
 +ERESTARTSYS
 +    The wait for a successful transmit was interrupted (e.g. by Ctrl-C).
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 80f52fa040e8..c7d32e13fe20 100644
+index e86ddedc813c..124551e7b781 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -2657,6 +2657,22 @@ F:	drivers/net/ieee802154/cc2520.c
@@ -5994,6 +5996,36 @@ index 3f0f71adabb4..a639ea653c7e 100644
  };
  
  /**
+diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
+index dcf26537c935..1957c340878d 100644
+--- a/fs/compat_ioctl.c
++++ b/fs/compat_ioctl.c
+@@ -57,6 +57,7 @@
+ #include <linux/i2c-dev.h>
+ #include <linux/atalk.h>
+ #include <linux/gfp.h>
++#include <linux/cec.h>
+ 
+ #include <net/bluetooth/bluetooth.h>
+ #include <net/bluetooth/hci_sock.h>
+@@ -1381,6 +1382,17 @@ COMPATIBLE_IOCTL(VIDEO_GET_NAVI)
+ COMPATIBLE_IOCTL(VIDEO_SET_ATTRIBUTES)
+ COMPATIBLE_IOCTL(VIDEO_GET_SIZE)
+ COMPATIBLE_IOCTL(VIDEO_GET_FRAME_RATE)
++/* cec */
++COMPATIBLE_IOCTL(CEC_ADAP_G_CAPS)
++COMPATIBLE_IOCTL(CEC_ADAP_G_LOG_ADDRS)
++COMPATIBLE_IOCTL(CEC_ADAP_S_LOG_ADDRS)
++COMPATIBLE_IOCTL(CEC_ADAP_G_PHYS_ADDR)
++COMPATIBLE_IOCTL(CEC_ADAP_S_PHYS_ADDR)
++COMPATIBLE_IOCTL(CEC_G_MODE)
++COMPATIBLE_IOCTL(CEC_S_MODE)
++COMPATIBLE_IOCTL(CEC_TRANSMIT)
++COMPATIBLE_IOCTL(CEC_RECEIVE)
++COMPATIBLE_IOCTL(CEC_DQEVENT)
+ 
+ /* joystick */
+ COMPATIBLE_IOCTL(JSIOCGVERSION)
 diff --git a/include/media/cec-notifier.h b/include/media/cec-notifier.h
 new file mode 100644
 index 000000000000..a4f7429c4ae5
@@ -6562,6 +6594,19 @@ index 7c4bbc4dfab4..d9f87d5b4468 100644
  #define RC_MAP_CINERGY_1400              "rc-cinergy-1400"
  #define RC_MAP_CINERGY                   "rc-cinergy"
  #define RC_MAP_DELOCK_61959              "rc-delock-61959"
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index ebd10e624598..3fd57c638a90 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -81,6 +81,8 @@ header-y += capi.h
+ header-y += cciss_defs.h
+ header-y += cciss_ioctl.h
+ header-y += cdrom.h
++header-y += cec.h
++header-y += cec-funcs.h
+ header-y += cgroupstats.h
+ header-y += chio.h
+ header-y += cm4000_cs.h
 diff --git a/include/uapi/linux/cec-funcs.h b/include/uapi/linux/cec-funcs.h
 new file mode 100644
 index 000000000000..c451eec42a83
@@ -9666,10 +9711,10 @@ index 2758687300b4..41e8dff588e1 100644
  /*
   * MT_TOOL types
 
-From 7981d7f65d40967763d319f1fd7f974ab73f6b2d Mon Sep 17 00:00:00 2001
+From 7b19f5f75abc2892274f1c637265e41b6465e40b Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
-Date: Tue, 15 Aug 2017 18:43:48 +0200
-Subject: [PATCH 2/8] BACKPORT: Pulse Eight HDMI CEC from v4.13-rc5
+Date: Mon, 4 Sep 2017 22:34:22 +0200
+Subject: [PATCH 02/10] BACKPORT: Pulse Eight HDMI CEC from v4.13
 
 ---
  MAINTAINERS                               |   7 +
@@ -9686,10 +9731,10 @@ Subject: [PATCH 2/8] BACKPORT: Pulse Eight HDMI CEC from v4.13-rc5
  create mode 100644 drivers/media/usb/pulse8-cec/pulse8-cec.c
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index c7d32e13fe20..556107ec320a 100644
+index 124551e7b781..3f10c7b7f3eb 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -8616,6 +8616,13 @@ F:	include/linux/tracehook.h
+@@ -8623,6 +8623,13 @@ F:	include/linux/tracehook.h
  F:	include/uapi/linux/ptrace.h
  F:	kernel/ptrace.c
  
@@ -10570,10 +10615,10 @@ index becdd78295cc..4588c66a8df0 100644
  
  #endif /* _UAPI_SERIO_H */
 
-From 47c1b4b662fdd0350c989ef5b328ddc15ad7d07b Mon Sep 17 00:00:00 2001
+From 8a9da24613ea0f822dca7c2bd88aea4c03c16bf6 Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
-Date: Tue, 15 Aug 2017 18:43:49 +0200
-Subject: [PATCH 3/8] BACKPORT: RainShadow Tech HDMI CEC from v4.13-rc5
+Date: Mon, 4 Sep 2017 22:34:24 +0200
+Subject: [PATCH 03/10] BACKPORT: RainShadow Tech HDMI CEC from v4.13
 
 ---
  MAINTAINERS                                       |   7 +
@@ -10589,10 +10634,10 @@ Subject: [PATCH 3/8] BACKPORT: RainShadow Tech HDMI CEC from v4.13-rc5
  create mode 100644 drivers/media/usb/rainshadow-cec/rainshadow-cec.c
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 556107ec320a..2064ca0683aa 100644
+index 3f10c7b7f3eb..ede39504b4b3 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -8855,6 +8855,13 @@ L:	linux-fbdev@vger.kernel.org
+@@ -8862,6 +8862,13 @@ L:	linux-fbdev@vger.kernel.org
  S:	Maintained
  F:	drivers/video/fbdev/aty/aty128fb.c
  
@@ -11054,23 +11099,26 @@ index 4588c66a8df0..89b72003fb68 100644
  
  #endif /* _UAPI_SERIO_H */
 
-From 7f615bd309ef86be6206d207e3e6596510c17633 Mon Sep 17 00:00:00 2001
+From f6bfa738b788acaf75735d8ab6abd1a63bf461a9 Mon Sep 17 00:00:00 2001
 From: Russell King <rmk+kernel@armlinux.org.uk>
 Date: Mon, 31 Jul 2017 15:29:41 +0100
-Subject: [PATCH 4/8] FROMLIST: drm/bridge: dw-hdmi: add cec notifier support
+Subject: [PATCH 04/10] UPSTREAM: drm/bridge: dw-hdmi: add cec notifier support
 
 Add CEC notifier support to the HDMI bridge driver, so that the CEC
 part of the IP can receive its physical address.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-[hans.verkuil: added missing cec_notifier_put to remove()]
-Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
-Tested-by: Hans Verkuil <hans.verkuil@cisco.com>
+Tested-by: Neil Armstrong <narmstrong@baylibre.com>
+Reviewed-by: Neil Armstrong <narmstrong@baylibre.com>
 Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
+Signed-off-by: Archit Taneja <architt@codeaurora.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/E1dcBhV-00088e-8x@rmk-PC.armlinux.org.uk
+(cherry picked from commit e84b8d75ac116e67ac3bdb23cafbd03430aa50b9)
 ---
  drivers/gpu/drm/bridge/Kconfig   |  1 +
- drivers/gpu/drm/bridge/dw-hdmi.c | 21 +++++++++++++++++++++
- 2 files changed, 22 insertions(+)
+ drivers/gpu/drm/bridge/dw-hdmi.c | 18 ++++++++++++++++++
+ 2 files changed, 19 insertions(+)
 
 diff --git a/drivers/gpu/drm/bridge/Kconfig b/drivers/gpu/drm/bridge/Kconfig
 index df2dcc157f5a..0af0da74dde9 100644
@@ -11085,7 +11133,7 @@ index df2dcc157f5a..0af0da74dde9 100644
  config DRM_DW_HDMI_AHB_AUDIO
  	tristate "Synopsis Designware AHB Audio interface"
 diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index 9930dc78db4d..033d44d1bfe0 100644
+index a2b755e228c8..81c349756be0 100644
 --- a/drivers/gpu/drm/bridge/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/dw-hdmi.c
 @@ -42,6 +42,8 @@
@@ -11106,7 +11154,7 @@ index 9930dc78db4d..033d44d1bfe0 100644
  };
  
  #define HDMI_IH_PHY_STAT0_RX_SENSE \
-@@ -2316,6 +2320,7 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
+@@ -2322,6 +2326,7 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
  		hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
  		hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
  		drm_mode_connector_update_edid_property(connector, edid);
@@ -11114,7 +11162,7 @@ index 9930dc78db4d..033d44d1bfe0 100644
  		ret = drm_add_edid_modes(connector, edid);
  		/* Store the ELD */
  		drm_edid_to_eld(connector, edid);
-@@ -2499,6 +2504,10 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
+@@ -2505,6 +2510,10 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
  			dw_hdmi_update_phy_mask(hdmi);
  		}
  		mutex_unlock(&hdmi->mutex);
@@ -11125,7 +11173,7 @@ index 9930dc78db4d..033d44d1bfe0 100644
  	}
  
  	check_hdmi_irq(hdmi, intr_stat, phy_int_pol);
-@@ -2974,6 +2983,12 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -2980,6 +2989,12 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
  	if (ret)
  		goto err_iahb;
  
@@ -11138,7 +11186,7 @@ index 9930dc78db4d..033d44d1bfe0 100644
  	/*
  	 * To prevent overflows in HDMI_IH_FC_STAT2, set the clk regenerator
  	 * N and cts values before enabling phy
-@@ -3064,6 +3079,9 @@ err_iahb:
+@@ -3075,6 +3090,9 @@ err_iahb:
  	if (hdmi->i2c)
  		i2c_del_adapter(&hdmi->i2c->adap);
  
@@ -11148,21 +11196,11 @@ index 9930dc78db4d..033d44d1bfe0 100644
  	clk_disable_unprepare(hdmi->iahb_clk);
  err_isfr:
  	clk_disable_unprepare(hdmi->isfr_clk);
-@@ -3094,6 +3112,9 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data)
- 	/* Disable all interrupts */
- 	hdmi_writeb(hdmi, ~0, HDMI_IH_MUTE_PHY_STAT0);
- 
-+	if (hdmi->cec_notifier)
-+		cec_notifier_put(hdmi->cec_notifier);
-+
- #ifdef CONFIG_SWITCH
- 	switch_dev_unregister(&hdmi->switchdev);
- #endif
 
-From 90ab9b0d73e3f8d48a3bdf2e1a7148b920017ca3 Mon Sep 17 00:00:00 2001
+From a335de876578567abec2da37b597883d7fbd8853 Mon Sep 17 00:00:00 2001
 From: Russell King <rmk+kernel@armlinux.org.uk>
 Date: Mon, 31 Jul 2017 15:29:46 +0100
-Subject: [PATCH 5/8] FROMLIST: drm/bridge: dw-hdmi: add better clock disable
+Subject: [PATCH 05/10] UPSTREAM: drm/bridge: dw-hdmi: add better clock disable
  control
 
 The video setup path aways sets the clock disable register to a specific
@@ -11173,15 +11211,17 @@ Fix this by only setting/clearing the bits that the video path needs to.
 
 Reviewed-by: Jose Abreu <joabreu@synopsys.com>
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
-Tested-by: Hans Verkuil <hans.verkuil@cisco.com>
 Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
+Signed-off-by: Archit Taneja <architt@codeaurora.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/E1dcBha-00088l-DE@rmk-PC.armlinux.org.uk
+(cherry picked from commit 7cc4ab225ae30bd9ec9239e7dba5b2937f526ccc)
 ---
  drivers/gpu/drm/bridge/dw-hdmi.c | 33 ++++++++++++++++++++-------------
  1 file changed, 20 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index 033d44d1bfe0..3877e7c62396 100644
+index 81c349756be0..b4249f7a5948 100644
 --- a/drivers/gpu/drm/bridge/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/dw-hdmi.c
 @@ -235,6 +235,7 @@ struct dw_hdmi {
@@ -11252,7 +11292,7 @@ index 033d44d1bfe0..3877e7c62396 100644
  	}
  
  	/* Enable color space conversion if needed */
-@@ -2870,6 +2876,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -2876,6 +2882,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
  	hdmi->rxsense = true;
  	hdmi->phy_mask = (u8)~(HDMI_PHY_HPD | HDMI_PHY_RX_SENSE);
  	hdmi->irq = irq;
@@ -11261,10 +11301,42 @@ index 033d44d1bfe0..3877e7c62396 100644
  	mutex_init(&hdmi->mutex);
  	mutex_init(&hdmi->audio_mutex);
 
-From 78e61a97341c80db835e701d60a8547693d410cc Mon Sep 17 00:00:00 2001
+From 9e3fc9381bbc3a87ef49a7f9ab88361e31a301f9 Mon Sep 17 00:00:00 2001
+From: Hans Verkuil <hverkuil@xs4all.nl>
+Date: Mon, 7 Aug 2017 09:20:35 +0200
+Subject: [PATCH 06/10] UPSTREAM: drm/bridge: dw-hdmi: add missing
+ cec_notifier_put
+
+The __dw_hdmi_remove() function was missing a call to cec_notifier_put
+to balance the cec_notifier_get in the probe function.
+
+Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
+Signed-off-by: Archit Taneja <architt@codeaurora.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/a7688d13-2d61-ed16-f2df-28cbb5007f38@xs4all.nl
+(cherry picked from commit e383bf85d32b5953f34fa0e3d619886ec49413b1)
+---
+ drivers/gpu/drm/bridge/dw-hdmi.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
+index b4249f7a5948..c981d4d5f72f 100644
+--- a/drivers/gpu/drm/bridge/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/dw-hdmi.c
+@@ -3130,6 +3130,9 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data)
+ 	/* Disable all interrupts */
+ 	hdmi_writeb(hdmi, ~0, HDMI_IH_MUTE_PHY_STAT0);
+ 
++	if (hdmi->cec_notifier)
++		cec_notifier_put(hdmi->cec_notifier);
++
+ #ifdef CONFIG_SWITCH
+ 	switch_dev_unregister(&hdmi->switchdev);
+ #endif
+
+From 265aa07944e099ecac07fd29ec8e5e60666acf9a Mon Sep 17 00:00:00 2001
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Mon, 31 Jul 2017 15:29:51 +0100
-Subject: [PATCH 6/8] FROMLIST: drm/bridge: dw-hdmi: add cec driver
+Date: Wed, 2 Aug 2017 20:41:07 +0200
+Subject: [PATCH 07/10] UPSTREAM: drm/bridge: dw-hdmi: add cec driver
 
 Add a CEC driver for the dw-hdmi hardware.
 
@@ -11276,19 +11348,22 @@ Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
 Tested-by: Hans Verkuil <hans.verkuil@cisco.com>
 Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Signed-off-by: Archit Taneja <architt@codeaurora.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20170802184108.7913-4-hverkuil@xs4all.nl
+(cherry picked from commit a616e63c56ef35365b781f08c7d437840f56940f)
 ---
  drivers/gpu/drm/bridge/Kconfig       |   9 +
  drivers/gpu/drm/bridge/Makefile      |   1 +
  drivers/gpu/drm/bridge/dw-hdmi-cec.c | 327 +++++++++++++++++++++++++++++++++++
  drivers/gpu/drm/bridge/dw-hdmi-cec.h |  19 ++
- drivers/gpu/drm/bridge/dw-hdmi.c     |  43 ++++-
+ drivers/gpu/drm/bridge/dw-hdmi.c     |  42 ++++-
  drivers/gpu/drm/bridge/dw-hdmi.h     |   1 +
- 6 files changed, 399 insertions(+), 1 deletion(-)
+ 6 files changed, 398 insertions(+), 1 deletion(-)
  create mode 100644 drivers/gpu/drm/bridge/dw-hdmi-cec.c
  create mode 100644 drivers/gpu/drm/bridge/dw-hdmi-cec.h
 
 diff --git a/drivers/gpu/drm/bridge/Kconfig b/drivers/gpu/drm/bridge/Kconfig
-index 0af0da74dde9..618e184bc252 100644
+index 0af0da74dde9..dc2f6c157ea3 100644
 --- a/drivers/gpu/drm/bridge/Kconfig
 +++ b/drivers/gpu/drm/bridge/Kconfig
 @@ -31,6 +31,15 @@ config DRM_DW_HDMI_I2S_AUDIO
@@ -11301,7 +11376,7 @@ index 0af0da74dde9..618e184bc252 100644
 +	select CEC_CORE
 +	select CEC_NOTIFIER
 +	help
-+	  Support the CEC interface which is part of the Synopsys
++	  Support the CE interface which is part of the Synopsys
 +	  Designware HDMI block.
 +
  config DRM_NXP_PTN3460
@@ -11678,7 +11753,7 @@ index 000000000000..cf4dc121a2c4
 +
 +#endif
 diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index 3877e7c62396..5acdfc58c1fe 100644
+index c981d4d5f72f..d9ca9f6a55bd 100644
 --- a/drivers/gpu/drm/bridge/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/dw-hdmi.c
 @@ -41,6 +41,7 @@
@@ -11697,7 +11772,7 @@ index 3877e7c62396..5acdfc58c1fe 100644
  	struct device *dev;
  	struct clk *isfr_clk;
  	struct clk *iahb_clk;
-@@ -2165,7 +2167,6 @@ static void initialize_hdmi_ih_mutes(struct dw_hdmi *hdmi)
+@@ -2171,7 +2173,6 @@ static void initialize_hdmi_ih_mutes(struct dw_hdmi *hdmi)
  	hdmi_writeb(hdmi, 0xff, HDMI_AUD_HBR_MASK);
  	hdmi_writeb(hdmi, 0xff, HDMI_GP_MASK);
  	hdmi_writeb(hdmi, 0xff, HDMI_A_APIINTMSK);
@@ -11705,7 +11780,7 @@ index 3877e7c62396..5acdfc58c1fe 100644
  	hdmi_writeb(hdmi, 0xff, HDMI_I2CM_INT);
  	hdmi_writeb(hdmi, 0xff, HDMI_I2CM_CTLINT);
  
-@@ -2621,6 +2622,29 @@ static int dw_hdmi_detect_phy(struct dw_hdmi *hdmi)
+@@ -2627,6 +2628,29 @@ static int dw_hdmi_detect_phy(struct dw_hdmi *hdmi)
  	return -ENODEV;
  }
  
@@ -11735,13 +11810,19 @@ index 3877e7c62396..5acdfc58c1fe 100644
  static int dw_hdmi_register(struct drm_device *drm, struct dw_hdmi *hdmi)
  {
  	struct drm_encoder *encoder = hdmi->encoder;
-@@ -3072,6 +3096,21 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
+@@ -2857,6 +2881,7 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
+ 	struct device_node *np = dev->of_node;
+ 	struct platform_device_info pdevinfo;
+ 	struct device_node *ddc_node;
++	struct dw_hdmi_cec_data cec;
+ 	struct dw_hdmi *hdmi;
+ 	int ret;
+ 	u8 prod_id0;
+@@ -3083,6 +3108,19 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
  		hdmi->audio = platform_device_register_full(&pdevinfo);
  	}
  
 +	if (config0 & HDMI_CONFIG0_CEC) {
-+		struct dw_hdmi_cec_data cec;
-+
 +		cec.hdmi = hdmi;
 +		cec.ops = &dw_hdmi_cec_ops;
 +		cec.irq = irq;
@@ -11757,11 +11838,11 @@ index 3877e7c62396..5acdfc58c1fe 100644
  	dev_set_drvdata(dev, hdmi);
  
  	dw_hdmi_register_debugfs(dev, hdmi);
-@@ -3112,6 +3151,8 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data)
+@@ -3123,6 +3161,8 @@ void dw_hdmi_unbind(struct device *dev, struct device *master, void *data)
  
  	if (hdmi->audio && !IS_ERR(hdmi->audio))
  		platform_device_unregister(hdmi->audio);
-+	if (hdmi->cec && !IS_ERR(hdmi->cec))
++	if (!IS_ERR(hdmi->cec))
 +		platform_device_unregister(hdmi->cec);
  
  	if (hdmi->hdcp_dev && !IS_ERR(hdmi->hdcp_dev))
@@ -11779,11 +11860,11 @@ index 57fafe0fd4f9..0c431405451f 100644
  /* CONFIG1_ID field values */
  	HDMI_CONFIG1_AHB = 0x01,
 
-From 3baa1233d11413ce18712da1db9528b198f3f45f Mon Sep 17 00:00:00 2001
+From a2411e95302c8c1aea96d15d95c747f3fe9b49f2 Mon Sep 17 00:00:00 2001
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Mon, 31 Jul 2017 15:29:56 +0100
-Subject: [PATCH 7/8] FROMLIST: drm/bridge: dw-hdmi: remove CEC engine register
- definitions
+Date: Wed, 2 Aug 2017 20:41:08 +0200
+Subject: [PATCH 08/10] UPSTREAM: drm/bridge: dw-hdmi: remove CEC engine
+ register definitions
 
 We don't need the CEC engine register definitions, so let's remove them.
 
@@ -11791,16 +11872,19 @@ Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
 Tested-by: Hans Verkuil <hans.verkuil@cisco.com>
 Tested-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Signed-off-by: Archit Taneja <architt@codeaurora.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20170802184108.7913-5-hverkuil@xs4all.nl
+(cherry picked from commit 2356c573ba0eca736ec156b82ca6a6b37b8fe609)
 ---
  drivers/gpu/drm/bridge/dw-hdmi.c |  2 +-
  drivers/gpu/drm/bridge/dw-hdmi.h | 45 ----------------------------------------
  2 files changed, 1 insertion(+), 46 deletions(-)
 
 diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
-index 5acdfc58c1fe..4815cae98b6d 100644
+index d9ca9f6a55bd..d17ba7a1c876 100644
 --- a/drivers/gpu/drm/bridge/dw-hdmi.c
 +++ b/drivers/gpu/drm/bridge/dw-hdmi.c
-@@ -2703,7 +2703,7 @@ static const struct dw_hdmi_reg_table hdmi_reg_table[] = {
+@@ -2709,7 +2709,7 @@ static const struct dw_hdmi_reg_table hdmi_reg_table[] = {
  	{HDMI_A_HDCPCFG0, 0x52bb},
  	{0x7800, 0x7818},
  	{0x7900, 0x790e},
@@ -11866,10 +11950,10 @@ index 0c431405451f..18eeba59eb98 100644
  #define HDMI_I2CM_SLAVE                         0x7E00
  #define HDMI_I2CM_ADDRESS                       0x7E01
 
-From e63f73283c7bb7d4a7b6313bd6773558086702cc Mon Sep 17 00:00:00 2001
+From 4b96b03373092c40a47867e4659915467554971b Mon Sep 17 00:00:00 2001
 From: Jonas Karlman <jonas@kwiboo.se>
-Date: Fri, 25 Aug 2017 22:27:20 +0200
-Subject: [PATCH 8/8] [media] rc/keymaps: initialize rc-cec early
+Date: Sat, 2 Sep 2017 16:23:11 +0200
+Subject: [PATCH 09/10] [media] rc/keymaps: initialize rc-cec early
 
 ---
  drivers/media/rc/keymaps/rc-cec.c | 2 +-
@@ -11888,3 +11972,62 @@ index 354c8e724b8e..fb0c2b1f3814 100644
  module_exit(exit_rc_map_cec);
  
  MODULE_LICENSE("GPL");
+
+From 42ccac1bd4f8f16bf5988e4449ffab645e57c2c5 Mon Sep 17 00:00:00 2001
+From: Jonas Karlman <jonas@kwiboo.se>
+Date: Sat, 2 Sep 2017 16:23:11 +0200
+Subject: [PATCH 10/10] drm/bridge: dw-hdmi: read edid on hpd event
+
+---
+ drivers/gpu/drm/bridge/dw-hdmi.c | 24 +++++++++++++++++++-----
+ 1 file changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/dw-hdmi.c b/drivers/gpu/drm/bridge/dw-hdmi.c
+index d17ba7a1c876..3a622e5c378a 100644
+--- a/drivers/gpu/drm/bridge/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/dw-hdmi.c
+@@ -2303,6 +2303,7 @@ static void dw_hdmi_bridge_nop(struct drm_bridge *bridge)
+ static enum drm_connector_status
+ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
+ {
++	enum drm_connector_status status;
+ 	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
+ 					     connector);
+ 
+@@ -2312,7 +2313,24 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
+ 	dw_hdmi_update_phy_mask(hdmi);
+ 	mutex_unlock(&hdmi->mutex);
+ 
+-	return hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
++	status = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
++
++	if (status == connector_status_connected && hdmi->ddc) {
++		struct edid *edid = drm_get_edid(connector, hdmi->ddc);
++		if (edid) {
++			dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
++				edid->width_cm, edid->height_cm);
++
++			hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
++			hdmi->sink_has_audio = drm_detect_monitor_audio(edid);
++			drm_mode_connector_update_edid_property(connector, edid);
++			cec_notifier_set_phys_addr_from_edid(hdmi->cec_notifier, edid);
++			drm_edid_to_eld(connector, edid);
++			kfree(edid);
++		}
++	}
++
++	return status;
+ }
+ 
+ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
+@@ -2517,10 +2535,6 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
+ 			dw_hdmi_update_phy_mask(hdmi);
+ 		}
+ 		mutex_unlock(&hdmi->mutex);
+-
+-		if ((phy_stat & (HDMI_PHY_RX_SENSE | HDMI_PHY_HPD)) == 0)
+-			cec_notifier_set_phys_addr(hdmi->cec_notifier,
+-						   CEC_PHYS_ADDR_INVALID);
+ 	}
+ 
+ 	check_hdmi_irq(hdmi, intr_stat, phy_int_pol);

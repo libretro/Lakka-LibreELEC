@@ -25,6 +25,6 @@ git format-patch rockchip-4.4..rockchip-4.4-cec --no-signature --stdout > $SCRIP
 git format-patch rockchip-4.4-dts..rockchip-4.4-macphy --no-signature --stdout > $SCRIPTPATH/../patches/$PKG_NAME/rockchip-4.4/${PKG_NAME}-1000-macphy.patch
 git format-patch rockchip-4.4..rockchip-4.4-pl330 --no-signature --stdout > $SCRIPTPATH/../patches/$PKG_NAME/rockchip-4.4/${PKG_NAME}-1000-pl330.patch
 git format-patch rockchip-4.4-dts..rockchip-4.4-ir --no-signature --stdout > $SCRIPTPATH/../patches/$PKG_NAME/rockchip-4.4/${PKG_NAME}-1000-ir.patch
-git diff rockchip-4.4..rockchip-4.4-lsk > $SCRIPTPATH/../patches/$PKG_NAME/rockchip-4.4/${PKG_NAME}-1000-lsk.patch
+#git diff rockchip-4.4..rockchip-4.4-lsk > $SCRIPTPATH/../patches/$PKG_NAME/rockchip-4.4/${PKG_NAME}-1000-lsk.patch
 git format-patch rockchip-4.4..rockchip-4.4-tinker --no-signature --stdout > $SCRIPTPATH/../devices/TinkerBoard/patches/$PKG_NAME/${PKG_NAME}-1000-miniarm.patch
 git format-patch rockchip-4.4-macphy..rockchip-4.4-rock64 --no-signature --stdout > $SCRIPTPATH/../devices/ROCK64/patches/$PKG_NAME/${PKG_NAME}-1000-rock64.patch

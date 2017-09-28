@@ -31,11 +31,20 @@ PKG_LONGDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
+if [ "$UBOOT_SOC" = "rk3328" ]; then
+  ENABLE_VP9D="ON"
+else
+  ENABLE_VP9D="OFF"
+fi
+
 PKG_CMAKE_OPTS_TARGET="-DRKPLATFORM=ON \
-                       -DHAVE_H264D=ON \
-                       -DHAVE_H265D=ON \
-                       -DHAVE_MPEG2D=ON \
-                       -DHAVE_MPEG4D=ON \
-                       -DHAVE_VP8D=ON \
-                       -DHAVE_JPEGD=ON \
+                       -DENABLE_AVSD=OFF \
+                       -DENABLE_H263D=OFF \
+                       -DENABLE_H264D=ON \
+                       -DENABLE_H265D=ON \
+                       -DENABLE_MPEG2D=ON \
+                       -DENABLE_MPEG4D=ON \
+                       -DENABLE_VP8D=ON \
+                       -DENABLE_VP9D=$ENABLE_VP9D \
+                       -DENABLE_JPEGD=OFF \
                        -DHAVE_DRM=ON"

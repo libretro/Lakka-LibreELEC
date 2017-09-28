@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="u-boot"
-PKG_VERSION="9fe6f23"
+PKG_VERSION="e40ca50"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.denx.de/wiki/U-Boot"
@@ -74,8 +74,8 @@ makeinstall_target() {
   elif [ "$UBOOT_SOC" = "rk3328" ]; then
     $(get_build_dir rkbin)/tools/loaderimage --pack --uboot u-boot-dtb.bin uboot.img 0x200000
 
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/rk3328_ddr_786MHz_v1.08.bin ]; then
-      dd if=$PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/rk3328_ddr_786MHz_v1.08.bin of=ddr.bin bs=4 skip=1
+    if [ -f $PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_786MHz_v1.08.bin ]; then
+      dd if=$PROJECT_DIR/$PROJECT/bootloader/rk3328_ddr_786MHz_v1.08.bin of=ddr.bin bs=4 skip=1
     else
       dd if=$(get_build_dir rkbin)/rk33/rk3328_ddr_786MHz_v1.06.bin of=ddr.bin bs=4 skip=1
     fi
@@ -84,8 +84,8 @@ makeinstall_target() {
       -T rksd \
       -d ddr.bin \
       idbloader.img
-    if [ -f $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/rk3328_miniloader_v2.44.bin ]; then
-      cat $PROJECT_DIR/$PROJECT/devices/$DEVICE/bootloader/rk3328_miniloader_v2.44.bin >> idbloader.img
+    if [ -f $PROJECT_DIR/$PROJECT/bootloader/rk3328_miniloader_v2.44.bin ]; then
+      cat $PROJECT_DIR/$PROJECT/bootloader/rk3328_miniloader_v2.44.bin >> idbloader.img
     else
       cat $(get_build_dir rkbin)/rk33/rk3328_miniloader_v2.43.bin >> idbloader.img
     fi
