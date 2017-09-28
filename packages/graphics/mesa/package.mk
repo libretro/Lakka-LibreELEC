@@ -109,6 +109,7 @@ pre_configure_target() {
 
 post_makeinstall_target() {
   # rename and relink to cooperate with nvidia drivers
+  if [ "$DISPLAYSERVER" == "x11" ]; then
     rm -rf $INSTALL/usr/lib/libGL.so
     rm -rf $INSTALL/usr/lib/libGL.so.1
     ln -sf libGL.so.1 $INSTALL/usr/lib/libGL.so
