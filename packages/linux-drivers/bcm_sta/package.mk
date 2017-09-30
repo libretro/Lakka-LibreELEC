@@ -21,7 +21,7 @@
 
 PKG_NAME="bcm_sta"
 PKG_VERSION="6.30.223.271"
-PKG_ARCH="i386 x86_64"
+PKG_ARCH="x86_64"
 PKG_LICENSE="nonfree"
 PKG_SITE="http://www.broadcom.com/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.xz"
