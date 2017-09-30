@@ -40,7 +40,7 @@ post_unpack() {
 
 make_target() {
   if [ "$ARCH" == "arm" ]; then
-    make FORCE_GLES=1
+    make FORCE_GLES=1 WITH_DYNAREC=arm
   else
     make AS=${AS} CC_AS=${AS}
   fi
