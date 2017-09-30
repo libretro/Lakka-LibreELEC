@@ -37,7 +37,7 @@ case $PROJECT in
 esac
 
 pre_configure_target() {
-  cd $ROOT/$BUILD/$PKG_NAME-$PKG_VERSION
+  cd $BUILD/$PKG_NAME-$PKG_VERSION
   rm -rf .$TARGET_NAME
   export ac_cv_func_realloc_0_nonnull=yes
   strip_lto
