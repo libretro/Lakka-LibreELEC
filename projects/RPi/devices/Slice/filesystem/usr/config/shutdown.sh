@@ -1,22 +1,18 @@
 #!/bin/bash
 
-if [ -f /storage/.kodi/media/ledpatterns/shutdown.png ]; then
-    LEDDIR=/storage/.kodi
-else
-    LEDDIR=/usr/share/kodi
-fi
+LEDDIR="/usr/share/kodi/addons/service.slice/resources/media/ledpatterns"
 
 case "$1" in
   halt)
     hdparm -y /dev/sda
-    led_png $LEDDIR/media/ledpatterns/shutdown.png
+    led_png $LEDDIR/shutdown.png
     ;;
   poweroff)
     hdparm -y /dev/sda
-    led_png $LEDDIR/media/ledpatterns/shutdown.png
+    led_png $LEDDIR/shutdown.png
     ;;
   reboot)
-    led_png $LEDDIR/media/ledpatterns/shutdown.png
+    led_png $LEDDIR/shutdown.png
     ;;
   *)
     ;;
