@@ -38,6 +38,14 @@ post_unpack() {
   mv $BUILD/reicast-emulator-$PKG_VERSION* $BUILD/$PKG_NAME-$PKG_VERSION
 }
 
+make_target() {
+  if [ "$ARCH" == "arm" ]; then
+    make FORCE_GLES=1
+  else
+    make AS=${AS} CC_AS=${AS}
+  fi
+}
+
 makeinstall_target() {
   mkdir -p $INSTALL/usr/lib/libretro
   cp reicast_libretro.so $INSTALL/usr/lib/libretro/
