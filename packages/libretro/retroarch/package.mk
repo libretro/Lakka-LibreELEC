@@ -62,6 +62,7 @@ elif [ "$OPENGLES" == "sunxi-mali" ] || [ "$OPENGLES" == "odroidc1-mali" ] || [ 
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-mali_fbdev"
 elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; then
   RETROARCH_GL="--enable-opengles --disable-kms --disable-x11 --enable-vivante_fbdev"
+  CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
 elif [ "$OPENGLES" == "mali-rockchip" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
   CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
