@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="screensaver.biogenesis"
-PKG_VERSION="c1ea27c"
-PKG_SHA256="a13adce077df37926da5fb4fd4f3f61902b19c7400fa9d7dfc92ab982efd379b"
+PKG_VERSION="5241aec"
+PKG_SHA256="57185a419f7c32dfefeb7c82ed3f07f6f8840f2ac7da5d4c03d023a2cda44238"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

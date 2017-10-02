@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="visualization.fishbmc"
-PKG_VERSION="ccc919c"
-PKG_SHA256="0a642873a2ba5acea271d04600160c7143c050f6b637db7d55a76ecb627c6e21"
+PKG_VERSION="3dae2bd"
+PKG_SHA256="471765286c6054717980510edf5d49390b0d4f38289c83830a9e0a444202825c"
 PKG_REV="2"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
