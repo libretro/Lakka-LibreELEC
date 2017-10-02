@@ -119,11 +119,11 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $ROOT/$TOOLCHAIN/bin
+  mkdir -p $TOOLCHAIN/bin
     if [ -f build/tools/mkimage ]; then
-      cp build/tools/mkimage $ROOT/$TOOLCHAIN/bin
+      cp build/tools/mkimage $TOOLCHAIN/bin
     else
-      cp tools/mkimage $ROOT/$TOOLCHAIN/bin
+      cp tools/mkimage $TOOLCHAIN/bin
     fi
 
   BOOT_CFG="$PROJECT_DIR/$PROJECT/bootloader/boot.cfg"

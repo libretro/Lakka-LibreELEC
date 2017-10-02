@@ -34,6 +34,6 @@ PKG_AUTORECONF="no"
 
 post_install() {
   if [ -n "$DEVICE" -a -d "$PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem" ]; then
-    cp -LR $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/* $ROOT/$BUILD/image/system
+    cp -LR $PROJECT_DIR/$PROJECT/devices/$DEVICE/filesystem/* $BUILD/image/system
   fi
 }

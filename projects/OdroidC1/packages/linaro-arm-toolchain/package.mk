@@ -48,5 +48,5 @@ make_host() {
 makeinstall_host() {
   rm -f share/aclocal/pkg.m4
   rm -r share/doc
-  cp -PR * $ROOT/$TOOLCHAIN
+  cp -PR * $TOOLCHAIN
 }

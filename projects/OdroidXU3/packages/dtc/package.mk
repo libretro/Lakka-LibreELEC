@@ -30,6 +30,6 @@ PKG_SHORTDESC="Device Tree Compiler"
 PKG_LONGDESC="dtc: Device Tree Compiler"
 
 makeinstall_host() {
-  make install PREFIX=$ROOT/$TOOLCHAIN
+  make install PREFIX=$TOOLCHAIN
 }
 
