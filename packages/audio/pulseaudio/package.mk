@@ -103,6 +103,12 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --with-soxr \
                            --with-module-dir=/usr/lib/pulse"
 
+pre_configure_target()
+{
+  sed -e 's|; remixing-use-all-sink-channels = yes|; remixing-use-all-sink-channels = no|' \
+      -i $PKG_BUILD/src/daemon/daemon.conf.in
+}
+
 post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin/esdcompat
   rm -rf $INSTALL/usr/include
