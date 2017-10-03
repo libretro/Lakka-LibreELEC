@@ -38,7 +38,8 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static \
                            --with-gl=no \
                            --with-jpeg-lib-dir=$SYSROOT_PREFIX/usr/lib \
                            --with-jpeg-include-dir=$SYSROOT_PREFIX/usr/include \
-                           --without-x"
+                           --without-x \
+                           --with-gl=no"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fPIC -DPIC"

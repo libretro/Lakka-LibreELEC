@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://wayland.freedesktop.org/"
 PKG_URL="http://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain libinput cairo-weston libjpeg-turbo wayland-protocols"
+PKG_DEPENDS_TARGET="toolchain libinput cairo-weston libjpeg-turbo wayland-protocols libdrm"
 PKG_PRIORITY="optional"
 PKG_SECTION="wayland"
 PKG_SHORTDESC=""
@@ -33,9 +33,9 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
-                           --with-cairo-glesv2 \
                            --disable-xwayland \
                            --disable-x11-compositor \
+                           --enable-drm-compositor \
                            --disable-xwayland-test \
                            --disable-libunwind \
                            --disable-colord \
@@ -43,12 +43,13 @@ PKG_CONFIGURE_OPTS_TARGET="CFLAGS=-DMESA_EGL_NO_X11_HEADERS \
                            --disable-fbdev-compositor \
                            --disable-rdp-compositor \
                            --disable-screen-sharing \
-                           --enable-vaapi-recorder \
                            --disable-headless-compositor \
                            --enable-systemd-login \
                            --disable-weston-launch \
                            --disable-fullscreen-shell \
                            --disable-demo-clients-install \
+                           --disable-simple-egl-clients \
+                           --disable-egl \
                            --enable-systemd-notify"
 
 pre_configure_target() {

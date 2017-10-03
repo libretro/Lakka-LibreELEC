@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="wayland-protocols"
-PKG_VERSION="1.8"
+PKG_VERSION="1.10"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
