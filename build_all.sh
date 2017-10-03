@@ -67,8 +67,8 @@ DISTRO=Lakka PROJECT=H3 SYSTEM=opiplus2e ARCH=arm make image -j8
 DISTRO=Lakka PROJECT=H3 SYSTEM=bpim2p ARCH=arm make image -j8
 >&2 echo "H3.bx2.arm"
 DISTRO=Lakka PROJECT=H3 SYSTEM=bx2 ARCH=arm make image -j8
->&2 echo "tinkerboard.arm"
-DISTRO=Lakka PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm make image -j8
+>&2 echo "TinkerBoard.arm"
+#DISTRO=Lakka PROJECT=Rockchip DEVICE=TinkerBoard ARCH=arm make image -j8
 
 rm target/*.kernel
 rm target/*.system
@@ -80,7 +80,7 @@ done
 
 for f in target/*; do
   dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-\(.*\)-devel-\(.*\)/\1/'`
-  #dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-2.0\(.*\)/\1/'`
+  #dir=`echo $f | sed -e 's/target\/Lakka-\(.*\)-2.1\(.*\)/\1/'`
   mkdir -p target/$dir
   mv $f target/$dir/
 done
