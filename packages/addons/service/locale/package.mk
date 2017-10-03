@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="locale"
-PKG_REV="101"
+PKG_REV="102"
 PKG_ARCH="any"
 PKG_DEPENDS_TARGET="toolchain glibc"
 PKG_SECTION="service"
@@ -37,6 +37,10 @@ makeinstall_target() {
 }
 
 addon() {
+  mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/bin"
+  cp -PR "$(get_build_dir glibc)/.$TARGET_NAME/locale/localedef" \
+         "$ADDON_BUILD/$PKG_ADDON_ID/bin"
+
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/i18n"
   cp -PR "$(get_build_dir glibc)/localedata/charmaps" \
          "$(get_build_dir glibc)/localedata/locales" \

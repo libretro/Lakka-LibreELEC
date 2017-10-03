@@ -53,7 +53,8 @@ class Monitor(xbmc.Monitor):
 
       if os.path.isdir(localepath) == False:
          os.environ['I18NPATH'] = i18npath
-         subprocess.call(['localedef', '-f', charmap, '-i', locale, localepath])
+         subprocess.call([os.path.join(path, 'bin/localedef'), '-f', charmap,
+                         '-i', locale, localepath])
 
       if os.path.isdir(profiled) == False:
          os.makedirs(profiled)
