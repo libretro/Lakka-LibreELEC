@@ -17,7 +17,7 @@
 ################################################################################
 
 PKG_NAME="vulkan-loader"
-PKG_VERSION="1.0.61.0"
+PKG_VERSION="1.0.61.1"
 PKG_ARCH="any"
 PKG_LICENSE="Apache 2.0"
 PKG_SITE="https://www.khronos.org"
@@ -30,13 +30,15 @@ PKG_SHORTDESC="Vulkan Installable Client Driver (ICD) Loader."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_XLIB_SUPPORT=off \
-		       -DBUILD_TESTS=Off \
-		       -DBUILD_LAYERS=Off \
-		       -DBUILD_DEMOS=On \
-		       -DBUILD_VKJSON=Off \
-		       -DBUILD_WSI_WAYLAND_SUPPORT=On \
-		       -DBUILD_WSI_MIR_SUPPORT=Off"
+PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=on \
+                       -DBUILD_WSI_XCB_SUPPORT=off \
+                       -DBUILD_WSI_XLIB_SUPPORT=off \
+                       -DBUILD_WSI_MIR_SUPPORT=Off \
+                       -DBUILD_TESTS=Off \
+                       -DBUILD_LAYERS=off \
+                       -DBUILD_DEMOS=off \
+                       -DBUILD_VKJSON=on \
+                       -DBUILD_LOADER=on"
 
 pre_configure_target() {
   cd ..
