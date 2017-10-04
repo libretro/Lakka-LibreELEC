@@ -31,8 +31,8 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--target=i386-pc-linux \
-			   --disable-nls \
-			   --with-platform=efi"
+                           --disable-nls \
+                           --with-platform=efi"
 
   unset CFLAGS
   unset CPPFLAGS
@@ -57,9 +57,9 @@ make_target() {
 makeinstall_target() {
   cd $PKG_BUILD/grub-core
      $PKG_BUILD/grub-mkimage -d . -o bootia32.efi -O i386-efi -p /EFI/BOOT \
-				boot chain configfile ext2 fat linux search \
-				efi_gop efi_uga gettext gzio part_gpt \
-				loadenv loadbios memrw
+                                boot chain configfile ext2 fat linux search \
+                                efi_gop efi_uga gettext gzio part_gpt \
+                                loadenv loadbios memrw
 
   mkdir -p $INSTALL/usr/share/grub
      cp -P $PKG_BUILD/grub-core/bootia32.efi $INSTALL/usr/share/grub
