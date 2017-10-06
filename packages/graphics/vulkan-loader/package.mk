@@ -30,15 +30,15 @@ PKG_SHORTDESC="Vulkan Installable Client Driver (ICD) Loader."
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
-PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=on \
+PKG_CMAKE_OPTS_TARGET="-DBUILD_WSI_WAYLAND_SUPPORT=off \
                        -DBUILD_WSI_XCB_SUPPORT=off \
                        -DBUILD_WSI_XLIB_SUPPORT=off \
                        -DBUILD_WSI_MIR_SUPPORT=Off \
+                       -DCMAKE_SYSTEM_PROCESSOR=arm \
                        -DBUILD_TESTS=Off \
                        -DBUILD_LAYERS=off \
                        -DBUILD_DEMOS=off \
-                       -DBUILD_VKJSON=on \
-                       -DBUILD_LOADER=on"
+                       -DBUILD_VKJSON=off"
 
 pre_configure_target() {
   cd ..
