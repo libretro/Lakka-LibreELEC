@@ -148,6 +148,22 @@ if [ ! -f $STAMP ]; then
                        -DCMAKE_INSTALL_PREFIX=/usr \
                        -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE"
 
+    if [ "$DEBUG" = "yes" ]; then
+      MESON_BUILD_TYPE="debug"
+    else
+      MESON_BUILD_TYPE="plain"
+    fi
+
+    TARGET_MESON_OPTS="--prefix=/usr \
+                       --bindir=/usr/bin \
+                       --sbindir=/usr/sbin \
+                       --sysconfdir=/etc \
+                       --libdir=/usr/lib \
+                       --libexecdir=/usr/lib \
+                       --localstatedir=/var \
+                       --buildtype=$MESON_BUILD_TYPE \
+                       --cross-file=$MESON_CONF"
+
   # configure HOST build defaults
     HOST_CONFIGURE_OPTS="--host=$HOST_NAME \
                          --build=$HOST_NAME \
@@ -164,13 +180,25 @@ if [ ! -f $STAMP ]; then
                      -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CONF \
                      -DCMAKE_INSTALL_PREFIX=$TOOLCHAIN"
 
+    HOST_MESON_OPTS="--prefix=$TOOLCHAIN \
+                     --bindir=$TOOLCHAIN/bin \
+                     --sbindir=$TOOLCHAIN/sbin \
+                     --sysconfdir=$TOOLCHAIN/etc \
+                     --libdir=$TOOLCHAIN/lib \
+                     --libexecdir=$TOOLCHAIN/lib \
+                     --localstatedir=$TOOLCHAIN/var \
+                     --buildtype=plain \
+                     --cross-file=$MESON_CONF"
+
   # configure INIT build defaults
     INIT_CONFIGURE_OPTS="$TARGET_CONFIGURE_OPTS"
     INIT_CMAKE_OPTS="$TARGET_CMAKE_OPTS"
+    INIT_MESON_OPTS="$TARGET_MESON_OPTS"
 
   # configure BOOTSTRAP build defaults
     BOOTSTRAP_CONFIGURE_OPTS="$HOST_CONFIGURE_OPTS"
     BOOTSTRAP_CMAKE_OPTS="$HOST_CMAKE_OPTS"
+    BOOTSTRAP_MESON_OPTS="$HOST_MESON_OPTS"
 
   # include buildfile
     . $PKG_DIR/package.mk
@@ -233,6 +261,10 @@ if [ ! -f $STAMP ]; then
         PKG_CMAKE_SCRIPT="$PKG_BUILD/CMakeLists.txt"
       fi
 
+      if [ -z "$PKG_MESON_SCRIPT" ]; then
+        PKG_MESON_SCRIPT="$PKG_BUILD/meson.build"
+      fi
+
       # include build template and build
       if [ "$(type -t pre_build_$TARGET)" = "function" ]; then
         pre_build_$TARGET
@@ -246,22 +278,22 @@ if [ ! -f $STAMP ]; then
       cd $PKG_BUILD
 
       if [ "$TARGET" = "target" ]; then
-        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
+        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" -o -f "$PKG_MESON_SCRIPT" ]; then
           mkdir -p .$TARGET_NAME
           cd .$TARGET_NAME
         fi
       elif [ "$TARGET" = "host" ]; then
-        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
+        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" -o -f "$PKG_MESON_SCRIPT" ]; then
           mkdir -p .$HOST_NAME
           cd .$HOST_NAME
         fi
       elif [ "$TARGET" = "init" ]; then
-        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
+        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" -o -f "$PKG_MESON_SCRIPT" ]; then
           mkdir -p .$TARGET_NAME-$TARGET
           cd .$TARGET_NAME-$TARGET
         fi
       elif [ "$TARGET" = "bootstrap" ]; then
-        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" ]; then
+        if [ -f "$PKG_CONFIGURE_SCRIPT" -o -f "$PKG_CMAKE_SCRIPT" -o -f "$PKG_MESON_SCRIPT" ]; then
           mkdir -p .$HOST_NAME-$TARGET
           cd .$HOST_NAME-$TARGET
         fi
@@ -273,6 +305,20 @@ if [ ! -f $STAMP ]; then
       fi
       if [ "$(type -t configure_$TARGET)" = "function" ]; then
         configure_$TARGET
+      elif [ -f "$PKG_MESON_SCRIPT" -a ! "$PKG_USE_MESON" = "no" ]; then
+        if [ "$TARGET" = "target" ]; then
+          echo "Executing (target): meson $TARGET_MESON_OPTS $PKG_MESON_OPTS_TARGET $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
+          meson $TARGET_MESON_OPTS $PKG_MESON_OPTS_TARGET $(dirname $PKG_MESON_SCRIPT)
+        elif [ "$TARGET" = "host" ]; then
+          echo "Executing (host): meson $HOST_MESON_OPTS $PKG_MESON_OPTS_HOST $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
+          meson $HOST_MESON_OPTS $PKG_MESON_OPTS_HOST $(dirname $PKG_MESON_SCRIPT)
+        elif [ "$TARGET" = "init" ]; then
+          echo "Executing (init): meson $INIT_MESON_OPTS $PKG_MESON_OPTS_INIT $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
+          meson $INIT_MESON_OPTS $PKG_MESON_OPTS_INIT $(dirname $PKG_MESON_SCRIPT)
+        elif [ "$TARGET" = "bootstrap" ]; then
+          echo "Executing (bootstrap): meson $BOOTSTRAP_MESON_OPTS $PKG_MESON_OPTS_BOOTSTRAP $(dirname $PKG_MESON_SCRIPT)" | tr -s " "
+          meson $BOOTSTRAP_MESON_OPTS $PKG_MESON_OPTS_BOOTSTRAP $(dirname $PKG_MESON_SCRIPT)
+        fi
       elif [ -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" ]; then
         if [ "$TARGET" = "target" ]; then
           echo "Executing (target): cmake $TARGET_CMAKE_OPTS $PKG_CMAKE_OPTS_TARGET $(dirname $PKG_CMAKE_SCRIPT)" | tr -s " "
@@ -312,7 +358,7 @@ if [ ! -f $STAMP ]; then
       fi
       if [ "$(type -t make_$TARGET)" = "function" ]; then
         make_$TARGET
-      elif [ -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" -a ! "$PKG_USE_NINJA" = "no" ]; then
+      elif [ \( -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" -a ! "$PKG_USE_NINJA" = "no" \) -o \( -f "$PKG_MESON_SCRIPT" -a ! "$PKG_USE_MESON" = "no" \) ]; then
         if [ "$TARGET" = "target" ]; then
           echo "Executing (target): ninja $PKG_MAKE_OPTS_TARGET" | tr -s " "
           ninja $PKG_MAKE_OPTS_TARGET
@@ -351,7 +397,7 @@ if [ ! -f $STAMP ]; then
       fi
       if [ "$(type -t makeinstall_$TARGET)" = "function" ]; then
         makeinstall_$TARGET
-      elif [ -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" -a ! "$PKG_USE_NINJA" = "no" ]; then
+      elif [ \( -f "$PKG_CMAKE_SCRIPT" -a ! "$PKG_USE_CMAKE" = "no" -a ! "$PKG_USE_NINJA" = "no" \) -o \( -f "$PKG_MESON_SCRIPT"  -a ! "$PKG_USE_MESON" = "no" \) ]; then
         if [ "$TARGET" = "target" ]; then
           DESTDIR=$SYSROOT_PREFIX ninja install $PKG_MAKEINSTALL_OPTS_TARGET
           DESTDIR=$INSTALL ninja install $PKG_MAKEINSTALL_OPTS_TARGET
