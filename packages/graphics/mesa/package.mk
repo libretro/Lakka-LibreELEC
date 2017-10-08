@@ -31,7 +31,7 @@ PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then
-  PKG_DEPENDS_TARGET="toolchain Python:host expat glproto dri2proto presentproto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd dri3proto libxshmfence openssl"
+  PKG_DEPENDS_TARGET="toolchain Python2:host expat glproto dri2proto presentproto libdrm libXext libXdamage libXfixes libXxf86vm libxcb libX11 systemd dri3proto libxshmfence openssl"
 
   export DRI_DRIVER_INSTALL_DIR=$XORG_PATH_DRI
   export DRI_DRIVER_SEARCH_DIR=$XORG_PATH_DRI
@@ -40,7 +40,7 @@ if [ "$DISPLAYSERVER" = "x11" ]; then
   MESA_GLX="--enable-glx --enable-driglx-direct --enable-glx-tls"
   MESA_EGL_PLATFORMS="--with-platforms=x11,drm"
 else
-  PKG_DEPENDS_TARGET="toolchain Python:host expat libdrm"
+  PKG_DEPENDS_TARGET="toolchain Python2:host expat libdrm"
   MESA_DRI="--enable-dri --disable-dri3"
   MESA_GLX="--disable-glx --disable-driglx-direct --disable-glx-tls"
   MESA_EGL_PLATFORMS="--with-platforms=drm"

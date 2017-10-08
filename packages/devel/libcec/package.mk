@@ -68,7 +68,8 @@ pre_configure_target() {
 }
 
 post_makeinstall_target() {
-  if [ -d $INSTALL/usr/lib/python2.7/dist-packages ]; then 
-    mv $INSTALL/usr/lib/python2.7/dist-packages $INSTALL/usr/lib/python2.7/site-packages
+  PYTHON_DIR=$INSTALL/usr/lib/$PKG_PYTHON_VERSION
+  if [ -d $PYTHON_DIR/dist-packages ]; then
+    mv $PYTHON_DIR/dist-packages $PYTHON_DIR/site-packages
   fi
 }
