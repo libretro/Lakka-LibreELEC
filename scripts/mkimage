@@ -32,6 +32,12 @@
     exit 1
   fi
 
+  if [ "$BOOTLOADER" = "syslinux" ]; then
+    DISK_LABEL=gpt
+  else
+    DISK_LABEL=msdos
+  fi
+
   STORAGE_SIZE=32 # STORAGE_SIZE must be >= 32 !
 
   DISK_START_PADDING=$(( ($SYSTEM_PART_START + 2048 - 1) / 2048 ))
@@ -71,21 +77,18 @@ trap cleanup SIGINT
   dd if=/dev/zero of="$DISK" bs=1M count="$DISK_SIZE" conv=fsync >"$SAVE_ERROR" 2>&1 || show_error
 
 # write a disklabel
-  echo "image: creating partition table..."
-  if [ "$BOOTLOADER" = "syslinux" ]; then
-    parted -s "$DISK" mklabel gpt
-  else
-    parted -s "$DISK" mklabel msdos
-  fi
+  echo "image: creating $DISK_LABEL partition table..."
+  parted -s "$DISK" mklabel $DISK_LABEL
   sync
 
 # create part1
   echo "image: creating part1..."
   SYSTEM_PART_END=$(( $SYSTEM_PART_START + ($SYSTEM_SIZE * 1024 * 1024 / 512) - 1 ))
-  parted -s "$DISK" -a min unit s mkpart primary fat32 $SYSTEM_PART_START $SYSTEM_PART_END
-  if [ "$BOOTLOADER" = "syslinux" ]; then
+  if [ "$DISK_LABEL" = "gpt" ]; then
+    parted -s "$DISK" -a min unit s mkpart system fat32 $SYSTEM_PART_START $SYSTEM_PART_END
     parted -s "$DISK" set 1 legacy_boot on
   else
+    parted -s "$DISK" -a min unit s mkpart primary fat32 $SYSTEM_PART_START $SYSTEM_PART_END
     parted -s "$DISK" set 1 boot on
   fi
   sync
@@ -94,7 +97,11 @@ trap cleanup SIGINT
   echo "image: creating part2..."
   STORAGE_PART_START=$(( $SYSTEM_PART_END + 1 ))
   STORAGE_PART_END=$(( $STORAGE_PART_START + ($STORAGE_SIZE * 1024 * 1024 / 512) - 1 ))
-  parted -s "$DISK" -a min unit s mkpart primary ext4 $STORAGE_PART_START $STORAGE_PART_END
+  if [ "$DISK_LABEL" = "gpt" ]; then
+    parted -s "$DISK" -a min unit s mkpart storage ext4 $STORAGE_PART_START $STORAGE_PART_END
+  else
+    parted -s "$DISK" -a min unit s mkpart primary ext4 $STORAGE_PART_START $STORAGE_PART_END
+  fi
   sync
 
 if [ "$BOOTLOADER" = "syslinux" ]; then
