@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="Python2"
-PKG_VERSION="2.7.13"
-PKG_SHA256="35d543986882f78261f97787fd3e06274bfa6df29fac9b4a94f73930ff98f731"
+PKG_VERSION="2.7.14"
+PKG_SHA256="71ffb26e09e78650e424929b2b457b9c912ac216576e6bd9e7d204ed03296a66"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.python.org/"
