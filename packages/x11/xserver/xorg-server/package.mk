@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="xorg-server"
-PKG_VERSION="1.19.3"
-PKG_SHA256="677a8166e03474719238dfe396ce673c4234735464d6dadf2959b600d20e5a98"
+PKG_VERSION="1.19.4"
+PKG_SHA256="aa758acea91deaf1f95069ddc5ea3818e13675fb14fef40ad1b3d0b2bf03c9a8"
 PKG_ARCH="any"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.X.org"
