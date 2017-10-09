@@ -1,6 +1,7 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2009-2016 Lukas Rusak (lrusak@libreelec.tv)
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,8 +18,8 @@
 ################################################################################
 
 PKG_NAME="hyperion"
-PKG_VERSION="355a324"
-PKG_REV="105"
+PKG_VERSION="1c21232"
+PKG_REV="106"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/hyperion-project/hyperion"
 PKG_URL="https://github.com/hyperion-project/hyperion/archive/$PKG_VERSION.tar.gz"
@@ -31,21 +32,21 @@ PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Hyperion"
 PKG_ADDON_TYPE="xbmc.service"
 
-AMLOGIC_SUPPORT="-DENABLE_AMLOGIC=0"
-DISPMANX_SUPPORT="-DENABLE_DISPMANX=0"
-FB_SUPPORT="-DENABLE_FB=1"
-X11_SUPPORT="-DENABLE_X11=0"
+PKG_AMLOGIC_SUPPORT="-DENABLE_AMLOGIC=0"
+PKG_DISPMANX_SUPPORT="-DENABLE_DISPMANX=0"
+PKG_FB_SUPPORT="-DENABLE_FB=1"
+PKG_X11_SUPPORT="-DENABLE_X11=0"
 
 if [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libamcodec"
-  AMLOGIC_SUPPORT="-DENABLE_AMLOGIC=1"
+  PKG_AMLOGIC_SUPPORT="-DENABLE_AMLOGIC=1"
 elif [ "$KODIPLAYER_DRIVER" = "bcm2835-driver" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET bcm2835-driver"
-  DISPMANX_SUPPORT="-DENABLE_DISPMANX=1"
-  FB_SUPPORT="-DENABLE_FB=0"
+  PKG_DISPMANX_SUPPORT="-DENABLE_DISPMANX=1"
+  PKG_FB_SUPPORT="-DENABLE_FB=0"
 elif [ "$DISPLAYSERVER" = "x11" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xorg-server xrandr"
-  X11_SUPPORT="-DENABLE_X11=1"
+  PKG_X11_SUPPORT="-DENABLE_X11=1"
 fi
 
 pre_build_target() {
@@ -58,9 +59,9 @@ pre_configure_target() {
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
                        -DHYPERION_VERSION_ID="$PKG_VERSION" \
-                       $AMLOGIC_SUPPORT \
-                       $DISPMANX_SUPPORT \
-                       $FB_SUPPORT \
+                       $PKG_AMLOGIC_SUPPORT \
+                       $PKG_DISPMANX_SUPPORT \
+                       $PKG_FB_SUPPORT \
                        -DENABLE_OSX=0 \
                        -DUSE_SYSTEM_PROTO_LIBS=1 \
                        -DENABLE_SPIDEV=1 \
@@ -68,7 +69,7 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
                        -DENABLE_V4L2=1 \
                        -DENABLE_WS2812BPWM=0 \
                        -DENABLE_WS281XPWM=1 \
-                       $X11_SUPPORT \
+                       $PKG_X11_SUPPORT \
                        -DENABLE_QT5=1 \
                        -DENABLE_TESTS=0 \
                        -Wno-dev"
