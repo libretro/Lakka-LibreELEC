@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="systemd"
-PKG_VERSION="233"
-PKG_SHA256="8b3e99da3d4164b66581830a7f2436c0c8fe697b5fbdc3927bdb960646be0083"
+PKG_VERSION="235"
+PKG_SHA256="25811f96f5a027bf2a4c9383495cf5b623e385d84da31e473cf375932b3e9c52"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
@@ -27,98 +27,94 @@ PKG_DEPENDS_TARGET="toolchain libcap kmod util-linux entropy"
 PKG_SECTION="system"
 PKG_SHORTDESC="systemd: a system and session manager"
 PKG_LONGDESC="systemd is a system and session manager for Linux, compatible with SysV and LSB init scripts. systemd provides aggressive parallelization capabilities, uses socket and D-Bus activation for starting services, offers on-demand starting of daemons, keeps track of processes using Linux cgroups, supports snapshotting and restoring of the system state, maintains mount and automount points and implements an elaborate transactional dependency-based service control logic. It can work as a drop-in replacement for sysvinit."
-PKG_AUTORECONF="yes"
 
-PKG_CONFIGURE_OPTS_TARGET="ac_cv_func_malloc_0_nonnull=yes \
-                           ac_cv_have_decl_IFLA_BOND_AD_INFO=no \
-                           ac_cv_have_decl_IFLA_BRPORT_UNICAST_FLOOD=no \
-                           ac_cv_path_MOUNT_PATH="/usr/bin/mount"
-                           ac_cv_path_UMOUNT_PATH="/usr/bin/umount"
-                           KMOD=/usr/bin/kmod \
-                           --disable-nls \
-                           --disable-lto \
-                           --disable-dbus \
-                           --disable-utmp \
-                           --disable-coverage \
-                           --enable-kmod \
-                           --disable-xkbcommon \
-                           --enable-blkid \
-                           --disable-seccomp \
-                           --disable-ima \
-                           --disable-selinux \
-                           --disable-apparmor \
-                           --disable-xz \
-                           --disable-zlib \
-                           --disable-bzip2 \
-                           --disable-lz4 \
-                           --disable-pam \
-                           --disable-acl \
-                           --disable-smack \
-                           --disable-gcrypt \
-                           --disable-audit \
-                           --disable-elfutils \
-                           --disable-libcryptsetup \
-                           --disable-qrencode \
-                           --disable-microhttpd \
-                           --disable-gnutls \
-                           --disable-libcurl \
-                           --disable-libidn \
-                           --disable-libiptc \
-                           --disable-binfmt \
-                           --disable-vconsole \
-                           --disable-quotacheck \
-                           --enable-tmpfiles \
-                           --disable-environment-d \
-                           --disable-sysusers \
-                           --disable-firstboot \
-                           --disable-randomseed \
-                           --disable-backlight \
-                           --disable-rfkill \
-                           --enable-logind \
-                           --disable-machined \
-                           --disable-importd \
-                           --disable-hostnamed \
-                           --disable-timedated \
-                           --disable-timesyncd \
-                           --disable-localed \
-                           --disable-coredump \
-                           --disable-polkit \
-                           --disable-resolved \
-                           --disable-networkd \
-                           --disable-efi \
-                           --disable-gnuefi \
-                           --disable-kdbus \
-                           --disable-myhostname \
-                           --enable-hwdb \
-                           --disable-manpages \
-                           --disable-hibernate \
-                           --disable-ldconfig \
-                           --disable-split-usr \
-                           --disable-tests \
-                           --without-python \
-                           --with-sysvinit-path= \
-                           --with-sysvrcnd-path= \
-                           --with-tty-gid=5 \
-                           --with-dbuspolicydir=/etc/dbus-1/system.d \
-                           --with-dbussessionservicedir=/usr/share/dbus-1/services \
-                           --with-dbussystemservicedir=/usr/share/dbus-1/system-services \
-                           --with-rootprefix=/usr \
-                           --with-rootlibdir=/usr/lib \
-                           --with-default-hierarchy=hybrid"
-
-pre_build_target() {
-# broken autoreconf
-  ( cd $PKG_BUILD
-    intltoolize --force
-  )
-}
+PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
+                       -Drootprefix=/usr \
+                       -Dsplit-usr=false \
+                       -Ddefault-hierarchy=hybrid \
+                       -Dtty-gid=5 \
+                       -Dseccomp=false \
+                       -Dselinux=false \
+                       -Dapparmor=false \
+                       -Dpolkit=false \
+                       -Dacl=false \
+                       -Daudit=false \
+                       -Dblkid=true \
+                       -Dkmod=true \
+                       -Dpam=false \
+                       -Dmicrohttpd=false \
+                       -Dlibcryptsetup=false \
+                       -Dlibcurl=false \
+                       -Dlibidn=false \
+                       -Dlibidn2=false \
+                       -Dlibiptc=false \
+                       -Dqrencode=false \
+                       -Dgcrypt=false \
+                       -Dgnutls=false \
+                       -Delfutils=false \
+                       -Dzlib=false \
+                       -Dbzip2=false \
+                       -Dxz=false \
+                       -Dlz4=false \
+                       -Dxkbcommon=false \
+                       -Dglib=false \
+                       -Ddbus=false \
+                       -Ddefault-dnssec=no \
+                       -Dimportd=false \
+                       -Dremote=false \
+                       -Dutmp=false \
+                       -Dhibernate=false \
+                       -Denvironment-d=false \
+                       -Dbinfmt=false \
+                       -Dcoredump=false \
+                       -Dresolve=false \
+                       -Dlogind=true \
+                       -Dhostnamed=false \
+                       -Dlocaled=false \
+                       -Dmachined=false \
+                       -Dnetworkd=false \
+                       -Dtimedated=false \
+                       -Dtimesyncd=false \
+                       -Dmyhostname=false \
+                       -Dfirstboot=false \
+                       -Drandomseed=false \
+                       -Dbacklight=false \
+                       -Dvconsole=false \
+                       -Dquotacheck=false \
+                       -Dsysusers=false \
+                       -Dtmpfiles=true \
+                       -Dhwdb=true \
+                       -Drfkill=false \
+                       -Dldconfig=false \
+                       -Defi=false \
+                       -Dtpm=false \
+                       -Dima=false \
+                       -Dsmack=false \
+                       -Dgshadow=false \
+                       -Didn=false \
+                       -Dnss-systemd=false \
+                       -Dman=false \
+                       -Dhtml=false \
+                       -Dbashcompletiondir=no \
+                       -Dzshcompletiondir=no \
+                       -Dkill-path=/usr/bin/kill \
+                       -Dkmod-path=/usr/bin/kmod \
+                       -Dmount-path=/usr/bin/mount \
+                       -Dumount-path=/usr/bin/umount"
 
 pre_configure_target() {
   export CFLAGS="$CFLAGS -fno-schedule-insns -fno-schedule-insns2"
+  export LC_ALL=en_US.UTF-8
+
+  # meson needs a host compiler and it's detected through the environment. meh.
+  export CC="$HOST_CC"
+  export CXX="$HOST_CXX"
 }
 
 post_makeinstall_target() {
   # remove unneeded stuff
+  rm -rf $INSTALL/etc/init.d
+  rm -rf $INSTALL/etc/pam.d
   rm -rf $INSTALL/etc/systemd/system
   rm -rf $INSTALL/etc/xdg
   rm -rf $INSTALL/etc/X11
@@ -168,6 +164,10 @@ post_makeinstall_target() {
   # remove systemd-udev-hwdb-update. we have own hwdb.service
   rm -rf $INSTALL/usr/lib/systemd/system/systemd-udev-hwdb-update.service
   rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-udev-hwdb-update.service
+
+  # remove systemd-user-sessions
+  rm -rf $INSTALL/usr/lib/systemd/system/systemd-user-sessions.service
+  rm -rf $INSTALL/usr/lib/systemd/system/*.target.wants/systemd-user-sessions.service
 
   # remove nspawn
   rm -rf $INSTALL/usr/bin/systemd-nspawn
