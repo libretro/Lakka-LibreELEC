@@ -1,0 +1,172 @@
+// Definitions for Slice hardware
+/dts-v1/;
+/plugin/;
+
+#include "dt-bindings/clock/bcm2835.h"
+
+/ {
+  compatible = "brcm,bcm2708";
+
+  //
+  // Set up GPIOs:
+  //  I2C1 on GPIO44,45
+  //  LIRC input/output on GPIO4 and 37 (NB GPIO4 NC on Slice)
+  //  I2S on GPIO28-31
+  //
+  fragment@0 {
+    target = <&gpio>;
+    __overlay__ {
+      i2c1_pins: i2c1 {
+        brcm,pins = <44 45>;
+        brcm,function = <6>; /* alt2 */
+      };
+      lirc_pins: lirc_pins {
+        brcm,pins = <4 37>; // <out in>
+        brcm,function = <1 0>; // out in
+        brcm,pull = <0 1>; // off down
+      };
+      i2s_pins: i2s {
+        brcm,pins = <28 29 30 31>;
+        brcm,function = <6>; /* alt2 */
+      };
+      ws2812_pins: ws2812 {
+        brcm,pins = <40>;
+        brcm,function = <4>; /* alt0 */
+      };
+    };
+  };
+
+  //
+  // I2C at 100KHz
+  //
+  fragment@1 {
+    target = <&i2c1>;
+    __overlay__ {
+      pinctrl-names = "default";
+      pinctrl-0 = <&i2c1_pins>;
+      clock-frequency = <100000>;
+    };
+  };
+
+  //
+  // Add devices to I2C1 Bus:
+  //  PCF8523 RTC device
+  //  CS4265 Audio CODEC
+  //
+  fragment@2 {
+    target = <&i2c1>;
+    __overlay__ {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      status = "okay";
+      pcf8523@68 {
+        compatible = "nxp,pcf8523";
+        reg = <0x68>;
+        nxp,xtalcap-7pf; /* set crystal load to 7pf */
+        status = "okay";
+      };
+      cs4265@4e {
+        #sound-dai-cells = <0>;
+        compatible = "cirrus,cs4265";
+        reg = <0x4e>;
+        cs4265-reset-gpios = <&gpio 33 0>; /* AUD_RST_N on GPIO33 */
+        cirrus,no-s16le; /* remove S16LE support to workaround I2S controller issue */
+        status = "okay";
+      };
+    };
+  };
+
+  //
+  // LIRC
+  //
+  fragment@3 {
+    target-path = "/";
+    __overlay__ {
+      lirc_rpi: lirc_rpi {
+        compatible = "rpi,lirc-rpi";
+        pinctrl-names = "default";
+        pinctrl-0 = <&lirc_pins>;
+        status = "okay";
+
+        // Override autodetection of IR receiver circuit
+        // (0 = active high, 1 = active low, -1 = no override )
+        rpi,sense = <0xffffffff>;
+
+        // Software carrier
+        // (0 = off, 1 = on)
+        rpi,softcarrier = <1>;
+
+        // Invert output
+        // (0 = off, 1 = on)
+        rpi,invert = <0>;
+
+        // Enable debugging messages
+        // (0 = off, 1 = on)
+        rpi,debug = <0>;
+      };
+    };
+  };
+
+  //
+  // Audio driver
+  //
+  fragment@4 {
+    #address-cells = <1>;
+    #size-cells = <1>;
+    target = <&sound>;
+    __overlay__ {
+      compatible = "fiveninjas,slice";
+      clocks = <&cprman BCM2835_CLOCK_GP0>;
+      clock-names = "gp0";
+      pinctrl-names = "default";
+      i2s-controller = <&i2s>;
+      status = "okay";
+    };
+  };
+
+  //
+  // Enable I2S
+  //
+  fragment@5 {
+    target = <&i2s>;
+    __overlay__ {
+      pinctrl-names = "default";
+      pinctrl-0 = <&i2s_pins>;
+      brcm,enable-mmap;
+      status = "okay";
+    };
+  };
+
+  //
+  // WS2812B LEDs driver
+  //
+  fragment@6 {
+    target = <&soc>;
+    __overlay__ {
+      #address-cells = <1>;
+      #size-cells = <1>;
+      ws2812: ws2812 {
+        compatible = "rpi,ws2812";
+        pinctrl-names = "default";
+        pinctrl-0 = <&ws2812_pins>;
+        reg = <0x7e20c000 0x100>; /* PWM */
+        dmas = <&dma 5>;
+        dma-names = "pwm_dma";
+        led-en-gpios = <&gpio 43 0>;
+        rpi,invert = <1>;
+        rpi,num_leds = <25>;
+        status = "okay";
+      };
+    };
+  };
+
+  //
+  // Disable standard audio
+  //
+  fragment@7 {
+    target = <&audio>;
+    __overlay__ {
+      status = "disabled";
+    };
+  };
+};
