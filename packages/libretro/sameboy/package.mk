@@ -30,7 +30,6 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Gameboy and Gameboy Color emulator written in C"
 PKG_LONGDESC="Gameboy and Gameboy Color emulator written in C"
-PKG_PATCH_DIRS="sbp"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
