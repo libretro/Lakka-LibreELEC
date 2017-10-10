@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="sameboy"
-PKG_VERSION="1270463"
+PKG_VERSION="18b376a"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
@@ -30,6 +30,7 @@ PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Gameboy and Gameboy Color emulator written in C"
 PKG_LONGDESC="Gameboy and Gameboy Color emulator written in C"
+PKG_PATCH_DIRS="sbp"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
