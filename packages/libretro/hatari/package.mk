@@ -19,7 +19,7 @@
 ################################################################################
 
 PKG_NAME="hatari"
-PKG_VERSION="62bc27f"
+PKG_VERSION="426e8d7"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv2"
