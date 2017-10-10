@@ -53,6 +53,7 @@
   RUN_FSCK="yes"
   RUN_FSCK_DISKS=""
   SYSLINUX_DEFAULT=""
+  GRUB_DEFAULT=""
 
   NBD_DEVS="0"
   FLASH_FREE_MIN="5"
@@ -152,6 +153,13 @@
         ;;
       portable)
         SYSLINUX_DEFAULT="run"
+        ;;
+      grub_live)
+        LIVE=yes
+        GRUB_DEFAULT="\"Live\""
+        ;;
+      grub_portable)
+        GRUB_DEFAULT="\"Run\""
         ;;
       overlay)
         OVERLAY=yes
@@ -712,6 +720,20 @@
           mount -o remount,rw /flash
           sed -i "s/^DEFAULT .*/DEFAULT $SYSLINUX_DEFAULT/" /flash/syslinux.cfg
           [ -f /flash/EFI/BOOT/syslinux.cfg ] && cp /flash/syslinux.cfg /flash/EFI/BOOT/syslinux.cfg
+          mount -o remount,ro /flash
+        fi
+      fi
+    fi
+
+    if [ -n "$GRUB_DEFAULT" -a -f /flash/grub.cfg ]; then
+      if grep -q "^menuentry $GRUB_DEFAULT" /flash/grub.cfg; then
+        crnt_default="$(awk '/^set default/ {print substr($2,9,19)}' /flash/grub.cfg)"
+        if [ ! "$crnt_default" = "$GRUB_DEFAULT" ]; then
+          progress "Updating /flash/grub.cfg [$crnt_default -> $GRUB_DEFAULT]"
+
+          mount -o remount,rw /flash
+          sed -i "s/^set default=.*/set default=$GRUB_DEFAULT/" /flash/grub.cfg
+          [ -f /flash/EFI/BOOT/grub.cfg ] && cp /flash/grub.cfg /flash/EFI/BOOT/grub.cfg
           mount -o remount,ro /flash
         fi
       fi

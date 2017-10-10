@@ -58,14 +58,12 @@ makeinstall_target() {
   cd $PKG_BUILD/grub-core
      $PKG_BUILD/grub-mkimage -d . -o bootia32.efi -O i386-efi -p /EFI/BOOT \
                                 boot chain configfile ext2 fat linux search \
-                                efi_gop efi_uga gettext gzio part_gpt \
-                                loadenv loadbios memrw
+                                efi_gop efi_uga part_gpt gzio \
+                                gettext loadenv loadbios memrw
 
   mkdir -p $INSTALL/usr/share/grub
      cp -P $PKG_BUILD/grub-core/bootia32.efi $INSTALL/usr/share/grub
-     cp -P $PKG_DIR/config/grub-postinstall.cfg $INSTALL/usr/share/grub/grub.cfg
 
   mkdir -p $TOOLCHAIN/share/grub
      cp -P $PKG_BUILD/grub-core/bootia32.efi $TOOLCHAIN/share/grub
-     cp -P $PKG_DIR/config/grub.cfg $TOOLCHAIN/share/grub
 }
