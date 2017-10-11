@@ -65,6 +65,8 @@ elif [ "$OPENGLES" == "gpu-viv-bin-mx6q" ] || [ "$OPENGLES" == "imx-gpu-viv" ]; 
   CFLAGS="$CFLAGS -DLINUX -DEGL_API_FB"
 elif [ "$OPENGLES" == "mali-rockchip" ]; then
   RETROARCH_GL="--enable-opengles --enable-kms --disable-x11 --disable-wayland"
+elif [ "$OPENGLES" == "allwinner-mali" ]; then
+  RETROARCH_GL="--enable-opengles --enable-kms --disable-x11"
 fi
 
 if [[ "$TARGET_FPU" =~ "neon" ]]; then
