@@ -1,0 +1,48 @@
+From f8f651dfc137d924fbad17abab39d9be66e38e1e Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Tue, 29 Nov 2016 10:15:45 +0100
+Subject: [PATCH 2/4] mali: Support building against 4.6
+
+PAGE_CACHE_SHIFT and page_cache_release have been removed in 4.6 in favor
+of PAGE_SHIFT and put_page. Add cases to deal with that.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+---
+ src/devicedrv/mali/linux/mali_memory_swap_alloc.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/src/devicedrv/mali/linux/mali_memory_swap_alloc.c b/src/devicedrv/mali/linux/mali_memory_swap_alloc.c
+index a46eb198c98f..b230ab93bc67 100755
+--- a/src/devicedrv/mali/linux/mali_memory_swap_alloc.c
++++ b/src/devicedrv/mali/linux/mali_memory_swap_alloc.c
+@@ -52,9 +52,14 @@ extern struct mali_mem_os_allocator mali_mem_os_allocator;
+ #define MALI_SWAP_LOW_MEM_DEFAULT_VALUE (60*1024*1024)
+ #define MALI_SWAP_INVALIDATE_MALI_ADDRESS (0)               /* Used to mark the given memory cookie is invalidate. */
+ #define MALI_SWAP_GLOBAL_SWAP_FILE_SIZE (0xFFFFFFFF)
+-#define MALI_SWAP_GLOBAL_SWAP_FILE_INDEX ((MALI_SWAP_GLOBAL_SWAP_FILE_SIZE) >> PAGE_CACHE_SHIFT)
+ #define MALI_SWAP_GLOBAL_SWAP_FILE_INDEX_RESERVE (1 << 15) /* Reserved for CoW nonlinear swap backend memory, the space size is 128MB. */
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)
++#define MALI_SWAP_GLOBAL_SWAP_FILE_INDEX ((MALI_SWAP_GLOBAL_SWAP_FILE_SIZE) >> PAGE_SHIFT)
++#else
++#define MALI_SWAP_GLOBAL_SWAP_FILE_INDEX ((MALI_SWAP_GLOBAL_SWAP_FILE_SIZE) >> PAGE_CACHE_SHIFT)
++#endif
++
+ unsigned int mali_mem_swap_out_threshold_value = MALI_SWAP_LOW_MEM_DEFAULT_VALUE;
+ 
+ /**
+@@ -183,7 +188,11 @@ static void mali_mem_swap_out_page_node(mali_page_node *page_node)
+ 	dma_unmap_page(&mali_platform_device->dev, page_node->swap_it->dma_addr,
+ 		       _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
+ 	set_page_dirty(page_node->swap_it->page);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)
++	put_page(page_node->swap_it->page);
++#else
+ 	page_cache_release(page_node->swap_it->page);
++#endif
+ }
+ 
+ void mali_mem_swap_unlock_single_mem_backend(mali_mem_backend *mem_bkend)
+-- 
+2.10.2
+

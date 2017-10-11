@@ -1,0 +1,27 @@
+mali: support building against 4.11
+
+In 4.11, the vma parameter is removed from the fault function prototype
+in struct vm_operations_struct.
+
+See commit 11bac8000449 ("mm, fs: reduce fault, page_mkwrite, and
+pfn_mkwrite to take only vmf")
+
+Signed-off-by: Jonathan Liu <net147@gmail.com>
+--- a/src/devicedrv/mali/linux/mali_memory.c
++++ b/src/devicedrv/mali/linux/mali_memory.c
+@@ -57,8 +57,15 @@ static void mali_mem_vma_close(struct vm_area_struct *vma)
+ 	vma->vm_private_data = NULL;
+ }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
++static int mali_mem_vma_fault(struct vm_fault *vmf)
++#else
+ static int mali_mem_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
++#endif
+ {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
++	struct vm_area_struct *vma = vmf->vma;
++#endif
+ 	mali_mem_allocation *alloc = (mali_mem_allocation *)vma->vm_private_data;
+ 	mali_mem_backend *mem_bkend = NULL;
+ 	int ret;

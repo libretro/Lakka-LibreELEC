@@ -1,0 +1,84 @@
+From 77a09b5854168cbc315f827903e93f7b1aad9175 Mon Sep 17 00:00:00 2001
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Tue, 29 Nov 2016 10:12:25 +0100
+Subject: [PATCH 3/4] mali: Support building against 4.8
+
+The dma_attrs argument of the dma_alloc_attrs / dma_free_attrs functions
+have been converted from a structure to an unsigned long. Adjust the code
+accordingly.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+---
+ .../devicedrv/mali/linux/mali_memory_os_alloc.c    | 25 ++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
+
+diff --git a/src/devicedrv/mali/linux/mali_memory_os_alloc.c b/src/devicedrv/mali/linux/mali_memory_os_alloc.c
+index 1a6cc0649421..f657202bfd2d 100755
+--- a/src/devicedrv/mali/linux/mali_memory_os_alloc.c
++++ b/src/devicedrv/mali/linux/mali_memory_os_alloc.c
+@@ -27,9 +27,13 @@
+ #define MALI_OS_MEMORY_POOL_TRIM_JIFFIES (10 * CONFIG_HZ) /* Default to 10s */
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
++static unsigned long dma_attrs_wc;
++#else
+ /* Write combine dma_attrs */
+ static DEFINE_DMA_ATTRS(dma_attrs_wc);
+ #endif
++#endif
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35)
+@@ -504,7 +508,11 @@ _mali_osk_errcode_t mali_mem_os_get_table_page(mali_dma_addr *phys, mali_io_addr
+ 	spin_unlock(&mali_mem_page_table_page_pool.lock);
+ 
+ 	if (_MALI_OSK_ERR_OK != ret) {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
++		*mapping = dma_alloc_attrs(&mali_platform_device->dev,
++					   _MALI_OSK_MALI_PAGE_SIZE, &tmp_phys,
++					   GFP_KERNEL, dma_attrs_wc);
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+ 		*mapping = dma_alloc_attrs(&mali_platform_device->dev,
+ 					   _MALI_OSK_MALI_PAGE_SIZE, &tmp_phys,
+ 					   GFP_KERNEL, &dma_attrs_wc);
+@@ -543,7 +551,11 @@ void mali_mem_os_release_table_page(mali_dma_addr phys, void *virt)
+ 	} else {
+ 		spin_unlock(&mali_mem_page_table_page_pool.lock);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
++		dma_free_attrs(&mali_platform_device->dev,
++			       _MALI_OSK_MALI_PAGE_SIZE, virt, phys,
++			       dma_attrs_wc);
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+ 		dma_free_attrs(&mali_platform_device->dev,
+ 			       _MALI_OSK_MALI_PAGE_SIZE, virt, phys,
+ 			       &dma_attrs_wc);
+@@ -599,7 +611,10 @@ static void mali_mem_os_page_table_pool_free(size_t nr_to_free)
+ 
+ 	/* After releasing the spinlock: free the pages we removed from the pool. */
+ 	for (i = 0; i < nr_to_free; i++) {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
++		dma_free_attrs(&mali_platform_device->dev, _MALI_OSK_MALI_PAGE_SIZE,
++			       virt_arr[i], (dma_addr_t)phys_arr[i], dma_attrs_wc);
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+ 		dma_free_attrs(&mali_platform_device->dev, _MALI_OSK_MALI_PAGE_SIZE,
+ 			       virt_arr[i], (dma_addr_t)phys_arr[i], &dma_attrs_wc);
+ #else
+@@ -750,7 +765,9 @@ _mali_osk_errcode_t mali_mem_os_init(void)
+ 		return _MALI_OSK_ERR_NOMEM;
+ 	}
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
++	dma_attrs_wc = DMA_ATTR_WRITE_COMBINE;
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+ 	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &dma_attrs_wc);
+ #endif
+ 
+-- 
+2.10.2
+

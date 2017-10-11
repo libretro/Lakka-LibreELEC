@@ -1,0 +1,42 @@
+mali: Allow devfreq cooling to run without power models
+
+The devfreq cooling mechanism can run without power callbacks. Make sure that
+the core Mali driver allows it too.
+
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+
+--- a/src/devicedrv/mali/linux/mali_devfreq.c
++++ b/src/devicedrv/mali/linux/mali_devfreq.c
+@@ -256,21 +256,20 @@ int mali_devfreq_init(struct mali_device
+ 		if (NULL != data.gpu_cooling_ops) {
+ 			callbacks = data.gpu_cooling_ops;
+ 			MALI_DEBUG_PRINT(2, ("Mali GPU Thermal: Callback handler installed \n"));
++		} else {
++			MALI_PRINT(("Mali GPU Thermal: No power callbacks\n"));
+ 		}
+ 	}
+ 
+-	if (callbacks) {
+-		mdev->devfreq_cooling = of_devfreq_cooling_register_power(
+-						mdev->dev->of_node,
+-						mdev->devfreq,
+-						callbacks);
+-		if (IS_ERR_OR_NULL(mdev->devfreq_cooling)) {
+-			err = PTR_ERR(mdev->devfreq_cooling);
+-			MALI_PRINT_ERROR(("Failed to register cooling device (%d)\n", err));
+-			goto cooling_failed;
+-		} else {
+-			MALI_DEBUG_PRINT(2, ("Mali GPU Thermal Cooling installed \n"));
+-		}
++	mdev->devfreq_cooling = of_devfreq_cooling_register_power(mdev->dev->of_node,
++								  mdev->devfreq,
++								  callbacks);
++	if (IS_ERR_OR_NULL(mdev->devfreq_cooling)) {
++		err = PTR_ERR(mdev->devfreq_cooling);
++		MALI_PRINT_ERROR(("Failed to register cooling device (%d)\n", err));
++		goto cooling_failed;
++	} else {
++		MALI_DEBUG_PRINT(2, ("Mali GPU Thermal Cooling installed \n"));
+ 	}
+ #endif
+ 
