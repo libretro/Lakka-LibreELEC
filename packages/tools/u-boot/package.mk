@@ -46,6 +46,10 @@ elif [ "$UBOOT_VERSION" = "sunxi" ]; then
   PKG_SITE="https://github.com/linux-sunxi/u-boot-sunxi"
   PKG_URL="$LAKKA_MIRROR/u-boot-$PKG_VERSION.tar.xz"
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET sunxi-tools:host gcc-linaro-arm-eabi:host"
+elif [ "$UBOOT_VERSION" = "allwinner" ]; then
+  PKG_VERSION="2017.09"
+  PKG_SITE="http://www.denx.de/wiki/U-Boot/WebHome"
+  PKG_URL="ftp://ftp.denx.de/pub/u-boot/u-boot-$PKG_VERSION.tar.bz2"
 else
   exit 0
 fi
