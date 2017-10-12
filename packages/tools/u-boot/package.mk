@@ -99,6 +99,10 @@ make_target() {
       make CROSS_COMPILE="arm-eabi-" ARCH=arm mrproper
       make CROSS_COMPILE="arm-eabi-" ARCH=arm $UBOOT_TARGET
       make CROSS_COMPILE="arm-eabi-" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true"
+    elif [ "$PROJECT" = "Allwinner" ]; then
+      make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm mrproper
+      make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm $UBOOT_TARGET
+      make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm HOSTCC="$HOST_CC" HOSTSTRIP="true" PYTHON=/usr/bin/python
     else
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm mrproper
       make CROSS_COMPILE="$TARGET_PREFIX" ARCH=arm $UBOOT_TARGET
