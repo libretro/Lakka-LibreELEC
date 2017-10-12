@@ -33,7 +33,7 @@ PKG_AUTORECONF="no"
 if [ "$OPENGLES" = "mali-rockchip" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET libdrm"
   GLMARK2_FLAVOR="--with-flavors=drm-glesv2"
-elif [ "$OPENGLES" = "opengl-meson" ]; then
+elif [ "$OPENGLES" = "opengl-meson" ] || [ "$OPENGLES" == "allwinner-mali" ]; then
   GLMARK2_FLAVOR="--with-flavors=fbdev-glesv2 --for-mali"
 fi
 
