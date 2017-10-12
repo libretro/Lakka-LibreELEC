@@ -54,6 +54,6 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/$PKG_NAME
-    cp $DRIVER_DIR/*.ko $INSTALL/usr/lib/modules/$(get_module_dir)/$PKG_NAME
+  mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/mali
+    cp $DRIVER_DIR/*.ko $INSTALL/usr/lib/modules/$(get_module_dir)/mali
 }
