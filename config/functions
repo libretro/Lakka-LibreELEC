@@ -143,7 +143,24 @@ kernel_version() {
 
 # get kernel module dir
 get_module_dir() {
-  basename $(ls -d $(get_build_dir linux)/.install_pkg/usr/lib/modules/*)
+  basename $(ls -d $(get_build_dir linux)/.install_pkg/usr/lib/kernel-overlays/base/lib/modules/*)
+}
+
+# get base path to kernel modules and firmware
+get_kernel_overlay_dir() {
+  echo "/usr/lib/kernel-overlays/${1:-base}"
+}
+
+# get full path to kernel module dir
+# optional parameter specifies overlay level (default is base)
+get_full_module_dir() {
+  echo "$(get_kernel_overlay_dir $1)/lib/modules/$(get_module_dir)"
+}
+
+# get full path to firmware dir
+# optional parameter specifies overlay level (default is base)
+get_full_firmware_dir() {
+  echo "$(get_kernel_overlay_dir $1)/lib/firmware"
 }
 
 # get package's build dir
@@ -172,16 +189,106 @@ get_pkg_variable() {
 }
 
 install_binary_addon() {
-  local addon_name="$1" addon_id="$2" addon_so
+  local addon_id="$1" addon_so
 
   mkdir -p $ADDON_BUILD/$addon_id/
-  cp -R $PKG_BUILD/.install_pkg/usr/share/$MEDIACENTER/addons/$addon_name/* $ADDON_BUILD/$addon_id/
+  cp -R $PKG_BUILD/.install_pkg/usr/share/$MEDIACENTER/addons/$addon_id/* $ADDON_BUILD/$addon_id/
 
-  addon_so=$(xmlstarlet sel -t -v "/addon/extension/@library_linux" $ADDON_BUILD/$addon_id/addon.xml)
+  addon_so=$(xmlstarlet sel -t -v "/addon/extension/@library_linux" $ADDON_BUILD/$addon_id/addon.xml || :)
   if [ -n "$addon_so" ]; then
-    cp -L $PKG_BUILD/.install_pkg/usr/lib/$MEDIACENTER/addons/$addon_name/$addon_so $ADDON_BUILD/$addon_id/
+    cp -L $PKG_BUILD/.install_pkg/usr/lib/$MEDIACENTER/addons/$addon_id/$addon_so $ADDON_BUILD/$addon_id/
     chmod +x $ADDON_BUILD/$addon_id/$addon_so
   fi
+
+  if [ -d $PKG_BUILD/.install_pkg/usr/lib/kernel-overlays/$addon_id ] ; then
+    mkdir -p $ADDON_BUILD/$addon_id/kernel-overlay
+    cp -PR $PKG_BUILD/.install_pkg/usr/lib/kernel-overlays/$addon_id/* $ADDON_BUILD/$addon_id/kernel-overlay
+  fi
+}
+
+install_addon_source() {
+  if [ -d $PKG_DIR/source ]; then
+    cp -R $PKG_DIR/source/* "$1"
+  fi
+}
+
+install_addon_images() {
+  local dest_dir="$1"
+
+  if [ -f "$PKG_DIR/icon/icon.png" ]; then
+    mkdir -p "$dest_dir/resources"
+    cp "$PKG_DIR/icon/icon.png" "$dest_dir/resources"
+  fi
+
+  if [ -f "$DISTRO_DIR/$DISTRO/addons/fanart.png" ]; then
+    mkdir -p "$dest_dir/resources"
+    cp "$DISTRO_DIR/$DISTRO/addons/fanart.png" "$dest_dir/resources"
+  fi
+}
+
+create_addon_xml() {
+  local addon_xml addon_version addon_name provider_name requires requires_addonname requires_addonversion screenshots
+
+  addon_xml="$1/addon.xml"
+
+  IFS=" "
+for i in $PKG_ADDON_REQUIRES; do
+  requires_addonname=`echo $i | cut -f1 -d ":"`
+  requires_addonversion=`echo $i | cut -f2 -d ":"`
+  requires="$requires\n    <import addon=\"$requires_addonname\" version=\"$requires_addonversion\" />"
+done
+  unset IFS
+
+  if [ ! -f "$addon_xml" ] ; then
+    cp $ROOT/config/addon/${PKG_ADDON_TYPE}.xml "$addon_xml"
+    addon_version=${PKG_ADDON_VERSION:-${ADDON_VERSION}.${PKG_REV}}
+  else
+    if [ ! $(which xmlstarlet) ]; then
+      echo "*** ERROR: $ADDON has addon.xml shipped, you need 'xmlstarlet' ***"
+      exit 255
+    fi
+    addon_version="${PKG_ADDON_VERSION:-$(xmlstarlet sel -t -v "/addon/@version" "$addon_xml").$PKG_REV}"
+    xmlstarlet ed --inplace -u "/addon[@version]/@version" -v "$addon_version" "$addon_xml"
+  fi
+
+  if [ -f $PKG_DIR/changelog.txt ]; then
+    sed -e "/@PKG_ADDON_NEWS@/ \
+         {
+           r $PKG_DIR/changelog.txt
+           d
+         }" -i "$addon_xml"
+  else
+    sed -e "s|@PKG_ADDON_NEWS@||g" -i "$addon_xml"
+  fi
+
+  provider_name=${PKG_MAINTAINER:-"Team LibreELEC"}
+  addon_name=${PKG_ADDON_NAME:-"$PKG_NAME"}
+
+  for f in $PKG_DIR/source/resources/screenshot-*.{jpg,png}; do
+    if [ -f "$f" ]; then
+      screenshots+="<screenshot>resources/$(basename $f)</screenshot>\n"
+    fi
+  done
+
+  $SED -e "s|@PKG_ADDON_ID@|$PKG_ADDON_ID|g" \
+       -e "s|@ADDON_NAME@|$addon_name|g" \
+       -e "s|@ADDON_VERSION@|$addon_version|g" \
+       -e "s|@REQUIRES@|$requires|g" \
+       -e "s|@PKG_SHORTDESC@|$PKG_SHORTDESC|g" \
+       -e "s|@OS_VERSION@|$OS_VERSION|g" \
+       -e "s|@PKG_LONGDESC@|$PKG_LONGDESC|g" \
+       -e "s|@PKG_DISCLAIMER@|$PKG_DISCLAIMER|g" \
+       -e "s|@PROVIDER_NAME@|$provider_name|g" \
+       -e "s|@PKG_ADDON_PROVIDES@|$PKG_ADDON_PROVIDES|g" \
+       -e "s|@PKG_ADDON_SCREENSHOT@|$screenshots|g" \
+       -e "s|@PKG_ADDON_BROKEN@|$PKG_ADDON_BROKEN|g" \
+       -i "$addon_xml"
+}
+
+install_addon_files() {
+  install_addon_source "$1"
+  install_addon_images "$1"
+  create_addon_xml "$1"
 }
 
 tolower() {

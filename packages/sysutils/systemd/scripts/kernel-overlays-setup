@@ -1,0 +1,90 @@
+#!/bin/sh
+################################################################################
+#      This file is part of LibreELEC - https://libreelec.tv
+#      Copyright (C) 2017-present Team LibreELEC
+#
+#  LibreELEC is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  LibreELEC is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
+################################################################################
+
+SYSTEM_OVERLAYS_DIR=/usr/lib/kernel-overlays
+OVERLAY_CONFIG_DIR=/storage/.cache/kernel-overlays
+KVER=$(uname -r)
+MODULES_DIR="/var/lib/modules/${KVER}"
+FIRMWARE_DIR="/var/lib/firmware"
+
+mkdir -p "${MODULES_DIR}"
+mkdir -p "${FIRMWARE_DIR}"
+mkdir -p "${OVERLAY_CONFIG_DIR}"
+
+log() {
+  echo "kernel-overlays-setup: $@" > /dev/kmsg
+}
+
+apply_overlay() {
+  case "$1" in
+    /*)
+      modules_overlay_dir="${1}/lib/modules/${KVER}"
+      firmware_overlay_dir="${1}/lib/firmware"
+      ;;
+    *)
+      modules_overlay_dir="${SYSTEM_OVERLAYS_DIR}/${1}/lib/modules/${KVER}"
+      firmware_overlay_dir="${SYSTEM_OVERLAYS_DIR}/${1}/lib/firmware"
+      ;;
+  esac
+
+  if [ -d "${modules_overlay_dir}" ] ; then
+    GOT_MODULE_OVERLAY="yes"
+
+    if cp -rfs "${modules_overlay_dir}"/* "${MODULES_DIR}" ; then
+      log "added modules from $modules_overlay_dir"
+    else
+      log "failed to add modules from $modules_overlay_dir"
+    fi
+  fi
+
+  if [ -d "${firmware_overlay_dir}" ] ; then
+    if cp -rfs "${firmware_overlay_dir}"/* "${FIRMWARE_DIR}" ; then
+      log "added firmware from $firmware_overlay_dir"
+    else
+      log "failed to add firmware from $firmware_overlay_dir"
+    fi
+  fi
+}
+
+# setup system base modules
+
+log "setup base modules"
+apply_overlay base
+
+# apply user-configured module overlays
+
+if [ -d "${OVERLAY_CONFIG_DIR}" ] ; then
+  log "adding overlays from ${OVERLAY_CONFIG_DIR}"
+  GOT_MODULE_OVERLAY="no"
+
+  for conf in "${OVERLAY_CONFIG_DIR}/"*.conf ; do
+    if [ -e "$conf" ] ; then
+      log "processing conf $conf"
+      overlay=$(cat "$conf")
+      [ -n "$overlay" ] && apply_overlay "$overlay"
+    fi
+  done
+
+  if [ "yes" = "$GOT_MODULE_OVERLAY" ] ; then
+    log "running depmod"
+    /usr/sbin/depmod -a
+  fi
+fi
+
+log "done"

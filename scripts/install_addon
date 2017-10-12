@@ -22,81 +22,10 @@
 
 [ -n "$2" ] && PKG_ADDON_ID=$2
 
-IFS=" "
-for i in $PKG_ADDON_REQUIRES; do
-  REQUIRES_ADDONNAME=`echo $i | cut -f1 -d ":"`
-  REQUIRES_ADDONVERSION=`echo $i | cut -f2 -d ":"`
-  REQUIRES="$REQUIRES\n    <import addon=\"$REQUIRES_ADDONNAME\" version=\"$REQUIRES_ADDONVERSION\" />"
-done
+ADDON_DIRECTORY="$ADDON_BUILD/$PKG_ADDON_ID"
 
-unset IFS
+mkdir -p "$ADDON_DIRECTORY"
 
-mkdir -p $ADDON_BUILD/$PKG_ADDON_ID
+install_addon_files "$ADDON_DIRECTORY"
 
-if [ ! -f $ADDON_BUILD/$PKG_ADDON_ID/addon.xml ]; then
-  cp config/addon/${PKG_ADDON_TYPE}.xml $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
-  ADDONVER=$ADDON_VERSION.$PKG_REV
-else
-  if [ ! $(which xmlstarlet) ]; then
-    echo "*** ERROR: $ADDON has addon.xml shipped, you need 'xmlstarlet' ***"
-    exit 255
-  fi
-  ADDONVER="$(xmlstarlet sel -t -v "/addon/@version" $ADDON_BUILD/$PKG_ADDON_ID/addon.xml).$PKG_REV"
-  xmlstarlet ed --inplace -u "/addon[@version]/@version" -v "$ADDONVER" $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
-fi
-
-if [ -d $PKG_DIR/source ]; then
-  cp -R $PKG_DIR/source/* $ADDON_BUILD/$PKG_ADDON_ID
-fi
-
-if [ -f $PKG_DIR/icon/icon.png ]; then
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/resources
-  cp $PKG_DIR/icon/icon.png $ADDON_BUILD/$PKG_ADDON_ID/resources
-fi
-
-if [ -f $DISTRO_DIR/$DISTRO/addons/fanart.png ]; then
- mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/resources
- cp $DISTRO_DIR/$DISTRO/addons/fanart.png $ADDON_BUILD/$PKG_ADDON_ID/resources
-fi
-
-for f in $PKG_DIR/source/resources/screenshot-*.{jpg,png}; do
-  if [ -f "$f" ]; then
-    PKG_ADDON_SCREENSHOT+="<screenshot>resources/$(basename $f)</screenshot>\n"
-  fi
-done
-
-if [ -f $PKG_DIR/changelog.txt ]; then
-  sed -e "/@PKG_ADDON_NEWS@/ \
-         {
-           r $PKG_DIR/changelog.txt
-           d
-         }" -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
-else
-  sed -e "s|@PKG_ADDON_NEWS@||g" -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
-fi
-
-PROVIDER_NAME="Team LibreELEC"
-if [ ! -z "$PKG_MAINTAINER" ] ; then
-  PROVIDER_NAME="$PKG_MAINTAINER"
-fi
-
-ADDON_NAME="$PKG_NAME"
-if [ ! -z "$PKG_ADDON_NAME" ] ; then
-  ADDON_NAME="$PKG_ADDON_NAME"
-fi
-
-$SED -e "s|@PKG_ADDON_ID@|$PKG_ADDON_ID|g" \
-     -e "s|@ADDON_NAME@|$ADDON_NAME|g" \
-     -e "s|@ADDON_VERSION@|$ADDON_VERSION.$PKG_REV|g" \
-     -e "s|@REQUIRES@|$REQUIRES|g" \
-     -e "s|@PKG_SHORTDESC@|$PKG_SHORTDESC|g" \
-     -e "s|@OS_VERSION@|$OS_VERSION|g" \
-     -e "s|@PKG_LONGDESC@|$PKG_LONGDESC|g" \
-     -e "s|@PKG_DISCLAIMER@|$PKG_DISCLAIMER|g" \
-     -e "s|@PROVIDER_NAME@|$PROVIDER_NAME|g" \
-     -e "s|@PKG_ADDON_PROVIDES@|$PKG_ADDON_PROVIDES|g" \
-     -e "s|@PKG_ADDON_SCREENSHOT@|$PKG_ADDON_SCREENSHOT|g" \
-     -e "s|@PKG_ADDON_BROKEN@|$PKG_ADDON_BROKEN|g" \
-     -i $ADDON_BUILD/$PKG_ADDON_ID/addon.xml
-
-debug_strip $ADDON_BUILD/$PKG_ADDON_ID
+debug_strip "$ADDON_DIRECTORY"

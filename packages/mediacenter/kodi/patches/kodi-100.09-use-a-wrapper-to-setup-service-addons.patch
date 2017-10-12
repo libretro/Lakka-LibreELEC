@@ -1,0 +1,89 @@
+diff --git a/xbmc/addons/Addon.cpp b/xbmc/addons/Addon.cpp
+index 45f42ad2e3..ce10080469 100644
+--- a/xbmc/addons/Addon.cpp
++++ b/xbmc/addons/Addon.cpp
+@@ -397,13 +397,48 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
+   return AddonVersion("0.0.0");
+ }
+ 
++void LEAddonHook(const AddonPtr& addon, const LE_ADDON_CONTEXT context) {
++
++  if (addon->Type() == ADDON_SERVICE) {
++    std::string contextStr;
++    char cmd[255];
++
++    switch (context) {
++    case LE_ADDON_ENABLED:
++      contextStr = "enable";
++      break;
++    case LE_ADDON_DISABLED:
++      contextStr = "disable";
++      break;
++    case LE_ADDON_POST_INSTALL:
++      contextStr = "post-install";
++      break;
++    case LE_ADDON_PRE_UNINSTALL:
++      contextStr = "pre-uninstall";
++      break;
++    default:
++      contextStr = StringUtils::Format("unknown(%d)", context);
++      break;
++    }
++
++    snprintf(cmd, sizeof(cmd), "/usr/sbin/service-addon-wrapper %s %s %s",
++      contextStr.c_str(), addon->ID().c_str(), addon->Path().c_str());
++
++    system(cmd);
++  }
++}
++
+ void OnEnabled(const AddonPtr& addon)
+ {
++  LEAddonHook(addon, LE_ADDON_ENABLED);
++
+   addon->OnEnabled();
+ }
+ 
+ void OnDisabled(const AddonPtr& addon)
+ {
++  LEAddonHook(addon, LE_ADDON_DISABLED);
++
+   addon->OnDisabled();
+ }
+ 
+@@ -438,11 +476,15 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
+   }
+   // OE
+ 
++  LEAddonHook(addon, LE_ADDON_POST_INSTALL);
++
+   addon->OnPostInstall(update, modal);
+ }
+ 
+ void OnPreUnInstall(const AddonPtr& addon)
+ {
++  LEAddonHook(addon, LE_ADDON_PRE_UNINSTALL);
++
+   addon->OnPreUnInstall();
+ }
+ 
+diff --git a/xbmc/addons/Addon.h b/xbmc/addons/Addon.h
+index 95f3f23437..23ad39116a 100644
+--- a/xbmc/addons/Addon.h
++++ b/xbmc/addons/Addon.h
+@@ -43,6 +43,15 @@ void OnPostInstall(const AddonPtr& addon, bool update, bool modal);
+ void OnPreUnInstall(const AddonPtr& addon);
+ void OnPostUnInstall(const AddonPtr& addon);
+ 
++typedef enum {
++  LE_ADDON_ENABLED,
++  LE_ADDON_DISABLED,
++  LE_ADDON_POST_INSTALL,
++  LE_ADDON_PRE_UNINSTALL,
++} LE_ADDON_CONTEXT;
++
++void LEAddonHook(const AddonPtr& addon, const LE_ADDON_CONTEXT context);
++
+ class CAddon : public IAddon
+ {
+ public:

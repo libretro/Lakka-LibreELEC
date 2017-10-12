@@ -42,9 +42,9 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/modules/$(get_module_dir)/bcmdhd
-  cp *.ko $INSTALL/usr/lib/modules/$(get_module_dir)/bcmdhd
+  mkdir -p $INSTALL/$(get_full_module_dir)/bcmdhd
+  cp *.ko $INSTALL/$(get_full_module_dir)/bcmdhd
 
-  mkdir -p $INSTALL/usr/lib/firmware/brcm
-  cp $PKG_DIR/config/config.txt $INSTALL/usr/lib/firmware/brcm
+  mkdir -p $INSTALL/$(get_full_firmware_dir)/brcm
+  cp $PKG_DIR/config/config.txt $INSTALL/$(get_full_firmware_dir)/brcm
 }

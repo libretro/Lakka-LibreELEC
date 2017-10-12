@@ -42,7 +42,7 @@ make_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/lib/firmware/vpu
-    cp -P firmware/vpu/vpu_fw_imx6d.bin $INSTALL/usr/lib/firmware/vpu
-    cp -P firmware/vpu/vpu_fw_imx6q.bin $INSTALL/usr/lib/firmware/vpu
+  mkdir -p $INSTALL/$(get_full_firmware_dir)/vpu
+    cp -P firmware/vpu/vpu_fw_imx6d.bin $INSTALL/$(get_full_firmware_dir)/vpu
+    cp -P firmware/vpu/vpu_fw_imx6q.bin $INSTALL/$(get_full_firmware_dir)/vpu
 }
