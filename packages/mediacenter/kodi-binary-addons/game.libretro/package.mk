@@ -19,7 +19,7 @@
 PKG_NAME="game.libretro"
 PKG_VERSION="288719b"
 PKG_SHA256="a7288e2f5c13db4a06dd36bfecbfde4a4df3eef4b9b6be869bff4395f4edd1cc"
-PKG_REV="103"
+PKG_REV="104"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro"
