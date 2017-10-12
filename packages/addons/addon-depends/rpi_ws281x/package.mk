@@ -1,6 +1,6 @@
 ################################################################################
 #      This file is part of LibreELEC - https://libreelec.tv
-#      Copyright (C) 2016 Team LibreELEC
+#      Copyright (C) 2016-present Team LibreELEC
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,17 +17,15 @@
 ################################################################################
 
 PKG_NAME="rpi_ws281x"
-PKG_VERSION="3e6ea50"
+PKG_VERSION="f580777"
 PKG_ARCH="any"
-PKG_LICENSE=""
+PKG_LICENSE="BSD-3c"
 PKG_SITE="https://github.com/hyperion-project/rpi_ws281x"
 PKG_URL="https://github.com/hyperion-project/rpi_ws281x/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION=""
 PKG_SHORTDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
 PKG_LONGDESC="Userspace Raspberry Pi PWM library for WS281X LEDs"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {
