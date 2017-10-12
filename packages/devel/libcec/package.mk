@@ -47,7 +47,7 @@ else
 fi
 
 if [ "$KODIPLAYER_DRIVER" = "libamcodec" ]; then
-  if [ "$TARGET_ARCH" = "aarch64" ]; then
+  if [ "$TARGET_KERNEL_ARCH" = "arm64" ]; then
     PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_AOCEC_API=1"
   else
     PKG_CMAKE_OPTS_TARGET="$PKG_CMAKE_OPTS_TARGET -DHAVE_AMLOGIC_API=1"

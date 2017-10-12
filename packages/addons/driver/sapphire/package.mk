@@ -33,6 +33,7 @@ PKG_AUTORECONF="no"
 PKG_IS_ADDON="yes"
 PKG_ADDON_NAME="Sapphire Remote Driver"
 PKG_ADDON_TYPE="xbmc.service"
+PKG_IS_KERNEL_PKG="yes"
 
 if [ -f $SYSROOT_PREFIX/usr/include/linux/input-event-codes.h ]; then
   INPUT_H="$SYSROOT_PREFIX/usr/include/linux/input-event-codes.h"

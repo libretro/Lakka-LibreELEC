@@ -31,6 +31,7 @@ PKG_LONGDESC="linux kernel modules for the Slice box"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_IS_KERNEL_PKG="yes"
 
 pre_make_target() {
   unset LDFLAGS

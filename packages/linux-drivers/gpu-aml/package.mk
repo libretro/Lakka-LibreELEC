@@ -33,6 +33,7 @@ PKG_LONGDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
+PKG_IS_KERNEL_PKG="yes"
 
 make_target() {
   LDFLAGS="" make -C $(kernel_path) M=$PKG_BUILD/mali \
