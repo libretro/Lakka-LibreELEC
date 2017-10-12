@@ -171,5 +171,9 @@ makeinstall_target() {
     imx6)
       cp -PRv $PKG_DIR/scripts/update.sh $INSTALL/usr/share/bootloader
       ;;
+    Allwinner)
+      cp -PRv $PKG_DIR/scripts/update-allwinner.sh $INSTALL/usr/share/bootloader/update.sh
+      cp -PRv $PKG_BUILD/u-boot-sunxi-with-spl.bin $INSTALL/usr/share/bootloader
+      ;;
   esac
 }
