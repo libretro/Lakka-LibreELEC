@@ -63,8 +63,8 @@ case "$LINUX" in
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan irqbalanced"
     ;;
   *)
-    PKG_VERSION="4.13"
-    PKG_SHA256="2db3d6066c3ad93eb25b973a3d2951e022a7e975ee2fa7cbe5bddf84d9a49a2c"
+    PKG_VERSION="4.13.1"
+    PKG_SHA256="decee7a2de34aea921fce3e7934f520790fe43176de29bd9718a84419ca6e1ce"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v4.x/$PKG_NAME-$PKG_VERSION.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
