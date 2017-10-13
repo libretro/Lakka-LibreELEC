@@ -17,18 +17,16 @@
 ################################################################################
 
 PKG_NAME="ninja"
-PKG_VERSION="1.6.0"
-PKG_SHA256="b43e88fb068fe4d92a3dfd9eb4d19755dae5c33415db2e9b7b61b4659009cde7"
+PKG_VERSION="1.8.2"
+PKG_SHA256="86b8700c3d0880c2b44c2ff67ce42774aaf8c28cbf57725cb881569288c1c6f4"
 PKG_ARCH="any"
 PKG_LICENSE="Apache"
 PKG_SITE="http://martine.github.io/ninja/"
 PKG_URL="https://github.com/ninja-build/ninja/archive/v$PKG_VERSION.tar.gz"
-PKG_DEPENDS_HOST="toolchain Python2:host"
+PKG_DEPENDS_HOST="Python2:host"
 PKG_SECTION="devel"
 PKG_SHORTDESC="Small build system with a focus on speed"
 PKG_LONGDESC="Small build system with a focus on speed"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_host() {

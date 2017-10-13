@@ -55,7 +55,7 @@ PKG_CMAKE_OPTS_HOST="-DLLVM_INCLUDE_TOOLS=ON \
                      -DLLVM_APPEND_VC_REV=OFF"
 
 make_host() {
-  make llvm-config llvm-tblgen
+  ninja llvm-config llvm-tblgen
 }
 
 makeinstall_host() {
