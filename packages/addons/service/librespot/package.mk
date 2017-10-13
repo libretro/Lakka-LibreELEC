@@ -55,7 +55,7 @@ makeinstall_target() {
 
 addon() {
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID"
-  cp "$(get_build_dir pyalsaaudio)/.install_pkg/usr/lib/python2.7/site-packages/alsaaudio.so" \
+  cp "$(get_build_dir pyalsaaudio)/.install_pkg/usr/lib/$PKG_PYTHON_VERSION/site-packages/alsaaudio.so" \
      "$ADDON_BUILD/$PKG_ADDON_ID"
 
   mkdir -p "$ADDON_BUILD/$PKG_ADDON_ID/bin"

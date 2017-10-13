@@ -23,7 +23,7 @@ PKG_ARCH="any"
 PKG_LICENSE="BSD"
 PKG_SITE="https://pypi.python.org/pypi/pycryptodome"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/$PKG_NAME/$PKG_NAME-$PKG_VERSION.tar.gz"
-PKG_DEPENDS_TARGET="toolchain Python distutilscross:host"
+PKG_DEPENDS_TARGET="toolchain Python2 distutilscross:host"
 PKG_SECTION="python/security"
 PKG_SHORTDESC="Cryptographic library for Python"
 PKG_LONGDESC="PyCryptodome is a self-contained Python package of low-level cryptographic primitives."
@@ -51,7 +51,7 @@ makeinstall_target() {
   find $INSTALL -name SOURCES.txt -exec sed -i "/\/SelfTest\//d;" "{}" \;
 
   # Create Cryptodome as an alternative namespace to Crypto (Kodi addons may use either)
-  ln -sf /usr/lib/python2.7/site-packages/Crypto $INSTALL/usr/lib/python2.7/site-packages/Cryptodome
+  ln -sf /usr/lib/$PKG_PYTHON_VERSION/site-packages/Crypto $INSTALL/usr/lib/$PKG_PYTHON_VERSION/site-packages/Cryptodome
 }
 
 post_makeinstall_target() {

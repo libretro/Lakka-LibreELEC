@@ -30,6 +30,7 @@ PKG_LONGDESC="LIRC is a package that allows you to decode and send infra-red sig
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+PKG_PYTHON_WANTED=Python2
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \
                            --localstatedir=/ \
@@ -40,6 +41,7 @@ pre_configure_target() {
   export HAVE_WORKING_POLL=yes
   export HAVE_UINPUT=yes
   export PYTHON=:
+  export PYTHON_VERSION=${PKG_PYTHON_VERSION#python}
   if [ -e ${SYSROOT_PREFIX}/usr/include/linux/input-event-codes.h ] ; then
     export DEVINPUT_HEADER=${SYSROOT_PREFIX}/usr/include/linux/input-event-codes.h
   else
