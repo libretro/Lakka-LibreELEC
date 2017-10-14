@@ -35,14 +35,26 @@ PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg"
 
+pre_configure_target() {
+  # cec-ctl fails to build in subdirs
+  cd $PKG_BUILD
+  rm -rf .$TARGET_NAME
+}
+
 make_target() {
-    make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
-    make -C utils/ir-ctl CFLAGS="$TARGET_CFLAGS"
+  make -C utils/keytable CFLAGS="$TARGET_CFLAGS"
+  make -C utils/ir-ctl CFLAGS="$TARGET_CFLAGS"
+  if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
+    make -C utils/cec-ctl CFLAGS="$TARGET_CFLAGS"
+  fi
 }
 
 makeinstall_target() {
-   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/keytable
-   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/ir-ctl
+  make install DESTDIR=$INSTALL PREFIX=/usr -C utils/keytable
+  make install DESTDIR=$INSTALL PREFIX=/usr -C utils/ir-ctl
+  if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
+    make install DESTDIR=$INSTALL PREFIX=/usr -C utils/cec-ctl
+  fi
 }
 
 post_makeinstall_target() {
