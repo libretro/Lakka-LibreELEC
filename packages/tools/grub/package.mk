@@ -18,6 +18,7 @@
 
 PKG_NAME="grub"
 PKG_VERSION="2.02"
+PKG_SHA256="4ff6999add483bf640e130bc076ca1464901b4677ee01297901b40fe55de03c4"
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://www.gnu.org/software/grub/index.html"
