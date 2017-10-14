@@ -17,8 +17,8 @@
 ################################################################################
 
 PKG_NAME="ncurses"
-PKG_VERSION="6.0-20170812"
-PKG_REV="1"
+PKG_VERSION="6.0-20171007"
+PKG_SHA256="d74ce1f651824b6254a6d913d312e4ab32874812bb066288ef87b0b0482c4db5"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="http://www.gnu.org/software/ncurses/"
