@@ -32,8 +32,4 @@ PKG_AUTORECONF="no"
 
 get_graphicdrivers
 
-for drv in $GRAPHIC_DRIVERS; do
-  if [ "$drv" = "vmware" ]; then
-    PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET open-vm-tools"
-  fi
-done
+listcontains "$GRAPHIC_DRIVERS" "vmware" && PKG_DEPENDS_TARGET+=" open-vm-tools"
