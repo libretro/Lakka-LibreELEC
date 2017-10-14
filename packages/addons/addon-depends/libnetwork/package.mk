@@ -19,7 +19,6 @@
 PKG_NAME="libnetwork"
 PKG_VERSION="0f53435"
 PKG_SHA256="170d355ad613cc28245a6d9501bcaba930cb594a632fdd9bd52a4fa90b406932"
-PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="APL"
 PKG_SITE="https://github.com/docker/libnetwork"
