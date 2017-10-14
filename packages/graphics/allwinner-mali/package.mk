@@ -43,7 +43,11 @@ makeinstall_target() {
   mkdir -p $SYSROOT_PREFIX/usr/lib/pkgconfig
     cp -PRv $PKG_DIR/pkgconfig/*.pc $SYSROOT_PREFIX/usr/lib/pkgconfig
 
+if [ "$PROJECT" == "Allwinner" ]; then
   MALI="libwayland_for_mali/h3/lib_wayland/libMali.so"
+  elif [ "$PROJECT" == "Allwinner64" ]; then
+  MALI="libwayland_for_mali/h64/lib_wayland_h64/libMali.so"
+  fi
 
   mkdir -p $SYSROOT_PREFIX/usr/lib/
     cp -v $MALI $SYSROOT_PREFIX/usr/lib
