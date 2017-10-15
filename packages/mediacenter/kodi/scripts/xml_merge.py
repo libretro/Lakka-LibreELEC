@@ -11,6 +11,10 @@ from xml.etree import ElementTree as et
 def printerr(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+class hashabledict(dict):
+    def __hash__(self):
+        return hash(tuple(sorted(self.items())))
+
 class XMLCombiner(object):
     def __init__(self, filenames):
         if len(filenames) == 0:
@@ -32,19 +36,19 @@ class XMLCombiner(object):
         return self.prettyPrint(self.roots[0])
 
     def combine_element(self, one, other):
-        mapping = {el.tag: el for el in one}
+        mapping = {(el.tag, hashabledict(el.attrib)): el for el in one}
         for el in other:
             if len(el) == 0:
                 try:
-                    mapping[el.tag].text = el.text
+                    mapping[(el.tag, hashabledict(el.attrib))].text = el.text
                 except KeyError:
-                    mapping[el.tag] = el
+                    mapping[(el.tag, hashabledict(el.attrib))] = el
                     one.append(el)
             else:
                 try:
-                    self.combine_element(mapping[el.tag], el)
+                    self.combine_element(mapping[(el.tag, hashabledict(el.attrib))], el)
                 except KeyError:
-                    mapping[el.tag] = el
+                    mapping[(el.tag, hashabledict(el.attrib))] = el
                     one.append(el)
 
 if __name__ == '__main__':
