@@ -37,4 +37,3 @@ PKG_CONFIGURE_OPTS_HOST="--disable-shared --enable-static \
                          --enable-lzma-links \
                          --disable-scripts \
                          --disable-nls"
-

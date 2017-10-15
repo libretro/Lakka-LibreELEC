@@ -49,4 +49,3 @@ makeinstall_target() {
     ln -sf libGLESv1_CM.so.1.1 $INSTALL/usr/lib/libGLESv1_CM.so
     ln -sf libGLESv2.so.2.0 $INSTALL/usr/lib/libGLESv2.so
 }
-

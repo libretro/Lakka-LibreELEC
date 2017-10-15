@@ -39,4 +39,3 @@ post_unpack() {
 makeinstall_target() {
   : # nop
 }
-

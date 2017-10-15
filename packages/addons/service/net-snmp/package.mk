@@ -73,4 +73,3 @@ addon() {
   #remove all but major version from so file
   for f in $ADDON_BUILD/$PKG_ADDON_ID/lib/*.so.* ; do mv "$f" "${f%.*.*}" ; done
 }
-

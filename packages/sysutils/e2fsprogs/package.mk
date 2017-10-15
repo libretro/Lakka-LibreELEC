@@ -112,4 +112,3 @@ makeinstall_host() {
   make -C lib/et LIBMODE=644 install
   make -C lib/ext2fs LIBMODE=644 install
 }
-

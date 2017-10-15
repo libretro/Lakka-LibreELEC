@@ -30,4 +30,3 @@ PKG_LONGDESC="libnftnl is a userspace library providing a low-level netlink prog
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-shared --enable-static"
-

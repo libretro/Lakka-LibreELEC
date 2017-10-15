@@ -56,4 +56,3 @@ makeinstall_init() {
   mkdir -p $INSTALL/etc
     echo "/usr/lib/libarmmem.so" >> $INSTALL/etc/ld.so.preload
 }
-

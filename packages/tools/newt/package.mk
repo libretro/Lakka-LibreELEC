@@ -44,4 +44,3 @@ pre_configure_host() {
  cd $PKG_BUILD
  rm -rf .$HOST_NAME
 }
-

@@ -31,4 +31,3 @@ PKG_LONGDESC="This is GNU Libtool, a generic library support script. Libtool hid
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-static --disable-shared"
-

@@ -52,4 +52,3 @@ makeinstall_target() {
     cp -P src/efivar.h $SYSROOT_PREFIX/usr/include/efivar
     cp -P src/efivar-guids.h $SYSROOT_PREFIX/usr/include/efivar
 }
-

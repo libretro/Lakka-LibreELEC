@@ -34,4 +34,3 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --enable-ipv6 \
                            --disable-gssapi \
                            --with-gnu-ld"
-

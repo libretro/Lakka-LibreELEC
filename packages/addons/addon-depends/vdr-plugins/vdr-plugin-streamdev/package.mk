@@ -54,4 +54,3 @@ post_make_target() {
 makeinstall_target() {
   : # installation not needed, done by create-addon script
 }
-

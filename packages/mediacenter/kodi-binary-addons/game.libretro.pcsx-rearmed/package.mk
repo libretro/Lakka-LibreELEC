@@ -38,4 +38,3 @@ if [ "$DEVICE" == "RPi" ]; then
   echo "RPi doesn't support neon"
   exit 0
 fi
-

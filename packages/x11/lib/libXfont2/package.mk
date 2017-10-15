@@ -39,4 +39,3 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-static --disable-shared \
                            --enable-fc \
                            --with-gnu-ld \
                            --without-xmlto"
-

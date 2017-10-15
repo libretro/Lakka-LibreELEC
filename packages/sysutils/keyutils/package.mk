@@ -37,4 +37,3 @@ post_makeinstall_target() {
 	rmdir $INSTALL/etc/request-key.d
 	ln -sf /storage/.config/request-key.d $INSTALL/etc/request-key.d
 }
-

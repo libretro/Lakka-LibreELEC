@@ -52,4 +52,3 @@ pre_configure_target() {
 
   export CFLAGS="$CFLAGS -fPIC"
 }
-

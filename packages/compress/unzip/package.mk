@@ -40,4 +40,3 @@ makeinstall_target() {
     cp unzip $INSTALL/usr/bin
     $STRIP $INSTALL/usr/bin/unzip
 }
-
