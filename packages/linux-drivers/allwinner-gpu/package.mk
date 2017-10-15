@@ -16,7 +16,7 @@
 #  along with LibreELEC.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-PKG_NAME="gpu-sunxi"
+PKG_NAME="allwinner-gpu"
 PKG_VERSION="r6p2-01rel0"
 PKG_SHA256="bb49d23ab3d9fbeb701a127e6f28cff1c963bba05786f98d76edff1df0fe6c52"
 PKG_ARCH="arm aarch64"
@@ -27,8 +27,8 @@ PKG_SOURCE_DIR="DX910-SW-99002-$PKG_VERSION"
 PKG_DEPENDS_TARGET="toolchain linux"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
-PKG_SHORTDESC="gpu-sunxi: Linux drivers for Mali GPUs found in Allwinner SoCs"
-PKG_LONGDESC="gpu-sunxi: Linux drivers for Mali GPUs found in Allwinner SoCs"
+PKG_SHORTDESC="allwinner-gpu: Linux drivers for Mali GPUs found in Allwinner SoCs"
+PKG_LONGDESC="allwinner-gpu: Linux drivers for Mali GPUs found in Allwinner SoCs"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
