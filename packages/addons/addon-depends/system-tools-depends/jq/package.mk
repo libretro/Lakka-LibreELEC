@@ -28,7 +28,7 @@ PKG_SECTION="tools"
 PKG_SHORTDESC="jq is a command-line JSON processor"
 PKG_LONGDESC="jq is like sed for JSON data – you can use it to slice and filter and map and transform structured data with the same ease that sed, awk, grep and friends let you play with text."
 
-PKG_CONFIGURE_OPTS_TARGET="--disable-shared \ 
+PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --enable-static \
                            --disable-maintainer-mode"
 

@@ -67,7 +67,7 @@ make_target() {
       fi
       ;;
     Generic)
-      make -f Makefile.libretro 
+      make -f Makefile.libretro
       ;;
   esac
 }

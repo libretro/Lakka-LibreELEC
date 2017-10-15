@@ -41,5 +41,5 @@ PKG_MAKEINSTALL_OPTS_TARGET="NSINSTALL=$TOOLCHAIN/bin/nsinstall"
 
 configure_target() {
   cd $(get_build_dir nss)/nspr
-  ./configure --with-pthreads $TARGET_USE_64 $TARGET_CONFIGURE_OPTS 
+  ./configure --with-pthreads $TARGET_USE_64 $TARGET_CONFIGURE_OPTS
 }

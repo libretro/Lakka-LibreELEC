@@ -34,7 +34,7 @@ PKG_AUTORECONF="no"
 post_unpack() {
   mkdir -p $PKG_BUILD/.$HOST_NAME
   cp -r $PKG_BUILD/* $PKG_BUILD/.$HOST_NAME
-  mkdir -p $PKG_BUILD/.$TARGET_NAME 
+  mkdir -p $PKG_BUILD/.$TARGET_NAME
   cp -r $PKG_BUILD/* $PKG_BUILD/.$TARGET_NAME
 }
 

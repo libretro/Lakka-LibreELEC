@@ -44,7 +44,7 @@ fi
 
 get_graphicdrivers
 
-# Drivers 
+# Drivers
 if [ -n "$LIBINPUT" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET xf86-input-libinput"
 else

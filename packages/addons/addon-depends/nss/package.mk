@@ -38,7 +38,7 @@ make_host() {
 
   [ "$TARGET_ARCH" = "x86_64" ] && export USE_64=1
 
-  make -C coreconf/nsinstall  
+  make -C coreconf/nsinstall
 }
 
 makeinstall_host() {
