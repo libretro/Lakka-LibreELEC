@@ -33,5 +33,5 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-shared \
                            --disable-maintainer-mode"
 
 makeinstall_target() {
-	: # nop
+  : # nop
 }
