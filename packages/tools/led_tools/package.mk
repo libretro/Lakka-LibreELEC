@@ -1,5 +1,5 @@
 ###############################################################################
-#      This file is part of LibreELEC - https://LibreELEC.tv
+#      This file is part of LibreELEC - https://libreelec.tv
 #      Copyright (C) 2014 Gordon Hollingworth (gordon@fiveninjas.com)
 #
 #  LibreELEC is free software: you can redistribute it and/or modify
