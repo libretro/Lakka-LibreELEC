@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="system"
 PKG_SHORTDESC="binchunker converts a CD image in a .bin / .cue format (sometimes .raw / .cue) to a set of .iso and .cdr tracks"
 PKG_LONGDESC="binchunker converts a CD image in a .bin / .cue format (sometimes .raw / .cue) to a set of .iso and .cdr tracks"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 makeinstall_target() {

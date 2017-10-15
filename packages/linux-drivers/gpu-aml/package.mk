@@ -30,8 +30,6 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
 PKG_SHORTDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
 PKG_LONGDESC="gpu-aml: Linux drivers for Mali GPUs found in Amlogic Meson SoCs"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 

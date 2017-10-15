@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Motorola 68000 emulator written in ARM assembly"
 PKG_LONGDESC="Motorola 68000 emulator written in ARM assembly"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.scummvm: scummvm for Kodi"
 PKG_LONGDESC="game.libretro.scummvm: scummvm for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="scummvm_libretro.so"

@@ -27,9 +27,8 @@ PKG_DEPENDS_TARGET="toolchain libftdi1 libusb-compat libxslt"
 PKG_SECTION="sysutils/remote"
 PKG_SHORTDESC="lirc: Linux Infrared Remote Control"
 PKG_LONGDESC="LIRC is a package that allows you to decode and send infra-red signals of many (but not all) commonly used remote controls."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
+
 PKG_PYTHON_WANTED=Python2
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \

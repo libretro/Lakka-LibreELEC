@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain cmake:host zlib"
 PKG_SECTION="audio"
 PKG_SHORTDESC="taglib: a library for reading and editing the meta-data of several popular audio formats."
 PKG_LONGDESC="TagLib is a library for reading and editing the meta-data of several popular audio formats."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_SHARED_LIBS=OFF \

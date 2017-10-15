@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain intel-ucode:host"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="intel-ucode: Intel CPU microcodes"
 PKG_LONGDESC="intel-ucode: Intel CPU microcodes"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 unpack() {

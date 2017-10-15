@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.beetle-gba: Beetle GBA for Kodi"
 PKG_LONGDESC="game.libretro.beetle-gba: Beetle GBA for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mednafen_gba_libretro.so"

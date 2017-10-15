@@ -28,7 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
 PKG_LONGDESC="MediaInfo is a convenient unified display of the most relevant technical and tag data for video and audio files"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

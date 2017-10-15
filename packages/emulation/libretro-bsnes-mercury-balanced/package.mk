@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.beetle-bsnes-balanced: Beetle bSNES for Kodi"
 PKG_LONGDESC="game.libretro.beetle-bsnes-balanced: Beetle bSNES for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="bsnes_mercury_balanced_libretro.so"

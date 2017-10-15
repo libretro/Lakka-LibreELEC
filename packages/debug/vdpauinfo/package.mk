@@ -27,6 +27,4 @@ PKG_DEPENDS_TARGET="toolchain libvdpau"
 PKG_SECTION="debug"
 PKG_SHORTDESC="vdpauinfo: a tool to show vdpau infos "
 PKG_LONGDESC="VDPAU is the Video Decode and Presentation API for UNIX. It provides an interface to video decode acceleration and presentation hardware present in modern GPUs."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

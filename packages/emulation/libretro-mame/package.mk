@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.mame: MAME for Kodi"
 PKG_LONGDESC="game.libretro.mame: MAME for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mame_libretro.so"

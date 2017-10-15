@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain firmware-imx"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="imx-vpu: platform specific unit tests for mxc platform"
 PKG_LONGDESC="imx-vpu: platform specific unit tests for mxc platform"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

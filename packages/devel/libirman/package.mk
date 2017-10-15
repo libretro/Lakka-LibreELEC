@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain systemd lirc"
 PKG_SECTION="system"
 PKG_SHORTDESC="libirman library for lircd"
 PKG_LONGDESC="libirman library for lircd"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-swtest"

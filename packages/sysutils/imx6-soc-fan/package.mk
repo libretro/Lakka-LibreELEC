@@ -26,7 +26,6 @@ PKG_DEPENDS_TARGET="imx6-status-led"
 PKG_SECTION="system"
 PKG_SHORTDESC="i.MX6 SoC fan monitor"
 PKG_LONGDESC="i.MX6 SoC fan monitor for TBS Matrix system"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

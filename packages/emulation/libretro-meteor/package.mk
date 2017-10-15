@@ -30,7 +30,6 @@ PKG_SHORTDESC="game.libretro.meteor: Meteor GBA for Kodi"
 PKG_LONGDESC="game.libretro.meteor: Meteor GBA for Kodi"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="meteor_libretro.so"

@@ -28,7 +28,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.o2em: o2em for Kodi"
 PKG_LONGDESC="game.libretro.o2em: o2em for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="o2em_libretro.so"

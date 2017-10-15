@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="Standalone port of Mednafen Lynx to libretro, itself a fork of Handy"
 PKG_LONGDESC="Standalone port of Mednafen Lynx to libretro, itself a fork of Handy"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mednafen_lynx_libretro.so"

@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network"
 PKG_SHORTDESC="libshairplay: emulates AirPort Express"
 PKG_LONGDESC="libshairPlay emulates an AirPort Express for the purpose of streaming music from iTunes and compatible iPods."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 post_makeinstall_target() {

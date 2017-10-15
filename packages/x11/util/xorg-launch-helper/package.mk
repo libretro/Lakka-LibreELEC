@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain systemd"
 PKG_SECTION="x11/util"
 PKG_SHORTDESC="Xorg-launch-helper is a small utility that transforms the X server process (XOrg) into a daemon."
 PKG_LONGDESC="Xorg-launch-helper is a small utility that transforms the X server process (XOrg) into a daemon that can be used to make applications wait with starting until XOrg is ready for X11 connections"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 pre_configure_target() {

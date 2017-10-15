@@ -28,8 +28,6 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
 PKG_SHORTDESC="brcmap6xxx-aml: Linux drivers for AP6xxx WLAN chips used in some devices based on Amlogic SoCs"
 PKG_LONGDESC="brcmap6xxx-aml: Linux drivers for AP6xxx WLAN chips used in some devices based on Amlogic SoCs"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 

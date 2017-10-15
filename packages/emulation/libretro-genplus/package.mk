@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.genplus: Genesis Plus GX for Kodi"
 PKG_LONGDESC="game.libretro.genplus: Genesis Plus GX for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="genesis_plus_gx_libretro.so"

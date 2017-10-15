@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="snes9x2010 for Kodi"
 PKG_LONGDESC="snes9x2010 for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="snes9x2010_libretro.so"

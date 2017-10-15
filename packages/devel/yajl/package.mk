@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="devel"
 PKG_SHORTDESC="yajl: Yet Another JSON Library (YAJL) is a small event-driven (SAX-style) JSON parser"
 PKG_LONGDESC="Yet Another JSON Library (YAJL) is a small event-driven (SAX-style) JSON parser written in ANSI C, and a small validating JSON generator. YAJL is released under the permissive ISC license."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 post_makeinstall_target() {

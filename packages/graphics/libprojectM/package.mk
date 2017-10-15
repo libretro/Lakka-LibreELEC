@@ -25,10 +25,8 @@ PKG_SITE="http://projectm.sourceforge.net/"
 PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain ftgl freetype $OPENGL"
 PKG_SECTION="multimedia"
-PKG_SHORTDESC="libprojectM:"
-PKG_LONGDESC="libprojectM:"
-
-PKG_IS_ADDON="no"
+PKG_SHORTDESC="a MilkDrop compatible opensource music visualizer"
+PKG_LONGDESC="a MilkDrop compatible opensource music visualizer"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DBUILD_PROJECTM_STATIC=1"

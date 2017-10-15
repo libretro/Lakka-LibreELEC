@@ -30,8 +30,6 @@ PKG_SHORTDESC="game.libretro.vbam: VBA-M for Kodi"
 PKG_LONGDESC="game.libretro.vbam: VBA-M for Kodi"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
-PKG_IS_ADDON="no"
-PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="vbam_libretro.so"
 PKG_LIBPATH="src/libretro/$PKG_LIBNAME"

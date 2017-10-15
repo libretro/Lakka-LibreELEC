@@ -26,6 +26,4 @@ PKG_DEPENDS_TARGET="toolchain $ADDITIONAL_DRIVERS"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="linux-drivers: Meta package to install additional drivers"
 PKG_LONGDESC="linux-drivers is a Meta package to install additional drivers"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

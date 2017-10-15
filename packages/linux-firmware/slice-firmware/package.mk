@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain dtc:host"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="BCM270x firmware related stuff for Slice"
 PKG_LONGDESC="BCM270x firmware related stuff for Slice"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_SECTION="x11/font"
 PKG_SHORTDESC="font-xfree86-type1: A Xfree86 Inc. Type1 font"
 PKG_LONGDESC="A Xfree86 Inc. Type1 font."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--with-fontrootdir=/usr/share/fonts"

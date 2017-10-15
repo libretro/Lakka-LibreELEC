@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain vdr curl"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="vdr-iptv: an IPTV plugin for the Video Disk Recorder (VDR)"
 PKG_LONGDESC="vdr-iptv is an IPTV plugin for the Video Disk Recorder (VDR)"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

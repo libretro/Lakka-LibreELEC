@@ -25,8 +25,6 @@ PKG_DEPENDS_TARGET="toolchain zlib protobuf:host"
 PKG_SECTION="devel"
 PKG_SHORTDESC="protobuf: Protocol Buffers - Google's data interchange format"
 PKG_LONGDESC="protobuf: Protocol Buffers - Google's data interchange format"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_SCRIPT="$PKG_BUILD/cmake/CMakeLists.txt"

@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain openssl"
 PKG_SECTION="system"
 PKG_SHORTDESC="diskdev_cmds: hfs filesystem utilities"
 PKG_LONGDESC="The fsck and mkfs utliities for hfs and hfsplus filesystems."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_MAKE_OPTS_TARGET="-f Makefile.lnx CC=$CC"

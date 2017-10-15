@@ -26,6 +26,4 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="virtual"
 PKG_SHORTDESC="testing: Metapackage for various packages to test while developing"
 PKG_LONGDESC="testing: Metapackage for various packages to test while developing"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"

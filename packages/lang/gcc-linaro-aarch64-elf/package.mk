@@ -27,8 +27,6 @@ PKG_SOURCE_DIR="gcc-linaro-${PKG_VERSION}-x86_64_aarch64-elf"
 PKG_SECTION="lang"
 PKG_SHORTDESC=""
 PKG_LONGDESC=""
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_host() {

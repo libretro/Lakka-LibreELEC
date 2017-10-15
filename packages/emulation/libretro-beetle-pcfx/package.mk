@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="Standalone port of Mednafen PCFX to libretro"
 PKG_LONGDESC="Standalone port of Mednafen PCFX to libretro"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mednafen_pcfx_libretro.so"

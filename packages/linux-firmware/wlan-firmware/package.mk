@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="firmware"
 PKG_SHORTDESC="wlan-firmware: firmwares for various WLAN drivers"
 PKG_LONGDESC="wlan-firmware: firmwares for various WLAN drivers"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

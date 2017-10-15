@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain util-macros"
 PKG_SECTION="x11/proto"
 PKG_SHORTDESC="xproto: KB extension headers"
 PKG_LONGDESC="X11 extension headers"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 # package specific configure options

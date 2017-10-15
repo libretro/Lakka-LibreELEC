@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain fuse"
 PKG_SECTION="system"
 PKG_SHORTDESC="ntfs-3g_ntfsprogs: NTFS-3G Read/Write userspace driver"
 PKG_LONGDESC="The NTFS-3G_ntfsprogs driver is an open source, freely available NTFS driver for Linux with read and write support. It provides safe and fast handling of the Windows XP, Windows Server 2003, Windows 2000 and Windows Vista file systems."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="--exec-prefix=/usr/ \

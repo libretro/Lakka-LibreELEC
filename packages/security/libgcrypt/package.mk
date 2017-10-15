@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain libgpg-error"
 PKG_SECTION="security"
 PKG_SHORTDESC="libgcrypt: General purpose cryptographic library"
 PKG_LONGDESC="Libgcrypt is a general purpose cryptographic library based on the code from GnuPG. It provides functions for all cryptographic building blocks: symmetric ciphers, hash algorithms, MACs, public key algorithms, large integer functions, random numbers and a lot of supporting functions."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 PKG_CONFIGURE_OPTS_TARGET="CC_FOR_BUILD=$HOST_CC \

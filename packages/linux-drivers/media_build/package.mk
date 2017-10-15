@@ -29,7 +29,6 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="driver"
 PKG_SHORTDESC="DVB drivers that replace the version shipped with the kernel"
 PKG_LONGDESC="DVB drivers that replace the version shipped with the kernel"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 PKG_IS_KERNEL_PKG="yes"
 

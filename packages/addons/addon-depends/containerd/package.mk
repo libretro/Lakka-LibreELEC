@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain go:host"
 PKG_SECTION="system"
 PKG_SHORTDESC="containerd is a daemon to control runC"
 PKG_LONGDESC="containerd is a daemon to control runC, built for performance and density. containerd leverages runC's advanced features such as seccomp and user namespace support as well as checkpoint and restore for cloning and live migration of containers."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_make_target() {

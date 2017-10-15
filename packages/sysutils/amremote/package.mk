@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain usbutils"
 PKG_SECTION="sysutils/remote"
 PKG_SHORTDESC="amremote - IR remote configuration utility for Amlogic-based devices"
 PKG_LONGDESC="amremote - IR remote configuration utility for Amlogic-based devices"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 makeinstall_target() {

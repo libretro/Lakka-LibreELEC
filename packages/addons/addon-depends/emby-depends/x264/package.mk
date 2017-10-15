@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="x264"
 PKG_LONGDESC="x264"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_configure_target() {

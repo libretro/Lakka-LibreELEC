@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain util-linux e2fsprogs syslinux:host"
 PKG_SECTION="tools"
 PKG_SHORTDESC="syslinux: Linux bootloader collection"
 PKG_LONGDESC="The SYSLINUX project covers lightweight linux bootloaders for floppy media (syslinux), network booting (pxelinux) and bootable el-torito cd-roms (isolinux)."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_MAKE_OPTS_TARGET="CC=$CC AR=$AR RANLIB=$RANLIB installer"

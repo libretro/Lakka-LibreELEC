@@ -27,9 +27,6 @@ PKG_DEPENDS_TARGET="toolchain vdr openssl"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="TV"
 PKG_LONGDESC="TV"
-
-PKG_IS_ADDON="no"
-
 PKG_AUTORECONF="no"
 
 make_target() {

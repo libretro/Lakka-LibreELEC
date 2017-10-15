@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain tinyxml $MEDIACENTER p8-platform"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="kodi-platform:"
 PKG_LONGDESC="kodi-platform:"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_INSTALL_LIBDIR:STRING=lib \

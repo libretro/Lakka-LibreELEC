@@ -28,8 +28,6 @@ PKG_DEPENDS_INIT="toolchain util-linux"
 PKG_SECTION="initramfs/system"
 PKG_SHORTDESC="open-iscsi: system utilities for Linux to access iSCSI targets"
 PKG_LONGDESC="The open-iscsi package allows you to mount iSCSI targets. This package add support for using iscsi target as root device."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_MAKE_OPTS_INIT="user"

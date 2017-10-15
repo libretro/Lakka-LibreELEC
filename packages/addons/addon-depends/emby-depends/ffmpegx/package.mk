@@ -26,8 +26,6 @@ PKG_DEPENDS_TARGET="toolchain ffmpeg lame x264"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="FFmpeg+"
 PKG_LONGDESC="FFmpeg built static with additional features"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 pre_configure_target() {

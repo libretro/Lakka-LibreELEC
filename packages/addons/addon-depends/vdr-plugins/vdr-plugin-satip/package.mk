@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain vdr curl tinyxml"
 PKG_SECTION="multimedia"
 PKG_SHORTDESC="VDR-satip: SAT>IP plugin for VDR"
 PKG_LONGDESC="This is an SAT>IP plugin for the Video Disk Recorder (VDR)."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

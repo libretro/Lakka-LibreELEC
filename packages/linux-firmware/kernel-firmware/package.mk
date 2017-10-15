@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="linux-firmware"
 PKG_SHORTDESC="kernel-firmware: kernel related firmware"
 PKG_LONGDESC="kernel-firmware: kernel related firmware"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 configure_target() {

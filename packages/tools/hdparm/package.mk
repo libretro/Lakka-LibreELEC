@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="tools"
 PKG_SHORTDESC="hdparm: Get/set hard disk parameters"
 PKG_LONGDESC="Shell utility to access/tune ioctl features of the Linux IDE driver and IDE drives."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 makeinstall_target() {

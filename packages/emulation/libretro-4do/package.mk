@@ -28,10 +28,8 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="emulation"
 PKG_SHORTDESC="Port of 4DO/libfreedo to libretro."
 PKG_LONGDESC="Port of 4DO/libfreedo to libretro."
-
-PKG_IS_ADDON="no"
-PKG_USE_CMAKE="no"
 PKG_AUTORECONF="no"
+PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="4do_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"

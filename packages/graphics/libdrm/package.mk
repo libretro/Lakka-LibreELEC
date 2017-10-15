@@ -28,8 +28,6 @@ PKG_DEPENDS_TARGET="toolchain libpthread-stubs libpciaccess"
 PKG_SECTION="graphics"
 PKG_SHORTDESC="libdrm: Userspace interface to kernel DRM services"
 PKG_LONGDESC="The userspace interface library to kernel DRM services."
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 get_graphicdrivers

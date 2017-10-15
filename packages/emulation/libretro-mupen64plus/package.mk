@@ -29,7 +29,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.mupen64plus: Mupen64Plus for Kodi"
 PKG_LONGDESC="game.libretro.mupen64plus: Mupen64Plus for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="mupen64plus_libretro.so"

@@ -27,6 +27,9 @@ PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_SECTION="linux"
 PKG_SHORTDESC="linux26: The Linux kernel 2.6 precompiled kernel binary image and modules"
 PKG_LONGDESC="This package contains a precompiled kernel image and the modules."
+PKG_AUTORECONF="no"
+PKG_IS_KERNEL_PKG="yes"
+
 case "$LINUX" in
   amlogic-3.10)
     PKG_VERSION="544ea88"
@@ -59,7 +62,7 @@ case "$LINUX" in
     PKG_SITE="https://github.com/xbianonpi/xbian-sources-kernel/tree/imx6-4.4.y"
     PKG_URL="https://github.com/xbianonpi/xbian-sources-kernel/archive/$PKG_COMMIT.tar.gz"
     PKG_SOURCE_NAME="$PKG_NAME-$LINUX-$PKG_COMMIT.tar.gz"
-    PKG_SOURCE_DIR="xbian-sources-kernel-${PKG_COMMIT}*"   
+    PKG_SOURCE_DIR="xbian-sources-kernel-${PKG_COMMIT}*"
     PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET imx6-status-led imx6-soc-fan irqbalanced"
     ;;
   *)
@@ -69,10 +72,6 @@ case "$LINUX" in
     PKG_PATCH_DIRS="default"
     ;;
 esac
-
-PKG_IS_ADDON="no"
-PKG_AUTORECONF="no"
-PKG_IS_KERNEL_PKG="yes"
 
 if [ "$TARGET_KERNEL_ARCH" = "arm64" -a "$TARGET_ARCH" = "arm" ]; then
   PKG_DEPENDS_HOST="$PKG_DEPENDS_HOST gcc-linaro-aarch64-elf:host"

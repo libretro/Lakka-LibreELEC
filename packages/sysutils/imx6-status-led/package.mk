@@ -26,7 +26,6 @@ PKG_DEPENDS_TARGET=""
 PKG_SECTION="system"
 PKG_SHORTDESC="i.MX6 status LED control"
 PKG_LONGDESC="Front status LED control for i.MX6 systems"
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 make_target() {

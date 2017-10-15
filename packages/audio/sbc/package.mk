@@ -27,8 +27,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="network"
 PKG_SHORTDESC="sbc: standalone SBC library"
 PKG_LONGDESC="standalone SBC library"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="no"
 
 PKG_CONFIGURE_OPTS_TARGET="--enable-static \

@@ -28,7 +28,6 @@ PKG_SECTION="emulation"
 PKG_SHORTDESC="game.libretro.handy: handy for Kodi"
 PKG_LONGDESC="game.libretro.handy: handy for Kodi"
 PKG_AUTORECONF="no"
-PKG_IS_ADDON="no"
 PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="handy_libretro.so"

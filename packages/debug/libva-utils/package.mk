@@ -26,8 +26,6 @@ PKG_URL="https://github.com/01org/libva-utils/releases/download/$PKG_VERSION/$PK
 PKG_SECTION="debug"
 PKG_SHORTDESC="Libva-utils is a collection of tests for VA-API (VIdeo Acceleration API)"
 PKG_LONGDESC="Libva-utils is a collection of tests for VA-API (VIdeo Acceleration API)"
-
-PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
 if [ "$DISPLAYSERVER" = "x11" ]; then

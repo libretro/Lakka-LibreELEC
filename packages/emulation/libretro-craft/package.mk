@@ -30,8 +30,6 @@ PKG_SHORTDESC="A simple Minecraft clone written in C using modern OpenGL (shader
 PKG_LONGDESC="A simple Minecraft clone written in C using modern OpenGL (shaders)"
 PKG_AUTORECONF="no"
 PKG_USE_CMAKE="no"
-PKG_IS_ADDON="no"
-PKG_USE_CMAKE="no"
 
 PKG_LIBNAME="craft_libretro.so"
 PKG_LIBPATH="$PKG_LIBNAME"
